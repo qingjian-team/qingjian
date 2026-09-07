@@ -1,0 +1,52 @@
+pos_code	meaning
+?	unknown
+n0	noun
+ns	noun: plural
+nss	noun: plural of plural
+np	noun: possessive
+nsp	noun: plural possessive
+nssp	noun: plural of plural possessive
+v0	verb
+vd	verb: past tense (-ed)
+vds	verb: past tense plural (were)
+vn	verb: past participle (-en)
+vg	verb: present participle (-ing)
+vs	verb: present tense (-s)
+vs2	verb: present tense second-person singular (are)
+vs3	verb: present tense third-person singular (is)
+vss	verb: present tense plural (are)
+m0	noun/verb
+ms	noun/verb: (-s)
+aj0	adjective
+aj1	adjective: comparative (-er)
+aj2	adjective: superlative (-est)
+av0	adverb
+av1	adverb: comparative (-er)
+av2	adverb: superlative (-est)
+a0	adjective/adverb
+a1	adjective/adverb: comparative (-er)
+a2	adjective/adverb: superlative (-est)
+pn0	pronoun
+pn1	pronoun: objective (you/him/her/...)
+pns	pronoun: plural
+pnd	pronoun: determiner (your/his/her/...)
+pnp	pronoun: possessive (yours/his/hers/...)
+pnr0	pronoun: reflexive singular (yourself/...)
+pnrs	pronoun: reflexive plural (yourselves/...)
+c	conjunction
+pp	preposition
+d	determiner
+ds	determiner: plural
+d1	determiner: comparative
+d2	determiner: superlative
+i	interjection
+abbr	abbreviation
+s	contraction
+pre	prefix
+suf	suffix
+wp	multi-word part
+we	multi-word ending
+wes	multi-word ending: plural
+wep	multi-word ending: possessive
+weps	multi-word ending: plural possessive
+x	non word

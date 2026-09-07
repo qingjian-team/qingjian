@@ -1,0 +1,19 @@
+[package]
+name = "qingjian-predict"
+description = "云联想：OpenAI 兼容接口的候选词、整句补全、问字、翻译与释义兜底"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+async-openai.workspace = true
+qingjian-core.workspace = true
+serde_json.workspace = true
+serde.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+tracing.workspace = true

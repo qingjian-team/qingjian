@@ -1,0 +1,36 @@
+# 排除 qingjian-macos：IMK 外壳只能在 macOS 编译，由 release.yml 发版时编；这里用 Linux runner 省费用。
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.96.0
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Format
+        run: cargo fmt --all --check
+
+      - name: Clippy
+        run: cargo clippy --workspace --exclude qingjian-macos --all-targets -- -D warnings
+
+      - name: Test
+        run: cargo test --workspace --exclude qingjian-macos

@@ -1,0 +1,91 @@
+# 发版流程
+
+2026-09-07 搭起来的：GitHub Actions 按标签打包、建 Release、生成官网下载页用的 `releases.json`。
+这里记怎么发一版、各环节的依赖，以及官网怎么消费产物。
+
+## 一次发版做什么
+
+1. 改 `Cargo.toml` 的 workspace `version`（`apps/macos` 的 Info.plist 版本号从这里取，pkg 文件名也是）。
+2. `CHANGELOG.md` 顶上加一节 `## <版本> · <日期> · <渠道>`（渠道是 `alpha` / `beta` / `rc` / `stable`），一行一条、面向用户的措辞。
+   **更新日志手写，不由提交自动生成**：提交信息里有大量内部改动（拆模块、修 RefCell 重入），用户看不懂也不关心；
+   做法是发版前按上个标签以来的 `git log` 起草几条，人审一遍再定稿。
+3. 提交，打注释标签并推：`git tag -a v0.1.1 -m "青简 0.1.1" && git push origin main v0.1.1`。
+4. `release.yml` 跑完后 GitHub Release 上有 `Qingjian-<版本>-arm64.pkg`、`Qingjian-<版本>-x86_64.pkg`、`SHA256SUMS`、`build-info.json`（提交、构建时间、工具链）、`releases.json`。
+5. 配了 `QINGJIAN_WEB_TOKEN` 的话末尾自动触发官网的 deploy workflow；`docs/user/` 单独改动推到 main 也会触发（`docs.yml`）。没配就手动触发一次。
+
+workflow 会核对 Cargo.toml 版本号与标签一致，不一致直接失败，避免打出版本号错的包。
+
+Rust 工具链由 `rust-toolchain.toml` 钉版本（现在 1.96.0），两个 workflow 里 `dtolnay/rust-toolchain@master` 的 `toolchain:` 输入写同一个号；升级 Rust 时三处一起改。
+
+## 提交前检查与 CI
+
+本地 `git config core.hooksPath .githooks` 启用一次后，每次提交前 `.githooks/pre-commit` 跑 `cargo fmt --check` 与 `cargo clippy -D warnings`（含 IMK 外壳，增量几十秒）；
+测试不在钩子里跑，靠 CI 与每批改动的例行 `cargo test`。外部 PR 走同一套 `ci.yml`，fmt / clippy / test 不过不合。
+
+## 两个 workflow
+
+| 文件 | 触发 | 做什么 |
+|---|---|---|
+| `.github/workflows/ci.yml` | push main、PR | Linux 上 `cargo fmt --check` / clippy / test，排除 `qingjian-macos`（IMK 外壳只能在 macOS 编译，macOS runner 计费是 Linux 的 10 倍） |
+| `.github/workflows/release.yml` | 推 `v*` 标签 | `macos-26`（Apple Silicon）runner，与本机同代系统：下载产品数据 → 可选签名公证 → `bundle.sh --pkg` 打 arm64 与交叉编译的 x86_64 → 建 Release → 生成并上传 `releases.json` |
+
+## 产品数据从哪来
+
+词库、语言模型、释义表（`data/generated/*.qj`、`dicts/*.qj`、英文词表）不在 git 里，体积约 85 MB 且由本机数据管道生成。
+`tools/release/data-bundle.sh` 把它们打成 `qingjian-data.tar.gz`，连同 LLM 生成的续跑中间产物 `qingjian-llm-intermediates.tar.gz`
+一起上传到仓库里一个名为 `data` 的**预发布** Release（预发布不会成为 GitHub 的 latest，官网取 latest 时不会拿到它）。
+`release.yml` 用 `gh release download data` 取回解到 `data/generated/`，`bundle.sh` 见到 `dict.qj` 就按产品数据打包。
+
+数据重生成之后（重跑 lexicon / bigram / gloss-gen export）要重跑一次 `data-bundle.sh`，否则 CI 打的包还是旧数据。
+
+## 签名与公证
+
+没有证书时 CI 照样出包（ad-hoc 签名，Release 说明里自动加一句「首次打开要在隐私与安全性里放行」）。
+Apple Developer 账号有了以后，在仓库 Secrets 里配齐 `release.yml` 头部注释列的七个值（.p12 与 .p8 都 base64），
+下一次发版就是签名 + 公证 + 钉票据的包，用户下载双击即装。`bundle.sh` 本身通过 `QINGJIAN_SIGN_IDENTITY` /
+`QINGJIAN_INSTALLER_IDENTITY` / `QINGJIAN_NOTARY_PROFILE` 三个环境变量工作，本机有证书也能这样打。
+
+## releases.json：官网下载页的数据源
+
+`tools/release/releases_json.py` 从 `CHANGELOG.md`（日期、渠道、更新日志）、GitHub Releases API（附件、地址、大小）
+与每次发布的 `SHA256SUMS` / `build-info.json`（每个包的 sha256、提交哈希、构建时间、工具链）生成，挂在每个版本的 Release 上；官网固定取
+`https://github.com/<repo>/releases/latest/download/releases.json`（仓库私有期间要带令牌走 API 下载附件）。
+
+结构对应官网 `src/lib/releases.ts` 里的 `Release` / `Asset` 类型：
+
+```json
+{
+  "generated": "2026-09-07T12:00:00Z",
+  "repository": "owner/qingjian",
+  "latest": "0.1.0",
+  "releases": [
+    {
+      "version": "0.1.0",
+      "date": "2026-09-07",
+      "channel": "beta",
+      "notes": ["整句输入：……", "候选旁有词性和译词……"],
+      "commit": "869ad00…（40 位）",
+      "built_at": "2026-09-07T08:38:12Z",
+      "toolchain": "rustc 1.96.0 (ac68faa20 2026-05-25)",
+      "assets": [
+        { "platform": "macos", "arch": "Apple Silicon", "file": "Qingjian-0.1.0-arm64.pkg",
+          "url": "https://github.com/owner/qingjian/releases/download/v0.1.0/Qingjian-0.1.0-arm64.pkg",
+          "size": 35989277, "sha256": "…" },
+        { "platform": "macos", "arch": "Intel", "file": "Qingjian-0.1.0-x86_64.pkg", "url": "…", "size": 36172871, "sha256": "…" }
+      ]
+    }
+  ]
+}
+```
+
+- `releases` 从新到旧，`latest` 是第一条的版本号；官网「当前版本」取它，历史版本列表就是整个数组。
+- `channel` 是 `alpha` / `beta` / `rc` / `stable`，显示成什么字由官网定；`commit` / `built_at` / `sha256` 给用户核对下载的包，下载页应显示 sha256 与提交短哈希。
+- 平台与架构由文件名判定（`-arm64.pkg` → Apple Silicon，`-x86_64.pkg` → Intel），以后 Windows / Linux 的包在脚本的 `ASSET_KINDS` 里加一行。
+- `SHA256SUMS` 与 `releases.json` 自己不列进 `assets`。
+- 官网侧要做的：构建时下载这个文件替代手写的 `releases` 数组（与拉 `docs/user` 的 `sync-docs.mjs` 同一处、同一个令牌），
+  `downloadsOpen` 开关仍由官网自己控制。
+
+## 本机打包
+
+`apps/macos/scripts/bundle.sh --pkg` 打本机架构；`QINGJIAN_TARGET=x86_64-apple-darwin` 交叉编译 Intel 包（要先 `rustup target add`，
+本机不需要时不必装，CI 上两个都打）。成品在 `target/pkg/Qingjian-<版本>-<arch>.pkg`，每个架构一个工作目录，连着打互不覆盖。

@@ -1,0 +1,229 @@
+//! 注入与开关：词库、模糊音、双拼、翻译 / 学习 / 联想等 trait 实现的挂接，以及相应的只读访问。
+
+use super::*;
+
+impl Engine {
+    /// 设双拼方案，`None` 回到全拼。纠错缓存按作用域记而作用域的含义变了，一并清掉。
+    pub fn set_shuangpin(&mut self, scheme: Option<Scheme>) {
+        self.shuangpin = scheme;
+        *self.correction_cache.borrow_mut() = None;
+    }
+
+    pub fn shuangpin(&self) -> Option<Scheme> {
+        self.shuangpin
+    }
+
+    /// 组句中敲 `;` 是否该进缓冲区：微软 / 搜狗双拼里它是 ing 的韵母键，只在末尾有落单的声母时收，
+    /// 其他时候仍是标点。
+    pub fn takes_semicolon(&self) -> bool {
+        self.shuangpin
+            .filter(|scheme| scheme.uses_semicolon())
+            .is_some_and(|scheme| scheme.decode(self.composition.scope()).pending_initial())
+    }
+
+    /// 有效的模式键：双拼下 v / u / i 都是音节键，字母模式键让位，只剩 `?` 开头的问字。
+    pub(super) fn modes(&self) -> ModeKeys {
+        if self.shuangpin.is_some() {
+            ModeKeys::LETTERLESS
+        } else {
+            self.modes
+        }
+    }
+
+    /// 双拼开着时把一段键解成全拼；全拼下为 `None`，调用方原样用键。
+    pub(super) fn decode(&self, keys: &str) -> Option<Decoded> {
+        self.shuangpin.map(|scheme| scheme.decode(keys))
+    }
+
+    /// 光标后剩余拼音的显示形式：双拼先解码；能切就按音节用 `'` 连上，切不动就原样。
+    pub(super) fn marked_rest(&self, rest: &str) -> String {
+        match self.decode(rest) {
+            Some(decoded) => decoded.marked(),
+            None => marked_rest(rest),
+        }
+    }
+
+    pub fn with_emoji(mut self, table: EmojiTable) -> Self {
+        self.emoji = Some(table);
+        self
+    }
+
+    pub fn with_fuzzy(mut self, rules: FuzzyRules) -> Self {
+        self.fuzzy = rules;
+        self
+    }
+
+    /// 换模糊音规则：格子缓存里的代价随写法变，一起作废。
+    pub fn set_fuzzy(&mut self, rules: FuzzyRules) {
+        if self.fuzzy != rules {
+            self.forget_span_cache();
+        }
+        self.fuzzy = rules;
+    }
+
+    pub fn fuzzy(&self) -> FuzzyRules {
+        self.fuzzy
+    }
+
+    pub fn with_predictor(mut self, predictor: Box<dyn Predictor>) -> Self {
+        self.predictor = predictor;
+        self
+    }
+
+    /// 运行时换掉 Predictor（菜单开关云联想 / 配置热加载）；正在等的联想一并作废。
+    pub fn set_predictor(&mut self, predictor: Box<dyn Predictor>) {
+        self.cancel_prediction();
+        self.predictor = predictor;
+    }
+
+    pub fn with_language_model(mut self, model: Box<dyn LanguageModel>) -> Self {
+        self.language_model = model;
+        self
+    }
+
+    pub fn history(&self) -> &InputHistory {
+        &self.history
+    }
+
+    pub fn history_mut(&mut self) -> &mut InputHistory {
+        &mut self.history
+    }
+
+    /// 进入 / 离开英文模式。英文模式下 [`Self::query`] 只给英文词表的候选，回车与空格仍由壳原样上屏敲的字母，
+    /// 不发云联想，也不把原样上屏记成「不纠这个串」。
+    pub fn set_english_mode(&mut self, on: bool) {
+        self.english_mode = on;
+    }
+
+    pub fn english_mode(&self) -> bool {
+        self.english_mode
+    }
+
+    pub fn with_english(mut self, words: WordList) -> Self {
+        self.english = Some(words);
+        self
+    }
+
+    pub fn with_translator(mut self, translator: Box<dyn Translator>) -> Self {
+        self.translator = translator;
+        self
+    }
+
+    /// 运行时换学习语言的释义表。
+    /// 接英文候选用的释义表（英→中）。
+    pub fn with_english_translator(mut self, translator: Box<dyn Translator>) -> Self {
+        self.english_translator = translator;
+        self
+    }
+
+    pub fn set_translator(&mut self, translator: Box<dyn Translator>) {
+        self.translator = translator;
+    }
+
+    pub fn with_mode_keys(mut self, keys: ModeKeys) -> Self {
+        self.modes = keys.sanitized();
+        self
+    }
+
+    /// 非法组合（相同、或不是 v / u / i）整个退回缺省。
+    pub fn set_mode_keys(&mut self, keys: ModeKeys) {
+        self.modes = keys.sanitized();
+    }
+
+    pub fn mode_keys(&self) -> ModeKeys {
+        self.modes
+    }
+
+    pub fn with_learner(mut self, learner: Box<dyn Learner>) -> Self {
+        self.learner = learner;
+        self.forget_span_cache();
+        self
+    }
+
+    pub fn with_input_logger(mut self, logger: Box<dyn InputLogger>) -> Self {
+        self.logger = logger;
+        self
+    }
+
+    /// 运行时换输入日志的落盘方（开关、清空之后）。旧的先 flush。
+    pub fn set_input_logger(&mut self, logger: Box<dyn InputLogger>) {
+        self.logger.flush();
+        self.logger = logger;
+    }
+
+    pub fn input_logger_mut(&mut self) -> &mut dyn InputLogger {
+        self.logger.as_mut()
+    }
+
+    pub fn with_usage_meter(mut self, meter: Box<dyn UsageMeter>) -> Self {
+        self.meter = meter;
+        self
+    }
+
+    /// 输入统计的汇总（偏好设置「统计」页）。
+    pub fn usage_summary(&self) -> UsageSummary {
+        self.meter.summary()
+    }
+
+    pub fn with_vocabulary_tracker(mut self, tracker: Box<dyn VocabularyTracker>) -> Self {
+        self.vocabulary = tracker;
+        self
+    }
+
+    pub fn with_gloss_filler(mut self, filler: Box<dyn GlossFiller>) -> Self {
+        self.gloss_filler = filler;
+        self
+    }
+
+    /// 运行时换释义兜底（随云联想开关）。
+    pub fn set_gloss_filler(&mut self, filler: Box<dyn GlossFiller>) {
+        self.gloss_filler = filler;
+    }
+
+    pub fn dictionary(&self) -> &Dictionary {
+        &self.dictionary
+    }
+
+    /// 换掉全部附加词库（导入、移除、开关之后）。格子缓存随之作废。
+    pub fn set_extra_dictionaries(&mut self, dictionaries: Vec<Dictionary>) {
+        self.extra_dictionaries = dictionaries;
+        self.forget_span_cache();
+    }
+
+    pub fn extra_dictionaries(&self) -> &[Dictionary] {
+        &self.extra_dictionaries
+    }
+
+    /// 查词用的全部词库：主词库、附加词库、用户词。
+    pub(super) fn all_dictionaries(&self) -> Vec<&Dictionary> {
+        let mut all = Vec::with_capacity(self.extra_dictionaries.len() + 2);
+        all.push(&self.dictionary);
+        all.extend(self.extra_dictionaries.iter());
+        if let Some(user) = self.learner.user_words() {
+            all.push(user);
+        }
+        all
+    }
+
+    /// 全部词库的词频之和，词频归一化成概率时用。
+    pub(super) fn total_frequency(&self) -> u64 {
+        self.all_dictionaries()
+            .iter()
+            .map(|d| d.total_frequency())
+            .sum()
+    }
+
+    pub fn learner(&self) -> &dyn Learner {
+        self.learner.as_ref()
+    }
+
+    /// 拿到可变的 Learner 就当它要改：格子缓存一起作废。
+    pub fn learner_mut(&mut self) -> &mut dyn Learner {
+        self.forget_span_cache();
+        self.learner.as_mut()
+    }
+
+    pub fn learning_language(&self) -> Language {
+        self.translator.language()
+    }
+}

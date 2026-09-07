@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>zh-Hans</string>
+	<key>CFBundleExecutable</key>
+	<string>qingjian-macos</string>
+	<key>CFBundleIdentifier</key>
+	<string>app.qingjian.inputmethod</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>Qingjian</string>
+	<key>CFBundleDisplayName</key>
+	<string>青简</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleIconFile</key>
+	<string>Qingjian</string>
+	<key>CFBundleShortVersionString</key>
+	<string>0.1.0</string>
+	<key>CFBundleVersion</key>
+	<string>1</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>13.0</string>
+	<key>LSBackgroundOnly</key>
+	<true/>
+	<key>NSPrincipalClass</key>
+	<string>NSApplication</string>
+
+	<!-- InputMethodKit：连接名按 10.7 起的约定必须是 <bundle id>_Connection -->
+	<key>InputMethodConnectionName</key>
+	<string>app.qingjian.inputmethod_Connection</string>
+	<!-- 与 controller.rs 里 define_class! 的 #[name] 一致 -->
+	<key>InputMethodServerControllerClass</key>
+	<string>QingjianInputController</string>
+	<key>InputMethodType</key>
+	<string>Keyboard</string>
+
+	<!-- Text Input Sources：系统「输入法」列表里的身份 -->
+	<key>TISInputSourceID</key>
+	<string>app.qingjian.inputmethod</string>
+	<key>TISIntendedLanguage</key>
+	<string>zh-Hans</string>
+	<key>tsInputMethodIconFileKey</key>
+	<string>qingjian-menu.tiff</string>
+	<key>tsInputMethodCharacterRepertoireKey</key>
+	<array>
+		<string>Hans</string>
+		<string>Latn</string>
+	</array>
+</dict>
+</plist>

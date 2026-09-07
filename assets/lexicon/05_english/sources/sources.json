@@ -1,0 +1,44 @@
+[
+  {
+    "file": "esdb.tar.gz",
+    "url": "https://codeload.github.com/en-wl/wordlist/tar.gz/refs/heads/v2",
+    "sha256": "9630eac342af7a6257f614b6089190dbec6a6a4d5bb97605677739ce913ad176",
+    "date": "2026-09-05"
+  },
+  {
+    "file": "typos.tar.gz",
+    "url": "https://codeload.github.com/crate-ci/typos/tar.gz/refs/heads/master",
+    "sha256": "2a9818140c0cf0f8d6b6b506ffbf1b85be9d83b5109ff41e979ded1f258450b7",
+    "date": "2026-09-05"
+  },
+  {
+    "file": "cspell-softwareTerms.txt",
+    "url": "https://raw.githubusercontent.com/streetsidesoftware/cspell-dicts/main/dictionaries/software-terms/dict/softwareTerms.txt",
+    "sha256": "19b47ceee6c18c2ddfdf0ed236165b144c1be2a5e22d73ec3b968c9a63dae6b3",
+    "date": "2026-09-05"
+  },
+  {
+    "file": "cspell-software-tools.txt",
+    "url": "https://raw.githubusercontent.com/streetsidesoftware/cspell-dicts/main/dictionaries/software-terms/dict/software-tools.txt",
+    "sha256": "470ae1d2e633670e7f4ea8da2e5e9185e204937163ca4a30e650edc1388d6f32",
+    "date": "2026-09-05"
+  },
+  {
+    "file": "cspell-networkingTerms.txt",
+    "url": "https://raw.githubusercontent.com/streetsidesoftware/cspell-dicts/main/dictionaries/software-terms/dict/networkingTerms.txt",
+    "sha256": "ee74deb04d179b2baa79b0de7c39c1971cf80fde6551ab3c11151820b95cc6a1",
+    "date": "2026-09-05"
+  },
+  {
+    "file": "cspell-webServices.txt",
+    "url": "https://raw.githubusercontent.com/streetsidesoftware/cspell-dicts/main/dictionaries/software-terms/dict/webServices.txt",
+    "sha256": "c8662aad00c2ed7bd5d4af79ef78cb29f2d9ed7ea506c7f682f61a939cf5dc89",
+    "date": "2026-09-05"
+  },
+  {
+    "file": "cspell-computing-acronyms.txt",
+    "url": "https://raw.githubusercontent.com/streetsidesoftware/cspell-dicts/main/dictionaries/software-terms/dict/computing-acronyms.txt",
+    "sha256": "3654d7893d7803ec3682c9ffa19a0bff092e4cb6d4caef7d41804c37e3baf18a",
+    "date": "2026-09-05"
+  }
+]

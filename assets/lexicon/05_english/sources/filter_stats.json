@@ -1,0 +1,62 @@
+{
+  "counts": [
+    {
+      "file": "01_common.tsv",
+      "records": 70722
+    },
+    {
+      "file": "02_extended.tsv",
+      "records": 19772
+    },
+    {
+      "file": "03_proper_nouns_abbreviations.tsv",
+      "records": 20854
+    },
+    {
+      "file": "04_inflections.tsv",
+      "records": 59744
+    },
+    {
+      "file": "05_tech/software_programming.tsv",
+      "records": 3226
+    },
+    {
+      "file": "05_tech/software_tools.tsv",
+      "records": 593
+    },
+    {
+      "file": "05_tech/networking.tsv",
+      "records": 84
+    },
+    {
+      "file": "05_tech/web_services.tsv",
+      "records": 23
+    },
+    {
+      "file": "05_tech/computing_acronyms.tsv",
+      "records": 111
+    },
+    {
+      "file": "00_all_words.tsv",
+      "records": 114876
+    },
+    {
+      "file": "06_misspellings.tsv",
+      "records": 99705
+    },
+    {
+      "file": "sources/esdb_pos_codes.tsv",
+      "records": 51
+    },
+    {
+      "file": "sources/category_stats.tsv",
+      "records": 12
+    }
+  ],
+  "misspelling_exclusions": {
+    "target_not_in_list": 5152,
+    "already_valid_or_allowed": 62,
+    "format_filter": 21
+  },
+  "tech_format_excluded": 17
+}

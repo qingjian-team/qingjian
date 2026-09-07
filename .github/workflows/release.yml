@@ -1,0 +1,140 @@
+# 推 v<版本> 标签触发，流程见 docs/notes/release.md。签名与公证可选，下面的 Secrets 配齐才签，否则出 ad-hoc 包：
+#   QINGJIAN_CERT_P12            Developer ID Application + Installer 两张证书（含私钥）导出的 .p12，base64
+#   QINGJIAN_CERT_PASSWORD       .p12 的密码
+#   QINGJIAN_SIGN_IDENTITY       "Developer ID Application: 名字 (TEAMID)"
+#   QINGJIAN_INSTALLER_IDENTITY  "Developer ID Installer: 名字 (TEAMID)"
+#   QINGJIAN_NOTARY_KEY          App Store Connect API 密钥 .p8，base64
+#   QINGJIAN_NOTARY_KEY_ID       密钥的 Key ID
+#   QINGJIAN_NOTARY_ISSUER       密钥的 Issuer ID
+# 发版后触发官网重新构建（也可选）：
+#   QINGJIAN_WEB_TOKEN           fine-grained PAT，对 qingjian-team/qingjian-web 有 Actions: write
+name: release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+  CERT_P12: ${{ secrets.QINGJIAN_CERT_P12 }}
+  NOTARY_KEY: ${{ secrets.QINGJIAN_NOTARY_KEY }}
+  WEB_TOKEN: ${{ secrets.QINGJIAN_WEB_TOKEN }}
+
+jobs:
+  build:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # bundle.sh 用提交数当构建号
+          fetch-depth: 0
+
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.96.0
+          targets: aarch64-apple-darwin, x86_64-apple-darwin
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Check version matches tag
+        run: |
+          VERSION="$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)"
+          TAG="${GITHUB_REF_NAME#v}"
+          if [[ "$VERSION" != "$TAG" ]]; then
+            echo "Cargo.toml 是 $VERSION，标签是 $GITHUB_REF_NAME，先改版本号再打标签" >&2
+            exit 1
+          fi
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+
+      - name: Fetch product data
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p data/generated
+          gh release download data --pattern qingjian-data.tar.gz --dir data
+          tar -xzf data/qingjian-data.tar.gz -C data/generated
+          # 解出来的 mtime 是打包时的，比 checkout 出来的 TSV 旧，bundle.sh 会以为要重打；统一刷新
+          find data/generated -type f -exec touch {} +
+          ls -la data/generated data/generated/dicts
+
+      - name: Import signing certificates
+        if: env.CERT_P12 != ''
+        env:
+          CERT_PASSWORD: ${{ secrets.QINGJIAN_CERT_PASSWORD }}
+        run: |
+          KEYCHAIN="$RUNNER_TEMP/signing.keychain-db"
+          security create-keychain -p "" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "" "$KEYCHAIN"
+          echo "$CERT_P12" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security import "$RUNNER_TEMP/cert.p12" -P "$CERT_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN"
+          rm -f "$RUNNER_TEMP/cert.p12"
+          security set-key-partition-list -S apple-tool:,apple:,codesign:,productbuild: -s -k "" "$KEYCHAIN" >/dev/null
+          security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | tr -d '"')
+          {
+            echo "QINGJIAN_SIGN_IDENTITY=${{ secrets.QINGJIAN_SIGN_IDENTITY }}"
+            echo "QINGJIAN_INSTALLER_IDENTITY=${{ secrets.QINGJIAN_INSTALLER_IDENTITY }}"
+          } >> "$GITHUB_ENV"
+
+      - name: Store notarization credentials
+        if: env.NOTARY_KEY != ''
+        env:
+          NOTARY_KEY_ID: ${{ secrets.QINGJIAN_NOTARY_KEY_ID }}
+          NOTARY_ISSUER: ${{ secrets.QINGJIAN_NOTARY_ISSUER }}
+        run: |
+          echo "$NOTARY_KEY" | base64 --decode > "$RUNNER_TEMP/AuthKey.p8"
+          xcrun notarytool store-credentials qingjian --key "$RUNNER_TEMP/AuthKey.p8" \
+            --key-id "$NOTARY_KEY_ID" --issuer "$NOTARY_ISSUER"
+          rm -f "$RUNNER_TEMP/AuthKey.p8"
+          echo "QINGJIAN_NOTARY_PROFILE=qingjian" >> "$GITHUB_ENV"
+
+      - name: Build pkg (arm64)
+        run: QINGJIAN_TARGET=aarch64-apple-darwin apps/macos/scripts/bundle.sh --pkg
+
+      - name: Build pkg (x86_64)
+        run: QINGJIAN_TARGET=x86_64-apple-darwin apps/macos/scripts/bundle.sh --pkg
+
+      - name: Checksums and build info
+        run: |
+          cd target/pkg
+          shasum -a 256 ./*.pkg | tee SHA256SUMS
+          jq -n --arg version "$VERSION" --arg tag "$GITHUB_REF_NAME" --arg commit "$GITHUB_SHA" \
+            --arg built_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --arg toolchain "$(rustc --version)" \
+            --arg runner "macOS $(sw_vers -productVersion)" \
+            '{version: $version, tag: $tag, commit: $commit, built_at: $built_at, toolchain: $toolchain, runner: $runner}' \
+            | tee build-info.json
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 tools/release/releases_json.py --notes-for "$VERSION" > "$RUNNER_TEMP/notes.md"
+          if [[ -z "$CERT_P12" ]]; then
+            printf '\n> 这一版没有 Apple 开发者签名，首次打开系统会拦一下：到「系统设置 → 隐私与安全性」底部点「仍要打开」再装一次。\n' >> "$RUNNER_TEMP/notes.md"
+          fi
+          gh release create "$GITHUB_REF_NAME" --title "青简 $VERSION" --notes-file "$RUNNER_TEMP/notes.md" \
+            target/pkg/*.pkg target/pkg/SHA256SUMS target/pkg/build-info.json
+
+      - name: Generate releases.json
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/releases" --paginate > "$RUNNER_TEMP/releases.api.json"
+          META="$RUNNER_TEMP/meta"
+          for tag in $(gh release list --json tagName --jq '.[].tagName' | grep -E '^v[0-9]'); do
+            mkdir -p "$META/$tag"
+            gh release download "$tag" --pattern SHA256SUMS --pattern build-info.json --dir "$META/$tag" || true
+          done
+          python3 tools/release/releases_json.py --repo "$GITHUB_REPOSITORY" \
+            --api-json "$RUNNER_TEMP/releases.api.json" --meta-dir "$META" --out target/pkg/releases.json
+          cat target/pkg/releases.json
+          gh release upload "$GITHUB_REF_NAME" target/pkg/releases.json --clobber
+
+      - name: Trigger website build
+        if: env.WEB_TOKEN != ''
+        env:
+          GH_TOKEN: ${{ secrets.QINGJIAN_WEB_TOKEN }}
+        run: gh workflow run deploy.yml --repo qingjian-team/qingjian-web

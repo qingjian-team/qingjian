@@ -1,0 +1,20 @@
+# docs/user 改了就让官网重新构建（它的「文档」页从这里拉）。需要 Secret QINGJIAN_WEB_TOKEN，见 release.yml。
+name: docs
+
+on:
+  push:
+    branches: [main]
+    paths: ['docs/user/**']
+
+env:
+  WEB_TOKEN: ${{ secrets.QINGJIAN_WEB_TOKEN }}
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger website build
+        if: env.WEB_TOKEN != ''
+        env:
+          GH_TOKEN: ${{ secrets.QINGJIAN_WEB_TOKEN }}
+        run: gh workflow run deploy.yml --repo qingjian-team/qingjian-web

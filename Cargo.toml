@@ -1,0 +1,63 @@
+[workspace]
+resolver = "3"
+members = [
+    "crates/qingjian-core",
+    "crates/qingjian-dictionary",
+    "crates/qingjian-translate",
+    "crates/qingjian-learning",
+    "crates/qingjian-platform",
+    "crates/qingjian-predict",
+    "crates/qingjian-lm",
+    "crates/qingjian-format",
+    "apps/cli", "apps/macos", "tools/dict-convert", "tools/gloss-gen",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "GPL-3.0-or-later"
+repository = "https://github.com/qingjian-team/qingjian"
+
+[workspace.lints.clippy]
+all = "warn"
+
+[workspace.dependencies]
+# 内部 crate
+qingjian-core = { path = "crates/qingjian-core" }
+qingjian-dictionary = { path = "crates/qingjian-dictionary" }
+qingjian-translate = { path = "crates/qingjian-translate" }
+qingjian-learning = { path = "crates/qingjian-learning" }
+qingjian-platform = { path = "crates/qingjian-platform" }
+qingjian-predict = { path = "crates/qingjian-predict" }
+qingjian-lm = { path = "crates/qingjian-lm" }
+qingjian-format = { path = "crates/qingjian-format" }
+
+# 外部依赖统一在这里定版本，子 crate 一律 `xxx.workspace = true`
+serde = { version = "1.0.229", features = ["derive"] }
+thiserror = "2.0.20"
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
+tracing-appender = "0.2.5"
+dotenvy = "0.15.7"
+clap = { version = "4.6.6", features = ["derive", "env"] }
+serde_json = "1.0.151"
+toml = "1.1.5"
+toml_edit = "0.25"
+# 快捷候选的日期 / 时间（本地时区）
+jiff = "0.2.35"
+# 热路径上的字符串键哈希表（词频 / 语言模型 / 个人 n-gram）：SipHash 一次查表几十纳秒，单字母简拼一键要查几万次
+foldhash = "0.2.0"
+# .qj 数据容器：mmap 打开、结构体数组零拷贝读取
+memmap2 = "0.9"
+zerocopy = { version = "0.8", features = ["derive"] }
+
+# 云联想：OpenAI 兼容接口客户端与它需要的异步运行时
+async-openai = { version = "0.41.3", default-features = false, features = ["chat-completion", "native-tls"] }
+tokio = { version = "1.53.1", features = ["rt", "time"] }
+
+# macOS 平台层
+objc2 = "0.6.4"
+objc2-foundation = { version = "0.3.2", features = ["NSArray", "NSAttributedString", "NSBundle", "NSDictionary", "NSGeometry", "NSObject", "NSProcessInfo", "NSRange", "NSString", "NSTimer", "NSURL"] }
+objc2-app-kit = { version = "0.3.2", features = ["NSApplication", "NSAttributedString", "NSEvent", "NSBezierPath", "NSColor", "NSFont", "NSGraphics", "NSImage", "NSPanel", "NSResponder", "NSScreen", "NSStatusBar", "NSStatusBarButton", "NSStatusItem", "NSMenu", "NSMenuItem", "NSOpenPanel", "NSPasteboard", "NSSavePanel", "NSCell", "NSPopUpButton", "NSTextField", "NSSecureTextField", "NSTextFieldCell", "NSActionCell", "NSRunningApplication", "NSAppearance", "NSText", "NSButton", "NSButtonCell", "NSControl", "NSStringDrawing", "NSTabView", "NSTabViewItem", "NSView", "NSWindow", "NSScrollView", "NSClipView"] }
+objc2-input-method-kit = "0.3.2"
+objc2-core-foundation = { version = "0.3.2", features = ["CFArray", "CFBase", "CFDictionary", "CFNumber", "CFString", "CFURL"] }

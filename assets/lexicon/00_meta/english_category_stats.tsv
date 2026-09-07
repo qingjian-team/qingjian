@@ -1,0 +1,13 @@
+file	records
+01_common.tsv	70722
+02_extended.tsv	19772
+03_proper_nouns_abbreviations.tsv	20854
+04_inflections.tsv	59744
+05_tech/software_programming.tsv	3226
+05_tech/software_tools.tsv	593
+05_tech/networking.tsv	84
+05_tech/web_services.tsv	23
+05_tech/computing_acronyms.tsv	111
+00_all_words.tsv	114876
+06_misspellings.tsv	99705
+sources/esdb_pos_codes.tsv	51

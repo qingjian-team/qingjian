@@ -1,0 +1,21 @@
+[package]
+name = "qingjian-core"
+description = "拼音输入法核心引擎：拼音解析、候选生成、整句转换、排序与学习接口，平台无关"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+foldhash.workspace = true
+jiff.workspace = true
+qingjian-dictionary.workspace = true
+serde.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+toml.workspace = true

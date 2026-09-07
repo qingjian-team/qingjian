@@ -1,0 +1,23 @@
+[package]
+name = "qingjian-dict-convert"
+description = "产品数据生成：词库、语言模型、英文词表、语料挖词与 .qj 打包"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+clap.workspace = true
+qingjian-core.workspace = true
+qingjian-dictionary.workspace = true
+qingjian-format.workspace = true
+qingjian-lm.workspace = true
+qingjian-translate.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+
+[lints]
+workspace = true

@@ -1,0 +1,22 @@
+[package]
+name = "qingjian-gloss-gen"
+description = "用 LLM 批量生成释义表与多音字读音标注"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+async-openai.workspace = true
+clap.workspace = true
+dotenvy.workspace = true
+qingjian-core.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "sync"] }
+tracing.workspace = true
+tracing-subscriber.workspace = true
+
+[lints]
+workspace = true

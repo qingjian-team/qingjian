@@ -1,0 +1,17 @@
+[package]
+name = "qingjian-lm"
+description = "二元语言模型：从 .qj 或 TSV 加载，供整句转换打分"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+qingjian-core.workspace = true
+qingjian-format.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+zerocopy.workspace = true

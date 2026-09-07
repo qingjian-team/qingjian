@@ -1,0 +1,21 @@
+#!/bin/sh
+# 装完之后：杀掉旧进程，再以当前登录用户的身份把输入源注册并启用。
+# 安装器以 root 运行，而输入源是每个用户自己的设置，所以要切到用户的会话里去调 `qingjian-macos --register`。
+set -u
+APP="/Library/Input Methods/Qingjian.app"
+BIN="$APP/Contents/MacOS/qingjian-macos"
+
+pkill -x qingjian-macos 2>/dev/null || true
+
+user="$(stat -f%Su /dev/console 2>/dev/null || true)"
+if [ -n "$user" ] && [ "$user" != "root" ]; then
+    uid="$(id -u "$user")"
+    if launchctl asuser "$uid" sudo -u "$user" "$BIN" --register; then
+        echo "青简：已为 $user 注册并启用输入源"
+    else
+        echo "青简：自动注册输入源失败，请在「系统设置 → 键盘 → 输入法」里手动添加"
+    fi
+else
+    echo "青简：没找到登录用户，跳过自动注册"
+fi
+exit 0

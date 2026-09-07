@@ -1,0 +1,133 @@
+{
+  "category": [
+    {
+      "category": "01_characters/standard_8105",
+      "records": 8105,
+      "distinct_forms": 8105,
+      "txt_bytes": 32616,
+      "tsv_bytes": 444922
+    },
+    {
+      "category": "01_characters/level1_3500",
+      "records": 3500,
+      "distinct_forms": 3500,
+      "txt_bytes": 14000,
+      "tsv_bytes": 191451
+    },
+    {
+      "category": "01_characters/level2_3000",
+      "records": 3000,
+      "distinct_forms": 3000,
+      "txt_bytes": 12003,
+      "tsv_bytes": 165061
+    },
+    {
+      "category": "01_characters/level3_1605",
+      "records": 1605,
+      "distinct_forms": 1605,
+      "txt_bytes": 6613,
+      "tsv_bytes": 88526
+    },
+    {
+      "category": "02_common/modern_chinese_common_words",
+      "records": 56064,
+      "distinct_forms": 55735,
+      "txt_bytes": 439090,
+      "tsv_bytes": 2039761
+    },
+    {
+      "category": "03_domains/IT与计算机",
+      "records": 15999,
+      "distinct_forms": 15999,
+      "txt_bytes": 209928,
+      "tsv_bytes": 452213
+    },
+    {
+      "category": "03_domains/财经",
+      "records": 3830,
+      "distinct_forms": 3830,
+      "txt_bytes": 40310,
+      "tsv_bytes": 96824
+    },
+    {
+      "category": "03_domains/成语",
+      "records": 8519,
+      "distinct_forms": 8519,
+      "txt_bytes": 115370,
+      "tsv_bytes": 243278
+    },
+    {
+      "category": "03_domains/地名",
+      "records": 44804,
+      "distinct_forms": 44804,
+      "txt_bytes": 512657,
+      "tsv_bytes": 1133568
+    },
+    {
+      "category": "03_domains/历史人物",
+      "records": 13658,
+      "distinct_forms": 13658,
+      "txt_bytes": 123731,
+      "tsv_bytes": 313432
+    },
+    {
+      "category": "03_domains/诗词名句",
+      "records": 13703,
+      "distinct_forms": 13703,
+      "txt_bytes": 264965,
+      "tsv_bytes": 445486
+    },
+    {
+      "category": "03_domains/医学",
+      "records": 18749,
+      "distinct_forms": 18749,
+      "txt_bytes": 256013,
+      "tsv_bytes": 515102
+    },
+    {
+      "category": "03_domains/饮食",
+      "records": 8974,
+      "distinct_forms": 8974,
+      "txt_bytes": 116065,
+      "tsv_bytes": 243515
+    },
+    {
+      "category": "03_domains/法律",
+      "records": 9896,
+      "distinct_forms": 9896,
+      "txt_bytes": 244805,
+      "tsv_bytes": 386659
+    },
+    {
+      "category": "03_domains/汽车",
+      "records": 1752,
+      "distinct_forms": 1752,
+      "txt_bytes": 25983,
+      "tsv_bytes": 51822
+    },
+    {
+      "category": "03_domains/动物",
+      "records": 17287,
+      "distinct_forms": 17287,
+      "txt_bytes": 283394,
+      "tsv_bytes": 510768
+    }
+  ],
+  "common_original_ranks": 56008,
+  "variant_relations": 56,
+  "domain_distinct_forms": 156289,
+  "domain_common_overlap": {
+    "it_computing": 55,
+    "finance": 884,
+    "idioms": 4266,
+    "places": 669,
+    "historical_figures": 61,
+    "poetry_lines": 6,
+    "medicine": 1395,
+    "food": 297,
+    "law": 209,
+    "automotive": 45,
+    "animals": 31
+  },
+  "anomalous_df_count": 4
+}
