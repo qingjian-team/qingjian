@@ -1,4 +1,5 @@
-# docs/user 改了就让官网重新构建（它的「文档」页从这里拉）。需要 Secret QINGJIAN_WEB_TOKEN，见 release.yml。
+# docs/user 改了就让官网重新构建（它的「文档」页从这里拉）：往官网仓库推一个小提交，Cloudflare 见到提交就构建。
+# 需要 Secret QINGJIAN_WEB_TOKEN，见 release.yml。
 name: docs
 
 on:
@@ -13,8 +14,9 @@ jobs:
   dispatch:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v7
       - name: Trigger website build
         if: env.WEB_TOKEN != ''
         env:
-          GH_TOKEN: ${{ secrets.QINGJIAN_WEB_TOKEN }}
-        run: gh workflow run deploy.yml --repo qingjian-team/qingjian-web
+          QINGJIAN_WEB_TOKEN: ${{ secrets.QINGJIAN_WEB_TOKEN }}
+        run: tools/release/bump-website.sh docs

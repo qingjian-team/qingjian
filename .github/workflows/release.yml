@@ -6,8 +6,9 @@
 #   QINGJIAN_NOTARY_KEY          App Store Connect API 密钥 .p8，base64
 #   QINGJIAN_NOTARY_KEY_ID       密钥的 Key ID
 #   QINGJIAN_NOTARY_ISSUER       密钥的 Issuer ID
-# 发版后触发官网重新构建（也可选）：
-#   QINGJIAN_WEB_TOKEN           fine-grained PAT，对 qingjian-team/qingjian-web 有 Actions: write
+# 发版后让官网重新构建（也可选）：
+#   QINGJIAN_WEB_TOKEN           fine-grained PAT，对 qingjian-team/qingjian-web 有 Contents: read and write
+#                                （官网由 Cloudflare 按仓库提交自动构建，tools/release/bump-website.sh 往那边推一个小提交）
 name: release
 
 on:
@@ -136,5 +137,5 @@ jobs:
       - name: Trigger website build
         if: env.WEB_TOKEN != ''
         env:
-          GH_TOKEN: ${{ secrets.QINGJIAN_WEB_TOKEN }}
-        run: gh workflow run deploy.yml --repo qingjian-team/qingjian-web
+          QINGJIAN_WEB_TOKEN: ${{ secrets.QINGJIAN_WEB_TOKEN }}
+        run: tools/release/bump-website.sh release

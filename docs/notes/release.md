@@ -11,7 +11,12 @@
    做法是发版前按上个标签以来的 `git log` 起草几条，人审一遍再定稿。
 3. 提交，打注释标签并推：`git tag -a v0.1.1 -m "青简 0.1.1" && git push origin main v0.1.1`。
 4. `release.yml` 跑完后 GitHub Release 上有 `Qingjian-<版本>-arm64.pkg`、`Qingjian-<版本>-x86_64.pkg`、`SHA256SUMS`、`build-info.json`（提交、构建时间、工具链）、`releases.json`。
-5. 配了 `QINGJIAN_WEB_TOKEN` 的话末尾自动触发官网的 deploy workflow；`docs/user/` 单独改动推到 main 也会触发（`docs.yml`）。没配就手动触发一次。
+5. 官网由 Cloudflare Workers Builds 按官网仓库的提交自动构建，没有可调用的构建钩子，所以主仓库靠**往官网仓库推一个小提交**来触发：
+   `tools/release/bump-website.sh` 把版本标签与文档提交号写进官网的 `src/content/upstream.json` 并提交推送（提交者 qingjian-ci）。
+   配了 `QINGJIAN_WEB_TOKEN`（对 qingjian-web 有 Contents: read and write 的 fine-grained PAT）release.yml 末尾自动做；
+   `docs/user/` 单独改动推到 main 也会做（`docs.yml`）。没配就在官网仓库随便提交一次（或本地跑这个脚本）。
+   官网构建时才拉最新 Release 的 `releases.json` 与主仓库 `docs/user`，所以提交内容本身不重要，`upstream.json` 只是留个记录、
+   顺便让文档按记下的提交号拉（版本对得上）。
 
 workflow 会核对 Cargo.toml 版本号与标签一致，不一致直接失败，避免打出版本号错的包。
 
