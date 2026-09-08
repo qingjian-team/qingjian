@@ -1274,7 +1274,7 @@ dependencies = [
 
 [[package]]
 name = "qingjian-cli"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "clap",
  "dotenvy",
@@ -1295,7 +1295,7 @@ dependencies = [
 
 [[package]]
 name = "qingjian-core"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "foldhash",
  "jiff",
@@ -1308,7 +1308,7 @@ dependencies = [
 
 [[package]]
 name = "qingjian-dict-convert"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "clap",
  "qingjian-core",
@@ -1325,7 +1325,7 @@ dependencies = [
 
 [[package]]
 name = "qingjian-dictionary"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "qingjian-format",
  "thiserror",
@@ -1335,7 +1335,7 @@ dependencies = [
 
 [[package]]
 name = "qingjian-format"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "memmap2",
  "serde",
@@ -1347,7 +1347,7 @@ dependencies = [
 
 [[package]]
 name = "qingjian-gloss-gen"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "async-openai",
  "clap",
@@ -1363,7 +1363,7 @@ dependencies = [
 
 [[package]]
 name = "qingjian-learning"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "foldhash",
  "jiff",
@@ -1378,7 +1378,7 @@ dependencies = [
 
 [[package]]
 name = "qingjian-lm"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "qingjian-core",
  "qingjian-format",
@@ -1389,7 +1389,7 @@ dependencies = [
 
 [[package]]
 name = "qingjian-macos"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "dotenvy",
  "jiff",
@@ -1414,7 +1414,7 @@ dependencies = [
 
 [[package]]
 name = "qingjian-platform"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "qingjian-core",
  "qingjian-predict",
@@ -1427,7 +1427,7 @@ dependencies = [
 
 [[package]]
 name = "qingjian-predict"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "async-openai",
  "qingjian-core",
@@ -1440,7 +1440,7 @@ dependencies = [
 
 [[package]]
 name = "qingjian-translate"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "qingjian-core",
  "qingjian-format",
