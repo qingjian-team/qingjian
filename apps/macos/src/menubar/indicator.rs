@@ -2,12 +2,14 @@
 //!
 //! 输入源图标（Info.plist 的 tsInputMethodIconFileKey）没法动态换，所以自己放一个 NSStatusItem。
 //! Caps Lock 的变化不会作为按键送到输入法，用一个定时器轮询系统状态刷新。
+//! 状态项给了固定的 autosave 名：位置与可见性按这个名字存进偏好，用户 ⌘ 拖到输入法图标旁边后，
+//! 切走再切回（隐藏再显示）仍在原位；不设名字系统按创建序号起名，隐藏后再显示会回到最左边。
 
 use objc2::rc::Retained;
 use objc2::runtime::AnyObject;
 use objc2::{MainThreadMarker, MainThreadOnly, define_class, msg_send, sel};
 use objc2_app_kit::{NSMenu, NSStatusBar, NSStatusItem, NSVariableStatusItemLength};
-use objc2_foundation::{NSObject, NSObjectProtocol, NSString, NSTimer};
+use objc2_foundation::{NSObject, NSObjectProtocol, NSString, NSTimer, ns_string};
 
 use crate::imk::modifiers;
 
@@ -33,6 +35,7 @@ pub struct ModeIndicator {
 impl ModeIndicator {
     pub fn new(mtm: MainThreadMarker) -> Self {
         let item = NSStatusBar::systemStatusBar().statusItemWithLength(NSVariableStatusItemLength);
+        item.setAutosaveName(Some(ns_string!("QingjianModeIndicator")));
         item.setVisible(false);
         Self {
             item,

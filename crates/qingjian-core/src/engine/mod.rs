@@ -5,27 +5,20 @@
 
 mod alignment;
 mod annotation;
-mod cloud;
-mod commit_chain;
-mod committing;
+mod commit;
 mod composing;
 mod correcting;
 mod extras;
-mod forgotten;
 mod gloss;
 mod input_log;
-mod last_commit;
-mod learner;
-mod learning_hooks;
+mod learning;
 mod marked;
 mod mode_keys;
 mod prediction;
 mod query;
-mod querying;
 mod setup;
 mod statistics;
 mod timings;
-mod transition;
 mod translator;
 mod vocabulary;
 
@@ -36,13 +29,12 @@ use qingjian_dictionary::{Dictionary, Match, WordList};
 
 pub use alignment::Alignment;
 pub use annotation::AnnotationReport;
-pub use forgotten::Forgotten;
+pub use commit::{LastCommit, Transition};
 pub use gloss::{FilledGloss, GlossFiller, NoGlossFiller};
 pub use input_log::{
     CommitEntry, InputLogEntry, InputLogger, InputSource, LOGGED_CANDIDATES, NoInputLogger,
 };
-pub use last_commit::LastCommit;
-pub use learner::{Learner, NoLearner};
+pub use learning::{Forgotten, Learner, NoLearner};
 pub use marked::{MarkedKind, MarkedSegment};
 pub use mode_keys::{ModeKeys, QUESTION_PREFIX};
 pub use prediction::{
@@ -50,11 +42,9 @@ pub use prediction::{
     Predictor, SurroundingText,
 };
 
-use prediction::{mismatch_count, tolerance};
 pub use query::Query;
 pub use statistics::{BOOKS, Book, NoUsageMeter, Usage, UsageMeter, UsageSummary, book_scale};
 pub use timings::Timings;
-pub use transition::Transition;
 pub use translator::{NoTranslator, Translator};
 pub use vocabulary::{
     FRESH_UNTIL, LevelCount, NoVocabularyTracker, VocabularySummary, VocabularyTracker,
@@ -74,7 +64,7 @@ use crate::sentence::{self, Conversion, LanguageModel, NoLanguageModel};
 use crate::shortcut;
 use crate::shuangpin::{Decoded, Scheme};
 
-use commit_chain::CommitChain;
+use commit::CommitChain;
 
 pub struct Engine {
     /// 静态词库。
@@ -115,8 +105,9 @@ pub struct Engine {
     /// 整句转换的语言模型，缺省为 [`NoLanguageModel`]（退化成一元词频）。
     language_model: Box<dyn LanguageModel>,
 
-    /// 刚上屏的候选记了哪些学习，以及之后退格了几次；用户整个删掉重选时把学习退回去。
-    last_commit: Option<LastCommit>,
+    /// 最近几次上屏各记了哪些学习、之后退格了几个字；用户把它们删掉重选时把学习退回去（见 [`Self::note_backspace`]）。
+    /// 最新的在末尾，最多留 [`RECENT_COMMITS`] 条。
+    recent_commits: Vec<LastCommit>,
 
     /// 本次 commit 里记下的词转移，commit 结束时搬进 `last_commit`。
     recording: Vec<Transition>,
@@ -198,6 +189,9 @@ const AUTO_WORD_THRESHOLD_SAME_BUFFER: u32 = 2;
 /// 分两段打的（`qing` 选 青、再打 `jian` 选 简）信号弱一些，要三次，免得 了我 这类虚词接续也成词。
 const AUTO_WORD_THRESHOLD: u32 = 3;
 
+/// 退格撤销最多回看几次上屏：删掉「沃德 书」两个词再重打时，要能找到两个词之前的那一次。
+const RECENT_COMMITS: usize = 4;
+
 /// 自动造出的词最多几个字：再长就不是词而是短语了。
 const AUTO_WORD_MAX_CHARS: usize = 4;
 
@@ -235,7 +229,7 @@ impl Engine {
             language_model: Box::new(NoLanguageModel),
             correction_cache: std::cell::RefCell::new(None),
             span_cache: std::cell::RefCell::new(sentence::SpanCache::default()),
-            last_commit: None,
+            recent_commits: Vec::new(),
             logger: Box::new(NoInputLogger),
             log_sequence: 0,
             meter: Box::new(NoUsageMeter),

@@ -14,7 +14,7 @@ macOS 输入法已自用（HEAD 见 git），正在给测试者打包（pkg 已�
   `uv run tools/corpus/levels.py` 从 `data/levels/` 的原始 CSV 生成，来源与许可见 `assets/levels/README.md`），「统计」页按级数词汇用，不进候选。
 - `crates/qingjian-learning`：`FrequencyLearner`，用户选择次数（`user.tsv`）、按输入串记的选择（`user-choices.tsv`，词级排序里同输入串选过的优先）、用户词（`user-words.tsv`，主词库同格式，
   Engine 与主词库一起查）、个人英文词（`user-english.tsv`，回车原样上屏的英文词与选过的英文候选，与随包英文词表一起出候选且在前）、个人敲错表（`user-typos.tsv`，接受过的 (敲的, 要的) 音节对，词图敲错边与整段纠错的代价按它打折）与个人 n-gram（`user-ngram.tsv`，Core `sentence::UserNgram`，二元 + 三元在线计数，整句转换与词级排序里与静态模型插值；Tab 接受的云端整句按 `sentence::segment_text` 切词后也记；
-  连着选出的两个词记够次数自动造词进用户词）；`InputLog` 是输入日志（`input-log.jsonl`，每次上屏一行：敲的键、切分、看到的前几个候选、选了第几个、来源、纠错、撤销，
+  连着选出的两个词记够次数自动造词进用户词，一段拼音分几次选完的合成词记两次也造）；`InputLog` 是输入日志（`input-log.jsonl`，每次上屏一行：敲的键、切分、看到的前几个候选、选了第几个、来源、纠错、撤销，
   Core `InputLogger` trait 的落盘实现，`[general] input_log` 缺省开，只写本机，给离线回归评测与个人模型用）；`UsageStats` 是输入统计（`usage.tsv`，按天记汉字 / 中文词 / 英文词 / 上屏次数，
   Core `UsageMeter` trait 的实现，Engine 每次上屏 `Usage::of_text` + 按来源定词数，整句按 `segment_text` 切词数；与输入日志无关，偏好设置「统计」页显示，`book_scale` 折成几本《某书》）；
   `VocabularyBook` 是词汇记录（`user-vocab.tsv`，Core `VocabularyTracker` trait 的实现：学习语言的每条译词看到过几轮 / 上屏过 / ⌥+数字 打出过几次；
@@ -123,9 +123,12 @@ Phase 2 macOS IMK → Phase 3 翻译 → Phase 4 学习 → Phase 5 Windows/Linu
 - 代码分层：一个 struct / enum / trait 及其 impl 单独一个文件，模块文件只做 `mod` 声明、re-export 与自由函数，不把一个 crate 平铺在 `lib.rs` 里。
   有子模块的模块用 `foo/mod.rs`，**不用** `foo.rs` + `foo/` 并列的写法（维护时容易看混）。
 - 文件长度：单文件不超过 800 行，目标 500 行以内；测试超过 200 行就搬到 `tests.rs`（多时 `tests/` 按主题分文件）。
-  大类型的 `impl` 按职责拆成子模块，每个文件一个 `impl Foo { … }`（`engine/querying.rs`、`host/settings.rs` 这样），结构体与构造留在 `mod.rs`，
+  大类型的 `impl` 按职责拆成子模块，每个文件一个 `impl Foo { … }`（`host/settings.rs` 这样），结构体与构造留在 `mod.rs`，
   跨文件用到的私有方法 / 函数标 `pub(super)`，兄弟模块里的自由函数要显式 `use super::sibling::f`。
-- 同一前缀的兄弟文件（`foo.rs` + `foo_bar.rs`）合成一个子模块目录 `foo/mod.rs` + `foo/bar.rs`，不用文件名前缀分组。
+  一个职责连带它专用的类型收进一个目录：`engine/commit/mod.rs` 放 `impl Engine` 的上屏部分，`chain.rs` / `last.rs` / `transition.rs` 放只有它用的类型
+  （`engine/query/`、`engine/learning/`、`engine/prediction/` 同理）。
+- 同一词干的兄弟文件（`foo.rs` + `foo_bar.rs`，也包括 `committing.rs` + `commit_chain.rs`、`query/` + `querying.rs` 这种）合成一个子模块目录
+  `foo/mod.rs` + `foo/bar.rs`，不用文件名前缀分组。
 - 结构体 / 枚举字段逐条 `///` 注释，字段之间空一行。
 - 依赖：`cargo add`，共用包提到根 `[workspace.dependencies]`；错误用 `thiserror` 不用 `anyhow`；日志用 `tracing` 门面。
 - 交流用中文。

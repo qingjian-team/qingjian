@@ -8,42 +8,59 @@ impl Engine {
         let converted = self.punctuation.convert(c);
         if let Some(text) = converted {
             self.history.record(text);
+            self.remember_commit(LastCommit::plain(text));
+        } else {
+            self.recent_commits.clear();
         }
         self.chain.reset();
-        self.last_commit = None;
         converted
     }
 
     /// 壳把字符原样透传给应用后告知，用于「数字后的点保持半角」，也记入输入历史。
     pub fn note_passthrough(&mut self, c: char) {
         self.punctuation.note_passthrough(c);
-        self.history.record(c.encode_utf8(&mut [0; 4]));
+        let text = c.encode_utf8(&mut [0; 4]).to_owned();
+        self.history.record(&text);
         self.chain.reset();
-        self.last_commit = None;
+        self.remember_commit(LastCommit::plain(&text));
     }
 
     /// 壳告知光标离开了刚才上屏的位置（切换应用、点了别处、停用输入法）：之后上屏的词按句首记。
     pub fn break_chain(&mut self) {
         self.chain.reset();
-        self.last_commit = None;
+        self.recent_commits.clear();
     }
 
-    /// 壳告知：不在组句时按了退格，删的是应用里刚上屏的文字。把刚上屏的词整个删掉是「选错了」的信号：
-    /// 接着重打同一段拼音选了别的词，上一次记的学习就退回去（见 [`LastCommit`]）。删得比它还多说明在改别处，不算。
+    /// 壳告知：不在组句时按了退格，删的是应用里刚上屏的文字。从最近一次上屏往前数，一次上屏的字删光了就是「可能选错了」的信号：
+    /// 接着重打那段拼音选了别的词，那次记的学习就退回去（见 [`Self::apply_retraction`]）。
+    /// 删得比记着的几次上屏加起来还多说明在改别处，全忘掉。
     pub fn note_backspace(&mut self) {
-        match &mut self.last_commit {
-            Some(last) if last.erased < last.chars => {
-                last.erased += 1;
-                if last.is_erased() {
-                    // 刚上屏的词没了，它不再是下一个词的上文
-                    self.chain.reset();
-                }
-            }
-            _ => {
-                self.last_commit = None;
-                self.chain.reset();
-            }
+        let Some(commit) = self
+            .recent_commits
+            .iter_mut()
+            .rev()
+            .find(|c| !c.is_erased())
+        else {
+            self.recent_commits.clear();
+            self.chain.reset();
+            return;
+        };
+        commit.erased += 1;
+        if commit.is_erased() {
+            // 刚上屏的词没了，它不再是下一个词的上文
+            self.chain.reset();
         }
+    }
+
+    /// 记一次上屏到最近上屏列表，超出条数丢最早的。
+    pub(super) fn remember_commit(&mut self, commit: LastCommit) {
+        if commit.chars == 0 {
+            return;
+        }
+        if self.recent_commits.len() >= RECENT_COMMITS {
+            self.recent_commits.remove(0);
+        }
+        self.recent_commits.push(commit);
     }
 
     pub fn composition(&self) -> &Composition {
@@ -140,7 +157,7 @@ impl Engine {
         }
         self.meter_commit(&raw, InputSource::Raw, english_word);
         self.composition.clear();
-        self.last_commit = None;
+        self.remember_commit(LastCommit::plain(&raw));
         self.punctuation.note_committed(&raw);
         self.history.record(&raw);
         self.chain.reset();

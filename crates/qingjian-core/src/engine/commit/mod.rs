@@ -2,6 +2,14 @@
 
 use super::*;
 
+mod chain;
+mod last;
+mod transition;
+
+pub(super) use chain::CommitChain;
+pub use last::LastCommit;
+pub use transition::Transition;
+
 impl Engine {
     /// 给候选补上译文。与 [`Self::query`] 分开调用，平台层可以先画候选再补画译文。
     pub fn annotate(&self, list: &mut CandidateList) -> AnnotationReport {
@@ -68,6 +76,13 @@ impl Engine {
             .flatten();
         // 下面每条路都可能改学习数据，格子候选的排序跟着变
         self.forget_span_cache();
+        // 一段拼音里的第一个词：记下整段的学习键，整段分几次选完时合起来看（见 [`Self::finish_buffer`]）；
+        // `split` 表示这次上屏接在同一段拼音里前一次上屏之后
+        let split = self.chain.same_buffer();
+        if !split {
+            let (_, key) = self.whole_scope();
+            self.chain.begin_buffer(key);
+        }
         let mut typos = Vec::new();
         let (consumed, input) = match candidate.kind {
             CandidateKind::Chinese => {
@@ -87,9 +102,14 @@ impl Engine {
             CandidateKind::Emoji => self.consumed_by(candidate),
             // 云端词是针对整段作用域要的（拼音可能有错，按音节对不上），上屏吃掉整段；词库里没有的记成用户词
             CandidateKind::Cloud => {
-                if !self.knows_word(candidate) {
-                    self.learner
-                        .learn_word(&candidate.text, &candidate.syllables);
+                if let Some(syllables) = self.learned_syllables(candidate) {
+                    let learned = Candidate {
+                        syllables,
+                        ..candidate.clone()
+                    };
+                    if !self.knows_word(&learned) {
+                        self.learner.learn_word(&learned.text, &learned.syllables);
+                    }
                 }
                 self.learner.record(candidate);
                 let (consumed, input) = self.whole_scope();
@@ -142,15 +162,31 @@ impl Engine {
         let buffer_left = !self.composition.is_empty();
         match candidate.kind {
             CandidateKind::Chinese | CandidateKind::Cloud => {
-                self.record_word(&candidate.text, &candidate.syllables, true, buffer_left);
+                self.record_word(
+                    &candidate.text,
+                    &candidate.syllables,
+                    EXPLICIT_TRANSITION_WEIGHT,
+                    true,
+                    buffer_left,
+                );
             }
             CandidateKind::Sentence => match sentence_words {
                 Some(words) => {
+                    // 紧接着同一段拼音里自选的词（`jidiaole` 选了 挤，剩下的 掉了 走整句）：接缝是用户自己定的，
+                    // 第一个词的转移按自选记双份。不参与两词造词：我 + 的… 这种接缝太常见、转移计数早就够了，
+                    // 会把 我的 一类造成用户词；整段合成词由 [`Self::finish_buffer`] 管
+                    let junction = self.chain.same_buffer() && self.chain.previous().is_some();
                     let last = words.len() - 1;
                     for (index, word) in words.iter().enumerate() {
+                        let times = if index == 0 && junction {
+                            EXPLICIT_TRANSITION_WEIGHT
+                        } else {
+                            1
+                        };
                         self.record_word(
                             &word.text,
                             &word.syllables,
+                            times,
                             false,
                             buffer_left || index < last,
                         );
@@ -162,35 +198,88 @@ impl Engine {
                 self.chain.reset()
             }
         }
+        // 一次整句上屏里的几个词不算分段选，只有这段拼音经过至少两次上屏才合起来看
+        let phrase = if split && !buffer_left {
+            self.finish_buffer()
+        } else {
+            None
+        };
         self.punctuation.note_committed(&candidate.text);
         self.history.record(&candidate.text);
         let learned = matches!(
             candidate.kind,
             CandidateKind::Chinese | CandidateKind::Cloud | CandidateKind::Sentence
         );
-        self.last_commit = learned.then(|| LastCommit {
-            text: candidate.text.clone(),
-            chars: candidate.text.chars().count(),
-            input,
-            chosen: matches!(
-                candidate.kind,
-                CandidateKind::Chinese | CandidateKind::Cloud
-            )
-            .then(|| candidate.text.clone()),
-            transitions: std::mem::take(&mut self.recording),
-            typos,
-            erased: 0,
-            log_id,
-        });
+        let commit = if learned {
+            LastCommit {
+                text: candidate.text.clone(),
+                chars: candidate.text.chars().count(),
+                input,
+                chosen: matches!(
+                    candidate.kind,
+                    CandidateKind::Chinese | CandidateKind::Cloud
+                )
+                .then(|| candidate.text.clone()),
+                transitions: std::mem::take(&mut self.recording),
+                typos,
+                erased: 0,
+                log_id,
+                phrase,
+            }
+        } else {
+            LastCommit::plain(&candidate.text)
+        };
+        self.remember_commit(commit);
         candidate.text.clone()
     }
 
-    /// 上一次上屏的词被整个退格删掉、现在又对同一段拼音（或它的前缀）选了别的词：把上一次记的学习退回去。
+    /// 一段拼音分几次选完了（`jidiaole` 先选 挤、剩下的走整句 掉了）：这几个词合起来就是用户对这段拼音的答案。
+    /// 记一次「整段拼音 → 合成词」的选择；选到 [`AUTO_WORD_THRESHOLD_SAME_BUFFER`] 次、词库里没有、
+    /// 不超过 [`AUTO_WORD_MAX_CHARS`] 字就造成用户词，下次整段打出来它直接排第一。返回记下的选择，撤销时退回。
+    pub(super) fn finish_buffer(&mut self) -> Option<(String, String)> {
+        let words = self.chain.buffer_words();
+        if words.len() < 2 {
+            return None;
+        }
+        let text: String = words.iter().map(|(t, _)| t.as_str()).collect();
+        let syllables: Vec<String> = words.iter().flat_map(|(_, s)| s.iter().cloned()).collect();
+        let chars = text.chars().count();
+        let key = self.chain.buffer_key().to_owned();
+        if key.is_empty() || chars > AUTO_WORD_MAX_CHARS || chars != syllables.len() {
+            return None;
+        }
+        self.learner.record_choice(&key, &text);
+        let candidate = Candidate {
+            text,
+            kind: CandidateKind::Chinese,
+            syllables,
+            reading: None,
+            translation: None,
+        };
+        if !self.knows_word(&candidate)
+            && self.learner.choice_weight(&key, &candidate.text) >= AUTO_WORD_THRESHOLD_SAME_BUFFER
+        {
+            tracing::debug!(text = %candidate.text, "整段拼音分次选完，自动造词");
+            self.learner
+                .learn_word(&candidate.text, &candidate.syllables);
+        }
+        Some((key, candidate.text))
+    }
+
+    /// 最近删掉的上屏里有一次是同一段拼音（或它的前缀）、这次却选了别的词：把那次记的学习退回去。
+    /// 删掉几个词再从头重打是常事（「沃德 书」删掉重打成「我的 书」），所以往前找最近一次删干净的同段拼音；
+    /// 重打后选的还是同一个词就不算选错，只把那条记录丢掉。这次的拼音与删掉的哪次都对不上时，删掉的那些当作在改别处，全忘掉。
     pub(super) fn apply_retraction(&mut self, input: &str, text: &str) {
-        let Some(last) = self.last_commit.take() else {
+        let Some(index) = self
+            .recent_commits
+            .iter()
+            .rposition(|c| c.is_erased() && c.same_input(input))
+        else {
+            self.recent_commits.retain(|c| !c.is_erased());
             return;
         };
-        if !last.is_erased() || !last.same_input(input) || last.text == text {
+        let last = self.recent_commits.remove(index);
+        if last.text == text {
             return;
         }
         tracing::debug!(retracted = %last.text, chosen = %text, "上次选错了，撤销它的学习");
@@ -212,6 +301,9 @@ impl Engine {
         }
         for (typed, intended) in &last.typos {
             self.learner.unrecord_typo(typed, intended);
+        }
+        if let Some((key, phrase)) = &last.phrase {
+            self.learner.unrecord_choice(key, phrase);
         }
     }
 
@@ -330,25 +422,21 @@ impl Engine {
         (keys.len(), input)
     }
 
-    /// 一个中文词上屏了：记转移、推进链；`explicit` 表示是用户自己选的（不是整句路径里的），
-    /// 紧接着上一个词、合起来词库里没有、且这条接续记够次数时自动造词。
+    /// 一个中文词上屏了：记 `times` 份转移、推进链；`auto_word` 为真（用户自己选的词）时，
+    /// 紧接着上一个词、合起来词库里没有、且这条接续记够次数还自动造词。
     pub(super) fn record_word(
         &mut self,
         text: &str,
         syllables: &[String],
-        explicit: bool,
+        times: u32,
+        auto_word: bool,
         buffer_left: bool,
     ) {
-        let times = if explicit {
-            EXPLICIT_TRANSITION_WEIGHT
-        } else {
-            1
-        };
         self.learner
             .record_transition(self.chain.context(), text, times);
         self.recording
             .push(Transition::new(self.chain.context(), text, times));
-        if explicit {
+        if auto_word {
             let threshold = if self.chain.same_buffer() {
                 AUTO_WORD_THRESHOLD_SAME_BUFFER
             } else {

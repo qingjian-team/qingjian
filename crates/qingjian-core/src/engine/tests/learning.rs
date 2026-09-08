@@ -36,13 +36,108 @@ fn erasing_the_last_commit_and_choosing_another_word_retracts_its_learning() {
     engine.note_backspace();
     pick(&mut engine, "xian", "先");
     assert_eq!(engine.learner().weight("开发"), 2);
-    // 删得比它还多：在改别处，不撤销
+    // 删得比记着的几次上屏加起来（开放 先 开放 开发，7 个字）还多：在改别处，不撤销
     pick(&mut engine, "kaifa", "开放");
-    for _ in 0..3 {
+    for _ in 0..8 {
         engine.note_backspace();
     }
     pick(&mut engine, "kaifa", "开发");
     assert_eq!(engine.learner().weight("开放"), 2);
+}
+
+#[test]
+fn erasing_several_commits_and_retyping_retracts_the_wrong_one() {
+    let mut engine = engine().with_learner(Box::new(CountingLearner(HashMap::new())));
+    let pick = |engine: &mut Engine, input: &str, text: &str| {
+        engine.set_input(input);
+        let candidate = engine
+            .query()
+            .unwrap()
+            .candidates
+            .items
+            .into_iter()
+            .find(|c| c.text == text && c.kind == CandidateKind::Chinese)
+            .unwrap();
+        engine.commit(&candidate);
+    };
+    // 打了 开放先 才发现 开放 错了：三格删光两个词，重打 kaifa 选 开发、再打 xian 选 先
+    pick(&mut engine, "kaifa", "开放");
+    pick(&mut engine, "xian", "先");
+    for _ in 0..3 {
+        engine.note_backspace();
+    }
+    pick(&mut engine, "kaifa", "开发");
+    assert_eq!(engine.learner().weight("开放"), 0);
+    assert_eq!(engine.learner().choice_weight("kaifa", "开放"), 0);
+    // 先 重打后还是 先：不算选错，计数照旧
+    pick(&mut engine, "xian", "先");
+    assert_eq!(engine.learner().weight("先"), 2);
+    // 中间隔着标点与原样上屏的英文也一样：开放，gist先 全删掉重打
+    pick(&mut engine, "kaifa", "开放");
+    assert_eq!(engine.punctuate(','), Some("，"));
+    engine.set_input("gist");
+    engine.take_raw();
+    pick(&mut engine, "xian", "先");
+    for _ in 0..8 {
+        engine.note_backspace();
+    }
+    pick(&mut engine, "kaifa", "开发");
+    assert_eq!(engine.learner().weight("开放"), 0);
+    assert_eq!(engine.learner().weight("开发"), 2);
+}
+
+#[test]
+fn splitting_a_buffer_into_a_word_and_a_sentence_forms_the_whole_phrase() {
+    let shared = Arc::new(Mutex::new((Vec::new(), sentence::UserNgram::default())));
+    let learner = WordLearner {
+        shared: Arc::clone(&shared),
+        ..WordLearner::default()
+    };
+    let mut engine = engine().with_learner(Box::new(learner));
+    let mut phrase = String::new();
+    // 每次都是先自选 想，剩下的 kaifaxian 用整句候选上屏
+    for round in 1..=2 {
+        engine.set_input("xiangkaifaxian");
+        let xiang = engine
+            .query()
+            .unwrap()
+            .candidates
+            .items
+            .into_iter()
+            .find(|c| c.text == "想" && c.kind == CandidateKind::Chinese)
+            .unwrap();
+        engine.commit(&xiang);
+        assert_eq!(engine.composition().text(), "kaifaxian");
+        let rest = engine.query().unwrap().candidates.items[0].clone();
+        assert_eq!(rest.kind, CandidateKind::Sentence, "round {round}");
+        let head = rest.text.strip_suffix('先').unwrap().to_owned();
+        engine.commit(&rest);
+        assert!(engine.composition().is_empty());
+        phrase = format!("想{}", rest.text);
+        // 接缝处（想 → 开X）按自选记双份，整句内部的接续记一份；整段拼音 → 合成词 记一次选择
+        let learned = shared.lock().unwrap();
+        assert_eq!(
+            learned.1.pair(Some("想"), &head),
+            round * EXPLICIT_TRANSITION_WEIGHT
+        );
+        assert_eq!(learned.1.pair(Some(&head), "先"), round);
+        drop(learned);
+        assert_eq!(
+            engine.learner().choice_weight("xiangkaifaxian", &phrase),
+            round
+        );
+        // 第二次：整段合成 想开X先；接缝处不造两字词
+        let words = shared.lock().unwrap().0.clone();
+        if round == 1 {
+            assert!(words.is_empty(), "{words:?}");
+        } else {
+            assert_eq!(words, [phrase.clone()]);
+        }
+        engine.note_passthrough('\n');
+    }
+    // 第三次整段打出来：合成词直接排第一
+    engine.set_input("xiangkaifaxian");
+    assert_eq!(texts_of(&engine)[0], phrase);
 }
 
 #[test]

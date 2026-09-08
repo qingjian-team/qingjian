@@ -2,6 +2,12 @@
 
 use super::*;
 
+mod forgotten;
+mod learner;
+
+pub use forgotten::Forgotten;
+pub use learner::{Learner, NoLearner};
+
 impl Engine {
     /// 取回释义兜底写好的释义，记进译者（个人释义表）；返回学了几条。壳定时调，不阻塞。
     /// 结果的语言与当前学习语言对不上（中途切过语言）就丢。
@@ -128,13 +134,7 @@ impl Engine {
             if self.chain.mentions(&candidate.text) {
                 self.chain.reset();
             }
-            if self
-                .last_commit
-                .as_ref()
-                .is_some_and(|last| last.text == candidate.text)
-            {
-                self.last_commit = None;
-            }
+            self.recent_commits.retain(|c| c.text != candidate.text);
             tracing::debug!(text = %candidate.text, ?forgotten, "删除候选");
         }
         forgotten

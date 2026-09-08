@@ -13,6 +13,12 @@ pub struct CommitChain {
 
     /// 上一个词上屏后缓冲区里还留着拼音：下一个词若紧接着从同一段拼音里选出，两个词本来是一起打的。
     same_buffer: bool,
+
+    /// 当前这段拼音里已经上屏的词（文本与音节），整段选完时看要不要合成一个词。
+    buffer_words: Vec<(String, Vec<String>)>,
+
+    /// 这段拼音整段的学习键（按输入串记选择用的全部字母），第一个词上屏前记下。
+    buffer_key: String,
 }
 
 impl CommitChain {
@@ -49,6 +55,24 @@ impl CommitChain {
         self.earlier = self.previous.take().map(|(text, _)| text);
         self.previous = Some((text.to_owned(), syllables.to_vec()));
         self.same_buffer = buffer_left;
+        self.buffer_words
+            .push((text.to_owned(), syllables.to_vec()));
+    }
+
+    /// 一段新拼音里的第一个词要上屏了：记下整段的学习键，上一段的词清掉。
+    pub fn begin_buffer(&mut self, key: String) {
+        self.buffer_words.clear();
+        self.buffer_key = key;
+    }
+
+    /// 当前这段拼音里已上屏的词，按顺序。
+    pub fn buffer_words(&self) -> &[(String, Vec<String>)] {
+        &self.buffer_words
+    }
+
+    /// 当前这段拼音整段的学习键。
+    pub fn buffer_key(&self) -> &str {
+        &self.buffer_key
     }
 
     /// 打断链。
@@ -56,11 +80,13 @@ impl CommitChain {
         self.previous = None;
         self.earlier = None;
         self.same_buffer = false;
+        self.buffer_words.clear();
     }
 
     /// 缓冲区被清空或整段被别的东西吃掉：链不断，但下一个词不算同一段拼音。
     pub fn leave_buffer(&mut self) {
         self.same_buffer = false;
+        self.buffer_words.clear();
     }
 }
 

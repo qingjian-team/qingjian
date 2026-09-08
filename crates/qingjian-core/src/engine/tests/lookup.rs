@@ -252,3 +252,43 @@ fn expression_mode_skips_pinyin_and_evaluates() {
     assert_eq!(query.candidates.items[0].text, "very");
     assert_eq!(query.candidates.items[0].kind, CandidateKind::English);
 }
+
+/// 只认句首的 开发 与 开发 → 先 的假模型：让两词路径压过整段的词。
+struct XianModel;
+
+impl LanguageModel for XianModel {
+    fn log_prob(&self, previous: Option<&str>, word: &str) -> Option<f64> {
+        match (previous, word) {
+            (None, "开发") => Some(-1.0),
+            (Some("开发"), "先") => Some(-0.5),
+            _ => None,
+        }
+    }
+}
+
+#[test]
+fn a_word_spelling_the_sentence_keeps_its_rank_unless_its_reading_differs() {
+    // 词级排序里 开发线 在 开发先 前面；整句转换读出的是 开发 + 先，与词 开发先 同文本同读音：不重复插，词留在原位
+    let sample = format!("{SAMPLE}开发线\tkai fa xian\t5000\n开发先\tkai fa xian\t1\n");
+    let mut engine =
+        Engine::new(Dictionary::parse(&sample).unwrap()).with_language_model(Box::new(XianModel));
+    engine.set_input("kaifaxian");
+    let all = texts_of(&engine);
+    assert_eq!(&all[..2], ["开发线", "开发先"]);
+    assert_eq!(all.iter().filter(|t| *t == "开发先").count(), 1);
+
+    // 同文本的词是按别的读音（xiang，靠模糊音 an-ang 对上）收的：那条错读音的词让位，整句以正确读音排最前
+    let sample = format!("{SAMPLE}开发线\tkai fa xian\t5000\n开发先\tkai fa xiang\t1\n");
+    let mut engine =
+        Engine::new(Dictionary::parse(&sample).unwrap()).with_language_model(Box::new(XianModel));
+    engine.set_fuzzy(FuzzyRules {
+        an_ang: true,
+        ..FuzzyRules::default()
+    });
+    engine.set_input("kaifaxian");
+    let items = engine.query().unwrap().candidates.items;
+    assert_eq!(items[0].text, "开发先");
+    assert_eq!(items[0].kind, CandidateKind::Sentence);
+    assert_eq!(items[0].syllables, ["kai", "fa", "xian"]);
+    assert_eq!(items.iter().filter(|c| c.text == "开发先").count(), 1);
+}

@@ -368,6 +368,47 @@ fn committing_a_cloud_word_learns_it_and_it_ranks_first_next_time() {
 }
 
 #[test]
+fn cloud_words_are_learned_with_the_typed_reading_when_it_fits() {
+    let mut engine = engine().with_learner(Box::new(WordLearner::default()));
+    let cloud_word = |text: &str, syllables: &[&str]| Candidate {
+        text: text.into(),
+        kind: CandidateKind::Cloud,
+        syllables: syllables.iter().map(|s| (*s).to_owned()).collect(),
+        reading: None,
+        translation: None,
+    };
+    let has = |engine: &Engine, text: &str| texts_of(engine).iter().any(|t| t == text);
+    // 模型把 先 的读音给成了 xia：敲的 kaixian 切得开、每个音节都是那个字的读音，按敲的学
+    engine.set_input("kaixian");
+    engine.commit(&cloud_word("开先", &["kai", "xia"]));
+    engine.set_input("kaixian");
+    assert!(has(&engine, "开先"));
+    let user = engine.learner().user_words().unwrap();
+    assert!(
+        user.lookup(&["kai", "xian"], false)
+            .iter()
+            .any(|m| m.exact && m.text == "开先")
+    );
+    assert!(!user.lookup(&["kai", "xia"], false).iter().any(|m| m.exact));
+    // 敲错了（kaixan 切不开）：模型的读音每个字都对得上，按模型的学
+    engine.set_input("kaixan");
+    engine.commit(&cloud_word("开想", &["kai", "xiang"]));
+    engine.set_input("kaixiang");
+    assert!(has(&engine, "开想"));
+    // 敲错了、模型的读音又不是这个字的：不学
+    engine.set_input("xiangxan");
+    engine.commit(&cloud_word("想先", &["xiang", "xia"]));
+    let user = engine.learner().user_words().unwrap();
+    for reading in [["xiang", "xia"], ["xiang", "xian"]] {
+        assert!(
+            user.lookup(&reading, false)
+                .iter()
+                .all(|m| m.text != "想先")
+        );
+    }
+}
+
+#[test]
 fn no_predictor_never_requests() {
     let mut engine = engine();
     assert!(!engine.prediction_enabled());

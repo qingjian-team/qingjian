@@ -281,10 +281,28 @@ struct WordLearner {
     dictionary: Option<Dictionary>,
     ngram: sentence::UserNgram,
     shared: Arc<Mutex<(Vec<String>, sentence::UserNgram)>>,
+    choices: HashMap<String, u32>,
 }
 
 impl Learner for WordLearner {
     fn record(&mut self, _candidate: &Candidate) {}
+
+    fn record_choice(&mut self, input: &str, text: &str) {
+        *self.choices.entry(format!("{input}\t{text}")).or_default() += 1;
+    }
+
+    fn choice_weight(&self, input: &str, text: &str) -> u32 {
+        self.choices
+            .get(&format!("{input}\t{text}"))
+            .copied()
+            .unwrap_or(0)
+    }
+
+    fn unrecord_choice(&mut self, input: &str, text: &str) {
+        if let Some(count) = self.choices.get_mut(&format!("{input}\t{text}")) {
+            *count = count.saturating_sub(1);
+        }
+    }
 
     fn weight(&self, text: &str) -> u32 {
         u32::from(self.words.iter().any(|(t, _)| t == text))

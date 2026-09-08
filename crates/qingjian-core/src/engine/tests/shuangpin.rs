@@ -58,7 +58,7 @@ fn shuangpin_records_choices_by_full_pinyin() {
     assert_eq!(kaifa.text, "开发");
     engine.commit(&kaifa);
     // 学习记的是全拼 kaifa：切回全拼、同样的拼音也受益
-    assert!(engine.last_commit.as_ref().unwrap().same_input("kaifa"));
+    assert!(engine.recent_commits.last().unwrap().same_input("kaifa"));
 }
 
 #[test]
