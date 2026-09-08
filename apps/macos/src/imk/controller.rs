@@ -226,6 +226,8 @@ impl QingjianInputController {
             36 | 76 => Some(sel!(insertNewline:)),
             48 if shift => Some(sel!(insertBacktab:)),
             48 => Some(sel!(insertTab:)),
+            51 if option => Some(sel!(deleteWordBackward:)),
+            51 if command => Some(sel!(deleteToBeginningOfLine:)),
             51 => Some(sel!(deleteBackward:)),
             117 => Some(sel!(deleteForward:)),
             53 => Some(sel!(cancelOperation:)),
@@ -458,6 +460,16 @@ impl QingjianInputController {
         // 微软 / 搜狗双拼的 `;` 是 ing 键：末尾有落单声母时进缓冲区，其他时候还是标点
         let semicolon =
             composing && c == ';' && host::with(|h| h.engine.takes_semicolon()).unwrap_or(false);
+        let (page_previous, page_next) =
+            host::with(|h| h.page_keys).unwrap_or(qingjian_platform::DEFAULT_PAGE_KEYS);
+        // 组句中敲半角标点：进缓冲区，整段成为英文直输段（`hello,` `dui'ma?`），中文模式下也能打带标点的英文；
+        // 翻页键除外；⇧+数字（! @ # …）在前面已被删候选 / 译词键截走
+        let punctuation = composing
+            && !question
+            && !expression
+            && c.is_ascii_punctuation()
+            && c != page_previous
+            && c != page_next;
         if c.is_ascii_lowercase()
             || (composing && c == '\'')
             || semicolon
@@ -465,10 +477,17 @@ impl QingjianInputController {
             || (raw && c.is_ascii_graphic())
             || (unicode && (c.is_ascii_digit() || c == '+'))
             || hyphen
+            || punctuation
         {
             host::with(|h| h.engine.push(c));
             self.refresh(client);
             return true;
+        }
+        // 直输段里的空格：整段原样上屏，空格本身也交给应用（`hello, world` 里的空格要在）
+        if raw && c == ' ' {
+            self.commit_highlighted(client);
+            host::with(|h| h.engine.note_passthrough(c));
+            return false;
         }
         if composing && self.restore_bare_question(client) {
             // 空格只是「把这个 ? 上屏」，不再多打一个空格；其他键按非组句状态继续处理
@@ -486,8 +505,6 @@ impl QingjianInputController {
             return false;
         }
         if composing {
-            let (page_previous, page_next) =
-                host::with(|h| h.page_keys).unwrap_or(qingjian_platform::DEFAULT_PAGE_KEYS);
             match c {
                 ' ' => return self.commit_highlighted(client),
                 '1'..='9' => {
@@ -532,14 +549,27 @@ impl QingjianInputController {
         tracing::debug!(selector = %selector, "didCommandBySelector");
         let composing = host::with(|h| !h.engine.composition().is_empty()).unwrap_or(false);
         if !composing {
-            // 删的是应用里的文字：刚上屏的词被整个删掉是「选错了」的信号，Engine 记着
+            // 删的是应用里的文字：刚上屏的词被整个删掉是「选错了」的信号，Engine 记着；
+            // 按词 / 按行删的数不清删了几个字，撤销的账就不记了
             if selector == sel!(deleteBackward:) {
                 host::with(|h| h.engine.note_backspace());
+            } else if selector == sel!(deleteWordBackward:)
+                || selector == sel!(deleteToBeginningOfLine:)
+            {
+                host::with(|h| h.engine.break_chain());
             }
             return false;
         }
         if selector == sel!(deleteBackward:) {
             host::with(|h| h.engine.backspace());
+            self.refresh(client);
+        } else if selector == sel!(deleteWordBackward:) {
+            // ⌥⌫：删光标前一个音节
+            host::with(|h| h.engine.delete_syllable_backward());
+            self.refresh(client);
+        } else if selector == sel!(deleteToBeginningOfLine:) {
+            // ⌘⌫：删光标前的全部拼音
+            host::with(|h| h.engine.delete_to_start());
             self.refresh(client);
         } else if selector != sel!(cancelOperation:)
             && selector != sel!(complete:)

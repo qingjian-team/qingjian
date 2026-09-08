@@ -31,12 +31,20 @@ impl Engine {
             reading: None,
             translation: None,
         };
-        let mut position = if unlikely_pinyin || items.is_empty() {
+        let word = lists.iter().find_map(|words| words.get(text));
+        // 这段字母下用户选中文词（`key` → 可以）比选英文词的次数多：中文词留在第一，英文让到后面；
+        // 拼音再不像话也是他自己教的
+        let chosen = items
+            .first()
+            .filter(|c| c.kind == CandidateKind::Chinese)
+            .map_or(0, |c| self.learner.choice_weight(text, &c.text));
+        let english_weight = word.map_or(0, |w| self.learner.weight(w));
+        let mut position = if items.is_empty() || (unlikely_pinyin && chosen <= english_weight) {
             0
         } else {
             1
         };
-        if let Some(word) = lists.iter().find_map(|words| words.get(text)) {
+        if let Some(word) = word {
             items.insert(position, english_candidate(word));
             position += 1;
         }

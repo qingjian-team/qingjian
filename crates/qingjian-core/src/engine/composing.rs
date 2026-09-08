@@ -84,6 +84,23 @@ impl Engine {
         self.composition.delete_forward()
     }
 
+    /// 删掉光标前的一个音节（壳里 ⌥⌫）：全拼按最优切分的最后一个音节连同它后面的 `'`，切不动的尾巴整个删；
+    /// 双拼两键一音节，落单的一键单删；英文直输段 / 表达式 / 问字里删最后一段字母或数字，标点一次删一个。
+    /// 光标在开头时返回 `false`。
+    pub fn delete_syllable_backward(&mut self) -> bool {
+        let cursor = self.composition.cursor();
+        let before = &self.composition.text()[..cursor];
+        let plain = self.raw_mode() || self.expression_mode() || self.question_mode();
+        let len = unit_len_before(before, self.shuangpin.is_some(), plain);
+        self.composition.delete_before_cursor(len)
+    }
+
+    /// 删掉光标前的全部拼音（壳里 ⌘⌫），光标后的留着。光标在开头时返回 `false`。
+    pub fn delete_to_start(&mut self) -> bool {
+        let cursor = self.composition.cursor();
+        self.composition.delete_before_cursor(cursor)
+    }
+
     pub fn move_cursor_left(&mut self) -> bool {
         self.composition.move_left()
     }
@@ -163,4 +180,45 @@ impl Engine {
         self.chain.reset();
         raw
     }
+}
+
+/// 光标前的最后一个「单位」占几个字节：拼音里是一个音节（连同它后面的 `'`），见 [`Engine::delete_syllable_backward`]。
+fn unit_len_before(before: &str, shuangpin: bool, plain: bool) -> usize {
+    let trimmed = before.trim_end_matches('\'');
+    let separators = before.len() - trimmed.len();
+    let Some(last) = trimmed.chars().last() else {
+        return separators;
+    };
+    // 直输段 / 表达式 / 问字，或末尾不是字母：字母数字连成一段删，其他字符一次一个
+    if plain || !last.is_ascii_lowercase() {
+        let run = if last.is_ascii_alphanumeric() {
+            trimmed
+                .chars()
+                .rev()
+                .take_while(char::is_ascii_alphanumeric)
+                .map(char::len_utf8)
+                .sum()
+        } else {
+            last.len_utf8()
+        };
+        return separators + run;
+    }
+    if shuangpin {
+        // 两键一音节：连着的键数是奇数说明末尾落单一键
+        let run = trimmed
+            .chars()
+            .rev()
+            .take_while(|c| c.is_ascii_lowercase() || *c == ';')
+            .count();
+        return separators + if run % 2 == 1 { 1 } else { 2 };
+    }
+    let syllable = match segment_longest_prefix(trimmed) {
+        Ok((_, tail)) if !tail.is_empty() => tail.len(),
+        Ok((segmentations, _)) => segmentations
+            .first()
+            .and_then(|s| s.syllables.last())
+            .map_or(1, |s| s.text.len()),
+        Err(_) => 1,
+    };
+    separators + syllable
 }

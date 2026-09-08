@@ -292,3 +292,46 @@ fn a_word_spelling_the_sentence_keeps_its_rank_unless_its_reading_differs() {
     assert_eq!(items[0].syllables, ["kai", "fa", "xian"]);
     assert_eq!(items.iter().filter(|c| c.text == "开发先").count(), 1);
 }
+
+#[test]
+fn option_backspace_deletes_a_syllable_and_command_backspace_deletes_to_the_start() {
+    let mut engine = engine();
+    // 全拼：删最优切分的最后一个音节；`'` 连同前面的音节一起删；切不动的尾巴整个删
+    engine.set_input("kaifaxian");
+    assert!(engine.delete_syllable_backward());
+    assert_eq!(engine.composition().text(), "kaifa");
+    engine.set_input("kai'fa'");
+    assert!(engine.delete_syllable_backward());
+    assert_eq!(engine.composition().text(), "kai'");
+    engine.set_input("kaifv");
+    assert!(engine.delete_syllable_backward());
+    assert_eq!(engine.composition().text(), "kaif");
+    assert!(engine.delete_syllable_backward());
+    assert_eq!(engine.composition().text(), "kai");
+    // 光标停在中间：只动光标前的
+    engine.set_input("kaifaxian");
+    for _ in 0..4 {
+        engine.move_cursor_left();
+    }
+    assert!(engine.delete_syllable_backward());
+    assert_eq!(engine.composition().text(), "kaixian");
+    assert_eq!(engine.composition().cursor(), 3);
+    assert!(engine.delete_to_start());
+    assert_eq!(engine.composition().text(), "xian");
+    assert_eq!(engine.composition().cursor(), 0);
+    assert!(!engine.delete_syllable_backward());
+    assert!(!engine.delete_to_start());
+    // 英文直输段：字母一段一段删，标点一次一个
+    engine.set_input("hello,world");
+    assert!(engine.delete_syllable_backward());
+    assert_eq!(engine.composition().text(), "hello,");
+    assert!(engine.delete_syllable_backward());
+    assert_eq!(engine.composition().text(), "hello");
+    // 双拼：两键一音节，落单的一键单删
+    let mut engine = xiaohe();
+    engine.set_input("kdfah");
+    assert!(engine.delete_syllable_backward());
+    assert_eq!(engine.composition().text(), "kdfa");
+    assert!(engine.delete_syllable_backward());
+    assert_eq!(engine.composition().text(), "kd");
+}

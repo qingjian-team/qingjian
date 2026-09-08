@@ -61,6 +61,42 @@ fn usage_meter_counts_hanzi_words_and_english_words_per_commit() {
 }
 
 #[test]
+fn english_word_yields_to_a_chinese_word_the_user_keeps_choosing() {
+    let dictionary = Dictionary::parse("可以\tke yi\t9000\n客运\tke yun\t100\n").unwrap();
+    let mut engine = Engine::new(dictionary)
+        .with_english(WordList::parse("key\n").unwrap())
+        .with_learner(Box::new(CountingLearner(HashMap::new())));
+    let first_two = |engine: &Engine| {
+        let all = texts_of(engine);
+        (all[0].clone(), all[1].clone())
+    };
+    let pick = |engine: &mut Engine, text: &str| {
+        engine.set_input("key");
+        let candidate = engine
+            .query()
+            .unwrap()
+            .candidates
+            .items
+            .into_iter()
+            .find(|c| c.text == text)
+            .unwrap();
+        engine.commit(&candidate);
+    };
+    // ke'y 末尾落单一个字母，拼音不像话：英文词在前
+    engine.set_input("key");
+    assert_eq!(first_two(&engine), ("key".into(), "可以".into()));
+    // 这段字母下选过一次 可以：中文在前，英文退到第二
+    pick(&mut engine, "可以");
+    engine.set_input("key");
+    assert_eq!(first_two(&engine), ("可以".into(), "key".into()));
+    // 之后选英文词的次数反超：英文回到第一
+    pick(&mut engine, "key");
+    pick(&mut engine, "key");
+    engine.set_input("key");
+    assert_eq!(first_two(&engine), ("key".into(), "可以".into()));
+}
+
+#[test]
 fn hyphen_turns_the_buffer_into_a_raw_english_segment() {
     let mut engine = engine();
     engine.set_input("no");

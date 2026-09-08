@@ -83,6 +83,17 @@ impl Composition {
         true
     }
 
+    /// 删掉光标前 `len` 个字节（不够就删到开头）。光标在开头或 `len` 为零时返回 `false`。
+    pub fn delete_before_cursor(&mut self, len: usize) -> bool {
+        let len = len.min(self.cursor);
+        if len == 0 {
+            return false;
+        }
+        self.buffer.drain(self.cursor - len..self.cursor);
+        self.cursor -= len;
+        true
+    }
+
     pub fn move_home(&mut self) {
         self.cursor = 0;
     }
@@ -159,6 +170,20 @@ mod tests {
         composition.move_end();
         assert!(!composition.move_right());
         assert!(!composition.delete_forward());
+    }
+
+    #[test]
+    fn delete_before_cursor_stops_at_the_start() {
+        let mut composition = typed("kaifa");
+        composition.move_left();
+        assert!(composition.delete_before_cursor(2));
+        assert_eq!(composition.text(), "kaa");
+        assert_eq!(composition.cursor(), 2);
+        assert!(composition.delete_before_cursor(5));
+        assert_eq!(composition.text(), "a");
+        assert_eq!(composition.cursor(), 0);
+        assert!(!composition.delete_before_cursor(1));
+        assert!(!composition.delete_before_cursor(0));
     }
 
     #[test]
