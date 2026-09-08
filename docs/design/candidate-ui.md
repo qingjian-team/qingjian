@@ -90,6 +90,7 @@ collection behavior 是 CanJoinAllSpaces + FullScreenAuxiliary + Stationary。�
 | ⌥⌫ / ⌘⌫ | 删光标前一个音节（全拼按最优切分的最后一个音节连同 `'`，切不动的尾巴整个删；双拼两键一音节；直输段按字母段）/ 删光标前全部拼音（`Engine::delete_syllable_backward` / `delete_to_start`）。不在组句时交给应用，撤销的账不再记（`break_chain`） |
 | Esc | 清空 |
 | 上 / 下 | 移动高亮，到页边自动翻页；第一项再按上不动 |
+| ⌥← / ⌥→ | 按音节跳光标（边界规则同 ⌥⌫；`'` 跟着前面的音节，`Engine::move_cursor_syllable_left` / `right`）。光标在末尾发现前面的音节错了：⌥← 跳过去、⌥⌫ 删掉重敲、⌘→ 回末尾 |
 | 左 / 右、Cmd+左 / 右 | 移动拼音光标（不切模式）。光标停在中间时候选只按光标前的拼音算（`ni|hao` 出 你），上屏后剩余拼音留着、光标落到末尾；光标在开头或末尾按整段算 |
 | PageUp / PageDown、Shift+Tab、翻页键对（配置 `[general] page_keys`，缺省 `[` `]`，可选 `,` `.`） | 翻页。每页几个由 `page_size` 定（1–9） |
 | 半角标点（`is_ascii_punctuation`，翻页键除外；⇧+数字已被删候选 / 译词键截走） | 组句中敲它进入**英文直输段**：`no-way` `hello,` `dui'ma?` 整段原样显示，之后的可见字符（含数字、大写）都追加，回车原样上屏，空格原样上屏后空格本身也交给应用（`hello, world` 的空格要在），Esc 清掉。表达式 / 问字模式优先。中文模式下就能打带标点的英文句子；代价是没有了「拼音 + 标点 = 上屏候选 + 全角标点」，要先空格再打标点 |

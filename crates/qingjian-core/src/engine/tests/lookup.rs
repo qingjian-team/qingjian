@@ -335,3 +335,38 @@ fn option_backspace_deletes_a_syllable_and_command_backspace_deletes_to_the_star
     assert!(engine.delete_syllable_backward());
     assert_eq!(engine.composition().text(), "kd");
 }
+
+#[test]
+fn option_arrows_move_the_cursor_by_syllable() {
+    let mut engine = engine();
+    // 光标在末尾发现前面错了：⌥← 两下跳到第二个音节后面，⌥⌫ 删掉它，重敲，⌘→ 回末尾
+    engine.set_input("kaifa'xian'xia");
+    assert!(engine.move_cursor_syllable_left());
+    assert_eq!(engine.composition().cursor(), "kaifa'xian'".len());
+    assert!(engine.move_cursor_syllable_left());
+    assert_eq!(engine.composition().cursor(), "kaifa'".len());
+    assert!(engine.move_cursor_syllable_left());
+    assert_eq!(engine.composition().cursor(), "kai".len());
+    assert!(engine.delete_syllable_backward());
+    assert_eq!(engine.composition().text(), "fa'xian'xia");
+    engine.push('x');
+    engine.push('i');
+    assert_eq!(engine.composition().text(), "xifa'xian'xia");
+    // ⌥→：从 xi| 起跳过一个音节到 xifa|，再跳先越过 `'` 再过一个音节
+    assert!(engine.move_cursor_syllable_right());
+    assert_eq!(engine.composition().cursor(), "xifa".len());
+    assert!(engine.move_cursor_syllable_right());
+    assert_eq!(engine.composition().cursor(), "xifa'xian".len());
+    assert!(engine.move_cursor_syllable_right());
+    assert_eq!(engine.composition().cursor(), "xifa'xian'xia".len());
+    assert!(!engine.move_cursor_syllable_right());
+    engine.move_cursor_home();
+    assert!(!engine.move_cursor_syllable_left());
+    // 直输段按字母段跳
+    engine.set_input("hello,world");
+    assert!(engine.move_cursor_syllable_left());
+    assert_eq!(engine.composition().cursor(), "hello,".len());
+    engine.move_cursor_home();
+    assert!(engine.move_cursor_syllable_right());
+    assert_eq!(engine.composition().cursor(), "hello".len());
+}

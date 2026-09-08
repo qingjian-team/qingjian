@@ -95,6 +95,24 @@ impl Engine {
         self.composition.delete_before_cursor(len)
     }
 
+    /// 光标往左跳一个音节（壳里 ⌥←），边界与 [`Self::delete_syllable_backward`] 相同。已在开头返回 `false`。
+    pub fn move_cursor_syllable_left(&mut self) -> bool {
+        let cursor = self.composition.cursor();
+        let before = &self.composition.text()[..cursor];
+        let plain = self.raw_mode() || self.expression_mode() || self.question_mode();
+        let len = unit_len_before(before, self.shuangpin.is_some(), plain);
+        len > 0 && (0..len).all(|_| self.composition.move_left())
+    }
+
+    /// 光标往右跳一个音节（壳里 ⌥→）：跳过紧跟的 `'`，再跳过一个音节。已在末尾返回 `false`。
+    pub fn move_cursor_syllable_right(&mut self) -> bool {
+        let cursor = self.composition.cursor();
+        let after = &self.composition.text()[cursor..];
+        let plain = self.raw_mode() || self.expression_mode() || self.question_mode();
+        let len = unit_len_after(after, self.shuangpin.is_some(), plain);
+        len > 0 && (0..len).all(|_| self.composition.move_right())
+    }
+
     /// 删掉光标前的全部拼音（壳里 ⌘⌫），光标后的留着。光标在开头时返回 `false`。
     pub fn delete_to_start(&mut self) -> bool {
         let cursor = self.composition.cursor();
@@ -180,6 +198,42 @@ impl Engine {
         self.chain.reset();
         raw
     }
+}
+
+/// 光标后的第一个「单位」占几个字节：先跳过紧跟的 `'`，再算一个音节；规则同 [`unit_len_before`]。
+fn unit_len_after(after: &str, shuangpin: bool, plain: bool) -> usize {
+    let trimmed = after.trim_start_matches('\'');
+    let separators = after.len() - trimmed.len();
+    let Some(first) = trimmed.chars().next() else {
+        return separators;
+    };
+    if plain || !first.is_ascii_lowercase() {
+        let run = if first.is_ascii_alphanumeric() {
+            trimmed
+                .chars()
+                .take_while(char::is_ascii_alphanumeric)
+                .map(char::len_utf8)
+                .sum()
+        } else {
+            first.len_utf8()
+        };
+        return separators + run;
+    }
+    if shuangpin {
+        let run = trimmed
+            .chars()
+            .take_while(|c| c.is_ascii_lowercase() || *c == ';')
+            .count();
+        return separators + run.min(2);
+    }
+    let syllable = match segment_longest_prefix(trimmed) {
+        Ok((segmentations, _)) => segmentations
+            .first()
+            .and_then(|s| s.syllables.first())
+            .map_or(1, |s| s.text.len()),
+        Err(_) => 1,
+    };
+    separators + syllable
 }
 
 /// 光标前的最后一个「单位」占几个字节：拼音里是一个音节（连同它后面的 `'`），见 [`Engine::delete_syllable_backward`]。

@@ -235,6 +235,8 @@ impl QingjianInputController {
             125 => Some(sel!(moveDown:)),
             123 if command => Some(sel!(moveToLeftEndOfLine:)),
             124 if command => Some(sel!(moveToRightEndOfLine:)),
+            123 if option => Some(sel!(moveWordLeft:)),
+            124 if option => Some(sel!(moveWordRight:)),
             123 => Some(sel!(moveLeft:)),
             124 => Some(sel!(moveRight:)),
             116 => Some(sel!(pageUp:)),
@@ -606,6 +608,14 @@ impl QingjianInputController {
             self.refresh(client);
         } else if selector == sel!(moveRight:) {
             host::with(|h| h.engine.move_cursor_right());
+            self.refresh(client);
+        } else if selector == sel!(moveWordLeft:) {
+            // ⌥←：光标往左跳一个音节
+            host::with(|h| h.engine.move_cursor_syllable_left());
+            self.refresh(client);
+        } else if selector == sel!(moveWordRight:) {
+            // ⌥→：光标往右跳一个音节
+            host::with(|h| h.engine.move_cursor_syllable_right());
             self.refresh(client);
         } else if selector == sel!(moveToBeginningOfLine:) || selector == sel!(moveToLeftEndOfLine:)
         {
