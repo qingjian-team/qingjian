@@ -6,6 +6,8 @@ on:
   push:
     branches: [main]
     paths: ['docs/user/**']
+  # 手动触发：想让官网现在就重建时在 Actions 页点一下（或 gh workflow run docs.yml）
+  workflow_dispatch:
 
 env:
   WEB_TOKEN: ${{ secrets.QINGJIAN_WEB_TOKEN }}
