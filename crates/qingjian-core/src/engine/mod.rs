@@ -176,6 +176,19 @@ const ENGLISH_MODE_CANDIDATES: usize = 18;
 /// 英文补全至少要几个字母：太短的前缀谁都像。
 const MIN_COMPLETION_LETTERS: usize = 3;
 
+/// 整段末尾当英文词的尾段至少几个字母，前面的拼音头至少几个字母（见 `query::EnglishTail`）。
+const MIN_ENGLISH_TAIL_LETTERS: usize = 2;
+const MIN_ENGLISH_TAIL_HEAD_LETTERS: usize = 2;
+
+/// 尾段自己也是合法拼音时（`fan`、`database`）至少几个字母才考虑英文读法：三个字母的拼音音节太多。
+const MIN_PINYIN_LIKE_TAIL_LETTERS: usize = 4;
+
+/// 句中切到英文的代价（log 概率）：尾段像拼音时英文读法要比拼音读法高出这么多才胜出。拍的，攒够日志后用 `--replay` 调。
+const ENGLISH_SWITCH_PENALTY: f64 = 3.0;
+
+/// 英文词频的下限（Zipf）：没有词频的词按百万分之一算。
+const ENGLISH_ZIPF_FLOOR: f64 = 3.0;
+
 /// emoji 只配给前几个候选，每个词最多几个、一次最多几个。
 const EMOJI_SCAN: usize = 5;
 const EMOJI_PER_WORD: usize = 2;

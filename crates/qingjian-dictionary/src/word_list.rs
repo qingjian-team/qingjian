@@ -72,6 +72,11 @@ impl WordList {
             .map(|&index| self.entries[index].1.as_str())
     }
 
+    /// 输入（已小写）对应的词频；词表里没有为 `None`。
+    pub fn frequency(&self, code: &str) -> Option<u32> {
+        self.by_code.get(code).map(|&index| self.entries[index].2)
+    }
+
     /// 以 `prefix` 开头（不含正好相等的）的词里词频最高的 `limit` 个，按词频降序。
     pub fn complete(&self, prefix: &str, limit: usize) -> Vec<&str> {
         if prefix.is_empty() || limit == 0 {

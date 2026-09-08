@@ -111,6 +111,18 @@ collection behavior 是 CanJoinAllSpaces + FullScreenAuxiliary + Stationary。�
 有音节连单字都查不到（只能拿拼音占位）的不出句子；整段是英文词或不像拼音带出的英文补全排在句子前面（`hello` 先英文再 荷兰咯）。
 上屏按音节消耗拼音，路径上的词逐条记进个人 n-gram（`user-ngram.tsv`），不记词频。
 
+**句末英文词**（`Engine::split_english_tail`，`query::EnglishTail`）：整段末尾是英文词表里的词、前面能切成完整拼音时，
+整句是头段的转换加上那个词（`woxiangxuehaorust` → 我想学好rust），排第一，`Query.tail` 是尾段字母（拼音行 `wo'xiang'xue'hao'rust`），
+词级候选只按头段查。整段字母根本切不成拼音的（`wodetv` 的 v、`woyongvim`）直接按英文读；整段也能读成拼音的
+（`woxiangxuehaorust` 读成 … ru s… t… 简拼、`wodedatabase`）两种读法比分：头段整句分 + 英文词 log 概率（wordfreq Zipf 换算，
+没词频按 Zipf 3）− 切换代价（`ENGLISH_SWITCH_PENALTY` 3 nat，拍的）要高过整段按拼音读的整句（`sentence::convert_whole`，
+末尾单字母也读，`huoz` → 或者，两边覆盖同样多的字母才公平），赢了英文读法排第一、拼音读法第二，输了英文读法不出
+（`womenqubeijing` 只有 我们去北京，`diaoyong` 不出 掉Yong）。尾段自己是完整拼音的（`fan`）要至少 4 个字母，
+两个字母的尾段只认缩写词（ID / TV）和个人表里的词；整段是英文词（`agent`）、拼音不像话时能纠错（`shiide` → 是的）或有英文补全
+（`releas`）的不切。同时满足的取最长尾段。上屏时英文词是路径上最后一个词（音节就是敲的字母），进个人 n-gram，
+并记进个人英文词表。回放（2026-09-08，4867 条）与改前持平：词 86.0% / 整句 89.3% / 英文 69.8%。
+只认句末，夹在中间的英文（`wozaidebugzhege`）要等词图上加英文边。
+
 **越用越像自己**：连续上屏的词（整句里的、或一个个选的）都记成「前词 → 后词」，同时记「前二词 前词 → 后词」；`qingjian` 里选过两次 青 + 简，
 再打 `qingjian` 整句就直接出 青简（个人转移压过静态模型里的 请见）。三元分辨二元混在一起的接续：「我想」后面选过几次 区，
 `woxiangqu` 就出 我想区，而「不想」后面照旧。标点、回车上屏拼音、切应用都断句，之后的词按句首记。

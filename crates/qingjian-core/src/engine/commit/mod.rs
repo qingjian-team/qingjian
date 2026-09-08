@@ -1,5 +1,6 @@
 //! 上屏：译词标注、按候选消耗缓冲区、对齐音节、学习与撤销、自动造词。
 
+use super::query::EnglishTail;
 use super::*;
 
 mod chain;
@@ -172,6 +173,10 @@ impl Engine {
             }
             CandidateKind::Sentence => match sentence_words {
                 Some(words) => {
+                    // 句末的英文词（我想学好rust 的 rust）记进个人英文词表，和英文候选上屏一样
+                    if let Some(word) = words.last().filter(|w| is_english_word(w)) {
+                        self.learner.learn_english(&word.text);
+                    }
                     // 紧接着同一段拼音里自选的词（`jidiaole` 选了 挤，剩下的 掉了 走整句）：接缝是用户自己定的，
                     // 第一个词的转移按自选记双份。不参与两词造词：我 + 的… 这种接缝太常见、转移计数早就够了，
                     // 会把 我的 一类造成用户词；整段合成词由 [`Self::finish_buffer`] 管
@@ -326,11 +331,18 @@ impl Engine {
     }
 
     /// 整句候选对应的词序列：重算一次整句转换，文本对得上才算（对不上说明候选来自别处，不记）。
+    /// 末尾是英文词的整句（我想学好rust）先按头段试，英文词作为最后一个词（音节就是敲的字母）。
     pub(super) fn sentence_words(
         &self,
         candidate: &Candidate,
     ) -> Option<Vec<sentence::SentenceWord>> {
         let scope = self.composition.scope();
+        if self.decode(scope).is_none()
+            && let Some(tail) = self.split_english_tail(scope)
+            && let Some(words) = self.mixed_words(scope, &tail, &candidate.text)
+        {
+            return Some(words);
+        }
         let conversion = match (self.decode(scope), self.active_correction(scope)) {
             (Some(decoded), _) => {
                 self.convert_sentence(&decoded.segmentation()?.patterns(), true)?
@@ -342,6 +354,27 @@ impl Engine {
             }
         };
         (conversion.text == candidate.text).then_some(conversion.words)
+    }
+
+    /// 头段拼音的转换加上英文尾段，与 `text` 对得上时的词序列。
+    fn mixed_words(
+        &self,
+        scope: &str,
+        tail: &EnglishTail,
+        text: &str,
+    ) -> Option<Vec<sentence::SentenceWord>> {
+        let segmentations = parser::segment(&scope[..tail.head_len]).ok()?;
+        let mut conversion = self.convert_sentence(&segmentations.first()?.patterns(), true)?;
+        conversion.text.push_str(&tail.word);
+        if conversion.text != text {
+            return None;
+        }
+        conversion.words.push(sentence::SentenceWord {
+            text: tail.word.clone(),
+            syllables: vec![scope[tail.head_len..].to_owned()],
+            placeholder: false,
+        });
+        Some(conversion.words)
     }
 
     /// 候选消耗多少作用域字节，以及按输入串记学习用的键（候选覆盖的那段全拼字母）。
@@ -496,4 +529,9 @@ impl Engine {
         };
         self.all_dictionaries().into_iter().any(known)
     }
+}
+
+/// 整句路径上的词是英文词（`woxiangxuehaorust` 的 rust）：不是占位音节、全是字母。
+fn is_english_word(word: &sentence::SentenceWord) -> bool {
+    !word.placeholder && !word.text.is_empty() && word.text.bytes().all(|b| b.is_ascii_alphabetic())
 }

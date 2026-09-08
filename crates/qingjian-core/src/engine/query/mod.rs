@@ -2,9 +2,11 @@
 
 use super::*;
 
+mod english_tail;
 mod result;
 mod snapshot;
 
+pub(crate) use english_tail::EnglishTail;
 pub use result::Query;
 pub(super) use result::join_marked;
 pub(super) use snapshot::QuerySnapshot;
@@ -55,12 +57,26 @@ impl Engine {
         // 双拼先解成全拼（音节间已用 `'` 连好，切分没有歧义），之后与全拼同路；解不动的键当尾巴
         let decoded = self.decode(keys);
         let scope: &str = decoded.as_ref().map_or(keys, |d| d.pinyin());
-        let parsed = match &decoded {
-            Some(d) => d
+        // 末尾是英文词（`woxiangxuehaorust`）：拼音候选与整句只按头段算，尾段整个跟在整句后面。
+        // 整段也能读成拼音时（`database`、`…rust` 当简拼）两种读法比分，英文赢了才按头段算，
+        // 输了整段按拼音读、英文读法排在拼音整句后面
+        let english_tail = if decoded.is_none() {
+            self.split_english_tail(keys)
+        } else {
+            None
+        };
+        let head_wins = english_tail
+            .as_ref()
+            .is_some_and(|t| !t.competes || self.mixed_beats_plain(keys, t));
+        let parsed = match (&decoded, &english_tail) {
+            (Some(d), _) => d
                 .segmentation()
                 .map(|s| (vec![s], d.tail()))
                 .ok_or(ParseError::NoSegmentation),
-            None => segment_longest_prefix(keys),
+            (None, Some(tail)) if head_wins => {
+                parser::segment(&keys[..tail.head_len]).map(|s| (s, ""))
+            }
+            _ => segment_longest_prefix(keys),
         };
         // 连第一个字母都切不动（`impor`）：拼音这边没戏，但英文词 / 补全、快捷候选还可以有
         let (segmentations, tail) = match parsed {
@@ -202,10 +218,21 @@ impl Engine {
         self.insert_english(&mut items, unlikely);
         // 快捷候选按敲的键认（`rq` 日期），双拼下也是
         self.insert_shortcuts(&mut items, keys);
-        self.insert_sentence(&mut items, &segmentations, correction.is_none());
+        self.insert_sentence(
+            &mut items,
+            &segmentations,
+            correction.is_none(),
+            english_tail.as_ref().filter(|_| correction.is_none()),
+            head_wins,
+        );
         self.insert_emoji(&mut items);
         let rank = start.elapsed();
 
+        // 按头段算时英文尾段不参与拼音候选，显示上跟在切分后面：`wo'xiang'xue'hao'rust`
+        let tail = english_tail
+            .as_ref()
+            .filter(|_| head_wins)
+            .map_or(tail, |t| &keys[t.head_len..]);
         Ok(Query {
             segmentations,
             candidates: CandidateList { items },
@@ -356,25 +383,59 @@ impl Engine {
         }
     }
 
-    /// 整句转换：最优切分至少两个音节、且最优路径不止一个词时，把整句放到第一位（空格上屏的就是它）。
-    /// 整段本身就是词库里的词时不重复；有音节没转成字的不算句子。
-    /// 排在前面的英文候选（整段是个英文词、不像拼音时的英文补全）留在句子前面：`hello` 先是英文词再是 和了咯。
+    /// 整句候选。没有英文尾段时是整段拼音的转换（[`Self::plain_sentence`]），排在开头的英文候选之后。
+    /// 有英文尾段且英文读法胜出（`head_wins`）时，头段的转换加上那个词排第一（`woxiangxuehaorust` → 我想学好rust），
+    /// 整段也能读成拼音的再把拼音读法的整句放在第二；英文读法输了就不出（`diaoyong` 不出 掉Yong），
+    /// 免得把真正要的候选往后挤。
     /// `typos` 为假时词图里不加敲错边（整段一处编辑的纠错已经生效，不在纠正后的拼音上再猜第二处）。
     pub(super) fn insert_sentence(
         &self,
         items: &mut Vec<Candidate>,
         segmentations: &[Segmentation],
         typos: bool,
+        english_tail: Option<&EnglishTail>,
+        head_wins: bool,
     ) {
         let Some(best) = segmentations.first() else {
             return;
         };
-        if best.syllables.len() < 2 {
-            return;
+        let keys = self.composition.scope();
+        let first_segmentation = |text: &str| parser::segment(text).ok()?.into_iter().next();
+        match english_tail {
+            Some(tail) if head_wins => {
+                if let Some(mixed) = self.mixed_sentence(best, tail, typos) {
+                    items.insert(0, mixed);
+                }
+                if tail.competes
+                    && let Some(full) = first_segmentation(keys)
+                    && let Some(plain) = self.plain_sentence(items, &full, typos)
+                {
+                    let position = items.len().min(1);
+                    items.insert(position, plain);
+                }
+            }
+            _ => {
+                if let Some(plain) = self.plain_sentence(items, best, typos) {
+                    let position = leading_english(items);
+                    items.insert(position, plain);
+                }
+            }
         }
-        let Some(mut conversion) = self.convert_sentence(&best.patterns(), typos) else {
-            return;
-        };
+    }
+
+    /// 整段拼音的整句候选：最优切分至少两个音节、且最优路径不止一个词时才有（空格上屏的就是它）。
+    /// 整段本身就是词库里的词时不重复；有音节没转成字的不算句子。
+    /// 词级候选里已有同文本同读音的候选时不出（那条留在词级排序给它的位置），同文本不同读音的从 `items` 里去掉。
+    pub(super) fn plain_sentence(
+        &self,
+        items: &mut Vec<Candidate>,
+        best: &Segmentation,
+        typos: bool,
+    ) -> Option<Candidate> {
+        if best.syllables.len() < 2 {
+            return None;
+        }
+        let mut conversion = self.convert_sentence(&best.patterns(), typos)?;
         // 不按原样读的路径（敲错边 / 模糊音）不许压过「敲的拼音本身就是一个词」：`jineng` 按 `jin eng` 切时
         // 词图里没有 技能，敲错边读出 近藤；`ceshi` 读出 的是。词级候选里有音节正好拼成整段输入的词时退回原样的路径
         if conversion.altered() {
@@ -383,14 +444,11 @@ impl Engine {
                 .iter()
                 .any(|c| c.kind == CandidateKind::Chinese && c.syllables.concat() == letters);
             if spelled_exactly {
-                conversion = match self.convert_sentence(&best.patterns(), false) {
-                    Some(plain) => plain,
-                    None => return,
-                };
+                conversion = self.convert_sentence(&best.patterns(), false)?;
             }
         }
         if conversion.has_placeholder() {
-            return;
+            return None;
         }
         // 整段本来就是一个词时不出整句；但路径靠敲错变体把整段读成的一个词（`meiganxi` → 没关系）是噪声信道的判断，
         // 词级查询按原样查不到它，作为普通词候选插到最前。只读了一部分（末尾没打完的音节没算进去）的不插
@@ -399,31 +457,24 @@ impl Engine {
         } else if conversion.altered() && conversion.syllables.len() == best.syllables.len() {
             CandidateKind::Chinese
         } else {
-            return;
+            return None;
         };
-        let position = items
-            .iter()
-            .take_while(|c| c.kind == CandidateKind::English)
-            .count();
         // 词级候选里已经有同样的文本：读音也相同就是同一个候选，不重复插、词留在词级排序给它的位置
         //（先是 / 有的 这种整句恰好拼成一个词的，词级排序更可信）；读音不同的是按别的读音对上的词
         //（云端学来的错读音用户词 `我的 wo di` 靠敲错变体对上 `wode`），那条不是这个候选，去掉它，整句以正确读音顶上
         if let Some(index) = items.iter().position(|c| c.text == conversion.text) {
             if items[index].syllables == conversion.syllables {
-                return;
+                return None;
             }
             items.remove(index);
         }
-        items.insert(
-            position,
-            Candidate {
-                text: conversion.text,
-                kind,
-                syllables: conversion.syllables,
-                reading: None,
-                translation: None,
-            },
-        );
+        Some(Candidate {
+            text: conversion.text,
+            kind,
+            syllables: conversion.syllables,
+            reading: None,
+            translation: None,
+        })
     }
 
     /// 跑一次整句转换：主词库 + 用户词（含模糊音与敲错写法，命中的按代价扣分），静态语言模型与个人 n-gram 插值，用户选择次数加分。
@@ -433,11 +484,22 @@ impl Engine {
         patterns: &[qingjian_dictionary::SyllablePattern<'_>],
         typos: bool,
     ) -> Option<Conversion> {
+        self.convert_sentence_with(patterns, typos, false)
+    }
+
+    /// 同 [`Self::convert_sentence`]，`whole` 为真时末尾单字母也读（[`sentence::convert_whole`]），只给比分用。
+    pub(super) fn convert_sentence_with(
+        &self,
+        patterns: &[qingjian_dictionary::SyllablePattern<'_>],
+        typos: bool,
+        whole: bool,
+    ) -> Option<Conversion> {
         let dictionaries = self.all_dictionaries();
         let expanded = self.expand_positions(patterns, typos);
-        sentence::convert(
+        sentence::convert_with(
             &dictionaries,
             &expanded.positions(),
+            whole,
             &*self.language_model,
             self.learner.user_ngram(),
             |text| self.learner.weight(text),
@@ -512,4 +574,12 @@ impl Engine {
         }
         hits
     }
+}
+
+/// 排在开头的英文候选有几条（整段是英文词、不像拼音带出的英文补全）：整句插在它们后面。
+fn leading_english(items: &[Candidate]) -> usize {
+    items
+        .iter()
+        .take_while(|c| c.kind == CandidateKind::English)
+        .count()
 }

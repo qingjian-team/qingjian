@@ -25,6 +25,11 @@ description: 日期时间、算式与中文数字、按码点出字符、中英�
 
 - 整段输入是英文词就直接给英文候选。拼音「不像话」时（`hello` 切成 `he l l o`）英文排第一，干净的拼音（`china`）英文排第二。
 - 拼音不像话且至少 3 个字母时还补全前缀：`compa` → company / companies / compared。
+- 一句拼音的末尾接一个英文词，整句直接带上它：`woxiangxuehaorust` → 我想学好rust，`wodeid` → 我的ID，`woyongvim` → 我用vim。
+  拼音行显示 `wo'xiang'xue'hao'rust`，空格上屏整句。英文词得在词表里（自己打过的也算，见 [英文模式](english-mode.md)）。
+  像 `database` 这种恰好也能读成拼音的，看哪种读法更通顺：我的database 排第一、我的大塔巴瑟 第二；
+  `womenqubeijing` 就只是 我们去北京。`fan`、`to` 这类短的当拼音；能纠成通顺拼音的敲错（`shiide` → 是的）不算英文。
+  英文词只认句末，`wozaidebugzhege` 这种夹在中间的还不行。
 - 组句中敲半角标点（`-` `,` `.` `?` 等，翻页键除外）进入英文直输段：`no-way` `hello,` 整段原样显示，之后的字符都原样追加，
   空格 / 回车原样上屏（空格本身也打出），所以中文模式下也能直接打 `hello, world?`。
 

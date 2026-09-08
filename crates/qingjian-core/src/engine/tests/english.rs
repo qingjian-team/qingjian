@@ -274,3 +274,79 @@ fn raw_committed_english_words_are_learned_and_come_back_as_candidates() {
             .any(|c| c.kind == CandidateKind::English && c.text == "wo")
     );
 }
+
+/// 句末的英文词：`kaifarust` → 开发rust 排第一，拼音行是 `kai'fa'rust`，上屏吃掉整段并把 rust 记进个人英文词表。
+#[test]
+fn english_word_at_the_end_of_pinyin_joins_the_sentence() {
+    let words =
+        WordList::parse("rust\trust\t3740\nID\tid\t4610\nto\tto\t7430\nfan\tfan\t4500\n").unwrap();
+    let mut engine = engine().with_english(words);
+
+    engine.set_input("kaifarust");
+    let query = engine.query().unwrap();
+    let first = query.candidates.items[0].clone();
+    assert_eq!(first.text, "开发rust");
+    assert_eq!(first.kind, CandidateKind::Sentence);
+    assert_eq!(first.syllables, ["kai", "fa", "rust"]);
+    assert_eq!(query.tail, "rust");
+    assert_eq!(query.marked_text(), "kai'fa'rust");
+    // 头段的词照常出（逐词上屏也行）
+    assert!(query.candidates.items.iter().any(|c| c.text == "开发"));
+    assert_eq!(engine.commit(&first), "开发rust");
+    assert!(engine.composition().is_empty());
+
+    // 两个字母的尾段只认缩写词：ID 行，to 不行（`kaifato` 按拼音读）
+    engine.set_input("kaifaid");
+    assert_eq!(engine.query().unwrap().candidates.items[0].text, "开发ID");
+    engine.set_input("kaifato");
+    let all: Vec<String> = engine
+        .query()
+        .unwrap()
+        .candidates
+        .items
+        .into_iter()
+        .map(|c| c.text)
+        .collect();
+    assert!(!all.iter().any(|t| t.ends_with("to")), "{all:?}");
+
+    // 尾段本身是合法拼音又不到四个字母（`fan`）：就是拼音，开饭 照旧
+    engine.set_input("kaifan");
+    assert_eq!(engine.query().unwrap().candidates.items[0].text, "开饭");
+}
+
+/// 尾段也是合法拼音时两种读法比分：`wodedatabase` 英文赢（拼音读法是四个散字），拼音读法排第二；
+/// `womenqubeijing` 拼音赢（北京 是常用词），输了的英文读法不出。
+#[test]
+fn pinyin_like_english_tail_competes_with_the_plain_reading() {
+    const DICT: &str = "我\two\t900000\n的\tde\t800000\n我的\two de\t500000\n大\tda\t50000\n塔\tta\t3000\n巴\tba\t3000\n瑟\tse\t500\n\
+        我们\two men\t400000\n去\tqu\t300000\n北京\tbei jing\t200000\n北\tbei\t20000\n京\tjing\t10000\n";
+    let words = WordList::parse("database\tdatabase\t4310\nBeijing\tbeijing\t4500\n").unwrap();
+    let mut engine = Engine::new(Dictionary::parse(DICT).unwrap()).with_english(words);
+
+    engine.set_input("wodedatabase");
+    let query = engine.query().unwrap();
+    assert_eq!(query.candidates.items[0].text, "我的database");
+    // 拼音读法第二（末尾 se 被敲错边读成 的，散字路径本来就随便）
+    assert!(query.candidates.items[1].text.starts_with("我的大塔巴"));
+    assert_eq!(query.candidates.items[1].kind, CandidateKind::Sentence);
+    assert_eq!(query.marked_text(), "wo'de'database");
+
+    engine.set_input("womenqubeijing");
+    let query = engine.query().unwrap();
+    assert_eq!(query.candidates.items[0].text, "我们去北京");
+    assert!(
+        !query
+            .candidates
+            .items
+            .iter()
+            .any(|c| c.text.ends_with("Beijing"))
+    );
+    assert_eq!(query.marked_text(), "wo'men'qu'bei'jing");
+
+    // 上屏英文赢了的整句：吃掉整段，英文词是最后一个词
+    engine.set_input("wodedatabase");
+    let mixed = engine.query().unwrap().candidates.items[0].clone();
+    assert_eq!(mixed.syllables, ["wo", "de", "database"]);
+    assert_eq!(engine.commit(&mixed), "我的database");
+    assert!(engine.composition().is_empty());
+}

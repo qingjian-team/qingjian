@@ -55,10 +55,61 @@ pub fn convert(
     cost: impl Fn(usize, &str) -> f64,
     cache: &mut SpanCache,
 ) -> Option<Conversion> {
+    convert_with(
+        dictionaries,
+        positions,
+        false,
+        model,
+        personal,
+        weight,
+        cost,
+        cache,
+    )
+}
+
+/// 同 [`convert`]，但全拼句子末尾的单字母也当一个音节读（`huo z…` → 或者）：
+/// 给「整段拼音读法」与别的读法比分用，比分要两边覆盖同样多的字母。
+pub fn convert_whole(
+    dictionaries: &[&Dictionary],
+    positions: &[Vec<SyllablePattern<'_>>],
+    model: &dyn LanguageModel,
+    personal: Option<&UserNgram>,
+    weight: impl Fn(&str) -> u32,
+    cost: impl Fn(usize, &str) -> f64,
+    cache: &mut SpanCache,
+) -> Option<Conversion> {
+    convert_with(
+        dictionaries,
+        positions,
+        true,
+        model,
+        personal,
+        weight,
+        cost,
+        cache,
+    )
+}
+
+/// [`convert`] 与 [`convert_whole`] 的共同实现，`keep_partial` 选哪种。
+#[allow(clippy::too_many_arguments)]
+pub fn convert_with(
+    dictionaries: &[&Dictionary],
+    positions: &[Vec<SyllablePattern<'_>>],
+    keep_partial: bool,
+    model: &dyn LanguageModel,
+    personal: Option<&UserNgram>,
+    weight: impl Fn(&str) -> u32,
+    cost: impl Fn(usize, &str) -> f64,
+    cache: &mut SpanCache,
+) -> Option<Conversion> {
     let (last, head) = positions.split_last()?;
     let last = *last.first()?;
     let abbreviated_head = head.iter().any(|p| p.first().is_none_or(|t| !t.complete));
-    let positions = if last.complete || abbreviated_head || last.text.len() >= MIN_PARTIAL_LETTERS {
+    let positions = if keep_partial
+        || last.complete
+        || abbreviated_head
+        || last.text.len() >= MIN_PARTIAL_LETTERS
+    {
         positions
     } else {
         head
