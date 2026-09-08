@@ -89,9 +89,18 @@ pub struct Args {
     #[arg(long)]
     pub replay: Option<PathBuf>,
 
-    /// 回放时打印前 N 条没命中首选的例子（作用域、当时选的、现在的前三）
+    /// 回放 / 整句评测时打印前 N 条没命中首选的例子
     #[arg(long, default_value_t = 20)]
     pub misses: usize,
+
+    /// 整句评测：读中文文本（一行一段，按标点切句、按词库转成全拼）或 `--eval-save` 冻结下来的三列文件，
+    /// 冷启动喂给引擎看整句能不能还原原句；可给多个文件
+    #[arg(long, num_args = 1..)]
+    pub eval_text: Vec<PathBuf>,
+
+    /// 把整句评测用到的句子集写成 `句子\t拼音\t上文` 三列文件，下次直接 `--eval-text` 它，保证比的是同一份句子
+    #[arg(long)]
+    pub eval_save: Option<PathBuf>,
 
     /// 直接查询这些拼音后退出；不给则进入交互模式
     pub inputs: Vec<String>,

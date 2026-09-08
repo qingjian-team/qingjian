@@ -47,7 +47,7 @@ qingjian/
 │   └── qingjian-platform/      # 平台层共用的部分：配置文件、协议类型
 │
 ├── apps/
-│   ├── cli/                    # 测试工具：查询、逐键计时、输入日志回放评测
+│   ├── cli/                    # 测试工具：查询、逐键计时、输入日志回放评测、整句评测
 │   ├── macos/                  # IMK 输入法壳（app / host / imk / candidates / menubar / preferences）
 │   ├── windows/                # 规划
 │   └── linux/                  # 规划

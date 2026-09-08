@@ -6,6 +6,7 @@
 mod args;
 mod display;
 mod error;
+mod eval;
 mod logging;
 mod repl;
 mod replay;
@@ -42,6 +43,16 @@ fn run() -> Result<(), CliError> {
     engine.set_english_mode(args.english_mode);
     if let Some(path) = &args.replay {
         let report = replay::run(&mut engine, path, args.misses)?;
+        print!("{report}");
+        return Ok(());
+    }
+    if !args.eval_text.is_empty() {
+        let report = eval::run(
+            &mut engine,
+            &args.eval_text,
+            args.eval_save.as_deref(),
+            args.misses,
+        )?;
         print!("{report}");
         return Ok(());
     }

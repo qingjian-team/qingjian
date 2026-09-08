@@ -290,6 +290,21 @@ impl Dictionary {
         self.total_frequency
     }
 
+    /// 全部词目，按拼音键的字节序、同一个键下按词频降序。给反查（汉字 → 读音）建索引用。
+    pub fn entries(&self) -> impl Iterator<Item = Match<'_>> + '_ {
+        self.index.iter().flat_map(move |entry| {
+            let key = self.key(entry);
+            let range =
+                entry.first_slot as usize..entry.first_slot as usize + entry.slot_count as usize;
+            self.slots[range].iter().map(move |slot| Match {
+                text: self.text(slot),
+                pinyin: key,
+                frequency: slot.frequency,
+                exact: true,
+            })
+        })
+    }
+
     /// 只查音节数与模式长度**恰好相等**的词：整句转换的词图每个格子只要正好覆盖这几个音节的词，
     /// 输入前缀出候选也只要这种。与 [`Self::lookup_pattern`] 同一套收窄，只是最后一级不收更长的词、
     /// 简拼位置只看每个音节块的第一条键，代价与匹配到的音节组合数成正比。

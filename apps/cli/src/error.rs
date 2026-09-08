@@ -34,4 +34,7 @@ pub enum CliError {
 
     #[error(transparent)]
     Replay(#[from] crate::replay::ReplayError),
+
+    #[error(transparent)]
+    Eval(#[from] crate::eval::EvalError),
 }

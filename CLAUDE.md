@@ -38,7 +38,10 @@ macOS 输入法已自用（HEAD 见 git），正在给测试者打包（pkg 已�
 - `apps/cli`：测试工具，`cargo run -p qingjian-cli -- kaifa`；`--predict` 强制开云联想并等结果打印，交互模式下上屏后也联想；
   `--typing` 逐键计时（性能测试用 release 构建跑，目标每键 10 ms 以内）；`--replay <input-log.jsonl>` 回放评测：把日志里每次上屏的键重新喂给引擎，
   按来源算首选 / 前五命中率、平均名次、不在候选的条数，打印没命中的例子（`--misses N`）；只在内存里学习不写文件，加 `--user-dict` 可带上现有学习数据。
-  排序、整句、纠错的改动先跑它再合。
+  `--eval-text <文本>...` 整句评测：把用户自己写的中文文本按标点切句、按词库读音转成全拼，冷启动喂给引擎看整句能不能还原原句
+  （首选命中率 / 字准确率 / 查询耗时；不依赖日志里当时选了什么，给整句排序与语言模型的改动当尺子），`--eval-save` 冻结成
+  `句子\t拼音\t上文` 三列文件，之后直接 `--eval-text` 它保证比的是同一份句子（本机的在 `data/eval/sentences.tsv`）。
+  排序、整句、纠错的改动先跑它们再合。
 - `apps/macos`：IMK 输入法，已接 Core，自绘候选窗口；源码按 `app / host / imk / candidates / menubar / preferences` 分目录。
   输入法菜单（状态项 + 系统输入源菜单）与偏好设置窗口都是配置文件的前端：只写 `config.toml`，`Host::apply_config` 一条通路热加载，
   激活期间每秒看一次文件 mtime。`apps/macos/scripts/bundle.sh --install` 打包安装到 `~/Library/Input Methods/`（开发用），`--pkg` 做分发用的 pkg（装 `/Library/Input Methods/`，postinstall 跑 `qingjian-macos --register` 注册、启用并切成当前输入源；签名 / 公证靠 `QINGJIAN_SIGN_IDENTITY` / `QINGJIAN_INSTALLER_IDENTITY` / `QINGJIAN_NOTARY_PROFILE`，没设就 ad-hoc；`QINGJIAN_TARGET` 指定架构，成品 `target/pkg/Qingjian-<版本>-<arm64|x86_64>.pkg`）；`scripts/uninstall.sh` 卸载，

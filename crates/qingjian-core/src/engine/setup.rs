@@ -81,6 +81,11 @@ impl Engine {
         self
     }
 
+    /// 静态语言模型（没接就是 [`NoLanguageModel`]）：评测工具拿它按 [`crate::sentence::segment_text`] 切汉字文本。
+    pub fn language_model(&self) -> &dyn LanguageModel {
+        &*self.language_model
+    }
+
     pub fn history(&self) -> &InputHistory {
         &self.history
     }

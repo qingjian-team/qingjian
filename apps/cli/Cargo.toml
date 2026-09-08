@@ -1,6 +1,6 @@
 [package]
 name = "qingjian-cli"
-description = "命令行测试工具：看候选、逐键计时、回放输入日志评测"
+description = "命令行测试工具：看候选、逐键计时、回放输入日志评测、整句评测"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
