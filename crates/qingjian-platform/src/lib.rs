@@ -5,6 +5,7 @@
 
 mod config;
 mod error;
+pub mod protocol;
 
 pub use config::{
     AppsConfig, Config, DEFAULT_DOMAINS, DEFAULT_ENGLISH_CANDIDATES_OFF, DEFAULT_PAGE_KEYS,

@@ -49,7 +49,7 @@ qingjian/
 ├── apps/
 │   ├── cli/                    # 测试工具：查询、逐键计时、输入日志回放评测、整句评测
 │   ├── macos/                  # IMK 输入法壳（app / host / imk / candidates / menubar / preferences）
-│   ├── windows/                # 规划
+│   ├── windows/                # Server 进程骨架（IPC 分派）+ 协议类型；TSF DLL 待接
 │   └── linux/                  # 规划
 │
 ├── tools/
@@ -378,6 +378,20 @@ CC-CEDICT 表（`dict-convert cedict`）保留为备用来源，覆盖面广但�
   采用 Weasel（WeaselServer）和水杉（Server 进程）相同的结构：DLL 只做 IPC，Rust Core 跑在独立进程里。
 - 使用 `windows` crate 的 COM `implement` 宏。
 - TSF 是公认最难的输入法 API，工时预期要按整个项目一半来估。
+
+**已落地（骨架）：**
+
+- **IPC 协议**：`qingjian-platform::protocol`，Server ↔ DLL 两端共用、全部 serde。`ClientMessage`（DLL → Server：
+  开 / 关会话、按键、上屏、回上下文）与 `ServerMessage`（Server → DLL：按键结果、异步重绘、请求上下文）；
+  一次要绘制的状态是 `Frame`（preedit 分段 + 候选页），preedit 用 `PreeditSegment`（Core `MarkedSegment` 的可序列化镜像，
+  协议不耦合 Core 内部枚举），候选直接嵌 `qingjian_core::CandidateList`。同词干类型收进子目录：`key/{event,outcome}`、`frame/preedit/{kind,segment}`。
+- **Server 进程**：`apps/windows`（bin `qingjian-server`）。`dispatch::Router` 按 `SessionId` 分派多会话（Windows 一个 Server 服务多个应用进程，
+  每会话各持组句状态，不同于 macOS 的进程级单例）。目前会话开 / 关成形，按键与上屏、命名管道传输、Engine 装配、TSF DLL 待接。
+- **交叉编译验证**：`qingjian-core` / `-dictionary` / `-format` / `-lm` / `-platform` / `apps/windows` 已能
+  `cargo check --target x86_64-pc-windows-gnu` 通过（借此修掉 `qingjian-format` 里 unix 专有的 `Mmap::advise` 未 `cfg` 的移植 bug）；
+  本机只 `check`，真正编译在 Windows 机器上做（`qingjian-neural` 的 candle 后端在 Windows 走 CPU 或 CUDA，随 `neural` 分支并回后再验）。
+- **版本与发布**：各平台壳版本号独立（见 `docs/notes/release.md`）；`apps/windows/Cargo.toml` 写死自己的 `version`，
+  将来的发布标签用 `windows-v<版本>`，与 macOS 的 `macos-v<版本>` 互不影响。
 
 ### Linux：IBus / Fcitx
 

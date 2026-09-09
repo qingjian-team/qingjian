@@ -34,7 +34,7 @@ macOS 输入法已自用（HEAD 见 git），正在给测试者打包（pkg 已�
   （没有这两个文件就退化为一元词频整句）。数据由 `tools/corpus/parquet_to_text.py`（uv 脚本，HF parquet → 简体纯文本）加
   `cargo run --release -p qingjian-dict-convert -- bigram data/corpus/*.txt` 生成；语料在 `data/corpus/`（gitignore）。
 - `crates/qingjian-platform`：`Config`（TOML 配置文件，`[general]` / `[shortcut]` / `[fuzzy]` / `[dictionaries]` / `[apps]` / `[predict]` 分节，首次运行写模板，
-  `set_value` 用 toml_edit 原地改键保留注释）；协议类型待 Windows 时填充。
+  `set_value` 用 toml_edit 原地改键保留注释）；`protocol` 模块是 Windows Server ↔ TSF DLL 的 IPC 协议类型（`ClientMessage` / `ServerMessage` / `Frame` / `PreeditSegment`，全 serde，两端共用，见 `docs/design/architecture.md`「Windows：TSF」）。
 - `apps/cli`：测试工具，`cargo run -p qingjian-cli -- kaifa`；`--predict` 强制开云联想并等结果打印，交互模式下上屏后也联想；
   `--typing` 逐键计时（性能测试用 release 构建跑，目标每键 10 ms 以内）；`--replay <input-log.jsonl>` 回放评测：把日志里每次上屏的键重新喂给引擎，
   按来源算首选 / 前五命中率、平均名次、不在候选的条数，打印没命中的例子（`--misses N`）；只在内存里学习不写文件，加 `--user-dict` 可带上现有学习数据。
@@ -130,8 +130,14 @@ Phase 2 macOS IMK → Phase 3 翻译 → Phase 4 学习 → Phase 5 Windows/Linu
   跨文件用到的私有方法 / 函数标 `pub(super)`，兄弟模块里的自由函数要显式 `use super::sibling::f`。
   一个职责连带它专用的类型收进一个目录：`engine/commit/mod.rs` 放 `impl Engine` 的上屏部分，`chain.rs` / `last.rs` / `transition.rs` 放只有它用的类型
   （`engine/query/`、`engine/learning/`、`engine/prediction/` 同理）。
-- 同一词干的兄弟文件（`foo.rs` + `foo_bar.rs`，也包括 `committing.rs` + `commit_chain.rs`、`query/` + `querying.rs` 这种）合成一个子模块目录
-  `foo/mod.rs` + `foo/bar.rs`，不用文件名前缀分组。
+- 同一词干的兄弟文件合成一个子模块目录，**绝不用文件名前缀分组**。这条对**共享前缀的一组文件**同样成立，不只是 `foo.rs` + `foo_bar.rs`：
+  - `foo.rs` + `foo_bar.rs` → `foo/mod.rs` + `foo/bar.rs`；
+  - `key_event.rs` + `key_outcome.rs` → `key/mod.rs` + `key/{event,outcome}.rs`（哪怕没有 `key.rs` 这个共同父文件）；
+  - `preedit_kind.rs` + `preedit_segment.rs` → `preedit/mod.rs` + `preedit/{kind,segment}.rs`；
+  - 也包括 `committing.rs` + `commit_chain.rs`、`query/` + `querying.rs` 这种。
+  判断：两个及以上文件名共享一段前缀且同属一个概念，就该收进以那段前缀命名的目录，前缀落到目录名上、后半段做文件名。
 - 结构体 / 枚举字段逐条 `///` 注释，字段之间空一行。
 - 依赖：`cargo add`，共用包提到根 `[workspace.dependencies]`；错误用 `thiserror` 不用 `anyhow`；日志用 `tracing` 门面。
+- 版本号：`crates/*` 是内部库，用 `version.workspace = true` 跟 workspace 一起走；**`apps/*` 每个壳是各自独立发布的产品，写死自己的 `version`，不跟 workspace 同步**（macOS 修的 bug 不该让 Windows 涨版本号）。
+  例：mac 到 `0.1.1`、win 还在 `0.1.0`。发版标签按平台加前缀（`macos-v<版本>` / `windows-v<版本>`），CI 各读各的 app 包版本比对；`bundle.sh` 与 `release.yml` 都读 `apps/<平台>/Cargo.toml`。
 - 交流用中文。

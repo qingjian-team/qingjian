@@ -33,6 +33,8 @@ impl Container {
         let file = File::open(path)?;
         // SAFETY: 数据文件只整体替换（写临时文件再改名），从不就地修改；映射期间内容不变。
         let map = unsafe { Mmap::map(&file)? };
+        // `advise` 是 unix 专有（memmap2 里 `Advice` gated 在 cfg(unix)）：Windows 上跳过，只少一个预读提示。
+        #[cfg(unix)]
         let _ = map.advise(memmap2::Advice::WillNeed);
         Self::from_map(Arc::new(map), expected)
     }

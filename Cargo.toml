@@ -9,7 +9,7 @@ members = [
     "crates/qingjian-predict",
     "crates/qingjian-lm",
     "crates/qingjian-format",
-    "apps/cli", "apps/macos", "tools/dict-convert", "tools/gloss-gen",
+    "apps/cli", "apps/macos", "apps/windows", "tools/dict-convert", "tools/gloss-gen",
 ]
 
 [workspace.package]
