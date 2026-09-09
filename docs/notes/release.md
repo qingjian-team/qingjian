@@ -5,11 +5,13 @@
 
 ## 一次发版做什么
 
-1. 改 `Cargo.toml` 的 workspace `version`（`apps/macos` 的 Info.plist 版本号从这里取，pkg 文件名也是）。
+1. 改 `apps/macos/Cargo.toml` 的 `version`（`apps/macos` 的 Info.plist 版本号从这里取，pkg 文件名也是）。
+   **各平台壳版本号独立**：macOS 的版本只在 `apps/macos/Cargo.toml`，跟 workspace 与其他壳无关（例：mac 到 `0.1.1`、win 还在 `0.1.0`）。
 2. `CHANGELOG.md` 顶上加一节 `## <版本> · <日期> · <渠道>`（渠道是 `alpha` / `beta` / `rc` / `stable`），一行一条、面向用户的措辞。
    **更新日志手写，不由提交自动生成**：提交信息里有大量内部改动（拆模块、修 RefCell 重入），用户看不懂也不关心；
    做法是发版前按上个标签以来的 `git log` 起草几条，人审一遍再定稿。
-3. 提交，打注释标签并推：`git tag -a v0.1.1 -m "青简 0.1.1" && git push origin main v0.1.1`。
+3. 提交，打**带平台前缀**的注释标签并推：`git tag -a macos-v0.1.1 -m "青简 macOS 0.1.1" && git push origin main macos-v0.1.1`
+   （标签按平台加前缀 `macos-v*` / 将来 `windows-v*`，因为各平台版本号独立、光靠 `v<版本>` 会撞车；旧的 `v*` 标签仍能被官网识别，向后兼容）。
 4. `release.yml` 跑完后 GitHub Release 上有 `Qingjian-<版本>-arm64.pkg`、`Qingjian-<版本>-x86_64.pkg`、`SHA256SUMS`、`build-info.json`（提交、构建时间、工具链）、`releases.json`。
 5. 官网由 Cloudflare Workers Builds 按官网仓库的提交自动构建，没有可调用的构建钩子，所以主仓库靠**往官网仓库推一个小提交**来触发：
    `tools/release/bump-website.sh` 把版本标签与文档提交号写进官网的 `src/content/upstream.json` 并提交推送（提交者 qingjian-ci）。
@@ -18,7 +20,7 @@
    官网构建时才拉最新 Release 的 `releases.json` 与主仓库 `docs/user`，所以提交内容本身不重要，`upstream.json` 只是留个记录、
    顺便让文档按记下的提交号拉（版本对得上）。
 
-workflow 会核对 Cargo.toml 版本号与标签一致，不一致直接失败，避免打出版本号错的包。
+workflow 会核对 `apps/macos/Cargo.toml` 版本号与标签（去掉 `macos-v` 前缀后）一致，不一致直接失败，避免打出版本号错的包。
 
 Rust 工具链由 `rust-toolchain.toml` 钉版本（现在 1.96.0），两个 workflow 里 `dtolnay/rust-toolchain@master` 的 `toolchain:` 输入写同一个号；升级 Rust 时三处一起改。
 
@@ -32,7 +34,7 @@ Rust 工具链由 `rust-toolchain.toml` 钉版本（现在 1.96.0），两个 wo
 | 文件 | 触发 | 做什么 |
 |---|---|---|
 | `.github/workflows/ci.yml` | push main、PR | Linux 上 `cargo fmt --check` / clippy / test，排除 `qingjian-macos`（IMK 外壳只能在 macOS 编译，macOS runner 计费是 Linux 的 10 倍） |
-| `.github/workflows/release.yml` | 推 `v*` 标签 | `macos-26`（Apple Silicon）runner，与本机同代系统：下载产品数据 → 可选签名公证 → `bundle.sh --pkg` 打 arm64 与交叉编译的 x86_64 → 建 Release → 生成并上传 `releases.json` |
+| `.github/workflows/release.yml` | 推 `macos-v*` 标签 | `macos-26`（Apple Silicon）runner，与本机同代系统：下载产品数据 → 可选签名公证 → `bundle.sh --pkg` 打 arm64 与交叉编译的 x86_64 → 建 Release → 生成并上传 `releases.json` |
 
 ## 产品数据从哪来
 

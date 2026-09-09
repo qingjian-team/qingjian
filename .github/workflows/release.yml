@@ -1,4 +1,4 @@
-# 推 v<版本> 标签触发，流程见 docs/notes/release.md。签名与公证可选，下面的 Secrets 配齐才签，否则出 ad-hoc 包：
+# 推 macos-v<版本> 标签触发（各平台壳版本号独立，版本读 apps/macos/Cargo.toml），流程见 docs/notes/release.md。签名与公证可选，下面的 Secrets 配齐才签，否则出 ad-hoc 包：
 #   QINGJIAN_CERT_P12            Developer ID Application + Installer 两张证书（含私钥）导出的 .p12，base64
 #   QINGJIAN_CERT_PASSWORD       .p12 的密码
 #   QINGJIAN_SIGN_IDENTITY       "Developer ID Application: 名字 (TEAMID)"
@@ -13,7 +13,7 @@ name: release
 
 on:
   push:
-    tags: ['v*']
+    tags: ['macos-v*']
 
 permissions:
   contents: write
@@ -42,10 +42,10 @@ jobs:
 
       - name: Check version matches tag
         run: |
-          VERSION="$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)"
-          TAG="${GITHUB_REF_NAME#v}"
+          VERSION="$(sed -n 's/^version = "\(.*\)"/\1/p' apps/macos/Cargo.toml | head -1)"
+          TAG="${GITHUB_REF_NAME#macos-v}"
           if [[ "$VERSION" != "$TAG" ]]; then
-            echo "Cargo.toml 是 $VERSION，标签是 $GITHUB_REF_NAME，先改版本号再打标签" >&2
+            echo "apps/macos/Cargo.toml 是 $VERSION，标签是 $GITHUB_REF_NAME，先改版本号再打标签" >&2
             exit 1
           fi
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"

@@ -11,7 +11,7 @@ CHANGELOG.md 的格式（一个版本一节，日期与发布渠道写在标题�
   - 候选旁有词性和译词……
 
 渠道只能是 alpha / beta / rc / stable。api-json 是 `gh api repos/<repo>/releases --paginate` 的输出（数组）。
-只取 tag 形如 v<版本> 的非草稿发布，安装包按文件名识别平台与架构，其他附件（SHA256SUMS、build-info.json、releases.json 本身）不列。
+只取 tag 形如 [平台-]v<版本> 的非草稿发布（平台前缀可选：macos- / windows- / linux-，各平台壳版本号独立），安装包按文件名识别平台与架构，其他附件（SHA256SUMS、build-info.json、releases.json 本身）不列。
 meta-dir 下每个 tag 一个目录，放那次发布的 SHA256SUMS（每个包的 sha256）与 build-info.json（提交哈希、构建时间、工具链），
 没有就对应字段留空。输出结构与官网 src/lib/releases.ts 的 Release / Asset 类型对应：
 
@@ -42,7 +42,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 HEADING = re.compile(r"^##\s+(?P<version>\d+\.\d+\.\d+(?:-[0-9A-Za-z.]+)?)\s*·\s*(?P<date>\d{4}-\d{2}-\d{2})\s*·\s*(?P<channel>\S+)\s*$")
-TAG = re.compile(r"^v(\d+\.\d+\.\d+(?:-[0-9A-Za-z.]+)?)$")
+TAG = re.compile(r"^(?:(?:macos|windows|linux)-)?v(\d+\.\d+\.\d+(?:-[0-9A-Za-z.]+)?)$")
 CHANNELS = ("alpha", "beta", "rc", "stable")
 
 # 安装包文件名 → 平台与架构说明；不匹配的附件不进列表
