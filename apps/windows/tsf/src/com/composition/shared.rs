@@ -3,11 +3,11 @@ use std::rc::Rc;
 
 use windows::Win32::UI::TextServices::{ITfComposition, ITfContext};
 
-use qingjian_platform::protocol::Frame;
-
-use crate::com::candidates::CandidateWindow;
+use crate::com::service::SharedClient;
 
 /// `TextService`、编辑会话、组句 sink、轮询定时器之间共享的组句状态。STA 单线程，用 `Rc` 传递。
+///
+/// 候选窗口在 Server 进程自绘，DLL 这边只管 preedit 内联与光标上报，所以这里不再持有窗口 / 候选帧。
 pub(crate) struct Shared {
     /// 当前活动的组句，跨按键存活。
     composition: RefCell<Option<ITfComposition>>,
@@ -21,11 +21,9 @@ pub(crate) struct Shared {
     /// 组句被应用强行终止过：拼音已被框架定成普通文本，但 Server 的缓冲还在，下次和 Server 说话前先让它清空。
     server_stale: Cell<bool>,
 
-    /// 候选窗口；建失败时为 `None`，降级为无候选 UI。
-    window: RefCell<Option<CandidateWindow>>,
-
-    /// 上次灌进候选窗口的一帧，轮询据它判断有没有变化。
-    last_frame: RefCell<Option<Frame>>,
+    /// 引擎层客户端（与 `TextService` 共用同一个 `Rc`）。组句在 DLL 侧结束时（应用终止组句等）用它发
+    /// `HideCandidates` 让 Server 收起候选窗口——候选窗口在 Server 进程自绘，Server 无从知晓 DLL 侧的组句结束。
+    client: RefCell<Option<SharedClient>>,
 }
 
 impl Shared {
@@ -35,9 +33,23 @@ impl Shared {
             composing: Cell::new(false),
             last_context: RefCell::new(None),
             server_stale: Cell::new(false),
-            window: RefCell::new(None),
-            last_frame: RefCell::new(None),
+            client: RefCell::new(None),
         })
+    }
+
+    /// 装引擎层客户端（激活时调）。传的是 `TextService::engine` 的克隆，同一个连接。
+    pub(crate) fn set_client(&self, client: SharedClient) {
+        *self.client.borrow_mut() = Some(client);
+    }
+
+    /// 通知 Server 收起候选窗口。引擎正被别处借着（如收键中出错）或没连上时静默跳过。
+    fn hide_server_candidates(&self) {
+        if let Some(client) = self.client.borrow().as_ref()
+            && let Ok(mut guard) = client.try_borrow_mut()
+            && let Some(client) = guard.as_mut()
+        {
+            let _ = client.hide_candidates();
+        }
     }
 
     pub(crate) fn last_context(&self) -> Option<ITfContext> {
@@ -79,42 +91,14 @@ impl Shared {
         self.composition.borrow_mut().take()
     }
 
-    /// 装 / 卸候选窗口。传 `None` 会析构原窗口。
-    pub(crate) fn set_window(&self, window: Option<CandidateWindow>) {
-        *self.window.borrow_mut() = window;
-    }
-
-    /// 对候选窗口做点什么（没有窗口时跳过）。
-    pub(super) fn with_window(&self, f: impl FnOnce(&CandidateWindow)) {
-        if let Some(window) = self.window.borrow().as_ref() {
-            f(window);
-        }
-    }
-
-    /// 用一帧刷新候选窗口内容。不定位、不显示：那要光标位置，在编辑会话里做。
-    pub(crate) fn update_candidates(&self, frame: &Frame) {
-        self.with_window(|window| window.set_content(frame));
-        *self.last_frame.borrow_mut() = Some(frame.clone());
-    }
-
-    /// 轮询到一帧：和上次比，变了才灌进候选窗口并按上次光标位置原地重绘。
-    pub(crate) fn apply_poll(&self, frame: &Frame) {
-        if self.last_frame.borrow().as_ref() == Some(frame) {
-            return;
-        }
-        self.update_candidates(frame);
-        self.with_window(CandidateWindow::refresh);
-    }
-
-    /// Server 侧组句已结束（断线 / 失焦上屏）：不再当作在组句（否则功能键会一直被吃）、收起候选窗口。
-    /// 组句句柄留着，由下一次编辑会话收掉。
+    /// 组句结束（应用终止组句 / 断线 / 失焦上屏）：不再当作在组句（否则功能键会一直被吃），
+    /// 并通知 Server 收起候选窗口——应用终止组句这条路径 Server 无从知晓，不发它候选窗会一直挂着。
     pub(crate) fn end_composing(&self) {
         self.composing.set(false);
-        *self.last_frame.borrow_mut() = None;
-        self.with_window(CandidateWindow::hide);
+        self.hide_server_candidates();
     }
 
-    /// 清掉一切本地组句状态（停用 / 组句被应用强行终止时）：丢组句句柄与上下文、收起候选窗口。不碰文档。
+    /// 清掉一切本地组句状态（停用 / 组句被应用强行终止时）：丢组句句柄与上下文。不碰文档。
     pub(crate) fn reset(&self) {
         self.set_composition(None);
         self.set_last_context(None);

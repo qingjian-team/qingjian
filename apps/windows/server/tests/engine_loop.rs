@@ -122,16 +122,6 @@ fn digit_with(n: u32, modifiers: KeyModifiers) -> KeyEvent {
     KeyEvent::new(0x30 + n, Some(c), modifiers)
 }
 
-/// 按着 Alt。
-const ALT: KeyModifiers = KeyModifiers {
-    ctrl: false,
-    shift: false,
-    alt: true,
-    win: false,
-    caps: false,
-    english_mode: false,
-};
-
 /// 按着 Shift。
 const SHIFT: KeyModifiers = KeyModifiers {
     shift: true,
@@ -151,6 +141,30 @@ const ALT_OFF: KeyModifiers = KeyModifiers {
     win: false,
     caps: false,
     english_mode: false,
+};
+
+/// 按着 Win（⌘）——两个平台的缺省快捷键都没用它，拿来测「没配到的修饰键归应用」。
+const WIN: KeyModifiers = KeyModifiers {
+    win: true,
+    ..ALT_OFF
+};
+
+/// 平台缺省的译词键：macOS 是 ⌥（Alt），Windows 是 Ctrl（Alt 被系统菜单截走，见 `config/shortcut.rs`）。
+#[cfg(not(windows))]
+const TRANSLATE: KeyModifiers = KeyModifiers {
+    alt: true,
+    ..ALT_OFF
+};
+#[cfg(windows)]
+const TRANSLATE: KeyModifiers = KeyModifiers {
+    ctrl: true,
+    ..ALT_OFF
+};
+
+/// 平台缺省的第二个译词键（Shift + 译词键）。
+const TRANSLATE_SECOND: KeyModifiers = KeyModifiers {
+    shift: true,
+    ..TRANSLATE
 };
 
 /// 当前页里 `text` 排第几（1 起）。
@@ -544,8 +558,8 @@ fn alt_digit_commits_first_translation() {
     let mut router = router();
     let (_, _, frame) = type_letters(&mut router, "nihao");
     let slot = slot_of(&frame, "你好");
-    // 缺省 Alt + 数字：上屏那个候选的第一个译词，组句结束。
-    let (outcome, commit, after) = press(&mut router, digit_with(slot, ALT));
+    // 缺省译词键（mac ⌥ / Windows Ctrl）+ 数字：上屏那个候选的第一个译词，组句结束。
+    let (outcome, commit, after) = press(&mut router, digit_with(slot, TRANSLATE));
     assert_eq!(
         (outcome, commit.as_deref()),
         (KeyOutcome::Consumed, Some("hello"))
@@ -558,9 +572,8 @@ fn second_translation_key_without_second_sense_is_swallowed() {
     let mut router = router();
     let (_, _, frame) = type_letters(&mut router, "nihao");
     let slot = slot_of(&frame, "你好");
-    // 样例释义表里「你好」只有一条译文：Shift+Alt + 数字吞掉不动，组句还在。
-    let shift_alt = KeyModifiers { shift: true, ..ALT };
-    let (outcome, commit, after) = press(&mut router, digit_with(slot, shift_alt));
+    // 样例释义表里「你好」只有一条译文：第二个译词键（Shift+译词键）+ 数字吞掉不动，组句还在。
+    let (outcome, commit, after) = press(&mut router, digit_with(slot, TRANSLATE_SECOND));
     assert_eq!((outcome, commit), (KeyOutcome::Consumed, None));
     assert_eq!(preedit(&after), "ni'hao");
 }
@@ -579,7 +592,8 @@ fn shift_digit_forgets_candidate_and_requeries() {
 
 #[test]
 fn unconfigured_modifier_digit_is_not_a_selection() {
-    // 删候选改成 Ctrl+Shift：Shift+4 就是普通的 `$`，进直输段而不是选第 4 个候选；Ctrl+1 没配到快捷键，归应用。
+    // 删候选改成 Ctrl+Shift：Shift+4 就是普通的 `$`，进直输段而不是选第 4 个候选；Win+1 没配到快捷键，归应用
+    //（用 Win 而非 Ctrl：Windows 上缺省译词键就是 Ctrl，拿它测「没配到」会误撞成译词）。
     let mut router = router_with(RouterConfig {
         delete_keys: KeyModifiers {
             shift: true,
@@ -591,7 +605,7 @@ fn unconfigured_modifier_digit_is_not_a_selection() {
     let (outcome, commit, frame) = press(&mut router, digit_with(4, SHIFT));
     assert_eq!((outcome, commit), (KeyOutcome::Consumed, None));
     assert!(preedit(&frame).contains('$'), "{}", preedit(&frame));
-    let (outcome, commit, _) = press(&mut router, digit_with(1, CTRL));
+    let (outcome, commit, _) = press(&mut router, digit_with(1, WIN));
     assert_eq!((outcome, commit), (KeyOutcome::Passthrough, None));
 }
 

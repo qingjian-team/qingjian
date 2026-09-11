@@ -1,9 +1,11 @@
 //! 协议分派：把 DLL 发来的 [`ClientMessage`] 交给 Engine，产出回给 DLL 的 [`ServerMessage`]。
 
+mod candidates;
 mod composed;
 mod config;
 mod input;
 mod keys;
+mod reload;
 mod session;
 mod shortcut;
 
@@ -12,10 +14,11 @@ use std::time::{Duration, Instant};
 
 use qingjian_core::{Candidate, CandidateLayout, CandidateList, CloudWord, Engine};
 use qingjian_platform::protocol::{
-    ClientMessage, Frame, KeyEvent, KeyOutcome, PreeditKind, PreeditSegment, ServerMessage,
-    SessionId,
+    ClientMessage, Frame, KeyEvent, KeyOutcome, PreeditKind, PreeditSegment, ScreenRect,
+    ServerMessage, SessionId,
 };
 
+pub use self::candidates::{CandidateSink, NoopSink};
 use self::composed::Composed;
 pub use self::config::RouterConfig;
 use self::session::SessionInfo;
@@ -64,6 +67,20 @@ pub struct Router {
 
     /// 上次把学习数据落盘的时间。
     last_flush: Instant,
+
+    /// 配置热加载：监视 `config.toml` 的 mtime，改动就重新应用；`None` 表示不热加载（如非 Windows 装配测试）。
+    reload: Option<reload::ConfigReload>,
+
+    /// 候选窗口的输出端（Server 进程自绘）。缺省空实现，Windows 上由 [`crate::ui`] 注入。
+    candidates: Box<dyn CandidateSink>,
+
+    /// 当前聚焦会话最近报来的光标屏幕矩形（[`ClientMessage::PositionCandidates`]）：
+    /// 云联想异步到达等没有新按键时，按它原地重摆候选窗口。切走会话 / 组句结束时清。
+    last_rect: Option<ScreenRect>,
+
+    /// 上次真正让候选窗口显示的帧与位置：组字期间每 80ms 一次 Poll，多数没变化，
+    /// 帧和位置都没变就不重画（省一次分层窗口合成）。收窗口时清。
+    last_shown: Option<(Frame, ScreenRect)>,
 }
 
 impl Router {
@@ -81,7 +98,16 @@ impl Router {
             highlight: 0,
             navigated: false,
             last_flush: Instant::now(),
+            reload: None,
+            candidates: Box::new(NoopSink),
+            last_rect: None,
+            last_shown: None,
         }
+    }
+
+    /// 装候选窗口输出端（Windows 上由 [`crate::ui::CandidateUi`] 注入；不装就是空实现，不画窗口）。
+    pub fn set_candidate_sink(&mut self, sink: Box<dyn CandidateSink>) {
+        self.candidates = sink;
     }
 
     /// 处理一条消息；`None` 表示不用回话。到点就把学习数据落盘。
@@ -104,6 +130,11 @@ impl Router {
             ClientMessage::OpenSession { session, app } => {
                 // 用户要往 [apps] 里加应用时，从这条日志抄 exe 名。
                 tracing::debug!(?session, app, "会话打开");
+                // 同一会话重开（DLL 断线重连）：清掉可能残留的组句与候选窗口，从干净状态起。
+                if self.focused == Some(session) {
+                    self.reset_composition();
+                    self.focused = None;
+                }
                 self.sessions.insert(session, SessionInfo { app });
                 None
             }
@@ -126,6 +157,18 @@ impl Router {
                     chars = text.chars().count(),
                     "收到上下文"
                 );
+                None
+            }
+            ClientMessage::PositionCandidates { session, rect } => {
+                self.position_candidates(session, rect);
+                None
+            }
+            ClientMessage::HideCandidates { session } => {
+                // 组句在 DLL 侧结束、Server 无从知晓（应用强行终止组句）：收起候选窗口。
+                // 组句缓冲留着，靠 server_stale 在下一键的 commit 里清（避免把已成文本的拼音重插）。
+                if self.focused == Some(session) {
+                    self.hide_candidate_window();
+                }
                 None
             }
             ClientMessage::CloseSession { session } => {
@@ -163,7 +206,7 @@ impl Router {
         text
     }
 
-    /// 清掉当前组句、展示状态与在飞的云联想请求。
+    /// 清掉当前组句、展示状态与在飞的云联想请求，并收起候选窗口。
     fn reset_composition(&mut self) {
         self.engine.break_chain();
         self.engine.clear();
@@ -172,6 +215,41 @@ impl Router {
         self.sentence = None;
         self.highlight = 0;
         self.navigated = false;
+        self.hide_candidate_window();
+    }
+
+    /// 按一帧和最近的光标矩形调和候选窗口：空帧收窗口并清矩形；非空且已知光标矩形就摆上去重绘；
+    /// 非空但还没收到光标矩形（组句刚起、等 [`ClientMessage::PositionCandidates`]）时什么都不做，
+    /// 免得先在旧位置闪一下。
+    fn reconcile_candidates(&mut self, frame: &Frame) {
+        if frame.is_empty() {
+            self.hide_candidate_window();
+        } else if let Some(rect) = self.last_rect {
+            // 帧和位置都没变（组字期间的空转 Poll 很常见）就不重画。
+            let unchanged = matches!(&self.last_shown, Some((f, r)) if f == frame && *r == rect);
+            if !unchanged {
+                self.candidates.show(frame.clone(), rect);
+                self.last_shown = Some((frame.clone(), rect));
+            }
+        }
+        // 非空但还没光标矩形（组句刚起）：等 PositionCandidates，先不显示。
+    }
+
+    /// 收起候选窗口并清掉定位 / 去抖状态。
+    fn hide_candidate_window(&mut self) {
+        self.last_rect = None;
+        self.last_shown = None;
+        self.candidates.hide();
+    }
+
+    /// DLL 报来组句范围的屏幕矩形：记下来，按当前帧把候选窗口摆到光标下方。只认聚焦会话。
+    fn position_candidates(&mut self, session: SessionId, rect: ScreenRect) {
+        if self.focused != Some(session) {
+            return;
+        }
+        self.last_rect = Some(rect);
+        let frame = self.current_frame();
+        self.reconcile_candidates(&frame);
     }
 
     fn cancel_prediction(&mut self) {
@@ -200,11 +278,14 @@ impl Router {
         };
         // 顺手收一次已到的云联想结果，连续打字时不必等 Poll 定时器。
         self.poll_prediction();
+        let frame = self.current_frame();
+        // 空帧（选词 / 上屏结束组句）立刻收窗口；组句刚起还没光标矩形时等 PositionCandidates 再摆。
+        self.reconcile_candidates(&frame);
         ServerMessage::KeyResult {
             session,
             outcome,
             commit,
-            frame: self.current_frame(),
+            frame,
         }
     }
 
@@ -217,7 +298,10 @@ impl Router {
         }
         let frame = if self.focused == Some(session) {
             self.poll_prediction();
-            self.current_frame()
+            let frame = self.current_frame();
+            // 云端候选 / 整句补全异步到达，没有新按键：按上次的光标矩形原地重摆候选窗口。
+            self.reconcile_candidates(&frame);
+            frame
         } else {
             Frame::default()
         };

@@ -7,6 +7,7 @@ mod config;
 mod error;
 pub mod extra_dictionaries;
 pub mod protocol;
+pub mod resources;
 
 pub use config::{
     AppsConfig, Config, DEFAULT_DOMAINS, DEFAULT_ENGLISH_CANDIDATES_OFF,

@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use super::key::KeyEvent;
+use super::screen_rect::ScreenRect;
 use super::session::SessionId;
 
 /// DLL（客户端，每个应用进程里一个）发给 Server 的消息。
@@ -50,6 +51,25 @@ pub enum ClientMessage {
 
         /// 光标前最多约 64 字的上下文；取不到时为空串。
         text: String,
+    },
+
+    /// 组句更新后，DLL 在编辑会话里量到组句范围的屏幕矩形，发来让 Server 把候选窗口摆到光标下方。
+    /// 不等回话：候选窗口由 Server 进程自绘（搬出应用进程，才能盖过微软商店 / 任务栏搜索这些高 z-band 宿主）。
+    /// 组句结束 / 失焦时 Server 按空帧与 [`Commit`](Self::Commit) 自行收窗口，不必 DLL 再发。
+    PositionCandidates {
+        /// 会话标识。
+        session: SessionId,
+
+        /// 组句范围的屏幕矩形（拿不到时是鼠标处的一个近似矩形）。
+        rect: ScreenRect,
+    },
+
+    /// 组句在 DLL 侧结束、而 Server 无从知晓时（应用强行终止组句 `OnCompositionTerminated`、断连兜底），
+    /// 让 Server 收起候选窗口。Server 按空帧 / [`Commit`](Self::Commit) 能自行收窗口的场合不需要这条。
+    /// 不等回话。
+    HideCandidates {
+        /// 会话标识。
+        session: SessionId,
     },
 
     /// 关闭会话，释放 Server 侧状态。

@@ -7,12 +7,17 @@
 
 use std::io::{self, Read, Write};
 use std::ptr;
-use std::sync::mpsc::{self, Sender};
+use std::sync::mpsc::{self, RecvTimeoutError, Sender};
 use std::thread;
+use std::time::Duration;
 
 use windows_sys::Win32::Foundation::{
     CloseHandle, ERROR_BROKEN_PIPE, ERROR_PIPE_CONNECTED, HANDLE, INVALID_HANDLE_VALUE,
 };
+use windows_sys::Win32::Security::Authorization::{
+    ConvertStringSecurityDescriptorToSecurityDescriptorW, SDDL_REVISION_1,
+};
+use windows_sys::Win32::Security::{PSECURITY_DESCRIPTOR, SECURITY_ATTRIBUTES};
 use windows_sys::Win32::Storage::FileSystem::{
     FlushFileBuffers, PIPE_ACCESS_DUPLEX, ReadFile, WriteFile,
 };
@@ -86,9 +91,47 @@ impl Write for PipeStream {
     }
 }
 
-/// 建一个新的管道实例并等一个客户端连上。
-fn accept(name_wide: &[u16]) -> io::Result<PipeStream> {
-    // SAFETY: name_wide 以 0 结尾；安全属性传 null 用默认 DACL。
+/// 命名管道的安全描述符（SDDL）：放行 Everyone / ALL APPLICATION PACKAGES / ALL RESTRICTED APPLICATION
+/// PACKAGES 通用读写，并把对象完整性标到 Low（NoWriteUp）——低完整性的 UWP/AppContainer 进程（任务栏搜索、
+/// 设置等）要连得上管道才能拿到候选，默认 DACL 会把它们挡在外面。转换失败返回 null，退回默认 DACL。
+///
+/// 分配的描述符按进程存活期泄漏（只建一次），不回收。
+fn pipe_security_descriptor() -> PSECURITY_DESCRIPTOR {
+    const SDDL: &str = "D:(A;;GA;;;WD)(A;;GA;;;AC)(A;;GA;;;S-1-15-2-2)S:(ML;;NW;;;LW)";
+    let wide: Vec<u16> = SDDL.encode_utf16().chain(std::iter::once(0)).collect();
+    let mut descriptor: PSECURITY_DESCRIPTOR = ptr::null_mut();
+    // SAFETY: wide 以 0 结尾；descriptor 是有效的出参指针；不需要长度，末参传 null。
+    let ok = unsafe {
+        ConvertStringSecurityDescriptorToSecurityDescriptorW(
+            wide.as_ptr(),
+            SDDL_REVISION_1,
+            &mut descriptor,
+            ptr::null_mut(),
+        )
+    };
+    if ok == 0 {
+        tracing::warn!(
+            error = %io::Error::last_os_error(),
+            "构建管道安全描述符失败，退回默认 DACL（UWP 应用可能连不上）"
+        );
+        return ptr::null_mut();
+    }
+    descriptor
+}
+
+/// 建一个新的管道实例并等一个客户端连上。`descriptor` 为 null 时用默认 DACL。
+fn accept(name_wide: &[u16], descriptor: PSECURITY_DESCRIPTOR) -> io::Result<PipeStream> {
+    let attributes = SECURITY_ATTRIBUTES {
+        nLength: std::mem::size_of::<SECURITY_ATTRIBUTES>() as u32,
+        lpSecurityDescriptor: descriptor,
+        bInheritHandle: 0,
+    };
+    let attributes_ptr = if descriptor.is_null() {
+        ptr::null()
+    } else {
+        &attributes as *const SECURITY_ATTRIBUTES
+    };
+    // SAFETY: name_wide 以 0 结尾；attributes_ptr 要么为 null（默认 DACL），要么指向存活到调用结束的栈上结构。
     let handle = unsafe {
         CreateNamedPipeW(
             name_wide.as_ptr(),
@@ -98,7 +141,7 @@ fn accept(name_wide: &[u16]) -> io::Result<PipeStream> {
             BUFFER_SIZE,
             BUFFER_SIZE,
             0,
-            ptr::null(),
+            attributes_ptr,
         )
     };
     if handle == INVALID_HANDLE_VALUE {
@@ -118,22 +161,35 @@ fn accept(name_wide: &[u16]) -> io::Result<PipeStream> {
 
 /// 在命名管道上服务多个客户端。后台线程跑接受循环，当前线程独占 [`Router`] 跑工人循环。
 /// 只在接受循环退出且所有连接都断开后才返回，正常不会发生。
+/// 空闲时查配置文件 mtime 的间隔（热加载）。
+const CONFIG_POLL_INTERVAL: Duration = Duration::from_secs(1);
+
 pub fn serve_pipe(name: &str, router: &mut Router) -> io::Result<()> {
     let name_wide: Vec<u16> = name.encode_utf16().chain(std::iter::once(0)).collect();
+    // 安全描述符只建一次，按地址（usize）转交接受线程——裸指针不是 Send。
+    let descriptor_addr = pipe_security_descriptor() as usize;
     let (sender, receiver) = mpsc::channel::<Request>();
-    thread::spawn(move || accept_loop(name_wide, sender));
+    thread::spawn(move || accept_loop(name_wide, descriptor_addr, sender));
 
     tracing::info!(pipe = name, "命名管道监听中");
-    while let Ok((message, reply)) = receiver.recv() {
-        let _ = reply.send(router.handle(message));
+    // 空闲每秒看一次配置文件的 mtime，改了就热加载；有消息就先处理消息。
+    loop {
+        match receiver.recv_timeout(CONFIG_POLL_INTERVAL) {
+            Ok((message, reply)) => {
+                let _ = reply.send(router.handle(message));
+            }
+            Err(RecvTimeoutError::Timeout) => router.poll_config_reload(),
+            Err(RecvTimeoutError::Disconnected) => break,
+        }
     }
     Ok(())
 }
 
 /// 每建一个实例、等一个客户端连上，就起一条线程服务它。建实例出错才停。
-fn accept_loop(name_wide: Vec<u16>, sender: Sender<Request>) {
+fn accept_loop(name_wide: Vec<u16>, descriptor_addr: usize, sender: Sender<Request>) {
+    let descriptor = descriptor_addr as PSECURITY_DESCRIPTOR;
     loop {
-        match accept(&name_wide) {
+        match accept(&name_wide, descriptor) {
             Ok(stream) => {
                 let sender = sender.clone();
                 thread::spawn(move || serve_connection(stream, sender));

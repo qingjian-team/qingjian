@@ -5,7 +5,6 @@
 //! 注册表 / TSF profile 在 [`registry`]。
 #![allow(non_snake_case)] // 导出的 Dll* 入口按 COM 约定命名
 
-pub(crate) mod candidates;
 pub(crate) mod composition;
 pub(crate) mod display_attribute;
 pub(crate) mod edit_session;

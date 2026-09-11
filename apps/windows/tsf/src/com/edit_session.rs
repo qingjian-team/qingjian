@@ -15,12 +15,16 @@ use windows::core::{Error, Result, implement};
 
 use super::composition::{Shared, apply};
 use super::log::log;
+use super::service::SharedClient;
 
 /// 一次性的编辑会话：在回调里把本次按键的组句更新写进 `context`。
 #[implement(ITfEditSession)]
 pub(crate) struct UpdateSession {
     /// 目标文档上下文。
     context: ITfContext,
+
+    /// 引擎层：编辑会话里量到光标屏幕矩形后，报给 Server 摆候选窗口。
+    engine: SharedClient,
 
     /// 组句状态。
     shared: Rc<Shared>,
@@ -38,6 +42,7 @@ impl ITfEditSession_Impl for UpdateSession_Impl {
         let result = catch_unwind(AssertUnwindSafe(|| {
             apply(
                 &self.shared,
+                &self.engine,
                 &self.context,
                 ec,
                 self.commit.as_deref(),
@@ -62,12 +67,14 @@ impl ITfEditSession_Impl for UpdateSession_Impl {
 pub(crate) fn request_update(
     context: &ITfContext,
     client_id: u32,
+    engine: SharedClient,
     shared: Rc<Shared>,
     commit: Option<String>,
     preedit: String,
 ) -> Result<()> {
     let session: ITfEditSession = UpdateSession {
         context: context.clone(),
+        engine,
         shared,
         commit,
         preedit,

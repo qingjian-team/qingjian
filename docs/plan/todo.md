@@ -71,4 +71,21 @@
 
 ## 三、其他平台
 
-- [ ] Windows TSF、Linux IBus / Fcitx（Phase 5）；配置同步、跨平台词库
+- [~] Windows TSF（Phase 5）：真机自用中，候选窗已覆盖商店 / 任务栏搜索（`uiAccess` + 自签）。
+  与 mac 功能齐平尚缺（按价值排；工时=开发+真机验证合计，单人；真机来回是大头）：
+  - [ ] **① 翻译选中文字 `translate_selection`**（★★★ / 中高 / 1.5–2 天）：mac 有、Windows 明确没接
+    （`settings/panel/shortcut.rs` 注释）。走 `Surrounding` 编辑会话读应用选区 → 云端 `PredictionKind::Translate`
+    → 候选流里回车替换 / Esc 保留；补设置页那项。
+  - [ ] **② 生词「看到轮次」计数 `note_displayed`**（★★☆ / 低 / 0.5 天）：橙色标记已画，但 Server 从不调
+    `Engine::note_displayed`，轮次不推进、生词永不「毕业」。Router 每次 show 帧时按当前页回调即可。
+  - [ ] **③ 悬浮状态条**（★★☆ / 中 / 1.5–2 天）：显示中/英(+可选方案)、可拖动、记位置、DPI/深色。
+    注意任务栏中/英指示器已有，这条偏「贴光标始终可见」；先定 DLL 侧（每应用）还是 Server 侧（单例）。
+  - [ ] **④ 删候选屏幕提示**（★☆☆ / 低 / 0.5 天）：删除已好用，只差 mac 那样在拼音行右侧闪「已删」；
+    在 Server 候选窗加个临时文字位。
+  - [ ] **⑤ 任务栏点中/英反同步**（★☆☆ / 低 / 0.5 天）：现单向（Shift 切→写 compartment）；
+    点任务栏改不回写 DLL。加 `ITfCompartmentEventSink`。
+  - [ ] 发版：换 **Certum 开源代码签名证书**重签（开发全程自签 + 本机受信任根，见 `installer/sign-local.ps1`）、
+    `windows-v<版本>` 标签与 CI。
+  - 另一条独立线（gated，不计入上面）：**neural 个人模型上 Windows**（★★★ / 高 / 多天），卡 neural 分支并回 +
+    candle 在 Windows 走 CPU/CUDA 单独验。
+- [ ] Linux IBus / Fcitx（Phase 5）；配置同步、跨平台词库

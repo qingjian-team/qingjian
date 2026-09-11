@@ -127,8 +127,9 @@ fn poll_once(context: &PollContext) {
     let Some(client) = guard.as_mut() else {
         return;
     };
+    // 拉一次即可触发 Server 收云端结果并自绘重画候选窗口；DLL 不再据回帧重绘（窗口在 Server 进程）。
     match client.poll() {
-        Ok(frame) => context.shared.apply_poll(&frame),
+        Ok(_frame) => {}
         Err(error) => {
             log(&format!("云联想轮询失败，断开，下一键重连: {error}"));
             *guard = None;

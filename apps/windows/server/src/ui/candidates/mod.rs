@@ -155,9 +155,6 @@ pub(crate) struct CandidateWindow {
 
     /// 上次解析出的深浅，变了重建配色。
     dark: Cell<bool>,
-
-    /// 上次定位用的光标矩形；云联想异步刷新时按它原地重摆，不必再跑编辑会话取光标。
-    last_anchor: Cell<Option<RECT>>,
 }
 
 impl CandidateWindow {
@@ -165,7 +162,7 @@ impl CandidateWindow {
     pub(crate) fn new() -> Result<Self> {
         CLASS.ensure(|| WNDCLASSEXW {
             lpfnWndProc: Some(wndproc),
-            hInstance: super::dll_instance(),
+            hInstance: super::module_handle(),
             // SAFETY: 系统光标。
             hCursor: unsafe { LoadCursorW(None, IDC_ARROW) }.unwrap_or_default(),
             lpszClassName: CLASS_NAME,
@@ -188,7 +185,7 @@ impl CandidateWindow {
                 0,
                 None,
                 None,
-                Some(super::dll_instance()),
+                Some(super::module_handle()),
                 None,
             )?
         };
@@ -197,7 +194,6 @@ impl CandidateWindow {
             data,
             dpi: Cell::new(dpi),
             dark: Cell::new(dark),
-            last_anchor: Cell::new(None),
         })
     }
 
@@ -208,7 +204,6 @@ impl CandidateWindow {
 
     /// 按光标矩形定位并显示：内容贴光标下方（放不下放上方），四周留出阴影。
     pub(crate) fn show(&self, anchor: RECT) {
-        self.last_anchor.set(Some(anchor));
         self.sync_theme();
         let margin = shadow_margin(self.dpi.get());
         let content = self.preferred_size();
@@ -238,13 +233,6 @@ impl CandidateWindow {
     pub(crate) fn hide(&self) {
         // SAFETY: hwnd 有效。
         let _ = unsafe { ShowWindow(self.hwnd, SW_HIDE) };
-    }
-
-    /// 按上次的光标矩形原地重摆并重绘；没定位过就什么都不做。
-    pub(crate) fn refresh(&self) {
-        if let Some(anchor) = self.last_anchor.get() {
-            self.show(anchor);
-        }
     }
 
     /// DPI 或深浅变了就重建主题。每次 `show` 前调，配置切换 / 系统换主题后下一次弹窗生效。

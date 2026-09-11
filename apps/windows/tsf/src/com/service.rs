@@ -15,7 +15,6 @@ use windows::core::{BOOL, GUID, IUnknownImpl, Interface, Ref, Result, implement}
 
 use qingjian_platform::protocol::{KeyEvent, KeyOutcome, SessionId};
 
-use super::candidates::CandidateWindow;
 use super::composition::{Shared, preedit_string};
 use super::keys;
 use super::langbar::{ModeButton, ModeState};
@@ -108,12 +107,11 @@ impl ITfTextInputProcessor_Impl for TextService_Impl {
         unsafe { keystroke.AdviseKeyEventSink(tid, &sink, true)? };
 
         self.client_id.set(tid);
-        // 下面三样都不致命：连不上 Server 键照样放行（之后按键时重连），没候选窗就没 UI，没定时器就只在按键时收云结果。
+        // 组句状态要能通过引擎客户端通知 Server 收候选窗口（应用终止组句时）。同一个 Rc。
+        self.shared.set_client(self.engine.clone());
+        // 下面两样都不致命：连不上 Server 键照样放行（之后按键时重连），没定时器就只在按键时收云结果。
+        // 候选窗口现在由 Server 进程自绘，DLL 不再建窗口（这样才能盖过商店 / 任务栏搜索这些高 z-band 宿主）。
         self.connect();
-        match CandidateWindow::new() {
-            Ok(window) => self.shared.set_window(Some(window)),
-            Err(error) => log(&format!("建候选窗口失败: {error}")),
-        }
         match PollTimer::new(self.engine.clone(), self.shared.clone()) {
             Ok(timer) => *self.poll_timer.borrow_mut() = Some(timer),
             Err(error) => log(&format!("挂云联想轮询定时器失败: {error}")),
@@ -150,10 +148,10 @@ impl ITfTextInputProcessor_Impl for TextService_Impl {
         if let Some(client) = self.engine.borrow_mut().take() {
             let _ = client.close();
         }
-        // 上屏的编辑会话已排队；剩下的句柄不再经编辑会话收尾，直接丢、销毁候选窗口。会话已关，过期标志一并作废。
+        // 上屏的编辑会话已排队；剩下的句柄不再经编辑会话收尾，直接丢。会话已关，过期标志一并作废。
+        // Server 侧会话关闭（下面 client.close 已发）后自行收候选窗口，DLL 不再持有窗口。
         self.shared.reset();
         self.shared.take_server_stale();
-        self.shared.set_window(None);
         log("青简 TSF 已停用");
         Ok(())
     }
@@ -363,7 +361,6 @@ impl TextService_Impl {
                 Ok(response) => {
                     let preedit = preedit_string(&response.frame);
                     self.shared.set_composing(!response.frame.is_empty());
-                    self.shared.update_candidates(&response.frame);
                     let consumed = matches!(response.outcome, KeyOutcome::Consumed);
                     let m = event.modifiers;
                     log(&format!(
@@ -433,6 +430,7 @@ impl TextService_Impl {
         let requested = super::edit_session::request_update(
             &context,
             self.client_id.get(),
+            self.engine.clone(),
             self.shared.clone(),
             text.filter(|t| !t.is_empty()),
             String::new(),
@@ -462,6 +460,7 @@ impl TextService_Impl {
         if let Err(error) = super::edit_session::request_update(
             context,
             self.client_id.get(),
+            self.engine.clone(),
             self.shared.clone(),
             commit,
             preedit,

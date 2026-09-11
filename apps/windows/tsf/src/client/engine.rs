@@ -1,7 +1,8 @@
 use std::io::{Read, Write};
 
 use qingjian_platform::protocol::{
-    ClientMessage, Frame, KeyEvent, ServerMessage, SessionId, read_message, write_message,
+    ClientMessage, Frame, KeyEvent, ScreenRect, ServerMessage, SessionId, read_message,
+    write_message,
 };
 
 use super::response::KeyResponse;
@@ -85,6 +86,29 @@ impl<S: Read + Write> EngineClient<S> {
             Some(_) => Err(ClientError::Unexpected("expected committed for commit")),
             None => Err(ClientError::Closed),
         }
+    }
+
+    /// 报组句范围的屏幕矩形给 Server，让它把候选窗口摆到光标下方（Server 进程自绘候选窗口）。不回话。
+    pub fn position_candidates(&mut self, rect: ScreenRect) -> Result<(), ClientError> {
+        write_message(
+            &mut self.stream,
+            &ClientMessage::PositionCandidates {
+                session: self.session,
+                rect,
+            },
+        )?;
+        Ok(())
+    }
+
+    /// 让 Server 收起候选窗口（组句在 DLL 侧结束、Server 无从知晓时用，如应用强行终止组句）。不回话。
+    pub fn hide_candidates(&mut self) -> Result<(), ClientError> {
+        write_message(
+            &mut self.stream,
+            &ClientMessage::HideCandidates {
+                session: self.session,
+            },
+        )?;
+        Ok(())
     }
 
     /// 关闭会话，释放 Server 侧状态（不回话）。

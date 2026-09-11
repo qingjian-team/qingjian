@@ -179,13 +179,10 @@ impl Settings {
     }
 }
 
-/// 随包资源目录（dev 布局）：exe 在 `ime\target\debug\` 下，仓库根是往上三层，再接 `rel`。
-/// 找不到（换成安装布局后）返回 `None`。等 Windows 定了固定安装路径再改这里。
+/// 随包资源（相对随包根，如 `data/generated/dicts`、`assets/levels/levels-en.tsv`）：
+/// 装机布局与 exe 同级，开发布局是仓库 `ime/`；找不到为 `None`。定位逻辑与 Server 共用（`qingjian_platform::resources`）。
 pub(super) fn repo_resource(rel: &str) -> Option<PathBuf> {
-    let exe = std::env::current_exe().ok()?;
-    let root = exe.ancestors().nth(3)?; // exe → debug → target → ime
-    let path = root.join(rel);
-    path.exists().then_some(path)
+    qingjian_platform::resources::bundled_resource(rel)
 }
 
 /// 用记事本打开一个文件（配置文件）。失败只打印。

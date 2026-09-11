@@ -9,6 +9,7 @@ mod sink;
 use std::mem::ManuallyDrop;
 use std::rc::Rc;
 
+use windows::Win32::Foundation::RECT;
 use windows::Win32::UI::TextServices::{
     INSERT_TEXT_AT_SELECTION_FLAGS, ITfComposition, ITfCompositionSink, ITfContext,
     ITfContextComposition, ITfInsertAtSelection, ITfRange, TF_AE_END, TF_ANCHOR_END,
@@ -16,10 +17,11 @@ use windows::Win32::UI::TextServices::{
 };
 use windows::core::{Interface, Result};
 
-use qingjian_platform::protocol::{Frame, PreeditKind};
+use qingjian_platform::protocol::{Frame, PreeditKind, ScreenRect};
 
 pub(crate) use self::shared::Shared;
 use self::sink::CompositionSink;
+use super::service::SharedClient;
 
 /// 从一帧里拼出内联要显示的拼音行，跳过被纠错划掉的原字母。空串表示没有组句内容。
 pub(crate) fn preedit_string(frame: &Frame) -> String {
@@ -31,10 +33,12 @@ pub(crate) fn preedit_string(frame: &Frame) -> String {
         .collect()
 }
 
-/// 把文档更新到本次按键算出的目标状态：先落定 `commit`，再按 `preedit` 起 / 改 / 收组句，最后摆候选窗口。
+/// 把文档更新到本次按键算出的目标状态：先落定 `commit`，再按 `preedit` 起 / 改 / 收组句，最后上报光标位置。
 /// 在编辑会话回调（持写锁 `ec`）里调。`shared` 用 `&Rc` 是因为起新组句要把它克隆进 [`CompositionSink`]。
+/// `engine` 用来把组句范围的屏幕矩形报给 Server（候选窗口在 Server 进程自绘）。
 pub(crate) fn apply(
     shared: &Rc<Shared>,
+    engine: &SharedClient,
     context: &ITfContext,
     ec: u32,
     commit: Option<&str>,
@@ -48,22 +52,34 @@ pub(crate) fn apply(
     } else {
         update_preedit(shared, context, ec, preedit)?;
     }
-    // 此刻有 ec 和组句范围，能拿到光标屏幕矩形。
-    update_window(shared, context, ec);
+    // 此刻有 ec 和组句范围，能量到光标屏幕矩形，报给 Server 摆候选窗口。
+    report_caret(shared, engine, context, ec);
     Ok(())
 }
 
-/// 组句在进行就把候选窗口摆到光标下方，否则收起。内容已在收键时设好。
-fn update_window(shared: &Shared, context: &ITfContext, ec: u32) {
-    let active = shared.composition();
-    shared.with_window(|window| match &active {
-        Some(composition) => {
-            let anchor =
-                caret::caret_rect(context, ec, composition).unwrap_or_else(caret::mouse_anchor);
-            window.show(anchor);
-        }
-        None => window.hide(),
-    });
+/// 组句进行中就把组句范围的屏幕矩形报给 Server（摆候选窗口）；组句已收则不发——Server 按空帧 /
+/// [`Commit`](qingjian_platform::protocol::ClientMessage::Commit) 自行收窗口。
+fn report_caret(shared: &Shared, engine: &SharedClient, context: &ITfContext, ec: u32) {
+    let Some(composition) = shared.composition() else {
+        return;
+    };
+    let rect = caret::caret_rect(context, ec, &composition).unwrap_or_else(caret::mouse_anchor);
+    // 编辑会话里引擎通常没被别处借着（收键的借用早已放开）；真借着（罕见）就跳过这拍，Server 保持上次位置。
+    if let Ok(mut guard) = engine.try_borrow_mut()
+        && let Some(client) = guard.as_mut()
+        && let Err(error) = client.position_candidates(screen_rect(rect))
+    {
+        super::log::log(&format!("上报候选窗口位置失败: {error}"));
+    }
+}
+
+fn screen_rect(rect: RECT) -> ScreenRect {
+    ScreenRect {
+        left: rect.left,
+        top: rect.top,
+        right: rect.right,
+        bottom: rect.bottom,
+    }
 }
 
 /// 落定上屏文本：有组句就把组句范围替换成它再结束组句，否则在选区插入。

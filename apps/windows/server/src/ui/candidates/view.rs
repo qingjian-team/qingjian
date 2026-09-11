@@ -148,11 +148,22 @@ fn draw_top_line(hdc: HDC, data: &RenderData, y: i32) -> i32 {
     };
     fill_rect(hdc, caret, theme.text_color);
     if let Some(sentence) = &data.sentence {
+        // 整句补全一定来自云联想，前面带一个云朵（与云端候选词一致）。
+        let sentence_x = x + theme.column_gap;
+        let cloud = cloud_glyph_width(hdc, theme);
+        draw_text(
+            hdc,
+            theme.annotation_font,
+            theme.cloud_color,
+            sentence_x,
+            top,
+            CLOUD_GLYPH,
+        );
         draw_text(
             hdc,
             theme.annotation_font,
             theme.gloss_color,
-            x + theme.column_gap,
+            sentence_x + cloud,
             top,
             sentence,
         );
@@ -298,7 +309,9 @@ fn top_line_size(hdc: HDC, data: &RenderData) -> (i32, i32) {
     let full: String = data.preedit.iter().map(|(t, _)| t.as_str()).collect();
     let mut width = measure(hdc, theme.annotation_font, &full).cx + scale_line(theme);
     if let Some(sentence) = &data.sentence {
-        width += theme.column_gap + measure(hdc, theme.annotation_font, sentence).cx;
+        width += theme.column_gap
+            + cloud_glyph_width(hdc, theme)
+            + measure(hdc, theme.annotation_font, sentence).cx;
     }
     (width, height + theme.row_padding * 2)
 }
@@ -334,9 +347,14 @@ fn small_offset(hdc: HDC, theme: &Theme, text_height: i32) -> i32 {
 }
 
 /// 云朵前缀（云朵 + 间距）的宽度；非云端候选为 0。
+/// 一个云朵字形占的宽度（含它与后面文字的小间隔）。
+fn cloud_glyph_width(hdc: HDC, theme: &Theme) -> i32 {
+    measure(hdc, theme.annotation_font, CLOUD_GLYPH).cx + theme.column_gap / 2
+}
+
 fn cloud_prefix_width(hdc: HDC, theme: &Theme, row: &Row) -> i32 {
     if row.cloud {
-        measure(hdc, theme.annotation_font, CLOUD_GLYPH).cx + theme.column_gap / 2
+        cloud_glyph_width(hdc, theme)
     } else {
         0
     }

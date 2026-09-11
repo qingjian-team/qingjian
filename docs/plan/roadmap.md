@@ -150,7 +150,11 @@
 
 ## Phase 5 — Cross-platform
 
-- [ ] Windows TSF
+- [~] Windows TSF（`apps/windows/{server,tsf}`，真机自用中；细节见 `docs/design/architecture.md`「Windows：TSF」）
+  - [x] Server 进程 + TSF DLL 骨架、命名管道 IPC、多会话分派、端到端上屏
+  - [x] preedit 内联下划线、候选窗（词性 + 译文 + 分页 + 阴影）、云联想、失焦上屏、中英切换、设置界面、Inno 安装器
+  - [x] 候选窗渲染搬进 Server 进程 + `uiAccess` + 自签，覆盖微软商店 / 任务栏搜索等高 z-band 宿主
+  - [ ] 发版：Certum 开源代码签名证书、`windows-v<版本>` 标签与 CI
 - [ ] Linux IBus / Fcitx
 - [ ] 配置同步
 - [ ] 跨平台词库

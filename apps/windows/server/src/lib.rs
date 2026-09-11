@@ -5,6 +5,9 @@ pub mod assembly;
 pub mod dispatch;
 pub mod error;
 pub mod ipc;
+/// 候选窗口自绘线程（Server 进程内画候选，才能盖过微软商店 / 任务栏搜索这些高 z-band 宿主）；仅 Windows。
+#[cfg(windows)]
+pub mod ui;
 
 pub use assembly::{AssemblySpec, LanguageModelFiles};
 pub use dispatch::{Router, RouterConfig};

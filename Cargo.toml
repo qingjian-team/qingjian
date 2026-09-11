@@ -61,3 +61,6 @@ objc2-foundation = { version = "0.3.2", features = ["NSArray", "NSAttributedStri
 objc2-app-kit = { version = "0.3.2", features = ["NSApplication", "NSAttributedString", "NSEvent", "NSBezierPath", "NSColor", "NSFont", "NSGraphics", "NSImage", "NSPanel", "NSResponder", "NSScreen", "NSStatusBar", "NSStatusBarButton", "NSStatusItem", "NSMenu", "NSMenuItem", "NSOpenPanel", "NSPasteboard", "NSSavePanel", "NSCell", "NSPopUpButton", "NSTextField", "NSSecureTextField", "NSTextFieldCell", "NSActionCell", "NSRunningApplication", "NSAppearance", "NSText", "NSButton", "NSButtonCell", "NSControl", "NSStringDrawing", "NSTabView", "NSTabViewItem", "NSView", "NSWindow", "NSScrollView", "NSClipView"] }
 objc2-input-method-kit = "0.3.2"
 objc2-core-foundation = { version = "0.3.2", features = ["CFArray", "CFBase", "CFDictionary", "CFNumber", "CFString", "CFURL"] }
+
+# Windows Server 构建期把 uiAccess manifest 嵌进 exe（build.rs），让候选窗进程能升进 UIAccess 高 z-band
+embed-manifest = "1.4.0"

@@ -10,6 +10,7 @@
 
 mod client;
 mod codec;
+mod screen_rect;
 mod server;
 mod session;
 
@@ -20,5 +21,6 @@ pub use client::ClientMessage;
 pub use codec::{CodecError, DEFAULT_PIPE_NAME, read_message, write_message};
 pub use frame::{Frame, PreeditKind, PreeditSegment};
 pub use key::{KeyEvent, KeyModifiers, KeyOutcome};
+pub use screen_rect::ScreenRect;
 pub use server::ServerMessage;
 pub use session::SessionId;
