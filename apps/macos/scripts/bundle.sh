@@ -85,8 +85,8 @@ if [[ -f data/generated/dict.tsv || -f data/generated/dict.qj ]]; then
     cp data/generated/dicts/*.qj "$APP/Contents/Resources/dicts/"
   fi
   [[ -f data/generated/lm.qj ]] && cp data/generated/lm.qj "$APP/Contents/Resources/"
-  # 本地整句模型（字级 Transformer，tools/lm-train 导出的三件套）随包放 Resources/model/；没有就不重排
-  model_dir="${QINGJIAN_MODEL_DIR:-data/lm-train/export/full-small}"
+  # 本地整句模型（字级 Transformer，训练仓库 ../train 导出的三件套，拷到 data/model/）随包放 Resources/model/；没有就不重排
+  model_dir="${QINGJIAN_MODEL_DIR:-data/model}"
   if [[ -f "$model_dir/model.safetensors" ]]; then
     mkdir -p "$APP/Contents/Resources/model"
     cp "$model_dir/model.safetensors" "$model_dir/config.json" "$model_dir/vocab.json" "$APP/Contents/Resources/model/"

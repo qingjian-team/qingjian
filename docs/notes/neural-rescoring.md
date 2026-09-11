@@ -2,7 +2,7 @@
 
 ## 做了什么
 
-- 训练：`tools/lm-train`（私有，不在仓库）在中文维基完整 dump + LCCC（12.7 亿 token、字表 19147）上训了两档字级 decoder：
+- 训练：训练仓库 `../train`（私有，与本仓库并列放在 `~/Github/Projects/qingjian/` 下）在中文维基完整 dump + LCCC（12.7 亿 token、字表 19147）上训了两档字级 decoder：
   small 23M（ppl 21.7）、base 36M / 上下文 256（ppl 19.2），4090 上各约一小时。
 - 推理：`crates/qingjian-neural`（candle），与训练脚本的 Python 打分对拍一致。M1 上 Metal 后端最快：空前文单条 6 ms，
   64 字前文 × 8 条 133 ms；CPU（Accelerate）约慢一倍，candle 自带 gemm 再慢一倍。按 token 算吞吐很低，是每层十几个小算子的调度开销在主导。

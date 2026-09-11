@@ -137,6 +137,14 @@ impl ShortcutsPage {
         let reset = button(mtm, "恢复默认快捷键", Setting::ResetShortcuts, target);
         layout.place(&reset, PAGE_PADDING, 160.0, ROW_HEIGHT + 4.0);
         layout.next_row(ROW_HEIGHT + 4.0);
+        layout.space(GROUP_GAP);
+        note_full(
+            layout,
+            mtm,
+            "组句中固定的键（不可改）：空格上屏首选，1–9 选词，回车原样上屏，Esc 清空；⌥⌫ 删一个音节，⌘⌫ 删到开头；\
+             ⌥← / ⌥→ 按音节跳光标，⌘← / ⌘→ 到开头 / 末尾；上 / 下移动高亮，PageUp / PageDown 与 ⇧Tab 翻页；\
+             Tab 接受云端整句补全（没有就翻页）；半角标点进入英文直输段。",
+        );
         Self {
             page_keys,
             expression,
