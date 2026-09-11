@@ -41,16 +41,6 @@ pub enum ServerMessage {
         frame: Frame,
     },
 
-    /// Server 需要应用光标前的上下文（整句前文），DLL 取到后用
-    /// [`super::ClientMessage::Surrounding`] 回。
-    RequestSurrounding {
-        /// 会话标识。
-        session: SessionId,
-
-        /// 请求标识，回时带上。
-        request: u64,
-    },
-
     /// 对一次 [`super::ClientMessage::SyncMode`] 的答复：状态条上点出来、还没被取走的目标模式。
     ModeSync {
         /// 会话标识。

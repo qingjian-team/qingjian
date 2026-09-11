@@ -93,6 +93,6 @@
     （防回环），顺带刷指示器 + 上报 Server 让悬浮状态条也同步。纯 DLL 改动、无新协议。
   - [ ] 发版：换 **Certum 开源代码签名证书**重签（开发全程自签 + 本机受信任根，见 `installer/sign-local.ps1`）、
     `windows-v<版本>` 标签与 CI。
-  - 另一条独立线（gated，不计入上面）：**neural 个人模型上 Windows**（★★★ / 高 / 多天），卡 neural 分支并回 +
-    candle 在 Windows 走 CPU/CUDA 单独验。
+  - [ ] **本地整句模型上 Windows**：Server 已接（`dispatch/rescore/`，CPU 推理，设置「云服务」页有开关，安装包带 `data\model`），待真机验：每次重排的耗时（前文 + 几条路径一次前向，CPU 上可能几十到一百多毫秒，超了就缩前文长度）、模型加载时间；
+    应用光标前文已接（DLL 起组句时读、密码框跳过），真机看沉浸式应用 / 终端读不读得到；CI 的 windows job 从 `data` Release 取模型三件套（与 mac「数据包带模型」同一件事）。
 - [ ] Linux IBus / Fcitx（Phase 5）；配置同步、跨平台词库

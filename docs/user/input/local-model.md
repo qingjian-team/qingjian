@@ -9,7 +9,7 @@ description: 随包的小模型在本机给整句候选重新排序：怎么生�
 ## 怎么生效
 
 敲完一段拼音停一下（不到十分之一秒），整句候选就换成模型认为更通顺的那句；没停就按词库统计出的先显示。
-它会看光标前面的几十个字：同一段拼音在不同上下文里给的句子可能不同。应用不让读上下文时（部分终端、Electron 应用）只看这次会话里你打过的字。
+它会看光标前面的几十个字：同一段拼音在不同上下文里给的句子可能不同。应用不让读上下文时（部分终端、Electron 应用）只看这次会话里输入过的字。
 
 模型只影响整句候选那一条，词候选、你选过的词、自动造的词都不受它影响；你的习惯仍然优先。
 
@@ -21,8 +21,11 @@ description: 随包的小模型在本机给整句候选重新排序：怎么生�
 
 ## 关掉
 
-「偏好设置 → 云服务」取消勾选「本地整句模型」，或配置文件 `[model]` 里 `enabled = false`。关掉后只用词库统计，与云联想互不影响。
+「偏好设置 → 云服务」（Windows：「设置 → 云服务」）关闭「本地整句模型」，或配置文件 `[model]` 里 `enabled = false`。关闭后只用词库统计，与云联想互不影响。
 
 ## 自己的模型
 
-把 `model.safetensors`、`config.json`、`vocab.json` 放进 `~/Library/Application Support/Qingjian/model/`，重启输入法后优先用它。
+把 `model.safetensors`、`config.json`、`vocab.json` 三个文件放进用户数据目录的 `model/` 下，重启输入法后优先使用：
+
+- **macOS**：`~/Library/Application Support/Qingjian/model/`
+- **Windows**：`%APPDATA%\Qingjian\model\`

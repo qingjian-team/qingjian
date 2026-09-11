@@ -1,6 +1,7 @@
 //! 协议分派：把 DLL 发来的 [`ClientMessage`] 交给 Engine，产出回给 DLL 的 [`ServerMessage`]。
 //! 消息分派在 [`message`]，会话在 [`session`]，组句展示状态在 [`composed`]，按键在 [`key`]，
-//! 候选窗口输出在 [`candidates`]，状态条在 [`status`]，翻译选中文字在 [`translate`]，配置热加载在 [`reload`]。
+//! 候选窗口输出在 [`candidates`]，状态条在 [`status`]，翻译选中文字在 [`translate`]，配置热加载在 [`reload`]，
+//! 本地整句模型在 [`rescore`]。
 
 mod candidates;
 mod composed;
@@ -8,14 +9,17 @@ mod config;
 mod key;
 mod message;
 mod reload;
+mod rescore;
 mod session;
 mod status;
 mod translate;
 
 use std::collections::HashMap;
+use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
 use qingjian_core::Engine;
+use qingjian_platform::LocalModelConfig;
 use qingjian_platform::protocol::{ClientMessage, Frame, ScreenRect, ServerMessage, SessionId};
 
 pub use self::candidates::{CandidateSink, NoopSink};
@@ -23,6 +27,8 @@ use self::composed::Composed;
 pub use self::config::RouterConfig;
 use self::reload::ConfigReload;
 pub use self::reload::attach_cloud;
+pub use self::rescore::find_model_dir;
+use self::rescore::{ModelLoader, RescoreState};
 use self::session::SessionInfo;
 pub use self::status::{NoopStatusSink, StatusEvent, StatusSink, StatusView};
 use self::translate::Translation;
@@ -92,6 +98,18 @@ pub struct Router {
 
     /// 上次真正显示的帧与位置：没变就不重画（组字期间的空转 Poll 很多）。
     last_shown: Option<(Frame, ScreenRect)>,
+
+    /// 本地整句模型的目录（三件套所在）；没有模型文件为 `None`。
+    model_dir: Option<PathBuf>,
+
+    /// 进行中的模型加载；加载完接到 Engine 上就清掉。
+    model_loader: Option<ModelLoader>,
+
+    /// 上次套用的 `[model]`，变了才重载 / 卸载。
+    applied_model: LocalModelConfig,
+
+    /// 重排的防抖 / 轮询进行态。
+    rescore: RescoreState,
 }
 
 impl Router {
@@ -120,6 +138,10 @@ impl Router {
             pending_mode: None,
             last_rect: None,
             last_shown: None,
+            model_dir: None,
+            model_loader: None,
+            applied_model: LocalModelConfig::default(),
+            rescore: RescoreState::default(),
         }
     }
 

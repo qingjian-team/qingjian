@@ -1,7 +1,7 @@
 //! 配置热加载记的状态。
 
 use std::path::PathBuf;
-use std::time::SystemTime;
+use std::time::{Instant, SystemTime};
 
 use qingjian_platform::DictionariesConfig;
 use qingjian_predict::PredictConfig;
@@ -10,6 +10,9 @@ use qingjian_predict::PredictConfig;
 pub(crate) struct ConfigReload {
     /// `config.toml` 路径。
     pub(super) config_path: PathBuf,
+
+    /// 上次看文件的时间（节流用）。
+    pub(super) last_check: Instant,
 
     /// 随包领域词库目录。
     pub(super) bundled_dicts_dir: Option<PathBuf>,

@@ -4,13 +4,16 @@
 mod state;
 
 use std::path::{Path, PathBuf};
-use std::time::SystemTime;
+use std::time::{Duration, Instant, SystemTime};
 
 use qingjian_core::{Engine, NoGlossFiller, NoPredictor};
 use qingjian_platform::{Config, extra_dictionaries};
 use qingjian_predict::{CloudGlossFiller, CloudPredictor, PredictConfig};
 
 pub(super) use self::state::ConfigReload;
+
+/// 看配置文件 mtime 的最短间隔；工人循环空闲时按它等，重排的短节拍来得更勤时按这个节流。
+pub(super) const CONFIG_POLL_INTERVAL: Duration = Duration::from_secs(1);
 use super::{Router, RouterConfig};
 
 fn mtime(path: &Path) -> Option<SystemTime> {
@@ -65,6 +68,7 @@ impl Router {
         let last_mtime = mtime(&config_path);
         self.reload = Some(ConfigReload {
             config_path,
+            last_check: Instant::now(),
             bundled_dicts_dir,
             user_dir,
             last_mtime,
@@ -73,11 +77,15 @@ impl Router {
         });
     }
 
-    /// 空闲时每秒调一次。解析失败保持原配置，mtime 照记（不每秒重试同一个坏文件）。
+    /// 空闲时调；一秒内只真正看一次文件。解析失败保持原配置，mtime 照记（不每秒重试同一个坏文件）。
     pub fn poll_config_reload(&mut self) {
         let Some(reload) = &mut self.reload else {
             return;
         };
+        if reload.last_check.elapsed() < CONFIG_POLL_INTERVAL {
+            return;
+        }
+        reload.last_check = Instant::now();
         let current = mtime(&reload.config_path);
         if current == reload.last_mtime {
             return;
@@ -100,6 +108,7 @@ impl Router {
         self.engine.set_mode_keys(config.shortcut.mode);
         self.config = RouterConfig::from(config);
         self.reconcile_status();
+        self.apply_model_config(&config.model);
 
         let Some(reload) = &mut self.reload else {
             return;

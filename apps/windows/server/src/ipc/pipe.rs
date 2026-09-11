@@ -9,7 +9,6 @@ use std::io;
 use std::os::windows::io::{AsRawHandle, FromRawHandle};
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
 use std::thread;
-use std::time::Duration;
 
 use windows::Win32::Foundation::{ERROR_ACCESS_DENIED, ERROR_PIPE_CONNECTED, HANDLE};
 use windows::Win32::Security::Authorization::{
@@ -31,9 +30,6 @@ use crate::dispatch::Router;
 pub use qingjian_platform::protocol::DEFAULT_PIPE_NAME;
 
 const BUFFER_SIZE: u32 = 64 * 1024;
-
-/// 空闲时查配置文件 mtime 的间隔（热加载）。
-const CONFIG_POLL_INTERVAL: Duration = Duration::from_secs(1);
 
 /// 管道的 SDDL：放行 Everyone / ALL APPLICATION PACKAGES / ALL RESTRICTED APPLICATION PACKAGES，
 /// 完整性标 Low。任务栏搜索、设置这类 AppContainer 进程在默认 DACL 下连不上。
@@ -62,12 +58,13 @@ pub fn serve_pipe(
     thread::spawn(move || accept_loop(&pipe, first, sender));
     tracing::info!(pipe = name, "命名管道监听中");
     loop {
-        match receiver.recv_timeout(CONFIG_POLL_INTERVAL) {
+        // 空闲时按 Router 的节拍醒来：在等本地整句模型就几十毫秒一次，否则一秒看一次配置文件
+        match receiver.recv_timeout(router.next_tick()) {
             Ok(Work::Client(message, reply)) => {
                 let _ = reply.send(router.handle(message));
             }
             Ok(Work::Status(event)) => router.handle_status_event(event),
-            Err(RecvTimeoutError::Timeout) => router.poll_config_reload(),
+            Err(RecvTimeoutError::Timeout) => router.tick(),
             Err(RecvTimeoutError::Disconnected) => break,
         }
     }

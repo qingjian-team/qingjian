@@ -17,8 +17,10 @@ impl Router {
         if self.engine.composition().is_empty() {
             self.composed = None;
             self.cancel_prediction();
+            self.stop_rescoring();
             return;
         }
+        self.attach_loaded_model();
         let built = self.engine.query().ok().map(|query| {
             let items = query.candidates.items.clone();
             let preedit: Vec<PreeditSegment> =
@@ -47,6 +49,7 @@ impl Router {
                 Composed::Raw { text, cursor }
             }
         });
+        self.schedule_rescoring();
     }
 
     /// 拉一次云联想结果：云端词并进候选布局，整句补全记下；翻译评审时结果是译文。

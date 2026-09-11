@@ -73,6 +73,7 @@ impl Component for Settings {
             Message::StatusBar(on) => self.save("status_bar", "enabled", on),
 
             // 云服务页
+            Message::LocalModel(on) => self.save("model", "enabled", on),
             Message::CloudEnabled(on) => self.save("predict", "enabled", on),
             Message::CloudApiKey(value) => self.save("predict", "api_key", value),
             Message::CloudModel(value) => self.save("predict", "model", value),

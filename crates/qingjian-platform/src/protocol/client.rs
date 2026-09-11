@@ -46,15 +46,13 @@ pub enum ClientMessage {
         session: SessionId,
     },
 
-    /// 回应 [`super::ServerMessage::RequestSurrounding`]：应用光标前的一段文本，供整句前文用。
+    /// 组句起始时 DLL 主动送来的应用光标前文，给本地整句模型当前文（对应 macOS 壳在组句第一键读 `surrounding_text`）。
+    /// 在起组句的那次编辑会话里顺手读，不另开会话、不回话；密码框 / 读不到时不发，Server 退回本会话历史。
     Surrounding {
         /// 会话标识。
         session: SessionId,
 
-        /// 请求标识，对上是哪一次询问。
-        request: u64,
-
-        /// 光标前最多约 64 字的上下文；取不到时为空串。
+        /// 光标前最多 64 字。
         text: String,
     },
 

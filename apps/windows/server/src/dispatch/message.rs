@@ -41,18 +41,9 @@ impl Router {
                 tracing::debug!(?session, ?text, "焦点离开，结束组句");
                 Some(ServerMessage::Committed { session, text })
             }
-            ClientMessage::Surrounding {
-                session,
-                request,
-                text,
-            } => {
-                // TODO(windows)：交给 Engine 做整句前文（set_rescoring_context）。
-                tracing::trace!(
-                    ?session,
-                    request,
-                    chars = text.chars().count(),
-                    "收到上下文"
-                );
+            ClientMessage::Surrounding { session, text } => {
+                tracing::trace!(?session, chars = text.chars().count(), "收到光标前文");
+                self.set_surrounding(session, text);
                 None
             }
             ClientMessage::Selection {
@@ -141,8 +132,9 @@ impl Router {
         }
     }
 
-    /// 云联想轮询：聚焦会话拉一次异步结果回最新一帧，否则回空帧。释义兜底也借这个节拍收。
+    /// 云联想轮询：聚焦会话拉一次异步结果回最新一帧，否则回空帧。释义兜底与本地整句模型也借这个节拍收。
     fn handle_poll(&mut self, session: SessionId) -> ServerMessage {
+        self.tick();
         let learned = self.engine.poll_glosses();
         if learned > 0 {
             tracing::info!(learned, "释义兜底写入个人释义表");
