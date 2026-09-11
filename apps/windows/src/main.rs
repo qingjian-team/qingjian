@@ -1,21 +1,20 @@
-//! 青简 Windows 输入法的 **Server 进程**（骨架）。
+//! 青简 Windows 输入法的 **Server 进程**入口。
 //!
 //! Windows 的 TSF DLL（`ITfTextInputProcessor`）会被加载进**每一个**应用进程，核心逻辑不能放在
-//! DLL 里。所以照 Weasel（WeaselServer）/ 水杉的结构：Core（[`qingjian_core::Engine`]）跑在这个
-//! 独立的 Server 进程，DLL 只把系统按键翻成 [`qingjian_platform::protocol::ClientMessage`] 发过来、
-//! 把 [`qingjian_platform::protocol::ServerMessage`] 画出去。协议两端共用，定义在
-//! [`qingjian_platform::protocol`]。
+//! DLL 里。所以照 Weasel（WeaselServer）/ 水杉的结构：Core（`qingjian_core::Engine`）跑在这个
+//! 独立的 Server 进程，DLL 只把系统按键翻成协议消息发过来、把响应画出去。逻辑在库部分
+//! （`qingjian_windows`），这里只做装配与启动。
 //!
-//! 目前是骨架：会话的分派（[`dispatch::Router`]）已成形，还没接真正的传输（命名管道）、Engine
-//! 装配与 TSF DLL。见 `apps/windows/README.md` 的分阶段计划。**无法 `cargo run` 验证**，
-//! 交叉编译到 Windows 机器上编。
+//! 现状：`Router` 已把协议接到 Engine，跑通「拼音 → 候选 → 选词上屏」的进程内闭环（集成测试在
+//! `tests/`）。传输层（命名管道）、TSF DLL、翻页 / 英文模式 / 云联想待接。见 `README.md`。
 
-mod dispatch;
-mod session;
+use std::path::PathBuf;
 
-use qingjian_platform::protocol::{ClientMessage, KeyEvent, SessionId};
+use qingjian_core::Language;
+use qingjian_windows::{Router, assembly};
 
-use dispatch::Router;
+/// 每页候选数缺省值（接配置后由 `[general] page_size` 决定）。
+const DEFAULT_PAGE_SIZE: usize = 9;
 
 fn main() {
     tracing_subscriber::fmt()
@@ -25,26 +24,42 @@ fn main() {
         )
         .init();
 
-    tracing::info!("青简 Windows Server 骨架启动；传输层（命名管道）与 Engine 装配待接");
-    smoke_check();
+    // TODO(windows)：词库 / 释义表路径应从 %APPDATA%\Qingjian 与随包 Resources 定位（对应 macOS 的 paths.rs）。
+    //   现在从环境变量或仓库内样例读，够把 Server 跑起来。
+    let dict = std::env::var_os("QINGJIAN_DICT")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from("assets/sample/dict.tsv"));
+    let glossary = std::env::var_os("QINGJIAN_GLOSSARY")
+        .map(PathBuf::from)
+        .filter(|path| path.is_file());
 
-    // TODO(windows, 下一阶段)：
-    //   1. 建命名管道 `\\.\pipe\qingjian`，每个连上来的 DLL 客户端一条会话；
-    //   2. 装配 Engine（词库 / lm / neural CPU / translator / learner），与 macOS 的 host::init 对齐；
-    //   3. 循环读 ClientMessage → Router::handle → 写 ServerMessage 回去；
-    //   4. 云联想 / 本地整句模型的异步结果经 ServerMessage::Update 主动推给对应会话。
-}
+    let glossary_ref = glossary.as_deref().map(|path| (Language::English, path));
+    let engine = match assembly::assemble(&dict, glossary_ref) {
+        Ok(engine) => engine,
+        Err(error) => {
+            tracing::error!(%error, dict = %dict.display(), "Engine 装配失败");
+            std::process::exit(1);
+        }
+    };
+    let mut router = Router::new(engine, DEFAULT_PAGE_SIZE);
+    tracing::info!(
+        dict = %dict.display(),
+        sessions = router.session_count(),
+        "青简 Windows Server 就绪"
+    );
 
-/// 启动自检：把一次「开会话 → 按键 → 关会话」在内存里走一遍，确认协议与分派链路通。
-/// 只发一条日志，不产生任何对外行为。
-fn smoke_check() {
-    let mut router = Router::new();
-    let session = SessionId(1);
-    router.handle(ClientMessage::OpenSession { session });
-    let _ = router.handle(ClientMessage::Key {
-        session,
-        event: KeyEvent::new(b'n' as u32, Some('n'), Default::default()),
-    });
-    router.handle(ClientMessage::CloseSession { session });
-    tracing::debug!(remaining = router.session_count(), "自检完成");
+    // TODO(windows, 下一阶段)：TSF DLL；云联想 / 本地整句模型的异步结果经 ServerMessage::Update 推给会话。
+    #[cfg(windows)]
+    {
+        use qingjian_windows::ipc::pipe;
+        if let Err(error) = pipe::serve_pipe(pipe::DEFAULT_PIPE_NAME, &mut router) {
+            tracing::error!(%error, "命名管道服务退出");
+            std::process::exit(1);
+        }
+    }
+    #[cfg(not(windows))]
+    {
+        tracing::warn!("命名管道传输仅 Windows 提供；本平台只装配 Engine 供测试");
+        let _ = &mut router;
+    }
 }

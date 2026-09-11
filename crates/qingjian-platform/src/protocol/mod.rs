@@ -9,6 +9,7 @@
 //! [`PreeditSegment`]（Core 内部的 `MarkedSegment` 的可序列化镜像，避免协议耦合 Core 的内部枚举）。
 
 mod client;
+mod codec;
 mod server;
 mod session;
 
@@ -16,7 +17,8 @@ pub mod frame;
 pub mod key;
 
 pub use client::ClientMessage;
+pub use codec::{CodecError, DEFAULT_PIPE_NAME, read_message, write_message};
 pub use frame::{Frame, PreeditKind, PreeditSegment};
-pub use key::{KeyEvent, KeyOutcome};
+pub use key::{KeyEvent, KeyModifiers, KeyOutcome};
 pub use server::ServerMessage;
 pub use session::SessionId;

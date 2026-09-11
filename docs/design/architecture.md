@@ -49,7 +49,8 @@ qingjian/
 ├── apps/
 │   ├── cli/                    # 测试工具：查询、逐键计时、输入日志回放评测、整句评测
 │   ├── macos/                  # IMK 输入法壳（app / host / imk / candidates / menubar / preferences）
-│   ├── windows/                # Server 进程骨架（IPC 分派）+ 协议类型；TSF DLL 待接
+│   ├── windows/                # Server 进程（IPC 分派 + Engine + 命名管道）
+│   ├── windows-tsf/            # TSF 文本服务 DLL（cdylib）：COM 链路 + 连 Server 的管道客户端
 │   └── linux/                  # 规划
 │
 ├── tools/
@@ -386,12 +387,16 @@ CC-CEDICT 表（`dict-convert cedict`）保留为备用来源，覆盖面广但�
   一次要绘制的状态是 `Frame`（preedit 分段 + 候选页），preedit 用 `PreeditSegment`（Core `MarkedSegment` 的可序列化镜像，
   协议不耦合 Core 内部枚举），候选直接嵌 `qingjian_core::CandidateList`。同词干类型收进子目录：`key/{event,outcome}`、`frame/preedit/{kind,segment}`。
 - **Server 进程**：`apps/windows`（bin `qingjian-server`）。`dispatch::Router` 按 `SessionId` 分派多会话（Windows 一个 Server 服务多个应用进程，
-  每会话各持组句状态，不同于 macOS 的进程级单例）。目前会话开 / 关成形，按键与上屏、命名管道传输、Engine 装配、TSF DLL 待接。
-- **交叉编译验证**：`qingjian-core` / `-dictionary` / `-format` / `-lm` / `-platform` / `apps/windows` 已能
+  每会话各持组句状态，不同于 macOS 的进程级单例）。会话开 / 关、按键与上屏、Engine 装配、命名管道传输（`\\.\pipe\qingjian`）都已跑通，Windows 上端到端测过。
+- **帧编解码**：长度前缀 JSON 帧的 `read_message` / `write_message` 与缺省管道名放在 `qingjian-platform::protocol`，Server 与 DLL 共用（DLL 不必依赖整个 Server 库）。
+- **TSF DLL**：`apps/windows-tsf`（`cdylib`，产物 `qingjian_tsf.dll`，依赖官方 `windows` crate 的 COM `implement` 宏）。「引擎层」不是 Engine 而是连 Server 的**管道客户端** `EngineClient`（平台无关、可端到端测）；
+  COM 层已打通最小链路：`DllGetClassObject` → `IClassFactory` → `#[implement(ITfTextInputProcessor, ITfKeyEventSink)]` → `Activate` 挂击键 sink + 连管道 → `OnKeyDown` 转发按键；`DllRegisterServer` 写 InprocServer32 并经 `ITfInputProcessorProfiles` / `ITfCategoryMgr` 注册文本服务。
+  这一步先不画候选窗、不经编辑会话上屏（收键结果记进 `%LOCALAPPDATA%\Qingjian\tsf.log`）；候选窗口（Win32 / Direct2D）与 preedit / commit 上屏是下一步。
+- **交叉编译验证**：`qingjian-core` / `-dictionary` / `-format` / `-lm` / `-platform` / `apps/windows` / `apps/windows-tsf` 已能
   `cargo check --target x86_64-pc-windows-gnu` 通过（借此修掉 `qingjian-format` 里 unix 专有的 `Mmap::advise` 未 `cfg` 的移植 bug）；
   本机只 `check`，真正编译在 Windows 机器上做（`qingjian-neural` 的 candle 后端在 Windows 走 CPU 或 CUDA，随 `neural` 分支并回后再验）。
 - **版本与发布**：各平台壳版本号独立（见 `docs/notes/release.md`）；`apps/windows/Cargo.toml` 写死自己的 `version`，
-  将来的发布标签用 `windows-v<版本>`，与 macOS 的 `macos-v<版本>` 互不影响。
+  将来的发布标签用 `windows-v<版本>`，与 macOS 的 `macos-v<版本>` 互不影响（`qingjian-tsf` 是同一 Windows 产品的另一半，各自 `Cargo.toml` 记版本）。
 
 ### Linux：IBus / Fcitx
 

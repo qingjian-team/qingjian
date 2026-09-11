@@ -12,12 +12,16 @@ path = "src/main.rs"
 
 [dependencies]
 qingjian-core.workspace = true
+qingjian-dictionary.workspace = true
+qingjian-learning.workspace = true
 qingjian-platform.workspace = true
-serde.workspace = true
-serde_json.workspace = true
+qingjian-translate.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
 
 [lints]
 workspace = true
+
+[target."cfg(windows)".dependencies]
+windows-sys = { version = "0.61.2", features = ["Win32_Foundation", "Win32_System_Pipes", "Win32_Storage_FileSystem"] }
