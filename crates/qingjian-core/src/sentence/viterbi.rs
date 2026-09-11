@@ -29,6 +29,9 @@ struct Node {
     /// 到此为止的累计得分。
     score: f64,
 
+    /// 累计得分里静态模型的部分（见 `Conversion::static_score`）。
+    static_score: f64,
+
     /// 前驱在 `nodes[start]` 里的下标；`start == 0` 时无意义。
     back: usize,
 
@@ -90,7 +93,7 @@ pub fn convert_whole(
     )
 }
 
-/// [`convert`] 与 [`convert_whole`] 的共同实现，`keep_partial` 选哪种。
+/// [`convert`] 与 [`convert_whole`] 的共同实现，`keep_partial` 选哪种；只要最优的一条。
 #[allow(clippy::too_many_arguments)]
 pub fn convert_with(
     dictionaries: &[&Dictionary],
@@ -102,8 +105,40 @@ pub fn convert_with(
     cost: impl Fn(usize, &str) -> f64,
     cache: &mut SpanCache,
 ) -> Option<Conversion> {
-    let (last, head) = positions.split_last()?;
-    let last = *last.first()?;
+    convert_paths(
+        dictionaries,
+        positions,
+        keep_partial,
+        1,
+        model,
+        personal,
+        weight,
+        cost,
+        cache,
+    )
+    .into_iter()
+    .next()
+}
+
+/// 得分最高的前 `k` 条路径（最多束宽条，按得分降序，文本相同的只留一条）：给重打分用。
+#[allow(clippy::too_many_arguments)]
+pub fn convert_paths(
+    dictionaries: &[&Dictionary],
+    positions: &[Vec<SyllablePattern<'_>>],
+    keep_partial: bool,
+    k: usize,
+    model: &dyn LanguageModel,
+    personal: Option<&UserNgram>,
+    weight: impl Fn(&str) -> u32,
+    cost: impl Fn(usize, &str) -> f64,
+    cache: &mut SpanCache,
+) -> Vec<Conversion> {
+    let Some((last, head)) = positions.split_last() else {
+        return Vec::new();
+    };
+    let Some(&last) = last.first() else {
+        return Vec::new();
+    };
     let abbreviated_head = head.iter().any(|p| p.first().is_none_or(|t| !t.complete));
     let positions = if keep_partial
         || last.complete
@@ -115,8 +150,8 @@ pub fn convert_with(
         head
     };
     let n = positions.len();
-    if n == 0 {
-        return None;
+    if n == 0 || k == 0 {
+        return Vec::new();
     }
     let total: f64 = dictionaries
         .iter()
@@ -132,6 +167,7 @@ pub fn convert_with(
         text: String::new(),
         syllables: Vec::new(),
         score: 0.0,
+        static_score: 0.0,
         back: 0,
         placeholder: false,
         penalty: 0.0,
@@ -156,12 +192,18 @@ pub fn convert_with(
                 let fallback = fallback_log_prob(hit.frequency, log_total);
                 let (score, back) =
                     best_predecessor(&nodes, start, &hit.text, model, personal, fallback);
-                let penalty = nodes[start][back].penalty + hit.penalty;
+                let previous = &nodes[start][back];
+                let penalty = previous.penalty + hit.penalty;
+                let static_step = model
+                    .log_prob((start > 0).then_some(previous.text.as_str()), &hit.text)
+                    .unwrap_or(fallback);
+                let static_score = previous.static_score + static_step;
                 nodes[end].push(Node {
                     start,
                     text: hit.text.clone(),
                     syllables: hit.syllables.clone(),
                     score: score + bonus - hit.penalty,
+                    static_score,
                     back,
                     placeholder: false,
                     penalty,
@@ -174,11 +216,13 @@ pub fn convert_with(
             let (score, back) =
                 best_predecessor(&nodes, start, text, &NoModel, None, UNKNOWN_LOG_PROB);
             let penalty = nodes[start][back].penalty;
+            let static_score = nodes[start][back].static_score + UNKNOWN_LOG_PROB;
             nodes[start + 1].push(Node {
                 start,
                 text: text.to_owned(),
                 syllables: vec![text.to_owned()],
                 score,
+                static_score,
                 back,
                 placeholder: true,
                 penalty,
@@ -186,14 +230,24 @@ pub fn convert_with(
         }
     }
     prune(&mut nodes[n]);
-    let mut index = 0;
-    let mut position = n;
-    if nodes[n].is_empty() {
-        return None;
+    let mut paths: Vec<Conversion> = Vec::with_capacity(k.min(nodes[n].len()));
+    for index in 0..nodes[n].len() {
+        if paths.len() >= k {
+            break;
+        }
+        let conversion = backtrack(&nodes, n, index);
+        if !paths.iter().any(|p| p.text == conversion.text) {
+            paths.push(conversion);
+        }
     }
-    let score = nodes[n][0].score;
-    let penalty = nodes[n][0].penalty;
-    // 回溯
+    paths
+}
+
+/// 从 `nodes[position][index]` 回溯出整条路径。
+fn backtrack(nodes: &[Vec<Node>], mut position: usize, mut index: usize) -> Conversion {
+    let score = nodes[position][index].score;
+    let static_score = nodes[position][index].static_score;
+    let penalty = nodes[position][index].penalty;
     let mut words: Vec<SentenceWord> = Vec::new();
     while position > 0 {
         let node = &nodes[position][index];
@@ -212,13 +266,14 @@ pub fn convert_with(
         text.push_str(&word.text);
         syllables.extend(word.syllables.iter().cloned());
     }
-    Some(Conversion {
+    Conversion {
         text,
         syllables,
         words,
         score,
+        static_score,
         penalty,
-    })
+    }
 }
 
 /// 占位音节不问语言模型。

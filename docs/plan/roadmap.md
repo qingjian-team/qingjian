@@ -199,9 +199,11 @@ Core 永远不联网。第一个实现接 DeepSeek（OpenAI 兼容接口），�
   个人数据量级（一年几百 KB 到几 MB）上，这一步拿到绝大部分个性化收益，成本接近零
 - [x] 个人 trigram（2026-09-06）：与二元一起在线计数，绝对折扣（D = 0.75）回退到二元，不训练；`--replay` 在 423 条日志上与二元持平
   （冷 词 77.7% / 整句 87.0%，带数据 90.2% / 97.1%），三元要数据攒起来才见效，`--typing` 每键最慢 2.7 ms 不变
-- [ ] 小 Transformer 实验分支：在 git 分支 `neural` 上（2026-09-08，`qingjian-neural` crate，candle，Metal / Accelerate / CPU，
-  用途「重排整句转换的前 6 条路径」，CLI `--neural` 接）。第一轮回放没过门槛且尺子有偏，评测笔记与下一步在那个分支的
-  `docs/notes/neural-rescoring.md`；过了门槛再合回 main
+- [x] 小 Transformer 实验分支（2026-09-08）：`qingjian-neural`（candle，Metal / Accelerate / CPU），用途「重排整句转换的前 6 条路径」；
+  CLI `--neural` 接，壳未接。回放上词 +0.5、整句 −1.1（静态替换 λ 0.25、前文 64），没过门槛，且尺子有偏，见 `docs/notes/neural-rescoring.md`
+- [x] 整句评测集上过门槛（2026-09-08 晚）：冻结集 8322 句，基线整句首选 37.6%，small λ 0.75 前文 64 到 41.9%（+4.3），
+  不给前文也有 +2.2；翻好 382 句、翻坏 54 句，见 `docs/notes/neural-rescoring.md`
+- [ ] 进壳前：前文 KV 缓存 + 停顿后异步重排（现在 60 ms 一次，最慢 800 ms）、surrounding text 当前文、λ 缺省 0.5
 - [ ] 闲时训练：门禁包括接电源、温度、空闲时长；训练数据来自本地输入历史；模型与数据都可一键清除
 - [ ] 评测门槛：留出用户文本上比 n-gram 的困惑度与 top-1 命中率，赢了才默认启用；每次按键推理延迟有上限
 - [ ] 模型文件的版本与迁移

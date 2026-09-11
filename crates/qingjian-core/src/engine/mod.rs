@@ -60,7 +60,7 @@ use crate::history::InputHistory;
 use crate::parser::{self, ParseError, Segmentation};
 use crate::punctuation::Punctuation;
 use crate::ranking::{self, Scored};
-use crate::sentence::{self, Conversion, LanguageModel, NoLanguageModel};
+use crate::sentence::{self, Conversion, LanguageModel, NoLanguageModel, SentenceScorer};
 use crate::shortcut;
 use crate::shuangpin::{Decoded, Scheme};
 
@@ -104,6 +104,18 @@ pub struct Engine {
 
     /// 整句转换的语言模型，缺省为 [`NoLanguageModel`]（退化成一元词频）。
     language_model: Box<dyn LanguageModel>,
+
+    /// 整句路径的神经重打分器（字级 Transformer）；没接就只用词级模型的路径得分。
+    sentence_scorer: Option<Box<dyn SentenceScorer>>,
+
+    /// 重打分时神经得分的权重 λ：最终分 = 路径分 + λ·(神经分 − 静态分)。
+    neural_weight: f64,
+
+    /// 只有路径分与最优路径差距在这么多 nat 以内的路径才参与重排：差距大的多半是个人 n-gram 拉开的，通用模型不该翻盘。
+    neural_margin: f64,
+
+    /// 重打分给模型看的前文长度（本会话最近上屏的字符数），0 为不给前文。
+    neural_context: usize,
 
     /// 最近几次上屏各记了哪些学习、之后退格了几个字；用户把它们删掉重选时把学习退回去（见 [`Self::note_backspace`]）。
     /// 最新的在末尾，最多留 [`RECENT_COMMITS`] 条。
@@ -225,6 +237,19 @@ const CORRECTION_PENALTY: f64 = 5.0;
 /// 一次查询最多给壳多少条候选。同音字最多的音节也不到这个数，再往后都是长词，没人会翻到。
 const MAX_CANDIDATES: usize = 500;
 
+/// 神经重打分看 Viterbi 的前几条路径：束宽是 8，再多也没有。
+const RESCORE_PATHS: usize = 6;
+
+/// 神经重打分的缺省权重 λ（见 `Engine::neural_weight`）：整句评测集上 0.5 到 1.0 一样好、0.75 最高（见 docs/notes/neural-rescoring.md），
+/// 取 0.5 给个人 n-gram 留余量；回放里看到的「λ 大整句掉」是那把尺子的偏差。
+pub const NEURAL_WEIGHT: f64 = 0.5;
+
+/// 神经重打分的缺省门槛（nat）：路径分落后最优路径超过这么多的不参与重排。缺省不设（4 nat 试过没帮助），留作调参的旋钮。
+pub const NEURAL_MARGIN: f64 = f64::INFINITY;
+
+/// 重打分给模型看的前文：本次会话最近上屏的这么多个字符。
+pub const RESCORE_CONTEXT_CHARS: usize = 64;
+
 impl Engine {
     pub fn new(dictionary: Dictionary) -> Self {
         Self {
@@ -240,6 +265,10 @@ impl Engine {
             punctuation: Punctuation::default(),
             predictor: Box::new(NoPredictor),
             language_model: Box::new(NoLanguageModel),
+            sentence_scorer: None,
+            neural_weight: NEURAL_WEIGHT,
+            neural_margin: NEURAL_MARGIN,
+            neural_context: RESCORE_CONTEXT_CHARS,
             correction_cache: std::cell::RefCell::new(None),
             span_cache: std::cell::RefCell::new(sentence::SpanCache::default()),
             recent_commits: Vec::new(),

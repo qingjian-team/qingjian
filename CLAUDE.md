@@ -30,6 +30,10 @@ macOS 输入法已自用（HEAD 见 git），正在给测试者打包（pkg 已�
 - `crates/qingjian-format`：`.qj` 数据容器（`Container` mmap 读、`Writer` 写、`Table<T>` / `Text` 零拷贝视图、`hash` 可落盘哈希索引、`Metadata` 名称 / 许可证 / 署名）。
   词库与语言模型都能 `write_qj` / 从 `.qj` 打开，启动 50 ms；`cargo run --release -p qingjian-dict-convert -- pack dict|lm --name … --license …` 生成 `data/generated/{dict,lm}.qj`，
   `bundle.sh` 在 TSV 更新时自动重打并只把 `.qj` 打进包。设计见 `docs/design/architecture.md`「数据文件：`.qj` 容器」。
+- `crates/qingjian-neural`：`CharScorer`，Core `sentence::SentenceScorer` trait 的实现：candle 加载字级 Transformer（GPT-2 风格 decoder，`tools/lm-train` 导出的
+  `model.safetensors` + `config.json` + `vocab.json`，训练脚本不在仓库里），给「前文 + 整句」按字累加 log 概率；Engine 接了它就取 Viterbi 前 `RESCORE_PATHS` = 6 条路径按
+  `(1 − λ)·路径分 + λ·神经分` 重排（λ `NEURAL_WEIGHT` 0.5，前文是本会话最近 64 个上屏字符）。features `accelerate` / `metal` 换后端；
+  只有 CLI `--neural <导出目录>`（`--neural-weight` 调 λ）接它，IMK 壳未接（同步打分每次几十到一百多毫秒，要先做异步防抖）。
 - `crates/qingjian-lm`：`BigramModel`，Core `sentence::LanguageModel` trait 的实现，从 `data/generated/lm.qj`（或 `lm-unigram.tsv` / `lm-bigram.tsv`）加载
   （没有这两个文件就退化为一元词频整句）。数据由 `tools/corpus/parquet_to_text.py`（uv 脚本，HF parquet → 简体纯文本）加
   `cargo run --release -p qingjian-dict-convert -- bigram data/corpus/*.txt` 生成；语料在 `data/corpus/`（gitignore）。

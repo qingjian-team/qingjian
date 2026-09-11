@@ -182,6 +182,21 @@ fn build_engine(args: &Args) -> Result<Engine, CliError> {
         );
         engine = engine.with_language_model(Box::new(model));
     }
+    if let Some(dir) = &args.neural {
+        let started = Instant::now();
+        let scorer = qingjian_neural::CharScorer::load(dir)?;
+        tracing::info!(
+            load_ms = started.elapsed().as_millis(),
+            weight = args.neural_weight.unwrap_or(qingjian_core::NEURAL_WEIGHT),
+            "神经重打分已启用"
+        );
+        engine = engine.with_sentence_scorer(
+            Box::new(scorer),
+            args.neural_weight,
+            args.neural_margin,
+            args.neural_context,
+        );
+    }
     let config_path = args
         .config
         .clone()

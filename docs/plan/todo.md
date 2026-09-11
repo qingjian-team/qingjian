@@ -56,9 +56,8 @@
   补进 `assets/lexicon` 的常用词源重建 dict
 - [ ] 按输入串记的选择只认字面：`wod` 下选的 我的 惠及不到 `wode`；考虑同时按候选全拼记一份、查询取两者最大
 - [ ] 已经学进用户词的错读音云端词（`我的 wo di`、`我的哦 wo di e` 这类）没有清理入口：偏好设置词库页给「按读音核对用户词」，或一次性脚本
-- [ ] 小 Transformer 重排：实验在分支 `neural`（small 23M / base 36M 字级模型，只给前 6 条整句路径重打分），回放没过门槛且尺子有偏；
-  整句评测集（`--eval-text`，2026-09-08）已有，在它上面整句首选比基线高 2 个点以上才做前文 KV 缓存与异步防抖、surrounding text 当前文，
-  见那个分支的 `docs/notes/neural-rescoring.md`
+- [ ] 小 Transformer 重排：已做实验（`qingjian-neural`，small 23M / base 36M，只给前 6 条整句路径重打分，见 `docs/notes/neural-rescoring.md`），
+  整句评测集上过了门槛（+4.3 个点）；进壳前做前文 KV 缓存与停顿后异步重排、surrounding text 当前文，λ 缺省提到 0.5
 - [ ] 日语 emoji 要等有日语输入模式
 
 ## 二、产品特色

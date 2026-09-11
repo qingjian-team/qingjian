@@ -9,6 +9,7 @@ members = [
     "crates/qingjian-predict",
     "crates/qingjian-lm",
     "crates/qingjian-format",
+    "crates/qingjian-neural",
     "apps/cli", "apps/macos", "apps/windows/server", "apps/windows/tsf", "apps/windows/settings", "tools/dict-convert", "tools/gloss-gen",
 ]
 
@@ -31,6 +32,7 @@ qingjian-platform = { path = "crates/qingjian-platform" }
 qingjian-predict = { path = "crates/qingjian-predict" }
 qingjian-lm = { path = "crates/qingjian-lm" }
 qingjian-format = { path = "crates/qingjian-format" }
+qingjian-neural = { path = "crates/qingjian-neural" }
 
 # 外部依赖统一在这里定版本，子 crate 一律 `xxx.workspace = true`
 serde = { version = "1.0.229", features = ["derive"] }
@@ -50,6 +52,10 @@ foldhash = "0.2.0"
 # .qj 数据容器：mmap 打开、结构体数组零拷贝读取
 memmap2 = "0.9"
 zerocopy = { version = "0.8", features = ["derive"] }
+
+# 本地神经语言模型推理（字级 Transformer，权重 safetensors）
+candle-core = "0.11.0"
+candle-nn = "0.11.0"
 
 # 云联想：OpenAI 兼容接口客户端与它需要的异步运行时
 async-openai = { version = "0.41.3", default-features = false, features = ["chat-completion", "native-tls"] }

@@ -77,6 +77,23 @@ impl Engine {
         self.predictor = predictor;
     }
 
+    /// 挂上整句重打分器（字级 Transformer）。`weight` 是神经分的权重 λ，`margin` 是参与重排的路径分门槛（nat），
+    /// `context` 是给模型看的前文字符数；`None` 用缺省 [`NEURAL_WEIGHT`] / [`NEURAL_MARGIN`] / [`RESCORE_CONTEXT_CHARS`]。
+    pub fn with_sentence_scorer(
+        mut self,
+        scorer: Box<dyn SentenceScorer>,
+        weight: Option<f64>,
+        margin: Option<f64>,
+        context: Option<usize>,
+    ) -> Self {
+        self.sentence_scorer = Some(scorer);
+        self.neural_weight = weight.unwrap_or(NEURAL_WEIGHT).clamp(0.0, 1.0);
+        self.neural_margin = margin.unwrap_or(NEURAL_MARGIN).max(0.0);
+        self.neural_context = context.unwrap_or(RESCORE_CONTEXT_CHARS);
+        self.forget_span_cache();
+        self
+    }
+
     pub fn with_language_model(mut self, model: Box<dyn LanguageModel>) -> Self {
         self.language_model = model;
         self

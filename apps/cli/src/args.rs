@@ -77,6 +77,22 @@ pub struct Args {
     #[arg(long)]
     pub shuangpin: Option<String>,
 
+    /// 神经重打分：字级 Transformer 的导出目录（model.safetensors / config.json / vocab.json），整句前几条路径用它重排
+    #[arg(long)]
+    pub neural: Option<PathBuf>,
+
+    /// 神经重打分的权重 λ（0 到 1，缺省 0.5）：最终分 = 路径分 + λ·(神经分 − 静态二元分)，个人学习与代价不受影响
+    #[arg(long)]
+    pub neural_weight: Option<f64>,
+
+    /// 神经重打分的门槛（nat，缺省不设）：路径分落后最优路径超过这么多的不参与重排
+    #[arg(long)]
+    pub neural_margin: Option<f64>,
+
+    /// 神经重打分给模型看的前文字符数（缺省 64，0 为不给前文）
+    #[arg(long)]
+    pub neural_context: Option<usize>,
+
     /// 逐键模式：把每个输入当作一键一键敲进去，每个前缀都查一次，打印每键各阶段耗时（性能测试用）
     #[arg(long)]
     pub typing: bool,
