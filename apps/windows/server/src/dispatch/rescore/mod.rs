@@ -84,9 +84,13 @@ impl Router {
             Loaded::Pending => {}
             Loaded::Done(result) => {
                 match *result {
-                    Ok(scorer) => self
-                        .engine
-                        .set_async_sentence_scorer(Some(Box::new(scorer))),
+                    Ok(scorer) => {
+                        self.engine
+                            .set_async_sentence_scorer(Some(Box::new(scorer)));
+                        // 模型上线了：日志里补一条会话信息，之后的条目知道重排开着
+                        self.engine
+                            .log_session(env!("CARGO_PKG_VERSION"), "windows");
+                    }
                     Err(error) => tracing::warn!(%error, "本地整句模型加载失败，不重排"),
                 }
                 self.model_loader = None;

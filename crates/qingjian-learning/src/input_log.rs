@@ -130,6 +130,10 @@ mod tests {
             top: vec!["你好".into(), "拟好".into()],
             scheme: String::new(),
             english: false,
+            rescored: false,
+            app: None,
+            pages: 0,
+            ms: 120,
         }));
         log.record(InputLogEntry::Retract {
             of: 1,

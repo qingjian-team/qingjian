@@ -1,4 +1,5 @@
-//! 输入日志：每次上屏记一条「敲了什么、看到了什么、选了什么」，退格撤销也记一条。
+//! 输入日志：每次上屏记一条「敲了什么、看到了什么、选了什么」，退格撤销、退格重打、直通字符、云端联想、
+//! 上文断开与会话信息各记一条。格式与各事件的用途见 `docs/plan/model-eval.md`。
 //!
 //! 聚合的学习数据（选择次数、输入串选择、个人 n-gram）回答不了这个问题，而排序 / 整句的离线回归评测
 //! 与个人模型的训练对都要它。Core 只产生条目（[`InputLogEntry`]），写到哪、加不加时间戳由
@@ -9,9 +10,9 @@ mod entry;
 mod logger;
 mod source;
 
-pub use entry::{CommitEntry, InputLogEntry};
+pub use entry::{CommitEntry, INPUT_LOG_VERSION, InputLogEntry};
 pub use logger::{InputLogger, NoInputLogger};
 pub use source::InputSource;
 
-/// 写进条目的候选文本最多几条：够算「首选命中了没有」和「选的是第几个」，又不把整页都抄一遍。
-pub const LOGGED_CANDIDATES: usize = 5;
+/// 写进条目的候选文本最多几条：一页的量，够算「首选命中了没有」「在不在第一页」和「选的是第几个」。
+pub const LOGGED_CANDIDATES: usize = 9;

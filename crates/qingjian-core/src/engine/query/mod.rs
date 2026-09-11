@@ -17,6 +17,7 @@ impl Engine {
     /// 光标停在拼音中间时只按光标前的那段算候选（`ni|hao` 出 你），光标后的拼音留着，
     /// 上屏之后接着组句；见 [`Composition::scope`]。
     pub fn query(&self) -> Result<Query, ParseError> {
+        self.last_rescored.set(false);
         let query = self.query_inner()?;
         // 给输入日志留个摘要：上屏时才知道选了什么，这里才知道看到了什么
         let pinyin = match &query.correction {
@@ -34,6 +35,7 @@ impl Engine {
                 .take(QuerySnapshot::MAX_CANDIDATES)
                 .map(|c| c.text.clone())
                 .collect(),
+            rescored: self.last_rescored.get(),
         });
         Ok(query)
     }

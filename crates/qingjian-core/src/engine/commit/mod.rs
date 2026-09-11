@@ -280,6 +280,19 @@ impl Engine {
             .iter()
             .rposition(|c| c.is_erased() && c.same_input(input))
         else {
+            // 删掉的那次拼音与这次相近但不同（wode 删了重打 wodi）：重打了键，记进输入日志给敲错纠正当样本；学习不动
+            if let Some(erased) = self
+                .recent_commits
+                .iter()
+                .rev()
+                .find(|c| c.is_erased() && is_retyped(&c.input, input))
+            {
+                self.logger.record(InputLogEntry::Retype {
+                    before: erased.input.clone(),
+                    after: input.to_owned(),
+                    of: erased.log_id,
+                });
+            }
             self.recent_commits.retain(|c| !c.is_erased());
             return;
         };
@@ -534,4 +547,38 @@ impl Engine {
 /// 整句路径上的词是英文词（`woxiangxuehaorust` 的 rust）：不是占位音节、全是字母。
 fn is_english_word(word: &sentence::SentenceWord) -> bool {
     !word.placeholder && !word.text.is_empty() && word.text.bytes().all(|b| b.is_ascii_alphabetic())
+}
+
+/// 删掉重打的键串算不算「同一段拼音打错了」：都够长、不相等、编辑距离不超过 [`RETYPE_MAX_EDITS`]。
+/// 差得更多的是在改别的内容，不算。
+fn is_retyped(before: &str, after: &str) -> bool {
+    before.len() >= RETYPE_MIN_LETTERS
+        && after.len() >= RETYPE_MIN_LETTERS
+        && before != after
+        && edit_distance(before, after) <= RETYPE_MAX_EDITS
+}
+
+/// 跨上屏重打的键串最少几个字母才算数。
+const RETYPE_MIN_LETTERS: usize = 3;
+
+/// 跨上屏重打最多差几处编辑。
+const RETYPE_MAX_EDITS: usize = 2;
+
+/// Levenshtein 编辑距离（按字节，键串都是 ASCII）。
+fn edit_distance(a: &str, b: &str) -> usize {
+    let a = a.as_bytes();
+    let b = b.as_bytes();
+    let mut previous: Vec<usize> = (0..=b.len()).collect();
+    let mut current = vec![0; b.len() + 1];
+    for (i, &ca) in a.iter().enumerate() {
+        current[0] = i + 1;
+        for (j, &cb) in b.iter().enumerate() {
+            let cost = usize::from(ca != cb);
+            current[j + 1] = (previous[j] + cost)
+                .min(previous[j + 1] + 1)
+                .min(current[j] + 1);
+        }
+        std::mem::swap(&mut previous, &mut current);
+    }
+    previous[b.len()]
 }

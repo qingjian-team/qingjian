@@ -2,6 +2,9 @@
 
 use super::*;
 
+/// 直通字符攒到这么多就先写一条，免得长时间纯英文输入时一条攒得没边。
+const MAX_PENDING_PASSTHROUGH: usize = 200;
+
 impl Engine {
     /// 中文模式下把半角字符转成全角标点；不需要转换返回 `None`。
     pub fn punctuate(&mut self, c: char) -> Option<&'static str> {
@@ -9,6 +12,8 @@ impl Engine {
         if let Some(text) = converted {
             self.history.record(text);
             self.remember_commit(LastCommit::plain(text));
+            // 全角标点也是文本流的一部分，与直通字符攒在一起
+            self.passthrough_pending.push_str(text);
         } else {
             self.recent_commits.clear();
         }
@@ -16,19 +21,79 @@ impl Engine {
         converted
     }
 
-    /// 壳把字符原样透传给应用后告知，用于「数字后的点保持半角」，也记入输入历史。
+    /// 壳把字符原样透传给应用后告知，用于「数字后的点保持半角」，也记入输入历史与输入日志（攒成一条 `passthrough`）。
     pub fn note_passthrough(&mut self, c: char) {
         self.punctuation.note_passthrough(c);
         let text = c.encode_utf8(&mut [0; 4]).to_owned();
         self.history.record(&text);
         self.chain.reset();
         self.remember_commit(LastCommit::plain(&text));
+        self.passthrough_pending.push(c);
+        if self.passthrough_pending.chars().count() >= MAX_PENDING_PASSTHROUGH {
+            self.flush_passthrough();
+        }
+    }
+
+    /// 把攒着的直通字符写成一条输入日志。上屏、上文断开、会话记录前都调，保证日志里的顺序与真实顺序一致。
+    pub(super) fn flush_passthrough(&mut self) {
+        if self.passthrough_pending.is_empty() {
+            return;
+        }
+        let text = std::mem::take(&mut self.passthrough_pending);
+        self.logger.record(InputLogEntry::Passthrough { text });
     }
 
     /// 壳告知光标离开了刚才上屏的位置（切换应用、点了别处、停用输入法）：之后上屏的词按句首记。
+    /// 上次断开之后有过上屏才往输入日志记一条 `break`，连着失焦几次只记一次。
     pub fn break_chain(&mut self) {
         self.chain.reset();
         self.recent_commits.clear();
+        self.flush_passthrough();
+        if self.committed_since_break {
+            self.committed_since_break = false;
+            self.logger.record(InputLogEntry::Break {
+                app: self.application.clone(),
+            });
+        }
+    }
+
+    /// 壳告知正在输入的应用（macOS bundle identifier / Windows exe 名），写进输入日志；不知道就给 `None`。
+    pub fn set_application(&mut self, app: Option<String>) {
+        self.application = app;
+    }
+
+    pub fn application(&self) -> Option<&str> {
+        self.application.as_deref()
+    }
+
+    /// 壳翻了一页候选：记进这段组句的翻页数（写进输入日志，候选质量的隐式信号）。
+    pub fn note_page_turn(&mut self) {
+        self.page_turns = self.page_turns.saturating_add(1);
+    }
+
+    /// 往输入日志记一条会话信息（版本、平台、本地模型开没开）。壳在启动和打开日志时调。
+    pub fn log_session(&mut self, version: &str, platform: &str) {
+        self.flush_passthrough();
+        self.logger.record(InputLogEntry::Session {
+            v: INPUT_LOG_VERSION,
+            version: version.to_owned(),
+            platform: platform.to_owned(),
+            model: self.has_sentence_scorer(),
+            scheme: self.scheme_key(),
+        });
+    }
+
+    /// 双拼方案的键（`xiaohe`），全拼为空；输入日志用。
+    pub(super) fn scheme_key(&self) -> String {
+        self.shuangpin
+            .map_or_else(String::new, |s| s.key().to_owned())
+    }
+
+    /// 组句里要删东西了：第一次删之前把缓冲区留个快照，上屏时对比最终键串，不同就是一次重打（`retype`）。
+    fn note_edit(&mut self) {
+        if self.retype_snapshot.is_none() && !self.composition.is_empty() {
+            self.retype_snapshot = Some(self.composition.text().to_owned());
+        }
     }
 
     /// 壳告知：不在组句时按了退格，删的是应用里刚上屏的文字。从最近一次上屏往前数，一次上屏的字删光了就是「可能选错了」的信号：
@@ -68,10 +133,17 @@ impl Engine {
     }
 
     pub fn push(&mut self, c: char) {
+        if self.composition.is_empty() {
+            // 新一段组句：从这一键起算耗时、翻页与重打
+            self.composition_started = Some(Instant::now());
+            self.page_turns = 0;
+            self.retype_snapshot = None;
+        }
         self.composition.push(c);
     }
 
     pub fn backspace(&mut self) -> bool {
+        self.note_edit();
         self.composition.backspace()
     }
 
@@ -80,9 +152,13 @@ impl Engine {
         self.chain.leave_buffer();
         // 壳给的光标前文只对这段组句有效，下一段第一键再读
         self.rescoring_before = None;
+        self.retype_snapshot = None;
+        self.composition_started = None;
+        self.page_turns = 0;
     }
 
     pub fn delete_forward(&mut self) -> bool {
+        self.note_edit();
         self.composition.delete_forward()
     }
 
@@ -90,6 +166,7 @@ impl Engine {
     /// 双拼两键一音节，落单的一键单删；英文直输段 / 表达式 / 问字里删最后一段字母或数字，标点一次删一个。
     /// 光标在开头时返回 `false`。
     pub fn delete_syllable_backward(&mut self) -> bool {
+        self.note_edit();
         let cursor = self.composition.cursor();
         let before = &self.composition.text()[..cursor];
         let plain = self.raw_mode() || self.expression_mode() || self.question_mode();
@@ -117,6 +194,7 @@ impl Engine {
 
     /// 删掉光标前的全部拼音（壳里 ⌘⌫），光标后的留着。光标在开头时返回 `false`。
     pub fn delete_to_start(&mut self) -> bool {
+        self.note_edit();
         let cursor = self.composition.cursor();
         self.composition.delete_before_cursor(cursor)
     }
@@ -184,6 +262,12 @@ impl Engine {
             *self.correction_cache.borrow_mut() = None;
         }
         let raw = self.composition.text().to_owned();
+        if raw.is_empty() {
+            // 壳在回车 / 失焦时不管有没有在组句都会来一趟：空的不记日志、不计统计
+            self.clear();
+            self.chain.reset();
+            return raw;
+        }
         self.log_commit(&raw, &raw, InputSource::Raw);
         // 原样上屏的是个英文词（`gist`）：记进个人英文词表，下次直接出候选。
         // 双拼下全部键都能解成完整音节的（`nihc`）不是英文，是用户要原样打出双拼键

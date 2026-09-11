@@ -88,11 +88,16 @@ impl Engine {
     }
 
     /// 往输入日志记一次上屏。`keys` 是这次消耗掉的原始键，`index` 从上一次查询的候选里找。
+    /// 攒着的直通字符先写出去（顺序要对）；这段组句里退格过且最终键串变了，紧跟着记一条 `retype`。
     pub(super) fn log_commit(&mut self, keys: &str, text: &str, source: InputSource) -> u64 {
         self.record_exposures();
+        self.flush_passthrough();
         self.log_sequence += 1;
         let snapshot = self.last_query.borrow().clone().unwrap_or_default();
         let index = snapshot.candidates.iter().position(|c| c == text);
+        let ms = self
+            .composition_started
+            .map_or(0, |started| started.elapsed().as_millis() as u64);
         self.logger.record(InputLogEntry::Commit(CommitEntry {
             id: self.log_sequence,
             scope: snapshot.scope,
@@ -107,11 +112,25 @@ impl Engine {
                 .into_iter()
                 .take(LOGGED_CANDIDATES)
                 .collect(),
-            scheme: self
-                .shuangpin
-                .map_or_else(String::new, |s| s.key().to_owned()),
+            scheme: self.scheme_key(),
             english: self.english_mode,
+            rescored: snapshot.rescored,
+            app: self.application.clone(),
+            pages: self.page_turns,
+            ms,
         }));
+        self.committed_since_break = true;
+        self.page_turns = 0;
+        if let Some(before) = self.retype_snapshot.take() {
+            let after = self.composition.scope();
+            if before != after {
+                self.logger.record(InputLogEntry::Retype {
+                    before,
+                    after: after.to_owned(),
+                    of: self.log_sequence,
+                });
+            }
+        }
         self.log_sequence
     }
 

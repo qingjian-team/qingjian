@@ -3,6 +3,7 @@
 //! 只在内存里学习（CLI 没给 `--user-dict` 就是内存学习器），不写任何文件；按日志顺序回放，
 //! 命中的候选照样上屏，让上文（个人 n-gram、上一个词）跟真实使用一样往前走。
 //! 云端词、云端整句、原样上屏、译词不评：它们不是本地排序的结果，只计数。
+//! 其他事件（重打、直通、云端联想、上文断开、会话）按 `docs/plan/model-eval.md` 里的尺子计数。
 
 mod line;
 mod report;
@@ -10,7 +11,7 @@ mod tally;
 
 use std::path::Path;
 
-use qingjian_core::{Engine, InputLogEntry};
+use qingjian_core::{Engine, InputLogEntry, InputSource};
 
 pub use report::Report;
 
@@ -38,7 +39,40 @@ pub fn run(engine: &mut Engine, path: &Path, show_misses: usize) -> Result<Repor
         };
         match line.entry {
             InputLogEntry::Retract { .. } => report.retracts += 1,
+            InputLogEntry::Retype { .. } => report.retypes += 1,
+            InputLogEntry::Session { .. } => report.sessions += 1,
+            InputLogEntry::Break { .. } => {
+                report.breaks += 1;
+                engine.break_chain();
+            }
+            InputLogEntry::Passthrough { text } => {
+                // 直通字符也进标点状态与上文链，与真实使用一致
+                report.passthrough_chars += text.chars().count();
+                for c in text.chars() {
+                    engine.note_passthrough(c);
+                }
+            }
+            InputLogEntry::Prediction { .. } => {
+                report.predictions += 1;
+                report.prediction_pending = true;
+            }
             InputLogEntry::Commit(commit) => {
+                // 2026-09-12 以前的日志里壳每次回车 / 失焦都记一条空的原样上屏，不算数
+                if commit.keys.is_empty() && commit.text.is_empty() {
+                    // 那一条对应的是一次回车 / 失焦：上文链照样断，只是不计数
+                    report.empty += 1;
+                    engine.clear();
+                    engine.break_chain();
+                    continue;
+                }
+                if std::mem::take(&mut report.prediction_pending)
+                    && matches!(
+                        commit.source,
+                        InputSource::Cloud | InputSource::CloudSentence
+                    )
+                {
+                    report.predictions_accepted += 1;
+                }
                 replay_commit(engine, &commit, &mut report, show_misses)
             }
         }
@@ -61,6 +95,7 @@ fn replay_commit(
     };
     let tally: &mut Tally = tally;
     tally.total += 1;
+    tally.note_logged(commit);
     let scope = if commit.scope.is_empty() {
         commit.keys.as_str()
     } else {

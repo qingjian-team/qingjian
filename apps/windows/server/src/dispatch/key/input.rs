@@ -78,6 +78,10 @@ impl Router {
     /// 退格 / Esc / 回车 / Tab / 方向键；没在组句时都交还应用。
     fn apply_function_key(&mut self, event: &KeyEvent) -> Effect {
         if !self.composing() {
+            // 回车交给应用：文本流里是一个段落边界（macOS 壳同样记）
+            if event.virtual_key == codes::RETURN {
+                self.engine.note_passthrough('\n');
+            }
             return Effect::Passthrough;
         }
         // 只有一个 `?` 时按了回车：回车就是「把这个 ? 上屏」，吞掉，否则聊天框会连消息一起发出去；

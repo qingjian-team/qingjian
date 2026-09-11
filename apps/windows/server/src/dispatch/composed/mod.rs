@@ -114,7 +114,10 @@ impl Router {
         let page_count = count.div_ceil(page_size);
         let current = (self.highlight / page_size) as isize;
         let target = (current + step).clamp(0, page_count as isize - 1) as usize;
-        self.navigated |= target != current as usize;
+        if target != current as usize {
+            self.navigated = true;
+            self.engine.note_page_turn();
+        }
         self.highlight = (target * page_size).min(count - 1);
     }
 

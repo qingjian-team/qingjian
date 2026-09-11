@@ -85,10 +85,12 @@ define_class!(
             tracing::info!("activateServer");
             let done = catch_panic("activateServer", || {
                 // 用户要往 [apps] 里加应用时，从这条日志抄 bundle identifier
-                if let Some(bundle) = sender.and_then(|s| TextClient::new(s).bundle_identifier()) {
+                let bundle = sender.and_then(|s| TextClient::new(s).bundle_identifier());
+                if let Some(bundle) = &bundle {
                     tracing::debug!(%bundle, "当前应用");
                 }
                 host::with(|h| {
+                    h.engine.set_application(bundle);
                     h.reload_config_if_changed();
                     h.indicator.activate();
                     h.watch.start();
@@ -374,6 +376,7 @@ impl QingjianInputController {
 
     fn handle_text(&self, text: &str, client: TextClient<'_>) -> bool {
         tracing::debug!(%text, "inputText");
+        self.note_application(&client);
         let mut composing = host::with(|h| !h.engine.composition().is_empty()).unwrap_or(false);
         let english = modifiers::caps_lock_on();
         // 终端、编辑器这类应用（`[apps] english_candidates_off`）里英文模式是纯直通
@@ -555,6 +558,7 @@ impl QingjianInputController {
     /// 组句期间所有编辑动作都由我们接管；不认识的一律吞掉，否则应用会动光标、丢 marked text。
     fn handle_command(&self, selector: Sel, client: TextClient<'_>) -> bool {
         tracing::debug!(selector = %selector, "didCommandBySelector");
+        self.note_application(&client);
         let composing = host::with(|h| !h.engine.composition().is_empty()).unwrap_or(false);
         if !composing {
             // 删的是应用里的文字：刚上屏的词被整个删掉是「选错了」的信号，Engine 记着；
@@ -565,6 +569,9 @@ impl QingjianInputController {
                 || selector == sel!(deleteToBeginningOfLine:)
             {
                 host::with(|h| h.engine.break_chain());
+            } else if selector == sel!(insertNewline:) {
+                // 回车交给应用：文本流里是一个段落边界
+                host::with(|h| h.engine.note_passthrough('\n'));
             }
             return false;
         }
@@ -785,9 +792,27 @@ impl QingjianInputController {
         }
     }
 
+    /// 每个键都问一次应用标识（activateServer 时进程刚拉起可能还拿不到），变了才告诉 Engine。
+    fn note_application(&self, client: &TextClient<'_>) {
+        let app = client.bundle_identifier();
+        host::with(|h| {
+            if h.engine.application() != app.as_deref() {
+                h.engine.set_application(app);
+            }
+        });
+    }
+
     /// 翻页，高亮落到新页第一项。已在首页 / 末页时不动。
     fn turn_page(&self, delta: isize, client: TextClient<'_>) -> bool {
-        if host::with(|h| h.session.turn_page(delta)).unwrap_or(false) {
+        let turned = host::with(|h| {
+            let turned = h.session.turn_page(delta);
+            if turned {
+                h.engine.note_page_turn();
+            }
+            turned
+        })
+        .unwrap_or(false);
+        if turned {
             self.render(client);
         }
         true

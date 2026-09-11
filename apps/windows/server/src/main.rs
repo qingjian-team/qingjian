@@ -169,6 +169,7 @@ fn main() {
     engine.set_fuzzy(config.fuzzy);
     engine.set_shuangpin(config.general.shuangpin());
     engine.set_mode_keys(config.shortcut.mode);
+    engine.log_session(env!("CARGO_PKG_VERSION"), "windows");
     dispatch::attach_cloud(&mut engine, &config.predict);
     let router_config = RouterConfig::from(&config);
     let mut router = Router::new(engine, router_config.clone());

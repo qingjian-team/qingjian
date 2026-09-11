@@ -25,6 +25,24 @@ pub struct Report {
     /// 撤销条数。
     pub retracts: usize,
 
+    /// 重打条数（组句内退格重打 + 上屏后删掉重打）。
+    pub retypes: usize,
+
+    /// 会话行数、上文断开数、直通字符数。
+    pub sessions: usize,
+    pub breaks: usize,
+    pub passthrough_chars: usize,
+
+    /// 云端联想展示了几次、其中紧接着被接受（上屏来源是云端词 / 云端整句）几次。
+    pub predictions: usize,
+    pub predictions_accepted: usize,
+
+    /// 上一条是联想、还没等到接下来的上屏。
+    pub prediction_pending: bool,
+
+    /// 旧格式的空行（键与文本都空的原样上屏）。
+    pub empty: usize,
+
     /// 解析不了的行数。
     pub unparsable: usize,
 
@@ -94,6 +112,26 @@ fn write_tally(f: &mut fmt::Formatter<'_>, name: &str, tally: &Tally) -> fmt::Re
             tally.corrected_then, tally.corrected_now
         )?;
     }
+    if let Some(((hit_pages, hit_ms), (miss_pages, miss_ms))) = tally.implicit_signal() {
+        writeln!(
+            f,
+            "       当时首选命中 {}：平均翻页 {hit_pages:.2} / 耗时 {hit_ms:.0} ms；没命中 {}：平均翻页 {miss_pages:.2} / 耗时 {miss_ms:.0} ms",
+            percent(tally.then_top1, tally.total),
+            tally.total - tally.then_top1,
+        )?;
+    }
+    if tally.rescored_then > 0 {
+        let plain = tally.total - tally.rescored_then;
+        let plain_top1 = tally.then_top1 - tally.rescored_then_top1;
+        writeln!(
+            f,
+            "       当时经过神经重排 {} 条首选命中 {}，未重排 {} 条首选命中 {}",
+            tally.rescored_then,
+            percent(tally.rescored_then_top1, tally.rescored_then),
+            plain,
+            percent(plain_top1, plain),
+        )?;
+    }
     Ok(())
 }
 
@@ -114,6 +152,28 @@ impl fmt::Display for Report {
         }
         if self.retracts > 0 {
             writeln!(f, "退格撤销 {} 次", self.retracts)?;
+        }
+        if self.retypes > 0 {
+            writeln!(f, "退格重打 {} 次", self.retypes)?;
+        }
+        if self.predictions > 0 {
+            writeln!(
+                f,
+                "云端联想展示 {} 次，紧接着被接受 {} 次（{}）",
+                self.predictions,
+                self.predictions_accepted,
+                percent(self.predictions_accepted, self.predictions)
+            )?;
+        }
+        if self.sessions + self.breaks + self.passthrough_chars > 0 {
+            writeln!(
+                f,
+                "会话 {} 次，上文断开 {} 次，直通字符 {} 个",
+                self.sessions, self.breaks, self.passthrough_chars
+            )?;
+        }
+        if self.empty > 0 {
+            writeln!(f, "旧格式的空行 {} 条（不算数）", self.empty)?;
         }
         if self.unparsable > 0 {
             writeln!(f, "解析不了 {} 行", self.unparsable)?;

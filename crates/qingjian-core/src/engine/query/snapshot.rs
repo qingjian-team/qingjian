@@ -12,6 +12,9 @@ pub struct QuerySnapshot {
 
     /// 候选文本按顺序（只留前面一段，够定位选了第几个）。
     pub candidates: Vec<String>,
+
+    /// 候选顺序经过了神经重排。
+    pub rescored: bool,
 }
 
 impl QuerySnapshot {

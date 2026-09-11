@@ -124,6 +124,7 @@ impl Engine {
             target_language: String::new(),
         };
         self.last_prediction_kind = kind;
+        self.last_prediction_scope = scope.to_owned();
         self.predictor.submit(request);
         Some(self.prediction_sequence)
     }
@@ -183,6 +184,14 @@ impl Engine {
                         prediction.words.clear();
                     } else {
                         self.validate_cloud_words(&mut prediction.words);
+                    }
+                    if !prediction.is_empty() {
+                        // 给过用户什么：紧接着的上屏说明接没接受（本地联想能不能替代云端的尺子）
+                        self.logger.record(InputLogEntry::Prediction {
+                            scope: self.last_prediction_scope.clone(),
+                            words: prediction.words.iter().map(|w| w.text.clone()).collect(),
+                            sentence: prediction.sentence.clone(),
+                        });
                     }
                 }
                 return Some(prediction);

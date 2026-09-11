@@ -54,6 +54,9 @@ impl Host {
                 self.engine
                     .set_async_sentence_scorer(Some(Box::new(scorer)));
                 self.model_loader = None;
+                // 模型上线了：日志里补一条会话信息，之后的条目知道重排开着
+                let version = self.version.clone();
+                self.engine.log_session(&version, "macos");
             }
             Ok(Err(error)) => {
                 tracing::warn!(%error, "本地整句模型加载失败，不重排");

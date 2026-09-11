@@ -33,7 +33,8 @@ pub use annotation::AnnotationReport;
 pub use commit::{LastCommit, Transition};
 pub use gloss::{FilledGloss, GlossFiller, NoGlossFiller};
 pub use input_log::{
-    CommitEntry, InputLogEntry, InputLogger, InputSource, LOGGED_CANDIDATES, NoInputLogger,
+    CommitEntry, INPUT_LOG_VERSION, InputLogEntry, InputLogger, InputSource, LOGGED_CANDIDATES,
+    NoInputLogger,
 };
 pub use learning::{Forgotten, Learner, NoLearner};
 pub use marked::{MarkedKind, MarkedSegment};
@@ -139,6 +140,30 @@ pub struct Engine {
 
     /// 输入日志条目的序号。
     log_sequence: u64,
+
+    /// 最近一次查询的候选顺序是否经过神经重排（`rescore_paths` 置位，`query` 开头清零），写进输入日志。
+    last_rescored: std::cell::Cell<bool>,
+
+    /// 这段组句里第一次退格前的缓冲区：上屏时与最终键串不同就记一条 `retype`。
+    retype_snapshot: Option<String>,
+
+    /// 组句外直通给应用的字符，攒到下一次上屏或上文断开时写成一条 `passthrough`。
+    passthrough_pending: String,
+
+    /// 这段组句翻了几页候选。
+    page_turns: u32,
+
+    /// 这段组句第一键的时刻（算首键到上屏的毫秒）。
+    composition_started: Option<Instant>,
+
+    /// 正在输入的应用标识，壳在焦点变化时给；写进输入日志。
+    application: Option<String>,
+
+    /// 上次记 `break` 之后有没有上屏过：没有就不再记，免得失焦一次记一条。
+    committed_since_break: bool,
+
+    /// 最近一次联想请求时的作用域：结果可能在上屏之后才到，日志里要记请求时的拼音。
+    last_prediction_scope: String,
 
     /// 输入统计的累计方（打了多少字）；缺省不记。
     meter: Box<dyn UsageMeter>,
@@ -287,6 +312,14 @@ impl Engine {
             recent_commits: Vec::new(),
             logger: Box::new(NoInputLogger),
             log_sequence: 0,
+            last_rescored: std::cell::Cell::new(false),
+            retype_snapshot: None,
+            passthrough_pending: String::new(),
+            page_turns: 0,
+            composition_started: None,
+            application: None,
+            committed_since_break: false,
+            last_prediction_scope: String::new(),
             meter: Box::new(NoUsageMeter),
             vocabulary: Box::new(NoVocabularyTracker),
             gloss_filler: Box::new(NoGlossFiller),

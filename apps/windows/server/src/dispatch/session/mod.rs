@@ -23,6 +23,8 @@ impl Router {
         if self.focused != Some(session) {
             self.reset_composition();
             self.focused = Some(session);
+            let app = self.focused_app().map(str::to_owned);
+            self.engine.set_application(app);
         }
     }
 

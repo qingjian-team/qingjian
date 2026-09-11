@@ -89,6 +89,8 @@ impl Host {
             Some(path) => {
                 tracing::info!(path = %path.display(), "输入日志开着");
                 self.engine.set_input_logger(Box::new(InputLog::open(path)));
+                let version = self.version.clone();
+                self.engine.log_session(&version, "macos");
             }
             None => self.engine.set_input_logger(Box::new(NoInputLogger)),
         }

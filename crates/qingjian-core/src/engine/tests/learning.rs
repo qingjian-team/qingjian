@@ -345,6 +345,7 @@ fn input_log_records_commits_with_their_context_and_retractions() {
                 _ => "commit",
             },
             InputLogEntry::Retract { .. } => "retract",
+            _ => "other",
         })
         .collect();
     assert_eq!(kinds, ["commit", "raw", "commit", "retract", "commit"]);
@@ -596,4 +597,127 @@ fn extra_dictionaries_join_lookup_and_sentences() {
             .iter()
             .all(|c| c.text != "账套")
     );
+}
+
+/// 建一个带内存日志的引擎，返回引擎与条目列表。
+fn logged_engine() -> (Engine, Arc<Mutex<Vec<InputLogEntry>>>) {
+    let entries = Arc::new(Mutex::new(Vec::new()));
+    let engine = engine().with_input_logger(Box::new(MemoryLogger(entries.clone())));
+    (engine, entries)
+}
+
+fn commit_first(engine: &mut Engine) -> String {
+    let query = engine.query().unwrap();
+    let first = query.candidates.items[0].clone();
+    engine.commit(&first)
+}
+
+#[test]
+fn empty_take_raw_is_not_logged() {
+    let (mut engine, entries) = logged_engine();
+    assert_eq!(engine.take_raw(), "");
+    assert!(entries.lock().unwrap().is_empty());
+}
+
+#[test]
+fn input_log_records_a_retype_when_keys_change_after_backspace_in_composition() {
+    let (mut engine, entries) = logged_engine();
+    for c in "kaifs".chars() {
+        engine.push(c);
+    }
+    engine.backspace();
+    engine.push('a');
+    // 再删一次不换快照：记的是第一次退格前的串
+    engine.backspace();
+    engine.push('a');
+    assert_eq!(commit_first(&mut engine), "开发");
+    let entries = entries.lock().unwrap();
+    let InputLogEntry::Commit(commit) = &entries[0] else {
+        panic!("expected a commit");
+    };
+    assert_eq!(commit.keys, "kaifa");
+    assert_eq!(commit.pages, 0);
+    assert!(!commit.rescored);
+    assert!(matches!(
+        &entries[1],
+        InputLogEntry::Retype { before, after, of: 1 } if before == "kaifs" && after == "kaifa"
+    ));
+    assert_eq!(entries.len(), 2);
+}
+
+#[test]
+fn backspace_that_restores_the_same_keys_is_not_a_retype() {
+    let (mut engine, entries) = logged_engine();
+    for c in "kaifa".chars() {
+        engine.push(c);
+    }
+    engine.backspace();
+    engine.push('a');
+    commit_first(&mut engine);
+    assert_eq!(entries.lock().unwrap().len(), 1);
+}
+
+#[test]
+fn input_log_records_a_retype_across_commits_when_similar_keys_are_retyped() {
+    let (mut engine, entries) = logged_engine();
+    engine.set_input("kaifa");
+    commit_first(&mut engine);
+    for _ in 0..2 {
+        engine.note_backspace();
+    }
+    engine.set_input("kaifan");
+    commit_first(&mut engine);
+    let entries = entries.lock().unwrap();
+    assert!(matches!(
+        &entries[1],
+        InputLogEntry::Retype { before, after, of: 1 } if before == "kaifa" && after == "kaifan"
+    ));
+    assert!(matches!(&entries[2], InputLogEntry::Commit(_)));
+}
+
+#[test]
+fn input_log_flushes_passthrough_before_the_next_commit_and_marks_breaks() {
+    let (mut engine, entries) = logged_engine();
+    engine.set_application(Some("com.apple.TextEdit".into()));
+    // 还没上屏过：失焦不记 break
+    engine.break_chain();
+    engine.note_passthrough(',');
+    engine.note_passthrough(' ');
+    engine.set_input("kaifa");
+    commit_first(&mut engine);
+    engine.note_passthrough('.');
+    engine.break_chain();
+    engine.break_chain();
+    let entries = entries.lock().unwrap();
+    assert!(matches!(&entries[0], InputLogEntry::Passthrough { text } if text == ", "));
+    let InputLogEntry::Commit(commit) = &entries[1] else {
+        panic!("expected a commit");
+    };
+    assert_eq!(commit.app.as_deref(), Some("com.apple.TextEdit"));
+    assert!(matches!(&entries[2], InputLogEntry::Passthrough { text } if text == "."));
+    assert!(matches!(
+        &entries[3],
+        InputLogEntry::Break { app: Some(app) } if app == "com.apple.TextEdit"
+    ));
+    assert_eq!(entries.len(), 4);
+}
+
+#[test]
+fn input_log_records_the_session_and_page_turns() {
+    let (mut engine, entries) = logged_engine();
+    engine.log_session("0.1.1", "cli");
+    engine.set_input("kaifa");
+    engine.note_page_turn();
+    engine.note_page_turn();
+    commit_first(&mut engine);
+    let entries = entries.lock().unwrap();
+    assert!(matches!(
+        &entries[0],
+        InputLogEntry::Session { v: INPUT_LOG_VERSION, version, platform, model: false, scheme }
+            if version == "0.1.1" && platform == "cli" && scheme.is_empty()
+    ));
+    let InputLogEntry::Commit(commit) = &entries[1] else {
+        panic!("expected a commit");
+    };
+    assert_eq!(commit.pages, 2);
 }
