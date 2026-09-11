@@ -18,4 +18,4 @@ Windows 端的整体结构、为什么是两个 package、构建与注册步骤�
   结果。`DllRegisterServer`（`registry`）写 InprocServer32 并经 `ITfInputProcessorProfiles` /
   `ITfCategoryMgr` 把青简登记成键盘类文本服务。
 
-DLL 侧日志在 `%LOCALAPPDATA%\Qingjian\tsf.log`。
+DLL 侧日志在 `%LOCALAPPDATA%\Qingjian\tsf.<日期>.log`，按天一个文件、只留最近 7 天。

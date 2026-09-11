@@ -66,7 +66,7 @@ regsvr32 target\debug\qingjian_tsf.dll
 cargo run -p qingjian-windows-server
 
 :: 4) 在系统「语言 / 输入法」里应能看到「青简」，切到它，在任意输入框敲字
-::    DLL 侧日志在 %LOCALAPPDATA%\Qingjian\tsf.log
+::    DLL 侧日志在 %LOCALAPPDATA%\Qingjian\tsf.<日期>.log（按天，留 7 天）
 
 :: 反注册
 regsvr32 /u target\debug\qingjian_tsf.dll
