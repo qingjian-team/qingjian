@@ -1,5 +1,4 @@
-//! 候选窗口的一行：Server 回来的 [`Candidate`] 的展示形态，不含排序或查词。
-//! 与 macOS 端 `candidates/row.rs` 一致：读音在前，译文按义项拼，日文按汉字段注平假名，生词用强调色。
+//! 候选窗口的一行：[`Candidate`] 的展示形态，与 macOS 端 `candidates/row.rs` 一致。
 
 use qingjian_core::{Candidate, CandidateKind};
 
@@ -28,12 +27,12 @@ pub(crate) struct Row {
     /// 右侧 annotation，按顺序绘制；没有译文时为空。
     pub annotation: Vec<(String, Tone)>,
 
-    /// 来自云联想：词前画一个小云朵，与本地候选区分。
+    /// 来自云联想：词前画一个小云朵。
     pub cloud: bool,
 }
 
 impl Row {
-    /// 从一个候选造一行。`position` 是页内下标（从 0 起），序号显示为 `position + 1`。
+    /// `position` 是页内下标（从 0 起）。
     pub(crate) fn from_candidate(position: usize, candidate: &Candidate) -> Self {
         let mut annotation = Vec::new();
         if let Some(reading) = &candidate.reading {

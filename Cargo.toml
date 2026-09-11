@@ -62,5 +62,6 @@ objc2-app-kit = { version = "0.3.2", features = ["NSApplication", "NSAttributedS
 objc2-input-method-kit = "0.3.2"
 objc2-core-foundation = { version = "0.3.2", features = ["CFArray", "CFBase", "CFDictionary", "CFNumber", "CFString", "CFURL"] }
 
-# Windows Server 构建期把 uiAccess manifest 嵌进 exe（build.rs），让候选窗进程能升进 UIAccess 高 z-band
+# Windows 平台层
 embed-manifest = "1.4.0"
+windows-registry = "0.6.1"

@@ -1,11 +1,12 @@
-//! 传输层测试：线上帧编解码，以及在字节流上跑完整「读消息 → Router → 写回」的 serve 循环。
-//! 不碰真正的命名管道，用内存里的 Cursor / Vec 模拟一条连好的流，因而跨平台（含 Windows）可跑。
+//! 传输层测试：帧编解码，以及在内存流上跑 serve 循环；不碰命名管道，跨平台可跑。
 
 use std::io::{Cursor, Read, Write};
 use std::path::PathBuf;
 
 use qingjian_core::Language;
-use qingjian_platform::protocol::{ClientMessage, KeyEvent, ServerMessage, SessionId};
+use qingjian_platform::protocol::{
+    ClientMessage, KeyEvent, PROTOCOL_VERSION, ServerMessage, SessionId,
+};
 use qingjian_windows_server::ipc::{read_message, serve, write_message};
 use qingjian_windows_server::{AssemblySpec, Router, RouterConfig, assembly};
 
@@ -40,20 +41,19 @@ fn codec_round_trips_a_message() {
     let mut reader = Cursor::new(buffer);
     let decoded: Option<ClientMessage> = read_message(&mut reader).unwrap();
     assert_eq!(decoded, Some(original));
-    // 流已到尽头：再读是干净 EOF。
     let end: Option<ClientMessage> = read_message(&mut reader).unwrap();
     assert_eq!(end, None);
 }
 
 #[test]
 fn serve_runs_the_open_type_loop_over_a_stream() {
-    // 把一串客户端消息编成输入流：开会话 + 逐键敲 nihao。
     let mut input = Vec::new();
     write_message(
         &mut input,
         &ClientMessage::OpenSession {
             session: SESSION,
             app: None,
+            protocol: PROTOCOL_VERSION,
         },
     )
     .unwrap();
@@ -75,7 +75,6 @@ fn serve_runs_the_open_type_loop_over_a_stream() {
     };
     serve(&mut stream, &mut router).unwrap();
 
-    // 解出回复：OpenSession 不回话，5 个按键各回一条 KeyResult。
     let mut responses = Vec::new();
     let mut out = Cursor::new(stream.outbound);
     while let Some(message) = read_message::<_, ServerMessage>(&mut out).unwrap() {
@@ -100,7 +99,7 @@ fn serve_runs_the_open_type_loop_over_a_stream() {
     );
 }
 
-/// 把「一段预置输入 + 一个输出缓冲」拼成一条双工流，喂给 serve（半双工够测：先发后收）。
+/// 预置输入 + 输出缓冲拼成的流（先发后收够测）。
 struct Duplex {
     inbound: Cursor<Vec<u8>>,
     outbound: Vec<u8>,

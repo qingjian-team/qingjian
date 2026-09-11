@@ -1,4 +1,4 @@
-//! 候选窗口的绘制与测量。布局镜像 macOS 端 `candidates/view.rs`：竖排 `序号  候选词   读音·词性 译文`，
+//! 候选窗口的绘制与测量。布局镜像 macOS 端：竖排 `序号  候选词   读音·词性 译文`，
 //! 横排 `序号 候选词` 左右排、高亮项的译文另起一行；顶部一行拼音，右侧整句补全。
 
 use qingjian_platform::LayoutMode;
@@ -13,7 +13,7 @@ use super::RenderData;
 use super::row::{Row, Tone};
 use super::theme::Theme;
 
-/// 云端候选词前的小云朵（macOS 用 SF Symbol `cloud`，这边用字形）。
+/// 云端候选词前的小云朵（macOS 用 SF Symbol `cloud`）。
 const CLOUD_GLYPH: &str = "☁";
 
 /// 竖排的列宽与统一行高。
@@ -28,13 +28,14 @@ struct Columns {
 pub(super) fn preferred_size(hdc: HDC, data: &RenderData) -> SIZE {
     let theme = &data.theme;
     let (top_width, top_height) = top_line_size(hdc, data);
+    let (notice_width, notice_height) = notice_line_size(hdc, data);
     let (body_width, body_height) = match data.layout {
         LayoutMode::Vertical => vertical_size(hdc, data),
         LayoutMode::Horizontal => horizontal_size(hdc, data),
     };
     SIZE {
-        cx: top_width.max(body_width) + theme.padding * 2,
-        cy: top_height + body_height + theme.padding * 2,
+        cx: top_width.max(body_width).max(notice_width) + theme.padding * 2,
+        cy: top_height + notice_height + body_height + theme.padding * 2,
     }
 }
 
@@ -81,7 +82,7 @@ fn horizontal_size(hdc: HDC, data: &RenderData) -> (i32, i32) {
     (width, height)
 }
 
-/// 横排时高亮候选的译文行尺寸；没有译文 / 没有高亮时为 `None`。
+/// 横排时高亮候选的译文行尺寸；没有译文 / 没有高亮为 `None`。
 fn highlighted_annotation_size(hdc: HDC, data: &RenderData) -> Option<(i32, i32)> {
     let theme = &data.theme;
     let row = data.rows.get(data.highlight)?;
@@ -97,14 +98,14 @@ fn highlighted_annotation_size(hdc: HDC, data: &RenderData) -> Option<(i32, i32)
     Some((width, height))
 }
 
-/// 画整帧。背景与阴影已由 surface 铺好，`client` 是内容区。
+/// 画整帧；背景与阴影已由合成器铺好，`client` 是内容区。
 pub(super) fn paint(hdc: HDC, data: &RenderData, client: RECT) {
     let theme = &data.theme;
-    // SAFETY: hdc 有效。
     unsafe { SetBkMode(hdc, TRANSPARENT) };
 
     let mut y = theme.padding;
     y += draw_top_line(hdc, data, y);
+    y += draw_notice(hdc, data, y);
     match data.layout {
         LayoutMode::Vertical => draw_rows(hdc, data, y, client.right - client.left),
         LayoutMode::Horizontal => draw_horizontal(hdc, data, y, client.right - client.left),
@@ -148,7 +149,6 @@ fn draw_top_line(hdc: HDC, data: &RenderData, y: i32) -> i32 {
     };
     fill_rect(hdc, caret, theme.text_color);
     if let Some(sentence) = &data.sentence {
-        // 整句补全一定来自云联想，前面带一个云朵（与云端候选词一致）。
         let sentence_x = x + theme.column_gap;
         let cloud = cloud_glyph_width(hdc, theme);
         draw_text(
@@ -169,6 +169,35 @@ fn draw_top_line(hdc: HDC, data: &RenderData, y: i32) -> i32 {
         );
     }
     height + theme.row_padding * 2
+}
+
+/// 屏幕提示行：拼音行下方、候选行上方，淡色小字。返回占用高度。
+fn draw_notice(hdc: HDC, data: &RenderData, y: i32) -> i32 {
+    let Some(notice) = &data.notice else {
+        return 0;
+    };
+    let theme = &data.theme;
+    draw_text(
+        hdc,
+        theme.annotation_font,
+        theme.pos_color,
+        theme.padding,
+        y,
+        notice,
+    );
+    line_height(hdc, theme.annotation_font) + theme.row_padding
+}
+
+fn notice_line_size(hdc: HDC, data: &RenderData) -> (i32, i32) {
+    let Some(notice) = &data.notice else {
+        return (0, 0);
+    };
+    let theme = &data.theme;
+    let width = measure(hdc, theme.annotation_font, notice).cx;
+    (
+        width,
+        line_height(hdc, theme.annotation_font) + theme.row_padding,
+    )
 }
 
 fn draw_rows(hdc: HDC, data: &RenderData, mut y: i32, width: i32) {
@@ -341,13 +370,12 @@ fn columns(hdc: HDC, theme: &Theme, rows: &[Row]) -> Columns {
     columns
 }
 
-/// 小字相对候选词往下挪多少才纵向居中。macOS 用全差是因为那边 y 向上；GDI y 向下要取一半。
+/// 小字相对候选词往下挪多少才纵向居中（GDI y 向下，取一半差）。
 fn small_offset(hdc: HDC, theme: &Theme, text_height: i32) -> i32 {
     ((text_height - line_height(hdc, theme.annotation_font)) / 2).max(0)
 }
 
-/// 云朵前缀（云朵 + 间距）的宽度；非云端候选为 0。
-/// 一个云朵字形占的宽度（含它与后面文字的小间隔）。
+/// 云朵字形加它与后面文字的间隔。
 fn cloud_glyph_width(hdc: HDC, theme: &Theme) -> i32 {
     measure(hdc, theme.annotation_font, CLOUD_GLYPH).cx + theme.column_gap / 2
 }
@@ -360,7 +388,7 @@ fn cloud_prefix_width(hdc: HDC, theme: &Theme, row: &Row) -> i32 {
     }
 }
 
-/// 画候选词本体，云端词前带小云朵（云朵与词都用 teal）。返回占用宽度。
+/// 画候选词本体，云端词前带小云朵。返回占用宽度。
 fn draw_word(hdc: HDC, theme: &Theme, row: &Row, x: i32, baseline: i32, small_offset: i32) -> i32 {
     let prefix = cloud_prefix_width(hdc, theme, row);
     let color = if row.cloud {
@@ -396,11 +424,10 @@ fn concat_before_cursor(preedit: &[(String, PreeditKind)], cursor: usize) -> Str
         .collect()
 }
 
-/// 画一段文字，`(x, y)` 是左上角，返回宽度。
-fn draw_text(hdc: HDC, font: HFONT, color: COLORREF, x: i32, y: i32, text: &str) -> i32 {
+/// 画一段文字，`(x, y)` 是左上角，返回宽度。调用方先 `SetBkMode(TRANSPARENT)`。
+pub(crate) fn draw_text(hdc: HDC, font: HFONT, color: COLORREF, x: i32, y: i32, text: &str) -> i32 {
     let utf16: Vec<u16> = text.encode_utf16().collect();
     let mut size = SIZE::default();
-    // SAFETY: hdc 有效；font 属于当前主题；utf16 是有效切片。
     unsafe {
         SelectObject(hdc, font.into());
         SetTextColor(hdc, color);
@@ -410,10 +437,9 @@ fn draw_text(hdc: HDC, font: HFONT, color: COLORREF, x: i32, y: i32, text: &str)
     size.cx
 }
 
-fn measure(hdc: HDC, font: HFONT, text: &str) -> SIZE {
+pub(crate) fn measure(hdc: HDC, font: HFONT, text: &str) -> SIZE {
     let utf16: Vec<u16> = text.encode_utf16().collect();
     let mut size = SIZE::default();
-    // SAFETY: hdc 有效；font 属于当前主题。
     unsafe {
         SelectObject(hdc, font.into());
         let _ = GetTextExtentPoint32W(hdc, &utf16, &mut size);
@@ -430,8 +456,7 @@ fn scale_line(theme: &Theme) -> i32 {
     (theme.padding / 8).max(1)
 }
 
-fn fill_rect(hdc: HDC, rect: RECT, color: COLORREF) {
-    // SAFETY: hdc 有效；刷子即用即删。
+pub(crate) fn fill_rect(hdc: HDC, rect: RECT, color: COLORREF) {
     unsafe {
         let brush = CreateSolidBrush(color);
         FillRect(hdc, &rect, brush);
@@ -441,7 +466,6 @@ fn fill_rect(hdc: HDC, rect: RECT, color: COLORREF) {
 
 fn fill_round_rect(hdc: HDC, rect: RECT, color: COLORREF, radius: i32) {
     let diameter = (radius * 2).max(1);
-    // SAFETY: 区域与刷子即用即删。
     unsafe {
         let region = CreateRoundRectRgn(
             rect.left,

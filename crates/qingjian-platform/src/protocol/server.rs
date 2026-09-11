@@ -50,4 +50,24 @@ pub enum ServerMessage {
         /// 请求标识，回时带上。
         request: u64,
     },
+
+    /// 对一次 [`super::ClientMessage::SyncMode`] 的答复：状态条上点出来、还没被取走的目标模式。
+    ModeSync {
+        /// 会话标识。
+        session: SessionId,
+
+        /// `Some(true)` 切英文、`Some(false)` 切中文；`None` 没有待处理的切换。
+        english: Option<bool>,
+    },
+
+    /// 收到「翻译选中文字」快捷键：请 DLL 在读编辑会话里取当前选区，用
+    /// [`super::ClientMessage::Selection`] 回。这是对触发快捷键那次 [`super::ClientMessage::Key`] 的应答
+    /// （替代常规 [`Self::KeyResult`]）；随后 DLL 发来的 `Selection` 才引出翻译候选帧。
+    RequestSelection {
+        /// 会话标识。
+        session: SessionId,
+
+        /// 请求标识，回时带上。
+        request: u64,
+    },
 }

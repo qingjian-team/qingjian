@@ -24,7 +24,6 @@ impl IClassFactory_Impl for ClassFactory_Impl {
             return E_FAIL.ok();
         }
         let unknown: IUnknown = TextService::new().into();
-        // SAFETY: riid 指向有效 GUID，ppvobject 可写一个接口指针。
         unsafe { unknown.query(riid, ppvobject).ok() }
     }
 

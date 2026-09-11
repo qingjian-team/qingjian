@@ -3,8 +3,10 @@
 
 #[cfg(windows)]
 pub mod pipe;
+mod work;
 
 pub use qingjian_platform::protocol::{CodecError, read_message, write_message};
+pub use work::Work;
 
 use std::io::{Read, Write};
 

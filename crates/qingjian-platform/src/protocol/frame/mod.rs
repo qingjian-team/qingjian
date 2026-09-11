@@ -40,10 +40,15 @@ pub struct Frame {
 
     /// 整句补全（云联想给的整段拼音的整句结果）：画在 preedit 行右侧，按 Tab 上屏。无则 `None`。
     pub sentence: Option<String>,
+
+    /// 屏幕提示（删候选后的「已删除…」一句）：画在 preedit 行下方，显示到下一次按键。无则 `None`。
+    /// 不参与 [`is_empty`](Self::is_empty)：单有提示不算在组句，否则空组句也会撑开候选窗口。
+    #[serde(default)]
+    pub notice: Option<String>,
 }
 
 impl Frame {
-    /// 没有在组句：DLL 据此收起候选窗口。
+    /// 没有在组句：DLL 据此收起候选窗口。提示不算数（见 [`notice`](Self::notice)）。
     pub fn is_empty(&self) -> bool {
         self.preedit.is_empty() && self.candidates.items.is_empty()
     }

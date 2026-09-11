@@ -1,15 +1,12 @@
 [package]
 name = "qingjian-windows-tsf"
-description = "Windows 输入法的 TSF 文本服务 DLL：加载进每个应用进程，把系统按键经 IPC 交给 Server 进程（../server），画候选窗口"
+description = "Windows 输入法的 TSF 文本服务 DLL：加载进每个应用进程，把系统按键经 IPC 交给 Server 进程（../server）"
 version = "0.1.0"
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
 
-# TSF 文本服务是被 Windows 加载的 COM in-proc 服务器，产物是 DLL（cdylib）；
-# 同时给出 rlib 以便端到端协议测试能 `use qingjian_tsf`（DLL 里的引擎层=管道客户端，可测）。
-# lib 名固定为 qingjian_tsf：产物就是 qingjian_tsf.dll（regsvr32 与注册步骤都认这个名字），
-# package 名 qingjian-windows-tsf 只用于 `-p` 与目录对应；rlib 的 crate 名跟 lib 名走，所以测试里是 `qingjian_tsf::`。
+# cdylib 是产物 qingjian_tsf.dll（regsvr32 与安装脚本都认这个名字）；rlib 给端到端协议测试 `use qingjian_tsf`。
 [lib]
 name = "qingjian_tsf"
 crate-type = ["cdylib", "rlib"]
@@ -26,5 +23,21 @@ qingjian-windows-server = { path = "../server" }
 workspace = true
 
 [target."cfg(windows)".dependencies]
-windows = { version = "0.62.2", features = ["Win32_Foundation", "Win32_System_Com", "Win32_System_Ole", "Win32_System_Variant", "Win32_System_LibraryLoader", "Win32_System_Registry", "Win32_UI_TextServices", "Win32_UI_Input_KeyboardAndMouse", "Win32_Storage_FileSystem", "Win32_System_Pipes", "Win32_Security", "Win32_System_IO", "Win32_System_SystemServices", "Win32_System_SystemInformation", "Win32_System_Threading", "Win32_Graphics_Gdi", "Win32_UI_WindowsAndMessaging", "Win32_UI_HiDpi"] }
+windows-registry.workspace = true
+# `#[implement]` 宏展开引用 `::windows_core`，要直接依赖
 windows-core = "0.62.2"
+windows = { version = "0.62.2", features = [
+    "Win32_Foundation",
+    "Win32_Graphics_Gdi",
+    "Win32_System_Com",
+    "Win32_System_LibraryLoader",
+    "Win32_System_Ole",
+    "Win32_System_Pipes",
+    "Win32_System_SystemInformation",
+    "Win32_System_SystemServices",
+    "Win32_System_Threading",
+    "Win32_System_Variant",
+    "Win32_UI_Input_KeyboardAndMouse",
+    "Win32_UI_TextServices",
+    "Win32_UI_WindowsAndMessaging",
+] }

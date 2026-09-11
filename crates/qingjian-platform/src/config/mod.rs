@@ -7,6 +7,7 @@ mod log_level;
 mod modifiers;
 mod preedit_mode;
 mod shortcut;
+mod status_bar;
 mod theme_mode;
 
 use std::path::Path;
@@ -30,6 +31,7 @@ pub use log_level::LogLevel;
 pub use modifiers::Modifiers;
 pub use preedit_mode::PreeditMode;
 pub use shortcut::ShortcutConfig;
+pub use status_bar::StatusBarConfig;
 pub use theme_mode::ThemeMode;
 
 /// 用户配置文件（TOML）。所有平台同一份格式，缺省值全部在各分节的 `Default` 里。
@@ -55,6 +57,9 @@ pub struct Config {
 
     /// 云联想。
     pub predict: PredictConfig,
+
+    /// 悬浮状态条（桌面上常驻、可拖动的中 / 英浮窗）。
+    pub status_bar: StatusBarConfig,
 }
 
 /// 模板的 `[apps]` 一节（macOS）：应用按 bundle identifier 认。名单要与 [`DEFAULT_ENGLISH_CANDIDATES_OFF`] 一致，
@@ -145,6 +150,10 @@ layout = "vertical"
 preedit = "both"
 # 英文模式（Caps Lock 亮着）是否给英文候选：Tab 或方向键选词，空格、回车、标点仍原样上屏敲的字母；false 就是纯直通
 english_candidates = true
+# 中文模式下（没在组句时）敲的标点转全角：, . ? ! : ; ( ) 等，数字后面的 . 保持半角。Windows 上悬浮状态条的「，。」格可以点着切；macOS 没有这个开关
+full_width_punctuation = true
+# 英文模式下的同一件事，中英各记一份，状态条切的是当前模式那份；只有 Windows 用
+english_full_width_punctuation = false
 # 双拼方案：留空为全拼；xiaohe 小鹤 / ziranma 自然码 / microsoft 微软 / sogou 搜狗
 # 开着时 v / u / i 都是音节键，表达式与问字模式只能用 ? 开头进；微软、搜狗方案的 ; 键是 ing
 shuangpin = ""
@@ -208,6 +217,15 @@ lookahead = 32
 slots = 2
 # 组句中除了词候选还要不要整句补全（preedit 右侧，Tab 接受）
 sentence = true
+
+[status_bar]
+# 桌面上常驻、可拖动的悬浮状态条（Windows）：「中 / 英」格点一下切换模式（开着双拼时还显示方案名）、「，。」格切全角 / 半角标点、齿轮打开设置。
+# 只在当前输入法是青简时显示；与任务栏的中 / 英指示器并存
+# 默认关；开着时可以拖到任意位置，拖到哪下次还在哪（拖动结束时把位置写进下面的 x / y，不用手填）
+enabled = false
+# 记住的屏幕位置（物理像素，拖动后自动写入）；留空则首次出现在屏幕右下角
+# x = 0
+# y = 0
 "#
 );
 

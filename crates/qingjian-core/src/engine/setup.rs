@@ -14,11 +14,12 @@ impl Engine {
     }
 
     /// 组句中敲 `;` 是否该进缓冲区：微软 / 搜狗双拼里它是 ing 的韵母键，只在末尾有落单的声母时收，
-    /// 其他时候仍是标点。
+    /// 其他时候仍是标点。问字模式（`?x`）看的是前缀之后的部分。
     pub fn takes_semicolon(&self) -> bool {
+        let body = self.modes().question_body(self.composition.scope());
         self.shuangpin
             .filter(|scheme| scheme.uses_semicolon())
-            .is_some_and(|scheme| scheme.decode(self.composition.scope()).pending_initial())
+            .is_some_and(|scheme| scheme.decode(body).pending_initial())
     }
 
     /// 有效的模式键：双拼下 v / u / i 都是音节键，字母模式键让位，只剩 `?` 开头的问字。

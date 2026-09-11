@@ -10,11 +10,11 @@ Windows 端的整体结构、为什么是两个 package、构建与注册步骤�
 - **引擎层**（`client`，平台无关）：`EngineClient` 把开 / 关会话、按键、上屏编排成
   `qingjian-platform::protocol` 的消息，在一条双工字节流上收发。它泛型在任意 `Read + Write` 上，所以能用
   `UnixStream::pair` 接上真正的 Server 端到端测（`tests/protocol_loop.rs`，本机就能跑）。
-  `cfg(windows)` 的 `client::pipe` 用 `CreateFileW` 把这条流接到命名管道。
+  `cfg(windows)` 的 `client::pipe` 用 `std::fs::File` 打开命名管道当这条流。
 - **COM 层**（`com`，`cfg(windows)`）：实现 TSF 要求的 COM 接口。`DllGetClassObject` → `IClassFactory` →
   `#[implement(ITfTextInputProcessor, ITfKeyEventSink)]`；`Activate` 时把自己挂到击键管理器上收键、并连
   Server；`OnKeyDown` 转发按键，`edit_session` / `composition` 经 `ITfContext` 做 preedit 内联与上屏，
-  `candidates` 用 Win32 自绘候选窗口（分层窗口、词性 + 译文、横竖排、深色），`poll` 定时拉取云联想的异步
+  `anchor` 把组句 / 选区的屏幕矩形报给 Server 摆候选窗口（窗口在 Server 进程自绘），`poll` 定时拉取云联想的异步
   结果。`DllRegisterServer`（`registry`）写 InprocServer32 并经 `ITfInputProcessorProfiles` /
   `ITfCategoryMgr` 把青简登记成键盘类文本服务。
 

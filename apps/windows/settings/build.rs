@@ -1,17 +1,29 @@
-//! 编译时抓取 git 构建标识（分支 @ 短哈希（日期）），塞进 `QINGJIAN_BUILD` 供「关于」页显示。
-//! 拿不到 git（不在仓库里 / 没装 git）就不设，界面显示「本地构建」。
+//! 编译时抓 git 构建标识（分支@短哈希 (日期)）塞进 `QINGJIAN_BUILD`，「关于」页显示；拿不到就不设。
+//! 在 Windows 上编时把青简图标嵌进 exe（开始菜单 / 任务栏 / 搜索里显示的就是它）。
 
 use std::process::Command;
 
 fn main() {
-    // 切分支或新提交时重跑（.git 在仓库根，相对本包目录往上三层）。
     println!("cargo:rerun-if-changed=../../../.git/HEAD");
     if let Some(build) = git_build() {
         println!("cargo:rustc-env=QINGJIAN_BUILD={build}");
     }
+    embed_icon();
 }
 
-/// `windows@1a2b3c4 (2026-09-10)`。任一步拿不到就整体放弃。
+/// 图标资源要 `rc.exe`（MSVC）编，只在 Windows 宿主上做；失败只警告，别让编译挂掉。
+#[cfg(windows)]
+fn embed_icon() {
+    const ICON: &str = "../tsf/resources/qingjian.ico";
+    println!("cargo:rerun-if-changed={ICON}");
+    if let Err(error) = winresource::WindowsResource::new().set_icon(ICON).compile() {
+        println!("cargo:warning=嵌入设置程序图标失败: {error}");
+    }
+}
+
+#[cfg(not(windows))]
+fn embed_icon() {}
+
 fn git_build() -> Option<String> {
     let branch = git(&["rev-parse", "--abbrev-ref", "HEAD"])?;
     let hash = git(&["rev-parse", "--short", "HEAD"])?;

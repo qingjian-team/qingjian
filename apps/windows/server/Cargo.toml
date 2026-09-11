@@ -10,7 +10,7 @@ repository.workspace = true
 name = "qingjian-server"
 path = "src/main.rs"
 
-# 构建期把 uiAccess=true manifest 嵌进 exe（见 build.rs）。宿主平台跑，非 Windows 宿主上 build.rs 里按 CARGO_CFG_WINDOWS 跳过。
+# 嵌 uiAccess manifest（见 build.rs）
 [build-dependencies]
 embed-manifest.workspace = true
 
@@ -26,29 +26,28 @@ dotenvy.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
-# 按天滚动的日志文件（%APPDATA%\Qingjian\logs），与 stderr 同时写；留最近几天。
 tracing-appender.workspace = true
+toml_edit.workspace = true
 
 [lints]
 workspace = true
 
 [target."cfg(windows)".dependencies]
-windows-sys = { version = "0.61.2", features = [
-    "Win32_Foundation",
-    "Win32_System_Pipes",
-    "Win32_Storage_FileSystem",
-    # 命名管道安全描述符（放行 UWP/AppContainer 客户端）。
-    "Win32_Security",
-    "Win32_Security_Authorization",
-] }
-# 候选窗口在 Server 进程内自绘（GDI 分层窗口 + 消息循环），才能盖过微软商店 / 任务栏搜索这些高 z-band 宿主。
-# 用高层 `windows` crate（与 旧 TSF DLL 的候选窗口渲染同一套代码）。
+windows-registry.workspace = true
 windows = { version = "0.62.2", features = [
     "Win32_Foundation",
     "Win32_Graphics_Gdi",
+    "Win32_Security",
+    "Win32_Security_Authorization",
+    "Win32_Storage_FileSystem",
+    "Win32_System_IO",
     "Win32_System_LibraryLoader",
-    "Win32_System_Registry",
+    "Win32_System_Pipes",
     "Win32_System_Threading",
     "Win32_UI_HiDpi",
+    "Win32_UI_Input_KeyboardAndMouse",
     "Win32_UI_WindowsAndMessaging",
 ] }
+
+[target."cfg(windows)".build-dependencies]
+winresource = "0.1.31"

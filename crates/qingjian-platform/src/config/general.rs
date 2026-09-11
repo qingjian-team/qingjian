@@ -39,6 +39,13 @@ pub struct GeneralConfig {
     /// 英文模式（Caps Lock 亮着）是否给英文候选（补全与拼错纠正）。关掉就是纯直通。
     pub english_candidates: bool,
 
+    /// 中文模式下不在组句时敲的标点转成全角（`，。？！` 等，数字后的 `.` 保持半角）。
+    /// Windows 悬浮状态条上可点切换；macOS 没有这个开关，一律转。
+    pub full_width_punctuation: bool,
+
+    /// 英文模式下的同一件事，中英各记一份；缺省半角。只有 Windows 用（macOS 英文模式一律半角）。
+    pub english_full_width_punctuation: bool,
+
     /// 双拼方案：空串为全拼，否则 `xiaohe` / `ziranma` / `microsoft` / `sogou`（见 [`ShuangpinScheme`]）。
     pub shuangpin: String,
 
@@ -60,6 +67,8 @@ impl Default for GeneralConfig {
             layout: LayoutMode::default(),
             preedit: PreeditMode::default(),
             english_candidates: true,
+            full_width_punctuation: true,
+            english_full_width_punctuation: false,
             shuangpin: String::new(),
             log_level: LogLevel::default(),
             input_log: true,

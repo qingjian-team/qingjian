@@ -5,7 +5,7 @@ Windows 端是**一个产品、两个产物**，各自一个 package，同放本
 | 目录 | package | 产物 | 职责 |
 | --- | --- | --- | --- |
 | `server/` | `qingjian-windows-server` | `qingjian-server.exe` | 持有唯一的输入内核 `qingjian-core::Engine`，跑在所有应用进程之外 |
-| `tsf/` | `qingjian-windows-tsf` | `qingjian_tsf.dll` | TSF 文本服务，被加载进每个应用进程，只做按键转发与候选绘制 |
+| `tsf/` | `qingjian-windows-tsf` | `qingjian_tsf.dll` | TSF 文本服务，被加载进每个应用进程，只做按键转发与文档写入（候选窗口由 Server 自绘） |
 
 ```
 应用进程 A ── qingjian_tsf.dll ─┐
@@ -39,7 +39,7 @@ Core 的任何一行。
   `Frame`（preedit 分段 + 候选页）。长度前缀 JSON 帧的编解码与缺省管道名也在这里，DLL 不必依赖整个 Server 库。
 - **TSF DLL**（`tsf/`）：分「引擎层」`client`（平台无关的管道客户端 `EngineClient`，泛型在任意 `Read + Write`
   上，本机就能接真 Server 端到端测）与「COM 层」`com`（`cfg(windows)`：`DllGetClassObject` → `IClassFactory`
-  → `#[implement(ITfTextInputProcessor, ITfKeyEventSink)]`，编辑会话上屏，Win32 自绘候选窗口，
+  → `#[implement(ITfTextInputProcessor, ITfKeyEventSink)]`，编辑会话上屏，把组句位置报给 Server 摆候选窗口，
   `DllRegisterServer` 注册文本服务）。
 
 设计细节见 `docs/design/architecture.md`「Windows：TSF」。

@@ -73,17 +73,25 @@
 
 - [~] Windows TSF（Phase 5）：真机自用中，候选窗已覆盖商店 / 任务栏搜索（`uiAccess` + 自签）。
   与 mac 功能齐平尚缺（按价值排；工时=开发+真机验证合计，单人；真机来回是大头）：
-  - [ ] **① 翻译选中文字 `translate_selection`**（★★★ / 中高 / 1.5–2 天）：mac 有、Windows 明确没接
-    （`settings/panel/shortcut.rs` 注释）。走 `Surrounding` 编辑会话读应用选区 → 云端 `PredictionKind::Translate`
-    → 候选流里回车替换 / Esc 保留；补设置页那项。
-  - [ ] **② 生词「看到轮次」计数 `note_displayed`**（★★☆ / 低 / 0.5 天）：橙色标记已画，但 Server 从不调
-    `Engine::note_displayed`，轮次不推进、生词永不「毕业」。Router 每次 show 帧时按当前页回调即可。
-  - [ ] **③ 悬浮状态条**（★★☆ / 中 / 1.5–2 天）：显示中/英(+可选方案)、可拖动、记位置、DPI/深色。
-    注意任务栏中/英指示器已有，这条偏「贴光标始终可见」；先定 DLL 侧（每应用）还是 Server 侧（单例）。
-  - [ ] **④ 删候选屏幕提示**（★☆☆ / 低 / 0.5 天）：删除已好用，只差 mac 那样在拼音行右侧闪「已删」；
-    在 Server 候选窗加个临时文字位。
-  - [ ] **⑤ 任务栏点中/英反同步**（★☆☆ / 低 / 0.5 天）：现单向（Shift 切→写 compartment）；
-    点任务栏改不回写 DLL。加 `ITfCompartmentEventSink`。
+  - [~] **① 翻译选中文字 `translate_selection`**（★★★ / 中高 / 1.5–2 天）：**代码完成，待真机测**（2026-09-10）。
+    新增 `RequestSelection` / `Selection{text,rect}` 两协议消息；DLL 异步只读会话（`com/selection.rs`，`GetSelection`+`GetText`+`GetTextExt`）
+    读选区 → Server `request_translation`（`PredictionKind::Translate`）→ 自绘候选窗显示译文 → 回车 / 空格替换（回 `commit` 走 `InsertTextAtSelection` 替换选区）/ Esc 保留；
+    设置页「快捷键」加了翻译选中文字行（改修饰键）。mac 全绿 + windows-gnu 交叉编译 / clippy 过；沉浸式应用读选区、替换选区待真机验。
+  - [~] **② 生词「看到轮次」计数 `note_displayed`**（★★☆ / 低 / 0.5 天）：**代码完成，待真机测**（2026-09-10）。
+    `dispatch/mod.rs::reconcile_candidates` 里真正 show 那次按当前页调 `Engine::note_displayed`、收窗传空，对齐 macOS `render`；轮次推进、生词满 3 轮毕业。
+  - [~] **③ 悬浮状态条**（★★☆ / 中 / 1.5–2 天）：**代码完成，待真机测**（2026-09-10）。
+    Server 侧单例，跟候选窗同一条 UI 线程；分层窗合成器从候选窗 `surface.rs` 抽出成 `ui/layered.rs` 两边共用，绘制件（主题 / DPI / 深浅）复用；
+    状态条自己一个窗口类 + 窗口过程（`ui/status/`）：`WM_NCHITTEST`→`HTCAPTION` 整块可拖、`WM_MOUSEACTIVATE`→`MA_NOACTIVATE` 不抢焦点、
+    `WM_EXITSIZEMOVE` 把位置写回 `[status_bar] x/y`（`GWLP_USERDATA` 存自身指针）。新增协议 `ClientMessage::ModeChanged{english}`（fire-and-forget），
+    DLL 在 `update_mode_indicator` 推模式；Server 据此刷、会话关就收起；双拼方案 Server 从 `[general] shuangpin` 知道。配置加 `[status_bar]` 分节（`enabled`/`x`/`y`），
+    设置「候选窗口」页加开关。参考水杉 FTB 形态（它用 D2D 且不记位置），我们沿用 GDI 分层窗保持视觉一致并加了记位置。
+    mac 全绿（+3 状态条分派测试）+ windows-gnu 交叉编译 / clippy 过；拖动 / 记位置 / DPI / 深色 / 盖高 z-band 待真机验。
+  - [~] **④ 删候选屏幕提示**（★☆☆ / 低 / 0.5 天）：**代码完成，待真机测**（2026-09-11）。
+    `Frame` 加 `notice: Option<String>`（不参与 `is_empty`），`dispatch/shortcut.rs::forget_on_page` 填、`handle_key` 开头清（只活到下一次按键）；
+    自绘候选窗 `ui/candidates/view.rs` 画在拼音行下方（淡色小字）。host 测已加。
+  - [~] **⑤ 任务栏点中/英反同步**（★☆☆ / 低 / 0.5 天）：**代码完成，待真机测**（2026-09-11）。
+    激活时对转换模式 compartment 挂 `ITfCompartmentEventSink`（`com/conversion.rs`），`OnChange` 读回 `NATIVE` 位、与当前模式不同才翻转
+    （防回环），顺带刷指示器 + 上报 Server 让悬浮状态条也同步。纯 DLL 改动、无新协议。
   - [ ] 发版：换 **Certum 开源代码签名证书**重签（开发全程自签 + 本机受信任根，见 `installer/sign-local.ps1`）、
     `windows-v<版本>` 标签与 CI。
   - 另一条独立线（gated，不计入上面）：**neural 个人模型上 Windows**（★★★ / 高 / 多天），卡 neural 分支并回 +

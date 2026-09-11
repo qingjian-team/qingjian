@@ -1838,11 +1838,13 @@ dependencies = [
  "qingjian-predict",
  "qingjian-translate",
  "thiserror",
+ "toml_edit",
  "tracing",
  "tracing-appender",
  "tracing-subscriber",
  "windows",
- "windows-sys 0.61.2",
+ "windows-registry",
+ "winresource",
 ]
 
 [[package]]
@@ -1858,6 +1860,7 @@ dependencies = [
  "rfd",
  "toml_edit",
  "windows-reactor",
+ "winresource",
 ]
 
 [[package]]
@@ -1870,6 +1873,7 @@ dependencies = [
  "thiserror",
  "windows",
  "windows-core 0.62.2",
+ "windows-registry",
 ]
 
 [[package]]
@@ -2682,6 +2686,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "accd4ea62f7bb7a82fe23066fb0957d48ef677f6eeb8215f372f52e48bb32426"
 
 [[package]]
+name = "version_check"
+version = "0.9.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
+
+[[package]]
 name = "want"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2999,6 +3009,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "windows-registry"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "02752bf7fbdcce7f2a27a742f798510f3e5ad88dbe84871e5168e2120c3d5720"
+dependencies = [
+ "windows-link 0.2.1",
+ "windows-result 0.4.1",
+ "windows-strings 0.5.1",
+]
+
+[[package]]
 name = "windows-result"
 version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3150,6 +3171,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "23b97319f7b8343df12cc98938e5c3eb436064524c8d2b4e30a1d3a36eecdf81"
 dependencies = [
  "memchr",
+]
+
+[[package]]
+name = "winresource"
+version = "0.1.31"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0986a8b1d586b7d3e4fe3d9ea39fb451ae22869dcea4aa109d287a374d866087"
+dependencies = [
+ "toml",
+ "version_check",
 ]
 
 [[package]]

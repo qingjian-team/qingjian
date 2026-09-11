@@ -16,6 +16,11 @@ pub enum ClientMessage {
         /// Server 据此查 `[apps]` 分节的按应用设置（对应 macOS 的 bundle identifier）。
         #[serde(default)]
         app: Option<String>,
+
+        /// DLL 编译时的 [`super::PROTOCOL_VERSION`]。升级安装后旧 DLL 仍留在没重启的应用里，
+        /// Server 对不上只记警告照常服务；老 DLL 不带此字段，读成 0。
+        #[serde(default)]
+        protocol: u32,
     },
 
     /// 一次按键，等 Server 回 [`super::ServerMessage::KeyResult`]。
@@ -53,6 +58,22 @@ pub enum ClientMessage {
         text: String,
     },
 
+    /// 回应 [`super::ServerMessage::RequestSelection`]：应用当前选中的文字（供「翻译选中文字」）。
+    /// DLL 在读编辑会话里用 `GetSelection` + `GetText` 取；没有选区 / 读不到时 `text` 为空串。
+    Selection {
+        /// 会话标识。
+        session: SessionId,
+
+        /// 请求标识，对上是哪一次 [`super::ServerMessage::RequestSelection`]。
+        request: u64,
+
+        /// 选中的文字；没有选区时为空串。
+        text: String,
+
+        /// 选区的屏幕矩形（拿翻译候选窗口摆在它下方，与组句候选窗一致）；取不到是鼠标处近似。
+        rect: ScreenRect,
+    },
+
     /// 组句更新后，DLL 在编辑会话里量到组句范围的屏幕矩形，发来让 Server 把候选窗口摆到光标下方。
     /// 不等回话：候选窗口由 Server 进程自绘（搬出应用进程，才能盖过微软商店 / 任务栏搜索这些高 z-band 宿主）。
     /// 组句结束 / 失焦时 Server 按空帧与 [`Commit`](Self::Commit) 自行收窗口，不必 DLL 再发。
@@ -68,6 +89,31 @@ pub enum ClientMessage {
     /// 让 Server 收起候选窗口。Server 按空帧 / [`Commit`](Self::Commit) 能自行收窗口的场合不需要这条。
     /// 不等回话。
     HideCandidates {
+        /// 会话标识。
+        session: SessionId,
+    },
+
+    /// 中英模式变化 / 获得焦点：DLL 把当前会话的持久中英模式推给 Server（供悬浮状态条显示当前中 / 英）。
+    /// 单击 Shift 切换、激活、获焦时都发一次；不等回话（模式只在 DLL 侧，Server 据此刷状态条、并当作
+    /// 「这个会话此刻聚焦」）。双拼方案 Server 从自己的配置里知道，不必带。
+    ModeChanged {
+        /// 会话标识。
+        session: SessionId,
+
+        /// `true` 英文模式，`false` 中文模式。
+        english: bool,
+    },
+
+    /// 前台、没在组句时 DLL 定时问一次：用户在悬浮状态条上点过「中 / 英」没有。中英模式只在 DLL 侧，
+    /// Server 只能记下「想切成哪个」等 DLL 来取，回 [`super::ServerMessage::ModeSync`]。
+    SyncMode {
+        /// 会话标识。
+        session: SessionId,
+    },
+
+    /// 宿主线程把输入法切成了别的（微软拼音等）：Server 收起悬浮状态条。应用退出时不发（那时状态条该留着），
+    /// 所以状态条的显隐不跟会话开关走。DLL 在被停用后才收到这个通知，用一条临时连接发；不等回话。
+    ImeSwitched {
         /// 会话标识。
         session: SessionId,
     },

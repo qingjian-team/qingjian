@@ -85,6 +85,12 @@ fn microsoft_semicolon_is_a_final_only_after_a_lone_initial() {
     assert!(!engine.takes_semicolon());
     assert!(!engine.raw_mode());
     assert_eq!(engine.query().unwrap().marked_text(), "xing");
+    // 问字模式里也认：`?x;` 问的是 xing
+    engine.set_input("?x");
+    assert!(engine.takes_semicolon());
+    engine.push(';');
+    assert!(engine.question_mode());
+    assert_eq!(engine.query().unwrap().marked_text(), "?xing");
     engine.set_shuangpin(Some(Scheme::Xiaohe));
     engine.set_input("x");
     assert!(!engine.takes_semicolon());

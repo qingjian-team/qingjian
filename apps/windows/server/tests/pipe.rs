@@ -1,5 +1,4 @@
-//! 命名管道传输的端到端测试（仅 Windows）：起一个监听线程，客户端用文件句柄连上同名管道，
-//! 走完「开会话 → 敲 nihao → 收候选」。验证真正的进程间管道（不是内存流）在 Windows 上通。
+//! 真命名管道的端到端测试（仅 Windows）：监听线程 + 文件句柄客户端，走完「开会话 → 敲 nihao → 收候选」。
 
 #![cfg(windows)]
 
@@ -9,7 +8,9 @@ use std::thread;
 use std::time::Duration;
 
 use qingjian_core::Language;
-use qingjian_platform::protocol::{ClientMessage, KeyEvent, ServerMessage, SessionId};
+use qingjian_platform::protocol::{
+    ClientMessage, KeyEvent, PROTOCOL_VERSION, ServerMessage, SessionId,
+};
 use qingjian_windows_server::ipc::pipe::serve_pipe;
 use qingjian_windows_server::ipc::{read_message, write_message};
 use qingjian_windows_server::{AssemblySpec, Router, RouterConfig, assembly};
@@ -33,10 +34,9 @@ fn connect(name: &str) -> std::fs::File {
 
 #[test]
 fn named_pipe_round_trips_the_open_type_loop() {
-    // 每个测试进程一个独占管道名，避免撞车。
     let name = format!(r"\\.\pipe\qingjian-test-{}", std::process::id());
 
-    // 监听线程：装配 Engine 并在管道上服务（服务完一个客户端后会阻塞等下一个，随进程退出即可）。
+    // 监听线程服务完一个客户端后阻塞等下一个，随进程退出即可。
     let server_name = name.clone();
     thread::spawn(move || {
         let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../..");
@@ -49,17 +49,18 @@ fn named_pipe_round_trips_the_open_type_loop() {
         })
         .expect("assemble engine from sample data");
         let mut router = Router::new(engine, RouterConfig::default());
-        let _ = serve_pipe(&server_name, &mut router);
+        let (work_tx, work_rx) = std::sync::mpsc::channel();
+        let _ = serve_pipe(&server_name, &mut router, work_tx, work_rx);
     });
 
     let mut client = connect(&name);
 
-    // 开会话（不回话）+ 逐键敲 nihao（各回一条 KeyResult）。
     write_message(
         &mut client,
         &ClientMessage::OpenSession {
             session: SESSION,
             app: None,
+            protocol: PROTOCOL_VERSION,
         },
     )
     .unwrap();

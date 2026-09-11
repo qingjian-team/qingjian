@@ -1,6 +1,6 @@
-//! 青简 Windows 设置界面入口：左侧导航栏 + 各分节表单，读写 `%APPDATA%\Qingjian\config.toml`，对齐 macOS 偏好设置。
-//! UI 用 Windows Reactor（微软官方 Rust WinUI 3）。仅 Windows；其它平台编成空壳（工作区能整体编译）。
-#![cfg_attr(windows, windows_subsystem = "windows")] // GUI 程序，不弹控制台窗口
+//! 青简 Windows 设置界面入口：左侧导航栏 + 各分节表单，读写 `%APPDATA%\Qingjian\config.toml`。
+//! UI 用 Windows Reactor；非 Windows 编成空壳，让工作区能整体编译。
+#![cfg_attr(windows, windows_subsystem = "windows")]
 
 #[cfg(windows)]
 mod panel;
