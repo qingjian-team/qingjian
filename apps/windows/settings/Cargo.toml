@@ -1,0 +1,33 @@
+[package]
+name = "qingjian-windows-settings"
+description = "Windows 输入法的设置界面：左侧导航栏 + 各分节表单，读写 %APPDATA%\\Qingjian\\config.toml，对齐 macOS 偏好设置"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+# 产物是可执行的设置程序 qingjian-settings.exe（GUI，不弹控制台窗口）。
+[[bin]]
+name = "qingjian-settings"
+path = "src/main.rs"
+
+[dependencies]
+# 读写 config.toml。
+qingjian-platform.workspace = true
+# 云服务页「测试连接」与 PredictConfig。
+qingjian-predict.workspace = true
+toml_edit.workspace = true
+
+# UI 本体只在 Windows 编。
+[target."cfg(windows)".dependencies]
+windows-reactor = "0.100"
+# 「统计」页直读 usage.tsv / user-vocab.tsv。
+qingjian-learning.workspace = true
+qingjian-core.workspace = true
+qingjian-translate.workspace = true
+jiff.workspace = true
+# 「导入词库」文件选择器。
+rfd = "0.15"
+
+[lints]
+workspace = true

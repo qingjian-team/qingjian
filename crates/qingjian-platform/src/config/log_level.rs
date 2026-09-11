@@ -13,6 +13,17 @@ pub enum LogLevel {
 }
 
 impl LogLevel {
+    /// 全部取值，设置界面按这个顺序列出。
+    pub const ALL: [Self; 2] = [Self::Info, Self::Debug];
+
+    /// 界面上的名字。
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Info => "简略（info）",
+            Self::Debug => "详细（debug）",
+        }
+    }
+
     /// 配置文件里的写法。
     pub fn key(self) -> &'static str {
         match self {

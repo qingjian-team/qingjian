@@ -274,6 +274,44 @@ impl Config {
         })
     }
 
+    /// 原地把一个键改成字符串数组（`[section] key = ["a", "b"]`），其余内容、注释与顺序原样保留。
+    /// 设置界面改词库列表（`[dictionaries] domains` / `disabled`）走这里，[`Self::set_value`] 只能写标量。
+    pub fn set_array<S: AsRef<str>>(
+        path: &Path,
+        section: &str,
+        key: &str,
+        values: &[S],
+    ) -> Result<(), ConfigError> {
+        let source = match std::fs::read_to_string(path) {
+            Ok(source) => source,
+            Err(source) if source.kind() == std::io::ErrorKind::NotFound => TEMPLATE.to_owned(),
+            Err(source) => {
+                return Err(ConfigError::Read {
+                    path: path.to_owned(),
+                    source,
+                });
+            }
+        };
+        let mut document: DocumentMut = source.parse().map_err(|source| ConfigError::Edit {
+            path: path.to_owned(),
+            source,
+        })?;
+        if !document.get(section).is_some_and(|item| item.is_table()) {
+            document[section] = toml_edit::table();
+        }
+        let mut array = toml_edit::Array::new();
+        for value in values {
+            array.push(value.as_ref());
+        }
+        document[section][key] = toml_edit::value(array);
+        qingjian_core::storage::write_atomic_str(path, &document.to_string()).map_err(|source| {
+            ConfigError::Write {
+                path: path.to_owned(),
+                source,
+            }
+        })
+    }
+
     /// 文件不存在时写出模板，返回是否写了。
     pub fn write_template_if_missing(path: &Path) -> Result<bool, ConfigError> {
         if path.exists() {
