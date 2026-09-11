@@ -21,6 +21,8 @@ pub fn show(engine: &mut Engine, input: &str, limit: usize) -> Option<Query> {
         }
     }
     let mut query = match engine.query() {
+        // 异步重打分：等后台的分回来再查一次，输出的就是重排后的
+        Ok(query) if crate::rescoring::settle(engine) => engine.query().unwrap_or(query),
         Ok(query) => query,
         Err(error) => {
             println!("  {error}");

@@ -85,6 +85,14 @@ if [[ -f data/generated/dict.tsv || -f data/generated/dict.qj ]]; then
     cp data/generated/dicts/*.qj "$APP/Contents/Resources/dicts/"
   fi
   [[ -f data/generated/lm.qj ]] && cp data/generated/lm.qj "$APP/Contents/Resources/"
+  # 本地整句模型（字级 Transformer，tools/lm-train 导出的三件套）随包放 Resources/model/；没有就不重排
+  model_dir="${QINGJIAN_MODEL_DIR:-data/lm-train/export/full-small}"
+  if [[ -f "$model_dir/model.safetensors" ]]; then
+    mkdir -p "$APP/Contents/Resources/model"
+    cp "$model_dir/model.safetensors" "$model_dir/config.json" "$model_dir/vocab.json" "$APP/Contents/Resources/model/"
+    chmod 644 "$APP/Contents/Resources/model/"*
+    echo "打包本地整句模型：$model_dir"
+  fi
   # 释义表打成 .qj（TSV 比 .qj 新时重打），英文词表仍是 TSV
   for lang in en ja zh; do
     src="assets/glossary/glossary-$lang.tsv"

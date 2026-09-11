@@ -190,6 +190,9 @@ impl Host {
             (Setting::CloudEnabled, SettingValue::Bool(on)) => {
                 self.settings.set_bool("predict", "enabled", on);
             }
+            (Setting::LocalModelEnabled, SettingValue::Bool(on)) => {
+                self.settings.set_bool("model", "enabled", on);
+            }
             (Setting::CloudSlots, SettingValue::Index(index)) => {
                 self.settings.set_value("predict", "slots", index as i64);
             }

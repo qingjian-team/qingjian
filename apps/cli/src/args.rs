@@ -93,6 +93,10 @@ pub struct Args {
     #[arg(long)]
     pub neural_context: Option<usize>,
 
+    /// 神经重打分走后台线程（输入法壳里的接法）：查询先按词级模型出候选，再请求 / 等待重打分后重查一次；结果应与同步一致
+    #[arg(long)]
+    pub neural_async: bool,
+
     /// 逐键模式：把每个输入当作一键一键敲进去，每个前缀都查一次，打印每键各阶段耗时（性能测试用）
     #[arg(long)]
     pub typing: bool,

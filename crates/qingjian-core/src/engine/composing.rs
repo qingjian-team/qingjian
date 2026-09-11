@@ -78,6 +78,8 @@ impl Engine {
     pub fn clear(&mut self) {
         self.composition.clear();
         self.chain.leave_buffer();
+        // 壳给的光标前文只对这段组句有效，下一段第一键再读
+        self.rescoring_before = None;
     }
 
     pub fn delete_forward(&mut self) -> bool {

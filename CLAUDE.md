@@ -31,14 +31,17 @@ macOS 输入法已自用（HEAD 见 git），正在给测试者打包（pkg 已�
   词库与语言模型都能 `write_qj` / 从 `.qj` 打开，启动 50 ms；`cargo run --release -p qingjian-dict-convert -- pack dict|lm --name … --license …` 生成 `data/generated/{dict,lm}.qj`，
   `bundle.sh` 在 TSV 更新时自动重打并只把 `.qj` 打进包。设计见 `docs/design/architecture.md`「数据文件：`.qj` 容器」。
 - `crates/qingjian-neural`：`CharScorer`，Core `sentence::SentenceScorer` trait 的实现：candle 加载字级 Transformer（GPT-2 风格 decoder，`tools/lm-train` 导出的
-  `model.safetensors` + `config.json` + `vocab.json`，训练脚本不在仓库里），给「前文 + 整句」按字累加 log 概率；Engine 接了它就取 Viterbi 前 `RESCORE_PATHS` = 6 条路径按
-  `(1 − λ)·路径分 + λ·神经分` 重排（λ `NEURAL_WEIGHT` 0.5，前文是本会话最近 64 个上屏字符）。features `accelerate` / `metal` 换后端；
-  只有 CLI `--neural <导出目录>`（`--neural-weight` 调 λ）接它，IMK 壳未接（同步打分每次几十到一百多毫秒，要先做异步防抖）。
+  `model.safetensors` + `config.json` + `vocab.json`，训练脚本不在仓库里），给「前文 + 整句」按字累加 log 概率；前文的每层 K / V 缓存（`PrefixCache`），
+  同一段前文只算一次，每个候选只算自己那几个字（64 字前文 × 8 条 28 ms，Metal）。features `accelerate` / `metal` 换后端，壳用 `metal`。
+  Engine 侧在 `engine/rescoring/`：接了打分器就取 Viterbi 前 `RESCORE_PATHS` = 6 条路径按 `路径分 + λ·(神经分 − 静态二元分)` 重排（λ `NEURAL_WEIGHT` 0.5，
+  个人 n-gram / 用户加分 / 代价不动），分走「前文 + 文本 → 神经分」缓存 `NeuralCache`；同步打分器（`with_sentence_scorer`，CLI 评测）当场补分，
+  异步的（`with_async_sentence_scorer`，后台线程 `RescoreWorker`）查询不等模型：缺分的记下来，壳停键后 `request_rescoring`、`poll_rescoring` 到了再 `query` 一次。
+  前文优先用壳给的应用光标前文（`set_rescoring_context`），没有用本会话最近 64 个上屏字符。CLI `--neural <导出目录>`（`--neural-weight` / `--neural-context` / `--neural-async`）。
 - `crates/qingjian-lm`：`BigramModel`，Core `sentence::LanguageModel` trait 的实现，从 `data/generated/lm.qj`（或 `lm-unigram.tsv` / `lm-bigram.tsv`）加载
   （没有这两个文件就退化为一元词频整句）。数据由 `tools/corpus/parquet_to_text.py`（uv 脚本，HF parquet → 简体纯文本）加
   `cargo run --release -p qingjian-dict-convert -- bigram data/corpus/*.txt` 生成；语料在 `data/corpus/`（gitignore）。
 - `crates/qingjian-platform`：`Config`（TOML 配置文件，`[general]` / `[shortcut]` / `[fuzzy]` / `[dictionaries]` / `[apps]` / `[predict]` 分节，首次运行写模板，
-  `set_value` 用 toml_edit 原地改键保留注释）；`extra_dictionaries` 列出 / 加载随包领域词库与用户 `dicts/`（mac 壳与 Windows Server 共用，同名 `.qj` 优先于 `.tsv`）；`protocol` 模块是 Windows Server ↔ TSF DLL 的 IPC 协议类型（`ClientMessage` / `ServerMessage` / `Frame` / `PreeditSegment`，全 serde，两端共用，见 `docs/design/architecture.md`「Windows：TSF」）。
+  `set_value` 用 toml_edit 原地改键保留注释；`[model] enabled` 本地整句模型开关，`LocalModelConfig`）；`extra_dictionaries` 列出 / 加载随包领域词库与用户 `dicts/`（mac 壳与 Windows Server 共用，同名 `.qj` 优先于 `.tsv`）；`protocol` 模块是 Windows Server ↔ TSF DLL 的 IPC 协议类型（`ClientMessage` / `ServerMessage` / `Frame` / `PreeditSegment`，全 serde，两端共用，见 `docs/design/architecture.md`「Windows：TSF」）。
 - `apps/cli`：测试工具，`cargo run -p qingjian-cli -- kaifa`；`--predict` 强制开云联想并等结果打印，交互模式下上屏后也联想；
   `--typing` 逐键计时（性能测试用 release 构建跑，目标每键 10 ms 以内）；`--replay <input-log.jsonl>` 回放评测：把日志里每次上屏的键重新喂给引擎，
   按来源算首选 / 前五命中率、平均名次、不在候选的条数，打印没命中的例子（`--misses N`）；只在内存里学习不写文件，加 `--user-dict` 可带上现有学习数据。
@@ -55,7 +58,10 @@ macOS 输入法已自用（HEAD 见 git），正在给测试者打包（pkg 已�
   `[dictionaries] domains` 打开随包的领域词库（`Resources/dicts/` 11 本，缺省只开 `idioms`），`disabled` 关掉用户目录 `dicts/` 里的某本导入词库；偏好设置「词库」页随包的可开关、导入的可开关 / 移除，可导入 TSV / Rime yaml / .qj）。输入法进程由 launchd 拉起，看不到 shell 的环境变量：
   密钥写进配置同目录的 `.env`（`QINGJIAN_API_KEY=...`，输入法启动时 dotenvy 读入）或 `config.toml` 的 `api_key`；
   `reasoning_effort` 缺省 `none`（DeepSeek V4 默认思考，不关正文为空）。日志按天分文件留 7 天，删了会重建。
-  端到端验证可用 `osascript` 的 System Events 往 TextEdit 发按键再读回文本（终端需要辅助功能权限）。
+  本地整句模型：`bundle.sh` 把 `data/lm-train/export/full-small`（或 `QINGJIAN_MODEL_DIR`）三件套打进 `Resources/model/`，用户目录 `model/` 优先；
+  `host/model.rs` 在后台线程加载并预热（首次 Metal 编译）后 `set_async_sentence_scorer` 接上，`refresh` 每键先读应用光标前 64 字给 Engine 当前文、查询后
+  `schedule_rescoring`，`RescoreMonitor` 停键 80 ms 请求、20 ms 轮询，结果到了重查一次只重画当前页（翻过页 / 动过高亮不动）；「云服务」页有开关（`[model] enabled`）。
+  端到端验证可用 `osascript` 的 System Events 往 TextEdit 发按键再读回文本（终端需要辅助功能权限；输入法得在中文模式）。
 - `assets/sample/`：手写样例词库与释义表，不是产品数据。`assets/emoji/emoji-zh.tsv` / `emoji-en.tsv` 是 Unicode CLDR 中文 / 英文 annotations 转出的 emoji 表
   （Unicode License v3，可发布；中文词与英文词各配 emoji，两张表加载时合成一张），
   `cargo run --release -p qingjian-dict-convert -- --out-dir assets/emoji emoji --language zh data/cldr/annotations-zh.json data/cldr/annotationsDerived-zh.json`（en 同理）。

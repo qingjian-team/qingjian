@@ -16,6 +16,7 @@ mod marked;
 mod mode_keys;
 mod prediction;
 mod query;
+mod rescoring;
 mod setup;
 mod statistics;
 mod timings;
@@ -105,8 +106,17 @@ pub struct Engine {
     /// 整句转换的语言模型，缺省为 [`NoLanguageModel`]（退化成一元词频）。
     language_model: Box<dyn LanguageModel>,
 
-    /// 整句路径的神经重打分器（字级 Transformer）；没接就只用词级模型的路径得分。
+    /// 整句路径的同步神经重打分器（字级 Transformer，查询里当场打分；CLI 评测用）。
     sentence_scorer: Option<Box<dyn SentenceScorer>>,
+
+    /// 异步重打分：后台线程里的打分器，壳在停顿后送任务、轮询结果（见 [`rescoring`]）。
+    rescorer: Option<rescoring::RescoreWorker>,
+
+    /// 「前文 + 整句文本 → 神经分」缓存，同步与异步打分共用。
+    neural_cache: std::cell::RefCell<rescoring::NeuralCache>,
+
+    /// 壳给的应用里光标前的文本；`None` 时前文用本会话历史。
+    rescoring_before: Option<String>,
 
     /// 重打分时神经得分的权重 λ：最终分 = 路径分 + λ·(神经分 − 静态分)。
     neural_weight: f64,
@@ -266,6 +276,9 @@ impl Engine {
             predictor: Box::new(NoPredictor),
             language_model: Box::new(NoLanguageModel),
             sentence_scorer: None,
+            rescorer: None,
+            neural_cache: std::cell::RefCell::new(rescoring::NeuralCache::default()),
+            rescoring_before: None,
             neural_weight: NEURAL_WEIGHT,
             neural_margin: NEURAL_MARGIN,
             neural_context: RESCORE_CONTEXT_CHARS,

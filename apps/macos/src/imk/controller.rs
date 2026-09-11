@@ -151,6 +151,9 @@ define_class!(
 /// 翻译选中文字最多接受多少个字符：再长既慢又贵，也不是输入法该干的事。
 const MAX_TRANSLATE_CHARS: usize = 500;
 
+/// 给本地整句模型看的光标前文最多读多少字符（Engine 自己再按它的前文长度截）。
+const RESCORE_LOOKBACK: usize = qingjian_core::RESCORE_CONTEXT_CHARS;
+
 fn digit_key(key_code: u16) -> Option<usize> {
     Some(match key_code {
         18 | 83 => 1,
@@ -640,7 +643,26 @@ impl QingjianInputController {
 
     /// 按当前缓冲区重新查候选、更新 marked text，回到第一页并重画候选窗口。
     fn refresh(&self, client: TextClient<'_>) {
+        // 本地整句模型要看光标前文：一段组句只在第一键读一次（组句中它不变；应用偶尔不回话也不至于让前文来回换），
+        // 读应用文本要等应用回话，放在借 Host 之外（见 request_prediction）
+        let wants_context = host::with(|h| {
+            h.attach_loaded_model();
+            h.engine.has_sentence_scorer() && h.engine.composition().text().chars().count() == 1
+        })
+        .unwrap_or(false);
+        let before = if wants_context && !secure_input::enabled() {
+            Some(
+                client
+                    .surrounding_text(RESCORE_LOOKBACK, 0)
+                    .map(|text| text.before),
+            )
+        } else {
+            None
+        };
         let Some((marked, cursor, inline)) = host::with(|h| {
+            if let Some(before) = before {
+                h.engine.set_rescoring_context(before);
+            }
             // 查询失败（整段切不动）时退回显示原始字母
             let mut marked = h.engine.composition().text().to_owned();
             let mut cursor = h.engine.composition().cursor();
@@ -657,6 +679,7 @@ impl QingjianInputController {
                 })
                 .unwrap_or_default();
             h.reset_session(preedit, candidates);
+            h.schedule_rescoring();
             (marked, cursor, h.preedit_mode.inline())
         }) else {
             return;

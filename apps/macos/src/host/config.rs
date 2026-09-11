@@ -57,6 +57,14 @@ impl Host {
         if force || config.dictionaries != self.applied_dictionaries {
             self.reload_dictionaries();
         }
+        if self.applied_model.as_ref() != Some(&config.model) {
+            if config.model.enabled {
+                self.load_local_model();
+            } else {
+                self.unload_local_model();
+            }
+            self.applied_model = Some(config.model.clone());
+        }
         let cloud_active = self.engine.prediction_enabled();
         self.indicator.set_cloud(cloud_active);
         self.indicator.update();

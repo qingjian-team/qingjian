@@ -77,8 +77,9 @@ impl Engine {
         self.predictor = predictor;
     }
 
-    /// 挂上整句重打分器（字级 Transformer）。`weight` 是神经分的权重 λ，`margin` 是参与重排的路径分门槛（nat），
-    /// `context` 是给模型看的前文字符数；`None` 用缺省 [`NEURAL_WEIGHT`] / [`NEURAL_MARGIN`] / [`RESCORE_CONTEXT_CHARS`]。
+    /// 挂上同步的整句重打分器（字级 Transformer，查询里当场打分，评测用）。`weight` 是神经分的权重 λ，
+    /// `margin` 是参与重排的路径分门槛（nat），`context` 是给模型看的前文字符数；
+    /// `None` 用缺省 [`NEURAL_WEIGHT`] / [`NEURAL_MARGIN`] / [`RESCORE_CONTEXT_CHARS`]。
     pub fn with_sentence_scorer(
         mut self,
         scorer: Box<dyn SentenceScorer>,
@@ -87,11 +88,49 @@ impl Engine {
         context: Option<usize>,
     ) -> Self {
         self.sentence_scorer = Some(scorer);
+        self.rescorer = None;
+        self.set_neural_parameters(weight, margin, context);
+        self
+    }
+
+    /// 挂上异步的整句重打分器：打分在后台线程，查询不等它，壳在停顿后 [`Self::request_rescoring`]、
+    /// 结果到了 [`Self::poll_rescoring`] 后再查一次。参数同 [`Self::with_sentence_scorer`]。
+    pub fn with_async_sentence_scorer(
+        mut self,
+        scorer: Box<dyn SentenceScorer>,
+        weight: Option<f64>,
+        margin: Option<f64>,
+        context: Option<usize>,
+    ) -> Self {
+        self.set_async_sentence_scorer(Some(scorer));
+        self.set_neural_parameters(weight, margin, context);
+        self
+    }
+
+    /// 运行时换 / 卸异步重打分器（壳里模型在后台加载完才接上，配置关掉就卸）。
+    pub fn set_async_sentence_scorer(&mut self, scorer: Option<Box<dyn SentenceScorer>>) {
+        self.sentence_scorer = None;
+        self.rescorer = scorer.map(super::rescoring::RescoreWorker::spawn);
+        *self.neural_cache.borrow_mut() = super::rescoring::NeuralCache::default();
+        self.forget_span_cache();
+    }
+
+    /// 神经分的权重 λ（0 到 1）。
+    pub fn set_neural_weight(&mut self, weight: f64) {
+        self.neural_weight = weight.clamp(0.0, 1.0);
+        self.forget_span_cache();
+    }
+
+    fn set_neural_parameters(
+        &mut self,
+        weight: Option<f64>,
+        margin: Option<f64>,
+        context: Option<usize>,
+    ) {
         self.neural_weight = weight.unwrap_or(NEURAL_WEIGHT).clamp(0.0, 1.0);
         self.neural_margin = margin.unwrap_or(NEURAL_MARGIN).max(0.0);
         self.neural_context = context.unwrap_or(RESCORE_CONTEXT_CHARS);
         self.forget_span_cache();
-        self
     }
 
     pub fn with_language_model(mut self, model: Box<dyn LanguageModel>) -> Self {

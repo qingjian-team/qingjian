@@ -4,6 +4,7 @@ mod general;
 mod key_combo;
 mod layout_mode;
 mod log_level;
+mod model;
 mod modifiers;
 mod preedit_mode;
 mod shortcut;
@@ -28,6 +29,7 @@ pub use general::{DEFAULT_PAGE_KEYS, GeneralConfig, MAX_PAGE_SIZE, PAGE_KEY_OPTI
 pub use key_combo::KeyCombo;
 pub use layout_mode::LayoutMode;
 pub use log_level::LogLevel;
+pub use model::LocalModelConfig;
 pub use modifiers::Modifiers;
 pub use preedit_mode::PreeditMode;
 pub use shortcut::ShortcutConfig;
@@ -60,6 +62,9 @@ pub struct Config {
 
     /// 悬浮状态条（桌面上常驻、可拖动的中 / 英浮窗）。
     pub status_bar: StatusBarConfig,
+
+    /// 本地整句模型。
+    pub model: LocalModelConfig,
 }
 
 /// 模板的 `[apps]` 一节（macOS）：应用按 bundle identifier 认。名单要与 [`DEFAULT_ENGLISH_CANDIDATES_OFF`] 一致，
@@ -194,6 +199,10 @@ in_ing = false
 domains = ["idioms"]
 # 自己导入的词库：放在配置同目录 dicts/ 下的 .qj 文件都会加载，这里列出要关掉的（文件名，不含扩展名）
 disabled = []
+
+[model]
+# 本地整句模型：随包的小模型在本机给整句候选重新排序，全程离线；停顿后几十毫秒生效。关掉只用词库统计
+enabled = true
 
 [predict]
 # 云联想：把光标附近的文本发到下面的接口，让模型补全整句 / 联想下文。默认关闭。

@@ -76,7 +76,7 @@ qingjian-core
 ├── shortcut        # 快捷候选：日期 / 时间 / 星期、v 表达式模式（四则运算、中文数字），不查词库
 ├── english         # 英文模式候选：词表精确词 / 前缀补全 / 一处编辑纠正（edit.rs），大小写跟着敲的走
 ├── sentence        # 离线整句转换：词图 + bigram Viterbi + 束搜索，LanguageModel trait（qingjian-lm 实现，缺省退化为一元），UserNgram 个人 n-gram（二元 + 三元），Context 上文（前两个词），
-│               #   SentenceScorer trait（qingjian-neural 实现）：convert_paths 出前 K 条路径，Engine 按 (1 − λ)·路径分 + λ·神经分 重排
+│               #   SentenceScorer trait（qingjian-neural 实现）：convert_paths 出前 K 条路径，Engine（engine/rescoring）按 路径分 + λ·(神经分 − 静态分) 重排，异步时后台线程打分、壳停顿后取
 ├── emoji           # emoji 候选：EmojiTable（词 → emoji，Unicode CLDR 中文 annotations）
 ├── fuzzy           # 模糊音：FuzzyRules（配置 [fuzzy]）把每个音节扩展成多种写法，Expanded 借出给词库多写法查询
 ├── shuangpin       # 双拼：Scheme 四套方案的键位表，decode 把敲的键解成全拼（音节间带 '），Decoded 把上屏消耗换算回键数；切分之后全部复用全拼

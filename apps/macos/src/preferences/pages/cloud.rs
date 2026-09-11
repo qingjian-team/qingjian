@@ -1,4 +1,4 @@
-//! 「云服务」页：云联想开关、云端词格数、接口地址 / 模型 / 密钥、测试连接。
+//! 「云服务」页：本地整句模型开关，云联想开关、云端词格数、接口地址 / 模型 / 密钥、测试连接。
 
 use objc2::MainThreadMarker;
 use objc2::rc::Retained;
@@ -18,6 +18,9 @@ use crate::preferences::target::PreferencesTarget;
 const MAX_CLOUD_SLOTS: usize = 4;
 
 pub struct CloudPage {
+    /// 本地整句模型开关。
+    local_model: Retained<NSButton>,
+
     /// 云联想开关。
     enabled: Retained<NSButton>,
 
@@ -32,10 +35,20 @@ pub struct CloudPage {
 
     /// 密钥输入框，永远不回显已有值。
     api_key: Retained<NSSecureTextField>,
+
+    /// 「测试连接」按钮。
+    test: Retained<NSButton>,
 }
 
 impl CloudPage {
     pub fn build(layout: &mut Layout, mtm: MainThreadMarker, target: &PreferencesTarget) -> Self {
+        let local_model = checkbox(mtm, "本地整句模型", Setting::LocalModelEnabled, target);
+        row_checkbox(layout, &local_model);
+        note(
+            layout,
+            mtm,
+            "随包的小模型在本机给整句候选重新排序，全程离线；停键后几十毫秒生效。关掉只用词库统计。",
+        );
         let enabled = checkbox(mtm, "启用云联想", Setting::CloudEnabled, target);
         row_checkbox(layout, &enabled);
         note(
@@ -82,17 +95,28 @@ impl CloudPage {
             "用上面填的地址、模型、密钥发一条最小请求，结果显示在窗口底部。输入法进程看不到终端里的代理变量，走不通时先查这个。",
         );
         Self {
+            local_model,
             enabled,
             slots,
             base_url,
             model,
             api_key,
+            test,
         }
     }
 
     /// `key_present` 是密钥已经有了（环境或配置里）；密钥框永远不回显值，只换占位文字。
-    pub fn sync(&self, config: &Config, key_present: bool) {
+    /// `model_present` 是包里或用户目录里有模型文件，没有就把本地模型的勾选灰掉；云联想关着时它下面的项全灰。
+    pub fn sync(&self, config: &Config, key_present: bool, model_present: bool) {
+        set_checked(&self.local_model, config.model.enabled && model_present);
+        self.local_model.setEnabled(model_present);
         set_checked(&self.enabled, config.predict.enabled);
+        let cloud = config.predict.enabled;
+        self.slots.setEnabled(cloud);
+        self.base_url.setEnabled(cloud);
+        self.model.setEnabled(cloud);
+        self.api_key.setEnabled(cloud);
+        self.test.setEnabled(cloud);
         select(&self.slots, Some(config.predict.slots.min(MAX_CLOUD_SLOTS)));
         self.base_url
             .setStringValue(&NSString::from_str(&config.predict.base_url));

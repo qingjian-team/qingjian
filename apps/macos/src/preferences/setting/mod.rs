@@ -44,6 +44,9 @@ pub enum Setting {
     /// `[predict] enabled`。
     CloudEnabled,
 
+    /// `[model] enabled`。
+    LocalModelEnabled,
+
     /// `[predict] base_url`。
     BaseUrl,
 
@@ -157,6 +160,7 @@ impl Setting {
             Self::TestCloud => 29,
             Self::OpenWebsite => 30,
             Self::OpenRepository => 31,
+            Self::LocalModelEnabled => 32,
             Self::Fuzzy(index) => FUZZY_TAG_BASE + index as NSInteger,
             Self::DictionaryEnabled(index) => DICTIONARY_ENABLED_TAG_BASE + index as NSInteger,
             Self::DictionaryRemove(index) => DICTIONARY_REMOVE_TAG_BASE + index as NSInteger,
@@ -196,6 +200,7 @@ impl Setting {
             29 => Self::TestCloud,
             30 => Self::OpenWebsite,
             31 => Self::OpenRepository,
+            32 => Self::LocalModelEnabled,
             _ if tag >= DICTIONARY_REMOVE_TAG_BASE => {
                 let index = usize::try_from(tag - DICTIONARY_REMOVE_TAG_BASE).ok()?;
                 (index < MAX_DICTIONARIES).then_some(Self::DictionaryRemove(index))?
@@ -226,6 +231,7 @@ mod tests {
             Setting::ExpressionKey,
             Setting::QuestionKey,
             Setting::CloudEnabled,
+            Setting::LocalModelEnabled,
             Setting::BaseUrl,
             Setting::Model,
             Setting::ApiKey,

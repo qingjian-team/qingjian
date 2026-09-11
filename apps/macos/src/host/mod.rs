@@ -13,9 +13,11 @@ mod diagnostics;
 mod dictionaries;
 mod dictionary_info;
 mod init;
+mod model;
 mod notice;
 mod predict_monitor;
 mod presenting;
+mod rescore_monitor;
 mod session;
 mod settings;
 mod translation_job;
@@ -35,8 +37,9 @@ use qingjian_learning::{FrequencyLearner, InputLog, UsageStats, VocabularyBook};
 use qingjian_lm::BigramModel;
 use qingjian_platform::extra_dictionaries;
 use qingjian_platform::{
-    AppsConfig, DEFAULT_ENGLISH_CANDIDATES_OFF, DictionariesConfig, KeyCombo, LayoutMode, LogLevel,
-    Modifiers, PAGE_KEY_OPTIONS, PreeditMode, ShortcutConfig, ThemeMode,
+    AppsConfig, DEFAULT_ENGLISH_CANDIDATES_OFF, DictionariesConfig, KeyCombo, LayoutMode,
+    LocalModelConfig, LogLevel, Modifiers, PAGE_KEY_OPTIONS, PreeditMode, ShortcutConfig,
+    ThemeMode,
 };
 use qingjian_predict::{
     CloudGlossFiller, CloudPredictor, ConnectionTest, PredictConfig, PredictError,
@@ -55,6 +58,7 @@ use config_watch::ConfigWatch;
 pub use dictionary_info::DictionaryInfo;
 pub use init::init;
 use predict_monitor::PredictMonitor;
+use rescore_monitor::RescoreMonitor;
 pub use session::Session;
 pub use translation_job::TranslationJob;
 
@@ -151,6 +155,19 @@ pub struct Host {
 
     /// 连通性测试的轮询定时器。
     cloud_test_monitor: CloudTestMonitor,
+
+    /// 本地整句模型的防抖与轮询定时器。
+    rescore: RescoreMonitor,
+
+    /// 正在后台加载的模型；加载完接到 Engine 上就清掉。
+    model_loader: Option<
+        std::sync::mpsc::Receiver<
+            Result<qingjian_neural::CharScorer, qingjian_neural::NeuralError>,
+        >,
+    >,
+
+    /// 上次套用的 `[model]`，变了才重载 / 卸载。
+    applied_model: Option<LocalModelConfig>,
 
     /// 当前会话的候选、高亮、页码、preedit。
     pub session: Session,

@@ -10,6 +10,7 @@ mod eval;
 mod logging;
 mod repl;
 mod replay;
+mod rescoring;
 
 use std::time::Instant;
 
@@ -190,12 +191,21 @@ fn build_engine(args: &Args) -> Result<Engine, CliError> {
             weight = args.neural_weight.unwrap_or(qingjian_core::NEURAL_WEIGHT),
             "神经重打分已启用"
         );
-        engine = engine.with_sentence_scorer(
-            Box::new(scorer),
-            args.neural_weight,
-            args.neural_margin,
-            args.neural_context,
-        );
+        engine = if args.neural_async {
+            engine.with_async_sentence_scorer(
+                Box::new(scorer),
+                args.neural_weight,
+                args.neural_margin,
+                args.neural_context,
+            )
+        } else {
+            engine.with_sentence_scorer(
+                Box::new(scorer),
+                args.neural_weight,
+                args.neural_margin,
+                args.neural_context,
+            )
+        };
     }
     let config_path = args
         .config

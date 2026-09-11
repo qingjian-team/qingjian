@@ -195,7 +195,11 @@ impl PreferencesWindow {
         self.candidates.sync(config);
         self.shortcuts.sync(config);
         self.fuzzy.sync(config);
-        self.cloud.sync(config, key_present);
+        self.cloud.sync(
+            config,
+            key_present,
+            crate::app::paths::model_dir().is_some(),
+        );
         self.advanced.sync(config);
         let status = error
             .map(|e| format!("配置文件有错误，已沿用上一份：{e}"))

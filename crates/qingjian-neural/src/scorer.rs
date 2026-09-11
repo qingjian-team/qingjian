@@ -1,8 +1,10 @@
 use std::path::Path;
+use std::sync::Mutex;
 
 use candle_core::{DType, Device, Tensor};
 use candle_nn::VarBuilder;
 
+use crate::model::PrefixCache;
 use crate::vocab::EOS;
 use crate::{CharLm, ModelConfig, NeuralError, Vocab};
 
@@ -10,6 +12,9 @@ use crate::{CharLm, ModelConfig, NeuralError, Vocab};
 pub struct CharScorer {
     model: CharLm,
     vocab: Vocab,
+
+    /// 最近一段前文的 K / V 缓存（前文 token 与缓存）：一次组句里前文不变，候选换了只算候选。
+    cache: Mutex<Option<(Vec<u32>, PrefixCache)>>,
 }
 
 impl CharScorer {
@@ -31,7 +36,8 @@ impl CharScorer {
         }
         let weights = dir.join("model.safetensors");
         // SAFETY：mmap 的权重文件在模型存活期间不改动
-        let vb = unsafe { VarBuilder::from_mmaped_safetensors(&[weights], DType::F32, &device)? };
+        let dtype = weight_dtype();
+        let vb = unsafe { VarBuilder::from_mmaped_safetensors(&[weights], dtype, &device)? };
         let model = CharLm::load(vb, cfg, device)?;
         tracing::info!(
             layers = model.config().n_layer,
@@ -39,7 +45,11 @@ impl CharScorer {
             vocab = vocab.len(),
             "神经语言模型已加载"
         );
-        Ok(Self { model, vocab })
+        Ok(Self {
+            model,
+            vocab,
+            cache: Mutex::new(None),
+        })
     }
 
     pub fn vocab(&self) -> &Vocab {
@@ -47,62 +57,70 @@ impl CharScorer {
     }
 
     /// 每个候选接在 `context` 后面的 `log P(候选 | 前文)`，按字累加。
-    /// 序列是 `<eos> + 前文 + 候选`，超过模型上下文时从左边截（与训练脚本 `score.py` 一致）；
-    /// 几个候选拼成一个 batch、末尾补 0 对齐，一次前向。
+    /// 序列是 `<eos> + 前文 + 候选`；前文（不含最后一个 token）的 K / V 走缓存，同一段前文只算一次，
+    /// 每个候选只算「前文最后一个 token + 候选」这一小段；几个候选拼成一个 batch、末尾补 0 对齐，一次前向。
+    /// 前文加最长候选超过模型上下文时前文从左边截（与训练脚本 `score.py` 一致）。
     pub fn score(&self, context: &str, texts: &[&str]) -> Result<Vec<f64>, NeuralError> {
         if texts.is_empty() {
             return Ok(Vec::new());
         }
         let limit = self.model.config().context;
-        let prefix: Vec<u32> = std::iter::once(EOS)
+        let full: Vec<u32> = std::iter::once(EOS)
             .chain(self.vocab.encode(context))
             .collect();
-        // (序列, 候选占末尾几个 token)
-        let sequences: Vec<(Vec<u32>, usize)> = texts
+        // 候选最长不能超过上下文减一（还要留前文的最后一个 token）：再长的从开头截
+        let tails: Vec<Vec<u32>> = texts
             .iter()
             .map(|text| {
-                let tail = self.vocab.encode(text);
-                let n = tail.len();
-                let mut ids = prefix.clone();
-                ids.extend(tail);
-                if ids.len() > limit {
-                    ids.drain(..ids.len() - limit);
+                let mut ids = self.vocab.encode(text);
+                if ids.len() > limit - 1 {
+                    ids.drain(..ids.len() - (limit - 1));
                 }
-                (ids, n.min(limit.saturating_sub(1)))
+                ids
             })
             .collect();
-        let width = sequences
-            .iter()
-            .map(|(ids, _)| ids.len())
-            .max()
-            .unwrap_or(0);
-        let batch = sequences.len();
+        let longest = tails.iter().map(Vec::len).max().unwrap_or(0);
+        let width = longest + 1;
+        // 缓存的是前文去掉最后一个 token 的部分，最后一个 token 放进每一行的开头，它的输出分布给候选第一个字用
+        let (last, head) = full.split_last().expect("has eos");
+        let head = &head[head.len().saturating_sub(limit - width)..];
+        let batch = tails.len();
         let mut flat = vec![0u32; batch * width];
-        for (row, (ids, _)) in sequences.iter().enumerate() {
-            flat[row * width..row * width + ids.len()].copy_from_slice(ids);
+        let mut targets = vec![0u32; batch * width];
+        for (row, tail) in tails.iter().enumerate() {
+            flat[row * width] = *last;
+            flat[row * width + 1..row * width + 1 + tail.len()].copy_from_slice(tail);
+            targets[row * width..row * width + tail.len()].copy_from_slice(tail);
         }
         let idx = Tensor::from_vec(flat, (batch, width), self.model.device())?;
-        let lp = self.model.log_probs(&idx)?;
-        // 只取要的那几个位置：目标 token 在位置 p，用位置 p-1 的分布
-        let mut targets = vec![0u32; batch * width];
-        for (row, (ids, _)) in sequences.iter().enumerate() {
-            for (p, &id) in ids.iter().enumerate().skip(1) {
-                targets[row * width + p - 1] = id;
-            }
-        }
         let targets = Tensor::from_vec(targets, (batch, width, 1), self.model.device())?;
+        let mut guard = self
+            .cache
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        if guard.as_ref().is_none_or(|(ids, _)| ids != head) {
+            *guard = Some((head.to_vec(), self.model.prefix_cache(head)?));
+        }
+        let (_, cache) = guard.as_ref().expect("filled above");
+        let lp = self.model.log_probs_after(cache, &idx)?;
+        drop(guard);
         let picked = lp.gather(&targets, 2)?.squeeze(2)?.to_vec2::<f32>()?;
-        Ok(sequences
+        Ok(tails
             .iter()
             .zip(picked)
-            .map(|((ids, n), row)| {
-                let len = ids.len();
-                row[len - 1 - n..len - 1]
-                    .iter()
-                    .map(|&v| f64::from(v))
-                    .sum()
-            })
+            .map(|(tail, row)| row[..tail.len()].iter().map(|&v| f64::from(v)).sum())
             .collect())
+    }
+}
+
+/// 权重与中间量的精度：Metal 上缺省 f16（与 f32 打分一致，显存减一半、略快），CPU 上 f32（candle 的 CPU f16 矩阵乘慢）；
+/// 环境变量 `QINGJIAN_NEURAL_DTYPE=f32|f16` 可强制。
+fn weight_dtype() -> DType {
+    match std::env::var("QINGJIAN_NEURAL_DTYPE").as_deref() {
+        Ok("f16") => DType::F16,
+        Ok("f32") => DType::F32,
+        _ if cfg!(feature = "metal") => DType::F16,
+        _ => DType::F32,
     }
 }
 
@@ -149,6 +167,11 @@ mod tests {
         // 前文超长时从左截，不报错
         let long: String = "很长的前文。".repeat(40);
         assert!(scorer.score(&long, &["上海"]).unwrap()[0] < 0.0);
+        // 换过前文再换回来（缓存重算）结果不变；候选比上下文还长也不报错
+        let again = scorer.score("我今天想去", &["上海"]).unwrap();
+        assert!((again[0] - scores[0]).abs() < 1e-3, "{again:?}");
+        let huge: String = "字".repeat(300);
+        assert!(scorer.score("", &[huge.as_str()]).unwrap()[0] < 0.0);
     }
 }
 
@@ -187,7 +210,20 @@ mod latency {
             for _ in 0..10 {
                 let _ = scorer.score(ctx, &texts[..n]).unwrap();
             }
-            println!("{label}: {:.2} ms", start.elapsed().as_secs_f64() * 100.0);
+            println!(
+                "{label}（前文已缓存）: {:.2} ms",
+                start.elapsed().as_secs_f64() * 100.0
+            );
+            let start = std::time::Instant::now();
+            for i in 0..10 {
+                // 每次换一段前文，逼它重算缓存
+                let fresh = format!("{ctx}{i}");
+                let _ = scorer.score(&fresh, &texts[..n]).unwrap();
+            }
+            println!(
+                "{label}（前文重算）: {:.2} ms",
+                start.elapsed().as_secs_f64() * 100.0
+            );
         }
     }
 }
