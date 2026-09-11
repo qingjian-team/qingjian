@@ -2,9 +2,12 @@
 
 mod composed;
 mod config;
+mod input;
 mod keys;
+mod session;
+mod shortcut;
 
-use std::collections::HashSet;
+use std::collections::HashMap;
 use std::time::{Duration, Instant};
 
 use qingjian_core::{Candidate, CandidateLayout, CandidateList, CloudWord, Engine};
@@ -15,6 +18,7 @@ use qingjian_platform::protocol::{
 
 use self::composed::Composed;
 pub use self::config::RouterConfig;
+use self::session::SessionInfo;
 
 /// 学习数据落盘的间隔（与 macOS 壳一致）。Server 没有定时器，借每条消息的节拍看时间。
 const LEARNING_FLUSH_INTERVAL: Duration = Duration::from_secs(60);
@@ -40,8 +44,8 @@ pub struct Router {
     /// 每页候选数 / 云端槽位 / 排布 / 外观 / 翻页键。
     config: RouterConfig,
 
-    /// 活跃会话。
-    sessions: HashSet<SessionId>,
+    /// 活跃会话及各自的宿主应用。
+    sessions: HashMap<SessionId, SessionInfo>,
 
     /// 当前持有组句的会话。
     focused: Option<SessionId>,
@@ -55,6 +59,9 @@ pub struct Router {
     /// 当前高亮候选在候选布局里的下标（跨页）。缓冲变化时归 0。
     highlight: usize,
 
+    /// 这轮查询里用方向键 / 翻页键动过高亮。英文模式里空格只在动过之后才选高亮的词，没动过就原样上屏。
+    navigated: bool,
+
     /// 上次把学习数据落盘的时间。
     last_flush: Instant,
 }
@@ -67,11 +74,12 @@ impl Router {
                 page_size: config.page_size.max(1),
                 ..config
             },
-            sessions: HashSet::new(),
+            sessions: HashMap::new(),
             focused: None,
             composed: None,
             sentence: None,
             highlight: 0,
+            navigated: false,
             last_flush: Instant::now(),
         }
     }
@@ -93,18 +101,18 @@ impl Router {
 
     fn dispatch(&mut self, message: ClientMessage) -> Option<ServerMessage> {
         match message {
-            ClientMessage::OpenSession { session } => {
-                self.sessions.insert(session);
-                tracing::debug!(?session, "会话打开");
+            ClientMessage::OpenSession { session, app } => {
+                // 用户要往 [apps] 里加应用时，从这条日志抄 exe 名。
+                tracing::debug!(?session, app, "会话打开");
+                self.sessions.insert(session, SessionInfo { app });
                 None
             }
             ClientMessage::Key { session, event } => Some(self.handle_key(session, event)),
             ClientMessage::Poll { session } => Some(self.handle_poll(session)),
             ClientMessage::Commit { session } => {
-                // TODO(windows)：焦点离开时把 preedit 上屏；协议还没有「无按键的上屏」响应，先丢弃。
-                self.reset_composition();
-                tracing::debug!(?session, "结束组句");
-                None
+                let text = self.commit_raw_for(session);
+                tracing::debug!(?session, ?text, "焦点离开，结束组句");
+                Some(ServerMessage::Committed { session, text })
             }
             ClientMessage::Surrounding {
                 session,
@@ -139,6 +147,22 @@ impl Router {
         self.sessions.len()
     }
 
+    /// 当前持有组句的会话所在的应用（exe 名）；没开过会话或 DLL 没报时为 `None`。
+    fn focused_app(&self) -> Option<&str> {
+        self.focused
+            .and_then(|session| self.sessions.get(&session))
+            .and_then(|info| info.app.as_deref())
+    }
+
+    /// 焦点离开时把缓冲区原样交出（对应 macOS 的 `commitComposition` → `commit_raw`），然后清掉组句状态。
+    /// 组句不属于 `session`（别的会话的残留）时只清不交，免得把 A 应用的拼音落进 B 应用。
+    fn commit_raw_for(&mut self, session: SessionId) -> Option<String> {
+        let text = (self.focused == Some(session) && !self.engine.composition().is_empty())
+            .then(|| self.engine.take_raw());
+        self.reset_composition();
+        text
+    }
+
     /// 清掉当前组句、展示状态与在飞的云联想请求。
     fn reset_composition(&mut self) {
         self.engine.break_chain();
@@ -147,6 +171,7 @@ impl Router {
         self.composed = None;
         self.sentence = None;
         self.highlight = 0;
+        self.navigated = false;
     }
 
     fn cancel_prediction(&mut self) {
@@ -180,87 +205,6 @@ impl Router {
             outcome,
             commit,
             frame: self.current_frame(),
-        }
-    }
-
-    /// 把一个按键作用到 Engine / 高亮上。字母总是进组句；其余键只在组句中才处理。
-    fn apply_key(&mut self, event: &KeyEvent) -> Effect {
-        if let Some(letter) = event.character.filter(char::is_ascii_alphabetic) {
-            self.engine.push(letter.to_ascii_lowercase());
-            return Effect::Changed(None);
-        }
-        if self.engine.composition().is_empty() {
-            return Effect::Passthrough;
-        }
-        match event.virtual_key {
-            keys::BACK => {
-                self.engine.backspace();
-                Effect::Changed(None)
-            }
-            keys::ESCAPE => {
-                self.engine.clear();
-                Effect::Changed(None)
-            }
-            keys::RETURN => Effect::Changed(Some(self.engine.take_raw())),
-            keys::TAB => match self.sentence.take() {
-                Some(sentence) => Effect::Changed(Some(self.engine.accept_prediction(&sentence))),
-                // 没有整句补全：Tab 交还应用（缩进 / 跳焦点）。
-                None => Effect::Passthrough,
-            },
-            keys::SPACE => Effect::Changed(self.commit_index(self.highlight)),
-            keys::DOWN => {
-                self.move_highlight(1);
-                Effect::Navigated
-            }
-            keys::UP => {
-                self.move_highlight(-1);
-                Effect::Navigated
-            }
-            keys::NEXT => {
-                self.page(1);
-                Effect::Navigated
-            }
-            keys::PRIOR => {
-                self.page(-1);
-                Effect::Navigated
-            }
-            keys::LEFT => {
-                self.engine.move_cursor_left();
-                Effect::Changed(None)
-            }
-            keys::RIGHT => {
-                self.engine.move_cursor_right();
-                Effect::Changed(None)
-            }
-            keys::HOME => {
-                self.engine.move_cursor_home();
-                Effect::Changed(None)
-            }
-            keys::END => {
-                self.engine.move_cursor_end();
-                Effect::Changed(None)
-            }
-            _ => self.apply_printable(event),
-        }
-    }
-
-    /// 组句中的可打印键：数字选当前页第 N 个，翻页键对翻页，其余（半角标点等）进英文直输段。
-    fn apply_printable(&mut self, event: &KeyEvent) -> Effect {
-        if let Some(digit) = keys::digit(event) {
-            let page_size = self.config.page_size;
-            let page = self.highlight / page_size;
-            return Effect::Changed(self.commit_index(page * page_size + digit - 1));
-        }
-        if let Some(step) = keys::page_key(event, self.config.page_keys) {
-            self.page(step);
-            return Effect::Navigated;
-        }
-        match event.character.filter(|c| !c.is_control()) {
-            Some(c) => {
-                self.engine.push(c);
-                Effect::Changed(None)
-            }
-            None => Effect::Passthrough,
         }
     }
 
@@ -302,6 +246,7 @@ impl Router {
     /// 组句缓冲变化后：按 Engine 状态重建 [`Composed`]，发一次云联想请求，归零高亮与整句补全。
     fn recompose(&mut self) {
         self.highlight = 0;
+        self.navigated = false;
         self.sentence = None;
         if self.engine.composition().is_empty() {
             self.composed = None;
@@ -346,7 +291,9 @@ impl Router {
             self.highlight = 0;
             return;
         }
-        self.highlight = (self.highlight as isize + delta).clamp(0, count as isize - 1) as usize;
+        let next = (self.highlight as isize + delta).clamp(0, count as isize - 1) as usize;
+        self.navigated |= next != self.highlight;
+        self.highlight = next;
     }
 
     /// 整页翻 `step`，高亮落到目标页第一个候选。
@@ -360,6 +307,7 @@ impl Router {
         let page_count = count.div_ceil(page_size);
         let current = (self.highlight / page_size) as isize;
         let target = (current + step).clamp(0, page_count as isize - 1) as usize;
+        self.navigated |= target != current as usize;
         self.highlight = (target * page_size).min(count - 1);
     }
 
@@ -371,12 +319,17 @@ impl Router {
         }
     }
 
-    /// 上屏候选布局里第 `index` 个（跨页下标）；没有那个候选就什么都不做。
-    fn commit_index(&mut self, index: usize) -> Option<String> {
-        let candidate = match &self.composed {
+    /// 候选布局里第 `index` 个（跨页下标）。
+    fn layout_candidate(&self, index: usize) -> Option<Candidate> {
+        match &self.composed {
             Some(Composed::Candidates { layout, .. }) => layout.candidate(index).cloned(),
             _ => None,
-        }?;
+        }
+    }
+
+    /// 上屏候选布局里第 `index` 个（跨页下标）；没有那个候选就什么都不做。
+    fn commit_index(&mut self, index: usize) -> Option<String> {
+        let candidate = self.layout_candidate(index)?;
         Some(self.engine.commit(&candidate))
     }
 

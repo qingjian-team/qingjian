@@ -132,7 +132,7 @@ fn poll_once(context: &PollContext) {
         Err(error) => {
             log(&format!("云联想轮询失败，断开，下一键重连: {error}"));
             *guard = None;
-            context.shared.disconnected();
+            context.shared.end_composing();
         }
     }
 }

@@ -8,7 +8,7 @@ use super::response::KeyResponse;
 use crate::error::ClientError;
 
 /// 连 Server 的一个会话客户端，开在一条已连好的双工流上（Windows 下是命名管道，测试里是内存流）。
-/// 传输是一问一答：[`Self::key`] 与 [`Self::poll`] 等应答，其余单向发。
+/// 传输是一问一答：[`Self::key`] / [`Self::poll`] / [`Self::commit`] 等应答，开关会话单向发。
 pub struct EngineClient<S> {
     /// 与 Server 的双工连接。
     stream: S,
@@ -18,9 +18,13 @@ pub struct EngineClient<S> {
 }
 
 impl<S: Read + Write> EngineClient<S> {
-    /// 开一个会话（Server 不回话）。
-    pub fn open(mut stream: S, session: SessionId) -> Result<Self, ClientError> {
-        write_message(&mut stream, &ClientMessage::OpenSession { session })?;
+    /// 开一个会话（Server 不回话）。`app` 是宿主应用的 exe 文件名，Server 据此查按应用的设置。
+    pub fn open(
+        mut stream: S,
+        session: SessionId,
+        app: Option<String>,
+    ) -> Result<Self, ClientError> {
+        write_message(&mut stream, &ClientMessage::OpenSession { session, app })?;
         Ok(Self { stream, session })
     }
 
@@ -68,15 +72,19 @@ impl<S: Read + Write> EngineClient<S> {
         }
     }
 
-    /// 焦点离开 / 文档要求结束组句：让 Server 清空缓冲（不回话）。
-    pub fn commit(&mut self) -> Result<(), ClientError> {
+    /// 焦点离开 / 文档要求结束组句：让 Server 清空缓冲，拿回要原样上屏的文本（没在组句时为 `None`）。
+    pub fn commit(&mut self) -> Result<Option<String>, ClientError> {
         write_message(
             &mut self.stream,
             &ClientMessage::Commit {
                 session: self.session,
             },
         )?;
-        Ok(())
+        match read_message::<_, ServerMessage>(&mut self.stream)? {
+            Some(ServerMessage::Committed { text, .. }) => Ok(text),
+            Some(_) => Err(ClientError::Unexpected("expected committed for commit")),
+            None => Err(ClientError::Closed),
+        }
     }
 
     /// 关闭会话，释放 Server 侧状态（不回话）。

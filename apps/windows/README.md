@@ -34,8 +34,8 @@ Core 的任何一行。
 - **Server 进程**（`server/`）：装配并持有 Engine（词库 / 语言模型 / 翻译 / 学习），按 `SessionId` 为每个
   应用会话维护各自的组句状态，处理按键、产出候选与上屏文本，把云联想 / 本地整句模型的异步结果主动推给
   对应会话。
-- **IPC 协议**（`qingjian-platform::protocol`，两端共用）：`ClientMessage`（DLL → Server：开 / 关会话、按键、
-  上屏、回上下文）与 `ServerMessage`（Server → DLL：按键结果、异步重绘、请求上下文），一次要绘制的状态是
+- **IPC 协议**（`qingjian-platform::protocol`，两端共用）：`ClientMessage`（DLL → Server：开 / 关会话（带宿主 exe 名，
+  `[apps]` 按应用设置据此查）、按键、上屏、回上下文）与 `ServerMessage`（Server → DLL：按键结果、上屏结果、异步重绘、请求上下文），一次要绘制的状态是
   `Frame`（preedit 分段 + 候选页）。长度前缀 JSON 帧的编解码与缺省管道名也在这里，DLL 不必依赖整个 Server 库。
 - **TSF DLL**（`tsf/`）：分「引擎层」`client`（平台无关的管道客户端 `EngineClient`，泛型在任意 `Read + Write`
   上，本机就能接真 Server 端到端测）与「COM 层」`com`（`cfg(windows)`：`DllGetClassObject` → `IClassFactory`

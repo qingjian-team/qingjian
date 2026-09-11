@@ -57,7 +57,10 @@ fn named_pipe_round_trips_the_open_type_loop() {
     // 开会话（不回话）+ 逐键敲 nihao（各回一条 KeyResult）。
     write_message(
         &mut client,
-        &ClientMessage::OpenSession { session: SESSION },
+        &ClientMessage::OpenSession {
+            session: SESSION,
+            app: None,
+        },
     )
     .unwrap();
     for c in "nihao".chars() {

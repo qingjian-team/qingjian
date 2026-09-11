@@ -10,6 +10,11 @@ pub enum ClientMessage {
     OpenSession {
         /// 会话标识。
         session: SessionId,
+
+        /// 宿主应用的 exe 文件名（`Code.exe`），DLL 加载在应用进程里直接取；取不到为 `None`。
+        /// Server 据此查 `[apps]` 分节的按应用设置（对应 macOS 的 bundle identifier）。
+        #[serde(default)]
+        app: Option<String>,
     },
 
     /// 一次按键，等 Server 回 [`super::ServerMessage::KeyResult`]。
@@ -21,7 +26,7 @@ pub enum ClientMessage {
         event: KeyEvent,
     },
 
-    /// 焦点离开 / 文档要求结束组句：Server 应把缓冲区里的内容上屏并清空。
+    /// 焦点离开 / 文档要求结束组句：Server 把缓冲区里的内容原样交出并清空，回 [`super::ServerMessage::Committed`]。
     Commit {
         /// 会话标识。
         session: SessionId,

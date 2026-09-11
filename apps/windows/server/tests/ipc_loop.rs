@@ -49,7 +49,14 @@ fn codec_round_trips_a_message() {
 fn serve_runs_the_open_type_loop_over_a_stream() {
     // 把一串客户端消息编成输入流：开会话 + 逐键敲 nihao。
     let mut input = Vec::new();
-    write_message(&mut input, &ClientMessage::OpenSession { session: SESSION }).unwrap();
+    write_message(
+        &mut input,
+        &ClientMessage::OpenSession {
+            session: SESSION,
+            app: None,
+        },
+    )
+    .unwrap();
     for c in "nihao".chars() {
         write_message(
             &mut input,

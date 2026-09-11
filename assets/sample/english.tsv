@@ -1,0 +1,10 @@
+# 手写样例英文词表，只给测试用。词\t编码\t词频
+hello	hello	6000
+help	help	5800
+helmet	helmet	3500
+world	world	6100
+word	word	5900
+rust	rust	4200
+receive	receive	5000
+separate	separate	4800
+the	the	7500

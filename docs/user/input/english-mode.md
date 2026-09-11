@@ -4,9 +4,15 @@ order: 1
 description: Caps Lock 亮着时的英文补全与拼错纠正，为什么空格回车都原样上屏，怎么关掉或按应用关掉。
 ---
 
+## 怎么进英文模式
+
+- **macOS**：亮着 `Caps Lock` 就是英文模式，灭了回中文。
+- **Windows**：单击 `Shift`（按一下就松，不连着别的键）在中 / 英之间切换，任务栏会跟着显示「中」或「英」。
+  `Caps Lock` 在 Windows 上只管大小写：亮着不论中英模式都直接打出大写英文字母（和微软拼音一样）；`Shift` + 字母也是大写。
+
 ## 行为
 
-亮着 `Caps Lock` 敲字母，候选窗口给英文词的补全和拼错纠正：`recieve` → receive，`seperate` → separate。
+英文模式下敲字母，候选窗口给英文词的补全和拼错纠正：`recieve` → receive，`seperate` → separate。
 字母默认小写，按住 `Shift` 才大写。标点不转全角。
 
 **空格、回车、标点都是把敲的字母原样上屏**，和没有输入法一样。打 `kubectl` 这类词表里没有的词不会被改掉。
@@ -18,9 +24,11 @@ description: Caps Lock 亮着时的英文补全与拼错纠正，为什么空格
 
 ## 关掉
 
-- 全局：「偏好设置 → 通用」取消「英文模式给候选」。
+- 全局：「偏好设置 → 通用」取消「英文模式给候选」（Windows 改配置文件 `[general] english_candidates`）。
 - 按应用：终端和代码编辑器（Terminal、iTerm、Warp、Ghostty、VS Code、Cursor、Zed、JetBrains 系列、Xcode 等）里缺省就不给候选，
   免得挡住应用自己的补全、抢走 `Tab` 键。「偏好设置 → 通用」有一个勾选框控制这份名单。
+  Windows 上按程序的文件名认（命令提示符与 PowerShell 是 `conhost.exe`、Windows Terminal、VS Code、JetBrains 系列、Visual Studio 等），
+  名单在配置文件的 `[apps]` 一节里改。
 
 ## 与中文模式的关系
 

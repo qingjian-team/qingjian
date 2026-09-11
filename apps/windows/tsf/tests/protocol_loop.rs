@@ -44,7 +44,7 @@ fn client_types_pinyin_and_gets_candidates() {
     let (client_end, server_end) = UnixStream::pair().unwrap();
     let server = spawn_server(server_end);
 
-    let mut client = EngineClient::open(client_end, SESSION).expect("open session");
+    let mut client = EngineClient::open(client_end, SESSION, None).expect("open session");
     let mut last = None;
     for c in "nihao".chars() {
         last = Some(client.key(letter(c)).expect("key round-trips"));
@@ -81,7 +81,7 @@ fn space_commits_first_candidate() {
     let (client_end, server_end) = UnixStream::pair().unwrap();
     let server = spawn_server(server_end);
 
-    let mut client = EngineClient::open(client_end, SESSION).expect("open session");
+    let mut client = EngineClient::open(client_end, SESSION, None).expect("open session");
     for c in "ni".chars() {
         client.key(letter(c)).expect("key round-trips");
     }
@@ -92,6 +92,27 @@ fn space_commits_first_candidate() {
     assert_eq!(space.outcome, KeyOutcome::Consumed);
     assert_eq!(space.commit.as_deref(), Some("你"), "「ni」首选应是「你」");
     assert!(space.frame.is_empty(), "上屏后应收起候选");
+
+    client.close().expect("close session");
+    server.join().unwrap();
+}
+
+#[test]
+fn commit_returns_raw_text() {
+    let (client_end, server_end) = UnixStream::pair().unwrap();
+    let server = spawn_server(server_end);
+
+    let mut client = EngineClient::open(client_end, SESSION, None).expect("open session");
+    for c in "nihao".chars() {
+        client.key(letter(c)).expect("key round-trips");
+    }
+    let text = client.commit().expect("commit round-trips");
+    assert_eq!(text.as_deref(), Some("nihao"), "失焦时拼音原样交出");
+    assert_eq!(
+        client.commit().expect("commit round-trips"),
+        None,
+        "缓冲已清空"
+    );
 
     client.close().expect("close session");
     server.join().unwrap();

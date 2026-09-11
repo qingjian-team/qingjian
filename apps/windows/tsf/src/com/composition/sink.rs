@@ -8,7 +8,8 @@ use windows::core::{Ref, Result, implement};
 use super::Shared;
 use crate::com::log::log;
 
-/// 应用强行结束我们的组句（如点到别处）时框架回调它，借此清掉本地组句状态。
+/// 应用强行结束我们的组句（如点到别处）时框架回调它。拼音这时已被框架定成普通文本留在文档里，
+/// 所以只清本地状态、记下 Server 缓冲要清，绝不能再把 Server 交出的文本插一次。
 #[implement(ITfCompositionSink)]
 pub(super) struct CompositionSink {
     shared: Rc<Shared>,
@@ -27,7 +28,7 @@ impl ITfCompositionSink_Impl for CompositionSink_Impl {
         _composition: Ref<ITfComposition>,
     ) -> Result<()> {
         log("组句被应用终止，清本地状态");
-        self.shared.reset();
+        self.shared.terminated();
         Ok(())
     }
 }

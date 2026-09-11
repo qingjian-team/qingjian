@@ -22,6 +22,16 @@ pub enum ServerMessage {
         frame: Frame,
     },
 
+    /// 对一次 [`super::ClientMessage::Commit`] 的答复：缓冲区里原样上屏的文本（拼音字母 / 英文模式下敲的字母）；
+    /// 没在组句时为 `None`。Server 侧组句已清空，DLL 收到后把文本落进文档并收起组句。
+    Committed {
+        /// 会话标识。
+        session: SessionId,
+
+        /// 要原样上屏的文本。
+        text: Option<String>,
+    },
+
     /// 不由按键触发的重绘（云联想补词、本地整句模型重排到达）。
     Update {
         /// 会话标识。

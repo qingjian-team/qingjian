@@ -18,7 +18,10 @@ use toml_edit::DocumentMut;
 
 use crate::error::ConfigError;
 
-pub use apps::{AppsConfig, DEFAULT_ENGLISH_CANDIDATES_OFF};
+pub use apps::{
+    AppsConfig, DEFAULT_ENGLISH_CANDIDATES_OFF, DEFAULT_ENGLISH_CANDIDATES_OFF_MACOS,
+    DEFAULT_ENGLISH_CANDIDATES_OFF_WINDOWS,
+};
 pub use dictionaries::{DEFAULT_DOMAINS, DictionariesConfig};
 pub use general::{DEFAULT_PAGE_KEYS, GeneralConfig, MAX_PAGE_SIZE, PAGE_KEY_OPTIONS};
 pub use key_combo::KeyCombo;
@@ -54,8 +57,78 @@ pub struct Config {
     pub predict: PredictConfig,
 }
 
-/// 首次运行写出的模板：默认值全部列出并注释，用户改一处即可。
-pub const TEMPLATE: &str = r#"# 青简输入法配置。保存后自动生效；也可以在菜单栏的输入法菜单里改。
+/// 模板的 `[apps]` 一节（macOS）：应用按 bundle identifier 认。名单要与 [`DEFAULT_ENGLISH_CANDIDATES_OFF`] 一致，
+/// 测试 `template_parses_to_defaults` 会核对。用宏而不是常量，是因为 `concat!` 只收字面量。
+#[cfg(not(windows))]
+macro_rules! template_apps {
+    () => {
+        r#"[apps]
+# 按应用改行为，条目是 bundle identifier（`*` 结尾按前缀匹配）。开着「详细日志」时切到一个应用会把它的 bundle identifier 记进日志
+# 英文模式（Caps Lock）下不给候选的应用：终端与代码编辑器里候选窗口会挡住应用自己的补全，vim 里 Tab 和方向键也另有含义。设成 [] 就处处都给
+english_candidates_off = [
+  "com.apple.Terminal", "com.googlecode.iterm2", "dev.warp.Warp-Stable", "com.mitchellh.ghostty", "io.alacritty", "net.kovidgoyal.kitty",
+  "com.microsoft.VSCode", "com.todesktop.230313mzl4w4u92", "dev.zed.Zed", "com.jetbrains.*", "org.vim.MacVim", "com.sublimetext.*",
+  "com.apple.dt.Xcode", "com.neovide.neovide",
+]
+"#
+    };
+}
+
+/// 模板的 `[apps]` 一节（Windows）：应用按宿主进程的 exe 文件名认。名单要与 [`DEFAULT_ENGLISH_CANDIDATES_OFF`] 一致。
+#[cfg(windows)]
+macro_rules! template_apps {
+    () => {
+        r#"[apps]
+# 按应用改行为，条目是应用进程的 exe 文件名（`*` 结尾按前缀匹配）。Server 开着 debug 日志时每开一个会话会把 exe 名记进日志
+# 英文模式（Caps Lock）下不给候选的应用：终端与代码编辑器里候选窗口会挡住应用自己的补全，vim 里 Tab 和方向键也另有含义。设成 [] 就处处都给
+# 经典控制台（cmd / PowerShell）的窗口属于 conhost.exe，Windows Terminal 是 WindowsTerminal.exe
+english_candidates_off = [
+  "conhost.exe", "WindowsTerminal.exe", "alacritty.exe", "wezterm-gui.exe", "mintty.exe",
+  "Code.exe", "Code - Insiders.exe", "Cursor.exe", "zed.exe",
+  "idea64.exe", "pycharm64.exe", "clion64.exe", "rustrover64.exe", "goland64.exe", "rider64.exe", "webstorm64.exe", "phpstorm64.exe", "datagrip64.exe",
+  "devenv.exe", "sublime_text.exe", "notepad++.exe", "gvim.exe", "neovide.exe",
+]
+"#
+    };
+}
+
+/// 模板 `[shortcut]` 一节里的修饰键组合（macOS 命名）。缺省值两个平台一样，只是写法与注释按平台的键名。
+#[cfg(not(windows))]
+macro_rules! template_shortcut_keys {
+    () => {
+        r#"# 数字键配这些修饰键上屏候选的译词：translation 第一个译词，translation_second 第二个（候选右侧有两个译词时）
+# 任意修饰键组合（option / shift / control / command 用 + 连），偏好设置里点按钮录制；别用 control+数字（系统切桌面）和 command+数字（应用切标签页）
+translation = "option"
+translation_second = "shift+option"
+# 把应用里选中的文字译成学习语言（要开着云服务）：译文先出现在候选窗口，回车替换选中的文字，Esc 保留原文
+# 修饰键 + 一个字母或数字，任意组合；避开 ⌘T 这类应用常用键
+translate_selection = "control+option+t"
+# 数字键配这些修饰键删掉候选：用户词（云端选过的、自动造的）整个删掉，词库里的词清掉对它的学习记录。组句中要打感叹号先把词上屏
+delete_candidate = "shift"
+"#
+    };
+}
+
+/// 模板 `[shortcut]` 一节里的修饰键组合（Windows 键名：alt / ctrl / win，读回来与 macOS 的 option / control / command 等价）。
+#[cfg(windows)]
+macro_rules! template_shortcut_keys {
+    () => {
+        r#"# 数字键配这些修饰键上屏候选的译词：translation 第一个译词，translation_second 第二个（候选右侧有两个译词时）
+# 任意修饰键组合（alt / shift / ctrl / win 用 + 连）。Alt+数字会被 Windows 当菜单快捷键截走，缺省用 Ctrl；组句时才拦，不打字时照常放行给应用
+translation = "ctrl"
+translation_second = "shift+ctrl"
+# 把应用里选中的文字译成学习语言（要开着云服务）：Windows 上还没接
+translate_selection = "ctrl+alt+t"
+# 数字键配这些修饰键删掉候选：用户词（云端选过的、自动造的）整个删掉，词库里的词清掉对它的学习记录。组句中要打感叹号先把词上屏
+delete_candidate = "shift"
+"#
+    };
+}
+
+/// 首次运行写出的模板：默认值全部列出并注释，用户改一处即可。`[shortcut]` 的修饰键与 `[apps]` 分平台，
+/// 见 [`template_shortcut_keys!`] / [`template_apps!`]。
+pub const TEMPLATE: &str = concat!(
+    r#"# 青简输入法配置。保存后自动生效；也可以在菜单栏的输入法菜单里改。
 
 [general]
 # 学习语言（en 英语 / ja 日语）：候选旁显示哪种语言的译文，要有对应的释义表才生效
@@ -87,16 +160,9 @@ input_log = true
 expression = "v"
 # 问字模式：usangemu 问「三个木」（云端答），u4e00 出码点对应的字符（本地答）。? 开头永远也是问字
 question = "u"
-# 数字键配这些修饰键上屏候选的译词：translation 第一个译词，translation_second 第二个（候选右侧有两个译词时）
-# 任意修饰键组合（option / shift / control / command 用 + 连），偏好设置里点按钮录制；别用 control+数字（系统切桌面）和 command+数字（应用切标签页）
-translation = "option"
-translation_second = "shift+option"
-# 把应用里选中的文字译成学习语言（要开着云服务）：译文先出现在候选窗口，回车替换选中的文字，Esc 保留原文
-# 修饰键 + 一个字母或数字，任意组合；避开 ⌘T 这类应用常用键
-translate_selection = "control+option+t"
-# 数字键配这些修饰键删掉候选：用户词（云端选过的、自动造的）整个删掉，词库里的词清掉对它的学习记录。组句中要打感叹号先把词上屏
-delete_candidate = "shift"
-
+"#,
+    template_shortcut_keys!(),
+    r#"
 [fuzzy]
 # 模糊音：开了之后敲 zi 也出 zhi 的字、敲 lan 也出 nan 的字。默认全关，按需打开。
 z_zh = false
@@ -109,15 +175,9 @@ an_ang = false
 en_eng = false
 in_ing = false
 
-[apps]
-# 按应用改行为，条目是 bundle identifier（`*` 结尾按前缀匹配）。开着「详细日志」时切到一个应用会把它的 bundle identifier 记进日志
-# 英文模式（Caps Lock）下不给候选的应用：终端与代码编辑器里候选窗口会挡住应用自己的补全，vim 里 Tab 和方向键也另有含义。设成 [] 就处处都给
-english_candidates_off = [
-  "com.apple.Terminal", "com.googlecode.iterm2", "dev.warp.Warp-Stable", "com.mitchellh.ghostty", "io.alacritty", "net.kovidgoyal.kitty",
-  "com.microsoft.VSCode", "com.todesktop.230313mzl4w4u92", "dev.zed.Zed", "com.jetbrains.*", "org.vim.MacVim", "com.sublimetext.*",
-  "com.apple.dt.Xcode", "com.neovide.neovide",
-]
-
+"#,
+    template_apps!(),
+    r#"
 [dictionaries]
 # 随包的领域词库（法律 / 医学 / 地名 / 成语 / 诗词 / IT / 财经 / 饮食 / 动物 / 汽车 / 历史人物），列在这里的才加载；
 # 名字是文件名：animals automotive finance food historical_figures idioms it_computing law medicine places poetry_lines。
@@ -148,7 +208,8 @@ lookahead = 32
 slots = 2
 # 组句中除了词候选还要不要整句补全（preedit 右侧，Tab 接受）
 sentence = true
-"#;
+"#
+);
 
 impl Config {
     /// 读配置。文件不存在按默认值；存在但解析失败报错，不要静默吞掉用户的笔误。

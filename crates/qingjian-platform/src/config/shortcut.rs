@@ -27,10 +27,15 @@ pub struct ShortcutConfig {
 
 impl Default for ShortcutConfig {
     fn default() -> Self {
+        // Windows 上 Alt+数字被系统当菜单快捷键截走（TSF 收不到），译词键缺省用 Ctrl；macOS 用 Option。
+        #[cfg(windows)]
+        let (translation, translation_second) = (Modifiers::CONTROL, Modifiers::SHIFT_CONTROL);
+        #[cfg(not(windows))]
+        let (translation, translation_second) = (Modifiers::OPTION, Modifiers::SHIFT_OPTION);
         Self {
             mode: ModeKeys::default(),
-            translation: Modifiers::OPTION,
-            translation_second: Modifiers::SHIFT_OPTION,
+            translation,
+            translation_second,
             translate_selection: KeyCombo::TRANSLATE_DEFAULT,
             delete_candidate: Modifiers::SHIFT,
         }

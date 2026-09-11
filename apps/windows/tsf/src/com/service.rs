@@ -4,10 +4,12 @@ use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 use std::time::{Duration, Instant};
 
-use windows::Win32::Foundation::{FALSE, LPARAM, WPARAM};
+use windows::Win32::Foundation::{E_INVALIDARG, FALSE, LPARAM, WPARAM};
 use windows::Win32::UI::TextServices::{
-    ITfContext, ITfKeyEventSink, ITfKeyEventSink_Impl, ITfKeystrokeMgr, ITfTextInputProcessor,
-    ITfTextInputProcessor_Impl, ITfThreadMgr,
+    IEnumTfDisplayAttributeInfo, ITfContext, ITfDisplayAttributeInfo, ITfDisplayAttributeProvider,
+    ITfDisplayAttributeProvider_Impl, ITfKeyEventSink, ITfKeyEventSink_Impl, ITfKeystrokeMgr,
+    ITfLangBarItemButton, ITfLangBarItemMgr, ITfTextInputProcessor, ITfTextInputProcessor_Impl,
+    ITfThreadMgr,
 };
 use windows::core::{BOOL, GUID, IUnknownImpl, Interface, Ref, Result, implement};
 
@@ -16,6 +18,7 @@ use qingjian_platform::protocol::{KeyEvent, KeyOutcome, SessionId};
 use super::candidates::CandidateWindow;
 use super::composition::{Shared, preedit_string};
 use super::keys;
+use super::langbar::{ModeButton, ModeState};
 use super::log::log;
 use super::poll::PollTimer;
 use crate::client::EngineClient;
@@ -28,7 +31,7 @@ pub(crate) type SharedClient = Rc<RefCell<Option<EngineClient<PipeStream>>>>;
 const RECONNECT_INTERVAL: Duration = Duration::from_secs(2);
 
 /// 一个 TSF 文本服务实例（每线程一个）。
-#[implement(ITfTextInputProcessor, ITfKeyEventSink)]
+#[implement(ITfTextInputProcessor, ITfKeyEventSink, ITfDisplayAttributeProvider)]
 pub struct TextService {
     /// 激活时拿到的线程管理器，停用时用它反注册击键 sink。
     thread_mgr: RefCell<Option<ITfThreadMgr>>,
@@ -47,6 +50,29 @@ pub struct TextService {
 
     /// 上次连 Server 失败的时间；没连上时按键与获得焦点都会隔 [`RECONNECT_INTERVAL`] 再试。
     last_connect_failure: Cell<Option<Instant>>,
+
+    /// 持久的英文模式（单击 Shift 翻转）。`false` 是中文模式。随每个按键带给 Server，也驱动中 / 英指示器。
+    english_mode: Cell<bool>,
+
+    /// 中 / 英 指示器的共享状态（与语言栏按钮共用）。
+    mode_state: Rc<ModeState>,
+
+    /// 登记在系统语言栏上的中 / 英按钮；停用时反注册。
+    mode_button: RefCell<Option<ITfLangBarItemButton>>,
+}
+
+thread_local! {
+    /// 本线程当前激活的文本服务，供 Shift 钩子回调切模式。`Activate` 设、`Deactivate`（卸钩子后）清。
+    static ACTIVE_SERVICE: Cell<*const TextService_Impl> = const { Cell::new(core::ptr::null()) };
+}
+
+/// Shift 钩子检测到一次单击时调（见 [`super::hook`]）：切当前激活文本服务的中英模式。
+pub(super) fn on_shift_tap() {
+    let service = ACTIVE_SERVICE.with(|s| s.get());
+    if !service.is_null() {
+        // SAFETY: 指针在 Activate 设、Deactivate 卸钩子后才清，期间 TextService 一直存活且在本线程。
+        unsafe { (*service).toggle_english_mode() };
+    }
 }
 
 impl TextService {
@@ -60,6 +86,9 @@ impl TextService {
             shared: Shared::new(),
             poll_timer: RefCell::new(None),
             last_connect_failure: Cell::new(None),
+            english_mode: Cell::new(false),
+            mode_state: ModeState::new(),
+            mode_button: RefCell::new(None),
         }
     }
 }
@@ -91,13 +120,27 @@ impl ITfTextInputProcessor_Impl for TextService_Impl {
         }
 
         *self.thread_mgr.borrow_mut() = Some(thread_mgr);
+        // 激活时从中文模式起步：登记语言栏中 / 英按钮，同步指示器。
+        self.english_mode.set(false);
+        self.add_lang_bar_item();
+        self.update_mode_indicator();
+        // 记下本服务并装 Shift 钩子（单击 Shift 切中英）。
+        ACTIVE_SERVICE.with(|s| s.set(self as *const TextService_Impl));
+        super::hook::install();
         log(&format!("青简 TSF 已激活 tid={tid}"));
         Ok(())
     }
 
     fn Deactivate(&self) -> Result<()> {
-        // 先停定时器，之后不再有回调碰 engine / shared。
+        // 先卸 Shift 钩子并清掉指针，之后回调不再碰本服务。
+        super::hook::remove();
+        ACTIVE_SERVICE.with(|s| s.set(core::ptr::null()));
+        // 反注册语言栏中 / 英按钮（趁 thread_mgr 还在）。
+        self.remove_lang_bar_item();
+        // 停定时器，之后不再有回调碰 engine / shared。
         self.poll_timer.borrow_mut().take();
+        // 切走输入法时敲了一半的拼音原样落定，再关会话。
+        self.commit_pending();
         if let Some(thread_mgr) = self.thread_mgr.borrow_mut().take()
             && let Ok(keystroke) = thread_mgr.cast::<ITfKeystrokeMgr>()
         {
@@ -107,8 +150,9 @@ impl ITfTextInputProcessor_Impl for TextService_Impl {
         if let Some(client) = self.engine.borrow_mut().take() {
             let _ = client.close();
         }
-        // 上下文即将失效，不再走编辑会话收尾：直接丢组句句柄、销毁候选窗口。
+        // 上屏的编辑会话已排队；剩下的句柄不再经编辑会话收尾，直接丢、销毁候选窗口。会话已关，过期标志一并作废。
         self.shared.reset();
+        self.shared.take_server_stale();
         self.shared.set_window(None);
         log("青简 TSF 已停用");
         Ok(())
@@ -117,9 +161,14 @@ impl ITfTextInputProcessor_Impl for TextService_Impl {
 
 impl ITfKeyEventSink_Impl for TextService_Impl {
     /// 获得焦点时顺手补一次连接：Server 起晚了、或中途重启过，切回来就能用，不必切走再切回输入法。
+    /// 失去焦点时把敲了一半的拼音原样落定（对应 macOS 的 `commitComposition`），别让它跟着焦点跑到别的输入框。
     fn OnSetFocus(&self, fforeground: BOOL) -> Result<()> {
         if fforeground.as_bool() {
             self.ensure_connected();
+            // 重新获得焦点时系统会重置输入指示器：刷一次中 / 英图标，否则要等下一次 Shift 才显示。
+            self.update_mode_indicator();
+        } else {
+            self.commit_pending();
         }
         Ok(())
     }
@@ -130,13 +179,13 @@ impl ITfKeyEventSink_Impl for TextService_Impl {
         wparam: WPARAM,
         _lparam: LPARAM,
     ) -> Result<BOOL> {
-        Ok(self.would_eat(&keys::to_key_event(wparam.0 as u32)).into())
+        // 单击 Shift 切中英不走这里：击键 sink 收不到独立修饰键，改用 `super::hook` 的键盘钩子。
+        Ok(self.would_eat(&self.key_event(wparam.0 as u32)).into())
     }
 
     fn OnKeyDown(&self, pic: Ref<ITfContext>, wparam: WPARAM, _lparam: LPARAM) -> Result<BOOL> {
-        Ok(self
-            .handle_key(pic, keys::to_key_event(wparam.0 as u32))
-            .into())
+        let event = self.key_event(wparam.0 as u32);
+        Ok(self.handle_key(pic, event).into())
     }
 
     fn OnTestKeyUp(&self, _pic: Ref<ITfContext>, _wparam: WPARAM, _lparam: LPARAM) -> Result<BOOL> {
@@ -152,13 +201,30 @@ impl ITfKeyEventSink_Impl for TextService_Impl {
     }
 }
 
+/// 显示属性提供者：系统按 `GUID_TFCAT_DISPLAYATTRIBUTEPROVIDER` 类别在本对象上查组句样式（内联下划线）。
+impl ITfDisplayAttributeProvider_Impl for TextService_Impl {
+    fn EnumDisplayAttributeInfo(&self) -> Result<IEnumTfDisplayAttributeInfo> {
+        Ok(super::display_attribute::enumerator())
+    }
+
+    fn GetDisplayAttributeInfo(&self, guid: *const GUID) -> Result<ITfDisplayAttributeInfo> {
+        // SAFETY: 系统传入的有效 GUID 指针。
+        if unsafe { *guid } == super::display_attribute::GUID_DISPLAY_ATTRIBUTE_INPUT {
+            Ok(super::display_attribute::info())
+        } else {
+            Err(E_INVALIDARG.into())
+        }
+    }
+}
+
 impl TextService_Impl {
-    /// 连 Server 并开会话（会话 id 用 TSF 的 client id）。失败记时间，供 [`Self::ensure_connected`] 退避。
+    /// 连 Server 并开会话（会话 id 用 TSF 的 client id，带上宿主 exe 名）。失败记时间，供 [`Self::ensure_connected`] 退避。
     fn connect(&self) {
         let session = SessionId(self.client_id.get() as u64);
+        let app = super::host_app_name();
         let connected = connect_default()
             .map_err(|e| e.to_string())
-            .and_then(|stream| EngineClient::open(stream, session).map_err(|e| e.to_string()));
+            .and_then(|stream| EngineClient::open(stream, session, app).map_err(|e| e.to_string()));
         match connected {
             Ok(client) => {
                 *self.engine.borrow_mut() = Some(client);
@@ -190,16 +256,76 @@ impl TextService_Impl {
         self.engine.borrow().is_some()
     }
 
-    /// 这个键吃不吃。`OnTestKeyDown` 用，必须无副作用，且与 [`Self::handle_key`] 一致。
-    /// 与 Router 对齐：带 Ctrl/Alt/Win 一律放行（快捷键归应用）；字母总吃；组句中功能键、方向键、可打印字符都吃。
+    /// 带上当前中英模式，把虚拟键翻成 [`KeyEvent`]。
+    fn key_event(&self, vk: u32) -> KeyEvent {
+        keys::to_key_event(vk, self.english_mode.get())
+    }
+
+    /// 单击 Shift 切换中英模式：先把组着的内容原样落定，翻转状态，再更新系统的中 / 英指示器。
+    fn toggle_english_mode(&self) {
+        self.commit_pending();
+        let english = !self.english_mode.get();
+        self.english_mode.set(english);
+        self.update_mode_indicator();
+        log(if english {
+            "切到英文模式"
+        } else {
+            "切到中文模式"
+        });
+    }
+
+    /// 把系统任务栏的中 / 英指示器同步到当前模式：语言栏按钮换图标，再顺带写转换模式 compartment。
+    fn update_mode_indicator(&self) {
+        let english = self.english_mode.get();
+        self.mode_state.set_english(english);
+        if let Some(thread_mgr) = self.thread_mgr.borrow().as_ref() {
+            super::mode::set_indicator(thread_mgr, self.client_id.get(), english);
+        }
+    }
+
+    /// 在系统语言栏上登记中 / 英按钮（Win11 显示在品牌图标左边）。取不到管理器只记日志。
+    fn add_lang_bar_item(&self) {
+        let button = ModeButton::create(self.mode_state.clone());
+        if let Some(thread_mgr) = self.thread_mgr.borrow().as_ref() {
+            match thread_mgr.cast::<ITfLangBarItemMgr>() {
+                // SAFETY: mgr 有效；button 是本 DLL 的语言栏项。
+                Ok(mgr) => {
+                    if let Err(error) = unsafe { mgr.AddItem(&button) } {
+                        log(&format!("登记中英指示器失败: {error}"));
+                    }
+                }
+                Err(error) => log(&format!("取语言栏管理器失败: {error}")),
+            }
+        }
+        *self.mode_button.borrow_mut() = Some(button);
+    }
+
+    /// 反注册中 / 英按钮。
+    fn remove_lang_bar_item(&self) {
+        if let Some(button) = self.mode_button.borrow_mut().take()
+            && let Some(thread_mgr) = self.thread_mgr.borrow().as_ref()
+            && let Ok(mgr) = thread_mgr.cast::<ITfLangBarItemMgr>()
+        {
+            // SAFETY: mgr 有效；button 是之前登记的同一项。
+            let _ = unsafe { mgr.RemoveItem(&button) };
+        }
+    }
+
+    /// 这个键吃不吃。`OnTestKeyDown` 用，除了记 [`Self::shift_alone`] 无别的副作用，且与 [`Self::handle_key`] 一致。
+    /// 与 Router 对齐：带 Ctrl/Alt/Win 一律放行（快捷键归应用），只有组句中的修饰键 + 数字送 Server 按配置判是不是
+    /// 译词上屏 / 删候选（没配到的 Server 回 Passthrough）；字母在英文模式 / Caps 亮 / 小写（拼音）/ 组句中都吃，
+    /// 只有中文模式下没在组句时按住 Shift 的大写字母直接归应用（临时打英文交给应用）；组句中功能键、方向键、可打印字符都吃。
     fn would_eat(&self, event: &KeyEvent) -> bool {
         let modifiers = event.modifiers;
-        if modifiers.ctrl || modifiers.alt || modifiers.win {
-            return false;
+        if modifiers.has_command_key() {
+            return self.shared.composing() && keys::digit_key(event.virtual_key);
         }
         let vk = event.virtual_key;
         if keys::is_letter(vk) {
-            return true;
+            return modifiers.caps
+                || modifiers.english_mode
+                || !modifiers.shift
+                || self.shared.composing();
         }
         self.shared.composing()
             && (keys::is_edit(vk)
@@ -217,20 +343,37 @@ impl TextService_Impl {
         if !self.ensure_connected() {
             return true;
         }
+        if let Ok(context) = pic.ok() {
+            self.shared.set_last_context(Some(context.clone()));
+        }
         // Server 交互在这段借用里做完，放掉借用再走编辑会话。
         let update = {
             let mut guard = self.engine.borrow_mut();
             let Some(client) = guard.as_mut() else {
                 return true;
             };
-            match client.key(event) {
+            // 组句被应用终止过：Server 里还留着那串拼音，先让它清掉（文本已在文档里，交出的丢弃）。
+            let stale = self.shared.take_server_stale();
+            let response = if stale {
+                client.commit().and_then(|_| client.key(event))
+            } else {
+                client.key(event)
+            };
+            match response {
                 Ok(response) => {
                     let preedit = preedit_string(&response.frame);
                     self.shared.set_composing(!response.frame.is_empty());
                     self.shared.update_candidates(&response.frame);
                     let consumed = matches!(response.outcome, KeyOutcome::Consumed);
+                    let m = event.modifiers;
                     log(&format!(
-                        "收键 vk={vk} candidates={} preedit={preedit:?} consumed={consumed}",
+                        "收键 vk={vk} ctrl={} alt={} shift={} caps={} en={} char={:?} candidates={} preedit={preedit:?} consumed={consumed}",
+                        m.ctrl,
+                        m.alt,
+                        m.shift,
+                        m.caps,
+                        m.english_mode,
+                        event.character,
                         response.frame.candidates.items.len()
                     ));
                     Some((response.commit, preedit, consumed))
@@ -239,7 +382,7 @@ impl TextService_Impl {
                     log(&format!("转发按键失败，放行并断开，下一键重连: {error}"));
                     *guard = None;
                     self.last_connect_failure.set(None);
-                    self.shared.disconnected();
+                    self.shared.end_composing();
                     None
                 }
             }
@@ -250,6 +393,53 @@ impl TextService_Impl {
                 consumed
             }
             None => false,
+        }
+    }
+
+    /// 失焦 / 停用：让 Server 交出缓冲区，原样落进最近收键的文档并收掉组句。
+    /// 组句已被应用终止的（拼音已是普通文本）只清 Server 不再插；没在组句就什么都不做。
+    fn commit_pending(&self) {
+        let stale = self.shared.take_server_stale();
+        if !self.shared.composing() && !stale {
+            return;
+        }
+        let text = {
+            let mut guard = self.engine.borrow_mut();
+            let Some(client) = guard.as_mut() else {
+                self.shared.reset();
+                return;
+            };
+            match client.commit() {
+                Ok(text) => text,
+                Err(error) => {
+                    log(&format!("失焦上屏失败，断开，下一键重连: {error}"));
+                    *guard = None;
+                    self.last_connect_failure.set(None);
+                    self.shared.end_composing();
+                    return;
+                }
+            }
+        };
+        if stale {
+            return;
+        }
+        self.shared.end_composing();
+        let Some(context) = self.shared.last_context() else {
+            log(&format!("失焦上屏没有上下文，丢弃: {text:?}"));
+            self.shared.reset();
+            return;
+        };
+        log(&format!("失焦上屏: {text:?}"));
+        let requested = super::edit_session::request_update(
+            &context,
+            self.client_id.get(),
+            self.shared.clone(),
+            text.filter(|t| !t.is_empty()),
+            String::new(),
+        );
+        if let Err(error) = requested {
+            log(&format!("失焦上屏的编辑会话没被受理: {error}"));
+            self.shared.reset();
         }
     }
 

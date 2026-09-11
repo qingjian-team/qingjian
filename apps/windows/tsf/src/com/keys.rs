@@ -1,21 +1,32 @@
 //! 把 TSF 送来的虚拟键码翻成协议的 [`KeyEvent`]，以及「组句中哪些键要吃」的判定。
 
 use windows::Win32::UI::Input::KeyboardAndMouse::{
-    GetKeyState, VIRTUAL_KEY, VK_BACK, VK_CONTROL, VK_ESCAPE, VK_LWIN, VK_MENU, VK_RETURN, VK_RWIN,
-    VK_SHIFT, VK_SPACE, VK_TAB,
+    GetKeyState, VIRTUAL_KEY, VK_BACK, VK_CAPITAL, VK_CONTROL, VK_ESCAPE, VK_LSHIFT, VK_LWIN,
+    VK_MENU, VK_RETURN, VK_RSHIFT, VK_RWIN, VK_SHIFT, VK_SPACE, VK_TAB,
 };
 
 use qingjian_platform::protocol::{KeyEvent, KeyModifiers};
 
-/// 采当前修饰键，解析出字符（字母恒小写、数字、空格、半角标点），Router 靠 `character` 分派。
-pub(super) fn to_key_event(vk: u32) -> KeyEvent {
-    let modifiers = current_modifiers();
-    KeyEvent::new(vk, resolve_char(vk, modifiers.shift), modifiers)
+/// 采当前修饰键，解析出字符（字母、数字、空格、半角标点），Router 靠 `character` 分派。
+/// `english_mode` 是 DLL 记的持久中英模式（单击 Shift 切换），随事件带给 Server。
+/// 字母大小写按 Shift 异或 Caps（Caps 亮即大写，Shift 再翻转）；数字 / 标点只看 Shift。
+pub(super) fn to_key_event(vk: u32, english_mode: bool) -> KeyEvent {
+    let modifiers = current_modifiers(english_mode);
+    KeyEvent::new(
+        vk,
+        resolve_char(vk, modifiers.shift, modifiers.caps),
+        modifiers,
+    )
 }
 
 /// A–Z。
 pub(super) fn is_letter(vk: u32) -> bool {
     (0x41..=0x5A).contains(&vk)
+}
+
+/// Shift 键（通用 `VK_SHIFT` 或左右 `VK_LSHIFT` / `VK_RSHIFT`）：单击它切换中英模式。
+pub(super) fn is_shift(vk: u32) -> bool {
+    vk == VK_SHIFT.0 as u32 || vk == VK_LSHIFT.0 as u32 || vk == VK_RSHIFT.0 as u32
 }
 
 /// 组句中要吃的功能键：退格 / Tab / 回车 / Esc / 空格 / 数字 0–9。
@@ -36,12 +47,19 @@ fn is_digit(vk: u32) -> bool {
     (0x30..=0x39).contains(&vk)
 }
 
-fn current_modifiers() -> KeyModifiers {
+/// 主键盘区 1–9（修饰键 + 数字的快捷键按这个认，0 不算）。
+pub(super) fn digit_key(vk: u32) -> bool {
+    (0x31..=0x39).contains(&vk)
+}
+
+fn current_modifiers(english_mode: bool) -> KeyModifiers {
     KeyModifiers {
         ctrl: key_down(VK_CONTROL),
         shift: key_down(VK_SHIFT),
         alt: key_down(VK_MENU),
         win: key_down(VK_LWIN) || key_down(VK_RWIN),
+        caps: key_toggled(VK_CAPITAL),
+        english_mode,
     }
 }
 
@@ -52,10 +70,23 @@ fn key_down(vk: VIRTUAL_KEY) -> bool {
     state < 0
 }
 
-/// 虚拟键 + Shift → 字符（US 布局）。功能键返回 `None`。
-fn resolve_char(vk: u32, shift: bool) -> Option<char> {
+/// `GetKeyState` 低位为 1 表示锁定键（Caps Lock）亮着。
+fn key_toggled(vk: VIRTUAL_KEY) -> bool {
+    // SAFETY: 只读当前线程的键状态。
+    let state = unsafe { GetKeyState(vk.0 as i32) };
+    state & 1 != 0
+}
+
+/// 虚拟键 + Shift（+ 字母另看 Caps）→ 字符（US 布局）。功能键返回 `None`。
+fn resolve_char(vk: u32, shift: bool, caps: bool) -> Option<char> {
     if is_letter(vk) {
-        return Some((b'a' + (vk - 0x41) as u8) as char);
+        let lower = (b'a' + (vk - 0x41) as u8) as char;
+        // 字母大小写 = Shift 异或 Caps：Caps 亮即大写，按住 Shift 再翻回小写。
+        return Some(if shift != caps {
+            lower.to_ascii_uppercase()
+        } else {
+            lower
+        });
     }
     if is_digit(vk) {
         let digit = (vk - 0x30) as usize;

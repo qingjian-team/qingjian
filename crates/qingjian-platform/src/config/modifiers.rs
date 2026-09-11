@@ -42,6 +42,22 @@ impl Modifiers {
         command: false,
     };
 
+    /// ⌃ / Ctrl。Windows 上译词键的缺省（Alt 会被系统菜单截走）。
+    pub const CONTROL: Self = Self {
+        option: false,
+        shift: false,
+        control: true,
+        command: false,
+    };
+
+    /// ⇧⌃ / Shift+Ctrl。
+    pub const SHIFT_CONTROL: Self = Self {
+        option: false,
+        shift: true,
+        control: true,
+        command: false,
+    };
+
     pub fn is_empty(&self) -> bool {
         !(self.option || self.shift || self.control || self.command)
     }

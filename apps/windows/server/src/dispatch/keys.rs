@@ -6,7 +6,6 @@ pub(super) const BACK: u32 = 0x08;
 pub(super) const TAB: u32 = 0x09;
 pub(super) const RETURN: u32 = 0x0D;
 pub(super) const ESCAPE: u32 = 0x1B;
-pub(super) const SPACE: u32 = 0x20;
 pub(super) const PRIOR: u32 = 0x21;
 pub(super) const NEXT: u32 = 0x22;
 pub(super) const END: u32 = 0x23;
@@ -28,12 +27,17 @@ pub(super) fn page_key(event: &KeyEvent, page_keys: (char, char)) -> Option<isiz
     }
 }
 
-/// 数字键 1–9（`character` 优先，退回键码 0x31–0x39）。
+/// 敲出来是数字 1–9 的键（选候选用）：按 `character` 认，带 Shift 出的 `!` `@` 不算；没解析出字符时退回键码 0x31–0x39。
 pub(super) fn digit(event: &KeyEvent) -> Option<usize> {
-    if let Some(c) = event.character.filter(|c| ('1'..='9').contains(c)) {
-        return Some(c as usize - '0' as usize);
+    match event.character {
+        Some(c) => ('1'..='9').contains(&c).then(|| c as usize - '0' as usize),
+        None => digit_key(event.virtual_key),
     }
+}
+
+/// 主键盘区数字键 1–9 的键码（0x31–0x39），不管修饰键：修饰键 + 数字的快捷键按键位认。
+pub(super) fn digit_key(virtual_key: u32) -> Option<usize> {
     (0x31..=0x39)
-        .contains(&event.virtual_key)
-        .then(|| (event.virtual_key - 0x30) as usize)
+        .contains(&virtual_key)
+        .then(|| (virtual_key - 0x30) as usize)
 }

@@ -6,7 +6,8 @@ description: 中英切换、选词、翻页、整句输入、选错了怎么退�
 
 ## 中英切换
 
-**中英切换是 `Caps Lock`**（键盘上的中 / 英键）。灭着是中文，亮着是英文。英文模式的行为见 [英文模式](../input/english-mode.md)。
+macOS 上**中英切换是 `Caps Lock`**（键盘上的中 / 英键），灭着中文、亮着英文。
+Windows 上用**单击 `Shift`** 切换，任务栏显示「中 / 英」；那里的 `Caps Lock` 只管大小写。英文模式的行为见 [英文模式](../input/english-mode.md)。
 
 ## 候选窗口
 

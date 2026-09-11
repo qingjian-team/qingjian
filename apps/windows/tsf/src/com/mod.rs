@@ -7,14 +7,19 @@
 
 pub(crate) mod candidates;
 pub(crate) mod composition;
+pub(crate) mod display_attribute;
 pub(crate) mod edit_session;
 pub(crate) mod factory;
+pub(crate) mod hook;
 pub(crate) mod icon;
 pub(crate) mod keys;
+pub(crate) mod langbar;
 pub(crate) mod log;
+pub(crate) mod mode;
 pub(crate) mod poll;
 pub(crate) mod registry;
 pub(crate) mod service;
+mod variant;
 pub(crate) mod window_class;
 
 use core::ffi::c_void;
@@ -66,13 +71,31 @@ pub(crate) fn dll_instance() -> HINSTANCE {
 /// 本 DLL 在磁盘上的完整路径，注册 InprocServer32 用。
 pub(crate) fn module_path() -> windows::core::Result<HSTRING> {
     let module = HMODULE(DLL_MODULE.load(Ordering::SeqCst));
+    let path = file_name_of(Some(module))?;
+    Ok(HSTRING::from_wide(&path))
+}
+
+/// 宿主应用的 exe 文件名（`Code.exe`）：DLL 加载在应用进程里，取当前进程 exe 的路径去掉目录即可。
+/// 开会话时报给 Server，对应 macOS 端的 bundle identifier；取不到为 `None`。
+pub(crate) fn host_app_name() -> Option<String> {
+    let path = file_name_of(None).ok()?;
+    let start = path
+        .iter()
+        .rposition(|&unit| unit == u16::from(b'\\') || unit == u16::from(b'/'))
+        .map_or(0, |slash| slash + 1);
+    let name = String::from_utf16_lossy(&path[start..]);
+    (!name.is_empty()).then_some(name)
+}
+
+/// `module` 的完整路径（UTF-16，不含结尾 0）；`None` 是当前进程的 exe。
+fn file_name_of(module: Option<HMODULE>) -> windows::core::Result<Vec<u16>> {
     let mut buf = [0u16; 260];
-    // SAFETY: buf 可写；module 是本 DLL 的句柄（null 则取当前进程 exe）。
-    let len = unsafe { GetModuleFileNameW(Some(module), &mut buf) } as usize;
+    // SAFETY: buf 可写；module 是本 DLL 的句柄或 None（取当前进程 exe）。
+    let len = unsafe { GetModuleFileNameW(module, &mut buf) } as usize;
     if len == 0 || len >= buf.len() {
         return Err(E_FAIL.into());
     }
-    Ok(HSTRING::from_wide(&buf[..len]))
+    Ok(buf[..len].to_vec())
 }
 
 #[unsafe(no_mangle)]

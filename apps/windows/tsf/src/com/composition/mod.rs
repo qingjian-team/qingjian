@@ -81,9 +81,11 @@ fn commit_text(shared: &Shared, context: &ITfContext, ec: u32, text: &str) -> Re
         None => {
             let insert: ITfInsertAtSelection = context.cast()?;
             // SAFETY: ec 有效。标志用 0 不用 NOQUERY：NOQUERY 不回传 range，windows-rs 会把 NULL 当失败。
-            unsafe {
-                insert.InsertTextAtSelection(ec, INSERT_TEXT_AT_SELECTION_FLAGS(0), &utf16)?;
-            }
+            let range = unsafe {
+                insert.InsertTextAtSelection(ec, INSERT_TEXT_AT_SELECTION_FLAGS(0), &utf16)?
+            };
+            // 把光标移到插入文本之后，否则下一次插入又落在原处，字会从右往左堆（Caps 直接打英文时可见）。
+            move_selection_to_end(context, ec, &range)?;
         }
     }
     Ok(())
@@ -99,6 +101,8 @@ fn update_preedit(shared: &Rc<Shared>, context: &ITfContext, ec: u32, preedit: &
     // SAFETY: ec 是写锁；composition 活动中。
     let range = unsafe { composition.GetRange()? };
     unsafe { range.SetText(ec, 0, &utf16)? };
+    // 给整段拼音打上内联下划线（对应 macOS marked text 的下划线）。
+    super::display_attribute::mark(context, ec, &range);
     move_selection_to_end(context, ec, &range)
 }
 
