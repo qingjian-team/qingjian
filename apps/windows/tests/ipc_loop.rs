@@ -21,7 +21,12 @@ fn router() -> Router {
         )),
     )
     .expect("assemble engine from sample data");
-    Router::new(engine, 9)
+    Router::new(
+        engine,
+        9,
+        qingjian_platform::LayoutMode::default(),
+        qingjian_platform::ThemeMode::default(),
+    )
 }
 
 fn letter(c: char) -> KeyEvent {

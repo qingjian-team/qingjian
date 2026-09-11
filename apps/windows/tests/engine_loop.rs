@@ -18,7 +18,12 @@ fn router() -> Router {
     let glossary = root.join("assets/sample/glossary-en.tsv");
     let engine = assembly::assemble(&dict, Some((Language::English, &glossary)))
         .expect("assemble engine from sample data");
-    let mut router = Router::new(engine, 9);
+    let mut router = Router::new(
+        engine,
+        9,
+        qingjian_platform::LayoutMode::default(),
+        qingjian_platform::ThemeMode::default(),
+    );
     assert_eq!(
         router.handle(ClientMessage::OpenSession { session: SESSION }),
         None

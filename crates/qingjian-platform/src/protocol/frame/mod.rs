@@ -8,6 +8,8 @@ use serde::{Deserialize, Serialize};
 
 use qingjian_core::CandidateList;
 
+use crate::{LayoutMode, ThemeMode};
+
 /// Server 告诉 DLL「现在屏幕上该是什么样」：组句的拼音行、候选页、高亮与页码。
 /// 空 [`Frame`]（`preedit` 与 `candidates` 都空）表示没有在组句，DLL 收起候选窗口。
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -29,6 +31,12 @@ pub struct Frame {
 
     /// 总页数；翻页键是否可用看它。
     pub page_count: usize,
+
+    /// 候选排布（竖排 / 横排）。DLL 是纯渲染端，布局由 Server 按 `[general] layout` 配置随帧下发。
+    pub layout: LayoutMode,
+
+    /// 候选窗口外观（跟随系统 / 浅色 / 深色）。`System` 由 DLL 侧按当前系统主题解析。
+    pub theme: ThemeMode,
 }
 
 impl Frame {

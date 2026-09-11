@@ -8,7 +8,11 @@
 //! 收到按键并转发给 Server（引擎在 Server 进程）。把候选画出来 / 经编辑会话上屏是下一步。
 #![allow(non_snake_case)] // 导出的 Dll* 入口按 COM 约定用帕斯卡命名
 
+pub(crate) mod candidates;
+pub(crate) mod composition;
+pub(crate) mod edit_session;
 pub(crate) mod factory;
+pub(crate) mod log;
 pub(crate) mod registry;
 pub(crate) mod service;
 
@@ -53,6 +57,11 @@ pub(crate) fn lock_module() {
 /// 减一个模块引用（对象析构 / LockServer(false)）。
 pub(crate) fn unlock_module() {
     DLL_REFERENCES.fetch_sub(1, Ordering::SeqCst);
+}
+
+/// 本 DLL 的实例句柄（注册窗口类 / 建候选窗口用）。DllMain 加载时记下；未记时为 null（回落到进程 exe）。
+pub(crate) fn dll_instance() -> HINSTANCE {
+    HINSTANCE(DLL_MODULE.load(Ordering::SeqCst))
 }
 
 /// 本 DLL 在磁盘上的完整路径，注册 InprocServer32 用。
@@ -102,7 +111,7 @@ extern "system" fn DllRegisterServer() -> HRESULT {
     match registry::register() {
         Ok(()) => S_OK,
         Err(error) => {
-            tracing::error!(%error, "DllRegisterServer 失败");
+            log::log(&format!("DllRegisterServer 失败: {error}"));
             error.code()
         }
     }
@@ -122,6 +131,7 @@ extern "system" fn DllUnregisterServer() -> HRESULT {
 extern "system" fn DllMain(hinst: HINSTANCE, reason: u32, _reserved: *mut c_void) -> BOOL {
     if reason == DLL_PROCESS_ATTACH {
         DLL_MODULE.store(hinst.0, Ordering::SeqCst);
+        log::log("DllMain: DLL_PROCESS_ATTACH（DLL 被加载进某进程）");
     }
     true.into()
 }

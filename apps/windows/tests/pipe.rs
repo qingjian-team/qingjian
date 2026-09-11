@@ -48,7 +48,12 @@ fn named_pipe_round_trips_the_open_type_loop() {
             )),
         )
         .expect("assemble engine from sample data");
-        let mut router = Router::new(engine, 9);
+        let mut router = Router::new(
+            engine,
+            9,
+            qingjian_platform::LayoutMode::default(),
+            qingjian_platform::ThemeMode::default(),
+        );
         let _ = serve_pipe(&server_name, &mut router);
     });
 

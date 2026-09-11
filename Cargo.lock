@@ -1458,8 +1458,6 @@ dependencies = [
  "qingjian-platform",
  "qingjian-windows",
  "thiserror",
- "tracing",
- "tracing-subscriber",
  "windows",
  "windows-core",
 ]
