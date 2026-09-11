@@ -5,6 +5,8 @@
 
 ## 一次发版做什么
 
+（下面以 macOS 为例；Windows 见「Windows 发版」一节，步骤同构。）
+
 1. 改 `apps/macos/Cargo.toml` 的 `version`（`apps/macos` 的 Info.plist 版本号从这里取，pkg 文件名也是）。
    **各平台壳版本号独立**：macOS 的版本只在 `apps/macos/Cargo.toml`，跟 workspace 与其他壳无关（例：mac 到 `0.1.1`、win 还在 `0.1.0`）。
 2. `CHANGELOG.md` 顶上加一节 `## <版本> · <日期> · <渠道>`（渠道是 `alpha` / `beta` / `rc` / `stable`），一行一条、面向用户的措辞。
@@ -24,6 +26,22 @@ workflow 会核对 `apps/macos/Cargo.toml` 版本号与标签（去掉 `macos-v`
 
 Rust 工具链由 `rust-toolchain.toml` 钉版本（现在 1.96.0），两个 workflow 里 `dtolnay/rust-toolchain@master` 的 `toolchain:` 输入写同一个号；升级 Rust 时三处一起改。
 
+## Windows 发版
+
+1. 改 `apps/windows/{server,tsf,settings}/Cargo.toml` 的 `version`（三个一起改；打包脚本与 workflow 读 `server` 那份）。
+   内测版用 semver 预发布号 `0.1.0-alpha.1`、`0.1.0-alpha.2`…：CHANGELOG 按版本号索引、官网按版本号列条目，
+   与 macOS 的 `0.1.0` / `0.1.1` 不能同号；Inno 的 `VersionInfoVersion` 只认数字，`build.ps1` 会把后缀去掉再传。
+2. `CHANGELOG.md` 加一节 `## 0.1.0-alpha.1 · 日期 · alpha`。
+3. 打标签 `windows-v0.1.0-alpha.1` 推送。`release.yml` 的 `windows` job 在 `windows-latest` 上：核对版本 → 下载 `data` Release
+   → 装 Inno Setup 7.1.0（与开发机同版本，钉死 GitHub Release 的安装程序）→ `build.ps1`→ 建 Release（`Qingjian-<版本>-Setup.exe` + `SHA256SUMS` + `build-info.json`）
+   → `publish-releases-json.sh` 生成 `releases.json`，挂到本次发布并覆盖到 GitHub latest 那版上（官网只读 latest 的）。
+4. **没有代码签名证书时** workflow 设 `QINGJIAN_UIACCESS=0`：没签名的 exe 带 uiAccess=true 起不来。
+   代价是候选窗在任务栏搜索 / 设置这类 UWP 宿主里可能被盖住，用户文档与 CHANGELOG 已列为已知问题。
+   Certum 开源证书办下来后：在 `build.ps1` 加 signtool 一步（`sign-local.ps1` 是本机自签的参考），workflow 去掉那个环境变量。
+   SmartScreen 对无签名安装包的拦截也一并消失。
+5. 官网：`releases.json` 里 Windows 包由文件名 `-Setup.exe` 识别（`ASSET_KINDS`），下载页按访问者平台取「有该平台安装包的最新版本」
+   （`latestFor`），所以 macOS 与 Windows 各自的最新版互不干扰。
+
 ## 提交前检查与 CI
 
 本地 `git config core.hooksPath .githooks` 启用一次后，每次提交前 `.githooks/pre-commit` 跑 `cargo fmt --check` 与 `cargo clippy -D warnings`（含 IMK 外壳，增量几十秒）；
@@ -34,7 +52,7 @@ Rust 工具链由 `rust-toolchain.toml` 钉版本（现在 1.96.0），两个 wo
 | 文件 | 触发 | 做什么 |
 |---|---|---|
 | `.github/workflows/ci.yml` | push main、PR | Linux 上 `cargo fmt --check` / clippy / test，排除 `qingjian-macos`（IMK 外壳只能在 macOS 编译，macOS runner 计费是 Linux 的 10 倍） |
-| `.github/workflows/release.yml` | 推 `macos-v*` 标签 | `macos-26`（Apple Silicon）runner，与本机同代系统：下载产品数据 → 可选签名公证 → `bundle.sh --pkg` 打 arm64 与交叉编译的 x86_64 → 建 Release → 生成并上传 `releases.json` |
+| `.github/workflows/release.yml` | 推 `macos-v*` / `windows-v*` 标签 | `macos` job（`macos-26`）：下载产品数据 → 可选签名公证 → `bundle.sh --pkg` 打 arm64 与交叉编译的 x86_64 → 建 Release；`windows` job（`windows-latest`）：下载产品数据 → `build.ps1` 打 Inno Setup 安装包 → 建 Release。两者最后都跑 `publish-releases-json.sh` |
 
 ## 产品数据从哪来
 
@@ -87,7 +105,7 @@ Apple Developer 账号有了以后，在仓库 Secrets 里配齐 `release.yml` �
 
 - `releases` 从新到旧，`latest` 是第一条的版本号；官网「当前版本」取它，历史版本列表就是整个数组。
 - `channel` 是 `alpha` / `beta` / `rc` / `stable`，显示成什么字由官网定；`commit` / `built_at` / `sha256` 给用户核对下载的包，下载页应显示 sha256 与提交短哈希。
-- 平台与架构由文件名判定（`-arm64.pkg` → Apple Silicon，`-x86_64.pkg` → Intel），以后 Windows / Linux 的包在脚本的 `ASSET_KINDS` 里加一行。
+- 平台与架构由文件名判定（`-arm64.pkg` → Apple Silicon，`-x86_64.pkg` → Intel，`-Setup.exe` → Windows x64），以后 Linux 的包在脚本的 `ASSET_KINDS` 里加一行。
 - `SHA256SUMS` 与 `releases.json` 自己不列进 `assets`。
 - 官网侧要做的：构建时下载这个文件替代手写的 `releases` 数组（与拉 `docs/user` 的 `sync-docs.mjs` 同一处、同一个令牌），
   `downloadsOpen` 开关仍由官网自己控制。

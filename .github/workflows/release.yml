@@ -1,4 +1,6 @@
-# 推 macos-v<版本> 标签触发（各平台壳版本号独立，版本读 apps/macos/Cargo.toml），流程见 docs/notes/release.md。签名与公证可选，下面的 Secrets 配齐才签，否则出 ad-hoc 包：
+# 推 macos-v<版本> / windows-v<版本> 标签触发（各平台壳版本号独立：macOS 读 apps/macos/Cargo.toml，Windows 读 apps/windows/server/Cargo.toml），
+# 流程见 docs/notes/release.md。macOS 的签名与公证可选，下面的 Secrets 配齐才签，否则出 ad-hoc 包；
+# Windows 现在没有代码签名（QINGJIAN_UIACCESS=0 关掉 uiAccess，否则没签名的 Server 起不来），证书办下来再加 signtool。
 #   QINGJIAN_CERT_P12            Developer ID Application + Installer 两张证书（含私钥）导出的 .p12，base64
 #   QINGJIAN_CERT_PASSWORD       .p12 的密码
 #   QINGJIAN_SIGN_IDENTITY       "Developer ID Application: 名字 (TEAMID)"
@@ -13,7 +15,7 @@ name: release
 
 on:
   push:
-    tags: ['macos-v*']
+    tags: ['macos-v*', 'windows-v*']
 
 permissions:
   contents: write
@@ -25,7 +27,8 @@ env:
   WEB_TOKEN: ${{ secrets.QINGJIAN_WEB_TOKEN }}
 
 jobs:
-  build:
+  macos:
+    if: startsWith(github.ref_name, 'macos-v')
     runs-on: macos-26
     steps:
       - uses: actions/checkout@v7
@@ -122,17 +125,96 @@ jobs:
       - name: Generate releases.json
         env:
           GH_TOKEN: ${{ github.token }}
+        run: tools/release/publish-releases-json.sh "$GITHUB_REF_NAME" target/pkg
+
+      - name: Trigger website build
+        if: env.WEB_TOKEN != ''
+        env:
+          QINGJIAN_WEB_TOKEN: ${{ secrets.QINGJIAN_WEB_TOKEN }}
+        run: tools/release/bump-website.sh release
+
+  windows:
+    if: startsWith(github.ref_name, 'windows-v')
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    env:
+      # 没有代码签名证书：Server 不带 uiAccess（没签名的 exe 带 uiAccess=true 起不来）。证书办下来后去掉这一行并在 build.ps1 加 signtool。
+      QINGJIAN_UIACCESS: '0'
+      PYTHON: python
+      # Windows 上 Python 的标准输出缺省 cp1252，中文更新日志会编码失败。
+      PYTHONUTF8: '1'
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.96.0
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Check version matches tag
         run: |
-          gh api "repos/$GITHUB_REPOSITORY/releases" --paginate > "$RUNNER_TEMP/releases.api.json"
-          META="$RUNNER_TEMP/meta"
-          for tag in $(gh release list --json tagName --jq '.[].tagName' | grep -E '^v[0-9]'); do
-            mkdir -p "$META/$tag"
-            gh release download "$tag" --pattern SHA256SUMS --pattern build-info.json --dir "$META/$tag" || true
-          done
-          python3 tools/release/releases_json.py --repo "$GITHUB_REPOSITORY" \
-            --api-json "$RUNNER_TEMP/releases.api.json" --meta-dir "$META" --out target/pkg/releases.json
-          cat target/pkg/releases.json
-          gh release upload "$GITHUB_REF_NAME" target/pkg/releases.json --clobber
+          VERSION="$(sed -n 's/^version = "\(.*\)"/\1/p' apps/windows/server/Cargo.toml | head -1)"
+          TAG="${GITHUB_REF_NAME#windows-v}"
+          if [[ "$VERSION" != "$TAG" ]]; then
+            echo "apps/windows/server/Cargo.toml 是 $VERSION，标签是 $GITHUB_REF_NAME，先改版本号再打标签" >&2
+            exit 1
+          fi
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+
+      - name: Fetch product data
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p data/generated
+          gh release download data --pattern qingjian-data.tar.gz --dir data
+          tar -xzf data/qingjian-data.tar.gz -C data/generated
+          ls -la data/generated data/generated/dicts
+
+      # 与开发机同版本（7.1.0，自带简体中文翻译；Chocolatey 只有 6.x，6 的安装包不带简中）。钉死 GitHub Release 上的文件。
+      - name: Install Inno Setup 7.1.0
+        shell: pwsh
+        run: |
+          $url = 'https://github.com/jrsoftware/issrc/releases/download/is-7_1_0/innosetup-7.1.0-x64.exe'
+          # 下载来的安装程序要以管理员身份执行，先核对 SHA-256（2026-09-11 从上面地址下载后算出），对不上就不装。
+          $expected = '0362a383ed217d4c4239b5933866dd96d3eb2102737da92f80f6057a4b40df2f'
+          $exe = Join-Path $env:RUNNER_TEMP 'innosetup.exe'
+          Invoke-WebRequest -Uri $url -OutFile $exe
+          $actual = (Get-FileHash -Path $exe -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($actual -ne $expected) { throw "Inno Setup 安装程序 SHA-256 不符：$actual" }
+          Start-Process -FilePath $exe -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/SP-' -Wait
+          & "${env:ProgramFiles}\Inno Setup 7\ISCC.exe" --version
+
+      - name: Build installer
+        shell: pwsh
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File apps\windows\installer\build.ps1
+
+      - name: Checksums and build info
+        run: |
+          cd target/installer
+          sha256sum ./*.exe | tee SHA256SUMS
+          RUNNER_OS_NAME="$(powershell -NoProfile -Command '(Get-CimInstance Win32_OperatingSystem).Caption' | tr -d '\r')"
+          jq -n --arg version "$VERSION" --arg tag "$GITHUB_REF_NAME" --arg commit "$GITHUB_SHA" \
+            --arg built_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --arg toolchain "$(rustc --version)" \
+            --arg runner "$RUNNER_OS_NAME" \
+            '{version: $version, tag: $tag, commit: $commit, built_at: $built_at, toolchain: $toolchain, runner: $runner}' \
+            | tee build-info.json
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python tools/release/releases_json.py --notes-for "$VERSION" > "$RUNNER_TEMP/notes.md"
+          printf '\n> 内测版没有代码签名：安装时 SmartScreen 拦截请点「更多信息 → 仍要运行」；任务栏搜索、「设置」等系统应用里候选窗口可能被遮挡。\n' >> "$RUNNER_TEMP/notes.md"
+          gh release create "$GITHUB_REF_NAME" --title "青简 Windows $VERSION" --notes-file "$RUNNER_TEMP/notes.md" \
+            target/installer/*.exe target/installer/SHA256SUMS target/installer/build-info.json
+
+      - name: Generate releases.json
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: tools/release/publish-releases-json.sh "$GITHUB_REF_NAME" target/installer
 
       - name: Trigger website build
         if: env.WEB_TOKEN != ''

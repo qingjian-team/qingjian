@@ -17,6 +17,10 @@
 #ifndef AppVersion
   #define AppVersion "0.1.0"
 #endif
+; VersionInfoVersion 只认 a.b.c.d 数字；版本带预发布后缀（0.1.0-alpha.1）时由打包脚本传去掉后缀的数字版本。
+#ifndef AppVersionNumeric
+  #define AppVersionNumeric AppVersion
+#endif
 #define AppName "青简"
 #define Publisher "青简"
 #define WebsiteUrl "https://qingjian.im"
@@ -31,7 +35,7 @@ AppName={#AppName}
 AppVersion={#AppVersion}
 AppPublisher={#Publisher}
 AppSupportURL={#WebsiteUrl}
-VersionInfoVersion={#AppVersion}
+VersionInfoVersion={#AppVersionNumeric}
 DefaultDirName={autopf}\Qingjian
 DefaultGroupName={#AppName}
 DisableProgramGroupPage=yes

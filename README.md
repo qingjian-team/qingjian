@@ -86,7 +86,7 @@ Windows  → Text Services Framework (TSF)
 Linux    → IBus / Fcitx
 ```
 
-开发顺序是 macOS 优先。
+开发顺序是 macOS 优先；Windows 版已进入内测（TSF 文本服务 + 独立的输入引擎进程）。
 
 ---
 

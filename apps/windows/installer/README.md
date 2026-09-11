@@ -58,5 +58,8 @@ powershell -ExecutionPolicy Bypass -File apps\windows\installer\build.ps1
 
 ## 注意
 
-- **Inno 版本**：`ArchitecturesAllowed=x64compatible` 需 Inno Setup 6.3+；更老的版本把它改成 `x64`。
+- **Inno 版本**：开发机与 CI 统一用 Inno Setup **7.1.0**（CI 从 jrsoftware/issrc 的 GitHub Release 钉死下载）。它自带简体中文翻译；
+  6.x 的安装包不带 `Languages\ChineseSimplified.isl`，Chocolatey 也只有 6.x，别用。`ArchitecturesAllowed=x64compatible` 需 6.3+。
 - **签名**：发版证书就绪后在这里加 `SignTool`（对应 mac 的 Developer ID）；开发期用 `-Sign` 的自签证书。
+- **没证书的包**（CI 内测版）：先设 `$env:QINGJIAN_UIACCESS = '0'` 再打，Server 不嵌 uiAccess——没签名的 exe 带 uiAccess=true 会起不来。
+  代价是候选窗在 UWP 宿主里可能被盖住。`release.yml` 的 `windows` job 就是这么打的。

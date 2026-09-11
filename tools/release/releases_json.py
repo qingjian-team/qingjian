@@ -49,6 +49,7 @@ CHANNELS = ("alpha", "beta", "rc", "stable")
 ASSET_KINDS = [
     (re.compile(r"^Qingjian-.+-arm64\.pkg$"), "macos", "Apple Silicon"),
     (re.compile(r"^Qingjian-.+-x86_64\.pkg$"), "macos", "Intel"),
+    (re.compile(r"^Qingjian-.+-Setup\.exe$"), "windows", "x64"),
 ]
 
 
@@ -171,6 +172,8 @@ def main() -> None:
     ap.add_argument("--out", type=Path, help="releases.json 输出路径，缺省打印到 stdout")
     ap.add_argument("--notes-for", metavar="VERSION", help="只打印这个版本的更新日志（Markdown 列表）")
     args = ap.parse_args()
+    # Windows 上 stdout 缺省是 cp1252，打印中文更新日志会 UnicodeEncodeError；这里的输出全走 UTF-8。
+    sys.stdout.reconfigure(encoding="utf-8")
 
     changelog = parse_changelog(args.changelog)
     if args.notes_for:
