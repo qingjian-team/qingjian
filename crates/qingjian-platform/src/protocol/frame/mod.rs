@@ -37,6 +37,9 @@ pub struct Frame {
 
     /// 候选窗口外观（跟随系统 / 浅色 / 深色）。`System` 由 DLL 侧按当前系统主题解析。
     pub theme: ThemeMode,
+
+    /// 整句补全（云联想给的整段拼音的整句结果）：画在 preedit 行右侧，按 Tab 上屏。无则 `None`。
+    pub sentence: Option<String>,
 }
 
 impl Frame {

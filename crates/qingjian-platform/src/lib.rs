@@ -5,6 +5,7 @@
 
 mod config;
 mod error;
+pub mod extra_dictionaries;
 pub mod protocol;
 
 pub use config::{

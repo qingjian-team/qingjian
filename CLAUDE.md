@@ -34,7 +34,7 @@ macOS 输入法已自用（HEAD 见 git），正在给测试者打包（pkg 已�
   （没有这两个文件就退化为一元词频整句）。数据由 `tools/corpus/parquet_to_text.py`（uv 脚本，HF parquet → 简体纯文本）加
   `cargo run --release -p qingjian-dict-convert -- bigram data/corpus/*.txt` 生成；语料在 `data/corpus/`（gitignore）。
 - `crates/qingjian-platform`：`Config`（TOML 配置文件，`[general]` / `[shortcut]` / `[fuzzy]` / `[dictionaries]` / `[apps]` / `[predict]` 分节，首次运行写模板，
-  `set_value` 用 toml_edit 原地改键保留注释）；`protocol` 模块是 Windows Server ↔ TSF DLL 的 IPC 协议类型（`ClientMessage` / `ServerMessage` / `Frame` / `PreeditSegment`，全 serde，两端共用，见 `docs/design/architecture.md`「Windows：TSF」）。
+  `set_value` 用 toml_edit 原地改键保留注释）；`extra_dictionaries` 列出 / 加载随包领域词库与用户 `dicts/`（mac 壳与 Windows Server 共用，同名 `.qj` 优先于 `.tsv`）；`protocol` 模块是 Windows Server ↔ TSF DLL 的 IPC 协议类型（`ClientMessage` / `ServerMessage` / `Frame` / `PreeditSegment`，全 serde，两端共用，见 `docs/design/architecture.md`「Windows：TSF」）。
 - `apps/cli`：测试工具，`cargo run -p qingjian-cli -- kaifa`；`--predict` 强制开云联想并等结果打印，交互模式下上屏后也联想；
   `--typing` 逐键计时（性能测试用 release 构建跑，目标每键 10 ms 以内）；`--replay <input-log.jsonl>` 回放评测：把日志里每次上屏的键重新喂给引擎，
   按来源算首选 / 前五命中率、平均名次、不在候选的条数，打印没命中的例子（`--misses N`）；只在内存里学习不写文件，加 `--user-dict` 可带上现有学习数据。
@@ -139,5 +139,5 @@ Phase 2 macOS IMK → Phase 3 翻译 → Phase 4 学习 → Phase 5 Windows/Linu
 - 结构体 / 枚举字段逐条 `///` 注释，字段之间空一行。
 - 依赖：`cargo add`，共用包提到根 `[workspace.dependencies]`；错误用 `thiserror` 不用 `anyhow`；日志用 `tracing` 门面。
 - 版本号：`crates/*` 是内部库，用 `version.workspace = true` 跟 workspace 一起走；**`apps/*` 每个壳是各自独立发布的产品，写死自己的 `version`，不跟 workspace 同步**（macOS 修的 bug 不该让 Windows 涨版本号）。
-  例：mac 到 `0.1.1`、win 还在 `0.1.0`。发版标签按平台加前缀（`macos-v<版本>` / `windows-v<版本>`），CI 各读各的 app 包版本比对；`bundle.sh` 与 `release.yml` 都读 `apps/<平台>/Cargo.toml`。
+  例：mac 到 `0.1.1`、win 还在 `0.1.0`。发版标签按平台加前缀（`macos-v<版本>` / `windows-v<版本>`），CI 各读各的 app 包版本比对；`bundle.sh` 与 `release.yml` 都读 `apps/<平台>/Cargo.toml`（Windows 是一个产品两个 package：`apps/windows/server`（Server 进程）与 `apps/windows/tsf`（TSF DLL），版本读 `server/Cargo.toml`；不合成一个 crate，因为 DLL 不能带 Engine 的依赖树，见 `apps/windows/README.md`）。
 - 交流用中文。

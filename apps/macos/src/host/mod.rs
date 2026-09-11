@@ -12,7 +12,6 @@ mod config_watch;
 mod diagnostics;
 mod dictionaries;
 mod dictionary_info;
-mod extra_dictionaries;
 mod init;
 mod notice;
 mod predict_monitor;
@@ -34,6 +33,7 @@ use qingjian_core::{
 use qingjian_dictionary::{Dictionary, WordList};
 use qingjian_learning::{FrequencyLearner, InputLog, UsageStats, VocabularyBook};
 use qingjian_lm::BigramModel;
+use qingjian_platform::extra_dictionaries;
 use qingjian_platform::{
     AppsConfig, DEFAULT_ENGLISH_CANDIDATES_OFF, DictionariesConfig, KeyCombo, LayoutMode, LogLevel,
     Modifiers, PAGE_KEY_OPTIONS, PreeditMode, ShortcutConfig, ThemeMode,

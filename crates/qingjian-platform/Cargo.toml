@@ -11,6 +11,7 @@ workspace = true
 
 [dependencies]
 qingjian-core.workspace = true
+qingjian-dictionary.workspace = true
 qingjian-predict.workspace = true
 serde.workspace = true
 serde_json.workspace = true

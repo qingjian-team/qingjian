@@ -1417,6 +1417,7 @@ name = "qingjian-platform"
 version = "0.1.1"
 dependencies = [
  "qingjian-core",
+ "qingjian-dictionary",
  "qingjian-predict",
  "serde",
  "serde_json",
@@ -1451,30 +1452,33 @@ dependencies = [
 ]
 
 [[package]]
-name = "qingjian-tsf"
+name = "qingjian-windows-server"
 version = "0.1.0"
 dependencies = [
- "qingjian-core",
- "qingjian-platform",
- "qingjian-windows",
- "thiserror",
- "windows",
- "windows-core",
-]
-
-[[package]]
-name = "qingjian-windows"
-version = "0.1.0"
-dependencies = [
+ "dotenvy",
  "qingjian-core",
  "qingjian-dictionary",
  "qingjian-learning",
+ "qingjian-lm",
  "qingjian-platform",
+ "qingjian-predict",
  "qingjian-translate",
  "thiserror",
  "tracing",
  "tracing-subscriber",
  "windows-sys",
+]
+
+[[package]]
+name = "qingjian-windows-tsf"
+version = "0.1.0"
+dependencies = [
+ "qingjian-core",
+ "qingjian-platform",
+ "qingjian-windows-server",
+ "thiserror",
+ "windows",
+ "windows-core",
 ]
 
 [[package]]
