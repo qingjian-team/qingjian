@@ -87,6 +87,14 @@ pub enum Command {
         #[arg(long, default_value = "data/generated/dict.tsv")]
         dict: PathBuf,
 
+        /// 短语层文件（assets/lexicon/phrases.tsv）：里面的词不参与分词，统计完按成分合成它们的一元 / 二元计数（见 bigram.rs 模块注释）
+        #[arg(long)]
+        phrases: Option<PathBuf>,
+
+        /// 品牌词文件（assets/lexicon/brand.tsv）：语料里没有的词按文件给的次数写进一元表
+        #[arg(long)]
+        brand: Option<PathBuf>,
+
         /// 计数低于此值的二元组不输出
         #[arg(long, default_value_t = 3)]
         min_count: u32,
@@ -120,6 +128,33 @@ pub enum Command {
 
         /// 出现次数低于此值的不要
         #[arg(long, default_value_t = 200)]
+        min_count: u32,
+
+        /// 最多几个字
+        #[arg(long, default_value_t = 4)]
+        max_chars: usize,
+    },
+
+    /// 短语层：从 bigram 表的相邻两词与语料的相邻三词里挖 我的 / 不知道 这类人会整块打的组合 → phrases.tsv（人工过一遍后拷进 assets/lexicon/，`lexicon --extra-words` 并入）
+    Phrases {
+        /// 语料文件
+        #[arg(required = true)]
+        corpus: Vec<PathBuf>,
+
+        /// 对话语料（corpus 里的一个）：短语在它里面的次数也要够 min_count，维基模板句进不来
+        #[arg(long, default_value = "data/corpus/lccc.txt")]
+        dialogue: PathBuf,
+
+        /// 分词与成分读音用的词库（青简 TSV，同目录 dicts/ 一并读）
+        #[arg(long, default_value = "data/generated/dict.tsv")]
+        dict: PathBuf,
+
+        /// 上一次的 phrases.tsv：词库已并入短语时重跑要给，里面的词先从分词词表里摘掉（否则 我的 是一个词，挖不出 我 + 的）
+        #[arg(long)]
+        refresh: Option<PathBuf>,
+
+        /// 次数下限
+        #[arg(long, default_value_t = 2000)]
         min_count: u32,
 
         /// 最多几个字

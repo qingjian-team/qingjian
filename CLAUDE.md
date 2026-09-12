@@ -39,7 +39,8 @@ macOS 输入法已自用（HEAD 见 git），正在给测试者打包（pkg 已�
   前文优先用壳给的应用光标前文（`set_rescoring_context`），没有用本会话最近 64 个上屏字符。CLI `--neural <导出目录>`（`--neural-weight` / `--neural-context` / `--neural-async`）。
 - `crates/qingjian-lm`：`BigramModel`，Core `sentence::LanguageModel` trait 的实现，从 `data/generated/lm.qj`（或 `lm-unigram.tsv` / `lm-bigram.tsv`）加载
   （没有这两个文件就退化为一元词频整句）。数据由 `tools/corpus/parquet_to_text.py`（uv 脚本，HF parquet → 简体纯文本）加
-  `cargo run --release -p qingjian-dict-convert -- bigram data/corpus/*.txt` 生成；语料在 `data/corpus/`（gitignore）。
+  `cargo run --release -p qingjian-dict-convert -- bigram --phrases assets/lexicon/phrases.tsv --brand assets/lexicon/brand.tsv data/corpus/*.txt` 生成；语料在 `data/corpus/`（gitignore）。
+  短语层不当 token 统计（分词时摘掉、统计完按成分合成一元 / 二元，短语得分等于原来两个词的路径，见 `bigram.rs` 模块注释），品牌词按给定次数写进一元与句首二元。
 - `crates/qingjian-platform`：`Config`（TOML 配置文件，`[general]` / `[shortcut]` / `[fuzzy]` / `[dictionaries]` / `[apps]` / `[predict]` 分节，首次运行写模板，
   `set_value` 用 toml_edit 原地改键保留注释；`[model] enabled` 本地整句模型开关，`LocalModelConfig`）；`extra_dictionaries` 列出 / 加载随包领域词库与用户 `dicts/`（mac 壳与 Windows Server 共用，同名 `.qj` 优先于 `.tsv`）；`protocol` 模块是 Windows Server ↔ TSF DLL 的 IPC 协议类型（`ClientMessage` / `ServerMessage` / `Frame` / `PreeditSegment`，全 serde，两端共用，见 `docs/design/architecture.md`「Windows：TSF」）。
 - `apps/cli`：测试工具，`cargo run -p qingjian-cli -- kaifa`；`--predict` 强制开云联想并等结果打印，交互模式下上屏后也联想；
@@ -75,7 +76,7 @@ macOS 输入法已自用（HEAD 见 git），正在给测试者打包（pkg 已�
 - `tools/dict-convert`：产品数据的生成工具，输出到 `data/generated/`（gitignore）。`lexicon` 从 `assets/lexicon/`（自建词库源：规范字 + 常用词 + THUOCL 领域词）
   加 Unihan 读音（`data/unihan/Unihan_Readings.txt`）、LLM 多音字标注（`gloss-gen pinyin`，结果 `data/generated/pinyin-llm.jsonl`，不进 git）、语料词频（`lm-unigram.tsv`）
   建基础词库 `dict.tsv`（8.7 万条）并把 THUOCL 领域词按语料次数 < 50 拆成 `dicts/<领域>.tsv` + `.qj`（11 本、13 万条，`--domain-keep-min`），流程见 `assets/lexicon/QINGJIAN.md`；`english` 转 `assets/lexicon/05_english/00_all_words.tsv`；`cedict` 是释义表备用来源；
-  `bigram` 统计语料；`mine` 从语料挖词库没收的高频词并过滤（`oov_filter.rs`：虚词规则 + 相邻字对 PMI≥3，`--candidates` 只重过滤；`lexicon --extra-words` 并入）；`pack dict|lm|glossary` 打 `.qj`（释义表也进容器）。雾凇拼音（GPL）已彻底移除，不要再引入。
+  `bigram` 统计语料；`mine` 从语料挖词库没收的高频词并过滤（`oov_filter.rs`：虚词规则 + 相邻字对 PMI≥3，`--candidates` 只重过滤；`lexicon --extra-words` 并入）；`phrases` 挖短语层（两遍扫语料：相邻两词、两段二元都够频的相邻三词，总次数与对话语料次数都 ≥ 2000 + 边界规则，读音由成分词拼出；我的 / 不知道 / 有没有 这类常用词表不收的组合，`assets/lexicon/phrases.tsv`；词库已并入过短语时重跑加 `--refresh`）；品牌词在 `assets/lexicon/brand.tsv`（青简 210）；`pack dict|lm|glossary` 打 `.qj`（释义表也进容器）。雾凇拼音（GPL）已彻底移除，不要再引入。
 
 `docs/` 分四类（索引在 `docs/README.md`）：
 - `design/` 是设计来源：`architecture.md`（架构约束、crate 划分、各平台技术决定、`.qj` 容器）、`candidate-ui.md`（候选窗口与按键约定）、

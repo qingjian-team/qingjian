@@ -86,11 +86,12 @@ pub fn convert(
     // 语料挖出来的词当作一类领域词并入：次数当文档频次（也就是没有语料词频时的底值来源）
     for path in extra_words {
         let before = pack.domain.len();
-        for (text, count) in corpus::rows(path)? {
+        for word in corpus::extra_words(path)? {
             pack.domain.push(pack::DomainRow {
-                text,
-                df: count,
+                text: word.text,
+                df: word.count,
                 domain: None,
+                syllables: word.syllables,
             });
         }
         tracing::info!(path = %path.display(), rows = pack.domain.len() - before, "额外词已读取");
@@ -106,8 +107,8 @@ pub fn convert(
     };
     // 挖出来的词在语料里的次数就是它的词频（分词时它被拆成单字，一元表里没有）
     for path in extra_words {
-        for (text, count) in corpus::rows(path)? {
-            counts.entry(text).or_insert(count);
+        for word in corpus::extra_words(path)? {
+            counts.entry(word.text).or_insert(word.count);
         }
     }
     tracing::info!(
@@ -252,8 +253,9 @@ pub fn convert(
         }
     }
 
-    // 领域词：没有拼音，按字推；多音字先看标注
+    // 领域词：没有拼音，按字推；多音字先看标注。额外词文件给了读音的（短语层）直接用
     let mut guessed = 0usize;
+    let mut given = 0usize;
     let mut annotated = 0usize;
     let mut rejected_annotations = 0usize;
     let mut seen_domain: HashSet<&str> = HashSet::new();
@@ -266,15 +268,24 @@ pub fn convert(
         {
             continue;
         }
-        let syllables = match annotations.get(text) {
-            Some(candidate)
+        // 额外词文件给了读音的（短语层由成分词拼出）直接用；否则先看 LLM 标注，再按字推
+        let given_syllables = row
+            .syllables
+            .as_ref()
+            .filter(|s| readings.accepts_word(text, s) && s.iter().all(|s| is_syllable(s)));
+        let syllables = match (given_syllables, annotations.get(text)) {
+            (Some(candidate), _) => {
+                given += 1;
+                candidate.clone()
+            }
+            (None, Some(candidate))
                 if readings.accepts_word(text, candidate)
                     && candidate.iter().all(|s| is_syllable(s)) =>
             {
                 annotated += 1;
                 candidate.clone()
             }
-            other => {
+            (None, other) => {
                 if other.is_some() {
                     rejected_annotations += 1;
                 }
@@ -372,6 +383,7 @@ pub fn convert(
         entries = entries.len(),
         domain_libraries = domains.len(),
         domain_entries = domains.values().map(BTreeMap::len).sum::<usize>(),
+        given,
         annotated,
         guessed,
         disputed_common_readings = disputed,

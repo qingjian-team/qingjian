@@ -6,6 +6,7 @@
 //! - `emoji`：Unicode CLDR annotations（Unicode License v3，`--language zh|en`）→ `emoji-<语言>.tsv`（可发布，放 `assets/emoji/`）
 //! - `bigram`：纯文本语料（如 `tools/corpus/parquet_to_text.py` 转出的中文维基 CC BY-SA 4.0、LCCC 对话 MIT）→ `lm-unigram.tsv` + `lm-bigram.tsv`
 //! - `mine`：语料里分词落成连续单字的段 → `oov-candidates.tsv`（词库没收的高频词，标音后用 `lexicon --extra-words` 并入）
+//! - `phrases`：bigram 表的相邻两词 + 语料的相邻三词 → `phrases.tsv`（我的 / 不知道 这类短语层，读音由成分词拼出，同样用 `lexicon --extra-words` 并入）
 //! - `pack dict|lm|glossary`：TSV → `.qj` 容器（`dict.qj` / `lm.qj`），带名称 / 许可证 / 署名元数据，输入法与 CLI 优先加载它
 //!
 //! 输出默认写到仓库根目录 `data/generated/`（gitignore）。
@@ -19,6 +20,7 @@ mod error;
 mod lexicon;
 mod oov_filter;
 mod pack;
+mod phrases;
 
 use clap::Parser;
 use tracing_subscriber::EnvFilter;
@@ -75,9 +77,19 @@ fn run() -> Result<(), ConvertError> {
         Command::Bigram {
             corpus,
             dict,
+            phrases,
+            brand,
             min_count,
             max_bigrams,
-        } => bigram::convert(&corpus, &dict, min_count, max_bigrams, &args.out_dir),
+        } => bigram::convert(
+            &corpus,
+            &dict,
+            phrases.as_deref(),
+            brand.as_deref(),
+            min_count,
+            max_bigrams,
+            &args.out_dir,
+        ),
         Command::Mine {
             corpus,
             dict,
@@ -95,6 +107,24 @@ fn run() -> Result<(), ConvertError> {
                 frequency,
                 min_pmi,
                 candidates,
+            },
+            &args.out_dir,
+        ),
+        Command::Phrases {
+            corpus,
+            dialogue,
+            dict,
+            refresh,
+            min_count,
+            max_chars,
+        } => phrases::mine(
+            &phrases::PhraseOptions {
+                dict,
+                refresh,
+                corpus,
+                dialogue,
+                min_count,
+                max_chars,
             },
             &args.out_dir,
         ),

@@ -29,6 +29,16 @@ cargo run --release -p qingjian-dict-convert -- bigram data/corpus/*.txt
 cargo run --release -p qingjian-dict-convert -- mine data/corpus/*.txt
 cp data/generated/oov-filtered.tsv assets/lexicon/mined_words.tsv
 cargo run --release -p qingjian-dict-convert -- lexicon --pinyin data/generated/pinyin-llm.jsonl --frequency data/generated/lm-unigram.tsv --extra-words assets/lexicon/mined_words.tsv
+# 4c. 短语层：常用词表是词典词头，不收 我的 / 好的 / 不知道 / 有没有 这类人会整块打的组合。phrases 从 4 步统计出的 bigram 表取相邻两词、
+#     扫语料取相邻三词（两遍），总次数与对话语料（--dialogue，缺省 lccc.txt）次数都 ≥ 2000（--min-count）、边界像话（不以 的了着 开头、不以 不没很也都 与数词结尾）、词库没有的写 phrases.tsv，
+#     读音由成分词拼出不用再标；人工过一遍拷成 assets/lexicon/phrases.tsv，与 mined_words.tsv、brand.tsv（品牌词 青简）一起 --extra-words 并入，再重跑 bigram。
+#     词库已并入过短语时重跑要加 --refresh assets/lexicon/phrases.tsv（先把上次的短语从分词词表摘掉，否则 我的 是一个词、挖不出 我 + 的）
+cargo run --release -p qingjian-dict-convert -- phrases data/corpus/*.txt   # 重跑：--refresh assets/lexicon/phrases.tsv
+cp data/generated/phrases.tsv assets/lexicon/phrases.tsv
+cargo run --release -p qingjian-dict-convert -- lexicon --pinyin data/generated/pinyin-llm.jsonl --frequency data/generated/lm-unigram.tsv --extra-words assets/lexicon/mined_words.tsv --extra-words assets/lexicon/phrases.tsv --extra-words assets/lexicon/brand.tsv
+#     语言模型不把短语当 token 统计（那样 而 + 是 的二元证据没了，二十 会压过 而是）：--phrases 让分词跳过短语、统计完按成分合成它们的计数，
+#     短语在整句与词级排序里的得分与原来走两个词的路径完全一样，只是多了个能整块选的词（见 tools/dict-convert/src/bigram.rs 模块注释）
+cargo run --release -p qingjian-dict-convert -- bigram --phrases assets/lexicon/phrases.tsv --brand assets/lexicon/brand.tsv data/corpus/*.txt
 # 5. 英文词表
 cargo run --release -p qingjian-dict-convert -- english assets/lexicon/05_english/00_all_words.tsv
 uv run tools/corpus/english_frequency.py data/generated/english.tsv -o data/generated/english-frequency.tsv

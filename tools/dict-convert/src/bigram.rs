@@ -1,5 +1,11 @@
 //! 从纯文本语料统计词级一元 / 二元计数。
 //!
+//! 短语层（`assets/lexicon/phrases.tsv`，我的 / 不对 这类）不参与分词：它们进了词库，但语言模型里要是当 token 统计，
+//! 「而 + 是」的二元证据就没了，二十 会压过 而是。所以分词时把短语从词表里摘掉，统计完再给每条短语**合成**计数：
+//! 一元 = 成分二元计数 c(a,b)，前接 c(v,短语) = c(v,a)·c(a,b)/c(a)，后接 c(短语,w) = c(a,b)·c(b,w)/c(b)。
+//! 这样 P(短语|v) = P(a|v)·P(b|a)、P(w|短语) = P(w|b)，短语在整句词图和词级排序里的得分与原来走 a / b 两个词的路径一模一样，
+//! 只是多了一个能整块选的词。三词短语的一元按 c(a,b)·c(b,c)/c(b) 估。
+//!
 //! 分词用青简自己的词库做一元最大概率切分（与输入法词图同一套词表，统计出来的词才能在整句转换里用上）；
 //! 只统计连续的汉字段，段与段之间（标点、数字、字母）算句子边界，句首用 `<s>` 标记；空格忽略（预分词语料）。
 //! 词库里没有的字跳过，并切断前后的二元关系。
@@ -15,6 +21,9 @@ use crate::oov_filter::OovFilter;
 /// 句首标记。
 const SENTENCE_START: &str = "<s>";
 
+/// 品牌词次数里几分之一算在句首（请柬 的句首占比约 1/8）。
+const BRAND_START_SHARE: u32 = 8;
+
 /// 分词时一个词最多几个汉字。
 const MAX_WORD_CHARS: usize = 8;
 
@@ -22,12 +31,12 @@ const MAX_WORD_CHARS: usize = 8;
 const UNKNOWN_PENALTY: f64 = -12.0;
 
 /// 分词用的词表：词 → 编号与 log 词频。
-struct Vocabulary {
+pub(crate) struct Vocabulary {
     /// 词 → 编号。
-    ids: HashMap<String, u32>,
+    pub(crate) ids: HashMap<String, u32>,
 
     /// 编号 → 词。
-    words: Vec<String>,
+    pub(crate) words: Vec<String>,
 
     /// 编号 → log 概率：log(词频 + 1) − log(总词频)。不减总频的话多字词会输给它的单字。
     log_frequency: Vec<f64>,
@@ -37,8 +46,8 @@ struct Vocabulary {
 }
 
 impl Vocabulary {
-    /// 读分词词表：`path` 加上同目录 `dicts/` 下的领域词库（拆分后基础词库不含领域词，分词仍要用全部词）。
-    fn load(path: &Path) -> Result<Self, ConvertError> {
+    /// 词表文件：`path` 加上同目录 `dicts/` 下的领域词库（拆分后基础词库不含领域词，分词仍要用全部词）。
+    pub(crate) fn files(path: &Path) -> Vec<PathBuf> {
         let mut files = vec![path.to_path_buf()];
         if let Some(dir) = path.parent().map(|p| p.join("dicts"))
             && let Ok(entries) = std::fs::read_dir(&dir)
@@ -52,6 +61,12 @@ impl Vocabulary {
             tracing::info!(dir = %dir.display(), files = extra.len(), "分词也用领域词库");
             files.extend(extra);
         }
+        files
+    }
+
+    /// 读分词词表（见 [`Self::files`]）。
+    pub(crate) fn load(path: &Path) -> Result<Self, ConvertError> {
+        let files = Self::files(path);
         let mut total = 0.0_f64;
         let mut ids: HashMap<String, u32> = HashMap::new();
         let mut words = vec![SENTENCE_START.to_owned()];
@@ -104,7 +119,7 @@ impl Vocabulary {
     }
 
     /// 一段连续汉字按最大概率切成词编号；词库里没有的字用 `None` 占位。
-    fn segment(&self, run: &str, output: &mut Vec<Option<u32>>) {
+    pub(crate) fn segment(&self, run: &str, output: &mut Vec<Option<u32>>) {
         output.clear();
         let offsets: Vec<usize> = run
             .char_indices()
@@ -149,7 +164,7 @@ impl Vocabulary {
     }
 }
 
-fn is_han(c: char) -> bool {
+pub(crate) fn is_han(c: char) -> bool {
     matches!(c, '\u{4E00}'..='\u{9FFF}' | '\u{3400}'..='\u{4DBF}')
 }
 
@@ -364,12 +379,19 @@ fn collect_runs(
 pub fn convert(
     corpus: &[PathBuf],
     dict: &Path,
+    phrases: Option<&Path>,
+    brand: Option<&Path>,
     min_count: u32,
     max_bigrams: usize,
     out_dir: &Path,
 ) -> Result<(), ConvertError> {
-    let vocabulary = Vocabulary::load(dict)?;
+    let mut vocabulary = Vocabulary::load(dict)?;
     tracing::info!(words = vocabulary.words.len(), "词表加载完成");
+    // 短语不参与分词：先摘掉，记下每条的成分，统计完再合成它们的计数
+    let phrase_parts = match phrases {
+        Some(path) => phrase_components(path, &mut vocabulary)?,
+        None => Vec::new(),
+    };
     let mut unigram: Vec<u64> = vec![0; vocabulary.words.len()];
     let mut bigram: HashMap<u64, u32> = HashMap::new();
     let mut tokens = Vec::new();
@@ -416,14 +438,39 @@ pub fn convert(
         distinct_bigrams = bigram.len(),
         "统计完成"
     );
+    // 品牌词（青简）语料里没有：按 brand.tsv 给的次数写进一元，句首二元给八分之一（请柬 209 次里 25 次在句首，同一比例），
+    // 让词级排序不把它当模型不认识的词扣分、能与同音词（请柬）平起平坐，又不压过 请见 这种整句路径
+    if let Some(path) = brand {
+        let mut added = 0usize;
+        for line in std::fs::read_to_string(path)?.lines() {
+            if line.is_empty() || line.starts_with('#') {
+                continue;
+            }
+            let mut fields = line.split('\t');
+            if let (Some(text), Some(count)) = (fields.next(), fields.next())
+                && let Some(&id) = vocabulary.ids.get(text.trim())
+                && let Ok(count) = count.trim().parse::<u32>()
+            {
+                unigram[id as usize] = u64::from(count);
+                bigram.insert(u64::from(id), (count / BRAND_START_SHARE).max(1));
+                added += 1;
+            }
+        }
+        tracing::info!(path = %path.display(), words = added, "品牌词一元与句首二元已写入");
+    }
 
-    // 二元：按计数降序，砍掉低频与超出上限的
+    // 二元：按计数降序，砍掉低频与超出上限的；短语的合成行另加，不占真实行的名额
     let mut pairs: Vec<(u64, u32)> = bigram
-        .into_iter()
+        .iter()
+        .map(|(k, c)| (*k, *c))
         .filter(|(_, count)| *count >= min_count)
         .collect();
     pairs.sort_unstable_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
     pairs.truncate(max_bigrams);
+    if !phrase_parts.is_empty() {
+        let synthesized = synthesize_phrases(&phrase_parts, &mut unigram, &bigram, min_count);
+        pairs.extend(synthesized);
+    }
     let bigram_path = out_dir.join("lm-bigram.tsv");
     let mut writer = BufWriter::new(File::create(&bigram_path)?);
     writeln!(
@@ -460,4 +507,98 @@ pub fn convert(
         "写出完成"
     );
     Ok(())
+}
+
+/// 把 `path` 里的短语从分词词表摘掉（编号留着给合成的 token 用），返回每条短语的 (编号, 成分词编号)。
+/// 切不成两个以上词库词的短语跳过。
+fn phrase_components(
+    path: &Path,
+    vocabulary: &mut Vocabulary,
+) -> Result<Vec<(u32, Vec<u32>)>, ConvertError> {
+    let texts: Vec<String> = std::fs::read_to_string(path)?
+        .lines()
+        .filter(|l| !l.is_empty() && !l.starts_with('#'))
+        .filter_map(|l| l.split('\t').next().map(str::to_owned))
+        .collect();
+    let ids: Vec<Option<u32>> = texts
+        .iter()
+        .map(|t| vocabulary.ids.get(t).copied())
+        .collect();
+    for text in &texts {
+        vocabulary.ids.remove(text);
+    }
+    let mut parts = Vec::new();
+    let mut tokens = Vec::new();
+    let mut skipped = 0usize;
+    for (text, id) in texts.iter().zip(ids) {
+        let Some(id) = id else {
+            skipped += 1;
+            continue;
+        };
+        vocabulary.segment(text, &mut tokens);
+        let components: Option<Vec<u32>> = tokens.iter().copied().collect();
+        match components {
+            Some(components) if components.len() >= 2 => parts.push((id, components)),
+            _ => skipped += 1,
+        }
+    }
+    tracing::info!(path = %path.display(), phrases = parts.len(), skipped, "短语已从分词词表摘掉，统计完再合成计数");
+    Ok(parts)
+}
+
+/// 给短语合成一元（写进 `unigram`）与前后接的二元计数（返回，算法见模块注释）。
+fn synthesize_phrases(
+    phrases: &[(u32, Vec<u32>)],
+    unigram: &mut [u64],
+    bigram: &HashMap<u64, u32>,
+    min_count: u32,
+) -> Vec<(u64, u32)> {
+    let key = |a: u32, b: u32| (u64::from(a) << 32) | u64::from(b);
+    // 按后词 / 前词索引一遍二元表，合成时按成分查前接与后接
+    let mut by_second: HashMap<u32, Vec<(u32, u32)>> = HashMap::new();
+    let mut by_first: HashMap<u32, Vec<(u32, u32)>> = HashMap::new();
+    for (&k, &count) in bigram.iter() {
+        let (first, second) = ((k >> 32) as u32, (k & 0xFFFF_FFFF) as u32);
+        by_second.entry(second).or_default().push((first, count));
+        by_first.entry(first).or_default().push((second, count));
+    }
+    let pair = |bigram: &HashMap<u64, u32>, a: u32, b: u32| {
+        f64::from(bigram.get(&key(a, b)).copied().unwrap_or(0))
+    };
+    let mut added = 0usize;
+    let mut rows: Vec<(u64, u32)> = Vec::new();
+    for (id, parts) in phrases {
+        let (first, last) = (parts[0], parts[parts.len() - 1]);
+        // 短语自身的次数：两词就是成分二元，三词按链式估
+        let mut count = pair(bigram, parts[0], parts[1]);
+        for window in parts.windows(2).skip(1) {
+            let middle = unigram[window[0] as usize] as f64;
+            if middle <= 0.0 {
+                count = 0.0;
+                break;
+            }
+            count *= pair(bigram, window[0], window[1]) / middle;
+        }
+        if count < f64::from(min_count) {
+            continue;
+        }
+        unigram[*id as usize] = count.round() as u64;
+        added += 1;
+        let first_total = unigram[first as usize].max(1) as f64;
+        let last_total = unigram[last as usize].max(1) as f64;
+        for (previous, c) in by_second.get(&first).into_iter().flatten() {
+            let synthesized = f64::from(*c) * count / first_total;
+            if synthesized >= f64::from(min_count) {
+                rows.push((key(*previous, *id), synthesized.round() as u32));
+            }
+        }
+        for (next, c) in by_first.get(&last).into_iter().flatten() {
+            let synthesized = count * f64::from(*c) / last_total;
+            if synthesized >= f64::from(min_count) {
+                rows.push((key(*id, *next), synthesized.round() as u32));
+            }
+        }
+    }
+    tracing::info!(phrases = added, bigrams = rows.len(), "短语计数已合成");
+    rows
 }

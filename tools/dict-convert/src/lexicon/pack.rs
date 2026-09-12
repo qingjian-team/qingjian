@@ -40,6 +40,9 @@ pub struct DomainRow {
 
     /// 来自 `03_domains/` 的哪个文件（文件名主干，如 `law`）；语料挖出的额外词为 `None`，一律留在基础词库。
     pub domain: Option<String>,
+
+    /// 给定的读音（短语层由成分词拼出）；`None` 按字推。
+    pub syllables: Option<Vec<String>>,
 }
 
 /// 整个数据包。
@@ -120,6 +123,7 @@ impl Pack {
                     text,
                     df,
                     domain: Some(stem.clone()),
+                    syllables: None,
                 });
             }
             tracing::info!(file = %file.display(), rows = pack.domain.len() - before, "领域词已读取");

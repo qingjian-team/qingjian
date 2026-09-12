@@ -113,6 +113,8 @@
 - [x] 产品词库（2026-09-05）：`assets/lexicon/` 自建源（规范字 8105 + 常用词 5.6 万 + THUOCL 领域词 15.7 万），`dict-convert lexicon` 建 `dict.tsv`，
   读音 Unihan + LLM 多音字标注（`gloss-gen pinyin`，6.8 万词，含常用词表自带拼音的 288 处纠错），词频用自己的语料统计；成品 20.5 万条，
   `dict.qj` 10 MB、`lm.qj` 27 MB，启动 70 ms；英文词表换成 ESDB / CSpell 9.5 万词。雾凇拼音与其英文词表已全部移除
+- [x] 短语层（2026-09-12）：常用词表是词典词头，不收 我的 / 好的 / 不知道 / 有没有 这类人整块打的组合；`dict-convert phrases` 从语料相邻两三词里挖
+  （对话语料 ≥ 2000 次 + 边界规则，读音由成分词拼出）5400 条进基础词库，品牌词 青简 也进（`brand.tsv`）；起因与验收见 `docs/notes/phrase-layer.md`
 
 2026-09-06 状态：自用日常在用；`bundle.sh` 从 `assets/`（词库源、释义表）与 `data/generated/`（生成物、`.qj`、领域词库）打产品数据，没有生成物时打样例；
 `--pkg` 出分发包。给测试者发第一版前只剩特殊应用验证；签名等 Developer ID 证书。

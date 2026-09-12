@@ -1,0 +1,5399 @@
+# 由 qingjian-dict-convert phrases 从语料相邻词组合挖出（总次数与对话语料次数都 ≥ 2000），读音由成分词拼出。词\t次数\t拼音
+真的	323109	zhen de
+你的	303448	ni de
+我的	291077	wo de
+都是	219757	dou shi
+不会	200602	bu hui
+不要	188372	bu yao
+好的	186947	hao de
+你是	183737	ni shi
+不知道	183625	bu zhi dao
+我是	175922	wo shi
+不能	166194	bu neng
+给你	161425	gei ni
+我就	143838	wo jiu
+是的	143660	shi de
+这是	141381	zhe shi
+给我	131551	gei wo
+好了	112249	hao le
+我要	112167	wo yao
+好吧	111809	hao ba
+一点	104977	yi dian
+说的	101234	shuo de
+是啊	100279	shi a
+我觉得	97857	wo jue de
+你说	97833	ni shuo
+我也是	97317	wo ye shi
+那你	97311	na ni
+就好	93602	jiu hao
+我在	92434	wo zai
+不好	91987	bu hao
+不到	91092	bu dao
+很多	90749	hen duo
+一天	90649	yi tian
+不想	89532	bu xiang
+我想	86644	wo xiang
+你在	79036	ni zai
+爱你	76883	ai ni
+一个人	75982	yi ge ren
+他的	75809	ta de
+生日快乐	74786	sheng ri kuai le
+你要	74754	ni yao
+多了	74031	duo le
+自己的	71979	zi ji de
+你好	71962	ni hao
+不了	71681	bu le
+到了	71300	dao le
+我说	70070	wo shuo
+是什么	69906	shi shen me
+什么时候	68924	shen me shi hou
+去了	67693	qu le
+我去	66103	wo qu
+对啊	66004	dui a
+还在	63393	hai zai
+让我	62656	rang wo
+你就	62635	ni jiu
+来了	61817	lai le
+吃了	61487	chi le
+还好	61487	hai hao
+看了	60843	kan le
+那是	60195	na shi
+那我	59420	na wo
+那就	58924	na jiu
+我现在	58777	wo xian zai
+吃的	58559	chi de
+我有	57875	wo you
+你怎么	56144	ni zen me
+好啊	56123	hao a
+我家	55069	wo jia
+也要	55036	ye yao
+跟你	55031	gen ni
+也想	54478	ye xiang
+都有	54235	dou you
+我看	54048	wo kan
+是在	53904	shi zai
+还要	53636	hai yao
+等你	52351	deng ni
+有没有	52097	you mei you
+跟我	52092	gen wo
+去看	51975	qu kan
+你有	50991	ni you
+你去	50727	ni qu
+要去	50680	yao qu
+你看	50200	ni kan
+也有	50024	ye you
+上的	49400	shang de
+很好	49197	hen hao
+人的	48987	ren de
+一年	48411	yi nian
+我会	48208	wo hui
+想要	47945	xiang yao
+太多	47932	tai duo
+买了	47336	mai le
+和你	46779	he ni
+我也想	46537	wo ye xiang
+不喜欢	46090	bu xi huan
+是个	45385	shi ge
+是一个	44843	shi yi ge
+会有	44701	hui you
+年的	44459	nian de
+这样的	44307	zhe yang de
+来的	43954	lai de
+想吃	43836	xiang chi
+买的	43735	mai de
+喜欢你	43631	xi huan ni
+都在	43530	dou zai
+好吗	43358	hao ma
+在一起	43197	zai yi qi
+我喜欢	43132	wo xi huan
+想你	42961	xiang ni
+新年快乐	42532	xin nian kuai le
+不见	42195	bu jian
+喜欢的	42012	xi huan de
+我已经	41791	wo yi jing
+等我	41266	deng wo
+第一次	41156	di yi ci
+你来	41107	ni lai
+是谁	40495	shi shui
+你想	40180	ni xiang
+你可以	40083	ni ke yi
+怎么办	39897	zen me ban
+是真	39835	shi zhen
+都要	39471	dou yao
+和我	39227	he wo
+看的	39169	kan de
+真的是	39139	zhen de shi
+回来了	38931	hui lai le
+有什么	38712	you shen me
+我来	38658	wo lai
+过了	38418	guo le
+你不是	38264	ni bu shi
+想去	38225	xiang qu
+让你	38085	rang ni
+真好	37210	zhen hao
+还能	37167	hai neng
+睡了	36998	shui le
+啥时候	36511	sha shi hou
+才是	36500	cai shi
+你家	36499	ni jia
+好想	36222	hao xiang
+没人	36111	mei ren
+我好	35907	wo hao
+都没有	35403	dou mei you
+我知道	35028	wo zhi dao
+要不要	34952	yao bu yao
+说了	34915	shuo le
+做的	34879	zuo de
+在哪里	34747	zai na li
+知道你	33922	zhi dao ni
+不去	33894	bu qu
+瘦了	33713	shou le
+对的	33684	dui de
+不着	33676	bu zhe
+大的	33507	da de
+有个	33418	you ge
+就会	33388	jiu hui
+告诉我	33283	gao su wo
+新的	33123	xin de
+就好了	33064	jiu hao le
+你吃	32915	ni chi
+我还是	32746	wo hai shi
+你会	32684	ni hui
+我就是	32407	wo jiu shi
+谢谢你	32297	xie xie ni
+一定要	32196	yi ding yao
+你也是	32084	ni ye shi
+想到	31980	xiang dao
+就行	31278	jiu xing
+不在	31244	bu zai
+去的	31142	qu de
+就可以	30986	jiu ke yi
+不一样	30942	bu yi yang
+她的	30916	ta de
+我今天	30771	wo jin tian
+也可以	30485	ye ke yi
+走了	30481	zou le
+找你	30468	zhao ni
+应该是	30416	ying gai shi
+过的	30298	guo de
+也在	29945	ye zai
+必须的	29770	bi xu de
+怎么了	29687	zen me le
+也会	29470	ye hui
+他在	29415	ta zai
+可能是	29381	ke neng shi
+我真	29349	wo zhen
+你真	29230	ni zhen
+多的	29102	duo de
+那么多	29082	na me duo
+好吃的	29033	hao chi de
+没看	28951	mei kan
+会的	28854	hui de
+睡不着	28721	shui bu zhe
+不来	28628	bu lai
+亲爱的	28536	qin ai de
+是因为	28526	shi yin wei
+我给	28449	wo gei
+我一直	28291	wo yi zhi
+能不能	28196	neng bu neng
+这次	28139	zhe ci
+家的	28071	jia de
+你现在	27729	ni xian zai
+你自己	27726	ni zi ji
+我吃	27723	wo chi
+上了	27680	shang le
+你啊	27566	ni a
+发现了	27548	fa xian le
+我怎么	27329	wo zen me
+因为我	27310	yin wei wo
+我自己	27130	wo zi ji
+比我	27125	bi wo
+其实我	27071	qi shi wo
+看到你	26995	kan dao ni
+告诉你	26980	gao su ni
+是真的	26872	shi zhen de
+多人	26863	duo ren
+一样的	26790	yi yang de
+想看	26632	xiang kan
+我只	26239	wo zhi
+看到了	26135	kan dao le
+不爱	26013	bu ai
+我一个	25974	wo yi ge
+可以的	25779	ke yi de
+有多	25744	you duo
+看过	25701	kan guo
+不起	25660	bu qi
+会不会	25623	hui bu hui
+死了	25516	si le
+还可以	25496	hai ke yi
+不是我	25401	bu shi wo
+胖了	25372	pang le
+被你	25292	bei ni
+我爱	25272	wo ai
+是要	25217	shi yao
+也觉得	25074	ye jue de
+三个	25049	san ge
+出来了	24971	chu lai le
+大了	24817	da le
+不怕	24759	bu pa
+不吃	24737	bu chi
+这么多	24732	zhe me duo
+你咋	24674	ni za
+是有	24661	shi you
+你说的	24601	ni shuo de
+就去	24456	jiu qu
+你是不是	24418	ni shi bu shi
+对我	24392	dui wo
+知道我	24392	zhi dao wo
+好呀	24339	hao ya
+就在	24314	jiu zai
+想说	24240	xiang shuo
+一张	24211	yi zhang
+帮你	24119	bang ni
+我们的	23966	wo men de
+还没有	23883	hai mei you
+好玩	23779	hao wan
+去吃	23771	qu chi
+哪有	23599	na you
+就知道	23598	jiu zhi dao
+爱我	23490	ai wo
+玩的	23435	wan de
+我以为	23409	wo yi wei
+你呢	23391	ni ne
+一直在	23375	yi zhi zai
+都能	23350	dou neng
+以为你	23223	yi wei ni
+觉得我	23130	jue de wo
+知道了	23084	zhi dao le
+真的好	23078	zhen de hao
+觉得你	23005	jue de ni
+我没有	23002	wo mei you
+比你	22941	bi ni
+帮我	22922	bang wo
+好看的	22919	hao kan de
+拍的	22855	pai de
+并没有	22853	bing mei you
+我可以	22586	wo ke yi
+你这个	22582	ni zhe ge
+里的	22579	li de
+我也觉得	22575	wo ye jue de
+想知道	22485	xiang zhi dao
+回家了	22454	hui jia le
+就有	22431	jiu you
+长的	22405	zhang de
+是呀	22377	shi ya
+不说	22337	bu shuo
+有机会	22302	you ji hui
+厉害了	22287	li hai le
+用的	22202	yong de
+没睡	22195	mei shui
+更好	22046	geng hao
+现在的	22028	xian zai de
+一只	21870	yi zhi
+是吧	21847	shi ba
+可爱的	21739	ke ai de
+你能	21715	ni neng
+我真的	21660	wo zhen de
+不住	21540	bu zhu
+要的	21535	yao de
+是这样	21494	shi zhe yang
+你知道	21482	ni zhi dao
+饿了	21458	e le
+你这么	21433	ni zhe me
+有了	21389	you le
+对你	21346	dui ni
+一家	21254	yi jia
+也没有	21248	ye mei you
+我不是	21200	wo bu shi
+出来的	21189	chu lai de
+还会	21153	hai hui
+没吃	21138	mei chi
+不给	21081	bu gei
+是我的	20967	shi wo de
+想我	20947	xiang wo
+不开心	20820	bu kai xin
+我买	20797	wo mai
+好啦	20772	hao la
+主要是	20719	zhu yao shi
+他是	20719	ta shi
+就想	20667	jiu xiang
+我啊	20622	wo a
+也不知道	20600	ye bu zhi dao
+找个	20583	zhao ge
+我吗	20560	wo ma
+有一个	20423	you yi ge
+但是我	20385	dan shi wo
+没去	20348	mei qu
+太好	20341	tai hao
+让人	20287	rang ren
+你什么	20264	ni shen me
+你给	20243	ni gei
+有时候	20120	you shi hou
+我也要	20104	wo ye yao
+没办法	20057	mei ban fa
+就能	20039	jiu neng
+很喜欢	20035	hen xi huan
+找我	20029	zhao wo
+打电话	19982	da dian hua
+是啥	19929	shi sha
+我能	19862	wo neng
+不睡	19854	bu shui
+还以为	19836	hai yi wei
+我给你	19732	wo gei ni
+到时候	19704	dao shi hou
+说什么	19681	shuo shen me
+很有	19670	hen you
+回到	19654	hui dao
+不对	19563	bu dui
+三年	19527	san nian
+来吧	19508	lai ba
+对了	19505	dui le
+都可以	19405	dou ke yi
+挺好的	19403	ting hao de
+早就	19402	zao jiu
+那天	19286	na tian
+所以我	19223	suo yi wo
+人在	19059	ren zai
+第一个	19032	di yi ge
+来说	19008	lai shuo
+很久	18971	hen jiu
+不可能	18963	bu ke neng
+去找	18924	qu zhao
+找不到	18921	zhao bu dao
+在这	18873	zai zhe
+到的	18857	dao de
+能吃	18839	neng chi
+很棒	18784	hen bang
+加油加油	18757	jia you jia you
+都好	18756	dou hao
+要吃	18752	yao chi
+男的	18715	nan de
+叫我	18710	jiao wo
+没了	18688	mei le
+还想	18683	hai xiang
+来看	18564	lai kan
+你猜	18498	ni cai
+快了	18495	kuai le
+老了	18445	lao le
+不少	18273	bu shao
+重要的	18271	zhong yao de
+有时间	18176	you shi jian
+他们的	18137	ta men de
+你这是	18113	ni zhe shi
+都说	18088	dou shuo
+也就	18075	ye jiu
+假的	18063	jia de
+不认识	18008	bu ren shi
+出了	17987	chu le
+每个	17986	mei ge
+因为你	17915	yin wei ni
+也喜欢	17906	ye xi huan
+你回来	17864	ni hui lai
+吃过	17850	chi guo
+早上好	17839	zao shang hao
+好不好	17771	hao bu hao
+就说	17747	jiu shuo
+不容易	17718	bu rong yi
+去吧	17685	qu ba
+想的	17619	xiang de
+每年	17617	mei nian
+太多了	17585	tai duo le
+不信	17581	bu xin
+不过我	17564	bu guo wo
+做了	17509	zuo le
+不让	17467	bu rang
+人了	17405	ren le
+我只是	17338	wo zhi shi
+是一种	17294	shi yi zhong
+好可爱	17275	hao ke ai
+好嘛	17273	hao ma
+很快	17256	hen kuai
+不出来	17207	bu chu lai
+还真	17203	hai zhen
+送你	17202	song ni
+好久不见	17195	hao jiu bu jian
+两人	17160	liang ren
+没想	17149	mei xiang
+陪你	17115	pei ni
+你喜欢	17071	ni xi huan
+又是	17068	you shi
+大部分	17056	da bu fen
+我吧	17035	wo ba
+很大	16989	hen da
+要看	16979	yao kan
+都不知道	16977	dou bu zhi dao
+女的	16966	nv de
+后的	16935	hou de
+到现在	16909	dao xian zai
+去哪里	16904	qu na li
+要来	16863	yao lai
+没看到	16846	mei kan dao
+玩了	16773	wan le
+你还是	16730	ni hai shi
+又要	16687	you yao
+说是	16670	shuo shi
+你买	16608	ni mai
+还行	16566	hai xing
+点的	16556	dian de
+是怎么	16477	shi zen me
+可是我	16460	ke shi wo
+我妈	16451	wo ma
+一部	16442	yi bu
+就是你	16408	jiu shi ni
+不需要	16363	bu xu yao
+我感觉	16325	wo gan jue
+不看	16309	bu kan
+希望你	16304	xi wang ni
+没有啊	16234	mei you a
+你个	16226	ni ge
+去过	16204	qu guo
+我刚	16192	wo gang
+不同的	16115	bu tong de
+最好的	16084	zui hao de
+最喜欢	15988	zui xi huan
+我看到	15910	wo kan dao
+晚了	15905	wan le
+一起去	15872	yi qi qu
+够了	15810	gou le
+起来了	15791	qi lai le
+年后	15765	nian hou
+又不是	15764	you bu shi
+是吗	15728	shi ma
+年了	15685	nian le
+为什么要	15672	wei shen me yao
+吃点	15563	chi dian
+我跟	15531	wo gen
+不上	15475	bu shang
+长了	15451	zhang le
+两年	15446	liang nian
+你觉得	15444	ni jue de
+是最	15431	shi zui
+写的	15426	xie de
+是说	15422	shi shuo
+这就是	15412	zhe jiu shi
+这么说	15399	zhe me shuo
+也不是	15371	ye bu shi
+就是我	15369	jiu shi wo
+会在	15354	hui zai
+喜欢我	15332	xi huan wo
+晚上好	15327	wan shang hao
+我明天	15302	wo ming tian
+不多	15293	bu duo
+怎么会	15268	zen me hui
+爱的	15232	ai de
+你懂	15185	ni dong
+行了	15153	xing le
+来啊	15149	lai a
+最大的	15010	zui da de
+哭了	15003	ku le
+小仙女	14980	xiao xian nv
+下的	14949	xia de
+现在在	14949	xian zai zai
+好美	14939	hao mei
+发的	14875	fa de
+在看	14827	zai kan
+什么意思	14808	shen me yi si
+你就是	14800	ni jiu shi
+不是你	14794	bu shi ni
+这不是	14772	zhe bu shi
+最多	14728	zui duo
+不算	14693	bu suan
+只想	14691	zhi xiang
+久了	14635	jiu le
+没说	14621	mei shuo
+一定会	14587	yi ding hui
+多吃	14557	duo chi
+不带	14537	bu dai
+而是	14527	er shi
+说得	14497	shuo de
+就像	14494	jiu xiang
+换了	14484	huan le
+给他	14461	gei ta
+可以去	14432	ke yi qu
+你应该	14419	ni ying gai
+很好看	14381	hen hao kan
+你做	14375	ni zuo
+好么	14352	hao me
+我带	14349	wo dai
+没啥	14349	mei sha
+你一个	14344	ni yi ge
+都想	14324	dou xiang
+一会	14285	yi hui
+是想	14283	shi xiang
+幸福的	14281	xing fu de
+我最近	14246	wo zui jin
+还是要	14244	hai shi yao
+太大	14200	tai da
+下了	14192	xia le
+没得	14179	mei de
+问我	14138	wen wo
+开了	14113	kai le
+他说	14085	ta shuo
+说好	14078	shuo hao
+还得	14077	hai de
+它的	14066	ta de
+我说的	14064	wo shuo de
+不出	14046	bu chu
+每个人	14025	mei ge ren
+你们的	13958	ni men de
+别人的	13926	bie ren de
+看出来	13894	kan chu lai
+让他	13858	rang ta
+在学校	13854	zai xue xiao
+我怕	13852	wo pa
+过得	13847	guo de
+回去了	13841	hui qu le
+也不会	13821	ye bu hui
+本来就	13724	ben lai jiu
+说的是	13710	shuo de shi
+小的	13707	xiao de
+是你的	13698	shi ni de
+再去	13697	zai qu
+还不错	13681	hai bu cuo
+叫你	13656	jiao ni
+我最	13651	wo zui
+我不知道	13606	wo bu zhi dao
+有可能	13605	you ke neng
+开心的	13550	kai xin de
+辛苦了	13511	xin ku le
+你这样	13507	ni zhe yang
+最重要	13470	zui zhong yao
+你真的	13390	ni zhen de
+也能	13382	ye neng
+好用	13365	hao yong
+看不到	13351	kan bu dao
+好好看	13315	hao hao kan
+睡吧	13306	shui ba
+一看	13297	yi kan
+时候我	13260	shi hou wo
+不一定	13248	bu yi ding
+好像是	13222	hao xiang shi
+有啥	13218	you sha
+去买	13188	qu mai
+现在是	13175	xian zai shi
+一周	13150	yi zhou
+不是说	13150	bu shi shuo
+好喜欢	13136	hao xi huan
+你爱	13112	ni ai
+累了	13110	lei le
+知道的	13103	zhi dao de
+多少钱	13085	duo shao qian
+问你	13083	wen ni
+好棒	13072	hao bang
+我昨天	13066	wo zuo tian
+在想	13016	zai xiang
+快去	12992	kuai qu
+真爱	12971	zhen ai
+再来	12955	zai lai
+有道理	12953	you dao li
+早啊	12934	zao a
+在说	12917	zai shuo
+不像	12908	bu xiang
+会是	12855	hui shi
+很想	12835	hen xiang
+感觉你	12815	gan jue ni
+所以你	12813	suo yi ni
+多大	12787	duo da
+多好	12762	duo hao
+发了	12747	fa le
+送我	12747	song wo
+四个	12725	si ge
+点了	12702	dian le
+为什么我	12675	wei shen me wo
+高的	12664	gao de
+很多人	12647	hen duo ren
+你居然	12645	ni ju ran
+醒了	12638	xing le
+在这里	12579	zai zhe li
+很难	12507	hen nan
+能说	12503	neng shuo
+是小	12497	shi xiao
+可能会	12493	ke neng hui
+结婚了	12475	jie hun le
+为你	12441	wei ni
+我觉得我	12392	wo jue de wo
+是为了	12388	shi wei le
+你最近	12375	ni zui jin
+我不会	12372	wo bu hui
+好自己	12363	hao zi ji
+你给我	12342	ni gei wo
+你已经	12339	ni yi jing
+情况下	12325	qing kuang xia
+都快	12297	dou kuai
+知道啊	12280	zhi dao a
+想买	12275	xiang mai
+我玩	12262	wo wan
+在北京	12256	zai bei jing
+你玩	12251	ni wan
+还不睡	12251	hai bu shui
+很美	12227	hen mei
+不客气	12222	bu ke qi
+去看看	12193	qu kan kan
+少了	12182	shao le
+我也喜欢	12182	wo ye xi huan
+都看	12181	dou kan
+这么早	12177	zhe me zao
+小哥哥	12169	xiao ge ge
+和他	12148	he ta
+多个	12141	duo ge
+打了	12133	da le
+才会	12128	cai hui
+很少	12124	hen shao
+就行了	12119	jiu xing le
+以为是	12103	yi wei shi
+我爱你	12103	wo ai ni
+你打	12090	ni da
+出去玩	12083	chu qu wan
+反正我	12079	fan zheng wo
+我找	12067	wo zhao
+买个	12064	mai ge
+好滴	12050	hao di
+人是	12045	ren shi
+三天	12030	san tian
+谢谢啦	12027	xie xie la
+个好	12007	ge hao
+带来	11991	dai lai
+全是	11977	quan shi
+喜欢吃	11973	xi huan chi
+像你	11972	xiang ni
+时的	11958	shi de
+好帅	11951	hao shuai
+不可以	11926	bu ke yi
+一人	11913	yi ren
+我做	11910	wo zuo
+用了	11870	yong le
+不错的	11867	bu cuo de
+不好看	11865	bu hao kan
+这么好	11847	zhe me hao
+这两天	11842	zhe liang tian
+要有	11825	yao you
+说过	11816	shuo guo
+很开心	11812	hen kai xin
+我还以为	11783	wo hai yi wei
+有啊	11774	you a
+谈恋爱	11774	tan lian ai
+恭喜恭喜	11772	gong xi gong xi
+我对	11763	wo dui
+就没有	11750	jiu mei you
+你发	11742	ni fa
+来找我	11718	lai zhao wo
+陪我	11714	pei wo
+怎么这么	11706	zen me zhe me
+女孩子	11702	nv hai zi
+我们一起	11684	wo men yi qi
+你俩	11658	ni lia
+没有人	11643	mei you ren
+一点点	11633	yi dian dian
+看电影	11625	kan dian ying
+注意安全	11619	zhu yi an quan
+也去	11613	ye qu
+你带	11606	ni dai
+回学校	11601	hui xue xiao
+是好	11595	shi hao
+胖的	11589	pang de
+睡的	11584	shui de
+十年	11554	shi nian
+掉了	11551	diao le
+你为什么	11542	ni wei shen me
+可爱了	11527	ke ai le
+如果你	11500	ru guo ni
+原来你	11466	yuan lai ni
+喝了	11442	he le
+穿的	11439	chuan de
+早点睡	11412	zao dian shui
+所有的	11394	suo you de
+成了	11390	cheng le
+坏了	11386	huai le
+我打	11362	wo da
+做什么	11351	zuo shen me
+知道是	11343	zhi dao shi
+就看	11336	jiu kan
+只会	11279	zhi hui
+不动	11237	bu dong
+还说	11229	hai shuo
+不大	11205	bu da
+做好	11205	zuo hao
+你啦	11194	ni la
+被我	11155	bei wo
+可以啊	11150	ke yi a
+好大	11150	hao da
+走的	11138	zou de
+好好的	11134	hao hao de
+我这个	11131	wo zhe ge
+不胖	11129	bu pang
+注意身体	11115	zhu yi shen ti
+懂的	11096	dong de
+没想到	11096	mei xiang dao
+你啥	11092	ni sha
+要给	11080	yao gei
+小可爱	11054	xiao ke ai
+在那	11047	zai na
+都这么	11043	dou zhe me
+我还在	11031	wo hai zai
+总会	11023	zong hui
+美了	11019	mei le
+有很多	11017	you hen duo
+你今天	10971	ni jin tian
+好看了	10968	hao kan le
+是自己	10964	shi zi ji
+放在	10951	fang zai
+想着	10946	xiang zhe
+怎么知道	10943	zen me zhi dao
+瘦的	10920	shou de
+要说	10899	yao shuo
+一定是	10896	yi ding shi
+意思是	10889	yi si shi
+爱吃	10858	ai chi
+好喝	10828	hao he
+给自己	10812	gei zi ji
+跟我说	10802	gen wo shuo
+你一样	10793	ni yi yang
+我一样	10792	wo yi yang
+有那么	10785	you na me
+我们这	10767	wo men zhe
+我觉得你	10737	wo jue de ni
+肯定是	10735	ken ding shi
+可怜的	10717	ke lian de
+还没睡	10709	hai mei shui
+那时候	10691	na shi hou
+做到	10652	zuo dao
+不晓得	10644	bu xiao de
+要做	10641	yao zuo
+就走	10608	jiu zou
+带上	10587	dai shang
+睡觉了	10586	shui jiao le
+喜欢的人	10580	xi huan de ren
+就这样	10564	jiu zhe yang
+看得	10563	kan de
+没那么	10561	mei na me
+两个人	10530	liang ge ren
+不开	10526	bu kai
+真的吗	10519	zhen de ma
+不睡觉	10514	bu shui jiao
+就来	10514	jiu lai
+就喜欢	10499	jiu xi huan
+我们是	10477	wo men shi
+羡慕你	10472	xian mu ni
+还不是	10456	hai bu shi
+你最	10455	ni zui
+你快	10434	ni kuai
+并不是	10432	bing bu shi
+好好休息	10420	hao hao xiu xi
+好有	10420	hao you
+这么大	10418	zhe me da
+是滴	10407	shi di
+我发现	10390	wo fa xian
+这就	10387	zhe jiu
+什么鬼	10353	shen me gui
+不就	10345	bu jiu
+点多	10311	dian duo
+放假了	10305	fang jia le
+都不会	10302	dou bu hui
+就不会	10274	jiu bu hui
+是大	10255	shi da
+你走	10246	ni zou
+咋了	10246	za le
+会去	10240	hui qu
+你不要	10238	ni bu yao
+好点	10238	hao dian
+我不想	10231	wo bu xiang
+冷了	10218	leng le
+见了	10217	jian le
+你吗	10212	ni ma
+都喜欢	10202	dou xi huan
+岁的	10201	sui de
+吃什么	10197	chi shen me
+好累	10195	hao lei
+回来的	10194	hui lai de
+没时间	10181	mei shi jian
+被人	10176	bei ren
+喜欢他	10167	xi huan ta
+不觉得	10157	bu jue de
+回了	10155	hui le
+上班了	10152	shang ban le
+你哦	10135	ni o
+朋友圈	10129	peng you quan
+你一起	10122	ni yi qi
+好梦	10120	hao meng
+在等	10105	zai deng
+你跟	10081	ni gen
+是对	10068	shi dui
+其他的	10064	qi ta de
+天的	10036	tian de
+回复我	10035	hui fu wo
+换个	10027	huan ge
+要好好	9994	yao hao hao
+我用	9988	wo yong
+太好了	9971	tai hao le
+你先	9969	ni xian
+才有	9966	cai you
+才知道	9961	cai zhi dao
+个小时	9953	ge xiao shi
+我也在	9937	wo ye zai
+就这么	9928	jiu zhe me
+真好看	9926	zhen hao kan
+不理	9921	bu li
+这个是	9904	zhe ge shi
+就觉得	9888	jiu jue de
+我要去	9875	wo yao qu
+现在就	9859	xian zai jiu
+可以有	9853	ke yi you
+觉得自己	9851	jue de zi ji
+过去了	9842	guo qu le
+时候就	9823	shi hou jiu
+美好的	9816	mei hao de
+去玩	9810	qu wan
+爱上	9791	ai shang
+小伙伴	9786	xiao huo ban
+我记得	9783	wo ji de
+把自己	9756	ba zi ji
+我一个人	9745	wo yi ge ren
+像我	9736	xiang wo
+又去	9725	you qu
+人啊	9718	ren a
+在外面	9713	zai wai mian
+去啊	9705	qu a
+她是	9661	ta shi
+就睡	9642	jiu shui
+能看	9624	neng kan
+明明是	9622	ming ming shi
+原来是	9621	yuan lai shi
+来啦	9621	lai la
+秀恩爱	9618	xiu en ai
+你多	9614	ni duo
+好哒	9602	hao da
+没毛病	9586	mei mao bing
+又有	9569	you you
+不回	9549	bu hui
+要买	9542	yao mai
+太可爱	9540	tai ke ai
+是我们	9539	shi wo men
+住了	9534	zhu le
+要在	9498	yao zai
+我大	9495	wo da
+学校的	9470	xue xiao de
+有问题	9469	you wen ti
+还是你	9464	hai shi ni
+一开始	9462	yi kai shi
+你那么	9447	ni na me
+可以了	9445	ke yi le
+个小	9444	ge xiao
+你别	9444	ni bie
+照顾好	9441	zhao gu hao
+我先	9435	wo xian
+你比	9430	ni bi
+开心就	9389	kai xin jiu
+都知道	9387	dou zhi dao
+会说	9383	hui shuo
+看到的	9378	kan dao de
+会好	9364	hui hao
+我朋友	9348	wo peng you
+早点休息	9343	zao dian xiu xi
+漂亮的	9340	piao liang de
+一起加油	9336	yi qi jia you
+天了	9313	tian le
+没有了	9311	mei you le
+特别是	9306	te bie shi
+看不懂	9287	kan bu dong
+在那里	9286	zai na li
+这是我	9276	zhe shi wo
+好漂亮	9270	hao piao liang
+吃东西	9248	chi dong xi
+这么晚	9248	zhe me wan
+怎么可能	9241	zen me ke neng
+剪了	9239	jian le
+只有我	9215	zhi you wo
+我爸	9206	wo ba
+毕业了	9177	bi ye le
+吃火锅	9169	chi huo guo
+就开始	9166	jiu kai shi
+感冒了	9153	gan mao le
+快回来	9152	kuai hui lai
+跟你说	9123	gen ni shuo
+怕你	9112	pa ni
+你没有	9104	ni mei you
+看见你	9095	kan jian ni
+有这么	9088	you zhe me
+不清楚	9085	bu qing chu
+我帮	9065	wo bang
+你以为	9044	ni yi wei
+对自己	9044	dui zi ji
+看到我	9041	kan dao wo
+我什么	9002	wo shen me
+就是这样	8996	jiu shi zhe yang
+还记得	8991	hai ji de
+不知道你	8971	bu zhi dao ni
+不应该	8966	bu ying gai
+人说	8962	ren shuo
+你发现	8961	ni fa xian
+节日快乐	8951	jie ri kuai le
+想多	8930	xiang duo
+玩啊	8925	wan a
+一说	8923	yi shuo
+这话	8921	zhe hua
+怎么说	8919	zen me shuo
+那就是	8915	na jiu shi
+一大	8893	yi da
+一段时间	8868	yi duan shi jian
+我得	8862	wo de
+很不错	8859	hen bu cuo
+我呢	8838	wo ne
+她在	8832	ta zai
+什么啊	8827	shen me a
+人多	8819	ren duo
+会让	8813	hui rang
+就吃	8804	jiu chi
+我一起	8793	wo yi qi
+好幸福	8779	hao xing fu
+让我们	8776	rang wo men
+以前的	8774	yi qian de
+就不要	8771	jiu bu yao
+很好吃	8757	hen hao chi
+不适合	8744	bu shi he
+好看啊	8739	hao kan a
+我以为你	8727	wo yi wei ni
+又来	8723	you lai
+不起来	8721	bu qi lai
+今天的	8713	jin tian de
+我的天	8710	wo de tian
+谁说	8709	shui shuo
+不清	8703	bu qing
+更好的	8701	geng hao de
+就不能	8687	jiu bu neng
+知道怎么	8680	zhi dao zen me
+您的	8676	nin de
+起来的	8669	qi lai de
+你在哪	8665	ni zai na
+你啥时候	8664	ni sha shi hou
+全世界	8660	quan shi jie
+不冷	8647	bu leng
+我看看	8642	wo kan kan
+什么了	8629	shen me le
+不存在	8613	bu cun zai
+好开心	8605	hao kai xin
+吃到	8603	chi dao
+你呀	8602	ni ya
+单身狗	8599	dan shen gou
+还挺	8595	hai ting
+买到	8589	mai dao
+可以在	8585	ke yi zai
+做个	8581	zuo ge
+好多人	8548	hao duo ren
+出现在	8542	chu xian zai
+其实是	8531	qi shi shi
+我这么	8521	wo zhe me
+我以前	8512	wo yi qian
+快乐啊	8503	kuai le a
+不好吃	8502	bu hao chi
+会更	8496	hui geng
+我等	8490	wo deng
+忍不住	8489	ren bu zhu
+都觉得	8487	dou jue de
+才发现	8486	cai fa xian
+说出来	8486	shuo chu lai
+我好像	8474	wo hao xiang
+睡着了	8471	shui zhao le
+也不错	8464	ye bu cuo
+我之前	8464	wo zhi qian
+一首	8459	yi shou
+什么事	8458	shen me shi
+穿了	8455	chuan le
+难道你	8445	nan dao ni
+要多	8427	yao duo
+不下去	8421	bu xia qu
+我是不是	8421	wo shi bu shi
+真正的	8419	zhen zheng de
+也看	8401	ye kan
+什么好	8392	shen me hao
+而不是	8388	er bu shi
+有木有	8380	you mu you
+想让	8358	xiang rang
+给了	8351	gei le
+一百	8343	yi bai
+喜欢你的	8338	xi huan ni de
+都给	8338	dou gei
+也爱	8336	ye ai
+好羡慕	8332	hao xian mu
+都不想	8326	dou bu xiang
+世界上	8309	shi jie shang
+你对	8309	ni dui
+花了	8309	hua le
+来呀	8292	lai ya
+这张	8291	zhe zhang
+看来你	8259	kan lai ni
+怎么能	8253	zen me neng
+长大了	8247	zhang da le
+可以吗	8237	ke yi ma
+认识的	8223	ren shi de
+总有	8221	zong you
+好呢	8189	hao ne
+工作了	8188	gong zuo le
+在上海	8182	zai shang hai
+认识你	8180	ren shi ni
+可以看	8172	ke yi kan
+说呢	8172	shuo ne
+想了	8171	xiang le
+上有	8170	shang you
+那就好	8169	na jiu hao
+我这里	8166	wo zhe li
+也不想	8146	ye bu xiang
+在哪儿	8144	zai na er
+变了	8134	bian le
+然后就	8122	ran hou jiu
+住在	8119	zhu zai
+尤其是	8119	you qi shi
+我每天	8118	wo mei tian
+也不能	8116	ye bu neng
+棒了	8112	bang le
+我回来	8107	wo hui lai
+请你吃	8104	qing ni chi
+吃个	8101	chi ge
+好朋友	8101	hao peng you
+不怎么	8092	bu zen me
+说实话	8086	shuo shi hua
+几年	8085	ji nian
+开心就好	8076	kai xin jiu hao
+你得	8071	ni de
+我吃饭	8068	wo chi fan
+点就	8068	dian jiu
+看不见	8057	kan bu jian
+存在的	8051	cun zai de
+要注意	8045	yao zhu yi
+虽然我	8037	sui ran wo
+都吃	8034	dou chi
+又在	8028	you zai
+一片	8026	yi pian
+这部	8007	zhe bu
+能有	8004	neng you
+工作的	7997	gong zuo de
+吃啊	7994	chi a
+第二天	7991	di er tian
+好的好	7968	hao de hao
+能在	7963	neng zai
+能让	7944	neng rang
+我睡	7929	wo shui
+下雨了	7926	xia yu le
+结束了	7920	jie shu le
+太美	7917	tai mei
+要跟	7910	yao gen
+懂了	7906	dong le
+你吧	7902	ni ba
+你是我	7894	ni shi wo
+我可能	7894	wo ke neng
+不叫	7884	bu jiao
+什么呢	7882	shen me ne
+不就是	7879	bu jiu shi
+两种	7878	liang zhong
+比较好	7866	bi jiao hao
+一波	7854	yi bo
+也得	7852	ye de
+谁啊	7851	shui a
+跟他	7850	gen ta
+不小心	7846	bu xiao xin
+这样啊	7844	zhe yang a
+我发	7838	wo fa
+那必须	7837	na bi xu
+想做	7834	xiang zuo
+最棒的	7799	zui bang de
+这么快	7780	zhe me kuai
+今天我	7777	jin tian wo
+很可爱	7777	hen ke ai
+都不敢	7773	dou bu gan
+认真的	7768	ren zhen de
+好起来	7767	hao qi lai
+挺好看	7766	ting hao kan
+说出	7764	shuo chu
+都一样	7764	dou yi yang
+也这么	7735	ye zhe me
+我走	7731	wo zou
+就给	7729	jiu gei
+我懂	7727	wo dong
+笑死我	7727	xiao si wo
+我准备	7719	wo zhun bei
+你看看	7709	ni kan kan
+我们家	7700	wo men jia
+我也有	7695	wo ye you
+说要	7691	shuo yao
+它是	7690	ta shi
+到底是	7683	dao di shi
+快就	7680	kuai jiu
+这么久	7680	zhe me jiu
+你也要	7679	ni ye yao
+他就	7676	ta jiu
+不舒服	7659	bu shu fu
+你竟然	7641	ni jing ran
+你不会	7640	ni bu hui
+啥意思	7640	sha yi si
+找到了	7636	zhao dao le
+明天就	7633	ming tian jiu
+我帮你	7631	wo bang ni
+欢迎你	7631	huan ying ni
+没买	7628	mei mai
+相信你	7625	xiang xin ni
+我到	7623	wo dao
+然后我	7621	ran hou wo
+太可爱了	7608	tai ke ai le
+去找你	7602	qu zhao ni
+好快	7591	hao kuai
+不行了	7589	bu xing le
+再看	7586	zai kan
+已经在	7586	yi jing zai
+不是一个	7585	bu shi yi ge
+你回	7556	ni hui
+干什么	7554	gan shen me
+没到	7552	mei dao
+小了	7550	xiao le
+是这样的	7545	shi zhe yang de
+没有什么	7533	mei you shen me
+加油啊	7528	jia you a
+被你发现	7523	bei ni fa xian
+那个人	7520	na ge ren
+一圈	7516	yi quan
+想起来	7505	xiang qi lai
+人就	7504	ren jiu
+有一天	7497	you yi tian
+像是	7490	xiang shi
+我跟你	7488	wo gen ni
+能看到	7482	neng kan dao
+看看你	7473	kan kan ni
+没有我	7471	mei you wo
+太累	7466	tai lei
+是的呢	7464	shi de ne
+玩手机	7459	wan shou ji
+你一定	7450	ni yi ding
+过去的	7440	guo qu de
+让自己	7436	rang zi ji
+给她	7429	gei ta
+长时间	7429	zhang shi jian
+不愿意	7424	bu yuan yi
+就够	7423	jiu gou
+说好的	7421	shuo hao de
+帅了	7420	shuai le
+我从	7420	wo cong
+发生了	7414	fa sheng le
+说啥	7413	shuo sha
+在家里	7411	zai jia li
+情人节	7410	qing ren jie
+都不是	7410	dou bu shi
+在一个	7401	zai yi ge
+羡慕嫉妒	7399	xian mu ji du
+看吧	7398	kan ba
+我错了	7392	wo cuo le
+起了	7391	qi le
+不知道我	7381	bu zhi dao wo
+多吃点	7373	duo chi dian
+开心了	7369	kai xin le
+我咋	7368	wo za
+是哪个	7363	shi na ge
+爱你的	7363	ai ni de
+高了	7362	gao le
+还是有	7361	hai shi you
+我知道你	7360	wo zhi dao ni
+对他	7353	dui ta
+大学的	7349	da xue de
+你开心	7348	ni kai xin
+我一定	7346	wo yi ding
+也是我	7341	ye shi wo
+看你的	7338	kan ni de
+我请	7336	wo qing
+明天去	7335	ming tian qu
+人去	7331	ren qu
+时候你	7318	shi hou ni
+我更	7317	wo geng
+你不知道	7308	ni bu zhi dao
+时候回来	7304	shi hou hui lai
+想好	7301	xiang hao
+不会的	7292	bu hui de
+今天是	7288	jin tian shi
+自己是	7287	zi ji shi
+叫什么	7285	jiao shen me
+还以为你	7283	hai yi wei ni
+你确定	7282	ni que ding
+来个	7271	lai ge
+能给	7268	neng gei
+不跟	7266	bu gen
+超喜欢	7263	chao xi huan
+美丽的	7250	mei li de
+很重要	7248	hen zhong yao
+下个月	7247	xia ge yue
+还不知道	7239	hai bu zhi dao
+部电影	7235	bu dian ying
+下午好	7233	xia wu hao
+心疼你	7222	xin teng ni
+不回来	7219	bu hui lai
+准备好	7219	zhun bei hao
+想你了	7219	xiang ni le
+支持你	7219	zhi chi ni
+以为我	7208	yi wei wo
+那我就	7206	na wo jiu
+一起的	7204	yi qi de
+我猜	7201	wo cai
+这样说	7201	zhe yang shuo
+恭喜你	7196	gong xi ni
+正能量	7194	zheng neng liang
+那么大	7194	na me da
+远了	7188	yuan le
+你懂的	7184	ni dong de
+给你看	7179	gei ni kan
+同一个	7173	tong yi ge
+很帅	7173	hen shuai
+她说	7157	ta shuo
+找了	7151	zhao le
+发现你	7145	fa xian ni
+大长腿	7145	da chang tui
+确实是	7142	que shi shi
+丢了	7139	diu le
+不知道啊	7137	bu zhi dao a
+出现了	7137	chu xian le
+没有你	7126	mei you ni
+我也好	7116	wo ye hao
+你可	7111	ni ke
+分手了	7106	fen shou le
+你发现了	7098	ni fa xian le
+摸摸头	7097	mo mo tou
+站在	7096	zhan zai
+你穿	7091	ni chuan
+就得	7085	jiu de
+可以可以	7070	ke yi ke yi
+你是在	7063	ni shi zai
+本来就是	7059	ben lai jiu shi
+下雪了	7052	xia xue le
+有些人	7046	you xie ren
+你瘦	7037	ni shou
+我可	7031	wo ke
+早了	7031	zao le
+不记得	7028	bu ji de
+年轻的	7004	nian qing de
+太好看	6996	tai hao kan
+这辈子	6991	zhe bei zi
+不过你	6985	bu guo ni
+没看过	6984	mei kan guo
+我们学校	6975	wo men xue xiao
+我都是	6969	wo dou shi
+还好吧	6966	hai hao ba
+可以吃	6963	ke yi chi
+在路上	6958	zai lu shang
+人有	6956	ren you
+我俩	6948	wo lia
+怎么看	6927	zen me kan
+不能吃	6925	bu neng chi
+感觉我	6921	gan jue wo
+回来啦	6911	hui lai la
+想多了	6910	xiang duo le
+爱了	6907	ai le
+自己去	6902	zi ji qu
+带你去	6890	dai ni qu
+请问你	6881	qing wen ni
+时候来	6879	shi hou lai
+那么好	6856	na me hao
+是这个	6855	shi zhe ge
+下去了	6853	xia qu le
+带了	6851	dai le
+要这么	6843	yao zhe me
+不错啊	6840	bu cuo a
+拿到	6838	na dao
+还不如	6832	hai bu ru
+我问	6827	wo wen
+不是啊	6821	bu shi a
+对吧	6816	dui ba
+之前的	6812	zhi qian de
+自己做	6801	zi ji zuo
+可以用	6789	ke yi yong
+最重要的	6789	zui zhong yao de
+关键是	6788	guan jian shi
+简单的	6788	jian dan de
+唯一的	6787	wei yi de
+都是我	6782	dou shi wo
+不好的	6780	bu hao de
+哪里有	6774	na li you
+你拍	6768	ni pai
+我只想	6766	wo zhi xiang
+你换	6764	ni huan
+不买	6760	bu mai
+好厉害	6755	hao li hai
+不该	6752	bu gai
+其他人	6749	qi ta ren
+我呀	6731	wo ya
+不听	6730	bu ting
+跑了	6730	pao le
+不完	6724	bu wan
+去做	6723	qu zuo
+如果是	6721	ru guo shi
+错过了	6721	cuo guo le
+一对	6718	yi dui
+好冷	6717	hao leng
+关注你	6714	guan zhu ni
+开始了	6714	kai shi le
+我还有	6713	wo hai you
+你这种	6705	ni zhe zhong
+这是什么	6698	zhe shi shen me
+没吃过	6696	mei chi guo
+当然是	6692	dang ran shi
+会想	6688	hui xiang
+更多的	6687	geng duo de
+你肯定	6685	ni ken ding
+我本来	6683	wo ben lai
+我只能	6678	wo zhi neng
+你还有	6676	ni hai you
+我的小	6674	wo de xiao
+加油哦	6673	jia you o
+想找	6659	xiang zhao
+就别	6647	jiu bie
+没看见	6647	mei kan jian
+吃饭了	6646	chi fan le
+要了	6646	yao le
+你用	6641	ni yong
+天啊	6634	tian a
+好多了	6631	hao duo le
+也行	6630	ye xing
+大晚上	6625	da wan shang
+这个我	6625	zhe ge wo
+就可以了	6615	jiu ke yi le
+是没有	6615	shi mei you
+都去	6611	dou qu
+坐在	6605	zuo zai
+很累	6604	hen lei
+所有人	6599	suo you ren
+留在	6595	liu zai
+要找	6588	yao zhao
+能做	6580	neng zuo
+会吧	6568	hui ba
+一起吃	6565	yi qi chi
+没来	6558	mei lai
+我多	6549	wo duo
+来玩	6547	lai wan
+如果我	6546	ru guo wo
+我相信	6544	wo xiang xin
+被发现	6543	bei fa xian
+觉得是	6530	jue de shi
+给我们	6529	gei wo men
+天就	6518	tian jiu
+我上	6517	wo shang
+我们在	6512	wo men zai
+你回家	6510	ni hui jia
+喜欢看	6509	xi huan kan
+已经是	6508	yi jing shi
+不准	6506	bu zhun
+不是在	6502	bu shi zai
+看懂	6502	kan dong
+时候去	6492	shi hou qu
+给你们	6483	gei ni men
+我回去	6482	wo hui qu
+只能说	6481	zhi neng shuo
+写了	6475	xie le
+个大	6473	ge da
+删了	6469	shan le
+生活的	6465	sheng huo de
+那不是	6462	na bu shi
+什么叫	6452	shen me jiao
+黑了	6448	hei le
+等了	6447	deng le
+也快	6442	ye kuai
+里面的	6442	li mian de
+不告诉	6441	bu gao su
+太远	6441	tai yuan
+我比	6441	wo bi
+请我吃饭	6429	qing wo chi fan
+你一直	6427	ni yi zhi
+五个	6425	wu ge
+吃啥	6414	chi sha
+怎么做	6412	zen me zuo
+一本	6406	yi ben
+你说我	6405	ni shuo wo
+一个人的	6391	yi ge ren de
+我不喜欢	6383	wo bu xi huan
+这种人	6382	zhe zhong ren
+我应该	6379	wo ying gai
+很漂亮	6378	hen piao liang
+说这	6369	shuo zhe
+看啊	6366	kan a
+你还在	6363	ni hai zai
+我来了	6359	wo lai le
+我快	6355	wo kuai
+这个问题	6354	zhe ge wen ti
+为什么你	6351	wei shen me ni
+好饿	6345	hao e
+都这样	6343	dou zhe yang
+想过	6328	xiang guo
+不去了	6327	bu qu le
+行吧	6315	xing ba
+你要是	6309	ni yao shi
+我生日	6309	wo sheng ri
+输了	6308	shu le
+也是啊	6304	ye shi a
+快乐哦	6301	kuai le o
+一下吗	6297	yi xia ma
+也挺	6296	ye ting
+不爱我	6292	bu ai wo
+多啊	6288	duo a
+可以给	6284	ke yi gei
+怎么就	6279	zen me jiu
+之类的	6277	zhi lei de
+这个可以	6276	zhe ge ke yi
+去哪儿	6272	qu na er
+三月	6270	san yue
+现在我	6268	xian zai wo
+是最棒	6264	shi zui bang
+觉得好	6263	jue de hao
+这么想	6262	zhe me xiang
+我们就	6250	wo men jiu
+想跟	6243	xiang gen
+我每次	6240	wo mei ci
+笑了	6238	xiao le
+就是想	6237	jiu shi xiang
+带我去	6235	dai wo qu
+不见了	6225	bu jian le
+不下来	6224	bu xia lai
+三次	6220	san ci
+我是说	6220	wo shi shuo
+也就是	6218	ye jiu shi
+有多少	6212	you duo shao
+知道吗	6208	zhi dao ma
+你让	6205	ni rang
+你找	6203	ni zhao
+到时	6200	dao shi
+这样了	6199	zhe yang le
+让她	6194	rang ta
+第一天	6192	di yi tian
+要走	6186	yao zou
+等着你	6179	deng zhe ni
+没啊	6169	mei a
+太棒	6168	tai bang
+等你回来	6168	deng ni hui lai
+慢慢来	6164	man man lai
+好早	6162	hao zao
+最近的	6157	zui jin de
+我就说	6154	wo jiu shuo
+在干嘛	6150	zai gan ma
+看就	6148	kan jiu
+我喜欢你	6144	wo xi huan ni
+太快	6132	tai kuai
+我天天	6132	wo tian tian
+就是这么	6130	jiu shi zhe me
+是最棒的	6130	shi zui bang de
+努力的	6129	nu li de
+热了	6127	re le
+睡啊	6127	shui a
+发现我	6115	fa xian wo
+就算了	6114	jiu suan le
+现在已经	6113	xian zai yi jing
+要带	6112	yao dai
+因为他	6110	yin wei ta
+听了	6107	ting le
+我就想	6107	wo jiu xiang
+大概是	6106	da gai shi
+不是吧	6104	bu shi ba
+就好啦	6095	jiu hao la
+会给	6092	hui gei
+我老公	6091	wo lao gong
+来我家	6088	lai wo jia
+你是谁	6084	ni shi shui
+那儿	6081	na er
+不一样的	6080	bu yi yang de
+多穿	6079	duo chuan
+也来	6067	ye lai
+不明白	6063	bu ming bai
+估计是	6055	gu ji shi
+正常的	6033	zheng chang de
+这个人	6033	zhe ge ren
+世界的	6030	shi jie de
+很厉害	6025	hen li hai
+美少女	6025	mei shao nv
+是的是	6023	shi de shi
+想太多	6021	xiang tai duo
+好久了	6018	hao jiu le
+来吃	6016	lai chi
+学校了	6015	xue xiao le
+而且我	6003	er qie wo
+我早	5990	wo zao
+我们去	5981	wo men qu
+这也是	5979	zhe ye shi
+我刚刚	5978	wo gang gang
+感觉自己	5977	gan jue zi ji
+最后的	5975	zui hou de
+加油吧	5974	jia you ba
+什么样的	5971	shen me yang de
+但是你	5968	dan shi ni
+这叫	5966	zhe jiao
+我听	5961	wo ting
+工作人员	5960	gong zuo ren yuan
+天哪	5958	tian na
+一夜	5955	yi ye
+快乐呀	5953	kuai le ya
+不约	5951	bu yue
+想要的	5946	xiang yao de
+又想	5944	you xiang
+你在哪里	5940	ni zai na li
+您好	5940	nin hao
+恋爱了	5937	lian ai le
+行啊	5936	xing a
+我想要	5933	wo xiang yao
+电影的	5933	dian ying de
+你干嘛	5926	ni gan ma
+没呢	5921	mei ne
+你吃饭	5919	ni chi fan
+就够了	5917	jiu gou le
+心情不好	5916	xin qing bu hao
+我不要	5916	wo bu yao
+怎么那么	5912	zen me na me
+你也可以	5910	ni ye ke yi
+你问	5909	ni wen
+说自己	5909	shuo zi ji
+就到	5907	jiu dao
+还真是	5907	hai zhen shi
+晚上的	5901	wan shang de
+我心里	5896	wo xin li
+就回来	5889	jiu hui lai
+美啊	5887	mei a
+周末愉快	5883	zhou mo yu kuai
+去北京	5877	qu bei jing
+下来了	5876	xia lai le
+不走	5876	bu zou
+哪来	5876	na lai
+你才是	5873	ni cai shi
+刚开始	5872	gang kai shi
+很好的	5870	hen hao de
+能用	5866	neng yong
+会觉得	5863	hui jue de
+就是个	5863	jiu shi ge
+要让	5863	yao rang
+放了	5857	fang le
+就不是	5854	jiu bu shi
+人会	5846	ren hui
+就跟	5846	jiu gen
+看见了	5846	kan jian le
+难道不是	5846	nan dao bu shi
+马上就	5845	ma shang jiu
+睡到	5844	shui dao
+里有	5844	li you
+我回家	5830	wo hui jia
+晚安啦	5830	wan an la
+时间的	5823	shi jian de
+真有	5815	zhen you
+这点	5812	zhe dian
+你送	5811	ni song
+我好想	5807	wo hao xiang
+不会有	5804	bu hui you
+挺好看的	5804	ting hao kan de
+我家的	5801	wo jia de
+好难	5798	hao nan
+真的假	5797	zhen de jia
+走到	5797	zou dao
+表情包	5794	biao qing bao
+你到	5793	ni dao
+怎么回事	5793	zen me hui shi
+打个	5783	da ge
+好好吃	5778	hao hao chi
+人要	5777	ren yao
+有一种	5776	you yi zhong
+还是我	5775	hai shi wo
+你更	5773	ni geng
+知道什么	5772	zhi dao shen me
+我看你	5769	wo kan ni
+忘记了	5767	wang ji le
+话说你	5760	hua shuo ni
+要用	5759	yao yong
+你真是	5758	ni zhen shi
+要这样	5753	yao zhe yang
+就是要	5749	jiu shi yao
+很高	5745	hen gao
+不许	5743	bu xu
+很容易	5741	hen rong yi
+过生日	5738	guo sheng ri
+可爱啊	5737	ke ai a
+我想说	5733	wo xiang shuo
+回家的	5729	hui jia de
+就买	5729	jiu mai
+就是啊	5729	jiu shi a
+不相信	5722	bu xiang xin
+我们要	5722	wo men yao
+总觉得	5718	zong jue de
+记得我	5715	ji de wo
+是哪里	5709	shi na li
+我回	5703	wo hui
+我穿	5694	wo chuan
+特别喜欢	5692	te bie xi huan
+你请	5689	ni qing
+惨了	5689	can le
+吃得	5680	chi de
+我送	5678	wo song
+换手机	5672	huan shou ji
+三个月	5668	san ge yue
+一晚上	5666	yi wan shang
+要想	5664	yao xiang
+男孩子	5661	nan hai zi
+吃吧	5657	chi ba
+每一天	5657	mei yi tian
+你的人	5655	ni de ren
+我也爱	5652	wo ye ai
+为毛	5650	wei mao
+所以说	5637	suo yi shuo
+没怎么	5631	mei zen me
+嫉妒恨	5629	ji du hen
+不到了	5625	bu dao le
+我买了	5622	wo mai le
+什么情况	5621	shen me qing kuang
+没有没有	5620	mei you mei you
+到家了	5614	dao jia le
+不做	5612	bu zuo
+骂你	5612	ma ni
+我叫	5608	wo jiao
+我比较	5608	wo bi jiao
+伤不起	5603	shang bu qi
+什么是	5594	shen me shi
+不了了	5593	bu le le
+有钱人	5591	you qian ren
+很久了	5589	hen jiu le
+我看了	5587	wo kan le
+听不懂	5585	ting bu dong
+拍了	5585	pai le
+还早	5582	hai zao
+看完了	5580	kan wan le
+我们这里	5578	wo men zhe li
+该怎么	5575	gai zen me
+没发现	5574	mei fa xian
+不太好	5571	bu tai hao
+是的呀	5569	shi de ya
+太高	5568	tai gao
+喜欢她	5566	xi huan ta
+不急	5564	bu ji
+不哭	5563	bu ku
+要上班	5554	yao shang ban
+好就	5545	hao jiu
+放弃了	5544	fang qi le
+说的对	5544	shuo de dui
+一期	5543	yi qi
+第二个	5543	di er ge
+说一句	5541	shuo yi ju
+想给	5536	xiang gei
+做朋友	5535	zuo peng you
+毛不易	5535	mao bu yi
+今天去	5534	jin tian qu
+帅啊	5517	shuai a
+还给	5511	hai gei
+太小	5510	tai xiao
+会做	5503	hui zuo
+只不过	5503	zhi bu guo
+这样子	5502	zhe yang zi
+快到	5498	kuai dao
+他有	5495	ta you
+会有的	5495	hui you de
+关注我	5491	guan zhu wo
+很爱	5489	hen ai
+我么	5482	wo me
+小姑娘	5477	xiao gu niang
+你敢	5470	ni gan
+一起了	5468	yi qi le
+还是会	5463	hai shi hui
+就更	5461	jiu geng
+我为什么	5459	wo wei shen me
+感受到	5454	gan shou dao
+这是在	5454	zhe shi zai
+这么好看	5453	zhe me hao kan
+笑死我了	5450	xiao si wo le
+每一个	5445	mei yi ge
+肯定会	5443	ken ding hui
+下个	5437	xia ge
+在广州	5435	zai guang zhou
+你大	5433	ni da
+手机了	5432	shou ji le
+生了	5427	sheng le
+是可以	5426	shi ke yi
+没找到	5424	mei zhao dao
+请我吃	5423	qing wo chi
+身边的	5422	shen bian de
+一起玩	5420	yi qi wan
+越来越好	5420	yue lai yue hao
+问题是	5419	wen ti shi
+哪里啊	5416	na li a
+太好看了	5409	tai hao kan le
+一个小	5408	yi ge xiao
+下一个	5406	xia yi ge
+吃好吃	5403	chi hao chi
+未来的	5398	wei lai de
+你终于	5394	ni zhong yu
+没去过	5390	mei qu guo
+一般的	5388	yi ban de
+可能的	5386	ke neng de
+我说你	5386	wo shuo ni
+还没到	5386	hai mei dao
+不远	5385	bu yuan
+吃多	5383	chi duo
+就当	5383	jiu dang
+都不能	5379	dou bu neng
+厉害的	5372	li hai de
+没在	5367	mei zai
+给你买	5365	gei ni mai
+要等	5365	yao deng
+记得你	5364	ji de ni
+你说你	5359	ni shuo ni
+孩子的	5359	hai zi de
+谁知道	5358	shui zhi dao
+不停	5355	bu ting
+拿来	5354	na lai
+没事儿	5354	mei shi er
+问题的	5352	wen ti de
+打麻将	5349	da ma jiang
+太大了	5348	tai da le
+是有多	5346	shi you duo
+也想去	5345	ye xiang qu
+出去了	5342	chu qu le
+幸福啊	5342	xing fu a
+快睡	5342	kuai shui
+一下就	5339	yi xia jiu
+人吗	5333	ren ma
+感觉好	5330	gan jue hao
+适合你	5330	shi he ni
+你不懂	5325	ni bu dong
+不高	5319	bu gao
+很像	5315	hen xiang
+剪头发	5311	jian tou fa
+这周	5311	zhe zhou
+就对	5310	jiu dui
+扎心了	5310	zha xin le
+买不起	5306	mai bu qi
+我想吃	5300	wo xiang chi
+准备去	5298	zhun bei qu
+也一样	5295	ye yi yang
+来嘛	5294	lai ma
+那个是	5291	na ge shi
+就怕	5290	jiu pa
+我瘦	5290	wo shou
+很幸福	5286	hen xing fu
+明天我	5279	ming tian wo
+他会	5272	ta hui
+你讲	5272	ni jiang
+小孩子	5272	xiao hai zi
+不是我的	5271	bu shi wo de
+点吧	5269	dian ba
+上班的	5268	shang ban de
+我请你	5263	wo qing ni
+一个小时	5260	yi ge xiao shi
+我以后	5255	wo yi hou
+更大	5255	geng da
+不穿	5248	bu chuan
+太少	5248	tai shao
+你睡	5245	ni shui
+怎么啦	5245	zen me la
+都是你	5243	dou shi ni
+不会是	5242	bu hui shi
+那么早	5240	na me zao
+不知道是	5238	bu zhi dao shi
+自己喜欢	5238	zi ji xi huan
+话就	5235	hua jiu
+干了	5234	gan le
+大姨妈	5232	da yi ma
+一号	5230	yi hao
+喜欢就	5229	xi huan jiu
+自己想	5226	zi ji xiang
+很正常	5225	hen zheng chang
+一个星期	5223	yi ge xing qi
+你有没有	5216	ni you mei you
+这么可爱	5216	zhe me ke ai
+抱抱你	5214	bao bao ni
+知道有	5214	zhi dao you
+知道自己	5212	zhi dao zi ji
+这个世界	5212	zhe ge shi jie
+玩游戏	5207	wan you xi
+好看吗	5206	hao kan ma
+你过	5201	ni guo
+来给	5199	lai gei
+一直都是	5198	yi zhi dou shi
+我胖	5198	wo pang
+我们都是	5194	wo men dou shi
+一万	5193	yi wan
+觉得他	5192	jue de ta
+相信我	5190	xiang xin wo
+不会吧	5189	bu hui ba
+一直是	5187	yi zhi shi
+你比我	5187	ni bi wo
+好哦	5187	hao o
+你在说	5186	ni zai shuo
+开心啊	5186	kai xin a
+加了	5185	jia le
+就让	5184	jiu rang
+一脸	5183	yi lian
+说明你	5183	shuo ming ni
+大啊	5173	da a
+太冷	5172	tai leng
+冷啊	5168	leng a
+特别的	5168	te bie de
+中了	5163	zhong le
+可以做	5159	ke yi zuo
+第一张	5159	di yi zhang
+想和你	5155	xiang he ni
+你到底	5154	ni dao di
+我连	5153	wo lian
+我昨晚	5142	wo zuo wan
+回来啊	5138	hui lai a
+就是在	5136	jiu shi zai
+很冷	5131	hen leng
+很长	5128	hen zhang
+过两天	5128	guo liang tian
+好长	5122	hao zhang
+看出	5122	kan chu
+在这个	5121	zai zhe ge
+太有	5120	tai you
+会啊	5119	hui a
+你们是	5119	ni men shi
+不是有	5118	bu shi you
+没必要	5117	mei bi yao
+一集	5113	yi ji
+我希望	5109	wo xi wang
+不上班	5103	bu shang ban
+有人说	5103	you ren shuo
+人看	5102	ren kan
+好吃吗	5102	hao chi ma
+没事没事	5102	mei shi mei shi
+看不出来	5101	kan bu chu lai
+吃好	5100	chi hao
+我看到了	5095	wo kan dao le
+考了	5095	kao le
+那你就	5094	na ni jiu
+三点	5092	san dian
+会来	5092	hui lai
+我拍	5091	wo pai
+太帅	5090	tai shuai
+我要是	5086	wo yao shi
+我过	5086	wo guo
+是啊是	5081	shi a shi
+会一直	5079	hui yi zhi
+真美	5073	zhen mei
+要钱	5070	yao qian
+人来	5064	ren lai
+两点	5063	liang dian
+合适的	5063	he shi de
+在宿舍	5062	zai su she
+要什么	5062	yao shen me
+昨天晚上	5047	zuo tian wan shang
+我想知道	5044	wo xiang zhi dao
+就知道了	5040	jiu zhi dao le
+时间了	5039	shi jian le
+太热	5038	tai re
+穿上	5038	chuan shang
+是不会	5035	shi bu hui
+好想你	5033	hao xiang ni
+不打	5032	bu da
+时候能	5032	shi hou neng
+怕我	5031	pa wo
+喜欢这个	5028	xi huan zhe ge
+明白了	5022	ming bai le
+我们会	5021	wo men hui
+还有一个	5017	hai you yi ge
+看看我	5014	kan kan wo
+那么久	5010	na me jiu
+找工作	5009	zhao gong zuo
+你是最棒	5008	ni shi zui bang
+吃好吃的	5008	chi hao chi de
+能去	5006	neng qu
+不早	5004	bu zao
+好几天	4997	hao ji tian
+朋友的	4995	peng you de
+你叫	4992	ni jiao
+去医院	4992	qu yi yuan
+回来吧	4992	hui lai ba
+怎么可以	4990	zen me ke yi
+一直以为	4989	yi zhi yi wei
+半小时	4989	ban xiao shi
+带上我	4989	dai shang wo
+下来的	4987	xia lai de
+是假的	4987	shi jia de
+我从来	4984	wo cong lai
+没事的	4984	mei shi de
+好一点	4980	hao yi dian
+玩吗	4980	wan ma
+希望能	4975	xi wang neng
+你好好	4973	ni hao hao
+哪里的	4966	na li de
+就已经	4966	jiu yi jing
+已经有	4966	yi jing you
+知道他	4962	zhi dao ta
+说啊	4959	shuo a
+我是你	4958	wo shi ni
+成功的	4957	cheng gong de
+想睡	4956	xiang shui
+太晚	4955	tai wan
+都好看	4954	dou hao kan
+快要	4951	kuai yao
+我在家	4951	wo zai jia
+不找	4949	bu zhao
+都行	4946	dou xing
+我陪	4938	wo pei
+什么东西	4936	shen me dong xi
+我还想	4936	wo hai xiang
+太美了	4933	tai mei le
+太难	4931	tai nan
+就回	4931	jiu hui
+咋这么	4925	za zhe me
+想听	4924	xiang ting
+去上海	4923	qu shang hai
+就问	4922	jiu wen
+我男朋友	4922	wo nan peng you
+我买的	4921	wo mai de
+我和你	4920	wo he ni
+一千	4918	yi qian
+张照片	4917	zhang zhao pian
+你男朋友	4913	ni nan peng you
+太棒了	4913	tai bang le
+不方便	4912	bu fang bian
+我嘛	4912	wo ma
+我喜欢的	4911	wo xi huan de
+看来我	4910	kan lai wo
+有两个	4906	you liang ge
+没带	4903	mei dai
+超好看	4903	chao hao kan
+好好玩	4899	hao hao wan
+我们这边	4894	wo men zhe bian
+不给我	4891	bu gei wo
+有这个	4885	you zhe ge
+我啦	4883	wo la
+没有任何	4882	mei you ren he
+我最喜欢	4879	wo zui xi huan
+走吧	4874	zou ba
+要结婚	4868	yao jie hun
+要睡	4866	yao shui
+还是喜欢	4866	hai shi xi huan
+一层	4857	yi ceng
+只要你	4857	zhi yao ni
+早知道	4853	zao zhi dao
+专业的	4848	zhuan ye de
+可以买	4844	ke yi mai
+我这是	4842	wo zhe shi
+一下你	4838	yi xia ni
+我这种	4831	wo zhe zhong
+没有啦	4830	mei you la
+不是要	4828	bu shi yao
+要加油	4828	yao jia you
+过来的	4828	guo lai de
+你胖	4826	ni pang
+太累了	4823	tai lei le
+还小	4823	hai xiao
+失眠了	4822	shi mian le
+一下我	4821	yi xia wo
+真想	4821	zhen xiang
+很快就	4813	hen kuai jiu
+问一下	4812	wen yi xia
+好啊好	4811	hao a hao
+我可是	4811	wo ke shi
+不累	4807	bu lei
+过一次	4799	guo yi ci
+一小	4797	yi xiao
+你看到	4789	ni kan dao
+我也这么	4787	wo ye zhe me
+喜欢了	4786	xi huan le
+太喜欢	4786	tai xi huan
+谁了	4786	shui le
+一个多	4784	yi ge duo
+知道啦	4784	zhi dao la
+满满的	4780	man man de
+我哪	4779	wo na
+还有我	4777	hai you wo
+好东西	4775	hao dong xi
+小哥	4775	xiao ge
+最爱的	4775	zui ai de
+我还要	4771	wo hai yao
+特别好	4771	te bie hao
+打游戏	4770	da you xi
+能帮我	4770	neng bang wo
+人真	4768	ren zhen
+你该	4767	ni gai
+我认识	4765	wo ren shi
+难道是	4763	nan dao shi
+优秀的	4761	you xiu de
+我肯定	4761	wo ken ding
+最近在	4754	zui jin zai
+不到你	4742	bu dao ni
+不错了	4742	bu cuo le
+没给	4737	mei gei
+最美的	4734	zui mei de
+别想	4730	bie xiang
+睡觉的	4730	shui jiao de
+啥了	4726	sha le
+看这	4725	kan zhe
+别这样	4720	bie zhe yang
+穿过	4720	chuan guo
+到最后	4717	dao zui hou
+我说我	4715	wo shuo wo
+结婚的	4712	jie hun de
+看出来了	4704	kan chu lai le
+祝福你	4702	zhu fu ni
+实在是	4700	shi zai shi
+你的小	4699	ni de xiao
+明天要	4698	ming tian yao
+骂我	4698	ma wo
+知道呢	4697	zhi dao ne
+去啦	4695	qu la
+需要的	4688	xu yao de
+最喜欢的	4686	zui xi huan de
+你要不要	4677	ni yao bu yao
+好可怜	4676	hao ke lian
+还去	4676	hai qu
+都得	4674	dou de
+变成了	4673	bian cheng le
+我该	4673	wo gai
+如果有	4672	ru guo you
+那张	4671	na zhang
+还用	4670	hai yong
+问了	4670	wen le
+太久	4666	tai jiu
+给你吃	4665	gei ni chi
+我一般	4664	wo yi ban
+你以后	4663	ni yi hou
+只有你	4663	zhi you ni
+好几个	4660	hao ji ge
+先去	4657	xian qu
+觉得这	4657	jue de zhe
+希望我	4654	xi wang wo
+好好照顾	4653	hao hao zhao gu
+你喝	4651	ni he
+你每天	4650	ni mei tian
+多月	4649	duo yue
+作为一个	4647	zuo wei yi ge
+个人的	4645	ge ren de
+我就知道	4643	wo jiu zhi dao
+我饿	4643	wo e
+你看我	4641	ni kan wo
+你需要	4641	ni xu yao
+你明天	4638	ni ming tian
+好玩的	4635	hao wan de
+找你玩	4634	zhao ni wan
+感兴趣	4632	gan xing qu
+中午好	4628	zhong wu hao
+他家	4628	ta jia
+挺多	4628	ting duo
+我要吃	4625	wo yao chi
+又开始	4624	you kai shi
+以后就	4622	yi hou jiu
+这家	4622	zhe jia
+可以试	4620	ke yi shi
+你可能	4618	ni ke neng
+头发了	4612	tou fa le
+看有	4611	kan you
+圣诞快乐	4610	sheng dan kuai le
+美美的	4609	mei mei di
+只是想	4608	zhi shi xiang
+养了	4606	yang le
+不过是	4605	bu guo shi
+应该会	4602	ying gai hui
+下次我	4599	xia ci wo
+不玩	4598	bu wan
+差不多了	4598	cha bu duo le
+这么觉得	4598	zhe me jue de
+可是你	4596	ke shi ni
+也对	4595	ye dui
+有好多	4595	you hao duo
+有自己	4593	you zi ji
+这么多年	4593	zhe me duo nian
+想死	4586	xiang si
+我同学	4581	wo tong xue
+一直想	4578	yi zhi xiang
+我也去	4575	wo ye qu
+真的要	4575	zhen de yao
+去学校	4574	qu xue xiao
+都已经	4572	dou yi jing
+就不用	4571	jiu bu yong
+我手机	4571	wo shou ji
+要回	4571	yao hui
+他自己	4570	ta zi ji
+我想你	4570	wo xiang ni
+做自己	4569	zuo zi ji
+这么美	4566	zhe me mei
+我不懂	4565	wo bu dong
+要开心	4565	yao kai xin
+吃完了	4564	chi wan le
+自己了	4562	zi ji le
+开个	4559	kai ge
+来看看	4557	lai kan kan
+那么晚	4557	na me wan
+两只	4553	liang zhi
+也是这样	4552	ye shi zhe yang
+会告诉	4552	hui gao su
+我的意思	4550	wo de yi si
+我带你	4547	wo dai ni
+你是个	4545	ni shi ge
+跑去	4545	pao qu
+也吃	4544	ye chi
+真的有	4544	zhen de you
+困了	4543	kun le
+有男朋友	4543	you nan peng you
+不着了	4541	bu zhe le
+你好像	4541	ni hao xiang
+关注了	4541	guan zhu le
+还是可以	4537	hai shi ke yi
+北京的	4535	bei jing de
+是的啊	4532	shi de a
+谢谢你的	4531	xie xie ni de
+累啊	4515	lei a
+吃吗	4512	chi ma
+就这	4512	jiu zhe
+一起来	4511	yi qi lai
+时候的	4511	shi hou de
+不发	4505	bu fa
+好心情	4503	hao xin qing
+吃饱了	4501	chi bao le
+我不能	4500	wo bu neng
+你天天	4496	ni tian tian
+不变	4495	bu bian
+我经常	4495	wo jing chang
+突然想	4495	tu ran xiang
+那好	4494	na hao
+没有的	4493	mei you de
+给我看	4493	gei wo kan
+蛮好	4493	man hao
+以后我	4492	yi hou wo
+傻了	4492	sha le
+是不是要	4489	shi bu shi yao
+是必须	4489	shi bi xu
+卖了	4485	mai le
+原来的	4482	yuan lai de
+注意保暖	4479	zhu yi bao nuan
+一双	4477	yi shuang
+不存在的	4477	bu cun zai de
+就叫	4472	jiu jiao
+现在好	4469	xian zai hao
+很早	4465	hen zao
+忙了	4464	mang le
+不带我	4462	bu dai wo
+快乐的	4462	kuai le de
+遇到了	4461	yu dao le
+怕了	4459	pa le
+今天就	4458	jin tian jiu
+我估计	4454	wo gu ji
+在一起的	4449	zai yi qi de
+是这么	4447	shi zhe me
+会儿	4446	hui er
+过来了	4446	guo lai le
+今天晚上	4445	jin tian wan shang
+重点是	4444	zhong dian shi
+一点的	4442	yi dian de
+最可爱	4441	zui ke ai
+玩吧	4439	wan ba
+你老公	4437	ni lao gong
+要幸福	4437	yao xing fu
+不错哦	4427	bu cuo o
+哪来的	4426	na lai de
+你上	4422	ni shang
+收了	4422	shou le
+点好	4421	dian hao
+幸福了	4419	xing fu le
+很小	4417	hen xiao
+说的话	4416	shuo de hua
+后就	4412	hou jiu
+必须要	4410	bi xu yao
+更有	4410	geng you
+我下	4409	wo xia
+再给	4408	zai gei
+不重要	4406	bu zhong yao
+好想吃	4406	hao xiang chi
+一小时	4404	yi xiao shi
+才看到	4403	cai kan dao
+类型的	4403	lei xing de
+和你一样	4402	he ni yi yang
+开开心	4401	kai kai xin
+就回去	4398	jiu hui qu
+都被你	4398	dou bei ni
+开心心	4393	kai xin xin
+期待你	4385	qi dai ni
+一直都在	4383	yi zhi dou zai
+我晚上	4383	wo wan shang
+老师的	4383	lao shi de
+一到	4382	yi dao
+我不信	4380	wo bu xin
+感觉到	4378	gan jue dao
+我姐	4377	wo jie
+也说	4374	ye shuo
+收到了	4374	shou dao le
+还好啦	4369	hai hao la
+可不可以	4367	ke bu ke yi
+爱他	4365	ai ta
+你当	4364	ni dang
+四点	4364	si dian
+十点	4363	shi dian
+知道该	4362	zhi dao gai
+说吧	4362	shuo ba
+要减肥	4361	yao jian fei
+但还是	4356	dan hai shi
+本来想	4356	ben lai xiang
+回不去	4354	hui bu qu
+吃饭的	4353	chi fan de
+事了	4352	shi le
+到啊	4350	dao a
+就走了	4350	jiu zou le
+真羡慕	4350	zhen xian mu
+把你的	4347	ba ni de
+你们在	4344	ni men zai
+太早	4342	tai zao
+活在	4342	huo zai
+啥啊	4341	sha a
+我哥	4340	wo ge
+很忙	4339	hen mang
+在我们	4338	zai wo men
+做过	4337	zuo guo
+我身边	4337	wo shen bian
+动了	4336	dong le
+不好了	4335	bu hao le
+东北人	4331	dong bei ren
+我写	4328	wo xie
+你么	4327	ni me
+分了	4327	fen le
+我不管	4327	wo bu guan
+个星期	4326	ge xing qi
+时候有	4326	shi hou you
+我去看	4325	wo qu kan
+我当时	4325	wo dang shi
+和我一样	4324	he wo yi yang
+我需要	4324	wo xu yao
+也买	4323	ye mai
+也要去	4323	ye yao qu
+那我们	4322	na wo men
+不回家	4319	bu hui jia
+从来没有	4319	cong lai mei you
+给你打	4319	gei ni da
+一下子	4318	yi xia zi
+是最好	4318	shi zui hao
+有什么好	4317	you shen me hao
+小龙虾	4315	xiao long xia
+看电视	4315	kan dian shi
+会说话	4313	hui shuo hua
+要到	4313	yao dao
+你要去	4311	ni yao qu
+就该	4311	jiu gai
+会用	4310	hui yong
+我有点	4307	wo you dian
+不理我	4305	bu li wo
+在一起了	4304	zai yi qi le
+注意到	4304	zhu yi dao
+照顾自己	4304	zhao gu zi ji
+原谅我	4303	yuan liang wo
+以后的	4301	yi hou de
+年多	4299	nian duo
+去旅游	4298	qu lv you
+我喝	4297	wo he
+说的我	4297	shuo de wo
+做不到	4296	zuo bu dao
+休息吧	4295	xiu xi ba
+回来就	4294	hui lai jiu
+点啊	4294	dian a
+吐了	4292	tu le
+就一直	4292	jiu yi zhi
+改了	4292	gai le
+你过来	4291	ni guo lai
+家了	4290	jia le
+早日康复	4290	zao ri kang fu
+去你家	4287	qu ni jia
+开开心心	4287	kai kai xin xin
+不掉	4281	bu diao
+还不够	4277	hai bu gou
+穿点	4276	chuan dian
+那是你	4275	na shi ni
+都买	4272	dou mai
+人呢	4270	ren ne
+你家的	4270	ni jia de
+好哇	4268	hao wa
+这才是	4263	zhe cai shi
+不行啊	4260	bu xing a
+多看	4260	duo kan
+你好久	4258	ni hao jiu
+等下	4258	deng xia
+被打	4250	bei da
+到大	4248	dao da
+可以说是	4247	ke yi shuo shi
+还需要	4247	hai xu yao
+你帮	4244	ni bang
+要啊	4240	yao a
+你们那	4239	ni men na
+我小	4239	wo xiao
+我点	4239	wo dian
+在网上	4237	zai wang shang
+太瘦	4236	tai shou
+一台	4235	yi tai
+新年好	4235	xin nian hao
+想回家	4234	xiang hui jia
+不到的	4232	bu dao de
+不长	4232	bu zhang
+人都是	4232	ren dou shi
+是个好	4232	shi ge hao
+超级喜欢	4232	chao ji xi huan
+生病了	4231	sheng bing le
+不爱你	4227	bu ai ni
+为啥我	4227	wei sha wo
+我一直在	4227	wo yi zhi zai
+就是这个	4223	jiu shi zhe ge
+为自己	4222	wei zi ji
+也想要	4220	ye xiang yao
+就是因为	4220	jiu shi yin wei
+都爱	4220	dou ai
+剩下的	4217	sheng xia de
+我一下	4217	wo yi xia
+看你们	4217	kan ni men
+过分了	4217	guo fen le
+节快乐	4215	jie kuai le
+你哟	4214	ni yo
+放心了	4209	fang xin le
+下次去	4207	xia ci qu
+这事	4205	zhe shi
+中秋快乐	4202	zhong qiu kuai le
+在哪个	4198	zai na ge
+后面的	4196	hou mian de
+对啊对	4193	dui a dui
+什么呀	4192	shen me ya
+你美	4191	ni mei
+到哪	4190	dao na
+你一个人	4187	ni yi ge ren
+快啊	4185	kuai a
+看到你了	4185	kan dao ni le
+给你说	4183	gei ni shuo
+你上去	4182	ni shang qu
+不说了	4180	bu shuo le
+定了	4180	ding le
+更喜欢	4180	geng xi huan
+开学了	4179	kai xue le
+我是谁	4179	wo shi shui
+一回	4177	yi hui
+时间去	4177	shi jian qu
+说到	4176	shuo dao
+我都想	4175	wo dou xiang
+没空	4174	mei kong
+这个时候	4174	zhe ge shi hou
+不告诉你	4173	bu gao su ni
+把我的	4171	ba wo de
+吃就	4170	chi jiu
+超可爱	4170	chao ke ai
+三亚	4169	san ya
+看到你的	4167	kan dao ni de
+给我买	4165	gei wo mai
+也想吃	4164	ye xiang chi
+可惜了	4161	ke xi le
+这个月	4158	zhe ge yue
+五点	4157	wu dian
+谁是	4157	shui shi
+你写	4156	ni xie
+以后会	4155	yi hou hui
+想啊	4155	xiang a
+时候会	4155	shi hou hui
+你加油	4154	ni jia you
+不确定	4151	bu que ding
+要回来	4151	yao hui lai
+我想问	4150	wo xiang wen
+果然是	4148	guo ran shi
+跟她	4146	gen ta
+不能说	4145	bu neng shuo
+我决定	4145	wo jue ding
+要打	4143	yao da
+来我们	4138	lai wo men
+不愿	4136	bu yuan
+为什么会	4136	wei shen me hui
+找一下	4136	zhao yi xia
+所谓的	4135	suo wei de
+北方人	4134	bei fang ren
+巧了	4134	qiao le
+我笑	4132	wo xiao
+干嘛呢	4130	gan ma ne
+见到你	4130	jian dao ni
+没做	4126	mei zuo
+我是个	4125	wo shi ge
+被窝	4125	bei wo
+还是在	4125	hai shi zai
+信了	4124	xin le
+你说话	4122	ni shuo hua
+还好我	4122	hai hao wo
+一岁	4121	yi sui
+过啊	4120	guo a
+也好看	4119	ye hao kan
+要换	4118	yao huan
+谁能	4118	shui neng
+也可能	4115	ye ke neng
+在自己	4115	zai zi ji
+睡啦	4112	shui la
+让他们	4111	rang ta men
+不要说	4108	bu yao shuo
+哪里买	4108	na li mai
+还是想	4107	hai shi xiang
+不知道该	4105	bu zhi dao gai
+多穿点	4100	duo chuan dian
+好热	4099	hao re
+成这样	4099	cheng zhe yang
+给你带	4099	gei ni dai
+玩得	4098	wan de
+最后一个	4097	zui hou yi ge
+我只有	4095	wo zhi you
+是那个	4094	shi na ge
+能告诉	4093	neng gao su
+不合适	4092	bu he shi
+你点	4091	ni dian
+我拿	4089	wo na
+我竟然	4089	wo jing ran
+太贵	4086	tai gui
+有点像	4086	you dian xiang
+一天的	4084	yi tian de
+没有那么	4084	mei you na me
+不出去	4083	bu chu qu
+好呀好	4081	hao ya hao
+多少人	4078	duo shao ren
+就是说	4078	jiu shi shuo
+可以来	4077	ke yi lai
+有本事	4077	you ben shi
+要怎么	4077	yao zen me
+你那个	4076	ni na ge
+请吃饭	4075	qing chi fan
+谢谢您	4075	xie xie nin
+都那么	4075	dou na me
+来晚	4074	lai wan
+这么长	4074	zhe me zhang
+给我说	4073	gei wo shuo
+想我了	4071	xiang wo le
+无聊的	4070	wu liao de
+自己在	4070	zi ji zai
+不下去了	4067	bu xia qu le
+手上	4063	shou shang
+敢不敢	4063	gan bu gan
+看着你	4061	kan zhe ni
+我上次	4060	wo shang ci
+认识了	4059	ren shi le
+这两个	4058	zhe liang ge
+一分	4055	yi fen
+我也会	4054	wo ye hui
+自己说	4054	zi ji shuo
+好的呀	4053	hao de ya
+翻了	4051	fan le
+减肥了	4049	jian fei le
+这是要	4048	zhe shi yao
+知道你是	4047	zhi dao ni shi
+你赢了	4046	ni ying le
+咋啦	4045	za la
+其实你	4042	qi shi ni
+上班啊	4041	shang ban a
+你厉害	4039	ni li hai
+也不要	4037	ye bu yao
+对哦	4037	dui o
+有故事	4037	you gu shi
+有几个	4036	you ji ge
+跟我一样	4036	gen wo yi yang
+不热	4035	bu re
+现在有	4035	xian zai you
+我愿意	4033	wo yuan yi
+拿出来	4033	na chu lai
+喜欢一个	4032	xi huan yi ge
+千万别	4029	qian wan bie
+凭什么	4028	ping shen me
+生气了	4028	sheng qi le
+认识我	4025	ren shi wo
+喝点	4024	he dian
+陌生人	4022	mo sheng ren
+拍照的	4021	pai zhao de
+南方人	4020	nan fang ren
+然而我	4020	ran er wo
+就放心	4019	jiu fang xin
+来北京	4019	lai bei jing
+只看	4018	zhi kan
+吃多了	4014	chi duo le
+你瘦了	4012	ni shou le
+也是这么	4011	ye shi zhe me
+可以考虑	4011	ke yi kao lv
+我换	4010	wo huan
+是你们	4009	shi ni men
+带个	4004	dai ge
+善良的	4003	shan liang de
+重要的是	4001	zhong yao de shi
+我居然	4000	wo ju ran
+很大的	3998	hen da de
+也挺好	3997	ye ting hao
+都会有	3997	du hui you
+洗了	3996	xi le
+熟悉的	3995	shu xi de
+对着	3994	dui zhe
+你们家	3989	ni men jia
+我正在	3986	wo zheng zai
+时候是	3985	shi hou shi
+一根	3984	yi gen
+好的谢谢	3984	hao de xie xie
+就找	3984	jiu zhao
+找一个	3984	zhao yi ge
+你回来了	3983	ni hui lai le
+我想去	3982	wo xiang qu
+放不下	3982	fang bu xia
+经历了	3982	jing li le
+会变	3981	hui bian
+这有	3981	zhe you
+回家啦	3978	hui jia la
+我看见	3976	wo kan jian
+还蛮	3975	hai man
+看什么	3974	kan shen me
+失去了	3973	shi qu le
+不说话	3970	bu shuo hua
+你长	3965	ni zhang
+我是真	3964	wo shi zhen
+对不对	3963	dui bu dui
+你最美	3961	ni zui mei
+加个	3961	jia ge
+就应该	3961	jiu ying gai
+棒啊	3961	bang a
+爱我了	3959	ai wo le
+你看你	3957	ni kan ni
+去睡	3957	qu shui
+可惜我	3956	ke xi wo
+开始的	3956	kai shi de
+给别人	3954	gei bie ren
+可能我	3952	ke neng wo
+给我打	3951	gei wo da
+发个	3950	fa ge
+就服	3950	jiu fu
+只知道	3945	zhi zhi dao
+约起来	3945	yue qi lai
+好萌	3940	hao meng
+我马上	3939	wo ma shang
+丑了	3934	chou le
+自己买	3934	zi ji mai
+衣服的	3933	yi fu de
+听说你	3929	ting shuo ni
+故事的	3929	gu shi de
+没好	3928	mei hao
+不了解	3924	bu liao jie
+请你吃饭	3924	qing ni chi fan
+我飞	3923	wo fei
+真实的	3923	zhen shi de
+我不敢	3922	wo bu gan
+旁边的	3922	pang bian de
+为我	3920	wei wo
+给我的	3920	gei wo de
+在深圳	3918	zai shen zhen
+一想	3915	yi xiang
+不是因为	3911	bu shi yin wei
+我老	3911	wo lao
+时候回	3910	shi hou hui
+人吃	3909	ren chi
+好吧我	3908	hao ba wo
+老司机	3908	lao si ji
+不谢	3907	bu xie
+我这边	3907	wo zhe bian
+咋个	3905	za ge
+就是就是	3901	jiu shi jiu shi
+走啊	3901	zou a
+买点	3899	mai dian
+说的好	3898	shuo de hao
+我来说	3897	wo lai shuo
+不住了	3896	bu zhu le
+哪里了	3894	na li le
+没穿	3894	mei chuan
+和你一起	3892	he ni yi qi
+也爱你	3886	ye ai ni
+有一点	3886	you yi dian
+时间就	3883	shi jian jiu
+故意的	3880	gu yi de
+去不了	3878	qu bu le
+成功了	3877	cheng gong le
+都用	3875	dou yong
+给个	3874	gei ge
+要一起	3874	yao yi qi
+就是好	3871	jiu shi hao
+回去的	3870	hui qu de
+同乐同乐	3869	tong le tong le
+一起看	3868	yi qi kan
+就看到	3868	jiu kan dao
+就是了	3866	jiu shi le
+开心吗	3866	kai xin ma
+同样的	3863	tong yang de
+有惊喜	3863	you jing xi
+过完	3859	guo wan
+我比你	3858	wo bi ni
+赞了	3857	zan le
+你也在	3855	ni ye zai
+要穿	3855	yao chuan
+我咯	3853	wo ge
+和我说	3852	he wo shuo
+早说	3849	zao shuo
+想换	3848	xiang huan
+这人	3848	zhe ren
+你说呢	3843	ni shuo ne
+做一个	3841	zuo yi ge
+你是要	3840	ni shi yao
+只有一个	3839	zhi you yi ge
+谁让你	3839	shei rang ni
+你知道我	3838	ni zhi dao wo
+头上	3838	tou shang
+反正你	3837	fan zheng ni
+要回家	3837	yao hui jia
+你变	3832	ni bian
+我的心	3832	wo de xin
+带点	3831	dai dian
+那家	3829	na jia
+我们可以	3827	wo men ke yi
+赞一个	3826	zan yi ge
+可怕的	3825	ke pa de
+在上班	3823	zai shang ban
+才行	3823	cai xing
+我对你	3819	wo dui ni
+真的啊	3819	zhen de a
+都比	3819	dou bi
+也知道	3817	ye zhi dao
+要吗	3817	yao ma
+好几次	3816	hao ji ci
+能买	3814	neng mai
+我让	3812	wo rang
+挺喜欢	3810	ting xi huan
+一斤	3809	yi jin
+拿去	3807	na qu
+没注意	3805	mei zhu yi
+一定的	3802	yi ding de
+脸大	3801	lian da
+是真爱	3800	shi zhen ai
+难了	3800	nan le
+一样了	3799	yi yang le
+手机壳	3799	shou ji ke
+应该有	3797	ying gai you
+因为有	3796	yin wei you
+到哪里	3794	dao na li
+想回	3793	xiang hui
+还有什么	3793	hai you shen me
+可以找	3792	ke yi zhao
+都对	3792	dou dui
+心丢了	3789	xin diu le
+一笑	3788	yi xiao
+吃掉	3788	chi diao
+去看了	3787	qu kan le
+去给	3787	qu gei
+有女朋友	3785	you nv peng you
+就是一个	3782	jiu shi yi ge
+你头像	3781	ni tou xiang
+小时的	3781	xiao shi de
+哪家	3780	na jia
+我最爱	3779	wo zui ai
+才是真	3779	cai shi zhen
+不喜欢你	3777	bu xi huan ni
+那必须的	3773	na bi xu de
+人太多	3772	ren tai duo
+默默的	3772	mo mo de
+不喝	3770	bu he
+贵了	3770	gui le
+对她	3768	dui ta
+然后你	3768	ran hou ni
+那还是	3767	na hai shi
+那个时候	3764	na ge shi hou
+自己好	3763	zi ji hao
+想起了	3762	xiang qi le
+还有人	3762	hai you ren
+更美	3760	geng mei
+像个	3759	xiang ge
+爱你爱	3759	ai ni ai
+太帅了	3758	tai shuai le
+会告诉你	3754	hui gao su ni
+我找一下	3753	wo zhao yi xia
+服了	3752	fu le
+小清新	3751	xiao qing xin
+我吃了	3747	wo chi le
+睡一觉	3745	shui yi jiao
+红色的	3741	hong se de
+我现在在	3739	wo xian zai zai
+拿了	3739	na le
+可以换	3737	ke yi huan
+东西了	3736	dong xi le
+没过	3736	mei guo
+活了	3736	huo le
+还吃	3736	hai chi
+宝贝儿	3735	bao bei er
+挂了	3735	gua le
+你心里	3734	ni xin li
+你是怎么	3733	ni shi zen me
+那么快	3733	na me kuai
+不想去	3732	bu xiang qu
+别人说	3732	bie ren shuo
+那位	3732	na wei
+是什么鬼	3730	shi shen me gui
+太长	3729	tai zhang
+能帮我找	3727	neng bang wo zhao
+还以为是	3727	hai yi wei shi
+跟你一样	3725	gen ni yi yang
+一样啊	3724	yi yang a
+说得好	3722	shuo de hao
+你听	3721	ni ting
+真的会	3720	zhen de hui
+失恋了	3719	shi lian le
+我爸妈	3715	wo ba ma
+一秒	3714	yi miao
+走过	3714	zou guo
+你为啥	3713	ni wei sha
+看成	3713	kan cheng
+想在	3711	xiang zai
+我的心丢	3710	wo de xin diu
+所以就	3710	suo yi jiu
+你身边	3709	ni shen bian
+断了	3709	duan le
+笑死了	3709	xiao si le
+那会	3709	na hui
+你跟我	3707	ni gen wo
+就等	3705	jiu deng
+真幸福	3705	zhen xing fu
+容易啊	3704	rong yi a
+年前的	3704	nian qian de
+那只	3704	na zhi
+一哈	3702	yi ha
+吃晚饭	3702	chi wan fan
+心情好	3702	xin qing hao
+早睡早起	3700	zao shui zao qi
+你的头像	3698	ni de tou xiang
+跑到	3697	pao dao
+会就	3694	hui jiu
+最好看	3692	zui hao kan
+这样我	3692	zhe yang wo
+找一下吗	3691	zhao yi xia ma
+这里的	3690	zhe li de
+就睡了	3689	jiu shui le
+才好	3687	cai hao
+注意休息	3686	zhu yi xiu xi
+毁了	3684	hui le
+几个人	3682	ji ge ren
+我打算	3682	wo da suan
+睡觉吧	3682	shui jiao ba
+给你的	3681	gei ni de
+强迫症	3680	qiang po zheng
+那你是	3680	na ni shi
+来晚了	3676	lai wan le
+看我的	3676	kan wo de
+没有呢	3675	mei you ne
+人就是	3674	ren jiu shi
+好无聊	3674	hao wu liao
+过吗	3674	guo ma
+喜欢上	3673	xi huan shang
+家有	3670	jia you
+我啥	3669	wo sha
+你头发	3668	ni tou fa
+上厕所	3666	shang ce suo
+点个赞	3665	dian ge zan
+去试	3664	qu shi
+好吃了	3664	hao chi le
+个饭	3663	ge fan
+会了	3662	hui le
+好难过	3662	hao nan guo
+摔了	3662	shuai le
+我能说	3657	wo neng shuo
+自己就	3656	zi ji jiu
+再多	3654	zai duo
+就多	3654	jiu duo
+我陪你	3653	wo pei ni
+看这个	3653	kan zhe ge
+太远了	3651	tai yuan le
+啥好	3650	sha hao
+感觉是	3648	gan jue shi
+也好想	3647	ye hao xiang
+你试	3647	ni shi
+山上	3645	shan shang
+就服你	3644	jiu fu ni
+我小时候	3644	wo xiao shi hou
+不过来	3643	bu guo lai
+来就	3643	lai jiu
+好消息	3642	hao xiao xi
+告诉我你	3641	gao su wo ni
+我突然	3640	wo tu ran
+是一样	3640	shi yi yang
+里面有	3639	li mian you
+不是的	3637	bu shi de
+你们学校	3636	ni men xue xiao
+知道这	3636	zhi dao zhe
+会这么	3634	hui zhe me
+已经开始	3634	yi jing kai shi
+早呀	3634	zao ya
+看上去	3634	kan shang qu
+我就去	3633	wo jiu qu
+一下吧	3632	yi xia ba
+减肥的	3632	jian fei de
+我这样	3631	wo zhe yang
+不然我	3630	bu ran wo
+冷吗	3630	leng ma
+还这么	3630	hai zhe me
+怎么样了	3629	zen me yang le
+会吃	3628	hui chi
+是最好的	3628	shi zui hao de
+没有去	3627	mei you qu
+大家的	3626	da jia de
+不介意	3625	bu jie yi
+买不到	3624	mai bu dao
+看一下	3623	kan yi xia
+不疼	3622	bu teng
+不见你	3622	bu jian ni
+才开始	3622	cai kai shi
+不好吗	3618	bu hao ma
+也这样	3617	ye zhe yang
+吃饺子	3617	chi jiao zi
+多啦	3617	duo la
+我今年	3617	wo jin nian
+你不能	3616	ni bu neng
+不放	3615	bu fang
+个什么	3612	ge shen me
+不送	3611	bu song
+有趣的	3609	you qu de
+不到我	3607	bu dao wo
+简直是	3606	jian zhi shi
+给人	3606	gei ren
+那要	3606	na yao
+别说了	3604	bie shuo le
+可真	3604	ke zhen
+好困	3604	hao kun
+都睡	3602	dou shui
+都穿	3600	dou chuan
+说话了	3598	shuo hua le
+你爱你	3597	ni ai ni
+要开	3597	yao kai
+钱啊	3594	qian a
+黑色的	3593	hei se de
+好期待	3592	hao qi dai
+能理解	3592	neng li jie
+想打	3591	xiang da
+我就喜欢	3589	wo jiu xi huan
+一个大	3588	yi ge da
+会看	3588	hui kan
+你准备	3585	ni zhun bei
+小狗	3585	xiao gou
+起啊	3584	qi a
+喜欢这	3583	xi huan zhe
+就不知道	3583	jiu bu zhi dao
+我哦	3582	wo o
+也是哦	3581	ye shi o
+要不你	3577	yao bu ni
+开始就	3576	kai shi jiu
+有这种	3576	you zhe zhong
+又来了	3574	you lai le
+就知道你	3571	jiu zhi dao ni
+来找你	3569	lai zhao ni
+这是个	3569	zhe shi ge
+还有你	3565	hai you ni
+这段时间	3565	zhe duan shi jian
+问题了	3564	wen ti le
+回来我	3563	hui lai wo
+有对象	3563	you dui xiang
+几天了	3562	ji tian le
+太可怕	3562	tai ke pa
+现在还在	3562	xian zai hai zai
+也不好	3561	ye bu hao
+传说中的	3561	chuan shuo zhong di
+这个词	3561	zhe ge ci
+我一点	3560	wo yi dian
+碎了	3560	sui le
+年就	3559	nian jiu
+买东西	3554	mai dong xi
+不小	3553	bu xiao
+肿么了	3553	zhong me le
+会有人	3552	hui you ren
+你想多	3552	ni xiang duo
+漂亮了	3552	piao liang le
+没能	3550	mei neng
+要开始	3548	yao kai shi
+推荐的	3546	tui jian de
+都不用	3546	dou bu yong
+会这样	3545	hui zhe yang
+想跟你	3544	xiang gen ni
+这么多人	3543	zhe me duo ren
+一跳	3542	yi tiao
+也希望	3541	ye xi wang
+那段	3541	na duan
+都来	3537	dou lai
+再吃	3536	zai chi
+那是我	3536	na shi wo
+这是你	3535	zhe shi ni
+信你	3534	xin ni
+都给你	3534	dou gei ni
+只吃	3533	zhi chi
+想问一下	3533	xiang wen yi xia
+很简单	3532	hen jian dan
+黑眼圈	3532	hei yan quan
+你不爱	3531	ni bu ai
+过好	3531	guo hao
+多就	3530	duo jiu
+最讨厌	3530	zui tao yan
+辛苦啦	3530	xin ku la
+你老	3526	ni lao
+都不好	3523	dou bu hao
+都是在	3523	dou shi zai
+手机的	3522	shou ji de
+还行吧	3522	hai xing ba
+过年的	3521	guo nian de
+欺负我	3519	qi fu wo
+比较喜欢	3519	bi jiao xi huan
+之后就	3518	zhi hou jiu
+晒太阳	3518	shai tai yang
+一晚	3513	yi wan
+应该不会	3513	ying gai bu hui
+你是想	3512	ni shi xiang
+我就在	3512	wo jiu zai
+还年轻	3512	hai nian qing
+多吗	3510	duo ma
+超好	3509	chao hao
+你生日	3508	ni sheng ri
+是有点	3508	shi you dian
+不是吗	3507	bu shi ma
+喝多	3507	he duo
+一个好	3506	yi ge hao
+没回	3506	mei hui
+你爸	3504	ni ba
+愉快的	3503	yu kuai de
+我告诉	3502	wo gao su
+不好玩	3501	bu hao wan
+你认识	3499	ni ren shi
+可能要	3499	ke neng yao
+突然觉得	3497	tu ran jue de
+上个	3495	shang ge
+我并	3494	wo bing
+没有看	3494	mei you kan
+这只	3494	zhe zhi
+不给你	3493	bu gei ni
+还没吃	3493	hai mei chi
+一年了	3492	yi nian le
+很热	3492	hen re
+东西的	3491	dong xi de
+真不知道	3489	zhen bu zhi dao
+走就	3488	zou jiu
+穿衣服	3487	chuan yi fu
+家里的	3485	jia li de
+考上	3484	kao shang
+被骗	3484	bei pian
+这种情况	3484	zhe zhong qing kuang
+都过	3483	dou guo
+我都要	3482	wo dou yao
+买什么	3481	mai shen me
+更好看	3481	geng hao kan
+什么关系	3480	shen me guan xi
+怎么感觉	3480	zen me gan jue
+有感觉	3480	you gan jue
+一发	3479	yi fa
+要去看	3478	yao qu kan
+完美的	3476	wan mei de
+离开了	3475	li kai le
+考试了	3475	kao shi le
+就放心了	3474	jiu fang xin le
+真可爱	3473	zhen ke ai
+还是觉得	3473	hai shi jue de
+一切顺利	3472	yi qie shun li
+会发现	3470	hui fa xian
+就不想	3468	jiu bu xiang
+用什么	3468	yong shen me
+王者荣耀	3467	wang zhe rong yao
+每天都在	3464	mei tian dou zai
+太丑	3463	tai chou
+话说我	3463	hua shuo wo
+杀了	3460	sha le
+身体健康	3460	shen ti jian kang
+什么牌子	3459	shen me pai zi
+就对了	3458	jiu dui le
+看脸	3455	kan lian
+你信	3454	ni xin
+和你说	3453	he ni shuo
+也给	3452	ye gei
+羡慕你们	3452	xian mu ni men
+见不到	3452	jian bu dao
+不通	3451	bu tong
+凉了	3451	liang le
+很近	3451	hen jin
+可怕了	3450	ke pa le
+她就	3450	ta jiu
+戴眼镜	3450	dai yan jing
+机会的	3450	ji hui de
+很好啊	3449	hen hao a
+都是这样	3449	dou shi zhe yang
+说有	3447	shuo you
+就成	3445	jiu cheng
+便宜的	3444	pian yi de
+不容易啊	3443	bu rong yi a
+也算	3443	ye suan
+可以让	3443	ke yi rang
+哪去	3443	na qu
+我就要	3443	wo jiu yao
+病了	3439	bing le
+里了	3439	li le
+一米	3438	yi mi
+我心	3438	wo xin
+快乐快乐	3436	kuai le kuai le
+爱过	3431	ai guo
+去吗	3429	qu ma
+好吃啊	3429	hao chi a
+关注的	3428	guan zhu de
+等会	3427	deng hui
+不贵	3425	bu gui
+这样就	3425	zhe yang jiu
+关了	3424	guan le
+到这	3424	dao zhe
+有自己的	3424	you zi ji de
+要考	3424	yao kao
+爱自己	3423	ai zi ji
+多想	3422	duo xiang
+停了	3421	ting le
+太忙	3421	tai mang
+我那么	3421	wo na me
+在说什么	3419	zai shuo shen me
+我要看	3419	wo yao kan
+这是一个	3417	zhe shi yi ge
+去哪了	3416	qu na le
+会玩	3415	hui wan
+好听的	3415	hao ting de
+人好	3411	ren hao
+你拿	3410	ni na
+你帮我	3409	ni bang wo
+不要这样	3406	bu yao zhe yang
+看下	3406	kan xia
+请不要	3405	qing bu yao
+你请我	3402	ni qing wo
+太快了	3401	tai kuai le
+起床了	3401	qi chuang le
+能找到	3400	neng zhao dao
+好怕	3399	hao pa
+十个	3398	shi ge
+有的人	3398	you de ren
+说话的	3398	shuo hua de
+一个人去	3397	yi ge ren qu
+有一次	3397	you yi ci
+这个点	3397	zhe ge dian
+你让我	3396	ni rang wo
+要相信	3393	yao xiang xin
+你养	3391	ni yang
+你在我	3391	ni zai wo
+你嘛	3390	ni ma
+累死了	3389	lei si le
+要哭	3389	yao ku
+没机会	3385	mei ji hui
+需要你	3385	xu yao ni
+不了的	3384	bu le de
+亮了	3383	liang le
+应该说	3383	ying gai shuo
+不错不错	3380	bu cuo bu cuo
+联系我	3380	lian xi wo
+我不在	3378	wo bu zai
+你还要	3375	ni hai yao
+没发	3375	mei fa
+上大学	3374	shang da xue
+不饿	3370	bu e
+对你的	3369	dui ni de
+生孩子	3368	sheng hai zi
+个朋友	3367	ge peng you
+没感觉	3367	mei gan jue
+太厉害	3366	tai li hai
+还是挺	3363	hai shi ting
+过年了	3362	guo nian le
+啥呢	3361	sha ne
+小心点	3361	xiao xin dian
+我也好想	3359	wo ye hao xiang
+想他	3356	xiang ta
+我们班	3356	wo men ban
+还是个	3356	hai shi ge
+就没了	3354	jiu mei le
+年纪大	3354	nian ji da
+大家一起	3352	da jia yi qi
+人一起	3350	ren yi qi
+炸了	3350	zha le
+我下午	3348	wo xia wu
+就那么	3347	jiu na me
+习惯了	3346	xi guan le
+北方的	3346	bei fang de
+看来是	3345	kan lai shi
+被骂	3345	bei ma
+你是说	3344	ni shi shuo
+看球	3344	kan qiu
+一起走	3343	yi qi zou
+你的脸	3343	ni de lian
+要上	3343	yao shang
+休息了	3342	xiu xi le
+肯定的	3341	ken ding de
+大脸	3340	da lian
+你说了	3338	ni shuo le
+用吗	3337	yong ma
+站着	3336	zhan zhe
+一个人在	3335	yi ge ren zai
+下次来	3335	xia ci lai
+可以试试	3335	ke yi shi shi
+因为是	3335	yin wei shi
+是谁啊	3335	shi shui a
+给我带	3335	gei wo dai
+要对	3335	yao dui
+人能	3334	ren neng
+个头	3333	ge tou
+你去看	3332	ni qu kan
+进了	3331	jin le
+好的我	3330	hao de wo
+觉得这个	3330	jue de zhe ge
+你哈	3329	ni ha
+去睡觉	3329	qu shui jiao
+等着我	3329	deng zhe wo
+一站	3326	yi zhan
+没有想	3326	mei you xiang
+可以一起	3325	ke yi yi qi
+太差	3324	tai cha
+是非常	3322	shi fei chang
+毕竟我	3321	bi jing wo
+自己有	3321	zi ji you
+没觉得	3320	mei jue de
+想就	3319	xiang jiu
+是别人	3319	shi bie ren
+送给你	3317	song gei ni
+不要不要	3315	bu yao bu yao
+不过还是	3315	bu guo hai shi
+不要了	3314	bu yao le
+去上班	3314	qu shang ban
+就一个	3314	jiu yi ge
+还没去	3314	hai mei qu
+要给我	3313	yao gei wo
+带给	3311	dai gei
+白色的	3311	bai se de
+真多	3309	zhen duo
+那么多人	3309	na me duo ren
+那年	3308	na nian
+我第一次	3307	wo di yi ci
+你告诉	3306	ni gao su
+到自己	3306	dao zi ji
+好地方	3306	hao di fang
+可以带	3305	ke yi dai
+很瘦	3305	hen shou
+这么好的	3305	zhe me hao de
+差了	3303	cha le
+要自己	3303	yao zi ji
+问一句	3303	wen yi ju
+四天	3300	si tian
+不来了	3298	bu lai le
+太冷了	3298	tai leng le
+不晚	3297	bu wan
+没听过	3296	mei ting guo
+人家是	3294	ren jia shi
+也不用	3293	ye bu yong
+就回来了	3293	jiu hui lai le
+你学	3292	ni xue
+会努力	3291	hui nu li
+我真是	3291	wo zhen shi
+比较多	3291	bi jiao duo
+比起	3290	bi qi
+你从	3289	ni cong
+多年的	3285	duo nian de
+快乐哈	3284	kuai le ha
+多高	3282	duo gao
+好还好	3281	hao hai hao
+要请	3280	yao qing
+那怎么	3280	na zen me
+时间过	3279	shi jian guo
+买过	3277	mai guo
+想喝	3277	xiang he
+没这么	3277	mei zhe me
+还好吗	3277	hai hao ma
+这种感觉	3277	zhe zhong gan jue
+我今晚	3275	wo jin wan
+你那里	3274	ni na li
+我的人	3274	wo de ren
+还不睡觉	3274	hai bu shui jiao
+这本书	3273	zhe ben shu
+人儿	3270	ren er
+我感觉我	3269	wo gan jue wo
+瘦下来	3269	shou xia lai
+在武汉	3268	zai wu han
+毕业的	3267	bi ye de
+分分钟	3266	fen fen zhong
+刚到	3266	gang dao
+我们有	3266	wo men you
+继续努力	3266	ji xu nu li
+意思啊	3265	yi si a
+会打	3264	hui da
+你朋友	3264	ni peng you
+很高兴	3264	hen gao xing
+人家的	3261	ren jia de
+我个	3260	wo ge
+我有个	3259	wo you ge
+单纯的	3258	dan chun de
+真快	3258	zhen kuai
+好多年	3256	hao duo nian
+我在想	3256	wo zai xiang
+高啊	3255	gao a
+我还能	3254	wo hai neng
+要告诉	3254	yao gao su
+那样的	3252	na yang de
+下就	3251	xia jiu
+我以为是	3249	wo yi wei shi
+我倒是	3249	wo dao shi
+永远是	3249	yong yuan shi
+好瘦	3246	hao shou
+退了	3246	tui le
+出门了	3244	chu men le
+你很棒	3243	ni hen bang
+南方的	3240	nan fang de
+算什么	3240	suan shen me
+能告诉我	3240	neng gao su wo
+一般般	3239	yi ban ban
+不让我	3239	bu rang wo
+你哪	3239	ni na
+头发长	3234	tou fa zhang
+我忘了	3234	wo wang le
+我还没有	3234	wo hai mei you
+我现在就	3231	wo xian zai jiu
+自己一个	3230	zi ji yi ge
+多肉	3228	duo rou
+我表示	3228	wo biao shi
+相信自己	3227	xiang xin zi ji
+也睡	3225	ye shui
+听起来	3225	ting qi lai
+一下午	3223	yi xia wu
+一副	3223	yi fu
+所以要	3223	suo yi yao
+高跟鞋	3222	gao gen xie
+一首歌	3221	yi shou ge
+你不在	3221	ni bu zai
+怎么去	3221	zen me qu
+牌子的	3221	pai zi de
+谁说的	3220	shui shuo de
+难道我	3220	nan dao wo
+睡好	3219	shui hao
+羡慕啊	3218	xian mu a
+是对的	3217	shi dui de
+你永远	3215	ni yong yuan
+不允许	3214	bu yun xu
+还有个	3214	hai you ge
+送你上去	3213	song ni shang qu
+你这样的	3212	ni zhe yang de
+让别人	3211	rang bie ren
+说这个	3211	shuo zhe ge
+就直接	3210	jiu zhi jie
+找人	3210	zhao ren
+不高兴	3209	bu gao xing
+经历过	3209	jing li guo
+这东西	3209	zhe dong xi
+你打电话	3208	ni da dian hua
+来接	3206	lai jie
+爆了	3205	bao le
+那也是	3204	na ye shi
+你想要	3202	ni xiang yao
+给钱	3202	gei qian
+停不下来	3201	ting bu xia lai
+有点小	3201	you dian xiao
+下学期	3200	xia xue qi
+没有看到	3200	mei you kan dao
+短了	3200	duan le
+说我们	3200	shuo wo men
+人觉得	3199	ren jue de
+你们这些	3196	ni men zhe xie
+我还真	3196	wo hai zhen
+整个人	3195	zheng ge ren
+我饿了	3193	wo e le
+好贵	3190	hao gui
+想到你	3189	xiang dao ni
+那有	3189	na you
+完就	3188	wan jiu
+没看出来	3188	mei kan chu lai
+用过	3188	yong guo
+不喜欢我	3185	bu xi huan wo
+他们说	3185	ta men shuo
+厉害啊	3185	li hai a
+我特别	3185	wo te bie
+就是有	3184	jiu shi you
+就真	3183	jiu zhen
+要继续	3182	yao ji xu
+不接受	3181	bu jie shou
+同一天	3180	tong yi tian
+安慰我	3179	an wei wo
+欢迎来	3178	huan ying lai
+我是在	3177	wo shi zai
+普通的	3177	pu tong de
+绝对是	3177	jue dui shi
+就差	3176	jiu cha
+瞎了	3176	xia le
+肥了	3176	fei le
+能睡	3176	neng shui
+不分	3175	bu fen
+为啥要	3175	wei sha yao
+回复你	3174	hui fu ni
+现在想	3174	xian zai xiang
+不回去	3169	bu hui qu
+做得	3169	zuo de
+希望他	3169	xi wang ta
+好远	3167	hao yuan
+找他	3166	zhao ta
+钱了	3166	qian le
+不知道有	3164	bu zhi dao you
+我试	3163	wo shi
+很明显	3162	hen ming xian
+温暖的	3162	wen nuan de
+这么有	3162	zhe me you
+都做	3162	dou zuo
+北京了	3160	bei jing le
+在心里	3160	zai xin li
+人吧	3159	ren ba
+你结婚	3159	ni jie hun
+突然发现	3159	tu ran fa xian
+是男的	3158	shi nan de
+买衣服	3156	mai yi fu
+这些人	3156	zhe xie ren
+多小时	3155	duo xiao shi
+就是喜欢	3155	jiu shi xi huan
+今天下午	3154	jin tian xia wu
+我介绍	3154	wo jie shao
+有关系	3154	you guan xi
+起不来	3154	qi bu lai
+你现在在	3153	ni xian zai zai
+这个名字	3153	zhe ge ming zi
+都找	3153	dou zhao
+喜欢这种	3152	xi huan zhe zhong
+告诉你我	3150	gao su ni wo
+好想去	3150	hao xiang qu
+是必须的	3150	shi bi xu de
+嫌弃我	3149	xian qi wo
+今天你	3148	jin tian ni
+我就放心	3147	wo jiu fang xin
+你做的	3145	ni zuo de
+你有什么	3145	ni you shen me
+他去	3144	ta qu
+你开心就	3142	ni kai xin jiu
+身体啊	3142	shen ti a
+不代表	3140	bu dai biao
+来过	3140	lai guo
+真的真	3140	zhen de zhen
+开空调	3139	kai kong tiao
+对呀对呀	3138	dui ya dui ya
+心好	3138	xin hao
+扔了	3138	reng le
+在重庆	3137	zai chong qing
+你长得	3136	ni zhang de
+可以看到	3135	ke yi kan dao
+很难过	3135	hen nan guo
+有这样	3134	you zhe yang
+那叫	3134	na jiao
+都有你	3134	dou you ni
+厉害厉害	3133	li hai li hai
+恋爱的	3133	lian ai de
+换头像	3133	huan tou xiang
+开心点	3132	kai xin dian
+能这么	3132	neng zhe me
+叫啥	3131	jiao sha
+不会啊	3130	bu hui a
+什么我	3129	shen me wo
+看呢	3129	kan ne
+晚上吃	3128	wan shang chi
+大晚上的	3127	da wan shang de
+我信	3126	wo xin
+我们宿舍	3125	wo men su she
+很难受	3123	hen nan shou
+满了	3123	man le
+就只有	3120	jiu zhi you
+家狗	3119	jia gou
+起来就	3118	qi lai jiu
+尴尬了	3117	gan ga le
+火了	3117	huo le
+身体好	3116	shen ti hao
+总要	3115	zong yao
+有眼光	3114	you yan guang
+真会	3114	zhen hui
+以后你	3112	yi hou ni
+一样一样	3111	yi yang yi yang
+林更新	3111	lin geng xin
+化了	3110	hua le
+我讲	3110	wo jiang
+超好吃	3110	chao hao chi
+还看	3107	hai kan
+多钱	3106	duo qian
+能接受	3106	neng jie shou
+我也是啊	3105	wo ye shi a
+你开	3104	ni kai
+我其实	3104	wo qi shi
+我妈妈	3103	wo ma ma
+肯定有	3103	ken ding you
+要过	3103	yao guo
+你女朋友	3102	ni nv peng you
+换吗	3102	huan ma
+没有在	3102	mei you zai
+好久没见	3101	hao jiu mei jian
+晚上就	3100	wan shang jiu
+还有点	3099	hai you dian
+都不要	3098	dou bu yao
+记得了	3097	ji de le
+在南京	3096	zai nan jing
+知道就	3096	zhi dao jiu
+上海的	3094	shang hai de
+不吃饭	3094	bu chi fan
+骗了	3093	pian le
+不可能的	3092	bu ke neng de
+生活中	3092	sheng huo zhong
+天气好	3091	tian qi hao
+下雨天	3090	xia yu tian
+好辛苦	3089	hao xin ku
+穿短袖	3086	chuan duan xiu
+开玩笑的	3085	kai wan xiao de
+还是那么	3085	hai shi na me
+两个小时	3084	liang ge xiao shi
+特别想	3084	te bie xiang
+给你发	3084	gei ni fa
+去呢	3083	qu ne
+好小	3082	hao xiao
+看见我	3080	kan jian wo
+会越来越	3078	hui yue lai yue
+在里面	3076	zai li mian
+我等你	3074	wo deng ni
+在等你	3073	zai deng ni
+好了吗	3073	hao le ma
+异地恋	3073	yi di lian
+给我吃	3073	gei wo chi
+不帅	3070	bu shuai
+你管	3070	ni guan
+问他	3070	wen ta
+你知道的	3067	ni zhi dao de
+我终于	3066	wo zhong yu
+可能有	3065	ke neng you
+瑟瑟发抖	3065	se se fa dou
+一楼	3064	yi lou
+你等	3062	ni deng
+这么帅	3062	zhe me shuai
+买一个	3061	mai yi ge
+长大的	3061	zhang da de
+我养	3059	wo yang
+才对	3059	cai dui
+是觉得	3059	shi jue de
+太想	3057	tai xiang
+能带	3057	neng dai
+还没看	3057	hai mei kan
+人喜欢	3056	ren xi huan
+很多的	3056	hen duo de
+想什么	3056	xiang shen me
+我当	3056	wo dang
+想到了	3055	xiang dao le
+带我飞	3052	dai wo fei
+就爱	3050	jiu ai
+这个真	3049	zhe ge zhen
+也叫	3048	ye jiao
+姐姐你	3048	jie jie ni
+我很喜欢	3048	wo hen xi huan
+我等着	3046	wo deng zhe
+给你一个	3045	gei ni yi ge
+没事了	3042	mei shi le
+非主流	3042	fei zhu liu
+一个是	3041	yi ge shi
+在努力	3041	zai nu li
+考完了	3040	kao wan le
+讲道理	3040	jiang dao li
+下班了	3038	xia ban le
+就只能	3038	jiu zhi neng
+送了	3038	song le
+一分钟	3037	yi fen zhong
+这么瘦	3036	zhe me shou
+不值得	3035	bu zhi de
+我知道了	3035	wo zhi dao le
+你飞	3034	ni fei
+没有吃	3034	mei you chi
+我总	3033	wo zong
+我说话	3033	wo shuo hua
+很好听	3032	hen hao ting
+女汉子	3031	nv han zi
+电话给	3030	dian hua gei
+说嘛	3029	shuo ma
+和你们	3028	he ni men
+怎么想	3028	zen me xiang
+这年	3028	zhe nian
+很舒服	3027	hen shu fu
+顺其自然	3027	shun qi zi ran
+你早	3025	ni zao
+去吃饭	3025	qu chi fan
+我滴	3025	wo di
+一加	3024	yi jia
+自己看	3021	zi ji kan
+遇到的	3021	yu dao de
+多长	3020	duo zhang
+越来越多	3020	yue lai yue duo
+还算	3020	hai suan
+个啥	3019	ge sha
+根本就	3019	gen ben jiu
+也没用	3017	ye mei yong
+这么想的	3017	zhe me xiang de
+会喜欢	3016	hui xi huan
+仔细看	3015	zi xi kan
+哪里去	3015	na li qu
+人怎么	3014	ren zen me
+帅气的	3014	shuai qi de
+我坐	3012	wo zuo
+本来是	3012	ben lai shi
+你的名字	3011	ni de ming zi
+奇怪的	3011	qi guai de
+出来玩	3009	chu lai wan
+拉仇恨	3009	la chou hen
+要努力	3008	yao nu li
+岁了	3007	sui le
+这会	3006	zhe hui
+你是真	3005	ni shi zhen
+你脸	3002	ni lian
+买了个	3001	mai le ge
+对我来	3001	dui wo lai
+时候可以	3001	shi hou ke yi
+跟你们	3001	gen ni men
+娱乐圈	3000	yu le quan
+舒服的	3000	shu fu de
+好赞	2999	hao zan
+长高	2998	zhang gao
+还差	2997	hai cha
+你不用	2996	ni bu yong
+谢谢啊	2995	xie xie a
+你住	2994	ni zhu
+发给你	2994	fa gei ni
+只看到	2994	zhi kan dao
+是他们	2994	shi ta men
+爱的人	2994	ai de ren
+不想看	2992	bu xiang kan
+你赶紧	2992	ni gan jin
+我想看	2991	wo xiang kan
+怎么吃	2989	zen me chi
+行吗	2986	xing ma
+学了	2985	xue le
+会死	2982	hui si
+才可以	2980	cai ke yi
+没回家	2980	mei hui jia
+继续加油	2979	ji xu jia you
+到这个	2978	dao zhe ge
+又没有	2978	you mei you
+试了	2978	shi le
+一起努力	2977	yi qi nu li
+你们有	2975	ni men you
+你也会	2974	ni ye hui
+你见过	2974	ni jian guo
+想得	2974	xiang de
+才去	2974	cai qu
+我已	2972	wo yi
+是多少	2972	shi duo shao
+你姐	2971	ni jie
+带回来	2969	dai hui lai
+是时候	2969	shi shi hou
+没开始	2968	mei kai shi
+要一个	2966	yao yi ge
+个地方	2965	ge di fang
+以后要	2965	yi hou yao
+点什么	2965	dian shen me
+他们是	2964	ta men shi
+都忘了	2964	dou wang le
+不用谢	2962	bu yong xie
+是一样的	2962	shi yi yang de
+以后有	2961	yi hou you
+你只	2961	ni zhi
+家在	2961	jia zai
+也别	2960	ye bie
+去见	2960	qu jian
+在杭州	2960	zai hang zhou
+别让	2959	bie rang
+号就	2959	hao jiu
+太热了	2959	tai re le
+这个好	2959	zhe ge hao
+就回家	2958	jiu hui jia
+天天吃	2957	tian tian chi
+开着	2957	kai zhe
+十二点	2955	shi er dian
+来吗	2954	lai ma
+你小	2952	ni xiao
+小花	2952	xiao hua
+也差不多	2951	ye cha bu duo
+和我们	2951	he wo men
+一定要去	2950	yi ding yao qu
+今天要	2950	jin tian yao
+咋知道	2950	za zhi dao
+想去看	2949	xiang qu kan
+平安夜	2948	ping an ye
+我儿子	2948	wo er zi
+谢谢了	2948	xie xie le
+没看懂	2946	mei kan dong
+不散	2939	bu san
+去打	2939	qu da
+你来了	2938	ni lai le
+真是的	2938	zhen shi de
+谢了	2938	xie le
+祝你好运	2937	zhu ni hao yun
+跟我们	2937	gen wo men
+到啦	2936	dao la
+你的意思	2935	ni de yi si
+觉得有	2935	jue de you
+我也没有	2934	wo ye mei you
+才睡	2934	cai shui
+他要	2933	ta yao
+就是我的	2933	jiu shi wo de
+天天开心	2932	tian tian kai xin
+有必要	2932	you bi yao
+好好珍惜	2931	hao hao zhen xi
+你以前	2929	ni yi qian
+我为	2929	wo wei
+你可以去	2927	ni ke yi qu
+多注意	2927	duo zhu yi
+你发的	2926	ni fa de
+挺不错	2924	ting bu cuo
+祝你生日	2924	zhu ni sheng ri
+以为你是	2923	yi wei ni shi
+你怎么了	2923	ni zen me le
+你跑	2923	ni pao
+叫上	2923	jiao shang
+就是为了	2922	jiu shi wei le
+想笑	2922	xiang xiao
+感谢你	2922	gan xie ni
+还挺好	2922	hai ting hao
+不正常	2921	bu zheng chang
+有意义	2921	you yi yi
+人陪	2920	ren pei
+可以呀	2919	ke yi ya
+想家	2919	xiang jia
+原谅你	2918	yuan liang ni
+些什么	2915	xie shen me
+你帅	2915	ni shuai
+你爱我	2915	ni ai wo
+有兴趣	2915	you xing qu
+这个小	2915	zhe ge xiao
+你喜欢的	2914	ni xi huan de
+艾特我	2914	ai te wo
+你唱	2913	ni chang
+总比	2912	zong bi
+才不是	2912	cai bu shi
+这么厉害	2912	zhe me li hai
+你是有	2911	ni shi you
+很期待	2910	hen qi dai
+约了	2910	yue le
+不知道呢	2909	bu zhi dao ne
+想知道你	2909	xiang zhi dao ni
+这样想	2909	zhe yang xiang
+你却	2907	ni que
+点开	2907	dian kai
+免费的	2905	mian fei de
+和朋友	2905	he peng you
+你说什么	2903	ni shuo shen me
+只是我	2903	zhi shi wo
+我哭	2903	wo ku
+好丑	2902	hao chou
+我和我	2902	wo he wo
+今天刚	2901	jin tian gang
+我直接	2900	wo zhi jie
+那肯定	2900	na ken ding
+不跟你	2899	bu gen ni
+为嘛	2899	wei ma
+会胖	2899	hui pang
+没吃饭	2898	mei chi fan
+今天早上	2897	jin tian zao shang
+就是那个	2897	jiu shi na ge
+就有了	2897	jiu you le
+不肯	2896	bu ken
+都懂	2896	dou dong
+一起吧	2894	yi qi ba
+回来给	2893	hui lai gei
+想看看	2893	xiang kan kan
+我天	2893	wo tian
+换手机了	2893	huan shou ji le
+都没了	2893	dou mei le
+大爱	2892	da ai
+在那边	2891	zai na bian
+我下次	2891	wo xia ci
+时候给	2891	shi hou gei
+看好你	2890	kan hao ni
+能跟	2890	neng gen
+我打电话	2888	wo da dian hua
+转了	2888	zhuan le
+太可怕了	2887	tai ke pa le
+是因为你	2887	shi yin wei ni
+放心吧	2884	fang xin ba
+不知道了	2882	bu zhi dao le
+你哥	2881	ni ge
+一起吃饭	2880	yi qi chi fan
+太晚了	2880	tai wan le
+给你个	2880	gei ni ge
+我留	2879	wo liu
+没有用	2879	mei you yong
+要当	2879	yao dang
+不起啊	2878	bu qi a
+什么样子	2878	shen me yang zi
+你不说	2878	ni bu shuo
+今天在	2877	jin tian zai
+去的时候	2876	qu de shi hou
+一起啊	2873	yi qi a
+不动了	2873	bu dong le
+就用	2873	jiu yong
+我不爱	2873	wo bu ai
+也是醉了	2872	ye shi zui le
+可以帮	2872	ke yi bang
+知道我是	2872	zhi dao wo shi
+那里的	2872	na li de
+您是	2871	nin shi
+你不是说	2870	ni bu shi shuo
+瘦啊	2870	shou a
+也想知道	2869	ye xiang zhi dao
+太幸福	2869	tai xing fu
+到什么	2866	dao shen me
+又胖	2866	you pang
+少女心	2866	shao nv xin
+说下	2866	shuo xia
+一直觉得	2864	yi zhi jue de
+红了	2864	hong le
+要结婚了	2864	yao jie hun le
+这话说	2864	zhe hua shuo
+我都快	2862	wo dou kuai
+没看到你	2862	mei kan dao ni
+都挺	2861	dou ting
+要学	2860	yao xue
+好吧好	2859	hao ba hao
+前段时间	2858	qian duan shi jian
+还是不要	2858	hai shi bu yao
+那是因为	2858	na shi yin wei
+一个个	2855	yi ge ge
+家是	2855	jia shi
+要回去	2855	yao hui qu
+太对	2854	tai dui
+我开	2854	wo kai
+给它	2854	gei ta
+讨厌你	2854	tao yan ni
+家里人	2853	jia li ren
+没上	2853	mei shang
+为什么是	2852	wei shen me shi
+等他	2852	deng ta
+我说了	2851	wo shuo le
+你们说	2849	ni men shuo
+达人	2849	da ren
+我早就	2848	wo zao jiu
+晕了	2848	yun le
+才不会	2847	cai bu hui
+多天	2846	duo tian
+到就	2844	dao jiu
+千万不要	2844	qian wan bu yao
+姐姐我	2844	jie jie wo
+不了你	2843	bu le ni
+讨厌的	2843	tao yan de
+一般都是	2842	yi ban dou shi
+那条	2842	na tiao
+别个	2840	bie ge
+是喜欢	2840	shi xi huan
+哪里买的	2838	na li mai de
+听说过	2836	ting shuo guo
+妥妥的	2836	tuo tuo de
+不想吃	2834	bu xiang chi
+但是还是	2834	dan shi hai shi
+非常好	2834	fei chang hao
+买来	2833	mai lai
+又说	2832	you shuo
+成真	2832	cheng zhen
+只是觉得	2830	zhi shi jue de
+看到这个	2830	kan dao zhe ge
+这时候	2830	zhe shi hou
+难过的	2829	nan guo de
+会继续	2828	hui ji xu
+在哪呢	2827	zai na ne
+摄像头	2827	she xiang tou
+没开	2827	mei kai
+要给你	2825	yao gei ni
+我看着	2824	wo kan zhe
+没喝	2823	mei he
+你和我	2822	ni he wo
+就跑	2820	jiu pao
+觉得她	2820	jue de ta
+不在乎	2819	bu zai hu
+也是个	2818	ye shi ge
+你本来	2818	ni ben lai
+玩呀	2818	wan ya
+不是啦	2817	bu shi la
+点东西	2817	dian dong xi
+给我来	2816	gei wo lai
+太瘦了	2815	tai shou le
+想回去	2815	xiang hui qu
+看是	2814	kan shi
+好的人	2813	hao de ren
+就只	2813	jiu zhi
+起得	2813	qi de
+我也看	2812	wo ye kan
+去就	2811	qu jiu
+要先	2811	yao xian
+你起	2810	ni qi
+我没说	2808	wo mei shuo
+你们了	2807	ni men le
+多东西	2807	duo dong xi
+来点	2807	lai dian
+我心中	2806	wo xin zhong
+是不可能	2805	shi bu ke neng
+能穿	2804	neng chuan
+没回来	2803	mei hui lai
+还是去	2802	hai shi qu
+多一点	2801	duo yi dian
+要考试	2799	yao kao shi
+朋友们	2798	peng you men
+一般人	2797	yi ban ren
+太重	2797	tai zhong
+就给你	2797	jiu gei ni
+很强	2796	hen qiang
+我头发	2796	wo tou fa
+去广州	2795	qu guang zhou
+简直了	2793	jian zhi le
+要问	2793	yao wen
+想当	2791	xiang dang
+发给我	2790	fa gei wo
+打得	2790	da de
+肯定要	2790	ken ding yao
+吃早餐	2789	chi zao can
+好像你	2789	hao xiang ni
+还是好	2789	hai shi hao
+我超	2787	wo chao
+买啊	2786	mai a
+今年的	2785	jin nian de
+梦到你	2785	meng dao ni
+已经到	2784	yi jing dao
+快给	2784	kuai gei
+是不是有	2782	shi bu shi you
+我去找	2781	wo qu zhao
+挺好吃	2781	ting hao chi
+想问你	2780	xiang wen ni
+暴露了	2780	bao lu le
+自己啊	2780	zi ji a
+那么远	2780	na me yuan
+喜欢我的	2779	xi huan wo de
+高大上	2776	gao da shang
+吃个饭	2775	chi ge fan
+哪里来	2775	na li lai
+不是人	2774	bu shi ren
+不是你的	2774	bu shi ni de
+想你想	2774	xiang ni xiang
+没有说	2774	mei you shuo
+肿了	2772	zhong le
+想有	2771	xiang you
+朋友说	2770	peng you shuo
+就醒	2769	jiu xing
+适合我	2769	shi he wo
+和别人	2768	he bie ren
+温柔的	2768	wen rou de
+不认识你	2767	bu ren shi ni
+我吃的	2767	wo chi de
+这么冷	2767	zhe me leng
+吃早饭	2765	chi zao fan
+还有很多	2764	hai you hen duo
+那次	2763	na ci
+今天生日	2762	jin tian sheng ri
+一不小心	2760	yi bu xiao xin
+也想你	2759	ye xiang ni
+有没有人	2759	you mei you ren
+绿色的	2758	lv se de
+你之前	2757	ni zhi qian
+我女朋友	2757	wo nv peng you
+我老婆	2757	wo lao po
+会好的	2756	hui hao de
+你告诉我	2756	ni gao su wo
+会遇到	2755	hui yu dao
+是不是你	2755	shi bu shi ni
+热啊	2755	re a
+你走开	2752	ni zou kai
+骄傲的	2752	jiao ao de
+会跟	2751	hui gen
+就感觉	2751	jiu gan jue
+想你的	2750	xiang ni de
+到学校	2749	dao xue xiao
+也比	2748	ye bi
+你介绍	2747	ni jie shao
+穿什么	2747	chuan shen me
+也没什么	2745	ye mei shen me
+在车上	2744	zai che shang
+这样的人	2744	zhe yang de ren
+不叫我	2743	bu jiao wo
+是一个人	2743	shi yi ge ren
+站起来	2743	zhan qi lai
+自己做的	2743	zi ji zuo de
+还不能	2743	hai bu neng
+你买的	2742	ni mai de
+喜欢啊	2742	xi huan a
+就做	2742	jiu zuo
+不懂你	2741	bu dong ni
+你笑	2741	ni xiao
+不爱吃	2740	bu ai chi
+光了	2740	guang le
+好几年	2740	hao ji nian
+好多好多	2740	hao duo hao duo
+天冷	2738	tian leng
+都说了	2738	dou shuo le
+你们这	2737	ni men zhe
+你够	2737	ni gou
+看自己	2735	kan zi ji
+遇见你	2735	yu jian ni
+你拍的	2733	ni pai de
+去看你	2733	qu kan ni
+就快	2732	jiu kuai
+无聊了	2730	wu liao le
+跟别人	2729	gen bie ren
+开心哦	2727	kai xin o
+要发	2727	yao fa
+只想说	2726	zhi xiang shuo
+因为我们	2724	yin wei wo men
+大家都是	2724	da jia dou shi
+客气了	2724	ke qi le
+个问题	2723	ge wen ti
+是那种	2723	shi na zhong
+人真的	2722	ren zhen de
+人给	2721	ren gei
+什么用	2721	shen me yong
+是因为我	2721	shi yin wei wo
+还敢	2721	hai gan
+不美	2720	bu mei
+每个月	2720	mei ge yue
+不要我	2719	bu yao wo
+想你们	2719	xiang ni men
+没有吧	2717	mei you ba
+又瘦	2715	you shou
+朋友了	2714	peng you le
+一天了	2713	yi tian le
+你不觉得	2713	ni bu jue de
+好的吧	2713	hao de ba
+想学	2713	xiang xue
+不用了	2712	bu yong le
+来看我	2711	lai kan wo
+睡醒了	2710	shui xing le
+真心的	2709	zhen xin de
+还要去	2709	hai yao qu
+没素质	2708	mei su zhi
+你手机	2707	ni shou ji
+发出来	2707	fa chu lai
+来看你	2707	lai kan ni
+话说的	2707	hua shuo de
+怎么没有	2706	zen me mei you
+废了	2705	fei le
+想出去	2705	xiang chu qu
+被发现了	2705	bei fa xian le
+可以这么	2704	ke yi zhe me
+哎呀呀	2703	ai ya ya
+喝多了	2703	he duo le
+在寝室	2703	zai qin shi
+快好	2700	kuai hao
+我哪里	2699	wo na li
+小黑	2698	xiao hei
+你还会	2696	ni hai hui
+那么美	2696	na me mei
+就是觉得	2694	jiu shi jue de
+我却	2694	wo que
+明天早上	2694	ming tian zao shang
+试试看	2694	shi shi kan
+浪了	2693	lang le
+能看见	2693	neng kan jian
+明天的	2692	ming tian de
+回学校了	2691	hui xue xiao le
+真滴	2691	zhen di
+你还能	2688	ni hai neng
+段时间	2687	duan shi jian
+这小	2686	zhe xiao
+对的人	2685	dui de ren
+到你的	2682	dao ni de
+去听	2682	qu ting
+看看有	2682	kan kan you
+可以吧	2680	ke yi ba
+都会好	2680	du hui hao
+很酷	2679	hen ku
+太难了	2678	tai nan le
+漂亮啊	2678	piao liang a
+说我是	2678	shuo wo shi
+个多	2677	ge duo
+休息啊	2677	xiu xi a
+我帅	2677	wo shuai
+还没开始	2677	hai mei kai shi
+烦死了	2676	fan si le
+那得	2676	na de
+重口味	2675	zhong kou wei
+吃不到	2674	chi bu dao
+很远	2674	hen yuan
+时候看	2674	shi hou kan
+好主意	2673	hao zhu yi
+小明	2673	xiao ming
+一大堆	2671	yi da dui
+海底捞	2671	hai di lao
+谢谢哦	2671	xie xie o
+一个地方	2669	yi ge di fang
+不打算	2669	bu da suan
+年头	2669	nian tou
+你只是	2668	ni zhi shi
+真的超级	2668	zhen de chao ji
+走在	2668	zou zai
+一切都会	2667	yi qie du hui
+前女友	2667	qian nv you
+只是在	2666	zhi shi zai
+棒哦	2665	bang o
+打算去	2664	da suan qu
+好的呢	2662	hao de ne
+来一个	2662	lai yi ge
+能给我	2662	neng gei wo
+过年好	2662	guo nian hao
+长得好看	2662	zhang de hao kan
+下去的	2661	xia qu de
+不干	2660	bu gan
+觉得呢	2660	jue de ne
+看就是	2659	kan jiu shi
+我来啦	2657	wo lai la
+我的是	2657	wo de shi
+看不下去	2657	kan bu xia qu
+我是一个	2656	wo shi yi ge
+你试试	2655	ni shi shi
+我没看	2655	wo mei kan
+你昨天	2654	ni zuo tian
+好像有	2654	hao xiang you
+好可怕	2654	hao ke pa
+要出去	2654	yao chu qu
+听你的	2651	ting ni de
+很贵	2651	hen gui
+会瘦	2650	hui shou
+太少了	2650	tai shao le
+最好吃	2650	zui hao chi
+你回去	2649	ni hui qu
+明天下午	2649	ming tian xia wu
+然后呢	2649	ran hou ne
+红红火	2649	hong hong huo
+回复了	2648	hui fu le
+真帅	2648	zhen shuai
+你对我	2647	ni dui wo
+今天有	2646	jin tian you
+会回来	2646	hui hui lai
+你们怎么	2646	ni men zen me
+再说吧	2646	zai shuo ba
+希望有	2646	xi wang you
+就过去	2645	jiu guo qu
+看错了	2645	kan cuo le
+毕竟是	2644	bi jing shi
+不懂的	2642	bu dong de
+痛苦的	2642	tong ku de
+他现在	2640	ta xian zai
+想睡觉	2640	xiang shui jiao
+一整天	2639	yi zheng tian
+睡觉去	2639	shui jiao qu
+也不敢	2638	ye bu gan
+你这么说	2638	ni zhe me shuo
+胖啊	2637	pang a
+你一下	2636	ni yi xia
+你回家了	2636	ni hui jia le
+你可以的	2635	ni ke yi de
+说走	2635	shuo zou
+一包	2634	yi bao
+上就	2634	shang jiu
+就是你的	2634	jiu shi ni de
+没收到	2634	mei shou dao
+睡呢	2634	shui ne
+多吧	2632	duo ba
+这种东西	2632	zhe zhong dong xi
+一月	2631	yi yue
+你吃了	2631	ni chi le
+回家啊	2631	hui jia a
+不开心的	2630	bu kai xin de
+我在看	2630	wo zai kan
+昨天我	2630	zuo tian wo
+很羡慕	2629	hen xian mu
+早点睡吧	2629	zao dian shui ba
+有机会的	2629	you ji hui de
+次了	2629	ci le
+赶紧的	2629	gan jin de
+吃着	2628	chi zhe
+要一直	2627	yao yi zhi
+那么好看	2627	na me hao kan
+应该的	2626	ying gai de
+来上海	2626	lai shang hai
+祝你幸福	2626	zhu ni xing fu
+联系方式	2626	lian xi fang shi
+你又不是	2625	ni you bu shi
+不难	2624	bu nan
+才是最	2624	cai shi zui
+准备好了	2623	zhun bei hao le
+小女孩	2623	xiao nv hai
+年纪大了	2623	nian ji da le
+看个	2623	kan ge
+就来了	2622	jiu lai le
+太厉害了	2621	tai li hai le
+看吗	2620	kan ma
+等你来	2620	deng ni lai
+人生的	2619	ren sheng de
+就打	2619	jiu da
+也只是	2618	ye zhi shi
+我有惊喜	2618	wo you jing xi
+也超	2617	ye chao
+有个人	2617	you ge ren
+疼了	2617	teng le
+跟我一起	2617	gen wo yi qi
+我睡觉	2616	wo shui jiao
+溜了	2615	liu le
+很棒棒	2614	hen bang bang
+我又不是	2614	wo you bu shi
+都让	2614	dou rang
+上课了	2613	shang ke le
+好玩吗	2613	hao wan ma
+玩呢	2612	wan ne
+算了吧	2612	suan le ba
+好喜欢你	2611	hao xi huan ni
+没敢	2611	mei gan
+你倒是	2610	ni dao shi
+怕不怕	2610	pa bu pa
+要拿	2610	yao na
+你买了	2609	ni mai le
+热死了	2609	re si le
+你怕	2608	ni pa
+不想说	2607	bu xiang shuo
+你电话	2606	ni dian hua
+我住	2606	wo zhu
+等我回去	2606	deng wo hui qu
+在西安	2605	zai xi an
+太小了	2605	tai xiao le
+别人家	2604	bie ren jia
+必须是	2604	bi xu shi
+给他们	2604	gei ta men
+马上要	2603	ma shang yao
+上啊	2601	shang a
+再睡	2601	zai shui
+抢了	2600	qiang le
+不好好	2599	bu hao hao
+被偷	2599	bei tou
+你一天	2598	ni yi tian
+我睡了	2598	wo shui le
+就开心	2597	jiu kai xin
+我想起	2597	wo xiang qi
+你们去	2596	ni men qu
+哪里呀	2596	na li ya
+没玩	2596	mei wan
+可以穿	2595	ke yi chuan
+说来	2595	shuo lai
+回复我有	2594	hui fu wo you
+怎么瘦	2594	zen me shou
+什么感觉	2593	shen me gan jue
+好孩子	2593	hao hai zi
+多说	2592	duo shuo
+我做的	2592	wo zuo de
+重了	2592	zhong le
+也很好	2591	ye hen hao
+吃呢	2589	chi ne
+玩过	2589	wan guo
+要喝	2589	yao he
+刚刚好	2588	gang gang hao
+小鲜肉	2588	xiao xian rou
+晚上去	2588	wan shang qu
+不是应该	2587	bu shi ying gai
+回北京	2587	hui bei jing
+想看你	2587	xiang kan ni
+赶紧去	2587	gan jin qu
+不公平	2585	bu gong ping
+再找	2584	zai zhao
+和我一起	2584	he wo yi qi
+外面的	2583	wai mian de
+挺大	2583	ting da
+明天见	2582	ming tian jian
+你就知道	2581	ni jiu zhi dao
+每次都是	2580	mei ci dou shi
+点到	2580	dian dao
+不着急	2579	bu zhao ji
+你寄	2579	ni ji
+棒棒的	2578	bang bang de
+五天	2577	wu tian
+关心你	2577	guan xin ni
+十一点	2577	shi yi dian
+拔了	2577	ba le
+最怕	2577	zui pa
+男人的	2577	nan ren de
+给你做	2576	gei ni zuo
+要睡觉	2576	yao shui jiao
+不快乐	2575	bu kuai le
+时间是	2575	shi jian shi
+喝咖啡	2573	he ka fei
+我看的	2573	wo kan de
+不过现在	2572	bu guo xian zai
+吃饭啊	2572	chi fan a
+没跟	2572	mei gen
+点睡	2572	dian shui
+今天好	2571	jin tian hao
+我见过	2571	wo jian guo
+谢谢哈	2570	xie xie ha
+一年多	2569	yi nian duo
+不忙	2569	bu mang
+刷了	2568	shua le
+怎么样啊	2568	zen me yang a
+她有	2567	ta you
+说句	2567	shuo ju
+成都的	2566	cheng du de
+去那	2565	qu na
+怪我咯	2565	guai wo ge
+你回复	2563	ni hui fu
+你猜我	2563	ni cai wo
+原来我	2563	yuan lai wo
+需要我	2563	xu yao wo
+你懂得	2562	ni dong de
+男朋友了	2560	nan peng you le
+最后一天	2558	zui hou yi tian
+你也有	2556	ni ye you
+只是说	2556	zhi shi shuo
+来打	2556	lai da
+看到他	2556	kan dao ta
+你们就	2555	ni men jiu
+去试试	2554	qu shi shi
+来找我玩	2554	lai zhao wo wan
+你们俩	2553	ni men lia
+你坐	2553	ni zuo
+我室友	2553	wo shi you
+估计你	2552	gu ji ni
+真是个	2552	zhen shi ge
+都不行	2552	dou bu xing
+不要这么	2551	bu yao zhe me
+希望你能	2550	xi wang ni neng
+给我发	2550	gei wo fa
+都木有	2550	dou mu you
+吓死我	2549	xia si wo
+出去浪	2548	chu qu lang
+自由行	2548	zi you xing
+我也就	2547	wo ye jiu
+都差不多	2546	dou cha bu duo
+超级好看	2544	chao ji hao kan
+还多	2544	hai duo
+又能	2543	you neng
+我挺	2543	wo ting
+做到的	2542	zuo dao de
+在我的	2542	zai wo de
+我们也是	2542	wo men ye shi
+爱上了	2542	ai shang le
+好感动	2541	hao gan dong
+也许是	2540	ye xu shi
+不记得了	2539	bu ji de le
+发来	2538	fa lai
+欺负你	2538	qi fu ni
+都开始	2538	dou kai shi
+不舍得	2535	bu she de
+好可爱啊	2535	hao ke ai a
+很辛苦	2535	hen xin ku
+爱啊	2535	ai a
+都走	2535	dou zou
+没见你	2531	mei jian ni
+大半夜的	2530	da ban ye de
+要跟我	2530	yao gen wo
+个时间	2529	ge shi jian
+头像是	2529	tou xiang shi
+这个表情	2529	zhe ge biao qing
+吃不胖	2528	chi bu pang
+怎么破	2527	zen me po
+坑了	2526	keng le
+打到	2525	da dao
+没事就	2525	mei shi jiu
+被窝里	2525	bei wo li
+出你的	2524	chu ni de
+学到	2524	xue dao
+最后一张	2524	zui hou yi zhang
+现在去	2524	xian zai qu
+要是我	2524	yao shi wo
+边上	2524	bian shang
+那是必须	2524	na shi bi xu
+很奇怪	2523	hen qi guai
+那好吧	2523	na hao ba
+你这句话	2522	ni zhe ju hua
+我觉得是	2522	wo jue de shi
+半个小时	2521	ban ge xiao shi
+该怎么办	2521	gai zen me ban
+下次你	2520	xia ci ni
+嫌弃你	2520	xian qi ni
+可以约	2517	ke yi yue
+回复的	2517	hui fu de
+穿秋裤	2517	chuan qiu ku
+偷了	2516	tou le
+我就觉得	2516	wo jiu jue de
+我早上	2515	wo zao shang
+这个意思	2515	zhe ge yi si
+一看就	2514	yi kan jiu
+就好好	2514	jiu hao hao
+也只能	2513	ye zhi neng
+你来我	2513	ni lai wo
+都是自己	2513	dou shi zi ji
+带你吃	2511	dai ni chi
+玩的开心	2510	wan de kai xin
+真早	2510	zhen zao
+会让你	2509	hui rang ni
+无语了	2509	wu yu le
+受不了了	2508	shou bu liao le
+大点	2508	da dian
+我关注	2508	wo guan zhu
+能喝	2508	neng he
+爱你了	2507	ai ni le
+我都不敢	2506	wo dou bu gan
+笑点	2506	xiao dian
+也很喜欢	2505	ye hen xi huan
+你忘了	2505	ni wang le
+回老家	2505	hui lao jia
+不都是	2504	bu dou shi
+没有呀	2504	mei you ya
+也不行	2503	ye bu xing
+都说我	2503	dou shuo wo
+你是什么	2502	ni shi shen me
+骂了	2501	ma le
+吃胖	2499	chi pang
+太早了	2499	tai zao le
+就到了	2499	jiu dao le
+很对	2499	hen dui
+心疼我	2499	xin teng wo
+是你自己	2499	shi ni zi ji
+要那么	2499	yao na me
+那么长	2498	na me zhang
+该说	2497	gai shuo
+谢谢亲	2497	xie xie qin
+说别人	2496	shuo bie ren
+这么一说	2496	zhe me yi shuo
+值得拥有	2495	zhi de yong you
+现在还有	2494	xian zai hai you
+真不错	2494	zhen bu cuo
+不差	2493	bu cha
+个人都有	2493	ge ren dou you
+不理你	2491	bu li ni
+你不喜欢	2491	ni bu xi huan
+出来就	2490	chu lai jiu
+三个人	2488	san ge ren
+很是	2488	hen shi
+想给你	2487	xiang gei ni
+穿裙子	2487	chuan qun zi
+单身的	2486	dan shen de
+上过	2485	shang guo
+不要想	2484	bu yao xiang
+车了	2484	che le
+出去的	2483	chu qu de
+很赞	2483	hen zan
+要小心	2483	yao xiao xin
+都没看	2483	dou mei kan
+期待期待	2482	qi dai qi dai
+个假	2481	ge jia
+你好看	2480	ni hao kan
+怎么觉得	2480	zen me jue de
+爱你们	2480	ai ni men
+没变	2479	mei bian
+十天	2478	shi tian
+你值得	2477	ni zhi de
+这里有	2477	zhe li you
+都不一样	2477	dou bu yi yang
+都没人	2477	dou mei ren
+也会有	2476	ye hui you
+内心的	2476	nei xin de
+说得对	2476	shuo de dui
+对不起我	2475	dui bu qi wo
+我脸	2475	wo lian
+小猫	2474	xiao mao
+找我玩	2471	zhao wo wan
+个男朋友	2468	ge nan peng you
+我去年	2468	wo qu nian
+我在你	2468	wo zai ni
+自己要	2468	zi ji yao
+那边的	2468	na bian de
+不一样了	2467	bu yi yang le
+你为	2467	ni wei
+这边的	2467	zhe bian de
+去掉	2466	qu diao
+可能你	2466	ke neng ni
+在我心里	2466	zai wo xin li
+也是你	2465	ye shi ni
+不是什么	2464	bu shi shen me
+变好	2464	bian hao
+衣服了	2463	yi fu le
+比他	2462	bi ta
+有气质	2460	you qi zhi
+不喜欢的	2459	bu xi huan de
+他就是	2459	ta jiu shi
+我会的	2458	wo hui de
+还那么	2458	hai na me
+你咯	2457	ni ge
+你把我	2457	ni ba wo
+真不是	2457	zhen bu shi
+应该可以	2456	ying gai ke yi
+好乖	2455	hao guai
+次是	2455	ci shi
+不说我	2453	bu shuo wo
+就是看	2453	jiu shi kan
+晚安哦	2453	wan an o
+你咋知道	2452	ni za zhi dao
+要睡了	2452	yao shui le
+信不信	2451	xin bu xin
+原来你是	2451	yuan lai ni shi
+宿舍的	2451	su she de
+走心	2451	zou xin
+你去哪	2449	ni qu na
+知道你们	2449	zhi dao ni men
+分手的	2448	fen shou de
+那你们	2448	na ni men
+坐火车	2447	zuo huo che
+我上去	2447	wo shang qu
+你的照片	2446	ni de zhao pian
+总感觉	2446	zong gan jue
+能这样	2446	neng zhe yang
+脱了	2446	tuo le
+你觉得我	2445	ni jue de wo
+又可以	2445	you ke yi
+迟到了	2445	chi dao le
+去问	2443	qu wen
+存在感	2443	cun zai gan
+小胖	2443	xiao pang
+又换	2438	you huan
+就换	2438	jiu huan
+回来看	2437	hui lai kan
+辛苦的	2437	xin ku de
+那句	2437	na ju
+出来我	2436	chu lai wo
+我看过	2436	wo kan guo
+有你们	2436	you ni men
+真的没有	2436	zhen de mei you
+早起的	2435	zao qi de
+能过	2435	neng guo
+会做饭	2434	hui zuo fan
+去重庆	2434	qu chong qing
+有钱的	2434	you qian de
+不啊	2432	bu a
+先看	2432	xian kan
+下次带	2430	xia ci dai
+说点	2430	shuo dian
+伤了	2429	shang le
+你想的	2429	ni xiang de
+在身边	2429	zai shen bian
+不造	2428	bu zao
+就发	2428	jiu fa
+提醒我	2428	ti xing wo
+买车	2427	mai che
+这部剧	2426	zhe bu ju
+不要让	2425	bu yao rang
+没文化	2425	mei wen hua
+给您	2425	gei nin
+人想	2424	ren xiang
+快乐哟	2424	kuai le yo
+之前我	2422	zhi qian wo
+喜欢小	2421	xi huan xiao
+让你们	2420	rang ni men
+注意点	2419	zhu yi dian
+谁呢	2419	shui ne
+说你是	2418	shuo ni shi
+你们要	2416	ni men yao
+最近好	2416	zui jin hao
+给我介绍	2416	gei wo jie shao
+要瘦	2415	yao shou
+不问	2414	bu wen
+回来吗	2414	hui lai ma
+见人	2414	jian ren
+今天天气	2413	jin tian tian qi
+决定了	2412	jue ding le
+好很多	2412	hao hen duo
+很喜欢你	2412	hen xi huan ni
+找对象	2411	zhao dui xiang
+看到过	2411	kan dao guo
+破了	2411	po le
+好高	2410	hao gao
+很晚	2410	hen wan
+我不听	2410	wo bu ting
+人知道	2409	ren zhi dao
+人还是	2409	ren hai shi
+哪种	2408	na zhong
+真的想	2408	zhen de xiang
+把头发	2407	ba tou fa
+还是比较	2407	hai shi bi jiao
+还是没有	2407	hai shi mei you
+你比较	2406	ni bi jiao
+我选择	2406	wo xuan ze
+很烦	2405	hen fan
+都跟	2405	dou gen
+去不去	2404	qu bu qu
+头发的	2404	tou fa de
+没事啦	2404	mei shi la
+对吗	2403	dui ma
+看饿	2403	kan e
+在说我	2402	zai shuo wo
+好男人	2402	hao nan ren
+来不来	2402	lai bu lai
+饿死了	2402	e si le
+在你的	2401	zai ni de
+有这样的	2401	you zhe yang de
+比我们	2401	bi wo men
+那你要	2401	na ni yao
+别吃	2400	bie chi
+只是个	2400	zhi shi ge
+你去吃	2398	ni qu chi
+啥时候来	2398	sha shi hou lai
+我学	2398	wo xue
+还真的	2398	hai zhen de
+长这么	2398	zhang zhe me
+一打	2397	yi da
+对身体	2397	dui shen ti
+不换	2395	bu huan
+玩啦	2395	wan la
+谁呀	2395	shui ya
+又会	2394	you hui
+没遇到	2394	mei yu dao
+约吗	2394	yue ma
+谁家	2394	shui jia
+飞了	2394	fei le
+幸福哦	2392	xing fu o
+现在还是	2392	xian zai hai shi
+喝过	2390	he guo
+坐了	2390	zuo le
+知道要	2390	zhi dao yao
+出来啊	2389	chu lai a
+我弟	2389	wo di
+有希望	2389	you xi wang
+看不出	2389	kan bu chu
+越看	2389	yue kan
+不是去	2387	bu shi qu
+好可爱的	2387	hao ke ai de
+怎样的	2387	zen yang de
+能打	2387	neng da
+弄个	2386	nong ge
+毕业快乐	2386	bi ye kuai le
+麻烦你	2386	ma fan ni
+走就走	2385	zou jiu zou
+最想	2384	zui xiang
+那么瘦	2384	na me shou
+喜欢你了	2383	xi huan ni le
+放到	2382	fang dao
+那啥	2382	na sha
+妈说	2381	ma shuo
+就不好	2381	jiu bu hao
+理解的	2381	li jie de
+你也是哦	2380	ni ye shi o
+男朋友的	2380	nan peng you de
+看了你	2380	kan le ni
+我们来	2378	wo men lai
+要个	2378	yao ge
+冬天的	2376	dong tian de
+刚回来	2376	gang hui lai
+敬业福	2376	jing ye fu
+看多	2376	kan duo
+你在家	2375	ni zai jia
+你的时候	2373	ni de shi hou
+太深	2373	tai shen
+我高	2373	wo gao
+换一个	2372	huan yi ge
+睡个	2372	shui ge
+给你送	2372	gei ni song
+不是一般	2371	bu shi yi ban
+会给你	2371	hui gei ni
+我妈说	2371	wo ma shuo
+你聊天	2368	ni liao tian
+太爱	2368	tai ai
+真的超	2368	zhen de chao
+大眼睛	2367	da yan jing
+爱我的	2366	ai wo de
+过段时间	2366	guo duan shi jian
+刚看完	2365	gang kan wan
+可能就	2365	ke neng jiu
+女人的	2365	nv ren de
+就放	2365	jiu fang
+过呢	2365	guo ne
+打过	2364	da guo
+真的特别	2364	zhen de te bie
+想表达	2363	xiang biao da
+十分钟	2362	shi fen zhong
+干嘛去	2362	gan ma qu
+需要一个	2362	xu yao yi ge
+下次一起	2361	xia ci yi qi
+我了吗	2361	wo le ma
+有那么多	2361	you na me duo
+看别人	2361	kan bie ren
+二哥	2360	er ge
+加油啦	2360	jia you la
+是最美	2360	shi zui mei
+后悔了	2359	hou hui le
+浪费了	2359	lang fei le
+要坚持	2359	yao jian chi
+都长	2358	dou zhang
+叫他	2357	jiao ta
+很适合	2357	hen shi he
+我会努力	2357	wo hui nu li
+个电话	2356	ge dian hua
+你变了	2356	ni bian le
+也一直	2355	ye yi zhi
+忙啊	2355	mang a
+不理解	2354	bu li jie
+快说	2354	kuai shuo
+看看吧	2354	kan kan ba
+超想	2354	chao xiang
+太高了	2353	tai gao le
+这下	2353	zhe xia
+要不我	2352	yao bu wo
+不能用	2351	bu neng yong
+人爱	2351	ren ai
+哪里看	2351	na li kan
+挺多的	2351	ting duo de
+谁给	2351	shui gei
+起这么	2351	qi zhe me
+还是有点	2351	hai shi you dian
+不在家	2350	bu zai jia
+对象了	2350	dui xiang le
+好久没有	2349	hao jiu mei you
+女朋友了	2348	nv peng you le
+是不是在	2348	shi bu shi zai
+你们真	2347	ni men zhen
+才叫	2347	cai jiao
+你下次	2346	ni xia ci
+你带我	2346	ni dai wo
+猜到	2346	cai dao
+我们还是	2344	wo men hai shi
+还爱	2344	hai ai
+感觉了	2343	gan jue le
+难过了	2342	nan guo le
+能换	2341	neng huan
+极了	2340	ji le
+来武汉	2339	lai wu han
+每天都是	2339	mei tian dou shi
+我努力	2338	wo nu li
+还是自己	2336	hai shi zi ji
+打电话给	2335	da dian hua gei
+晚安了	2335	wan an le
+那你说	2334	na ni shuo
+看谁	2333	kan shui
+这回	2333	zhe hui
+上午好	2332	shang wu hao
+自己找	2332	zi ji zhao
+不能让	2331	bu neng rang
+跟你一起	2331	gen ni yi qi
+不要钱	2330	bu yao qian
+你的手	2330	ni de shou
+机会了	2330	ji hui le
+行不行	2330	xing bu xing
+看着就	2329	kan zhe jiu
+搞不懂	2328	gao bu dong
+刚吃	2327	gang chi
+怎么做到	2327	zen me zuo dao
+出个	2326	chu ge
+在梦里	2326	zai meng li
+失败了	2326	shi bai le
+我那个	2326	wo na ge
+没有时间	2326	mei you shi jian
+这么大的	2326	zhe me da de
+坐飞机	2325	zuo fei ji
+不瘦	2324	bu shou
+发照片	2324	fa zhao pian
+建议你	2324	jian yi ni
+知道她	2324	zhi dao ta
+好意思说	2323	hao yi si shuo
+时间啊	2323	shi jian a
+你哪里	2322	ni na li
+太会	2321	tai hui
+就真的	2321	jiu zhen de
+没有好	2321	mei you hao
+就不错	2319	jiu bu cuo
+没走	2317	mei zou
+一起过	2316	yi qi guo
+也加油	2316	ye jia you
+你在干嘛	2316	ni zai gan ma
+遇到过	2316	yu dao guo
+你晚上	2315	ni wan shang
+票了	2315	piao le
+你画	2314	ni hua
+应该在	2311	ying gai zai
+我不认识	2311	wo bu ren shi
+呆了	2310	dai le
+是怎样	2310	shi zen yang
+画了	2310	hua le
+自己吃	2310	zi ji chi
+两天就	2309	liang tian jiu
+没打	2309	mei da
+夏天的	2308	xia tian de
+多了吧	2308	duo le ba
+好咯	2308	hao ge
+我开心	2308	wo kai xin
+月了	2308	yue le
+也准备	2307	ye zhun bei
+什么名字	2305	shen me ming zi
+你还想	2305	ni hai xiang
+好帅啊	2305	hao shuai a
+好美啊	2305	hao mei a
+我出去	2305	wo chu qu
+今天吃	2304	jin tian chi
+你咋这么	2304	ni za zhe me
+你快回来	2303	ni kuai hui lai
+好起来的	2303	hao qi lai de
+就出来	2303	jiu chu lai
+要啥	2303	yao sha
+准备了	2302	zhun bei le
+可以这样	2302	ke yi zhe yang
+就自己	2302	jiu zi ji
+这都是	2302	zhe dou shi
+什么人	2301	shen me ren
+你们两个	2301	ni men liang ge
+我怕我	2301	wo pa wo
+时候放假	2301	shi hou fang jia
+控制不住	2300	kong zhi bu zhu
+晚安好	2300	wan an hao
+点钱	2300	dian qian
+在哪里啊	2299	zai na li a
+每天都要	2299	mei tian dou yao
+你懂我	2298	ni dong wo
+去接	2298	qu jie
+可以给你	2297	ke yi gei ni
+我长	2297	wo zhang
+还来	2297	hai lai
+心有	2296	xin you
+这话说的	2296	zhe hua shuo de
+你还好	2295	ni hai hao
+白了	2295	bai le
+天天在	2294	tian tian zai
+我放	2294	wo fang
+可以跟	2293	ke yi gen
+名字了	2293	ming zi le
+在厦门	2293	zai xia men
+事啊	2292	shi a
+对滴	2292	dui di
+在纠结	2291	zai jiu jie
+太短	2291	tai duan
+太贵了	2291	tai gui le
+中午吃	2290	zhong wu chi
+要和你	2290	yao he ni
+谢谢小	2290	xie xie xiao
+还是看	2290	hai shi kan
+都到	2290	dou dao
+上班呢	2289	shang ban ne
+好忙	2289	hao mang
+我教	2289	wo jiao
+给大家	2289	gei da jia
+能好好	2289	neng hao hao
+他给	2288	ta gei
+你吃的	2288	ni chi de
+羡慕我	2288	xian mu wo
+也看到	2287	ye kan dao
+你就会	2287	ni jiu hui
+我妹	2287	wo mei
+是朋友	2287	shi peng you
+蛮好的	2287	man hao de
+说谁	2287	shuo shui
+谁要	2287	shui yao
+吃不下	2286	chi bu xia
+我告诉你	2286	wo gao su ni
+真的可以	2286	zhen de ke yi
+恩啊	2285	en a
+这么高	2284	zhe me gao
+不会说	2283	bu hui shuo
+我去的	2283	wo qu de
+更新了	2283	geng xin le
+有点多	2283	you dian duo
+这么巧	2283	zhe me qiao
+不到啊	2282	bu dao a
+和你的	2282	he ni de
+安静的	2282	an jing de
+去一次	2281	qu yi ci
+看不清	2281	kan bu qing
+自己吧	2280	zi ji ba
+剪短发	2279	jian duan fa
+和我的	2279	he wo de
+知道这个	2278	zhi dao zhe ge
+还是得	2278	hai shi de
+不吃了	2277	bu chi le
+多喝热水	2277	duo he re shui
+敢说	2277	gan shuo
+再加	2276	zai jia
+可以自己	2276	ke yi zi ji
+你推荐	2275	ni tui jian
+很尴尬	2275	hen gan ga
+就是有点	2274	jiu shi you dian
+那人	2274	na ren
+办啊	2273	ban a
+时候啊	2272	shi hou a
+昨天的	2272	zuo tian de
+还喜欢	2272	hai xi huan
+不好啊	2271	bu hao a
+也祝你	2271	ye zhu ni
+大太阳	2271	da tai yang
+现在就是	2271	xian zai jiu shi
+想玩	2270	xiang wan
+是女的	2270	shi nv de
+去当	2269	qu dang
+好好享受	2269	hao hao xiang shou
+走下去	2269	zou xia qu
+去哪里了	2268	qu na li le
+一天就	2266	yi tian jiu
+吃面	2266	chi mian
+时候了	2266	shi hou le
+是今天	2265	shi jin tian
+孤独的	2264	gu du de
+没下	2264	mei xia
+伤心了	2263	shang xin le
+打扰了	2263	da rao le
+是不能	2263	shi bu neng
+没出	2263	mei chu
+一个多月	2262	yi ge duo yue
+不会去	2261	bu hui qu
+还活着	2261	hai huo zhe
+就想知道	2260	jiu xiang zhi dao
+给我吧	2260	gei wo ba
+负能量	2260	fu neng liang
+你的心	2259	ni de xin
+到我了	2259	dao wo le
+快睡吧	2259	kuai shui ba
+我个人	2259	wo ge ren
+是认真	2259	shi ren zhen
+点吗	2258	dian ma
+聪明的	2258	cong ming de
+开心快乐	2257	kai xin kuai le
+总会有	2257	zong hui you
+你怕是	2256	ni pa shi
+这样吧	2256	zhe yang ba
+很好奇	2255	hen hao qi
+我开始	2255	wo kai shi
+可以理解	2253	ke yi li jie
+难啊	2253	nan a
+一看就是	2252	yi kan jiu shi
+低调低调	2252	di diao di diao
+在这边	2252	zai zhe bian
+第一眼	2252	di yi yan
+你去了	2251	ni qu le
+没救了	2251	mei jiu le
+啥时	2250	sha shi
+怕什么	2250	pa shen me
+不关注	2248	bu guan zhu
+神奇的	2248	shen qi de
+等我回来	2247	deng wo hui lai
+谢谢夸奖	2247	xie xie kua jiang
+都叫	2247	dou jiao
+不然你	2246	bu ran ni
+工作啊	2246	gong zuo a
+找到你	2246	zhao dao ni
+知道呀	2245	zhi dao ya
+刚睡醒	2244	gang shui xing
+不能给	2243	bu neng gei
+不那么	2243	bu na me
+不会让	2242	bu hui rang
+你也去	2242	ni ye qu
+就吃了	2242	jiu chi le
+就是这	2242	jiu shi zhe
+才到	2242	cai dao
+用手机	2241	yong shou ji
+姐姐的	2240	jie jie de
+你越来越	2239	ni yue lai yue
+机会去	2239	ji hui qu
+回去看	2238	hui qu kan
+我抢	2238	wo qiang
+要抱	2238	yao bao
+那个小	2238	na ge xiao
+不找我	2235	bu zhao wo
+不熟	2235	bu shu
+唱了	2235	chang le
+那我要	2235	na wo yao
+没人要	2234	mei ren yao
+看清	2233	kan qing
+要不要的	2233	yao bu yao de
+不黑	2232	bu hei
+以前我	2232	yi qian wo
+也不喜欢	2231	ye bu xi huan
+搞笑的	2231	gao xiao de
+慢了	2230	man le
+超级好	2230	chao ji hao
+不管你	2229	bu guan ni
+什么问题	2229	shen me wen ti
+弱弱的	2229	ruo ruo de
+毕业照	2229	bi ye zhao
+饱了	2229	bao le
+去年的	2228	qu nian de
+有文化	2228	you wen hua
+真的么	2228	zhen de me
+你真好	2227	ni zhen hao
+关心我	2227	guan xin wo
+看人	2227	kan ren
+真没有	2227	zhen mei you
+选了	2227	xuan le
+重庆的	2227	chong qing de
+是女生	2226	shi nv sheng
+真的觉得	2226	zhen de jue de
+人少	2225	ren shao
+我电话	2225	wo dian hua
+看我们	2225	kan wo men
+就带	2224	jiu dai
+记住了	2224	ji zhu le
+谢谢我	2224	xie xie wo
+我曾经	2223	wo ceng jing
+留个	2223	liu ge
+不行的	2222	bu xing de
+查了	2222	cha le
+突然就	2222	tu ran jiu
+那些人	2222	na xie ren
+你还记得	2221	ni hai ji de
+恍惚惚	2221	huang hu hu
+你说过	2220	ni shuo guo
+我画	2220	wo hua
+不想要	2219	bu xiang yao
+不接	2219	bu jie
+发际线	2219	fa ji xian
+不困	2218	bu kun
+坚强的	2218	jian qiang de
+我这几天	2217	wo zhe ji tian
+期待你的	2217	qi dai ni de
+在哪啊	2216	zai na a
+怎么弄	2216	zen me nong
+不加	2215	bu jia
+信我	2215	xin wo
+太胖	2215	tai pang
+留了	2215	liu le
+不请	2214	bu qing
+你就说	2214	ni jiu shuo
+准备睡	2214	zhun bei shui
+想养	2214	xiang yang
+无聊啊	2214	wu liao a
+说给	2214	shuo gei
+小宝贝	2213	xiao bao bei
+老师说	2213	lao shi shuo
+进去了	2213	jin qu le
+办了	2212	ban le
+聊了	2212	liao le
+见不散	2212	jian bu san
+你以为我	2211	ni yi wei wo
+没有钱	2211	mei you qian
+生日了	2211	sheng ri le
+个月了	2210	ge yue le
+好难受	2210	hao nan shou
+起这么早	2210	qi zhe me zao
+还让	2210	hai rang
+深深的	2209	shen shen de
+快乐啦	2208	kuai le la
+我相信你	2208	wo xiang xin ni
+求推荐	2208	qiu tui jian
+已经不是	2207	yi jing bu shi
+我是想	2207	wo shi xiang
+我那天	2207	wo na tian
+谈了	2206	tan le
+想不想	2205	xiang bu xiang
+出来你	2204	chu lai ni
+吃午饭	2204	chi wu fan
+看过了	2204	kan guo le
+说一声	2204	shuo yi sheng
+不行吗	2203	bu xing ma
+祝你们	2203	zhu ni men
+过得好	2202	guo de hao
+长头发	2202	zhang tou fa
+喜欢就好	2201	xi huan jiu hao
+就醒了	2201	jiu xing le
+你肿么	2200	ni zhong me
+不老	2199	bu lao
+好多次	2199	hao duo ci
+对我的	2199	dui wo de
+何以堪	2198	he yi kan
+写作业	2198	xie zuo ye
+回来了吗	2198	hui lai le ma
+拉黑了	2198	la hei le
+继续睡	2198	ji xu shui
+一个我	2197	yi ge wo
+那当然	2197	na dang ran
+也快乐	2196	ye kuai le
+早点睡觉	2196	zao dian shui jiao
+还跟	2196	hai gen
+你也来	2194	ni ye lai
+开始我	2193	kai shi wo
+不缺	2192	bu que
+我好久	2192	wo hao jiu
+看饿了	2192	kan e le
+会爱	2191	hui ai
+带回家	2191	dai hui jia
+爱看	2191	ai kan
+你看了	2188	ni kan le
+去看电影	2188	qu kan dian ying
+我都没有	2188	wo dou mei you
+人跟	2187	ren gen
+会好好	2187	hui hao hao
+还穿	2187	hai chuan
+刚吃完	2186	gang chi wan
+发过	2185	fa guo
+挺不错的	2185	ting bu cuo de
+你难道	2184	ni nan dao
+有钱了	2184	you qian le
+气死了	2184	qi si le
+个女	2183	ge nv
+就是没有	2183	jiu shi mei you
+恩呢	2183	en ne
+玩得开心	2183	wan de kai xin
+又到	2182	you dao
+欢迎欢迎	2182	huan ying huan ying
+写论文	2181	xie lun wen
+别这么	2181	bie zhe me
+可怜的娃	2181	ke lian de wa
+要听	2181	yao ting
+超多	2181	chao duo
+角度问题	2180	jiao du wen ti
+好爱	2179	hao ai
+不懂我	2178	bu dong wo
+又长	2178	you zhang
+哪里来的	2178	na li lai de
+有喜欢	2178	you xi huan
+笑起来	2178	xiao qi lai
+只要是	2177	zhi yao shi
+就过	2177	jiu guo
+用啊	2177	yong a
+好点了	2176	hao dian le
+怎么过	2176	zen me guo
+感动了	2176	gan dong le
+现在看	2176	xian zai kan
+最好了	2175	zui hao le
+其实就是	2174	qi shi jiu shi
+最美好	2174	zui mei hao
+可以给我	2173	ke yi gei wo
+在减肥	2173	zai jian fei
+我们俩	2173	wo men lia
+当然要	2172	dang ran yao
+是正常	2172	shi zheng chang
+太对了	2171	tai dui le
+我看到你	2171	wo kan dao ni
+还木有	2171	hai mu you
+现在你	2170	xian zai ni
+绝了	2170	jue le
+他好	2169	ta hao
+好看呀	2169	hao kan ya
+我永远	2169	wo yong yuan
+明天晚上	2169	ming tian wan shang
+不嫌弃	2168	bu xian qi
+看小	2168	kan xiao
+说一下	2168	shuo yi xia
+会后悔	2167	hui hou hui
+都没吃	2167	dou mei chi
+不敢看	2166	bu gan kan
+你放	2166	ni fang
+来吧来	2166	lai ba lai
+很丑	2165	hen chou
+我去了	2165	wo qu le
+羡慕的	2165	xian mu de
+过啦	2165	guo la
+一定去	2164	yi ding qu
+上海了	2164	shang hai le
+其实我是	2164	qi shi wo shi
+很美好	2164	hen mei hao
+打酱油	2164	da jiang you
+不用担心	2163	bu yong dan xin
+也是有	2163	ye shi you
+说多	2162	shuo duo
+你身上	2161	ni shen shang
+我都会	2161	wo du hui
+你老婆	2160	ni lao po
+我好喜欢	2160	wo hao xi huan
+不进去	2159	bu jin qu
+你总是	2159	ni zong shi
+只小	2159	zhi xiao
+少吃点	2159	shao chi dian
+有头屑	2158	you tou xie
+看在	2158	kan zai
+到那	2157	dao na
+又看	2157	you kan
+是事实	2157	shi shi shi
+连着	2157	lian zhe
+吃起来	2156	chi qi lai
+太幸福了	2156	tai xing fu le
+好像没有	2155	hao xiang mei you
+人反驳	2154	ren fan bo
+去呀	2154	qu ya
+大吗	2154	da ma
+有什么用	2154	you shen me yong
+过一个	2154	guo yi ge
+长胖了	2154	zhang pang le
+我手	2152	wo shou
+看到一个	2152	kan dao yi ge
+试着	2152	shi zhe
+我只知道	2151	wo zhi zhi dao
+我在等	2151	wo zai deng
+激动的	2151	ji dong de
+多好啊	2150	duo hao a
+周末快乐	2149	zhou mo kuai le
+想谈	2149	xiang tan
+羡慕了	2147	xian mu le
+下午去	2146	xia wu qu
+早上起来	2146	zao shang qi lai
+火车上	2146	huo che shang
+去西安	2145	qu xi an
+能想	2145	neng xiang
+要送	2144	yao song
+不了我	2143	bu le wo
+好大的	2143	hao da de
+晚上我	2143	wan shang wo
+次见	2143	ci jian
+留点	2143	liu dian
+你傻	2142	ni sha
+我选	2142	wo xuan
+说怎么	2142	shuo zen me
+先说	2141	xian shuo
+河南人	2141	he nan ren
+现在要	2141	xian zai yao
+要知道	2141	yao zhi dao
+想说你	2140	xiang shuo ni
+我倒	2140	wo dao
+我晕	2140	wo yun
+你等着	2139	ni deng zhe
+在别人	2139	zai bie ren
+挺有	2139	ting you
+走着	2138	zou zhe
+这么热	2138	zhe me re
+不是这样	2137	bu shi zhe yang
+样子的	2137	yang zi de
+晚安好梦	2136	wan an hao meng
+想走	2135	xiang zou
+人家说	2134	ren jia shuo
+我们这些	2134	wo men zhe xie
+不可爱	2133	bu ke ai
+你考	2133	ni kao
+哇好	2133	wa hao
+那应该	2133	na ying gai
+包了	2132	bao le
+看直播	2132	kan zhi bo
+这么漂亮	2132	zhe me piao liang
+再给你	2131	zai gei ni
+去杭州	2131	qu hang zhou
+看到这	2131	kan dao zhe
+给你寄	2131	gei ni ji
+没睡着	2130	mei shui zhao
+腻了	2130	ni le
+都打	2129	dou da
+到票	2128	dao piao
+他真	2126	ta zhen
+都不懂	2126	dou bu dong
+不会告诉	2125	bu hui gao su
+要快乐	2125	yao kuai le
+说走就	2125	shuo zou jiu
+好是	2124	hao shi
+就回去了	2124	jiu hui qu le
+很有道理	2124	hen you dao li
+难受了	2124	nan shou le
+上次去	2123	shang ci qu
+美得	2123	mei de
+你知道吗	2122	ni zhi dao ma
+又吃	2122	you chi
+要放	2122	yao fang
+你觉得呢	2121	ni jue de ne
+我一天	2121	wo yi tian
+说晚安	2121	shuo wan an
+还没呢	2121	hai mei ne
+回家就	2120	hui jia jiu
+想想就	2120	xiang xiang jiu
+是你吗	2120	shi ni ma
+要跟你	2120	yao gen ni
+你约	2119	ni yue
+你连	2119	ni lian
+居然是	2119	ju ran shi
+我哈	2119	wo ha
+我身上	2119	wo shen shang
+都不认识	2119	dou bu ren shi
+一个月了	2118	yi ge yue le
+求介绍	2118	qiu jie shao
+熟了	2117	shu le
+爱着	2116	ai zhe
+看着好	2116	kan zhe hao
+知道为啥	2116	zhi dao wei sha
+要干嘛	2116	yao gan ma
+走出来	2116	zou chu lai
+跟不上	2116	gen bu shang
+不出门	2115	bu chu men
+回家吗	2113	hui jia ma
+时候真	2113	shi hou zhen
+你的好	2112	ni de hao
+再过	2112	zai guo
+可能是我	2112	ke neng shi wo
+没找	2111	mei zhao
+降温了	2111	jiang wen le
+也没办法	2110	ye mei ban fa
+不信你	2108	bu xin ni
+你那边	2108	ni na bian
+怪怪的	2108	guai guai de
+时间我	2108	shi jian wo
+谢谢你们	2108	xie xie ni men
+知道能	2107	zhi dao neng
+说就	2107	shuo jiu
+还买	2106	hai mai
+为了你	2104	wei le ni
+你最好	2104	ni zui hao
+没多	2104	mei duo
+会更好	2103	hui geng hao
+我我就	2103	wo wo jiu
+给我一个	2103	gei wo yi ge
+到我的	2102	dao wo de
+多睡	2101	duo shui
+能上	2101	neng shang
+我这儿	2100	wo zhe er
+骗人的	2099	pian ren de
+吃啦	2098	chi la
+给你了	2098	gei ni le
+你在一起	2097	ni zai yi qi
+老阿姨	2097	lao a yi
+也喜欢你	2096	ye xi huan ni
+你的故事	2096	ni de gu shi
+你愿意	2095	ni yuan yi
+朋友吧	2095	peng you ba
+知道会	2095	zhi dao hui
+我正	2094	wo zheng
+人美	2093	ren mei
+这大	2093	zhe da
+再看看	2092	zai kan kan
+没事我	2092	mei shi wo
+好激动	2091	hao ji dong
+理解你	2091	li jie ni
+可以打	2090	ke yi da
+没听	2090	mei ting
+还有吗	2090	hai you ma
+头像了	2089	tou xiang le
+那么可爱	2089	na me ke ai
+可别	2088	ke bie
+我胖了	2088	wo pang le
+爱死	2088	ai si
+刚去	2087	gang qu
+睡会	2087	shui hui
+说对	2087	shuo dui
+会哭	2086	hui ku
+要加	2086	yao jia
+年轻了	2085	nian qing le
+号去	2084	hao qu
+背着我	2084	bei zhe wo
+个女朋友	2083	ge nv peng you
+你继续	2083	ni ji xu
+必须滴	2083	bi xu di
+孩子了	2082	hai zi le
+散了	2082	san le
+最胖	2082	zui pang
+是说我	2081	shi shuo wo
+一个朋友	2080	yi ge peng you
+不也是	2080	bu ye shi
+先睡	2080	xian shui
+想让你	2080	xiang rang ni
+能走	2080	neng zou
+来帮	2079	lai bang
+一天天	2078	yi tian tian
+三了	2077	san le
+当然可以	2077	dang ran ke yi
+要上课	2077	yao shang ke
+回啊	2076	hui a
+我瘦了	2076	wo shou le
+你每次	2075	ni mei ci
+啥呀	2075	sha ya
+自然醒	2075	zi ran xing
+出去吃	2074	chu qu chi
+真大	2074	zhen da
+太忙了	2073	tai mang le
+我回来了	2073	wo hui lai le
+都开	2073	dou kai
+好痛	2072	hao tong
+说那	2072	shuo na
+带孩子	2071	dai hai zi
+我又来	2071	wo you lai
+不回来了	2070	bu hui lai le
+就我一个	2070	jiu wo yi ge
+我知道啊	2070	wo zhi dao a
+这个发型	2070	zhe ge fa xing
+吃烧烤	2069	chi shao kao
+应该去	2068	ying gai qu
+我明明	2068	wo ming ming
+说的好像	2067	shuo de hao xiang
+只是你	2066	zhi shi ni
+可以啦	2065	ke yi la
+好多啊	2065	hao duo a
+来广州	2065	lai guang zhou
+谁会	2065	shui hui
+不跟我	2064	bu gen wo
+保重身体	2064	bao zhong shen ti
+大兄弟	2064	da xiong di
+没事吧	2064	mei shi ba
+这孩子	2064	zhe hai zi
+挺好吃的	2063	ting hao chi de
+有朋友	2063	you peng you
+都不给	2063	dou bu gei
+忘不了	2062	wang bu le
+也早点	2061	ye zao dian
+我恨	2061	wo hen
+今天真	2060	jin tian zhen
+我已经在	2060	wo yi jing zai
+最起码	2060	zui qi ma
+第一次见	2060	di yi ci jian
+说个	2060	shuo ge
+反驳吧	2059	fan bo ba
+感动的	2059	gan dong de
+我出	2059	wo chu
+拼了	2059	pin le
+看情况	2059	kan qing kuang
+来陪	2058	lai pei
+刚看	2057	gang kan
+没睡啊	2057	mei shui a
+联系你	2057	lian xi ni
+要叫	2057	yao jiao
+东西啊	2056	dong xi a
+小时了	2056	xiao shi le
+你爸妈	2055	ni ba ma
+剪头发了	2055	jian tou fa le
+方便了	2055	fang bian le
+是不是想	2055	shi bu shi xiang
+想去的	2054	xiang qu de
+睡觉啦	2054	shui jiao la
+不分手	2053	bu fen shou
+想说的	2053	xiang shuo de
+确定你	2053	que ding ni
+我现在是	2052	wo xian zai shi
+真的好看	2052	zhen de hao kan
+还有好多	2052	hai you hao duo
+去泰国	2051	qu tai guo
+好惨	2051	hao can
+我自己的	2051	wo zi ji de
+你眼睛	2050	ni yan jing
+心了	2050	xin le
+没放假	2050	mei fang jia
+话可以	2050	hua ke yi
+个毛	2049	ge mao
+你吉言	2049	ni ji yan
+激动了	2049	ji dong le
+也有点	2048	ye you dian
+好像我	2048	hao xiang wo
+想吃什么	2048	xiang chi shen me
+给你点	2048	gei ni dian
+那是什么	2048	na shi shen me
+吃水果	2047	chi shui guo
+宝宝你	2047	bao bao ni
+看起来好	2046	kan qi lai hao
+什么颜色	2045	shen me yan se
+你留	2045	ni liu
+有人要	2045	you ren yao
+算不算	2045	suan bu suan
+就开	2044	jiu kai
+睡觉啊	2044	shui jiao a
+只喜欢	2042	zhi xi huan
+应该不是	2042	ying gai bu shi
+我上班	2042	wo shang ban
+我也买	2042	wo ye mai
+太懂	2041	tai dong
+就问你	2040	jiu wen ni
+我是小	2039	wo shi xiao
+加点	2038	jia dian
+记得带	2038	ji de dai
+人反驳吧	2037	ren fan bo ba
+我发现你	2037	wo fa xian ni
+空了	2037	kong le
+你出去	2036	ni chu qu
+好用吗	2036	hao yong ma
+当然啦	2036	dang ran la
+快看	2035	kuai kan
+耍了	2035	shua le
+这年头	2035	zhe nian tou
+不要吃	2034	bu yao chi
+去上课	2034	qu shang ke
+快了快	2034	kuai le kuai
+怎么办啊	2034	zen me ban a
+很无聊	2033	hen wu liao
+我到现在	2033	wo dao xian zai
+我的脸	2033	wo de lian
+看雪	2033	kan xue
+吃这个	2032	chi zhe ge
+哪有那么	2032	na you na me
+有点冷	2032	you dian leng
+不喜欢吃	2031	bu xi huan chi
+没写	2031	mei xie
+不要你	2030	bu yao ni
+我想到	2030	wo xiang dao
+知道说	2030	zhi dao shuo
+和鹿晗	2029	he lu han
+弄了	2029	nong le
+我宁愿	2029	wo ning yuan
+那么高	2029	na me gao
+那么喜欢	2028	na me xi huan
+做给	2027	zuo gei
+去现场	2027	qu xian chang
+我当然	2027	wo dang ran
+好好学习	2026	hao hao xue xi
+生个	2026	sheng ge
+就喜欢你	2025	jiu xi huan ni
+我去吃	2025	wo qu chi
+我是来	2025	wo shi lai
+贵啊	2025	gui a
+这个样子	2024	zhe ge yang zi
+昨天去	2022	zuo tian qu
+看越	2022	kan yue
+你一定要	2021	ni yi ding yao
+安慰你	2021	an wei ni
+也快了	2020	ye kuai le
+疯狂打	2020	feng kuang da
+你想我	2019	ni xiang wo
+走啦	2018	zou la
+你最帅	2016	ni zui shuai
+你要来	2016	ni yao lai
+就买了	2016	jiu mai le
+来给我	2016	lai gei wo
+你没看	2015	ni mei kan
+没瘦	2014	mei shou
+说的就是	2014	shuo de jiu shi
+快给我	2013	kuai gei wo
+我也希望	2013	wo ye xi wang
+气死我	2013	qi si wo
+儿了	2012	er le
+多休息	2012	duo xiu xi
+能怎么	2012	neng zen me
+我大概	2011	wo da gai
+好基友	2010	hao ji you
+干嘛要	2010	gan ma yao
+想你啊	2009	xiang ni a
+我怕你	2009	wo pa ni
+这学期	2009	zhe xue qi
+回答我	2008	hui da wo
+也美	2007	ye mei
+你聊	2007	ni liao
+洗洗睡吧	2007	xi xi shui ba
+梦见你	2006	meng jian ni
+没考	2006	mei kao
+去深圳	2005	qu shen zhen
+我寄	2005	wo ji
+反正我是	2003	fan zheng wo shi
+你上班	2002	ni shang ban
+没人反驳	2001	mei ren fan bo
+吃嘛	2000	chi ma
+回去吗	2000	hui qu ma
