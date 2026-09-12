@@ -88,7 +88,7 @@ fn write_tally(f: &mut fmt::Formatter<'_>, name: &str, tally: &Tally) -> fmt::Re
     let evaluated = tally.evaluated();
     writeln!(
         f,
-        "{name:<6} {:>5} 条  首选 {:>6}  前五 {:>6}  更靠后 {:>4}  不在候选 {:>4}  平均名次 {}",
+        "{name:<6} {:>5} 条  首选 {:>6}  前五 {:>6}  更靠后 {:>4}  不在候选 {:>4}  平均名次 {}  命中数 {} / {}",
         tally.total,
         percent(tally.top1, evaluated),
         percent(tally.top1 + tally.top5, evaluated),
@@ -97,6 +97,8 @@ fn write_tally(f: &mut fmt::Formatter<'_>, name: &str, tally: &Tally) -> fmt::Re
         tally
             .mean_rank()
             .map_or("-".to_owned(), |rank| format!("{rank:.2}")),
+        tally.top1,
+        evaluated,
     )?;
     if tally.unparsable > 0 {
         writeln!(

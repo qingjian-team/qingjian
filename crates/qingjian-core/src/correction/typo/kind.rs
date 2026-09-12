@@ -15,14 +15,12 @@ pub enum TypoKind {
 }
 
 impl TypoKind {
-    /// 这类敲错的代价（log 概率的扣分），叠在词的得分上：候选拼音与敲的不同时，要比原样的解释好这么多才排得过。
+    /// 这类敲错的缺省代价（[`TypoCosts::DEFAULT`]）：变体表里同一写法来自几类敲错时按它留代价最低的一类。
+    /// 词图打分用引擎当前的 [`TypoCosts`]，不用这个。
     ///
-    /// 换位与相邻键最常见、代价最低；多敲少敲稍贵。数值按「一个音节敲错的先验约 1%，再分摊到它的十几个变体上」定，
-    /// 与整段一处编辑的 `CORRECTION_PENALTY`（5.0）同一量级；定太低时常用词会借着个人词频从敲错边挤掉用户真要的生僻词。
+    /// [`TypoCosts`]: super::super::TypoCosts
+    /// [`TypoCosts::DEFAULT`]: super::super::TypoCosts::DEFAULT
     pub fn cost(self) -> f64 {
-        match self {
-            Self::Transpose | Self::Substitute => 5.0,
-            Self::Extra | Self::Missing => 5.5,
-        }
+        super::super::TypoCosts::DEFAULT.cost(self)
     }
 }

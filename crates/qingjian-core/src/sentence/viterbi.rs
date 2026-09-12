@@ -7,8 +7,8 @@ use qingjian_dictionary::{Dictionary, Match, SyllablePattern};
 
 use super::{
     ABBREVIATED_SPAN_CANDIDATES, BEAM_WIDTH, Context, Conversion, LanguageModel,
-    MAX_WORD_SYLLABLES, MIN_PARTIAL_LETTERS, SPAN_CANDIDATES, SentenceWord, SpanCache, SpanWord,
-    UserNgram, fallback_log_prob, transition_log_prob,
+    MAX_WORD_SYLLABLES, MIN_PARTIAL_LETTERS, Personal, SPAN_CANDIDATES, SentenceWord, SpanCache,
+    SpanWord, fallback_log_prob, transition_log_prob,
 };
 use crate::ranking::weight_bonus;
 
@@ -44,7 +44,7 @@ struct Node {
 
 /// 把音节序列转成最可能的词序列。`positions` 每个位置是若干写法（第一种是敲的，其余是模糊音 / 敲错变体），
 /// `cost(位置, 命中的音节)` 是那个位置命中这种写法要扣的分（敲的原样 0），
-/// `weight` 是用户选择次数，`personal` 是个人 n-gram（没有就传 `None`），`cache` 是格子候选的缓存
+/// `weight` 是用户选择次数，`personal` 是个人 n-gram 与插值参数（没有个人数据就传 [`Personal::NONE`]），`cache` 是格子候选的缓存
 /// （调用方保证它与词库、`weight`、`personal`、`cost` 一致，这些一变就清）。
 ///
 /// 简拼位置（`w x q`）按前缀取词：每个格子的候选会多得多，由语言模型在路径上分辨。
@@ -53,7 +53,7 @@ pub fn convert(
     dictionaries: &[&Dictionary],
     positions: &[Vec<SyllablePattern<'_>>],
     model: &dyn LanguageModel,
-    personal: Option<&UserNgram>,
+    personal: Personal<'_>,
     weight: impl Fn(&str) -> u32,
     cost: impl Fn(usize, &str) -> f64,
     cache: &mut SpanCache,
@@ -76,7 +76,7 @@ pub fn convert_whole(
     dictionaries: &[&Dictionary],
     positions: &[Vec<SyllablePattern<'_>>],
     model: &dyn LanguageModel,
-    personal: Option<&UserNgram>,
+    personal: Personal<'_>,
     weight: impl Fn(&str) -> u32,
     cost: impl Fn(usize, &str) -> f64,
     cache: &mut SpanCache,
@@ -100,7 +100,7 @@ pub fn convert_with(
     positions: &[Vec<SyllablePattern<'_>>],
     keep_partial: bool,
     model: &dyn LanguageModel,
-    personal: Option<&UserNgram>,
+    personal: Personal<'_>,
     weight: impl Fn(&str) -> u32,
     cost: impl Fn(usize, &str) -> f64,
     cache: &mut SpanCache,
@@ -128,7 +128,7 @@ pub fn convert_paths(
     keep_partial: bool,
     k: usize,
     model: &dyn LanguageModel,
-    personal: Option<&UserNgram>,
+    personal: Personal<'_>,
     weight: impl Fn(&str) -> u32,
     cost: impl Fn(usize, &str) -> f64,
     cache: &mut SpanCache,
@@ -213,8 +213,14 @@ pub fn convert_paths(
         // 这个音节连单字都查不到：用音节本身占位，别让整句断掉
         if !any {
             let text = positions[start][0].text;
-            let (score, back) =
-                best_predecessor(&nodes, start, text, &NoModel, None, UNKNOWN_LOG_PROB);
+            let (score, back) = best_predecessor(
+                &nodes,
+                start,
+                text,
+                &NoModel,
+                Personal::NONE,
+                UNKNOWN_LOG_PROB,
+            );
             let penalty = nodes[start][back].penalty;
             let static_score = nodes[start][back].static_score + UNKNOWN_LOG_PROB;
             nodes[start + 1].push(Node {
@@ -293,7 +299,7 @@ fn span_candidates(
     dictionaries: &[&Dictionary],
     span: &[Vec<SyllablePattern<'_>>],
     start: usize,
-    personal: Option<&UserNgram>,
+    personal: Personal<'_>,
     weight: &impl Fn(&str) -> u32,
     cost: &impl Fn(usize, &str) -> f64,
 ) -> Vec<SpanWord> {
@@ -312,7 +318,7 @@ fn span_candidates(
         .iter()
         .flat_map(|d| d.lookup_exact_alt(span))
         .map(|m| {
-            let seen = weight(m.text) + personal.map_or(0, |p| p.count(m.text));
+            let seen = weight(m.text) + personal.count(m.text);
             let penalty = penalty_of(&m);
             let score = f64::from(m.frequency) * (1.0 + f64::from(seen)) * (-penalty).exp();
             (score, penalty, m)
@@ -344,7 +350,7 @@ fn best_predecessor(
     start: usize,
     word: &str,
     model: &dyn LanguageModel,
-    personal: Option<&UserNgram>,
+    personal: Personal<'_>,
     fallback: f64,
 ) -> (f64, usize) {
     let mut best = (f64::NEG_INFINITY, 0);
@@ -379,7 +385,7 @@ fn prune(nodes: &mut Vec<Node>) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::sentence::NoLanguageModel;
+    use crate::sentence::{NoLanguageModel, UserNgram};
 
     const SAMPLE: &str = "我\two\t900000\n想\txiang\t500000\n去\tqu\t400000\n吃\tchi\t300000\n饭\tfan\t200000\n\
         吃饭\tchi fan\t100000\n我想\two xiang\t600000\n翔\txiang\t3000\n区\tqu\t100000\n卧\two\t2000\n\
@@ -400,7 +406,7 @@ mod tests {
             &[dictionary],
             patterns,
             &NoLanguageModel,
-            None,
+            Personal::NONE,
             |_| 0,
             |_, _| 0.0,
             &mut SpanCache::default(),
@@ -429,7 +435,7 @@ mod tests {
                 &[&dictionary],
                 &patterns,
                 &NoLanguageModel,
-                None,
+                Personal::NONE,
                 |t| if t == "卧" { count } else { 0 },
                 |_, _| 0.0,
                 &mut SpanCache::default(),
@@ -446,7 +452,7 @@ mod tests {
                 &[&dictionary],
                 &patterns,
                 &NoLanguageModel,
-                None,
+                Personal::NONE,
                 |t| if t == "区" { count } else { 0 },
                 |_, _| 0.0,
                 &mut SpanCache::default(),
@@ -509,7 +515,7 @@ mod tests {
             &[&dictionary],
             &patterns,
             &XiangModel,
-            None,
+            Personal::NONE,
             |_| 0,
             |_, _| 0.0,
             &mut SpanCache::default(),
@@ -550,7 +556,7 @@ mod tests {
             &[&dictionary],
             &patterns,
             &XiangModel,
-            None,
+            Personal::NONE,
             |_| 0,
             |_, _| 0.0,
             &mut SpanCache::default(),
@@ -570,7 +576,7 @@ mod tests {
                 &[&dictionary],
                 &patterns,
                 &XiangModel,
-                Some(personal),
+                Personal::new(Some(personal)),
                 |_| 0,
                 |_, _| 0.0,
                 &mut SpanCache::default(),
@@ -600,7 +606,7 @@ mod tests {
                 &[&dictionary],
                 &patterns,
                 &NoLanguageModel,
-                Some(personal),
+                Personal::new(Some(personal)),
                 |_| 0,
                 |_, _| 0.0,
                 &mut SpanCache::default(),
@@ -631,7 +637,7 @@ mod tests {
                 &[&dictionary],
                 &patterns,
                 &NoLanguageModel,
-                None,
+                Personal::NONE,
                 |_| 0,
                 |_, _| 0.0,
                 cache,
@@ -672,7 +678,7 @@ mod tests {
                 &[&dictionary],
                 &positions,
                 &NoLanguageModel,
-                None,
+                Personal::NONE,
                 |_| 0,
                 cost,
                 &mut SpanCache::default(),

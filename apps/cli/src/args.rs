@@ -113,6 +113,11 @@ pub struct Args {
     #[arg(long, default_value_t = 20)]
     pub misses: usize,
 
+    /// 覆盖引擎里的调参常数，`名=值`，逗号分隔或多次给。名字：lambda / k / cap / discount（个人 n-gram 插值 λ / K / 封顶 / 三元折扣），
+    /// transpose / substitute / extra / missing / typo-cap / correction（敲错四类代价 / 个人折扣上限 / 整段纠错代价）
+    #[arg(long, value_delimiter = ',')]
+    pub tune: Vec<String>,
+
     /// 整句评测：读中文文本（一行一段，按标点切句、按词库转成全拼）或 `--eval-save` 冻结下来的三列文件，
     /// 冷启动喂给引擎看整句能不能还原原句；可给多个文件
     #[arg(long, num_args = 1..)]

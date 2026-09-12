@@ -1,9 +1,6 @@
 use foldhash::{HashMap, HashMapExt};
 
-use super::{
-    CONFIDENCE_K, Context, MAX_CONFIDENCE, MAX_USER_TRANSITIONS, SENTENCE_START, TRIGRAM_DISCOUNT,
-    USER_LAMBDA,
-};
+use super::{Context, Interpolation, MAX_USER_TRANSITIONS, SENTENCE_START};
 
 /// 个人 n-gram：用户上屏过的词序列计数（二元 + 三元），随上屏在线更新，进整句转换与词级排序的打分。
 ///
@@ -223,9 +220,15 @@ impl UserNgram {
     ///
     /// 个人二元 P₂ = λ·c(v,w)/c(v) + (1-λ)·c(w)/N；这对上文 (u,v) 见过时再套一层绝对折扣的三元：
     /// P₃ = max(c(u,v,w) − D, 0)/c(u,v) + D·N₁₊(u,v,·)/c(u,v)·P₂，没见过的接续只拿回退的份额。
-    /// 插值权重 μ = c(v)/(c(v)+K)，封顶 [`MAX_CONFIDENCE`]：见过这个前词越多越信个人数据，但永远压不死静态模型。
-    /// 前词从没见过时（句首用句首标记）原样返回。
-    pub fn blend(&self, context: Context<'_>, word: &str, base_log_prob: f64) -> f64 {
+    /// 插值权重 μ = c(v)/(c(v)+K)，封顶 `max_confidence`：见过这个前词越多越信个人数据，但永远压不死静态模型。
+    /// λ、K、封顶、三元折扣 D 都来自 `interpolation`（缺省是本模块的常数）。前词从没见过时（句首用句首标记）原样返回。
+    pub fn blend(
+        &self,
+        context: Context<'_>,
+        word: &str,
+        base_log_prob: f64,
+        interpolation: &Interpolation,
+    ) -> f64 {
         let previous = context.previous.unwrap_or(SENTENCE_START);
         let Some(&context_total) = self.context_totals.get(previous) else {
             return base_log_prob;
@@ -235,7 +238,8 @@ impl UserNgram {
         }
         let pair = f64::from(self.pair(context.previous, word));
         let unigram = f64::from(self.count(word)) / self.total as f64;
-        let bigram = USER_LAMBDA * pair / f64::from(context_total) + (1.0 - USER_LAMBDA) * unigram;
+        let lambda = interpolation.lambda;
+        let bigram = lambda * pair / f64::from(context_total) + (1.0 - lambda) * unigram;
         let personal = match context
             .previous
             .and_then(|p| self.triple_row(context.earlier, p))
@@ -243,14 +247,16 @@ impl UserNgram {
             Some((next, triple_total)) if triple_total > 0 => {
                 let triple_total = f64::from(triple_total);
                 let seen = next.get(word).copied().unwrap_or(0);
-                let discounted = (f64::from(seen) - TRIGRAM_DISCOUNT).max(0.0) / triple_total;
-                let backoff = TRIGRAM_DISCOUNT * next.len() as f64 / triple_total;
+                let discount = interpolation.trigram_discount;
+                let discounted = (f64::from(seen) - discount).max(0.0) / triple_total;
+                let backoff = discount * next.len() as f64 / triple_total;
                 discounted + backoff * bigram
             }
             _ => bigram,
         };
-        let confidence = (f64::from(context_total) / (f64::from(context_total) + CONFIDENCE_K))
-            .min(MAX_CONFIDENCE);
+        let confidence = (f64::from(context_total)
+            / (f64::from(context_total) + interpolation.confidence_k))
+            .min(interpolation.max_confidence);
         let blended = (1.0 - confidence) * base_log_prob.exp() + confidence * personal;
         blended.max(f64::MIN_POSITIVE).ln()
     }
@@ -493,8 +499,13 @@ mod tests {
         assert_eq!(model.pair(Some("我"), "想"), 2);
         assert_eq!(model.triple_count(), 0);
         assert_eq!(
-            model.blend(Context::after_two("我", "想"), "去", -5.0),
-            model.blend(Context::after("想"), "去", -5.0)
+            model.blend(
+                Context::after_two("我", "想"),
+                "去",
+                -5.0,
+                &Interpolation::DEFAULT
+            ),
+            model.blend(Context::after("想"), "去", -5.0, &Interpolation::DEFAULT)
         );
     }
 
@@ -503,17 +514,38 @@ mod tests {
         let mut model = UserNgram::default();
         let base_ba = (-9.0_f64).exp().ln();
         // 前词没见过：原样返回
-        assert_eq!(model.blend(Context::after("吃饭"), "把", base_ba), base_ba);
+        assert_eq!(
+            model.blend(
+                Context::after("吃饭"),
+                "把",
+                base_ba,
+                &Interpolation::DEFAULT
+            ),
+            base_ba
+        );
         // 选过两次 吃饭 → 把：个人证据抬上来
         model.record(Context::after("吃饭"), "把");
         model.record(Context::after("吃饭"), "把");
-        let lifted = model.blend(Context::after("吃饭"), "把", base_ba);
+        let lifted = model.blend(
+            Context::after("吃饭"),
+            "把",
+            base_ba,
+            &Interpolation::DEFAULT,
+        );
         assert!(lifted > -2.5, "{lifted}");
         // 没跟在 吃饭 后面出现过的 吧 只是打折，不会被压死
         let base_ba_particle = -2.0;
-        let discounted = model.blend(Context::after("吃饭"), "吧", base_ba_particle);
+        let discounted = model.blend(
+            Context::after("吃饭"),
+            "吧",
+            base_ba_particle,
+            &Interpolation::DEFAULT,
+        );
         assert!(discounted < base_ba_particle);
-        assert!(discounted > base_ba_particle + (1.0 - MAX_CONFIDENCE).ln() - 1e-9);
+        assert!(
+            discounted
+                > base_ba_particle + (1.0 - Interpolation::DEFAULT.max_confidence).ln() - 1e-9
+        );
     }
 
     /// 三元分辨二元分不开的接续：「想 → 去」在「我想」后面和「不想」后面偏好不同。
@@ -525,19 +557,39 @@ mod tests {
             model.record(Context::after_two("不", "想"), "要");
         }
         let base = -6.0;
-        let after_wo = model.blend(Context::after_two("我", "想"), "去", base);
-        let after_bu = model.blend(Context::after_two("不", "想"), "去", base);
-        let bigram_only = model.blend(Context::after("想"), "去", base);
+        let after_wo = model.blend(
+            Context::after_two("我", "想"),
+            "去",
+            base,
+            &Interpolation::DEFAULT,
+        );
+        let after_bu = model.blend(
+            Context::after_two("不", "想"),
+            "去",
+            base,
+            &Interpolation::DEFAULT,
+        );
+        let bigram_only = model.blend(Context::after("想"), "去", base, &Interpolation::DEFAULT);
         assert!(after_wo > bigram_only, "{after_wo} vs {bigram_only}");
         assert!(bigram_only > after_bu, "{bigram_only} vs {after_bu}");
         // 三元上文没见过的（「很想」）退回二元
         assert_eq!(
-            model.blend(Context::after_two("很", "想"), "去", base),
+            model.blend(
+                Context::after_two("很", "想"),
+                "去",
+                base,
+                &Interpolation::DEFAULT
+            ),
             bigram_only
         );
         // 没见过的接续在见过的三元上文里仍拿到回退份额，不会被压死
-        let unseen = model.blend(Context::after_two("我", "想"), "要", base);
-        assert!(unseen > base + (1.0 - MAX_CONFIDENCE).ln() - 1e-9);
+        let unseen = model.blend(
+            Context::after_two("我", "想"),
+            "要",
+            base,
+            &Interpolation::DEFAULT,
+        );
+        assert!(unseen > base + (1.0 - Interpolation::DEFAULT.max_confidence).ln() - 1e-9);
         assert!(unseen < after_wo);
     }
 

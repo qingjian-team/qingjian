@@ -6,12 +6,14 @@
 //! 回车原样上屏过的串记成「不纠」，都在 Learner 里。
 //!
 //! 另一路是音节级的敲错变体（[`typo`]）：每个完整音节一处编辑后仍合法的写法进词图当带代价的边，
-//! 由整句转换与词级排序按噪声信道挑；用户接受过的 (敲的, 要的) 音节对记进个人敲错表（Learner），以后那条边更便宜。
+//! 由整句转换与词级排序按噪声信道挑；用户接受过的 (敲的, 要的) 音节对记进个人敲错表（Learner），以后那条边更便宜。各项代价与折扣上限收在 [`TypoCosts`] 里。
 
+mod costs;
 mod edit;
 mod result;
 pub mod typo;
 
+pub use costs::TypoCosts;
 pub use edit::{Edit, variants};
 pub use result::Correction;
 pub use typo::TypoKind;
@@ -23,20 +25,6 @@ pub const MIN_LETTERS: usize = 4;
 
 /// 多于这么多字母不纠：变体数量随长度线性涨，而且这么长多半是整句简拼。
 pub const MAX_LETTERS: usize = 24;
-
-/// 个人敲错表最多给一条边减多少代价：减到只剩 1.0 左右，敲错的解释仍要比原样好一点才排上来。
-pub const TYPO_DISCOUNT_CAP: f64 = 3.0;
-
-/// 一条敲错边的代价：类别的基础代价按个人敲错表打折（见 [`discounted`]）。
-pub fn typo_cost(kind: TypoKind, accepted: u32) -> f64 {
-    discounted(kind.cost(), accepted)
-}
-
-/// `base` 代价减去个人折扣：折扣 = min(ln(1 + 接受过的次数), [`TYPO_DISCOUNT_CAP`])。
-/// 整段一处编辑的纠错（`CORRECTION_PENALTY`）与词图里的敲错边都用它。
-pub fn discounted(base: f64, accepted: u32) -> f64 {
-    base - (1.0 + f64::from(accepted)).ln().min(TYPO_DISCOUNT_CAP)
-}
 
 /// 这段输入是否值得试纠错：纯小写字母、长度在范围内。
 pub fn eligible(input: &str) -> bool {
@@ -131,9 +119,10 @@ mod tests {
 
     #[test]
     fn personal_discount_is_capped() {
-        assert_eq!(typo_cost(TypoKind::Transpose, 0), 5.0);
-        assert!(typo_cost(TypoKind::Transpose, 2) < 4.0);
-        assert!(typo_cost(TypoKind::Missing, 1000) >= 2.5 - 1e-9);
+        let costs = TypoCosts::default();
+        assert_eq!(costs.typo_cost(TypoKind::Transpose, 0), 5.0);
+        assert!(costs.typo_cost(TypoKind::Transpose, 2) < 4.0);
+        assert!(costs.typo_cost(TypoKind::Missing, 1000) >= 2.5 - 1e-9);
     }
 
     #[test]

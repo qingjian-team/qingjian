@@ -70,7 +70,7 @@ pub trait Learner: Send {
     }
 
     /// 用户接受了一处音节级的敲错纠正：把 `typed`（敲的那段字母）当成了 `intended`（候选的音节）上屏。
-    /// 记进个人敲错表，以后词图里这条边更便宜（见 `correction::typo_cost`）。
+    /// 记进个人敲错表，以后词图里这条边更便宜（见 `correction::TypoCosts::typo_cost`）。
     fn record_typo(&mut self, _typed: &str, _intended: &str) {}
 
     /// 撤销一次 [`Self::record_typo`]。

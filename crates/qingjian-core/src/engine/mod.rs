@@ -54,7 +54,7 @@ pub use vocabulary::{
 
 use crate::candidate::{Candidate, CandidateKind, CandidateList, Language, Translation};
 use crate::composition::Composition;
-use crate::correction::{self, Correction, typo};
+use crate::correction::{self, Correction, TypoCosts, typo};
 use crate::emoji::EmojiTable;
 use crate::english;
 use crate::fuzzy::{Expanded, FuzzyRules};
@@ -62,7 +62,9 @@ use crate::history::InputHistory;
 use crate::parser::{self, ParseError, Segmentation};
 use crate::punctuation::Punctuation;
 use crate::ranking::{self, Scored};
-use crate::sentence::{self, Conversion, LanguageModel, NoLanguageModel, SentenceScorer};
+use crate::sentence::{
+    self, Conversion, Interpolation, LanguageModel, NoLanguageModel, Personal, SentenceScorer,
+};
 use crate::shortcut;
 use crate::shuangpin::{Decoded, Scheme};
 
@@ -127,6 +129,12 @@ pub struct Engine {
 
     /// 重打分给模型看的前文长度（本会话最近上屏的字符数），0 为不给前文。
     neural_context: usize,
+
+    /// 个人 n-gram 与静态模型插值的参数；只有回放调参会改（`set_interpolation`），壳用缺省值。
+    interpolation: Interpolation,
+
+    /// 敲错纠正的代价；同上，只有回放调参会改（`set_typo_costs`）。
+    typo_costs: TypoCosts,
 
     /// 最近几次上屏各记了哪些学习、之后退格了几个字；用户把它们删掉重选时把学习退回去（见 [`Self::note_backspace`]）。
     /// 最新的在末尾，最多留 [`RECENT_COMMITS`] 条。
@@ -265,10 +273,6 @@ const MIN_PREDICTION_LETTERS: usize = 2;
 /// 随联想请求附带的本地候选条数。
 const PREDICTION_CANDIDATE_HINTS: usize = 5;
 
-/// 拼写纠错的编辑代价（log 概率）：纠正后的整句得分要比原样转出的高出这么多才纠。
-/// 相当于「敲错一个键」的先验约 1/150；原样是合法简拼（`nhao` → 你好）时两边路径一样，纠正不会赢。
-const CORRECTION_PENALTY: f64 = 5.0;
-
 /// 一次查询最多给壳多少条候选。同音字最多的音节也不到这个数，再往后都是长词，没人会翻到。
 const MAX_CANDIDATES: usize = 500;
 
@@ -306,6 +310,8 @@ impl Engine {
             rescoring_before: None,
             neural_weight: NEURAL_WEIGHT,
             neural_margin: NEURAL_MARGIN,
+            interpolation: Interpolation::DEFAULT,
+            typo_costs: TypoCosts::DEFAULT,
             neural_context: RESCORE_CONTEXT_CHARS,
             correction_cache: std::cell::RefCell::new(None),
             span_cache: std::cell::RefCell::new(sentence::SpanCache::default()),

@@ -115,6 +115,35 @@ impl Engine {
         self.forget_span_cache();
     }
 
+    /// 换一组个人 n-gram 插值参数（回放调参用）；整句格子缓存作废。
+    pub fn set_interpolation(&mut self, interpolation: Interpolation) {
+        self.interpolation = interpolation;
+        self.forget_span_cache();
+    }
+
+    pub fn interpolation(&self) -> Interpolation {
+        self.interpolation
+    }
+
+    /// 换一组敲错纠正代价（回放调参用）；整句格子缓存与纠错缓存作废。
+    pub fn set_typo_costs(&mut self, costs: TypoCosts) {
+        self.typo_costs = costs;
+        *self.correction_cache.borrow_mut() = None;
+        self.forget_span_cache();
+    }
+
+    pub fn typo_costs(&self) -> TypoCosts {
+        self.typo_costs
+    }
+
+    /// 整句转换与词级排序用的个人部分：学习器的个人 n-gram 配上当前插值参数。
+    pub(super) fn personal(&self) -> Personal<'_> {
+        Personal {
+            ngram: self.learner.user_ngram(),
+            interpolation: self.interpolation,
+        }
+    }
+
     /// 神经分的权重 λ（0 到 1）。
     pub fn set_neural_weight(&mut self, weight: f64) {
         self.neural_weight = weight.clamp(0.0, 1.0);

@@ -14,7 +14,9 @@
 
 mod context;
 mod conversion;
+mod interpolation;
 mod language_model;
+mod personal;
 mod scorer;
 mod sentence_word;
 mod span;
@@ -24,7 +26,9 @@ mod viterbi;
 
 pub use context::Context;
 pub use conversion::Conversion;
+pub use interpolation::Interpolation;
 pub use language_model::{LanguageModel, NoLanguageModel};
+pub use personal::Personal;
 pub use scorer::SentenceScorer;
 pub use sentence_word::SentenceWord;
 pub use span::{MAX_SPAN_CACHE_ENTRIES, SpanCache, SpanWord};
@@ -81,11 +85,11 @@ pub fn fallback_log_prob(frequency: u32, log_total: f64) -> f64 {
 /// 整句路径上的每一步和词级排序的上下文得分都用它。
 pub fn transition_log_prob(
     model: &dyn LanguageModel,
-    personal: Option<&UserNgram>,
+    personal: Personal<'_>,
     context: Context<'_>,
     word: &str,
     fallback: f64,
 ) -> f64 {
     let base = model.log_prob(context.previous, word).unwrap_or(fallback);
-    personal.map_or(base, |p| p.blend(context, word, base))
+    personal.blend(context, word, base)
 }

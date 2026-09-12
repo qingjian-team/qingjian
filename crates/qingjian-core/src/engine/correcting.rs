@@ -73,7 +73,7 @@ impl Engine {
                 .map_or(0, |(typed, intended)| {
                     self.learner.typo_count(&typed, &intended)
                 });
-            let score = conversion.score - correction::discounted(CORRECTION_PENALTY, accepted);
+            let score = conversion.score - self.typo_costs.correction_cost(accepted);
             if best.as_ref().is_none_or(|(best, _)| score > *best) {
                 best = Some((score, candidate));
             }

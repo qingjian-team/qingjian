@@ -200,7 +200,7 @@ impl Engine {
                 .map_or(0, |input| self.learner.choice_weight(input, hit.text));
             let log_prob = sentence::transition_log_prob(
                 &*self.language_model,
-                self.learner.user_ngram(),
+                self.personal(),
                 self.chain.context(),
                 hit.text,
                 sentence::fallback_log_prob(hit.frequency, log_total),
@@ -512,7 +512,7 @@ impl Engine {
             whole,
             k,
             &*self.language_model,
-            self.learner.user_ngram(),
+            self.personal(),
             |text| self.learner.weight(text),
             |index, syllable| expanded.cost(index, syllable),
             &mut self.span_cache.borrow_mut(),
@@ -553,7 +553,7 @@ impl Engine {
             }
             for (text, kind) in typo::variants(pattern.text) {
                 let accepted = self.learner.typo_count(pattern.text, text);
-                expanded.push_alternative(index, text, correction::typo_cost(*kind, accepted));
+                expanded.push_alternative(index, text, self.typo_costs.typo_cost(*kind, accepted));
             }
         }
         expanded

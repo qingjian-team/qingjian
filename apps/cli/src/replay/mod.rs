@@ -87,8 +87,15 @@ fn replay_commit(
     show_misses: usize,
 ) {
     let Some(tally) = report.tally_for(commit.source) else {
-        // 不是本地排序给出的（云端词、原样上屏……）：只计数；那次上屏的词没法接进上文，断链
+        // 不是本地排序给出的（云端词、原样上屏……）：只计数；那次上屏的词没法接进上文，断链。
+        // 原样上屏照样走一遍 `take_raw`：个人英文词（`gist`）与「这个串不纠」都是从这里学的，不走它回放里的英文候选与纠错就比真实使用差
         report.skip(commit.source);
+        if commit.source == InputSource::Raw && !commit.keys.is_empty() {
+            engine.set_english_mode(commit.english);
+            engine.set_shuangpin(commit.scheme.parse().ok());
+            engine.set_input(&commit.keys);
+            engine.take_raw();
+        }
         engine.clear();
         engine.break_chain();
         return;
@@ -141,7 +148,8 @@ fn replay_commit(
             .map(|c| c.text.clone())
             .collect();
         report.misses.push(format!(
-            "{scope:<16} 选了 {:<8} 现在前三 {}{}",
+            "[{}] {scope:<16} 选了 {:<8} 现在前三 {}{}",
+            source_label(commit.source),
             commit.text,
             top.join(" / "),
             position.map_or(String::from("（不在候选里）"), |i| format!(
@@ -169,4 +177,14 @@ pub enum ReplayError {
         #[source]
         source: std::io::Error,
     },
+}
+
+/// 没命中例子里标来源用的短名，与报告各计数板同名。
+fn source_label(source: InputSource) -> &'static str {
+    match source {
+        InputSource::Word => "词",
+        InputSource::Sentence => "整句",
+        InputSource::English => "英文",
+        _ => "其他",
+    }
 }

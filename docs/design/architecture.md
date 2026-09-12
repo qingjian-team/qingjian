@@ -285,7 +285,7 @@ CC-CEDICT 表（`dict-convert cedict`）保留为备用来源，覆盖面广但�
   消耗长度按编辑换算回原串；词图里的敲错边（`correction::typo`，每个完整音节的一处敲错变体当带代价的位置写法，与模糊音同一套 `Expanded`
   多写法机制，`SpanWord::penalty` 进路径得分，`Conversion::penalty` 让 Engine 知道路径不是原样读的）管「音节都合法、整句不通」的输入，
   只进整句词图不进词级候选。接受的纠正按原输入串记选择，回车原样上屏的串记 `<raw>` 以后不纠；两路接受的 (敲的, 要的) 音节对都记进个人敲错表
-  （`Learner::record_typo`，`user-typos.tsv`），那条边与整段编辑的代价按次数打折（`correction::discounted`）。判断带缓存（按作用域），commit / take_raw 复用 query 的结果。
+  （`Learner::record_typo`，`user-typos.tsv`），那条边与整段编辑的代价按次数打折（`TypoCosts::discounted`）。判断带缓存（按作用域），commit / take_raw 复用 query 的结果。
   候选音节对回敲的字母（消耗、记敲错）用 `Engine::align`，模糊音命中也走它。
   退格撤销（`LastCommit`，Engine 留最近 4 次上屏 `recent_commits`）：上屏后壳把组句外的退格告诉 Engine（`note_backspace`），退格从最近一次往前数，
   一次上屏的字删光了就候着；接着重打其中一段拼音（或其前缀）选了别的词，就把那次记的选择次数、输入串选择、词转移、整段合成词的选择全部退回（`Learner::unrecord*`）。

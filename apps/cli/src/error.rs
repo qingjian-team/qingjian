@@ -41,4 +41,7 @@ pub enum CliError {
 
     #[error(transparent)]
     Eval(#[from] crate::eval::EvalError),
+
+    #[error(transparent)]
+    Tune(#[from] crate::tuning::TuneError),
 }
