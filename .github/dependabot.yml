@@ -7,6 +7,12 @@ updates:
       interval: weekly
       day: monday
     open-pull-requests-limit: 5
+    groups:
+      # windows-rs 一家（windows / windows-core / windows-registry / windows-reactor / windows-strings…）版本必须一起走：
+      # windows-core 0.100 配 windows 0.62 的 #[implement] 直接编不过（Box 私有），windows-registry 0.100 的 Error 与 0.62 的对不上；
+      # 合成一个 PR，只有全家都有新版时才可能绿
+      windows-rs:
+        patterns: ["windows", "windows-*"]
   - package-ecosystem: github-actions
     directory: /
     schedule:
