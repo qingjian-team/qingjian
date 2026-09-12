@@ -30,7 +30,7 @@ if (-not $SkipBuild) {
     Write-Host '构建 release 产物…' -ForegroundColor Cyan
     Push-Location $Repo
     try {
-        cargo build --release -p qingjian-windows-server -p qingjian-windows-tsf -p qingjian-windows-settings
+        cargo build --release --locked -p qingjian-windows-server -p qingjian-windows-tsf -p qingjian-windows-settings
         if ($LASTEXITCODE -ne 0) { throw "cargo build 失败（退出码 $LASTEXITCODE）" }
     } finally { Pop-Location }
 }

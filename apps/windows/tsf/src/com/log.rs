@@ -67,7 +67,7 @@ fn days_from_civil(year: i64, month: u32, day: u32) -> u32 {
     let mp = (month + 9) % 12;
     let doy = (153 * mp + 2) / 5 + day - 1;
     let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
-    (era * 146_097 + i64::from(doe) + 719_468) as u32
+    (era * 146_097 + i64::from(doe) - 719_468) as u32
 }
 
 /// 删掉目录里早于 `today - KEEP_DAYS` 的 `tsf.<日期>.log`；别的文件不碰。

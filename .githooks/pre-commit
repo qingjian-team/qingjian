@@ -2,5 +2,17 @@
 # 启用：git config core.hooksPath .githooks；跳过：git commit --no-verify
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
+
+# 装饰性分隔注释（`// ====` / `// ────`）不要：只做视觉分组、不带任何「为什么」，用空行加语义排序分组
+staged_rs="$(git diff --cached --name-only --diff-filter=ACM -- '*.rs')"
+if [[ -n "$staged_rs" ]]; then
+  matches="$(echo "$staged_rs" | xargs grep -nE '^\s*//[/!]?\s*[=─-]{3,}\s*$' 2>/dev/null || true)"
+  if [[ -n "$matches" ]]; then
+    echo "$matches"
+    echo "装饰性分隔注释不要，用空行 + 语义排序分组" >&2
+    exit 1
+  fi
+fi
+
 cargo fmt --all --check
 cargo clippy --all-targets -- -D warnings

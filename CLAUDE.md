@@ -67,7 +67,7 @@ macOS 输入法已自用（HEAD 见 git），正在给测试者打包（pkg 已�
   （Unicode License v3，可发布；中文词与英文词各配 emoji，两张表加载时合成一张），
   `cargo run --release -p qingjian-dict-convert -- --out-dir assets/emoji emoji --language zh data/cldr/annotations-zh.json data/cldr/annotationsDerived-zh.json`（en 同理）。
   英文词表词频：`uv run tools/corpus/english_frequency.py data/generated/english.tsv -o data/generated/english-frequency.tsv`，再 `... english <词表> --frequency <那个文件>`。
-- 提交前检查：`.githooks/pre-commit`（fmt + clippy，`git config core.hooksPath .githooks` 启用一次）；测试在 CI 与每批改动里跑。
+- 提交前检查：`.githooks/pre-commit`（禁装饰性分隔注释 `// ====` + fmt + clippy，`git config core.hooksPath .githooks` 启用一次）、`.githooks/pre-push`（全 workspace 测试）。CI 三个 job（Linux 全量 / macOS 壳 / Windows 三 crate）都 `--locked`，actions 钉 commit 由 Dependabot 升，每周 `cargo audit`；发版门禁：版本号 = 标签且不带 -dev、标签在 main 上、产品数据按 SHA256SUMS 校验。
 - 发版：推 `v<版本>` 标签触发 `.github/workflows/release.yml`（macOS runner 打两个架构的 pkg、建 Release、生成官网用的 `releases.json`），`ci.yml` 在 Linux 上跑 fmt / clippy / test（排除 `qingjian-macos`）；
   更新日志手写在 `CHANGELOG.md`（`## 版本 · 日期 · 渠道` 一节一版，渠道 alpha / beta / rc / stable），产品数据由 `tools/release/data-bundle.sh` 传到 `data` 预发布 Release 供 CI 下载，流程见 `docs/notes/release.md`。
 - `tools/gloss-gen`：用 LLM 批量生成释义表：`cargo run --release -p qingjian-gloss-gen -- generate`（密钥读 `QINGJIAN_API_KEY`，

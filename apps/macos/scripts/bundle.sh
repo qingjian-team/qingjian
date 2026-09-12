@@ -38,7 +38,7 @@ cd "$ROOT"
 GIT_REV="$(git rev-parse --short HEAD 2>/dev/null || echo unknown)"
 if [[ -n "$(git status --porcelain 2>/dev/null)" ]]; then GIT_REV="${GIT_REV}+"; fi
 export QINGJIAN_BUILD="${GIT_REV} · $(date +%Y-%m-%d)"
-BUILD_ARGS=(-p "$BIN_NAME")
+BUILD_ARGS=(-p "$BIN_NAME" --locked)
 [[ "$PROFILE" == "release" ]] && BUILD_ARGS+=(--release)
 BIN_DIR="target/$PROFILE"
 if [[ -n "$TARGET" ]]; then

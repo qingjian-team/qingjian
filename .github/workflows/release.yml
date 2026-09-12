@@ -11,39 +11,47 @@
 # 发版后让官网重新构建（也可选）：
 #   QINGJIAN_WEB_TOKEN           fine-grained PAT，对 qingjian-team/qingjian-web 有 Contents: read and write
 #                                （官网由 Cloudflare 按仓库提交自动构建，tools/release/bump-website.sh 往那边推一个小提交）
+#
+# 门禁：版本号与标签一致且不带 -dev；标签指向的提交必须在 main 上（防止从没合并的分支或手滑的本地提交发版）。
+# Secrets 不放 workflow 顶层 env，只注入真正用它的那一步；有没有配由第一步算成输出（secrets 不能直接写在 if 里）。
+# actions 钉到 commit（注释是对应标签），Dependabot 每周更新；产品数据从滚动的 data Release 下载，按它的 SHA256SUMS 校验并记进 build-info.json。
 name: release
 
 on:
   push:
     tags: ['macos-v*', 'windows-v*']
 
-permissions:
-  contents: write
-
 env:
   CARGO_TERM_COLOR: always
-  CERT_P12: ${{ secrets.QINGJIAN_CERT_P12 }}
-  NOTARY_KEY: ${{ secrets.QINGJIAN_NOTARY_KEY }}
-  WEB_TOKEN: ${{ secrets.QINGJIAN_WEB_TOKEN }}
 
 jobs:
   macos:
     if: startsWith(github.ref_name, 'macos-v')
     runs-on: macos-26
+    permissions:
+      contents: write
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          # bundle.sh 用提交数当构建号
+          # bundle.sh 用提交数当构建号；门禁要看 main
           fetch-depth: 0
+          persist-credentials: false
 
-      - uses: dtolnay/rust-toolchain@master
+      - uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772 # v1
         with:
           toolchain: 1.96.0
           targets: aarch64-apple-darwin, x86_64-apple-darwin
 
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@63fed3e2fecf6f7b51dc6f043341b79ef82a9ae7 # v2.9.2
 
-      - name: Check version matches tag
+      - name: Detect optional secrets
+        id: secrets
+        run: |
+          echo "sign=${{ secrets.QINGJIAN_CERT_P12 != '' }}" >> "$GITHUB_OUTPUT"
+          echo "notarize=${{ secrets.QINGJIAN_NOTARY_KEY != '' }}" >> "$GITHUB_OUTPUT"
+          echo "website=${{ secrets.QINGJIAN_WEB_TOKEN != '' }}" >> "$GITHUB_OUTPUT"
+
+      - name: Check version matches tag and tag is on main
         run: |
           VERSION="$(sed -n 's/^version = "\(.*\)"/\1/p' apps/macos/Cargo.toml | head -1)"
           TAG="${GITHUB_REF_NAME#macos-v}"
@@ -55,6 +63,11 @@ jobs:
             echo "$VERSION 还是开发版号，发版提交要先去掉 -dev（docs/notes/release.md）" >&2
             exit 1
           fi
+          git fetch --no-tags origin main
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "标签 $GITHUB_REF_NAME 指向的提交 $GITHUB_SHA 不在 main 上，先合并再发" >&2
+            exit 1
+          fi
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
 
       - name: Fetch product data
@@ -62,16 +75,21 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           mkdir -p data/generated
-          gh release download data --pattern qingjian-data.tar.gz --dir data
+          gh release download data --pattern qingjian-data.tar.gz --pattern SHA256SUMS --dir data
+          (cd data && grep 'qingjian-data.tar.gz' SHA256SUMS | shasum -a 256 -c -)
+          echo "DATA_SHA256=$(shasum -a 256 data/qingjian-data.tar.gz | cut -d' ' -f1)" >> "$GITHUB_ENV"
           tar -xzf data/qingjian-data.tar.gz -C data/generated
           # 解出来的 mtime 是打包时的，比 checkout 出来的 TSV 旧，bundle.sh 会以为要重打；统一刷新
           find data/generated -type f -exec touch {} +
           ls -la data/generated data/generated/dicts
 
       - name: Import signing certificates
-        if: env.CERT_P12 != ''
+        if: steps.secrets.outputs.sign == 'true'
         env:
+          CERT_P12: ${{ secrets.QINGJIAN_CERT_P12 }}
           CERT_PASSWORD: ${{ secrets.QINGJIAN_CERT_PASSWORD }}
+          SIGN_IDENTITY: ${{ secrets.QINGJIAN_SIGN_IDENTITY }}
+          INSTALLER_IDENTITY: ${{ secrets.QINGJIAN_INSTALLER_IDENTITY }}
         run: |
           KEYCHAIN="$RUNNER_TEMP/signing.keychain-db"
           security create-keychain -p "" "$KEYCHAIN"
@@ -83,13 +101,14 @@ jobs:
           security set-key-partition-list -S apple-tool:,apple:,codesign:,productbuild: -s -k "" "$KEYCHAIN" >/dev/null
           security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | tr -d '"')
           {
-            echo "QINGJIAN_SIGN_IDENTITY=${{ secrets.QINGJIAN_SIGN_IDENTITY }}"
-            echo "QINGJIAN_INSTALLER_IDENTITY=${{ secrets.QINGJIAN_INSTALLER_IDENTITY }}"
+            echo "QINGJIAN_SIGN_IDENTITY=$SIGN_IDENTITY"
+            echo "QINGJIAN_INSTALLER_IDENTITY=$INSTALLER_IDENTITY"
           } >> "$GITHUB_ENV"
 
       - name: Store notarization credentials
-        if: env.NOTARY_KEY != ''
+        if: steps.secrets.outputs.notarize == 'true'
         env:
+          NOTARY_KEY: ${{ secrets.QINGJIAN_NOTARY_KEY }}
           NOTARY_KEY_ID: ${{ secrets.QINGJIAN_NOTARY_KEY_ID }}
           NOTARY_ISSUER: ${{ secrets.QINGJIAN_NOTARY_ISSUER }}
         run: |
@@ -111,16 +130,17 @@ jobs:
           shasum -a 256 ./*.pkg | tee SHA256SUMS
           jq -n --arg version "$VERSION" --arg tag "$GITHUB_REF_NAME" --arg commit "$GITHUB_SHA" \
             --arg built_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --arg toolchain "$(rustc --version)" \
-            --arg runner "macOS $(sw_vers -productVersion)" \
-            '{version: $version, tag: $tag, commit: $commit, built_at: $built_at, toolchain: $toolchain, runner: $runner}' \
+            --arg runner "macOS $(sw_vers -productVersion)" --arg data_sha256 "$DATA_SHA256" \
+            '{version: $version, tag: $tag, commit: $commit, built_at: $built_at, toolchain: $toolchain, runner: $runner, data_sha256: $data_sha256}' \
             | tee build-info.json
 
       - name: Create GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
+          SIGNED: ${{ steps.secrets.outputs.sign }}
         run: |
           python3 tools/release/releases_json.py --notes-for "$VERSION" > "$RUNNER_TEMP/notes.md"
-          if [[ -z "$CERT_P12" ]]; then
+          if [[ "$SIGNED" != "true" ]]; then
             printf '\n> 这一版没有 Apple 开发者签名，首次打开系统会拦一下：到「系统设置 → 隐私与安全性」底部点「仍要打开」再装一次。\n' >> "$RUNNER_TEMP/notes.md"
           fi
           gh release create "$GITHUB_REF_NAME" --title "青简 $VERSION" --notes-file "$RUNNER_TEMP/notes.md" \
@@ -132,7 +152,7 @@ jobs:
         run: tools/release/publish-releases-json.sh "$GITHUB_REF_NAME" target/pkg
 
       - name: Trigger website build
-        if: env.WEB_TOKEN != ''
+        if: steps.secrets.outputs.website == 'true'
         env:
           QINGJIAN_WEB_TOKEN: ${{ secrets.QINGJIAN_WEB_TOKEN }}
         run: tools/release/bump-website.sh release
@@ -140,6 +160,8 @@ jobs:
   windows:
     if: startsWith(github.ref_name, 'windows-v')
     runs-on: windows-latest
+    permissions:
+      contents: write
     defaults:
       run:
         shell: bash
@@ -150,15 +172,22 @@ jobs:
       # Windows 上 Python 的标准输出缺省 cp1252，中文更新日志会编码失败。
       PYTHONUTF8: '1'
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
 
-      - uses: dtolnay/rust-toolchain@master
+      - uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772 # v1
         with:
           toolchain: 1.96.0
 
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@63fed3e2fecf6f7b51dc6f043341b79ef82a9ae7 # v2.9.2
 
-      - name: Check version matches tag
+      - name: Detect optional secrets
+        id: secrets
+        run: echo "website=${{ secrets.QINGJIAN_WEB_TOKEN != '' }}" >> "$GITHUB_OUTPUT"
+
+      - name: Check version matches tag and tag is on main
         run: |
           VERSION="$(sed -n 's/^version = "\(.*\)"/\1/p' apps/windows/server/Cargo.toml | head -1)"
           TAG="${GITHUB_REF_NAME#windows-v}"
@@ -170,6 +199,11 @@ jobs:
             echo "$VERSION 还是开发版号，发版提交要先去掉 -dev（docs/notes/release.md）" >&2
             exit 1
           fi
+          git fetch --no-tags origin main
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "标签 $GITHUB_REF_NAME 指向的提交 $GITHUB_SHA 不在 main 上，先合并再发" >&2
+            exit 1
+          fi
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
 
       - name: Fetch product data
@@ -177,7 +211,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           mkdir -p data/generated
-          gh release download data --pattern qingjian-data.tar.gz --dir data
+          gh release download data --pattern qingjian-data.tar.gz --pattern SHA256SUMS --dir data
+          (cd data && grep 'qingjian-data.tar.gz' SHA256SUMS | sha256sum -c -)
+          echo "DATA_SHA256=$(sha256sum data/qingjian-data.tar.gz | cut -d' ' -f1)" >> "$GITHUB_ENV"
           tar -xzf data/qingjian-data.tar.gz -C data/generated
           ls -la data/generated data/generated/dicts
 
@@ -206,8 +242,8 @@ jobs:
           RUNNER_OS_NAME="$(powershell -NoProfile -Command '(Get-CimInstance Win32_OperatingSystem).Caption' | tr -d '\r')"
           jq -n --arg version "$VERSION" --arg tag "$GITHUB_REF_NAME" --arg commit "$GITHUB_SHA" \
             --arg built_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --arg toolchain "$(rustc --version)" \
-            --arg runner "$RUNNER_OS_NAME" \
-            '{version: $version, tag: $tag, commit: $commit, built_at: $built_at, toolchain: $toolchain, runner: $runner}' \
+            --arg runner "$RUNNER_OS_NAME" --arg data_sha256 "$DATA_SHA256" \
+            '{version: $version, tag: $tag, commit: $commit, built_at: $built_at, toolchain: $toolchain, runner: $runner, data_sha256: $data_sha256}' \
             | tee build-info.json
 
       - name: Create GitHub release
@@ -225,7 +261,7 @@ jobs:
         run: tools/release/publish-releases-json.sh "$GITHUB_REF_NAME" target/installer
 
       - name: Trigger website build
-        if: env.WEB_TOKEN != ''
+        if: steps.secrets.outputs.website == 'true'
         env:
           QINGJIAN_WEB_TOKEN: ${{ secrets.QINGJIAN_WEB_TOKEN }}
         run: tools/release/bump-website.sh release

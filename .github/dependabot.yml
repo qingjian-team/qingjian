@@ -1,0 +1,14 @@
+# 每周一提依赖更新 PR：Cargo 依赖与 workflow 里钉死 commit 的 actions（钉 commit 之后升级全靠这里）。
+version: 2
+updates:
+  - package-ecosystem: cargo
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday

@@ -9,16 +9,20 @@ on:
   # 手动触发：想让官网现在就重建时在 Actions 页点一下（或 gh workflow run docs.yml）
   workflow_dispatch:
 
-env:
-  WEB_TOKEN: ${{ secrets.QINGJIAN_WEB_TOKEN }}
+permissions:
+  contents: read
 
 jobs:
   dispatch:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Trigger website build
-        if: env.WEB_TOKEN != ''
         env:
+          # 没配 token 时脚本自己跳过（secrets 不能写在 if 里）
           QINGJIAN_WEB_TOKEN: ${{ secrets.QINGJIAN_WEB_TOKEN }}
-        run: tools/release/bump-website.sh docs
+        run: |
+          if [[ -z "$QINGJIAN_WEB_TOKEN" ]]; then echo "没配 QINGJIAN_WEB_TOKEN，跳过"; exit 0; fi
+          tools/release/bump-website.sh docs
