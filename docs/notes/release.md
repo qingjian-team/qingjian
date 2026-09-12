@@ -69,11 +69,16 @@ cargo 命令全 `--locked`（含 `bundle.sh` 与 `build.ps1`）。普通 CI 只�
 ## 产品数据从哪来
 
 词库、语言模型、释义表（`data/generated/*.qj`、`dicts/*.qj`、英文词表）不在 git 里，体积约 85 MB 且由本机数据管道生成。
-`tools/release/data-bundle.sh` 把它们打成 `qingjian-data.tar.gz`，连同 LLM 生成的续跑中间产物 `qingjian-llm-intermediates.tar.gz`
-一起上传到仓库里一个名为 `data` 的**预发布** Release（预发布不会成为 GitHub 的 latest，官网取 latest 时不会拿到它）。
-`release.yml` 用 `gh release download data` 取回解到 `data/generated/`，`bundle.sh` 见到 `dict.qj` 就按产品数据打包。
+`tools/release/data-bundle.sh` 把它们打成 `qingjian-data.tar.gz`，把本地整句模型单文件 `data/model/model.qjm`
+（训练仓库导出三件套到 `data/model/`，`tools/release/pack-model.sh` 打成一个 `.qj` 容器，fp16 约 56 MB，元数据也写在那个脚本里）
+原样上传，连同 LLM 生成的续跑中间产物 `qingjian-llm-intermediates.tar.gz` 一起放到仓库里一个名为 `data` 的**预发布** Release
+（预发布不会成为 GitHub 的 latest，官网取 latest 时不会拿到它）。
+`release.yml` 用 `gh release download data` 取回，数据包解到 `data/generated/`、`model.qjm` 放到 `data/model/`；`bundle.sh` 见到 `dict.qj`
+就按产品数据打包、见到 `model.qjm` 就放进 `Resources/model/`，`qingjian.iss` 同理装进 `{app}\data\model`（顺手删掉旧版装的三件套）。
+两者的 SHA-256 都记进 `build-info.json`（`data_sha256` / `model_sha256`）。
 
-数据重生成之后（重跑 lexicon / bigram / gloss-gen export）要重跑一次 `data-bundle.sh`，否则 CI 打的包还是旧数据。
+数据重生成之后（重跑 lexicon / bigram / gloss-gen export）或模型重训之后要重跑一次 `data-bundle.sh`（三件套比 `.qjm` 新会自动重打），
+否则 CI 打的包还是旧数据。模型文件缺失时 CI 会失败（校验那一步），不会静默地发出不重排的包。
 
 ## 签名与公证
 

@@ -14,7 +14,7 @@
 #
 # 门禁：版本号与标签一致且不带 -dev；标签指向的提交必须在 main 上（防止从没合并的分支或手滑的本地提交发版）。
 # Secrets 不放 workflow 顶层 env，只注入真正用它的那一步；有没有配由第一步算成输出（secrets 不能直接写在 if 里）。
-# actions 钉到 commit（注释是对应标签），Dependabot 每周更新；产品数据从滚动的 data Release 下载，按它的 SHA256SUMS 校验并记进 build-info.json。
+# actions 钉到 commit（注释是对应标签），Dependabot 每周更新；产品数据与本地整句模型从滚动的 data Release 下载，按它的 SHA256SUMS 校验并记进 build-info.json。
 name: release
 
 on:
@@ -74,11 +74,15 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          mkdir -p data/generated
-          gh release download data --pattern qingjian-data.tar.gz --pattern SHA256SUMS --dir data
-          (cd data && grep 'qingjian-data.tar.gz' SHA256SUMS | shasum -a 256 -c -)
+          mkdir -p data/generated data/model
+          gh release download data --pattern qingjian-data.tar.gz --pattern model.qjm --pattern SHA256SUMS --dir data
+          (cd data && grep -E 'qingjian-data.tar.gz|model.qjm' SHA256SUMS | shasum -a 256 -c -)
           echo "DATA_SHA256=$(shasum -a 256 data/qingjian-data.tar.gz | cut -d' ' -f1)" >> "$GITHUB_ENV"
+          echo "MODEL_SHA256=$(shasum -a 256 data/model.qjm | cut -d' ' -f1)" >> "$GITHUB_ENV"
           tar -xzf data/qingjian-data.tar.gz -C data/generated
+          # 本地整句模型单文件：bundle.sh 见到 data/model/model.qjm 就放进 Resources/model/
+          mv data/model.qjm data/model/
+          ls -la data/model
           # 解出来的 mtime 是打包时的，比 checkout 出来的 TSV 旧，bundle.sh 会以为要重打；统一刷新
           find data/generated -type f -exec touch {} +
           ls -la data/generated data/generated/dicts
@@ -130,8 +134,8 @@ jobs:
           shasum -a 256 ./*.pkg | tee SHA256SUMS
           jq -n --arg version "$VERSION" --arg tag "$GITHUB_REF_NAME" --arg commit "$GITHUB_SHA" \
             --arg built_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --arg toolchain "$(rustc --version)" \
-            --arg runner "macOS $(sw_vers -productVersion)" --arg data_sha256 "$DATA_SHA256" \
-            '{version: $version, tag: $tag, commit: $commit, built_at: $built_at, toolchain: $toolchain, runner: $runner, data_sha256: $data_sha256}' \
+            --arg runner "macOS $(sw_vers -productVersion)" --arg data_sha256 "$DATA_SHA256" --arg model_sha256 "$MODEL_SHA256" \
+            '{version: $version, tag: $tag, commit: $commit, built_at: $built_at, toolchain: $toolchain, runner: $runner, data_sha256: $data_sha256, model_sha256: $model_sha256}' \
             | tee build-info.json
 
       - name: Create GitHub release
@@ -210,12 +214,15 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          mkdir -p data/generated
-          gh release download data --pattern qingjian-data.tar.gz --pattern SHA256SUMS --dir data
-          (cd data && grep 'qingjian-data.tar.gz' SHA256SUMS | sha256sum -c -)
+          mkdir -p data/generated data/model
+          gh release download data --pattern qingjian-data.tar.gz --pattern model.qjm --pattern SHA256SUMS --dir data
+          (cd data && grep -E 'qingjian-data.tar.gz|model.qjm' SHA256SUMS | sha256sum -c -)
           echo "DATA_SHA256=$(sha256sum data/qingjian-data.tar.gz | cut -d' ' -f1)" >> "$GITHUB_ENV"
+          echo "MODEL_SHA256=$(sha256sum data/model.qjm | cut -d' ' -f1)" >> "$GITHUB_ENV"
           tar -xzf data/qingjian-data.tar.gz -C data/generated
-          ls -la data/generated data/generated/dicts
+          # 本地整句模型单文件：qingjian.iss 见到 data\model\model.qjm 就装进 {app}\data\model
+          mv data/model.qjm data/model/
+          ls -la data/generated data/generated/dicts data/model
 
       # 与开发机同版本（7.1.0，自带简体中文翻译；Chocolatey 只有 6.x，6 的安装包不带简中）。钉死 GitHub Release 上的文件。
       - name: Install Inno Setup 7.1.0
@@ -242,8 +249,8 @@ jobs:
           RUNNER_OS_NAME="$(powershell -NoProfile -Command '(Get-CimInstance Win32_OperatingSystem).Caption' | tr -d '\r')"
           jq -n --arg version "$VERSION" --arg tag "$GITHUB_REF_NAME" --arg commit "$GITHUB_SHA" \
             --arg built_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --arg toolchain "$(rustc --version)" \
-            --arg runner "$RUNNER_OS_NAME" --arg data_sha256 "$DATA_SHA256" \
-            '{version: $version, tag: $tag, commit: $commit, built_at: $built_at, toolchain: $toolchain, runner: $runner, data_sha256: $data_sha256}' \
+            --arg runner "$RUNNER_OS_NAME" --arg data_sha256 "$DATA_SHA256" --arg model_sha256 "$MODEL_SHA256" \
+            '{version: $version, tag: $tag, commit: $commit, built_at: $built_at, toolchain: $toolchain, runner: $runner, data_sha256: $data_sha256, model_sha256: $model_sha256}' \
             | tee build-info.json
 
       - name: Create GitHub release
