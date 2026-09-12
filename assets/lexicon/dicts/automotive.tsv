@@ -37,7 +37,7 @@
 下边梁	xia bian liang	7
 下门槛	xia men kan	8
 不回位	bu hui wei	9
-不锈钢阀	bu xiu gang fa	11
+不锈钢阀	bu xiu gang fa	2
 专项作业车	zhuan xiang zuo ye che	1
 世界窗膜协会	shi jie chuang mo xie hui	7
 丙酸纤维素	bing suan xian wei su	1
@@ -354,7 +354,7 @@
 卡特汉姆	ka te han mu	32
 卡通摩托	ka tong mo tuo	6
 卤素头灯	lu su tou deng	1
-卤素灯	lu su deng	9
+卤素灯	lu su deng	6
 印地方程式赛	yin di fang cheng shi sai	3
 印地车赛	yin di che sai	5
 印第安纳赛道	yin di an na sai dao	3
@@ -362,7 +362,7 @@
 危险货物运输	wei xian huo wu yun shu	13
 压缩行程	ya suo xing cheng	1
 厦门金龙汽车	xia men jin long qi che	1
-叉车用	cha che yong	8
+叉车用	cha che yong	1
 双摇臂悬架	shuang yao bi xuan jia	4
 双离合变速器	shuang li he bian su qi	27
 双面胶带	shuang mian jiao dai	1
@@ -527,12 +527,12 @@
 多楔带	duo xie dai	10
 多气门发动机	duo qi men fa dong ji	8
 多路传输控制单元	duo lu chuan shu kong zhi dan yuan	2
-大众中国	da zhong zhong guo	1
+大众中国	da zhong zhong guo	15
 大切诺基	da qie nuo ji	3
 大包围	da bao wei	20
 大型车展	da xing che zhan	12
 大小瓦	da xiao wa	8
-大尾翼	da wei yi	9
+大尾翼	da wei yi	1
 大灯保险杠	da deng bao xian gang	5
 大灯开关	da deng kai guan	9
 大灯框	da deng kuang	5
@@ -622,7 +622,7 @@
 常见汽车品牌	chang jian qi che pin pai	2
 干燥瓶	gan zao ping	8
 平治房车	ping zhi fang che	3
-年度车	nian du che	2
+年度车	nian du che	15
 幸福使者	xing fu shi zhe	12
 广汽日野	guang qi ri ye	10
 广角后视镜	guang jiao hou shi jing	8
@@ -648,7 +648,7 @@
 弹簧垫圈	tan huang dian quan	10
 强制式曲轴箱通风	qiang zhi shi qu zhou xiang tong feng	2
 强制通风	qiang zhi tong feng	6
-强音	qiang yin	35
+强音	qiang yin	34
 影音网	ying yin wang	4
 彼得比尔特公司	bi de bi er te gong si	6
 得中国者得天下	de zhong guo zhe de tian xia	5
@@ -727,7 +727,7 @@
 摩托车防晒垫	mo tuo che fang shai dian	3
 摩纳罗	mo na luo	3
 摩雷	mo lei	11
-支持环	zhi chi huan	1
+支持环	zhi chi huan	14
 收放机	shou fang ji	11
 改款车	gai kuan che	16
 改舵车	gai duo che	4
@@ -744,7 +744,7 @@
 新一代普力马	xin yi dai pu li ma	6
 新乐风	xin le feng	9
 新佳乐	xin jia le	13
-新凯	xin kai	17
+新凯	xin kai	8
 新凯越	xin kai yue	1
 新加坡赛道	xin jia po sai dao	6
 新嘉年华	xin jia nian hua	13
@@ -846,7 +846,7 @@
 柯尼希斯埃格	ke ni xi si ai ge	1
 标准型弹簧垫圈	biao zhun xing tan huang dian quan	3
 标志灯具	biao zhi deng ju	13
-标的车	biao di che	1
+标的车	biao di che	12
 样版车	yang ban che	5
 格兰披治大奖赛	ge lan pi zhi da jiang sai	7
 格兰披治大赛	ge lan pi zhi da sai	49
@@ -1039,7 +1039,7 @@
 活塞肖	huo sai xiao	6
 活性炭罐电磁阀	huo xing tan guan dian ci fa	6
 派力奥周末风	pai li ao zhou mo feng	10
-派喜	pai xi	13
+派喜	pai xi	2
 浇注速度	jiao zhu su du	7
 测试机	ce shi ji	47
 济南液压泵	ji nan ye ya beng	6
@@ -1257,7 +1257,7 @@
 美国汽车协会	mei guo qi che xie hui	11
 美式校车	mei shi xiao che	2
 美的客车	mei di ke che	8
-美鹿	mei lu	9
+美鹿	mei lu	7
 翘板开关	qiao ban kai guan	9
 翱龙	ao long	12
 翻转轴	fan zhuan zhou	5
@@ -1349,7 +1349,7 @@
 试车评测	shi che ping ce	4
 试过车	shi guo che	2
 试驾后	shi jia hou	12
-该车主	gai che zhu	7
+该车主	gai che zhu	11
 调漆设备	tiao qi she bei	8
 谐振箱	xie zhen xiang	3
 贝氏体球墨铸铁	bei shi ti qiu mo zhu tie	4
@@ -1445,7 +1445,7 @@
 轴承衬套	zhou cheng chen tao	5
 轿车化	jiao che hua	14
 轿车发动机	jiao che fa dong ji	12
-达路	da lu	45
+达路	da lu	46
 进口大切诺基	jin kou da qie nuo ji	6
 进口斯柯达	jin kou si ke da	9
 进气凸轮轴前	jin qi tu lun zhou qian	4
@@ -1494,7 +1494,7 @@
 钢板套	gang ban tao	7
 钢板胶套	gang ban jiao tao	4
 钢管弯头	gang guan wan tou	5
-钢管车	gang guan che	2
+钢管车	gang guan che	9
 钢背	gang bei	2
 钥匙开关	yao shi kai guan	10
 铃木北斗星	ling mu bei dou xing	1

@@ -1,0 +1,50 @@
+# 从输入日志里人工挑的领域词 / 通用词：日志里选过 ≥2 次、词库与短语层都没有、且公开语料（LCCC + 中文维基）里出现过（隐私过滤：只在日志里出现的只留在个人词库）。
+# 次数是语料次数，与 dict.tsv 词频同一尺度；语料不足 20 次的输入法 / 开发术语（上屏、候选框、模糊音）按 20 计，免得排到最后。读音全部给定（行数 / 长句 / 这俩 是多音字）。词\t次数\t拼音
+看看	92841	kan kan
+再也	16113	zai ye
+在此	13722	zai ci
+线上	7239	xian shang
+最新	5088	zui xin
+给出	2555	gei chu
+做成	2314	zuo cheng
+行数	1352	hang shu
+尽可能	1292	jin ke neng
+玩法	1242	wan fa
+或者说	1116	huo zhe shuo
+不合理	967	bu he li
+中英	952	zhong ying
+跳过	909	tiao guo
+这俩	829	zhe lia
+收起	562	shou qi
+只需要	527	zhi xu yao
+对不上	516	dui bu shang
+不一致	446	bu yi zhi
+设计图	349	she ji tu
+对齐	302	dui qi
+后端	285	hou duan
+按理说	277	an li shuo
+闲时	272	xian shi
+中英文	241	zhong ying wen
+数据包	241	shu ju bao
+翻页	188	fan ye
+平铺	140	ping pu
+永乐大典	137	yong le da dian
+指示器	116	zhi shi qi
+源码	116	yuan ma
+分词	83	fen ci
+词库	78	ci ku
+西格玛	70	xi ge ma
+等一下	60	deng yi xia
+自签	50	zi qian
+长句	43	chang ju
+详情页	30	xiang qing ye
+组合键	21	zu he jian
+上屏	20	shang ping
+模糊音	20	mo hu yin
+大模型	20	da mo xing
+搜索框	20	sou suo kuang
+架构图	20	jia gou tu
+账套	20	zhang tao
+候选框	20	hou xuan kuang
+自签证书	20	zi qian zheng shu
+过期时间	20	guo qi shi jian

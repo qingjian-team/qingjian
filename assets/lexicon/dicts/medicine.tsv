@@ -114,7 +114,7 @@
 三氯乙烯中毒	san lv yi xi zhong du	5
 三氯叔丁醇	san lv shu ding chun	4
 三氯甲烷	san lv jia wan	19
-三焦	san jiao	8
+三焦	san jiao	2
 三焦俞	san jiao shu	3
 三焦俞穴	san jiao shu xue	2
 三焦辨证	san jiao bian zheng	1
@@ -159,7 +159,7 @@
 上寒下热	shang han xia re	2
 上巨虚	shang ju xu	3
 上巨虚穴	shang ju xu xue	3
-上廉	shang lian	2
+上廉	shang lian	8
 上廉泉	shang lian quan	2
 上段	shang duan	10
 上海口腔医学	shang hai kou qiang yi xue	2
@@ -411,11 +411,11 @@
 中渚	zhong zhu	1
 中老年高钙片	zhong lao nian gao gai pian	3
 中耳胆脂瘤	zhong er dan zhi liu	4
-中肠	zhong chang	6
+中肠	zhong chang	5
 中肾	zhong shen	8
 中脘	zhong wan	7
 中脘穴	zhong wan xue	7
-中膈	zhong ge	8
+中膈	zhong ge	9
 中药化学	zhong yao hua xue	1
 中药学	zhong yao xue	13
 中药学专业知识	zhong yao xue zhuan ye zhi shi	2
@@ -479,7 +479,6 @@
 丹红注射液	dan hong zhu she ye	2
 丹葛颈舒胶囊	dan ge jing shu jiao nang	3
 丹蓝通络口服液	dan lan tong luo kou fu ye	3
-丹迪	dan di	11
 丹香冠心注射液	dan xiang guan xin zhu she ye	2
 丹鹿通督片	dan lu tong du pian	2
 主任药师	zhu ren yao shi	3
@@ -501,7 +500,7 @@
 主动脉结	zhu dong mai jie	2
 主动脉缩窄	zhu dong mai suo zhai	1
 主动转运	zhu dong zhuan yun	3
-主动运动	zhu dong yun dong	1
+主动运动	zhu dong yun dong	7
 主动运输	zhu dong yun shu	5
 主基因	zhu ji yin	3
 主管药师	zhu guan yao shi	8
@@ -599,7 +598,7 @@
 九制大黄丸	jiu zhi da huang wan	3
 九华痔疮栓	jiu hua zhi chuang shuan	2
 九华膏	jiu hua gao	3
-九卷	jiu juan	33
+九卷	jiu juan	34
 九味健肾胶囊	jiu wei jian shen jiao nang	3
 九味双解口服液	jiu wei shuang jie kou fu ye	3
 九味沉香胶囊	jiu wei chen xiang jiao nang	2
@@ -817,11 +816,11 @@
 五肽胃泌素	wu tai wei mi su	2
 五苓散	wu ling san	5
 五苓胶囊	wu ling jiao nang	2
-五藏	wu zang	5
+五藏	wu zang	1
 五行相生相克	wu xing xiang sheng xiang ke	6
 五输穴	wu shu xue	3
 亚叶酸钙	ya ye suan gai	3
-亚急性	ya ji xing	46
+亚急性	ya ji xing	47
 亚急性甲状腺炎	ya ji xing jia zhuang xian yan	2
 亚急性皮肤型红斑狼疮	ya ji xing pi fu xing hong ban lang chuang	2
 亚急性硬化性全脑炎	ya ji xing ying hua xing quan nao yan	3
@@ -873,7 +872,7 @@
 京制牛黄解毒片	jing zhi niu huang jie du pian	5
 京必舒新	jing bi shu xin	2
 京都念慈庵	jing du nian ci an	17
-京门	jing men	30
+京门	jing men	31
 京门穴	jing men xue	2
 亮丙瑞林	liang bing rui lin	6
 亮嗓胖大海清咽糖	liang sang pang da hai qing yan tang	3
@@ -1062,7 +1061,7 @@
 传染性红斑	chuan ran xing hong ban	1
 传染性软疣	chuan ran xing ruan you	16
 传染期	chuan ran qi	3
-传染病学	chuan ran bing xue	49
+传染病学	chuan ran bing xue	37
 传染病报告卡	chuan ran bing bao gao ka	5
 传染过程	chuan ran guo cheng	1
 传统科学	chuan tong ke xue	6
@@ -1578,7 +1577,7 @@
 八仙长寿丸	ba xian chang shou wan	3
 八会穴	ba hui xue	2
 八十一难	ba shi yi nan	4
-八华	ba hua	6
+八华	ba hua	7
 八味和胃口服液	ba wei he wei kou fu ye	2
 八味地黄丸	ba wei di huang wan	3
 八味沉香丸	ba wei chen xiang wan	2
@@ -1599,7 +1598,7 @@
 八通关	ba tong guan	16
 八邪	ba xie	3
 八邪穴	ba xie xue	2
-八风	ba feng	8
+八风	ba feng	5
 公丁香	gong ding xiang	5
 公孙穴	gong sun xue	3
 六一散	liu yi san	6
@@ -1632,8 +1631,8 @@
 共同性外斜视	gong tong xing wai xie shi	3
 共同性斜视	gong tong xing xie shi	4
 共同抗原	gong tong kang yuan	1
-共同运动	gong tong yun dong	1
-共培养	gong pei yang	18
+共同运动	gong tong yun dong	5
+共培养	gong pei yang	17
 共振论	gong zhen lun	2
 共济失调	gong ji shi tiao	21
 共生固氮	gong sheng gu dan	1
@@ -1724,7 +1723,7 @@
 内容效度	nei rong xiao du	5
 内庭穴	nei ting xue	2
 内斜视	nei xie shi	16
-内板	nei ban	3
+内板	nei ban	7
 内毒素	nei du su	8
 内消	nei xiao	28
 内消瘰疬片	nei xiao luo li pian	2
@@ -1769,7 +1768,7 @@
 再分布	zai fen bu	5
 再受精	zai shou jing	4
 再变态	zai bian tai	3
-再循环	zai xun huan	27
+再循环	zai xun huan	26
 再灌注损伤	zai guan zhu sun shang	1
 再生不良性贫血	zai sheng bu liang xing pin xue	11
 再生障碍性贫血	zai sheng zhang ai xing pin xue	7
@@ -1917,7 +1916,7 @@
 分散法	fen san fa	3
 分散片	fen san pian	7
 分析细胞学	fen xi xi bao xue	2
-分果	fen guo	5
+分果	fen guo	3
 分枝杆菌	fen zhi gan jun	23
 分水线	fen shui xian	1
 分泌型	fen mi xing	11
@@ -2000,7 +1999,7 @@
 利水渗湿	li shui shen shi	7
 利水通淋	li shui tong lin	1
 利福喷丁	li fu pen ding	3
-利福平	li fu ping	7
+利福平	li fu ping	8
 利福平滴眼液	li fu ping di yan ye	2
 利福平片	li fu ping pian	2
 利福昔明	li fu xi ming	10
@@ -2103,13 +2102,13 @@
 前肠	qian chang	5
 前肾	qian shen	3
 前胡	qian hu	7
-前膜	qian mo	3
+前膜	qian mo	1
 前臂假肢	qian bi jia zhi	2
 前臂长	qian bi chang	4
 前谷	qian gu	5
 前负荷	qian fu he	9
 前阴	qian yin	2
-前顶	qian ding	7
+前顶	qian ding	3
 前驱期	qian qu qi	2
 剑突	jian tu	1
 剑龙类	jian long lei	29
@@ -2135,7 +2134,7 @@
 副神经	fu shen jing	1
 副神经节瘤	fu shen jing jie liu	4
 副粘病毒	fu nian bing du	2
-副耳	fu er	4
+副耳	fu er	6
 副胎盘	fu tai pan	3
 副脾	fu pi	3
 副银屑病	fu yin xie bing	3
@@ -2387,7 +2386,7 @@
 十味龙胆花颗粒	shi wei long dan hua ke li	2
 十四经穴	shi si jing xue	2
 十大功劳叶	shi da gong lao ye	3
-十宣	shi xuan	6
+十宣	shi xuan	1
 十宣穴	shi xuan xue	5
 十滴水	shi di shui	10
 十滴水软胶囊	shi di shui ruan jiao nang	3
@@ -2536,7 +2535,7 @@
 卡泊芬净	ka bo fen jing	3
 卡波姆	ka bo mu	1
 卡波西肉瘤	ka bo xi rou liu	3
-卡环	ka huan	7
+卡环	ka huan	2
 卡立普多	ka li pu duo	1
 卡络磺钠氯化钠注射液	ka luo huang na lv hua na zhu she ye	3
 卡维地洛	ka wei di luo	4
@@ -2664,15 +2663,15 @@
 原始卵泡	yuan shi luan pao	5
 原子吸收分光光度法	yuan zi xi shou fen guang guang du fa	3
 原子吸收分光光度计	yuan zi xi shou fen guang guang du ji	6
-原条	yuan tiao	7
+原条	yuan tiao	4
 原核细胞	yuan he xi bao	12
-原气	yuan qi	5
+原气	yuan qi	1
 原生殖细胞	yuan sheng zhi xi bao	2
 原生质体	yuan sheng zhi ti	24
 原生质体融合	yuan sheng zhi ti rong he	2
 原癌基因	yuan ai ji yin	3
 原穴	yuan xue	1
-原结	yuan jie	2
+原结	yuan jie	1
 原肌球蛋白	yuan ji qiu dan bai	1
 厥冷	jue leng	7
 厥心痛	jue xin tong	3
@@ -3046,7 +3045,7 @@
 后纵韧带	hou zong ren dai	1
 后负荷	hou fu he	6
 后遗效应	hou yi xiao ying	4
-后阴	hou yin	2
+后阴	hou yin	6
 后顶	hou ding	7
 后颊	hou jia	2
 后马托品	hou ma tuo pin	3
@@ -3466,7 +3465,7 @@
 国际医药贸易	guo ji yi yao mao yi	2
 国际口腔种植学会	guo ji kou qiang zhong zhi xue hui	6
 图距	tu ju	4
-圆球体	yuan qiu ti	1
+圆球体	yuan qiu ti	6
 圆管	yuan guan	11
 圈套器	quan tao qi	6
 土地测绘	tu di ce hui	2
@@ -3565,7 +3564,7 @@
 坐骨神经损伤	zuo gu shen jing sun shang	3
 坐骨神经痛	zuo gu shen jing tong	6
 坐骨腰痛丸	zuo gu yao tong wan	4
-块菌	kuai jun	33
+块菌	kuai jun	32
 坠积性肺炎	zhui ji xing fei yan	6
 坠落伤	zhui luo shang	7
 坦度螺酮	tan du luo tong	2
@@ -3623,7 +3622,7 @@
 基因重组疫苗	ji yin chong zu yi miao	4
 基因频率	ji yin pin lv	4
 基底动脉	ji di dong mai	5
-基底层	ji di ceng	23
+基底层	ji di ceng	22
 基底神经节	ji di shen jing jie	3
 基底细胞上皮瘤	ji di xi bao shang pi liu	3
 基底细胞瘤	ji di xi bao liu	1
@@ -3688,7 +3687,7 @@
 处方管理办法	chu fang guan li ban fa	8
 备皮刀	bei pi dao	3
 复制型	fu zhi xing	1
-复制子	fu zhi zi	1
+复制子	fu zhi zi	3
 复制起点	fu zhi qi dian	4
 复发性多软骨炎	fu fa xing duo ruan gu yan	3
 复发性阿弗他溃疡	fu fa xing a fu ta kui yang	2
@@ -3936,7 +3935,7 @@
 夏天无	xia tian wu	5
 夏天无滴眼液	xia tian wu di yan ye	2
 夏天无片	xia tian wu pian	3
-夏季热	xia ji re	3
+夏季热	xia ji re	7
 夏季皮炎	xia ji pi yan	6
 夏枯草	xia ku cao	11
 夏枯草口服液	xia ku cao kou fu ye	3
@@ -4084,7 +4083,7 @@
 夜尿宁丸	ye niao ning wan	4
 夜尿症	ye niao zheng	5
 夜盲	ye mang	1
-夜语	ye yu	5
+夜语	ye yu	9
 大三阳	da san yang	9
 大于胎龄儿	da yu tai ling er	1
 大便失禁	da bian shi jin	7
@@ -4171,7 +4170,7 @@
 大败毒胶囊	da bai du jiao nang	4
 大赫	da he	4
 大转子	da zhuan zi	2
-大迎	da ying	7
+大迎	da ying	5
 大迎穴	da ying xue	3
 大量培养	da liang pei yang	3
 大长今	da chang jin	29
@@ -4206,6 +4205,7 @@
 天冬	tian dong	39
 天冲	tian chong	7
 天冲穴	tian chong xue	2
+天听	tian ting	9
 天和追风膏	tian he zhui feng gao	2
 天和骨通贴膏	tian he gu tong tie gao	3
 天坛生物	tian tan sheng wu	1
@@ -4222,7 +4222,7 @@
 天柱穴	tian zhu xue	4
 天母降压片	tian mu jiang ya pian	3
 天池穴	tian chi xue	2
-天泉	tian quan	9
+天泉	tian quan	16
 天溪	tian xi	5
 天溪穴	tian xi xue	3
 天演论	tian yan lun	8
@@ -4235,7 +4235,7 @@
 天王补心丸	tian wang bu xin wan	4
 天王补心丹	tian wang bu xin dan	5
 天疱疮	tian pao chuang	1
-天突	tian tu	1
+天突	tian tu	7
 天竺黄	tian zhu huang	4
 天胡荽愈肝片	tian hu sui yu gan pian	3
 天舒胶囊	tian shu jiao nang	3
@@ -4259,7 +4259,7 @@
 天麻钩藤饮	tian ma gou teng yin	4
 天麻首乌片	tian ma shou wu pian	2
 天麻首乌胶囊	tian ma shou wu jiao nang	2
-天鼎	tian ding	1
+天鼎	tian ding	7
 太冲	tai chong	8
 太冲穴	tai chong xue	2
 太太口服液	tai tai kou fu ye	6
@@ -4423,12 +4423,13 @@
 奥西那林	ao xi na lin	2
 女性假两性畸形	nv xing jia liang xing ji xing	5
 女性生殖器官恶性肿瘤	nv xing sheng zhi qi guan e xing zhong liu	3
-女贞子	nv zhen zi	8
+女贞	nv zhen	30
+女贞子	nv zhen zi	1
 如意金黄散	ru yi jin huang san	4
 妄想型精神分裂症	wang xiang xing jing shen fen lie zheng	7
 妄想狂	wang xiang kuang	3
 妇乐冲剂	fu le chong ji	2
-妇产科学	fu chan ke xue	18
+妇产科学	fu chan ke xue	17
 妇产科护理学	fu chan ke hu li xue	3
 妇女养血丸	fu nv yang xue wan	4
 妇女带下	fu nv dai xia	5
@@ -4532,7 +4533,7 @@
 子宫输卵管碘油造影	zi gong shu luan guan dian you zao ying	3
 子宫阔韧带	zi gong kuo ren dai	2
 子宫颈原位癌	zi gong jing yuan wei ai	3
-子座	zi zuo	15
+子座	zi zuo	12
 子痫	zi xian	31
 孔圣枕中丸	kong sheng zhen zhong wan	2
 孔圣枕中丹	kong sheng zhen zhong dan	2
@@ -4575,7 +4576,7 @@
 安博维	an bo wei	10
 安嗽糖浆	an sou tang jiang	2
 安坤赞育丸	an kun zan yu wan	3
-安坦	an tan	5
+安坦	an tan	2
 安宫止血颗粒	an gong zhi xue ke li	2
 安宫牛黄丸	an gong niu huang wan	1
 安宫牛黄片	an gong niu huang pian	2
@@ -4718,7 +4719,7 @@
 对乙酰氨基酚缓释片	dui yi xian an ji fen huan shi pian	3
 对二氯苯	dui er lv ben	11
 对叔丁基苯酚	dui shu ding ji ben fen	2
-对因治疗	dui yin zhi liao	1
+对因治疗	dui yin zhi liao	7
 对比敏感度	dui bi min gan du	6
 对氨基偶氮苯	dui an ji ou dan ben	3
 对氨基水杨酸钠	dui an ji shui yang suan na	3
@@ -4903,7 +4904,7 @@
 小脑萎缩	xiao nao wei suo	13
 小腿三头肌	xiao tui san tou ji	4
 小腿溃疡	xiao tui kui yang	4
-小腿长	xiao tui chang	5
+小腿长	xiao tui chang	1
 小腿骨	xiao tui gu	6
 小舞蹈病	xiao wu dao bing	3
 小蓟	xiao ji	6
@@ -4994,7 +4995,7 @@
 尼莫地平胶囊	ni mo di ping jiao nang	4
 尼麦角林	ni mai jiao lin	5
 尼麦角林注射液	ni mai jiao lin zhu she ye	5
-尾管	wei guan	24
+尾管	wei guan	25
 尾索	wei suo	3
 尾脂腺	wei zhi xian	2
 尾节	wei jie	27
@@ -5080,7 +5081,7 @@
 局部麻醉药	ju bu ma zui yao	41
 局限性多汗症	ju xian xing duo han zheng	3
 层板状鱼鳞病	ceng ban zhuang yu lin bing	2
-层流	ceng liu	26
+层流	ceng liu	27
 屈光不正	qu guang bu zheng	4
 屈光不正性弱视	qu guang bu zheng xing ruo shi	3
 屈光参数	qu guang can shu	4
@@ -5211,7 +5212,7 @@
 己烯雌酚片	ji xi ci fen pian	2
 己烷雌酚	ji wan ci fen	3
 巴尔通体病	ba er tong ti bing	2
-巴德年	ba de nian	1
+巴德年	ba de nian	7
 巴戟口服液	ba ji kou fu ye	3
 巴戟天	ba ji tian	32
 巴戟胶囊	ba ji jiao nang	3
@@ -5242,7 +5243,7 @@
 布洛芬软胶囊	bu luo fen ruan jiao nang	3
 布洛芬颗粒	bu luo fen ke li	4
 布渣叶	bu zha ye	2
-布病	bu bing	9
+布病	bu bing	8
 布美他尼	bu mei ta ni	3
 布袋澳	bu dai ao	16
 布鲁氏杆菌病	bu lu shi gan jun bing	1
@@ -5484,7 +5485,7 @@
 强力皮康王	qiang li pi kang wang	3
 强力脑心康胶囊	qiang li nao xin kang jiao nang	4
 强力霉素	qiang li mei su	4
-强化免疫	qiang hua mian yi	10
+强化免疫	qiang hua mian yi	9
 强回声	qiang hui sheng	1
 强心药	qiang xin yao	7
 强电解质	qiang dian jie zhi	5
@@ -5498,7 +5499,7 @@
 强迫性神经症	qiang po xing shen jing zheng	4
 强迫观念	qiang po guan nian	5
 强酸中毒	qiang suan zhong du	2
-强间	qiang jian	5
+强间	qiang jian	1
 强阳保肾丸	qiang yang bao shen wan	4
 强骨生血口服液	qiang gu sheng xue kou fu ye	3
 强骨胶囊	qiang gu jiao nang	3
@@ -5564,7 +5565,7 @@
 微生物检验技术	wei sheng wu jian yan ji shu	4
 微生物药物学	wei sheng wu yao wu xue	2
 微生物限度检查法	wei sheng wu xian du jian cha fa	2
-微笑线	wei xiao xian	1
+微笑线	wei xiao xian	3
 微管蛋白	wei guan dan bai	16
 微粉硅胶	wei fen gui jiao	3
 微粒体	wei li ti	7
@@ -5637,14 +5638,14 @@
 心理生理学	xin li sheng li xue	5
 心理疗法	xin li liao fa	8
 心理神经免疫学	xin li shen jing mian yi xue	3
-心理科	xin li ke	2
+心理科	xin li ke	12
 心理统计学	xin li tong ji xue	8
 心理能动性	xin li neng dong xing	2
 心理评估	xin li ping gu	5
 心理量表	xin li liang biao	2
 心瓣膜	xin ban mo	2
 心瓣膜病	xin ban mo bing	6
-心电	xin dian	28
+心电	xin dian	31
 心电向量图	xin dian xiang liang tu	3
 心电图异常	xin dian tu yi chang	7
 心电图机	xin dian tu ji	3
@@ -5768,7 +5769,7 @@
 急性排斥反应	ji xing pai chi fan ying	1
 急性支气管炎	ji xing zhi qi guan yan	5
 急性早幼粒细胞白血病	ji xing zao you li xi bao bai xue bing	9
-急性期	ji xing qi	15
+急性期	ji xing qi	14
 急性根尖周炎	ji xing gen jian zhou yan	4
 急性气管支气管炎	ji xing qi guan zhi qi guan yan	6
 急性气管炎	ji xing qi guan yan	3
@@ -5989,7 +5990,7 @@
 感觉神经元	gan jue shen jing yuan	15
 感觉神经性耳聋	gan jue shen jing xing er long	5
 感觉细胞	gan jue xi bao	7
-感觉过敏	gan jue guo min	1
+感觉过敏	gan jue guo min	5
 感觉阈限	gan jue yu xian	1
 感觉障碍	gan jue zhang ai	2
 感音性聋	gan yin xing long	4
@@ -6113,7 +6114,7 @@
 扁平细胞	bian ping xi bao	5
 扁平苔癣	bian ping tai xuan	1
 扁平苔藓	bian ping tai xian	6
-扁平足	bian ping zu	12
+扁平足	bian ping zu	11
 扁平髋	bian ping kuan	3
 扁桃体切除术	bian tao ti qie chu shu	5
 扁桃体周围脓肿	bian tao ti zhou wei nong zhong	2
@@ -6194,7 +6195,7 @@
 扶正解表	fu zheng jie biao	4
 扶芳藤	fu fang teng	6
 承光	cheng guang	38
-承山	cheng shan	1
+承山	cheng shan	5
 承山穴	cheng shan xue	1
 承扶	cheng fu	4
 承扶穴	cheng fu xue	3
@@ -6399,7 +6400,7 @@
 排石颗粒	pai shi ke li	4
 接种率	jie zhong lv	12
 接触传播	jie chu chuan bo	9
-接触区	jie chu qu	7
+接触区	jie chu qu	1
 接触性出血	jie chu xing chu xue	1
 接触性唇炎	jie chu xing chun yan	3
 接触性皮炎	jie chu xing pi yan	17
@@ -6450,7 +6451,7 @@
 支持性心理治疗	zhi chi xing xin li zhi liao	1
 支持细胞	zhi chi xi bao	4
 支柱根	zhi zhu gen	1
-支正	zhi zheng	6
+支正	zhi zheng	5
 支气管哮喘	zhi qi guan xiao chuan	5
 支气管扩张	zhi qi guan kuo zhang	20
 支气管激发试验	zhi qi guan ji fa shi yan	5
@@ -6681,16 +6682,16 @@
 早产儿贫血	zao chan er pin xue	3
 早孕	zao yun	2
 早期诊断	zao qi zhen duan	26
-早秃	zao tu	1
+早秃	zao tu	6
 早老性痴呆	zao lao xing chi dai	8
 早老症	zao lao zheng	1
 旱生植物	han sheng zhi wu	2
-时标	shi biao	8
+时标	shi biao	13
 时行感冒	shi xing gan mao	6
 时间知觉	shi jian zhi jue	4
 昂丹司琼	ang dan si qiong	2
 昆仙胶囊	kun xian jiao nang	2
-昆布	kun bu	34
+昆布	kun bu	35
 昆明山海棠	kun ming shan hai tang	4
 明党参	ming dang shen	1
 明泽胶囊	ming ze jiao nang	3
@@ -6753,7 +6754,7 @@
 普适泰片	pu shi tai pian	4
 普通型偏头痛	pu tong xing pian tou tong	3
 普通外科学	pu tong wai ke xue	3
-普遍种	pu bian zhong	4
+普遍种	pu bian zhong	3
 普鲁卡因	pu lu ka yin	16
 普鲁卡因胺	pu lu ka yin an	11
 普鲁卡因青霉素	pu lu ka yin qing mei su	1
@@ -6780,7 +6781,7 @@
 暖宫孕子丸	nuan gong yun zi wan	3
 暖温带	nuan wen dai	31
 暗区	an qu	8
-暗点	an dian	8
+暗点	an dian	7
 暗视觉	an shi jue	2
 暗适应	an shi ying	3
 暴力死	bao li si	2
@@ -6809,7 +6810,7 @@
 曲池穴	qu chi xue	1
 曲泉	qu quan	5
 曲泉穴	qu quan xue	2
-曲泽	qu ze	5
+曲泽	qu ze	1
 曲焕章	qu huan zhang	5
 曲美	qu mei	10
 曲美他嗪	qu mei ta qin	2
@@ -6863,7 +6864,7 @@
 月经频繁	yue jing pin fan	3
 月见草油	yue jian cao you	6
 月见草油胶丸	yue jian cao you jiao wan	3
-月骨	yue gu	4
+月骨	yue gu	1
 有性世代	you xing shi dai	6
 有效剂量	you xiao ji liang	4
 有效氯	you xiao lv	6
@@ -6878,7 +6879,7 @@
 朗格汉斯细胞	lang ge han si xi bao	5
 望诊	wang zhen	8
 期前收缩	qi qian shou suo	4
-期门	qi men	4
+期门	qi men	1
 期门穴	qi men xue	4
 木僵	mu jiang	2
 木夹板	mu jia ban	5
@@ -6896,7 +6897,7 @@
 木聚糖	mu ju tang	3
 木聚糖酶	mu ju tang mei	1
 木芙蓉叶	mu fu rong ye	2
-木质部	mu zhi bu	23
+木质部	mu zhi bu	19
 木贼草	mu zei cao	1
 木贼麻黄	mu zei ma huang	1
 木馏油	mu liu you	2
@@ -6918,7 +6919,7 @@
 朱砂根	zhu sha gen	3
 朱砂莲	zhu sha lian	4
 机会感染	ji hui gan ran	4
-机化	ji hua	6
+机化	ji hua	1
 机化性肺炎	ji hua xing fei yan	2
 机械性损伤	ji xie xing sun shang	9
 机械性窒息	ji xie xing zhi xi	6
@@ -6938,7 +6939,7 @@
 李斯特菌	li si te jun	6
 李斯特菌病	li si te jun bing	4
 李明亮	li ming liang	5
-李杲	li gao	8
+李杲	li gao	6
 李树芬	li shu fen	9
 李梃	li ting	1
 李清云	li qing yun	1
@@ -6967,7 +6968,7 @@
 束骨	shu gu	2
 杠板归	gang ban gui	4
 条件致病菌	tiao jian zhi bing jun	3
-条口	tiao kou	8
+条口	tiao kou	6
 条口穴	tiao kou xue	3
 来曲唑片	lai qu zuo pian	3
 来氟米特	lai fu mi te	4
@@ -7020,7 +7021,7 @@
 枕神经痛	zhen shen jing tong	3
 枕骨大孔	zhen gu da kong	7
 枕骨大孔疝	zhen gu da kong shan	3
-林亿	lin yi	5
+林亿	lin yi	3
 林兆鑫	lin zhao xin	4
 林可胜	lin ke sheng	9
 林可霉素	lin ke mei su	2
@@ -7116,7 +7117,7 @@
 栖所	qi suo	11
 校准曲线	jiao zhun qu xian	18
 校注妇人良方	jiao zhu fu ren liang fang	3
-样地	yang di	9
+样地	yang di	6
 样本量	yang ben liang	15
 核医学	he yi xue	27
 核型	he xing	38
@@ -7144,7 +7145,7 @@
 根尖周病	gen jian zhou bing	1
 根尖囊肿	gen jian nang zhong	2
 根尖脓肿	gen jian nong zhong	3
-根托	gen tuo	12
+根托	gen tuo	13
 根本死因	gen ben si yin	6
 根株	gen zhu	9
 根毛	gen mao	9
@@ -7375,7 +7376,7 @@
 止嗽散	zhi sou san	2
 止嗽青果丸	zhi sou qing guo wan	2
 止泻颗粒	zhi xie ke li	2
-止点	zhi dian	10
+止点	zhi dian	6
 止痒消炎水	zhi yang xiao yan shui	2
 止痛膏	zhi tong gao	7
 止痛透骨膏	zhi tong tou gu gao	3
@@ -7392,7 +7393,7 @@
 正天丸	zheng tian wan	5
 正定霉素	zheng ding mei su	1
 正常人体功能	zheng chang ren ti gong neng	2
-正常值	zheng chang zhi	25
+正常值	zheng chang zhi	27
 正常菌群	zheng chang jun qun	3
 正心泰片	zheng xin tai pian	2
 正心泰胶囊	zheng xin tai jiao nang	2
@@ -7434,10 +7435,10 @@
 母斑	mu ban	4
 母系遗传	mu xi yi chuan	1
 每搏输出量	mei bo shu chu liang	3
-毒力	du li	24
+毒力	du li	25
 毒性反应	du xing fan ying	18
 毒性弥漫性甲状腺肿	du xing mi man xing jia zhuang xian zhong	3
-毒物学	du wu xue	10
+毒物学	du wu xue	8
 毒物鉴定	du wu jian ding	6
 毒理学基础	du li xue ji chu	2
 毒症	du zheng	11
@@ -7503,7 +7504,7 @@
 气性坏疽	qi xing huai ju	2
 气户	qi hu	7
 气流式粉碎机	qi liu shi fen sui ji	3
-气海	qi hai	8
+气海	qi hai	13
 气海俞	qi hai shu	3
 气海穴	qi hai xue	6
 气滞胃痛颗粒	qi zhi wei tong ke li	2
@@ -7522,7 +7523,7 @@
 气管炎疫苗	qi guan yan yi miao	4
 气管镜	qi guan jing	8
 气管食管瘘	qi guan shi guan lou	5
-气胀	qi zhang	7
+气胀	qi zhang	8
 气脑造影	qi nao zao ying	4
 气腹	qi fu	6
 气舍	qi she	3
@@ -8010,7 +8011,7 @@
 注射用骨瓜提取物	zhu she yong gu gua ti qu wu	2
 注射用骨肽	zhu she yong gu tai	2
 注射用鼠神经生长因子	zhu she yong shu shen jing sheng zhang yin zi	4
-注射给药	zhu she gei yao	16
+注射给药	zhu she gei yao	20
 注意分配	zhu yi fen pei	4
 注意增强	zhu yi zeng qiang	8
 注意广度	zhu yi guang du	4
@@ -8030,7 +8031,7 @@
 泮托拉唑钠肠溶胶囊	pan tuo la zuo na chang rong jiao nang	3
 泰利必妥	tai li bi tuo	3
 泰利霉素	tai li mei su	4
-泰宝	tai bao	6
+泰宝	tai bao	2
 泰脂安胶囊	tai zhi an jiao nang	4
 泰诺林	tai nuo lin	7
 泻下剂	xie xia ji	4
@@ -8631,7 +8632,7 @@
 灵仙	ling xian	7
 灵仙跌打片	ling xian die da pian	4
 灵兰秘典论	ling lan mi dian lun	3
-灵枢	ling shu	4
+灵枢	ling shu	5
 灵精胶囊	ling jing jiao nang	3
 灵芝多糖	ling zhi duo tang	6
 灵芝孢子粉	ling zhi bao zi fen	8
@@ -8675,7 +8676,7 @@
 炭疽活疫苗	tan ju huo yi miao	2
 炮姜	pao jiang	6
 炮弹休克	pao dan xiu ke	3
-点突变	dian tu bian	13
+点突变	dian tu bian	12
 烂脚	lan jiao	4
 烟斑	yan ban	5
 烟曲霉	yan qu mei	22
@@ -8715,7 +8716,7 @@
 热盛伤津	re sheng shang jin	4
 热缺血时间	re que xue shi jian	4
 热证	re zheng	7
-烯酸	xi suan	34
+烯酸	xi suan	33
 烷化剂	wan hua ji	14
 焦山楂	jiao shan zha	1
 焦度	jiao du	4
@@ -9013,7 +9014,7 @@
 现代医学模式	xian dai yi xue mo shi	6
 现代口腔种植学	xian dai kou qiang zhong zhi xue	3
 现况调查	xian kuang diao cha	2
-现场研究	xian chang yan jiu	1
+现场研究	xian chang yan jiu	11
 现存量	xian cun liang	6
 玻璃体出血	bo li ti chu xue	6
 玻璃体切割术	bo li ti qie ge shu	6
@@ -9164,10 +9165,10 @@
 生殖器疱疹	sheng zhi qi pao zhen	5
 生殖细胞	sheng zhi xi bao	27
 生殖细胞瘤	sheng zhi xi bao liu	8
-生殖行为	sheng zhi xing wei	6
+生殖行为	sheng zhi xing wei	1
 生活事件	sheng huo shi jian	13
 生活事件量表	sheng huo shi jian liang biao	2
-生活力	sheng huo li	10
+生活力	sheng huo li	3
 生物利用度	sheng wu li yong du	31
 生物制剂	sheng wu zhi ji	45
 生物制药工艺学	sheng wu zhi yao gong yi xue	2
@@ -9251,7 +9252,7 @@
 甲壳蓝蛋白	jia qiao lan dan bai	2
 甲巯咪唑	jia qiu mi zuo	12
 甲巯咪唑片	jia qiu mi zuo pian	7
-甲床	jia chuang	5
+甲床	jia chuang	6
 甲强龙	jia qiang long	6
 甲氟喹	jia fu kui	2
 甲氧氯普胺片	jia yang lv pu an pian	2
@@ -9593,7 +9594,7 @@
 白癜风胶囊	bai dian feng jiao nang	5
 白石清热颗粒	bai shi qing re ke li	2
 白石英	bai shi ying	1
-白破	bai po	6
+白破	bai po	1
 白破疫苗	bai po yi miao	7
 白纹伊蚊	bai wen yi wen	1
 白线疝	bai xian shan	4
@@ -10018,7 +10019,7 @@
 直肠粘膜脱垂	zhi chang zhan mo tuo chui	4
 直肠给药	zhi chang gei yao	5
 直肠脱垂	zhi chang tuo chui	7
-直肠腺	zhi chang xian	4
+直肠腺	zhi chang xian	3
 直肠膨出	zhi chang peng chu	3
 直肠闭锁	zhi chang bi suo	3
 直肠阴道瘘	zhi chang yin dao lou	1
@@ -10054,6 +10055,7 @@
 真空吸引器	zhen kong xi yin qi	10
 真空干燥	zhen kong gan zao	14
 真菌孢子	zhen jun bao zi	13
+真菌学	zhen jun xue	40
 真菌性脑膜炎	zhen jun xing nao mo yan	1
 真菌性角膜炎	zhen jun xing jiao mo yan	2
 真菌性鼻窦炎	zhen jun xing bi dou yan	3
@@ -10165,7 +10167,7 @@
 知心爱人	zhi xin ai ren	8
 知柏地黄丸	zhi bai di huang wan	7
 知柏地黄颗粒	zhi bai di huang ke li	2
-知母	zhi mu	10
+知母	zhi mu	11
 知觉恒常性	zhi jue heng chang xing	2
 知觉障碍	zhi jue zhang ai	1
 矫形器	jiao xing qi	2
@@ -10175,7 +10177,7 @@
 矫正运动	jiao zheng yun dong	1
 矫治器	jiao zhi qi	1
 矫治心理学	jiao zhi xin li xue	2
-短指	duan zhi	4
+短指	duan zhi	3
 短日照植物	duan ri zhao zhi wu	4
 短杆菌肽	duan gan jun tai	1
 短波疗法	duan bo liao fa	2
@@ -10200,7 +10202,7 @@
 石榴子	shi liu zi	4
 石榴日轮丸	shi liu ri lun wan	3
 石榴皮	shi liu pi	2
-石水	shi shui	7
+石水	shi shui	5
 石淋	shi lin	4
 石淋通片	shi lin tong pian	3
 石管	shi guan	4
@@ -10227,7 +10229,6 @@
 砷化氢中毒	shen hua qing zhong du	5
 砷角化病	shen jiao hua bing	2
 硅凝胶	gui ning jiao	2
-硅化	gui hua	49
 硅橡胶	gui xiang jiao	19
 硅油	gui you	10
 硅藻土	gui zao tu	3
@@ -10445,7 +10446,7 @@
 社会康复	she hui kang fu	2
 社会性昆虫	she hui xing kun chong	3
 社会生物学	she hui sheng wu xue	18
-社会距离	she hui ju li	3
+社会距离	she hui ju li	7
 社区保健	she qu bao jian	4
 社区医学	she qu yi xue	4
 社区医疗	she qu yi liao	10
@@ -10505,7 +10506,7 @@
 神经性皮炎	shen jing xing pi yan	3
 神经性耳聋	shen jing xing er long	9
 神经性贪食	shen jing xing tan shi	1
-神经损伤	shen jing sun shang	41
+神经损伤	shen jing sun shang	40
 神经末梢	shen jing mo shao	17
 神经束	shen jing shu	7
 神经松解术	shen jing song jie shu	3
@@ -10544,7 +10545,7 @@
 神经阻滞	shen jing zu zhi	3
 神经阻滞麻醉	shen jing zu zhi ma zui	4
 神经鞘瘤	shen jing qiao liu	7
-神藏	shen cang	4
+神藏	shen cang	5
 神门	shen men	33
 神阙	shen que	7
 神阙穴	shen que xue	8
@@ -10592,7 +10593,7 @@
 秩边	zhi bian	3
 积极优生学	ji ji you sheng xue	2
 积热	ji re	1
-积雪草	ji xue cao	4
+积雪草	ji xue cao	3
 移动抑制因子	yi dong yi zhi yin zi	2
 移植免疫	yi zhi mian yi	1
 移植免疫学	yi zhi mian yi xue	1
@@ -10739,7 +10740,7 @@
 类固醇激素	lei gu chun ji su	15
 类型学	lei xing xue	37
 类天疱疮	lei tian pao chuang	4
-类毒素	lei du su	8
+类毒素	lei du su	7
 类毒素疫苗	lei du su yi miao	2
 类病毒	lei bing du	11
 类癌综合征	lei ai zong he zheng	3
@@ -10807,7 +10808,7 @@
 精氨酸酶	jing an suan mei	3
 精液常规检查	jing ye chang gui jian cha	5
 精神依赖性	jing shen yi lai xing	7
-精神外科	jing shen wai ke	12
+精神外科	jing shen wai ke	6
 精神抑郁症	jing shen yi yu zheng	1
 精神疗法	jing shen liao fa	2
 精神病护理	jing shen bing hu li	5
@@ -10863,7 +10864,7 @@
 系统生物学	xi tong sheng wu xue	25
 系统解剖	xi tong jie pou	6
 系统解剖学	xi tong jie pou xue	3
-素问	su wen	8
+素问	su wen	10
 素馨花	su xin hua	1
 素髎	su liao	3
 素高捷疗	su gao jie liao	2
@@ -10923,7 +10924,7 @@
 红杜仲	hong du zhong	1
 红核妇洁洗液	hong he fu jie xi ye	2
 红桃	hong tao	12
-红甲	hong jia	2
+红甲	hong jia	3
 红痱	hong fei	5
 红癣	hong xuan	3
 红白血病	hong bai xue bing	6
@@ -12120,7 +12121,7 @@
 胃气上逆	wei qi shang ni	5
 胃气上逆证	wei qi shang ni zheng	2
 胃气不足	wei qi bu zu	3
-胃气胀	wei qi zhang	1
+胃气胀	wei qi zhang	4
 胃泌素瘤	wei mi su liu	2
 胃泰胶囊	wei tai jiao nang	2
 胃溃疡出血	wei kui yang chu xue	6
@@ -12343,7 +12344,7 @@
 胸廓出口综合征	xiong kuo chu kou zong he zheng	4
 胸椎结核	xiong zhui jie he	1
 胸椎骨折	xiong zhui gu zhe	8
-胸水	xiong shui	8
+胸水	xiong shui	2
 胸痛	xiong tong	35
 胸痹	xiong bi	1
 胸肋关节	xiong lei guan jie	1
@@ -12479,7 +12480,7 @@
 脑室内出血	nao shi nei chu xue	2
 脑室出血	nao shi chu xue	1
 脑室炎	nao shi yan	1
-脑岛	nao dao	5
+脑岛	nao dao	4
 脑干出血	nao gan chu xue	4
 脑干损伤	nao gan sun shang	8
 脑干梗塞	nao gan geng se	6
@@ -12803,7 +12804,7 @@
 膈俞穴	ge shu xue	3
 膈疝	ge shan	7
 膈疝修补术	ge shan xiu bu shu	4
-膈神经	ge shen jing	1
+膈神经	ge shen jing	2
 膈肌	ge ji	7
 膈肌麻痹	ge ji ma bi	4
 膏桐	gao tong	6
@@ -12891,7 +12892,7 @@
 臭腺	chou xian	1
 至宝三鞭丸	zhi bao san bian wan	4
 至宝三鞭酒	zhi bao san bian jiu	3
-至阳	zhi yang	7
+至阳	zhi yang	10
 至阳穴	zhi yang xue	1
 至阴	zhi yin	2
 至阴穴	zhi yin xue	3
@@ -12991,7 +12992,7 @@
 色素膜	se su mo	2
 色羟丙钠	se qiang bing na	2
 色觉检查	se jue jian cha	4
-艾叶	ai ye	11
+艾叶	ai ye	14
 艾叶油	ai ye you	3
 艾司唑仑	ai si zuo lun	2
 艾司唑仑片	ai si zuo lun pian	5
@@ -13484,7 +13485,7 @@
 虚则补之	xu ze bu zhi	7
 虚劳病	xu lao bing	3
 虚实夹杂证	xu shi jia za zheng	2
-虚寒	xu han	2
+虚寒	xu han	1
 虚寒症	xu han zheng	6
 虚寒胃痛颗粒	xu han wei tong ke li	2
 虚寒证	xu han zheng	5
@@ -13664,7 +13665,7 @@
 血流量	xue liu liang	30
 血浆同型半胱氨酸	xue jiang tong xing ban guang an suan	3
 血浆置换术	xue jiang zhi huan shu	7
-血浆蛋白	xue jiang dan bai	42
+血浆蛋白	xue jiang dan bai	40
 血浆蛋白结合率	xue jiang dan bai jie he lv	4
 血海穴	xue hai xue	5
 血液传播	xue ye chuan bo	9
@@ -13672,6 +13673,7 @@
 血液内科	xue ye nei ke	5
 血液凝固	xue ye ning gu	14
 血液制品	xue ye zhi pin	27
+血液学	xue ye xue	44
 血液学检验	xue ye xue jian yan	3
 血液循环系统	xue ye xun huan xi tong	5
 血液滤过	xue ye lv guo	7
@@ -13789,7 +13791,7 @@
 补骨脂	bu gu zhi	7
 补骨脂素	bu gu zhi su	5
 补骨脂酊	bu gu zhi ding	3
-表位	biao wei	7
+表位	biao wei	19
 表儿茶素	biao er cha su	2
 表寒	biao han	5
 表寒里热	biao han li re	3
@@ -13832,7 +13834,7 @@
 裂解疫苗	lie jie yi miao	6
 裂解酶	lie jie mei	24
 裂谷热	lie gu re	1
-装死	zhuang si	47
+装死	zhuang si	48
 裘法祖	qiu fa zu	2
 裸花紫珠	luo hua zi zhu	3
 裸花紫珠片	luo hua zi zhu pian	3
@@ -14021,10 +14023,10 @@
 诊断学基础	zhen duan xue ji chu	3
 诊断性刮宫	zhen duan xing gua gong	5
 诊断性刮宫术	zhen duan xing gua gong shu	1
-诊断试剂	zhen duan shi ji	13
+诊断试剂	zhen duan shi ji	12
 诊法	zhen fa	6
 词汇学	ci hui xue	14
-试剂盒	shi ji he	47
+试剂盒	shi ji he	48
 试管凝集试验	shi guan ning ji shi yan	3
 试管刷	shi guan shua	4
 试管夹	shi guan jia	3
@@ -14105,7 +14107,7 @@
 质壁分离	zhi bi fen li	1
 质子泵	zhi zi beng	5
 质控	zhi kong	13
-质膜	zhi mo	36
+质膜	zhi mo	35
 质谱仪	zhi pu yi	43
 质谱法	zhi pu fa	37
 质量性状	zhi liang xing zhuang	2
@@ -14430,7 +14432,7 @@
 近交系数	jin jiao xi shu	4
 近亲系数	jin qin xi shu	4
 近亲结婚	jin qin jie hun	12
-近侧	jin ce	6
+近侧	jin ce	9
 返魂草	fan hun cao	6
 返魂草颗粒	fan hun cao ke li	2
 还原固精丸	huan yuan gu jing wan	3
@@ -14479,7 +14481,7 @@
 退热贴	tui re tie	8
 退行期	tui xing qi	2
 退障眼膏	tui zhang yan gao	2
-适合度	shi he du	2
+适合度	shi he du	7
 适宜刺激	shi yi ci ji	2
 适应证	shi ying zheng	9
 适应障碍	shi ying zhang ai	16
@@ -14626,7 +14628,7 @@
 配子体	pei zi ti	14
 酒友	jiu you	20
 酒渣鼻	jiu zha bi	1
-酒石	jiu shi	3
+酒石	jiu shi	7
 酒石酸吉他霉素	jiu shi suan ji ta mei su	3
 酒石酸唑吡坦片	jiu shi suan zuo bi tan pian	3
 酒石酸托特罗定	jiu shi suan tuo te luo ding	2
@@ -14737,7 +14739,7 @@
 重度精神发育迟滞	zhong du jing shen fa yu chi zhi	6
 重感灵片	zhong gan ling pian	3
 重接	chong jie	7
-重楼	chong lou	15
+重楼	chong lou	16
 重氮化	chong dan hua	22
 重瓣胃	zhong ban wei	1
 重症联合免疫缺陷	zhong zheng lian he mian yi que xian	4
@@ -14806,7 +14808,7 @@
 金水宝片	jin shui bao pian	4
 金水宝胶囊	jin shui bao jiao nang	5
 金泽冠心胶囊	jin ze guan xin jiao nang	3
-金津	jin jin	37
+金津	jin jin	38
 金牛眼药	jin niu yan yao	2
 金盏银盘	jin zhan yin pan	2
 金石斛	jin shi hu	20
@@ -14953,7 +14955,7 @@
 银菊清咽颗粒	yin ju qing yan ke li	2
 银葛通脉茶	yin ge tong mai cha	3
 银贝止咳颗粒	yin bei zhi ke ke li	2
-银黄	yin huang	1
+银黄	yin huang	6
 银黄分散片	yin huang fen san pian	3
 银黄口服液	yin huang kou fu ye	4
 银黄含化片	yin huang han hua pian	2
@@ -15016,7 +15018,7 @@
 长春西汀注射液	chang chun xi ting zhu she ye	3
 长春西汀葡萄糖注射液	chang chun xi ting pu tao tang zhu she ye	3
 长源甘平	chang yuan gan ping	2
-长牙	chang ya	10
+长牙	chang ya	34
 长肌	chang ji	6
 长骨	chang gu	35
 门体分流术	men ti fen liu shu	4
@@ -15044,7 +15046,7 @@
 闭锁综合征	bi suo zong he zheng	5
 间使	jian shi	6
 间使穴	jian shi xue	3
-间变	jian bian	7
+间变	jian bian	3
 间接接触	jian jie jie chu	9
 间接推理	jian jie tui li	1
 间接死因	jian jie si yin	3
@@ -15053,7 +15055,7 @@
 间歇性外斜视	jian xie xing wai xie shi	2
 间歇性跛行	jian xie xing bo xing	1
 间歇热	jian xie re	1
-间皮	jian pi	5
+间皮	jian pi	3
 间皮瘤	jian pi liu	14
 间羟胺	jian qiang an	1
 间脑	jian nao	4
@@ -15082,7 +15084,7 @@
 防风通圣	fang feng tong sheng	2
 防风通圣丸	fang feng tong sheng wan	5
 防风通圣散	fang feng tong sheng san	1
-阳交	yang jiao	2
+阳交	yang jiao	1
 阳性体征	yang xing ti zheng	7
 阳春口服液	yang chun kou fu ye	2
 阳春砂	yang chun sha	5
@@ -15368,7 +15370,7 @@
 隔离服	ge li fu	4
 障眼明片	zhang yan ming pian	3
 难治性贫血	nan zhi xing pin xue	1
-难经	nan jing	7
+难经	nan jing	8
 雄性激素	xiong xing ji su	8
 雄激素不敏感综合征	xiong ji su bu min gan zong he zheng	4
 雅司	ya si	20
@@ -15472,7 +15474,7 @@
 静脉血	jing mai xue	24
 静脉血栓形成	jing mai xue shuan xing cheng	9
 静脉输液	jing mai shu ye	7
-静脉麻醉	jing mai ma zui	2
+静脉麻醉	jing mai ma zui	7
 静脉麻醉药	jing mai ma zui yao	4
 靛玉红	dian yu hong	3
 非何杰金氏淋巴瘤	fei he jie jin shi lin ba liu	5
@@ -15505,7 +15507,7 @@
 非那雄胺	fei na xiong an	2
 非那雄胺片	fei na xiong an pian	3
 面先露	mian xian lu	2
-面型	mian xing	9
+面型	mian xing	10
 面斜裂	mian xie lie	2
 面横裂	mian heng lie	3
 面神经核	mian shen jing he	2
@@ -15544,7 +15546,7 @@
 鞣酸软膏	rou suan ruan gao	4
 鞭毛虫	bian mao chong	34
 鞭毛蛋白	bian mao dan bai	2
-鞭虫	bian chong	6
+鞭虫	bian chong	5
 鞭虫病	bian chong bing	2
 韧带损伤	ren dai sun shang	16
 韩启德	han qi de	8
@@ -15559,7 +15561,7 @@
 顶芽	ding ya	24
 项目反应理论	xiang mu fan ying li lun	3
 项韧带	xiang ren dai	1
-顺峰	shun feng	9
+顺峰	shun feng	7
 顺序效应	shun xu xiao ying	1
 顺应性	shun ying xing	15
 顺磁性	shun ci xing	35
@@ -15693,7 +15695,7 @@
 风寒感冒冲剂	feng han gan mao chong ji	4
 风寒感冒颗粒	feng han gan mao ke li	4
 风市	feng shi	5
-风府	feng fu	6
+风府	feng fu	1
 风府穴	feng fu xue	6
 风池	feng chi	1
 风池穴	feng chi xue	9
@@ -15758,7 +15760,7 @@
 饮食疗法	yin shi liao fa	2
 饮食美容	yin shi mei rong	2
 饱和脂肪酸	bao he zhi fang suan	14
-首乌	shou wu	9
+首乌	shou wu	2
 首乌延寿片	shou wu yan shou pian	3
 首乌强身片	shou wu qiang shen pian	3
 首乌藤	shou wu teng	6
@@ -15899,7 +15901,7 @@
 骨筋膜室综合症	gu jin mo shi zong he zheng	4
 骨管	gu guan	2
 骨纤维异常增殖症	gu xian wei yi chang zeng zhi zheng	5
-骨组织	gu zu zhi	17
+骨组织	gu zu zhi	13
 骨肉瘤	gu rou liu	6
 骨肌	gu ji	8
 骨肽注射液	gu tai zhu she ye	3
@@ -16025,7 +16027,7 @@
 高血压患者	gao xue ya huan zhe	13
 高血压速降丸	gao xue ya su jiang wan	2
 高血压防治	gao xue ya fang zhi	8
-高血糖	gao xue tang	32
+高血糖	gao xue tang	31
 高钙血症	gao gai xue zheng	3
 高钠血症	gao na xue zheng	2
 高钾血症	gao jia xue zheng	3
@@ -16206,7 +16208,7 @@
 黄甲	huang jia	7
 黄疸型肝炎	huang dan xing gan yan	1
 黄瘤病	huang liu bing	3
-黄皮	huang pi	26
+黄皮	huang pi	25
 黄竹斋	huang zhu zhai	3
 黄精	huang jing	11
 黄素腺嘌呤二核苷酸	huang su xian piao ling er he gan suan	3
@@ -16269,7 +16271,7 @@
 黑色素痣	hei se su zhi	6
 黑色素细胞	hei se su xi bao	17
 黑芝麻	hei zhi ma	7
-黑蒙	hei meng	7
+黑蒙	hei meng	2
 黑蚂蚁	hei ma yi	2
 黑豆馏油软膏	hei dou liu you ruan gao	3
 黑骨藤追风活络胶囊	hei gu teng zhui feng huo luo jiao nang	3
@@ -16350,7 +16352,7 @@
 鼻部囊肿	bi bu nang zhong	2
 鼻饲法	bi si fa	3
 鼻骨骨折	bi gu gu zhe	21
-鼻高	bi gao	1
+鼻高	bi gao	5
 鼻鼾	bi han	1
 鼾症	han zheng	9
 齐一说	qi yi shuo	2

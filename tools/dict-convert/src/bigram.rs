@@ -379,7 +379,7 @@ fn collect_runs(
 pub fn convert(
     corpus: &[PathBuf],
     dict: &Path,
-    phrases: Option<&Path>,
+    phrases: &[PathBuf],
     brand: Option<&Path>,
     min_count: u32,
     max_bigrams: usize,
@@ -388,10 +388,10 @@ pub fn convert(
     let mut vocabulary = Vocabulary::load(dict)?;
     tracing::info!(words = vocabulary.words.len(), "词表加载完成");
     // 短语不参与分词：先摘掉，记下每条的成分，统计完再合成它们的计数
-    let phrase_parts = match phrases {
-        Some(path) => phrase_components(path, &mut vocabulary)?,
-        None => Vec::new(),
-    };
+    let mut phrase_parts = Vec::new();
+    for path in phrases {
+        phrase_parts.extend(phrase_components(path, &mut vocabulary)?);
+    }
     let mut unigram: Vec<u64> = vec![0; vocabulary.words.len()];
     let mut bigram: HashMap<u64, u32> = HashMap::new();
     let mut tokens = Vec::new();

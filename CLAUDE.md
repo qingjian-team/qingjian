@@ -76,7 +76,7 @@ macOS 输入法已自用（HEAD 见 git），正在给测试者打包（pkg 已�
 - `tools/dict-convert`：产品数据的生成工具，输出到 `data/generated/`（gitignore）。`lexicon` 从 `assets/lexicon/`（自建词库源：规范字 + 常用词 + THUOCL 领域词）
   加 Unihan 读音（`data/unihan/Unihan_Readings.txt`）、LLM 多音字标注（`gloss-gen pinyin`，结果 `data/generated/pinyin-llm.jsonl`，不进 git）、语料词频（`lm-unigram.tsv`）
   建基础词库 `dict.tsv`（8.7 万条）并把 THUOCL 领域词按语料次数 < 50 拆成 `dicts/<领域>.tsv` + `.qj`（11 本、13 万条，`--domain-keep-min`），流程见 `assets/lexicon/QINGJIAN.md`；`english` 转 `assets/lexicon/05_english/00_all_words.tsv`；`cedict` 是释义表备用来源；
-  `bigram` 统计语料；`mine` 从语料挖词库没收的高频词并过滤（`oov_filter.rs`：虚词规则 + 相邻字对 PMI≥3，`--candidates` 只重过滤；`lexicon --extra-words` 并入）；`phrases` 挖短语层（两遍扫语料：相邻两词、两段二元都够频的相邻三词，总次数与对话语料次数都 ≥ 2000 + 边界规则，读音由成分词拼出；我的 / 不知道 / 有没有 这类常用词表不收的组合，`assets/lexicon/phrases.tsv`；词库已并入过短语时重跑加 `--refresh`）；品牌词在 `assets/lexicon/brand.tsv`（青简 210）；`pack dict|lm|glossary` 打 `.qj`（释义表也进容器）。雾凇拼音（GPL）已彻底移除，不要再引入。
+  `bigram` 统计语料；`mine` 从语料挖词库没收的高频词并过滤（`oov_filter.rs`：虚词规则 + 相邻字对 PMI≥3，`--candidates` 只重过滤；`lexicon --extra-words` 并入）；`phrases` 挖短语层（两遍扫语料：相邻两词、两段二元都够频的相邻三词，总次数与对话语料次数都 ≥ 2000 + 边界规则，读音由成分词拼出；我的 / 不知道 / 有没有 这类常用词表不收的组合，`assets/lexicon/phrases.tsv`；词库已并入过短语时重跑加 `--refresh`）；品牌词在 `assets/lexicon/brand.tsv`（青简 210）；人工挑的领域词在 `assets/lexicon/domain_words.tsv`（日志里选过、公开语料里出现过的；`lexicon --extra-words` 并入，`bigram --phrases` 可重复给、领域词也走合成计数，语料里只有几十次的词当 token 统计会吸走成分词的二元证据）；`pack dict|lm|glossary` 打 `.qj`（释义表也进容器）。雾凇拼音（GPL）已彻底移除，不要再引入。
 
 `docs/` 分四类（索引在 `docs/README.md`）：
 - `design/` 是设计来源：`architecture.md`（架构约束、crate 划分、各平台技术决定、`.qj` 容器）、`candidate-ui.md`（候选窗口与按键约定）、

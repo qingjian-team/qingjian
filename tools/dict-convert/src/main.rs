@@ -84,7 +84,7 @@ fn run() -> Result<(), ConvertError> {
         } => bigram::convert(
             &corpus,
             &dict,
-            phrases.as_deref(),
+            &phrases,
             brand.as_deref(),
             min_count,
             max_bigrams,

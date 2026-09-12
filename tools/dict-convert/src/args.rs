@@ -87,9 +87,9 @@ pub enum Command {
         #[arg(long, default_value = "data/generated/dict.tsv")]
         dict: PathBuf,
 
-        /// 短语层文件（assets/lexicon/phrases.tsv）：里面的词不参与分词，统计完按成分合成它们的一元 / 二元计数（见 bigram.rs 模块注释）
+        /// 短语层文件（assets/lexicon/phrases.tsv，可给多个，人工挑的领域词 domain_words.tsv 也走这条路）：里面的词不参与分词，统计完按成分合成它们的一元 / 二元计数（见 bigram.rs 模块注释）
         #[arg(long)]
-        phrases: Option<PathBuf>,
+        phrases: Vec<PathBuf>,
 
         /// 品牌词文件（assets/lexicon/brand.tsv）：语料里没有的词按文件给的次数写进一元表
         #[arg(long)]

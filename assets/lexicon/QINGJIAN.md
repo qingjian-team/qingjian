@@ -35,10 +35,14 @@ cargo run --release -p qingjian-dict-convert -- lexicon --pinyin data/generated/
 #     词库已并入过短语时重跑要加 --refresh assets/lexicon/phrases.tsv（先把上次的短语从分词词表摘掉，否则 我的 是一个词、挖不出 我 + 的）
 cargo run --release -p qingjian-dict-convert -- phrases data/corpus/*.txt   # 重跑：--refresh assets/lexicon/phrases.tsv
 cp data/generated/phrases.tsv assets/lexicon/phrases.tsv
-cargo run --release -p qingjian-dict-convert -- lexicon --pinyin data/generated/pinyin-llm.jsonl --frequency data/generated/lm-unigram.tsv --extra-words assets/lexicon/mined_words.tsv --extra-words assets/lexicon/phrases.tsv --extra-words assets/lexicon/brand.tsv
+cargo run --release -p qingjian-dict-convert -- lexicon --pinyin data/generated/pinyin-llm.jsonl --frequency data/generated/lm-unigram.tsv --extra-words assets/lexicon/mined_words.tsv --extra-words assets/lexicon/phrases.tsv --extra-words assets/lexicon/brand.tsv --extra-words assets/lexicon/domain_words.tsv
 #     语言模型不把短语当 token 统计（那样 而 + 是 的二元证据没了，二十 会压过 而是）：--phrases 让分词跳过短语、统计完按成分合成它们的计数，
 #     短语在整句与词级排序里的得分与原来走两个词的路径完全一样，只是多了个能整块选的词（见 tools/dict-convert/src/bigram.rs 模块注释）
-cargo run --release -p qingjian-dict-convert -- bigram --phrases assets/lexicon/phrases.tsv --brand assets/lexicon/brand.tsv data/corpus/*.txt
+cargo run --release -p qingjian-dict-convert -- bigram --phrases assets/lexicon/phrases.tsv --phrases assets/lexicon/domain_words.tsv --brand assets/lexicon/brand.tsv data/corpus/*.txt
+# 4d. 领域词：输入日志里选过、词库与短语层都没有、但公开语料里出现过的词（对齐 / 后端 / 词库 / 候选框），人工挑进 assets/lexicon/domain_words.tsv（词\t次数\t拼音，
+#     次数用语料次数，不到 20 的按 20；只在日志里出现的不进基础词库，留在个人词库）。语言模型里它们**也走 --phrases 的合成路**：
+#     语料里只有几十次的词当 token 统计会把成分词的二元证据吸走（词库 77 次，词 + 库 的路径没了，反被 词哭 压过），合成计数则整句得分与原路径一样，词级多一个能整块选的词。
+#     见 docs/notes/domain-words.md
 # 5. 英文词表
 cargo run --release -p qingjian-dict-convert -- english assets/lexicon/05_english/00_all_words.tsv
 uv run tools/corpus/english_frequency.py data/generated/english.tsv -o data/generated/english-frequency.tsv

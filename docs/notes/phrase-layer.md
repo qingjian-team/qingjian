@@ -65,7 +65,7 @@ cargo run --release -p qingjian-dict-convert -- phrases data/corpus/*.txt       
 cp data/generated/phrases.tsv assets/lexicon/phrases.tsv
 cargo run --release -p qingjian-dict-convert -- lexicon --pinyin data/generated/pinyin-llm.jsonl --frequency data/generated/lm-unigram.tsv \
   --extra-words assets/lexicon/mined_words.tsv --extra-words assets/lexicon/phrases.tsv --extra-words assets/lexicon/brand.tsv
-cargo run --release -p qingjian-dict-convert -- bigram --phrases assets/lexicon/phrases.tsv --brand assets/lexicon/brand.tsv data/corpus/*.txt
+cargo run --release -p qingjian-dict-convert -- bigram --phrases assets/lexicon/phrases.tsv --phrases assets/lexicon/domain_words.tsv --brand assets/lexicon/brand.tsv data/corpus/*.txt
 ```
 
 再 `pack dict` / `pack lm`（`bundle.sh` 会做），然后 `--eval-text data/eval/sentences.tsv` 与 `--replay` 冻结日志各跑一遍与改前比。
