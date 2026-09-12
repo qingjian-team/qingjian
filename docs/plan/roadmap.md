@@ -214,7 +214,7 @@ Core 永远不联网。第一个实现接 DeepSeek（OpenAI 兼容接口），�
   应用光标前文当前文、λ 缺省 0.5、`[model] enabled` 开关与「云服务」页勾选、模型随包放 `Resources/model/`；TextEdit 端到端 候选声称 → 候选生成
 - [x] 模型单文件 `.qjm`（2026-09-12）：`.qj` 容器新种类 `Kind::Model`，三节原样装三件套；`find_model` 先 `.qjm` 再目录；`pack model` / `tools/release/pack-model.sh`；
   data Release 上传 `model.qjm`，mac `Resources/model/` 与 Windows `data\model` 只带这一个文件
-- [ ] 本地模型后续：模型加载 12 秒（后台，首次 Metal 编译）看能不能缩；权重许可已定与代码一致 GPL-3.0-or-later（2026-09-12，写在 `pack-model.sh`）；个人微调（闲时训练）
+- [ ] 本地模型后续：个人微调（闲时训练）；权重许可已定与代码一致 GPL-3.0-or-later（2026-09-12，写在 `pack-model.sh`）
 - [ ] 闲时训练：门禁包括接电源、温度、空闲时长；训练数据来自本地输入历史；模型与数据都可一键清除
 - [ ] 评测门槛：留出用户文本上比 n-gram 的困惑度与 top-1 命中率，赢了才默认启用；每次按键推理延迟有上限
 - [ ] 模型文件的版本与迁移
