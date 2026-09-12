@@ -25,7 +25,7 @@ workspace = true
 [target."cfg(windows)".dependencies]
 windows-registry.workspace = true
 # `#[implement]` 宏展开引用 `::windows_core`，要直接依赖
-windows-core = "0.62.2"
+windows-core = "0.100.0"
 windows = { version = "0.62.2", features = [
     "Win32_Foundation",
     "Win32_Graphics_Gdi",
