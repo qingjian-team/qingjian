@@ -37,7 +37,14 @@ impl RescoreWorker {
                         job = newer;
                     }
                     let texts: Vec<&str> = job.texts.iter().map(String::as_str).collect();
+                    let started = std::time::Instant::now();
                     let scores = scorer.score(&job.context, &texts);
+                    tracing::debug!(
+                        texts = texts.len(),
+                        context_chars = job.context.chars().count(),
+                        ms = started.elapsed().as_millis(),
+                        "神经重打分完成"
+                    );
                     let done = Scored {
                         context: job.context,
                         texts: job.texts,

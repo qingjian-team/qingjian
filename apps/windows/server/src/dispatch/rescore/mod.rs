@@ -73,6 +73,7 @@ impl Router {
         self.model_loader = None;
         self.engine.set_async_sentence_scorer(None);
         self.rescore.stop();
+        tracing::info!("本地整句模型已卸载（[model] enabled = false）");
     }
 
     /// 加载线程有结果了就接到 Engine 上；每次按键 / tick 顺手看一眼，不阻塞。

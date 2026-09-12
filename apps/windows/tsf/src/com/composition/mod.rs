@@ -64,11 +64,14 @@ pub(crate) fn apply(
 
 /// 把光标前文送给 Server；引擎正被别处借着（罕见）就算了，Server 退回会话历史。
 fn report_surrounding(engine: &SharedClient, before: String) {
+    let chars = before.chars().count();
     if let Ok(mut guard) = engine.try_borrow_mut()
         && let Some(client) = guard.as_mut()
-        && let Err(error) = client.surrounding(before)
     {
-        super::log::log(&format!("送光标前文失败: {error}"));
+        match client.surrounding(before) {
+            Ok(()) => super::log::log(&format!("送光标前文 {chars} 字")),
+            Err(error) => super::log::log(&format!("送光标前文失败: {error}")),
+        }
     }
 }
 
