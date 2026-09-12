@@ -6,8 +6,9 @@ use std::mem::ManuallyDrop;
 use windows::Win32::System::Com::CoTaskMemFree;
 use windows::Win32::System::Variant::VT_UNKNOWN;
 use windows::Win32::UI::TextServices::{
-    GUID_PROP_INPUTSCOPE, IS_PASSWORD, ITfContext, ITfInputScope, ITfRange, InputScope,
-    TF_ANCHOR_START, TF_DEFAULT_SELECTION, TF_SELECTION,
+    GUID_PROP_INPUTSCOPE, IS_ALPHANUMERIC_PIN, IS_NUMERIC_PASSWORD, IS_NUMERIC_PIN, IS_PASSWORD,
+    IS_PRIVATE, ITfContext, ITfInputScope, ITfRange, InputScope, TF_ANCHOR_START,
+    TF_DEFAULT_SELECTION, TF_SELECTION,
 };
 use windows::core::Interface;
 
@@ -18,6 +19,7 @@ const LOOKBACK: i32 = 64;
 pub(crate) fn text_before_caret(context: &ITfContext, ec: u32) -> Option<String> {
     let range = selection_start(context, ec)?;
     if is_password(context, ec, &range) {
+        crate::com::log::log("密码框，不读光标前文");
         return None;
     }
     let mut shifted = 0i32;
@@ -50,39 +52,63 @@ fn selection_start(context: &ITfContext, ec: u32) -> Option<ITfRange> {
     Some(range)
 }
 
-/// 输入框声明了密码输入范围（`GUID_PROP_INPUTSCOPE` 里含 `IS_PASSWORD`）。拿不到属性按不是密码。
+/// 算作密码、不读前文的输入范围：密码 / PIN 之外还有 `IS_PRIVATE`——Chromium（Edge / Chrome）的密码框
+/// 与无痕窗口报的是它而不是 `IS_PASSWORD`。
+const SECRET_SCOPES: [InputScope; 5] = [
+    IS_PASSWORD,
+    IS_PRIVATE,
+    IS_NUMERIC_PASSWORD,
+    IS_NUMERIC_PIN,
+    IS_ALPHANUMERIC_PIN,
+];
+
+/// 输入框声明了密码类输入范围（`GUID_PROP_INPUTSCOPE` 里含 [`SECRET_SCOPES`] 之一）。拿不到属性按不是密码。
 fn is_password(context: &ITfContext, ec: u32, range: &ITfRange) -> bool {
-    let Ok(property) = (unsafe { context.GetAppProperty(&GUID_PROP_INPUTSCOPE) }) else {
-        return false;
-    };
-    let Ok(value) = (unsafe { property.GetValue(ec, range) }) else {
-        return false;
-    };
+    match input_scopes(context, ec, range) {
+        Ok(scopes) => {
+            crate::com::log::log(&format!("输入范围: {scopes:?}"));
+            scopes.iter().any(|scope| SECRET_SCOPES.contains(scope))
+        }
+        // 不支持输入范围属性的应用（如记事本）GetValue 会失败，按不是密码，不记日志
+        Err(_) => false,
+    }
+}
+
+/// 应用给 `range` 声明的全部输入范围；哪一步拿不到就说哪一步。
+fn input_scopes(
+    context: &ITfContext,
+    ec: u32,
+    range: &ITfRange,
+) -> Result<Vec<InputScope>, String> {
+    let property = unsafe { context.GetAppProperty(&GUID_PROP_INPUTSCOPE) }
+        .map_err(|error| format!("GetAppProperty {error}"))?;
+    let value =
+        unsafe { property.GetValue(ec, range) }.map_err(|error| format!("GetValue {error}"))?;
     // SAFETY: 只在 vt 是 VT_UNKNOWN 时读 punkVal 那个联合体成员。
-    let scope: Option<ITfInputScope> = unsafe {
+    let scope: ITfInputScope = unsafe {
         let inner = &value.Anonymous.Anonymous;
         if inner.vt != VT_UNKNOWN {
-            return false;
+            return Err(format!("vt={}", inner.vt.0));
         }
         inner
             .Anonymous
             .punkVal
             .as_ref()
-            .and_then(|unknown| unknown.cast().ok())
-    };
-    let Some(scope) = scope else {
-        return false;
+            .ok_or_else(|| "punkVal 空".to_owned())?
+            .cast()
+            .map_err(|error| format!("cast ITfInputScope {error}"))?
     };
     let mut scopes: *mut InputScope = std::ptr::null_mut();
     let mut count = 0u32;
-    if unsafe { scope.GetInputScopes(&mut scopes, &mut count) }.is_err() || scopes.is_null() {
-        return false;
+    unsafe { scope.GetInputScopes(&mut scopes, &mut count) }
+        .map_err(|error| format!("GetInputScopes {error}"))?;
+    if scopes.is_null() {
+        return Err("GetInputScopes 返回空数组".to_owned());
     }
     // SAFETY: GetInputScopes 返回 count 个元素的 CoTaskMem 数组，由调用方释放。
     unsafe {
-        let list = std::slice::from_raw_parts(scopes, count as usize);
-        let found = list.contains(&IS_PASSWORD);
+        let list = std::slice::from_raw_parts(scopes, count as usize).to_vec();
         CoTaskMemFree(Some(scopes.cast()));
-        found
+        Ok(list)
     }
 }

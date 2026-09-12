@@ -9,6 +9,7 @@ use std::io;
 use std::os::windows::io::{AsRawHandle, FromRawHandle};
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
 use std::thread;
+use std::time::Instant;
 
 use windows::Win32::Foundation::{ERROR_ACCESS_DENIED, ERROR_PIPE_CONNECTED, HANDLE};
 use windows::Win32::Security::Authorization::{
@@ -57,16 +58,27 @@ pub fn serve_pipe(
     };
     thread::spawn(move || accept_loop(&pipe, first, sender));
     tracing::info!(pipe = name, "命名管道监听中");
+    // 按 Router 的节拍来 tick：在等本地整句模型就几十毫秒一次，否则一秒看一次配置文件。
+    // 到点时间是绝对的，不随消息重新计时——前台进程里的 DLL 隔几百毫秒就问一次切模式（SyncMode），
+    // 若每收一条消息就重等一秒，tick 永远到不了，热加载与模型接入都会停摆。
+    let mut due = Instant::now() + router.next_tick();
     loop {
-        // 空闲时按 Router 的节拍醒来：在等本地整句模型就几十毫秒一次，否则一秒看一次配置文件
-        match receiver.recv_timeout(router.next_tick()) {
+        let now = Instant::now();
+        if now >= due {
+            router.tick();
+            due = Instant::now() + router.next_tick();
+            continue;
+        }
+        match receiver.recv_timeout(due - now) {
             Ok(Work::Client(message, reply)) => {
                 let _ = reply.send(router.handle(message));
             }
             Ok(Work::Status(event)) => router.handle_status_event(event),
-            Err(RecvTimeoutError::Timeout) => router.tick(),
+            Err(RecvTimeoutError::Timeout) => continue,
             Err(RecvTimeoutError::Disconnected) => break,
         }
+        // 处理完消息节拍可能变短了（按键起了防抖）：到点时间只提前不推后
+        due = due.min(Instant::now() + router.next_tick());
     }
     Ok(())
 }
