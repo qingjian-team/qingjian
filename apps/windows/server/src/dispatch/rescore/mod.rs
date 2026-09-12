@@ -21,8 +21,8 @@ pub(crate) use self::state::RescoreState;
 use super::Router;
 use super::composed::Composed;
 
-/// 找模型目录：用户目录 `model/` 优先（用户自己的模型），否则随包 `data/model/`；都没有三件套为 `None`。
-pub fn find_model_dir(user_dir: Option<&Path>, bundled_root: &Path) -> Option<PathBuf> {
+/// 找模型（`.qjm` 单文件，或开发时的三件套目录）：用户目录 `model/` 优先（用户自己的模型），否则随包 `data/model/`；都没有为 `None`。
+pub fn find_model(user_dir: Option<&Path>, bundled_root: &Path) -> Option<PathBuf> {
     let candidates = [
         user_dir.map(|dir| dir.join("model")),
         Some(bundled_root.join("data/model")),
@@ -30,13 +30,17 @@ pub fn find_model_dir(user_dir: Option<&Path>, bundled_root: &Path) -> Option<Pa
     candidates
         .into_iter()
         .flatten()
-        .find(|dir| dir.join("model.safetensors").is_file())
+        .find_map(|dir| qingjian_neural::find_model(&dir))
 }
 
 impl Router {
-    /// 启动时：记下模型目录，按 `[model] enabled` 决定要不要加载。
-    pub fn configure_local_model(&mut self, model_dir: Option<PathBuf>, config: &LocalModelConfig) {
-        self.model_dir = model_dir;
+    /// 启动时：记下模型文件，按 `[model] enabled` 决定要不要加载。
+    pub fn configure_local_model(
+        &mut self,
+        model_path: Option<PathBuf>,
+        config: &LocalModelConfig,
+    ) {
+        self.model_path = model_path;
         self.applied_model = config.clone();
         if config.enabled {
             self.load_local_model();
@@ -61,11 +65,11 @@ impl Router {
         if self.model_loader.is_some() || self.engine.has_sentence_scorer() {
             return;
         }
-        let Some(dir) = &self.model_dir else {
+        let Some(path) = &self.model_path else {
             tracing::info!("没有本地整句模型文件，不重排");
             return;
         };
-        self.model_loader = ModelLoader::spawn(dir);
+        self.model_loader = ModelLoader::spawn(path);
     }
 
     /// 卸掉模型（配置关掉）。

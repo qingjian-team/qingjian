@@ -173,8 +173,8 @@ fn main() {
     dispatch::attach_cloud(&mut engine, &config.predict);
     let router_config = RouterConfig::from(&config);
     let mut router = Router::new(engine, router_config.clone());
-    let model_dir = dispatch::find_model_dir(user_dir().as_deref(), &root);
-    router.configure_local_model(model_dir.clone(), &config.model);
+    let model_path = dispatch::find_model(user_dir().as_deref(), &root);
+    router.configure_local_model(model_path.clone(), &config.model);
     if let Some(path) = config_path() {
         router.watch_config(&config, path, bundled_dicts_dir, user_dir());
     }
@@ -189,7 +189,7 @@ fn main() {
         shuangpin = config.general.shuangpin().map(|s| s.key()).unwrap_or("全拼"),
         fuzzy = config.fuzzy.any(),
         cloud = config.predict.enabled,
-        model = model_dir.as_deref().map(|p| p.display().to_string()).unwrap_or_default(),
+        model = model_path.as_deref().map(|p| p.display().to_string()).unwrap_or_default(),
         model_enabled = config.model.enabled,
         sessions = router.session_count(),
         "青简 Windows Server 就绪"

@@ -32,7 +32,12 @@ impl Vocab {
             path: path.to_owned(),
             source,
         })?;
-        let file: VocabFile = serde_json::from_str(&text).map_err(|source| NeuralError::Json {
+        Self::from_json(&text, path)
+    }
+
+    /// 解析 `vocab.json` 的正文；`path` 只用来报错。
+    pub(crate) fn from_json(text: &str, path: &Path) -> Result<Self, NeuralError> {
+        let file: VocabFile = serde_json::from_str(text).map_err(|source| NeuralError::Json {
             path: path.to_owned(),
             source,
         })?;

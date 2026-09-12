@@ -16,7 +16,7 @@ impl Host {
         if self.model_loader.is_some() || self.engine.has_sentence_scorer() {
             return;
         }
-        let Some(dir) = paths::model_dir() else {
+        let Some(path) = paths::model_path() else {
             tracing::info!("没有本地整句模型文件，不重排");
             return;
         };
@@ -25,13 +25,13 @@ impl Host {
             .name("qingjian-model-load".to_owned())
             .spawn(move || {
                 let started = std::time::Instant::now();
-                let loaded = CharScorer::load(&dir).and_then(|scorer| {
+                let loaded = CharScorer::load(&path).and_then(|scorer| {
                     scorer.score("", &["的"])?;
                     Ok(scorer)
                 });
                 if loaded.is_ok() {
                     tracing::info!(
-                        dir = %dir.display(),
+                        path = %path.display(),
                         total_ms = started.elapsed().as_millis(),
                         "本地整句模型已加载并预热"
                     );

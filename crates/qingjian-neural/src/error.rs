@@ -22,6 +22,12 @@ pub enum NeuralError {
         source: serde_json::Error,
     },
 
+    #[error("no model in {0}: neither a .qjm file nor model.safetensors")]
+    NotFound(PathBuf),
+
+    #[error("bad .qjm container: {0}")]
+    Format(#[from] qingjian_format::FormatError),
+
     #[error("model error: {0}")]
     Candle(#[from] candle_core::Error),
 

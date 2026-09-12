@@ -88,13 +88,17 @@ if [[ -f data/generated/dict.tsv || -f data/generated/dict.qj ]]; then
     cp data/generated/dicts/*.qj "$APP/Contents/Resources/dicts/"
   fi
   [[ -f data/generated/lm.qj ]] && cp data/generated/lm.qj "$APP/Contents/Resources/"
-  # 本地整句模型（字级 Transformer，训练仓库 ../train 导出的三件套，拷到 data/model/）随包放 Resources/model/；没有就不重排
+  # 本地整句模型（字级 Transformer）：训练仓库 ../train 导出三件套到 data/model/，tools/release/pack-model.sh 打成 model.qjm，
+  # 随包只带这一个文件放 Resources/model/（三件套比 .qjm 新就重打）；什么都没有就不重排
   model_dir="${QINGJIAN_MODEL_DIR:-data/model}"
   if [[ -f "$model_dir/model.safetensors" ]]; then
+    QINGJIAN_MODEL_DIR="$model_dir" tools/release/pack-model.sh
+  fi
+  if [[ -f "$model_dir/model.qjm" ]]; then
     mkdir -p "$APP/Contents/Resources/model"
-    cp "$model_dir/model.safetensors" "$model_dir/config.json" "$model_dir/vocab.json" "$APP/Contents/Resources/model/"
-    chmod 644 "$APP/Contents/Resources/model/"*
-    echo "打包本地整句模型：$model_dir"
+    cp "$model_dir/model.qjm" "$APP/Contents/Resources/model/"
+    chmod 644 "$APP/Contents/Resources/model/model.qjm"
+    echo "打包本地整句模型：$model_dir/model.qjm"
   fi
   # 释义表打成 .qj（TSV 比 .qj 新时重打），英文词表仍是 TSV
   for lang in en ja zh; do

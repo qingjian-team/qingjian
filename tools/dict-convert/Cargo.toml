@@ -12,6 +12,7 @@ qingjian-core.workspace = true
 qingjian-dictionary.workspace = true
 qingjian-format.workspace = true
 qingjian-lm.workspace = true
+qingjian-neural.workspace = true
 qingjian-translate.workspace = true
 serde.workspace = true
 serde_json.workspace = true

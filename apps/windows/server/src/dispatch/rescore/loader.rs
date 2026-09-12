@@ -23,21 +23,21 @@ pub(super) enum Loaded {
 }
 
 impl ModelLoader {
-    /// 起线程加载 `dir` 下的三件套并预热一次；线程起不来返回 `None`。
-    pub(super) fn spawn(dir: &Path) -> Option<Self> {
-        let dir: PathBuf = dir.to_path_buf();
+    /// 起线程加载 `path`（`.qjm` 或三件套目录）并预热一次；线程起不来返回 `None`。
+    pub(super) fn spawn(path: &Path) -> Option<Self> {
+        let path: PathBuf = path.to_path_buf();
         let (tx, result) = channel();
         let spawned = std::thread::Builder::new()
             .name("qingjian-model-load".to_owned())
             .spawn(move || {
                 let started = std::time::Instant::now();
-                let loaded = CharScorer::load(&dir).and_then(|scorer| {
+                let loaded = CharScorer::load(&path).and_then(|scorer| {
                     scorer.score("", &["的"])?;
                     Ok(scorer)
                 });
                 if loaded.is_ok() {
                     tracing::info!(
-                        dir = %dir.display(),
+                        path = %path.display(),
                         total_ms = started.elapsed().as_millis(),
                         "本地整句模型已加载并预热"
                     );

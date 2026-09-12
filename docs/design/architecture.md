@@ -196,6 +196,10 @@ CSR 偏移与后继）原样落盘，打开时 mmap 整个文件、校验一遍�
 - 文件 = 32 字节头（魔数 `QINGJIAN`、格式版本、数据种类 `Kind`、分节数）+ 分节表（4 字节标签 + 偏移 + 长度，正文 8 字节对齐）
   + 各分节。第一节固定是 `META`：TOML 的 `Metadata`（名称、许可证 SPDX、署名、来源、版本、条数、生成者），
   偏好设置里的词库列表直接显示它，第三方词库各带各的许可证靠的就是这一节。
+- 数据种类：词库、语言模型、释义表、emoji 表、英文词表，以及本地整句模型 `Kind::Model`——扩展名换成 `.qjm`，
+  三节 `CONF` / `VOCB` / `SAFT` 原样装训练仓库导出的 `config.json` / `vocab.json` / `model.safetensors`（safetensors 是不透明载荷，
+  mmap 后切片给 candle，张量搬上设备后容器即丢；`META.entries` 记参数量）。`qingjian-neural::find_model(dir)` 先找 `.qjm`、没有再认三件套目录，
+  所以开发直接加载训练直出的目录，随包与用户目录只有一个文件；`dict-convert pack model`（`tools/release/pack-model.sh` 带元数据调它）打包。
 - 数值小端、原生对齐，crate 在大端机器上拒绝编译。字符串分节打开时校验一次 UTF-8，之后 `Text::deref` 走 unchecked
   （曾经每次 deref 都重新校验 30 MB，CLI 直接卡死）。定长结构体用 `zerocopy` 派生，`#[repr(C)]` 且手工排字段消灭填充
   （`KeyIndex` 16 字节、`Slot` 12 字节、`WordEntry` 12 字节、`Successor` 8 字节）。
@@ -432,7 +436,7 @@ CC-CEDICT 表（`dict-convert cedict`）保留为备用来源，覆盖面广但�
 - **交叉编译验证**：`qingjian-core` / `-dictionary` / `-format` / `-lm` / `-platform` / `apps/windows/{server,tsf}` 已能
   `cargo check --target x86_64-pc-windows-gnu` 通过（借此修掉 `qingjian-format` 里 unix 专有的 `Mmap::advise` 未 `cfg` 的移植 bug）；
   本机只 `check`，真正编译在 Windows 机器上做（`qingjian-neural` 的 candle 后端在 Windows 走 CPU，已接进 Server，见下「本地整句模型」）。
-- **本地整句模型（Server 进程，与 macOS 的 `host/model.rs` 对齐）**：`server/src/dispatch/rescore/`。启动时 `find_model_dir`（用户目录 `%APPDATA%\Qingjian\model\` 优先，否则随包 `data\model\`）；`[model] enabled` 开着就起线程加载并预热（`ModelLoader`），下一次按键 / tick 接上 `set_async_sentence_scorer`。
+- **本地整句模型（Server 进程，与 macOS 的 `host/model.rs` 对齐）**：`server/src/dispatch/rescore/`。启动时 `find_model`（用户目录 `%APPDATA%\Qingjian\model\` 优先，否则随包 `data\model\`；`.qjm` 单文件或三件套目录）；`[model] enabled` 开着就起线程加载并预热（`ModelLoader`），下一次按键 / tick 接上 `set_async_sentence_scorer`。
   Server 没有定时器：缓冲变化后 `schedule_rescoring` 起防抖，工人循环 `recv_timeout(router.next_tick())` 按 `RescoreState` 的节拍醒来（防抖 80 ms → `request_rescoring`；然后 20 ms 一次 `poll_rescoring`，最多等 2 s），DLL 组句期间每 80 ms 的 `Poll` 也顺带 `tick`。分到了重查一次、重建候选布局（云端词与整句补全留着）、由 Server 自绘的候选窗直接重画，DLL 下一次 `Poll` 拿到新帧更新内联 preedit；翻过页 / 动过高亮不动。热加载 `[model]` 变了才重载 / 卸载。
   前文：DLL 在**起组句的那次读写编辑会话**里顺手读选区起点前 64 个 UTF-16 单元（`com/edit/surrounding.rs::text_before_caret`，拼音还没插进去、不用再开一次会话），随 `ClientMessage::Surrounding` 单向送来；密码框（`GUID_PROP_INPUTSCOPE` 含 `IS_PASSWORD` / `IS_PRIVATE` / PIN 类之一——Chromium 系浏览器的密码框报的是 `IS_PRIVATE`；记事本等不支持该属性，`GetValue` 失败按不是密码）/ 读不到不发。Server 收到（`set_surrounding`）就 `set_rescoring_context`、重查一次按新前文记下要打分的文本并重新计时；组句结束前文作废。没有前文退回本会话历史。协议版本 3。
 - **版本与发布**：各平台壳版本号独立（见 `docs/notes/release.md`）；`apps/windows/server/Cargo.toml` 写死自己的 `version`，

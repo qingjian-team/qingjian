@@ -198,7 +198,7 @@ impl PreferencesWindow {
         self.cloud.sync(
             config,
             key_present,
-            crate::app::paths::model_dir().is_some(),
+            crate::app::paths::model_path().is_some(),
         );
         self.advanced.sync(config);
         let status = error

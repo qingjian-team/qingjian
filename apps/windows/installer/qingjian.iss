@@ -70,10 +70,8 @@ Source: "{#Repo}\data\generated\glossary-ja.qj"; DestDir: "{app}\data\generated"
 Source: "{#Repo}\data\generated\glossary-zh.qj"; DestDir: "{app}\data\generated";       Flags: ignoreversion
 Source: "{#Repo}\data\generated\english.tsv";    DestDir: "{app}\data\generated";       Flags: ignoreversion
 Source: "{#Repo}\data\generated\dicts\*.qj";     DestDir: "{app}\data\generated\dicts";  Flags: ignoreversion
-; —— 本地整句模型三件套（训练仓库导出到 data\model；没有就不装，Server 不重排）——
-Source: "{#Repo}\data\model\model.safetensors"; DestDir: "{app}\data\model"; Flags: ignoreversion skipifsourcedoesntexist
-Source: "{#Repo}\data\model\config.json";       DestDir: "{app}\data\model"; Flags: ignoreversion skipifsourcedoesntexist
-Source: "{#Repo}\data\model\vocab.json";        DestDir: "{app}\data\model"; Flags: ignoreversion skipifsourcedoesntexist
+; —— 本地整句模型（tools/release/pack-model.sh 打成的单文件 data\model\model.qjm；没有就不装，Server 不重排）——
+Source: "{#Repo}\data\model\model.qjm"; DestDir: "{app}\data\model"; Flags: ignoreversion skipifsourcedoesntexist
 ; —— 随 git 的资源 ——
 Source: "{#Repo}\assets\emoji\emoji-zh.tsv";     DestDir: "{app}\assets\emoji";  Flags: ignoreversion
 Source: "{#Repo}\assets\emoji\emoji-en.tsv";     DestDir: "{app}\assets\emoji";  Flags: ignoreversion
@@ -116,6 +114,10 @@ Filename: "{sys}\regsvr32.exe"; Parameters: "/u /s ""{app}\{#TsfDll}"""; \
 [InstallDelete]
 ; 更早版本装在当前用户「启动」文件夹里的自启快捷方式：与机器级那份并存会起两个 Server（两条状态条）。
 Type: files; Name: "{userstartup}\Qingjian Server.lnk"
+; 更早版本装的模型三件套（现在只带 model.qjm）：留着白占 56 MB。
+Type: files; Name: "{app}\data\model\model.safetensors"
+Type: files; Name: "{app}\data\model\config.json"
+Type: files; Name: "{app}\data\model\vocab.json"
 
 [UninstallDelete]
 ; 历次升级留下的旧版本 DLL（正常在升级时就删了；仍被占用的会留到这里）。

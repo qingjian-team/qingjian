@@ -3,53 +3,99 @@ use std::sync::Mutex;
 
 use candle_core::{DType, Device, Tensor};
 use candle_nn::VarBuilder;
+use qingjian_format::{Container, Kind, Metadata};
 
 use crate::model::PrefixCache;
 use crate::vocab::EOS;
-use crate::{CharLm, ModelConfig, NeuralError, Vocab};
+use crate::{CharLm, ModelConfig, NeuralError, Vocab, find_model, qjm};
 
 /// 加载好的模型 + 字表：给「前文 + 候选」打分。
 pub struct CharScorer {
     model: CharLm,
     vocab: Vocab,
 
+    /// `.qjm` 的 `META`（名称 / 许可证 / 署名）；三件套目录没有。
+    metadata: Option<Metadata>,
+
     /// 最近一段前文的 K / V 缓存（前文 token 与缓存）：一次组句里前文不变，候选换了只算候选。
     cache: Mutex<Option<(Vec<u32>, PrefixCache)>>,
 }
 
 impl CharScorer {
-    /// 从导出目录加载（`model.safetensors` / `config.json` / `vocab.json`）。
-    pub fn load(dir: &Path) -> Result<Self, NeuralError> {
+    /// 加载模型。`path` 是 `.qjm` 单文件、三件套目录（`model.safetensors` / `config.json` / `vocab.json`），
+    /// 或装着其中之一的目录（按 [`find_model`] 挑）。
+    pub fn load(path: &Path) -> Result<Self, NeuralError> {
+        let source = if path.is_dir() {
+            find_model(path).ok_or_else(|| NeuralError::NotFound(path.to_owned()))?
+        } else {
+            path.to_owned()
+        };
         let device = default_device()?;
-        let config_path = dir.join("config.json");
+        let dtype = weight_dtype();
+        let scorer = if source.is_dir() {
+            Self::load_directory(&source, dtype, device)?
+        } else {
+            Self::load_packed(&source, dtype, device)?
+        };
+        tracing::info!(
+            source = %source.display(),
+            name = scorer.metadata.as_ref().map(|m| m.name.as_str()).unwrap_or_default(),
+            layers = scorer.model.config().n_layer,
+            hidden = scorer.model.config().n_embd,
+            vocab = scorer.vocab.len(),
+            "神经语言模型已加载"
+        );
+        Ok(scorer)
+    }
+
+    /// 三件套目录：权重 mmap 给 candle。
+    fn load_directory(dir: &Path, dtype: DType, device: Device) -> Result<Self, NeuralError> {
+        let config_path = dir.join(qjm::CONFIG_FILE);
         let text = std::fs::read_to_string(&config_path).map_err(|source| NeuralError::Io {
             path: config_path.clone(),
             source,
         })?;
-        let cfg: ModelConfig = serde_json::from_str(&text).map_err(|source| NeuralError::Json {
-            path: config_path,
-            source,
-        })?;
-        let vocab = Vocab::load(&dir.join("vocab.json"))?;
-        if vocab.len() != cfg.vocab_size {
-            return Err(NeuralError::Corrupt("vocab.json size differs from config"));
-        }
-        let weights = dir.join("model.safetensors");
+        let cfg = ModelConfig::from_json(&text, &config_path)?;
+        let vocab = Vocab::load(&dir.join(qjm::VOCAB_FILE))?;
         // SAFETY：mmap 的权重文件在模型存活期间不改动
-        let dtype = weight_dtype();
-        let vb = unsafe { VarBuilder::from_mmaped_safetensors(&[weights], dtype, &device)? };
+        let vb = unsafe {
+            VarBuilder::from_mmaped_safetensors(&[dir.join(qjm::WEIGHTS_FILE)], dtype, &device)?
+        };
+        Self::assemble(cfg, vocab, vb, device, None)
+    }
+
+    /// `.qjm`：容器 mmap 一次，三节各自切片；张量搬上设备后容器就可以丢了。
+    fn load_packed(path: &Path, dtype: DType, device: Device) -> Result<Self, NeuralError> {
+        let container = Container::open(path, Kind::Model)?;
+        let cfg = ModelConfig::from_json(&container.text(qjm::CONFIG_TAG)?, path)?;
+        let vocab = Vocab::from_json(&container.text(qjm::VOCAB_TAG)?, path)?;
+        let vb =
+            VarBuilder::from_slice_safetensors(container.bytes(qjm::WEIGHTS_TAG)?, dtype, &device)?;
+        Self::assemble(cfg, vocab, vb, device, Some(container.metadata().clone()))
+    }
+
+    fn assemble(
+        cfg: ModelConfig,
+        vocab: Vocab,
+        vb: VarBuilder,
+        device: Device,
+        metadata: Option<Metadata>,
+    ) -> Result<Self, NeuralError> {
+        if vocab.len() != cfg.vocab_size {
+            return Err(NeuralError::Corrupt("vocab size differs from config"));
+        }
         let model = CharLm::load(vb, cfg, device)?;
-        tracing::info!(
-            layers = model.config().n_layer,
-            hidden = model.config().n_embd,
-            vocab = vocab.len(),
-            "神经语言模型已加载"
-        );
         Ok(Self {
             model,
             vocab,
+            metadata,
             cache: Mutex::new(None),
         })
+    }
+
+    /// `.qjm` 带的元数据（名称 / 许可证 / 署名 / 参数量）；三件套目录加载的没有。
+    pub fn metadata(&self) -> Option<&Metadata> {
+        self.metadata.as_ref()
     }
 
     pub fn vocab(&self) -> &Vocab {
@@ -138,10 +184,10 @@ fn default_device() -> Result<Device, NeuralError> {
 mod tests {
     use super::*;
 
+    /// 随包模型的三件套（训练仓库导出到 `data/model/`）；没有就跳过这些测试。
     fn export_dir() -> Option<std::path::PathBuf> {
-        let dir =
-            Path::new(env!("CARGO_MANIFEST_DIR")).join("../../data/lm-train/export/full-small");
-        dir.join("model.safetensors").exists().then_some(dir)
+        let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../data/model");
+        dir.join(qjm::WEIGHTS_FILE).exists().then_some(dir)
     }
 
     /// 与训练脚本 `score.py` 对拍：同一模型、同一序列，log 概率要一致（数值差在 fp16 权重转 f32 的误差内）。
@@ -151,7 +197,8 @@ mod tests {
             eprintln!("没有导出的模型，跳过");
             return;
         };
-        let scorer = CharScorer::load(&dir).unwrap();
+        let scorer =
+            CharScorer::load_directory(&dir, weight_dtype(), default_device().unwrap()).unwrap();
         let scores = scorer
             .score("我今天想去", &["上海", "伤害", "吃饭"])
             .unwrap();
@@ -173,6 +220,52 @@ mod tests {
         let huge: String = "字".repeat(300);
         assert!(scorer.score("", &[huge.as_str()]).unwrap()[0] < 0.0);
     }
+
+    /// 三件套打成 `.qjm` 再加载，分数与目录加载一致，元数据原样带回；目录里有 `.qjm` 时 `load(目录)` 挑的是它。
+    #[test]
+    fn packed_file_scores_like_the_directory() {
+        let Some(dir) = export_dir() else {
+            eprintln!("没有导出的模型，跳过");
+            return;
+        };
+        let out_dir = std::env::temp_dir().join("qingjian-neural-tests/packed");
+        std::fs::create_dir_all(&out_dir).unwrap();
+        let out = out_dir.join("model.qjm");
+        let metadata = Metadata {
+            name: "测试模型".to_owned(),
+            license: "CC-BY-SA-4.0".to_owned(),
+            ..Metadata::default()
+        };
+        let parameters = qjm::pack(&dir, &out, &metadata).unwrap();
+        assert!(parameters > 1_000_000, "{parameters}");
+
+        let packed = CharScorer::load(&out).unwrap();
+        let meta = packed.metadata().unwrap();
+        assert_eq!(meta.name, "测试模型");
+        assert_eq!(meta.entries, parameters);
+        // 与 load 同一设备同一精度（workspace 一起测时 metal feature 会被统一打开）
+        let by_dir =
+            CharScorer::load_directory(&dir, weight_dtype(), default_device().unwrap()).unwrap();
+        let texts = ["上海", "伤害", "吃饭"];
+        let a = packed.score("我今天想去", &texts).unwrap();
+        let b = by_dir.score("我今天想去", &texts).unwrap();
+        for (x, y) in a.iter().zip(&b) {
+            assert!((x - y).abs() < 1e-4, "{a:?} vs {b:?}");
+        }
+        assert_eq!(find_model(&out_dir), Some(out.clone()));
+        assert!(CharScorer::load(&out_dir).unwrap().metadata().is_some());
+
+        // 别的 .qj 种类不认
+        let error = CharScorer::load(&dir.join("../generated/lm.qj"))
+            .err()
+            .map(|e| e.to_string())
+            .unwrap_or_default();
+        assert!(
+            error.contains("wrong data kind") || error.contains("io error"),
+            "{error}"
+        );
+        let _ = std::fs::remove_dir_all(&out_dir);
+    }
 }
 
 #[cfg(test)]
@@ -183,8 +276,7 @@ mod latency {
     #[test]
     #[ignore]
     fn batch_latency() {
-        let dir =
-            Path::new(env!("CARGO_MANIFEST_DIR")).join("../../data/lm-train/export/full-small");
+        let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../data/model");
         let scorer = CharScorer::load(&dir).unwrap();
         let context: String =
             "今天下午的会议讨论了输入法的排序问题，大家觉得整句转换还可以再准一些，".repeat(2);

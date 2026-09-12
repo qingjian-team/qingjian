@@ -27,7 +27,7 @@ use self::composed::Composed;
 pub use self::config::RouterConfig;
 use self::reload::ConfigReload;
 pub use self::reload::attach_cloud;
-pub use self::rescore::find_model_dir;
+pub use self::rescore::find_model;
 use self::rescore::{ModelLoader, RescoreState};
 use self::session::SessionInfo;
 pub use self::status::{NoopStatusSink, StatusEvent, StatusSink, StatusView};
@@ -99,8 +99,8 @@ pub struct Router {
     /// 上次真正显示的帧与位置：没变就不重画（组字期间的空转 Poll 很多）。
     last_shown: Option<(Frame, ScreenRect)>,
 
-    /// 本地整句模型的目录（三件套所在）；没有模型文件为 `None`。
-    model_dir: Option<PathBuf>,
+    /// 本地整句模型（`.qjm` 或三件套目录）；没有模型文件为 `None`。
+    model_path: Option<PathBuf>,
 
     /// 进行中的模型加载；加载完接到 Engine 上就清掉。
     model_loader: Option<ModelLoader>,
@@ -138,7 +138,7 @@ impl Router {
             pending_mode: None,
             last_rect: None,
             last_shown: None,
-            model_dir: None,
+            model_path: None,
             model_loader: None,
             applied_model: LocalModelConfig::default(),
             rescore: RescoreState::default(),

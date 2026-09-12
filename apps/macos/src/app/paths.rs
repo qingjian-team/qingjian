@@ -49,16 +49,12 @@ pub fn dicts_dir() -> Option<PathBuf> {
     Some(dir)
 }
 
-/// 本地整句模型目录（`model.safetensors` / `config.json` / `vocab.json`）：
+/// 本地整句模型（`.qjm` 单文件，或开发时的三件套目录）：
 /// 用户目录 `model/` 里有就用它（自己训的），否则用包里的 `Resources/model/`；都没有是 `None`。
-pub fn model_dir() -> Option<PathBuf> {
+pub fn model_path() -> Option<PathBuf> {
     let user = user_data_dir()?.join("model");
-    if user.join("model.safetensors").is_file() {
-        return Some(user);
+    if let Some(found) = qingjian_neural::find_model(&user) {
+        return Some(found);
     }
-    let bundled = resources_dir().ok()?.join("model");
-    bundled
-        .join("model.safetensors")
-        .is_file()
-        .then_some(bundled)
+    qingjian_neural::find_model(&resources_dir().ok()?.join("model"))
 }
