@@ -51,8 +51,11 @@ rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN_DIR/$BIN_NAME" "$APP/Contents/MacOS/$BIN_NAME"
 cp apps/macos/Info.plist "$APP/Contents/Info.plist"
-# 版本号来自 apps/macos/Cargo.toml（各平台壳版本号独立，不跟 workspace 走），构建号用提交数（单调递增，pkg 升级判断靠它）
+# 版本号来自 apps/macos/Cargo.toml（各平台壳版本号独立，不跟 workspace 走），构建号用提交数（单调递增，pkg 升级判断靠它）。
+# 发版之间版本号带 -dev（0.1.2-dev）：本地与 CI 中间构建一眼能与线上包区分；发版提交去掉 -dev 再打标签（docs/notes/release.md）。
+# pkgbuild / distribution 的 version 只认数字点号，去掉预发布后缀；Info.plist 与 pkg 文件名保留完整版本
 VERSION="$(sed -n 's/^version = "\(.*\)"/\1/p' apps/macos/Cargo.toml | head -1)"
+PKG_VERSION="${VERSION%%-*}"
 BUILD_NUMBER="$(git rev-list --count HEAD 2>/dev/null || echo 1)"
 /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" \
   -c "Set :CFBundleVersion $BUILD_NUMBER" "$APP/Contents/Info.plist"
@@ -146,11 +149,11 @@ if [[ "${1:-}" == "--pkg" ]]; then
   /usr/libexec/PlistBuddy -c "Set :0:BundleIsRelocatable false" "$PKG_DIR/component.plist"
   pkgbuild --root "$PKG_DIR/root" --component-plist "$PKG_DIR/component.plist" \
     --install-location "/Library/Input Methods" --scripts apps/macos/pkg/scripts \
-    --identifier app.qingjian.inputmethod --version "$VERSION" "$PKG_DIR/$APP_NAME-component.pkg" >/dev/null
+    --identifier app.qingjian.inputmethod --version "$PKG_VERSION" "$PKG_DIR/$APP_NAME-component.pkg" >/dev/null
   cp apps/macos/pkg/resources/*.html "$PKG_DIR/resources/"
   cp LICENSE "$PKG_DIR/resources/license.txt"
   # 二进制只有一种架构，hostArchitectures 限定只在对应机器上装；另一种架构用 QINGJIAN_TARGET 再打一份
-  sed -e "s/@VERSION@/$VERSION/g" -e "s/@ARCH@/$ARCH/g" apps/macos/pkg/distribution.xml > "$PKG_DIR/distribution.xml"
+  sed -e "s/@VERSION@/$VERSION/g" -e "s/@PKG_VERSION@/$PKG_VERSION/g" -e "s/@ARCH@/$ARCH/g" apps/macos/pkg/distribution.xml > "$PKG_DIR/distribution.xml"
   SIGN_ARGS=()
   if [[ -n "${QINGJIAN_INSTALLER_IDENTITY:-}" ]]; then
     SIGN_ARGS=(--sign "$QINGJIAN_INSTALLER_IDENTITY" --timestamp)

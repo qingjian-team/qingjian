@@ -1,4 +1,4 @@
-//! 编译时抓 git 构建标识（分支@短哈希 (日期)）塞进 `QINGJIAN_BUILD`，「关于」页显示；拿不到就不设。
+//! 编译时抓 git 构建标识（分支@短哈希 (日期)，工作区有改动短哈希后加 +，与 macOS 的 bundle.sh 一致）塞进 `QINGJIAN_BUILD`，「关于」页显示；拿不到就不设。
 //! 在 Windows 上编时把青简图标嵌进 exe（开始菜单 / 任务栏 / 搜索里显示的就是它）。
 
 use std::process::Command;
@@ -26,7 +26,10 @@ fn embed_icon() {}
 
 fn git_build() -> Option<String> {
     let branch = git(&["rev-parse", "--abbrev-ref", "HEAD"])?;
-    let hash = git(&["rev-parse", "--short", "HEAD"])?;
+    let mut hash = git(&["rev-parse", "--short", "HEAD"])?;
+    if git(&["status", "--porcelain"]).is_some() {
+        hash.push('+');
+    }
     let date = git(&[
         "show",
         "-s",

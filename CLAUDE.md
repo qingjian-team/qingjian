@@ -150,5 +150,5 @@ Phase 2 macOS IMK → Phase 3 翻译 → Phase 4 学习 → Phase 5 Windows/Linu
 - 结构体 / 枚举字段逐条 `///` 注释，字段之间空一行。
 - 依赖：`cargo add`，共用包提到根 `[workspace.dependencies]`；错误用 `thiserror` 不用 `anyhow`；日志用 `tracing` 门面。
 - 版本号：`crates/*` 是内部库，用 `version.workspace = true` 跟 workspace 一起走；**`apps/*` 每个壳是各自独立发布的产品，写死自己的 `version`，不跟 workspace 同步**（macOS 修的 bug 不该让 Windows 涨版本号）。
-  例：mac 到 `0.1.1`、win 还在 `0.1.0`。发版标签按平台加前缀（`macos-v<版本>` / `windows-v<版本>`），CI 各读各的 app 包版本比对；`bundle.sh` 与 `release.yml` 都读 `apps/<平台>/Cargo.toml`（Windows 是一个产品两个 package：`apps/windows/server`（Server 进程）与 `apps/windows/tsf`（TSF DLL），版本读 `server/Cargo.toml`；不合成一个 crate，因为 DLL 不能带 Engine 的依赖树，见 `apps/windows/README.md`）。
+  例：mac 到 `0.1.1`、win 还在 `0.1.0`。**发版之间版本号带 `-dev`**（mac `0.1.2-dev`、win `0.1.0-alpha.2-dev`）：本地与 CI 中间构建一眼能与线上包区分，发版提交去掉 `-dev` 打标签、标签后再改成下一个 `-dev`（只改 Cargo.toml，`-dev` 版本永远没有标签与 Release），带 `-dev` 的标签 CI 拒绝；pkg / Inno 只认数字点号，打包脚本去掉后缀再传。发版标签按平台加前缀（`macos-v<版本>` / `windows-v<版本>`），CI 各读各的 app 包版本比对；`bundle.sh` 与 `release.yml` 都读 `apps/<平台>/Cargo.toml`（Windows 是一个产品两个 package：`apps/windows/server`（Server 进程）与 `apps/windows/tsf`（TSF DLL），版本读 `server/Cargo.toml`；不合成一个 crate，因为 DLL 不能带 Engine 的依赖树，见 `apps/windows/README.md`）。
 - 交流用中文。

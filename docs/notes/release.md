@@ -7,13 +7,16 @@
 
 （下面以 macOS 为例；Windows 见「Windows 发版」一节，步骤同构。）
 
-1. 改 `apps/macos/Cargo.toml` 的 `version`（`apps/macos` 的 Info.plist 版本号从这里取，pkg 文件名也是）。
+1. 改 `apps/macos/Cargo.toml` 的 `version`（`apps/macos` 的 Info.plist 版本号从这里取，pkg 文件名也是）：把 `0.1.2-dev` 改成 `0.1.2`。
+   **发版之间版本号一直带 `-dev`**（Rust nightly / Firefox Nightly 那套）：本地装的、CI 中间构建的都显示 `0.1.2-dev`，版本号干净的一定是线上包；
+   带 `-dev` 的标签 CI 直接拒绝。pkg 的 `--version` 与 `distribution.xml` 只认数字点号，`bundle.sh` 去掉后缀再传，Info.plist 与 pkg 文件名保留完整版本。
    **各平台壳版本号独立**：macOS 的版本只在 `apps/macos/Cargo.toml`，跟 workspace 与其他壳无关（例：mac 到 `0.1.1`、win 还在 `0.1.0`）。
 2. `CHANGELOG.md` 顶上加一节 `## <版本> · <日期> · <渠道>`（渠道是 `alpha` / `beta` / `rc` / `stable`），一行一条、面向用户的措辞。
    **更新日志手写，不由提交自动生成**：提交信息里有大量内部改动（拆模块、修 RefCell 重入），用户看不懂也不关心；
    做法是发版前按上个标签以来的 `git log` 起草几条，人审一遍再定稿。
 3. 提交，打**带平台前缀**的注释标签并推：`git tag -a macos-v0.1.1 -m "青简 macOS 0.1.1" && git push origin main macos-v0.1.1`
    （标签按平台加前缀 `macos-v*` / 将来 `windows-v*`，因为各平台版本号独立、光靠 `v<版本>` 会撞车；旧的 `v*` 标签仍能被官网识别，向后兼容）。
+3b. 标签推出去之后紧接一个普通提交把版本号改成下一个开发版（只是改 Cargo.toml，不打标签、不建 Release；-dev 版本永远没有标签与 Release）：`apps/macos/Cargo.toml` 改成 `0.1.3-dev`（Windows 同理 `0.1.0-alpha.3-dev`），本地从此打的包都带 `-dev`。
 4. `release.yml` 跑完后 GitHub Release 上有 `Qingjian-<版本>-arm64.pkg`、`Qingjian-<版本>-x86_64.pkg`、`SHA256SUMS`、`build-info.json`（提交、构建时间、工具链）、`releases.json`。
 5. 官网由 Cloudflare Workers Builds 按官网仓库的提交自动构建，没有可调用的构建钩子，所以主仓库靠**往官网仓库推一个小提交**来触发：
    `tools/release/bump-website.sh` 把版本标签与文档提交号写进官网的 `src/content/upstream.json` 并提交推送（提交者 qingjian-ci）。
@@ -29,6 +32,7 @@ Rust 工具链由 `rust-toolchain.toml` 钉版本（现在 1.96.0），两个 wo
 ## Windows 发版
 
 1. 改 `apps/windows/{server,tsf,settings}/Cargo.toml` 的 `version`（三个一起改；打包脚本与 workflow 读 `server` 那份）。
+   同样带 `-dev`：发版之间是 `0.1.0-alpha.2-dev`，发版提交改成 `0.1.0-alpha.2`；Inno 的 `VersionInfoVersion` 只认数字，`build.ps1` 把整个预发布后缀去掉再传，安装包与 DLL 文件名保留完整版本。
    内测版用 semver 预发布号 `0.1.0-alpha.1`、`0.1.0-alpha.2`…：CHANGELOG 按版本号索引、官网按版本号列条目，
    与 macOS 的 `0.1.0` / `0.1.1` 不能同号；Inno 的 `VersionInfoVersion` 只认数字，`build.ps1` 会把后缀去掉再传。
 2. `CHANGELOG.md` 加一节 `## 0.1.0-alpha.1 · 日期 · alpha`。

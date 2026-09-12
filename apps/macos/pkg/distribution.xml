@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- productbuild 的安装流程描述；@VERSION@ / @ARCH@ 由 scripts/bundle.sh 的 pkg 模式替换 -->
+<!-- productbuild 的安装流程描述；@VERSION@ / @PKG_VERSION@（去掉 -dev 这类后缀的数字版本，pkg-ref 只认数字点号）/ @ARCH@ 由 scripts/bundle.sh 的 pkg 模式替换 -->
 <installer-gui-script minSpecVersion="2">
     <title>青简输入法 @VERSION@</title>
     <organization>app.qingjian</organization>
@@ -21,5 +21,5 @@
     <choice id="app.qingjian.inputmethod" visible="false">
         <pkg-ref id="app.qingjian.inputmethod"/>
     </choice>
-    <pkg-ref id="app.qingjian.inputmethod" version="@VERSION@" onConclusion="none">Qingjian-component.pkg</pkg-ref>
+    <pkg-ref id="app.qingjian.inputmethod" version="@PKG_VERSION@" onConclusion="none">Qingjian-component.pkg</pkg-ref>
 </installer-gui-script>

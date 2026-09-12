@@ -51,6 +51,10 @@ jobs:
             echo "apps/macos/Cargo.toml 是 $VERSION，标签是 $GITHUB_REF_NAME，先改版本号再打标签" >&2
             exit 1
           fi
+          if [[ "$VERSION" == *-dev ]]; then
+            echo "$VERSION 还是开发版号，发版提交要先去掉 -dev（docs/notes/release.md）" >&2
+            exit 1
+          fi
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
 
       - name: Fetch product data
@@ -160,6 +164,10 @@ jobs:
           TAG="${GITHUB_REF_NAME#windows-v}"
           if [[ "$VERSION" != "$TAG" ]]; then
             echo "apps/windows/server/Cargo.toml 是 $VERSION，标签是 $GITHUB_REF_NAME，先改版本号再打标签" >&2
+            exit 1
+          fi
+          if [[ "$VERSION" == *-dev ]]; then
+            echo "$VERSION 还是开发版号，发版提交要先去掉 -dev（docs/notes/release.md）" >&2
             exit 1
           fi
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"

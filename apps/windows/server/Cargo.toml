@@ -1,7 +1,7 @@
 [package]
 name = "qingjian-windows-server"
 description = "Windows 输入法的 Server 进程：持有 Engine，跑在应用进程外，与 TSF DLL（../tsf）走 IPC 协议通信"
-version = "0.1.0-alpha.1"
+version = "0.1.0-alpha.2-dev"
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
