@@ -13,6 +13,13 @@ updates:
       # 合成一个 PR，只有全家都有新版时才可能绿
       windows-rs:
         patterns: ["windows", "windows-*"]
+    ignore:
+      # windows 主包还停在 0.62.2，姊妹包先到了 0.100：单独跟着姊妹包升编不过（见上）。先压住它们的 0.x 版本跳（Dependabot 算 minor），
+      # 等 windows 出 0.100 时会单独来一个 PR，那时把这段删掉、手动一家一起升
+      - dependency-name: "windows-core"
+        update-types: ["version-update:semver-minor"]
+      - dependency-name: "windows-registry"
+        update-types: ["version-update:semver-minor"]
   - package-ecosystem: github-actions
     directory: /
     schedule:
