@@ -1,7 +1,7 @@
 [package]
 name = "qingjian-windows-tsf"
 description = "Windows 输入法的 TSF 文本服务 DLL：加载进每个应用进程，把系统按键经 IPC 交给 Server 进程（../server）"
-version = "0.1.0-alpha.2"
+version = "0.1.0-alpha.3-dev"
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
