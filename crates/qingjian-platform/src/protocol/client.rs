@@ -56,6 +56,17 @@ pub enum ClientMessage {
         text: String,
     },
 
+    /// 输入框私密与否变了（DLL 起组句时按输入范围判：`IS_PRIVATE` / 密码 / PIN 类算私密，浏览器无痕窗口就是它）。
+    /// Server 让 Engine 进 / 出私密：不学习、不记输入日志、不发云端；前文 DLL 侧就不读。只在与上次报的不同时发，不回话。
+    /// 真正的密码框（`KEYBOARD_DISABLED` compartment）DLL 直接放行所有键、不组句，到不了这里。
+    Privacy {
+        /// 会话标识。
+        session: SessionId,
+
+        /// 现在是私密输入。
+        private: bool,
+    },
+
     /// 回应 [`super::ServerMessage::RequestSelection`]：应用当前选中的文字（供「翻译选中文字」）。
     /// DLL 在读编辑会话里用 `GetSelection` + `GetText` 取；没有选区 / 读不到时 `text` 为空串。
     Selection {

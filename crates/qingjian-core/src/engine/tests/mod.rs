@@ -6,6 +6,7 @@ mod emoji;
 mod english;
 mod learning;
 mod lookup;
+mod privacy;
 mod shuangpin;
 
 use std::collections::HashMap;

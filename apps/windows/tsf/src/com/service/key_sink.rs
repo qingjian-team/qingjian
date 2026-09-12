@@ -1,5 +1,6 @@
 //! `ITfKeyEventSink`：所有键先经 `OnTestKeyDown` 判吃不吃（[`TextService_Impl::would_eat`]，与 Router 的分派对齐），
 //! 吃的键在 `OnKeyDown` 里转发给 Server 并按结果更新文档；单击 Shift 的判定与保留键命中也在这里。
+//! 上下文禁了键盘（密码框，见 [`context`](crate::com::context)）时没在组句的键一律放行。
 
 use windows::Win32::Foundation::{FALSE, LPARAM, WPARAM};
 use windows::Win32::UI::TextServices::{ITfContext, ITfKeyEventSink_Impl};
@@ -30,15 +31,21 @@ impl ITfKeyEventSink_Impl for TextService_Impl {
     }
 
     /// 所有键（含之后被吃掉的）都先经过这里，Shift 单击的判定放在这一层。
-    fn OnTestKeyDown(&self, _pic: Ref<ITfContext>, wparam: WPARAM, lparam: LPARAM) -> Result<BOOL> {
+    fn OnTestKeyDown(&self, pic: Ref<ITfContext>, wparam: WPARAM, lparam: LPARAM) -> Result<BOOL> {
         let vk = wparam.0 as u32;
         self.note_key_down(vk, lparam);
+        if self.keyboard_disabled(&pic) {
+            return Ok(FALSE);
+        }
         Ok(self.would_eat(&self.key_event(vk)).into())
     }
 
     fn OnKeyDown(&self, pic: Ref<ITfContext>, wparam: WPARAM, lparam: LPARAM) -> Result<BOOL> {
         let vk = wparam.0 as u32;
         self.note_key_down(vk, lparam);
+        if self.keyboard_disabled(&pic) {
+            return Ok(FALSE);
+        }
         let event = self.key_event(vk);
         Ok(self.handle_key(pic, event).into())
     }
@@ -55,7 +62,7 @@ impl ITfKeyEventSink_Impl for TextService_Impl {
 
     /// 翻译选中文字的保留键命中：当作按下了那个组合键转发给 Server（绕过 `would_eat`）。
     fn OnPreservedKey(&self, pic: Ref<ITfContext>, rguid: *const GUID) -> Result<BOOL> {
-        if unsafe { *rguid } != preserved::GUID_TRANSLATE {
+        if unsafe { *rguid } != preserved::GUID_TRANSLATE || self.keyboard_disabled(&pic) {
             return Ok(FALSE);
         }
         let Some(combo) = self.translate_combo.get() else {
@@ -67,6 +74,22 @@ impl ITfKeyEventSink_Impl for TextService_Impl {
 }
 
 impl TextService_Impl {
+    /// 没在组句时看上下文有没有禁键盘（密码框）：禁了整键放行、不组句。组句中不看——那段组句是我们自己的，
+    /// 应用要禁会先终止它。每键两次 compartment 读取，微秒级。
+    fn keyboard_disabled(&self, pic: &Ref<ITfContext>) -> bool {
+        if self.shared.composing() {
+            return false;
+        }
+        let Ok(context) = pic.ok() else {
+            return false;
+        };
+        let disabled = crate::com::context::keyboard_disabled(context);
+        if disabled {
+            log("上下文禁用键盘（密码框），放行");
+        }
+        disabled
+    }
+
     fn key_event(&self, vk: u32) -> KeyEvent {
         to_key_event(vk, self.mode_state.english())
     }

@@ -148,11 +148,12 @@ impl Engine {
                 );
             }
         }
-        // 词库里有、释义表里没有的词：交给释义兜底在后台问云端，写进个人释义表，下次就有译词
+        // 词库里有、释义表里没有的词：交给释义兜底在后台问云端，写进个人释义表，下次就有译词；私密输入中不问
         if matches!(
             candidate.kind,
             CandidateKind::Chinese | CandidateKind::Cloud
         ) && self.gloss_filler.is_enabled()
+            && !self.private
             && self.translator.language() != Language::Chinese
             && self.translator.translate(&candidate.text).is_none()
         {

@@ -1139,3 +1139,61 @@ fn surrounding_text_arriving_after_the_first_key_still_rescoring() {
         None
     );
 }
+
+/// DLL 报来「私密输入框」：Engine 进私密（不学不记不发云端），焦点换到别的会话按那个会话的状态重设，切回来再进。
+#[test]
+fn privacy_follows_the_focused_session() {
+    let mut router = router();
+    // 真实顺序：第一键起组句，DLL 在那次编辑会话里判出私密再报来
+    let (outcome, commit, _) = type_letters(&mut router, "kaifa");
+    assert_eq!(outcome, KeyOutcome::Consumed);
+    assert_eq!(commit, None);
+    assert!(!router.is_private());
+    assert_eq!(
+        router.handle(ClientMessage::Privacy {
+            session: SESSION,
+            private: true,
+        }),
+        None
+    );
+    assert!(router.is_private());
+    // 私密中照常上屏
+    let (_, commit, _) = press(&mut router, digit(1));
+    assert!(commit.is_some());
+    // 另一个会话开进来拿焦点：它不私密
+    assert_eq!(
+        router.handle(ClientMessage::OpenSession {
+            session: SessionId(2),
+            app: None,
+            protocol: PROTOCOL_VERSION,
+        }),
+        None
+    );
+    press_in(&mut router, SessionId(2), letter('k'));
+    assert!(!router.is_private());
+    // 焦点回到第一个会话：仍是私密
+    press_in(&mut router, SESSION, letter('k'));
+    assert!(router.is_private());
+    // 报不私密了
+    assert_eq!(
+        router.handle(ClientMessage::Privacy {
+            session: SESSION,
+            private: false,
+        }),
+        None
+    );
+    assert!(!router.is_private());
+    // 别的会话的私密状态不影响聚焦会话
+    assert_eq!(
+        router.handle(ClientMessage::Privacy {
+            session: SessionId(9),
+            private: true,
+        }),
+        None
+    );
+    assert!(!router.is_private());
+}
+
+fn press_in(router: &mut Router, session: SessionId, event: KeyEvent) {
+    let _ = router.handle(ClientMessage::Key { session, event });
+}

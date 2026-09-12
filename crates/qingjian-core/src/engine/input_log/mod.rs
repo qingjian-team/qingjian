@@ -8,10 +8,12 @@
 
 mod entry;
 mod logger;
+mod muted;
 mod source;
 
 pub use entry::{CommitEntry, INPUT_LOG_VERSION, InputLogEntry};
 pub use logger::{InputLogger, NoInputLogger};
+pub(super) use muted::MutedLogger;
 pub use source::InputSource;
 
 /// 写进条目的候选文本最多几条：一页的量，够算「首选命中了没有」「在不在第一页」和「选的是第几个」。

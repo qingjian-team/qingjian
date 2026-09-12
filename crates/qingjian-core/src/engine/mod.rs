@@ -15,6 +15,7 @@ mod learning;
 mod marked;
 mod mode_keys;
 mod prediction;
+mod privacy;
 mod query;
 mod rescoring;
 mod setup;
@@ -88,8 +89,8 @@ pub struct Engine {
     /// 与中文候选查学习语言的表分开，仍是「一个候选只显示一种辅助语言」。
     english_translator: Box<dyn Translator>,
 
-    /// 用户词频，缺省为 [`NoLearner`]。
-    learner: Box<dyn Learner>,
+    /// 用户词频，缺省为 [`NoLearner`]；私密输入期间只读不写（[`learning::MutedLearner`]）。
+    learner: learning::MutedLearner,
 
     /// 当前拼音缓冲区。
     composition: Composition,
@@ -143,8 +144,11 @@ pub struct Engine {
     /// 本次 commit 里记下的词转移，commit 结束时搬进 `last_commit`。
     recording: Vec<Transition>,
 
-    /// 输入日志的落盘方；缺省不记。
-    logger: Box<dyn InputLogger>,
+    /// 输入日志的落盘方；缺省不记，私密输入期间一律不记（[`input_log::MutedLogger`]）。
+    logger: input_log::MutedLogger,
+
+    /// 私密输入中（见 [`Self::set_private`]）：不学、不记、不发云端。
+    private: bool,
 
     /// 输入日志条目的序号。
     log_sequence: u64,
@@ -297,7 +301,7 @@ impl Engine {
             translator: Box::new(NoTranslator),
             english_translator: Box::new(NoTranslator),
             modes: ModeKeys::default(),
-            learner: Box::new(NoLearner),
+            learner: learning::MutedLearner::new(Box::new(NoLearner)),
             composition: Composition::default(),
             english: None,
             english_mode: false,
@@ -316,7 +320,8 @@ impl Engine {
             correction_cache: std::cell::RefCell::new(None),
             span_cache: std::cell::RefCell::new(sentence::SpanCache::default()),
             recent_commits: Vec::new(),
-            logger: Box::new(NoInputLogger),
+            logger: input_log::MutedLogger::new(Box::new(NoInputLogger)),
+            private: false,
             log_sequence: 0,
             last_rescored: std::cell::Cell::new(false),
             retype_snapshot: None,

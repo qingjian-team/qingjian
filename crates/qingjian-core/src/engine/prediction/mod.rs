@@ -40,7 +40,7 @@ impl Engine {
         self.predictor.policy()
     }
 
-    /// 发一次联想请求，返回序号；没接 Predictor 或拼音太短时不发，返回 `None`。
+    /// 发一次联想请求，返回序号；没接 Predictor、私密输入中或拼音太短时不发，返回 `None`。
     ///
     /// 要的是「当前作用域拼音对应的词」和整句补全；`candidates` 是本地候选，只取前几个当提示。
     /// `surrounding` 是应用给的光标前后文本，在这里按观察窗口裁剪，壳给得再多也只发这么多；
@@ -50,7 +50,7 @@ impl Engine {
         surrounding: Option<SurroundingText>,
         candidates: &[Candidate],
     ) -> Option<u64> {
-        if !self.predictor.is_enabled() {
+        if !self.predictor.is_enabled() || self.private {
             return None;
         }
         // 不发也要换序号：正在飞的旧结果对应的是上一个输入状态，回来了也不能显示
@@ -130,11 +130,11 @@ impl Engine {
     }
 
     /// 把应用里选中的一段文字交给云端翻译（壳里快捷键触发）：主要是汉字就译成学习语言，是外文（拉丁字母、假名）就译成中文
-    /// （[`translation_target`]）。云联想关着、文字为空时不发，返回 `None`；
+    /// （[`translation_target`]）。云联想关着、私密输入中、文字为空时不发，返回 `None`；
     /// 译文从 [`Self::poll_prediction`] 的 `sentence` 里出。不进学习、不动缓冲区。
     pub fn request_translation(&mut self, text: &str) -> Option<u64> {
         let text = text.trim();
-        if !self.predictor.is_enabled() || text.is_empty() {
+        if !self.predictor.is_enabled() || self.private || text.is_empty() {
             return None;
         }
         self.prediction_sequence += 1;

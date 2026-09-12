@@ -4,9 +4,11 @@ use super::*;
 
 mod forgotten;
 mod learner;
+mod muted;
 
 pub use forgotten::Forgotten;
 pub use learner::{Learner, NoLearner};
+pub(super) use muted::MutedLearner;
 
 impl Engine {
     /// 取回释义兜底写好的释义，记进译者（个人释义表）；返回学了几条。壳定时调，不阻塞。

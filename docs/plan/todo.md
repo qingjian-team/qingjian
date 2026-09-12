@@ -103,5 +103,7 @@
     `windows-v<版本>` 标签与 CI。
   - [ ] **本地整句模型上 Windows**：Server 已接（`dispatch/rescore/`，CPU 推理，设置「云服务」页有开关，安装包带 `data\model`），待真机验：每次重排的耗时（前文 + 几条路径一次前向，CPU 上可能几十到一百多毫秒，超了就缩前文长度）、模型加载时间；
     应用光标前文已接（DLL 起组句时读、密码框跳过；2026-09-12 真机验过记事本 / Edge / 终端都读得到，Edge 密码框按 `IS_PRIVATE` 识别），真机看沉浸式应用读不读得到；
-    ★ Windows 密码框目前只跳过前文，组句 / 云联想 / 学习照常（mac 有 Secure Input 检测直接不组句）——要把「密码类输入范围」随 OpenSession / 起组句报给 Server，让云端与学习也跳过，才对得上用户文档「密码框中不发送」；CI 的 windows job 从 `data` Release 取模型三件套（与 mac「数据包带模型」同一件事）。
+    模型单文件 `.qjm` 已做（2026-09-12，复用 `.qj` 容器 `Kind::Model`，`find_model` 先 `.qjm` 再三件套目录，`pack model` / `tools/release/pack-model.sh`，
+    data Release 传 `model.qjm`，bundle.sh / qingjian.iss 只带一个文件），待 mac 与 box 真机各装一次验加载与重排；
+    密码框已按 TSF 规范做（2026-09-12）：`KEYBOARD_DISABLED` compartment 整键放行不组句，`IS_PRIVATE` / 密码 / PIN 输入范围为私密（组句但不学不记不发云端，`ClientMessage::Privacy` → `Engine::set_private`），box 真机验过：Edge 密码框整键放行；InPrivate 网页文本框报 `IS_SEARCH` 不报 `IS_PRIVATE`，私密路径只靠单测覆盖；CI 两个 job 都从 `data` Release 取 `model.qjm`（已做）。
 - [ ] Linux IBus / Fcitx（Phase 5）；配置同步、跨平台词库

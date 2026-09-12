@@ -31,7 +31,13 @@ impl Router {
                     self.reset_composition();
                     self.focused = None;
                 }
-                self.sessions.insert(session, SessionInfo { app });
+                self.sessions.insert(
+                    session,
+                    SessionInfo {
+                        app,
+                        private: false,
+                    },
+                );
                 None
             }
             ClientMessage::Key { session, event } => Some(self.handle_key(session, event)),
@@ -44,6 +50,11 @@ impl Router {
             ClientMessage::Surrounding { session, text } => {
                 tracing::trace!(?session, chars = text.chars().count(), "收到光标前文");
                 self.set_surrounding(session, text);
+                None
+            }
+            ClientMessage::Privacy { session, private } => {
+                tracing::debug!(?session, private, "输入框私密状态");
+                self.set_privacy(session, private);
                 None
             }
             ClientMessage::Selection {

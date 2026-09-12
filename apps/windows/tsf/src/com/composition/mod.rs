@@ -18,7 +18,7 @@ use qingjian_platform::protocol::{Frame, PreeditKind};
 
 pub(crate) use self::shared::Shared;
 use self::sink::CompositionSink;
-use super::edit::{anchor_rect, text_before_caret};
+use super::edit::{InputContext, anchor_rect, input_context};
 use super::service::SharedClient;
 
 /// 内联要显示的拼音行（跳过被纠错划掉的原字母）；空串表示没有组句内容。
@@ -32,7 +32,7 @@ pub(crate) fn preedit_string(frame: &Frame) -> String {
 }
 
 /// 在编辑会话回调（持写锁 `ec`）里调：先落定 `commit`，再按 `preedit` 起 / 改 / 收组句，最后把光标位置报给 Server。
-/// 新起一段组句时顺手把光标前的文字送给 Server（本地整句模型的前文）。
+/// 新起一段组句时顺手判输入框私密不私密（变了就告诉 Server）、把光标前的文字送给 Server（本地整句模型的前文）。
 pub(crate) fn apply(
     shared: &Rc<Shared>,
     engine: &SharedClient,
@@ -48,18 +48,27 @@ pub(crate) fn apply(
         end_composition(shared, ec)?;
     } else {
         let starting = !shared.has_composition();
-        let before = if starting {
-            text_before_caret(context, ec)
-        } else {
-            None
-        };
+        let input = starting.then(|| input_context(context, ec));
         update_preedit(shared, context, ec, preedit)?;
-        if let Some(before) = before {
-            report_surrounding(engine, before);
+        if let Some(InputContext { private, before }) = input {
+            report_privacy(engine, private);
+            if let Some(before) = before {
+                report_surrounding(engine, before);
+            }
         }
     }
     report_caret(shared, engine, context, ec);
     Ok(())
+}
+
+/// 告诉 Server 输入框私密与否（客户端只在变了时真发）；引擎正被别处借着（罕见）就算了，下段组句再报。
+fn report_privacy(engine: &SharedClient, private: bool) {
+    if let Ok(mut guard) = engine.try_borrow_mut()
+        && let Some(client) = guard.as_mut()
+        && let Err(error) = client.set_private(private)
+    {
+        super::log::log(&format!("报私密状态失败: {error}"));
+    }
 }
 
 /// 把光标前文送给 Server；引擎正被别处借着（罕见）就算了，Server 退回会话历史。

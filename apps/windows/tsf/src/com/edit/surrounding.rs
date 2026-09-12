@@ -1,5 +1,6 @@
-//! 组句起始时读应用光标前的文字，给本地整句模型当前文（对应 macOS 壳的 `surrounding_text`）。
-//! 在起组句的那次读写会话里顺手读（此时选区还是原来的插入点，拼音还没插进去），不另开会话。
+//! 组句起始时读应用光标前的文字，给本地整句模型当前文（对应 macOS 壳的 `surrounding_text`），
+//! 顺手按输入范围判这个输入框私密不私密（[`private_input`]）。在起组句的那次读写会话里做（此时选区还是原来的插入点，
+//! 拼音还没插进去），不另开会话。
 
 use std::mem::ManuallyDrop;
 
@@ -15,13 +16,39 @@ use windows::core::Interface;
 /// 往前读多少字（与 macOS 壳的 `RESCORE_LOOKBACK` 一致）。
 const LOOKBACK: i32 = 64;
 
-/// 当前选区起点之前最多 [`LOOKBACK`] 个 UTF-16 单元的文本。密码框、没有选区、读不到时为 `None`。
-pub(crate) fn text_before_caret(context: &ITfContext, ec: u32) -> Option<String> {
-    let range = selection_start(context, ec)?;
-    if is_password(context, ec, &range) {
-        crate::com::log::log("密码框，不读光标前文");
-        return None;
+/// 起组句时对输入框的判断：私密不私密，以及不私密时光标前的文字。
+pub(crate) struct InputContext {
+    /// 输入范围声明了私密 / 密码 / PIN（[`SECRET_SCOPES`]）：不读前文，Server 侧不学不记不发云端。
+    pub(crate) private: bool,
+
+    /// 当前选区起点之前最多 [`LOOKBACK`] 个 UTF-16 单元的文本。私密、没有选区、读不到时为 `None`。
+    pub(crate) before: Option<String>,
+}
+
+/// 起组句时读一次：先判私密，不私密再读前文。
+pub(crate) fn input_context(context: &ITfContext, ec: u32) -> InputContext {
+    let Some(range) = selection_start(context, ec) else {
+        return InputContext {
+            private: false,
+            before: None,
+        };
+    };
+    if private_input(context, ec, &range) {
+        crate::com::log::log("私密输入框，不读光标前文");
+        return InputContext {
+            private: true,
+            before: None,
+        };
     }
+    InputContext {
+        private: false,
+        before: text_before_caret(context, ec, range),
+    }
+}
+
+/// `range`（已折成插入点）之前最多 [`LOOKBACK`] 个 UTF-16 单元的文本；读不到 / 为空是 `None`。
+fn text_before_caret(context: &ITfContext, ec: u32, range: ITfRange) -> Option<String> {
+    let _ = context;
     let mut shifted = 0i32;
     unsafe { range.ShiftStart(ec, -LOOKBACK, &mut shifted, std::ptr::null()) }.ok()?;
     if shifted == 0 {
@@ -52,8 +79,9 @@ fn selection_start(context: &ITfContext, ec: u32) -> Option<ITfRange> {
     Some(range)
 }
 
-/// 算作密码、不读前文的输入范围：密码 / PIN 之外还有 `IS_PRIVATE`——Chromium（Edge / Chrome）的密码框
-/// 与无痕窗口报的是它而不是 `IS_PASSWORD`。
+/// 算作私密的输入范围：密码 / PIN 之外还有 `IS_PRIVATE`——Chromium（Edge / Chrome）给密码框与无痕窗口里所有输入框报的
+/// 都是它（含义是「别学」），不是 `IS_PASSWORD`。真正的密码框另有 `KEYBOARD_DISABLED` compartment 让整键放行
+/// （见 [`crate::com::context`]），到不了这里；这里兜的是没禁键盘但声明了私密的输入框：照常组句，但不读前文、不学、不记、不发云端。
 const SECRET_SCOPES: [InputScope; 5] = [
     IS_PASSWORD,
     IS_PRIVATE,
@@ -62,14 +90,14 @@ const SECRET_SCOPES: [InputScope; 5] = [
     IS_ALPHANUMERIC_PIN,
 ];
 
-/// 输入框声明了密码类输入范围（`GUID_PROP_INPUTSCOPE` 里含 [`SECRET_SCOPES`] 之一）。拿不到属性按不是密码。
-fn is_password(context: &ITfContext, ec: u32, range: &ITfRange) -> bool {
+/// 输入框声明了私密类输入范围（`GUID_PROP_INPUTSCOPE` 里含 [`SECRET_SCOPES`] 之一）。拿不到属性按不私密。
+fn private_input(context: &ITfContext, ec: u32, range: &ITfRange) -> bool {
     match input_scopes(context, ec, range) {
         Ok(scopes) => {
             crate::com::log::log(&format!("输入范围: {scopes:?}"));
             scopes.iter().any(|scope| SECRET_SCOPES.contains(scope))
         }
-        // 不支持输入范围属性的应用（如记事本）GetValue 会失败，按不是密码，不记日志
+        // 不支持输入范围属性的应用（如记事本）GetValue 会失败，按不私密，不记日志
         Err(_) => false,
     }
 }
