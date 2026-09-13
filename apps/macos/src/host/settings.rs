@@ -4,6 +4,24 @@ use super::diagnostics::{copy_to_pasteboard, open_with_system};
 use super::*;
 
 impl Host {
+    /// 表格中的启用开关只修改所选规则。
+    pub fn set_phrase_enabled(&mut self, index: usize, enabled: bool) {
+        let mut phrases = self.settings.config().custom_phrases.clone();
+        let Some(phrase) = phrases.get_mut(index) else {
+            return;
+        };
+        phrase.enabled = enabled;
+        let Some(path) = self.settings.path() else {
+            return;
+        };
+        let result = qingjian_platform::Config::set_custom_phrases(path, &phrases);
+        self.settings.reload();
+        self.apply_config(false);
+        if let Err(error) = result {
+            self.preferences.set_status(&error);
+        }
+    }
+
     /// 菜单动作。开关类先落盘再热加载，菜单勾选状态永远来自文件里的值。
     pub fn perform(&mut self, action: MenuAction) {
         tracing::info!(?action, "菜单");
@@ -43,6 +61,63 @@ impl Host {
         tracing::info!(?setting, "设置");
         let config = self.settings.config().clone();
         match (setting, value) {
+            (Setting::NewPhrase, _) => {
+                self.preferences.edit_phrase(&config, None);
+                return;
+            }
+            (Setting::EditPhrase, _) => {
+                if let Some(index) = self.preferences.selected_phrase() {
+                    self.preferences.edit_phrase(&config, Some(index));
+                }
+                return;
+            }
+            (Setting::CancelPhraseEdit, _) => {
+                self.preferences.close_phrase_editor();
+                return;
+            }
+
+            (Setting::PhraseDraft, _) => return,
+            (Setting::SelectPhrase, SettingValue::Index(index)) => {
+                self.preferences.select_phrase(&config, index);
+                return;
+            }
+            (Setting::SavePhrase | Setting::DeletePhrase, _) => {
+                let (index, draft) = self.preferences.phrase_draft();
+                let mut phrases = config.custom_phrases.clone();
+                if setting == Setting::DeletePhrase {
+                    let Some(index) = self.preferences.selected_phrase() else {
+                        return;
+                    };
+                    phrases.remove(index);
+                } else if let Some(index) = index {
+                    phrases[index] = draft;
+                } else {
+                    phrases.push(draft);
+                }
+                let Some(path) = self.settings.path() else {
+                    return;
+                };
+                if let Err(error) = qingjian_platform::Config::set_custom_phrases(path, &phrases) {
+                    self.preferences.set_phrase_error(&error);
+                    self.preferences.set_status(&error);
+                    return;
+                }
+                self.preferences.close_phrase_editor();
+                self.settings.reload();
+                self.apply_config(false);
+                if setting == Setting::SavePhrase {
+                    self.preferences.select_phrase(
+                        self.settings.config(),
+                        index.map_or(phrases.len(), |i| i + 1),
+                    );
+                }
+                self.preferences.set_status("快捷文本已保存");
+                return;
+            }
+            (Setting::FullWidthPunctuation, SettingValue::Index(index)) => {
+                self.settings
+                    .set_bool("general", "full_width_punctuation", index == 0);
+            }
             (Setting::LearningLanguage, SettingValue::Index(index)) => {
                 if let Some(language) = self.languages.get(index) {
                     self.settings

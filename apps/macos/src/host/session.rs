@@ -37,7 +37,9 @@ impl Session {
     ) {
         self.preedit = preedit;
         self.layout = CandidateLayout::new(candidates, page_size, slots);
-        self.highlighted = 0;
+        self.highlighted = (0..self.layout.len())
+            .find(|&i| self.layout.candidate(i).is_some())
+            .unwrap_or(0);
         self.page = 0;
         self.navigated = false;
     }
@@ -65,7 +67,14 @@ impl Session {
             return false;
         }
         let current = self.highlighted as isize;
-        let next = (current + delta).clamp(0, len as isize - 1) as usize;
+        let mut next = (current + delta).clamp(0, len as isize - 1) as usize;
+        while self.layout.candidate(next).is_none() {
+            let candidate = next as isize + delta.signum();
+            if candidate < 0 || candidate >= len as isize || delta == 0 {
+                return false;
+            }
+            next = candidate as usize;
+        }
         if next == self.highlighted {
             return false;
         }

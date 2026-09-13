@@ -9,6 +9,14 @@ impl Host {
     pub fn apply_config(&mut self, force: bool) {
         let config = self.settings.config().clone();
         self.engine.set_fuzzy(config.fuzzy);
+        self.engine
+            .set_full_width_punctuation(config.general.full_width_punctuation);
+        if let Err(error) = self
+            .engine
+            .set_custom_phrases(config.custom_phrases.clone())
+        {
+            tracing::warn!(%error, "自定义文本配置未应用");
+        }
         self.engine.set_mode_keys(config.shortcut.mode);
         self.engine.set_shuangpin(config.general.shuangpin());
         logging::set_level(config.general.log_level);

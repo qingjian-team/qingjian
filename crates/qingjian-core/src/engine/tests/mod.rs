@@ -2,6 +2,7 @@
 
 mod cloud;
 mod correction;
+mod custom;
 mod emoji;
 mod english;
 mod learning;

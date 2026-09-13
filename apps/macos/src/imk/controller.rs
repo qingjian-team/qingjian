@@ -827,6 +827,9 @@ impl QingjianInputController {
     fn commit_index(&self, index: usize, client: TextClient<'_>) -> bool {
         let candidate = host::with(|h| h.session.candidate(index)).flatten();
         let Some(candidate) = candidate else {
+            if host::with(|h| index < h.session.layout.len()).unwrap_or(false) {
+                return true;
+            }
             return self.commit_raw(client);
         };
         let Some(text) = host::with(|h| h.engine.commit(&candidate)) else {

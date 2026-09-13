@@ -44,7 +44,16 @@ impl CandidateLayout {
         if self.local.is_empty() {
             self.page_size
         } else {
-            self.slots.min(self.page_size - 1)
+            let fixed = self
+                .local
+                .iter()
+                .filter_map(|c| match c.kind {
+                    CandidateKind::Custom(n) => Some(n),
+                    _ => None,
+                })
+                .max()
+                .unwrap_or(1);
+            self.slots.min(self.page_size.saturating_sub(fixed.max(1)))
         }
     }
 
@@ -94,7 +103,10 @@ impl CandidateLayout {
 
     /// 第 `index` 格的候选；越界返回 `None`。
     pub fn candidate(&self, index: usize) -> Option<&Candidate> {
-        self.cells().get(index).map(|cell| cell.candidate())
+        self.cells()
+            .get(index)
+            .map(|cell| cell.candidate())
+            .filter(|c| c.kind != CandidateKind::Custom(0))
     }
 
     /// 第 `page` 页的格子。

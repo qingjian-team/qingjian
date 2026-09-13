@@ -61,7 +61,20 @@ impl Row {
         }
         Self {
             index: (position + 1).to_string(),
-            text: candidate.text.clone(),
+            text: if matches!(candidate.kind, qingjian_core::CandidateKind::Custom(_)) {
+                let mut chars = candidate.text.chars();
+                let mut preview: String = chars
+                    .by_ref()
+                    .take(60)
+                    .map(|c| if c == '\n' || c == '\r' { '↵' } else { c })
+                    .collect();
+                if chars.next().is_some() {
+                    preview.push('…');
+                }
+                preview
+            } else {
+                candidate.text.clone()
+            },
             annotation,
             cloud: false,
         }

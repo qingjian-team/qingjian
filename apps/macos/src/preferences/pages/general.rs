@@ -31,6 +31,9 @@ pub struct GeneralPage {
 
     /// 学习语言弹出菜单里各项对应的语言。
     languages: Vec<Language>,
+
+    /// 默认中文标点模式。
+    punctuation: Retained<NSPopUpButton>,
 }
 
 impl GeneralPage {
@@ -83,6 +86,19 @@ impl GeneralPage {
             mtm,
             "开双拼后 v、u、i 是音节键，表达式与问字模式只能用 ? 开头进；微软、搜狗方案的 ; 键是 ing。",
         );
+        let punctuation = row_popup(
+            layout,
+            mtm,
+            "默认中文标点",
+            &["全角（，；：）".to_owned(), "半角（,;:）".to_owned()],
+            Setting::FullWidthPunctuation,
+            target,
+        );
+        note(
+            layout,
+            mtm,
+            "仅影响标点，字母和数字保持半角；自定义文本原样输出。设置会保存。 ",
+        );
         let english = checkbox(
             mtm,
             "英文模式（Caps Lock）也给候选",
@@ -114,11 +130,16 @@ impl GeneralPage {
             english,
             english_off_in_apps,
             languages: languages.to_vec(),
+            punctuation,
         }
     }
 
     pub fn sync(&self, config: &Config) {
         let general = &config.general;
+        select(
+            &self.punctuation,
+            Some(usize::from(!general.full_width_punctuation)),
+        );
         select(
             &self.learning_language,
             self.languages

@@ -3,6 +3,18 @@
 use super::*;
 
 impl Engine {
+    /// 设置中文模式的标点转换。
+    pub fn set_full_width_punctuation(&mut self, enabled: bool) {
+        self.full_width_punctuation = enabled;
+    }
+
+    /// 原子更新快捷文本，非法规则保持旧值。
+    pub fn set_custom_phrases(&mut self, phrases: Vec<crate::CustomPhrase>) -> Result<(), String> {
+        crate::custom_phrase::validate_phrases(&phrases)?;
+        self.custom_phrases = phrases;
+        Ok(())
+    }
+
     /// 设双拼方案，`None` 回到全拼。纠错缓存按作用域记而作用域的含义变了，一并清掉。
     pub fn set_shuangpin(&mut self, scheme: Option<Scheme>) {
         self.shuangpin = scheme;

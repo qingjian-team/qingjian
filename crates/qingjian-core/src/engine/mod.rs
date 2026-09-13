@@ -104,6 +104,12 @@ pub struct Engine {
     /// 全角标点与引号配对状态。
     punctuation: Punctuation,
 
+    /// 中文标点转换开关。
+    full_width_punctuation: bool,
+
+    /// 用户定义的固定位置文本。
+    custom_phrases: Vec<crate::CustomPhrase>,
+
     /// 联想提供方，缺省为 [`NoPredictor`]。
     predictor: Box<dyn Predictor>,
 
@@ -306,6 +312,8 @@ impl Engine {
             english: None,
             english_mode: false,
             punctuation: Punctuation::default(),
+            full_width_punctuation: true,
+            custom_phrases: Vec::new(),
             predictor: Box::new(NoPredictor),
             language_model: Box::new(NoLanguageModel),
             sentence_scorer: None,

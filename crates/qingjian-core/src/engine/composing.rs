@@ -8,7 +8,11 @@ const MAX_PENDING_PASSTHROUGH: usize = 200;
 impl Engine {
     /// 中文模式下把半角字符转成全角标点；不需要转换返回 `None`。
     pub fn punctuate(&mut self, c: char) -> Option<&'static str> {
-        let converted = self.punctuation.convert(c);
+        let converted = if self.full_width_punctuation {
+            self.punctuation.convert(c)
+        } else {
+            None
+        };
         if let Some(text) = converted {
             self.history.record(text);
             self.remember_commit(LastCommit::plain(text));
@@ -217,7 +221,7 @@ impl Engine {
 
     /// 是否处在表达式模式（缓冲区以表达式键、缺省 `v` 开头）。此时壳应把数字和运算符也交给 [`Self::push`]，而不是当选词键。
     pub fn expression_mode(&self) -> bool {
-        self.modes().is_expression(self.composition.text())
+        !self.has_custom_phrase() && self.modes().is_expression(self.composition.text())
     }
 
     /// 英文直输段：缓冲区里有拼音以外的字符（`no-way`），整段原样上屏、不解析拼音。
@@ -228,7 +232,7 @@ impl Engine {
 
     /// 是否处在问字模式（缓冲区以问字键、缺省 `u`，或 `?` 开头）：拼音问题由云端答，十六进制码点本地答。
     pub fn question_mode(&self) -> bool {
-        self.modes().is_question(self.composition.text())
+        !self.has_custom_phrase() && self.modes().is_question(self.composition.text())
     }
 
     /// 问字模式下正在敲的还可能是 Unicode 码点（前缀后为空，或到目前为止全是十六进制 / 开头 `+`）：

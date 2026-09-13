@@ -145,9 +145,10 @@ impl Engine {
                 user_word: self.learner.forget_english(&candidate.text),
                 learning: false,
             },
-            CandidateKind::Sentence | CandidateKind::Shortcut | CandidateKind::Emoji => {
-                Forgotten::default()
-            }
+            CandidateKind::Sentence
+            | CandidateKind::Shortcut
+            | CandidateKind::Custom(_)
+            | CandidateKind::Emoji => Forgotten::default(),
         };
         if !forgotten.is_nothing() {
             self.forget_span_cache();
