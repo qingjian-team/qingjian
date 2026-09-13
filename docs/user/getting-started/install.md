@@ -22,7 +22,7 @@ description: macOS 与 Windows 的安装步骤：系统要求、安装包、首�
 
 ## Windows
 
-**系统要求**：64 位 Windows 11。Windows 10 未经正式测试，可能出现不可预知的问题。
+**系统要求**：64 位 Windows 10（1809 或更新）或 Windows 11。安装包自带设置界面所需的运行时，不必另装组件。
 
 1. 下载 `Qingjian-<版本>-Setup.exe`，双击安装，需要管理员权限。
 2. 测试版尚无正式的代码签名，SmartScreen 会拦截：点「更多信息 → 仍要运行」。

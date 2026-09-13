@@ -61,6 +61,9 @@ Name: "chs"; MessagesFile: "compiler:Languages\ChineseSimplified.isl"
 Source: "{#Repo}\target\release\qingjian_tsf.dll";      DestDir: "{app}"; DestName: "{#TsfDll}"; Flags: ignoreversion uninsrestartdelete
 Source: "{#Repo}\target\release\qingjian-server.exe";   DestDir: "{app}"; Flags: ignoreversion
 Source: "{#Repo}\target\release\qingjian-settings.exe"; DestDir: "{app}"; Flags: ignoreversion
+; 设置程序自带一份 Windows App Runtime（自包含部署：Windows 10 上机器装的框架包用不了，见 docs\notes\windows-win10.md）；
+; 文件由 build.ps1 按 settings-runtime.txt 从 target\release 挑进 target\installer\settings-runtime，必须与 exe 同级。
+Source: "{#Repo}\target\installer\settings-runtime\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "{#Repo}\apps\windows\tsf\resources\qingjian.ico"; DestDir: "{app}"; Flags: ignoreversion
 ; —— 随包生成数据（只装运行时要的 .qj / .tsv，不装 dev 中间产物）——
 Source: "{#Repo}\data\generated\dict.qj";        DestDir: "{app}\data\generated";       Flags: ignoreversion

@@ -10,6 +10,7 @@ C:\Program Files\Qingjian\
     qingjian_tsf-<版本>.dll   TSF 文本服务（被加载进每个应用进程；按版本起名，见「升级」）
     qingjian-server.exe       输入内核 Server（跑在应用进程外）
     qingjian-settings.exe     设置界面
+    Microsoft.UI.Xaml.dll …   设置程序自带的 Windows App Runtime（自包含部署，见下节；约 56 MB / 185 个文件）
     qingjian.ico              开始菜单 / 启动项快捷方式的图标（exe 里也嵌了一份）
     data\generated\           dict.qj / lm.qj / glossary-{en,ja,zh}.qj / english.tsv / dicts\*.qj
     assets\                   emoji\ levels\ sample\
@@ -42,6 +43,18 @@ Server 与设置程序按 **exe 相对**定位随包资源（`qingjian_platform:
 - 只 `regsvr32` 新文件（InprocServer32 指向它）。**不要**对旧 DLL `regsvr32 /u`：那会把整个 CLSID / profile 注销掉；
 - 已开着的应用继续用进程里的旧 DLL 直到重启，Server 两个版本都服务（`OpenSession` 带协议版本，对不上只记警告）；
 - 装完删旧 DLL，删不掉的登记成重启后删。
+
+## 设置程序自带 Windows App Runtime
+
+设置界面用 Windows Reactor（WinUI 3）写，而它的框架依赖引导只有 Windows 11 走得通：要 Windows 11 才有的
+AppModel API 把框架包加进进程包图，Windows 10 上没有那两个函数（定位见 `docs\notes\windows-win10.md`）。
+所以设置程序用**自包含部署**——`apps\windows\settings\build.rs` 让 `windows-reactor-setup` 把 Windows App Runtime
+铺到 `target\release\`，打包时按 `settings-runtime.txt` 挑进 `target\installer\settings-runtime`，本目录的
+`qingjian.iss` 再整个目录装到 `{app}` 下、与 `qingjian-settings.exe` 同级。
+
+- 这些文件是运行时必需：少一件（或层级装错）设置窗口就起不来，`build.ps1` 发现缺文件会直接失败。
+- 升级 `windows-reactor` / `windows-reactor-setup` 时，照新版 crate 的 `assets/runtime.txt` 核对 `settings-runtime.txt`。
+- Server 与 TSF DLL 不依赖它；装机体积的大头仍是随包数据。
 
 ## 打包（在编译机上）
 

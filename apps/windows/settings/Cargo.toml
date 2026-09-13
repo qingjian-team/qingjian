@@ -26,6 +26,8 @@ rfd = "0.17"
 
 [target."cfg(windows)".build-dependencies]
 winresource = "0.1.31"
+# 自包含部署 Windows App Runtime（Windows 10 上框架依赖的引导用不了，见 build.rs 与 docs\notes\windows-win10.md）
+windows-reactor-setup = "0.100"
 
 [lints]
 workspace = true
