@@ -2385,6 +2385,7 @@ dependencies = [
  "rfd",
  "toml_edit",
  "windows-reactor",
+ "windows-reactor-setup",
  "winresource",
 ]
 
@@ -3747,6 +3748,12 @@ dependencies = [
  "windows-threading 0.100.0",
  "windows-time",
 ]
+
+[[package]]
+name = "windows-reactor-setup"
+version = "0.100.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b58ab97379ff5d211ca221d92e7e64ef50c6384c11a40ae68a8d89c19bd1ba6a"
 
 [[package]]
 name = "windows-reference"

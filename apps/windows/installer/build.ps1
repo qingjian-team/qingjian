@@ -42,6 +42,27 @@ foreach ($t in $targets) {
     if (-not (Test-Path $p)) { throw "缺产物 $p，先跑一次不带 -SkipBuild 的构建" }
 }
 
+# 1.2) 自包含 Windows App Runtime：设置程序不再依赖机器上装的框架包（Windows 10 上框架依赖的引导用不了，
+#      见 apps\windows\settings\build.rs）。cargo 构建时 windows-reactor-setup 已按清单把运行时铺到
+#      target\release\，这里挑进暂存目录；target\release 里还有 deps\ 之类的中间产物，不能整个目录装。
+$runtimeStage = Join-Path $Repo 'target\installer\settings-runtime'
+$runtimeList  = Join-Path $PSScriptRoot 'settings-runtime.txt'
+$wanted = Get-Content $runtimeList | Where-Object { $_ -and -not $_.StartsWith('#') } | ForEach-Object { $_.Trim() }
+if (Test-Path $runtimeStage) { Remove-Item $runtimeStage -Recurse -Force }
+New-Item -ItemType Directory -Path $runtimeStage -Force | Out-Null
+$missing = @()
+foreach ($name in $wanted) {
+    $src = Join-Path $Repo "target\release\$name"
+    if (Test-Path $src) {
+        Copy-Item $src -Destination (Join-Path $runtimeStage $name) -Recurse -Force
+    } else {
+        $missing += $name
+    }
+}
+# 缺文件说明自包含运行时没铺成功（build.rs 下载 NuGet 或解 MSIX 失败），早报错，别打出个跑不起来的包。
+if ($missing.Count -gt 0) { throw "自包含 Windows App Runtime 缺 $($missing.Count) 项：$($missing -join ', ')" }
+Write-Host "自包含运行时 $($wanted.Count) 项 → target\installer\settings-runtime" -ForegroundColor Cyan
+
 # 1.5) 签名（必须在 iscc 打包前：Inno 把已签的文件原样拷进安装包）。
 if ($Sign) {
     Write-Host '自签产物（uiAccess 要求 Server 代码签名）…' -ForegroundColor Cyan
