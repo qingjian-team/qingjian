@@ -41,7 +41,7 @@ impl From<CandidateKind> for InputSource {
             CandidateKind::Cloud => Self::Cloud,
             CandidateKind::Sentence => Self::Sentence,
             CandidateKind::English => Self::English,
-            CandidateKind::Shortcut => Self::Shortcut,
+            CandidateKind::Shortcut | CandidateKind::Custom(_) => Self::Shortcut,
             CandidateKind::Emoji => Self::Emoji,
         }
     }

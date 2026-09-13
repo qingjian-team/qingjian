@@ -7,6 +7,7 @@
 pub mod candidate;
 pub mod composition;
 pub mod correction;
+pub mod custom_phrase;
 pub mod emoji;
 pub mod engine;
 pub mod english;
@@ -17,6 +18,7 @@ pub mod punctuation;
 pub mod ranking;
 pub mod sentence;
 pub mod shortcut;
+pub use custom_phrase::CustomPhrase;
 pub mod shuangpin;
 pub mod storage;
 

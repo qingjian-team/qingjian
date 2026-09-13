@@ -8,6 +8,7 @@ mod cloud;
 mod dictionaries;
 mod fuzzy;
 mod general;
+mod phrases;
 mod shortcuts;
 mod usage;
 
@@ -19,5 +20,6 @@ pub(super) use cloud::CloudPage;
 pub(super) use dictionaries::DictionariesPage;
 pub(super) use fuzzy::FuzzyPage;
 pub(super) use general::GeneralPage;
+pub(super) use phrases::PhrasesPage;
 pub(super) use shortcuts::ShortcutsPage;
 pub(super) use usage::UsagePage;

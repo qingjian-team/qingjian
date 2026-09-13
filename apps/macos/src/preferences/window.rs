@@ -10,7 +10,7 @@ use qingjian_platform::Config;
 use super::controls::{language_label, small_label};
 use super::layout::{Layout, PAGE_PADDING, PAGE_WIDTH};
 use super::pages::{
-    AdvancedPage, CandidatesPage, CloudPage, DictionariesPage, FuzzyPage, GeneralPage,
+    AdvancedPage, CandidatesPage, CloudPage, DictionariesPage, FuzzyPage, GeneralPage, PhrasesPage,
     ShortcutsPage, UsagePage, build_about,
 };
 use super::panel::PreferencesPanel;
@@ -38,6 +38,9 @@ pub struct PreferencesWindow {
 
     /// 「快捷键」页。
     shortcuts: ShortcutsPage,
+
+    /// 自定义文本编辑。
+    phrases: PhrasesPage,
 
     /// 「模糊音」页。
     fuzzy: FuzzyPage,
@@ -89,6 +92,10 @@ impl PreferencesWindow {
         let mut layout = new_layout();
         let shortcuts = ShortcutsPage::build(&mut layout, mtm, &target);
         pages.push(page("快捷键", layout));
+
+        let mut layout = new_layout();
+        let phrases = PhrasesPage::build(&mut layout, mtm, &target);
+        pages.push(page("快捷文本", layout));
 
         let mut layout = new_layout();
         let fuzzy = FuzzyPage::build(&mut layout, mtm, &target);
@@ -167,6 +174,7 @@ impl PreferencesWindow {
             general,
             candidates,
             shortcuts,
+            phrases,
             fuzzy,
             dictionaries,
             cloud,
@@ -175,6 +183,25 @@ impl PreferencesWindow {
             status,
             _target: target,
         }
+    }
+
+    pub fn select_phrase(&self, config: &Config, index: usize) {
+        self.phrases.load(config, index);
+    }
+    pub fn selected_phrase(&self) -> Option<usize> {
+        self.phrases.selected_row()
+    }
+    pub fn edit_phrase(&self, config: &Config, index: Option<usize>) {
+        self.phrases.edit(config, index);
+    }
+    pub fn close_phrase_editor(&self) {
+        self.phrases.close_editor();
+    }
+    pub fn set_phrase_error(&self, error: &str) {
+        self.phrases.set_error(error);
+    }
+    pub fn phrase_draft(&self) -> (Option<usize>, qingjian_core::CustomPhrase) {
+        (self.phrases.selected(), self.phrases.draft())
     }
 
     /// 打开（或带到最前）。
@@ -194,6 +221,7 @@ impl PreferencesWindow {
         self.general.sync(config);
         self.candidates.sync(config);
         self.shortcuts.sync(config);
+        self.phrases.sync(config);
         self.fuzzy.sync(config);
         self.cloud.sync(
             config,

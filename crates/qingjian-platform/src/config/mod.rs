@@ -45,6 +45,10 @@ pub struct Config {
     /// 常规：学习语言、每页候选数、翻页键、外观。
     pub general: GeneralConfig,
 
+    /// 自定义文本；保存和读取均检查位置冲突。
+    #[serde(deserialize_with = "deserialize_phrases")]
+    pub custom_phrases: Vec<qingjian_core::CustomPhrase>,
+
     /// 快捷键：前缀模式键（表达式 / 问字）与上屏译词的修饰键组合。
     pub shortcut: ShortcutConfig,
 
@@ -65,6 +69,14 @@ pub struct Config {
 
     /// 本地整句模型。
     pub model: LocalModelConfig,
+}
+
+fn deserialize_phrases<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Vec<qingjian_core::CustomPhrase>, D::Error> {
+    let phrases = Vec::<qingjian_core::CustomPhrase>::deserialize(deserializer)?;
+    qingjian_core::custom_phrase::validate_phrases(&phrases).map_err(serde::de::Error::custom)?;
+    Ok(phrases)
 }
 
 /// 模板的 `[apps]` 一节（macOS）：应用按 bundle identifier 认。名单要与 [`DEFAULT_ENGLISH_CANDIDATES_OFF`] 一致，
@@ -239,6 +251,32 @@ enabled = false
 );
 
 impl Config {
+    /// 保存自定义文本列表，冲突时不修改文件。
+    pub fn set_custom_phrases(
+        path: &Path,
+        phrases: &[qingjian_core::CustomPhrase],
+    ) -> Result<(), String> {
+        qingjian_core::custom_phrase::validate_phrases(phrases)?;
+        let source = match std::fs::read_to_string(path) {
+            Ok(s) => s,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => TEMPLATE.to_owned(),
+            Err(e) => return Err(e.to_string()),
+        };
+        let mut document: DocumentMut = source.parse::<DocumentMut>().map_err(|e| e.to_string())?;
+        let mut tables = toml_edit::ArrayOfTables::new();
+        for p in phrases {
+            let mut t = toml_edit::Table::new();
+            t["code"] = toml_edit::value(&p.code);
+            t["text"] = toml_edit::value(&p.text);
+            t["position"] = toml_edit::value(p.position as i64);
+            t["enabled"] = toml_edit::value(p.enabled);
+            tables.push(t);
+        }
+        document["custom_phrases"] = toml_edit::Item::ArrayOfTables(tables);
+        qingjian_core::storage::write_atomic_str(path, &document.to_string())
+            .map_err(|e| e.to_string())
+    }
+
     /// 读配置。文件不存在按默认值；存在但解析失败报错，不要静默吞掉用户的笔误。
     pub fn load(path: &Path) -> Result<Self, ConfigError> {
         let source = match std::fs::read_to_string(path) {

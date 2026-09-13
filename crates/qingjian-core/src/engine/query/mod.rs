@@ -18,7 +18,26 @@ impl Engine {
     /// 上屏之后接着组句；见 [`Composition::scope`]。
     pub fn query(&self) -> Result<Query, ParseError> {
         self.last_rescored.set(false);
-        let query = self.query_inner()?;
+        let mut query = match self.query_inner() {
+            Ok(query) => query,
+            Err(error) => {
+                if !self
+                    .custom_phrases
+                    .iter()
+                    .any(|p| p.enabled && p.code == self.composition.scope())
+                {
+                    return Err(error);
+                }
+                let mut query = self.query_expression(
+                    self.composition.scope(),
+                    self.marked_rest(self.composition.rest()),
+                    Instant::now(),
+                );
+                query.candidates.items.clear();
+                query
+            }
+        };
+        self.insert_custom_phrases(&mut query.candidates.items);
         // 给输入日志留个摘要：上屏时才知道选了什么，这里才知道看到了什么
         let pinyin = match &query.correction {
             Some(correction) => correction.segmentation.joined("'"),

@@ -14,6 +14,11 @@ define_class!(
     pub struct PreferencesTarget;
 
     impl PreferencesTarget {
+        #[unsafe(method(editPhrase:))]
+        fn edit_phrase(&self, _sender: Option<&AnyObject>) {
+            host::with(|h| h.change_setting(super::Setting::EditPhrase, super::SettingValue::Bool(false)));
+        }
+
         #[unsafe(method(changed:))]
         fn changed(&self, sender: Option<&AnyObject>) {
             if let Some((setting, value)) = super::setting_from_sender(sender) {

@@ -47,6 +47,30 @@ pub enum Setting {
     /// `[model] enabled`。
     LocalModelEnabled,
 
+    /// 默认中文标点模式。
+    FullWidthPunctuation,
+
+    /// 选择已有快捷文本。
+    SelectPhrase,
+
+    /// 仅编辑草稿，不立即保存。
+    PhraseDraft,
+
+    /// 保存快捷文本。
+    SavePhrase,
+
+    /// 删除当前快捷文本。
+    DeletePhrase,
+
+    /// 新增文本。
+    NewPhrase,
+
+    /// 编辑选中行。
+    EditPhrase,
+
+    /// 关闭编辑表单。
+    CancelPhraseEdit,
+
     /// `[predict] base_url`。
     BaseUrl,
 
@@ -161,6 +185,14 @@ impl Setting {
             Self::OpenWebsite => 30,
             Self::OpenRepository => 31,
             Self::LocalModelEnabled => 32,
+            Self::FullWidthPunctuation => 33,
+            Self::SelectPhrase => 34,
+            Self::PhraseDraft => 35,
+            Self::SavePhrase => 36,
+            Self::DeletePhrase => 37,
+            Self::NewPhrase => 38,
+            Self::EditPhrase => 39,
+            Self::CancelPhraseEdit => 40,
             Self::Fuzzy(index) => FUZZY_TAG_BASE + index as NSInteger,
             Self::DictionaryEnabled(index) => DICTIONARY_ENABLED_TAG_BASE + index as NSInteger,
             Self::DictionaryRemove(index) => DICTIONARY_REMOVE_TAG_BASE + index as NSInteger,
@@ -201,6 +233,14 @@ impl Setting {
             30 => Self::OpenWebsite,
             31 => Self::OpenRepository,
             32 => Self::LocalModelEnabled,
+            33 => Self::FullWidthPunctuation,
+            34 => Self::SelectPhrase,
+            35 => Self::PhraseDraft,
+            36 => Self::SavePhrase,
+            37 => Self::DeletePhrase,
+            38 => Self::NewPhrase,
+            39 => Self::EditPhrase,
+            40 => Self::CancelPhraseEdit,
             _ if tag >= DICTIONARY_REMOVE_TAG_BASE => {
                 let index = usize::try_from(tag - DICTIONARY_REMOVE_TAG_BASE).ok()?;
                 (index < MAX_DICTIONARIES).then_some(Self::DictionaryRemove(index))?
