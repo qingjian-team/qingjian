@@ -50,5 +50,33 @@
 		<string>Hans</string>
 		<string>Latn</string>
 	</array>
+
+	<!-- 输入模式声明：标准文本视图（备忘录等）按 script / 模式过滤输入源，扁平声明（没有这个键）在这些视图里
+	会话会被立即拆除、表现为「切换不过去」，系统设置「添加输入法」列表里也不显示青简，自动启用失败后用户没有
+	兜底路径（#31）。单模式 Hans、script 用 smUnicodeScript，与鼠须管等主流输入法一致 -->
+	<key>tsInputModeListKey</key>
+	<dict>
+		<key>app.qingjian.inputmethod.Hans</key>
+		<dict>
+			<key>TISInputSourceID</key>
+			<string>app.qingjian.inputmethod.Hans</string>
+			<key>TISIntendedLanguage</key>
+			<string>zh-Hans</string>
+			<key>tsInputModeCharacterRepertoireKey</key>
+			<array>
+				<string>Hans</string>
+			</array>
+			<key>tsInputModeDefaultStateKey</key>
+			<true/>
+			<key>tsInputModeIsVisibleKey</key>
+			<true/>
+			<key>tsInputModeMenuIconFileKey</key>
+			<string>qingjian-menu.tiff</string>
+			<key>tsInputModePrimaryInScriptKey</key>
+			<true/>
+			<key>tsInputModeScriptKey</key>
+			<string>smUnicodeScript</string>
+		</dict>
+	</dict>
 </dict>
 </plist>

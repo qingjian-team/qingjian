@@ -28,5 +28,9 @@ tracing-subscriber.workspace = true
 dotenvy.workspace = true
 toml_edit.workspace = true
 
+[dev-dependencies]
+# 只给 tests/info_plist.rs 解析仓库里的 Info.plist 用，不进产物
+plist = "1.7"
+
 [lints]
 workspace = true
