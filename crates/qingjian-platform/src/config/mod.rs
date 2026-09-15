@@ -175,6 +175,9 @@ english_candidates = true
 full_width_punctuation = true
 # 英文模式下的同一件事，中英各记一份，状态条切的是当前模式那份；只有 Windows 用
 english_full_width_punctuation = false
+# 正在打拼音时敲 , . ? - 这些半角标点怎么办：raw 标点跟着拼音进英文直输段（hello, world 整段原样上屏）/
+# commit 先把首选上屏再出标点（nihao, → 你好，）/ auto 缓冲区切不成拼音（hello）才直输，切得成（nihao）就上屏
+punctuation_mode = "raw"
 # 双拼方案：留空为全拼；xiaohe 小鹤 / ziranma 自然码 / microsoft 微软 / sogou 搜狗
 # 开着时 v / u / i 都是音节键，表达式与问字模式只能用 ? 开头进；微软、搜狗方案的 ; 键是 ing
 shuangpin = ""

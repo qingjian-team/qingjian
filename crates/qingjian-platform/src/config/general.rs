@@ -1,4 +1,4 @@
-use qingjian_core::ShuangpinScheme;
+use qingjian_core::{PunctuationMode, ShuangpinScheme};
 use serde::{Deserialize, Serialize};
 
 use super::{LayoutMode, LogLevel, PreeditMode, ThemeMode};
@@ -46,6 +46,9 @@ pub struct GeneralConfig {
     /// 英文模式下的同一件事，中英各记一份；缺省半角。只有 Windows 用（macOS 英文模式一律半角）。
     pub english_full_width_punctuation: bool,
 
+    /// 组句中敲半角标点怎么办：`raw` 进英文直输段（缺省）、`commit` 先把候选上屏、`auto` 像英文才直输。
+    pub punctuation_mode: PunctuationMode,
+
     /// 双拼方案：空串为全拼，否则 `xiaohe` / `ziranma` / `microsoft` / `sogou`（见 [`ShuangpinScheme`]）。
     pub shuangpin: String,
 
@@ -72,6 +75,7 @@ impl Default for GeneralConfig {
             english_candidates: true,
             full_width_punctuation: true,
             english_full_width_punctuation: false,
+            punctuation_mode: PunctuationMode::default(),
             shuangpin: String::new(),
             zhuyin: false,
             log_level: LogLevel::default(),

@@ -17,3 +17,4 @@ pub use config::{
     ThemeMode,
 };
 pub use error::ConfigError;
+pub use qingjian_core::PunctuationMode;
