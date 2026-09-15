@@ -6,12 +6,18 @@ impl QingjianInputController {
     /// Shift 在松开时识别；普通按键先匹配配置快捷键，再分发命令键与文本。
     pub(super) fn dispatch_event(&self, event: &NSEvent, client: TextClient<'_>) -> bool {
         if event.r#type() == NSEventType::FlagsChanged {
-            let tapped = self.ivars().borrow_mut().flags_changed(
-                event.keyCode(),
-                event.modifierFlags(),
-                event.timestamp(),
-            );
-            if tapped && host::with(|h| h.mode_switch_keys).flatten() == Some(ModeSwitch::Shift) {
+            let key = event.keyCode();
+            let flags = event.modifierFlags();
+            let tapped = self
+                .ivars()
+                .borrow_mut()
+                .flags_changed(key, flags, event.timestamp());
+            let switch = host::with(|h| h.mode_switch_keys).flatten();
+            // 只记 Shift 本身的按下 / 松开，真机上排查「单击没切换」靠这两行
+            if matches!(key, 56 | 60) {
+                tracing::info!(key, flags = flags.0, tapped, ?switch, "Shift 事件");
+            }
+            if tapped && switch == Some(ModeSwitch::Shift) {
                 self.switch_mode(client);
                 return true;
             }
@@ -135,6 +141,7 @@ impl QingjianInputController {
         host::with(|h| h.end_translation());
         self.commit_raw(client);
         modifiers::toggle_mode();
+        tracing::info!(english = modifiers::english_mode(), "中英切换");
         host::with(|h| {
             h.engine.set_english_mode(false);
             h.engine.break_chain();

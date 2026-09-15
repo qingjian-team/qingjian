@@ -188,6 +188,12 @@ impl Host {
                     self.settings.set_value("general", "layout", layout.key());
                 }
             }
+            (Setting::PunctuationMode, SettingValue::Index(index)) => {
+                if let Some(mode) = qingjian_core::PunctuationMode::ALL.get(index) {
+                    self.settings
+                        .set_value("general", "punctuation_mode", mode.key());
+                }
+            }
             (Setting::Preedit, SettingValue::Index(index)) => {
                 if let Some(mode) = PreeditMode::ALL.get(index) {
                     self.settings.set_value("general", "preedit", mode.key());

@@ -89,6 +89,9 @@ pub enum Setting {
     /// `[general] preedit`，弹出菜单。
     Preedit,
 
+    /// `[general] punctuation_mode`，弹出菜单：组句中敲标点进直输 / 先上屏 / 自动。
+    PunctuationMode,
+
     /// `[general] english_candidates`，勾选框。
     EnglishCandidates,
 
@@ -197,6 +200,7 @@ impl Setting {
             Self::EditPhrase => 39,
             Self::CancelPhraseEdit => 40,
             Self::ModeSwitchKeys => 41,
+            Self::PunctuationMode => 42,
             Self::Fuzzy(index) => FUZZY_TAG_BASE + index as NSInteger,
             Self::DictionaryEnabled(index) => DICTIONARY_ENABLED_TAG_BASE + index as NSInteger,
             Self::DictionaryRemove(index) => DICTIONARY_REMOVE_TAG_BASE + index as NSInteger,
@@ -246,6 +250,7 @@ impl Setting {
             39 => Self::EditPhrase,
             40 => Self::CancelPhraseEdit,
             41 => Self::ModeSwitchKeys,
+            42 => Self::PunctuationMode,
             _ if tag >= DICTIONARY_REMOVE_TAG_BASE => {
                 let index = usize::try_from(tag - DICTIONARY_REMOVE_TAG_BASE).ok()?;
                 (index < MAX_DICTIONARIES).then_some(Self::DictionaryRemove(index))?
@@ -283,6 +288,7 @@ mod tests {
             Setting::OpenConfigFile,
             Setting::Layout,
             Setting::Preedit,
+            Setting::PunctuationMode,
             Setting::EnglishCandidates,
             Setting::TranslationKeys,
             Setting::TranslationSecondKeys,

@@ -3,7 +3,7 @@
 use objc2::MainThreadMarker;
 use objc2::rc::Retained;
 use objc2_app_kit::{NSButton, NSPopUpButton};
-use qingjian_core::{Language, ShuangpinScheme};
+use qingjian_core::{Language, PunctuationMode, ShuangpinScheme};
 use qingjian_platform::{Config, MAX_PAGE_SIZE};
 
 use crate::preferences::controls::{
@@ -34,6 +34,9 @@ pub struct GeneralPage {
 
     /// 默认中文标点模式。
     punctuation: Retained<NSPopUpButton>,
+
+    /// 组句中敲标点怎么办。
+    punctuation_mode: Retained<NSPopUpButton>,
 }
 
 impl GeneralPage {
@@ -99,6 +102,23 @@ impl GeneralPage {
             mtm,
             "仅影响标点，字母和数字保持半角；自定义短语原样输出。设置会保存。 ",
         );
+        let mode_titles: Vec<String> = PunctuationMode::ALL
+            .iter()
+            .map(|m| m.label().to_owned())
+            .collect();
+        let punctuation_mode = row_popup(
+            layout,
+            mtm,
+            "打拼音时敲标点",
+            &mode_titles,
+            Setting::PunctuationMode,
+            target,
+        );
+        note(
+            layout,
+            mtm,
+            "「进入英文直输」能直接打 hello, world 这样带标点的英文；「先上屏候选再出标点」是 nihao, 出「你好，」；「自动」按拼音切不切得开来定，切不开的 hello 直输、切得开的 nihao 上屏。翻页键不受影响。",
+        );
         let english = checkbox(mtm, "英文模式也给候选", Setting::EnglishCandidates, target);
         row_checkbox(layout, &english);
         note(
@@ -126,6 +146,7 @@ impl GeneralPage {
             english_off_in_apps,
             languages: languages.to_vec(),
             punctuation,
+            punctuation_mode,
         }
     }
 
@@ -140,6 +161,12 @@ impl GeneralPage {
             self.languages
                 .iter()
                 .position(|l| l.code() == general.learning_language),
+        );
+        select(
+            &self.punctuation_mode,
+            PunctuationMode::ALL
+                .iter()
+                .position(|m| *m == general.punctuation_mode),
         );
         select(&self.page_size, Some(general.page_size() - 1));
         select(
