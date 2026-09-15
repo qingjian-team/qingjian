@@ -5,17 +5,21 @@
 
 use objc2::rc::{Allocated, Retained};
 use objc2::runtime::{AnyObject, Sel};
-use objc2::{define_class, msg_send, sel};
-use objc2_app_kit::{NSEvent, NSEventModifierFlags, NSEventType, NSMenu};
+use std::cell::RefCell;
+
+use objc2::{DefinedClass, define_class, msg_send, sel};
+use objc2_app_kit::{NSEvent, NSEventMask, NSEventModifierFlags, NSEventType, NSMenu};
 use objc2_foundation::NSObjectProtocol;
 use objc2_input_method_kit::{IMKInputController, IMKServer};
 use qingjian_core::{Candidate, QUESTION_PREFIX};
-use qingjian_platform::Modifiers;
+use qingjian_platform::{ModeSwitch, Modifiers};
 
-use super::{TextClient, catch_panic, modifiers, recover_from_panic, secure_input};
+use super::{ShiftTap, TextClient, catch_panic, modifiers, recover_from_panic, secure_input};
 use crate::candidates::Preedit;
 use crate::host;
 use crate::menubar;
+
+mod event;
 
 define_class!(
     // SAFETY:
@@ -24,10 +28,18 @@ define_class!(
     #[unsafe(super(IMKInputController))]
     // 名字要和 Info.plist 的 InputMethodServerControllerClass 一致
     #[name = "QingjianInputController"]
-    #[ivars = ()]
+    #[ivars = RefCell<ShiftTap>]
     pub struct QingjianInputController;
 
     impl QingjianInputController {
+        /// Shift 通过 flagsChanged 送达。扩展事件掩码后需显式接管鼠标收尾，避免组句残留。
+        #[unsafe(method(recognizedEvents:))]
+        fn recognized_events(&self, _sender: Option<&AnyObject>) -> usize {
+            (NSEventMask::KeyDown | NSEventMask::FlagsChanged
+                | NSEventMask::LeftMouseDown | NSEventMask::RightMouseDown
+                | NSEventMask::OtherMouseDown).0 as usize
+        }
+
         /// IMKServer 为每个新会话调用的指定初始化方法，在这里放好 ivars。
         #[unsafe(method_id(initWithServer:delegate:client:))]
         fn init_with_server(
@@ -37,7 +49,7 @@ define_class!(
             client: Option<&AnyObject>,
         ) -> Option<Retained<Self>> {
             tracing::info!("新建输入会话");
-            let this = this.set_ivars(());
+            let this = this.set_ivars(RefCell::new(ShiftTap::default()));
             unsafe { msg_send![super(this), initWithServer: server, delegate: delegate, client: client] }
         }
 
@@ -65,6 +77,7 @@ define_class!(
         /// 应用要求立刻结束本次输入（切换焦点、切换输入法等）。
         #[unsafe(method(commitComposition:))]
         fn commit_composition(&self, client: Option<&AnyObject>) {
+            self.ivars().borrow_mut().reset();
             let client = client.map(TextClient::new);
             let done = catch_panic("commitComposition", || {
                 if let Some(client) = client {
@@ -82,6 +95,7 @@ define_class!(
 
         #[unsafe(method(activateServer:))]
         fn activate_server(&self, sender: Option<&AnyObject>) {
+            self.ivars().borrow_mut().reset();
             tracing::info!("activateServer");
             let done = catch_panic("activateServer", || {
                 // 用户要往 [apps] 里加应用时，从这条日志抄 bundle identifier
@@ -117,6 +131,7 @@ define_class!(
 
         #[unsafe(method(deactivateServer:))]
         fn deactivate_server(&self, sender: Option<&AnyObject>) {
+            self.ivars().borrow_mut().reset();
             tracing::info!("deactivateServer");
             let client = sender.map(TextClient::new);
             let done = catch_panic("deactivateServer", || {
@@ -172,99 +187,6 @@ fn digit_key(key_code: u16) -> Option<usize> {
 }
 
 impl QingjianInputController {
-    /// 一个按键事件的分发：只管按下；Cmd / Ctrl 组合除 Cmd+左右外一律交给应用；命令键映射成选择器；其余按字符当文本。
-    fn dispatch_event(&self, event: &NSEvent, client: TextClient<'_>) -> bool {
-        if event.r#type() != NSEventType::KeyDown {
-            return false;
-        }
-        let flags = event.modifierFlags();
-        let (command, control, option, shift) = (
-            flags.contains(NSEventModifierFlags::Command),
-            flags.contains(NSEventModifierFlags::Control),
-            flags.contains(NSEventModifierFlags::Option),
-            flags.contains(NSEventModifierFlags::Shift),
-        );
-        let key = event.keyCode();
-        let pressed = Modifiers {
-            option,
-            shift,
-            control,
-            command,
-        };
-        // 提示在显示：敲任何键先收掉，键照常处理
-        host::with(|h| h.clear_notice());
-        // 翻译选中文字进行中：回车 / 空格 / 1 接受，Esc 放弃，其他键放弃后照常交给应用
-        if host::with(|h| h.translation.is_some()).unwrap_or(false) {
-            return self.handle_translation_review(key, client);
-        }
-        // 翻译快捷键（不在组句中）：读应用里的选区，交给云端
-        let typed = event
-            .charactersIgnoringModifiers()
-            .map(|c| c.to_string().to_ascii_lowercase());
-        let combo = host::with(|h| h.translate_keys).unwrap_or_default();
-        if pressed == combo.modifiers
-            && typed.as_deref().and_then(|t| t.chars().next()) == Some(combo.key)
-            && !host::with(|h| !h.engine.composition().is_empty()).unwrap_or(false)
-        {
-            return self.translate_selection(client);
-        }
-        // 修饰键 + 数字：按配置的两组组合上屏第一 / 第二个译词（缺省 ⌥ 与 ⇧⌥）、删候选（缺省 ⇧）。
-        // 只在组句中认：不在组句时 ⇧4 就是 `$`，得走下面的标点转换（中文模式出 ￥、⇧6 出 ……、⇧1 出 ！），
-        // 以前在这里被截走后原样还给应用，全角转换就没机会做了。
-        // 表达式模式（`v2^3`）里 ⇧+数字打的是 `^ * ( )`，不当快捷键
-        let composing = host::with(|h| !h.engine.composition().is_empty()).unwrap_or(false);
-        let expression = composing && host::with(|h| h.engine.expression_mode()).unwrap_or(false);
-        if composing
-            && !expression
-            && !pressed.is_empty()
-            && let Some(digit) = digit_key(key)
-        {
-            let (first, second) = host::with(|h| h.translation_keys).unwrap_or_default();
-            if pressed == first {
-                return self.handle_translation_key(digit, 0, client);
-            }
-            if pressed == second {
-                return self.handle_translation_key(digit, 1, client);
-            }
-            if pressed == host::with(|h| h.delete_keys).unwrap_or_default() {
-                return self.handle_delete_key(digit, client);
-            }
-        }
-        let selector = match key {
-            36 | 76 => Some(sel!(insertNewline:)),
-            48 if shift => Some(sel!(insertBacktab:)),
-            48 => Some(sel!(insertTab:)),
-            51 if option => Some(sel!(deleteWordBackward:)),
-            51 if command => Some(sel!(deleteToBeginningOfLine:)),
-            51 => Some(sel!(deleteBackward:)),
-            117 => Some(sel!(deleteForward:)),
-            53 => Some(sel!(cancelOperation:)),
-            126 => Some(sel!(moveUp:)),
-            125 => Some(sel!(moveDown:)),
-            123 if command => Some(sel!(moveToLeftEndOfLine:)),
-            124 if command => Some(sel!(moveToRightEndOfLine:)),
-            123 if option => Some(sel!(moveWordLeft:)),
-            124 if option => Some(sel!(moveWordRight:)),
-            123 => Some(sel!(moveLeft:)),
-            124 => Some(sel!(moveRight:)),
-            116 => Some(sel!(pageUp:)),
-            121 => Some(sel!(pageDown:)),
-            115 => Some(sel!(moveToBeginningOfLine:)),
-            119 => Some(sel!(moveToEndOfLine:)),
-            _ => None,
-        };
-        if let Some(selector) = selector {
-            return self.handle_command(selector, client);
-        }
-        if command || control {
-            return false;
-        }
-        match event.characters() {
-            Some(text) if !text.is_empty() => self.handle_text(&text.to_string(), client),
-            _ => false,
-        }
-    }
-
     /// Option+数字：上屏当前页第几个候选的译文（学习和拼音消耗与选那个候选一样）。
     /// 不在组句中时不管；候选没有译文就吞掉按键不动，免得 ¡™£ 进应用。
     /// 翻译应用里选中的文字：云服务关着、密码框、没有选区都不动（键交回应用）。
@@ -374,16 +296,16 @@ impl QingjianInputController {
         true
     }
 
-    fn handle_text(&self, text: &str, client: TextClient<'_>) -> bool {
+    fn handle_text(&self, text: &str, shift: bool, client: TextClient<'_>) -> bool {
         tracing::debug!(%text, "inputText");
         self.note_application(&client);
         let mut composing = host::with(|h| !h.engine.composition().is_empty()).unwrap_or(false);
-        let english = modifiers::caps_lock_on();
+        let english = modifiers::english_mode();
         // 终端、编辑器这类应用（`[apps] english_candidates_off`）里英文模式是纯直通
         let english_candidates = english
             && host::with(|h| h.english_candidates_in(client.bundle_identifier().as_deref()))
                 .unwrap_or(false);
-        // 英文模式组词中 Caps Lock 灭了（或开关关了）：敲的字母先原样上屏，别把它们当拼音
+        // 英文模式结束（或候选开关关了）：敲的字母先原样上屏，别把它们当拼音
         if composing
             && !english_candidates
             && host::with(|h| h.engine.english_mode()).unwrap_or(false)
@@ -402,7 +324,12 @@ impl QingjianInputController {
             }
             return false;
         };
-        let c = char::from(*byte);
+        // Caps Lock 亮着也能用组合键切回中文；去掉它造成的大写，保留 Shift 临时大写。
+        let c = if !english && modifiers::caps_lock_on() && !shift {
+            char::from(*byte).to_ascii_lowercase()
+        } else {
+            char::from(*byte)
+        };
         host::with(|h| h.indicator.update());
         // 缓冲区为空时敲 ? 先进问字模式，中英文模式都行：后面跟字母就是在问字，跟别的键就还原成问号
         if !composing && c == QUESTION_PREFIX {
@@ -418,10 +345,10 @@ impl QingjianInputController {
             c
         };
         host::with(|h| h.engine.set_english_mode(english_candidates && !question));
-        // Caps Lock 亮着 = 英文模式：不组句、不转标点，字母默认小写、按住 Shift 才大写
+        // 英文模式：不组句、不转标点，字母默认小写、按住 Shift 才大写
         if english && !question {
-            // Caps Lock 亮着时 macOS 不管按没按 Shift 送来的都是大写，只能读 Shift 状态：按着才大写
-            let letter = if modifiers::shift_down() {
+            // 使用事件里的 Shift，避免处理延迟期间用户松键造成大小写错误。
+            let letter = if shift {
                 c.to_ascii_uppercase()
             } else {
                 c.to_ascii_lowercase()
@@ -505,7 +432,7 @@ impl QingjianInputController {
             if c == ' ' {
                 return true;
             }
-            return self.handle_text(text, client);
+            return self.handle_text(text, shift, client);
         }
         // 按住 Shift 打的大写字母：临时打英文，先把拼音原样上屏，再把字母交给应用
         if c.is_ascii_uppercase() {
@@ -708,7 +635,7 @@ impl QingjianInputController {
     /// 缓冲区里只有一个 `?` 而用户按了别的键：把它还原成问号上屏（中文遵循标点设置、英文半角）、清空缓冲区。
     /// 返回是否发生了还原。
     fn restore_bare_question(&self, client: TextClient<'_>) -> bool {
-        let english = modifiers::caps_lock_on();
+        let english = modifiers::english_mode();
         let restored = host::with(|h| {
             let mark = h.engine.restore_bare_question(english)?;
             h.cancel_prediction();

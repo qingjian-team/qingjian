@@ -12,6 +12,10 @@ if [ -n "$user" ] && [ "$user" != "root" ]; then
     uid="$(id -u "$user")"
     if launchctl asuser "$uid" sudo -u "$user" "$BIN" --register; then
         echo "青简：已为 $user 注册并启用输入源"
+        # 沙盒应用的键盘列表缓存可能早于青简安装；只移动微信 / 企业微信的过期缓存，保留备份。
+        if ! launchctl asuser "$uid" sudo -u "$user" /bin/bash "$APP/Contents/Resources/repair-input-cache.sh"; then
+            echo "青简：未能更新应用的键盘缓存，可手动运行 Resources/repair-input-cache.sh"
+        fi
     else
         echo "青简：自动注册输入源失败，请在「系统设置 → 键盘 → 输入法」里手动添加"
     fi

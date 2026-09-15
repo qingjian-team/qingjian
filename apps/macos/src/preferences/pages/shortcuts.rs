@@ -1,4 +1,4 @@
-//! 「快捷键」页：翻页键、模式键、译词上屏 / 删候选 / 翻译选中文字的组合键。
+//! 「快捷键」页：中英切换、翻页、前缀、译词上屏 / 删候选 / 翻译选中文字的组合键。
 
 use objc2::MainThreadMarker;
 use objc2::rc::Retained;
@@ -15,6 +15,9 @@ use crate::preferences::setting::Setting;
 use crate::preferences::target::PreferencesTarget;
 
 pub struct ShortcutsPage {
+    /// 中英文切换的组合键。
+    mode_switch: Retained<KeyRecorder>,
+
     /// 翻页键对。
     page_keys: Retained<NSPopUpButton>,
 
@@ -39,6 +42,20 @@ pub struct ShortcutsPage {
 
 impl ShortcutsPage {
     pub fn build(layout: &mut Layout, mtm: MainThreadMarker, target: &PreferencesTarget) -> Self {
+        let mode_switch = row_recorder(
+            layout,
+            mtm,
+            "切换中文 / 英文",
+            Setting::ModeSwitchKeys,
+            false,
+            target,
+        );
+        note(
+            layout,
+            mtm,
+            "单击 Shift，或修饰键 + 字母。单击需在半秒内松开；Shift + 字母仍输入大写。切换时未完成的输入原样上屏，当前模式看菜单栏「中 / 英」。",
+        );
+        layout.space(GROUP_GAP);
         let page_key_titles: Vec<String> = PAGE_KEY_OPTIONS
             .iter()
             .map(|k| page_keys_label(k))
@@ -132,7 +149,7 @@ impl ShortcutsPage {
         note_full(
             layout,
             mtm,
-            "改快捷键：点一下右边的按钮，再按下新的组合键（要带修饰键 ⌃ ⌥ ⇧ ⌘），Esc 取消。避开 ⌃+数字（切换桌面）和 ⌘+数字 / ⌘T（应用常用键）。",
+            "改快捷键：点击右边的按钮，再按新的组合键；中英切换也可单击 Shift。Esc 取消。组合键须带 ⌃ ⌥ ⇧ ⌘，避开系统和应用常用键；中英切换不能与翻译键相同。",
         );
         let reset = button(mtm, "恢复默认快捷键", Setting::ResetShortcuts, target);
         layout.place(&reset, PAGE_PADDING, 160.0, ROW_HEIGHT + 4.0);
@@ -146,6 +163,7 @@ impl ShortcutsPage {
              Tab 接受云端整句补全（没有就翻页）；半角标点进入英文直输段。",
         );
         Self {
+            mode_switch,
             page_keys,
             expression,
             question,
@@ -157,6 +175,13 @@ impl ShortcutsPage {
     }
 
     pub fn sync(&self, config: &Config) {
+        let mode_switch = config.shortcut.mode_switch;
+        let label = if config.shortcut.mode_switch_keys().is_some() {
+            mode_switch.label()
+        } else {
+            "快捷键冲突或无效，请重新录制".to_owned()
+        };
+        self.mode_switch.show(&mode_switch.key_string(), &label);
         let (previous, next) = config.general.page_keys();
         let pair = format!("{previous}{next}");
         select(

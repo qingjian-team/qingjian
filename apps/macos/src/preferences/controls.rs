@@ -156,6 +156,9 @@ pub(super) fn row_recorder(
     target: &PreferencesTarget,
 ) -> Retained<KeyRecorder> {
     let recorder = KeyRecorder::new(mtm, modifiers_only);
+    if setting == Setting::ModeSwitchKeys {
+        recorder.enable_shift();
+    }
     wire(&recorder, setting, target);
     let label = caption(mtm, title);
     layout.place(&label, PAGE_PADDING, LABEL_WIDTH, ROW_HEIGHT);

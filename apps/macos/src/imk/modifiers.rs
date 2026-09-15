@@ -1,14 +1,26 @@
-//! 当前修饰键状态。IMK 的 `inputText:client:` 不带事件对象，Caps Lock / Shift 只能从系统当前状态读。
+//! 系统修饰键与输入法自己的中英文状态；供按键处理和菜单栏共同使用。
+
+use std::cell::RefCell;
+
+use super::mode::InputMode;
 
 use objc2_app_kit::{NSEvent, NSEventModifierFlags};
 
-/// Caps Lock 亮着：视为英文模式，字母默认小写、按住 Shift 才大写、标点不转全角。
+thread_local! {
+    static MODE: RefCell<InputMode> = RefCell::new(InputMode::default());
+}
+
+/// Caps Lock 的物理状态；不能用它直接判断快捷键切换后的中英文模式。
 pub fn caps_lock_on() -> bool {
     NSEvent::modifierFlags_class().contains(NSEventModifierFlags::CapsLock)
 }
 
-/// Shift 正按着。读的是此刻的硬件状态而不是事件自带的标志，但 Shift 是按住不放的键，处理按键时它几乎总还按着。
-/// macOS 上 Caps Lock 亮着时按住 Shift 送来的仍是大写（不像 Windows 会反转），所以英文模式的大小写只能靠它判断。
-pub fn shift_down() -> bool {
-    NSEvent::modifierFlags_class().contains(NSEventModifierFlags::Shift)
+/// 当前中英文模式，同时反映 Caps Lock 与可配置组合键的切换。
+pub fn english_mode() -> bool {
+    MODE.with_borrow(|mode| mode.english(caps_lock_on()))
+}
+
+/// 只切换输入法内部状态，不合成按键，不改变系统 Caps Lock。
+pub fn toggle_mode() {
+    MODE.with_borrow_mut(InputMode::toggle);
 }

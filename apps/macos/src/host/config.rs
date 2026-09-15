@@ -23,6 +23,7 @@ impl Host {
         self.translation_keys = config.shortcut.translation_keys();
         self.delete_keys = config.shortcut.delete_keys();
         self.translate_keys = config.shortcut.translate_selection;
+        self.mode_switch_keys = config.shortcut.mode_switch_keys();
         self.page_size = config.general.page_size();
         self.cloud_slots = config.predict.slots;
         self.page_keys = config.general.page_keys();
