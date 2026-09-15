@@ -37,6 +37,11 @@ fn main() {
         }
         return;
     }
+    // 开发用：`--preferences-preview` 只起设置窗口（缺省配置、空统计），给改界面截图与调布局用，不起 IMK
+    if std::env::args().any(|argument| argument == "--preferences-preview") {
+        preferences::preview_main();
+        return;
+    }
     let _log_guard = app::logging::init();
     // panic 的位置与 backtrace 记进日志（拦截在 imk::catch_panic，这里只记不碰状态）；
     // 后台线程（云联想）的 panic 也经过这里，否则只会打到没人看的 stderr

@@ -1,34 +1,51 @@
-//! 偏好设置窗口本体：把各页（`pages/`）装进标签视图，底部一行状态；刷新时逐页同步。
+//! 偏好设置窗口本体：左边侧栏（`sidebar/`）选页，右边翻页器（`pager`）显示各页（`pages/`），
+//! 内容列底部一行状态；刷新时逐页同步。
+
+use std::rc::Rc;
 
 use objc2::MainThreadMarker;
 use objc2::rc::Retained;
-use objc2_app_kit::{NSColor, NSTabView, NSTabViewItem, NSTextField, NSView};
+use objc2_app_kit::{NSColor, NSScrollView, NSTextField, NSView};
 use objc2_foundation::{NSPoint, NSRect, NSSize, NSString};
 use qingjian_core::{Language, UsageSummary, VocabularySummary};
 use qingjian_platform::Config;
 
 use super::controls::{language_label, small_label};
-use super::layout::{Layout, PAGE_PADDING, PAGE_WIDTH};
+use super::layout::{CARD_MARGIN, Layout, PAGE_WIDTH};
+use super::pager::{HEADER_HEIGHT, Pager, PagerPage};
 use super::pages::{
     AdvancedPage, CandidatesPage, CloudPage, DictionariesPage, FuzzyPage, GeneralPage, PhrasesPage,
     ShortcutsPage, UsagePage, build_about,
 };
 use super::panel::PreferencesPanel;
+use super::sidebar::{SIDEBAR_WIDTH, Sidebar, SidebarEntry};
 use super::target::PreferencesTarget;
 use crate::host::DictionaryInfo;
 
-/// 每页顶部留白、页面最低高度（矮页也撑到这个高度，切页时窗口不跳）。
-const PAGE_TOP: f64 = 18.0;
-const MIN_PAGE_HEIGHT: f64 = 250.0;
+/// 第一张卡片离标题带的距离、最后一张卡片离页底的距离。
+const PAGE_TOP: f64 = 4.0;
+const PAGE_BOTTOM: f64 = 4.0;
 
-/// 标签视图四周留白、底部状态行高度。
-const TAB_MARGIN: f64 = 14.0;
+/// 底部状态行的高度与上下留白。
 const STATUS_HEIGHT: f64 = 18.0;
+const STATUS_MARGIN: f64 = 10.0;
+
+/// 窗口内容的最低高度：侧栏十行加顶部留白要放得下，矮页也不把窗口压扁。
+const MIN_CONTENT_HEIGHT: f64 = 400.0;
+
+/// 一页在窗口里最多占多高，再高就装进滚动视图（快捷键页很长，13 寸屏也要放得下整个窗口）。
+const MAX_PAGE_HEIGHT: f64 = 620.0;
 
 /// 设置窗口与需要按配置刷新的各页。
 pub struct PreferencesWindow {
     /// 窗口。
     panel: Retained<PreferencesPanel>,
+
+    /// 左侧导航栏。
+    sidebar: Sidebar,
+
+    /// 右侧翻页器；侧栏的回调也握着一份。
+    _pager: Rc<Pager>,
 
     /// 「通用」页。
     general: GeneralPage,
@@ -64,113 +81,133 @@ pub struct PreferencesWindow {
     _target: Retained<PreferencesTarget>,
 }
 
-/// 一页：标题、布局器、承载视图。
-type Page = (&'static str, Layout, Retained<NSView>);
+/// 搭好但还没定高的一页：页名、侧栏图标、布局器。
+type Draft = (&'static str, &'static str, Layout);
+
+/// 把过高的页装进滚动视图：透明背景、滚动条自动隐藏，初始停在顶部。
+fn scrollable(mtm: MainThreadMarker, page: &NSView, page_height: f64) -> Retained<NSView> {
+    let scroll = NSScrollView::initWithFrame(
+        mtm.alloc(),
+        NSRect::new(NSPoint::ZERO, NSSize::new(PAGE_WIDTH, MAX_PAGE_HEIGHT)),
+    );
+    scroll.setDrawsBackground(false);
+    scroll.setHasVerticalScroller(true);
+    scroll.setAutohidesScrollers(true);
+    scroll.setDocumentView(Some(page));
+    // 文档视图坐标原点在左下，不滚的话初始露出的是页尾
+    let clip = scroll.contentView();
+    clip.scrollToPoint(NSPoint::new(0.0, page_height - MAX_PAGE_HEIGHT));
+    scroll.reflectScrolledClipView(&clip);
+    Retained::into_super(scroll)
+}
 
 impl PreferencesWindow {
     /// `languages` 是打进包里的释义表语言，`version` / `build` 显示在「关于」页。
     pub fn new(mtm: MainThreadMarker, languages: &[Language], version: &str, build: &str) -> Self {
         let target = PreferencesTarget::new(mtm);
         let new_layout = || Layout::new(PAGE_WIDTH, PAGE_TOP);
-        let page = |title: &'static str, layout: Layout| -> Page {
-            (
-                title,
-                layout,
-                NSView::initWithFrame(mtm.alloc(), NSRect::ZERO),
-            )
-        };
-        let mut pages: Vec<Page> = Vec::new();
+        let mut drafts: Vec<Draft> = Vec::new();
 
         let mut layout = new_layout();
         let general = GeneralPage::build(&mut layout, mtm, &target, languages);
-        pages.push(page("通用", layout));
+        drafts.push(("通用", "gearshape", layout));
 
         let mut layout = new_layout();
         let candidates = CandidatesPage::build(&mut layout, mtm, &target);
-        pages.push(page("候选窗口", layout));
+        drafts.push(("候选窗口", "macwindow", layout));
 
         let mut layout = new_layout();
         let shortcuts = ShortcutsPage::build(&mut layout, mtm, &target);
-        pages.push(page("快捷键", layout));
+        drafts.push(("快捷键", "keyboard", layout));
 
         let mut layout = new_layout();
         let phrases = PhrasesPage::build(&mut layout, mtm, &target);
-        pages.push(page("自定义短语", layout));
+        drafts.push(("自定义短语", "text.quote", layout));
 
         let mut layout = new_layout();
         let fuzzy = FuzzyPage::build(&mut layout, mtm, &target);
-        pages.push(page("模糊音", layout));
+        drafts.push(("模糊音", "waveform", layout));
 
         let mut layout = new_layout();
         let dictionaries = DictionariesPage::build(&mut layout, mtm, &target);
-        pages.push(page("词库", layout));
+        drafts.push(("词库", "books.vertical", layout));
 
         let mut layout = new_layout();
         let cloud = CloudPage::build(&mut layout, mtm, &target);
-        pages.push(page("云服务", layout));
+        drafts.push(("云服务", "cloud", layout));
 
         let mut layout = new_layout();
         let advanced = AdvancedPage::build(&mut layout, mtm, &target);
-        pages.push(page("高级", layout));
+        drafts.push(("高级", "slider.horizontal.3", layout));
 
         let mut layout = new_layout();
         let usage = UsagePage::build(&mut layout, mtm);
-        pages.push(page("统计", layout));
+        drafts.push(("统计", "chart.bar", layout));
 
         let mut layout = new_layout();
         build_about(&mut layout, mtm, &target, version, build);
-        pages.push(page("关于", layout));
+        drafts.push(("关于", "info.circle", layout));
 
-        // 标签视图：先用临时尺寸量出边框与标签栏占多少，再按最高的一页定最终尺寸
-        let page_height = pages
-            .iter()
-            .map(|(_, layout, _)| layout.height() + PAGE_TOP)
-            .fold(MIN_PAGE_HEIGHT, f64::max);
-        let probe = NSRect::new(NSPoint::ZERO, NSSize::new(PAGE_WIDTH, page_height));
-        let tabs = NSTabView::initWithFrame(mtm.alloc(), probe);
-        let inner = tabs.contentRect();
-        let chrome_width = PAGE_WIDTH - inner.size.width;
-        let chrome_height = page_height - inner.size.height;
-        let tabs_size = NSSize::new(PAGE_WIDTH + chrome_width, page_height + chrome_height);
-        let content_size = NSSize::new(
-            tabs_size.width + 2.0 * TAB_MARGIN,
-            tabs_size.height + 2.0 * TAB_MARGIN + STATUS_HEIGHT,
-        );
-        tabs.setFrame(NSRect::new(
-            NSPoint::new(TAB_MARGIN, TAB_MARGIN + STATUS_HEIGHT),
-            tabs_size,
-        ));
-        for (title, layout, view) in pages {
-            view.setFrame(NSRect::new(
-                NSPoint::ZERO,
-                NSSize::new(PAGE_WIDTH, page_height),
-            ));
-            layout.finish(&view, page_height);
-            // SAFETY: identifier 允许为空；条目随 NSTabView 活着
-            let item = unsafe { NSTabViewItem::initWithIdentifier(mtm.alloc(), None) };
-            item.setLabel(&NSString::from_str(title));
-            item.setView(Some(&view));
-            tabs.addTabViewItem(&item);
+        // 每页按自己的内容定高；切页时窗口跟着伸缩，不再按最高的一页统一撑开
+        let mut entries = Vec::with_capacity(drafts.len());
+        let mut pages = Vec::with_capacity(drafts.len());
+        for (title, symbol, layout) in drafts {
+            let height = layout.height() + PAGE_BOTTOM;
+            let view = NSView::initWithFrame(
+                mtm.alloc(),
+                NSRect::new(NSPoint::ZERO, NSSize::new(PAGE_WIDTH, height)),
+            );
+            layout.finish(&view, height);
+            entries.push(SidebarEntry { title, symbol });
+            let (view, height) = if height > MAX_PAGE_HEIGHT {
+                (scrollable(mtm, &view, height), MAX_PAGE_HEIGHT)
+            } else {
+                (view, height)
+            };
+            pages.push(PagerPage {
+                title,
+                view,
+                height,
+            });
         }
+
+        let content_size = NSSize::new(SIDEBAR_WIDTH + PAGE_WIDTH, MIN_CONTENT_HEIGHT);
+        let panel = PreferencesPanel::new(mtm, NSRect::new(NSPoint::ZERO, content_size));
+        panel.setTitle(&NSString::from_str("青简偏好设置"));
         let content = NSView::initWithFrame(mtm.alloc(), NSRect::new(NSPoint::ZERO, content_size));
-        content.addSubview(&tabs);
+        let fixed_height = HEADER_HEIGHT + STATUS_HEIGHT + 2.0 * STATUS_MARGIN;
+        let pager = Rc::new(Pager::new(
+            Retained::into_super(panel.clone()),
+            &content,
+            pages,
+            SIDEBAR_WIDTH,
+            SIDEBAR_WIDTH + CARD_MARGIN,
+            fixed_height,
+            MIN_CONTENT_HEIGHT,
+        ));
+        let switch = Rc::clone(&pager);
+        let sidebar = Sidebar::new(
+            mtm,
+            entries,
+            MIN_CONTENT_HEIGHT,
+            Box::new(move |index| switch.show(index)),
+        );
+        content.addSubview(sidebar.view());
         let status = small_label(mtm, "");
         status.setTextColor(Some(&NSColor::systemRedColor()));
         status.setFrame(NSRect::new(
-            NSPoint::new(TAB_MARGIN + PAGE_PADDING, TAB_MARGIN / 2.0),
-            NSSize::new(
-                content_size.width - 2.0 * (TAB_MARGIN + PAGE_PADDING),
-                STATUS_HEIGHT,
-            ),
+            NSPoint::new(SIDEBAR_WIDTH + CARD_MARGIN, STATUS_MARGIN),
+            NSSize::new(PAGE_WIDTH - 2.0 * CARD_MARGIN, STATUS_HEIGHT),
         ));
         content.addSubview(&status);
-        let panel = PreferencesPanel::new(mtm, NSRect::new(NSPoint::ZERO, content_size));
-        panel.setTitle(&NSString::from_str("青简偏好设置"));
         panel.setContentView(Some(&content));
+        sidebar.select(0);
         panel.center();
 
         Self {
             panel,
+            sidebar,
+            _pager: pager,
             general,
             candidates,
             shortcuts,
@@ -183,6 +220,11 @@ impl PreferencesWindow {
             status,
             _target: target,
         }
+    }
+
+    /// 切到第 `index` 页（侧栏选中，翻页器跟着切）。
+    pub fn select_page(&self, index: usize) {
+        self.sidebar.select(index);
     }
 
     pub fn select_phrase(&self, config: &Config, index: usize) {

@@ -18,12 +18,6 @@ use super::target::PreferencesTarget;
 /// 说明小字一行的高度。
 pub(super) const NOTE_HEIGHT: f64 = 15.0;
 
-/// 说明小字按多少像素一个字估算折行（11 号字，中文约 11 px，估得宽一点宁可多留一行）。
-const NOTE_CHAR_WIDTH: f64 = 11.5;
-
-/// 分组之间的留白。
-pub(super) const GROUP_GAP: f64 = 14.0;
-
 pub(super) fn language_label(language: Language) -> &'static str {
     match language {
         Language::Chinese => "中文",
@@ -73,7 +67,7 @@ pub(super) fn small_label(mtm: MainThreadMarker, text: &str) -> Retained<NSTextF
     label
 }
 
-/// 控件下方的说明小字，与控件列对齐，放不下就折行（按字数估行数，宁可多留一行）。
+/// 控件下方的说明小字，与控件列对齐，放不下就折行（高度按实际排版量出来）。
 pub(super) fn note(layout: &mut Layout, mtm: MainThreadMarker, text: &str) {
     note_at(layout, mtm, text, CONTROL_X, layout.control_width());
 }
@@ -89,9 +83,19 @@ fn note_at(layout: &mut Layout, mtm: MainThreadMarker, text: &str, x: f64, width
     if let Some(cell) = label.cell() {
         cell.setWraps(true);
     }
-    let estimated = text.chars().count() as f64 * NOTE_CHAR_WIDTH;
-    let lines = (estimated / width).ceil().max(1.0);
-    let height = NOTE_HEIGHT * lines;
+    // 让 cell 按给定宽度真排一次，取需要的高度；不再按字数估，估多了卡片里会留空行
+    let height = label
+        .cell()
+        .map(|cell| {
+            cell.cellSizeForBounds(NSRect::new(
+                objc2_foundation::NSPoint::ZERO,
+                objc2_foundation::NSSize::new(width, f64::MAX),
+            ))
+            .height
+        })
+        .unwrap_or(NOTE_HEIGHT)
+        .max(NOTE_HEIGHT)
+        .ceil();
     layout.place(&label, x, width, height);
     layout.next_row(height);
 }

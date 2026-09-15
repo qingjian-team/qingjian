@@ -97,7 +97,7 @@ impl PhrasesPage {
             mtm,
             "勾选启用，双击一行编辑。长文本仅在列表中缩略显示。 ",
         );
-        let mut form = Layout::new(520.0, 18.0);
+        let mut form = Layout::plain(520.0, 18.0);
         let layout = &mut form;
         note_full(
             layout,

@@ -8,7 +8,7 @@ use objc2_app_kit::{NSFont, NSTextAlignment, NSTextField};
 use objc2_foundation::NSString;
 use qingjian_core::{FRESH_UNTIL, Usage, UsageSummary, VocabularySummary, book_scale};
 
-use crate::preferences::controls::{GROUP_GAP, caption, note_full, small_label};
+use crate::preferences::controls::{caption, note_full, small_label};
 use crate::preferences::layout::{LABEL_WIDTH, Layout, PAGE_PADDING, ROW_HEIGHT};
 
 /// 三行的标题，顺序与 [`UsagePage::show`] 里取值一致。
@@ -81,7 +81,7 @@ impl UsagePage {
             }
             layout.next_row(ROW_HEIGHT);
         }
-        layout.space(GROUP_GAP);
+        layout.end_group();
         let scale = NSTextField::labelWithString(&NSString::from_str(""), mtm);
         scale.setFont(Some(&NSFont::boldSystemFontOfSize(13.0)));
         layout.place(&scale, PAGE_PADDING, layout.inner_width(), ROW_HEIGHT);
@@ -89,13 +89,13 @@ impl UsagePage {
         let since = small_label(mtm, "");
         layout.place(&since, PAGE_PADDING, layout.inner_width(), ROW_HEIGHT * 0.7);
         layout.next_row(ROW_HEIGHT * 0.7);
-        layout.space(GROUP_GAP);
+        layout.end_group();
         note_full(
             layout,
             mtm,
             "数的是上屏的文字：选一个词算一个中文词，整句按词切开数；英文候选、回车原样上屏的英文词与英文译词算英文词。只在这台电脑上数，与输入日志无关，关掉或清空日志不影响这里。",
         );
-        layout.space(GROUP_GAP);
+        layout.end_group();
         let vocabulary_title = NSTextField::labelWithString(&NSString::from_str(""), mtm);
         vocabulary_title.setFont(Some(&NSFont::boldSystemFontOfSize(13.0)));
         layout.place(
