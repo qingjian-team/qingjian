@@ -245,6 +245,28 @@ impl Engine {
         )
     }
 
+    /// 组句中敲的半角标点（含 `-`）该不该进缓冲区、把整段变成英文直输段。返回 `false` 时壳应先把高亮候选上屏，
+    /// 再按没在组句时处理这个标点（中文模式转全角）。表达式 / 问字模式、翻页键由壳先行判断，不经过这里。
+    ///
+    /// `Auto` 看缓冲区像不像英文：已经是直输段就继续；全拼下切不成完整拼音（`hello`）才直输，切得成（`nihao`）就上屏；
+    /// 双拼 / 注音的键位另有含义，切分判断不适用，按上屏处理。
+    pub fn takes_punctuation(&self) -> bool {
+        match self.punctuation_mode {
+            PunctuationMode::Raw => true,
+            PunctuationMode::Commit => false,
+            PunctuationMode::Auto => {
+                if self.raw_mode() {
+                    return true;
+                }
+                if self.shuangpin.is_some() || self.zhuyin {
+                    return false;
+                }
+                let text = self.composition.text();
+                !text.is_empty() && !parser::is_fully_segmentable(&text.replace('\'', ""))
+            }
+        }
+    }
+
     /// 是否处在问字模式（缓冲区以问字键、缺省 `u`，或 `?` 开头）：拼音问题由云端答，十六进制码点本地答。
     pub fn question_mode(&self) -> bool {
         !self.has_custom_phrase()

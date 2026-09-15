@@ -1,6 +1,6 @@
 //! 「通用」页：学习语言、每页候选数、双拼、英文模式候选。
 
-use qingjian_platform::MAX_PAGE_SIZE;
+use qingjian_platform::{MAX_PAGE_SIZE, PunctuationMode};
 use windows_reactor::*;
 
 use crate::panel::controls::{field, index_of, page};
@@ -74,6 +74,19 @@ pub(crate) fn view(settings: &Settings, context: &mut ViewContext<Settings>) -> 
             ToggleSwitch::new()
                 .is_on(g.full_width_punctuation)
                 .on_toggled(context.callback(Message::FullWidthPunctuation)),
+        ),
+        field(
+            "打拼音时敲标点",
+            "「进入英文直输」能直接打 hello, world 这样带标点的英文；「先上屏候选再出标点」是 nihao, 出「你好，」；「自动」按拼音切不切得开来定。翻页键不受影响。",
+            ComboBox::new()
+                .items_source(PunctuationMode::ALL.iter().map(|m| m.label()))
+                .selected_index(
+                    PunctuationMode::ALL
+                        .iter()
+                        .position(|m| *m == g.punctuation_mode)
+                        .unwrap_or(0),
+                )
+                .on_selection_changed(context.callback(Message::PunctuationMode)),
         ),
         field(
             "英文模式标点转全角",
