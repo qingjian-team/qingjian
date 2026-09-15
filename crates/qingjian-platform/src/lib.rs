@@ -16,3 +16,4 @@ pub use config::{
     LogLevel, MAX_PAGE_SIZE, Modifiers, PAGE_KEY_OPTIONS, PreeditMode, ShortcutConfig, ThemeMode,
 };
 pub use error::ConfigError;
+pub use qingjian_core::PunctuationMode;

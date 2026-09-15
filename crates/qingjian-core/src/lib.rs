@@ -31,6 +31,7 @@ pub use candidate::{
 pub use composition::Composition;
 pub use correction::Correction;
 pub use emoji::EmojiTable;
+pub use engine::PunctuationMode;
 pub use engine::{
     AnnotationReport, BOOKS, Book, CloudWord, CommitEntry, Engine, FRESH_UNTIL, FilledGloss,
     Forgotten, GlossFiller, INPUT_LOG_VERSION, InputLogEntry, InputLogger, InputSource, Learner,
