@@ -4,6 +4,7 @@ mod general;
 mod key_combo;
 mod layout_mode;
 mod log_level;
+mod mode_switch;
 mod model;
 mod modifiers;
 mod preedit_mode;
@@ -29,6 +30,7 @@ pub use general::{DEFAULT_PAGE_KEYS, GeneralConfig, MAX_PAGE_SIZE, PAGE_KEY_OPTI
 pub use key_combo::KeyCombo;
 pub use layout_mode::LayoutMode;
 pub use log_level::LogLevel;
+pub use mode_switch::ModeSwitch;
 pub use model::LocalModelConfig;
 pub use modifiers::Modifiers;
 pub use preedit_mode::PreeditMode;
@@ -114,7 +116,7 @@ english_candidates_off = [
     };
 }
 
-/// 模板 `[shortcut]` 一节里的修饰键组合（macOS 命名）。缺省值两个平台一样，只是写法与注释按平台的键名。
+/// 模板 `[shortcut]` 一节里的 macOS 修饰键组合与中英切换键。
 #[cfg(not(windows))]
 macro_rules! template_shortcut_keys {
     () => {
@@ -125,6 +127,8 @@ translation_second = "shift+option"
 # 把应用里选中的文字译成学习语言（要开着云服务）：译文先出现在候选窗口，回车替换选中的文字，Esc 保留原文
 # 修饰键 + 一个字母或数字，任意组合；避开 ⌘T 这类应用常用键
 translate_selection = "control+option+t"
+# macOS 中英文切换：shift 为单击 Shift，也可写 control+option+m 等修饰键 + 字母组合，不能与翻译键相同
+mode_switch = "shift"
 # 数字键配这些修饰键删掉候选：用户词（云端选过的、自动造的）整个删掉，词库里的词清掉对它的学习记录。组句中要打感叹号先把词上屏
 delete_candidate = "shift"
 "#

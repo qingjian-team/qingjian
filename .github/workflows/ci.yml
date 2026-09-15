@@ -62,6 +62,9 @@ jobs:
       - name: Test (IMK shell)
         run: cargo test -p qingjian-macos --locked
 
+      - name: Test (input source cache repair)
+        run: bash apps/macos/scripts/test-repair-input-cache.sh
+
   windows:
     runs-on: windows-latest
     env:

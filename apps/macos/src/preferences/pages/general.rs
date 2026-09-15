@@ -99,12 +99,7 @@ impl GeneralPage {
             mtm,
             "仅影响标点，字母和数字保持半角；自定义短语原样输出。设置会保存。 ",
         );
-        let english = checkbox(
-            mtm,
-            "英文模式（Caps Lock）也给候选",
-            Setting::EnglishCandidates,
-            target,
-        );
+        let english = checkbox(mtm, "英文模式也给候选", Setting::EnglishCandidates, target);
         row_checkbox(layout, &english);
         note(
             layout,

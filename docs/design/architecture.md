@@ -339,7 +339,7 @@ CC-CEDICT 表（`dict-convert cedict`）保留为备用来源，覆盖面广但�
   `host/` 是进程级单例（一个 Engine + 一个候选窗口，`thread_local`，IMK 回调全在主线程；`mod.rs` 放结构体与 `with`，`init.rs` 启动加载、`config.rs` 热加载、`settings.rs` 菜单 / 偏好设置动作、`dictionaries.rs` 词库管理、`cloud.rs` 云端、`diagnostics.rs` 诊断与日志、`presenting.rs` 呈现），
   `host/` 下是会话状态 `session.rs`、联想轮询定时器 `predict_monitor.rs`、配置文件监视与定时落盘 `config_watch.rs`、
   短提示 `notice.rs`、翻译选中文字的任务 `translation_job.rs`、附加词库装配 `extra_dictionaries.rs` / `dictionary_info.rs`；
-  `imk/`：`controller.rs` 用 `define_class!` 继承 `IMKInputController`（类名 `QingjianInputController`，
+  `imk/`：`controller/mod.rs` 用 `define_class!` 继承 `IMKInputController`（类名 `QingjianInputController`，
   与 Info.plist 的 `InputMethodServerControllerClass` 一致），只做按键 → Engine、Engine → 窗口；
   `client.rs` 用 `msg_send!` 封装 IMKTextInput（`setMarkedText:` / `insertText:` /
   `attributesForCharacterIndex:lineHeightRectangle:` 取光标矩形）；`modifiers.rs` / `secure_input.rs` 查系统状态；
@@ -364,9 +364,8 @@ CC-CEDICT 表（`dict-convert cedict`）保留为备用来源，覆盖面广但�
 - 配置只有一条通路：`Host::apply_config` 把当前 `Config` 推给 Engine（模糊音、模式键、Predictor 重建、释义表切换）与界面
   （每页候选数、翻页键、外观、☁︎ 标识、菜单勾选、设置窗口控件）。启动、菜单开关、设置窗口、`host/config_watch.rs`
   每秒一次的 mtime 监视全都走它；三个入口都只写 `config.toml`，不各存一套状态。解析失败沿用上一份，错误显示在菜单与设置窗口里。
-  按键走 `inputText:client:` +
-  `didCommandBySelector:client:`，不用 `handleEvent:`。**组句期间 `didCommandBySelector:` 对不认识的
-  选择器也要返回 YES**：返回 NO 会让应用自己处理方向键，应用一动光标就把 marked text 丢了，
+  按键走 `handleEvent:client:`，`controller/event.rs` 分发快捷键、命令键和文本；文本与命令复用控制器方法。
+  **组句期间命令处理对不认识的选择器也要返回 YES**：返回 NO 会让应用自己处理方向键，应用一动光标就把 marked text 丢了，
   而我们的缓冲区和候选框还在（2026-09-03 踩过）。
 - `define_class!` 的类在首次调用 `class()` 时才注册到 ObjC 运行时，而 IMKServer 初始化时就按
   Info.plist 的类名查找，找不到会**静默退回基类**，症状是按键全部透传、像在打英文。
