@@ -9,7 +9,7 @@ use objc2_foundation::{NSPoint, NSRect, NSSize};
 
 use crate::host::DictionaryInfo;
 use crate::preferences::controls::{
-    GROUP_GAP, NOTE_HEIGHT, button, checkbox, note_full, set_checked, small_label,
+    NOTE_HEIGHT, button, checkbox, note_full, set_checked, small_label,
 };
 use crate::preferences::layout::{Layout, PAGE_PADDING, PAGE_WIDTH, ROW_HEIGHT};
 use crate::preferences::setting::Setting;
@@ -54,7 +54,7 @@ impl DictionariesPage {
             mtm,
             "接受青简 TSV（词、拼音、词频三列）、Rime 的 .dict.yaml 和 .qj 文件，导入后立即可用；勾选框控制开关，「移除」把文件挪到词库目录的 removed 里，不会真删。",
         );
-        layout.space(GROUP_GAP);
+        layout.end_group();
         let list = NSView::initWithFrame(mtm.alloc(), NSRect::ZERO);
         // 列表放在滚动视图里：随包 11 本加导入的可能超过一屏，全部列出、可以滚，不再只显示前几本
         let scroll = NSScrollView::initWithFrame(mtm.alloc(), NSRect::ZERO);

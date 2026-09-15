@@ -61,6 +61,8 @@ BUILD_NUMBER="$(git rev-list --count HEAD 2>/dev/null || echo 1)"
   -c "Set :CFBundleVersion $BUILD_NUMBER" "$APP/Contents/Info.plist"
 # 卸载脚本随包，装了 pkg 的用户从 Resources 里运行
 cp apps/macos/scripts/uninstall.sh "$APP/Contents/Resources/uninstall.sh"
+# 首装青简后部分沙盒应用仍复用旧输入源缓存；提供定向、可恢复的修复工具。
+cp apps/macos/scripts/repair-input-cache.sh "$APP/Contents/Resources/repair-input-cache.sh"
 # 输入源名字按系统语言本地化（中文系统显示「青简」，其他显示 Qingjian）
 cp -R apps/macos/resources/*.lproj "$APP/Contents/Resources/"
 # 词库与释义表打进 Resources。data/generated/ 里有生成好的产品数据（自建词库 + 语言模型 + LLM 释义表）就用它，
@@ -185,6 +187,7 @@ if [[ "${1:-}" == "--install" ]]; then
   cp -R "$APP" "$INSTALL_DIR/$APP_NAME.app"
   # 系统会在下次切换到该输入法时重新拉起进程
   pkill -x "$BIN_NAME" 2>/dev/null || true
+  bash "$APP/Contents/Resources/repair-input-cache.sh"
   echo "已安装到: $INSTALL_DIR/$APP_NAME.app"
   echo "日志: ~/Library/Logs/Qingjian/"
 fi

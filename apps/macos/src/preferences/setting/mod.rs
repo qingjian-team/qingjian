@@ -101,7 +101,10 @@ pub enum Setting {
     /// `[shortcut] translate_selection`，快捷键录制按钮（修饰键 + 字母）。
     TranslateSelectionKeys,
 
-    /// 「恢复默认快捷键」按钮：翻页键、模式键、三组译词 / 翻译快捷键全部回缺省。
+    /// `[shortcut] mode_switch`，中英文切换组合键。
+    ModeSwitchKeys,
+
+    /// 「恢复默认快捷键」按钮：翻页、前缀、中英切换、译词、删候选与翻译键全部回缺省。
     ResetShortcuts,
 
     /// 「导入词库…」按钮：选文件，转成 `.qj` 放进用户目录 `dicts/`。
@@ -193,6 +196,7 @@ impl Setting {
             Self::NewPhrase => 38,
             Self::EditPhrase => 39,
             Self::CancelPhraseEdit => 40,
+            Self::ModeSwitchKeys => 41,
             Self::Fuzzy(index) => FUZZY_TAG_BASE + index as NSInteger,
             Self::DictionaryEnabled(index) => DICTIONARY_ENABLED_TAG_BASE + index as NSInteger,
             Self::DictionaryRemove(index) => DICTIONARY_REMOVE_TAG_BASE + index as NSInteger,
@@ -241,6 +245,7 @@ impl Setting {
             38 => Self::NewPhrase,
             39 => Self::EditPhrase,
             40 => Self::CancelPhraseEdit,
+            41 => Self::ModeSwitchKeys,
             _ if tag >= DICTIONARY_REMOVE_TAG_BASE => {
                 let index = usize::try_from(tag - DICTIONARY_REMOVE_TAG_BASE).ok()?;
                 (index < MAX_DICTIONARIES).then_some(Self::DictionaryRemove(index))?
@@ -282,6 +287,7 @@ mod tests {
             Setting::TranslationKeys,
             Setting::TranslationSecondKeys,
             Setting::TranslateSelectionKeys,
+            Setting::ModeSwitchKeys,
             Setting::ResetShortcuts,
             Setting::ImportDictionary,
             Setting::Shuangpin,

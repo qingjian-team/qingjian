@@ -1,6 +1,9 @@
+//! 前缀模式与平台快捷键配置。
+
 use qingjian_core::ModeKeys;
 use serde::{Deserialize, Serialize};
 
+use super::ModeSwitch;
 use super::key_combo::KeyCombo;
 use super::modifiers::Modifiers;
 
@@ -21,6 +24,9 @@ pub struct ShortcutConfig {
     /// 把应用里选中的文字译成学习语言（需要云服务开着）。
     pub translate_selection: KeyCombo,
 
+    /// macOS 中英文切换：单击 Shift，或修饰键加字母，不能与翻译选中文字相同。
+    pub mode_switch: ModeSwitch,
+
     /// 数字键配这些修饰键：删掉候选（用户词整个删掉，词库词清掉对它的学习）。
     pub delete_candidate: Modifiers,
 }
@@ -37,12 +43,26 @@ impl Default for ShortcutConfig {
             translation,
             translation_second,
             translate_selection: KeyCombo::TRANSLATE_DEFAULT,
+            mode_switch: ModeSwitch::default(),
             delete_candidate: Modifiers::SHIFT,
         }
     }
 }
 
 impl ShortcutConfig {
+    /// 支持单击 Shift 或修饰键加字母，避免抢占候选序号；无效或与翻译键冲突时禁用。
+    /// 手工配置与设置窗口使用同一规则，不能让冲突键触发错误动作。
+    pub fn mode_switch_keys(&self) -> Option<ModeSwitch> {
+        self.mode_switch
+            .combo()
+            .is_none_or(|combo| {
+                combo.key.is_ascii_alphabetic()
+                    && !combo.modifiers.is_empty()
+                    && combo != self.translate_selection
+            })
+            .then_some(self.mode_switch)
+    }
+
     /// 删候选的修饰键；为空或与任一组译词键撞了就退回缺省。
     pub fn delete_keys(&self) -> Modifiers {
         let (first, second) = self.translation_keys();
@@ -75,6 +95,13 @@ mod tests {
     use super::*;
 
     #[test]
+    fn mode_switch_accepts_a_single_shift() {
+        let config: ShortcutConfig = toml::from_str("mode_switch = \"shift\"").unwrap();
+        assert_eq!(config.mode_switch.key_string(), "shift");
+        assert!(config.mode_switch_keys().is_some());
+    }
+
+    #[test]
     fn old_files_without_modifier_keys_still_parse_and_get_defaults() {
         let parsed: ShortcutConfig = toml::from_str("expression = \"i\"\n").unwrap();
         assert_eq!(parsed.mode.expression, 'i');
@@ -103,5 +130,18 @@ mod tests {
         let custom: ShortcutConfig =
             toml::from_str("delete_candidate = \"control+shift\"\n").unwrap();
         assert!(custom.delete_keys().control);
+    }
+
+    #[test]
+    fn mode_switch_defaults_round_trip_and_conflicts() {
+        let mut parsed: ShortcutConfig = toml::from_str("").unwrap();
+        assert_eq!(parsed.mode_switch_keys(), Some(ModeSwitch::Shift));
+        parsed.mode_switch = "control+shift+e".parse().unwrap();
+        let saved = toml::to_string(&parsed).unwrap();
+        assert_eq!(toml::from_str::<ShortcutConfig>(&saved).unwrap(), parsed);
+        parsed.mode_switch = ModeSwitch::Combo(parsed.translate_selection);
+        assert_eq!(parsed.mode_switch_keys(), None);
+        parsed.mode_switch = "option+1".parse().unwrap();
+        assert_eq!(parsed.mode_switch_keys(), None);
     }
 }

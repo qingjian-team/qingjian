@@ -111,7 +111,7 @@ IMK 输入法，源码按 `app / host / imk / candidates / menubar / preferences
 - 配置项：云联想 `[predict]`（偏好设置「云服务」页有「测试连接」按钮：`qingjian_predict::ConnectionTest` 起线程发一条最小请求，`Host` 用独立定时器 `CloudTestMonitor` 轮询结果显示到窗口底部；
   `reasoning_effort` 缺省 `none`，DeepSeek V4 默认思考，不关正文为空）；模糊音 `[fuzzy]` 默认都关；`[general]` 学习语言 / 每页候选数 / 翻页键 / 外观 / 竖排横排 / 拼音显示位置 /
   英文模式候选开关 / 双拼方案 `shuangpin`（小鹤 / 自然码 / 微软 / 搜狗，空为全拼）/ 日志级别 `log_level`（缺省 info 不含敲的内容，debug 逐键记，热切换）/ 输入日志 `input_log`；
-  `[shortcut]` 模式键 v / u、上屏第一 / 第二个译词的修饰键 `translation` / `translation_second`、删候选 `delete_candidate`（缺省 shift，用户词整删、词库词清学习）、翻译选中文字 `translate_selection`；
+  `[shortcut]` 模式键 v / u、上屏第一 / 第二个译词的修饰键 `translation` / `translation_second`、删候选 `delete_candidate`（缺省 shift，用户词整删、词库词清学习）、翻译选中文字 `translate_selection`、macOS 中英文切换 `mode_switch`（缺省 `shift` 单击，也支持旧版修饰键加字母，不能与翻译键冲突）；
   `[apps] english_candidates_off` 按 bundle identifier 列出英文模式不给候选的应用（缺省终端 / 编辑器 / IDE，`*` 前缀匹配）；
   `[dictionaries] domains` 打开随包的领域词库（`Resources/dicts/` 11 本，缺省只开 `idioms`），`disabled` 关掉用户目录 `dicts/` 里的某本导入词库；
   偏好设置「词库」页随包的可开关、导入的可开关 / 移除，可导入 TSV / Rime yaml / .qj。
@@ -120,6 +120,8 @@ IMK 输入法，源码按 `app / host / imk / candidates / menubar / preferences
   `set_async_sentence_scorer` 接上，`refresh` 每键先读应用光标前 64 字给 Engine 当前文、查询后 `schedule_rescoring`，`RescoreMonitor` 停键 80 ms 请求、20 ms 轮询，
   结果到了重查一次只重画当前页（翻过页 / 动过高亮不动）；「云服务」页有开关（`[model] enabled`）。
 - 端到端验证可用 `osascript` 的 System Events 往 TextEdit 发按键再读回文本（终端需要辅助功能权限；输入法得在中文模式）。
+- 中英文切换的状态、事件优先级与验证边界见 [macOS 中英文切换](../design/macos-mode-switch.md)。
+- macOS 安装后 `repair-input-cache.sh` 定向备份微信 / 企业微信中不含青简的旧键盘缓存；已包含青简则不动。工具随包放在 `Resources/`，不退出应用；已运行的应用需重启。见 [输入源缓存](input-source-cache.md)。
 
 ## apps/windows
 

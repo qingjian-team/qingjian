@@ -13,9 +13,11 @@ mod edit_menu;
 mod file_dialog;
 mod key_recorder;
 mod layout;
+mod pager;
 mod pages;
 mod panel;
 mod setting;
+mod sidebar;
 mod target;
 mod window;
 
@@ -52,4 +54,39 @@ pub fn setting_from_sender(sender: Option<&AnyObject>) -> Option<(Setting, Setti
         return Some((Setting::from_tag(field.tag())?, SettingValue::Text(text)));
     }
     None
+}
+
+/// 开发用预览入口（`qingjian-macos --preferences-preview [页序号] [dark]`）：用缺省配置、空统计与两种释义表语言
+/// 把设置窗口直接打开在前台，不依赖 IMK 与 Host；控件改动因为没有 Host 会被静默忽略。截图与调布局用。
+pub fn preview_main() {
+    use objc2_app_kit::{NSAppearance, NSAppearanceNameDarkAqua, NSApplication};
+    use qingjian_core::{Language, UsageSummary, VocabularySummary};
+    use qingjian_platform::Config;
+
+    let mtm = objc2::MainThreadMarker::new().expect("预览入口必须在主线程");
+    let app = NSApplication::sharedApplication(mtm);
+    let extra: Vec<String> = std::env::args()
+        .skip_while(|a| a != "--preferences-preview")
+        .skip(1)
+        .collect();
+    let page = extra
+        .first()
+        .and_then(|a| a.parse::<usize>().ok())
+        .unwrap_or(0);
+    if extra.iter().any(|a| a == "dark") {
+        // SAFETY: 外观名是 AppKit 导出的常量
+        let dark = unsafe { NSAppearance::appearanceNamed(NSAppearanceNameDarkAqua) };
+        app.setAppearance(dark.as_deref());
+    }
+    let languages = [Language::English, Language::Japanese];
+    let window = PreferencesWindow::new(mtm, &languages, "预览", "dev · 本地");
+    window.sync(&Config::default(), false, None, &[]);
+    window.sync_usage(
+        &UsageSummary::default(),
+        &VocabularySummary::default(),
+        Language::English,
+    );
+    window.select_page(page);
+    window.show();
+    app.run();
 }
