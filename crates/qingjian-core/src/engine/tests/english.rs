@@ -123,6 +123,36 @@ fn hyphen_turns_the_buffer_into_a_raw_english_segment() {
 }
 
 #[test]
+fn punctuation_mode_decides_whether_punctuation_joins_the_buffer() {
+    let mut engine = engine();
+    // 缺省 raw：无论缓冲区是什么，标点都进直输段
+    engine.set_input("kaifa");
+    assert!(engine.takes_punctuation());
+    engine.set_input("hello");
+    assert!(engine.takes_punctuation());
+    // commit：一律先上屏
+    engine.set_punctuation_mode(PunctuationMode::Commit);
+    engine.set_input("kaifa");
+    assert!(!engine.takes_punctuation());
+    engine.set_input("hello");
+    assert!(!engine.takes_punctuation());
+    // auto：切得成拼音就上屏，切不成才直输；已在直输段里继续追加
+    engine.set_punctuation_mode(PunctuationMode::Auto);
+    engine.set_input("kaifa");
+    assert!(!engine.takes_punctuation());
+    engine.set_input("kai'fa");
+    assert!(!engine.takes_punctuation());
+    engine.set_input("hello");
+    assert!(engine.takes_punctuation());
+    engine.set_input("no-");
+    assert!(engine.takes_punctuation());
+    // 双拼下键位含义不同，auto 按上屏处理
+    engine.set_shuangpin(Some(crate::ShuangpinScheme::Xiaohe));
+    engine.set_input("hello");
+    assert!(!engine.takes_punctuation());
+}
+
+#[test]
 fn english_completions_appear_when_pinyin_is_unlikely() {
     let words = WordList::parse(
             "company\tcompany\t900\ncompare\tcompare\t500\ncompass\tcompass\t300\ncomma\tcomma\t100\nxian\txian\t50\nxiangkai\txiangkai\t10\n",
