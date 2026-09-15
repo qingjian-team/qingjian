@@ -1,5 +1,8 @@
+//! 原生快捷键录制器，支持组合键与中英切换专用的单击 Shift。
+
 use std::cell::{Cell, RefCell};
 
+use crate::imk::ShiftTap;
 use objc2::rc::Retained;
 use objc2::runtime::AnyObject;
 use objc2::{DefinedClass, MainThreadMarker, MainThreadOnly, define_class, msg_send};
@@ -17,6 +20,12 @@ const ESCAPE_KEY: u16 = 53;
 pub struct Ivars {
     /// 只记修饰键（配数字键上屏译词那两项）：按住修饰键再按任意键，键本身不算。
     modifiers_only: bool,
+
+    /// 中英切换控件额外允许录制单击 Shift。
+    allow_shift: Cell<bool>,
+
+    /// 与实际输入控制器使用同一个手势判定，防止录制与执行不一致。
+    shift_tap: RefCell<ShiftTap>,
 
     /// 正在等用户按键。
     recording: Cell<bool>,
@@ -50,11 +59,13 @@ define_class!(
                 window.makeFirstResponder(Some(self));
             }
             self.ivars().recording.set(true);
+            self.ivars().shift_tap.borrow_mut().reset();
             self.setTitle(&NSString::from_str(RECORDING_TITLE));
         }
 
         #[unsafe(method(keyDown:))]
         fn key_down(&self, event: &NSEvent) {
+            self.ivars().shift_tap.borrow_mut().cancel();
             if !self.ivars().recording.get() {
                 // SAFETY: 不在录制中就按普通按钮处理
                 let _: () = unsafe { msg_send![super(self), keyDown: event] };
@@ -93,19 +104,19 @@ define_class!(
             let Some((key, label)) = value else {
                 return;
             };
-            self.ivars().recording.set(false);
-            *self.ivars().recorded.borrow_mut() = key;
-            *self.ivars().label.borrow_mut() = label.clone();
-            self.setTitle(&NSString::from_str(&label));
-            if let Some(window) = self.window() {
-                window.makeFirstResponder(None);
-            }
-            // target / action 由 `wire` 挂上，与其他控件一致
-            let target: Option<Retained<AnyObject>> = self.target();
-            let action = self.action();
-            // SAFETY: 选择器是 PreferencesTarget 上定义的 `changed:`，签名 (id) -> void
-            unsafe {
-                self.sendAction_to(action, target.as_deref());
+            self.finish(key, label);
+        }
+
+        #[unsafe(method(flagsChanged:))]
+        fn flags_changed(&self, event: &NSEvent) {
+            if self.ivars().recording.get() && self.ivars().allow_shift.get() {
+                let tapped = self.ivars().shift_tap.borrow_mut().flags_changed(
+                    event.keyCode(), event.modifierFlags(), event.timestamp(),
+                );
+                if tapped {
+                    let value = qingjian_platform::ModeSwitch::Shift;
+                    self.finish(value.key_string(), value.label());
+                }
             }
         }
 
@@ -128,6 +139,8 @@ impl KeyRecorder {
     pub fn new(mtm: MainThreadMarker, modifiers_only: bool) -> Retained<Self> {
         let this = mtm.alloc::<Self>().set_ivars(Ivars {
             modifiers_only,
+            allow_shift: Cell::new(false),
+            shift_tap: RefCell::new(ShiftTap::default()),
             recording: Cell::new(false),
             recorded: RefCell::new(String::new()),
             label: RefCell::new(String::new()),
@@ -152,7 +165,29 @@ impl KeyRecorder {
         self.ivars().recorded.borrow().clone()
     }
 
+    /// 仅中英切换项开启，其他快捷键仍遵循各自原有的组合规则。
+    pub fn enable_shift(&self) {
+        self.ivars().allow_shift.set(true);
+    }
+
+    fn finish(&self, key: String, label: String) {
+        self.ivars().recording.set(false);
+        self.ivars().shift_tap.borrow_mut().reset();
+        *self.ivars().recorded.borrow_mut() = key;
+        *self.ivars().label.borrow_mut() = label.clone();
+        self.setTitle(&NSString::from_str(&label));
+        if let Some(window) = self.window() {
+            window.makeFirstResponder(None);
+        }
+        let target: Option<Retained<AnyObject>> = self.target();
+        // SAFETY: 选择器是 PreferencesTarget 的 changed:，签名 (id) -> void。
+        unsafe {
+            self.sendAction_to(self.action(), target.as_deref());
+        }
+    }
+
     fn cancel(&self) {
+        self.ivars().shift_tap.borrow_mut().reset();
         self.ivars().recording.set(false);
         let label = self.ivars().label.borrow().clone();
         self.setTitle(&NSString::from_str(&label));

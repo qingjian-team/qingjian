@@ -11,6 +11,8 @@ impl Host {
         self.engine.set_fuzzy(config.fuzzy);
         self.engine
             .set_full_width_punctuation(config.general.full_width_punctuation);
+        self.engine
+            .set_punctuation_mode(config.general.punctuation_mode);
         if let Err(error) = self
             .engine
             .set_custom_phrases(config.custom_phrases.clone())
@@ -23,6 +25,7 @@ impl Host {
         self.translation_keys = config.shortcut.translation_keys();
         self.delete_keys = config.shortcut.delete_keys();
         self.translate_keys = config.shortcut.translate_selection;
+        self.mode_switch_keys = config.shortcut.mode_switch_keys();
         self.page_size = config.general.page_size();
         self.cloud_slots = config.predict.slots;
         self.page_keys = config.general.page_keys();

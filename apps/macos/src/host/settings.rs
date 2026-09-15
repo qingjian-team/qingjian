@@ -188,6 +188,12 @@ impl Host {
                     self.settings.set_value("general", "layout", layout.key());
                 }
             }
+            (Setting::PunctuationMode, SettingValue::Index(index)) => {
+                if let Some(mode) = qingjian_core::PunctuationMode::ALL.get(index) {
+                    self.settings
+                        .set_value("general", "punctuation_mode", mode.key());
+                }
+            }
             (Setting::Preedit, SettingValue::Index(index)) => {
                 if let Some(mode) = PreeditMode::ALL.get(index) {
                     self.settings.set_value("general", "preedit", mode.key());
@@ -243,20 +249,45 @@ impl Host {
                     Err(error) => tracing::warn!(%error, "修饰键组合不合法，未改"),
                 }
             }
+            (Setting::ModeSwitchKeys, SettingValue::Text(text)) => {
+                match text.parse::<ModeSwitch>() {
+                    Ok(chosen) => {
+                        let candidate = ShortcutConfig {
+                            mode_switch: chosen,
+                            ..config.shortcut
+                        };
+                        if candidate.mode_switch_keys().is_some() {
+                            self.settings
+                                .set_value("shortcut", "mode_switch", chosen.key_string());
+                        } else {
+                            tracing::warn!(
+                                "切换键须为单击 Shift 或修饰键加字母，且不能与翻译键相同，未改"
+                            );
+                        }
+                    }
+                    Err(error) => tracing::warn!(%error, "切换键不合法，未改"),
+                }
+            }
             (Setting::TranslateSelectionKeys, SettingValue::Text(text)) => {
                 match text.parse::<KeyCombo>() {
-                    Ok(combo) => {
+                    Ok(combo) if config.shortcut.mode_switch.combo() != Some(combo) => {
                         self.settings.set_value(
                             "shortcut",
                             "translate_selection",
                             combo.key_string(),
                         );
                     }
+                    Ok(_) => tracing::warn!("翻译键不能与中英文切换键相同，未改"),
                     Err(error) => tracing::warn!(%error, "快捷键不合法，未改"),
                 }
             }
             (Setting::ResetShortcuts, _) => {
                 let defaults = ShortcutConfig::default();
+                self.settings.set_value(
+                    "shortcut",
+                    "mode_switch",
+                    defaults.mode_switch.key_string(),
+                );
                 self.settings
                     .set_value("general", "page_keys", PAGE_KEY_OPTIONS[0]);
                 self.settings.set_value(

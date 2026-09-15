@@ -38,8 +38,8 @@ use qingjian_lm::BigramModel;
 use qingjian_platform::extra_dictionaries;
 use qingjian_platform::{
     AppsConfig, DEFAULT_ENGLISH_CANDIDATES_OFF, DictionariesConfig, KeyCombo, LayoutMode,
-    LocalModelConfig, LogLevel, Modifiers, PAGE_KEY_OPTIONS, PreeditMode, ShortcutConfig,
-    ThemeMode,
+    LocalModelConfig, LogLevel, ModeSwitch, Modifiers, PAGE_KEY_OPTIONS, PreeditMode,
+    ShortcutConfig, ThemeMode,
 };
 use qingjian_predict::{
     CloudGlossFiller, CloudPredictor, ConnectionTest, PredictConfig, PredictError,
@@ -131,6 +131,9 @@ pub struct Host {
 
     /// 翻译选中文字的快捷键（配置 `[shortcut] translate_selection`）。
     pub translate_keys: KeyCombo,
+
+    /// 中英文切换键；配置冲突时禁用。
+    pub mode_switch_keys: Option<ModeSwitch>,
 
     /// 进行中的「翻译选中文字」；有它时候选窗口显示的是译文（或「翻译中…」），按键先归它处理。
     pub translation: Option<TranslationJob>,

@@ -17,6 +17,7 @@ mod marked;
 mod mode_keys;
 mod prediction;
 mod privacy;
+mod punctuation_mode;
 mod query;
 mod rescoring;
 mod setup;
@@ -45,6 +46,7 @@ pub use prediction::{
     CloudWord, NoPredictor, Prediction, PredictionKind, PredictionPolicy, PredictionRequest,
     Predictor, SurroundingText,
 };
+pub use punctuation_mode::PunctuationMode;
 
 pub use query::Query;
 pub use statistics::{BOOKS, Book, NoUsageMeter, Usage, UsageMeter, UsageSummary, book_scale};
@@ -107,6 +109,9 @@ pub struct Engine {
 
     /// 中文标点转换开关。
     full_width_punctuation: bool,
+
+    /// 组句中敲标点的处理方式。
+    punctuation_mode: PunctuationMode,
 
     /// 用户定义的固定位置文本。
     custom_phrases: Vec<crate::CustomPhrase>,
@@ -317,6 +322,7 @@ impl Engine {
             english_mode: false,
             punctuation: Punctuation::default(),
             full_width_punctuation: true,
+            punctuation_mode: PunctuationMode::default(),
             custom_phrases: Vec::new(),
             predictor: Box::new(NoPredictor),
             language_model: Box::new(NoLanguageModel),

@@ -32,7 +32,7 @@
 	<!-- InputMethodKit：连接名按 10.7 起的约定必须是 <bundle id>_Connection -->
 	<key>InputMethodConnectionName</key>
 	<string>app.qingjian.inputmethod_Connection</string>
-	<!-- 与 controller.rs 里 define_class! 的 #[name] 一致 -->
+	<!-- 与 imk/controller/mod.rs 里 define_class! 的 #[name] 一致 -->
 	<key>InputMethodServerControllerClass</key>
 	<string>QingjianInputController</string>
 	<key>InputMethodType</key>

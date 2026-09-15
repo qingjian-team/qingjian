@@ -5,9 +5,7 @@ use objc2::rc::Retained;
 use objc2_app_kit::NSButton;
 use qingjian_platform::{Config, LogLevel};
 
-use crate::preferences::controls::{
-    GROUP_GAP, button, checkbox, note_full, row_checkbox, set_checked,
-};
+use crate::preferences::controls::{button, checkbox, note_full, row_checkbox, set_checked};
 use crate::preferences::layout::{Layout, PAGE_PADDING, ROW_HEIGHT};
 use crate::preferences::setting::Setting;
 use crate::preferences::target::PreferencesTarget;
@@ -35,7 +33,7 @@ impl AdvancedPage {
             mtm,
             "这里的每一项设置都对应配置文件里的一行，手改文件保存后立即生效；文件里有更多注释与少数不常用的选项。",
         );
-        layout.space(GROUP_GAP);
+        layout.end_group();
         let verbose = checkbox(mtm, "详细日志", Setting::VerboseLog, target);
         row_checkbox(layout, &verbose);
         note_full(
@@ -43,7 +41,7 @@ impl AdvancedPage {
             mtm,
             "会把敲的拼音与上屏的文字记进日志，只在配合作者排查问题时打开，查完关掉。日志在「关于」页可以打开。",
         );
-        layout.space(GROUP_GAP);
+        layout.end_group();
         let input_log = checkbox(mtm, "记录输入日志", Setting::InputLog, target);
         row_checkbox(layout, &input_log);
         note_full(

@@ -1,7 +1,10 @@
+//! 设置窗口的 NSWindow 子类：系统设置式的透明标题栏，关窗时把进程切回纯后台。
+
 use objc2::rc::Retained;
 use objc2::{MainThreadMarker, MainThreadOnly, define_class, msg_send};
 use objc2_app_kit::{
     NSApplication, NSApplicationActivationPolicy, NSBackingStoreType, NSWindow, NSWindowStyleMask,
+    NSWindowTitleVisibility,
 };
 use objc2_foundation::{NSObjectProtocol, NSRect};
 
@@ -33,13 +36,19 @@ impl PreferencesPanel {
             msg_send![
                 super(this),
                 initWithContentRect: content,
-                styleMask: NSWindowStyleMask::Titled | NSWindowStyleMask::Closable,
+                styleMask: NSWindowStyleMask::Titled
+                    | NSWindowStyleMask::Closable
+                    | NSWindowStyleMask::FullSizeContentView,
                 backing: NSBackingStoreType::Buffered,
                 defer: false,
             ]
         };
         // 程序建的 NSWindow 默认关窗即释放，我们还握着 Retained，必须关掉
         unsafe { this.setReleasedWhenClosed(false) };
+        // 系统设置式外观：标题栏透明、不显示窗口标题，侧栏一直伸到窗口顶；页名由内容列自己画
+        this.setTitlebarAppearsTransparent(true);
+        this.setTitleVisibility(NSWindowTitleVisibility::Hidden);
+        this.setMovableByWindowBackground(true);
         this
     }
 

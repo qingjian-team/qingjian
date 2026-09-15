@@ -7,7 +7,7 @@ use objc2_app_kit::NSFont;
 use objc2_app_kit::NSTextField;
 use objc2_foundation::NSString;
 
-use crate::preferences::controls::{GROUP_GAP, button, note_full, small_label};
+use crate::preferences::controls::{button, note_full, small_label};
 use crate::preferences::layout::{Layout, PAGE_PADDING, ROW_HEIGHT};
 use crate::preferences::setting::Setting;
 use crate::preferences::target::PreferencesTarget;
@@ -75,7 +75,7 @@ pub fn build(
     layout.place(&repository, PAGE_PADDING + 160.0, 150.0, ROW_HEIGHT + 4.0);
     layout.next_row(ROW_HEIGHT + 4.0);
     note_full(layout, mtm, LICENSE_NOTE);
-    layout.space(GROUP_GAP);
+    layout.end_group();
 
     let heading = small_label(mtm, "数据来源与署名");
     layout.place(
@@ -88,7 +88,7 @@ pub fn build(
     for (name, text) in ATTRIBUTIONS {
         note_full(layout, mtm, &format!("{name}：{text}"));
     }
-    layout.space(GROUP_GAP);
+    layout.end_group();
 
     note_full(layout, mtm, PRIVACY_NOTE);
     note_full(layout, mtm, FEEDBACK_NOTE);
