@@ -216,6 +216,47 @@ fn spelling_correction_fixes_one_edit_and_learns_from_enter() {
 }
 
 #[test]
+fn transposition_is_corrected_while_the_last_syllable_is_still_unfinished() {
+    let dictionary = Dictionary::parse(
+        "明天\tming tian\t8000\n明\tming\t12000\n天\ttian\t9000\n米\tmi\t3000\n给\tgei\t5000\n\
+         你\tni\t90000\n太\ttai\t4000\n啊\ta\t6000\n",
+    )
+    .unwrap();
+    let mut engine = Engine::new(dictionary);
+    // 敲反了 gn 之后还在往下敲：mignt → ming't，候选按前缀出 明天，拼音行划掉 gn
+    engine.set_input("mignt");
+    let query = engine.query().unwrap();
+    let correction = query.correction.clone().expect("corrected");
+    assert_eq!(correction.corrected, "mingt");
+    assert!(correction.segmentation.last_is_partial());
+    let kinds: Vec<(String, MarkedKind)> = query
+        .marked_segments()
+        .iter()
+        .map(|s| (s.text.clone(), s.kind))
+        .collect();
+    assert_eq!(
+        kinds,
+        [
+            ("mi".to_owned(), MarkedKind::Typed),
+            ("gn".to_owned(), MarkedKind::Corrected),
+            ("ng't".to_owned(), MarkedKind::Typed),
+        ]
+    );
+    assert_eq!(query.candidates.items[0].text, "明天");
+    // 再敲两键：migntia → ming'tia…，仍是 明天；选它吃掉整段原串
+    engine.set_input("migntia");
+    let query = engine.query().unwrap();
+    assert_eq!(query.correction.as_ref().unwrap().corrected, "mingtia");
+    let first = query.candidates.items[0].clone();
+    assert_eq!(first.text, "明天");
+    assert_eq!(engine.commit(&first), "明天");
+    assert!(engine.composition().is_empty());
+    // 敲完整个词：migntian → ming'tian
+    engine.set_input("migntian");
+    assert_eq!(engine.query().unwrap().candidates.items[0].text, "明天");
+}
+
+#[test]
 fn fuzzy_rules_add_homophones_behind_exact_hits() {
     // 词库里只有 kai fa 系列加一个 哈；敲 kaiha 没开 f/h 时只有前缀词 开（开哈 原样读得通，词图的敲错边翻不过它），
     // 开了就出 开发（模糊命中）且覆盖更多字母排第一

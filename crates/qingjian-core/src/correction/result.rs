@@ -15,7 +15,7 @@ pub struct Correction {
     /// 从原串到纠正后串的那一处编辑。
     pub edit: Edit,
 
-    /// 纠正后串的切分，每个音节都完整。
+    /// 纠正后串的切分：每个音节都完整，或（相邻换位时）只有末尾一个还没敲完。
     pub segmentation: Segmentation,
 }
 
@@ -37,6 +37,10 @@ impl Correction {
         for syllable in &self.segmentation.syllables {
             let end = start + syllable.text.len();
             if at < end {
+                // 编辑落在还没敲完的末尾音节里：还不知道用户要的是哪个音节，不记
+                if !syllable.complete {
+                    return None;
+                }
                 let typed_start = self.edit.to_original(start);
                 let typed_end = self.edit.to_original(end);
                 let typed = self.original.get(typed_start..typed_end)?;
@@ -157,6 +161,20 @@ mod tests {
             correction.typo_pair(5),
             Some(("zheg".to_owned(), "zhe".to_owned()))
         );
+        // 换位落在没敲完的末尾音节里：不记
+        let correction = Correction {
+            original: "mingita".into(),
+            corrected: "mingtia".into(),
+            edit: Edit::Transpose {
+                index: 4,
+                first: 'i',
+                second: 't',
+            },
+            segmentation: Segmentation {
+                syllables: vec![Syllable::complete("ming"), Syllable::partial("tia")],
+            },
+        };
+        assert_eq!(correction.typo_pair(7), None);
     }
 
     #[test]

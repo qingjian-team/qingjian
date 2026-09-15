@@ -26,6 +26,10 @@ pub struct TypoCosts {
     /// 整段一处编辑的纠错代价：纠正后的整句得分要比原样转出的高出这么多才纠。
     /// 相当于「敲错一个键」的先验约 1/150；原样是合法简拼（`nhao` → 你好）时两边路径一样，纠正不会赢。
     pub correction_penalty: f64,
+
+    /// 整段纠错里相邻换位比别的编辑便宜多少：一个位置只有一种换法、却有七八个相邻键可以换错，
+    /// 同样能说通时换位的解释更可能（`mignti` 换位成 `mingti` 而不是换字母成 `mianti`）。
+    pub correction_transpose_discount: f64,
 }
 
 impl TypoCosts {
@@ -37,6 +41,7 @@ impl TypoCosts {
         missing: 5.5,
         discount_cap: 3.0,
         correction_penalty: 5.0,
+        correction_transpose_discount: 1.0,
     };
 
     /// 这类敲错的基础代价。
@@ -54,9 +59,14 @@ impl TypoCosts {
         self.discounted(self.cost(kind), accepted)
     }
 
-    /// 整段一处编辑的纠错代价，按个人敲错表打折。
-    pub fn correction_cost(&self, accepted: u32) -> f64 {
-        self.discounted(self.correction_penalty, accepted)
+    /// 整段一处编辑的纠错代价：相邻换位先减 [`Self::correction_transpose_discount`]，再按个人敲错表打折。
+    pub fn correction_cost(&self, transpose: bool, accepted: u32) -> f64 {
+        let base = if transpose {
+            self.correction_penalty - self.correction_transpose_discount
+        } else {
+            self.correction_penalty
+        };
+        self.discounted(base, accepted)
     }
 
     /// `base` 代价减去个人折扣：折扣 = min(ln(1 + 接受过的次数), [`Self::discount_cap`])。
