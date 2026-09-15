@@ -5,7 +5,7 @@ use qingjian_core::correction::TypoCosts;
 use qingjian_core::sentence::Interpolation;
 
 /// 可调的参数名。
-pub const KEYS: [&str; 10] = [
+pub const KEYS: [&str; 11] = [
     "lambda",
     "k",
     "cap",
@@ -16,6 +16,7 @@ pub const KEYS: [&str; 10] = [
     "missing",
     "typo-cap",
     "correction",
+    "correction-transpose",
 ];
 
 /// 把一组 `名=值` 应用到引擎；没给的项保持缺省。
@@ -44,6 +45,7 @@ pub fn apply(engine: &mut Engine, settings: &[String]) -> Result<(), TuneError> 
             "missing" => costs.missing = value,
             "typo-cap" => costs.discount_cap = value,
             "correction" => costs.correction_penalty = value,
+            "correction-transpose" => costs.correction_transpose_discount = value,
             other => {
                 return Err(TuneError::Unknown {
                     name: other.to_owned(),
