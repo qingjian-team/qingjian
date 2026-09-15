@@ -14,6 +14,7 @@ pub(crate) enum Message {
     EnglishCandidates(bool),
     FullWidthPunctuation(bool),
     EnglishFullWidthPunctuation(bool),
+    PunctuationMode(Option<usize>),
     /// 开=写入平台默认名单，关=清空。
     EnglishOffInApps(bool),
 

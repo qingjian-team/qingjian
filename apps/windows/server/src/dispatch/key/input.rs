@@ -207,7 +207,8 @@ impl Router {
         with_prefix(committed, effect, c)
     }
 
-    /// 组句中的可打印键：数字选当前页第 N 个，翻页键翻页，空格上屏高亮，其余进英文直输段。
+    /// 组句中的可打印键：数字选当前页第 N 个，翻页键翻页，空格上屏高亮，其余标点进不进英文直输段由 Core 按
+    /// `[general] punctuation_mode` 定（不进就先上屏高亮候选，再按没在组句处理这个键）。
     /// 表达式模式（`v1+2`）里数字和运算符进算式；问字模式敲的还可能是码点（`u4e00`、`u+1f600`），数字与 `+` 进缓冲区；
     /// 微软 / 搜狗双拼的 `;` 是 ing 键，末尾有落单声母时进缓冲区。
     fn apply_printable(&mut self, c: char, event: &KeyEvent) -> Effect {
@@ -233,8 +234,13 @@ impl Router {
         if c == ' ' {
             return Effect::Changed(Some(self.commit_highlighted()));
         }
-        // 表达式 / 问字模式下的其他字符不进缓冲区（与 macOS 壳一致）：先把高亮候选上屏，再按没在组句处理这个键。
-        if c != '\'' && (expression || self.engine.question_mode()) {
+        // 表达式 / 问字模式下的其他字符不进缓冲区（与 macOS 壳一致）：先把高亮候选上屏，再按没在组句处理这个键；
+        // 标点模式说不进缓冲区时同样处理
+        if c != '\''
+            && (expression
+                || self.engine.question_mode()
+                || (c.is_ascii_punctuation() && !self.engine.takes_punctuation()))
+        {
             let committed = self.commit_highlighted();
             let effect = self.apply_punctuation(c, event);
             return with_prefix(Some(committed), effect, c);
