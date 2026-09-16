@@ -2,12 +2,24 @@
 //! 文件（按 `[dictionaries] disabled` 过滤），加载后一起接到 Engine 上。
 
 use std::path::{Path, PathBuf};
+use std::time::SystemTime;
 
 use crate::DictionariesConfig;
 use qingjian_dictionary::Dictionary;
 
 /// 目录里能加载的扩展名，靠前的优先：同名的 `.qj` 与 `.tsv` 只取 `.qj`（开发目录里两者并存）。
 const EXTENSIONS: [&str; 2] = ["qj", "tsv"];
+
+/// 可加载文件的快照：用于发现新增、移除与同名更新，不读取词库正文。
+pub fn snapshot(dir: &Path) -> Vec<(PathBuf, Option<SystemTime>, u64)> {
+    list(dir)
+        .into_iter()
+        .filter_map(|(_, path)| {
+            let metadata = std::fs::metadata(&path).ok()?;
+            Some((path, metadata.modified().ok(), metadata.len()))
+        })
+        .collect()
+}
 
 /// 列出目录里的词库文件（按文件名排序，同名只留优先扩展名的那个），返回 (文件名不含扩展名, 路径)。目录不存在就是空。
 pub fn list(dir: &Path) -> Vec<(String, PathBuf)> {

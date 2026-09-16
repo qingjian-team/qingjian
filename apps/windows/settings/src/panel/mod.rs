@@ -36,6 +36,9 @@ pub(crate) struct Settings {
     /// 云服务「测试连接」的状态。
     cloud_status: CloudStatus,
 
+    /// 最近一次词库操作的结果，显示在词库页。
+    dictionary_status: String,
+
     /// 系统里的字族名（DirectWrite），「字体」框的提示用。
     families: Vec<String>,
 

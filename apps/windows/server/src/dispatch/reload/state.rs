@@ -3,8 +3,11 @@
 use std::path::PathBuf;
 use std::time::{Instant, SystemTime};
 
-use qingjian_platform::DictionariesConfig;
+use qingjian_dictionary::Dictionary;
+use qingjian_platform::{DictionariesConfig, extra_dictionaries};
 use qingjian_predict::PredictConfig;
+
+use crate::assembly::user_dicts_dir;
 
 /// 热加载状态。
 pub(crate) struct ConfigReload {
@@ -28,4 +31,20 @@ pub(crate) struct ConfigReload {
 
     /// 已应用的 `[dictionaries]`。
     pub(super) applied_dictionaries: DictionariesConfig,
+
+    /// 最近加载的用户词库文件快照（路径、修改时间、长度）。
+    pub(super) dictionary_files: Vec<(PathBuf, Option<SystemTime>, u64)>,
+}
+
+impl ConfigReload {
+    /// 按上次有效配置装配词库，不把用户目录中的学习数据当作词库。
+    pub(super) fn load_dictionaries(&self) -> Vec<Dictionary> {
+        let dictionaries = extra_dictionaries::load(
+            self.bundled_dicts_dir.as_deref(),
+            user_dicts_dir(self.user_dir.as_deref()).as_deref(),
+            &self.applied_dictionaries,
+        );
+        tracing::info!(count = dictionaries.len(), "附加词库已热重装");
+        dictionaries
+    }
 }

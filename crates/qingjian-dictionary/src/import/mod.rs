@@ -44,6 +44,11 @@ pub fn import(source: &Path, dest_dir: &Path) -> Result<Imported, DictionaryErro
         };
         (dictionary, metadata)
     };
+    if dictionary.is_empty() {
+        return Err(DictionaryError::Corrupt(
+            "no usable entries; expected word and explicit pinyin columns",
+        ));
+    }
     dictionary.write_qj(&target, &metadata)?;
     Ok(Imported {
         path: target,

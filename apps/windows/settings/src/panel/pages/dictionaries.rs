@@ -150,12 +150,13 @@ pub(crate) fn view(settings: &Settings, context: &mut ViewContext<Settings>) -> 
                     .content("导入词库…"),
                 note("接受青简 TSV、Rime .dict.yaml、.qj；导入即复制进上面的目录。"),
             )),
+        note(&settings.dictionary_status),
     ]);
     page("词库", body)
 }
 
 /// 挪进 `dicts\removed`，不真删（与 macOS 一致）。
-pub(crate) fn remove_user_dict(settings: &Settings, stem: &str) {
+pub(crate) fn remove_user_dict(settings: &mut Settings, stem: &str) {
     let dir = user_dir(settings);
     let Some((_, path)) = extra_dictionaries::list(&dir)
         .into_iter()
@@ -165,35 +166,71 @@ pub(crate) fn remove_user_dict(settings: &Settings, stem: &str) {
     };
     let removed = dir.join("removed");
     if let Err(error) = std::fs::create_dir_all(&removed) {
-        crate::log::warn(format!("建 removed 目录失败: {error}"));
+        settings.dictionary_status = format!("移除失败：{error}");
         return;
     }
-    if let Some(file_name) = path.file_name()
-        && let Err(error) = std::fs::rename(&path, removed.join(file_name))
-    {
-        crate::log::warn(format!("移除词库 {stem} 失败: {error}"));
+    if let Some(file_name) = path.file_name() {
+        settings.dictionary_status = match std::fs::rename(&path, removed.join(file_name)) {
+            Ok(()) => format!("已移除「{stem}」，输入法将自动更新。"),
+            Err(error) => format!("移除失败：{error}"),
+        };
     }
 }
 
-/// 文件选择器选一本，复制进用户词库目录。
-pub(crate) fn import(settings: &Settings) {
-    let Some(source) = rfd::FileDialog::new()
+/// 多选词库，逐个转换并汇总结果；成功项的开关一次写回。
+pub(crate) fn import(settings: &mut Settings) {
+    let Some(sources) = rfd::FileDialog::new()
         .add_filter("词库文件", &["tsv", "yaml", "yml", "qj"])
         .add_filter("所有文件", &["*"])
         .set_title("导入词库")
-        .pick_file()
+        .pick_files()
     else {
         return;
     };
     let dir = user_dir(settings);
-    if let Err(error) = std::fs::create_dir_all(&dir) {
-        crate::log::warn(format!("建用户词库目录失败: {error}"));
-        return;
+    let mut disabled = settings.config.dictionaries.disabled.clone();
+    let mut results = Vec::new();
+    let mut succeeded = 0;
+    for source in &sources {
+        match qingjian_core::dictionary::import::import(source, &dir) {
+            Ok(imported) => {
+                let stem = imported
+                    .path
+                    .file_stem()
+                    .and_then(|s| s.to_str())
+                    .expect("dictionary importer produces a UTF-8 file stem");
+                disabled.retain(|name| name != stem);
+                succeeded += 1;
+                results.push(format!(
+                    "已导入「{}」，共 {} 条。",
+                    imported.name, imported.entries
+                ));
+            }
+            Err(error) => {
+                let message = format!("{} 导入失败：{error}", source.display());
+                crate::log::warn(&message);
+                results.push(message);
+            }
+        }
     }
-    let Some(file_name) = source.file_name() else {
-        return;
-    };
-    if let Err(error) = std::fs::copy(&source, dir.join(file_name)) {
-        crate::log::warn(format!("导入词库失败: {error}"));
+    let mut summary = format!(
+        "导入完成：成功 {} 个，失败 {} 个。",
+        succeeded,
+        sources.len() - succeeded
+    );
+    if disabled != settings.config.dictionaries.disabled
+        && let Err(error) = qingjian_platform::Config::set_array(
+            &settings.path,
+            "dictionaries",
+            "disabled",
+            &disabled,
+        )
+    {
+        results.push(format!(
+            "自动启用失败：{error}。此前关闭的词库需手动勾选启用。"
+        ));
+    } else if succeeded > 0 {
+        summary.push_str("输入法将自动加载。");
     }
+    settings.dictionary_status = format!("{summary}\n{}", results.join("\n"));
 }
