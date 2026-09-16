@@ -399,6 +399,36 @@ fn page_keys_follow_config() {
 }
 
 #[test]
+fn minus_equals_page_keys_preserve_expression_input() {
+    let mut router = router_with(RouterConfig {
+        page_size: 1,
+        page_keys: ('-', '='),
+        ..RouterConfig::default()
+    });
+    let (_, _, frame) = type_letters(&mut router, "ni");
+    assert!(frame.page_count > 1);
+    let (outcome, commit, frame) = press(&mut router, punct('='));
+    assert_eq!((outcome, commit), (KeyOutcome::Consumed, None));
+    assert_eq!(frame.page, 1);
+    assert_eq!(preedit(&frame), "ni");
+    let (_, _, frame) = press(&mut router, punct('-'));
+    assert_eq!(frame.page, 0);
+    assert_eq!(preedit(&frame), "ni");
+    press(&mut router, KeyEvent::new(0x1B, None, Default::default()));
+
+    type_letters(&mut router, "v");
+    for c in "2-1=".chars() {
+        let (outcome, commit, _) = press(&mut router, punct(c));
+        assert_eq!((outcome, commit), (KeyOutcome::Consumed, None));
+    }
+    let (outcome, commit, _) = press(&mut router, punct(' '));
+    assert_eq!(
+        (outcome, commit),
+        (KeyOutcome::Consumed, Some("2-1=1".to_owned()))
+    );
+}
+
+#[test]
 fn english_mode_gives_candidates_and_space_commits_raw() {
     let mut router = router();
     let (outcome, commit, frame) = type_english(&mut router, "hel");
