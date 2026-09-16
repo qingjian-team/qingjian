@@ -48,7 +48,8 @@ impl Host {
         let _ = writeln!(
             out,
             "词汇（{}）：见过 {} · 看熟 {} · 上屏过 {}",
-            self.engine.learning_language().code(),
+            self.learning_language
+                .map_or("off", |language| language.code()),
             vocabulary.seen,
             vocabulary.familiar,
             vocabulary.committed

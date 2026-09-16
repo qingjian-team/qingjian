@@ -47,9 +47,11 @@ impl GeneralPage {
         target: &PreferencesTarget,
         languages: &[Language],
     ) -> Self {
+        // 最后一项是关
         let language_titles: Vec<String> = languages
             .iter()
             .map(|l| language_label(*l).to_owned())
+            .chain(std::iter::once("不显示译文".to_owned()))
             .collect();
         let learning_language = row_popup(
             layout,
@@ -62,7 +64,7 @@ impl GeneralPage {
         note(
             layout,
             mtm,
-            "候选词右侧显示哪种语言的译词，只列出安装了释义表的语言。",
+            "候选词右侧显示哪种语言的译词，只列出安装了释义表的语言；「不显示译文」同时关掉生词标记与释义兜底。",
         );
         let page_size_titles: Vec<String> = (1..=MAX_PAGE_SIZE).map(|n| n.to_string()).collect();
         let page_size = row_popup(
@@ -158,9 +160,13 @@ impl GeneralPage {
         );
         select(
             &self.learning_language,
-            self.languages
-                .iter()
-                .position(|l| l.code() == general.learning_language),
+            if general.learning_language_off() {
+                Some(self.languages.len())
+            } else {
+                self.languages
+                    .iter()
+                    .position(|l| l.code() == general.learning_language)
+            },
         );
         select(&self.page_size, Some(general.page_size() - 1));
         select(

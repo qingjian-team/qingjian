@@ -3,6 +3,7 @@
 use std::path::PathBuf;
 use std::time::{Instant, SystemTime};
 
+use qingjian_core::Language;
 use qingjian_dictionary::Dictionary;
 use qingjian_platform::{DictionariesConfig, extra_dictionaries};
 use qingjian_predict::PredictConfig;
@@ -16,6 +17,9 @@ pub(crate) struct ConfigReload {
 
     /// 上次看文件的时间（节流用）。
     pub(super) last_check: Instant,
+
+    /// 随包数据根目录（释义表在 `data/generated` 下）。
+    pub(super) root: PathBuf,
 
     /// 随包领域词库目录。
     pub(super) bundled_dicts_dir: Option<PathBuf>,
@@ -31,6 +35,9 @@ pub(crate) struct ConfigReload {
 
     /// 已应用的 `[dictionaries]`。
     pub(super) applied_dictionaries: DictionariesConfig,
+
+    /// 已应用的学习语言（`None` 为关）。
+    pub(super) applied_language: Option<Language>,
 
     /// 最近加载的用户词库文件快照（路径、修改时间、长度）。
     pub(super) dictionary_files: Vec<(PathBuf, Option<SystemTime>, u64)>,

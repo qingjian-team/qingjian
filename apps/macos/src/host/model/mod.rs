@@ -7,6 +7,10 @@ use std::sync::mpsc::{TryRecvError, channel};
 
 use qingjian_neural::{CharScorer, NeuralError};
 
+mod rescore_monitor;
+
+pub(super) use rescore_monitor::RescoreMonitor;
+
 use super::*;
 
 impl Host {

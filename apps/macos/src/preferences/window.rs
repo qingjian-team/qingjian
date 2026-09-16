@@ -244,10 +244,13 @@ impl PreferencesWindow {
         &self,
         summary: &UsageSummary,
         vocabulary: &VocabularySummary,
-        language: Language,
+        language: Option<Language>,
     ) {
-        self.usage
-            .show(summary, vocabulary, language_label(language));
+        self.usage.show(
+            summary,
+            vocabulary,
+            language.map_or("学习语言已关", language_label),
+        );
     }
 
     /// 底部状态行临时显示一句提示（不是错误，灰字）；下次 `sync` 会被配置状态覆盖。

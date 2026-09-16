@@ -27822,7 +27822,7 @@ pyramiding	pyramiding	1360
 pyramids	pyramids	3330
 pyre	pyre	2690
 pyres	pyres	1860
-python	python	3780
+Python	python	3780
 pythons	pythons	2790
 qua	qua	2840
 quack	quack	3060
@@ -30371,7 +30371,7 @@ rush	rush	4480
 rushed	rushed	3980
 rushes	rushes	3310
 rushing	rushing	3950
-rust	rust	3740
+Rust	rust	3740
 rusted	rusted	2930
 rustic	rustic	3370
 rustics	rustics	1480
@@ -37203,7 +37203,7 @@ type	type	5270
 typed	typed	3520
 typeface	typeface	2850
 types	types	4850
-typescript	typescript	2590
+TypeScript	typescript	2590
 typeset	typeset	2210
 typesetter	typesetter	1890
 typesetting	typesetting	2560
@@ -39324,7 +39324,7 @@ window	window	4800
 windowing	windowing	1960
 windowpane	windowpane	2040
 windowpanes	windowpanes	1700
-windows	windows	4720
+Windows	windows	4720
 windpipe	windpipe	2430
 windpipes	windpipes	1150
 winds	winds	4220
@@ -94402,7 +94402,7 @@ VPS	vps	2750
 VRAM	vram	2029
 VSAN	vsan	1580
 vsce	vsce	0
-vscode	vscode	1190
+VSCode	vscode	1190
 vscodium	vscodium	0
 vScroll	vscroll	0
 vsliveshare	vsliveshare	0
@@ -94565,3 +94565,5 @@ zsh	zsh	1480
 Zuul	zuul	1650
 zVal	zval	0
 Zypper	zypper	0
+Bilibili	bilibili	0
+LinkedIn	linkedin	0

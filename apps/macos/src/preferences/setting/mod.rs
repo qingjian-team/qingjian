@@ -324,6 +324,7 @@ mod tests {
             Setting::EnglishCandidatesOffInApps,
             Setting::DeleteCandidateKeys,
             Setting::InputLog,
+            Setting::SystemTextReplacements,
             Setting::ClearInputLog,
             Setting::TestCloud,
             Setting::OpenWebsite,

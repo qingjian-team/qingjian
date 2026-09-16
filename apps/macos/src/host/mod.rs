@@ -6,22 +6,14 @@
 //! 设置窗口、手改文件被监视到，全都走它；三个入口都只写 `config.toml`，不各存一套状态。
 
 mod cloud;
-mod cloud_test_monitor;
 mod config;
-mod config_watch;
 mod diagnostics;
 mod dictionaries;
-mod dictionary_info;
 mod init;
 mod model;
-mod notice;
-mod predict_monitor;
 mod presenting;
-mod rescore_monitor;
 mod session;
 mod settings;
-mod text_replacements;
-mod translation_job;
 
 use std::cell::RefCell;
 use std::path::PathBuf;
@@ -31,16 +23,16 @@ use objc2_app_kit::{NSPasteboard, NSPasteboardTypeString};
 use objc2_foundation::{NSProcessInfo, NSRect, NSString};
 use qingjian_core::{
     Candidate, CandidateKind, Cell, CloudWord, EmojiTable, Engine, FuzzyRules, Language, ModeKeys,
-    NoGlossFiller, NoInputLogger, NoPredictor, Prediction, ShuangpinScheme,
+    NoGlossFiller, NoInputLogger, NoPredictor, NoTranslator, Prediction, ShuangpinScheme,
 };
 use qingjian_dictionary::{Dictionary, WordList};
 use qingjian_learning::{FrequencyLearner, InputLog, UsageStats, VocabularyBook};
 use qingjian_lm::BigramModel;
 use qingjian_platform::extra_dictionaries;
 use qingjian_platform::{
-    AppsConfig, CandidateRenderer, DEFAULT_ENGLISH_CANDIDATES_OFF, DictionariesConfig, KeyCombo,
-    LayoutMode, LocalModelConfig, LogLevel, Modifiers, PAGE_KEY_OPTIONS, PreeditMode,
-    ShortcutConfig, ThemeMode,
+    AppsConfig, CandidateRenderer, DEFAULT_ENGLISH_CANDIDATES_OFF, DictionariesConfig,
+    GeneralConfig, KeyCombo, LEARNING_LANGUAGE_OFF, LayoutMode, LocalModelConfig, LogLevel,
+    Modifiers, PAGE_KEY_OPTIONS, PreeditMode, ShortcutConfig, ThemeMode,
 };
 use qingjian_predict::{
     CloudGlossFiller, CloudPredictor, ConnectionTest, PredictConfig, PredictError,
@@ -54,14 +46,14 @@ use crate::error::HostError;
 use crate::menubar::{InputMenu, MenuAction, ModeIndicator};
 use crate::preferences::{PreferencesWindow, Setting, SettingValue};
 
-use cloud_test_monitor::CloudTestMonitor;
-use config_watch::ConfigWatch;
-pub use dictionary_info::DictionaryInfo;
+use cloud::{CloudTestMonitor, PredictMonitor};
+use config::{ConfigWatch, TextReplacement};
+pub use dictionaries::DictionaryInfo;
 pub use init::init;
-use predict_monitor::PredictMonitor;
-use rescore_monitor::RescoreMonitor;
+use model::RescoreMonitor;
+use presenting::Notice;
+pub use presenting::TranslationJob;
 pub use session::Session;
-pub use translation_job::TranslationJob;
 
 pub struct Host {
     /// 输入内核。平台层只能通过它的公开 API 拿候选，不允许碰词库或排序。
@@ -97,8 +89,8 @@ pub struct Host {
     /// 偏好设置「词库」页显示的列表，勾选框 / 移除按钮的下标对着它。
     dictionary_list: Vec<DictionaryInfo>,
 
-    /// 当前接在 Engine 上的释义表语言。
-    learning_language: Language,
+    /// 当前学习语言；`None` 为关（不显示译文）。
+    learning_language: Option<Language>,
 
     /// 打进包里的释义表语言，设置窗口按这个顺序列。
     languages: Vec<Language>,
@@ -137,7 +129,7 @@ pub struct Host {
     pub translation: Option<TranslationJob>,
 
     /// 正在显示的提示（候选窗口里一行字，几秒后自动收）。
-    pub notice: Option<notice::Notice>,
+    pub notice: Option<Notice>,
 
     /// 组句中的拼音显示在行内、候选窗口还是两处。
     pub preedit_mode: PreeditMode,
@@ -146,7 +138,7 @@ pub struct Host {
     pub english_candidates: bool,
 
     /// 上次从系统读到的文本替换（激活输入法时重读），`[general] system_text_replacements` 开着时并进自定义短语。
-    text_replacements: Vec<text_replacements::TextReplacement>,
+    text_replacements: Vec<TextReplacement>,
 
     /// 按应用的行为（配置 `[apps]`）：哪些应用里英文模式不给候选。
     pub apps: AppsConfig,

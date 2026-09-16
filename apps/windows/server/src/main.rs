@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 
 use qingjian_core::{Engine, Language};
 use qingjian_platform::{Config, ConfigError, LogLevel, resources};
+use qingjian_windows_server::assembly::{glossary_file, learning_language};
 use qingjian_windows_server::{
     AssemblySpec, LanguageModelFiles, Router, RouterConfig, ServerError, assembly, dispatch,
 };
@@ -50,14 +51,6 @@ fn load_env() {
     }
 }
 
-fn learning_language(config: &Config) -> Language {
-    let code = &config.general.learning_language;
-    code.parse().unwrap_or_else(|_| {
-        tracing::warn!(code, "不认识的学习语言，按英文");
-        Language::English
-    })
-}
-
 /// `<root>/data/generated/<name>`，不存在为 `None`。
 fn generated(root: &Path, name: &str) -> Option<PathBuf> {
     existing(root.join("data/generated").join(name))
@@ -79,13 +72,6 @@ fn default_dict(root: &Path) -> PathBuf {
 
 fn sample_dict(root: &Path) -> PathBuf {
     root.join("assets/sample/dict.tsv")
-}
-
-/// 某语言的释义表：打包过的优先，否则随 git 的 TSV。
-fn glossary_file(root: &Path, language: Language) -> Option<PathBuf> {
-    let code = language.code();
-    generated(root, &format!("glossary-{code}.qj"))
-        .or_else(|| asset(root, &format!("glossary/glossary-{code}.tsv")))
 }
 
 /// 正式词库装配失败回落样例词库，连样例都装不起来才报错。
@@ -157,13 +143,16 @@ fn main() {
     let dict = std::env::var_os("QINGJIAN_DICT")
         .map(PathBuf::from)
         .unwrap_or_else(|| default_dict(&root));
-    let glossary = std::env::var_os("QINGJIAN_GLOSSARY")
-        .map(PathBuf::from)
-        .or_else(|| glossary_file(&root, language))
-        .filter(|path| path.is_file());
+    let glossary_path = language.and_then(|language| {
+        std::env::var_os("QINGJIAN_GLOSSARY")
+            .map(PathBuf::from)
+            .or_else(|| glossary_file(&root, language))
+            .filter(|path| path.is_file())
+    });
+    let glossary = language.zip(glossary_path);
     let bundled_dicts_dir = Some(root.join("data/generated/dicts")).filter(|dir| dir.is_dir());
     let spec = AssemblySpec {
-        glossary: glossary.clone().map(|path| (language, path)),
+        glossary: glossary.clone(),
         english_glossary: glossary_file(&root, Language::Chinese),
         english: generated(&root, "english.tsv"),
         emoji: ["emoji-zh.tsv", "emoji-en.tsv"]
@@ -197,12 +186,12 @@ fn main() {
     let model_path = dispatch::find_model(user_dir().as_deref(), &root);
     router.configure_local_model(model_path.clone(), &config.model);
     if let Some(path) = config_path() {
-        router.watch_config(&config, path, bundled_dicts_dir, user_dir());
+        router.watch_config(&config, path, root.clone(), user_dir());
     }
     tracing::info!(
         dict = %dict.display(),
-        glossary = glossary.as_deref().map(|p| p.display().to_string()).unwrap_or_default(),
-        language = language.code(),
+        glossary = glossary.as_ref().map(|(_, p)| p.display().to_string()).unwrap_or_default(),
+        language = language.map_or("off", |l| l.code()),
         page_size = router_config.page_size,
         page_keys = %format!("{}{}", router_config.page_keys.0, router_config.page_keys.1),
         layout = router_config.layout.key(),

@@ -70,7 +70,7 @@ impl Host {
                 self.preferences.sync_usage(
                     &self.engine.usage_summary(),
                     &self.engine.vocabulary_summary(),
-                    self.engine.learning_language(),
+                    self.learning_language,
                 );
                 self.preferences.show();
             }
@@ -165,10 +165,13 @@ impl Host {
                     .set_bool("general", "full_width_punctuation", index == 0);
             }
             (Setting::LearningLanguage, SettingValue::Index(index)) => {
-                if let Some(language) = self.languages.get(index) {
-                    self.settings
-                        .set_value("general", "learning_language", language.code());
-                }
+                // 菜单最后一项是「不显示译文」
+                let code = self
+                    .languages
+                    .get(index)
+                    .map_or(LEARNING_LANGUAGE_OFF, |language| language.code());
+                self.settings
+                    .set_value("general", "learning_language", code);
             }
             (Setting::PageSize, SettingValue::Index(index)) => {
                 self.settings

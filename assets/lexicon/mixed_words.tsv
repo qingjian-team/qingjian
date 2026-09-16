@@ -1,0 +1,19 @@
+# 中英混杂词：字母 + 汉字的固定说法，输入码为「字母音节 + 汉字拼音」（搜狗 / 微软同款）。
+# c pan → 敲 cpan 出 C盘。u 是问字前缀，U盘 走 youpan（与 优盘 同读音，候选并列）。
+# 由 qingjian-dict-convert lexicon --extra-words 并入基础词库；次数与 domain_words 同一尺度。
+# 词	次数	拼音
+C盘	8000	c pan
+D盘	4000	d pan
+E盘	2000	e pan
+F盘	1500	f pan
+G盘	1000	g pan
+B站	12000	b zhan
+A站	1500	a zhan
+U盘	9000	you pan
+T恤	7000	t xu
+A股	5000	a gu
+B股	2500	b gu
+H股	2000	h gu
+X光	3000	x guang
+X射线	2000	x she xian
+T台	1500	t tai

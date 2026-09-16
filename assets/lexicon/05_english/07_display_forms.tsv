@@ -1,0 +1,20 @@
+# 展示写法补充：CSpell / ESDB 里同一编码先出现全小写普通词时（windows / rust / vscode），候选该出专名写法。
+# 由 dict-convert english 作为**最后一个输入**读入：后面的文件覆盖前面同编码的写法，不动其它词的顺序。
+word	key
+Windows	windows
+VSCode	vscode
+Rust	rust
+Python	python
+TypeScript	typescript
+JavaScript	javascript
+Bilibili	bilibili
+LinkedIn	linkedin
+YouTube	youtube
+GitHub	github
+ChatGPT	chatgpt
+OpenAI	openai
+iPhone	iphone
+iOS	ios
+macOS	macos
+TikTok	tiktok
+NVIDIA	nvidia

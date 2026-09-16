@@ -1,5 +1,9 @@
 //! 词库管理：随包领域词库开关，用户导入词库的导入 / 移除 / 开关，重新加载。
 
+mod info;
+
+pub use info::DictionaryInfo;
+
 use super::init::{dictionary_info, string_array, toggle_membership};
 use super::*;
 

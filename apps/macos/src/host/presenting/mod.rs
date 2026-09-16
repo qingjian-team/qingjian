@@ -1,5 +1,11 @@
 //! 呈现：删候选、按应用关英文候选、翻译选区的起止、提示气泡、会话重置与候选窗口绘制。
 
+mod notice;
+mod translation_job;
+
+pub(super) use notice::Notice;
+pub use translation_job::TranslationJob;
+
 use super::cloud::cloud_candidate;
 use super::*;
 
@@ -41,7 +47,7 @@ impl Host {
         self.reset_session(None, vec![cloud_candidate(text.to_owned())]);
         self.render();
         let mtm = MainThreadMarker::new().expect("Host 只在主线程用");
-        self.notice = Some(notice::Notice::schedule(mtm));
+        self.notice = Some(Notice::schedule(mtm));
     }
 
     /// 收起提示；没在显示就什么都不做。

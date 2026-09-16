@@ -190,7 +190,7 @@ Core 永远不联网。第一个实现接 DeepSeek（OpenAI 兼容接口），�
 - [x] 问字只答字不复述（2026-09-05）：请求带本地整句转换出的问题汉字（`guess`），提示词只答被问的字，`restates_question` 剔掉把问题写回来的「答案」
 - [x] 菜单开关、偏好设置窗口里的开关 / 接口 / 模型 / 密钥
 - [x] 释义表进 `.qj`（2026-09-05）：`Glossary` 双存法（TSV 哈希表 / 映射的 arena + 词条表 + 释义表 + 哈希索引），`pack glossary --language`，启动回到 50 ms
-- [x] 翻译选中文字读不到选区时候选窗口提示 2.5 秒（`host/notice.rs`）
+- [x] 翻译选中文字读不到选区时候选窗口提示 2.5 秒（`host/presenting/notice.rs`）
 - [x] 语料挖新词（`dict-convert mine`）：分词落成连续单字的段按子串计数，虚词规则 + 相邻字对 PMI≥3 过滤（2026-09-07 从会话脚本进工具，`oov_filter.rs`），`lexicon --extra-words` 并入词库
 - [x] 多词库与词库管理（2026-09-05）：Engine 附加词库列表；用户目录 `dicts/` + `[dictionaries] disabled`；偏好设置「词库」页导入（TSV / Rime yaml / .qj → .qj）、开关、移除
 - [x] 翻译选中的文字（2026-09-05）：⌃⌥T 把应用里的选区交给云端翻译，译文在候选窗口里回车替换、Esc 保留；快捷键可改；
