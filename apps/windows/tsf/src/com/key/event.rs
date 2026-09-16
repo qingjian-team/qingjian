@@ -7,7 +7,7 @@ use windows::Win32::UI::Input::KeyboardAndMouse::{
 
 use qingjian_platform::protocol::{KeyEvent, KeyModifiers};
 
-/// 采当前修饰键并解析字符（US 布局）。`english_mode` 是 DLL 记的持久中英模式，随事件带给 Server。
+/// 采当前修饰键并解析字符（标点 / 数字使用当前键盘布局）。`english_mode` 是 DLL 记的持久中英模式，随事件带给 Server。
 pub(crate) fn to_key_event(vk: u32, english_mode: bool) -> KeyEvent {
     let modifiers = current_modifiers(english_mode);
     KeyEvent::new(
@@ -70,7 +70,7 @@ fn key_toggled(vk: VIRTUAL_KEY) -> bool {
     state & 1 != 0
 }
 
-/// 字母大小写 = Shift 异或 Caps；数字 / 标点只看 Shift；功能键 `None`。
+/// 字母大小写 = Shift 异或 Caps；数字 / 标点使用系统布局；功能键 `None`。
 fn resolve_char(vk: u32, shift: bool, caps: bool) -> Option<char> {
     if is_letter(vk) {
         let lower = (b'a' + (vk - 0x41) as u8) as char;
@@ -80,30 +80,5 @@ fn resolve_char(vk: u32, shift: bool, caps: bool) -> Option<char> {
             lower
         });
     }
-    if is_digit(vk) {
-        let digit = (vk - 0x30) as usize;
-        return Some(if shift {
-            b")!@#$%^&*("[digit] as char
-        } else {
-            (b'0' + digit as u8) as char
-        });
-    }
-    if VIRTUAL_KEY(vk as u16) == VK_SPACE {
-        return Some(' ');
-    }
-    let (plain, shifted) = match vk {
-        0xBA => (';', ':'),
-        0xBB => ('=', '+'),
-        0xBC => (',', '<'),
-        0xBD => ('-', '_'),
-        0xBE => ('.', '>'),
-        0xBF => ('/', '?'),
-        0xC0 => ('`', '~'),
-        0xDB => ('[', '{'),
-        0xDC => ('\\', '|'),
-        0xDD => (']', '}'),
-        0xDE => ('\'', '"'),
-        _ => return None,
-    };
-    Some(if shift { shifted } else { plain })
+    super::layout::character(vk)
 }

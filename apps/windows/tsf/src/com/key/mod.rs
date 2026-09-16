@@ -2,6 +2,7 @@
 //! 单击 Shift 切中英的判定（[`shift`]）、「翻译选中文字」快捷键的保留键登记（[`preserved`]）。
 
 pub(crate) mod event;
+mod layout;
 pub(crate) mod preserved;
 mod shift;
 
