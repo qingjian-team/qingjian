@@ -176,8 +176,8 @@ CLI 用 `--fuzzy z-zh,n-l` 或 `--fuzzy all` 临时开。
 
 ### 双拼（默认关，`[general] shuangpin`）
 
-四套方案：小鹤（`xiaohe`）、自然码（`ziranma`）、微软（`microsoft`）、搜狗（`sogou`）。键位表在 Core `shuangpin::table`，
-按 Rime 的 `double_pinyin*.schema.yaml` 核对（搜狗来自 rime-ice 的整理），每套方案对全部音节做往返测试；微软与搜狗只差微软的 `v` 键兼作 üe。
+五套方案：小鹤（`xiaohe`）、自然码（`ziranma`）、微软（`microsoft`）、搜狗（`sogou`）、小浪（`xiaolang`）。键位表在 Core `shuangpin::table`，
+按 Rime 的 `double_pinyin*.schema.yaml` 核对（搜狗来自 rime-ice 的整理，小浪来自用户提供的搜狗小浪双拼与 Rime 配置），每套方案对全部音节做往返测试；微软与搜狗只差微软的 `v` 键兼作 üe。
 开着时缓冲区里存的仍是敲的键，Engine 在切分前把键两两配对解成全拼（音节之间自动带 `'`，没有切分歧义），
 之后查词、整句、云联想、学习全部走全拼那一套：拼音行显示解出来的全拼（`nihc` → `ni'hao`），学习按全拼记（`user-choices.tsv` 的键与全拼共用，切回全拼也受益），
 上屏消耗按「候选盖住几个音节、每个音节几个键」换算回缓冲区（`kdfave` 选 开发 吃掉 4 个键，剩 `ve`）。

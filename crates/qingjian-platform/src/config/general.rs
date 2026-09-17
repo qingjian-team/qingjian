@@ -61,7 +61,7 @@ pub struct GeneralConfig {
     /// 英文模式下的同一件事，中英各记一份；缺省半角。只有 Windows 用（macOS 英文模式一律半角）。
     pub english_full_width_punctuation: bool,
 
-    /// 双拼方案：空串为全拼，否则 `xiaohe` / `ziranma` / `microsoft` / `sogou`（见 [`ShuangpinScheme`]）。
+    /// 双拼方案：空串为全拼，否则 `xiaohe` / `ziranma` / `microsoft` / `sogou` / `xiaolang`（见 [`ShuangpinScheme`]）。
     pub shuangpin: String,
 
     /// 注音模式开关，大千键盘。
@@ -182,6 +182,8 @@ mod tests {
         assert_eq!(general.shuangpin(), Some(ShuangpinScheme::Xiaohe));
         general.shuangpin = " Sogou ".to_owned();
         assert_eq!(general.shuangpin(), Some(ShuangpinScheme::Sogou));
+        general.shuangpin = "xiaolang".to_owned();
+        assert_eq!(general.shuangpin(), Some(ShuangpinScheme::Xiaolang));
         general.shuangpin = "flypy".to_owned();
         assert_eq!(general.shuangpin(), None);
     }

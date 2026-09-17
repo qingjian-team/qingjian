@@ -3,8 +3,8 @@ use std::str::FromStr;
 
 use serde::{Deserialize, Serialize};
 
-use super::table::{self, DIGRAPH_INITIALS, Table};
-use super::{Decoded, Unit};
+use super::table::Table;
+use super::{Decoded, Unit, table};
 use crate::parser;
 
 /// 双拼方案。
@@ -22,11 +22,20 @@ pub enum Scheme {
 
     /// 搜狗双拼。
     Sogou,
+
+    /// 小浪双拼。
+    Xiaolang,
 }
 
 impl Scheme {
     /// 全部方案，设置界面按这个顺序列出。
-    pub const ALL: [Self; 4] = [Self::Xiaohe, Self::Ziranma, Self::Microsoft, Self::Sogou];
+    pub const ALL: [Self; 5] = [
+        Self::Xiaohe,
+        Self::Ziranma,
+        Self::Microsoft,
+        Self::Sogou,
+        Self::Xiaolang,
+    ];
 
     /// 配置文件里的写法。
     pub fn key(self) -> &'static str {
@@ -35,6 +44,7 @@ impl Scheme {
             Self::Ziranma => "ziranma",
             Self::Microsoft => "microsoft",
             Self::Sogou => "sogou",
+            Self::Xiaolang => "xiaolang",
         }
     }
 
@@ -45,6 +55,7 @@ impl Scheme {
             Self::Ziranma => "自然码",
             Self::Microsoft => "微软双拼",
             Self::Sogou => "搜狗双拼",
+            Self::Xiaolang => "小浪双拼",
         }
     }
 
@@ -54,6 +65,7 @@ impl Scheme {
             Self::Ziranma => &table::ZIRANMA,
             Self::Microsoft => &table::MICROSOFT,
             Self::Sogou => &table::SOGOU,
+            Self::Xiaolang => &table::XIAOLANG,
         }
     }
 
@@ -67,9 +79,14 @@ impl Scheme {
         c.is_ascii_lowercase() || (c == ';' && self.uses_semicolon())
     }
 
-    /// 键 `key` 当声母时是什么：`v` `i` `u` 是 zh ch sh，其他辅音（含 y w）是自己，元音键与 `;` 不是声母。
+    /// 键 `key` 当声母时是什么：翘舌声母按方案映射，其他辅音（含 y w）是自己，元音键与 `;` 不是声母。
     pub fn initial(self, key: char) -> Option<&'static str> {
-        if let Some((_, initial)) = DIGRAPH_INITIALS.iter().find(|(k, _)| *k == key) {
+        if let Some((_, initial)) = self
+            .table()
+            .digraph_initials
+            .iter()
+            .find(|(k, _)| *k == key)
+        {
             return Some(initial);
         }
         parser::INITIALS
@@ -114,7 +131,8 @@ impl Scheme {
             .filter(|initial| syllable.starts_with(*initial))
             .max_by_key(|initial| initial.len())?;
         let final_ = &syllable[initial.len()..];
-        let first = DIGRAPH_INITIALS
+        let first = table
+            .digraph_initials
             .iter()
             .find(|(_, i)| i == initial)
             .map(|(key, _)| *key)
@@ -167,7 +185,15 @@ impl Scheme {
         if let Some(initial) = self.initial(key) {
             return Some(initial.to_owned());
         }
-        matches!(key, 'a' | 'e' | 'o').then(|| key.to_string())
+        match self {
+            Self::Xiaolang => match key {
+                'a' => Some("a".to_owned()),
+                'o' => Some("o".to_owned()),
+                'u' => Some("e".to_owned()),
+                _ => None,
+            },
+            _ => matches!(key, 'a' | 'e' | 'o').then(|| key.to_string()),
+        }
     }
 }
 
@@ -208,6 +234,10 @@ mod tests {
                     "lue" => "lve",
                     "nue" => "nve",
                     "lo" => "luo",
+                    "eng" if scheme == Scheme::Xiaolang => "en",
+                    "dia" if scheme == Scheme::Xiaolang => "dai",
+                    "lia" if scheme == Scheme::Xiaolang => "lai",
+                    "nen" if scheme == Scheme::Xiaolang => "niang",
                     other => other,
                 };
                 assert_eq!(decoded, expected, "{scheme}: {syllable} → {keys:?}");
@@ -231,8 +261,17 @@ mod tests {
                             spellings.iter().any(|s| s.chars().eq([*first, *second]))
                         })
                         .count();
-                    assert!(zero <= 1, "{scheme}: {first}{second} 对应多个零声母音节");
-                    if zero == 1 {
+                    let max_zero = if scheme == Scheme::Xiaolang && *first == 'u' && *second == 'n'
+                    {
+                        2
+                    } else {
+                        1
+                    };
+                    assert!(
+                        zero <= max_zero,
+                        "{scheme}: {first}{second} 对应多个零声母音节"
+                    );
+                    if zero >= 1 {
                         assert!(
                             scheme.initial(*first).is_none(),
                             "{scheme}: {first}{second} 既是零声母写法又能当声母开头"
@@ -268,6 +307,15 @@ mod tests {
             (Scheme::Sogou, "nihk", "ni'hao"),
             (Scheme::Sogou, "oe", "e"),
             (Scheme::Sogou, "y;", "ying"),
+            (Scheme::Xiaolang, "nihs", "ni'hao"),
+            (Scheme::Xiaolang, "elgo", "zhong'guo"),
+            (Scheme::Xiaolang, "vzpd", "shuang'pin"),
+            (Scheme::Xiaolang, "xbxi", "xue'xi"),
+            (Scheme::Xiaolang, "vivi", "shi'shi"),
+            (Scheme::Xiaolang, "wkgo", "wai'guo"),
+            (Scheme::Xiaolang, "urqp", "er'qie"),
+            (Scheme::Xiaolang, "nxhk", "nv'hai"),
+            (Scheme::Xiaolang, "ahnx", "ang'nv"),
         ];
         for (scheme, keys, expected) in cases {
             assert_eq!(scheme.decode(keys).pinyin(), expected, "{scheme}: {keys}");
@@ -275,6 +323,9 @@ mod tests {
         // 搜狗的 v 不兼作 üe
         assert_eq!(Scheme::Sogou.decode("lv").pinyin(), "");
         assert_eq!(Scheme::Sogou.decode("lv").tail(), "lv");
+        // 小浪中 x 为 ü，v 为 sh 或 uai/ing
+        assert_eq!(Scheme::Xiaolang.decode("lx").pinyin(), "lv");
+        assert_eq!(Scheme::Xiaolang.decode("lv").pinyin(), "ling");
     }
 
     #[test]
@@ -284,6 +335,10 @@ mod tests {
         assert!(!decoded.is_complete());
         assert_eq!(Scheme::Xiaohe.decode("v").pinyin(), "zh");
         assert_eq!(Scheme::Xiaohe.decode("a").pinyin(), "a");
+        assert_eq!(Scheme::Xiaolang.decode("e").pinyin(), "zh");
+        assert_eq!(Scheme::Xiaolang.decode("i").pinyin(), "ch");
+        assert_eq!(Scheme::Xiaolang.decode("v").pinyin(), "sh");
+        assert_eq!(Scheme::Xiaolang.decode("u").pinyin(), "e");
         // `;` 落单不是任何东西
         assert_eq!(Scheme::Microsoft.decode(";").pinyin(), "");
         assert_eq!(Scheme::Microsoft.decode(";").tail(), ";");

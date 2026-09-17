@@ -30,7 +30,7 @@ cargo run --release -p qingjian-cli                     # 交互模式
 | 参数 | 作用 |
 |---|---|
 | `--fuzzy z-zh,n-l,…` / `--fuzzy all` | 模糊音，覆盖配置里的 `[fuzzy]` |
-| `--shuangpin xiaohe\|ziranma\|microsoft\|sogou\|off` | 双拼方案，覆盖配置；`off` 强制全拼 |
+| `--shuangpin xiaohe\|ziranma\|microsoft\|sogou\|xiaolang\|off` | 双拼方案，覆盖配置；`off` 强制全拼 |
 | `--english-mode` | 英文模式（输入法里是 Caps Lock 亮着）：字母不当拼音，候选来自英文词表 |
 | `--predict` | 强制开云联想并等结果打印；密钥来自配置或环境变量 `QINGJIAN_API_KEY` |
 | `--limit N` | 只显示前 N 个候选（缺省 9） |
