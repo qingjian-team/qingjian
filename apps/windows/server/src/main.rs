@@ -23,13 +23,7 @@ fn config_path() -> Option<PathBuf> {
 /// 首次启动把带说明的配置模板写到 `%APPDATA%\Qingjian\config.toml`（与 macOS 一致）；
 /// 这时日志还没装好，结果交给 `main` 记。已有文件返回 `Ok(false)`。
 fn write_config_template() -> Option<Result<bool, ConfigError>> {
-    let path = config_path()?;
-    if let Some(dir) = path.parent()
-        && let Err(source) = std::fs::create_dir_all(dir)
-    {
-        return Some(Err(ConfigError::Write { path, source }));
-    }
-    Some(Config::write_template_if_missing(&path))
+    Some(Config::write_template_if_missing(&config_path()?))
 }
 
 /// 文件不存在按默认值；解析失败记错误退回默认。

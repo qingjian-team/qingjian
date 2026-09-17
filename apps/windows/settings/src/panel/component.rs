@@ -17,6 +17,7 @@ impl Component for Settings {
 
     fn create(_input: &(), _context: &ComponentContext<Self>) -> Self {
         let path = Self::config_path();
+        Self::ensure_config_file(&path);
         let config = Config::load(&path).unwrap_or_default();
         Self {
             config,
@@ -200,8 +201,12 @@ impl Component for Settings {
             }
             Message::InputLog(on) => self.save("general", "input_log", on),
             Message::Learning(on) => self.save("general", "learning", on),
-            Message::OpenConfigFile => open_in_editor(&self.path),
+            Message::OpenConfigFile => {
+                Self::ensure_config_file(&self.path);
+                open_in_editor(&self.path);
+            }
             Message::OpenDataDir => {
+                Self::ensure_config_file(&self.path);
                 open_with_explorer(&self.data_dir().to_string_lossy());
             }
             Message::OpenLogDir => {

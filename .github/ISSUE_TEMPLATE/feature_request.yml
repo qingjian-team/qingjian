@@ -1,12 +1,22 @@
 name: 功能建议
 description: 希望新增的能力，或现有功能的改进
-title: "[Feature] "
 labels: ["feature"]
 body:
   - type: markdown
     attributes:
       value: |
+        标题请用一句话写清想要什么，例如「候选窗口支持自定义字体」。
+
         提建议前可以先搜一下已有 issue，已经有人提过的话在那条下面点个 👍 或补充场景即可，不必重开。
+  - type: checkboxes
+    id: checked
+    attributes:
+      label: 提交前确认
+      options:
+        - label: 已搜索过现有 issue（包括已关闭的），没有重复
+          required: true
+        - label: 已查过[使用说明](https://qingjian.app/docs)，里面没有答案
+          required: true
   - type: dropdown
     id: platform
     attributes:

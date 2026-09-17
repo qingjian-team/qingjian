@@ -6,7 +6,7 @@
       1) cargo build --release 出 DLL / Server / 设置程序，再单独编一份 32 位 DLL；
       2) 从 apps\windows\server\Cargo.toml 读版本号（-dev 版接 git 短哈希）；
       3) 找 ISCC.exe（PATH 或常见安装位置）；
-      4) iscc /DAppVersion=<版本> 编脚本，成品在 target\installer\Qingjian-<版本>-Setup.exe。
+      4) iscc /DAppVersion=<版本> 编脚本，成品在 target\installer\qingjian-<版本>-windows-x86_64-setup.exe。
     随包数据（.qj / .tsv）直接由 .iss 从仓库 data\generated 与 assets 里取，不另建暂存目录；
     确保打包前 data\generated 里的 .qj 是最新的（bundle 流程见仓库 CLAUDE.md）。
     uiAccess 跟着 -Sign 走，不用手设 QINGJIAN_UIACCESS（见 -Sign）。
@@ -132,5 +132,5 @@ Write-Host "用 $iscc" -ForegroundColor Cyan
 & $iscc "/DAppVersion=$Version" "/DAppVersionNumeric=$VersionNumeric" $Iss
 if ($LASTEXITCODE -ne 0) { throw "iscc 失败（退出码 $LASTEXITCODE）" }
 
-$out = Join-Path $Repo "target\installer\Qingjian-$Version-Setup.exe"
+$out = Join-Path $Repo "target\installer\qingjian-$Version-windows-x86_64-setup.exe"
 Write-Host "完成：$out" -ForegroundColor Green

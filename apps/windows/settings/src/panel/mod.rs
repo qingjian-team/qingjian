@@ -52,6 +52,13 @@ impl Settings {
         qingjian_platform::dirs::config_path().unwrap_or_else(|| PathBuf::from("config.toml"))
     }
 
+    /// 配置文件不在就写出模板：这个账户下 Server 还没跑过时，保存与「在记事本中打开」都要有文件。
+    fn ensure_config_file(path: &Path) {
+        if let Err(error) = Config::write_template_if_missing(path) {
+            crate::log::warn(format!("写配置模板失败: {error}"));
+        }
+    }
+
     /// 数据目录 `%APPDATA%\Qingjian`。
     fn data_dir(&self) -> &Path {
         self.path.parent().unwrap_or_else(|| Path::new("."))

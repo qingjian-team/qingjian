@@ -19,6 +19,6 @@ description: 九条模糊音的开启方式与排序规则；小鹤、自然码�
 - 零声母：小鹤 / 自然码写 `aa` `ai` `ah`（a、ai、ang）一族；微软 / 搜狗写 `o` + 韵母键（`oa` `ol` `oh`）；小浪写 `aa` `ai` `ah` `ao`、`uu`（e）、`ui`（ei）、`un`（en/eng）、`ur`（er）、`oo`（o）、`ou`（ou）。
 - 微软 / 搜狗的 `;` 为 ing：输入拼音时末尾有落单的声母，`;` 作为拼音（`x;` → xing）；其他情况下仍为标点。
 - 小浪双拼翘舌声母以 `e` 为 zh、`i` 为 ch、`v` 为 sh；`x` 为 ü（`lx` → lv，`nx` → nv，`jx` → ju）；`v` 兼作韵母 uai 与 ing；未在键位表列出的韵母按原拼键输入（如 a/e/i/u 及 o 对 uo/o）。
-- 双拼下 v / u / i 均为音节键，[快捷输入](shortcuts.md) 中的算式与问字只能以 `?` 开头进入。
+- 双拼下 v / u / i 均为音节键，[快捷输入](shortcuts.md) 中的算式与问字改为按住 `Shift` 输入：`Shift`+`V` 后接算式（`V1+2`），`Shift`+`U` 后接拼音或码点（`U4e00`），与搜狗、微软双拼一致。未输入拼音时才生效；模式键改过的，按改后的字母加 `Shift`。
 - 全拼输入 `lue` / `nue` 与词库形式 `lve` / `nve` 等价。双拼统一解为 `lve` / `nve`。
 - 已知限制：`lo` 与 `luo` 同键，解为 luo。小浪方案中 `en` 与 `eng` 同码（`un`），统一解为 `en`；`dia`/`dai` 同码解为 `dai`，`lia`/`lai` 同码解为 `lai`，`nen`/`niang` 同码解为 `niang`。

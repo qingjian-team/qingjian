@@ -433,6 +433,19 @@ impl Host {
                     .set_status("诊断信息已复制到剪贴板，粘贴给作者即可");
                 return;
             }
+            (Setting::ExportLogs, _) => {
+                match logging::export_logs() {
+                    Ok(zip) => {
+                        open_with_system(&["-R", &zip.to_string_lossy()]);
+                        self.preferences
+                            .set_status("日志已打包到桌面，发给作者即可");
+                    }
+                    Err(error) => self
+                        .preferences
+                        .set_status(&format!("打包日志失败：{error}")),
+                }
+                return;
+            }
             (setting, value) => tracing::warn!(?setting, ?value, "设置项与控件值不匹配"),
         }
         self.apply_config(false);

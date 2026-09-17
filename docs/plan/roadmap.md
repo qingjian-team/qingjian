@@ -76,7 +76,7 @@
 - [x] emoji 候选（Core `emoji`，Unicode CLDR 中文 annotations，`assets/emoji/`）：紧跟对应词，右侧标注词
 - [x] 密钥：输入法进程读配置同目录的 `.env`（launchd 看不到 shell 环境变量）
 - [x] 学习语言、每页候选数、翻页键、外观、模式键从配置文件读取（`[general]` / `[shortcut]`），保存后自动热加载
-- [x] 应用图标与输入法菜单图标（`assets/icon/logo.png` → bundle.sh 生成 icns 与多分辨率 tiff）
+- [x] 应用图标与输入法菜单图标（`assets/icon/logo.png` → bundle.sh 生成 icns；菜单图标 `assets/icon/menu.pdf` 模板图随深浅色反色）
 - [x] 菜单栏「中 / 英」状态项（NSStatusItem，激活时显示，定时轮询 Caps Lock）
 - [x] 输入法菜单（状态项 + 系统输入源菜单共用一份 NSMenu：云联想 / 模糊音勾选、偏好设置、日志目录、版本）
 - [x] 退格撤销学习：上屏后整个退格删掉再重打同一段拼音换选，上一次的学习退回去

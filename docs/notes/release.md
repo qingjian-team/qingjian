@@ -14,13 +14,16 @@
    本地装的、CI 中间构建的都显示 `0.1.2-dev-1a2b3c4`（工作区有改动加 `+`），测试时一眼知道装的是哪个提交；版本号干净的一定是线上包；
    带 `-dev` 的标签 CI 直接拒绝。pkg 的 `--version` 与 `distribution.xml` 只认数字点号，`bundle.sh` 去掉后缀再传，Info.plist 与 pkg 文件名保留完整版本。
    **各平台壳版本号独立**：macOS 的版本只在 `apps/macos/Cargo.toml`，跟 workspace 与其他壳无关（例：mac 到 `0.1.1`、win 还在 `0.1.0`）。
-2. `CHANGELOG.md` 顶上加一节 `## <版本> · <日期> · <渠道>`（渠道是 `alpha` / `beta` / `rc` / `stable`），一行一条、面向用户的措辞。
+2. `CHANGELOG.md` 顶上加一节 `## <版本> · <日期> · <渠道>`，一行一条、面向用户的措辞。
+   渠道是**更新渠道**（2026-09-17 定）：定期发的版本标 `stable`、版本号干净（`0.1.3`）；中间放给测试者的版本标 `alpha` / `beta` / `rc`，
+   版本号带同名预发布后缀（`0.1.4-beta.1`，标签 `macos-v0.1.4-beta.1`），`release.yml` 见到后缀就把 GitHub Release 标成预发布、不抢 latest。
+   「产品还在测试期」由 0.x 的版本号表达，不占渠道字段；0.1.2 及更早的条目标的 `beta` 是旧含义，不回改。
    **更新日志手写，不由提交自动生成**：提交信息里有大量内部改动（拆模块、修 RefCell 重入），用户看不懂也不关心；
    做法是发版前按上个标签以来的 `git log` 起草几条，人审一遍再定稿。
 3. 提交，打**带平台前缀**的注释标签并推：`git tag -a macos-v0.1.1 -m "青简 macOS 0.1.1" && git push origin main macos-v0.1.1`
    （标签按平台加前缀 `macos-v*` / 将来 `windows-v*`，因为各平台版本号独立、光靠 `v<版本>` 会撞车；旧的 `v*` 标签仍能被官网识别，向后兼容）。
 3b. 标签推出去之后紧接一个普通提交把版本号改成下一个开发版（只是改 Cargo.toml，不打标签、不建 Release；-dev 版本永远没有标签与 Release）：`apps/macos/Cargo.toml` 改成 `0.1.3-dev`（Windows 同理 `0.1.3-dev`），本地从此打的包都带 `-dev`。
-4. `release.yml` 跑完后 GitHub Release 上有 `Qingjian-<版本>-arm64.pkg`、`Qingjian-<版本>-x86_64.pkg`、`SHA256SUMS`、`build-info.json`（提交、构建时间、工具链）、`releases.json`。
+4. `release.yml` 跑完后 GitHub Release 上有 `qingjian-<版本>-macos-arm64.pkg`、`qingjian-<版本>-macos-x86_64.pkg`、`SHA256SUMS`、`build-info.json`（提交、构建时间、工具链）、`releases.json`。
 5. 官网由 Cloudflare Workers Builds 按官网仓库的提交自动构建，没有可调用的构建钩子，所以主仓库靠**往官网仓库推一个小提交**来触发：
    `tools/release/bump-website.sh` 把版本标签与文档提交号写进官网的 `src/content/upstream.json` 并提交推送（提交者 qingjian-ci）。
    配了 `QINGJIAN_WEB_TOKEN`（对 qingjian-web 有 Contents: read and write 的 fine-grained PAT）release.yml 末尾自动做；
@@ -40,13 +43,13 @@ Rust 工具链由 `rust-toolchain.toml` 钉版本（现在 1.96.0），两个 wo
    与 macOS 的 `0.1.0` / `0.1.1` 不能同号；Inno 的 `VersionInfoVersion` 只认数字，`build.ps1` 会把后缀去掉再传。
 2. `CHANGELOG.md` 加一节 `## 0.1.0-alpha.1 · 日期 · alpha`。
 3. 打标签 `windows-v0.1.0-alpha.1` 推送。`release.yml` 的 `windows` job 在 `windows-latest` 上：核对版本 → 下载 `data` Release
-   → 装 Inno Setup 7.1.0（与开发机同版本，钉死 GitHub Release 的安装程序）→ `build.ps1`→ 建 Release（`Qingjian-<版本>-Setup.exe` + `SHA256SUMS` + `build-info.json`）
+   → 装 Inno Setup 7.1.0（与开发机同版本，钉死 GitHub Release 的安装程序）→ `build.ps1`→ 建 Release（`qingjian-<版本>-windows-x86_64-setup.exe` + `SHA256SUMS` + `build-info.json`）
    → `publish-releases-json.sh` 生成 `releases.json`，挂到本次发布并覆盖到 GitHub latest 那版上（官网只读 latest 的）。
 4. **没有代码签名证书时** workflow 设 `QINGJIAN_UIACCESS=0`：没签名的 exe 带 uiAccess=true 起不来。
    代价是候选窗在任务栏搜索 / 设置这类 UWP 宿主里可能被盖住，用户文档与 CHANGELOG 已列为已知问题。
    Certum 开源证书办下来后：在 `build.ps1` 加 signtool 一步（`sign-local.ps1` 是本机自签的参考），workflow 去掉那个环境变量。
    SmartScreen 对无签名安装包的拦截也一并消失。
-5. 官网：`releases.json` 里 Windows 包由文件名 `-Setup.exe` 识别（`ASSET_KINDS`），下载页按访问者平台取「有该平台安装包的最新版本」
+5. 官网：`releases.json` 里 Windows 包由文件名 `-windows-x86_64-setup.exe` 识别（`ASSET_KINDS`），下载页按访问者平台取「有该平台安装包的最新版本」
    （`latestFor`），所以 macOS 与 Windows 各自的最新版互不干扰。
 
 ## 提交前检查与 CI
@@ -103,23 +106,24 @@ Apple Developer 账号有了以后，在仓库 Secrets 里配齐 `release.yml` �
 
 ```json
 {
+  "schema_version": 1,
   "generated": "2026-09-07T12:00:00Z",
   "repository": "owner/qingjian",
-  "latest": "0.1.0",
+  "latest": "0.1.3",
   "releases": [
     {
-      "version": "0.1.0",
-      "date": "2026-09-07",
-      "channel": "beta",
+      "version": "0.1.3",
+      "date": "2026-09-18",
+      "channel": "stable",
       "notes": ["整句输入：……", "候选旁有词性和译词……"],
       "commit": "869ad00…（40 位）",
       "built_at": "2026-09-07T08:38:12Z",
       "toolchain": "rustc 1.96.0 (ac68faa20 2026-05-25)",
       "assets": [
-        { "platform": "macos", "arch": "Apple Silicon", "file": "Qingjian-0.1.0-arm64.pkg",
-          "url": "https://github.com/owner/qingjian/releases/download/v0.1.0/Qingjian-0.1.0-arm64.pkg",
+        { "platform": "macos", "arch": "Apple Silicon", "cpu": "arm64", "file": "qingjian-0.1.3-macos-arm64.pkg",
+          "url": "https://github.com/owner/qingjian/releases/download/macos-v0.1.3/qingjian-0.1.3-macos-arm64.pkg",
           "size": 35989277, "sha256": "…" },
-        { "platform": "macos", "arch": "Intel", "file": "Qingjian-0.1.0-x86_64.pkg", "url": "…", "size": 36172871, "sha256": "…" }
+        { "platform": "macos", "arch": "Intel", "cpu": "x86_64", "file": "qingjian-0.1.3-macos-x86_64.pkg", "url": "…", "size": 36172871, "sha256": "…" }
       ]
     }
   ]
@@ -128,7 +132,10 @@ Apple Developer 账号有了以后，在仓库 Secrets 里配齐 `release.yml` �
 
 - `releases` 从新到旧，`latest` 是第一条的版本号；官网「当前版本」取它，历史版本列表就是整个数组。
 - `channel` 是 `alpha` / `beta` / `rc` / `stable`，显示成什么字由官网定；`commit` / `built_at` / `sha256` 给用户核对下载的包，下载页应显示 sha256 与提交短哈希。
-- 平台与架构由文件名判定（`-arm64.pkg` → Apple Silicon，`-x86_64.pkg` → Intel，`-Setup.exe` → Windows x64），以后 Linux 的包在脚本的 `ASSET_KINDS` 里加一行。
+- 安装包文件名固定为 `qingjian-<版本>-<平台>-<cpu>[-setup].<扩展名>`（全小写；平台 `macos` / `windows` / `linux`，cpu `arm64` / `x86_64`，2026-09-17 定，
+  包管理器的地址模板与检查更新都靠它稳定）。平台与架构由文件名判定（`ASSET_KINDS`，同时认 0.1.2 及更早的 `Qingjian-<版本>-arm64.pkg` / `-Setup.exe` 旧名），
+  `arch` 给人看（Apple Silicon / Intel / x64），`cpu` 给程序比对；以后 Linux 的包在 `ASSET_KINDS` 里加一行。
+- `schema_version` 现在是 1：只加字段不用动，改了已有字段的含义或结构才加一。
 - `SHA256SUMS` 与 `releases.json` 自己不列进 `assets`。
 - 官网侧要做的：构建时下载这个文件替代手写的 `releases` 数组（与拉 `docs/user` 的 `sync-docs.mjs` 同一处、同一个令牌），
   `downloadsOpen` 开关仍由官网自己控制。
@@ -136,4 +143,4 @@ Apple Developer 账号有了以后，在仓库 Secrets 里配齐 `release.yml` �
 ## 本机打包
 
 `apps/macos/scripts/bundle.sh --pkg` 打本机架构；`QINGJIAN_TARGET=x86_64-apple-darwin` 交叉编译 Intel 包（要先 `rustup target add`，
-本机不需要时不必装，CI 上两个都打）。成品在 `target/pkg/Qingjian-<版本>-<arch>.pkg`，每个架构一个工作目录，连着打互不覆盖。
+本机不需要时不必装，CI 上两个都打）。成品在 `target/pkg/qingjian-<版本>-macos-<arch>.pkg`，每个架构一个工作目录，连着打互不覆盖。

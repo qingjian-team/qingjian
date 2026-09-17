@@ -39,11 +39,11 @@ impl ModeKeys {
     /// 能当模式键的字母：不是任何拼音音节的开头。
     pub const CANDIDATES: [char; 3] = ['v', 'u', 'i'];
 
-    /// 去掉字母模式键：双拼下 v / u / i 都是音节键，只剩 `?`（开着的话）进问字。
-    pub fn letterless(self) -> Self {
+    /// 双拼下 v / u / i 都是音节键，模式键换成对应的大写字母（Shift+V / Shift+U，搜狗 / 微软的做法）。
+    pub fn shifted(self) -> Self {
         Self {
-            expression: '\0',
-            question: '\0',
+            expression: self.expression.to_ascii_uppercase(),
+            question: self.question.to_ascii_uppercase(),
             question_mark: self.question_mark,
         }
     }
@@ -118,11 +118,14 @@ mod tests {
         };
         assert!(keys.is_question("?sangemu", false));
         assert_eq!(keys.question_body("?sangemu", false), "sangemu");
-        // 双拼下字母键让位，只剩 `?`；开关跟着走
-        let letterless = keys.letterless();
-        assert!(!letterless.is_question("usangemu", false));
-        assert!(letterless.is_question("?sangemu", false));
-        assert!(!ModeKeys::default().letterless().is_question("?x", false));
+        // 双拼下字母键换成大写，`?` 开关跟着走
+        let shifted = keys.shifted();
+        assert!(!shifted.is_question("usangemu", false));
+        assert!(shifted.is_question("Usangemu", false));
+        assert!(shifted.is_expression("V1+2", false));
+        assert_eq!(shifted.question_body("Usangemu", false), "sangemu");
+        assert!(shifted.is_question("?sangemu", false));
+        assert!(!ModeKeys::default().shifted().is_question("?x", false));
     }
 
     #[test]

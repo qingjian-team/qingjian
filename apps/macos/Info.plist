@@ -32,7 +32,7 @@
 	<!-- InputMethodKit：连接名按 10.7 起的约定必须是 <bundle id>_Connection -->
 	<key>InputMethodConnectionName</key>
 	<string>app.qingjian.inputmethod_Connection</string>
-	<!-- 与 controller.rs 里 define_class! 的 #[name] 一致 -->
+	<!-- 与 imk/controller/mod.rs 里 define_class! 的 #[name] 一致 -->
 	<key>InputMethodServerControllerClass</key>
 	<string>QingjianInputController</string>
 	<key>InputMethodType</key>
@@ -44,11 +44,53 @@
 	<key>TISIntendedLanguage</key>
 	<string>zh-Hans</string>
 	<key>tsInputMethodIconFileKey</key>
-	<string>qingjian-menu.tiff</string>
+	<string>qingjian-menu.pdf</string>
+	<!-- 模板图：系统只取 alpha，按深浅色自动反色 -->
+	<key>TISIconIsTemplate</key>
+	<true/>
 	<key>tsInputMethodCharacterRepertoireKey</key>
 	<array>
 		<string>Hans</string>
 		<string>Latn</string>
 	</array>
+
+	<!-- 输入模式：系统登记、启用的是模式 app.qingjian.inputmethod.Hans，顶层 ID 是它的父项；
+	显示名在 InfoPlist.strings 按模式 ID 给。约定见 docs/design/architecture.md「Info.plist 约定」 -->
+	<key>ComponentInputModeDict</key>
+	<dict>
+		<key>tsInputModeListKey</key>
+		<dict>
+			<key>app.qingjian.inputmethod.Hans</key>
+			<dict>
+				<key>TISInputSourceID</key>
+				<string>app.qingjian.inputmethod.Hans</string>
+				<key>TISIntendedLanguage</key>
+				<string>zh-Hans</string>
+				<key>tsInputModeCharacterRepertoireKey</key>
+				<array>
+					<string>Hans</string>
+					<string>Latn</string>
+				</array>
+				<key>tsInputModeDefaultStateKey</key>
+				<true/>
+				<key>tsInputModeIsVisibleKey</key>
+				<true/>
+				<key>tsInputModeMenuIconFileKey</key>
+				<string>qingjian-menu.pdf</string>
+				<key>tsInputModeAlternateMenuIconFileKey</key>
+				<string>qingjian-menu.pdf</string>
+				<key>tsInputModePaletteIconFileKey</key>
+				<string>qingjian-menu.pdf</string>
+				<key>tsInputModePrimaryInScriptKey</key>
+				<true/>
+				<key>tsInputModeScriptKey</key>
+				<string>smUnicodeScript</string>
+			</dict>
+		</dict>
+		<key>tsVisibleInputModeOrderedArrayKey</key>
+		<array>
+			<string>app.qingjian.inputmethod.Hans</string>
+		</array>
+	</dict>
 </dict>
 </plist>

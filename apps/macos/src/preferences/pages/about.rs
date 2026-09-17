@@ -47,7 +47,7 @@ pub const REPOSITORY_URL: &str = "https://github.com/qingjian-team";
 pub const PRIVACY_NOTE: &str = "青简不上传任何数据。开着云联想或翻译时，光标附近的文字与拼音会发给你在「云服务」页填的 AI 服务商（缺省 DeepSeek）的服务器，不经过作者。「高级」页的输入日志只写在这台电脑的数据目录里，可以关掉或清空。";
 
 /// 反馈方式。
-pub const FEEDBACK_NOTE: &str = "遇到问题请把当天的日志文件发给作者，再附上「复制诊断信息」的内容。缺省日志不含你敲的内容；排查排序问题时作者可能请你在「高级」页临时打开详细日志。";
+pub const FEEDBACK_NOTE: &str = "遇到问题点「打包日志到桌面」，把生成的 zip 发给作者即可（含日志与配置文件，不含密钥），再附上「复制诊断信息」的内容。缺省日志不含你敲的内容；排查排序问题时作者可能请你在「高级」页临时打开详细日志。";
 
 /// 把「关于」页的控件摆进 `layout`。
 pub fn build(
@@ -93,8 +93,10 @@ pub fn build(
     note_full(layout, mtm, PRIVACY_NOTE);
     note_full(layout, mtm, FEEDBACK_NOTE);
     let open = button(mtm, "打开日志目录", Setting::OpenLogDirectory, target);
+    let export = button(mtm, "打包日志到桌面", Setting::ExportLogs, target);
     let copy = button(mtm, "复制诊断信息", Setting::CopyDiagnostics, target);
     layout.place(&open, PAGE_PADDING, 150.0, ROW_HEIGHT + 4.0);
-    layout.place(&copy, PAGE_PADDING + 160.0, 150.0, ROW_HEIGHT + 4.0);
+    layout.place(&export, PAGE_PADDING + 160.0, 150.0, ROW_HEIGHT + 4.0);
+    layout.place(&copy, PAGE_PADDING + 320.0, 150.0, ROW_HEIGHT + 4.0);
     layout.next_row(ROW_HEIGHT + 4.0);
 }

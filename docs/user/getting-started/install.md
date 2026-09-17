@@ -8,7 +8,7 @@ description: macOS 与 Windows 的安装步骤：系统要求、安装包、首�
 
 **系统要求**：macOS 13 或更新。Apple Silicon 与 Intel 各有一个安装包；不确定机型时，点左上角  → 「关于本机」，查看「芯片」一行。
 
-1. 下载 `Qingjian-<版本>-arm64.pkg`（Apple Silicon）或 `Qingjian-<版本>-x86_64.pkg`（Intel），双击安装，需要管理员密码。
+1. 下载 `qingjian-<版本>-macos-arm64.pkg`（Apple Silicon）或 `qingjian-<版本>-macos-x86_64.pkg`（Intel），双击安装，需要管理员密码。
 2. 测试版尚无 Apple 开发者签名，首次打开会被系统拦截：到「系统设置 → 隐私与安全性」，在底部点「仍要打开」，再安装一次。
 3. 安装完成后，输入法菜单中出现「青简」。
 
@@ -24,7 +24,7 @@ description: macOS 与 Windows 的安装步骤：系统要求、安装包、首�
 
 **系统要求**：64 位 Windows 10（1809 或更新）或 Windows 11。安装包自带设置界面所需的运行时，不必另装组件。
 
-1. 下载 `Qingjian-<版本>-Setup.exe`，双击安装，需要管理员权限。安装目录保持默认的 `C:\Program Files\Qingjian`，不要改到其他目录或其他盘：候选窗口要盖过开始菜单、任务栏搜索这类系统界面，靠的是 Windows 的 uiAccess 机制，系统只对装在 `%ProgramFiles%` 里的程序启用它，装到别处会静默失效。
+1. 下载 `qingjian-<版本>-windows-x86_64-setup.exe`，双击安装，需要管理员权限。安装目录保持默认的 `C:\Program Files\Qingjian`，不要改到其他目录或其他盘：候选窗口要盖过开始菜单、任务栏搜索这类系统界面，靠的是 Windows 的 uiAccess 机制，系统只对装在 `%ProgramFiles%` 里的程序启用它，装到别处会静默失效。
 2. 测试版尚无正式的代码签名，SmartScreen 会拦截：点「更多信息 → 仍要运行」。
 3. 安装完成后，青简出现在输入法列表中（任务栏右下的「中 / 英」或「拼」处，或按 `Win + Space` 切换），位于「中文(简体)」之下。
 

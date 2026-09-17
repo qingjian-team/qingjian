@@ -216,6 +216,96 @@ fn spelling_correction_fixes_one_edit_and_learns_from_enter() {
 }
 
 #[test]
+fn transposition_is_corrected_while_the_last_syllable_is_still_unfinished() {
+    let dictionary = Dictionary::parse(
+        "明天\tming tian\t8000\n明\tming\t12000\n天\ttian\t9000\n米\tmi\t3000\n给\tgei\t5000\n\
+         你\tni\t90000\n太\ttai\t4000\n啊\ta\t6000\n",
+    )
+    .unwrap();
+    let mut engine = Engine::new(dictionary);
+    // 敲反了 gn 之后还在往下敲：mignt → ming't，候选按前缀出 明天，拼音行划掉 gn
+    engine.set_input("mignt");
+    let query = engine.query().unwrap();
+    let correction = query.correction.clone().expect("corrected");
+    assert_eq!(correction.corrected, "mingt");
+    assert!(correction.segmentation.last_is_partial());
+    let kinds: Vec<(String, MarkedKind)> = query
+        .marked_segments()
+        .iter()
+        .map(|s| (s.text.clone(), s.kind))
+        .collect();
+    assert_eq!(
+        kinds,
+        [
+            ("mi".to_owned(), MarkedKind::Typed),
+            ("gn".to_owned(), MarkedKind::Corrected),
+            ("ng't".to_owned(), MarkedKind::Typed),
+        ]
+    );
+    assert_eq!(query.candidates.items[0].text, "明天");
+    // 再敲两键：migntia → ming'tia…，仍是 明天；选它吃掉整段原串
+    engine.set_input("migntia");
+    let query = engine.query().unwrap();
+    assert_eq!(query.correction.as_ref().unwrap().corrected, "mingtia");
+    let first = query.candidates.items[0].clone();
+    assert_eq!(first.text, "明天");
+    assert_eq!(engine.commit(&first), "明天");
+    assert!(engine.composition().is_empty());
+    // 敲完整个词：migntian → ming'tian
+    engine.set_input("migntian");
+    assert_eq!(engine.query().unwrap().candidates.items[0].text, "明天");
+}
+
+#[test]
+fn commit_alignment_backtracks_over_typo_variants() {
+    let engine = engine();
+    let syllables =
+        |list: &[&str]| -> Vec<String> { list.iter().map(|s| (*s).to_owned()).collect() };
+    // pingyin 上屏 拼音：pin 原样只吃三个字母会剩 gyin，退回来按敲错变体 ping → pin 吃四个，整段吃光并记敲错
+    let alignment = engine.align("pingyin", &syllables(&["pin", "yin"]));
+    assert_eq!(alignment.consumed, 7);
+    assert_eq!(alignment.typos, [("ping".to_owned(), "pin".to_owned())]);
+    // 原样、没打完的前缀、前缀词、带 ' 的输入照旧
+    assert_eq!(
+        engine.align("nihao", &syllables(&["ni", "hao"])).consumed,
+        5
+    );
+    assert_eq!(
+        engine
+            .align("mingt", &syllables(&["ming", "tian"]))
+            .consumed,
+        5
+    );
+    assert_eq!(
+        engine.align("nihaoma", &syllables(&["ni", "hao"])).consumed,
+        5
+    );
+    assert_eq!(
+        engine.align("ni'hao", &syllables(&["ni", "hao"])).consumed,
+        6
+    );
+    // 对不上的候选还是贪心对到哪算哪
+    assert_eq!(engine.align("nihao", &syllables(&["ni", "ma"])).consumed, 2);
+}
+
+#[test]
+fn unfinished_last_syllable_is_not_recorded_as_a_typo() {
+    let engine = engine();
+    let syllables =
+        |list: &[&str]| -> Vec<String> { list.iter().map(|s| (*s).to_owned()).collect() };
+    // shijia 选 时间 是 jian 没敲完：jia 虽是 jian 的敲错变体，也不进个人敲错表
+    for (input, list) in [
+        ("shijia", ["shi", "jian"]),
+        ("zhegua", ["zhe", "guan"]),
+        ("woxia", ["wo", "xian"]),
+    ] {
+        let alignment = engine.align(input, &syllables(&list));
+        assert_eq!(alignment.consumed, input.len());
+        assert!(alignment.typos.is_empty(), "{input}: {:?}", alignment.typos);
+    }
+}
+
+#[test]
 fn fuzzy_rules_add_homophones_behind_exact_hits() {
     // 词库里只有 kai fa 系列加一个 哈；敲 kaiha 没开 f/h 时只有前缀词 开（开哈 原样读得通，词图的敲错边翻不过它），
     // 开了就出 开发（模糊命中）且覆盖更多字母排第一

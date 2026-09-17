@@ -1,4 +1,4 @@
-//! 阿拉伯数字串转中文数字：小写（一百二十三）与大写（壹佰贰拾叁，财务用）。
+//! 阿拉伯数字串转中文数字：小写（一百二十三）与大写（壹佰贰拾叁，财务用），以及小数读法与金额写法。
 
 /// 小写数字与单位。
 const LOWER: Numeral = Numeral {
@@ -43,7 +43,63 @@ pub fn chinese_upper(digits: &str) -> String {
     UPPER.convert(digits)
 }
 
+/// `123.5` → `一百二十三点五`：小数部分逐位读。
+pub fn chinese_decimal_lower(integer: &str, fraction: &str) -> String {
+    LOWER.decimal(integer, fraction)
+}
+
+/// `123.5` → `壹佰贰拾叁点伍`。
+pub fn chinese_decimal_upper(integer: &str, fraction: &str) -> String {
+    UPPER.decimal(integer, fraction)
+}
+
+/// 金额小写：`123.5` → `一百二十三元五角`，`123` → `一百二十三元整`。`fraction` 最多两位（角、分）。
+pub fn amount_lower(integer: &str, fraction: &str) -> String {
+    LOWER.amount(integer, fraction)
+}
+
+/// 金额大写：`123.05` → `壹佰贰拾叁元零伍分`。
+pub fn amount_upper(integer: &str, fraction: &str) -> String {
+    UPPER.amount(integer, fraction)
+}
+
 impl Numeral {
+    fn decimal(&self, integer: &str, fraction: &str) -> String {
+        let fraction: String = fraction
+            .bytes()
+            .map(|b| self.digits[usize::from(b - b'0')])
+            .collect();
+        format!("{}点{fraction}", self.convert(integer))
+    }
+
+    /// 票据写法：元后无角分写「整」；有分无角补「零」；不足一元不写元。
+    fn amount(&self, integer: &str, fraction: &str) -> String {
+        let mut cents = fraction.bytes().map(|b| usize::from(b - b'0'));
+        let jiao = cents.next().unwrap_or(0);
+        let fen = cents.next().unwrap_or(0);
+        let yuan = integer.trim_start_matches('0');
+        let mut text = String::new();
+        if !yuan.is_empty() || (jiao == 0 && fen == 0) {
+            text.push_str(&self.convert(integer));
+            text.push('元');
+        }
+        if jiao == 0 && fen == 0 {
+            text.push('整');
+            return text;
+        }
+        if jiao > 0 {
+            text.push_str(self.digits[jiao]);
+            text.push('角');
+        } else if !yuan.is_empty() {
+            text.push_str(self.digits[0]);
+        }
+        if fen > 0 {
+            text.push_str(self.digits[fen]);
+            text.push('分');
+        }
+        text
+    }
+
     fn convert(&self, digits: &str) -> String {
         let digits = digits.trim_start_matches('0');
         if digits.is_empty() {
@@ -148,6 +204,32 @@ mod tests {
             chinese_lower("1234567890123"),
             "一万二千三百四十五亿六千七百八十九万零一百二十三"
         );
+    }
+
+    #[test]
+    fn decimals_read_digit_by_digit() {
+        assert_eq!(chinese_decimal_lower("123", "5"), "一百二十三点五");
+        assert_eq!(chinese_decimal_upper("123", "5"), "壹佰贰拾叁点伍");
+        assert_eq!(chinese_decimal_lower("0", "05"), "零点零五");
+        assert_eq!(chinese_decimal_lower("10", "250"), "十点二五零");
+        assert_eq!(chinese_decimal_upper("10", "25"), "壹拾点贰伍");
+    }
+
+    #[test]
+    fn amounts_follow_the_invoice_style() {
+        assert_eq!(amount_lower("123", "5"), "一百二十三元五角");
+        assert_eq!(amount_upper("123", "5"), "壹佰贰拾叁元伍角");
+        assert_eq!(amount_lower("123", ""), "一百二十三元整");
+        assert_eq!(amount_upper("123", "00"), "壹佰贰拾叁元整");
+        assert_eq!(amount_upper("123", "45"), "壹佰贰拾叁元肆角伍分");
+        assert_eq!(amount_upper("123", "05"), "壹佰贰拾叁元零伍分");
+        assert_eq!(amount_upper("10", "5"), "壹拾元伍角");
+        assert_eq!(amount_lower("10", "5"), "十元五角");
+        // 不足一元不写元；零就是零元整
+        assert_eq!(amount_lower("0", "5"), "五角");
+        assert_eq!(amount_upper("0", "05"), "伍分");
+        assert_eq!(amount_lower("0", ""), "零元整");
+        assert_eq!(amount_upper("100200", "3"), "壹拾万零贰佰元叁角");
     }
 
     #[test]

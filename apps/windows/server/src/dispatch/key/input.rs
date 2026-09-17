@@ -36,6 +36,12 @@ impl Router {
             self.engine.push(c);
             return Effect::Changed(None);
         }
+        // 双拼下 Shift+V / Shift+U 进表达式 / 问字模式（全拼下的 v / u 被音节占了）。
+        if !self.composing() && !english && self.engine.takes_mode_letter(c) {
+            self.engine.set_english_mode(false);
+            self.engine.push(c);
+            return Effect::Changed(None);
+        }
         let question = self.composing() && self.engine.question_mode();
         // 英文模式下问字：Caps 让字母以大写送来，按小写收进问题。
         let c = if question && english && c.is_ascii_uppercase() {
@@ -189,8 +195,10 @@ impl Router {
         Effect::Passthrough
     }
 
-    /// 英文模式。开着候选：字母进缓冲区，空格 / 标点先把字母原样上屏（动过高亮的空格才选词）；
-    /// 关着候选：字母由我们插入（大小写按 Shift）。其他键按英文模式那份全角设置转，转不了的交给应用。
+    /// 英文模式。开着候选：字母进缓冲区，选词与中文模式一样（空格选高亮、数字选当前页第 N 个、翻页键翻页），
+    /// 词上屏后空格照样交给应用；数字对应的格子没有候选（词表没有的词、候选不足 N 个）时是标识符的一部分（`foo1`）。
+    /// 回车 / 标点先把字母原样上屏。关着候选：字母由我们插入（大小写按 Shift）。
+    /// 其他键按英文模式那份全角设置转，转不了的交给应用。
     fn apply_english(&mut self, c: char, candidates: bool, event: &KeyEvent) -> Effect {
         let composing = self.composing();
         if !candidates {
@@ -203,14 +211,24 @@ impl Router {
             };
             return with_prefix(raw, effect, c);
         }
+        if composing
+            && let Some(digit) = codes::digit(event)
+            && let Some(index) = self.slot_index(digit)
+        {
+            return Effect::Changed(self.commit_index(index));
+        }
         if c.is_ascii_alphabetic()
             || (composing && (c.is_ascii_digit() || matches!(c, '_' | '\'' | '-')))
         {
             self.engine.push(c);
             return Effect::Changed(None);
         }
+        if composing && let Some(step) = codes::page_key(event, self.config.page_keys) {
+            self.page(step);
+            return Effect::Navigated;
+        }
         let committed = composing.then(|| {
-            if c == ' ' && self.navigated {
+            if c == ' ' {
                 self.commit_highlighted()
             } else {
                 self.engine.take_raw()
@@ -220,7 +238,7 @@ impl Router {
         with_prefix(committed, effect, c)
     }
 
-    /// 组句中的可打印键：数字选当前页第 N 个，翻页键翻页，空格上屏高亮，其余进英文直输段。
+    /// 组句中的可打印键：数字选当前页第 N 个（没有这一格就进直输段），翻页键翻页，空格上屏高亮，其余进英文直输段；已在直输段里就一律追加。
     /// 表达式模式（`v1+2`）里数字和运算符进算式；问字模式敲的还可能是码点（`u4e00`、`u+1f600`），数字与 `+` 进缓冲区；
     /// 微软 / 搜狗双拼的 `;` 是 ing 键，末尾有落单声母时进缓冲区。
     fn apply_printable(&mut self, c: char, event: &KeyEvent) -> Effect {
@@ -232,13 +250,29 @@ impl Router {
             self.engine.push(c);
             return Effect::Changed(None);
         }
+        // 英文直输段（缓冲区里已有 `-` 这类字符）：可见字符一律追加，数字与翻页键也不再选词 / 翻页；
+        // 空格整段原样上屏，空格本身也要在（`hello, world`）。
+        if self.engine.raw_mode() {
+            if c == ' ' {
+                let committed = self.commit_highlighted();
+                self.engine.note_passthrough(c);
+                return with_prefix(Some(committed), Effect::Passthrough, c);
+            }
+            if c.is_ascii_graphic() {
+                self.engine.push(c);
+                return Effect::Changed(None);
+            }
+        }
         if let Some(digit) = codes::digit(event)
-            && self.candidate_count() > 0
             && (!self.engine.is_zhuyin_mode() || self.navigated)
         {
-            let page_size = self.config.page_size;
-            let page = self.highlight / page_size;
-            return Effect::Changed(self.commit_index(page * page_size + digit - 1));
+            if let Some(index) = self.slot_index(digit) {
+                return Effect::Changed(self.commit_index(index));
+            }
+            // 问字模式里数字不是问题的一部分：没有这一格就不算
+            if self.engine.question_mode() {
+                return Effect::Changed(None);
+            }
         }
         if let Some(step) = codes::page_key(event, self.config.page_keys) {
             self.page(step);
@@ -259,6 +293,14 @@ impl Router {
         }
         self.engine.push(c);
         Effect::Changed(None)
+    }
+
+    /// 数字键在当前页对应的格子下标；这一页没有这一格（`gpt6` 只有三个候选）返回 `None`，数字当内容进缓冲区。
+    /// 云端词还没到的占位格算有：按了不算，免得结果一到就选错。
+    fn slot_index(&self, digit: usize) -> Option<usize> {
+        let page_size = self.config.page_size;
+        let index = self.highlight / page_size * page_size + digit - 1;
+        (digit <= page_size && index < self.candidate_count()).then_some(index)
     }
 
     /// 上屏高亮候选；没有候选时缓冲原样上屏。

@@ -13,7 +13,7 @@ if [ -n "$user" ] && [ "$user" != "root" ]; then
     if launchctl asuser "$uid" sudo -u "$user" "$BIN" --register; then
         echo "青简：已为 $user 注册并启用输入源"
     else
-        echo "青简：自动注册输入源失败，请在「系统设置 → 键盘 → 输入法」里手动添加"
+        echo "青简：自动注册输入源失败，请在「系统设置 → 键盘 → 输入法 → 编辑… → +」的「简体中文」下添加「青简」；列表里没有就注销后重新登录"
     fi
 else
     echo "青简：没找到登录用户，跳过自动注册"

@@ -1,7 +1,7 @@
 [package]
 name = "qingjian-macos"
 description = "macOS 输入法：Input Method Kit 外壳、候选窗口、菜单与偏好设置"
-version = "0.1.3-dev"
+version = "0.1.4-dev"
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
@@ -32,3 +32,7 @@ toml_edit.workspace = true
 
 [lints]
 workspace = true
+
+[dev-dependencies]
+# 只给 tests/info_plist.rs 解析仓库里的 Info.plist 用，不进产物
+plist.workspace = true

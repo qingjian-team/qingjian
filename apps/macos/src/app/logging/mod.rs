@@ -78,6 +78,38 @@ pub fn log_dir() -> Option<PathBuf> {
     std::env::var_os("HOME").map(|home| PathBuf::from(home).join("Library/Logs/Qingjian"))
 }
 
+/// 把日志目录里的文件加 `config.toml` 打成桌面上的 `qingjian-logs-<日期>.zip`（`zip -j`，不带目录层级），返回 zip 路径。
+/// 与 Windows 设置程序的「打包日志到桌面」对应；密钥在 `.env` 里，不进包。
+pub fn export_logs() -> Result<PathBuf, String> {
+    let dir = log_dir().ok_or("找不到日志目录")?;
+    let mut files: Vec<PathBuf> = std::fs::read_dir(&dir)
+        .map_err(|error| format!("读不到日志目录：{error}"))?
+        .filter_map(|entry| entry.ok().map(|entry| entry.path()))
+        .filter(|path| path.is_file())
+        .collect();
+    files.extend(super::paths::config_file().filter(|path| path.is_file()));
+    if files.is_empty() {
+        return Err("没有可打包的日志".to_owned());
+    }
+    let desktop = PathBuf::from(std::env::var_os("HOME").ok_or("找不到主目录")?).join("Desktop");
+    let zip = desktop.join(format!(
+        "qingjian-logs-{}.zip",
+        jiff::Zoned::now().strftime("%Y-%m-%d")
+    ));
+    let _ = std::fs::remove_file(&zip);
+    let status = std::process::Command::new("/usr/bin/zip")
+        .arg("-jq")
+        .arg(&zip)
+        .args(&files)
+        .status()
+        .map_err(|error| format!("起不了 zip：{error}"))?;
+    if !status.success() {
+        return Err(format!("zip 退出码 {status}"));
+    }
+    tracing::warn!(zip = %zip.display(), "用户导出日志");
+    Ok(zip)
+}
+
 /// 删掉目录里日期早于 `today - KEEP_DAYS` 的日志文件；文件名解析不出日期的不动。
 pub fn prune(dir: &Path, today: jiff::civil::Date) {
     let Ok(entries) = std::fs::read_dir(dir) else {

@@ -32,6 +32,15 @@ impl Edit {
         }
     }
 
+    /// 这处编辑是不是改在刚敲的最后一个键上：换掉最后一个字母、或在末尾补一个字母（`corrected_len` 是纠正后串的长度）。
+    /// 用户多半还没敲完，这种编辑凑出的完整拼音说明不了什么。
+    pub fn touches_last_letter(&self, corrected_len: usize) -> bool {
+        match *self {
+            Self::Substitute { index, .. } | Self::Insert { index } => index + 1 == corrected_len,
+            Self::Delete { .. } | Self::Transpose { .. } => false,
+        }
+    }
+
     /// 要画删除线的原字母及其在纠正后串里的位置（画在这一位之前）；漏字没有可划的。
     pub fn struck(&self) -> Option<(usize, String)> {
         match *self {

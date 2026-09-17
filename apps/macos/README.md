@@ -16,7 +16,7 @@ apps/macos/scripts/bundle.sh --install
 ## 分发 pkg
 
 ```bash
-apps/macos/scripts/bundle.sh --pkg        # target/pkg/Qingjian-<版本>.pkg
+apps/macos/scripts/bundle.sh --pkg        # target/pkg/qingjian-<版本>-macos-<arch>.pkg
 ```
 
 pkg 装到 `/Library/Input Methods/`（需要管理员密码），装完 postinstall 以登录用户身份跑 `qingjian-macos --register`（注册、启用并切成当前输入源），

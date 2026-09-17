@@ -66,7 +66,7 @@ powershell -ExecutionPolicy Bypass -File apps\windows\installer\build.ps1
 ```
 
 脚本 release 构建三个产物、从 `apps\windows\server\Cargo.toml` 读版本、找 `ISCC.exe`、编 `qingjian.iss`，
-成品在 `target\installer\Qingjian-<版本>-Setup.exe`。改了数据 / 脚本但二进制没变时加 `-SkipBuild`；`-Sign` 用自签证书签产物
+成品在 `target\installer\qingjian-<版本>-windows-x86_64-setup.exe`。改了数据 / 脚本但二进制没变时加 `-SkipBuild`；`-Sign` 用自签证书签产物
 （uiAccess 要求 Server 签名 + 装 Program Files）。
 
 也可手动：`iscc /DAppVersion=0.1.0 apps\windows\installer\qingjian.iss`。

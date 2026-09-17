@@ -347,8 +347,7 @@ impl Config {
             tables.push(t);
         }
         document["custom_phrases"] = toml_edit::Item::ArrayOfTables(tables);
-        qingjian_core::storage::write_atomic_str(path, &document.to_string())
-            .map_err(|e| e.to_string())
+        write_file(path, &document.to_string()).map_err(|e| e.to_string())
     }
 
     /// 读配置。文件不存在按默认值；存在但解析失败报错，不要静默吞掉用户的笔误。
@@ -405,12 +404,7 @@ impl Config {
         }
         document[section][key] = toml_edit::value(value);
         // 写临时文件再改名：输入法进程随时可能被杀，不能留半个配置文件
-        qingjian_core::storage::write_atomic_str(path, &document.to_string()).map_err(|source| {
-            ConfigError::Write {
-                path: path.to_owned(),
-                source,
-            }
-        })
+        write_file(path, &document.to_string())
     }
 
     /// 原地把一个键改成字符串数组（`[section] key = ["a", "b"]`），其余内容、注释与顺序原样保留。
@@ -443,27 +437,31 @@ impl Config {
             array.push(value.as_ref());
         }
         document[section][key] = toml_edit::value(array);
-        qingjian_core::storage::write_atomic_str(path, &document.to_string()).map_err(|source| {
-            ConfigError::Write {
-                path: path.to_owned(),
-                source,
-            }
-        })
+        write_file(path, &document.to_string())
     }
 
-    /// 文件不存在时写出模板，返回是否写了。
+    /// 文件不存在时写出模板（目录一并建），返回是否写了。
     pub fn write_template_if_missing(path: &Path) -> Result<bool, ConfigError> {
         if path.exists() {
             return Ok(false);
         }
-        qingjian_core::storage::write_atomic_str(path, TEMPLATE).map_err(|source| {
-            ConfigError::Write {
-                path: path.to_owned(),
-                source,
-            }
-        })?;
+        write_file(path, TEMPLATE)?;
         Ok(true)
     }
+}
+
+/// 原子写配置文件；数据目录还没有就先建（新账户第一次打开设置时输入法可能还没跑过）。
+fn write_file(path: &Path, text: &str) -> Result<(), ConfigError> {
+    let write = || {
+        if let Some(dir) = path.parent() {
+            std::fs::create_dir_all(dir)?;
+        }
+        qingjian_core::storage::write_atomic_str(path, text)
+    };
+    write().map_err(|source| ConfigError::Write {
+        path: path.to_owned(),
+        source,
+    })
 }
 
 #[cfg(test)]
@@ -546,6 +544,21 @@ mod tests {
         let config = Config::load(&path).unwrap();
         assert!(config.fuzzy.z_zh && config.fuzzy.n_l && config.predict.enabled);
         let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn writes_create_the_data_directory_for_a_fresh_account() {
+        let dir = std::env::temp_dir().join("qingjian-config-fresh-account-test");
+        let _ = std::fs::remove_dir_all(&dir);
+        let path = dir.join("Qingjian").join("config.toml");
+        assert!(Config::write_template_if_missing(&path).unwrap());
+        assert!(!Config::write_template_if_missing(&path).unwrap());
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), TEMPLATE);
+        // 没有模板直接保存也行
+        std::fs::remove_dir_all(&dir).unwrap();
+        Config::set_bool(&path, "predict", "enabled", true).unwrap();
+        assert!(Config::load(&path).unwrap().predict.enabled);
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]

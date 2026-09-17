@@ -44,8 +44,11 @@ impl AdvancedPage {
         note_full(
             layout,
             mtm,
-            "会把敲的拼音与上屏的文字记进日志，只在配合作者排查问题时打开，查完关掉。日志在「关于」页可以打开。",
+            "会把敲的拼音与上屏的文字记进日志，只在配合作者排查问题时打开，查完关掉。",
         );
+        let export = button(mtm, "打包日志到桌面", Setting::ExportLogs, target);
+        layout.place(&export, PAGE_PADDING, 160.0, ROW_HEIGHT + 4.0);
+        layout.next_row(ROW_HEIGHT + 4.0);
         layout.space(GROUP_GAP);
         let learning = checkbox(mtm, "学习输入习惯", Setting::Learning, target);
         row_checkbox(layout, &learning);

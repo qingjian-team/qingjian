@@ -73,7 +73,7 @@ pub(crate) fn view(settings: &Settings, context: &mut ViewContext<Settings>) -> 
         ),
         field(
             "没在输入拼音时敲 ? 也进入问字",
-            "开着时 ? 先进问字（中英文模式都行），后面跟字母才是问题，跟其他键时还原成问号；关着问号就是问号。双拼下这是问字唯一的入口。",
+            "开着时 ? 先进问字（中英文模式都行），后面跟字母才是问题，跟其他键时还原成问号；关着问号就是问号。",
             ToggleSwitch::new()
                 .is_on(s.mode.question_mark)
                 .on_toggled(context.callback(Message::QuestionMark)),

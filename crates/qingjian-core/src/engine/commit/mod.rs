@@ -438,45 +438,62 @@ impl Engine {
         (consumed, choice_key(keys, consumed))
     }
 
-    /// 候选的音节逐个对到 `input` 上：原样相同直接吃；输入到这里就没了而且是这个音节的开头算没打完；
-    /// 否则找最长的一段字母是它的模糊音或敲错变体（`zi` 对 `zhi`、`gan` 对 `guan`）；都不是就按公共前缀吃。`'` 分隔的一段字母不跨段对。
+    /// 候选的音节逐个对到输入上：每个音节按原样 / 规范写法、模糊音或敲错变体（长的在前）、没打完的前缀消耗输入，
+    /// 先找能把**每个音节都对上**的对齐（带回溯：`pingyin` 对 拼音 时 `pin` 原样只吃三个字母会剩下 `gyin`，
+    /// 退回来按敲错变体 `ping` → `pin` 吃四个），找不到才退回逐个贪心对、对不上的地方停下。
     pub(super) fn align(&self, input: &str, syllables: &[String]) -> Alignment {
+        let mut typos = Vec::new();
+        self.align_full(input, 0, syllables, &mut typos)
+            .unwrap_or_else(|| self.align_greedy(input, syllables))
+    }
+
+    /// 从 `pos` 起把剩下的音节全对上的第一种对齐（按每步的优先级深度优先）；对不上返回 `None`。
+    fn align_full(
+        &self,
+        input: &str,
+        pos: usize,
+        syllables: &[String],
+        typos: &mut Vec<(String, String)>,
+    ) -> Option<Alignment> {
+        let Some((syllable, remaining)) = syllables.split_first() else {
+            return Some(Alignment {
+                consumed: pos,
+                typos: typos.clone(),
+            });
+        };
+        let (rest, start) = self.rest_at(input, pos);
+        for (len, typo) in self.syllable_steps(rest, syllable) {
+            // 消耗完输入后还有音节没对：不算全对上（候选比敲的长）
+            if start + len == input.len() && !remaining.is_empty() {
+                continue;
+            }
+            if typo {
+                typos.push((rest[..len].to_owned(), syllable.clone()));
+            }
+            let found = self.align_full(input, start + len, remaining, typos);
+            if typo {
+                typos.pop();
+            }
+            if found.is_some() {
+                return found;
+            }
+        }
+        None
+    }
+
+    /// 逐个贪心对：每个音节取第一种能对上的消耗，都对不上就取公共前缀，公共前缀也没有就停。
+    fn align_greedy(&self, input: &str, syllables: &[String]) -> Alignment {
         let mut alignment = Alignment::default();
         let mut pos = 0;
         for syllable in syllables {
-            if pos > 0 && input[pos..].starts_with('\'') {
-                pos += 1;
-            }
-            let rest = &input[pos..];
-            let rest = &rest[..rest.find('\'').unwrap_or(rest.len())];
-            let canonical_match = rest.get(..syllable.len()).is_some_and(|typed| {
-                qingjian_dictionary::canonical_syllable(typed)
-                    == qingjian_dictionary::canonical_syllable(syllable)
-            });
-            if canonical_match {
-                pos += syllable.len();
-                continue;
-            }
-            if rest.starts_with(syllable.as_str()) {
-                pos += syllable.len();
-                continue;
-            }
-            if !rest.is_empty() && syllable.starts_with(rest) {
-                pos += rest.len();
-                continue;
-            }
-            let longest = (1..=rest.len().min(parser::MAX_SYLLABLE_LEN))
-                .rev()
-                .find(|&len| {
-                    let typed = &rest[..len];
-                    self.fuzzy.is_variant(typed, syllable) || typo::is_variant(typed, syllable)
-                });
-            if let Some(len) = longest {
-                let typed = &rest[..len];
-                if !self.fuzzy.is_variant(typed, syllable) {
-                    alignment.typos.push((typed.to_owned(), syllable.clone()));
+            let (rest, start) = self.rest_at(input, pos);
+            if let Some((len, typo)) = self.syllable_steps(rest, syllable).into_iter().next() {
+                if typo {
+                    alignment
+                        .typos
+                        .push((rest[..len].to_owned(), syllable.clone()));
                 }
-                pos += len;
+                pos = start + len;
                 continue;
             }
             let common = syllable
@@ -487,10 +504,52 @@ impl Engine {
             if common == 0 {
                 break;
             }
-            pos += common;
+            pos = start + common;
         }
         alignment.consumed = pos;
         alignment
+    }
+
+    /// `pos` 处这个音节能看到的输入段（到下一个 `'` 为止）与它的起点（跳过开头的 `'`）。
+    fn rest_at<'a>(&self, input: &'a str, pos: usize) -> (&'a str, usize) {
+        let start = if pos > 0 && input[pos..].starts_with('\'') {
+            pos + 1
+        } else {
+            pos
+        };
+        let rest = &input[start..];
+        let rest = &rest[..rest.find('\'').unwrap_or(rest.len())];
+        (rest, start)
+    }
+
+    /// 一个音节可以怎么消耗输入段 `rest`：(消耗字节数, 是否靠敲错变体)，按优先级排：
+    /// 原样或规范写法（`lue` / `lve`）、模糊音或敲错变体（长的在前）、整段是这个音节没打完的前缀。
+    fn syllable_steps(&self, rest: &str, syllable: &str) -> Vec<(usize, bool)> {
+        let mut steps = Vec::new();
+        let exact = rest.get(..syllable.len()).is_some_and(|typed| {
+            typed == syllable
+                || qingjian_dictionary::canonical_syllable(typed)
+                    == qingjian_dictionary::canonical_syllable(syllable)
+        });
+        if exact {
+            steps.push((syllable.len(), false));
+        }
+        // 没打完排在变体前面：`shijia` 选 时间 是 jian 没敲完，不是把 jian 敲成了 jia
+        if !rest.is_empty() && rest.len() < syllable.len() && syllable.starts_with(rest) {
+            steps.push((rest.len(), false));
+        }
+        for len in (1..=rest.len().min(parser::MAX_SYLLABLE_LEN)).rev() {
+            if exact && len == syllable.len() {
+                continue;
+            }
+            let typed = &rest[..len];
+            if self.fuzzy.is_variant(typed, syllable) {
+                steps.push((len, false));
+            } else if typo::is_variant(typed, syllable) {
+                steps.push((len, true));
+            }
+        }
+        steps
     }
 
     /// 整段作用域对应的候选（英文词、云端词、快捷候选）：吃掉全部键，学习键是整段全拼。

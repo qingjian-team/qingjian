@@ -1,12 +1,22 @@
 name: 使用疑问
 description: 不确定是用法问题还是缺陷，先问一下
-title: "[Question] "
 labels: ["question"]
 body:
   - type: markdown
     attributes:
       value: |
+        标题请用一句话写清要问什么，例如「双拼下怎么输入 ü」。
+
         按键总表、双拼、云联想等用法在 [使用说明](https://qingjian.app/docs) 里，很多问题能直接查到。
+  - type: checkboxes
+    id: checked
+    attributes:
+      label: 提交前确认
+      options:
+        - label: 已搜索过现有 issue（包括已关闭的），没有重复
+          required: true
+        - label: 已查过[使用说明](https://qingjian.app/docs)，里面没有答案
+          required: true
   - type: dropdown
     id: platform
     attributes:

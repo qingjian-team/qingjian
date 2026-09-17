@@ -92,7 +92,7 @@ impl ShortcutsPage {
         note(
             layout,
             mtm,
-            "勾上后 ? 先进问字（中英文模式都行），后面跟字母才是问题，跟空格、回车等其他键时还原成问号；不勾问号就是问号。双拼下这是问字唯一的入口。",
+            "勾上后 ? 先进问字（中英文模式都行），后面跟字母才是问题，跟空格、回车等其他键时还原成问号；不勾问号就是问号。",
         );
         layout.space(GROUP_GAP);
         let translation = row_recorder(
