@@ -113,3 +113,4 @@
     data Release 传 `model.qjm`，bundle.sh / qingjian.iss 只带一个文件），待 mac 与 box 真机各装一次验加载与重排；
     密码框已按 TSF 规范做（2026-09-12）：`KEYBOARD_DISABLED` compartment 整键放行不组句，`IS_PRIVATE` / 密码 / PIN 输入范围为私密（组句但不学不记不发云端，`ClientMessage::Privacy` → `Engine::set_private`），box 真机验过：Edge 密码框整键放行；InPrivate 网页文本框报 `IS_SEARCH` 不报 `IS_PRIVATE`，私密路径只靠单测覆盖；CI 两个 job 都从 `data` Release 取 `model.qjm`（已做）。
 - [ ] Linux IBus / Fcitx（Phase 5）；配置同步、跨平台词库
+  - [ ] **Linux 发版前补 `docs/user/` 页面**（2026-09-15 记）：安装/卸载路径、数据目录两层布局（`dist/` 随包层 + 用户层覆盖件）、`user-dicts/` 用户词库位置；数据文件页补 Linux 一列。

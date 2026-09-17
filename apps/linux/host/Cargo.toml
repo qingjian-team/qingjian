@@ -1,0 +1,25 @@
+[package]
+name = "qingjian-linux-host"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+repository.workspace = true
+
+[lib]
+crate-type = ["staticlib"]
+
+[dependencies]
+jiff = { workspace = true }
+qingjian-core = { workspace = true }
+qingjian-dictionary = { workspace = true }
+qingjian-learning = { workspace = true }
+qingjian-lm = { workspace = true }
+qingjian-neural = { workspace = true }
+qingjian-platform = { workspace = true }
+qingjian-translate = { workspace = true }
+tracing = { workspace = true }
+tracing-appender = { workspace = true }
+tracing-subscriber = { workspace = true }
+
+[lints]
+workspace = true

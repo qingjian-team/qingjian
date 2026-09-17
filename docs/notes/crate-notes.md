@@ -40,7 +40,7 @@ TSV 解析、查询与生成工具把 `lue` / `nue` 统一成 `lve` / `nve`。
 
 - `FrequencyLearner`：用户选择次数（`user.tsv`）、按输入串记的选择（`user-choices.tsv`，词级排序里同输入串选过的优先）、用户词（`user-words.tsv`，主词库同格式，
   Engine 与主词库一起查）、个人英文词（`user-english.tsv`，回车原样上屏的英文词与选过的英文候选，与随包英文词表一起出候选且在前）、
-  个人敲错表（`user-typos.tsv`，接受过的 (敲的, 要的) 音节对，词图敲错边与整段纠错的代价按它打折）与个人 n-gram（`user-ngram.tsv`，Core `sentence::UserNgram`，
+  个人敲错表（`user-typos.tsv`，接受过的 （敲的， 要的） 音节对，词图敲错边与整段纠错的代价按它打折）与个人 n-gram（`user-ngram.tsv`，Core `sentence::UserNgram`，
   二元 + 三元在线计数，整句转换与词级排序里与静态模型插值；Tab 接受的云端整句按 `sentence::segment_text` 切词后也记；
   连着选出的两个词记够次数自动造词进用户词，一段拼音分几次选完的合成词记两次也造）。
 - `InputLog`：输入日志（`input-log.jsonl`，每次上屏一行：敲的键、切分、看到的前几个候选、选了第几个、来源、纠错、撤销，
@@ -77,7 +77,7 @@ TSV 解析、查询与生成工具把 `lue` / `nue` 统一成 `lve` / `nve`。
 `model.safetensors` + `config.json` + `vocab.json`），给「前文 + 整句」按字累加 log 概率；前文的每层 K / V 缓存（`PrefixCache`），
 同一段前文只算一次，每个候选只算自己那几个字（64 字前文 × 8 条 28 ms，Metal）。features `accelerate` / `metal` 换后端，壳用 `metal`。
 
-Engine 侧在 `engine/rescoring/`：接了打分器就取 Viterbi 前 `RESCORE_PATHS` = 6 条路径按 `路径分 + λ·(神经分 − 静态二元分)` 重排（λ `NEURAL_WEIGHT` 0.5，
+Engine 侧在 `engine/rescoring/`：接了打分器就取 Viterbi 前 `RESCORE_PATHS` = 6 条路径按 `路径分 + λ·（神经分 − 静态二元分）` 重排（λ `NEURAL_WEIGHT` 0.5，
 个人 n-gram / 用户加分 / 代价不动），分走「前文 + 文本 → 神经分」缓存 `NeuralCache`；同步打分器（`with_sentence_scorer`，CLI 评测）当场补分，
 异步的（`with_async_sentence_scorer`，后台线程 `RescoreWorker`）查询不等模型：缺分的记下来，壳停键后 `request_rescoring`、`poll_rescoring` 到了再 `query` 一次。
 前文优先用壳给的应用光标前文（`set_rescoring_context`），没有用本会话最近 64 个上屏字符。CLI `--neural <导出目录>`（`--neural-weight` / `--neural-context` / `--neural-async`）。
@@ -160,6 +160,21 @@ TSF 原有数字 / OEM 标点 / 空格键码按当前布局用 `ToUnicodeEx` 解
 
 词库导入（设置「词库」页）走 `qingjian-dictionary::import` 转成 `.qj`（空词库拒绝），多选批量、成功的从 `[dictionaries] disabled` 摘掉、页面显示每个文件的结果；
 Server 每次轮询比对用户 `dicts\` 的路径 / mtime / 长度快照，配置没变也重载新增、同名更新与移除；配置解析失败时词库沿用上次有效的开关（#36）。
+
+## apps/linux
+
+`host`（Rust staticlib：Engine 装配 + 按键路由 + C ABI `bridge.rs`）+ `fcitx5-shim`（唯一的 C++ 文件 `addon.cpp`，只转发不放业务；
+CMake 构建，头文件合同 `qingjian.h` 两边不同步链接期就炸）。设计见 `docs/design/linux-fcitx5.md`。
+
+- 数据文件分两层（`host/paths.rs`，fcitx5 StandardPaths 同款语义）：随包层 `~/.local/share/qingjian/dist/`（装机脚本独占、每次安装整个换新，升级即更新），
+  内含 `dict`、`lm`（缺了整句退化一元词频）、`glossary-<语言>`、`english.tsv`、`emoji-{zh,en}.tsv`、`levels-{en,ja}.tsv`、`dicts/`（随包领域词库）、`model/model.qjm`；
+  用户层 = 数据目录根（学习数据 + 用户自有覆盖件：同名文件、`user-dicts/`、`model/*.qjm`），查找时整层盖过随包层，层内同名 `.qj` 优先于 `.tsv`。
+  产品数据来自 GitHub `data` 发布资产（`gh release download data`），打包脚本 `pack.sh` 从 `data/generated/` 取、缺了退回 `assets/` 样例源。
+- 本地整句模型常数：防抖 80ms、结果最长等 2s（`host/model.rs`）；shim 侧 fcitx5 TimeEvent 每 20ms 一问（`addon.cpp` 的 `kModelPollUsec`），
+  Rust 侧状态机没事等就不续期。
+- 日志：`~/.local/state/qingjian/logs/qingjian.log.<日期>`，按天分文件留 7 天，`[general] log_level` 热切换（`src/logging/`，
+  结构照搬 `apps/macos/src/app/logging/`，两处要人肉同步——待提库 `qingjian-platform`）。
+- 输入日志 `input-log.jsonl`、词频 `user.tsv`、统计 `usage.tsv`、词汇 `user-vocab.tsv` 都在用户数据目录。
 
 ## assets
 

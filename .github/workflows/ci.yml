@@ -20,7 +20,8 @@ env:
 
 jobs:
   core:
-    runs-on: ubuntu-latest
+    # Fcitx5 shim 用候选 comment 接口（Fcitx5 >= 5.1.9）；ubuntu-latest 的 fcitx5 开发包偏旧，编不过。
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -41,6 +42,15 @@ jobs:
 
       - name: Test
         run: cargo test --workspace --exclude qingjian-macos --locked
+
+      # Fcitx5 shim 是 CMake 目标,不在 cargo workspace 里;staticlib 用 debug 件,避免整套 release 重编。
+      - name: Build Fcitx5 shim
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake g++ libfcitx5core-dev libfcitx5config-dev libfcitx5utils-dev libssl-dev
+          cargo build -p qingjian-linux-host --locked
+          cmake -S apps/linux/fcitx5-shim -B build/fcitx5-shim -DQINGJIAN_RUST_LIB="$PWD/target/debug/libqingjian_linux_host.a"
+          cmake --build build/fcitx5-shim --parallel 2
 
   macos:
     runs-on: macos-latest
