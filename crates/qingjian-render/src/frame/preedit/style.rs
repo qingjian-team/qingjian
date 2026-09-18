@@ -10,4 +10,7 @@ pub enum PreeditStyle {
 
     /// 被纠错改掉的字母：淡且带删除线。
     Struck,
+
+    /// 辅码码段：与剩余拼音同一个淡色，再压一道下划线区分。
+    AuxCode,
 }

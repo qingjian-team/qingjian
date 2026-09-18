@@ -161,6 +161,8 @@ impl Router {
                 page_count: 1,
                 layout: self.config.layout,
                 theme: self.config.theme,
+                // 编译臂：随帧下发的「候选上显示码」开关归壳接线（后续 PR），这里先按缺省关
+                aux_code_show: false,
                 sentence: None,
                 notice: self.notice.clone(),
             },
@@ -189,6 +191,7 @@ impl Router {
                     page_count: layout.pages().max(1),
                     layout: self.config.layout,
                     theme: self.config.theme,
+                    aux_code_show: false,
                     sentence: self.sentence.clone(),
                     notice: self.notice.clone(),
                 }

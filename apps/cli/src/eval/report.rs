@@ -1,6 +1,8 @@
 use std::fmt;
 use std::time::Duration;
 
+use super::coverage::Coverage;
+
 /// 整句评测报告。
 #[derive(Debug, Default)]
 pub struct Report {
@@ -29,6 +31,9 @@ pub struct Report {
     /// 查询耗时之和与最大值。
     pub query_time: Duration,
     pub slowest_query: Duration,
+
+    /// 码表覆盖率；没装码表时为 `None`。
+    pub coverage: Option<Coverage>,
 
     /// 没命中首选的例子。
     pub misses: Vec<String>,
@@ -66,6 +71,19 @@ impl fmt::Display for Report {
                 "查询平均 {:.1} ms，最慢 {:.1} ms",
                 self.query_time.as_secs_f64() * 1000.0 / evaluated as f64,
                 self.slowest_query.as_secs_f64() * 1000.0,
+            )?;
+        }
+        if let Some(coverage) = &self.coverage {
+            writeln!(
+                f,
+                "码表覆盖率：词频前 {} 条 {}（{} / {}），全库 {}（{} / {}）",
+                coverage.top_total,
+                percent(coverage.top_hits, coverage.top_total),
+                coverage.top_hits,
+                coverage.top_total,
+                percent(coverage.all_hits, coverage.all_total),
+                coverage.all_hits,
+                coverage.all_total,
             )?;
         }
         if self.unparsable > 0 {

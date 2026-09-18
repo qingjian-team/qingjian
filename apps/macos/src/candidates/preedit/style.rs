@@ -19,6 +19,9 @@ impl From<MarkedKind> for PreeditStyle {
             MarkedKind::Typed => Self::Typed,
             MarkedKind::Rest => Self::Rest,
             MarkedKind::Corrected => Self::Struck,
+            // TODO-维护者：辅码码段在 macOS 壳里按「淡 + 下划线」画（issue #8 卷 II 的 macOS 对照）。
+            // 这里暂时借用剩余拼音的淡色，等 macOS 壳接上辅码设置项时补一个带下划线的变体。
+            MarkedKind::AuxCode => Self::Rest,
         }
     }
 }

@@ -127,6 +127,8 @@ fn draw_top_line(hdc: HDC, data: &RenderData, y: i32) -> i32 {
             PreeditKind::Typed => (theme.gloss_color, false),
             PreeditKind::Rest => (theme.pos_color, false),
             PreeditKind::Corrected => (theme.pos_color, true),
+            // 编译臂：码段按剩余拼音的淡色画（下划线随后续壳接线补）
+            PreeditKind::AuxCode => (theme.pos_color, false),
         };
         let width = draw_text(hdc, theme.annotation_font, color, x, top, text);
         if strike {
@@ -420,6 +422,8 @@ fn tone_color(theme: &Theme, tone: Tone) -> COLORREF {
         Tone::Gloss => theme.gloss_color,
         Tone::Fresh => theme.fresh_color,
         Tone::Faint => theme.pos_color,
+        // 编译臂：注记里的码用释义色
+        Tone::Code => theme.gloss_color,
     }
 }
 

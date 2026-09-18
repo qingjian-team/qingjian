@@ -6,6 +6,7 @@
 //! `句子\t拼音\t上文` 三列文件；后者保证不同时间、不同分支比的是同一份句子。
 //! 每句独立：不上屏、不学习，只把这句在原文里的上文写进输入历史给整句转换用。
 
+pub mod coverage;
 mod extract;
 mod pair;
 mod report;
@@ -29,7 +30,11 @@ pub fn run(
     save: Option<&Path>,
     show_misses: usize,
 ) -> Result<Report, EvalError> {
-    let mut report = Report::default();
+    // 码表覆盖率与句子集无关，装了码表就先算（词库按词频两段口径）
+    let mut report = Report {
+        coverage: coverage::measure(engine),
+        ..Report::default()
+    };
     let pairs = collect(engine, paths, &mut report)?;
     if let Some(path) = save {
         let mut text = String::new();
