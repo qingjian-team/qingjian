@@ -166,7 +166,8 @@
     `[general] english_mode` 关掉则内置英文模式整体停用（固定中文、不再登记语言栏按钮、状态条也不切）；
     四项都在「设置 → 通用」，DLL 激活时读一次配置
   - [ ] 发版：Certum 开源代码签名证书、`windows-v<版本>` 标签与 CI
-- [ ] Linux IBus / Fcitx
+- [x] Linux Fcitx5 第一阶段：Rust Server、默认候选面板、用户目录安装与手动启动（2026-09-18）；未改系统 Fcitx5 的 GTK4 / Qt6 X11 输入已验证
+- [ ] Linux 后续：Server 自绘 X11 窗口、Server 向 GNOME 扩展发送位图、神经重排、自动启动与 Debian 包；各自独立 PR，IBus 暂缓
 - [ ] 配置同步
 - [ ] 跨平台词库
 

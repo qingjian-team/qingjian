@@ -1,0 +1,29 @@
+[package]
+name = "qingjian-linux-server"
+description = "Linux Fcitx5 输入法的 Rust Server"
+version = "0.1.0-dev"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "qingjian-linux-server"
+path = "src/main.rs"
+
+[dependencies]
+qingjian-core.workspace = true
+qingjian-dictionary.workspace = true
+qingjian-learning.workspace = true
+qingjian-lm.workspace = true
+qingjian-platform.workspace = true
+qingjian-translate.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+tracing-appender.workspace = true
+libc = "0.2.189"
+
+[lints]
+workspace = true

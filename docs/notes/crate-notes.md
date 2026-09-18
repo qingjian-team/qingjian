@@ -240,3 +240,14 @@ DLL 不读文件、不查 mtime。`SessionOpened` 只回过协议版本对得上
 - `phrases`：挖短语层（两遍扫语料：相邻两词、两段二元都够频的相邻三词，总次数与对话语料次数都 ≥ 2000 + 边界规则，读音由成分词拼出；我的 / 不知道 / 有没有 这类常用词表不收的组合，
   `assets/lexicon/phrases.tsv`；词库已并入过短语时重跑加 `--refresh`）。
 - `pack dict|lm|glossary`：打 `.qj`（释义表也进容器）。
+
+
+## apps/linux
+
+`qingjian-linux-server` 为独立产品 `0.1.0-dev`，只装配本地 Engine、词库、释义、频率学习、个人 n-gram、词汇记录与可选输入日志。
+不接云服务或神经重排。`dispatch/session` 交换每个上下文的 EngineSession；真正的能力变化丢弃输入，普通焦点切换隔离保存。
+默认面板插件仅转换事件，Shift 模式、候选点击、分页和失焦提交都由 Server 决定。
+
+Unix socket 用共享长度前缀与 Frame（当前公共版本 5）；Linux v2 扩展独立握手、报告 Sensitive/Password/Disable、按下/释放、焦点和点击事实。
+候选回报绑定连接代次、上下文和服务端帧序号，仅当前聚焦页的有效释义进入 `note_displayed`，不把生成帧算作已展示。
+`[general] preedit` 使用已有 `both` / `inline` / `window`；没有新增 Linux 自绘配置。详见 [linux-fcitx5.md](linux-fcitx5.md)。

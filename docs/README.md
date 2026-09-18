@@ -16,6 +16,9 @@ README.md 只介绍项目，所有技术内容放在这里，分四类：前三�
 | [design/candidate-ui.md](design/candidate-ui.md) | 候选窗口、按键约定与翻译 annotation 的设计 |
 | [design/landscape.md](design/landscape.md) | 同类项目（水杉、Rime）、可用数据源及其许可 |
 | [design/rendering.md](design/rendering.md) | 跨平台 UI 与自绘渲染器（2026-09-13）：显示面与控件面的区分、Flutter / Avalonia / WebView 的调研结论、主题的两条路、tiny-skia + cosmic-text 的 spike 结果与两平台接入 |
+| [plan/linux_fcitx5_stage1_revision_plan.md](plan/linux_fcitx5_stage1_revision_plan.md) | Linux Fcitx5 第一阶段范围、实施与验收方案 |
+| [notes/linux-fcitx5.md](notes/linux-fcitx5.md) | Linux 默认面板构建、协议、安装与排错 |
+| [user/getting-started/linux.md](user/getting-started/linux.md) | Linux 用户安装、手动运行和卸载 |
 | [plan/roadmap.md](plan/roadmap.md) | 分阶段路线图、各阶段的依赖关系与已完成项 |
 | [plan/zh_tw_support_plan.md](plan/zh_tw_support_plan.md) | 繁体输出与台湾注音支持的分析与方案（贡献者 pinchiu，#22）：读音标准差异、台湾用语、简转繁一对多；两条路线 |
 | [plan/todo.md](plan/todo.md) | 待办清单，按「从自用到能给别人用」排 |

@@ -20,7 +20,7 @@ env:
 
 jobs:
   core:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -33,6 +33,11 @@ jobs:
 
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
 
+      - name: Install Fcitx5 build and test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake g++ libfcitx5core-dev libfcitx5config-dev libfcitx5utils-dev nlohmann-json3-dev
+
       - name: Format
         run: cargo fmt --all --check
 
@@ -41,6 +46,14 @@ jobs:
 
       - name: Test
         run: cargo test --workspace --exclude qingjian-macos --locked
+
+      - name: Build and test Fcitx5 default panel
+        run: |
+          cmake -S apps/linux/fcitx5 -B target/fcitx5-stage1 -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON
+          cmake --build target/fcitx5-stage1 --parallel 2
+          env -u DBUS_SESSION_BUS_ADDRESS ctest --test-dir target/fcitx5-stage1 --output-on-failure
+          bash -n apps/linux/scripts/install.sh apps/linux/scripts/uninstall.sh
+          python3 apps/linux/tests/installation.py
 
   macos:
     runs-on: macos-latest
