@@ -3,7 +3,7 @@
 use qingjian_platform::{MAX_PAGE_SIZE, Scheme, ShiftLetter, SwitchKey};
 use windows_reactor::*;
 
-use crate::panel::controls::{field, index_of, page};
+use crate::panel::controls::{feedback, field, index_of, page};
 use crate::panel::{Message, Settings};
 
 /// 学习语言：界面名 + 配置写法。
@@ -139,6 +139,7 @@ pub(crate) fn view(settings: &Settings, context: &mut ViewContext<Settings>) -> 
                 .is_on(g.chinese_first)
                 .on_toggled(context.callback(Message::ChineseFirst)),
         ),
+        feedback(&settings.notice),
         field(
             "中文模式下的 Shift + 字母",
             "「交给应用」是临时打英文（与以前一致）：拼音先上屏，这个键归应用；\

@@ -39,7 +39,11 @@ impl Engine {
                 )
             }
         };
-        self.insert_custom_phrases(&mut query.candidates.items);
+        query.aux = self.aux_segment();
+        // 辅码态只出命中码的词：自定义短语没有码，不出
+        if self.aux_filter().is_none() {
+            self.insert_custom_phrases(&mut query.candidates.items);
+        }
         // 给输入日志留个摘要：上屏时才知道选了什么，这里才知道看到了什么
         let pinyin = match &query.correction {
             Some(correction) => correction.segmentation.joined("'"),
@@ -157,6 +161,7 @@ impl Engine {
                     decoded_keys: self.shuangpin.is_some() || self.zhuyin,
                     typed_display: decoded.as_ref().map(|d| d.marked()),
                     correction: None,
+                    aux: None,
                     timings: Timings {
                         parse: start.elapsed(),
                         lookup: Duration::ZERO,
@@ -263,39 +268,69 @@ impl Engine {
             );
             (choice, log_prob)
         });
-        let mut items: Vec<Candidate> = scored
-            .into_iter()
-            .map(|s| Candidate {
-                text: s.hit.text.to_owned(),
-                kind: CandidateKind::Chinese,
-                syllables: s.hit.syllables().map(str::to_owned).collect(),
-                reading: None,
-                translation: None,
-            })
-            .collect();
-        // 中文优先：整句先进去占第一，英文词紧跟其后（第二）；关掉时英文词先进、整句排在开头的英文后面
-        if self.chinese_first {
-            self.insert_sentence(
-                &mut items,
-                &segmentations,
-                correction.is_none(),
-                english_tail.as_ref().filter(|_| correction.is_none()),
-                head_wins,
-            );
-            self.insert_english(&mut items, unlikely);
-        } else {
-            self.insert_english(&mut items, unlikely);
-            self.insert_sentence(
-                &mut items,
-                &segmentations,
-                correction.is_none(),
-                english_tail.as_ref().filter(|_| correction.is_none()),
-                head_wins,
-            );
+        // 辅码态：词库候选按码段**反向**过滤（逐个问「有没有以码段开头的码」），无码词直接隐藏；
+        // 命中的按「完全匹配码 > 码长降序 > 原词频序」重排（stable sort 保住 rank 排好的原序）。
+        // 码段为空（刚敲下触发键）时不过滤，候选与纯拼音态一模一样。
+        let aux_code = self.aux_filter();
+        let mut items: Vec<Candidate> = Vec::with_capacity(scored.len());
+        match aux_code {
+            // 没在筛码（纯拼音态，或辅码态空码段）：首条码只在显示开关开着（`set_aux_show`，配置
+            // `[general] aux_code_show`）或已在辅码态时挂——辅码态空码段也挂（进辅码态看码有引导意义）；
+            // 纯拼音态且开关关着时不逐候查码（单次查询上限 500 条 × 表数的二分只为一个不显示的字段）
+            None => items.extend(scored.into_iter().map(|item| {
+                let first = if self.aux_show || self.aux_code.is_some() {
+                    self.matching_code(item.hit.text, "")
+                } else {
+                    None
+                };
+                chinese_candidate(&item, first)
+            })),
+            Some(code) => {
+                let mut kept: Vec<(usize, &str)> = scored
+                    .iter()
+                    .enumerate()
+                    .filter_map(|(index, item)| {
+                        self.matching_code(item.hit.text, code)
+                            .map(|hit| (index, hit))
+                    })
+                    .collect();
+                kept.sort_by(|a, b| {
+                    (b.1.len() == code.len())
+                        .cmp(&(a.1.len() == code.len()))
+                        .then_with(|| b.1.len().cmp(&a.1.len()))
+                });
+                items.extend(
+                    kept.into_iter()
+                        .map(|(index, hit)| chinese_candidate(&scored[index], Some(hit))),
+                );
+            }
         }
-        // 快捷候选按敲的键认（`rq` 日期），双拼下也是
-        self.insert_shortcuts(&mut items, keys);
-        self.insert_emoji(&mut items);
+        // 附加候选（英文尾段与补全、快捷、整句、emoji）都没有码：辅码筛词时一律不出
+        if aux_code.is_none() {
+            // 中文优先：整句先进去占第一，英文词紧跟其后（第二）；关掉时英文词先进、整句排在开头的英文后面
+            if self.chinese_first {
+                self.insert_sentence(
+                    &mut items,
+                    &segmentations,
+                    correction.is_none(),
+                    english_tail.as_ref().filter(|_| correction.is_none()),
+                    head_wins,
+                );
+                self.insert_english(&mut items, unlikely);
+            } else {
+                self.insert_english(&mut items, unlikely);
+                self.insert_sentence(
+                    &mut items,
+                    &segmentations,
+                    correction.is_none(),
+                    english_tail.as_ref().filter(|_| correction.is_none()),
+                    head_wins,
+                );
+            }
+            // 快捷候选按敲的键认（`rq` 日期），双拼下也是
+            self.insert_shortcuts(&mut items, keys);
+            self.insert_emoji(&mut items);
+        }
         let rank = start.elapsed();
 
         // 按头段算时英文尾段不参与拼音候选，显示上跟在切分后面：`wo'xiang'xue'hao'rust`
@@ -318,6 +353,7 @@ impl Engine {
             decoded_keys: self.shuangpin.is_some() || self.zhuyin,
             typed_display,
             correction,
+            aux: self.aux_segment(),
             timings: Timings {
                 parse,
                 lookup,
@@ -337,6 +373,7 @@ impl Engine {
                 syllables: Vec::new(),
                 reading: None,
                 translation: None,
+                aux_code: None,
             });
         }
         Query {
@@ -349,6 +386,7 @@ impl Engine {
             decoded_keys: self.shuangpin.is_some() || self.zhuyin,
             typed_display: None,
             correction: None,
+            aux: None,
             timings: Timings {
                 parse: Duration::ZERO,
                 lookup: Duration::ZERO,
@@ -365,6 +403,7 @@ impl Engine {
             syllables: Vec::new(),
             reading: None,
             translation: None,
+            aux_code: None,
         }];
         Query {
             segmentations: Vec::new(),
@@ -376,6 +415,7 @@ impl Engine {
             decoded_keys: self.shuangpin.is_some() || self.zhuyin,
             typed_display: None,
             correction: None,
+            aux: None,
             timings: Timings {
                 parse: Duration::ZERO,
                 lookup: Duration::ZERO,
@@ -400,6 +440,7 @@ impl Engine {
             syllables: Vec::new(),
             reading: None,
             translation: None,
+            aux_code: None,
         })
         .collect();
         self.insert_emoji(&mut items);
@@ -414,6 +455,7 @@ impl Engine {
             decoded_keys: self.shuangpin.is_some() || self.zhuyin,
             typed_display: None,
             correction: None,
+            aux: None,
             timings: Timings {
                 parse: Duration::ZERO,
                 lookup: Duration::ZERO,
@@ -436,6 +478,7 @@ impl Engine {
                         syllables: Vec::new(),
                         reading: None,
                         translation: None,
+                        aux_code: None,
                     }],
                 },
                 scope.to_owned(),
@@ -455,6 +498,7 @@ impl Engine {
             decoded_keys: self.shuangpin.is_some() || self.zhuyin,
             typed_display: None,
             correction: None,
+            aux: None,
             timings: Timings {
                 parse: start.elapsed(),
                 lookup: Duration::ZERO,
@@ -554,6 +598,7 @@ impl Engine {
             syllables: conversion.syllables,
             reading: None,
             translation: None,
+            aux_code: None,
         })
     }
 
@@ -669,6 +714,19 @@ impl Engine {
             hits.extend(dictionary.lookup_exact_alt(positions));
         }
         hits
+    }
+}
+
+/// 词库命中的中文候选。`aux_code` 是给壳显示的辅码：筛码时是命中当前码段的那条，没在筛码
+/// （纯拼音态、辅码态空码段）时是词的首条码；没装码表或这个词没有码时是 `None`。
+fn chinese_candidate(item: &Scored<'_>, aux_code: Option<&str>) -> Candidate {
+    Candidate {
+        text: item.hit.text.to_owned(),
+        kind: CandidateKind::Chinese,
+        syllables: item.hit.syllables().map(str::to_owned).collect(),
+        reading: None,
+        translation: None,
+        aux_code: aux_code.map(str::to_owned),
     }
 }
 

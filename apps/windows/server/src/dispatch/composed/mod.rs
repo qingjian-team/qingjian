@@ -3,7 +3,7 @@
 mod state;
 
 use qingjian_core::{Candidate, CandidateLayout, CandidateList, CloudWord};
-use qingjian_platform::protocol::{Frame, PreeditKind, PreeditSegment};
+use qingjian_platform::protocol::{Frame, PROTOCOL_VERSION, PreeditKind, PreeditSegment};
 
 pub(super) use self::state::Composed;
 use super::Router;
@@ -142,7 +142,42 @@ impl Router {
     }
 
     /// 按当前状态生成一帧：翻译评审优先；没在组句给空帧；否则给高亮所在的那一页。
+    /// 焦点会话的 DLL 比 Server 老时按老协议降级（见 [`Self::downgrade_for_old_dll`]）。
     pub(super) fn current_frame(&self) -> Frame {
+        let mut frame = self.raw_frame();
+        self.downgrade_for_old_dll(&mut frame);
+        frame
+    }
+
+    /// 自绘候选窗用的帧：不做老 DLL 降级——降级只作用于**发给 DLL** 的那份
+    /// （见 `Self::current_frame`），Server 自己的窗口要照常画码段的淡色 + 下划线。
+    pub(super) fn self_drawn_frame(&self) -> Frame {
+        self.raw_frame()
+    }
+
+    /// 老 DLL（协议 < 5）的 `PreeditKind` 只有 Typed / Rest / Corrected 三个变体，收到
+    /// `AuxCode` 段会**整条消息反序列化失败**：DLL 侧把它当转发失败——那个键放行给应用
+    /// （码字母会原样打进文档）、结束组句并断开重连。所以给老会话把码段降级成普通拼音段：
+    /// 辅码筛选照常，只是码段不做淡色 + 下划线的区分。应用重启加载新 DLL 后自动恢复。
+    fn downgrade_for_old_dll(&self, frame: &mut Frame) {
+        if self.focused_dll_protocol() >= PROTOCOL_VERSION {
+            return;
+        }
+        for segment in &mut frame.preedit {
+            if segment.kind == PreeditKind::AuxCode {
+                segment.kind = PreeditKind::Typed;
+            }
+        }
+    }
+
+    /// 焦点会话的 DLL 协议版本；没有焦点会话时按最新（不必降级）。
+    fn focused_dll_protocol(&self) -> u32 {
+        self.focused
+            .and_then(|session| self.sessions.get(&session))
+            .map_or(PROTOCOL_VERSION, |info| info.protocol)
+    }
+
+    fn raw_frame(&self) -> Frame {
         if let Some(translation) = &self.translation {
             return self.translation_frame(translation);
         }
@@ -161,6 +196,7 @@ impl Router {
                 page_count: 1,
                 layout: self.config.layout,
                 theme: self.config.theme,
+                aux_code_show: self.config.aux_code_show,
                 sentence: None,
                 notice: self.notice.clone(),
             },
@@ -189,6 +225,7 @@ impl Router {
                     page_count: layout.pages().max(1),
                     layout: self.config.layout,
                     theme: self.config.theme,
+                    aux_code_show: self.config.aux_code_show,
                     sentence: self.sentence.clone(),
                     notice: self.notice.clone(),
                 }

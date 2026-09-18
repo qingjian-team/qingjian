@@ -8,6 +8,8 @@ const MAX_PENDING_PASSTHROUGH: usize = 200;
 impl Engine {
     /// 中文模式下把半角字符转成全角标点；不需要转换返回 `None`。
     pub fn punctuate(&mut self, c: char) -> Option<&'static str> {
+        // 组句外敲的标点：辅码态到此结束（壳已经把高亮候选上屏了）
+        self.aux_code = None;
         let converted = if self.full_width_punctuation {
             self.punctuation.convert(c)
         } else {
@@ -177,13 +179,25 @@ impl Engine {
         }
     }
 
+    /// 退格。辅码态里删的是码段：删掉最后一个码字母；删空时按「码删空后留在辅码态」开关分岔——
+    /// 开（缺省）停在辅码态（`;` 仍在、无码词也回来），关则回拼音态。码段本来就空（刚触发，或删空停住）
+    /// 时按退格 = 退出辅码态、拼音一个字符都不动。每次退格候选都当场重筛。
     pub fn backspace(&mut self) -> bool {
+        if let Some(code) = self.aux_code.take() {
+            if code.len() > 1 {
+                self.aux_code = Some(code[..code.len() - 1].to_owned());
+            } else if code.len() == 1 && self.aux_keep_empty {
+                self.aux_code = Some(String::new());
+            }
+            return true;
+        }
         self.note_edit();
         self.composition.backspace()
     }
 
     pub fn clear(&mut self) {
         self.composition.clear();
+        self.aux_code = None;
         self.chain.leave_buffer();
         // 壳给的光标前文只对这段组句有效，下一段第一键再读
         self.rescoring_before = None;
@@ -318,6 +332,8 @@ impl Engine {
 
     /// 放弃当前拼音，原样返回给壳（通常是用户按回车要上屏字母本身）。
     pub fn take_raw(&mut self) -> String {
+        // 回车原样上屏拼音段：码段（没上屏的码）到此结束
+        self.aux_code = None;
         // 纠错生效时用户仍按了回车：这个串就是要原样打的，记下来以后不再纠它
         let scope = self.composition.scope().to_owned();
         if !self.english_mode && self.active_correction(&scope).is_some() {

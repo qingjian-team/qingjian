@@ -19,6 +19,9 @@ pub(crate) struct TextStyle {
     /// 画删除线（纠错改掉的拼音）。
     pub strike: bool,
 
+    /// 画下划线（辅码码段）。
+    pub underline: bool,
+
     /// 覆盖率 gamma，见 `Theme::text_gamma`。
     pub gamma: f32,
 }
@@ -32,12 +35,18 @@ impl TextStyle {
             line_height: font.line_height,
             color,
             strike: false,
+            underline: false,
             gamma,
         }
     }
 
     pub(crate) fn struck(mut self) -> Self {
         self.strike = true;
+        self
+    }
+
+    pub(crate) fn underlined(mut self) -> Self {
+        self.underline = true;
         self
     }
 }

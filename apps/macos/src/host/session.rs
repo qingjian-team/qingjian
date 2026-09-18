@@ -129,6 +129,7 @@ mod tests {
                 syllables: vec!["a".into()],
                 reading: None,
                 translation: None,
+                aux_code: None,
             })
             .collect()
     }

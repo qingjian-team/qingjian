@@ -161,8 +161,14 @@ impl Engine {
             tracing::debug!(typed, intended, "记录敲错");
             self.learner.record_typo(typed, intended);
         }
-        let keys =
+        let mut keys =
             self.composition.scope()[..consumed.min(self.composition.scope().len())].to_owned();
+        // 输入日志按实际敲键原样记：辅码态把触发键与码段接在拼音后面（"kaifa;kf"），
+        // replay 逐键重喂时不需要任何特殊逻辑
+        if let Some(code) = &self.aux_code {
+            keys.push(self.aux_code_key);
+            keys.push_str(code);
+        }
         let log_id = self.log_commit(&keys, &candidate.text, source);
         self.meter_commit(&candidate.text, source, false);
         // 上屏带译词的中文候选：那一刻用户看着这条译词，记进词汇（英文候选的中文释义不是学习语言，不记）
@@ -191,6 +197,8 @@ impl Engine {
                 .request(self.translator.language(), &candidate.text);
         }
         self.composition.drain_prefix(consumed);
+        // 上屏即收尾：码段清空、回初始态（数字键与「标点先上屏」都走这里）
+        self.aux_code = None;
         let buffer_left = !self.composition.is_empty();
         match candidate.kind {
             CandidateKind::Chinese | CandidateKind::Cloud | CandidateKind::Code => {
@@ -298,6 +306,7 @@ impl Engine {
             syllables,
             reading: None,
             translation: None,
+            aux_code: None,
         };
         if !self.knows_word(&candidate)
             && self.learner.choice_weight(&key, &candidate.text) >= AUTO_WORD_THRESHOLD_SAME_BUFFER
@@ -624,6 +633,7 @@ impl Engine {
             syllables: joined_syllables,
             reading: None,
             translation: None,
+            aux_code: None,
         };
         if self.knows_word(&candidate) {
             return;

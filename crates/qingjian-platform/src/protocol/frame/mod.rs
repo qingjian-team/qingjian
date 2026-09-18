@@ -43,6 +43,11 @@ pub struct Frame {
     /// 候选窗口外观（跟随系统 / 浅色 / 深色）。`System` 由 DLL 侧按当前系统主题解析。
     pub theme: ThemeMode,
 
+    /// 候选上是否显示辅码（`[general] aux_code_show`）：候选带 `aux_code` 时拼在 annotation 最前面。
+    /// 与 `layout` / `theme` 一样，显示开关由 Server 按配置随帧下发。
+    #[serde(default)]
+    pub aux_code_show: bool,
+
     /// 整句补全（云联想给的整段拼音的整句结果）：画在 preedit 行右侧，按 Tab 上屏。无则 `None`。
     pub sentence: Option<String>,
 

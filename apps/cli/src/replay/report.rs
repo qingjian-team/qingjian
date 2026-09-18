@@ -40,6 +40,11 @@ pub struct Report {
     /// 上一条是联想、还没等到接下来的上屏。
     pub prediction_pending: bool,
 
+    /// 辅码态选词的条数，以及其中「同样的拼音、纯拼音输入下已排在首选」的条数
+    /// （issue #8 的学习闭环尺子：辅码只解决第一次少翻页，之后靠学习）。
+    pub aux_total: usize,
+    pub aux_top1: usize,
+
     /// 旧格式的空行（键与文本都空的原样上屏）。
     pub empty: usize,
 
@@ -173,6 +178,15 @@ impl fmt::Display for Report {
                 f,
                 "会话 {} 次，上文断开 {} 次，直通字符 {} 个",
                 self.sessions, self.breaks, self.passthrough_chars
+            )?;
+        }
+        if self.aux_total > 0 {
+            writeln!(
+                f,
+                "辅码选词 {} 条，其中同拼音纯输入首选命中 {} 条（{}）",
+                self.aux_total,
+                self.aux_top1,
+                percent(self.aux_top1, self.aux_total)
             )?;
         }
         if self.empty > 0 {

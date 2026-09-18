@@ -123,18 +123,30 @@ fn draw_top_line(hdc: HDC, data: &RenderData, y: i32) -> i32 {
     let top = y + theme.row_padding;
     let mut x = theme.padding;
     for (text, kind) in &data.preedit {
-        let (color, strike) = match kind {
-            PreeditKind::Typed => (theme.gloss_color, false),
-            PreeditKind::Rest => (theme.pos_color, false),
-            PreeditKind::Corrected => (theme.pos_color, true),
+        let (color, strike, underline) = match kind {
+            PreeditKind::Typed => (theme.gloss_color, false, false),
+            PreeditKind::Rest => (theme.pos_color, false, false),
+            PreeditKind::Corrected => (theme.pos_color, true, false),
+            // 辅码码段：与剩余拼音同一个淡色，再压一道下划线把它们区分开
+            PreeditKind::AuxCode => (theme.pos_color, false, true),
         };
         let width = draw_text(hdc, theme.annotation_font, color, x, top, text);
+        let weight = scale_line(theme);
         if strike {
             let line = RECT {
                 left: x,
                 top: top + height / 2,
                 right: x + width,
-                bottom: top + height / 2 + scale_line(theme),
+                bottom: top + height / 2 + weight,
+            };
+            fill_rect(hdc, line, theme.pos_color);
+        }
+        if underline {
+            let line = RECT {
+                left: x,
+                top: top + height,
+                right: x + width,
+                bottom: top + height + weight,
             };
             fill_rect(hdc, line, theme.pos_color);
         }
@@ -420,6 +432,7 @@ fn tone_color(theme: &Theme, tone: Tone) -> COLORREF {
         Tone::Gloss => theme.gloss_color,
         Tone::Fresh => theme.fresh_color,
         Tone::Faint => theme.pos_color,
+        Tone::Code => theme.gloss_color,
     }
 }
 

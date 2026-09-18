@@ -4,9 +4,13 @@
 use qingjian_core::{Candidate, CandidateKind};
 use qingjian_render::{Row, Tone};
 
-/// `position` 是页内下标（从 0 起）。
-pub(crate) fn from_candidate(position: usize, candidate: &Candidate) -> Row {
+/// `position` 是页内下标（从 0 起）。`show_code` 是 `[general] aux_code_show`：
+/// 打开且候选带码时，把码拼在 annotation 最前面（`rbm · crane`），仍是一条注记。
+pub(crate) fn from_candidate(position: usize, candidate: &Candidate, show_code: bool) -> Row {
     let mut annotation = Vec::new();
+    if show_code && let Some(code) = &candidate.aux_code {
+        annotation.push((format!("{code} "), Tone::Code));
+    }
     if let Some(reading) = &candidate.reading {
         annotation.push((reading.clone(), Tone::Gloss));
     }

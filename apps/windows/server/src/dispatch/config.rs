@@ -79,6 +79,12 @@ pub struct RouterConfig {
 
     /// 形码侧开没开（`[general] wubi`）。与拼音同时开着就是混输。
     pub wubi: bool,
+
+    /// 辅码触发键（`[general] aux_code_key`，缺省 `;`）；非法值退回缺省。
+    pub aux_code_key: char,
+
+    /// 候选上是否显示辅码（`[general] aux_code_show`）。随帧下发给候选窗。
+    pub aux_code_show: bool,
 }
 
 impl RouterConfig {
@@ -125,6 +131,8 @@ impl From<&Config> for RouterConfig {
             status_pos: config.status_bar.x.zip(config.status_bar.y),
             scheme: config.general.scheme(),
             wubi: config.general.wubi(),
+            aux_code_key: config.general.aux_code_key(),
+            aux_code_show: config.general.aux_code_show,
         }
     }
 }

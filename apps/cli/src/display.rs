@@ -13,7 +13,7 @@ const PREDICTION_WAIT: Duration = Duration::from_secs(8);
 /// 输入里的 `|` 表示光标位置（`ni|hao`），用来验证光标停在中间时的候选。
 pub fn show(engine: &mut Engine, input: &str, limit: usize) -> Option<Query> {
     let cursor = input.find('|');
-    engine.set_input(&input.replace('|', ""));
+    feed(engine, &input.replace('|', ""));
     if let Some(cursor) = cursor {
         engine.move_cursor_home();
         for _ in 0..cursor {
@@ -82,6 +82,24 @@ pub fn show(engine: &mut Engine, input: &str, limit: usize) -> Option<Query> {
     );
     show_prediction(engine, &query.candidates.items);
     Some(query)
+}
+
+/// 与壳一样逐个喂键：配的触发键进辅码态、之后的 `a-z` 进码段，其余进拼音缓冲区。
+/// 纯拼音输入下与 [`Engine::set_input`] 等价（触发键要求作用域能完整切分，字母永远不会触发）。
+pub fn feed(engine: &mut Engine, keys: &str) {
+    engine.clear();
+    for key in keys.chars() {
+        if engine.aux_trigger(key) {
+            engine.enter_aux();
+        } else if engine.in_aux() {
+            if !engine.push_aux_code(key) {
+                engine.clear_aux();
+                engine.push(key);
+            }
+        } else {
+            engine.push(key);
+        }
+    }
 }
 
 /// 逐键模式：`kaifa` 当作 k、ka、kai…… 五次按键，每个前缀都查一次并标注译文，
@@ -201,6 +219,12 @@ fn format_candidate(candidate: &Candidate, width: usize) -> String {
                 .join(" · ")
         })
         .unwrap_or_default();
+    // 辅码态命中的那条码跟在词后面，人工核对 `kaifa;kf` 时一眼能看到筛的是哪条
+    let aux = candidate
+        .aux_code
+        .as_ref()
+        .map(|code| format!("[{code}] "))
+        .unwrap_or_default();
     let marker = match candidate.kind {
         qingjian_core::CandidateKind::Chinese | qingjian_core::CandidateKind::Code => "",
         qingjian_core::CandidateKind::English => "[en] ",
@@ -210,9 +234,12 @@ fn format_candidate(candidate: &Candidate, width: usize) -> String {
         qingjian_core::CandidateKind::Sentence => "[句] ",
         qingjian_core::CandidateKind::Emoji => "",
     };
-    format!("{}{padding}{marker}{reading}{annotation}", candidate.text)
-        .trim_end()
-        .to_owned()
+    format!(
+        "{}{padding}{marker}{reading}{aux}{annotation}",
+        candidate.text
+    )
+    .trim_end()
+    .to_owned()
 }
 
 /// 终端显示宽度：CJK 算两格。够 CLI 对齐用，不引入 unicode-width。
