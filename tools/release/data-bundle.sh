@@ -31,13 +31,22 @@ for f in "${PRODUCT_FILES[@]}"; do
 done
 DOMAIN_FILES=()
 for f in data/generated/dicts/*.qj; do [[ -f "$f" ]] && DOMAIN_FILES+=("dicts/$(basename "$f")"); done
-[[ ${#DOMAIN_FILES[@]} -gt 0 ]] || { echo "缺少 data/generated/dicts/*.qj" >&2; exit 1; }
-[[ -f data/model/model.safetensors || -f "$MODEL_FILE" ]] || { echo "缺少 $MODEL_FILE（训练仓库导出三件套到 data/model/ 再跑 tools/release/pack-model.sh）" >&2; exit 1; }
-# 三件套比 .qjm 新就重打
+[[ ${#DOMAIN_FILES[@]} -gt 0 ]] || { echo "缺少 data/generated/dicts/*.qj（领域词库）" >&2; exit 1; }
+# 随包辅码码表（笔画，issue #8）：由 tools/dict-convert 的 stroke + pack codes 生成，来源与许可见 assets/stroke/README.md
+CODE_FILES=()
+for f in data/generated/codes/*.qj; do [[ -f "$f" ]] && CODE_FILES+=("codes/$(basename "$f")"); done
+if [ "$(ls -1 data/generated/codes/*.qj 2>/dev/null | wc -l)" -eq 0 ]; then
+  echo "缺少 data/generated/codes/*.qj（随包笔画码表）：先跑 data/cns 的 stroke 与 pack codes，见 assets/stroke/README.md" >&2
+  exit 1
+fi
+# 三件套比 .qjm 新（重训了没重打）就重打；没有三件套也没有 .qjm 就停（没有模型的包不会重排）
+[[ -f data/model/model.safetensors || -f "$MODEL_FILE" ]] || { echo "缺少 $MODEL_FILE，先在训练仓库导出三件套到 data/model/ 再跑 tools/release/pack-model.sh" >&2; exit 1; }
 [[ -f data/model/model.safetensors ]] && tools/release/pack-model.sh
 
 rm -rf "$OUT" && mkdir -p "$OUT"
-tar -czf "$OUT/qingjian-data.tar.gz" -C data/generated "${PRODUCT_FILES[@]}" "${DOMAIN_FILES[@]}"
+# 路径相对 data/generated/，CI 解到 data/generated/ 就与本机一样
+tar -czf "$OUT/qingjian-data.tar.gz" -C data/generated "${PRODUCT_FILES[@]}" "${DOMAIN_FILES[@]}" "${CODE_FILES[@]}"
+# 模型单独一个文件：只重训模型时不用重传词库；CI 放到 data/model/，bundle.sh / qingjian.iss 见到就随包（.qjm 内部已是 fp16，不再压）
 cp "$MODEL_FILE" "$OUT/model.qjm"
 present=()
 for f in "${LLM_FILES[@]}"; do [[ -f "data/generated/$f" ]] && present+=("$f"); done

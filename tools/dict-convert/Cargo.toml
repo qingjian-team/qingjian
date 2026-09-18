@@ -8,6 +8,7 @@ repository.workspace = true
 
 [dependencies]
 clap.workspace = true
+jiff.workspace = true
 qingjian-core.workspace = true
 qingjian-dictionary.workspace = true
 qingjian-format.workspace = true

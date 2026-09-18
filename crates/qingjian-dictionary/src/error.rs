@@ -21,4 +21,12 @@ pub enum DictionaryError {
     /// `.qj` 分节能读但内容自相矛盾（偏移越界）。
     #[error("corrupt dictionary file: {0}")]
     Corrupt(&'static str),
+
+    /// 码表里的码不是 `a-z`、或长度不在 1–8。
+    #[error("invalid code: {0:?}")]
+    InvalidCode(String),
+
+    /// 一份码表里一条可用的码都没有（不是码表文件，或码列全非法）。
+    #[error("no usable code entries in this file")]
+    NoCodeEntries,
 }

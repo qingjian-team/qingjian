@@ -89,6 +89,8 @@ impl RenderData {
                         PreeditKind::Typed => PreeditStyle::Typed,
                         PreeditKind::Rest => PreeditStyle::Rest,
                         PreeditKind::Corrected => PreeditStyle::Struck,
+                        // 编译臂：码段淡色 + 下划线（渲染器已带该样式；壳的完整接线随后）
+                        PreeditKind::AuxCode => PreeditStyle::AuxCode,
                     },
                 })
                 .collect(),

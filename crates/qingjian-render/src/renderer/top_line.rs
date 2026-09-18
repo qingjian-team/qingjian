@@ -79,6 +79,7 @@ impl Renderer {
                 PreeditStyle::Typed => m.annotation_style(m.theme.colors.gloss),
                 PreeditStyle::Rest => m.annotation_style(m.theme.colors.pos),
                 PreeditStyle::Struck => m.annotation_style(m.theme.colors.pos).struck(),
+                PreeditStyle::AuxCode => m.annotation_style(m.theme.colors.pos).underlined(),
             };
             cursor_x += self.draw_text(canvas, &segment.text, &style, cursor_x, top);
         }

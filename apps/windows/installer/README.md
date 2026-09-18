@@ -14,6 +14,7 @@ C:\Program Files\Qingjian\
     Microsoft.UI.Xaml.dll …   设置程序自带的 Windows App Runtime（自包含部署，见下节；约 56 MB / 185 个文件）
     qingjian.ico              开始菜单 / 启动项快捷方式的图标（exe 里也嵌了一份）
     data\generated\           dict.qj / lm.qj / glossary-{en,ja,zh}.qj / english.tsv / dicts\*.qj
+    codes\                    随包辅码码表（stroke.qj，笔画；由 tools\dict-convert 的 pack codes 生成）
     assets\                   emoji\ levels\ sample\
 ```
 

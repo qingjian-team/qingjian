@@ -68,6 +68,7 @@ impl Engine {
                 syllables: Vec::new(),
                 reading: None,
                 translation: None,
+                aux_code: None,
             })
             .collect();
         let query = Query {
@@ -81,6 +82,7 @@ impl Engine {
             decoded_keys: false,
             typed_display: None,
             correction: None,
+            aux: None,
             timings: Timings {
                 parse,
                 lookup,
