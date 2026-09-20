@@ -78,7 +78,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     let shadow = (!args.no_shadow).then_some(Shadow::mac_panel());
 
-    let scenes: [(&str, Frame, Layout); 6] = [
+    let scenes: [(&str, Frame, Layout); 7] = [
+        ("matrix-horizontal", matrix(), Layout::Horizontal),
         ("nihao-vertical", nihao(), Layout::Vertical),
         (
             "nihao-horizontal",
@@ -150,6 +151,93 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 // 样例帧：与真机上敲同样拼音看到的候选窗对照，所以内容要和引擎当时给的一致（人工从截图抄）。
 
 /// 真机敲「nihao」看到的第一页（2026-09-13 从截图抄），拼音行带光标、译文、生词橙色、页码。
+/// 横排展开成矩阵：6 行 × 9 列，第二行高亮着一条被截断的长候选，末行不满，有一个云端词。
+fn matrix() -> Frame {
+    let words = [
+        "是",
+        "时",
+        "事",
+        "市",
+        "使",
+        "世",
+        "式",
+        "十",
+        "实",
+        "时候",
+        "事情",
+        "世界",
+        "是不是因为我们今天没有去",
+        "实际",
+        "市场",
+        "使用",
+        "十分",
+        "试试",
+        "视频",
+        "室内",
+        "食物",
+        "失败",
+        "始终",
+        "适合",
+        "诗人",
+        "石头",
+        "时代",
+        "示范",
+        "士兵",
+        "事实上",
+        "实验室",
+        "视角",
+        "世纪",
+        "试卷",
+        "释放",
+        "拾起",
+        "师傅",
+        "诗歌",
+        "时尚",
+        "失去",
+        "湿度",
+        "十月",
+        "石油",
+        "史诗",
+        "驶向",
+        "誓言",
+        "逝去",
+        "柿子",
+        "嗜好",
+    ];
+    let mut rows: Vec<Row> = words
+        .iter()
+        .enumerate()
+        .map(|(i, text)| {
+            let mut row = Row::plain(i % 9, *text);
+            // 序号只标在高亮所在的第二行
+            if i / 9 != 1 {
+                row.index.clear();
+            }
+            row
+        })
+        .collect();
+    rows[8].cloud = true;
+    rows[12].annotation = vec![
+        ("phr. ".into(), Tone::Faint),
+        ("is it because we didn't go today".into(), Tone::Gloss),
+    ];
+    Frame {
+        preedit: Some(Preedit {
+            segments: vec![PreeditSegment {
+                text: "shi".into(),
+                style: PreeditStyle::Typed,
+            }],
+            cursor: 3,
+        }),
+        rows,
+        highlighted: Some(12),
+        columns: 9,
+        footer: Some("2/12".into()),
+        sentence: None,
+        status: None,
+    }
+}
+
 fn nihao() -> Frame {
     Frame {
         preedit: Some(Preedit::plain("ni'hao", 6)),
@@ -197,6 +285,7 @@ fn nihao() -> Frame {
             ),
         ],
         highlighted: Some(0),
+        columns: 0,
         footer: Some("1/6".to_owned()),
         sentence: None,
         status: None,
@@ -267,6 +356,7 @@ fn corrected_japanese() -> Frame {
             ),
         ],
         highlighted: Some(1),
+        columns: 0,
         footer: None,
         sentence: None,
         status: Some("已删除「开放」".to_owned()),
@@ -279,6 +369,7 @@ fn probe() -> Frame {
         preedit: None,
         rows: vec![Row::plain(0, "青简 hello 🙂 日本語 骨直曜")],
         highlighted: None,
+        columns: 0,
         footer: None,
         sentence: None,
         status: None,

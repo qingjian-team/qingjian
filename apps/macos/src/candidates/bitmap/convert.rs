@@ -9,6 +9,7 @@ pub(super) fn frame(frame: &Frame) -> qingjian_render::Frame {
         preedit: frame.preedit.as_ref().map(preedit),
         rows: frame.rows.iter().map(row).collect(),
         highlighted: Some(frame.highlighted),
+        columns: frame.columns,
         footer: frame.footer.clone(),
         sentence: frame.sentence.clone(),
         status: frame.status.clone(),

@@ -6,6 +6,6 @@ pub enum Layout {
     #[default]
     Vertical,
 
-    /// 横排：候选排成一行，只给高亮那个在下面显示译文。
+    /// 横排：候选排成一行，只给高亮那个在下面显示译文；帧的 `columns` 不为 0 时展开成多行矩阵。
     Horizontal,
 }

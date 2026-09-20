@@ -134,6 +134,9 @@ pub struct Host {
     /// 组句中的拼音显示在行内、候选窗口还是两处。
     pub preedit_mode: PreeditMode,
 
+    /// 候选窗口竖排 / 横排（配置 `[general] layout`）：横排时上下键把单行展开成矩阵。
+    pub layout: LayoutMode,
+
     /// 英文模式是否给英文候选（配置 `[general] english_candidates`）。
     pub english_candidates: bool,
 

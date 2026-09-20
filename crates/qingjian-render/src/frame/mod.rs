@@ -19,6 +19,9 @@ pub struct Frame {
     /// 高亮行；`None` 不高亮。
     pub highlighted: Option<usize>,
 
+    /// 横排展开成矩阵时每行几格，`rows` 按行优先排开、空位是空行；0 为没展开。
+    pub columns: usize,
+
     /// 右下角页码。
     pub footer: Option<String>,
 

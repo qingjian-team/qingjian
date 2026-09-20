@@ -4,7 +4,7 @@
 //! 反正 Engine 的缓冲区也是全进程一份，会话状态跟着它走。
 //! 候选的分页与云端词的位置由 Core 的 [`CandidateLayout`] 定，这里只管高亮与页码。
 
-use qingjian_core::{Candidate, CandidateLayout, Cell};
+use qingjian_core::{Candidate, CandidateLayout, Cell, GRID_ROWS, Grid};
 
 use crate::candidates::Preedit;
 
@@ -24,6 +24,9 @@ pub struct Session {
 
     /// 候选窗口顶部显示的拼音行（分段 + 光标）。
     pub preedit: Option<Preedit>,
+
+    /// 横排展开成矩阵时的视口；`None` 是单行。新一轮查询收回单行。
+    pub grid: Option<Grid>,
 }
 
 impl Session {
@@ -42,6 +45,60 @@ impl Session {
             .unwrap_or(0);
         self.page = self.highlighted / self.layout.page_size();
         self.navigated = false;
+        self.grid = None;
+    }
+
+    /// 矩阵里竖着移 `delta` 行；还是单行就先从当前页展开（展开本身也算变化）。返回要不要重画。
+    pub fn move_rows(&mut self, delta: isize) -> bool {
+        let expanding = self.grid.is_none();
+        let mut grid = self.grid.unwrap_or_else(|| Grid::at(self.page));
+        let moved = grid.move_rows(&self.layout, self.highlighted, delta);
+        self.grid = Some(grid);
+        self.land(moved) || expanding
+    }
+
+    /// 矩阵里整屏翻（翻页键）：一次 [`GRID_ROWS`] 行。
+    pub fn move_screens(&mut self, delta: isize) -> bool {
+        self.move_rows(delta * GRID_ROWS as isize)
+    }
+
+    /// 矩阵里按阅读顺序移一格；没展开时不动。
+    pub fn move_cells(&mut self, delta: isize) -> bool {
+        let Some(mut grid) = self.grid else {
+            return false;
+        };
+        let moved = grid.move_cells(&self.layout, self.highlighted, delta);
+        self.grid = Some(grid);
+        self.land(moved)
+    }
+
+    /// 收回单行，高亮留在原处。返回原来是不是展开着。
+    pub fn collapse(&mut self) -> bool {
+        self.grid.take().is_some()
+    }
+
+    /// 矩阵视口里的格子（按行优先排开）与每行几格；没展开返回 `None`。
+    pub fn grid_cells(&self) -> Option<(Vec<Cell<'_>>, usize)> {
+        let grid = self.grid?;
+        let columns = self.layout.page_size();
+        let mut cells = Vec::new();
+        for row in grid.rows(&self.layout) {
+            let mut page = self.layout.page(row);
+            page.resize(columns, Cell::Empty);
+            cells.extend(page);
+        }
+        Some((cells, columns))
+    }
+
+    /// 高亮落到 `index`（`None` 是没动），页号跟着走。
+    fn land(&mut self, index: Option<usize>) -> bool {
+        let Some(index) = index else {
+            return false;
+        };
+        self.highlighted = index;
+        self.page = index / self.layout.page_size();
+        self.navigated = true;
+        true
     }
 
     /// 第 `index` 格的候选。
@@ -132,6 +189,44 @@ mod tests {
                 aux_code: None,
             })
             .collect()
+    }
+
+    #[test]
+    fn vertical_keys_expand_the_row_into_a_scrolling_grid() {
+        let mut session = Session::default();
+        session.reset(None, candidates(100), 5, 0);
+        assert!(session.grid_cells().is_none());
+        // 左右键在单行时不归候选管
+        assert!(!session.move_cells(1));
+        // 第一下往下：展开并换到第二行同一列，数字键跟着选第二行
+        assert!(session.move_rows(1));
+        assert_eq!((session.highlighted, session.page), (5, 1));
+        assert_eq!(session.index_on_page(2), Some(7));
+        let (cells, columns) = session.grid_cells().unwrap();
+        assert_eq!((cells.len(), columns), (30, 5));
+        // 展开后左右键按阅读顺序移动，越过行尾到下一行
+        assert!(session.move_cells(-1));
+        assert_eq!((session.highlighted, session.page), (4, 0));
+        // 一直往下：视口按行滚动
+        for _ in 0..7 {
+            session.move_rows(1);
+        }
+        assert_eq!(session.page, 7);
+        assert_eq!(session.grid.unwrap().top(), 2);
+        // 翻页键一次一屏；Esc 收回单行，高亮不动
+        assert!(session.move_screens(1));
+        assert_eq!(session.page, 13);
+        assert!(session.collapse());
+        assert!(!session.collapse());
+        assert_eq!(session.page, 13);
+        // 新一轮查询回到单行
+        session.move_rows(1);
+        session.reset(None, candidates(3), 5, 0);
+        assert!(session.grid.is_none());
+        // 只有一行时往上：展开但不动，仍要重画
+        assert!(session.move_rows(-1));
+        let (cells, _) = session.grid_cells().unwrap();
+        assert_eq!(cells.len(), 5);
     }
 
     #[test]

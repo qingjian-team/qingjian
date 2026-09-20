@@ -44,7 +44,11 @@ impl QingjianInputController {
         } else if selector == sel!(insertNewline:) {
             self.commit_raw(client);
         } else if selector == sel!(cancelOperation:) || selector == sel!(complete:) {
-            // TextEdit 等应用把 Esc 绑成 complete:（自动补全），也当作取消
+            // TextEdit 等应用把 Esc 绑成 complete:（自动补全），也当作取消。矩阵展开着时第一下 Esc 只收回单行
+            if host::with(|h| h.session.collapse()).unwrap_or(false) {
+                self.render(client);
+                return true;
+            }
             host::with(|h| {
                 h.engine.clear();
                 h.cancel_prediction();
@@ -65,11 +69,16 @@ impl QingjianInputController {
         } else if selector == sel!(moveUp:) {
             self.move_highlight(-1, client);
         } else if selector == sel!(moveLeft:) {
-            host::with(|h| h.engine.move_cursor_left());
-            self.refresh(client);
+            // 矩阵展开着：左右键在候选里移动高亮；单行时照旧移动拼音光标
+            if !self.move_cells(-1, client) {
+                host::with(|h| h.engine.move_cursor_left());
+                self.refresh(client);
+            }
         } else if selector == sel!(moveRight:) {
-            host::with(|h| h.engine.move_cursor_right());
-            self.refresh(client);
+            if !self.move_cells(1, client) {
+                host::with(|h| h.engine.move_cursor_right());
+                self.refresh(client);
+            }
         } else if selector == sel!(moveWordLeft:) {
             // ⌥←：光标往左跳一个音节
             host::with(|h| h.engine.move_cursor_syllable_left());

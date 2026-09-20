@@ -25,8 +25,8 @@ pub mod zhuyin;
 pub use custom_phrase::CustomPhrase;
 
 pub use candidate::{
-    Candidate, CandidateKind, CandidateLayout, CandidateList, Cell, Language, PartOfSpeech, Sense,
-    Translation,
+    Candidate, CandidateKind, CandidateLayout, CandidateList, Cell, GRID_ROWS, Grid, Language,
+    PartOfSpeech, Sense, Translation,
 };
 pub use composition::Composition;
 pub use correction::Correction;
