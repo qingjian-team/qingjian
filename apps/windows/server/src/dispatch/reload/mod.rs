@@ -187,6 +187,8 @@ impl Router {
         self.engine.set_chinese_first(config.general.chinese_first);
         self.engine
             .set_shift_letter_compose(config.general.shift_letter.compose());
+        self.engine
+            .set_shuangpin_raw_preedit(config.general.shuangpin_raw_preedit);
         let previous = self.config.render_settings();
         self.config = RouterConfig::from(config);
         let settings = self.config.render_settings();

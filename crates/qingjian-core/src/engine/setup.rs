@@ -26,6 +26,14 @@ impl Engine {
     pub fn shuangpin(&self) -> Option<Scheme> {
         self.shuangpin
     }
+    /// 换双拼 preedit 显示形式：开着时显示原始按键（如 `ljse`），关着（缺省）展开成全拼（`lan'se`）。
+    pub fn set_shuangpin_raw_preedit(&mut self, enabled: bool) {
+        self.shuangpin_raw_preedit = enabled;
+    }
+
+    pub fn shuangpin_raw_preedit(&self) -> bool {
+        self.shuangpin_raw_preedit
+    }
 
     /// 挂上辅码码表（用户导入的与随包的笔画表）。照 [`Self::set_extra_dictionaries`] 的模式：壳按目录与配置装配。
     pub fn with_aux_codes(mut self, tables: Vec<Arc<dyn AuxCodeLookup>>) -> Self {
@@ -204,7 +212,7 @@ impl Engine {
     /// 光标后剩余拼音的显示形式：双拼先解码；能切就按音节用 `'` 连上，切不动就原样。
     /// 只用形码时剩余段是编码，原样显示。
     pub(super) fn marked_rest(&self, rest: &str) -> String {
-        if self.code_only() {
+        if self.code_only() || (self.shuangpin.is_some() && self.shuangpin_raw_preedit) {
             return rest.to_owned();
         }
         match self.decode(rest) {

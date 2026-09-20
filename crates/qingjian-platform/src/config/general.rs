@@ -88,6 +88,10 @@ pub struct GeneralConfig {
     /// 缺省是空串：文件里没写这一项时要去看旧键，见 [`Self::scheme`]。
     pub scheme: String,
 
+    /// 双拼方案下 preedit 显示原始按键字母（如 `ljse`）还是展开成全拼音节（`lan'se`）。
+    /// 缺省关（展开成全拼音节）；常在双拼中打英文词或需要核对按键的人可打开。
+    pub shuangpin_raw_preedit: bool,
+
     /// 形码侧方案：空串为关，`wubi86` 为五笔（86 版）。**与拼音同时开着就是混输**，见 [`Self::mixed`]。
     pub wubi: String,
 
@@ -135,6 +139,7 @@ impl Default for GeneralConfig {
             aux_code_show: false,
             aux_code_keep_empty: true,
             scheme: String::new(),
+            shuangpin_raw_preedit: false,
             wubi: String::new(),
             shuangpin: None,
             zhuyin: None,

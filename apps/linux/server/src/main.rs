@@ -78,6 +78,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     };
     engine.set_fuzzy(config.fuzzy);
     engine.set_shuangpin(config.general.shuangpin());
+    engine.set_shuangpin_raw_preedit(config.general.shuangpin_raw_preedit);
     engine.set_zhuyin_mode(config.general.is_zhuyin());
     engine.set_shift_letter_compose(config.general.shift_letter.compose());
     engine.set_learning(config.general.learning);

@@ -26,6 +26,25 @@ fn shuangpin_decodes_keys_before_lookup_and_shows_full_pinyin() {
 }
 
 #[test]
+fn shuangpin_shows_raw_keys_when_configured() {
+    let mut engine = xiaohe();
+    engine.set_shuangpin_raw_preedit(true);
+    engine.set_input("kdfa");
+    let query = engine.query().unwrap();
+    assert_eq!(query.candidates.items[0].text, "开发");
+    assert_eq!(query.marked_text(), "kdfa");
+    assert_eq!(query.marked_cursor(), 4);
+    assert_eq!(query.text, "kdfa");
+
+    // 移动光标时，rest 部分也显示原始按键
+    engine.move_cursor_left();
+    engine.move_cursor_left();
+    let query = engine.query().unwrap();
+    assert_eq!(query.marked_text(), "kd'fa");
+    assert_eq!(query.marked_cursor(), 2);
+}
+
+#[test]
 fn shuangpin_commit_consumes_keys_per_syllable() {
     let mut engine = xiaohe();
     engine.set_input("kdfave");
