@@ -81,14 +81,16 @@ impl Router {
         let page_size = self.config.page_size;
         let page_count = count.div_ceil(page_size);
         let current = (self.highlight / page_size) as isize;
-        let mut target = current + step.signum();
+        let mut target = (current + step).clamp(0, page_count as isize - 1);
         while (0..page_count as isize).contains(&target) {
             let start = target as usize * page_size;
             if let Some(index) = (start..(start + page_size).min(count))
                 .find(|&index| self.layout_candidate(index).is_some())
             {
-                self.navigated = true;
-                self.engine.note_page_turn();
+                if target != current {
+                    self.navigated = true;
+                    self.engine.note_page_turn();
+                }
                 self.highlight = index;
                 break;
             }

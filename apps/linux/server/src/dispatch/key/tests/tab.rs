@@ -1,69 +1,6 @@
-//! Tab 与分页的三端约定；直接注入整句补全状态，不接云服务。
-use crate::dispatch::{Router, RouterConfig};
-use qingjian_core::{CustomPhrase, Engine};
-use qingjian_dictionary::{Dictionary, WordList};
-use qingjian_platform::protocol::{
-    ClientMessage, Frame, KeyEvent, KeyModifiers, KeyOutcome, PROTOCOL_VERSION, ServerMessage,
-    SessionId,
-};
-
-fn router(size: usize) -> Router {
-    let mut engine = Engine::new(Dictionary::parse("你\tni\t100\n").unwrap()).with_english(
-        WordList::parse("hello\thello\t100\nhelp\thelp\t90\nheld\theld\t80\n").unwrap(),
-    );
-    engine
-        .set_custom_phrases(
-            (1..=9)
-                .map(|position| CustomPhrase {
-                    code: "qq".into(),
-                    text: format!("第{position}项"),
-                    position,
-                    enabled: true,
-                })
-                .collect(),
-        )
-        .unwrap();
-    let mut router = Router::new(
-        engine,
-        RouterConfig {
-            page_size: size,
-            ..Default::default()
-        },
-    );
-    router.handle(ClientMessage::OpenSession {
-        session: SessionId(1),
-        app: None,
-        protocol: PROTOCOL_VERSION,
-    });
-    router
-}
-fn key(
-    router: &mut Router,
-    code: u32,
-    character: Option<char>,
-    modifiers: KeyModifiers,
-) -> (KeyOutcome, Option<String>, Frame) {
-    match router
-        .handle(ClientMessage::Key {
-            session: SessionId(1),
-            event: KeyEvent::new(code, character, modifiers),
-        })
-        .unwrap()
-    {
-        ServerMessage::KeyResult {
-            outcome,
-            commit,
-            frame,
-            ..
-        } => (outcome, commit, frame),
-        _ => panic!("key result"),
-    }
-}
-fn compose(router: &mut Router, text: &str, modifiers: KeyModifiers) {
-    for c in text.chars() {
-        key(router, c as u32, Some(c), modifiers);
-    }
-}
+//! Tab、整句补全与末页边界。
+use super::support::{compose, key, router};
+use qingjian_platform::protocol::{KeyModifiers, KeyOutcome};
 #[test]
 fn tab_and_backtab_page_boundaries_and_current_page_selection() {
     for size in [1, 4, 5, 9] {
@@ -150,19 +87,13 @@ fn tab_with_raw_input_and_no_candidates_is_consumed_without_commit() {
 }
 
 #[test]
-fn switching_sessions_drops_pending_prediction() {
+fn paging_at_the_boundary_returns_to_first_slot_on_the_same_page() {
     let mut router = router(5);
-    compose(&mut router, "ni", KeyModifiers::default());
-    router.sentence = Some("旧上下文补全".into());
-    router.handle(ClientMessage::OpenSession {
-        session: SessionId(2),
-        app: None,
-        protocol: PROTOCOL_VERSION,
-    });
-    router.handle(ClientMessage::Key {
-        session: SessionId(2),
-        event: KeyEvent::new(b'n' as u32, Some('n'), KeyModifiers::default()),
-    });
-    assert!(router.sentence.is_none());
-    assert_eq!(key(&mut router, 9, None, KeyModifiers::default()).1, None);
+    let normal = KeyModifiers::default();
+    compose(&mut router, "qq", normal);
+    key(&mut router, 0x28, None, normal);
+    assert_eq!(key(&mut router, 0x21, None, normal).2.highlight, 0);
+    key(&mut router, 0x22, None, normal);
+    key(&mut router, 0x28, None, normal);
+    assert_eq!(key(&mut router, 0x22, None, normal).2.highlight, 0);
 }

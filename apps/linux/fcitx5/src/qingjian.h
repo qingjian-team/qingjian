@@ -9,6 +9,7 @@ namespace fcitx {
 class QingjianEngine final : public InputMethodEngineV2 {
 public:
     explicit QingjianEngine(AddonManager *manager);
+    ~QingjianEngine() override;
     void keyEvent(const InputMethodEntry &, KeyEvent &) override;
     void reset(const InputMethodEntry &, InputContextEvent &) override;
     void deactivate(const InputMethodEntry &, InputContextEvent &) override;
@@ -16,12 +17,17 @@ public:
 private:
     void clear(InputContext *context);
     void disconnect(InputContext *context);
+    void disconnectAll();
     bool connect(InputContext *context);
     bool syncPrivacy(InputContext *context);
     bool exchange(InputContext *context, const nlohmann::json &event, bool display = true);
     void render(InputContext *context, const nlohmann::json &frame);
 
     Instance *instance_;
+
+    std::shared_ptr<qingjian::SharedConnection> shared_;
+
+    std::shared_ptr<bool> alive_ = std::make_shared<bool>(true);
 
     FactoryFor<qingjian::Session> sessions_;
 

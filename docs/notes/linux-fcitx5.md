@@ -14,6 +14,7 @@ cargo test -p qingjian-linux-server --locked
 cargo fmt --all --check
 cargo clippy --workspace --exclude qingjian-macos --all-targets --locked -- -D warnings
 cargo test --workspace --exclude qingjian-macos --locked
+cargo build -p qingjian-linux-server --locked
 cmake -S apps/linux/fcitx5 -B target/fcitx5-stage1 -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON
 cmake --build target/fcitx5-stage1 --parallel 2
 env -u DBUS_SESSION_BUS_ADDRESS ctest --test-dir target/fcitx5-stage1 --output-on-failure
@@ -27,12 +28,16 @@ CTest 的 `real-server` 实际运行 Rust Server 并通过 InputContext 输入�
 ## 协议与状态
 
 同用户 Unix socket，长度前缀为 4 字节小端，单消息上限 16 MiB；每次插件收发共用 200 ms 截止时间。
-连接先 `OpenSession` 校验共享协议版本（6），再强制协商 `LinuxHello` v2，返回既有预编辑设置。
+插件只持有一条连接和一个 I/O watcher，每个 InputContext 分配独立、递增的 session ID。
+每个会话先 `OpenSession` 校验共享协议版本（6），再协商 `LinuxHello` v3，携带 session/generation/context，返回会话编号和既有预编辑设置。
+首次能力确认前不接受输入；握手与能力状态逐会话保存。同一连接支持超过 64 个上下文，64 条连接的资源保护不限制单连接会话数。
 Linux 的首个回包仍是含 `linux_ui` 的 `Update`，不额外发送 Windows DLL 使用的 `SessionOpened`；旧版插件的协议 5 连接会被拒绝，升级时需同时更新 Server 与插件。
 旧版本或损坏响应关闭连接、清空显示并放行当前输入；重连创建全新输入状态，旧提交不会重放。
 显示 API 同步触发能力变化、失焦或 Reset 时，插件在最终上屏前撤销旧生命周期响应，但保持已接受按键的 Consumed 结果；纯显示失败仍交付有效提交。
 
-同一上下文停用后保留连接和中英模式；Reset 只丢弃输入，销毁上下文或断线才关闭会话。
+同一上下文停用后保留会话和中英模式；Reset 只丢弃输入。Password / Disable 关闭目标会话，恢复普通输入后分配新编号。
+销毁上下文时撤销安全引用并排队 CloseSession，由事件循环延迟发送，不阻塞析构，也不关闭其他会话。
+共享连接故障先让全部会话失效，再清理各自显示；清理回调期间不重连。
 
 LinuxEvent 转发能力、按下 / 释放、焦点、停用原因、客户端预编辑事实、带帧身份的候选点击和翻页。
 空能力是普通输入；Sensitive 可组句但不学习、不记输入文本；Password / Disable 优先禁用并丢弃输入。
@@ -40,7 +45,8 @@ LinuxEvent 转发能力、按下 / 释放、焦点、停用原因、客户端预
 能力变化清理组句、暂存透传、学习链与补全；能力即将改变时的 deactivate 原因也触发清理，即使框架此刻仍返回旧能力。
 FocusOut 的行内预编辑由框架或声明 ClientUnfocusCommit 的客户端提交，Server 不重复返回它；仅窗口预编辑才返回原样组句。
 
-每次候选响应绑定 generation/context/revision；过期点击不选词。默认面板只展示第一条释义，完成面板更新后报告当前页对应的 `(候选槽位, 0)`。
+每次候选响应绑定 generation/context/revision，revision 在整个 Server 内递增；过期或跨会话点击返回 Ignored，不改变当前会话的展示状态。
+默认面板只展示第一条释义，完成面板更新后报告当前页对应的 `(候选槽位, 0)`。
 隐藏、失焦、私密、无候选与过期回报不产生有效展示记录；Server 只凭已生成帧不记展示。
 
 ## 路径和排错
@@ -53,14 +59,8 @@ FocusOut 的行内预编辑由框架或声明 ClientUnfocusCommit 的客户端�
 未出候选时先确认手动 Server 在运行，再查看 `$XDG_STATE_HOME/qingjian/logs/server.*.log`（缺省 `~/.local/state`）。
 输入日志由 `[general] input_log` 控制；用户配置和学习文件始终保存在 XDG 用户目录，卸载不删除。
 
-## 验证范围（2026-09-18）
+## 验证环境
 
-Ubuntu 26.04，系统 Fcitx5 5.1.19-1 / Core7 / modules 经 `dpkg -V` 确认未修改。
-隔离 X11（Xvfb）和私有 D-Bus 下，GTK4 4.22.4、Qt6 6.10.2 各覆盖键盘选词、默认面板点击、双输入框切换、Server 中途退出、组句中切密码框；十项均通过。
-失焦只提交一次预编辑（框架可能保留拼音分节撇号），另一框独立输入；断线后仅透传新输入并隐藏旧候选。
-Qt6 动态 `ImhSensitiveData` 已实测：可组句，实际输入日志与学习文件均不含敏感文本。
-本机 GTK4 动态 `PRIVATE` 提示未由前端上报为 Fcitx5 Sensitive 能力，因此不计 GTK4 的该项隐私验收；GTK4 / Qt6 密码框能力转换均已通过。
-用户目录安装、重复安装、手动启动、绝对路径加载、卸载保留用户数据和其他输入法均已实测。正式 data-v1 数据包的默认安装也已按 data.lock 校验通过。
-
-native Wayland、其他 GTK / Qt 版本和桌面组合尚未验收；Windows 三个 crate（Server / TSF / Settings）的 x86_64-pc-windows-gnu 全目标交叉检查已通过；Windows / macOS 真机回归交对应环境与 runner，Linux 本地 Router 测试不等于 Windows 真机验收。
-原始日志和截图不进仓库。
+- Ubuntu 26.04，未打补丁的 Fcitx5 5.1.19-1 / Core7 / modules。
+- 隔离 X11（Xvfb）、私有 D-Bus，GTK4 4.22.4、Qt6 6.10.2。
+- 未验证：原生 Wayland、其他 GTK / Qt 版本和桌面组合。

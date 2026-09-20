@@ -1,4 +1,5 @@
 //! 真正上屏触发曝光；Linux 回报按连接代次/上下文/帧验证，不能越过隐私边界。
+mod events;
 use qingjian_core::{Engine, Language, Sense, Translation, Translator, VocabularyTracker};
 use qingjian_dictionary::Dictionary;
 use qingjian_linux_server::{Router, RouterConfig};

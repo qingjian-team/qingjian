@@ -29,8 +29,15 @@ impl Router {
         let english_candidates = event.modifiers.english_mode
             && !caps
             && self.config.english_candidates_in(self.focused_app());
-        // 与 Core 的 question_mark 配置一致；关闭时让问号走普通标点，避免吞键。
+        // 缓冲区为空时敲 `?` 先进问字模式（配置 `[shortcut] question_mark`，缺省关），中英文模式都行：
+        // 后面跟字母就是在问字，跟别的键就还原成问号。
         if !self.composing() && c == QUESTION_PREFIX && self.engine.takes_question_mark() {
+            self.engine.set_english_mode(false);
+            self.engine.push(c);
+            return Effect::Changed(None);
+        }
+        // 双拼下 Shift+V / Shift+U 进表达式 / 问字模式（全拼下的 v / u 被音节占了）。
+        if !self.composing() && !english && self.engine.takes_mode_letter(c) {
             self.engine.set_english_mode(false);
             self.engine.push(c);
             return Effect::Changed(None);
@@ -105,7 +112,17 @@ impl Router {
                 self.engine.clear();
                 Effect::Changed(None)
             }
-            codes::RETURN => Effect::Changed(Some(self.engine.take_raw())),
+            codes::RETURN => {
+                if self.engine.is_zhuyin_mode() {
+                    if event.modifiers.shift {
+                        Effect::Changed(Some(self.engine.take_raw()))
+                    } else {
+                        Effect::Changed(Some(self.commit_highlighted()))
+                    }
+                } else {
+                    Effect::Changed(Some(self.engine.take_raw()))
+                }
+            }
             codes::TAB if event.modifiers.shift => {
                 self.page(-1);
                 Effect::Navigated
@@ -157,17 +174,24 @@ impl Router {
         }
     }
 
-    /// 中文模式：小写字母进拼音；Shift 大写字母是临时打英文，组句中先把拼音原样上屏；
+    /// 中文模式：字母进拼音。缺省 Shift 大写是临时打英文——组句中先把拼音原样上屏、字母交给应用；
+    /// 配 `[general] shift_letter = "compose"` 时大写也收进缓冲区（Core 按小写匹配、原样上屏时还原大小写）。
     /// 没在组句时的其他字符走全角标点（与 macOS 壳一致，组句中的标点仍进英文直输段）。
     fn apply_chinese(&mut self, c: char, event: &KeyEvent) -> Effect {
+        // 注音模式下数字与 `- ; , . /` 就是键盘上的音节键，跟着进缓冲区。
+        let is_zhuyin_key = self.engine.is_zhuyin_mode()
+            && (c.is_ascii_digit() || matches!(c, '-' | ';' | ',' | '.' | '/'));
+        if c.is_ascii_lowercase()
+            || is_zhuyin_key
+            || (c.is_ascii_uppercase() && self.config.shift_letter_compose)
+        {
+            self.engine.push(c);
+            return Effect::Changed(None);
+        }
         if c.is_ascii_uppercase() {
             let raw = self.composing().then(|| self.engine.take_raw());
             self.engine.note_passthrough(c);
             return with_prefix(raw, Effect::Passthrough, c);
-        }
-        if c.is_ascii_lowercase() {
-            self.engine.push(c);
-            return Effect::Changed(None);
         }
         if !self.composing() {
             return self.apply_punctuation(c, event);
@@ -175,10 +199,11 @@ impl Router {
         self.apply_printable(c, event)
     }
 
-    /// 当前模式开着全角就让 Core 转（数字后的 `.` 保持半角）；转不了的原样交给应用并告知 Core。
+    /// 当前模式开着全角就让 Core 转（数字后的 `.` 与小键盘的键保持半角）；转不了的原样交给应用并告知 Core。
     fn apply_punctuation(&mut self, c: char, event: &KeyEvent) -> Effect {
         let english = event.modifiers.caps || event.modifiers.english_mode;
-        if self.full_width_for(english)
+        if !codes::is_keypad(event.virtual_key)
+            && self.full_width_for(english)
             && let Some(text) = self.engine.punctuate(c)
         {
             return Effect::Changed(Some(text.to_owned()));
@@ -187,8 +212,10 @@ impl Router {
         Effect::Passthrough
     }
 
-    /// 英文模式。开着候选：字母进缓冲区，空格 / 标点先把字母原样上屏（动过高亮的空格才选词）；
-    /// 关着候选：字母由我们插入（大小写按 Shift）。其他键按英文模式那份全角设置转，转不了的交给应用。
+    /// 英文模式。开着候选：字母进缓冲区，选词与中文模式一样（空格选高亮、数字选当前页第 N 个、翻页键翻页），
+    /// 词上屏后空格照样交给应用；数字对应的格子没有候选（词表没有的词、候选不足 N 个）时是标识符的一部分（`foo1`）。
+    /// 回车 / 标点先把字母原样上屏。关着候选：字母由我们插入（大小写按 Shift）。
+    /// 其他键按英文模式那份全角设置转，转不了的交给应用。
     fn apply_english(&mut self, c: char, candidates: bool, event: &KeyEvent) -> Effect {
         let composing = self.composing();
         if !candidates {
@@ -201,14 +228,24 @@ impl Router {
             };
             return with_prefix(raw, effect, c);
         }
+        if composing
+            && let Some(digit) = codes::digit(event)
+            && let Some(index) = self.slot_index(digit)
+        {
+            return Effect::Changed(self.commit_index(index));
+        }
         if c.is_ascii_alphabetic()
             || (composing && (c.is_ascii_digit() || matches!(c, '_' | '\'' | '-')))
         {
             self.engine.push(c);
             return Effect::Changed(None);
         }
+        if composing && let Some(step) = codes::page_key(event, self.config.page_keys) {
+            self.page(step);
+            return Effect::Navigated;
+        }
         let committed = composing.then(|| {
-            if c == ' ' && self.navigated {
+            if c == ' ' {
                 self.commit_highlighted()
             } else {
                 self.engine.take_raw()
@@ -218,7 +255,7 @@ impl Router {
         with_prefix(committed, effect, c)
     }
 
-    /// 组句中的可打印键：数字选当前页第 N 个，翻页键翻页，空格上屏高亮，其余进英文直输段。
+    /// 组句中的可打印键：数字选当前页第 N 个（没有这一格就进直输段），翻页键翻页，空格上屏高亮，其余进英文直输段；已在直输段里就一律追加。
     /// 表达式模式（`v1+2`）里数字和运算符进算式；问字模式敲的还可能是码点（`u4e00`、`u+1f600`），数字与 `+` 进缓冲区；
     /// 微软 / 搜狗双拼的 `;` 是 ing 键，末尾有落单声母时进缓冲区。
     fn apply_printable(&mut self, c: char, event: &KeyEvent) -> Effect {
@@ -230,21 +267,39 @@ impl Router {
             self.engine.push(c);
             return Effect::Changed(None);
         }
+        // 英文直输段（缓冲区里已有 `-` 这类字符）：可见字符一律追加，数字与翻页键也不再选词 / 翻页；
+        // 空格整段原样上屏，空格本身也要在（`hello, world`）。
+        if self.engine.raw_mode() {
+            if c == ' ' {
+                let committed = self.commit_highlighted();
+                self.engine.note_passthrough(c);
+                return with_prefix(Some(committed), Effect::Passthrough, c);
+            }
+            if c.is_ascii_graphic() {
+                self.engine.push(c);
+                return Effect::Changed(None);
+            }
+        }
         if let Some(digit) = codes::digit(event)
-            && self.candidate_count() > 0
+            && (!self.engine.is_zhuyin_mode() || self.navigated)
         {
-            let page_size = self.config.page_size;
-            let page = self.highlight / page_size;
-            return match self.commit_index(page * page_size + digit - 1) {
-                Some(text) => Effect::Changed(Some(text)),
-                None => Effect::Navigated,
-            };
+            if let Some(index) = self.slot_index(digit) {
+                return Effect::Changed(self.commit_index(index));
+            }
+            // 问字模式里数字不是问题的一部分：没有这一格就不算
+            if self.engine.question_mode() {
+                return Effect::Changed(None);
+            }
         }
         if let Some(step) = codes::page_key(event, self.config.page_keys) {
             self.page(step);
             return Effect::Navigated;
         }
         if c == ' ' {
+            if self.engine.zhuyin_needs_tone() {
+                self.engine.push(c);
+                return Effect::Changed(None);
+            }
             return Effect::Changed(Some(self.commit_highlighted()));
         }
         // 表达式 / 问字模式下的其他字符不进缓冲区（与 macOS 壳一致）：先把高亮候选上屏，再按没在组句处理这个键。
@@ -255,6 +310,14 @@ impl Router {
         }
         self.engine.push(c);
         Effect::Changed(None)
+    }
+
+    /// 数字键在当前页对应的格子下标；这一页没有这一格（`gpt6` 只有三个候选）返回 `None`，数字当内容进缓冲区。
+    /// 云端词还没到的占位格算有：按了不算，免得结果一到就选错。
+    fn slot_index(&self, digit: usize) -> Option<usize> {
+        let page_size = self.config.page_size;
+        let index = self.highlight / page_size * page_size + digit - 1;
+        (digit <= page_size && index < self.candidate_count()).then_some(index)
     }
 
     /// 上屏高亮候选；没有候选时缓冲原样上屏。

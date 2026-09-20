@@ -26,6 +26,9 @@ pub struct RouterConfig {
     /// 英文模式给不给英文候选（`[general] english_candidates`）。
     pub english_candidates: bool,
 
+    /// Shift 大写字母是否加入中文组句。
+    pub shift_letter_compose: bool,
+
     /// 中文模式下不在组句时的标点转全角（`[general] full_width_punctuation`）；状态条可切。
     pub full_width: bool,
 
@@ -59,6 +62,7 @@ impl From<&Config> for RouterConfig {
             theme: config.general.theme,
             page_keys: config.general.page_keys(),
             english_candidates: config.general.english_candidates,
+            shift_letter_compose: config.general.shift_letter.compose(),
             full_width: config.general.full_width_punctuation,
             english_full_width: config.general.english_full_width_punctuation,
             apps: config.apps.clone(),

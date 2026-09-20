@@ -45,6 +45,9 @@ int main(int argc, char **argv) {
         }
     }
     context.reset();
+    auto timer = instance.eventLoop().addTimeEvent(CLOCK_MONOTONIC, fcitx::now(CLOCK_MONOTONIC) + 30000, 0,
+        [&](fcitx::EventSourceTime *, uint64_t) { instance.eventLoop().exit(); return false; });
+    instance.eventLoop().exec();
     mock.join();
     bool sawShiftPress = false, sawShiftRelease = false, sawCapabilityReason = false;
     Json lastCaps;

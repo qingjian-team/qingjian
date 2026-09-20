@@ -36,7 +36,7 @@ fn learning_language_off_disables_annotations_in_real_server() {
         read_message::<_, Value>(&mut stream).unwrap();
         write_message(
             &mut stream,
-            &json!({"LinuxHello": {"version": 2, "generation": 1, "context": "config-test"}}),
+            &json!({"LinuxHello": {"version": 3, "session": 1, "generation": 1, "context": "config-test"}}),
         )
         .unwrap();
         read_message::<_, Value>(&mut stream).unwrap();

@@ -24,7 +24,18 @@ std::string contextIdentity(const InputContext *context) {
 }
 }
 QingjianEngine::QingjianEngine(AddonManager *manager)
-    : instance_(manager->instance()), sessions_([](InputContext &) { return new qingjian::Session; }) {
+    : instance_(manager->instance()), shared_(std::make_shared<qingjian::SharedConnection>()),
+      sessions_([this](InputContext &context) {
+          const auto id = shared_->nextSession++;
+          shared_->contexts.emplace(id, context.watch());
+          return new qingjian::Session(shared_, id);
+      }) {
+    shared_->deferred = instance_->eventLoop().addDeferEvent([this](EventSource *event) {
+        event->setEnabled(false);
+        if (shared_->connection.connected() && !shared_->flush()) disconnectAll();
+        return true;
+    });
+    shared_->deferred->setEnabled(false);
     instance_->inputContextManager().registerProperty("qingjian-session", &sessions_);
     capabilityWatcher_ = instance_->watchEvent(EventType::InputContextCapabilityChanged, EventWatcherPhase::PreInputMethod, [this](Event &event) {
         auto *context = static_cast<InputContextEvent &>(event).inputContext();
@@ -40,34 +51,81 @@ QingjianEngine::QingjianEngine(AddonManager *manager)
     });
     keyboardWatcher_ = instance_->watchEvent(EventType::VirtualKeyboardVisibilityChanged, EventWatcherPhase::PostInputMethod, [this](Event &) {
         if (!instance_->userInterfaceManager().isVirtualKeyboardVisible()) return;
-        instance_->inputContextManager().foreach([this](InputContext *context) {
+        const auto contexts = shared_->contexts;
+        for (const auto &[id, watched] : contexts) {
+            (void)id;
+            auto *context = watched.get();
+            if (!context) continue;
             auto *session = context->propertyFor(&sessions_);
-            if (session->opened && !session->displayIdentity.is_null() && !session->connection.send({{"DisplayAcknowledged", {
-                {"session", session->id}, {"identity", session->displayIdentity}, {"senses", nlohmann::json::array()}}}})) disconnect(context);
-            return true;
-        });
+            if (session->opened && session->displayIdentity.is_object() && !shared_->connection.send({{"DisplayAcknowledged", {
+                {"session", session->id}, {"identity", session->displayIdentity}, {"senses", nlohmann::json::array()}}}})) disconnectAll();
+        }
     });
+}
+QingjianEngine::~QingjianEngine() {
+    *alive_ = false;
+    capabilityWatcher_.reset(); focusWatcher_.reset(); keyboardWatcher_.reset();
+    shared_->watcher.reset(); shared_->deferred.reset(); shared_->connection.close();
+    const auto contexts = shared_->contexts;
+    shared_->contexts.clear();
+    for (const auto &[id, watched] : contexts) {
+        (void)id;
+        if (auto *context = watched.get()) {
+            context->propertyFor(&sessions_)->opened = false;
+            context->inputPanel().reset();
+        }
+    }
+    sessions_.unregister();
 }
 void QingjianEngine::clear(InputContext *context) {
     const auto watched = context->watch();
-    ++context->propertyFor(&sessions_)->revision;
+    auto *session = context->propertyFor(&sessions_);
+    const auto revision = ++session->revision;
+    session->displayIdentity = nullptr;
+    session->clientPreedit = false;
     context->inputPanel().reset();
     context->updatePreedit();
-    if (watched.get()) context->updateUserInterface(UserInterfaceComponent::InputPanel);
+    if (watched.get() && session->revision == revision)
+        context->updateUserInterface(UserInterfaceComponent::InputPanel);
+}
+void QingjianEngine::disconnectAll() {
+    if (shared_->clearing) return;
+    shared_->clearing = true;
+    shared_->watcher.reset();
+    shared_->connection.close();
+    shared_->retired.clear();
+    const auto contexts = shared_->contexts;
+    // 先让全部会话失效，再调用可重入的 UI；清理期间禁止重新连接。
+    for (const auto &[id, watched] : contexts) {
+        (void)id;
+        if (auto *context = watched.get()) {
+            auto *session = context->propertyFor(&sessions_);
+            session->opened = false;
+            session->focused = false;
+            session->capabilities = nullptr;
+            ++session->revision;
+        }
+    }
+    for (const auto &[id, watched] : contexts)
+        if (auto *context = watched.get(); context && shared_->contexts.contains(id)) clear(context);
+    shared_->clearing = false;
 }
 void QingjianEngine::disconnect(InputContext *context) {
     auto *session = context->propertyFor(&sessions_);
-    session->socketWatcher.reset();
-    session->connection.close();
+    if (session->opened) {
+        shared_->retire(session->id);
+        session->id = shared_->nextSession++;
+        shared_->contexts.emplace(session->id, context->watch());
+    }
     session->opened = false;
-    session->displayIdentity = nullptr;
+    session->focused = false;
     session->capabilities = nullptr;
-    session->clientPreedit = false;
     clear(context);
 }
 bool QingjianEngine::connect(InputContext *context) {
     auto *session = context->propertyFor(&sessions_);
     const auto watched = context->watch();
+    if (shared_->clearing) return false;
     if (session->opened) {
         if (session->focused != context->hasFocus()) {
             session->focused = context->hasFocus();
@@ -76,31 +134,36 @@ bool QingjianEngine::connect(InputContext *context) {
         return watched.get() && session->opened;
     }
     try {
-        if (!session->connection.open()) throw std::runtime_error("connect");
-        ++session->generation;
+        if (!shared_->connection.connected()) {
+            if (!shared_->connection.open()) return false;
+            ++shared_->generation;
+            shared_->retired.clear();
+            shared_->watcher = instance_->eventLoop().addIOEvent(shared_->connection.fd(), IOEventFlag::In,
+                [this](EventSourceIO *, int fd, IOEventFlags) {
+                    char byte;
+                    auto count = recv(fd, &byte, 1, MSG_PEEK | MSG_DONTWAIT);
+                    if (count >= 0 || (errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR)) disconnectAll();
+                    return true;
+                });
+        }
+        if (!shared_->flush()) throw std::runtime_error("close exchange");
+        session->generation = shared_->generation;
         nlohmann::json response;
-        if (!session->connection.send({{"OpenSession", {{"session", session->id}, {"app", context->program()}, {"protocol", 6}}}}, &response)
+        if (!shared_->connection.send({{"OpenSession", {{"session", session->id}, {"app", context->program()}, {"protocol", 6}}}}, &response)
             || response.at("Update").at("session") != session->id
-            || response.at("Update").at("linux_ui").at("version") != 2)
+            || response.at("Update").at("linux_ui").at("version") != 3)
             throw std::runtime_error("protocol mismatch");
-        if (!session->connection.send({{"LinuxHello", {{"version", 2}, {"generation", session->generation}, {"context", contextIdentity(context)}}}}, &response)
-            || response.at("LinuxHello").at("version") != 2) throw std::runtime_error("linux handshake");
+        if (!shared_->connection.send({{"LinuxHello", {{"version", 3}, {"session", session->id}, {"generation", session->generation}, {"context", contextIdentity(context)}}}}, &response)
+            || response.at("LinuxHello").at("version") != 3 || response.at("LinuxHello").at("session") != session->id) throw std::runtime_error("linux handshake");
         session->preeditMode = response.at("LinuxHello").at("preedit").get<std::string>();
         if (session->preeditMode != "both" && session->preeditMode != "window" && session->preeditMode != "inline")
             throw std::runtime_error("preedit mode");
         session->opened = true;
-        session->socketWatcher = instance_->eventLoop().addIOEvent(session->connection.fd(), IOEventFlag::In,
-            [this, context](EventSourceIO *, int fd, IOEventFlags) {
-                char byte;
-                auto count = recv(fd, &byte, 1, MSG_PEEK | MSG_DONTWAIT);
-                if (count >= 0 || (errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR)) disconnect(context);
-                return true;
-            });
         if (!syncPrivacy(context)) return false;
         session->focused = context->hasFocus();
         exchange(context, {{"Focus", {{"focused", session->focused}}}}, false);
         return watched.get() && session->opened;
-    } catch (const std::exception &) { if (watched.get()) disconnect(context); return false; }
+    } catch (const std::exception &) { disconnectAll(); return false; }
 }
 bool QingjianEngine::syncPrivacy(InputContext *context) {
     auto *session = context->propertyFor(&sessions_);
@@ -118,7 +181,13 @@ bool QingjianEngine::syncPrivacy(InputContext *context) {
         session->capabilities = facts;
         session->clientPreedit = false;
         clear(context);
-        return watched.get() && session->opened;
+        if (!watched.get() || !session->opened) return false;
+    }
+    // 能力清理可重入；以回调后的最新能力决定是否关闭此会话。
+    const auto currentCaps = context->capabilityFlags();
+    if (currentCaps.test(CapabilityFlag::Password) || currentCaps.test(CapabilityFlag::Disable)) {
+        disconnect(context);
+        return false;
     }
     return session->opened;
 }
@@ -129,10 +198,12 @@ bool QingjianEngine::exchange(InputContext *context, const nlohmann::json &event
     const auto lifecycle = session->lifecycle;
     const auto capabilities = context->capabilityFlags();
     const bool focused = context->hasFocus();
+    bool consumed = false;
     try {
         nlohmann::json response;
-        if (!session->opened || !session->connection.send({{"LinuxEvent", {{"session", session->id}, {"event", event}}}}, &response))
+        if (!session->opened || !shared_->connection.send({{"LinuxEvent", {{"session", session->id}, {"event", event}}}}, &response))
             throw std::runtime_error("event exchange");
+        if (response.contains("Ignored") && response.at("Ignored").at("session") == session->id) return true;
         const auto &result = response.at("KeyResult");
         const auto &identity = result.at("identity");
         const auto outcome = result.at("outcome").get<std::string>();
@@ -142,6 +213,7 @@ bool QingjianEngine::exchange(InputContext *context, const nlohmann::json &event
             || identity.at("context") != contextIdentity(context) || !identity.at("revision").is_number_unsigned()
             || (!session->displayIdentity.is_null() && identity.at("revision").get<uint64_t>() <= session->displayIdentity.at("revision").get<uint64_t>()))
             throw std::runtime_error("response identity");
+        consumed = outcome == "Consumed";
         session->displayIdentity = identity;
         // 显示 API 可同步重入能力 / 焦点 / Reset 事件。提交前再核对生命周期，
         // 撤销旧上下文结果时仍保留 Consumed，防止选词键再次透传。
@@ -151,7 +223,7 @@ bool QingjianEngine::exchange(InputContext *context, const nlohmann::json &event
             catch (const std::exception &) {
                 if (watched.get()) {
                     validDisplayFailure = session->displayIdentity == identity;
-                    disconnect(context);
+                    disconnectAll();
                 }
             }
         }
@@ -160,7 +232,7 @@ bool QingjianEngine::exchange(InputContext *context, const nlohmann::json &event
             && (session->displayIdentity == identity || validDisplayFailure) && commit.is_string())
             context->commitString(commit.get<std::string>());
         return outcome == "Consumed";
-    } catch (const std::exception &) { if (watched.get()) disconnect(context); return false; }
+    } catch (const std::exception &) { disconnectAll(); return consumed; }
 }
 void QingjianEngine::reset(const InputMethodEntry &, InputContextEvent &event) {
     auto *context = event.inputContext();
@@ -195,7 +267,13 @@ void QingjianEngine::keyEvent(const InputMethodEntry &, KeyEvent &event) {
     if (event.inputContext() && process(event.inputContext(), event.rawKey(), event.isRelease())) event.filterAndAccept();
 }
 bool QingjianEngine::process(InputContext *context, const Key &key, bool release) {
-    if (!connect(context) || !syncPrivacy(context)) return false;
+    const auto watched = context->watch();
+    const auto caps = context->capabilityFlags();
+    if (caps.test(CapabilityFlag::Password) || caps.test(CapabilityFlag::Disable)) {
+        if (context->propertyFor(&sessions_)->opened) syncPrivacy(context);
+        return false;
+    }
+    if (!connect(context) || !watched.get() || !syncPrivacy(context) || !watched.get()) return false;
     return exchange(context, {{"Key", {{"event", qingjian::mapKey(key)}, {"release", release}}}});
 }
 void QingjianEngine::render(InputContext *context, const nlohmann::json &frame) {
@@ -218,9 +296,9 @@ void QingjianEngine::render(InputContext *context, const nlohmann::json &frame) 
         return watched.get() && session->opened && session->lifecycle == lifecycle
             && session->revision == revision && session->displayIdentity == identity;
     };
-    auto list = std::make_unique<qingjian::List>(frame.at("page").get<int>(), frame.at("page_count").get<int>(), [this, watched, revision, identity](bool next) {
+    auto list = std::make_unique<qingjian::List>(frame.at("page").get<int>(), frame.at("page_count").get<int>(), [this, alive = alive_, watched, revision, identity](bool next) {
         auto *ic = watched.get();
-        if (ic && ic->hasFocus() && ic->propertyFor(&sessions_)->revision == revision)
+        if (*alive && ic && ic->hasFocus() && ic->propertyFor(&sessions_)->revision == revision)
             exchange(ic, {{"Page", {{"identity", identity}, {"next", next}}}});
     });
     list->setPageSize(9);
@@ -238,8 +316,8 @@ void QingjianEngine::render(InputContext *context, const nlohmann::json &frame) 
             if (!annotation.empty()) senses.push_back({index, 0});
             if (sense.value("fresh", false)) annotation += " · 生";
         }
-        list->append(std::make_unique<qingjian::Word>(text, annotation, [this, watched, index, revision, identity](InputContext *ic) {
-            if (ic && ic == watched.get() && ic->hasFocus() && ic->propertyFor(&sessions_)->revision == revision)
+        list->append(std::make_unique<qingjian::Word>(text, annotation, [this, alive = alive_, watched, index, revision, identity](InputContext *ic) {
+            if (*alive && ic && ic == watched.get() && ic->hasFocus() && ic->propertyFor(&sessions_)->revision == revision)
                 exchange(ic, {{"Candidate", {{"identity", identity}, {"index", index}}}});
         }));
         ++index;
@@ -263,7 +341,7 @@ void QingjianEngine::render(InputContext *context, const nlohmann::json &frame) 
     if (!session->opened || session->revision != revision || session->displayIdentity != identity || !context->hasFocus()
         || context->inputPanel().candidateList() == nullptr || instance_->userInterfaceManager().isVirtualKeyboardVisible())
         senses = nlohmann::json::array();
-    if (!session->connection.send({{"DisplayAcknowledged", {{"session", session->id}, {"identity", identity}, {"senses", senses}}}}))
+    if (!shared_->connection.send({{"DisplayAcknowledged", {{"session", session->id}, {"identity", identity}, {"senses", senses}}}}))
         throw std::runtime_error("display acknowledgment");
 }
 }

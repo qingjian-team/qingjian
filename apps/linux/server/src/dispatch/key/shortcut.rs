@@ -66,6 +66,9 @@ impl Router {
     /// 当前页第 `digit` 个候选（1 起）。
     fn candidate_on_page(&self, digit: usize) -> Option<Candidate> {
         let page_size = self.config.page_size;
+        if digit == 0 || digit > page_size {
+            return None;
+        }
         let page = self.highlight / page_size;
         let index = page * page_size + digit.checked_sub(1)?;
         self.layout_candidate(index)

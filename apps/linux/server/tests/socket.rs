@@ -28,13 +28,24 @@ fn open(stream: &mut UnixStream) {
             ..
         })
     ));
-    write_message(stream, &serde_json::json!({"LinuxHello": {"version": 2, "generation": 1, "context": "socket-test"}})).unwrap();
+    write_message(stream, &serde_json::json!({"LinuxHello": {"version": 3, "session": 1, "generation": 1, "context": "socket-test"}})).unwrap();
     assert_eq!(
         read_message::<_, serde_json::Value>(stream)
             .unwrap()
             .unwrap()["LinuxHello"]["version"],
-        2
+        3
     );
+    privacy(stream);
+}
+fn privacy(stream: &mut UnixStream) {
+    write_message(
+        stream,
+        &ClientMessage::Privacy {
+            session: SessionId(1),
+            private: false,
+        },
+    )
+    .unwrap();
 }
 fn text(stream: &mut UnixStream, value: &str) {
     for c in value.chars() {
@@ -143,16 +154,16 @@ fn linux_ui_negotiates_after_legacy_open_and_binds_ack_to_connection() {
     let opened = read_message::<_, Value>(&mut stream).unwrap().unwrap();
     assert_eq!(
         opened["Update"]["linux_ui"],
-        json!({"version": 2, "preedit": "both"})
+        json!({"version": 3, "preedit": "both"})
     );
     write_message(
         &mut stream,
-        &json!({"LinuxHello": {"version": 2, "generation": 9, "context": "test-context"}}),
+        &json!({"LinuxHello": {"version": 3, "session": 1, "generation": 9, "context": "test-context"}}),
     )
     .unwrap();
     assert_eq!(
         read_message::<_, Value>(&mut stream).unwrap().unwrap()["LinuxHello"]["version"],
-        2
+        3
     );
     write_message(
         &mut stream,
@@ -187,7 +198,7 @@ fn linux_ui_negotiates_after_legacy_open_and_binds_ack_to_connection() {
         &json!({"DisplayAcknowledged": {"session": 1, "identity": identity, "senses": []}}),
     )
     .unwrap();
-    assert_eq!(read_message::<_, Value>(&mut stream).unwrap(), None);
+    assert_eq!(commit(&mut stream), None); // 旧回执不破坏此连接上的会话。
     drop(server);
     std::fs::remove_dir_all(directory).unwrap();
 }

@@ -45,6 +45,9 @@ pub struct Router {
     /// 删除候选等操作提示。
     notice: Option<String>,
 
+    /// 全服务帧号递增，关闭再开不会复用展示身份。
+    display_revision: u64,
+
     /// 最近一次学习落盘的时刻。
     last_flush: Instant,
 }
@@ -63,6 +66,7 @@ impl Router {
             navigated: false,
             sentence: None,
             notice: None,
+            display_revision: 0,
             last_flush: Instant::now(),
         }
     }

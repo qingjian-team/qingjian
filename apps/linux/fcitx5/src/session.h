@@ -1,15 +1,24 @@
-//! Fcitx 上下文只保存连接与展示事实，输入状态保存在 Server。
+//! Fcitx 上下文只保存会话身份与展示事实，输入状态保存在 Server。
 #pragma once
-#include "ipc/connection.h"
+#include "ipc/shared.h"
 #include <fcitx/inputcontextproperty.h>
 #include <fcitx-utils/event.h>
 namespace qingjian {
 struct Session final : fcitx::InputContextProperty {
-    Connection connection;
+    Session(std::shared_ptr<SharedConnection> shared, uint64_t number)
+        : id(number), owner(shared) {}
+    ~Session() override {
+        if (auto shared = owner.lock()) {
+            if (opened) shared->retire(id);
+            else shared->contexts.erase(id);
+        }
+    }
 
-    std::unique_ptr<fcitx::EventSourceIO> socketWatcher;
+    /// 插件生命周期内递增，永不复用。
+    uint64_t id;
 
-    uint64_t id = 1;
+    /// 析构只撤销登记并排队关闭，不阻塞或访问已析构 Engine。
+    std::weak_ptr<SharedConnection> owner;
 
     bool opened = false;
 

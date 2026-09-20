@@ -1,6 +1,8 @@
 //! Linux 版本化显示初始化与实际呈现确认，Windows 协议保持不变。
 use super::Router;
-use crate::protocol::{DisplayAcknowledged, DisplayIdentity, LINUX_UI_PROTOCOL};
+use crate::protocol::{
+    DisplayAcknowledged, DisplayIdentity, LINUX_UI_PROTOCOL, LinuxEvent, LinuxRequest,
+};
 use qingjian_core::Translation;
 use qingjian_platform::protocol::{ClientMessage, ServerMessage, SessionId};
 use serde_json::{Value, json};
@@ -29,7 +31,15 @@ impl Router {
             return None;
         }
         let response = if let Some(body) = value.get("LinuxEvent") {
-            self.linux_event(serde_json::from_value(body.clone()).ok()?)?
+            let request: LinuxRequest = serde_json::from_value(body.clone()).ok()?;
+            if let LinuxEvent::Candidate { identity, .. } | LinuxEvent::Page { identity, .. } =
+                &request.event
+                && !self.valid_panel_event(request.session, identity)
+            {
+                // 旧鼠标事件不能改变其他会话的焦点、显示身份或学习回报。
+                return Some(json!({"Ignored": {"session": request.session}}));
+            }
+            self.linux_event(request)?
         } else {
             let message: ClientMessage = serde_json::from_value(value).ok()?;
             self.handle(message)?
@@ -38,21 +48,23 @@ impl Router {
         match &response {
             ServerMessage::KeyResult { session, frame, .. }
             | ServerMessage::Update { session, frame } => {
+                self.display_revision += 1;
                 let info = self.sessions.get_mut(session)?;
                 if let Some(identity) = &mut info.display_identity {
                     if self.focused == Some(*session) {
                         self.engine.note_displayed(std::iter::empty());
                     }
-                    identity.revision += 1;
+                    identity.revision = self.display_revision;
                     info.display_frame = (!info.private && info.active).then(|| frame.clone());
                     value.as_object_mut()?.values_mut().next()?["identity"] = json!(identity);
                 }
             }
             ServerMessage::Committed { session, .. } => {
+                self.display_revision += 1;
                 if let Some(info) = self.sessions.get_mut(session) {
                     info.display_frame = None;
                     if let Some(identity) = &mut info.display_identity {
-                        identity.revision += 1;
+                        identity.revision = self.display_revision;
                     }
                 }
             }

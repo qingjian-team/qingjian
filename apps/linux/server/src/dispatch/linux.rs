@@ -132,8 +132,10 @@ impl Router {
         })
     }
 
-    fn valid_panel_event(&self, session: SessionId, identity: &DisplayIdentity) -> bool {
-        let info = &self.sessions[&session];
+    pub(super) fn valid_panel_event(&self, session: SessionId, identity: &DisplayIdentity) -> bool {
+        let Some(info) = self.sessions.get(&session) else {
+            return false;
+        };
         self.focused == Some(session)
             && info.active
             && !info.disabled
@@ -148,7 +150,8 @@ impl Router {
         info.highlight = 0;
         info.navigated = false;
         if let Some(identity) = &mut info.display_identity {
-            identity.revision += 1;
+            self.display_revision += 1;
+            identity.revision = self.display_revision;
         }
         if self.focused == Some(session) {
             self.engine.discard_input();

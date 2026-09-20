@@ -49,6 +49,11 @@ int main(int argc, char **argv) {
         assert(context.committed == "你好");
     }
     owned.reset();
+    if (mode != "failure") {
+        auto timer = instance.eventLoop().addTimeEvent(CLOCK_MONOTONIC, fcitx::now(CLOCK_MONOTONIC) + 30000, 0,
+            [&](fcitx::EventSourceTime *, uint64_t) { instance.eventLoop().exit(); return false; });
+        instance.eventLoop().exec();
+    }
     candidates->toPageable()->next();
     candidates->candidate(2).select(nullptr);
     mock.join();

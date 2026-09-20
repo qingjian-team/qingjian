@@ -9,4 +9,4 @@ pub use display::DisplayAcknowledged;
 pub use event::LinuxEvent;
 pub use identity::DisplayIdentity;
 pub use request::LinuxRequest;
-pub const LINUX_UI_PROTOCOL: u32 = 2;
+pub const LINUX_UI_PROTOCOL: u32 = 3;

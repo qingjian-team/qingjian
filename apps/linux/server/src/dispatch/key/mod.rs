@@ -8,8 +8,7 @@ mod shortcut;
 
 pub(super) use self::effect::Effect;
 
-/// 把先行上屏的文本接到本次结果前面。Windows 放行是同步的、上屏走异步编辑会话，
-/// 分两步会让应用先插这个键再插词，所以本该放行的键改由我们连同前缀一起插入。
+/// 先行上屏的文本与原本透传的字符合并交付，保证应用接收顺序与空格数量。
 fn with_prefix(prefix: Option<String>, effect: Effect, c: char) -> Effect {
     let Some(mut prefix) = prefix else {
         return effect;

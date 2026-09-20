@@ -42,3 +42,8 @@ pub(crate) fn digit_key(virtual_key: u32) -> Option<usize> {
         .contains(&virtual_key)
         .then(|| (virtual_key - 0x30) as usize)
 }
+
+/// 协议保留小键盘来源，运算符保持半角。
+pub(crate) fn is_keypad(virtual_key: u32) -> bool {
+    (0x60..=0x6F).contains(&virtual_key)
+}

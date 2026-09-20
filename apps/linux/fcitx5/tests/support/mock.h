@@ -40,19 +40,22 @@ struct Mock {
     void join() { if (thread.joinable()) thread.join(); }
     void serve(const std::string &mode) {
         int fd = accept(listener, nullptr, nullptr);
-        assert(readMessage(fd).at("OpenSession").at("protocol") == 6);
-        writeMessage(fd, {{"Update", {{"session", 1}, {"linux_ui", {{"version", mode == "mismatch" ? 1 : 2}}}}}});
+        auto opened = readMessage(fd).at("OpenSession");
+        const auto session = opened.at("session");
+        assert(opened.at("protocol") == 6);
+        writeMessage(fd, {{"Update", {{"session", session}, {"linux_ui", {{"version", mode == "mismatch" ? 2 : 3}}}}}});
         if (mode == "mismatch") { close(fd); return; }
         auto identity = readMessage(fd).at("LinuxHello");
-        assert(identity.at("version") == 2);
-        identity.erase("version");
+        assert(identity.at("version") == 3);
+        identity.erase("version"); identity.erase("session");
         identity["revision"] = 0;
-        writeMessage(fd, {{"LinuxHello", {{"version", 2}, {"preedit", mode == "inline" || mode == "window" ? mode : "both"}}}});
+        writeMessage(fd, {{"LinuxHello", {{"version", 3}, {"session", session}, {"preedit", mode == "inline" || mode == "window" ? mode : "both"}}}});
         auto frame = emptyFrame();
         char byte;
         while (recv(fd, &byte, 1, MSG_PEEK) > 0) {
             auto message = readMessage(fd);
             messages.push_back(message);
+            if (message.contains("CloseSession")) break;
             if (message.contains("DisplayAcknowledged")) continue;
             const auto &event = message.at("LinuxEvent").at("event");
             Json commit = nullptr;
@@ -75,7 +78,7 @@ struct Mock {
                 frame = emptyFrame();
             }
             identity["revision"] = identity.at("revision").get<uint64_t>() + 1;
-            writeMessage(fd, {{"KeyResult", {{"session", 1}, {"identity", identity}, {"frame", frame}, {"commit", commit}, {"outcome", outcome}}}});
+            writeMessage(fd, {{"KeyResult", {{"session", session}, {"identity", identity}, {"frame", frame}, {"commit", commit}, {"outcome", outcome}}}});
             if (mode == "failure" && event.contains("Key")) {
                 messages.push_back(readMessage(fd)); // 默认面板反馈。
                 break;
