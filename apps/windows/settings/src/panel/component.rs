@@ -8,7 +8,9 @@ use windows_reactor::*;
 
 use super::cloud_status::CloudStatus;
 use super::controls::{export_logs, log_dir, open_in_editor, open_with_explorer};
-use super::pages::{about, cloud, dictionaries, general, shortcut};
+use super::notice::Notice;
+use super::pages::{about, aux_code, cloud, dictionaries, general, shortcut};
+use super::recorder::Recorder;
 use super::{Message, Settings};
 
 impl Component for Settings {
@@ -24,6 +26,9 @@ impl Component for Settings {
             path,
             page: "general".to_string(),
             cloud_status: CloudStatus::Idle,
+            recorder: Recorder::Idle,
+            record_box: ElementRef::new(),
+            notice: Notice::default(),
             dictionary_status: String::new(),
             families: qingjian_render::system_fonts::families(),
             font_query: None,
@@ -32,7 +37,11 @@ impl Component for Settings {
 
     fn update(&mut self, message: Message, context: &ComponentContext<Self>) {
         match message {
-            Message::Navigate(Some(tag)) => self.page = tag,
+            Message::Navigate(Some(tag)) => {
+                self.page = tag;
+                // 上一页的导入提示不跟着过来
+                self.notice.clear();
+            }
             Message::Navigate(None) => {}
 
             // 通用页
@@ -201,6 +210,32 @@ impl Component for Settings {
                 self.reload();
             }
 
+            // 辅码页
+            Message::AuxCodeEnabled(on) => self.save("aux_code", "enabled", on),
+            Message::AuxCodeShow(on) => self.save("general", "aux_code_show", on),
+            Message::AuxCodeKeepEmpty(on) => self.save("general", "aux_code_keep_empty", on),
+            Message::AuxRecordStart => self.recorder = self.recorder.waiting(),
+            Message::AuxRecordCancel => self.recorder = Recorder::Idle,
+            Message::AuxRecorded(text) => aux_code::record_key(self, &text),
+            Message::ToggleAuxTable(name, on) => {
+                // 码表缺省启用，`disabled` 列的是关掉的；随包笔画表也走这条
+                let mut disabled = self.config.aux_code.disabled.clone();
+                if on {
+                    disabled.retain(|d| d != &name);
+                } else if !disabled.contains(&name) {
+                    disabled.push(name);
+                }
+                self.save_array("aux_code", "disabled", &disabled);
+            }
+            Message::RemoveAuxTable(name) => {
+                aux_code::remove_table(self, &name);
+                self.reload();
+            }
+            Message::ImportCodeTable => {
+                aux_code::import(self);
+                self.reload();
+            }
+
             // 高级页
             Message::VerboseLog(on) => {
                 let level = if on { LogLevel::Debug } else { LogLevel::Info };
@@ -264,6 +299,7 @@ impl Component for Settings {
             item("cloud", "云服务", Symbol::World),
             item("fuzzy", "模糊音", Symbol::Audio),
             item("dictionaries", "词库", Symbol::Library),
+            item("aux_code", "辅码", Symbol::Character),
             item("usage", "统计", Symbol::List),
             item("advanced", "高级", Symbol::Repair),
             item("about", "关于", Symbol::Help),

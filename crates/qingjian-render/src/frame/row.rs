@@ -10,6 +10,9 @@ pub struct Row {
     /// 候选词。
     pub text: String,
 
+    /// 紧跟在候选词后面的辅码，如 `[kf]`：码是词本身的属性，不进右侧的 annotation 列。
+    pub code: Option<String>,
+
     /// 右侧 annotation，按顺序绘制；没有译文时为空。
     pub annotation: Vec<(String, Tone)>,
 
@@ -23,6 +26,7 @@ impl Row {
         Self {
             index: (index + 1).to_string(),
             text: text.into(),
+            code: None,
             annotation: Vec::new(),
             cloud: false,
         }

@@ -19,6 +19,8 @@ impl From<MarkedKind> for PreeditStyle {
             MarkedKind::Typed => Self::Typed,
             MarkedKind::Rest => Self::Rest,
             MarkedKind::Corrected => Self::Struck,
+            // macOS 壳还没接辅码，先借用剩余拼音的淡色
+            MarkedKind::AuxCode => Self::Rest,
         }
     }
 }

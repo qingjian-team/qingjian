@@ -133,6 +133,7 @@ impl Router {
                 page_count: 1,
                 layout: self.config.layout,
                 theme: self.config.theme,
+                aux_code_show: false,
                 sentence: None,
                 notice: self.notice.clone(),
             },
@@ -155,6 +156,7 @@ impl Router {
                             syllables: Vec::new(),
                             reading: None,
                             translation: None,
+                            aux_code: None,
                         })
                     })
                     .collect();
@@ -170,6 +172,7 @@ impl Router {
                     page_count: layout.pages().max(1),
                     layout: self.config.layout,
                     theme: self.config.theme,
+                    aux_code_show: false,
                     sentence: self.sentence.clone(),
                     notice: self.notice.clone(),
                 }

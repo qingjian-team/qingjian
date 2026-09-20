@@ -106,6 +106,7 @@ impl Metrics<'_> {
             Tone::Gloss => self.theme.colors.gloss,
             Tone::Fresh => self.theme.colors.fresh,
             Tone::Faint => self.theme.colors.pos,
+            Tone::Code => self.theme.colors.gloss,
         }
     }
 
@@ -261,7 +262,26 @@ impl Renderer {
             m.theme.colors.text
         };
         let style = m.style(m.theme.text_font, color);
-        self.draw_text(canvas, &row.text, &style, word_x, top);
+        word_x += self.draw_text(canvas, &row.text, &style, word_x, top);
+        if let Some(code) = &row.code {
+            let style = m.annotation_style(m.tone_color(Tone::Code));
+            self.draw_text(
+                canvas,
+                code,
+                &style,
+                word_x,
+                top + m.small_offset(text_height),
+            );
+        }
+    }
+
+    /// 候选词后面那段码的宽度；没有码是 0。
+    fn code_width(&mut self, row: &Row, m: &Metrics) -> f32 {
+        let Some(code) = &row.code else {
+            return 0.0;
+        };
+        let style = m.annotation_style(m.tone_color(Tone::Code));
+        self.measure(code, &style).width
     }
 
     fn fill_highlight(

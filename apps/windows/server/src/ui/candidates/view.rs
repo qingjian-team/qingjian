@@ -67,7 +67,11 @@ fn horizontal_size(hdc: HDC, data: &RenderData) -> (i32, i32) {
     for row in &data.rows {
         let index = measure(hdc, theme.index_font, &row.index);
         let text = measure(hdc, theme.text_font, &row.text);
-        width += index.cx + index_gap + cloud_prefix_width(hdc, theme, row) + text.cx;
+        width += index.cx
+            + index_gap
+            + cloud_prefix_width(hdc, theme, row)
+            + text.cx
+            + code_width(hdc, theme, row);
         row_height = row_height.max(text.cy + theme.row_padding * 2);
     }
     width += theme.column_gap * (data.rows.len().saturating_sub(1)) as i32 + highlight_inset * 2;
@@ -123,18 +127,30 @@ fn draw_top_line(hdc: HDC, data: &RenderData, y: i32) -> i32 {
     let top = y + theme.row_padding;
     let mut x = theme.padding;
     for (text, kind) in &data.preedit {
-        let (color, strike) = match kind {
-            PreeditKind::Typed => (theme.gloss_color, false),
-            PreeditKind::Rest => (theme.pos_color, false),
-            PreeditKind::Corrected => (theme.pos_color, true),
+        let (color, strike, underline) = match kind {
+            PreeditKind::Typed => (theme.gloss_color, false, false),
+            PreeditKind::Rest => (theme.pos_color, false, false),
+            PreeditKind::Corrected => (theme.pos_color, true, false),
+            // 辅码码段：与剩余拼音同一个淡色，再压一道下划线把它们区分开
+            PreeditKind::AuxCode => (theme.pos_color, false, true),
         };
         let width = draw_text(hdc, theme.annotation_font, color, x, top, text);
+        let weight = scale_line(theme);
         if strike {
             let line = RECT {
                 left: x,
                 top: top + height / 2,
                 right: x + width,
-                bottom: top + height / 2 + scale_line(theme),
+                bottom: top + height / 2 + weight,
+            };
+            fill_rect(hdc, line, theme.pos_color);
+        }
+        if underline {
+            let line = RECT {
+                left: x,
+                top: top + height,
+                right: x + width,
+                bottom: top + height + weight,
             };
             fill_rect(hdc, line, theme.pos_color);
         }
@@ -274,8 +290,11 @@ fn draw_horizontal(hdc: HDC, data: &RenderData, y: i32, width: i32) {
     for (i, row) in data.rows.iter().enumerate() {
         let index_width = measure(hdc, theme.index_font, &row.index).cx;
         let text_size = measure(hdc, theme.text_font, &row.text);
-        let item_width =
-            index_width + index_gap + cloud_prefix_width(hdc, theme, row) + text_size.cx;
+        let item_width = index_width
+            + index_gap
+            + cloud_prefix_width(hdc, theme, row)
+            + text_size.cx
+            + code_width(hdc, theme, row);
         if i == data.highlight {
             let rect = RECT {
                 left: x - highlight_inset,
@@ -371,7 +390,7 @@ fn columns(hdc: HDC, theme: &Theme, rows: &[Row]) -> Columns {
         columns.index_width = columns.index_width.max(index.cx);
         columns.text_width = columns
             .text_width
-            .max(text.cx + cloud_prefix_width(hdc, theme, row));
+            .max(text.cx + cloud_prefix_width(hdc, theme, row) + code_width(hdc, theme, row));
         columns.annotation_width = columns.annotation_width.max(annotation);
         columns.row_height = columns.row_height.max(text.cy + theme.row_padding * 2);
     }
@@ -396,7 +415,14 @@ fn cloud_prefix_width(hdc: HDC, theme: &Theme, row: &Row) -> i32 {
     }
 }
 
-/// 画候选词本体，云端词前带小云朵。返回占用宽度。
+/// 候选词后面那段辅码的宽度；没有码是 0。
+fn code_width(hdc: HDC, theme: &Theme, row: &Row) -> i32 {
+    row.code
+        .as_ref()
+        .map_or(0, |code| measure(hdc, theme.annotation_font, code).cx)
+}
+
+/// 画候选词本体，云端词前带小云朵、后面紧跟辅码。返回占用宽度。
 fn draw_word(hdc: HDC, theme: &Theme, row: &Row, x: i32, baseline: i32, small_offset: i32) -> i32 {
     let prefix = cloud_prefix_width(hdc, theme, row);
     let color = if row.cloud {
@@ -412,7 +438,19 @@ fn draw_word(hdc: HDC, theme: &Theme, row: &Row, x: i32, baseline: i32, small_of
     } else {
         theme.text_color
     };
-    prefix + draw_text(hdc, theme.text_font, color, x + prefix, baseline, &row.text)
+    let mut width =
+        prefix + draw_text(hdc, theme.text_font, color, x + prefix, baseline, &row.text);
+    if let Some(code) = &row.code {
+        width += draw_text(
+            hdc,
+            theme.annotation_font,
+            tone_color(theme, Tone::Code),
+            x + width,
+            baseline + small_offset,
+            code,
+        );
+    }
+    width
 }
 
 fn tone_color(theme: &Theme, tone: Tone) -> COLORREF {
@@ -420,6 +458,7 @@ fn tone_color(theme: &Theme, tone: Tone) -> COLORREF {
         Tone::Gloss => theme.gloss_color,
         Tone::Fresh => theme.fresh_color,
         Tone::Faint => theme.pos_color,
+        Tone::Code => theme.gloss_color,
     }
 }
 

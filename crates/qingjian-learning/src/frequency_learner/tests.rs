@@ -7,6 +7,7 @@ fn candidate(text: &str) -> Candidate {
         syllables: Vec::new(),
         reading: None,
         translation: None,
+        aux_code: None,
     }
 }
 
@@ -74,6 +75,7 @@ fn unrecord_reverses_each_kind_of_record() {
         syllables: vec!["kai".into(), "fang".into()],
         reading: None,
         translation: None,
+        aux_code: None,
     };
     learner.record(&candidate);
     learner.record_choice("kaifa", "开放");

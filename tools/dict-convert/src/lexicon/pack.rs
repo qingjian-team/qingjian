@@ -97,7 +97,7 @@ impl Pack {
         let mut files: Vec<_> = std::fs::read_dir(&domain_dir)?
             .filter_map(Result::ok)
             .map(|e| e.path())
-            .filter(|p| p.extension().is_some_and(|e| e == "tsv"))
+            .filter(|p| is_source_tsv(p))
             .collect();
         files.sort();
         for file in files {
@@ -132,6 +132,16 @@ impl Pack {
     }
 }
 
+/// 是不是一份可用的词库源 TSV：扩展名对、是文件，且不是点开头（隐藏 / 系统元数据）或波浪号开头（Office 等编辑器临时文件）。
+pub(crate) fn is_source_tsv(path: &Path) -> bool {
+    path.is_file()
+        && path.extension().is_some_and(|e| e == "tsv")
+        && !path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .is_some_and(|n| n.starts_with('.') || n.starts_with('~'))
+}
+
 /// 读一个带表头的 TSV，跳过首行、空行。
 fn rows(path: &Path) -> Result<Vec<String>, ConvertError> {
     let source = std::fs::read_to_string(path)?;
@@ -155,4 +165,59 @@ fn clean(field: &str) -> String {
 /// 汉字（基本区 + 扩展 A）。
 fn is_han(c: char) -> bool {
     matches!(c, '\u{4e00}'..='\u{9fff}' | '\u{3400}'..='\u{4dbf}')
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// 建一个最小词库目录：01/02 表只有表头（读出来是空），03_domains 由测试自己放文件。
+    fn scratch(name: &str) -> std::path::PathBuf {
+        let dir = std::env::temp_dir().join(format!("qingjian-dict-convert-lexicon-{name}"));
+        let _ = std::fs::remove_dir_all(&dir);
+        for sub in ["01_characters", "02_common", "03_domains"] {
+            std::fs::create_dir_all(dir.join(sub)).unwrap();
+        }
+        std::fs::write(
+            dir.join("01_characters/standard_8105.tsv"),
+            "字\t拼音\t排序号\t文档频次\t字表级别\t来源\n",
+        )
+        .unwrap();
+        std::fs::write(
+            dir.join("02_common/modern_chinese_common_words.tsv"),
+            "词条\t拼音\t排序号\t文档频次\t字表级别\t来源\n",
+        )
+        .unwrap();
+        dir
+    }
+
+    #[test]
+    fn domain_scan_skips_hidden_temp_and_non_file_entries() {
+        let dir = scratch("domain-scan");
+        std::fs::write(
+            dir.join("03_domains/law.tsv"),
+            "词条\t拼音\t排序号\t文档频次\t字表级别\t来源\n法院\tfa yuan\t1\t100\t\t\n",
+        )
+        .unwrap();
+        // 点开头（隐藏 / 系统元数据）与波浪号开头（Office 等临时文件）的 TSV 不应被当成领域词库
+        std::fs::write(
+            dir.join("03_domains/.hidden.tsv"),
+            "词条\t拼音\t排序号\t文档频次\t字表级别\t来源\n坏词\thuai ci\t1\t100\t\t\n",
+        )
+        .unwrap();
+        std::fs::write(dir.join("03_domains/~$law.tsv"), "不是表\n").unwrap();
+        // 同名目录也不该被当成文件读
+        std::fs::create_dir(dir.join("food.tsv")).unwrap();
+
+        let pack = Pack::load(&dir).unwrap();
+        let domains: Vec<&str> = pack
+            .domain
+            .iter()
+            .filter_map(|r| r.domain.as_deref())
+            .collect();
+        assert_eq!(domains, ["law"]);
+        let words: Vec<&str> = pack.domain.iter().map(|r| r.text.as_str()).collect();
+        assert_eq!(words, ["法院"]);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 }

@@ -19,6 +19,9 @@ pub enum Kind {
 
     /// 本地整句模型（`qingjian-neural::CharScorer`，扩展名 `.qjm`）。
     Model = 6,
+
+    /// 辅码码表（`qingjian-dictionary::AuxCodeTable`）：词 → 码的映射，辅码态逐键即筛用。
+    AuxCodeTable = 7,
 }
 
 impl Kind {
@@ -30,6 +33,7 @@ impl Kind {
             4 => Self::Emoji,
             5 => Self::WordList,
             6 => Self::Model,
+            7 => Self::AuxCodeTable,
             _ => return None,
         })
     }

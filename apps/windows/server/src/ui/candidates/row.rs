@@ -4,8 +4,14 @@
 use qingjian_core::{Candidate, CandidateKind};
 use qingjian_render::{Row, Tone};
 
-/// `position` 是页内下标（从 0 起）。
-pub(crate) fn from_candidate(position: usize, candidate: &Candidate) -> Row {
+/// `position` 是页内下标（从 0 起）。`show_code` 是 `[general] aux_code_show`：
+/// 打开且候选带码时，码用方括号括起来紧跟在候选词后面（`鹤[rbm]`），不进 annotation。
+pub(crate) fn from_candidate(position: usize, candidate: &Candidate, show_code: bool) -> Row {
+    let code = candidate
+        .aux_code
+        .as_ref()
+        .filter(|_| show_code)
+        .map(|code| format!("[{code}]"));
     let mut annotation = Vec::new();
     if let Some(reading) = &candidate.reading {
         annotation.push((reading.clone(), Tone::Gloss));
@@ -34,6 +40,7 @@ pub(crate) fn from_candidate(position: usize, candidate: &Candidate) -> Row {
     Row {
         index: (position + 1).to_string(),
         text: candidate.text.clone(),
+        code,
         annotation,
         cloud: candidate.kind == CandidateKind::Cloud,
     }

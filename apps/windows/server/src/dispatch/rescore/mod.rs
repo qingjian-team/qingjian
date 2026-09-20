@@ -206,7 +206,7 @@ impl Router {
         *layout = rebuilt;
         *preedit = query.marked_segments().iter().map(Into::into).collect();
         *cursor = query.marked_cursor();
-        let frame = self.current_frame();
+        let frame = self.self_drawn_frame();
         self.reconcile_candidates(&frame);
         // 前文在结果回来之前换过（Surrounding 晚到）：这次查询又记下了一批要打分的，再来一轮
         self.schedule_rescoring();

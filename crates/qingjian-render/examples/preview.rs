@@ -289,6 +289,7 @@ fn annotated(index: usize, text: &str, annotation: &[(&str, Tone)], cloud: bool)
     Row {
         index: (index + 1).to_string(),
         text: text.to_owned(),
+        code: None,
         annotation: annotation
             .iter()
             .map(|(s, tone)| ((*s).to_owned(), *tone))

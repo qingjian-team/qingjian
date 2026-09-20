@@ -16,6 +16,7 @@ use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::path::{Path, PathBuf};
 
 use crate::error::ConvertError;
+use crate::lexicon::pack::is_source_tsv;
 use crate::oov_filter::OovFilter;
 
 /// 句首标记。
@@ -55,7 +56,7 @@ impl Vocabulary {
             let mut extra: Vec<_> = entries
                 .filter_map(Result::ok)
                 .map(|e| e.path())
-                .filter(|p| p.extension().is_some_and(|e| e == "tsv"))
+                .filter(|p| is_source_tsv(p))
                 .collect();
             extra.sort();
             tracing::info!(dir = %dir.display(), files = extra.len(), "分词也用领域词库");
@@ -601,4 +602,32 @@ fn synthesize_phrases(
     }
     tracing::info!(phrases = added, bigrams = rows.len(), "短语计数已合成");
     rows
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn vocabulary_skips_hidden_temp_and_non_file_dicts() {
+        let dir = std::env::temp_dir().join(format!(
+            "qingjian-dict-convert-bigram-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(dir.join("dicts")).unwrap();
+        let base = dir.join("dict.tsv");
+        std::fs::write(&base, "词\t拼音\t词频\n").unwrap();
+        for name in ["law.tsv", ".hidden.tsv", "~$law.tsv", "notes.txt"] {
+            std::fs::write(dir.join("dicts").join(name), "词\t拼音\t词频\n").unwrap();
+        }
+
+        let files = Vocabulary::files(&base);
+        let names: Vec<String> = files
+            .iter()
+            .filter_map(|p| p.file_name().and_then(|n| n.to_str()).map(str::to_owned))
+            .collect();
+        assert_eq!(names, ["dict.tsv", "law.tsv"]);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 }

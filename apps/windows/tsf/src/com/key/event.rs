@@ -26,7 +26,7 @@ pub(crate) fn is_mode_letter(vk: u32) -> bool {
     matches!(vk, 0x56 | 0x55 | 0x49)
 }
 
-/// 组句中要吃的功能键：退格 / Tab / 回车 / Esc / 空格 / 数字。Tab 没有整句补全时由 Router 判 Passthrough。
+/// 组句中要吃的功能键：退格 / Tab / 回车 / Esc / 空格 / 数字。Tab 由 Router 决定接受整句补全或翻页，Shift+Tab 上一页。
 pub(crate) fn is_edit(vk: u32) -> bool {
     matches!(
         VIRTUAL_KEY(vk as u16),

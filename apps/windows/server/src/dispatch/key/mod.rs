@@ -24,3 +24,6 @@ fn with_prefix(prefix: Option<String>, effect: Effect, c: char) -> Effect {
     }
     Effect::Changed(Some(prefix))
 }
+
+#[cfg(test)]
+mod tests;

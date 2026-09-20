@@ -58,6 +58,7 @@ impl Renderer {
                 if row.cloud {
                     text.width += m.cloud_width();
                 }
+                text.width += self.code_width(row, m);
                 row_height = row_height.max(text.height + m.row_padding() * 2.0);
                 Item {
                     index_width: index.width,

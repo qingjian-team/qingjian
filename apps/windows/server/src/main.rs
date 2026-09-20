@@ -145,6 +145,7 @@ fn main() {
     });
     let glossary = language.zip(glossary_path);
     let bundled_dicts_dir = Some(root.join("data/generated/dicts")).filter(|dir| dir.is_dir());
+    let bundled_codes_dir = Some(root.join("codes")).filter(|dir| dir.is_dir());
     let spec = AssemblySpec {
         glossary: glossary.clone(),
         english_glossary: glossary_file(&root, Language::Chinese),
@@ -156,6 +157,8 @@ fn main() {
         language_model: LanguageModelFiles::find(&root.join("data/generated")),
         bundled_dicts_dir: bundled_dicts_dir.clone(),
         dictionaries: config.dictionaries.clone(),
+        bundled_codes_dir: bundled_codes_dir.clone(),
+        aux_code: config.aux_code.clone(),
         levels_dir: Some(root.join("assets/levels")),
         user_dir: user_dir(),
         input_log: config.general.input_log,
@@ -173,6 +176,10 @@ fn main() {
     engine.set_traditional_mode(config.general.traditional);
     engine.set_learning(config.general.learning);
     engine.set_mode_keys(config.shortcut.mode);
+    engine.set_aux_code_key(config.general.aux_code_key(), config.general.page_keys());
+    engine.set_aux_keep_empty(config.general.aux_code_keep_empty);
+    engine.set_aux_enabled(config.aux_code.enabled);
+    engine.set_aux_show(config.general.aux_code_show);
     engine.set_chinese_first(config.general.chinese_first);
     engine.set_shift_letter_compose(config.general.shift_letter.compose());
     engine.log_session(env!("CARGO_PKG_VERSION"), "windows");
@@ -183,7 +190,19 @@ fn main() {
     router.configure_local_model(model_path.clone(), &config.model);
     router.configure_code_table(dispatch::find_code_table(user_dir().as_deref(), &root));
     if let Some(path) = config_path() {
-        router.watch_config(&config, path, root.clone(), user_dir());
+        let user = user_dir();
+        router.watch_config(
+            &config,
+            path,
+            root.clone(),
+            dispatch::DataDirs {
+                user_root: user.clone(),
+                bundled_dicts: bundled_dicts_dir,
+                bundled_codes: bundled_codes_dir,
+                user_dicts: assembly::user_dicts_dir(user.as_deref()),
+                user_codes: assembly::user_codes_dir(user.as_deref()),
+            },
+        );
     }
     tracing::info!(
         dict = %dict.display(),

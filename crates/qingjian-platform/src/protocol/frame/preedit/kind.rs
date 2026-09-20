@@ -14,6 +14,9 @@ pub enum PreeditKind {
 
     /// 拼写纠错里被改掉的原字母：画删除线。
     Corrected,
+
+    /// 辅码态的码段（触发键之后的字母序列）：画淡色 + 下划线。
+    AuxCode,
 }
 
 impl From<MarkedKind> for PreeditKind {
@@ -22,6 +25,7 @@ impl From<MarkedKind> for PreeditKind {
             MarkedKind::Typed => Self::Typed,
             MarkedKind::Rest => Self::Rest,
             MarkedKind::Corrected => Self::Corrected,
+            MarkedKind::AuxCode => Self::AuxCode,
         }
     }
 }

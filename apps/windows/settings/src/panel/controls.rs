@@ -4,7 +4,8 @@ use std::path::{Path, PathBuf};
 
 use windows_reactor::*;
 
-use super::LABEL_WIDTH;
+use super::notice::Notice;
+use super::{LABEL_WIDTH, Message, Settings};
 use crate::log;
 
 /// 随包资源（相对随包根，如 `data/generated/dicts`），定位逻辑与 Server 共用。
@@ -111,6 +112,75 @@ pub(super) fn field(label: &str, hint: &str, control: impl Into<View>) -> View {
 /// 在 `(界面名, 配置写法)` 列表里找 `value` 的下标，找不到取 0。
 pub(super) fn index_of(options: &[(&str, &str)], value: &str) -> usize {
     options.iter().position(|(_, v)| *v == value).unwrap_or(0)
+}
+
+/// 一行「名称 · N 条 · 随包 / 许可证」，坏文件标出来：词库页与辅码页共用。
+pub(super) fn entry_title(
+    name: &str,
+    entries: usize,
+    license: &str,
+    builtin: bool,
+    broken: bool,
+) -> String {
+    if broken {
+        return format!("{name}（文件损坏）");
+    }
+    let mut text = format!("{name} · {entries} 条");
+    if builtin {
+        text.push_str(" · 随包");
+    } else if !license.is_empty() {
+        text.push_str(&format!(" · {license}"));
+    }
+    text
+}
+
+/// 一行「复选框 + 可选的移除按钮」：词库页与辅码页共用，坏文件禁掉开关。
+pub(super) fn check_row(
+    stem: &str,
+    label: String,
+    enabled: bool,
+    broken: bool,
+    toggle: impl Fn(bool) -> Message + 'static,
+    remove: Option<Message>,
+    context: &mut ViewContext<Settings>,
+) -> KeyedView {
+    let check = CheckBox::new()
+        .is_checked(enabled)
+        .is_enabled(!broken)
+        .on_is_checked_changed(context.callback(toggle))
+        .content(label);
+    let row = match remove {
+        Some(message) => StackPanel::new()
+            .orientation(Orientation::Horizontal)
+            .spacing(12.0)
+            .children((
+                check,
+                Button::new()
+                    .on_click(context.message(message))
+                    .content("移除"),
+            )),
+        None => check,
+    };
+    KeyedView::new(stem.to_owned(), row)
+}
+
+/// 页面底部的提示：成功统计一行灰字、失败一行红字，都没有就不画。
+pub(super) fn feedback(notice: &Notice) -> View {
+    let mut lines: Vec<KeyedView> = Vec::new();
+    if let Some(text) = &notice.note {
+        lines.push(KeyedView::new("notice-note", note(text)));
+    }
+    if let Some(text) = &notice.error {
+        lines.push(KeyedView::new(
+            "notice-error",
+            TextBlock::new()
+                .text(text)
+                .text_wrapping(TextWrapping::Wrap)
+                .font_size(12.0)
+                .foreground(ThemeBrush::SystemCritical),
+        ));
+    }
+    StackPanel::new().spacing(4.0).keyed_children(lines)
 }
 
 /// 一页外壳：可滚动 + 大标题 + 内容。

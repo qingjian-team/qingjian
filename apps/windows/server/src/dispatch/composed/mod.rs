@@ -3,7 +3,7 @@
 mod state;
 
 use qingjian_core::{Candidate, CandidateLayout, CandidateList, CloudWord};
-use qingjian_platform::protocol::{Frame, PreeditKind, PreeditSegment};
+use qingjian_platform::protocol::{Frame, PROTOCOL_VERSION, PreeditKind, PreeditSegment};
 
 pub(super) use self::state::Composed;
 use super::Router;
@@ -142,7 +142,38 @@ impl Router {
     }
 
     /// 按当前状态生成一帧：翻译评审优先；没在组句给空帧；否则给高亮所在的那一页。
+    /// 焦点会话的 DLL 比 Server 老时按老协议降级（见 [`Self::downgrade_for_old_dll`]）。
     pub(super) fn current_frame(&self) -> Frame {
+        let mut frame = self.raw_frame();
+        self.downgrade_for_old_dll(&mut frame);
+        frame
+    }
+
+    /// 自绘候选窗用的帧：不做老 DLL 降级，码段照常画。
+    pub(super) fn self_drawn_frame(&self) -> Frame {
+        self.raw_frame()
+    }
+
+    /// 协议比 Server 老的 DLL 不认识 `AuxCode` 段，收到会整条消息解析失败；给它的码段降级成普通拼音段。
+    fn downgrade_for_old_dll(&self, frame: &mut Frame) {
+        if self.focused_dll_protocol() >= PROTOCOL_VERSION {
+            return;
+        }
+        for segment in &mut frame.preedit {
+            if segment.kind == PreeditKind::AuxCode {
+                segment.kind = PreeditKind::Typed;
+            }
+        }
+    }
+
+    /// 焦点会话的 DLL 协议版本；没有焦点会话时按最新（不必降级）。
+    fn focused_dll_protocol(&self) -> u32 {
+        self.focused
+            .and_then(|session| self.sessions.get(&session))
+            .map_or(PROTOCOL_VERSION, |info| info.protocol)
+    }
+
+    fn raw_frame(&self) -> Frame {
         if let Some(translation) = &self.translation {
             return self.translation_frame(translation);
         }
@@ -161,6 +192,7 @@ impl Router {
                 page_count: 1,
                 layout: self.config.layout,
                 theme: self.config.theme,
+                aux_code_show: self.config.aux_code_show,
                 sentence: None,
                 notice: self.notice.clone(),
             },
@@ -189,6 +221,7 @@ impl Router {
                     page_count: layout.pages().max(1),
                     layout: self.config.layout,
                     theme: self.config.theme,
+                    aux_code_show: self.config.aux_code_show,
                     sentence: self.sentence.clone(),
                     notice: self.notice.clone(),
                 }

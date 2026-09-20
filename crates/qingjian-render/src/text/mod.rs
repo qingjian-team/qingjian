@@ -82,6 +82,7 @@ impl TextPainter {
         self.shape(text, style);
         let mut width = 0.0_f32;
         let mut strike: Option<(f32, f32)> = None;
+        let mut underline: Option<(f32, f32)> = None;
         for run in self.buffer.layout_runs() {
             let baseline = y + run.line_y;
             // 每个字形画完把它那份字距累加到后面所有字形的 x 上
@@ -113,11 +114,20 @@ impl TextPainter {
             if style.strike {
                 strike = Some((baseline, run.line_w + tracked));
             }
+            if style.underline {
+                underline = Some((baseline, run.line_w + tracked));
+            }
         }
         if let Some((baseline, line_w)) = strike {
             // 删除线穿过小写字母中部
             let thickness = (style.size / 14.0).max(1.0);
             let line_y = baseline - style.size * 0.3;
+            canvas.fill_rect(x, line_y, line_w, thickness, style.color);
+        }
+        if let Some((baseline, line_w)) = underline {
+            // 下划线压在基线下面一点，与删除线同一套粗细
+            let thickness = (style.size / 14.0).max(1.0);
+            let line_y = baseline + style.size * 0.14;
             canvas.fill_rect(x, line_y, line_w, thickness, style.color);
         }
         width

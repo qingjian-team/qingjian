@@ -13,7 +13,7 @@
 mod annotations;
 mod corpus;
 mod entry;
-mod pack;
+pub(crate) mod pack;
 mod readings;
 mod tone;
 
