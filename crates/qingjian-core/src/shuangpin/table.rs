@@ -20,6 +20,9 @@ pub const DIGRAPH_INITIALS: [(char, &str); 3] = [('v', "zh"), ('i', "ch"), ('u',
 /// 小浪双拼的翘舌声母：e 为 zh，i 为 ch，v 为 sh。
 pub const XIAOLANG_DIGRAPH_INITIALS: [(char, &str); 3] = [('e', "zh"), ('i', "ch"), ('v', "sh")];
 
+/// 智能 ABC 的翘舌声母：a 为 zh，e 为 ch，v 为 sh。
+pub const ABC_DIGRAPH_INITIALS: [(char, &str); 3] = [('a', "zh"), ('e', "ch"), ('v', "sh")];
+
 /// 小鹤双拼。
 pub const XIAOHE: Table = Table {
     digraph_initials: &DIGRAPH_INITIALS,
@@ -202,6 +205,57 @@ pub const SOGOU: Table = Table {
     ],
     zero_initials: O_PREFIX_ZERO_INITIALS,
     semicolon: true,
+};
+
+/// 智能 ABC 的零声母写法：`o` 加韵母键。不像微软 / 搜狗还认双写元音——`aa` / `ee` 在 ABC 里是 zha / che。
+const ABC_ZERO_INITIALS: &[(&str, &[&str])] = &[
+    ("a", &["oa"]),
+    ("ai", &["ol"]),
+    ("an", &["oj"]),
+    ("ang", &["oh"]),
+    ("ao", &["ok"]),
+    ("e", &["oe"]),
+    ("ei", &["oq"]),
+    ("en", &["of"]),
+    ("eng", &["og"]),
+    ("er", &["or"]),
+    ("o", &["oo"]),
+    ("ou", &["ob"]),
+];
+
+/// 智能 ABC：翘舌声母在 `a` / `e` / `v`（zh / ch / sh），零声母一律 `o` 前缀。
+pub const ABC: Table = Table {
+    digraph_initials: &ABC_DIGRAPH_INITIALS,
+    finals: &[
+        ('q', &["ei"]),
+        ('w', &["ian"]),
+        ('e', &["e"]),
+        ('r', &["iu"]),
+        ('t', &["iang", "uang"]),
+        ('y', &["ing"]),
+        ('u', &["u"]),
+        ('i', &["i"]),
+        ('o', &["uo", "o"]),
+        ('p', &["uan"]),
+        ('a', &["a"]),
+        ('s', &["iong", "ong"]),
+        ('d', &["ia", "ua"]),
+        ('f', &["en"]),
+        ('g', &["eng"]),
+        ('h', &["ang"]),
+        ('j', &["an"]),
+        ('k', &["ao"]),
+        ('l', &["ai"]),
+        ('z', &["iao"]),
+        ('x', &["ie"]),
+        ('c', &["in", "uai"]),
+        ('v', &["v"]),
+        ('b', &["ou"]),
+        ('n', &["un"]),
+        ('m', &["ui", "ve", "ue"]),
+    ],
+    zero_initials: ABC_ZERO_INITIALS,
+    semicolon: false,
 };
 
 /// 小浪双拼。

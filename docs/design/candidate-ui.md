@@ -176,13 +176,13 @@ CLI 用 `--fuzzy z-zh,n-l` 或 `--fuzzy all` 临时开。
 
 ### 双拼（默认关，`[general] shuangpin`）
 
-五套方案：小鹤（`xiaohe`）、自然码（`ziranma`）、微软（`microsoft`）、搜狗（`sogou`）、小浪（`xiaolang`）。键位表在 Core `shuangpin::table`，
-按 Rime 的 `double_pinyin*.schema.yaml` 核对（搜狗来自 rime-ice 的整理，小浪来自用户提供的搜狗小浪双拼与 Rime 配置），每套方案对全部音节做往返测试；微软与搜狗只差微软的 `v` 键兼作 üe。
+六套方案：小鹤（`xiaohe`）、自然码（`ziranma`）、微软（`microsoft`）、搜狗（`sogou`）、智能ABC（`abc`）、小浪（`xiaolang`）。键位表在 Core `shuangpin::table`，
+按 Rime 的 `double_pinyin*.schema.yaml` 核对（搜狗来自 rime-ice 的整理，小浪来自用户提供的搜狗小浪双拼与 Rime 配置，智能ABC 按公开键位资料核对），每套方案对全部音节做往返测试；微软与搜狗只差微软的 `v` 键兼作 üe。
 开着时缓冲区里存的仍是敲的键，Engine 在切分前把键两两配对解成全拼（音节之间自动带 `'`，没有切分歧义），
 之后查词、整句、云联想、学习全部走全拼那一套：拼音行显示解出来的全拼（`nihc` → `ni'hao`），学习按全拼记（`user-choices.tsv` 的键与全拼共用，切回全拼也受益），
 上屏消耗按「候选盖住几个音节、每个音节几个键」换算回缓冲区（`kdfave` 选 开发 吃掉 4 个键，剩 `ve`）。
 末尾落单的一键当声母 / 元音前缀出简拼候选（`kdf` → kai f…）；配不出音节的键起原样留作尾巴（`nibl` → `ni'bl`）。
-零声母：小鹤 / 自然码写 `aa` `ai` `ah`（a、ai、ang）一族，微软 / 搜狗写 `o` + 韵母键（`oa` `ol` `oh`），双写元音的写法也认。
+零声母：小鹤 / 自然码写 `aa` `ai` `ah`（a、ai、ang）一族，微软 / 搜狗写 `o` + 韵母键（`oa` `ol` `oh`），双写元音的写法也认。智能ABC 只认 `o` + 韵母键，`aa` / `ee` 解为 zha / che。
 微软 / 搜狗的 `;` 是 ing：组句中末尾有落单声母时敲 `;` 进缓冲区（`x;` → xing），其他时候仍是标点，壳问 `Engine::takes_semicolon`。
 
 双拼下 v / u / i 都是音节键，模式键换成对应的大写字母（`ModeKeys::shifted`，搜狗 / 微软双拼的做法）：中文模式、没在组句时 `Shift`+`V` / `Shift`+`U` 进表达式 / 问字，

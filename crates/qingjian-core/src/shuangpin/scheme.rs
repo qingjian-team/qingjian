@@ -23,17 +23,21 @@ pub enum Scheme {
     /// 搜狗双拼。
     Sogou,
 
+    /// 智能 ABC。
+    Abc,
+
     /// 小浪双拼。
     Xiaolang,
 }
 
 impl Scheme {
     /// 全部方案，设置界面按这个顺序列出。
-    pub const ALL: [Self; 5] = [
+    pub const ALL: [Self; 6] = [
         Self::Xiaohe,
         Self::Ziranma,
         Self::Microsoft,
         Self::Sogou,
+        Self::Abc,
         Self::Xiaolang,
     ];
 
@@ -44,6 +48,7 @@ impl Scheme {
             Self::Ziranma => "ziranma",
             Self::Microsoft => "microsoft",
             Self::Sogou => "sogou",
+            Self::Abc => "abc",
             Self::Xiaolang => "xiaolang",
         }
     }
@@ -55,6 +60,7 @@ impl Scheme {
             Self::Ziranma => "自然码",
             Self::Microsoft => "微软双拼",
             Self::Sogou => "搜狗双拼",
+            Self::Abc => "智能ABC",
             Self::Xiaolang => "小浪双拼",
         }
     }
@@ -65,6 +71,7 @@ impl Scheme {
             Self::Ziranma => &table::ZIRANMA,
             Self::Microsoft => &table::MICROSOFT,
             Self::Sogou => &table::SOGOU,
+            Self::Abc => &table::ABC,
             Self::Xiaolang => &table::XIAOLANG,
         }
     }
@@ -307,6 +314,15 @@ mod tests {
             (Scheme::Sogou, "nihk", "ni'hao"),
             (Scheme::Sogou, "oe", "e"),
             (Scheme::Sogou, "y;", "ying"),
+            (Scheme::Abc, "nihk", "ni'hao"),
+            (Scheme::Abc, "asgo", "zhong'guo"),
+            (Scheme::Abc, "vtpc", "shuang'pin"),
+            (Scheme::Abc, "xmxi", "xue'xi"),
+            (Scheme::Abc, "vivi", "shi'shi"),
+            (Scheme::Abc, "wlgo", "wai'guo"),
+            (Scheme::Abc, "orqx", "er'qie"),
+            (Scheme::Abc, "nvhl", "nv'hai"),
+            (Scheme::Abc, "ohnv", "ang'nv"),
             (Scheme::Xiaolang, "nihs", "ni'hao"),
             (Scheme::Xiaolang, "elgo", "zhong'guo"),
             (Scheme::Xiaolang, "vzpd", "shuang'pin"),
@@ -326,6 +342,14 @@ mod tests {
         // 小浪中 x 为 ü，v 为 sh 或 uai/ing
         assert_eq!(Scheme::Xiaolang.decode("lx").pinyin(), "lv");
         assert_eq!(Scheme::Xiaolang.decode("lv").pinyin(), "ling");
+        // 智能 ABC 的翘舌声母在 a / e / v；零声母只认 o 前缀，`aa` / `ee` 是 zha / che
+        assert_eq!(Scheme::Abc.decode("ai").pinyin(), "zhi");
+        assert_eq!(Scheme::Abc.decode("ei").pinyin(), "chi");
+        assert_eq!(Scheme::Abc.decode("vi").pinyin(), "shi");
+        assert_eq!(Scheme::Abc.decode("oa").pinyin(), "a");
+        assert_eq!(Scheme::Abc.decode("oe").pinyin(), "e");
+        assert_eq!(Scheme::Abc.decode("aa").pinyin(), "zha");
+        assert_eq!(Scheme::Abc.decode("ee").pinyin(), "che");
     }
 
     #[test]
@@ -339,6 +363,10 @@ mod tests {
         assert_eq!(Scheme::Xiaolang.decode("i").pinyin(), "ch");
         assert_eq!(Scheme::Xiaolang.decode("v").pinyin(), "sh");
         assert_eq!(Scheme::Xiaolang.decode("u").pinyin(), "e");
+        assert_eq!(Scheme::Abc.decode("a").pinyin(), "zh");
+        assert_eq!(Scheme::Abc.decode("e").pinyin(), "ch");
+        assert_eq!(Scheme::Abc.decode("v").pinyin(), "sh");
+        assert_eq!(Scheme::Abc.decode("o").pinyin(), "o");
         // `;` 落单不是任何东西
         assert_eq!(Scheme::Microsoft.decode(";").pinyin(), "");
         assert_eq!(Scheme::Microsoft.decode(";").tail(), ";");
@@ -369,5 +397,6 @@ mod tests {
         assert!("flypy".parse::<Scheme>().is_err());
         assert!(Scheme::Microsoft.uses_semicolon());
         assert!(!Scheme::Xiaohe.uses_semicolon());
+        assert!(!Scheme::Abc.uses_semicolon());
     }
 }
