@@ -10,6 +10,7 @@ mod english;
 mod learning;
 mod lookup;
 mod privacy;
+mod raw;
 mod shuangpin;
 mod zhuyin;
 

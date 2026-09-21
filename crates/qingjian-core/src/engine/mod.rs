@@ -19,6 +19,7 @@ mod mode_keys;
 mod prediction;
 mod privacy;
 mod query;
+mod raw;
 mod rescoring;
 mod session;
 mod setup;
@@ -51,6 +52,7 @@ pub use prediction::{
 };
 
 pub use query::Query;
+pub use raw::RawPreedit;
 pub use session::EngineSession;
 pub use statistics::{BOOKS, Book, NoUsageMeter, Usage, UsageMeter, UsageSummary, book_scale};
 pub use timings::Timings;

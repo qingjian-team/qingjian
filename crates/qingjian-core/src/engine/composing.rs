@@ -1,6 +1,13 @@
 //! 缓冲区与模式：按键进出、光标移动、表达式 / 英文直输 / 问字等模式判断、标点与上屏链。
 
-use super::*;
+use super::commit::LastCommit;
+use super::input_log::{INPUT_LOG_VERSION, InputLogEntry, InputLogger, InputSource};
+use super::learning::Learner;
+use super::mode_keys::QUESTION_PREFIX;
+use super::{Engine, RECENT_COMMITS, is_raw, looks_like_english_word, segment_longest_prefix};
+use crate::composition::Composition;
+use crate::shortcut;
+use std::time::Instant;
 
 /// 直通字符攒到这么多就先写一条，免得长时间纯英文输入时一条攒得没边。
 const MAX_PENDING_PASSTHROUGH: usize = 200;
@@ -341,14 +348,7 @@ impl Engine {
             // 缓存里还是「要纠」，清掉让下次重算
             *self.correction_cache.borrow_mut() = None;
         }
-        let raw = if self.is_zhuyin_mode() && !self.english_mode {
-            self.decode(self.composition.text())
-                .map(|d| d.marked())
-                .unwrap_or_else(|| self.composition.typed_text())
-        } else {
-            // 中文模式下 Shift 敲的大写在这里还原，敲的是什么就上屏什么
-            self.composition.typed_text()
-        };
+        let raw = self.raw_preedit().text;
         if raw.is_empty() {
             // 壳在回车 / 失焦时不管有没有在组句都会来一趟：空的不记日志、不计统计
             self.clear();
