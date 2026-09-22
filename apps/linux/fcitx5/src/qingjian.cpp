@@ -16,6 +16,10 @@
 
 namespace fcitx {
 namespace {
+/// 组句期间多久问一次 Server：与 Windows DLL 的轮询间隔相同，本地整句模型的结果晚一拍到。
+constexpr uint64_t POLL_INTERVAL_US = 80000;
+/// 定时器精度：sd-event 把 0 当缺省的 250 ms，允许晚到四分之一秒，轮询就没了节拍。
+constexpr uint64_t POLL_ACCURACY_US = 1000;
 std::string contextIdentity(const InputContext *context) {
     std::ostringstream out;
     out << std::hex << std::setfill('0');
@@ -64,6 +68,7 @@ QingjianEngine::QingjianEngine(AddonManager *manager)
 }
 QingjianEngine::~QingjianEngine() {
     *alive_ = false;
+    poller_.reset(); polled_.unwatch();
     capabilityWatcher_.reset(); focusWatcher_.reset(); keyboardWatcher_.reset();
     shared_->watcher.reset(); shared_->deferred.reset(); shared_->connection.close();
     const auto contexts = shared_->contexts;
@@ -78,6 +83,7 @@ QingjianEngine::~QingjianEngine() {
     sessions_.unregister();
 }
 void QingjianEngine::clear(InputContext *context) {
+    if (polled_.get() == context) stopPolling();
     const auto watched = context->watch();
     auto *session = context->propertyFor(&sessions_);
     const auto revision = ++session->revision;
@@ -93,6 +99,7 @@ void QingjianEngine::disconnectAll() {
     shared_->clearing = true;
     shared_->watcher.reset();
     shared_->connection.close();
+    stopPolling();
     shared_->retired.clear();
     const auto contexts = shared_->contexts;
     // 先让全部会话失效，再调用可重入的 UI；清理期间禁止重新连接。
@@ -343,5 +350,51 @@ void QingjianEngine::render(InputContext *context, const nlohmann::json &frame) 
         senses = nlohmann::json::array();
     if (!shared_->connection.send({{"DisplayAcknowledged", {{"session", session->id}, {"identity", identity}, {"senses", senses}}}}))
         throw std::runtime_error("display acknowledgment");
+    watch(context, !preedit.empty());
+}
+void QingjianEngine::watch(InputContext *context, bool composing) {
+    if (!composing) {
+        if (polled_.get() == context) stopPolling();
+        return;
+    }
+    polled_ = context->watch();
+    if (!poller_) {
+        poller_ = instance_->eventLoop().addTimeEvent(CLOCK_MONOTONIC, now(CLOCK_MONOTONIC) + POLL_INTERVAL_US, POLL_ACCURACY_US,
+            [this](EventSourceTime *source, uint64_t) {
+                poll();
+                // 还在组句就续下一拍；停了就留着禁用，下次组句再启。
+                if (polled_.isValid()) { source->setNextInterval(POLL_INTERVAL_US); source->setOneShot(); }
+                else source->setEnabled(false);
+                return true;
+            });
+        return;
+    }
+    poller_->setNextInterval(POLL_INTERVAL_US);
+    poller_->setOneShot();
+}
+void QingjianEngine::stopPolling() {
+    polled_.unwatch();
+    if (poller_) poller_->setEnabled(false);
+}
+void QingjianEngine::poll() {
+    auto *context = polled_.get();
+    if (!context || shared_->clearing || !context->hasFocus() || !context->propertyFor(&sessions_)->opened) { stopPolling(); return; }
+    auto *session = context->propertyFor(&sessions_);
+    try {
+        nlohmann::json response;
+        if (!shared_->connection.send({{"Poll", {{"session", session->id}}}}, &response)) throw std::runtime_error("poll exchange");
+        const auto &update = response.at("Update");
+        const auto &identity = update.at("identity");
+        if (update.at("session") != session->id || identity.at("generation") != session->generation
+            || identity.at("context") != contextIdentity(context) || !identity.at("revision").is_number_unsigned())
+            throw std::runtime_error("poll identity");
+        const auto revision = identity.at("revision").get<uint64_t>();
+        const uint64_t shown = session->displayIdentity.is_null() ? 0 : session->displayIdentity.at("revision").get<uint64_t>();
+        if (revision < shown) throw std::runtime_error("poll identity");
+        // 版本号没动：帧内容没变，不重画也不重复回报。
+        if (revision == shown) return;
+        session->displayIdentity = identity;
+        render(context, update.at("frame"));
+    } catch (const std::exception &) { disconnectAll(); }
 }
 }

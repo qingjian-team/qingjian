@@ -49,6 +49,17 @@ FocusOut 的行内预编辑由框架或声明 ClientUnfocusCommit 的客户端�
 默认面板只展示第一条释义，完成面板更新后报告当前页对应的 `(候选槽位, 0)`。
 隐藏、失焦、私密、无候选与过期回报不产生有效展示记录；Server 只凭已生成帧不记展示。
 
+组句期间插件每 80 ms 发一次 `Poll`（与 Windows DLL 的轮询间隔相同），Server 先 tick 再回当前帧。
+帧与该会话上次发出的相同时沿用展示身份（revision 不变），插件不重画也不重复回报；本地整句模型换了顺序才推进 revision，插件按版本号推进重画并回报。
+帧为空、Reset、失焦、停用、断线时插件停表；协议版本不变。
+
+## 本地整句模型
+
+Server 启动时按 `[model] enabled`（缺省开）在后台线程加载模型并预热，`find_model` 先找用户目录 `~/.local/share/qingjian/model/`，再找随包的 `resources/data/model/`；Linux 没有配置热加载，改开关要重启服务。
+节拍与 Windows Server 的 `dispatch/rescore` 相同：缓冲变化后起 80 ms 防抖，到点把整句路径送去后台打分，每 20 ms 收一次，最长等 2 s；
+结果到了只在用户还看着第一页、没动过高亮时重建候选布局，下一次 `Poll` 回的帧就是新顺序。主循环按 `Router::next_tick` 的绝对到点时间等消息，空闲时一秒一次落盘学习。
+模型在后台接上时用户正在组句，Server 补查一次攒下整句路径再起防抖，这一轮不错过重排。前文用本会话最近上屏的字，首版不读应用光标前文。
+
 ## 路径和排错
 
 用户安装与手动启动见 [Linux 用户说明](../user/getting-started/linux.md)。安装只登记实际绝对插件库路径，不修改系统 Fcitx5 搜索规则。
