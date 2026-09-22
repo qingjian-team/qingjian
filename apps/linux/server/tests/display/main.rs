@@ -149,7 +149,8 @@ fn same_frame_fallback_replaces_exposure_without_double_counting() {
 }
 
 #[test]
-fn poll_invalidates_the_previous_display_until_acknowledged() {
+fn poll_with_an_unchanged_frame_keeps_the_acknowledged_display() {
+    // 插件组句期间定时 Poll 取重排结果；帧没变就不是新的展示，已回报的曝光照算
     let (mut router, book) = router();
     let identity = compose(&mut router);
     router.handle_linux(
@@ -158,12 +159,9 @@ fn poll_invalidates_the_previous_display_until_acknowledged() {
     let update = router
         .handle_linux(json!({"Poll": {"session": 1}}))
         .unwrap();
-    assert_ne!(identity, update["Update"]["identity"]);
-    router.handle_linux(
-        json!({"DisplayAcknowledged": {"session": 1, "identity": identity, "senses": [[0, 0]]}}),
-    );
+    assert_eq!(identity, update["Update"]["identity"]);
     key(&mut router, ' ');
-    assert!(book.lock().unwrap().is_empty());
+    assert_eq!(*book.lock().unwrap(), ["hello"]);
 }
 
 #[test]

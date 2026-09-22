@@ -1,4 +1,5 @@
-//! 本地整句模型：停顿后重排换首选、动过高亮不换、模型在组句中途接上也补这一轮。
+//! 本地整句模型：停顿后重排换首选、动过高亮不换、模型在组句中途接上也补这一轮；
+//! 插件定时 Poll 回的帧内容没变时展示身份不变，重排换了顺序才推进。
 use std::time::{Duration, Instant};
 
 use qingjian_core::Engine;
@@ -8,6 +9,7 @@ use qingjian_linux_server::{Router, RouterConfig};
 use qingjian_platform::protocol::{
     ClientMessage, Frame, KeyEvent, KeyModifiers, PROTOCOL_VERSION, ServerMessage, SessionId,
 };
+use serde_json::{Value, json};
 
 const SESSION: SessionId = SessionId(1);
 
@@ -146,4 +148,65 @@ fn model_attached_during_composition_rescores_the_current_round() {
     assert!(router.next_tick() <= Duration::from_millis(80));
     let frame = tick_until_first(&mut router, "你它", Duration::from_secs(3));
     assert_eq!(first(&frame), Some("你它"));
+}
+
+/// 插件走 JSON 通道：握手报了展示身份，之后每帧都带 `identity`。
+fn poll_json(router: &mut Router) -> Value {
+    router
+        .handle_linux(json!({"Poll": {"session": 1}}))
+        .expect("poll answers")
+}
+
+#[test]
+fn poll_keeps_the_display_identity_until_the_frame_changes() {
+    let mut router = router_with(engine());
+    router.handle_linux(json!({"DisplayReporting": {"session": 1, "identity": {"generation": 2, "context": "first", "revision": 0}}}));
+    let mut shown = Value::Null;
+    for c in "nita".chars() {
+        let key = ClientMessage::Key {
+            session: SESSION,
+            event: KeyEvent::new(
+                c.to_ascii_uppercase() as u32,
+                Some(c),
+                KeyModifiers::default(),
+            ),
+        };
+        shown = router
+            .handle_linux(serde_json::to_value(key).unwrap())
+            .unwrap()["KeyResult"]["identity"]
+            .take();
+    }
+    // 组句期间插件每 80 ms 问一次：内容没变就沿用身份，插件不重画、不重复回报曝光
+    for _ in 0..3 {
+        let update = poll_json(&mut router);
+        assert_eq!(update["Update"]["identity"], shown);
+        assert_eq!(
+            update["Update"]["frame"]["candidates"]["items"][0]["text"],
+            "你他"
+        );
+    }
+
+    // 模型接上、重排换了顺序：这一帧才是新的展示，版本号推进
+    router.attach_sentence_scorer(Box::new(Prefers("你它")));
+    let started = Instant::now();
+    let changed = loop {
+        std::thread::sleep(Duration::from_millis(20));
+        router.tick();
+        let update = poll_json(&mut router);
+        if update["Update"]["frame"]["candidates"]["items"][0]["text"] == "你它"
+            || started.elapsed() > Duration::from_secs(3)
+        {
+            break update;
+        }
+    };
+    assert_eq!(
+        changed["Update"]["frame"]["candidates"]["items"][0]["text"],
+        "你它"
+    );
+    assert!(changed["Update"]["identity"]["revision"].as_u64() > shown["revision"].as_u64());
+    // 换完之后再问：又是沿用
+    assert_eq!(
+        poll_json(&mut router)["Update"]["identity"],
+        changed["Update"]["identity"]
+    );
 }

@@ -20,6 +20,7 @@ impl Router {
             let info = self.sessions.get_mut(&session)?;
             info.display_identity = Some(identity);
             info.display_frame = None;
+            info.last_frame = None;
             if self.focused == Some(session) {
                 self.engine.note_displayed(std::iter::empty());
             }
@@ -48,14 +49,21 @@ impl Router {
         match &response {
             ServerMessage::KeyResult { session, frame, .. }
             | ServerMessage::Update { session, frame } => {
-                self.display_revision += 1;
+                let polled = matches!(response, ServerMessage::Update { .. });
                 let info = self.sessions.get_mut(session)?;
                 if let Some(identity) = &mut info.display_identity {
+                    // 插件组句期间定时 Poll：帧没变就不是新的展示，身份沿用，已回报的曝光照算
+                    if polled && info.last_frame.as_ref() == Some(frame) {
+                        value.as_object_mut()?.values_mut().next()?["identity"] = json!(identity);
+                        return Some(value);
+                    }
+                    self.display_revision += 1;
                     if self.focused == Some(*session) {
                         self.engine.note_displayed(std::iter::empty());
                     }
                     identity.revision = self.display_revision;
                     info.display_frame = (!info.private && info.active).then(|| frame.clone());
+                    info.last_frame = Some(frame.clone());
                     value.as_object_mut()?.values_mut().next()?["identity"] = json!(identity);
                 }
             }
@@ -63,6 +71,7 @@ impl Router {
                 self.display_revision += 1;
                 if let Some(info) = self.sessions.get_mut(session) {
                     info.display_frame = None;
+                    info.last_frame = None;
                     if let Some(identity) = &mut info.display_identity {
                         identity.revision = self.display_revision;
                     }

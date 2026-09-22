@@ -28,6 +28,7 @@ impl Router {
             previous.highlight = self.highlight;
             previous.navigated = self.navigated;
             previous.display_frame = None;
+            previous.last_frame = None;
             previous.shift_pending = false;
         }
         let Some(next) = self.sessions.get_mut(&session) else {
@@ -52,6 +53,7 @@ impl Router {
         }
         info.private = private;
         info.display_frame = None;
+        info.last_frame = None;
         if let Some(identity) = &mut info.display_identity {
             self.display_revision += 1;
             identity.revision = self.display_revision;

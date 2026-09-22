@@ -12,6 +12,9 @@ pub(crate) struct SessionInfo {
     /// 待确认的当前候选帧。
     pub(crate) display_frame: Option<qingjian_platform::protocol::Frame>,
 
+    /// 上次发给插件的帧；插件定时 Poll 时内容没变就沿用展示身份，不算新的展示。
+    pub(crate) last_frame: Option<qingjian_platform::protocol::Frame>,
+
     /// Server 持有的中英模式与单击 Shift 状态。
     pub(crate) english: bool,
 
@@ -51,6 +54,7 @@ impl SessionInfo {
             active: true,
             display_identity: None,
             display_frame: None,
+            last_frame: None,
             private: true,
             engine: EngineSession::default(),
             composed: None,
