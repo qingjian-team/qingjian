@@ -1,11 +1,13 @@
-//! Linux 本地输入服务启动入口；云服务和神经重排在首版保持关闭。
+//! Linux 本地输入服务启动入口；云服务在首版保持关闭，本地整句模型按 `[model]` 开关在后台加载。
 #[cfg(target_os = "linux")]
 mod paths;
 
 #[cfg(target_os = "linux")]
 fn run() -> Result<(), Box<dyn std::error::Error>> {
     use qingjian_core::Language;
-    use qingjian_linux_server::{AssemblySpec, LanguageModelFiles, Router, RouterConfig, assembly};
+    use qingjian_linux_server::{
+        AssemblySpec, LanguageModelFiles, Router, RouterConfig, assembly, find_model,
+    };
     use qingjian_platform::Config;
     use std::path::PathBuf;
     if std::env::args().any(|arg| arg == "--version") {
@@ -45,6 +47,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         paths::generated(&root, &format!("glossary-{}.qj", lang.code()))
             .or_else(|| paths::asset(&root, &format!("glossary/glossary-{}.tsv", lang.code())))
     };
+    let user_dir = paths::user_dir();
     let mut spec = AssemblySpec {
         glossary: (!config.general.learning_language_off())
             .then(|| glossary(language).map(|p| (language, p)))
@@ -60,7 +63,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         bundled_dicts_dir: Some(root.join("data/generated/dicts")),
         dictionaries: config.dictionaries.clone(),
         levels_dir: Some(root.join("assets/levels")),
-        user_dir: Some(paths::user_dir()),
+        user_dir: Some(user_dir.clone()),
         input_log: config.general.input_log,
         log_dir: Some(paths::log_dir()),
         ..AssemblySpec::new(dictionary)
@@ -85,6 +88,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         .map_err(std::io::Error::other)?;
     engine.log_session(env!("CARGO_PKG_VERSION"), "linux");
     let mut router = Router::new(engine, RouterConfig::from(&config));
+    router.configure_local_model(find_model(Some(&user_dir), &root), &config.model);
     extern "C" fn stop(_: libc::c_int) {
         qingjian_linux_server::ipc::request_shutdown();
     }

@@ -154,6 +154,7 @@ impl Router {
             identity.revision = self.display_revision;
         }
         if self.focused == Some(session) {
+            self.stop_rescoring();
             self.engine.discard_input();
             self.composed = None;
             self.sentence = None;

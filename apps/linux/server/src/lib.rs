@@ -6,5 +6,5 @@ pub mod error;
 pub mod ipc;
 pub mod protocol;
 pub use assembly::{AssemblySpec, LanguageModelFiles};
-pub use dispatch::{Router, RouterConfig};
+pub use dispatch::{Router, RouterConfig, find_model};
 pub use error::ServerError;

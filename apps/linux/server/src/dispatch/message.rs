@@ -41,7 +41,9 @@ impl Router {
                 })
             }
             ClientMessage::Poll { session } if self.sessions.contains_key(&session) => {
+                // 插件组句期间定时来问：顺带接模型、推进重排，回的帧就是最新顺序
                 self.ensure_focus(session);
+                self.tick();
                 Some(ServerMessage::Update {
                     session,
                     frame: self.current_frame(),

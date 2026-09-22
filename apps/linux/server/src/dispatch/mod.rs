@@ -1,4 +1,4 @@
-//! Linux 会话路由：独立保存各上下文的组句，词库和学习服务保持单实例。
+//! Linux 会话路由：独立保存各上下文的组句，词库和学习服务保持单实例。本地整句模型在 [`rescore`]。
 
 mod composed;
 mod config;
@@ -6,15 +6,22 @@ mod display;
 mod key;
 mod linux;
 mod message;
+mod rescore;
 mod session;
 
 use self::composed::Composed;
 pub use self::config::RouterConfig;
+pub use self::rescore::find_model;
+use self::rescore::{ModelLoader, RescoreState};
 use self::session::SessionInfo;
 use qingjian_core::Engine;
 use qingjian_platform::protocol::{ClientMessage, ServerMessage, SessionId};
 use std::collections::HashMap;
+use std::path::PathBuf;
 use std::time::{Duration, Instant};
+
+/// 学习数据落盘间隔（与 macOS 壳一致）；Server 没有定时器，借消息节拍与主循环的 tick 看时间。
+const LEARNING_FLUSH_INTERVAL: Duration = Duration::from_secs(60);
 
 /// Fcitx5 输入上下文分派器；所有 Engine 操作都在 Server 主线程串行执行。
 pub struct Router {
@@ -50,6 +57,15 @@ pub struct Router {
 
     /// 最近一次学习落盘的时刻。
     last_flush: Instant,
+
+    /// 本地整句模型（`.qjm` 或三件套目录）；没有模型文件为 `None`。
+    model_path: Option<PathBuf>,
+
+    /// 进行中的模型加载；加载完接到 Engine 上就清掉。
+    model_loader: Option<ModelLoader>,
+
+    /// 重排的防抖 / 轮询进行态。
+    rescore: RescoreState,
 }
 
 impl Router {
@@ -68,12 +84,15 @@ impl Router {
             notice: None,
             display_revision: 0,
             last_flush: Instant::now(),
+            model_path: None,
+            model_loader: None,
+            rescore: RescoreState::default(),
         }
     }
     /// 一条客户端消息；无需答复的通知返回 None。
     pub fn handle(&mut self, message: ClientMessage) -> Option<ServerMessage> {
         let response = self.dispatch(message);
-        if self.last_flush.elapsed() >= Duration::from_secs(60) {
+        if self.last_flush.elapsed() >= LEARNING_FLUSH_INTERVAL {
             self.flush_learning();
         }
         response
@@ -82,9 +101,11 @@ impl Router {
         self.engine.flush_learning();
         self.last_flush = Instant::now();
     }
-    /// 空闲时也定期持久化，避免输入停止后一直不落盘。
+    /// 到点了：接上加载好的模型、推进重排、到点落盘学习（输入停止后也不能一直不落盘）。主循环超时与插件的 `Poll` 都会调。
     pub fn tick(&mut self) {
-        if self.last_flush.elapsed() >= Duration::from_secs(60) {
+        self.attach_loaded_model();
+        self.advance_rescoring();
+        if self.last_flush.elapsed() >= LEARNING_FLUSH_INTERVAL {
             self.flush_learning();
         }
     }

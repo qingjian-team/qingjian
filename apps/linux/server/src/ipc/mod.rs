@@ -11,7 +11,7 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::sync::mpsc::{self, SyncSender};
 use std::thread;
-use std::time::Duration;
+use std::time::Instant;
 
 /// 主线程请求队列；容量有限，损坏客户端不能无限占用内存。
 type Request = (serde_json::Value, mpsc::Sender<Option<serde_json::Value>>);
@@ -111,12 +111,23 @@ pub fn serve_socket(path: impl AsRef<Path>, router: &mut Router) -> io::Result<(
             }
         }
     });
+    // 按 Router 的节拍来 tick：在等本地整句模型就几十毫秒一次，否则一秒看一次要不要落盘学习。
+    // 到点时间是绝对的，不随消息重新计时——组句期间插件每 80 毫秒问一次，若每收一条消息就重等，tick 永远到不了。
+    let mut due = Instant::now() + router.next_tick();
     while !STOP.load(Ordering::Relaxed) {
-        match receiver.recv_timeout(Duration::from_secs(1)) {
+        let now = Instant::now();
+        if now >= due {
+            router.tick();
+            due = Instant::now() + router.next_tick();
+            continue;
+        }
+        match receiver.recv_timeout(due - now) {
             Ok((message, reply)) => {
                 let _ = reply.send(router.handle_linux(message));
+                // 处理完消息节拍可能变短了（按键起了防抖）：到点时间只提前不推后
+                due = due.min(Instant::now() + router.next_tick());
             }
-            Err(mpsc::RecvTimeoutError::Timeout) => router.tick(),
+            Err(mpsc::RecvTimeoutError::Timeout) => {}
             Err(mpsc::RecvTimeoutError::Disconnected) => return Ok(()),
         }
     }
