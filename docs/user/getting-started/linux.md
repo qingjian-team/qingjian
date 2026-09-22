@@ -5,7 +5,7 @@ description: 在 Linux 上安装青简，使用 Fcitx5 默认候选面板。
 ---
 
 青简 Linux 目前提供源码安装，使用 Fcitx5 默认候选面板。已验证 Ubuntu 26.04 的 GNOME 桌面（Wayland）上 Fcitx5 5.1.19 的 GTK4、Qt6 应用与 Firefox；
-其他桌面、其他发行版和旧版应用尚未完成验证。当前支持本地候选和学习，暂不提供云联想、神经模型、设置窗口或自动启动。
+其他桌面、其他发行版和旧版应用尚未完成验证。当前支持本地候选、学习和本地整句模型重排，暂不提供云联想、设置窗口或自动启动。
 
 ## 安装和首次输入
 
@@ -24,7 +24,7 @@ sudo apt install cmake g++ pkg-config python3 libssl-dev \
 在源码目录执行：
 
 ```sh
-# 下载并校验正式词库
+# 下载并校验正式词库与本地整句模型
 tools/release/data-fetch.sh
 apps/linux/scripts/install.sh
 
@@ -43,6 +43,7 @@ apps/linux/scripts/install.sh
 首次运行生成 `~/.config/qingjian/config.toml`，修改后重启青简服务。
 `[general] preedit` 可设为 `both`（行内和候选窗口）、`inline`（只在行内）、`window`（只在候选窗口）；应用不支持行内显示时使用候选窗口。
 每页候选数、翻页键、学习、日志和辅助语言使用同一配置文件。`learning_language = "off"` 关闭中文候选的辅助语言释义与生词标记。系统面板外观由 Fcitx5 设置控制。
+随包的本地整句模型在你停顿后给整句候选重新排序，`[model] enabled = false` 可关闭；自己的 `.qjm` 放 `~/.local/share/qingjian/model/` 优先使用，见 [本地整句模型](../input/local-model.md)。
 
 `[general] shift_letter = "compose"` 让 Shift 大写字母参与中文组句，默认 `"passthrough"` 保持临时英文输入。
 `scheme = "zhuyin"` 启用大千注音；双拼下 `Shift + V` / `Shift + U` 可进入表达式 / 码点输入。
