@@ -23,6 +23,8 @@ pub struct GeneralPage {
     /// 拼音方案（按 `Scheme::ALL` 的顺序）。
     scheme: Retained<NSPopUpButton>,
 
+    /// 双拼模式下输入框保留原始输入按键。
+    shuangpin_raw_preedit: Retained<NSButton>,
     /// 五笔（86 版形码）；与拼音方案同时开着就是混输。
     wubi: Retained<NSButton>,
 
@@ -97,6 +99,18 @@ impl GeneralPage {
             layout,
             mtm,
             "全拼、五套双拼、大千注音，或关（只用下面的五笔）。双拼下 v、u、i 是音节键，表达式与问字模式改用 Shift+V、Shift+U 进（微软、搜狗方案的 ; 键是 ing）；注音下 v、u、i 也是按键，只能用 ? 开头进。",
+        );
+        let shuangpin_raw_preedit = checkbox(
+            mtm,
+            "双拼在输入框显示原始按键",
+            Setting::ShuangpinRawPreedit,
+            target,
+        );
+        row_checkbox(layout, &shuangpin_raw_preedit);
+        note(
+            layout,
+            mtm,
+            "勾上后双拼模式下输入框（光标处）显示敲击的英文字母，回车可直接上屏；候选窗口顶部的拼音行照旧显示解码全拼。",
         );
         let wubi = checkbox(mtm, "五笔（86 版）", Setting::Wubi, target);
         row_checkbox(layout, &wubi);
@@ -173,6 +187,7 @@ impl GeneralPage {
             page_size,
             scheme,
             wubi,
+            shuangpin_raw_preedit,
             traditional,
             english,
             english_off_in_apps,
@@ -210,6 +225,9 @@ impl GeneralPage {
             ),
         );
         set_checked(&self.wubi, general.wubi());
+        set_checked(&self.shuangpin_raw_preedit, general.shuangpin_raw_preedit);
+        self.shuangpin_raw_preedit
+            .setEnabled(general.scheme().is_shuangpin());
         set_checked(&self.traditional, general.traditional);
         set_checked(&self.english, general.english_candidates);
         set_checked(

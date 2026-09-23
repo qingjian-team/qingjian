@@ -38,7 +38,8 @@ impl QingjianInputController {
                     h.engine.annotate(&mut query.candidates);
                     marked = query.marked_text();
                     cursor = query.marked_cursor();
-                    preedit = Preedit::from_marked(&query.marked_segments(), cursor);
+                    preedit =
+                        Preedit::from_marked(&query.marked_segments(), query.segments_cursor());
                     query.candidates.items
                 })
                 .unwrap_or_default();

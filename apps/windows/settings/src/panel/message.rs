@@ -10,6 +10,7 @@ pub(crate) enum Message {
     LearningLanguage(Option<usize>),
     PageSize(Option<f64>),
     Scheme(Option<usize>),
+    ShuangpinRawPreedit(bool),
     Wubi(bool),
     Traditional(bool),
     EnglishCandidates(bool),

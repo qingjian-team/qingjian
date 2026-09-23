@@ -376,6 +376,10 @@ impl Host {
                     .map_or(Scheme::Pinyin.key(), |scheme| scheme.key());
                 self.settings.set_value("general", "scheme", key);
             }
+            (Setting::ShuangpinRawPreedit, SettingValue::Bool(on)) => {
+                self.settings
+                    .set_bool("general", "shuangpin_raw_preedit", on);
+            }
             // 五笔：勾上就是 86 版，取消就是关。与上面的拼音方案同时开着就是混输。
             (Setting::Wubi, SettingValue::Bool(on)) => {
                 self.settings

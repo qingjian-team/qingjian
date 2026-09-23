@@ -31,9 +31,10 @@ impl Engine {
                     return Err(error);
                 }
                 Query::custom_only(
-                    self.composition.text(),
+                    &self.composition.typed_text(),
                     self.composition.cursor(),
                     self.shuangpin.is_some() || self.zhuyin,
+                    self.shuangpin.is_some() && self.shuangpin_raw_preedit,
                     self.composition.scope(),
                     self.marked_rest(self.composition.rest()),
                 )
@@ -155,15 +156,12 @@ impl Engine {
                     segmentations: Vec::new(),
                     candidates: CandidateList { items },
                     tail: keys.to_owned(),
-                    text: self.composition.text().to_owned(),
+                    text: self.composition.typed_text(),
                     cursor: self.composition.cursor(),
                     rest,
                     decoded_keys: self.shuangpin.is_some() || self.zhuyin,
-                    typed_display: if self.shuangpin.is_some() && self.shuangpin_raw_preedit {
-                        Some(self.composition.typed_scope().to_owned())
-                    } else {
-                        decoded.as_ref().map(|d| d.marked())
-                    },
+                    shuangpin_raw_preedit: self.shuangpin.is_some() && self.shuangpin_raw_preedit,
+                    typed_display: decoded.as_ref().map(|d| d.marked()),
                     correction: None,
                     aux: None,
                     timings: Timings {
@@ -340,24 +338,20 @@ impl Engine {
             .as_ref()
             .filter(|_| head_wins)
             .map_or(tail, |t| &keys[t.head_len..]);
-        let typed_display = if self.shuangpin.is_some() && self.shuangpin_raw_preedit {
-            Some(self.composition.typed_scope().to_owned())
-        } else {
-            decoded.as_ref().map(|d| d.marked()).or_else(|| {
-                // 中文模式下 Shift 敲的大写：匹配按小写算，拼音行仍按敲的样子显示（`Cpan`）
-                (correction.is_none() && self.composition.has_shifted()).then(|| {
-                    join_marked_typed(&self.composition.typed_scope(), &segmentations, tail)
-                })
-            })
-        };
+        let typed_display = decoded.as_ref().map(|d| d.marked()).or_else(|| {
+            // 中文模式下 Shift 敲的大写：匹配按小写算，拼音行仍按敲的样子显示（`Cpan`）
+            (correction.is_none() && self.composition.has_shifted())
+                .then(|| join_marked_typed(&self.composition.typed_scope(), &segmentations, tail))
+        });
         Ok(Query {
             segmentations,
             candidates: CandidateList { items },
             tail: tail.to_owned(),
-            text: self.composition.text().to_owned(),
+            text: self.composition.typed_text(),
             cursor: self.composition.cursor(),
             rest,
             decoded_keys: self.shuangpin.is_some() || self.zhuyin,
+            shuangpin_raw_preedit: self.shuangpin.is_some() && self.shuangpin_raw_preedit,
             typed_display,
             correction,
             aux: self.aux_segment(),
@@ -391,6 +385,7 @@ impl Engine {
             cursor: self.composition.cursor(),
             rest,
             decoded_keys: self.shuangpin.is_some() || self.zhuyin,
+            shuangpin_raw_preedit: false,
             typed_display: None,
             correction: None,
             aux: None,
@@ -420,6 +415,7 @@ impl Engine {
             cursor: self.composition.cursor(),
             rest,
             decoded_keys: self.shuangpin.is_some() || self.zhuyin,
+            shuangpin_raw_preedit: false,
             typed_display: None,
             correction: None,
             aux: None,
@@ -460,6 +456,7 @@ impl Engine {
             cursor: self.composition.cursor(),
             rest,
             decoded_keys: self.shuangpin.is_some() || self.zhuyin,
+            shuangpin_raw_preedit: false,
             typed_display: None,
             correction: None,
             aux: None,
@@ -503,6 +500,7 @@ impl Engine {
             cursor: self.composition.cursor(),
             rest,
             decoded_keys: self.shuangpin.is_some() || self.zhuyin,
+            shuangpin_raw_preedit: false,
             typed_display: None,
             correction: None,
             aux: None,

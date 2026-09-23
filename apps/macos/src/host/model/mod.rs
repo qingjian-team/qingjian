@@ -150,7 +150,7 @@ impl Host {
             return;
         };
         self.engine.annotate(&mut query.candidates);
-        let preedit = Preedit::from_marked(&query.marked_segments(), query.marked_cursor());
+        let preedit = Preedit::from_marked(&query.marked_segments(), query.segments_cursor());
         let cloud = self.session.layout.cloud().to_vec();
         self.reset_session(preedit, query.candidates.items);
         if !cloud.is_empty() {

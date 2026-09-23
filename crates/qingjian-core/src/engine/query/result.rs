@@ -74,6 +74,9 @@ pub struct Query {
     /// 双拼 / 注音开着：`segmentations` 是解出来的拼音，`text` 是敲的键，两者长度对不上。
     pub decoded_keys: bool,
 
+    /// 双拼模式下是否在 preedit（应用输入框内 marked text）保留原始输入按键。
+    pub shuangpin_raw_preedit: bool,
+
     /// 开启双拼或注音时的显示字串（如 "ㄅㄨˋ"）。如果有此值，preedit 就优先显示它，而不是拼音。
     pub typed_display: Option<String>,
 
@@ -88,6 +91,7 @@ impl Query {
         text: &str,
         cursor: usize,
         decoded_keys: bool,
+        shuangpin_raw_preedit: bool,
         scope: &str,
         rest: String,
     ) -> Self {
@@ -95,16 +99,21 @@ impl Query {
             text: text.to_owned(),
             cursor,
             decoded_keys,
+            shuangpin_raw_preedit,
             tail: scope.to_owned(),
             rest,
             ..Self::default()
         }
     }
 
-    /// 给 marked text 用的显示形式：最优切分的音节用 `'` 连接，再接未切分尾部，
+    /// 给 marked text（应用输入框未上屏文本）用的显示形式：最优切分的音节用 `'` 连接，再接未切分尾部，
     /// 辅码态接上触发键与码段，光标后的剩余拼音跟在最后。
     /// `kaifa` → `kai'fa`，`kf` → `k'f`，`ni|hao` → `ni'hao`，`nihao;rb` → `ni'hao;rb`。
+    /// 双拼模式且 `shuangpin_raw_preedit` 开启时，返回原始按键（如 `kdfa`）。
     pub fn marked_text(&self) -> String {
+        if self.shuangpin_raw_preedit {
+            return self.text.clone();
+        }
         self.marked_segments()
             .iter()
             .map(|s| s.text.as_str())
@@ -149,8 +158,8 @@ impl Query {
         segments
     }
 
-    /// 光标在 [`Self::marked_text`] 里的字符下标（给平台层传给应用用的，所以按字符算，不是字节）。
-    pub fn marked_cursor(&self) -> usize {
+    /// 光标在 [`Self::marked_segments`] 拼接文本里的字符下标（候选窗口顶部拼音行使用）。
+    pub fn segments_cursor(&self) -> usize {
         // 纠错生效、解码时显示串与敲的不一样长，作用域又总在光标前：光标就在敲的部分末尾
         // （光标在开头时作用域是整段，光标仍在开头）
         if self.decoded_keys && self.cursor == 0 {
@@ -170,18 +179,33 @@ impl Query {
             .filter(|c| *c != '\'')
             .count();
         let after_apostrophe = self.text[..self.cursor.min(self.text.len())].ends_with('\'');
-        let marked: Vec<char> = self.marked_text().chars().collect();
+        let segments_text: String = self
+            .marked_segments()
+            .iter()
+            .map(|s| s.text.as_str())
+            .collect();
+        let chars: Vec<char> = segments_text.chars().collect();
         let mut seen = 0;
         let mut position = 0;
-        while position < marked.len() && seen < letters_before {
-            if marked[position] != '\'' {
+        while position < chars.len() && seen < letters_before {
+            if chars[position] != '\'' {
                 seen += 1;
             }
             position += 1;
         }
-        if after_apostrophe && marked.get(position) == Some(&'\'') {
+        if after_apostrophe && chars.get(position) == Some(&'\'') {
             position += 1;
         }
         position
+    }
+
+    /// 光标在 [`Self::marked_text`] 里的字符下标（给平台层传给宿主应用输入框用的，所以按字符算，不是字节）。
+    pub fn marked_cursor(&self) -> usize {
+        if self.shuangpin_raw_preedit {
+            return self.text[..self.cursor.min(self.text.len())]
+                .chars()
+                .count();
+        }
+        self.segments_cursor()
     }
 }

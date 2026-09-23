@@ -80,6 +80,7 @@ impl Engine {
             cursor: self.composition.cursor(),
             rest,
             decoded_keys: false,
+            shuangpin_raw_preedit: false,
             typed_display: None,
             correction: None,
             aux: None,

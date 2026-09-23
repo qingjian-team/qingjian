@@ -71,6 +71,11 @@ impl Scheme {
         }
     }
 
+    /// 这套方案是否为双拼方案。
+    pub const fn is_shuangpin(self) -> bool {
+        matches!(self, Self::Shuangpin(_))
+    }
+
     /// 拼音侧参不参与查询。
     pub const fn is_on(self) -> bool {
         !matches!(self, Self::Off)

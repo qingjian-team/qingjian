@@ -90,6 +90,14 @@ pub(crate) fn view(settings: &Settings, context: &mut ViewContext<Settings>) -> 
             ),
         ),
         field(
+            "双拼在输入框显示原始按键",
+            "勾上后双拼模式下输入框（光标处）显示敲击的英文字母，回车可直接上屏；候选窗口顶部的拼音行照旧显示解码全拼。",
+            ToggleSwitch::new()
+                .is_on(g.shuangpin_raw_preedit)
+                .is_enabled(g.scheme().is_shuangpin())
+                .on_toggled(context.callback(Message::ShuangpinRawPreedit)),
+        ),
+        field(
             "五笔（86 版）",
             "与拼音方案同时开着就是混输：编码打全的五笔词在前，打不出的字直接打拼音。\
              单用五笔请把拼音方案关掉；第 5 个字母起五笔查不到东西，自动只剩拼音。\
