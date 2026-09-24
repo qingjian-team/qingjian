@@ -12,7 +12,7 @@ members = [
     "crates/qingjian-neural",
     "crates/qingjian-render",
     "crates/qingjian-update",
-    "apps/linux/server", "apps/cli", "apps/macos", "apps/windows/server", "apps/windows/tsf", "apps/windows/settings", "tools/dict-convert", "tools/gloss-gen", "tools/release-sign",
+    "apps/linux/server", "apps/cli", "apps/macos", "apps/mcp", "apps/windows/server", "apps/windows/tsf", "apps/windows/settings", "tools/dict-convert", "tools/gloss-gen", "tools/release-sign",
 ]
 
 [workspace.package]

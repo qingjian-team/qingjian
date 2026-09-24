@@ -2767,6 +2767,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "qingjian-mcp"
+version = "0.1.1"
+dependencies = [
+ "clap",
+ "qingjian-core",
+ "qingjian-dictionary",
+ "qingjian-learning",
+ "qingjian-translate",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.20",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "qingjian-neural"
 version = "0.1.1"
 dependencies = [

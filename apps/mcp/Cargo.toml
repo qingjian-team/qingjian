@@ -1,0 +1,26 @@
+[package]
+name = "qingjian-mcp"
+description = "MCP Server：把青简的查词 / 释义暴露成 MCP 工具，供 Claude Desktop 等 MCP 客户端调用"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "qingjian-mcp"
+path = "src/main.rs"
+
+[lints]
+workspace = true
+
+[dependencies]
+clap.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+qingjian-core.workspace = true
+qingjian-dictionary.workspace = true
+qingjian-learning.workspace = true
+qingjian-translate.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
