@@ -1,0 +1,6 @@
+{
+ "crates/qingjian-core/src/candidate/layout/candidate_layout.rs": 1,
+ "crates/qingjian-core/src/candidate/layout/cell.rs": 1,
+ "crates/qingjian-core/src/sentence/text_segment.rs": 1,
+ "crates/qingjian-core/src/shuangpin/decoded.rs": 1
+}

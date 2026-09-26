@@ -1,0 +1,9 @@
+{
+ "apps/linux/server/src/main.rs": 3,
+ "apps/macos/src/app/input_source.rs": 2,
+ "apps/macos/src/host/config/text_replacements.rs": 1,
+ "apps/macos/src/main.rs": 3,
+ "apps/windows/settings/src/main.rs": 1,
+ "apps/windows/settings/src/panel/pages/aux_code.rs": 2,
+ "crates/qingjian-neural/src/scorer.rs": 4
+}

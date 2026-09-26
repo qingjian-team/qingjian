@@ -1,0 +1,20 @@
+{
+ "over5": {
+  "apps/linux/server/src/dispatch/linux.rs": 1,
+  "apps/linux/server/src/ipc/connection.rs": 1,
+  "apps/linux/server/src/ipc/mod.rs": 1,
+  "apps/macos/src/host/settings.rs": 1,
+  "crates/qingjian-core/src/engine/commit/mod.rs": 1,
+  "crates/qingjian-core/src/engine/prediction/fuzzy.rs": 1,
+  "crates/qingjian-core/src/engine/prediction/mod.rs": 1,
+  "crates/qingjian-core/src/engine/query/mod.rs": 1,
+  "crates/qingjian-core/src/sentence/text_segment.rs": 1,
+  "crates/qingjian-core/src/shuangpin/scheme.rs": 1,
+  "crates/qingjian-dictionary/src/aux_code_table/parsed.rs": 1,
+  "crates/qingjian-dictionary/src/dictionary/mod.rs": 1,
+  "tools/dict-convert/src/bigram.rs": 2,
+  "tools/dict-convert/src/lexicon/mod.rs": 1,
+  "tools/dict-convert/src/phrases/mod.rs": 1
+ },
+ "over8": {}
+}

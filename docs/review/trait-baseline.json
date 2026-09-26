@@ -1,0 +1,16 @@
+{
+ "apps/windows|CandidateSink": 3,
+ "apps/windows|StatusSink": 4,
+ "crates/qingjian-core|GlossFiller": 3,
+ "crates/qingjian-core|InputLogger": 3,
+ "crates/qingjian-core|LanguageModel": 1,
+ "crates/qingjian-core|Learner": 21,
+ "crates/qingjian-core|Predictor": 4,
+ "crates/qingjian-core|SentenceScorer": 1,
+ "crates/qingjian-core|Translator": 4,
+ "crates/qingjian-core|UsageMeter": 3,
+ "crates/qingjian-core|VocabularyTracker": 5,
+ "crates/qingjian-dictionary|AuxCodeLookup": 2,
+ "tools|Keyed": 1,
+ "tools|Task": 3
+}
