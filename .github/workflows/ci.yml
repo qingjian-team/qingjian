@@ -1,6 +1,6 @@
-# 三个 job：Linux 跑 fmt / clippy / 全 workspace 测试（排除 IMK 外壳）；macOS 与 Windows runner 各编各的壳并跑平台测试，
-# 平台特有的编译错（Objective-C 调用、TSF 导出、WinUI）在 PR 里就暴露，不等发版。仓库公开，Actions 不计费。
-# actions 一律钉到 commit（注释里是对应的标签），Dependabot 每周提 PR 更新；cargo 全加 --locked，Cargo.lock 没提交就报错。
+# 四个 job：Linux 跑 fmt / clippy / 全 workspace 测试（排除 IMK 外壳）；macOS 与 Windows runner 各编各的壳并跑平台测试；
+# iOS 对 aarch64-apple-ios 做跨目标 cargo check（不链接，无需 SDK 与模拟器，排除桌面壳与目标不可用依赖，见作业注释）。
+# 平台特有的编译错（Objective-C 调用、TSF 导出、WinUI、移动端目标破坏）在 PR 里就暴露，不等发版。仓库公开，Actions 不计费。
 name: ci
 
 on:
@@ -103,3 +103,23 @@ jobs:
       # 安装包另带一份 32 位 DLL（企业微信 / WPS 这类 32 位应用只能加载它）
       - name: Check (TSF DLL, 32-bit)
         run: cargo check -p qingjian-windows-tsf --target i686-pc-windows-msvc --locked
+
+  ios:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de # v1
+        with:
+          toolchain: 1.96.0
+          targets: aarch64-apple-ios
+
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+
+      # apple 目标上 native-tls 走 Security.framework，无 openssl；render 排除——fonts/ 的
+      # 字体发现模块只有 windows/linux/macos 三个实现（platform 别名未接 iOS），
+      # 是 render spike 的已知缺口，稳定后补。
+      - name: Check (aarch64-apple-ios)
+        run: cargo check --workspace --exclude qingjian-macos --exclude qingjian-linux-server --exclude qingjian-windows-server --exclude qingjian-windows-tsf --exclude qingjian-windows-settings --exclude qingjian-render --target aarch64-apple-ios --locked
