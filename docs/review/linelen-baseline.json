@@ -1,0 +1,7 @@
+{
+ "apps/cli/src/replay/line.rs": 1,
+ "apps/linux/server/tests/config.rs": 1,
+ "apps/linux/server/tests/multiplex.rs": 1,
+ "apps/macos/src/preferences/pages/about.rs": 1,
+ "crates/qingjian-core/src/engine/tests/mod.rs": 1
+}

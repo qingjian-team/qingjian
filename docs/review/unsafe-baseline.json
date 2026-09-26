@@ -1,0 +1,6 @@
+{
+ "crates/qingjian-format/src/file/container.rs": 1,
+ "crates/qingjian-format/src/view/text.rs": 1,
+ "crates/qingjian-neural/src/scorer.rs": 1,
+ "crates/qingjian-render/src/fonts/directwrite.rs": 5
+}

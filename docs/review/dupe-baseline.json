@@ -1,0 +1,17 @@
+{
+ "policy": "雷同对基线：新增即红（scripts/gates/dupe_gate.py，纯 stdlib bottom-k MinHash）；只登记产品代码面",
+ "threshold": 0.8,
+ "ng": 5,
+ "k": 128,
+ "pairs": [
+  "apps/linux/server/src/assembly/language_model.rs|apps/windows/server/src/assembly/language_model.rs",
+  "apps/linux/server/src/dispatch/key/codes.rs|apps/windows/server/src/dispatch/key/codes.rs",
+  "apps/linux/server/src/dispatch/key/input.rs|apps/windows/server/src/dispatch/key/input.rs",
+  "apps/linux/server/src/dispatch/key/mod.rs|apps/windows/server/src/dispatch/key/mod.rs",
+  "apps/linux/server/src/dispatch/key/shortcut.rs|apps/windows/server/src/dispatch/key/shortcut.rs",
+  "apps/linux/server/src/dispatch/rescore/loader.rs|apps/windows/server/src/dispatch/rescore/loader.rs",
+  "apps/linux/server/src/dispatch/rescore/state.rs|apps/windows/server/src/dispatch/rescore/state.rs",
+  "apps/linux/server/src/error.rs|apps/windows/server/src/error.rs",
+  "apps/windows/server/src/ui/window_class.rs|apps/windows/tsf/src/com/window_class.rs"
+ ]
+}

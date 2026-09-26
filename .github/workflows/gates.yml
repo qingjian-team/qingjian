@@ -1,0 +1,163 @@
+# 门禁：上帝对象 / 架构约束 / 重复代码 / 产品代码坏味道 / 多智能体协作 / 门禁自检。
+# 与 quality.yml（PR 标题、cargo-deny、gitleaks、unsafe 增量、残留标记扫描、仓库卫生）和
+# ci.yml（fmt / clippy / 文档门 / 全量测试）互补——那两条管编译与安全，这条管**结构与协作**。
+#
+# 每一步都显式调用 `scripts/gates/<门>.py`，与本地 `scripts/gates/gate.py` 的 STEPS 同源；
+# 「本地有、CI 没有」或「CI 有、本地没有」由 `gate_selftest.py` 的 S1 判红（不许漂移）。
+# 本文件自身被 `scripts/ci_shape_lock.sh` 钉住（顺手删几行会让 CI 形状锁红）。
+name: gates
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gates-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+
+
+  arch:
+    name: 架构约束门
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # docs/contributing.md 里那一页架构规矩的机器版：新文件文件头与一类型一文件、
+      # glob 导入、`foo.rs`+`foo/` 并列、Core 依赖方向（硬）、禁词（补 clippy 的平台盲区）。
+      - name: 架构约束
+        run: python3 -X utf8 scripts/gates/arch_gate.py --git-tracked
+
+      # `foo_a.rs` + `foo_b.rs` 摊在一个目录里 = 用文件名当前缀分组，规矩明令禁止。
+      # 这是**目录结构**上的债，跟文件多大无关 ⇒ 按文件统计的门永远抓不到。存量 0 ⇒ 硬判。
+      - name: 文件名前缀分组
+        run: python3 -X utf8 scripts/gates/prefix_gate.py --git-tracked
+
+      # 发版会出真事故的三条：crates 版本必须统一、各壳必须写死自己的版本（Windows 读
+      # server/Cargo.toml 取版本号）、全仓不用 anyhow。存量都是 0 ⇒ 全部硬判，不留基线。
+      - name: Cargo.toml 约定
+        run: python3 -X utf8 scripts/gates/cargo_gate.py --git-tracked
+
+      # 「一个候选词只显示一种辅助语言」是**产品原则**：写成 Vec<Translation> /
+      # HashMap<Lang, _> 照样编译得过、测试也过，等要加第二种语言时才发现整个结构得推翻。
+      # 这是数据结构形状上的约束，规模/复杂度/命名类门都抓不到。存量 0 ⇒ 硬判。
+      - name: 单辅助语言（数据结构）
+        run: python3 -X utf8 scripts/gates/lang_gate.py --git-tracked
+
+      # 标识符一律英文；thiserror 的 #[error] 文案用英文（它要被上层当标识符用：分级、过滤）。
+      # 只判属性括号里的内容 ⇒ `#[error(transparent)] // 中文注释` 不算命中。存量 0 ⇒ 硬判。
+      - name: 标识符与错误文案语言
+        run: python3 -X utf8 scripts/gates/ident_gate.py --git-tracked
+
+      # `use super::super::X` = 绕父模块转手：读者得先搞清父模块 re-export 了什么才知道 X
+      # 从哪来，父模块一改 re-export 中间这层就断。规矩要求直接 `use crate::…`。存量 4 ⇒ 棘轮。
+      - name: super 转手
+        run: python3 -X utf8 scripts/gates/super_gate.py --git-tracked
+
+      # 「测试超过 200 行搬到 tests.rs」：内嵌测试不长在 god_gate 的口径里——700 行的文件
+      # 里 400 行是测试，god_gate 看着还没超 800，但读的人要翻过 400 行测试才看到产品逻辑。
+      - name: 测试体积
+        run: python3 -X utf8 scripts/gates/testsize_gate.py --git-tracked
+
+  dupe:
+    name: 重复代码门
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # 纯 stdlib bottom-k MinHash，无需编译任何东西；雷同对新增即红。
+      - name: 雷同对检查
+        run: python3 -X utf8 scripts/gates/dupe_gate.py --git-tracked
+
+  smells:
+    name: 产品代码坏味道门
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # 下面几条都是 clippy 不拦、编译器不报、但代码评审会反复挑的坏味道。
+      # 口径统一走 `gates_common`：`--git-tracked` 只算已跟踪文件，测试面（/tests/ 等）不算产品代码。
+      # 全部是**棘轮**：存量入基线，只准减，新增即红——不要求一次性还清历史债。
+
+      # Rust 里 `?` 才是正确传播错误的方式；unwrap/expect 把可恢复错误变成进程崩溃。
+      - name: unwrap/expect 滥用
+        run: python3 -X utf8 scripts/gates/unwrap_gate.py --git-tracked
+
+      # 超长行在 review / diff / 终端里都难读，也常是「一个表达式塞太多东西」的信号。
+      - name: 超长行
+        run: python3 -X utf8 scripts/gates/linelen_gate.py --git-tracked
+
+      # sleep 轮询 / 启动顺序靠 sleep 凑 ⇒ CI 上 flake、延迟敏感路径卡顿。
+      - name: thread::sleep
+        run: python3 -X utf8 scripts/gates/sleep_gate.py --git-tracked
+
+      # `let _ = result;` 绝大多数是吞掉了 Result 里的错误（Rust 版 errcheck）。
+      - name: 忽略结果
+        run: python3 -X utf8 scripts/gates/ignore_gate.py --git-tracked
+
+      # unsafe 用得越多，未定义行为面越大；FFI / 平台后端里的 unsafe 是正当的 ⇒ 排除。
+      - name: unsafe 块
+        run: python3 -X utf8 scripts/gates/unsafe_gate.py --git-tracked
+
+      # 圈复杂度：分支点越多越难单测覆盖。>15 与 >50 两档各自棘轮。
+      - name: 函数圈复杂度
+        run: python3 -X utf8 scripts/gates/cyc_gate.py --git-tracked
+
+      # 嵌套深度：同样复杂的逻辑，平铺成卫语句与套五层 if let，可读性差一个量级。
+      # >5 棘轮，>8 硬禁（存量本来就是 0）。
+      - name: 嵌套深度
+        run: python3 -X utf8 scripts/gates/nest_gate.py --git-tracked
+
+      # 参数一多，相邻的同类型参数随时能被对调而编译器不吭声。存量 0 ⇒ 硬禁。
+      - name: 函数参数个数
+        run: python3 -X utf8 scripts/gates/args_gate.py --git-tracked
+
+      # 壳里没有控制台，`println!` 写出去没人收得到；也没有级别、没有 span、没法按模块开关。
+      # apps/cli 与 tools/ 打印到 stdout 是本分 ⇒ 排除。
+      - name: 日志门面
+        run: python3 -X utf8 scripts/gates/log_gate.py --git-tracked
+
+      # 胖接口：一个 trait 方法越多，实现方要填的坑越多。>15 棘轮，>40 直接硬禁。
+      - name: 上帝接口 trait
+        run: python3 -X utf8 scripts/gates/trait_gate.py --git-tracked
+
+  selftest:
+    name: 门禁自检
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      # 门不许被悄悄削弱：阈值放宽 / 硬阈关掉 / workflow 少一步 / 钩子上少一步 / 基线被删 ⇒ 红。
+      - name: 门未被削弱
+        run: python3 -X utf8 scripts/gates/gate_selftest.py
+
+      # 门是不是真门：注入一次失败，它必须红（绿了说明这一步根本没生效）。
+      - name: 门是真门（注入失败自检）
+        env:
+          QJ_GATE_FORCE_FAIL: god-gate
+        run: |
+          if python3 -X utf8 scripts/gates/gate.py --only god-gate >/dev/null 2>&1; then
+            echo "::error::注入失败后门仍然绿——这一步没有真正生效（门是假的）"
+            exit 1
+          fi
+          echo "注入 god-gate 失败 ⇒ 门如期变红"
+
+      # 上面只验了 god-gate 一道。这一道**逐门**验：给每道门注入一次最小违规，它必须转红。
+      # 自检（gate_selftest）只查门「在不在」（workflow 里有没有那一行），查不出门「是不是
+      # 空的」——正则写错、路径过滤没匹配上、判据取到空集，这三类都挂着绿勾却一次没判过。
+      - name: 门是真门（逐门注入验证）
+        run: python3 -X utf8 scripts/gates/gate_probe.py

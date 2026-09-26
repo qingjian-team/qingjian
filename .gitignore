@@ -6,3 +6,5 @@
 /logs
 /data
 .playwright-mcp/
+# gate_probe.py 的临时探针目录（跑完自删；加这里是防中途崩溃残留被误提交）
+scripts/gates/_probe/
