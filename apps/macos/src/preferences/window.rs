@@ -229,11 +229,12 @@ impl PreferencesWindow {
     }
 
     /// 按配置刷新所有控件。`key_present` 是密钥已经有了（环境或配置里）；密钥框永远不回显值。
+    /// `notice` 是配置文件的问题（解析失败或被忽略的条目），没有问题时为 `None`。
     pub fn sync(
         &self,
         config: &Config,
         key_present: bool,
-        error: Option<&str>,
+        notice: Option<&str>,
         dictionaries: &[DictionaryInfo],
         update: &UpdateStatus,
     ) {
@@ -250,11 +251,10 @@ impl PreferencesWindow {
             crate::app::paths::model_path().is_some(),
         );
         self.advanced.sync(config);
-        let status = error
-            .map(|e| format!("配置文件有错误，已沿用上一份：{e}"))
-            .unwrap_or_default();
+        // `notice` 里已经写好了「沿用上一份」/「已忽略」的措辞，这里原样显示
+        let status = notice.unwrap_or_default();
         self.status.setTextColor(Some(&NSColor::systemRedColor()));
-        self.status.setStringValue(&NSString::from_str(&status));
+        self.status.setStringValue(&NSString::from_str(status));
     }
 
     /// 检查更新的状态变了（查完了、查到新版），只刷「关于」页。

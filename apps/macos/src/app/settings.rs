@@ -2,12 +2,13 @@
 //!
 //! 启动、菜单开关、切回输入法时的热加载都从这里拿 `Config`，壳只认这一份。
 //! 解析失败不让输入法退出（输入优先于一切附加功能）：保留上一份能用的配置，把错误留给菜单显示。
+//! 单条短语越界、某个分节写错只丢那一处（`Config::load_with_diagnostics`），同样在菜单里说明。
 
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
-use qingjian_platform::Config;
+use qingjian_platform::{Config, ConfigDiagnostics};
 
 use super::paths;
 
@@ -23,6 +24,9 @@ pub struct Settings {
 
     /// 最近一次读取失败的原因；成功后清掉。
     error: Option<String>,
+
+    /// 上次读取里被丢掉的设置（短语、分节）；读到干净的配置就清空。
+    dropped: ConfigDiagnostics,
 }
 
 impl Settings {
@@ -33,6 +37,7 @@ impl Settings {
             config: Config::default(),
             modified: None,
             error: None,
+            dropped: ConfigDiagnostics::default(),
         };
         if let Some(path) = settings.path.clone() {
             load_dotenv(&path);
@@ -54,9 +59,21 @@ impl Settings {
         self.path.as_deref()
     }
 
-    /// 最近一次读取的错误文案，给菜单显示。
-    pub fn error(&self) -> Option<&str> {
-        self.error.as_deref()
+    /// 给菜单与偏好设置显示的一行提示：硬错误（整份沿用上一份）与被丢掉的条目都在这里。
+    /// 没有问题时返回 `None`。
+    pub fn notice(&self) -> Option<String> {
+        let mut parts = Vec::new();
+        if let Some(error) = &self.error {
+            parts.push(format!("配置文件解析失败，已沿用上一份：{error}"));
+        }
+        if !self.dropped.is_empty() {
+            parts.push(format!("已忽略：{}", self.dropped));
+        }
+        if parts.is_empty() {
+            None
+        } else {
+            Some(parts.join("；"))
+        }
     }
 
     /// 文件的修改时间和上次读的不一样就重读；返回是否重读了（重读失败也算，配置没变但错误状态变了）。
@@ -142,20 +159,26 @@ impl Settings {
     }
 
     fn read(&mut self, path: &Path) {
-        match Config::load(path) {
-            Ok(config) => {
+        match Config::load_with_diagnostics(path) {
+            Ok((config, dropped)) => {
                 tracing::info!(
                     path = %path.display(),
                     predict = config.predict.enabled,
                     fuzzy = config.fuzzy.any(),
+                    dropped = dropped.len(),
                     "配置已加载"
                 );
+                if !dropped.is_empty() {
+                    tracing::warn!(%dropped, "配置里有条目被忽略，其余设置照常生效");
+                }
                 self.config = config;
+                self.dropped = dropped;
                 self.error = None;
             }
             Err(error) => {
                 tracing::warn!(%error, "配置读取失败，沿用上一份");
                 self.error = Some(error.to_string());
+                self.dropped = ConfigDiagnostics::default();
             }
         }
         // 失败也记时间：同一份坏文件不用每次激活都重读一遍

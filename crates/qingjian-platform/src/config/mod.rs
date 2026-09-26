@@ -1,6 +1,7 @@
 mod apps;
 mod aux_code;
 mod candidate_renderer;
+mod diagnostics;
 mod dictionaries;
 mod general;
 mod key_combo;
@@ -32,6 +33,7 @@ pub use apps::{
 };
 pub use aux_code::AuxCodeConfig;
 pub use candidate_renderer::CandidateRenderer;
+pub use diagnostics::ConfigDiagnostics;
 pub use dictionaries::{DEFAULT_DOMAINS, DictionariesConfig};
 pub use general::{
     DEFAULT_PAGE_KEYS, GeneralConfig, LEARNING_LANGUAGE_OFF, MAX_PAGE_SIZE, PAGE_KEY_OPTIONS,
@@ -59,8 +61,7 @@ pub struct Config {
     /// 常规：学习语言、每页候选数、翻页键、外观。
     pub general: GeneralConfig,
 
-    /// 自定义短语；保存和读取均检查位置冲突。
-    #[serde(deserialize_with = "deserialize_phrases")]
+    /// 自定义短语；保存时整表校验，读取时逐条校验（坏的那条丢掉，见 [`phrases`]）。
     pub custom_phrases: Vec<qingjian_core::CustomPhrase>,
 
     /// 快捷键：前缀模式键（表达式 / 问字）与上屏译词的修饰键组合。
@@ -89,14 +90,6 @@ pub struct Config {
 
     /// 检查更新。
     pub update: UpdateConfig,
-}
-
-fn deserialize_phrases<'de, D: serde::Deserializer<'de>>(
-    deserializer: D,
-) -> Result<Vec<qingjian_core::CustomPhrase>, D::Error> {
-    let phrases = Vec::<qingjian_core::CustomPhrase>::deserialize(deserializer)?;
-    qingjian_core::custom_phrase::validate_phrases(&phrases).map_err(serde::de::Error::custom)?;
-    Ok(phrases)
 }
 
 /// 模板的 `[apps]` 一节（Linux）：应用按 fcitx5 认到的名字（X11 是 WM_CLASS，Wayland 是 app_id）。
@@ -426,12 +419,20 @@ impl Config {
         write_file(path, &document.to_string()).map_err(|e| e.to_string())
     }
 
-    /// 读配置。文件不存在按默认值；存在但解析失败报错，不要静默吞掉用户的笔误。
+    /// 读配置。文件不存在按默认值；TOML 语法错误报错，不要静默吞掉用户的笔误。
+    ///
+    /// 分节写错、单条短语越界这类**语义**错误不整体失败：只丢出错的那一节 / 那一条，
+    /// 其余设置照常生效，丢掉的记进 [`ConfigDiagnostics`]（用 [`Self::load_with_diagnostics`] 取）。
     pub fn load(path: &Path) -> Result<Self, ConfigError> {
+        Self::load_with_diagnostics(path).map(|(config, _)| config)
+    }
+
+    /// 同 [`Self::load`]，另外把被丢掉的设置一并返回，给菜单与偏好设置显示。
+    pub fn load_with_diagnostics(path: &Path) -> Result<(Self, ConfigDiagnostics), ConfigError> {
         let source = match std::fs::read_to_string(path) {
             Ok(source) => source,
             Err(source) if source.kind() == std::io::ErrorKind::NotFound => {
-                return Ok(Self::default());
+                return Ok((Self::default(), ConfigDiagnostics::default()));
             }
             Err(source) => {
                 return Err(ConfigError::Read {
@@ -440,15 +441,31 @@ impl Config {
                 });
             }
         };
-        let config: Self = toml::from_str(&source).map_err(|source| ConfigError::Parse {
-            path: path.to_owned(),
-            source: Box::new(source),
-        })?;
+        // 先整体按语法解析：分节容错救不了少一个引号这类结构性笔误，那种照旧硬报
+        let document: toml::Table =
+            toml::from_str(&source).map_err(|source| ConfigError::Parse {
+                path: path.to_owned(),
+                source: Box::new(source),
+            })?;
+        let mut dropped = ConfigDiagnostics::default();
+        let config = Self {
+            general: section(&document, "general", &mut dropped),
+            custom_phrases: phrases(&document, &mut dropped),
+            shortcut: section(&document, "shortcut", &mut dropped),
+            fuzzy: section(&document, "fuzzy", &mut dropped),
+            dictionaries: section(&document, "dictionaries", &mut dropped),
+            aux_code: section(&document, "aux_code", &mut dropped),
+            apps: section(&document, "apps", &mut dropped),
+            predict: section(&document, "predict", &mut dropped),
+            status_bar: section(&document, "status_bar", &mut dropped),
+            model: section(&document, "model", &mut dropped),
+            update: section(&document, "update", &mut dropped),
+        };
         // 配置或环境变量里的密钥登记给日志掩码；各进程都从这里加载配置，登记在这一处就够
         if let Some(key) = config.predict.resolve_api_key() {
             crate::logs::secrets::register(&key);
         }
-        Ok(config)
+        Ok((config, dropped))
     }
 
     /// 原地改一个布尔键，见 [`Self::set_value`]。
@@ -529,6 +546,59 @@ impl Config {
         write_file(path, TEMPLATE)?;
         Ok(true)
     }
+}
+
+/// 从文档里取一个分节并反序列化；缺省或写坏时退回 `T::default()`，把原因记进 `dropped`。
+///
+/// 分节写坏只影响这一节：`[dictionaries]` 里打错一个词库名，不该连带 `[shortcut]` 与全部短语一起失效。
+fn section<T: serde::de::DeserializeOwned + Default>(
+    document: &toml::Table,
+    name: &str,
+    dropped: &mut ConfigDiagnostics,
+) -> T {
+    let Some(value) = document.get(name) else {
+        return T::default();
+    };
+    match value.clone().try_into::<T>() {
+        Ok(parsed) => parsed,
+        Err(error) => {
+            dropped.push(format!("[{name}] 分节读不了，已用缺省值：{error}"));
+            T::default()
+        }
+    }
+}
+
+/// 读 `[[custom_phrases]]`：逐条校验，只丢不合格的那一条，其余照常生效。
+///
+/// 一条短语越界（`position = 10`）曾经会让整份配置解析失败，用户的全部设置一起回退默认；
+/// 这里改成按条判定，坏的那条进 `dropped`，好的照用。
+fn phrases(
+    document: &toml::Table,
+    dropped: &mut ConfigDiagnostics,
+) -> Vec<qingjian_core::CustomPhrase> {
+    let Some(value) = document.get("custom_phrases") else {
+        return Vec::new();
+    };
+    let parsed: Vec<qingjian_core::CustomPhrase> = match value.clone().try_into() {
+        Ok(parsed) => parsed,
+        Err(error) => {
+            dropped.push(format!("自定义短语整表读不了，已全部忽略：{error}"));
+            return Vec::new();
+        }
+    };
+    let mut occupied = std::collections::BTreeSet::new();
+    let mut kept = Vec::with_capacity(parsed.len());
+    for (index, phrase) in parsed.iter().enumerate() {
+        match qingjian_core::custom_phrase::validate_phrase(phrase, &mut occupied) {
+            Ok(()) => kept.push(phrase.clone()),
+            Err(reason) => dropped.push(format!(
+                "自定义短语第 {} 条（输入码 {}）已忽略：{reason}",
+                index + 1,
+                phrase.code
+            )),
+        }
+    }
+    kept
 }
 
 /// 原子写配置文件；数据目录还没有就先建（新账户第一次打开设置时输入法可能还没跑过）。
@@ -679,5 +749,115 @@ mod tests {
         let path = std::env::temp_dir().join("qingjian-config-missing-test.toml");
         let _ = std::fs::remove_file(&path);
         assert_eq!(Config::load(&path).unwrap(), Config::default());
+    }
+
+    /// 一条短语越界只丢那一条：其余短语与别的分节照常生效。
+    /// 这是设置「被清理」那次故障的回归——原先一条 `position = 10` 会让整份配置失效。
+    #[test]
+    fn out_of_range_phrase_drops_only_itself() {
+        let path = std::env::temp_dir().join("qingjian-config-bad-phrase-test.toml");
+        std::fs::write(
+            &path,
+            r#"[dictionaries]
+domains = ["medicine", "idioms"]
+[[custom_phrases]]
+code = "aa"
+text = "甲"
+position = 1
+enabled = true
+[[custom_phrases]]
+code = "ddz"
+text = "越界那条"
+position = 10
+enabled = true
+[[custom_phrases]]
+code = "bb"
+text = "乙"
+position = 2
+enabled = true
+"#,
+        )
+        .unwrap();
+        let (config, dropped) =
+            Config::load_with_diagnostics(&path).expect("语义错误不该让整份配置读不出来");
+        let codes: Vec<&str> = config
+            .custom_phrases
+            .iter()
+            .map(|p| p.code.as_str())
+            .collect();
+        assert_eq!(codes, ["aa", "bb"], "坏的那条被丢掉，好的两条保留");
+        assert_eq!(config.dictionaries.domains, ["medicine", "idioms"]);
+        assert_eq!(dropped.len(), 1, "{dropped}");
+        let message = &dropped.messages()[0];
+        assert!(
+            message.contains("第 2 条") && message.contains("ddz"),
+            "{message}"
+        );
+        let _ = std::fs::remove_file(&path);
+    }
+
+    /// 被丢的那条不占位：它后面的同名同位条目仍然可用。
+    #[test]
+    fn dropped_phrase_does_not_occupy_its_slot() {
+        let path = std::env::temp_dir().join("qingjian-config-dropped-slot-test.toml");
+        std::fs::write(
+            &path,
+            r#"[[custom_phrases]]
+code = "ee"
+text = "越界"
+position = 10
+enabled = true
+[[custom_phrases]]
+code = "ee"
+text = "第 1 位"
+position = 1
+enabled = true
+"#,
+        )
+        .unwrap();
+        let (config, dropped) = Config::load_with_diagnostics(&path).unwrap();
+        assert_eq!(dropped.len(), 1);
+        assert_eq!(config.custom_phrases.len(), 1);
+        assert_eq!(config.custom_phrases[0].text, "第 1 位");
+        let _ = std::fs::remove_file(&path);
+    }
+
+    /// 分节写坏只丢那一节，别的分节照常生效。
+    #[test]
+    fn broken_section_drops_only_that_section() {
+        let path = std::env::temp_dir().join("qingjian-config-bad-section-test.toml");
+        std::fs::write(
+            &path,
+            r#"[general]
+page_size = 7
+[dictionaries]
+domains = "medicine"
+[shortcut]
+translation = "control"
+"#,
+        )
+        .unwrap();
+        let (config, dropped) = Config::load_with_diagnostics(&path).unwrap();
+        assert_eq!(config.dictionaries, DictionariesConfig::default());
+        assert_eq!(
+            config.general.page_size, 7,
+            "坏的是 [dictionaries]，[general] 不该受影响"
+        );
+        assert_eq!(config.shortcut.translation, Modifiers::CONTROL);
+        assert_eq!(dropped.len(), 1);
+        assert!(dropped.messages()[0].contains("dictionaries"), "{dropped}");
+        let _ = std::fs::remove_file(&path);
+    }
+
+    /// TOML 语法错误（少个引号、表头写坏）仍然硬报，不静默吞掉笔误。
+    #[test]
+    fn syntax_error_is_still_fatal() {
+        let path = std::env::temp_dir().join("qingjian-config-syntax-error-test.toml");
+        std::fs::write(&path, "[fuzzy\nz_zh = false\n").unwrap();
+        assert!(matches!(
+            Config::load(&path),
+            Err(ConfigError::Parse { .. })
+        ));
+        let _ = std::fs::remove_file(&path);
     }
 }
