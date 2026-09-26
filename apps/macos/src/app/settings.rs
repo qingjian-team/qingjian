@@ -66,9 +66,7 @@ impl Settings {
         if let Some(error) = &self.error {
             parts.push(format!("配置文件解析失败，已沿用上一份：{error}"));
         }
-        if !self.dropped.is_empty() {
-            parts.push(format!("已忽略：{}", self.dropped));
-        }
+        parts.extend(self.dropped.messages().iter().cloned());
         if parts.is_empty() {
             None
         } else {

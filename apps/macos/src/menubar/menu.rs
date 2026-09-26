@@ -115,7 +115,8 @@ impl InputMenu {
 
     /// 按当前配置刷新勾选状态。`cloud_active` 是 Engine 里真接上了 Predictor：
     /// 配置开了但没接上（多半是没密钥）时不打勾，标题说明原因，不能显示开了实际没开。
-    pub fn sync(&self, config: &Config, cloud_active: bool, error: Option<&str>) {
+    /// `notice` 是配置文件的问题（`Settings::notice()` 已写好措辞），原样显示，没有问题时藏起来。
+    pub fn sync(&self, config: &Config, cloud_active: bool, notice: Option<&str>) {
         let title = match (config.predict.enabled, cloud_active) {
             (true, false) => "云联想（启用失败，见日志）",
             _ => "云联想",
@@ -125,10 +126,9 @@ impl InputMenu {
         for (item, name) in self.fuzzy.iter().zip(FuzzyRules::NAMES) {
             set_checked(item, config.fuzzy.is_on(name));
         }
-        match error {
+        match notice {
             Some(message) => {
-                self.error
-                    .setTitle(&NSString::from_str(&format!("配置文件有错误：{message}")));
+                self.error.setTitle(&NSString::from_str(message));
                 self.error.setHidden(false);
             }
             None => self.error.setHidden(true),
