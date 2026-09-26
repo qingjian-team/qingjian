@@ -131,6 +131,9 @@ Engine 侧在 `engine/rescoring/`：接了打分器就取 Viterbi 前 `RESCORE_P
 `Config`（TOML 配置文件，`[general]` / `[shortcut]` / `[fuzzy]` / `[dictionaries]` / `[apps]` / `[predict]` 分节，首次运行写模板，
 `set_value` 用 toml_edit 原地改键保留注释；`[model] enabled` 本地整句模型开关，`LocalModelConfig`；
 中英模式两项：`[shortcut] switch_mode`（`SwitchKeys`：勾选 shift / control / ctrl+alt+space，可多选，老配置的单个字符串照读）与 `[general] english_mode`（内置英文模式总开关））；
+读配置分级容错（`Config::load_with_diagnostics` → `ConfigDiagnostics`）：TOML **语法**错误照旧整份硬报（`ConfigError::Parse`），
+分节写坏只丢那一节回缺省、`[[custom_phrases]]` 单条不合格只丢那一条（`qingjian_core::custom_phrase::validate_phrase` 逐条校验，被丢的不占位置）。
+写入 `set_custom_phrases` / `set_value` 仍走严格校验。丢掉的记进 `ConfigDiagnostics`，macOS 壳在菜单与偏好设置里显示；
 `extra_dictionaries` 列出 / 加载随包领域词库与用户 `dicts/`
 （mac 壳与 Windows Server 共用，同名 `.qj` 优先于 `.tsv`）；`code_tables` 同构地列出 / 加载随包根 `codes/` 与用户 `codes/` 的码表
 （`[aux_code] disabled` 是黑名单，`[general] aux_code_key` 缺省 `;` 且校验后退回缺省、`aux_code_show` 是显示码开关）；
