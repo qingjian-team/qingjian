@@ -1,0 +1,9 @@
+{
+  "agent": "your-agent-id",
+  "driver": "",
+  "branch": "",
+  "task": "一句话说清你在干什么",
+  "scope": ["crates/<crate>/src/**"],
+  "opened": "2026-09-25",
+  "expires": "2026-09-27"
+}

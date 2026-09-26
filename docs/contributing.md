@@ -73,6 +73,51 @@
   排除不掉就整条命令失败），与 [ci.yml](../.github/workflows/ci.yml) 三个 job 的划分一致；Windows 上 pre-push 另设 `QINGJIAN_UIACCESS=0`
   （Server 的 build.rs 嵌 uiAccess manifest，没签名的测试二进制起不来，os error 740）。
 - 排序 / 整句 / 纠错的改动先跑 `apps/cli` 再合。
+- **结构与协作门禁**：`python3 scripts/gates/gate.py --fast`（pre-commit 同款，秒级、不需 cargo）跑
+  上帝对象规模棘轮 + 欠账台账对账 + 雷同代码 + 产品代码坏味道 + 多智能体认领 + 门禁自检；
+  合入前跑 `python3 scripts/gates/gate.py`（多跑 fmt / clippy / 全量测试）。说明见 [GATES.md](GATES.md)。
+- **产品代码不许有这些坏味道**（全是棘轮，只准减）：`.unwrap()` / `.expect()` 系列（该用 `?`）、
+  单行 > 200 字符、`thread::sleep`（该用 channel / 条件变量）、`let _ = …` 吞掉 `Result`、
+  非 FFI 代码里的 `unsafe` 块、函数圈复杂度 > 15、嵌套深度 > 5（> 8 硬禁）、
+  `println!`/`eprintln!`（该用 `tracing`；`apps/cli` 与 `tools/` 除外）、trait 方法数 > 15（> 40 硬禁）。
+  测试面（`tests/` `examples/` `benches/`）不算产品代码，不进这些门的口径。
+- **存量 = 0 的规矩直接硬判**（没有基线，不许被 `--write` 祖父化）：函数形参 > 7、
+  同目录下用文件名前缀分组（`foo_a.rs` + `foo_b.rs` ⇒ 收进 `foo/`）、`crates/*` 必须
+  `version.workspace = true`、各壳必须写死自己的 `version`、全仓不许 `anyhow`、
+  不许 `Vec<Translation>` / `HashMap<Lang, _>` 这类多语言并列结构（一次只学一种语言）、
+  标识符一律英文且 `#[error]` 文案用英文。
+- **另有两道棘轮**：`use super::super::…` 绕父模块转手（该直接 `use crate::…`）、
+  单文件内嵌测试 > 200 行（该搬到 `tests.rs`）。
+- **不许有上帝对象**：单文件 ≤800 行、最长函数 ≤100 行、最大类型 ≤20 成员；另有一个类型所有
+  `impl` 加起来方法 ≤40、散在文件 ≤8（按类型名聚合，拆子模块后每个文件都很小也照样抓得到）。
+  全是棘轮（只准减，涨了就红）。存量欠账在 `docs/review/god-debt.md`，谁改到谁认领、顺手减；
+  拆完跑 `gate.py --write` 重记基线（**要 git diff 过目**：基线变松 = 门变松）。
+  **碰了就得减**：改动已超阈的欠账文件时，必须把它变小——棘轮只管「不许变胖」，这条连
+  「原样不动」都不放行，否则存量能永远躺着没人碰。
+- **架构约束同样有门**：新文件必须有 `//!` 文件头、一个文件一个类型、不用 `use …::*`、
+  子模块用目录（`foo/mod.rs` 不与 `foo.rs` 并列）、`crates/*` 不许无条件依赖壳或 OS 特有 crate。
+- **多个智能体并行**：动代码前先认领（`.agents/claims/<id>.json`，见 [`.agents/CLAIMS.md`](../.agents/CLAIMS.md)），
+  域与他人重叠或改到别人域里 = 红。
+
+## CI 与发版
+
+- CI 三个 job（Linux 全量 / macOS 壳 / Windows 三 crate）都 `--locked`；Dependabot 升 actions；每周 `cargo audit`。
+  另有 `gates.yml` 跑结构与协作门禁（上帝对象 / 架构约束 / 雷同代码 / 产品代码坏味道 /
+  多智能体认领 / 门禁自检），
+  并在 ci.yml 里挂了一道「门禁自检」——把 gates.yml 或门脚本删掉，ci.yml 那道先红。
+- 发版：推 `<平台>-v<版本>` 标签触发 `release.yml`，门禁是版本号 = 标签且不带 -dev、标签在 main 上、产品数据按 SHA256SUMS 校验。
+- CHANGELOG 手写、发版时由维护者统一改（PR 不动它）。流程与 Secrets 见 [notes/release.md](notes/release.md)。
+
+## 外部 PR
+
+- 从 main 开分支，一个 PR 只做一件事、只碰一个平台（Core 改动单独一个）。
+- 维护者对着 main 审，squash 合并保留作者署名。PR 模板里的合并前清单就是审核标准。
+- **修 bug、改壳里行为（按键、上屏、候选窗位置）的 PR 必须真机验过**：先在自己机器上复现问题，改完在同一个应用里确认修好，
+  PR 的「怎么验证的」写明系统版本、应用与操作步骤。编译与 CI 通过不算验证。没验过的修复发出去，报 issue 的人升级后还得再报一次。
+  复现不了的（没有那个应用或系统）不提修复：把分析写在 issue 里，或者提只加日志、不改行为的 PR。
+  不改行为的改动（日志、注释、文档）与有测试 / 回放兜底的 Core 逻辑不受此限。
+- 主题与自绘渲染器（`crates/qingjian-render`、各壳的贴图路径、主题文件）还在测试，这部分暂不接受 PR；稳定一版后再开。
+
 
 ## CI 与发版
 

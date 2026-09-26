@@ -1,0 +1,54 @@
+# 门禁：上帝对象 / 架构约束 / 重复代码 / 产品代码坏味道 / 多智能体协作 / 门禁自检。
+# 与 quality.yml（PR 标题、cargo-deny、gitleaks、unsafe 增量、残留标记扫描、仓库卫生）和
+# ci.yml（fmt / clippy / 文档门 / 全量测试）互补——那两条管编译与安全，这条管**结构与协作**。
+#
+# 每一步都显式调用 `scripts/gates/<门>.py`，与本地 `scripts/gates/gate.py` 的 STEPS 同源；
+# 「本地有、CI 没有」或「CI 有、本地没有」由 `gate_selftest.py` 的 S1 判红（不许漂移）。
+# 本文件自身被 `scripts/ci_shape_lock.sh` 钉住（顺手删几行会让 CI 形状锁红）。
+name: gates
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gates-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+
+
+  agents:
+    name: 多智能体协作门
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      # 声明格式 + 域不重叠（A1/A2/A3）。CI 上没有 QJ_AGENT_ID ⇒ 只跑这三条，
+      # 不跑越界检查（A4/A5）——CI 是只读校验，靠 A3 挡住「两个智能体同时动一处」。
+      - name: 认领与域冲突
+        run: python3 -X utf8 scripts/gates/agent_gate.py --changed-from none
+
+      - name: 列出当前认领
+        continue-on-error: true
+        run: python3 -X utf8 scripts/gates/agent_gate.py --list
+
+  selftest:
+    name: 门禁自检
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      # 门不许被悄悄削弱：阈值放宽 / 硬阈关掉 / workflow 少一步 / 钩子上少一步 / 基线被删 ⇒ 红。
+      - name: 门未被削弱
+        run: python3 -X utf8 scripts/gates/gate_selftest.py

@@ -1,0 +1,19 @@
+{
+  "agent": "workbuddy-gates",
+  "driver": "寇豆码",
+  "branch": "ci/unified-rx-gates",
+  "task": "移植统一门禁（上帝对象/重复代码/多智能体协作）并接进 CI",
+  "scope": [
+    "scripts/gates/**",
+    "scripts/ci_shape_lock.sh",
+    ".agents/**",
+    ".github/workflows/gates.yml",
+    ".githooks/pre-commit",
+    "docs/review/god-*.md",
+    "docs/review/god-*.json",
+    "docs/review/dupe-baseline.json",
+    "docs/GATES.md"
+  ],
+  "opened": "2026-09-25",
+  "expires": "2026-10-02"
+}

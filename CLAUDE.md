@@ -53,3 +53,14 @@ Windows 本机只 `cargo check --target x86_64-pc-windows-gnu`，真编译与真
 @docs/contributing.md
 
 交流用中文。
+## 审核门禁（结构与协作）
+
+- `python3 scripts/gates/gate.py --fast`：一条命令跑完——上帝对象规模棘轮（文件 ≤800 行 /
+  最长函数 ≤100 行 / 最大类型 ≤20 成员，只准减；欠账台账在 `docs/review/god-debt.md`）、
+  雷同代码新增即红、**跨文件上帝类型**（按类型名聚合 impl：方法 >40 / 散在文件 >8）、
+架构约束（新文件文件头与一类型一文件、glob 导入、Core 依赖方向、禁词）、
+多智能体认领与域冲突、门禁自检。合入前跑
+  `python3 scripts/gates/gate.py`（多跑 fmt / clippy / 全量测试）。完整说明在 [`docs/GATES.md`](docs/GATES.md)。
+- **多个智能体并行开发本仓**：动代码前先建 `.agents/claims/<你的-id>.json` 并
+  `export QJ_AGENT_ID=<你的-id>`，域不许与他人重叠；协议见 [`.agents/CLAIMS.md`](.agents/CLAIMS.md)。
+  这一条**一定要先读**——别人正在改的文件你不能同时改，机器会判红。
