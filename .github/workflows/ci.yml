@@ -103,3 +103,18 @@ jobs:
       # 安装包另带一份 32 位 DLL（企业微信 / WPS 这类 32 位应用只能加载它）
       - name: Check (TSF DLL, 32-bit)
         run: cargo check -p qingjian-windows-tsf --target i686-pc-windows-msvc --locked
+  gate-shape:
+    name: 门禁自检（门不许被悄悄削弱）
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      # 为什么这道要挂在 ci.yml 上而不是只放在 gates.yml 里：门禁全是仓库里的文本文件，
+      # 把 gates.yml 整个删掉、或抽掉其中几个 job，那条 workflow 自己就不会跑了 ⇒
+      # 必须由**别处**盯住。这里跑 `gate_selftest.py`：门脚本与 gates.yml 双向同源、
+      # pre-commit 仍挂着快门、阈值没被放宽、基线还在。
+      - name: 门禁仍在且未被削弱
+        run: python3 -X utf8 scripts/gates/gate_selftest.py

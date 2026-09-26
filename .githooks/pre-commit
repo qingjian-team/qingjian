@@ -14,6 +14,29 @@ if [[ -n "$staged_rs" ]]; then
   fi
 fi
 
+# 挑一个**真能跑**的 python：本机 `python3` 可能是 Windows 商店占位程序（`command -v` 有它，
+# 但跑起来直接退出 49、连一行输出都没有 ⇒ 钩子会以莫名其妙的 49 失败）。所以不能只看
+# `command -v`，必须真跑一次探活。
+pick_py() {
+  for c in python3 python; do
+    if command -v "$c" >/dev/null 2>&1 && "$c" -c 'pass' >/dev/null 2>&1; then
+      echo "$c"
+      return 0
+    fi
+  done
+  return 1
+}
+PY="$(pick_py)" || {
+  echo "没有可用的 python3 / python——门禁快门跑不了（CI 会跑；本地装 Python 后门才完整）" >&2
+  exit 1
+}
+
+# 统一门禁快门（scripts/gates/gate.py --fast，秒级、不需 cargo）：
+# 上帝对象规模棘轮 + 欠账台账对账 + 雷同代码 + 多智能体认领/域冲突 + 门禁自检。
+# 身份：export QJ_AGENT_ID=你的id 并建 .agents/claims/<id>.json（见 .agents/CLAIMS.md）；
+# 没设身份就只跑不依赖身份的几条（CI 同理，靠「域不重叠」挡住并行改动）。
+"$PY" scripts/gates/gate.py --fast
+
 cargo fmt --all --check
 
 # clippy 要按平台排除编不了的壳，划分与 ci.yml 的三个 job 一致。
