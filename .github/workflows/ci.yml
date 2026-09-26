@@ -1,6 +1,6 @@
-# 三个 job：Linux 跑 fmt / clippy / 全 workspace 测试（排除 IMK 外壳）；macOS 与 Windows runner 各编各的壳并跑平台测试，
-# 平台特有的编译错（Objective-C 调用、TSF 导出、WinUI）在 PR 里就暴露，不等发版。仓库公开，Actions 不计费。
-# actions 一律钉到 commit（注释里是对应的标签），Dependabot 每周提 PR 更新；cargo 全加 --locked，Cargo.lock 没提交就报错。
+# 四个 job：Linux 跑 fmt / clippy / 全 workspace 测试（排除 IMK 外壳）；macOS 与 Windows runner 各编各的壳并跑平台测试；
+# Android 对 aarch64-linux-android 做跨目标 cargo check（不链接，NDK 只为 onig_sys 编 C，排除桌面壳与目标不可用依赖，见作业注释）。
+# 平台特有的编译错（Objective-C 调用、TSF 导出、WinUI、移动端目标破坏）在 PR 里就暴露，不等发版。仓库公开，Actions 不计费。
 name: ci
 
 on:
@@ -103,3 +103,36 @@ jobs:
       # 安装包另带一份 32 位 DLL（企业微信 / WPS 这类 32 位应用只能加载它）
       - name: Check (TSF DLL, 32-bit)
         run: cargo check -p qingjian-windows-tsf --target i686-pc-windows-msvc --locked
+
+  android:
+    runs-on: ubuntu-26.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de # v1
+        with:
+          toolchain: 1.96.0
+          targets: aarch64-linux-android
+
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+
+      # core 的简繁转换（ferrous-opencc -> onig_sys）要交叉编译 C；runner 已预装 NDK
+      # （ANDROID_NDK_HOME 指向 ndk/27.x），但 cc-rs 的探测没吃进去（报
+      # "failed to find tool aarch64-linux-android-clang"，这是无 NDK 时的裸工具名兜底），
+      # 显式给 CC/CXX/AR 绕开探测。
+      - name: 指到预装 NDK 的交叉 clang（onig_sys 编 C 用）
+        run: |
+          echo "CC_aarch64_linux_android=$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android21-clang" >> "$GITHUB_ENV"
+          echo "CXX_aarch64_linux_android=$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android21-clang++" >> "$GITHUB_ENV"
+          echo "AR_aarch64_linux_android=$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar" >> "$GITHUB_ENV"
+
+      # android 上 native-tls 落到 openssl-sys，而 platform -> predict -> async-openai -> reqwest(native-tls)
+      # 是硬依赖边，openssl-sys 的 build script 需要 NDK + 交叉 openssl，先把传染闭包
+      # （platform / predict / update / cli / tools）排除，全量覆盖等 native-tls 换 rustls
+      # 或按目标门控后再放开（见 issue #235）。render 同样排除：字体发现模块只有 windows/linux/macos 三个实现，是 render spike 的已知缺口。
+      - name: Check (aarch64-linux-android)
+        run: cargo check --workspace --exclude qingjian-macos --exclude qingjian-linux-server --exclude qingjian-windows-server --exclude qingjian-windows-tsf --exclude qingjian-windows-settings --exclude qingjian-platform --exclude qingjian-predict --exclude qingjian-update --exclude qingjian-cli --exclude qingjian-gloss-gen --exclude qingjian-release-sign --exclude qingjian-render --target aarch64-linux-android --locked
+
+  # ---- 华为手机（HarmonyOS / OpenHarmony）目标编译检查 ----
