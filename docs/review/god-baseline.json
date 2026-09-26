@@ -1,0 +1,3562 @@
+{
+ "apps/cli/src/args.rs": {
+  "file_lines": 150,
+  "max_fn_lines": 15,
+  "max_type_members": 28
+ },
+ "apps/cli/src/display.rs": {
+  "file_lines": 260,
+  "max_fn_lines": 72,
+  "max_type_members": 0
+ },
+ "apps/cli/src/error.rs": {
+  "file_lines": 47,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "apps/cli/src/eval/coverage.rs": {
+  "file_lines": 51,
+  "max_fn_lines": 28,
+  "max_type_members": 4
+ },
+ "apps/cli/src/eval/extract.rs": {
+  "file_lines": 87,
+  "max_fn_lines": 32,
+  "max_type_members": 2
+ },
+ "apps/cli/src/eval/mod.rs": {
+  "file_lines": 185,
+  "max_fn_lines": 60,
+  "max_type_members": 0
+ },
+ "apps/cli/src/eval/pair.rs": {
+  "file_lines": 53,
+  "max_fn_lines": 14,
+  "max_type_members": 3
+ },
+ "apps/cli/src/eval/report.rs": {
+  "file_lines": 108,
+  "max_fn_lines": 50,
+  "max_type_members": 12
+ },
+ "apps/cli/src/eval/transcribe.rs": {
+  "file_lines": 91,
+  "max_fn_lines": 21,
+  "max_type_members": 3
+ },
+ "apps/cli/src/logging.rs": {
+  "file_lines": 45,
+  "max_fn_lines": 34,
+  "max_type_members": 0
+ },
+ "apps/cli/src/main.rs": {
+  "file_lines": 304,
+  "max_fn_lines": 204,
+  "max_type_members": 0
+ },
+ "apps/cli/src/repl.rs": {
+  "file_lines": 72,
+  "max_fn_lines": 41,
+  "max_type_members": 0
+ },
+ "apps/cli/src/replay/line.rs": {
+  "file_lines": 35,
+  "max_fn_lines": 12,
+  "max_type_members": 2
+ },
+ "apps/cli/src/replay/mod.rs": {
+  "file_lines": 252,
+  "max_fn_lines": 116,
+  "max_type_members": 0
+ },
+ "apps/cli/src/replay/report.rs": {
+  "file_lines": 206,
+  "max_fn_lines": 59,
+  "max_type_members": 18
+ },
+ "apps/cli/src/replay/scheme.rs": {
+  "file_lines": 126,
+  "max_fn_lines": 24,
+  "max_type_members": 3
+ },
+ "apps/cli/src/replay/tally.rs": {
+  "file_lines": 97,
+  "max_fn_lines": 15,
+  "max_type_members": 16
+ },
+ "apps/cli/src/rescoring.rs": {
+  "file_lines": 25,
+  "max_fn_lines": 14,
+  "max_type_members": 0
+ },
+ "apps/cli/src/tuning.rs": {
+  "file_lines": 128,
+  "max_fn_lines": 38,
+  "max_type_members": 0
+ },
+ "apps/linux/scripts/files.py": {
+  "file_lines": 106,
+  "max_fn_lines": 85,
+  "max_type_members": 0
+ },
+ "apps/linux/server/src/assembly/language_model.rs": {
+  "file_lines": 31,
+  "max_fn_lines": 9,
+  "max_type_members": 2
+ },
+ "apps/linux/server/src/assembly/mod.rs": {
+  "file_lines": 169,
+  "max_fn_lines": 70,
+  "max_type_members": 0
+ },
+ "apps/linux/server/src/assembly/spec.rs": {
+  "file_lines": 66,
+  "max_fn_lines": 16,
+  "max_type_members": 12
+ },
+ "apps/linux/server/src/dispatch/composed/mod.rs": {
+  "file_lines": 188,
+  "max_fn_lines": 62,
+  "max_type_members": 7
+ },
+ "apps/linux/server/src/dispatch/composed/state.rs": {
+  "file_lines": 30,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "apps/linux/server/src/dispatch/config.rs": {
+  "file_lines": 83,
+  "max_fn_lines": 20,
+  "max_type_members": 13
+ },
+ "apps/linux/server/src/dispatch/display.rs": {
+  "file_lines": 135,
+  "max_fn_lines": 69,
+  "max_type_members": 3
+ },
+ "apps/linux/server/src/dispatch/key/codes.rs": {
+  "file_lines": 50,
+  "max_fn_lines": 10,
+  "max_type_members": 0
+ },
+ "apps/linux/server/src/dispatch/key/effect.rs": {
+  "file_lines": 14,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "apps/linux/server/src/dispatch/key/input.rs": {
+  "file_lines": 335,
+  "max_fn_lines": 90,
+  "max_type_members": 10
+ },
+ "apps/linux/server/src/dispatch/key/mod.rs": {
+  "file_lines": 28,
+  "max_fn_lines": 13,
+  "max_type_members": 0
+ },
+ "apps/linux/server/src/dispatch/key/shortcut.rs": {
+  "file_lines": 87,
+  "max_fn_lines": 20,
+  "max_type_members": 7
+ },
+ "apps/linux/server/src/dispatch/key/tests/behavior.rs": {
+  "file_lines": 108,
+  "max_fn_lines": 27,
+  "max_type_members": 0
+ },
+ "apps/linux/server/src/dispatch/key/tests/mod.rs": {
+  "file_lines": 6,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "apps/linux/server/src/dispatch/key/tests/schemes.rs": {
+  "file_lines": 88,
+  "max_fn_lines": 42,
+  "max_type_members": 0
+ },
+ "apps/linux/server/src/dispatch/key/tests/support.rs": {
+  "file_lines": 67,
+  "max_fn_lines": 30,
+  "max_type_members": 0
+ },
+ "apps/linux/server/src/dispatch/key/tests/tab.rs": {
+  "file_lines": 100,
+  "max_fn_lines": 42,
+  "max_type_members": 0
+ },
+ "apps/linux/server/src/dispatch/linux.rs": {
+  "file_lines": 172,
+  "max_fn_lines": 129,
+  "max_type_members": 3
+ },
+ "apps/linux/server/src/dispatch/message.rs": {
+  "file_lines": 67,
+  "max_fn_lines": 60,
+  "max_type_members": 1
+ },
+ "apps/linux/server/src/dispatch/mod.rs": {
+  "file_lines": 130,
+  "max_fn_lines": 20,
+  "max_type_members": 14
+ },
+ "apps/linux/server/src/dispatch/rescore/loader.rs": {
+  "file_lines": 65,
+  "max_fn_lines": 28,
+  "max_type_members": 2
+ },
+ "apps/linux/server/src/dispatch/rescore/mod.rs": {
+  "file_lines": 184,
+  "max_fn_lines": 28,
+  "max_type_members": 13
+ },
+ "apps/linux/server/src/dispatch/rescore/state.rs": {
+  "file_lines": 69,
+  "max_fn_lines": 7,
+  "max_type_members": 7
+ },
+ "apps/linux/server/src/dispatch/session/info.rs": {
+  "file_lines": 66,
+  "max_fn_lines": 18,
+  "max_type_members": 1
+ },
+ "apps/linux/server/src/dispatch/session/mod.rs": {
+  "file_lines": 108,
+  "max_fn_lines": 32,
+  "max_type_members": 7
+ },
+ "apps/linux/server/src/error.rs": {
+  "file_lines": 18,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "apps/linux/server/src/ipc/connection.rs": {
+  "file_lines": 248,
+  "max_fn_lines": 227,
+  "max_type_members": 0
+ },
+ "apps/linux/server/src/ipc/mod.rs": {
+  "file_lines": 157,
+  "max_fn_lines": 49,
+  "max_type_members": 0
+ },
+ "apps/linux/server/src/ipc/session.rs": {
+  "file_lines": 12,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "apps/linux/server/src/ipc/tests.rs": {
+  "file_lines": 67,
+  "max_fn_lines": 49,
+  "max_type_members": 0
+ },
+ "apps/linux/server/src/lib.rs": {
+  "file_lines": 11,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "apps/linux/server/src/main.rs": {
+  "file_lines": 114,
+  "max_fn_lines": 99,
+  "max_type_members": 0
+ },
+ "apps/linux/server/src/paths.rs": {
+  "file_lines": 42,
+  "max_fn_lines": 12,
+  "max_type_members": 0
+ },
+ "apps/linux/server/src/protocol/capabilities.rs": {
+  "file_lines": 12,
+  "max_fn_lines": 0,
+  "max_type_members": 3
+ },
+ "apps/linux/server/src/protocol/display.rs": {
+  "file_lines": 16,
+  "max_fn_lines": 0,
+  "max_type_members": 3
+ },
+ "apps/linux/server/src/protocol/event.rs": {
+  "file_lines": 42,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "apps/linux/server/src/protocol/identity.rs": {
+  "file_lines": 14,
+  "max_fn_lines": 0,
+  "max_type_members": 3
+ },
+ "apps/linux/server/src/protocol/mod.rs": {
+  "file_lines": 13,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "apps/linux/server/src/protocol/request.rs": {
+  "file_lines": 12,
+  "max_fn_lines": 0,
+  "max_type_members": 2
+ },
+ "apps/linux/server/tests/config.rs": {
+  "file_lines": 68,
+  "max_fn_lines": 58,
+  "max_type_members": 0
+ },
+ "apps/linux/server/tests/display/events.rs": {
+  "file_lines": 58,
+  "max_fn_lines": 26,
+  "max_type_members": 0
+ },
+ "apps/linux/server/tests/display/main.rs": {
+  "file_lines": 201,
+  "max_fn_lines": 33,
+  "max_type_members": 3
+ },
+ "apps/linux/server/tests/events/main.rs": {
+  "file_lines": 99,
+  "max_fn_lines": 47,
+  "max_type_members": 0
+ },
+ "apps/linux/server/tests/events/support.rs": {
+  "file_lines": 70,
+  "max_fn_lines": 21,
+  "max_type_members": 0
+ },
+ "apps/linux/server/tests/multiplex.rs": {
+  "file_lines": 144,
+  "max_fn_lines": 57,
+  "max_type_members": 0
+ },
+ "apps/linux/server/tests/privacy.rs": {
+  "file_lines": 175,
+  "max_fn_lines": 30,
+  "max_type_members": 0
+ },
+ "apps/linux/server/tests/protocol.rs": {
+  "file_lines": 88,
+  "max_fn_lines": 32,
+  "max_type_members": 0
+ },
+ "apps/linux/server/tests/rescoring.rs": {
+  "file_lines": 213,
+  "max_fn_lines": 52,
+  "max_type_members": 1
+ },
+ "apps/linux/server/tests/router.rs": {
+  "file_lines": 195,
+  "max_fn_lines": 45,
+  "max_type_members": 0
+ },
+ "apps/linux/server/tests/socket.rs": {
+  "file_lines": 205,
+  "max_fn_lines": 65,
+  "max_type_members": 0
+ },
+ "apps/linux/server/tests/support/server.rs": {
+  "file_lines": 60,
+  "max_fn_lines": 23,
+  "max_type_members": 2
+ },
+ "apps/linux/server/tests/vocabulary.rs": {
+  "file_lines": 109,
+  "max_fn_lines": 57,
+  "max_type_members": 0
+ },
+ "apps/linux/tests/installation.py": {
+  "file_lines": 45,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "apps/macos/src/app/bundle.rs": {
+  "file_lines": 50,
+  "max_fn_lines": 25,
+  "max_type_members": 4
+ },
+ "apps/macos/src/app/input_source.rs": {
+  "file_lines": 227,
+  "max_fn_lines": 42,
+  "max_type_members": 1
+ },
+ "apps/macos/src/app/logging/log_file.rs": {
+  "file_lines": 78,
+  "max_fn_lines": 16,
+  "max_type_members": 3
+ },
+ "apps/macos/src/app/logging/mod.rs": {
+  "file_lines": 175,
+  "max_fn_lines": 31,
+  "max_type_members": 0
+ },
+ "apps/macos/src/app/mod.rs": {
+  "file_lines": 11,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "apps/macos/src/app/paths.rs": {
+  "file_lines": 72,
+  "max_fn_lines": 8,
+  "max_type_members": 0
+ },
+ "apps/macos/src/app/settings.rs": {
+  "file_lines": 188,
+  "max_fn_lines": 33,
+  "max_type_members": 13
+ },
+ "apps/macos/src/candidates/bitmap/convert.rs": {
+  "file_lines": 58,
+  "max_fn_lines": 20,
+  "max_type_members": 0
+ },
+ "apps/macos/src/candidates/bitmap/font_files.rs": {
+  "file_lines": 54,
+  "max_fn_lines": 32,
+  "max_type_members": 0
+ },
+ "apps/macos/src/candidates/bitmap/mod.rs": {
+  "file_lines": 180,
+  "max_fn_lines": 34,
+  "max_type_members": 8
+ },
+ "apps/macos/src/candidates/cloud_icon.rs": {
+  "file_lines": 56,
+  "max_fn_lines": 17,
+  "max_type_members": 4
+ },
+ "apps/macos/src/candidates/frame.rs": {
+  "file_lines": 51,
+  "max_fn_lines": 6,
+  "max_type_members": 8
+ },
+ "apps/macos/src/candidates/mod.rs": {
+  "file_lines": 17,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "apps/macos/src/candidates/preedit/mod.rs": {
+  "file_lines": 73,
+  "max_fn_lines": 14,
+  "max_type_members": 4
+ },
+ "apps/macos/src/candidates/preedit/segment.rs": {
+  "file_lines": 23,
+  "max_fn_lines": 6,
+  "max_type_members": 2
+ },
+ "apps/macos/src/candidates/preedit/style.rs": {
+  "file_lines": 27,
+  "max_fn_lines": 9,
+  "max_type_members": 1
+ },
+ "apps/macos/src/candidates/row.rs": {
+  "file_lines": 74,
+  "max_fn_lines": 39,
+  "max_type_members": 4
+ },
+ "apps/macos/src/candidates/theme.rs": {
+  "file_lines": 81,
+  "max_fn_lines": 20,
+  "max_type_members": 16
+ },
+ "apps/macos/src/candidates/view/matrix.rs": {
+  "file_lines": 208,
+  "max_fn_lines": 76,
+  "max_type_members": 5
+ },
+ "apps/macos/src/candidates/view/mod.rs": {
+  "file_lines": 645,
+  "max_fn_lines": 59,
+  "max_type_members": 33
+ },
+ "apps/macos/src/candidates/window.rs": {
+  "file_lines": 228,
+  "max_fn_lines": 33,
+  "max_type_members": 10
+ },
+ "apps/macos/src/error.rs": {
+  "file_lines": 38,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "apps/macos/src/host/cloud/mod.rs": {
+  "file_lines": 192,
+  "max_fn_lines": 44,
+  "max_type_members": 6
+ },
+ "apps/macos/src/host/cloud/predict_monitor.rs": {
+  "file_lines": 90,
+  "max_fn_lines": 17,
+  "max_type_members": 4
+ },
+ "apps/macos/src/host/cloud/test_monitor.rs": {
+  "file_lines": 90,
+  "max_fn_lines": 17,
+  "max_type_members": 4
+ },
+ "apps/macos/src/host/config/mod.rs": {
+  "file_lines": 251,
+  "max_fn_lines": 98,
+  "max_type_members": 8
+ },
+ "apps/macos/src/host/config/text_replacements.rs": {
+  "file_lines": 56,
+  "max_fn_lines": 13,
+  "max_type_members": 0
+ },
+ "apps/macos/src/host/config/watch.rs": {
+  "file_lines": 74,
+  "max_fn_lines": 16,
+  "max_type_members": 3
+ },
+ "apps/macos/src/host/diagnostics.rs": {
+  "file_lines": 160,
+  "max_fn_lines": 74,
+  "max_type_members": 4
+ },
+ "apps/macos/src/host/dictionaries/info.rs": {
+  "file_lines": 30,
+  "max_fn_lines": 0,
+  "max_type_members": 8
+ },
+ "apps/macos/src/host/dictionaries/mod.rs": {
+  "file_lines": 117,
+  "max_fn_lines": 25,
+  "max_type_members": 6
+ },
+ "apps/macos/src/host/init.rs": {
+  "file_lines": 287,
+  "max_fn_lines": 169,
+  "max_type_members": 0
+ },
+ "apps/macos/src/host/mod.rs": {
+  "file_lines": 224,
+  "max_fn_lines": 9,
+  "max_type_members": 43
+ },
+ "apps/macos/src/host/model/mod.rs": {
+  "file_lines": 162,
+  "max_fn_lines": 34,
+  "max_type_members": 8
+ },
+ "apps/macos/src/host/model/rescore_monitor.rs": {
+  "file_lines": 160,
+  "max_fn_lines": 17,
+  "max_type_members": 7
+ },
+ "apps/macos/src/host/presenting/mod.rs": {
+  "file_lines": 152,
+  "max_fn_lines": 67,
+  "max_type_members": 9
+ },
+ "apps/macos/src/host/presenting/notice.rs": {
+  "file_lines": 63,
+  "max_fn_lines": 13,
+  "max_type_members": 1
+ },
+ "apps/macos/src/host/presenting/translation_job.rs": {
+  "file_lines": 12,
+  "max_fn_lines": 0,
+  "max_type_members": 2
+ },
+ "apps/macos/src/host/session.rs": {
+  "file_lines": 294,
+  "max_fn_lines": 36,
+  "max_type_members": 17
+ },
+ "apps/macos/src/host/settings.rs": {
+  "file_lines": 509,
+  "max_fn_lines": 420,
+  "max_type_members": 4
+ },
+ "apps/macos/src/imk/client.rs": {
+  "file_lines": 128,
+  "max_fn_lines": 37,
+  "max_type_members": 1
+ },
+ "apps/macos/src/imk/controller/command.rs": {
+  "file_lines": 108,
+  "max_fn_lines": 100,
+  "max_type_members": 1
+ },
+ "apps/macos/src/imk/controller/commit.rs": {
+  "file_lines": 43,
+  "max_fn_lines": 16,
+  "max_type_members": 3
+ },
+ "apps/macos/src/imk/controller/display.rs": {
+  "file_lines": 206,
+  "max_fn_lines": 58,
+  "max_type_members": 9
+ },
+ "apps/macos/src/imk/controller/mod.rs": {
+  "file_lines": 287,
+  "max_fn_lines": 91,
+  "max_type_members": 11
+ },
+ "apps/macos/src/imk/controller/text.rs": {
+  "file_lines": 213,
+  "max_fn_lines": 206,
+  "max_type_members": 1
+ },
+ "apps/macos/src/imk/controller/translate.rs": {
+  "file_lines": 120,
+  "max_fn_lines": 35,
+  "max_type_members": 7
+ },
+ "apps/macos/src/imk/mod.rs": {
+  "file_lines": 65,
+  "max_fn_lines": 20,
+  "max_type_members": 0
+ },
+ "apps/macos/src/imk/modifiers.rs": {
+  "file_lines": 15,
+  "max_fn_lines": 3,
+  "max_type_members": 0
+ },
+ "apps/macos/src/imk/secure_input.rs": {
+  "file_lines": 13,
+  "max_fn_lines": 5,
+  "max_type_members": 0
+ },
+ "apps/macos/src/main.rs": {
+  "file_lines": 78,
+  "max_fn_lines": 57,
+  "max_type_members": 0
+ },
+ "apps/macos/src/menubar/action.rs": {
+  "file_lines": 76,
+  "max_fn_lines": 19,
+  "max_type_members": 2
+ },
+ "apps/macos/src/menubar/indicator.rs": {
+  "file_lines": 184,
+  "max_fn_lines": 24,
+  "max_type_members": 7
+ },
+ "apps/macos/src/menubar/menu.rs": {
+  "file_lines": 174,
+  "max_fn_lines": 65,
+  "max_type_members": 6
+ },
+ "apps/macos/src/menubar/mod.rs": {
+  "file_lines": 39,
+  "max_fn_lines": 12,
+  "max_type_members": 0
+ },
+ "apps/macos/src/menubar/target.rs": {
+  "file_lines": 35,
+  "max_fn_lines": 5,
+  "max_type_members": 1
+ },
+ "apps/macos/src/preferences/controls.rs": {
+  "file_lines": 237,
+  "max_fn_lines": 23,
+  "max_type_members": 0
+ },
+ "apps/macos/src/preferences/edit_menu.rs": {
+  "file_lines": 42,
+  "max_fn_lines": 31,
+  "max_type_members": 0
+ },
+ "apps/macos/src/preferences/file_dialog.rs": {
+  "file_lines": 26,
+  "max_fn_lines": 18,
+  "max_type_members": 0
+ },
+ "apps/macos/src/preferences/font_picker/button.rs": {
+  "file_lines": 45,
+  "max_fn_lines": 4,
+  "max_type_members": 2
+ },
+ "apps/macos/src/preferences/font_picker/mod.rs": {
+  "file_lines": 117,
+  "max_fn_lines": 73,
+  "max_type_members": 6
+ },
+ "apps/macos/src/preferences/font_picker/source.rs": {
+  "file_lines": 249,
+  "max_fn_lines": 40,
+  "max_type_members": 16
+ },
+ "apps/macos/src/preferences/font_picker/state.rs": {
+  "file_lines": 33,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "apps/macos/src/preferences/key_recorder.rs": {
+  "file_lines": 161,
+  "max_fn_lines": 54,
+  "max_type_members": 4
+ },
+ "apps/macos/src/preferences/layout.rs": {
+  "file_lines": 97,
+  "max_fn_lines": 12,
+  "max_type_members": 9
+ },
+ "apps/macos/src/preferences/mod.rs": {
+  "file_lines": 60,
+  "max_fn_lines": 24,
+  "max_type_members": 0
+ },
+ "apps/macos/src/preferences/pages/about.rs": {
+  "file_lines": 206,
+  "max_fn_lines": 85,
+  "max_type_members": 4
+ },
+ "apps/macos/src/preferences/pages/advanced.rs": {
+  "file_lines": 84,
+  "max_fn_lines": 50,
+  "max_type_members": 3
+ },
+ "apps/macos/src/preferences/pages/candidates.rs": {
+  "file_lines": 132,
+  "max_fn_lines": 69,
+  "max_type_members": 6
+ },
+ "apps/macos/src/preferences/pages/cloud.rs": {
+  "file_lines": 135,
+  "max_fn_lines": 63,
+  "max_type_members": 7
+ },
+ "apps/macos/src/preferences/pages/dictionaries.rs": {
+  "file_lines": 146,
+  "max_fn_lines": 62,
+  "max_type_members": 6
+ },
+ "apps/macos/src/preferences/pages/fuzzy.rs": {
+  "file_lines": 62,
+  "max_fn_lines": 29,
+  "max_type_members": 2
+ },
+ "apps/macos/src/preferences/pages/general.rs": {
+  "file_lines": 243,
+  "max_fn_lines": 145,
+  "max_type_members": 12
+ },
+ "apps/macos/src/preferences/pages/mod.rs": {
+  "file_lines": 27,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "apps/macos/src/preferences/pages/phrases/mod.rs": {
+  "file_lines": 334,
+  "max_fn_lines": 150,
+  "max_type_members": 11
+ },
+ "apps/macos/src/preferences/pages/phrases/state.rs": {
+  "file_lines": 21,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "apps/macos/src/preferences/pages/phrases/table.rs": {
+  "file_lines": 156,
+  "max_fn_lines": 58,
+  "max_type_members": 10
+ },
+ "apps/macos/src/preferences/pages/shortcuts.rs": {
+  "file_lines": 207,
+  "max_fn_lines": 128,
+  "max_type_members": 8
+ },
+ "apps/macos/src/preferences/pages/usage.rs": {
+  "file_lines": 317,
+  "max_fn_lines": 106,
+  "max_type_members": 8
+ },
+ "apps/macos/src/preferences/panel.rs": {
+  "file_lines": 57,
+  "max_fn_lines": 15,
+  "max_type_members": 2
+ },
+ "apps/macos/src/preferences/setting/mod.rs": {
+  "file_lines": 412,
+  "max_fn_lines": 72,
+  "max_type_members": 2
+ },
+ "apps/macos/src/preferences/setting/value.rs": {
+  "file_lines": 13,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "apps/macos/src/preferences/target.rs": {
+  "file_lines": 39,
+  "max_fn_lines": 5,
+  "max_type_members": 2
+ },
+ "apps/macos/src/preferences/window.rs": {
+  "file_lines": 315,
+  "max_fn_lines": 123,
+  "max_type_members": 21
+ },
+ "apps/macos/tests/info_plist.rs": {
+  "file_lines": 174,
+  "max_fn_lines": 90,
+  "max_type_members": 0
+ },
+ "apps/windows/server/build.rs": {
+  "file_lines": 43,
+  "max_fn_lines": 18,
+  "max_type_members": 0
+ },
+ "apps/windows/server/src/assembly/language_model.rs": {
+  "file_lines": 30,
+  "max_fn_lines": 9,
+  "max_type_members": 2
+ },
+ "apps/windows/server/src/assembly/mod.rs": {
+  "file_lines": 203,
+  "max_fn_lines": 72,
+  "max_type_members": 0
+ },
+ "apps/windows/server/src/assembly/spec.rs": {
+  "file_lines": 69,
+  "max_fn_lines": 17,
+  "max_type_members": 13
+ },
+ "apps/windows/server/src/dispatch/candidates/mod.rs": {
+  "file_lines": 43,
+  "max_fn_lines": 14,
+  "max_type_members": 3
+ },
+ "apps/windows/server/src/dispatch/candidates/sink.rs": {
+  "file_lines": 37,
+  "max_fn_lines": 12,
+  "max_type_members": 3
+ },
+ "apps/windows/server/src/dispatch/code.rs": {
+  "file_lines": 84,
+  "max_fn_lines": 28,
+  "max_type_members": 2
+ },
+ "apps/windows/server/src/dispatch/composed/mod.rs": {
+  "file_lines": 262,
+  "max_fn_lines": 56,
+  "max_type_members": 14
+ },
+ "apps/windows/server/src/dispatch/composed/state.rs": {
+  "file_lines": 39,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "apps/windows/server/src/dispatch/config.rs": {
+  "file_lines": 145,
+  "max_fn_lines": 32,
+  "max_type_members": 25
+ },
+ "apps/windows/server/src/dispatch/key/codes.rs": {
+  "file_lines": 49,
+  "max_fn_lines": 10,
+  "max_type_members": 0
+ },
+ "apps/windows/server/src/dispatch/key/effect.rs": {
+  "file_lines": 14,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "apps/windows/server/src/dispatch/key/input.rs": {
+  "file_lines": 360,
+  "max_fn_lines": 91,
+  "max_type_members": 10
+ },
+ "apps/windows/server/src/dispatch/key/mod.rs": {
+  "file_lines": 30,
+  "max_fn_lines": 13,
+  "max_type_members": 0
+ },
+ "apps/windows/server/src/dispatch/key/shortcut.rs": {
+  "file_lines": 85,
+  "max_fn_lines": 20,
+  "max_type_members": 7
+ },
+ "apps/windows/server/src/dispatch/key/tests.rs": {
+  "file_lines": 151,
+  "max_fn_lines": 42,
+  "max_type_members": 0
+ },
+ "apps/windows/server/src/dispatch/message.rs": {
+  "file_lines": 184,
+  "max_fn_lines": 110,
+  "max_type_members": 3
+ },
+ "apps/windows/server/src/dispatch/mod.rs": {
+  "file_lines": 204,
+  "max_fn_lines": 32,
+  "max_type_members": 25
+ },
+ "apps/windows/server/src/dispatch/reload/mod.rs": {
+  "file_lines": 269,
+  "max_fn_lines": 56,
+  "max_type_members": 10
+ },
+ "apps/windows/server/src/dispatch/reload/state.rs": {
+  "file_lines": 106,
+  "max_fn_lines": 9,
+  "max_type_members": 5
+ },
+ "apps/windows/server/src/dispatch/reload/tests.rs": {
+  "file_lines": 155,
+  "max_fn_lines": 75,
+  "max_type_members": 0
+ },
+ "apps/windows/server/src/dispatch/rescore/loader.rs": {
+  "file_lines": 65,
+  "max_fn_lines": 28,
+  "max_type_members": 2
+ },
+ "apps/windows/server/src/dispatch/rescore/mod.rs": {
+  "file_lines": 215,
+  "max_fn_lines": 29,
+  "max_type_members": 14
+ },
+ "apps/windows/server/src/dispatch/rescore/state.rs": {
+  "file_lines": 69,
+  "max_fn_lines": 7,
+  "max_type_members": 7
+ },
+ "apps/windows/server/src/dispatch/session/info.rs": {
+  "file_lines": 16,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "apps/windows/server/src/dispatch/session/mod.rs": {
+  "file_lines": 78,
+  "max_fn_lines": 14,
+  "max_type_members": 8
+ },
+ "apps/windows/server/src/dispatch/status/event.rs": {
+  "file_lines": 13,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "apps/windows/server/src/dispatch/status/mod.rs": {
+  "file_lines": 131,
+  "max_fn_lines": 33,
+  "max_type_members": 8
+ },
+ "apps/windows/server/src/dispatch/status/sink.rs": {
+  "file_lines": 24,
+  "max_fn_lines": 6,
+  "max_type_members": 4
+ },
+ "apps/windows/server/src/dispatch/status/view.rs": {
+  "file_lines": 24,
+  "max_fn_lines": 0,
+  "max_type_members": 6
+ },
+ "apps/windows/server/src/dispatch/translate/job.rs": {
+  "file_lines": 8,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "apps/windows/server/src/dispatch/translate/mod.rs": {
+  "file_lines": 130,
+  "max_fn_lines": 30,
+  "max_type_members": 11
+ },
+ "apps/windows/server/src/error.rs": {
+  "file_lines": 17,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "apps/windows/server/src/ipc/mod.rs": {
+  "file_lines": 26,
+  "max_fn_lines": 8,
+  "max_type_members": 0
+ },
+ "apps/windows/server/src/ipc/pipe.rs": {
+  "file_lines": 199,
+  "max_fn_lines": 42,
+  "max_type_members": 0
+ },
+ "apps/windows/server/src/ipc/work.rs": {
+  "file_lines": 15,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "apps/windows/server/src/lib.rs": {
+  "file_lines": 14,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "apps/windows/server/src/main.rs": {
+  "file_lines": 282,
+  "max_fn_lines": 105,
+  "max_type_members": 0
+ },
+ "apps/windows/server/src/ui/candidates/mod.rs": {
+  "file_lines": 274,
+  "max_fn_lines": 41,
+  "max_type_members": 8
+ },
+ "apps/windows/server/src/ui/candidates/render_data.rs": {
+  "file_lines": 156,
+  "max_fn_lines": 29,
+  "max_type_members": 3
+ },
+ "apps/windows/server/src/ui/candidates/row.rs": {
+  "file_lines": 48,
+  "max_fn_lines": 39,
+  "max_type_members": 0
+ },
+ "apps/windows/server/src/ui/candidates/theme/mod.rs": {
+  "file_lines": 133,
+  "max_fn_lines": 28,
+  "max_type_members": 1
+ },
+ "apps/windows/server/src/ui/candidates/theme/palette.rs": {
+  "file_lines": 50,
+  "max_fn_lines": 13,
+  "max_type_members": 2
+ },
+ "apps/windows/server/src/ui/candidates/view.rs": {
+  "file_lines": 531,
+  "max_fn_lines": 78,
+  "max_type_members": 4
+ },
+ "apps/windows/server/src/ui/command.rs": {
+  "file_lines": 24,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "apps/windows/server/src/ui/layered/canvas.rs": {
+  "file_lines": 80,
+  "max_fn_lines": 35,
+  "max_type_members": 3
+ },
+ "apps/windows/server/src/ui/layered/mod.rs": {
+  "file_lines": 191,
+  "max_fn_lines": 36,
+  "max_type_members": 0
+ },
+ "apps/windows/server/src/ui/layered/round_rect.rs": {
+  "file_lines": 54,
+  "max_fn_lines": 13,
+  "max_type_members": 3
+ },
+ "apps/windows/server/src/ui/mod.rs": {
+  "file_lines": 218,
+  "max_fn_lines": 44,
+  "max_type_members": 4
+ },
+ "apps/windows/server/src/ui/monitor.rs": {
+  "file_lines": 51,
+  "max_fn_lines": 20,
+  "max_type_members": 0
+ },
+ "apps/windows/server/src/ui/painter/mod.rs": {
+  "file_lines": 127,
+  "max_fn_lines": 28,
+  "max_type_members": 11
+ },
+ "apps/windows/server/src/ui/status/cell.rs": {
+  "file_lines": 18,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "apps/windows/server/src/ui/status/fullscreen.rs": {
+  "file_lines": 79,
+  "max_fn_lines": 30,
+  "max_type_members": 0
+ },
+ "apps/windows/server/src/ui/status/mod.rs": {
+  "file_lines": 445,
+  "max_fn_lines": 51,
+  "max_type_members": 10
+ },
+ "apps/windows/server/src/ui/status/placement/action.rs": {
+  "file_lines": 15,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "apps/windows/server/src/ui/status/placement/mod.rs": {
+  "file_lines": 78,
+  "max_fn_lines": 17,
+  "max_type_members": 3
+ },
+ "apps/windows/server/src/ui/window_class.rs": {
+  "file_lines": 42,
+  "max_fn_lines": 15,
+  "max_type_members": 1
+ },
+ "apps/windows/server/tests/engine_loop/aux_code.rs": {
+  "file_lines": 392,
+  "max_fn_lines": 43,
+  "max_type_members": 0
+ },
+ "apps/windows/server/tests/engine_loop/composing.rs": {
+  "file_lines": 356,
+  "max_fn_lines": 40,
+  "max_type_members": 0
+ },
+ "apps/windows/server/tests/engine_loop/english.rs": {
+  "file_lines": 192,
+  "max_fn_lines": 25,
+  "max_type_members": 0
+ },
+ "apps/windows/server/tests/engine_loop/main.rs": {
+  "file_lines": 11,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "apps/windows/server/tests/engine_loop/modes.rs": {
+  "file_lines": 349,
+  "max_fn_lines": 43,
+  "max_type_members": 0
+ },
+ "apps/windows/server/tests/engine_loop/rescoring.rs": {
+  "file_lines": 109,
+  "max_fn_lines": 44,
+  "max_type_members": 0
+ },
+ "apps/windows/server/tests/engine_loop/shortcuts.rs": {
+  "file_lines": 76,
+  "max_fn_lines": 16,
+  "max_type_members": 0
+ },
+ "apps/windows/server/tests/engine_loop/status.rs": {
+  "file_lines": 172,
+  "max_fn_lines": 27,
+  "max_type_members": 0
+ },
+ "apps/windows/server/tests/engine_loop/support.rs": {
+  "file_lines": 334,
+  "max_fn_lines": 17,
+  "max_type_members": 3
+ },
+ "apps/windows/server/tests/ipc_loop.rs": {
+  "file_lines": 128,
+  "max_fn_lines": 58,
+  "max_type_members": 2
+ },
+ "apps/windows/server/tests/pipe.rs": {
+  "file_lines": 103,
+  "max_fn_lines": 67,
+  "max_type_members": 0
+ },
+ "apps/windows/settings/build.rs": {
+  "file_lines": 94,
+  "max_fn_lines": 15,
+  "max_type_members": 0
+ },
+ "apps/windows/settings/src/log.rs": {
+  "file_lines": 54,
+  "max_fn_lines": 30,
+  "max_type_members": 0
+ },
+ "apps/windows/settings/src/main.rs": {
+  "file_lines": 35,
+  "max_fn_lines": 17,
+  "max_type_members": 0
+ },
+ "apps/windows/settings/src/panel/cloud_status.rs": {
+  "file_lines": 18,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "apps/windows/settings/src/panel/component.rs": {
+  "file_lines": 362,
+  "max_fn_lines": 274,
+  "max_type_members": 3
+ },
+ "apps/windows/settings/src/panel/controls.rs": {
+  "file_lines": 199,
+  "max_fn_lines": 39,
+  "max_type_members": 0
+ },
+ "apps/windows/settings/src/panel/message.rs": {
+  "file_lines": 116,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "apps/windows/settings/src/panel/mod.rs": {
+  "file_lines": 132,
+  "max_fn_lines": 14,
+  "max_type_members": 8
+ },
+ "apps/windows/settings/src/panel/notice.rs": {
+  "file_lines": 32,
+  "max_fn_lines": 4,
+  "max_type_members": 3
+ },
+ "apps/windows/settings/src/panel/pages/about.rs": {
+  "file_lines": 167,
+  "max_fn_lines": 96,
+  "max_type_members": 0
+ },
+ "apps/windows/settings/src/panel/pages/advanced.rs": {
+  "file_lines": 73,
+  "max_fn_lines": 64,
+  "max_type_members": 0
+ },
+ "apps/windows/settings/src/panel/pages/aux_code.rs": {
+  "file_lines": 240,
+  "max_fn_lines": 55,
+  "max_type_members": 0
+ },
+ "apps/windows/settings/src/panel/pages/candidates.rs": {
+  "file_lines": 97,
+  "max_fn_lines": 75,
+  "max_type_members": 0
+ },
+ "apps/windows/settings/src/panel/pages/cloud.rs": {
+  "file_lines": 114,
+  "max_fn_lines": 79,
+  "max_type_members": 0
+ },
+ "apps/windows/settings/src/panel/pages/dictionaries.rs": {
+  "file_lines": 190,
+  "max_fn_lines": 53,
+  "max_type_members": 0
+ },
+ "apps/windows/settings/src/panel/pages/fuzzy.rs": {
+  "file_lines": 49,
+  "max_fn_lines": 24,
+  "max_type_members": 0
+ },
+ "apps/windows/settings/src/panel/pages/general.rs": {
+  "file_lines": 182,
+  "max_fn_lines": 110,
+  "max_type_members": 0
+ },
+ "apps/windows/settings/src/panel/pages/mod.rs": {
+  "file_lines": 13,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "apps/windows/settings/src/panel/pages/shortcut.rs": {
+  "file_lines": 113,
+  "max_fn_lines": 60,
+  "max_type_members": 0
+ },
+ "apps/windows/settings/src/panel/pages/usage.rs": {
+  "file_lines": 223,
+  "max_fn_lines": 55,
+  "max_type_members": 0
+ },
+ "apps/windows/settings/src/panel/recorder.rs": {
+  "file_lines": 30,
+  "max_fn_lines": 9,
+  "max_type_members": 1
+ },
+ "apps/windows/settings/src/single_instance.rs": {
+  "file_lines": 29,
+  "max_fn_lines": 16,
+  "max_type_members": 0
+ },
+ "apps/windows/tsf/src/client/engine.rs": {
+  "file_lines": 226,
+  "max_fn_lines": 26,
+  "max_type_members": 3
+ },
+ "apps/windows/tsf/src/client/mod.rs": {
+  "file_lines": 14,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "apps/windows/tsf/src/client/pipe.rs": {
+  "file_lines": 44,
+  "max_fn_lines": 20,
+  "max_type_members": 0
+ },
+ "apps/windows/tsf/src/client/reply.rs": {
+  "file_lines": 14,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "apps/windows/tsf/src/client/response.rs": {
+  "file_lines": 27,
+  "max_fn_lines": 0,
+  "max_type_members": 3
+ },
+ "apps/windows/tsf/src/com/composition/mod.rs": {
+  "file_lines": 186,
+  "max_fn_lines": 32,
+  "max_type_members": 0
+ },
+ "apps/windows/tsf/src/com/composition/shared.rs": {
+  "file_lines": 144,
+  "max_fn_lines": 12,
+  "max_type_members": 20
+ },
+ "apps/windows/tsf/src/com/composition/sink.rs": {
+  "file_lines": 35,
+  "max_fn_lines": 9,
+  "max_type_members": 3
+ },
+ "apps/windows/tsf/src/com/context.rs": {
+  "file_lines": 28,
+  "max_fn_lines": 7,
+  "max_type_members": 0
+ },
+ "apps/windows/tsf/src/com/display_attribute/enumerator.rs": {
+  "file_lines": 63,
+  "max_fn_lines": 22,
+  "max_type_members": 7
+ },
+ "apps/windows/tsf/src/com/display_attribute/info.rs": {
+  "file_lines": 36,
+  "max_fn_lines": 4,
+  "max_type_members": 5
+ },
+ "apps/windows/tsf/src/com/display_attribute/mod.rs": {
+  "file_lines": 83,
+  "max_fn_lines": 14,
+  "max_type_members": 0
+ },
+ "apps/windows/tsf/src/com/edit/anchor.rs": {
+  "file_lines": 75,
+  "max_fn_lines": 13,
+  "max_type_members": 0
+ },
+ "apps/windows/tsf/src/com/edit/mod.rs": {
+  "file_lines": 13,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "apps/windows/tsf/src/com/edit/selection.rs": {
+  "file_lines": 92,
+  "max_fn_lines": 15,
+  "max_type_members": 1
+ },
+ "apps/windows/tsf/src/com/edit/surrounding.rs": {
+  "file_lines": 143,
+  "max_fn_lines": 37,
+  "max_type_members": 0
+ },
+ "apps/windows/tsf/src/com/edit/update.rs": {
+  "file_lines": 93,
+  "max_fn_lines": 24,
+  "max_type_members": 1
+ },
+ "apps/windows/tsf/src/com/factory.rs": {
+  "file_lines": 39,
+  "max_fn_lines": 15,
+  "max_type_members": 5
+ },
+ "apps/windows/tsf/src/com/focus.rs": {
+  "file_lines": 35,
+  "max_fn_lines": 6,
+  "max_type_members": 2
+ },
+ "apps/windows/tsf/src/com/key/event.rs": {
+  "file_lines": 90,
+  "max_fn_lines": 11,
+  "max_type_members": 0
+ },
+ "apps/windows/tsf/src/com/key/layout.rs": {
+  "file_lines": 169,
+  "max_fn_lines": 57,
+  "max_type_members": 0
+ },
+ "apps/windows/tsf/src/com/key/mod.rs": {
+  "file_lines": 10,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "apps/windows/tsf/src/com/key/preserved.rs": {
+  "file_lines": 108,
+  "max_fn_lines": 20,
+  "max_type_members": 0
+ },
+ "apps/windows/tsf/src/com/key/tap.rs": {
+  "file_lines": 155,
+  "max_fn_lines": 16,
+  "max_type_members": 3
+ },
+ "apps/windows/tsf/src/com/log.rs": {
+  "file_lines": 62,
+  "max_fn_lines": 17,
+  "max_type_members": 0
+ },
+ "apps/windows/tsf/src/com/mod.rs": {
+  "file_lines": 149,
+  "max_fn_lines": 9,
+  "max_type_members": 0
+ },
+ "apps/windows/tsf/src/com/mode/button.rs": {
+  "file_lines": 128,
+  "max_fn_lines": 11,
+  "max_type_members": 5
+ },
+ "apps/windows/tsf/src/com/mode/icon.rs": {
+  "file_lines": 110,
+  "max_fn_lines": 44,
+  "max_type_members": 1
+ },
+ "apps/windows/tsf/src/com/mode/menu.rs": {
+  "file_lines": 82,
+  "max_fn_lines": 46,
+  "max_type_members": 0
+ },
+ "apps/windows/tsf/src/com/mode/mod.rs": {
+  "file_lines": 88,
+  "max_fn_lines": 11,
+  "max_type_members": 0
+ },
+ "apps/windows/tsf/src/com/mode/sink.rs": {
+  "file_lines": 63,
+  "max_fn_lines": 16,
+  "max_type_members": 1
+ },
+ "apps/windows/tsf/src/com/mode/state.rs": {
+  "file_lines": 65,
+  "max_fn_lines": 8,
+  "max_type_members": 7
+ },
+ "apps/windows/tsf/src/com/poll/context.rs": {
+  "file_lines": 19,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "apps/windows/tsf/src/com/poll/mod.rs": {
+  "file_lines": 196,
+  "max_fn_lines": 39,
+  "max_type_members": 1
+ },
+ "apps/windows/tsf/src/com/profile.rs": {
+  "file_lines": 66,
+  "max_fn_lines": 20,
+  "max_type_members": 4
+ },
+ "apps/windows/tsf/src/com/registry/icon.rs": {
+  "file_lines": 31,
+  "max_fn_lines": 9,
+  "max_type_members": 0
+ },
+ "apps/windows/tsf/src/com/registry/mod.rs": {
+  "file_lines": 129,
+  "max_fn_lines": 29,
+  "max_type_members": 0
+ },
+ "apps/windows/tsf/src/com/service/connection.rs": {
+  "file_lines": 70,
+  "max_fn_lines": 28,
+  "max_type_members": 3
+ },
+ "apps/windows/tsf/src/com/service/display.rs": {
+  "file_lines": 26,
+  "max_fn_lines": 7,
+  "max_type_members": 2
+ },
+ "apps/windows/tsf/src/com/service/document.rs": {
+  "file_lines": 112,
+  "max_fn_lines": 48,
+  "max_type_members": 6
+ },
+ "apps/windows/tsf/src/com/service/key_sink.rs": {
+  "file_lines": 436,
+  "max_fn_lines": 116,
+  "max_type_members": 7
+ },
+ "apps/windows/tsf/src/com/service/launch.rs": {
+  "file_lines": 224,
+  "max_fn_lines": 48,
+  "max_type_members": 1
+ },
+ "apps/windows/tsf/src/com/service/menu.rs": {
+  "file_lines": 88,
+  "max_fn_lines": 28,
+  "max_type_members": 3
+ },
+ "apps/windows/tsf/src/com/service/mod.rs": {
+  "file_lines": 190,
+  "max_fn_lines": 23,
+  "max_type_members": 17
+ },
+ "apps/windows/tsf/src/com/service/mode.rs": {
+  "file_lines": 286,
+  "max_fn_lines": 23,
+  "max_type_members": 19
+ },
+ "apps/windows/tsf/src/com/service/next.rs": {
+  "file_lines": 26,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "apps/windows/tsf/src/com/service/processor.rs": {
+  "file_lines": 118,
+  "max_fn_lines": 65,
+  "max_type_members": 2
+ },
+ "apps/windows/tsf/src/com/window_class.rs": {
+  "file_lines": 41,
+  "max_fn_lines": 15,
+  "max_type_members": 1
+ },
+ "apps/windows/tsf/src/error.rs": {
+  "file_lines": 18,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "apps/windows/tsf/src/lib.rs": {
+  "file_lines": 15,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "apps/windows/tsf/tests/protocol_loop.rs": {
+  "file_lines": 165,
+  "max_fn_lines": 35,
+  "max_type_members": 0
+ },
+ "crates/qingjian-core/src/candidate/furigana/mod.rs": {
+  "file_lines": 139,
+  "max_fn_lines": 37,
+  "max_type_members": 0
+ },
+ "crates/qingjian-core/src/candidate/furigana/segment.rs": {
+  "file_lines": 10,
+  "max_fn_lines": 0,
+  "max_type_members": 2
+ },
+ "crates/qingjian-core/src/candidate/kind.rs": {
+  "file_lines": 30,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "crates/qingjian-core/src/candidate/language.rs": {
+  "file_lines": 76,
+  "max_fn_lines": 9,
+  "max_type_members": 1
+ },
+ "crates/qingjian-core/src/candidate/layout/candidate_layout.rs": {
+  "file_lines": 289,
+  "max_fn_lines": 26,
+  "max_type_members": 14
+ },
+ "crates/qingjian-core/src/candidate/layout/cell.rs": {
+  "file_lines": 26,
+  "max_fn_lines": 6,
+  "max_type_members": 0
+ },
+ "crates/qingjian-core/src/candidate/layout/grid.rs": {
+  "file_lines": 246,
+  "max_fn_lines": 26,
+  "max_type_members": 13
+ },
+ "crates/qingjian-core/src/candidate/layout/mod.rs": {
+  "file_lines": 15,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "crates/qingjian-core/src/candidate/list.rs": {
+  "file_lines": 11,
+  "max_fn_lines": 0,
+  "max_type_members": 1
+ },
+ "crates/qingjian-core/src/candidate/mod.rs": {
+  "file_lines": 50,
+  "max_fn_lines": 0,
+  "max_type_members": 6
+ },
+ "crates/qingjian-core/src/candidate/part_of_speech.rs": {
+  "file_lines": 111,
+  "max_fn_lines": 17,
+  "max_type_members": 1
+ },
+ "crates/qingjian-core/src/candidate/sense.rs": {
+  "file_lines": 34,
+  "max_fn_lines": 9,
+  "max_type_members": 4
+ },
+ "crates/qingjian-core/src/candidate/translation.rs": {
+  "file_lines": 54,
+  "max_fn_lines": 13,
+  "max_type_members": 3
+ },
+ "crates/qingjian-core/src/composition.rs": {
+  "file_lines": 316,
+  "max_fn_lines": 23,
+  "max_type_members": 22
+ },
+ "crates/qingjian-core/src/correction/costs.rs": {
+  "file_lines": 83,
+  "max_fn_lines": 8,
+  "max_type_members": 7
+ },
+ "crates/qingjian-core/src/correction/edit.rs": {
+  "file_lines": 163,
+  "max_fn_lines": 57,
+  "max_type_members": 3
+ },
+ "crates/qingjian-core/src/correction/mod.rs": {
+  "file_lines": 238,
+  "max_fn_lines": 44,
+  "max_type_members": 0
+ },
+ "crates/qingjian-core/src/correction/result.rs": {
+  "file_lines": 210,
+  "max_fn_lines": 55,
+  "max_type_members": 4
+ },
+ "crates/qingjian-core/src/correction/typo/kind.rs": {
+  "file_lines": 27,
+  "max_fn_lines": 3,
+  "max_type_members": 1
+ },
+ "crates/qingjian-core/src/correction/typo/mod.rs": {
+  "file_lines": 173,
+  "max_fn_lines": 51,
+  "max_type_members": 0
+ },
+ "crates/qingjian-core/src/custom_phrase.rs": {
+  "file_lines": 153,
+  "max_fn_lines": 26,
+  "max_type_members": 4
+ },
+ "crates/qingjian-core/src/emoji/mod.rs": {
+  "file_lines": 7,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "crates/qingjian-core/src/emoji/table.rs": {
+  "file_lines": 89,
+  "max_fn_lines": 17,
+  "max_type_members": 6
+ },
+ "crates/qingjian-core/src/engine/alignment.rs": {
+  "file_lines": 10,
+  "max_fn_lines": 0,
+  "max_type_members": 2
+ },
+ "crates/qingjian-core/src/engine/annotation.rs": {
+  "file_lines": 15,
+  "max_fn_lines": 0,
+  "max_type_members": 3
+ },
+ "crates/qingjian-core/src/engine/aux_code.rs": {
+  "file_lines": 109,
+  "max_fn_lines": 12,
+  "max_type_members": 11
+ },
+ "crates/qingjian-core/src/engine/commit/chain.rs": {
+  "file_lines": 112,
+  "max_fn_lines": 13,
+  "max_type_members": 11
+ },
+ "crates/qingjian-core/src/engine/commit/last.rs": {
+  "file_lines": 61,
+  "max_fn_lines": 13,
+  "max_type_members": 9
+ },
+ "crates/qingjian-core/src/engine/commit/mod.rs": {
+  "file_lines": 700,
+  "max_fn_lines": 204,
+  "max_type_members": 35
+ },
+ "crates/qingjian-core/src/engine/commit/transition.rs": {
+  "file_lines": 37,
+  "max_fn_lines": 8,
+  "max_type_members": 4
+ },
+ "crates/qingjian-core/src/engine/composing.rs": {
+  "file_lines": 453,
+  "max_fn_lines": 39,
+  "max_type_members": 33
+ },
+ "crates/qingjian-core/src/engine/correcting.rs": {
+  "file_lines": 104,
+  "max_fn_lines": 76,
+  "max_type_members": 2
+ },
+ "crates/qingjian-core/src/engine/decoded.rs": {
+  "file_lines": 51,
+  "max_fn_lines": 6,
+  "max_type_members": 6
+ },
+ "crates/qingjian-core/src/engine/extras.rs": {
+  "file_lines": 196,
+  "max_fn_lines": 65,
+  "max_type_members": 6
+ },
+ "crates/qingjian-core/src/engine/gloss/filled_gloss.rs": {
+  "file_lines": 12,
+  "max_fn_lines": 0,
+  "max_type_members": 2
+ },
+ "crates/qingjian-core/src/engine/gloss/filler.rs": {
+  "file_lines": 33,
+  "max_fn_lines": 11,
+  "max_type_members": 3
+ },
+ "crates/qingjian-core/src/engine/gloss/mod.rs": {
+  "file_lines": 13,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "crates/qingjian-core/src/engine/input_log/entry.rs": {
+  "file_lines": 138,
+  "max_fn_lines": 0,
+  "max_type_members": 15
+ },
+ "crates/qingjian-core/src/engine/input_log/logger.rs": {
+  "file_lines": 28,
+  "max_fn_lines": 4,
+  "max_type_members": 3
+ },
+ "crates/qingjian-core/src/engine/input_log/mod.rs": {
+  "file_lines": 21,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "crates/qingjian-core/src/engine/input_log/muted.rs": {
+  "file_lines": 47,
+  "max_fn_lines": 6,
+  "max_type_members": 4
+ },
+ "crates/qingjian-core/src/engine/input_log/source.rs": {
+  "file_lines": 54,
+  "max_fn_lines": 12,
+  "max_type_members": 1
+ },
+ "crates/qingjian-core/src/engine/learning/forgotten.rs": {
+  "file_lines": 17,
+  "max_fn_lines": 3,
+  "max_type_members": 2
+ },
+ "crates/qingjian-core/src/engine/learning/learner.rs": {
+  "file_lines": 112,
+  "max_fn_lines": 9,
+  "max_type_members": 21
+ },
+ "crates/qingjian-core/src/engine/learning/mod.rs": {
+  "file_lines": 200,
+  "max_fn_lines": 44,
+  "max_type_members": 10
+ },
+ "crates/qingjian-core/src/engine/learning/muted.rs": {
+  "file_lines": 208,
+  "max_fn_lines": 18,
+  "max_type_members": 21
+ },
+ "crates/qingjian-core/src/engine/marked/aux_segment.rs": {
+  "file_lines": 20,
+  "max_fn_lines": 3,
+  "max_type_members": 2
+ },
+ "crates/qingjian-core/src/engine/marked/kind.rs": {
+  "file_lines": 16,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "crates/qingjian-core/src/engine/marked/mod.rs": {
+  "file_lines": 10,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "crates/qingjian-core/src/engine/marked/segment.rs": {
+  "file_lines": 21,
+  "max_fn_lines": 6,
+  "max_type_members": 2
+ },
+ "crates/qingjian-core/src/engine/mod.rs": {
+  "file_lines": 547,
+  "max_fn_lines": 70,
+  "max_type_members": 66
+ },
+ "crates/qingjian-core/src/engine/mode_keys.rs": {
+  "file_lines": 195,
+  "max_fn_lines": 28,
+  "max_type_members": 8
+ },
+ "crates/qingjian-core/src/engine/prediction/cloud_word.rs": {
+  "file_lines": 29,
+  "max_fn_lines": 10,
+  "max_type_members": 3
+ },
+ "crates/qingjian-core/src/engine/prediction/fuzzy.rs": {
+  "file_lines": 98,
+  "max_fn_lines": 38,
+  "max_type_members": 0
+ },
+ "crates/qingjian-core/src/engine/prediction/kind.rs": {
+  "file_lines": 14,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "crates/qingjian-core/src/engine/prediction/mod.rs": {
+  "file_lines": 384,
+  "max_fn_lines": 99,
+  "max_type_members": 13
+ },
+ "crates/qingjian-core/src/engine/prediction/policy.rs": {
+  "file_lines": 33,
+  "max_fn_lines": 9,
+  "max_type_members": 5
+ },
+ "crates/qingjian-core/src/engine/prediction/predictor.rs": {
+  "file_lines": 44,
+  "max_fn_lines": 12,
+  "max_type_members": 4
+ },
+ "crates/qingjian-core/src/engine/prediction/question.rs": {
+  "file_lines": 54,
+  "max_fn_lines": 24,
+  "max_type_members": 0
+ },
+ "crates/qingjian-core/src/engine/prediction/request.rs": {
+  "file_lines": 47,
+  "max_fn_lines": 0,
+  "max_type_members": 13
+ },
+ "crates/qingjian-core/src/engine/prediction/response.rs": {
+  "file_lines": 21,
+  "max_fn_lines": 3,
+  "max_type_members": 3
+ },
+ "crates/qingjian-core/src/engine/prediction/script.rs": {
+  "file_lines": 102,
+  "max_fn_lines": 22,
+  "max_type_members": 0
+ },
+ "crates/qingjian-core/src/engine/prediction/surrounding_text.rs": {
+  "file_lines": 10,
+  "max_fn_lines": 0,
+  "max_type_members": 2
+ },
+ "crates/qingjian-core/src/engine/privacy.rs": {
+  "file_lines": 29,
+  "max_fn_lines": 13,
+  "max_type_members": 2
+ },
+ "crates/qingjian-core/src/engine/query/code.rs": {
+  "file_lines": 134,
+  "max_fn_lines": 77,
+  "max_type_members": 6
+ },
+ "crates/qingjian-core/src/engine/query/english_tail.rs": {
+  "file_lines": 145,
+  "max_fn_lines": 56,
+  "max_type_members": 6
+ },
+ "crates/qingjian-core/src/engine/query/mod.rs": {
+  "file_lines": 745,
+  "max_fn_lines": 250,
+  "max_type_members": 35
+ },
+ "crates/qingjian-core/src/engine/query/result.rs": {
+  "file_lines": 212,
+  "max_fn_lines": 39,
+  "max_type_members": 12
+ },
+ "crates/qingjian-core/src/engine/query/snapshot.rs": {
+  "file_lines": 24,
+  "max_fn_lines": 0,
+  "max_type_members": 5
+ },
+ "crates/qingjian-core/src/engine/raw/access.rs": {
+  "file_lines": 31,
+  "max_fn_lines": 17,
+  "max_type_members": 1
+ },
+ "crates/qingjian-core/src/engine/raw/mod.rs": {
+  "file_lines": 6,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "crates/qingjian-core/src/engine/raw/preedit.rs": {
+  "file_lines": 11,
+  "max_fn_lines": 0,
+  "max_type_members": 2
+ },
+ "crates/qingjian-core/src/engine/rescoring/cache.rs": {
+  "file_lines": 65,
+  "max_fn_lines": 11,
+  "max_type_members": 7
+ },
+ "crates/qingjian-core/src/engine/rescoring/mod.rs": {
+  "file_lines": 131,
+  "max_fn_lines": 45,
+  "max_type_members": 7
+ },
+ "crates/qingjian-core/src/engine/rescoring/tests.rs": {
+  "file_lines": 107,
+  "max_fn_lines": 21,
+  "max_type_members": 1
+ },
+ "crates/qingjian-core/src/engine/rescoring/worker.rs": {
+  "file_lines": 91,
+  "max_fn_lines": 40,
+  "max_type_members": 4
+ },
+ "crates/qingjian-core/src/engine/session.rs": {
+  "file_lines": 136,
+  "max_fn_lines": 30,
+  "max_type_members": 14
+ },
+ "crates/qingjian-core/src/engine/setup.rs": {
+  "file_lines": 519,
+  "max_fn_lines": 15,
+  "max_type_members": 92
+ },
+ "crates/qingjian-core/src/engine/statistics/book.rs": {
+  "file_lines": 86,
+  "max_fn_lines": 10,
+  "max_type_members": 2
+ },
+ "crates/qingjian-core/src/engine/statistics/meter.rs": {
+  "file_lines": 24,
+  "max_fn_lines": 4,
+  "max_type_members": 3
+ },
+ "crates/qingjian-core/src/engine/statistics/mod.rs": {
+  "file_lines": 16,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "crates/qingjian-core/src/engine/statistics/summary.rs": {
+  "file_lines": 21,
+  "max_fn_lines": 0,
+  "max_type_members": 5
+ },
+ "crates/qingjian-core/src/engine/statistics/usage.rs": {
+  "file_lines": 95,
+  "max_fn_lines": 14,
+  "max_type_members": 4
+ },
+ "crates/qingjian-core/src/engine/tests/aux_code.rs": {
+  "file_lines": 465,
+  "max_fn_lines": 33,
+  "max_type_members": 0
+ },
+ "crates/qingjian-core/src/engine/tests/cloud.rs": {
+  "file_lines": 572,
+  "max_fn_lines": 62,
+  "max_type_members": 3
+ },
+ "crates/qingjian-core/src/engine/tests/code.rs": {
+  "file_lines": 231,
+  "max_fn_lines": 32,
+  "max_type_members": 0
+ },
+ "crates/qingjian-core/src/engine/tests/correction.rs": {
+  "file_lines": 337,
+  "max_fn_lines": 80,
+  "max_type_members": 0
+ },
+ "crates/qingjian-core/src/engine/tests/custom.rs": {
+  "file_lines": 161,
+  "max_fn_lines": 30,
+  "max_type_members": 0
+ },
+ "crates/qingjian-core/src/engine/tests/emoji.rs": {
+  "file_lines": 48,
+  "max_fn_lines": 23,
+  "max_type_members": 0
+ },
+ "crates/qingjian-core/src/engine/tests/english.rs": {
+  "file_lines": 427,
+  "max_fn_lines": 71,
+  "max_type_members": 4
+ },
+ "crates/qingjian-core/src/engine/tests/learning.rs": {
+  "file_lines": 725,
+  "max_fn_lines": 68,
+  "max_type_members": 2
+ },
+ "crates/qingjian-core/src/engine/tests/lookup.rs": {
+  "file_lines": 425,
+  "max_fn_lines": 41,
+  "max_type_members": 1
+ },
+ "crates/qingjian-core/src/engine/tests/mod.rs": {
+  "file_lines": 376,
+  "max_fn_lines": 13,
+  "max_type_members": 11
+ },
+ "crates/qingjian-core/src/engine/tests/privacy.rs": {
+  "file_lines": 197,
+  "max_fn_lines": 56,
+  "max_type_members": 0
+ },
+ "crates/qingjian-core/src/engine/tests/raw/basic.rs": {
+  "file_lines": 87,
+  "max_fn_lines": 14,
+  "max_type_members": 0
+ },
+ "crates/qingjian-core/src/engine/tests/raw/learner.rs": {
+  "file_lines": 25,
+  "max_fn_lines": 4,
+  "max_type_members": 4
+ },
+ "crates/qingjian-core/src/engine/tests/raw/mod.rs": {
+  "file_lines": 59,
+  "max_fn_lines": 47,
+  "max_type_members": 0
+ },
+ "crates/qingjian-core/src/engine/tests/raw/zhuyin.rs": {
+  "file_lines": 49,
+  "max_fn_lines": 26,
+  "max_type_members": 0
+ },
+ "crates/qingjian-core/src/engine/tests/shuangpin.rs": {
+  "file_lines": 181,
+  "max_fn_lines": 45,
+  "max_type_members": 0
+ },
+ "crates/qingjian-core/src/engine/tests/zhuyin.rs": {
+  "file_lines": 24,
+  "max_fn_lines": 20,
+  "max_type_members": 0
+ },
+ "crates/qingjian-core/src/engine/timings.rs": {
+  "file_lines": 21,
+  "max_fn_lines": 3,
+  "max_type_members": 3
+ },
+ "crates/qingjian-core/src/engine/translator.rs": {
+  "file_lines": 31,
+  "max_fn_lines": 7,
+  "max_type_members": 4
+ },
+ "crates/qingjian-core/src/engine/vocabulary/level_count.rs": {
+  "file_lines": 19,
+  "max_fn_lines": 0,
+  "max_type_members": 5
+ },
+ "crates/qingjian-core/src/engine/vocabulary/mod.rs": {
+  "file_lines": 18,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "crates/qingjian-core/src/engine/vocabulary/summary.rs": {
+  "file_lines": 24,
+  "max_fn_lines": 0,
+  "max_type_members": 6
+ },
+ "crates/qingjian-core/src/engine/vocabulary/tracker.rs": {
+  "file_lines": 37,
+  "max_fn_lines": 10,
+  "max_type_members": 5
+ },
+ "crates/qingjian-core/src/english/edit.rs": {
+  "file_lines": 74,
+  "max_fn_lines": 15,
+  "max_type_members": 0
+ },
+ "crates/qingjian-core/src/english/mod.rs": {
+  "file_lines": 149,
+  "max_fn_lines": 52,
+  "max_type_members": 0
+ },
+ "crates/qingjian-core/src/fuzzy/expanded.rs": {
+  "file_lines": 125,
+  "max_fn_lines": 21,
+  "max_type_members": 8
+ },
+ "crates/qingjian-core/src/fuzzy/mod.rs": {
+  "file_lines": 12,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "crates/qingjian-core/src/fuzzy/rules.rs": {
+  "file_lines": 284,
+  "max_fn_lines": 58,
+  "max_type_members": 9
+ },
+ "crates/qingjian-core/src/history.rs": {
+  "file_lines": 109,
+  "max_fn_lines": 16,
+  "max_type_members": 6
+ },
+ "crates/qingjian-core/src/lib.rs": {
+  "file_lines": 50,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "crates/qingjian-core/src/parser/error.rs": {
+  "file_lines": 21,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "crates/qingjian-core/src/parser/mod.rs": {
+  "file_lines": 259,
+  "max_fn_lines": 50,
+  "max_type_members": 0
+ },
+ "crates/qingjian-core/src/parser/segmentation.rs": {
+  "file_lines": 87,
+  "max_fn_lines": 12,
+  "max_type_members": 5
+ },
+ "crates/qingjian-core/src/parser/syllable.rs": {
+  "file_lines": 76,
+  "max_fn_lines": 12,
+  "max_type_members": 0
+ },
+ "crates/qingjian-core/src/parser/trie.rs": {
+  "file_lines": 166,
+  "max_fn_lines": 27,
+  "max_type_members": 5
+ },
+ "crates/qingjian-core/src/punctuation.rs": {
+  "file_lines": 93,
+  "max_fn_lines": 33,
+  "max_type_members": 3
+ },
+ "crates/qingjian-core/src/ranking/mod.rs": {
+  "file_lines": 234,
+  "max_fn_lines": 49,
+  "max_type_members": 0
+ },
+ "crates/qingjian-core/src/ranking/scored.rs": {
+  "file_lines": 90,
+  "max_fn_lines": 18,
+  "max_type_members": 6
+ },
+ "crates/qingjian-core/src/sentence/context.rs": {
+  "file_lines": 37,
+  "max_fn_lines": 6,
+  "max_type_members": 2
+ },
+ "crates/qingjian-core/src/sentence/conversion.rs": {
+  "file_lines": 41,
+  "max_fn_lines": 3,
+  "max_type_members": 6
+ },
+ "crates/qingjian-core/src/sentence/interpolation.rs": {
+  "file_lines": 37,
+  "max_fn_lines": 3,
+  "max_type_members": 4
+ },
+ "crates/qingjian-core/src/sentence/language_model.rs": {
+  "file_lines": 17,
+  "max_fn_lines": 8,
+  "max_type_members": 1
+ },
+ "crates/qingjian-core/src/sentence/mod.rs": {
+  "file_lines": 96,
+  "max_fn_lines": 10,
+  "max_type_members": 0
+ },
+ "crates/qingjian-core/src/sentence/personal.rs": {
+  "file_lines": 41,
+  "max_fn_lines": 6,
+  "max_type_members": 2
+ },
+ "crates/qingjian-core/src/sentence/scorer.rs": {
+  "file_lines": 8,
+  "max_fn_lines": 1,
+  "max_type_members": 1
+ },
+ "crates/qingjian-core/src/sentence/sentence_word.rs": {
+  "file_lines": 13,
+  "max_fn_lines": 0,
+  "max_type_members": 3
+ },
+ "crates/qingjian-core/src/sentence/span/cache.rs": {
+  "file_lines": 116,
+  "max_fn_lines": 22,
+  "max_type_members": 7
+ },
+ "crates/qingjian-core/src/sentence/span/mod.rs": {
+  "file_lines": 8,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "crates/qingjian-core/src/sentence/span/word.rs": {
+  "file_lines": 16,
+  "max_fn_lines": 0,
+  "max_type_members": 4
+ },
+ "crates/qingjian-core/src/sentence/text_segment.rs": {
+  "file_lines": 156,
+  "max_fn_lines": 67,
+  "max_type_members": 4
+ },
+ "crates/qingjian-core/src/sentence/user_ngram.rs": {
+  "file_lines": 657,
+  "max_fn_lines": 43,
+  "max_type_members": 27
+ },
+ "crates/qingjian-core/src/sentence/viterbi.rs": {
+  "file_lines": 707,
+  "max_fn_lines": 126,
+  "max_type_members": 8
+ },
+ "crates/qingjian-core/src/shortcut/calendar.rs": {
+  "file_lines": 39,
+  "max_fn_lines": 12,
+  "max_type_members": 0
+ },
+ "crates/qingjian-core/src/shortcut/evaluator.rs": {
+  "file_lines": 145,
+  "max_fn_lines": 22,
+  "max_type_members": 6
+ },
+ "crates/qingjian-core/src/shortcut/mod.rs": {
+  "file_lines": 211,
+  "max_fn_lines": 28,
+  "max_type_members": 0
+ },
+ "crates/qingjian-core/src/shortcut/numeral.rs": {
+  "file_lines": 242,
+  "max_fn_lines": 26,
+  "max_type_members": 6
+ },
+ "crates/qingjian-core/src/shuangpin/decoded.rs": {
+  "file_lines": 166,
+  "max_fn_lines": 26,
+  "max_type_members": 9
+ },
+ "crates/qingjian-core/src/shuangpin/mod.rs": {
+  "file_lines": 18,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "crates/qingjian-core/src/shuangpin/scheme.rs": {
+  "file_lines": 445,
+  "max_fn_lines": 81,
+  "max_type_members": 16
+ },
+ "crates/qingjian-core/src/shuangpin/table.rs": {
+  "file_lines": 363,
+  "max_fn_lines": 0,
+  "max_type_members": 4
+ },
+ "crates/qingjian-core/src/shuangpin/unit.rs": {
+  "file_lines": 27,
+  "max_fn_lines": 7,
+  "max_type_members": 3
+ },
+ "crates/qingjian-core/src/storage/mod.rs": {
+  "file_lines": 153,
+  "max_fn_lines": 19,
+  "max_type_members": 0
+ },
+ "crates/qingjian-core/src/zhuyin/decoded/cursor.rs": {
+  "file_lines": 72,
+  "max_fn_lines": 26,
+  "max_type_members": 4
+ },
+ "crates/qingjian-core/src/zhuyin/decoded/mod.rs": {
+  "file_lines": 11,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "crates/qingjian-core/src/zhuyin/decoded/parse.rs": {
+  "file_lines": 82,
+  "max_fn_lines": 57,
+  "max_type_members": 0
+ },
+ "crates/qingjian-core/src/zhuyin/decoded/result.rs": {
+  "file_lines": 101,
+  "max_fn_lines": 25,
+  "max_type_members": 8
+ },
+ "crates/qingjian-core/src/zhuyin/decoded/unit.rs": {
+  "file_lines": 17,
+  "max_fn_lines": 0,
+  "max_type_members": 4
+ },
+ "crates/qingjian-core/src/zhuyin/layout.rs": {
+  "file_lines": 81,
+  "max_fn_lines": 55,
+  "max_type_members": 2
+ },
+ "crates/qingjian-core/src/zhuyin/mod.rs": {
+  "file_lines": 52,
+  "max_fn_lines": 10,
+  "max_type_members": 0
+ },
+ "crates/qingjian-core/src/zhuyin/syllable.rs": {
+  "file_lines": 264,
+  "max_fn_lines": 149,
+  "max_type_members": 6
+ },
+ "crates/qingjian-dictionary/src/aux_code_table/columns.rs": {
+  "file_lines": 35,
+  "max_fn_lines": 7,
+  "max_type_members": 1
+ },
+ "crates/qingjian-dictionary/src/aux_code_table/entry.rs": {
+  "file_lines": 26,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "crates/qingjian-dictionary/src/aux_code_table/import.rs": {
+  "file_lines": 111,
+  "max_fn_lines": 40,
+  "max_type_members": 0
+ },
+ "crates/qingjian-dictionary/src/aux_code_table/imported.rs": {
+  "file_lines": 19,
+  "max_fn_lines": 0,
+  "max_type_members": 3
+ },
+ "crates/qingjian-dictionary/src/aux_code_table/info.rs": {
+  "file_lines": 55,
+  "max_fn_lines": 30,
+  "max_type_members": 4
+ },
+ "crates/qingjian-dictionary/src/aux_code_table/lookup.rs": {
+  "file_lines": 17,
+  "max_fn_lines": 1,
+  "max_type_members": 2
+ },
+ "crates/qingjian-dictionary/src/aux_code_table/mod.rs": {
+  "file_lines": 26,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "crates/qingjian-dictionary/src/aux_code_table/parsed.rs": {
+  "file_lines": 183,
+  "max_fn_lines": 68,
+  "max_type_members": 2
+ },
+ "crates/qingjian-dictionary/src/aux_code_table/report.rs": {
+  "file_lines": 18,
+  "max_fn_lines": 0,
+  "max_type_members": 4
+ },
+ "crates/qingjian-dictionary/src/aux_code_table/table.rs": {
+  "file_lines": 302,
+  "max_fn_lines": 53,
+  "max_type_members": 16
+ },
+ "crates/qingjian-dictionary/src/aux_code_table/tests.rs": {
+  "file_lines": 287,
+  "max_fn_lines": 25,
+  "max_type_members": 2
+ },
+ "crates/qingjian-dictionary/src/code_table.rs": {
+  "file_lines": 218,
+  "max_fn_lines": 53,
+  "max_type_members": 6
+ },
+ "crates/qingjian-dictionary/src/dictionary/mod.rs": {
+  "file_lines": 599,
+  "max_fn_lines": 90,
+  "max_type_members": 39
+ },
+ "crates/qingjian-dictionary/src/dictionary/tests.rs": {
+  "file_lines": 274,
+  "max_fn_lines": 76,
+  "max_type_members": 0
+ },
+ "crates/qingjian-dictionary/src/error.rs": {
+  "file_lines": 33,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "crates/qingjian-dictionary/src/import/imported.rs": {
+  "file_lines": 15,
+  "max_fn_lines": 0,
+  "max_type_members": 3
+ },
+ "crates/qingjian-dictionary/src/import/mod.rs": {
+  "file_lines": 124,
+  "max_fn_lines": 41,
+  "max_type_members": 0
+ },
+ "crates/qingjian-dictionary/src/import/rime.rs": {
+  "file_lines": 67,
+  "max_fn_lines": 49,
+  "max_type_members": 2
+ },
+ "crates/qingjian-dictionary/src/lib.rs": {
+  "file_lines": 37,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "crates/qingjian-dictionary/src/matching.rs": {
+  "file_lines": 26,
+  "max_fn_lines": 3,
+  "max_type_members": 4
+ },
+ "crates/qingjian-dictionary/src/pattern.rs": {
+  "file_lines": 68,
+  "max_fn_lines": 9,
+  "max_type_members": 2
+ },
+ "crates/qingjian-dictionary/src/word_list.rs": {
+  "file_lines": 144,
+  "max_fn_lines": 45,
+  "max_type_members": 8
+ },
+ "crates/qingjian-format/src/error.rs": {
+  "file_lines": 49,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "crates/qingjian-format/src/file/container.rs": {
+  "file_lines": 236,
+  "max_fn_lines": 53,
+  "max_type_members": 9
+ },
+ "crates/qingjian-format/src/file/mod.rs": {
+  "file_lines": 8,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "crates/qingjian-format/src/file/writer.rs": {
+  "file_lines": 104,
+  "max_fn_lines": 36,
+  "max_type_members": 4
+ },
+ "crates/qingjian-format/src/hash.rs": {
+  "file_lines": 102,
+  "max_fn_lines": 17,
+  "max_type_members": 0
+ },
+ "crates/qingjian-format/src/layout/header.rs": {
+  "file_lines": 32,
+  "max_fn_lines": 0,
+  "max_type_members": 5
+ },
+ "crates/qingjian-format/src/layout/kind.rs": {
+  "file_lines": 45,
+  "max_fn_lines": 12,
+  "max_type_members": 2
+ },
+ "crates/qingjian-format/src/layout/metadata.rs": {
+  "file_lines": 43,
+  "max_fn_lines": 3,
+  "max_type_members": 7
+ },
+ "crates/qingjian-format/src/layout/mod.rs": {
+  "file_lines": 12,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "crates/qingjian-format/src/layout/section_entry.rs": {
+  "file_lines": 23,
+  "max_fn_lines": 0,
+  "max_type_members": 4
+ },
+ "crates/qingjian-format/src/lib.rs": {
+  "file_lines": 40,
+  "max_fn_lines": 5,
+  "max_type_members": 0
+ },
+ "crates/qingjian-format/src/view/mod.rs": {
+  "file_lines": 9,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "crates/qingjian-format/src/view/table.rs": {
+  "file_lines": 63,
+  "max_fn_lines": 9,
+  "max_type_members": 0
+ },
+ "crates/qingjian-format/src/view/text.rs": {
+  "file_lines": 56,
+  "max_fn_lines": 11,
+  "max_type_members": 1
+ },
+ "crates/qingjian-learning/src/error.rs": {
+  "file_lines": 7,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "crates/qingjian-learning/src/frequency_learner/learner_impl.rs": {
+  "file_lines": 278,
+  "max_fn_lines": 68,
+  "max_type_members": 21
+ },
+ "crates/qingjian-learning/src/frequency_learner/mod.rs": {
+  "file_lines": 223,
+  "max_fn_lines": 36,
+  "max_type_members": 15
+ },
+ "crates/qingjian-learning/src/frequency_learner/tables.rs": {
+  "file_lines": 259,
+  "max_fn_lines": 25,
+  "max_type_members": 22
+ },
+ "crates/qingjian-learning/src/frequency_learner/tests.rs": {
+  "file_lines": 299,
+  "max_fn_lines": 28,
+  "max_type_members": 0
+ },
+ "crates/qingjian-learning/src/input_log.rs": {
+  "file_lines": 158,
+  "max_fn_lines": 42,
+  "max_type_members": 4
+ },
+ "crates/qingjian-learning/src/lib.rs": {
+  "file_lines": 18,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "crates/qingjian-learning/src/usage_stats.rs": {
+  "file_lines": 228,
+  "max_fn_lines": 25,
+  "max_type_members": 7
+ },
+ "crates/qingjian-learning/src/vocabulary_book.rs": {
+  "file_lines": 368,
+  "max_fn_lines": 39,
+  "max_type_members": 10
+ },
+ "crates/qingjian-lm/src/bigram_model.rs": {
+  "file_lines": 363,
+  "max_fn_lines": 87,
+  "max_type_members": 10
+ },
+ "crates/qingjian-lm/src/error.rs": {
+  "file_lines": 26,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "crates/qingjian-lm/src/lib.rs": {
+  "file_lines": 20,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "crates/qingjian-lm/src/successor.rs": {
+  "file_lines": 13,
+  "max_fn_lines": 0,
+  "max_type_members": 2
+ },
+ "crates/qingjian-lm/src/word_entry.rs": {
+  "file_lines": 19,
+  "max_fn_lines": 0,
+  "max_type_members": 4
+ },
+ "crates/qingjian-neural/src/config.rs": {
+  "file_lines": 35,
+  "max_fn_lines": 6,
+  "max_type_members": 5
+ },
+ "crates/qingjian-neural/src/core_scorer.rs": {
+  "file_lines": 16,
+  "max_fn_lines": 9,
+  "max_type_members": 1
+ },
+ "crates/qingjian-neural/src/error.rs": {
+  "file_lines": 37,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "crates/qingjian-neural/src/lib.rs": {
+  "file_lines": 23,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "crates/qingjian-neural/src/model.rs": {
+  "file_lines": 219,
+  "max_fn_lines": 43,
+  "max_type_members": 17
+ },
+ "crates/qingjian-neural/src/qjm.rs": {
+  "file_lines": 126,
+  "max_fn_lines": 29,
+  "max_type_members": 0
+ },
+ "crates/qingjian-neural/src/scorer.rs": {
+  "file_lines": 322,
+  "max_fn_lines": 51,
+  "max_type_members": 12
+ },
+ "crates/qingjian-neural/src/vocab.rs": {
+  "file_lines": 75,
+  "max_fn_lines": 20,
+  "max_type_members": 5
+ },
+ "crates/qingjian-platform/src/code_tables.rs": {
+  "file_lines": 76,
+  "max_fn_lines": 30,
+  "max_type_members": 0
+ },
+ "crates/qingjian-platform/src/config/apps.rs": {
+  "file_lines": 245,
+  "max_fn_lines": 18,
+  "max_type_members": 3
+ },
+ "crates/qingjian-platform/src/config/aux_code.rs": {
+  "file_lines": 27,
+  "max_fn_lines": 3,
+  "max_type_members": 2
+ },
+ "crates/qingjian-platform/src/config/candidate_renderer.rs": {
+  "file_lines": 38,
+  "max_fn_lines": 6,
+  "max_type_members": 2
+ },
+ "crates/qingjian-platform/src/config/dictionaries.rs": {
+  "file_lines": 41,
+  "max_fn_lines": 6,
+  "max_type_members": 2
+ },
+ "crates/qingjian-platform/src/config/general.rs": {
+  "file_lines": 407,
+  "max_fn_lines": 37,
+  "max_type_members": 28
+ },
+ "crates/qingjian-platform/src/config/key_combo.rs": {
+  "file_lines": 111,
+  "max_fn_lines": 17,
+  "max_type_members": 2
+ },
+ "crates/qingjian-platform/src/config/layout_mode.rs": {
+  "file_lines": 35,
+  "max_fn_lines": 6,
+  "max_type_members": 2
+ },
+ "crates/qingjian-platform/src/config/log_level.rs": {
+  "file_lines": 35,
+  "max_fn_lines": 6,
+  "max_type_members": 2
+ },
+ "crates/qingjian-platform/src/config/mod.rs": {
+  "file_lines": 684,
+  "max_fn_lines": 18,
+  "max_type_members": 11
+ },
+ "crates/qingjian-platform/src/config/model.rs": {
+  "file_lines": 19,
+  "max_fn_lines": 3,
+  "max_type_members": 1
+ },
+ "crates/qingjian-platform/src/config/modifiers.rs": {
+  "file_lines": 168,
+  "max_fn_lines": 19,
+  "max_type_members": 4
+ },
+ "crates/qingjian-platform/src/config/preedit_mode.rs": {
+  "file_lines": 50,
+  "max_fn_lines": 7,
+  "max_type_members": 4
+ },
+ "crates/qingjian-platform/src/config/scheme.rs": {
+  "file_lines": 160,
+  "max_fn_lines": 10,
+  "max_type_members": 10
+ },
+ "crates/qingjian-platform/src/config/shift_letter.rs": {
+  "file_lines": 55,
+  "max_fn_lines": 7,
+  "max_type_members": 3
+ },
+ "crates/qingjian-platform/src/config/shortcut.rs": {
+  "file_lines": 137,
+  "max_fn_lines": 21,
+  "max_type_members": 6
+ },
+ "crates/qingjian-platform/src/config/status_bar.rs": {
+  "file_lines": 17,
+  "max_fn_lines": 0,
+  "max_type_members": 3
+ },
+ "crates/qingjian-platform/src/config/switch_key.rs": {
+  "file_lines": 221,
+  "max_fn_lines": 14,
+  "max_type_members": 3
+ },
+ "crates/qingjian-platform/src/config/theme_mode.rs": {
+  "file_lines": 40,
+  "max_fn_lines": 7,
+  "max_type_members": 2
+ },
+ "crates/qingjian-platform/src/config/update/channel.rs": {
+  "file_lines": 43,
+  "max_fn_lines": 6,
+  "max_type_members": 3
+ },
+ "crates/qingjian-platform/src/config/update/mod.rs": {
+  "file_lines": 28,
+  "max_fn_lines": 6,
+  "max_type_members": 2
+ },
+ "crates/qingjian-platform/src/dirs.rs": {
+  "file_lines": 27,
+  "max_fn_lines": 3,
+  "max_type_members": 0
+ },
+ "crates/qingjian-platform/src/error.rs": {
+  "file_lines": 40,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "crates/qingjian-platform/src/extra_dictionaries.rs": {
+  "file_lines": 116,
+  "max_fn_lines": 26,
+  "max_type_members": 0
+ },
+ "crates/qingjian-platform/src/lib.rs": {
+  "file_lines": 25,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "crates/qingjian-platform/src/logs/daily.rs": {
+  "file_lines": 124,
+  "max_fn_lines": 31,
+  "max_type_members": 0
+ },
+ "crates/qingjian-platform/src/logs/mod.rs": {
+  "file_lines": 6,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "crates/qingjian-platform/src/logs/secrets/masking_writer.rs": {
+  "file_lines": 36,
+  "max_fn_lines": 8,
+  "max_type_members": 1
+ },
+ "crates/qingjian-platform/src/logs/secrets/mod.rs": {
+  "file_lines": 76,
+  "max_fn_lines": 12,
+  "max_type_members": 0
+ },
+ "crates/qingjian-platform/src/protocol/client.rs": {
+  "file_lines": 145,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "crates/qingjian-platform/src/protocol/codec.rs": {
+  "file_lines": 75,
+  "max_fn_lines": 16,
+  "max_type_members": 0
+ },
+ "crates/qingjian-platform/src/protocol/frame/mod.rs": {
+  "file_lines": 66,
+  "max_fn_lines": 3,
+  "max_type_members": 12
+ },
+ "crates/qingjian-platform/src/protocol/frame/preedit/kind.rs": {
+  "file_lines": 32,
+  "max_fn_lines": 8,
+  "max_type_members": 1
+ },
+ "crates/qingjian-platform/src/protocol/frame/preedit/mod.rs": {
+  "file_lines": 8,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "crates/qingjian-platform/src/protocol/frame/preedit/segment.rs": {
+  "file_lines": 26,
+  "max_fn_lines": 6,
+  "max_type_members": 2
+ },
+ "crates/qingjian-platform/src/protocol/indicator.rs": {
+  "file_lines": 36,
+  "max_fn_lines": 0,
+  "max_type_members": 4
+ },
+ "crates/qingjian-platform/src/protocol/key/event.rs": {
+  "file_lines": 27,
+  "max_fn_lines": 7,
+  "max_type_members": 3
+ },
+ "crates/qingjian-platform/src/protocol/key/mod.rs": {
+  "file_lines": 10,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "crates/qingjian-platform/src/protocol/key/modifiers.rs": {
+  "file_lines": 62,
+  "max_fn_lines": 10,
+  "max_type_members": 6
+ },
+ "crates/qingjian-platform/src/protocol/key/outcome.rs": {
+  "file_lines": 12,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "crates/qingjian-platform/src/protocol/mod.rs": {
+  "file_lines": 43,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "crates/qingjian-platform/src/protocol/screen_rect.rs": {
+  "file_lines": 22,
+  "max_fn_lines": 0,
+  "max_type_members": 4
+ },
+ "crates/qingjian-platform/src/protocol/server.rs": {
+  "file_lines": 118,
+  "max_fn_lines": 7,
+  "max_type_members": 3
+ },
+ "crates/qingjian-platform/src/protocol/session.rs": {
+  "file_lines": 8,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "crates/qingjian-platform/src/resources.rs": {
+  "file_lines": 34,
+  "max_fn_lines": 10,
+  "max_type_members": 0
+ },
+ "crates/qingjian-platform/tests/custom_phrases.rs": {
+  "file_lines": 130,
+  "max_fn_lines": 56,
+  "max_type_members": 0
+ },
+ "crates/qingjian-predict/src/cache.rs": {
+  "file_lines": 82,
+  "max_fn_lines": 15,
+  "max_type_members": 4
+ },
+ "crates/qingjian-predict/src/chat_client.rs": {
+  "file_lines": 320,
+  "max_fn_lines": 51,
+  "max_type_members": 6
+ },
+ "crates/qingjian-predict/src/cloud_predictor.rs": {
+  "file_lines": 76,
+  "max_fn_lines": 33,
+  "max_type_members": 3
+ },
+ "crates/qingjian-predict/src/config.rs": {
+  "file_lines": 89,
+  "max_fn_lines": 16,
+  "max_type_members": 12
+ },
+ "crates/qingjian-predict/src/connection/mod.rs": {
+  "file_lines": 8,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "crates/qingjian-predict/src/connection/report.rs": {
+  "file_lines": 14,
+  "max_fn_lines": 0,
+  "max_type_members": 3
+ },
+ "crates/qingjian-predict/src/connection/test.rs": {
+  "file_lines": 74,
+  "max_fn_lines": 25,
+  "max_type_members": 2
+ },
+ "crates/qingjian-predict/src/error.rs": {
+  "file_lines": 27,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "crates/qingjian-predict/src/gloss/cloud_gloss_filler.rs": {
+  "file_lines": 56,
+  "max_fn_lines": 21,
+  "max_type_members": 2
+ },
+ "crates/qingjian-predict/src/gloss/mod.rs": {
+  "file_lines": 12,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "crates/qingjian-predict/src/gloss/prompt.rs": {
+  "file_lines": 248,
+  "max_fn_lines": 45,
+  "max_type_members": 3
+ },
+ "crates/qingjian-predict/src/gloss/worker.rs": {
+  "file_lines": 129,
+  "max_fn_lines": 29,
+  "max_type_members": 8
+ },
+ "crates/qingjian-predict/src/lib.rs": {
+  "file_lines": 23,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "crates/qingjian-predict/src/prompt.rs": {
+  "file_lines": 400,
+  "max_fn_lines": 54,
+  "max_type_members": 9
+ },
+ "crates/qingjian-predict/src/worker.rs": {
+  "file_lines": 113,
+  "max_fn_lines": 38,
+  "max_type_members": 8
+ },
+ "crates/qingjian-render/examples/preview.rs": {
+  "file_lines": 405,
+  "max_fn_lines": 113,
+  "max_type_members": 5
+ },
+ "crates/qingjian-render/src/canvas.rs": {
+  "file_lines": 214,
+  "max_fn_lines": 29,
+  "max_type_members": 24
+ },
+ "crates/qingjian-render/src/cloud.rs": {
+  "file_lines": 55,
+  "max_fn_lines": 23,
+  "max_type_members": 0
+ },
+ "crates/qingjian-render/src/color.rs": {
+  "file_lines": 74,
+  "max_fn_lines": 8,
+  "max_type_members": 4
+ },
+ "crates/qingjian-render/src/error.rs": {
+  "file_lines": 15,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "crates/qingjian-render/src/fonts/directwrite.rs": {
+  "file_lines": 130,
+  "max_fn_lines": 45,
+  "max_type_members": 0
+ },
+ "crates/qingjian-render/src/fonts/linux.rs": {
+  "file_lines": 35,
+  "max_fn_lines": 10,
+  "max_type_members": 0
+ },
+ "crates/qingjian-render/src/fonts/macos.rs": {
+  "file_lines": 65,
+  "max_fn_lines": 27,
+  "max_type_members": 0
+ },
+ "crates/qingjian-render/src/fonts/mod.rs": {
+  "file_lines": 154,
+  "max_fn_lines": 46,
+  "max_type_members": 6
+ },
+ "crates/qingjian-render/src/fonts/trak.rs": {
+  "file_lines": 125,
+  "max_fn_lines": 25,
+  "max_type_members": 2
+ },
+ "crates/qingjian-render/src/fonts/ui_font.rs": {
+  "file_lines": 13,
+  "max_fn_lines": 0,
+  "max_type_members": 2
+ },
+ "crates/qingjian-render/src/fonts/windows.rs": {
+  "file_lines": 35,
+  "max_fn_lines": 12,
+  "max_type_members": 0
+ },
+ "crates/qingjian-render/src/frame/mod.rs": {
+  "file_lines": 56,
+  "max_fn_lines": 6,
+  "max_type_members": 8
+ },
+ "crates/qingjian-render/src/frame/preedit/mod.rs": {
+  "file_lines": 40,
+  "max_fn_lines": 9,
+  "max_type_members": 3
+ },
+ "crates/qingjian-render/src/frame/preedit/segment.rs": {
+  "file_lines": 13,
+  "max_fn_lines": 0,
+  "max_type_members": 2
+ },
+ "crates/qingjian-render/src/frame/preedit/style.rs": {
+  "file_lines": 17,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "crates/qingjian-render/src/frame/row.rs": {
+  "file_lines": 35,
+  "max_fn_lines": 9,
+  "max_type_members": 5
+ },
+ "crates/qingjian-render/src/frame/tone.rs": {
+  "file_lines": 17,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "crates/qingjian-render/src/gear.rs": {
+  "file_lines": 85,
+  "max_fn_lines": 33,
+  "max_type_members": 0
+ },
+ "crates/qingjian-render/src/layout.rs": {
+  "file_lines": 12,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "crates/qingjian-render/src/lib.rs": {
+  "file_lines": 36,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "crates/qingjian-render/src/renderer/columns.rs": {
+  "file_lines": 12,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "crates/qingjian-render/src/renderer/horizontal.rs": {
+  "file_lines": 141,
+  "max_fn_lines": 68,
+  "max_type_members": 10
+ },
+ "crates/qingjian-render/src/renderer/item.rs": {
+  "file_lines": 8,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "crates/qingjian-render/src/renderer/matrix.rs": {
+  "file_lines": 250,
+  "max_fn_lines": 97,
+  "max_type_members": 17
+ },
+ "crates/qingjian-render/src/renderer/mod.rs": {
+  "file_lines": 311,
+  "max_fn_lines": 51,
+  "max_type_members": 38
+ },
+ "crates/qingjian-render/src/renderer/rendered.rs": {
+  "file_lines": 32,
+  "max_fn_lines": 6,
+  "max_type_members": 6
+ },
+ "crates/qingjian-render/src/renderer/status/cell.rs": {
+  "file_lines": 20,
+  "max_fn_lines": 6,
+  "max_type_members": 1
+ },
+ "crates/qingjian-render/src/renderer/status/mod.rs": {
+  "file_lines": 173,
+  "max_fn_lines": 70,
+  "max_type_members": 11
+ },
+ "crates/qingjian-render/src/renderer/status/rendered.rs": {
+  "file_lines": 12,
+  "max_fn_lines": 0,
+  "max_type_members": 2
+ },
+ "crates/qingjian-render/src/renderer/top_line.rs": {
+  "file_lines": 98,
+  "max_fn_lines": 33,
+  "max_type_members": 14
+ },
+ "crates/qingjian-render/src/renderer/vertical.rs": {
+  "file_lines": 109,
+  "max_fn_lines": 54,
+  "max_type_members": 8
+ },
+ "crates/qingjian-render/src/shadow.rs": {
+  "file_lines": 118,
+  "max_fn_lines": 27,
+  "max_type_members": 3
+ },
+ "crates/qingjian-render/src/text/mod.rs": {
+  "file_lines": 195,
+  "max_fn_lines": 61,
+  "max_type_members": 11
+ },
+ "crates/qingjian-render/src/text/size.rs": {
+  "file_lines": 10,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "crates/qingjian-render/src/text/style.rs": {
+  "file_lines": 53,
+  "max_fn_lines": 11,
+  "max_type_members": 3
+ },
+ "crates/qingjian-render/src/theme/font_spec.rs": {
+  "file_lines": 25,
+  "max_fn_lines": 6,
+  "max_type_members": 2
+ },
+ "crates/qingjian-render/src/theme/mod.rs": {
+  "file_lines": 72,
+  "max_fn_lines": 15,
+  "max_type_members": 10
+ },
+ "crates/qingjian-render/src/theme/palette.rs": {
+  "file_lines": 59,
+  "max_fn_lines": 0,
+  "max_type_members": 8
+ },
+ "crates/qingjian-translate/src/error.rs": {
+  "file_lines": 25,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "crates/qingjian-translate/src/glossary/entry_record.rs": {
+  "file_lines": 19,
+  "max_fn_lines": 0,
+  "max_type_members": 4
+ },
+ "crates/qingjian-translate/src/glossary/mod.rs": {
+  "file_lines": 392,
+  "max_fn_lines": 60,
+  "max_type_members": 10
+ },
+ "crates/qingjian-translate/src/glossary/sense_record.rs": {
+  "file_lines": 28,
+  "max_fn_lines": 0,
+  "max_type_members": 7
+ },
+ "crates/qingjian-translate/src/glossary/storage.rs": {
+  "file_lines": 30,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "crates/qingjian-translate/src/layered_translator.rs": {
+  "file_lines": 56,
+  "max_fn_lines": 5,
+  "max_type_members": 4
+ },
+ "crates/qingjian-translate/src/level_table.rs": {
+  "file_lines": 129,
+  "max_fn_lines": 31,
+  "max_type_members": 8
+ },
+ "crates/qingjian-translate/src/lib.rs": {
+  "file_lines": 28,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "crates/qingjian-translate/src/personal_glossary.rs": {
+  "file_lines": 214,
+  "max_fn_lines": 35,
+  "max_type_members": 9
+ },
+ "crates/qingjian-update/examples/check.rs": {
+  "file_lines": 36,
+  "max_fn_lines": 27,
+  "max_type_members": 0
+ },
+ "crates/qingjian-update/src/checker/available.rs": {
+  "file_lines": 16,
+  "max_fn_lines": 0,
+  "max_type_members": 4
+ },
+ "crates/qingjian-update/src/checker/mod.rs": {
+  "file_lines": 256,
+  "max_fn_lines": 27,
+  "max_type_members": 22
+ },
+ "crates/qingjian-update/src/checker/state.rs": {
+  "file_lines": 49,
+  "max_fn_lines": 8,
+  "max_type_members": 3
+ },
+ "crates/qingjian-update/src/error.rs": {
+  "file_lines": 27,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "crates/qingjian-update/src/index/asset.rs": {
+  "file_lines": 12,
+  "max_fn_lines": 0,
+  "max_type_members": 2
+ },
+ "crates/qingjian-update/src/index/fetch.rs": {
+  "file_lines": 41,
+  "max_fn_lines": 18,
+  "max_type_members": 0
+ },
+ "crates/qingjian-update/src/index/mod.rs": {
+  "file_lines": 136,
+  "max_fn_lines": 25,
+  "max_type_members": 5
+ },
+ "crates/qingjian-update/src/index/release.rs": {
+  "file_lines": 23,
+  "max_fn_lines": 0,
+  "max_type_members": 5
+ },
+ "crates/qingjian-update/src/index/signature.rs": {
+  "file_lines": 82,
+  "max_fn_lines": 20,
+  "max_type_members": 0
+ },
+ "crates/qingjian-update/src/lib.rs": {
+  "file_lines": 20,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "crates/qingjian-update/src/target.rs": {
+  "file_lines": 27,
+  "max_fn_lines": 15,
+  "max_type_members": 2
+ },
+ "crates/qingjian-update/src/version.rs": {
+  "file_lines": 120,
+  "max_fn_lines": 21,
+  "max_type_members": 2
+ },
+ "scripts/gates/agent_gate.py": {
+  "file_lines": 250,
+  "max_fn_lines": 33,
+  "max_type_members": 0
+ },
+ "scripts/gates/arch_gate.py": {
+  "file_lines": 230,
+  "max_fn_lines": 67,
+  "max_type_members": 0
+ },
+ "scripts/gates/args_gate.py": {
+  "file_lines": 71,
+  "max_fn_lines": 19,
+  "max_type_members": 0
+ },
+ "scripts/gates/cargo_gate.py": {
+  "file_lines": 73,
+  "max_fn_lines": 21,
+  "max_type_members": 0
+ },
+ "scripts/gates/cyc_gate.py": {
+  "file_lines": 36,
+  "max_fn_lines": 4,
+  "max_type_members": 0
+ },
+ "scripts/gates/dupe_gate.py": {
+  "file_lines": 165,
+  "max_fn_lines": 57,
+  "max_type_members": 0
+ },
+ "scripts/gates/gate.py": {
+  "file_lines": 193,
+  "max_fn_lines": 56,
+  "max_type_members": 0
+ },
+ "scripts/gates/gate_selftest.py": {
+  "file_lines": 167,
+  "max_fn_lines": 94,
+  "max_type_members": 0
+ },
+ "scripts/gates/gates_common.py": {
+  "file_lines": 286,
+  "max_fn_lines": 38,
+  "max_type_members": 0
+ },
+ "scripts/gates/god_debt.py": {
+  "file_lines": 215,
+  "max_fn_lines": 62,
+  "max_type_members": 0
+ },
+ "scripts/gates/god_diff.py": {
+  "file_lines": 70,
+  "max_fn_lines": 37,
+  "max_type_members": 0
+ },
+ "scripts/gates/god_gate.py": {
+  "file_lines": 423,
+  "max_fn_lines": 68,
+  "max_type_members": 0
+ },
+ "scripts/gates/god_touch.py": {
+  "file_lines": 91,
+  "max_fn_lines": 42,
+  "max_type_members": 0
+ },
+ "scripts/gates/ident_gate.py": {
+  "file_lines": 64,
+  "max_fn_lines": 13,
+  "max_type_members": 0
+ },
+ "scripts/gates/ignore_gate.py": {
+  "file_lines": 27,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "scripts/gates/lang_gate.py": {
+  "file_lines": 68,
+  "max_fn_lines": 13,
+  "max_type_members": 0
+ },
+ "scripts/gates/linelen_gate.py": {
+  "file_lines": 39,
+  "max_fn_lines": 12,
+  "max_type_members": 0
+ },
+ "scripts/gates/log_gate.py": {
+  "file_lines": 29,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "scripts/gates/nest_gate.py": {
+  "file_lines": 39,
+  "max_fn_lines": 10,
+  "max_type_members": 0
+ },
+ "scripts/gates/prefix_gate.py": {
+  "file_lines": 68,
+  "max_fn_lines": 18,
+  "max_type_members": 0
+ },
+ "scripts/gates/sleep_gate.py": {
+  "file_lines": 23,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "scripts/gates/super_gate.py": {
+  "file_lines": 26,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "scripts/gates/testsize_gate.py": {
+  "file_lines": 51,
+  "max_fn_lines": 15,
+  "max_type_members": 0
+ },
+ "scripts/gates/trait_gate.py": {
+  "file_lines": 114,
+  "max_fn_lines": 42,
+  "max_type_members": 0
+ },
+ "scripts/gates/type_span_gate.py": {
+  "file_lines": 200,
+  "max_fn_lines": 62,
+  "max_type_members": 0
+ },
+ "scripts/gates/unsafe_gate.py": {
+  "file_lines": 27,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "scripts/gates/unwrap_gate.py": {
+  "file_lines": 25,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "tools/corpus/english_frequency.py": {
+  "file_lines": 42,
+  "max_fn_lines": 19,
+  "max_type_members": 0
+ },
+ "tools/corpus/glossary_es.py": {
+  "file_lines": 473,
+  "max_fn_lines": 153,
+  "max_type_members": 2
+ },
+ "tools/corpus/levels.py": {
+  "file_lines": 111,
+  "max_fn_lines": 26,
+  "max_type_members": 0
+ },
+ "tools/corpus/parquet_to_text.py": {
+  "file_lines": 65,
+  "max_fn_lines": 23,
+  "max_type_members": 0
+ },
+ "tools/dict-convert/src/args.rs": {
+  "file_lines": 272,
+  "max_fn_lines": 9,
+  "max_type_members": 2
+ },
+ "tools/dict-convert/src/bigram.rs": {
+  "file_lines": 634,
+  "max_fn_lines": 132,
+  "max_type_members": 7
+ },
+ "tools/dict-convert/src/cedict.rs": {
+  "file_lines": 137,
+  "max_fn_lines": 56,
+  "max_type_members": 0
+ },
+ "tools/dict-convert/src/codes/mod.rs": {
+  "file_lines": 233,
+  "max_fn_lines": 39,
+  "max_type_members": 5
+ },
+ "tools/dict-convert/src/codes/tests.rs": {
+  "file_lines": 174,
+  "max_fn_lines": 33,
+  "max_type_members": 3
+ },
+ "tools/dict-convert/src/emoji.rs": {
+  "file_lines": 135,
+  "max_fn_lines": 100,
+  "max_type_members": 0
+ },
+ "tools/dict-convert/src/english.rs": {
+  "file_lines": 149,
+  "max_fn_lines": 68,
+  "max_type_members": 0
+ },
+ "tools/dict-convert/src/error.rs": {
+  "file_lines": 50,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "tools/dict-convert/src/lexicon/annotations.rs": {
+  "file_lines": 60,
+  "max_fn_lines": 19,
+  "max_type_members": 2
+ },
+ "tools/dict-convert/src/lexicon/corpus.rs": {
+  "file_lines": 83,
+  "max_fn_lines": 25,
+  "max_type_members": 3
+ },
+ "tools/dict-convert/src/lexicon/entry.rs": {
+  "file_lines": 13,
+  "max_fn_lines": 0,
+  "max_type_members": 3
+ },
+ "tools/dict-convert/src/lexicon/mod.rs": {
+  "file_lines": 438,
+  "max_fn_lines": 320,
+  "max_type_members": 0
+ },
+ "tools/dict-convert/src/lexicon/pack.rs": {
+  "file_lines": 224,
+  "max_fn_lines": 74,
+  "max_type_members": 4
+ },
+ "tools/dict-convert/src/lexicon/readings.rs": {
+  "file_lines": 190,
+  "max_fn_lines": 50,
+  "max_type_members": 5
+ },
+ "tools/dict-convert/src/lexicon/tone.rs": {
+  "file_lines": 62,
+  "max_fn_lines": 20,
+  "max_type_members": 0
+ },
+ "tools/dict-convert/src/main.rs": {
+  "file_lines": 191,
+  "max_fn_lines": 142,
+  "max_type_members": 0
+ },
+ "tools/dict-convert/src/mmh/mod.rs": {
+  "file_lines": 229,
+  "max_fn_lines": 56,
+  "max_type_members": 0
+ },
+ "tools/dict-convert/src/mmh/options.rs": {
+  "file_lines": 22,
+  "max_fn_lines": 0,
+  "max_type_members": 3
+ },
+ "tools/dict-convert/src/mmh/tests.rs": {
+  "file_lines": 49,
+  "max_fn_lines": 26,
+  "max_type_members": 0
+ },
+ "tools/dict-convert/src/oov_filter.rs": {
+  "file_lines": 149,
+  "max_fn_lines": 29,
+  "max_type_members": 5
+ },
+ "tools/dict-convert/src/pack.rs": {
+  "file_lines": 174,
+  "max_fn_lines": 86,
+  "max_type_members": 3
+ },
+ "tools/dict-convert/src/phrases/mod.rs": {
+  "file_lines": 258,
+  "max_fn_lines": 84,
+  "max_type_members": 6
+ },
+ "tools/dict-convert/src/phrases/rules.rs": {
+  "file_lines": 97,
+  "max_fn_lines": 39,
+  "max_type_members": 0
+ },
+ "tools/dict-convert/src/stroke/mod.rs": {
+  "file_lines": 294,
+  "max_fn_lines": 80,
+  "max_type_members": 0
+ },
+ "tools/dict-convert/src/stroke/options.rs": {
+  "file_lines": 67,
+  "max_fn_lines": 0,
+  "max_type_members": 14
+ },
+ "tools/dict-convert/src/stroke/rules/anchor.rs": {
+  "file_lines": 46,
+  "max_fn_lines": 13,
+  "max_type_members": 2
+ },
+ "tools/dict-convert/src/stroke/rules/mod.rs": {
+  "file_lines": 139,
+  "max_fn_lines": 43,
+  "max_type_members": 6
+ },
+ "tools/dict-convert/src/stroke/rules/rule.rs": {
+  "file_lines": 24,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "tools/dict-convert/src/stroke/tests.rs": {
+  "file_lines": 112,
+  "max_fn_lines": 18,
+  "max_type_members": 0
+ },
+ "tools/dict-convert/src/stroke/verify.rs": {
+  "file_lines": 353,
+  "max_fn_lines": 74,
+  "max_type_members": 0
+ },
+ "tools/dict-convert/src/wubi.rs": {
+  "file_lines": 249,
+  "max_fn_lines": 78,
+  "max_type_members": 3
+ },
+ "tools/gloss-gen/src/args.rs": {
+  "file_lines": 184,
+  "max_fn_lines": 0,
+  "max_type_members": 11
+ },
+ "tools/gloss-gen/src/batch.rs": {
+  "file_lines": 114,
+  "max_fn_lines": 42,
+  "max_type_members": 5
+ },
+ "tools/gloss-gen/src/client.rs": {
+  "file_lines": 67,
+  "max_fn_lines": 23,
+  "max_type_members": 3
+ },
+ "tools/gloss-gen/src/english.rs": {
+  "file_lines": 221,
+  "max_fn_lines": 40,
+  "max_type_members": 5
+ },
+ "tools/gloss-gen/src/entry/english_gloss_entry.rs": {
+  "file_lines": 15,
+  "max_fn_lines": 0,
+  "max_type_members": 3
+ },
+ "tools/gloss-gen/src/entry/gloss_entry.rs": {
+  "file_lines": 27,
+  "max_fn_lines": 3,
+  "max_type_members": 4
+ },
+ "tools/gloss-gen/src/entry/japanese_sense.rs": {
+  "file_lines": 12,
+  "max_fn_lines": 0,
+  "max_type_members": 2
+ },
+ "tools/gloss-gen/src/entry/mod.rs": {
+  "file_lines": 12,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "tools/gloss-gen/src/entry/pinyin_entry.rs": {
+  "file_lines": 12,
+  "max_fn_lines": 0,
+  "max_type_members": 2
+ },
+ "tools/gloss-gen/src/error.rs": {
+  "file_lines": 23,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "tools/gloss-gen/src/generate.rs": {
+  "file_lines": 73,
+  "max_fn_lines": 35,
+  "max_type_members": 5
+ },
+ "tools/gloss-gen/src/main.rs": {
+  "file_lines": 65,
+  "max_fn_lines": 25,
+  "max_type_members": 0
+ },
+ "tools/gloss-gen/src/pinyin.rs": {
+  "file_lines": 175,
+  "max_fn_lines": 47,
+  "max_type_members": 5
+ },
+ "tools/gloss-gen/src/prompt.rs": {
+  "file_lines": 171,
+  "max_fn_lines": 26,
+  "max_type_members": 4
+ },
+ "tools/gloss-gen/src/store.rs": {
+  "file_lines": 202,
+  "max_fn_lines": 54,
+  "max_type_members": 3
+ },
+ "tools/gloss-gen/src/words.rs": {
+  "file_lines": 82,
+  "max_fn_lines": 40,
+  "max_type_members": 0
+ },
+ "tools/release-sign/src/main.rs": {
+  "file_lines": 150,
+  "max_fn_lines": 19,
+  "max_type_members": 1
+ },
+ "tools/release/releases_json.py": {
+  "file_lines": 226,
+  "max_fn_lines": 48,
+  "max_type_members": 0
+ }
+}

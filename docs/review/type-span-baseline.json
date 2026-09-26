@@ -1,0 +1,162 @@
+{
+ "apps/linux|Router": {
+  "methods": 53,
+  "files": 9
+ },
+ "apps/macos|CandidateView": {
+  "methods": 36,
+  "files": 2
+ },
+ "apps/macos|CandidateWindow": {
+  "methods": 10,
+  "files": 1
+ },
+ "apps/macos|FontListSource": {
+  "methods": 11,
+  "files": 1
+ },
+ "apps/macos|Host": {
+  "methods": 45,
+  "files": 7
+ },
+ "apps/macos|PhrasesPage": {
+  "methods": 10,
+  "files": 1
+ },
+ "apps/macos|PreferencesWindow": {
+  "methods": 12,
+  "files": 1
+ },
+ "apps/macos|QingjianInputController": {
+  "methods": 27,
+  "files": 6
+ },
+ "apps/macos|Session": {
+  "methods": 13,
+  "files": 1
+ },
+ "apps/macos|Settings": {
+  "methods": 10,
+  "files": 1
+ },
+ "apps/windows|EngineClient": {
+  "methods": 17,
+  "files": 1
+ },
+ "apps/windows|ModeButton_Impl": {
+  "methods": 12,
+  "files": 1
+ },
+ "apps/windows|Router": {
+  "methods": 84,
+  "files": 12
+ },
+ "apps/windows|Settings": {
+  "methods": 11,
+  "files": 2
+ },
+ "apps/windows|Shared": {
+  "methods": 20,
+  "files": 1
+ },
+ "apps/windows|StatusBar": {
+  "methods": 11,
+  "files": 1
+ },
+ "apps/windows|TextService_Impl": {
+  "methods": 45,
+  "files": 7
+ },
+ "crates/qingjian-core|CandidateLayout": {
+  "methods": 14,
+  "files": 1
+ },
+ "crates/qingjian-core|CommitChain": {
+  "methods": 11,
+  "files": 1
+ },
+ "crates/qingjian-core|Composition": {
+  "methods": 22,
+  "files": 1
+ },
+ "crates/qingjian-core|CountingLearner": {
+  "methods": 11,
+  "files": 1
+ },
+ "crates/qingjian-core|Decoded": {
+  "methods": 17,
+  "files": 2
+ },
+ "crates/qingjian-core|Engine": {
+  "methods": 207,
+  "files": 16
+ },
+ "crates/qingjian-core|MutedLearner": {
+  "methods": 28,
+  "files": 1
+ },
+ "crates/qingjian-core|Scheme": {
+  "methods": 13,
+  "files": 1
+ },
+ "crates/qingjian-core|UserNgram": {
+  "methods": 19,
+  "files": 1
+ },
+ "crates/qingjian-core|WordLearner": {
+  "methods": 10,
+  "files": 1
+ },
+ "crates/qingjian-dictionary|AuxCodeTable": {
+  "methods": 17,
+  "files": 1
+ },
+ "crates/qingjian-dictionary|Dictionary": {
+  "methods": 23,
+  "files": 1
+ },
+ "crates/qingjian-learning|FrequencyLearner": {
+  "methods": 51,
+  "files": 3
+ },
+ "crates/qingjian-learning|UsageStats": {
+  "methods": 10,
+  "files": 1
+ },
+ "crates/qingjian-learning|VocabularyBook": {
+  "methods": 15,
+  "files": 1
+ },
+ "crates/qingjian-lm|BigramModel": {
+  "methods": 11,
+  "files": 1
+ },
+ "crates/qingjian-neural|CharLm": {
+  "methods": 10,
+  "files": 1
+ },
+ "crates/qingjian-platform|GeneralConfig": {
+  "methods": 11,
+  "files": 1
+ },
+ "crates/qingjian-render|Canvas": {
+  "methods": 12,
+  "files": 1
+ },
+ "crates/qingjian-render|Metrics": {
+  "methods": 12,
+  "files": 1
+ },
+ "crates/qingjian-render|Renderer": {
+  "methods": 29,
+  "files": 6
+ },
+ "crates/qingjian-translate|Glossary": {
+  "methods": 12,
+  "files": 1
+ },
+ "crates/qingjian-update|Checker": {
+  "methods": 13,
+  "files": 1
+ }
+}

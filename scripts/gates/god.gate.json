@@ -1,0 +1,27 @@
+{
+  "_doc": "上帝对象门配置（移植自 unified-rx-mcp/scripts/gates/god_gate.py：本文件 + 那个脚本即可用，零依赖）。本仓纪律见 docs/contributing.md「代码组织」：单文件 ≤800 行（目标 500）、一个类型一个文件、大类型 impl 按职责拆子模块。这里把那三条变成机器判据。",
+  "max_file_lines": 800,
+  "max_fn_lines": 100,
+  "max_type_members": 20,
+  "_file_growth_doc": "拆函数/拆 impl 会让文件行数变大：若 max_fn_lines 严格下降且涨幅 ≤ 该百分比（或函数降幅 ≥ 文件涨幅），判合法交换（逐条打印）；否则仍红。",
+  "file_growth_with_fn_shrink_pct": 10,
+  "_hard_doc": "三档硬阈分别开闸：true = 该指标存量超阈也红（不接受基线祖父化）；false = 纯棘轮（只准减）。开闸顺序看存量：本仓落地时 file_lines 存量已全绿 ⇒ 当天就是硬阈；fn 与 type 有欠账 ⇒ 先按 docs/review/god-debt.md 认领清零，清完才翻。翻转由 scripts/gates/gate_selftest.py 锁：只许 false→true，不许悄悄改回。",
+  "file_hard_threshold": true,
+  "fn_hard_threshold": false,
+  "type_hard_threshold": false,
+  "_cleanup_doc": "存量超标清单与责任见 docs/review/god-debt.md；谁碰到谁顺手减（agent_gate 的 touch-tax 会卡：改了超标文件却不减小 = 红）。",
+  "include": ["**/*.rs", "**/*.py"],
+  "exclude": [
+    "**/target/**",
+    "**/.git/**",
+    "**/data/generated/**",
+    "**/assets/**"
+  ],
+  "baseline": "docs/review/god-baseline.json",
+  "_span_doc": "类型跨度门（type_span_gate.py）：按类型名聚合 impl 块——大类型按职责拆成子模块后每个文件都很小，只有聚合才看得见它还是个上帝类型。",
+  "max_type_methods_total": 40,
+  "max_type_impl_files": 8,
+  "min_methods_to_track": 10,
+  "type_span_hard_threshold": false,
+  "type_span_baseline": "docs/review/type-span-baseline.json"
+}

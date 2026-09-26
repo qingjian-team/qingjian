@@ -1,0 +1,85 @@
+# 门禁：上帝对象 / 架构约束 / 重复代码 / 产品代码坏味道 / 多智能体协作 / 门禁自检。
+# 与 quality.yml（PR 标题、cargo-deny、gitleaks、unsafe 增量、残留标记扫描、仓库卫生）和
+# ci.yml（fmt / clippy / 文档门 / 全量测试）互补——那两条管编译与安全，这条管**结构与协作**。
+#
+# 每一步都显式调用 `scripts/gates/<门>.py`，与本地 `scripts/gates/gate.py` 的 STEPS 同源；
+# 「本地有、CI 没有」或「CI 有、本地没有」由 `gate_selftest.py` 的 S1 判红（不许漂移）。
+# 本文件自身被 `scripts/ci_shape_lock.sh` 钉住（顺手删几行会让 CI 形状锁红）。
+name: gates
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gates-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+
+
+  god:
+    name: 上帝对象门
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      # 文件 / 函数 / 类型规模棘轮：只准减；新文件直接对阈值。
+      # `--git-tracked`：只算 git 跟踪的文件（未跟踪的临时产物不该进基线口径）。
+      - name: 规模棘轮
+        run: python3 -X utf8 scripts/gates/god_gate.py --root . --git-tracked
+
+      # 按类型名聚合 impl：大类型拆成子模块后每个文件都很小，只有聚合才看得见它还是上帝类型。
+      - name: 类型跨度
+        run: python3 -X utf8 scripts/gates/type_span_gate.py --git-tracked
+
+      # 欠账台账与基线对账：手改台账数字 = 红（想让数字变小只能真的去拆）。
+      - name: 欠账台账对账
+        run: python3 -X utf8 scripts/gates/god_debt.py --check
+
+      # 提示（不判红）：这次改动碰到了欠账清单上的哪些文件——碰了就顺手减一点。
+      - name: 欠账提示
+        continue-on-error: true
+        run: python3 -X utf8 scripts/gates/god_debt.py --touched "${{ github.event.pull_request.base.sha || github.event.before }}"
+
+      # 碰了就得减：棘轮只说「不许变胖」，于是存量能永远躺着——一个 5000 行的上帝文件
+      # 只要没人给它加行就永远是 5000 行。改了已超阈的文件，就必须把它变小。
+      - name: 碰了就得减
+        run: python3 -X utf8 scripts/gates/god_touch.py --base "${{ github.event.pull_request.base.sha || github.event.before }}"
+
+  selftest:
+    name: 门禁自检
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      # 门不许被悄悄削弱：阈值放宽 / 硬阈关掉 / workflow 少一步 / 钩子上少一步 / 基线被删 ⇒ 红。
+      - name: 门未被削弱
+        run: python3 -X utf8 scripts/gates/gate_selftest.py
+
+      # 门是不是真门：注入一次失败，它必须红（绿了说明这一步根本没生效）。
+      - name: 门是真门（注入失败自检）
+        env:
+          QJ_GATE_FORCE_FAIL: god-gate
+        run: |
+          if python3 -X utf8 scripts/gates/gate.py --only god-gate >/dev/null 2>&1; then
+            echo "::error::注入失败后门仍然绿——这一步没有真正生效（门是假的）"
+            exit 1
+          fi
+          echo "注入 god-gate 失败 ⇒ 门如期变红"
+
+      # 上面只验了 god-gate 一道。这一道**逐门**验：给每道门注入一次最小违规，它必须转红。
+      # 自检（gate_selftest）只查门「在不在」（workflow 里有没有那一行），查不出门「是不是
+      # 空的」——正则写错、路径过滤没匹配上、判据取到空集，这三类都挂着绿勾却一次没判过。
+      - name: 门是真门（逐门注入验证）
+        run: python3 -X utf8 scripts/gates/gate_probe.py
