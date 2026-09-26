@@ -274,7 +274,7 @@ impl StatusBar {
             .pos
             .get()
             .unwrap_or_else(|| default_anchor(content, margin));
-        let anchor = clamp_anchor(anchor, content, margin);
+        let anchor = clamp_anchor(anchor, content);
         self.placement.pos.set(Some(anchor));
         anchor
     }
@@ -381,20 +381,25 @@ fn default_anchor(content: (i32, i32), margin: i32) -> (i32, i32) {
     )
 }
 
-/// 把内容左上角夹进所在显示器的工作区，使整块内容可见。
-fn clamp_anchor(anchor: (i32, i32), content: (i32, i32), margin: i32) -> (i32, i32) {
+/// 把内容左上角夹进所在显示器的工作区：整块内容可见即可，**允许贴边（间隙为 0）**。
+/// 阴影留白（窗口矩形的 margin 环）允许越出工作区——被屏幕裁掉的只是影子，
+/// 环是全透明像素，点击穿透，不挡任务栏。
+fn clamp_anchor(anchor: (i32, i32), content: (i32, i32)) -> (i32, i32) {
     let work = monitor::work_area_near(POINT {
         x: anchor.0,
         y: anchor.1,
     });
-    let x = anchor.0.clamp(
-        work.left + margin,
-        (work.right - margin - content.0).max(work.left + margin),
-    );
-    let y = anchor.1.clamp(
-        work.top + margin,
-        (work.bottom - margin - content.1).max(work.top + margin),
-    );
+    clamp_anchor_in(anchor, content, work)
+}
+
+/// 纯几何部分，便于单测：贴边合法，越界拉回，内容比工作区还宽时钉在左/上。
+fn clamp_anchor_in(anchor: (i32, i32), content: (i32, i32), work: RECT) -> (i32, i32) {
+    let x = anchor
+        .0
+        .clamp(work.left, (work.right - content.0).max(work.left));
+    let y = anchor
+        .1
+        .clamp(work.top, (work.bottom - content.1).max(work.top));
     (x, y)
 }
 
@@ -440,5 +445,47 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: 
             LRESULT(0)
         }
         _ => unsafe { DefWindowProcW(hwnd, msg, wparam, lparam) },
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// 1080p 屏去掉任务栏量级的工作区。
+    const WORK: RECT = RECT {
+        left: 0,
+        top: 0,
+        right: 1920,
+        bottom: 1040,
+    };
+    const CONTENT: (i32, i32) = (120, 36);
+
+    #[test]
+    fn allows_flush_to_edges() {
+        // 左上贴边：锚点就是 (0, 0)，不再被阴影 margin 拉回
+        assert_eq!(clamp_anchor_in((0, 0), CONTENT, WORK), (0, 0));
+        // 右下贴边
+        assert_eq!(
+            clamp_anchor_in(
+                (WORK.right - CONTENT.0, WORK.bottom - CONTENT.1),
+                CONTENT,
+                WORK
+            ),
+            (WORK.right - CONTENT.0, WORK.bottom - CONTENT.1)
+        );
+    }
+
+    #[test]
+    fn keeps_content_visible() {
+        // 拖出左/上边界：拉回工作区
+        assert_eq!(clamp_anchor_in((-50, -50), CONTENT, WORK), (0, 0));
+        // 拖出右/下边界
+        assert_eq!(
+            clamp_anchor_in((3000, 2000), CONTENT, WORK),
+            (WORK.right - CONTENT.0, WORK.bottom - CONTENT.1)
+        );
+        // 内容比工作区还宽：钉在左/上，不越界
+        assert_eq!(clamp_anchor_in((10, 10), (9999, CONTENT.1), WORK), (0, 10));
     }
 }
