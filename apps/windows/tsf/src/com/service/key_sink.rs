@@ -2,6 +2,8 @@
 //! 吃的键在 `OnKeyDown` 里转发给 Server 并按结果更新文档；单击中英切换键（`[shortcut] switch_mode`）的判定与保留键命中也在这里。
 //! 上下文禁了键盘（密码框，见 [`context`](crate::com::context)）时没在组句的键一律放行。
 
+use std::time::Instant;
+
 use windows::Win32::Foundation::{FALSE, LPARAM, WPARAM};
 use windows::Win32::UI::Input::KeyboardAndMouse::VK_CAPITAL;
 use windows::Win32::UI::TextServices::{ITfContext, ITfKeyEventSink_Impl};
@@ -147,11 +149,22 @@ impl TextService_Impl {
 
     /// 把按键送给 Server 并按结果更新文档；返回吃不吃。
     fn forward_key(&self, pic: Ref<ITfContext>, event: KeyEvent) -> bool {
-        // 没连上 Server（没起、刚重启、转发失败后的退避期）：只吃「可能是在打拼音」的键，
-        // 别让拼音字母漏进应用；标点 / 数字 / 英文与 Caps 下的字母本来就会原样交给应用，
-        // 这里放行——一律吃掉会表现为「按了没反应」（连不上时按 `-`、数字都没反应）。
+        // 没连上 Server（没起、刚重启、转发失败后的退避期）：只在「拉起宽限期」内吃「可能是在打拼音」的键，
+        // 别让拼音字母漏进应用；宽限一过（Server 迟迟不来）就全放行——死键盘比漏字母难看，
+        // 而且一律吃掉会表现为「按了没反应」（连不上时按 `-`、数字都没反应）。
         if !self.ensure_connected() {
-            let eat = eats_without_server(&event);
+            let grace = match self.launch_grace_until.get() {
+                Some(until) if Instant::now() < until => true,
+                Some(_) => {
+                    if !self.launch_grace_logged.get() {
+                        self.launch_grace_logged.set(true);
+                        log("Server 迟迟未就绪：拉起宽限已过，字母放行（英文直通），连上后恢复");
+                    }
+                    false
+                }
+                None => false,
+            };
+            let eat = eats_without_server(&event, grace);
             if eat {
                 log(&format!(
                     "没连上 Server，吃掉 vk={} char={:?}",
@@ -264,14 +277,15 @@ impl TextService_Impl {
     }
 }
 
-/// 连不上 Server 时这个键吃不吃。
+/// 连不上 Server 时这个键吃不吃。`grace_active` 是拉起宽限是否还在（见 [`Self::forward_key`] 的调用处）。
 ///
-/// 只有「中文模式下可能是拼音」的字母要吃掉：漏进应用会变成一串字母，比什么都不出更难看。
-/// 标点 / 数字（会话外本来就走 Passthrough 交给应用）与英文模式、Caps 亮着时敲的字母都放行——
-/// 一律吃掉会表现为「按了没反应」，而且连日志都不留（这就是「中文模式按 `-` 偶发无反应」的成因：
-/// 断连到重连成功之间的键全被吞了）。
-fn eats_without_server(event: &KeyEvent) -> bool {
-    !event.modifiers.has_command_key()
+/// 只有「中文模式下可能是拼音」的字母要吃掉：漏进应用会变成一串字母，比什么都不出更难看——
+/// 但只在宽限期内吃：宽限说明自启拉起已在路上，一两秒内就该恢复。标点 / 数字（会话外本来就走
+/// Passthrough 交给应用）与英文模式、Caps 亮着时敲的字母都放行——一律吃掉会表现为「按了没反应」，
+/// 而且连日志都不留（这就是「中文模式按 `-` 偶发无反应」的成因：断连到重连成功之间的键全被吞了）。
+fn eats_without_server(event: &KeyEvent, grace_active: bool) -> bool {
+    grace_active
+        && !event.modifiers.has_command_key()
         && is_letter(event.virtual_key)
         && !(event.modifiers.caps || event.modifiers.english_mode)
 }
@@ -410,26 +424,35 @@ mod tests {
     }
 
     #[test]
-    fn letters_are_eaten_only_in_chinese_mode() {
+    fn letters_are_eaten_only_in_chinese_mode_within_grace() {
         let (caps, english) = CHINESE;
-        assert!(eats_without_server(&key(0x41, caps, english))); // A
-        assert!(!eats_without_server(&key(0x41, true, english))); // Caps 亮着是直通英文
-        assert!(!eats_without_server(&key(0x41, caps, true))); // 英文模式
+        assert!(eats_without_server(&key(0x41, caps, english), true)); // A
+        assert!(!eats_without_server(&key(0x41, true, english), true)); // Caps 亮着是直通英文
+        assert!(!eats_without_server(&key(0x41, caps, true), true)); // 英文模式
+    }
+
+    /// 宽限一过（或起不出 Server），连拼音字母也放行：死键盘比漏字母难看。
+    #[test]
+    fn nothing_is_eaten_once_the_launch_grace_expires() {
+        let (caps, english) = CHINESE;
+        assert!(!eats_without_server(&key(0x41, caps, english), false));
+        assert!(!eats_without_server(&key(0x41, false, true), false));
+        assert!(!eats_without_server(&key(0xBD, caps, english), false));
     }
 
     #[test]
     fn punctuation_digits_and_command_keys_go_to_the_app() {
         let (caps, english) = CHINESE;
         // `-`（0xBD）、数字 2、`@`：中文模式会话外都是原样交给应用的键
-        assert!(!eats_without_server(&key(0xBD, caps, english)));
-        assert!(!eats_without_server(&key(0x32, caps, english)));
-        assert!(!eats_without_server(&key(0x32, true, english)));
+        assert!(!eats_without_server(&key(0xBD, caps, english), true));
+        assert!(!eats_without_server(&key(0x32, caps, english), true));
+        assert!(!eats_without_server(&key(0x32, true, english), true));
         // Ctrl+C 这类组合键一律归应用
         let mut combo = key(0x43, caps, english);
         combo.modifiers = KeyModifiers {
             ctrl: true,
             ..combo.modifiers
         };
-        assert!(!eats_without_server(&combo));
+        assert!(!eats_without_server(&combo, true));
     }
 }
