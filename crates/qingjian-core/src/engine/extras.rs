@@ -60,6 +60,9 @@ impl Engine {
     /// 两字母的全大写缩写（`mp` → MP、`bm` → BM）是个例外：整段太短、几乎总是在打中文（门票 / 编码），
     /// 这种让中文先；超过两个字母的正文英文（cargo / rust）照旧——按词频一刀切会把它们一起挤掉。
     /// 例外只管**没选过**的英文词：用户选过的照旧排第一（选过 OK，下次敲 `ok` 还是 OK 在前）。
+    /// **首位特权只给整段恰好是英文词的输入**（`ok` / `nb`）：纯补全（`wod` → Wodehouse）不证明英文意图——
+    /// 同样的字母在中文侧常常正好是一个词（`wo'd` → 我的），补全让到中文候选后面（2026-09-27，修 `wo'd`
+    /// 被 Wodehouse 压住）。拼音切不出任何中文候选时补全仍在最前（`compa` → company 不受影响）。
     pub(super) fn insert_english(&self, items: &mut Vec<Candidate>, unlikely_pinyin: bool) {
         let lists = self.english_lists();
         if lists.is_empty() {
@@ -92,8 +95,11 @@ impl Engine {
         let short_acronym = english_weight == 0
             && text.len() <= 2
             && word.is_some_and(|word| word.chars().all(|c| c.is_ascii_uppercase()));
-        let english_first =
-            !self.chinese_first && unlikely_pinyin && chosen <= english_weight && !short_acronym;
+        let english_first = word.is_some()
+            && !self.chinese_first
+            && unlikely_pinyin
+            && chosen <= english_weight
+            && !short_acronym;
         let mut position = if items.is_empty() || english_first {
             0
         } else {

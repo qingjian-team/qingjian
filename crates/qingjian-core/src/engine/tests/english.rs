@@ -424,3 +424,19 @@ fn pinyin_like_english_tail_competes_with_the_plain_reading() {
     assert_eq!(engine.commit(&mixed), "我的database");
     assert!(engine.composition().is_empty());
 }
+
+#[test]
+fn completions_follow_chinese_when_input_reads_as_chinese() {
+    // `wod` 不是完整英文词：补全不让到「我的」前面；整段恰好是英文词（wodge 打全）时首位特权不变
+    let dictionary = Dictionary::parse("我的\two de\t500000\n我\two\t100000\n").unwrap();
+    let words = WordList::parse("Wodehouse\twodehouse\t50\nwodge\twodge\t60\n").unwrap();
+    let mut engine = Engine::new(dictionary).with_english(words);
+    engine.set_input("wod");
+    let items = engine.query().unwrap().candidates.items;
+    assert_eq!(items[0].text, "我的");
+    assert!(items.iter().any(|c| c.text == "Wodehouse"));
+
+    engine.set_input("wodge");
+    let items = engine.query().unwrap().candidates.items;
+    assert_eq!(items[0].text, "wodge");
+}
