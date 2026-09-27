@@ -422,3 +422,32 @@ fn option_arrows_move_the_cursor_by_syllable() {
     assert!(engine.move_cursor_syllable_right());
     assert_eq!(engine.composition().cursor(), "hello".len());
 }
+
+#[test]
+fn covered_word_beats_static_composition() {
+    // 整段拼音 shiguo 在词级正好是 石锅/试过：静态模型按高频单字拼出的 是过 不许以 [句] 插队（issue #98）
+    let dictionary = Dictionary::parse(
+        "石锅\tshi guo\t304\n试过\tshi guo\t4814\n是\tshi\t929226\n过\tguo\t300000\n",
+    )
+    .unwrap();
+    let mut engine =
+        Engine::new(dictionary).with_learner(Box::new(CountingLearner(HashMap::new())));
+    engine.set_input("shiguo");
+    let items = engine.query().unwrap().candidates.items;
+    assert!(items.iter().all(|c| c.text != "是过"));
+    assert!(!matches!(items[0].kind, CandidateKind::Sentence));
+    assert!(["石锅", "试过"].contains(&items[0].text.as_str()));
+
+    // 个人证据豁免：选过 是（weight 进 Viterbi 路径分）之后，是过 的组合带着个人加分回来，
+    // 与 #200 的 和并 同机制——个性化压过通用规则
+    engine.set_input("shi");
+    let shi = engine.query().unwrap().candidates.items[0].clone();
+    engine.commit(&shi);
+    engine.set_input("shiguo");
+    let items = engine.query().unwrap().candidates.items;
+    assert!(
+        items
+            .iter()
+            .any(|c| c.text == "是过" && c.kind == CandidateKind::Sentence)
+    );
+}

@@ -576,6 +576,20 @@ impl Engine {
                 conversion = self.convert_sentence(&best.patterns(), false)?;
             }
         }
+        // 静态路径同理：整段拼音在词级正好是一个词（`shiguo` 的 石锅/事故/试过）时，静态模型按高频单字
+        // 拼出的组合（是过 / 床安奇）不许以 [句] 身份插到它前面——组合的各字在词级本来就各自可选，
+        // 整句只在真有个人证据（个人 n-gram / 用户选择把路径分抬离静态分）时才按设计赢（`hebk` 的 和并）。
+        // 同文本的词不在此列：读音相同的留给下面的去重让位，读音不同的（错读音用户词）要靠整句纠正。
+        if !conversion.altered() {
+            let letters = best.joined("");
+            let covered = items
+                .iter()
+                .any(|c| c.kind == CandidateKind::Chinese && c.syllables.concat() == letters);
+            let same_text = items.iter().any(|c| c.text == conversion.text);
+            if covered && !same_text && (conversion.score - conversion.static_score).abs() <= 1e-6 {
+                return None;
+            }
+        }
         if conversion.has_placeholder() {
             return None;
         }
