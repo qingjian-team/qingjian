@@ -2,7 +2,9 @@ use qingjian_core::ShuangpinScheme;
 use serde::{Deserialize, Serialize};
 
 use super::scheme::{Scheme, scheme_label};
-use super::{CandidateRenderer, LayoutMode, LogLevel, PreeditMode, ShiftLetter, ThemeMode};
+use super::{
+    CandidateRenderer, LayoutMode, LogLevel, PunctuationCommit, PreeditMode, ShiftLetter, ThemeMode,
+};
 
 /// 每页最多几个候选：数字键只有 1–9。
 pub const MAX_PAGE_SIZE: usize = 9;
@@ -68,6 +70,11 @@ pub struct GeneralConfig {
     /// 中文模式下不在组句时敲的标点转成全角（`，。？！` 等，数字后的 `.` 保持半角）。
     /// Windows 悬浮状态条上可点切换；macOS 在偏好设置中选择默认模式。
     pub full_width_punctuation: bool,
+
+    /// 组句中敲半角标点（翻页键除外）的处理：`candidate`（缺省）上屏当前候选并补出全角标点
+    /// （`nihao,` → 你好，）；`raw` 标点进缓冲区、整段成为英文直输段（`hello,` 原样上屏）。
+    /// 见 [`PunctuationCommit`]。
+    pub punctuation_commit: PunctuationCommit,
 
     /// 英文模式下的同一件事，中英各记一份；缺省半角。只有 Windows 用（macOS 英文模式一律半角）。
     pub english_full_width_punctuation: bool,
@@ -135,6 +142,7 @@ impl Default for GeneralConfig {
             english_mode: true,
             full_width_punctuation: true,
             english_full_width_punctuation: false,
+            punctuation_commit: PunctuationCommit::default(),
             aux_code_key: qingjian_core::DEFAULT_AUX_CODE_KEY.to_string(),
             aux_code_show: false,
             aux_code_keep_empty: true,

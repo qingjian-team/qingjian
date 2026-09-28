@@ -143,6 +143,10 @@ pub struct Host {
     /// 英文模式是否给英文候选（配置 `[general] english_candidates`）。
     pub english_candidates: bool,
 
+    /// 组句中敲半角标点是否「上屏候选 + 全角标点」（配置 `[general] punctuation_commit = "candidate"`，缺省）；
+    /// `raw` 时标点进缓冲区、整段原样上屏。
+    pub punctuation_commit_candidate: bool,
+
     /// 上次从系统读到的文本替换（激活输入法时重读），`[general] system_text_replacements` 开着时并进自定义短语。
     text_replacements: Vec<TextReplacement>,
 
