@@ -1,6 +1,6 @@
 //! BIP-39 助记词防泄露：黑名单不落盘 + 连续命中转私密。见 `crate::engine::mnemonic`。
 
-use super::*;
+use super::{Candidate, Dictionary, Engine, Learner, SAMPLE, WordList, engine};
 
 /// 跟 `english.rs` 里 `raw_committed_english_words_are_learned_and_come_back_as_candidates`
 /// 用的是同一种桩：真记 `learn_english` 被叫过哪些词，比只看候选排序更直接。
