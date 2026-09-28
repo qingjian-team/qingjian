@@ -72,6 +72,11 @@ impl Host {
         self.horizontal_grid && self.layout == LayoutMode::Horizontal
     }
 
+    /// 方向键分区模型是否生效：矩阵按键开着，而且当前有候选布局。
+    pub fn grid_mode(&self) -> bool {
+        self.grid_keys() && !self.session.layout.is_empty()
+    }
+
     /// 新一轮候选：每页格数取配置与窗口能画的行数中较小者，云端槽位数取配置。
     pub fn reset_session(&mut self, preedit: Option<Preedit>, candidates: Vec<Candidate>) {
         self.status = None;

@@ -422,3 +422,44 @@ fn option_arrows_move_the_cursor_by_syllable() {
     assert!(engine.move_cursor_syllable_right());
     assert_eq!(engine.composition().cursor(), "hello".len());
 }
+
+#[test]
+fn left_arrow_boundary_is_whole_syllables_and_mid_syllable_is_letters() {
+    let mut engine = engine();
+    engine.set_input("kaifaxianxia");
+    // 最优切分 kai|fa|xian|xia：开头与末尾都是边界，← 整字往左跳
+    assert!(engine.cursor_at_syllable_boundary());
+    assert!(engine.move_cursor_syllable_left());
+    assert_eq!(engine.composition().cursor(), "kaifaxian".len());
+    assert!(engine.cursor_at_syllable_boundary());
+    assert!(engine.move_cursor_syllable_left());
+    assert_eq!(engine.composition().cursor(), "kaifa".len());
+    assert!(engine.cursor_at_syllable_boundary());
+    assert!(engine.move_cursor_syllable_left());
+    assert_eq!(engine.composition().cursor(), "kai".len());
+    // → 微调进音节中间之后，← 逐字母退
+    assert!(engine.move_cursor_right());
+    assert!(!engine.cursor_at_syllable_boundary());
+    assert!(engine.move_cursor_left());
+    assert_eq!(engine.composition().cursor(), "kai".len());
+    // 直输段：字母数字串的开头是边界
+    engine.set_input("hello,world");
+    assert!(engine.cursor_at_syllable_boundary());
+    assert!(engine.move_cursor_syllable_left());
+    assert_eq!(engine.composition().cursor(), "hello,".len());
+    assert!(engine.move_cursor_right());
+    assert!(!engine.cursor_at_syllable_boundary());
+    // 双拼两键一音节：键对上是边界，落单键的中间不是
+    let mut engine = xiaohe();
+    engine.set_input("kdfah");
+    assert!(engine.cursor_at_syllable_boundary());
+    assert!(engine.move_cursor_syllable_left());
+    assert_eq!(engine.composition().cursor(), "kdfa".len());
+    assert!(engine.cursor_at_syllable_boundary());
+    assert!(engine.move_cursor_syllable_left());
+    assert_eq!(engine.composition().cursor(), "kd".len());
+    assert!(engine.move_cursor_right());
+    assert!(!engine.cursor_at_syllable_boundary());
+    assert!(engine.move_cursor_right());
+    assert!(engine.cursor_at_syllable_boundary());
+}
