@@ -127,6 +127,10 @@ if [[ -f data/generated/dict.tsv || -f data/generated/dict.qj ]]; then
     [[ -f "$f" ]] && cp "$f" "$APP/Contents/Resources/"
   done
   echo "使用 data/generated/ 的产品数据（自建词库）"
+else
+  # 静默退回样例词库会让装出来的输入法几乎不可用（这次就是被它坑的），必须喊出来
+  echo "警告: data/generated/ 里没有词库（dict.qj / dict.tsv），打包的是 assets/sample/ 样例词库，候选会非常少！" >&2
+  echo "      先跑 tools/release/data-fetch.sh 下载产品数据再打包。" >&2
 fi
 printf 'APPL????' > "$APP/Contents/PkgInfo"
 
