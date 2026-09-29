@@ -152,6 +152,7 @@ pub fn init(mtm: MainThreadMarker, info: &BundleInfo) -> Result<(), HostError> {
             layout: LayoutMode::default(),
             horizontal_grid: false,
             english_candidates: true,
+            punctuation_commit_candidate: true,
             text_replacements: Vec::new(),
             apps: AppsConfig::default(),
             monitor,

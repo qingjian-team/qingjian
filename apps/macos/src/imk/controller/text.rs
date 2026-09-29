@@ -125,14 +125,30 @@ impl QingjianInputController {
         // 微软 / 搜狗双拼的 `;` 是 ing 键：末尾有落单声母时进缓冲区，其他时候还是标点
         let semicolon =
             composing && c == ';' && host::with(|h| h.engine.takes_semicolon()).unwrap_or(false);
-        // 组句中敲半角标点：进缓冲区，整段成为英文直输段（`hello,` `dui'ma?`），中文模式下也能打带标点的英文；
-        // 翻页键除外；⇧+数字（! @ # …）在前面已被删候选 / 译词键截走
+        // 组句中敲半角标点：翻页键除外；⇧+数字（! @ # …）在前面已被删候选 / 译词键截走
         let punctuation = composing
             && !question
             && !expression
             && c.is_ascii_punctuation()
             && c != page_previous
             && c != page_next;
+        // 本仓库定制（`[general] punctuation_commit` 缺省 `candidate`）：缓冲还是干净拼音时（`nihao`），
+        // 标点 = 上屏当前候选再补出全角标点（`nihao,` → 你好，），主流输入法习惯，一气打完不用先按空格；
+        // 配成 `raw`（上游行为）或缓冲已是直输段（`no-`、`hello-`）时标点照旧进缓冲区，整段原样上屏
+        if punctuation && !raw && host::with(|h| h.punctuation_commit_candidate).unwrap_or(false) {
+            self.commit_highlighted(client);
+            match host::with(|h| h.engine.punctuate(c)).flatten() {
+                Some(full_width) => {
+                    client.insert_text(full_width);
+                    return true;
+                }
+                // 全角关着或转不出的（数字后的 `.`）：候选已上屏，标点原样交给应用
+                None => {
+                    host::with(|h| h.engine.note_passthrough(c));
+                    return false;
+                }
+            }
+        }
         if c.is_ascii_lowercase()
             || (composing && c == '\'')
             || semicolon
