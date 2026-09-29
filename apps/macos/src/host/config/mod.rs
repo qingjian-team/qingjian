@@ -7,7 +7,12 @@ pub(super) use text_replacements::TextReplacement;
 pub(super) use watch::ConfigWatch;
 
 use super::init::load_glossary;
-use super::*;
+use super::{Host, LEARNING_FLUSH_INTERVAL};
+use crate::app::{logging, paths};
+use crate::preferences::UpdateStatus;
+use qingjian_core::{Language, NoGlossFiller, NoPredictor, NoTranslator};
+use qingjian_platform::{GeneralConfig, Scheme};
+use qingjian_predict::{CloudGlossFiller, CloudPredictor};
 
 impl Host {
     /// 把当前配置推给 Engine 与界面：模糊音 / 模式键 / 翻页 / 外观直接设；学习语言变了换释义表；
@@ -38,7 +43,12 @@ impl Host {
         self.english_candidates = config.general.english_candidates;
         self.apps = config.apps.clone();
         self.window.set_theme(config.general.theme);
+        let layout_changed = self.layout != config.general.layout;
         self.window.set_layout(config.general.layout);
+        let vertical_above_changed = self.window.set_vertical_above(
+            config.general.vertical_above_reverse,
+            config.general.vertical_above_arrow_keys,
+        );
         if self.layout != config.general.layout
             || self.horizontal_grid != config.general.horizontal_grid
         {
@@ -109,6 +119,9 @@ impl Host {
             &self.update_status,
         );
         self.sync_update();
+        if (layout_changed || vertical_above_changed) && self.window.is_visible() {
+            self.render();
+        }
     }
 
     /// 配置里的自定义短语，`[general] system_text_replacements` 开着时再并上系统的文本替换，一起推给 Engine。

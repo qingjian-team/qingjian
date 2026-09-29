@@ -2,7 +2,10 @@ use qingjian_core::ShuangpinScheme;
 use serde::{Deserialize, Serialize};
 
 use super::scheme::{Scheme, scheme_label};
-use super::{CandidateRenderer, LayoutMode, LogLevel, PreeditMode, ShiftLetter, ThemeMode};
+use super::{
+    CandidateRenderer, LayoutMode, LogLevel, PreeditMode, ShiftLetter, ThemeMode,
+    VerticalAboveArrowKeys,
+};
 
 /// 每页最多几个候选：数字键只有 1–9。
 pub const MAX_PAGE_SIZE: usize = 9;
@@ -39,6 +42,12 @@ pub struct GeneralConfig {
 
     /// 横排时上 / 下键把单行展开成多行矩阵（左 / 右键改为移动候选高亮，Esc 第一下先收回）。缺省关：横排下的按键与以前一样。只有 macOS 用。
     pub horizontal_grid: bool,
+
+    /// macOS：竖排候选窗位于输入行上方时倒序显示，首项靠近输入行。缺省关。
+    pub vertical_above_reverse: bool,
+
+    /// macOS：倒序显示时，方向键按候选顺序或屏幕方向移动。关闭倒序时不生效。
+    pub vertical_above_arrow_keys: VerticalAboveArrowKeys,
 
     /// 候选窗口由青简渲染器还是系统原生绘制。
     pub renderer: CandidateRenderer,
@@ -125,6 +134,8 @@ impl Default for GeneralConfig {
             theme: ThemeMode::default(),
             layout: LayoutMode::default(),
             horizontal_grid: false,
+            vertical_above_reverse: false,
+            vertical_above_arrow_keys: VerticalAboveArrowKeys::default(),
             renderer: CandidateRenderer::default(),
             font: String::new(),
             preedit: PreeditMode::default(),
@@ -276,6 +287,30 @@ mod tests {
         assert!(!general.horizontal_grid);
         let general: GeneralConfig = toml::from_str("horizontal_grid = true\n").unwrap();
         assert!(general.horizontal_grid);
+    }
+
+    #[test]
+    fn vertical_above_preserves_old_configs_and_independent_arrow_preference() {
+        let old: GeneralConfig = toml::from_str("layout = 'vertical'\npage_size = 5").unwrap();
+        assert!(!old.vertical_above_reverse);
+        assert_eq!(
+            old.vertical_above_arrow_keys,
+            super::VerticalAboveArrowKeys::Candidate
+        );
+        assert_eq!(old.page_size, 5);
+        for enabled in [false, true] {
+            for keys in super::VerticalAboveArrowKeys::ALL {
+                let text = format!(
+                    "vertical_above_reverse = {enabled}\nvertical_above_arrow_keys = '{}'",
+                    keys.key()
+                );
+                let general: GeneralConfig = toml::from_str(&text).unwrap();
+                assert_eq!(general.vertical_above_reverse, enabled);
+                assert_eq!(general.vertical_above_arrow_keys, keys);
+                let saved = toml::to_string(&general).unwrap();
+                assert_eq!(toml::from_str::<GeneralConfig>(&saved).unwrap(), general);
+            }
+        }
     }
 
     #[test]

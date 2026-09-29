@@ -1,5 +1,7 @@
 //! 候选窗口：非激活的浮动 NSPanel，跟随光标，内容由 [`CandidateView`] 绘制。
 
+use std::cell::Cell;
+
 use objc2::MainThreadMarker;
 use objc2::rc::Retained;
 use objc2_app_kit::{
@@ -8,7 +10,7 @@ use objc2_app_kit::{
     NSWindowLevel, NSWindowStyleMask,
 };
 use objc2_foundation::{NSPoint, NSRect, NSSize};
-use qingjian_platform::{CandidateRenderer, LayoutMode, ThemeMode};
+use qingjian_platform::{CandidateRenderer, LayoutMode, ThemeMode, VerticalAboveArrowKeys};
 
 use super::frame::Frame;
 use super::theme::Theme;
@@ -35,6 +37,18 @@ pub struct CandidateWindow {
 
     /// 用来取屏幕尺寸。
     mtm: MainThreadMarker,
+
+    /// 当前排布；横排与矩阵沿用原来的呈现和导航。
+    layout: Cell<LayoutMode>,
+
+    /// 上方竖排候选是否倒序显示。
+    vertical_above_reverse: bool,
+
+    /// 倒序时方向键的移动方式。
+    vertical_above_arrow_keys: VerticalAboveArrowKeys,
+
+    /// 当前可见帧是否倒序；收窗时清除，避免下个会话沿用方向。
+    reversed: Cell<bool>,
 }
 
 impl CandidateWindow {
@@ -46,6 +60,10 @@ impl CandidateWindow {
             view,
             appearance: None,
             mtm,
+            layout: Cell::new(LayoutMode::default()),
+            vertical_above_reverse: false,
+            vertical_above_arrow_keys: VerticalAboveArrowKeys::default(),
+            reversed: Cell::new(false),
         }
     }
 
@@ -55,11 +73,20 @@ impl CandidateWindow {
             self.hide();
             return;
         }
-        let size = self.view.set_frame(&frame);
-        let origin = self.place(size, anchor);
+        let can_reverse = self.vertical_above_reverse && self.layout.get() == LayoutMode::Vertical;
+        let previous = can_reverse && self.reversed.get();
+        let size = self.view.set_frame(&frame, previous);
+        let (origin, above) = self.place(size, anchor);
+        let reversed = can_reverse && above;
+        if reversed != previous {
+            // 只改变拼音、候选和页码行的位置，尺寸不变；方向切换时才需要补绘。
+            self.view.set_frame(&frame, reversed);
+        }
+        self.reversed.set(reversed);
         self.panel.setFrame_display(NSRect::new(origin, size), true);
         self.order_front_on_active_space();
         if !self.panel.isVisible() {
+            self.reversed.set(false);
             tracing::warn!(?anchor, ?origin, "候选窗口 orderFront 之后仍不可见");
         } else {
             tracing::debug!(
@@ -72,7 +99,26 @@ impl CandidateWindow {
     }
 
     pub fn hide(&self) {
+        self.reversed.set(false);
         self.panel.orderOut(None);
+    }
+
+    pub fn is_visible(&self) -> bool {
+        self.panel.isVisible()
+    }
+
+    /// 返回设置是否改变，供热加载在原候选上重画。
+    pub fn set_vertical_above(&mut self, reverse: bool, keys: VerticalAboveArrowKeys) -> bool {
+        let changed =
+            self.vertical_above_reverse != reverse || self.vertical_above_arrow_keys != keys;
+        self.vertical_above_reverse = reverse;
+        self.vertical_above_arrow_keys = keys;
+        changed
+    }
+
+    /// 把屏幕方向转换成会话中的候选增量；按键含义以当前显示帧为准。
+    pub fn candidate_delta(&self, delta: isize) -> isize {
+        candidate_delta(delta, self.reversed.get(), self.vertical_above_arrow_keys)
     }
 
     /// 排到最前，并确认真在当前 Space 上；不在就换一块新面板。
@@ -116,6 +162,7 @@ impl CandidateWindow {
 
     /// 竖排 / 横排。下一帧生效。
     pub fn set_layout(&self, layout: LayoutMode) {
+        self.layout.set(layout);
         self.view.set_layout(layout);
     }
 
@@ -135,10 +182,10 @@ impl CandidateWindow {
 
     /// 窗口左下角坐标：贴在光标行下方；下方放不下放上方；不出光标所在的那块屏幕。
     /// 光标矩形是零或落在所有屏幕之外（应用不支持、或给的是胡话）时以鼠标位置为准，至少落在用户看着的屏幕上。
-    fn place(&self, size: NSSize, anchor: NSRect) -> NSPoint {
-        let (anchor, screen) = match screen_containing(self.mtm, anchor.origin) {
+    fn place(&self, size: NSSize, anchor: NSRect) -> (NSPoint, bool) {
+        let (anchor, screen, caret_known) = match screen_containing(self.mtm, anchor.origin) {
             Some(screen) if !(anchor.size.height == 0.0 && anchor.origin == NSPoint::ZERO) => {
-                (anchor, screen)
+                (anchor, screen, anchor.size.height > 0.0)
             }
             _ => {
                 let mouse = NSEvent::mouseLocation();
@@ -147,26 +194,46 @@ impl CandidateWindow {
                     anchor,
                     screen_containing(self.mtm, mouse)
                         .unwrap_or_else(|| main_screen_or_anywhere(self.mtm)),
+                    false,
                 )
             }
         };
-        let min_x = screen.origin.x;
-        let max_x = (screen.origin.x + screen.size.width - size.width).max(min_x);
-        let x = anchor.origin.x.clamp(min_x, max_x);
-        let below = anchor.origin.y - CARET_GAP - size.height;
-        let above = anchor.origin.y + anchor.size.height + CARET_GAP;
-        let top = screen.origin.y + screen.size.height;
-        let y = if below >= screen.origin.y {
-            below
-        } else if above + size.height <= top {
-            above
-        } else {
-            // 上下都放不下（屏幕很矮或窗口很高）：贴屏幕底边，宁可盖住光标也别出屏
-            screen.origin.y
-        };
-        // 无论怎么算，最后都要落在这块屏幕里：出屏等于不显示
-        let max_y = (top - size.height).max(screen.origin.y);
-        NSPoint::new(x, y.clamp(screen.origin.y, max_y))
+        place_on_screen(size, anchor, screen, caret_known)
+    }
+}
+
+/// AppKit 的屏幕原点在左下角；按最终位置判断是否整窗在输入行上方。
+fn place_on_screen(
+    size: NSSize,
+    anchor: NSRect,
+    screen: NSRect,
+    caret_known: bool,
+) -> (NSPoint, bool) {
+    let min_x = screen.origin.x;
+    let max_x = (screen.origin.x + screen.size.width - size.width).max(min_x);
+    let x = anchor.origin.x.clamp(min_x, max_x);
+    let below = anchor.origin.y - CARET_GAP - size.height;
+    let above = anchor.origin.y + anchor.size.height + CARET_GAP;
+    let top = screen.origin.y + screen.size.height;
+    let y = if below >= screen.origin.y {
+        below
+    } else if above + size.height <= top {
+        above
+    } else {
+        // 上下都放不下：保留原来的贴屏幕底边策略。
+        screen.origin.y
+    };
+    let max_y = (top - size.height).max(screen.origin.y);
+    let origin = NSPoint::new(x, y.clamp(screen.origin.y, max_y));
+    let above = caret_known && origin.y >= anchor.origin.y + anchor.size.height;
+    (origin, above)
+}
+
+fn candidate_delta(delta: isize, reversed: bool, keys: VerticalAboveArrowKeys) -> isize {
+    if reversed && keys == VerticalAboveArrowKeys::Visual {
+        -delta
+    } else {
+        delta
     }
 }
 
@@ -224,4 +291,76 @@ fn main_screen_or_anywhere(mtm: MainThreadMarker) -> NSRect {
                 NSSize::new(f64::MAX, f64::MAX),
             )
         })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::host::Session;
+    use qingjian_core::{Candidate, CandidateKind};
+
+    fn rect(x: f64, y: f64, width: f64, height: f64) -> NSRect {
+        NSRect::new(NSPoint::new(x, y), NSSize::new(width, height))
+    }
+
+    #[test]
+    fn placement_tracks_the_actual_side_on_primary_and_offset_screens() {
+        for (x, y) in [(0.0, 0.0), (-1200.0, -800.0), (1920.0, 300.0)] {
+            let screen = rect(x, y, 1000.0, 800.0);
+            let size = NSSize::new(300.0, 400.0);
+            let near_bottom = rect(x + 200.0, y + 50.0, 20.0, 20.0);
+            let near_top = rect(x + 200.0, y + 700.0, 20.0, 20.0);
+            let (origin, above) = place_on_screen(size, near_bottom, screen, true);
+            assert!(above);
+            assert_eq!(origin.y, near_bottom.origin.y + 20.0 + CARET_GAP);
+            let (origin, above) = place_on_screen(size, near_top, screen, true);
+            assert!(!above);
+            assert_eq!(origin.y + size.height, near_top.origin.y - CARET_GAP);
+            assert!(!place_on_screen(size, near_bottom, screen, false).1);
+        }
+    }
+
+    #[test]
+    fn a_clamped_window_overlapping_the_input_is_not_reversed() {
+        let screen = rect(0.0, 0.0, 1000.0, 400.0);
+        let anchor = rect(950.0, 200.0, 20.0, 20.0);
+        let (origin, above) = place_on_screen(NSSize::new(300.0, 350.0), anchor, screen, true);
+        assert_eq!(origin, NSPoint::new(700.0, 0.0));
+        assert!(!above);
+    }
+
+    #[test]
+    fn arrow_modes_preserve_digit_mapping_across_pages_and_sparse_slots() {
+        let candidate = |text: &str, kind| Candidate {
+            text: text.to_owned(),
+            kind,
+            syllables: vec!["a".to_owned()],
+            reading: None,
+            translation: None,
+            aux_code: None,
+        };
+        for (keys, forward_key) in [
+            (VerticalAboveArrowKeys::Candidate, 1),
+            (VerticalAboveArrowKeys::Visual, -1),
+        ] {
+            let mut session = Session::default();
+            session.reset(
+                None,
+                vec![
+                    candidate("首选", CandidateKind::Chinese),
+                    candidate("固定第九项", CandidateKind::Custom(9)),
+                ],
+                5,
+                0,
+            );
+            assert_eq!(session.index_on_page(0), Some(0));
+            assert!(session.move_highlight(candidate_delta(forward_key, true, keys)));
+            assert_eq!((session.page, session.highlighted), (1, 8));
+            assert_eq!(session.index_on_page(3), Some(8));
+            assert!(session.move_highlight(candidate_delta(-forward_key, true, keys)));
+            assert_eq!((session.page, session.highlighted), (0, 0));
+            assert_eq!(candidate_delta(1, false, keys), 1);
+            assert_eq!(candidate_delta(-1, false, keys), -1);
+        }
+    }
 }

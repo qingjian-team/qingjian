@@ -16,6 +16,7 @@ mod status_bar;
 mod switch_key;
 mod theme_mode;
 mod update;
+mod vertical_above_arrow_keys;
 
 use std::path::Path;
 
@@ -49,6 +50,7 @@ pub use status_bar::StatusBarConfig;
 pub use switch_key::{SwitchKey, SwitchKeys};
 pub use theme_mode::ThemeMode;
 pub use update::{UpdateChannel, UpdateConfig};
+pub use vertical_above_arrow_keys::VerticalAboveArrowKeys;
 
 /// 用户配置文件（TOML）。所有平台同一份格式，缺省值全部在各分节的 `Default` 里。
 ///
@@ -209,6 +211,10 @@ layout = "vertical"
 # 横排时 ↑ / ↓ 把单行展开成 6 行矩阵并换行（一行一页候选），← / → 改为在候选之间移动（拼音光标用 ⌥←/→、⌘←/→），
 # Esc 第一下先收回单行。缺省 false：横排下 ↑ / ↓ 逐个移动高亮、← / → 移动拼音光标，与以前一样。只有 macOS 用
 horizontal_grid = false
+# macOS：候选窗在输入行上方时，竖排候选倒序显示，首项靠近输入行
+vertical_above_reverse = false
+# macOS：倒序时方向键按候选顺序（candidate）或屏幕方向（visual）移动
+vertical_above_arrow_keys = "candidate"
 # 候选窗口由谁绘制：qingjian 青简渲染器（各平台一致，主题走它）/ system 系统原生绘制（渲染器有问题时的退路）
 renderer = "qingjian"
 # 候选窗口字体（字族名，如 "LXGW WenKai"）；空为系统字体。只对青简渲染器生效，没装这个字体时自动回到系统字体
