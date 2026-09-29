@@ -12,6 +12,7 @@ objc2-app-kit.workspace = true
 objc2-foundation.workspace = true
 objc2-input-method-kit.workspace = true
 objc2-core-foundation.workspace = true
+objc2-core-graphics.workspace = true
 objc2-core-text.workspace = true
 qingjian-core.workspace = true
 qingjian-dictionary.workspace = true

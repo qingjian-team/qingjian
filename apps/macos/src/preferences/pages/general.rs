@@ -37,6 +37,9 @@ pub struct GeneralPage {
     /// 终端 / 编辑器里不给英文候选。
     english_off_in_apps: Retained<NSButton>,
 
+    /// 内置英文模式总开关。
+    english_mode: Retained<NSButton>,
+
     /// 中英混输时中文候选排在英文词前。
     chinese_first: Retained<NSButton>,
 
@@ -134,12 +137,7 @@ impl GeneralPage {
         );
         let traditional = checkbox(mtm, "繁体输出", Setting::Traditional, target);
         row_checkbox(layout, &traditional);
-        let english = checkbox(
-            mtm,
-            "英文模式（Caps Lock）也给候选",
-            Setting::EnglishCandidates,
-            target,
-        );
+        let english = checkbox(mtm, "英文模式也给候选", Setting::EnglishCandidates, target);
         row_checkbox(layout, &english);
         note(
             layout,
@@ -157,6 +155,13 @@ impl GeneralPage {
             layout,
             mtm,
             "终端、iTerm、Warp、Ghostty、VS Code、Cursor、Zed、JetBrains、Xcode 等，那里的候选窗口会挡住应用自己的补全；名单可在配置文件里改。",
+        );
+        let english_mode = checkbox(mtm, "启用内置英文模式", Setting::EnglishMode, target);
+        row_checkbox(layout, &english_mode);
+        note(
+            layout,
+            mtm,
+            "关掉后青简固定中文模式：切换键与 Caps Lock 都进不了英文，需要英文时用系统快捷键切到别的输入法。",
         );
         let chinese_first = checkbox(
             mtm,
@@ -191,6 +196,7 @@ impl GeneralPage {
             traditional,
             english,
             english_off_in_apps,
+            english_mode,
             chinese_first,
             shift_letter,
             languages: languages.to_vec(),
@@ -236,6 +242,7 @@ impl GeneralPage {
         );
         self.english_off_in_apps
             .setEnabled(general.english_candidates);
+        set_checked(&self.english_mode, general.english_mode);
         set_checked(&self.chinese_first, general.chinese_first);
         set_checked(&self.shift_letter, general.shift_letter.compose());
     }

@@ -3,7 +3,7 @@
 use super::diagnostics::{copy_to_pasteboard, open_with_system};
 use super::*;
 use crate::preferences::DEFAULT_FONT_LABEL;
-use qingjian_platform::ShiftLetter;
+use qingjian_platform::{ShiftLetter, SwitchKey};
 
 impl Host {
     /// 写短语前读取文件；外部规则有变化时同步列表并请用户重新确认。
@@ -278,10 +278,37 @@ impl Host {
                     Err(error) => tracing::warn!(%error, "快捷键不合法，未改"),
                 }
             }
+            (
+                Setting::SwitchModeShift
+                | Setting::SwitchModeControl
+                | Setting::SwitchModeCtrlAltSpace,
+                SettingValue::Bool(on),
+            ) => {
+                let key = match setting {
+                    Setting::SwitchModeShift => SwitchKey::Shift,
+                    Setting::SwitchModeControl => SwitchKey::Control,
+                    _ => SwitchKey::CtrlAltSpace,
+                };
+                let keys = config.shortcut.switch_mode.with(key, on);
+                let values: toml_edit::Array = keys
+                    .config_values()
+                    .into_iter()
+                    .map(toml_edit::Value::from)
+                    .collect();
+                self.settings.set_value("shortcut", "switch_mode", values);
+            }
             (Setting::ResetShortcuts, _) => {
                 let defaults = ShortcutConfig::default();
                 self.settings
                     .set_value("general", "page_keys", PAGE_KEY_OPTIONS[0]);
+                let switch_values: toml_edit::Array = defaults
+                    .switch_mode
+                    .config_values()
+                    .into_iter()
+                    .map(toml_edit::Value::from)
+                    .collect();
+                self.settings
+                    .set_value("shortcut", "switch_mode", switch_values);
                 self.settings.set_value(
                     "shortcut",
                     "expression",
@@ -354,6 +381,9 @@ impl Host {
             }
             (Setting::EnglishCandidates, SettingValue::Bool(on)) => {
                 self.settings.set_bool("general", "english_candidates", on);
+            }
+            (Setting::EnglishMode, SettingValue::Bool(on)) => {
+                self.settings.set_bool("general", "english_mode", on);
             }
             (Setting::ChineseFirst, SettingValue::Bool(on)) => {
                 self.settings.set_bool("general", "chinese_first", on);

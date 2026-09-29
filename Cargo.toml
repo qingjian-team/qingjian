@@ -87,7 +87,9 @@ objc2-app-kit = { version = "0.3.2", features = ["NSApplication", "NSAttributedS
 objc2-input-method-kit = "0.3.2"
 # 候选窗字体设置：按字族名找字体文件（渲染器只加载指定文件）
 objc2-core-text = { version = "0.3.2", features = ["CTFont", "CTFontDescriptor"] }
-objc2-core-foundation = { version = "0.3.2", features = ["CFArray", "CFBase", "CFDictionary", "CFNumber", "CFSet", "CFString", "CFURL"] }
+objc2-core-foundation = { version = "0.3.2", features = ["CFArray", "CFBase", "CFDictionary", "CFMachPort", "CFNumber", "CFRunLoop", "CFSet", "CFString", "CFURL"] }
+# 中英切换键的单击判定：CGEventTap 监听修饰键 flagsChanged（IMK 的 handleEvent 不收修饰键事件）
+objc2-core-graphics = { version = "0.3.2", default-features = false, features = ["CGBase", "CGEvent", "CGEventTypes"] }
 
 # Windows 平台层
 embed-manifest = "1.4.0"

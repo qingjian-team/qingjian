@@ -36,6 +36,21 @@ impl Host {
         self.page_keys = config.general.page_keys();
         self.preedit_mode = config.general.preedit;
         self.english_candidates = config.general.english_candidates;
+        self.switch_keys = config.shortcut.switch_mode;
+        self.switch_enabled = config.general.english_mode;
+        if self.switch_enabled {
+            // 重新打开时 Caps Lock 可能还亮着（关着期间按的），模式跟着它
+            let caps = crate::imk::modifiers::caps_lock_on();
+            self.last_caps = caps;
+            if caps && !self.mode_english {
+                self.mode_english = true;
+                self.indicator.update(self.mode_english);
+            }
+        } else if self.mode_english {
+            // 内置英文模式关着：固定中文，切换键与 Caps Lock 都进不去
+            self.mode_english = false;
+            self.indicator.update(self.mode_english);
+        }
         self.apps = config.apps.clone();
         self.window.set_theme(config.general.theme);
         self.window.set_layout(config.general.layout);
@@ -92,7 +107,7 @@ impl Host {
         }
         let cloud_active = self.engine.prediction_enabled();
         self.indicator.set_cloud(cloud_active);
-        self.indicator.update();
+        self.indicator.update(self.mode_english);
         self.menu.sync(&config, cloud_active, self.settings.error());
         let key_present = config
             .predict

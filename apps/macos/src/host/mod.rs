@@ -10,6 +10,7 @@ mod config;
 mod diagnostics;
 mod dictionaries;
 mod init;
+mod mode;
 mod model;
 mod presenting;
 mod session;
@@ -32,7 +33,8 @@ use qingjian_platform::extra_dictionaries;
 use qingjian_platform::{
     AppsConfig, CandidateRenderer, DEFAULT_ENGLISH_CANDIDATES_OFF, DictionariesConfig,
     GeneralConfig, KeyCombo, LEARNING_LANGUAGE_OFF, LayoutMode, LocalModelConfig, LogLevel,
-    Modifiers, PAGE_KEY_OPTIONS, PreeditMode, Scheme, ShortcutConfig, ThemeMode, UpdateChannel,
+    Modifiers, PAGE_KEY_OPTIONS, PreeditMode, Scheme, ShortcutConfig, SwitchKeys, ThemeMode,
+    UpdateChannel,
 };
 use qingjian_predict::{
     CloudGlossFiller, CloudPredictor, ConnectionTest, PredictConfig, PredictError,
@@ -142,6 +144,24 @@ pub struct Host {
 
     /// 英文模式是否给英文候选（配置 `[general] english_candidates`）。
     pub english_candidates: bool,
+
+    /// 当前中 / 英模式（`true` 是英文）。Caps Lock 或切换键（`[shortcut] switch_mode`）都能切。
+    mode_english: bool,
+
+    /// 上次读到的 Caps Lock 状态；变了就是用户刚按了 Caps Lock，模式跟着它。
+    last_caps: bool,
+
+    /// 勾着的中 / 英切换键（配置 `[shortcut] switch_mode`）。
+    switch_keys: SwitchKeys,
+
+    /// 内置英文模式总开关（配置 `[general] english_mode`）；关着时固定中文模式。
+    switch_enabled: bool,
+
+    /// 切换键的单击 / 组合键判定状态机。
+    switch_tap: crate::imk::switch::SwitchTap,
+
+    /// 上次读到的修饰键状态（CGEventTap 的 flagsChanged 按差量判单击 Shift / Ctrl 的按下 / 抬起）。
+    last_switch_modifiers: Modifiers,
 
     /// 上次从系统读到的文本替换（激活输入法时重读），`[general] system_text_replacements` 开着时并进自定义短语。
     text_replacements: Vec<TextReplacement>,

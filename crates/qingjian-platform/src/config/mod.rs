@@ -123,7 +123,7 @@ macro_rules! template_apps {
     () => {
         r#"[apps]
 # 按应用改行为，条目是 bundle identifier（`*` 结尾按前缀匹配）。开着「详细日志」时切到一个应用会把它的 bundle identifier 记进日志
-# 英文模式（Caps Lock）下不给候选的应用：终端与代码编辑器里候选窗口会挡住应用自己的补全，vim 里 Tab 和方向键也另有含义。设成 [] 就处处都给
+# 英文模式下不给候选的应用：终端与代码编辑器里候选窗口会挡住应用自己的补全，vim 里 Tab 和方向键也另有含义。设成 [] 就处处都给
 english_candidates_off = [
   "com.apple.Terminal", "com.googlecode.iterm2", "dev.warp.Warp-Stable", "com.mitchellh.ghostty", "io.alacritty", "net.kovidgoyal.kitty",
   "com.microsoft.VSCode", "com.todesktop.230313mzl4w4u92", "dev.zed.Zed", "com.jetbrains.*", "org.vim.MacVim", "com.sublimetext.*",
@@ -139,7 +139,7 @@ macro_rules! template_apps {
     () => {
         r#"[apps]
 # 按应用改行为，条目是应用进程的 exe 文件名（`*` 结尾按前缀匹配）。Server 开着 debug 日志时每开一个会话会把 exe 名记进日志
-# 英文模式（Caps Lock）下不给候选的应用：终端与代码编辑器里候选窗口会挡住应用自己的补全，vim 里 Tab 和方向键也另有含义。设成 [] 就处处都给
+# 英文模式下不给候选的应用：终端与代码编辑器里候选窗口会挡住应用自己的补全，vim 里 Tab 和方向键也另有含义。设成 [] 就处处都给
 # 经典控制台（cmd / PowerShell）的窗口属于 conhost.exe，Windows Terminal 是 WindowsTerminal.exe
 english_candidates_off = [
   "conhost.exe", "WindowsTerminal.exe", "alacritty.exe", "wezterm-gui.exe", "mintty.exe",
@@ -155,8 +155,8 @@ english_candidates_off = [
 #[cfg(not(windows))]
 macro_rules! template_shortcut_keys {
     () => {
-        r#"# 中 / 英模式切换键（Windows 用），可多选：shift 单击（缺省）/ control 单击 / ctrl+alt+space 组合键；[] 不用键切换。
-# macOS 的切换键是 Caps Lock（系统级），本项不生效
+        r#"# 中 / 英模式切换键，可多选：shift 单击（缺省）/ control 单击 / ctrl+alt+space 组合键；[] 不用键切换（仍可用 Caps Lock）
+# 单击 shift / control 靠监听修饰键（CGEventTap），需要「系统设置 → 隐私与安全性 → 辅助功能」里给青简授权；没授权时单击失效，组合键与 Caps Lock 仍可用
 switch_mode = ["shift"]
 # 数字键配这些修饰键上屏候选的译词：translation 第一个译词，translation_second 第二个（候选右侧有两个译词时）
 # 任意修饰键组合（option / shift / control / command 用 + 连），偏好设置里点按钮录制；别用 control+数字（系统切桌面）和 command+数字（应用切标签页）
@@ -215,7 +215,7 @@ renderer = "qingjian"
 font = ""
 # 组句中的拼音显示在哪：both 行内和候选窗口 / inline 只在行内 / window 只在候选窗口（应用里不放 marked text）
 preedit = "both"
-# 英文模式（Caps Lock 亮着）是否给英文候选：Tab 或方向键选词，空格、回车、标点仍原样上屏敲的字母；false 就是纯直通
+# 英文模式是否给英文候选：Tab 或方向键选词，空格、回车、标点仍原样上屏敲的字母；false 就是纯直通
 english_candidates = true
 
 # 繁体输出模式。开启后上屏繁体，不影响词库和个人词频的简体记录。
@@ -226,7 +226,7 @@ chinese_first = false
 # 缓冲区参与匹配，这样 Cpan 与 cpan 一样能出「C盘」。英文模式与英文直输段（no-Way）不受影响
 shift_letter = "passthrough"
 # 内置英文模式：开着时单击切换键（[shortcut] switch_mode）或 Caps Lock 亮着进英文模式
-# 关掉后青简保持中文模式，切换键与语言栏按钮都不再切过去；要打英文请用系统快捷键（Win+Space）切到别的输入法。只有 Windows 用，macOS 的中英切换是 Caps Lock
+# 关掉后青简保持中文模式，切换键与 Caps Lock 都进不了英文；要打英文请用系统快捷键切到别的输入法
 english_mode = true
 # 中文模式下（没在组句时）敲的标点转全角：, . ? ! : ; ( ) 等，数字后面的 . 保持半角。Windows 上悬浮状态条的「，。」格可以点着切；macOS 在偏好设置中选择默认中文标点模式
 full_width_punctuation = true

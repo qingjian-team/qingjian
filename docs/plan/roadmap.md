@@ -64,6 +64,11 @@
 - [x] 候选框顶部自绘 preedit 行与光标（不依赖应用画插入点）
 - [x] bundle id 改为 `app.qingjian.inputmethod`（2026-09-06，域名 qingjian.app 注册后；`TISInputSourceID` 与连接名同步，旧 id `com.yenharvey.qingjian` 的输入源要在系统设置里删掉重加）
 - [x] 中英切换：Caps Lock 亮着 = 英文模式（默认小写、Shift 大写、标点半角）；按住 Shift 的大写字母直接透传；切换输入源时强制收窗
+- [x] 中英切换键可配置（2026-09-29，issue #248）：macOS 与 Windows 共用 `[shortcut] switch_mode`（单击 Shift / 单击 Ctrl / Ctrl + Alt + Space，可多选，缺省单击 Shift）；
+  模式是 Host 状态（`host/mode.rs`）：切换键翻转、Caps Lock 差量同步（变化不作为按键送来，每键前读硬件状态 + 状态项定时器轮询兜底），
+  `[general] english_mode` 总开关接线（「通用」页勾选框）；「快捷键」页三个切换键勾选框。macOS 的单击 Shift / Ctrl 靠 CGEventTap 监听修饰键
+  （IMK 收不到修饰键事件，`imk/modifier_tap.rs`），需辅助功能权限、没给则单击失效（组合键与 Caps Lock 仍可用）；
+  组合键与「别的键插进来作废」走 IMK 按键事件。已知取舍：单击 Shift 切模式与打大写字母冲突（与 Windows 一致）
 - [x] 英文模式候选（Core `english`，`Engine::set_english_mode`）：词表精确词 / 前缀补全 / 一处编辑纠正，Tab 与上下键选词（上下键动过之后空格也选），空格回车标点原样上屏；
   `[general] english_candidates` 可关；CLI `--english-mode`
 - [x] 按应用关英文候选（2026-09-05）：`[apps] english_candidates_off`，按 `bundleIdentifier` 认，缺省终端 / 编辑器 / IDE 名单，`*` 前缀匹配；

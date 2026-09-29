@@ -1,10 +1,10 @@
-//! 「快捷键」页：翻页键、模式键、译词上屏 / 删候选 / 翻译选中文字的组合键。
+//! 「快捷键」页：中英切换键、翻页键、模式键、译词上屏 / 删候选 / 翻译选中文字的组合键。
 
 use objc2::MainThreadMarker;
 use objc2::rc::Retained;
 use objc2_app_kit::{NSButton, NSPopUpButton};
 use qingjian_core::ModeKeys;
-use qingjian_platform::{Config, PAGE_KEY_OPTIONS};
+use qingjian_platform::{Config, PAGE_KEY_OPTIONS, SwitchKey};
 
 use crate::preferences::controls::{
     GROUP_GAP, button, checkbox, note, note_full, page_keys_label, row_checkbox, row_popup,
@@ -16,6 +16,15 @@ use crate::preferences::setting::Setting;
 use crate::preferences::target::PreferencesTarget;
 
 pub struct ShortcutsPage {
+    /// 单击 Shift 切中英。
+    switch_shift: Retained<NSButton>,
+
+    /// 单击 Ctrl 切中英。
+    switch_control: Retained<NSButton>,
+
+    /// Ctrl + Alt + Space 切中英。
+    switch_chord: Retained<NSButton>,
+
     /// 翻页键对。
     page_keys: Retained<NSPopUpButton>,
 
@@ -43,6 +52,43 @@ pub struct ShortcutsPage {
 
 impl ShortcutsPage {
     pub fn build(layout: &mut Layout, mtm: MainThreadMarker, target: &PreferencesTarget) -> Self {
+        note_full(
+            layout,
+            mtm,
+            "中 / 英模式切换键（可多选，Caps Lock 也随时能切）：",
+        );
+        let switch_shift = checkbox(
+            mtm,
+            SwitchKey::Shift.label(),
+            Setting::SwitchModeShift,
+            target,
+        );
+        row_checkbox(layout, &switch_shift);
+        let switch_control = checkbox(
+            mtm,
+            SwitchKey::Control.label(),
+            Setting::SwitchModeControl,
+            target,
+        );
+        row_checkbox(layout, &switch_control);
+        let switch_chord = checkbox(
+            mtm,
+            SwitchKey::CtrlAltSpace.label(),
+            Setting::SwitchModeCtrlAltSpace,
+            target,
+        );
+        row_checkbox(layout, &switch_chord);
+        note(
+            layout,
+            mtm,
+            "单击 = 按下后立刻松开、中间不插别的键。打字时想打大写字母，单击 Shift 会误触切换；嫌误触就只勾 Ctrl + Alt + Space。",
+        );
+        note(
+            layout,
+            mtm,
+            "单击 Shift / Ctrl 需要辅助功能权限（系统设置 → 隐私与安全性 → 辅助功能）；没给时单击不生效，Ctrl + Alt + Space 与 Caps Lock 仍可用。",
+        );
+        layout.space(GROUP_GAP);
         let page_key_titles: Vec<String> = PAGE_KEY_OPTIONS
             .iter()
             .map(|k| page_keys_label(k))
@@ -162,6 +208,9 @@ impl ShortcutsPage {
              Tab 接受云端整句补全（没有就翻页）；半角标点进入英文直输段。",
         );
         Self {
+            switch_shift,
+            switch_control,
+            switch_chord,
             page_keys,
             expression,
             question,
@@ -174,6 +223,10 @@ impl ShortcutsPage {
     }
 
     pub fn sync(&self, config: &Config) {
+        let keys = config.shortcut.switch_mode;
+        set_checked(&self.switch_shift, keys.shift);
+        set_checked(&self.switch_control, keys.control);
+        set_checked(&self.switch_chord, keys.ctrl_alt_space);
         let (previous, next) = config.general.page_keys();
         let pair = format!("{previous}{next}");
         select(

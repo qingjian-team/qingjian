@@ -66,7 +66,7 @@ impl QingjianInputController {
     /// 缓冲区里只有一个 `?` 而用户按了别的键：把它还原成问号上屏（中文遵循标点设置、英文半角）、清空缓冲区。
     /// 返回是否发生了还原。
     pub(super) fn restore_bare_question(&self, client: TextClient<'_>) -> bool {
-        let english = modifiers::caps_lock_on();
+        let english = host::with(|h| h.mode_english()).unwrap_or(false);
         let restored = host::with(|h| {
             let mark = h.engine.restore_bare_question(english)?;
             h.cancel_prediction();

@@ -190,6 +190,10 @@ IMK 输入法，源码按 `app / host / imk / candidates / menubar / preferences
 - `apps/macos/scripts/bundle.sh --install` 打包安装到 `~/Library/Input Methods/`（开发用），`--pkg` 做分发用的 pkg（装 `/Library/Input Methods/`，postinstall 跑 `qingjian-macos --register`
   注册、启用并切成当前输入源；签名 / 公证靠 `QINGJIAN_SIGN_IDENTITY` / `QINGJIAN_INSTALLER_IDENTITY` / `QINGJIAN_NOTARY_PROFILE`，没设就 ad-hoc；`QINGJIAN_TARGET` 指定架构，
   成品 `target/pkg/qingjian-<版本>-macos-<arm64|x86_64>.pkg`）；`scripts/uninstall.sh` 卸载。
+- 开发签名：ad-hoc 每次重建 cdhash 都变，TCC 按 cdhash 认的辅助功能权限跟着作废，所以开发用稳定自签证书 "Qingjian Development Code Signing"
+  （login keychain，私钥备份在 `~/.qingjian-signing/`）签、辅助功能只授权一次，重建重装不失效：
+  `QINGJIAN_SIGN_IDENTITY="Qingjian Development Code Signing" PROFILE=debug apps/macos/scripts/bundle.sh --install`；
+  `--options runtime --timestamp` 仅在 `QINGJIAN_NOTARY_PROFILE` 非空（发版公证）时加，时间戳服务器不认自签证书。
 - 日志在 `~/Library/Logs/Qingjian/`（按天分文件留 7 天，删了会重建），用户数据与配置在 `~/Library/Application Support/Qingjian/`。
 - 配置项：云联想 `[predict]`（偏好设置「云服务」页有「测试连接」按钮：`qingjian_predict::ConnectionTest` 起线程发一条最小请求，`Host` 用独立定时器 `CloudTestMonitor` 轮询结果显示到窗口底部；
   `reasoning_effort` 缺省 `none`，DeepSeek V4 默认思考，不关正文为空）；模糊音 `[fuzzy]` 默认都关；`[general]` 学习语言（`off` 不显示译文）/ 每页候选数 / 翻页键 / 外观 / 竖排横排 / 拼音显示位置 /
@@ -206,6 +210,15 @@ IMK 输入法，源码按 `app / host / imk / candidates / menubar / preferences
   `set_async_sentence_scorer` 接上，`refresh` 每键先读应用光标前 64 字给 Engine 当前文、查询后 `schedule_rescoring`，`RescoreMonitor` 停键 80 ms 请求、20 ms 轮询，
   结果到了重查一次只重画当前页（翻过页 / 动过高亮不动）；「云服务」页有开关（`[model] enabled`）。
 - 端到端验证可用 `osascript` 的 System Events 往 TextEdit 发按键再读回文本（终端需要辅助功能权限；输入法得在中文模式）。
+- 中英模式是 Host 状态（`host/mode.rs` 的 `mode_english`），切换键（`[shortcut] switch_mode`）与 Caps Lock 都改它，
+  不再每键现读 Caps Lock。事件分两路：**单击 Shift / Ctrl 靠 CGEventTap**——IMK 的 `handleEvent` 不收修饰键（Shift / Ctrl）的按下 / 抬起，
+  所以 `imk/modifier_tap.rs` 建一个 `ListenOnly` 的 tap 监听 `kCGEventFlagsChanged`，回调读出当前修饰键状态交给
+  `Host::handle_modifier_change`（`host/mode.rs`）按 `last_switch_modifiers` 差量找出变了的切换键、是按下还是抬起，喂 `imk/switch.rs` 的 `SwitchTap::modifier_change`；
+  **组合键 Ctrl + Alt + Space 与「别的键插进来作废」仍走 IMK 的 KeyDown / KeyUp**（`dispatch_event` 先过 `Host::handle_switch_key`，组合键必须在 Cmd / Ctrl 早退之前吞）。
+  CGEventTap 要**辅助功能权限**（系统设置 → 隐私与安全性 → 辅助功能）：没给时 tap 建不出来、单击 Shift / Ctrl 失效（组合键与 Caps Lock 仍可用），
+  警告只记一次；`start()` 幂等、每次 `activateServer` 都试，进程启动后才授权也能接上。tap 与它的 run loop source 存主线程 `thread_local`（`CFRetained` 不 Send），活着才有效。
+  Caps Lock 变化不作为按键送来，每个按键处理前 `sync_mode_from_caps` 读硬件状态按差量同步，菜单栏状态项的 0.25 s 定时器轮询同一函数兜「按了 Caps Lock 还没打字」；
+  `[general] english_mode` 总开关关着时固定中文。已知取舍：单击 Shift 切模式与打大写字母冲突（与 Windows 一致），设置页有说明。
 
 ## apps/windows
 

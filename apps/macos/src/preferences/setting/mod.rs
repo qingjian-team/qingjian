@@ -134,7 +134,7 @@ pub enum Setting {
     /// `[shortcut] translate_selection`，快捷键录制按钮（修饰键 + 字母）。
     TranslateSelectionKeys,
 
-    /// 「恢复默认快捷键」按钮：翻页键、模式键、三组译词 / 翻译快捷键全部回缺省。
+    /// 「恢复默认快捷键」按钮：翻页键、模式键、中英切换键、三组译词 / 翻译快捷键全部回缺省。
     ResetShortcuts,
 
     /// 「导入词库…」按钮：选文件，转成 `.qj` 放进用户目录 `dicts/`。
@@ -178,6 +178,18 @@ pub enum Setting {
 
     /// `[shortcut] delete_candidate`，快捷键录制按钮（只记修饰键）。
     DeleteCandidateKeys,
+
+    /// `[shortcut] switch_mode` 勾了 `shift`：单击 Shift 切中英。
+    SwitchModeShift,
+
+    /// `[shortcut] switch_mode` 勾了 `control`：单击 Ctrl 切中英。
+    SwitchModeControl,
+
+    /// `[shortcut] switch_mode` 勾了 `ctrl+alt+space`：组合键切中英。
+    SwitchModeCtrlAltSpace,
+
+    /// `[general] english_mode`，勾选框：内置英文模式总开关。
+    EnglishMode,
 
     /// `[general] input_log`，勾选框。
     InputLog,
@@ -234,6 +246,10 @@ impl Setting {
             Self::CloudSlots => 24,
             Self::EnglishCandidatesOffInApps => 25,
             Self::DeleteCandidateKeys => 26,
+            Self::SwitchModeShift => 57,
+            Self::SwitchModeControl => 58,
+            Self::SwitchModeCtrlAltSpace => 59,
+            Self::EnglishMode => 60,
             Self::InputLog => 27,
             Self::Learning => 45,
             Self::ClearInputLog => 28,
@@ -301,6 +317,10 @@ impl Setting {
             24 => Self::CloudSlots,
             25 => Self::EnglishCandidatesOffInApps,
             26 => Self::DeleteCandidateKeys,
+            57 => Self::SwitchModeShift,
+            58 => Self::SwitchModeControl,
+            59 => Self::SwitchModeCtrlAltSpace,
+            60 => Self::EnglishMode,
             27 => Self::InputLog,
             45 => Self::Learning,
             28 => Self::ClearInputLog,
@@ -381,6 +401,10 @@ mod tests {
             Setting::CloudSlots,
             Setting::EnglishCandidatesOffInApps,
             Setting::DeleteCandidateKeys,
+            Setting::SwitchModeShift,
+            Setting::SwitchModeControl,
+            Setting::SwitchModeCtrlAltSpace,
+            Setting::EnglishMode,
             Setting::InputLog,
             Setting::SystemTextReplacements,
             Setting::ShiftLetter,
