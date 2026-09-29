@@ -142,7 +142,7 @@ impl CandidateWindow {
                     self.hide();
                     return;
                 }
-                let (content_x, content_y) = place(anchor, content);
+                let (content_x, content_y) = place(anchor, content, self.dpi.get());
                 layered::present(
                     self.hwnd,
                     &rendered.pixmap,
@@ -168,7 +168,7 @@ impl CandidateWindow {
         if content.0 <= 0 || content.1 <= 0 {
             return Err(Error::from(E_INVALIDARG));
         }
-        let (content_x, content_y) = place(anchor, content);
+        let (content_x, content_y) = place(anchor, content, self.dpi.get());
         let data = self.data.borrow();
         layered::composite(
             self.hwnd,
@@ -247,7 +247,7 @@ impl Drop for CandidateWindow {
 }
 
 /// 内容左上角：贴光标下方，放不下放上方，再放不下贴屏幕内；都夹在所在显示器工作区里。
-fn place(anchor: RECT, content: (i32, i32)) -> (i32, i32) {
+fn place(anchor: RECT, content: (i32, i32), dpi: u32) -> (i32, i32) {
     let work = monitor::work_area_near(POINT {
         x: anchor.left,
         y: anchor.top,
@@ -256,7 +256,10 @@ fn place(anchor: RECT, content: (i32, i32)) -> (i32, i32) {
         .left
         .clamp(work.left, (work.right - content.0).max(work.left));
     let below = anchor.bottom + CARET_GAP;
-    let above = anchor.top - CARET_GAP - content.1;
+    // 贴上方要多退一份阴影位：位图在内容四周有 margin 高的投影带，底影最浓、顶影为 0，
+    // 只留 CARET_GAP 会把投影罩在输入行刚打的字上（微信聊天框实测）。贴下方不受影响：
+    // 行在窗口上方，顶影为 0。
+    let above = anchor.top - CARET_GAP - layered::shadow_margin(dpi) - content.1;
     let y = if below + content.1 <= work.bottom {
         below
     } else if above >= work.top {
