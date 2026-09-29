@@ -63,8 +63,8 @@ impl Host {
                 "关"
             }
         );
-        if let Some(error) = self.settings.error() {
-            let _ = writeln!(out, "配置错误：{error}");
+        if let Some(notice) = self.settings.notice() {
+            let _ = writeln!(out, "配置问题：{notice}");
         }
         if let Some(dir) = logging::log_dir() {
             let _ = writeln!(out, "日志目录：{}", dir.display());

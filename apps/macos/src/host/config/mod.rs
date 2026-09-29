@@ -93,7 +93,8 @@ impl Host {
         let cloud_active = self.engine.prediction_enabled();
         self.indicator.set_cloud(cloud_active);
         self.indicator.update();
-        self.menu.sync(&config, cloud_active, self.settings.error());
+        self.menu
+            .sync(&config, cloud_active, self.settings.notice().as_deref());
         let key_present = config
             .predict
             .api_key
@@ -104,7 +105,7 @@ impl Host {
         self.preferences.sync(
             &config,
             key_present,
-            self.settings.error(),
+            self.settings.notice().as_deref(),
             &self.dictionary_list,
             &self.update_status,
         );

@@ -49,7 +49,10 @@ fn save_roundtrip_preserves_text_and_rejects_conflicting_positions() {
         format!("{before}\n[[custom_phrases]]\ncode = 'ee'\ntext = '：'\nposition = 2\n"),
     )
     .unwrap();
-    assert!(Config::load(&path).is_err());
+    // 与已有 `ee` 第 2 位冲突：写入被拒，但读回来时那条**被丢掉**而不是整份配置失效
+    let (config, dropped) = Config::load_with_diagnostics(&path).unwrap();
+    assert_eq!(config.custom_phrases, phrases);
+    assert!(!dropped.is_empty());
     std::fs::remove_dir_all(dir).unwrap();
 }
 

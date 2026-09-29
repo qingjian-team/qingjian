@@ -13,7 +13,7 @@ pub mod protocol;
 pub mod resources;
 
 pub use config::{
-    AppsConfig, AuxCodeConfig, CandidateRenderer, Config, DEFAULT_DOMAINS,
+    AppsConfig, AuxCodeConfig, CandidateRenderer, Config, ConfigDiagnostics, DEFAULT_DOMAINS,
     DEFAULT_ENGLISH_CANDIDATES_OFF, DEFAULT_ENGLISH_CANDIDATES_OFF_LINUX,
     DEFAULT_ENGLISH_CANDIDATES_OFF_MACOS, DEFAULT_ENGLISH_CANDIDATES_OFF_WINDOWS,
     DEFAULT_PAGE_KEYS, DictionariesConfig, GeneralConfig, KeyCombo, LEARNING_LANGUAGE_OFF,

@@ -23,25 +23,38 @@ fn enabled() -> bool {
     true
 }
 
-/// 保存和加载使用同一校验，不覆盖冲突条目。
+/// 整表校验：任一条不合格就整体拒绝。**写入**路径用它（保存的短语要么全对要么不落盘）。
+/// 读配置时一条坏了不该连累其他条，那时按条调 [`validate_phrase`]。
 pub fn validate_phrases(phrases: &[CustomPhrase]) -> Result<(), String> {
     let mut occupied = std::collections::BTreeSet::new();
     for phrase in phrases {
-        if !valid_code(&phrase.code) {
-            return Err("输入码须为 1–32 个小写英文字母".into());
-        }
-        if !(1..=9).contains(&phrase.position) {
-            return Err("候选位置须为 1–9".into());
-        }
-        if phrase.text.is_empty() {
-            return Err("自定义短语不能为空".into());
-        }
-        if !occupied.insert((&phrase.code, phrase.position)) {
-            return Err(format!(
-                "输入码 {} 的第 {} 位已被占用，不能保存",
-                phrase.code, phrase.position
-            ));
-        }
+        validate_phrase(phrase, &mut occupied)?;
+    }
+    Ok(())
+}
+
+/// 单条校验，`occupied` 是此前各条已占的「输入码 + 位置」。
+///
+/// 写入路径要的是全表拒绝（[`validate_phrases`]）；读配置时一条坏了不该连累其他条，
+/// 那时按条调这个，把不合格的挑出来丢掉（见 [`retain_valid`]）。
+pub fn validate_phrase(
+    phrase: &CustomPhrase,
+    occupied: &mut std::collections::BTreeSet<(String, usize)>,
+) -> Result<(), String> {
+    if !valid_code(&phrase.code) {
+        return Err("输入码须为 1–32 个小写英文字母".into());
+    }
+    if !(1..=9).contains(&phrase.position) {
+        return Err("候选位置须为 1–9".into());
+    }
+    if phrase.text.is_empty() {
+        return Err("自定义短语不能为空".into());
+    }
+    if !occupied.insert((phrase.code.clone(), phrase.position)) {
+        return Err(format!(
+            "输入码 {} 的第 {} 位已被占用，不能保存",
+            phrase.code, phrase.position
+        ));
     }
     Ok(())
 }
