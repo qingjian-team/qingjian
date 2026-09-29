@@ -78,13 +78,18 @@ pub(super) fn export_logs() {
     }
 }
 
-/// 一行设置：固定宽标签 + 控件。
+/// 一行设置：标签 + 控件，标签列至少 [`LABEL_WIDTH`] 宽。
+///
+/// 下限用 `min_width` 而不是 `width`：`width` 会把标签钉死在 140 DIP，而 `TextBlock` 缺省
+/// `NoWrap` + `TextTrimming::None` 不裁剪，超长标签就按自然宽度画出槽外，被右边后画的控件
+/// 压住（「英文模式（Caps Lock）也给候选」就只剩前半截）。改成下限后标签按自然宽度排开、
+/// 短标签仍撑到 140，控件紧跟着标签走，文字既不换行也不被遮挡。
 pub(super) fn labeled(label: &str, control: impl Into<View>) -> View {
     StackPanel::new()
         .orientation(Orientation::Horizontal)
         .spacing(12.0)
         .children([
-            TextBlock::new().text(label).width(LABEL_WIDTH).into(),
+            TextBlock::new().text(label).min_width(LABEL_WIDTH).into(),
             control.into(),
         ])
 }

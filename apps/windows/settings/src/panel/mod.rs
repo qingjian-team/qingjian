@@ -23,7 +23,8 @@ use self::pages::{
 };
 use self::recorder::Recorder;
 
-/// 左侧标签固定宽度，让各行控件对齐。
+/// 左侧标签列的下限宽度，让短标签行的控件对齐；超长标签会把本行控件往右顶
+/// （见 `controls::labeled`）。
 const LABEL_WIDTH: f64 = 140.0;
 
 /// 设置窗口状态。
