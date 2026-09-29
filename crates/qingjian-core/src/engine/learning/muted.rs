@@ -2,6 +2,7 @@ use qingjian_dictionary::{Dictionary, WordList};
 
 use super::{Forgotten, Learner};
 use crate::candidate::Candidate;
+use crate::engine::mnemonic;
 use crate::sentence::{Context, UserNgram};
 
 /// 套在壳装配的学习器外面的一层：私密输入（密码框、浏览器无痕窗口）期间或用户关掉学习后，**写**全部吞掉、
@@ -113,7 +114,10 @@ impl Learner for MutedLearner {
     }
 
     fn learn_english(&mut self, word: &str) {
-        if !self.muted() {
+        // BIP-39 助记词表里的词不落盘：钱包助记词全由这 2048 个常见英文词组成，不这么挡的话，
+        // 手打一遍助记词就会把每个词都当成「新学到的英文词」明文记进 user-english.tsv，
+        // 之后还会作为候选重新冒出来。见 `crate::engine::mnemonic` 顶部的说明。
+        if !self.muted() && !mnemonic::is_bip39_word(word) {
             self.inner.learn_english(word);
         }
     }

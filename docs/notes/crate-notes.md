@@ -58,6 +58,13 @@ TSV 解析、查询与生成工具把 `lue` / `nue` 统一成 `lve` / `nve`。
 
 `Engine::discard_input` / `EngineSession::discard_input` 用于隐私能力变化时无痕清理输入，包括透传缓冲、学习链和暂存词汇曝光；`set_private` 只切换写入开关，保留已输入的组句。
 
+`engine::mnemonic`：BIP-39 英文助记词表（`bip39_english.txt`，官方 2048 词，`include_str!` 编译期嵌入，`LazyLock<HashSet>` 查表），
+挡钱包助记词被当成「新学到的英文词」学进 `user-english.tsv`。两处用：`learning::MutedLearner::learn_english` 命中即不落盘；
+`Engine::note_english_commit`（`privacy.rs`）连续 `BIP39_STREAK_THRESHOLD`（6）个「学英文词」事件都命中就转 `heuristic_private`，
+不依赖密码框识别。私密状态拆成 `system_private`（壳声明）/ `heuristic_private`（这条启发式）两路「或」（`privacy.rs` 的
+`set_private_from`），互不覆盖——避免启发式的退出逻辑误撤系统声明的密码框状态。`commit/mod.rs` 在候选提交后按
+`candidate.kind` 决定是否 `reset_bip39_streak`（中文 / 形码 / 云端词 / emoji 等都算打断）。
+
 ## crates/qingjian-translate
 
 `Glossary`，本地 TSV 释义表（词性 + 译文）；`LevelTable`，词汇等级表（`assets/levels/levels-{en,ja}.tsv`，CEFR A1–C2 / JLPT N5–N1，

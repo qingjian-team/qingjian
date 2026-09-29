@@ -361,7 +361,9 @@ impl Engine {
         let english_word = looks_like_english_word(&raw, self.english_mode)
             && (self.english_mode || self.decode(&raw).is_none_or(|d| !d.is_complete()));
         if english_word {
-            self.learner.learn_english(&raw);
+            self.note_english_commit(&raw);
+        } else {
+            self.reset_bip39_streak();
         }
         self.meter_commit(&raw, InputSource::Raw, english_word);
         self.composition.clear();
