@@ -99,9 +99,13 @@ define_class!(
                     h.engine.set_application(bundle);
                     h.refresh_text_replacements();
                     h.reload_config_if_changed();
-                    h.indicator.activate();
+                    h.sync_mode_from_caps();
+                    h.indicator.activate(h.mode_english());
                     h.watch.start();
                 });
+                // 单击切换键靠 CGEventTap 监听修饰键；每次激活都试一次（幂等），
+                // 辅助功能权限在进程启动后才授予时也能接上
+                crate::imk::modifier_tap::start();
             });
             if done.is_none() {
                 recover_from_panic(None);
@@ -191,9 +195,10 @@ impl QingjianInputController {
         host::with(|h| h.engine.application() == Some(LOGIN_WINDOW)).unwrap_or(false)
     }
 
-    /// 一个按键事件的分发：只管按下；Cmd / Ctrl 组合除 Cmd+左右外一律交给应用；命令键映射成选择器；其余按字符当文本。
+    /// 一个按键事件的分发：切换键（Shift / Ctrl 单击、Ctrl + Alt + Space）按下抬起都先过一遍，
+    /// 组合键按下即吞；其余只管按下，Cmd / Ctrl 组合除 Cmd+左右外一律交给应用；命令键映射成选择器；其余按字符当文本。
     fn dispatch_event(&self, event: &NSEvent, client: TextClient<'_>) -> bool {
-        if event.r#type() != NSEventType::KeyDown || self.in_login_window() {
+        if self.in_login_window() {
             return false;
         }
         let flags = event.modifierFlags();
@@ -210,6 +215,16 @@ impl QingjianInputController {
             control,
             command,
         };
+        // 中英切换键：必须在 Cmd / Ctrl 早退之前处理，Ctrl + Alt + Space 才吞得掉
+        let swallow =
+            host::with(|h| h.handle_switch_key(key, pressed, event.r#type() == NSEventType::KeyUp))
+                .unwrap_or(false);
+        if swallow {
+            return true;
+        }
+        if event.r#type() != NSEventType::KeyDown {
+            return false;
+        }
         // 提示在显示：敲任何键先收掉，键照常处理
         host::with(|h| h.clear_notice());
         // 翻译选中文字进行中：回车 / 空格 / 1 接受，Esc 放弃，其他键放弃后照常交给应用

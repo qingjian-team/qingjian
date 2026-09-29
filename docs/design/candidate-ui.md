@@ -314,7 +314,7 @@ Core 按 `prediction::restates_question` 剔掉：与本地转出的问题相同
 
 | 系统 | 切中英 | 英文模式 |
 |---|---|---|
-| macOS | Caps Lock 位置的中/英键。系统层面它切的是 Caps Lock 状态，我们把「Caps Lock 亮着」当作英文模式 | 默认小写，按住 Shift 大写；标点不转全角。macOS 上 Caps Lock 亮着时按不按 Shift 送来的都是大写，所以按键时读一次 Shift 的硬件状态（`NSEvent.modifierFlags`）决定大小写 |
+| macOS | 模式是 Host 状态（`host/mode.rs` 的 `mode_english`）：`Caps Lock` 与切换键（`[shortcut] switch_mode` 勾选 `shift` / `control` / `ctrl+alt+space`，可多选）都改它。单击 Shift / Ctrl 靠 CGEventTap 监听修饰键（IMK 收不到修饰键事件，要辅助功能权限；`imk/modifier_tap.rs`），组合键与「别的键插进来作废」走 IMK 按键事件，都喂 `imk/switch.rs` 的 `SwitchTap` 判单击（组合键按下即触发、吞掉）；Caps Lock 变化不作为按键送来，每个按键处理前读硬件状态按差量同步，菜单栏状态项的定时器轮询兜底 | 默认小写，按住 Shift 大写；标点不转全角。macOS 上 Caps Lock 亮着时按不按 Shift 送来的都是大写，所以按键时读一次 Shift 的硬件状态（`NSEvent.modifierFlags`）决定大小写 |
 | Windows（Phase 5） | 单击切换键切中英，键与开关在「设置 → 通用」：`[shortcut] switch_mode` 勾选 `shift` / `control` / `ctrl+alt+space`（可多选），中英模式所有应用共用一份，`[general] english_mode` 关掉则固定中文、不再登记语言栏按钮；Caps Lock 是真正的大小写锁定 | 默认小写，按住 Shift 大写 |
 
 macOS 上如果系统开了「使用大写锁定键切换 ABC 输入法」，按键会直接切到 ABC 输入源，我们收到 deactivate、

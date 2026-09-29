@@ -152,6 +152,13 @@ pub fn init(mtm: MainThreadMarker, info: &BundleInfo) -> Result<(), HostError> {
             layout: LayoutMode::default(),
             horizontal_grid: false,
             english_candidates: true,
+            mode_english: false,
+            last_caps: false,
+            switch_keys: SwitchKeys::default(),
+            switch_enabled: true,
+            switch_tap: crate::imk::switch::SwitchTap::default(),
+            // 用当前修饰键状态做差量初值，避免刚启动时用户正按着 Shift / Ctrl 被误判成单击
+            last_switch_modifiers: crate::imk::modifiers::current(),
             text_replacements: Vec::new(),
             apps: AppsConfig::default(),
             monitor,

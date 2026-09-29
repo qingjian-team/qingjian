@@ -5,8 +5,10 @@
 
 mod client;
 mod controller;
+pub mod modifier_tap;
 pub mod modifiers;
 pub mod secure_input;
+pub mod switch;
 
 use std::any::Any;
 use std::panic::{AssertUnwindSafe, catch_unwind};

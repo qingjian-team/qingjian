@@ -336,13 +336,18 @@ CC-CEDICT 表（`dict-convert cedict`）保留为备用来源，覆盖面广但�
   应用给不出光标矩形时以鼠标位置为准。
 - `apps/macos/src` 按职责分目录，模块文件只做 `mod` 声明与 re-export：
   `main.rs` 初始化 host、建 IMKServer 并跑 NSApplication；
-  `host/` 是进程级单例（一个 Engine + 一个候选窗口，`thread_local`，IMK 回调全在主线程；`mod.rs` 放结构体与 `with`，`init.rs` 启动加载、`config.rs` 热加载、`settings.rs` 菜单 / 偏好设置动作、`dictionaries.rs` 词库管理、`cloud.rs` 云端、`diagnostics.rs` 诊断与日志、`presenting.rs` 呈现），
+  `host/` 是进程级单例（一个 Engine + 一个候选窗口，`thread_local`，IMK 回调全在主线程；`mod.rs` 放结构体与 `with`，`init.rs` 启动加载、`config.rs` 热加载、`mode.rs` 中英模式状态（`mode_english`，切换键翻转 / Caps Lock 差量同步）、`settings.rs` 菜单 / 偏好设置动作、`dictionaries.rs` 词库管理、`cloud.rs` 云端、`diagnostics.rs` 诊断与日志、`presenting.rs` 呈现），
   `host/` 下是会话状态 `session.rs`、联想轮询定时器 `predict_monitor.rs`、配置文件监视与定时落盘 `config_watch.rs`、
   短提示 `notice.rs`、翻译选中文字的任务 `translation_job.rs`、附加词库装配 `extra_dictionaries.rs` / `dictionary_info.rs`；
   `imk/`：`controller/`（`mod.rs` 是类定义与按键分发，`text` / `command` / `translate` / `display` / `commit` 各管一段）用 `define_class!` 继承 `IMKInputController`（类名 `QingjianInputController`，
   与 Info.plist 的 `InputMethodServerControllerClass` 一致），只做按键 → Engine、Engine → 窗口；
   `client.rs` 用 `msg_send!` 封装 IMKTextInput（`setMarkedText:` / `insertText:` /
   `attributesForCharacterIndex:lineHeightRectangle:` 取光标矩形）；`modifiers.rs` / `secure_input.rs` 查系统状态；
+  `switch.rs` 是切换键的单击 / 组合键状态机（修饰键按下到抬起中间没插别的键才算单击），两路喂：
+  组合键 Ctrl + Alt + Space 与「别的键插进来作废」走 IMK 的 KeyDown / KeyUp（先过 `Host::handle_switch_key`，组合键按下即触发、吞掉，单击不吞），
+  单击 Shift / Ctrl 走 `modifier_tap.rs`——IMK 的 `handleEvent` 不收修饰键事件，所以建 `ListenOnly` 的 CGEventTap 监听
+  `kCGEventFlagsChanged`（要辅助功能权限，没给则单击失效、组合键与 Caps Lock 仍可用；`start()` 幂等、每次激活都试），
+  回调读出修饰键状态交 `Host::handle_modifier_change` 按差量喂 `SwitchTap::modifier_change`；
   `candidates/`：`window.rs` 是非激活浮动 NSPanel（level 101、CanJoinAllSpaces、忽略鼠标），
   `view.rs` 自绘顶部拼音行与候选（竖排 / 横排两套画法），`theme.rs` 集中字体颜色间距，`row.rs` 把 Candidate 转成展示片段，
   `preedit/`（`mod.rs` / `segment.rs` / `style.rs`）是拼音行的分段模型（由 Core 的 `MarkedSegment` 转来），`frame.rs` 是一帧的数据；
@@ -406,7 +411,7 @@ CC-CEDICT 表（`dict-convert cedict`）保留为备用来源，覆盖面广但�
   失焦 / 停用时 DLL 发 `Commit`，Server 回 `Committed { text }`（缓冲区原样交出，对应 macOS 的 `commitComposition`），
   DLL 用最近收键记下的 `ITfContext` 经编辑会话落进文档；应用强行终止组句（`OnCompositionTerminated`）时拼音已被框架定成普通文本，
   DLL 只记「Server 缓冲过期」，下次说话前先 `Commit` 并丢掉交出的文本，不再插一次。
-  中英模式：**Windows 与 macOS 机制不同**。macOS 用 Caps Lock 当中英切换键；Windows 按本地习惯，单击切换键在中 / 英间翻转，
+  中英模式：**Windows 与 macOS 机制不同**。macOS 的模式是 Host 状态（`host/mode.rs`：切换键翻转、Caps Lock 差量同步；单击 Shift / Ctrl 靠 CGEventTap 监听修饰键，实现要点见 crate-notes 的 `apps/macos` 节）；Windows 按本地习惯，单击切换键在中 / 英间翻转，
   切换键由 `[shortcut] switch_mode` 勾选（`SwitchKeys`：单击 `shift`（缺省）/ 单击 `control` / `ctrl+alt+space`，可多选，空列表 = 不用键切），
   `[general] english_mode` 关掉则整个内置英文模式停用（issue #81）。**模式全局一份、存在 Server**（`Router.english`，与搜狗一致）：
   DLL 里用户切了（切换键、语言栏按钮、右键菜单、任务栏转换模式）用 `ModeChanged` 报上去；激活、线程得到焦点（`com/focus.rs` 的

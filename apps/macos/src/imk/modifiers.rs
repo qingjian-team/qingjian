@@ -12,3 +12,14 @@ pub fn caps_lock_on() -> bool {
 pub fn shift_down() -> bool {
     NSEvent::modifierFlags_class().contains(NSEventModifierFlags::Shift)
 }
+
+/// 此刻的修饰键状态（⇧ / ⌃ / ⌥ / ⌘），切换键单击判定用它做差量的初值。
+pub fn current() -> qingjian_platform::Modifiers {
+    let flags = NSEvent::modifierFlags_class();
+    qingjian_platform::Modifiers {
+        option: flags.contains(NSEventModifierFlags::Option),
+        shift: flags.contains(NSEventModifierFlags::Shift),
+        control: flags.contains(NSEventModifierFlags::Control),
+        command: flags.contains(NSEventModifierFlags::Command),
+    }
+}

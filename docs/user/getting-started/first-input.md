@@ -6,7 +6,7 @@ description: 中英切换、选词、翻页、整句输入、选错后的退回�
 
 ## 中英切换
 
-- **macOS**：`Caps Lock`（键盘上的中 / 英键），熄灭为中文，亮起为英文。
+- **macOS**：`Caps Lock`（键盘上的中 / 英键），熄灭为中文，亮起为英文；也可在「偏好设置 → 快捷键」勾选切换键（单击 `Shift`、单击 `Ctrl`、`Ctrl + Alt + Space`，可多选）。单击 `Shift` / `Ctrl` 需要给青简辅助功能权限（「系统设置 → 隐私与安全性 → 辅助功能」），没给时单击不生效、`Ctrl + Alt + Space` 与 `Caps Lock` 仍可用。
 - **Windows**：单击 `Shift`（按下即松开，不与其他键组合），任务栏右下同步显示「中」或「英」，Caps Lock 亮着时显示「A」；点击该图标同样可以切换。
   Windows 上的 `Caps Lock` 只控制大小写。
 
