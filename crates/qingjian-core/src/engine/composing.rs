@@ -275,6 +275,62 @@ impl Engine {
         self.composition.move_end();
     }
 
+    /// 光标是否在缓冲区末尾：壳的分区模型里，末尾 = 焦点在候选区，内部 = 正在拼音里编辑。
+    pub fn cursor_at_end(&self) -> bool {
+        self.composition.cursor() == self.composition.text().len()
+    }
+
+    /// 光标是否落在音节边界上：缓冲开头 / 末尾、双拼的键对边界、直输段的字母数字串起点，
+    /// 或全拼按最优切分的某个音节（含残缺尾部）的起点。
+    /// 壳用它决定 ← 的粒度：边界上整字往左跳（快速换位），音节中间——用 → 微调过之后——逐字母退。
+    pub fn cursor_at_syllable_boundary(&self) -> bool {
+        let text = self.composition.text();
+        let cursor = self.composition.cursor();
+        if cursor == 0 || cursor == text.len() {
+            return true;
+        }
+        let plain =
+            self.raw_mode() || self.expression_mode() || self.question_mode() || self.zhuyin;
+        if plain {
+            // 单位是字母数字串：串的开头才算边界
+            return !text[..cursor]
+                .chars()
+                .next_back()
+                .is_some_and(|c| c.is_ascii_alphanumeric());
+        }
+        if self.shuangpin.is_some() {
+            // 两键一音节：光标前连续的键数是偶数（含 0）说明正好落在键对上
+            let run = text[..cursor]
+                .chars()
+                .rev()
+                .take_while(|c| c.is_ascii_lowercase() || *c == ';')
+                .count();
+            return run % 2 == 0;
+        }
+        // 全拼：按最优切分找音节起点；分隔符 `'` 之后与残缺尾部的起点都算
+        let Ok((segmentations, tail)) = segment_longest_prefix(text) else {
+            return false;
+        };
+        let Some(best) = segmentations.first() else {
+            return false;
+        };
+        let mut offset = 0;
+        for syllable in &best.syllables {
+            offset += text[offset..].chars().take_while(|c| *c == '\'').count();
+            if offset == cursor {
+                return true;
+            }
+            if !text[offset..].starts_with(syllable.text.as_str()) {
+                return false;
+            }
+            offset += syllable.text.len();
+            if offset >= cursor {
+                return offset == cursor;
+            }
+        }
+        cursor == text.len() - tail.len()
+    }
+
     /// 是否处在表达式模式（缓冲区以表达式键、缺省 `v` 开头）。此时壳应把数字和运算符也交给 [`Self::push`]，而不是当选词键。
     pub fn expression_mode(&self) -> bool {
         !self.has_custom_phrase()
