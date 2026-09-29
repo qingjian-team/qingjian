@@ -36,6 +36,9 @@ pub struct Ivars {
     /// 竖排 / 横排。
     layout: Cell<LayoutMode>,
 
+    /// 上方竖排窗口按页码、倒序候选、拼音行排列。
+    reversed: Cell<bool>,
+
     /// 云联想的小云朵。
     cloud: CloudIcon,
 
@@ -118,6 +121,7 @@ impl CandidateView {
         let this = mtm.alloc::<Self>().set_ivars(Ivars {
             frame: RefCell::new(Frame::default()),
             layout: Cell::new(LayoutMode::default()),
+            reversed: Cell::new(false),
             cloud,
             theme,
             bitmap: RefCell::new(None),
@@ -184,7 +188,9 @@ impl CandidateView {
     }
 
     /// 更新内容并返回需要的窗口尺寸。
-    pub fn set_frame(&self, frame: &Frame) -> NSSize {
+    pub fn set_frame(&self, frame: &Frame, reversed: bool) -> NSSize {
+        let reversed = reversed && self.ivars().layout.get() == LayoutMode::Vertical;
+        self.ivars().reversed.set(reversed);
         *self.ivars().frame.borrow_mut() = frame.clone();
         self.setNeedsDisplay(true);
         if let Some(bitmap) = &mut *self.ivars().bitmap.borrow_mut() {
@@ -193,6 +199,7 @@ impl CandidateView {
                 self.ivars().layout.get(),
                 self.is_dark(),
                 self.backing_scale(),
+                reversed,
             );
         }
         self.preferred_size()
@@ -390,9 +397,16 @@ impl CandidateView {
         .fill();
 
         let mut y = theme.padding;
+        if self.ivars().layout.get() == LayoutMode::Vertical && self.ivars().reversed.get() {
+            y += self.draw_vertical(&frame, y, bounds, true);
+            self.draw_top_line(&frame, y);
+            return;
+        }
         y += self.draw_top_line(&frame, y);
         match self.ivars().layout.get() {
-            LayoutMode::Vertical => self.draw_vertical(&frame, y, bounds),
+            LayoutMode::Vertical => {
+                self.draw_vertical(&frame, y, bounds, false);
+            }
             LayoutMode::Horizontal if frame.columns > 0 => self.draw_matrix(&frame, y, bounds),
             LayoutMode::Horizontal => self.draw_horizontal(&frame, y, bounds),
         }
@@ -451,12 +465,23 @@ impl CandidateView {
         cursor_x - x + CARET_WIDTH
     }
 
-    fn draw_vertical(&self, frame: &Frame, mut y: f64, bounds: NSRect) {
+    fn draw_vertical(&self, frame: &Frame, y: f64, bounds: NSRect, reversed: bool) -> f64 {
         let theme = self.theme();
         let columns = self.columns(&frame.rows);
         let text_x = theme.padding + columns.index_width + theme.column_gap;
         let annotation_x = text_x + columns.text_width + theme.column_gap;
+        let footer_height = frame.footer.as_deref().map_or(0.0, |footer| {
+            self.measure(footer, &theme.index_font).height + theme.row_padding
+        });
+        let rows_height = columns.row_height * frame.rows.len() as f64;
+        let rows_y = y + if reversed { footer_height } else { 0.0 };
         for (i, row) in frame.rows.iter().enumerate() {
+            let position = if reversed {
+                frame.rows.len() - 1 - i
+            } else {
+                i
+            };
+            let y = rows_y + position as f64 * columns.row_height;
             if i == frame.highlighted {
                 let rect = NSRect::new(
                     NSPoint::new(theme.padding / 2.0, y),
@@ -486,7 +511,6 @@ impl CandidateView {
                     x,
                 );
             }
-            y += columns.row_height;
         }
         if let Some(footer) = frame.footer.as_deref() {
             let size = self.measure(footer, &theme.index_font);
@@ -494,10 +518,11 @@ impl CandidateView {
                 footer,
                 &theme.index_font,
                 &theme.index_color,
-                y + theme.row_padding,
+                y + if reversed { 0.0 } else { rows_height } + theme.row_padding,
                 bounds.size.width - theme.padding - size.width,
             );
         }
+        rows_height + footer_height
     }
 
     /// 横排：候选排成一行，高亮那个下面单独一行译文，页码在行尾。

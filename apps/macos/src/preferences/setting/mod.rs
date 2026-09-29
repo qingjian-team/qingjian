@@ -122,6 +122,12 @@ pub enum Setting {
     /// `[general] horizontal_grid`，勾选框：横排时上 / 下键展开成多行矩阵。
     HorizontalGrid,
 
+    /// `[general] vertical_above_reverse`，勾选框：上方竖排候选倒序显示。
+    VerticalAboveReverse,
+
+    /// `[general] vertical_above_arrow_keys`，弹出菜单：倒序时方向键的移动方式。
+    VerticalAboveArrowKeys,
+
     /// `[general] shift_letter`，勾选框：中文模式下 Shift+字母进组句（勾上是 compose，否则 passthrough）。
     ShiftLetter,
 
@@ -219,6 +225,8 @@ impl Setting {
             Self::ChineseFirst => 42,
             Self::ShiftLetter => 50,
             Self::HorizontalGrid => 51,
+            Self::VerticalAboveReverse => 57,
+            Self::VerticalAboveArrowKeys => 58,
             Self::TranslationKeys => 15,
             Self::TranslationSecondKeys => 16,
             Self::TranslateSelectionKeys => 17,
@@ -285,6 +293,8 @@ impl Setting {
             42 => Self::ChineseFirst,
             50 => Self::ShiftLetter,
             51 => Self::HorizontalGrid,
+            57 => Self::VerticalAboveReverse,
+            58 => Self::VerticalAboveArrowKeys,
             15 => Self::TranslationKeys,
             16 => Self::TranslationSecondKeys,
             17 => Self::TranslateSelectionKeys,
@@ -363,6 +373,8 @@ mod tests {
             Setting::ApiKey,
             Setting::OpenConfigFile,
             Setting::Layout,
+            Setting::VerticalAboveReverse,
+            Setting::VerticalAboveArrowKeys,
             Setting::Preedit,
             Setting::EnglishCandidates,
             Setting::TranslationKeys,

@@ -183,6 +183,8 @@ P2C 自由生成实验：`--eval-text <集> --eval-generate data/models/hanzhang
 
 ## crates/qingjian-render
 
+`Renderer::render_vertical_reversed` 提供上方竖排布局：页码在上、候选行倒序、拼音行在下。只改变行框坐标，文字方向、原帧与高亮索引保持不变；原 `render` 入口保持正序布局。
+
 横排矩阵：`Frame::columns` 不为 0 时 `Layout::Horizontal` 走 `renderer/matrix.rs`（列宽用帧里的 `column_ems`，Core `Grid::column_ems` 按整份候选估、
 单格封顶 `MAX_CELL_EMS` = 4 字宽，滚动时窗口不跳；网格下固定一行信息，放不下的截断）；视口与高亮移动在 Core `candidate::layout::Grid`（`GRID_ROWS` = 6），
 预览示例里有 `matrix-horizontal` 场景。mac 壳里这套按键由 `[general] horizontal_grid`（缺省关）加横排两个条件一起开（`Host::grid_keys`）。
@@ -226,6 +228,11 @@ P2C 自由生成实验：`--eval-text <集> --eval-generate data/models/hanzhang
 ## apps/macos
 
 IMK 输入法，源码按 `app / host / imk / candidates / menubar / preferences` 分目录。
+
+- 上方竖排候选：`[general] vertical_above_reverse` 缺省关，`vertical_above_arrow_keys` 缺省 `candidate`（保留按键顺序），也可选 `visual`（跟随屏幕方向）。
+  `CandidateWindow` 在最终定位后判断是否倒序，两种绘制路径均按「页码 → 倒序候选 → 拼音」布置行框。原帧、候选编号与高亮索引保持原序，文字、译词、云端标记及拼音光标随所在行移动。
+  位图路径调用渲染器的倒序入口，AppKit 路径使用同样的行框排列。
+  窗口沿用上一帧方向作首次绘制，定位结果改变方向时补绘；鼠标回退定位保持正序。`move_highlight` 依据当前显示方向转换上下键增量，收窗清除方向状态，设置热加载重画可见候选。
 
 - 输入法菜单（状态项 + 系统输入源菜单）与偏好设置窗口都是配置文件的前端：只写 `config.toml`，`Host::apply_config` 一条通路热加载，激活期间每秒看一次文件 mtime。
   输入方案（`[general] scheme`）也在这里装配：双拼 / 注音设给引擎，形码额外按 `paths::code_table_path()` 挂码表

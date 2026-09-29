@@ -30,6 +30,9 @@ pub struct BitmapPainter {
     /// 最近一帧的排布。
     layout: Layout,
 
+    /// 上方竖排窗口完整倒序布局，重画时沿用。
+    reversed: bool,
+
     /// 最近一帧按深色画的。
     dark: bool,
 
@@ -71,6 +74,7 @@ impl BitmapPainter {
             image: None,
             frame: qingjian_render::Frame::default(),
             layout: Layout::Vertical,
+            reversed: false,
             dark: false,
             scale: 2.0,
             size: NSSize::ZERO,
@@ -84,6 +88,7 @@ impl BitmapPainter {
         layout: LayoutMode,
         dark: bool,
         scale: f32,
+        reversed: bool,
     ) -> NSSize {
         self.frame = convert::frame(frame);
         self.layout = match layout {
@@ -92,6 +97,7 @@ impl BitmapPainter {
         };
         self.dark = dark;
         self.scale = scale;
+        self.reversed = reversed && layout == LayoutMode::Vertical;
         self.repaint();
         self.size
     }
@@ -127,18 +133,21 @@ impl BitmapPainter {
             Theme::light()
         };
         let started = std::time::Instant::now();
-        let rendered =
-            match self
-                .renderer
+        let result = if self.reversed {
+            self.renderer
+                .render_vertical_reversed(&self.frame, &theme, self.scale, None)
+        } else {
+            self.renderer
                 .render(&self.frame, self.layout, &theme, self.scale, None)
-            {
-                Ok(rendered) => rendered,
-                Err(error) => {
-                    tracing::warn!(%error, "候选窗渲染失败");
-                    self.image = None;
-                    return;
-                }
-            };
+        };
+        let rendered = match result {
+            Ok(rendered) => rendered,
+            Err(error) => {
+                tracing::warn!(%error, "候选窗渲染失败");
+                self.image = None;
+                return;
+            }
+        };
         let (width, height) = rendered.content_size_points();
         self.size = NSSize::new(f64::from(width), f64::from(height));
         self.image = to_image(&rendered.pixmap, self.size);

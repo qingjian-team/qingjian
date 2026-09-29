@@ -1,9 +1,17 @@
 //! 菜单与偏好设置窗口的动作：只改 config.toml（或触发一次性操作），改完由 apply_config 统一生效。
 
+use super::Host;
 use super::diagnostics::{copy_to_pasteboard, open_with_system};
-use super::*;
+use crate::app::logging;
+use crate::menubar::MenuAction;
 use crate::preferences::DEFAULT_FONT_LABEL;
-use qingjian_platform::ShiftLetter;
+use crate::preferences::{Setting, SettingValue};
+use qingjian_core::{FuzzyRules, ModeKeys};
+use qingjian_platform::{
+    CandidateRenderer, DEFAULT_ENGLISH_CANDIDATES_OFF, KeyCombo, LEARNING_LANGUAGE_OFF, LayoutMode,
+    LogLevel, Modifiers, PAGE_KEY_OPTIONS, PreeditMode, Scheme, ShiftLetter, ShortcutConfig,
+    ThemeMode, UpdateChannel, VerticalAboveArrowKeys,
+};
 
 impl Host {
     /// 写短语前读取文件；外部规则有变化时同步列表并请用户重新确认。
@@ -207,6 +215,16 @@ impl Host {
             }
             (Setting::HorizontalGrid, SettingValue::Bool(on)) => {
                 self.settings.set_bool("general", "horizontal_grid", on);
+            }
+            (Setting::VerticalAboveReverse, SettingValue::Bool(on)) => {
+                self.settings
+                    .set_bool("general", "vertical_above_reverse", on);
+            }
+            (Setting::VerticalAboveArrowKeys, SettingValue::Index(index)) => {
+                if let Some(keys) = VerticalAboveArrowKeys::ALL.get(index) {
+                    self.settings
+                        .set_value("general", "vertical_above_arrow_keys", keys.key());
+                }
             }
             (Setting::Preedit, SettingValue::Index(index)) => {
                 if let Some(mode) = PreeditMode::ALL.get(index) {

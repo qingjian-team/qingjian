@@ -1,6 +1,10 @@
 //! 查询与呈现：刷新候选、画候选窗、整句补全、翻页与高亮。
 
-use super::*;
+use super::{QingjianInputController, RESCORE_LOOKBACK};
+use crate::candidates::Preedit;
+use crate::host;
+use crate::imk::{TextClient, modifiers, secure_input};
+use qingjian_core::Candidate;
 
 impl QingjianInputController {
     /// 按当前缓冲区重新查候选、更新 marked text，回到第一页并重画候选窗口。
@@ -143,7 +147,7 @@ impl QingjianInputController {
             if h.grid_keys() {
                 h.session.move_rows(delta)
             } else {
-                h.session.move_highlight(delta)
+                h.session.move_highlight(h.window.candidate_delta(delta))
             }
         })
         .unwrap_or(false);

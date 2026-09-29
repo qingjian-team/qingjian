@@ -1,4 +1,4 @@
-//! 渲染器：一帧 + 排布 + 主题 → 位图。排版逻辑与 macOS 壳的 `CandidateView` 一致：顶部拼音行，竖排一行一个候选、横排排成一行。
+//! 渲染器：一帧 + 排布 + 主题 → 位图。默认顶部拼音行，竖排一行一个候选、横排排成一行；上方竖排窗口可完整倒序布局。
 //!
 //! 内部全用像素：主题里的点数进来先乘缩放倍数。文字的 y 都指行框顶边，字形在行高里垂直居中。
 
@@ -138,6 +138,29 @@ impl Renderer {
         scale: f32,
         shadow: Option<&Shadow>,
     ) -> Result<Rendered, RenderError> {
+        self.render_with_direction(frame, layout, theme, scale, shadow, false)
+    }
+
+    /// 上方竖排窗口：页码、倒序候选、拼音行依次向下排列，文字与候选索引保持原样。
+    pub fn render_vertical_reversed(
+        &mut self,
+        frame: &Frame,
+        theme: &Theme,
+        scale: f32,
+        shadow: Option<&Shadow>,
+    ) -> Result<Rendered, RenderError> {
+        self.render_with_direction(frame, Layout::Vertical, theme, scale, shadow, true)
+    }
+
+    fn render_with_direction(
+        &mut self,
+        frame: &Frame,
+        layout: Layout,
+        theme: &Theme,
+        scale: f32,
+        shadow: Option<&Shadow>,
+        reversed: bool,
+    ) -> Result<Rendered, RenderError> {
         let metrics = Metrics { theme, scale };
         let (content_width, content_height) = self.preferred_size(frame, layout, &metrics);
         let margin = shadow.map_or(0.0, |s| metrics.px(s.margin()));
@@ -160,10 +183,22 @@ impl Renderer {
             theme.colors.background,
         );
         let mut y = margin + metrics.padding();
-        y += self.draw_top_line(&mut canvas, frame, &metrics, margin, y);
+        if !reversed {
+            y += self.draw_top_line(&mut canvas, frame, &metrics, margin, y);
+        }
         match layout {
             Layout::Vertical => {
-                self.draw_vertical(&mut canvas, frame, &metrics, margin, y, content_width);
+                let height = self.draw_vertical(
+                    &mut canvas,
+                    frame,
+                    &metrics,
+                    (margin, y),
+                    content_width,
+                    reversed,
+                );
+                if reversed {
+                    self.draw_top_line(&mut canvas, frame, &metrics, margin, y + height);
+                }
             }
             Layout::Horizontal if frame.columns > 0 => {
                 self.draw_matrix(&mut canvas, frame, &metrics, margin, y, content_width);
