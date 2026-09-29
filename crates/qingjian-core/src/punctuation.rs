@@ -31,6 +31,9 @@ impl Punctuation {
             ')' => "）",
             '[' => "【",
             ']' => "】",
+            // macOS / Windows 键盘 ⇧[ ⇧] 产生的字符；与 [ ] 的方头括号区分，出直角引号
+            '{' => "「",
+            '}' => "」",
             '<' => "《",
             '>' => "》",
             '\\' => "、",
@@ -76,6 +79,16 @@ mod tests {
         assert_eq!(p.convert('\''), Some("’"));
         assert_eq!(p.convert('a'), None);
         assert_eq!(p.convert('-'), None);
+    }
+
+    // macOS 壳把 ⇧[ / ⇧] 当作字符 { / } 传进来，没有映射就原样上屏了半角花括号（issue #228）
+    #[test]
+    fn shifted_brackets_map_to_corner_quotes() {
+        let mut p = Punctuation::default();
+        assert_eq!(p.convert('{'), Some("「"));
+        assert_eq!(p.convert('}'), Some("」"));
+        assert_eq!(p.convert('['), Some("【"));
+        assert_eq!(p.convert(']'), Some("】"));
     }
 
     #[test]
