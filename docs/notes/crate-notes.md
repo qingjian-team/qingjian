@@ -190,6 +190,10 @@ IMK 输入法，源码按 `app / host / imk / candidates / menubar / preferences
 - `apps/macos/scripts/bundle.sh --install` 打包安装到 `~/Library/Input Methods/`（开发用），`--pkg` 做分发用的 pkg（装 `/Library/Input Methods/`，postinstall 跑 `qingjian-macos --register`
   注册、启用并切成当前输入源；签名 / 公证靠 `QINGJIAN_SIGN_IDENTITY` / `QINGJIAN_INSTALLER_IDENTITY` / `QINGJIAN_NOTARY_PROFILE`，没设就 ad-hoc；`QINGJIAN_TARGET` 指定架构，
   成品 `target/pkg/qingjian-<版本>-macos-<arm64|x86_64>.pkg`）；`scripts/uninstall.sh` 卸载。
+- 开发签名：ad-hoc 每次重建 cdhash 都变，TCC 按 cdhash 认的辅助功能权限跟着作废，所以开发用稳定自签证书 "Qingjian Development Code Signing"
+  （login keychain，私钥备份在 `~/.qingjian-signing/`）签、辅助功能只授权一次，重建重装不失效：
+  `QINGJIAN_SIGN_IDENTITY="Qingjian Development Code Signing" PROFILE=debug apps/macos/scripts/bundle.sh --install`；
+  `--options runtime --timestamp` 仅在 `QINGJIAN_NOTARY_PROFILE` 非空（发版公证）时加，时间戳服务器不认自签证书。
 - 日志在 `~/Library/Logs/Qingjian/`（按天分文件留 7 天，删了会重建），用户数据与配置在 `~/Library/Application Support/Qingjian/`。
 - 配置项：云联想 `[predict]`（偏好设置「云服务」页有「测试连接」按钮：`qingjian_predict::ConnectionTest` 起线程发一条最小请求，`Host` 用独立定时器 `CloudTestMonitor` 轮询结果显示到窗口底部；
   `reasoning_effort` 缺省 `none`，DeepSeek V4 默认思考，不关正文为空）；模糊音 `[fuzzy]` 默认都关；`[general]` 学习语言（`off` 不显示译文）/ 每页候选数 / 翻页键 / 外观 / 竖排横排 / 拼音显示位置 /

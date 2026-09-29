@@ -146,11 +146,16 @@ iconutil -c icns "$ICONSET" -o "$APP/Contents/Resources/Qingjian.icns"
 cp assets/icon/menu.pdf "$APP/Contents/Resources/qingjian-menu.pdf"
 # 仓库放在 iCloud 同步的目录（Documents）时新建的 .app 会带上 Finder 扩展属性，codesign 会拒（detritus not allowed）：签名前清掉
 xattr -cr "$APP"
-# Apple Silicon 上未签名的二进制不会被系统加载。有 Developer ID 证书就正式签（开 hardened runtime，公证要求），
-# 没有就 ad-hoc 签名，本机自用够了
+# Apple Silicon 上未签名的二进制不会被系统加载。有签名身份就按它签，没有就 ad-hoc 签名，本机自用够了。
+# hardened runtime 与时间戳戳只在做公证（发版）时加：开发自签证书（QINGJIAN_SIGN_IDENTITY 指向自签证书、
+# 不设 QINGJIAN_NOTARY_PROFILE）带 --timestamp 会去 Apple 时间戳服务器、自签证书验不过，所以只在有公证 profile 时加。
+# 用稳定证书签（而非 ad-hoc）的意义：TCC 的辅助功能等权限按证书身份认、不按二进制 cdhash 认，
+# 重建重装后权限不失效（ad-hoc 每次重建 cdhash 都变、权限跟着作废）。
 if [[ -n "${QINGJIAN_SIGN_IDENTITY:-}" ]]; then
-  codesign --force --deep --options runtime --timestamp --sign "$QINGJIAN_SIGN_IDENTITY" "$APP"
-  echo "已用 Developer ID 签名: $QINGJIAN_SIGN_IDENTITY"
+  SIGN_EXTRA=()
+  [[ -n "${QINGJIAN_NOTARY_PROFILE:-}" ]] && SIGN_EXTRA=(--options runtime --timestamp)
+  codesign --force --deep ${SIGN_EXTRA[@]+"${SIGN_EXTRA[@]}"} --sign "$QINGJIAN_SIGN_IDENTITY" "$APP"
+  echo "已用身份签名: $QINGJIAN_SIGN_IDENTITY"
 else
   codesign --force --deep --sign - "$APP"
 fi
