@@ -63,6 +63,9 @@ apps/linux/scripts/install.sh
 首次运行生成 `~/.config/qingjian/config.toml`，修改后重启青简服务。
 `[general] preedit` 可设为 `both`（行内和候选窗口）、`inline`（只在行内）、`window`（只在候选窗口）；应用不支持行内显示时使用候选窗口。
 每页候选数、翻页键、学习、日志和辅助语言使用同一配置文件。`learning_language = "off"` 关闭中文候选的辅助语言释义与生词标记。系统面板外观由 Fcitx5 设置控制。
+
+原生 Wayland 下，VS Code 集成终端里的一次选词重复插入问题已修复。请更新青简的 Fcitx5 插件并重启 Fcitx5；只重启青简后台不会更新插件。三种拼音显示位置均可使用，不需要改成「只在候选窗口」来规避重复输入。
+
 当前预编译包随附含章·通变与含章·知微：优先用通变处理拼音整句与纠错，没有通变时回退到知微。自己的 `.qjm` 也可放入 `~/.local/share/qingjian/models/` 下对应的模型目录。`[model] enabled = false` 可关闭本地模型，见 [本地整句模型](../input/local-model.md)。
 
 `[general] shift_letter = "compose"` 让 Shift 大写字母参与中文组句，默认 `"passthrough"` 保持临时英文输入。

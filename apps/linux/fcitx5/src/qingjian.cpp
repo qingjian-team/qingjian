@@ -222,22 +222,17 @@ bool QingjianEngine::exchange(InputContext *context, const nlohmann::json &event
             throw std::runtime_error("response identity");
         consumed = outcome == "Consumed";
         session->displayIdentity = identity;
-        // 显示 API 可同步重入能力 / 焦点 / Reset 事件。提交前再核对生命周期，
-        // 撤销旧上下文结果时仍保留 Consumed，防止选词键再次透传。
-        bool validDisplayFailure = false;
-        if (display) {
-            try { render(context, result.at("frame")); }
-            catch (const std::exception &) {
-                if (watched.get()) {
-                    validDisplayFailure = session->displayIdentity == identity;
-                    disconnectAll();
-                }
-            }
-        }
-        if (watched.get() && session->generation == generation && session->lifecycle == lifecycle
-            && context->hasFocus() == focused && context->capabilityFlags() == capabilities
-            && (session->displayIdentity == identity || validDisplayFailure) && commit.is_string())
-            context->commitString(commit.get<std::string>());
+        // 上屏先于清空预编辑，避免 Chromium 原生 Wayland 重复上屏（#213）。
+        // 上屏回调也可重入；只允许仍属于本帧的上下文继续重画。
+        const auto revision = session->revision;
+        auto current = [&] {
+            return watched.get() && session->opened && session->generation == generation
+                && session->lifecycle == lifecycle && session->revision == revision
+                && session->displayIdentity == identity && context->hasFocus() == focused
+                && context->capabilityFlags() == capabilities;
+        };
+        if (commit.is_string() && current()) context->commitString(commit.get<std::string>());
+        if (display && current()) render(context, result.at("frame"));
         return outcome == "Consumed";
     } catch (const std::exception &) { disconnectAll(); return consumed; }
 }
