@@ -11,6 +11,7 @@ mod menu;
 mod mode;
 mod next;
 mod processor;
+mod punctuation;
 
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
@@ -84,6 +85,9 @@ pub struct TextService {
 
     /// Ctrl + Alt + Space 切换键当前是否已登记为保留键（`[shortcut] switch_mode` 勾了它时才有）。
     switch_preserved: Cell<bool>,
+
+    /// 已登记的标点切换保留键。
+    punctuation_combo: Cell<Option<KeyCombo>>,
 
     /// 上一次应用过的按键行为设置；与 Server 下发的一致时就不重复应用
     /// （每一拍 `SyncMode` 都带着它，见 [`TextService_Impl::apply_input_settings`]）。
@@ -175,6 +179,7 @@ impl TextService {
             profile_cookie: Cell::new(None),
             translate_combo: Cell::new(None),
             switch_preserved: Cell::new(false),
+            punctuation_combo: Cell::new(None),
             input_settings: Cell::new(None),
             indicator_state: Cell::new(IndicatorState::default()),
             conversion_guard_until: Cell::new(None),

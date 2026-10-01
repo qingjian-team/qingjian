@@ -8,6 +8,8 @@ mod layout_mode;
 mod log_level;
 mod model;
 mod modifiers;
+mod optional_key_combo;
+mod page_keys;
 mod preedit_mode;
 mod scheme;
 mod shift_letter;
@@ -41,6 +43,7 @@ pub use layout_mode::LayoutMode;
 pub use log_level::LogLevel;
 pub use model::LocalModelConfig;
 pub use modifiers::Modifiers;
+pub use page_keys::PageKeys;
 pub use preedit_mode::PreeditMode;
 pub use scheme::{Scheme, scheme_label};
 pub use shift_letter::ShiftLetter;
@@ -267,6 +270,10 @@ system_text_replacements = true
 # enabled = true    # 是否启用；停用仍保留位置
 
 [shortcut]
+# Windows：切换当前模式的全 / 半角标点；空串禁用，可设为 "ctrl+." 或其他修饰键加字母、数字、句号
+toggle_punctuation = ""
+# Windows：主翻页键之外同时启用的键对，可多选，如 ["[]", ",.", "-="]
+extra_page_keys = []
 # 前缀模式键，只能是 v / u / i 之一且互不相同（这三个字母不是任何拼音音节的开头）
 # 表达式模式：v1+2 出 3，v123 出中文数字
 expression = "v"

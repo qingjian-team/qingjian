@@ -4,7 +4,7 @@
 //! `[shortcut] translate_selection`，激活时读一次配置（AppContainer 读不到用户目录时用缺省 Ctrl+Alt+T）；
 //! 切换键来自 `[shortcut] switch_mode`，那个值由 Server 经协议下发（DLL 不读配置文件），变了就地重登记。
 
-use windows::Win32::UI::Input::KeyboardAndMouse::VK_SPACE;
+use windows::Win32::UI::Input::KeyboardAndMouse::{VK_OEM_PERIOD, VK_SPACE};
 use windows::Win32::UI::TextServices::{
     ITfKeystrokeMgr, TF_MOD_ALT, TF_MOD_CONTROL, TF_MOD_SHIFT, TF_PRESERVEDKEY,
 };
@@ -20,6 +20,9 @@ pub(crate) const GUID_TRANSLATE: GUID = GUID::from_u128(0x5c0a7b12_3d4e_4f60_8a9
 
 /// Ctrl + Alt + Space 中英切换键的保留键标识。
 pub(crate) const GUID_SWITCH_MODE: GUID = GUID::from_u128(0x2f6b8c51_9a34_4e7d_b2c8_5d1e0f3a7b64);
+
+/// 可配置的全 / 半角标点切换键。
+pub(crate) const GUID_PUNCTUATION: GUID = GUID::from_u128(0xa8e6eafb_d2c5_4db3_96d4_5bfd6432a0d7);
 
 /// msctf.h 的 `TF_MOD_LWIN`（windows crate 没导出）。
 const TF_MOD_LWIN: u32 = 0x08;
@@ -73,7 +76,7 @@ fn preserved_key(combo: KeyCombo) -> TF_PRESERVEDKEY {
         modifiers |= TF_MOD_LWIN;
     }
     TF_PRESERVEDKEY {
-        uVKey: combo.key.to_ascii_uppercase() as u32,
+        uVKey: virtual_key(combo),
         uModifiers: modifiers,
     }
 }
@@ -93,7 +96,7 @@ pub(crate) fn unregister(keystroke: &ITfKeystrokeMgr, combo: KeyCombo) {
 pub(crate) fn key_event(combo: KeyCombo, english_mode: bool) -> KeyEvent {
     let m = combo.modifiers;
     KeyEvent::new(
-        combo.key.to_ascii_uppercase() as u32,
+        virtual_key(combo),
         Some(combo.key),
         KeyModifiers {
             ctrl: m.control,
@@ -104,4 +107,41 @@ pub(crate) fn key_event(combo: KeyCombo, english_mode: bool) -> KeyEvent {
             english_mode,
         },
     )
+}
+
+pub(crate) fn register_punctuation(
+    keystroke: &ITfKeystrokeMgr,
+    tid: u32,
+    combo: KeyCombo,
+) -> Result<()> {
+    let description: Vec<u16> = "切换全半角标点（青简）".encode_utf16().collect();
+    unsafe { keystroke.PreserveKey(tid, &GUID_PUNCTUATION, &preserved_key(combo), &description) }
+}
+
+pub(crate) fn unregister_punctuation(keystroke: &ITfKeystrokeMgr, combo: KeyCombo) {
+    let _ = unsafe { keystroke.UnpreserveKey(&GUID_PUNCTUATION, &preserved_key(combo)) };
+}
+
+fn virtual_key(combo: KeyCombo) -> u32 {
+    if combo.key == '.' {
+        u32::from(VK_OEM_PERIOD.0)
+    } else {
+        combo.key.to_ascii_uppercase() as u32
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::preserved_key;
+    use windows::Win32::UI::Input::KeyboardAndMouse::VK_OEM_PERIOD;
+    use windows::Win32::UI::TextServices::{TF_MOD_CONTROL, TF_MOD_SHIFT};
+
+    #[test]
+    fn punctuation_combo_uses_period_virtual_key_instead_of_delete() {
+        // '.' 的 ASCII 码是 0x2E（VK_DELETE），不能拿来登记句号保留键。
+        let key = preserved_key("ctrl+shift+.".parse().unwrap());
+        assert_eq!(key.uVKey, u32::from(VK_OEM_PERIOD.0));
+        assert_eq!(key.uModifiers, TF_MOD_CONTROL | TF_MOD_SHIFT);
+        assert_eq!(preserved_key("ctrl+t".parse().unwrap()).uVKey, b'T' as u32);
+    }
 }

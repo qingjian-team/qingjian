@@ -57,6 +57,8 @@ impl TextService_Impl {
     /// 应用 Server 下发的按键行为设置：`OpenSession` 的回包给一次，之后每一拍 `SyncMode` 也都带着。
     /// 值没变就什么都不做，所以设置窗口改完在下一拍（约 320 ms）生效，不用切走再切回输入法。
     pub(super) fn apply_input_settings(&self, input: InputSettings) {
+        // 获焦可能早于 Activate 的 thread_mgr 就绪；设置未变也要补上尚未完成的保留键登记。
+        self.sync_punctuation_key(input.toggle_punctuation);
         if self.input_settings.get() == Some(input) {
             return;
         }

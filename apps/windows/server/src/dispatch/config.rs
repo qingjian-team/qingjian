@@ -1,7 +1,7 @@
 use qingjian_platform::protocol::KeyModifiers;
 use qingjian_platform::{
-    AppsConfig, CandidateRenderer, Config, KeyCombo, LayoutMode, PreeditMode, Scheme, SwitchKeys,
-    ThemeMode,
+    AppsConfig, CandidateRenderer, Config, KeyCombo, LayoutMode, PageKeys, PreeditMode, Scheme,
+    SwitchKeys, ThemeMode,
 };
 
 use super::RenderSettings;
@@ -37,6 +37,9 @@ pub struct RouterConfig {
     /// 翻页键对（`[general] page_keys`，上一页 / 下一页）。
     pub page_keys: (char, char),
 
+    /// 同时启用的额外翻页键。
+    pub extra_page_keys: PageKeys,
+
     /// 英文模式给不给英文候选（`[general] english_candidates`）。
     pub english_candidates: bool,
 
@@ -46,6 +49,9 @@ pub struct RouterConfig {
 
     /// 中英切换键（`[shortcut] switch_mode`）：由 Server 经协议下发给 DLL，由它认键。
     pub switch_mode: SwitchKeys,
+
+    /// 标点切换组合键；空为禁用。
+    pub toggle_punctuation: Option<KeyCombo>,
 
     /// 中文模式下不在组句时的标点转全角（`[general] full_width_punctuation`）；状态条可切。
     pub full_width: bool,
@@ -114,9 +120,11 @@ impl From<&Config> for RouterConfig {
             font: config.general.font.trim().to_owned(),
             preedit: config.general.preedit,
             page_keys: config.general.page_keys(),
+            extra_page_keys: config.shortcut.extra_page_keys,
             english_candidates: config.general.english_candidates,
             english_mode: config.general.english_mode,
             switch_mode: config.shortcut.switch_mode,
+            toggle_punctuation: config.shortcut.toggle_punctuation,
             full_width: config.general.full_width_punctuation,
             english_full_width: config.general.english_full_width_punctuation,
             zhuyin: config.general.is_zhuyin(),

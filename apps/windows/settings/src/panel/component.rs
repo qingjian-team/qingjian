@@ -82,6 +82,10 @@ impl Component for Settings {
                 };
                 self.save_array("apps", "english_candidates_off", &list);
             }
+            Message::SystemCtrlSpace(on) => match super::system_hotkey::set_ctrl_space(on) {
+                Ok(()) => self.notice.clear(),
+                Err(error) => self.notice.fail(error),
+            },
             Message::SwitchKey(key, on) => {
                 let keys = self.config.shortcut.switch_mode.with(key, on);
                 let values: Vec<String> =
@@ -160,6 +164,16 @@ impl Component for Settings {
             }
 
             // 快捷键页
+            Message::ExtraPageKey(pair, on) => {
+                let values: Vec<String> =
+                    self.config.shortcut.extra_page_keys.with(pair, on).into();
+                self.save_array("shortcut", "extra_page_keys", &values);
+            }
+            Message::TogglePunctuation(on) => self.save(
+                "shortcut",
+                "toggle_punctuation",
+                if on { "ctrl+." } else { "" },
+            ),
             Message::PageKeys(Some(i)) if i < shortcut::PAGE_KEYS.len() => {
                 self.save("general", "page_keys", shortcut::PAGE_KEYS[i].1);
             }

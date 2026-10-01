@@ -9,6 +9,7 @@ mod message;
 mod notice;
 mod pages;
 mod recorder;
+mod system_hotkey;
 
 use std::path::{Path, PathBuf};
 

@@ -264,7 +264,7 @@ Server 侧辅码接线：`RouterConfig.aux_code_key` / `aux_code_show`（`apply_
 选了形码却没有码表文件时只警告并按拼音跑——配置说五笔、引擎还在拼音是静默错位，宁可吵。
 中英模式的两项设置（`[shortcut] switch_mode` 切换键：勾选 shift / control / ctrl+alt+space，`[general] english_mode` 内置英文模式开关）
 由 Server 经协议下发给 DLL（`InputSettings`，见下文「按键行为设置」），改完在下一拍（约 320 ms）生效；
-`ctrl+alt+space` 走 TSF 保留键登记（`com/key/preserved.rs` 的 `GUID_SWITCH_MODE`）。系统的 Ctrl + Space（「输入法/非输入法切换」）不进勾选项但适配它：
+`ctrl+alt+space` 走 TSF 保留键登记（`com/key/preserved.rs` 的 `GUID_SWITCH_MODE`）。系统的 Ctrl + Space（「输入法/非输入法切换」）由设置页单独列项，`settings/src/panel/system_hotkey.rs` 通过 `ImmGetHotKey` / `ImmSetHotKey` 读写 `IME_CHOTKEY_IME_NONIME_TOGGLE`，不写入 `switch_mode`、不重复注册 TSF 保留键；同一项也会影响其他简体中文输入法。TSF 适配它：
 它翻的「输入法开 / 关」compartment（`com/mode/sink.rs`）关 = 英文、开 = 中文，我们切模式时把开关写成一致；开关一变也作废被截走 Space 的那次「单击 Ctrl」。
 模式全局一份、存在 Server（`Router.english`），DLL 激活 / 得到焦点 / 轮询时 `SyncMode` 取回，用户切了 `ModeChanged` 报上去。会话号用线程 id（`com::session_id`）——TSF 的 client id
 各进程都是同样那几个值，拿它当会话号会在 Server 那边撞号。四条切换入口都汇到
@@ -289,6 +289,11 @@ Server 每次轮询比对用户 `dicts` 的路径 / mtime / 长度快照，配�
 所以由 **Server 读配置、经协议下发**（`InputSettings`：`OpenSession` 回包带一次，之后每拍 `SyncMode` 跟着走），
 DLL 不读文件、不查 mtime。`SessionOpened` 只回过协议版本对得上的 DLL——老的 `open` 是只写不读，
 多回一条会被它当成下一次 `Poll` 的应答而报错，那条连接就废了；老 DLL 从 `ModeSync` 那一拍也能拿到同一份（新字段直接忽略）。
+
+Windows 可选的 `[shortcut] toggle_punctuation` 经 `InputSettings` 下发，由 TSF 保留键触发原有标点菜单命令；
+修改或关闭时撤掉旧登记，句号使用 `VK_OEM_PERIOD`，不能使用字符的 ASCII 值（那是 Delete）。
+首次获焦可能早于 `Activate` 设置 `thread_mgr`，因此保留键同步必须在设置值缓存命中前执行，管理器就绪后才能补登记。
+`extra_page_keys` 与主翻页键并用，只影响候选翻页，不覆盖表达式、直输段或辅码触发键。
 
 ## assets
 

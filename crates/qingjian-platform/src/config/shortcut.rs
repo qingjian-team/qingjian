@@ -1,6 +1,7 @@
 use qingjian_core::ModeKeys;
 use serde::{Deserialize, Serialize};
 
+use super::PageKeys;
 use super::key_combo::KeyCombo;
 use super::modifiers::Modifiers;
 use super::switch_key::SwitchKeys;
@@ -15,6 +16,13 @@ pub struct ShortcutConfig {
 
     /// 中 / 英切换键（Windows 用），可多选：`["shift", "control", "ctrl+alt+space"]`。详见 [`SwitchKeys`]。
     pub switch_mode: SwitchKeys,
+
+    /// Windows：切换当前中英模式的全 / 半角标点，空串禁用，例如 `ctrl+.`。
+    #[serde(with = "super::optional_key_combo")]
+    pub toggle_punctuation: Option<KeyCombo>,
+
+    /// Windows：主翻页键以外同时启用的符号键对。
+    pub extra_page_keys: PageKeys,
 
     /// 数字键配这些修饰键：上屏候选的第一个译词。
     pub translation: Modifiers,
@@ -39,6 +47,8 @@ impl Default for ShortcutConfig {
         Self {
             mode: ModeKeys::default(),
             switch_mode: SwitchKeys::default(),
+            toggle_punctuation: None,
+            extra_page_keys: PageKeys::default(),
             translation,
             translation_second,
             translate_selection: KeyCombo::TRANSLATE_DEFAULT,
@@ -78,6 +88,34 @@ impl ShortcutConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn optional_punctuation_and_extra_page_keys_round_trip() {
+        let default: ShortcutConfig = toml::from_str("").unwrap();
+        assert_eq!(default.toggle_punctuation, None);
+        assert_eq!(default.extra_page_keys.step('.'), None);
+        let config: ShortcutConfig =
+            toml::from_str("toggle_punctuation = 'ctrl+.'\nextra_page_keys = ['[]', ',.', '-=']")
+                .unwrap();
+        assert_eq!(config.toggle_punctuation.unwrap().key, '.');
+        for key in ['[', ',', '-'] {
+            assert_eq!(config.extra_page_keys.step(key), Some(-1));
+        }
+        for key in [']', '.', '='] {
+            assert_eq!(config.extra_page_keys.step(key), Some(1));
+        }
+        let round_trip: ShortcutConfig =
+            toml::from_str(&toml::to_string(&config).unwrap()).unwrap();
+        assert_eq!(round_trip, config);
+        assert_eq!(
+            toml::from_str::<ShortcutConfig>("toggle_punctuation = ''")
+                .unwrap()
+                .toggle_punctuation,
+            None
+        );
+        assert!(toml::from_str::<ShortcutConfig>("extra_page_keys = ['ab']").is_err());
+        assert!(toml::from_str::<ShortcutConfig>("toggle_punctuation = 'ctrl+unknown'").is_err());
+    }
 
     #[test]
     fn old_files_without_modifier_keys_still_parse_and_get_defaults() {

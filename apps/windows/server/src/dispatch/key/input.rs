@@ -250,7 +250,7 @@ impl Router {
             self.engine.push(c);
             return Effect::Changed(None);
         }
-        if composing && let Some(step) = codes::page_key(event, self.config.page_keys) {
+        if composing && let Some(step) = self.page_step(event) {
             self.page(step);
             return Effect::Navigated;
         }
@@ -315,7 +315,7 @@ impl Router {
                 return Effect::Changed(None);
             }
         }
-        if let Some(step) = codes::page_key(event, self.config.page_keys) {
+        if let Some(step) = self.page_step(event) {
             self.page(step);
             return Effect::Navigated;
         }

@@ -64,6 +64,12 @@ impl ITfKeyEventSink_Impl for TextService_Impl {
     fn OnPreservedKey(&self, pic: Ref<ITfContext>, rguid: *const GUID) -> Result<BOOL> {
         let guid = unsafe { *rguid };
         log(&format!("保留键命中 guid={guid:?}"));
+        if guid == preserved::GUID_PUNCTUATION {
+            if self.keyboard_disabled(&pic) || self.punctuation_combo.get().is_none() {
+                return Ok(FALSE);
+            }
+            return Ok(self.toggle_punctuation().into());
+        }
         if guid == preserved::GUID_SWITCH_MODE {
             if self.keyboard_disabled(&pic) {
                 return Ok(FALSE);

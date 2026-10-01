@@ -1,7 +1,10 @@
 //! 「通用」页：学习语言、每页候选数、输入方案、英文模式候选。
 
 use qingjian_platform::{MAX_PAGE_SIZE, Scheme, ShiftLetter, SwitchKey};
-use windows_reactor::*;
+use windows_reactor::{
+    Callback, CheckBox, ChildrenControl, ComboBox, ContentControl, NumberBox, Orientation,
+    StackPanel, ToggleSwitch, View, ViewContext,
+};
 
 use crate::panel::controls::{feedback, field, index_of, page};
 use crate::panel::{Message, Settings};
@@ -52,6 +55,18 @@ pub(crate) fn view(settings: &Settings, context: &mut ViewContext<Settings>) -> 
     let g = &settings.config.general;
     let english_off = !settings.config.apps.english_candidates_off.is_empty();
     let rows = [
+        field(
+            "启用内置英文模式",
+            "关掉后青简固定中文模式：切换键与任务栏、悬浮状态条上的「中」「英」按钮都不再切到英文，需要英文时用系统快捷键（Win + Space）切到别的输入法。",
+            ToggleSwitch::new()
+                .is_on(g.english_mode)
+                .on_toggled(context.callback(Message::EnglishMode)),
+        ),
+        field(
+            "中英切换键",
+            "勾上的键都能在中英之间切换，可以多选，改完立刻生效。系统 Ctrl + Space 由 Windows 管理，也会影响微软拼音等简体中文输入法。",
+            switch_key_boxes(settings, context),
+        ),
         field(
             "学习语言",
             "候选词右侧显示哪种语言的译词，只列出装了释义表的语言；「不显示译文」同时关掉生词标记与释义兜底。",
@@ -141,31 +156,17 @@ pub(crate) fn view(settings: &Settings, context: &mut ViewContext<Settings>) -> 
                 .is_on(g.chinese_first)
                 .on_toggled(context.callback(Message::ChineseFirst)),
         ),
-        feedback(&settings.notice),
         field(
             "中文模式下的 Shift + 字母",
             "「交给应用」是临时打英文（与以前一致）：拼音先上屏，这个键归应用；\
              「进组句」把它收进拼音缓冲区，匹配时按小写算，所以 Cpan 与 cpan 一样能出「C盘」。",
             shift_letter_combo(g.shift_letter, context.callback(Message::ShiftLetter)),
         ),
-        field(
-            "中英切换键",
-            "勾上的键都能在中英之间切换，可以多选，改完立刻生效；中英模式所有应用共用一份。打字时容易误触 Shift 的话改勾「单击 Ctrl」；一个都不勾时只剩任务栏 / 悬浮状态条上的「中」「英」按钮。\
-             系统自带的 Ctrl + Space 也能切中英，与微软拼音一致，不用勾（装了别的输入法时 Windows 可能改用它切换输入法）。",
-            switch_key_boxes(settings, context),
-        ),
-        field(
-            "启用内置英文模式",
-            "关掉后青简固定中文模式：切换键与任务栏、悬浮状态条上的「中」「英」按钮都不再切到英文，需要英文时用系统快捷键（Win + Space）切到别的输入法。",
-            ToggleSwitch::new()
-                .is_on(g.english_mode)
-                .on_toggled(context.callback(Message::EnglishMode)),
-        ),
     ];
     page("通用", StackPanel::new().spacing(16.0).children(rows))
 }
 
-/// 中英切换键：每个键一个勾选框，横排。
+/// 系统 Ctrl + Space 单列一行，其余青简切换键横排，避免窄窗口裁切。
 fn switch_key_boxes(settings: &Settings, context: &mut ViewContext<Settings>) -> View {
     let keys = settings.config.shortcut.switch_mode;
     let boxes = SwitchKey::ALL.map(|key| {
@@ -174,8 +175,15 @@ fn switch_key_boxes(settings: &Settings, context: &mut ViewContext<Settings>) ->
             .on_is_checked_changed(context.callback(move |on| Message::SwitchKey(key, on)))
             .content(key.label())
     });
-    StackPanel::new()
-        .orientation(Orientation::Horizontal)
-        .spacing(12.0)
-        .children(boxes)
+    StackPanel::new().spacing(8.0).children([
+        CheckBox::new()
+            .is_checked(crate::panel::system_hotkey::ctrl_space_enabled())
+            .on_is_checked_changed(context.callback(Message::SystemCtrlSpace))
+            .content("Ctrl + Space（系统）"),
+        StackPanel::new()
+            .orientation(Orientation::Horizontal)
+            .spacing(12.0)
+            .children(boxes),
+        feedback(&settings.notice),
+    ])
 }

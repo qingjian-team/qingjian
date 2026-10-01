@@ -148,3 +148,33 @@ fn tab_with_raw_input_and_no_candidates_is_consumed_without_commit() {
     assert_eq!(result.1, None);
     assert_eq!(result.2.page, 0);
 }
+
+#[test]
+fn all_extra_pairs_page_chinese_candidates_without_committing() {
+    let mut baseline = router(1);
+    let mut router = router(1);
+    router.config.extra_page_keys = vec!["[]".into(), ",.".into(), "-=".into()]
+        .try_into()
+        .unwrap();
+    let normal = KeyModifiers::default();
+    compose(&mut router, "qq", normal);
+    for pair in [('[', ']'), (',', '.'), ('-', '=')] {
+        let next = key(&mut router, pair.1 as u32, Some(pair.1), normal);
+        assert_eq!(
+            (next.0, next.1, next.2.page),
+            (KeyOutcome::Consumed, None, 1)
+        );
+        let previous = key(&mut router, pair.0 as u32, Some(pair.0), normal);
+        assert_eq!(
+            (previous.0, previous.1, previous.2.page),
+            (KeyOutcome::Consumed, None, 0)
+        );
+    }
+    // 清掉额外键后，逗号恢复为原有输入行为。
+    router.config.extra_page_keys = Default::default();
+    compose(&mut baseline, "qq", normal);
+    let expected = key(&mut baseline, 0xBC, Some(','), normal);
+    let actual = key(&mut router, 0xBC, Some(','), normal);
+    assert_eq!((actual.0, actual.1), (expected.0, expected.1));
+    assert_eq!(router.engine.composition(), baseline.engine.composition());
+}

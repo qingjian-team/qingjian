@@ -2,7 +2,10 @@
 //! 翻译选中文字只改修饰键，字母键固定用配置里当前的；要换字母直接改 `config.toml`。
 
 use qingjian_platform::Modifiers;
-use windows_reactor::*;
+use windows_reactor::{
+    Callback, CheckBox, ChildrenControl, ComboBox, ContentControl, Orientation, StackPanel,
+    ToggleSwitch, View, ViewContext,
+};
 
 use crate::panel::controls::{field, index_of, page};
 use crate::panel::{Message, Settings};
@@ -53,6 +56,28 @@ fn modifier_combo(current: Modifiers, callback: Callback<Option<usize>>) -> Comb
 pub(crate) fn view(settings: &Settings, context: &mut ViewContext<Settings>) -> View {
     let s = &settings.config.shortcut;
     let rows = [
+        field(
+            "额外翻页键（可多选）",
+            "与下面的主翻页键同时生效。选中的符号在拼音候选中用于翻页；表达式、英文直输段、辅码触发键仍按原有规则处理。",
+            StackPanel::new()
+                .orientation(Orientation::Horizontal)
+                .spacing(12.0)
+                .children(PAGE_KEYS.map(|(label, pair)| {
+                    CheckBox::new()
+                        .is_checked(s.extra_page_keys.contains(pair))
+                        .on_is_checked_changed(
+                            context.callback(move |on| Message::ExtraPageKey(pair, on)),
+                        )
+                        .content(label)
+                })),
+        ),
+        field(
+            "全半角标点切换键",
+            "打开使用 Ctrl + . 切换当前中英模式的标点。可在配置文件 [shortcut] toggle_punctuation 修改组合键，空串关闭。",
+            ToggleSwitch::new()
+                .is_on(s.toggle_punctuation.is_some())
+                .on_toggled(context.callback(Message::TogglePunctuation)),
+        ),
         field(
             "翻页键",
             "选「, .」或「- =」时组句中敲对应符号是翻页，不再是上屏加标点。",
