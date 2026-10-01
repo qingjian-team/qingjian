@@ -4,7 +4,12 @@ use qingjian_platform::{
     CandidateRenderer, Config, DEFAULT_ENGLISH_CANDIDATES_OFF_WINDOWS, LayoutMode, LogLevel,
     PreeditMode, ShiftLetter, ThemeMode, UpdateChannel,
 };
-use windows_reactor::*;
+use windows_reactor::{
+    Component, ComponentContext, ElementRef, KeyedView, NavigationView,
+    NavigationViewBackButtonVisible, NavigationViewItem, NavigationViewItemSlot,
+    NavigationViewPaneDisplayMode, NavigationViewSlot, SlotView, SlotsControl, Symbol, SymbolIcon,
+    View, ViewContext,
+};
 
 use super::cloud_status::CloudStatus;
 use super::controls::{export_logs, log_dir, open_in_editor, open_with_explorer};
@@ -89,6 +94,8 @@ impl Component for Settings {
                 self.save_array("shortcut", "switch_mode", &values);
             }
             Message::EnglishMode(on) => self.save("general", "english_mode", on),
+            Message::DefaultEnglish(on) => self.save("general", "default_english", on),
+            Message::RememberModePerApp(on) => self.save("general", "remember_mode_per_app", on),
 
             // 候选窗口页
             Message::Theme(Some(i)) if i < ThemeMode::ALL.len() => {

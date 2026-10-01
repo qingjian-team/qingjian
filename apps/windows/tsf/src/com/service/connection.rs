@@ -53,9 +53,17 @@ impl TextService_Impl {
         }
         self.connect();
         let connected = self.engine.borrow().is_some();
-        // 重连上的多半是重启过的 Server，它不知道当前模式：前台这边报一次，成为全局模式。
+        // 默认行为仍向重启后的 Server 报模式；配置了初始模式或应用记忆时以 Server 为准。
         if connected && self.shared.foreground() {
-            self.report_mode();
+            if self
+                .input_settings
+                .get()
+                .is_some_and(|input| input.restore_mode)
+            {
+                self.sync_mode_from_server();
+            } else {
+                self.report_mode();
+            }
         }
         connected
     }

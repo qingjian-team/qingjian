@@ -211,7 +211,9 @@ impl Router {
         self.engine
             .set_shuangpin_raw_preedit(config.general.shuangpin_raw_preedit);
         let previous = self.config.render_settings();
-        self.config = RouterConfig::from(config);
+        let next = RouterConfig::from(config);
+        self.reload_mode(&next);
+        self.config = next;
         let settings = self.config.render_settings();
         if settings != previous {
             self.candidates.configure(settings);

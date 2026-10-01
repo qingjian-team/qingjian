@@ -37,6 +37,7 @@ impl Router {
                     SessionInfo {
                         app,
                         private: false,
+                        english: None,
                         protocol,
                     },
                 );
@@ -86,10 +87,11 @@ impl Router {
             }
             ClientMessage::ModeChanged { session, english } => {
                 tracing::debug!(?session, english, "中英模式");
-                self.handle_mode_changed(english);
+                self.handle_mode_changed(session, english);
                 None
             }
             ClientMessage::SyncMode { session } => {
+                self.activate_mode(session);
                 self.handle_ime_active();
                 Some(ServerMessage::ModeSync {
                     session,
@@ -105,11 +107,15 @@ impl Router {
             }
             ClientMessage::Indicator { session, command } => {
                 tracing::debug!(?session, ?command, "任务栏图标菜单");
+                self.activate_mode(session);
                 self.handle_indicator(command);
                 None
             }
             ClientMessage::CloseSession { session } => {
                 self.sessions.remove(&session);
+                if self.mode_session == Some(session) {
+                    self.mode_session = None;
+                }
                 if self.focused == Some(session) {
                     self.reset_composition();
                     self.focused = None;

@@ -65,6 +65,12 @@ pub struct GeneralConfig {
     /// 关掉后青简保持中文模式，切换键与语言栏按钮都不再切过去；要打英文请用系统快捷键切到别的输入法。
     pub english_mode: bool,
 
+    /// Windows：首次使用时默认英文；按应用记忆时用于没有记录的应用。
+    pub default_english: bool,
+
+    /// Windows：按应用 exe 名记住中英状态，仅保存在本次 Server 运行期间。
+    pub remember_mode_per_app: bool,
+
     /// 中文模式下不在组句时敲的标点转成全角（`，。？！` 等，数字后的 `.` 保持半角）。
     /// Windows 悬浮状态条上可点切换；macOS 在偏好设置中选择默认模式。
     pub full_width_punctuation: bool,
@@ -133,6 +139,8 @@ impl Default for GeneralConfig {
             chinese_first: false,
             shift_letter: ShiftLetter::default(),
             english_mode: true,
+            default_english: false,
+            remember_mode_per_app: false,
             full_width_punctuation: true,
             english_full_width_punctuation: false,
             aux_code_key: qingjian_core::DEFAULT_AUX_CODE_KEY.to_string(),

@@ -9,6 +9,7 @@ mod composed;
 mod config;
 mod key;
 mod message;
+mod mode;
 mod reload;
 mod rescore;
 mod session;
@@ -90,8 +91,14 @@ pub struct Router {
     /// 悬浮状态条输出端；Windows 上由 [`crate::ui`] 注入。
     status: Box<dyn StatusSink>,
 
-    /// 全局中英模式（`true` 英文），所有应用共用。DLL 切了报来，激活 / 获焦 / 轮询时取走。
+    /// 当前中英模式（`true` 英文）；按应用记忆时是 `mode_session` 对应的那份。
     english: bool,
+
+    /// 最近同步中英状态的会话，与持有组句的 `focused` 分开，切模式不抢走待上屏的组句。
+    mode_session: Option<SessionId>,
+
+    /// 应用 exe 名（小写）到中英状态；会话断开仍保留，Server 重启后清空。
+    app_modes: HashMap<String, bool>,
 
     /// 当前输入法是不是青简：有 DLL 来取模式就是，切成别的输入法时收起。状态条只在这时显示；
     /// 应用退出不影响它，状态条是桌面常驻的。
@@ -121,6 +128,7 @@ pub struct Router {
 
 impl Router {
     pub fn new(engine: Engine, config: RouterConfig) -> Self {
+        let english = config.english_mode && config.default_english;
         Self {
             engine,
             config: RouterConfig {
@@ -141,7 +149,9 @@ impl Router {
             reload: None,
             candidates: Box::new(NoopSink),
             status: Box::new(NoopStatusSink),
-            english: false,
+            english,
+            mode_session: None,
+            app_modes: HashMap::new(),
             ime_active: false,
             last_rect: None,
             last_shown: None,
@@ -160,6 +170,7 @@ impl Router {
             switch_mode: self.config.switch_mode,
             english_mode: self.config.english_mode,
             shift_letter_compose: self.config.shift_letter_compose,
+            restore_mode: self.config.default_english || self.config.remember_mode_per_app,
         }
     }
 

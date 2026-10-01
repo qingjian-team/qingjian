@@ -9,6 +9,9 @@ pub(crate) struct SessionInfo {
     /// 该会话当前落在私密输入框里（DLL 随 `ClientMessage::Privacy` 报来）；焦点切回来时按它重设 Engine。
     pub(crate) private: bool,
 
+    /// 取不到宿主名时，模式仅按会话隔离；不让未知应用共享同一个占位名称。
+    pub(crate) english: Option<bool>,
+
     /// DLL 报来的协议版本。比 Server 低的（应用还没重启、加载着旧 DLL）要按老协议发帧，
     /// 见 composed 里的 downgrade_for_old_dll。
     pub(crate) protocol: u32,

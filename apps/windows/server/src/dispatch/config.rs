@@ -44,6 +44,12 @@ pub struct RouterConfig {
     /// （切换键与语言栏按钮由 DLL 按同一项拦住，见 `com::service::mode`）。
     pub english_mode: bool,
 
+    /// 首次使用时的中英模式。
+    pub default_english: bool,
+
+    /// 按应用 exe 名记住模式，缺省仍为全局共享。
+    pub remember_mode_per_app: bool,
+
     /// 中英切换键（`[shortcut] switch_mode`）：由 Server 经协议下发给 DLL，由它认键。
     pub switch_mode: SwitchKeys,
 
@@ -116,6 +122,8 @@ impl From<&Config> for RouterConfig {
             page_keys: config.general.page_keys(),
             english_candidates: config.general.english_candidates,
             english_mode: config.general.english_mode,
+            default_english: config.general.default_english,
+            remember_mode_per_app: config.general.remember_mode_per_app,
             switch_mode: config.shortcut.switch_mode,
             full_width: config.general.full_width_punctuation,
             english_full_width: config.general.english_full_width_punctuation,
