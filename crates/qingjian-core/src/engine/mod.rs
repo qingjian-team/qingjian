@@ -72,7 +72,7 @@ use crate::parser::{self, ParseError, Segmentation};
 use crate::punctuation::Punctuation;
 use crate::ranking::{self, Scored};
 use crate::sentence::{
-    self, Conversion, Interpolation, LanguageModel, NoLanguageModel, Personal, SentenceScorer,
+    self, Conversion, Interpolation, LanguageModel, NoLanguageModel, SentenceScorer,
 };
 use crate::shortcut;
 use crate::shuangpin::Scheme;
