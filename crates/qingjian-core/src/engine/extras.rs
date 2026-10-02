@@ -1,6 +1,11 @@
 //! 附加候选：日期时间等快捷项、中英混输的英文词与补全、emoji。
 
-use super::*;
+use super::{
+    EMOJI_PER_WORD, EMOJI_SCAN, ENGLISH_COMPLETIONS, Engine, Learner, MIN_COMPLETION_LETTERS,
+};
+use crate::candidate::{Candidate, CandidateKind};
+use crate::shortcut;
+use qingjian_dictionary::WordList;
 
 impl Engine {
     /// 精确匹配自定义输入码时，数字键应选择候选。
@@ -152,7 +157,7 @@ impl Engine {
         let mut inserted = 0;
         let mut index = 0;
         let mut scanned = 0;
-        while index < items.len() && scanned < EMOJI_SCAN && inserted < EMOJI_TOTAL {
+        while index < items.len() && scanned < EMOJI_SCAN && inserted < self.emoji_limit {
             let item = &items[index];
             index += 1;
             if !matches!(
@@ -183,7 +188,7 @@ impl Engine {
                 }
             }
             for emoji in emojis.iter().take(EMOJI_PER_WORD) {
-                if inserted >= EMOJI_TOTAL {
+                if inserted >= self.emoji_limit {
                     break;
                 }
                 items.insert(

@@ -1,8 +1,22 @@
 //! 注入与开关：词库、模糊音、双拼、翻译 / 学习 / 联想等 trait 实现的挂接，以及相应的只读访问。
 
+use super::EMOJI_TOTAL;
 use super::aux_code::is_valid_aux_code_key;
-use super::*;
+use super::{
+    DEFAULT_AUX_CODE_KEY, Engine, GlossFiller, InputLogger, Learner, ModeKeys, NEURAL_MARGIN,
+    NEURAL_WEIGHT, Predictor, RESCORE_CONTEXT_CHARS, Translator, UsageMeter, UsageSummary,
+    VocabularyTracker, marked_rest,
+};
+use crate::candidate::Language;
+use crate::correction::TypoCosts;
+use crate::emoji::EmojiTable;
 use crate::engine::decoded::EngineDecoded;
+use crate::fuzzy::FuzzyRules;
+use crate::history::InputHistory;
+use crate::sentence::{Interpolation, LanguageModel, Personal, SentenceScorer};
+use crate::shuangpin::Scheme;
+use qingjian_dictionary::{AuxCodeLookup, CodeTable, Dictionary, WordList};
+use std::sync::Arc;
 
 impl Engine {
     /// 设置中文模式的标点转换。
@@ -226,6 +240,12 @@ impl Engine {
         self
     }
 
+    /// 每次查询最多插入几个 emoji（0–3）；0 关闭，越界值按 3 处理。
+    /// 保留词表，重新开启时无需加载；不改变普通候选的排序。
+    pub fn set_emoji_limit(&mut self, limit: usize) {
+        self.emoji_limit = limit.min(EMOJI_TOTAL);
+    }
+
     pub fn with_fuzzy(mut self, rules: FuzzyRules) -> Self {
         self.fuzzy = rules;
         self
@@ -344,7 +364,7 @@ impl Engine {
         self
     }
 
-    /// 静态语言模型（没接就是 [`NoLanguageModel`]）：评测工具拿它按 [`crate::sentence::segment_text`] 切汉字文本。
+    /// 静态语言模型（没接就是 [`crate::sentence::NoLanguageModel`]）：评测工具拿它按 [`crate::sentence::segment_text`] 切汉字文本。
     pub fn language_model(&self) -> &dyn LanguageModel {
         &*self.language_model
     }

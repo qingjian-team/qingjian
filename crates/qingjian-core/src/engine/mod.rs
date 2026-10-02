@@ -72,7 +72,7 @@ use crate::parser::{self, ParseError, Segmentation};
 use crate::punctuation::Punctuation;
 use crate::ranking::{self, Scored};
 use crate::sentence::{
-    self, Conversion, Interpolation, LanguageModel, NoLanguageModel, Personal, SentenceScorer,
+    self, Conversion, Interpolation, LanguageModel, NoLanguageModel, SentenceScorer,
 };
 use crate::shortcut;
 use crate::shuangpin::Scheme;
@@ -258,6 +258,9 @@ pub struct Engine {
     /// emoji 表，没有就不出 emoji 候选。
     emoji: Option<EmojiTable>,
 
+    /// 每次查询的 emoji 候选上限，0 关闭；不超过原有上限。
+    emoji_limit: usize,
+
     /// 辅码态：`None` 是拼音态，`Some` 是辅码态（空串 = 刚敲下触发键、码段还没开始）。
     /// 码段不进 `composition`：它与拼音分段记账、分段画（见 [`AuxSegment`]）。
     aux_code: Option<String>,
@@ -441,6 +444,7 @@ impl Engine {
             code: None,
             phonetic: true,
             emoji: None,
+            emoji_limit: EMOJI_TOTAL,
             aux_code: None,
             aux_enabled: false,
             aux_show: false,
