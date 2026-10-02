@@ -115,6 +115,10 @@ pub struct Router {
     /// 上次套用的 `[model]`，变了才重载 / 卸载。
     applied_model: LocalModelConfig,
 
+    /// DLL 报来的聚焦会话光标前文：云联想按它带 `before` 上下文。TSF 只读光标前文，
+    /// `after` 恒为空；组句结束 / 焦点切换即作废（新的组句 DLL 会再送）。
+    surrounding_before: String,
+
     /// 重排的防抖 / 轮询进行态。
     rescore: RescoreState,
 }
@@ -149,6 +153,7 @@ impl Router {
             code_table: None,
             model_loader: None,
             applied_model: LocalModelConfig::default(),
+            surrounding_before: String::new(),
             rescore: RescoreState::default(),
         }
     }

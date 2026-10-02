@@ -110,6 +110,7 @@ impl Router {
     /// 组句结束：什么都不等了；应用前文也作废（下一段组句 DLL 会再送）。
     pub(super) fn stop_rescoring(&mut self) {
         self.rescore.stop();
+        self.surrounding_before.clear();
         self.engine.set_rescoring_context(None);
     }
 
@@ -119,12 +120,15 @@ impl Router {
         if self.focused != Some(session) || self.engine.composition().is_empty() {
             return;
         }
+        self.surrounding_before = text.clone();
         self.engine
             .set_rescoring_context((!text.is_empty()).then_some(text));
         if matches!(self.composed, Some(Composed::Candidates { .. })) {
             // 查一次只为按新前文重新记下要打分的文本，候选顺序此刻不变
             let _ = self.engine.query();
             self.schedule_rescoring();
+            // 云联想也在等这份前文：带着新上下文重发，作废在飞的空上下文请求（worker 端有防抖）
+            self.refresh_prediction();
         }
     }
 
