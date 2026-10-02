@@ -5,4 +5,5 @@
 .env
 /logs
 /data
+/output
 .playwright-mcp/
