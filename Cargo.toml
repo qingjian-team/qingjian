@@ -1,6 +1,7 @@
 [workspace]
 resolver = "3"
 members = [
+    "apps/android/native",
     "crates/qingjian-core",
     "crates/qingjian-dictionary",
     "crates/qingjian-translate",
@@ -25,6 +26,7 @@ repository = "https://github.com/qingjian-team/qingjian"
 all = "warn"
 
 [workspace.dependencies]
+jni = { version = "0.21.1", default-features = false }
 # 内部 crate
 qingjian-core = { path = "crates/qingjian-core" }
 qingjian-dictionary = { path = "crates/qingjian-dictionary" }

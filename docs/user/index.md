@@ -12,6 +12,7 @@ macOS 版与 Windows 版均为测试版，两个平台功能相同，按键按�
 ## 从哪里开始
 
 - 尚未安装：[安装](getting-started/install.md)。
+- Android 26 键实验版：[安装与使用](android.md)。
 - 已安装：[第一次输入](getting-started/first-input.md)，介绍中英切换、选词、翻页与选错后的退回。
 - 查某个键的作用：[按键与快捷键](getting-started/keys.md)，两个平台并列。
 - 候选旁的译词、橙色的含义：[译词与生词](learning/translation.md)。
