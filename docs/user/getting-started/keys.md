@@ -141,4 +141,4 @@ Linux 的 `Tab` 规则：没有组句时 `Tab` / `Shift + Tab` 交给应用；�
 
 Linux 缺省 `Alt + 数字` / `Alt + Shift + 数字` 上屏第一 / 第二条译词，`Shift + 数字` 删除候选，
 可在配置文件 `[shortcut]` 修改。安装与配置位置见 [Linux](linux.md)。
-选中应用文字后按 `Ctrl + Super + T` 可调用云翻译（Super 即 Win 键）；应用需支持向 Fcitx 提供选区，快捷键可用 `[shortcut] translate_selection` 修改。
+选中应用文字后按 `Ctrl + Super + T` 可调用云翻译（Super 即 Win 键）；Fcitx5 需要应用提供选区，Fcitx4 在 X11 下还可读取当前应用的系统选区。快捷键可用 `[shortcut] translate_selection` 修改。

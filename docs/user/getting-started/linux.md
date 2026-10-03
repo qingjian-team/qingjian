@@ -5,7 +5,7 @@ description: 在 Linux 上安装青简，使用 Fcitx4 或 Fcitx5 默认候选�
 ---
 
 青简 Linux 使用系统默认候选面板。Fcitx5 提供 Ubuntu 26.04 预编译包和源码安装；Fcitx4 提供 Ubuntu 22.04 源码安装。
-Fcitx5 已验证 Ubuntu 26.04 的 GNOME 桌面（Wayland）上 GTK4、Qt6 应用与 Firefox；Fcitx4 已验证 Ubuntu 22.04 的隔离 GTK3 文本框输入。
+Fcitx5 已验证 Ubuntu 26.04 的 GNOME 桌面（Wayland）上 GTK4、Qt6 应用与 Firefox；Fcitx4 已验证 Ubuntu 22.04 的 GTK3 文本框输入，以及 X11 下 Chrome 输入框的选中文字翻译与替换。
 当前支持本地候选、学习、本地整句模型重排和可选云联想，暂不提供设置窗口或自动启动。
 
 ## Ubuntu 22.04：Fcitx4 源码安装
@@ -26,7 +26,7 @@ apps/linux/scripts/install.sh --fcitx4
 ~/.local/bin/qingjian-linux-server
 ```
 
-最后一条命令需要保持终端运行。重启 Fcitx4，在配置工具中把「青简」加入启用的输入法列表。
+最后一条命令需要保持终端运行。执行 `fcitx -r` 重启 Fcitx4，在配置工具中把「青简」加入启用的输入法列表。
 切到青简后输入 `nihao`，按空格上屏「你好」。只想先验证安装流程，可跳过数据下载并执行
 `apps/linux/scripts/install.sh --fcitx4 --sample --debug`；样例词库只含少量词。
 切到青简时，上方托盘中的输入法图标应显示青简标志；未激活输入法时仍可能显示 Fcitx 图标。
@@ -85,19 +85,19 @@ apps/linux/scripts/install.sh
 默认安装到 `~/.local`；`--prefix /绝对用户目录` 可更改安装位置。请用相同用户安装、运行，不要使用 sudo。
 
 重启 Fcitx5，打开 Fcitx5 配置工具，取消「仅显示当前语言」，添加「青简」。切换到青简后输入 `nihao`，空格选中「你好」。
-单击 `Shift` 切换中英；按键规则见 [按键与快捷键](keys.md#Linux（Fcitx5）)。关闭手动启动的终端会结束青简服务；下次登录后需再次启动。
+单击 `Shift` 切换中英；按键规则见 [按键与快捷键](keys.md) 的 Linux 部分。关闭手动启动的终端会结束青简服务；下次登录后需再次启动。
 
 ## 配置、隐私和数据
 
 首次运行生成 `~/.config/qingjian/config.toml`，修改后重启青简服务。
 `[general] preedit` 可设为 `both`（行内和候选窗口）、`inline`（只在行内）、`window`（只在候选窗口）；应用不支持行内显示时使用候选窗口。
-每页候选数、翻页键、学习、日志和辅助语言使用同一配置文件。`learning_language = "off"` 关闭中文候选的辅助语言释义与生词标记。系统面板外观由 Fcitx5 设置控制。
+每页候选数、翻页键、学习、日志和辅助语言使用同一配置文件。`learning_language = "off"` 关闭中文候选的辅助语言释义与生词标记。系统面板外观由当前使用的 Fcitx 设置控制。
 当前预编译包随附含章·通变与含章·知微：优先用通变处理拼音整句与纠错，没有通变时回退到知微。自己的 `.qjm` 也可放入 `~/.local/share/qingjian/models/` 下对应的模型目录。`[model] enabled = false` 可关闭本地模型，见 [本地整句模型](../input/local-model.md)。
 
 `[general] shift_letter = "compose"` 让 Shift 大写字母参与中文组句，默认 `"passthrough"` 保持临时英文输入。
 `scheme = "zhuyin"` 启用大千注音；双拼下 `Shift + V` / `Shift + U` 可进入表达式 / 码点输入。
 数字没有对应候选时继续输入，英文直输内容以空格结束时保留空格；英文候选开启后可用数字、翻页键、空格或 Tab 选词。
-具体规则见 [按键与快捷键](keys.md#Linux（Fcitx5）)。
+具体规则见 [按键与快捷键](keys.md) 的 Linux 部分。
 
 Fcitx5 识别为敏感输入时，可以组句但不会保存输入文本或学习；识别为密码框或禁用输入法的输入框时直接交还应用。
 保护依赖应用和其输入支持正确传递标记；本机已验证 Qt6 的敏感标记，GTK4 的动态 PRIVATE 提示尚未传递为敏感输入标记。
@@ -123,7 +123,7 @@ Fcitx5 声明为私密的输入框和密码框不会发云请求；Fcitx4 只能
 
 ## 更新和卸载
 
-结束手动启动的青简服务，重复执行安装命令，然后重启 Fcitx5 和青简。安装会检查文件归属；目标文件被手动修改时会提示保留，请先备份处理。
+结束手动启动的青简服务，重复执行对应的安装命令，然后重启正在使用的 Fcitx 和青简服务。安装会检查文件归属；目标文件被手动修改时会提示保留，请先备份处理。
 
 ```sh
 apps/linux/scripts/uninstall.sh
