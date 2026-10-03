@@ -14,6 +14,8 @@
 
 ## 0.1.5 · 未发布 · stable
 
+- Windows：绿联等数字密码框里连续输入数字不再倒序（未禁用文本服务的 `IS_NUMERIC_PASSWORD` 框里，数字改为真正交给应用，不再用输入法插入）
+
 ## 0.1.4 · 2026-09-24 · stable
 
 网盘：[夸克网盘](https://pan.quark.cn/s/71b8b56f85de)

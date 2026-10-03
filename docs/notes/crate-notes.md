@@ -273,9 +273,11 @@ Server 侧辅码接线：`RouterConfig.aux_code_key` / `aux_code_show`（`apply_
 
 TSF 原有数字 / OEM 标点 / 空格键码按当前布局用 `ToUnicodeEx` 解析（bit 2 避免改变键盘状态），
 仅接受单个非代理项 UTF-16 单元。字母、小键盘和 AltGr 处理不变，不保证组合音符输入。
-拼音显示位置（`[general] preedit`）在 Windows 上分两处落地：Server 把它读进 `RouterConfig.preedit` 并随 `Frame.preedit_mode`
-下发给 DLL，DLL（`com/service/key_sink.rs`）按 `inline()` 决定要不要放行内拼音，Server（`ui/candidates/render_data.rs::window_preedit`）
-按 `in_window()` 决定候选窗口顶部画不画拼音行；`window` 模式没有组句范围，光标矩形改从 `com/edit/anchor.rs::caret_rect`（当前选区）量。
+没在组句的数字在 `OnTestKeyDown` 先问 Server（`key_sink::preflight_digit`）：Passthrough 则 Test 不吃、键原生进应用
+（避免 `InsertTextAtSelection` 在未设 `KEYBOARD_DISABLED` 的 `IS_NUMERIC_PASSWORD` 框里倒序）；注音等 Consumed
+时把结果缓进 `pending_digit`，`OnKeyDown` 再应用。拼音显示位置（`[general] preedit`）在 Windows 上分两处落地：
+Server 把它读进 `RouterConfig.preedit` 并随 `Frame.preedit_mode` 下发给 DLL，DLL（`com/service/key_sink.rs`）按
+`inline()` 决定要不要放行内拼音，Server（`ui/candidates/render_data.rs::window_preedit`）按 `in_window()` 决定候选窗口顶部画不画拼音行；`window` 模式没有组句范围，光标矩形改从 `com/edit/anchor.rs::caret_rect`（当前选区）量。
 连不上 Server 时 DLL 自己拉起它（`tsf/src/com/service/launch.rs`）：`ShellExecuteW` 起与 DLL 同目录的 `qingjian-server.exe`
 （`uiAccess=true` 的 exe 用 `CreateProcess` 报 740），进程内 5 秒冷却 + 跨进程命名互斥体防止砸出一串 Server；
 起完清掉重连退避，下一键就试。Server 只在登录时由「启动」文件夹拉起，中途挂了以前只能等下次登录。

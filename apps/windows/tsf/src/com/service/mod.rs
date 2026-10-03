@@ -94,6 +94,10 @@ pub struct TextService {
 
     /// 激活后一小段时间内忽略转换模式 compartment 的变化，见 [`TextService_Impl::sync_from_conversion_mode`]。
     conversion_guard_until: Cell<Option<Instant>>,
+
+    /// `OnTestKeyDown` 已问过 Server 的数字键结果；`OnKeyDown` 取走应用，避免再送一次。
+    /// 仅注音等会 Consumed 的数字会进这里；Passthrough 的数字在 Test 里直接放行、不缓存。
+    pending_digit: RefCell<Option<next::Next>>,
 }
 
 thread_local! {
@@ -178,6 +182,7 @@ impl TextService {
             input_settings: Cell::new(None),
             indicator_state: Cell::new(IndicatorState::default()),
             conversion_guard_until: Cell::new(None),
+            pending_digit: RefCell::new(None),
         }
     }
 }

@@ -447,8 +447,10 @@ CC-CEDICT 表（`dict-convert cedict`）保留为备用来源，覆盖面广但�
   （Core 按小写匹配、原样上屏时还原大写，见 [`Composition`]），不再走「先上屏再放行」；
   组句外没有全角映射的字符里，`-` `=` 也改由壳自己插入（`dispatch/key/input.rs::apply_punctuation`）：
   放行要等宿主把键交回应用，实测在部分宿主（Edge / QQ 等）里这个键到不了，用户看到的是「按了没反应」；
-  其余（`@` 数字等）继续放行，宿主连不上 Server 时也只吃「可能是在打拼音」的字母（`service/key_sink.rs`），
-  免得断连窗口里标点 / 数字跟着一起没反应；
+  其余（`@` 数字等）继续放行——数字在 `OnTestKeyDown` 里先问 Server，Passthrough 时 **Test 就不吃**
+  （原生投递；若 Test 已吃再 `InsertTextAtSelection`，绿联等只报 `IS_NUMERIC_PASSWORD`、未设
+  `KEYBOARD_DISABLED` 的密码框光标不前进会倒序），宿主连不上 Server 时也只吃「可能是在打拼音」的字母
+  （`service/key_sink.rs`），免得断连窗口里标点 / 数字跟着一起没反应；
   `[apps] english_candidates_off` 按应用关闭：应用标识在 Windows 上是宿主进程的 exe 文件名（DLL 加载在应用进程里，`GetModuleFileNameW(NULL)`
   取到就随 `OpenSession { app }` 报一次，Server 每会话记下，收键时按当前会话查），缺省名单分平台（`AppsConfig` 的三份常量与配置模板的 `[apps]` 一节按目标平台三选一：Windows 是 exe 文件名、macOS 是 bundle identifier、Linux 是 Fcitx5 认到的应用名，X11 下是 WM_CLASS、Wayland 下是 app_id），
   经典控制台的窗口属于 `conhost.exe`、Windows Terminal 是 `WindowsTerminal.exe`；
