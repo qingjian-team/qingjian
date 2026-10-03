@@ -4,6 +4,7 @@ mod aux_code;
 mod composing;
 mod english;
 mod modes;
+mod numpad;
 mod rescoring;
 mod shortcuts;
 mod status;

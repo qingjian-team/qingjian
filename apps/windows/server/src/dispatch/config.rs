@@ -1,7 +1,7 @@
 use qingjian_platform::protocol::KeyModifiers;
 use qingjian_platform::{
-    AppsConfig, CandidateRenderer, Config, KeyCombo, LayoutMode, PreeditMode, Scheme, SwitchKeys,
-    ThemeMode,
+    AppsConfig, CandidateRenderer, Config, KeyCombo, LayoutMode, NumpadDigit, PreeditMode, Scheme,
+    SwitchKeys, ThemeMode,
 };
 
 use super::RenderSettings;
@@ -18,6 +18,9 @@ pub struct RouterConfig {
     /// 中文模式下 Shift+字母收进组句缓冲区（`[general] shift_letter = "compose"`）。
     /// 关着（缺省）时壳把大写字母交给应用，与以前一致。
     pub shift_letter_compose: bool,
+
+    /// 中文组句中小键盘数字的用途（`[general] numpad_digit`）。
+    pub numpad_digit: NumpadDigit,
 
     /// 候选排布（`[general] layout`）。
     pub layout: LayoutMode,
@@ -108,6 +111,7 @@ impl From<&Config> for RouterConfig {
             page_size: config.general.page_size(),
             cloud_slots: config.predict.slots,
             shift_letter_compose: config.general.shift_letter.compose(),
+            numpad_digit: config.general.numpad_digit,
             layout: config.general.layout,
             theme: config.general.theme,
             renderer: config.general.renderer,
