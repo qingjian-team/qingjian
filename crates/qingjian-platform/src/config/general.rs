@@ -2,7 +2,9 @@ use qingjian_core::ShuangpinScheme;
 use serde::{Deserialize, Serialize};
 
 use super::scheme::{Scheme, scheme_label};
-use super::{CandidateRenderer, LayoutMode, LogLevel, PreeditMode, ShiftLetter, ThemeMode};
+use super::{
+    CandidateRenderer, LayoutMode, LogLevel, NumpadDigit, PreeditMode, ShiftLetter, ThemeMode,
+};
 
 /// 每页最多几个候选：数字键只有 1–9。
 pub const MAX_PAGE_SIZE: usize = 9;
@@ -61,6 +63,10 @@ pub struct GeneralConfig {
     /// 中文模式下按住 Shift 敲的字母：交给应用（缺省）还是收进组句缓冲区参与匹配。
     /// 收进组句才能打出「C盘」这类混杂词（`Cpan` 与 `cpan` 一样匹配）。
     pub shift_letter: ShiftLetter,
+
+    /// Windows 中文组句中小键盘数字选候选还是直接输入；主键盘数字不受影响。
+    pub numpad_digit: NumpadDigit,
+
     /// 内置英文模式：开着时单击切换键（`[shortcut] switch_mode`）或按 Caps Lock 能进英文模式。
     /// 关掉后青简保持中文模式，切换键与语言栏按钮都不再切过去；要打英文请用系统快捷键切到别的输入法。
     pub english_mode: bool,
@@ -132,6 +138,7 @@ impl Default for GeneralConfig {
             traditional: false,
             chinese_first: false,
             shift_letter: ShiftLetter::default(),
+            numpad_digit: NumpadDigit::default(),
             english_mode: true,
             full_width_punctuation: true,
             english_full_width_punctuation: false,
