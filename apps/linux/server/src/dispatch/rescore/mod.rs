@@ -174,11 +174,13 @@ impl Router {
         else {
             return;
         };
+        let cloud = layout.cloud().to_vec();
         *layout = CandidateLayout::new(
             query.candidates.items.clone(),
             self.config.page_size,
             self.config.cloud_slots,
         );
+        layout.set_cloud(cloud);
         *preedit = query.marked_segments().iter().map(Into::into).collect();
         *cursor = query.marked_cursor();
         // 这次查询可能又记下了一批要打分的（缓存按前文记，前文没变时不会），再来一轮

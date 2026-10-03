@@ -1,4 +1,4 @@
-//! Linux 本地输入服务启动入口；云服务在首版保持关闭，本地整句模型按 `[model]` 开关在后台加载。
+//! Linux 本地输入服务启动入口；云联想按 `[predict]` 开关，本地整句模型按 `[model]` 开关在后台加载。
 #[cfg(target_os = "linux")]
 mod paths;
 
@@ -9,6 +9,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         AssemblySpec, LanguageModelFiles, Router, RouterConfig, assembly, find_model,
     };
     use qingjian_platform::Config;
+    use qingjian_predict::CloudPredictor;
     use std::path::PathBuf;
     if std::env::args().any(|arg| arg == "--version") {
         println!("qingjian-linux-server {}", env!("CARGO_PKG_VERSION"));
@@ -87,6 +88,15 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     engine
         .set_custom_phrases(config.custom_phrases.clone())
         .map_err(std::io::Error::other)?;
+    if config.predict.enabled {
+        match CloudPredictor::new(&config.predict) {
+            Ok(predictor) => {
+                engine.set_predictor(Box::new(predictor));
+                tracing::info!(model = %config.predict.model, "云联想已启用");
+            }
+            Err(error) => tracing::warn!(%error, "云联想未启用"),
+        }
+    }
     engine.log_session(env!("CARGO_PKG_VERSION"), "linux");
     let mut router = Router::new(engine, RouterConfig::from(&config));
     router.configure_local_model(find_model(Some(&user_dir), &root), &config.model);

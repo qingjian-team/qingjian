@@ -1,13 +1,42 @@
 ---
 title: Linux
 order: 6
-description: 在 Linux 上安装青简，使用 Fcitx5 默认候选面板。
+description: 在 Linux 上安装青简，使用 Fcitx4 或 Fcitx5 默认候选面板。
 ---
 
-青简 Linux 提供预编译包与源码安装，使用 Fcitx5 默认候选面板。已验证 Ubuntu 26.04 的 GNOME 桌面（Wayland）上 Fcitx5 5.1.19 的 GTK4、Qt6 应用与 Firefox；
-其他桌面、其他发行版和旧版应用尚未完成验证。当前支持本地候选、学习和本地整句模型重排，暂不提供云联想、设置窗口或自动启动。
+青简 Linux 使用系统默认候选面板。Fcitx5 提供 Ubuntu 26.04 预编译包和源码安装；Fcitx4 提供 Ubuntu 22.04 源码安装。
+Fcitx5 已验证 Ubuntu 26.04 的 GNOME 桌面（Wayland）上 GTK4、Qt6 应用与 Firefox；Fcitx4 已验证 Ubuntu 22.04 的隔离 GTK3 文本框输入。
+当前支持本地候选、学习、本地整句模型重排和可选云联想，暂不提供设置窗口或自动启动。
 
-## 预编译包
+## Ubuntu 22.04：Fcitx4 源码安装
+
+已在使用 Fcitx4 时，无需安装 Qt6 输入模块。Qt5 应用使用 `fcitx-frontend-qt5`；青简插件本身不依赖 Qt。
+先安装 Rust 1.96 或更新版本，以及编译依赖：
+
+```sh
+sudo apt install cmake g++ pkg-config python3 libssl-dev fcitx-libs-dev libx11-dev libxres-dev nlohmann-json3-dev \
+  fcitx fcitx-frontend-gtk3 fcitx-frontend-qt5 fcitx-config-gtk
+```
+
+在源码目录执行：
+
+```sh
+tools/release/data-fetch.sh
+apps/linux/scripts/install.sh --fcitx4
+~/.local/bin/qingjian-linux-server
+```
+
+最后一条命令需要保持终端运行。重启 Fcitx4，在配置工具中把「青简」加入启用的输入法列表。
+切到青简后输入 `nihao`，按空格上屏「你好」。只想先验证安装流程，可跳过数据下载并执行
+`apps/linux/scripts/install.sh --fcitx4 --sample --debug`；样例词库只含少量词。
+切到青简时，上方托盘中的输入法图标应显示青简标志；未激活输入法时仍可能显示 Fcitx 图标。
+安装在当前用户目录，不要使用 `sudo` 运行安装脚本。卸载用 `apps/linux/scripts/uninstall.sh`。
+
+Fcitx4 提供密码框标记，但不提供 Fcitx5 的一般敏感输入标记；青简无法自动识别所有敏感输入框。
+需要避免保存输入记录时，可在 `~/.config/qingjian/config.toml` 中设置 `[general] input_log = false` 和 `learning = false`，修改后重启服务。
+Fcitx4 的 Chrome 输入框可读取 X11 中当前应用的选中文字；部分应用可能不提供可读取的选区。Qt5 应用和其他桌面环境尚未做真机验证。
+
+## Fcitx5 预编译包
 
 预编译包在 Ubuntu 26.04（x86_64）上构建，插件与系统的 Fcitx5 版本绑定；其他发行版请用下一节的源码安装。
 先装好 Fcitx5 与 GTK / Qt 输入支持：
@@ -27,7 +56,7 @@ sudo apt install python3 fcitx5 fcitx5-frontend-gtk3 fcitx5-frontend-gtk4 fcitx5
 
 之后的添加输入法、首次输入与源码安装相同，见下一节末尾。更新时下载新包再执行一次 `./install.sh`；卸载用包里的 `./uninstall.sh`。
 
-## 源码安装和首次输入
+## Fcitx5 源码安装和首次输入
 
 先安装 Rust 1.96、CMake、C++20 编译器、pkg-config、Fcitx5、其 GTK / Qt 输入支持，以及 OpenSSL、Fcitx5 Core/Config/Utils 与 nlohmann-json 的开发包。
 Debian / Ubuntu 上是：
@@ -75,6 +104,23 @@ Fcitx5 识别为敏感输入时，可以组句但不会保存输入文本或学�
 普通输入的学习与日志遵循配置。学习数据保存在 `~/.local/share/qingjian`，运行日志保存在 `~/.local/state/qingjian/logs`。
 设置了 `XDG_CONFIG_HOME`、`XDG_DATA_HOME`、`XDG_STATE_HOME` 时分别使用对应目录下的 `qingjian`。
 
+## 可选：开启云联想
+
+云联想默认关闭。在 `~/.config/qingjian/config.toml` 的 `[predict]` 段填写服务地址、模型和密钥，并将 `enabled` 改为 `true`；也可在启动青简服务前设置 `QINGJIAN_API_KEY` 环境变量。修改后重启 `qingjian-linux-server`。例如：
+
+```toml
+[predict]
+enabled = true
+base_url = "https://api.deepseek.com"
+model = "deepseek-v4-flash"
+api_key = "你的 API 密钥"
+```
+
+组句中的云联想请求包含正在输入的拼音和本地候选。应用支持提供周围文字时，还可能附带光标前后各最多 80 个字（选中文字除外）；不支持的应用只发送拼音和候选。云端词显示在第一页末尾并带 ☁ 标记，整句补全显示在候选面板的辅助行，按 `Tab` 接受。选中应用文字后按 `Ctrl + Super + T` 可翻译（Super 即 Win 键）；Fcitx4 在 X11 中也能从当前应用的系统选区读取文字。`Enter`、空格或 `1` 用译文替换，`Esc` 保留原文。青简只向配置的服务地址发请求。
+Wayland 原生应用须向 Fcitx5 提供选区才能使用选中文字翻译；X11 的备用读取不适用于 Wayland 原生应用。
+已有配置文件如果仍明确写着旧快捷键，请改为 `translate_selection = "ctrl+super+t"` 后重启青简服务；安装更新不会覆盖已有的明确设置。
+Fcitx5 声明为私密的输入框和密码框不会发云请求；Fcitx4 只能识别密码框标记，其他未标记的敏感输入框无法自动识别，使用云联想时请留意。Linux 暂无配置热加载和云端译词自动补充。
+
 ## 更新和卸载
 
 结束手动启动的青简服务，重复执行安装命令，然后重启 Fcitx5 和青简。安装会检查文件归属；目标文件被手动修改时会提示保留，请先备份处理。
@@ -85,4 +131,4 @@ apps/linux/scripts/uninstall.sh
 apps/linux/scripts/uninstall.sh --prefix /安装时的绝对目录
 ```
 
-卸载后手动结束青简服务并重启 Fcitx5。卸载保留配置、个人词库、学习数据、已修改的安装文件和其他输入法。
+卸载后手动结束青简服务并重启正在使用的 Fcitx。卸载保留配置、个人词库、学习数据、已修改的安装文件和其他输入法。

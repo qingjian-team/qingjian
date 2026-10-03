@@ -10,4 +10,4 @@ while (($#)); do
   esac
 done
 python3 "$(dirname -- "${BASH_SOURCE[0]}")/files.py" uninstall "$install_prefix"
-echo '卸载完成；请手动结束 Server 并重启 Fcitx5，用户数据已保留。'
+echo '卸载完成；请手动结束 Server 并重启正在使用的 Fcitx，用户数据已保留。'

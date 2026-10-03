@@ -20,6 +20,7 @@ impl Router {
         if self.focused == Some(session) {
             return;
         }
+        self.end_translation();
         self.stop_rescoring();
         if let Some(previous) = self.focused.and_then(|id| self.sessions.get_mut(&id)) {
             self.engine.note_displayed(std::iter::empty());
@@ -43,14 +44,21 @@ impl Router {
         self.notice = None;
         self.sentence = None;
         self.focused = Some(session);
+        if next.active && !next.private {
+            self.request_current_prediction();
+        }
     }
     pub(super) fn set_privacy(&mut self, session: SessionId, private: bool) {
-        let Some(info) = self.sessions.get_mut(&session) else {
+        let Some(info) = self.sessions.get(&session) else {
             return;
         };
         if info.private == private {
             return;
         }
+        if self.focused == Some(session) {
+            self.end_translation();
+        }
+        let info = self.sessions.get_mut(&session).expect("known session");
         info.private = private;
         info.display_frame = None;
         info.last_frame = None;
@@ -77,7 +85,9 @@ impl Router {
         }
     }
     pub(super) fn reset_composition(&mut self) {
+        self.end_translation();
         self.stop_rescoring();
+        self.engine.cancel_prediction();
         self.engine.break_chain();
         self.engine.clear();
         self.composed = None;

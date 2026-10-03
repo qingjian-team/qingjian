@@ -2,7 +2,9 @@
 
 mod state;
 
-use qingjian_core::{Candidate, CandidateKind, CandidateLayout, CandidateList};
+use qingjian_core::{
+    Candidate, CandidateKind, CandidateLayout, CandidateList, CloudWord, SurroundingText,
+};
 use qingjian_platform::protocol::{Frame, PreeditKind, PreeditSegment};
 
 pub(super) use self::state::Composed;
@@ -10,12 +12,13 @@ use super::Router;
 
 impl Router {
     /// 缓冲变化后：按 Engine 状态重建 [`Composed`]，发一次云联想请求，归零高亮与整句补全。
-    pub(super) fn recompose(&mut self) {
+    pub(super) fn recompose(&mut self, surrounding: Option<SurroundingText>) {
         self.highlight = 0;
         self.navigated = false;
         self.sentence = None;
         if self.engine.composition().is_empty() {
             self.composed = None;
+            self.engine.cancel_prediction();
             self.stop_rescoring();
             return;
         }
@@ -31,6 +34,9 @@ impl Router {
             Some((items, preedit, cursor)) => {
                 let layout =
                     CandidateLayout::new(items, self.config.page_size, self.config.cloud_slots);
+                if self.prediction_context_active() {
+                    self.engine.request_prediction(surrounding, layout.local());
+                }
                 Composed::Candidates {
                     preedit,
                     cursor,
@@ -38,6 +44,7 @@ impl Router {
                 }
             }
             None => {
+                self.engine.cancel_prediction();
                 let composition = self.engine.composition();
                 let text = composition.text().to_owned();
                 let cursor = text[..composition.cursor()].chars().count();
@@ -48,6 +55,56 @@ impl Router {
             .find(|&index| self.layout_candidate(index).is_some())
             .unwrap_or(0);
         self.schedule_rescoring();
+    }
+
+    /// 已挂起的会话重新获得焦点时，异步请求已经作废；按当前本地候选补发。
+    pub(super) fn request_current_prediction(&mut self) {
+        if !self.prediction_context_active() {
+            return;
+        }
+        if let Some(Composed::Candidates { layout, .. }) = &self.composed {
+            self.engine.request_prediction(None, layout.local());
+        }
+    }
+
+    /// 只补第一页末尾尚未被用户选中的格；整句补全仍可单独显示。
+    pub(super) fn poll_prediction(&mut self) {
+        if !self.prediction_context_active() {
+            return;
+        }
+        let Some(prediction) = self.engine.poll_prediction() else {
+            return;
+        };
+        if let Some(job) = self.translation.as_mut() {
+            if let Some(text) = prediction.sentence {
+                job.result = Some(text);
+            } else {
+                self.end_translation();
+            }
+            return;
+        }
+        let Some(Composed::Candidates { layout, .. }) = self.composed.as_mut() else {
+            return;
+        };
+        if self.highlight < self.config.page_size
+            && (layout.local().is_empty()
+                || self.highlight < self.config.page_size.saturating_sub(layout.capacity()))
+        {
+            layout.set_cloud(
+                prediction
+                    .words
+                    .into_iter()
+                    .map(CloudWord::into_candidate)
+                    .collect(),
+            );
+        }
+        self.sentence = prediction.sentence;
+    }
+
+    fn prediction_context_active(&self) -> bool {
+        self.focused
+            .and_then(|session| self.sessions.get(&session))
+            .is_some_and(|info| info.active && !info.private)
     }
 
     /// 高亮移动 `delta`，夹在 `[0, 末尾]`，到页边自然换页。
@@ -123,6 +180,9 @@ impl Router {
 
     /// 按当前状态生成一帧：翻译评审优先；没在组句给空帧；否则给高亮所在的那一页。
     pub(super) fn current_frame(&self) -> Frame {
+        if self.translation.is_some() {
+            return self.translation_frame();
+        }
         match &self.composed {
             None => Frame::default(),
             Some(Composed::Raw { text, cursor }) => Frame {

@@ -1,6 +1,6 @@
 //! Linux 首版按键与候选配置。
 use qingjian_platform::protocol::KeyModifiers;
-use qingjian_platform::{AppsConfig, Config, LayoutMode, PreeditMode, ThemeMode};
+use qingjian_platform::{AppsConfig, Config, KeyCombo, LayoutMode, PreeditMode, ThemeMode};
 
 /// Router 要用的配置项，与 macOS 壳的 `Host` 字段对齐。
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -43,6 +43,9 @@ pub struct RouterConfig {
 
     /// 删候选的修饰键（`[shortcut] delete_candidate`）。
     pub delete_keys: KeyModifiers,
+
+    /// 翻译应用选区的修饰键与字母（`[shortcut] translate_selection`）。
+    pub translate_selection: KeyCombo,
 }
 
 impl RouterConfig {
@@ -57,7 +60,11 @@ impl From<&Config> for RouterConfig {
         Self {
             page_size: config.general.page_size(),
             preedit: config.general.preedit,
-            cloud_slots: 0,
+            cloud_slots: if config.predict.enabled {
+                config.predict.slots
+            } else {
+                0
+            },
             layout: config.general.layout,
             theme: config.general.theme,
             page_keys: config.general.page_keys(),
@@ -71,6 +78,7 @@ impl From<&Config> for RouterConfig {
                 (first.into(), second.into())
             },
             delete_keys: config.shortcut.delete_keys().into(),
+            translate_selection: config.shortcut.translate_selection,
         }
     }
 }
