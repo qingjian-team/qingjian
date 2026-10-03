@@ -2,7 +2,11 @@
 
 use std::path::{Path, PathBuf};
 
-use windows_reactor::*;
+use windows_reactor::{
+    Button, CheckBox, ChildrenControl, ContentControl, FontWeight, KeyedView, LayoutControl,
+    Orientation, ScrollViewer, StackPanel, TextBlock, TextWrapping, ThemeBrush, VerticalAlignment,
+    View, ViewContext,
+};
 
 use super::notice::Notice;
 use super::{LABEL_WIDTH, Message, Settings};
@@ -78,13 +82,18 @@ pub(super) fn export_logs() {
     }
 }
 
-/// 一行设置：固定宽标签 + 控件。
+/// 一行设置：固定宽标签（长文本换行）+ 控件。
 pub(super) fn labeled(label: &str, control: impl Into<View>) -> View {
     StackPanel::new()
         .orientation(Orientation::Horizontal)
         .spacing(12.0)
         .children([
-            TextBlock::new().text(label).width(LABEL_WIDTH).into(),
+            TextBlock::new()
+                .text(label)
+                .width(LABEL_WIDTH)
+                .text_wrapping(TextWrapping::Wrap)
+                .vertical_alignment(VerticalAlignment::Center)
+                .into(),
             control.into(),
         ])
 }
