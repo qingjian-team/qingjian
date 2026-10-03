@@ -46,6 +46,9 @@
 ## 许可策略
 
 - 代码：GPL-3.0-or-later（2026-09-07 定，此前测试阶段是「保留所有权利」）。选强 copyleft 是为了堵闭源抄走，与鼠须管 / 水杉一致；名字与 logo 不授权。
+  2026-10-04 起 `LICENSE` 开头加一条 GPLv3 第 7 条附加许可（App Store exception）：允许经 App Store / TestFlight / Google Play / Microsoft Store
+  一类平台商店分发目标码并接受其签名与安装限制，不视为第 10 条的「额外限制」，也不要求第 6 条的安装信息。原因是 FSF 认为商店条款与 GPL 冲突
+  （VLC 2011 年因此下架），iOS 键盘扩展只能走商店；代码版权全在维护者一人名下，所以可以单方面加。源码义务不变，修改版须保留同一条附加许可。
   `LICENSE`、「关于」页（`about.rs` 的 `LICENSE_NOTE`）、README 三处保持一致；pkg 里的 `license.txt` 从 `LICENSE` 拷。
 - 产品数据的源文件进 `assets/`（`assets/lexicon/` 词库源、`assets/emoji/`），带各自的许可证与署名文件；
   语料、Unihan 这类体积大或可重新下载的中间输入放仓库根目录 `data/`（gitignore），生成物在 `data/generated/`。
