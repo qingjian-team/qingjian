@@ -35,7 +35,7 @@ impl ITfTextInputProcessor_Impl for TextService_Impl {
 
         self.client_id.set(tid);
         // 连不上 Server、没定时器都不致命。
-        match PollTimer::new(self.engine.clone(), self.shared.clone()) {
+        match PollTimer::new(self.engine.clone(), self.shared.clone(), tid) {
             Ok(timer) => *self.poll_timer.borrow_mut() = Some(timer),
             Err(error) => log(&format!("挂云联想轮询定时器失败: {error}")),
         }

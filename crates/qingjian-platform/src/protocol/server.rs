@@ -84,6 +84,10 @@ pub enum ServerMessage {
 
         /// 要重绘的状态。
         frame: Frame,
+
+        /// 候选窗点击等非按键上屏；老 DLL 不认识这个字段。没有则为 `None`。
+        #[serde(default)]
+        commit: Option<String>,
     },
 
     /// 对一次 [`super::ClientMessage::SyncMode`] 的答复：当前的全局中英模式，

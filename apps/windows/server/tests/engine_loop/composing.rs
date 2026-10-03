@@ -353,3 +353,48 @@ fn shuangpin_raw_preedit_goes_to_the_app_and_full_pinyin_to_the_window() {
     let last = shown.last().expect("自绘窗收到过帧");
     assert_eq!((preedit(last).as_str(), last.cursor), ("kai'fa", 3));
 }
+
+#[test]
+fn clicking_a_candidate_commits_on_the_next_poll() {
+    let mut router = router();
+    let (_, _, frame) = type_letters(&mut router, "nihao");
+    let position = frame
+        .candidates
+        .items
+        .iter()
+        .position(|c| c.text == "你好")
+        .expect("「你好」在候选页内");
+    router.handle_select_candidate(position);
+    match router.handle(ClientMessage::Poll { session: SESSION }) {
+        Some(ServerMessage::Update {
+            commit,
+            frame: after,
+            ..
+        }) => {
+            assert_eq!(commit.as_deref(), Some("你好"));
+            assert!(
+                after.is_empty(),
+                "点击上屏后应收起候选，实际 preedit={:?}",
+                preedit(&after)
+            );
+        }
+        other => panic!("expected Update, got {other:?}"),
+    }
+}
+
+#[test]
+fn clicking_an_empty_slot_does_not_commit() {
+    let mut router = router();
+    type_letters(&mut router, "nihao");
+    router.handle_select_candidate(99);
+    match router.handle(ClientMessage::Poll { session: SESSION }) {
+        Some(ServerMessage::Update {
+            commit: None,
+            frame,
+            ..
+        }) => {
+            assert!(!frame.is_empty(), "空格点击不应结束组句");
+        }
+        other => panic!("expected Update without commit, got {other:?}"),
+    }
+}

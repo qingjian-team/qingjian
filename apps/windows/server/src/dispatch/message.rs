@@ -170,7 +170,8 @@ impl Router {
         if learned > 0 {
             tracing::info!(learned, "释义兜底写入个人释义表");
         }
-        let frame = if self.focused == Some(session) {
+        let focused = self.focused == Some(session);
+        let frame = if focused {
             self.poll_prediction();
             let shown = self.self_drawn_frame();
             self.reconcile_candidates(&shown);
@@ -178,6 +179,10 @@ impl Router {
         } else {
             Frame::default()
         };
-        ServerMessage::Update { session, frame }
+        ServerMessage::Update {
+            session,
+            frame,
+            commit: focused.then(|| self.pending_commit.take()).flatten(),
+        }
     }
 }

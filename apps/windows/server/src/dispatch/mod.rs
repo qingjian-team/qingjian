@@ -72,6 +72,9 @@ pub struct Router {
     /// 删候选后的屏幕提示，随下一帧下发、下一次按键清。
     notice: Option<String>,
 
+    /// 候选窗点击要上屏的文本，等聚焦会话下一次 `Poll` 交给 DLL 写入文档。
+    pending_commit: Option<String>,
+
     /// 当前高亮候选在布局里的下标（跨页）。
     highlight: usize,
 
@@ -135,6 +138,7 @@ impl Router {
             selection_seq: 0,
             sentence: None,
             notice: None,
+            pending_commit: None,
             highlight: 0,
             navigated: false,
             last_flush: Instant::now(),
@@ -199,5 +203,37 @@ impl Router {
     pub fn flush_learning(&mut self) {
         self.engine.flush_learning();
         self.last_flush = Instant::now();
+    }
+
+    /// 候选窗点了当前页第 `page_index` 个：上屏并收窗，文本等聚焦会话下一次 `Poll` 交给 DLL。
+    pub fn handle_select_candidate(&mut self, page_index: usize) {
+        if self.translation.is_some() {
+            let result = self
+                .translation
+                .as_ref()
+                .and_then(|translation| translation.result.clone());
+            if page_index == 0 {
+                if let Some(text) = result {
+                    tracing::debug!(%text, "翻译候选点击上屏");
+                    self.end_translation();
+                    self.pending_commit = Some(text);
+                }
+            }
+            return;
+        }
+        if self.composed.is_none() {
+            return;
+        }
+        let page_size = self.config.page_size.max(1);
+        let index = self.highlight / page_size * page_size + page_index;
+        let Some(text) = self.commit_index(index) else {
+            tracing::debug!(page_index, "候选点击：这一格没有候选");
+            return;
+        };
+        tracing::debug!(page_index, %text, "候选点击上屏");
+        self.recompose();
+        self.pending_commit = Some(text);
+        let shown = self.self_drawn_frame();
+        self.reconcile_candidates(&shown);
     }
 }

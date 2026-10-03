@@ -8,15 +8,16 @@ pub(crate) mod theme;
 pub(crate) mod view;
 
 use std::cell::{Cell, RefCell};
+use std::collections::HashMap;
 use std::rc::Rc;
 
 use windows::Win32::Foundation::{E_INVALIDARG, HWND, LPARAM, LRESULT, POINT, RECT, WPARAM};
 use windows::Win32::Graphics::Gdi::{GetDC, ReleaseDC};
 use windows::Win32::UI::HiDpi::{GetDpiForSystem, GetDpiForWindow};
 use windows::Win32::UI::WindowsAndMessaging::{
-    CreateWindowExW, DefWindowProcW, DestroyWindow, IDC_ARROW, LoadCursorW, SW_HIDE, SW_SHOWNA,
-    ShowWindow, WNDCLASSEXW, WS_EX_LAYERED, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_EX_TOPMOST,
-    WS_POPUP,
+    CreateWindowExW, DefWindowProcW, DestroyWindow, HTCLIENT, IDC_ARROW, LoadCursorW, MA_NOACTIVATE,
+    SW_HIDE, SW_SHOWNA, ShowWindow, WM_LBUTTONDOWN, WM_MOUSEACTIVATE, WM_NCHITTEST, WNDCLASSEXW,
+    WS_EX_LAYERED, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_EX_TOPMOST, WS_POPUP,
 };
 use windows::core::{Error, PCWSTR, Result, w};
 
@@ -33,8 +34,24 @@ use super::window_class::WindowClass;
 const CLASS_NAME: PCWSTR = w!("QingjianCandidateWindow");
 static CLASS: WindowClass = WindowClass::new();
 
+thread_local! {
+    /// 本线程活着的候选窗：窗口过程按 HWND 查到点击回调与最近一次内容区。
+    static WINDOWS: RefCell<HashMap<isize, Rc<HitState>>> = RefCell::new(HashMap::new());
+}
+
 /// 光标行与候选窗之间的间隙（逻辑像素）。
 const CARET_GAP: i32 = 2;
+
+/// 点候选用的状态：内容在窗口客户区里的位置，以及页内下标回调。
+struct HitState {
+    on_select: Box<dyn Fn(usize) + Send>,
+    data: Rc<RefCell<RenderData>>,
+    hwnd: HWND,
+    /// 内容左上角相对窗口客户区。
+    origin: Cell<(i32, i32)>,
+    /// 内容尺寸（不含阴影）。
+    size: Cell<(i32, i32)>,
+}
 
 /// 按外观模式解析深浅；`System` 读系统主题。
 pub(super) fn resolve_dark(mode: ThemeMode) -> bool {
@@ -53,12 +70,12 @@ fn system_prefers_dark() -> bool {
         .is_ok_and(|value| value == 0)
 }
 
-/// 候选窗口。内容经 `UpdateLayeredWindow` 一次贴上，窗口过程只走默认处理。
+/// 候选窗口。内容经 `UpdateLayeredWindow` 一次贴上；点击不抢焦点，命中候选后回调工人线程上屏。
 pub(crate) struct CandidateWindow {
     hwnd: HWND,
 
     /// 绘制内容。
-    data: RefCell<RenderData>,
+    data: Rc<RefCell<RenderData>>,
 
     /// 上次用的 DPI，变了重建字体。
     dpi: Cell<u32>,
@@ -71,11 +88,13 @@ pub(crate) struct CandidateWindow {
 
     /// 青简渲染器；`None` 走 GDI。
     painter: SharedPainter,
+
+    hits: Rc<HitState>,
 }
 
 impl CandidateWindow {
     /// 建一个隐藏的候选窗口。
-    pub(crate) fn new(painter: SharedPainter) -> Result<Self> {
+    pub(crate) fn new(painter: SharedPainter, on_select: Box<dyn Fn(usize) + Send>) -> Result<Self> {
         CLASS.ensure(|| WNDCLASSEXW {
             lpfnWndProc: Some(wndproc),
             hInstance: super::module_handle(),
@@ -85,7 +104,7 @@ impl CandidateWindow {
         })?;
         let dpi = unsafe { GetDpiForSystem() }.max(96);
         let dark = resolve_dark(ThemeMode::default());
-        let data = RefCell::new(RenderData::empty(Rc::new(Theme::new(dpi, dark))));
+        let data = Rc::new(RefCell::new(RenderData::empty(Rc::new(Theme::new(dpi, dark)))));
         // NOACTIVATE：显示时不抢应用焦点。
         let hwnd = unsafe {
             CreateWindowExW(
@@ -103,6 +122,14 @@ impl CandidateWindow {
                 None,
             )?
         };
+        let hits = Rc::new(HitState {
+            on_select,
+            data: data.clone(),
+            hwnd,
+            origin: Cell::new((0, 0)),
+            size: Cell::new((0, 0)),
+        });
+        WINDOWS.with(|map| map.borrow_mut().insert(hwnd.0 as isize, hits.clone()));
         Ok(Self {
             hwnd,
             data,
@@ -110,6 +137,7 @@ impl CandidateWindow {
             dark: Cell::new(dark),
             logged_dpi: Cell::new(None),
             painter,
+            hits,
         })
     }
 
@@ -143,14 +171,21 @@ impl CandidateWindow {
                     return;
                 }
                 let (content_x, content_y) = place(anchor, content);
-                layered::present(
+                let result = layered::present(
                     self.hwnd,
                     &rendered.pixmap,
                     (
                         content_x - rendered.content_x as i32,
                         content_y - rendered.content_y as i32,
                     ),
-                )
+                );
+                if result.is_ok() {
+                    self.hits
+                        .origin
+                        .set((rendered.content_x as i32, rendered.content_y as i32));
+                    self.hits.size.set(content);
+                }
+                result
             }
             None => self.show_gdi(anchor),
         };
@@ -170,7 +205,7 @@ impl CandidateWindow {
         }
         let (content_x, content_y) = place(anchor, content);
         let data = self.data.borrow();
-        layered::composite(
+        let result = layered::composite(
             self.hwnd,
             &Layered {
                 content,
@@ -181,7 +216,12 @@ impl CandidateWindow {
                 corner_radius: data.theme.corner_radius,
                 paint: &|hdc, client| view::paint(hdc, &data, client),
             },
-        )
+        );
+        if result.is_ok() {
+            self.hits.origin.set((margin, margin));
+            self.hits.size.set(content);
+        }
+        result
     }
 
     pub(crate) fn hide(&self) {
@@ -242,6 +282,7 @@ impl CandidateWindow {
 
 impl Drop for CandidateWindow {
     fn drop(&mut self) {
+        WINDOWS.with(|map| map.borrow_mut().remove(&(self.hwnd.0 as isize)));
         let _ = unsafe { DestroyWindow(self.hwnd) };
     }
 }
@@ -267,7 +308,44 @@ fn place(anchor: RECT, content: (i32, i32)) -> (i32, i32) {
     (x, y)
 }
 
-/// 分层窗口无需 `WM_PAINT`，全交默认处理。
-unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
-    unsafe { DefWindowProcW(hwnd, msg, wparam, lparam) }
+/// 分层窗口无需 `WM_PAINT`；点击命中候选后回调，不抢应用焦点。
+unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, _wparam: WPARAM, lparam: LPARAM) -> LRESULT {
+    match msg {
+        WM_NCHITTEST => LRESULT(HTCLIENT as isize),
+        WM_MOUSEACTIVATE => LRESULT(MA_NOACTIVATE as isize),
+        WM_LBUTTONDOWN => {
+            if let Some(hits) = hit_state(hwnd) {
+                if let Some(index) = hit_of(&hits, lparam) {
+                    (hits.on_select)(index);
+                }
+            }
+            LRESULT(0)
+        }
+        _ => unsafe { DefWindowProcW(hwnd, msg, wparam, lparam) },
+    }
+}
+
+fn hit_state(hwnd: HWND) -> Option<Rc<HitState>> {
+    WINDOWS.with(|map| map.borrow().get(&(hwnd.0 as isize)).cloned())
+}
+
+fn hit_of(hits: &HitState, lparam: LPARAM) -> Option<usize> {
+    let x = (lparam.0 & 0xFFFF) as i16 as i32;
+    let y = ((lparam.0 >> 16) & 0xFFFF) as i16 as i32;
+    let (ox, oy) = hits.origin.get();
+    let (w, h) = hits.size.get();
+    let local_x = x - ox;
+    let local_y = y - oy;
+    if w <= 0 || h <= 0 || local_x < 0 || local_y < 0 || local_x >= w || local_y >= h {
+        return None;
+    }
+    let hdc = unsafe { GetDC(Some(hits.hwnd)) };
+    let data = hits.data.borrow();
+    let gdi = view::preferred_size(hdc, &data);
+    let gx = (i64::from(local_x) * i64::from(gdi.cx) / i64::from(w)) as i32;
+    let gy = (i64::from(local_y) * i64::from(gdi.cy) / i64::from(h)) as i32;
+    let index = view::hit_index(hdc, &data, gdi, gx, gy);
+    drop(data);
+    unsafe { ReleaseDC(Some(hits.hwnd), hdc) };
+    index
 }

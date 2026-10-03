@@ -39,9 +39,9 @@ pub enum ClientMessage {
         session: SessionId,
     },
 
-    /// 组句期间 DLL 定时轮询：取云联想的异步结果（云端候选 / 整句补全）。Server 拉一次
-    /// `poll_prediction`，把最新组句状态经 [`super::ServerMessage::Update`] 回给 DLL。传输仍是一问一答，
-    /// 云结果靠 DLL 侧定时器拉取，不需要 Server 主动推。
+    /// 组句期间 DLL 定时轮询：取云联想的异步结果（云端候选 / 整句补全），以及候选点击等非按键上屏。
+    /// Server 拉一次 `poll_prediction`，把最新组句状态经 [`super::ServerMessage::Update`] 回给 DLL（`commit`
+    /// 有则让 DLL 写入文档）。传输仍是一问一答，云结果靠 DLL 侧定时器拉取，不需要 Server 主动推。
     Poll {
         /// 会话标识。
         session: SessionId,

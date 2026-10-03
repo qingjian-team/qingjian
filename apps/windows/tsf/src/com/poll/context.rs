@@ -13,6 +13,9 @@ pub(super) struct PollContext {
     /// 组句状态：在不在组句 / 翻译评审 / 前台。
     pub(super) shared: Rc<Shared>,
 
+    /// TSF client id，轮询上屏时申请编辑会话用。
+    pub(super) client_id: u32,
+
     /// 拍数计数，给 [`MODE_SYNC_EVERY`](super::MODE_SYNC_EVERY) 取模。
     pub(super) ticks: Cell<u32>,
 }
