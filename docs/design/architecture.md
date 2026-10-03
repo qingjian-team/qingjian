@@ -79,7 +79,7 @@ qingjian-core
 │               #   SentenceScorer trait（qingjian-neural 实现）：convert_paths 出前 K 条路径，Engine（engine/rescoring）按 路径分 + λ·(神经分 − 静态分) 重排，异步时后台线程打分、壳停顿后取
 ├── emoji           # emoji 候选：EmojiTable（词 → emoji，Unicode CLDR 中文 annotations）
 ├── fuzzy           # 模糊音：FuzzyRules（配置 [fuzzy]）把每个音节扩展成多种写法，Expanded 借出给词库多写法查询
-├── shuangpin       # 双拼：Scheme 七套方案的键位表，decode 把敲的键解成全拼（音节间带 '），Decoded 把上屏消耗换算回键数；切分之后全部复用全拼
+├── shuangpin       # 双拼：Scheme 八套方案的键位表，decode 把敲的键解成全拼（音节间带 '），Decoded 把上屏消耗换算回键数；切分之后全部复用全拼
 │                   # engine::ModeKeys（配置 [shortcut]）：表达式 / 问字前缀键，只能是 v / u / i；问字键后跟十六进制出码点字符
 ├── engine          # 对外门面：Engine，以及 Translator / Learner trait 与空实现
 └── storage         # 小文件落盘原语：write_atomic（临时文件 + fsync + 改名）、read_text_lossy；学习 crate 与配置都用它

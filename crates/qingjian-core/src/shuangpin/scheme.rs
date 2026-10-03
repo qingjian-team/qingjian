@@ -31,11 +31,14 @@ pub enum Scheme {
 
     /// 首道双拼。
     Shoudao,
+
+    /// 拼音加加双拼。
+    Pyjj,
 }
 
 impl Scheme {
     /// 全部方案，设置界面按这个顺序列出。
-    pub const ALL: [Self; 7] = [
+    pub const ALL: [Self; 8] = [
         Self::Xiaohe,
         Self::Ziranma,
         Self::Microsoft,
@@ -43,6 +46,7 @@ impl Scheme {
         Self::Abc,
         Self::Xiaolang,
         Self::Shoudao,
+        Self::Pyjj,
     ];
 
     /// 配置文件里的写法。`const`：设置界面要按方案列表建常量表（见 `qingjian_platform::Scheme`）。
@@ -55,6 +59,7 @@ impl Scheme {
             Self::Abc => "abc",
             Self::Xiaolang => "xiaolang",
             Self::Shoudao => "shoudao",
+            Self::Pyjj => "pyjj",
         }
     }
 
@@ -68,6 +73,7 @@ impl Scheme {
             Self::Abc => "智能ABC",
             Self::Xiaolang => "小浪双拼",
             Self::Shoudao => "首道双拼",
+            Self::Pyjj => "拼音加加双拼",
         }
     }
 
@@ -80,6 +86,7 @@ impl Scheme {
             Self::Abc => &table::ABC,
             Self::Xiaolang => &table::XIAOLANG,
             Self::Shoudao => &table::SHOUDAO,
+            Self::Pyjj => &table::PYJJ,
         }
     }
 
@@ -352,6 +359,15 @@ mod tests {
             (Scheme::Shoudao, "erqr", "er'qie"),
             (Scheme::Shoudao, "nvhl", "nv'hai"),
             (Scheme::Shoudao, "lbjl", "lve'jue"),
+            (Scheme::Pyjj, "nihd", "ni'hao"),
+            (Scheme::Pyjj, "vygo", "zhong'guo"),
+            (Scheme::Pyjj, "ihpl", "shuang'pin"),
+            (Scheme::Pyjj, "xxxi", "xue'xi"),
+            (Scheme::Pyjj, "iiii", "shi'shi"),
+            (Scheme::Pyjj, "wsgo", "wai'guo"),
+            (Scheme::Pyjj, "yyke", "yong'ke"),
+            (Scheme::Pyjj, "nvhs", "nv'hai"),
+            (Scheme::Pyjj, "ogpo", "ang'po"),
             (Scheme::Xiaolang, "nihs", "ni'hao"),
             (Scheme::Xiaolang, "elgo", "zhong'guo"),
             (Scheme::Xiaolang, "vzpd", "shuang'pin"),
@@ -390,6 +406,11 @@ mod tests {
         assert_eq!(Scheme::Shoudao.decode("jl").pinyin(), "jue");
         assert_eq!(Scheme::Shoudao.decode("ll").pinyin(), "lai");
         assert_eq!(Scheme::Shoudao.decode("lb").pinyin(), "lve");
+        // 拼音加加：`q` 兼 ing 与 er（er 走零声母表），`x` 兼 üe 与 uai
+        assert_eq!(Scheme::Pyjj.decode("xq").pinyin(), "xing");
+        assert_eq!(Scheme::Pyjj.decode("oq").pinyin(), "er");
+        assert_eq!(Scheme::Pyjj.decode("lx").pinyin(), "lve");
+        assert_eq!(Scheme::Pyjj.decode("kx").pinyin(), "kuai");
     }
 
     #[test]
@@ -409,6 +430,8 @@ mod tests {
         assert_eq!(Scheme::Abc.decode("o").pinyin(), "o");
         assert_eq!(Scheme::Shoudao.decode("e").pinyin(), "sh");
         assert_eq!(Scheme::Shoudao.decode("u").pinyin(), "e");
+        assert_eq!(Scheme::Pyjj.decode("e").pinyin(), "e");
+        assert_eq!(Scheme::Pyjj.decode("o").pinyin(), "o");
         // `;` 落单不是任何东西
         assert_eq!(Scheme::Microsoft.decode(";").pinyin(), "");
         assert_eq!(Scheme::Microsoft.decode(";").tail(), ";");

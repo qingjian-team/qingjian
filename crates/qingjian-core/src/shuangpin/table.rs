@@ -360,3 +360,58 @@ pub const SHOUDAO: Table = Table {
     zero_initials: SHOUDAO_ZERO_INITIALS,
     semicolon: false,
 };
+
+/// 拼音加加双拼的翘舌声母：v 为 zh，u 为 ch，i 为 sh。
+pub const PYJJ_DIGRAPH_INITIALS: [(char, &str); 3] = [('v', "zh"), ('u', "ch"), ('i', "sh")];
+
+/// 拼音加加双拼的零声母写法：`o` 加韵母键，以及 a / e 开头的双写首字母（`oa` / `aa`）。
+const PYJJ_ZERO_INITIALS: &[(&str, &[&str])] = &[
+    ("a", &["oa", "aa"]),
+    ("ai", &["os", "as"]),
+    ("an", &["of", "af"]),
+    ("ang", &["og", "ag"]),
+    ("ao", &["od", "ad"]),
+    ("e", &["oe", "ee"]),
+    ("ei", &["ow", "ew"]),
+    ("en", &["or", "er"]),
+    ("eng", &["ot", "et"]),
+    ("er", &["oq", "eq"]),
+    ("o", &["oo"]),
+    ("ou", &["op", "ou"]),
+];
+
+/// 拼音加加双拼：键位按 Rime 的 `double_pinyin_pyjj.schema.yaml` 核对（中文维基「双拼」页的键位图与之一致）。
+/// `q` 兼 ing 与 er（er 走零声母表），`x` 兼 üe 与 uai。
+pub const PYJJ: Table = Table {
+    digraph_initials: &PYJJ_DIGRAPH_INITIALS,
+    finals: &[
+        ('q', &["ing"]),
+        ('w', &["ei"]),
+        ('e', &["e"]),
+        ('r', &["en"]),
+        ('t', &["eng"]),
+        ('y', &["iong", "ong"]),
+        ('u', &["u"]),
+        ('i', &["i"]),
+        ('o', &["uo", "o"]),
+        ('p', &["ou"]),
+        ('a', &["a"]),
+        ('s', &["ai"]),
+        ('d', &["ao"]),
+        ('f', &["an"]),
+        ('g', &["ang"]),
+        ('h', &["iang", "uang"]),
+        ('j', &["ian"]),
+        ('k', &["iao"]),
+        ('l', &["in"]),
+        ('z', &["un"]),
+        ('x', &["ve", "ue", "uai"]),
+        ('c', &["uan"]),
+        ('v', &["ui", "v"]),
+        ('b', &["ia", "ua"]),
+        ('n', &["iu"]),
+        ('m', &["ie"]),
+    ],
+    zero_initials: PYJJ_ZERO_INITIALS,
+    semicolon: false,
+};
