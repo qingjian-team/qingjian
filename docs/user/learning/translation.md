@@ -39,11 +39,11 @@ description: 候选旁译词的来源、橙色的含义、直接输出译词、�
 
 ## 翻译选中的文字
 
-按 `⌃⌥T`（Windows：`Ctrl + Alt + T`）将应用中选中的文字翻译为学习语言，需打开云联想，见 [问字与翻译](../cloud/question-and-translate.md)。
+按 `⌃⌥T`（Windows：`Ctrl + Alt + T`；Linux：`Ctrl + Super + T`，Super 即 Win 键）将应用中选中的文字翻译为学习语言，需打开云联想，见 [问字与翻译](../cloud/question-and-translate.md)。
 
 ## 修改快捷键
 
-上述三组修饰键与翻译快捷键均在「偏好设置 → 快捷键」（Windows：「设置 → 快捷键」）录制修改。
+macOS 上述三组修饰键与翻译快捷键在「偏好设置 → 快捷键」录制修改；Windows 在「设置 → 快捷键」修改；Linux 在配置文件的 `[shortcut]` 中修改。
 macOS 上应避开 `⌃ + 数字`（系统切换桌面）与 `⌘ + 数字`（应用切换标签页）；Windows 上 `Alt + 数字` 会被应用作为菜单快捷键截获，因此缺省使用 `Ctrl`。
 全部按键见 [按键与快捷键](../getting-started/keys.md)。
 

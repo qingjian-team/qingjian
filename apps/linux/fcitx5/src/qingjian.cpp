@@ -3,12 +3,14 @@
 #include "candidate/list.h"
 #include "candidate/word.h"
 #include "key/mapping.h"
+#include "../../surrounding.h"
 #include <fcitx/addonmanager.h>
 #include <fcitx/inputcontext.h>
 #include <fcitx/inputcontextmanager.h>
 #include <fcitx/inputpanel.h>
 #include <fcitx/userinterfacemanager.h>
 #include <iomanip>
+#include <algorithm>
 #include <sstream>
 #include <stdexcept>
 #include <sys/socket.h>
@@ -51,6 +53,7 @@ QingjianEngine::QingjianEngine(AddonManager *manager)
         auto *session = context->propertyFor(&sessions_);
         ++session->lifecycle;
         session->focused = false;
+        session->selectionText.clear();
         if (session->opened) exchange(context, {{"Focus", {{"focused", false}}}}, false);
     });
     keyboardWatcher_ = instance_->watchEvent(EventType::VirtualKeyboardVisibilityChanged, EventWatcherPhase::PostInputMethod, [this](Event &) {
@@ -89,6 +92,7 @@ void QingjianEngine::clear(InputContext *context) {
     const auto revision = ++session->revision;
     session->displayIdentity = nullptr;
     session->clientPreedit = false;
+    session->selectionText.clear();
     context->inputPanel().reset();
     context->updatePreedit();
     if (watched.get() && session->revision == revision)
@@ -211,6 +215,27 @@ bool QingjianEngine::exchange(InputContext *context, const nlohmann::json &event
         if (!session->opened || !shared_->connection.send({{"LinuxEvent", {{"session", session->id}, {"event", event}}}}, &response))
             throw std::runtime_error("event exchange");
         if (response.contains("Ignored") && response.at("Ignored").at("session") == session->id) return true;
+        if (response.contains("RequestSelection")) {
+            const auto &request = response.at("RequestSelection");
+            if (request.at("session") != session->id || !request.at("request").is_number_unsigned())
+                throw std::runtime_error("selection request");
+            const auto &nearby = context->surroundingText();
+            std::string selected;
+            const auto currentCaps = context->capabilityFlags();
+            if (nearby.isValid() && !currentCaps.test(CapabilityFlag::Sensitive)
+                && !currentCaps.test(CapabilityFlag::Password) && !currentCaps.test(CapabilityFlag::Disable)) {
+                selected = nearby.selectedText();
+                if (std::count_if(selected.begin(), selected.end(), [](unsigned char byte) { return (byte & 0xc0) != 0x80; }) > 500
+                    || qingjian::surrounding(selected, 0, 0).is_null())
+                    selected.clear();
+                session->selectionCursor = nearby.cursor();
+                session->selectionAnchor = nearby.anchor();
+            }
+            session->selectionText = selected;
+            if (!shared_->connection.send({{"LinuxEvent", {{"session", session->id}, {"event", {{"Selection", {
+                {"request", request.at("request")}, {"text", selected}}}}}}}}, &response))
+                throw std::runtime_error("selection exchange");
+        }
         const auto &result = response.at("KeyResult");
         const auto &identity = result.at("identity");
         const auto outcome = result.at("outcome").get<std::string>();
@@ -236,8 +261,14 @@ bool QingjianEngine::exchange(InputContext *context, const nlohmann::json &event
         }
         if (watched.get() && session->generation == generation && session->lifecycle == lifecycle
             && context->hasFocus() == focused && context->capabilityFlags() == capabilities
-            && (session->displayIdentity == identity || validDisplayFailure) && commit.is_string())
-            context->commitString(commit.get<std::string>());
+            && (session->displayIdentity == identity || validDisplayFailure) && commit.is_string()) {
+            const auto &nearby = context->surroundingText();
+            if (session->selectionText.empty() || (nearby.isValid()
+                && nearby.selectedText() == session->selectionText
+                && nearby.cursor() == session->selectionCursor && nearby.anchor() == session->selectionAnchor))
+                context->commitString(commit.get<std::string>());
+        }
+        if (result.at("frame").at("candidates").at("items").empty()) session->selectionText.clear();
         return outcome == "Consumed";
     } catch (const std::exception &) { disconnectAll(); return consumed; }
 }
@@ -281,7 +312,13 @@ bool QingjianEngine::process(InputContext *context, const Key &key, bool release
         return false;
     }
     if (!connect(context) || !watched.get() || !syncPrivacy(context) || !watched.get()) return false;
-    return exchange(context, {{"Key", {{"event", qingjian::mapKey(key)}, {"release", release}}}});
+    nlohmann::json nearby = nullptr;
+    if (!release && !context->capabilityFlags().test(CapabilityFlag::Sensitive)) {
+        const auto &text = context->surroundingText();
+        if (text.isValid()) nearby = qingjian::surrounding(text.text(), text.cursor(), text.anchor());
+    }
+    return exchange(context, {{"Key", {{"event", qingjian::mapKey(key)}, {"release", release},
+        {"surrounding", nearby}, {"selection_supported", true}}}});
 }
 void QingjianEngine::render(InputContext *context, const nlohmann::json &frame) {
     auto *session = context->propertyFor(&sessions_);
@@ -323,6 +360,7 @@ void QingjianEngine::render(InputContext *context, const nlohmann::json &frame) 
             if (!annotation.empty()) senses.push_back({index, 0});
             if (sense.value("fresh", false)) annotation += " · 生";
         }
+        if (item.at("kind") == "Cloud") annotation = "☁ " + annotation;
         list->append(std::make_unique<qingjian::Word>(text, annotation, [this, alive = alive_, watched, index, revision, identity](InputContext *ic) {
             if (*alive && ic && ic == watched.get() && ic->hasFocus() && ic->propertyFor(&sessions_)->revision == revision)
                 exchange(ic, {{"Candidate", {{"identity", identity}, {"index", index}}}});
@@ -338,7 +376,13 @@ void QingjianEngine::render(InputContext *context, const nlohmann::json &frame) 
     if (session->preeditMode != "inline" || !inlinePreedit) panel.setPreedit(preedit);
     session->clientPreedit = inlinePreedit && !preedit.empty();
     if (!items.empty()) panel.setCandidateList(std::move(list));
-    if (frame.at("notice").is_string()) panel.setAuxDown(Text(frame.at("notice").get<std::string>()));
+    std::string aux;
+    if (frame.at("sentence").is_string()) aux = "☁ " + frame.at("sentence").get<std::string>() + " · Tab";
+    if (frame.at("notice").is_string()) {
+        if (!aux.empty()) aux += " · ";
+        aux += frame.at("notice").get<std::string>();
+    }
+    if (!aux.empty()) panel.setAuxDown(Text(aux));
     context->updatePreedit();
     if (!current()) return;
     context->updateUserInterface(UserInterfaceComponent::InputPanel);
@@ -350,7 +394,7 @@ void QingjianEngine::render(InputContext *context, const nlohmann::json &frame) 
         senses = nlohmann::json::array();
     if (!shared_->connection.send({{"DisplayAcknowledged", {{"session", session->id}, {"identity", identity}, {"senses", senses}}}}))
         throw std::runtime_error("display acknowledgment");
-    watch(context, !preedit.empty());
+    watch(context, !preedit.empty() || frame.value("translation_pending", false));
 }
 void QingjianEngine::watch(InputContext *context, bool composing) {
     if (!composing) {
@@ -395,6 +439,7 @@ void QingjianEngine::poll() {
         if (revision == shown) return;
         session->displayIdentity = identity;
         render(context, update.at("frame"));
+        if (update.at("frame").at("candidates").at("items").empty()) session->selectionText.clear();
     } catch (const std::exception &) { disconnectAll(); }
 }
 }

@@ -46,6 +46,19 @@ impl Router {
             self.handle(message)?
         };
         let mut value = serde_json::to_value(&response).ok()?;
+        let pending = self
+            .translation
+            .as_ref()
+            .is_some_and(|job| job.result.is_none());
+        match &response {
+            ServerMessage::KeyResult { .. } => {
+                value["KeyResult"]["frame"]["translation_pending"] = json!(pending)
+            }
+            ServerMessage::Update { .. } => {
+                value["Update"]["frame"]["translation_pending"] = json!(pending)
+            }
+            _ => {}
+        }
         match &response {
             ServerMessage::KeyResult { session, frame, .. }
             | ServerMessage::Update { session, frame } => {

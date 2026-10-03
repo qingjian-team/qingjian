@@ -1,5 +1,5 @@
 //! Linux 事件：释放、焦点、能力与候选回调不改 Windows 消息格式。
-use super::{Capabilities, DisplayIdentity};
+use super::{AppSurrounding, Capabilities, DisplayIdentity};
 use qingjian_platform::protocol::KeyEvent;
 use serde::{Deserialize, Serialize};
 
@@ -13,6 +13,18 @@ pub enum LinuxEvent {
         event: KeyEvent,
 
         release: bool,
+
+        #[serde(default)]
+        surrounding: Option<AppSurrounding>,
+
+        #[serde(default)]
+        selection_supported: bool,
+    },
+
+    Selection {
+        request: u64,
+
+        text: String,
     },
 
     Deactivate {
