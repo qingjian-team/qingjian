@@ -20,7 +20,8 @@ use windows::Win32::UI::WindowsAndMessaging::{
 use windows::core::{Error, PCWSTR, Result, w};
 
 use self::context::PollContext;
-use super::composition::Shared;
+use super::composition::{Shared, preedit_string};
+use super::edit::request_update;
 use super::log::log;
 use super::service::SharedClient;
 use super::window_class::WindowClass;
@@ -47,7 +48,7 @@ pub(crate) struct PollTimer {
 
 impl PollTimer {
     /// 失败返回 `Err`，调用方降级为只在按键时收云结果。
-    pub(crate) fn new(engine: SharedClient, shared: Rc<Shared>) -> Result<Self> {
+    pub(crate) fn new(engine: SharedClient, shared: Rc<Shared>, client_id: u32) -> Result<Self> {
         CLASS.ensure(|| WNDCLASSEXW {
             lpfnWndProc: Some(wndproc),
             hInstance: super::dll_instance(),
@@ -80,6 +81,7 @@ impl PollTimer {
                 Rc::new(PollContext {
                     engine,
                     shared,
+                    client_id,
                     ticks: Cell::new(0),
                 }),
             )
@@ -129,12 +131,42 @@ fn poll_once(context: &PollContext) {
         return;
     };
     match client.poll() {
-        Ok(frame) => {
+        Ok(reply) => {
+            let commit = reply.commit.filter(|text| !text.is_empty());
             // 翻译评审时回空帧 = 翻译已在 Server 侧结束（云端没给译文）。
-            if translating && frame.is_empty() {
+            if translating && reply.frame.is_empty() && commit.is_none() {
                 drop(guard);
                 context.shared.set_translating(false);
                 context.shared.hide_candidates();
+                return;
+            }
+            let Some(commit) = commit else {
+                return;
+            };
+            drop(guard);
+            let Some(doc) = context.shared.last_context() else {
+                log(&format!("候选点击上屏没有上下文，丢弃: {commit:?}"));
+                context.shared.set_composing(!reply.frame.is_empty());
+                return;
+            };
+            let preedit = if reply.frame.preedit_mode.inline() {
+                preedit_string(&reply.frame)
+            } else {
+                String::new()
+            };
+            context.shared.set_composing(!reply.frame.is_empty());
+            context.shared.set_translating(false);
+            if let Err(error) = request_update(
+                &doc,
+                context.client_id,
+                context.engine.clone(),
+                context.shared.clone(),
+                Some(commit.clone()),
+                preedit,
+            ) {
+                log(&format!("候选点击上屏的编辑会话没被受理: {error}"));
+            } else {
+                log(&format!("候选点击上屏: {commit:?}"));
             }
         }
         Err(error) => {

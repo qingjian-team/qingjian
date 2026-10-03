@@ -1,6 +1,8 @@
 //! `ITfKeyEventSink`：所有键先经 `OnTestKeyDown` 判吃不吃（[`TextService_Impl::would_eat`]，与 Router 的分派对齐），
 //! 吃的键在 `OnKeyDown` 里转发给 Server 并按结果更新文档；单击中英切换键（`[shortcut] switch_mode`）的判定与保留键命中也在这里。
 //! 上下文禁了键盘（密码框，见 [`context`](crate::com::context)）时没在组句的键一律放行。
+//! 没在组句的数字在 Test 里先问 Server：Passthrough 不吃（原生投递），避免 `InsertTextAtSelection`
+//! 在未设 `KEYBOARD_DISABLED` 的 `IS_NUMERIC_PASSWORD`（绿联等）里光标不前进导致倒序。
 
 use windows::Win32::Foundation::{FALSE, LPARAM, WPARAM};
 use windows::Win32::UI::Input::KeyboardAndMouse::VK_CAPITAL;
@@ -36,7 +38,11 @@ impl ITfKeyEventSink_Impl for TextService_Impl {
         if self.keyboard_disabled(&pic) {
             return Ok(FALSE);
         }
-        Ok(self.would_eat(&self.key_event(vk)).into())
+        let event = self.key_event(vk);
+        if let Some(eat) = self.preflight_digit(&pic, event) {
+            return Ok(eat.into());
+        }
+        Ok(self.would_eat(&event).into())
     }
 
     fn OnKeyDown(&self, pic: Ref<ITfContext>, wparam: WPARAM, lparam: LPARAM) -> Result<BOOL> {
@@ -46,6 +52,9 @@ impl ITfKeyEventSink_Impl for TextService_Impl {
             return Ok(FALSE);
         }
         let event = self.key_event(vk);
+        if let Some(next) = self.pending_digit.borrow_mut().take() {
+            return Ok(self.apply_key_outcome(pic, &event, next).into());
+        }
         Ok(self.handle_key(pic, event).into())
     }
 
@@ -124,6 +133,7 @@ impl TextService_Impl {
     /// 让它起一段组句），其中 V / U / I 仍送 Server：双拼下是表达式 / 问字入口；
     /// 组句中功能键 / 方向键 / 可打印字符都吃；没在组句时数字 / 标点也先「测吃」送去转全角（中英各有一份开关），
     /// Server 不转的回 Passthrough 再放行；`?` 是问字前缀。
+    /// 没在组句的数字另走 [`Self::preflight_digit`]：Passthrough 时 Test 就不吃。
     fn would_eat(&self, event: &KeyEvent) -> bool {
         let shift_letter_compose = self
             .input_settings
@@ -135,6 +145,38 @@ impl TextService_Impl {
             self.shared.translating(),
             shift_letter_compose,
         )
+    }
+
+    /// 没在组句的数字：在 Test 里先问 Server。
+    ///
+    /// - Passthrough（且无待上屏 / 组句）：返回 `Some(false)`——不吃，键原生进应用（绿联
+    ///   `IS_NUMERIC_PASSWORD` 等未设 `KEYBOARD_DISABLED` 的框里，`InsertTextAtSelection` 光标不跟会倒序）；
+    /// - Consumed（注音音节键等）：缓存结果并返回 `Some(true)`，`OnKeyDown` 再应用；
+    /// - 不是这类键：返回 `None`，走普通 `would_eat`。
+    fn preflight_digit(&self, pic: &Ref<ITfContext>, event: KeyEvent) -> Option<bool> {
+        if self.shared.composing() || self.shared.translating() {
+            return None;
+        }
+        if event.modifiers.has_command_key() {
+            return None;
+        }
+        if !event.character.is_some_and(|c| c.is_ascii_digit()) {
+            return None;
+        }
+        self.pending_digit.borrow_mut().take();
+        if !self.ensure_connected() {
+            // 与 eats_without_server 一致：断连时数字原样交给应用
+            return Some(false);
+        }
+        let Some(next) = self.query_key(pic, event) else {
+            return Some(false);
+        };
+        if digit_passthrough_native(&next) {
+            log("数字 Passthrough，Test 放行给应用（不经 InsertTextAtSelection）");
+            return Some(false);
+        }
+        *self.pending_digit.borrow_mut() = Some(next);
+        Some(true)
     }
 
     /// 不吃的键绝不碰组句（否则光标一移，组句会把拼音重插到别处）。
@@ -160,71 +202,79 @@ impl TextService_Impl {
             }
             return eat;
         }
-        // OnTestKeyDown 已声明吃的可打印字符，Server 放行时由输入法自己插入：退回应用的话，企业微信 /
-        // 微信 / notepad++ 这类自绘输入框会把它丢掉。功能键（无字符）仍交给应用。
-        let passthrough_char = event.character.filter(|c| !c.is_control());
+        let Some(next) = self.query_key(&pic, event) else {
+            return true;
+        };
+        self.apply_key_outcome(pic, &event, next)
+    }
+
+    /// 向 Server 问一次按键，在引擎借用里做完；调用方再按 [`Next`] 更新文档。
+    fn query_key(&self, pic: &Ref<ITfContext>, event: KeyEvent) -> Option<Next> {
         if let Ok(context) = pic.ok() {
             self.shared.set_last_context(Some(context.clone()));
         }
-        // Server 交互在这段借用里做完，放掉借用再走编辑会话。
-        let next = {
-            let mut guard = self.engine.borrow_mut();
-            let Some(client) = guard.as_mut() else {
-                return true;
-            };
-            // 组句被应用终止过：先让 Server 清掉残留的拼音（文本已在文档里，交出的丢弃）。
-            let response = if self.shared.take_server_stale() {
-                client.commit().and_then(|_| client.key(event))
-            } else {
-                client.key(event)
-            };
-            match response {
-                Ok(KeyReply::Result(response)) => {
-                    // 「只在候选窗口」模式应用里不放行内拼音（那一行由 Server 画在候选窗口顶部）。
-                    let preedit = if response.frame.preedit_mode.inline() {
-                        preedit_string(&response.frame)
-                    } else {
-                        String::new()
-                    };
-                    self.shared.set_composing(!response.frame.is_empty());
-                    // 翻译评审的任何键都结束评审（Server 侧已同步结束）。
-                    self.shared.set_translating(false);
-                    let consumed = matches!(response.outcome, KeyOutcome::Consumed);
-                    let m = event.modifiers;
-                    log(&format!(
-                        "收键 vk={} ctrl={} alt={} shift={} caps={} en={} char={:?} candidates={} preedit={preedit:?} consumed={consumed}",
-                        event.virtual_key,
-                        m.ctrl,
-                        m.alt,
-                        m.shift,
-                        m.caps,
-                        m.english_mode,
-                        event.character,
-                        response.frame.candidates.items.len()
-                    ));
-                    Next::Document {
-                        commit: response.commit,
-                        preedit,
-                        consumed,
-                    }
-                }
-                Ok(KeyReply::NeedSelection { request }) => {
-                    log(&format!("翻译选中文字：Server 请读选区 request={request}"));
-                    Next::ReadSelection { request }
-                }
-                Err(error) => {
-                    log(&format!("转发按键失败，放行并断开，下一键重连: {error}"));
-                    *guard = None;
-                    self.last_connect_failure.set(None);
-                    self.shared.end_composing();
-                    Next::Abort
+        let mut guard = self.engine.borrow_mut();
+        let client = guard.as_mut()?;
+        // 组句被应用终止过：先让 Server 清掉残留的拼音（文本已在文档里，交出的丢弃）。
+        let response = if self.shared.take_server_stale() {
+            client.commit().and_then(|_| client.key(event))
+        } else {
+            client.key(event)
+        };
+        Some(match response {
+            Ok(KeyReply::Result(response)) => {
+                // 「只在候选窗口」模式应用里不放行内拼音（那一行由 Server 画在候选窗口顶部）。
+                let preedit = if response.frame.preedit_mode.inline() {
+                    preedit_string(&response.frame)
+                } else {
+                    String::new()
+                };
+                self.shared.set_composing(!response.frame.is_empty());
+                // 翻译评审的任何键都结束评审（Server 侧已同步结束）。
+                self.shared.set_translating(false);
+                let consumed = matches!(response.outcome, KeyOutcome::Consumed);
+                let m = event.modifiers;
+                log(&format!(
+                    "收键 vk={} ctrl={} alt={} shift={} caps={} en={} char={:?} candidates={} preedit={preedit:?} consumed={consumed}",
+                    event.virtual_key,
+                    m.ctrl,
+                    m.alt,
+                    m.shift,
+                    m.caps,
+                    m.english_mode,
+                    event.character,
+                    response.frame.candidates.items.len()
+                ));
+                Next::Document {
+                    commit: response.commit,
+                    preedit,
+                    consumed,
                 }
             }
-        };
+            Ok(KeyReply::NeedSelection { request }) => {
+                log(&format!("翻译选中文字：Server 请读选区 request={request}"));
+                Next::ReadSelection { request }
+            }
+            Err(error) => {
+                log(&format!("转发按键失败，放行并断开，下一键重连: {error}"));
+                *guard = None;
+                self.last_connect_failure.set(None);
+                self.shared.end_composing();
+                Next::Abort
+            }
+        })
+    }
+
+    /// 按 Server 结果更新文档或交还应用；返回吃不吃。
+    fn apply_key_outcome(&self, pic: Ref<ITfContext>, event: &KeyEvent, next: Next) -> bool {
+        // OnTestKeyDown 已声明吃的可打印字符，Server 放行时由输入法自己插入：退回应用的话，企业微信 /
+        // 微信 / notepad++ 这类自绘输入框会把它丢掉。功能键（无字符）仍交给应用。
+        // 数字 Passthrough 已在 [`Self::preflight_digit`] 里 Test 不吃，一般走不到这里；若仍落到
+        // 此臂（有待上屏前缀等），无前缀的数字继续交还应用，不经 InsertTextAtSelection。
+        let passthrough_char = event.character.filter(|c| !c.is_control());
         // 带 Ctrl / Alt / Win 的组合（翻译保留键）放行时仍交还应用，别把热键的字母插进文档。
         let insertable = !event.modifiers.has_command_key();
         match (next, passthrough_char) {
-            // 放行 + 没在组句 + 可打印字符：输入法插入，吃掉；Server 顺带交出的英文直输段字母拼在前面。
             (
                 Next::Document {
                     consumed: false,
@@ -233,6 +283,9 @@ impl TextService_Impl {
                 },
                 Some(c),
             ) if insertable && preedit.is_empty() => {
+                if passthrough_digit_to_app(c, commit.as_deref()) {
+                    return false;
+                }
                 let mut text = commit.unwrap_or_default();
                 text.push(c);
                 self.update_document(pic, Some(text), String::new());
@@ -262,6 +315,23 @@ impl TextService_Impl {
             (Next::Abort, _) => false,
         }
     }
+}
+
+/// Server 回的数字结果能否在 Test 阶段直接放行（不吃、不 InsertText）。
+fn digit_passthrough_native(next: &Next) -> bool {
+    matches!(
+        next,
+        Next::Document {
+            consumed: false,
+            commit,
+            preedit,
+        } if preedit.is_empty() && commit.as_ref().is_none_or(|text| text.is_empty())
+    ) || matches!(next, Next::Abort)
+}
+
+/// Server 回 Passthrough 的 ASCII 数字：无待上屏前缀时真正交还应用，不走 `InsertTextAtSelection`。
+fn passthrough_digit_to_app(c: char, commit: Option<&str>) -> bool {
+    c.is_ascii_digit() && commit.is_none_or(|text| text.is_empty())
 }
 
 /// 连不上 Server 时这个键吃不吃。
@@ -319,8 +389,11 @@ fn eats_key(
 mod tests {
     use qingjian_platform::protocol::{KeyEvent, KeyModifiers};
 
-    use super::{eats_key, eats_without_server};
+    use super::{
+        digit_passthrough_native, eats_key, eats_without_server, passthrough_digit_to_app,
+    };
     use crate::com::key::event::to_key_event;
+    use crate::com::service::next::Next;
 
     /// 中文模式（`caps` / `english_mode` 都灭）。
     const CHINESE: (bool, bool) = (false, false);
@@ -431,5 +504,31 @@ mod tests {
             ..combo.modifiers
         };
         assert!(!eats_without_server(&combo));
+    }
+
+    #[test]
+    fn passthrough_digits_go_to_the_app_not_ime_insert() {
+        // 无待上屏前缀的数字：真正放行（绿联 IS_NUMERIC_PASSWORD 等光标不跟 InsertText 的场景）
+        assert!(passthrough_digit_to_app('3', None));
+        assert!(passthrough_digit_to_app('0', Some("")));
+        assert!(digit_passthrough_native(&Next::Document {
+            consumed: false,
+            commit: None,
+            preedit: String::new(),
+        }));
+        assert!(digit_passthrough_native(&Next::Abort));
+        // `-` `=` 等非数字仍由壳插入；有前缀 / 已 Consumed 时不能 Test 放行
+        assert!(!passthrough_digit_to_app('-', None));
+        assert!(!passthrough_digit_to_app('3', Some("hello")));
+        assert!(!digit_passthrough_native(&Next::Document {
+            consumed: true,
+            commit: None,
+            preedit: String::new(),
+        }));
+        assert!(!digit_passthrough_native(&Next::Document {
+            consumed: false,
+            commit: Some("hi".into()),
+            preedit: String::new(),
+        }));
     }
 }

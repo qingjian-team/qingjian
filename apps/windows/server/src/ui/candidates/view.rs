@@ -39,6 +39,67 @@ pub(super) fn preferred_size(hdc: HDC, data: &RenderData) -> SIZE {
     }
 }
 
+/// 内容坐标系里点中了第几个候选（页内下标）；点到拼音行 / 页码 / 空隙为 `None`。
+pub(super) fn hit_index(
+    hdc: HDC,
+    data: &RenderData,
+    content: SIZE,
+    x: i32,
+    y: i32,
+) -> Option<usize> {
+    if x < 0 || y < 0 || x >= content.cx || y >= content.cy {
+        return None;
+    }
+    let theme = &data.theme;
+    let y_body = theme.padding + top_line_size(hdc, data).1 + notice_line_size(hdc, data).1;
+    if y < y_body {
+        return None;
+    }
+    match data.layout {
+        LayoutMode::Vertical => {
+            let columns = columns(hdc, theme, &data.rows);
+            if columns.row_height <= 0 {
+                return None;
+            }
+            let index = ((y - y_body) / columns.row_height) as usize;
+            (index < data.rows.len()).then_some(index)
+        }
+        LayoutMode::Horizontal => {
+            if data.rows.is_empty() {
+                return None;
+            }
+            let index_gap = theme.column_gap / 2;
+            let highlight_inset = theme.padding / 2;
+            let row_height = data
+                .rows
+                .iter()
+                .map(|row| measure(hdc, theme.text_font, &row.text).cy + theme.row_padding * 2)
+                .max()
+                .unwrap_or(0);
+            if y >= y_body + row_height {
+                return None;
+            }
+            let mut cursor = theme.padding + highlight_inset;
+            for (i, row) in data.rows.iter().enumerate() {
+                let index_width = measure(hdc, theme.index_font, &row.index).cx;
+                let text_size = measure(hdc, theme.text_font, &row.text);
+                let item_width = index_width
+                    + index_gap
+                    + cloud_prefix_width(hdc, theme, row)
+                    + text_size.cx
+                    + code_width(hdc, theme, row);
+                let left = cursor - highlight_inset;
+                let right = cursor + item_width + highlight_inset;
+                if x >= left && x < right {
+                    return Some(i);
+                }
+                cursor += item_width + theme.column_gap;
+            }
+            None
+        }
+    }
+}
+
 fn vertical_size(hdc: HDC, data: &RenderData) -> (i32, i32) {
     let theme = &data.theme;
     let columns = columns(hdc, theme, &data.rows);
