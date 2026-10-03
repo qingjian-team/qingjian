@@ -21,6 +21,11 @@ pub(super) fn script_fonts(locale: &str) -> Vec<PathBuf> {
         fonts.push(PathBuf::from(format!(
             "{SYSTEM_FONTS}/Hiragino Sans GB.ttc"
         )));
+        // 宋体是静态 glyf：macOS 26+ 的苹方换成 swash 读不出的 hvgl 轮廓（fonts/mod.rs 会跳过），
+        // 这时简体回退落到宋体，候选不至于空白
+        fonts.push(PathBuf::from(format!(
+            "{SYSTEM_FONTS}/Supplemental/Songti.ttc"
+        )));
     }
     fonts.push(PathBuf::from(format!(
         "{SYSTEM_FONTS}/ヒラギノ角ゴシック W4.ttc"

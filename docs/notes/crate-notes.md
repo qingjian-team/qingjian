@@ -187,7 +187,9 @@ P2C 自由生成实验：`--eval-text <集> --eval-generate data/models/hanzhang
 单格封顶 `MAX_CELL_EMS` = 4 字宽，滚动时窗口不跳；网格下固定一行信息，放不下的截断）；视口与高亮移动在 Core `candidate::layout::Grid`（`GRID_ROWS` = 6），
 预览示例里有 `matrix-horizontal` 场景。mac 壳里这套按键由 `[general] horizontal_grid`（缺省关）加横排两个条件一起开（`Host::grid_keys`）。
 
-自绘渲染器：候选窗一帧 + 主题 → 预乘 RGBA 位图，tiny-skia 栅格 + cosmic-text 文字（fontdb 按平台清单只加载几个字体文件、不扫系统），
+自绘渲染器：候选窗一帧 + 主题 → 预乘 RGBA 位图，tiny-skia 栅格 + cosmic-text 文字（fontdb 按平台清单只加载几个字体文件、不扫系统；
+脚本字体文件要先过轮廓检查，任一面带 `glyf` / `CFF ` 才加载——macOS 26+ 的苹方换成私有 `hvgl` 可变轮廓，swash 读不出字形，
+这种文件跳过，简体回退到 Songti.ttc），
 自己解析 `trak` 字距表、按主题 gamma 加深笔画；cosmic-text 打了 `opsz` 光学字号补丁（qingjian-team/cosmic-text 分支 `qingjian-opsz`，workspace `[patch.crates-io]` 钉 rev）。
 `examples/preview.rs` 出 PNG 与真机截图并排比、`--measure` 与 AppKit 对宽度。mac 壳 `candidates/bitmap/` 贴位图，`[general] renderer = "system"` 切回 AppKit 绘制
 （过渡期退路，偏好设置「候选窗口」页可选）；`[general] font` 是候选窗字族名（空为系统字体，`bitmap/font_files.rs` 用 CoreText 按字族名找文件只加载那几个，没装就回系统字体；

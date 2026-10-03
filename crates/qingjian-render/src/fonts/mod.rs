@@ -14,6 +14,8 @@ mod ui_font;
 #[cfg(target_os = "windows")]
 mod windows;
 
+use std::fs::File;
+use std::io::{Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
 
 use cosmic_text::FontSystem;
@@ -84,10 +86,12 @@ impl FontLibrary {
                 .unwrap_or_else(|| "sans-serif".to_owned())
         });
         db.set_sans_serif_family(ui_family.clone());
-        for path in platform::script_fonts(locale)
-            .into_iter()
-            .chain(platform::emoji_fonts())
-        {
+        // 中文脚本字体必须真有 swash 能栅格化的轮廓（macOS 26+ 的苹方是私有的 hvgl 可变轮廓，读不出字形）；
+        // emoji 走 sbix 位图、没有轮廓表，不做这项检查
+        for path in platform::script_fonts(locale) {
+            load_outline_font(&mut db, &path);
+        }
+        for path in platform::emoji_fonts() {
             if !load(&mut db, &path) {
                 tracing::debug!(path = %path.display(), "字体文件不存在，跳过");
             }
@@ -149,5 +153,126 @@ fn load(db: &mut Database, path: &Path) -> bool {
             tracing::warn!(path = %path.display(), %error, "字体文件解析失败");
             false
         }
+    }
+}
+
+/// 存在、能解析、且至少有一张面带 swash 能栅格化的轮廓（`glyf` / `CFF `）才加载。
+fn load_outline_font(db: &mut Database, path: &Path) {
+    let outline = File::open(path).and_then(|mut file| has_rasterizable_outline(&mut file));
+    match outline {
+        Ok(true) => {
+            load(db, path);
+        }
+        Ok(false) => {
+            tracing::warn!(path = %path.display(), "字体轮廓是 swash 读不了的格式（如 macOS 26+ 苹方的 hvgl），跳过");
+        }
+        Err(error) => {
+            tracing::debug!(path = %path.display(), %error, "字体文件不存在或读不了，跳过");
+        }
+    }
+}
+
+/// 文件里任一面的轮廓表是 swash 能栅格化的 `glyf` / `CFF `。macOS 26+ 的苹方（PingFangUI.ttc）把轮廓
+/// 换成了私有的 `hvgl`（可变字体，无公开文档，googlefonts/fontations#1369 在跟进支持），swash 读不出
+/// 任何字形，中文候选会画成空白；这种文件不加载，让回退落到清单里还能栅格化的字体上。
+fn has_rasterizable_outline(file: &mut (impl Read + Seek)) -> std::io::Result<bool> {
+    let mut head = [0; 12];
+    file.read_exact(&mut head)?;
+    // TTC：tag(4) 版本(4) 面数(4) 后跟每张面 sfnt 头的偏移；单 sfnt 文件只有开头一张面
+    let face_offsets: Vec<u64> = if head.starts_with(b"ttcf") {
+        let count = u32::from_be_bytes(head[8..].try_into().expect("head 有 12 字节")).min(4096);
+        (0..count)
+            .map(|i| {
+                let mut offset = [0; 4];
+                file.seek(SeekFrom::Start(u64::from(i) * 4 + 12))?;
+                file.read_exact(&mut offset)?;
+                Ok(u64::from(u32::from_be_bytes(offset)))
+            })
+            .collect::<std::io::Result<_>>()?
+    } else {
+        vec![0]
+    };
+    for offset in face_offsets {
+        file.seek(SeekFrom::Start(offset))?;
+        let mut sfnt = [0; 12];
+        file.read_exact(&mut sfnt)?;
+        let count = u16::from_be_bytes(sfnt[4..6].try_into().expect("sfnt 头有 12 字节")) as usize;
+        let mut tables = vec![0; count * 16];
+        file.read_exact(&mut tables)?;
+        if tables
+            .chunks_exact(16)
+            .any(|record| matches!(&record[..4], b"glyf" | b"CFF "))
+        {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use std::io::Cursor;
+
+    /// 最小 sfnt：12 字节头（版本 + 表数 + 三个检索字段）+ 只填 tag 的表记录，偏移与长度本函数不看。
+    fn sfnt(version: u32, tags: &[&[u8]]) -> Vec<u8> {
+        let mut out = Vec::new();
+        out.extend_from_slice(&version.to_be_bytes());
+        out.extend_from_slice(&(tags.len() as u16).to_be_bytes());
+        out.extend_from_slice(&[0; 6]);
+        for tag in tags {
+            out.extend_from_slice(tag);
+            out.extend_from_slice(&[0; 12]);
+        }
+        out
+    }
+
+    /// 只有头的 TTC，面偏移由调用方按真实布局给。
+    fn ttc(face_offsets: [u32; 2]) -> Vec<u8> {
+        let mut out = Vec::new();
+        out.extend_from_slice(b"ttcf");
+        out.extend_from_slice(&[0; 4]);
+        out.extend_from_slice(&2_u32.to_be_bytes());
+        for offset in face_offsets {
+            out.extend_from_slice(&offset.to_be_bytes());
+        }
+        out
+    }
+
+    fn rasterizable(bytes: &[u8]) -> bool {
+        has_rasterizable_outline(&mut Cursor::new(bytes)).unwrap()
+    }
+
+    #[test]
+    fn glyf_cff_可栅格化_hvgl_不可() {
+        assert!(rasterizable(&sfnt(0x0001_0000, &[b"glyf", b"head"])));
+        assert!(rasterizable(&sfnt(
+            u32::from_be_bytes(*b"OTTO"),
+            &[b"CFF ", b"head"]
+        )));
+        // macOS 26+ 苹方：可变字体，轮廓在私有的 hvgl 表里
+        assert!(!rasterizable(&sfnt(
+            0x0001_0000,
+            &[b"hvgl", b"fvar", b"cmap", b"head"]
+        )));
+    }
+
+    #[test]
+    fn ttc_任一面可栅格化即通过_全部不可则跳过() {
+        let broken = sfnt(0x0001_0000, &[b"hvgl", b"head"]);
+        let good = sfnt(0x0001_0000, &[b"glyf", b"head"]);
+        let header_len = 12 + 4 * 2;
+        let offsets = |second: u32| ttc([(header_len) as u32, second]);
+
+        let mut mixed = offsets((header_len + broken.len()) as u32);
+        mixed.extend_from_slice(&broken);
+        mixed.extend_from_slice(&good);
+        assert!(rasterizable(&mixed));
+
+        let mut all_broken = offsets((header_len + broken.len()) as u32);
+        all_broken.extend_from_slice(&broken);
+        all_broken.extend_from_slice(&broken);
+        assert!(!rasterizable(&all_broken));
     }
 }
