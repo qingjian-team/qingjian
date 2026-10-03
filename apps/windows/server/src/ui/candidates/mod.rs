@@ -309,7 +309,7 @@ fn place(anchor: RECT, content: (i32, i32)) -> (i32, i32) {
 }
 
 /// 分层窗口无需 `WM_PAINT`；点击命中候选后回调，不抢应用焦点。
-unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, _wparam: WPARAM, lparam: LPARAM) -> LRESULT {
+unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
     match msg {
         WM_NCHITTEST => LRESULT(HTCLIENT as isize),
         WM_MOUSEACTIVATE => LRESULT(MA_NOACTIVATE as isize),
