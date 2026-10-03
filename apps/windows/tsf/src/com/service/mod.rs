@@ -109,6 +109,10 @@ pub struct TextService {
 
     /// 宽限过期的「放行」只记一次日志，别每个键都刷一行。
     launch_grace_logged: Cell<bool>,
+
+    /// `OnTestKeyDown` 已问过 Server 的数字键结果；`OnKeyDown` 取走应用，避免再送一次。
+    /// 仅注音等会 Consumed 的数字会进这里；Passthrough 的数字在 Test 里直接放行、不缓存。
+    pending_digit: RefCell<Option<next::Next>>,
 }
 
 thread_local! {
@@ -196,6 +200,7 @@ impl TextService {
             conversion_guard_until: Cell::new(None),
             launch_grace_until: Cell::new(None),
             launch_grace_logged: Cell::new(false),
+            pending_digit: RefCell::new(None),
         }
     }
 }

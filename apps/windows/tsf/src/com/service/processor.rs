@@ -111,6 +111,7 @@ impl ITfTextInputProcessor_Impl for TextService_Impl {
         if let Some(client) = self.engine.borrow_mut().take() {
             let _ = client.close();
         }
+        self.pending_digit.borrow_mut().take();
         self.shared.reset();
         self.shared.take_server_stale();
         self.shared.set_foreground(false);
