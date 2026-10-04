@@ -358,6 +358,9 @@ impl Host {
             (Setting::ChineseFirst, SettingValue::Bool(on)) => {
                 self.settings.set_bool("general", "chinese_first", on);
             }
+            (Setting::AutoSpace, SettingValue::Bool(on)) => {
+                self.settings.set_bool("general", "auto_space", on);
+            }
             (Setting::ShiftLetter, SettingValue::Bool(on)) => {
                 let mode = if on {
                     ShiftLetter::Compose

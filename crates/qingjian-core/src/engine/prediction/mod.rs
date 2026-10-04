@@ -310,6 +310,7 @@ impl Engine {
         let commit = LastCommit {
             text: text.to_owned(),
             chars: traditional_text.chars().count(),
+            tail: traditional_text.chars().last(),
             input,
             chosen: None,
             transitions: std::mem::take(&mut self.recording),

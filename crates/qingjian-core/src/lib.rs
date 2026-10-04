@@ -19,6 +19,7 @@ pub mod ranking;
 pub mod sentence;
 pub mod shortcut;
 pub mod shuangpin;
+pub mod spacing;
 pub mod storage;
 pub mod zhuyin;
 

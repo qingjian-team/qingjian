@@ -67,14 +67,24 @@ impl Engine {
             .as_ref()
             .and_then(|t| t.senses().get(sense))
             .map(|s| s.text.clone())?;
+        let lead = self.auto_space_before(&text);
         self.commit_with(candidate, InputSource::Translation, Some(sense));
+        let text = if lead { format!(" {text}") } else { text };
+        // 应用里收到的是译文：退格计数与自动空格的上文都按译文算
+        if let Some(last) = self.recent_commits.last_mut() {
+            last.chars = text.chars().count();
+            last.tail = text.chars().last();
+        }
         Some(text)
     }
 
     /// 候选比输入短时（`kaifazhe` 选了 开发），剩余拼音留在缓冲区，壳应接着 [`Self::query`]。
     /// 候选的最后一个音节比输入长时（`kaif` 选了 开发），把输入吃完。
+    /// 开了自动空格（[`Self::set_auto_space`]）时与上文、候选内部的中西文交界都补好空格。
     pub fn commit(&mut self, candidate: &Candidate) -> String {
-        self.commit_with(candidate, InputSource::from(candidate.kind), None)
+        let lead = self.auto_space_before(&candidate.text);
+        let text = self.commit_with(candidate, InputSource::from(candidate.kind), None);
+        if lead { format!(" {text}") } else { text }
     }
 
     /// [`Self::commit`] 的内部形式：`source` 写进输入日志（上屏译词时不是候选本身），
@@ -263,10 +273,17 @@ impl Engine {
                 | CandidateKind::Cloud
                 | CandidateKind::Sentence
         );
+        // 自动空格补在上屏文本里，退格撤销按补过空格的字数数
+        let text = if self.auto_space {
+            crate::spacing::space_inner(&traditional_text)
+        } else {
+            traditional_text
+        };
         let commit = if learned {
             LastCommit {
                 text: candidate.text.clone(),
-                chars: traditional_text.chars().count(),
+                chars: text.chars().count(),
+                tail: text.chars().last(),
                 input,
                 chosen: matches!(
                     candidate.kind,
@@ -281,11 +298,12 @@ impl Engine {
             }
         } else {
             let mut plain = LastCommit::plain(&candidate.text);
-            plain.chars = traditional_text.chars().count();
+            plain.chars = text.chars().count();
+            plain.tail = text.chars().last();
             plain
         };
         self.remember_commit(commit);
-        traditional_text
+        text
     }
 
     /// 一段拼音分几次选完了（`jidiaole` 先选 挤、剩下的走整句 掉了）：这几个词合起来就是用户对这段拼音的答案。

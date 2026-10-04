@@ -23,6 +23,7 @@ mod raw;
 mod rescoring;
 mod session;
 mod setup;
+mod spacing;
 mod statistics;
 mod timings;
 mod translator;
@@ -120,6 +121,9 @@ pub struct Engine {
 
     /// 中英混输时中文候选总在英文词前面（缺省关：拼音不像话的输入英文词排第一，常在中文模式里打英文词的人靠它）。
     chinese_first: bool,
+
+    /// 中西文混排自动补空格（配置 `[general] auto_space`，缺省关）。见 [`crate::spacing`]。
+    auto_space: bool,
 
     /// 中文模式下 Shift+字母进组句缓冲区（配置 `[general] shift_letter = "compose"`，缺省关）。
     /// 关着由壳直接把大写字母交给应用，Core 这一路就不该收——否则 `Cpan` 这种会被当成拼音。
@@ -397,6 +401,7 @@ impl Engine {
             full_width_punctuation: true,
             custom_phrases: Vec::new(),
             chinese_first: false,
+            auto_space: false,
             shift_letter_compose: false,
             predictor: Box::new(NoPredictor),
             language_model: Box::new(NoLanguageModel),

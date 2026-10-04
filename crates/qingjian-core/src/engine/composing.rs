@@ -367,13 +367,15 @@ impl Engine {
             self.learner.learn_english(&raw);
         }
         self.meter_commit(&raw, InputSource::Raw, english_word);
+        // 补的空格要在组句清空前判（还没上屏过时靠组句开始时的应用前文），并先于这次上屏记下
+        let lead = self.auto_space_before(&raw);
         self.composition.clear();
         self.traditional_map.borrow_mut().clear();
         self.remember_commit(LastCommit::plain(&raw));
         self.punctuation.note_committed(&raw);
         self.history.record(&raw);
         self.chain.reset();
-        raw
+        if lead { format!(" {raw}") } else { raw }
     }
 }
 

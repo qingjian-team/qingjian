@@ -39,6 +39,7 @@ pub struct GeneralPage {
 
     /// 中英混输时中文候选排在英文词前。
     chinese_first: Retained<NSButton>,
+    auto_space: Retained<NSButton>,
 
     /// 中文模式下 Shift+字母进组句。
     shift_letter: Retained<NSButton>,
@@ -170,6 +171,18 @@ impl GeneralPage {
             mtm,
             "勾上后整段输入是英文词时（hello、key）英文词排第二，空格上屏的仍是中文；不勾（缺省）拼音不成立的输入英文词排第一。",
         );
+        let auto_space = checkbox(
+            mtm,
+            "中文与英文、数字之间自动加空格",
+            Setting::AutoSpace,
+            target,
+        );
+        row_checkbox(layout, &auto_space);
+        note(
+            layout,
+            mtm,
+            "「用Go写了30行」上屏成「用 Go 写了 30 行」。只在汉字与半角字母、数字相邻时补，标点两侧不补；点了别处、读不到应用里的文字时不补。",
+        );
         let shift_letter = checkbox(
             mtm,
             "输入拼音时按住 Shift 的字母也进组句",
@@ -192,6 +205,7 @@ impl GeneralPage {
             english,
             english_off_in_apps,
             chinese_first,
+            auto_space,
             shift_letter,
             languages: languages.to_vec(),
             punctuation,
@@ -237,6 +251,7 @@ impl GeneralPage {
         self.english_off_in_apps
             .setEnabled(general.english_candidates);
         set_checked(&self.chinese_first, general.chinese_first);
+        set_checked(&self.auto_space, general.auto_space);
         set_checked(&self.shift_letter, general.shift_letter.compose());
     }
 }

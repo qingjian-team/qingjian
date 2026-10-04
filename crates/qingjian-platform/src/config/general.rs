@@ -58,6 +58,9 @@ pub struct GeneralConfig {
     /// 常在中文模式里打英文词的人不受影响；想要中文永远在前的自己打开。
     pub chinese_first: bool,
 
+    /// 中西文混排自动空格：汉字与半角字母 / 数字之间补一个空格（「用 Go 写了 30 行」）。缺省关；目前只有 macOS 用。
+    pub auto_space: bool,
+
     /// 中文模式下按住 Shift 敲的字母：交给应用（缺省）还是收进组句缓冲区参与匹配。
     /// 收进组句才能打出「C盘」这类混杂词（`Cpan` 与 `cpan` 一样匹配）。
     pub shift_letter: ShiftLetter,
@@ -131,6 +134,7 @@ impl Default for GeneralConfig {
             english_candidates: true,
             traditional: false,
             chinese_first: false,
+            auto_space: false,
             shift_letter: ShiftLetter::default(),
             english_mode: true,
             full_width_punctuation: true,

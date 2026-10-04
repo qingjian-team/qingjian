@@ -222,6 +222,8 @@ english_candidates = true
 traditional = false
 # 中文模式下整段输入是英文词时（hello / key）是否让中文候选排第一、英文词第二；缺省 false：拼音不像话的输入英文词排第一
 chinese_first = false
+# 中西文之间自动补空格：汉字与半角字母 / 数字相邻时补一个空格，「用Go写了30行」上屏成「用 Go 写了 30 行」。缺省关；只有 macOS 用
+auto_space = false
 # 中文模式下按住 Shift 敲的字母：passthrough 拼音原样上屏、字母交给应用（缺省，与以前一致）/ compose 收进组句
 # 缓冲区参与匹配，这样 Cpan 与 cpan 一样能出「C盘」。英文模式与英文直输段（no-Way）不受影响
 shift_letter = "passthrough"
