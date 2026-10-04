@@ -52,4 +52,4 @@ macOS 与 Windows 版本仍处于测试阶段。安装后先选中青简，在�
 - [反馈问题或建议](https://github.com/qingjian-team/qingjian/issues/new/choose)；也可以加入 [QQ 内测交流群](https://qm.qq.com/q/jBvn2gGTxm)。
 - 想参与开发？从[开发文档](docs/)和[开发约定](docs/contributing.md)开始。
 
-青简在[官方渠道](https://qingjian.app/download)免费提供。代码采用 [GPL-3.0-or-later](LICENSE) 许可，并附带一条 GPLv3 第 7 条的附加许可：允许通过 App Store、TestFlight 等平台商店分发并遵守其签名与安装条款，不视为违反 GPL 第 6、10 条（全文见 `LICENSE` 开头）。项目名称与 logo 不包含在代码授权中。随包数据有各自的来源与许可，见[数据来源清单](docs/design/landscape.md)。
+青简在[官方渠道](https://qingjian.app/download)免费提供。代码采用 [GPL-3.0-or-later](LICENSE) 许可；项目名称与 logo 不包含在代码授权中。随包数据有各自的来源与许可，见[数据来源清单](docs/design/landscape.md)。
