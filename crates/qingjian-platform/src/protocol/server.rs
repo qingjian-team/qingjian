@@ -24,6 +24,10 @@ pub struct InputSettings {
     /// 按住 Shift 敲的字母吃不吃：缺省交给应用，开着时送 Server 起一段组句（`⇧C` 接 `pan` 出「C盘」）。
     #[serde(default)]
     pub shift_letter_compose: bool,
+
+    /// Windows 简繁切换保留键；老 Server 没下发时不占用应用快捷键。
+    #[serde(default)]
+    pub toggle_traditional: Option<crate::KeyCombo>,
 }
 
 impl Default for InputSettings {
@@ -32,6 +36,7 @@ impl Default for InputSettings {
             switch_mode: SwitchKeys::default(),
             english_mode: true,
             shift_letter_compose: false,
+            toggle_traditional: None,
         }
     }
 }
@@ -114,4 +119,25 @@ pub enum ServerMessage {
         /// 请求标识，回时带上。
         request: u64,
     },
+}
+
+#[cfg(test)]
+mod tests {
+    use super::InputSettings;
+    use crate::KeyCombo;
+
+    #[test]
+    fn old_server_does_not_register_new_hotkey_and_new_field_roundtrips() {
+        let old: InputSettings =
+            serde_json::from_str(r#"{"switch_mode":"shift","english_mode":true}"#).unwrap();
+        assert!(old.toggle_traditional.is_none());
+        let new = InputSettings {
+            toggle_traditional: Some(KeyCombo::TRADITIONAL_DEFAULT),
+            ..old
+        };
+        assert_eq!(
+            serde_json::from_str::<InputSettings>(&serde_json::to_string(&new).unwrap()).unwrap(),
+            new
+        );
+    }
 }

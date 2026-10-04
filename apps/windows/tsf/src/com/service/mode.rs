@@ -57,6 +57,9 @@ impl TextService_Impl {
     /// 应用 Server 下发的按键行为设置：`OpenSession` 的回包给一次，之后每一拍 `SyncMode` 也都带着。
     /// 值没变就什么都不做，所以设置窗口改完在下一拍（约 320 ms）生效，不用切走再切回输入法。
     pub(super) fn apply_input_settings(&self, input: InputSettings) {
+        // 激活早期的焦点回调可能先连接 Server，此时 thread_mgr 尚未保存；
+        // 再次收到同一份设置时仍要补登记，登记失败也由下一拍重试。
+        self.sync_traditional_key(input.toggle_traditional);
         if self.input_settings.get() == Some(input) {
             return;
         }
@@ -68,6 +71,31 @@ impl TextService_Impl {
             input.shift_letter_compose
         ));
         self.apply_mode_settings(input.english_mode, input.switch_mode);
+    }
+
+    /// 简繁组合由 Server 下发，热加载后撤旧键、登记新键。
+    fn sync_traditional_key(&self, combo: Option<qingjian_platform::KeyCombo>) {
+        if self.traditional_combo.get() == combo {
+            return;
+        }
+        let Some(thread_mgr) = self.thread_mgr.borrow().clone() else {
+            return;
+        };
+        let Ok(keystroke) = thread_mgr.cast::<ITfKeystrokeMgr>() else {
+            return;
+        };
+        if let Some(old) = self.traditional_combo.take() {
+            preserved::unregister_traditional(&keystroke, old);
+        }
+        if let Some(combo) = combo {
+            match preserved::register_traditional(&keystroke, self.client_id.get(), combo) {
+                Ok(()) => {
+                    self.traditional_combo.set(Some(combo));
+                    log(&format!("简繁切换快捷键已登记为保留键: {combo}"));
+                }
+                Err(error) => log(&format!("登记简繁切换键失败: {error}")),
+            }
+        }
     }
 
     /// Ctrl + Alt + Space 是组合键、走 TSF 保留键（与「翻译选中文字」同一套）；没勾就撤掉登记，免得白占着。

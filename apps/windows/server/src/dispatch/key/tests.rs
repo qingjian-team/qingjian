@@ -7,7 +7,7 @@ use qingjian_platform::protocol::{
     SessionId,
 };
 
-fn router(size: usize) -> Router {
+pub(super) fn router(size: usize) -> Router {
     let mut engine = Engine::new(Dictionary::parse("你\tni\t100\n").unwrap()).with_english(
         WordList::parse("hello\thello\t100\nhelp\thelp\t90\nheld\theld\t80\n").unwrap(),
     );
@@ -37,7 +37,7 @@ fn router(size: usize) -> Router {
     });
     router
 }
-fn key(
+pub(super) fn key(
     router: &mut Router,
     code: u32,
     character: Option<char>,
@@ -59,7 +59,7 @@ fn key(
         _ => panic!("key result"),
     }
 }
-fn compose(router: &mut Router, text: &str, modifiers: KeyModifiers) {
+pub(super) fn compose(router: &mut Router, text: &str, modifiers: KeyModifiers) {
     for c in text.chars() {
         key(router, c as u32, Some(c), modifiers);
     }
