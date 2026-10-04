@@ -83,6 +83,11 @@ const ACTIONS: [StatusAction; 3] = [
     StatusAction::OpenSettings,
 ];
 
+/// 前台是否在全屏/游戏模式。候选窗口定位需要它判断 TSF 锚点是否可信（#360）。
+pub(super) fn is_fullscreen() -> bool {
+    fullscreen::foreground_is_fullscreen()
+}
+
 impl StatusBar {
     /// 建一个隐藏的状态条窗口。
     pub(super) fn new(events: StatusEvents, painter: SharedPainter) -> Result<Self> {
