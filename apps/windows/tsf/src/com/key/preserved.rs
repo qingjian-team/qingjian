@@ -21,6 +21,22 @@ pub(crate) const GUID_TRANSLATE: GUID = GUID::from_u128(0x5c0a7b12_3d4e_4f60_8a9
 /// Ctrl + Alt + Space 中英切换键的保留键标识。
 pub(crate) const GUID_SWITCH_MODE: GUID = GUID::from_u128(0x2f6b8c51_9a34_4e7d_b2c8_5d1e0f3a7b64);
 
+/// 简繁切换保留键标识。
+pub(crate) const GUID_TRADITIONAL: GUID = GUID::from_u128(0x9bd77850_55e8_45cd_aa35_1c02ea349001);
+
+pub(crate) fn register_traditional(
+    keystroke: &ITfKeystrokeMgr,
+    tid: u32,
+    combo: KeyCombo,
+) -> Result<()> {
+    let description: Vec<u16> = "切换简繁输出（青简）".encode_utf16().collect();
+    unsafe { keystroke.PreserveKey(tid, &GUID_TRADITIONAL, &preserved_key(combo), &description) }
+}
+
+pub(crate) fn unregister_traditional(keystroke: &ITfKeystrokeMgr, combo: KeyCombo) {
+    let _ = unsafe { keystroke.UnpreserveKey(&GUID_TRADITIONAL, &preserved_key(combo)) };
+}
+
 /// msctf.h 的 `TF_MOD_LWIN`（windows crate 没导出）。
 const TF_MOD_LWIN: u32 = 0x08;
 

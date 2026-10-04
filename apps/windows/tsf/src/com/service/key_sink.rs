@@ -71,6 +71,17 @@ impl ITfKeyEventSink_Impl for TextService_Impl {
             self.set_english_mode(!self.mode_state.english());
             return Ok(true.into());
         }
+        if guid == preserved::GUID_TRADITIONAL {
+            if self.keyboard_disabled(&pic) {
+                return Ok(FALSE);
+            }
+            let Some(combo) = self.traditional_combo.get() else {
+                return Ok(FALSE);
+            };
+            self.key_tap.cancel();
+            let event = preserved::key_event(combo, self.mode_state.english());
+            return Ok(self.forward_key(pic, event).into());
+        }
         if guid != preserved::GUID_TRANSLATE || self.keyboard_disabled(&pic) {
             return Ok(FALSE);
         }
