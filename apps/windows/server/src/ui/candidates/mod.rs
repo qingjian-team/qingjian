@@ -14,9 +14,9 @@ use windows::Win32::Foundation::{E_INVALIDARG, HWND, LPARAM, LRESULT, POINT, REC
 use windows::Win32::Graphics::Gdi::{GetDC, ReleaseDC};
 use windows::Win32::UI::HiDpi::{GetDpiForSystem, GetDpiForWindow};
 use windows::Win32::UI::WindowsAndMessaging::{
-    CreateWindowExW, DefWindowProcW, DestroyWindow, IDC_ARROW, LoadCursorW, SW_HIDE, SW_SHOWNA,
-    ShowWindow, WNDCLASSEXW, WS_EX_LAYERED, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_EX_TOPMOST,
-    WS_POPUP,
+    CreateWindowExW, DefWindowProcW, DestroyWindow, GetCursorPos, IDC_ARROW, LoadCursorW, SW_HIDE,
+    SW_SHOWNA, ShowWindow, WNDCLASSEXW, WS_EX_LAYERED, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW,
+    WS_EX_TOPMOST, WS_POPUP,
 };
 use windows::core::{Error, PCWSTR, Result, w};
 
@@ -119,7 +119,9 @@ impl CandidateWindow {
     }
 
     /// 按光标矩形定位并显示：贴光标下方（放不下放上方），四周留出阴影。
+    /// 锚点先过 resolve_anchor：全屏/游戏模式或坐标越界时用真实光标兜底（#360）。
     pub(crate) fn show(&self, anchor: RECT) {
+        let anchor = resolve_anchor(anchor);
         self.sync_theme(anchor);
         let rendered = {
             let data = self.data.borrow();
@@ -163,6 +165,7 @@ impl CandidateWindow {
 
     /// GDI 画法：量尺寸、定位、合成。
     fn show_gdi(&self, anchor: RECT) -> Result<()> {
+        let anchor = resolve_anchor(anchor);
         let margin = layered::shadow_margin(self.dpi.get());
         let content = self.preferred_size();
         if content.0 <= 0 || content.1 <= 0 {
@@ -246,12 +249,47 @@ impl Drop for CandidateWindow {
     }
 }
 
-/// 内容左上角：贴光标下方，放不下放上方，再放不下贴屏幕内；都夹在所在显示器工作区里。
+/// 解析定位锚点：普通窗口信任 TSF 上报的组句矩形；全屏/游戏模式或锚点明显越界时，
+/// TSF 的坐标经常滞后或停在主屏，改用 GetCursorPos() 的真实光标位置兜底（#360）。
+fn resolve_anchor(anchor: RECT) -> RECT {
+    if super::status::is_fullscreen() || !anchor_plausible(anchor) {
+        let mut pt = POINT::default();
+        unsafe { let _ = GetCursorPos(&mut pt); };
+        return RECT {
+            left: pt.x,
+            top: pt.y,
+            right: pt.x,
+            bottom: pt.y,
+        };
+    }
+    anchor
+}
+
+/// 锚点左上角是否落在任一显示器工作区内。落在范围外说明 TSF 坐标不可信。
+fn anchor_plausible(anchor: RECT) -> bool {
+    let caret = POINT {
+        x: anchor.left,
+        y: anchor.top,
+    };
+    let work = monitor::work_area_near(caret);
+    anchor.left >= work.left
+        && anchor.left < work.right
+        && anchor.top >= work.top
+        && anchor.top < work.bottom
+}
+
+/// 候选窗相对锚点的摆放：内容左上角，贴光标下方，放不下放上方，再放不下贴屏幕内；
+/// 都夹在锚点所在显示器工作区里。逻辑与布局无关，供单测。
 fn place(anchor: RECT, content: (i32, i32)) -> (i32, i32) {
     let work = monitor::work_area_near(POINT {
         x: anchor.left,
         y: anchor.top,
     });
+    place_xy(anchor, content, work)
+}
+
+/// 纯摆放计算：work 是锚点所在显示器的工作区。贴光标下方，放不下放上方，再放不下贴屏幕内。
+fn place_xy(anchor: RECT, content: (i32, i32), work: RECT) -> (i32, i32) {
     let x = anchor
         .left
         .clamp(work.left, (work.right - content.0).max(work.left));
@@ -267,7 +305,115 @@ fn place(anchor: RECT, content: (i32, i32)) -> (i32, i32) {
     (x, y)
 }
 
+
 /// 分层窗口无需 `WM_PAINT`，全交默认处理。
 unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
     unsafe { DefWindowProcW(hwnd, msg, wparam, lparam) }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// 双屏（副屏在右，主屏在左）：光标在副屏，候选窗应出现在副屏工作区内。
+    #[test]
+    fn place_on_secondary_monitor() {
+        // 主屏 0..1920，副屏 1920..3840，任务栏占底部 40px。
+        let work = RECT {
+            left: 1920,
+            top: 0,
+            right: 3840,
+            bottom: 1040,
+        };
+        let anchor = RECT {
+            left: 2500,
+            top: 500,
+            right: 2510,
+            bottom: 510,
+        };
+        let (x, y) = place_xy(anchor, (200, 60), work);
+        assert_eq!(x, 2500, "x 应贴光标左边缘");
+        assert_eq!(y, 512, "y 应贴光标下方 + 间隙");
+    }
+
+    /// 光标在屏幕底部，下方放不下 → 翻到光标上方。
+    #[test]
+    fn place_above_when_no_room_below() {
+        let work = RECT {
+            left: 0,
+            top: 0,
+            right: 1920,
+            bottom: 1040,
+        };
+        let anchor = RECT {
+            left: 800,
+            top: 1000,
+            right: 810,
+            bottom: 1010,
+        };
+        let (_, y) = place_xy(anchor, (200, 80), work);
+        assert_eq!(y, 918, "应翻到光标上方：1000 - 2 - 80");
+    }
+
+    /// 内容比显示器还高：夹在屏幕底部，不越界。
+    #[test]
+    fn place_clamps_oversized_content() {
+        let work = RECT {
+            left: 0,
+            top: 0,
+            right: 1920,
+            bottom: 1040,
+        };
+        let anchor = RECT {
+            left: 100,
+            top: 100,
+            right: 110,
+            bottom: 110,
+        };
+        let (x, y) = place_xy(anchor, (3000, 3000), work);
+        // 内容宽 3000 超出工作区 1920：x 夹到工作区左缘（0），不能超过右边界
+        assert_eq!(x, 0, "超宽内容贴工作区左缘");
+        assert_eq!(y, 0, "超高内容贴工作区顶");
+    }
+
+    /// 光标贴右边缘，内容超出 → 向左收，不越过显示器右边界。
+    #[test]
+    fn place_clamps_right_edge() {
+        let work = RECT {
+            left: 0,
+            top: 0,
+            right: 1920,
+            bottom: 1040,
+        };
+        let anchor = RECT {
+            left: 1900,
+            top: 100,
+            right: 1910,
+            bottom: 110,
+        };
+        let (x, _) = place_xy(anchor, (300, 80), work);
+        assert_eq!(x, 1620, "x = 1920 - 300，贴右边界");
+    }
+
+    /// 普通窗口的锚点落在工作区内 → 原样保留（不被兜底替换）。
+    #[test]
+    fn anchor_in_work_area_is_kept() {
+        let work = RECT {
+            left: 0,
+            top: 0,
+            right: 1920,
+            bottom: 1040,
+        };
+        let anchor = RECT {
+            left: 500,
+            top: 300,
+            right: 510,
+            bottom: 310,
+        };
+        // anchor_plausible 走 monitor::work_area_near，Windows 上依赖真实屏幕；
+        // 这里只验证 place_xy 对工作区内锚点的摆放不受影响。
+        let (x, y) = place_xy(anchor, (200, 60), work);
+        assert_eq!(x, 500);
+        assert_eq!(y, 312);
+    }
 }

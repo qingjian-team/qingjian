@@ -46,7 +46,10 @@ pub(super) fn on_timer(hwnd: HWND, hidden: &Cell<bool>) {
 
 /// 前台窗口盖满了它所在的整个显示器（连任务栏一起）。带标题栏的最大化窗口不算：
 /// 任务栏自动隐藏时它也盖满整屏，但用户要的是照常显示。
-fn foreground_is_fullscreen() -> bool {
+///
+/// 候选窗口定位也依赖这个判断：全屏（游戏/视频/演示）时 TSF 上报的组句矩形坐标
+/// 经常滞后或停留在主屏，候选窗会贴到错误的显示器上（#360），需要换用真实光标。
+pub(super) fn foreground_is_fullscreen() -> bool {
     let hwnd = unsafe { GetForegroundWindow() };
     if hwnd.is_invalid() || hwnd == unsafe { GetShellWindow() } {
         return false;
