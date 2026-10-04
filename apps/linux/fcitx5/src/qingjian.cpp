@@ -295,6 +295,12 @@ void QingjianEngine::render(InputContext *context, const nlohmann::json &frame) 
     for (size_t chars = 0; bytes < raw.size() && chars < cursor; ++bytes) if ((static_cast<unsigned char>(raw[bytes]) & 0xc0) != 0x80) ++chars;
     while (bytes < raw.size() && (static_cast<unsigned char>(raw[bytes]) & 0xc0) == 0x80) ++bytes;
     preedit.setCursor(static_cast<int>(bytes));
+    // 云联想的整句补全画在候选窗的拼音行右侧，带云朵；各平台都让操作提示优先（见 render::Frame::trailing）。
+    // 只进 Server 自绘的那份 preedit：行内由应用自己画，云端文字不该混进应用的合成区。
+    Text panelPreedit = preedit;
+    const bool hinted = frame.contains("notice") && frame.at("notice").is_string();
+    if (!hinted && frame.contains("sentence") && frame.at("sentence").is_string())
+        panelPreedit.append("  ☁ " + frame.at("sentence").get<std::string>(), TextFormatFlag::DontCommit);
     const auto &items = frame.at("candidates").at("items");
     if (!items.is_array() || items.size() > 9) throw std::runtime_error("candidate count");
     auto watched = context->watch();
@@ -316,6 +322,9 @@ void QingjianEngine::render(InputContext *context, const nlohmann::json &frame) 
     for (const auto &item : items) {
         std::string annotation;
         auto text = item.at("text").get<std::string>();
+        // 云端词前面挂个云朵，与自绘平台的云朵标记同义；上屏按格子下标报给 Server，标记只影响显示。
+        const auto &kind = item.at("kind");
+        const bool cloud = !text.empty() && kind.is_string() && kind.get<std::string>() == "Cloud";
         const auto &translation = item.at("translation");
         if (!text.empty() && translation.is_object() && !translation.at("senses").empty()) {
             const auto &sense = translation.at("senses").front();
@@ -323,6 +332,7 @@ void QingjianEngine::render(InputContext *context, const nlohmann::json &frame) 
             if (!annotation.empty()) senses.push_back({index, 0});
             if (sense.value("fresh", false)) annotation += " · 生";
         }
+        if (cloud) text = "☁" + text;
         list->append(std::make_unique<qingjian::Word>(text, annotation, [this, alive = alive_, watched, index, revision, identity](InputContext *ic) {
             if (*alive && ic && ic == watched.get() && ic->hasFocus() && ic->propertyFor(&sessions_)->revision == revision)
                 exchange(ic, {{"Candidate", {{"identity", identity}, {"index", index}}}});
@@ -335,7 +345,7 @@ void QingjianEngine::render(InputContext *context, const nlohmann::json &frame) 
     panel.reset();
     const bool inlinePreedit = context->capabilityFlags().test(CapabilityFlag::Preedit) && session->preeditMode != "window";
     if (inlinePreedit) panel.setClientPreedit(preedit);
-    if (session->preeditMode != "inline" || !inlinePreedit) panel.setPreedit(preedit);
+    if (session->preeditMode != "inline" || !inlinePreedit) panel.setPreedit(panelPreedit);
     session->clientPreedit = inlinePreedit && !preedit.empty();
     if (!items.empty()) panel.setCandidateList(std::move(list));
     if (frame.at("notice").is_string()) panel.setAuxDown(Text(frame.at("notice").get<std::string>()));

@@ -1,4 +1,4 @@
-//! Linux 本地输入服务启动入口；云服务在首版保持关闭，本地整句模型按 `[model]` 开关在后台加载。
+//! Linux 本地输入服务启动入口；本地整句模型按 `[model]` 开关在后台加载，云联想按 `[predict]` 接上。
 #[cfg(target_os = "linux")]
 mod paths;
 
@@ -19,6 +19,10 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         std::fs::create_dir_all(parent)?;
     }
     Config::write_template_if_missing(&config_path)?;
+    // 偏好设置里填的密钥写在配置同目录的 `.env`（macOS / Windows 壳同样位置），启动时读进环境变量再解析配置。
+    if let Some(env_file) = config_path.parent().map(|dir| dir.join(".env")) {
+        let _ = dotenvy::from_path(&env_file);
+    }
     let config = Config::load(&config_path)?;
     std::fs::create_dir_all(paths::log_dir())?;
     let appender = tracing_appender::rolling::RollingFileAppender::builder()
@@ -89,6 +93,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         .map_err(std::io::Error::other)?;
     engine.log_session(env!("CARGO_PKG_VERSION"), "linux");
     let mut router = Router::new(engine, RouterConfig::from(&config));
+    router.configure_cloud(&config.predict);
     router.configure_local_model(find_model(Some(&user_dir), &root), &config.model);
     extern "C" fn stop(_: libc::c_int) {
         qingjian_linux_server::ipc::request_shutdown();

@@ -63,7 +63,7 @@ struct Mock {
             if (message.contains("Poll")) {
                 assert(message.at("Poll").at("session") == session);
                 if (mode == "rescore" && ++polls == 1) {
-                    frame["candidates"]["items"] = Json::parse(R"([{"text":"你好","translation":{"senses":[{"text":"hello","fresh":true}]}},{"text":"","translation":null},{"text":"","translation":null}])");
+                    frame["candidates"]["items"] = Json::parse(R"([{"text":"你好","kind":"Chinese","translation":{"senses":[{"text":"hello","fresh":true}]}},{"text":"","kind":"Chinese","translation":null},{"text":"","kind":"Chinese","translation":null}])");
                     frame["highlight"] = 0;
                     identity["revision"] = identity.at("revision").get<uint64_t>() + 1;
                 }
@@ -74,13 +74,18 @@ struct Mock {
             Json commit = nullptr;
             std::string outcome = "Passthrough";
             if (event.contains("Key") && !event.at("Key").at("release").get<bool>() && event.at("Key").at("event").at("character") == "n") {
-                frame = Json::parse(R"({"preedit":[{"text":"ni","kind":"Typed"}],"cursor":2,"candidates":{"items":[{"text":"","translation":null},{"text":"","translation":null},{"text":"你好","translation":{"senses":[{"text":"hello","fresh":true}]}}]},"highlight":2,"page":0,"page_count":2,"notice":null})");
+                frame = Json::parse(R"({"preedit":[{"text":"ni","kind":"Typed"}],"cursor":2,"candidates":{"items":[{"text":"","kind":"Chinese","translation":null},{"text":"","kind":"Chinese","translation":null},{"text":"你好","kind":"Chinese","translation":{"senses":[{"text":"hello","fresh":true}]}}]},"highlight":2,"page":0,"page_count":2,"notice":null,"sentence":null})");
+                if (mode == "cloud") {
+                    // 云端词与整句是异步并进这一帧的：插件给词前挂 ☁，整句只拼进候选窗的拼音行
+                    frame["candidates"]["items"].push_back({{"text", "云端词"}, {"kind", "Cloud"}, {"translation", nullptr}});
+                    frame["sentence"] = "云端整句补全验证";
+                }
                 outcome = "Consumed";
             }
             if (event.contains("Candidate")) {
-                assert(event.at("Candidate").at("index") == 2);
+                assert(event.at("Candidate").at("index") == (mode == "cloud" ? 3 : 2));
                 assert(event.at("Candidate").at("identity") == identity);
-                commit = "你好";
+                commit = mode == "cloud" ? "云端词" : "你好";
                 frame = emptyFrame();
                 outcome = "Consumed";
             }

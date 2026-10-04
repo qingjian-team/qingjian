@@ -29,6 +29,22 @@ int main(int argc, char **argv) {
     assert(consumed);
     assert(context.inputPanel().clientPreedit().empty() == (mode == "window"));
     assert(context.inputPanel().preedit().empty() == (mode == "inline"));
+    if (mode == "cloud") {
+        // 云端词前面挂 ☁，整句补全只拼进候选窗的拼音行，不进应用的行内 preedit；上屏的是词本身
+        assert(context.inputPanel().preedit().toString().find("☁ 云端整句补全验证") != std::string::npos);
+        assert(context.inputPanel().clientPreedit().toString() == "ni");
+        auto cloudList = context.inputPanel().candidateList();
+        assert(cloudList && cloudList->size() == 4);
+        assert(cloudList->candidate(3).text().toString() == "☁云端词");
+        cloudList->candidate(3).select(&context);
+        assert(context.committed == "云端词");
+        owned.reset();
+        auto timer = instance.eventLoop().addTimeEvent(CLOCK_MONOTONIC, fcitx::now(CLOCK_MONOTONIC) + 30000, 0,
+            [&](fcitx::EventSourceTime *, uint64_t) { instance.eventLoop().exit(); return false; });
+        instance.eventLoop().exec();
+        mock.join();
+        return 0;
+    }
     auto candidates = context.inputPanel().candidateList();
     assert(candidates && candidates->size() == 3 && candidates->toPageable()->hasNext());
     assert(candidates->candidate(2).comment().toString() == "hello · 生");

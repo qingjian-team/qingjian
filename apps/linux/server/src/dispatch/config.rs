@@ -57,7 +57,7 @@ impl From<&Config> for RouterConfig {
         Self {
             page_size: config.general.page_size(),
             preedit: config.general.preedit,
-            cloud_slots: 0,
+            cloud_slots: config.predict.slots,
             layout: config.general.layout,
             theme: config.general.theme,
             page_keys: config.general.page_keys(),

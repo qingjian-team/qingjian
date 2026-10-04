@@ -57,8 +57,8 @@ impl RescoreState {
         self.polling_since = None;
     }
 
-    /// 下一次该来 `tick` 的时长；什么都不等为 `None`。
-    pub(super) fn next_deadline(&self) -> Option<Duration> {
+    /// 下一次该来 `tick` 的时长；什么都不等为 `None`。跨模块的节拍合并在 `Router::next_tick`。
+    pub(crate) fn next_deadline(&self) -> Option<Duration> {
         if self.polling_since.is_some() {
             return Some(POLL_INTERVAL);
         }
