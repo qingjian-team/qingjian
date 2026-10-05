@@ -120,6 +120,13 @@ pub(crate) fn view(settings: &Settings, context: &mut ViewContext<Settings>) -> 
                 .on_toggled(context.callback(Message::EnglishFullWidthPunctuation)),
         ),
         field(
+            "组句中标点先上屏候选",
+            "打拼音时敲 , . ? ! 等先把高亮候选上屏、再补该标点（nihao, 一气打完「你好，」）；关掉后标点进英文直输段（老行为）。",
+            ToggleSwitch::new()
+                .is_on(g.punct_commits)
+                .on_toggled(context.callback(Message::PunctCommits)),
+        ),
+        field(
             "英文模式（Caps Lock）也给候选",
             "Tab 或方向键选词；空格、回车、标点仍原样上屏敲的字母，不选词时与直接打字一样。",
             ToggleSwitch::new()

@@ -74,6 +74,9 @@ pub enum Setting {
     /// 默认中文标点模式。
     FullWidthPunctuation,
 
+    /// `[general] punct_commits`，勾选框：组句中会转全角的标点先把高亮候选上屏再补标点。
+    PunctCommits,
+
     /// 选择已有自定义短语。
     SelectPhrase,
 
@@ -260,6 +263,7 @@ impl Setting {
             Self::Renderer => 43,
             Self::Font => 44,
             Self::FontSize => 57,
+            Self::PunctCommits => 58,
             Self::SystemTextReplacements => 46,
             Self::Fuzzy(index) => FUZZY_TAG_BASE + index as NSInteger,
             Self::DictionaryEnabled(index) => DICTIONARY_ENABLED_TAG_BASE + index as NSInteger,
@@ -276,6 +280,7 @@ impl Setting {
             43 => Self::Renderer,
             44 => Self::Font,
             57 => Self::FontSize,
+            58 => Self::PunctCommits,
             5 => Self::ExpressionKey,
             6 => Self::QuestionKey,
             41 => Self::QuestionMark,
@@ -356,6 +361,7 @@ mod tests {
             Setting::Renderer,
             Setting::Font,
             Setting::FontSize,
+            Setting::PunctCommits,
             Setting::ExpressionKey,
             Setting::QuestionKey,
             Setting::CloudEnabled,
