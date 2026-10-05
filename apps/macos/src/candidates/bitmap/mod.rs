@@ -38,11 +38,15 @@ pub struct BitmapPainter {
 
     /// 最近一帧的尺寸（点）。
     size: NSSize,
+
+    /// 候选词字号（点），译文与序号等比跟着缩放（主题逐帧构造）。
+    font_size: u8,
 }
 
 impl BitmapPainter {
-    /// `font` 是用户选的字族名，空为系统字体；没装就回到系统字体。字体库加载失败返回 `None`，调用方退回旧路径。
-    pub fn new(font: &str) -> Option<Self> {
+    /// `font` 是用户选的字族名，空为系统字体；没装就回到系统字体。`font_size` 是候选词字号（点）。
+    /// 字体库加载失败返回 `None`，调用方退回旧路径。
+    pub fn new(font: &str, font_size: u8) -> Option<Self> {
         let started = std::time::Instant::now();
         let font = font.trim();
         let library = if font.is_empty() {
@@ -74,6 +78,7 @@ impl BitmapPainter {
             dark: false,
             scale: 2.0,
             size: NSSize::ZERO,
+            font_size,
         })
     }
 
@@ -121,11 +126,13 @@ impl BitmapPainter {
     }
 
     fn repaint(&mut self) {
-        let theme = if self.dark {
+        let base = if self.dark {
             Theme::dark()
         } else {
             Theme::light()
         };
+        // 按候选词字号等比缩放三种字体，间距不动（与 Windows 壳一致）
+        let theme = base.with_font_size(f32::from(self.font_size));
         let started = std::time::Instant::now();
         let rendered =
             match self

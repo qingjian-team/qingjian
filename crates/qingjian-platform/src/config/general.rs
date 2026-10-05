@@ -7,6 +7,13 @@ use super::{CandidateRenderer, LayoutMode, LogLevel, PreeditMode, ShiftLetter, T
 /// 每页最多几个候选：数字键只有 1–9。
 pub const MAX_PAGE_SIZE: usize = 9;
 
+/// 候选词字号（点）的合法范围：只影响候选窗口（悬浮状态条不变），译文与序号按比例跟着缩放。
+pub const MIN_FONT_SIZE: u8 = 9;
+pub const MAX_FONT_SIZE: u8 = 48;
+
+/// 缺省候选词字号，与渲染器 Theme 里的候选词基准字号一致。
+pub const DEFAULT_FONT_SIZE: u8 = 16;
+
 /// 翻页键对的可选值，第一项是缺省：第一个键向前、第二个向后。
 /// 缺省不用 `,` `.`：组句中敲逗号句号应该把首选上屏再补一个全角标点（`nihao,zaima` 一气打完），
 /// 拿它们翻页就得先按空格再敲标点。选 `-` `=` 时组句中的 `-` 是翻页，不再进英文直输段（#43）。
@@ -45,6 +52,9 @@ pub struct GeneralConfig {
 
     /// 候选窗口字体的字族名；空为系统字体。只对青简渲染器生效，没装这个字体时回到系统字体。
     pub font: String,
+
+    /// 候选词字号（点），[`MIN_FONT_SIZE`]–[`MAX_FONT_SIZE`]：译文与序号等比跟着缩放，只影响候选窗口（悬浮状态条不变）。
+    pub font_size: u8,
 
     /// 组句中的拼音显示在行内、候选窗口还是两处都显示。
     pub preedit: PreeditMode,
@@ -127,6 +137,7 @@ impl Default for GeneralConfig {
             horizontal_grid: false,
             renderer: CandidateRenderer::default(),
             font: String::new(),
+            font_size: DEFAULT_FONT_SIZE,
             preedit: PreeditMode::default(),
             english_candidates: true,
             traditional: false,
@@ -247,6 +258,11 @@ impl GeneralConfig {
         self.page_size.clamp(1, MAX_PAGE_SIZE)
     }
 
+    /// 夹到合法范围的候选词字号。
+    pub fn font_size(&self) -> u8 {
+        self.font_size.clamp(MIN_FONT_SIZE, MAX_FONT_SIZE)
+    }
+
     /// 翻页键对；写得不对（不是两个不同的 ASCII 可见字符）时退回缺省。
     pub fn page_keys(&self) -> (char, char) {
         let mut chars = self.page_keys.chars();
@@ -293,6 +309,16 @@ mod tests {
         assert_eq!(general.page_keys(), ('[', ']'));
         general.page_keys = ",,".to_owned();
         assert_eq!(general.page_keys(), ('[', ']'));
+    }
+
+    #[test]
+    fn font_size_is_clamped() {
+        let mut general = GeneralConfig::default();
+        assert_eq!(general.font_size(), DEFAULT_FONT_SIZE);
+        general.font_size = 0;
+        assert_eq!(general.font_size(), MIN_FONT_SIZE);
+        general.font_size = 200;
+        assert_eq!(general.font_size(), MAX_FONT_SIZE);
     }
 
     #[test]

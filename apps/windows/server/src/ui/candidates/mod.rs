@@ -20,8 +20,8 @@ use windows::Win32::UI::WindowsAndMessaging::{
 };
 use windows::core::{Error, PCWSTR, Result, w};
 
-use qingjian_platform::ThemeMode;
 use qingjian_platform::protocol::Frame;
+use qingjian_platform::{DEFAULT_FONT_SIZE, ThemeMode};
 
 pub(crate) use self::render_data::RenderData;
 use self::theme::Theme;
@@ -29,6 +29,7 @@ use super::layered::{self, Layered};
 use super::monitor;
 use super::painter::SharedPainter;
 use super::window_class::WindowClass;
+use crate::dispatch::RenderSettings;
 
 const CLASS_NAME: PCWSTR = w!("QingjianCandidateWindow");
 static CLASS: WindowClass = WindowClass::new();
@@ -66,6 +67,9 @@ pub(crate) struct CandidateWindow {
     /// 上次解析出的深浅，变了重建配色。
     dark: Cell<bool>,
 
+    /// 候选词字号（`[general] font_size`，点）：青简渲染器逐帧现算，GDI 主题按它重建。状态条不跟。
+    font_size: Cell<u8>,
+
     /// 上次记进日志的缩放值（窗口 DPI、光标所在显示器 DPI）：变了才再记一条（#146）。
     logged_dpi: Cell<Option<(u32, Option<u32>)>>,
 
@@ -85,7 +89,11 @@ impl CandidateWindow {
         })?;
         let dpi = unsafe { GetDpiForSystem() }.max(96);
         let dark = resolve_dark(ThemeMode::default());
-        let data = RefCell::new(RenderData::empty(Rc::new(Theme::new(dpi, dark))));
+        let data = RefCell::new(RenderData::empty(Rc::new(Theme::new(
+            dpi,
+            dark,
+            DEFAULT_FONT_SIZE,
+        ))));
         // NOACTIVATE：显示时不抢应用焦点。
         let hwnd = unsafe {
             CreateWindowExW(
@@ -108,6 +116,7 @@ impl CandidateWindow {
             data,
             dpi: Cell::new(dpi),
             dark: Cell::new(dark),
+            font_size: Cell::new(DEFAULT_FONT_SIZE),
             logged_dpi: Cell::new(None),
             painter,
         })
@@ -129,6 +138,7 @@ impl CandidateWindow {
                     data.layout,
                     self.dark.get(),
                     self.dpi.get(),
+                    f32::from(self.font_size.get()),
                 )
             })
         };
@@ -188,6 +198,15 @@ impl CandidateWindow {
         let _ = unsafe { ShowWindow(self.hwnd, SW_HIDE) };
     }
 
+    /// 配置热加载后换字号：青简渲染器的主题逐帧现算、下次 `show` 生效；GDI 主题要立即按新字号重建。
+    pub(crate) fn configure(&self, settings: &RenderSettings) {
+        if self.font_size.replace(settings.font_size) != settings.font_size {
+            let dpi = self.dpi.get();
+            let dark = self.dark.get();
+            self.data.borrow_mut().theme = Rc::new(Theme::new(dpi, dark, settings.font_size));
+        }
+    }
+
     /// DPI 或深浅变了就重建主题；每次 `show` 前调。
     ///
     /// DPI 取光标所在显示器的：窗口藏着时改了缩放（或睡眠唤醒后多显示器重排），
@@ -207,7 +226,7 @@ impl CandidateWindow {
         self.log_dpi(caret, window_dpi, monitor_dpi, dpi);
         let dark = resolve_dark(self.data.borrow().theme_mode);
         if dpi != self.dpi.get() || dark != self.dark.get() {
-            self.data.borrow_mut().theme = Rc::new(Theme::new(dpi, dark));
+            self.data.borrow_mut().theme = Rc::new(Theme::new(dpi, dark, self.font_size.get()));
             self.dpi.set(dpi);
             self.dark.set(dark);
         }

@@ -63,11 +63,13 @@ pub(crate) struct Theme {
 }
 
 impl Theme {
-    /// `dpi` 96 为 100%。
-    pub(crate) fn new(dpi: u32, dark: bool) -> Self {
+    /// `dpi` 96 为 100%；`font_size` 是候选词字号（点，16 为缺省），三种字体以它等比缩放（与青简渲染器一致）。
+    pub(crate) fn new(dpi: u32, dark: bool, font_size: u8) -> Self {
         let scale = |px: i32| (px * dpi as i32) / 96;
+        // 字号与 DPI 一次算完再除（基准 16 点），减少取整误差；间距只跟 DPI 不跟字号，与青简渲染器一致
+        let font_px = |px: i32| (px * dpi as i32 * i32::from(font_size)) / (96 * 16);
         // 负高度 = 字符高度（不含内部行距）。
-        let font = |px: i32| create_font(-scale(px), w!("Microsoft YaHei UI"));
+        let font = |px: i32| create_font(-font_px(px), w!("Microsoft YaHei UI"));
         let palette = if dark {
             Palette::dark()
         } else {
@@ -77,6 +79,7 @@ impl Theme {
             text_font: font(16),
             annotation_font: font(12),
             index_font: font(11),
+            // 符号字体（状态条的齿轮 ⚙）只跟 DPI，不跟候选词字号
             symbol_font: create_font(-scale(15), w!("Segoe UI Symbol")),
             text_color: palette.text_color,
             gloss_color: palette.gloss_color,

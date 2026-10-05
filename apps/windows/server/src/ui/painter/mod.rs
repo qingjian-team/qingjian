@@ -72,13 +72,15 @@ impl Painter {
         }
     }
 
-    /// 画一帧候选窗口；`dpi` 96 为 100%。失败记日志返回 `None`，调用方退回 GDI。
+    /// 画一帧候选窗口；`dpi` 96 为 100%，`font_size` 是候选词字号（点，译文与序号等比跟着缩放）。
+    /// 失败记日志返回 `None`，调用方退回 GDI。
     pub(super) fn render_frame(
         &mut self,
         frame: &Frame,
         layout: LayoutMode,
         dark: bool,
         dpi: u32,
+        font_size: f32,
     ) -> Option<Rendered> {
         let layout = match layout {
             LayoutMode::Vertical => Layout::Vertical,
@@ -87,7 +89,13 @@ impl Painter {
         let started = std::time::Instant::now();
         let rendered = self
             .renderer
-            .render(frame, layout, &theme(dark), scale(dpi), Some(&SHADOW))
+            .render(
+                frame,
+                layout,
+                &candidate_theme(dark, font_size),
+                scale(dpi),
+                Some(&SHADOW),
+            )
             .inspect_err(|error| tracing::warn!(%error, "候选窗渲染失败"))
             .ok()?;
         tracing::debug!(
@@ -118,6 +126,11 @@ const SHADOW: Shadow = Shadow::mac_panel();
 
 fn theme(dark: bool) -> Theme {
     if dark { Theme::dark() } else { Theme::light() }
+}
+
+/// 候选窗主题：按用户字号缩放三种字体（译文与序号等比跟着）；状态条用 [`theme`] 不缩放。
+fn candidate_theme(dark: bool, font_size: f32) -> Theme {
+    theme(dark).with_font_size(font_size)
 }
 
 /// 点 → 像素的倍数。

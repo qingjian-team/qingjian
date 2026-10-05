@@ -203,7 +203,10 @@ fn apply(
                 status.hide();
             }
         }
-        UiCommand::Configure(settings) => Painter::configure(painter, &settings),
+        UiCommand::Configure(settings) => {
+            Painter::configure(painter, &settings);
+            window.configure(&settings);
+        }
     }
 }
 
