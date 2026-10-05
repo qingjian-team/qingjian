@@ -29,7 +29,7 @@ install -m 755 apps/linux/scripts/package-install.sh "$stage/install.sh"
 install -m 755 apps/linux/scripts/uninstall.sh "$stage/"
 install -m 644 apps/linux/scripts/files.py "$stage/"
 # 产品数据只带压缩包，install.sh 装前解开（files.py 按 data.lock 校验压缩包，再按包内摘要逐个校验解出的文件）
-cp -r --parents LICENSE assets/icon/logo.png assets/stroke/LICENSE-CNS11643.txt apps/linux/fcitx5/data assets/sample assets/glossary assets/levels assets/emoji \
+cp -r --parents LICENSE assets/icon/logo.png assets/stroke/LICENSE-CNS11643.txt apps/linux/fcitx5/data assets/sample assets/glossary assets/levels assets/emoji assets/wubi \
   tools/release/data.lock target/release-data/qingjian-data.tar.gz "$stage/"
 tar -C "$out" -czf "$out/$name.tar.gz" "$name"
 echo "已打包：$out/$name.tar.gz"

@@ -1,10 +1,16 @@
 //! Linux 首版按键与候选配置。
 use qingjian_platform::protocol::KeyModifiers;
-use qingjian_platform::{AppsConfig, Config, LayoutMode, PreeditMode, ThemeMode};
+use qingjian_platform::{AppsConfig, Config, LayoutMode, PreeditMode, Scheme, ThemeMode};
 
 /// Router 要用的配置项，与 macOS 壳的 `Host` 字段对齐。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RouterConfig {
+    /// 拼音侧方案。
+    pub scheme: Scheme,
+
+    /// 五笔是否启用。
+    pub wubi: bool,
+
     /// 每页候选数（`[general] page_size`）。
     pub page_size: usize,
 
@@ -55,6 +61,8 @@ impl RouterConfig {
 impl From<&Config> for RouterConfig {
     fn from(config: &Config) -> Self {
         Self {
+            scheme: config.general.scheme(),
+            wubi: config.general.wubi(),
             page_size: config.general.page_size(),
             preedit: config.general.preedit,
             cloud_slots: 0,

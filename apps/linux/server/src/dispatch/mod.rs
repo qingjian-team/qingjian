@@ -1,5 +1,6 @@
 //! Linux 会话路由：独立保存各上下文的组句，词库和学习服务保持单实例。本地整句模型在 [`rescore`]。
 
+mod code;
 mod composed;
 mod config;
 mod display;
@@ -9,6 +10,7 @@ mod message;
 mod rescore;
 mod session;
 
+use self::code::apply_code_table;
 use self::composed::Composed;
 pub use self::config::RouterConfig;
 pub use self::rescore::find_model;
@@ -69,6 +71,15 @@ pub struct Router {
 }
 
 impl Router {
+    pub fn configure_code_table(&mut self, table: Option<PathBuf>) {
+        apply_code_table(
+            &mut self.engine,
+            self.config.scheme,
+            self.config.wubi,
+            table.as_deref(),
+        );
+    }
+
     pub fn new(engine: Engine, mut config: RouterConfig) -> Self {
         config.page_size = config.page_size.clamp(1, 9);
         config.cloud_slots = 0;

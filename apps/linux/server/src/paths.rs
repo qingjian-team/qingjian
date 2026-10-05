@@ -39,3 +39,7 @@ pub fn generated(root: &Path, name: &str) -> Option<PathBuf> {
 pub fn asset(root: &Path, name: &str) -> Option<PathBuf> {
     existing(root.join("assets").join(name))
 }
+/// 五笔码表：用户目录优先，随包资源兜底。
+pub fn wubi_table(root: &Path) -> Option<PathBuf> {
+    existing(user_dir().join("wubi/wubi86.tsv")).or_else(|| asset(root, "wubi/wubi86.tsv"))
+}
