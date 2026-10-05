@@ -141,7 +141,13 @@ impl QingjianInputController {
     pub(super) fn move_highlight(&self, delta: isize, client: TextClient<'_>) {
         let changed = host::with(|h| {
             if h.grid_keys() {
-                h.session.move_rows(delta)
+                let moved = h.session.move_rows(delta);
+                // ↑ 顶在第一排再往上：回到第一个候选（不是毫无动作）
+                if !moved && delta < 0 {
+                    h.session.jump_to_first()
+                } else {
+                    moved
+                }
             } else {
                 h.session.move_highlight(delta)
             }
@@ -153,17 +159,28 @@ impl QingjianInputController {
     }
 
     /// 左右键。横排矩阵开着而且有候选时归候选：单行里逐个移动高亮（到页边自动翻页，不展开），展开后按阅读顺序跨行移动——
-    /// 上下键被矩阵占了，单行里只剩左右键能挪高亮。返回是不是归了候选（不是的话调用方照旧移动拼音光标）。
+    /// 上下键被矩阵占了，单行里只剩左右键能挪高亮。照微信输入法的逻辑，`←` 顶在第一个候选上退一级：
+    /// 展开着收回单行（[`Session::move_cells`] 里），单行里交还拼音光标；光标移到最左后 `→`
+    /// 照旧把光标移回来，直到移回末尾才重新归候选。
+    /// 返回是不是归了候选（不是的话调用方照旧移动拼音光标）。
     pub(super) fn move_cells(&self, delta: isize, client: TextClient<'_>) -> bool {
         let handled = host::with(|h| {
             if !h.grid_keys() || h.session.layout.is_empty() {
                 return None;
             }
-            Some(if h.session.grid.is_some() {
-                h.session.move_cells(delta)
-            } else {
-                h.session.move_highlight(delta)
-            })
+            if h.session.grid.is_some() {
+                return Some(h.session.move_cells(delta));
+            }
+            // 拼音光标已经离开末尾（正在改拼音）：← / → 继续归光标
+            let composition = h.engine.composition();
+            if composition.cursor() < composition.text().len() {
+                return None;
+            }
+            // 顶在第一个候选上：交还拼音光标（去改已输入的拼音）
+            if delta < 0 && h.session.highlighted == 0 {
+                return None;
+            }
+            Some(h.session.move_highlight(delta))
         })
         .flatten();
         if handled == Some(true) {

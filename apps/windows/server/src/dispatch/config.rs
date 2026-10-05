@@ -22,6 +22,9 @@ pub struct RouterConfig {
     /// 候选排布（`[general] layout`）。
     pub layout: LayoutMode,
 
+    /// 横排时上 / 下键把单行展开成多行矩阵（`[general] horizontal_grid`）。
+    pub horizontal_grid: bool,
+
     /// 候选窗口外观（`[general] theme`）。
     pub theme: ThemeMode,
 
@@ -93,6 +96,11 @@ impl RouterConfig {
         self.english_candidates && !app.is_some_and(|app| self.apps.english_candidates_off(app))
     }
 
+    /// 横排矩阵这套按键是否生效：开关开着（`[general] horizontal_grid`）而且排布是横排。
+    pub fn grid_keys(&self) -> bool {
+        self.horizontal_grid && self.layout == LayoutMode::Horizontal
+    }
+
     /// 交给 UI 线程的画法。
     pub fn render_settings(&self) -> RenderSettings {
         RenderSettings {
@@ -109,6 +117,7 @@ impl From<&Config> for RouterConfig {
             cloud_slots: config.predict.slots,
             shift_letter_compose: config.general.shift_letter.compose(),
             layout: config.general.layout,
+            horizontal_grid: config.general.horizontal_grid,
             theme: config.general.theme,
             renderer: config.general.renderer,
             font: config.general.font.trim().to_owned(),

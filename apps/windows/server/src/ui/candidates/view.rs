@@ -16,6 +16,12 @@ use super::theme::Theme;
 /// 云端候选词前的小云朵（macOS 用 SF Symbol `cloud`）。
 const CLOUD_GLYPH: &str = "☁";
 
+/// 矩阵里一格里候选词最多多宽（按候选字宽的倍数；帧没给列宽时用），与渲染器一致。
+const MAX_CELL_EMS: f32 = 4.0;
+
+/// 超宽候选截尾补的省略号。
+const ELLIPSIS: &str = "…";
+
 /// 竖排的列宽与统一行高。
 struct Columns {
     index_width: i32,
@@ -31,6 +37,7 @@ pub(super) fn preferred_size(hdc: HDC, data: &RenderData) -> SIZE {
     let (notice_width, notice_height) = notice_line_size(hdc, data);
     let (body_width, body_height) = match data.layout {
         LayoutMode::Vertical => vertical_size(hdc, data),
+        LayoutMode::Horizontal if data.columns > 0 => matrix_size(hdc, data),
         LayoutMode::Horizontal => horizontal_size(hdc, data),
     };
     SIZE {
@@ -112,6 +119,9 @@ pub(super) fn paint(hdc: HDC, data: &RenderData, client: RECT) {
     y += draw_notice(hdc, data, y);
     match data.layout {
         LayoutMode::Vertical => draw_rows(hdc, data, y, client.right - client.left),
+        LayoutMode::Horizontal if data.columns > 0 => {
+            draw_matrix(hdc, data, y, client.right - client.left)
+        }
         LayoutMode::Horizontal => draw_horizontal(hdc, data, y, client.right - client.left),
     }
 }
@@ -349,6 +359,246 @@ fn draw_horizontal(hdc: HDC, data: &RenderData, y: i32, width: i32) {
             );
         }
     }
+}
+
+/// 量好的矩阵网格（镜像渲染器的 `renderer/matrix.rs`）：每格显示文字（可能已截断）、各列宽度、统一行高。
+struct MatrixCells {
+    texts: Vec<(String, bool)>,
+
+    index_width: i32,
+
+    /// 每列一格的宽度（序号 + 间距 + 候选词）。
+    column_widths: Vec<i32>,
+
+    row_height: i32,
+}
+
+impl MatrixCells {
+    /// 第 `column` 列左边相对网格起点的偏移。
+    fn offset(&self, column: usize, gap: i32) -> i32 {
+        self.column_widths[..column].iter().sum::<i32>() + gap * column as i32
+    }
+
+    /// 网格总宽（不含两侧高亮留边）。
+    fn width(&self, gap: i32) -> i32 {
+        self.column_widths.iter().sum::<i32>()
+            + gap * self.column_widths.len().saturating_sub(1) as i32
+    }
+}
+
+/// 矩阵：横排展开后的多行网格。一行 `columns` 格，各列宽度由帧给（按整份候选估的，滚动时不变），
+/// 超宽候选截尾加「…」；网格下面固定留一行信息：高亮候选被截断时的完整文本、它的译文，页码靠右。
+/// 高亮怎么移、视口怎么滚，窗口都不跳。
+fn matrix_size(hdc: HDC, data: &RenderData) -> (i32, i32) {
+    if data.rows.is_empty() {
+        return (0, 0);
+    }
+    let theme = &data.theme;
+    let cells = matrix_cells(hdc, data);
+    let grid_rows = data.rows.len().div_ceil(data.columns.max(1));
+    let info_height = line_height(hdc, theme.annotation_font) + theme.row_padding;
+    (
+        cells.width(theme.column_gap) + theme.padding / 2 * 2,
+        cells.row_height * grid_rows as i32 + info_height,
+    )
+}
+
+fn draw_matrix(hdc: HDC, data: &RenderData, y: i32, width: i32) {
+    if data.rows.is_empty() {
+        return;
+    }
+    let theme = &data.theme;
+    let cells = matrix_cells(hdc, data);
+    let columns = data.columns.max(1);
+    let text_height = measure(hdc, theme.text_font, "国").cy;
+    let inset = theme.padding / 2;
+    let index_gap = theme.column_gap / 2;
+    let origin = theme.padding + inset;
+    for (i, row) in data.rows.iter().enumerate() {
+        let (text, _) = &cells.texts[i];
+        if text.is_empty() && row.index.is_empty() {
+            continue;
+        }
+        let cell_width = cells.column_widths[i % columns];
+        let x = origin + cells.offset(i % columns, theme.column_gap);
+        let row_y = y + cells.row_height * (i / columns) as i32;
+        let baseline = row_y + theme.row_padding;
+        if i == data.highlight {
+            fill_round_rect(
+                hdc,
+                RECT {
+                    left: x - inset,
+                    top: row_y,
+                    right: x + cell_width + inset,
+                    bottom: row_y + cells.row_height,
+                },
+                theme.highlight,
+                theme.corner_radius / 2,
+            );
+        }
+        let small_offset = small_offset(hdc, theme, text_height);
+        if !row.index.is_empty() {
+            draw_text(
+                hdc,
+                theme.index_font,
+                theme.index_color,
+                x,
+                baseline + small_offset,
+                &row.index,
+            );
+        }
+        let mut shown = row.clone();
+        shown.text.clone_from(text);
+        draw_word(
+            hdc,
+            theme,
+            &shown,
+            x + cells.index_width + index_gap,
+            baseline,
+            small_offset,
+        );
+    }
+    // 信息行：页码靠右；左边先放被截断的高亮候选的完整文本，再放译文，放不下的截断
+    let grid_rows = data.rows.len().div_ceil(columns);
+    let info_top = y + cells.row_height * grid_rows as i32 + theme.row_padding / 2;
+    let right = width - theme.padding;
+    // 译文与完整文本的间距（渲染器 10 点，按 padding 的 DPI 比例换算）
+    let info_gap = theme.padding * 5 / 4;
+    let mut budget = right - origin;
+    if let Some(footer) = &data.footer {
+        let size = measure(hdc, theme.index_font, footer);
+        draw_text(
+            hdc,
+            theme.index_font,
+            theme.index_color,
+            right - size.cx,
+            info_top,
+            footer,
+        );
+        budget -= size.cx + theme.column_gap;
+    }
+    let mut x = origin;
+    let Some(row) = (data.highlight != usize::MAX)
+        .then(|| data.rows.get(data.highlight))
+        .flatten()
+    else {
+        return;
+    };
+    if cells.texts[data.highlight].1 {
+        let used = draw_clipped(hdc, theme, &row.text, theme.text_color, x, info_top, budget);
+        x += used + info_gap;
+        budget -= used + info_gap;
+    }
+    for (segment, tone) in &row.annotation {
+        if budget <= 0 {
+            break;
+        }
+        let used = draw_clipped(
+            hdc,
+            theme,
+            segment,
+            tone_color(theme, *tone),
+            x,
+            info_top,
+            budget,
+        );
+        x += used;
+        budget -= used;
+    }
+}
+
+/// 信息行里画一段小字，宽度超过 `budget` 就截断；返回画了多宽。
+fn draw_clipped(
+    hdc: HDC,
+    theme: &Theme,
+    text: &str,
+    color: COLORREF,
+    x: i32,
+    y: i32,
+    budget: i32,
+) -> i32 {
+    let (shown, _) = truncate(hdc, theme.annotation_font, text, budget.max(0) as f32);
+    draw_text(hdc, theme.annotation_font, color, x, y, &shown)
+}
+
+/// 每格的显示文字与各列宽度。序号列按最宽的一位数留，行与行才对得齐。
+/// 列宽优先用帧给的（按整份候选估的，滚动时不变）；没给就按视口里实测、每格封顶 [`MAX_CELL_EMS`]。
+fn matrix_cells(hdc: HDC, data: &RenderData) -> MatrixCells {
+    let theme = &data.theme;
+    let columns = data.columns.max(1);
+    let em = measure(hdc, theme.text_font, "国").cx;
+    let index_width = measure(hdc, theme.index_font, "8").cx;
+    // 列宽在估出来的字宽之外再留一点（渲染器 1.5 点，按 padding 的 DPI 比例换算）
+    let slack = theme.padding * 3 / 16;
+    let index_gap = theme.column_gap / 2;
+    let fixed: Option<Vec<i32>> = (data.column_ems.len() == columns).then(|| {
+        data.column_ems
+            .iter()
+            .map(|ems| (*ems * em as f32 + slack as f32) as i32)
+            .collect()
+    });
+    let mut text_widths = fixed.clone().unwrap_or_else(|| vec![0; columns]);
+    let row_height = measure(hdc, theme.text_font, "国").cy + theme.row_padding * 2;
+    let texts = data
+        .rows
+        .iter()
+        .enumerate()
+        .map(|(i, row)| {
+            let column = i % columns;
+            let cloud = cloud_prefix_width(hdc, theme, row);
+            let limit = fixed
+                .as_ref()
+                .map_or(MAX_CELL_EMS * em as f32, |widths| widths[column] as f32);
+            // 列宽是按字数估出来的：同样按字数估着放得下的格子不用再实测截断
+            if fixed.is_some() && estimated_ems(&row.text) * em as f32 + cloud as f32 <= limit {
+                return (row.text.clone(), false);
+            }
+            let (text, truncated) = truncate(
+                hdc,
+                theme.text_font,
+                &row.text,
+                (limit - cloud as f32).max(0.0),
+            );
+            if fixed.is_none() {
+                let width = (measure(hdc, theme.text_font, &text).cx + cloud).max(0);
+                text_widths[column] = text_widths[column].max(width);
+            }
+            (text, truncated)
+        })
+        .collect();
+    MatrixCells {
+        texts,
+        index_width,
+        column_widths: text_widths
+            .iter()
+            .map(|width| index_width + index_gap + width)
+            .collect(),
+        row_height,
+    }
+}
+
+/// `text` 宽度超过 `max_width` 就从末尾去字、补上「…」直到放得下；返回显示文字与是否截断过。
+fn truncate(hdc: HDC, font: HFONT, text: &str, max_width: f32) -> (String, bool) {
+    if text.is_empty() || measure(hdc, font, text).cx as f32 <= max_width {
+        return (text.to_owned(), false);
+    }
+    let kept: Vec<char> = text.chars().collect();
+    for n in (0..kept.len()).rev() {
+        let mut candidate: String = kept[..n].iter().collect();
+        candidate.push_str(ELLIPSIS);
+        if n == 0 || measure(hdc, font, &candidate).cx as f32 <= max_width {
+            return (candidate, true);
+        }
+    }
+    (ELLIPSIS.to_owned(), true)
+}
+
+/// 按字数估一段文字几个候选字宽（宽字符一个，拉丁字母、数字不到一个），
+/// 与 Core `Grid::column_ems`、渲染器同一条规则。
+fn estimated_ems(text: &str) -> f32 {
+    text.chars()
+        .map(|c| if c.is_ascii() { 0.62 } else { 1.0 })
+        .sum()
 }
 
 fn top_line_size(hdc: HDC, data: &RenderData) -> (i32, i32) {
