@@ -77,9 +77,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         }
     };
     engine.set_fuzzy(config.fuzzy);
-    engine.set_shuangpin(config.general.shuangpin());
     engine.set_shuangpin_raw_preedit(config.general.shuangpin_raw_preedit);
-    engine.set_zhuyin_mode(config.general.is_zhuyin());
     engine.set_shift_letter_compose(config.general.shift_letter.compose());
     engine.set_learning(config.general.learning);
     engine.set_chinese_first(config.general.chinese_first);
@@ -89,6 +87,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         .map_err(std::io::Error::other)?;
     engine.log_session(env!("CARGO_PKG_VERSION"), "linux");
     let mut router = Router::new(engine, RouterConfig::from(&config));
+    router.configure_code_table(paths::wubi_table(&root));
     router.configure_local_model(find_model(Some(&user_dir), &root), &config.model);
     extern "C" fn stop(_: libc::c_int) {
         qingjian_linux_server::ipc::request_shutdown();

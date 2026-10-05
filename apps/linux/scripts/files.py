@@ -44,7 +44,7 @@ def main():
     for kind in ('addon', 'inputmethod'):
         files[data / f'fcitx5/{kind}/qingjian.conf'] = root / f'apps/linux/fcitx5/data/{kind}/qingjian.conf'
     resources = prefix / 'share/qingjian/resources'
-    for kind in ('sample', 'glossary', 'levels', 'emoji'):
+    for kind in ('sample', 'glossary', 'levels', 'emoji', 'wubi'):
         for source in (root / 'assets' / kind).rglob('*'):
             if source.is_file():
                 files[resources / source.relative_to(root)] = source
