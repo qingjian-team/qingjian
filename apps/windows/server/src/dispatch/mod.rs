@@ -19,7 +19,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
-use qingjian_core::Engine;
+use qingjian_core::{Engine, Grid};
 use qingjian_platform::LocalModelConfig;
 use qingjian_platform::protocol::{
     ClientMessage, Frame, IndicatorState, InputSettings, ScreenRect, ServerMessage, SessionId,
@@ -74,6 +74,9 @@ pub struct Router {
 
     /// 当前高亮候选在布局里的下标（跨页）。
     highlight: usize,
+
+    /// 横排展开成矩阵时的视口；`None` 是单行。新一轮查询收回单行（与 macOS 壳的 `Session` 一致）。
+    grid: Option<Grid>,
 
     /// 这轮查询里动过高亮：动过就不再拿重排结果换掉候选；注音模式数字键动过之后才选词。
     navigated: bool,
@@ -136,6 +139,7 @@ impl Router {
             sentence: None,
             notice: None,
             highlight: 0,
+            grid: None,
             navigated: false,
             last_flush: Instant::now(),
             reload: None,

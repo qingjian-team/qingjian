@@ -12,7 +12,7 @@ use crate::{LayoutMode, PreeditMode, ThemeMode};
 
 /// Server 告诉 DLL「现在屏幕上该是什么样」：组句的拼音行、候选页、高亮与页码。
 /// 空 [`Frame`]（`preedit` 与 `candidates` 都空）表示没有在组句，DLL 收起候选窗口。
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct Frame {
     /// 组句拼音行的分段，按顺序拼成整行。
     pub preedit: Vec<PreeditSegment>,
@@ -39,6 +39,16 @@ pub struct Frame {
 
     /// 候选排布（竖排 / 横排）。DLL 是纯渲染端，布局由 Server 按 `[general] layout` 配置随帧下发。
     pub layout: LayoutMode,
+
+    /// 横排展开成矩阵时每行几格，0 为没展开。展开时 `candidates` 是视口里的格子（按行优先排开，
+    /// 空位是 `text` 为空的占位候选），`highlight` 是高亮格在视口里的下标，`page` 是高亮所在行的页号。
+    /// 由 Server 自绘候选窗消费；DLL 不画候选，读不到也照旧。
+    #[serde(default)]
+    pub columns: usize,
+
+    /// 矩阵各列要留几个候选字宽（按整份候选估的，滚动、移动高亮时不变，窗口才不跳）；没展开为空。
+    #[serde(default)]
+    pub column_ems: Vec<f32>,
 
     /// 候选窗口外观（跟随系统 / 浅色 / 深色）。`System` 由 DLL 侧按当前系统主题解析。
     pub theme: ThemeMode,

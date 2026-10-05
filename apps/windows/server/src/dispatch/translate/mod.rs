@@ -108,6 +108,8 @@ impl Router {
             page: 0,
             page_count: 1,
             layout: self.config.layout,
+            columns: 0,
+            column_ems: Vec::new(),
             theme: self.config.theme,
             aux_code_show: self.config.aux_code_show,
             sentence: None,

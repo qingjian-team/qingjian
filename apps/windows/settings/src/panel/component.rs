@@ -105,6 +105,9 @@ impl Component for Settings {
             Message::Layout(Some(i)) if i < LayoutMode::ALL.len() => {
                 self.save("general", "layout", LayoutMode::ALL[i].key());
             }
+            Message::HorizontalGrid(on) => {
+                self.save("general", "horizontal_grid", on);
+            }
             Message::Preedit(Some(i)) if i < PreeditMode::ALL.len() => {
                 self.save("general", "preedit", PreeditMode::ALL[i].key());
             }

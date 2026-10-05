@@ -17,6 +17,26 @@ impl Router {
         {
             return effect;
         }
+        // 横排矩阵开着时 ← / → 归了候选，拼音光标改用 Alt + ← / →（对齐 macOS 的 ⌥← / ⌥→）。
+        // 方向键没有字符，得赶在「带 Ctrl / Alt / Win 的键归应用」之前拦下。
+        if self.composing()
+            && self.config.grid_keys()
+            && event.modifiers.alt
+            && !event.modifiers.ctrl
+            && !event.modifiers.win
+        {
+            match event.virtual_key {
+                codes::LEFT => {
+                    self.engine.move_cursor_syllable_left();
+                    return Effect::Changed(None);
+                }
+                codes::RIGHT => {
+                    self.engine.move_cursor_syllable_right();
+                    return Effect::Changed(None);
+                }
+                _ => {}
+            }
+        }
         if event.modifiers.has_command_key() {
             return Effect::Passthrough;
         }
@@ -105,6 +125,10 @@ impl Router {
                 Effect::Changed(None)
             }
             codes::ESCAPE => {
+                // 横排矩阵展开着时第一下 Esc 只收回单行（高亮留在原处）
+                if self.collapse_grid() {
+                    return Effect::Navigated;
+                }
                 // 辅码态里 Esc 只清码段、拼音留着（与 Core 的 clear_aux 语义一致）
                 if self.engine.in_aux() {
                     self.engine.clear_aux();
@@ -140,11 +164,23 @@ impl Router {
                 }
             },
             codes::DOWN => {
-                self.move_highlight(1);
+                // 横排矩阵开着：↓ 展开成矩阵 / 往下换行；否则高亮逐个移动
+                if self.config.grid_keys() {
+                    self.move_rows(1);
+                } else {
+                    self.move_highlight(1);
+                }
                 Effect::Navigated
             }
             codes::UP => {
-                self.move_highlight(-1);
+                if self.config.grid_keys() {
+                    // ↑ 顶在第一排再往上：回到第一个候选（不是毫无动作）
+                    if !self.move_rows(-1) {
+                        self.jump_to_first();
+                    }
+                } else {
+                    self.move_highlight(-1);
+                }
                 Effect::Navigated
             }
             codes::NEXT => {
@@ -156,12 +192,21 @@ impl Router {
                 Effect::Navigated
             }
             codes::LEFT => {
-                self.engine.move_cursor_left();
-                Effect::Changed(None)
+                // 横排矩阵开着且归了候选：单行逐个移高亮 / 矩阵里按阅读顺序移；否则照旧移拼音光标
+                if self.move_cells_or_highlight(-1) {
+                    Effect::Navigated
+                } else {
+                    self.engine.move_cursor_left();
+                    Effect::Changed(None)
+                }
             }
             codes::RIGHT => {
-                self.engine.move_cursor_right();
-                Effect::Changed(None)
+                if self.move_cells_or_highlight(1) {
+                    Effect::Navigated
+                } else {
+                    self.engine.move_cursor_right();
+                    Effect::Changed(None)
+                }
             }
             codes::HOME => {
                 self.engine.move_cursor_home();
@@ -364,5 +409,36 @@ impl Router {
 
     fn composing(&self) -> bool {
         !self.engine.composition().is_empty()
+    }
+
+    /// 左右键横排矩阵开着且有候选时归候选（与 macOS 壳的 `move_cells` 一致）：单行里逐个移动高亮
+    /// （到页边自动翻页，不展开），展开后按阅读顺序跨行移动——上下键被矩阵占了，单行里只剩左右键能挪高亮。
+    /// 照微信输入法的逻辑，`←` 顶在第一个候选上退一级：展开着收回单行（[`Router::move_cells`]），
+    /// 单行里交还拼音光标；光标移到最左后 `→` 照旧把光标移回来，直到移回末尾才重新归候选。
+    /// 返回是否归了候选（不是的话调用方照旧移动拼音光标）。
+    fn move_cells_or_highlight(&mut self, delta: isize) -> bool {
+        if !self.config.grid_keys() || self.candidate_count() == 0 {
+            return false;
+        }
+        if self.grid.is_some() {
+            self.move_cells(delta);
+            return true;
+        }
+        // 拼音光标已经离开末尾（正在改拼音）：← / → 继续归光标
+        if !self.cursor_at_end() {
+            return false;
+        }
+        if delta < 0 && self.highlight == 0 {
+            // 顶在第一个候选上：交还拼音光标（去改已输入的拼音）
+            return false;
+        }
+        self.move_highlight(delta);
+        true
+    }
+
+    /// 拼音光标是否还在缓冲区末尾（没在改拼音）。
+    fn cursor_at_end(&self) -> bool {
+        let composition = self.engine.composition();
+        composition.cursor() >= composition.text().len()
     }
 }

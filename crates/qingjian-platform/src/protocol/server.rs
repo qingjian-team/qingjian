@@ -36,8 +36,8 @@ impl Default for InputSettings {
     }
 }
 
-/// Server 发给 DLL 的消息。
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+/// Server 发给 DLL 的消息。`Frame` 带浮点列宽，没有 `Eq`，这里也只有 `PartialEq`。
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum ServerMessage {
     /// 对一次 [`super::ClientMessage::OpenSession`] 的答复：把 DLL 在按键到达之前就要知道的
     /// 设置带过去一次（之后 [`Self::ModeSync`] 的每一拍也带着，改了配置不用重开会话）。
