@@ -64,7 +64,7 @@ impl Session {
         self.move_rows(delta * GRID_ROWS as isize)
     }
 
-    /// 矩阵里按阅读顺序移一格；没展开时不动。
+    /// 矩阵里按阅读顺序移一格；没展开时不动。返回要不要重画。
     pub fn move_cells(&mut self, delta: isize) -> bool {
         let Some(mut grid) = self.grid else {
             return false;
@@ -83,6 +83,18 @@ impl Session {
     /// 收回单行，高亮留在原处。返回原来是不是展开着。
     pub fn collapse(&mut self) -> bool {
         self.grid.take().is_some()
+    }
+
+    /// 矩阵里顶在第一排还往上：高亮回到第一个候选、视口滚回顶部。返回要不要重画。
+    pub fn jump_to_first(&mut self) -> bool {
+        if self.grid.is_none() || self.highlighted == 0 {
+            return false;
+        }
+        self.grid = Some(Grid::at(&self.layout, 0));
+        self.highlighted = 0;
+        self.page = 0;
+        self.navigated = true;
+        true
     }
 
     /// 矩阵视口里的格子（按行优先排开）与每行几格；没展开返回 `None`。
@@ -298,6 +310,48 @@ mod tests {
         assert!(session.move_rows(-1));
         let (cells, _) = session.grid_cells().unwrap();
         assert_eq!(cells.len(), 5);
+    }
+
+    /// ← 顶在第一个候选上移不动（归拼音光标，由控制器分派）；→ 顶在最后一个候选上不动，矩阵保持展开。
+    #[test]
+    fn arrows_at_the_grid_edges_do_not_move() {
+        let mut session = Session::default();
+        session.reset(None, candidates(20), 5, 0);
+        session.move_rows(1);
+        // ← 一路走回第一个候选，全程还是矩阵里移动
+        for _ in 0..5 {
+            assert!(session.move_cells(-1));
+            assert!(session.grid.is_some());
+        }
+        assert_eq!(session.highlighted, 0);
+        // 顶在第一个候选上再按 ←：移不动，矩阵保持展开（这一下由控制器交还拼音光标）
+        assert!(!session.move_cells(-1));
+        assert!(session.grid.is_some());
+        assert_eq!(session.highlighted, 0);
+        // → 顶在最后一个候选上移不动：矩阵保持展开
+        session.move_rows(1);
+        while session.move_cells(1) {}
+        assert_eq!(session.highlighted, 19);
+        assert!(session.grid.is_some());
+    }
+
+    /// 矩阵里顶在第一排再按 ↑：高亮回到第一个候选、视口滚回顶部；已经在第一个候选就不动。
+    #[test]
+    fn up_at_the_first_row_jumps_back_to_the_first_candidate() {
+        let mut session = Session::default();
+        session.reset(None, candidates(40), 5, 0);
+        session.move_rows(1);
+        session.move_cells(1);
+        assert_eq!(session.highlighted, 6);
+        // 回第一排第二格
+        assert!(session.move_rows(-1));
+        assert_eq!(session.highlighted, 1);
+        // 第一排再往上：回到第一个候选
+        assert!(session.jump_to_first());
+        assert_eq!((session.highlighted, session.page), (0, 0));
+        assert_eq!(session.grid.unwrap().top(), 0);
+        // 已在第一个候选：不动
+        assert!(!session.jump_to_first());
     }
 
     #[test]

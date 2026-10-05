@@ -129,6 +129,10 @@ impl Router {
                 Effect::Changed(None)
             }
             codes::ESCAPE => {
+                // 横排矩阵展开着时第一下 Esc 只收回单行（高亮留在原处）
+                if self.collapse_grid() {
+                    return Effect::Navigated;
+                }
                 // 辅码态里 Esc 只清码段、拼音留着（与 Core 的 clear_aux 语义一致）
                 if self.engine.in_aux() {
                     self.engine.clear_aux();
@@ -163,10 +167,28 @@ impl Router {
                     Effect::Navigated
                 }
             },
-            codes::DOWN => self.vertical_key(1),
-            // 高亮还在第一个、没动过时 ↑ 没处可去，拿来开符号面板
+            codes::DOWN => {
+                // 横排矩阵开着：↓ 展开成矩阵 / 往下换行；否则按 highlight_keys 移高亮
+                if self.config.grid_keys() {
+                    self.move_rows(1);
+                    Effect::Navigated
+                } else {
+                    self.vertical_key(1)
+                }
+            }
+            // 高亮还在第一个、没动过时 ↑ 没处可去，拿来开符号面板（矩阵开着时也一样，`↓` 照旧展开矩阵）
             codes::UP if self.open_panel_from_key() => Effect::Navigated,
-            codes::UP => self.vertical_key(-1),
+            codes::UP => {
+                if self.config.grid_keys() {
+                    // ↑ 顶在第一排再往上：回到第一个候选（不是毫无动作）
+                    if !self.move_rows(-1) {
+                        self.jump_to_first();
+                    }
+                    Effect::Navigated
+                } else {
+                    self.vertical_key(-1)
+                }
+            }
             codes::NEXT => {
                 self.page(1);
                 Effect::Navigated
@@ -198,10 +220,11 @@ impl Router {
         Effect::Navigated
     }
 
-    /// `←` / `→`：缺省只走拼音光标；高亮键配成 `←` / `→` 时两键一起管，把「拼音行 + 候选栏」当成
-    /// 一条从左到右的序列走——拼音行在左边，所以 `→` 先走光标、到末位溢出成选词，`←` 先退候选、到首位回光标。
+    /// `←` / `→`：缺省只走拼音光标；高亮键配成 `←` / `→` 或横排矩阵开着时两键一起管，
+    /// 把「拼音行 + 候选栏」当成一条从左到右的序列走——拼音行在左边，所以 `→` 先走光标、
+    /// 到末位溢出成选词，`←` 先退候选、到首位回光标（macOS 壳的 `move_cells` 是同一套规则）。
     fn horizontal_key(&mut self, step: isize) -> Effect {
-        if self.config.highlight_keys == HighlightKeys::UpDown {
+        if self.config.highlight_keys == HighlightKeys::UpDown && !self.config.grid_keys() {
             self.move_caret(step);
             return Effect::Changed(None);
         }
@@ -209,11 +232,11 @@ impl Router {
             if self.move_caret(1) {
                 return Effect::Changed(None);
             }
-            self.move_highlight(1);
+            self.move_cells_or_highlight(1);
             return Effect::Navigated;
         }
         if self.highlight > 0 {
-            self.move_highlight(-1);
+            self.move_cells_or_highlight(-1);
             return Effect::Navigated;
         }
         // 高亮已在首位：把这一下还给拼音光标；光标也在开头时没有去处，照样吃掉
@@ -428,5 +451,14 @@ impl Router {
 
     pub(in crate::dispatch) fn composing(&self) -> bool {
         !self.engine.composition().is_empty()
+    }
+
+    /// 横排矩阵展开着时按阅读顺序移一格（跨行、跳过空位），否则逐个移动高亮（到页边自动翻页）。
+    fn move_cells_or_highlight(&mut self, delta: isize) {
+        if self.grid.is_some() {
+            self.move_cells(delta);
+        } else {
+            self.move_highlight(delta);
+        }
     }
 }

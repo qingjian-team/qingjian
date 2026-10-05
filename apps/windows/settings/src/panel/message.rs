@@ -40,6 +40,8 @@ pub(crate) enum Message {
     Appearance(Option<usize>),
     Theme(Option<usize>),
     Layout(Option<usize>),
+    /// 横排时 ↑ / ↓ 把单行展开成多行矩阵。
+    HorizontalGrid(bool),
     Preedit(Option<usize>),
     Renderer(Option<usize>),
     /// 字体框里的文字变了：空或正好是某个字族名就落盘。
