@@ -3,7 +3,7 @@
 use super::diagnostics::{copy_to_pasteboard, open_with_system};
 use super::*;
 use crate::preferences::DEFAULT_FONT_LABEL;
-use qingjian_platform::ShiftLetter;
+use qingjian_platform::{MAX_FONT_SIZE, MIN_FONT_SIZE, ShiftLetter};
 
 impl Host {
     /// 写短语前读取文件；外部规则有变化时同步列表并请用户重新确认。
@@ -199,6 +199,12 @@ impl Host {
                 let font = text.trim();
                 let font = if font == DEFAULT_FONT_LABEL { "" } else { font };
                 self.settings.set_value("general", "font", font);
+            }
+            (Setting::FontSize, SettingValue::Index(index)) => {
+                let size = i64::from(MIN_FONT_SIZE) + index as i64;
+                if size <= i64::from(MAX_FONT_SIZE) {
+                    self.settings.set_value("general", "font_size", size);
+                }
             }
             (Setting::Layout, SettingValue::Index(index)) => {
                 if let Some(layout) = LayoutMode::ALL.get(index) {

@@ -35,6 +35,8 @@ pub(crate) enum Message {
     FontQuery(String),
     /// 从提示里选了一个字族。
     Font(String),
+    /// 候选词字号（点）。
+    FontSize(Option<f64>),
     StatusBar(bool),
 
     // 云服务页

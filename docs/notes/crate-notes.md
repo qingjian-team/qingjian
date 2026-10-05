@@ -191,7 +191,8 @@ P2C 自由生成实验：`--eval-text <集> --eval-generate data/models/hanzhang
 自己解析 `trak` 字距表、按主题 gamma 加深笔画；cosmic-text 打了 `opsz` 光学字号补丁（qingjian-team/cosmic-text 分支 `qingjian-opsz`，workspace `[patch.crates-io]` 钉 rev）。
 `examples/preview.rs` 出 PNG 与真机截图并排比、`--measure` 与 AppKit 对宽度。mac 壳 `candidates/bitmap/` 贴位图，`[general] renderer = "system"` 切回 AppKit 绘制
 （过渡期退路，偏好设置「候选窗口」页可选）；`[general] font` 是候选窗字族名（空为系统字体，`bitmap/font_files.rs` 用 CoreText 按字族名找文件只加载那几个，没装就回系统字体；
-设置页 `preferences/font_picker/` 是搜索框 + 列表）。设计与验收见 `docs/design/rendering.md`。
+设置页 `preferences/font_picker/` 是搜索框 + 列表）。`[general] font_size`（9–48，缺省 16）经 `Theme::with_font_size` 按候选词字号等比缩放译文与序号字体（间距不变），悬浮状态条不缩放；
+macOS AppKit 退路不跟随字号。设计与验收见 `docs/design/rendering.md`。
 
 ## crates/qingjian-update
 

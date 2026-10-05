@@ -1,6 +1,8 @@
 //! 「候选窗口」页：外观、排布、渲染引擎、字体、拼音显示位置、悬浮状态条。
 
-use qingjian_platform::{CandidateRenderer, LayoutMode, PreeditMode, ThemeMode};
+use qingjian_platform::{
+    CandidateRenderer, LayoutMode, MAX_FONT_SIZE, MIN_FONT_SIZE, PreeditMode, ThemeMode,
+};
 use windows_reactor::*;
 
 use crate::panel::controls::{field, page};
@@ -73,6 +75,15 @@ pub(crate) fn view(settings: &Settings, context: &mut ViewContext<Settings>) -> 
                 .items_source(suggestions)
                 .on_text_changed(context.callback(Message::FontQuery))
                 .on_suggestion_chosen(context.callback(Message::Font)),
+        ),
+        field(
+            "字号",
+            "候选词的字号（点），译文与序号按比例跟着缩放；只影响候选窗口，悬浮状态条不变。",
+            NumberBox::new()
+                .minimum(f64::from(MIN_FONT_SIZE))
+                .maximum(f64::from(MAX_FONT_SIZE))
+                .value(f64::from(g.font_size()))
+                .on_value_changed(context.callback(Message::FontSize)),
         ),
         field(
             "拼音显示",

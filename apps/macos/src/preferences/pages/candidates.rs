@@ -3,7 +3,9 @@
 use objc2::MainThreadMarker;
 use objc2::rc::Retained;
 use objc2_app_kit::{NSButton, NSPopUpButton};
-use qingjian_platform::{CandidateRenderer, Config, LayoutMode, PreeditMode, ThemeMode};
+use qingjian_platform::{
+    CandidateRenderer, Config, LayoutMode, MAX_FONT_SIZE, MIN_FONT_SIZE, PreeditMode, ThemeMode,
+};
 
 use crate::candidates::available_families;
 use crate::preferences::controls::{checkbox, note, row_checkbox, row_popup, select, set_checked};
@@ -27,6 +29,9 @@ pub struct CandidatesPage {
 
     /// 候选窗字体：搜索框 + 列表。
     font: FontPicker,
+
+    /// 候选词字号。
+    font_size: Retained<NSPopUpButton>,
 
     /// 拼音显示位置。
     preedit: Retained<NSPopUpButton>,
@@ -76,6 +81,15 @@ impl CandidatesPage {
             mtm,
             "只对青简渲染器生效；没装的字体自动回到系统字体。",
         );
+        let size_titles: Vec<String> = (MIN_FONT_SIZE..=MAX_FONT_SIZE)
+            .map(|size| size.to_string())
+            .collect();
+        let font_size = row_popup(layout, mtm, "字号", &size_titles, Setting::FontSize, target);
+        note(
+            layout,
+            mtm,
+            "候选词的字号（点），译文与序号按比例跟着缩放；只影响候选窗口（悬浮状态条不变），系统绘制退路下不生效。",
+        );
         let preedit_titles: Vec<String> = PreeditMode::ALL
             .iter()
             .map(|p| p.label().to_owned())
@@ -99,6 +113,7 @@ impl CandidatesPage {
             horizontal_grid,
             renderer,
             font,
+            font_size,
             preedit,
         }
     }
@@ -123,6 +138,12 @@ impl CandidatesPage {
                 .position(|r| *r == general.renderer),
         );
         self.font.sync(&general.font);
+        select(
+            &self.font_size,
+            Some(usize::from(
+                general.font_size().saturating_sub(MIN_FONT_SIZE),
+            )),
+        );
         select(
             &self.preedit,
             PreeditMode::ALL.iter().position(|p| *p == general.preedit),

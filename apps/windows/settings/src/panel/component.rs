@@ -2,7 +2,7 @@
 
 use qingjian_platform::{
     CandidateRenderer, Config, DEFAULT_ENGLISH_CANDIDATES_OFF_WINDOWS, LayoutMode, LogLevel,
-    PreeditMode, ShiftLetter, ThemeMode, UpdateChannel,
+    MAX_FONT_SIZE, MIN_FONT_SIZE, PreeditMode, ShiftLetter, ThemeMode, UpdateChannel,
 };
 use windows_reactor::*;
 
@@ -56,6 +56,11 @@ impl Component for Settings {
             Message::PageSize(Some(value)) => {
                 let size = (value.round() as i64).clamp(1, 9);
                 self.save("general", "page_size", size);
+            }
+            Message::FontSize(Some(value)) => {
+                let size = (value.round() as i64)
+                    .clamp(i64::from(MIN_FONT_SIZE), i64::from(MAX_FONT_SIZE));
+                self.save("general", "font_size", size);
             }
             Message::Scheme(Some(i)) if i < general::SCHEMES.len() => {
                 self.save("general", "scheme", general::SCHEMES[i].1);

@@ -31,6 +31,9 @@ pub struct RouterConfig {
     /// 候选窗口字体的字族名（`[general] font`），空为系统字体；只对青简渲染器生效。
     pub font: String,
 
+    /// 候选词字号（`[general] font_size`，点）：译文与序号等比跟着缩放；只作用于候选窗口，状态条不变。
+    pub font_size: u8,
+
     /// 拼音显示位置（`[general] preedit`）。
     pub preedit: PreeditMode,
 
@@ -98,6 +101,7 @@ impl RouterConfig {
         RenderSettings {
             renderer: self.renderer,
             font: self.font.clone(),
+            font_size: self.font_size,
         }
     }
 }
@@ -112,6 +116,7 @@ impl From<&Config> for RouterConfig {
             theme: config.general.theme,
             renderer: config.general.renderer,
             font: config.general.font.trim().to_owned(),
+            font_size: config.general.font_size(),
             preedit: config.general.preedit,
             page_keys: config.general.page_keys(),
             english_candidates: config.general.english_candidates,

@@ -68,4 +68,30 @@ impl Theme {
             text_gamma,
         }
     }
+
+    /// 按候选词字号缩放三种字体（译文与序号等比跟着缩放），间距与其余参数不变。
+    /// 传入字号以缺省候选词字号（[`Theme::light`] 的 16 点）为基准。
+    pub fn with_font_size(mut self, size: f32) -> Self {
+        let scale = size / self.text_font.size;
+        self.text_font = self.text_font.scaled(scale);
+        self.annotation_font = self.annotation_font.scaled(scale);
+        self.index_font = self.index_font.scaled(scale);
+        self
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn font_size_scales_all_three_fonts_proportionally() {
+        let theme = Theme::light().with_font_size(24.0);
+        assert_eq!(theme.text_font, FontSpec::new(24.0, 28.5));
+        assert_eq!(theme.annotation_font, FontSpec::new(18.0, 22.5));
+        assert_eq!(theme.index_font, FontSpec::new(16.5, 21.0));
+        // 间距与其余参数不动
+        assert_eq!(theme.padding, 8.0);
+        assert_eq!(theme.max_rows, 9);
+    }
 }

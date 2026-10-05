@@ -18,7 +18,7 @@ use objc2_app_kit::{
 use objc2_foundation::{
     NSArray, NSAttributedString, NSDictionary, NSNumber, NSPoint, NSRect, NSSize, NSString,
 };
-use qingjian_platform::{CandidateRenderer, LayoutMode};
+use qingjian_platform::{CandidateRenderer, DEFAULT_FONT_SIZE, LayoutMode};
 
 use super::bitmap::BitmapPainter;
 use super::cloud_icon::CloudIcon;
@@ -47,6 +47,9 @@ pub struct Ivars {
 
     /// 用户选的字族名（空为系统字体），换了要重建渲染器。
     font: RefCell<String>,
+
+    /// 候选词字号（点），换了要重建渲染器；AppKit 退路不跟（见 [`Self::set_font_size`]）。
+    font_size: Cell<u8>,
 }
 
 /// preedit 光标的宽度。
@@ -122,6 +125,7 @@ impl CandidateView {
             theme,
             bitmap: RefCell::new(None),
             font: RefCell::new(String::new()),
+            font_size: Cell::new(DEFAULT_FONT_SIZE),
         });
         unsafe { msg_send![super(this), initWithFrame: NSRect::ZERO] }
     }
@@ -134,7 +138,21 @@ impl CandidateView {
         *self.ivars().font.borrow_mut() = font.to_owned();
         let mut bitmap = self.ivars().bitmap.borrow_mut();
         if bitmap.is_some() {
-            *bitmap = BitmapPainter::new(font);
+            *bitmap = BitmapPainter::new(font, self.ivars().font_size.get());
+            drop(bitmap);
+            self.setNeedsDisplay(true);
+        }
+    }
+
+    /// 候选词字号（点），译文与序号等比跟着缩放。渲染器在用就当场重建；
+    /// AppKit 退路的字体建在 [`Theme`] 里、不跟字号（过渡期退路，见页面提示）。
+    pub fn set_font_size(&self, font_size: u8) {
+        if self.ivars().font_size.replace(font_size) == font_size {
+            return;
+        }
+        let mut bitmap = self.ivars().bitmap.borrow_mut();
+        if bitmap.is_some() {
+            *bitmap = BitmapPainter::new(&self.ivars().font.borrow(), font_size);
             drop(bitmap);
             self.setNeedsDisplay(true);
         }
@@ -145,7 +163,8 @@ impl CandidateView {
         let mut bitmap = self.ivars().bitmap.borrow_mut();
         match renderer {
             CandidateRenderer::Qingjian if bitmap.is_none() => {
-                *bitmap = BitmapPainter::new(&self.ivars().font.borrow());
+                *bitmap =
+                    BitmapPainter::new(&self.ivars().font.borrow(), self.ivars().font_size.get());
             }
             CandidateRenderer::System if bitmap.is_some() => {
                 tracing::info!("候选窗切回 AppKit 绘制");
