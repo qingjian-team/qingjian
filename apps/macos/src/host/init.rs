@@ -28,7 +28,9 @@ pub fn init(mtm: MainThreadMarker, info: &BundleInfo) -> Result<(), HostError> {
             .filter(|language| languages.contains(language))
             .or_else(|| languages.first().copied())
     };
-    let glossary = learning_language.map(load_glossary).transpose()?;
+    let glossary = learning_language
+        .map(|language| load_glossary(language, Some(general.translation_min_level.as_str())))
+        .transpose()?;
     let learner = match paths::user_data_dir() {
         Some(dir) => load_learner(&dir),
         None => FrequencyLearner::default(),
@@ -265,8 +267,12 @@ pub(super) fn glossary_path(language: Language) -> Result<PathBuf, HostError> {
         .or_else(|_| paths::resource(&format!("glossary-{}.tsv", language.code())))
 }
 
-/// 随包释义表叠上用户目录的个人释义表（`user-glossary-<语言>.tsv`，释义兜底写入、可手改）。
-pub(super) fn load_glossary(language: Language) -> Result<LayeredTranslator, HostError> {
+/// 随包释义表叠上用户目录的个人释义表（`user-glossary-<语言>.tsv`，释义兜底写入、可手改）；
+/// 随包表可带等级门槛（`[general] translation_min_level`），个人表不受影响。
+pub(super) fn load_glossary(
+    language: Language,
+    min_level: Option<&str>,
+) -> Result<LayeredTranslator, HostError> {
     let bundled = Glossary::from_path(language, glossary_path(language)?)?;
     let personal = match paths::user_data_dir() {
         Some(dir) => PersonalGlossary::open(
@@ -282,5 +288,15 @@ pub(super) fn load_glossary(language: Language) -> Result<LayeredTranslator, Hos
             "个人释义表已加载"
         );
     }
-    Ok(LayeredTranslator::new(bundled, personal))
+    let mut layered = LayeredTranslator::new(bundled, personal);
+    if let Some(min_level) = min_level
+        && let Ok(levels) = paths::resource(&format!("levels-{}.tsv", language.code()))
+        && let Ok(levels) = LevelTable::from_path(&levels)
+        && let Some(gate) = LevelGate::new(levels, min_level)
+    {
+        layered = layered.with_level_gate(gate);
+    } else if min_level.is_some() {
+        tracing::debug!("译词等级门槛未生效：没有等级表或等级名对不上");
+    }
+    Ok(layered)
 }

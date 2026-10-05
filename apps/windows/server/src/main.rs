@@ -162,6 +162,7 @@ fn main() {
         bundled_codes_dir: bundled_codes_dir.clone(),
         aux_code: config.aux_code.clone(),
         levels_dir: Some(root.join("assets/levels")),
+        translation_min_level: Some(config.general.translation_min_level.clone()),
         user_dir: user_dir(),
         input_log: config.general.input_log,
         ..AssemblySpec::new(&dict)

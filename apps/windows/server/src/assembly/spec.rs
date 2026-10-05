@@ -40,6 +40,9 @@ pub struct AssemblySpec {
     /// 词汇等级表目录（`levels-<语言>.tsv`）。
     pub levels_dir: Option<PathBuf>,
 
+    /// 译词等级门槛（`[general] translation_min_level`）。
+    pub translation_min_level: Option<String>,
+
     /// 用户数据目录（`%APPDATA%\Qingjian`）；没有就都只在内存。
     pub user_dir: Option<PathBuf>,
 
@@ -61,6 +64,7 @@ impl AssemblySpec {
             bundled_codes_dir: None,
             aux_code: AuxCodeConfig::default(),
             levels_dir: None,
+            translation_min_level: None,
             user_dir: None,
             input_log: false,
         }

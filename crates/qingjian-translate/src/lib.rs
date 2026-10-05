@@ -11,17 +11,19 @@
 //!
 //! `#` 开头为注释行。每个文件对应一种学习语言，语言由构造时指定。
 //!
-//! [`LevelTable`] 是词汇等级表（`levels-<语言>.tsv`，`词\t等级`），给词汇统计按级数词用。
+//! [`LevelTable`] 是词汇等级表（`levels-<语言>.tsv`，`词\t等级`），给词汇统计按级数词用，也给 [`LevelGate`] 当译词等级门槛（`translation_min_level`）。
 //! [`PersonalGlossary`] 是用户目录里的个人释义表（释义兜底写入、可手改），[`LayeredTranslator`] 把它叠在随包表上面。
 
 mod error;
 mod glossary;
 mod layered_translator;
+mod level_gate;
 mod level_table;
 mod personal_glossary;
 
 pub use error::GlossaryError;
 pub use glossary::Glossary;
 pub use layered_translator::LayeredTranslator;
+pub use level_gate::LevelGate;
 pub use level_table::LevelTable;
 pub use personal_glossary::PersonalGlossary;

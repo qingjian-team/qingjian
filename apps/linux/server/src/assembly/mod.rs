@@ -10,7 +10,7 @@ use qingjian_core::{EmojiTable, Engine, Language};
 use qingjian_dictionary::{Dictionary, WordList};
 use qingjian_learning::{FrequencyLearner, InputLog, UsageStats, VocabularyBook};
 use qingjian_platform::extra_dictionaries;
-use qingjian_translate::{Glossary, LayeredTranslator, LevelTable, PersonalGlossary};
+use qingjian_translate::{Glossary, LayeredTranslator, LevelGate, LevelTable, PersonalGlossary};
 
 use crate::error::ServerError;
 
@@ -32,7 +32,13 @@ pub fn assemble(spec: &AssemblySpec) -> Result<Engine, ServerError> {
     );
     let mut engine = Engine::new(dictionary).with_learner(Box::new(learner));
     if let Some((language, path)) = &spec.glossary {
-        match load_glossary(*language, path, spec.user_dir.as_deref()) {
+        match load_glossary(
+            *language,
+            path,
+            spec.user_dir.as_deref(),
+            spec.levels_dir.as_deref(),
+            spec.translation_min_level.as_deref(),
+        ) {
             Ok(glossary) => engine = engine.with_translator(Box::new(glossary)),
             Err(error) => tracing::warn!(%error, "释义表加载失败，继续中文输入"),
         }
@@ -107,11 +113,14 @@ fn load_learner(dir: &Path) -> FrequencyLearner {
     }
 }
 
-/// 随包释义表叠上个人释义表（`user-glossary-<语言>.tsv`）。
+/// 随包释义表叠上个人释义表（`user-glossary-<语言>.tsv`）；随包表可带等级门槛
+/// （`[general] translation_min_level`），个人表不受影响。
 fn load_glossary(
     language: Language,
     path: &Path,
     user_dir: Option<&Path>,
+    levels_dir: Option<&Path>,
+    min_level: Option<&str>,
 ) -> Result<LayeredTranslator, ServerError> {
     let bundled = Glossary::from_path(language, path)?;
     let personal = match user_dir {
@@ -128,7 +137,18 @@ fn load_glossary(
             "个人释义表已加载"
         );
     }
-    Ok(LayeredTranslator::new(bundled, personal))
+    let mut layered = LayeredTranslator::new(bundled, personal);
+    if let Some(min_level) = min_level
+        && let Some(levels_dir) = levels_dir
+        && let Ok(levels) =
+            LevelTable::from_path(levels_dir.join(format!("levels-{}.tsv", language.code())))
+        && let Some(gate) = LevelGate::new(levels, min_level)
+    {
+        layered = layered.with_level_gate(gate);
+    } else if min_level.is_some() {
+        tracing::debug!("译词等级门槛未生效：没有等级表或等级名对不上");
+    }
+    Ok(layered)
 }
 
 /// 词汇记录（`user-vocab.tsv`），有等级表就按级统计。

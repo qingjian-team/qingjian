@@ -37,7 +37,7 @@ use qingjian_platform::{
 use qingjian_predict::{
     CloudGlossFiller, CloudPredictor, ConnectionTest, PredictConfig, PredictError,
 };
-use qingjian_translate::{Glossary, LayeredTranslator, LevelTable, PersonalGlossary};
+use qingjian_translate::{Glossary, LayeredTranslator, LevelGate, LevelTable, PersonalGlossary};
 
 use crate::app::BundleInfo;
 use crate::app::{Settings, logging, paths};

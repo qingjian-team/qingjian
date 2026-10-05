@@ -25,6 +25,10 @@ pub struct GeneralConfig {
     /// 学习语言（ISO 639-1，`en` / `ja` / `es`；`off` 不显示译文）：候选旁显示哪种语言的译文。要有对应的释义表文件才生效。
     pub learning_language: String,
 
+    /// 译词等级门槛（`b1` / `n3` …）：随包释义表里等级低于它的译词不显示，个人释义表不受影响。
+    /// 等级名对不上当前学习语言的等级表时门槛自动关闭；`off` 或留空也关。
+    pub translation_min_level: String,
+
     /// 每页候选数，1–9。
     pub page_size: usize,
 
@@ -120,6 +124,7 @@ impl Default for GeneralConfig {
     fn default() -> Self {
         Self {
             learning_language: "en".to_owned(),
+            translation_min_level: "b1".to_owned(),
             page_size: MAX_PAGE_SIZE,
             page_keys: PAGE_KEY_OPTIONS[0].to_owned(),
             theme: ThemeMode::default(),

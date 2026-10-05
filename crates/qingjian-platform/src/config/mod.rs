@@ -198,6 +198,10 @@ pub const TEMPLATE: &str = concat!(
 [general]
 # 学习语言（en 英语 / ja 日语 / es 西班牙语 / off 不显示译文）：候选旁显示哪种语言的译文，要有对应的释义表才生效
 learning_language = "en"
+# 译词等级门槛：随包释义表里等级低于它的译词不显示（the / is / important 这类过于简单的词没有学习价值）；
+# 个人释义表不受影响。en 用 CEFR（a1–c2），ja 用 JLPT（n5–n1），es 没有等级表；等级名对不上当前学习
+# 语言的等级表时门槛自动关闭。"off" 或留空也关
+translation_min_level = "b1"
 # 每页候选数（1–9）
 page_size = 9
 # 翻页键对：前一个上一页、后一个下一页。可选 "[]" 或 ",."；选 ",." 的话组句中敲逗号句号是翻页而不是上屏加标点
@@ -584,6 +588,7 @@ mod tests {
         assert_eq!(config.general.layout, LayoutMode::Horizontal);
         assert_eq!(config.general.preedit, PreeditMode::Window);
         assert_eq!(config.general.learning_language, "en");
+        assert_eq!(config.general.translation_min_level, "b1");
         assert!(config.general.english_candidates);
         assert!(!config.general.traditional);
         assert_eq!(config.general.shuangpin(), None);

@@ -23,6 +23,12 @@ pub(super) use chain::CommitChain;
 pub use last::LastCommit;
 pub use transition::Transition;
 
+/// 整句译词最多看多少个词：句太长时后面的词不看了，整句标注要的是「顺手学一个」，不是全句对照。
+const MAX_SENTENCE_GLOSS_WORDS: usize = 16;
+
+/// 整句译词的句长上限（字数）：更长的整句基本是云端补全的长句，切词标注意义不大。
+const MAX_SENTENCE_GLOSS_CHARS: usize = 50;
+
 impl Engine {
     /// 给候选补上译文。与 [`Self::query`] 分开调用，平台层可以先画候选再补画译文。
     pub fn annotate(&self, list: &mut CandidateList) -> AnnotationReport {
@@ -43,10 +49,14 @@ impl Engine {
                     self.english_translator
                         .translate(&text.to_ascii_lowercase())
                 }),
-                _ => self.translator.translate(text).map(|mut translation| {
-                    self.mark_fresh(&mut translation);
-                    translation
-                }),
+                _ => self
+                    .translator
+                    .translate(text)
+                    .or_else(|| self.sentence_gloss(candidate))
+                    .map(|mut translation| {
+                        self.mark_fresh(&mut translation);
+                        translation
+                    }),
             };
             hits += usize::from(candidate.translation.is_some());
         }
@@ -55,6 +65,30 @@ impl Engine {
             hits,
             elapsed: start.elapsed(),
         }
+    }
+
+    /// 整句候选的译词：整句查不到释义表，就把句子切回词，取等级最高（最难）的那个词的释义——
+    /// 打整句也能顺带学句中的难词。没有语言模型、切不出认识的词或句中都没有译词时留空。
+    fn sentence_gloss(&self, candidate: &Candidate) -> Option<Translation> {
+        if !matches!(
+            candidate.kind,
+            CandidateKind::Sentence | CandidateKind::Generated
+        ) || candidate.text.chars().count() > MAX_SENTENCE_GLOSS_CHARS
+        {
+            return None;
+        }
+        let clauses = sentence::segment_text(&candidate.text, &*self.language_model)?;
+        clauses
+            .into_iter()
+            .flatten()
+            .take(MAX_SENTENCE_GLOSS_WORDS)
+            .filter_map(|word| {
+                let translation = self.translator.translate(&word)?;
+                let level = self.translator.sense_level(&translation).unwrap_or(0);
+                Some((level, translation))
+            })
+            .max_by_key(|(level, _)| *level)
+            .map(|(_, translation)| translation)
     }
 
     /// 上屏：记入学习，从缓冲区消耗掉该候选对应的拼音，返回要提交给应用的文本。

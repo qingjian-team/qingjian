@@ -10,7 +10,7 @@ use qingjian_core::{EmojiTable, Engine, Language};
 use qingjian_dictionary::{Dictionary, WordList};
 use qingjian_learning::{FrequencyLearner, InputLog, UsageStats, VocabularyBook};
 use qingjian_platform::{Config, code_tables, extra_dictionaries};
-use qingjian_translate::{Glossary, LayeredTranslator, LevelTable, PersonalGlossary};
+use qingjian_translate::{Glossary, LayeredTranslator, LevelGate, LevelTable, PersonalGlossary};
 
 use crate::error::ServerError;
 
@@ -36,6 +36,8 @@ pub fn assemble(spec: &AssemblySpec) -> Result<Engine, ServerError> {
             *language,
             path,
             spec.user_dir.as_deref(),
+            spec.levels_dir.as_deref(),
+            spec.translation_min_level.as_deref(),
         )?));
     }
     if let Some(dir) = &spec.user_dir {
@@ -141,11 +143,14 @@ pub fn glossary_file(root: &Path, language: Language) -> Option<PathBuf> {
     .find(|path| path.is_file())
 }
 
-/// 随包释义表叠上个人释义表（`user-glossary-<语言>.tsv`）。启动装配与热加载换语言共用。
+/// 随包释义表叠上个人释义表（`user-glossary-<语言>.tsv`）。启动装配与热加载换语言共用；
+/// 随包表可带等级门槛（`[general] translation_min_level`），个人表不受影响。
 pub(crate) fn load_glossary(
     language: Language,
     path: &Path,
     user_dir: Option<&Path>,
+    levels_dir: Option<&Path>,
+    min_level: Option<&str>,
 ) -> Result<LayeredTranslator, ServerError> {
     let bundled = Glossary::from_path(language, path)?;
     let personal = match user_dir {
@@ -162,7 +167,18 @@ pub(crate) fn load_glossary(
             "个人释义表已加载"
         );
     }
-    Ok(LayeredTranslator::new(bundled, personal))
+    let mut layered = LayeredTranslator::new(bundled, personal);
+    if let Some(min_level) = min_level
+        && let Some(levels_dir) = levels_dir
+        && let Ok(levels) =
+            LevelTable::from_path(levels_dir.join(format!("levels-{}.tsv", language.code())))
+        && let Some(gate) = LevelGate::new(levels, min_level)
+    {
+        layered = layered.with_level_gate(gate);
+    } else if min_level.is_some() {
+        tracing::debug!("译词等级门槛未生效：没有等级表或等级名对不上");
+    }
+    Ok(layered)
 }
 
 /// 词汇记录（`user-vocab.tsv`），有等级表就按级统计。

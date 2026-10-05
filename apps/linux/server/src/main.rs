@@ -63,6 +63,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         bundled_dicts_dir: Some(root.join("data/generated/dicts")),
         dictionaries: config.dictionaries.clone(),
         levels_dir: Some(root.join("assets/levels")),
+        translation_min_level: Some(config.general.translation_min_level.clone()),
         user_dir: Some(user_dir.clone()),
         input_log: config.general.input_log,
         log_dir: Some(paths::log_dir()),
