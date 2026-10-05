@@ -38,6 +38,12 @@ pub(crate) struct RenderData {
     /// 候选排布。
     pub(super) layout: LayoutMode,
 
+    /// 矩阵每行几格（`> 0` 是横排展开成矩阵）；单行为 0。
+    pub(super) columns: usize,
+
+    /// 矩阵各列留几个候选字宽（整份候选估的，移动高亮时不变，窗口才不跳）。
+    pub(super) column_ems: Vec<f32>,
+
     /// 外观模式；`System` 由窗口按系统主题解析。
     pub(super) theme_mode: ThemeMode,
 
@@ -57,6 +63,8 @@ impl RenderData {
             sentence: None,
             notice: None,
             layout: LayoutMode::default(),
+            columns: 0,
+            column_ems: Vec::new(),
             theme_mode: ThemeMode::default(),
             show_code: false,
         }
@@ -68,12 +76,31 @@ impl RenderData {
         self.show_code = frame.aux_code_show;
         self.preedit = window_preedit(frame);
         self.cursor = frame.cursor;
+        self.columns = frame.columns;
+        self.column_ems = frame.column_ems.clone();
+        let grid = frame.columns > 0;
+        // 矩阵里序号只标在高亮所在那一行（数字键选的就是它），空位什么都不画；单行照旧全标
+        let highlight_row = grid.then(|| frame.highlight / frame.columns);
         self.rows = frame
             .candidates
             .items
             .iter()
             .enumerate()
-            .map(|(i, candidate)| row::from_candidate(i, candidate, self.show_code))
+            .map(|(i, candidate)| {
+                let mut row = row::from_candidate(
+                    if grid { i % frame.columns } else { i },
+                    candidate,
+                    self.show_code,
+                );
+                if grid {
+                    let labelled =
+                        Some(i / frame.columns) == highlight_row && !candidate.text.is_empty();
+                    if !labelled {
+                        row.index = String::new();
+                    }
+                }
+                row
+            })
             .collect();
         self.highlight = frame.highlight;
         self.footer =
@@ -105,8 +132,8 @@ impl RenderData {
             rows: self.rows.clone(),
             // 协议里 usize::MAX 表示不高亮。
             highlighted: (self.highlight != usize::MAX).then_some(self.highlight),
-            columns: 0,
-            column_ems: Vec::new(),
+            columns: self.columns,
+            column_ems: self.column_ems.clone(),
             footer: self.footer.clone(),
             sentence: self.sentence.clone(),
             status: self.notice.clone(),

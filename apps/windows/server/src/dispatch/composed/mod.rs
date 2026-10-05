@@ -2,7 +2,10 @@
 
 mod state;
 
-use qingjian_core::{Candidate, CandidateLayout, CandidateList, CloudWord, Query};
+use qingjian_core::{
+    Candidate, CandidateKind, CandidateLayout, CandidateList, Cell, CloudWord, GRID_ROWS, Grid,
+    Query,
+};
 use qingjian_platform::protocol::{Frame, PROTOCOL_VERSION, PreeditKind, PreeditSegment};
 
 pub(super) use self::state::{Composed, TypedKeys};
@@ -13,6 +16,7 @@ impl Router {
     pub(super) fn recompose(&mut self) {
         self.highlight = 0;
         self.navigated = false;
+        self.grid = None;
         self.sentence = None;
         if self.engine.composition().is_empty() {
             self.composed = None;
@@ -101,8 +105,14 @@ impl Router {
         self.highlight = next;
     }
 
-    /// 整页翻 `step`，高亮落到目标页第一个候选。
+    /// 整页翻 `step`，高亮落到目标页第一个候选；矩阵展开着时一次翻一屏（与 macOS 壳的 `turn_page` 一致）。
     pub(super) fn page(&mut self, step: isize) {
+        if self.grid.is_some() {
+            if self.move_screens(step) {
+                self.engine.note_page_turn();
+            }
+            return;
+        }
         let count = self.candidate_count();
         if count == 0 {
             self.highlight = 0;
@@ -117,6 +127,77 @@ impl Router {
             self.engine.note_page_turn();
         }
         self.highlight = (target * page_size).min(count - 1);
+    }
+
+    /// 横排矩阵：上 / 下键竖着移 `delta` 行（列不变，目标格没候选就取最近的）；还是单行就先从当前页展开
+    /// （展开本身算变化）。返回高亮是否真的动了。
+    pub(super) fn move_rows(&mut self, delta: isize) -> bool {
+        let expanding = self.grid.is_none();
+        self.shift_grid_rows(delta) || expanding
+    }
+
+    /// 矩阵里顶在第一排还往上：高亮回到第一个候选、视口滚回顶部。返回是否动了。
+    pub(super) fn jump_to_first(&mut self) -> bool {
+        let Some(Composed::Candidates { layout, .. }) = &self.composed else {
+            return false;
+        };
+        if self.grid.is_none() || self.highlight == 0 {
+            return false;
+        }
+        self.highlight = 0;
+        self.grid = Some(Grid::at(layout, 0));
+        self.navigated = true;
+        true
+    }
+
+    /// 矩阵里按阅读顺序移一格（越过行尾到下一行开头），跳过空位；没展开时不动。
+    /// 照微信输入法的逻辑，`←` 顶在第一个候选上移不动时收回单行（先退回单行，再按一下才轮到拼音光标）。
+    /// 返回是否动了（收回也算动）。
+    pub(super) fn move_cells(&mut self, delta: isize) -> bool {
+        let Some(Composed::Candidates { layout, .. }) = &self.composed else {
+            return false;
+        };
+        let Some(mut grid) = self.grid else {
+            return false;
+        };
+        let moved = grid.move_cells(layout, self.highlight, delta);
+        self.grid = Some(grid);
+        if moved.is_none() && delta < 0 {
+            return self.collapse_grid();
+        }
+        self.land(moved)
+    }
+
+    /// 矩阵里整屏翻（翻页键）：一次 [`GRID_ROWS`] 行。返回是否动了。
+    pub(super) fn move_screens(&mut self, delta: isize) -> bool {
+        self.shift_grid_rows(delta * GRID_ROWS as isize)
+    }
+
+    /// 收回单行（Esc 第一下），高亮留在原处。返回原来是不是展开着。
+    pub(super) fn collapse_grid(&mut self) -> bool {
+        self.grid.take().is_some()
+    }
+
+    /// 矩阵视口里竖着移 `delta` 行；没展开就从当前页展开。返回高亮是否真的动了。
+    fn shift_grid_rows(&mut self, delta: isize) -> bool {
+        let Some(Composed::Candidates { layout, .. }) = &self.composed else {
+            return false;
+        };
+        let page = self.highlight / self.config.page_size;
+        let mut grid = self.grid.take().unwrap_or_else(|| Grid::at(layout, page));
+        let moved = grid.move_rows(layout, self.highlight, delta);
+        self.grid = Some(grid);
+        self.land(moved)
+    }
+
+    /// 高亮落到 `index`（`None` 是没动）。返回是否动了。
+    fn land(&mut self, index: Option<usize>) -> bool {
+        let Some(index) = index else {
+            return false;
+        };
+        self.highlight = index;
+        self.navigated = true;
+        true
     }
 
     pub(super) fn candidate_count(&self) -> usize {
@@ -209,6 +290,8 @@ impl Router {
                 page: 0,
                 page_count: 1,
                 layout: self.config.layout,
+                columns: 0,
+                column_ems: Vec::new(),
                 theme: self.config.theme,
                 aux_code_show: self.config.aux_code_show,
                 sentence: None,
@@ -223,11 +306,36 @@ impl Router {
                 let page_size = self.config.page_size;
                 let highlight = self.highlight.min(layout.len().saturating_sub(1));
                 let page = highlight / page_size;
-                let items: Vec<Candidate> = layout
-                    .page(page)
-                    .into_iter()
-                    .filter_map(|cell| cell.candidate().cloned())
-                    .collect();
+                // 横排展开成矩阵时画视口里的几行（空位是占位候选），序号只标在高亮所在那一行；
+                // 单行时只画当前页。高亮下标跟着换成视口内的。
+                let viewport = self.grid.as_ref().map(|grid| grid.rows(layout));
+                // 视口首格在整份候选里的下标（单行时是页首）
+                let first = match &viewport {
+                    Some(rows) => rows.start * page_size,
+                    None => page * page_size,
+                };
+                let (items, columns) =
+                    match viewport {
+                        Some(rows) => {
+                            let mut items = Vec::new();
+                            for row in rows {
+                                let mut cells = layout.page(row);
+                                cells.resize(page_size, Cell::Empty);
+                                items.extend(cells.into_iter().map(|cell| {
+                                    cell.candidate().cloned().unwrap_or_else(empty_cell)
+                                }));
+                            }
+                            (items, page_size)
+                        }
+                        None => (
+                            layout
+                                .page(page)
+                                .into_iter()
+                                .filter_map(|cell| cell.candidate().cloned())
+                                .collect(),
+                            0,
+                        ),
+                    };
                 let mut candidates = CandidateList { items };
                 self.engine.annotate(&mut candidates);
                 Frame {
@@ -235,10 +343,14 @@ impl Router {
                     preedit_mode: self.config.preedit,
                     cursor: *cursor,
                     candidates,
-                    highlight: highlight - page * page_size,
+                    highlight: highlight - first,
                     page,
                     page_count: layout.pages().max(1),
                     layout: self.config.layout,
+                    columns,
+                    column_ems: (columns > 0)
+                        .then(|| Grid::column_ems(layout))
+                        .unwrap_or_default(),
                     theme: self.config.theme,
                     aux_code_show: self.config.aux_code_show,
                     sentence: self.sentence.clone(),
@@ -246,6 +358,18 @@ impl Router {
                 }
             }
         }
+    }
+}
+
+/// 矩阵视口里空位的占位候选：文本为空，渲染端按空格子画。
+fn empty_cell() -> Candidate {
+    Candidate {
+        text: String::new(),
+        kind: CandidateKind::Chinese,
+        syllables: Vec::new(),
+        reading: None,
+        translation: None,
+        aux_code: None,
     }
 }
 

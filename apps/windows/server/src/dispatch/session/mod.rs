@@ -66,6 +66,7 @@ impl Router {
         self.cancel_prediction();
         self.stop_rescoring();
         self.composed = None;
+        self.grid = None;
         self.translation = None;
         self.pending_selection = None;
         self.sentence = None;
