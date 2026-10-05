@@ -71,6 +71,9 @@ impl Component for Settings {
             Message::EnglishFullWidthPunctuation(on) => {
                 self.save("general", "english_full_width_punctuation", on);
             }
+            Message::PunctCommits(on) => {
+                self.save("general", "punct_commits", on);
+            }
             Message::EnglishOffInApps(on) => {
                 let list: Vec<String> = if on {
                     DEFAULT_ENGLISH_CANDIDATES_OFF_WINDOWS

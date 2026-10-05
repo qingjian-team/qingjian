@@ -2,6 +2,34 @@
 //!
 //! 组句期间 `,` `.` 是翻页键、`-` `=` 也是，这些由壳决定；这里只回答「这个半角字符在中文模式下该变成什么」。
 
+/// 这个半角字符是不是会转成全角标点的一员（`,` `.` `?` `!` 引号、括号这些）。
+/// 壳用它分流组句中的标点：会转的先把高亮候选上屏再补标点（`nihao,` 一气打完「你好，」），
+/// 其余（`-` `/` `@`）仍进英文直输段。数字后的 `.` 保持半角是 [`Punctuation::convert`] 的状态决定的，
+/// 这里照算「会转」，上屏候选后交给它判断即可。
+pub fn converts(c: char) -> bool {
+    matches!(
+        c,
+        ',' | '.'
+            | '?'
+            | '!'
+            | ':'
+            | ';'
+            | '('
+            | ')'
+            | '['
+            | ']'
+            | '<'
+            | '>'
+            | '\\'
+            | '^'
+            | '_'
+            | '$'
+            | '~'
+            | '"'
+            | '\''
+    )
+}
+
 /// 引号成对切换的状态。
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct Punctuation {
@@ -88,5 +116,20 @@ mod tests {
         assert_eq!(p.convert('.'), None);
         p.note_committed("开发");
         assert_eq!(p.convert('.'), Some("。"));
+    }
+
+    /// `converts` 与 `convert` 能转的字符集合一致（`after_digit` 的 `.` 除外，那是状态决定的）。
+    #[test]
+    fn converts_covers_exactly_the_convertible_characters() {
+        for c in ('\t'..='~').filter(char::is_ascii_graphic) {
+            let convertible = Punctuation::default().convert(c).is_some();
+            assert_eq!(converts(c), convertible, "{c}");
+        }
+        assert!(converts('\''));
+        assert!(!converts('a'));
+        assert!(!converts('-'));
+        assert!(!converts('/'));
+        assert!(!converts('@'));
+        assert!(!converts('中'));
     }
 }
