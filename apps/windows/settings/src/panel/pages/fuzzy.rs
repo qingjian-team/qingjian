@@ -43,6 +43,8 @@ pub(crate) fn view(settings: &Settings, context: &mut ViewContext<Settings>) -> 
             "勾上的两种读音互相通用（比如开 z ↔ zh，敲 zi 也出 zhi 的字），模糊命中的词排在准确命中之后。\
              an ↔ ang 含 ian/iang、uan/uang。缺省全关。",
         ),
+        cell("v ↔ u", "v_u", f.v_u, context),
+        note("双拼里 ü 也认 v 键，j / q / x / y 后的 ü 记作 u：小鹤 jv 出 ju，搜狗 lv 出 lü。缺省开。"),
     ]);
     page("模糊音", body)
 }

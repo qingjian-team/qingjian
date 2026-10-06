@@ -120,6 +120,12 @@ impl Scheme {
 
     /// 两个键拼成的音节；拼不出合法音节时为 `None`。
     pub fn syllable(self, first: char, second: char) -> Option<String> {
+        self.syllable_with(first, second, false)
+    }
+
+    /// 同 [`Self::syllable`]；`v_for_u` 开着时 ü 也认 `v` 键，j / q / x / y 后的 ü 记作 u（#422）。
+    /// 只在原本拼不出音节时才多认，不改已有组合的解法（小浪的 `jv` 仍是 jing）。
+    pub fn syllable_with(self, first: char, second: char, v_for_u: bool) -> Option<String> {
         let pair = [first, second];
         for (syllable, spellings) in self.table().zero_initials {
             if spellings.iter().any(|s| s.chars().eq(pair.iter().copied())) {
@@ -127,10 +133,18 @@ impl Scheme {
             }
         }
         let initial = self.initial(first)?;
-        self.finals(second).iter().find_map(|final_| {
-            let syllable = format!("{initial}{final_}");
+        let spell = |final_: &str| {
+            let syllable = if v_for_u {
+                spell(initial, final_)
+            } else {
+                format!("{initial}{final_}")
+            };
             parser::is_syllable(&syllable).then_some(syllable)
-        })
+        };
+        self.finals(second)
+            .iter()
+            .find_map(|final_| spell(final_))
+            .or_else(|| (v_for_u && second == 'v').then(|| spell("v")).flatten())
     }
 
     /// 一个全拼音节的主写法（两个键）。测试与文档用；拆成声母 + 韵母后查表，零声母查零声母表。
@@ -162,6 +176,11 @@ impl Scheme {
     /// 把敲的键翻成全拼。两键一组从左到右配对；配不出合法音节的位置起全部原样留作尾巴；
     /// 末尾落单的一键当声母（或元音）前缀；用户自己敲的 `'` 结束当前配对。
     pub fn decode(self, keys: &str) -> Decoded {
+        self.decode_with(keys, false)
+    }
+
+    /// 同 [`Self::decode`]，配对按 [`Self::syllable_with`]；引擎按 `[fuzzy] v_u` 传 `v_for_u`。
+    pub fn decode_with(self, keys: &str, v_for_u: bool) -> Decoded {
         let chars: Vec<char> = keys.chars().collect();
         let mut units = Vec::with_capacity(chars.len() / 2 + 1);
         let mut index = 0;
@@ -174,11 +193,13 @@ impl Scheme {
             }
             let second = chars.get(index + 1).copied().filter(|c| *c != '\'');
             let unit = match second {
-                Some(second) => self.syllable(first, second).map(|pinyin| Unit {
-                    keys: [first, second].iter().collect(),
-                    pinyin,
-                    complete: true,
-                }),
+                Some(second) => self
+                    .syllable_with(first, second, v_for_u)
+                    .map(|pinyin| Unit {
+                        keys: [first, second].iter().collect(),
+                        pinyin,
+                        complete: true,
+                    }),
                 None => self.partial(first).map(|pinyin| Unit {
                     keys: first.to_string(),
                     pinyin,
@@ -220,6 +241,15 @@ impl FromStr for Scheme {
             .into_iter()
             .find(|scheme| scheme.key() == text.trim().to_ascii_lowercase())
             .ok_or_else(|| format!("unknown shuangpin scheme: {text:?}"))
+    }
+}
+
+/// 声母与韵母拼成全拼，j / q / x / y 后的 ü 照全拼写作 u（`jv` → ju）。
+fn spell(initial: &str, final_: &str) -> String {
+    if matches!(initial, "j" | "q" | "x" | "y") {
+        format!("{initial}{}", final_.replace('v', "u"))
+    } else {
+        format!("{initial}{final_}")
     }
 }
 
@@ -390,6 +420,49 @@ mod tests {
         assert_eq!(Scheme::Shoudao.decode("jl").pinyin(), "jue");
         assert_eq!(Scheme::Shoudao.decode("ll").pinyin(), "lai");
         assert_eq!(Scheme::Shoudao.decode("lb").pinyin(), "lve");
+    }
+
+    #[test]
+    fn v_for_u_accepts_v_as_u_umlaut() {
+        let loose = |scheme: Scheme, keys: &str| scheme.decode_with(keys, true).pinyin().to_owned();
+        assert_eq!(loose(Scheme::Xiaohe, "jvzi"), "ju'zi");
+        assert_eq!(loose(Scheme::Xiaohe, "xvyc"), "xu'yao");
+        assert_eq!(loose(Scheme::Xiaohe, "qvyv"), "qu'yu");
+        assert_eq!(loose(Scheme::Xiaohe, "juzi"), "ju'zi");
+        assert_eq!(loose(Scheme::Xiaohe, "jt"), "jue");
+        assert_eq!(loose(Scheme::Ziranma, "jv"), "ju");
+        assert_eq!(loose(Scheme::Shoudao, "xv"), "xu");
+        // 方案自己的 ü 键在 j / q / x / y 后同样记作 u
+        assert_eq!(loose(Scheme::Microsoft, "jy"), "ju");
+        // 原本拼不出的才多认 v：搜狗的 v 是 ui，lv 拼不出 lui，退到 ü
+        assert_eq!(loose(Scheme::Sogou, "lv"), "lv");
+        assert_eq!(loose(Scheme::Sogou, "jv"), "ju");
+        // 原本拼得出的不变：微软 jv 是 jue，小浪 jv 是 jing
+        assert_eq!(loose(Scheme::Microsoft, "jv"), "jue");
+        assert_eq!(loose(Scheme::Xiaolang, "jv"), "jing");
+        // 关着时照旧
+        assert_eq!(Scheme::Xiaohe.decode("jvzi").pinyin(), "");
+        assert_eq!(Scheme::Sogou.decode("lv").tail(), "lv");
+        assert_eq!(Scheme::Xiaohe.encode("ju"), Some(['j', 'u']));
+    }
+
+    /// 开着 `v_for_u` 时，原本解得出的两键组合解法不变。
+    #[test]
+    fn v_for_u_only_adds_pairs() {
+        let keys: Vec<char> = "abcdefghijklmnopqrstuvwxyz;".chars().collect();
+        for scheme in Scheme::ALL {
+            for first in &keys {
+                for second in &keys {
+                    if let Some(strict) = scheme.syllable(*first, *second) {
+                        assert_eq!(
+                            scheme.syllable_with(*first, *second, true),
+                            Some(strict),
+                            "{scheme}: {first}{second}"
+                        );
+                    }
+                }
+            }
+        }
     }
 
     #[test]

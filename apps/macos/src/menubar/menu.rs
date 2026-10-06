@@ -16,7 +16,7 @@ pub struct InputMenu {
     /// 「云联想」勾选项。
     cloud: Retained<NSMenuItem>,
 
-    /// 模糊音子菜单的九条勾选项，顺序同 [`FuzzyRules::NAMES`]。
+    /// 模糊音子菜单的勾选项，顺序同 [`FuzzyRules::NAMES`]。
     fuzzy: Vec<Retained<NSMenuItem>>,
 
     /// 配置文件解析失败时显示的提示行，平时隐藏。

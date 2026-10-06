@@ -26,6 +26,26 @@ fn shuangpin_decodes_keys_before_lookup_and_shows_full_pinyin() {
 }
 
 #[test]
+fn shuangpin_v_key_types_u_after_jqxy() {
+    let mut engine =
+        Engine::new(Dictionary::parse("句子\tju zi\t5000\n需要\txu yao\t8000\n").unwrap());
+    engine.set_shuangpin(Some(Scheme::Xiaohe));
+    for (keys, word) in [("jvzi", "句子"), ("juzi", "句子"), ("xvyc", "需要")] {
+        engine.set_input(keys);
+        let query = engine.query().unwrap();
+        assert_eq!(query.candidates.items[0].text, word, "{keys}");
+        assert!(query.tail.is_empty(), "{keys}");
+    }
+    // 关掉 `[fuzzy] v_u` 后 `jv` 拼不出音节，没有候选
+    engine.set_fuzzy(FuzzyRules {
+        v_u: false,
+        ..FuzzyRules::default()
+    });
+    engine.set_input("jvzi");
+    assert!(!engine.query().is_ok_and(|query| query.tail.is_empty()));
+}
+
+#[test]
 fn shuangpin_shows_raw_keys_in_preedit_and_decoded_pinyin_in_segments() {
     let mut engine = xiaohe();
     engine.set_shuangpin_raw_preedit(true);

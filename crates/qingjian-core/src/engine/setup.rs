@@ -160,7 +160,7 @@ impl Engine {
             .question_body(self.composition.scope(), self.zhuyin);
         self.shuangpin
             .filter(|scheme| scheme.uses_semicolon())
-            .is_some_and(|scheme| scheme.decode(body).pending_initial())
+            .is_some_and(|scheme| scheme.decode_with(body, self.fuzzy.v_u).pending_initial())
     }
 
     /// 只用形码：码表挂着、拼音侧关着。
@@ -205,7 +205,7 @@ impl Engine {
             Some(EngineDecoded::Zhuyin(crate::zhuyin::decode(keys)))
         } else {
             self.shuangpin
-                .map(|scheme| EngineDecoded::Shuangpin(scheme.decode(keys)))
+                .map(|scheme| EngineDecoded::Shuangpin(scheme.decode_with(keys, self.fuzzy.v_u)))
         }
     }
 

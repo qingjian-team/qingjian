@@ -5,8 +5,8 @@ use super::Expanded;
 use crate::parser;
 use crate::ranking::FUZZY_PENALTY;
 
-/// 模糊音开关，配置文件 `[fuzzy]` 分节；缺省全关。
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+/// 模糊音开关，配置文件 `[fuzzy]` 分节；读音九条缺省全关，记法一条（`v_u`）缺省开。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct FuzzyRules {
     /// z ↔ zh。
@@ -35,6 +35,19 @@ pub struct FuzzyRules {
 
     /// in ↔ ing。
     pub in_ing: bool,
+
+    /// 记法而非读音：双拼里 ü 也认 `v` 键，j / q / x / y 后的 ü 记作 u（小鹤 `jv` → ju，搜狗 `lv` → lv）。
+    /// 不扩展写法，只放宽双拼解码，见 [`crate::shuangpin::Scheme::decode_with`]。
+    pub v_u: bool,
+}
+
+impl Default for FuzzyRules {
+    fn default() -> Self {
+        Self {
+            v_u: true,
+            ..Self::NONE
+        }
+    }
 }
 
 impl FuzzyRules {
@@ -49,15 +62,34 @@ impl FuzzyRules {
         an_ang: true,
         en_eng: true,
         in_ing: true,
+        v_u: true,
     };
 
+    /// 全关。
+    pub const NONE: Self = Self {
+        z_zh: false,
+        c_ch: false,
+        s_sh: false,
+        n_l: false,
+        f_h: false,
+        l_r: false,
+        an_ang: false,
+        en_eng: false,
+        in_ing: false,
+        v_u: false,
+    };
+
+    /// 有没有开读音规则（要不要扩展写法）；`v_u` 只管双拼解码，不算。
     pub fn any(&self) -> bool {
-        *self != Self::default()
+        Self {
+            v_u: false,
+            ..*self
+        } != Self::NONE
     }
 
     /// 全部规则的配置键名，与 `[fuzzy]` 分节的字段名一致；菜单按这个顺序列出。
-    pub const NAMES: [&'static str; 9] = [
-        "z_zh", "c_ch", "s_sh", "n_l", "f_h", "l_r", "an_ang", "en_eng", "in_ing",
+    pub const NAMES: [&'static str; 10] = [
+        "z_zh", "c_ch", "s_sh", "n_l", "f_h", "l_r", "an_ang", "en_eng", "in_ing", "v_u",
     ];
 
     /// 按名字开一条规则（`z-zh` / `z_zh` / `zzh` 都认），CLI 参数用；不认识返回 `false`。
@@ -98,6 +130,7 @@ impl FuzzyRules {
             "anang" => &mut self.an_ang,
             "eneng" => &mut self.en_eng,
             "ining" => &mut self.in_ing,
+            "vu" => &mut self.v_u,
             _ => return None,
         })
     }
@@ -244,6 +277,7 @@ mod tests {
     #[test]
     fn only_enabled_rules_apply() {
         let mut rules = FuzzyRules::default();
+        assert!(rules.v_u && !rules.any());
         assert_eq!(forms(&rules, SyllablePattern::complete("zi")), ["zi"]);
         assert!(rules.enable("z-zh"));
         assert!(!rules.enable("q-x"));

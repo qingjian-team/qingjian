@@ -1,4 +1,4 @@
-//! 「模糊音」页：九条规则的勾选框，三列排。
+//! 「模糊音」页：九条读音规则加一条记法规则（`v_u`）的勾选框，三列排。
 
 use objc2::MainThreadMarker;
 use objc2::rc::Retained;
@@ -48,7 +48,8 @@ impl FuzzyPage {
         note_full(
             layout,
             mtm,
-            "勾上的两种读音互相通用（比如勾了 z = zh，敲 zi 也出 zhi 的字），模糊命中的词排在准确命中之后。",
+            "勾上的两种读音互相通用（比如勾了 z = zh，敲 zi 也出 zhi 的字），模糊命中的词排在准确命中之后。\
+             v = u 是双拼记法：ü 也认 v 键，小鹤 jv 出 ju，缺省开。",
         );
         Self { buttons }
     }

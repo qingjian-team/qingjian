@@ -278,7 +278,7 @@ question_mark = false
     template_shortcut_keys!(),
     r#"
 [fuzzy]
-# 模糊音：开了之后敲 zi 也出 zhi 的字、敲 lan 也出 nan 的字。默认全关，按需打开。
+# 模糊音：开了之后敲 zi 也出 zhi 的字、敲 lan 也出 nan 的字。读音九条默认全关，按需打开。
 z_zh = false
 c_ch = false
 s_sh = false
@@ -288,6 +288,8 @@ l_r = false
 an_ang = false
 en_eng = false
 in_ing = false
+# 记法：双拼里 ü 也认 v 键，j / q / x / y 后的 ü 记作 u（小鹤 jv 出 ju，搜狗 lv 出 lü）。默认开
+v_u = true
 
 "#,
     template_apps!(),
