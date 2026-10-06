@@ -13,6 +13,9 @@ workspace = true
 ferrous-opencc.workspace = true
 foldhash.workspace = true
 jiff.workspace = true
+lunar_rust.workspace = true
+yaml-rust2.workspace = true
+uuid.workspace = true
 qingjian-dictionary.workspace = true
 serde.workspace = true
 thiserror.workspace = true
@@ -20,6 +23,3 @@ tracing.workspace = true
 
 [dev-dependencies]
 toml.workspace = true
-
-[target.'cfg(not(windows))'.dependencies]
-libloading.workspace = true

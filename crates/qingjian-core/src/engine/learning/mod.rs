@@ -87,8 +87,7 @@ impl Engine {
                     clauses.iter().map(|words| words.len() as u64).sum()
                 })
             }
-            InputSource::Rime
-            | InputSource::English
+            InputSource::English
             | InputSource::Custom
             | InputSource::Shortcut
             | InputSource::Emoji
@@ -151,14 +150,6 @@ impl Engine {
     /// 用户要求删掉一个候选（修饰键 + 数字）：中文词与云端词交给 Learner 删用户词、清学习；英文词删个人英文词；
     /// 整句、快捷候选、emoji 没什么可删。删完缓存作废，它也不再当下一个词的上文。
     pub fn forget(&mut self, candidate: &Candidate) -> Forgotten {
-        if let Some(session) = &mut self.rime {
-            let deleted = candidate.rime.as_ref().is_some_and(|c| session.delete(c));
-            self.sync_rime();
-            return Forgotten {
-                user_word: deleted,
-                learning: deleted,
-            };
-        }
         let mut candidate_owned = candidate.clone();
         if self.traditional
             && let Some(simp) = self.traditional_map.borrow().get(&candidate_owned.text)

@@ -7,7 +7,12 @@ pub(super) use text_replacements::TextReplacement;
 pub(super) use watch::ConfigWatch;
 
 use super::init::load_glossary;
-use super::*;
+use super::{Host, LEARNING_FLUSH_INTERVAL};
+use crate::app::{logging, paths};
+use crate::preferences::UpdateStatus;
+use qingjian_core::{Language, NoGlossFiller, NoPredictor, NoTranslator};
+use qingjian_platform::{GeneralConfig, Scheme};
+use qingjian_predict::{CloudGlossFiller, CloudPredictor};
 
 impl Host {
     /// 把当前配置推给 Engine 与界面：模糊音 / 模式键 / 翻页 / 外观直接设；学习语言变了换释义表；
@@ -20,6 +25,14 @@ impl Host {
             .set_full_width_punctuation(config.general.full_width_punctuation);
         self.apply_custom_phrases(&config);
         self.engine.set_mode_keys(config.shortcut.mode);
+        if let Err(error) = config.rime_ice.apply(
+            &mut self.engine,
+            &paths::user_data_dir()
+                .unwrap_or_else(std::env::temp_dir)
+                .join("rime-ice-cache"),
+        ) {
+            tracing::error!(%error, "雾凇全拼数据加载失败");
+        }
         self.engine.set_chinese_first(config.general.chinese_first);
         self.engine
             .set_shift_letter_compose(config.general.shift_letter.compose());

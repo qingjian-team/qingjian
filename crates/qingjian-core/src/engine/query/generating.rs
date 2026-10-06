@@ -51,7 +51,6 @@ impl Engine {
                 continue;
             }
             out.push(Candidate {
-                rime: None,
                 text,
                 kind: CandidateKind::Generated,
                 syllables: Vec::new(),

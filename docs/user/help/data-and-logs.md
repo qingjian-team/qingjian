@@ -41,30 +41,6 @@ description: 青简在本机保存的文件及其内容、云联想发送的内�
 
 「高级」页的「学习输入习惯」关掉后，`user-*.tsv` 这些学习数据不再更新，已有的仍参与排序；要从头开始就删掉这几个文件。
 
-## 雾凇拼音
-
-雾凇后端默认关闭。启用时，在上述数据目录的 `config.toml` 中增加以下一节；示例路径需替换为本机绝对路径：
-
-```toml
-[rime]
-enabled = true
-library = 'D:/Rime/lib/rime.dll'
-shared_data = 'D:/Rime/rime-ice'
-user_data = 'D:/Rime/qingjian-user'
-schema = 'rime_ice'
-modules = []
-```
-
-Windows 使用与 Server 架构一致的 `rime.dll`，macOS 使用 `librime.dylib`，Linux 使用 `librime.so`。需 librime 1.17 或更新版本，并包含 Lua 模块。仅填写运行库已提供的额外模块；若缺少所填模块，初始化会失败。
-
-`shared_data` 指向完整雾凇目录，保留 `cn_dicts/`、`en_dicts/`、`lua/`、`opencc/` 及根目录的方案、词库和预设文件。简繁转换需将与运行库匹配的 OpenCC 配置和字典一起放入 `opencc/`；仅有雾凇 Emoji 数据不足以转换简繁。Windows 的依赖库放在 `rime.dll` 同目录，其他平台需安装到动态库可加载的位置。保留上游许可文件。
-
-`user_data` 使用青简专属目录，避免与其他运行中的 Rime 输入法同时写入用户词库。目录包含 `build/`、用户词库、`*.custom.yaml`、短语文件、个人 `lua/` 和原生日志。用户词库可能保存输入过的词，需单独备份和清理；青简的「清空学习记录」不删除此目录。方案或个人 Lua 是否同步、写入文件或访问网络，取决于其自身设置和实现。
-
-全拼方案为 `rime_ice`。七种双拼为 `double_pinyin`（自然码）、`double_pinyin_abc`、`double_pinyin_mspy`、`double_pinyin_sogou`、`double_pinyin_flypy`（小鹤）、`double_pinyin_ziguang`、`double_pinyin_jiajia`。个人方案可填写自己的 schema_id，需提供依赖的方案和原生插件。
-
-保存后重启输入法服务。若初始化失败，检查青简运行日志与原生用户目录中的日志。切回青简原有后端，将 `enabled` 改为 `false` 并重启。功能差异见[雾凇拼音](../input/rime-ice.md)。
-
 ## 云联想发什么
 
 缺省关闭。打开后，输入拼音时的拼音、光标前后各几十个字的上下文、本机给出的候选，会发送给用户在「云服务」页填写的 AI 服务商。

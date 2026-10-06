@@ -183,7 +183,6 @@ mod tests {
     fn candidates(count: usize) -> Vec<Candidate> {
         (0..count)
             .map(|i| Candidate {
-                rime: None,
                 text: format!("本{i}"),
                 kind: CandidateKind::Chinese,
                 syllables: vec!["a".into()],

@@ -57,10 +57,7 @@ impl Router {
 
     /// 在后台线程加载模型；没有模型文件就什么都不做。
     fn load_local_model(&mut self) {
-        if self.engine.rime_enabled()
-            || self.model_loader.is_some()
-            || self.engine.has_sentence_scorer()
-        {
+        if self.model_loader.is_some() || self.engine.has_sentence_scorer() {
             return;
         }
         let Some(path) = &self.model_path else {

@@ -77,9 +77,6 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         }
     };
     engine.set_fuzzy(config.fuzzy);
-    if let Some(options) = config.rime.options() {
-        engine.enable_rime(options)?;
-    }
     engine.set_shuangpin(config.general.shuangpin());
     engine.set_shuangpin_raw_preedit(config.general.shuangpin_raw_preedit);
     engine.set_zhuyin_mode(config.general.is_zhuyin());
@@ -87,6 +84,12 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     engine.set_learning(config.general.learning);
     engine.set_chinese_first(config.general.chinese_first);
     engine.set_mode_keys(config.shortcut.mode);
+    if let Err(error) = config
+        .rime_ice
+        .apply(&mut engine, &user_dir.join("rime-ice-cache"))
+    {
+        tracing::error!(%error, "雾凇全拼数据加载失败");
+    }
     engine
         .set_custom_phrases(config.custom_phrases.clone())
         .map_err(std::io::Error::other)?;

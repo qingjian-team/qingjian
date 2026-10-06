@@ -1,14 +1,14 @@
 //! 整句候选：把词图里重排过的前几条路径变成候选，以及整句转换本身。
 
-use super::leading_english;
 use crate::candidate::Candidate;
 use crate::candidate::CandidateKind;
 use crate::engine::ALTERNATE_MIN_SYLLABLES;
 use crate::engine::Engine;
+use crate::engine::Learner;
 use crate::engine::RESCORE_PATHS;
 use crate::engine::SENTENCE_CANDIDATES;
-use crate::engine::learning::Learner;
-use crate::engine::query::english_tail::EnglishTail;
+use crate::engine::query::EnglishTail;
+use crate::engine::query::leading_english;
 use crate::parser;
 use crate::parser::Segmentation;
 use crate::sentence;
@@ -162,7 +162,6 @@ impl Engine {
                 items.remove(index);
             }
             out.push(Candidate {
-                rime: None,
                 text: conversion.text,
                 kind,
                 syllables: conversion.syllables,

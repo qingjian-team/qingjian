@@ -28,23 +28,7 @@ pub use response::Prediction;
 pub use script::translation_target;
 pub use surrounding_text::SurroundingText;
 
-use super::Engine;
-use super::MIN_PREDICTION_LETTERS;
-use super::PREDICTION_CANDIDATE_HINTS;
-use super::is_raw;
-use super::segment_longest_prefix;
-use super::take_first_chars;
-use super::take_last_chars;
-use crate::candidate::Candidate;
-use crate::engine::commit::LastCommit;
-use crate::engine::input_log::InputLogEntry;
-use crate::engine::input_log::InputLogger;
-use crate::engine::input_log::InputSource;
-use crate::engine::query;
-use crate::parser;
-use crate::parser::Segmentation;
-use crate::sentence;
-use crate::shortcut;
+use super::*;
 
 impl Engine {
     /// 是否接了会联想的 Predictor；壳据此决定要不要起轮询定时器、画云朵标识。
@@ -71,10 +55,6 @@ impl Engine {
         }
         // 不发也要换序号：正在飞的旧结果对应的是上一个输入状态，回来了也不能显示
         self.prediction_sequence += 1;
-        // 原生方案自行生成和过滤候选，不向其中混入青简的拼音模型候选。
-        if self.rime_enabled() {
-            return None;
-        }
         // 辅码态在按码筛词，云端词没有码、进来只会打乱；不发请求，槽位自然收起
         if self.aux_filter().is_some() {
             return None;

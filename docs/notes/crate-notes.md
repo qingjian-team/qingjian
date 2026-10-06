@@ -28,15 +28,14 @@ TSV 解析、查询与生成工具把 `lue` / `nue` 统一成 `lve` / `nve`。
 
 ## crates/qingjian-core
 
-可选原生后端见 [设计说明](../design/rime-backend.md)。私有 `rime/` 封装用户提供的 librime 1.17+ 与 Lua，
-`Engine::enable_rime` / `process_rime_key` / `rime_page` / `set_rime_option` 对外；进程级 Runtime 串行维护和调用，
-每个 EngineSession 保存独立原生会话。当前页候选携带 token / revision / 原生下标，拒绝旧查询或外来上下文选择，
-原生 comment 和 label 与青简译文分别显示。启用后按键、拼写、Lua、OpenCC、学习与排序由原生方案负责，
-不运行青简重排、云候选或译词上屏快捷键；原生上屏日志来源为 `rime`，CLI 回放跳过。
-`Query.rime_menu` 保留原生预编辑光标、高亮、页大小与下一页存在性。私密输入清空原生并透传按键。
-配置 `[rime]` 缺省关闭，用户指定 library / shared_data / user_data / schema / modules，更改后重启，第三方库和数据不随包引入。
-平台协议版本升至 8，KeyEvent 的 release 与 keysym 用于原生按键，InputSettings.rime 关闭 TSF 的青简按键预处理；
-Linux 使用 fcitx 原始 keysym，macOS 接收 KeyDown / KeyUp / FlagsChanged。Core 真实测试及两端 Server 原生协议测试默认 ignored。
+雾凇全拼扩展在 `engine/ice/`，对外仍通过 `Engine`：`load_rime_ice`、`disable_rime_ice`、`rime_ice_active`、`rime_ice_available`、`rime_ice_input_char`。
+按键能力用 `rime_ice_available` 判断，不依赖上一个会话的中英状态；实际查询只在 `rime_ice_active` 时启用。
+用户源目录只读，中文词库转为独立 `.qj` 缓存；启用时替代主查询词库，附加词库与用户词照常查询。
+英文、混输、符号、短语、Emoji、拆字与纠音数据为一次加载的快照；日期、金额、计算器、Unicode 与 UUID 在 Rust 内生成。
+农历依赖 `lunar_rust`，声明式 YAML 数据依赖 `yaml-rust2`；不链接 librime，不运行 Lua，不增加 IPC 字段。
+候选读音与提示复用 `Candidate.reading`；UUID 缓存跟随 `EngineSession` 切换，编辑或上屏后作废。
+细节与兼容范围见 [原生雾凇全拼](../design/rime-ice-native.md)。
+
 
 模块：`composition`（缓冲区与光标；中文模式下 Shift+字母按小写进 `buffer` 参与匹配、大写记在 `shifted`，`typed_text` 还原后用于原样上屏）/ `parser` / `correction`（拼写纠错：整段一处编辑的候选纠正 + `typo` 音节级敲错变体表，后者进整句词图当带代价的边）/
 `candidate` / `ranking` / `shortcut` / `sentence` / `fuzzy` / `shuangpin`（双拼：七套方案键位表、键 → 全拼解码与消耗换算）/ `zhuyin`（大千注音：键 → 注音符号 → 拼音，`[general] zhuyin` 开关，声调只判音节完整不进查询）/ `emoji` /

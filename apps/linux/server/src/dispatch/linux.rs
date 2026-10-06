@@ -76,21 +76,7 @@ impl Router {
                 self.notice = None;
                 let info = self.sessions.get_mut(&session)?;
                 let shift = event.virtual_key == 0x10;
-                if self.engine.rime_enabled() {
-                    event.release = release;
-                    let (key, mask) = event.rime_key();
-                    let (consumed, text) = self
-                        .engine
-                        .process_rime_key(key, mask)
-                        .expect("Rime 已启用");
-                    self.recompose();
-                    commit = text;
-                    outcome = if consumed {
-                        KeyOutcome::Consumed
-                    } else {
-                        KeyOutcome::Passthrough
-                    };
-                } else if release {
+                if release {
                     if shift && info.shift_pending {
                         info.shift_pending = false;
                         info.english = !info.english;
@@ -119,20 +105,7 @@ impl Router {
                 }
             }
             LinuxEvent::Candidate { identity, index } => {
-                if self.valid_panel_event(session, &identity) && self.engine.rime_enabled() {
-                    if let Some(candidate) = self
-                        .engine
-                        .query()
-                        .ok()
-                        .and_then(|q| q.candidates.items.get(index).cloned())
-                    {
-                        commit = Some(self.engine.commit(&candidate));
-                        self.recompose();
-                        outcome = KeyOutcome::Consumed;
-                    }
-                } else if self.valid_panel_event(session, &identity)
-                    && index < self.config.page_size
-                {
+                if self.valid_panel_event(session, &identity) && index < self.config.page_size {
                     let offset = self.highlight / self.config.page_size * self.config.page_size;
                     commit = self.commit_index(offset + index);
                     if commit.is_some() {

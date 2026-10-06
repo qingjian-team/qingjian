@@ -1,14 +1,10 @@
 //! 附加候选：日期时间等快捷项、中英混输的英文词与补全、emoji。
 
-use super::EMOJI_PER_WORD;
-use super::EMOJI_SCAN;
-use super::EMOJI_TOTAL;
-use super::ENGLISH_COMPLETIONS;
-use super::Engine;
-use super::MIN_COMPLETION_LETTERS;
-use crate::candidate::Candidate;
-use crate::candidate::CandidateKind;
-use crate::engine::learning::Learner;
+use super::{
+    EMOJI_PER_WORD, EMOJI_SCAN, EMOJI_TOTAL, ENGLISH_COMPLETIONS, Engine, MIN_COMPLETION_LETTERS,
+};
+use crate::candidate::{Candidate, CandidateKind};
+use crate::engine::Learner;
 use crate::shortcut;
 use qingjian_dictionary::WordList;
 
@@ -37,7 +33,6 @@ impl Engine {
             items.insert(
                 (phrase.position - 1).min(items.len()),
                 Candidate {
-                    rime: None,
                     text: phrase.text.clone(),
                     kind: CandidateKind::Custom(phrase.position),
                     syllables: Vec::new(),
@@ -51,6 +46,9 @@ impl Engine {
 
     /// 日期 / 时间 / 星期这类快捷候选插在本地首选之后：`rq` 首选仍是词库里的词，快捷写法紧随其后。
     pub(super) fn insert_shortcuts(&self, items: &mut Vec<Candidate>, scope: &str) {
+        if self.rime_ice_active() {
+            return;
+        }
         let expression_char =
             if self.zhuyin && crate::zhuyin::layout::map_key(self.modes().expression).is_some() {
                 '\0'
@@ -81,7 +79,6 @@ impl Engine {
             return;
         }
         let english_candidate = |word: &str| Candidate {
-            rime: None,
             text: word.to_owned(),
             kind: CandidateKind::English,
             syllables: Vec::new(),
@@ -154,6 +151,12 @@ impl Engine {
             .user_english()
             .into_iter()
             .chain(self.english.as_ref())
+            .chain(
+                self.ice
+                    .as_ref()
+                    .filter(|_| self.shuangpin.is_none() && !self.zhuyin && self.code.is_none())
+                    .map(|profile| &profile.english),
+            )
             .collect()
     }
 
@@ -201,7 +204,6 @@ impl Engine {
                 items.insert(
                     index,
                     Candidate {
-                        rime: None,
                         text: emoji.clone(),
                         kind: CandidateKind::Emoji,
                         syllables: syllables.clone(),

@@ -5,9 +5,9 @@ use crate::candidate::CandidateKind;
 use crate::candidate::CandidateList;
 use crate::engine::ENGLISH_MODE_CANDIDATES;
 use crate::engine::Engine;
-use crate::engine::learning::Learner;
-use crate::engine::query::result::Query;
-use crate::engine::timings::Timings;
+use crate::engine::Learner;
+use crate::engine::Query;
+use crate::engine::Timings;
 use crate::english;
 use crate::shortcut;
 use std::time::Duration;
@@ -25,7 +25,6 @@ impl Engine {
         let mut items = shortcut::candidates(scope, self.modes().expression, &jiff::Zoned::now());
         if let Some(word) = self.english.as_ref().and_then(|english| english.get(scope)) {
             items.push(Candidate {
-                rime: None,
                 text: word.to_owned(),
                 kind: CandidateKind::English,
                 syllables: Vec::new(),
@@ -35,7 +34,6 @@ impl Engine {
             });
         }
         Query {
-            rime_menu: None,
             segmentations: Vec::new(),
             candidates: CandidateList { items },
             tail: scope.to_owned(),
@@ -58,7 +56,6 @@ impl Engine {
     /// 英文直输段：唯一候选就是原文（`no-way`），空格 / 回车都上屏它；preedit 原样显示。
     pub(in crate::engine) fn query_raw(&self, scope: &str, rest: String, start: Instant) -> Query {
         let items = vec![Candidate {
-            rime: None,
             text: scope.to_owned(),
             kind: CandidateKind::English,
             syllables: Vec::new(),
@@ -67,7 +64,6 @@ impl Engine {
             aux_code: None,
         }];
         Query {
-            rime_menu: None,
             segmentations: Vec::new(),
             candidates: CandidateList { items },
             tail: scope.to_owned(),
@@ -103,7 +99,6 @@ impl Engine {
         )
         .into_iter()
         .map(|text| Candidate {
-            rime: None,
             text,
             kind: CandidateKind::English,
             syllables: Vec::new(),
@@ -115,7 +110,6 @@ impl Engine {
         self.insert_emoji(&mut items);
         items.sort_by_key(|c| c.kind == CandidateKind::Emoji);
         Query {
-            rime_menu: None,
             segmentations: Vec::new(),
             candidates: CandidateList { items },
             tail: scope.to_owned(),
@@ -149,7 +143,6 @@ impl Engine {
             Some(text) => (
                 CandidateList {
                     items: vec![Candidate {
-                        rime: None,
                         text,
                         kind: CandidateKind::Shortcut,
                         syllables: Vec::new(),
@@ -166,7 +159,6 @@ impl Engine {
             ),
         };
         Query {
-            rime_menu: None,
             segmentations: Vec::new(),
             candidates,
             tail,

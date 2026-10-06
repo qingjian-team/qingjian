@@ -25,7 +25,7 @@ int main(int argc, char **argv) {
         int connection = accept(listener, nullptr, nullptr);
         auto opened = readMessage(connection).at("OpenSession");
         const auto session = opened.at("session");
-        assert(opened.at("protocol") == 8);
+        assert(opened.at("protocol") == 7);
         writeMessage(connection, {{"Update", {{"session", session}, {"linux_ui", {{"version", failure == "old-version" ? 2 : 3}}}}}});
         if (failure != "old-version") {
             auto identity = readMessage(connection).at("LinuxHello");

@@ -22,7 +22,6 @@ fn custom_positions_survive_normal_candidates_and_cloud() {
         assert_eq!(q.candidates.items[1].text, "；");
         let mut layout = CandidateLayout::new(q.candidates.items, 2, 2);
         layout.set_cloud(vec![Candidate {
-            rime: None,
             text: "云".into(),
             kind: CandidateKind::Cloud,
             syllables: vec![],

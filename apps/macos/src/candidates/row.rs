@@ -33,11 +33,6 @@ pub struct Row {
 impl Row {
     pub fn from_candidate(position: usize, candidate: &Candidate) -> Self {
         let mut annotation = Vec::new();
-        if let Some(native) = &candidate.rime
-            && !native.comment.is_empty()
-        {
-            annotation.push((native.comment.clone(), Tone::Faint));
-        }
         // 读音（问字模式答案的带声调拼音）放在最前
         if let Some(reading) = &candidate.reading {
             annotation.push((reading.clone(), Tone::Gloss));
@@ -65,10 +60,7 @@ impl Row {
             }
         }
         Self {
-            index: candidate
-                .rime
-                .as_ref()
-                .map_or_else(|| (position + 1).to_string(), |c| c.label.clone()),
+            index: (position + 1).to_string(),
             text: if matches!(candidate.kind, qingjian_core::CandidateKind::Custom(_)) {
                 qingjian_core::CustomPhrase::preview(&candidate.text, 60)
             } else {

@@ -20,7 +20,6 @@ use crate::menubar;
 mod command;
 mod commit;
 mod display;
-mod rime;
 mod text;
 mod translate;
 
@@ -35,16 +34,6 @@ define_class!(
     pub struct QingjianInputController;
 
     impl QingjianInputController {
-        /// 原生 ascii_composer 需要修饰键释放通知。
-        #[unsafe(method(recognizedEvents:))]
-        fn recognized_events(&self, _sender: Option<&AnyObject>) -> usize {
-            let native_events = if host::with(|h| h.engine.rime_enabled()).unwrap_or(false) {
-                (1 << 11) | (1 << 12)
-            } else {
-                0
-            };
-            (1 << 10) | native_events
-        }
         /// IMKServer 为每个新会话调用的指定初始化方法，在这里放好 ivars。
         #[unsafe(method_id(initWithServer:delegate:client:))]
         fn init_with_server(
@@ -204,12 +193,6 @@ impl QingjianInputController {
 
     /// 一个按键事件的分发：只管按下；Cmd / Ctrl 组合除 Cmd+左右外一律交给应用；命令键映射成选择器；其余按字符当文本。
     fn dispatch_event(&self, event: &NSEvent, client: TextClient<'_>) -> bool {
-        if self.in_login_window() {
-            return false;
-        }
-        if host::with(|h| h.engine.rime_enabled()).unwrap_or(false) {
-            return self.dispatch_rime_event(event, client);
-        }
         if event.r#type() != NSEventType::KeyDown || self.in_login_window() {
             return false;
         }

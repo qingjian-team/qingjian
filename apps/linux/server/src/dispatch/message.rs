@@ -24,24 +24,6 @@ impl Router {
             ClientMessage::Key { session, event } if self.sessions.contains_key(&session) => {
                 self.ensure_focus(session);
                 self.notice = None;
-                if self.engine.rime_enabled() {
-                    let (key, mask) = event.rime_key();
-                    let (consumed, commit) = self
-                        .engine
-                        .process_rime_key(key, mask)
-                        .expect("Rime 已启用");
-                    self.recompose();
-                    return Some(ServerMessage::KeyResult {
-                        session,
-                        commit,
-                        outcome: if consumed {
-                            KeyOutcome::Consumed
-                        } else {
-                            KeyOutcome::Passthrough
-                        },
-                        frame: self.current_frame(),
-                    });
-                }
                 let (commit, outcome) = match self.apply_key(&event) {
                     Effect::Changed(commit) => {
                         self.recompose();

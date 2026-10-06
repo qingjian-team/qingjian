@@ -152,7 +152,6 @@ mod tests {
 
     fn local(text: &str) -> Candidate {
         Candidate {
-            rime: None,
             text: text.into(),
             kind: CandidateKind::Chinese,
             syllables: vec!["zhang".into(), "tao".into()],

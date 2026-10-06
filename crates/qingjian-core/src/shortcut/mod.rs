@@ -73,7 +73,6 @@ pub fn candidates(input: &str, expression: char, now: &Zoned) -> Vec<Candidate> 
     texts
         .into_iter()
         .map(|text| Candidate {
-            rime: None,
             text,
             kind: CandidateKind::Shortcut,
             syllables: Vec::new(),

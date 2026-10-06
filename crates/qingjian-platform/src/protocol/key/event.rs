@@ -5,12 +5,6 @@ use super::modifiers::KeyModifiers;
 /// DLL 从 TSF `OnKeyDown` / `OnTestKeyDown` 抓到的一次按键，发给 Server 判定。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct KeyEvent {
-    /// Linux 原始 keysym，避免 ASCII 字符值与 Windows VK 值冲突。
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub keysym: Option<u32>,
-    /// 原生后端需要释放事件来执行 ascii_composer 等处理器。旧客户端缺省为按下。
-    #[serde(default)]
-    pub release: bool,
     /// Windows 虚拟键码（`VK_*`）。翻页、方向键、退格、回车等靠它区分。
     pub virtual_key: u32,
 
@@ -24,8 +18,6 @@ pub struct KeyEvent {
 impl KeyEvent {
     pub fn new(virtual_key: u32, character: Option<char>, modifiers: KeyModifiers) -> Self {
         Self {
-            keysym: None,
-            release: false,
             virtual_key,
             character,
             modifiers,

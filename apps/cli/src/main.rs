@@ -305,6 +305,13 @@ fn build_engine(args: &Args) -> Result<Engine, CliError> {
     engine.set_traditional_mode(config.general.traditional);
     engine.set_fuzzy(config.fuzzy);
     engine.set_mode_keys(config.shortcut.mode);
+    config.rime_ice.apply(
+        &mut engine,
+        &config_path
+            .parent()
+            .unwrap_or(std::path::Path::new("."))
+            .join("rime-ice-cache"),
+    )?;
     // `--shuangpin` 现在写的是 [general] scheme（同一个维度的旧键已经并进去），off 就是全拼
     if let Some(scheme) = &args.shuangpin {
         config.general.scheme = if scheme == "off" {

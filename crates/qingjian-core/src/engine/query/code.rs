@@ -1,16 +1,16 @@
 //! 形码查询：编码按前缀查码表，没有切分、没有整句；以及与拼音的混输。
 
-use crate::engine::learning::Learner;
 use std::collections::HashSet;
 
 use crate::candidate::Candidate;
 use crate::candidate::CandidateKind;
 use crate::candidate::CandidateList;
 use crate::engine::Engine;
+use crate::engine::Learner;
 use crate::engine::MAX_CANDIDATES;
+use crate::engine::Query;
+use crate::engine::Timings;
 use crate::engine::choice_key;
-use crate::engine::query::result::Query;
-use crate::engine::timings::Timings;
 use crate::parser::ParseError;
 use crate::ranking;
 use crate::ranking::Scored;
@@ -75,7 +75,6 @@ impl Engine {
         let items: Vec<Candidate> = scored
             .into_iter()
             .map(|s| Candidate {
-                rime: None,
                 text: s.hit.text.to_owned(),
                 kind: CandidateKind::Code,
                 // 编码不是拼音音节：候选窗按音节高亮的部分对形码没有意义，留空
@@ -86,7 +85,6 @@ impl Engine {
             })
             .collect();
         let query = Query {
-            rime_menu: None,
             // 形码没有切分：preedit 的显示串靠 `tail` 原样带出去（见 `Query::marked_text`）
             segmentations: Vec::new(),
             candidates: CandidateList { items },

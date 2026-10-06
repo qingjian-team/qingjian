@@ -18,16 +18,6 @@ pub struct Composition {
 }
 
 impl Composition {
-    /// 原生后端的快照可以包含 UTF-8；光标只落在字符边界。
-    pub(crate) fn replace_native(&mut self, text: &str, cursor: usize) {
-        self.buffer = text.to_owned();
-        self.shifted = vec![false; text.chars().count()];
-        self.cursor = cursor.min(text.len());
-        while !text.is_char_boundary(self.cursor) {
-            self.cursor -= 1;
-        }
-    }
-
     pub fn text(&self) -> &str {
         &self.buffer
     }

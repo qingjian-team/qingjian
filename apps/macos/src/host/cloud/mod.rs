@@ -6,13 +6,7 @@ mod test_monitor;
 pub(super) use predict_monitor::PredictMonitor;
 pub(super) use test_monitor::CloudTestMonitor;
 
-use super::Host;
-use qingjian_core::Candidate;
-use qingjian_core::CandidateKind;
-use qingjian_core::CloudWord;
-use qingjian_core::Prediction;
-use qingjian_predict::ConnectionTest;
-use qingjian_predict::PredictError;
+use super::*;
 
 impl Host {
     /// 清空输入日志文件；开着的话重新打开继续记。
@@ -174,7 +168,6 @@ pub(super) fn describe_predict_error(error: &PredictError) -> String {
 /// 翻译窗口里的一行：译文（或占位文字）当作云端来源的候选画出来。
 pub(super) fn cloud_candidate(text: String) -> Candidate {
     Candidate {
-        rime: None,
         text,
         kind: CandidateKind::Cloud,
         syllables: Vec::new(),

@@ -17,7 +17,6 @@ impl CloudWord {
     /// 转成云端来源的候选（译文留给 `Engine::annotate` 补）。
     pub fn into_candidate(self) -> Candidate {
         Candidate {
-            rime: None,
             text: self.text,
             kind: CandidateKind::Cloud,
             syllables: self.syllables,

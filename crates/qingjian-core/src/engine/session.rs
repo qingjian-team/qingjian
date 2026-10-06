@@ -8,9 +8,6 @@ use std::time::Instant;
 /// 一个输入上下文的组句、标点配对和学习链；不复制词库或落盘服务。
 #[derive(Default)]
 pub struct EngineSession {
-    /// 同一运行库中的独立会话，保存原生分页、选词和方案状态。
-    rime: Option<crate::rime::Session>,
-
     /// 拼音与光标位置。
     composition: Composition,
 
@@ -52,28 +49,20 @@ pub struct EngineSession {
 
     /// 本会话连续上屏的学习链。
     chain: CommitChain,
+
+    /// 同一输入上下文中已经展示的 UUID。
+    ice_uuid: Option<String>,
 }
 
 impl Engine {
     /// 切换保存的输入上下文。调用方还应恢复该上下文的私密状态。
     /// 异步结果与查询缓存不跨上下文复用，用户词频和词库仍是进程内唯一实例。
     pub fn swap_session(&mut self, session: &mut EngineSession) {
-        if let Some(current) = &self.rime {
-            if session.rime.is_none() {
-                match current.fork() {
-                    Ok(native) => session.rime = Some(native),
-                    Err(error) => {
-                        tracing::error!(%error, "原生 Rime 会话创建失败，清空当前输入");
-                        self.clear();
-                        session.discard_input();
-                        return;
-                    }
-                }
-            }
-            std::mem::swap(&mut self.rime, &mut session.rime);
-        }
         self.cancel_prediction();
         self.set_rescoring_context(None);
+        if let Some(profile) = &self.ice {
+            std::mem::swap(&mut *profile.uuid_cache.borrow_mut(), &mut session.ice_uuid);
+        }
         std::mem::swap(&mut self.composition, &mut session.composition);
         std::mem::swap(&mut self.english_mode, &mut session.english_mode);
         std::mem::swap(&mut self.punctuation, &mut session.punctuation);
@@ -106,9 +95,6 @@ impl Engine {
 impl EngineSession {
     /// 丢弃本上下文的输入状态，不写日志、不学习，也不把私密文本带到下一次普通输入。
     pub fn discard_input(&mut self) {
-        if let Some(native) = &mut self.rime {
-            native.clear();
-        }
         self.composition.clear();
         self.english_mode = false;
         self.punctuation = Punctuation::default();
@@ -122,6 +108,7 @@ impl EngineSession {
         self.displayed.clear();
         self.history.clear();
         self.chain = CommitChain::default();
+        self.ice_uuid = None;
     }
 }
 
@@ -129,8 +116,8 @@ impl Engine {
     /// 在隐私边界丢弃当前装入的输入状态。与 [`Self::set_private`] 分开，避免平台壳
     /// 在组句第一帧后报告隐私状态时意外清掉新输入。
     pub fn discard_input(&mut self) {
-        if let Some(native) = &mut self.rime {
-            native.clear();
+        if let Some(profile) = &self.ice {
+            profile.uuid_cache.borrow_mut().take();
         }
         self.cancel_prediction();
         self.composition.clear();

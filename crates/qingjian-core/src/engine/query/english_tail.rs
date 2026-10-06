@@ -4,11 +4,11 @@ use crate::correction;
 use crate::engine::ENGLISH_SWITCH_PENALTY;
 use crate::engine::ENGLISH_ZIPF_FLOOR;
 use crate::engine::Engine;
+use crate::engine::Learner;
 use crate::engine::MIN_COMPLETION_LETTERS;
 use crate::engine::MIN_ENGLISH_TAIL_HEAD_LETTERS;
 use crate::engine::MIN_ENGLISH_TAIL_LETTERS;
 use crate::engine::MIN_PINYIN_LIKE_TAIL_LETTERS;
-use crate::engine::learning::Learner;
 use crate::parser;
 use crate::parser::Segmentation;
 use crate::sentence::Conversion;
@@ -176,7 +176,6 @@ impl Engine {
         let mut syllables = conversion.syllables;
         syllables.push(typed.to_owned());
         Some(Candidate {
-            rime: None,
             text: format!("{}{}", conversion.text, tail.word),
             kind: CandidateKind::Sentence,
             syllables,

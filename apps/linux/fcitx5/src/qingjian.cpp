@@ -156,7 +156,7 @@ bool QingjianEngine::connect(InputContext *context) {
         if (!shared_->flush()) throw std::runtime_error("close exchange");
         session->generation = shared_->generation;
         nlohmann::json response;
-        if (!shared_->connection.send({{"OpenSession", {{"session", session->id}, {"app", context->program()}, {"protocol", 8}}}}, &response)
+        if (!shared_->connection.send({{"OpenSession", {{"session", session->id}, {"app", context->program()}, {"protocol", 7}}}}, &response)
             || response.at("Update").at("session") != session->id
             || response.at("Update").at("linux_ui").at("version") != 3)
             throw std::runtime_error("protocol mismatch");
@@ -296,7 +296,7 @@ void QingjianEngine::render(InputContext *context, const nlohmann::json &frame) 
     while (bytes < raw.size() && (static_cast<unsigned char>(raw[bytes]) & 0xc0) == 0x80) ++bytes;
     preedit.setCursor(static_cast<int>(bytes));
     const auto &items = frame.at("candidates").at("items");
-    if (!items.is_array() || items.size() > 256) throw std::runtime_error("candidate count");
+    if (!items.is_array() || items.size() > 9) throw std::runtime_error("candidate count");
     auto watched = context->watch();
     const auto lifecycle = session->lifecycle;
     auto current = [&] {
@@ -308,21 +308,13 @@ void QingjianEngine::render(InputContext *context, const nlohmann::json &frame) 
         if (*alive && ic && ic->hasFocus() && ic->propertyFor(&sessions_)->revision == revision)
             exchange(ic, {{"Page", {{"identity", identity}, {"next", next}}}});
     });
-    std::vector<std::string> labels;
-    for (size_t i = 0; i < items.size(); ++i) {
-        const auto native = items[i].find("rime");
-        labels.push_back(native != items[i].end() && native->is_object() ? native->value("label", std::to_string(i+1)) : std::to_string(i+1));
-    }
-    list->setPageSize(static_cast<int>(std::max<size_t>(9, items.size())));
-    list->setLabels(labels);
+    list->setPageSize(9);
+    list->setLabels({"1", "2", "3", "4", "5", "6", "7", "8", "9"});
     list->setLayoutHint(frame.value("layout", "horizontal") == "vertical" ? CandidateLayoutHint::Vertical : CandidateLayoutHint::Horizontal);
     nlohmann::json senses = nlohmann::json::array();
     size_t index = 0;
     for (const auto &item : items) {
         std::string annotation;
-        std::string rimeComment;
-        const auto native = item.find("rime");
-        if (native != item.end() && native->is_object()) rimeComment = native->value("comment", "");
         auto text = item.at("text").get<std::string>();
         const auto &translation = item.at("translation");
         if (!text.empty() && translation.is_object() && !translation.at("senses").empty()) {
@@ -331,7 +323,6 @@ void QingjianEngine::render(InputContext *context, const nlohmann::json &frame) 
             if (!annotation.empty()) senses.push_back({index, 0});
             if (sense.value("fresh", false)) annotation += " · 生";
         }
-        if (!rimeComment.empty()) annotation = rimeComment + (annotation.empty() ? "" : " · " + annotation);
         list->append(std::make_unique<qingjian::Word>(text, annotation, [this, alive = alive_, watched, index, revision, identity](InputContext *ic) {
             if (*alive && ic && ic == watched.get() && ic->hasFocus() && ic->propertyFor(&sessions_)->revision == revision)
                 exchange(ic, {{"Candidate", {{"identity", identity}, {"index", index}}}});

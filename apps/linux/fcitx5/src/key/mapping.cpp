@@ -38,7 +38,7 @@ nlohmann::json mapKey(const fcitx::Key &key) {
     nlohmann::json character = nullptr;
     if (unicode >= 0x20 && unicode != 0x7f) character = fcitx::Key::keySymToUTF8(key.sym());
     auto states = key.states();
-    return {{"keysym", key.sym()}, {"virtual_key", code}, {"character", character}, {"modifiers", {
+    return {{"virtual_key", code}, {"character", character}, {"modifiers", {
         {"ctrl", states.test(fcitx::KeyState::Ctrl)}, {"shift", states.test(fcitx::KeyState::Shift) || key.sym() == FcitxKey_ISO_Left_Tab},
         {"alt", states.test(fcitx::KeyState::Alt)}, {"win", states.test(fcitx::KeyState::Super) || states.test(fcitx::KeyState::Hyper)},
         {"caps", states.test(fcitx::KeyState::CapsLock)}, {"english_mode", false}}}};

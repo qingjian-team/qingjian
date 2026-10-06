@@ -18,22 +18,13 @@ use super::Router;
 impl Router {
     /// DLL 那边用户切了模式：成为全局模式。内置英文模式关着时不收英文。
     pub(super) fn handle_mode_changed(&mut self, english: bool) {
-        if self.engine.rime_enabled() {
-            self.engine.set_english_mode(english);
-        }
-        self.english = english && (self.engine.rime_enabled() || self.config.english_mode);
+        self.english = english && self.config.english_mode;
         self.ime_active = true;
         self.reconcile_status();
     }
 
     /// 有 DLL 来取模式：青简是当前输入法。
     pub(super) fn handle_ime_active(&mut self) {
-        if self.engine.rime_enabled() {
-            self.english = self.engine.english_mode();
-            self.ime_active = true;
-            self.reconcile_status();
-            return;
-        }
         if !self.config.english_mode {
             self.english = false;
         }
@@ -53,23 +44,14 @@ impl Router {
         match event {
             StatusEvent::ToggleMode => {
                 // 关掉内置英文模式后这一格不切模式：DLL 那边也会拦（配置改了没切走再切回时两边都挡住）
-                if !self.engine.rime_enabled() && !self.config.english_mode {
+                if !self.config.english_mode {
                     tracing::debug!("内置英文模式已关闭，状态条不切模式");
                     return;
                 }
                 self.english = !self.english;
-                if self.engine.rime_enabled() {
-                    self.engine.set_english_mode(self.english);
-                }
                 tracing::debug!(english = self.english, "状态条：切换中英模式");
             }
             StatusEvent::TogglePunctuation => {
-                if let Some(ascii) = self.engine.rime_option("ascii_punct") {
-                    self.engine.set_rime_option("ascii_punct", !ascii);
-                    self.recompose();
-                    self.reconcile_status();
-                    return;
-                }
                 // 中英各记一份，切的是当前模式那份；还没报过模式时按中文算。
                 let english = self.english;
                 let full_width = !self.full_width_for(english);
@@ -120,9 +102,6 @@ impl Router {
 
     /// 当前模式下标点转不转全角：中英各一份配置。
     pub(super) fn full_width_for(&self, english: bool) -> bool {
-        if let Some(ascii) = self.engine.rime_option("ascii_punct") {
-            return !ascii;
-        }
         if english {
             self.config.english_full_width
         } else {

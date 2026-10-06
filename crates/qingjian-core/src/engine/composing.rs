@@ -124,6 +124,9 @@ impl Engine {
 
     /// 组句里要删东西了：第一次删之前把缓冲区留个快照，上屏时对比最终键串，不同就是一次重打（`retype`）。
     fn note_edit(&mut self) {
+        if let Some(profile) = &self.ice {
+            profile.uuid_cache.borrow_mut().take();
+        }
         if self.retype_snapshot.is_none() && !self.composition.is_empty() {
             self.retype_snapshot = Some(self.composition.text().to_owned());
         }
@@ -166,14 +169,8 @@ impl Engine {
     }
 
     pub fn push(&mut self, c: char) {
-        if self.rime_enabled() {
-            let key = if c as u32 <= 0xff {
-                c as i32
-            } else {
-                0x0100_0000 | c as i32
-            };
-            self.process_rime_key(key, 0);
-            return;
+        if let Some(profile) = &self.ice {
+            profile.uuid_cache.borrow_mut().take();
         }
         if self.composition.is_empty() {
             // 新一段组句：从这一键起算耗时、翻页与重打
@@ -188,6 +185,7 @@ impl Engine {
             && c.is_ascii_uppercase()
             && !self.english_mode
             && !self.raw_mode()
+            && !self.rime_ice_active()
         {
             self.composition.push_shifted(c);
         } else {
@@ -199,9 +197,6 @@ impl Engine {
     /// 开（缺省）停在辅码态（`;` 仍在、无码词也回来），关则回拼音态。码段本来就空（刚触发，或删空停住）
     /// 时按退格 = 退出辅码态、拼音一个字符都不动。每次退格候选都当场重筛。
     pub fn backspace(&mut self) -> bool {
-        if self.rime_enabled() {
-            return self.process_rime_key(0xff08, 0).is_some_and(|r| r.0);
-        }
         if let Some(code) = self.aux_code.take() {
             if code.len() > 1 {
                 self.aux_code = Some(code[..code.len() - 1].to_owned());
@@ -215,8 +210,8 @@ impl Engine {
     }
 
     pub fn clear(&mut self) {
-        if let Some(session) = &mut self.rime {
-            session.clear();
+        if let Some(profile) = &self.ice {
+            profile.uuid_cache.borrow_mut().take();
         }
         self.composition.clear();
         self.aux_code = None;
@@ -230,9 +225,6 @@ impl Engine {
     }
 
     pub fn delete_forward(&mut self) -> bool {
-        if self.rime_enabled() {
-            return self.process_rime_key(0xffff, 0).is_some_and(|r| r.0);
-        }
         self.note_edit();
         self.composition.delete_forward()
     }
@@ -278,37 +270,26 @@ impl Engine {
     }
 
     pub fn move_cursor_left(&mut self) -> bool {
-        if self.rime_enabled() {
-            return self.process_rime_key(0xff51, 0).is_some_and(|r| r.0);
-        }
         self.composition.move_left()
     }
 
     pub fn move_cursor_right(&mut self) -> bool {
-        if self.rime_enabled() {
-            return self.process_rime_key(0xff53, 0).is_some_and(|r| r.0);
-        }
         self.composition.move_right()
     }
 
     pub fn move_cursor_home(&mut self) {
-        if self.rime_enabled() {
-            self.rime_set_caret(0);
-            return;
-        }
         self.composition.move_home();
     }
 
     pub fn move_cursor_end(&mut self) {
-        if self.rime_enabled() {
-            self.rime_set_caret(self.composition.text().len());
-            return;
-        }
         self.composition.move_end();
     }
 
     /// 是否处在表达式模式（缓冲区以表达式键、缺省 `v` 开头）。此时壳应把数字和运算符也交给 [`Self::push`]，而不是当选词键。
     pub fn expression_mode(&self) -> bool {
+        if self.rime_ice_active() {
+            return self.composition.typed_text().starts_with("cC");
+        }
         !self.has_custom_phrase()
             && self
                 .modes()
@@ -318,6 +299,15 @@ impl Engine {
     /// 英文直输段：缓冲区里有拼音以外的字符（`no-way`），整段原样上屏、不解析拼音。
     /// 表达式模式与问字模式优先于它。
     pub fn raw_mode(&self) -> bool {
+        if self.rime_ice_active()
+            && (self.composition.typed_text().contains('`')
+                || self.composition.typed_text().starts_with("cC")
+                || self.composition.typed_text().starts_with('R')
+                || self.composition.typed_text().starts_with('N')
+                || self.composition.typed_text().starts_with('U'))
+        {
+            return false;
+        }
         is_raw(
             self.composition.text(),
             self.modes(),
@@ -328,6 +318,9 @@ impl Engine {
 
     /// 是否处在问字模式（缓冲区以问字键、缺省 `u`，或 `?` 开头）：拼音问题由云端答，十六进制码点本地答。
     pub fn question_mode(&self) -> bool {
+        if self.rime_ice_active() {
+            return false;
+        }
         !self.has_custom_phrase()
             && self
                 .modes()
@@ -337,6 +330,9 @@ impl Engine {
     /// 问字模式下正在敲的还可能是 Unicode 码点（前缀后为空，或到目前为止全是十六进制 / 开头 `+`）：
     /// 此时壳应把数字交给 [`Self::push`] 而不是当选词键。
     pub fn unicode_entry(&self) -> bool {
+        if self.rime_ice_active() {
+            return false;
+        }
         let text = self.composition.text();
         self.modes().is_question(text, self.zhuyin)
             && shortcut::could_be_unicode(self.modes().question_body(text, self.zhuyin))
@@ -363,11 +359,6 @@ impl Engine {
 
     /// 用一段完整拼音替换当前缓冲区，供 CLI 和测试一次性喂入。
     pub fn set_input(&mut self, input: &str) {
-        if let Some(session) = &mut self.rime {
-            session.set_input(input);
-            self.sync_rime();
-            return;
-        }
         self.composition.clear();
         for c in input.chars() {
             self.push(c);
@@ -376,12 +367,6 @@ impl Engine {
 
     /// 放弃当前拼音，原样返回给壳（通常是用户按回车要上屏字母本身）。
     pub fn take_raw(&mut self) -> String {
-        if let Some(session) = &mut self.rime {
-            let text = session.commit();
-            self.sync_rime();
-            self.record_rime_commit(Some(&text));
-            return text;
-        }
         // 回车原样上屏拼音段：码段（没上屏的码）到此结束
         self.aux_code = None;
         // 纠错生效时用户仍按了回车：这个串就是要原样打的，记下来以后不再纠它

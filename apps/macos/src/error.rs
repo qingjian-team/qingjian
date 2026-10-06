@@ -8,8 +8,6 @@ use qingjian_translate::GlossaryError;
 
 #[derive(Debug, thiserror::Error)]
 pub enum HostError {
-    #[error(transparent)]
-    Rime(#[from] qingjian_core::RimeError),
     /// `.app` 里找不到 Resources 目录，说明不是通过 bundle.sh 打包的。
     #[error("bundle has no resource directory")]
     NoResources,

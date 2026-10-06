@@ -123,9 +123,6 @@ impl Router {
 
     fn handle_key(&mut self, session: SessionId, event: KeyEvent) -> ServerMessage {
         self.ensure_focus(session);
-        if self.engine.rime_enabled() {
-            return self.handle_rime_key(session, event);
-        }
         self.notice = None;
         if self.translation.is_some() {
             return self.handle_translation_review(session, &event);

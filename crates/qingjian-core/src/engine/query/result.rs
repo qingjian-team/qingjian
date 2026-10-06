@@ -47,8 +47,6 @@ use crate::engine::{AuxSegment, MarkedKind, MarkedSegment};
 /// 不带译文的候选查询结果。
 #[derive(Debug, Clone, Default)]
 pub struct Query {
-    /// 原生后端的分页、高亮和预编辑光标，壳不得重新排序或分页。
-    pub rime_menu: Option<crate::RimeMenu>,
     /// 参与候选生成的所有切分，索引 0 为首选切分。
     pub segmentations: Vec<Segmentation>,
 
@@ -88,8 +86,8 @@ pub struct Query {
 }
 
 impl Query {
-    /// 无法解析为拼音但精确匹配自定义短语时，保留原始输入和光标。
-    pub(super) fn custom_only(
+    /// 无需拼音切分的候选，保留原始输入和光标。
+    pub(in crate::engine) fn custom_only(
         text: &str,
         cursor: usize,
         decoded_keys: bool,
@@ -162,9 +160,6 @@ impl Query {
 
     /// 光标在 [`Self::marked_segments`] 拼接文本里的字符下标（候选窗口顶部拼音行使用）。
     pub fn segments_cursor(&self) -> usize {
-        if let Some(menu) = &self.rime_menu {
-            return menu.cursor;
-        }
         // 纠错生效、解码时显示串与敲的不一样长，作用域又总在光标前：光标就在敲的部分末尾
         // （光标在开头时作用域是整段，光标仍在开头）
         if self.decoded_keys && self.cursor == 0 {

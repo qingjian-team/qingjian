@@ -143,7 +143,6 @@ mod tests {
     fn layout(count: usize, page_size: usize) -> CandidateLayout {
         let candidates = (0..count)
             .map(|i| Candidate {
-                rime: None,
                 text: format!("本{i}"),
                 kind: CandidateKind::Chinese,
                 syllables: vec!["a".into()],
@@ -211,7 +210,6 @@ mod tests {
         let mut candidates: Vec<Candidate> = ["是", "时候", "abc", "一心一意", "是不是因为我们"]
             .iter()
             .map(|text| Candidate {
-                rime: None,
                 text: (*text).into(),
                 kind: CandidateKind::Chinese,
                 syllables: vec!["a".into()],

@@ -12,6 +12,7 @@ mod correcting;
 mod decoded;
 mod extras;
 mod gloss;
+mod ice;
 mod input_log;
 mod learning;
 mod marked;
@@ -21,7 +22,6 @@ mod privacy;
 mod query;
 mod raw;
 mod rescoring;
-mod rime;
 mod session;
 mod setup;
 mod statistics;
@@ -62,9 +62,7 @@ pub use vocabulary::{
     FRESH_UNTIL, LevelCount, NoVocabularyTracker, VocabularySummary, VocabularyTracker,
 };
 
-use crate::candidate::Language;
-#[cfg(test)]
-use crate::candidate::{Candidate, CandidateKind};
+use crate::candidate::{Candidate, Language};
 use crate::composition::Composition;
 use crate::correction::{self, Correction, TypoCosts};
 use crate::emoji::EmojiTable;
@@ -72,14 +70,17 @@ use crate::fuzzy::FuzzyRules;
 use crate::history::InputHistory;
 use crate::parser::{self, ParseError, Segmentation};
 use crate::punctuation::Punctuation;
-use crate::sentence::{self, Interpolation, LanguageModel, NoLanguageModel, SentenceScorer};
+use crate::sentence::{
+    self, Conversion, Interpolation, LanguageModel, NoLanguageModel, SentenceScorer,
+};
+use crate::shortcut;
 use crate::shuangpin::Scheme;
 
 use commit::CommitChain;
 
 pub struct Engine {
-    /// 用户显式启用的原生 Rime 会话。
-    rime: Option<crate::rime::Session>,
+    /// 用户提供的雾凇全拼数据；不接入其他输入引擎。
+    ice: Option<ice::IceProfile>,
 
     /// 静态词库。
     dictionary: Dictionary,
@@ -385,7 +386,7 @@ pub const RESCORE_CONTEXT_CHARS: usize = 64;
 impl Engine {
     pub fn new(dictionary: Dictionary) -> Self {
         Self {
-            rime: None,
+            ice: None,
             dictionary,
             extra_dictionaries: Vec::new(),
             translator: Box::new(NoTranslator),

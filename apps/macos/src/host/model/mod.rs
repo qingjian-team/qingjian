@@ -12,18 +12,13 @@ mod rescore_monitor;
 
 pub(super) use rescore_monitor::RescoreMonitor;
 
-use super::Host;
-use crate::app::paths;
-use crate::candidates::Preedit;
+use super::*;
 
 impl Host {
     /// 在后台线程加载模型并预热（第一次前向要编译 Metal 内核，几百毫秒），加载完由 [`Self::attach_loaded_model`] 接上。
     /// 没有模型文件就什么都不做。
     pub(super) fn load_local_model(&mut self) {
-        if self.engine.rime_enabled()
-            || self.model_loader.is_some()
-            || self.engine.has_sentence_scorer()
-        {
+        if self.model_loader.is_some() || self.engine.has_sentence_scorer() {
             return;
         }
         // P2C 优先：冻结集 8322 句上比字级模型的重排高 0.69 个点、延迟还低（docs/notes/model-eval.md）

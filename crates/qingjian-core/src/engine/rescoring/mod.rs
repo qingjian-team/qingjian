@@ -1,4 +1,4 @@
-//! 神经重打分：整句转换的前几条路径交给字级模型（[`crate::sentence::SentenceScorer`]）再排一次。
+//! 神经重打分：整句转换的前几条路径交给字级模型（[`SentenceScorer`]）再排一次。
 //!
 //! 打分有两种接法：同步的（[`Engine::with_sentence_scorer`]，查询里当场打，CLI 评测用）和异步的
 //! （[`Engine::with_async_sentence_scorer`]，后台线程；壳里用）。两种都经过一张「前文 + 文本 → 神经分」的缓存
@@ -12,14 +12,7 @@ mod worker;
 #[cfg(test)]
 mod tests;
 
-use super::Engine;
-use super::take_last_chars;
-use crate::sentence::Conversion;
-
-#[cfg(test)]
-use crate::sentence::SentenceScorer;
-#[cfg(test)]
-use qingjian_dictionary::Dictionary;
+use super::*;
 
 pub(crate) use cache::NeuralCache;
 pub(crate) use worker::RescoreWorker;
@@ -37,9 +30,6 @@ const GENERATED_CANDIDATES: usize = 2;
 impl Engine {
     /// 接了重打分器（同步或异步）。
     pub fn has_sentence_scorer(&self) -> bool {
-        if self.rime_enabled() {
-            return false;
-        }
         self.sentence_scorer.is_some()
             || self.rescorer.as_ref().is_some_and(RescoreWorker::is_alive)
     }
