@@ -11,7 +11,14 @@ import tarfile
 
 def digest(path):
     with path.open('rb') as stream:
-        return hashlib.file_digest(stream, 'sha256').hexdigest()
+        return digest_stream(stream)
+
+
+def digest_stream(stream):
+    value = hashlib.sha256()
+    for chunk in iter(lambda: stream.read(1024 * 1024), b''):
+        value.update(chunk)
+    return value.hexdigest()
 
 
 def main():
@@ -31,7 +38,12 @@ def main():
                 print(f'保留已修改文件：{path}')
         manifest.unlink(missing_ok=True)
         return
-    root, server, plugin, sample = args
+    if len(args) not in (4, 5):
+        raise SystemExit('install 需要仓库、服务、插件、样例标记及可选框架版本')
+    root, server, plugin, sample = args[:4]
+    flavor = args[4] if len(args) == 5 else 'fcitx5'
+    if flavor not in ('fcitx4', 'fcitx5'):
+        raise SystemExit('框架版本必须是 fcitx4 或 fcitx5')
     root = Path(root)
     data = Path(os.environ.get('XDG_DATA_HOME', str(Path.home() / '.local/share')))
     if not data.is_absolute():
@@ -39,10 +51,20 @@ def main():
     files = {prefix / 'share/licenses/qingjian/LICENSE': root / 'LICENSE',
              prefix / 'share/licenses/qingjian/LICENSE-CNS11643.txt': root / 'assets/stroke/LICENSE-CNS11643.txt',
              data / 'icons/hicolor/128x128/apps/qingjian.png': root / 'assets/icon/logo.png',
-             prefix / 'bin/qingjian-linux-server': Path(server),
-             prefix / 'lib/fcitx5/qingjian.so': Path(plugin)}
-    for kind in ('addon', 'inputmethod'):
-        files[data / f'fcitx5/{kind}/qingjian.conf'] = root / f'apps/linux/fcitx5/data/{kind}/qingjian.conf'
+             prefix / 'bin/qingjian-linux-server': Path(server)}
+    if flavor == 'fcitx4':
+        config = Path(os.environ.get('XDG_CONFIG_HOME', str(Path.home() / '.config')))
+        if not config.is_absolute():
+            raise SystemExit('XDG_CONFIG_HOME 必须是绝对路径')
+        icon = root / 'assets/icon/fcitx4.png'
+        files[prefix / 'lib/fcitx/fcitx-qingjian.so'] = Path(plugin)
+        files[config / 'fcitx/addon/fcitx-qingjian.conf'] = root / 'apps/linux/fcitx4/data/addon/fcitx-qingjian.conf'
+        files[config / 'fcitx/imicon/qingjian.png'] = icon
+        files[data / 'icons/hicolor/48x48/apps/fcitx-qingjian.png'] = icon
+    else:
+        files[prefix / 'lib/fcitx5/qingjian.so'] = Path(plugin)
+        for kind in ('addon', 'inputmethod'):
+            files[data / f'fcitx5/{kind}/qingjian.conf'] = root / f'apps/linux/fcitx5/data/{kind}/qingjian.conf'
     resources = prefix / 'share/qingjian/resources'
     for kind in ('sample', 'glossary', 'levels', 'emoji'):
         for source in (root / 'assets' / kind).rglob('*'):
@@ -65,7 +87,7 @@ def main():
                 source = (root / member.name).resolve()
                 if not source.is_relative_to((root / 'data').resolve()):
                     raise SystemExit('数据包路径越界')
-                checksum = hashlib.file_digest(bundle.extractfile(member), 'sha256').hexdigest()
+                checksum = digest_stream(bundle.extractfile(member))
                 if not source.is_file() or digest(source) != checksum:
                     raise SystemExit(f'产品数据校验失败：{member.name}')
                 verified[source] = checksum
@@ -96,6 +118,8 @@ def main():
         shutil.copy2(source, temporary)
         if target == data / 'fcitx5/addon/qingjian.conf':
             temporary.write_text(temporary.read_text().replace('Library=qingjian\n', f'Library={prefix}/lib/fcitx5/qingjian\n'))
+        elif flavor == 'fcitx4' and target == config / 'fcitx/addon/fcitx-qingjian.conf':
+            temporary.write_text(temporary.read_text().replace('Library=fcitx-qingjian.so\n', f'Library={prefix}/lib/fcitx/fcitx-qingjian.so\n'))
         temporary.replace(target)
         installed[str(target)] = digest(target)
     for filename, checksum in old.items():

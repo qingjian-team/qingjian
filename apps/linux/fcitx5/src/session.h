@@ -40,5 +40,11 @@ struct Session final : fcitx::InputContextProperty {
     nlohmann::json capabilities;
 
     std::string preeditMode = "both";
+
+    std::string selectionText;
+
+    unsigned int selectionCursor = 0;
+
+    unsigned int selectionAnchor = 0;
 };
 }

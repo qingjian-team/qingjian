@@ -1,8 +1,9 @@
 # 图标
 
 - `qingjian-mark.svg`：README 页头使用的透明竹简图标，与官网品牌图标一致。
-- `logo.png`（866×866，带透明通道）：应用图标源文件。`apps/macos/scripts/bundle.sh` 打包时用 `sips` + `iconutil`
+- `logo.png`（1024×1024，带透明通道）：应用图标源文件。`apps/macos/scripts/bundle.sh` 打包时用 `sips` + `iconutil`
   生成 `Qingjian.icns`，生成物不进仓库。
+- `fcitx4.png`：由 `logo.png` 缩放到 48×48，供 Fcitx4 经典面板及托盘组件使用。
 - `menu.svg`：macOS 输入法图标源文件，黑色键帽镂空四片竹简（模板图，系统只取 alpha）。`menu.pdf` 是它导出的
   22×16pt 矢量版，打包时拷成 `qingjian-menu.pdf`，Info.plist 的图标键都指向它。为什么是这个形式和尺寸见
   `docs/design/architecture.md`「Info.plist 约定」。改了 svg 重新导出：

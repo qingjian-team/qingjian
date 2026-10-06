@@ -152,7 +152,7 @@ english_candidates_off = [
 }
 
 /// 模板 `[shortcut]` 一节里的修饰键组合（macOS 命名）。缺省值两个平台一样，只是写法与注释按平台的键名。
-#[cfg(not(windows))]
+#[cfg(all(not(windows), not(target_os = "linux")))]
 macro_rules! template_shortcut_keys {
     () => {
         r#"# 中 / 英模式切换键（Windows 用），可多选：shift 单击（缺省）/ control 单击 / ctrl+alt+space 组合键；[] 不用键切换。
@@ -166,6 +166,23 @@ translation_second = "shift+option"
 # 修饰键 + 一个字母或数字，任意组合；避开 ⌘T 这类应用常用键
 translate_selection = "control+option+t"
 # 数字键配这些修饰键删掉候选：用户词（云端选过的、自动造的）整个删掉，词库里的词清掉对它的学习记录。组句中要打感叹号先把词上屏
+delete_candidate = "shift"
+"#
+    };
+}
+
+/// Linux 默认避开桌面常用的 Ctrl + Alt + T（打开终端）。
+#[cfg(target_os = "linux")]
+macro_rules! template_shortcut_keys {
+    () => {
+        r#"# 中 / 英模式切换键：shift 单击（缺省），[] 不用键切换。
+switch_mode = ["shift"]
+# 数字键配这些修饰键上屏候选的译词：translation 第一个译词，translation_second 第二个
+translation = "alt"
+translation_second = "shift+alt"
+# 把应用里选中的文字译成学习语言（要开着云服务）；Ctrl + Alt + T 常被桌面占用来打开终端
+translate_selection = "alt+shift+t"
+# 数字键配这些修饰键删掉候选
 delete_candidate = "shift"
 "#
     };
