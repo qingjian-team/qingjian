@@ -388,6 +388,11 @@ CC-CEDICT 表（`dict-convert cedict`）保留为备用来源，覆盖面广但�
   所以 postinstall 切到登录用户来调它。两个坑决定了它的结构：刚换过 bundle 的头几秒系统还在重扫新包，这时启用的记录会被顶掉
   （实测装完 3 秒内都这样），所以启用后隔一会儿要再确认一次；TIS 在进程内缓存输入源状态，本进程怎么重列表、跑 run loop
   回读都是旧值，所以回读与切换放在子进程（`--finish-register`）里做。
+  另外，沙盒应用（微信、备忘录等）各自在 `$DARWIN_USER_CACHE_DIR/<bundle id>/com.apple.IntlDataCache.le*` 存一份输入源表，
+  启动时直接载入、不检查有没有新装的输入法；收到系统「输入源已变更」的广播只作废内存里的表，重新载入的还是磁盘上这份。
+  装之前就开着的沙盒应用因此不认得青简：Control+Space 切过来时系统框架查不到这个 ID、对 NULL 调 `CFRelease` 崩溃（#346），
+  或者切换列表里干脆没有青简。所以 postinstall 注册前先删掉这个用户的输入源缓存（共享的与各应用的），注册时系统重建共享表并广播，
+  开着的应用找不到磁盘缓存，就从输入法目录重建，不用重启或注销（实测；打开 `AppleTISTraceCacheRebuild` 能看到这条链路的日志）。
 - IMK 无法通过 `cargo run` 验证：需要打包成 `.app`、装到 `~/Library/Input Methods/`、
   注销或重启输入法进程才会生效。Core 的验证靠 CLI 测试工具和单元测试，不依赖跑起真实输入法。
 - 已知需要单独处理的场景：Secure Input 字段、沙盒应用、Electron 与 Terminal 各自的 marked text 行为。
