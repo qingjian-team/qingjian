@@ -1,8 +1,37 @@
 //! 注入与开关：词库、模糊音、双拼、翻译 / 学习 / 联想等 trait 实现的挂接，以及相应的只读访问。
 
 use super::aux_code::is_valid_aux_code_key;
-use super::*;
+use crate::candidate::Language;
+use crate::correction::TypoCosts;
+use crate::emoji::EmojiTable;
+use crate::engine::DEFAULT_AUX_CODE_KEY;
+use crate::engine::Engine;
+use crate::engine::GlossFiller;
+use crate::engine::InputLogger;
+use crate::engine::Learner;
+use crate::engine::ModeKeys;
+use crate::engine::NEURAL_MARGIN;
+use crate::engine::NEURAL_WEIGHT;
+use crate::engine::Predictor;
+use crate::engine::RESCORE_CONTEXT_CHARS;
+use crate::engine::Translator;
+use crate::engine::UsageMeter;
+use crate::engine::UsageSummary;
+use crate::engine::VocabularyTracker;
 use crate::engine::decoded::EngineDecoded;
+use crate::engine::marked_rest;
+use crate::fuzzy::FuzzyRules;
+use crate::history::InputHistory;
+use crate::sentence::Interpolation;
+use crate::sentence::LanguageModel;
+use crate::sentence::Personal;
+use crate::sentence::SentenceScorer;
+use crate::shuangpin::Scheme;
+use qingjian_dictionary::AuxCodeLookup;
+use qingjian_dictionary::CodeTable;
+use qingjian_dictionary::Dictionary;
+use qingjian_dictionary::WordList;
+use std::sync::Arc;
 
 impl Engine {
     /// 设置中文模式的标点转换。
@@ -19,6 +48,9 @@ impl Engine {
 
     /// 设双拼方案，`None` 回到全拼。纠错缓存按作用域记而作用域的含义变了，一并清掉。
     pub fn set_shuangpin(&mut self, scheme: Option<Scheme>) {
+        if self.ice.is_some() && self.shuangpin != scheme {
+            self.forget_span_cache();
+        }
         self.shuangpin = scheme;
         *self.correction_cache.borrow_mut() = None;
     }
@@ -203,6 +235,8 @@ impl Engine {
     pub(super) fn decode(&self, keys: &str) -> Option<EngineDecoded> {
         if self.zhuyin {
             Some(EngineDecoded::Zhuyin(crate::zhuyin::decode(keys)))
+        } else if self.rime_ice_active() {
+            super::ice::IceDecoded::new(keys).map(EngineDecoded::Ice)
         } else {
             self.shuangpin
                 .map(|scheme| EngineDecoded::Shuangpin(scheme.decode(keys)))
@@ -470,6 +504,11 @@ impl Engine {
     }
 
     pub fn dictionary(&self) -> &Dictionary {
+        if self.rime_ice_active()
+            && let Some(profile) = &self.ice
+        {
+            return &profile.dictionary;
+        }
         &self.dictionary
     }
 
@@ -486,7 +525,7 @@ impl Engine {
     /// 查词用的全部词库：主词库、附加词库、用户词。
     pub(super) fn all_dictionaries(&self) -> Vec<&Dictionary> {
         let mut all = Vec::with_capacity(self.extra_dictionaries.len() + 2);
-        all.push(&self.dictionary);
+        all.push(self.dictionary());
         all.extend(self.extra_dictionaries.iter());
         if let Some(user) = self.learner.user_words() {
             all.push(user);

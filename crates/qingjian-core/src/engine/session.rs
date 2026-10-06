@@ -49,6 +49,9 @@ pub struct EngineSession {
 
     /// 本会话连续上屏的学习链。
     chain: CommitChain,
+
+    /// 同一输入上下文中已经展示的 UUID。
+    ice_uuid: Option<String>,
 }
 
 impl Engine {
@@ -57,6 +60,9 @@ impl Engine {
     pub fn swap_session(&mut self, session: &mut EngineSession) {
         self.cancel_prediction();
         self.set_rescoring_context(None);
+        if let Some(profile) = &self.ice {
+            std::mem::swap(&mut *profile.uuid_cache.borrow_mut(), &mut session.ice_uuid);
+        }
         std::mem::swap(&mut self.composition, &mut session.composition);
         std::mem::swap(&mut self.english_mode, &mut session.english_mode);
         std::mem::swap(&mut self.punctuation, &mut session.punctuation);
@@ -102,6 +108,7 @@ impl EngineSession {
         self.displayed.clear();
         self.history.clear();
         self.chain = CommitChain::default();
+        self.ice_uuid = None;
     }
 }
 
@@ -109,6 +116,9 @@ impl Engine {
     /// 在隐私边界丢弃当前装入的输入状态。与 [`Self::set_private`] 分开，避免平台壳
     /// 在组句第一帧后报告隐私状态时意外清掉新输入。
     pub fn discard_input(&mut self) {
+        if let Some(profile) = &self.ice {
+            profile.uuid_cache.borrow_mut().take();
+        }
         self.cancel_prediction();
         self.composition.clear();
         self.english_mode = false;

@@ -86,8 +86,8 @@ pub struct Query {
 }
 
 impl Query {
-    /// 无法解析为拼音但精确匹配自定义短语时，保留原始输入和光标。
-    pub(super) fn custom_only(
+    /// 无需拼音切分的候选，保留原始输入和光标。
+    pub(in crate::engine) fn custom_only(
         text: &str,
         cursor: usize,
         decoded_keys: bool,

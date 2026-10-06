@@ -1,6 +1,10 @@
 //! 候选生成：按输入模式分派查询。各模式的实现在兄弟文件里，共用的候选构造留在这里。
 
-use super::*;
+use super::{Engine, is_raw};
+use crate::candidate::{Candidate, CandidateKind};
+use crate::parser::ParseError;
+use crate::ranking::Scored;
+use std::time::Instant;
 
 mod code;
 mod converting;
@@ -28,10 +32,11 @@ impl Engine {
         let mut query = match self.query_inner() {
             Ok(query) => query,
             Err(error) => {
-                if !self
-                    .custom_phrases
-                    .iter()
-                    .any(|p| p.enabled && p.code == self.composition.scope())
+                if !self.has_ice_word()
+                    && !self
+                        .custom_phrases
+                        .iter()
+                        .any(|p| p.enabled && p.code == self.composition.scope())
                 {
                     return Err(error);
                 }
@@ -50,6 +55,7 @@ impl Engine {
         if self.aux_filter().is_none() {
             self.insert_custom_phrases(&mut query.candidates.items);
         }
+        self.filter_ice(&mut query.candidates.items);
         // 给输入日志留个摘要：上屏时才知道选了什么，这里才知道看到了什么
         let pinyin = match &query.correction {
             Some(correction) => correction.segmentation.joined("'"),
@@ -76,7 +82,12 @@ impl Engine {
                 if matches!(
                     candidate.kind,
                     CandidateKind::Chinese | CandidateKind::Sentence | CandidateKind::Cloud
-                ) {
+                ) || (self.rime_ice_active()
+                    && matches!(
+                        candidate.kind,
+                        CandidateKind::Custom(_) | CandidateKind::Shortcut
+                    ))
+                {
                     let traditional_text = opencc.convert(&candidate.text);
                     self.traditional_map
                         .borrow_mut()
@@ -96,10 +107,13 @@ impl Engine {
         if self.english_mode {
             return Ok(self.query_english(keys, rest, start));
         }
-        if self.modes().is_expression(keys, self.zhuyin) {
+        if let Some(query) = self.query_ice(start) {
+            return Ok(query);
+        }
+        if !self.rime_ice_active() && self.modes().is_expression(keys, self.zhuyin) {
             return Ok(self.query_expression(keys, rest, start));
         }
-        if self.modes().is_question(keys, self.zhuyin) {
+        if !self.rime_ice_active() && self.modes().is_question(keys, self.zhuyin) {
             return Ok(self.query_question(keys, rest, start));
         }
         if is_raw(keys, self.modes(), self.shuangpin, self.zhuyin) {

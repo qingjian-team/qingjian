@@ -7,6 +7,9 @@ description: 青简在 macOS 与 Windows 上的全部按键与缺省快捷键：
 两个平台功能相同，按键按各自系统的习惯设计。表中 `⌥` 为 Option，`⌘` 为 Command，`⌃` 为 Control，`⇧` 为 Shift；
 「—」表示该平台没有此键。
 
+启用[雾凇全拼扩展](../settings/dictionaries.md#使用雾凇全拼扩展)后，选词、翻页和模式切换仍按本页设置。
+`rq`、`cC`、`R`、`U` 等是输入码；其中的数字和运算符作为内容输入，空格确认候选。
+
 ## 切换模式
 
 | 操作 | macOS | Windows |

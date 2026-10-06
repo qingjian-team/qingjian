@@ -2,7 +2,20 @@
 
 use std::collections::HashSet;
 
-use super::*;
+use crate::candidate::Candidate;
+use crate::candidate::CandidateKind;
+use crate::candidate::CandidateList;
+use crate::engine::Engine;
+use crate::engine::Learner;
+use crate::engine::MAX_CANDIDATES;
+use crate::engine::Query;
+use crate::engine::Timings;
+use crate::engine::choice_key;
+use crate::parser::ParseError;
+use crate::ranking;
+use crate::ranking::Scored;
+use crate::sentence;
+use std::time::Instant;
 
 impl Engine {
     /// 形码方案（五笔）的候选：编码打全的词排在同前缀的更长编码词前面，其余按词频与上下文。

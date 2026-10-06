@@ -19,6 +19,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 use super::*;
+use crate::candidate::CandidateKind;
 
 use crate::candidate::{PartOfSpeech, Sense, Translation};
 

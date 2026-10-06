@@ -124,6 +124,9 @@ impl Engine {
 
     /// 组句里要删东西了：第一次删之前把缓冲区留个快照，上屏时对比最终键串，不同就是一次重打（`retype`）。
     fn note_edit(&mut self) {
+        if let Some(profile) = &self.ice {
+            profile.uuid_cache.borrow_mut().take();
+        }
         if self.retype_snapshot.is_none() && !self.composition.is_empty() {
             self.retype_snapshot = Some(self.composition.text().to_owned());
         }
@@ -166,6 +169,9 @@ impl Engine {
     }
 
     pub fn push(&mut self, c: char) {
+        if let Some(profile) = &self.ice {
+            profile.uuid_cache.borrow_mut().take();
+        }
         if self.composition.is_empty() {
             // 新一段组句：从这一键起算耗时、翻页与重打
             self.composition_started = Some(Instant::now());
@@ -179,6 +185,7 @@ impl Engine {
             && c.is_ascii_uppercase()
             && !self.english_mode
             && !self.raw_mode()
+            && !self.rime_ice_active()
         {
             self.composition.push_shifted(c);
         } else {
@@ -203,6 +210,9 @@ impl Engine {
     }
 
     pub fn clear(&mut self) {
+        if let Some(profile) = &self.ice {
+            profile.uuid_cache.borrow_mut().take();
+        }
         self.composition.clear();
         self.aux_code = None;
         self.chain.leave_buffer();
@@ -277,6 +287,9 @@ impl Engine {
 
     /// 是否处在表达式模式（缓冲区以表达式键、缺省 `v` 开头）。此时壳应把数字和运算符也交给 [`Self::push`]，而不是当选词键。
     pub fn expression_mode(&self) -> bool {
+        if self.rime_ice_active() {
+            return self.composition.typed_text().starts_with("cC");
+        }
         !self.has_custom_phrase()
             && self
                 .modes()
@@ -286,6 +299,15 @@ impl Engine {
     /// 英文直输段：缓冲区里有拼音以外的字符（`no-way`），整段原样上屏、不解析拼音。
     /// 表达式模式与问字模式优先于它。
     pub fn raw_mode(&self) -> bool {
+        if self.rime_ice_active()
+            && (self.composition.typed_text().contains('`')
+                || self.composition.typed_text().starts_with("cC")
+                || self.composition.typed_text().starts_with('R')
+                || self.composition.typed_text().starts_with('N')
+                || self.composition.typed_text().starts_with('U'))
+        {
+            return false;
+        }
         is_raw(
             self.composition.text(),
             self.modes(),
@@ -296,6 +318,9 @@ impl Engine {
 
     /// 是否处在问字模式（缓冲区以问字键、缺省 `u`，或 `?` 开头）：拼音问题由云端答，十六进制码点本地答。
     pub fn question_mode(&self) -> bool {
+        if self.rime_ice_active() {
+            return false;
+        }
         !self.has_custom_phrase()
             && self
                 .modes()
@@ -305,6 +330,9 @@ impl Engine {
     /// 问字模式下正在敲的还可能是 Unicode 码点（前缀后为空，或到目前为止全是十六进制 / 开头 `+`）：
     /// 此时壳应把数字交给 [`Self::push`] 而不是当选词键。
     pub fn unicode_entry(&self) -> bool {
+        if self.rime_ice_active() {
+            return false;
+        }
         let text = self.composition.text();
         self.modes().is_question(text, self.zhuyin)
             && shortcut::could_be_unicode(self.modes().question_body(text, self.zhuyin))

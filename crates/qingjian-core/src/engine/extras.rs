@@ -1,6 +1,12 @@
 //! 附加候选：日期时间等快捷项、中英混输的英文词与补全、emoji。
 
-use super::*;
+use super::{
+    EMOJI_PER_WORD, EMOJI_SCAN, EMOJI_TOTAL, ENGLISH_COMPLETIONS, Engine, MIN_COMPLETION_LETTERS,
+};
+use crate::candidate::{Candidate, CandidateKind};
+use crate::engine::Learner;
+use crate::shortcut;
+use qingjian_dictionary::WordList;
 
 impl Engine {
     /// 精确匹配自定义输入码时，数字键应选择候选。
@@ -40,6 +46,9 @@ impl Engine {
 
     /// 日期 / 时间 / 星期这类快捷候选插在本地首选之后：`rq` 首选仍是词库里的词，快捷写法紧随其后。
     pub(super) fn insert_shortcuts(&self, items: &mut Vec<Candidate>, scope: &str) {
+        if self.rime_ice_active() {
+            return;
+        }
         let expression_char =
             if self.zhuyin && crate::zhuyin::layout::map_key(self.modes().expression).is_some() {
                 '\0'
@@ -142,6 +151,12 @@ impl Engine {
             .user_english()
             .into_iter()
             .chain(self.english.as_ref())
+            .chain(
+                self.ice
+                    .as_ref()
+                    .filter(|_| self.shuangpin.is_none() && !self.zhuyin && self.code.is_none())
+                    .map(|profile| &profile.english),
+            )
             .collect()
     }
 

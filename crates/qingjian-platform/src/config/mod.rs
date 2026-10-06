@@ -9,6 +9,7 @@ mod log_level;
 mod model;
 mod modifiers;
 mod preedit_mode;
+mod rime_ice;
 mod scheme;
 mod shift_letter;
 mod shortcut;
@@ -42,6 +43,7 @@ pub use log_level::LogLevel;
 pub use model::LocalModelConfig;
 pub use modifiers::Modifiers;
 pub use preedit_mode::PreeditMode;
+pub use rime_ice::RimeIceConfig;
 pub use scheme::{Scheme, scheme_label};
 pub use shift_letter::ShiftLetter;
 pub use shortcut::ShortcutConfig;
@@ -56,6 +58,9 @@ pub use update::{UpdateChannel, UpdateConfig};
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Config {
+    /// 雾凇全拼的数据与扩展，默认关闭。
+    pub rime_ice: RimeIceConfig,
+
     /// 常规：学习语言、每页候选数、翻页键、外观。
     pub general: GeneralConfig,
 
@@ -299,6 +304,11 @@ in_ing = false
 domains = ["idioms"]
 # 自己导入的词库：放在配置同目录 dicts/ 下的 .qj 文件都会加载，这里列出要关掉的（文件名，不含扩展名）
 disabled = []
+
+[rime_ice]
+# 雾凇全拼：先自行下载完整雾凇目录，再填写绝对路径；第一次启用需要导入词库
+enabled = false
+data_dir = ""
 
 [aux_code]
 # 辅码总开关：false 时整条辅码线关（; 完全保持原生行为，候选也不挂码）；

@@ -183,7 +183,8 @@ impl Router {
             && (c.is_ascii_digit() || matches!(c, '-' | ';' | ',' | '.' | '/'));
         if c.is_ascii_lowercase()
             || is_zhuyin_key
-            || (c.is_ascii_uppercase() && self.config.shift_letter_compose)
+            || (c.is_ascii_uppercase()
+                && (self.config.shift_letter_compose || self.engine.rime_ice_active()))
         {
             self.engine.push(c);
             return Effect::Changed(None);
@@ -260,7 +261,8 @@ impl Router {
     /// 微软 / 搜狗双拼的 `;` 是 ing 键，末尾有落单声母时进缓冲区。
     fn apply_printable(&mut self, c: char, event: &KeyEvent) -> Effect {
         let expression = self.engine.expression_mode();
-        if (expression && shortcut::is_expression_char(c))
+        if self.engine.rime_ice_input_char(c)
+            || (expression && shortcut::is_expression_char(c))
             || (self.engine.unicode_entry() && (c.is_ascii_digit() || c == '+'))
             || (c == ';' && self.engine.takes_semicolon())
         {

@@ -199,6 +199,14 @@ impl Router {
         self.engine.set_traditional_mode(config.general.traditional);
         self.engine.set_learning(config.general.learning);
         self.engine.set_mode_keys(config.shortcut.mode);
+        if let Err(error) = config.rime_ice.apply(
+            &mut self.engine,
+            &qingjian_platform::dirs::user_dir()
+                .unwrap_or_else(std::env::temp_dir)
+                .join("rime-ice-cache"),
+        ) {
+            tracing::error!(%error, "雾凇全拼数据加载失败");
+        }
         self.engine
             .set_aux_code_key(config.general.aux_code_key(), config.general.page_keys());
         self.engine

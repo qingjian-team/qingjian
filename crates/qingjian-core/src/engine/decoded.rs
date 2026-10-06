@@ -1,8 +1,9 @@
-//! 双拼 / 注音的解码结果：两种方案解出来的东西在引擎里走同一条路，这里把它们收成一个枚举。
+//! 双拼、注音与全拼容错的解码结果，通过统一接口进入原生查询与上屏流程。
 
 pub(super) enum EngineDecoded {
     Shuangpin(crate::shuangpin::Decoded),
     Zhuyin(crate::zhuyin::Decoded),
+    Ice(super::ice::IceDecoded),
 }
 
 impl EngineDecoded {
@@ -10,6 +11,7 @@ impl EngineDecoded {
         match self {
             Self::Shuangpin(d) => d.pinyin(),
             Self::Zhuyin(d) => d.pinyin(),
+            Self::Ice(d) => d.pinyin(),
         }
     }
 
@@ -17,6 +19,7 @@ impl EngineDecoded {
         match self {
             Self::Shuangpin(d) => d.tail(),
             Self::Zhuyin(d) => d.tail(),
+            Self::Ice(d) => d.tail(),
         }
     }
 
@@ -24,6 +27,7 @@ impl EngineDecoded {
         match self {
             Self::Shuangpin(d) => d.segmentation(),
             Self::Zhuyin(d) => d.segmentation(),
+            Self::Ice(d) => d.segmentation(),
         }
     }
 
@@ -31,6 +35,7 @@ impl EngineDecoded {
         match self {
             Self::Shuangpin(d) => d.marked(),
             Self::Zhuyin(d) => d.marked(),
+            Self::Ice(d) => d.marked(),
         }
     }
 
@@ -38,6 +43,7 @@ impl EngineDecoded {
         match self {
             Self::Shuangpin(d) => d.keys_for(pinyin_len),
             Self::Zhuyin(d) => d.keys_for(pinyin_len),
+            Self::Ice(d) => d.keys_for(pinyin_len),
         }
     }
 
@@ -45,6 +51,7 @@ impl EngineDecoded {
         match self {
             Self::Shuangpin(d) => d.is_complete(),
             Self::Zhuyin(d) => d.is_complete(),
+            Self::Ice(d) => d.is_complete(),
         }
     }
 }

@@ -1,6 +1,18 @@
 //! 整句候选：把词图里重排过的前几条路径变成候选，以及整句转换本身。
 
-use super::*;
+use crate::candidate::Candidate;
+use crate::candidate::CandidateKind;
+use crate::engine::ALTERNATE_MIN_SYLLABLES;
+use crate::engine::Engine;
+use crate::engine::Learner;
+use crate::engine::RESCORE_PATHS;
+use crate::engine::SENTENCE_CANDIDATES;
+use crate::engine::query::EnglishTail;
+use crate::engine::query::leading_english;
+use crate::parser;
+use crate::parser::Segmentation;
+use crate::sentence;
+use crate::sentence::Conversion;
 
 impl Engine {
     /// 整句候选。没有英文尾段时是整段拼音的转换（[`Self::plain_sentence`]），排在开头的英文候选之后。

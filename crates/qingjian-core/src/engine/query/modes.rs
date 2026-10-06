@@ -1,6 +1,17 @@
 //! 拼音以外的几种查询：表达式（`v`）、原样字母、英文模式、问字（`?`）。
 
-use super::*;
+use crate::candidate::Candidate;
+use crate::candidate::CandidateKind;
+use crate::candidate::CandidateList;
+use crate::engine::ENGLISH_MODE_CANDIDATES;
+use crate::engine::Engine;
+use crate::engine::Learner;
+use crate::engine::Query;
+use crate::engine::Timings;
+use crate::english;
+use crate::shortcut;
+use std::time::Duration;
+use std::time::Instant;
 
 impl Engine {
     /// 表达式模式（`v` 开头）：不解析拼音，候选是算式结果 / 中文数字，再加上整段是英文词的情况（`very`）。

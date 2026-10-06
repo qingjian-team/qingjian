@@ -1,10 +1,33 @@
 //! 拼音侧的候选生成：切分、拼写纠错、词级查找与排序，再补上整句、英文、快捷与 emoji 候选。
 
-use super::*;
+use crate::candidate::Candidate;
+use crate::candidate::CandidateList;
+use crate::correction;
+use crate::engine::Engine;
+use crate::engine::Learner;
+use crate::engine::MAX_CANDIDATES;
+use crate::engine::Query;
+use crate::engine::Timings;
+use crate::engine::abbreviated_count;
+use crate::engine::choice_key;
+use crate::engine::pattern_key;
+use crate::engine::query::chinese_candidate;
+use crate::engine::query::join_marked_typed;
+use crate::engine::segment_longest_prefix;
+use crate::parser;
+use crate::parser::ParseError;
+use crate::parser::Segmentation;
+use crate::ranking;
+use crate::ranking::Scored;
+use crate::sentence;
+use qingjian_dictionary::Match;
+use std::collections::HashMap;
+use std::time::Duration;
+use std::time::Instant;
 
 impl Engine {
     /// 拼音侧（全拼 / 双拼 / 注音）的候选生成：整段作用域是一串读音。
-    pub(super) fn query_phonetic(
+    pub(in crate::engine) fn query_phonetic(
         &self,
         keys: &str,
         rest: String,

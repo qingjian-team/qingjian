@@ -1,6 +1,9 @@
 //! 可打印字符的处理：中英文模式、直输段、表达式与问字模式的分流。
 
-use super::*;
+use super::QingjianInputController;
+use crate::host;
+use crate::imk::{TextClient, modifiers};
+use qingjian_core::QUESTION_PREFIX;
 
 impl QingjianInputController {
     pub(super) fn handle_text(&self, text: &str, client: TextClient<'_>) -> bool {
@@ -136,6 +139,7 @@ impl QingjianInputController {
         if c.is_ascii_lowercase()
             || (composing && c == '\'')
             || semicolon
+            || host::with(|h| h.engine.rime_ice_input_char(c)).unwrap_or(false)
             || (expression && qingjian_core::shortcut::is_expression_char(c))
             || (raw && c.is_ascii_graphic())
             || (unicode && (c.is_ascii_digit() || c == '+'))
@@ -162,7 +166,9 @@ impl QingjianInputController {
         // 按住 Shift 打的大写字母：缺省是临时打英文，先把拼音原样上屏，再把字母交给应用；
         // `[general] shift_letter = "compose"` 时进缓冲区（Core 按小写匹配、原样上屏时还原大写）
         if c.is_ascii_uppercase() {
-            if host::with(|h| h.engine.shift_letter_compose()).unwrap_or(false) {
+            if host::with(|h| h.engine.shift_letter_compose() || h.engine.rime_ice_active())
+                .unwrap_or(false)
+            {
                 host::with(|h| h.engine.push(c));
                 self.refresh(client);
                 return true;

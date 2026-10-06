@@ -1,6 +1,11 @@
 //! 词级查找：每个位置展开成多种写法，再按这些写法查主词库与用户词。
 
-use super::*;
+use crate::correction::{self, typo};
+use crate::engine::Engine;
+use crate::engine::Learner;
+use crate::fuzzy::Expanded;
+use crate::parser::Segmentation;
+use qingjian_dictionary::Match;
 
 impl Engine {
     /// 每个位置的写法：敲的原样、模糊音，再加音节级敲错变体（`correction::typo`）当带代价的边，
@@ -51,11 +56,10 @@ impl Engine {
         &self,
         positions: &[Vec<qingjian_dictionary::SyllablePattern<'_>>],
     ) -> Vec<Match<'_>> {
-        let mut hits = self.dictionary.lookup_pattern_alt(positions);
-        for dictionary in self.all_dictionaries().into_iter().skip(1) {
-            hits.extend(dictionary.lookup_pattern_alt(positions));
-        }
-        hits
+        self.all_dictionaries()
+            .into_iter()
+            .flat_map(|dictionary| dictionary.lookup_pattern_alt(positions))
+            .collect()
     }
 
     /// 只要音节数正好等于位置数的词，主词库与用户词一起查。
@@ -63,10 +67,9 @@ impl Engine {
         &self,
         positions: &[Vec<qingjian_dictionary::SyllablePattern<'_>>],
     ) -> Vec<Match<'_>> {
-        let mut hits = self.dictionary.lookup_exact_alt(positions);
-        for dictionary in self.all_dictionaries().into_iter().skip(1) {
-            hits.extend(dictionary.lookup_exact_alt(positions));
-        }
-        hits
+        self.all_dictionaries()
+            .into_iter()
+            .flat_map(|dictionary| dictionary.lookup_exact_alt(positions))
+            .collect()
     }
 }

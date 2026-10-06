@@ -110,7 +110,12 @@ impl Engine {
         let (consumed, input) = match candidate.kind {
             CandidateKind::Chinese => {
                 self.learner.record(candidate);
-                let (consumed, input) = self.consumed_by(candidate);
+                let (consumed, input) =
+                    if self.rime_ice_active() && self.composition.typed_scope().contains('`') {
+                        self.whole_scope()
+                    } else {
+                        self.consumed_by(candidate)
+                    };
                 self.learner.record_choice(&input, &candidate.text);
                 typos = self.accepted_typos(candidate);
                 (consumed, input)

@@ -159,7 +159,8 @@ impl Router {
         InputSettings {
             switch_mode: self.config.switch_mode,
             english_mode: self.config.english_mode,
-            shift_letter_compose: self.config.shift_letter_compose,
+            shift_letter_compose: self.config.shift_letter_compose
+                || self.engine.rime_ice_available(),
         }
     }
 

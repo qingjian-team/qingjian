@@ -1,6 +1,11 @@
 //! 词图读不通整段输入时的兜底候选：让模型直接按按键生成整句。
 
-use super::*;
+use crate::candidate::Candidate;
+use crate::candidate::CandidateKind;
+use crate::engine::Engine;
+use crate::engine::MIN_GENERATED_LETTERS;
+use crate::parser::Segmentation;
+use crate::sentence;
 
 impl Engine {
     /// 模型直接按整段按键生成的整句候选，最好的在前；不该生成或生成不出来时是空的。
