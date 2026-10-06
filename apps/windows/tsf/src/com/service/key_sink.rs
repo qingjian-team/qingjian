@@ -15,6 +15,7 @@ use crate::client::KeyReply;
 use crate::com::composition::preedit_string;
 use crate::com::key::event::{digit_key, is_edit, is_letter, is_mode_letter, is_nav, to_key_event};
 use crate::com::key::preserved;
+use crate::com::key::rime::to_rime_key_event;
 use crate::com::log::log;
 
 impl ITfKeyEventSink_Impl for TextService_Impl {
@@ -45,16 +46,31 @@ impl ITfKeyEventSink_Impl for TextService_Impl {
         if self.keyboard_disabled(&pic) {
             return Ok(FALSE);
         }
-        let event = self.key_event(vk);
+        let event = if self.rime_enabled() {
+            to_rime_key_event(vk, lparam, self.mode_state.english())
+        } else {
+            self.key_event(vk)
+        };
         Ok(self.handle_key(pic, event).into())
     }
 
     fn OnTestKeyUp(&self, _pic: Ref<ITfContext>, wparam: WPARAM, _lparam: LPARAM) -> Result<BOOL> {
+        if self.rime_enabled() {
+            return Ok(true.into());
+        }
         self.note_key_up(wparam.0 as u32);
         Ok(FALSE)
     }
 
-    fn OnKeyUp(&self, _pic: Ref<ITfContext>, wparam: WPARAM, _lparam: LPARAM) -> Result<BOOL> {
+    fn OnKeyUp(&self, pic: Ref<ITfContext>, wparam: WPARAM, lparam: LPARAM) -> Result<BOOL> {
+        if self.rime_enabled() {
+            if self.keyboard_disabled(&pic) {
+                return Ok(FALSE);
+            }
+            let mut event = to_rime_key_event(wparam.0 as u32, lparam, self.mode_state.english());
+            event.release = true;
+            return Ok(self.forward_key(pic, event).into());
+        }
         self.note_key_up(wparam.0 as u32);
         Ok(FALSE)
     }
@@ -67,6 +83,12 @@ impl ITfKeyEventSink_Impl for TextService_Impl {
         if guid == preserved::GUID_SWITCH_MODE {
             if self.keyboard_disabled(&pic) {
                 return Ok(FALSE);
+            }
+            if self.rime_enabled() {
+                let mut event = self.key_event(0x20);
+                event.modifiers.ctrl = true;
+                event.modifiers.alt = true;
+                return Ok(self.forward_key(pic, event).into());
             }
             self.set_english_mode(!self.mode_state.english());
             return Ok(true.into());
@@ -83,6 +105,9 @@ impl ITfKeyEventSink_Impl for TextService_Impl {
 }
 
 impl TextService_Impl {
+    fn rime_enabled(&self) -> bool {
+        self.input_settings.get().is_some_and(|input| input.rime)
+    }
     /// 没在组句时看上下文有没有禁键盘（密码框）：禁了整键放行、不组句。组句中不看——那段组句是我们自己的，
     /// 应用要禁会先终止它。每键两次 compartment 读取，微秒级。
     fn keyboard_disabled(&self, pic: &Ref<ITfContext>) -> bool {
@@ -104,11 +129,17 @@ impl TextService_Impl {
     }
 
     fn note_key_down(&self, vk: u32, lparam: LPARAM) {
+        if self.rime_enabled() {
+            return;
+        }
         self.key_tap
             .key_down(vk, lparam, self.mode_state.switch_keys());
     }
 
     fn note_key_up(&self, vk: u32) {
+        if self.rime_enabled() {
+            return;
+        }
         if vk == u32::from(VK_CAPITAL.0) {
             self.mode_state.notify();
         }
@@ -125,6 +156,9 @@ impl TextService_Impl {
     /// 组句中功能键 / 方向键 / 可打印字符都吃；没在组句时数字 / 标点也先「测吃」送去转全角（中英各有一份开关），
     /// Server 不转的回 Passthrough 再放行；`?` 是问字前缀。
     fn would_eat(&self, event: &KeyEvent) -> bool {
+        if self.rime_enabled() {
+            return true;
+        }
         let shift_letter_compose = self
             .input_settings
             .get()
@@ -162,7 +196,10 @@ impl TextService_Impl {
         }
         // OnTestKeyDown 已声明吃的可打印字符，Server 放行时由输入法自己插入：退回应用的话，企业微信 /
         // 微信 / notepad++ 这类自绘输入框会把它丢掉。功能键（无字符）仍交给应用。
-        let passthrough_char = event.character.filter(|c| !c.is_control());
+        let passthrough_char = (!event.release)
+            .then_some(event.character)
+            .flatten()
+            .filter(|c| !c.is_control());
         if let Ok(context) = pic.ok() {
             self.shared.set_last_context(Some(context.clone()));
         }
@@ -241,10 +278,17 @@ impl TextService_Impl {
             // 放行的功能键：Server 没动缓冲区，交还应用（应用处理这个键时光标可能会移）。
             (
                 Next::Document {
-                    consumed: false, ..
+                    consumed: false,
+                    commit,
+                    preedit,
                 },
                 _,
-            ) => false,
+            ) => {
+                if commit.is_some() {
+                    self.update_document(pic, commit, preedit);
+                }
+                false
+            }
             (
                 Next::Document {
                     commit, preedit, ..

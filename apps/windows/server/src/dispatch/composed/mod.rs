@@ -11,6 +11,24 @@ use super::Router;
 impl Router {
     /// 缓冲变化后：按 Engine 状态重建 [`Composed`]，发一次云联想请求，归零高亮与整句补全。
     pub(super) fn recompose(&mut self) {
+        if self.engine.rime_enabled() {
+            self.sentence = None;
+            let query = self.engine.query().expect("原生 Rime 查询不会解析拼音");
+            let menu = query.rime_menu.as_ref().expect("原生菜单");
+            self.highlight = menu.highlighted;
+            self.composed = if query.marked_text().is_empty() && query.candidates.items.is_empty() {
+                None
+            } else {
+                Some(Composed::Candidates {
+                    preedit: query.marked_segments().iter().map(Into::into).collect(),
+                    cursor: query.marked_cursor(),
+                    layout: CandidateLayout::new(query.candidates.items.clone(), menu.page_size, 0),
+                    typed_keys: None,
+                })
+            };
+            return;
+        }
+
         self.highlight = 0;
         self.navigated = false;
         self.sentence = None;
@@ -103,6 +121,12 @@ impl Router {
 
     /// 整页翻 `step`，高亮落到目标页第一个候选。
     pub(super) fn page(&mut self, step: isize) {
+        if self.engine.rime_enabled() {
+            self.engine.rime_page(step > 0);
+            self.recompose();
+            return;
+        }
+
         let count = self.candidate_count();
         if count == 0 {
             self.highlight = 0;
@@ -192,6 +216,17 @@ impl Router {
     }
 
     fn raw_frame(&self) -> Frame {
+        if self.engine.rime_enabled() {
+            let mut query = self.engine.query().expect("原生 Rime 查询不会解析拼音");
+            self.engine.annotate(&mut query.candidates);
+            return Frame::from_rime(
+                query,
+                self.config.preedit,
+                self.config.layout,
+                self.config.theme,
+            );
+        }
+
         if let Some(translation) = &self.translation {
             return self.translation_frame(translation);
         }

@@ -1,6 +1,7 @@
 //! 一次要绘制的组句状态：preedit 行加候选页。
 
 pub mod preedit;
+mod rime;
 
 pub use preedit::{PreeditKind, PreeditSegment};
 

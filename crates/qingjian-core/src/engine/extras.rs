@@ -1,6 +1,16 @@
 //! 附加候选：日期时间等快捷项、中英混输的英文词与补全、emoji。
 
-use super::*;
+use super::EMOJI_PER_WORD;
+use super::EMOJI_SCAN;
+use super::EMOJI_TOTAL;
+use super::ENGLISH_COMPLETIONS;
+use super::Engine;
+use super::MIN_COMPLETION_LETTERS;
+use crate::candidate::Candidate;
+use crate::candidate::CandidateKind;
+use crate::engine::learning::Learner;
+use crate::shortcut;
+use qingjian_dictionary::WordList;
 
 impl Engine {
     /// 精确匹配自定义输入码时，数字键应选择候选。
@@ -27,6 +37,7 @@ impl Engine {
             items.insert(
                 (phrase.position - 1).min(items.len()),
                 Candidate {
+                    rime: None,
                     text: phrase.text.clone(),
                     kind: CandidateKind::Custom(phrase.position),
                     syllables: Vec::new(),
@@ -70,6 +81,7 @@ impl Engine {
             return;
         }
         let english_candidate = |word: &str| Candidate {
+            rime: None,
             text: word.to_owned(),
             kind: CandidateKind::English,
             syllables: Vec::new(),
@@ -189,6 +201,7 @@ impl Engine {
                 items.insert(
                     index,
                     Candidate {
+                        rime: None,
                         text: emoji.clone(),
                         kind: CandidateKind::Emoji,
                         syllables: syllables.clone(),

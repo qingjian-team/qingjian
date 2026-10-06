@@ -119,6 +119,7 @@ impl Router {
 /// 译文包成一条云端样式的候选（带云朵标记）。
 fn translate_candidate(text: String) -> Candidate {
     Candidate {
+        rime: None,
         text,
         kind: CandidateKind::Cloud,
         syllables: Vec::new(),

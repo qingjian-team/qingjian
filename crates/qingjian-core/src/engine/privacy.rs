@@ -13,6 +13,11 @@ impl Engine {
             return;
         }
         self.private = private;
+        // 用户 Lua 可自行写文件，运行库无法保证所有方案在私密输入时不持久化。
+        // 原生后端在此边界清空组句，后续按键直接交给应用。
+        if private && self.rime_enabled() {
+            self.clear();
+        }
         self.learner.set_private(private);
         self.logger.set_muted(private);
         if private {

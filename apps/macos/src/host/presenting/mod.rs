@@ -6,8 +6,17 @@ mod translation_job;
 pub(super) use notice::Notice;
 pub use translation_job::TranslationJob;
 
+use super::Host;
 use super::cloud::cloud_candidate;
-use super::*;
+use crate::candidates::Frame;
+use crate::candidates::Preedit;
+use crate::candidates::Row;
+use objc2::MainThreadMarker;
+use objc2_foundation::NSRect;
+use qingjian_core::Candidate;
+use qingjian_core::CandidateKind;
+use qingjian_core::Cell;
+use qingjian_platform::LayoutMode;
 
 impl Host {
     /// 删掉当前页第 `offset` 格的候选：用户词整个删、词库词清学习。返回给用户看的一句话；那格没有候选返回 `None`。
@@ -74,6 +83,13 @@ impl Host {
 
     /// 新一轮候选：每页格数取配置与窗口能画的行数中较小者，云端槽位数取配置。
     pub fn reset_session(&mut self, preedit: Option<Preedit>, candidates: Vec<Candidate>) {
+        if self.engine.rime_enabled() {
+            let query = self.engine.query().expect("原生 Rime 查询");
+            let menu = query.rime_menu.expect("原生菜单");
+            self.session.reset(preedit, candidates, menu.page_size, 0);
+            self.session.highlighted = menu.highlighted;
+            return;
+        }
         self.status = None;
         let page_size = self.page_size.min(self.window.max_rows()).max(1);
         self.session
@@ -112,7 +128,7 @@ impl Host {
                     };
                 };
                 let mut row = Row::from_candidate(offset, candidate);
-                row.index = index;
+                row.index = candidate.rime.as_ref().map_or(index, |c| c.label.clone());
                 row.cloud = candidate.kind == CandidateKind::Cloud;
                 row
             })
@@ -131,7 +147,15 @@ impl Host {
             return;
         }
         let pages = self.session.pages();
-        let footer = (pages > 1).then(|| format!("{}/{pages}", page + 1));
+        let footer = if self.engine.rime_enabled() {
+            self.engine
+                .query()
+                .ok()
+                .and_then(|q| q.rime_menu)
+                .map(|m| format!("第 {} 页{}", m.page + 1, if m.last_page { "" } else { "…" }))
+        } else {
+            (pages > 1).then(|| format!("{}/{pages}", page + 1))
+        };
         let frame = Frame {
             preedit,
             rows,

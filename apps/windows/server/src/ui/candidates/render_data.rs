@@ -76,8 +76,24 @@ impl RenderData {
             .map(|(i, candidate)| row::from_candidate(i, candidate, self.show_code))
             .collect();
         self.highlight = frame.highlight;
-        self.footer =
-            (frame.page_count > 1).then(|| format!("{}/{}", frame.page + 1, frame.page_count));
+        self.footer = if frame
+            .candidates
+            .items
+            .first()
+            .is_some_and(|c| c.rime.is_some())
+        {
+            Some(format!(
+                "第 {} 页{}",
+                frame.page + 1,
+                if frame.page_count > frame.page + 1 {
+                    "…"
+                } else {
+                    ""
+                }
+            ))
+        } else {
+            (frame.page_count > 1).then(|| format!("{}/{}", frame.page + 1, frame.page_count))
+        };
         self.sentence = frame.sentence.clone();
         self.notice = frame.notice.clone();
     }

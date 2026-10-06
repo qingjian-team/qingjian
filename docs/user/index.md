@@ -17,6 +17,7 @@ macOS 版与 Windows 版均为测试版，两个平台功能相同，按键按�
 - 候选旁的译词、橙色的含义：[译词与生词](learning/translation.md)。
 - 联网补全整句、答字、翻译选中文字：[云联想](cloud/index.md)，缺省关闭，需自行填写 AI 服务商。
 - 青简在本机保存了哪些文件：[数据与日志](help/data-and-logs.md)。
+- 使用原始雾凇方案、词库与 Lua：[雾凇拼音](input/rime-ice.md)。
 
 ## 三条原则
 

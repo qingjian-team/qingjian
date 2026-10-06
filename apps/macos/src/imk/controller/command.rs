@@ -1,10 +1,42 @@
 //! 命令键（回车、退格、方向键、Tab、Esc 等）的处理。
 
-use super::*;
+use super::QingjianInputController;
+use crate::host;
+use crate::imk::TextClient;
+use objc2::runtime::Sel;
+use objc2::sel;
 
 impl QingjianInputController {
     /// 组句期间所有编辑动作都由我们接管；不认识的一律吞掉，否则应用会动光标、丢 marked text。
     pub(super) fn handle_command(&self, selector: Sel, client: TextClient<'_>) -> bool {
+        if host::with(|h| h.engine.rime_enabled()).unwrap_or(false) {
+            let key = if selector == sel!(pageUp:) {
+                0xff55
+            } else if selector == sel!(pageDown:) {
+                0xff56
+            } else if selector == sel!(moveUp:) {
+                0xff52
+            } else if selector == sel!(moveDown:) {
+                0xff54
+            } else if selector == sel!(deleteBackward:) {
+                0xff08
+            } else if selector == sel!(cancelOperation:) {
+                0xff1b
+            } else if selector == sel!(insertNewline:) {
+                0xff0d
+            } else {
+                return false;
+            };
+            let result = host::with(|h| h.engine.process_rime_key(key, 0)).flatten();
+            if let Some((consumed, commit)) = result {
+                if let Some(text) = &commit {
+                    client.insert_text(text);
+                }
+                self.refresh(client);
+                return consumed;
+            }
+            return false;
+        }
         tracing::debug!(selector = %selector, "didCommandBySelector");
         self.note_application(&client);
         let composing = host::with(|h| !h.engine.composition().is_empty()).unwrap_or(false);

@@ -1,6 +1,11 @@
 //! 词级查找：每个位置展开成多种写法，再按这些写法查主词库与用户词。
 
-use super::*;
+use crate::correction::{self, typo};
+use crate::engine::Engine;
+use crate::engine::learning::Learner;
+use crate::fuzzy::Expanded;
+use crate::parser::Segmentation;
+use qingjian_dictionary::Match;
 
 impl Engine {
     /// 每个位置的写法：敲的原样、模糊音，再加音节级敲错变体（`correction::typo`）当带代价的边，

@@ -521,6 +521,7 @@ fn committing_the_translation_learns_the_word_and_returns_the_gloss() {
     assert_eq!(engine.learner().weight("开发"), 1);
     // 没有译文的候选不动
     let zhe = Candidate {
+        rime: None,
         text: "者".into(),
         kind: CandidateKind::Chinese,
         syllables: vec!["zhe".into()],

@@ -14,6 +14,9 @@ use crate::config::SwitchKeys;
 /// `%APPDATA%\Qingjian` 对 AppContainer 里的商店应用本来也读不到。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct InputSettings {
+    /// 全部按键交给 Rime，DLL 停用青简的中英切换键拦截。
+    #[serde(default)]
+    pub rime: bool,
     /// 中英切换键（`[shortcut] switch_mode`）。
     pub switch_mode: SwitchKeys,
 
@@ -29,6 +32,7 @@ pub struct InputSettings {
 impl Default for InputSettings {
     fn default() -> Self {
         Self {
+            rime: false,
             switch_mode: SwitchKeys::default(),
             english_mode: true,
             shift_letter_compose: false,

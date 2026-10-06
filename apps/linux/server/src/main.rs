@@ -77,6 +77,9 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         }
     };
     engine.set_fuzzy(config.fuzzy);
+    if let Some(options) = config.rime.options() {
+        engine.enable_rime(options)?;
+    }
     engine.set_shuangpin(config.general.shuangpin());
     engine.set_shuangpin_raw_preedit(config.general.shuangpin_raw_preedit);
     engine.set_zhuyin_mode(config.general.is_zhuyin());

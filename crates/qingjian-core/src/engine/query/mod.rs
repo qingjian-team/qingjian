@@ -1,6 +1,12 @@
 //! 候选生成：按输入模式分派查询。各模式的实现在兄弟文件里，共用的候选构造留在这里。
 
-use super::*;
+use super::Engine;
+use super::is_raw;
+use crate::candidate::Candidate;
+use crate::candidate::CandidateKind;
+use crate::parser::ParseError;
+use crate::ranking::Scored;
+use std::time::Instant;
 
 mod code;
 mod converting;
@@ -15,15 +21,17 @@ mod snapshot;
 pub(crate) use english_tail::EnglishTail;
 pub use result::Query;
 pub(super) use result::join_marked;
-pub(super) use result::join_marked_typed;
 pub(super) use snapshot::QuerySnapshot;
 
 impl Engine {
     /// 解析当前缓冲区并生成排好序的候选。**不带译文**，译文由 [`Self::annotate`] 补。
     ///
     /// 光标停在拼音中间时只按光标前的那段算候选（`ni|hao` 出 你），光标后的拼音留着，
-    /// 上屏之后接着组句；见 [`Composition::scope`]。
+    /// 上屏之后接着组句；见 [`crate::Composition::scope`]。
     pub fn query(&self) -> Result<Query, ParseError> {
+        if let Some(query) = self.rime_query() {
+            return Ok(query);
+        }
         self.last_rescored.set(false);
         let mut query = match self.query_inner() {
             Ok(query) => query,
@@ -121,6 +129,7 @@ impl Engine {
 /// （纯拼音态、辅码态空码段）时是词的首条码；没装码表或这个词没有码时是 `None`。
 pub(super) fn chinese_candidate(item: &Scored<'_>, aux_code: Option<&str>) -> Candidate {
     Candidate {
+        rime: None,
         text: item.hit.text.to_owned(),
         kind: CandidateKind::Chinese,
         syllables: item.hit.syllables().map(str::to_owned).collect(),

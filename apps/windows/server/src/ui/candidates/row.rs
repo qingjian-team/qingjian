@@ -13,6 +13,11 @@ pub(crate) fn from_candidate(position: usize, candidate: &Candidate, show_code: 
         .filter(|_| show_code)
         .map(|code| format!("[{code}]"));
     let mut annotation = Vec::new();
+    if let Some(native) = &candidate.rime
+        && !native.comment.is_empty()
+    {
+        annotation.push((native.comment.clone(), Tone::Faint));
+    }
     if let Some(reading) = &candidate.reading {
         annotation.push((reading.clone(), Tone::Gloss));
     }
@@ -38,7 +43,10 @@ pub(crate) fn from_candidate(position: usize, candidate: &Candidate, show_code: 
         }
     }
     Row {
-        index: (position + 1).to_string(),
+        index: candidate
+            .rime
+            .as_ref()
+            .map_or_else(|| (position + 1).to_string(), |c| c.label.clone()),
         text: candidate.text.clone(),
         code,
         annotation,

@@ -4,6 +4,7 @@
 pub(crate) mod event;
 mod layout;
 pub(crate) mod preserved;
+pub(crate) mod rime;
 mod tap;
 
 pub(crate) use self::tap::KeyTap;

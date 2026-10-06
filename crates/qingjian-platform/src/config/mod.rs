@@ -9,6 +9,7 @@ mod log_level;
 mod model;
 mod modifiers;
 mod preedit_mode;
+mod rime;
 mod scheme;
 mod shift_letter;
 mod shortcut;
@@ -42,6 +43,7 @@ pub use log_level::LogLevel;
 pub use model::LocalModelConfig;
 pub use modifiers::Modifiers;
 pub use preedit_mode::PreeditMode;
+pub use rime::RimeConfig;
 pub use scheme::{Scheme, scheme_label};
 pub use shift_letter::ShiftLetter;
 pub use shortcut::ShortcutConfig;
@@ -56,6 +58,8 @@ pub use update::{UpdateChannel, UpdateConfig};
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Config {
+    /// 完整 Rime/Lua 方案；缺省关闭。
+    pub rime: RimeConfig,
     /// 常规：学习语言、每页候选数、翻页键、外观。
     pub general: GeneralConfig,
 
@@ -194,6 +198,18 @@ delete_candidate = "shift"
 /// 见 [`template_shortcut_keys!`] / [`template_apps!`]。
 pub const TEMPLATE: &str = concat!(
     r#"# 青简输入法配置。保存后自动生效；也可以在菜单栏的输入法菜单里改。
+
+[rime]
+# 完整雾凇后端：更改本节后重启服务；安装匹配架构、带 Lua 的 librime 1.17 或更新版本。
+# 原始雾凇文件（含 cn_dicts、en_dicts、lua、opencc）放在 shared_data，个人补丁和用户词库存入 user_data。
+# 路径需填写绝对路径；Windows 可用正斜杠。运行库依赖放在库文件同目录。
+enabled = false
+library = ""
+shared_data = ""
+user_data = ""
+schema = "rime_ice"
+# 仅在运行库已包含对应原生插件时填写，如 ["predict", "octagram"]；未注册的模块会报错。
+modules = []
 
 [general]
 # 学习语言（en 英语 / ja 日语 / es 西班牙语 / off 不显示译文）：候选旁显示哪种语言的译文，要有对应的释义表才生效

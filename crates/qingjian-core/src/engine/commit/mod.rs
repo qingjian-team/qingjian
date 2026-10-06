@@ -62,6 +62,10 @@ impl Engine {
     /// 上屏候选的译文而不是候选本身（壳里修饰键 + 数字）：学习、拼音消耗都和选了这个候选一样，
     /// 返回第 `sense` 条释义的译文（0 是第一条，日文不带注音）。候选没有那么多条释义时不动，返回 `None`。
     pub fn commit_translation(&mut self, candidate: &Candidate, sense: usize) -> Option<String> {
+        // 分段选词尚未产生原生 commit 时不能提前上屏译文。
+        if self.rime_enabled() {
+            return None;
+        }
         let text = candidate
             .translation
             .as_ref()
@@ -74,6 +78,9 @@ impl Engine {
     /// 候选比输入短时（`kaifazhe` 选了 开发），剩余拼音留在缓冲区，壳应接着 [`Self::query`]。
     /// 候选的最后一个音节比输入长时（`kaif` 选了 开发），把输入吃完。
     pub fn commit(&mut self, candidate: &Candidate) -> String {
+        if let Some(text) = self.rime_select(candidate) {
+            return text;
+        }
         self.commit_with(candidate, InputSource::from(candidate.kind), None)
     }
 
@@ -305,6 +312,7 @@ impl Engine {
         }
         self.learner.record_choice(&key, &text);
         let candidate = Candidate {
+            rime: None,
             text,
             kind: CandidateKind::Chinese,
             syllables,
@@ -632,6 +640,7 @@ impl Engine {
             return;
         }
         let candidate = Candidate {
+            rime: None,
             text: joined,
             kind: CandidateKind::Chinese,
             syllables: joined_syllables,

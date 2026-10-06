@@ -9,6 +9,12 @@ CLAUDE.md 只保留目录地图与规则，每个 crate / app / tool 的实现�
 `lookup_pattern`（≥ 模式长度）与 `lookup_exact`（正好等长）同一套实现。词库键以 `v` 表示 ü，
 TSV 解析、查询与生成工具把 `lue` / `nue` 统一成 `lve` / `nve`。
 旧 `.qj` 含这些键时，加载器建立规范化的内存词库。新 `.qj` 继续使用 mmap。
+用户词库导入（`import/rime/`）读取 Rime 头里的 `name` / `version` / `license`、`columns`（行内或块列表）与
+`import_tables`；主表和分表按声明顺序合并，分表名均相对所选主文件目录，规范路径去重以终止循环引用，越出目录或缺失分表时报错。
+显式拼音先收齐并按 `(词, 规范拼音)` 去重（首次权重生效），再用单字显式读音给无注音词补拼音，
+字频门槛为同字总频的 5%（与 Rime 一致），单词最多生成 256 种读音，缺字音或超限的词跳过并汇总到日志。
+兼容雾凇 `rime_ice.dict.yaml` 的中文分表（含 `columns: [text, weight]` 的腾讯分表），不引入随包上游数据。
+公开 `to_tsv` 仍只转换单文件内显式编码，供 `dict-convert wubi` 使用，不跨表或自动注音。
 辅码码表（`aux_code_table/`，`AuxCodeTable` = `Kind::AuxCodeTable` 的 `.qj`）是另一套存储：`TEXT` 词 arena + `CODE` 码 arena +
 `ENTR` 条目（12 字节，词字节序升序、同词相邻）+ `HASH` 词 → 条目区间起点（`qingjian_format::hash`）。查询只有
 `AuxCodeLookup::code_with_prefix` 一个方法：候选词逐个问「有没有以当前码段开头的码」。导入 `import_aux_code_table`
@@ -21,6 +27,16 @@ TSV 解析、查询与生成工具把 `lue` / `nue` 统一成 `lve` / `nve`。
 与词库的一处关键差别：码表没有 `.qj` 容器，只读 TSV。
 
 ## crates/qingjian-core
+
+可选原生后端见 [设计说明](../design/rime-backend.md)。私有 `rime/` 封装用户提供的 librime 1.17+ 与 Lua，
+`Engine::enable_rime` / `process_rime_key` / `rime_page` / `set_rime_option` 对外；进程级 Runtime 串行维护和调用，
+每个 EngineSession 保存独立原生会话。当前页候选携带 token / revision / 原生下标，拒绝旧查询或外来上下文选择，
+原生 comment 和 label 与青简译文分别显示。启用后按键、拼写、Lua、OpenCC、学习与排序由原生方案负责，
+不运行青简重排、云候选或译词上屏快捷键；原生上屏日志来源为 `rime`，CLI 回放跳过。
+`Query.rime_menu` 保留原生预编辑光标、高亮、页大小与下一页存在性。私密输入清空原生并透传按键。
+配置 `[rime]` 缺省关闭，用户指定 library / shared_data / user_data / schema / modules，更改后重启，第三方库和数据不随包引入。
+平台协议版本升至 8，KeyEvent 的 release 与 keysym 用于原生按键，InputSettings.rime 关闭 TSF 的青简按键预处理；
+Linux 使用 fcitx 原始 keysym，macOS 接收 KeyDown / KeyUp / FlagsChanged。Core 真实测试及两端 Server 原生协议测试默认 ignored。
 
 模块：`composition`（缓冲区与光标；中文模式下 Shift+字母按小写进 `buffer` 参与匹配、大写记在 `shifted`，`typed_text` 还原后用于原样上屏）/ `parser` / `correction`（拼写纠错：整段一处编辑的候选纠正 + `typo` 音节级敲错变体表，后者进整句词图当带代价的边）/
 `candidate` / `ranking` / `shortcut` / `sentence` / `fuzzy` / `shuangpin`（双拼：七套方案键位表、键 → 全拼解码与消耗换算）/ `zhuyin`（大千注音：键 → 注音符号 → 拼音，`[general] zhuyin` 开关，声调只判音节完整不进查询）/ `emoji` /

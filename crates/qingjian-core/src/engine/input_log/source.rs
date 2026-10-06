@@ -6,6 +6,9 @@ use crate::candidate::CandidateKind;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum InputSource {
+    /// 原生 Rime 上屏，原生翻译器决定候选类型与造词。
+    Rime,
+
     /// 词库里的词（含用户词）。
     Word,
 

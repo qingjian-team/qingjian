@@ -26,6 +26,9 @@ pub use translation::Translation;
 /// 一个可上屏的候选。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Candidate {
+    /// 原生 Rime 候选身份和注释；其他后端留空。旧协议缺省为空。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rime: Option<crate::RimeCandidate>,
     /// 上屏文本。
     pub text: String,
 

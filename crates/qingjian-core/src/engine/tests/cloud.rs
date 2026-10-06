@@ -253,6 +253,7 @@ fn cloud_words_tolerate_typos_but_not_unrelated_words() {
     );
     // 云端词上屏吃掉整段（按音节对不上的）拼音
     let word = Candidate {
+        rime: None,
         text: "这个东西吗".into(),
         kind: CandidateKind::Cloud,
         syllables: prediction.words[0].syllables.clone(),
@@ -391,6 +392,7 @@ fn committing_a_cloud_word_learns_it_and_it_ranks_first_next_time() {
     engine.set_input("zt");
     assert!(engine.query().unwrap().candidates.items.is_empty());
     let word = Candidate {
+        rime: None,
         text: "账套".into(),
         kind: CandidateKind::Cloud,
         syllables: vec!["zhang".into(), "tao".into()],
@@ -439,6 +441,7 @@ fn traditional_mode_preserves_original_text_across_queries() {
     engine.query().unwrap(); // 第二次 query() 不应清空云端词的映射
 
     let word = Candidate {
+        rime: None,
         text: cloud_text,
         kind: CandidateKind::Cloud,
         syllables: vec!["kai".into(), "fa".into()],
@@ -456,6 +459,7 @@ fn traditional_mode_preserves_original_text_across_queries() {
 fn cloud_words_are_learned_with_the_typed_reading_when_it_fits() {
     let mut engine = engine().with_learner(Box::new(WordLearner::default()));
     let cloud_word = |text: &str, syllables: &[&str]| Candidate {
+        rime: None,
         text: text.into(),
         kind: CandidateKind::Cloud,
         syllables: syllables.iter().map(|s| (*s).to_owned()).collect(),

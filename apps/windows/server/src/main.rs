@@ -174,6 +174,12 @@ fn main() {
         }
     };
     engine.set_fuzzy(config.fuzzy);
+    if let Some(options) = config.rime.options()
+        && let Err(error) = engine.enable_rime(options)
+    {
+        tracing::error!(%error, "雾凇 Rime 后端初始化失败");
+        std::process::exit(1);
+    }
     // 拼音侧与形码侧在 `configure_code_table` 里一起装配（双拼 / 注音 / 混输都在那）
     engine.set_traditional_mode(config.general.traditional);
     engine.set_learning(config.general.learning);

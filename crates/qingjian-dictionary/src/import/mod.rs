@@ -33,16 +33,18 @@ pub fn import(source: &Path, dest_dir: &Path) -> Result<Imported, DictionaryErro
         (dictionary, metadata)
     } else {
         let text = std::fs::read_to_string(source)?;
-        let (tsv, name) = if rime::looks_like_rime(&text) {
-            let parsed = rime::to_tsv(&text);
-            (parsed.tsv, parsed.name)
+        let (tsv, name, version, license) = if rime::looks_like_rime(&text) {
+            let (parsed, header) = rime::read_all(source)?;
+            (parsed.tsv, parsed.name, header.version, header.license)
         } else {
-            (text, None)
+            (text, None, None, None)
         };
         let dictionary = Dictionary::parse(&tsv)?;
         let metadata = Metadata {
             name: name.unwrap_or_else(|| stem.clone()),
             source: source.display().to_string(),
+            version: version.unwrap_or_default(),
+            license: license.unwrap_or_default(),
             ..Metadata::default()
         };
         (dictionary, metadata)

@@ -1,8 +1,37 @@
 //! 注入与开关：词库、模糊音、双拼、翻译 / 学习 / 联想等 trait 实现的挂接，以及相应的只读访问。
 
+use super::DEFAULT_AUX_CODE_KEY;
+use super::Engine;
+use super::NEURAL_MARGIN;
+use super::NEURAL_WEIGHT;
+use super::RESCORE_CONTEXT_CHARS;
 use super::aux_code::is_valid_aux_code_key;
-use super::*;
+use super::marked_rest;
+use crate::candidate::Language;
+use crate::correction::TypoCosts;
+use crate::emoji::EmojiTable;
 use crate::engine::decoded::EngineDecoded;
+use crate::engine::gloss::GlossFiller;
+use crate::engine::input_log::InputLogger;
+use crate::engine::learning::Learner;
+use crate::engine::mode_keys::ModeKeys;
+use crate::engine::prediction::Predictor;
+use crate::engine::statistics::UsageMeter;
+use crate::engine::statistics::UsageSummary;
+use crate::engine::translator::Translator;
+use crate::engine::vocabulary::VocabularyTracker;
+use crate::fuzzy::FuzzyRules;
+use crate::history::InputHistory;
+use crate::sentence::Interpolation;
+use crate::sentence::LanguageModel;
+use crate::sentence::Personal;
+use crate::sentence::SentenceScorer;
+use crate::shuangpin::Scheme;
+use qingjian_dictionary::AuxCodeLookup;
+use qingjian_dictionary::CodeTable;
+use qingjian_dictionary::Dictionary;
+use qingjian_dictionary::WordList;
+use std::sync::Arc;
 
 impl Engine {
     /// 设置中文模式的标点转换。
@@ -344,7 +373,7 @@ impl Engine {
         self
     }
 
-    /// 静态语言模型（没接就是 [`NoLanguageModel`]）：评测工具拿它按 [`crate::sentence::segment_text`] 切汉字文本。
+    /// 静态语言模型（没接就是 [`crate::sentence::NoLanguageModel`]）：评测工具拿它按 [`crate::sentence::segment_text`] 切汉字文本。
     pub fn language_model(&self) -> &dyn LanguageModel {
         &*self.language_model
     }
@@ -360,10 +389,17 @@ impl Engine {
     /// 进入 / 离开英文模式。英文模式下 [`Self::query`] 只给英文词表的候选，回车与空格仍由壳原样上屏敲的字母，
     /// 不发云联想，也不把原样上屏记成「不纠这个串」。
     pub fn set_english_mode(&mut self, on: bool) {
+        if let Some(session) = &mut self.rime {
+            session.option(c"ascii_mode", on);
+        }
         self.english_mode = on;
+        self.sync_rime();
     }
 
     pub fn english_mode(&self) -> bool {
+        if let Some(session) = &self.rime {
+            return session.ascii_mode();
+        }
         self.english_mode
     }
 

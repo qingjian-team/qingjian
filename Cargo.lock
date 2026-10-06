@@ -2626,6 +2626,7 @@ dependencies = [
  "ferrous-opencc",
  "foldhash",
  "jiff",
+ "libloading",
  "qingjian-dictionary",
  "serde",
  "thiserror 2.0.20",

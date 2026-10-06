@@ -2,6 +2,7 @@ use super::*;
 
 fn candidate(text: &str) -> Candidate {
     Candidate {
+        rime: None,
         text: text.to_owned(),
         kind: qingjian_core::CandidateKind::Chinese,
         syllables: Vec::new(),
@@ -70,6 +71,7 @@ fn choices_are_keyed_by_input_and_round_trip() {
 fn unrecord_reverses_each_kind_of_record() {
     let mut learner = FrequencyLearner::default();
     let candidate = Candidate {
+        rime: None,
         text: "开放".into(),
         kind: qingjian_core::CandidateKind::Chinese,
         syllables: vec!["kai".into(), "fang".into()],

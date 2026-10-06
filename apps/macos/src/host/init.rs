@@ -1,6 +1,51 @@
 //! 启动：加载词库 / 语言模型 / 释义表 / 学习数据，建 Engine 与候选窗口，装进线程局部的 HOST。
 
-use super::*;
+use super::GLOSSARY_LANGUAGES;
+use super::HOST;
+use super::Host;
+use super::UPDATE_STATE_FILE;
+use super::USAGE_FILE;
+use super::VOCABULARY_FILE;
+use super::with;
+use crate::app::BundleInfo;
+use crate::app::Settings;
+use crate::app::paths;
+use crate::candidates::CandidateWindow;
+use crate::error::HostError;
+use crate::host::cloud::CloudTestMonitor;
+use crate::host::cloud::PredictMonitor;
+use crate::host::config::ConfigWatch;
+use crate::host::dictionaries::DictionaryInfo;
+use crate::host::model::RescoreMonitor;
+use crate::host::session::Session;
+use crate::menubar::InputMenu;
+use crate::menubar::ModeIndicator;
+use crate::preferences::PreferencesWindow;
+use crate::preferences::UpdateStatus;
+use objc2::MainThreadMarker;
+use objc2_foundation::NSRect;
+use qingjian_core::EmojiTable;
+use qingjian_core::Engine;
+use qingjian_core::Language;
+use qingjian_dictionary::Dictionary;
+use qingjian_dictionary::WordList;
+use qingjian_learning::FrequencyLearner;
+use qingjian_learning::UsageStats;
+use qingjian_learning::VocabularyBook;
+use qingjian_lm::BigramModel;
+use qingjian_platform::AppsConfig;
+use qingjian_platform::DictionariesConfig;
+use qingjian_platform::KeyCombo;
+use qingjian_platform::LayoutMode;
+use qingjian_platform::PreeditMode;
+use qingjian_platform::ShortcutConfig;
+use qingjian_platform::extra_dictionaries;
+use qingjian_predict::PredictConfig;
+use qingjian_translate::Glossary;
+use qingjian_translate::LayeredTranslator;
+use qingjian_translate::LevelTable;
+use qingjian_translate::PersonalGlossary;
+use std::path::PathBuf;
 
 /// 加载数据并建立单例。必须在主线程、在 IMKServer 建立之前调用。版本显示在菜单末行与「关于」页。
 pub fn init(mtm: MainThreadMarker, info: &BundleInfo) -> Result<(), HostError> {
@@ -47,6 +92,9 @@ pub fn init(mtm: MainThreadMarker, info: &BundleInfo) -> Result<(), HostError> {
         "数据加载完成"
     );
     let mut engine = Engine::new(dictionary).with_learner(Box::new(learner));
+    if let Some(options) = settings.config().rime.options() {
+        engine.enable_rime(options)?;
+    }
     if let Some(glossary) = glossary {
         engine = engine.with_translator(Box::new(glossary));
     }

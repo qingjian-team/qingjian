@@ -62,7 +62,8 @@ impl Report {
             InputSource::Sentence => Some(&mut self.sentence),
             InputSource::English => Some(&mut self.english),
             InputSource::Shortcut | InputSource::Emoji => Some(&mut self.other),
-            InputSource::Custom
+            InputSource::Rime
+            | InputSource::Custom
             | InputSource::Cloud
             | InputSource::CloudSentence
             | InputSource::Raw

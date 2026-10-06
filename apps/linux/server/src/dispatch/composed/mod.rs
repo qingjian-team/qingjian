@@ -11,6 +11,23 @@ use super::Router;
 impl Router {
     /// 缓冲变化后：按 Engine 状态重建 [`Composed`]，发一次云联想请求，归零高亮与整句补全。
     pub(super) fn recompose(&mut self) {
+        if self.engine.rime_enabled() {
+            self.sentence = None;
+            let query = self.engine.query().expect("原生 Rime 查询不会解析拼音");
+            let menu = query.rime_menu.as_ref().expect("原生菜单");
+            self.highlight = menu.highlighted;
+            self.composed = if query.marked_text().is_empty() && query.candidates.items.is_empty() {
+                None
+            } else {
+                Some(Composed::Candidates {
+                    preedit: query.marked_segments().iter().map(Into::into).collect(),
+                    cursor: query.marked_cursor(),
+                    layout: CandidateLayout::new(query.candidates.items.clone(), menu.page_size, 0),
+                })
+            };
+            return;
+        }
+
         self.highlight = 0;
         self.navigated = false;
         self.sentence = None;
@@ -73,6 +90,12 @@ impl Router {
 
     /// 整页翻 `step`，高亮落到目标页第一个候选。
     pub(super) fn page(&mut self, step: isize) {
+        if self.engine.rime_enabled() {
+            self.engine.rime_page(step > 0);
+            self.recompose();
+            return;
+        }
+
         if step == 0 {
             return;
         }
@@ -123,6 +146,17 @@ impl Router {
 
     /// 按当前状态生成一帧：翻译评审优先；没在组句给空帧；否则给高亮所在的那一页。
     pub(super) fn current_frame(&self) -> Frame {
+        if self.engine.rime_enabled() {
+            let mut query = self.engine.query().expect("原生 Rime 查询不会解析拼音");
+            self.engine.annotate(&mut query.candidates);
+            return Frame::from_rime(
+                query,
+                self.config.preedit,
+                self.config.layout,
+                self.config.theme,
+            );
+        }
+
         match &self.composed {
             None => Frame::default(),
             Some(Composed::Raw { text, cursor }) => Frame {
@@ -156,6 +190,7 @@ impl Router {
                     // 空文本只用于显示占位，不传给 Engine 上屏；保持数字标签与固定位置一致。
                     .map(|cell| {
                         cell.candidate().cloned().unwrap_or_else(|| Candidate {
+                            rime: None,
                             text: String::new(),
                             kind: CandidateKind::Chinese,
                             syllables: Vec::new(),

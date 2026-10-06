@@ -1,4 +1,17 @@
-use super::*;
+use crate::candidate::Candidate;
+use crate::candidate::CandidateKind;
+use crate::correction;
+use crate::engine::ENGLISH_SWITCH_PENALTY;
+use crate::engine::ENGLISH_ZIPF_FLOOR;
+use crate::engine::Engine;
+use crate::engine::MIN_COMPLETION_LETTERS;
+use crate::engine::MIN_ENGLISH_TAIL_HEAD_LETTERS;
+use crate::engine::MIN_ENGLISH_TAIL_LETTERS;
+use crate::engine::MIN_PINYIN_LIKE_TAIL_LETTERS;
+use crate::engine::learning::Learner;
+use crate::parser;
+use crate::parser::Segmentation;
+use crate::sentence::Conversion;
 
 /// 「拼音头 + 英文尾」的切法：`woxiangxuehaorust` 切成头 `woxiangxuehao` 与尾 rust。
 /// 见 [`Engine::split_english_tail`]。
@@ -163,6 +176,7 @@ impl Engine {
         let mut syllables = conversion.syllables;
         syllables.push(typed.to_owned());
         Some(Candidate {
+            rime: None,
             text: format!("{}{}", conversion.text, tail.word),
             kind: CandidateKind::Sentence,
             syllables,

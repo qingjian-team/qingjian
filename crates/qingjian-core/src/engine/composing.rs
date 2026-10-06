@@ -166,6 +166,15 @@ impl Engine {
     }
 
     pub fn push(&mut self, c: char) {
+        if self.rime_enabled() {
+            let key = if c as u32 <= 0xff {
+                c as i32
+            } else {
+                0x0100_0000 | c as i32
+            };
+            self.process_rime_key(key, 0);
+            return;
+        }
         if self.composition.is_empty() {
             // 新一段组句：从这一键起算耗时、翻页与重打
             self.composition_started = Some(Instant::now());
@@ -190,6 +199,9 @@ impl Engine {
     /// 开（缺省）停在辅码态（`;` 仍在、无码词也回来），关则回拼音态。码段本来就空（刚触发，或删空停住）
     /// 时按退格 = 退出辅码态、拼音一个字符都不动。每次退格候选都当场重筛。
     pub fn backspace(&mut self) -> bool {
+        if self.rime_enabled() {
+            return self.process_rime_key(0xff08, 0).is_some_and(|r| r.0);
+        }
         if let Some(code) = self.aux_code.take() {
             if code.len() > 1 {
                 self.aux_code = Some(code[..code.len() - 1].to_owned());
@@ -203,6 +215,9 @@ impl Engine {
     }
 
     pub fn clear(&mut self) {
+        if let Some(session) = &mut self.rime {
+            session.clear();
+        }
         self.composition.clear();
         self.aux_code = None;
         self.chain.leave_buffer();
@@ -215,6 +230,9 @@ impl Engine {
     }
 
     pub fn delete_forward(&mut self) -> bool {
+        if self.rime_enabled() {
+            return self.process_rime_key(0xffff, 0).is_some_and(|r| r.0);
+        }
         self.note_edit();
         self.composition.delete_forward()
     }
@@ -260,18 +278,32 @@ impl Engine {
     }
 
     pub fn move_cursor_left(&mut self) -> bool {
+        if self.rime_enabled() {
+            return self.process_rime_key(0xff51, 0).is_some_and(|r| r.0);
+        }
         self.composition.move_left()
     }
 
     pub fn move_cursor_right(&mut self) -> bool {
+        if self.rime_enabled() {
+            return self.process_rime_key(0xff53, 0).is_some_and(|r| r.0);
+        }
         self.composition.move_right()
     }
 
     pub fn move_cursor_home(&mut self) {
+        if self.rime_enabled() {
+            self.rime_set_caret(0);
+            return;
+        }
         self.composition.move_home();
     }
 
     pub fn move_cursor_end(&mut self) {
+        if self.rime_enabled() {
+            self.rime_set_caret(self.composition.text().len());
+            return;
+        }
         self.composition.move_end();
     }
 
@@ -331,6 +363,11 @@ impl Engine {
 
     /// 用一段完整拼音替换当前缓冲区，供 CLI 和测试一次性喂入。
     pub fn set_input(&mut self, input: &str) {
+        if let Some(session) = &mut self.rime {
+            session.set_input(input);
+            self.sync_rime();
+            return;
+        }
         self.composition.clear();
         for c in input.chars() {
             self.push(c);
@@ -339,6 +376,12 @@ impl Engine {
 
     /// 放弃当前拼音，原样返回给壳（通常是用户按回车要上屏字母本身）。
     pub fn take_raw(&mut self) -> String {
+        if let Some(session) = &mut self.rime {
+            let text = session.commit();
+            self.sync_rime();
+            self.record_rime_commit(Some(&text));
+            return text;
+        }
         // 回车原样上屏拼音段：码段（没上屏的码）到此结束
         self.aux_code = None;
         // 纠错生效时用户仍按了回车：这个串就是要原样打的，记下来以后不再纠它
