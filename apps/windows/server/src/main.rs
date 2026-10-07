@@ -174,6 +174,10 @@ fn main() {
         }
     };
     engine.set_fuzzy(config.fuzzy);
+    // Windows 端此前漏装 custom_phrases（macOS 端 apply_config 有）；失败只记日志不阻塞启动
+    if let Err(error) = engine.set_custom_phrases(config.custom_phrases.clone()) {
+        tracing::warn!(%error, "自定义短语配置未应用");
+    }
     // 拼音侧与形码侧在 `configure_code_table` 里一起装配（双拼 / 注音 / 混输都在那）
     engine.set_traditional_mode(config.general.traditional);
     engine.set_learning(config.general.learning);
