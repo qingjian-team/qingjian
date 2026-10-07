@@ -31,6 +31,8 @@ Windows 上中 / 英的切换键可以勾选（设置 → 通用，配置 `[shor
 
 ## 输入组句时（拼音 / 注音 / 五笔）
 
+微软 / 搜狗双拼用 `y` 输入 ü：`ny` / `ly` 对应女 / 绿，`jy` / `qy` / `xy` / `yy` 对应 ju / qu / xu / yu；原来的 `ju` / `qu` / `xu` / `yu` 也可继续使用。各方案说明见 [模糊音与输入方案](../input/fuzzy-and-shuangpin.md)。
+
 | 操作 | macOS | Windows |
 |---|---|---|
 | 上屏高亮候选（无候选时上屏所敲的拼音 / 注音 / 编码） | `Space` | `Space` |

@@ -127,10 +127,17 @@ impl Scheme {
             }
         }
         let initial = self.initial(first)?;
-        self.finals(second).iter().find_map(|final_| {
-            let syllable = format!("{initial}{final_}");
-            parser::is_syllable(&syllable).then_some(syllable)
-        })
+        self.finals(second)
+            .iter()
+            .find_map(|final_| {
+                let syllable = format!("{initial}{final_}");
+                parser::is_syllable(&syllable).then_some(syllable)
+            })
+            .or_else(|| {
+                // ü 在 j / q / x / y 后写作 u；同键已有的合法音节仍优先。
+                (matches!(initial, "j" | "q" | "x" | "y") && self.finals(second).contains(&"v"))
+                    .then(|| format!("{initial}u"))
+            })
     }
 
     /// 一个全拼音节的主写法（两个键）。测试与文档用；拆成声母 + 韵母后查表，零声母查零声母表。
