@@ -109,6 +109,19 @@ pub(super) fn field(label: &str, hint: &str, control: impl Into<View>) -> View {
     }
 }
 
+/// 枚举下拉：按 `label()` 列项，选中 `current`（找不到取 0）。
+pub(super) fn mode_combo<T: PartialEq + Copy>(
+    all: &'static [T],
+    current: T,
+    label: fn(T) -> &'static str,
+    callback: Callback<Option<usize>>,
+) -> ComboBox {
+    ComboBox::new()
+        .items_source(all.iter().map(|mode| label(*mode)))
+        .selected_index(all.iter().position(|mode| *mode == current).unwrap_or(0))
+        .on_selection_changed(callback)
+}
+
 /// 在 `(界面名, 配置写法)` 列表里找 `value` 的下标，找不到取 0。
 pub(super) fn index_of(options: &[(&str, &str)], value: &str) -> usize {
     options.iter().position(|(_, v)| *v == value).unwrap_or(0)

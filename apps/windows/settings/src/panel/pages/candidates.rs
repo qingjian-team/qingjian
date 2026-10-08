@@ -3,21 +3,8 @@
 use qingjian_platform::{CandidateRenderer, LayoutMode, PreeditMode, ThemeMode};
 use windows_reactor::*;
 
-use crate::panel::controls::{field, page};
+use crate::panel::controls::{field, mode_combo, page};
 use crate::panel::{Message, Settings};
-
-/// 枚举下拉：按 `label()` 列项，选中 `current`（找不到取 0）。
-fn mode_combo<T: PartialEq + Copy>(
-    all: &'static [T],
-    current: T,
-    label: fn(T) -> &'static str,
-    callback: Callback<Option<usize>>,
-) -> ComboBox {
-    ComboBox::new()
-        .items_source(all.iter().map(|mode| label(*mode)))
-        .selected_index(all.iter().position(|mode| *mode == current).unwrap_or(0))
-        .on_selection_changed(callback)
-}
 
 pub(crate) fn view(settings: &Settings, context: &mut ViewContext<Settings>) -> View {
     let g = &settings.config.general;
