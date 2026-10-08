@@ -213,6 +213,7 @@ fn main() {
         language = language.map_or("off", |l| l.code()),
         page_size = router_config.page_size,
         page_keys = %format!("{}{}", router_config.page_keys.0, router_config.page_keys.1),
+        highlight_keys = router_config.highlight_keys.key(),
         layout = router_config.layout.key(),
         theme = router_config.theme.key(),
         scheme = %if config.general.scheme_label().is_empty() { "全拼".to_owned() } else { config.general.scheme_label() },

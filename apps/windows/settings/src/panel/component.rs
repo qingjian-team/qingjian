@@ -1,8 +1,8 @@
 //! 根组件的 Reactor 生命周期：建状态、按消息落盘、画左侧导航 + 当前页。
 
 use qingjian_platform::{
-    CandidateRenderer, Config, DEFAULT_ENGLISH_CANDIDATES_OFF_WINDOWS, LayoutMode, LogLevel,
-    PreeditMode, ShiftLetter, ThemeMode, UpdateChannel,
+    CandidateRenderer, Config, DEFAULT_ENGLISH_CANDIDATES_OFF_WINDOWS, HighlightKeys, LayoutMode,
+    LogLevel, PreeditMode, ShiftLetter, ThemeMode, UpdateChannel,
 };
 use windows_reactor::*;
 
@@ -162,6 +162,9 @@ impl Component for Settings {
             // 快捷键页
             Message::PageKeys(Some(i)) if i < shortcut::PAGE_KEYS.len() => {
                 self.save("general", "page_keys", shortcut::PAGE_KEYS[i].1);
+            }
+            Message::HighlightKeys(Some(i)) if i < HighlightKeys::ALL.len() => {
+                self.save("shortcut", "highlight_keys", HighlightKeys::ALL[i].key());
             }
             Message::ModeExpression(Some(i)) if i < shortcut::MODE_KEYS.len() => {
                 self.save("shortcut", "expression", shortcut::MODE_KEYS[i]);

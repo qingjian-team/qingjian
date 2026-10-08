@@ -3,6 +3,7 @@ mod aux_code;
 mod candidate_renderer;
 mod dictionaries;
 mod general;
+mod highlight_keys;
 mod key_combo;
 mod layout_mode;
 mod log_level;
@@ -36,6 +37,7 @@ pub use dictionaries::{DEFAULT_DOMAINS, DictionariesConfig};
 pub use general::{
     DEFAULT_PAGE_KEYS, GeneralConfig, LEARNING_LANGUAGE_OFF, MAX_PAGE_SIZE, PAGE_KEY_OPTIONS,
 };
+pub use highlight_keys::HighlightKeys;
 pub use key_combo::KeyCombo;
 pub use layout_mode::LayoutMode;
 pub use log_level::LogLevel;
@@ -274,6 +276,9 @@ expression = "v"
 question = "u"
 # 没在组句时敲 ? 是否也进问字模式（中英文模式都行，后面跟字母才是问题，跟别的键还原成问号）；false 的话问号就是问号
 question_mark = false
+# 候选高亮由哪对方向键移动：updown 用 ↑ / ↓ 移高亮、← / → 移拼音光标（缺省）；leftright 改用 ← / → 移高亮
+# leftright 时两键把「拼音行 + 候选栏」当成一条从左到右的序列走：→ 到拼音光标末位溢出成选词，← 到候选首位回拼音光标；↑ / ↓ 不做事。只有 Windows 用
+highlight_keys = "updown"
 "#,
     template_shortcut_keys!(),
     r#"

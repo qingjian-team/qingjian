@@ -1,10 +1,10 @@
-//! 「快捷键」页：翻页键、模式键，译词 / 删候选 / 翻译选中文字的修饰键。
+//! 「快捷键」页：翻页键、高亮移动键、模式键，译词 / 删候选 / 翻译选中文字的修饰键。
 //! 翻译选中文字只改修饰键，字母键固定用配置里当前的；要换字母直接改 `config.toml`。
 
-use qingjian_platform::Modifiers;
+use qingjian_platform::{HighlightKeys, Modifiers};
 use windows_reactor::*;
 
-use crate::panel::controls::{field, index_of, page};
+use crate::panel::controls::{field, index_of, mode_combo, page};
 use crate::panel::{Message, Settings};
 
 /// 翻页键对：界面名 + 配置写法。
@@ -27,7 +27,7 @@ pub(crate) const MODIFIERS: [(&str, &str); 6] = [
     ("Alt + Shift", "shift+alt"),
 ];
 
-fn mode_combo(current: char, callback: Callback<Option<usize>>) -> ComboBox {
+fn mode_key_combo(current: char, callback: Callback<Option<usize>>) -> ComboBox {
     let selected = MODE_KEYS
         .iter()
         .position(|key| key.starts_with(current))
@@ -62,14 +62,24 @@ pub(crate) fn view(settings: &Settings, context: &mut ViewContext<Settings>) -> 
                 .on_selection_changed(context.callback(Message::PageKeys)),
         ),
         field(
+            "高亮移动键",
+            "选「← / →」时两键连着拼音行一起走：拼音光标到末尾按 → 才移到下一个候选，候选在首位按 ← 才退回拼音行；此时 ↑ / ↓ 不做事。",
+            mode_combo(
+                &HighlightKeys::ALL,
+                s.highlight_keys,
+                HighlightKeys::label,
+                context.callback(Message::HighlightKeys),
+            ),
+        ),
+        field(
             "表达式模式键",
             "",
-            mode_combo(s.mode.expression, context.callback(Message::ModeExpression)),
+            mode_key_combo(s.mode.expression, context.callback(Message::ModeExpression)),
         ),
         field(
             "问字模式键",
             "这两个字母开头进模式：v1+2 出 3，usangemu 问「三个木」（需要云服务）。两个键不能相同。",
-            mode_combo(s.mode.question, context.callback(Message::ModeQuestion)),
+            mode_key_combo(s.mode.question, context.callback(Message::ModeQuestion)),
         ),
         field(
             "没在输入拼音时敲 ? 也进入问字",

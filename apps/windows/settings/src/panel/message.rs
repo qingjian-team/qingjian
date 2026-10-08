@@ -50,6 +50,8 @@ pub(crate) enum Message {
 
     // 快捷键页
     PageKeys(Option<usize>),
+    /// 高亮由 ↑ / ↓ 还是 ← / → 移动。
+    HighlightKeys(Option<usize>),
     ModeExpression(Option<usize>),
     ModeQuestion(Option<usize>),
     QuestionMark(bool),
