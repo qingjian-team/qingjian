@@ -2,9 +2,11 @@
 //!
 //! 视觉层级（产品决定）：候选词最深，译文稍浅，词性最浅，序号弱化。数值对齐 macOS 壳的 AppKit 实现。
 
+mod font_role;
 mod font_spec;
 mod palette;
 
+pub use font_role::FontRole;
 pub use font_spec::FontSpec;
 pub use palette::Palette;
 
@@ -15,6 +17,9 @@ pub struct Theme {
 
     /// 译文与词性字体。
     pub annotation_font: FontSpec,
+
+    /// 词性字号独立；缺省与译文相同。
+    pub pos_font: FontSpec,
 
     /// 序号字体。
     pub index_font: FontSpec,
@@ -58,6 +63,7 @@ impl Theme {
             // 行高取 AppKit 系统字体在这几个字号下 NSAttributedString.size() 的高度
             text_font: FontSpec::new(16.0, 19.0),
             annotation_font: FontSpec::new(12.0, 15.0),
+            pos_font: FontSpec::new(12.0, 15.0),
             index_font: FontSpec::new(11.0, 14.0),
             colors,
             padding: 8.0,

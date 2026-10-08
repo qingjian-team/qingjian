@@ -1,9 +1,18 @@
 //! 菜单与偏好设置窗口的动作：只改 config.toml（或触发一次性操作），改完由 apply_config 统一生效。
 
+use super::Host;
 use super::diagnostics::{copy_to_pasteboard, open_with_system};
-use super::*;
+use crate::app::logging;
+use crate::menubar::MenuAction;
 use crate::preferences::DEFAULT_FONT_LABEL;
+use crate::preferences::{Setting, SettingValue};
+use qingjian_core::{FuzzyRules, ModeKeys};
 use qingjian_platform::ShiftLetter;
+use qingjian_platform::{
+    CandidateRenderer, DEFAULT_ENGLISH_CANDIDATES_OFF, KeyCombo, LEARNING_LANGUAGE_OFF, LayoutMode,
+    LogLevel, Modifiers, PAGE_KEY_OPTIONS, PreeditMode, Scheme, ShortcutConfig, ThemeMode,
+    UpdateChannel,
+};
 
 impl Host {
     /// 写短语前读取文件；外部规则有变化时同步列表并请用户重新确认。
@@ -88,6 +97,20 @@ impl Host {
     pub fn change_setting(&mut self, setting: Setting, value: SettingValue) {
         // 密钥值不进日志
         tracing::info!(?setting, "设置");
+        if let Some(key) = setting.color_key() {
+            let color = match value {
+                SettingValue::Text(text)
+                    if crate::candidates::colors::parse_hex(&text).is_some() =>
+                {
+                    text
+                }
+                SettingValue::Bool(_) => String::new(),
+                _ => return,
+            };
+            self.settings.set_value("general", key, color.as_str());
+            self.apply_config(false);
+            return;
+        }
         let config = self.settings.config().clone();
         match (setting, value) {
             (Setting::NewPhrase, _) => {
@@ -195,10 +218,41 @@ impl Host {
                         .set_value("general", "renderer", renderer.key());
                 }
             }
-            (Setting::Font, SettingValue::Text(text)) => {
+            (Setting::Font | Setting::CandidateFont, SettingValue::Text(text)) => {
                 let font = text.trim();
                 let font = if font == DEFAULT_FONT_LABEL { "" } else { font };
-                self.settings.set_value("general", "font", font);
+                let key = if setting == Setting::CandidateFont {
+                    "candidate_font"
+                } else {
+                    "font"
+                };
+                self.settings.set_value("general", key, font);
+            }
+            (
+                Setting::CandidateFontSize | Setting::AnnotationFontSize | Setting::PosFontSize,
+                SettingValue::Index(index),
+            ) => {
+                use crate::candidates::typography::{MAX_FONT_SIZE, MIN_FONT_SIZE};
+                if index <= usize::from(MAX_FONT_SIZE - MIN_FONT_SIZE) {
+                    let key = match setting {
+                        Setting::CandidateFontSize => "candidate_font_size",
+                        Setting::PosFontSize => "pos_font_size",
+                        _ => "annotation_font_size",
+                    };
+                    self.settings.set_value(
+                        "general",
+                        key,
+                        i64::from(MIN_FONT_SIZE) + index as i64,
+                    );
+                }
+            }
+            (Setting::CandidateBold | Setting::AnnotationBold, SettingValue::Bool(on)) => {
+                let key = if setting == Setting::CandidateBold {
+                    "candidate_bold"
+                } else {
+                    "annotation_bold"
+                };
+                self.settings.set_bool("general", key, on);
             }
             (Setting::Layout, SettingValue::Index(index)) => {
                 if let Some(layout) = LayoutMode::ALL.get(index) {

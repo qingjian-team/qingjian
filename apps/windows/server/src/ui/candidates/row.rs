@@ -40,6 +40,8 @@ pub(crate) fn from_candidate(position: usize, candidate: &Candidate, show_code: 
     Row {
         index: (position + 1).to_string(),
         text: candidate.text.clone(),
+        foreign_text: false,
+        chinese_annotation: false,
         code,
         annotation,
         cloud: candidate.kind == CandidateKind::Cloud,

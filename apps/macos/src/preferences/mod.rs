@@ -8,6 +8,7 @@
 //! 关窗时切回去，否则文本框拿不到键盘焦点。文本框里的 ⌘C / ⌘V 靠主菜单「编辑」项的快捷键分发，
 //! 后台应用没有主菜单，所以开窗前装一份只有编辑项的主菜单（`edit_menu`）。
 
+mod color_picker;
 mod controls;
 mod edit_menu;
 mod file_dialog;
@@ -21,7 +22,7 @@ mod target;
 mod window;
 
 use objc2::runtime::AnyObject;
-use objc2_app_kit::{NSButton, NSControlStateValueOn, NSPopUpButton, NSTextField};
+use objc2_app_kit::{NSButton, NSColorWell, NSControlStateValueOn, NSPopUpButton, NSTextField};
 
 pub use file_dialog::choose_dictionary_file;
 pub use key_recorder::KeyRecorder;
@@ -35,6 +36,12 @@ pub const DEFAULT_FONT_LABEL: &str = "系统默认";
 /// 从 `changed:` 的 sender 认出是哪个设置、现在的值是什么。
 pub fn setting_from_sender(sender: Option<&AnyObject>) -> Option<(Setting, SettingValue)> {
     let sender = sender?;
+    if let Some(well) = sender.downcast_ref::<NSColorWell>() {
+        return Some((
+            Setting::from_tag(well.tag())?,
+            SettingValue::Text(color_picker::selected_hex(well)?),
+        ));
+    }
     // 快捷键录制按钮是 NSButton 的子类，最先认它：值是它录到的配置写法
     if let Some(recorder) = sender.downcast_ref::<KeyRecorder>() {
         return Some((

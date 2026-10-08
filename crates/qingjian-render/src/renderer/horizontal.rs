@@ -36,30 +36,28 @@ impl Renderer {
         if row.annotation.is_empty() {
             return None;
         }
-        let style = m.annotation_style(m.theme.colors.gloss);
         let width: f32 = row
             .annotation
             .iter()
-            .map(|(s, _)| self.measure(s, &style).width)
+            .map(|(s, tone)| self.measure(s, &m.segment_style(row, *tone)).width)
             .sum();
-        Some((width, style.line_height + m.row_padding()))
+        Some((width, m.annotation_height(row) + m.row_padding()))
     }
 
     /// 横排各项的尺寸与统一行高。
     fn items(&mut self, rows: &[Row], m: &Metrics) -> (Vec<Item>, f32) {
         let mut row_height: f32 = 0.0;
-        let text_style = m.text_style();
         let index_style = m.index_style();
         let items = rows
             .iter()
             .map(|row| {
                 let index = self.measure(&row.index, &index_style);
-                let mut text = self.measure(&row.text, &text_style);
+                let mut text = self.measure(&row.text, &m.word_style(row));
                 if row.cloud {
                     text.width += m.cloud_width();
                 }
                 text.width += self.code_width(row, m);
-                row_height = row_height.max(text.height + m.row_padding() * 2.0);
+                row_height = row_height.max(text.height.max(index.height) + m.row_padding() * 2.0);
                 Item {
                     index_width: index.width,
                     text_width: text.width,
@@ -84,10 +82,11 @@ impl Renderer {
         // 量尺寸时已整形过一遍，这里再整形一遍；等渲染器定型再把结果从 render 传下来。
         let (items, row_height) = self.items(&frame.rows, m);
         let top = y + m.row_padding();
-        let text_height = m.px(m.theme.text_font.line_height);
+        let line_height = row_height - m.row_padding() * 2.0;
         let inset = m.px(HIGHLIGHT_INSET);
         let mut x = left + m.padding() + inset;
         for (i, (row, item)) in frame.rows.iter().zip(&items).enumerate() {
+            let text_height = m.word_style(row).line_height;
             let item_width = item.index_width + m.px(INDEX_GAP) + item.text_width;
             if Some(i) == frame.highlighted {
                 self.fill_highlight(
@@ -104,14 +103,14 @@ impl Renderer {
                 &row.index,
                 &m.index_style(),
                 x,
-                top + m.small_offset(text_height),
+                top + (line_height - m.index_style().line_height) / 2.0,
             );
             self.draw_word(
                 canvas,
                 m,
                 row,
                 x + item.index_width + m.px(INDEX_GAP),
-                top,
+                top + (line_height - text_height) / 2.0,
                 text_height,
             );
             x += item_width + m.column_gap();
@@ -124,7 +123,7 @@ impl Renderer {
                 footer,
                 &style,
                 left + content_width - m.padding() - size.width,
-                top + m.small_offset(text_height),
+                top + (line_height - style.line_height) / 2.0,
             );
         }
         // 高亮候选的译文
@@ -132,8 +131,14 @@ impl Renderer {
             let mut x = left + m.padding() + inset;
             let annotation_top = y + row_height + m.row_padding() / 2.0;
             for (segment, tone) in &row.annotation {
-                let style = m.annotation_style(m.tone_color(*tone));
-                x += self.draw_text(canvas, segment, &style, x, annotation_top);
+                let style = m.segment_style(row, *tone);
+                x += self.draw_text(
+                    canvas,
+                    segment,
+                    &style,
+                    x,
+                    annotation_top + (m.annotation_height(row) - style.line_height) / 2.0,
+                );
             }
         }
     }

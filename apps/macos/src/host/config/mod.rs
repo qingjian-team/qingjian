@@ -7,7 +7,14 @@ pub(super) use text_replacements::TextReplacement;
 pub(super) use watch::ConfigWatch;
 
 use super::init::load_glossary;
-use super::*;
+use super::{Host, LEARNING_FLUSH_INTERVAL};
+use crate::app::{logging, paths};
+use crate::candidates::colors::CandidateColors;
+use crate::candidates::typography::Typography;
+use crate::preferences::UpdateStatus;
+use qingjian_core::{Language, NoGlossFiller, NoPredictor, NoTranslator};
+use qingjian_platform::{GeneralConfig, Scheme};
+use qingjian_predict::{CloudGlossFiller, CloudPredictor};
 
 impl Host {
     /// 把当前配置推给 Engine 与界面：模糊音 / 模式键 / 翻页 / 外观直接设；学习语言变了换释义表；
@@ -46,8 +53,11 @@ impl Host {
             self.horizontal_grid = config.general.horizontal_grid;
             self.session.collapse();
         }
-        self.window.set_font(&config.general.font);
+        self.window
+            .set_typography(&Typography::from(&config.general));
         self.window.set_renderer(config.general.renderer);
+        self.window
+            .set_colors(&CandidateColors::from(&config.general));
         self.apply_learning_language(&config.general);
         if self.input_log_enabled != Some(config.general.input_log) {
             self.input_log_enabled = Some(config.general.input_log);

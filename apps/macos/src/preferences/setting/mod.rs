@@ -35,8 +35,32 @@ pub enum Setting {
     /// `[general] renderer`，弹出菜单：青简渲染器 / 系统绘制。
     Renderer,
 
-    /// `[general] font`，字体列表选中的字族名；「系统默认」为系统字体。
+    /// `[general] font`，学习译词字族；沿用旧键。
     Font,
+
+    CandidateFont,
+
+    CandidateFontSize,
+
+    AnnotationFontSize,
+
+    PosFontSize,
+
+    CandidateBold,
+
+    AnnotationBold,
+
+    CandidateBackgroundColor,
+
+    CandidateTextColor,
+
+    CandidatePosColor,
+
+    CandidateWordColor,
+
+    CandidateFreshWordColor,
+
+    CandidateHighlightColor,
 
     /// `[shortcut] expression`，弹出菜单 v / u / i。
     ExpressionKey,
@@ -199,6 +223,18 @@ pub enum Setting {
 }
 
 impl Setting {
+    pub fn color_key(self) -> Option<&'static str> {
+        Some(match self {
+            Self::CandidateBackgroundColor => "candidate_background_color",
+            Self::CandidateTextColor => "candidate_text_color",
+            Self::CandidatePosColor => "candidate_pos_color",
+            Self::CandidateWordColor => "candidate_word_color",
+            Self::CandidateFreshWordColor => "candidate_fresh_word_color",
+            Self::CandidateHighlightColor => "candidate_highlight_color",
+            _ => return None,
+        })
+    }
+
     pub fn tag(self) -> NSInteger {
         match self {
             Self::LearningLanguage => 1,
@@ -255,6 +291,18 @@ impl Setting {
             Self::CancelPhraseEdit => 40,
             Self::Wubi => 49,
             Self::Renderer => 43,
+            Self::CandidateFont => 57,
+            Self::CandidateFontSize => 58,
+            Self::AnnotationFontSize => 59,
+            Self::PosFontSize => 67,
+            Self::CandidateBold => 60,
+            Self::AnnotationBold => 61,
+            Self::CandidateBackgroundColor => 62,
+            Self::CandidateTextColor => 63,
+            Self::CandidatePosColor => 64,
+            Self::CandidateWordColor => 65,
+            Self::CandidateFreshWordColor => 68,
+            Self::CandidateHighlightColor => 66,
             Self::Font => 44,
             Self::SystemTextReplacements => 46,
             Self::Fuzzy(index) => FUZZY_TAG_BASE + index as NSInteger,
@@ -270,6 +318,18 @@ impl Setting {
             3 => Self::PageKeys,
             4 => Self::Theme,
             43 => Self::Renderer,
+            57 => Self::CandidateFont,
+            58 => Self::CandidateFontSize,
+            59 => Self::AnnotationFontSize,
+            67 => Self::PosFontSize,
+            60 => Self::CandidateBold,
+            61 => Self::AnnotationBold,
+            62 => Self::CandidateBackgroundColor,
+            63 => Self::CandidateTextColor,
+            64 => Self::CandidatePosColor,
+            65 => Self::CandidateWordColor,
+            68 => Self::CandidateFreshWordColor,
+            66 => Self::CandidateHighlightColor,
             44 => Self::Font,
             5 => Self::ExpressionKey,
             6 => Self::QuestionKey,
@@ -349,6 +409,18 @@ mod tests {
             Setting::PageKeys,
             Setting::Theme,
             Setting::Renderer,
+            Setting::CandidateFont,
+            Setting::CandidateFontSize,
+            Setting::AnnotationFontSize,
+            Setting::PosFontSize,
+            Setting::CandidateBold,
+            Setting::AnnotationBold,
+            Setting::CandidateBackgroundColor,
+            Setting::CandidateTextColor,
+            Setting::CandidatePosColor,
+            Setting::CandidateWordColor,
+            Setting::CandidateFreshWordColor,
+            Setting::CandidateHighlightColor,
             Setting::Font,
             Setting::ExpressionKey,
             Setting::QuestionKey,

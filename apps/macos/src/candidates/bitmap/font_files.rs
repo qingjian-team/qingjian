@@ -9,6 +9,9 @@ use objc2_core_text::{CTFontDescriptor, kCTFontFamilyNameAttribute, kCTFontURLAt
 
 /// 某字族所有面的文件路径，去重；系统里没有这个字族返回空。
 pub(crate) fn family_files(family: &str) -> Vec<PathBuf> {
+    if family.trim().is_empty() {
+        return Vec::new();
+    }
     // SAFETY: 只读 CoreText 导出的属性名常量；属性字典键值都是 CFString，与 CoreText 的约定一致
     let descriptors = unsafe {
         let key: &CFString = kCTFontFamilyNameAttribute;

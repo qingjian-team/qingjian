@@ -107,6 +107,8 @@ impl Host {
                         // 矩阵里的空位什么都不画；单行里的空位留着序号
                         index: if columns == 0 { index } else { String::new() },
                         text: String::new(),
+                        foreign_text: false,
+                        chinese_annotation: false,
                         annotation: Vec::new(),
                         cloud: false,
                     };

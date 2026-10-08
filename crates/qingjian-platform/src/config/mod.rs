@@ -211,8 +211,24 @@ layout = "vertical"
 horizontal_grid = false
 # 候选窗口由谁绘制：qingjian 青简渲染器（各平台一致，主题走它）/ system 系统原生绘制（渲染器有问题时的退路）
 renderer = "qingjian"
-# 候选窗口字体（字族名，如 "LXGW WenKai"）；空为系统字体。只对青简渲染器生效，没装这个字体时自动回到系统字体
+# 外语字体（macOS；沿用旧键）。Windows 仍作为整个候选窗的字体；空为系统字体
 font = ""
+# macOS 中文字体（候选或译文）；缺失字形自动回退系统字体
+candidate_font = ""
+# macOS 中文 / 外语字号（8–48 磅）与加粗，分别生效
+candidate_font_size = 16
+annotation_font_size = 12
+# 词性字号独立，字族和加粗沿用外语设置
+pos_font_size = 12
+candidate_bold = false
+annotation_bold = false
+# macOS 候选框颜色：#RRGGBB 或 #RRGGBBAA（含透明度）；空为默认色，普通词与生词分别设置
+candidate_background_color = ""
+candidate_text_color = ""
+candidate_pos_color = ""
+candidate_word_color = ""
+candidate_fresh_word_color = ""
+candidate_highlight_color = ""
 # 组句中的拼音显示在哪：both 行内和候选窗口 / inline 只在行内 / window 只在候选窗口（应用里不放 marked text）
 preedit = "both"
 # 英文模式（Caps Lock 亮着）是否给英文候选：Tab 或方向键选词，空格、回车、标点仍原样上屏敲的字母；false 就是纯直通

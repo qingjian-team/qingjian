@@ -17,7 +17,7 @@ mod windows;
 use std::path::{Path, PathBuf};
 
 use cosmic_text::FontSystem;
-use cosmic_text::fontdb::{Database, Family};
+use cosmic_text::fontdb::Database;
 
 use crate::error::RenderError;
 
@@ -38,6 +38,10 @@ pub struct FontLibrary {
     /// 界面字体的字族名（`SansSerif` 映射到它）。
     ui_family: String,
 
+    pub(crate) candidate_family: Option<String>,
+
+    pub(crate) annotation_family: Option<String>,
+
     /// 中日同形字回退用的 locale，如 `zh-CN`。
     locale: String,
 }
@@ -51,6 +55,18 @@ impl FontLibrary {
     /// 界面字体换成用户指定的字族，系统字体仍加载在后面当回退；指定的字体一个文件都没加载到或名字对不上就退回系统字体。
     pub fn with_ui_font(locale: &str, ui_font: &UiFont) -> Result<Self, RenderError> {
         Self::build(locale, Some(ui_font))
+    }
+
+    /// 按用途加载字体；直接指定真实字族，避免中文经通用 sans-serif 回退后丢失选择。
+    pub fn with_candidate_fonts(
+        locale: &str,
+        candidate: &UiFont,
+        annotation: &UiFont,
+    ) -> Result<Self, RenderError> {
+        let mut library = Self::system(locale)?;
+        library.candidate_family = load_family(&mut library.db, candidate);
+        library.annotation_family = load_family(&mut library.db, annotation);
+        Ok(library)
     }
 
     fn build(locale: &str, ui_font: Option<&UiFont>) -> Result<Self, RenderError> {
@@ -96,6 +112,8 @@ impl FontLibrary {
         Ok(Self {
             db,
             ui_family,
+            candidate_family: None,
+            annotation_family: None,
             locale: locale.to_owned(),
         })
     }
@@ -125,8 +143,21 @@ impl FontLibrary {
     }
 }
 
-/// 界面字体用的字族。
-pub(crate) const UI_FAMILY: Family<'static> = Family::SansSerif;
+/// 加载所选字族并取字体文件中的规范名称；空选项及无效字族走系统回退。
+fn load_family(db: &mut Database, font: &UiFont) -> Option<String> {
+    if font.family.trim().is_empty() {
+        return None;
+    }
+    for path in &font.files {
+        load(db, path);
+    }
+    db.faces().find_map(|face| {
+        face.families
+            .iter()
+            .any(|(name, _)| name.eq_ignore_ascii_case(font.family.trim()))
+            .then(|| face.families[0].0.clone())
+    })
+}
 
 /// 依次尝试，加载成功的第一个文件的第一张面。
 fn load_first(db: &mut Database, paths: &[PathBuf]) -> Option<cosmic_text::fontdb::ID> {

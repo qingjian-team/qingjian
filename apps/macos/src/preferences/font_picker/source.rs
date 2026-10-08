@@ -60,7 +60,7 @@ define_class!(
             };
             self.close();
             self.show_current(&name);
-            crate::host::with(|h| h.change_setting(Setting::Font, SettingValue::Text(name)));
+            crate::host::with(|h| h.change_setting(self.ivars().setting, SettingValue::Text(name)));
         }
     }
     impl FontListSource {
@@ -75,10 +75,15 @@ define_class!(
 );
 
 impl FontListSource {
-    pub(super) fn new(mtm: MainThreadMarker, families: Vec<String>) -> Retained<Self> {
+    pub(super) fn new(
+        mtm: MainThreadMarker,
+        families: Vec<String>,
+        setting: Setting,
+    ) -> Retained<Self> {
         let mut visible = vec![DEFAULT_FONT_LABEL.to_owned()];
         visible.extend(families.iter().cloned());
         let this = mtm.alloc::<Self>().set_ivars(PickerState {
+            setting,
             families,
             visible: RefCell::new(visible),
             current: RefCell::new(String::new()),

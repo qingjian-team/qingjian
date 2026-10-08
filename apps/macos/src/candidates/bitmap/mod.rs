@@ -5,6 +5,8 @@
 
 mod convert;
 mod font_files;
+#[cfg(test)]
+mod tests;
 
 pub(crate) use font_files::available_families;
 
@@ -15,11 +17,17 @@ use objc2_foundation::{NSPoint, NSRect, NSSize};
 use qingjian_platform::LayoutMode;
 use qingjian_render::{FontLibrary, Layout, Renderer, Theme, UiFont};
 
+use super::colors::CandidateColors;
 use super::frame::Frame;
+use super::typography::Typography;
 
 pub struct BitmapPainter {
     /// 渲染器（字体库随它）。
     renderer: Renderer,
+
+    typography: Typography,
+
+    colors: CandidateColors,
 
     /// 最近一帧的位图，`None` 表示还没画过。
     image: Option<Retained<NSImage>>,
@@ -41,19 +49,18 @@ pub struct BitmapPainter {
 }
 
 impl BitmapPainter {
-    /// `font` 是用户选的字族名，空为系统字体；没装就回到系统字体。字体库加载失败返回 `None`，调用方退回旧路径。
-    pub fn new(font: &str) -> Option<Self> {
+    /// 字体库加载失败返回 `None`，调用方退回 AppKit。
+    pub fn new(typography: &Typography, colors: &CandidateColors) -> Option<Self> {
         let started = std::time::Instant::now();
-        let font = font.trim();
-        let library = if font.is_empty() {
-            FontLibrary::system("zh-CN")
-        } else {
-            let ui_font = UiFont {
-                family: font.to_owned(),
-                files: font_files::family_files(font),
-            };
-            FontLibrary::with_ui_font("zh-CN", &ui_font)
+        let candidate = UiFont {
+            family: typography.candidate_family.clone(),
+            files: font_files::family_files(&typography.candidate_family),
         };
+        let annotation = UiFont {
+            family: typography.annotation_family.clone(),
+            files: font_files::family_files(&typography.annotation_family),
+        };
+        let library = FontLibrary::with_candidate_fonts("zh-CN", &candidate, &annotation);
         let library = match library {
             Ok(library) => library,
             Err(error) => {
@@ -68,6 +75,8 @@ impl BitmapPainter {
         );
         Some(Self {
             renderer: Renderer::new(library),
+            typography: typography.clone(),
+            colors: colors.clone(),
             image: None,
             frame: qingjian_render::Frame::default(),
             layout: Layout::Vertical,
@@ -75,6 +84,13 @@ impl BitmapPainter {
             scale: 2.0,
             size: NSSize::ZERO,
         })
+    }
+
+    pub fn set_colors(&mut self, colors: &CandidateColors) {
+        self.colors = colors.clone();
+        if self.image.is_some() {
+            self.repaint();
+        }
     }
 
     /// 记下新一帧并画好，返回窗口该有的尺寸（点）。
@@ -121,11 +137,13 @@ impl BitmapPainter {
     }
 
     fn repaint(&mut self) {
-        let theme = if self.dark {
+        let mut theme = if self.dark {
             Theme::dark()
         } else {
             Theme::light()
         };
+        self.typography.apply(&mut theme);
+        theme.colors = self.colors.palette(self.dark);
         let started = std::time::Instant::now();
         let rendered =
             match self

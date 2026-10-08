@@ -4,7 +4,6 @@
 
 use super::{HIGHLIGHT_INSET, INDEX_GAP, Metrics, Renderer};
 use crate::canvas::Canvas;
-use crate::color::Color;
 use crate::frame::Frame;
 use crate::text::TextStyle;
 
@@ -51,7 +50,7 @@ impl Renderer {
         }
         let cells = self.matrix_cells(frame, m);
         let grid_rows = frame.rows.len().div_ceil(frame.columns.max(1));
-        let info_height = m.annotation_style(m.theme.colors.gloss).line_height + m.row_padding();
+        let info_height = m.info_height() + m.row_padding();
         (
             cells.width(m.column_gap()) + m.px(HIGHLIGHT_INSET) * 2.0,
             cells.row_height * grid_rows as f32 + info_height,
@@ -72,10 +71,10 @@ impl Renderer {
         }
         let cells = self.matrix_cells(frame, m);
         let columns = frame.columns.max(1);
-        let text_height = m.px(m.theme.text_font.line_height);
         let inset = m.px(HIGHLIGHT_INSET);
         let origin = left + m.padding() + inset;
         for (i, row) in frame.rows.iter().enumerate() {
+            let text_height = m.word_style(row).line_height;
             let (text, _) = &cells.texts[i];
             if text.is_empty() && row.index.is_empty() {
                 continue;
@@ -83,6 +82,7 @@ impl Renderer {
             let cell_width = cells.column_widths[i % columns];
             let x = origin + cells.offset(i % columns, m.column_gap());
             let row_y = y + cells.row_height * (i / columns) as f32;
+            let line_height = cells.row_height - m.row_padding() * 2.0;
             let top = row_y + m.row_padding();
             if Some(i) == frame.highlighted {
                 self.fill_highlight(
@@ -100,7 +100,7 @@ impl Renderer {
                     &row.index,
                     &m.index_style(),
                     x,
-                    top + m.small_offset(text_height),
+                    top + (line_height - m.index_style().line_height) / 2.0,
                 );
             }
             let mut shown = row.clone();
@@ -110,7 +110,7 @@ impl Renderer {
                 m,
                 &shown,
                 x + cells.index_width + m.px(INDEX_GAP),
-                top,
+                top + (line_height - text_height) / 2.0,
                 text_height,
             );
         }
@@ -122,7 +122,13 @@ impl Renderer {
         if let Some(footer) = frame.footer.as_deref() {
             let style = m.index_style();
             let size = self.measure(footer, &style);
-            self.draw_text(canvas, footer, &style, right - size.width, info_top);
+            self.draw_text(
+                canvas,
+                footer,
+                &style,
+                right - size.width,
+                info_top + (m.info_height() - style.line_height) / 2.0,
+            );
             budget -= size.width + m.column_gap();
         }
         let mut x = origin;
@@ -135,11 +141,10 @@ impl Renderer {
         if cells.texts[index].1 {
             let used = self.draw_clipped(
                 canvas,
-                m,
                 &row.text,
-                m.theme.colors.text,
+                &m.word_style(row),
                 x,
-                info_top,
+                info_top + (m.info_height() - m.word_style(row).line_height) / 2.0,
                 budget,
             );
             x += used + m.px(INFO_GAP);
@@ -149,8 +154,15 @@ impl Renderer {
             if budget <= 0.0 {
                 break;
             }
-            let used =
-                self.draw_clipped(canvas, m, segment, m.tone_color(*tone), x, info_top, budget);
+            let style = m.segment_style(row, *tone);
+            let used = self.draw_clipped(
+                canvas,
+                segment,
+                &style,
+                x,
+                info_top + (m.info_height() - style.line_height) / 2.0,
+                budget,
+            );
             x += used;
             budget -= used;
         }
@@ -161,24 +173,21 @@ impl Renderer {
     fn draw_clipped(
         &mut self,
         canvas: &mut Canvas,
-        m: &Metrics,
         text: &str,
-        color: Color,
+        style: &TextStyle,
         x: f32,
         top: f32,
         budget: f32,
     ) -> f32 {
-        let style = m.annotation_style(color);
-        let (shown, _) = self.truncate(text, &style, budget);
-        self.draw_text(canvas, &shown, &style, x, top)
+        let (shown, _) = self.truncate(text, style, budget);
+        self.draw_text(canvas, &shown, style, x, top)
     }
 
     /// 每格的显示文字与各列宽度。序号列按最宽的一位数留，行与行才对得齐。
     /// 列宽优先用帧给的（按整份候选估的，滚动时不变）；没给就按视口里实测、每格封顶 [`MAX_CELL_EMS`]。
     fn matrix_cells(&mut self, frame: &Frame, m: &Metrics) -> Cells {
-        let text_style = m.text_style();
         let columns = frame.columns.max(1);
-        let em = m.px(m.theme.text_font.size);
+        let em = m.px(m.theme.text_font.size.max(m.theme.annotation_font.size));
         let index_width = self.measure("8", &m.index_style()).width;
         let fixed: Option<Vec<f32>> = (frame.column_ems.len() == columns).then(|| {
             frame
@@ -188,21 +197,24 @@ impl Renderer {
                 .collect()
         });
         let mut text_widths = fixed.clone().unwrap_or_else(|| vec![0.0; columns]);
-        let row_height = self.measure("国", &text_style).height + m.row_padding() * 2.0;
+        let row_height = frame
+            .rows
+            .iter()
+            .map(|row| m.word_style(row).line_height)
+            .fold(m.index_style().line_height, f32::max)
+            + m.row_padding() * 2.0;
         let texts = frame
             .rows
             .iter()
             .enumerate()
             .map(|(i, row)| {
+                let text_style = m.word_style(row);
                 let column = i % columns;
                 let cloud = if row.cloud { m.cloud_width() } else { 0.0 };
                 let limit = fixed
                     .as_ref()
                     .map_or(em * MAX_CELL_EMS, |widths| widths[column]);
-                // 列宽是按字数估出来的：同样按字数估着放得下的格子不用再实测截断（一屏五十多格，省掉大半次整形）
-                if fixed.is_some() && estimated_ems(&row.text) * em + cloud <= limit {
-                    return (row.text.clone(), false);
-                }
+                // 自定义字族与中英字号可不同，实际测量后再截断，不能只按字符数估计。
                 let (text, truncated) = self.truncate(&row.text, &text_style, limit - cloud);
                 if fixed.is_none() {
                     let width = self.measure(&text, &text_style).width + cloud;
@@ -223,11 +235,19 @@ impl Renderer {
     }
 }
 
-/// 按字数估一段文字几个字宽，与 Core `Grid::column_ems` 同一条规则：宽字符一个字宽，拉丁字母、数字不到一个。
-fn estimated_ems(text: &str) -> f32 {
-    text.chars()
-        .map(|c| if c.is_ascii() { 0.62 } else { 1.0 })
-        .sum()
+impl Metrics<'_> {
+    /// 网格信息行预留所有文字的最大行高，高亮移动时窗口不跳。
+    fn info_height(&self) -> f32 {
+        [
+            self.theme.text_font,
+            self.theme.annotation_font,
+            self.theme.pos_font,
+            self.theme.index_font,
+        ]
+        .iter()
+        .map(|font| self.px(font.line_height))
+        .fold(0.0, f32::max)
+    }
 }
 
 impl Renderer {

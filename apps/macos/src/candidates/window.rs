@@ -10,8 +10,10 @@ use objc2_app_kit::{
 use objc2_foundation::{NSPoint, NSRect, NSSize};
 use qingjian_platform::{CandidateRenderer, LayoutMode, ThemeMode};
 
+use super::colors::CandidateColors;
 use super::frame::Frame;
 use super::theme::Theme;
+use super::typography::Typography;
 use super::view::CandidateView;
 
 /// `kCGPopUpMenuWindowLevel`：浮在普通窗口和浮动面板之上，与系统输入法候选框同级。
@@ -124,9 +126,13 @@ impl CandidateWindow {
         self.view.set_renderer(renderer);
     }
 
-    /// 候选窗字体（字族名，空为系统字体），只对青简渲染器生效。
-    pub fn set_font(&self, font: &str) {
-        self.view.set_font(font);
+    /// 候选词与译词的字体、字号、加粗，下一帧生效。
+    pub fn set_typography(&self, typography: &Typography) {
+        self.view.set_typography(typography);
+    }
+
+    pub fn set_colors(&self, colors: &CandidateColors) {
+        self.view.set_colors(colors);
     }
 
     pub fn max_rows(&self) -> usize {

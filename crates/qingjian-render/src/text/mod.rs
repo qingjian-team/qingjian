@@ -5,11 +5,12 @@ mod style;
 
 use std::collections::HashMap;
 
-use cosmic_text::fontdb::ID;
-use cosmic_text::{Attrs, Buffer, FontSystem, Metrics, Shaping, SwashCache, SwashContent};
+use cosmic_text::fontdb::{Family, ID, Query};
+use cosmic_text::{Attrs, Buffer, FontSystem, Metrics, Shaping, SwashCache, SwashContent, Weight};
 
 use crate::canvas::Canvas;
-use crate::fonts::{FontLibrary, Trak, UI_FAMILY};
+use crate::fonts::{FontLibrary, Trak};
+use crate::theme::FontRole;
 
 pub(crate) use size::TextSize;
 pub(crate) use style::TextStyle;
@@ -17,6 +18,14 @@ pub(crate) use style::TextStyle;
 pub(crate) struct TextPainter {
     /// 字体库与回退链。
     font_system: FontSystem,
+
+    candidate_family: Option<String>,
+
+    annotation_family: Option<String>,
+
+    candidate_weights: [Weight; 2],
+
+    annotation_weights: [Weight; 2],
 
     /// 字形位图缓存（按字体、字号、亚像素位移）。
     cache: SwashCache,
@@ -29,18 +38,30 @@ pub(crate) struct TextPainter {
 
     /// 覆盖率 gamma 查找表，按 gamma 值缓存。
     gamma_tables: HashMap<u32, Box<[u8; 256]>>,
+
+    /// 没有粗体面或可变字重轴的字体，需要合成粗体。
+    synthetic_bold: HashMap<ID, bool>,
 }
 
 impl TextPainter {
     pub(crate) fn new(library: FontLibrary) -> Self {
+        let candidate_family = library.candidate_family.clone();
+        let annotation_family = library.annotation_family.clone();
         let mut font_system = library.into_font_system();
+        let candidate_weights = family_weights(&mut font_system, candidate_family.as_deref());
+        let annotation_weights = family_weights(&mut font_system, annotation_family.as_deref());
         let buffer = Buffer::new(&mut font_system, Metrics::new(16.0, 19.0));
         Self {
             font_system,
+            candidate_family,
+            annotation_family,
+            candidate_weights,
+            annotation_weights,
             cache: SwashCache::new(),
             buffer,
             tracking: HashMap::new(),
             gamma_tables: HashMap::new(),
+            synthetic_bold: HashMap::new(),
         }
     }
 
@@ -65,7 +86,12 @@ impl TextPainter {
             width = width.max(run.line_w + tracked);
         }
         TextSize {
-            width,
+            width: width
+                + if text.is_empty() {
+                    0.0
+                } else {
+                    bold_inset(style)
+                },
             height: style.line_height,
         }
     }
@@ -90,6 +116,24 @@ impl TextPainter {
             for glyph in run.glyphs {
                 let physical = glyph.physical((x + tracked, y), 1.0);
                 tracked += tracking_px(&self.font_system, &mut self.tracking, glyph.font_id, style);
+                let synthetic = style.bold
+                    && *self.synthetic_bold.entry(glyph.font_id).or_insert_with(|| {
+                        let regular = self
+                            .font_system
+                            .db()
+                            .face(glyph.font_id)
+                            .is_some_and(|face| face.weight < Weight::SEMIBOLD);
+                        regular
+                            && self
+                                .font_system
+                                .get_font(glyph.font_id, glyph.font_weight)
+                                .is_some_and(|font| {
+                                    !font
+                                        .as_swash()
+                                        .variations()
+                                        .any(|axis| axis.tag() == u32::from_be_bytes(*b"wght"))
+                                })
+                    });
                 let Some(image) = self
                     .cache
                     .get_image(&mut self.font_system, physical.cache_key)
@@ -103,7 +147,13 @@ impl TextPainter {
                     SwashContent::Mask => {
                         let table = gamma_table(&mut self.gamma_tables, style.gamma);
                         let data: Vec<u8> = image.data.iter().map(|&c| table[c as usize]).collect();
-                        canvas.blend_mask(gx, gy, w, h, &data, style.color);
+                        if synthetic {
+                            let inset = bold_inset(style) as u32;
+                            let expanded = embolden_mask(&data, w, h, inset);
+                            canvas.blend_mask(gx, gy, w + inset, h, &expanded, style.color);
+                        } else {
+                            canvas.blend_mask(gx, gy, w, h, &data, style.color);
+                        }
                     }
                     SwashContent::Color => canvas.blend_rgba(gx, gy, w, h, &image.data),
                     // 没有申请亚像素格式，不会出现
@@ -131,6 +181,11 @@ impl TextPainter {
             canvas.fill_rect(x, line_y, line_w, thickness, style.color);
         }
         width
+            + if text.is_empty() {
+                0.0
+            } else {
+                bold_inset(style)
+            }
     }
 
     /// 每个字形用的字族名（相邻相同的合并），拿来核对中日字形与 emoji 回退到了哪家字体。
@@ -154,8 +209,25 @@ impl TextPainter {
     }
 
     fn shape(&mut self, text: &str, style: &TextStyle) {
+        let weight = match style.role {
+            FontRole::Ui => {
+                if style.bold {
+                    Weight::BOLD
+                } else {
+                    Weight::NORMAL
+                }
+            }
+            FontRole::Candidate => self.candidate_weights[usize::from(style.bold)],
+            FontRole::Annotation => self.annotation_weights[usize::from(style.bold)],
+        };
+        let family = match style.role {
+            FontRole::Ui => None,
+            FontRole::Candidate => self.candidate_family.as_deref(),
+            FontRole::Annotation => self.annotation_family.as_deref(),
+        };
         let attrs = Attrs::new()
-            .family(UI_FAMILY)
+            .family(family.map_or(Family::SansSerif, Family::Name))
+            .weight(weight)
             .color(style.color.to_cosmic());
         self.buffer
             .set_metrics(Metrics::new(style.size, style.line_height));
@@ -163,6 +235,57 @@ impl TextPainter {
         self.buffer.set_text(text, &attrs, Shaping::Advanced, None);
         self.buffer.shape_until_scroll(&mut self.font_system, false);
     }
+}
+
+/// cosmic-text 的首选字族要求字重精确匹配；静态字体用最接近的现有面，再由栅格器合成粗体，避免换成别的字族。
+fn family_weights(font_system: &mut FontSystem, family: Option<&str>) -> [Weight; 2] {
+    [Weight::NORMAL, Weight::BOLD].map(|requested| {
+        let Some(family) = family else {
+            return requested;
+        };
+        let Some((id, actual)) = font_system
+            .db()
+            .query(&Query {
+                families: &[Family::Name(family)],
+                weight: requested,
+                ..Query::default()
+            })
+            .and_then(|id| font_system.db().face(id).map(|face| (id, face.weight)))
+        else {
+            return requested;
+        };
+        let variable = font_system.get_font(id, requested).is_some_and(|font| {
+            font.as_swash()
+                .variations()
+                .any(|axis| axis.tag() == u32::from_be_bytes(*b"wght"))
+        });
+        if variable { requested } else { actual }
+    })
+}
+
+/// 给合成粗体留出笔画宽度，测量与绘制使用同一数值。
+fn bold_inset(style: &TextStyle) -> f32 {
+    if style.bold {
+        (style.size / 32.0).ceil()
+    } else {
+        0.0
+    }
+}
+
+/// 水平扩张覆盖率遮罩，保留灰阶边缘；彩色 emoji 不经过这里。
+fn embolden_mask(data: &[u8], width: u32, height: u32, inset: u32) -> Vec<u8> {
+    let stride = width + inset;
+    let mut out = vec![0; (stride * height) as usize];
+    for y in 0..height {
+        for x in 0..width {
+            let coverage = data[(y * width + x) as usize];
+            for dx in 0..=inset {
+                let pixel = &mut out[(y * stride + x + dx) as usize];
+                *pixel = (*pixel).max(coverage);
+            }
+        }
+    }
+    out
 }
 
 /// 某张字体在这个字号下每个字形要加的间距（像素）；第一次用到时解析它的 `trak` 表。

@@ -28,12 +28,10 @@ impl Renderer {
             annotation_width: 0.0,
             row_height: 0.0,
         };
-        let text_style = m.text_style();
         let index_style = m.index_style();
-        let annotation_style = m.annotation_style(m.theme.colors.gloss);
         for row in rows {
             let index = self.measure(&row.index, &index_style);
-            let mut text = self.measure(&row.text, &text_style);
+            let mut text = self.measure(&row.text, &m.word_style(row));
             if row.cloud {
                 text.width += m.cloud_width();
             }
@@ -41,12 +39,15 @@ impl Renderer {
             let annotation: f32 = row
                 .annotation
                 .iter()
-                .map(|(s, _)| self.measure(s, &annotation_style).width)
+                .map(|(s, tone)| self.measure(s, &m.segment_style(row, *tone)).width)
                 .sum();
             columns.index_width = columns.index_width.max(index.width);
             columns.text_width = columns.text_width.max(text.width);
             columns.annotation_width = columns.annotation_width.max(annotation);
-            columns.row_height = columns.row_height.max(text.height + m.row_padding() * 2.0);
+            let annotation_height = m.annotation_height(row);
+            columns.row_height = columns
+                .row_height
+                .max(text.height.max(index.height).max(annotation_height) + m.row_padding() * 2.0);
         }
         columns
     }
@@ -64,8 +65,8 @@ impl Renderer {
         let columns = self.columns(&frame.rows, m);
         let text_x = left + m.padding() + columns.index_width + m.column_gap();
         let annotation_x = text_x + columns.text_width + m.column_gap();
-        let text_height = m.px(m.theme.text_font.line_height);
         for (i, row) in frame.rows.iter().enumerate() {
+            let text_height = m.word_style(row).line_height;
             if Some(i) == frame.highlighted {
                 self.fill_highlight(
                     canvas,
@@ -77,19 +78,32 @@ impl Renderer {
                 );
             }
             let top = y + m.row_padding();
-            let small_offset = m.small_offset(text_height);
+            let line_height = columns.row_height - m.row_padding() * 2.0;
             self.draw_text(
                 canvas,
                 &row.index,
                 &m.index_style(),
                 left + m.padding(),
-                top + small_offset,
+                top + (line_height - m.px(m.theme.index_font.line_height)) / 2.0,
             );
-            self.draw_word(canvas, m, row, text_x, top, text_height);
+            self.draw_word(
+                canvas,
+                m,
+                row,
+                text_x,
+                top + (line_height - text_height) / 2.0,
+                text_height,
+            );
             let mut x = annotation_x;
             for (segment, tone) in &row.annotation {
-                let style = m.annotation_style(m.tone_color(*tone));
-                x += self.draw_text(canvas, segment, &style, x, top + small_offset);
+                let style = m.segment_style(row, *tone);
+                x += self.draw_text(
+                    canvas,
+                    segment,
+                    &style,
+                    x,
+                    top + (line_height - style.line_height) / 2.0,
+                );
             }
             y += columns.row_height;
         }

@@ -2,18 +2,23 @@
 //!
 //! 视觉层级（产品决定）：候选词最深，译文稍浅，词性最浅，序号弱化。
 
+use super::native_font::NativeFont;
+use super::row::{Row, Tone};
 use objc2::rc::Retained;
-use objc2_app_kit::{NSColor, NSFont};
+use objc2_app_kit::NSColor;
 
 pub struct Theme {
     /// 候选词字体。
-    pub text_font: Retained<NSFont>,
+    pub text_font: NativeFont,
 
     /// 译文与词性字体。
-    pub annotation_font: Retained<NSFont>,
+    pub annotation_font: NativeFont,
+
+    /// 词性使用外语字族，字号独立。
+    pub pos_font: NativeFont,
 
     /// 序号字体。
-    pub index_font: Retained<NSFont>,
+    pub index_font: NativeFont,
 
     /// 候选词颜色。
     pub text_color: Retained<NSColor>,
@@ -59,9 +64,10 @@ impl Theme {
     /// 系统默认外观。只能在主线程调用（NSFont / NSColor 不跨线程）。
     pub fn system_default() -> Self {
         Self {
-            text_font: NSFont::systemFontOfSize(16.0),
-            annotation_font: NSFont::systemFontOfSize(12.0),
-            index_font: NSFont::systemFontOfSize(11.0),
+            text_font: NativeFont::system(16.0),
+            annotation_font: NativeFont::system(12.0),
+            pos_font: NativeFont::system(12.0),
+            index_font: NativeFont::system(11.0),
             text_color: NSColor::labelColor(),
             gloss_color: NSColor::secondaryLabelColor(),
             pos_color: NSColor::tertiaryLabelColor(),
@@ -75,6 +81,23 @@ impl Theme {
             column_gap: 8.0,
             corner_radius: 8.0,
             max_rows: 9,
+        }
+    }
+
+    pub fn word_font(&self, row: &Row) -> &NativeFont {
+        if row.foreign_text {
+            &self.annotation_font
+        } else {
+            &self.text_font
+        }
+    }
+
+    pub fn segment_font(&self, row: &Row, tone: Tone) -> &NativeFont {
+        match tone {
+            Tone::PartOfSpeech => &self.pos_font,
+            Tone::Reading { chinese: true } => &self.text_font,
+            Tone::Gloss | Tone::Fresh if row.chinese_annotation => &self.text_font,
+            _ => &self.annotation_font,
         }
     }
 }

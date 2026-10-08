@@ -8,6 +8,12 @@ pub enum Tone {
     /// 生词的译文（用户还没在候选里见过几轮），用强调色。
     Fresh,
 
+    /// 词性，使用独立字号。
+    PartOfSpeech,
+
+    /// 读音或 emoji 提示：普通词颜色，字体由提示语言决定。
+    Reading { chinese: bool },
+
     /// 词性与分隔符，最浅。
     Faint,
 

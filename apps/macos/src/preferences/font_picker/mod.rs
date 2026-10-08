@@ -18,6 +18,7 @@ use self::button::FontPopUpButton;
 use self::source::FontListSource;
 use super::controls::caption;
 use super::layout::{CONTROL_X, LABEL_WIDTH, Layout, PAGE_PADDING, ROW_HEIGHT};
+use super::setting::Setting;
 
 /// 下拉框宽度。
 const POPOVER_WIDTH: f64 = 280.0;
@@ -40,8 +41,9 @@ impl FontPicker {
         mtm: MainThreadMarker,
         title: &str,
         families: Vec<String>,
+        setting: Setting,
     ) -> Self {
-        let source = FontListSource::new(mtm, families);
+        let source = FontListSource::new(mtm, families, setting);
         let button = FontPopUpButton::new(mtm, source.clone());
         let label = caption(mtm, title);
         layout.place(&label, PAGE_PADDING, LABEL_WIDTH, ROW_HEIGHT);

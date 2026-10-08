@@ -5,7 +5,12 @@ use std::cell::{Cell, RefCell};
 use objc2::rc::Retained;
 use objc2_app_kit::{NSPopUpButton, NSPopover, NSSearchField, NSTableView};
 
+use crate::preferences::setting::Setting;
+
 pub(super) struct PickerState {
+    /// 此实例修改的配置项，两个字族选择器互不影响。
+    pub setting: Setting,
+
     /// 系统全部字族名，按系统给的顺序。
     pub families: Vec<String>,
 

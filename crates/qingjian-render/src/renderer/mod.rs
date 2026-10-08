@@ -94,6 +94,39 @@ impl Metrics<'_> {
         self.style(self.theme.text_font, self.theme.colors.text)
     }
 
+    fn word_style(&self, row: &Row) -> TextStyle {
+        let font = if row.foreign_text {
+            self.theme.annotation_font
+        } else {
+            self.theme.text_font
+        };
+        self.style(
+            font,
+            if row.cloud {
+                self.theme.colors.cloud
+            } else {
+                self.theme.colors.text
+            },
+        )
+    }
+
+    fn segment_style(&self, row: &Row, tone: Tone) -> TextStyle {
+        let font = match tone {
+            Tone::PartOfSpeech => self.theme.pos_font,
+            Tone::Reading { chinese: true } => self.theme.text_font,
+            Tone::Gloss | Tone::Fresh if row.chinese_annotation => self.theme.text_font,
+            _ => self.theme.annotation_font,
+        };
+        self.style(font, self.tone_color(tone))
+    }
+
+    fn annotation_height(&self, row: &Row) -> f32 {
+        row.annotation
+            .iter()
+            .map(|(_, tone)| self.segment_style(row, *tone).line_height)
+            .fold(0.0, f32::max)
+    }
+
     fn annotation_style(&self, color: Color) -> TextStyle {
         self.style(self.theme.annotation_font, color)
     }
@@ -104,9 +137,9 @@ impl Metrics<'_> {
 
     fn tone_color(&self, tone: Tone) -> Color {
         match tone {
-            Tone::Gloss => self.theme.colors.gloss,
+            Tone::Gloss | Tone::Reading { .. } => self.theme.colors.gloss,
             Tone::Fresh => self.theme.colors.fresh,
-            Tone::Faint => self.theme.colors.pos,
+            Tone::Faint | Tone::PartOfSpeech => self.theme.colors.pos,
             Tone::Code => self.theme.colors.gloss,
         }
     }
@@ -261,12 +294,7 @@ impl Renderer {
         if row.cloud {
             word_x += self.draw_cloud(canvas, m, word_x, top, text_height);
         }
-        let color = if row.cloud {
-            m.theme.colors.cloud
-        } else {
-            m.theme.colors.text
-        };
-        let style = m.style(m.theme.text_font, color);
+        let style = m.word_style(row);
         word_x += self.draw_text(canvas, &row.text, &style, word_x, top);
         if let Some(code) = &row.code {
             let style = m.annotation_style(m.tone_color(Tone::Code));

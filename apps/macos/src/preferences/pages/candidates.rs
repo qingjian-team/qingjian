@@ -5,10 +5,14 @@ use objc2::rc::Retained;
 use objc2_app_kit::{NSButton, NSPopUpButton};
 use qingjian_platform::{CandidateRenderer, Config, LayoutMode, PreeditMode, ThemeMode};
 
-use crate::candidates::available_families;
-use crate::preferences::controls::{checkbox, note, row_checkbox, row_popup, select, set_checked};
+use crate::candidates::typography::{MAX_FONT_SIZE, MIN_FONT_SIZE, Typography};
+use crate::candidates::{CandidatePreview, PREVIEW_HEIGHT, available_families};
+use crate::preferences::color_picker::ColorPicker;
+use crate::preferences::controls::{
+    caption, checkbox, note, row_checkbox, row_popup, select, set_checked,
+};
 use crate::preferences::font_picker::FontPicker;
-use crate::preferences::layout::Layout;
+use crate::preferences::layout::{CONTROL_X, LABEL_WIDTH, Layout, PAGE_PADDING, ROW_HEIGHT};
 use crate::preferences::setting::Setting;
 use crate::preferences::target::PreferencesTarget;
 
@@ -25,8 +29,25 @@ pub struct CandidatesPage {
     /// 青简渲染器 / 系统绘制。
     renderer: Retained<NSPopUpButton>,
 
-    /// 候选窗字体：搜索框 + 列表。
+    /// 学习译词字体：搜索框 + 列表。
     font: FontPicker,
+
+    candidate_font: FontPicker,
+
+    candidate_size: Retained<NSPopUpButton>,
+
+    annotation_size: Retained<NSPopUpButton>,
+
+    pos_size: Retained<NSPopUpButton>,
+
+    candidate_bold: Retained<NSButton>,
+
+    annotation_bold: Retained<NSButton>,
+
+    /// 与真实候选窗口共用绘制方式的双向实时示例。
+    preview: CandidatePreview,
+
+    colors: [ColorPicker; 6],
 
     /// 拼音显示位置。
     preedit: Retained<NSPopUpButton>,
@@ -70,12 +91,72 @@ impl CandidatesPage {
             target,
         );
         note(layout, mtm, "青简渲染器让候选窗口在各平台一致。");
-        let font = FontPicker::build(layout, mtm, "字体", available_families(mtm));
+        let families = available_families(mtm);
+        let candidate_font = FontPicker::build(
+            layout,
+            mtm,
+            "中文字体",
+            families.clone(),
+            Setting::CandidateFont,
+        );
+        let (candidate_size, candidate_bold) = font_size_row(
+            layout,
+            mtm,
+            "中文字号",
+            Setting::CandidateFontSize,
+            Setting::CandidateBold,
+            target,
+        );
+        let font = FontPicker::build(layout, mtm, "外语字体", families, Setting::Font);
+        let (annotation_size, annotation_bold) = font_size_row(
+            layout,
+            mtm,
+            "外语字号",
+            Setting::AnnotationFontSize,
+            Setting::AnnotationBold,
+            target,
+        );
+        let sizes: Vec<String> = (MIN_FONT_SIZE..=MAX_FONT_SIZE)
+            .map(|size| format!("{size} 磅"))
+            .collect();
+        let pos_size = row_popup(
+            layout,
+            mtm,
+            "词性字号",
+            &sizes,
+            Setting::PosFontSize,
+            target,
+        );
         note(
             layout,
             mtm,
-            "只对青简渲染器生效；没装的字体自动回到系统字体。",
+            "中英文互译时，字体、字号和加粗跟随文字语言。词性沿用外语字体，字号单独设置。选中即保存；缺失字形自动使用系统字体。",
         );
+        layout.space(8.0);
+        let colors = [
+            ("整体底色", Setting::CandidateBackgroundColor),
+            ("候选字颜色", Setting::CandidateTextColor),
+            ("单词词性颜色", Setting::CandidatePosColor),
+            ("普通单词颜色", Setting::CandidateWordColor),
+            ("不熟单词颜色", Setting::CandidateFreshWordColor),
+            ("选中区域颜色", Setting::CandidateHighlightColor),
+        ]
+        .map(|(title, setting)| ColorPicker::build(layout, mtm, title, setting, target));
+        note(
+            layout,
+            mtm,
+            "普通词与不熟单词分别设色，熟悉后自动使用普通词色。恢复默认只还原当前项。预览中 learn 展示不熟单词色，中文释义展示普通词色。",
+        );
+        let preview = CandidatePreview::new(mtm, layout.control_width());
+        let preview_title = caption(mtm, "实时预览");
+        layout.place(&preview_title, PAGE_PADDING, LABEL_WIDTH, ROW_HEIGHT);
+        layout.place(
+            preview.view(),
+            CONTROL_X,
+            layout.control_width(),
+            PREVIEW_HEIGHT,
+        );
+        layout.next_row(PREVIEW_HEIGHT);
         let preedit_titles: Vec<String> = PreeditMode::ALL
             .iter()
             .map(|p| p.label().to_owned())
@@ -99,6 +180,14 @@ impl CandidatesPage {
             horizontal_grid,
             renderer,
             font,
+            candidate_font,
+            candidate_size,
+            annotation_size,
+            pos_size,
+            candidate_bold,
+            annotation_bold,
+            preview,
+            colors,
             preedit,
         }
     }
@@ -123,9 +212,57 @@ impl CandidatesPage {
                 .position(|r| *r == general.renderer),
         );
         self.font.sync(&general.font);
+        self.candidate_font.sync(&general.candidate_font);
+        let typography = Typography::from(general);
+        select(
+            &self.candidate_size,
+            Some(usize::from(typography.candidate_size - MIN_FONT_SIZE)),
+        );
+        select(
+            &self.annotation_size,
+            Some(usize::from(typography.annotation_size - MIN_FONT_SIZE)),
+        );
+        set_checked(&self.candidate_bold, typography.candidate_bold);
+        select(
+            &self.pos_size,
+            Some(usize::from(typography.pos_size - MIN_FONT_SIZE)),
+        );
+        set_checked(&self.annotation_bold, typography.annotation_bold);
+        self.preview.sync(general);
+        let values = [
+            &general.candidate_background_color,
+            &general.candidate_text_color,
+            &general.candidate_pos_color,
+            &general.candidate_word_color,
+            &general.candidate_fresh_word_color,
+            &general.candidate_highlight_color,
+        ];
+        let swatches = self.preview.color_swatches();
+        let appearance = self.preview.appearance();
+        for ((picker, value), color) in self.colors.iter().zip(values).zip(&swatches) {
+            picker.sync(value, color, &appearance);
+        }
         select(
             &self.preedit,
             PreeditMode::ALL.iter().position(|p| *p == general.preedit),
         );
     }
+}
+
+/// 同一行放字号与加粗，避免页面为两组设置多占两行。
+fn font_size_row(
+    layout: &mut Layout,
+    mtm: MainThreadMarker,
+    title: &str,
+    size_setting: Setting,
+    bold_setting: Setting,
+    target: &PreferencesTarget,
+) -> (Retained<NSPopUpButton>, Retained<NSButton>) {
+    let bold = checkbox(mtm, "加粗", bold_setting, target);
+    layout.place(&bold, CONTROL_X + 216.0, 90.0, ROW_HEIGHT);
+    let sizes: Vec<String> = (MIN_FONT_SIZE..=MAX_FONT_SIZE)
+        .map(|size| format!("{size} 磅"))
+        .collect();
+    let size = row_popup(layout, mtm, title, &sizes, size_setting, target);
+    (size, bold)
 }

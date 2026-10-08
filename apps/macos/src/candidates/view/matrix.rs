@@ -2,7 +2,8 @@
 //! 一行 `frame.columns` 格，各列宽度由帧给（按整份候选估的，滚动时不变），超宽的候选截尾加「…」，
 //! 网格下面固定留一行信息（完整文本、译文、页码），信息行放不下的也截断，窗口宽度只由列宽决定。
 
-use objc2_app_kit::{NSColor, NSFont};
+use crate::candidates::native_font::NativeFont;
+use objc2_app_kit::NSColor;
 use objc2_foundation::{NSPoint, NSRect, NSSize};
 
 use super::{CandidateView, HIGHLIGHT_INSET, INDEX_GAP};
@@ -52,7 +53,7 @@ impl CandidateView {
         let theme = self.theme();
         let cells = self.matrix_cells(frame);
         let grid_rows = frame.rows.len().div_ceil(frame.columns.max(1));
-        let info_height = self.measure("x", &theme.annotation_font).height + theme.row_padding;
+        let info_height = self.info_height() + theme.row_padding;
         (
             cells.width(theme.column_gap) + HIGHLIGHT_INSET * 2.0,
             cells.row_height * grid_rows as f64 + info_height,
@@ -66,9 +67,9 @@ impl CandidateView {
         let theme = self.theme();
         let cells = self.matrix_cells(frame);
         let columns = frame.columns.max(1);
-        let text_height = self.measure("x", &theme.text_font).height;
         let origin = theme.padding + HIGHLIGHT_INSET;
         for (i, row) in frame.rows.iter().enumerate() {
+            let text_height = self.measure(&row.text, theme.word_font(row)).height;
             let (text, _) = &cells.texts[i];
             if text.is_empty() && row.index.is_empty() {
                 continue;
@@ -77,6 +78,7 @@ impl CandidateView {
             let x = origin + cells.offset(i % columns, theme.column_gap);
             let row_y = y + cells.row_height * (i / columns) as f64;
             let baseline = row_y + theme.row_padding;
+            let line_height = cells.row_height - theme.row_padding * 2.0;
             if i == frame.highlighted {
                 self.fill_highlight(NSRect::new(
                     NSPoint::new(x - HIGHLIGHT_INSET, row_y),
@@ -88,7 +90,8 @@ impl CandidateView {
                     &row.index,
                     &theme.index_font,
                     &theme.index_color,
-                    baseline + self.small_offset(text_height),
+                    baseline
+                        + (line_height - self.measure(&row.index, &theme.index_font).height) / 2.0,
                     x,
                 );
             }
@@ -97,7 +100,7 @@ impl CandidateView {
             self.draw_word(
                 &shown,
                 x + cells.index_width + INDEX_GAP,
-                baseline,
+                baseline + (line_height - text_height) / 2.0,
                 text_height,
             );
         }
@@ -112,7 +115,7 @@ impl CandidateView {
                 footer,
                 &theme.index_font,
                 &theme.index_color,
-                info_top,
+                info_top + (self.info_height() - size.height) / 2.0,
                 right - size.width,
             );
             budget -= size.width + theme.column_gap;
@@ -122,7 +125,14 @@ impl CandidateView {
         };
         let mut x = origin;
         if cells.texts[frame.highlighted].1 {
-            let used = self.draw_clipped(&row.text, &theme.text_color, x, info_top, budget);
+            let used = self.draw_clipped(
+                &row.text,
+                theme.word_font(row),
+                &theme.text_color,
+                x,
+                info_top,
+                budget,
+            );
             x += used + INFO_GAP;
             budget -= used + INFO_GAP;
         }
@@ -130,17 +140,50 @@ impl CandidateView {
             if budget <= 0.0 {
                 break;
             }
-            let used = self.draw_clipped(segment, self.tone_color(*tone), x, info_top, budget);
+            let used = self.draw_clipped(
+                segment,
+                theme.segment_font(row, *tone),
+                &self.tone_color(*tone),
+                x,
+                info_top,
+                budget,
+            );
             x += used;
             budget -= used;
         }
     }
 
     /// 在信息行里画一段小字，宽度超过 `budget` 就截断；返回画了多宽。
-    fn draw_clipped(&self, text: &str, color: &NSColor, x: f64, top: f64, budget: f64) -> f64 {
-        let font = &self.theme().annotation_font;
+    fn draw_clipped(
+        &self,
+        text: &str,
+        font: &NativeFont,
+        color: &NSColor,
+        x: f64,
+        top: f64,
+        budget: f64,
+    ) -> f64 {
         let (shown, _) = self.truncate(text, font, budget);
-        self.draw_text(&shown, font, color, top, x)
+        self.draw_text(
+            &shown,
+            font,
+            color,
+            top + (self.info_height() - self.measure(&shown, font).height) / 2.0,
+            x,
+        )
+    }
+
+    fn info_height(&self) -> f64 {
+        let theme = self.theme();
+        [
+            &theme.text_font,
+            &theme.annotation_font,
+            &theme.pos_font,
+            &theme.index_font,
+        ]
+        .iter()
+        .map(|font| self.measure("Ag国", font).height)
+        .fold(0.0, f64::max)
     }
 
     /// 每格的显示文字与各列宽度。序号列按最宽的一位数留，行与行才对得齐。
@@ -148,7 +191,10 @@ impl CandidateView {
     fn matrix_cells(&self, frame: &Frame) -> Cells {
         let theme = self.theme();
         let columns = frame.columns.max(1);
-        let em = theme.text_font.pointSize();
+        let em = theme
+            .text_font
+            .pointSize()
+            .max(theme.annotation_font.pointSize());
         let index_width = self.measure("8", &theme.index_font).width;
         let fixed: Option<Vec<f64>> = (frame.column_ems.len() == columns).then(|| {
             frame
@@ -164,17 +210,21 @@ impl CandidateView {
             .iter()
             .enumerate()
             .map(|(i, row)| {
+                let font = theme.word_font(row);
                 let column = i % columns;
                 let cloud = if row.cloud { self.cloud_width() } else { 0.0 };
                 let limit = fixed
                     .as_ref()
                     .map_or(em * MAX_CELL_EMS, |widths| widths[column]);
-                let (text, truncated) = self.truncate(&row.text, &theme.text_font, limit - cloud);
-                let size = self.measure(&text, &theme.text_font);
+                let (text, truncated) = self.truncate(&row.text, font, limit - cloud);
+                let size = self.measure(&text, font);
                 if fixed.is_none() {
                     text_widths[column] = text_widths[column].max(size.width + cloud);
                 }
-                row_height = row_height.max(size.height + theme.row_padding * 2.0);
+                row_height = row_height.max(
+                    size.height.max(self.measure("8", &theme.index_font).height)
+                        + theme.row_padding * 2.0,
+                );
                 (text, truncated)
             })
             .collect();
@@ -190,7 +240,7 @@ impl CandidateView {
     }
 
     /// `text` 宽度超过 `max_width` 就从末尾去字、补上「…」直到放得下；返回显示文字与是否截断过。
-    fn truncate(&self, text: &str, font: &NSFont, max_width: f64) -> (String, bool) {
+    fn truncate(&self, text: &str, font: &NativeFont, max_width: f64) -> (String, bool) {
         if text.is_empty() || self.measure(text, font).width <= max_width {
             return (text.to_owned(), false);
         }

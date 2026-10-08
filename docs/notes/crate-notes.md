@@ -147,8 +147,15 @@ Engine 侧在 `engine/rescoring/`：接了打分器就取 Viterbi 前 `RESCORE_P
 自绘渲染器：候选窗一帧 + 主题 → 预乘 RGBA 位图，tiny-skia 栅格 + cosmic-text 文字（fontdb 按平台清单只加载几个字体文件、不扫系统），
 自己解析 `trak` 字距表、按主题 gamma 加深笔画；cosmic-text 打了 `opsz` 光学字号补丁（qingjian-team/cosmic-text 分支 `qingjian-opsz`，workspace `[patch.crates-io]` 钉 rev）。
 `examples/preview.rs` 出 PNG 与真机截图并排比、`--measure` 与 AppKit 对宽度。mac 壳 `candidates/bitmap/` 贴位图，`[general] renderer = "system"` 切回 AppKit 绘制
-（过渡期退路，偏好设置「候选窗口」页可选）；`[general] font` 是候选窗字族名（空为系统字体，`bitmap/font_files.rs` 用 CoreText 按字族名找文件只加载那几个，没装就回系统字体；
-设置页 `preferences/font_picker/` 是搜索框 + 列表）。设计与验收见 `docs/design/rendering.md`。
+（过渡期退路，偏好设置「候选窗口」页可选）。macOS 用 `[general] candidate_font` 和旧键 `font` 分别控制中文 / 外语；
+`candidate_font_size` / `annotation_font_size` 限制在 8–48 磅，`candidate_bold` / `annotation_bold` 独立加粗。`pos_font_size` 为独立词性字号（默认 12），字族与加粗沿用外语设置。`Row::foreign_text` 根据 `CandidateKind::English` 选择主体字体，`chinese_annotation` 根据译文的 `Language` 选择释义字体；emoji 的原词提示在 `reading`，用 `Tone::Reading { chinese }` 单独标记，含汉字的提示选择中文设置，英文提示和普通注音沿用外语设置。两条绘制路径在三种排布下使用相同规则；`Tone::PartOfSpeech` 独立选词性字体，分隔符与注音仍为 `Faint`。只改展示，不改排序、翻译和学习记录。`candidates/typography.rs` 同时配置 AppKit 和位图路径，
+`bitmap/font_files.rs` 用 CoreText 找字族文件，设置页 `preferences/font_picker/` 的每个实例携带自己的 `Setting`。
+设置页的 `candidates/preview.rs` 内嵌真实 `CandidateView`，固定显示中英互译两行示例；`CandidatesPage::sync` 在配置更新后同步字体、字号、字重、外观与渲染引擎。首行译词固定标为 Fresh，用于对照普通词 / 生词配色。预览不初始化输入引擎或记录学习次数。
+`candidates/colors.rs` 解析六项 `[general] candidate_*_color`（`#RRGGBB` 或 `#RRGGBBAA`，空或无效值回退），同时覆盖 AppKit 主题与位图 `Palette`；`candidate_word_color` 与 `candidate_fresh_word_color` 分别覆盖 Gloss（含 reading）和 Fresh，缺失、无效或清空时分别回退默认灰色和橙色；原有单词色只保留给普通词，不再覆盖生词。候选字色也用于云端候选文字。`preferences/color_picker.rs` 使用原生 `NSColorWell`，转成 sRGB 并保留透明度，每项按钮以空值恢复默认。颜色变化只重绘，字体库重建时保留配色。实际设置页的预览与取色控件在 `typography_preview` 示例中一起验收。
+渲染器 `FontSpec::role` 选择字族，`with_candidate_fonts` 按需加载；显式字族采用真实可用字重，避开 cosmic-text 在没有精确字重时换用系统字族的问题。
+没有粗体面或可变字重轴时合成粗体；竖排行高取候选、译词、序号的最大值。原 `with_ui_font` 与 Windows 的 `font` 行为保留。
+本机预览：`cargo run -p qingjian-macos --example typography_preview -- target/typography-preview`，复用实际候选窗口与设置页，不初始化输入引擎或读写用户配置。
+设计与验收见 `docs/design/rendering.md`。
 
 ## crates/qingjian-update
 

@@ -43,8 +43,39 @@ pub struct GeneralConfig {
     /// 候选窗口由青简渲染器还是系统原生绘制。
     pub renderer: CandidateRenderer,
 
-    /// 候选窗口字体的字族名；空为系统字体。只对青简渲染器生效，没装这个字体时回到系统字体。
+    /// 候选窗口字体的字族名；macOS 用于外语文字，沿用旧键以保留已有设置。
     pub font: String,
+
+    /// macOS 中文字族（候选或译文）；空为系统字体。
+    pub candidate_font: String,
+
+    /// macOS 中文候选词字号（点），使用时限制在 8–48。
+    pub candidate_font_size: u16,
+
+    /// macOS 学习译词字号（点），使用时限制在 8–48。
+    pub annotation_font_size: u16,
+
+    /// macOS 词性字号（点），独立于中外文字号，使用时限制在 8–48。
+    pub pos_font_size: u16,
+
+    pub candidate_bold: bool,
+
+    pub annotation_bold: bool,
+
+    /// macOS 候选窗配色，#RRGGBB 或 #RRGGBBAA；空字符串或无效值沿用当前外观的默认色。
+    pub candidate_background_color: String,
+
+    pub candidate_text_color: String,
+
+    pub candidate_pos_color: String,
+
+    /// 普通译词颜色，不覆盖生词强调色。
+    pub candidate_word_color: String,
+
+    /// 不熟单词（生词）颜色，独立于普通译词；空值保留原来的橙色强调。
+    pub candidate_fresh_word_color: String,
+
+    pub candidate_highlight_color: String,
 
     /// 组句中的拼音显示在行内、候选窗口还是两处都显示。
     pub preedit: PreeditMode,
@@ -127,6 +158,18 @@ impl Default for GeneralConfig {
             horizontal_grid: false,
             renderer: CandidateRenderer::default(),
             font: String::new(),
+            candidate_font: String::new(),
+            candidate_font_size: 16,
+            annotation_font_size: 12,
+            pos_font_size: 12,
+            candidate_bold: false,
+            annotation_bold: false,
+            candidate_background_color: String::new(),
+            candidate_text_color: String::new(),
+            candidate_pos_color: String::new(),
+            candidate_word_color: String::new(),
+            candidate_fresh_word_color: String::new(),
+            candidate_highlight_color: String::new(),
             preedit: PreeditMode::default(),
             english_candidates: true,
             traditional: false,
@@ -268,6 +311,25 @@ impl GeneralConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn legacy_font_is_preserved_and_new_typography_defaults_are_independent() {
+        let general: GeneralConfig = toml::from_str("font = \"BM Dohyeon\"\n").unwrap();
+        assert_eq!(general.font, "BM Dohyeon");
+        assert_eq!(general.candidate_font, "");
+        assert_eq!(general.candidate_font_size, 16);
+        assert_eq!(general.annotation_font_size, 12);
+        assert!(!general.candidate_bold);
+        assert!(!general.annotation_bold);
+        let configured: GeneralConfig = toml::from_str(
+            "font = \"Times New Roman\"\ncandidate_font = \"Songti SC\"\ncandidate_font_size = 24\nannotation_font_size = 18\ncandidate_bold = true\nannotation_bold = false\n"
+        ).unwrap();
+        let round_trip: GeneralConfig =
+            toml::from_str(&toml::to_string(&configured).unwrap()).unwrap();
+        assert_eq!(round_trip, configured);
+        assert_eq!(round_trip.font, "Times New Roman");
+        assert_eq!(round_trip.candidate_font, "Songti SC");
+    }
 
     #[test]
     fn horizontal_grid_is_off_unless_switched_on() {

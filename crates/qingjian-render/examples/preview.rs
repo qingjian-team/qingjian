@@ -394,6 +394,8 @@ fn annotated(index: usize, text: &str, annotation: &[(&str, Tone)], cloud: bool)
     Row {
         index: (index + 1).to_string(),
         text: text.to_owned(),
+        foreign_text: false,
+        chinese_annotation: false,
         code: None,
         annotation: annotation
             .iter()

@@ -39,6 +39,8 @@ fn row(row: &Row) -> qingjian_render::Row {
     qingjian_render::Row {
         index: row.index.clone(),
         text: row.text.clone(),
+        foreign_text: row.foreign_text,
+        chinese_annotation: row.chinese_annotation,
         code: None,
         annotation: row
             .annotation
@@ -47,6 +49,10 @@ fn row(row: &Row) -> qingjian_render::Row {
                 let tone = match tone {
                     Tone::Gloss => qingjian_render::Tone::Gloss,
                     Tone::Fresh => qingjian_render::Tone::Fresh,
+                    Tone::PartOfSpeech => qingjian_render::Tone::PartOfSpeech,
+                    Tone::Reading { chinese } => {
+                        qingjian_render::Tone::Reading { chinese: *chinese }
+                    }
                     Tone::Faint => qingjian_render::Tone::Faint,
                 };
                 (text.clone(), tone)

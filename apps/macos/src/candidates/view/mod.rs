@@ -5,15 +5,16 @@
 
 mod matrix;
 
-use std::cell::{Cell, RefCell};
+use std::cell::{Cell, Ref, RefCell};
 
 use objc2::rc::Retained;
 use objc2::runtime::AnyObject;
 use objc2::{DefinedClass, MainThreadMarker, MainThreadOnly, define_class, msg_send};
 use objc2_app_kit::{
     NSAppearanceCustomization, NSAppearanceNameAqua, NSAppearanceNameDarkAqua,
-    NSAttributedStringNSStringDrawing, NSBezierPath, NSColor, NSFont, NSFontAttributeName,
-    NSForegroundColorAttributeName, NSStrikethroughStyleAttributeName, NSView,
+    NSAttributedStringNSStringDrawing, NSBezierPath, NSColor, NSFontAttributeName,
+    NSForegroundColorAttributeName, NSStrikethroughStyleAttributeName, NSStrokeWidthAttributeName,
+    NSView,
 };
 use objc2_foundation::{
     NSArray, NSAttributedString, NSDictionary, NSNumber, NSPoint, NSRect, NSSize, NSString,
@@ -22,11 +23,14 @@ use qingjian_platform::{CandidateRenderer, LayoutMode};
 
 use super::bitmap::BitmapPainter;
 use super::cloud_icon::CloudIcon;
+use super::colors::{CandidateColors, native_color};
 use super::frame::Frame;
+use super::native_font::NativeFont;
 use super::preedit::Preedit;
 use super::preedit::PreeditStyle;
 use super::row::{Row, Tone};
 use super::theme::Theme;
+use super::typography::Typography;
 
 /// 视图状态。
 pub struct Ivars {
@@ -40,13 +44,15 @@ pub struct Ivars {
     cloud: CloudIcon,
 
     /// 主题。
-    theme: Theme,
+    theme: RefCell<Theme>,
 
     /// 位图渲染器；`None` 走 AppKit 逐项绘制。按配置建或丢。
     bitmap: RefCell<Option<BitmapPainter>>,
 
-    /// 用户选的字族名（空为系统字体），换了要重建渲染器。
-    font: RefCell<String>,
+    /// 两组独立的字体设置，变化时重建字体库。
+    typography: RefCell<Typography>,
+
+    colors: RefCell<CandidateColors>,
 }
 
 /// preedit 光标的宽度。
@@ -119,25 +125,33 @@ impl CandidateView {
             frame: RefCell::new(Frame::default()),
             layout: Cell::new(LayoutMode::default()),
             cloud,
-            theme,
+            theme: RefCell::new(theme),
             bitmap: RefCell::new(None),
-            font: RefCell::new(String::new()),
+            typography: RefCell::new(Typography::default()),
+            colors: RefCell::new(CandidateColors::default()),
         });
         unsafe { msg_send![super(this), initWithFrame: NSRect::ZERO] }
     }
 
-    /// 候选窗字体（字族名，空为系统字体）。渲染器在用就当场重建。
-    pub fn set_font(&self, font: &str) {
-        if *self.ivars().font.borrow() == font {
+    /// 两种绘制路径共用设置，下一帧按新字体重新测量窗口。
+    pub fn set_typography(&self, typography: &Typography) {
+        if *self.ivars().typography.borrow() == *typography {
             return;
         }
-        *self.ivars().font.borrow_mut() = font.to_owned();
+        *self.ivars().typography.borrow_mut() = typography.clone();
+        let (text_font, annotation_font, pos_font) = typography.native_fonts(self.mtm());
+        {
+            let mut theme = self.ivars().theme.borrow_mut();
+            theme.text_font = text_font;
+            theme.annotation_font = annotation_font;
+            theme.pos_font = pos_font;
+        }
         let mut bitmap = self.ivars().bitmap.borrow_mut();
         if bitmap.is_some() {
-            *bitmap = BitmapPainter::new(font);
-            drop(bitmap);
-            self.setNeedsDisplay(true);
+            *bitmap = BitmapPainter::new(typography, &self.ivars().colors.borrow());
         }
+        drop(bitmap);
+        self.setNeedsDisplay(true);
     }
 
     /// 青简渲染器 / 系统绘制。渲染器字体库加载失败就留在系统绘制。
@@ -145,7 +159,10 @@ impl CandidateView {
         let mut bitmap = self.ivars().bitmap.borrow_mut();
         match renderer {
             CandidateRenderer::Qingjian if bitmap.is_none() => {
-                *bitmap = BitmapPainter::new(&self.ivars().font.borrow());
+                *bitmap = BitmapPainter::new(
+                    &self.ivars().typography.borrow(),
+                    &self.ivars().colors.borrow(),
+                );
             }
             CandidateRenderer::System if bitmap.is_some() => {
                 tracing::info!("候选窗切回 AppKit 绘制");
@@ -155,6 +172,44 @@ impl CandidateView {
         }
         drop(bitmap);
         self.setNeedsDisplay(true);
+    }
+
+    /// 配色即时刷新；修改颜色不会重新加载字体库。
+    pub fn set_colors(&self, colors: &CandidateColors) {
+        if *self.ivars().colors.borrow() == *colors {
+            return;
+        }
+        *self.ivars().colors.borrow_mut() = colors.clone();
+        colors.apply_native(&mut self.ivars().theme.borrow_mut());
+        if let Some(bitmap) = &mut *self.ivars().bitmap.borrow_mut() {
+            bitmap.set_colors(colors);
+        }
+        self.setNeedsDisplay(true);
+    }
+
+    /// 选色控件展示实际绘制路径使用的颜色，包括未自定义时的默认色。
+    pub fn color_swatches(&self) -> [Retained<NSColor>; 6] {
+        if self.ivars().bitmap.borrow().is_some() {
+            let palette = self.ivars().colors.borrow().palette(self.is_dark());
+            return [
+                palette.background,
+                palette.text,
+                palette.pos,
+                palette.gloss,
+                palette.fresh,
+                palette.highlight,
+            ]
+            .map(native_color);
+        }
+        let theme = self.theme();
+        [
+            theme.background.clone(),
+            theme.text_color.clone(),
+            theme.pos_color.clone(),
+            theme.gloss_color.clone(),
+            theme.fresh_color.clone(),
+            theme.highlight.clone(),
+        ]
     }
 
     /// 当前生效的外观是不是深色。
@@ -175,8 +230,8 @@ impl CandidateView {
             .map_or(2.0, |window| window.backingScaleFactor() as f32)
     }
 
-    pub fn theme(&self) -> &Theme {
-        &self.ivars().theme
+    pub fn theme(&self) -> Ref<'_, Theme> {
+        self.ivars().theme.borrow()
     }
 
     pub fn set_layout(&self, layout: LayoutMode) {
@@ -287,10 +342,18 @@ impl CandidateView {
         let width: f64 = row
             .annotation
             .iter()
-            .map(|(s, _)| self.measure(s, &theme.annotation_font).width)
+            .map(|(s, tone)| self.measure(s, theme.segment_font(row, *tone)).width)
             .sum();
-        let height = self.measure("x", &theme.annotation_font).height + theme.row_padding;
+        let height = self.annotation_height(row) + theme.row_padding;
         Some((width, height))
+    }
+
+    fn annotation_height(&self, row: &Row) -> f64 {
+        let theme = self.theme();
+        row.annotation
+            .iter()
+            .map(|(s, tone)| self.measure(s, theme.segment_font(row, *tone)).height)
+            .fold(0.0, f64::max)
     }
 
     /// 云朵图标占的宽度（含后面的间距）。
@@ -334,21 +397,24 @@ impl CandidateView {
         };
         for row in rows {
             let index = self.measure(&row.index, &theme.index_font);
-            let mut text = self.measure(&row.text, &theme.text_font);
+            let mut text = self.measure(&row.text, theme.word_font(row));
             if row.cloud {
                 text.width += self.cloud_width();
             }
             let annotation: f64 = row
                 .annotation
                 .iter()
-                .map(|(s, _)| self.measure(s, &theme.annotation_font).width)
+                .map(|(s, tone)| self.measure(s, theme.segment_font(row, *tone)).width)
                 .sum();
             columns.index_width = columns.index_width.max(index.width);
             columns.text_width = columns.text_width.max(text.width);
             columns.annotation_width = columns.annotation_width.max(annotation);
-            columns.row_height = columns
-                .row_height
-                .max(text.height + theme.row_padding * 2.0);
+            columns.row_height = columns.row_height.max(
+                text.height
+                    .max(index.height)
+                    .max(self.annotation_height(row))
+                    + theme.row_padding * 2.0,
+            );
         }
         columns
     }
@@ -361,11 +427,12 @@ impl CandidateView {
             .iter()
             .map(|row| {
                 let index = self.measure(&row.index, &theme.index_font);
-                let mut text = self.measure(&row.text, &theme.text_font);
+                let mut text = self.measure(&row.text, theme.word_font(row));
                 if row.cloud {
                     text.width += self.cloud_width();
                 }
-                row_height = row_height.max(text.height + theme.row_padding * 2.0);
+                row_height =
+                    row_height.max(text.height.max(index.height) + theme.row_padding * 2.0);
                 Item {
                     index_width: index.width,
                     text_width: text.width,
@@ -464,25 +531,27 @@ impl CandidateView {
                 );
                 self.fill_highlight(rect);
             }
-            // 各列底部对齐到候选词基线附近：小字往下挪一点
-            let text_size = self.measure(&row.text, &theme.text_font);
+            // 中外文和词性字号各异，按实际字体测量并垂直居中。
+            let text_size = self.measure(&row.text, theme.word_font(row));
             let baseline = y + theme.row_padding;
-            let small_offset = self.small_offset(text_size.height);
+            let line_height = columns.row_height - theme.row_padding * 2.0;
+            let text_offset = (line_height - text_size.height) / 2.0;
             self.draw_text(
                 &row.index,
                 &theme.index_font,
                 &theme.index_color,
-                baseline + small_offset,
+                baseline + (line_height - self.measure(&row.index, &theme.index_font).height) / 2.0,
                 theme.padding,
             );
-            self.draw_word(row, text_x, baseline, text_size.height);
+            self.draw_word(row, text_x, baseline + text_offset, text_size.height);
             let mut x = annotation_x;
             for (segment, tone) in &row.annotation {
+                let font = theme.segment_font(row, *tone);
                 x += self.draw_text(
                     segment,
-                    &theme.annotation_font,
-                    self.tone_color(*tone),
-                    baseline + small_offset,
+                    font,
+                    &self.tone_color(*tone),
+                    baseline + (line_height - self.measure(segment, font).height) / 2.0,
                     x,
                 );
             }
@@ -508,6 +577,7 @@ impl CandidateView {
         let theme = self.theme();
         let (items, row_height) = self.items(&frame.rows);
         let baseline = y + theme.row_padding;
+        let line_height = row_height - theme.row_padding * 2.0;
         let mut x = theme.padding + HIGHLIGHT_INSET;
         for (i, (row, item)) in frame.rows.iter().zip(&items).enumerate() {
             let item_width = item.index_width + INDEX_GAP + item.text_width;
@@ -518,30 +588,29 @@ impl CandidateView {
                 );
                 self.fill_highlight(rect);
             }
-            let text_size = self.measure(&row.text, &theme.text_font);
+            let text_size = self.measure(&row.text, theme.word_font(row));
             self.draw_text(
                 &row.index,
                 &theme.index_font,
                 &theme.index_color,
-                baseline + self.small_offset(text_size.height),
+                baseline + (line_height - self.measure(&row.index, &theme.index_font).height) / 2.0,
                 x,
             );
             self.draw_word(
                 row,
                 x + item.index_width + INDEX_GAP,
-                baseline,
+                baseline + (line_height - text_size.height) / 2.0,
                 text_size.height,
             );
             x += item_width + theme.column_gap;
         }
         if let Some(footer) = frame.footer.as_deref() {
             let size = self.measure(footer, &theme.index_font);
-            let text_height = self.measure("x", &theme.text_font).height;
             self.draw_text(
                 footer,
                 &theme.index_font,
                 &theme.index_color,
-                baseline + self.small_offset(text_height),
+                baseline + (line_height - size.height) / 2.0,
                 bounds.size.width - theme.padding - size.width,
             );
         }
@@ -550,11 +619,12 @@ impl CandidateView {
             let mut x = theme.padding + HIGHLIGHT_INSET;
             let top = y + row_height + theme.row_padding / 2.0;
             for (segment, tone) in &row.annotation {
+                let font = theme.segment_font(row, *tone);
                 x += self.draw_text(
                     segment,
-                    &theme.annotation_font,
-                    self.tone_color(*tone),
-                    top,
+                    font,
+                    &self.tone_color(*tone),
+                    top + (self.annotation_height(row) - self.measure(segment, font).height) / 2.0,
                     x,
                 );
             }
@@ -573,7 +643,7 @@ impl CandidateView {
         } else {
             &theme.text_color
         };
-        self.draw_text(&row.text, &theme.text_font, color, baseline, word_x);
+        self.draw_text(&row.text, theme.word_font(row), color, baseline, word_x);
     }
 
     fn fill_highlight(&self, rect: NSRect) {
@@ -587,27 +657,22 @@ impl CandidateView {
         .fill();
     }
 
-    /// 小字相对候选词往下挪多少，让两者底部对齐。
-    fn small_offset(&self, text_height: f64) -> f64 {
-        (text_height - self.measure("x", &self.theme().annotation_font).height).max(0.0)
-    }
-
-    fn tone_color(&self, tone: Tone) -> &NSColor {
+    fn tone_color(&self, tone: Tone) -> Retained<NSColor> {
         match tone {
-            Tone::Gloss => &self.theme().gloss_color,
-            Tone::Fresh => &self.theme().fresh_color,
-            Tone::Faint => &self.theme().pos_color,
+            Tone::Gloss | Tone::Reading { .. } => self.theme().gloss_color.clone(),
+            Tone::Fresh => self.theme().fresh_color.clone(),
+            Tone::Faint | Tone::PartOfSpeech => self.theme().pos_color.clone(),
         }
     }
 
     /// 画一段文字，返回它的宽度。参数顺序是 (顶边 y, 左边 x)，与画图时「先定行再定列」的习惯一致。
-    fn draw_text(&self, text: &str, font: &NSFont, color: &NSColor, y: f64, x: f64) -> f64 {
+    fn draw_text(&self, text: &str, font: &NativeFont, color: &NSColor, y: f64, x: f64) -> f64 {
         let string = self.attributed(text, font, color, false);
         string.drawAtPoint(NSPoint::new(x, y));
         string.size().width
     }
 
-    fn measure(&self, text: &str, font: &NSFont) -> NSSize {
+    fn measure(&self, text: &str, font: &NativeFont) -> NSSize {
         self.attributed(text, font, &self.theme().text_color, false)
             .size()
     }
@@ -615,13 +680,13 @@ impl CandidateView {
     fn attributed(
         &self,
         text: &str,
-        font: &NSFont,
+        font: &NativeFont,
         color: &NSColor,
         strike: bool,
     ) -> Retained<NSAttributedString> {
         let strike_style = NSNumber::new_isize(STRIKE_SINGLE);
         // SAFETY: 只读 AppKit 导出的属性名常量
-        let (keys, objects): (Vec<&NSString>, Vec<&AnyObject>) = unsafe {
+        let (mut keys, mut objects): (Vec<&NSString>, Vec<&AnyObject>) = unsafe {
             if strike {
                 (
                     vec![
@@ -629,15 +694,20 @@ impl CandidateView {
                         NSForegroundColorAttributeName,
                         NSStrikethroughStyleAttributeName,
                     ],
-                    vec![font, color, &strike_style],
+                    vec![&*font.font, color, &strike_style],
                 )
             } else {
                 (
                     vec![NSFontAttributeName, NSForegroundColorAttributeName],
-                    vec![font, color],
+                    vec![&*font.font, color],
                 )
             }
         };
+        let stroke = NSNumber::new_f64(-3.0);
+        if font.synthetic_bold {
+            keys.push(unsafe { NSStrokeWidthAttributeName });
+            objects.push(&stroke);
+        }
         let attributes = NSDictionary::from_slices(&keys, &objects);
         unsafe { NSAttributedString::new_with_attributes(&NSString::from_str(text), &attributes) }
     }
