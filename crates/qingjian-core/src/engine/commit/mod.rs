@@ -401,6 +401,20 @@ impl Engine {
         candidate: &Candidate,
     ) -> Option<Vec<sentence::SentenceWord>> {
         let scope = self.composition.scope();
+        if self.shuangpin_full_pinyin && self.shuangpin.is_some() && !self.zhuyin {
+            for decoded in self.mixed_decodings(scope) {
+                if self.mixed_match(&decoded, candidate).is_none() {
+                    continue;
+                }
+                if let Some(segmentation) = decoded.segmentation()
+                    && let Some(conversion) = self.convert_sentence(&segmentation.patterns(), false)
+                    && conversion.text == candidate.text
+                {
+                    return Some(conversion.words);
+                }
+            }
+            return None;
+        }
         if self.decode(scope).is_none()
             && let Some(tail) = self.split_english_tail(scope)
             && let Some(words) = self.mixed_words(scope, &tail, &candidate.text)
@@ -445,6 +459,17 @@ impl Engine {
     /// 纠错生效时按纠正后的拼音算，再按那处编辑换算回原串；双拼按解出的全拼算，再换算回键数。
     pub(super) fn consumed_by(&self, candidate: &Candidate) -> (usize, String) {
         let keys = self.composition.scope();
+        if self.shuangpin_full_pinyin
+            && self.shuangpin.is_some()
+            && !self.zhuyin
+            && let Some(matched) = self
+                .mixed_decodings(keys)
+                .iter()
+                .filter_map(|decoded| self.mixed_match(decoded, candidate))
+                .max_by_key(|matched| matched.0)
+        {
+            return matched;
+        }
         if let Some(decoded) = self.decode(keys) {
             let pinyin_len = self.align(decoded.pinyin(), &candidate.syllables).consumed;
             return (

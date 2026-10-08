@@ -195,7 +195,7 @@ impl Scheme {
     }
 
     /// 落单的一键代表的前缀：声母键是声母，元音键是元音本身（`a` 后面可能是 ai / an / ang / ao）。
-    fn partial(self, key: char) -> Option<String> {
+    pub(super) fn partial(self, key: char) -> Option<String> {
         if let Some(initial) = self.initial(key) {
             return Some(initial.to_owned());
         }
