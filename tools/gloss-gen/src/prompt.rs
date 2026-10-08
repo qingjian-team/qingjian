@@ -160,18 +160,21 @@ pub fn parse_reply_for_languages(
         let entry = GlossEntry {
             word: word.to_owned(),
             pos: item.pos.as_deref().and_then(normalize_pos),
-            en: languages
-                .en
-                .then(|| clean_english(item.en))
-                .unwrap_or_default(),
-            ja: languages
-                .ja
-                .then(|| clean_japanese(item.ja))
-                .unwrap_or_default(),
-            vi: languages
-                .vi
-                .then(|| clean_latin_language(item.vi, MAX_VIETNAMESE_CHARS, 5))
-                .unwrap_or_default(),
+            en: if languages.en {
+                clean_english(item.en)
+            } else {
+                Vec::new()
+            },
+            ja: if languages.ja {
+                clean_japanese(item.ja)
+            } else {
+                Vec::new()
+            },
+            vi: if languages.vi {
+                clean_latin_language(item.vi, MAX_VIETNAMESE_CHARS, 5)
+            } else {
+                Vec::new()
+            },
         };
         if entry.is_useful() {
             entries.push(entry);
