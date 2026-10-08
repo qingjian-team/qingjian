@@ -134,6 +134,7 @@ impl Router {
             applied_predict: config.predict.clone(),
             applied_dictionaries: config.dictionaries.clone(),
             applied_aux_code: config.aux_code.clone(),
+            applied_custom_phrases: config.custom_phrases.clone(),
             dictionary_files,
             applied_language: assembly::learning_language(config),
             update: config.update.clone(),
@@ -242,6 +243,15 @@ impl Router {
             reload.applied_dictionaries = config.dictionaries.clone();
             self.engine
                 .set_extra_dictionaries(reload.load_dictionaries());
+        }
+        if config.custom_phrases != reload.applied_custom_phrases
+            && self
+                .engine
+                .set_custom_phrases(config.custom_phrases.clone())
+                .is_ok()
+        {
+            reload.applied_custom_phrases = config.custom_phrases.clone();
+            tracing::info!(count = config.custom_phrases.len(), "自定义短语已热加载");
         }
         if config.aux_code != reload.applied_aux_code {
             reload.applied_aux_code = config.aux_code.clone();

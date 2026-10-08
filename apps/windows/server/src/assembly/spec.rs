@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use qingjian_core::Language;
+use qingjian_core::{CustomPhrase, Language};
 use qingjian_platform::{AuxCodeConfig, DictionariesConfig};
 
 use super::LanguageModelFiles;
@@ -27,6 +27,9 @@ pub struct AssemblySpec {
 
     /// 随包领域词库目录。
     pub bundled_dicts_dir: Option<PathBuf>,
+
+    /// `[[custom_phrases]]` 配置。Windows 壳此前没有接线，该配置在 Windows 上一直不生效。
+    pub custom_phrases: Vec<CustomPhrase>,
 
     /// `[dictionaries]` 配置。
     pub dictionaries: DictionariesConfig,
@@ -60,6 +63,7 @@ impl AssemblySpec {
             dictionaries: DictionariesConfig::default(),
             bundled_codes_dir: None,
             aux_code: AuxCodeConfig::default(),
+            custom_phrases: Vec::new(),
             levels_dir: None,
             user_dir: None,
             input_log: false,

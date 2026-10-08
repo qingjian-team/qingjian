@@ -58,6 +58,10 @@ pub fn assemble(spec: &AssemblySpec) -> Result<Engine, ServerError> {
         user_codes_dir(spec.user_dir.as_deref()).as_deref(),
         &spec.aux_code,
     ));
+    if let Err(error) = engine.set_custom_phrases(spec.custom_phrases.clone()) {
+        // 校验不过只丢自定义短语，不影响其余装配；与 macOS 壳的处理一致。
+        tracing::warn!(%error, "自定义短语校验失败，已忽略");
+    }
     if let Some(path) = &spec.english_glossary {
         match Glossary::from_path(Language::Chinese, path) {
             Ok(glossary) => {

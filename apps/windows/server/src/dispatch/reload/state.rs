@@ -78,6 +78,9 @@ pub(crate) struct ConfigReload {
     /// 已应用的 `[aux_code]`。
     pub(super) applied_aux_code: AuxCodeConfig,
 
+    /// 已应用的 `[[custom_phrases]]`。改了配置热加载时才需要重设，故与启动时分开记。
+    pub(super) applied_custom_phrases: Vec<qingjian_core::CustomPhrase>,
+
     /// 已应用的学习语言（`None` 为关）。
     pub(super) applied_language: Option<Language>,
 

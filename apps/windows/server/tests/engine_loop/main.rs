@@ -2,6 +2,7 @@
 
 mod aux_code;
 mod composing;
+mod custom_phrases;
 mod english;
 mod modes;
 mod rescoring;

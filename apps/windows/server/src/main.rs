@@ -164,6 +164,7 @@ fn main() {
         levels_dir: Some(root.join("assets/levels")),
         user_dir: user_dir(),
         input_log: config.general.input_log,
+        custom_phrases: config.custom_phrases.clone(),
         ..AssemblySpec::new(&dict)
     };
     let mut engine = match assemble_with_fallback(spec, &root) {
