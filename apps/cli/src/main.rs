@@ -319,6 +319,7 @@ fn build_engine(args: &Args) -> Result<Engine, CliError> {
     let wubi = config.general.wubi() || args.wubi.is_some();
     tracing::info!(pinyin = scheme.key(), wubi, "输入方案已启用");
     engine.set_shuangpin(scheme.shuangpin());
+    engine.set_shuangpin_full_pinyin(config.general.shuangpin_full_pinyin);
     engine.set_zhuyin_mode(scheme == Scheme::Zhuyin);
     // 拼音侧关掉且形码开着才是「只用形码」；两边都关着时留拼音兜底
     engine.set_phonetic(scheme.is_on() || !wubi);

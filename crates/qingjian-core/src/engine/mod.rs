@@ -15,6 +15,7 @@ mod gloss;
 mod input_log;
 mod learning;
 mod marked;
+mod mixed_pinyin;
 mod mode_keys;
 mod prediction;
 mod privacy;
@@ -72,7 +73,7 @@ use crate::parser::{self, ParseError, Segmentation};
 use crate::punctuation::Punctuation;
 use crate::ranking::{self, Scored};
 use crate::sentence::{
-    self, Conversion, Interpolation, LanguageModel, NoLanguageModel, Personal, SentenceScorer,
+    self, Conversion, Interpolation, LanguageModel, NoLanguageModel, SentenceScorer,
 };
 use crate::shortcut;
 use crate::shuangpin::Scheme;
@@ -239,6 +240,9 @@ pub struct Engine {
 
     /// 双拼方案，`None` 为全拼。开着时缓冲区里是双拼键，查词前先解成全拼（见 [`crate::shuangpin`]）。
     shuangpin: Option<Scheme>,
+
+    /// 双拼下同时接受全拼音节，缺省关闭。
+    shuangpin_full_pinyin: bool,
 
     /// 双拼方案下 preedit 显示原始按键（如 `ljse`）还是展开成全拼（`lan'se`）。
     shuangpin_raw_preedit: bool,
@@ -436,6 +440,7 @@ impl Engine {
             chain: CommitChain::default(),
             fuzzy: FuzzyRules::default(),
             shuangpin: None,
+            shuangpin_full_pinyin: false,
             shuangpin_raw_preedit: false,
             zhuyin: false,
             code: None,

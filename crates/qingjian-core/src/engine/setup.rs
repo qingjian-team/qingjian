@@ -1,8 +1,21 @@
 //! 注入与开关：词库、模糊音、双拼、翻译 / 学习 / 联想等 trait 实现的挂接，以及相应的只读访问。
 
 use super::aux_code::is_valid_aux_code_key;
-use super::*;
+use super::{
+    DEFAULT_AUX_CODE_KEY, Engine, GlossFiller, InputLogger, Learner, ModeKeys, NEURAL_MARGIN,
+    NEURAL_WEIGHT, Predictor, RESCORE_CONTEXT_CHARS, Translator, UsageMeter, UsageSummary,
+    VocabularyTracker, marked_rest,
+};
+use crate::candidate::Language;
+use crate::correction::TypoCosts;
+use crate::emoji::EmojiTable;
 use crate::engine::decoded::EngineDecoded;
+use crate::fuzzy::FuzzyRules;
+use crate::history::InputHistory;
+use crate::sentence::{Interpolation, LanguageModel, Personal, SentenceScorer};
+use crate::shuangpin::Scheme;
+use qingjian_dictionary::{AuxCodeLookup, CodeTable, Dictionary, WordList};
+use std::sync::Arc;
 
 impl Engine {
     /// 设置中文模式的标点转换。
@@ -21,6 +34,12 @@ impl Engine {
     pub fn set_shuangpin(&mut self, scheme: Option<Scheme>) {
         self.shuangpin = scheme;
         *self.correction_cache.borrow_mut() = None;
+    }
+
+    /// 双拼方案下兼容全拼；关闭时保留严格的两键一音节。
+    pub fn set_shuangpin_full_pinyin(&mut self, enabled: bool) {
+        self.shuangpin_full_pinyin = enabled;
+        self.forget_span_cache();
     }
 
     pub fn shuangpin(&self) -> Option<Scheme> {
@@ -204,8 +223,16 @@ impl Engine {
         if self.zhuyin {
             Some(EngineDecoded::Zhuyin(crate::zhuyin::decode(keys)))
         } else {
-            self.shuangpin
-                .map(|scheme| EngineDecoded::Shuangpin(scheme.decode(keys)))
+            self.shuangpin.map(|scheme| {
+                EngineDecoded::Shuangpin(if self.shuangpin_full_pinyin {
+                    self.mixed_decodings(keys)
+                        .into_iter()
+                        .next()
+                        .unwrap_or_else(|| scheme.decode(keys))
+                } else {
+                    scheme.decode(keys)
+                })
+            })
         }
     }
 

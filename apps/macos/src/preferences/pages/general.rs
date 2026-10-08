@@ -25,6 +25,10 @@ pub struct GeneralPage {
 
     /// 双拼模式下输入框保留原始输入按键。
     shuangpin_raw_preedit: Retained<NSButton>,
+
+    /// 双拼下兼容全拼。
+    shuangpin_full_pinyin: Retained<NSButton>,
+
     /// 五笔（86 版形码）；与拼音方案同时开着就是混输。
     wubi: Retained<NSButton>,
 
@@ -98,7 +102,15 @@ impl GeneralPage {
         note(
             layout,
             mtm,
-            "全拼、五套双拼、大千注音，或关（只用下面的五笔）。双拼下 v、u、i 是音节键，表达式与问字模式改用 Shift+V、Shift+U 进（微软、搜狗方案的 ; 键是 ing）；注音下 v、u、i 也是按键，只能用 ? 开头进。",
+            "全拼、七套双拼、大千注音，或关（只用下面的五笔）。双拼下 v、u、i 是音节键，表达式与问字模式改用 Shift+V、Shift+U 进（微软、搜狗方案的 ; 键是 ing）；注音下 v、u、i 也是按键，只能用 ? 开头进。",
+        );
+        let shuangpin_full_pinyin =
+            checkbox(mtm, "双拼兼容全拼", Setting::ShuangpinFullPinyin, target);
+        row_checkbox(layout, &shuangpin_full_pinyin);
+        note(
+            layout,
+            mtm,
+            "开启后可直接输入双拼或全拼，同一段拼音也能混用。小鹤方案下，nihc 和 nihao 都可输入「你好」，nihaovsgo 可输入「你好中国」。有歧义时可用单引号分隔音节。",
         );
         let shuangpin_raw_preedit = checkbox(
             mtm,
@@ -188,6 +200,7 @@ impl GeneralPage {
             scheme,
             wubi,
             shuangpin_raw_preedit,
+            shuangpin_full_pinyin,
             traditional,
             english,
             english_off_in_apps,
@@ -225,6 +238,9 @@ impl GeneralPage {
             ),
         );
         set_checked(&self.wubi, general.wubi());
+        set_checked(&self.shuangpin_full_pinyin, general.shuangpin_full_pinyin);
+        self.shuangpin_full_pinyin
+            .setEnabled(general.scheme().is_shuangpin());
         set_checked(&self.shuangpin_raw_preedit, general.shuangpin_raw_preedit);
         self.shuangpin_raw_preedit
             .setEnabled(general.scheme().is_shuangpin());

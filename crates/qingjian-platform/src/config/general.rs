@@ -92,6 +92,9 @@ pub struct GeneralConfig {
     /// 缺省关（展开成全拼音节）；常在双拼中打英文词或需要核对按键的人可打开。
     pub shuangpin_raw_preedit: bool,
 
+    /// 双拼下兼容全拼音节，缺省关闭。
+    pub shuangpin_full_pinyin: bool,
+
     /// 形码侧方案：空串为关，`wubi86` 为五笔（86 版）。**与拼音同时开着就是混输**，见 [`Self::mixed`]。
     pub wubi: String,
 
@@ -140,6 +143,7 @@ impl Default for GeneralConfig {
             aux_code_keep_empty: true,
             scheme: String::new(),
             shuangpin_raw_preedit: false,
+            shuangpin_full_pinyin: false,
             wubi: String::new(),
             shuangpin: None,
             zhuyin: None,
@@ -312,6 +316,17 @@ mod tests {
     #[test]
     fn aux_code_keep_empty_defaults_on() {
         assert!(GeneralConfig::default().aux_code_keep_empty);
+    }
+
+    #[test]
+    fn full_pinyin_compatibility_is_opt_in_and_round_trips() {
+        let default: GeneralConfig = toml::from_str("scheme = \"xiaohe\"").unwrap();
+        assert!(!default.shuangpin_full_pinyin);
+        let enabled: GeneralConfig =
+            toml::from_str("scheme = \"xiaohe\"\nshuangpin_full_pinyin = true").unwrap();
+        assert!(enabled.shuangpin_full_pinyin);
+        let saved = toml::to_string(&enabled).unwrap();
+        assert_eq!(toml::from_str::<GeneralConfig>(&saved).unwrap(), enabled);
     }
 
     #[test]
