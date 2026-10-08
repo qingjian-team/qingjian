@@ -8,16 +8,23 @@
 
 本目录各表随代码以 **GPL-3.0-or-later** 发布，与仓库一致。各表来源不同，见下。
 
-## 英语 / 日语（`glossary-en.tsv` / `glossary-ja.tsv`）
+## 英语 / 日语 / 越南语（`glossary-en.tsv` / `glossary-ja.tsv` / `glossary-vi.tsv`）
 
 由 `tools/gloss-gen` 用 LLM（DeepSeek）离线批量生成，不含任何第三方词典内容。
 
-- `data/generated/gloss-llm.jsonl`：模型原始输出，一行一个词（词性、英文译词、日文译词与假名），可续跑：
+- `data/generated/gloss-llm.jsonl`：模型原始输出，一行一个词（词性、英文译词、日文译词与假名、越南文译词），可续跑：
   `cargo run --release -p qingjian-gloss-gen -- generate --words assets/lexicon/dict.tsv --min-count 1 --max-chars 8`
-- `glossary-en.tsv` / `glossary-ja.tsv`：输入法加载的表，由 `... export --out-dir assets/glossary` 导出。
+- `glossary-en.tsv` / `glossary-ja.tsv` / `glossary-vi.tsv`：输入法加载的表，由 `... export --out-dir assets/glossary` 导出。
+
+只补越南语时用 `--languages vi`，输出 JSONL 里只有 `vi` 字段，避免重新生成英语 / 日语：
+
+```bash
+cargo run --release -p qingjian-gloss-gen -- generate --languages vi --words assets/lexicon/dict.tsv --min-count 1 --max-chars 8 --out data/generated/gloss-vi-llm.jsonl
+cargo run --release -p qingjian-gloss-gen -- export --input data/generated/gloss-vi-llm.jsonl --out-dir assets/glossary
+```
 
 2026-09-05 对 `assets/lexicon/dict.tsv` 全量生成：23.9 万词（含旧语料词表的 3.8 万），
-词库多字词 91% 有英文释义、98% 有日文释义。
+词库多字词 91% 有英文释义、98% 有日文释义。越南语字段是后续加入的，旧 JSONL 没有 `vi` 字段时需重跑 `generate` 或另行补齐后再导出。
 
 ## 西班牙语（`glossary-es.tsv`）
 
@@ -69,4 +76,4 @@ cargo run --release -p qingjian-gloss-gen -- export-english
 `data/generated/`，不进 git：它们只是续跑用的中间产物，每重跑一轮就变一份，仓库只保留导出的最终表。
 发布时随 `.qj` 一起作为 Release 附件保存，重跑前先从那里下载。
 
-生成时的提示词在 `tools/gloss-gen/src/prompt.rs`（中→英 / 日）与 `tools/gloss-gen/src/english.rs`（英→中）。
+生成时的提示词在 `tools/gloss-gen/src/prompt.rs`（中→英 / 日 / 越）与 `tools/gloss-gen/src/english.rs`（英→中）。

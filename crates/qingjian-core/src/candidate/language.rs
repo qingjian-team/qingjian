@@ -16,6 +16,9 @@ pub enum Language {
 
     /// 西班牙语。
     Spanish,
+
+    /// 越南语。
+    Vietnamese,
 }
 
 impl Language {
@@ -26,6 +29,7 @@ impl Language {
             Self::English => "en",
             Self::Japanese => "ja",
             Self::Spanish => "es",
+            Self::Vietnamese => "vi",
         }
     }
 }
@@ -43,6 +47,7 @@ impl FromStr for Language {
             "en" | "english" => Ok(Self::English),
             "ja" | "jp" | "japanese" => Ok(Self::Japanese),
             "es" | "es-es" | "spanish" => Ok(Self::Spanish),
+            "vi" | "vi-vn" | "vietnamese" => Ok(Self::Vietnamese),
             other => Err(UnknownLanguage(other.to_owned())),
         }
     }
@@ -58,6 +63,11 @@ mod tests {
         assert_eq!("ES".parse::<Language>().unwrap(), Language::Spanish);
         assert_eq!(" es-ES ".parse::<Language>().unwrap(), Language::Spanish);
         assert_eq!("Spanish".parse::<Language>().unwrap(), Language::Spanish);
+        assert_eq!("vi-VN".parse::<Language>().unwrap(), Language::Vietnamese);
+        assert_eq!(
+            "Vietnamese".parse::<Language>().unwrap(),
+            Language::Vietnamese
+        );
         assert_eq!("zh-cn".parse::<Language>().unwrap(), Language::Chinese);
     }
 
@@ -71,5 +81,6 @@ mod tests {
     fn codes_are_iso_639_1() {
         assert_eq!(Language::Spanish.code(), "es");
         assert_eq!(Language::Japanese.code(), "ja");
+        assert_eq!(Language::Vietnamese.code(), "vi");
     }
 }

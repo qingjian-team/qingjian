@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use clap::{Parser, Subcommand};
 
 #[derive(Debug, Parser)]
-#[command(about = "用 LLM 批量生成中文词的英文 / 日文释义表，或给多音字词标拼音")]
+#[command(about = "用 LLM 批量生成中文词的英文 / 日文 / 越南文释义表，或给多音字词标拼音")]
 pub struct Args {
     #[command(subcommand)]
     pub command: Command,
@@ -14,7 +14,7 @@ pub enum Command {
     /// 从一元词频表挑词，分批问模型，结果追加到 JSONL（可中断续跑）
     Generate(GenerateArgs),
 
-    /// 把 JSONL 导出成 glossary-en.tsv / glossary-ja.tsv
+    /// 把 JSONL 导出成 glossary-en.tsv / glossary-ja.tsv / glossary-vi.tsv
     Export(ExportArgs),
 
     /// 给多音字词标拼音：词表一行一个词，结果追加到 JSONL（可中断续跑），`dict-convert lexicon --pinyin` 读它
@@ -146,6 +146,10 @@ pub struct GenerateArgs {
     #[arg(long, default_value = "data/generated/gloss-llm.jsonl")]
     pub out: PathBuf,
 
+    /// 本次生成哪些学习语言，逗号分隔（en / ja / vi）；只补越南语时传 `--languages vi`
+    #[arg(long, value_delimiter = ',', default_value = "en,ja,vi")]
+    pub languages: Vec<String>,
+
     /// 每个请求带几个词
     #[arg(long, default_value_t = 40)]
     pub batch: usize,
@@ -177,7 +181,7 @@ pub struct ExportArgs {
     #[arg(long, default_value = "data/generated/gloss-llm.jsonl")]
     pub input: PathBuf,
 
-    /// 输出目录，写 glossary-en.tsv 与 glossary-ja.tsv
+    /// 输出目录，写 glossary-en.tsv、glossary-ja.tsv 与 glossary-vi.tsv
     #[arg(long, default_value = "data/generated")]
     pub out_dir: PathBuf,
 }
