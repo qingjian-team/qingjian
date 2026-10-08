@@ -40,7 +40,7 @@ impl Glossary {
     }
 
     pub fn parse(language: Language, source: &str) -> Result<Self, GlossaryError> {
-        let mut entries: HashMap<String, Translation> = HashMap::new();
+        let mut entries: HashMap<String, Vec<Sense>> = HashMap::new();
         for (index, raw) in source.lines().enumerate() {
             let line = raw.trim();
             if line.is_empty() || line.starts_with('#') {
@@ -58,7 +58,7 @@ impl Glossary {
                     })?;
             let senses: Vec<Sense> = fields
                 .filter(|s| !s.is_empty())
-                .take(Translation::MAX_SENSES)
+                .take(usize::from(u16::MAX))
                 .map(parse_sense)
                 .collect();
             if senses.is_empty() {
@@ -67,7 +67,7 @@ impl Glossary {
                     reason: "missing senses".into(),
                 });
             }
-            entries.insert(text.to_owned(), Translation::new(language, senses));
+            entries.insert(text.to_owned(), senses);
         }
         tracing::debug!(
             language = language.code(),
@@ -142,7 +142,7 @@ impl Glossary {
 
     /// 写成 `.qj`：词按字节序排，字符串进一个 arena，词条 / 释义各一张定长表，外加哈希索引。
     pub fn write_qj(&self, path: &Path, metadata: &Metadata) -> Result<(), GlossaryError> {
-        let mut words: Vec<(&str, Translation)> = self.all_entries();
+        let mut words: Vec<(&str, Vec<Sense>)> = self.all_entries();
         words.sort_by(|a, b| a.0.cmp(b.0));
         let mut arena = String::new();
         let push = |arena: &mut String, s: &str| -> (u32, u16) {
@@ -152,10 +152,10 @@ impl Glossary {
         };
         let mut entries: Vec<EntryRecord> = Vec::with_capacity(words.len());
         let mut senses: Vec<SenseRecord> = Vec::new();
-        for (word, translation) in &words {
+        for (word, word_senses) in &words {
             let (word_start, word_len) = push(&mut arena, word);
             let sense_start = senses.len() as u32;
-            for sense in translation.senses() {
+            for sense in word_senses {
                 let (text_start, text_len) = push(&mut arena, &sense.text);
                 let (reading_start, reading_len) =
                     push(&mut arena, sense.reading.as_deref().unwrap_or(""));
@@ -177,7 +177,7 @@ impl Glossary {
                 word_start,
                 sense_start,
                 word_len,
-                sense_count: translation.senses().len() as u16,
+                sense_count: word_senses.len() as u16,
             });
         }
         let index = hash::build(entries.len(), |id| {
@@ -203,11 +203,11 @@ impl Glossary {
     }
 
     /// 全部条目（落盘用）。
-    fn all_entries(&self) -> Vec<(&str, Translation)> {
+    fn all_entries(&self) -> Vec<(&str, Vec<Sense>)> {
         match &self.storage {
             Storage::Owned(map) => map.iter().map(|(k, v)| (k.as_str(), v.clone())).collect(),
             Storage::Mapped { entries, .. } => (0..entries.len() as u32)
-                .filter_map(|id| Some((self.mapped_word(id)?, self.mapped_translation(id)?)))
+                .filter_map(|id| Some((self.mapped_word(id)?, self.mapped_senses(id)?)))
                 .collect(),
         }
     }
@@ -223,6 +223,17 @@ impl Glossary {
         self.len() == 0
     }
 
+    /// 完整释义池；候选显示的两条在抽样后才截取。
+    pub fn senses(&self, text: &str) -> Option<Vec<Sense>> {
+        match &self.storage {
+            Storage::Owned(map) => map.get(text).cloned(),
+            Storage::Mapped { index, .. } => {
+                let id = hash::find(index, text, |id| self.mapped_word(id).unwrap_or(""))?;
+                self.mapped_senses(id)
+            }
+        }
+    }
+
     /// 映射表里第 `id` 个词。
     fn mapped_word(&self, id: u32) -> Option<&str> {
         let Storage::Mapped { text, entries, .. } = &self.storage else {
@@ -233,7 +244,7 @@ impl Glossary {
     }
 
     /// 映射表里第 `id` 个词的译文。
-    fn mapped_translation(&self, id: u32) -> Option<Translation> {
+    fn mapped_senses(&self, id: u32) -> Option<Vec<Sense>> {
         let Storage::Mapped {
             text,
             entries,
@@ -263,7 +274,7 @@ impl Glossary {
                 })
             })
             .collect();
-        Some(Translation::new(self.language, senses))
+        Some(senses)
     }
 }
 
@@ -300,13 +311,8 @@ impl Translator for Glossary {
     }
 
     fn translate(&self, text: &str) -> Option<Translation> {
-        match &self.storage {
-            Storage::Owned(map) => map.get(text).cloned(),
-            Storage::Mapped { index, .. } => {
-                let id = hash::find(index, text, |id| self.mapped_word(id).unwrap_or(""))?;
-                self.mapped_translation(id)
-            }
-        }
+        self.senses(text)
+            .map(|senses| Translation::new(self.language, senses))
     }
 }
 

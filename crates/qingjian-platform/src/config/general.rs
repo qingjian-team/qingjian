@@ -1,4 +1,4 @@
-use qingjian_core::ShuangpinScheme;
+use qingjian_core::{ShuangpinScheme, TranslationDifficulty};
 use serde::{Deserialize, Serialize};
 
 use super::scheme::{Scheme, scheme_label};
@@ -24,6 +24,12 @@ pub const LEARNING_LANGUAGE_OFF: &str = "off";
 pub struct GeneralConfig {
     /// 学习语言（ISO 639-1，`en` / `ja` / `es`；`off` 不显示译文）：候选旁显示哪种语言的译文。要有对应的释义表文件才生效。
     pub learning_language: String,
+
+    /// 英语学习译词的难度；没有目标等级的译词时退回原释义。
+    pub translation_difficulty: TranslationDifficulty,
+
+    /// 新一段输入中每个候选随机抽取译词的概率，0–100；0 保留固定顺序。
+    pub translation_random_percent: u8,
 
     /// 每页候选数，1–9。
     pub page_size: usize,
@@ -120,6 +126,8 @@ impl Default for GeneralConfig {
     fn default() -> Self {
         Self {
             learning_language: "en".to_owned(),
+            translation_difficulty: TranslationDifficulty::All,
+            translation_random_percent: 0,
             page_size: MAX_PAGE_SIZE,
             page_keys: PAGE_KEY_OPTIONS[0].to_owned(),
             theme: ThemeMode::default(),
@@ -268,6 +276,26 @@ impl GeneralConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn translation_preferences_round_trip_and_old_configs_keep_fixed_order() {
+        let old: GeneralConfig = toml::from_str("learning_language = \"en\"\n").unwrap();
+        assert_eq!(old.translation_difficulty, TranslationDifficulty::All);
+        assert_eq!(old.translation_random_percent, 0);
+        let custom: GeneralConfig = toml::from_str(
+            "translation_difficulty = \"advanced\"\ntranslation_random_percent = 75\n",
+        )
+        .unwrap();
+        assert_eq!(
+            custom.translation_difficulty,
+            TranslationDifficulty::Advanced
+        );
+        assert_eq!(custom.translation_random_percent, 75);
+        assert_eq!(
+            toml::from_str::<GeneralConfig>(&toml::to_string(&custom).unwrap()).unwrap(),
+            custom
+        );
+    }
 
     #[test]
     fn horizontal_grid_is_off_unless_switched_on() {

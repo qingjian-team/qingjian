@@ -115,6 +115,7 @@ pub fn export(input: &Path, out_dir: &Path) -> Result<(), GlossError> {
         latest.insert(entry.word.clone(), entry);
     }
     std::fs::create_dir_all(out_dir)?;
+    let mut english_senses = learning_senses(&out_dir.join("learning-en.tsv"))?;
     let mut english = BufWriter::new(File::create(out_dir.join("glossary-en.tsv"))?);
     let mut japanese = BufWriter::new(File::create(out_dir.join("glossary-ja.tsv"))?);
     writeln!(
@@ -133,12 +134,18 @@ pub fn export(input: &Path, out_dir: &Path) -> Result<(), GlossError> {
             .map(|p| format!("{p} "))
             .unwrap_or_default();
         if !entry.en.is_empty() {
-            write!(english, "{}", entry.word)?;
-            for sense in &entry.en {
-                write!(english, "\t{pos}{sense}")?;
+            let extras = english_senses.remove(&entry.word).unwrap_or_default();
+            let mut senses: Vec<String> = entry
+                .en
+                .iter()
+                .map(|sense| format!("{pos}{sense}"))
+                .collect();
+            for extra in extras {
+                if !senses.contains(&extra) {
+                    senses.push(extra);
+                }
             }
-            writeln!(english)?;
-            en_count += 1;
+            english_senses.insert(entry.word.clone(), senses);
         }
         if !entry.ja.is_empty() {
             write!(japanese, "{}", entry.word)?;
@@ -151,6 +158,10 @@ pub fn export(input: &Path, out_dir: &Path) -> Result<(), GlossError> {
             writeln!(japanese)?;
             ja_count += 1;
         }
+    }
+    for (word, senses) in &english_senses {
+        writeln!(english, "{word}\t{}", senses.join("\t"))?;
+        en_count += 1;
     }
     english.flush()?;
     japanese.flush()?;
@@ -198,4 +209,64 @@ pub fn export_english(input: &Path, out_dir: &Path) -> Result<(), GlossError> {
     out.flush()?;
     tracing::info!(words = latest.len(), exported = count, out = %path.display(), "英→中释义导出完成");
     Ok(())
+}
+
+/// 与导出表放在一起的人工补充；没提供时保留原来的纯模型导出流程。
+fn learning_senses(path: &Path) -> Result<BTreeMap<String, Vec<String>>, GlossError> {
+    let source = match std::fs::read_to_string(path) {
+        Ok(source) => source,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(BTreeMap::new()),
+        Err(error) => return Err(error.into()),
+    };
+    let mut entries = BTreeMap::new();
+    for line in source
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty() && !line.starts_with('#'))
+    {
+        let mut fields = line.split('\t').map(str::trim);
+        let word = fields.next().unwrap_or_default();
+        let senses: Vec<String> = fields
+            .filter(|s| !s.is_empty())
+            .map(str::to_owned)
+            .collect();
+        if word.is_empty() || senses.is_empty() {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "invalid learning glossary row",
+            )
+            .into());
+        }
+        entries.insert(word.to_owned(), senses);
+    }
+    Ok(entries)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn export_keeps_model_order_and_appends_curated_learning_senses() {
+        let dir =
+            std::env::temp_dir().join(format!("qingjian-gloss-export-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let input = dir.join("input.jsonl");
+        std::fs::write(
+            &input,
+            "{\"word\":\"高兴\",\"pos\":\"adj.\",\"en\":[\"happy\",\"glad\"],\"ja\":[]}\n",
+        )
+        .unwrap();
+        std::fs::write(
+            dir.join("learning-en.tsv"),
+            "高兴\tadj. glad\tadj. elated\n安静\tadj. tranquil\n",
+        )
+        .unwrap();
+        export(&input, &dir).unwrap();
+        let output = std::fs::read_to_string(dir.join("glossary-en.tsv")).unwrap();
+        assert!(output.contains("高兴\tadj. happy\tadj. glad\tadj. elated\n"));
+        assert!(output.contains("安静\tadj. tranquil\n"));
+        assert!(output.find("安静").unwrap() < output.find("高兴").unwrap());
+        std::fs::remove_dir_all(dir).unwrap();
+    }
 }

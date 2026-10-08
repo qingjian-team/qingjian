@@ -61,7 +61,15 @@ TSV 解析、查询与生成工具把 `lue` / `nue` 统一成 `lve` / `nve`。
 ## crates/qingjian-translate
 
 `Glossary`，本地 TSV 释义表（词性 + 译文）；`LevelTable`，词汇等级表（`assets/levels/levels-{en,ja}.tsv`，CEFR A1–C2 / JLPT N5–N1，
-`uv run tools/corpus/levels.py` 从 `data/levels/` 的原始 CSV 生成，来源与许可见 `assets/levels/README.md`），「统计」页按级数词汇用，不进候选。
+`uv run tools/corpus/levels.py` 从 `data/levels/` 的原始 CSV 生成，来源与许可见 `assets/levels/README.md`），用于「统计」页按级数词汇与英语译词难度筛选。
+`Glossary` 与 `PersonalGlossary` 保存完整释义池（TSV 与 `.qj` 都保留），`Translation::MAX_SENSES = 2` 仅限制候选显示。
+`LayeredTranslator::translate_for_learning` 先按 `TranslationDifficulty` 匹配 CEFR 档位，没有命中就退回完整池；未分级不当作高级，个人表仍优先。
+随机抽取最多两条不同译词，不改原表。Engine 按 `(translation_round, 中文词)` 的带随机密钥哈希决定本轮是否抽样与种子；首次输入推进轮次，
+重复 `annotate` / 翻页 / 继续输入保持稳定，`EngineSession` 挂起恢复保留轮次，进程内轮次序列不随会话切换回退。
+`[general] translation_difficulty` 缺省 `all`，`translation_random_percent` 缺省 `0`（运行时限于 0–100）。三端启动装配都加载等级表与选项，macOS / Windows 热加载同步选项；
+图形设置控件本次仅 macOS 通用页提供，Windows / Linux 用配置文件。
+生成工具的英语释义池最多六条，日语仍最多两条；英语提示词要求同义、同词性，常用表达在前、进阶表达在后，不强凑数量。
+人工补充的 `assets/glossary/learning-en.tsv` 随导出流程合并到 `glossary-en.tsv`，重新打 `.qj` 才能让已有包获得扩充释义。
 
 ## crates/qingjian-learning
 

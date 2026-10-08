@@ -25,6 +25,7 @@ mod session;
 mod setup;
 mod statistics;
 mod timings;
+mod translation_difficulty;
 mod translator;
 mod vocabulary;
 
@@ -56,6 +57,7 @@ pub use raw::RawPreedit;
 pub use session::EngineSession;
 pub use statistics::{BOOKS, Book, NoUsageMeter, Usage, UsageMeter, UsageSummary, book_scale};
 pub use timings::Timings;
+pub use translation_difficulty::TranslationDifficulty;
 pub use translator::{NoTranslator, Translator};
 pub use vocabulary::{
     FRESH_UNTIL, LevelCount, NoVocabularyTracker, VocabularySummary, VocabularyTracker,
@@ -85,6 +87,19 @@ pub struct Engine {
 
     /// 译文提供方，缺省为 [`NoTranslator`]。
     translator: Box<dyn Translator>,
+
+    /// 学习译词的难度与随机频率（百分比）。
+    translation_difficulty: TranslationDifficulty,
+
+    translation_random_percent: u8,
+
+    /// 每段输入的抽样轮次；带随机密钥的哈希保证重启后不会重复固定序列。
+    translation_round: u64,
+
+    /// 进程内单调递增，切换会话时也不复用抽样轮次。
+    translation_sequence: u64,
+
+    translation_random: std::collections::hash_map::RandomState,
 
     /// 前缀模式键（表达式 / 问字）。
     modes: ModeKeys,
@@ -387,6 +402,11 @@ impl Engine {
             dictionary,
             extra_dictionaries: Vec::new(),
             translator: Box::new(NoTranslator),
+            translation_difficulty: TranslationDifficulty::All,
+            translation_random_percent: 0,
+            translation_round: 0,
+            translation_sequence: 0,
+            translation_random: std::collections::hash_map::RandomState::new(),
             english_translator: Box::new(NoTranslator),
             modes: ModeKeys::default(),
             learner: learning::MutedLearner::new(Box::new(NoLearner)),

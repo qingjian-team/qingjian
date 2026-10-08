@@ -198,6 +198,10 @@ pub const TEMPLATE: &str = concat!(
 [general]
 # 学习语言（en 英语 / ja 日语 / es 西班牙语 / off 不显示译文）：候选旁显示哪种语言的译文，要有对应的释义表才生效
 learning_language = "en"
+# 英语译词难度：all 全部 / beginner A1–A2 / intermediate B1–B2 / advanced C1–C2；没有目标等级时保留原译词
+translation_difficulty = "all"
+# 新一段输入时随机抽取译词的概率（0–100%），同一段输入保持稳定；0 沿用固定顺序
+translation_random_percent = 0
 # 每页候选数（1–9）
 page_size = 9
 # 翻页键对：前一个上一页、后一个下一页。可选 "[]" 或 ",."；选 ",." 的话组句中敲逗号句号是翻页而不是上屏加标点

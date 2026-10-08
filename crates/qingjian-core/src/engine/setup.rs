@@ -384,6 +384,16 @@ impl Engine {
         self
     }
 
+    /// 难度只用于英语；随机频率为每个词在新一段输入中抽样的概率（0–100）。
+    pub fn set_translation_preferences(
+        &mut self,
+        difficulty: super::TranslationDifficulty,
+        random_percent: u8,
+    ) {
+        self.translation_difficulty = difficulty;
+        self.translation_random_percent = random_percent.min(100);
+    }
+
     pub fn set_translator(&mut self, translator: Box<dyn Translator>) {
         self.translator = translator;
     }

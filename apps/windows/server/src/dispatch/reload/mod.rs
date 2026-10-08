@@ -77,7 +77,7 @@ fn swap_translator(
         );
         return false;
     };
-    match assembly::load_glossary(language, &path, user_dir) {
+    match assembly::load_glossary(language, &path, user_dir, Some(&root.join("assets/levels"))) {
         Ok(glossary) => {
             tracing::info!(language = language.code(), "释义表已切换");
             engine.set_translator(Box::new(glossary));
@@ -198,6 +198,10 @@ impl Router {
         self.reload_code_table(config.general.scheme(), config.general.wubi());
         self.engine.set_traditional_mode(config.general.traditional);
         self.engine.set_learning(config.general.learning);
+        self.engine.set_translation_preferences(
+            config.general.translation_difficulty,
+            config.general.translation_random_percent,
+        );
         self.engine.set_mode_keys(config.shortcut.mode);
         self.engine
             .set_aux_code_key(config.general.aux_code_key(), config.general.page_keys());

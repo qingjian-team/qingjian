@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use qingjian_core::Translation;
+use qingjian_core::Sense;
 use qingjian_format::{Table, Text};
 
 use super::entry_record::EntryRecord;
@@ -10,7 +10,7 @@ use super::sense_record::SenseRecord;
 #[derive(Debug)]
 pub enum Storage {
     /// 内存里自己的。
-    Owned(HashMap<String, Translation>),
+    Owned(HashMap<String, Vec<Sense>>),
 
     /// 映射文件里的。
     Mapped {

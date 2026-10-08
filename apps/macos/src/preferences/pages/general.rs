@@ -3,7 +3,7 @@
 use objc2::MainThreadMarker;
 use objc2::rc::Retained;
 use objc2_app_kit::{NSButton, NSPopUpButton};
-use qingjian_core::Language;
+use qingjian_core::{Language, TranslationDifficulty};
 use qingjian_platform::{Config, MAX_PAGE_SIZE, Scheme};
 
 use crate::preferences::controls::{
@@ -16,6 +16,11 @@ use crate::preferences::target::PreferencesTarget;
 pub struct GeneralPage {
     /// 学习语言。
     learning_language: Retained<NSPopUpButton>,
+
+    /// 英语译词的难度与随机抽样频率。
+    translation_difficulty: Retained<NSPopUpButton>,
+
+    translation_random_percent: Retained<NSPopUpButton>,
 
     /// 每页候选数。
     page_size: Retained<NSPopUpButton>,
@@ -76,6 +81,30 @@ impl GeneralPage {
             layout,
             mtm,
             "候选词右侧显示哪种语言的译词，只列出安装了释义表的语言；「不显示译文」同时关掉生词标记与释义兜底。",
+        );
+        let translation_difficulty = row_popup(
+            layout,
+            mtm,
+            "英语译词难度",
+            &TranslationDifficulty::ALL
+                .iter()
+                .map(|d| d.label().to_owned())
+                .collect::<Vec<_>>(),
+            Setting::TranslationDifficulty,
+            target,
+        );
+        let translation_random_percent = row_popup(
+            layout,
+            mtm,
+            "译词随机频率",
+            &(0..=100).map(|n| format!("{n}%")).collect::<Vec<_>>(),
+            Setting::TranslationRandomPercent,
+            target,
+        );
+        note(
+            layout,
+            mtm,
+            "每次开始输入时按此概率随机选译词，同一段输入保持稳定。0% 沿用固定顺序，100% 每次抽样。英语难度按 CEFR 分级，没有合适等级时保留原译词。",
         );
         let page_size_titles: Vec<String> = (1..=MAX_PAGE_SIZE).map(|n| n.to_string()).collect();
         let page_size = row_popup(
@@ -184,6 +213,8 @@ impl GeneralPage {
         );
         Self {
             learning_language,
+            translation_difficulty,
+            translation_random_percent,
             page_size,
             scheme,
             wubi,
@@ -214,6 +245,20 @@ impl GeneralPage {
                     .position(|l| l.code() == general.learning_language)
             },
         );
+        select(
+            &self.translation_difficulty,
+            TranslationDifficulty::ALL
+                .iter()
+                .position(|d| *d == general.translation_difficulty),
+        );
+        select(
+            &self.translation_random_percent,
+            Some(usize::from(general.translation_random_percent.min(100))),
+        );
+        self.translation_difficulty
+            .setEnabled(!general.learning_language_off() && general.learning_language == "en");
+        self.translation_random_percent
+            .setEnabled(!general.learning_language_off());
         select(&self.page_size, Some(general.page_size() - 1));
         select(
             &self.scheme,

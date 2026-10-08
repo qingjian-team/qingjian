@@ -24,7 +24,7 @@ use qingjian_learning::FrequencyLearner;
 use qingjian_lm::BigramModel;
 use qingjian_platform::{Config, Scheme};
 use qingjian_predict::CloudPredictor;
-use qingjian_translate::Glossary;
+use qingjian_translate::{Glossary, LayeredTranslator, LevelTable, PersonalGlossary};
 
 use crate::args::Args;
 use crate::error::CliError;
@@ -165,7 +165,15 @@ fn build_engine(args: &Args) -> Result<Engine, CliError> {
         "加载完成"
     );
     let mut engine = Engine::new(dictionary)
-        .with_translator(Box::new(glossary))
+        .with_translator(Box::new(
+            LayeredTranslator::new(glossary, PersonalGlossary::in_memory(language)).with_levels(
+                LevelTable::from_path(
+                    std::path::PathBuf::from("assets/levels")
+                        .join(format!("levels-{}.tsv", language.code())),
+                )
+                .unwrap_or_default(),
+            ),
+        ))
         .with_learner(Box::new(learner));
     if !args.extra_dict.is_empty() {
         let mut extras = Vec::new();
@@ -304,6 +312,10 @@ fn build_engine(args: &Args) -> Result<Engine, CliError> {
     }
     engine.set_traditional_mode(config.general.traditional);
     engine.set_fuzzy(config.fuzzy);
+    engine.set_translation_preferences(
+        config.general.translation_difficulty,
+        config.general.translation_random_percent,
+    );
     engine.set_mode_keys(config.shortcut.mode);
     // `--shuangpin` 现在写的是 [general] scheme（同一个维度的旧键已经并进去），off 就是全拼
     if let Some(scheme) = &args.shuangpin {

@@ -13,6 +13,7 @@ use crate::candidate::{Candidate, CandidateKind, CandidateList, Language};
 use crate::correction::typo;
 use crate::{parser, sentence};
 use qingjian_dictionary::Dictionary;
+use std::hash::BuildHasher;
 use std::time::Instant;
 
 mod chain;
@@ -43,10 +44,19 @@ impl Engine {
                     self.english_translator
                         .translate(&text.to_ascii_lowercase())
                 }),
-                _ => self.translator.translate(text).map(|mut translation| {
-                    self.mark_fresh(&mut translation);
-                    translation
-                }),
+                _ => self
+                    .translator
+                    .translate_for_learning(text, self.translation_difficulty, {
+                        let hash = self
+                            .translation_random
+                            .hash_one((self.translation_round, text));
+                        (hash % 100 < u64::from(self.translation_random_percent))
+                            .then_some(hash / 100)
+                    })
+                    .map(|mut translation| {
+                        self.mark_fresh(&mut translation);
+                        translation
+                    }),
             };
             hits += usize::from(candidate.translation.is_some());
         }

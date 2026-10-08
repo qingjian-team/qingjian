@@ -168,6 +168,8 @@ impl Engine {
     pub fn push(&mut self, c: char) {
         if self.composition.is_empty() {
             // 新一段组句：从这一键起算耗时、翻页与重打
+            self.translation_sequence = self.translation_sequence.wrapping_add(1);
+            self.translation_round = self.translation_sequence;
             self.composition_started = Some(Instant::now());
             self.page_turns = 0;
             self.retype_snapshot = None;

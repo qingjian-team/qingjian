@@ -1,9 +1,19 @@
 //! 菜单与偏好设置窗口的动作：只改 config.toml（或触发一次性操作），改完由 apply_config 统一生效。
 
+use super::Host;
 use super::diagnostics::{copy_to_pasteboard, open_with_system};
-use super::*;
+use crate::app::logging;
+use crate::menubar::MenuAction;
 use crate::preferences::DEFAULT_FONT_LABEL;
+use crate::preferences::{Setting, SettingValue};
+use qingjian_core::TranslationDifficulty;
+use qingjian_core::{FuzzyRules, ModeKeys};
 use qingjian_platform::ShiftLetter;
+use qingjian_platform::{
+    CandidateRenderer, DEFAULT_ENGLISH_CANDIDATES_OFF, KeyCombo, LEARNING_LANGUAGE_OFF, LayoutMode,
+    LogLevel, Modifiers, PAGE_KEY_OPTIONS, PreeditMode, Scheme, ShortcutConfig, ThemeMode,
+    UpdateChannel,
+};
 
 impl Host {
     /// 写短语前读取文件；外部规则有变化时同步列表并请用户重新确认。
@@ -174,6 +184,19 @@ impl Host {
                     .map_or(LEARNING_LANGUAGE_OFF, |language| language.code());
                 self.settings
                     .set_value("general", "learning_language", code);
+            }
+            (Setting::TranslationDifficulty, SettingValue::Index(index)) => {
+                if let Some(difficulty) = TranslationDifficulty::ALL.get(index) {
+                    self.settings
+                        .set_value("general", "translation_difficulty", difficulty.key());
+                }
+            }
+            (Setting::TranslationRandomPercent, SettingValue::Index(index)) => {
+                self.settings.set_value(
+                    "general",
+                    "translation_random_percent",
+                    index.min(100) as i64,
+                );
             }
             (Setting::PageSize, SettingValue::Index(index)) => {
                 self.settings
