@@ -167,9 +167,11 @@ fn commit_from_other_session_does_not_take_buffer() {
 #[test]
 fn page_keys_follow_config() {
     // 每页 1 条保证多页；翻页键改成 `,` `.`。
+    // 组句中标点进直输段的老行为（`punct_commits` 关），`]` 才会留在拼音行里
     let mut router = router_with(RouterConfig {
         page_size: 1,
         page_keys: (',', '.'),
+        punct_commits: false,
         ..RouterConfig::default()
     });
     let (_, _, frame) = type_letters(&mut router, "ni");
