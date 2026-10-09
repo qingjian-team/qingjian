@@ -166,6 +166,9 @@ impl Host {
                 self.settings
                     .set_bool("general", "full_width_punctuation", index == 0);
             }
+            (Setting::PunctCommits, SettingValue::Bool(on)) => {
+                self.settings.set_bool("general", "punct_commits", on);
+            }
             (Setting::LearningLanguage, SettingValue::Index(index)) => {
                 // 菜单最后一项是「不显示译文」
                 let code = self

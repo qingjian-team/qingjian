@@ -125,14 +125,19 @@ impl QingjianInputController {
         // 微软 / 搜狗双拼的 `;` 是 ing 键：末尾有落单声母时进缓冲区，其他时候还是标点
         let semicolon =
             composing && c == ';' && host::with(|h| h.engine.takes_semicolon()).unwrap_or(false);
-        // 组句中敲半角标点：进缓冲区，整段成为英文直输段（`hello,` `dui'ma?`），中文模式下也能打带标点的英文；
-        // 翻页键除外；⇧+数字（! @ # …）在前面已被删候选 / 译词键截走
+        // 组句中敲不会转全角的符号（`/` `@`，`-` 由上面的 hyphen 接）：进缓冲区，整段成为英文直输段（`a@b`），
+        // 中文模式下也能打带符号的英文；翻页键除外；⇧+数字（! @ # …）在前面已被删候选 / 译词键截走。
+        // 会转全角的标点（`,` `.` `?` `!` 引号、括号这些）不进缓冲区：落到下方先把高亮候选上屏再补全角标点
+        //（`nihao,` 一气打完「你好，」），与 Windows / Linux 壳一致；这条上屏行为由 `[general] punct_commits`
+        // 控制（缺省开），关掉恢复老行为：标点也进缓冲区（英文直输段）。
+        let punct_commits = host::with(|h| h.punct_commits).unwrap_or(true);
         let punctuation = composing
             && !question
             && !expression
             && c.is_ascii_punctuation()
             && c != page_previous
-            && c != page_next;
+            && c != page_next
+            && !(punct_commits && qingjian_core::punctuation::converts(c));
         if c.is_ascii_lowercase()
             || (composing && c == '\'')
             || semicolon

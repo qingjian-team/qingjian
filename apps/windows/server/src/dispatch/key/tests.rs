@@ -148,3 +148,69 @@ fn tab_with_raw_input_and_no_candidates_is_consumed_without_commit() {
     assert_eq!(result.1, None);
     assert_eq!(result.2.page, 0);
 }
+/// 组句中会转全角的标点：先把高亮候选上屏再补标点（`ni,` 出「你，」）；
+/// 半角标点模式下候选照样上屏、标点按半角补。`,` `.` 配成翻页键时翻页优先，不上屏。
+#[test]
+fn punctuation_commits_highlighted_candidate() {
+    let mut router = router(5);
+    let normal = KeyModifiers::default();
+    compose(&mut router, "ni", normal);
+    let result = key(&mut router, 0xBC, Some(','), normal);
+    assert_eq!(result.0, KeyOutcome::Consumed);
+    assert_eq!(result.1.as_deref(), Some("你，"));
+    router.config.full_width = false;
+    compose(&mut router, "ni", normal);
+    let result = key(&mut router, 0xBC, Some(','), normal);
+    assert_eq!(result.1.as_deref(), Some("你,"));
+    router.config.page_keys = (',', '.');
+    compose(&mut router, "ni", normal);
+    let result = key(&mut router, 0xBC, Some(','), normal);
+    assert_eq!(result.0, KeyOutcome::Consumed);
+    assert_eq!(result.1, None);
+    assert_eq!(result.2.page, 0);
+}
+/// 不会转全角的符号（`-`）仍进英文直输段；`'` 是隔音符，进缓冲区不触发上屏，随后的标点照常上屏候选。
+#[test]
+fn unconvertible_symbols_do_not_commit_candidates() {
+    let mut router = router(5);
+    let normal = KeyModifiers::default();
+    compose(&mut router, "ni", normal);
+    let result = key(&mut router, 0xBD, Some('-'), normal);
+    assert_eq!(result.1, None);
+    let result = key(&mut router, 0x20, Some(' '), normal);
+    assert_eq!(result.1.as_deref(), Some("ni- "));
+    compose(&mut router, "ni", normal);
+    let result = key(&mut router, 0xDE, Some('\''), normal);
+    assert_eq!(result.1, None);
+    let result = key(&mut router, 0xBC, Some(','), normal);
+    assert_eq!(result.1.as_deref(), Some("你，"));
+}
+/// 直通了数字再组句，`Punctuation` 的「数字后的点保持半角」状态要跟着刷新：`3` + `ni` + `.` 出「你。」不出「你.」。
+#[test]
+fn digit_then_composition_resets_decimal_point_state() {
+    let mut router = router(5);
+    let normal = KeyModifiers::default();
+    key(&mut router, 0x33, Some('3'), normal);
+    compose(&mut router, "ni", normal);
+    let result = key(&mut router, 0xBE, Some('.'), normal);
+    assert_eq!(result.1.as_deref(), Some("你。"));
+}
+/// 关掉 `[general] punct_commits`：组句中的标点回到老行为——进英文直输段，不再上屏候选；开回来恢复。
+#[test]
+fn punct_commits_off_keeps_punctuation_in_raw_segment() {
+    let mut router = router(5);
+    let normal = KeyModifiers::default();
+    router.config.punct_commits = false;
+    compose(&mut router, "ni", normal);
+    assert_eq!(key(&mut router, 0xBC, Some(','), normal).1, None);
+    assert_eq!(
+        key(&mut router, 0x20, Some(' '), normal).1.as_deref(),
+        Some("ni, ")
+    );
+    router.config.punct_commits = true;
+    compose(&mut router, "ni", normal);
+    assert_eq!(
+        key(&mut router, 0xBC, Some(','), normal).1.as_deref(),
+        Some("你，")
+    );
+}
