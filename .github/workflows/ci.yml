@@ -47,6 +47,11 @@ jobs:
       - name: Test
         run: cargo test --workspace --exclude qingjian-macos --locked
 
+      - name: Android shell JVM checks
+        run: |
+          bash -n apps/android/build-native.sh apps/android/build-android.sh apps/android/test-java.sh
+          bash apps/android/test-java.sh
+
       - name: Build and test Fcitx5 default panel
         run: |
           cargo build -p qingjian-linux-server --locked

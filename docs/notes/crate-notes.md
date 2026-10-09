@@ -347,3 +347,9 @@ DLL 不读文件、不查 mtime。`SessionOpened` 只回过协议版本对得上
 Unix socket 用共享长度前缀与 Frame（当前公共版本 8，与 `PROTOCOL_VERSION` 同步，Fcitx5 插件里写死在 `qingjian.cpp` 的 OpenSession）；插件复用一条连接，每个上下文独立会话。Linux v3 扩展逐会话握手、确认 Sensitive/Password/Disable 后接受按下/释放、焦点和点击事实。
 候选回报绑定连接代次、上下文和服务端帧序号，仅当前聚焦页的有效释义进入 `note_displayed`，不把生成帧算作已展示。
 `[general] preedit` 使用已有 `both` / `inline` / `window`；没有新增 Linux 自绘配置。详见 [linux-fcitx5.md](linux-fcitx5.md)。
+
+## apps/android
+
+`qingjian-android` 是版本为 `0.1.3-dev` 的独立 Android 产品，JNI 入口在 `apps/android/native/src/lib.rs`，`Bridge` 在 `bridge.rs` 装配既有 Engine。全部调用在同一 Java executor；查询最多 96 字符、返回 32 候选；无学习 probe 的 Core commit 提供消耗长度。应用确认上屏后才学习，密码及禁止个性化学习的输入框除外。
+
+Java 入口为 `QingjianInputMethodService`；`KeyboardLayout` 共用绘制和命中几何，`CandidateStrip` 缓存卡片位置并二分筛选可见候选，`DeleteRepeater` 为 450ms / 70ms 长按节拍。导航栏安全区由外层容器处理。产品数据为 `dict.qj`、`glossary-en.qj` 和可选 `lm.qj`，不提交二进制。构建、数据来源、限制和真机记录见 [android.md](android.md)。

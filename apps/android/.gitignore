@@ -1,0 +1,13 @@
+/src/main/assets/data/
+jniLibs/
+build/
+output/
+*.apk
+*.idsig
+*.jks
+*.p12
+*.class
+build-contained.sh
+run-contained-build.ps1
+setup-linux.sh
+ui-tests/run-ui-check.ps1
