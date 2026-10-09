@@ -2,10 +2,15 @@
 
 use qingjian_platform::{
     Appearance, CandidateRenderer, Config, DEFAULT_ENGLISH_CANDIDATES_OFF_WINDOWS, LayoutMode,
-    LogLevel, PreeditMode, ShiftLetter, UpdateChannel,
+    LogLevel, NumpadDigit, PreeditMode, ShiftLetter, UpdateChannel,
 };
 use qingjian_render::ThemeLibrary;
-use windows_reactor::*;
+use windows_reactor::{
+    Component, ComponentContext, ElementRef, KeyedView, NavigationView,
+    NavigationViewBackButtonVisible, NavigationViewItem, NavigationViewItemSlot,
+    NavigationViewPaneDisplayMode, NavigationViewSlot, SlotView, SlotsControl, Symbol, SymbolIcon,
+    View, ViewContext,
+};
 
 use super::cloud_status::CloudStatus;
 use super::controls::{export_logs, log_dir, open_in_editor, open_with_explorer};
@@ -68,6 +73,9 @@ impl Component for Settings {
             Message::EnglishCandidates(on) => self.save("general", "english_candidates", on),
             Message::EnglishInChinese(on) => self.save("general", "english_in_chinese", on),
             Message::ChineseFirst(on) => self.save("general", "chinese_first", on),
+            Message::NumpadDigit(Some(i)) if i < NumpadDigit::ALL.len() => {
+                self.save("general", "numpad_digit", NumpadDigit::ALL[i].key());
+            }
             Message::FullWidthPunctuation(on) => {
                 self.save("general", "full_width_punctuation", on);
             }

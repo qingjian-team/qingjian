@@ -1,7 +1,10 @@
 //! 「通用」页：学习语言、每页候选数、输入方案、英文模式候选。
 
-use qingjian_platform::{MAX_PAGE_SIZE, Scheme, ShiftLetter, SwitchKey};
-use windows_reactor::*;
+use qingjian_platform::{MAX_PAGE_SIZE, NumpadDigit, Scheme, ShiftLetter, SwitchKey};
+use windows_reactor::{
+    Callback, CheckBox, ChildrenControl, ComboBox, ContentControl, NumberBox, Orientation,
+    StackPanel, ToggleSwitch, View, ViewContext,
+};
 
 use crate::panel::controls::{feedback, field, index_of, page};
 use crate::panel::{Message, Settings};
@@ -175,6 +178,18 @@ pub(crate) fn view(settings: &Settings, context: &mut ViewContext<Settings>) -> 
             "勾上的键都能在中英之间切换，可以多选，改完立刻生效；中英模式所有应用共用一份。打字时容易误触 Shift 的话改勾「单击 Ctrl」；一个都不勾时只剩任务栏 / 悬浮状态条上的「中」「英」按钮。\
              系统自带的 Ctrl + Space 也能切中英，与微软拼音一致，不用勾（装了别的输入法时 Windows 可能改用它切换输入法）。",
             switch_key_boxes(settings, context),
+        ),
+        field(
+            "中文组句中的小键盘数字",
+            "选择候选（默认），或直接输入数字并与已敲内容一起上屏。主键盘数字仍选候选；英文、注音、表达式和问字模式不受影响。",
+            ComboBox::new()
+                .items_source(NumpadDigit::ALL.iter().map(|mode| mode.label()))
+                .selected_index(
+                    NumpadDigit::ALL
+                        .iter()
+                        .position(|mode| *mode == g.numpad_digit),
+                )
+                .on_selection_changed(context.callback(Message::NumpadDigit)),
         ),
         field(
             "启用内置英文模式",
