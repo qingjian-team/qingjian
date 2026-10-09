@@ -253,8 +253,10 @@ impl QingjianInputController {
         })
         .unwrap_or((false, 0));
         self.apply_pending_input(client);
+        // 配置重载后 ivars 里的代数过期了；但 Chromium 系应用会先建会话送事件、后 activateServer，
+        // 全新会话在这里第一次见到代数差异，不能因此把还没开始的轻按标记成 blocked
         if self.ivars().generation.replace(generation) != generation {
-            self.ivars().shift.borrow_mut().cancel();
+            self.ivars().shift.borrow_mut().cancel_if_armed();
         }
         if event.r#type() == NSEventType::FlagsChanged {
             let tapped = self.ivars().shift.borrow_mut().changed(
