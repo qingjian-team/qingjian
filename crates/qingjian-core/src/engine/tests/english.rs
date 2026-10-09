@@ -633,3 +633,74 @@ fn a_long_raw_commit_with_english_in_the_middle_is_not_learned() {
         "只有真正像一个词的才该进个人英文词表"
     );
 }
+
+#[test]
+fn passthrough_has_no_candidates_modes_or_full_width_punctuation() {
+    let mut engine = engine().with_mode_keys(crate::ModeKeys {
+        question_mark: true,
+        ..crate::ModeKeys::default()
+    });
+    assert!(engine.takes_question_mark());
+    engine.set_english_input_policy(true, false);
+    for c in "hello?v123".chars() {
+        engine.push(c);
+    }
+    assert!(engine.composition().is_empty());
+    assert!(engine.query().unwrap().candidates.items.is_empty());
+    assert!(!engine.takes_question_mark());
+    assert!(!engine.takes_mode_letter('U'));
+    assert_eq!(engine.punctuate(','), None);
+    engine.set_english_mode(false);
+    assert!(!engine.english_passthrough());
+    assert_eq!(engine.punctuate(','), Some("，"));
+}
+
+#[test]
+fn raw_switch_and_old_english_api_preserve_existing_behavior() {
+    let words = WordList::parse("hello\thello\t100\n").unwrap();
+    let mut engine = engine().with_english(words);
+    engine.set_input("nihao");
+    assert_eq!(engine.take_raw(), "nihao");
+    engine.set_english_input_policy(true, false);
+    engine.set_english_mode(true);
+    engine.set_input("hello");
+    assert_eq!(engine.query().unwrap().candidates.items[0].text, "hello");
+}
+
+#[test]
+fn passthrough_policy_is_saved_and_discarded_with_session() {
+    let mut engine = engine();
+    let mut session = crate::EngineSession::default();
+    engine.set_english_input_policy(true, false);
+    engine.swap_session(&mut session);
+    assert!(!engine.english_passthrough());
+    engine.swap_session(&mut session);
+    assert!(engine.english_passthrough());
+    engine.discard_input();
+    assert!(!engine.english_passthrough());
+    engine.set_english_input_policy(true, false);
+    engine.swap_session(&mut session);
+    session.discard_input();
+    engine.swap_session(&mut session);
+    assert!(!engine.english_passthrough());
+}
+
+#[test]
+fn caps_letter_normalization_preserves_real_shift_and_punctuation() {
+    let mut engine = engine();
+    for english in [false, true] {
+        engine.set_english_input_policy(english, false);
+        assert_eq!(engine.normalize_input_letter('A', true, false), 'a');
+        assert_eq!(engine.normalize_input_letter('a', true, true), 'A');
+        assert_eq!(engine.normalize_input_letter('A', false, false), 'A');
+        for c in [',', '?', '1', '中', 'é'] {
+            assert_eq!(engine.normalize_input_letter(c, true, true), c);
+        }
+    }
+    engine.set_english_mode(false);
+    for c in "NIHAO".chars() {
+        engine.push(engine.normalize_input_letter(c, true, false));
+    }
+    assert_eq!(engine.composition().text(), "nihao");
+    assert_eq!(engine.take_raw(), "nihao");
+}

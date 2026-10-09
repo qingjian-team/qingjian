@@ -7,13 +7,22 @@ pub(super) use text_replacements::TextReplacement;
 pub(super) use watch::ConfigWatch;
 
 use super::init::load_glossary;
-use super::*;
+use super::{Host, LEARNING_FLUSH_INTERVAL};
+use crate::app::{logging, paths};
+use crate::preferences::UpdateStatus;
+use qingjian_core::{Language, NoGlossFiller, NoPredictor, NoTranslator};
+use qingjian_platform::{GeneralConfig, Scheme};
+use qingjian_predict::{CloudGlossFiller, CloudPredictor};
 
 impl Host {
     /// 把当前配置推给 Engine 与界面：模糊音 / 模式键 / 翻页 / 外观直接设；学习语言变了换释义表；
     /// `[predict]` 变了（或 `force`）才重建 Predictor；最后刷新云朵标识、菜单勾选与设置窗口。
     pub fn apply_config(&mut self, force: bool) {
         let config = self.settings.config().clone();
+        self.input_config_generation = self.input_config_generation.wrapping_add(1);
+        if !config.shortcut.switch_mode.shift {
+            self.input.disable_shift();
+        }
         self.engine.set_fuzzy(config.fuzzy);
         self.engine.set_traditional_mode(config.general.traditional);
         self.engine
@@ -92,7 +101,7 @@ impl Host {
         }
         let cloud_active = self.engine.prediction_enabled();
         self.indicator.set_cloud(cloud_active);
-        self.indicator.update();
+        self.update_input_indicator();
         self.menu.sync(&config, cloud_active, self.settings.error());
         let key_present = config
             .predict
@@ -137,6 +146,10 @@ impl Host {
         tracing::info!(count = latest.len(), "系统文本替换已读取");
         self.text_replacements = latest;
         let config = self.settings.config().clone();
+        self.input_config_generation = self.input_config_generation.wrapping_add(1);
+        if !config.shortcut.switch_mode.shift {
+            self.input.disable_shift();
+        }
         if config.general.system_text_replacements {
             self.apply_custom_phrases(&config);
         }

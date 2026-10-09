@@ -1,8 +1,21 @@
 //! 注入与开关：词库、模糊音、双拼、翻译 / 学习 / 联想等 trait 实现的挂接，以及相应的只读访问。
 
 use super::aux_code::is_valid_aux_code_key;
-use super::*;
+use super::{
+    DEFAULT_AUX_CODE_KEY, Engine, GlossFiller, InputLogger, Learner, ModeKeys, NEURAL_MARGIN,
+    NEURAL_WEIGHT, Predictor, RESCORE_CONTEXT_CHARS, Translator, UsageMeter, UsageSummary,
+    VocabularyTracker, marked_rest,
+};
+use crate::candidate::Language;
+use crate::correction::TypoCosts;
+use crate::emoji::EmojiTable;
 use crate::engine::decoded::EngineDecoded;
+use crate::fuzzy::FuzzyRules;
+use crate::history::InputHistory;
+use crate::sentence::{Interpolation, LanguageModel, Personal, SentenceScorer};
+use crate::shuangpin::Scheme;
+use qingjian_dictionary::{AuxCodeLookup, CodeTable, Dictionary, WordList};
+use std::sync::Arc;
 
 impl Engine {
     /// 设置中文模式的标点转换。
@@ -189,14 +202,15 @@ impl Engine {
     /// 壳只在中文模式、Caps 灭时问。
     pub fn takes_mode_letter(&self, c: char) -> bool {
         let modes = self.modes();
-        (self.shuangpin.is_some() || self.mixed())
+        !self.english_passthrough
+            && (self.shuangpin.is_some() || self.mixed())
             && !self.zhuyin
             && (c == modes.expression || c == modes.question)
     }
 
     /// 缓冲区为空时敲 `?` 该不该进问字模式（配置 `[shortcut] question_mark`）：壳据此决定问号是入口还是标点。
     pub fn takes_question_mark(&self) -> bool {
-        self.modes().question_mark
+        !self.english_passthrough && self.modes().question_mark
     }
 
     /// 双拼开着时把一段键解成全拼；全拼下为 `None`，调用方原样用键。
@@ -360,7 +374,35 @@ impl Engine {
     /// 进入 / 离开英文模式。英文模式下 [`Self::query`] 只给英文词表的候选，回车与空格仍由壳原样上屏敲的字母，
     /// 不发云联想，也不把原样上屏记成「不纠这个串」。
     pub fn set_english_mode(&mut self, on: bool) {
-        self.english_mode = on;
+        self.set_english_input_policy(on, true);
+    }
+
+    /// 壳先原样上屏旧缓冲区，再更新输入策略；不修改中文标点配置。
+    pub fn set_english_input_policy(&mut self, english: bool, candidates: bool) {
+        self.english_mode = english;
+        self.english_passthrough = english && !candidates;
+    }
+
+    /// 系统已处理大小写的字母：Caps 亮时恢复实际 Shift 意图，其他字符保持原样。
+    pub fn normalize_input_letter(&self, c: char, caps: bool, shift: bool) -> char {
+        if caps && c.is_ascii_alphabetic() {
+            if shift {
+                c.to_ascii_uppercase()
+            } else {
+                c.to_ascii_lowercase()
+            }
+        } else {
+            c
+        }
+    }
+
+    /// 英文状态下问字仍以小写接收问题，不受大小写锁定影响。
+    pub fn normalize_question_letter(&self, c: char, question: bool) -> char {
+        if question { c.to_ascii_lowercase() } else { c }
+    }
+
+    pub fn english_passthrough(&self) -> bool {
+        self.english_passthrough
     }
 
     pub fn english_mode(&self) -> bool {

@@ -1,6 +1,24 @@
 //! 候选生成：按输入模式分派查询。各模式的实现在兄弟文件里，共用的候选构造留在这里。
 
-use super::*;
+use super::{
+    ALTERNATE_MIN_SYLLABLES, ENGLISH_MODE_CANDIDATES, ENGLISH_SWITCH_PENALTY, ENGLISH_ZIPF_FLOOR,
+    Engine, Learner, MAX_CANDIDATES, MIN_COMPLETION_LETTERS, MIN_ENGLISH_TAIL_HEAD_LETTERS,
+    MIN_ENGLISH_TAIL_LETTERS, MIN_GENERATED_LETTERS, MIN_PINYIN_LIKE_TAIL_LETTERS, RESCORE_PATHS,
+    SENTENCE_CANDIDATES, Timings, abbreviated_count, choice_key, is_raw, pattern_key,
+    segment_longest_prefix,
+};
+use crate::candidate::{Candidate, CandidateKind, CandidateList};
+use crate::correction::{self, typo};
+use crate::english;
+use crate::fuzzy::Expanded;
+use crate::parser::{self, ParseError, Segmentation};
+use crate::ranking::{self, Scored};
+use crate::sentence::{self, Conversion};
+use crate::shortcut;
+use qingjian_dictionary::Match;
+use std::collections::HashMap;
+use std::time::Duration;
+use std::time::Instant;
 
 mod code;
 mod converting;
@@ -24,6 +42,9 @@ impl Engine {
     /// 光标停在拼音中间时只按光标前的那段算候选（`ni|hao` 出 你），光标后的拼音留着，
     /// 上屏之后接着组句；见 [`Composition::scope`]。
     pub fn query(&self) -> Result<Query, ParseError> {
+        if self.english_passthrough {
+            return Ok(Query::default());
+        }
         self.last_rescored.set(false);
         let mut query = match self.query_inner() {
             Ok(query) => query,

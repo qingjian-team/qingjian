@@ -13,7 +13,7 @@ pub struct ShortcutConfig {
     #[serde(flatten)]
     pub mode: ModeKeys,
 
-    /// 中 / 英切换键（Windows 用），可多选：`["shift", "control", "ctrl+alt+space"]`。详见 [`SwitchKeys`]。
+    /// 中 / 英切换键（macOS 仅支持 Shift 直通英文），可多选：`["shift", "control", "ctrl+alt+space"]`。详见 [`SwitchKeys`]。
     pub switch_mode: SwitchKeys,
 
     /// 数字键配这些修饰键：上屏候选的第一个译词。

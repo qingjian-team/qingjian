@@ -14,6 +14,9 @@ pub struct EngineSession {
     /// 当前中英文模式。
     english_mode: bool,
 
+    /// 英文直通策略随输入上下文保存。
+    english_passthrough: bool,
+
     /// 中文标点与引号配对。
     punctuation: Punctuation,
 
@@ -59,6 +62,10 @@ impl Engine {
         self.set_rescoring_context(None);
         std::mem::swap(&mut self.composition, &mut session.composition);
         std::mem::swap(&mut self.english_mode, &mut session.english_mode);
+        std::mem::swap(
+            &mut self.english_passthrough,
+            &mut session.english_passthrough,
+        );
         std::mem::swap(&mut self.punctuation, &mut session.punctuation);
         std::mem::swap(&mut self.recent_commits, &mut session.recent_commits);
         std::mem::swap(&mut self.recording, &mut session.recording);
@@ -91,6 +98,7 @@ impl EngineSession {
     pub fn discard_input(&mut self) {
         self.composition.clear();
         self.english_mode = false;
+        self.english_passthrough = false;
         self.punctuation = Punctuation::default();
         self.recent_commits.clear();
         self.recording.clear();
@@ -112,6 +120,7 @@ impl Engine {
         self.cancel_prediction();
         self.composition.clear();
         self.english_mode = false;
+        self.english_passthrough = false;
         self.punctuation = Punctuation::default();
         self.recent_commits.clear();
         self.recording.clear();
