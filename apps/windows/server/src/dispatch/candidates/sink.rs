@@ -11,6 +11,9 @@ pub struct RenderSettings {
 
     /// 字族名（`[general] font`），空为系统字体。
     pub font: String,
+
+    /// 候选字号（`[general] font_size`，点，整数）；只对青简渲染器生效。
+    pub font_size: u8,
 }
 
 /// Router 只产出帧，画交给它；Windows 上由 UI 线程实现。

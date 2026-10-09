@@ -7,6 +7,12 @@ use super::{CandidateRenderer, LayoutMode, LogLevel, PreeditMode, ShiftLetter, T
 /// 每页最多几个候选：数字键只有 1–9。
 pub const MAX_PAGE_SIZE: usize = 9;
 
+/// 候选字号的缺省值（点）；也是没写 `[general] font_size` 时的值。
+pub const DEFAULT_FONT_SIZE: u8 = 16;
+
+/// 候选字号的合法范围（点）：过小/过大都夹回来。字号取整数点，与设置界面的步进一致。
+pub const FONT_SIZE_RANGE: std::ops::RangeInclusive<u8> = 8..=48;
+
 /// 翻页键对的可选值，第一项是缺省：第一个键向前、第二个向后。
 /// 缺省不用 `,` `.`：组句中敲逗号句号应该把首选上屏再补一个全角标点（`nihao,zaima` 一气打完），
 /// 拿它们翻页就得先按空格再敲标点。选 `-` `=` 时组句中的 `-` 是翻页，不再进英文直输段（#43）。
@@ -45,6 +51,9 @@ pub struct GeneralConfig {
 
     /// 候选窗口字体的字族名；空为系统字体。只对青简渲染器生效，没装这个字体时回到系统字体。
     pub font: String,
+
+    /// 候选窗口的字号（点，整数）。只对青简渲染器生效；缺省 [`DEFAULT_FONT_SIZE`]，越界按 [`FONT_SIZE_RANGE`] 夹回。
+    pub font_size: u8,
 
     /// 组句中的拼音显示在行内、候选窗口还是两处都显示。
     pub preedit: PreeditMode,
@@ -127,6 +136,7 @@ impl Default for GeneralConfig {
             horizontal_grid: false,
             renderer: CandidateRenderer::default(),
             font: String::new(),
+            font_size: DEFAULT_FONT_SIZE,
             preedit: PreeditMode::default(),
             english_candidates: true,
             traditional: false,
@@ -247,6 +257,12 @@ impl GeneralConfig {
         self.page_size.clamp(1, MAX_PAGE_SIZE)
     }
 
+    /// 候选字号（点）；写得越界时夹回 [`FONT_SIZE_RANGE`]。整数点，与设置界面的步进一致。
+    pub fn font_size(&self) -> u8 {
+        self.font_size
+            .clamp(*FONT_SIZE_RANGE.start(), *FONT_SIZE_RANGE.end())
+    }
+
     /// 翻页键对；写得不对（不是两个不同的 ASCII 可见字符）时退回缺省。
     pub fn page_keys(&self) -> (char, char) {
         let mut chars = self.page_keys.chars();
@@ -293,6 +309,22 @@ mod tests {
         assert_eq!(general.page_keys(), ('[', ']'));
         general.page_keys = ",,".to_owned();
         assert_eq!(general.page_keys(), ('[', ']'));
+    }
+
+    /// 字号缺省 16pt；toml 写了就生效；越界夹回；非有限数退回缺省。
+    #[test]
+    fn font_size_defaults_reads_and_clamps() {
+        let general = GeneralConfig::default();
+        assert_eq!(general.font_size(), DEFAULT_FONT_SIZE);
+
+        let general: GeneralConfig = toml::from_str("font_size = 18\n").unwrap();
+        assert_eq!(general.font_size(), 18);
+
+        let general: GeneralConfig = toml::from_str("font_size = 100\n").unwrap();
+        assert_eq!(general.font_size(), *FONT_SIZE_RANGE.end());
+
+        let general: GeneralConfig = toml::from_str("font_size = 2\n").unwrap();
+        assert_eq!(general.font_size(), *FONT_SIZE_RANGE.start());
     }
 
     #[test]

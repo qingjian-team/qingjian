@@ -8,6 +8,12 @@ mod palette;
 pub use font_spec::FontSpec;
 pub use palette::Palette;
 
+/// 候选字号的缺省值（点）；与 `[general] font_size` 缺省一致。
+pub const DEFAULT_FONT_SIZE: f32 = 16.0;
+
+/// 候选字号的合法范围（点）。
+const FONT_SIZE_RANGE: std::ops::RangeInclusive<f32> = 8.0..=48.0;
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct Theme {
     /// 候选词字体。
@@ -45,20 +51,40 @@ pub struct Theme {
 impl Theme {
     /// 浅色，对齐 macOS 系统外观。
     pub fn light() -> Self {
-        Self::with_palette(Palette::light(), 0.85)
+        Self::with_palette(Palette::light(), 0.85, DEFAULT_FONT_SIZE)
     }
 
     /// 深色，对齐 macOS 系统外观。
     pub fn dark() -> Self {
-        Self::with_palette(Palette::dark(), 0.75)
+        Self::with_palette(Palette::dark(), 0.75, DEFAULT_FONT_SIZE)
     }
 
-    fn with_palette(colors: Palette, text_gamma: f32) -> Self {
+    /// 按候选字号取主题；越界夹回 [`FONT_SIZE_RANGE`]。
+    pub fn with_font_size(dark: bool, font_size: f32) -> Self {
+        if dark {
+            Self::with_palette(Palette::dark(), 0.75, font_size)
+        } else {
+            Self::with_palette(Palette::light(), 0.85, font_size)
+        }
+    }
+
+    /// 候选字号（点）；非有限数退回缺省。
+    fn sanitized_font_size(font_size: f32) -> f32 {
+        if font_size.is_finite() {
+            font_size.clamp(*FONT_SIZE_RANGE.start(), *FONT_SIZE_RANGE.end())
+        } else {
+            DEFAULT_FONT_SIZE
+        }
+    }
+
+    fn with_palette(colors: Palette, text_gamma: f32, font_size: f32) -> Self {
+        // 行高取 AppKit 系统字体在这几个字号下 NSAttributedString.size() 的高度；
+        // 字号按 `font_size` 等比缩放，保持候选/译文/序号三档的视觉层级不变。
+        let scale = Self::sanitized_font_size(font_size) / DEFAULT_FONT_SIZE;
         Self {
-            // 行高取 AppKit 系统字体在这几个字号下 NSAttributedString.size() 的高度
-            text_font: FontSpec::new(16.0, 19.0),
-            annotation_font: FontSpec::new(12.0, 15.0),
-            index_font: FontSpec::new(11.0, 14.0),
+            text_font: FontSpec::new(16.0 * scale, 19.0 * scale),
+            annotation_font: FontSpec::new(12.0 * scale, 15.0 * scale),
+            index_font: FontSpec::new(11.0 * scale, 14.0 * scale),
             colors,
             padding: 8.0,
             row_padding: 4.0,
@@ -67,5 +93,50 @@ impl Theme {
             max_rows: 9,
             text_gamma,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn default_themes_use_default_font_size() {
+        assert_eq!(Theme::light().text_font.size, DEFAULT_FONT_SIZE);
+        assert_eq!(Theme::dark().text_font.size, DEFAULT_FONT_SIZE);
+    }
+
+    #[test]
+    fn font_size_scales_all_three_tiers_proportionally() {
+        let base = Theme::light();
+        let bigger = Theme::with_font_size(false, 20.0);
+        let scale = 20.0 / DEFAULT_FONT_SIZE;
+        assert_eq!(bigger.text_font.size, base.text_font.size * scale);
+        assert_eq!(
+            bigger.annotation_font.size,
+            base.annotation_font.size * scale
+        );
+        assert_eq!(bigger.index_font.size, base.index_font.size * scale);
+        // 行高同步缩放
+        assert_eq!(
+            bigger.text_font.line_height,
+            base.text_font.line_height * scale
+        );
+    }
+
+    #[test]
+    fn font_size_out_of_range_or_non_finite_falls_back() {
+        assert_eq!(
+            Theme::with_font_size(false, 100.0).text_font.size,
+            *FONT_SIZE_RANGE.end()
+        );
+        assert_eq!(
+            Theme::with_font_size(false, 2.0).text_font.size,
+            *FONT_SIZE_RANGE.start()
+        );
+        assert_eq!(
+            Theme::with_font_size(false, f32::NAN).text_font.size,
+            DEFAULT_FONT_SIZE
+        );
     }
 }

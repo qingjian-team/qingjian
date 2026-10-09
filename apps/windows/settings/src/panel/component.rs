@@ -129,6 +129,11 @@ impl Component for Settings {
                 self.font_query = None;
                 self.save("general", "font", family);
             }
+            Message::FontSize(Some(value)) => {
+                let range = qingjian_platform::FONT_SIZE_RANGE;
+                let size = (value.round() as i64).clamp(*range.start() as i64, *range.end() as i64);
+                self.save("general", "font_size", size);
+            }
             Message::StatusBar(on) => self.save("status_bar", "enabled", on),
 
             // 云服务页

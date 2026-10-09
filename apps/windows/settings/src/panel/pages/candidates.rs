@@ -75,6 +75,15 @@ pub(crate) fn view(settings: &Settings, context: &mut ViewContext<Settings>) -> 
                 .on_suggestion_chosen(context.callback(Message::Font)),
         ),
         field(
+            "字号",
+            "候选字的字号（点），只对青简渲染器生效；缺省 16。候选、译文与序号按同一比例缩放。",
+            NumberBox::new()
+                .minimum(*qingjian_platform::FONT_SIZE_RANGE.start() as f64)
+                .maximum(*qingjian_platform::FONT_SIZE_RANGE.end() as f64)
+                .value(g.font_size() as f64)
+                .on_value_changed(context.callback(Message::FontSize)),
+        ),
+        field(
             "拼音显示",
             "「只在候选窗口」时正在敲的拼音不显示在应用里，终端或行内拼音不正常的应用可以选它。",
             mode_combo(

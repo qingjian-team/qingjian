@@ -34,7 +34,8 @@ pub use aux_code::AuxCodeConfig;
 pub use candidate_renderer::CandidateRenderer;
 pub use dictionaries::{DEFAULT_DOMAINS, DictionariesConfig};
 pub use general::{
-    DEFAULT_PAGE_KEYS, GeneralConfig, LEARNING_LANGUAGE_OFF, MAX_PAGE_SIZE, PAGE_KEY_OPTIONS,
+    DEFAULT_FONT_SIZE, DEFAULT_PAGE_KEYS, FONT_SIZE_RANGE, GeneralConfig, LEARNING_LANGUAGE_OFF,
+    MAX_PAGE_SIZE, PAGE_KEY_OPTIONS,
 };
 pub use key_combo::KeyCombo;
 pub use layout_mode::LayoutMode;
