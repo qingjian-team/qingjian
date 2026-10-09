@@ -195,7 +195,10 @@ impl Router {
     fn apply_config(&mut self, config: &Config) {
         self.engine.set_fuzzy(config.fuzzy);
         // Windows 端此前漏装 custom_phrases（macOS 端 apply_config 有）；失败只记日志，保持原短语
-        if let Err(error) = self.engine.set_custom_phrases(config.custom_phrases.clone()) {
+        if let Err(error) = self
+            .engine
+            .set_custom_phrases(config.custom_phrases.clone())
+        {
             tracing::warn!(%error, "自定义短语配置未应用，保持原短语");
         }
         // 拼音侧与形码侧一起装配（双拼 / 注音 / 混输都在里面）
