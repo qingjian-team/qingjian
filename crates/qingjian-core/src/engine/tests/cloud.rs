@@ -535,6 +535,41 @@ fn translation_requests_carry_the_text_and_target_language() {
 }
 
 #[test]
+fn translation_does_not_discard_the_current_composition_prediction() {
+    let submitted = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
+    let mut engine = engine().with_predictor(Box::new(EchoPredictor {
+        submitted,
+        sentence: true,
+        // EchoPredictor 从末尾取结果，所以先返回翻译、再返回组句请求。
+        replies: vec![
+            Prediction {
+                sequence: 1,
+                words: Vec::new(),
+                sentence: Some("开发输入法".into()),
+            },
+            Prediction {
+                sequence: 2,
+                words: Vec::new(),
+                sentence: Some("I want to develop.".into()),
+            },
+        ],
+    }));
+    engine.set_input("xiangkaifa");
+    let candidates = engine.query().unwrap().candidates.items;
+    assert_eq!(engine.request_prediction(None, &candidates), Some(1));
+    assert_eq!(engine.request_translation("想开发"), Some(2));
+
+    assert_eq!(
+        engine.poll_prediction().unwrap().sentence.as_deref(),
+        Some("I want to develop.")
+    );
+    assert_eq!(
+        engine.poll_prediction().unwrap().sentence.as_deref(),
+        Some("开发输入法")
+    );
+}
+
+#[test]
 fn bare_question_restores_punctuation_once_in_each_mode() {
     for (english, full_width, expected) in [
         (false, false, "?"),

@@ -3,7 +3,7 @@
 use std::sync::mpsc::{Receiver, RecvTimeoutError, Sender};
 use std::time::{Duration, Instant};
 
-use qingjian_core::{Prediction, PredictionRequest};
+use qingjian_core::{Prediction, PredictionKind, PredictionRequest};
 
 use crate::prompt::Reply;
 
@@ -56,48 +56,84 @@ impl Worker {
             .enable_all()
             .build()?;
         while let Ok(first) = self.requests.recv() {
-            let Some(request) = self.debounce(first) else {
+            let Some(requests) = self.debounce(first) else {
                 return Ok(());
             };
-            let key = PredictionCache::key(&request);
-            if let Some(reply) = self.cache.get(&key) {
-                tracing::debug!(sequence = request.sequence, kind = ?request.kind, "联想命中缓存");
-                self.reply(request.sequence, reply.clone());
-                continue;
+            let mut pending = Vec::new();
+            for request in requests {
+                let key = PredictionCache::key(&request);
+                if let Some(reply) = self.cache.get(&key) {
+                    tracing::debug!(sequence = request.sequence, kind = ?request.kind, "预测命中缓存");
+                    self.reply(request.sequence, reply.clone());
+                } else {
+                    pending.push(request);
+                }
             }
             let start = Instant::now();
-            match runtime.block_on(self.client.complete(&request)) {
-                Ok(reply) => {
-                    tracing::info!(
-                        sequence = request.sequence,
-                        elapsed_ms = start.elapsed().as_millis(),
-                        words = reply.words.len(),
-                        sentence = reply.sentence.is_some(),
-                        "联想完成"
-                    );
-                    // 空回复不进缓存：模型偶尔什么都不给（问字尤其），缓存住就等于这个问题以后永远没答案，
-                    // 用户重打一遍也只会命中缓存（2026-09-07 `?mumumu` 就是这么卡住的）
-                    if !reply.is_empty() {
-                        self.cache.insert(key, reply.clone());
-                    }
-                    self.reply(request.sequence, reply);
+            match pending.as_slice() {
+                [] => {}
+                [request] => {
+                    let reply = runtime.block_on(self.client.complete(request));
+                    self.finish(request, reply, start);
                 }
-                Err(error) => {
-                    tracing::warn!(sequence = request.sequence, %error, "联想失败");
+                [first, second] => {
+                    let (first_reply, second_reply) = runtime.block_on(async {
+                        tokio::join!(self.client.complete(first), self.client.complete(second),)
+                    });
+                    self.finish(first, first_reply, start);
+                    self.finish(second, second_reply, start);
                 }
+                _ => unreachable!("防抖只保留一条组句请求和一条翻译请求"),
             }
         }
         Ok(())
     }
 
-    /// 防抖：在窗口内持续收到新请求就一直等，只保留最后一个。发送端关闭返回 `None`。
-    fn debounce(&self, mut latest: PredictionRequest) -> Option<PredictionRequest> {
+    /// 防抖：在窗口内持续收到新请求就一直等；组句和翻译各保留最后一个，并发发出。
+    fn debounce(&self, first: PredictionRequest) -> Option<Vec<PredictionRequest>> {
+        let mut composition = None;
+        let mut translation = None;
+        match first.kind {
+            PredictionKind::Translate => translation = Some(first),
+            PredictionKind::Compose | PredictionKind::Question => composition = Some(first),
+        }
         loop {
             match self.requests.recv_timeout(self.debounce) {
-                Ok(newer) => latest = newer,
-                Err(RecvTimeoutError::Timeout) => return Some(latest),
+                Ok(newer) => match newer.kind {
+                    PredictionKind::Translate => translation = Some(newer),
+                    PredictionKind::Compose | PredictionKind::Question => composition = Some(newer),
+                },
+                Err(RecvTimeoutError::Timeout) => {
+                    return Some(translation.into_iter().chain(composition).collect());
+                }
                 Err(RecvTimeoutError::Disconnected) => return None,
             }
+        }
+    }
+
+    fn finish(
+        &mut self,
+        request: &PredictionRequest,
+        result: Result<Cached, PredictError>,
+        started: Instant,
+    ) {
+        match result {
+            Ok(reply) => {
+                tracing::info!(
+                    sequence = request.sequence,
+                    elapsed_ms = started.elapsed().as_millis(),
+                    words = reply.words.len(),
+                    sentence = reply.sentence.is_some(),
+                    "预测完成"
+                );
+                // 空回复不进缓存：模型偶尔什么都不给，缓存住会令重试永远没有答案。
+                if !reply.is_empty() {
+                    self.cache
+                        .insert(PredictionCache::key(request), reply.clone());
+                }
+                self.reply(request.sequence, reply);
+            }
+            Err(error) => tracing::warn!(sequence = request.sequence, %error, "预测失败"),
         }
     }
 
