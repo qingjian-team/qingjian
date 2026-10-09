@@ -6,7 +6,8 @@
 //! 的 exe 用 `CreateProcess` 拉不起来（报 740），ShellExecute 等同双击，两种构建都行。
 //!
 //! 两道闸门防重复启动：进程内的冷却时间（同一应用连敲只试一次），与跨进程的命名互斥体
-//! （多个应用同时发现 Server 不在，只起一个）。找不到 exe / 起失败记日志返回 `false`，调用方退回原来的退避重连。
+//! （多个应用同时发现 Server 不在，只起一个）。找不到 exe / 起失败 / 宿主不对记日志返回
+//! [`LaunchOutcome::Refused`]，调用方不再吞键、字母直接放行（见 `key_sink`）。
 //!
 //! 另一道门是宿主的完整性级别：输入法会被加载进登录界面（LogonUI）、UAC 的 consent.exe 这类
 //! 以 SYSTEM 跑在安全桌面上的进程，也会进 AppContainer 的商店应用（Low）。在这些宿主里
@@ -53,26 +54,38 @@ const MEDIUM_INTEGRITY_RID: u32 = 0x2000;
 /// 上次尝试拉起的时间；本进程内所有文本服务实例共用。
 static LAST_LAUNCH: Mutex<Option<Instant>> = Mutex::new(None);
 
-/// 连不上 Server 时拉起它。已请求启动返回 `true`（下一键就该连上），没试 / 失败返回 `false`。
-pub(super) fn launch_server() -> bool {
+/// 连不上 Server 时尝试拉起它的结果，调用方据此决定断连期间还吞不吞拼音键。
+pub(super) enum LaunchOutcome {
+    /// 拉起请求刚发出：Server 一两秒内就该监听，宽限期内继续吞「可能是拼音」的键。
+    Requested,
+    /// 别处已在拉（本进程冷却未过 / 另一进程握着互斥体）：Server 也在路上，与 [`Self::Requested`] 同待遇，
+    /// 只是宽限不重新计时（冷却每 5 秒就会回到这个分支，重置宽限会让「超时放行」永远轮不到）。
+    InFlight,
+    /// 这个宿主里起不出 Server（完整性级别不对 / 安装程序占用 / 找不到 exe）：短期不会有 Server，
+    /// 继续吞键就是死键盘，调用方应直接放行字母。
+    Refused,
+}
+
+/// 连不上 Server 时拉起它。
+pub(super) fn launch_server() -> LaunchOutcome {
     if !cooldown_passed() {
-        return false;
+        return LaunchOutcome::InFlight;
     }
     if !host_is_plain_desktop_app() {
         log("宿主进程不是普通桌面应用（完整性级别非 Medium），不拉起 Server");
-        return false;
+        return LaunchOutcome::Refused;
     }
     if installer_running() {
         log("安装程序正在运行，不拉起 Server");
-        return false;
+        return LaunchOutcome::Refused;
     }
     let Some(exe) = server_exe() else {
         log("找不到与 DLL 同目录的 qingjian-server.exe，不拉起");
-        return false;
+        return LaunchOutcome::Refused;
     };
     let Some(_mutex) = launch_mutex() else {
-        // 别的进程正在起：不重复起，退回退避重连
-        return false;
+        // 别的进程正在起：不重复起
+        return LaunchOutcome::InFlight;
     };
     let file = HSTRING::from(exe.as_os_str());
     let workdir = exe
@@ -93,13 +106,13 @@ pub(super) fn launch_server() -> bool {
     // ShellExecuteW 返回值 > 32 才算成功。
     if (code.0 as isize) > 32 {
         log("已请求启动 qingjian-server");
-        true
+        LaunchOutcome::Requested
     } else {
         log(&format!(
             "启动 qingjian-server 失败，返回值 {}",
             code.0 as isize
         ));
-        false
+        LaunchOutcome::Refused
     }
 }
 
