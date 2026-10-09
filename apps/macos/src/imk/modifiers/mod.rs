@@ -1,8 +1,14 @@
 //! 当前修饰键状态。IMK 的 `inputText:client:` 不带事件对象，Caps Lock / Shift 只能从系统当前状态读。
 
+mod caps;
+
+pub fn set_caps_lock(on: bool) -> Result<(), String> {
+    caps::set(on)
+}
+
 use objc2_app_kit::{NSEvent, NSEventModifierFlags};
 
-/// Caps Lock 亮着：视为英文模式，字母默认小写、按住 Shift 才大写、标点不转全角。
+/// 当前系统 Caps Lock 状态；模式转换通过 IOHID 同步锁定与灯。
 pub fn caps_lock_on() -> bool {
     NSEvent::modifierFlags_class().contains(NSEventModifierFlags::CapsLock)
 }

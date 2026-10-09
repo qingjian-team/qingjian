@@ -5,23 +5,24 @@
 
 use objc2::rc::{Allocated, Retained};
 use objc2::runtime::{AnyObject, Sel};
-use objc2::{define_class, msg_send, sel};
-use objc2_app_kit::{NSEvent, NSEventModifierFlags, NSEventType, NSMenu};
+use objc2::{DefinedClass, define_class, msg_send, sel};
+use objc2_app_kit::{NSEvent, NSEventMask, NSEventModifierFlags, NSEventType, NSMenu};
 use objc2_foundation::NSObjectProtocol;
 use objc2_input_method_kit::{IMKInputController, IMKServer};
-use qingjian_core::{Candidate, QUESTION_PREFIX};
 use qingjian_platform::Modifiers;
 
 use super::{TextClient, catch_panic, modifiers, recover_from_panic, secure_input};
-use crate::candidates::Preedit;
 use crate::host;
 use crate::menubar;
 
 mod command;
 mod commit;
 mod display;
+mod shift;
 mod text;
 mod translate;
+
+use shift::ControllerState;
 
 define_class!(
     // SAFETY:
@@ -30,7 +31,7 @@ define_class!(
     #[unsafe(super(IMKInputController))]
     // 名字要和 Info.plist 的 InputMethodServerControllerClass 一致
     #[name = "QingjianInputController"]
-    #[ivars = ()]
+    #[ivars = ControllerState]
     pub struct QingjianInputController;
 
     impl QingjianInputController {
@@ -43,8 +44,13 @@ define_class!(
             client: Option<&AnyObject>,
         ) -> Option<Retained<Self>> {
             tracing::info!("新建输入会话");
-            let this = this.set_ivars(());
+            let this = this.set_ivars(ControllerState::default());
             unsafe { msg_send![super(this), initWithServer: server, delegate: delegate, client: client] }
+        }
+
+        #[unsafe(method(recognizedEvents:))]
+        fn recognized_events(&self, _sender: Option<&AnyObject>) -> usize {
+            (NSEventMask::KeyDown | NSEventMask::FlagsChanged).0 as usize
         }
 
         /// 所有按键事件都到这里（IMK 第一层协议）。IMK 按控制器实现了哪一层决定路线，实现了这个方法就不会再分发成
@@ -60,6 +66,7 @@ define_class!(
                     // panic 拦下后把缓冲区原样上屏，这个按键交还给应用
                     catch_panic("handleEvent", || self.dispatch_event(event, client))
                         .unwrap_or_else(|| {
+                            self.ivars().shift.borrow_mut().cancel();
                             recover_from_panic(Some(client));
                             false
                         })
@@ -71,6 +78,7 @@ define_class!(
         /// 应用要求立刻结束本次输入（切换焦点、切换输入法等）。
         #[unsafe(method(commitComposition:))]
         fn commit_composition(&self, client: Option<&AnyObject>) {
+            self.ivars().shift.borrow_mut().cancel();
             let client = client.map(TextClient::new);
             let done = catch_panic("commitComposition", || {
                 if let Some(client) = client {
@@ -88,6 +96,10 @@ define_class!(
 
         #[unsafe(method(activateServer:))]
         fn activate_server(&self, sender: Option<&AnyObject>) {
+            self.ivars().shift.borrow_mut().reset();
+            if modifiers::shift_down() {
+                self.ivars().shift.borrow_mut().cancel();
+            }
             tracing::info!("activateServer");
             let done = catch_panic("activateServer", || {
                 // 用户要往 [apps] 里加应用时，从这条日志抄 bundle identifier
@@ -96,15 +108,20 @@ define_class!(
                     tracing::debug!(%bundle, "当前应用");
                 }
                 host::with(|h| {
+                    h.sync_input_source();
                     h.engine.set_application(bundle);
                     h.refresh_text_replacements();
                     h.reload_config_if_changed();
-                    h.indicator.activate();
+                    self.ivars().generation.set(h.input_config_generation);
+                    let english = h.effective_english();
+                    h.indicator.activate(english);
                     h.watch.start();
                 });
             });
             if done.is_none() {
                 recover_from_panic(None);
+            } else if let Some(sender) = sender {
+                self.apply_pending_input(TextClient::new(sender));
             }
         }
 
@@ -124,6 +141,7 @@ define_class!(
 
         #[unsafe(method(deactivateServer:))]
         fn deactivate_server(&self, sender: Option<&AnyObject>) {
+            self.ivars().shift.borrow_mut().cancel();
             tracing::info!("deactivateServer");
             let client = sender.map(TextClient::new);
             let done = catch_panic("deactivateServer", || {
@@ -182,6 +200,27 @@ fn digit_key(key_code: u16) -> Option<usize> {
 }
 
 impl QingjianInputController {
+    /// 两种切换键与轮询补偿共用：按旧策略落定原文，再应用目标策略。
+    fn apply_pending_input(&self, client: TextClient<'_>) {
+        if !host::with(|h| h.input.pending).unwrap_or(false) {
+            return;
+        }
+        self.commit_raw(client);
+        host::with(|h| {
+            let english = h.input.english;
+            let candidates = h.input.candidates && h.english_candidates_in(h.engine.application());
+            h.engine.set_english_input_policy(english, candidates);
+            h.input.pending = false;
+            h.sync_caps_lock();
+            h.cancel_prediction();
+            h.translation = None;
+            h.session = host::Session::default();
+            h.window.hide();
+            h.update_input_indicator();
+        });
+        client.set_marked_text("", 0);
+    }
+
     /// 登录 / 锁屏窗口：输入源菜单里没有青简，loginwindow 却照样激活它，按键一律交还系统。
     ///
     /// TODO(#190): 临时防护。现象是开机登录界面打不进模式键（u / i），推断为按键进了青简的组句；
@@ -193,7 +232,7 @@ impl QingjianInputController {
 
     /// 一个按键事件的分发：只管按下；Cmd / Ctrl 组合除 Cmd+左右外一律交给应用；命令键映射成选择器；其余按字符当文本。
     fn dispatch_event(&self, event: &NSEvent, client: TextClient<'_>) -> bool {
-        if event.r#type() != NSEventType::KeyDown || self.in_login_window() {
+        if self.in_login_window() {
             return false;
         }
         let flags = event.modifierFlags();
@@ -204,6 +243,46 @@ impl QingjianInputController {
             flags.contains(NSEventModifierFlags::Shift),
         );
         let key = event.keyCode();
+        let (enabled, generation) = host::with(|h| {
+            h.sync_input_source();
+            h.input.observe_caps(modifiers::caps_lock_on());
+            (
+                h.settings.config().shortcut.switch_mode.shift,
+                h.input_config_generation,
+            )
+        })
+        .unwrap_or((false, 0));
+        self.apply_pending_input(client);
+        // 配置重载后 ivars 里的代数过期了；但 Chromium 系应用会先建会话送事件、后 activateServer，
+        // 全新会话在这里第一次见到代数差异，不能因此把还没开始的轻按标记成 blocked
+        if self.ivars().generation.replace(generation) != generation {
+            self.ivars().shift.borrow_mut().cancel_if_armed();
+        }
+        if event.r#type() == NSEventType::FlagsChanged {
+            let tapped = self.ivars().shift.borrow_mut().changed(
+                key,
+                shift,
+                command
+                    || control
+                    || option
+                    || flags.contains(NSEventModifierFlags::Function)
+                    || !enabled,
+            );
+            if tapped && enabled {
+                host::with(|h| h.input.shift());
+                self.apply_pending_input(client);
+            }
+            return false;
+        }
+        if event.r#type() != NSEventType::KeyDown {
+            return false;
+        }
+        if shift {
+            self.ivars().shift.borrow_mut().cancel();
+        } else {
+            self.ivars().shift.borrow_mut().reset();
+        }
+
         let pressed = Modifiers {
             option,
             shift,

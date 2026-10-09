@@ -342,3 +342,13 @@ DLL 不读文件、不查 mtime。`SessionOpened` 只回过协议版本对得上
 Unix socket 用共享长度前缀与 Frame（当前公共版本 7，与 `PROTOCOL_VERSION` 同步，Fcitx5 插件里写死在 `qingjian.cpp` 的 OpenSession）；插件复用一条连接，每个上下文独立会话。Linux v3 扩展逐会话握手、确认 Sensitive/Password/Disable 后接受按下/释放、焦点和点击事实。
 候选回报绑定连接代次、上下文和服务端帧序号，仅当前聚焦页的有效释义进入 `note_displayed`，不把生成帧算作已展示。
 `[general] preedit` 使用已有 `both` / `inline` / `window`；没有新增 Linux 自绘配置。详见 [linux-fcitx5.md](linux-fcitx5.md)。
+
+### macOS Shift 直通英文
+
+IMK 控制器通过 `recognizedEvents:` 接收 `KeyDown | FlagsChanged`，单独释放左右 Shift 才切换；普通键、其他修饰键、双 Shift、失焦与配置重载取消手势。
+`[shortcut] switch_mode` 在 macOS 仅读取 `shift`，缺省开启；Host 的逻辑中英与候选策略跨应用保存；Shift 从中文/候选英文切直通再回中文，Caps 从中文/直通切候选再回中文。硬件 Caps 边沿去重，只更新目标及 pending，带客户端事件先原样上屏再应用策略，轮询不覆盖 Shift。
+Core 的 `set_english_input_policy` 将英文状态与候选策略分离，旧 `set_english_mode` 保留英文候选语义；直通不组句、不查候选、不触发问字或全角标点。切换先 `take_raw` 再更新策略，避免将拼音记为英文学习。
+
+macOS 常驻监听 TIS 所选输入源变化通知（`kTISNotifySelectedKeyboardInputSourceChanged`），真实离开后返回才恢复中文；同源焦点激活不重置。返回时同步 Caps 观测基线，下一带客户端事件先处理旧输入再应用中文策略。
+
+模式切换通过 IOKit `IOHIDSetModifierLockState` 同步 Caps 状态（候选英文亮，中文/Shift直通灭），回读成功后更新基线，避免自发变化触发迁移；失败记日志，不注入按键。

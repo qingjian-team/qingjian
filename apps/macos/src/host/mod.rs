@@ -10,6 +10,7 @@ mod config;
 mod diagnostics;
 mod dictionaries;
 mod init;
+mod input;
 mod model;
 mod presenting;
 mod session;
@@ -22,27 +23,20 @@ use objc2::MainThreadMarker;
 use objc2_app_kit::{NSPasteboard, NSPasteboardTypeString};
 use objc2_foundation::{NSProcessInfo, NSRect, NSString};
 use qingjian_core::{
-    Candidate, CandidateKind, Cell, CloudWord, EmojiTable, Engine, FuzzyRules, Language, ModeKeys,
-    NoGlossFiller, NoInputLogger, NoPredictor, NoTranslator, Prediction,
+    Candidate, CandidateKind, Cell, CloudWord, Engine, FuzzyRules, Language, ModeKeys,
+    NoInputLogger, Prediction,
 };
-use qingjian_dictionary::{Dictionary, WordList};
-use qingjian_learning::{FrequencyLearner, InputLog, UsageStats, VocabularyBook};
-use qingjian_lm::BigramModel;
+use qingjian_learning::InputLog;
 use qingjian_platform::extra_dictionaries;
 use qingjian_platform::{
-    AppsConfig, CandidateRenderer, DEFAULT_ENGLISH_CANDIDATES_OFF, DictionariesConfig,
-    GeneralConfig, KeyCombo, LEARNING_LANGUAGE_OFF, LayoutMode, LocalModelConfig, LogLevel,
-    Modifiers, PAGE_KEY_OPTIONS, PreeditMode, Scheme, ShortcutConfig, ThemeMode, UpdateChannel,
+    AppsConfig, CandidateRenderer, DEFAULT_ENGLISH_CANDIDATES_OFF, DictionariesConfig, KeyCombo,
+    LEARNING_LANGUAGE_OFF, LayoutMode, LocalModelConfig, LogLevel, Modifiers, PAGE_KEY_OPTIONS,
+    PreeditMode, Scheme, ShortcutConfig, ThemeMode, UpdateChannel,
 };
-use qingjian_predict::{
-    CloudGlossFiller, CloudPredictor, ConnectionTest, PredictConfig, PredictError,
-};
-use qingjian_translate::{Glossary, LayeredTranslator, LevelTable, PersonalGlossary};
+use qingjian_predict::{ConnectionTest, PredictConfig, PredictError};
 
-use crate::app::BundleInfo;
 use crate::app::{Settings, logging, paths};
 use crate::candidates::{CandidateWindow, Frame, Preedit, Row};
-use crate::error::HostError;
 use crate::menubar::{InputMenu, MenuAction, ModeIndicator};
 use crate::preferences::{PreferencesWindow, Setting, SettingValue, UpdateStatus};
 
@@ -142,6 +136,18 @@ pub struct Host {
 
     /// 英文模式是否给英文候选（配置 `[general] english_candidates`）。
     pub english_candidates: bool,
+
+    /// 逻辑模式、候选策略与待提交的切换。
+    pub input: input::InputState,
+
+    /// 所选输入源身份，仅真实重新进入时恢复中文。
+    pub input_source: input::SourceState,
+
+    /// 常驻通知观察器，在停用输入法期间也保留。
+    _source_monitor: objc2::rc::Retained<input::SourceMonitor>,
+
+    /// 每次套用配置使控制器取消未完成的轻按。
+    pub input_config_generation: u64,
 
     /// 上次从系统读到的文本替换（激活输入法时重读），`[general] system_text_replacements` 开着时并进自定义短语。
     text_replacements: Vec<TextReplacement>,

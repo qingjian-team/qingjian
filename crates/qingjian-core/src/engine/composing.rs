@@ -17,7 +17,7 @@ impl Engine {
     pub fn punctuate(&mut self, c: char) -> Option<&'static str> {
         // 组句外敲的标点：辅码态到此结束（壳已经把高亮候选上屏了）
         self.aux_code = None;
-        let converted = if self.full_width_punctuation {
+        let converted = if self.full_width_punctuation && !self.english_passthrough {
             self.punctuation.convert(c)
         } else {
             None
@@ -166,6 +166,9 @@ impl Engine {
     }
 
     pub fn push(&mut self, c: char) {
+        if self.english_passthrough {
+            return;
+        }
         if self.composition.is_empty() {
             // 新一段组句：从这一键起算耗时、翻页与重打
             self.composition_started = Some(Instant::now());

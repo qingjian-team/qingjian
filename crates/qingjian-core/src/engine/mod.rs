@@ -30,9 +30,9 @@ mod vocabulary;
 
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
-use qingjian_dictionary::{AuxCodeLookup, CodeTable, Dictionary, Match, WordList};
+use qingjian_dictionary::{AuxCodeLookup, CodeTable, Dictionary, WordList};
 
 pub use alignment::Alignment;
 pub use annotation::AnnotationReport;
@@ -61,18 +61,16 @@ pub use vocabulary::{
     FRESH_UNTIL, LevelCount, NoVocabularyTracker, VocabularySummary, VocabularyTracker,
 };
 
-use crate::candidate::{Candidate, CandidateKind, CandidateList, Language};
+use crate::candidate::{Candidate, CandidateKind, Language};
 use crate::composition::Composition;
-use crate::correction::{self, Correction, TypoCosts, typo};
+use crate::correction::{self, Correction, TypoCosts};
 use crate::emoji::EmojiTable;
-use crate::english;
-use crate::fuzzy::{Expanded, FuzzyRules};
+use crate::fuzzy::FuzzyRules;
 use crate::history::InputHistory;
 use crate::parser::{self, ParseError, Segmentation};
 use crate::punctuation::Punctuation;
-use crate::ranking::{self, Scored};
 use crate::sentence::{
-    self, Conversion, Interpolation, LanguageModel, NoLanguageModel, Personal, SentenceScorer,
+    self, Conversion, Interpolation, LanguageModel, NoLanguageModel, SentenceScorer,
 };
 use crate::shortcut;
 use crate::shuangpin::Scheme;
@@ -108,6 +106,9 @@ pub struct Engine {
 
     /// 英文模式（壳里 Caps Lock 亮着）：缓冲区里的字母不当拼音，候选来自英文词表的补全与纠正。
     english_mode: bool,
+
+    /// 英文模式是否直通，不生成候选。
+    english_passthrough: bool,
 
     /// 全角标点与引号配对状态。
     punctuation: Punctuation,
@@ -393,6 +394,7 @@ impl Engine {
             composition: Composition::default(),
             english: None,
             english_mode: false,
+            english_passthrough: false,
             punctuation: Punctuation::default(),
             full_width_punctuation: true,
             custom_phrases: Vec::new(),

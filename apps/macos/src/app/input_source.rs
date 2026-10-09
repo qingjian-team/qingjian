@@ -17,6 +17,10 @@ struct TISInputSource {
 // HIToolbox 在 Carbon 伞框架里；CoreFoundation 由 objc2-core-foundation 链接
 #[link(name = "Carbon", kind = "framework")]
 unsafe extern "C" {
+    fn TISCopyCurrentKeyboardInputSource() -> *mut CFDictionary;
+
+    static kTISNotifySelectedKeyboardInputSourceChanged: NonNull<CFString>;
+
     /// 把一个输入法 bundle 登记到系统的输入源列表里（已登记的再登记无害）。
     fn TISRegisterInputSource(location: NonNull<CFURL>) -> i32;
 
@@ -43,6 +47,29 @@ unsafe extern "C" {
 
     /// 属性键：是否已启用（CFBoolean）。
     static kTISPropertyInputSourceIsEnabled: NonNull<CFString>;
+}
+
+/// TIS Copy 返回独立拥有的字典，取完属性由 CFRetained 释放。
+pub fn current_is_qingjian() -> Option<bool> {
+    let source =
+        unsafe { CFRetained::from_raw(NonNull::new(TISCopyCurrentKeyboardInputSource())?) };
+    let raw = unsafe {
+        TISGetInputSourceProperty(
+            CFRetained::as_ptr(&source).as_ptr().cast(),
+            kTISPropertyInputSourceID,
+        )
+    };
+    let id = unsafe { raw.cast::<CFString>().as_ref()? };
+    Some(id.to_string() == enabled_source_id(&NSBundle::mainBundle()))
+}
+
+/// Carbon 通知名与 NSString toll-free bridged，借用框架常量，不释放。
+pub fn selected_source_notification() -> &'static NSString {
+    unsafe {
+        &*kTISNotifySelectedKeyboardInputSourceChanged
+            .as_ptr()
+            .cast::<NSString>()
+    }
 }
 
 /// 注册当前进程所在的 `.app`、启用并切成当前输入源。启用成功返回 `Ok(是否也切成了当前)`，失败带一句能打到安装日志里的说明。
