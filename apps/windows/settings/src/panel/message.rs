@@ -31,10 +31,8 @@ pub(crate) enum Message {
     Layout(Option<usize>),
     Preedit(Option<usize>),
     Renderer(Option<usize>),
-    /// 字体框里的文字变了：空或正好是某个字族名就落盘。
-    FontQuery(String),
-    /// 从提示里选了一个字族。
-    Font(String),
+    /// 从字体下拉里选了一项：0 是「系统字体（默认）」，其余是 `families[index-1]`。
+    FontSelected(Option<usize>),
     /// 候选窗口字号（点，8–48）。
     FontSize(Option<f64>),
     StatusBar(bool),

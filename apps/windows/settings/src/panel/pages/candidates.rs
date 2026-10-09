@@ -21,17 +21,13 @@ fn mode_combo<T: PartialEq + Copy>(
 
 pub(crate) fn view(settings: &Settings, context: &mut ViewContext<Settings>) -> View {
     let g = &settings.config.general;
-    let font_text = settings
-        .font_query
-        .clone()
-        .unwrap_or_else(|| g.font.clone());
-    let query = font_text.to_lowercase();
-    let suggestions: Vec<String> = settings
+    // 字体下拉：0 = 系统字体（默认），其余按 DirectWrite 枚举的已装字族排列。
+    let selected = settings
         .families
         .iter()
-        .filter(|family| family.to_lowercase().contains(&query))
-        .cloned()
-        .collect();
+        .position(|family| family.eq_ignore_ascii_case(&g.font))
+        .map(|i| i + 1)
+        .unwrap_or(0);
     let rows = [
         field(
             "外观",
@@ -65,14 +61,16 @@ pub(crate) fn view(settings: &Settings, context: &mut ViewContext<Settings>) -> 
         ),
         field(
             "字体",
-            "只对青简渲染器生效；留空用系统字体，没装的字体自动回到系统字体。",
-            AutoSuggestBox::new()
+            "只对青简渲染器生效；选「系统字体（默认）」用系统字体，没装的字体自动回到系统字体。",
+            ComboBox::new()
                 .width(260.0)
-                .text(font_text)
-                .placeholder_text("系统字体")
-                .items_source(suggestions)
-                .on_text_changed(context.callback(Message::FontQuery))
-                .on_suggestion_chosen(context.callback(Message::Font)),
+                .items_source(
+                    std::iter::once("系统字体（默认）".to_string())
+                        .chain(settings.families.iter().cloned())
+                        .collect::<Vec<_>>(),
+                )
+                .selected_index(selected)
+                .on_selection_changed(context.callback(Message::FontSelected)),
         ),
         field(
             "字号",

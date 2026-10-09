@@ -36,7 +36,6 @@ impl Component for Settings {
             update_error: None,
             dictionary_status: String::new(),
             families: qingjian_render::system_fonts::families(),
-            font_query: None,
         }
     }
 
@@ -106,29 +105,13 @@ impl Component for Settings {
             Message::Renderer(Some(i)) if i < CandidateRenderer::ALL.len() => {
                 self.save("general", "renderer", CandidateRenderer::ALL[i].key());
             }
-            Message::FontQuery(text) => {
-                let text = text.trim().to_owned();
-                let exact = self
-                    .families
-                    .iter()
-                    .find(|family| family.eq_ignore_ascii_case(&text))
-                    .cloned();
-                match exact {
-                    Some(family) => {
-                        self.font_query = None;
-                        self.save("general", "font", family);
-                    }
-                    None if text.is_empty() => {
-                        self.font_query = None;
-                        self.save("general", "font", "");
-                    }
-                    None => self.font_query = Some(text),
+            Message::FontSelected(Some(0)) => self.save("general", "font", ""),
+            Message::FontSelected(Some(index)) => {
+                if let Some(family) = self.families.get(index - 1) {
+                    self.save("general", "font", family.clone());
                 }
             }
-            Message::Font(family) => {
-                self.font_query = None;
-                self.save("general", "font", family);
-            }
+            Message::FontSelected(None) => {}
             Message::FontSize(Some(value)) => {
                 let range = qingjian_platform::FONT_SIZE_RANGE;
                 let size = (value.round() as i64).clamp(*range.start() as i64, *range.end() as i64);

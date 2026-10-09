@@ -60,11 +60,8 @@ pub(crate) struct Settings {
     /// 最近一次词库操作的结果，显示在词库页。
     dictionary_status: String,
 
-    /// 系统里的字族名（DirectWrite），「字体」框的提示用。
+    /// 系统里的字族名（DirectWrite），「字体」下拉的候选项。
     families: Vec<String>,
-
-    /// 「字体」框里正在敲的文字；`None` 显示配置里的值。
-    font_query: Option<String>,
 }
 
 impl Settings {
