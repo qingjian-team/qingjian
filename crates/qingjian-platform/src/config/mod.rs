@@ -1,7 +1,9 @@
+mod appearance;
 mod apps;
 mod aux_code;
 mod candidate_renderer;
 mod dictionaries;
+mod font_size;
 mod general;
 mod key_combo;
 mod layout_mode;
@@ -15,7 +17,6 @@ mod shift_letter;
 mod shortcut;
 mod status_bar;
 mod switch_key;
-mod theme_mode;
 mod update;
 
 use std::path::Path;
@@ -27,6 +28,7 @@ use toml_edit::DocumentMut;
 
 use crate::error::ConfigError;
 
+pub use appearance::Appearance;
 pub use apps::{
     AppsConfig, DEFAULT_ENGLISH_CANDIDATES_OFF, DEFAULT_ENGLISH_CANDIDATES_OFF_LINUX,
     DEFAULT_ENGLISH_CANDIDATES_OFF_MACOS, DEFAULT_ENGLISH_CANDIDATES_OFF_WINDOWS,
@@ -34,8 +36,10 @@ pub use apps::{
 pub use aux_code::AuxCodeConfig;
 pub use candidate_renderer::CandidateRenderer;
 pub use dictionaries::{DEFAULT_DOMAINS, DictionariesConfig};
+pub use font_size::FontSize;
 pub use general::{
-    DEFAULT_PAGE_KEYS, GeneralConfig, LEARNING_LANGUAGE_OFF, MAX_PAGE_SIZE, PAGE_KEY_OPTIONS,
+    DEFAULT_PAGE_KEYS, DEFAULT_THEME, GeneralConfig, LEARNING_LANGUAGE_OFF, MAX_PAGE_SIZE,
+    PAGE_KEY_OPTIONS,
 };
 pub use key_combo::KeyCombo;
 pub use layout_mode::LayoutMode;
@@ -44,12 +48,11 @@ pub use model::LocalModelConfig;
 pub use modifiers::Modifiers;
 pub use numpad_digit::NumpadDigit;
 pub use preedit_mode::PreeditMode;
-pub use scheme::{Scheme, scheme_label};
+pub use scheme::{Scheme, scheme_label, scheme_name};
 pub use shift_letter::ShiftLetter;
 pub use shortcut::ShortcutConfig;
 pub use status_bar::StatusBarConfig;
 pub use switch_key::{SwitchKey, SwitchKeys};
-pub use theme_mode::ThemeMode;
 pub use update::{UpdateChannel, UpdateConfig};
 
 /// 用户配置文件（TOML）。所有平台同一份格式，缺省值全部在各分节的 `Default` 里。
@@ -205,7 +208,9 @@ page_size = 9
 # 翻页键对：前一个上一页、后一个下一页。可选 "[]" 或 ",."；选 ",." 的话组句中敲逗号句号是翻页而不是上屏加标点
 page_keys = "[]"
 # 候选窗口外观：system 跟随系统 / light 浅色 / dark 深色
-theme = "system"
+appearance = "system"
+# 候选窗口主题（主题 id）：qingjian 青简绿 / system-blue 系统蓝 / wechat 微信绿 / sakura 樱花。只对青简渲染器生效
+theme = "qingjian"
 # 候选窗口排布：vertical 竖排 / horizontal 横排（横排只给高亮候选显示译文）
 layout = "vertical"
 # 横排时 ↑ / ↓ 把单行展开成 6 行矩阵并换行（一行一页候选），← / → 改为在候选之间移动（拼音光标用 ⌥←/→、⌘←/→），
@@ -215,6 +220,11 @@ horizontal_grid = false
 renderer = "qingjian"
 # 候选窗口字体（字族名，如 "LXGW WenKai"）；空为系统字体。只对青简渲染器生效，没装这个字体时自动回到系统字体
 font = ""
+# 候选字、译文的字号（点），盖过主题；0 用主题的。只对青简渲染器生效
+candidate_font_size = 0
+annotation_font_size = 0
+# 候选窗口的过渡动画（高亮滑动、主题里的循环动画）；false 时直接跳到位，与系统「减弱动态效果」一样
+animations = true
 # 组句中的拼音显示在哪：both 行内和候选窗口 / inline 只在行内 / window 只在候选窗口（应用里不放 marked text）
 preedit = "both"
 # 英文模式（Caps Lock 亮着）是否给英文候选：Tab 或方向键选词，空格、回车、标点仍原样上屏敲的字母；false 就是纯直通
@@ -224,6 +234,10 @@ english_candidates = true
 traditional = false
 # 中文模式下整段输入是英文词时（hello / key）是否让中文候选排第一、英文词第二；缺省 false：拼音不像话的输入英文词排第一
 chinese_first = false
+# 中文模式下整段是英文词或英文词的开头时给英文候选与补全（hello、compa → company）；false 时中文模式只出中文，英文模式不受影响
+english_in_chinese = true
+# 候选后面配 emoji（kaixin → 开心 😄）；false 时候选里只有字词
+emoji = true
 # 中文模式下按住 Shift 敲的字母：passthrough 拼音原样上屏、字母交给应用（缺省，与以前一致）/ compose 收进组句
 # 缓冲区参与匹配，这样 Cpan 与 cpan 一样能出「C盘」。英文模式与英文直输段（no-Way）不受影响
 shift_letter = "passthrough"
@@ -236,6 +250,9 @@ english_mode = true
 full_width_punctuation = true
 # 英文模式下的同一件事，中英各记一份，状态条切的是当前模式那份；只有 Windows 用
 english_full_width_punctuation = false
+# 组句中敲会转全角的标点（, . ? ! 等，翻页键除外）先把高亮候选上屏、再补该标点（nihao, 一气打完「你好，」）；
+# 缺省 false：标点进英文直输段，与以前一致
+punct_commits = false
 # 辅码触发键：拼音打完之后敲它进辅码态，之后敲的字母按码表缩小候选范围；缺省是分号
 # 单个可见字符，字母、数字与翻页键不能当触发键；微软 / 搜狗双拼里分号先当 ing 的韵母键
 aux_code_key = ";"
@@ -487,7 +504,14 @@ impl Config {
         if !document.get(section).is_some_and(|item| item.is_table()) {
             document[section] = toml_edit::table();
         }
+        // 旧写法（外观写在 theme 里）要在改键之前认出来：写的正是 theme 时，新值会把它盖掉
+        let legacy = (section == "general" && matches!(key, "appearance" | "theme"))
+            .then(|| legacy_appearance(&document))
+            .flatten();
         document[section][key] = toml_edit::value(value);
+        if let Some(old) = legacy {
+            migrate_legacy_theme(&mut document, old);
+        }
         // 写临时文件再改名：输入法进程随时可能被杀，不能留半个配置文件
         write_file(path, &document.to_string())
     }
@@ -535,6 +559,46 @@ impl Config {
     }
 }
 
+/// 模板里 `appearance` 那一行上方的注释，旧配置迁移时照抄（有测试保证与 [`TEMPLATE`] 一致）。
+const APPEARANCE_COMMENT: &str = "# 候选窗口外观：system 跟随系统 / light 浅色 / dark 深色\n";
+
+/// 模板里 `theme` 那一行上方的注释，同上。
+const THEME_COMMENT: &str = "# 候选窗口主题（主题 id）：qingjian 青简绿 / system-blue 系统蓝 / wechat 微信绿 / sakura 樱花。只对青简渲染器生效\n";
+
+/// 旧写法里 `theme` 写的外观；新写法（或没写）为 `None`。
+fn legacy_appearance(document: &DocumentMut) -> Option<Appearance> {
+    let value = document.get("general")?.get("theme")?.as_str()?;
+    Appearance::from_key(value.trim())
+}
+
+/// 写 `appearance` 或 `theme` 时顺手迁移旧写法（2026-09-18 之前外观写在 `theme` 里，旧值是 `old`）：
+/// 外观补写到 `appearance`（写的是 `theme` 时它还没有，不补就丢了），`theme` 还是外观词就换成内置主题，
+/// 两行注释换成模板里的，免得手改配置的人看到「外观」注释下面是 `theme`。迁过之后 `theme` 不再是外观词，不会再迁。
+fn migrate_legacy_theme(document: &mut DocumentMut, old: Appearance) {
+    let Some(general) = document
+        .get_mut("general")
+        .and_then(toml_edit::Item::as_table_mut)
+    else {
+        return;
+    };
+    if !general.contains_key("appearance") {
+        general["appearance"] = toml_edit::value(old.key());
+    }
+    let still_legacy = general
+        .get("theme")
+        .and_then(toml_edit::Item::as_str)
+        .is_some_and(|value| Appearance::from_key(value.trim()).is_some());
+    if still_legacy {
+        general["theme"] = toml_edit::value(DEFAULT_THEME);
+    }
+    if let Some(mut key) = general.key_mut("theme") {
+        key.leaf_decor_mut().set_prefix(THEME_COMMENT);
+    }
+    if let Some(mut key) = general.key_mut("appearance") {
+        key.leaf_decor_mut().set_prefix(APPEARANCE_COMMENT);
+    }
+}
+
 /// 原子写配置文件；数据目录还没有就先建（新账户第一次打开设置时输入法可能还没跑过）。
 fn write_file(path: &Path, text: &str) -> Result<(), ConfigError> {
     let write = || {
@@ -550,138 +614,4 @@ fn write_file(path: &Path, text: &str) -> Result<(), ConfigError> {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn template_parses_to_defaults() {
-        let config: Config = toml::from_str(TEMPLATE).unwrap();
-        assert_eq!(config, Config::default());
-    }
-
-    #[test]
-    fn partial_file_keeps_other_defaults() {
-        let config: Config = toml::from_str("[predict]\nenabled = true\nlookback = 10\n").unwrap();
-        assert!(config.predict.enabled);
-        assert_eq!(config.predict.lookback, 10);
-        assert_eq!(config.predict.model, "deepseek-v4-flash");
-        assert_eq!(config.predict.reasoning_effort, "none");
-        assert_eq!(config.predict.api_key_env, "QINGJIAN_API_KEY");
-    }
-
-    #[test]
-    fn fuzzy_section_parses() {
-        let config: Config = toml::from_str("[fuzzy]\nz_zh = true\nan_ang = true\n").unwrap();
-        assert!(config.fuzzy.z_zh && config.fuzzy.an_ang && !config.fuzzy.n_l);
-        assert!(config.fuzzy.any());
-    }
-
-    #[test]
-    fn general_and_shortcut_sections_parse() {
-        let config: Config = toml::from_str(
-            "[general]\npage_size = 5\npage_keys = \"[]\"\ntheme = \"dark\"\nlayout = \"horizontal\"\npreedit = \"window\"\n[shortcut]\nexpression = \"i\"\n",
-        )
-        .unwrap();
-        assert_eq!(config.general.page_size(), 5);
-        assert_eq!(config.general.page_keys(), ('[', ']'));
-        assert_eq!(config.general.theme, ThemeMode::Dark);
-        assert_eq!(config.general.layout, LayoutMode::Horizontal);
-        assert_eq!(config.general.preedit, PreeditMode::Window);
-        assert_eq!(config.general.learning_language, "en");
-        assert!(config.general.english_candidates);
-        assert!(!config.general.traditional);
-        assert_eq!(config.general.shuangpin(), None);
-        assert_eq!(config.general.log_level, LogLevel::Info);
-        assert_eq!(config.shortcut.mode.expression, 'i');
-        assert_eq!(config.shortcut.mode.question, 'u');
-        // 译词修饰键缺省分平台（Windows 是 Ctrl 系，其余 Option 系，见 shortcut.rs），断言跟着 Default 走
-        assert_eq!(
-            config.shortcut.translation,
-            Config::default().shortcut.translation
-        );
-        assert_eq!(config.shortcut.switch_mode, SwitchKeys::default());
-        assert!(config.general.english_mode);
-    }
-
-    #[test]
-    fn set_value_writes_strings_and_integers() {
-        let path = std::env::temp_dir().join("qingjian-config-set-value-test.toml");
-        let _ = std::fs::remove_file(&path);
-        Config::set_value(&path, "general", "page_size", 5i64).unwrap();
-        Config::set_value(&path, "general", "theme", "dark").unwrap();
-        Config::set_value(&path, "shortcut", "question", "i").unwrap();
-        let config = Config::load(&path).unwrap();
-        assert_eq!(config.general.page_size, 5);
-        assert_eq!(config.general.theme, ThemeMode::Dark);
-        assert_eq!(config.shortcut.mode.question, 'i');
-        let _ = std::fs::remove_file(&path);
-    }
-
-    #[test]
-    fn set_bool_keeps_comments_and_flips_only_that_key() {
-        let path = std::env::temp_dir().join("qingjian-config-set-bool-test.toml");
-        std::fs::write(
-            &path,
-            "# 头注释\n[fuzzy]\n# 说明\nz_zh = false\nn_l = true\n",
-        )
-        .unwrap();
-        Config::set_bool(&path, "fuzzy", "z_zh", true).unwrap();
-        Config::set_bool(&path, "predict", "enabled", true).unwrap();
-        let text = std::fs::read_to_string(&path).unwrap();
-        assert!(
-            text.starts_with("# 头注释\n[fuzzy]\n# 说明\nz_zh = true\nn_l = true\n"),
-            "{text}"
-        );
-        let config = Config::load(&path).unwrap();
-        assert!(config.fuzzy.z_zh && config.fuzzy.n_l && config.predict.enabled);
-        let _ = std::fs::remove_file(&path);
-    }
-
-    #[test]
-    fn writes_create_the_data_directory_for_a_fresh_account() {
-        let dir = std::env::temp_dir().join("qingjian-config-fresh-account-test");
-        let _ = std::fs::remove_dir_all(&dir);
-        let path = dir.join("Qingjian").join("config.toml");
-        assert!(Config::write_template_if_missing(&path).unwrap());
-        assert!(!Config::write_template_if_missing(&path).unwrap());
-        assert_eq!(std::fs::read_to_string(&path).unwrap(), TEMPLATE);
-        // 没有模板直接保存也行
-        std::fs::remove_dir_all(&dir).unwrap();
-        Config::set_bool(&path, "predict", "enabled", true).unwrap();
-        assert!(Config::load(&path).unwrap().predict.enabled);
-        std::fs::remove_dir_all(&dir).unwrap();
-    }
-
-    #[test]
-    fn set_bool_starts_from_template_when_missing() {
-        let path = std::env::temp_dir().join("qingjian-config-set-bool-missing-test.toml");
-        let _ = std::fs::remove_file(&path);
-        Config::set_bool(&path, "predict", "enabled", true).unwrap();
-        let text = std::fs::read_to_string(&path).unwrap();
-        assert!(text.contains("# 青简输入法配置"));
-        assert!(Config::load(&path).unwrap().predict.enabled);
-        let _ = std::fs::remove_file(&path);
-    }
-
-    #[test]
-    fn set_bool_refuses_broken_file() {
-        let path = std::env::temp_dir().join("qingjian-config-set-bool-broken-test.toml");
-        std::fs::write(&path, "[fuzzy\nz_zh = false\n").unwrap();
-        assert!(matches!(
-            Config::set_bool(&path, "fuzzy", "z_zh", true),
-            Err(ConfigError::Edit { .. })
-        ));
-        assert_eq!(
-            std::fs::read_to_string(&path).unwrap(),
-            "[fuzzy\nz_zh = false\n"
-        );
-        let _ = std::fs::remove_file(&path);
-    }
-
-    #[test]
-    fn missing_file_is_default() {
-        let path = std::env::temp_dir().join("qingjian-config-missing-test.toml");
-        let _ = std::fs::remove_file(&path);
-        assert_eq!(Config::load(&path).unwrap(), Config::default());
-    }
-}
+mod tests;

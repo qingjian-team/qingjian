@@ -13,7 +13,9 @@ pub(crate) enum Message {
     ShuangpinRawPreedit(bool),
     Wubi(bool),
     Traditional(bool),
+    Emoji(bool),
     EnglishCandidates(bool),
+    EnglishInChinese(bool),
     ChineseFirst(bool),
     /// 中文模式下 Shift+字母：交给应用（缺省）还是进组句缓冲区。
     ShiftLetter(Option<usize>),
@@ -21,6 +23,8 @@ pub(crate) enum Message {
     NumpadDigit(Option<usize>),
     FullWidthPunctuation(bool),
     EnglishFullWidthPunctuation(bool),
+    /// 组句中会转全角的标点先把高亮候选上屏再补标点。
+    PunctCommits(bool),
     /// 开=写入平台默认名单，关=清空。
     EnglishOffInApps(bool),
     /// 勾上 / 去掉一个中英切换键。
@@ -29,6 +33,7 @@ pub(crate) enum Message {
     EnglishMode(bool),
 
     // 候选窗口页
+    Appearance(Option<usize>),
     Theme(Option<usize>),
     Layout(Option<usize>),
     Preedit(Option<usize>),
@@ -37,6 +42,11 @@ pub(crate) enum Message {
     FontQuery(String),
     /// 从提示里选了一个字族。
     Font(String),
+    /// 字号框改了；清空为 `None`（用主题的）。
+    CandidateFontSize(Option<f64>),
+    AnnotationFontSize(Option<f64>),
+    Animations(bool),
+    ResetFontSizes,
     StatusBar(bool),
 
     // 云服务页

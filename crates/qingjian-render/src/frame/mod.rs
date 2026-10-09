@@ -1,9 +1,11 @@
-//! 一帧要画的全部内容：顶部拼音行、候选行、高亮、页脚、右侧整句补全。只是展示形态，不含排序或查词。
+//! 一帧要画的全部内容：顶部拼音行、候选行、高亮、页脚、右侧整句补全，以及给主题显示的输入状态。只是展示形态，不含排序或查词。
 
+mod mode;
 mod preedit;
 mod row;
 mod tone;
 
+pub use mode::Mode;
 pub use preedit::{Preedit, PreeditSegment, PreeditStyle};
 pub use row::Row;
 pub use tone::Tone;
@@ -33,6 +35,9 @@ pub struct Frame {
 
     /// 拼音行右侧的一句临时状态（删了什么词），有它时不画整句补全。
     pub status: Option<String>,
+
+    /// 输入状态（中 / 英、简 / 繁、标点、方案）。
+    pub mode: Mode,
 }
 
 impl Frame {

@@ -1,6 +1,8 @@
 //! 候选窗口：自绘 NSPanel 与视图、一帧的数据（preedit / 行 / 页脚）、主题。
 
+mod animation;
 mod bitmap;
+mod bounds;
 mod cloud_icon;
 mod frame;
 mod preedit;

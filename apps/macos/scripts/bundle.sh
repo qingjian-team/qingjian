@@ -205,10 +205,14 @@ if [[ "${1:-}" == "--install" ]]; then
     echo "注意: /Library/Input Methods/$APP_NAME.app 也装着一份（pkg 装的），两份同 id 会互相顶；先跑 scripts/uninstall.sh"
   fi
   mkdir -p "$INSTALL_DIR"
-  rm -rf "$INSTALL_DIR/$APP_NAME.app"
-  cp -R "$APP" "$INSTALL_DIR/$APP_NAME.app"
+  # 先整个拷到旁边再换上去：直接删了再拷，拷到一半中断会留下残缺的包，旧进程还在用它
+  STAGING="$INSTALL_DIR/.$APP_NAME.app.new"
+  rm -rf "$STAGING"
+  cp -R "$APP" "$STAGING"
   # 系统会在下次切换到该输入法时重新拉起进程
   pkill -x "$BIN_NAME" 2>/dev/null || true
+  rm -rf "$INSTALL_DIR/$APP_NAME.app"
+  mv "$STAGING" "$INSTALL_DIR/$APP_NAME.app"
   echo "已安装到: $INSTALL_DIR/$APP_NAME.app"
   echo "日志: ~/Library/Logs/Qingjian/"
 fi

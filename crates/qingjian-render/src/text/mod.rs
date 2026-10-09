@@ -3,13 +3,17 @@
 mod size;
 mod style;
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
-use cosmic_text::fontdb::ID;
-use cosmic_text::{Attrs, Buffer, FontSystem, Metrics, Shaping, SwashCache, SwashContent};
+use cosmic_text::fontdb::{Family, ID};
+use cosmic_text::{Attrs, Buffer, FontSystem, Metrics, Shaping, Style, SwashCache, SwashContent};
 
 use crate::canvas::Canvas;
 use crate::fonts::{FontLibrary, Trak, UI_FAMILY};
+use crate::theme::FontFamilies;
+use crate::theme::file::FamilyList;
 
 pub(crate) use size::TextSize;
 pub(crate) use style::TextStyle;
@@ -29,6 +33,15 @@ pub(crate) struct TextPainter {
 
     /// 覆盖率 gamma 查找表，按 gamma 值缓存。
     gamma_tables: HashMap<u32, Box<[u8; 256]>>,
+
+    /// 当前主题的字族表；换了主题或加载了新字体就重新挑。
+    families: Option<Arc<FontFamilies>>,
+
+    /// 字族表每条回退链挑中的字族名（字体库里的写法），`None` 用界面字体。
+    resolved: Vec<Option<String>>,
+
+    /// 主题要求加载过的字体文件（加载失败的也记，不反复试）。
+    loaded: HashSet<PathBuf>,
 }
 
 impl TextPainter {
@@ -41,7 +54,67 @@ impl TextPainter {
             buffer,
             tracking: HashMap::new(),
             gamma_tables: HashMap::new(),
+            families: None,
+            resolved: Vec::new(),
+            loaded: HashSet::new(),
         }
+    }
+
+    /// 字体库里有没有这个字族（不分大小写）。
+    pub(crate) fn has_family(&self, name: &str) -> bool {
+        self.family_name(name).is_some()
+    }
+
+    /// 字体库里这个字族的写法。
+    fn family_name(&self, name: &str) -> Option<String> {
+        self.font_system.db().faces().find_map(|face| {
+            face.families
+                .iter()
+                .find(|(family, _)| family.eq_ignore_ascii_case(name))
+                .map(|(family, _)| family.clone())
+        })
+    }
+
+    /// 加载字体文件；每个文件只试一次。加载了新文件就重新挑字族。
+    pub(crate) fn load_fonts(&mut self, paths: &[PathBuf]) {
+        let mut added = false;
+        for path in paths {
+            if !self.loaded.insert(path.clone()) {
+                continue;
+            }
+            added |= load_font(&mut self.font_system, path);
+        }
+        if added {
+            self.families = None;
+        }
+    }
+
+    /// 换成这个主题的字族表：每条回退链挑第一个字体库里有的字族，同一张表不重挑。
+    pub(crate) fn use_families(&mut self, families: &Arc<FontFamilies>) {
+        if self
+            .families
+            .as_ref()
+            .is_some_and(|current| Arc::ptr_eq(current, families))
+        {
+            return;
+        }
+        self.resolved = families
+            .chains()
+            .iter()
+            .map(|chain| {
+                for name in &chain.0 {
+                    if FamilyList::is_system(name) {
+                        return None;
+                    }
+                    if let Some(found) = self.family_name(name) {
+                        return Some(found);
+                    }
+                }
+                tracing::debug!(chain = ?chain.0, "回退链里的字体都没装，用界面字体");
+                None
+            })
+            .collect();
+        self.families = Some(Arc::clone(families));
     }
 
     /// 光学字号（点）：SF 这类带 `opsz` 轴的字体在小字号用文本视觉尺寸，CoreText 对系统字体自动做，这里要显式给。
@@ -54,7 +127,9 @@ impl TextPainter {
     pub(crate) fn measure(&mut self, text: &str, style: &TextStyle) -> TextSize {
         self.shape(text, style);
         let mut width = 0.0_f32;
+        let mut baseline = None;
         for run in self.buffer.layout_runs() {
+            baseline.get_or_insert(run.line_y.round());
             let tracked: f32 = run
                 .glyphs
                 .iter()
@@ -67,6 +142,7 @@ impl TextPainter {
         TextSize {
             width,
             height: style.line_height,
+            baseline: baseline.unwrap_or(0.0),
         }
     }
 
@@ -80,6 +156,9 @@ impl TextPainter {
         y: f32,
     ) -> f32 {
         self.shape(text, style);
+        if let Some((stroke_width, stroke_color)) = style.stroke {
+            self.draw_stroke(canvas, style, x, y, stroke_width, stroke_color);
+        }
         let mut width = 0.0_f32;
         let mut strike: Option<(f32, f32)> = None;
         let mut underline: Option<(f32, f32)> = None;
@@ -133,6 +212,61 @@ impl TextPainter {
         width
     }
 
+    /// 描边：整段文字的字形轮廓拼成一条路径，按两倍宽描一次（字形随后压在上面，露出来的就是向外的宽度）。
+    /// 一条路径描一次，半透明的描边在字形相交处不会叠深。没有轮廓的字形（位图 emoji）不描。
+    fn draw_stroke(
+        &mut self,
+        canvas: &mut Canvas,
+        style: &TextStyle,
+        x: f32,
+        y: f32,
+        width: f32,
+        color: crate::color::Color,
+    ) {
+        let mut path = tiny_skia::PathBuilder::new();
+        for run in self.buffer.layout_runs() {
+            let baseline = y + run.line_y.round();
+            let mut tracked = 0.0_f32;
+            for glyph in run.glyphs {
+                let physical = glyph.physical((x + tracked, y), 1.0);
+                let origin_x = x + tracked + glyph.x + glyph.font_size * glyph.x_offset;
+                let origin_y = baseline + glyph.y - glyph.font_size * glyph.y_offset;
+                tracked += tracking_px(&self.font_system, &mut self.tracking, glyph.font_id, style);
+                let Some(commands) = self
+                    .cache
+                    .get_outline_commands(&mut self.font_system, physical.cache_key)
+                else {
+                    continue;
+                };
+                for command in commands {
+                    let at = |p: zeno::Point| (origin_x + p.x, origin_y - p.y);
+                    match *command {
+                        zeno::Command::MoveTo(p) => {
+                            let (px, py) = at(p);
+                            path.move_to(px, py);
+                        }
+                        zeno::Command::LineTo(p) => {
+                            let (px, py) = at(p);
+                            path.line_to(px, py);
+                        }
+                        zeno::Command::QuadTo(c, p) => {
+                            let ((cx, cy), (px, py)) = (at(c), at(p));
+                            path.quad_to(cx, cy, px, py);
+                        }
+                        zeno::Command::CurveTo(c1, c2, p) => {
+                            let ((ax, ay), (bx, by), (px, py)) = (at(c1), at(c2), at(p));
+                            path.cubic_to(ax, ay, bx, by, px, py);
+                        }
+                        zeno::Command::Close => path.close(),
+                    }
+                }
+            }
+        }
+        if let Some(path) = path.finish() {
+            canvas.stroke_outline(&path, width * 2.0, color);
+        }
+    }
+
     /// 每个字形用的字族名（相邻相同的合并），拿来核对中日字形与 emoji 回退到了哪家字体。
     pub(crate) fn trace_families(&mut self, text: &str, style: &TextStyle) -> Vec<String> {
         self.shape(text, style);
@@ -154,14 +288,38 @@ impl TextPainter {
     }
 
     fn shape(&mut self, text: &str, style: &TextStyle) {
+        let family = match self.resolved.get(usize::from(style.family.0)) {
+            Some(Some(name)) => Family::Name(name),
+            _ => UI_FAMILY,
+        };
         let attrs = Attrs::new()
-            .family(UI_FAMILY)
+            .family(family)
+            .weight(cosmic_text::Weight(style.weight.0))
+            .style(if style.italic {
+                Style::Italic
+            } else {
+                Style::Normal
+            })
             .color(style.color.to_cosmic());
         self.buffer
             .set_metrics(Metrics::new(style.size, style.line_height));
         self.buffer.set_size(None, None);
         self.buffer.set_text(text, &attrs, Shaping::Advanced, None);
         self.buffer.shape_until_scroll(&mut self.font_system, false);
+    }
+}
+
+/// 文件能解析就加载进字体库；返回是否加载了。
+fn load_font(font_system: &mut FontSystem, path: &Path) -> bool {
+    match font_system.db_mut().load_font_file(path) {
+        Ok(()) => {
+            tracing::debug!(path = %path.display(), "加载主题字体");
+            true
+        }
+        Err(error) => {
+            tracing::warn!(path = %path.display(), %error, "主题字体读不进来");
+            false
+        }
     }
 }
 

@@ -1,6 +1,7 @@
 //! 按键处理：键码 / 字符解析在 [`codes`]，分流在 [`input`]，「修饰键 + 数字」快捷键在 [`shortcut`]，
-//! 一次按键的结果是 [`Effect`]。
+//! 鼠标点候选窗口在 [`click`]（与数字键 / 译词键同一套上屏），一次按键的结果是 [`Effect`]。
 
+mod click;
 mod codes;
 mod effect;
 mod input;

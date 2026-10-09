@@ -1,7 +1,7 @@
 //! 候选窗口的位图绘制：一帧交给 `qingjian-render` 画成位图，`drawRect:` 里贴上去。
 //!
 //! 与自绘 NSView 的旧路径并存：配置 `[general] renderer = "system"` 走旧路（过渡期退路）。
-//! 面板背景透明、系统阴影按位图的 alpha 走，所以渲染器不画阴影。
+//! 阴影由主题定义、渲染器画进位图（位图四周留边），面板关掉系统阴影，与 Windows 一致。
 
 mod convert;
 mod font_files;
@@ -13,8 +13,9 @@ use objc2::rc::Retained;
 use objc2_app_kit::{NSBitmapImageRep, NSCalibratedRGBColorSpace, NSCompositingOperation, NSImage};
 use objc2_foundation::{NSPoint, NSRect, NSSize};
 use qingjian_platform::LayoutMode;
-use qingjian_render::{FontLibrary, Layout, Renderer, Theme, UiFont};
+use qingjian_render::{FontLibrary, HitRegion, HitTarget, Layout, Renderer, Theme, UiFont};
 
+use super::bounds::ViewBounds;
 use super::frame::Frame;
 
 pub struct BitmapPainter {
@@ -36,8 +37,20 @@ pub struct BitmapPainter {
     /// 最近一帧的倍数。
     scale: f32,
 
-    /// 最近一帧的尺寸（点）。
-    size: NSSize,
+    /// 最近一帧的尺寸（点）与其中的内容区。
+    bounds: ViewBounds,
+
+    /// 主题（浅色那一份，画的时候按外观取深浅）。
+    theme: Theme,
+
+    /// 最近一帧还有动画在播：隔多久要调 [`Self::tick`]。
+    next_frame: Option<std::time::Duration>,
+
+    /// 最近一帧里候选与译词的点击区域（内容区像素）。
+    hits: Vec<HitRegion>,
+
+    /// 内容区左上角在视图里的位置（点，左上为原点）：位图四周留了投影的边。
+    content_origin: NSPoint,
 }
 
 impl BitmapPainter {
@@ -73,19 +86,32 @@ impl BitmapPainter {
             layout: Layout::Vertical,
             dark: false,
             scale: 2.0,
-            size: NSSize::ZERO,
+            bounds: ViewBounds::filled(NSSize::ZERO),
+            theme: Theme::light(),
+            next_frame: None,
+            hits: Vec::new(),
+            content_origin: NSPoint::ZERO,
         })
     }
 
-    /// 记下新一帧并画好，返回窗口该有的尺寸（点）。
+    /// 换主题（浅色那一份）：加载它要的字体，用最近一帧当场重画。
+    pub fn set_theme(&mut self, theme: Theme) {
+        self.renderer
+            .load_theme_fonts(&theme, font_files::family_files);
+        self.theme = theme;
+        self.repaint();
+    }
+
+    /// 记下新一帧并画好，返回视图该有的尺寸与内容区（点）。
     pub fn set_frame(
         &mut self,
         frame: &Frame,
         layout: LayoutMode,
         dark: bool,
         scale: f32,
-    ) -> NSSize {
+    ) -> ViewBounds {
         self.frame = convert::frame(frame);
+        self.renderer.set_reduce_motion(reduce_motion());
         self.layout = match layout {
             LayoutMode::Vertical => Layout::Vertical,
             LayoutMode::Horizontal => Layout::Horizontal,
@@ -93,7 +119,7 @@ impl BitmapPainter {
         self.dark = dark;
         self.scale = scale;
         self.repaint();
-        self.size
+        self.bounds
     }
 
     /// 外观或倍数变了就重画一遍再贴。
@@ -106,7 +132,7 @@ impl BitmapPainter {
         let Some(image) = &self.image else {
             return;
         };
-        let rect = NSRect::new(NSPoint::ZERO, self.size);
+        let rect = NSRect::new(NSPoint::ZERO, self.bounds.size);
         // SAFETY: hints 传 None，其余参数都是普通值；在 drawRect: 内调用，有当前图形上下文。
         unsafe {
             image.drawInRect_fromRect_operation_fraction_respectFlipped_hints(
@@ -120,29 +146,91 @@ impl BitmapPainter {
         }
     }
 
+    /// 视图里一点（点，左上为原点）点中了哪个候选或哪条译词。
+    pub fn hit(&self, point: NSPoint) -> Option<HitTarget> {
+        let scale = f64::from(self.scale);
+        let x = ((point.x - self.content_origin.x) * scale) as f32;
+        let y = ((point.y - self.content_origin.y) * scale) as f32;
+        self.hits
+            .iter()
+            .find(|region| region.contains(x, y))
+            .map(|region| region.target)
+    }
+
+    /// 有动画在播时隔多久要下一帧。
+    pub fn next_frame(&self) -> Option<std::time::Duration> {
+        self.next_frame
+    }
+
+    /// 动画的下一帧：换上新位图（尺寸不变）；返回隔多久再要，`None` 为播完。
+    pub fn tick(&mut self) -> Option<std::time::Duration> {
+        match self.renderer.tick() {
+            Ok(Some(rendered)) => {
+                self.next_frame = rendered.next_frame;
+                self.image = to_image(&rendered.pixmap, self.bounds.size);
+            }
+            Ok(None) => self.next_frame = None,
+            Err(error) => {
+                tracing::warn!(%error, "候选窗动画帧渲染失败");
+                self.next_frame = None;
+            }
+        }
+        self.next_frame
+    }
+
+    /// 窗口收起：停动画、忘掉上一帧，下次显示不从旧位置过渡。
+    pub fn forget(&mut self) {
+        self.renderer.forget();
+        self.next_frame = None;
+    }
+
     fn repaint(&mut self) {
-        let theme = if self.dark {
-            Theme::dark()
-        } else {
-            Theme::light()
-        };
+        let theme = self.theme.with_dark(self.dark);
         let started = std::time::Instant::now();
-        let rendered =
-            match self
-                .renderer
-                .render(&self.frame, self.layout, &theme, self.scale, None)
-            {
-                Ok(rendered) => rendered,
-                Err(error) => {
-                    tracing::warn!(%error, "候选窗渲染失败");
-                    self.image = None;
-                    return;
-                }
-            };
+        let rendered = match self
+            .renderer
+            .render(&self.frame, self.layout, &theme, self.scale)
+        {
+            Ok(rendered) => rendered,
+            Err(error) => {
+                tracing::warn!(%error, "候选窗渲染失败");
+                self.image = None;
+                self.hits.clear();
+                return;
+            }
+        };
         let (width, height) = rendered.content_size_points();
-        self.size = NSSize::new(f64::from(width), f64::from(height));
-        self.image = to_image(&rendered.pixmap, self.size);
+        self.bounds = bounds(&rendered);
+        self.next_frame = rendered.next_frame;
+        self.content_origin = NSPoint::new(
+            f64::from(rendered.content_x) / f64::from(rendered.scale),
+            f64::from(rendered.content_y) / f64::from(rendered.scale),
+        );
+        self.hits = rendered.hits;
+        self.image = to_image(&rendered.pixmap, self.bounds.size);
         tracing::debug!(elapsed = ?started.elapsed(), width, height, "候选窗位图已画");
+    }
+}
+
+/// 系统辅助功能里开了「减少动态效果」。
+fn reduce_motion() -> bool {
+    objc2_app_kit::NSWorkspace::sharedWorkspace().accessibilityDisplayShouldReduceMotion()
+}
+
+/// 位图与内容区换成点；内容区原点换成左下角起算。
+fn bounds(rendered: &qingjian_render::Rendered) -> ViewBounds {
+    let points = |pixels: u32| f64::from(pixels) / f64::from(rendered.scale);
+    let (width, height) = (rendered.pixmap.width(), rendered.pixmap.height());
+    let below = height.saturating_sub(rendered.content_y + rendered.content_height);
+    ViewBounds {
+        size: NSSize::new(points(width), points(height)),
+        content: NSRect::new(
+            NSPoint::new(points(rendered.content_x), points(below)),
+            NSSize::new(
+                points(rendered.content_width),
+                points(rendered.content_height),
+            ),
+        ),
     }
 }
 

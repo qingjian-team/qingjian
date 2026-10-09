@@ -1,6 +1,6 @@
 //! 按键怎么作用到 Engine / 高亮上。分流规则与 macOS 壳的 `handle_text` / `handle_command` 对齐。
 
-use qingjian_core::{QUESTION_PREFIX, shortcut};
+use qingjian_core::{QUESTION_PREFIX, punctuation, shortcut};
 use qingjian_platform::NumpadDigit;
 use qingjian_platform::protocol::KeyEvent;
 
@@ -178,7 +178,7 @@ impl Router {
 
     /// 中文模式：字母进拼音。缺省 Shift 大写是临时打英文——组句中先把拼音原样上屏、字母交给应用；
     /// 配 `[general] shift_letter = "compose"` 时大写也收进缓冲区（Core 按小写匹配、原样上屏时还原大小写）。
-    /// 没在组句时的其他字符走全角标点（与 macOS 壳一致，组句中的标点仍进英文直输段）。
+    /// 没在组句时的其他字符走全角标点；组句中会转全角的标点先上屏高亮候选再补标点，其余符号仍进英文直输段（见 apply_printable）。
     fn apply_chinese(&mut self, c: char, event: &KeyEvent) -> Effect {
         // 注音模式下数字与 `- ; , . /` 就是键盘上的音节键，跟着进缓冲区。
         let is_zhuyin_key = self.engine.is_zhuyin_mode()
@@ -266,7 +266,8 @@ impl Router {
         with_prefix(committed, effect, c)
     }
 
-    /// 组句中的可打印键：数字选当前页第 N 个（没有这一格就进直输段），翻页键翻页，空格上屏高亮，其余进英文直输段；已在直输段里就一律追加。
+    /// 组句中的可打印键：数字选当前页第 N 个（没有这一格就进直输段），翻页键翻页，空格上屏高亮，
+    /// 会转全角的标点上屏高亮候选再补标点，其余符号进英文直输段；已在直输段里就一律追加。
     /// 表达式模式（`v1+2`）里数字和运算符进算式；问字模式敲的还可能是码点（`u4e00`、`u+1f600`），数字与 `+` 进缓冲区；
     /// 微软 / 搜狗双拼的 `;` 是 ing 键，末尾有落单声母时进缓冲区。
     fn apply_printable(&mut self, c: char, event: &KeyEvent) -> Effect {
@@ -339,9 +340,17 @@ impl Router {
             }
             return Effect::Changed(Some(self.commit_highlighted()));
         }
-        // 表达式 / 问字模式下的其他字符不进缓冲区（与 macOS 壳一致），辅码态里敲标点同理（码段随之清空）：
-        // 都是先把高亮候选上屏，再按没在组句处理这个键、标点按组句外语义转全角
-        if (c != '\'' && (expression || self.engine.question_mode())) || self.engine.in_aux() {
+        // 表达式 / 问字模式下的其他字符不进缓冲区（与 macOS 壳一致），辅码态里敲标点同理（码段随之清空）；
+        // 普通拼音组句里的标点也一样——会转全角的（`,` `.` `?` `!` 引号、括号这些）先把高亮候选上屏再补标点
+        //（`nihao,` 一气打完「你好，」），翻页键已在前面上方拦走，数字后的 `.` 是否保持半角由 Core 判断；
+        // 这条上屏行为由 `[general] punct_commits` 控制（缺省关：标点进英文直输段）。
+        // 不会转的符号（`-` `/` `@`）仍进英文直输段；`'` 是隔音符，任何模式都进缓冲区。
+        if (c != '\''
+            && (expression
+                || self.engine.question_mode()
+                || (self.config.punct_commits && punctuation::converts(c))))
+            || self.engine.in_aux()
+        {
             let committed = self.commit_highlighted();
             let effect = self.apply_punctuation(c, event);
             return with_prefix(Some(committed), effect, c);
@@ -352,7 +361,7 @@ impl Router {
 
     /// 数字键在当前页对应的格子下标；这一页没有这一格（`gpt6` 只有三个候选）返回 `None`，数字当内容进缓冲区。
     /// 云端词还没到的占位格算有：按了不算，免得结果一到就选错。
-    fn slot_index(&self, digit: usize) -> Option<usize> {
+    pub(super) fn slot_index(&self, digit: usize) -> Option<usize> {
         let page_size = self.config.page_size;
         let index = self.highlight / page_size * page_size + digit - 1;
         (digit <= page_size && index < self.candidate_count()).then_some(index)
@@ -366,7 +375,7 @@ impl Router {
         }
     }
 
-    fn composing(&self) -> bool {
+    pub(super) fn composing(&self) -> bool {
         !self.engine.composition().is_empty()
     }
 }

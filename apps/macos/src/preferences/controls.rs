@@ -42,6 +42,13 @@ pub(super) fn page_keys_label(pair: &str) -> String {
     }
 }
 
+/// 换掉弹出菜单的全部选项（列表会变的，如主题）。
+pub(super) fn set_items(popup: &NSPopUpButton, titles: &[String]) {
+    popup.removeAllItems();
+    let items: Vec<Retained<NSString>> = titles.iter().map(|t| NSString::from_str(t)).collect();
+    popup.addItemsWithTitles(&NSArray::from_retained_slice(&items));
+}
+
 pub(super) fn select(popup: &NSPopUpButton, index: Option<usize>) {
     if let Some(index) = index {
         popup.selectItemAtIndex(index as isize);

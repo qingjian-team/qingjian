@@ -1,7 +1,8 @@
 //! 位图画布：tiny-skia `Pixmap` 之上的几个填充原语，加字形位图的逐像素 source-over 混合。坐标一律是像素、左上角原点。
 
 use tiny_skia::{
-    BlendMode, FillRule, Paint, Path, PathBuilder, Pixmap, PremultipliedColorU8, Rect, Transform,
+    BlendMode, FillRule, Mask, Paint, Path, PathBuilder, Pixmap, PixmapPaint, PremultipliedColorU8,
+    Rect, Shader, Stroke, Transform,
 };
 
 use crate::color::{Color, mul_u8, premultiply};
@@ -71,6 +72,107 @@ impl Canvas {
         );
     }
 
+    /// 按现成的画笔填路径（着色器、抗锯齿都由调用方定），可带遮罩。
+    pub(crate) fn fill_path_paint(&mut self, path: &Path, paint: &Paint, mask: Option<&Mask>) {
+        self.pixmap
+            .fill_path(path, paint, FillRule::Winding, Transform::identity(), mask);
+    }
+
+    /// 按着色器（渐变、图片）填路径，可带遮罩（圆角裁切）。
+    pub(crate) fn fill_path_with(&mut self, path: &Path, shader: Shader, mask: Option<&Mask>) {
+        let paint = Paint {
+            shader,
+            anti_alias: true,
+            ..Paint::default()
+        };
+        self.pixmap
+            .fill_path(path, &paint, FillRule::Winding, Transform::identity(), mask);
+    }
+
+    /// 描路径（线宽像素）。
+    pub(crate) fn stroke_path(&mut self, path: &Path, width: f32, color: Color) {
+        let stroke = Stroke {
+            width,
+            ..Stroke::default()
+        };
+        self.pixmap.stroke_path(
+            path,
+            &paint(color, BlendMode::SourceOver),
+            &stroke,
+            Transform::identity(),
+            None,
+        );
+    }
+
+    /// 描字形轮廓：圆角接头与端点，描边不出尖角。
+    pub(crate) fn stroke_outline(&mut self, path: &Path, width: f32, color: Color) {
+        let stroke = Stroke {
+            width,
+            line_join: tiny_skia::LineJoin::Round,
+            line_cap: tiny_skia::LineCap::Round,
+            ..Stroke::default()
+        };
+        self.pixmap.stroke_path(
+            path,
+            &paint(color, BlendMode::SourceOver),
+            &stroke,
+            Transform::identity(),
+            None,
+        );
+    }
+
+    /// 与画布同大的遮罩，`path` 里面为不透明。
+    pub(crate) fn mask(&self, path: &Path) -> Option<Mask> {
+        let mut mask = Mask::new(self.width(), self.height())?;
+        mask.fill_path(path, FillRule::Winding, true, Transform::identity());
+        Some(mask)
+    }
+
+    /// 把同大的离屏图层按不透明度合成上来。
+    pub(crate) fn draw_layer(&mut self, layer: &Pixmap, opacity: f32) {
+        let paint = PixmapPaint {
+            opacity,
+            ..PixmapPaint::default()
+        };
+        self.pixmap
+            .draw_pixmap(0, 0, layer.as_ref(), &paint, Transform::identity(), None);
+    }
+
+    /// 另一张位图原样盖到 `(x, y)`（替换，不混合）；局部重画的结果写回整帧用。
+    pub(crate) fn replace(&mut self, x: i32, y: i32, other: &Pixmap) {
+        let canvas_width = self.pixmap.width() as i32;
+        let canvas_height = self.pixmap.height() as i32;
+        let width = other.width() as i32;
+        let col_start = (-x).max(0);
+        let col_end = width.min(canvas_width - x);
+        if col_start >= col_end {
+            return;
+        }
+        let source = other.pixels();
+        let pixels = self.pixmap.pixels_mut();
+        for row in 0..other.height() as i32 {
+            let py = y + row;
+            if py < 0 || py >= canvas_height {
+                continue;
+            }
+            let from = row as usize * width as usize;
+            let to = py as usize * canvas_width as usize;
+            pixels[to + (x + col_start) as usize..to + (x + col_end) as usize]
+                .copy_from_slice(&source[from + col_start as usize..from + col_end as usize]);
+        }
+    }
+
+    /// 另一张位图按变换叠上来（双线性采样，整数平移时 tiny-skia 自己退成最近邻）；循环动画的姿态用。
+    pub(crate) fn draw_transformed(&mut self, layer: &Pixmap, transform: Transform, opacity: f32) {
+        let paint = PixmapPaint {
+            opacity,
+            quality: tiny_skia::FilterQuality::Bilinear,
+            ..PixmapPaint::default()
+        };
+        self.pixmap
+            .draw_pixmap(0, 0, layer.as_ref(), &paint, transform, None);
+    }
+
     /// 把另一张位图整张叠上来（左上角对齐到 `(x, y)`）。
     pub(crate) fn blend_pixmap(&mut self, x: i32, y: i32, other: &Pixmap) {
         let width = other.width();
@@ -94,19 +196,36 @@ impl Canvas {
         data: &[u8],
         color: Color,
     ) {
-        for row in 0..height {
-            for col in 0..width {
-                let Some(&coverage) = data.get((row * width + col) as usize) else {
-                    return;
-                };
+        // 按行裁到画布内，逐像素的算法与 blend_pixel 相同（结果逐位一致），只是省掉每个像素的越界检查
+        let canvas_width = self.pixmap.width() as i32;
+        let canvas_height = self.pixmap.height() as i32;
+        let col_start = (-x).max(0);
+        let col_end = (width as i32).min(canvas_width - x);
+        if col_start >= col_end {
+            return;
+        }
+        // 覆盖率 → 预乘颜色查表（同 Skia 的 A8 遮罩），每像素只剩一次查表加一次混合
+        let table: Vec<PremultipliedColorU8> =
+            (0..=255u8).map(|c| color.premultiplied(c)).collect();
+        let pixels = self.pixmap.pixels_mut();
+        for row in 0..height as i32 {
+            let py = y + row;
+            if py < 0 || py >= canvas_height {
+                continue;
+            }
+            let Some(line) =
+                data.get((row as usize * width as usize)..((row as usize + 1) * width as usize))
+            else {
+                return;
+            };
+            let base = py as usize * canvas_width as usize;
+            for col in col_start..col_end {
+                let coverage = line[col as usize];
                 if coverage == 0 {
                     continue;
                 }
-                self.blend_pixel(
-                    x + col as i32,
-                    y + row as i32,
-                    color.premultiplied(coverage),
-                );
+                let dst = &mut pixels[base + (x + col) as usize];
+                *dst = source_over(table[coverage as usize], *dst);
             }
         }
     }
@@ -133,16 +252,51 @@ impl Canvas {
         }
         let index = y as usize * self.pixmap.width() as usize + x as usize;
         let dst = &mut self.pixmap.pixels_mut()[index];
-        let inverse = 255 - src.alpha();
-        let a = src.alpha().saturating_add(mul_u8(dst.alpha(), inverse));
-        let channel = |s: u8, d: u8| s.saturating_add(mul_u8(d, inverse)).min(a);
-        let r = channel(src.red(), dst.red());
-        let g = channel(src.green(), dst.green());
-        let b = channel(src.blue(), dst.blue());
-        if let Some(out) = PremultipliedColorU8::from_rgba(r, g, b, a) {
-            *dst = out;
+        *dst = source_over(src, *dst);
+    }
+
+    /// 另一张位图按整数偏移叠上来（source-over）；缓存的画面贴回画布用。
+    /// 逐像素整数运算：不透明的直接拷、透明的跳过（tiny-skia 的 `draw_pixmap` 没有拷贝快路径，每像素走一遍高精度采样）。
+    pub(crate) fn composite(&mut self, x: i32, y: i32, other: &Pixmap) {
+        let canvas_width = self.pixmap.width() as i32;
+        let canvas_height = self.pixmap.height() as i32;
+        let width = other.width() as i32;
+        let col_start = (-x).max(0);
+        let col_end = width.min(canvas_width - x);
+        if col_start >= col_end {
+            return;
+        }
+        let source = other.pixels();
+        let pixels = self.pixmap.pixels_mut();
+        for row in 0..other.height() as i32 {
+            let py = y + row;
+            if py < 0 || py >= canvas_height {
+                continue;
+            }
+            let from = row as usize * width as usize;
+            let to = py as usize * canvas_width as usize;
+            for col in col_start..col_end {
+                let src = source[from + col as usize];
+                let dst = &mut pixels[to + (x + col) as usize];
+                match src.alpha() {
+                    0 => {}
+                    255 => *dst = src,
+                    _ => *dst = source_over(src, *dst),
+                }
+            }
         }
     }
+}
+
+/// source-over：`dst = src + dst × (1 − src.a)`，各通道不超过 alpha（保持预乘合法）。
+fn source_over(src: PremultipliedColorU8, dst: PremultipliedColorU8) -> PremultipliedColorU8 {
+    let inverse = 255 - src.alpha();
+    let a = src.alpha().saturating_add(mul_u8(dst.alpha(), inverse));
+    let channel = |s: u8, d: u8| s.saturating_add(mul_u8(d, inverse)).min(a);
+    let r = channel(src.red(), dst.red());
+    let g = channel(src.green(), dst.green());
+    let b = channel(src.blue(), dst.blue());
+    PremultipliedColorU8::from_rgba(r, g, b, a).unwrap_or(dst)
 }
 
 fn paint(color: Color, blend: BlendMode) -> Paint<'static> {

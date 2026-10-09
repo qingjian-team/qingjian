@@ -47,6 +47,8 @@ fn unconfigured_modifier_digit_is_not_a_selection() {
             shift: true,
             ..CTRL
         },
+        // 组句中标点进直输段的老行为（`punct_commits` 关），`$` 才会留在拼音行里
+        punct_commits: false,
         ..RouterConfig::default()
     });
     type_letters(&mut router, "nihao");

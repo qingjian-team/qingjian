@@ -31,6 +31,7 @@ description: 日期时间、算式与中文数字、按码点输入字符、中�
   `Space` 上屏的仍是中文，按 `2` 选英文；没有中文候选时（`github`）英文仍排第一。
   专名按正确大小写上屏：`windows` → **Windows**，`github` → **GitHub**，`python` → **Python**。
 - 拼音不成立且不少于 3 个字母时补全前缀：`compa` → company / companies / compared。
+- 不想在中文模式里看到英文词与补全，取消勾选「偏好设置 → 通用」的「输入拼音时也给英文词和补全」（配置文件里是 `[general] english_in_chinese = false`），英文模式不受影响。
 - 一句拼音末尾接一个英文词时，整句直接包含该词：`woxiangxuehaorust` → 我想学好rust，`wodeid` → 我的ID，`woyongvim` → 我用vim，`yongwindows` → 用Windows。
   拼音行显示 `wo'xiang'xue'hao'rust`，`Space` 上屏整句。该英文词需在词表中（用户自己输入过的也算，见 [英文模式](english-mode.md)）。
   `database` 这类同时可读作拼音的输入，按两种读法的通顺程度排序：我的database 排第一、我的大塔巴瑟 排第二；
@@ -38,10 +39,14 @@ description: 日期时间、算式与中文数字、按码点输入字符、中�
   英文词只识别句末，`wozaidebugzhege` 这类位于句中的暂不支持（可先上屏前面的中文，再打英文词）。
 - **中英混杂词**（字母 + 汉字）直接按「字母 + 拼音」打：`cpan` → C盘，`bzhan` → B站，`dpan` → D盘，`txu` → T恤，`agu` → A股，`xguang` → X光。
   U盘 因 `u` 是问字前缀，打 `youpan`（与 优盘 同读音，U盘 排前）。它们也能进整句：`wozaibzhan` → 我在B站。
-- 输入拼音时输入半角标点（`-` `,` `.` `?` 等，翻页键除外）即进入**英文直输**：`no-way` `hello,` 整段原样显示，之后的字符原样追加，
-  `Space` / `Enter` 原样上屏（空格字符也一并输出），因此中文模式下可直接输入 `hello, world?`。
+- 输入拼音时输入不会转全角的符号（`-` `/` `@`，翻页键除外）即进入**英文直输**：`no-way` 整段原样显示，之后的字符原样追加，
+  `Space` / `Enter` 原样上屏（空格字符也一并输出），因此中文模式下可直接输入 `no-way` 这类带符号的串。
+- 会转全角的标点（`,` `.` `?` `!` `:` 等）缺省也进直输段。勾选「设置 → 通用」的「组句中标点先上屏候选」（配置 `[general] punct_commits = true`）后，
+  它们不再进直输段，而是先把高亮候选上屏、再接该标点（`nihao,` 一气打完「你好，」）。
+  要在候选后面接半角标点，先切英文模式（Windows 也可关闭「中文模式标点转全角」）。
 
 ## emoji
 
 前几个候选中有对应 emoji 的词，emoji 紧随该词之后，右侧标注对应的词：`ku` → 哭 😢 😭，英文模式 `smile` → smile 🙂 😊。
 每个词最多两个，一次最多三个，上屏不记录学习。
+不需要的话关掉「偏好设置 → 通用」的「候选后面显示 emoji」（配置文件里是 `[general] emoji = false`）。

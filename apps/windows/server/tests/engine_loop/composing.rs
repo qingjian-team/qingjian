@@ -167,9 +167,11 @@ fn commit_from_other_session_does_not_take_buffer() {
 #[test]
 fn page_keys_follow_config() {
     // 每页 1 条保证多页；翻页键改成 `,` `.`。
+    // 组句中标点进直输段的老行为（`punct_commits` 关），`]` 才会留在拼音行里
     let mut router = router_with(RouterConfig {
         page_size: 1,
         page_keys: (',', '.'),
+        punct_commits: false,
         ..RouterConfig::default()
     });
     let (_, _, frame) = type_letters(&mut router, "ni");
@@ -352,4 +354,26 @@ fn shuangpin_raw_preedit_goes_to_the_app_and_full_pinyin_to_the_window() {
     let shown = sink.0.lock().unwrap();
     let last = shown.last().expect("自绘窗收到过帧");
     assert_eq!((preedit(last).as_str(), last.cursor), ("kai'fa", 3));
+}
+
+/// 自绘窗随帧收到输入状态（给主题显示中 / 英、简 / 繁、方案），与配置一致。
+#[test]
+fn self_drawn_window_gets_input_mode() {
+    let mut router = router_with(RouterConfig {
+        scheme: Scheme::Shuangpin(ShuangpinScheme::Xiaohe),
+        traditional: true,
+        full_width: true,
+        ..RouterConfig::default()
+    });
+    let sink = RecordingCandidates::default();
+    router.set_candidate_sink(Box::new(sink.clone()));
+    type_letters(&mut router, "ni");
+    let _ = router.handle(ClientMessage::PositionCandidates {
+        session: SESSION,
+        rect: rect(),
+    });
+    let modes = sink.1.lock().unwrap();
+    let mode = modes.last().expect("自绘窗收到过帧");
+    assert!(!mode.english && mode.traditional && mode.full_width);
+    assert_eq!(mode.scheme, "小鹤双拼");
 }

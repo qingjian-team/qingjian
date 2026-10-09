@@ -172,6 +172,9 @@ impl Engine {
             self.page_turns = 0;
             self.retype_snapshot = None;
         }
+        // 进缓冲区的字符也更新「上一个字符是不是数字」：直通了 `3` 再接着打拼音，
+        // 后面的 `.` 不该仍按小数点保持半角（组句中标点会先把候选上屏，见壳的 apply_printable）
+        self.punctuation.note_passthrough(c);
         // 中文模式下 Shift+字母（配置 `shift_letter = "compose"` 时才收）：按小写进缓冲区参与匹配
         // （`Cpan` 与 `cpan` 一样出 C盘），原样上屏（回车 / 无候选）时再还原大写。
         // 缺省关：壳把大写字母直接交给应用，根本进不到这里；英文模式与英文直输段（`no-Way`）始终保留原样。

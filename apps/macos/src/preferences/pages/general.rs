@@ -31,11 +31,17 @@ pub struct GeneralPage {
     /// 繁体输出模式。
     traditional: Retained<NSButton>,
 
+    /// 候选后面配 emoji。
+    emoji: Retained<NSButton>,
+
     /// 英文模式也给候选。
     english: Retained<NSButton>,
 
     /// 终端 / 编辑器里不给英文候选。
     english_off_in_apps: Retained<NSButton>,
+
+    /// 中文模式也给英文词与补全。
+    english_in_chinese: Retained<NSButton>,
 
     /// 中英混输时中文候选排在英文词前。
     chinese_first: Retained<NSButton>,
@@ -48,6 +54,9 @@ pub struct GeneralPage {
 
     /// 默认中文标点模式。
     punctuation: Retained<NSPopUpButton>,
+
+    /// 组句中会转全角的标点先把高亮候选上屏再补标点。
+    punct_commits: Retained<NSButton>,
 }
 
 impl GeneralPage {
@@ -132,8 +141,17 @@ impl GeneralPage {
             mtm,
             "仅影响标点，字母和数字保持半角；自定义短语原样输出。设置会保存。 ",
         );
+        let punct_commits = checkbox(mtm, "组句中标点先上屏候选", Setting::PunctCommits, target);
+        row_checkbox(layout, &punct_commits);
+        note(
+            layout,
+            mtm,
+            "打拼音时敲 , . ? ! 等先把高亮候选上屏、再补该标点（nihao, 一气打完「你好，」）；不勾恢复老行为：标点进英文直输段。",
+        );
         let traditional = checkbox(mtm, "繁体输出", Setting::Traditional, target);
         row_checkbox(layout, &traditional);
+        let emoji = checkbox(mtm, "候选后面显示 emoji", Setting::Emoji, target);
+        row_checkbox(layout, &emoji);
         let english = checkbox(
             mtm,
             "英文模式（Caps Lock）也给候选",
@@ -157,6 +175,18 @@ impl GeneralPage {
             layout,
             mtm,
             "终端、iTerm、Warp、Ghostty、VS Code、Cursor、Zed、JetBrains、Xcode 等，那里的候选窗口会挡住应用自己的补全；名单可在配置文件里改。",
+        );
+        let english_in_chinese = checkbox(
+            mtm,
+            "输入拼音时也给英文词和补全",
+            Setting::EnglishInChinese,
+            target,
+        );
+        row_checkbox(layout, &english_in_chinese);
+        note(
+            layout,
+            mtm,
+            "整段是英文词（hello）或像英文词的开头（compa → company）时给英文候选；不勾就只出中文，英文模式不受影响。",
         );
         let chinese_first = checkbox(
             mtm,
@@ -189,12 +219,15 @@ impl GeneralPage {
             wubi,
             shuangpin_raw_preedit,
             traditional,
+            emoji,
             english,
             english_off_in_apps,
+            english_in_chinese,
             chinese_first,
             shift_letter,
             languages: languages.to_vec(),
             punctuation,
+            punct_commits,
         }
     }
 
@@ -204,6 +237,7 @@ impl GeneralPage {
             &self.punctuation,
             Some(usize::from(!general.full_width_punctuation)),
         );
+        set_checked(&self.punct_commits, general.punct_commits);
         select(
             &self.learning_language,
             if general.learning_language_off() {
@@ -229,6 +263,7 @@ impl GeneralPage {
         self.shuangpin_raw_preedit
             .setEnabled(general.scheme().is_shuangpin());
         set_checked(&self.traditional, general.traditional);
+        set_checked(&self.emoji, general.emoji);
         set_checked(&self.english, general.english_candidates);
         set_checked(
             &self.english_off_in_apps,
@@ -236,7 +271,9 @@ impl GeneralPage {
         );
         self.english_off_in_apps
             .setEnabled(general.english_candidates);
+        set_checked(&self.english_in_chinese, general.english_in_chinese);
         set_checked(&self.chinese_first, general.chinese_first);
+        self.chinese_first.setEnabled(general.english_in_chinese);
         set_checked(&self.shift_letter, general.shift_letter.compose());
     }
 }

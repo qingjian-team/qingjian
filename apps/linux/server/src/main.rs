@@ -83,6 +83,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     engine.set_shift_letter_compose(config.general.shift_letter.compose());
     engine.set_learning(config.general.learning);
     engine.set_chinese_first(config.general.chinese_first);
+    engine.set_emoji_candidates(config.general.emoji);
+    engine.set_english_in_chinese(config.general.english_in_chinese);
     engine.set_mode_keys(config.shortcut.mode);
     engine
         .set_custom_phrases(config.custom_phrases.clone())

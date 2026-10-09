@@ -12,6 +12,7 @@ pub use qingjian_platform::protocol::{
 pub use qingjian_platform::{
     AppsConfig, DEFAULT_ENGLISH_CANDIDATES_OFF_WINDOWS, PreeditMode, Scheme,
 };
+pub use qingjian_render::Mode;
 pub use qingjian_windows_server::dispatch::{
     CandidateSink, RenderSettings, StatusEvent, StatusSink, StatusView,
 };
@@ -309,13 +310,14 @@ pub fn press_in(router: &mut Router, session: SessionId, event: KeyEvent) {
     let _ = router.handle(ClientMessage::Key { session, event });
 }
 
-/// 记录自绘候选窗收到的帧。
+/// 记录自绘候选窗收到的帧与输入状态。
 #[derive(Clone, Default)]
-pub struct RecordingCandidates(pub Arc<Mutex<Vec<Frame>>>);
+pub struct RecordingCandidates(pub Arc<Mutex<Vec<Frame>>>, pub Arc<Mutex<Vec<Mode>>>);
 
 impl CandidateSink for RecordingCandidates {
-    fn show(&self, frame: Frame, _rect: ScreenRect) {
+    fn show(&self, frame: Frame, mode: Mode, _rect: ScreenRect) {
         self.0.lock().unwrap().push(frame);
+        self.1.lock().unwrap().push(mode);
     }
 
     fn hide(&self) {}

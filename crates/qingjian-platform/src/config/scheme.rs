@@ -106,6 +106,16 @@ pub fn scheme_label(pinyin: Scheme, wubi: bool) -> String {
     parts.join(" + ")
 }
 
+/// 主题显示的方案名：同 [`scheme_label`]，只是单开全拼时也写出「全拼」（主题要一个总有内容的名字）。
+pub fn scheme_name(pinyin: Scheme, wubi: bool) -> String {
+    let label = scheme_label(pinyin, wubi);
+    if label.is_empty() {
+        pinyin.label().to_owned()
+    } else {
+        label
+    }
+}
+
 impl FromStr for Scheme {
     type Err = String;
 
@@ -131,6 +141,16 @@ impl fmt::Display for Scheme {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn scheme_name_always_says_something() {
+        assert_eq!(scheme_name(Scheme::Pinyin, false), "全拼");
+        assert_eq!(scheme_name(Scheme::Zhuyin, false), "大千注音");
+        assert_eq!(
+            scheme_name(Scheme::Pinyin, true),
+            scheme_label(Scheme::Pinyin, true)
+        );
+    }
 
     #[test]
     fn parses_every_key_it_prints() {

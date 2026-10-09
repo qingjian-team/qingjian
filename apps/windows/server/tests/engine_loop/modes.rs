@@ -4,7 +4,11 @@ use crate::support::*;
 
 #[test]
 fn chinese_punctuation_is_full_width_only_when_not_composing() {
-    let mut router = router();
+    // 组句中标点进直输段的老行为（`punct_commits` 关）
+    let mut router = router_with(RouterConfig {
+        punct_commits: false,
+        ..RouterConfig::default()
+    });
     // 没在组句：逗号转全角；数字后的点保持半角。
     let comma = KeyEvent::new(0xBC, Some(','), Default::default());
     assert_eq!(

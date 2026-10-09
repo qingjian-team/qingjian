@@ -1,40 +1,95 @@
 //! 悬浮状态条（Windows）：几格并排的小条 `[中 / 英][，。/ ,.][⚙]`，每格文字居中、格间一条细线，圆角背景加阴影。
-//! macOS 用菜单栏状态项，没有这一块。
+//! macOS 用菜单栏状态项，没有这一块。主题没写 `status.root` 时排法固定，尺寸与颜色取 `status` 分节；写了走节点树（`tree.rs`）。
 
 mod cell;
 mod rendered;
+mod tree;
 
 pub use cell::StatusCell;
 pub use rendered::RenderedStatus;
 
-use super::{Metrics, Rendered, Renderer};
-use crate::canvas::Canvas;
+use taffy::{AlignItems, Dimension, Display, JustifyContent, NodeId, Position, Size, Style};
+
+use super::Renderer;
 use crate::error::RenderError;
-use crate::gear::draw_gear;
-use crate::shadow::Shadow;
-use crate::theme::Theme;
+use crate::frame::Mode;
+use crate::scene::{Effect, Icon, Scene, Visual};
+use crate::text::TextStyle;
+use crate::theme::file::ColorSpec;
+use crate::theme::file::node::EffectSpec;
+use crate::theme::{TextSizes, Theme};
 
-/// 齿轮图标边长（点）。
-const GEAR_SIZE: f32 = 15.0;
+/// 一次渲染里按倍数换算好的状态条参数。
+struct Metrics<'a> {
+    theme: &'a Theme,
 
-/// 格间细线的宽度（点）。
-const SEPARATOR_WIDTH: f32 = 1.0;
+    scale: f32,
+
+    /// 文字样式（颜色后配）。
+    font: crate::theme::FontSpec,
+}
+
+impl Metrics<'_> {
+    fn px(&self, points: f32) -> f32 {
+        points * self.scale
+    }
+
+    fn text_style(&self, emphasized: bool) -> TextStyle {
+        let spec = &self.theme.file().status;
+        let color = if emphasized {
+            &spec.emphasized
+        } else {
+            &spec.normal
+        };
+        TextStyle::new(
+            self.font.scaled(self.scale),
+            self.font.size,
+            self.theme.color(color),
+            self.theme.text_gamma(),
+        )
+    }
+
+    /// 状态条没有数据条件，条件颜色取 `else` 分支。
+    fn effect(&self, spec: &EffectSpec) -> Effect {
+        let color = match &spec.shadow().color {
+            ColorSpec::Fixed(color)
+            | ColorSpec::Switch {
+                otherwise: color, ..
+            } => color,
+        };
+        Effect::from_spec(spec, self.scale, self.theme.color(color))
+    }
+}
 
 impl Renderer {
-    /// 画状态条。每格宽 = 内容宽 + 两侧内边距，高 = 候选词行高 + 内边距；返回位图与各格右边界（供点击命中）。
+    /// 画状态条，返回位图与各格右边界（供点击命中）。`mode` 给节点树画法的主题显示中 / 英等状态。
+    /// 设置里改了候选字号时整条按同一比例放大缩小。
+    /// 固定排法：每格宽 = 内容宽 + 两侧内边距，高 = 行高 + 内边距。
     pub fn render_status(
         &mut self,
         cells: &[StatusCell],
+        mode: &Mode,
         theme: &Theme,
         scale: f32,
-        shadow: Option<&Shadow>,
     ) -> Result<RenderedStatus, RenderError> {
-        let metrics = Metrics { theme, scale };
-        let padding = metrics.padding();
-        let line_height = metrics.px(theme.text_font.line_height);
+        // 整条按候选字的比例缩放：去掉设置里的字号再整体乘倍数，图标、边距、点击边界跟文字一起变，与用哪个文字样式无关
+        let scale = scale * theme.candidate_scale();
+        let theme = &theme.with_text_sizes(TextSizes::default());
+        self.text.use_families(theme.families());
+        let spec = &theme.file().status;
+        if let Some(root) = &spec.root {
+            return self.render_status_tree(root, cells, mode, theme, scale);
+        }
+        let m = Metrics {
+            theme,
+            scale,
+            font: theme.font_ref(&spec.font),
+        };
+        let padding = m.px(spec.padding);
+        let radius = m.px(spec.radius);
         let mut widths: Vec<f32> = cells
             .iter()
-            .map(|cell| self.status_cell_width(cell, &metrics) + padding * 2.0)
+            .map(|cell| self.status_cell_width(cell, &m) + padding * 2.0)
             .collect();
         let total: f32 = widths.iter().sum();
         let content_width = total.ceil();
@@ -42,53 +97,35 @@ impl Renderer {
         if let Some(last) = widths.last_mut() {
             *last += content_width - total;
         }
-        let content_height = (line_height + padding).ceil();
-        let margin = shadow.map_or(0.0, |s| metrics.px(s.margin()));
-        let width = (content_width + margin * 2.0).ceil();
-        let height = (content_height + margin * 2.0).ceil();
-        let mut canvas = Canvas::new(width as u32, height as u32)?;
-        let radius = metrics.corner_radius();
-        if let Some(shadow) = shadow
-            && let Some(content) =
-                tiny_skia::Rect::from_xywh(margin, margin, content_width, content_height)
-        {
-            shadow.paint(&mut canvas, content, radius, scale);
-        }
-        canvas.fill_round_rect(
-            margin,
-            margin,
-            content_width,
-            content_height,
-            radius,
-            theme.colors.background,
-        );
-        let inset = padding / 2.0;
-        let mut x = margin;
-        let mut edges = Vec::with_capacity(cells.len());
+        let content_height = (m.px(m.font.line_height) + padding).ceil();
+
+        let mut scene = Scene::new();
+        let mut children = Vec::with_capacity(cells.len());
         for (i, (cell, width)) in cells.iter().zip(&widths).enumerate() {
-            if i > 0 {
-                canvas.fill_rect(
-                    x,
-                    margin + inset,
-                    metrics.px(SEPARATOR_WIDTH),
-                    content_height - inset * 2.0,
-                    theme.colors.pos,
-                );
-            }
-            let slot = (x, margin, *width, content_height);
-            self.draw_status_cell(&mut canvas, cell, &metrics, slot);
-            x += width;
-            edges.push(x - margin);
+            let size = (*width, content_height);
+            children.push(status_cell(&mut scene, cell, &m, i > 0, size)?);
         }
-        Ok(RenderedStatus {
-            rendered: Rendered {
-                pixmap: canvas.into_pixmap(),
-                content_x: margin as u32,
-                content_y: margin as u32,
-                content_width: content_width as u32,
-                content_height: content_height as u32,
-                scale,
+        let root = scene.node(
+            Style {
+                display: Display::Flex,
+                ..Style::default()
             },
+            Visual::solid(theme.color(&spec.background), radius),
+            &children,
+        )?;
+        let effects = spec.effects.iter().map(|effect| m.effect(effect)).collect();
+        scene.set_effects(root, effects);
+        scene.layout(root, &mut self.text)?;
+
+        let edges = widths
+            .iter()
+            .scan(0.0, |x, width| {
+                *x += width;
+                Some(*x)
+            })
+            .collect();
+        Ok(RenderedStatus {
+            rendered: self.rasterize(&scene, root, (content_width, content_height), scale)?,
             cell_edges: edges,
         })
     }
@@ -96,53 +133,88 @@ impl Renderer {
     /// 一格内容的宽度（像素，不含内边距）。
     fn status_cell_width(&mut self, cell: &StatusCell, m: &Metrics) -> f32 {
         match cell {
-            StatusCell::Text { text, .. } => self.measure(text, &m.text_style()).width,
-            StatusCell::Gear => m.px(GEAR_SIZE),
-        }
-    }
-
-    /// 在 `slot = (x, y, 宽, 高)` 的格子里居中画一格。
-    fn draw_status_cell(
-        &mut self,
-        canvas: &mut Canvas,
-        cell: &StatusCell,
-        m: &Metrics,
-        slot: (f32, f32, f32, f32),
-    ) {
-        let (x, y, width, height) = slot;
-        match cell {
             StatusCell::Text { text, emphasized } => {
-                let color = if *emphasized {
-                    m.theme.colors.cloud
-                } else {
-                    m.theme.colors.gloss
-                };
-                let style = m.style(m.theme.text_font, color);
-                let size = self.measure(text, &style);
-                let left = x + (width - size.width) / 2.0;
-                let top = y + (height - size.height) / 2.0;
-                self.draw_text(canvas, text, &style, left, top);
+                self.text.measure(text, &m.text_style(*emphasized)).width
             }
-            StatusCell::Gear => {
-                let size = m.px(GEAR_SIZE);
-                draw_gear(
-                    canvas,
-                    x + (width - size) / 2.0,
-                    y + (height - size) / 2.0,
-                    size,
-                    m.theme.colors.gloss,
-                );
-            }
+            StatusCell::Gear => m.px(m.theme.file().status.gear_size),
         }
     }
+}
+
+/// 一格：内容在格里居中；不是第一格时左边画一条上下各缩进半个内边距的细线。
+fn status_cell(
+    scene: &mut Scene,
+    cell: &StatusCell,
+    m: &Metrics,
+    separator: bool,
+    (width, height): (f32, f32),
+) -> Result<NodeId, RenderError> {
+    let spec = &m.theme.file().status;
+    let mut children = Vec::with_capacity(2);
+    if separator {
+        let inset = m.px(spec.padding) / 2.0;
+        let style = Style {
+            position: Position::Absolute,
+            inset: taffy::Rect {
+                left: taffy::LengthPercentageAuto::length(0.0),
+                right: taffy::LengthPercentageAuto::auto(),
+                top: taffy::LengthPercentageAuto::length(inset),
+                bottom: taffy::LengthPercentageAuto::length(inset),
+            },
+            size: Size {
+                width: Dimension::length(m.px(spec.separator_width)),
+                height: Dimension::auto(),
+            },
+            ..Style::default()
+        };
+        let visual = Visual::solid(m.theme.color(&spec.separator), 0.0);
+        children.push(scene.node(style, visual, &[])?);
+    }
+    let (content_style, content) = match cell {
+        StatusCell::Text { text, emphasized } => (
+            Style::default(),
+            Visual::Text {
+                text: text.clone(),
+                style: m.text_style(*emphasized),
+            },
+        ),
+        StatusCell::Gear => {
+            let size = m.px(spec.gear_size);
+            let style = Style {
+                size: Size {
+                    width: Dimension::length(size),
+                    height: Dimension::length(size),
+                },
+                ..Style::default()
+            };
+            let visual = Visual::Icon {
+                icon: Icon::Gear,
+                size,
+                color: m.theme.color(&spec.gear),
+            };
+            (style, visual)
+        }
+    };
+    children.push(scene.node(content_style, content, &[])?);
+    let style = Style {
+        display: Display::Flex,
+        justify_content: Some(JustifyContent::CENTER),
+        align_items: Some(AlignItems::CENTER),
+        size: Size {
+            width: Dimension::length(width),
+            height: Dimension::length(height),
+        },
+        ..Style::default()
+    };
+    scene.node(style, Visual::Group, &children)
 }
 
 #[cfg(test)]
 mod tests {
     use super::StatusCell;
     use crate::fonts::FontLibrary;
+    use crate::frame::Mode;
     use crate::renderer::Renderer;
-    use crate::shadow::Shadow;
     use crate::theme::Theme;
 
     #[test]
@@ -158,7 +230,7 @@ mod tests {
             StatusCell::Gear,
         ];
         let out = renderer
-            .render_status(&cells, &Theme::light(), 2.0, Some(&Shadow::mac_panel()))
+            .render_status(&cells, &Mode::default(), &Theme::light(), 2.0)
             .unwrap();
         assert_eq!(out.cell_edges.len(), 3);
         assert!(out.cell_edges.windows(2).all(|pair| pair[0] < pair[1]));

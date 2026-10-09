@@ -11,4 +11,8 @@ pub enum RenderError {
     /// 位图尺寸为零或大到 tiny-skia 拒绝分配。
     #[error("invalid bitmap size {width}x{height}")]
     InvalidSize { width: u32, height: u32 },
+
+    /// 布局树出错（节点 id 失效），属于渲染器自身的 bug。
+    #[error("layout failed: {0}")]
+    Layout(#[from] taffy::TaffyError),
 }

@@ -109,6 +109,13 @@ pub(crate) fn view(settings: &Settings, context: &mut ViewContext<Settings>) -> 
                 .on_toggled(context.callback(Message::Traditional)),
         ),
         field(
+            "候选后面显示 emoji",
+            "开着时有对应 emoji 的词后面跟一两个（kaixin → 开心 😄）；关掉候选里只有字词。",
+            ToggleSwitch::new()
+                .is_on(g.emoji)
+                .on_toggled(context.callback(Message::Emoji)),
+        ),
+        field(
             "中文模式标点转全角",
             "没在打拼音时敲 , . ? ! 等出「，。？！」，数字后面的点保持半角；悬浮状态条的「，。」格也能切，切的是当前模式那份。",
             ToggleSwitch::new()
@@ -121,6 +128,13 @@ pub(crate) fn view(settings: &Settings, context: &mut ViewContext<Settings>) -> 
             ToggleSwitch::new()
                 .is_on(g.english_full_width_punctuation)
                 .on_toggled(context.callback(Message::EnglishFullWidthPunctuation)),
+        ),
+        field(
+            "组句中标点先上屏候选",
+            "打拼音时敲 , . ? ! 等先把高亮候选上屏、再补该标点（nihao, 一气打完「你好，」）；关掉后标点进英文直输段（老行为）。",
+            ToggleSwitch::new()
+                .is_on(g.punct_commits)
+                .on_toggled(context.callback(Message::PunctCommits)),
         ),
         field(
             "英文模式（Caps Lock）也给候选",
@@ -138,10 +152,18 @@ pub(crate) fn view(settings: &Settings, context: &mut ViewContext<Settings>) -> 
                 .on_toggled(context.callback(Message::EnglishOffInApps)),
         ),
         field(
+            "输入拼音时也给英文词和补全",
+            "整段是英文词（hello）或像英文词的开头（compa → company）时给英文候选；关掉就只出中文，英文模式不受影响。",
+            ToggleSwitch::new()
+                .is_on(g.english_in_chinese)
+                .on_toggled(context.callback(Message::EnglishInChinese)),
+        ),
+        field(
             "输入拼音时中文候选排在英文词前面",
             "开着时整段输入是英文词时（hello、key）英文词排第二，空格上屏的仍是中文；关着（缺省）拼音不成立的输入英文词排第一。",
             ToggleSwitch::new()
                 .is_on(g.chinese_first)
+                .is_enabled(g.english_in_chinese)
                 .on_toggled(context.callback(Message::ChineseFirst)),
         ),
         feedback(&settings.notice),

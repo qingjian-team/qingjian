@@ -6,6 +6,7 @@
 //!
 //! 设计与验收见 `docs/design/rendering.md`。
 
+mod animation;
 mod canvas;
 mod cloud;
 mod color;
@@ -15,6 +16,7 @@ mod frame;
 mod gear;
 mod layout;
 mod renderer;
+mod scene;
 mod shadow;
 mod text;
 mod theme;
@@ -25,11 +27,10 @@ pub use error::RenderError;
 #[cfg(target_os = "windows")]
 pub use fonts::directwrite as system_fonts;
 pub use fonts::{FontLibrary, UiFont};
-pub use frame::{Frame, Preedit, PreeditSegment, PreeditStyle, Row, Tone};
+pub use frame::{Frame, Mode, Preedit, PreeditSegment, PreeditStyle, Row, Tone};
 pub use layout::Layout;
-pub use renderer::{Rendered, RenderedStatus, Renderer, StatusCell};
-pub use shadow::Shadow;
-pub use theme::{FontSpec, Palette, Theme};
+pub use renderer::{HitRegion, HitTarget, Rendered, RenderedStatus, Renderer, StatusCell};
+pub use theme::{FontSpec, TextSizes, Theme, ThemeError, ThemeLibrary};
 
 /// 让 `tiny_skia::Pixmap` 的使用方不用再单独依赖 tiny-skia。
 pub use tiny_skia::Pixmap;

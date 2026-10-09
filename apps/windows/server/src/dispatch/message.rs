@@ -151,6 +151,11 @@ impl Router {
             Effect::Navigated => (None, KeyOutcome::Consumed),
             Effect::Passthrough => (None, KeyOutcome::Passthrough),
         };
+        // 点击上屏的字还没等到轮询就来了键：接在这次结果前面，免得丢
+        let commit = match (self.take_clicked(session), commit) {
+            (Some(clicked), commit) => Some(clicked + commit.as_deref().unwrap_or_default()),
+            (None, commit) => commit,
+        };
         self.poll_prediction();
         // 自绘窗吃未降级的帧；发给 DLL 的那份按老协议降级（见 composed 的 current_frame）
         let shown = self.self_drawn_frame();
@@ -178,6 +183,10 @@ impl Router {
         } else {
             Frame::default()
         };
-        ServerMessage::Update { session, frame }
+        ServerMessage::Update {
+            session,
+            frame,
+            commit: self.take_clicked(session),
+        }
     }
 }

@@ -1,6 +1,6 @@
 //! Linux 首版按键与候选配置。
 use qingjian_platform::protocol::KeyModifiers;
-use qingjian_platform::{AppsConfig, Config, LayoutMode, PreeditMode, ThemeMode};
+use qingjian_platform::{Appearance, AppsConfig, Config, LayoutMode, PreeditMode};
 
 /// Router 要用的配置项，与 macOS 壳的 `Host` 字段对齐。
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -18,7 +18,7 @@ pub struct RouterConfig {
     pub layout: LayoutMode,
 
     /// 候选窗口外观（`[general] theme`）。
-    pub theme: ThemeMode,
+    pub appearance: Appearance,
 
     /// 翻页键对（`[general] page_keys`，上一页 / 下一页）。
     pub page_keys: (char, char),
@@ -34,6 +34,10 @@ pub struct RouterConfig {
 
     /// 英文模式的那一份（`[general] english_full_width_punctuation`）。
     pub english_full_width: bool,
+
+    /// 组句中敲会转全角的标点（`,` `.` `?` `!` 等，翻页键除外）先把高亮候选上屏、再补该标点
+    ///（`nihao,` 一气打完「你好，」）的开关（`[general] punct_commits`），缺省关。
+    pub punct_commits: bool,
 
     /// 按应用的设置（`[apps]`），按宿主 exe 名认。
     pub apps: AppsConfig,
@@ -59,12 +63,13 @@ impl From<&Config> for RouterConfig {
             preedit: config.general.preedit,
             cloud_slots: 0,
             layout: config.general.layout,
-            theme: config.general.theme,
+            appearance: config.general.appearance(),
             page_keys: config.general.page_keys(),
             english_candidates: config.general.english_candidates,
             shift_letter_compose: config.general.shift_letter.compose(),
             full_width: config.general.full_width_punctuation,
             english_full_width: config.general.english_full_width_punctuation,
+            punct_commits: config.general.punct_commits,
             apps: config.apps.clone(),
             translation_keys: {
                 let (first, second) = config.shortcut.translation_keys();

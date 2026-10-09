@@ -457,7 +457,7 @@ fn tone_color(theme: &Theme, tone: Tone) -> COLORREF {
     match tone {
         Tone::Gloss => theme.gloss_color,
         Tone::Fresh => theme.fresh_color,
-        Tone::Faint => theme.pos_color,
+        Tone::Faint | Tone::Pos | Tone::Separator => theme.pos_color,
         Tone::Code => theme.gloss_color,
     }
 }

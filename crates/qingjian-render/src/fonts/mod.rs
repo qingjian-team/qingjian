@@ -17,7 +17,7 @@ mod windows;
 use std::path::{Path, PathBuf};
 
 use cosmic_text::FontSystem;
-use cosmic_text::fontdb::{Database, Family};
+use cosmic_text::fontdb::{Database, Family, Source};
 
 use crate::error::RenderError;
 
@@ -84,8 +84,9 @@ impl FontLibrary {
                 .unwrap_or_else(|| "sans-serif".to_owned())
         });
         db.set_sans_serif_family(ui_family.clone());
-        for path in platform::script_fonts(locale)
+        for path in platform::ui_weight_fonts()
             .into_iter()
+            .chain(platform::script_fonts(locale))
             .chain(platform::emoji_fonts())
         {
             if !load(&mut db, &path) {
@@ -111,6 +112,21 @@ impl FontLibrary {
             }
         }
         names
+    }
+
+    /// 已加载的字体文件，按加载顺序去重。快照测试拿它判断字体环境变没变。
+    pub fn font_files(&self) -> Vec<PathBuf> {
+        let mut files: Vec<PathBuf> = Vec::new();
+        for face in self.db.faces() {
+            let path = match &face.source {
+                Source::File(path) | Source::SharedFile(path, _) => path,
+                Source::Binary(_) => continue,
+            };
+            if !files.contains(path) {
+                files.push(path.clone());
+            }
+        }
+        files
     }
 
     pub fn ui_family(&self) -> &str {

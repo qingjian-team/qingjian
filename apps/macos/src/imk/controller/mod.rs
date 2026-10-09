@@ -17,11 +17,14 @@ use crate::candidates::Preedit;
 use crate::host;
 use crate::menubar;
 
+mod click;
 mod command;
 mod commit;
 mod display;
 mod text;
 mod translate;
+
+pub use click::click;
 
 define_class!(
     // SAFETY:
@@ -89,6 +92,7 @@ define_class!(
         #[unsafe(method(activateServer:))]
         fn activate_server(&self, sender: Option<&AnyObject>) {
             tracing::info!("activateServer");
+            self.set_active();
             let done = catch_panic("activateServer", || {
                 // 用户要往 [apps] 里加应用时，从这条日志抄 bundle identifier
                 let bundle = sender.and_then(|s| TextClient::new(s).bundle_identifier());
@@ -125,6 +129,7 @@ define_class!(
         #[unsafe(method(deactivateServer:))]
         fn deactivate_server(&self, sender: Option<&AnyObject>) {
             tracing::info!("deactivateServer");
+            self.clear_active();
             let client = sender.map(TextClient::new);
             let done = catch_panic("deactivateServer", || {
                 if let Some(client) = client {

@@ -67,9 +67,10 @@ impl Host {
         }
     }
 
-    /// 横排矩阵这套按键是否生效：开关开着（`[general] horizontal_grid`）而且排布是横排。
+    /// 横排矩阵这套按键是否生效：开关开着（`[general] horizontal_grid`）、排布是横排，而且在用系统绘制。
+    /// 青简渲染器还没有矩阵窗口，用它时不展开，横排照单行走（见 `docs/notes/crate-notes.md`）。
     pub fn grid_keys(&self) -> bool {
-        self.horizontal_grid && self.layout == LayoutMode::Horizontal
+        self.horizontal_grid && self.layout == LayoutMode::Horizontal && !self.window.uses_bitmap()
     }
 
     /// 新一轮候选：每页格数取配置与窗口能画的行数中较小者，云端槽位数取配置。
@@ -145,7 +146,20 @@ impl Host {
             footer,
             sentence: self.sentence.clone(),
             status: self.status.clone(),
+            mode: self.input_mode(),
         };
         self.window.show(frame, self.anchor);
+    }
+
+    /// 给候选窗口主题显示的输入状态：中英看 Caps Lock（与菜单栏一致），其余看配置；英文模式标点是半角。
+    fn input_mode(&self) -> qingjian_render::Mode {
+        let general = &self.settings.config().general;
+        let english = crate::imk::modifiers::caps_lock_on();
+        qingjian_render::Mode {
+            english,
+            traditional: general.traditional,
+            full_width: !english && general.full_width_punctuation,
+            scheme: qingjian_platform::scheme_name(general.scheme(), general.wubi()),
+        }
     }
 }

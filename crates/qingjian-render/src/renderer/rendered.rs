@@ -2,6 +2,8 @@
 
 use tiny_skia::Pixmap;
 
+use super::{HitRegion, HitTarget};
+
 pub struct Rendered {
     /// 预乘 RGBA 位图，含阴影边。
     pub pixmap: Pixmap,
@@ -18,9 +20,24 @@ pub struct Rendered {
 
     /// 渲染用的倍数，壳把像素换回点用。
     pub scale: f32,
+
+    /// 还有动画在播：隔这么久调 [`crate::Renderer::tick`] 要下一帧；`None` 表示画完了，不用再要。
+    pub next_frame: Option<std::time::Duration>,
+
+    /// 候选窗口里可点的区域，译词在前（先命中）；状态条为空，它按 [`crate::RenderedStatus::cell_edges`] 分格。
+    pub hits: Vec<HitRegion>,
 }
 
 impl Rendered {
+    /// 内容区里一点（点，左上为原点）点中了什么。
+    pub fn hit_at(&self, x: f32, y: f32) -> Option<HitTarget> {
+        let (x, y) = (x * self.scale, y * self.scale);
+        self.hits
+            .iter()
+            .find(|region| region.contains(x, y))
+            .map(|region| region.target)
+    }
+
     /// 内容区宽高换回点。
     pub fn content_size_points(&self) -> (f32, f32) {
         (

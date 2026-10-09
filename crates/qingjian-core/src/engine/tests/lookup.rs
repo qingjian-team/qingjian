@@ -247,6 +247,24 @@ fn shortcuts_follow_the_first_local_candidate() {
 }
 
 #[test]
+fn ng_alone_gives_en_interjection_first_in_full_pinyin_only() {
+    let mut engine = engine();
+    engine.set_input("ng");
+    let query = engine.query().unwrap();
+    let first = query.candidates.items[0].clone();
+    assert_eq!(first.text, "嗯");
+    engine.commit(&first);
+    assert!(engine.composition().is_empty());
+
+    engine.set_input("ngh");
+    assert!(texts_of(&engine).iter().all(|t| t != "嗯"));
+
+    engine.set_shuangpin(Some(Scheme::Xiaohe));
+    engine.set_input("ng");
+    assert!(texts_of(&engine).iter().all(|t| t != "嗯"));
+}
+
+#[test]
 fn shift_letters_join_the_buffer_only_when_configured() {
     let dictionary = Dictionary::parse("C盘\tc pan\t8000\n磁盘\tci pan\t249\n").unwrap();
     let mut engine = Engine::new(dictionary);

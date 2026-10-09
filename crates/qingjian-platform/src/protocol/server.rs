@@ -77,13 +77,17 @@ pub enum ServerMessage {
         text: Option<String>,
     },
 
-    /// 不由按键触发的重绘（云联想补词、本地整句模型重排到达）。
+    /// 不由按键触发的重绘（云联想补词、本地整句模型重排到达），或鼠标点候选窗口上屏后的新状态。
     Update {
         /// 会话标识。
         session: SessionId,
 
         /// 要重绘的状态。
         frame: Frame,
+
+        /// 鼠标点候选窗口上屏的文本（v8 起），DLL 写进文档；老 DLL 读不到这个字段，Server 不对它们收点击。
+        #[serde(default)]
+        commit: Option<String>,
     },
 
     /// 对一次 [`super::ClientMessage::SyncMode`] 的答复：当前的全局中英模式，

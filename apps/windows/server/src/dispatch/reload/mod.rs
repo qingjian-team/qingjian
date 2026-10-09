@@ -6,6 +6,7 @@ mod state;
 #[cfg(test)]
 mod tests;
 
+use qingjian_render::ThemeLibrary;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant, SystemTime};
 
@@ -162,6 +163,17 @@ impl Router {
                 .set_extra_dictionaries(reload.load_dictionaries());
             reload.dictionary_files = files;
         }
+        // 用户主题文件改了：戳变了设置就不等，UI 线程重读主题当场换上（边改主题边看效果）
+        if let Some(dir) = qingjian_platform::dirs::themes_dir() {
+            let stamp = ThemeLibrary::stamp(&dir);
+            if stamp != self.config.themes_stamp {
+                self.config.themes_stamp = stamp;
+                self.candidates.configure(self.config.render_settings());
+            }
+        }
+        let Some(reload) = &mut self.reload else {
+            return;
+        };
         let config_changed = {
             let current = mtime(&reload.config_path);
             let changed = current != reload.last_mtime;
@@ -194,6 +206,13 @@ impl Router {
     /// 应用新配置。学习语言变了换释义表（词汇等级表启动时已全装，不用换）。
     fn apply_config(&mut self, config: &Config) {
         self.engine.set_fuzzy(config.fuzzy);
+        // Windows 端此前漏装 custom_phrases（macOS 端 apply_config 有）；失败只记日志，保持原短语
+        if let Err(error) = self
+            .engine
+            .set_custom_phrases(config.custom_phrases.clone())
+        {
+            tracing::warn!(%error, "自定义短语配置未应用，保持原短语");
+        }
         // 拼音侧与形码侧一起装配（双拼 / 注音 / 混输都在里面）
         self.reload_code_table(config.general.scheme(), config.general.wubi());
         self.engine.set_traditional_mode(config.general.traditional);
@@ -206,12 +225,17 @@ impl Router {
         self.engine.set_aux_enabled(config.aux_code.enabled);
         self.engine.set_aux_show(config.general.aux_code_show);
         self.engine.set_chinese_first(config.general.chinese_first);
+        self.engine.set_emoji_candidates(config.general.emoji);
+        self.engine
+            .set_english_in_chinese(config.general.english_in_chinese);
         self.engine
             .set_shift_letter_compose(config.general.shift_letter.compose());
         self.engine
             .set_shuangpin_raw_preedit(config.general.shuangpin_raw_preedit);
         let previous = self.config.render_settings();
+        let themes_stamp = self.config.themes_stamp;
         self.config = RouterConfig::from(config);
+        self.config.themes_stamp = themes_stamp;
         let settings = self.config.render_settings();
         if settings != previous {
             self.candidates.configure(settings);

@@ -1,0 +1,7 @@
+locale zh-CN
+7909644 /System/Library/Fonts/SFNS.ttf
+78222888 /System/Library/AssetsV2/com_apple_MobileAsset_Font8/86ba2c91f017a3749571a82f2c6d890ac7ffb2fb.asset/AssetData/PingFang.ttc
+61080840 /System/Library/PrivateFrameworks/FontServices.framework/Versions/A/Resources/Reserved/PingFangUI.ttc
+23522052 /System/Library/Fonts/Hiragino Sans GB.ttc
+7249820 /System/Library/Fonts/ヒラギノ角ゴシック W4.ttc
+192123488 /System/Library/Fonts/Apple Color Emoji.ttc

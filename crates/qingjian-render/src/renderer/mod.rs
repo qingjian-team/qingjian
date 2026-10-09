@@ -1,184 +1,210 @@
-//! 渲染器：一帧 + 排布 + 主题 → 位图。排版逻辑与 macOS 壳的 `CandidateView` 一致：顶部拼音行，竖排一行一个候选、横排排成一行。
+//! 渲染器：一帧 + 排布 + 主题 → 位图。排版与 macOS 壳的 `CandidateView` 一致：顶部拼音行，竖排一行一个候选、横排排成一行。
 //!
-//! 内部全用像素：主题里的点数进来先乘缩放倍数。文字的 y 都指行框顶边，字形在行高里垂直居中。
+//! 先按帧建一棵场景树（[`Scene`]），Taffy 算布局，再按树序画。内部全用像素：主题里的点数进来先乘缩放倍数。
+//! 文字节点的盒子顶边就是行框顶边，字形在行高里垂直居中。
 
-mod columns;
-mod horizontal;
-mod item;
-mod matrix;
+mod animate;
+mod build;
+mod hit;
+mod partial;
 mod rendered;
+mod retained;
 mod status;
-mod top_line;
-mod vertical;
+
+use std::path::PathBuf;
+use std::time::Instant;
 
 use crate::canvas::Canvas;
-use crate::cloud::draw_cloud;
 use crate::color::Color;
 use crate::error::RenderError;
 use crate::fonts::FontLibrary;
-use crate::frame::{Frame, Row, Tone};
+use crate::frame::Frame;
 use crate::layout::Layout;
-use crate::shadow::Shadow;
-use crate::text::{TextPainter, TextSize, TextStyle};
+use crate::scene::Scene;
+use crate::text::{TextPainter, TextStyle};
 use crate::theme::{FontSpec, Theme};
 
+use build::Builder;
+use retained::Retained;
+
+pub use hit::{HitRegion, HitTarget};
 pub use rendered::Rendered;
 pub use status::{RenderedStatus, StatusCell};
-
-/// preedit 光标的宽度（点）。
-const CARET_WIDTH: f32 = 1.5;
-
-/// 云朵图标边长（点）。
-const CLOUD_SIZE: f32 = 13.0;
-
-/// 云朵与后面文字的间距（点）。
-const CLOUD_GAP: f32 = 4.0;
-
-/// preedit 与右侧整句补全之间的间距（点）。
-const SENTENCE_GAP: f32 = 16.0;
-
-/// 横排时序号与候选词之间的间距（点）。
-const INDEX_GAP: f32 = 3.0;
-
-/// 横排时高亮底色在候选两侧多出的宽度（点）。
-const HIGHLIGHT_INSET: f32 = 5.0;
 
 /// 光学字号（点）：20 pt 以下 CoreText 给系统字体用的就是这一档。
 const OPTICAL_SIZE: f32 = 17.0;
 
-/// 竖排候选窗口的最小宽度（点）。
-const MIN_VERTICAL_WIDTH: f32 = 200.0;
+/// 候选词的文字样式名：状态条之外只有核对字体回退时直接用到。
+const CANDIDATE_FONT: &str = "candidate";
 
 pub struct Renderer {
     /// 文字测绘。
     text: TextPainter,
-}
 
-/// 一次渲染期间的上下文：主题按倍数换算后的像素值。
-pub(super) struct Metrics<'a> {
-    pub(super) theme: &'a Theme,
-    pub(super) scale: f32,
-}
+    /// 上一帧候选窗（过渡配对与动画帧重画用）；窗口隐藏后清掉。
+    last: Option<Retained>,
 
-impl Metrics<'_> {
-    pub(super) fn px(&self, points: f32) -> f32 {
-        points * self.scale
-    }
+    /// 系统开了「减少动态效果」：不播过渡，循环动画停在开头。
+    reduce_motion: bool,
 
-    pub(super) fn padding(&self) -> f32 {
-        self.px(self.theme.padding)
-    }
+    /// 最近一帧的主题关了动画（设置里的开关），效果同上。
+    animations_off: bool,
 
-    fn row_padding(&self) -> f32 {
-        self.px(self.theme.row_padding)
-    }
-
-    fn column_gap(&self) -> f32 {
-        self.px(self.theme.column_gap)
-    }
-
-    pub(super) fn corner_radius(&self) -> f32 {
-        self.px(self.theme.corner_radius)
-    }
-
-    pub(super) fn style(&self, font: FontSpec, color: Color) -> TextStyle {
-        TextStyle::new(
-            font.scaled(self.scale),
-            font.size,
-            color,
-            self.theme.text_gamma,
-        )
-    }
-
-    pub(super) fn text_style(&self) -> TextStyle {
-        self.style(self.theme.text_font, self.theme.colors.text)
-    }
-
-    fn annotation_style(&self, color: Color) -> TextStyle {
-        self.style(self.theme.annotation_font, color)
-    }
-
-    fn index_style(&self) -> TextStyle {
-        self.style(self.theme.index_font, self.theme.colors.index)
-    }
-
-    fn tone_color(&self, tone: Tone) -> Color {
-        match tone {
-            Tone::Gloss => self.theme.colors.gloss,
-            Tone::Fresh => self.theme.colors.fresh,
-            Tone::Faint => self.theme.colors.pos,
-            Tone::Code => self.theme.colors.gloss,
-        }
-    }
-
-    /// 小字相对候选词往下挪多少，让两者底部对齐。
-    fn small_offset(&self, text_height: f32) -> f32 {
-        (text_height - self.px(self.theme.annotation_font.line_height)).max(0.0)
-    }
-
-    /// 云朵图标占的宽度（含后面的间距）。
-    fn cloud_width(&self) -> f32 {
-        self.px(CLOUD_SIZE + CLOUD_GAP)
-    }
+    /// 循环动画的时钟起点：窗口出现后的第一帧；打字过程中不重置，窗口收起（`forget`）归零。
+    clock: Option<Instant>,
 }
 
 impl Renderer {
     pub fn new(library: FontLibrary) -> Self {
         let mut text = TextPainter::new(library);
         text.set_optical_size(Some(OPTICAL_SIZE));
-        Self { text }
+        Self {
+            text,
+            last: None,
+            reduce_motion: false,
+            animations_off: false,
+            clock: None,
+        }
     }
 
-    /// 画一帧。`scale` 是点 → 像素的倍数（Retina 为 2）；带 `shadow` 时位图四周留出阴影的边。
+    /// 加载主题要的字体：随主题带的文件，加上样式里写到、字体库里还没有的系统字族（`family_files` 由壳按平台的字体登记查文件）。
+    /// 换主题时调；同一个文件只加载一次。字体没装的样式按回退链往后找，最后用界面字体。
+    pub fn load_theme_fonts(
+        &mut self,
+        theme: &Theme,
+        mut family_files: impl FnMut(&str) -> Vec<PathBuf>,
+    ) {
+        self.text.load_fonts(theme.font_files());
+        for family in theme.font_families() {
+            if !self.text.has_family(&family) {
+                self.text.load_fonts(&family_files(&family));
+            }
+        }
+    }
+
+    /// 画一帧。`scale` 是点 → 像素的倍数（Retina 为 2）；位图按画出范围开（投影、伸出的装饰），根节点的盒子是内容区。
+    /// 主题里带过渡的节点与上一帧配对，位置变了就从旧位置出发，[`Rendered::next_frame`] 告诉壳多久后要下一帧。
     pub fn render(
         &mut self,
         frame: &Frame,
         layout: Layout,
         theme: &Theme,
         scale: f32,
-        shadow: Option<&Shadow>,
     ) -> Result<Rendered, RenderError> {
-        let metrics = Metrics { theme, scale };
-        let (content_width, content_height) = self.preferred_size(frame, layout, &metrics);
-        let margin = shadow.map_or(0.0, |s| metrics.px(s.margin()));
-        let width = (content_width + margin * 2.0).ceil();
-        let height = (content_height + margin * 2.0).ceil();
+        self.render_at(frame, layout, theme, scale, Instant::now())
+    }
+
+    /// 同 [`Self::render`]，时间由调用方给（测试用固定时刻）。
+    pub fn render_at(
+        &mut self,
+        frame: &Frame,
+        layout: Layout,
+        theme: &Theme,
+        scale: f32,
+        now: Instant,
+    ) -> Result<Rendered, RenderError> {
+        self.text.use_families(theme.families());
+        self.animations_off = !theme.animations();
+        let mut scene = Scene::new();
+        let mut builder = Builder {
+            scene: &mut scene,
+            theme,
+            scale,
+            text: &mut self.text,
+            cell_nodes: Vec::new(),
+            candidate_nodes: Vec::new(),
+            sense_nodes: Vec::new(),
+        };
+        let root = builder.window(frame, layout)?;
+        let (candidate_nodes, sense_nodes) = (builder.candidate_nodes, builder.sense_nodes);
+        let (content_width, content_height) = scene.layout(root, &mut self.text)?;
+        let hits = hit_regions(&scene, root, &candidate_nodes, &sense_nodes)?;
+        let keyed = scene.keyed(root)?;
+        let transitions = self.transitions(&keyed, layout, scale, now);
+        let animated = scene.animated(root)?;
+        // 画出范围按起止两头的并算，循环动画按一轮里能到的最远处算：动画中途位图不变大小
+        let mut extent = scene.extent(root)?;
+        for transition in &transitions {
+            let from = transition.from;
+            let reach = scene.reach(transition.node).unwrap_or(0.0);
+            extent.include((from.x, from.y, from.width, from.height), reach);
+        }
+        for (node, keyframes) in &animated {
+            let parent = scene.parent_origin(*node, root)?;
+            let own = scene.subtree_extent(*node, parent.0, parent.1)?;
+            let (cx, cy) = scene.center(*node, parent.0, parent.1)?;
+            let (dx, dy, grow) = keyframes.reach();
+            // 旋转取外接圆，缩放按最大倍数，都绕节点中心
+            let (half_w, half_h) = ((own.right - own.left) / 2.0, (own.bottom - own.top) / 2.0);
+            let (half_w, half_h) = if keyframes.rotates() {
+                let r = (half_w * half_w + half_h * half_h).sqrt();
+                (r, r)
+            } else {
+                (half_w, half_h)
+            };
+            let (ox, oy) = (
+                (own.left + own.right) / 2.0 - cx,
+                (own.top + own.bottom) / 2.0 - cy,
+            );
+            let reach_x = (ox.abs() + half_w) * grow.max(1.0) + dx;
+            let reach_y = (oy.abs() + half_h) * grow.max(1.0) + dy;
+            extent.include(
+                (cx - reach_x, cy - reach_y, reach_x * 2.0, reach_y * 2.0),
+                0.0,
+            );
+        }
+        let (x, y) = ((-extent.left).ceil(), (-extent.top).ceil());
+        let mut retained = Retained {
+            scene,
+            root,
+            layout,
+            scale,
+            size: (
+                (extent.right + x).ceil() as u32,
+                (extent.bottom + y).ceil() as u32,
+            ),
+            origin: (x, y),
+            content: (content_width.ceil(), content_height.ceil()),
+            placements: keyed
+                .iter()
+                .map(|keyed| (keyed.key.clone(), keyed.placement))
+                .collect(),
+            transitions,
+            animated,
+            partial: None,
+            hits,
+        };
+        if self.clock.is_none() {
+            self.clock = Some(now);
+        }
+        let rendered = self.paint_retained(&mut retained, now);
+        self.last = Some(retained);
+        rendered
+    }
+
+    /// 按场景画出来的范围开位图（投影、伸出窗口的装饰都在里面），根节点的盒子是内容区。
+    fn rasterize(
+        &mut self,
+        scene: &Scene,
+        root: taffy::NodeId,
+        (content_width, content_height): (f32, f32),
+        scale: f32,
+    ) -> Result<Rendered, RenderError> {
+        let extent = scene.extent(root)?;
+        let (x, y) = ((-extent.left).ceil(), (-extent.top).ceil());
+        let width = (extent.right + x).ceil();
+        let height = (extent.bottom + y).ceil();
         let mut canvas = Canvas::new(width as u32, height as u32)?;
-        let radius = metrics.corner_radius();
-        if let Some(shadow) = shadow
-            && let Some(content) =
-                tiny_skia::Rect::from_xywh(margin, margin, content_width, content_height)
-        {
-            shadow.paint(&mut canvas, content, radius, scale);
-        }
-        canvas.fill_round_rect(
-            margin,
-            margin,
-            content_width,
-            content_height,
-            radius,
-            theme.colors.background,
-        );
-        let mut y = margin + metrics.padding();
-        y += self.draw_top_line(&mut canvas, frame, &metrics, margin, y);
-        match layout {
-            Layout::Vertical => {
-                self.draw_vertical(&mut canvas, frame, &metrics, margin, y, content_width);
-            }
-            Layout::Horizontal if frame.columns > 0 => {
-                self.draw_matrix(&mut canvas, frame, &metrics, margin, y, content_width);
-            }
-            Layout::Horizontal => {
-                self.draw_horizontal(&mut canvas, frame, &metrics, margin, y, content_width);
-            }
-        }
+        scene.paint(root, &mut canvas, &mut self.text, x, y)?;
         Ok(Rendered {
             pixmap: canvas.into_pixmap(),
-            content_x: margin as u32,
-            content_y: margin as u32,
-            content_width: content_width.ceil() as u32,
-            content_height: content_height.ceil() as u32,
+            content_x: x as u32,
+            content_y: y as u32,
+            content_width: content_width as u32,
+            content_height: content_height as u32,
             scale,
+            next_frame: None,
+            hits: Vec::new(),
         })
     }
 
@@ -188,123 +214,42 @@ impl Renderer {
         self.text.measure(text, &style).width
     }
 
-    /// 每个字形用到的字族名，验证回退链用。
+    /// 每个字形用到的字族名（按候选词的字号），验证回退链用。
     pub fn trace_families(&mut self, text: &str, theme: &Theme) -> Vec<String> {
-        let metrics = Metrics { theme, scale: 1.0 };
-        self.text.trace_families(text, &metrics.text_style())
+        self.text.use_families(theme.families());
+        let font = theme.font(CANDIDATE_FONT);
+        let style = TextStyle::new(font, font.size, Color::rgb(0, 0, 0), theme.text_gamma());
+        self.text.trace_families(text, &style)
     }
+}
 
-    /// 内容需要的像素宽高（不含阴影边）。
-    fn preferred_size(&mut self, frame: &Frame, layout: Layout, m: &Metrics) -> (f32, f32) {
-        let (top_width, top_height) = self.top_line_size(frame, m);
-        let (body_width, body_height) = match layout {
-            Layout::Vertical => self.vertical_size(frame, m),
-            Layout::Horizontal if frame.columns > 0 => self.matrix_size(frame, m),
-            Layout::Horizontal => self.horizontal_size(frame, m),
-        };
-        let width = top_width.max(body_width) + m.padding() * 2.0;
-        // 竖排时候选都很短（没有译词）窗口会窄得难看，给个下限
-        let width = match layout {
-            Layout::Vertical => width.max(m.px(MIN_VERTICAL_WIDTH)),
-            Layout::Horizontal => width,
-        };
-        (width, top_height + body_height + m.padding() * 2.0)
-    }
-
-    pub(super) fn measure(&mut self, text: &str, style: &TextStyle) -> TextSize {
-        self.text.measure(text, style)
-    }
-
-    /// 画一段文字（`x` 左边、`y` 行框顶边），返回它的宽度。
-    pub(super) fn draw_text(
-        &mut self,
-        canvas: &mut Canvas,
-        text: &str,
-        style: &TextStyle,
-        x: f32,
-        y: f32,
-    ) -> f32 {
-        self.text.draw(canvas, text, style, x, y)
-    }
-
-    /// 画云朵，返回占用宽度（含间距）。`top` 是所在行文字的顶边，`line_height` 用来垂直居中。
-    fn draw_cloud(
-        &mut self,
-        canvas: &mut Canvas,
-        m: &Metrics,
-        x: f32,
-        top: f32,
-        line_height: f32,
-    ) -> f32 {
-        let size = m.px(CLOUD_SIZE);
-        draw_cloud(
-            canvas,
-            x,
-            top + (line_height - size) / 2.0,
-            size,
-            m.theme.colors.cloud,
-        );
-        m.cloud_width()
-    }
-
-    /// 候选词本体：云端词前带云朵、换颜色。
-    fn draw_word(
-        &mut self,
-        canvas: &mut Canvas,
-        m: &Metrics,
-        row: &Row,
-        x: f32,
-        top: f32,
-        text_height: f32,
-    ) {
-        let mut word_x = x;
-        if row.cloud {
-            word_x += self.draw_cloud(canvas, m, word_x, top, text_height);
+/// 各候选与各条译词的点击区域（内容区像素）：同一个候选 / 同一条译词的节点取外接矩形，译词排在前面先命中。
+fn hit_regions(
+    scene: &Scene,
+    root: taffy::NodeId,
+    candidates: &[(usize, taffy::NodeId)],
+    senses: &[(usize, usize, taffy::NodeId)],
+) -> Result<Vec<HitRegion>, RenderError> {
+    let mut regions: Vec<HitRegion> = Vec::new();
+    let mut add = |target: HitTarget, node: taffy::NodeId| -> Result<(), RenderError> {
+        let rect = scene.rect_in(node, root)?;
+        match regions.iter_mut().find(|region| region.target == target) {
+            Some(region) => *region = region.union(rect),
+            None => regions.push(HitRegion {
+                x: rect.0,
+                y: rect.1,
+                width: rect.2,
+                height: rect.3,
+                target,
+            }),
         }
-        let color = if row.cloud {
-            m.theme.colors.cloud
-        } else {
-            m.theme.colors.text
-        };
-        let style = m.style(m.theme.text_font, color);
-        word_x += self.draw_text(canvas, &row.text, &style, word_x, top);
-        if let Some(code) = &row.code {
-            let style = m.annotation_style(m.tone_color(Tone::Code));
-            self.draw_text(
-                canvas,
-                code,
-                &style,
-                word_x,
-                top + m.small_offset(text_height),
-            );
-        }
+        Ok(())
+    };
+    for &(candidate, sense, node) in senses {
+        add(HitTarget::Translation { candidate, sense }, node)?;
     }
-
-    /// 候选词后面那段码的宽度；没有码是 0。
-    fn code_width(&mut self, row: &Row, m: &Metrics) -> f32 {
-        let Some(code) = &row.code else {
-            return 0.0;
-        };
-        let style = m.annotation_style(m.tone_color(Tone::Code));
-        self.measure(code, &style).width
+    for &(candidate, node) in candidates {
+        add(HitTarget::Candidate(candidate), node)?;
     }
-
-    fn fill_highlight(
-        &mut self,
-        canvas: &mut Canvas,
-        m: &Metrics,
-        x: f32,
-        y: f32,
-        width: f32,
-        height: f32,
-    ) {
-        canvas.fill_round_rect(
-            x,
-            y,
-            width,
-            height,
-            m.corner_radius() / 2.0,
-            m.theme.colors.highlight,
-        );
-    }
+    Ok(regions)
 }

@@ -73,7 +73,7 @@ impl Router {
     }
 
     /// 同上，补上译文（布局里存的是查询原样，译文画页时才补）。
-    fn annotated_candidate_on_page(&self, digit: usize) -> Option<Candidate> {
+    pub(super) fn annotated_candidate_on_page(&self, digit: usize) -> Option<Candidate> {
         let candidate = self.candidate_on_page(digit)?;
         let mut list = CandidateList {
             items: vec![candidate],

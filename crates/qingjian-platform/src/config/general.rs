@@ -3,7 +3,8 @@ use serde::{Deserialize, Serialize};
 
 use super::scheme::{Scheme, scheme_label};
 use super::{
-    CandidateRenderer, LayoutMode, LogLevel, NumpadDigit, PreeditMode, ShiftLetter, ThemeMode,
+    Appearance, CandidateRenderer, FontSize, LayoutMode, LogLevel, NumpadDigit, PreeditMode,
+    ShiftLetter,
 };
 
 /// 每页最多几个候选：数字键只有 1–9。
@@ -13,6 +14,9 @@ pub const MAX_PAGE_SIZE: usize = 9;
 /// 缺省不用 `,` `.`：组句中敲逗号句号应该把首选上屏再补一个全角标点（`nihao,zaima` 一气打完），
 /// 拿它们翻页就得先按空格再敲标点。选 `-` `=` 时组句中的 `-` 是翻页，不再进英文直输段（#43）。
 pub const PAGE_KEY_OPTIONS: [&str; 3] = ["[]", ",.", "-="];
+
+/// 内置主题的 id。`system` / `light` / `dark` 是外观的写法，不能当主题 id（旧配置里 `theme` 写的是它们）。
+pub const DEFAULT_THEME: &str = "qingjian";
 
 /// 缺省翻页键对，与 [`PAGE_KEY_OPTIONS`] 第一项一致。
 pub const DEFAULT_PAGE_KEYS: (char, char) = ('[', ']');
@@ -33,8 +37,13 @@ pub struct GeneralConfig {
     /// 翻页键对，两个字符：前一个上一页、后一个下一页。
     pub page_keys: String,
 
-    /// 候选窗口外观。
-    pub theme: ThemeMode,
+    /// 候选窗口外观，读用 [`Self::appearance`]。文件里没写时为 `None`（字段级缺省），好认出旧写法：
+    /// 2026-09-18 之前外观写在 `theme` 里（`theme = "dark"`）。
+    #[serde(default)]
+    pub appearance: Option<Appearance>,
+
+    /// 候选窗口主题 id（主题目录名），读用 [`Self::theme_id`]。旧写法里这一项是外观，见上。
+    pub theme: String,
 
     /// 候选窗口竖排 / 横排。
     pub layout: LayoutMode,
@@ -48,6 +57,15 @@ pub struct GeneralConfig {
     /// 候选窗口字体的字族名；空为系统字体。只对青简渲染器生效，没装这个字体时回到系统字体。
     pub font: String,
 
+    /// 候选字字号（点），盖过主题的；0 用主题的。不限范围，不是正数的当 0。只对青简渲染器生效。
+    pub candidate_font_size: FontSize,
+
+    /// 译文字号（点），同上。
+    pub annotation_font_size: FontSize,
+
+    /// 候选窗口的过渡与循环动画。关掉与系统「减弱动态效果」一样：高亮直接跳过去，循环动画停在第一帧。
+    pub animations: bool,
+
     /// 组句中的拼音显示在行内、候选窗口还是两处都显示。
     pub preedit: PreeditMode,
 
@@ -59,6 +77,12 @@ pub struct GeneralConfig {
     /// 中文模式下中英混输时中文候选总排在英文词前面。缺省关：拼音不像话的输入（`hello`）英文词排第一，
     /// 常在中文模式里打英文词的人不受影响；想要中文永远在前的自己打开。
     pub chinese_first: bool,
+
+    /// 中文模式下整段是英文词或英文词的开头时给英文候选与补全（`hello`、`compa` → company）。关掉中文模式只出中文，英文模式照旧。
+    pub english_in_chinese: bool,
+
+    /// 候选后面配 emoji（`kaixin` → 开心 😄）。关掉候选里就只有字词。
+    pub emoji: bool,
 
     /// 中文模式下按住 Shift 敲的字母：交给应用（缺省）还是收进组句缓冲区参与匹配。
     /// 收进组句才能打出「C盘」这类混杂词（`Cpan` 与 `cpan` 一样匹配）。
@@ -77,6 +101,10 @@ pub struct GeneralConfig {
 
     /// 英文模式下的同一件事，中英各记一份；缺省半角。只有 Windows 用（macOS 英文模式一律半角）。
     pub english_full_width_punctuation: bool,
+
+    /// 组句中敲会转全角的标点（`,` `.` `?` `!` 等，翻页键除外）先把高亮候选上屏、再补该标点
+    ///（`nihao,` 一气打完「你好，」）。缺省关：标点进英文直输段整段原样上屏，与以前一致。
+    pub punct_commits: bool,
 
     /// 辅码触发键：拼音打完之后敲它进辅码态，缺省 `;`。校验 = 单字符、ASCII 可打印、
     /// 非字母数字、非翻页键（见 [`qingjian_core::is_valid_aux_code_key`]）。
@@ -128,20 +156,27 @@ impl Default for GeneralConfig {
             learning_language: "en".to_owned(),
             page_size: MAX_PAGE_SIZE,
             page_keys: PAGE_KEY_OPTIONS[0].to_owned(),
-            theme: ThemeMode::default(),
+            appearance: Some(Appearance::default()),
+            theme: DEFAULT_THEME.to_owned(),
             layout: LayoutMode::default(),
             horizontal_grid: false,
             renderer: CandidateRenderer::default(),
             font: String::new(),
+            candidate_font_size: FontSize::default(),
+            annotation_font_size: FontSize::default(),
+            animations: true,
             preedit: PreeditMode::default(),
             english_candidates: true,
             traditional: false,
             chinese_first: false,
+            english_in_chinese: true,
+            emoji: true,
             shift_letter: ShiftLetter::default(),
             numpad_digit: NumpadDigit::default(),
             english_mode: true,
             full_width_punctuation: true,
             english_full_width_punctuation: false,
+            punct_commits: false,
             aux_code_key: qingjian_core::DEFAULT_AUX_CODE_KEY.to_string(),
             aux_code_show: false,
             aux_code_keep_empty: true,
@@ -159,6 +194,23 @@ impl Default for GeneralConfig {
 }
 
 impl GeneralConfig {
+    /// 候选窗口外观。`appearance` 没写时看旧写法（`theme` 写的是 system / light / dark），都没有就跟随系统。
+    pub fn appearance(&self) -> Appearance {
+        self.appearance
+            .or_else(|| Appearance::from_key(self.theme.trim()))
+            .unwrap_or_default()
+    }
+
+    /// 候选窗口主题 id。没写、空串或旧写法（外观词）都是内置主题。
+    pub fn theme_id(&self) -> &str {
+        let id = self.theme.trim();
+        if id.is_empty() || Appearance::from_key(id).is_some() {
+            DEFAULT_THEME
+        } else {
+            id
+        }
+    }
+
     /// 拼音侧方案。`scheme` 没写时用旧键（`shuangpin` / `zhuyin`）推，都没有就是全拼。
     pub fn scheme(&self) -> Scheme {
         let key = self.scheme.trim();
@@ -300,6 +352,14 @@ mod tests {
         assert_eq!(general.page_keys(), ('[', ']'));
         general.page_keys = ",,".to_owned();
         assert_eq!(general.page_keys(), ('[', ']'));
+    }
+
+    /// 组句中标点先上屏候选缺省关（`[general] punct_commits`），保持标点进英文直输段的老行为。
+    #[test]
+    fn punct_commits_defaults_off() {
+        assert!(!GeneralConfig::default().punct_commits);
+        let general: GeneralConfig = toml::from_str("punct_commits = true\n").unwrap();
+        assert!(general.punct_commits);
     }
 
     #[test]

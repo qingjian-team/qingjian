@@ -1,0 +1,15 @@
+{
+  "extends": "qingjian",
+  "schema": 1,
+  "meta": { "id": "wechat", "name": "微信绿", "author": "青简", "license": "GPL-3.0-or-later" },
+
+  "variables": {
+    "accent": { "light": "#07c160", "dark": "#06ad56" },
+    "cloud": { "light": "#10aeff", "dark": "#10aeff" },
+    "hl_text": "#ffffff",
+    "hl_gloss": "#ffffffd9",
+    "hl_faint": "#ffffffa6",
+    "hl_fresh": "#fff3b0",
+    "hl_cloud": "#ffffff"
+  }
+}

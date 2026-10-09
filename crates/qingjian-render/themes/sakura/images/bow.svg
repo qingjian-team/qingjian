@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="96" height="68" viewBox="0 0 96 68"><defs>
+<linearGradient id="glass" x2="0.1" y2="1"><stop stop-color="#F9EEFF"/><stop offset=".55" stop-color="#FFF6FC"/><stop offset="1" stop-color="#F2E7FA"/></linearGradient>
+<linearGradient id="pink" x2=".15" y2="1"><stop stop-color="#FFE9F7"/><stop offset="1" stop-color="#F8CBE9"/></linearGradient>
+<linearGradient id="ribbon" x2="1" y2="0"><stop stop-color="#D99ECF"/><stop offset=".5" stop-color="#FFE3F5"/><stop offset="1" stop-color="#DBB7E9"/></linearGradient>
+<linearGradient id="petal" x2=".8" y2="1"><stop stop-color="#FFF4FB"/><stop offset=".6" stop-color="#F8B8D9"/><stop offset="1" stop-color="#E994C6"/></linearGradient>
+</defs><path d="M46 27C25 5 3 0 3 23C3 52 24 48 46 33C66 50 91 54 91 25C91 0 66 7 46 27Z" fill="url(#ribbon)" stroke="#BB8DB7" stroke-width="2"/><path d="M41 29L23 62L45 50L55 64L54 29" fill="url(#ribbon)" stroke="#BB8DB7"/><path d="M9 16L40 29L11 39M84 17L53 30L84 40" fill="none" stroke="#FFF1FC" stroke-width="3"/><ellipse cx="47" cy="29" rx="9" ry="12" fill="#E6B3D9" stroke="#BB8DB7"/></svg>

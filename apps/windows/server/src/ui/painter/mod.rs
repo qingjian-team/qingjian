@@ -6,8 +6,8 @@ use std::rc::Rc;
 
 use qingjian_platform::{CandidateRenderer, LayoutMode};
 use qingjian_render::{
-    FontLibrary, Frame, Layout, Rendered, RenderedStatus, Renderer, Shadow, StatusCell, Theme,
-    UiFont, system_fonts,
+    FontLibrary, Frame, Layout, Mode, Rendered, RenderedStatus, Renderer, StatusCell, TextSizes,
+    Theme, ThemeLibrary, UiFont, system_fonts,
 };
 
 use crate::dispatch::RenderSettings;
@@ -21,6 +21,9 @@ pub(super) struct Painter {
 
     /// 建它时用的字族名（空为系统字体），设置没变就不重建。
     font: String,
+
+    /// 主题（浅色那一份，画的时候按外观取深浅）。
+    theme: Theme,
 }
 
 impl Painter {
@@ -51,6 +54,7 @@ impl Painter {
         Some(Self {
             renderer: Renderer::new(library),
             font: font.to_owned(),
+            theme: Theme::light(),
         })
     }
 
@@ -61,6 +65,22 @@ impl Painter {
             CandidateRenderer::Qingjian => {
                 if painter.as_ref().map(|p| p.font.as_str()) != Some(settings.font.as_str()) {
                     *painter = Self::new(&settings.font);
+                }
+                // 设置变了才会走到这里（含主题文件的戳），每次都从主题目录重读
+                if let Some(painter) = painter.as_mut() {
+                    let themes =
+                        ThemeLibrary::load(qingjian_platform::dirs::themes_dir().as_deref());
+                    let (candidate, annotation) = settings.font_sizes;
+                    painter.theme = themes
+                        .resolve(&settings.theme, false)
+                        .with_text_sizes(TextSizes {
+                            candidate: candidate.get(),
+                            annotation: annotation.get(),
+                        })
+                        .with_animations(settings.animations);
+                    painter
+                        .renderer
+                        .load_theme_fonts(&painter.theme, system_fonts::family_files);
                 }
             }
             CandidateRenderer::System => {
@@ -85,9 +105,10 @@ impl Painter {
             LayoutMode::Horizontal => Layout::Horizontal,
         };
         let started = std::time::Instant::now();
+        self.renderer.set_reduce_motion(reduce_motion());
         let rendered = self
             .renderer
-            .render(frame, layout, &theme(dark), scale(dpi), Some(&SHADOW))
+            .render(frame, layout, &self.theme.with_dark(dark), scale(dpi))
             .inspect_err(|error| tracing::warn!(%error, "候选窗渲染失败"))
             .ok()?;
         tracing::debug!(
@@ -99,25 +120,48 @@ impl Painter {
         Some(rendered)
     }
 
+    /// 动画的下一帧；没有在播的返回 `None`。
+    pub(super) fn tick(&mut self) -> Option<Rendered> {
+        self.renderer
+            .tick()
+            .inspect_err(|error| tracing::warn!(%error, "候选窗动画帧渲染失败"))
+            .ok()
+            .flatten()
+    }
+
+    /// 候选窗收起：忘掉上一帧，下次显示不从旧位置过渡。
+    pub(super) fn forget(&mut self) {
+        self.renderer.forget();
+    }
+
     /// 画状态条。
     pub(super) fn render_status(
         &mut self,
         cells: &[StatusCell],
+        mode: &Mode,
         dark: bool,
         dpi: u32,
     ) -> Option<RenderedStatus> {
         self.renderer
-            .render_status(cells, &theme(dark), scale(dpi), Some(&SHADOW))
+            .render_status(cells, mode, &self.theme.with_dark(dark), scale(dpi))
             .inspect_err(|error| tracing::warn!(%error, "状态条渲染失败"))
             .ok()
     }
 }
 
-/// 两个窗口都用渲染器画阴影（分层窗口没有系统阴影），参数与 macOS 面板一致。
-const SHADOW: Shadow = Shadow::mac_panel();
-
-fn theme(dark: bool) -> Theme {
-    if dark { Theme::dark() } else { Theme::light() }
+/// 系统关了「动画效果」（设置 → 辅助功能 → 视觉效果）：不播过渡。读不到当开着。
+fn reduce_motion() -> bool {
+    let mut enabled = windows::core::BOOL(1);
+    // SAFETY: SPI_GETCLIENTAREAANIMATION 往 pvParam 写一个 BOOL。
+    let ok = unsafe {
+        windows::Win32::UI::WindowsAndMessaging::SystemParametersInfoW(
+            windows::Win32::UI::WindowsAndMessaging::SPI_GETCLIENTAREAANIMATION,
+            0,
+            Some((&raw mut enabled).cast()),
+            windows::Win32::UI::WindowsAndMessaging::SYSTEM_PARAMETERS_INFO_UPDATE_FLAGS(0),
+        )
+    };
+    ok.is_ok() && !enabled.as_bool()
 }
 
 /// 点 → 像素的倍数。

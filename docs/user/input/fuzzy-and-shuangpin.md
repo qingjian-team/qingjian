@@ -32,11 +32,13 @@ description: 九条模糊音的开启方式与排序规则；全拼、七套双�
 - 拼音行显示解出的全拼（`nihc` → `ni'hao`，小浪 `nihs` → `ni'hao`）。「偏好设置 → 通用」勾上「双拼在输入框显示原始按键」后，输入框里改为显示敲的键（`kdfa`），候选窗口的拼音行照旧显示全拼（`kai'fa`）。学习按全拼记录，切回全拼后同样受益。
 - 零声母：小鹤 / 自然码写 `aa` `ai` `ah`（a、ai、ang）一族；微软 / 搜狗写 `o` + 韵母键（`oa` `ol` `oh`）；智能ABC 也写 `o` + 韵母键，但韵母键按它自己的表（ei 是 `oq` 不是 `oz`），且不认双写元音（`aa` 是 zha、`ee` 是 che）；小浪写 `aa` `ai` `ah` `ao`、`uu`（e）、`ui`（ei）、`un`（en/eng）、`ur`（er）、`oo`（o）、`ou`（ou）。
 - 微软 / 搜狗的 `;` 为 ing：输入拼音时末尾有落单的声母，`;` 作为拼音（`x;` → xing）；其他情况下仍为标点。
+- 微软 / 搜狗的 ü 键为 `y`：`ny` / `ly` 输入女 / 绿，`jy` / `qy` / `xy` / `yy` 解为 ju / qu / xu / yu。其他方案也接受各自 ü 键与 j / q / x / y 的组合，但同键已有的合法读法优先（微软 `jv` 仍为 jue，小浪 `jv` 仍为 jing）。
 - 智能ABC 翘舌声母以 `a` 为 zh、`e` 为 ch、`v` 为 sh（`ai` → zhi、`ei` → chi、`vi` → shi）。
 - 小浪双拼翘舌声母以 `e` 为 zh、`i` 为 ch、`v` 为 sh；`x` 为 ü（`lx` → lv，`nx` → nv，`jx` → ju）；`v` 兼作韵母 uai 与 ing；未在键位表列出的韵母按原拼键输入（如 a/e/i/u 及 o 对 uo/o）。
 - 首道双拼翘舌声母以 `v` 为 zh、`i` 为 ch、`e` 为 sh；零声母双写首字母或照全拼输入（`aa` `ai` `an` `ao` `oo` `ou` `en` `er`），ang 为 `ay`，e / ei / eng 以 `u` 引导（`ue` `ui` `uf`）；ue 在 `l`（`jl` → jue），üe 单独在 `b`（`lb` → lve）。
 - 双拼下 v / u / i 均为音节键，[快捷输入](shortcuts.md) 中的算式与问字改为按住 `Shift` 输入：`Shift`+`V` 后接算式（`V1+2`），`Shift`+`U` 后接拼音或码点（`U4e00`），与搜狗、微软双拼一致。未输入拼音时才生效；模式键改过的，按改后的字母加 `Shift`。
 - 全拼输入 `lue` / `nue` 与词库形式 `lve` / `nve` 等价。双拼统一解为 `lve` / `nve`。
+- 「嗯」按习惯用 `en` 输入（`enen` → 嗯嗯）；全拼下单独敲 `ng` 也出「嗯」，与其他拼音连写时请用 `en`。
 - 已知限制：`lo` 与 `luo` 同键，解为 luo。小浪方案中 `en` 与 `eng` 同码（`un`），统一解为 `en`；`dia`/`dai` 同码解为 `dai`，`lia`/`lai` 同码解为 `lai`，`nen`/`niang` 同码解为 `niang`。首道方案中 `den`/`dia` 同码（`dk`），解为 `den`。
 
 ## 五笔（形码）

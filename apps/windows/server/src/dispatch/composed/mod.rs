@@ -185,7 +185,7 @@ impl Router {
     }
 
     /// 焦点会话的 DLL 协议版本；没有焦点会话时按最新（不必降级）。
-    fn focused_dll_protocol(&self) -> u32 {
+    pub(super) fn focused_dll_protocol(&self) -> u32 {
         self.focused
             .and_then(|session| self.sessions.get(&session))
             .map_or(PROTOCOL_VERSION, |info| info.protocol)
@@ -209,7 +209,7 @@ impl Router {
                 page: 0,
                 page_count: 1,
                 layout: self.config.layout,
-                theme: self.config.theme,
+                appearance: self.config.appearance,
                 aux_code_show: self.config.aux_code_show,
                 sentence: None,
                 notice: self.notice.clone(),
@@ -239,7 +239,7 @@ impl Router {
                     page,
                     page_count: layout.pages().max(1),
                     layout: self.config.layout,
-                    theme: self.config.theme,
+                    appearance: self.config.appearance,
                     aux_code_show: self.config.aux_code_show,
                     sentence: self.sentence.clone(),
                     notice: self.notice.clone(),

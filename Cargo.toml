@@ -79,11 +79,15 @@ tiny-skia = "0.12.0"
 # 不开 fontconfig：不扫系统字体库，字体文件由渲染器按平台清单自己加载
 cosmic-text = { version = "0.19.0", default-features = false, features = ["std", "swash"] }
 png = "0.18.1"
+# 字形轮廓的路径命令（cosmic-text 取轮廓返回它，文字描边用）；与 swash 用的同一版本
+zeno = { version = "0.3.3", default-features = false }
+# 渲染器场景图的布局：只要 flexbox 与 grid，不要 block / float
+taffy = { version = "0.14.0", default-features = false, features = ["std", "taffy_tree", "flexbox", "grid"] }
 
 # macOS 平台层
 objc2 = "0.6.4"
 objc2-foundation = { version = "0.3.2", features = ["NSArray", "NSAttributedString", "NSBundle", "NSDictionary", "NSGeometry", "NSObject", "NSProcessInfo", "NSRange", "NSString", "NSTimer", "NSURL", "NSUserDefaults", "NSValue"] }
-objc2-app-kit = { version = "0.3.2", features = ["NSApplication", "NSAttributedString", "NSEvent", "NSBezierPath", "NSBitmapImageRep", "NSColor", "NSFont", "NSGraphics", "NSImage", "NSImageRep", "NSPanel", "NSResponder", "NSScreen", "NSStatusBar", "NSStatusBarButton", "NSStatusItem", "NSMenu", "NSMenuItem", "NSOpenPanel", "NSPasteboard", "NSSavePanel", "NSCell", "NSFontManager", "NSPopUpButton", "NSPopover", "NSSearchField", "NSSearchFieldCell", "NSViewController", "NSTextField", "NSSecureTextField", "NSTextFieldCell", "NSActionCell", "NSRunningApplication", "NSAppearance", "NSText", "NSButton", "NSButtonCell", "NSControl", "NSStringDrawing", "NSTabView", "NSTabViewItem", "NSView", "NSWindow", "NSScrollView", "NSClipView", "NSTextView", "NSTableView", "NSTableColumn", "NSTableHeaderView", "NSTableHeaderCell", "NSParagraphStyle", "block2"] }
+objc2-app-kit = { version = "0.3.2", features = ["NSApplication", "NSAttributedString", "NSEvent", "NSBezierPath", "NSBitmapImageRep", "NSColor", "NSFont", "NSGraphics", "NSImage", "NSImageRep", "NSPanel", "NSResponder", "NSScreen", "NSStatusBar", "NSStatusBarButton", "NSStatusItem", "NSMenu", "NSMenuItem", "NSOpenPanel", "NSPasteboard", "NSSavePanel", "NSCell", "NSFontManager", "NSPopUpButton", "NSPopover", "NSSearchField", "NSSearchFieldCell", "NSViewController", "NSTextField", "NSSecureTextField", "NSTextFieldCell", "NSActionCell", "NSRunningApplication", "NSAppearance", "NSText", "NSButton", "NSButtonCell", "NSControl", "NSStringDrawing", "NSTabView", "NSTabViewItem", "NSView", "NSWindow", "NSScrollView", "NSClipView", "NSTextView", "NSTableView", "NSTableColumn", "NSTableHeaderView", "NSTableHeaderCell", "NSParagraphStyle", "NSWorkspace", "NSAccessibility", "block2"] }
 objc2-input-method-kit = "0.3.2"
 # 候选窗字体设置：按字族名找字体文件（渲染器只加载指定文件）
 objc2-core-text = { version = "0.3.2", features = ["CTFont", "CTFontDescriptor"] }

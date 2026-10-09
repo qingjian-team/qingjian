@@ -174,6 +174,10 @@ fn main() {
         }
     };
     engine.set_fuzzy(config.fuzzy);
+    // Windows 端此前漏装 custom_phrases（macOS 端 apply_config 有）；失败只记日志不阻塞启动
+    if let Err(error) = engine.set_custom_phrases(config.custom_phrases.clone()) {
+        tracing::warn!(%error, "自定义短语配置未应用");
+    }
     // 拼音侧与形码侧在 `configure_code_table` 里一起装配（双拼 / 注音 / 混输都在那）
     engine.set_traditional_mode(config.general.traditional);
     engine.set_learning(config.general.learning);
@@ -183,6 +187,8 @@ fn main() {
     engine.set_aux_enabled(config.aux_code.enabled);
     engine.set_aux_show(config.general.aux_code_show);
     engine.set_chinese_first(config.general.chinese_first);
+    engine.set_emoji_candidates(config.general.emoji);
+    engine.set_english_in_chinese(config.general.english_in_chinese);
     engine.set_shift_letter_compose(config.general.shift_letter.compose());
     engine.set_shuangpin_raw_preedit(config.general.shuangpin_raw_preedit);
     engine.log_session(env!("CARGO_PKG_VERSION"), "windows");
@@ -214,7 +220,7 @@ fn main() {
         page_size = router_config.page_size,
         page_keys = %format!("{}{}", router_config.page_keys.0, router_config.page_keys.1),
         layout = router_config.layout.key(),
-        theme = router_config.theme.key(),
+        appearance = router_config.appearance.key(),
         scheme = %if config.general.scheme_label().is_empty() { "全拼".to_owned() } else { config.general.scheme_label() },
         fuzzy = config.fuzzy.any(),
         cloud = config.predict.enabled,
@@ -262,7 +268,11 @@ fn serve(mut router: Router) {
     let on_status = Box::new(move |event| {
         let _ = status_events.send(Work::Status(event));
     });
-    match UiHandle::spawn(on_status) {
+    let clicks = work_tx.clone();
+    let on_click = Box::new(move |target| {
+        let _ = clicks.send(Work::Click(target));
+    });
+    match UiHandle::spawn(on_status, on_click) {
         Ok(ui) => {
             router.set_candidate_sink(Box::new(ui.clone()));
             router.set_status_sink(Box::new(ui));

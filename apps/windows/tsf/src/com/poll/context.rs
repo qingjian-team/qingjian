@@ -15,4 +15,7 @@ pub(super) struct PollContext {
 
     /// 拍数计数，给 [`MODE_SYNC_EVERY`](super::MODE_SYNC_EVERY) 取模。
     pub(super) ticks: Cell<u32>,
+
+    /// 本服务的 TSF client id：点击上屏要申请编辑会话。
+    pub(super) client_id: u32,
 }

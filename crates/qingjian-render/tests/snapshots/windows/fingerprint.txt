@@ -1,0 +1,15 @@
+locale zh-CN
+959752 C:\Windows\Fonts\segoeui.ttf
+910144 C:\Windows\Fonts\segoeuil.ttf
+848220 C:\Windows\Fonts\segoeuisl.ttf
+974500 C:\Windows\Fonts\seguisb.ttf
+947092 C:\Windows\Fonts\segoeuib.ttf
+318708 C:\Windows\Fonts\seguibl.ttf
+19704352 C:\Windows\Fonts\msyh.ttc
+16883552 C:\Windows\Fonts\msyhbd.ttc
+12189612 C:\Windows\Fonts\msyhl.ttc
+13835976 C:\Windows\Fonts\YuGothR.ttc
+13908392 C:\Windows\Fonts\yugothm.ttc
+14729372 C:\Windows\Fonts\YuGothB.ttc
+13969876 C:\Windows\Fonts\YuGothL.ttc
+12934920 C:\Windows\Fonts\seguiemj.ttf

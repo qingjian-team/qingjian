@@ -1,0 +1,126 @@
+{
+  "schema": 1,
+  "meta": { "id": "qingjian", "name": "青简绿", "author": "青简", "license": "GPL-3.0-or-later" },
+
+  "variables": {
+    "text": { "light": "#000000d8", "dark": "#ffffffd8" },
+    "gloss": { "light": "#000000a6", "dark": "#ffffffb3" },
+    "faint": { "light": "#00000073", "dark": "#ffffff73" },
+    "fresh": { "light": "#ff8d28", "dark": "#ff9230" },
+    "cloud": { "light": "#00c3d0", "dark": "#00d2e0" },
+    "surface": { "light": "#ffffff", "dark": "#1e1e1e" },
+    "accent": { "light": "#b0ce7d7f", "dark": "#244c24" },
+
+    "hl_text": { "light": "#000000d8", "dark": "#ffffffd8" },
+    "hl_gloss": { "light": "#000000a6", "dark": "#ffffffb3" },
+    "hl_faint": { "light": "#00000073", "dark": "#ffffff73" },
+    "hl_fresh": { "light": "#ff8d28", "dark": "#ff9230" },
+    "hl_cloud": { "light": "#00c3d0", "dark": "#00d2e0" }
+  },
+
+  "text": {
+    "gamma": { "light": 0.85, "dark": 0.75 },
+    "styles": {
+      "candidate": { "size": 16, "line_height": 19 },
+      "annotation": { "size": 12, "line_height": 15 },
+      "index": { "size": 11, "line_height": 14 }
+    }
+  },
+
+  "components": {
+    "top_line": {
+      "type": "frame", "when": "preedit|trailing", "padding": [4, 0, 4, 0], "gap": 16,
+      "children": [
+        { "type": "preedit", "when": "preedit", "font": "annotation",
+          "typed": "@gloss", "rest": "@faint", "struck": "@faint",
+          "caret": { "width": 1.5, "color": "@text" } },
+        { "type": "frame", "when": "trailing", "children": [
+          { "type": "icon", "icon": "cloud", "when": "trailing.cloud", "size": 13, "height": 15,
+            "color": "@cloud", "margin": [0, 4, 0, 0] },
+          { "type": "text", "bind": "trailing.text", "when": "trailing.cloud", "font": "annotation", "color": "@cloud" },
+          { "type": "text", "bind": "trailing.text", "when": "!trailing.cloud", "font": "annotation", "color": "@gloss" }
+        ] }
+      ]
+    },
+
+    "word": {
+      "type": "frame",
+      "children": [
+        { "type": "icon", "icon": "cloud", "when": "cloud", "size": 13, "height": 19,
+          "color": { "if": "highlighted", "then": "@hl_cloud", "else": "@cloud" }, "margin": [0, 4, 0, 0] },
+        { "type": "text", "bind": "text", "when": "cloud", "font": "candidate",
+          "color": { "if": "highlighted", "then": "@hl_cloud", "else": "@cloud" } },
+        { "type": "text", "bind": "text", "when": "!cloud", "font": "candidate",
+          "color": { "if": "highlighted", "then": "@hl_text", "else": "@text" } },
+        { "type": "text", "bind": "code", "when": "code", "font": "annotation",
+          "color": { "if": "highlighted", "then": "@hl_gloss", "else": "@gloss" }, "margin": [2, 5, 0, 0] }
+      ]
+    },
+
+    "row": {
+      "type": "frame",
+      "children": [
+        { "type": "frame", "id": "highlight", "transition": { "duration": 100, "easing": "ease-out" },
+          "when": "highlighted", "span": "row", "margin": [0, -4, 0, -4], "fill": "@accent", "radius": 4 },
+        { "type": "text", "bind": "index", "font": "index", "margin": [8, 0, 0, 0],
+          "color": { "if": "highlighted", "then": "@hl_faint", "else": "@faint" } },
+        { "type": "use", "component": "word", "margin": [4, 0, 0, 8] },
+        { "type": "annotation", "bind": "annotation", "when": "annotations", "font": "annotation",
+          "gloss": { "if": "highlighted", "then": "@hl_gloss", "else": "@gloss" },
+          "fresh": { "if": "highlighted", "then": "@hl_fresh", "else": "@fresh" },
+          "faint": { "if": "highlighted", "then": "@hl_faint", "else": "@faint" },
+          "margin": [8, 0, 0, 8] }
+      ]
+    },
+
+    "item": {
+      "type": "frame", "height": 27,
+      "children": [
+        { "type": "frame", "id": "highlight", "transition": { "duration": 100, "easing": "ease-out" },
+          "when": "highlighted", "position": "absolute", "inset": [0, -5, 0, -5], "fill": "@accent", "radius": 4 },
+        { "type": "text", "bind": "index", "font": "index", "margin": [8, 3, 0, 0],
+          "color": { "if": "highlighted", "then": "@hl_faint", "else": "@faint" } },
+        { "type": "use", "component": "word", "margin": [4, 0, 0, 0] }
+      ]
+    }
+  },
+
+  "windows": {
+    "vertical": {
+      "type": "frame", "direction": "column", "padding": 8, "min_width": 200,
+      "fill": "@surface", "radius": 8,
+      "effects": [{ "type": "drop-shadow", "y": 6, "blur": 12, "color": "#0000005a" }],
+      "children": [
+        { "type": "use", "component": "top_line" },
+        { "type": "frame", "when": "candidates", "table": { "row_height": 27 }, "align_self": "stretch",
+          "children": [{ "type": "repeat", "bind": "candidates", "component": "row" }] },
+        { "type": "text", "bind": "page", "font": "index", "color": "@faint",
+          "align_self": "end", "margin": [4, 0, 0, 0] }
+      ]
+    },
+    "horizontal": {
+      "type": "frame", "direction": "column", "padding": 8, "fill": "@surface", "radius": 8,
+      "effects": [{ "type": "drop-shadow", "y": 6, "blur": 12, "color": "#0000005a" }],
+      "children": [
+        { "type": "use", "component": "top_line" },
+        { "type": "frame", "when": "candidates", "align_self": "stretch", "padding": [0, 5, 0, 5], "gap": 8,
+          "children": [
+            { "type": "repeat", "bind": "candidates", "component": "item" },
+            { "type": "frame", "when": "page", "margin": [0, -5, 0, "auto"], "padding": [0, 0, 0, 5], "children": [
+              { "type": "text", "bind": "page", "font": "index", "color": "@faint", "margin": [8, 0, 0, 0] }
+            ] }
+          ] },
+        { "type": "annotation", "bind": "highlighted.annotation", "when": "highlighted.annotation",
+          "font": "annotation", "gloss": "@gloss", "fresh": "@fresh", "faint": "@faint",
+          "margin": [2, -5, 0, 5], "padding": [0, 0, 2, 0] }
+      ]
+    }
+  },
+
+  "status": {
+    "font": "candidate", "padding": 8, "radius": 8,
+    "background": "@surface", "separator": "@faint", "separator_width": 1,
+    "normal": "@gloss", "emphasized": "@cloud", "gear": "@gloss", "gear_size": 15,
+    "effects": [{ "type": "drop-shadow", "y": 6, "blur": 12, "color": "#0000005a" }]
+  }
+}

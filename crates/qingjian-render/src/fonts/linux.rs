@@ -13,6 +13,16 @@ pub(super) fn ui_fonts() -> Vec<PathBuf> {
     .collect()
 }
 
+pub(super) fn ui_weight_fonts() -> Vec<PathBuf> {
+    [
+        "/usr/share/fonts/truetype/noto/NotoSans-Bold.ttf",
+        "/usr/share/fonts/noto/NotoSans-Bold.ttf",
+    ]
+    .into_iter()
+    .map(PathBuf::from)
+    .collect()
+}
+
 pub(super) fn script_fonts(_locale: &str) -> Vec<PathBuf> {
     [
         "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
