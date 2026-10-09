@@ -20,6 +20,23 @@ impl InputState {
         }
     }
 
+    /// 回到青简时同步灯的基线，不把外部灯变化当作切换动作。
+    pub fn reset_chinese(&mut self, caps: bool) {
+        self.english = false;
+        self.candidates = false;
+        self.observed_caps = caps;
+        self.pending = true;
+    }
+
+    pub fn desired_caps(&self) -> bool {
+        self.english && self.candidates
+    }
+
+    /// 成功回读后直接同步基线，自发灯变化不解释为用户切换。
+    pub fn confirm_caps(&mut self, caps: bool) {
+        self.observed_caps = caps;
+    }
+
     pub fn observe_caps(&mut self, caps: bool) {
         if self.observed_caps == caps {
             return;
@@ -95,5 +112,52 @@ mod tests {
         state.disable_shift();
         assert!(!state.english);
         assert!(state.pending);
+    }
+}
+
+#[cfg(test)]
+mod reentry_tests {
+    use super::InputState;
+
+    #[test]
+    fn reentry_resets_both_english_policies_and_caps_baseline() {
+        for caps in [false, true] {
+            for candidates in [false, true] {
+                let mut state = InputState::new(!caps);
+                state.english = true;
+                state.candidates = candidates;
+                state.reset_chinese(caps);
+                state.observe_caps(caps);
+                assert!(!state.english);
+                assert!(!state.candidates);
+                assert!(state.pending);
+                state.pending = false;
+                state.observe_caps(!caps);
+                assert!(state.english);
+                assert!(state.candidates);
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod caps_sync_tests {
+    use super::InputState;
+
+    #[test]
+    fn automatic_off_feedback_preserves_passthrough() {
+        let mut state = InputState::new(true);
+        state.shift();
+        assert!(!state.desired_caps());
+        state.confirm_caps(false);
+        state.observe_caps(false);
+        assert!(state.english);
+        assert!(!state.candidates);
+        state.observe_caps(true);
+        assert!(state.desired_caps());
+        state.reset_chinese(true);
+        state.confirm_caps(false);
+        state.observe_caps(false);
+        assert!(!state.english);
     }
 }

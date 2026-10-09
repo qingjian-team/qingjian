@@ -175,6 +175,8 @@ pub fn init(mtm: MainThreadMarker, info: &BundleInfo) -> Result<(), HostError> {
             horizontal_grid: false,
             english_candidates: true,
             input: crate::host::input::InputState::new(crate::imk::modifiers::caps_lock_on()),
+            input_source: crate::host::input::SourceState::default(),
+            _source_monitor: crate::host::input::SourceMonitor::new(mtm),
             input_config_generation: 0,
             text_replacements: Vec::new(),
             apps: AppsConfig::default(),

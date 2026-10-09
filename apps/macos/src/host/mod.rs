@@ -140,6 +140,12 @@ pub struct Host {
     /// 逻辑模式、候选策略与待提交的切换。
     pub input: input::InputState,
 
+    /// 所选输入源身份，仅真实重新进入时恢复中文。
+    pub input_source: input::SourceState,
+
+    /// 常驻通知观察器，在停用输入法期间也保留。
+    _source_monitor: objc2::rc::Retained<input::SourceMonitor>,
+
     /// 每次套用配置使控制器取消未完成的轻按。
     pub input_config_generation: u64,
 

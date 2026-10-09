@@ -108,6 +108,7 @@ define_class!(
                     tracing::debug!(%bundle, "当前应用");
                 }
                 host::with(|h| {
+                    h.sync_input_source();
                     h.engine.set_application(bundle);
                     h.refresh_text_replacements();
                     h.reload_config_if_changed();
@@ -119,6 +120,8 @@ define_class!(
             });
             if done.is_none() {
                 recover_from_panic(None);
+            } else if let Some(sender) = sender {
+                self.apply_pending_input(TextClient::new(sender));
             }
         }
 
@@ -208,6 +211,7 @@ impl QingjianInputController {
             let candidates = h.input.candidates && h.english_candidates_in(h.engine.application());
             h.engine.set_english_input_policy(english, candidates);
             h.input.pending = false;
+            h.sync_caps_lock();
             h.cancel_prediction();
             h.translation = None;
             h.session = host::Session::default();
@@ -240,8 +244,8 @@ impl QingjianInputController {
         );
         let key = event.keyCode();
         let (enabled, generation) = host::with(|h| {
-            h.input
-                .observe_caps(flags.contains(NSEventModifierFlags::CapsLock));
+            h.sync_input_source();
+            h.input.observe_caps(modifiers::caps_lock_on());
             (
                 h.settings.config().shortcut.switch_mode.shift,
                 h.input_config_generation,
