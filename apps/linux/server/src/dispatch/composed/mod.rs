@@ -16,6 +16,7 @@ impl Router {
         self.sentence = None;
         if self.engine.composition().is_empty() {
             self.composed = None;
+            self.cancel_prediction();
             self.stop_rescoring();
             return;
         }
@@ -31,6 +32,9 @@ impl Router {
             Some((items, preedit, cursor)) => {
                 let layout =
                     CandidateLayout::new(items, self.config.page_size, self.config.cloud_slots);
+                if self.engine.prediction_enabled() {
+                    self.request_prediction(layout.local());
+                }
                 Composed::Candidates {
                     preedit,
                     cursor,
@@ -38,6 +42,7 @@ impl Router {
                 }
             }
             None => {
+                self.cancel_prediction();
                 let composition = self.engine.composition();
                 let text = composition.text().to_owned();
                 let cursor = text[..composition.cursor()].chars().count();

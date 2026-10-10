@@ -1,4 +1,4 @@
-//! Linux 会话路由：独立保存各上下文的组句，词库和学习服务保持单实例。本地整句模型在 [`rescore`]。
+//! Linux 会话路由：独立保存各上下文的组句，词库和学习服务保持单实例。本地整句模型在 [`rescore`]，云联想在 [`predict`]。
 
 mod composed;
 mod config;
@@ -6,11 +6,13 @@ mod display;
 mod key;
 mod linux;
 mod message;
+mod predict;
 mod rescore;
 mod session;
 
 use self::composed::Composed;
 pub use self::config::RouterConfig;
+use self::predict::PredictState;
 pub use self::rescore::find_model;
 use self::rescore::{ModelLoader, RescoreState};
 use self::session::SessionInfo;
@@ -22,6 +24,9 @@ use std::time::{Duration, Instant};
 
 /// 学习数据落盘间隔（与 macOS 壳一致）；Server 没有定时器，借消息节拍与主循环的 tick 看时间。
 const LEARNING_FLUSH_INTERVAL: Duration = Duration::from_secs(60);
+
+/// 空闲时主循环多久醒一次：到点落盘学习数据。
+const IDLE_TICK: Duration = Duration::from_secs(1);
 
 /// Fcitx5 输入上下文分派器；所有 Engine 操作都在 Server 主线程串行执行。
 pub struct Router {
@@ -46,7 +51,7 @@ pub struct Router {
     /// 本轮是否已主动移动候选。
     navigated: bool,
 
-    /// 可选的整句提示；首版没有云服务。
+    /// 云端整句补全，Tab 接受（[`predict`]；没接云联想时始终为空）。
     sentence: Option<String>,
 
     /// 删除候选等操作提示。
@@ -66,12 +71,14 @@ pub struct Router {
 
     /// 重排的防抖 / 轮询进行态。
     rescore: RescoreState,
+
+    /// 云联想结果的轮询进行态。
+    predict: PredictState,
 }
 
 impl Router {
     pub fn new(engine: Engine, mut config: RouterConfig) -> Self {
         config.page_size = config.page_size.clamp(1, 9);
-        config.cloud_slots = 0;
         Self {
             engine,
             config,
@@ -87,6 +94,7 @@ impl Router {
             model_path: None,
             model_loader: None,
             rescore: RescoreState::default(),
+            predict: PredictState::default(),
         }
     }
     /// 一条客户端消息；无需答复的通知返回 None。
@@ -101,14 +109,31 @@ impl Router {
         self.engine.flush_learning();
         self.last_flush = Instant::now();
     }
-    /// 到点了：接上加载好的模型、推进重排、到点落盘学习（输入停止后也不能一直不落盘）。主循环超时与插件的 `Poll` 都会调。
+    /// 到点了：接上加载好的模型、推进重排与云联想、清释义兜底、到点落盘学习（输入停止后也不能一直不落盘）。主循环超时与插件的 `Poll` 都会调。
     pub fn tick(&mut self) {
         self.attach_loaded_model();
         self.advance_rescoring();
+        self.advance_prediction();
+        let learned = self.engine.poll_glosses();
+        if learned > 0 {
+            tracing::info!(learned, "释义兜底写入个人释义表");
+        }
         if self.last_flush.elapsed() >= LEARNING_FLUSH_INTERVAL {
             self.flush_learning();
         }
     }
+    /// 主循环下次该多久后来一次 [`Router::tick`]：在等本地整句模型或云联想就按它们的节拍，否则一秒看一次要不要落盘。
+    pub fn next_tick(&self) -> Duration {
+        let mut next = IDLE_TICK;
+        for deadline in [self.rescore.next_deadline(), self.predict.next_deadline()]
+            .into_iter()
+            .flatten()
+        {
+            next = next.min(deadline);
+        }
+        next
+    }
+
     pub(super) fn full_width_for(&self, english: bool) -> bool {
         if english {
             self.config.english_full_width

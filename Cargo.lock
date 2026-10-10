@@ -2763,6 +2763,7 @@ dependencies = [
 name = "qingjian-linux-server"
 version = "0.1.5-dev"
 dependencies = [
+ "dotenvy",
  "libc",
  "qingjian-core",
  "qingjian-dictionary",
@@ -2770,6 +2771,7 @@ dependencies = [
  "qingjian-lm",
  "qingjian-neural",
  "qingjian-platform",
+ "qingjian-predict",
  "qingjian-translate",
  "serde",
  "serde_json",

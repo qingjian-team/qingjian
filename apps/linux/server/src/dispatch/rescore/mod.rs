@@ -9,7 +9,6 @@ mod loader;
 mod state;
 
 use std::path::{Path, PathBuf};
-use std::time::Duration;
 
 use qingjian_core::CandidateLayout;
 use qingjian_core::sentence::SentenceScorer;
@@ -20,9 +19,6 @@ pub(crate) use self::loader::ModelLoader;
 pub(crate) use self::state::RescoreState;
 use super::Router;
 use super::composed::Composed;
-
-/// 空闲时主循环多久醒一次：到点落盘学习数据。
-const IDLE_TICK: Duration = Duration::from_secs(1);
 
 /// P2C 优先，同类模型里用户目录优先；没有 P2C 才回退字级模型。
 pub fn find_model(user_dir: Option<&Path>, bundled_root: &Path) -> Option<PathBuf> {
@@ -119,13 +115,6 @@ impl Router {
         }
     }
 
-    /// 主循环下次该多久后来一次 [`Router::tick`]：在等重排就按它的节拍，否则按落盘学习的一秒。
-    pub fn next_tick(&self) -> Duration {
-        self.rescore
-            .next_deadline()
-            .map_or(IDLE_TICK, |deadline| deadline.min(IDLE_TICK))
-    }
-
     /// 防抖到点就发请求；在等结果就收一次，收到了重查并重建当前布局。
     pub(super) fn advance_rescoring(&mut self) {
         if self.engine.composition().is_empty() {
@@ -174,11 +163,17 @@ impl Router {
         else {
             return;
         };
-        *layout = CandidateLayout::new(
+        let cloud = layout.cloud().to_vec();
+        let mut rebuilt = CandidateLayout::new(
             query.candidates.items.clone(),
             self.config.page_size,
             self.config.cloud_slots,
         );
+        // 云端词是按这一串拼音要的，缓冲没变就留着，别让重排把它们挤掉
+        if !cloud.is_empty() {
+            rebuilt.set_cloud(cloud);
+        }
+        *layout = rebuilt;
         *preedit = query.marked_segments().iter().map(Into::into).collect();
         *cursor = query.marked_cursor();
         // 这次查询可能又记下了一批要打分的（缓存按前文记，前文没变时不会），再来一轮
