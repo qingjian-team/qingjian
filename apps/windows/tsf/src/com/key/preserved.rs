@@ -1,4 +1,4 @@
-//! 「翻译选中文字」与「Ctrl + Alt + Space 切换中英」两个快捷键登记成 TSF **保留键**（preserved key）。
+//! 翻译、AI 联想与 Ctrl + Alt + Space 切换中英登记成 TSF **保留键**（preserved key）。
 //! 带 Alt 的组合是系统键，不经击键 sink（真机：Ctrl+Alt+T 在 `OnTestKeyDown` 里从没出现过）；
 //! 保留键由 TSF 在应用之前匹配、回调 `OnPreservedKey`，UWP 里也一样。翻译组合来自
 //! `[shortcut] translate_selection`，激活时读一次配置（AppContainer 读不到用户目录时用缺省 Ctrl+Alt+T）；
@@ -17,6 +17,8 @@ use crate::com::log::log;
 
 /// 本保留键的标识，`OnPreservedKey` 按它认。
 pub(crate) const GUID_TRANSLATE: GUID = GUID::from_u128(0x5c0a7b12_3d4e_4f60_8a91_2b3c4d5e6f70);
+
+pub(crate) const GUID_PREDICT: GUID = GUID::from_u128(0xe7c13625_b92a_48f0_9e64_673c0a581bd2);
 
 /// Ctrl + Alt + Space 中英切换键的保留键标识。
 pub(crate) const GUID_SWITCH_MODE: GUID = GUID::from_u128(0x2f6b8c51_9a34_4e7d_b2c8_5d1e0f3a7b64);
@@ -78,15 +80,21 @@ fn preserved_key(combo: KeyCombo) -> TF_PRESERVEDKEY {
     }
 }
 
-pub(crate) fn register(keystroke: &ITfKeystrokeMgr, tid: u32, combo: KeyCombo) -> Result<()> {
+pub(crate) fn register(
+    keystroke: &ITfKeystrokeMgr,
+    tid: u32,
+    guid: &GUID,
+    combo: KeyCombo,
+    description: &str,
+) -> Result<()> {
     let key = preserved_key(combo);
-    let description: Vec<u16> = "翻译选中文字".encode_utf16().collect();
-    unsafe { keystroke.PreserveKey(tid, &GUID_TRANSLATE, &key, &description) }
+    let description: Vec<u16> = description.encode_utf16().collect();
+    unsafe { keystroke.PreserveKey(tid, guid, &key, &description) }
 }
 
-pub(crate) fn unregister(keystroke: &ITfKeystrokeMgr, combo: KeyCombo) {
+pub(crate) fn unregister(keystroke: &ITfKeystrokeMgr, guid: &GUID, combo: KeyCombo) {
     let key = preserved_key(combo);
-    let _ = unsafe { keystroke.UnpreserveKey(&GUID_TRANSLATE, &key) };
+    let _ = unsafe { keystroke.UnpreserveKey(guid, &key) };
 }
 
 /// 保留键命中时喂给 Server 的按键：Router 按字符 + 物理修饰键与配置比对。

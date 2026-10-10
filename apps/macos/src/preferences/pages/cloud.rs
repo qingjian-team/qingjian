@@ -73,7 +73,7 @@ impl CloudPage {
         note(
             layout,
             mtm,
-            "云端词到了只补进第一页末尾这几格（比如 2 就是 8、9），前面的本地候选不动；没到就什么都不变，翻页后全是本地候选。",
+            "AI 返回后按推荐顺序排在最前面（2 = 第 1、2 项），同文候选合并。移动高亮或翻页后保持当前顺序。",
         );
         let base_url = text_field(mtm, Setting::BaseUrl, target);
         row_control(layout, mtm, "接口地址", &base_url);

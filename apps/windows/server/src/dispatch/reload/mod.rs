@@ -12,7 +12,7 @@ use std::time::{Duration, Instant, SystemTime};
 
 use qingjian_core::{Engine, Language, NoGlossFiller, NoPredictor, NoTranslator};
 use qingjian_platform::{Config, code_tables};
-use qingjian_predict::{CloudGlossFiller, CloudPredictor, PredictConfig};
+use qingjian_predict::{API_USAGE_FILE, CloudPredictor, PredictConfig};
 
 pub(super) use self::state::ConfigReload;
 pub use self::state::DataDirs;
@@ -31,15 +31,17 @@ fn mtime(path: &Path) -> Option<SystemTime> {
         .ok()
 }
 
-/// 按 `[predict]` 接云联想与释义兜底；关着或缺密钥就退回本地实现。启动与热加载共用。
+/// 按 `[predict]` 接云联想；关着或缺密钥就退回本地实现。启动与热加载共用。
 pub fn attach_cloud(engine: &mut Engine, predict: &PredictConfig) {
+    // Windows AI 候选版只按拼音联想，选词上屏不额外请求译词。
+    engine.set_gloss_filler(Box::new(NoGlossFiller));
     if !predict.enabled {
         tracing::info!("云联想未开启（[predict] enabled = false）");
         engine.set_predictor(Box::new(NoPredictor));
-        engine.set_gloss_filler(Box::new(NoGlossFiller));
         return;
     }
-    match CloudPredictor::new(predict) {
+    let usage_path = qingjian_platform::dirs::user_dir().map(|dir| dir.join(API_USAGE_FILE));
+    match CloudPredictor::new_with_usage(predict, usage_path) {
         Ok(predictor) => {
             engine.set_predictor(Box::new(predictor));
             tracing::info!(model = %predict.model, "云联想已接入");
@@ -47,13 +49,6 @@ pub fn attach_cloud(engine: &mut Engine, predict: &PredictConfig) {
         Err(error) => {
             tracing::warn!(%error, "云联想接入失败（缺 API key？），退回本地候选");
             engine.set_predictor(Box::new(NoPredictor));
-        }
-    }
-    match CloudGlossFiller::new(predict) {
-        Ok(filler) => engine.set_gloss_filler(Box::new(filler)),
-        Err(error) => {
-            tracing::warn!(%error, "释义兜底未启用");
-            engine.set_gloss_filler(Box::new(NoGlossFiller));
         }
     }
 }

@@ -65,7 +65,7 @@ candle-core = "0.11.0"
 candle-nn = "0.11.0"
 
 # 云联想：OpenAI 兼容接口客户端与它需要的异步运行时
-async-openai = { version = "0.42.0", default-features = false, features = ["chat-completion", "native-tls", "byot"] }
+async-openai = { version = "0.42.0", default-features = false, features = ["chat-completion", "native-tls", "byot", "middleware"] }
 reqwest = { version = "0.13", default-features = false }
 uuid = { version = "1.26", features = ["v4"] }
 tokio = { version = "1.53.1", features = ["rt", "time"] }

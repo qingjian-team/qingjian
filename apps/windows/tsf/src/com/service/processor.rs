@@ -25,7 +25,13 @@ impl ITfTextInputProcessor_Impl for TextService_Impl {
         let sink: ITfKeyEventSink = self.to_interface();
         unsafe { keystroke.AdviseKeyEventSink(tid, &sink, true)? };
         let combo = preserved::load_combo();
-        match preserved::register(&keystroke, tid, combo) {
+        match preserved::register(
+            &keystroke,
+            tid,
+            &preserved::GUID_TRANSLATE,
+            combo,
+            "翻译选中文字",
+        ) {
             Ok(()) => {
                 self.translate_combo.set(Some(combo));
                 log(&format!("翻译选中文字快捷键已登记为保留键: {combo}"));
@@ -96,12 +102,16 @@ impl ITfTextInputProcessor_Impl for TextService_Impl {
         self.poll_timer.borrow_mut().take();
         // 切走输入法时敲了一半的拼音原样落定，再关会话。
         self.commit_pending();
+        let predict = self.input_settings.take().and_then(|input| input.predict);
         if let Some(thread_mgr) = self.thread_mgr.borrow_mut().take()
             && let Ok(keystroke) = thread_mgr.cast::<ITfKeystrokeMgr>()
         {
             self.drop_switch_preserved_key(&keystroke);
+            if let Some(combo) = predict {
+                preserved::unregister(&keystroke, &preserved::GUID_PREDICT, combo);
+            }
             if let Some(combo) = self.translate_combo.take() {
-                preserved::unregister(&keystroke, combo);
+                preserved::unregister(&keystroke, &preserved::GUID_TRANSLATE, combo);
             }
             let _ = unsafe { keystroke.UnadviseKeyEventSink(self.client_id.get()) };
         }

@@ -1,13 +1,15 @@
+//! AI 候选优先的分页布局；自定义短语保留固定位置，本地候选作为即时结果和兜底。
+
 use super::super::{Candidate, CandidateKind};
 use super::Cell;
 
-/// 本地候选 + 云端词的分页排布。索引空间是「格」：第一页先本地后云端，之后各页全是本地候选。
+/// 本地候选 + 云端词的分页排布。索引空间是「格」：云端优先，其余格按本地顺序填入。
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct CandidateLayout {
     /// 本地候选，顺序就是 Engine 排好的顺序。
     local: Vec<Candidate>,
 
-    /// 已到的云端词（≤ 槽位数，与本地候选去过重）。
+    /// 已到的云端词；同文的普通本地候选在显示时隐藏。
     cloud: Vec<Candidate>,
 
     /// 每页几格。
@@ -39,7 +41,7 @@ impl CandidateLayout {
         &self.cloud
     }
 
-    /// 第一页最多给云端几格：本地候选至少占第一格；没有本地候选（问字模式）时整页都给云端。
+    /// 第一页最多给云端几格，避开自定义短语的固定位置；问字模式整页都给云端。
     pub fn capacity(&self) -> usize {
         if self.local.is_empty() {
             self.page_size
@@ -47,23 +49,24 @@ impl CandidateLayout {
             let fixed = self
                 .local
                 .iter()
-                .filter_map(|c| match c.kind {
-                    CandidateKind::Custom(n) => Some(n),
-                    _ => None,
-                })
-                .max()
-                .unwrap_or(1);
-            self.slots.min(self.page_size.saturating_sub(fixed.max(1)))
+                .filter(
+                    |c| matches!(c.kind, CandidateKind::Custom(n) if n > 0 && n <= self.page_size),
+                )
+                .count();
+            self.slots.min(self.page_size.saturating_sub(fixed))
         }
     }
 
-    /// 云端词到了：与本地候选同文的不要（本地已经能给），其余按顺序填进第一页末尾，多出来的丢掉。返回填进去的条数。
+    /// 云端词到了按模型顺序置顶；重复词只显示一次，自定义短语的固定位置优先。返回采纳的条数。
     pub fn set_cloud(&mut self, words: Vec<Candidate>) -> usize {
         self.cloud.clear();
         let capacity = self.capacity();
         for mut word in words {
             if self.cloud.len() >= capacity
-                || self.local.iter().any(|c| c.text == word.text)
+                || self
+                    .local
+                    .iter()
+                    .any(|c| matches!(c.kind, CandidateKind::Custom(_)) && c.text == word.text)
                 || self.cloud.iter().any(|c| c.text == word.text)
             {
                 continue;
@@ -74,22 +77,15 @@ impl CandidateLayout {
         self.cloud.len()
     }
 
-    /// 本地格数包含最大固定位置之前的空格。
-    fn local_len(&self) -> usize {
+    fn visible_local(&self) -> impl Iterator<Item = &Candidate> {
         self.local
             .iter()
-            .filter_map(|c| match c.kind {
-                CandidateKind::Custom(position) => Some(position),
-                _ => None,
-            })
-            .max()
-            .unwrap_or(0)
-            .max(self.local.len())
+            .filter(|c| !self.cloud.iter().any(|word| word.text == c.text))
     }
 
-    /// 真实本地候选按固定位置放置，其余候选依次填入空格。
-    fn local_cells(&self) -> Vec<Cell<'_>> {
-        let mut cells = vec![Cell::Empty; self.local_len()];
+    /// 固定位置先放好，剩余格先填云端词，再填未重复的本地候选。
+    pub fn cells(&self) -> Vec<Cell<'_>> {
+        let mut cells = vec![Cell::Empty; self.len()];
         for candidate in &self.local {
             if let CandidateKind::Custom(position) = candidate.kind
                 && let Some(cell) = position.checked_sub(1).and_then(|i| cells.get_mut(i))
@@ -97,30 +93,32 @@ impl CandidateLayout {
                 *cell = Cell::Local(candidate);
             }
         }
-        let mut normal = self
-            .local
-            .iter()
-            .filter(|c| !matches!(c.kind, CandidateKind::Custom(_)));
+        let mut normal = self.cloud.iter().map(Cell::Cloud).chain(
+            self.visible_local()
+                .filter(|c| !matches!(c.kind, CandidateKind::Custom(_)))
+                .map(Cell::Local),
+        );
         for cell in &mut cells {
             if matches!(cell, Cell::Empty)
                 && let Some(candidate) = normal.next()
             {
-                *cell = Cell::Local(candidate);
+                *cell = candidate;
             }
         }
         cells
     }
 
-    /// 全部格子按索引顺序排开；空位只属于布局。
-    pub fn cells(&self) -> Vec<Cell<'_>> {
-        let mut cells = self.local_cells();
-        let first = cells.len().min(self.page_size - self.cloud.len());
-        cells.splice(first..first, self.cloud.iter().map(Cell::Cloud));
-        cells
-    }
-
     pub fn len(&self) -> usize {
-        self.local_len() + self.cloud.len()
+        let fixed = self
+            .local
+            .iter()
+            .filter_map(|c| match c.kind {
+                CandidateKind::Custom(position) => Some(position),
+                _ => None,
+            })
+            .max()
+            .unwrap_or(0);
+        fixed.max(self.visible_local().count() + self.cloud.len())
     }
 
     pub fn is_empty(&self) -> bool {
@@ -184,7 +182,7 @@ mod tests {
     }
 
     #[test]
-    fn cloud_words_take_the_end_of_the_first_page_and_only_bump_those_cells() {
+    fn cloud_words_take_the_front_and_local_candidates_keep_their_order() {
         let mut layout = CandidateLayout::new(many(12), 9, 3);
         assert_eq!(
             texts(&layout.page(0)),
@@ -194,30 +192,39 @@ mod tests {
         );
         assert_eq!(layout.pages(), 2);
 
-        // 四条云端词只取前三条；前六格不动，原来 7–9 格的本地候选挪到第二页开头
+        // 四条云端词只取前三条，原本的本地候选按原顺序接在后面。
         let filled = layout.set_cloud(vec![cloud("云0"), cloud("云1"), cloud("云2"), cloud("云3")]);
         assert_eq!(filled, 3);
         assert_eq!(
             texts(&layout.page(0)),
             [
-                "本0", "本1", "本2", "本3", "本4", "本5", "☁云0", "☁云1", "☁云2"
+                "☁云0", "☁云1", "☁云2", "本0", "本1", "本2", "本3", "本4", "本5"
             ]
         );
         assert_eq!(
             texts(&layout.page(1)),
             ["本6", "本7", "本8", "本9", "本10", "本11"]
         );
-        assert_eq!(layout.candidate(6).unwrap().text, "云0");
+        assert_eq!(layout.candidate(0).unwrap().text, "云0");
         assert_eq!(layout.candidate(9).unwrap().text, "本6");
     }
 
     #[test]
-    fn duplicates_of_local_candidates_are_dropped_and_fewer_words_take_fewer_cells() {
+    fn local_duplicates_are_promoted_and_restored_when_cloud_is_cleared() {
         let mut layout = CandidateLayout::new(many(4), 9, 2);
-        assert_eq!(layout.set_cloud(vec![cloud("本2"), cloud("云0")]), 1);
-        assert_eq!(texts(&layout.page(0)), ["本0", "本1", "本2", "本3", "☁云0"]);
+        assert_eq!(
+            layout.set_cloud(vec![cloud("本2"), cloud("本2"), cloud("云0")]),
+            2
+        );
+        assert_eq!(
+            texts(&layout.page(0)),
+            ["☁本2", "☁云0", "本0", "本1", "本3"]
+        );
+        assert_eq!(layout.len(), 5);
         assert_eq!(layout.local()[2].kind, CandidateKind::Chinese);
         assert_eq!(layout.pages(), 1);
+        layout.set_cloud(Vec::new());
+        assert_eq!(texts(&layout.page(0)), ["本0", "本1", "本2", "本3"]);
     }
 
     #[test]
@@ -247,12 +254,15 @@ mod tests {
     }
 
     #[test]
-    fn slots_never_push_the_first_local_candidate_off_the_first_page() {
+    fn cloud_can_fill_the_first_page_and_local_candidates_follow() {
         let mut layout = CandidateLayout::new(many(5), 3, 5);
-        assert_eq!(layout.capacity(), 2);
+        assert_eq!(layout.capacity(), 3);
         layout.set_cloud(vec![cloud("云0"), cloud("云1"), cloud("云2")]);
-        assert_eq!(texts(&layout.page(0)), ["本0", "☁云0", "☁云1"]);
-        assert_eq!(texts(&layout.page(1)), ["本1", "本2", "本3"]);
+        assert_eq!(texts(&layout.page(0)), ["☁云0", "☁云1", "☁云2"]);
+        assert_eq!(texts(&layout.page(1)), ["本0", "本1", "本2"]);
+        let mut single = CandidateLayout::new(many(1), 1, 1);
+        assert_eq!(single.set_cloud(vec![cloud("云")]), 1);
+        assert_eq!(texts(&single.page(0)), ["☁云"]);
     }
 
     #[test]
@@ -266,7 +276,9 @@ mod tests {
         assert_eq!(texts(&layout.page(0)), ["普通", "<empty>", "短语"]);
         assert!(layout.candidate(1).is_none());
         assert_eq!(layout.set_cloud(vec![cloud("云")]), 1);
-        assert_eq!(texts(&layout.page(0)), ["普通", "<empty>", "短语", "☁云"]);
+        assert_eq!(texts(&layout.page(0)), ["☁云", "普通", "短语"]);
+        assert_eq!(layout.set_cloud(vec![cloud("短语"), cloud("云")]), 1);
+        assert_eq!(layout.candidate(2).unwrap().text, "短语");
     }
 
     #[test]
@@ -280,8 +292,8 @@ mod tests {
             2,
         );
         assert_eq!(layout.pages(), 2);
-        assert_eq!(layout.capacity(), 0);
-        assert_eq!(layout.set_cloud(vec![cloud("云")]), 0);
+        assert_eq!(layout.capacity(), 2);
+        assert_eq!(layout.set_cloud(vec![cloud("云")]), 1);
         assert_eq!(layout.candidate(8).unwrap().text, "第九");
         assert!(layout.candidate(7).is_none());
     }

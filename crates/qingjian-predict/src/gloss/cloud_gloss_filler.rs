@@ -22,7 +22,7 @@ impl CloudGlossFiller {
         let api_key = config
             .resolve_api_key()
             .ok_or_else(|| PredictError::MissingApiKey(config.api_key_env.clone()))?;
-        let client = ChatClient::new(config, api_key);
+        let client = ChatClient::new(config, api_key, None);
         let (requests, request_rx) = mpsc::channel();
         let (response_tx, responses) = mpsc::channel();
         let worker = GlossWorker::new(request_rx, response_tx, client);

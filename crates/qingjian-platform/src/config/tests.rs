@@ -13,9 +13,27 @@ fn partial_file_keeps_other_defaults() {
     let config: Config = toml::from_str("[predict]\nenabled = true\nlookback = 10\n").unwrap();
     assert!(config.predict.enabled);
     assert_eq!(config.predict.lookback, 10);
-    assert_eq!(config.predict.model, "deepseek-v4-flash");
+    assert_eq!(config.predict.model, "deepseek-flash");
     assert_eq!(config.predict.reasoning_effort, "none");
     assert_eq!(config.predict.api_key_env, "QINGJIAN_API_KEY");
+    assert_eq!(config.predict.automatic, !cfg!(windows));
+    assert_eq!(config.predict.debounce_ms, 800);
+    assert_eq!(config.predict.min_interval_ms, 3000);
+}
+
+#[test]
+fn cloud_trigger_settings_parse_and_round_trip() {
+    let config: Config = toml::from_str(
+        "[predict]\nautomatic = true\ndebounce_ms = 1200\nmin_interval_ms = 5000\n[shortcut]\npredict = \"ctrl+alt+k\"\n"
+    ).unwrap();
+    assert!(config.predict.automatic);
+    assert_eq!(config.predict.debounce_ms, 1200);
+    assert_eq!(config.predict.min_interval_ms, 5000);
+    assert_eq!(config.shortcut.predict.key, 'k');
+    assert_eq!(
+        toml::from_str::<Config>(&toml::to_string(&config).unwrap()).unwrap(),
+        config
+    );
 }
 
 #[test]

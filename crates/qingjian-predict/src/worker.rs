@@ -1,4 +1,4 @@
-//! 后台线程：收请求、防抖、查缓存、发网络请求、回结果。
+//! 后台线程：合并请求、防抖、限频、查缓存、发网络请求、回结果。
 
 use std::sync::mpsc::{Receiver, RecvTimeoutError, Sender};
 use std::time::{Duration, Instant};
@@ -11,12 +11,15 @@ use crate::cache::PredictionCache;
 use crate::chat_client::ChatClient;
 use crate::error::PredictError;
 
+#[cfg(test)]
+mod tests;
+
 /// 缓存条数。
 const CACHE_CAPACITY: usize = 64;
 
 pub struct Worker {
     /// 请求入口。主线程 drop 掉发送端后线程自然退出。
-    requests: Receiver<PredictionRequest>,
+    requests: Receiver<Option<PredictionRequest>>,
 
     /// 结果出口。
     responses: Sender<Prediction>,
@@ -27,6 +30,9 @@ pub struct Worker {
     /// 防抖窗口。
     debounce: Duration,
 
+    /// 两次网络调用之间的最短间隔，失败的调用也计入。
+    min_interval: Duration,
+
     /// 结果缓存。
     cache: PredictionCache,
 }
@@ -36,16 +42,18 @@ type Cached = Reply;
 
 impl Worker {
     pub fn new(
-        requests: Receiver<PredictionRequest>,
+        requests: Receiver<Option<PredictionRequest>>,
         responses: Sender<Prediction>,
         client: ChatClient,
         debounce: Duration,
+        min_interval: Duration,
     ) -> Self {
         Self {
             requests,
             responses,
             client,
             debounce,
+            min_interval,
             cache: PredictionCache::with_capacity(CACHE_CAPACITY),
         }
     }
@@ -55,9 +63,10 @@ impl Worker {
         let runtime = tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()?;
+        let mut last_sent = None;
         while let Ok(first) = self.requests.recv() {
-            let Some(request) = self.debounce(first) else {
-                return Ok(());
+            let Some(request) = self.wait_for_request(first, last_sent) else {
+                continue;
             };
             let key = PredictionCache::key(&request);
             if let Some(reply) = self.cache.get(&key) {
@@ -66,6 +75,7 @@ impl Worker {
                 continue;
             }
             let start = Instant::now();
+            last_sent = Some(start);
             match runtime.block_on(self.client.complete(&request)) {
                 Ok(reply) => {
                     tracing::info!(
@@ -90,11 +100,34 @@ impl Worker {
         Ok(())
     }
 
-    /// 防抖：在窗口内持续收到新请求就一直等，只保留最后一个。发送端关闭返回 `None`。
-    fn debounce(&self, mut latest: PredictionRequest) -> Option<PredictionRequest> {
+    /// 等到停键和间隔都满足，只保留最新请求；取消信号立即丢弃待发请求。
+    /// 缓存命中只等停键，手动请求只等网络间隔。
+    fn wait_for_request(
+        &self,
+        first: Option<PredictionRequest>,
+        last_sent: Option<Instant>,
+    ) -> Option<PredictionRequest> {
+        let mut latest = first?;
+        let mut changed = Instant::now();
         loop {
-            match self.requests.recv_timeout(self.debounce) {
-                Ok(newer) => latest = newer,
+            let debounce = if latest.manual {
+                Duration::ZERO
+            } else {
+                self.debounce.saturating_sub(changed.elapsed())
+            };
+            let interval = if self.cache.get(&PredictionCache::key(&latest)).is_some() {
+                Duration::ZERO
+            } else {
+                last_sent.map_or(Duration::ZERO, |sent| {
+                    self.min_interval.saturating_sub(sent.elapsed())
+                })
+            };
+            match self.requests.recv_timeout(debounce.max(interval)) {
+                Ok(Some(newer)) => {
+                    latest = newer;
+                    changed = Instant::now();
+                }
+                Ok(None) => return None,
                 Err(RecvTimeoutError::Timeout) => return Some(latest),
                 Err(RecvTimeoutError::Disconnected) => return None,
             }

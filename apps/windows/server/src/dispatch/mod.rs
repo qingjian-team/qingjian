@@ -170,6 +170,10 @@ impl Router {
             english_mode: self.config.english_mode,
             shift_letter_compose: self.config.shift_letter_compose,
             english_candidates: self.config.english_candidates_in(app),
+            predict: self
+                .engine
+                .prediction_enabled()
+                .then_some(self.config.predict),
         }
     }
 

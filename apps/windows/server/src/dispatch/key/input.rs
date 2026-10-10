@@ -5,11 +5,30 @@ use qingjian_platform::protocol::KeyEvent;
 
 use super::{Effect, codes, with_prefix};
 use crate::dispatch::Router;
+use crate::dispatch::composed::Composed;
 
 impl Router {
     /// 功能键靠键码，其余靠字符。组句中修饰键 + 数字是快捷键；带 Ctrl / Alt / Win 而没配到快捷键的键归应用。
     /// 表达式模式里 Shift + 数字打的是 `^ * ( )`，不当快捷键。
     pub(crate) fn apply_key(&mut self, event: &KeyEvent) -> Effect {
+        let combo = self.config.predict;
+        if self.composing()
+            && self.engine.prediction_enabled()
+            && event.virtual_key == combo.key.to_ascii_uppercase() as u32
+            && event.modifiers.chord() == combo.modifiers.into()
+        {
+            if let Some(Composed::Candidates { layout, .. }) = self.composed.as_ref()
+                && self
+                    .engine
+                    .request_prediction(None, layout.local())
+                    .is_some()
+            {
+                // 显式要求刷新时回到第一页，让新的 AI 首选可以置顶。
+                self.highlight = 0;
+                self.navigated = false;
+            }
+            return Effect::Navigated;
+        }
         if self.composing()
             && !self.engine.expression_mode()
             && let Some(digit) = codes::digit_key(event.virtual_key)

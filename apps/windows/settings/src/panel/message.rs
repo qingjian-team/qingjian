@@ -50,6 +50,9 @@ pub(crate) enum Message {
     // 云服务页
     LocalModel(bool),
     CloudEnabled(bool),
+    CloudAutomatic(bool),
+    CloudDebounce(Option<f64>),
+    CloudMinInterval(Option<f64>),
     CloudApiKey(String),
     CloudModel(String),
     CloudBaseUrl(String),
@@ -68,6 +71,7 @@ pub(crate) enum Message {
     DeleteCandidate(Option<usize>),
     /// 只换修饰键，字母键固定用当前的。
     TranslateSelection(Option<usize>),
+    PredictShortcut(Option<usize>),
 
     // 模糊音页
     /// 配置键 + 新值。
