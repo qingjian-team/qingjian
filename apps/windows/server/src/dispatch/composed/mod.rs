@@ -2,7 +2,7 @@
 
 mod state;
 
-use qingjian_core::{Candidate, CandidateLayout, CandidateList, CloudWord, Query};
+use qingjian_core::{Candidate, CandidateLayout, CandidateList, CloudWord, Query, SurroundingText};
 use qingjian_platform::protocol::{Frame, PROTOCOL_VERSION, PreeditKind, PreeditSegment};
 
 pub(super) use self::state::{Composed, TypedKeys};
@@ -30,7 +30,8 @@ impl Router {
                 let layout =
                     CandidateLayout::new(items, self.config.page_size, self.config.cloud_slots);
                 if self.engine.prediction_enabled() {
-                    self.engine.request_prediction(None, layout.local());
+                    let surrounding = self.surrounding_for_prediction();
+                    self.engine.request_prediction(surrounding, layout.local());
                 }
                 Composed::Candidates {
                     preedit,
@@ -87,6 +88,24 @@ impl Router {
         if self.engine.prediction_enabled() {
             self.engine.cancel_prediction();
         }
+    }
+
+    /// DLL 送来新的光标前文后重发一次云联想：作废在飞的空上下文请求，让云端拿得到 before。
+    pub(super) fn refresh_prediction(&mut self) {
+        let Some(Composed::Candidates { layout, .. }) = &self.composed else {
+            return;
+        };
+        let local = layout.local().to_vec();
+        let surrounding = self.surrounding_for_prediction();
+        self.engine.request_prediction(surrounding, &local);
+    }
+
+    /// DLL 报来的光标前文包成云联想要的形状；没有就 `None`（Engine 只靠拼音猜）。
+    pub(super) fn surrounding_for_prediction(&self) -> Option<SurroundingText> {
+        (!self.surrounding_before.is_empty()).then(|| SurroundingText {
+            before: self.surrounding_before.clone(),
+            after: String::new(),
+        })
     }
 
     /// 高亮移动 `delta`，夹在 `[0, 末尾]`，到页边自然换页。
@@ -258,4 +277,81 @@ pub(super) fn marked_parts(query: &Query) -> (Vec<PreeditSegment>, usize, Option
         cursor: query.marked_cursor(),
     });
     (preedit, query.segments_cursor(), typed_keys)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::dispatch::{Router, RouterConfig};
+    use qingjian_core::Engine;
+    use qingjian_dictionary::Dictionary;
+    use qingjian_platform::protocol::{ClientMessage, KeyEvent, KeyModifiers, SessionId};
+
+    fn router() -> Router {
+        let mut router = Router::new(
+            Engine::new(Dictionary::parse("你\tni\t100\n").unwrap()),
+            RouterConfig::default(),
+        );
+        router.handle(ClientMessage::OpenSession {
+            session: SessionId(1),
+            app: None,
+            protocol: PROTOCOL_VERSION,
+        });
+        router
+    }
+
+    fn compose(router: &mut Router, text: &str) {
+        for c in text.chars() {
+            router
+                .handle(ClientMessage::Key {
+                    session: SessionId(1),
+                    event: KeyEvent::new(c as u32, Some(c), KeyModifiers::default()),
+                })
+                .unwrap();
+        }
+    }
+
+    /// 回归 #283：DLL 报来的光标前文要成为云联想的 `before` 上下文；
+    /// 没前文时不带上下文，空文本不算上下文，组句结束即作废。
+    #[test]
+    fn surrounding_context_flows_to_prediction_and_clears_on_reset() {
+        let mut router = router();
+        compose(&mut router, "ni");
+        assert!(router.surrounding_for_prediction().is_none());
+
+        router.handle(ClientMessage::Surrounding {
+            session: SessionId(1),
+            text: "这个文件权限有问题，".to_owned(),
+        });
+        let surrounding = router.surrounding_for_prediction().expect("应带上前文");
+        assert_eq!(surrounding.before, "这个文件权限有问题，");
+        assert_eq!(surrounding.after, "");
+
+        // 空文本不算上下文（Engine 只靠拼音猜，不猜错的）
+        router.handle(ClientMessage::Surrounding {
+            session: SessionId(1),
+            text: String::new(),
+        });
+        assert!(router.surrounding_for_prediction().is_none());
+
+        // 组句结束：前文作废，等下一段组句 DLL 再送
+        router.handle(ClientMessage::Surrounding {
+            session: SessionId(1),
+            text: "别的内容".to_owned(),
+        });
+        router.stop_rescoring();
+        assert!(router.surrounding_for_prediction().is_none());
+    }
+
+    /// 不是聚焦会话的前文不收，防止换应用后把 A 应用的文字带进 B 的联想。
+    #[test]
+    fn surrounding_from_unfocused_session_is_dropped() {
+        let mut router = router();
+        compose(&mut router, "ni");
+        router.handle(ClientMessage::Surrounding {
+            session: SessionId(99),
+            text: "别的应用的前文".to_owned(),
+        });
+        assert!(router.surrounding_for_prediction().is_none());
+    }
 }
