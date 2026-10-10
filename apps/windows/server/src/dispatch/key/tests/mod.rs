@@ -189,6 +189,8 @@ fn unconvertible_symbols_do_not_commit_candidates() {
     let result = key(&mut router, 0xBC, Some(','), normal);
     assert_eq!(result.1.as_deref(), Some("你，"));
 }
+
+mod paging;
 /// 直通了数字再组句，`Punctuation` 的「数字后的点保持半角」状态要跟着刷新：`3` + `ni` + `.` 出「你。」不出「你.」。
 #[test]
 fn digit_then_composition_resets_decimal_point_state() {

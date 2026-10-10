@@ -312,7 +312,11 @@ fn serve(mut router: Router) {
     let on_click = Box::new(move |target| {
         let _ = clicks.send(Work::Click(target));
     });
-    match UiHandle::spawn(on_status, on_click) {
+    let pages = work_tx.clone();
+    let on_page = Box::new(move |step| {
+        let _ = pages.send(Work::Page(step));
+    });
+    match UiHandle::spawn(on_status, on_click, on_page) {
         Ok(ui) => {
             router.set_candidate_sink(Box::new(ui.clone()));
             router.set_status_sink(Box::new(ui));

@@ -244,15 +244,15 @@ impl Router {
         {
             return Effect::Changed(self.commit_index(index));
         }
+        if composing && let Some(step) = codes::page_key(event, self.config.page_keys) {
+            self.page(step);
+            return Effect::Navigated;
+        }
         if c.is_ascii_alphabetic()
             || (composing && (c.is_ascii_digit() || matches!(c, '_' | '\'' | '-')))
         {
             self.engine.push(c);
             return Effect::Changed(None);
-        }
-        if composing && let Some(step) = codes::page_key(event, self.config.page_keys) {
-            self.page(step);
-            return Effect::Navigated;
         }
         let committed = composing.then(|| {
             if c == ' ' {

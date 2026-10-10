@@ -261,6 +261,11 @@ IMK 输入法，源码按 `app / host / imk / candidates / menubar / preferences
 
 ## apps/windows
 
+Windows 分页：`ui/candidates/paging/` 提供候选窗拥有的非激活分页条，随候选窗定位和隐藏，GDI 与青简渲染器均可用；
+按钮回调经 `Work::Page` 进入 `Router::handle_page_click`，复用键盘的 `page` 逻辑，只刷新候选不重建组句或上屏。
+键盘沿用 `[general] page_keys`；表达式、注音符号和已进入的直输段优先保留输入语义。
+英文候选的翻页判定在连字符输入之前，避免配置 `-=` 后上一页键仍被追加到单词。
+
 一个产品两个 package：`server`（Server 进程：IPC 分派 + Engine + 命名管道 + 自绘候选窗与悬浮状态条）与 `tsf`（TSF 文本服务 DLL，lib 名固定 `qingjian_tsf`），
 外加 `settings`（WinUI 3 设置程序，含「辅码」页）与 `installer`（Inno Setup）。
 Server 侧辅码接线：`RouterConfig.aux_code_key` / `aux_code_show`（`apply_config` 热加载）、`assembly` 从随包 `codes/` 与用户 `codes/` 装码表

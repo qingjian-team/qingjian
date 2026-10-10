@@ -11,6 +11,27 @@ use crate::dispatch::Router;
 const CLICK_SINCE: u32 = 8;
 
 impl Router {
+    /// 点击翻页只改变当前会话的高亮与页码，原输入和待上屏文本留在会话里。
+    pub fn handle_page_click(&mut self, step: isize) {
+        if self.focused.is_none() || self.translation.is_some() || !self.composing() {
+            return;
+        }
+        if !matches!(step, -1 | 1) {
+            return;
+        }
+        let count = self.candidate_count();
+        let current = self.highlight / self.config.page_size;
+        if count == 0
+            || (step < 0 && current == 0)
+            || (step > 0 && current + 1 >= count.div_ceil(self.config.page_size))
+        {
+            return;
+        }
+        self.page(step);
+        let shown = self.self_drawn_frame();
+        self.reconcile_candidates(&shown);
+    }
+
     /// 候选窗口上点中了候选或译词（UI 线程经工人通道送来）。
     pub fn handle_click(&mut self, target: HitTarget) {
         let Some(session) = self.focused else {

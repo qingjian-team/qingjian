@@ -3,6 +3,7 @@
 //! 配色 / 字体在 [`theme`]。绘制内容在 [`RenderData`]，一行的展示形态在 [`row`]。设计语言对齐 macOS 端。
 
 mod click;
+mod paging;
 mod render_data;
 pub(crate) mod row;
 pub(crate) mod theme;
@@ -27,6 +28,8 @@ use qingjian_platform::protocol::Frame;
 use qingjian_render::Mode;
 
 pub use self::click::CandidateClicks;
+pub use self::paging::PageClicks;
+use self::paging::PagingWindow;
 pub(crate) use self::render_data::RenderData;
 use self::theme::Theme;
 use super::layered::{self, Layered};
@@ -64,6 +67,8 @@ fn system_prefers_dark() -> bool {
 pub(crate) struct CandidateWindow {
     hwnd: HWND,
 
+    paging: PagingWindow,
+
     /// 绘制内容。
     data: RefCell<RenderData>,
 
@@ -85,7 +90,11 @@ pub(crate) struct CandidateWindow {
 
 impl CandidateWindow {
     /// 建一个隐藏的候选窗口；点中候选或译词时调 `on_click`。
-    pub(crate) fn new(painter: SharedPainter, on_click: CandidateClicks) -> Result<Self> {
+    pub(crate) fn new(
+        painter: SharedPainter,
+        on_click: CandidateClicks,
+        on_page: PageClicks,
+    ) -> Result<Self> {
         CLASS.ensure(|| WNDCLASSEXW {
             lpfnWndProc: Some(wndproc),
             hInstance: super::module_handle(),
@@ -114,8 +123,16 @@ impl CandidateWindow {
                 None,
             )?
         };
+        let paging = match PagingWindow::new(hwnd, on_page) {
+            Ok(paging) => paging,
+            Err(error) => {
+                let _ = unsafe { DestroyWindow(hwnd) };
+                return Err(error);
+            }
+        };
         Ok(Self {
             hwnd,
+            paging,
             data,
             dpi: Cell::new(dpi),
             dark: Cell::new(dark),
@@ -154,7 +171,7 @@ impl CandidateWindow {
                     self.hide();
                     return;
                 }
-                let (content_x, content_y) = place(anchor, content);
+                let (content_x, content_y) = self.place_with_paging(anchor, content);
                 let position = (
                     content_x - rendered.content_x as i32,
                     content_y - rendered.content_y as i32,
@@ -183,7 +200,7 @@ impl CandidateWindow {
         if content.0 <= 0 || content.1 <= 0 {
             return Err(Error::from(E_INVALIDARG));
         }
-        let (content_x, content_y) = place(anchor, content);
+        let (content_x, content_y) = self.place_with_paging(anchor, content);
         let data = self.data.borrow();
         layered::composite(
             self.hwnd,
@@ -200,6 +217,7 @@ impl CandidateWindow {
     }
 
     pub(crate) fn hide(&self) {
+        self.paging.hide();
         let _ = unsafe { ShowWindow(self.hwnd, SW_HIDE) };
         click::set_hits(Vec::new(), (0, 0));
         self.stop_animation();
@@ -294,6 +312,28 @@ impl CandidateWindow {
         let size = view::preferred_size(hdc, &self.data.borrow());
         unsafe { ReleaseDC(Some(self.hwnd), hdc) };
         (size.cx, size.cy)
+    }
+
+    fn place_with_paging(&self, anchor: RECT, content: (i32, i32)) -> (i32, i32) {
+        let data = self.data.borrow();
+        let pager = self.paging.size(&data.theme, data.page, data.page_count);
+        let gap = if pager.1 > 0 {
+            data.theme.row_padding
+        } else {
+            0
+        };
+        let position = place(anchor, (content.0.max(pager.0), content.1 + gap + pager.1));
+        self.paging.show(
+            (
+                position.0 + content.0.max(pager.0) - pager.0,
+                position.1 + content.1 + gap,
+            ),
+            &data.theme,
+            self.dpi.get(),
+            data.page,
+            data.page_count,
+        );
+        position
     }
 }
 

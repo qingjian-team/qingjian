@@ -46,12 +46,7 @@ fn vertical_size(hdc: HDC, data: &RenderData) -> (i32, i32) {
     if columns.annotation_width > 0 {
         body_width += theme.column_gap + columns.annotation_width;
     }
-    let mut body_height = columns.row_height * data.rows.len() as i32;
-    if let Some(footer) = &data.footer {
-        let size = measure(hdc, theme.index_font, footer);
-        body_width = body_width.max(size.cx);
-        body_height += size.cy + theme.row_padding;
-    }
+    let body_height = columns.row_height * data.rows.len() as i32;
     (body_width, body_height)
 }
 
@@ -75,9 +70,6 @@ fn horizontal_size(hdc: HDC, data: &RenderData) -> (i32, i32) {
         row_height = row_height.max(text.cy + theme.row_padding * 2);
     }
     width += theme.column_gap * (data.rows.len().saturating_sub(1)) as i32 + highlight_inset * 2;
-    if let Some(footer) = &data.footer {
-        width += theme.column_gap + measure(hdc, theme.index_font, footer).cx;
-    }
     let mut height = row_height;
     if let Some((annotation_width, annotation_height)) = highlighted_annotation_size(hdc, data) {
         width = width.max(annotation_width);
@@ -112,7 +104,7 @@ pub(super) fn paint(hdc: HDC, data: &RenderData, client: RECT) {
     y += draw_notice(hdc, data, y);
     match data.layout {
         LayoutMode::Vertical => draw_rows(hdc, data, y, client.right - client.left),
-        LayoutMode::Horizontal => draw_horizontal(hdc, data, y, client.right - client.left),
+        LayoutMode::Horizontal => draw_horizontal(hdc, data, y),
     }
 }
 
@@ -259,20 +251,9 @@ fn draw_rows(hdc: HDC, data: &RenderData, mut y: i32, width: i32) {
         }
         y += columns.row_height;
     }
-    if let Some(footer) = &data.footer {
-        let size = measure(hdc, theme.index_font, footer);
-        draw_text(
-            hdc,
-            theme.index_font,
-            theme.index_color,
-            width - theme.padding - size.cx,
-            y + theme.row_padding,
-            footer,
-        );
-    }
 }
 
-fn draw_horizontal(hdc: HDC, data: &RenderData, y: i32, width: i32) {
+fn draw_horizontal(hdc: HDC, data: &RenderData, y: i32) {
     if data.rows.is_empty() {
         return;
     }
@@ -322,18 +303,6 @@ fn draw_horizontal(hdc: HDC, data: &RenderData, y: i32, width: i32) {
             small_offset,
         );
         x += item_width + theme.column_gap;
-    }
-    if let Some(footer) = &data.footer {
-        let size = measure(hdc, theme.index_font, footer);
-        let offset = small_offset(hdc, theme, line_height(hdc, theme.text_font));
-        draw_text(
-            hdc,
-            theme.index_font,
-            theme.index_color,
-            width - theme.padding - size.cx,
-            baseline + offset,
-            footer,
-        );
     }
     if let Some(row) = data.rows.get(data.highlight) {
         let mut x = theme.padding + highlight_inset;

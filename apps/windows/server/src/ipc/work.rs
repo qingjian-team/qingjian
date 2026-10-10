@@ -15,4 +15,7 @@ pub enum Work {
 
     /// UI 线程发来的候选窗口点击。
     Click(HitTarget),
+
+    /// UI 线程发来的上一页（-1）或下一页（1）。
+    Page(isize),
 }
