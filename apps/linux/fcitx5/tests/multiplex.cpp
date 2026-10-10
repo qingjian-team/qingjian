@@ -37,11 +37,11 @@ int main() {
     a.preeditHook = [&] { type(b, "hao"); assert(engine.process(&b, fcitx::Key(FcitxKey_space))); };
     assert(engine.process(&a, fcitx::Key(FcitxKey_space)));
     assert(a.committed == "你" && b.committed == "好");
-    // 同一上下文 Reset 重入撤销旧提交，已消费按键仍返回 consumed。
+    // 重画期间 Reset 不撤销已发出的上屏，已消费按键仍返回 consumed。
     a.committed.clear(); type(a, "ni");
     a.preeditHook = [&] { fcitx::InputContextEvent event(&a, fcitx::EventType::InputContextReset); engine.reset(entry, event); };
-    assert(engine.process(&a, fcitx::Key(FcitxKey_space))); assert(a.committed.empty());
-    type(a, "ni"); assert(engine.process(&a, fcitx::Key(FcitxKey_space))); assert(a.committed == "你");
+    assert(engine.process(&a, fcitx::Key(FcitxKey_space))); assert(a.committed == "你");
+    type(a, "ni"); assert(engine.process(&a, fcitx::Key(FcitxKey_space))); assert(a.committed == "你你");
     // Shift 由 Server 判定；Shift+字母不切模式。
     a.committed.clear();
     fcitx::KeyEvent press(&a, fcitx::Key(FcitxKey_Shift_L), false), release(&a, fcitx::Key(FcitxKey_Shift_L), true);

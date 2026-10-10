@@ -101,6 +101,39 @@ int main(int argc, char **argv) {
         assert(c->committed == "x 你" && shared->generation > generation && server.sockets() == 2);
         return 0;
     }
+    if (scenario == "commit-order" || scenario == "commit-key" || scenario == "commit-destroy") {
+        type(engine, *a, "ni");
+        const auto preedit = a->preedit();
+        const auto lifecycle = session(*a)->lifecycle;
+        bool committed = false, redrawn = false;
+        a->commitHook = [&] {
+            committed = true;
+            assert(a->committed == "你" && a->preedit() == preedit);
+            if (scenario == "commit-key") {
+                type(engine, *a, "hao");
+                assert(session(*a)->lifecycle == lifecycle); // 新帧并不要求生命周期改变。
+            } else if (scenario == "commit-destroy") {
+                a.reset();
+            }
+        };
+        a->preeditHook = [&] {
+            redrawn = true;
+            assert(committed && a->committed == "你");
+        };
+        assert(engine.process(a.get(), fcitx::Key(FcitxKey_space)));
+        assert(committed);
+        if (scenario == "commit-destroy") assert(!a && !redrawn);
+        else {
+            assert(redrawn && a->committed == "你");
+            if (scenario == "commit-key") {
+                assert(a->preedit() == "hao");
+                assert(a->inputPanel().candidateList());
+                assert(engine.process(a.get(), fcitx::Key(FcitxKey_space)));
+                assert(a->committed == "你好");
+            } else assert(a->preedit().empty());
+        }
+        return 0;
+    }
     if (scenario == "commit-reentry") {
         type(engine, *a, "ni");
         bool reached = false;
@@ -123,7 +156,7 @@ int main(int argc, char **argv) {
     auto watcher = instance.watchEvent(fcitx::EventType::InputContextUpdateUI, fcitx::EventWatcherPhase::PreInputMethod, [&](fcitx::Event &event) {
         if (reached || static_cast<fcitx::InputContextEvent &>(event).inputContext() != a.get()) return;
         reached = true;
-        assert(a->committed.empty());
+        assert(a->committed == "你");
         if (scenario == "ui-destroy") a.reset();
         else {
             fcitx::InputContextEvent reset(a.get(), fcitx::EventType::InputContextReset); engine.reset(entry, reset);
@@ -135,8 +168,8 @@ int main(int argc, char **argv) {
     assert(engine.process(original, fcitx::Key(FcitxKey_space)));
     assert(reached && b->committed == "好");
     if (a) {
-        assert(a->committed.empty()); // UI 回调撤销了旧生命周期，但原键不能透传。
-        type(engine, *a, "ni "); assert(a->committed == "你");
+        assert(a->committed == "你"); // UI 回调不能撤销已上屏文本，原键也不能透传。
+        type(engine, *a, "ni "); assert(a->committed == "你你");
     }
     type(engine, *b, "ni "); assert(b->committed == "好你" && server.sockets() == 2);
 }
