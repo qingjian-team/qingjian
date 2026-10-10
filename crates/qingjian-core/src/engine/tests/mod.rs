@@ -9,6 +9,7 @@ mod emoji;
 mod english;
 mod learning;
 mod lookup;
+mod mixed_pinyin;
 mod privacy;
 mod raw;
 mod shuangpin;

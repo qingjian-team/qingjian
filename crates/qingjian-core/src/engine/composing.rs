@@ -231,7 +231,12 @@ impl Engine {
         let before = &self.composition.text()[..cursor];
         let plain =
             self.raw_mode() || self.expression_mode() || self.question_mode() || self.zhuyin;
-        let len = unit_len_before(before, self.shuangpin.is_some(), plain);
+        let len = if plain {
+            None
+        } else {
+            self.mixed_unit_len(before, true)
+        }
+        .unwrap_or_else(|| unit_len_before(before, self.shuangpin.is_some(), plain));
         self.composition.delete_before_cursor(len)
     }
 
@@ -241,7 +246,12 @@ impl Engine {
         let before = &self.composition.text()[..cursor];
         let plain =
             self.raw_mode() || self.expression_mode() || self.question_mode() || self.zhuyin;
-        let len = unit_len_before(before, self.shuangpin.is_some(), plain);
+        let len = if plain {
+            None
+        } else {
+            self.mixed_unit_len(before, true)
+        }
+        .unwrap_or_else(|| unit_len_before(before, self.shuangpin.is_some(), plain));
         len > 0 && (0..len).all(|_| self.composition.move_left())
     }
 
@@ -251,7 +261,12 @@ impl Engine {
         let after = &self.composition.text()[cursor..];
         let plain =
             self.raw_mode() || self.expression_mode() || self.question_mode() || self.zhuyin;
-        let len = unit_len_after(after, self.shuangpin.is_some(), plain);
+        let len = if plain {
+            None
+        } else {
+            self.mixed_unit_len(after, false)
+        }
+        .unwrap_or_else(|| unit_len_after(after, self.shuangpin.is_some(), plain));
         len > 0 && (0..len).all(|_| self.composition.move_right())
     }
 

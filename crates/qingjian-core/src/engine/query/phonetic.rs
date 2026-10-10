@@ -1,6 +1,21 @@
 //! 拼音侧的候选生成：切分、拼写纠错、词级查找与排序，再补上整句、英文、快捷与 emoji 候选。
 
-use super::*;
+use std::collections::{HashMap, HashSet};
+use std::time::{Duration, Instant};
+
+use super::chinese_candidate;
+use super::{Query, join_marked_typed};
+use crate::candidate::{Candidate, CandidateList};
+use crate::engine::Timings;
+use crate::engine::decoded::EngineDecoded;
+use crate::engine::{
+    Engine, Learner, MAX_CANDIDATES, abbreviated_count, choice_key, pattern_key,
+    segment_longest_prefix,
+};
+use crate::parser::{ParseError, Segmentation};
+use crate::ranking::Scored;
+use crate::{correction, parser, ranking, sentence};
+use qingjian_dictionary::Match;
 
 impl Engine {
     /// 拼音侧（全拼 / 双拼 / 注音）的候选生成：整段作用域是一串读音。
@@ -10,8 +25,66 @@ impl Engine {
         rest: String,
         start: Instant,
     ) -> Result<Query, ParseError> {
+        if self.shuangpin_full_pinyin && self.shuangpin.is_some() && !self.zhuyin {
+            let variants = self.mixed_decodings(keys);
+            let mut timings = Timings {
+                parse: start.elapsed(),
+                ..Timings::default()
+            };
+            let mut primary = None;
+            let mut items = Vec::new();
+            for decoded in variants {
+                if let Ok(mut query) = self.query_phonetic_decoded(
+                    keys,
+                    rest.clone(),
+                    Instant::now(),
+                    Some(EngineDecoded::Shuangpin(decoded.clone())),
+                ) {
+                    timings.parse += query.timings.parse;
+                    timings.lookup += query.timings.lookup;
+                    timings.rank += query.timings.rank;
+                    for (rank, candidate) in std::mem::take(&mut query.candidates.items)
+                        .into_iter()
+                        .enumerate()
+                    {
+                        let coverage = if candidate.syllables.is_empty() {
+                            keys.len()
+                        } else {
+                            self.mixed_match(&decoded, &candidate).map_or(0, |m| m.0)
+                        };
+                        items.push((coverage, rank, candidate));
+                    }
+                    if primary.is_none() {
+                        primary = Some(query);
+                    }
+                }
+            }
+            let mut query = primary.ok_or(ParseError::NoSegmentation)?;
+            let merge = Instant::now();
+            // 先按原始键的覆盖长度，再交错各读法的同名次候选；防止一种读法占满上限把全拼候选截掉。
+            items.sort_by_key(|item| (std::cmp::Reverse(item.0), item.1));
+            let mut seen = HashSet::new();
+            query.candidates.items = items
+                .into_iter()
+                .map(|(_, _, c)| c)
+                .filter(|c| seen.insert(c.text.clone()))
+                .take(MAX_CANDIDATES)
+                .collect();
+            timings.rank += merge.elapsed();
+            query.timings = timings;
+            return Ok(query);
+        }
+        self.query_phonetic_decoded(keys, rest, start, self.decode(keys))
+    }
+
+    fn query_phonetic_decoded(
+        &self,
+        keys: &str,
+        rest: String,
+        start: Instant,
+        decoded: Option<EngineDecoded>,
+    ) -> Result<Query, ParseError> {
         // 双拼先解成全拼（音节间已用 `'` 连好，切分没有歧义），之后与全拼同路；解不动的键当尾巴
-        let decoded = self.decode(keys);
         let scope: &str = decoded.as_ref().map_or(keys, |d| d.pinyin());
         // 末尾是英文词（`woxiangxuehaorust`）：拼音候选与整句只按头段算，尾段整个跟在整句后面。
         // 整段也能读成拼音时（`database`、`…rust` 当简拼）两种读法比分，英文赢了才按头段算，
