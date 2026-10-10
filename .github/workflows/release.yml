@@ -204,7 +204,7 @@ jobs:
         shell: bash
     env:
       VERSION: ${{ needs.prepare.outputs.version }}
-      # 没有代码签名证书：Server 不带 uiAccess（没签名的 exe 带 uiAccess=true 起不来）。证书办下来后去掉这一行并在 build.ps1 加 signtool。
+      # 没有代码签名证书：Server 不带 uiAccess（没签名的 exe 带 uiAccess=true 起不来；build.rs 缺省也不带，build.ps1 还会按 -Sign 重设）。证书办下来后在 build.ps1 加 signtool、走 -Sign。
       QINGJIAN_UIACCESS: '0'
       PYTHON: python
       # Windows 上 Python 的标准输出缺省 cp1252，中文更新日志会编码失败。
