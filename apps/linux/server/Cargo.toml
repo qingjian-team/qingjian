@@ -1,7 +1,7 @@
 [package]
 name = "qingjian-linux-server"
 description = "Linux Fcitx5 输入法的 Rust Server"
-version = "0.2.0"
+version = "0.2.1-dev"
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
