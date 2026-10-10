@@ -25,6 +25,18 @@ fn main() {
         let source_id = arguments.next().unwrap_or_default();
         std::process::exit(app::input_source::finish_register(&source_id));
     }
+    // 主题投稿用：把主题目录画成预览图写进它的 preview/，不起 IMK（主题仓库的 tools/preview.py 调它）
+    let mut arguments = std::env::args().skip(1);
+    if arguments.next().as_deref() == Some(qingjian_render::preview::FLAG) {
+        let Some(dir) = arguments.next() else {
+            eprintln!("用法：{} <主题目录>", qingjian_render::preview::FLAG);
+            std::process::exit(2);
+        };
+        std::process::exit(qingjian_render::preview::run(
+            std::path::Path::new(&dir),
+            candidates::family_files,
+        ));
+    }
     // 安装器的 postinstall 以登录用户身份调 `--register`：注册、启用并切成当前输入源后直接退出，不起 IMK
     if std::env::args().any(|argument| argument == "--register") {
         match app::input_source::register_main_bundle() {
