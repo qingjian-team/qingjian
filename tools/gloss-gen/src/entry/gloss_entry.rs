@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use super::JapaneseSense;
 
-/// 一个中文词的释义：词性、英文译词、日文译词。
+/// 一个中文词的释义：词性、英文译词、日文译词、越南文译词。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct GlossEntry {
     /// 中文词。
@@ -16,11 +16,15 @@ pub struct GlossEntry {
 
     /// 日文译词，最多两个，按常用度。
     pub ja: Vec<JapaneseSense>,
+
+    /// 越南文译词，最多两个，按常用度。
+    #[serde(default)]
+    pub vi: Vec<String>,
 }
 
 impl GlossEntry {
-    /// 两种语言都没给出译词的条目没有用。
+    /// 所有学习语言都没给出译词的条目没有用。
     pub fn is_useful(&self) -> bool {
-        !self.en.is_empty() || !self.ja.is_empty()
+        !self.en.is_empty() || !self.ja.is_empty() || !self.vi.is_empty()
     }
 }

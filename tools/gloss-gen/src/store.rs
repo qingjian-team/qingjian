@@ -108,24 +108,17 @@ pub fn read_entries<T: Keyed>(path: &Path) -> Result<Vec<T>, GlossError> {
     Ok(entries)
 }
 
-/// 导出成输入法加载的两张表：`词\t词性 译词\t词性 译词`，日文译词后面接 `|假名`。同一个词以最后一条为准，按词排序。
+/// 导出成输入法加载的学习语言表：`词\t词性 译词\t词性 译词`，日文译词后面接 `|假名`。同一个词以最后一条为准，按词排序。
 pub fn export(input: &Path, out_dir: &Path) -> Result<(), GlossError> {
     let mut latest: BTreeMap<String, GlossEntry> = BTreeMap::new();
     for entry in read_entries::<GlossEntry>(input)? {
         latest.insert(entry.word.clone(), entry);
     }
     std::fs::create_dir_all(out_dir)?;
-    let mut english = BufWriter::new(File::create(out_dir.join("glossary-en.tsv"))?);
-    let mut japanese = BufWriter::new(File::create(out_dir.join("glossary-ja.tsv"))?);
-    writeln!(
-        english,
-        "# 由 qingjian-gloss-gen 生成（LLM）。词\t[词性. ]译词\t[词性. ]译词"
-    )?;
-    writeln!(
-        japanese,
-        "# 由 qingjian-gloss-gen 生成（LLM）。词\t[词性. ]译词|假名\t[词性. ]译词|假名"
-    )?;
-    let (mut en_count, mut ja_count) = (0, 0);
+    let mut english = Vec::new();
+    let mut japanese = Vec::new();
+    let mut vietnamese = Vec::new();
+    let (mut en_count, mut ja_count, mut vi_count) = (0, 0, 0);
     for entry in latest.values() {
         let pos = entry
             .pos
@@ -151,16 +144,58 @@ pub fn export(input: &Path, out_dir: &Path) -> Result<(), GlossError> {
             writeln!(japanese)?;
             ja_count += 1;
         }
+        if !entry.vi.is_empty() {
+            write!(vietnamese, "{}", entry.word)?;
+            for sense in &entry.vi {
+                write!(vietnamese, "\t{pos}{sense}")?;
+            }
+            writeln!(vietnamese)?;
+            vi_count += 1;
+        }
     }
-    english.flush()?;
-    japanese.flush()?;
+    write_if_non_empty(
+        out_dir,
+        "glossary-en.tsv",
+        "# 由 qingjian-gloss-gen 生成（LLM）。词\t[词性. ]译词\t[词性. ]译词",
+        &english,
+    )?;
+    write_if_non_empty(
+        out_dir,
+        "glossary-ja.tsv",
+        "# 由 qingjian-gloss-gen 生成（LLM）。词\t[词性. ]译词|假名\t[词性. ]译词|假名",
+        &japanese,
+    )?;
+    write_if_non_empty(
+        out_dir,
+        "glossary-vi.tsv",
+        "# 由 qingjian-gloss-gen 生成（LLM）。词\t[词性. ]译词\t[词性. ]译词",
+        &vietnamese,
+    )?;
     tracing::info!(
         words = latest.len(),
         english = en_count,
         japanese = ja_count,
+        vietnamese = vi_count,
         out_dir = %out_dir.display(),
         "导出完成"
     );
+    Ok(())
+}
+
+fn write_if_non_empty(
+    out_dir: &Path,
+    name: &str,
+    header: &str,
+    body: &[u8],
+) -> Result<(), GlossError> {
+    if body.is_empty() {
+        return Ok(());
+    }
+    let path = out_dir.join(name);
+    let mut out = BufWriter::new(File::create(path)?);
+    writeln!(out, "{header}")?;
+    out.write_all(body)?;
+    out.flush()?;
     Ok(())
 }
 

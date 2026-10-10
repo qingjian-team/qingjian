@@ -210,8 +210,12 @@ const UPDATE_STATE_FILE: &str = "update.json";
 const VOCABULARY_FILE: &str = "user-vocab.tsv";
 
 /// 可能打进包里的释义表语言，按这个顺序在设置里列出；文件不存在的不列。
-const GLOSSARY_LANGUAGES: [Language; 3] =
-    [Language::English, Language::Japanese, Language::Spanish];
+const GLOSSARY_LANGUAGES: [Language; 4] = [
+    Language::English,
+    Language::Japanese,
+    Language::Spanish,
+    Language::Vietnamese,
+];
 
 /// 在单例上执行操作。未初始化、不在主线程、或正处在另一次 `with` 之内（重入）时返回 `None`。
 ///
