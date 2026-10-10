@@ -35,7 +35,7 @@
 | 语言模型语料 | 中文维基（HF `wikimedia/wikipedia` 20231101.zh） | CC BY-SA 4.0 | 百科体，第一人称、口语词几乎没有（去 / 累 这类词计数极低），单独用它整句会偏向地名术语；由它统计的 bigram 表按 CC BY-SA 对待 |
 | 语言模型语料 | LCCC（清华 `thu-coai/lccc`，微博对话） | MIT | 口语对话，补维基缺的日常用语；两份语料合并统计。`tools/corpus/parquet_to_text.py` 转文本，`dict-convert bigram` 统计 |
 | 语言模型 | Rime 八股文 / octagram | essay 只是词频表；octagram 是 LGPL | 未采用：essay 没有二元信息，octagram 文件格式是 Rime 私有的 |
-| 中→英 / 中→日 | `tools/gloss-gen` 用 LLM（DeepSeek）离线批量生成，数据在 `assets/glossary/` | 模型输出，许可干净 | 词性 + 译词 + 日文假名；2026-09-05 对整个自建词库跑了全量：23.9 万词，词库多字词 91% 有英文释义、98% 有日文释义，单字 92%；17.6 万词约 100 分钟、几十元。有道等网页词典接口不用：逆向的签名接口不稳，攒下来的结果再分发是侵权 |
+| 中→英 / 日 / 越 / 德 | `tools/gloss-gen` 用 LLM 离线批量生成（英 / 日 / 德用 DeepSeek，越用 gpt-5.5），数据在 `assets/glossary/` | 模型输出，许可干净 | 词性 + 译词 + 日文假名；2026-09-05 对整个自建词库跑了全量：23.9 万词，词库多字词 91% 有英文释义、98% 有日文释义，单字 92%；17.6 万词约 100 分钟、几十元。德语名词按提示词带定冠词（der/die/das），全量后用 `tools/corpus/verify_german_gender.py` 对照 Wiktionary 德语快照（kaikki.org 导出，CC BY-SA 4.0，只做校验、译文不取自它）核对冠词，2026-10-10 全量：9.2 万选中词导出 9.2 万条（99.6%），可自动判定的 2.4 万名词冠词一致率 98.4%，过闸发布；未过可用 `gloss-gen export --strip-german-articles` 导出无冠词兜底形态；首版不提供 `levels-de` 等级表。有道等网页词典接口不用：逆向的签名接口不稳，攒下来的结果再分发是侵权 |
 | 中→英（备用） | CC-CEDICT | CC BY-SA 4.0 | 需署名；share-alike 只约束数据本身及其加工版，不传染代码。**没有词性**、释义偏长，已被 LLM 表取代，`dict-convert cedict` 仍能生成 |
 | 日文读音 / 词性（候选） | JMdict（EDRDG） | CC BY-SA 4.0 | 以后校对 LLM 给的假名与日文词性 |
 | 词汇等级（统计） | 已用：CEFR-J Wordlist 1.5（A1–B2，免费须署名）+ Octanove C1/C2（CC BY-SA 4.0）；JLPT N5–N1（Tanos CC BY，经 elzup MIT 整理）。四六级 / 商务英语词表在 GitHub 上只有大纲词汇的转录、许可不明，没用 | 已核 | 「统计」页按级数见过 / 看熟 / 上屏过的译词（`assets/levels/`）；也可做英→中 / 日→中方向的种子；不进候选窗口 |
@@ -64,7 +64,7 @@
 |---|---|
 | 词库 | 通用规范汉字表；现代汉语常用词表（liuxilu 校对版）；THUOCL 领域词（清华大学自然语言处理实验室，MIT）；jieba 分词词表（fxsjy/jieba，MIT，2026-09-27 起用于缺失高频词对照与词频折算）；读音取自 Unihan（Unicode License v3） |
 | 语言模型 | 中文维基百科（CC BY-SA 4.0）与 LCCC（清华大学 CoAI，MIT）语料统计 |
-| 释义表 | 由大语言模型（DeepSeek）离线生成，青简自建 |
+| 释义表 | 由大语言模型离线生成，青简自建（英语 / 日语 / 德语用 DeepSeek，越南语用 gpt-5.5），随表不含第三方词典内容 |
 | emoji | Unicode CLDR annotations（Unicode License v3） |
 | 英文词表 | ESDB / SCOWL（© Kevin Atkinson，按其许可保留版权声明）；CSpell 词典（MIT） |
 | 词汇等级 | The CEFR-J Wordlist Version 1.5（Yukio Tono，Tokyo University of Foreign Studies，[cefr-j.org](http://www.cefr-j.org/download.html)）；Octanove Vocabulary Profile C1/C2（CC BY-SA 4.0）；JLPT 词表（[tanos.co.uk](http://www.tanos.co.uk/jlpt/)，CC BY；经 elzup/jlpt-word-list 整理，MIT） |

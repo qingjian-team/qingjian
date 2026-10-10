@@ -25,7 +25,7 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-PRODUCT_FILES=(dict.qj lm.qj glossary-en.qj glossary-ja.qj glossary-zh.qj glossary-es.qj glossary-vi.qj english.tsv english-frequency.tsv)
+PRODUCT_FILES=(dict.qj lm.qj glossary-en.qj glossary-ja.qj glossary-zh.qj glossary-es.qj glossary-vi.qj glossary-de.qj english.tsv english-frequency.tsv)
 MODEL_FILE=data/models/hanzhang-zhiwei/hanzhang-zhiwei-small.qjm
 P2C_MODEL_FILE=data/models/hanzhang-tongbian/hanzhang-tongbian-small.qjm
 

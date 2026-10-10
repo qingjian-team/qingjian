@@ -17,6 +17,12 @@ const MAX_JAPANESE_CHARS: usize = 16;
 /// 单个越南文译词最多几个字符。
 const MAX_VIETNAMESE_CHARS: usize = 36;
 
+/// 单个德文译词最多几个字符：德语复合词可以任意拼接，放得更宽。
+const MAX_GERMAN_CHARS: usize = 40;
+
+/// 德文译词最多几个单词（含名词前的定冠词）。
+const MAX_GERMAN_WORDS: usize = 4;
+
 pub const SYSTEM_PROMPT: &str = "你是多语词典编纂者。给每个中文词写最简短的英文、日文和越南文对应词，供拼音输入法在候选词旁边一行显示，所以只要词、不要解释。\n\
 规则：\n\
 - pos：这个中文词最主要的词性，只能是 n. v. adj. adv. pron. prep. conj. num. m. part. int. phr. 之一（m. 量词，part. 助词，phr. 短语或成语）。\n\
@@ -35,12 +41,21 @@ pub const VIETNAMESE_ONLY_SYSTEM_PROMPT: &str = "你是汉越词典编纂者。�
 输出严格的 JSON：{\"items\":[{\"w\":\"开发\",\"pos\":\"v.\",\"vi\":[\"phát triển\",\"khai thác\"]}]}。\n\
 items 与输入的词一一对应、顺序一致、每个词恰好一项，w 必须原样照抄输入的词。";
 
+pub const GERMAN_ONLY_SYSTEM_PROMPT: &str = "你是汉德词典编纂者。给每个中文词写最简短的德文对应词，供拼音输入法在候选词旁边一行显示，所以只要词、不要解释。\n\
+规则：\n\
+- pos：这个中文词最主要的词性，只能是 n. v. adj. adv. pron. prep. conj. num. m. part. int. phr. 之一（m. 量词，part. 助词，phr. 短语或成语）。\n\
+- de：1 到 2 个最贴切的德文对应词，按常用度排；每个不超过 3 个德语单词；名词必须带定冠词（der / die / das）且首字母大写（如 der Freund、die Schule、das Haus），动词用不定式原样小写（如 entwickeln），其他词性原样；不要括号、不要解释、不要例句。\n\
+- 人名地名等专名照译；多义词只取最常用的义项；网络用语、方言也要给最接近的说法；没有把握也要给最可能的答案，不要留空。\n\
+输出严格的 JSON：{\"items\":[{\"w\":\"房子\",\"pos\":\"n.\",\"de\":[\"das Haus\"]}]}。\n\
+items 与输入的词一一对应、顺序一致、每个词恰好一项，w 必须原样照抄输入的词。";
+
 /// 本次生成的学习语言集合。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct GlossLanguages {
     en: bool,
     ja: bool,
     vi: bool,
+    de: bool,
 }
 
 impl GlossLanguages {
@@ -49,18 +64,25 @@ impl GlossLanguages {
             en: false,
             ja: false,
             vi: false,
+            de: false,
         };
         for language in raw {
             match language.trim().to_ascii_lowercase().as_str() {
                 "en" | "english" => languages.en = true,
                 "ja" | "jp" | "japanese" => languages.ja = true,
                 "vi" | "vi-vn" | "vietnamese" => languages.vi = true,
+                "de" | "german" => languages.de = true,
                 other => tracing::warn!(language = other, "不认识的生成语言，跳过"),
             }
         }
-        if !languages.en && !languages.ja && !languages.vi {
-            tracing::warn!("没有可生成的语言，按 en,ja,vi");
-            return Self::all();
+        if !languages.en && !languages.ja && !languages.vi && !languages.de {
+            tracing::warn!("没有可生成的语言，按 en,ja");
+            return Self {
+                en: true,
+                ja: true,
+                vi: false,
+                de: false,
+            };
         }
         languages
     }
@@ -70,19 +92,19 @@ impl GlossLanguages {
             en: true,
             ja: true,
             vi: true,
+            de: true,
         }
     }
 
     pub fn label(self) -> &'static str {
-        match (self.en, self.ja, self.vi) {
-            (true, true, true) => "en,ja,vi",
-            (true, true, false) => "en,ja",
-            (true, false, true) => "en,vi",
-            (false, true, true) => "ja,vi",
-            (true, false, false) => "en",
-            (false, true, false) => "ja",
-            (false, false, true) => "vi",
-            (false, false, false) => "",
+        match (self.en, self.ja, self.vi, self.de) {
+            (true, true, true, true) => "en,ja,vi,de",
+            (true, true, false, false) => "en,ja",
+            (false, false, false, true) => "de",
+            (false, false, true, false) => "vi",
+            (true, false, false, false) => "en",
+            (false, true, false, false) => "ja",
+            _ => "custom",
         }
     }
 }
@@ -95,9 +117,19 @@ pub fn system_prompt(languages: GlossLanguages) -> &'static str {
             en: false,
             ja: false,
             vi: true,
+            de: false,
         })
     {
         VIETNAMESE_ONLY_SYSTEM_PROMPT
+    } else if languages
+        == (GlossLanguages {
+            en: false,
+            ja: false,
+            vi: false,
+            de: true,
+        })
+    {
+        GERMAN_ONLY_SYSTEM_PROMPT
     } else {
         SYSTEM_PROMPT
     }
@@ -134,6 +166,9 @@ struct RawItem {
 
     #[serde(default)]
     vi: Vec<String>,
+
+    #[serde(default)]
+    de: Vec<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -175,6 +210,11 @@ pub fn parse_reply_for_languages(
             } else {
                 Vec::new()
             },
+            de: if languages.de {
+                clean_latin_language(item.de, MAX_GERMAN_CHARS, MAX_GERMAN_WORDS)
+            } else {
+                Vec::new()
+            },
         };
         if entry.is_useful() {
             entries.push(entry);
@@ -193,6 +233,8 @@ fn clean_latin_language(raw: Vec<String>, max_chars: usize, max_words: usize) ->
         let ok = !text.is_empty()
             && text.chars().count() <= max_chars
             && text.split_whitespace().count() <= max_words
+            // 至少含一个拉丁字母：纯标点占位（如模型用「-」表示无对应词）不进结果
+            && text.chars().any(|c| c.is_alphabetic() && is_latin_word_char(c))
             && text.chars().all(is_latin_word_char);
         if ok && !out.iter().any(|o| o.eq_ignore_ascii_case(text)) {
             out.push(text.to_owned());
@@ -311,6 +353,7 @@ mod tests {
                 en: false,
                 ja: false,
                 vi: true,
+                de: false,
             },
         )
         .unwrap();
@@ -321,5 +364,56 @@ mod tests {
         assert_eq!(entries[0].vi, ["phát triển"]);
         assert_eq!(entries[1].vi, ["xin chào"]);
         assert!(VIETNAMESE_ONLY_SYSTEM_PROMPT.contains("越南文"));
+    }
+
+    #[test]
+    fn parses_german_only_reply() {
+        let words = vec!["学校".to_owned(), "房子".to_owned(), "的".to_owned()];
+        let content = r#"{"items":[
+            {"w":"学校","pos":"noun","de":["die Schule","die Schule (Anstalt)","-"]},
+            {"w":"房子","pos":"n.","de":["das Haus"]},
+            {"w":"的","pos":"particle","de":["的"]},
+            {"w":"没请求的","pos":"n.","de":["nope"]}
+        ]}"#;
+        let german_only = GlossLanguages {
+            en: false,
+            ja: false,
+            vi: false,
+            de: true,
+        };
+        let entries = parse_reply_for_languages(content, &words, german_only).unwrap();
+        // 学校（清洗后剩 die Schule）、房子；的 回抄汉字被丢弃
+        assert_eq!(entries.len(), 2);
+        assert!(entries[0].en.is_empty() && entries[0].ja.is_empty() && entries[0].vi.is_empty());
+        assert_eq!(entries[0].word, "学校");
+        assert_eq!(entries[0].pos.as_deref(), Some("n."));
+        assert_eq!(entries[0].de, ["die Schule"]);
+        assert_eq!(entries[1].de, ["das Haus"]);
+        assert!(GERMAN_ONLY_SYSTEM_PROMPT.contains("德文"));
+        assert!(GERMAN_ONLY_SYSTEM_PROMPT.contains("冠词"));
+        assert_eq!(system_prompt(german_only), GERMAN_ONLY_SYSTEM_PROMPT);
+        assert_eq!(GlossLanguages::parse(&["de".to_owned()]).label(), "de");
+    }
+
+    #[test]
+    fn german_keeps_umlauts_and_compound_articles() {
+        let words = vec!["大学".to_owned(), "朋友".to_owned()];
+        let content = r#"{"items":[
+            {"w":"大学","pos":"n.","de":["die Universität"]},
+            {"w":"朋友","pos":"n.","de":["der Freund"]}
+        ]}"#;
+        let entries = parse_reply_for_languages(
+            content,
+            &words,
+            GlossLanguages {
+                en: false,
+                ja: false,
+                vi: false,
+                de: true,
+            },
+        )
+        .unwrap();
+        assert_eq!(entries[0].de, ["die Universität"]);
+        assert_eq!(entries[1].de, ["der Freund"]);
     }
 }

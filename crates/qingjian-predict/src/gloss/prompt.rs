@@ -18,6 +18,9 @@ const MAX_SPANISH_CHARS: usize = 32;
 /// 单条越南文译词最多几个字符：越语短语常有空格分词。
 const MAX_VIETNAMESE_CHARS: usize = 36;
 
+/// 单条德文译词最多几个字符：德语复合词可以任意拼接（`Geschwindigkeitsüberschreitung`），放得更宽。
+const MAX_GERMAN_CHARS: usize = 40;
+
 pub const ENGLISH_SYSTEM_PROMPT: &str = "你是汉英词典编纂者。给每个中文词写最简短的英文对应词，供拼音输入法在候选词旁边一行显示，所以只要词、不要解释。\n\
 规则：\n\
 - pos：这个中文词最主要的词性，只能是 n. v. adj. adv. pron. prep. conj. num. m. part. int. phr. 之一（m. 量词，part. 助词，phr. 短语或成语）。\n\
@@ -45,9 +48,17 @@ items 与输入的词一一对应、顺序一致、每个词恰好一项，w 必
 pub const VIETNAMESE_SYSTEM_PROMPT: &str = "你是汉越词典编纂者。给每个中文词写最简短的越南文对应词，供拼音输入法在候选词旁边一行显示，所以只要词、不要解释。\n\
 规则：\n\
 - pos：这个中文词最主要的词性，只能是 n. v. adj. adv. pron. prep. conj. num. m. part. int. phr. 之一（m. 量词，part. 助词，phr. 短语或成语）。\n\
-- senses：1 到 2 条最贴切的越南文对应词，按常用度排；每条不超过 4 个越南文单词；动词用原形，名词用单数或最常用形式；使用越南语变音符；不要括号、不要解释、不要例句。\n\
+- senses：1 到 2 个最贴切的越南文对应词，按常用度排；每条不超过 4 个越南文单词；动词用原形，名词用单数或最常用形式；使用越南语变音符；不要括号、不要解释、不要例句。\n\
 - 人名地名等专名照译或用越南语常用写法；多义词只取最常用的义项；网络用语、方言也要给最接近的说法；没有把握也要给最可能的答案，不要留空。\n\
 输出严格的 JSON：{\"items\":[{\"w\":\"开发\",\"pos\":\"v.\",\"senses\":[{\"t\":\"phát triển\"},{\"t\":\"khai thác\"}]}]}。\n\
+items 与输入的词一一对应、顺序一致、每个词恰好一项，w 必须原样照抄输入的词。";
+
+pub const GERMAN_SYSTEM_PROMPT: &str = "你是汉德词典编纂者。给每个中文词写最简短的德文对应词，供拼音输入法在候选词旁边一行显示，所以只要词、不要解释。\n\
+规则：\n\
+- pos：这个中文词最主要的词性，只能是 n. v. adj. adv. pron. prep. conj. num. m. part. int. phr. 之一（m. 量词，part. 助词，phr. 短语或成语）。\n\
+- senses：1 到 2 个最贴切的德文对应词，按常用度排；每条不超过 3 个德语单词；名词必须带冠词 der/die/das 且首字母大写、用单数，动词用不定式；不要括号、不要解释、不要例句。\n\
+- 人名地名等专名照译；多义词只取最常用的义项；网络用语、方言也要给最接近的说法；没有把握也要给最可能的答案，不要留空。\n\
+输出严格的 JSON：{\"items\":[{\"w\":\"房子\",\"pos\":\"n.\",\"senses\":[{\"t\":\"das Haus\"}]}]}。\n\
 items 与输入的词一一对应、顺序一致、每个词恰好一项，w 必须原样照抄输入的词。";
 
 /// 学习语言对应的系统提示；中文没有（不会请求）。
@@ -56,6 +67,7 @@ pub fn system_prompt(language: Language) -> &'static str {
         Language::Japanese => JAPANESE_SYSTEM_PROMPT,
         Language::Spanish => SPANISH_SYSTEM_PROMPT,
         Language::Vietnamese => VIETNAMESE_SYSTEM_PROMPT,
+        Language::German => GERMAN_SYSTEM_PROMPT,
         Language::English | Language::Chinese => ENGLISH_SYSTEM_PROMPT,
     }
 }
@@ -165,6 +177,11 @@ fn clean_text(raw: &str, language: Language) -> Option<String> {
                 && text.split_whitespace().count() <= 5
                 && text.chars().all(is_latin_word_char)
         }
+        Language::German => {
+            text.chars().count() <= MAX_GERMAN_CHARS
+                && text.split_whitespace().count() <= 4
+                && text.chars().all(is_latin_word_char)
+        }
         Language::English | Language::Chinese => {
             text.len() <= MAX_ENGLISH_BYTES
                 && text.split_whitespace().count() <= 4
@@ -176,7 +193,7 @@ fn clean_text(raw: &str, language: Language) -> Option<String> {
     ok.then(|| text.to_owned())
 }
 
-/// 拉丁文字译词认得的字符：ASCII 字母数字加拉丁扩展字母（西语、越语变音等）。
+/// 拉丁文字译词认得的字符：ASCII 字母数字加拉丁扩展字母（西语、越语、德语变音等）。
 /// 只认拉丁字母，避免把汉字或西里尔字母当成译词收进来。
 fn is_latin_word_char(c: char) -> bool {
     c.is_ascii_alphanumeric()
@@ -275,5 +292,49 @@ mod tests {
         assert_eq!(filled[1].translation.senses()[0].text, "bạn bè");
         assert_eq!(clean_text("разработка", Language::Vietnamese), None);
         assert!(system_prompt(Language::Vietnamese).contains("越南文"));
+    }
+
+    #[test]
+    fn german_keeps_words_but_rejects_han_and_cyrillic() {
+        assert_eq!(
+            clean_text("das Haus", Language::German).as_deref(),
+            Some("das Haus")
+        );
+        assert_eq!(
+            clean_text("die Entschuldigung,", Language::German).as_deref(),
+            Some("die Entschuldigung")
+        );
+        let compound40 = "A".repeat(40);
+        assert_eq!(
+            clean_text(&compound40, Language::German).as_deref(),
+            Some(compound40.as_str())
+        );
+        let compound41 = "A".repeat(41);
+        assert_eq!(clean_text(&compound41, Language::German), None);
+        assert_eq!(clean_text("开发", Language::German), None);
+        assert_eq!(clean_text("разработка", Language::German), None);
+        // 变异防护：非 ASCII 输入锁死德语臂的判定——认拉丁扩展字母（不能退回英文 ASCII 谓词）、
+        // 长度按 chars().count()（不能退回字节 len()）、字符边界正好卡在 40/41。
+        assert_eq!(
+            clean_text("die Straße", Language::German).as_deref(),
+            Some("die Straße")
+        );
+        assert_eq!(clean_text("für", Language::German).as_deref(), Some("für"));
+        // 40 个 ä = 40 个字符 = 80 个字节：按字符计数恰好 Some，误改成字节 len() 必返回 None。
+        let umlaut40 = "ä".repeat(40);
+        assert_eq!(
+            clean_text(&umlaut40, Language::German).as_deref(),
+            Some(umlaut40.as_str())
+        );
+        let umlaut41 = "ä".repeat(41);
+        assert_eq!(clean_text(&umlaut41, Language::German), None);
+        // 多词带变音的真实复合词（2 词、21 字符）：空格与大写长复合词也得放行。
+        assert_eq!(
+            clean_text("die Geschwisterschaft", Language::German).as_deref(),
+            Some("die Geschwisterschaft")
+        );
+        let prompt = system_prompt(Language::German);
+        assert!(prompt.contains("德文"));
+        assert!(prompt.contains("冠词"));
     }
 }
