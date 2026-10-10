@@ -1,8 +1,8 @@
 //! 联想：候选之外的异步补充。
 //!
 //! [`Predictor`] 由壳注入（网络实现在 `qingjian-predict`，Core 永远不联网），Engine 负责裁剪上下文、
-//! 编号请求、校验云端词的拼音、丢弃过期结果。联想**不参与排序、不阻塞输入**；
-//! 云端词到了只补进候选窗口第一页末尾几格（[`crate::CandidateLayout`]），前面的本地候选不挪。
+//! 编号请求、校验云端词的拼音、丢弃过期结果。请求不阻塞输入；
+//! 云端词按模型顺序优先显示（[`crate::CandidateLayout`]），本地候选即时显示并作为兜底。
 //!
 //! Engine 这一侧的实现：组句中发请求、收结果校验、Tab 接受整句；翻译选中文字也走这里。
 
@@ -50,11 +50,34 @@ impl Engine {
         surrounding: Option<SurroundingText>,
         candidates: &[Candidate],
     ) -> Option<u64> {
+        self.submit_prediction(surrounding, candidates, true)
+    }
+
+    /// 输入变化时的自动联想；手动模式只取消上一段输入的请求。
+    pub fn request_automatic_prediction(
+        &mut self,
+        surrounding: Option<SurroundingText>,
+        candidates: &[Candidate],
+    ) -> Option<u64> {
+        if !self.predictor.policy().automatic {
+            self.cancel_prediction();
+            return None;
+        }
+        self.submit_prediction(surrounding, candidates, false)
+    }
+
+    fn submit_prediction(
+        &mut self,
+        surrounding: Option<SurroundingText>,
+        candidates: &[Candidate],
+        manual: bool,
+    ) -> Option<u64> {
         if !self.predictor.is_enabled() || self.private {
             return None;
         }
         // 不发也要换序号：正在飞的旧结果对应的是上一个输入状态，回来了也不能显示
         self.prediction_sequence += 1;
+        self.predictor.cancel();
         // 辅码态在按码筛词，云端词没有码、进来只会打乱；不发请求，槽位自然收起
         if self.aux_filter().is_some() {
             return None;
@@ -114,8 +137,17 @@ impl Engine {
         if question {
             self.last_question_guess = guess.clone();
         }
+        let max_items = if !question && (abbreviated || policy.slots == 0) {
+            0
+        } else {
+            policy.max_items
+        };
+        if max_items == 0 && !policy.sentence {
+            return None;
+        }
         let request = PredictionRequest {
             sequence: self.prediction_sequence,
+            manual,
             kind,
             before,
             after,
@@ -130,11 +162,7 @@ impl Engine {
             guess,
             // 简拼（半数以上音节是缩写）不问词：模型按声母凑出来的大多是生造词（复合语气、符号映射），
             // 只问整句补全；问字模式的答案不受这条限制（答案本来就对不上问题的拼音）。
-            max_items: if abbreviated && !question {
-                0
-            } else {
-                policy.max_items
-            },
+            max_items,
             want_sentence: policy.sentence && !question,
             text: String::new(),
             target_language: String::new(),
@@ -154,8 +182,10 @@ impl Engine {
             return None;
         }
         self.prediction_sequence += 1;
+        self.predictor.cancel();
         let request = PredictionRequest {
             sequence: self.prediction_sequence,
+            manual: true,
             kind: PredictionKind::Translate,
             before: String::new(),
             after: String::new(),
@@ -179,6 +209,7 @@ impl Engine {
     /// 作废正在飞的联想（用户清空了拼音、关掉了联想框）。
     pub fn cancel_prediction(&mut self) {
         self.prediction_sequence += 1;
+        self.predictor.cancel();
     }
 
     /// 取回最近一次请求的结果；过期结果直接丢。没有就绪的结果返回 `None`，不阻塞。

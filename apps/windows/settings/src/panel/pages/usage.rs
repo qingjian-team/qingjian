@@ -1,14 +1,14 @@
-//! 「统计」页：输入量（今天 / 7 天 / 累计）、折成几本书、学习语言的词汇与等级分布。
-//! 直读 `%APPDATA%\Qingjian` 下的 `usage.tsv` / `user-vocab.tsv`，不经 Server；打开这页时读一次。
+//! 「统计」页：累计 API 用量、输入量与词汇等级；从本机数据文件读取，支持手动刷新。
 
 use jiff::Zoned;
 use qingjian_core::{Language, Usage, UsageSummary, VocabularySummary, book_scale};
 use qingjian_learning::{UsageStats, VocabularyBook};
+use qingjian_predict::{API_USAGE_FILE, ApiUsageStats};
 use qingjian_translate::LevelTable;
 use windows_reactor::*;
 
-use crate::panel::Settings;
 use crate::panel::controls::{note, page, repo_resource};
+use crate::panel::{Message, Settings};
 
 const COLUMNS: [&str; 4] = ["汉字", "中文词", "英文词", "上屏次数"];
 
@@ -58,7 +58,7 @@ fn columns(usage: &Usage) -> [String; 4] {
     ]
 }
 
-pub(crate) fn view(settings: &Settings, _context: &mut ViewContext<Settings>) -> View {
+pub(crate) fn view(settings: &Settings, context: &mut ViewContext<Settings>) -> View {
     let today = Zoned::now().date();
     let general = &settings.config.general;
     // 学习语言关着就没有词汇可统计
@@ -90,6 +90,11 @@ pub(crate) fn view(settings: &Settings, _context: &mut ViewContext<Settings>) ->
     ];
 
     let body = StackPanel::new().spacing(12.0).children([
+        api_usage_block(settings, context),
+        TextBlock::new()
+            .text("输入量")
+            .font_weight(FontWeight::SEMI_BOLD)
+            .into(),
         StackPanel::new().spacing(6.0).children(rows),
         TextBlock::new()
             .text(scale_line(usage.total.hanzi))
@@ -112,6 +117,60 @@ pub(crate) fn view(settings: &Settings, _context: &mut ViewContext<Settings>) ->
         },
     ]);
     page("统计", body)
+}
+
+fn api_usage_block(settings: &Settings, context: &mut ViewContext<Settings>) -> View {
+    let heading = StackPanel::new()
+        .orientation(Orientation::Horizontal)
+        .spacing(16.0)
+        .children((
+            TextBlock::new()
+                .text("Token 使用统计")
+                .font_weight(FontWeight::SEMI_BOLD),
+            Button::new()
+                .on_click(context.message(Message::Navigate(Some("usage".to_owned()))))
+                .content("刷新统计"),
+        ));
+    let stats = match ApiUsageStats::load(&settings.data_dir().join(API_USAGE_FILE)) {
+        Ok(stats) => stats,
+        Err(error) => {
+            crate::log::warn(format!("API 用量统计读取失败: {error}"));
+            return StackPanel::new()
+                .spacing(8.0)
+                .children([heading, note("统计读取失败，请稍后刷新；原有记录仍保留。")]);
+        }
+    };
+    let requests = format!(
+        "累计请求 {} 次 · API 成功 {} 次 · 失败 {} 次 · 尚无结果 {} 次",
+        group_digits(stats.requests),
+        group_digits(stats.responses),
+        group_digits(stats.failures),
+        group_digits(stats.unresolved_requests()),
+    );
+    let usage_note = format!(
+        "按接口实际返回的用量累计，重启后保留；包含 AI 联想和「测试连接」。缓存输入已包含在输入 Token 中。未取得用量的已结束请求：{} 次。启用统计前的用量可在服务商平台查看。",
+        group_digits(stats.unreported_usage),
+    );
+    StackPanel::new().spacing(8.0).children([
+        heading,
+        TextBlock::new().text(requests).into(),
+        table_row(
+            "",
+            ["输入 Token", "输出 Token", "总 Token", "缓存输入"].map(str::to_owned),
+            true,
+        ),
+        table_row(
+            "累计",
+            [
+                group_digits(stats.input_tokens),
+                group_digits(stats.output_tokens),
+                group_digits(stats.total_tokens),
+                group_digits(stats.cached_input_tokens),
+            ],
+            false,
+        ),
+        note(&usage_note),
+    ])
 }
 
 /// 有等级表才显示，一级一行。

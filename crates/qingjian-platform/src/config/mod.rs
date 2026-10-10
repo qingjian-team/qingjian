@@ -192,9 +192,25 @@ translation = "ctrl"
 translation_second = "shift+ctrl"
 # 把应用里选中的文字译成学习语言（要开着云服务）：译文先出现在候选窗口，回车替换选中的文字，Esc 保留原文
 translate_selection = "ctrl+alt+t"
+# 输入拼音时按需调用 AI；只在组句中生效
+predict = "ctrl+alt+j"
 # 数字键配这些修饰键删掉候选：用户词（云端选过的、自动造的）整个删掉，词库里的词清掉对它的学习记录。组句中要打感叹号先把词上屏
 delete_candidate = "shift"
 "#
+    };
+}
+
+#[cfg(windows)]
+macro_rules! template_predict_automatic {
+    () => {
+        "automatic = false\n"
+    };
+}
+
+#[cfg(not(windows))]
+macro_rules! template_predict_automatic {
+    () => {
+        "automatic = true\n"
     };
 }
 
@@ -338,9 +354,14 @@ enabled = true
 # 云联想：把光标附近的文本发到下面的接口，让模型补全整句 / 联想下文。默认关闭。
 # 开启后菜单栏的「中 / 英」旁会带一个云朵标识；Secure Input（密码框）里绝不发送。
 enabled = false
+# 自动联想：Windows 默认按需调用，输入拼音后按 Ctrl+Alt+J；macOS 默认自动
+"#,
+    template_predict_automatic!(),
+    r#"# 自动联想与按需联想共用最短网络请求间隔；等待中只保留最新输入，上屏或清空后取消待发请求
+min_interval_ms = 3000
 # OpenAI 兼容接口地址与模型名（DeepSeek 默认值）
 base_url = "https://api.deepseek.com"
-model = "deepseek-v4-flash"
+model = "deepseek-flash"
 # 推理强度（reasoning_effort）：none 关掉模型的思考，联想要快；留空则不发这个参数
 reasoning_effort = "none"
 # 密钥：填在这里，或留空并设置 api_key_env 指定的环境变量（偏好设置里填的密钥写进配置同目录的 .env）
@@ -348,11 +369,11 @@ reasoning_effort = "none"
 api_key_env = "QINGJIAN_API_KEY"
 # 单次请求超时（毫秒）、停止敲键多久后才发请求（毫秒）
 timeout_ms = 5000
-debounce_ms = 300
+debounce_ms = 800
 # 光标前 / 后最多发多少个字符——这是发往云端的上下文上限
 lookback = 64
 lookahead = 32
-# 云端词到了补进候选窗口第一页末尾几格（比如 2 就是 8、9 两格），前面的本地候选不动；0 表示不要云端词
+# AI 候选置顶的个数（比如 2 就是第 1、2 项），同文的本地候选合并；0 表示不要 AI 候选
 slots = 2
 # 组句中除了词候选还要不要整句补全（preedit 右侧，Tab 接受）
 sentence = true

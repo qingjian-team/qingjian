@@ -1,7 +1,11 @@
 //! 「云服务」页：本地整句模型开关（`[model]`）、`[predict]` 各项与「测试连接」（后台线程跑）。
 
 use qingjian_predict::{ConnectionTest, PredictConfig};
-use windows_reactor::*;
+use std::path::PathBuf;
+use windows_reactor::{
+    Button, CancellationToken, ChildrenControl, ContentControl, NumberBox, Orientation,
+    PasswordBox, StackPanel, TextBlock, TextBox, ToggleSwitch, View, ViewContext,
+};
 
 use crate::panel::cloud_status::CloudStatus;
 use crate::panel::controls::{field, labeled, note, page};
@@ -10,9 +14,11 @@ use crate::panel::{Message, Settings};
 /// 后台跑一次连通性测试，轮询到有结果或被取消。
 pub(crate) fn run_test(
     config: &PredictConfig,
+    usage_path: PathBuf,
     cancel: &CancellationToken,
 ) -> Result<String, String> {
-    let test = ConnectionTest::start(config).map_err(|error| error.to_string())?;
+    let test = ConnectionTest::start_with_usage(config, Some(usage_path))
+        .map_err(|error| error.to_string())?;
     loop {
         if cancel.is_cancelled() {
             return Err("已取消".to_owned());
@@ -50,14 +56,39 @@ pub(crate) fn view(settings: &Settings, context: &mut ViewContext<Settings>) -> 
         ),
         field(
             "启用云联想",
-            "开启后组句时会把光标附近的几十个字发给下面的服务，让模型补全整句、联想下文；密钥框里的内容不发送。",
+            "开启后可在输入拼音时按 Ctrl+Alt+J 获取 AI 候选；也可打开下面的自动联想。当前输入会发送给填写的服务。",
             ToggleSwitch::new()
                 .is_on(p.enabled)
                 .on_toggled(context.callback(Message::CloudEnabled)),
         ),
         field(
-            "云端词格数",
-            "云端词到了只补进第一页末尾这几格，前面的本地候选不动；没到就什么都不变。0 = 只要整句补全。",
+            "停顿后自动联想",
+            "关闭时只按快捷键调用，日常输入和选词使用本地候选。快捷键可在「快捷键」页修改。",
+            ToggleSwitch::new()
+                .is_on(p.automatic)
+                .on_toggled(context.callback(Message::CloudAutomatic)),
+        ),
+        field(
+            "自动联想等待（毫秒）",
+            "持续停键达到这个时间才发送；继续输入会重新计时。默认 800 毫秒。",
+            NumberBox::new()
+                .minimum(100.0)
+                .maximum(10000.0)
+                .value(p.debounce_ms as f64)
+                .on_value_changed(context.callback(Message::CloudDebounce)),
+        ),
+        field(
+            "最短请求间隔（毫秒）",
+            "自动与快捷键请求共用间隔，默认 3000 毫秒。等待期间只保留最新输入；选词上屏后取消待发请求。缓存命中直接复用。",
+            NumberBox::new()
+                .minimum(1000.0)
+                .maximum(60000.0)
+                .value(p.min_interval_ms as f64)
+                .on_value_changed(context.callback(Message::CloudMinInterval)),
+        ),
+        field(
+            "AI 优先候选数",
+            "AI 返回后按推荐顺序排在最前面，同文的本地候选只显示一次。移动高亮或翻页后保持当前顺序。0 = 只要小字云续写；续写也关闭时不调用。",
             NumberBox::new()
                 .minimum(0.0)
                 .maximum(9.0)
@@ -65,8 +96,8 @@ pub(crate) fn view(settings: &Settings, context: &mut ViewContext<Settings>) -> 
                 .on_value_changed(context.callback(Message::CloudSlots)),
         ),
         field(
-            "整句补全",
-            "preedit 右侧给出整句补全，按 Tab 采用。",
+            "小字云续写",
+            "在拼音右侧用小字显示续写，按 Tab 采用。关闭后只请求 AI 候选词，省去续写提示和生成用量；停顿联想与 Ctrl+Alt+J 仍可使用。",
             ToggleSwitch::new()
                 .is_on(p.sentence)
                 .on_toggled(context.callback(Message::CloudSentence)),

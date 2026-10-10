@@ -100,6 +100,14 @@ pub(crate) fn view(settings: &Settings, context: &mut ViewContext<Settings>) -> 
             ),
         ),
         field(
+            "按需 AI 联想",
+            "输入拼音时按这组键 + 当前字母（缺省 Ctrl+Alt+J），获取置顶候选。只改修饰键；字母可在配置的 shortcut.predict 中修改。",
+            modifier_combo(
+                s.predict.modifiers,
+                context.callback(Message::PredictShortcut),
+            ),
+        ),
+        field(
             "翻译选中文字",
             "选中一段文字后按这组键 + 当前字母（缺省 Ctrl+Alt+T），把它译成学习语言，回车 / 空格替换、Esc 保留原文。需要云服务。这里只改修饰键，字母固定用当前的。",
             modifier_combo(

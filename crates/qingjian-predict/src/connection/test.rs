@@ -1,6 +1,7 @@
 //! 云服务连通性测试：偏好设置「云服务」页的「测试连接」按钮用。
 //! 起一个线程用当前配置发一条最小的聊天请求，结果经通道回来；调用方在主线程轮询 [`ConnectionTest::poll`]。
 
+use std::path::PathBuf;
 use std::sync::mpsc;
 use std::time::Instant;
 
@@ -27,10 +28,18 @@ pub struct ConnectionTest {
 impl ConnectionTest {
     /// 按配置发起测试。密钥缺失、线程起不来这两种情况当场报错，其余错误从 [`poll`](Self::poll) 回来。
     pub fn start(config: &PredictConfig) -> Result<Self, PredictError> {
+        Self::start_with_usage(config, None)
+    }
+
+    /// 测试连接也会消耗 token，与联想共用壳指定的统计文件。
+    pub fn start_with_usage(
+        config: &PredictConfig,
+        usage_path: Option<PathBuf>,
+    ) -> Result<Self, PredictError> {
         let api_key = config
             .resolve_api_key()
             .ok_or_else(|| PredictError::MissingApiKey(config.api_key_env.clone()))?;
-        let client = ChatClient::new(config, api_key);
+        let client = ChatClient::new(config, api_key, usage_path);
         let model = config.model.clone();
         let (sender, result) = mpsc::channel();
         std::thread::Builder::new()

@@ -3,16 +3,19 @@
 /// 无论壳传来多长的文本，Core 都只发这么多：这是隐私上限的最后一道闸。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PredictionPolicy {
+    /// 停顿后自动联想；关闭时只接受显式请求。
+    pub automatic: bool,
+
     /// 光标前最多看几个字符。
     pub before: usize,
 
     /// 光标后最多看几个字符。
     pub after: usize,
 
-    /// 云端词最多补进候选窗口第一页末尾几格；0 表示不要云端词（整句补全照发）。
+    /// 第一页最多置顶几个云端词；0 表示不要云端词（整句补全照发）。
     pub slots: usize,
 
-    /// 向云端最多要几条（比槽位多要几条，与本地候选重复的去掉后还能填满）。
+    /// 向云端最多要几条，给拼音校验留余量。
     pub max_items: usize,
 
     /// 组句中要不要整句补全。
@@ -22,6 +25,7 @@ pub struct PredictionPolicy {
 impl Default for PredictionPolicy {
     fn default() -> Self {
         Self {
+            automatic: true,
             before: 64,
             after: 32,
             slots: 2,

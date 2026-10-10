@@ -8,6 +8,9 @@ pub struct PredictConfig {
     /// 是否启用。
     pub enabled: bool,
 
+    /// 停顿后自动联想；Windows 缺省关闭，使用快捷键按需调用。
+    pub automatic: bool,
+
     /// OpenAI 兼容接口地址（不含 `/chat/completions`）。
     pub base_url: String,
 
@@ -26,13 +29,16 @@ pub struct PredictConfig {
     /// 防抖：停止敲键多久之后才真正发请求（毫秒）。
     pub debounce_ms: u64,
 
+    /// 两次网络请求起始之间的最短间隔（毫秒），缓存命中不等待。
+    pub min_interval_ms: u64,
+
     /// 光标前最多发多少个字符。
     pub lookback: usize,
 
     /// 光标后最多发多少个字符。
     pub lookahead: usize,
 
-    /// 云端词最多补进候选窗口第一页末尾几格；0 表示不要云端词，只要整句补全。
+    /// 第一页最多置顶几个 AI 候选；0 表示不要 AI 候选，只要整句补全。
     pub slots: usize,
 
     /// 组句中要不要整句补全。
@@ -48,12 +54,14 @@ impl Default for PredictConfig {
     fn default() -> Self {
         Self {
             enabled: false,
+            automatic: !cfg!(windows),
             base_url: "https://api.deepseek.com".to_owned(),
-            model: "deepseek-v4-flash".to_owned(),
+            model: "deepseek-flash".to_owned(),
             api_key: None,
             api_key_env: "QINGJIAN_API_KEY".to_owned(),
             timeout_ms: 5000,
-            debounce_ms: 300,
+            debounce_ms: 800,
+            min_interval_ms: 3000,
             lookback: 64,
             lookahead: 32,
             slots: 2,
@@ -77,10 +85,11 @@ impl PredictConfig {
 
     pub fn policy(&self) -> PredictionPolicy {
         PredictionPolicy {
+            automatic: self.automatic,
             before: self.lookback,
             after: self.lookahead,
             slots: self.slots,
-            // 比槽位多要两条，与本地候选重复的去掉后还能填满；问字模式的答案也按这个数要
+            // 多要两条，给拼音校验留余量；问字模式的答案也按这个数要
             max_items: self.slots.max(1) + 2,
             sentence: self.sentence,
         }

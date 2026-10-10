@@ -30,7 +30,8 @@ impl Router {
                 let layout =
                     CandidateLayout::new(items, self.config.page_size, self.config.cloud_slots);
                 if self.engine.prediction_enabled() {
-                    self.engine.request_prediction(None, layout.local());
+                    self.engine
+                        .request_automatic_prediction(None, layout.local());
                 }
                 Composed::Candidates {
                     preedit,
@@ -78,7 +79,10 @@ impl Router {
                 .into_iter()
                 .map(CloudWord::into_candidate)
                 .collect();
-            layout.set_cloud(words);
+            // 置顶会移动所有普通候选；用户已开始选词时保持当前布局，下一段输入再更新。
+            if !self.navigated && self.highlight < self.config.page_size {
+                layout.set_cloud(words);
+            }
             self.sentence = prediction.sentence;
         }
     }

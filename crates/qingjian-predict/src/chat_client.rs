@@ -1,8 +1,10 @@
+use std::path::PathBuf;
 use std::sync::LazyLock;
 use std::time::Duration;
 
 use async_openai::Client;
 use async_openai::config::OpenAIConfig;
+use async_openai::middleware::ReqwestService;
 use async_openai::types::chat::{
     ChatCompletionRequestMessage, ChatCompletionRequestSystemMessage,
     ChatCompletionRequestUserMessage, CreateChatCompletionRequestArgs,
@@ -14,6 +16,7 @@ use reqwest::header::{HeaderMap, HeaderValue};
 use crate::config::PredictConfig;
 use crate::error::PredictError;
 use crate::prompt::{self, Reply};
+use crate::usage::ApiUsageStats;
 
 /// 联想回复的 token 上限：几条短句足够，防止模型长篇大论。
 const MAX_TOKENS: u32 = 200;
@@ -44,28 +47,33 @@ pub struct ChatClient {
 
     /// 接口关思考用的是哪种参数（按接口地址定）。
     thinking_switch: ThinkingSwitch,
+
+    /// 由壳传入本机统计文件路径；未传时不落盘。
+    usage_path: Option<PathBuf>,
 }
 
 impl ChatClient {
-    pub fn new(config: &PredictConfig, api_key: String) -> Self {
+    pub fn new(config: &PredictConfig, api_key: String, usage_path: Option<PathBuf>) -> Self {
         let openai = OpenAIConfig::new()
             .with_api_base(config.base_url.trim_end_matches('/'))
             .with_api_key(api_key);
         Self {
-            client: Client::with_config(openai).with_http_client(http_client(&config.base_url)),
+            // 调用次数由 Worker 控制；使用直接传输，避免 SDK 在 429 / 5xx 后隐式重试。
+            client: Client::with_config(openai)
+                .with_http_service(ReqwestService::new(http_client(&config.base_url))),
             model: config.model.clone(),
             timeout: Duration::from_millis(config.timeout_ms),
             reasoning_effort: parse_reasoning_effort(&config.reasoning_effort),
             thinking_switch: ThinkingSwitch::for_url(&config.base_url),
+            usage_path,
         }
     }
 
     pub async fn complete(&self, request: &PredictionRequest) -> Result<Reply, PredictError> {
         let user = prompt::user_prompt(request);
+        let system = prompt::system_prompt(request);
         tracing::debug!(sequence = request.sequence, %user, "联想请求");
-        let content = self
-            .chat(prompt::system_prompt(request), &user, MAX_TOKENS)
-            .await?;
+        let content = self.chat(&system, &user, MAX_TOKENS).await?;
         Ok(prompt::parse_reply(&content, request))
     }
 
@@ -93,10 +101,18 @@ impl ChatClient {
         if matches!(self.reasoning_effort, Some(ReasoningEffort::None)) {
             self.thinking_switch.disable(&mut body);
         }
-        let raw: serde_json::Value =
+        if let Some(path) = &self.usage_path {
+            ApiUsageStats::record_request(path);
+        }
+        let outcome: Result<serde_json::Value, PredictError> =
             tokio::time::timeout(self.timeout, self.client.chat().create_byot(body))
                 .await
-                .map_err(|_| PredictError::Timeout(self.timeout.as_millis() as u64))??;
+                .map_err(|_| PredictError::Timeout(self.timeout.as_millis() as u64))
+                .and_then(|result| result.map_err(PredictError::from));
+        if let Some(path) = &self.usage_path {
+            ApiUsageStats::record_response(path, outcome.as_ref().ok());
+        }
+        let raw = outcome?;
         let response: CreateChatCompletionResponse = serde_json::from_value(raw.clone())?;
         let cut_off = response
             .choices

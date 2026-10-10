@@ -17,6 +17,11 @@ pub struct KeyCombo {
 }
 
 impl KeyCombo {
+    pub const PREDICT_DEFAULT: Self = Self {
+        key: 'j',
+        ..Self::TRANSLATE_DEFAULT
+    };
+
     pub const TRANSLATE_DEFAULT: Self = Self {
         modifiers: Modifiers {
             option: true,

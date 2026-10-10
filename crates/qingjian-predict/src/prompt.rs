@@ -10,24 +10,26 @@ letters（用户实际敲的字母，**可能有错字、漏字、多字、音�
 syllables（切分出的音节数，仅供参考）、before / after（当前光标前后的文本，应用给不出时为空）、\
 local_sentence（本地整句转换的结果，可能错）、local_candidates（本地词库排在前面的候选，第一个是本地首选）、max_items、want_sentence。
 
-**local_candidates 和 local_sentence 只是本地的猜测，可能全错。**它们的用途是告诉你本地已经能给什么：\
-和它们重复的词会被丢掉，所以不要照抄；也不要被它们带偏——请只根据 letters 与 before / after 独立判断用户想打什么。
+local_candidates 和 local_sentence 是本地猜测，供参考。请根据 letters 与 before / after 判断用户想打什么，\
+返回的词会按你的顺序排在候选最前面。可以选择已有的本地候选，也可以补充词库缺少的词；最合适的词排第一。
 
-输出 JSON：{\"words\": [{\"text\": \"…\", \"pinyin\": \"…\"}], \"sentence\": \"…\" 或 null}
+输出 JSON：{\"words\": [{\"text\": \"…\", \"pinyin\": \"…\"}]}
 
-words：用户最可能想输入、而本地又给不出（或排错了）的词或短语，0 到 max_items 个，按可能性排序。要求：
+words：用户最可能想输入的词或短语，0 到 max_items 个，按可能性排序。要求：
 - 按 letters 推断用户想打什么，允许纠正错字、漏字、多字（如 zhgdoima → 这个东西吗）；pinyin 给该词**正确**的全拼，音节间用空格，字数等于音节数，\
   不要比用户敲的多出或少掉音节；
 - 你的价值在：本地词库缺的术语、新词、人名机构名、缩写扩展；按 before / after 体现的领域（财务、软件开发、医学……）选对同音词；纠正错拼；
 - **letters 里的单个字母是声母缩写，不是完整音节**：不要按缩写拼凑出词来（「复合语气」「符号映射」这种首字母硬凑的不算答案，宁可不给）；
 - 只给真实存在的词，不要生造（「不态」「步太」这种组合）；不确定就少给；
-- 本地首选已经对了就不必再给同一个词，也不必给它的同音变体；没有更好的就给空数组，不要凑数。
-
-sentence：want_sentence 为 true 时给一条以这个词开头的完整短句或常用说法，用户常常是想不起来整句怎么说才只敲了开头几个字，\
-或者敲到一半（如 suoyiwoxiangq → 所以我想去吃饭）；有 before / after 就接得上它们，没有就给最常见、最自然的完整表达。\
-它只替换这段拼音，**不要把 before 的内容抄进来**。want_sentence 为 false 时给 null。语言跟随上下文。
+- 本地首选合适时可以将它排第一；候选尽量多样，确定多少给多少。
 
 不解释、不加引号、不加序号。";
+
+/// 仅打开云续写时附加，关闭时请求只包含候选词规则。
+const SENTENCE_PROMPT: &str = "\
+另外在同一个 JSON 中返回 sentence 字段：给一条以这个词开头的完整短句或常用说法，用户常常是想不起来整句怎么说才只敲了开头几个字，\
+或者敲到一半（如 suoyiwoxiangq → 所以我想去吃饭）；有 before / after 就接得上它们，没有就给最常见、最自然的完整表达。\
+它只替换这段拼音，**不要把 before 的内容抄进来**。没有合适续写时给 null。语言跟随上下文。";
 
 /// 问字模式的系统提示：用户用拼音问一个字（或一个短答案）。
 pub const QUESTION_SYSTEM_PROMPT: &str = "\
@@ -54,11 +56,14 @@ text（选中的原文）、target_language（目标语言代码：zh 中文、e
 不要解释、不要加引号、不要加「译文：」之类的前缀。\
 输出 JSON：{\"sentence\": \"译文\"}";
 
-pub fn system_prompt(request: &PredictionRequest) -> &'static str {
+pub fn system_prompt(request: &PredictionRequest) -> String {
     match request.kind {
-        PredictionKind::Compose => SYSTEM_PROMPT,
-        PredictionKind::Question => QUESTION_SYSTEM_PROMPT,
-        PredictionKind::Translate => TRANSLATE_SYSTEM_PROMPT,
+        PredictionKind::Compose if request.want_sentence => {
+            format!("{SYSTEM_PROMPT}\n\n{SENTENCE_PROMPT}")
+        }
+        PredictionKind::Compose => SYSTEM_PROMPT.to_owned(),
+        PredictionKind::Question => QUESTION_SYSTEM_PROMPT.to_owned(),
+        PredictionKind::Translate => TRANSLATE_SYSTEM_PROMPT.to_owned(),
     }
 }
 
@@ -172,7 +177,7 @@ struct RawWord {
     pinyin: String,
 }
 
-/// 解析模型回复：去空、去重、去换行，截到 `max_items`。不要与本地首选相同的词，也不要没给拼音的词。
+/// 解析模型回复：去空、去重、去换行，截到 `max_items`。保留模型选中的本地词，布局负责合并去重。
 pub fn parse_reply(content: &str, request: &PredictionRequest) -> Reply {
     let raw: RawReply = match serde_json::from_str(content.trim()) {
         Ok(raw) => raw,
@@ -195,6 +200,9 @@ pub fn parse_reply(content: &str, request: &PredictionRequest) -> Reply {
     let mut seen: Vec<String> = Vec::new();
     let first_local = request.candidates.first().map(String::as_str);
     for word in raw.words {
+        if reply.words.len() >= request.max_items {
+            break;
+        }
         let text = clean(&word.text);
         let syllables: Vec<String> = word
             .pinyin
@@ -202,11 +210,7 @@ pub fn parse_reply(content: &str, request: &PredictionRequest) -> Reply {
             .filter(|s| !s.is_empty())
             .map(|s| s.to_ascii_lowercase())
             .collect();
-        if text.is_empty()
-            || syllables.is_empty()
-            || Some(text.as_str()) == first_local
-            || seen.contains(&text)
-        {
+        if text.is_empty() || syllables.is_empty() || seen.contains(&text) {
             continue;
         }
         seen.push(text.clone());
@@ -215,9 +219,6 @@ pub fn parse_reply(content: &str, request: &PredictionRequest) -> Reply {
             syllables,
             reading: None,
         });
-        if reply.words.len() >= request.max_items {
-            break;
-        }
     }
     if request.want_sentence {
         reply.sentence = raw
@@ -280,6 +281,7 @@ mod tests {
     fn request(pinyin: &str, want_sentence: bool) -> PredictionRequest {
         PredictionRequest {
             sequence: 1,
+            manual: false,
             kind: PredictionKind::Compose,
             before: "我们今天".into(),
             after: String::new(),
@@ -305,7 +307,7 @@ mod tests {
     }
 
     #[test]
-    fn reply_keeps_words_with_pinyin_and_drops_the_local_first() {
+    fn reply_keeps_the_model_order_including_the_local_first() {
         let reply = r#"{"words": [{"text": "账套", "pinyin": "zhang tao"}, {"text": "张涛", "pinyin": "zhang tao"},
             {"text": "涨停", "pinyin": ""}, {"text": " 章台 ", "pinyin": "Zhang'Tai"}, {"text": "张套", "pinyin": "zhang tao"}],
             "sentence": " 账套已经建好了\n"}"#;
@@ -324,7 +326,7 @@ mod tests {
             texts,
             [
                 ("账套", vec!["zhang", "tao"]),
-                ("章台", vec!["zhang", "tai"])
+                ("张涛", vec!["zhang", "tao"])
             ]
         );
         assert_eq!(parsed.sentence.as_deref(), Some("账套已经建好了"));
@@ -365,6 +367,19 @@ mod tests {
         assert!(parsed.words[0].syllables.is_empty());
         assert_eq!(parsed.words[1].reading, None);
         assert_eq!(parsed.sentence, None);
+    }
+
+    #[test]
+    fn candidate_limits_and_pinyin_cleanup_apply_to_promoted_local_words() {
+        let content = r#"{"words":[{"text":"张涛","pinyin":""},{"text":"张涛","pinyin":"Zhang'Tao"},{"text":"张涛","pinyin":"zhang tao"},{"text":"账套","pinyin":"zhang tao"}]}"#;
+        let mut input = request("zhang'tao", false);
+        let reply = parse_reply(content, &input);
+        assert_eq!(reply.words.len(), 2);
+        assert_eq!(reply.words[0].text, "张涛");
+        assert_eq!(reply.words[0].syllables, ["zhang", "tao"]);
+        assert_eq!(reply.words[1].text, "账套");
+        input.max_items = 0;
+        assert!(parse_reply(content, &input).words.is_empty());
     }
 
     #[test]

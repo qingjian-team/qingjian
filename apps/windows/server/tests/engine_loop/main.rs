@@ -2,6 +2,7 @@
 
 mod aux_code;
 mod click;
+mod cloud;
 mod composing;
 mod english;
 mod modes;

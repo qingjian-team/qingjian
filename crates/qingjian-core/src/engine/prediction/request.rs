@@ -8,6 +8,9 @@ pub struct PredictionRequest {
     /// 请求序号，单调递增；回来的结果序号对不上就是过期结果。
     pub sequence: u64,
 
+    /// 显式触发，跳过停键防抖；网络请求仍受最短间隔限制。
+    pub manual: bool,
+
     /// 组句联想还是问字。
     pub kind: PredictionKind,
 
@@ -26,7 +29,7 @@ pub struct PredictionRequest {
     /// 本地切分的音节数，只是参考。
     pub syllables: usize,
 
-    /// 本地词库给出的前几个候选，帮助模型理解拼音，也让它别重复第一个。
+    /// 本地词库给出的前几个候选，帮助模型理解拼音与排序。
     pub candidates: Vec<String>,
 
     /// 本地整句转换把这段拼音转成的汉字（问字模式是问题本身的汉字形式），可能有错字；转不出为空。

@@ -4,7 +4,7 @@ use super::frame::Frame;
 use super::indicator::IndicatorState;
 use super::key::KeyOutcome;
 use super::session::SessionId;
-use crate::config::SwitchKeys;
+use crate::config::{KeyCombo, SwitchKeys};
 
 /// Server 下发给 DLL 的「按键行为」设置。
 ///
@@ -30,6 +30,10 @@ pub struct InputSettings {
     /// 否则 Photoshop 画布这类没有文本框的地方收不到 W / H / V 这些单键快捷键。老 Server 不带，按给。
     #[serde(default = "english_candidates_default")]
     pub english_candidates: bool,
+
+    /// 组句中的按需 AI 快捷键；旧 Server 没有这项。
+    #[serde(default)]
+    pub predict: Option<KeyCombo>,
 }
 
 fn english_candidates_default() -> bool {
@@ -43,6 +47,7 @@ impl Default for InputSettings {
             english_mode: true,
             shift_letter_compose: false,
             english_candidates: true,
+            predict: None,
         }
     }
 }

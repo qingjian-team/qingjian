@@ -185,6 +185,12 @@ fn prediction_request_uses_the_scope_only() {
     assert_eq!(request.pinyin, "kai'fa");
     assert_eq!(request.letters, "kaifa");
     assert_eq!(request.syllables, 2);
+    assert!(!request.want_sentence);
+
+    // 关闭续写后，简拼只剩本地候选，整句专用请求也不发送。
+    engine.set_input("zhsh");
+    assert_eq!(engine.request_prediction(None, &[]), None);
+    assert_eq!(submitted.borrow().len(), 1);
 }
 
 #[test]

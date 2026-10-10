@@ -1,3 +1,4 @@
+use std::path::PathBuf;
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::time::Duration;
 
@@ -14,7 +15,7 @@ pub struct CloudPredictor {
     policy: PredictionPolicy,
 
     /// 往后台线程发请求。
-    requests: Sender<PredictionRequest>,
+    requests: Sender<Option<PredictionRequest>>,
 
     /// 从后台线程收结果。
     responses: Receiver<Prediction>,
@@ -23,10 +24,18 @@ pub struct CloudPredictor {
 impl CloudPredictor {
     /// 没有密钥直接报错，让壳退回 [`qingjian_core::NoPredictor`] 并记日志。
     pub fn new(config: &PredictConfig) -> Result<Self, PredictError> {
+        Self::new_with_usage(config, None)
+    }
+
+    /// 与 new 同款联想器，将实际 API 用量累计到壳指定的本机文件。
+    pub fn new_with_usage(
+        config: &PredictConfig,
+        usage_path: Option<PathBuf>,
+    ) -> Result<Self, PredictError> {
         let api_key = config
             .resolve_api_key()
             .ok_or_else(|| PredictError::MissingApiKey(config.api_key_env.clone()))?;
-        let client = ChatClient::new(config, api_key);
+        let client = ChatClient::new(config, api_key, usage_path);
         let (requests, request_rx) = mpsc::channel();
         let (response_tx, responses) = mpsc::channel();
         let worker = Worker::new(
@@ -34,6 +43,7 @@ impl CloudPredictor {
             response_tx,
             client,
             Duration::from_millis(config.debounce_ms),
+            Duration::from_millis(config.min_interval_ms),
         );
         std::thread::Builder::new()
             .name("qingjian-predict".to_owned())
@@ -63,9 +73,13 @@ impl Predictor for CloudPredictor {
     }
 
     fn submit(&mut self, request: PredictionRequest) {
-        if self.requests.send(request).is_err() {
+        if self.requests.send(Some(request)).is_err() {
             tracing::warn!("联想线程已退出，请求被丢弃");
         }
+    }
+
+    fn cancel(&mut self) {
+        let _ = self.requests.send(None);
     }
 
     fn poll(&mut self) -> Option<Prediction> {

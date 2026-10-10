@@ -86,8 +86,17 @@ TSV 解析、查询与生成工具把 `lue` / `nue` 统一成 `lve` / `nve`。
 ## crates/qingjian-predict
 
 - `CloudPredictor`：`Predictor` trait 的网络实现（async-openai，OpenAI 兼容接口，默认 DeepSeek），后台线程防抖 / 缓存 / 超时，`submit` / `poll` 非阻塞。
-  `PredictConfig` 是配置的 `[predict]` 分节。只在组句中联想，一次请求给云端词（容错校验后补进候选第一页末尾 `[predict] slots` 格，缺省 2，不预留不占位，
-  前面的本地候选不挪；排布在 Core `CandidateLayout`）和整句补全（preedit 右侧，Tab）；上屏后不联想，本地历史不进请求。
+  Core 的输入变化入口为 `request_automatic_prediction`，显式快捷键与 CLI 使用 `request_prediction`；`PredictionPolicy.automatic` 控制自动入口。
+  Windows 缺省手动，`[shortcut] predict` 为 Ctrl+Alt+J，由 `InputSettings` 下发 DLL 以便只在组句时拦截并支持热加载。
+  Worker 复用现有通道，以 `None` 取消待发请求；`debounce_ms` 缺省 800、`min_interval_ms` 缺省 3000，失败调用也计入间隔，等待中持续合并为最新请求。
+  显式请求跳过防抖、缓存命中跳过网络间隔；已发送请求不追撤，过期结果仍按序号丢弃。Windows 不装配 `CloudGlossFiller`，避免选词后的后台译词调用。
+  ChatClient 复用 async-openai 自带的 `ReqwestService` 直接传输，接口错误不触发 SDK 的隐式重试；下一次用户请求仍遵守 Worker 间隔。
+  Windows 通过 `CloudPredictor::new_with_usage` / `ConnectionTest::start_with_usage` 传入 `%APPDATA%\Qingjian\api-usage.json`；ChatClient 在真实请求入口累计次数，收到原始响应后先记录 `usage` 再解析正文，缓存与防抖取消不计数。
+  `ApiUsageStats` 用 std 文件锁 `api-usage.lock` 串行合并更新，并复用 Core 的原子文件写入；设置「统计」页直读累计数据。DeepSeek 缓存输入与 OpenAI `prompt_tokens_details.cached_tokens` 兼容，不重复累加；缺用量、失败与未取得结果分别显示，损坏文件保留并报错。
+  `PredictConfig` 是配置的 `[predict]` 分节，默认模型为 `deepseek-flash`。只在组句中联想，一次请求给云端词（容错校验后按模型顺序置顶 `[predict] slots` 项，缺省 2，
+  同文的普通本地候选隐藏、自定义短语固定位置保留；排布在 Core `CandidateLayout`）和整句补全（preedit 右侧，Tab）。本地候选先即时显示，未返回或超时继续使用本地候选；
+  用户开始移动高亮或翻页后保持当前布局。上屏后不联想，本地历史不进请求。回复解析保留 AI 选中的本地词，由布局统一去重。
+  Windows「小字云续写」复用 `[predict] sentence`；关闭时 `want_sentence = false`，系统提示省略续写规则、JSON 只要求 `words`，解析丢弃模型多给的续写；开时在共同候选词提示后附加续写规则，缓存键包含该开关。
   简拼（半数以上音节是缩写）的请求 `max_items = 0`，只求整句补全（`prediction::mostly_abbreviated`）：按声母凑出来的词大多是生造词，
   拼音校验又按首字母序列匹配放行缩写，拦不住；问字模式的答案不受这条限制。
 - `CloudGlossFiller`：释义兜底（Core `GlossFiller` trait，与 Predictor 分开的线程与通道，攒 1.5 秒 / 8 个词发一次，问过不再问）：
