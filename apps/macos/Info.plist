@@ -43,7 +43,8 @@
 	<string>app.qingjian.inputmethod</string>
 	<key>TISIntendedLanguage</key>
 	<string>zh-Hans</string>
-	<!-- 允许系统设置里打开「用 Caps Lock 在 ABC 与青简之间切换」；缺省不开，青简自己的 Caps Lock 英文模式不变（#211） -->
+	<!-- 允许系统设置里打开「用 Caps Lock 在 ABC 与青简之间切换」；缺省不开，青简自己的 Caps Lock 英文模式不变（#211）。
+		另外要求字符集不含 Latn：带着它系统会把青简归成拉丁类输入源，这个设置项根本不出现在系统设置里（鼠须管 1.0.1 同款坑） -->
 	<key>TICapsLockLanguageSwitchCapable</key>
 	<true/>
 	<key>tsInputMethodIconFileKey</key>
@@ -51,10 +52,10 @@
 	<!-- 模板图：系统只取 alpha，按深浅色自动反色 -->
 	<key>TISIconIsTemplate</key>
 	<true/>
+	<!-- 只声明汉字：多一个 Latn 都会被系统按拉丁类输入源处理，见上面 Caps Lock 切换的说明 -->
 	<key>tsInputMethodCharacterRepertoireKey</key>
 	<array>
 		<string>Hans</string>
-		<string>Latn</string>
 	</array>
 
 	<!-- 输入模式：系统登记、启用的是模式 app.qingjian.inputmethod.Hans，顶层 ID 是它的父项；
@@ -72,7 +73,6 @@
 				<key>tsInputModeCharacterRepertoireKey</key>
 				<array>
 					<string>Hans</string>
-					<string>Latn</string>
 				</array>
 				<key>tsInputModeDefaultStateKey</key>
 				<true/>
