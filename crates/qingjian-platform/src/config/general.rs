@@ -27,7 +27,7 @@ pub const LEARNING_LANGUAGE_OFF: &str = "off";
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct GeneralConfig {
-    /// 学习语言（ISO 639-1，`en` / `ja` / `es` / `vi`；`off` 不显示译文）：候选旁显示哪种语言的译文。要有对应的释义表文件才生效。
+    /// 学习语言（ISO 639-1，`en` / `ja` / `es` / `vi` / `de`；`off` 不显示译文）：候选旁显示哪种语言的译文。要有对应的释义表文件才生效。
     pub learning_language: String,
 
     /// 每页候选数，1–9。
