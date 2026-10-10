@@ -26,8 +26,11 @@ pub(crate) struct RenderData {
     /// 高亮行下标（页内）。
     pub(super) highlight: usize,
 
-    /// 页码，只有多页时有。
-    pub(super) footer: Option<String>,
+    /// 当前页（从 0 起），分页条使用。
+    pub(super) page: usize,
+
+    /// 候选页数。
+    pub(super) page_count: usize,
 
     /// 整句补全，画在拼音行右侧。
     pub(super) sentence: Option<String>,
@@ -56,7 +59,8 @@ impl RenderData {
             cursor: 0,
             rows: Vec::new(),
             highlight: usize::MAX,
-            footer: None,
+            page: 0,
+            page_count: 1,
             sentence: None,
             notice: None,
             layout: LayoutMode::default(),
@@ -81,8 +85,8 @@ impl RenderData {
             .map(|(i, candidate)| row::from_candidate(i, candidate, self.show_code))
             .collect();
         self.highlight = frame.highlight;
-        self.footer =
-            (frame.page_count > 1).then(|| format!("{}/{}", frame.page + 1, frame.page_count));
+        self.page = frame.page;
+        self.page_count = frame.page_count;
         self.sentence = frame.sentence.clone();
         self.notice = frame.notice.clone();
     }
@@ -112,7 +116,8 @@ impl RenderData {
             highlighted: (self.highlight != usize::MAX).then_some(self.highlight),
             columns: 0,
             column_ems: Vec::new(),
-            footer: self.footer.clone(),
+            // 页码在 Windows 分页条里显示。
+            footer: None,
             sentence: self.sentence.clone(),
             status: self.notice.clone(),
             mode: self.mode.clone(),

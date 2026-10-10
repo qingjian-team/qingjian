@@ -75,6 +75,7 @@ pub fn serve_pipe(
             }
             Ok(Work::Status(event)) => router.handle_status_event(event),
             Ok(Work::Click(target)) => router.handle_click(target),
+            Ok(Work::Page(step)) => router.handle_page_click(step),
             Err(RecvTimeoutError::Timeout) => continue,
             Err(RecvTimeoutError::Disconnected) => break,
         }
