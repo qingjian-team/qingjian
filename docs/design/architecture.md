@@ -196,8 +196,8 @@ Engine 查词的词库是一个列表：主词库（随包 `dict.qj`）、附加
 CSR 偏移与后继）原样落盘，打开时 mmap 整个文件、校验一遍头与分节边界，不反序列化。启动从 0.9 s 降到 50 ms。
 
 - 文件 = 32 字节头（魔数 `QINGJIAN`、格式版本、数据种类 `Kind`、分节数）+ 分节表（4 字节标签 + 偏移 + 长度，正文 8 字节对齐）
-  + 各分节。第一节固定是 `META`：TOML 的 `Metadata`（名称、许可证 SPDX、署名、来源、版本、条数、生成者），
-  偏好设置里的词库列表直接显示它，第三方词库各带各的许可证靠的就是这一节。
+  - 各分节。第一节固定是 `META`：TOML 的 `Metadata`（名称、许可证 SPDX、署名、来源、版本、条数、生成者），
+    偏好设置里的词库列表直接显示它，第三方词库各带各的许可证靠的就是这一节。
 - 数据种类：词库、语言模型、释义表、emoji 表、英文词表，以及本地整句模型 `Kind::Model`——扩展名换成 `.qjm`，
   三节 `CONF` / `VOCB` / `SAFT` 原样装导出的 `config.json` / `vocab.json` / `model.safetensors`（safetensors 是不透明载荷，
   mmap 后切片给 candle，张量搬上设备后容器即丢；`META.entries` 记参数量）。`qingjian-neural::find_model(dir)` 先找 `.qjm`、没有再认三件套目录，
@@ -234,6 +234,7 @@ bigram 语言模型 + Viterbi，加上简拼、模糊音、双拼。没有整句
 （一整句，或者「的」这种单字），引擎越好，能标注的候选反而越少。
 
 待确认的策略：
+
 - 只给词典词候选标注，句子候选和单字虚词留空。
 - 一词多义（开发 → develop / development）只取最高频义项，不展开。
 
@@ -382,6 +383,8 @@ CC-CEDICT 表（`dict-convert cedict`）保留为备用来源，覆盖面广但�
   系统登记、启用、切换的都是模式，顶层 ID 只是父项，所以 `--register` 启用的是 `tsVisibleInputModeOrderedArrayKey` 的第一项；
   模式显示名在 `InfoPlist.strings` 按模式 ID 给，缺了对话框里显示裸 ID。没有模式时标准文本视图（备忘录等）切不过去、
   「添加输入法」列表也不出现（#31）。
+  **Caps Lock 切换**：系统设置里的「用大写锁定键切换 ABC」要出现并认青简为目标，除 `TICapsLockLanguageSwitchCapable = true` 外，
+  顶层与模式级 `…CharacterRepertoireKey` 都不能带 `Latn`——带了系统把输入源归成拉丁类，这个设置项根本不显示（鼠须管 1.0.1 修的同款坑，#211）。
   **图标**：顶层 `tsInputMethodIconFileKey` 与模式里的 Menu / AlternateMenu / Palette 三个图标键都指向同一张 22×16pt 模板 PDF
   （黑色键帽镂空图形，`TISIconIsTemplate` 让系统只取 alpha 按深浅色反色），鼠须管、Fcitx5 同此尺寸与形式，小了整体偏小、
   非模式路径会被非等比压进 16×16。系统自带输入法下拉菜单里的「拼」「あ」是苹果私有素材（KeyboardLayouts.framework），
