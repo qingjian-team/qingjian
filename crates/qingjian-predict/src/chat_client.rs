@@ -76,6 +76,27 @@ impl ChatClient {
         user: &str,
         max_tokens: u32,
     ) -> Result<String, PredictError> {
+        let mut body = self.request_body(system, user, max_tokens)?;
+        let raw = match self.send(&body).await {
+            Ok(raw) => raw,
+            // 「始终思考」的模型（如 GLM-5 系列）会拒绝关思考参数；去掉它按模型默认重试一次
+            Err(PredictError::Api(error)) if rejects_thinking_control(&error) => {
+                tracing::info!(model = %self.model, error = %error, "模型拒绝关思考，去掉该参数重试");
+                strip_thinking_params(&mut body);
+                self.send(&body).await?
+            }
+            Err(error) => return Err(error),
+        };
+        self.parse_content(raw)
+    }
+
+    /// 组请求体：类型化参数先构建成 JSON，再修温度精度、按接口改写关思考参数。
+    fn request_body(
+        &self,
+        system: &str,
+        user: &str,
+        max_tokens: u32,
+    ) -> Result<serde_json::Value, PredictError> {
         let messages: Vec<ChatCompletionRequestMessage> = vec![
             ChatCompletionRequestSystemMessage::from(system).into(),
             ChatCompletionRequestUserMessage::from(user).into(),
@@ -90,13 +111,23 @@ impl ChatClient {
             args.reasoning_effort(effort);
         }
         let mut body = serde_json::to_value(args.build()?)?;
+        quantize_temperature(&mut body);
         if matches!(self.reasoning_effort, Some(ReasoningEffort::None)) {
             self.thinking_switch.disable(&mut body);
         }
-        let raw: serde_json::Value =
-            tokio::time::timeout(self.timeout, self.client.chat().create_byot(body))
-                .await
-                .map_err(|_| PredictError::Timeout(self.timeout.as_millis() as u64))??;
+        Ok(body)
+    }
+
+    /// 发一次请求，返回原始 JSON。
+    async fn send(&self, body: &serde_json::Value) -> Result<serde_json::Value, PredictError> {
+        tokio::time::timeout(self.timeout, self.client.chat().create_byot(body.clone()))
+            .await
+            .map_err(|_| PredictError::Timeout(self.timeout.as_millis() as u64))?
+            .map_err(PredictError::from)
+    }
+
+    /// 从原始响应里取正文；空正文时把原始响应记进日志，方便排查思考占满预算、模型名不对这类问题。
+    fn parse_content(&self, raw: serde_json::Value) -> Result<String, PredictError> {
         let response: CreateChatCompletionResponse = serde_json::from_value(raw.clone())?;
         let cut_off = response
             .choices
@@ -176,6 +207,52 @@ fn host_of(base_url: &str) -> Option<String> {
         .and_then(|url| url.host_str().map(str::to_ascii_lowercase))
 }
 
+/// 请求体里的温度修成两位小数。f32 一进 `serde_json::Value` 就按 f64 存，会带上精度尾巴
+/// （0.3 → 0.300000011920929），智谱这类限制两位小数的接口直接 400（code 1210）。
+/// 各家接口都不拒绝合法值的两位小数表示，统一修无副作用。
+fn quantize_temperature(body: &mut serde_json::Value) {
+    let Some(fields) = body.as_object_mut() else {
+        return;
+    };
+    let Some(t) = fields.get("temperature").and_then(|v| v.as_f64()) else {
+        return;
+    };
+    let rounded = (t * 100.0).round() / 100.0;
+    fields.insert(
+        "temperature".to_owned(),
+        serde_json::Number::from_f64(rounded).into(),
+    );
+}
+
+/// 去掉请求里所有关思考参数，交给模型默认行为。
+fn strip_thinking_params(body: &mut serde_json::Value) {
+    if let Some(fields) = body.as_object_mut() {
+        fields.remove("reasoning_effort");
+        fields.remove("thinking");
+    }
+}
+
+/// 报错是不是「模型始终思考，不支持关闭」类：去掉关思考参数重试或许能通。
+/// 智谱的报错是中文（「该模型始终思考，不支持关闭思考」），z.ai 国际站可能给英文；温度之类的 1210 不能误伤。
+fn rejects_thinking_control(error: &async_openai::error::OpenAIError) -> bool {
+    let message = error.to_string();
+    message.contains("思考") || message.to_lowercase().contains("always think")
+}
+
+#[cfg(test)]
+fn thinking_error(message: &str) -> async_openai::error::OpenAIError {
+    async_openai::error::OpenAIError::ApiError(async_openai::error::ApiErrorResponse {
+        status_code: reqwest::StatusCode::BAD_REQUEST,
+        api_error: async_openai::error::ApiError {
+            message: message.to_owned(),
+            r#type: None,
+            param: None,
+            code: None,
+            misalignment: None,
+        },
+    })
+}
+
 /// 按接口地址决定 HTTP 客户端：OpenCode 带上它要求的会话头，其他服务用默认客户端。
 /// 头装不上（理论上不会）就退回默认客户端，请求照发，让服务端的报错说明问题。
 fn http_client(base_url: &str) -> reqwest::Client {
@@ -231,6 +308,41 @@ mod tests {
         ));
         assert!(parse_reasoning_effort("").is_none());
         assert!(parse_reasoning_effort("maximum").is_none());
+    }
+
+    /// 回归 #287 Bug 1：温度上到线上不能带 f32→f64 的精度尾巴。
+    #[test]
+    fn temperature_is_sent_with_at_most_two_decimals() {
+        let client = ChatClient::new(&PredictConfig::default(), "key".to_owned());
+        let body = client.request_body("s", "u", 10).unwrap();
+        assert_eq!(body["temperature"].as_f64(), Some(0.3), "值应等于 0.3");
+        assert_eq!(
+            body["temperature"].to_string(),
+            "0.3",
+            "序列化后不得出现 0.300000011920929 这类精度尾巴"
+        );
+    }
+
+    /// 回归 #287 Bug 2：始终思考模型的报错能识别，重试时把两类关思考参数都摘掉。
+    #[test]
+    fn thinking_rejection_is_detected_and_params_stripped() {
+        let error = thinking_error("该模型始终思考，不支持关闭思考；请使用 low、high 或 max。");
+        assert!(rejects_thinking_control(&error));
+        // 温度报错同样走 1210，不能误判成思考拒绝
+        let temperature_error = thinking_error("temperature参数非法：限制小数点[2]位");
+        assert!(!rejects_thinking_control(&temperature_error));
+        assert!(!rejects_thinking_control(&temperature_error));
+
+        let mut body = serde_json::json!({
+            "model": "glm-5.3-flash",
+            "reasoning_effort": "none",
+            "thinking": { "type": "disabled" },
+            "temperature": 0.3
+        });
+        strip_thinking_params(&mut body);
+        assert!(body.get("reasoning_effort").is_none());
+        assert!(body.get("thinking").is_none());
+        assert_eq!(body["temperature"], 0.3);
     }
 
     #[test]
