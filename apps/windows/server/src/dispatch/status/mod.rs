@@ -90,6 +90,14 @@ impl Router {
         }
     }
 
+    /// 快捷键切换输出字形，沿用 Core 转换并保留当前组句。
+    pub(super) fn toggle_traditional(&mut self) {
+        self.config.traditional = !self.config.traditional;
+        self.engine.set_traditional_mode(self.config.traditional);
+        self.persist("general", "traditional", self.config.traditional);
+        tracing::debug!(traditional = self.config.traditional, "切换简繁输出");
+    }
+
     /// 写回配置文件一个键；没有配置路径（测试）就只改内存。
     fn persist(&self, section: &str, key: &str, value: impl Into<toml_edit::Value>) {
         let Some(path) = self.config_path() else {

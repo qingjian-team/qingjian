@@ -68,6 +68,7 @@ pub(crate) enum Message {
     DeleteCandidate(Option<usize>),
     /// 只换修饰键，字母键固定用当前的。
     TranslateSelection(Option<usize>),
+    ToggleTraditional(Option<usize>),
 
     // 模糊音页
     /// 配置键 + 新值。

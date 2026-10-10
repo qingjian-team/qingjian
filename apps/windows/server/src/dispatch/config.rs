@@ -84,6 +84,12 @@ pub struct RouterConfig {
     /// 「翻译选中文字」快捷键（`[shortcut] translate_selection`）。
     pub translate_selection: KeyCombo,
 
+    /// 简繁切换快捷键；与选区翻译相同时不登记，保留翻译行为。
+    pub toggle_traditional: Option<KeyCombo>,
+
+    /// 当前繁体输出状态。
+    pub traditional: bool,
+
     /// 悬浮状态条开关（`[status_bar] enabled`）。
     pub status_enabled: bool,
 
@@ -158,6 +164,11 @@ impl From<&Config> for RouterConfig {
             },
             delete_keys: config.shortcut.delete_keys().into(),
             translate_selection: config.shortcut.translate_selection,
+            toggle_traditional: config
+                .shortcut
+                .toggle_traditional
+                .filter(|key| *key != config.shortcut.translate_selection),
+            traditional: config.general.traditional,
             status_enabled: config.status_bar.enabled,
             status_pos: config.status_bar.x.zip(config.status_bar.y),
             scheme: config.general.scheme(),
