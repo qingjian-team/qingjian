@@ -57,8 +57,11 @@ jobs:
       - name: Build Fcitx5 default panel
         run: cmake --build target/fcitx5-stage1 --parallel 2
 
-      # 日志用 tee 落盘，失败时由下面的 Upload Linux diagnostics 打包上传，便于排障
+      # 日志用 tee 落盘，失败时由下面的 Upload Linux diagnostics 打包上传，便于排障。
+      # 必须显式 shell: bash：默认的 bash -e 不带 pipefail，`| tee` 会返回 tee 的退出码、把测试失败吞掉，
+      # if: failure() 的诊断上传也不会触发
       - name: Test Fcitx5 default panel
+        shell: bash
         run: |
           mkdir -p target/ci-logs
           env -u DBUS_SESSION_BUS_ADDRESS ctest --test-dir target/fcitx5-stage1 --output-on-failure 2>&1 | tee target/ci-logs/fcitx5-ctest.log
@@ -67,6 +70,7 @@ jobs:
         run: bash -n apps/linux/scripts/install.sh apps/linux/scripts/uninstall.sh apps/linux/scripts/package.sh apps/linux/scripts/package-install.sh
 
       - name: Test Linux installation
+        shell: bash
         run: |
           mkdir -p target/ci-logs
           python3 apps/linux/tests/installation.py 2>&1 | tee target/ci-logs/linux-installation.log
