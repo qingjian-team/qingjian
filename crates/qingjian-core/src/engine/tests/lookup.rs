@@ -147,6 +147,27 @@ fn keyboard_u_umlaut_spelling_matches_canonical_dictionary_keys() {
 }
 
 #[test]
+fn keyboard_v_after_jqxy_matches_u_dictionary_keys() {
+    let dictionary =
+        Dictionary::parse("提取\tti qu\t9000\n去留\tqu liu\t8000\n学习\txue xi\t7000\n").unwrap();
+    let mut engine = Engine::new(dictionary);
+
+    engine.set_input("tiqv");
+    let query = engine.query().unwrap();
+    assert_eq!(query.marked_text(), "ti'qv");
+    assert_eq!(query.candidates.items[0].text, "提取");
+    assert_eq!(query.candidates.items[0].syllables, ["ti", "qu"]);
+
+    engine.set_input("qvliu");
+    assert_eq!(engine.query().unwrap().candidates.items[0].text, "去留");
+
+    engine.set_input("xuexiqvliu");
+    let sentence = &engine.query().unwrap().candidates.items[0];
+    assert_eq!(sentence.text, "学习去留");
+    assert_eq!(sentence.kind, CandidateKind::Sentence);
+}
+
+#[test]
 fn empty_input_is_an_error() {
     assert_eq!(engine().query().unwrap_err(), ParseError::Empty);
 }
