@@ -65,6 +65,7 @@ Rust 工具链由 `rust-toolchain.toml` 钉版本（现在 1.96.0），两个 wo
 cargo 命令全 `--locked`（含 `bundle.sh` 与 `build.ps1`）。普通 CI 只有 `contents: read`，checkout 不留凭据；release 的 secrets 不放顶层 env，只注入用它的那一步。
 
 发版门禁（`release.yml` 第一步）：版本号与标签一致且不带 `-dev`；标签指向的提交必须在 `main` 上（`git merge-base --is-ancestor`）；产品数据下载后按 `data` Release 的 `SHA256SUMS` 校验，摘要写进 `build-info.json` 的 `data_sha256`。
+**别给这条门禁开逃生口。** 2026-10-10 有个外部 PR（[#522](https://github.com/qingjian-team/qingjian/pull/522)）想加 `workflow_dispatch` 手动触发，并带一个 `version_override` 输入「在误打标签时手动纠正版本号」。这条门禁存在的意义就是让 Release 版本号、git 标签、各平台 `Cargo.toml` 的 `version` 三者强制对齐；任何能从外部输入改写版本号的入口，都等于把这道门禁变成可选项——`dry_run` 同理，若它没真正停住 `gh release create`，就只是「看起来检查了」。要重发就走「改版本号 → 重新打标签」的既有路径。该 PR 已被关闭，理由见 [`ci-enhancement-declined.md`](ci-enhancement-declined.md)。
 **正式版前还欠**：产品数据改成不可变 tag 并在仓库里锁定版本（现在滚动覆盖，同一源码 tag 重跑可能拿到不同数据）、安装包内容验证（词库 / 模型 / 许可齐不齐、签名校验）。
 
 ## 两个 workflow
