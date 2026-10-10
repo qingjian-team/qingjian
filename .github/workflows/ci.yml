@@ -21,6 +21,7 @@ env:
 jobs:
   core:
     runs-on: ubuntu-26.04
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -47,17 +48,44 @@ jobs:
       - name: Test
         run: cargo test --workspace --exclude qingjian-macos --locked
 
-      - name: Build and test Fcitx5 default panel
+      - name: Build Linux server
+        run: cargo build -p qingjian-linux-server --locked
+
+      - name: Configure Fcitx5 default panel
+        run: cmake -S apps/linux/fcitx5 -B target/fcitx5-stage1 -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON
+
+      - name: Build Fcitx5 default panel
+        run: cmake --build target/fcitx5-stage1 --parallel 2
+
+      # 日志用 tee 落盘，失败时由下面的 Upload Linux diagnostics 打包上传，便于排障
+      - name: Test Fcitx5 default panel
         run: |
-          cargo build -p qingjian-linux-server --locked
-          cmake -S apps/linux/fcitx5 -B target/fcitx5-stage1 -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON
-          cmake --build target/fcitx5-stage1 --parallel 2
-          env -u DBUS_SESSION_BUS_ADDRESS ctest --test-dir target/fcitx5-stage1 --output-on-failure
-          bash -n apps/linux/scripts/install.sh apps/linux/scripts/uninstall.sh apps/linux/scripts/package.sh apps/linux/scripts/package-install.sh
-          python3 apps/linux/tests/installation.py
+          mkdir -p target/ci-logs
+          env -u DBUS_SESSION_BUS_ADDRESS ctest --test-dir target/fcitx5-stage1 --output-on-failure 2>&1 | tee target/ci-logs/fcitx5-ctest.log
+
+      - name: Validate Linux install scripts
+        run: bash -n apps/linux/scripts/install.sh apps/linux/scripts/uninstall.sh apps/linux/scripts/package.sh apps/linux/scripts/package-install.sh
+
+      - name: Test Linux installation
+        run: |
+          mkdir -p target/ci-logs
+          python3 apps/linux/tests/installation.py 2>&1 | tee target/ci-logs/linux-installation.log
+
+      - name: Upload Linux diagnostics
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: linux-ci-diagnostics
+          if-no-files-found: ignore
+          path: |
+            target/ci-logs/**
+            target/fcitx5-stage1/Testing/**
+            target/fcitx5-stage1/CMakeFiles/CMakeOutput.log
+            target/fcitx5-stage1/CMakeFiles/CMakeError.log
 
   macos:
     runs-on: macos-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -78,6 +106,7 @@ jobs:
 
   windows:
     runs-on: windows-latest
+    timeout-minutes: 15
     env:
       # Server 的 build.rs 嵌 uiAccess manifest，没签名的 exe（含测试二进制）起不来（os error 740）；与 release.yml 一样关掉
       QINGJIAN_UIACCESS: '0'
