@@ -10,6 +10,10 @@ pkill -x qingjian-macos 2>/dev/null || true
 user="$(stat -f%Su /dev/console 2>/dev/null || true)"
 if [ -n "$user" ] && [ "$user" != "root" ]; then
     uid="$(id -u "$user")"
+    # 删掉这个用户的输入源缓存（共享的一份 + 每个沙盒应用各一份）：注册时系统广播后，开着的应用作废内存里的表、
+    # 找不到磁盘缓存就从输入法目录重建，认得青简；不删的话它们重新载入装之前那份，Control+Space 切到青简时崩溃（#346）
+    cache="$(sudo -u "$user" getconf DARWIN_USER_CACHE_DIR 2>/dev/null)"
+    [ -n "$cache" ] && rm -f "$cache"com.apple.IntlDataCache.le* "$cache"*/com.apple.IntlDataCache.le* 2>/dev/null
     if launchctl asuser "$uid" sudo -u "$user" "$BIN" --register; then
         echo "青简：已为 $user 注册并启用输入源"
     else
