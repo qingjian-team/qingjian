@@ -59,18 +59,16 @@ jobs:
 
       - name: Test Fcitx5 default panel
         run: |
-          set -o pipefail
           mkdir -p target/ci-logs
-          env -u DBUS_SESSION_BUS_ADDRESS ctest --test-dir target/fcitx5-stage1 --output-on-failure | tee target/ci-logs/fcitx5-ctest.log
+          env -u DBUS_SESSION_BUS_ADDRESS ctest --test-dir target/fcitx5-stage1 --output-on-failure 2>&1 | tee target/ci-logs/fcitx5-ctest.log
 
       - name: Validate Linux install scripts
         run: bash -n apps/linux/scripts/install.sh apps/linux/scripts/uninstall.sh apps/linux/scripts/package.sh apps/linux/scripts/package-install.sh
 
       - name: Test Linux installation
         run: |
-          set -o pipefail
           mkdir -p target/ci-logs
-          python3 apps/linux/tests/installation.py | tee target/ci-logs/linux-installation.log
+          python3 apps/linux/tests/installation.py 2>&1 | tee target/ci-logs/linux-installation.log
 
       - name: Upload Linux diagnostics
         if: failure()
