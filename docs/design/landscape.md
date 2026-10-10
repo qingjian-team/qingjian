@@ -30,7 +30,7 @@
 
 | 用途 | 来源 | 许可 | 备注 |
 |---|---|---|---|
-| 拼音词库（产品） | 自建，源数据在 `assets/lexicon/`：《通用规范汉字表》8105 字（政府公布的规范字表，iDvel 转录并与 shengdoushi 分级表核对）、《现代汉语常用词表（草案）》56k 词（教育部 2008，liuxilu 校对版，自带拼音）、THUOCL 11 类领域词 15.7 万（2026-09-06 起按语料次数拆开：常见的留基础词库，其余各成一本随包 `.qj`；清华 NLP，MIT） | 字表与常用词表是官方文件的转录，转录仓库未附许可证；THUOCL MIT；读音 Unihan（Unicode License v3） | `dict-convert lexicon` 生成 `dict.tsv`（20.5 万条，随仓库放 `assets/lexicon/dict.tsv`）：字与领域词读音来自 Unihan，5.6 万含多音字的领域词和 1.2 万含多音字的常用词由 LLM 标注再逐字对照 Unihan 校验（常用词表自带拼音对多音字错了 288 处：部长 chang、西藏 cang、成都 dou……，以标注为主读音、原读音降权保留），词频来自下面两份语料的统计（两遍：先按底值分词统计，再用真实词频重统计）。2026-09-05 起取代雾凇拼音（GPL-3.0 only，与本项目不兼容，已从数据目录与工具里移除） |
+| 拼音词库（产品） | 自建，源数据在 `assets/lexicon/`：《通用规范汉字表》8105 字（政府公布的规范字表，iDvel 转录并与 shengdoushi 分级表核对）、《现代汉语常用词表（草案）》56k 词（教育部 2008，liuxilu 校对版，自带拼音）、THUOCL 11 类领域词 15.7 万（2026-09-06 起按语料次数拆开：常见的留基础词库，其余各成一本随包 `.qj`；清华 NLP，MIT）；2026-09-27 起补入 jieba 分词词表（MIT）对照出的缺失高频词（读音逐字取 Unihan，词频按与原语料统计的回归关系折算，见 `assets/lexicon/domain_words.tsv` 头注） | 字表与常用词表是官方文件的转录，转录仓库未附许可证；THUOCL MIT；读音 Unihan（Unicode License v3） | `dict-convert lexicon` 生成 `dict.tsv`（20.5 万条，随仓库放 `assets/lexicon/dict.tsv`）：字与领域词读音来自 Unihan，5.6 万含多音字的领域词和 1.2 万含多音字的常用词由 LLM 标注再逐字对照 Unihan 校验（常用词表自带拼音对多音字错了 288 处：部长 chang、西藏 cang、成都 dou……，以标注为主读音、原读音降权保留），词频来自下面两份语料的统计（两遍：先按底值分词统计，再用真实词频重统计）。2026-09-05 起取代雾凇拼音（GPL-3.0 only，与本项目不兼容，已从数据目录与工具里移除） |
 | 英文词表（产品） | 同一数据包 `05_english`：ESDB（en-wl/wordlist，MIT-like）、CSpell software-terms（MIT）、typos 误拼对照（MIT） | 均宽松，许可原文随包 | `dict-convert english` 取纯字母词 9.5 万，词频 wordfreq；误拼对照表以后可喂英文纠正。取代雾凇 en_dicts |
 | 语言模型语料 | 中文维基（HF `wikimedia/wikipedia` 20231101.zh） | CC BY-SA 4.0 | 百科体，第一人称、口语词几乎没有（去 / 累 这类词计数极低），单独用它整句会偏向地名术语；由它统计的 bigram 表按 CC BY-SA 对待 |
 | 语言模型语料 | LCCC（清华 `thu-coai/lccc`，微博对话） | MIT | 口语对话，补维基缺的日常用语；两份语料合并统计。`tools/corpus/parquet_to_text.py` 转文本，`dict-convert bigram` 统计 |
@@ -62,7 +62,7 @@
 
 | 数据 | 来源与许可 |
 |---|---|
-| 词库 | 通用规范汉字表；现代汉语常用词表（liuxilu 校对版）；THUOCL 领域词（清华大学自然语言处理实验室，MIT）；读音取自 Unihan（Unicode License v3） |
+| 词库 | 通用规范汉字表；现代汉语常用词表（liuxilu 校对版）；THUOCL 领域词（清华大学自然语言处理实验室，MIT）；jieba 分词词表（fxsjy/jieba，MIT，2026-09-27 起用于缺失高频词对照与词频折算）；读音取自 Unihan（Unicode License v3） |
 | 语言模型 | 中文维基百科（CC BY-SA 4.0）与 LCCC（清华大学 CoAI，MIT）语料统计 |
 | 释义表 | 由大语言模型（DeepSeek）离线生成，青简自建 |
 | emoji | Unicode CLDR annotations（Unicode License v3） |
