@@ -26,6 +26,23 @@ name: release
 on:
   push:
     tags: ['v*', 'macos-v*', 'windows-v*', 'linux-v*']
+  # 手动触发入口，用于干运行 / 补发单一平台
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: '只做 prepare 检查，不建草稿不发产物（需要 GITHUB_TOKEN 权限）'
+        required: false
+        default: false
+        type: boolean
+      platform:
+        description: '发特定平台（值必须是 macos、windows、linux 之一，留空时发三个）'
+        required: false
+        type: string
+        default: ''
+      version_override:
+        description: '手动覆盖版本号（应留空，只在误打标签时使用）'
+        required: false
+        type: string
 
 env:
   CARGO_TERM_COLOR: always
@@ -40,6 +57,7 @@ jobs:
       macos: ${{ steps.gate.outputs.macos }}
       windows: ${{ steps.gate.outputs.windows }}
       linux: ${{ steps.gate.outputs.linux }}
+      dry_run: ${{ steps.gate.outputs.dry_run }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -50,15 +68,30 @@ jobs:
         id: gate
         env:
           INDEX_KEY_SET: ${{ secrets.QINGJIAN_INDEX_SIGNING_KEY != '' }}
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || 'false' }}
+          MANUAL_PLATFORM: ${{ github.event_name == 'workflow_dispatch' && inputs.platform || '' }}
+          MANUAL_VERSION: ${{ github.event_name == 'workflow_dispatch' && inputs.version_override || '' }}
         run: |
           if [[ "$INDEX_KEY_SET" != "true" ]]; then
             echo "没配 QINGJIAN_INDEX_SIGNING_KEY：releases.json 签不了名，已装的青简都不认这份索引、收不到更新提示（docs/notes/release.md）" >&2
             exit 1
           fi
+          # 手动触发时可 override 版本号（仅用于误打标签修复），必须放在 case 之后
           case "$GITHUB_REF_NAME" in
             v*) PLATFORMS="macos windows linux"; VERSION="${GITHUB_REF_NAME#v}" ;;
             *-v*) PLATFORMS="${GITHUB_REF_NAME%%-v*}"; VERSION="${GITHUB_REF_NAME#*-v}" ;;
+            # workflow_dispatch 没有 tag，手动指定 platform 或留空发三个
+            '') if [[ -n "$MANUAL_PLATFORM" ]]; then
+                  PLATFORMS="$MANUAL_PLATFORM"
+                else
+                  PLATFORMS="macos windows linux"
+                fi
+                ;;
           esac
+          if [[ -n "$MANUAL_VERSION" ]]; then
+            echo "::warning:: 手动覆盖版本号：$VERSION → $MANUAL_VERSION"
+            VERSION="$MANUAL_VERSION"
+          fi
           declare -A MANIFEST=([macos]=apps/macos/Cargo.toml [windows]=apps/windows/server/Cargo.toml [linux]=apps/linux/server/Cargo.toml)
           for platform in $PLATFORMS; do
             found="$(sed -n 's/^version = "\(.*\)"/\1/p' "${MANIFEST[$platform]}" | head -1)"
@@ -81,8 +114,10 @@ jobs:
             [[ " $PLATFORMS " == *" $platform "* ]] && on=true || on=false
             echo "$platform=$on" >> "$GITHUB_OUTPUT"
           done
+          echo "dry_run=$DRY_RUN" >> "$GITHUB_OUTPUT"
 
-      - name: Create draft release
+      - name: Create draft release (skip on dry‑run)
+        if: steps.gate.outputs.dry_run != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ steps.gate.outputs.version }}
@@ -114,10 +149,11 @@ jobs:
 
   macos:
     needs: prepare
-    if: needs.prepare.outputs.macos == 'true'
+    if: needs.prepare.outputs.macos == 'true' && needs.prepare.outputs.dry_run != 'true'
     runs-on: macos-26
     permissions:
       contents: write
+    timeout-minutes: 45
     env:
       VERSION: ${{ needs.prepare.outputs.version }}
     steps:
@@ -195,10 +231,11 @@ jobs:
 
   windows:
     needs: prepare
-    if: needs.prepare.outputs.windows == 'true'
+    if: needs.prepare.outputs.windows == 'true' && needs.prepare.outputs.dry_run != 'true'
     runs-on: windows-latest
     permissions:
       contents: write
+    timeout-minutes: 40
     defaults:
       run:
         shell: bash
@@ -255,11 +292,12 @@ jobs:
 
   linux:
     needs: prepare
-    if: needs.prepare.outputs.linux == 'true'
+    if: needs.prepare.outputs.linux == 'true' && needs.prepare.outputs.dry_run != 'true'
     # Fcitx5 插件链接的是构建机上的 Fcitx5，与已验证的 Ubuntu 26.04 一致
     runs-on: ubuntu-26.04
     permissions:
       contents: write
+    timeout-minutes: 35
     env:
       VERSION: ${{ needs.prepare.outputs.version }}
     steps:
@@ -315,6 +353,8 @@ jobs:
     runs-on: ubuntu-26.04
     permissions:
       contents: write
+    timeout-minutes: 20
+    environment: release
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -347,3 +387,18 @@ jobs:
         env:
           QINGJIAN_WEB_TOKEN: ${{ secrets.QINGJIAN_WEB_TOKEN }}
         run: tools/release/bump-website.sh
+
+      - name: Emit release summary
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+          MACOS: ${{ needs.prepare.outputs.macos }}
+          WINDOWS: ${{ needs.prepare.outputs.windows }}
+          LINUX: ${{ needs.prepare.outputs.linux }}
+          DRY_RUN: ${{ needs.prepare.outputs.dry_run }}
+        run: |
+          echo "### 青简发布结果" >> "$GITHUB_STEP_SUMMARY"
+          echo "- 版本：$VERSION" >> "$GITHUB_STEP_SUMMARY"
+          echo "- 触发方式：$([[ "$DRY_RUN" == "true" ]] && echo 'dry-run（未发布）' || echo '正式发布')" >> "$GITHUB_STEP_SUMMARY"
+          echo "- macOS：$MACOS" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Windows：$WINDOWS" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Linux：$LINUX" >> "$GITHUB_STEP_SUMMARY"

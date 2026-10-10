@@ -76,8 +76,13 @@
 
 ## CI 与发版
 
-- CI 三个 job（Linux 全量 / macOS 壳 / Windows 三 crate）都 `--locked`；Dependabot 升 actions；每周 `cargo audit`。
+- CI 三个 job（Linux 全量 / macOS 壳 / Windows 三 crate）都 `--locked`，每个 job 有超时（Linux 20 分钟、平台壳 15 分钟）；
+  Linux 的 Fcitx5 面板已拆成独立步骤，失败时会上传 `linux-ci-diagnostics` 构件（ctest 日志、CMake 输出、安装测试日志）。
+  Dependabot 升 actions；每周 `cargo audit`；`Cargo.lock` 变了还会跑 `supply-chain`（cargo-deny 的 advisory / license / source / ban 检查 + SBOM）。
+- 仓库设了 `CODEOWNERS`：平台壳、Core、自绘渲染器与发布流程相关文件有指定维护者，改到这些区域会自动请求 review。
 - 发版：推 `<平台>-v<版本>` 标签触发 `release.yml`，门禁是版本号 = 标签且不带 -dev、标签在 main 上、产品数据按 SHA256SUMS 校验。
+  `release.yml` 另外支持 `workflow_dispatch`：可选 `dry_run`（只跑 prepare 检查，不建草稿不发产物）与 `platform`（只发某一平台），
+  `publish` job 绑了 `release` environment，可在仓库设置里给它加 required reviewers 做人工确认。
 - CHANGELOG 手写、发版时由维护者统一改（PR 不动它）。流程与 Secrets 见 [notes/release.md](notes/release.md)。
 
 ## 外部 PR
@@ -89,3 +94,4 @@
   复现不了的（没有那个应用或系统）不提修复：把分析写在 issue 里，或者提只加日志、不改行为的 PR。
   不改行为的改动（日志、注释、文档）与有测试 / 回放兜底的 Core 逻辑不受此限。
 - 主题与自绘渲染器（`crates/qingjian-render`、各壳的贴图路径、主题文件）还在测试，这部分暂不接受 PR；稳定一版后再开。
+- 首次从 fork 提 PR 时，`ci` / `CodeQL` 可能会停在「等待批准」状态（GitHub 对 fork 的安全策略），维护者 approve 一次后后续 PR 自动跑。

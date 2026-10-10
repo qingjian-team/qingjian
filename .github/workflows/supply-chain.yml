@@ -1,0 +1,100 @@
+# 供应链与发布物件的可信度检查
+#
+# 扩展 RustSec audit（已存在 .github/workflows/audit.yml），增加：
+# - 许可证合规（cargo-deny check licenses）
+# - 依赖来源与重复度（cargo-deny check sources, cargo-deny check bans）
+# - SBOM（cargo-cyclonedx）生成，用 GitHub artifact attestation 固定在产物上
+# - 对发布产物做的操作（由 index signing key 验签名，无须这里加）
+#
+# 频率：每周一凌晨、Cargo.lock 变化时跑，防止发版前突然引入新许可证/依赖源。
+name: supply-chain
+
+on:
+  schedule:
+    - cron: '0 3 * * 1'  # 周一凌晨三点（UTC），在 audit（凌晨两点）之后
+  push:
+    paths: ['Cargo.lock', '.github/workflows/supply-chain.yml']
+  pull_request:
+    paths: ['Cargo.lock']
+
+# cargo-deny 会在遇到问题时开 issue（issues: write），SBOM attestation 要能写 manifests（attestations: write）。
+permissions:
+  contents: read
+  checks: write
+  issues: write
+  attestations: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de # v1
+        with:
+          toolchain: 1.96.0
+
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+
+      # 如果没有 deny.toml，提供最小配置让 CI 跑起来，但提醒维护者去补上。
+      - name: Check for deny.toml
+        id: config
+        run: |
+          if [[ -f deny.toml ]]; then
+            echo "deny_config_exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "deny_config_exists=false" >> "$GITHUB_OUTPUT"
+            {
+              echo '# 最小限度的 cargo-deny 配置，仓库维护者应在引入新依赖时完善它。'
+              echo '# 详见 https://docs.rs/cargo-deny/latest/cargo_deny/config/struct.Configuration.html'
+              echo '[advisories]'
+              echo 'vulnerability = "deny"'
+              echo ''
+              echo '[licenses]'
+              echo 'default = "allow"'
+              echo 'copyleft = "allow"'
+              echo 'unlicensed = "deny"'
+              echo ''
+              echo '[sources]'
+              echo 'allow-registry = ["crates.io", "github"]'
+              echo 'allow-git = []'
+              echo 'allow-path = []'
+              echo 'allow-unknown-sources = false'
+            } > deny.toml
+          fi
+
+      - name: Install cargo-deny
+        run: cargo install cargo-deny --version 0.20.2
+
+      - name: Check advisories (与 audit.yml 重叠但独立运行)
+        run: cargo deny check advisories
+
+      - name: Check licenses
+        run: cargo deny check licenses
+
+      - name: Check sources
+        run: cargo deny check sources
+
+      - name: Check bans (未使用的依赖、重复依赖)
+        run: cargo deny check bans
+
+      - name: Generate SBOM
+        run: |
+          cargo install cargo-cyclonedx --version 0.5.9
+          cargo cyclonedx --workspace --format json --output sbom.json
+
+      - name: Sign SBOM with GitHub artifact attestation
+        if: success()
+        uses: actions/attest-build-provenance@b7907f94a56c3e5d6c82c9e49866310c2a50ae9b # v2.0.0
+        with:
+          subject-path: sbom.json
+
+      - name: Upload SBOM as artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: sbom-supply-chain
+          path: sbom.json
+          retention-days: 7

@@ -1,0 +1,31 @@
+# 分平台代码与供应链关键文件的责任人；发版 / 关键数据改动必须经过维护者。
+# 格式：path owner… (@GitHub用户名 或 email) (#optional-comment)
+#
+# 仓主（总维护）
+*       @yenharvey
+
+# 各平台壳
+apps/macos/                @lym123727
+apps/windows/              @lym123727
+apps/linux/                @lym123727
+
+# Core 与核心数据管道
+crates/qingjian-core/      @lym123727 @9tong
+crates/qingjian-dictionary/ @9tong
+crates/qingjian-translate/ @9tong
+crates/qingjian-learning/  @9tong
+
+# 自绘渲染器（开发中，不接受外部 PR）
+crates/qingjian-render/    @yenharvey
+
+# 发布流程关键文件
+.github/workflows/release.yml @yenharvey
+tools/release/              @yenharvey
+tools/release-sign/         @yenharvey
+crates/qingjian-update/src/index/signature.rs @yenharvey
+
+# 仓库治理与 GitHub Actions
+.github/CODEOWNERS         @yenharvey
+.github/workflows/*.yml     @yenharvey
+.github/dependabot.yml     @yenharvey
+.github/PULL_REQUEST_TEMPLATE.md @yenharvey
