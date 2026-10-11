@@ -25,6 +25,10 @@ pub struct ShortcutConfig {
     /// 把应用里选中的文字译成学习语言（需要云服务开着）。
     pub translate_selection: KeyCombo,
 
+    pub translate_selection_en: KeyCombo,
+
+    pub translate_selection_ja: KeyCombo,
+
     /// 数字键配这些修饰键：删掉候选（用户词整个删掉，词库词清掉对它的学习）。
     pub delete_candidate: Modifiers,
 }
@@ -42,6 +46,20 @@ impl Default for ShortcutConfig {
             translation,
             translation_second,
             translate_selection: KeyCombo::TRANSLATE_DEFAULT,
+            translate_selection_en: KeyCombo {
+                key: 'e',
+                modifiers: Modifiers {
+                    shift: true,
+                    ..KeyCombo::TRANSLATE_DEFAULT.modifiers
+                },
+            },
+            translate_selection_ja: KeyCombo {
+                key: 'j',
+                modifiers: Modifiers {
+                    shift: true,
+                    ..KeyCombo::TRANSLATE_DEFAULT.modifiers
+                },
+            },
             delete_candidate: Modifiers::SHIFT,
         }
     }

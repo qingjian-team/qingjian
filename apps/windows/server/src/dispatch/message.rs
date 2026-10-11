@@ -131,6 +131,18 @@ impl Router {
             && self.engine.prediction_enabled()
             && self.matches_translate_combo(&event)
         {
+            self.selection_target = if event.character
+                == Some(self.config.translate_selection_en.key)
+                && event.modifiers.chord() == self.config.translate_selection_en.modifiers.into()
+            {
+                Some(qingjian_core::Language::English)
+            } else if event.character == Some(self.config.translate_selection_ja.key)
+                && event.modifiers.chord() == self.config.translate_selection_ja.modifiers.into()
+            {
+                Some(qingjian_core::Language::Japanese)
+            } else {
+                None
+            };
             self.selection_seq += 1;
             self.pending_selection = Some(self.selection_seq);
             tracing::debug!(

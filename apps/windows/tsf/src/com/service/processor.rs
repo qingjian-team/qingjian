@@ -33,6 +33,15 @@ impl ITfTextInputProcessor_Impl for TextService_Impl {
             Err(error) => log(&format!("登记翻译快捷键失败: {error}")),
         }
 
+        let (en, ja) = preserved::language_combos();
+        if preserved::register_language(&keystroke, tid, en, &preserved::GUID_TRANSLATE_EN).is_ok()
+        {
+            self.translate_en_combo.set(Some(en));
+        }
+        if preserved::register_language(&keystroke, tid, ja, &preserved::GUID_TRANSLATE_JA).is_ok()
+        {
+            self.translate_ja_combo.set(Some(ja));
+        }
         self.client_id.set(tid);
         // 连不上 Server、没定时器都不致命。
         match PollTimer::new(self.engine.clone(), self.shared.clone(), tid) {
@@ -100,6 +109,12 @@ impl ITfTextInputProcessor_Impl for TextService_Impl {
             && let Ok(keystroke) = thread_mgr.cast::<ITfKeystrokeMgr>()
         {
             self.drop_switch_preserved_key(&keystroke);
+            if let Some(combo) = self.translate_en_combo.take() {
+                preserved::unregister_language(&keystroke, combo, &preserved::GUID_TRANSLATE_EN);
+            }
+            if let Some(combo) = self.translate_ja_combo.take() {
+                preserved::unregister_language(&keystroke, combo, &preserved::GUID_TRANSLATE_JA);
+            }
             if let Some(combo) = self.translate_combo.take() {
                 preserved::unregister(&keystroke, combo);
             }

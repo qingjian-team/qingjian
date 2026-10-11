@@ -1,8 +1,15 @@
 //! 注入与开关：词库、模糊音、双拼、翻译 / 学习 / 联想等 trait 实现的挂接，以及相应的只读访问。
 
 use super::aux_code::is_valid_aux_code_key;
-use super::*;
 use crate::engine::decoded::EngineDecoded;
+use crate::engine::{
+    DEFAULT_AUX_CODE_KEY, EmojiTable, Engine, FuzzyRules, GlossFiller, InputHistory, InputLogger,
+    Interpolation, Language, LanguageModel, Learner, ModeKeys, NEURAL_MARGIN, NEURAL_WEIGHT,
+    Personal, Predictor, RESCORE_CONTEXT_CHARS, Scheme, SentenceScorer, Translator, TypoCosts,
+    UsageMeter, UsageSummary, VocabularyTracker, marked_rest,
+};
+use qingjian_dictionary::{AuxCodeLookup, CodeTable, Dictionary, WordList};
+use std::sync::Arc;
 
 impl Engine {
     /// 设置中文模式的标点转换。
@@ -385,6 +392,7 @@ impl Engine {
     }
 
     pub fn set_translator(&mut self, translator: Box<dyn Translator>) {
+        self.cancel_prediction();
         self.translator = translator;
     }
 

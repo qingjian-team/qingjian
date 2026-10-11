@@ -11,6 +11,7 @@ mod learning;
 mod lookup;
 mod privacy;
 mod raw;
+mod sentence_translation;
 mod shuangpin;
 mod zhuyin;
 
@@ -156,6 +157,7 @@ impl Predictor for EchoPredictor {
             slots: 2,
             max_items: 2,
             sentence: self.sentence,
+            sentence_translation: false,
         }
     }
 

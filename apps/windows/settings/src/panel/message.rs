@@ -55,6 +55,7 @@ pub(crate) enum Message {
     CloudBaseUrl(String),
     CloudSlots(Option<f64>),
     CloudSentence(bool),
+    SentenceTranslation(bool),
     TestConnection,
     CloudTestDone(Result<String, String>),
 

@@ -4,4 +4,7 @@
 pub(crate) struct Translation {
     /// 云端译文；`None` 表示还在等（候选窗显示「翻译中…」）。
     pub(crate) result: Option<String>,
+
+    /// 请求失败时只显示提示，接受键不会替换原文。
+    pub(crate) failed: bool,
 }

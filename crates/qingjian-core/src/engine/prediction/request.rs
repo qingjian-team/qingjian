@@ -43,4 +43,7 @@ pub struct PredictionRequest {
 
     /// 翻译请求的目标语言代码（`en` / `ja`，学习语言）；其他种类为空。
     pub target_language: String,
+
+    /// 当前学习语言要翻译的单条完整中文候选；回复必须与原文逐字对应。
+    pub translation_source: Option<String>,
 }

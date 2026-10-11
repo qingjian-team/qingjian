@@ -4,6 +4,9 @@
 
 mod job;
 
+#[cfg(test)]
+mod tests;
+
 use qingjian_core::{Candidate, CandidateKind, CandidateList};
 use qingjian_platform::protocol::{
     Frame, KeyEvent, KeyModifiers, KeyOutcome, ScreenRect, ServerMessage, SessionId,
@@ -16,9 +19,16 @@ use super::key::{ESCAPE, RETURN};
 impl Router {
     /// 修饰键比物理组合（去掉 Caps / 中英模式两个状态位）。
     pub(super) fn matches_translate_combo(&self, event: &KeyEvent) -> bool {
-        let combo = self.config.translate_selection;
-        event.character == Some(combo.key)
-            && event.modifiers.chord() == KeyModifiers::from(combo.modifiers)
+        [
+            self.config.translate_selection,
+            self.config.translate_selection_en,
+            self.config.translate_selection_ja,
+        ]
+        .iter()
+        .any(|combo| {
+            event.character == Some(combo.key)
+                && event.modifiers.chord() == KeyModifiers::from(combo.modifiers)
+        })
     }
 
     /// DLL 回来的选区：非空且云服务开着就进入评审；否则回空帧让 DLL 清掉本地翻译态。
@@ -40,21 +50,30 @@ impl Router {
             return empty;
         }
         self.pending_selection = None;
-        let text = text.trim();
-        if text.is_empty() || !self.engine.prediction_enabled() {
+        if text.trim().is_empty() || !self.engine.prediction_enabled() {
             tracing::info!("翻译选中文字：没有可读的选区（或云服务已关）");
             return empty;
         }
         self.last_rect = Some(rect);
-        self.translation = Some(Translation { result: None });
-        self.engine.request_translation(text);
+        let sequence = if let Some(target) = self.selection_target.take() {
+            self.engine.request_translation_to(&text, target)
+        } else {
+            self.engine.request_translation(&text)
+        };
+        if sequence.is_none() {
+            return empty;
+        }
+        self.translation = Some(Translation {
+            result: None,
+            failed: false,
+        });
         tracing::debug!(chars = text.chars().count(), "翻译选中文字：已发翻译请求");
         let frame = self.self_drawn_frame();
         self.reconcile_candidates(&frame);
         empty
     }
 
-    /// 评审态收到按键：任何键都结束评审。回车 / 空格 / 1 接受（译文没到就只吃键），Esc 放弃，其余放弃并交回应用。
+    /// 回车 / 空格 / 1 接受完整译文，未返回时继续等待；Esc 放弃，其余键放弃并交回应用。
     pub(super) fn handle_translation_review(
         &mut self,
         session: SessionId,
@@ -67,6 +86,14 @@ impl Router {
             .translation
             .as_ref()
             .and_then(|translation| translation.result.clone());
+        if accept && result.is_none() && self.translation.as_ref().is_some_and(|t| !t.failed) {
+            return ServerMessage::KeyResult {
+                session,
+                outcome: KeyOutcome::Consumed,
+                commit: None,
+                frame: self.translation_frame(self.translation.as_ref().unwrap()),
+            };
+        }
         self.end_translation();
         let (commit, outcome) = if accept {
             (result, KeyOutcome::Consumed)
@@ -95,8 +122,25 @@ impl Router {
     pub(super) fn translation_frame(&self, translation: &Translation) -> Frame {
         let text = translation
             .result
-            .clone()
-            .unwrap_or_else(|| "翻译中…".to_owned());
+            .as_ref()
+            .map(|text| {
+                if text.chars().count() > 180 {
+                    format!(
+                        "{}…（共 {} 字，Enter 替换全文 / Esc 保留）",
+                        text.chars().take(180).collect::<String>(),
+                        text.chars().count()
+                    )
+                } else {
+                    text.clone()
+                }
+            })
+            .unwrap_or_else(|| {
+                if translation.failed {
+                    "翻译失败，原文已保留；按 Esc 后重试".to_owned()
+                } else {
+                    "翻译中…（Esc 取消）".to_owned()
+                }
+            });
         Frame {
             preedit: Vec::new(),
             preedit_mode: self.config.preedit,

@@ -72,6 +72,13 @@ pub(crate) fn view(settings: &Settings, context: &mut ViewContext<Settings>) -> 
                 .on_toggled(context.callback(Message::CloudSentence)),
         ),
         field(
+            "长句自动翻译",
+            "停顿后为完整中文候选补充当前学习语言的译文，默认关闭。复用下面的云服务并产生接口费用；关闭不影响中文云联想。",
+            ToggleSwitch::new()
+                .is_on(p.sentence_translation)
+                .on_toggled(context.callback(Message::SentenceTranslation)),
+        ),
+        field(
             "接口地址",
             "",
             TextBox::new()

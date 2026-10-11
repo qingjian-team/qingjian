@@ -30,6 +30,7 @@ impl TextService_Impl {
     pub(super) fn commit_pending(&self) {
         if self.shared.translating() {
             self.shared.set_translating(false);
+            self.shared.set_translation_anchor(None);
             self.shared.hide_candidates();
         }
         let stale = self.shared.take_server_stale();

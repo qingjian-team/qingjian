@@ -8,7 +8,7 @@ use async_openai::types::chat::{
     ChatCompletionRequestUserMessage, CreateChatCompletionRequestArgs,
     CreateChatCompletionResponse, FinishReason, ReasoningEffort, ResponseFormat,
 };
-use qingjian_core::PredictionRequest;
+use qingjian_core::{PredictionKind, PredictionRequest};
 use reqwest::header::{HeaderMap, HeaderValue};
 
 use crate::config::PredictConfig;
@@ -39,11 +39,19 @@ pub struct ChatClient {
     /// 超时。
     timeout: Duration,
 
+    /// 长段落翻译每段的网络请求超时。
+    translation_timeout: Duration,
+
     /// 推理强度；`None` 表示不发这个参数。
     reasoning_effort: Option<ReasoningEffort>,
 
     /// 接口关思考用的是哪种参数（按接口地址定）。
     thinking_switch: ThinkingSwitch,
+
+    terminology: Vec<String>,
+    offline: bool,
+    selection_cloud: bool,
+    selection_disabled: bool,
 }
 
 impl ChatClient {
@@ -55,18 +63,84 @@ impl ChatClient {
             client: Client::with_config(openai).with_http_client(http_client(&config.base_url)),
             model: config.model.clone(),
             timeout: Duration::from_millis(config.timeout_ms),
+            translation_timeout: Duration::from_millis(
+                config.translation_timeout_ms.clamp(1000, 300_000),
+            ),
             reasoning_effort: parse_reasoning_effort(&config.reasoning_effort),
             thinking_switch: ThinkingSwitch::for_url(&config.base_url),
+            terminology: config.terminology.clone(),
+            offline: config.provider == "offline",
+            selection_cloud: config.selection_provider == "cloud",
+            selection_disabled: config.selection_provider == "disabled",
         }
     }
 
     pub async fn complete(&self, request: &PredictionRequest) -> Result<Reply, PredictError> {
-        let user = prompt::user_prompt(request);
-        tracing::debug!(sequence = request.sequence, %user, "联想请求");
+        if request.kind == PredictionKind::Translate {
+            return crate::long_translation::translate(self, request).await;
+        }
+        let without_automatic_translation;
+        let request = if self.selection_disabled && request.translation_source.is_some() {
+            without_automatic_translation = PredictionRequest {
+                translation_source: None,
+                target_language: String::new(),
+                ..request.clone()
+            };
+            &without_automatic_translation
+        } else {
+            request
+        };
+        if let Some(source) = &request.translation_source
+            && source.chars().count() > 256
+        {
+            let mut part = request.clone();
+            part.kind = PredictionKind::Translate;
+            part.text = source.clone();
+            let reply = crate::long_translation::translate(self, &part).await?;
+            return Ok(Reply {
+                translation: Some(qingjian_core::SentenceTranslation {
+                    source: source.clone(),
+                    language: request
+                        .target_language
+                        .parse()
+                        .map_err(|_| PredictError::EmptyReply)?,
+                    text: reply.sentence.ok_or(PredictError::EmptyReply)?,
+                }),
+                ..Reply::default()
+            });
+        }
+        let mut user = prompt::user_prompt(request);
+        if request.translation_source.is_some()
+            && let Ok(mut value) = serde_json::from_str::<serde_json::Value>(&user)
+        {
+            value["terminology"] = serde_json::json!(self.terminology);
+            user = value.to_string();
+        }
+        if request.translation_source.is_none() {
+            tracing::debug!(sequence = request.sequence, %user, "联想请求");
+        }
         let content = self
-            .chat(prompt::system_prompt(request), &user, MAX_TOKENS)
+            .chat_with_timeout(
+                if self.offline && request.translation_source.is_some() {
+                    prompt::SYSTEM_PROMPT
+                } else {
+                    prompt::system_prompt(request)
+                },
+                &user,
+                if request.translation_source.is_none() {
+                    MAX_TOKENS
+                } else {
+                    2048
+                },
+                self.timeout,
+                request.translation_source.is_some(),
+            )
             .await?;
-        Ok(prompt::parse_reply(&content, request))
+        let mut reply = prompt::parse_reply(&content, request);
+        reply.translation = reply.translation.filter(|t| {
+            crate::accuracy::valid(&t.source, &t.text, t.language.code(), &self.terminology)
+        });
+        Ok(reply)
     }
 
     /// 一问一答：系统提示 + 用户消息，要 JSON 对象，返回正文。联想与释义兜底共用。
@@ -76,6 +150,49 @@ impl ChatClient {
         user: &str,
         max_tokens: u32,
     ) -> Result<String, PredictError> {
+        self.chat_with_timeout(system, user, max_tokens, self.timeout, false)
+            .await
+    }
+
+    pub(crate) fn terminology(&self) -> &[String] {
+        &self.terminology
+    }
+
+    /// 云模式下，缓存译文不能代替用户仍需要的中文词句联想。
+    pub(crate) fn cloud_association_for(&self, request: &PredictionRequest) -> bool {
+        !self.offline
+            && request.kind == PredictionKind::Compose
+            && (request.max_items > 0 || request.want_sentence)
+            && request
+                .translation_source
+                .iter()
+                .all(|source| source.chars().count() <= 256)
+    }
+
+    pub(crate) async fn chat_translation(
+        &self,
+        system: &str,
+        user: &str,
+        max_tokens: u32,
+    ) -> Result<String, PredictError> {
+        if self.selection_disabled {
+            return Err(PredictError::OfflineOnly);
+        }
+        self.chat_with_timeout(system, user, max_tokens, self.translation_timeout, true)
+            .await
+    }
+
+    async fn chat_with_timeout(
+        &self,
+        system: &str,
+        user: &str,
+        max_tokens: u32,
+        timeout: Duration,
+        selection: bool,
+    ) -> Result<String, PredictError> {
+        if self.offline && !(selection && self.selection_cloud) {
+            return Err(PredictError::OfflineOnly);
+        }
         let messages: Vec<ChatCompletionRequestMessage> = vec![
             ChatCompletionRequestSystemMessage::from(system).into(),
             ChatCompletionRequestUserMessage::from(user).into(),
@@ -94,14 +211,17 @@ impl ChatClient {
             self.thinking_switch.disable(&mut body);
         }
         let raw: serde_json::Value =
-            tokio::time::timeout(self.timeout, self.client.chat().create_byot(body))
+            tokio::time::timeout(timeout, self.client.chat().create_byot(body))
                 .await
-                .map_err(|_| PredictError::Timeout(self.timeout.as_millis() as u64))??;
+                .map_err(|_| PredictError::Timeout(timeout.as_millis() as u64))??;
         let response: CreateChatCompletionResponse = serde_json::from_value(raw.clone())?;
         let cut_off = response
             .choices
             .iter()
             .any(|choice| choice.finish_reason == Some(FinishReason::Length));
+        if cut_off {
+            return Err(PredictError::TruncatedReply);
+        }
         let content = response
             .choices
             .into_iter()
@@ -111,26 +231,17 @@ impl ChatClient {
             .find_map(|choice| choice.message.content.filter(|c| !c.trim().is_empty()))
             .ok_or_else(|| {
                 // 正文为空时原因五花八门（思考占满额度、模型名不对、接口字段不标准），留下原始响应才查得了
-                tracing::warn!(model = %self.model, response = %truncated(&raw), "接口回复里没有正文");
+                tracing::warn!(model = %self.model, "接口回复里没有正文");
                 if cut_off {
                     PredictError::BudgetExhausted
                 } else {
                     PredictError::EmptyReply
                 }
             })?;
-        tracing::debug!(%content, "模型回复");
+        if !selection {
+            tracing::debug!(%content, "模型回复");
+        }
         Ok(content)
-    }
-}
-
-/// 日志里的原始响应最多留这么多字符。
-const LOGGED_RESPONSE_CHARS: usize = 2000;
-
-fn truncated(response: &serde_json::Value) -> String {
-    let text = response.to_string();
-    match text.char_indices().nth(LOGGED_RESPONSE_CHARS) {
-        Some((end, _)) => format!("{}…", &text[..end]),
-        None => text,
     }
 }
 

@@ -18,6 +18,33 @@ use crate::com::log::log;
 /// 本保留键的标识，`OnPreservedKey` 按它认。
 pub(crate) const GUID_TRANSLATE: GUID = GUID::from_u128(0x5c0a7b12_3d4e_4f60_8a91_2b3c4d5e6f70);
 
+pub(crate) const GUID_TRANSLATE_EN: GUID = GUID::from_u128(0x5c0a7b12_3d4e_4f60_8a91_2b3c4d5e6f71);
+pub(crate) const GUID_TRANSLATE_JA: GUID = GUID::from_u128(0x5c0a7b12_3d4e_4f60_8a91_2b3c4d5e6f72);
+
+pub(crate) fn language_combos() -> (KeyCombo, KeyCombo) {
+    let config = qingjian_platform::dirs::config_path()
+        .and_then(|p| Config::load(&p).ok())
+        .unwrap_or_default();
+    (
+        config.shortcut.translate_selection_en,
+        config.shortcut.translate_selection_ja,
+    )
+}
+
+pub(crate) fn register_language(
+    keystroke: &ITfKeystrokeMgr,
+    tid: u32,
+    combo: KeyCombo,
+    guid: &GUID,
+) -> Result<()> {
+    let description: Vec<u16> = "翻译选区（中英日增强）".encode_utf16().collect();
+    unsafe { keystroke.PreserveKey(tid, guid, &preserved_key(combo), &description) }
+}
+
+pub(crate) fn unregister_language(keystroke: &ITfKeystrokeMgr, combo: KeyCombo, guid: &GUID) {
+    let _ = unsafe { keystroke.UnpreserveKey(guid, &preserved_key(combo)) };
+}
+
 /// Ctrl + Alt + Space 中英切换键的保留键标识。
 pub(crate) const GUID_SWITCH_MODE: GUID = GUID::from_u128(0x2f6b8c51_9a34_4e7d_b2c8_5d1e0f3a7b64);
 

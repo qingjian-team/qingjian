@@ -20,6 +20,8 @@ pub(crate) struct Shared {
     /// 「翻译选中文字」评审进行中：所有键交给 Server 定接受 / 取消，轮询定时器照常拉云端译文。
     translating: Cell<bool>,
 
+    translation_anchor: RefCell<Option<(windows::Win32::UI::TextServices::ITfRange, String)>>,
+
     /// 最近一次收键的文档上下文；失焦 / 停用回调不带上下文，落定拼音要用它。
     last_context: RefCell<Option<ITfContext>>,
 
@@ -40,6 +42,7 @@ impl Shared {
             composing: Cell::new(false),
             context_reported: Cell::new(false),
             translating: Cell::new(false),
+            translation_anchor: RefCell::new(None),
             last_context: RefCell::new(None),
             server_stale: Cell::new(false),
             foreground: Cell::new(false),
@@ -87,6 +90,19 @@ impl Shared {
         self.context_reported.set(value);
     }
 
+    pub(crate) fn set_translation_anchor(
+        &self,
+        anchor: Option<(windows::Win32::UI::TextServices::ITfRange, String)>,
+    ) {
+        *self.translation_anchor.borrow_mut() = anchor;
+    }
+
+    pub(crate) fn take_translation_anchor(
+        &self,
+    ) -> Option<(windows::Win32::UI::TextServices::ITfRange, String)> {
+        self.translation_anchor.borrow_mut().take()
+    }
+
     pub(crate) fn translating(&self) -> bool {
         self.translating.get()
     }
@@ -125,6 +141,7 @@ impl Shared {
     pub(crate) fn end_composing(&self) {
         self.composing.set(false);
         self.translating.set(false);
+        self.translation_anchor.borrow_mut().take();
         self.hide_candidates();
     }
 

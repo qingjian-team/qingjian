@@ -59,6 +59,12 @@ impl Router {
             return;
         };
         if self.translation.is_some() {
+            if prediction.failed {
+                if let Some(translation) = self.translation.as_mut() {
+                    translation.failed = true;
+                }
+                return;
+            }
             match prediction.sentence {
                 Some(text) => {
                     if let Some(translation) = self.translation.as_mut() {

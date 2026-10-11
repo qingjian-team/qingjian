@@ -49,6 +49,10 @@ pub fn attach_cloud(engine: &mut Engine, predict: &PredictConfig) {
             engine.set_predictor(Box::new(NoPredictor));
         }
     }
+    if predict.provider == "offline" {
+        engine.set_gloss_filler(Box::new(NoGlossFiller));
+        return;
+    }
     match CloudGlossFiller::new(predict) {
         Ok(filler) => engine.set_gloss_filler(Box::new(filler)),
         Err(error) => {

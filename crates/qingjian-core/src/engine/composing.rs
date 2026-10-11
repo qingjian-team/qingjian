@@ -206,6 +206,8 @@ impl Engine {
     }
 
     pub fn clear(&mut self) {
+        self.sentence_translation = None;
+        self.translation_source = None;
         self.composition.clear();
         self.aux_code = None;
         self.chain.leave_buffer();

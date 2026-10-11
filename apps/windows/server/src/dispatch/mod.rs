@@ -70,6 +70,8 @@ pub struct Router {
     /// 「翻译选中文字」请求号计数器。
     selection_seq: u64,
 
+    selection_target: Option<qingjian_core::Language>,
+
     /// 整句补全（preedit 右侧、Tab 上屏）；缓冲变化时清空。
     sentence: Option<String>,
 
@@ -138,6 +140,7 @@ impl Router {
             pending_selection: None,
             clicked: None,
             selection_seq: 0,
+            selection_target: None,
             sentence: None,
             notice: None,
             highlight: 0,

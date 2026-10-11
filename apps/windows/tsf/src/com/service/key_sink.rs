@@ -74,7 +74,16 @@ impl ITfKeyEventSink_Impl for TextService_Impl {
         if guid != preserved::GUID_TRANSLATE || self.keyboard_disabled(&pic) {
             return Ok(FALSE);
         }
-        let Some(combo) = self.translate_combo.get() else {
+        let combo = if guid == preserved::GUID_TRANSLATE {
+            self.translate_combo.get()
+        } else if guid == preserved::GUID_TRANSLATE_EN {
+            self.translate_en_combo.get()
+        } else if guid == preserved::GUID_TRANSLATE_JA {
+            self.translate_ja_combo.get()
+        } else {
+            None
+        };
+        let Some(combo) = combo else {
             return Ok(FALSE);
         };
         let event = preserved::key_event(combo, self.mode_state.english());
@@ -186,7 +195,14 @@ impl TextService_Impl {
                     };
                     self.shared.set_composing(!response.frame.is_empty());
                     // 翻译评审的任何键都结束评审（Server 侧已同步结束）。
-                    self.shared.set_translating(false);
+                    if self.shared.translating() && !response.frame.is_empty() {
+                        self.shared.set_translating(true);
+                    } else {
+                        self.shared.set_translating(false);
+                        if response.commit.is_none() {
+                            self.shared.set_translation_anchor(None);
+                        }
+                    }
                     let consumed = matches!(response.outcome, KeyOutcome::Consumed);
                     let m = event.modifiers;
                     log(&format!(

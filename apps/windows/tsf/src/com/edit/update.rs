@@ -33,12 +33,29 @@ pub(crate) struct UpdateSession {
 
     /// 本次组句拼音行；空串表示收起组句。
     preedit: String,
+
+    expected_selection: Option<(windows::Win32::UI::TextServices::ITfRange, String)>,
 }
 
 impl ITfEditSession_Impl for UpdateSession_Impl {
     fn DoEditSession(&self, ec: u32) -> Result<()> {
         // 从框架的 C++ 调进来：panic 不能越过 FFI。
         let result = catch_unwind(AssertUnwindSafe(|| {
+            if let Some((anchor, original)) = &self.expected_selection {
+                use windows::Win32::UI::TextServices::{TF_ANCHOR_END, TF_ANCHOR_START};
+                let current = super::anchor::selection_range(&self.context, ec);
+                let unchanged = current.as_ref().is_some_and(|range| {
+                    super::selection::range_text(range, ec) == *original
+                        && unsafe { range.CompareStart(ec, anchor, TF_ANCHOR_START) }
+                            .is_ok_and(|n| n == 0)
+                        && unsafe { range.CompareEnd(ec, anchor, TF_ANCHOR_END) }
+                            .is_ok_and(|n| n == 0)
+                });
+                if !unchanged {
+                    log("翻译回填已取消：选区或原文发生变化，原文保留");
+                    return Ok(());
+                }
+            }
             apply(
                 &self.shared,
                 &self.engine,
@@ -71,12 +88,18 @@ pub(crate) fn request_update(
     commit: Option<String>,
     preedit: String,
 ) -> Result<()> {
+    let expected_selection = if commit.is_some() {
+        shared.take_translation_anchor()
+    } else {
+        None
+    };
     let session = UpdateSession {
         context: context.clone(),
         engine,
         shared,
         commit,
         preedit,
+        expected_selection,
     };
     request(context, client_id, session.into(), TF_ES_READWRITE)
 }

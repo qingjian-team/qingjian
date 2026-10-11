@@ -146,3 +146,8 @@ Linux 当前提供本地候选，尚无云端整句补全。裸问号的既有�
 
 Linux 缺省 `Alt + 数字` / `Alt + Shift + 数字` 上屏第一 / 第二条译词，`Shift + 数字` 删除候选，
 可在配置文件 `[shortcut]` 修改。安装与配置位置见 [Linux](linux.md)。
+
+
+### Windows 长文翻译
+
+启用云服务并填写自己的密钥后，选中最多 20,000 字：`Ctrl + Alt + Shift + E` 译为英语，`Ctrl + Alt + Shift + J` 译为日语；原有 `Ctrl + Alt + T` 按文字与学习语言自动判断方向。Enter / Space / 1 接受完整译文，Esc 保留原文。显式目标快捷键可在配置文件 `[shortcut] translate_selection_en` / `translate_selection_ja` 修改；重登记方式见 [问字与翻译](../cloud/question-and-translate.md)。

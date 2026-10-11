@@ -351,3 +351,23 @@ DLL 不读文件、不查 mtime。`SessionOpened` 只回过协议版本对得上
 Unix socket 用共享长度前缀与 Frame（当前公共版本 8，与 `PROTOCOL_VERSION` 同步，Fcitx5 插件里写死在 `qingjian.cpp` 的 OpenSession）；插件复用一条连接，每个上下文独立会话。Linux v3 扩展逐会话握手、确认 Sensitive/Password/Disable 后接受按下/释放、焦点和点击事实。
 候选回报绑定连接代次、上下文和服务端帧序号，仅当前聚焦页的有效释义进入 `note_displayed`，不把生成帧算作已展示。
 `[general] preedit` 使用已有 `both` / `inline` / `window`；没有新增 Linux 自绘配置。详见 [linux-fcitx5.md](linux-fcitx5.md)。
+
+
+## 长文翻译与单语言整句注释
+
+- Core `PredictionRequest.translation_source` / `Prediction.translation` 均为单个可选值，目标跟随 Learning Language；不新增多语言候选行，不修改中文候选顺序。输入变化、取消、私密状态与语言切换使旧注释失效。
+- `request_translation_to` 为平台提供显式目标入口；平台不自行翻译。`failed` 允许选区预览保留原文并结束等待。
+- Predict 的 `long_translation/` 最多 20,000 字、每段约 1,000 字，优先句尾；前段原文 250 字、译文 400 字用于衔接。单段默认 30 秒、整篇 600 秒；最多三次重试，截断、数字／术语检查失败不返回部分译文。语义准确性仍取决于服务商模型。
+- `PhraseStore` 按服务地址、模型、术语生成命名空间，索引由目标语言与原文组成，每次只返回一种语言。短句 <=256 字、译文 <=1024 字时可持久化，最多 512 条；读取前限制文件 2MB。缓存文件含用户短句，发布时必须排除。没有新增本地模型。
+- `provider` 支持 cloud / offline，`selection_provider` 支持 inherit / cloud / disabled；显式选择 cloud 才允许离线短句模式使用在线长文。选区翻译请求／译文不写调试日志；不记录接口错误正文。默认关闭整句翻译，不包含任何 API Key。
+- 后台工人收到更新的请求时取消旧任务，序号仍由 Core 校验。取消界面并不保证服务商已停止计费。
+- 本地兼容接口测试覆盖段落间空白、上下文与术语传递、后段失败重试、截断拒绝和长度限制，测试不访问外部接口或用户配置。
+
+
+## Windows 长文翻译接入
+
+TSF 选区上限提升到 20,000 个 Unicode 字符，UTF-16 缓冲容纳 40,001 个单元，拒绝超长或不完整代理对。请求时保存范围及原文；回填前在同一编辑会话内核对当前范围起止和原文，变动时拒绝覆盖。焦点丢失、结束评审时清除锚点。
+
+`translate_selection_en` / `translate_selection_ja` 注册独立保留键，默认 Ctrl+Alt+Shift+E / J，原有方向自动判断快捷键保留。Server 只调用 Core 的 `request_translation_to`，不执行翻译算法。等待确认键不结束评审，错误保留原文；180 字仅裁剪预览，不裁剪提交文本。WinUI 云服务页提供 `sentence_translation` 原生开关。
+
+此 PR 依赖独立 Core / Predict 翻译基础，不包含守护、游戏候选窗或安装器改动。独立 Router 验证工具只读现有配置、隔离缓存，输出布尔结果／计数，不输出密钥、选区或译文。

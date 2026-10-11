@@ -17,6 +17,9 @@ pub struct PredictionPolicy {
 
     /// 组句中要不要整句补全。
     pub sentence: bool,
+
+    /// 为当前整句候选生成可上屏的学习语言译文。
+    pub sentence_translation: bool,
 }
 
 impl Default for PredictionPolicy {
@@ -27,6 +30,7 @@ impl Default for PredictionPolicy {
             slots: 2,
             max_items: 4,
             sentence: true,
+            sentence_translation: false,
         }
     }
 }

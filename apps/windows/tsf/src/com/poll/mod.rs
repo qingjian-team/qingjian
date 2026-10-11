@@ -143,6 +143,7 @@ fn poll_once(context: &PollContext) {
             if translating && frame.is_empty() {
                 drop(guard);
                 context.shared.set_translating(false);
+                context.shared.set_translation_anchor(None);
                 context.shared.hide_candidates();
             }
         }

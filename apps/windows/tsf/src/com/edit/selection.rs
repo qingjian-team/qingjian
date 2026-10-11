@@ -15,8 +15,8 @@ use crate::com::composition::Shared;
 use crate::com::log::log;
 use crate::com::service::SharedClient;
 
-/// 原文字符上限（与 macOS 壳一致），超过就不译，避免整篇误触。
-const MAX_TRANSLATE_CHARS: usize = 500;
+/// Windows 长选区上限；按 Unicode 字符计数，UTF-16 缓冲允许每字两个单元。
+const MAX_TRANSLATE_CHARS: usize = 20_000;
 
 #[implement(ITfEditSession)]
 pub(crate) struct SelectionSession {
@@ -37,12 +37,16 @@ impl ITfEditSession_Impl for SelectionSession_Impl {
     fn DoEditSession(&self, ec: u32) -> Result<()> {
         let (text, rect) = read_selection(&self.context, ec);
         let has_text = !text.trim().is_empty();
+        let anchor = selection_range(&self.context, ec).map(|range| (range, text.clone()));
         // 发成功再置本地评审态，免得卡在无窗口的评审里。
         if let Ok(mut guard) = self.engine.try_borrow_mut()
             && let Some(client) = guard.as_mut()
         {
             match client.selection(self.request, text, rect) {
-                Ok(_) if has_text => self.shared.set_translating(true),
+                Ok(_) if has_text => {
+                    self.shared.set_translation_anchor(anchor);
+                    self.shared.set_translating(true);
+                }
                 Ok(_) => {}
                 Err(error) => log(&format!("回选区给 Server 失败: {error}")),
             }
@@ -77,15 +81,21 @@ fn read_selection(context: &ITfContext, ec: u32) -> (String, ScreenRect) {
     (range_text(&range, ec), rect)
 }
 
-fn range_text(range: &ITfRange, ec: u32) -> String {
-    let mut buf = [0u16; MAX_TRANSLATE_CHARS + 1];
+pub(super) fn range_text(range: &ITfRange, ec: u32) -> String {
+    let mut buf = vec![0u16; MAX_TRANSLATE_CHARS * 2 + 1];
     let mut fetched = 0u32;
     if unsafe { range.GetText(ec, 0, &mut buf, &mut fetched) }.is_err() {
         return String::new();
     }
     let count = fetched as usize;
-    if count == 0 || count > MAX_TRANSLATE_CHARS {
+    if count == 0 || count > MAX_TRANSLATE_CHARS * 2 {
         return String::new();
     }
-    String::from_utf16_lossy(&buf[..count])
+    let Ok(text) = String::from_utf16(&buf[..count]) else {
+        return String::new();
+    };
+    if text.chars().count() > MAX_TRANSLATE_CHARS {
+        return String::new();
+    }
+    text
 }
