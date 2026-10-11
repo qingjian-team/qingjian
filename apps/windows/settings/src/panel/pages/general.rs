@@ -1,9 +1,12 @@
 //! 「通用」页：学习语言、每页候选数、输入方案、英文模式候选。
 
 use qingjian_platform::{MAX_PAGE_SIZE, Scheme, ShiftLetter, SwitchKey};
-use windows_reactor::*;
+use windows_reactor::{
+    Callback, CheckBox, ChildrenControl, ComboBox, ContentControl, NumberBox, Orientation,
+    StackPanel, ToggleSwitch, View, ViewContext,
+};
 
-use crate::panel::controls::{feedback, field, index_of, page};
+use crate::panel::controls::{feedback, field, index_of, page, section};
 use crate::panel::{Message, Settings};
 
 /// 学习语言：界面名 + 配置写法。
@@ -135,7 +138,7 @@ pub(crate) fn view(settings: &Settings, context: &mut ViewContext<Settings>) -> 
                 .on_toggled(context.callback(Message::PunctCommits)),
         ),
         field(
-            "英文模式（Caps Lock）也给候选",
+            "英文候选与补全",
             "Tab 或方向键选词；空格、回车、标点仍原样上屏敲的字母，不选词时与直接打字一样。",
             ToggleSwitch::new()
                 .is_on(g.english_candidates)
@@ -164,7 +167,6 @@ pub(crate) fn view(settings: &Settings, context: &mut ViewContext<Settings>) -> 
                 .is_enabled(g.english_in_chinese)
                 .on_toggled(context.callback(Message::ChineseFirst)),
         ),
-        feedback(&settings.notice),
         field(
             "中文模式下的 Shift + 字母",
             "「交给应用」是临时打英文（与以前一致）：拼音先上屏，这个键归应用；\
@@ -185,10 +187,19 @@ pub(crate) fn view(settings: &Settings, context: &mut ViewContext<Settings>) -> 
                 .on_toggled(context.callback(Message::EnglishMode)),
         ),
     ];
-    page("通用", StackPanel::new().spacing(16.0).children(rows))
+    let mut rows = rows.into_iter();
+    page(
+        "通用",
+        StackPanel::new().spacing(24.0).children([
+            section("输入与候选", rows.by_ref().take(7)),
+            section("标点", rows.by_ref().take(3)),
+            section("中英文输入", rows.by_ref().take(7)),
+            feedback(&settings.notice),
+        ]),
+    )
 }
 
-/// 中英切换键：每个键一个勾选框，横排。
+/// 中英切换键：纵排避免在窄窗口与高缩放下挤出卡片。
 fn switch_key_boxes(settings: &Settings, context: &mut ViewContext<Settings>) -> View {
     let keys = settings.config.shortcut.switch_mode;
     let boxes = SwitchKey::ALL.map(|key| {
@@ -198,7 +209,7 @@ fn switch_key_boxes(settings: &Settings, context: &mut ViewContext<Settings>) ->
             .content(key.label())
     });
     StackPanel::new()
-        .orientation(Orientation::Horizontal)
-        .spacing(12.0)
+        .orientation(Orientation::Vertical)
+        .spacing(4.0)
         .children(boxes)
 }

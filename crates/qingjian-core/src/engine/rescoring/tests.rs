@@ -55,6 +55,27 @@ fn sync_scorer_reorders_paths_in_place() {
 }
 
 #[test]
+fn rescorer_preserves_full_pinyin_in_plain_and_mixed_sentences() {
+    let dictionary = Dictionary::parse(
+        "很\then\t100\n简短\tjian duan\t1\n简单\tjian dan\t10000000\n\
+         的\tde\t100\n技术\tji shu\t100\n",
+    )
+    .unwrap();
+    let mut engine = Engine::new(dictionary)
+        .with_english(qingjian_dictionary::WordList::parse("rust\trust\t3740\n").unwrap())
+        .with_sentence_scorer(Box::new(Prefers("很简单的技术")), Some(1.0), None, None);
+    for (input, expected) in [
+        ("henjianduandejishu", "很简短的技术"),
+        ("henjianduandejishurust", "很简短的技术rust"),
+    ] {
+        engine.set_input(input);
+        let query = engine.query().unwrap();
+        assert_eq!(query.candidates.items[0].text, expected);
+        assert_eq!(query.candidates.items[0].syllables.concat(), input);
+    }
+}
+
+#[test]
 fn async_scorer_waits_for_the_shell_to_request_and_poll() {
     let mut engine =
         engine().with_async_sentence_scorer(Box::new(Prefers("开放")), Some(0.5), None, None);

@@ -1,6 +1,13 @@
 //! 整句候选：把词图里重排过的前几条路径变成候选，以及整句转换本身。
 
-use super::*;
+use qingjian_dictionary::SyllablePattern;
+
+use super::{EnglishTail, leading_english};
+use crate::candidate::{Candidate, CandidateKind};
+use crate::engine::{ALTERNATE_MIN_SYLLABLES, Engine, Learner, RESCORE_PATHS, SENTENCE_CANDIDATES};
+use crate::fuzzy::Expanded;
+use crate::parser::{self, Segmentation};
+use crate::sentence::{self, Conversion};
 
 impl Engine {
     /// 整句候选。没有英文尾段时是整段拼音的转换（[`Self::plain_sentence`]），排在开头的英文候选之后。
@@ -161,11 +168,11 @@ impl Engine {
         out
     }
 
-    /// 跑一次整句转换：主词库 + 用户词（含模糊音与敲错写法，命中的按代价扣分），静态语言模型与个人 n-gram 插值，用户选择次数加分。
-    /// `typos` 为假时不加敲错边。
+    /// 跑一次整句转换：先按原拼音与已启用的模糊音读；读不通时才补敲错边。
+    /// 静态语言模型与个人 n-gram 插值，用户选择次数加分。`typos` 为假时不补敲错边。
     pub(in crate::engine) fn convert_sentence(
         &self,
-        patterns: &[qingjian_dictionary::SyllablePattern<'_>],
+        patterns: &[SyllablePattern<'_>],
         typos: bool,
     ) -> Option<Conversion> {
         self.convert_sentence_with(patterns, typos, false)
@@ -177,7 +184,7 @@ impl Engine {
     /// 返回重排后的第一条；`score` 始终是静态尺度的路径分，神经分不写进去，跨读法的比较才还成立。
     pub(in crate::engine) fn convert_sentence_with(
         &self,
-        patterns: &[qingjian_dictionary::SyllablePattern<'_>],
+        patterns: &[SyllablePattern<'_>],
         typos: bool,
         whole: bool,
     ) -> Option<Conversion> {
@@ -190,29 +197,35 @@ impl Engine {
     /// （拼写纠错对每个候选都要转一次，多算几条纯是浪费）；要备选时至少算这么多条。
     pub(in crate::engine) fn sentence_paths(
         &self,
-        patterns: &[qingjian_dictionary::SyllablePattern<'_>],
+        patterns: &[SyllablePattern<'_>],
         typos: bool,
         whole: bool,
         want: usize,
     ) -> Vec<Conversion> {
         let dictionaries = self.all_dictionaries();
-        let expanded = self.expand_positions(patterns, typos);
         let k = if self.has_sentence_scorer() {
             RESCORE_PATHS.max(want)
         } else {
             want
         };
-        let mut paths = sentence::convert_paths(
-            &dictionaries,
-            &expanded.positions(),
-            whole,
-            k,
-            &*self.language_model,
-            self.personal(),
-            |text| self.learner.weight(text),
-            |index, syllable| expanded.cost(index, syllable),
-            &mut self.span_cache.borrow_mut(),
-        );
+        let convert = |expanded: &Expanded| {
+            sentence::convert_paths(
+                &dictionaries,
+                &expanded.positions(),
+                whole,
+                k,
+                &*self.language_model,
+                self.personal(),
+                |text| self.learner.weight(text),
+                |index, syllable| expanded.cost(index, syllable),
+                &mut self.span_cache.borrow_mut(),
+            )
+        };
+        let mut paths = convert(&self.expand_positions(patterns, false));
+        // 拼音能完整读通时，词频、个人学习与重打分只能选择原读音，不能替用户改拼写。
+        if typos && paths.first().is_none_or(Conversion::has_placeholder) {
+            paths = convert(&self.expand_positions(patterns, true));
+        }
         // 与最优路径差得太远的不参与：那种差距多半是个人 n-gram 拉开的
         if paths.len() > 1 {
             let floor = paths[0].score - self.neural_margin;

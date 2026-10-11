@@ -2,13 +2,13 @@
 
 use super::*;
 
-/// 每个音节都合法、整句却不通的输入（`meiganxi`）：词图里的敲错边把 没关系 读出来，作为词候选插到最前；
+/// 每个音节都合法、原拼音却没有完整词图路径时：敲错边把 没关系 读出来，作为词候选插到最前；
 /// 上屏按敲的字母消耗、记个人敲错表，退格重选时退回；原样说得通（`meiganxie` 没感谢）时不改。
 #[test]
-fn typo_edges_in_the_lattice_correct_legal_but_unlikely_pinyin() {
+fn typo_edges_in_the_lattice_fill_missing_readings() {
     let dictionary = Dictionary::parse(
         "没关系\tmei guan xi\t800000\n关系\tguan xi\t500000\n没\tmei\t900000\n干\tgan\t200000\n\
-             洗\txi\t100000\n美感\tmei gan\t300000\n感谢\tgan xie\t300000\n谢\txie\t50000\n",
+             美感\tmei gan\t300000\n感谢\tgan xie\t300000\n谢\txie\t50000\n",
     )
     .unwrap();
     let mut engine =
@@ -86,6 +86,42 @@ fn typo_edges_in_the_lattice_correct_legal_but_unlikely_pinyin() {
     assert_eq!(query.candidates.items[0].text, "属的");
     assert_eq!(query.candidates.items[0].kind, CandidateKind::Sentence);
     assert!(query.candidates.items.iter().all(|c| c.text != "是的"));
+}
+
+#[test]
+fn complete_pinyin_is_preserved_even_when_corrected_words_are_more_frequent() {
+    let dictionary = Dictionary::parse(
+        "很\then\t100\n简短\tjian duan\t1\n简单\tjian dan\t10000000\n\
+         的\tde\t100\n技术\tji shu\t100\n我\two\t100\n说\tshuo\t1\n\
+         收\tshou\t10000000\n了\tle\t100\n",
+    )
+    .unwrap();
+    let mut engine =
+        Engine::new(dictionary).with_learner(Box::new(CountingLearner(HashMap::from([
+            ("简单".to_owned(), 1000000),
+            ("typo\tduan\tdan".to_owned(), 1000000),
+            ("收".to_owned(), 1000000),
+            ("typo\tshuo\tshou".to_owned(), 1000000),
+        ]))));
+    for (input, expected) in [
+        ("henjianduandejishu", "很简短的技术"),
+        ("henjiandandejishu", "很简单的技术"),
+        ("woshuole", "我说了"),
+        ("woshoule", "我收了"),
+    ] {
+        engine.set_input(input);
+        let query = engine.query().unwrap();
+        assert_eq!(query.candidates.items[0].text, expected, "{input}");
+        for candidate in &query.candidates.items {
+            if candidate.kind == CandidateKind::Sentence {
+                assert_eq!(
+                    candidate.syllables.concat(),
+                    input,
+                    "{input}: {candidate:?}"
+                );
+            }
+        }
+    }
 }
 
 /// 模糊音命中的词按敲的字母消耗拼音（`zi` 对 `zhi`），不算敲错。

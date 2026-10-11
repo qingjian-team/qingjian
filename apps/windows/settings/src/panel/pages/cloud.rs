@@ -3,12 +3,13 @@
 use qingjian_predict::{ConnectionTest, PredictConfig};
 use std::path::PathBuf;
 use windows_reactor::{
-    Button, CancellationToken, ChildrenControl, ContentControl, NumberBox, Orientation,
-    PasswordBox, StackPanel, TextBlock, TextBox, ToggleSwitch, View, ViewContext,
+    Button, CancellationToken, ChildrenControl, ContentControl, LayoutControl, NumberBox,
+    Orientation, PasswordBox, StackPanel, TextBlock, TextBox, TextWrapping, ToggleSwitch, View,
+    ViewContext,
 };
 
 use crate::panel::cloud_status::CloudStatus;
-use crate::panel::controls::{field, labeled, note, page};
+use crate::panel::controls::{field, labeled, note, page, section};
 use crate::panel::{Message, Settings};
 
 /// 后台跑一次连通性测试，轮询到有结果或被取消。
@@ -106,6 +107,7 @@ pub(crate) fn view(settings: &Settings, context: &mut ViewContext<Settings>) -> 
             "接口地址",
             "",
             TextBox::new()
+                .min_width(240.0)
                 .text(p.base_url.clone())
                 .on_text_changed(context.callback(Message::CloudBaseUrl)),
         ),
@@ -113,6 +115,7 @@ pub(crate) fn view(settings: &Settings, context: &mut ViewContext<Settings>) -> 
             "模型",
             "",
             TextBox::new()
+                .min_width(240.0)
                 .text(p.model.clone())
                 .on_text_changed(context.callback(Message::CloudModel)),
         ),
@@ -120,6 +123,7 @@ pub(crate) fn view(settings: &Settings, context: &mut ViewContext<Settings>) -> 
             "API 密钥",
             "只保存在这台电脑上，不会随配置文件导出，也不显示已填的值。留空则读环境变量 QINGJIAN_API_KEY。",
             PasswordBox::new()
+                .min_width(240.0)
                 .password(p.api_key.clone().unwrap_or_default())
                 .placeholder_text("留空则读环境变量 QINGJIAN_API_KEY")
                 .on_password_changed(context.callback(Message::CloudApiKey)),
@@ -127,18 +131,28 @@ pub(crate) fn view(settings: &Settings, context: &mut ViewContext<Settings>) -> 
         labeled(
             "",
             StackPanel::new()
-                .orientation(Orientation::Horizontal)
-                .spacing(12.0)
+                .orientation(Orientation::Vertical)
+                .spacing(8.0)
                 .children((
                     Button::new()
                         .on_click(context.message(Message::TestConnection))
                         .content("测试连接"),
-                    TextBlock::new().text(status),
+                    TextBlock::new()
+                        .text(status)
+                        .text_wrapping(TextWrapping::Wrap),
                 )),
         ),
         note(
             "用上面填的地址、模型、密钥发一条最小请求。走不通时先查这里；Server 进程看不到终端里的代理变量。",
         ),
     ];
-    page("云服务", StackPanel::new().spacing(16.0).children(rows))
+    let mut rows = rows.into_iter();
+    page(
+        "云服务",
+        StackPanel::new().spacing(24.0).children([
+            section("本地输入", rows.by_ref().take(1)),
+            section("AI 候选", rows.by_ref().take(6)),
+            section("服务连接", rows),
+        ]),
+    )
 }
