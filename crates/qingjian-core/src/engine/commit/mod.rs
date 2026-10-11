@@ -409,12 +409,14 @@ impl Engine {
         }
         let conversion = match (self.decode(scope), self.active_correction(scope)) {
             (Some(decoded), _) => {
-                self.convert_sentence(&decoded.segmentation()?.patterns(), true)?
+                self.convert_sentence(std::slice::from_ref(&decoded.segmentation()?), true)?
             }
-            (None, Some(c)) => self.convert_sentence(&c.segmentation.patterns(), false)?,
+            (None, Some(c)) => {
+                self.convert_sentence(std::slice::from_ref(&c.segmentation), false)?
+            }
             (None, None) => {
                 let (segmentations, _) = segment_longest_prefix(scope).ok()?;
-                self.convert_sentence(&segmentations.first()?.patterns(), true)?
+                self.convert_sentence(&segmentations, true)?
             }
         };
         (conversion.text == candidate.text).then_some(conversion.words)
@@ -428,7 +430,7 @@ impl Engine {
         text: &str,
     ) -> Option<Vec<sentence::SentenceWord>> {
         let segmentations = parser::segment(&scope[..tail.head_len]).ok()?;
-        let mut conversion = self.convert_sentence(&segmentations.first()?.patterns(), true)?;
+        let mut conversion = self.convert_sentence(&segmentations, true)?;
         conversion.text.push_str(&tail.word);
         if conversion.text != text {
             return None;

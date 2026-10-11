@@ -32,7 +32,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use qingjian_dictionary::{AuxCodeLookup, CodeTable, Dictionary, Match, WordList};
+use qingjian_dictionary::{AuxCodeLookup, CodeTable, Dictionary, WordList};
 
 pub use alignment::Alignment;
 pub use annotation::AnnotationReport;
@@ -63,16 +63,16 @@ pub use vocabulary::{
 
 use crate::candidate::{Candidate, CandidateKind, CandidateList, Language};
 use crate::composition::Composition;
-use crate::correction::{self, Correction, TypoCosts, typo};
+use crate::correction::{Correction, TypoCosts};
 use crate::emoji::EmojiTable;
 use crate::english;
-use crate::fuzzy::{Expanded, FuzzyRules};
+use crate::fuzzy::FuzzyRules;
 use crate::history::InputHistory;
 use crate::parser::{self, ParseError, Segmentation};
 use crate::punctuation::Punctuation;
 use crate::ranking::{self, Scored};
 use crate::sentence::{
-    self, Conversion, Interpolation, LanguageModel, NoLanguageModel, Personal, SentenceScorer,
+    self, Interpolation, LanguageModel, NoLanguageModel, Personal, SentenceScorer,
 };
 use crate::shortcut;
 use crate::shuangpin::Scheme;
@@ -365,8 +365,8 @@ const PREDICTION_CANDIDATE_HINTS: usize = 5;
 /// 一次查询最多给壳多少条候选。同音字最多的音节也不到这个数，再往后都是长词，没人会翻到。
 const MAX_CANDIDATES: usize = 500;
 
-/// 神经重打分看 Viterbi 的前几条路径：束宽是 8，再多也没有。
-const RESCORE_PATHS: usize = 6;
+/// 神经重打分看 Viterbi 的前几条路径，保留句子中部的同音组合。
+const RESCORE_PATHS: usize = 24;
 
 /// 长输入最多给几条整句候选（重排后的前几条路径）：一条不够用，长句错一个字就得拆开重打。
 const SENTENCE_CANDIDATES: usize = 3;

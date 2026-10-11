@@ -5,7 +5,7 @@
 //! 用户选过的词（Learner 的 weight）加分。没接模型时整体退化为一元词频。
 //!
 //! 个人 n-gram（[`UserNgram`]，二元 + 三元，随上屏在线更新、由 Learner 持有）与静态模型插值，让整句越用越像自己：
-//! 静态模型只看前一个词，个人部分看前两个词（[`Context`]），Viterbi 里前二词取最优前驱的回指，不扩状态。
+//! 静态模型只看前一个词，个人部分看前两个词（[`Context`]），Viterbi 沿各条保留路径的回指取前二词。
 //!
 //! 简拼位置（`wxq` 的 `w x q`）按前缀取词，每个格子多留一些候选，全靠语言模型在路径上分辨；
 //! 全拼句子末尾没打完的单字母不参与，简拼句子里末尾单字母就是一个音节。
@@ -71,7 +71,7 @@ pub const SPAN_CANDIDATES: usize = 6;
 pub const ABBREVIATED_SPAN_CANDIDATES: usize = 20;
 
 /// 每个位置最多保留几条部分路径。
-pub const BEAM_WIDTH: usize = 8;
+pub const BEAM_WIDTH: usize = 32;
 
 /// 语言模型不认识、只能按词库词频兜底的词扣多少分：模型见过的词更可信。
 pub const FALLBACK_PENALTY: f64 = -4.0;

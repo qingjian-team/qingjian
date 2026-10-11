@@ -1,6 +1,20 @@
 //! 拼音侧的候选生成：切分、拼写纠错、词级查找与排序，再补上整句、英文、快捷与 emoji 候选。
 
-use super::*;
+use std::collections::HashMap;
+use std::time::{Duration, Instant};
+
+use qingjian_dictionary::Match;
+
+use super::{Query, chinese_candidate, join_marked_typed};
+use crate::candidate::{Candidate, CandidateList};
+use crate::correction;
+use crate::engine::{
+    Engine, Learner, MAX_CANDIDATES, Timings, abbreviated_count, choice_key, pattern_key,
+    segment_longest_prefix,
+};
+use crate::parser::{self, ParseError, Segmentation};
+use crate::ranking::{self, Scored};
+use crate::sentence;
 
 impl Engine {
     /// 拼音侧（全拼 / 双拼 / 注音）的候选生成：整段作用域是一串读音。
@@ -72,7 +86,7 @@ impl Engine {
         } else {
             None
         };
-        let (segmentations, tail): (Vec<Segmentation>, &str) = match &correction {
+        let (mut segmentations, tail): (Vec<Segmentation>, &str) = match &correction {
             Some(c) => (vec![c.segmentation.clone()], ""),
             None => (segmentations, tail),
         };
@@ -222,6 +236,28 @@ impl Engine {
             // 快捷候选按敲的键认（`rq` 日期），双拼下也是
             self.insert_shortcuts(&mut items, keys);
             self.insert_emoji(&mut items);
+        }
+        // 拼音行跟随首选的合法切分，保留原始字母与用户手动指定的音节边界。
+        // 混输候选的最后一个音节是英文尾段，不参与头段切分的匹配。
+        if correction.is_none()
+            && decoded.is_none()
+            && let Some(first) = items.first()
+        {
+            let syllables = if head_wins {
+                &first.syllables[..first.syllables.len().saturating_sub(1)]
+            } else {
+                &first.syllables
+            };
+            if let Some(index) = segmentations.iter().position(|s| {
+                s.syllables.len() == syllables.len()
+                    && s.patterns()
+                        .iter()
+                        .zip(syllables)
+                        .all(|(p, text)| p.text == text)
+            }) {
+                let selected = segmentations.remove(index);
+                segmentations.insert(0, selected);
+            }
         }
         let rank = start.elapsed();
 

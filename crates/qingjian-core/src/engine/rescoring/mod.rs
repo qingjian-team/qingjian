@@ -1,4 +1,4 @@
-//! 神经重打分：整句转换的前几条路径交给字级模型（[`SentenceScorer`]）再排一次。
+//! 神经重打分：整句转换的前几条路径交给字级模型（[`crate::sentence::SentenceScorer`]）再排一次。
 //!
 //! 打分有两种接法：同步的（[`Engine::with_sentence_scorer`]，查询里当场打，CLI 评测用）和异步的
 //! （[`Engine::with_async_sentence_scorer`]，后台线程；壳里用）。两种都经过一张「前文 + 文本 → 神经分」的缓存
@@ -12,10 +12,13 @@ mod worker;
 #[cfg(test)]
 mod tests;
 
-use super::*;
+use super::{Engine, Learner, choice_key, take_last_chars};
+use crate::sentence::Conversion;
 
 pub(crate) use cache::NeuralCache;
 pub(crate) use worker::RescoreWorker;
+
+use crate::ranking::weight_bonus;
 
 /// 直接生成整句时的 beam 宽度。5 是 2026-09-24 在冻结集上量的：beam 5 首选 51.9%、前五 73.5%，
 /// 再宽只换来零点几个点，延迟却线性涨。
@@ -93,9 +96,15 @@ impl Engine {
         // （拼写纠错的原样 vs 纠正、混输的头段 vs 整段），那两处的门槛都是按静态尺度定的：
         // `woxiangxuexirust` 就是这么被「纠正」成 我想学习如斯 的。
         let lambda = self.neural_weight;
+        let letters = choice_key(keys, keys.len());
         let rescored = |path: &Conversion| {
             let neural = cache.get(&path.text).expect("filled above");
-            path.score + lambda * (neural - path.static_score)
+            let chosen = if lambda > 0.0 {
+                self.learner.choice_weight(&letters, &path.text)
+            } else {
+                0
+            };
+            path.score + lambda * (neural - path.static_score) + weight_bonus(chosen)
         };
         paths.sort_by(|a, b| {
             rescored(b)

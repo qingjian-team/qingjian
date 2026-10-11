@@ -1,6 +1,11 @@
 //! 整句候选：把词图里重排过的前几条路径变成候选，以及整句转换本身。
 
-use super::*;
+use super::{EnglishTail, leading_english};
+use crate::candidate::{Candidate, CandidateKind};
+use crate::engine::{ALTERNATE_MIN_SYLLABLES, Engine, Learner, RESCORE_PATHS, SENTENCE_CANDIDATES};
+use crate::fuzzy::Expanded;
+use crate::parser::{self, Segmentation};
+use crate::sentence::{self, Conversion, Personal};
 
 impl Engine {
     /// 整句候选。没有英文尾段时是整段拼音的转换（[`Self::plain_sentence`]），排在开头的英文候选之后。
@@ -20,16 +25,16 @@ impl Engine {
             return;
         };
         let keys = self.composition.scope();
-        let first_segmentation = |text: &str| parser::segment(text).ok()?.into_iter().next();
         match english_tail {
             Some(tail) if head_wins => {
-                if let Some(mixed) = self.mixed_sentence(best, tail, typos) {
+                if let Some(mixed) = self.mixed_sentence(segmentations, tail, typos) {
                     items.insert(0, mixed);
                 }
                 // 整段读成拼音的那条本来就是「另一种读法」，只给一条
                 if tail.competes
-                    && let Some(full) = first_segmentation(keys)
-                    && let Some(plain) = self.plain_sentence(items, &full, typos, false).pop()
+                    && let Ok(full) = parser::segment(keys)
+                    && let Some(plain) =
+                        self.plain_sentence(items, &full, typos, false, false).pop()
                 {
                     let position = items.len().min(1);
                     items.insert(position, plain);
@@ -38,7 +43,7 @@ impl Engine {
             _ => {
                 // 整段本身就是英文词（`database`）：备选整句会把那条英文候选再往后挤，只给一条
                 let alternates = !self.scope_is_english_word();
-                let sentences = self.plain_sentence(items, best, typos, alternates);
+                let sentences = self.plain_sentence(items, segmentations, typos, alternates, true);
                 let position = leading_english(items);
                 // 词图读不通整段时模型直接生成的整句排在词图那几条前面：这时词图给的是把英文段
                 // 硬读成拼音的结果（`yongdockerbushuhenfangbian` → 用的哦乘客仍不熟很方便），排它前面没有可惜的
@@ -77,10 +82,14 @@ impl Engine {
     pub(in crate::engine) fn plain_sentence(
         &self,
         items: &mut Vec<Candidate>,
-        best: &Segmentation,
+        segmentations: &[Segmentation],
         typos: bool,
         alternates: bool,
+        rescore: bool,
     ) -> Vec<Candidate> {
+        let Some(best) = segmentations.first() else {
+            return Vec::new();
+        };
         if best.syllables.len() < 2 {
             return Vec::new();
         }
@@ -89,19 +98,27 @@ impl Engine {
         } else {
             1
         };
-        let mut paths = self.sentence_paths(&best.patterns(), typos, false, wanted);
+        // 备选输入方式按静态模型给一条，模型缓存只供当前首选输入方式使用。
+        let convert = |typos| {
+            if rescore {
+                self.sentence_paths(segmentations, typos, false, wanted)
+            } else {
+                self.static_sentence_paths(segmentations, typos, false, wanted)
+            }
+        };
+        let mut paths = convert(typos);
         if paths.is_empty() {
             return Vec::new();
         }
-        // 不按原样读的路径（敲错边 / 模糊音）不许压过「敲的拼音本身就是一个词」：`jineng` 按 `jin eng` 切时
-        // 词图里没有 技能，敲错边读出 近藤；`ceshi` 读出 的是。词级候选里有音节正好拼成整段输入的词时退回原样的路径
+        // 不按原样读的路径（敲错边 / 模糊音）不许压过「敲的拼音本身就是一个词」：
+        // 词级候选里有音节正好拼成整段输入的词时退回原样的路径。
         if paths[0].altered() {
             let letters = best.joined("");
             let spelled_exactly = items
                 .iter()
                 .any(|c| c.kind == CandidateKind::Chinese && c.syllables.concat() == letters);
             if spelled_exactly {
-                paths = self.sentence_paths(&best.patterns(), false, false, wanted);
+                paths = convert(false);
             }
         }
         let mut out: Vec<Candidate> = Vec::new();
@@ -161,67 +178,121 @@ impl Engine {
         out
     }
 
-    /// 跑一次整句转换：主词库 + 用户词（含模糊音与敲错写法，命中的按代价扣分），静态语言模型与个人 n-gram 插值，用户选择次数加分。
-    /// `typos` 为假时不加敲错边。
+    /// 跑一次整句转换：先按原拼音与已启用的模糊音读；读不通时才补敲错边。
+    /// 本地模型重排时按整句选择学习偏好；未接模型时用个人 n-gram 与词频加分。
+    /// `typos` 为假时不补敲错边。
     pub(in crate::engine) fn convert_sentence(
         &self,
-        patterns: &[qingjian_dictionary::SyllablePattern<'_>],
+        segmentations: &[Segmentation],
         typos: bool,
     ) -> Option<Conversion> {
-        self.convert_sentence_with(patterns, typos, false)
-    }
-
-    /// 同 [`Self::convert_sentence`]，`whole` 为真时末尾单字母也读（[`sentence::convert_whole`]），只给比分用。
-    /// 接了神经重打分器时取前 [`RESCORE_PATHS`] 条路径，按「路径分 + λ·(神经分 − 静态分)」重排（[`Self::rescore_paths`]）：
-    /// 神经分替换的是静态二元模型那部分判断，个人 n-gram 插值、用户加分、敲错代价原样保留。
-    /// 返回重排后的第一条；`score` 始终是静态尺度的路径分，神经分不写进去，跨读法的比较才还成立。
-    pub(in crate::engine) fn convert_sentence_with(
-        &self,
-        patterns: &[qingjian_dictionary::SyllablePattern<'_>],
-        typos: bool,
-        whole: bool,
-    ) -> Option<Conversion> {
-        self.sentence_paths(patterns, typos, whole, 1)
+        self.sentence_paths(segmentations, typos, false, 1)
             .into_iter()
             .next()
     }
 
-    /// 重排后的整句路径，最好的在前。`want` 是调用方要几条：只要一条时没接模型就只算一条
-    /// （拼写纠错对每个候选都要转一次，多算几条纯是浪费）；要备选时至少算这么多条。
+    /// 输入方式与拼写纠正的静态比较，不触发重排、不改动展示候选的模型缓存。
+    /// `whole` 为真时末尾单字母也读（[`sentence::convert_whole`]），使被比较的读法覆盖同样的按键。
+    pub(in crate::engine) fn convert_sentence_static(
+        &self,
+        segmentations: &[Segmentation],
+        typos: bool,
+        whole: bool,
+    ) -> Option<Conversion> {
+        self.static_sentence_paths(segmentations, typos, whole, 1)
+            .into_iter()
+            .next()
+    }
+
+    /// 重排后的整句路径，最好的在前。`want` 是调用方要几条：未接模型时只算所需条数。
     pub(in crate::engine) fn sentence_paths(
         &self,
-        patterns: &[qingjian_dictionary::SyllablePattern<'_>],
+        segmentations: &[Segmentation],
         typos: bool,
         whole: bool,
         want: usize,
     ) -> Vec<Conversion> {
-        let dictionaries = self.all_dictionaries();
-        let expanded = self.expand_positions(patterns, typos);
         let k = if self.has_sentence_scorer() {
             RESCORE_PATHS.max(want)
         } else {
             want
         };
-        let mut paths = sentence::convert_paths(
-            &dictionaries,
-            &expanded.positions(),
-            whole,
-            k,
-            &*self.language_model,
-            self.personal(),
-            |text| self.learner.weight(text),
-            |index, syllable| expanded.cost(index, syllable),
-            &mut self.span_cache.borrow_mut(),
-        );
-        // 与最优路径差得太远的不参与：那种差距多半是个人 n-gram 拉开的
+        let mut paths = self.static_sentence_paths(segmentations, typos, whole, k);
         if paths.len() > 1 {
             let floor = paths[0].score - self.neural_margin;
             paths.retain(|p| p.score >= floor);
-            // 条件是这批路径共同解释的那段按键，不是整个作用域：英文尾巴那条只转换了 head，
-            // 拿整段当条件会让它凭空背上没覆盖的字母
-            let keys: String = patterns.iter().map(|p| p.text).collect();
-            self.rescore_paths(&mut paths, &keys);
+            // 英文尾段只转换头段，重排的条件也只覆盖头段。
+            if let Some(best) = segmentations.first() {
+                let keys: String = best.patterns().iter().map(|p| p.text).collect();
+                self.rescore_paths(&mut paths, &keys);
+            }
         }
         paths
+    }
+
+    fn static_sentence_paths(
+        &self,
+        segmentations: &[Segmentation],
+        typos: bool,
+        whole: bool,
+        k: usize,
+    ) -> Vec<Conversion> {
+        let dictionaries = self.all_dictionaries();
+        // 本地整句模型按整段拼音判断。常用单字和短接续的历史次数不反复加到每个位置，
+        // 否则在别处选过的「是 / 一」会挤掉「试一试」。整句选择的偏好在重排时加回。
+        let neural = self.has_sentence_scorer() && self.neural_weight > 0.0;
+        let personal = if neural {
+            Personal::NONE
+        } else {
+            self.personal()
+        };
+        let convert = |expanded: &Expanded| {
+            sentence::convert_paths(
+                &dictionaries,
+                &expanded.positions(),
+                whole,
+                k,
+                &*self.language_model,
+                personal,
+                |text| if neural { 0 } else { self.learner.weight(text) },
+                |index, syllable| expanded.cost(index, syllable),
+                &mut self.span_cache.borrow_mut(),
+            )
+        };
+        if segmentations.is_empty() {
+            return Vec::new();
+        }
+        let incomplete = segmentations
+            .iter()
+            .map(Segmentation::incomplete_count)
+            .min();
+        let convert_all = |typos| {
+            segmentations
+                .iter()
+                .filter(|s| Some(s.incomplete_count()) == incomplete)
+                .flat_map(|s| convert(&self.expand_positions(&s.patterns(), typos)))
+                .collect::<Vec<_>>()
+        };
+        // 合法切分共同竞争（xiang ei / xian gei），完整拼音优先于简拼；能读通任一种原读法时不改字母。
+        let mut paths = convert_all(false);
+        if paths.iter().any(|p| !p.has_placeholder()) {
+            paths.retain(|p| !p.has_placeholder());
+        } else if typos {
+            paths = convert_all(true);
+        }
+        paths.sort_by(|a, b| b.score.total_cmp(&a.score));
+        let mut unique = Vec::with_capacity(k);
+        for path in paths {
+            if !unique
+                .iter()
+                .any(|p: &Conversion| p.text == path.text && p.syllables == path.syllables)
+            {
+                unique.push(path);
+                if unique.len() == k {
+                    break;
+                }
+            }
+        }
+        unique
     }
 }
