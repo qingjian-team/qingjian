@@ -61,8 +61,7 @@ fn typo_edges_in_the_lattice_fill_missing_readings() {
             .iter()
             .all(|c| c.text != "关系")
     );
-    // 敲的拼音本身正好是一个词（按另一种切分）：不许敲错边压过它。jineng 最优切分是 jin eng，词图里读出 近藤，
-    // 但 技能 的音节正好拼成整段输入
+    // 另一种合法切分能读成完整词：jineng 的 ji neng 读出 技能，保留原字母并同步拼音行。
     let dictionary = Dictionary::parse(
         "技能\tji neng\t300000\n近藤\tjin teng\t900000\n近\tjin\t500000\n\
              机\tji\t400000\n能\tneng\t600000\n",
@@ -71,7 +70,7 @@ fn typo_edges_in_the_lattice_fill_missing_readings() {
     let mut engine = Engine::new(dictionary);
     engine.set_input("jineng");
     let query = engine.query().unwrap();
-    assert_eq!(query.segmentations[0].joined("'"), "jin'eng");
+    assert_eq!(query.segmentations[0].joined("'"), "ji'neng");
     assert_eq!(query.candidates.items[0].text, "技能");
     assert!(query.candidates.items.iter().all(|c| c.text != "近藤"));
     // 退回原样的路径时原样的整句照出：shude 词图里 是的（shu → shi 相邻键）赢，但 树德 正好拼成 shude，

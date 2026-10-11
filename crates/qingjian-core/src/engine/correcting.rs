@@ -1,6 +1,7 @@
 //! 整段拼写纠错：找一处编辑的纠正并按个人敲错表打折。
 
-use super::*;
+use crate::correction::{self, Correction};
+use crate::engine::{Engine, Learner, MAX_CODE_LENGTH, segment_longest_prefix};
 
 impl Engine {
     /// 这段作用域生效的拼写纠正（带缓存）：拼音不像话、用户没对它回车原样上屏过、
@@ -48,9 +49,7 @@ impl Engine {
         // 噪声信道：原串按原样能转出的整句得分 vs 纠正后的整句得分扣掉一次编辑的代价，后者高才纠。
         // 原串切不干净（有尾巴）就没有原样得分，任何能转出整句的纠正都胜出
         let raw_score = if tail.is_empty() {
-            segmentations
-                .first()
-                .and_then(|best| self.convert_sentence(&best.patterns(), true))
+            self.convert_sentence(&segmentations, true)
                 .filter(|conversion| !conversion.has_placeholder())
                 .map(|conversion| conversion.score)
         } else {
@@ -67,7 +66,8 @@ impl Engine {
                 continue;
             }
             // 纠正后的拼音上不再猜第二处敲错：变体本来就是一处编辑之外的读法，再叠一层既慢又几乎不会赢
-            let Some(conversion) = self.convert_sentence(&candidate.segmentation.patterns(), false)
+            let Some(conversion) =
+                self.convert_sentence(std::slice::from_ref(&candidate.segmentation), false)
             else {
                 continue;
             };

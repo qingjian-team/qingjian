@@ -18,6 +18,43 @@ impl SentenceScorer for Prefers {
     }
 }
 
+#[test]
+fn sync_and_async_rescorers_compare_all_legal_segmentations() {
+    // 静态频率偏爱贪心切分；本地模型应能在同一批路径中选中另一种合法切分。
+    for asynchronous in [false, true] {
+        let engine = Engine::new(
+            Dictionary::parse(
+                "先\txian\t100\n想\txiang\t1000\n给\tgei\t100\n欸\tei\t1000\n\
+             我\two\t1000\n看看\tkan kan\t1000\n",
+            )
+            .unwrap(),
+        );
+        let scorer = Box::new(Prefers("先给我看看"));
+        let mut engine = if asynchronous {
+            engine.with_async_sentence_scorer(scorer, Some(1.0), Some(100.0), None)
+        } else {
+            engine.with_sentence_scorer(scorer, Some(1.0), Some(100.0), None)
+        };
+        engine.set_input("xiangeiwokankan");
+        if asynchronous {
+            assert_eq!(
+                engine.query().unwrap().candidates.items[0].text,
+                "想欸我看看"
+            );
+            assert!(engine.request_rescoring());
+            let start = Instant::now();
+            while !engine.poll_rescoring() {
+                assert!(start.elapsed() < Duration::from_secs(5));
+                std::thread::sleep(Duration::from_millis(5));
+            }
+        }
+        let query = engine.query().unwrap();
+        assert_eq!(query.candidates.items[0].text, "先给我看看");
+        assert_eq!(query.marked_text(), "xian'gei'wo'kan'kan");
+        assert!(!engine.request_rescoring());
+    }
+}
+
 fn path(text: &str, score: f64) -> Conversion {
     Conversion {
         text: text.to_owned(),

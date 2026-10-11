@@ -1,4 +1,13 @@
-use super::*;
+//! 拼音与英文尾段的切分、比分和组句。
+
+use crate::candidate::{Candidate, CandidateKind};
+use crate::correction;
+use crate::engine::{
+    ENGLISH_SWITCH_PENALTY, ENGLISH_ZIPF_FLOOR, Engine, Learner, MIN_COMPLETION_LETTERS,
+    MIN_ENGLISH_TAIL_HEAD_LETTERS, MIN_ENGLISH_TAIL_LETTERS, MIN_PINYIN_LIKE_TAIL_LETTERS,
+};
+use crate::parser::{self, Segmentation};
+use crate::sentence::Conversion;
 
 /// 「拼音头 + 英文尾」的切法：`woxiangxuehaorust` 切成头 `woxiangxuehao` 与尾 rust。
 /// 见 [`Engine::split_english_tail`]。
@@ -122,7 +131,7 @@ impl Engine {
     pub(super) fn mixed_beats_plain(&self, scope: &str, tail: &EnglishTail) -> bool {
         let convert = |text: &str, whole: bool| {
             let segmentations = parser::segment(text).ok()?;
-            self.convert_sentence_with(&segmentations.first()?.patterns(), true, whole)
+            self.convert_sentence_with(&segmentations, true, whole)
         };
         let (Some(head), Some(plain)) = (
             convert(&scope[..tail.head_len], false),
@@ -151,11 +160,11 @@ impl Engine {
     /// 头段有占位音节的不出。
     pub(super) fn mixed_sentence(
         &self,
-        head: &Segmentation,
+        head: &[Segmentation],
         tail: &EnglishTail,
         typos: bool,
     ) -> Option<Candidate> {
-        let conversion = self.convert_sentence(&head.patterns(), typos)?;
+        let conversion = self.convert_sentence(head, typos)?;
         if conversion.has_placeholder() {
             return None;
         }

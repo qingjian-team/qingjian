@@ -3,6 +3,50 @@
 use super::*;
 
 #[test]
+fn sentence_ranking_compares_legal_segmentations_and_learns_the_chosen_reading() {
+    let dictionary = Dictionary::parse(
+        "先\txian\t10000\n想\txiang\t10000\n给\tgei\t10000\n欸\tei\t1\n\
+         我\two\t10000\n看\tkan\t10000\n看看\tkan kan\t10000\n",
+    )
+    .unwrap();
+    let learner = WordLearner::default();
+    let shared = Arc::clone(&learner.shared);
+    let mut engine = Engine::new(dictionary)
+        .with_learner(Box::new(learner))
+        .with_english(WordList::parse("rust\trust\t3740\n").unwrap());
+    for (input, expected, marked) in [
+        ("xiangeiwokankan", "先给我看看", "xian'gei'wo'kan'kan"),
+        ("xiangeiwokan", "先给我看", "xian'gei'wo'kan"),
+        ("xianggeiwokankan", "想给我看看", "xiang'gei'wo'kan'kan"),
+        ("xiang'ei'wo'kan'kan", "想欸我看看", "xiang'ei'wo'kan'kan"),
+        ("xian'gei'wo'kan'kan", "先给我看看", "xian'gei'wo'kan'kan"),
+        (
+            "xiangeiwokankanrust",
+            "先给我看看rust",
+            "xian'gei'wo'kan'kan'rust",
+        ),
+    ] {
+        engine.set_input(input);
+        let query = engine.query().unwrap();
+        assert!(query.correction.is_none(), "{input}");
+        assert_eq!(query.candidates.items[0].text, expected, "{input}");
+        assert_eq!(query.marked_text(), marked, "{input}");
+        assert_eq!(
+            query.candidates.items[0].syllables.concat(),
+            input.replace('\'', "")
+        );
+        assert!(engine.accepted_typos(&query.candidates.items[0]).is_empty());
+    }
+    engine.set_input("xiangeiwokankan");
+    let query = engine.query().unwrap();
+    assert_eq!(engine.local_guess(&query.segmentations), "先给我看看");
+    assert_eq!(engine.commit(&query.candidates.items[0]), "先给我看看");
+    assert!(engine.composition().is_empty());
+    let ngram = &shared.lock().unwrap().1;
+    assert_eq!(ngram.pair(Some("先"), "给"), 1);
+}
+
+#[test]
 fn exact_word_first_then_longer_then_prefix_expansions_then_prefix_words() {
     assert_eq!(texts("kaifa"), ["开发", "开放", "开饭", "开发者", "开"]);
 }
