@@ -18,6 +18,8 @@ fn question_mode_asks_the_cloud_and_shows_answers_unvalidated() {
     let predictor = EchoPredictor {
         submitted: submitted.clone(),
         replies: vec![Prediction {
+            translation: None,
+            failed: false,
             sequence: 1,
             words: vec![restated, answer],
             sentence: None,
@@ -195,6 +197,8 @@ fn stale_predictions_are_dropped_and_accept_clears_composition() {
         sentence: false,
         replies: vec![
             Prediction {
+                translation: None,
+                failed: false,
                 sequence: 2,
                 words: vec![
                     cloud("开花", &["kai", "hua"]),
@@ -203,6 +207,8 @@ fn stale_predictions_are_dropped_and_accept_clears_composition() {
                 sentence: Some("开发输入法".into()),
             },
             Prediction {
+                translation: None,
+                failed: false,
                 sequence: 1,
                 words: Vec::new(),
                 sentence: Some("旧结果".into()),
@@ -236,6 +242,8 @@ fn cloud_words_tolerate_typos_but_not_unrelated_words() {
         submitted,
         sentence: false,
         replies: vec![Prediction {
+            translation: None,
+            failed: false,
             sequence: 1,
             words: vec![
                 cloud("这个东西吗", &["zhe", "ge", "dong", "xi", "ma"]),
@@ -271,6 +279,8 @@ fn cloud_words_are_validated_against_abbreviated_pinyin() {
         submitted,
         sentence: false,
         replies: vec![Prediction {
+            translation: None,
+            failed: false,
             sequence: 1,
             words: vec![
                 cloud("账套", &["zhang", "tao"]),
@@ -423,6 +433,8 @@ fn traditional_mode_preserves_original_text_across_queries() {
             submitted: std::rc::Rc::new(std::cell::RefCell::new(Vec::new())),
             sentence: false,
             replies: vec![Prediction {
+                translation: None,
+                failed: false,
                 sequence: 1,
                 words: vec![cloud("凯发", &["kai", "fa"])],
                 sentence: None,

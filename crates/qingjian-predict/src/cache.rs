@@ -29,7 +29,7 @@ impl PredictionCache {
     /// 序号不参与：同样的上下文与拼音就是同一个请求。
     pub fn key(request: &PredictionRequest) -> String {
         format!(
-            "{:?}\u{1}{}\u{1}{}\u{1}{}\u{1}{}\u{1}{}\u{1}{}\u{1}{}\u{1}{}\u{1}{}",
+            "{:?}\u{1}{}\u{1}{}\u{1}{}\u{1}{}\u{1}{}\u{1}{}\u{1}{}\u{1}{}\u{1}{}\u{1}{}",
             request.kind,
             request.before,
             request.after,
@@ -39,7 +39,8 @@ impl PredictionCache {
             request.max_items,
             request.want_sentence,
             request.text,
-            request.target_language
+            request.target_language,
+            request.translation_source.as_deref().unwrap_or_default()
         )
     }
 
@@ -66,6 +67,7 @@ mod tests {
     #[test]
     fn evicts_oldest_beyond_capacity() {
         let reply = |s: &str| Reply {
+            translation: None,
             words: Vec::new(),
             sentence: Some(s.to_owned()),
         };

@@ -48,7 +48,7 @@ pub use marked::{AuxSegment, MarkedKind, MarkedSegment};
 pub use mode_keys::{ModeKeys, QUESTION_PREFIX};
 pub use prediction::{
     CloudWord, NoPredictor, Prediction, PredictionKind, PredictionPolicy, PredictionRequest,
-    Predictor, SurroundingText,
+    Predictor, SentenceTranslation, SurroundingText,
 };
 
 pub use query::Query;
@@ -233,6 +233,12 @@ pub struct Engine {
 
     /// 最近一次联想请求的种类：只有组句联想的结果要按拼音校验。
     last_prediction_kind: PredictionKind,
+
+    /// 当前请求允许返回译文的中文候选。
+    translation_source: Option<String>,
+
+    /// 最近收到的整句译文，只属于 last_prediction_scope。
+    sentence_translation: Option<SentenceTranslation>,
 
     /// 最近一次问字请求里本地把问题拼音转成的汉字，用来剔掉模型复述问题的「答案」。
     last_question_guess: String,
@@ -440,6 +446,8 @@ impl Engine {
             history: InputHistory::default(),
             prediction_sequence: 0,
             last_prediction_kind: PredictionKind::Compose,
+            translation_source: None,
+            sentence_translation: None,
             last_question_guess: String::new(),
             chain: CommitChain::default(),
             fuzzy: FuzzyRules::default(),

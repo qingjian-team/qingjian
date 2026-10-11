@@ -29,11 +29,15 @@ impl CloudPredictor {
         let client = ChatClient::new(config, api_key);
         let (requests, request_rx) = mpsc::channel();
         let (response_tx, responses) = mpsc::channel();
+        use std::hash::{Hash, Hasher};
+        let mut hash = std::hash::DefaultHasher::new();
+        (&config.base_url, &config.model, &config.terminology).hash(&mut hash);
         let worker = Worker::new(
             request_rx,
             response_tx,
             client,
             Duration::from_millis(config.debounce_ms),
+            hash.finish(),
         );
         std::thread::Builder::new()
             .name("qingjian-predict".to_owned())

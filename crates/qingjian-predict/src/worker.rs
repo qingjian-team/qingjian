@@ -29,6 +29,8 @@ pub struct Worker {
 
     /// 结果缓存。
     cache: PredictionCache,
+
+    phrases: crate::phrase_store::PhraseStore,
 }
 
 /// 缓存里存的是解析后的回复。
@@ -40,6 +42,7 @@ impl Worker {
         responses: Sender<Prediction>,
         client: ChatClient,
         debounce: Duration,
+        namespace: u64,
     ) -> Self {
         Self {
             requests,
@@ -47,6 +50,7 @@ impl Worker {
             client,
             debounce,
             cache: PredictionCache::with_capacity(CACHE_CAPACITY),
+            phrases: crate::phrase_store::PhraseStore::load(namespace),
         }
     }
 
@@ -55,10 +59,25 @@ impl Worker {
         let runtime = tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()?;
-        while let Ok(first) = self.requests.recv() {
+        let mut pending = None;
+        while let Some(first) = pending.take().or_else(|| self.requests.recv().ok()) {
+            if let Some(reply) = self.cached_translation(&first) {
+                self.reply(first.sequence, reply);
+                if !self.client.cloud_association_for(&first) {
+                    continue;
+                }
+            }
             let Some(request) = self.debounce(first) else {
                 return Ok(());
             };
+            // 连续输入时末次请求在防抖期间到达，也必须先查离线词库。
+            let cached = self.cached_translation(&request);
+            if let Some(reply) = &cached {
+                self.reply(request.sequence, reply.clone());
+                if !self.client.cloud_association_for(&request) {
+                    continue;
+                }
+            }
             let key = PredictionCache::key(&request);
             if let Some(reply) = self.cache.get(&key) {
                 tracing::debug!(sequence = request.sequence, kind = ?request.kind, "联想命中缓存");
@@ -66,8 +85,41 @@ impl Worker {
                 continue;
             }
             let start = Instant::now();
-            match runtime.block_on(self.client.complete(&request)) {
-                Ok(reply) => {
+            let mut network_request = request.clone();
+            if cached.is_some() {
+                // 已有当前语言译文时，同一次云请求仅补中文联想，避免重复翻译费用。
+                network_request.translation_source = None;
+                network_request.target_language.clear();
+            }
+            // 新的输入取消旧的网络 future，避免过时请求挡住游戏输入。
+            let result = runtime.block_on(async {
+                let future = self.client.complete(&network_request);
+                tokio::pin!(future);
+                loop {
+                    tokio::select! {
+                        result = &mut future => break Some(result),
+                        _ = tokio::time::sleep(Duration::from_millis(30)) => {
+                            if let Ok(mut newer) = self.requests.try_recv() {
+                                while let Ok(last) = self.requests.try_recv() { newer = last; }
+                                // 保留最新请求，用下轮的 pending 槽而非重新放回通道。
+                                pending = Some(newer);
+                                break None;
+                            }
+                        }
+                    }
+                }
+            });
+            let Some(result) = result else {
+                continue;
+            };
+            match result {
+                Ok(mut reply) => {
+                    // 缓存译文不能把本次空中文回复变成可缓存结果。
+                    let cacheable = !reply.is_empty();
+                    if let Some(cached) = &cached {
+                        reply.translation.clone_from(&cached.translation);
+                    }
+                    self.phrases.remember(&reply.translation);
                     tracing::info!(
                         sequence = request.sequence,
                         elapsed_ms = start.elapsed().as_millis(),
@@ -77,13 +129,21 @@ impl Worker {
                     );
                     // 空回复不进缓存：模型偶尔什么都不给（问字尤其），缓存住就等于这个问题以后永远没答案，
                     // 用户重打一遍也只会命中缓存（2026-09-07 `?mumumu` 就是这么卡住的）
-                    if !reply.is_empty() {
+                    if cacheable {
                         self.cache.insert(key, reply.clone());
                     }
                     self.reply(request.sequence, reply);
                 }
                 Err(error) => {
-                    tracing::warn!(sequence = request.sequence, %error, "联想失败");
+                    if !matches!(error, PredictError::OfflineOnly) {
+                        tracing::warn!(sequence = request.sequence, "联想或翻译请求失败，原文保留");
+                    }
+                    let _ = self.responses.send(Prediction {
+                        sequence: request.sequence,
+                        failed: true,
+                        translation: cached.map(|reply| reply.translation).unwrap_or_default(),
+                        ..Prediction::default()
+                    });
                 }
             }
         }
@@ -94,7 +154,14 @@ impl Worker {
     fn debounce(&self, mut latest: PredictionRequest) -> Option<PredictionRequest> {
         loop {
             match self.requests.recv_timeout(self.debounce) {
-                Ok(newer) => latest = newer,
+                Ok(newer) => {
+                    latest = newer;
+                    if self.phrases.lookup(&latest).is_some()
+                        && !self.client.cloud_association_for(&latest)
+                    {
+                        return Some(latest);
+                    }
+                }
                 Err(RecvTimeoutError::Timeout) => return Some(latest),
                 Err(RecvTimeoutError::Disconnected) => return None,
             }
@@ -107,6 +174,25 @@ impl Worker {
             sequence,
             words: reply.words,
             sentence: reply.sentence,
+            translation: reply.translation,
+            failed: false,
         });
     }
+
+    fn cached_translation(&self, request: &PredictionRequest) -> Option<Reply> {
+        let t = self.phrases.lookup(request)?;
+        crate::accuracy::valid(
+            &t.source,
+            &t.text,
+            t.language.code(),
+            self.client.terminology(),
+        )
+        .then_some(Reply {
+            translation: Some(t),
+            ..Reply::default()
+        })
+    }
 }
+
+#[cfg(test)]
+mod tests;

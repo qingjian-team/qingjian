@@ -5,6 +5,10 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct PredictConfig {
+    /// offline 只查本地短句，cloud 复用已有云服务；不自动切换收费接口。
+    pub provider: String,
+    /// 用户主动触发的选区长文翻译后端；cloud 复用已有 API。
+    pub selection_provider: String,
     /// 是否启用。
     pub enabled: bool,
 
@@ -42,11 +46,22 @@ pub struct PredictConfig {
     /// 其余 minimal / low / medium / high / xhigh 照传；留空则不发（给不认这个参数的接口）。
     /// DeepSeek V4 这类默认带思考的模型不关会把 token 预算全花在思考上，正文为空。
     pub reasoning_effort: String,
+
+    /// 停顿后为完整中文候选生成整句译文，可用译词快捷键上屏。
+    pub sentence_translation: bool,
+
+    /// 长段落翻译每一段网络请求的超时，与日常联想分开。
+    pub translation_timeout_ms: u64,
+
+    /// 原文到目标译文的术语映射，每项格式为 原文=英文|日文。
+    pub terminology: Vec<String>,
 }
 
 impl Default for PredictConfig {
     fn default() -> Self {
         Self {
+            provider: "cloud".to_owned(),
+            selection_provider: "inherit".to_owned(),
             enabled: false,
             base_url: "https://api.deepseek.com".to_owned(),
             model: "deepseek-v4-flash".to_owned(),
@@ -59,6 +74,9 @@ impl Default for PredictConfig {
             slots: 2,
             sentence: true,
             reasoning_effort: "none".to_owned(),
+            sentence_translation: false,
+            translation_timeout_ms: 30_000,
+            terminology: Vec::new(),
         }
     }
 }
@@ -66,6 +84,9 @@ impl Default for PredictConfig {
 impl PredictConfig {
     /// 配置里的密钥优先，其次环境变量；两边都没有返回 `None`。
     pub fn resolve_api_key(&self) -> Option<String> {
+        if self.provider == "offline" && self.selection_provider != "cloud" {
+            return Some("offline-no-network".to_owned());
+        }
         self.api_key
             .as_deref()
             .map(str::trim)
@@ -83,6 +104,7 @@ impl PredictConfig {
             // 比槽位多要两条，与本地候选重复的去掉后还能填满；问字模式的答案也按这个数要
             max_items: self.slots.max(1) + 2,
             sentence: self.sentence,
+            sentence_translation: self.sentence_translation,
         }
     }
 }

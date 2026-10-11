@@ -37,16 +37,38 @@ impl Engine {
                 text = simp.as_str();
             }
             candidate.translation = match candidate.kind {
-                CandidateKind::Custom(_) => None,
+                CandidateKind::Custom(_) | CandidateKind::Shortcut => None,
                 // 英文候选按敲的大小写显示（Company / COMPANY），释义表键是小写
                 CandidateKind::English => self.english_translator.translate(text).or_else(|| {
                     self.english_translator
                         .translate(&text.to_ascii_lowercase())
                 }),
-                _ => self.translator.translate(text).map(|mut translation| {
-                    self.mark_fresh(&mut translation);
-                    translation
-                }),
+                _ => self
+                    .sentence_translation
+                    .iter()
+                    .find(|t| {
+                        !self.private
+                            && self.predictor.policy().sentence_translation
+                            && self.composition.scope() == self.last_prediction_scope
+                            && t.source == candidate.text
+                            && t.language == self.translator.language()
+                    })
+                    .map(|t| {
+                        crate::Translation::new(
+                            t.language,
+                            vec![crate::Sense {
+                                part_of_speech: None,
+                                text: t.text.clone(),
+                                reading: None,
+                                fresh: false,
+                            }],
+                        )
+                    })
+                    .or_else(|| self.translator.translate(text))
+                    .map(|mut translation| {
+                        self.mark_fresh(&mut translation);
+                        translation
+                    }),
             };
             hits += usize::from(candidate.translation.is_some());
         }
