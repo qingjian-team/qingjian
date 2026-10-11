@@ -6,6 +6,7 @@ use super::learning::Learner;
 use super::mode_keys::QUESTION_PREFIX;
 use super::{Engine, RECENT_COMMITS, is_raw, looks_like_english_word, segment_longest_prefix};
 use crate::composition::Composition;
+use crate::parser;
 use crate::shortcut;
 use std::time::Instant;
 
@@ -366,8 +367,32 @@ impl Engine {
         let english_word = looks_like_english_word(&raw, self.english_mode)
             && (self.english_mode || self.decode(&raw).is_none_or(|d| !d.is_complete()))
             && (self.english_mode || self.split_english_tail(&raw).is_none());
+        let lower = raw.to_ascii_lowercase();
+        // 像打一半的拼音的串（`ia` / `sm`）不是英文词，不学。词表里恰好有 code
+        // 等于它的（`IA` / `Sm`）也不豁免：真英文词用户会在候选里选中（走
+        // commit 的 learn_english），:raw 回车只是"词表里没有、原样打"的兜底；
+        // 不在词表的缩写（`css` / `html`）由下面的连续 3 次放行兜底。
+        let english_word =
+            english_word && (self.english_mode || !parser::is_pinyin_fragment(&lower));
         if english_word {
             self.learner.learn_english(&raw);
+            self.rejected_raw = None;
+        } else if !self.english_mode
+            && looks_like_english_word(&raw, self.english_mode)
+            && parser::is_pinyin_fragment(&lower)
+        {
+            // 碎片被拒：同一串连续拒到第 3 次放行（`css` / `html` 这类不在词表的开发者缩写）
+            let entry = self.rejected_raw.get_or_insert((lower.clone(), 0));
+            if entry.0 != lower {
+                *entry = (lower.clone(), 0);
+            }
+            entry.1 = entry.1.saturating_add(1);
+            if entry.1 >= 3 {
+                self.learner.learn_english(&raw);
+                self.rejected_raw = None;
+            }
+        } else {
+            self.rejected_raw = None;
         }
         self.meter_commit(&raw, InputSource::Raw, english_word);
         self.composition.clear();
