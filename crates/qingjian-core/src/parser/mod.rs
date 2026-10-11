@@ -47,6 +47,46 @@ pub fn is_fully_segmentable(text: &str) -> bool {
     reachable[n]
 }
 
+/// 所有音节的**真**后缀（`ia` ← `jia`、`ai` ← `bai`、`g` ← `ang`），供 [`is_pinyin_fragment`] 的 R2 查询。
+static PROPER_SYLLABLE_SUFFIXES: std::sync::LazyLock<std::collections::HashSet<&'static str>> =
+    std::sync::LazyLock::new(|| {
+        let mut set = std::collections::HashSet::new();
+        for syllable in SYLLABLES {
+            for start in 1..syllable.len() {
+                set.insert(&syllable[start..]);
+            }
+        }
+        set
+    });
+
+/// 单字母声母（[`INITIALS`] 里的单字母项），R1 用的简拼判定。
+const INITIAL_LETTERS: &[u8] = b"bpmfdtnlghjqxzcsryw";
+
+/// 回车原样上屏的串像不像「打一半的拼音」而不是英文词：纯简拼串（`sm`），或
+/// 掉了首字母还能读通的串（`ia` ← 想打 `xia`、`ialai` ← 想打 `xialai`）。
+/// 前置：能完整切分的（`nice`）不是碎片，交由现有守卫处理。调用方保证 `s` 非空、纯 ASCII 小写字母。
+pub fn is_pinyin_fragment(s: &str) -> bool {
+    if is_fully_segmentable(s) {
+        return false;
+    }
+    // R1：每个字母都是单字母声母 → 用户在打简拼（`sm` = 声母）
+    if s.bytes().all(|b| INITIAL_LETTERS.contains(&b)) {
+        return true;
+    }
+    // R2：存在切点，头是真后缀（丢了首字母），尾能完整切分或没有尾（`ia` / `ialai`）。
+    // 头最长是音节真后缀，音节最长 [`MAX_SYLLABLE_LEN`] 个字母（zhuang），所以切点到 6 为止。
+    let max = s.len().min(MAX_SYLLABLE_LEN);
+    for p in 1..=max {
+        let head = &s[..p];
+        if PROPER_SYLLABLE_SUFFIXES.contains(head)
+            && (p == s.len() || is_fully_segmentable(&s[p..]))
+        {
+            return true;
+        }
+    }
+    false
+}
+
 /// 切分上限。简拼让歧义切分数量指数增长，每个位置只保留这么多种最优切分。
 const MAX_SEGMENTATIONS: usize = 8;
 
@@ -254,5 +294,34 @@ mod tests {
         );
         assert_eq!(segment("v").unwrap_err(), ParseError::NoSegmentation);
         assert_eq!(segment("kaiv").unwrap_err(), ParseError::NoSegmentation);
+    }
+
+    #[test]
+    fn pinyin_fragments_are_told_from_english_words() {
+        for (text, expected) in [
+            ("ia", true),
+            ("ialai", true),
+            ("sm", true),
+            ("w", true),
+            ("i", true),
+            ("gist", false),
+            ("wifi", false),
+            ("hello", false),
+            ("python", false),
+            ("docker", false),
+            ("kubectl", false),
+            ("ok", false),
+            ("app", false),
+            ("id", false),
+            ("gmail", false),
+            ("outlook", false),
+            ("nice", false), // 能完整切分，前置直接返回 false
+            ("cena", false),
+            ("fly", true),
+            ("gym", true),
+            ("use", true), // 是碎片（u 是音节真后缀 + se）；词表豁免已取消，碎片一律不学
+        ] {
+            assert_eq!(is_pinyin_fragment(text), expected, "{text}");
+        }
     }
 }
