@@ -46,7 +46,7 @@ impl Router {
                 // 也能拿到同一份（新字段它直接忽略），只是慢一拍。
                 (protocol >= SESSION_OPENED_SINCE).then(|| ServerMessage::SessionOpened {
                     session,
-                    input: self.input_settings(),
+                    input: self.input_settings(session),
                 })
             }
             ClientMessage::Key { session, event } => Some(self.handle_key(session, event)),
@@ -94,7 +94,7 @@ impl Router {
                 Some(ServerMessage::ModeSync {
                     session,
                     english: Some(self.english),
-                    input: self.input_settings(),
+                    input: self.input_settings(session),
                     indicator: self.indicator_state(),
                 })
             }

@@ -25,9 +25,9 @@ impl Host {
         })
     }
 
-    /// 这个应用里英文模式给不给候选：全局开关开着，且应用不在 `[apps] english_candidates_off` 里。
+    /// 这个应用里英文模式给不给候选：全局开关开着，且应用在 `[apps] english_candidates_on` 白名单里。
     pub fn english_candidates_in(&self, bundle: Option<&str>) -> bool {
-        self.english_candidates && !bundle.is_some_and(|b| self.apps.english_candidates_off(b))
+        self.english_candidates && self.apps.english_candidates_on(bundle)
     }
 
     /// 开始一次翻译：记下选区，窗口先显示「翻译中…」。调用方已发出请求。

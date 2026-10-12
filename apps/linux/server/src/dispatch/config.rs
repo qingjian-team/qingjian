@@ -50,9 +50,9 @@ pub struct RouterConfig {
 }
 
 impl RouterConfig {
-    /// 全局开关开着，且应用不在 `[apps] english_candidates_off` 里；没报 exe 名按不关。
+    /// 全局开关开着，且应用在 `[apps] english_candidates_on` 白名单里；没报应用名按不给。
     pub fn english_candidates_in(&self, app: Option<&str>) -> bool {
-        self.english_candidates && !app.is_some_and(|app| self.apps.english_candidates_off(app))
+        self.english_candidates && self.apps.english_candidates_on(app)
     }
 }
 

@@ -72,10 +72,10 @@ description: 进入英文模式的方式、英文补全与拼写纠正、Space �
 ## 关闭
 
 - 全局：「偏好设置 → 通用」（Windows：「设置 → 通用」）取消「英文模式给候选」。关闭后为纯直通，与未使用输入法时一致。
-- 按应用：终端与代码编辑器中缺省不给候选，以免遮挡应用自身的补全或占用 `Tab` 键。
-  macOS 的名单包括 Terminal、iTerm、Warp、Ghostty、VS Code、Cursor、Zed、JetBrains 系列、Xcode 等；
-  Windows 的名单包括命令提示符、PowerShell、Windows Terminal、VS Code、Cursor、JetBrains 系列、Visual Studio 等。
-  「通用」页有一个勾选框控制此名单。需要增减具体应用时，在「高级」页打开配置文件，修改其中 apps 一段，每一项均附说明。
+- 按应用：缺省只在浏览器、聊天和文档类应用中给候选，例如 Safari、Chrome、Edge、Firefox、微信、QQ、企业微信、钉钉、飞书、Word、WPS、记事本、备忘录、Obsidian。
+  其他应用中英文模式为纯直通，字母原样交给应用：终端与代码编辑器里不会遮挡应用自身的补全或占用 `Tab` 键，
+  Windows 上 Photoshop、Illustrator、SolidWorks、Blender 这类软件的单键快捷键（如 Photoshop 的 `W` `H` `V`）也能直接使用。
+  「通用」页的「只在浏览器、聊天和文档类应用里给」控制此名单，取消勾选即处处都给。需要增减具体应用时，在「高级」页打开配置文件，修改其中 apps 一段，每一项均附说明。
 
 ## 与中文模式的关系
 

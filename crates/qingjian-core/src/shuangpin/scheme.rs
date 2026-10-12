@@ -1,6 +1,7 @@
 use std::fmt;
 use std::str::FromStr;
 
+use qingjian_dictionary::canonical_syllable;
 use serde::{Deserialize, Serialize};
 
 use super::table::Table;
@@ -130,8 +131,9 @@ impl Scheme {
         self.finals(second)
             .iter()
             .find_map(|final_| {
+                // jv / qv 这类全拼键盘别名也是合法音节，解码结果统一成词库写法
                 let syllable = format!("{initial}{final_}");
-                parser::is_syllable(&syllable).then_some(syllable)
+                parser::is_syllable(&syllable).then(|| canonical_syllable(&syllable).to_owned())
             })
             .or_else(|| {
                 // ü 在 j / q / x / y 后写作 u；同键已有的合法音节仍优先。
@@ -261,6 +263,11 @@ mod tests {
                     "lue" => "lve",
                     "nue" => "nve",
                     "lo" => "luo",
+                    // 全拼的键盘别名，双拼解成词库写法
+                    "jv" => "ju",
+                    "qv" => "qu",
+                    "xv" => "xu",
+                    "yv" => "yu",
                     "eng" if scheme == Scheme::Xiaolang => "en",
                     "dia" if scheme == Scheme::Xiaolang => "dai",
                     "lia" if scheme == Scheme::Xiaolang => "lai",

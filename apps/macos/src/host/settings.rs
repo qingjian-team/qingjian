@@ -399,15 +399,15 @@ impl Host {
                 self.settings
                     .set_value("general", "shift_letter", mode.key());
             }
-            // 勾上写缺省的终端 / 编辑器列表，去掉写空表；手改过的列表勾一下就回缺省
-            (Setting::EnglishCandidatesOffInApps, SettingValue::Bool(on)) => {
+            // 勾上写缺省白名单，去掉写 ["*"]（处处都给）；手改过的名单勾一下就回缺省
+            (Setting::EnglishCandidatesOnlyInApps, SettingValue::Bool(on)) => {
                 let apps: toml_edit::Array = if on {
-                    DEFAULT_ENGLISH_CANDIDATES_OFF.iter().copied().collect()
+                    DEFAULT_ENGLISH_CANDIDATES_ON.iter().copied().collect()
                 } else {
-                    toml_edit::Array::new()
+                    ["*"].into_iter().collect()
                 };
                 self.settings
-                    .set_value("apps", "english_candidates_off", apps);
+                    .set_value("apps", "english_candidates_on", apps);
             }
             // 弹出菜单按 Scheme::ALL 的顺序。写的是 [general] scheme（旧键 shuangpin 已并入它）：
             // 写旧键的话，配置里 scheme 的缺省值非空、解析时优先，用户选的方案会被静默忽略。

@@ -25,8 +25,8 @@ pub(crate) enum Message {
     EnglishFullWidthPunctuation(bool),
     /// 组句中会转全角的标点先把高亮候选上屏再补标点。
     PunctCommits(bool),
-    /// 开=写入平台默认名单，关=清空。
-    EnglishOffInApps(bool),
+    /// 开=写入平台缺省白名单，关=写 `["*"]`（处处都给）。
+    EnglishOnlyInApps(bool),
     /// 勾上 / 去掉一个中英切换键。
     SwitchKey(qingjian_platform::SwitchKey, bool),
     /// 内置英文模式总开关。

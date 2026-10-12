@@ -8,7 +8,7 @@ impl QingjianInputController {
         self.note_application(&client);
         let mut composing = host::with(|h| !h.engine.composition().is_empty()).unwrap_or(false);
         let english = modifiers::caps_lock_on();
-        // 终端、编辑器这类应用（`[apps] english_candidates_off`）里英文模式是纯直通
+        // 不在白名单（`[apps] english_candidates_on`）里的应用，英文模式是纯直通
         let english_candidates = english
             && host::with(|h| h.english_candidates_in(client.bundle_identifier().as_deref()))
                 .unwrap_or(false);

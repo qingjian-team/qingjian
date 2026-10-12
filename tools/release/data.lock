@@ -1,3 +1,3 @@
 # 产品数据版本，data-bundle.sh 写、data-fetch.sh 读；不要手改
-tag = data-v4
-qingjian-data.tar.gz = e92c47b9e634d286652dc7706ae2b6fb0272f0277a0118fa03de391f981d5eed
+tag = data-v5
+qingjian-data.tar.gz = 176adbd1af1ef8de03ef59dd88a0bf2b2a3c1d8bc0dc94bbce2b7fa99dfca1ad

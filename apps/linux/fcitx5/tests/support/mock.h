@@ -45,7 +45,7 @@ struct Mock {
         int fd = accept(listener, nullptr, nullptr);
         auto opened = readMessage(fd).at("OpenSession");
         const auto session = opened.at("session");
-        assert(opened.at("protocol") == 7);
+        assert(opened.at("protocol") == 8);
         writeMessage(fd, {{"Update", {{"session", session}, {"linux_ui", {{"version", mode == "mismatch" ? 2 : 3}}}}}});
         if (mode == "mismatch") { close(fd); return; }
         auto identity = readMessage(fd).at("LinuxHello");

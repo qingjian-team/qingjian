@@ -13,7 +13,7 @@ fn partial_file_keeps_other_defaults() {
     let config: Config = toml::from_str("[predict]\nenabled = true\nlookback = 10\n").unwrap();
     assert!(config.predict.enabled);
     assert_eq!(config.predict.lookback, 10);
-    assert_eq!(config.predict.model, "deepseek-v4-flash");
+    assert_eq!(config.predict.model, "deepseek-flash");
     assert_eq!(config.predict.reasoning_effort, "none");
     assert_eq!(config.predict.api_key_env, "QINGJIAN_API_KEY");
 }

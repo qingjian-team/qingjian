@@ -121,7 +121,47 @@ fn init_logging(config: &Config) -> Option<tracing_appender::non_blocking::Worke
     }
 }
 
+/// 主题投稿用：把主题目录画成预览图写进它的 preview/，不起服务（主题仓库的 tools/preview.py 调它）。
+fn theme_preview(dir: Option<String>) -> i32 {
+    attach_parent_console();
+    let Some(dir) = dir else {
+        eprintln!(
+            "用法：qingjian-server {} <主题目录>",
+            qingjian_render::preview::FLAG
+        );
+        return 2;
+    };
+    #[cfg(windows)]
+    let family_files = qingjian_render::system_fonts::family_files;
+    #[cfg(not(windows))]
+    let family_files = |_: &str| Vec::new();
+    qingjian_render::preview::run(Path::new(&dir), family_files)
+}
+
+/// release 是 GUI 子系统，从 cmd / PowerShell 直接运行时没有标准输出：挂到父进程的控制台上。
+/// 被管道调用（tools/preview.py）时已经有输出句柄，不动。
+#[cfg(windows)]
+fn attach_parent_console() {
+    use windows::Win32::System::Console::{
+        ATTACH_PARENT_PROCESS, AttachConsole, GetStdHandle, STD_OUTPUT_HANDLE,
+    };
+    // SAFETY: 只查询与挂接本进程的控制台，不涉及内存
+    unsafe {
+        let has_stdout = GetStdHandle(STD_OUTPUT_HANDLE).is_ok_and(|handle| !handle.is_invalid());
+        if !has_stdout {
+            let _ = AttachConsole(ATTACH_PARENT_PROCESS);
+        }
+    }
+}
+
+#[cfg(not(windows))]
+fn attach_parent_console() {}
+
 fn main() {
+    let mut arguments = std::env::args().skip(1);
+    if arguments.next().as_deref() == Some(qingjian_render::preview::FLAG) {
+        std::process::exit(theme_preview(arguments.next()));
+    }
     load_env();
 
     // 日志级别取自配置，所以先写模板、读配置，再装日志。

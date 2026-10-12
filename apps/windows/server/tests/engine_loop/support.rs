@@ -10,7 +10,7 @@ pub use qingjian_platform::protocol::{
     ServerMessage, SessionId,
 };
 pub use qingjian_platform::{
-    AppsConfig, DEFAULT_ENGLISH_CANDIDATES_OFF_WINDOWS, PreeditMode, Scheme,
+    AppsConfig, DEFAULT_ENGLISH_CANDIDATES_ON_WINDOWS, PreeditMode, Scheme,
 };
 pub use qingjian_render::Mode;
 pub use qingjian_windows_server::dispatch::{
@@ -45,15 +45,21 @@ pub fn router() -> Router {
     router_with(RouterConfig::default())
 }
 
+/// 会话开在记事本里（Windows 缺省白名单里有它，英文模式给候选）。
 pub fn router_with(config: RouterConfig) -> Router {
-    router_in(config, None)
+    router_in_app_with(config, "notepad.exe")
 }
 
-/// 在某个应用（宿主 exe 名）里开会话，名单用 Windows 缺省那份。
+/// 在某个应用（宿主 exe 名）里开会话。
 pub fn router_in_app(app: &str) -> Router {
+    router_in_app_with(RouterConfig::default(), app)
+}
+
+/// 白名单固定用 Windows 缺省那份：`RouterConfig::default()` 的名单跟着编译平台走，本机跑测试时是 macOS 的。
+fn router_in_app_with(config: RouterConfig, app: &str) -> Router {
     let config = RouterConfig {
-        apps: AppsConfig::with_english_candidates_off(DEFAULT_ENGLISH_CANDIDATES_OFF_WINDOWS),
-        ..RouterConfig::default()
+        apps: AppsConfig::with_english_candidates_on(DEFAULT_ENGLISH_CANDIDATES_ON_WINDOWS),
+        ..config
     };
     router_in(config, Some(app.to_owned()))
 }

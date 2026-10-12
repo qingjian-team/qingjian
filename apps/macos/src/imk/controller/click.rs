@@ -55,12 +55,13 @@ impl QingjianInputController {
         }
         match target {
             HitTarget::Candidate(offset) => {
-                if let Some(index) = host::with(|h| h.session.index_on_page(offset)).flatten() {
+                if let Some(index) = host::with(|h| h.session.index_in_view(offset)).flatten() {
                     self.commit_index(index, client);
                 }
             }
             HitTarget::Translation { candidate, sense } => {
-                self.handle_translation_key(candidate + 1, sense, client);
+                let index = host::with(|h| h.session.index_in_view(candidate)).flatten();
+                self.commit_translation_at(index, sense, client);
             }
         }
     }

@@ -23,7 +23,7 @@ description: 四个内置主题（青简绿、系统蓝、微信绿、樱花）�
 
 ```text
 themes/
-└── sakura/
+└── pink/
     └── theme.json
 ```
 
@@ -33,7 +33,7 @@ themes/
 {
   "extends": "qingjian",
   "schema": 1,
-  "meta": { "id": "sakura", "name": "樱花粉" },
+  "meta": { "id": "pink", "name": "粉色" },
   "variables": {
     "accent": { "light": "#ffb7d5", "dark": "#b0507a" },
     "hl_text": "#ffffff"

@@ -38,7 +38,7 @@ pub struct GeneralPage {
     english: Retained<NSButton>,
 
     /// 终端 / 编辑器里不给英文候选。
-    english_off_in_apps: Retained<NSButton>,
+    english_only_in_apps: Retained<NSButton>,
 
     /// 中文模式也给英文词与补全。
     english_in_chinese: Retained<NSButton>,
@@ -164,17 +164,17 @@ impl GeneralPage {
             mtm,
             "Tab 或方向键选词；空格、回车、标点仍原样上屏敲的字母，不选词时与直接打字一样。",
         );
-        let english_off_in_apps = checkbox(
+        let english_only_in_apps = checkbox(
             mtm,
-            "但在终端和代码编辑器里不给",
-            Setting::EnglishCandidatesOffInApps,
+            "只在浏览器、聊天和文档类应用里给",
+            Setting::EnglishCandidatesOnlyInApps,
             target,
         );
-        row_checkbox(layout, &english_off_in_apps);
+        row_checkbox(layout, &english_only_in_apps);
         note(
             layout,
             mtm,
-            "终端、iTerm、Warp、Ghostty、VS Code、Cursor、Zed、JetBrains、Xcode 等，那里的候选窗口会挡住应用自己的补全；名单可在配置文件里改。",
+            "Safari、Chrome、微信、QQ、Word、备忘录等；别的应用（终端、代码编辑器、Photoshop 这类靠单键快捷键的软件）里字母原样交给应用。名单可在配置文件里改。",
         );
         let english_in_chinese = checkbox(
             mtm,
@@ -221,7 +221,7 @@ impl GeneralPage {
             traditional,
             emoji,
             english,
-            english_off_in_apps,
+            english_only_in_apps,
             english_in_chinese,
             chinese_first,
             shift_letter,
@@ -266,10 +266,10 @@ impl GeneralPage {
         set_checked(&self.emoji, general.emoji);
         set_checked(&self.english, general.english_candidates);
         set_checked(
-            &self.english_off_in_apps,
-            config.apps.has_english_candidates_off(),
+            &self.english_only_in_apps,
+            !config.apps.english_candidates_everywhere(),
         );
-        self.english_off_in_apps
+        self.english_only_in_apps
             .setEnabled(general.english_candidates);
         set_checked(&self.english_in_chinese, general.english_in_chinese);
         set_checked(&self.chinese_first, general.chinese_first);

@@ -6,6 +6,7 @@
 #include <cassert>
 #include <chrono>
 #include <filesystem>
+#include <fstream>
 #include <thread>
 #include <sys/wait.h>
 #include <signal.h>
@@ -23,6 +24,9 @@ int main(int argc, char **argv) {
     setenv("QINGJIAN_RESOURCES", directory, 1);
     setenv("QINGJIAN_DICT", dictionary.c_str(), 1);
     setenv("XDG_CONFIG_HOME", directory, 1);
+    // 测试程序报不出英文候选白名单里的应用名：处处都给，下面才测得到英文组词。
+    std::filesystem::create_directories(std::filesystem::path(directory) / "qingjian");
+    std::ofstream(std::filesystem::path(directory) / "qingjian/config.toml") << "[apps]\nenglish_candidates_on = [\"*\"]\n";
     setenv("XDG_DATA_HOME", directory, 1);
     setenv("XDG_STATE_HOME", directory, 1);
     unsetenv("DBUS_SESSION_BUS_ADDRESS");

@@ -81,6 +81,14 @@ fn cursor_edits_requery_from_the_start_and_map_into_marked_text() {
 }
 
 #[test]
+fn shifted_brackets_punctuate_to_corner_quotes() {
+    // macOS 上 ⇧[ / ⇧] 产生的字符是 { / }，全角标点下应出「」而不是放行半角花括号（issue #228）
+    let mut engine = engine();
+    assert_eq!(engine.punctuate('{'), Some("「"));
+    assert_eq!(engine.punctuate('}'), Some("」"));
+}
+
+#[test]
 fn punctuation_follows_committed_text() {
     let mut engine = engine();
     assert_eq!(engine.punctuate(','), Some("，"));
@@ -143,6 +151,27 @@ fn keyboard_u_umlaut_spelling_matches_canonical_dictionary_keys() {
     engine.set_input("xuexicelue");
     let sentence = &engine.query().unwrap().candidates.items[0];
     assert_eq!(sentence.text, "学习策略");
+    assert_eq!(sentence.kind, CandidateKind::Sentence);
+}
+
+#[test]
+fn keyboard_v_after_jqxy_matches_u_dictionary_keys() {
+    let dictionary =
+        Dictionary::parse("提取\tti qu\t9000\n去留\tqu liu\t8000\n学习\txue xi\t7000\n").unwrap();
+    let mut engine = Engine::new(dictionary);
+
+    engine.set_input("tiqv");
+    let query = engine.query().unwrap();
+    assert_eq!(query.marked_text(), "ti'qv");
+    assert_eq!(query.candidates.items[0].text, "提取");
+    assert_eq!(query.candidates.items[0].syllables, ["ti", "qu"]);
+
+    engine.set_input("qvliu");
+    assert_eq!(engine.query().unwrap().candidates.items[0].text, "去留");
+
+    engine.set_input("xuexiqvliu");
+    let sentence = &engine.query().unwrap().candidates.items[0];
+    assert_eq!(sentence.text, "学习去留");
     assert_eq!(sentence.kind, CandidateKind::Sentence);
 }
 

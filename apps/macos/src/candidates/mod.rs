@@ -11,7 +11,7 @@ mod theme;
 mod view;
 mod window;
 
-pub(crate) use bitmap::available_families;
+pub(crate) use bitmap::{available_families, family_files};
 pub use frame::Frame;
 pub use preedit::Preedit;
 pub use row::Row;
