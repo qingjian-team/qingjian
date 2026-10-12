@@ -2936,6 +2936,7 @@ dependencies = [
  "qingjian-render",
  "qingjian-translate",
  "qingjian-update",
+ "serde_json",
  "thiserror 2.0.21",
  "toml_edit",
  "tracing",
