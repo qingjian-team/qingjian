@@ -44,6 +44,9 @@ pub struct Ivars {
     /// 云联想的小云朵。
     cloud: CloudIcon,
 
+    /// 常用语右上角的小立方体。
+    phrase: CloudIcon,
+
     /// 主题。
     theme: Theme,
 
@@ -69,11 +72,17 @@ const CARET_WIDTH: f64 = 1.5;
 /// 云朵图标边长。
 const CLOUD_SIZE: f64 = 13.0;
 
+/// 常用语立方体边长（比云朵小，贴在词右上角）。
+const PHRASE_SIZE: f64 = 8.0;
+
 /// 云朵与后面文字的间距。
 const CLOUD_GAP: f64 = 4.0;
 
 /// 拿不到 SF Symbol 时的文字云朵。
 const CLOUD_FALLBACK: &str = "☁︎";
+
+/// 拿不到 SF Symbol 时的常用语标记。
+const PHRASE_FALLBACK: &str = "◻";
 
 /// preedit 与右侧整句补全之间的间距。
 const SENTENCE_GAP: f64 = 16.0;
@@ -140,10 +149,12 @@ define_class!(
 impl CandidateView {
     pub fn new(mtm: MainThreadMarker, theme: Theme) -> Retained<Self> {
         let cloud = CloudIcon::new(&theme.cloud_color, CLOUD_SIZE);
+        let phrase = CloudIcon::phrase(&theme.pos_color, PHRASE_SIZE);
         let this = mtm.alloc::<Self>().set_ivars(Ivars {
             frame: RefCell::new(Frame::default()),
             layout: Cell::new(LayoutMode::default()),
             cloud,
+            phrase,
             theme,
             bitmap: RefCell::new(None),
             font: RefCell::new(String::new()),
@@ -465,6 +476,10 @@ impl CandidateView {
                 if row.cloud {
                     text.width += self.cloud_width();
                 }
+                if row.custom {
+                    // 横排单项贴文字宽，留出右上角图标空位
+                    text.width += self.phrase_badge_reserve();
+                }
                 row_height = row_height.max(text.height + theme.row_padding * 2.0);
                 Item {
                     index_width: index.width,
@@ -586,6 +601,9 @@ impl CandidateView {
                     x,
                 );
             }
+            if row.custom {
+                self.draw_phrase_badge(y, bounds.size.width);
+            }
             y += columns.row_height;
         }
         if let Some(footer) = frame.footer.as_deref() {
@@ -632,6 +650,9 @@ impl CandidateView {
                 baseline,
                 text_size.height,
             );
+            if row.custom {
+                self.draw_phrase_badge(y, x + item_width + HIGHLIGHT_INSET);
+            }
             x += item_width + theme.column_gap;
         }
         if let Some(footer) = frame.footer.as_deref() {
@@ -661,7 +682,7 @@ impl CandidateView {
         }
     }
 
-    /// 候选词本体：云端词前带云朵、换颜色。
+    /// 候选词本体：云端词前带云朵。
     fn draw_word(&self, row: &Row, x: f64, baseline: f64, text_height: f64) {
         let theme = self.theme();
         let mut word_x = x;
@@ -674,6 +695,41 @@ impl CandidateView {
             &theme.text_color
         };
         self.draw_text(&row.text, &theme.text_font, color, baseline, word_x);
+    }
+
+    fn phrase_badge_reserve(&self) -> f64 {
+        let phrase = &self.ivars().phrase;
+        let size = if phrase.is_symbol() {
+            phrase.width()
+        } else {
+            self.measure(PHRASE_FALLBACK, &self.theme().annotation_font)
+                .width
+        };
+        size + 4.0
+    }
+
+    /// 常用语标记画在整行（或横排单项）最右上角，不贴着候选词。
+    fn draw_phrase_badge(&self, row_top: f64, row_right: f64) {
+        let phrase = &self.ivars().phrase;
+        let size = if phrase.is_symbol() {
+            phrase.width()
+        } else {
+            self.measure(PHRASE_FALLBACK, &self.theme().annotation_font)
+                .height
+        };
+        let x = row_right - self.theme().padding / 2.0 - size;
+        let y = row_top + 2.0;
+        if phrase.is_symbol() {
+            phrase.draw(x, y);
+        } else {
+            self.draw_text(
+                PHRASE_FALLBACK,
+                &self.theme().annotation_font,
+                &self.theme().pos_color,
+                y,
+                x,
+            );
+        }
     }
 
     fn fill_highlight(&self, rect: NSRect) {

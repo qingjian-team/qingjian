@@ -112,6 +112,7 @@ impl Router {
             aux_code_show: self.config.aux_code_show,
             sentence: None,
             notice: None,
+            mode_hint: None,
         }
     }
 }

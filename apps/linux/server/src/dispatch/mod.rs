@@ -52,6 +52,9 @@ pub struct Router {
     /// 删除候选等操作提示。
     notice: Option<String>,
 
+    /// 邮箱 / 网址补全态提示。
+    mode_hint: Option<String>,
+
     /// 全服务帧号递增，关闭再开不会复用展示身份。
     display_revision: u64,
 
@@ -82,6 +85,7 @@ impl Router {
             navigated: false,
             sentence: None,
             notice: None,
+            mode_hint: None,
             display_revision: 0,
             last_flush: Instant::now(),
             model_path: None,
@@ -114,6 +118,19 @@ impl Router {
             self.config.english_full_width
         } else {
             self.config.full_width
+        }
+    }
+
+    /// 记住开着时把当前中英写回配置，新会话与重启按它恢复。
+    pub(super) fn remember_english(&mut self, english: bool) {
+        if !self.config.remember_input_mode || self.config.last_english == english {
+            return;
+        }
+        self.config.last_english = english;
+        let path = crate::paths::config_path();
+        if let Err(error) = qingjian_platform::Config::set_value(&path, "general", "last_english", english)
+        {
+            tracing::warn!(%error, "写回上次中英模式失败");
         }
     }
 }

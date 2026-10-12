@@ -137,6 +137,26 @@ fn indicator_menu_toggles_status_bar() {
 }
 
 #[test]
+fn server_starts_in_last_remembered_english_mode() {
+    let config = RouterConfig {
+        status_enabled: true,
+        remember_input_mode: true,
+        last_english: true,
+        ..RouterConfig::default()
+    };
+    let mut router = router_with(config);
+    assert_eq!(synced_mode(&mut router, SESSION), Some(true));
+
+    let chinese = RouterConfig {
+        remember_input_mode: false,
+        last_english: true,
+        ..RouterConfig::default()
+    };
+    let mut router = router_with(chinese);
+    assert_eq!(synced_mode(&mut router, SESSION), Some(false));
+}
+
+#[test]
 fn mode_is_shared_by_every_app() {
     let config = RouterConfig {
         status_enabled: true,

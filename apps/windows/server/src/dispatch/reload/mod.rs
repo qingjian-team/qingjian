@@ -229,6 +229,8 @@ impl Router {
         self.engine
             .set_english_in_chinese(config.general.english_in_chinese);
         self.engine
+            .set_email_url_mode(config.general.email_url_mode);
+        self.engine
             .set_shift_letter_compose(config.general.shift_letter.compose());
         self.engine
             .set_shuangpin_raw_preedit(config.general.shuangpin_raw_preedit);

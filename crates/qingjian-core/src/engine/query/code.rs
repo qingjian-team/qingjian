@@ -84,6 +84,7 @@ impl Engine {
             typed_display: None,
             correction: None,
             aux: None,
+            mode_hint: None,
             timings: Timings {
                 parse,
                 lookup,

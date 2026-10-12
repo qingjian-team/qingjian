@@ -4,6 +4,7 @@ use super::*;
 
 mod code;
 mod converting;
+mod email_url;
 mod english_tail;
 mod generating;
 mod lookup;

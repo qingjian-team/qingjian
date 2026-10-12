@@ -35,6 +35,9 @@ pub(crate) struct RenderData {
     /// 屏幕提示（删候选后的「已删除…」），画在拼音行下方。
     pub(super) notice: Option<String>,
 
+    /// 邮箱 / 网址模式提示，画在拼音行右侧（优先于整句，不带云朵）。
+    pub(super) mode_hint: Option<String>,
+
     /// 候选排布。
     pub(super) layout: LayoutMode,
 
@@ -59,6 +62,7 @@ impl RenderData {
             footer: None,
             sentence: None,
             notice: None,
+            mode_hint: None,
             layout: LayoutMode::default(),
             appearance: Appearance::default(),
             show_code: false,
@@ -85,9 +89,10 @@ impl RenderData {
             (frame.page_count > 1).then(|| format!("{}/{}", frame.page + 1, frame.page_count));
         self.sentence = frame.sentence.clone();
         self.notice = frame.notice.clone();
+        self.mode_hint = frame.mode_hint.clone();
     }
 
-    /// 渲染器要的帧。提示（删了什么词）在渲染器里画在拼音行右侧，与 macOS 一致。
+    /// 渲染器要的帧。模式提示 / 删词提示画在拼音行右侧（status），与 macOS 一致。
     pub(super) fn render_frame(&self) -> qingjian_render::Frame {
         let preedit = (!self.preedit.is_empty()).then(|| Preedit {
             segments: self
@@ -105,6 +110,16 @@ impl RenderData {
                 .collect(),
             cursor: self.cursor,
         });
+        // status 优先于 sentence：模式提示压过云整句；删词提示同样走 status
+        let status = self
+            .mode_hint
+            .clone()
+            .or_else(|| self.notice.clone());
+        let sentence = if self.mode_hint.is_some() {
+            None
+        } else {
+            self.sentence.clone()
+        };
         qingjian_render::Frame {
             preedit,
             rows: self.rows.clone(),
@@ -113,8 +128,8 @@ impl RenderData {
             columns: 0,
             column_ems: Vec::new(),
             footer: self.footer.clone(),
-            sentence: self.sentence.clone(),
-            status: self.notice.clone(),
+            sentence,
+            status,
             mode: self.mode.clone(),
         }
     }

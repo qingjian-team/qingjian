@@ -37,11 +37,17 @@ pub(crate) fn from_candidate(position: usize, candidate: &Candidate, show_code: 
             }
         }
     }
+    let custom = matches!(candidate.kind, CandidateKind::Custom(_));
     Row {
         index: (position + 1).to_string(),
-        text: candidate.text.clone(),
+        text: if custom {
+            qingjian_core::CustomPhrase::preview(&candidate.text, 60)
+        } else {
+            candidate.text.clone()
+        },
         code,
         annotation,
         cloud: candidate.kind == CandidateKind::Cloud,
+        custom,
     }
 }

@@ -200,6 +200,65 @@ fn digit_then_composition_resets_decimal_point_state() {
     let result = key(&mut router, 0xBE, Some('.'), normal);
     assert_eq!(result.1.as_deref(), Some("你。"));
 }
+/// 组句中 Shift+2 产出 `@`：进英文直输 / 邮箱补全，不当「删第 2 个候选」。
+#[test]
+fn shift_at_while_composing_enters_email_mode() {
+    let mut router = router(5);
+    let shift = KeyModifiers {
+        shift: true,
+        ..Default::default()
+    };
+    compose(&mut router, "qingjian", KeyModifiers::default());
+    // VK_2 = 0x32；带字符 `@` 时不得走删候选
+    let frame = key(&mut router, 0x32, Some('@'), shift).2;
+    assert!(
+        frame.notice.is_none(),
+        "Shift+@ 不该弹出删候选提示，got {:?}",
+        frame.notice
+    );
+    assert!(
+        frame
+            .candidates
+            .items
+            .iter()
+            .any(|c| c.text.contains('@')),
+        "应进入邮箱补全，candidates={:?}",
+        frame
+            .candidates
+            .items
+            .iter()
+            .map(|c| &c.text)
+            .collect::<Vec<_>>()
+    );
+    assert_eq!(
+        frame.mode_hint.as_deref(),
+        Some("退出网址、邮箱模式")
+    );
+}
+
+/// `[general] commit_key = enter`：回车上屏高亮候选，空格上屏原始拼音。
+#[test]
+fn commit_key_enter_swaps_space_and_return() {
+    use qingjian_platform::CommitKey;
+
+    let mut router = router(5);
+    let normal = KeyModifiers::default();
+    router.config.commit_key = CommitKey::Enter;
+    compose(&mut router, "ni", normal);
+    let highlighted = key(&mut router, 0, None, normal).2.candidates.items[0]
+        .text
+        .clone();
+    assert_eq!(
+        key(&mut router, 0x0D, None, normal).1.as_deref(),
+        Some(highlighted.as_str())
+    );
+    compose(&mut router, "ni", normal);
+    assert_eq!(
+        key(&mut router, 0x20, Some(' '), normal).1.as_deref(),
+        Some("ni")
+    );
+}
+
 /// `[general] punct_commits` 关着（缺省）：组句中的标点进英文直输段，不上屏候选；打开后上屏候选再补标点。
 #[test]
 fn punct_commits_off_keeps_punctuation_in_raw_segment() {

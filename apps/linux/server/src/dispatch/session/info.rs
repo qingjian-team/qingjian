@@ -44,10 +44,10 @@ pub(crate) struct SessionInfo {
     pub(crate) navigated: bool,
 }
 impl SessionInfo {
-    pub(crate) fn new(app: Option<String>) -> Self {
+    pub(crate) fn new(app: Option<String>, english: bool) -> Self {
         Self {
             app,
-            english: false,
+            english,
             shift_pending: false,
             capabilities: None,
             disabled: false,

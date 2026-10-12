@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 /// 按原始输入码匹配的固定位置文本。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CustomPhrase {
-    /// 小写英文字母输入码，1–32 个字符。
+    /// 输入码：1–32 个字符，小写英文字母、数字或汉字。
     pub code: String,
 
     /// 原样上屏的文本，保留空格和换行。
@@ -28,7 +28,7 @@ pub fn validate_phrases(phrases: &[CustomPhrase]) -> Result<(), String> {
     let mut occupied = std::collections::BTreeSet::new();
     for phrase in phrases {
         if !valid_code(&phrase.code) {
-            return Err("输入码须为 1–32 个小写英文字母".into());
+            return Err("输入码须为 1–32 个小写英文字母、数字或汉字".into());
         }
         if !(1..=9).contains(&phrase.position) {
             return Err("候选位置须为 1–9".into());
@@ -46,13 +46,31 @@ pub fn validate_phrases(phrases: &[CustomPhrase]) -> Result<(), String> {
     Ok(())
 }
 
-/// 输入码能不能当自定义短语用：1–32 个小写英文字母。
-fn valid_code(code: &str) -> bool {
-    !code.is_empty() && code.len() <= 32 && code.bytes().all(|c| c.is_ascii_lowercase())
+/// 输入码能不能当自定义短语用：1–32 个小写字母、数字或汉字（按 Unicode 字符计）。
+pub fn valid_code(code: &str) -> bool {
+    let count = code.chars().count();
+    (1..=32).contains(&count) && code.chars().all(is_code_char)
+}
+
+fn is_code_char(ch: char) -> bool {
+    ch.is_ascii_lowercase() || ch.is_ascii_digit() || is_cjk(ch)
+}
+
+/// 只把 ASCII 大写收成小写，数字与汉字原样保留。
+pub fn normalize_code(code: &str) -> String {
+    code.chars()
+        .map(|ch| {
+            if ch.is_ascii_uppercase() {
+                ch.to_ascii_lowercase()
+            } else {
+                ch
+            }
+        })
+        .collect()
 }
 
 /// 把系统的文本替换（macOS「键盘 → 文本替换」这类「输入码 → 短语」表）并进自定义短语：
-/// 每条占该输入码最靠前的空位（1–9），输入码不是小写字母、短语为空、九位都满、或用户已有同码同文本的规则时跳过。
+/// 每条占该输入码最靠前的空位（1–9），输入码不合法、短语为空、九位都满、或用户已有同码同文本的规则时跳过。
 /// 结果保证通过 [`validate_phrases`]（前提是 `base` 本身合法）。
 pub fn merge_replacements<'a>(
     base: &[CustomPhrase],
@@ -60,6 +78,7 @@ pub fn merge_replacements<'a>(
 ) -> Vec<CustomPhrase> {
     let mut phrases = base.to_vec();
     for (code, text) in replacements {
+        // 系统替换表只收已经合法的码（含数字 / 汉字）；带大写的条目不算，与原先一致。
         if !valid_code(code) || text.is_empty() {
             continue;
         }
@@ -109,9 +128,48 @@ impl CustomPhrase {
     }
 }
 
+/// 按内容建议输入码：取内容前最多三个可用字符（字母收小写、数字、汉字）；
+/// 若前缀推不出（只剩标点），再按 `initial_of` 取汉字拼音首字母。
+pub fn suggest_code(text: &str, mut initial_of: impl FnMut(char) -> Option<char>) -> String {
+    let mut out = String::new();
+    for ch in text.chars() {
+        if out.chars().count() >= 3 {
+            break;
+        }
+        if ch.is_ascii_alphabetic() {
+            out.push(ch.to_ascii_lowercase());
+        } else if ch.is_ascii_digit() || is_cjk(ch) {
+            out.push(ch);
+        }
+    }
+    if !out.is_empty() {
+        return out;
+    }
+    for ch in text.chars() {
+        if out.chars().count() >= 3 {
+            break;
+        }
+        if let Some(initial) = initial_of(ch).filter(|c| c.is_ascii_alphabetic()) {
+            out.push(initial.to_ascii_lowercase());
+        }
+    }
+    out
+}
+
+fn is_cjk(ch: char) -> bool {
+    matches!(
+        ch,
+        '\u{4E00}'..='\u{9FFF}' // CJK Unified Ideographs
+        | '\u{3400}'..='\u{4DBF}' // Extension A
+        | '\u{F900}'..='\u{FAFF}' // Compatibility Ideographs
+    )
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{CustomPhrase, merge_replacements, validate_phrases};
+    use super::{
+        CustomPhrase, merge_replacements, normalize_code, suggest_code, valid_code, validate_phrases,
+    };
 
     fn phrase(code: &str, text: &str, position: usize) -> CustomPhrase {
         CustomPhrase {
@@ -120,6 +178,32 @@ mod tests {
             position,
             enabled: true,
         }
+    }
+
+    #[test]
+    fn suggest_code_takes_first_three_letters_digits_or_han() {
+        let initials = |ch: char| match ch {
+            '你' => Some('n'),
+            '好' => Some('h'),
+            _ => None,
+        };
+        assert_eq!(suggest_code("你好世界", initials), "你好世");
+        assert_eq!(suggest_code("13800138000", |_| None), "138");
+        assert_eq!(suggest_code("Bearer token", |_| None), "bea");
+        assert_eq!(suggest_code("b", |_| None), "b");
+        assert_eq!(suggest_code("，，，", |_| None), "");
+    }
+
+    #[test]
+    fn codes_allow_digits_and_han() {
+        assert!(valid_code("138"));
+        assert!(valid_code("你好世"));
+        assert!(valid_code("a1"));
+        assert!(!valid_code("Gs"));
+        assert!(!valid_code(""));
+        assert_eq!(normalize_code("AbC138你好"), "abc138你好");
+        validate_phrases(&[phrase("138", "13800138000", 1)]).unwrap();
+        validate_phrases(&[phrase("你好", "Hello", 1)]).unwrap();
     }
 
     #[test]
@@ -132,7 +216,6 @@ mod tests {
                 ("omw", "On my way!"),
                 ("ee", "："),
                 ("Gs", "大写不算"),
-                ("a1", "带数字不算"),
                 ("", "空码不算"),
                 ("kong", ""),
             ],

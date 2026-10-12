@@ -1,12 +1,9 @@
 //! Linux 本地输入服务启动入口；云服务在首版保持关闭，本地整句模型按 `[model]` 开关在后台加载。
 #[cfg(target_os = "linux")]
-mod paths;
-
-#[cfg(target_os = "linux")]
 fn run() -> Result<(), Box<dyn std::error::Error>> {
     use qingjian_core::Language;
     use qingjian_linux_server::{
-        AssemblySpec, LanguageModelFiles, Router, RouterConfig, assembly, find_model,
+        AssemblySpec, LanguageModelFiles, Router, RouterConfig, assembly, find_model, paths,
     };
     use qingjian_platform::Config;
     use std::path::PathBuf;
@@ -85,6 +82,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     engine.set_chinese_first(config.general.chinese_first);
     engine.set_emoji_candidates(config.general.emoji);
     engine.set_english_in_chinese(config.general.english_in_chinese);
+    engine.set_email_url_mode(config.general.email_url_mode);
     engine.set_mode_keys(config.shortcut.mode);
     engine
         .set_custom_phrases(config.custom_phrases.clone())

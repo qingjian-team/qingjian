@@ -18,7 +18,7 @@ use super::Router;
 impl Router {
     /// DLL 那边用户切了模式：成为全局模式。内置英文模式关着时不收英文。
     pub(super) fn handle_mode_changed(&mut self, english: bool) {
-        self.english = english && self.config.english_mode;
+        self.set_global_english(english && self.config.english_mode);
         self.ime_active = true;
         self.reconcile_status();
     }
@@ -48,7 +48,7 @@ impl Router {
                     tracing::debug!("内置英文模式已关闭，状态条不切模式");
                     return;
                 }
-                self.english = !self.english;
+                self.set_global_english(!self.english);
                 tracing::debug!(english = self.english, "状态条：切换中英模式");
             }
             StatusEvent::TogglePunctuation => {
@@ -88,6 +88,19 @@ impl Router {
             IndicatorCommand::OpenSettings => self.status.open_settings(),
             IndicatorCommand::OpenDownload => self.status.open_download(),
         }
+    }
+
+    /// 改全局中英；记住开着时同步写回 `[general] last_english`（重启不丢）。
+    fn set_global_english(&mut self, english: bool) {
+        if self.english == english {
+            return;
+        }
+        self.english = english;
+        if !self.config.remember_input_mode {
+            return;
+        }
+        self.config.last_english = english;
+        self.persist("general", "last_english", english);
     }
 
     /// 写回配置文件一个键；没有配置路径（测试）就只改内存。

@@ -1,6 +1,6 @@
 //! 「通用」页：学习语言、每页候选数、输入方案、英文模式候选。
 
-use qingjian_platform::{MAX_PAGE_SIZE, Scheme, ShiftLetter, SwitchKey};
+use qingjian_platform::{CommitKey, MAX_PAGE_SIZE, Scheme, ShiftLetter, SwitchKey};
 use windows_reactor::*;
 
 use crate::panel::controls::{feedback, field, index_of, page};
@@ -49,6 +49,14 @@ fn shift_letter_combo(current: ShiftLetter, callback: Callback<Option<usize>>) -
         .on_selection_changed(callback)
 }
 
+/// 上屏键的下拉：选项由 [`CommitKey::ALL`] 生成。
+fn commit_key_combo(current: CommitKey, callback: Callback<Option<usize>>) -> ComboBox {
+    ComboBox::new()
+        .items_source(CommitKey::ALL.iter().map(|mode| mode.label()))
+        .selected_index(CommitKey::ALL.iter().position(|mode| *mode == current))
+        .on_selection_changed(callback)
+}
+
 pub(crate) fn view(settings: &Settings, context: &mut ViewContext<Settings>) -> View {
     let g = &settings.config.general;
     let english_only_in_apps = !settings.config.apps.english_candidates_everywhere();
@@ -70,6 +78,26 @@ pub(crate) fn view(settings: &Settings, context: &mut ViewContext<Settings>) -> 
                 .maximum(MAX_PAGE_SIZE as f64)
                 .value(g.page_size as f64)
                 .on_value_changed(context.callback(Message::PageSize)),
+        ),
+        field(
+            "上屏键",
+            "打拼音时用哪个键上屏高亮候选：缺省「空格」（回车上屏原始拼音）；选「回车」则对调。大千注音下回车本来就上屏候选、空格是一声，不受此项影响。",
+            commit_key_combo(g.commit_key, context.callback(Message::CommitKey)),
+        ),
+        field(
+            "邮箱与网址补全",
+            "中文模式直接敲 qingjian@、www. 等时给出域名 / 后缀候选，不用先切英文；关掉后 @ 等仍进英文直输段，只上屏原文。",
+            ToggleSwitch::new()
+                .is_on(g.email_url_mode)
+                .on_toggled(context.callback(Message::EmailUrlMode)),
+        ),
+        field(
+            "记住上次中英模式",
+            "开着时（缺省）每次切换会写入配置，输入法重启、新开应用仍用上次的中或英；关掉后重启回到中文，进程内切换照旧。",
+            ToggleSwitch::new()
+                .is_on(g.remember_input_mode)
+                .is_enabled(g.english_mode)
+                .on_toggled(context.callback(Message::RememberInputMode)),
         ),
         field(
             "拼音方案",

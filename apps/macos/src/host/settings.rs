@@ -3,7 +3,7 @@
 use super::diagnostics::{copy_to_pasteboard, open_with_system};
 use super::*;
 use crate::preferences::DEFAULT_FONT_LABEL;
-use qingjian_platform::{FontSize, ShiftLetter};
+use qingjian_platform::{CommitKey, FontSize, ShiftLetter};
 
 impl Host {
     /// 写短语前读取文件；外部规则有变化时同步列表并请用户重新确认。
@@ -168,6 +168,15 @@ impl Host {
             }
             (Setting::PunctCommits, SettingValue::Bool(on)) => {
                 self.settings.set_bool("general", "punct_commits", on);
+            }
+            (Setting::CommitKey, SettingValue::Index(index)) => {
+                if let Some(mode) = CommitKey::ALL.get(index) {
+                    self.settings
+                        .set_value("general", "commit_key", mode.key());
+                }
+            }
+            (Setting::EmailUrlMode, SettingValue::Bool(on)) => {
+                self.settings.set_bool("general", "email_url_mode", on);
             }
             (Setting::LearningLanguage, SettingValue::Index(index)) => {
                 // 菜单最后一项是「不显示译文」

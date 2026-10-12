@@ -76,6 +76,9 @@ pub struct Router {
     /// 删候选后的屏幕提示，随下一帧下发、下一次按键清。
     notice: Option<String>,
 
+    /// 邮箱 / 网址补全态提示（来自本次 Query.mode_hint）；缓冲变化时更新。
+    mode_hint: Option<String>,
+
     /// 当前高亮候选在布局里的下标（跨页）。
     highlight: usize,
 
@@ -125,6 +128,7 @@ pub struct Router {
 
 impl Router {
     pub fn new(engine: Engine, config: RouterConfig) -> Self {
+        let english = config.initial_english();
         Self {
             engine,
             config: RouterConfig {
@@ -140,13 +144,14 @@ impl Router {
             selection_seq: 0,
             sentence: None,
             notice: None,
+            mode_hint: None,
             highlight: 0,
             navigated: false,
             last_flush: Instant::now(),
             reload: None,
             candidates: Box::new(NoopSink),
             status: Box::new(NoopStatusSink),
-            english: false,
+            english,
             ime_active: false,
             last_rect: None,
             last_shown: None,

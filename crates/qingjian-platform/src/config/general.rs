@@ -3,7 +3,8 @@ use serde::{Deserialize, Serialize};
 
 use super::scheme::{Scheme, scheme_label};
 use super::{
-    Appearance, CandidateRenderer, FontSize, LayoutMode, LogLevel, PreeditMode, ShiftLetter,
+    Appearance, CandidateRenderer, CommitKey, FontSize, LayoutMode, LogLevel, PreeditMode,
+    ShiftLetter,
 };
 
 /// 每页最多几个候选：数字键只有 1–9。
@@ -90,6 +91,13 @@ pub struct GeneralConfig {
     /// 关掉后青简保持中文模式，切换键与语言栏按钮都不再切过去；要打英文请用系统快捷键切到别的输入法。
     pub english_mode: bool,
 
+    /// 记住上次中英模式：开着时每次切换写入 [`Self::last_english`]，Server 启动与新会话按它恢复。
+    /// 缺省开。关掉后启动仍回到中文，进程内切换照旧。只有 Windows / Linux 用（macOS 跟 Caps Lock）。
+    pub remember_input_mode: bool,
+
+    /// 上次中英模式（`true` 英文）。由输入法在切换时写回；不要在设置页改，见 [`Self::remember_input_mode`]。
+    pub last_english: bool,
+
     /// 中文模式下不在组句时敲的标点转成全角（`，。？！` 等，数字后的 `.` 保持半角）。
     /// Windows 悬浮状态条上可点切换；macOS 在偏好设置中选择默认模式。
     pub full_width_punctuation: bool,
@@ -100,6 +108,13 @@ pub struct GeneralConfig {
     /// 组句中敲会转全角的标点（`,` `.` `?` `!` 等，翻页键除外）先把高亮候选上屏、再补该标点
     ///（`nihao,` 一气打完「你好，」）。缺省关：标点进英文直输段整段原样上屏，与以前一致。
     pub punct_commits: bool,
+
+    /// 拼音 / 双拼组句时用哪个键上屏高亮候选：`space`（缺省）或 `enter`；另一个键上屏原始字母。
+    /// 注音方案下回车本来就上屏候选、空格是一声，不受此项影响。
+    pub commit_key: CommitKey,
+
+    /// 中文模式组句中识别邮箱（`@`）与网址并给出域名 / 后缀补全。缺省开。
+    pub email_url_mode: bool,
 
     /// 辅码触发键：拼音打完之后敲它进辅码态，缺省 `;`。校验 = 单字符、ASCII 可打印、
     /// 非字母数字、非翻页键（见 [`qingjian_core::is_valid_aux_code_key`]）。
@@ -168,9 +183,13 @@ impl Default for GeneralConfig {
             emoji: true,
             shift_letter: ShiftLetter::default(),
             english_mode: true,
+            remember_input_mode: true,
+            last_english: false,
             full_width_punctuation: true,
             english_full_width_punctuation: false,
             punct_commits: false,
+            commit_key: CommitKey::default(),
+            email_url_mode: true,
             aux_code_key: qingjian_core::DEFAULT_AUX_CODE_KEY.to_string(),
             aux_code_show: false,
             aux_code_keep_empty: true,
@@ -188,6 +207,11 @@ impl Default for GeneralConfig {
 }
 
 impl GeneralConfig {
+    /// Server / 新会话启动时的中英：内置英文模式开着、记住开着、且上次是英文时为英文，否则中文。
+    pub fn initial_english(&self) -> bool {
+        self.english_mode && self.remember_input_mode && self.last_english
+    }
+
     /// 候选窗口外观。`appearance` 没写时看旧写法（`theme` 写的是 system / light / dark），都没有就跟随系统。
     pub fn appearance(&self) -> Appearance {
         self.appearance
@@ -354,6 +378,30 @@ mod tests {
         assert!(!GeneralConfig::default().punct_commits);
         let general: GeneralConfig = toml::from_str("punct_commits = true\n").unwrap();
         assert!(general.punct_commits);
+    }
+
+    /// 上屏键缺省空格；可写成 `enter` 对调空格与回车。
+    #[test]
+    fn commit_key_defaults_to_space() {
+        assert_eq!(GeneralConfig::default().commit_key, CommitKey::Space);
+        let general: GeneralConfig = toml::from_str("commit_key = \"enter\"\n").unwrap();
+        assert_eq!(general.commit_key, CommitKey::Enter);
+    }
+
+    /// 记住上次中英缺省开；启动态要三项同时满足才是英文。
+    #[test]
+    fn remember_input_mode_defaults_on_and_initial_english_needs_all_flags() {
+        let mut general = GeneralConfig::default();
+        assert!(general.remember_input_mode);
+        assert!(!general.last_english);
+        assert!(!general.initial_english());
+        general.last_english = true;
+        assert!(general.initial_english());
+        general.remember_input_mode = false;
+        assert!(!general.initial_english());
+        general.remember_input_mode = true;
+        general.english_mode = false;
+        assert!(!general.initial_english());
     }
 
     #[test]

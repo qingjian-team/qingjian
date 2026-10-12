@@ -56,5 +56,6 @@ fn row(row: &Row) -> qingjian_render::Row {
             })
             .collect(),
         cloud: row.cloud,
+        custom: row.custom,
     }
 }

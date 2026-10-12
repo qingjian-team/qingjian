@@ -235,22 +235,30 @@ impl QingjianInputController {
         // 修饰键 + 数字：按配置的两组组合上屏第一 / 第二个译词（缺省 ⌥ 与 ⇧⌥）、删候选（缺省 ⇧）。
         // 只在组句中认：不在组句时 ⇧4 就是 `$`，得走下面的标点转换（中文模式出 ￥、⇧6 出 ……、⇧1 出 ！），
         // 以前在这里被截走后原样还给应用，全角转换就没机会做了。
-        // 表达式模式（`v2^3`）里 ⇧+数字打的是 `^ * ( )`，不当快捷键
+        // 表达式模式（`v2^3`）里 ⇧+数字打的是 `^ * ( )`，不当快捷键。
+        // 纯 ⇧ + 数字若产出 `@` `#` 等符号：进英文直输 / 邮箱补全，不当删候选（否则 `qingjian@` 打不出来）。
         let composing = host::with(|h| !h.engine.composition().is_empty()).unwrap_or(false);
         let expression = composing && host::with(|h| h.engine.expression_mode()).unwrap_or(false);
+        let typed_char = event.characters().and_then(|s| {
+            let mut chars = s.to_string().chars();
+            let c = chars.next()?;
+            chars.next().is_none().then_some(c)
+        });
+        let shift_symbol = typed_char.is_some_and(|c| !c.is_ascii_digit() && c.is_ascii_graphic());
         if composing
             && !expression
             && !pressed.is_empty()
             && let Some(digit) = digit_key(key)
         {
             let (first, second) = host::with(|h| h.translation_keys).unwrap_or_default();
+            let delete_keys = host::with(|h| h.delete_keys).unwrap_or_default();
             if pressed == first {
                 return self.handle_translation_key(digit, 0, client);
             }
             if pressed == second {
                 return self.handle_translation_key(digit, 1, client);
             }
-            if pressed == host::with(|h| h.delete_keys).unwrap_or_default() {
+            if pressed == delete_keys && !shift_symbol {
                 return self.handle_delete_key(digit, client);
             }
         }

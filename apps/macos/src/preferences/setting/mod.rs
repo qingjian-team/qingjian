@@ -77,6 +77,12 @@ pub enum Setting {
     /// `[general] punct_commits`，勾选框：组句中会转全角的标点先把高亮候选上屏再补标点。
     PunctCommits,
 
+    /// `[general] commit_key`，弹出菜单：空格 / 回车上屏高亮候选。
+    CommitKey,
+
+    /// `[general] email_url_mode`，勾选框：中文模式邮箱与网址补全。
+    EmailUrlMode,
+
     /// 选择已有自定义短语。
     SelectPhrase,
 
@@ -288,6 +294,8 @@ impl Setting {
             Self::Renderer => 43,
             Self::Font => 44,
             Self::PunctCommits => 64,
+            Self::CommitKey => 65,
+            Self::EmailUrlMode => 66,
             Self::SystemTextReplacements => 46,
             Self::Fuzzy(index) => FUZZY_TAG_BASE + index as NSInteger,
             Self::DictionaryEnabled(index) => DICTIONARY_ENABLED_TAG_BASE + index as NSInteger,
@@ -304,6 +312,8 @@ impl Setting {
             43 => Self::Renderer,
             44 => Self::Font,
             64 => Self::PunctCommits,
+            65 => Self::CommitKey,
+            66 => Self::EmailUrlMode,
             5 => Self::ExpressionKey,
             6 => Self::QuestionKey,
             41 => Self::QuestionMark,
@@ -392,6 +402,8 @@ mod tests {
             Setting::Renderer,
             Setting::Font,
             Setting::PunctCommits,
+            Setting::CommitKey,
+            Setting::EmailUrlMode,
             Setting::ExpressionKey,
             Setting::QuestionKey,
             Setting::CloudEnabled,

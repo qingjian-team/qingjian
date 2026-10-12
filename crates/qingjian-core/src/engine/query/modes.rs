@@ -34,6 +34,7 @@ impl Engine {
             typed_display: None,
             correction: None,
             aux: None,
+            mode_hint: None,
             timings: Timings {
                 parse: Duration::ZERO,
                 lookup: Duration::ZERO,
@@ -42,16 +43,24 @@ impl Engine {
         }
     }
 
-    /// 英文直输段：唯一候选就是原文（`no-way`），空格 / 回车都上屏它；preedit 原样显示。
+    /// 英文直输段：缺省唯一候选是原文（`no-way`）；开着邮箱/网址补全且形态匹配时叠域名/后缀候选。
     pub(in crate::engine) fn query_raw(&self, scope: &str, rest: String, start: Instant) -> Query {
-        let items = vec![Candidate {
-            text: scope.to_owned(),
-            kind: CandidateKind::English,
-            syllables: Vec::new(),
-            reading: None,
-            translation: None,
-            aux_code: None,
-        }];
+        let (texts, mode_hint) = if self.email_url_mode && email_url::is_email_url(scope) {
+            (email_url::completions(scope), Some(email_url::MODE_HINT.to_owned()))
+        } else {
+            (vec![scope.to_owned()], None)
+        };
+        let items = texts
+            .into_iter()
+            .map(|text| Candidate {
+                text,
+                kind: CandidateKind::English,
+                syllables: Vec::new(),
+                reading: None,
+                translation: None,
+                aux_code: None,
+            })
+            .collect();
         Query {
             segmentations: Vec::new(),
             candidates: CandidateList { items },
@@ -64,6 +73,7 @@ impl Engine {
             typed_display: None,
             correction: None,
             aux: None,
+            mode_hint,
             timings: Timings {
                 parse: Duration::ZERO,
                 lookup: Duration::ZERO,
@@ -110,6 +120,7 @@ impl Engine {
             typed_display: None,
             correction: None,
             aux: None,
+            mode_hint: None,
             timings: Timings {
                 parse: Duration::ZERO,
                 lookup: Duration::ZERO,
@@ -159,6 +170,7 @@ impl Engine {
             typed_display: None,
             correction: None,
             aux: None,
+            mode_hint: None,
             timings: Timings {
                 parse: start.elapsed(),
                 lookup: Duration::ZERO,

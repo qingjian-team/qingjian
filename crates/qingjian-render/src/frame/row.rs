@@ -18,6 +18,9 @@ pub struct Row {
 
     /// 来自云联想：词前画一个小云朵，与本地候选区分。
     pub cloud: bool,
+
+    /// 常用语：词右上角画一个小立方体标记。
+    pub custom: bool,
 }
 
 impl Row {
@@ -29,6 +32,7 @@ impl Row {
             code: None,
             annotation: Vec::new(),
             cloud: false,
+            custom: false,
         }
     }
 }

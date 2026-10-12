@@ -4,7 +4,7 @@ use objc2::MainThreadMarker;
 use objc2::rc::Retained;
 use objc2_app_kit::{NSButton, NSPopUpButton};
 use qingjian_core::Language;
-use qingjian_platform::{Config, MAX_PAGE_SIZE, Scheme};
+use qingjian_platform::{CommitKey, Config, MAX_PAGE_SIZE, Scheme};
 
 use crate::preferences::controls::{
     checkbox, language_label, note, row_checkbox, row_popup, select, set_checked,
@@ -57,6 +57,12 @@ pub struct GeneralPage {
 
     /// 组句中会转全角的标点先把高亮候选上屏再补标点。
     punct_commits: Retained<NSButton>,
+
+    /// 上屏键：空格 / 回车。
+    commit_key: Retained<NSPopUpButton>,
+
+    /// 邮箱与网址补全。
+    email_url_mode: Retained<NSButton>,
 }
 
 impl GeneralPage {
@@ -94,6 +100,34 @@ impl GeneralPage {
             &page_size_titles,
             Setting::PageSize,
             target,
+        );
+        let commit_key = row_popup(
+            layout,
+            mtm,
+            "上屏键",
+            &CommitKey::ALL
+                .iter()
+                .map(|mode| mode.label().to_owned())
+                .collect::<Vec<_>>(),
+            Setting::CommitKey,
+            target,
+        );
+        note(
+            layout,
+            mtm,
+            "打拼音时用哪个键上屏高亮候选：缺省「空格」（回车上屏原始拼音）；选「回车」则对调。大千注音下回车本来就上屏候选、空格是一声，不受此项影响。",
+        );
+        let email_url_mode = checkbox(
+            mtm,
+            "邮箱与网址补全",
+            Setting::EmailUrlMode,
+            target,
+        );
+        row_checkbox(layout, &email_url_mode);
+        note(
+            layout,
+            mtm,
+            "中文模式直接敲 qingjian@、www. 等时给出域名 / 后缀候选，不用先切英文；不勾后 @ 等仍进英文直输段，只上屏原文。",
         );
         let scheme_titles: Vec<String> = Scheme::ALL.iter().map(|s| s.label().to_owned()).collect();
         let scheme = row_popup(
@@ -228,6 +262,8 @@ impl GeneralPage {
             languages: languages.to_vec(),
             punctuation,
             punct_commits,
+            commit_key,
+            email_url_mode,
         }
     }
 
@@ -238,6 +274,13 @@ impl GeneralPage {
             Some(usize::from(!general.full_width_punctuation)),
         );
         set_checked(&self.punct_commits, general.punct_commits);
+        select(
+            &self.commit_key,
+            CommitKey::ALL
+                .iter()
+                .position(|mode| *mode == general.commit_key),
+        );
+        set_checked(&self.email_url_mode, general.email_url_mode);
         select(
             &self.learning_language,
             if general.learning_language_off() {

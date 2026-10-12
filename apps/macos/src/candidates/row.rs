@@ -34,6 +34,9 @@ pub struct Row {
 
     /// 来自云联想：词前画一个小云朵，与本地候选区分。
     pub cloud: bool,
+
+    /// 常用语：词右上角画一个小立方体标记。
+    pub custom: bool,
 }
 
 impl Row {
@@ -65,15 +68,17 @@ impl Row {
                 }
             }
         }
+        let custom = matches!(candidate.kind, qingjian_core::CandidateKind::Custom(_));
         Self {
             index: (position + 1).to_string(),
-            text: if matches!(candidate.kind, qingjian_core::CandidateKind::Custom(_)) {
+            text: if custom {
                 qingjian_core::CustomPhrase::preview(&candidate.text, 60)
             } else {
                 candidate.text.clone()
             },
             annotation,
             cloud: false,
+            custom,
         }
     }
 }

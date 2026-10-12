@@ -14,6 +14,7 @@ impl Router {
         self.highlight = 0;
         self.navigated = false;
         self.sentence = None;
+        self.mode_hint = None;
         if self.engine.composition().is_empty() {
             self.composed = None;
             self.stop_rescoring();
@@ -25,10 +26,11 @@ impl Router {
             let preedit: Vec<PreeditSegment> =
                 query.marked_segments().iter().map(Into::into).collect();
             // 光标用 Core 的映射：自动补的 `'` 会让显示串比敲的长。
-            (items, preedit, query.marked_cursor())
+            (items, preedit, query.marked_cursor(), query.mode_hint)
         });
         self.composed = Some(match built {
-            Some((items, preedit, cursor)) => {
+            Some((items, preedit, cursor, mode_hint)) => {
+                self.mode_hint = mode_hint;
                 let layout =
                     CandidateLayout::new(items, self.config.page_size, self.config.cloud_slots);
                 Composed::Candidates {
@@ -141,6 +143,7 @@ impl Router {
                 aux_code_show: false,
                 sentence: None,
                 notice: self.notice.clone(),
+                mode_hint: self.mode_hint.clone(),
             },
             Some(Composed::Candidates {
                 preedit,
@@ -167,6 +170,11 @@ impl Router {
                     .collect();
                 let mut candidates = CandidateList { items };
                 self.engine.annotate(&mut candidates);
+                let sentence = if self.mode_hint.is_some() {
+                    None
+                } else {
+                    self.sentence.clone()
+                };
                 Frame {
                     preedit: preedit.clone(),
                     cursor: *cursor,
@@ -178,8 +186,9 @@ impl Router {
                     layout: self.config.layout,
                     appearance: self.config.appearance,
                     aux_code_show: false,
-                    sentence: self.sentence.clone(),
+                    sentence,
                     notice: self.notice.clone(),
+                    mode_hint: self.mode_hint.clone(),
                 }
             }
         }

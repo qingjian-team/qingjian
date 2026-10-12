@@ -31,7 +31,7 @@ impl QingjianInputController {
             let mut marked = h.engine.composition().text().to_owned();
             let mut cursor = h.engine.composition().cursor();
             let mut preedit = Preedit::plain(&marked, cursor);
-            let candidates = h
+            let (candidates, mode_hint) = h
                 .engine
                 .query()
                 .map(|mut query| {
@@ -40,10 +40,12 @@ impl QingjianInputController {
                     cursor = query.marked_cursor();
                     preedit =
                         Preedit::from_marked(&query.marked_segments(), query.segments_cursor());
-                    query.candidates.items
+                    (query.candidates.items, query.mode_hint)
                 })
                 .unwrap_or_default();
             h.reset_session(preedit, candidates);
+            // reset_session 会清掉一次性 status；模式提示每轮查询重填，优先于云整句
+            h.status = mode_hint;
             h.schedule_rescoring();
             (marked, cursor, h.preedit_mode.inline())
         }) else {

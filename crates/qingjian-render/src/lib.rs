@@ -15,6 +15,7 @@ mod fonts;
 mod frame;
 mod gear;
 mod layout;
+mod phrase;
 pub mod preview;
 mod renderer;
 pub mod sample;

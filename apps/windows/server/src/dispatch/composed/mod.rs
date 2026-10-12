@@ -14,6 +14,7 @@ impl Router {
         self.highlight = 0;
         self.navigated = false;
         self.sentence = None;
+        self.mode_hint = None;
         if self.engine.composition().is_empty() {
             self.composed = None;
             self.cancel_prediction();
@@ -23,10 +24,17 @@ impl Router {
         self.attach_loaded_model();
         let built = self.engine.query().ok().map(|query| {
             let (preedit, cursor, typed_keys) = marked_parts(&query);
-            (query.candidates.items.clone(), preedit, cursor, typed_keys)
+            (
+                query.candidates.items.clone(),
+                preedit,
+                cursor,
+                typed_keys,
+                query.mode_hint,
+            )
         });
         self.composed = Some(match built {
-            Some((items, preedit, cursor, typed_keys)) => {
+            Some((items, preedit, cursor, typed_keys, mode_hint)) => {
+                self.mode_hint = mode_hint;
                 let layout =
                     CandidateLayout::new(items, self.config.page_size, self.config.cloud_slots);
                 if self.engine.prediction_enabled() {
@@ -213,6 +221,7 @@ impl Router {
                 aux_code_show: self.config.aux_code_show,
                 sentence: None,
                 notice: self.notice.clone(),
+                mode_hint: self.mode_hint.clone(),
             },
             Some(Composed::Candidates {
                 preedit,
@@ -230,6 +239,12 @@ impl Router {
                     .collect();
                 let mut candidates = CandidateList { items };
                 self.engine.annotate(&mut candidates);
+                // 模式提示优先于云整句：同占 preedit 右侧
+                let sentence = if self.mode_hint.is_some() {
+                    None
+                } else {
+                    self.sentence.clone()
+                };
                 Frame {
                     preedit: preedit.clone(),
                     preedit_mode: self.config.preedit,
@@ -241,8 +256,9 @@ impl Router {
                     layout: self.config.layout,
                     appearance: self.config.appearance,
                     aux_code_show: self.config.aux_code_show,
-                    sentence: self.sentence.clone(),
+                    sentence,
                     notice: self.notice.clone(),
+                    mode_hint: self.mode_hint.clone(),
                 }
             }
         }

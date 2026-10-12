@@ -104,7 +104,10 @@
             "gloss": "@gloss", "fresh": "@fresh", "faint": "@faint", "pos": "@gloss" },
           { "type": "annotation", "bind": "annotation", "font": "annotation", "tones": ["gloss", "fresh"], "senses": 1, "height": 16,
             "gloss": "@gloss", "fresh": "@fresh", "faint": "@faint" }
-        ] }
+        ] },
+        { "type": "frame", "when": "custom", "width": 12, "height": 1 },
+        { "type": "icon", "icon": "phrase", "when": "custom", "size": 8,
+          "position": "absolute", "inset": [4, 4, "auto", "auto"], "color": "@faint" }
       ]
     },
 
@@ -120,7 +123,9 @@
           "color": { "if": "highlighted", "then": "@index_hl", "else": "@index" }, "margin": [4, 0, 0, 0] },
         { "type": "use", "component": "sakura-word", "margin": [4, 0, 0, 8] },
         { "type": "annotation", "bind": "annotation", "when": "annotations", "font": "annotation", "senses": 2,
-          "gloss": "@gloss", "fresh": "@fresh", "faint": "@faint", "margin": [8, 0, 0, 10] }
+          "gloss": "@gloss", "fresh": "@fresh", "faint": "@faint", "margin": [8, 0, 0, 10] },
+        { "type": "icon", "icon": "phrase", "when": "custom", "size": 8,
+          "position": "absolute", "inset": [2, 2, "auto", "auto"], "color": "@faint" }
       ]
     },
 

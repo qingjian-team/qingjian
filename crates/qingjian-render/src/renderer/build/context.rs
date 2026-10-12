@@ -88,6 +88,7 @@ impl<'a> Context<'a> {
             match name {
                 "highlighted" => return self.frame.highlighted == Some(index),
                 "cloud" => return row.cloud,
+                "custom" => return row.custom,
                 "annotation" => return !row.annotation.is_empty(),
                 "code" => return row.code.is_some(),
                 "first" => return index == 0,

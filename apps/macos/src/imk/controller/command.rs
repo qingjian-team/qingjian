@@ -42,7 +42,16 @@ impl QingjianInputController {
             // 方向键等其他键还原后交给应用
             return selector == sel!(insertNewline:);
         } else if selector == sel!(insertNewline:) {
-            self.commit_raw(client);
+            // 注音：回车本来就上屏候选。拼音 / 双拼：`commit_key = enter` 时上屏候选，缺省上屏原始拼音。
+            let commit_candidate = host::with(|h| {
+                h.engine.is_zhuyin_mode() || h.commit_key.enter_commits()
+            })
+            .unwrap_or(false);
+            if commit_candidate {
+                self.commit_highlighted(client);
+            } else {
+                self.commit_raw(client);
+            }
         } else if selector == sel!(cancelOperation:) || selector == sel!(complete:) {
             // TextEdit 等应用把 Esc 绑成 complete:（自动补全），也当作取消。矩阵展开着时第一下 Esc 只收回单行
             if host::with(|h| h.session.collapse()).unwrap_or(false) {

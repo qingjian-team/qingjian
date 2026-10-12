@@ -77,6 +77,29 @@ fn keypad_punctuation_is_half_width_and_regular_punctuation_is_full_width() {
         Some("。")
     );
 }
+/// `[general] commit_key = enter`：回车上屏高亮候选，空格上屏原始拼音。
+#[test]
+fn commit_key_enter_swaps_space_and_return() {
+    use qingjian_platform::CommitKey;
+
+    let mut router = router(5);
+    let normal = KeyModifiers::default();
+    router.config.commit_key = CommitKey::Enter;
+    compose(&mut router, "ni", normal);
+    let highlighted = key(&mut router, 0, None, normal).2.candidates.items[0]
+        .text
+        .clone();
+    assert_eq!(
+        key(&mut router, 13, None, normal).1.as_deref(),
+        Some(highlighted.as_str())
+    );
+    compose(&mut router, "ni", normal);
+    assert_eq!(
+        key(&mut router, 32, Some(' '), normal).1.as_deref(),
+        Some("ni")
+    );
+}
+
 /// 关掉 `[general] punct_commits`：组句中的标点回到老行为——进英文直输段，不再上屏候选；开回来恢复。
 #[test]
 fn punct_commits_off_keeps_punctuation_in_raw_segment() {

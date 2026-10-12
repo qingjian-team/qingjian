@@ -420,6 +420,15 @@ impl Engine {
         self.english_in_chinese
     }
 
+    /// 中文模式组句中给不给邮箱 / 网址补全（配置 `[general] email_url_mode`，缺省开）。
+    pub fn set_email_url_mode(&mut self, on: bool) {
+        self.email_url_mode = on;
+    }
+
+    pub fn email_url_mode(&self) -> bool {
+        self.email_url_mode
+    }
+
     /// 中英混输里中文候选是否总排在英文词前面（配置 `[general] chinese_first`，缺省关）。
     /// 关着时拼音「不像话」的输入英文词排第一（`hello` 先英文再 荷兰咯）；开了英文词固定第二。
     pub fn set_chinese_first(&mut self, on: bool) {

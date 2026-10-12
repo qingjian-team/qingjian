@@ -83,6 +83,9 @@ pub struct Query {
     /// 辅码态：触发键与码段（码段可为空——刚触发）。`Some` 时 preedit 在拼音段之后多出
     /// [触发键 `Typed`][码段 `AuxCode`] 两段，候选也已经按码段筛过。
     pub aux: Option<AuxSegment>,
+
+    /// 邮箱 / 网址补全态时画在 preedit 行右侧的提示（如「退出网址、邮箱模式」）。
+    pub mode_hint: Option<String>,
 }
 
 impl Query {

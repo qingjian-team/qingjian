@@ -9,13 +9,23 @@ use crate::dispatch::Router;
 impl Router {
     /// 功能键靠键码，其余靠字符。组句中修饰键 + 数字是快捷键；带 Ctrl / Alt / Win 而没配到快捷键的键归应用。
     /// 表达式模式里 Shift + 数字打的是 `^ * ( )`，不当快捷键。
+    /// 纯 Shift + 数字若产出的是 `@` `#` 等符号（不是数字本身），进英文直输 / 邮箱补全，不当删候选。
     pub(crate) fn apply_key(&mut self, event: &KeyEvent) -> Effect {
         if self.composing()
             && !self.engine.expression_mode()
             && let Some(digit) = codes::digit_key(event.virtual_key)
-            && let Some(effect) = self.apply_digit_shortcut(digit, event.modifiers.chord())
         {
-            return effect;
+            let chord = event.modifiers.chord();
+            let shift_symbol = event
+                .character
+                .is_some_and(|c| !c.is_ascii_digit() && c.is_ascii_graphic());
+            let skip_delete_for_symbol =
+                shift_symbol && chord == self.config.delete_keys;
+            if !skip_delete_for_symbol
+                && let Some(effect) = self.apply_digit_shortcut(digit, chord)
+            {
+                return effect;
+            }
         }
         if event.modifiers.has_command_key() {
             return Effect::Passthrough;
@@ -114,11 +124,14 @@ impl Router {
             }
             codes::RETURN => {
                 if self.engine.is_zhuyin_mode() {
+                    // 注音：回车本来就上屏候选；Shift+回车上屏原始字母。不受 commit_key 影响。
                     if event.modifiers.shift {
                         Effect::Changed(Some(self.engine.take_raw()))
                     } else {
                         Effect::Changed(Some(self.commit_highlighted()))
                     }
+                } else if self.config.commit_key.enter_commits() {
+                    Effect::Changed(Some(self.commit_highlighted()))
                 } else {
                     Effect::Changed(Some(self.engine.take_raw()))
                 }
@@ -244,8 +257,9 @@ impl Router {
             self.page(step);
             return Effect::Navigated;
         }
+        // 英文模式也跟 `[general] commit_key`：缺省空格上屏高亮词，`enter` 时空格原样上屏字母
         let committed = composing.then(|| {
-            if c == ' ' {
+            if c == ' ' && !self.config.commit_key.enter_commits() {
                 self.commit_highlighted()
             } else {
                 self.engine.take_raw()
@@ -297,9 +311,14 @@ impl Router {
             return Effect::Navigated;
         }
         if c == ' ' {
+            // 注音空格是一声，不受 commit_key 影响
             if self.engine.zhuyin_needs_tone() {
                 self.engine.push(c);
                 return Effect::Changed(None);
+            }
+            // `commit_key = enter`：空格上屏原始拼音；缺省空格上屏高亮候选
+            if self.config.commit_key.enter_commits() {
+                return Effect::Changed(Some(self.engine.take_raw()));
             }
             return Effect::Changed(Some(self.commit_highlighted()));
         }

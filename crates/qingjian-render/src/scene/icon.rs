@@ -10,4 +10,7 @@ pub(crate) enum Icon {
 
     /// 状态条打开设置的齿轮。
     Gear,
+
+    /// 常用语候选右上角的小立方体。
+    Phrase,
 }

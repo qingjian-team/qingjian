@@ -54,9 +54,17 @@ foreach ($store in @('Root', 'TrustedPublisher')) {
     }
 }
 
-# 3) 找 signtool（Windows SDK 里，取版本最新的一个）。
-$signtool = Get-ChildItem 'C:\Program Files (x86)\Windows Kits\10\bin\*\x64\signtool.exe' -ErrorAction SilentlyContinue |
+# 3) 找 signtool（Windows SDK 里，取版本最新的一个；安装路径因机器而异）。
+$signtool = @(
+    'C:\Program Files (x86)\Windows Kits\10\bin\*\x64\signtool.exe',
+    'C:\Program Files\Windows Kits\10\bin\*\x64\signtool.exe',
+    'D:\Windows Kits\10\bin\*\x64\signtool.exe'
+) | ForEach-Object { Get-ChildItem $_ -ErrorAction SilentlyContinue } |
     Sort-Object FullName -Descending | Select-Object -First 1
+if (-not $signtool) {
+    $cmd = Get-Command signtool.exe -ErrorAction SilentlyContinue
+    if ($cmd) { $signtool = Get-Item $cmd.Source }
+}
 if (-not $signtool) { throw '在 Windows SDK 里找不到 signtool.exe' }
 
 # 4) 签名（SHA256；开发自签不加时间戳，免网络依赖——证书 5 年内有效，够开发）。

@@ -83,7 +83,23 @@ impl QingjianInputController {
             // 英文候选：字母（以及组词中的 _ ' -）进缓冲区，候选来自英文词表。选词与中文模式一样：
             // 空格选高亮（词上屏后空格照样交给应用，接着打下一个词）、数字选当前页第 N 个、翻页键翻页；
             // 数字对应的格子没有候选（kubectl 这类词表没有的词、候选不足 N 个）时是标识符的一部分（foo1）。
-            // 回车、标点先把敲的字母原样上屏再交给应用
+            // 回车、标点先把敲的字母原样上屏再交给应用。常用语在英文模式下同样生效。
+            let custom_code = host::with(|h| {
+                if composing {
+                    h.engine.custom_code_accepts(c)
+                } else {
+                    h.engine.custom_code_starts_with(c)
+                }
+            })
+            .unwrap_or(false);
+            if composing
+                && custom_code
+                && c.is_ascii_digit()
+            {
+                host::with(|h| h.engine.push(c));
+                self.refresh(client);
+                return true;
+            }
             if composing
                 && let Some(offset) = c.to_digit(10).filter(|d| *d > 0)
                 && let Some(index) =
@@ -92,9 +108,11 @@ impl QingjianInputController {
                 return self.commit_index(index, client);
             }
             if c.is_ascii_alphabetic()
+                || custom_code
                 || (composing && (c.is_ascii_digit() || matches!(c, '_' | '\'' | '-')))
             {
-                host::with(|h| h.engine.push(letter));
+                let push = if c.is_ascii_alphabetic() { letter } else { c };
+                host::with(|h| h.engine.push(push));
                 self.refresh(client);
                 return true;
             }
@@ -105,7 +123,10 @@ impl QingjianInputController {
                 return self.turn_page(1, client);
             }
             if composing {
-                if c == ' ' {
+                // 英文模式也跟 `[general] commit_key`：缺省空格上屏高亮词，`enter` 时空格原样上屏字母
+                let enter_commits =
+                    host::with(|h| h.commit_key.enter_commits()).unwrap_or(false);
+                if c == ' ' && !enter_commits {
                     self.commit_highlighted(client);
                 } else {
                     self.commit_raw(client);
@@ -126,7 +147,8 @@ impl QingjianInputController {
         let semicolon =
             composing && c == ';' && host::with(|h| h.engine.takes_semicolon()).unwrap_or(false);
         // 组句中敲不会转全角的符号（`/` `@`，`-` 由上面的 hyphen 接）：进缓冲区，整段成为英文直输段（`a@b`），
-        // 中文模式下也能打带符号的英文；翻页键除外；⇧+数字（! @ # …）在前面已被删候选 / 译词键截走。
+        // 中文模式下也能打带符号的英文；翻页键除外。
+        // 纯 ⇧+数字产出 `@` `#` 等时已放行进缓冲区（邮箱 / 网址补全）；⌥ / ⇧⌥+数字仍是译词快捷键。
         // 会转全角的标点（`,` `.` `?` `!` 引号、括号这些）不进缓冲区：落到下方先把高亮候选上屏再补全角标点
         //（`nihao,` 一气打完「你好，」），与 Windows / Linux 壳一致；这条上屏行为由 `[general] punct_commits`
         // 控制（缺省开），关掉恢复老行为：标点也进缓冲区（英文直输段）。
@@ -138,12 +160,22 @@ impl QingjianInputController {
             && c != page_previous
             && c != page_next
             && !(punct_commits && qingjian_core::punctuation::converts(c));
+        // 常用语输入码可含数字 / 汉字：空缓冲区时码的首字符开组句；组句中续写也进缓冲区。
+        let custom_code = host::with(|h| {
+            if composing {
+                h.engine.custom_code_accepts(c)
+            } else {
+                h.engine.custom_code_starts_with(c)
+            }
+        })
+        .unwrap_or(false);
         if c.is_ascii_lowercase()
             || (composing && c == '\'')
             || semicolon
             || (expression && qingjian_core::shortcut::is_expression_char(c))
             || (raw && c.is_ascii_graphic())
             || (unicode && (c.is_ascii_digit() || c == '+'))
+            || custom_code
             || hyphen
             || punctuation
         {
@@ -180,8 +212,29 @@ impl QingjianInputController {
         }
         if composing {
             match c {
-                ' ' => return self.commit_highlighted(client),
+                ' ' => {
+                    // 注音空格是一声，不受 commit_key 影响
+                    if host::with(|h| h.engine.zhuyin_needs_tone()).unwrap_or(false) {
+                        host::with(|h| h.engine.push(c));
+                        self.refresh(client);
+                        return true;
+                    }
+                    // 拼音 / 双拼：缺省空格上屏候选，`commit_key = enter` 时空格上屏原始拼音
+                    let enter_commits =
+                        host::with(|h| h.commit_key.enter_commits()).unwrap_or(false);
+                    return if enter_commits {
+                        self.commit_raw(client)
+                    } else {
+                        self.commit_highlighted(client)
+                    };
+                }
                 '1'..='9' => {
+                    // 常用语输入码续写优先：`18` 后再敲 `7` 进缓冲区，不选第 7 个候选
+                    if host::with(|h| h.engine.custom_code_accepts(c)).unwrap_or(false) {
+                        host::with(|h| h.engine.push(c));
+                        self.refresh(client);
+                        return true;
+                    }
                     let offset = usize::from(*byte - b'1');
                     if let Some(index) = host::with(|h| h.session.index_on_page(offset)).flatten() {
                         return self.commit_index(index, client);

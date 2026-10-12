@@ -5,25 +5,58 @@ use super::*;
 impl Engine {
     /// 精确匹配自定义输入码时，数字键应选择候选。
     pub(super) fn has_custom_phrase(&self) -> bool {
-        !self.english_mode
-            && self
-                .custom_phrases
-                .iter()
-                .any(|p| p.enabled && p.code == self.composition.scope())
+        self.custom_phrases
+            .iter()
+            .any(|p| p.enabled && p.code == self.composition.scope())
+    }
+
+    /// 空缓冲区时，这个字符是不是某条启用常用语输入码的开头（用来让数字 / 汉字开组句）。
+    /// 中文与英文模式都认：英文模式下也可敲 `187` 出常用语。
+    pub fn custom_code_starts_with(&self, c: char) -> bool {
+        self.custom_phrases
+            .iter()
+            .any(|p| p.enabled && p.code.starts_with(c))
+    }
+
+    /// 在当前作用域后再收一个字符，是否仍是某条启用常用语输入码的前缀或整码
+    ///（组句中敲数字时优先进缓冲区，而不是选第 N 个候选）。
+    pub fn custom_code_accepts(&self, next: char) -> bool {
+        let mut next_scope = self.composition.scope().to_owned();
+        next_scope.push(next);
+        self.custom_phrases.iter().any(|p| {
+            p.enabled && (p.code == next_scope || p.code.starts_with(next_scope.as_str()))
+        })
     }
 
     /// 所有普通候选完成排序后按输入码固定位置。
+    ///
+    /// 两条触发路径（中文 / 英文模式都走）：
+    /// 1. 敲的原文整段等于输入码（`138`、`ee`）；
+    /// 2. 当前中文 / 整句候选里出现了与输入码相同的词（输入码是汉字时，打出该词也会插入）。
     pub(super) fn insert_custom_phrases(&self, items: &mut Vec<Candidate>) {
-        if self.english_mode {
-            return;
-        }
+        let scope = self.composition.scope();
         let mut phrases: Vec<_> = self
             .custom_phrases
             .iter()
-            .filter(|p| p.enabled && p.code == self.composition.scope())
+            .filter(|p| {
+                p.enabled
+                    && (p.code == scope
+                        || items.iter().any(|c| {
+                            matches!(
+                                c.kind,
+                                CandidateKind::Chinese | CandidateKind::Sentence
+                            ) && c.text == p.code
+                        }))
+            })
             .collect();
         phrases.sort_by_key(|p| p.position);
         for phrase in phrases {
+            // 已有同文案的常用语格就别再插（避免字面码与候选词双路径各插一次）
+            if items.iter().any(|c| {
+                matches!(c.kind, CandidateKind::Custom(_)) && c.text == phrase.text
+            }) {
+                continue;
+            }
             items.insert(
                 (phrase.position - 1).min(items.len()),
                 Candidate {

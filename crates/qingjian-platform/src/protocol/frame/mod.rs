@@ -57,6 +57,10 @@ pub struct Frame {
     /// 不参与 [`is_empty`](Self::is_empty)：单有提示不算在组句，否则空组句也会撑开候选窗口。
     #[serde(default)]
     pub notice: Option<String>,
+
+    /// 邮箱 / 网址模式提示（「退出网址、邮箱模式」）：画在 preedit 行右侧，优先于整句补全，不带云朵。
+    #[serde(default)]
+    pub mode_hint: Option<String>,
 }
 
 impl Frame {

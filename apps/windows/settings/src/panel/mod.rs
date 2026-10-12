@@ -20,8 +20,10 @@ use self::cloud_status::CloudStatus;
 pub(crate) use self::message::Message;
 use self::notice::Notice;
 use self::pages::{
-    about, advanced, aux_code, candidates, cloud, dictionaries, fuzzy, general, shortcut, usage,
+    about, advanced, aux_code, candidates, cloud, dictionaries, fuzzy, general, phrases, shortcut,
+    usage,
 };
+use self::pages::phrases::PhraseEditor;
 use self::recorder::Recorder;
 
 /// 左侧标签固定宽度，让各行控件对齐。
@@ -66,6 +68,9 @@ pub(crate) struct Settings {
 
     /// 「字体」框里正在敲的文字；`None` 显示配置里的值。
     font_query: Option<String>,
+
+    /// 「常用语」页的新增 / 编辑草稿；`None` 为列表态。
+    phrase_editor: Option<PhraseEditor>,
 }
 
 impl Settings {
@@ -138,6 +143,7 @@ impl Settings {
             "cloud" => cloud::view(self, context),
             "fuzzy" => fuzzy::view(self, context),
             "dictionaries" => dictionaries::view(self, context),
+            "phrases" => phrases::view(self, context),
             "aux_code" => aux_code::view(self, context),
             "usage" => usage::view(self, context),
             "advanced" => advanced::view(self, context),

@@ -229,6 +229,7 @@ fn main() {
     engine.set_chinese_first(config.general.chinese_first);
     engine.set_emoji_candidates(config.general.emoji);
     engine.set_english_in_chinese(config.general.english_in_chinese);
+    engine.set_email_url_mode(config.general.email_url_mode);
     engine.set_shift_letter_compose(config.general.shift_letter.compose());
     engine.set_shuangpin_raw_preedit(config.general.shuangpin_raw_preedit);
     engine.log_session(env!("CARGO_PKG_VERSION"), "windows");

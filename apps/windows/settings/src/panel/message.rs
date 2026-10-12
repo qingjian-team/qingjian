@@ -23,12 +23,18 @@ pub(crate) enum Message {
     EnglishFullWidthPunctuation(bool),
     /// 组句中会转全角的标点先把高亮候选上屏再补标点。
     PunctCommits(bool),
+    /// 拼音 / 双拼组句时用哪个键上屏高亮候选。
+    CommitKey(Option<usize>),
+    /// 中文模式邮箱与网址补全。
+    EmailUrlMode(bool),
     /// 开=写入平台缺省白名单，关=写 `["*"]`（处处都给）。
     EnglishOnlyInApps(bool),
     /// 勾上 / 去掉一个中英切换键。
     SwitchKey(qingjian_platform::SwitchKey, bool),
     /// 内置英文模式总开关。
     EnglishMode(bool),
+    /// 记住上次中英模式（启动与新会话按它恢复）。
+    RememberInputMode(bool),
 
     // 候选窗口页
     Appearance(Option<usize>),
@@ -79,6 +85,18 @@ pub(crate) enum Message {
     /// 挪进 dicts\removed，不真删。
     RemoveUserDict(String),
     ImportDictionary,
+
+    // 常用语页（`[[custom_phrases]]`）
+    PhraseNew,
+    PhraseEdit(usize),
+    PhraseDelete(usize),
+    PhraseToggle(usize, bool),
+    PhraseDraftText(String),
+    PhraseDraftCode(String),
+    PhraseDraftPosition(Option<usize>),
+    PhraseDraftEnabled(bool),
+    PhraseSave,
+    PhraseCancel,
 
     // 辅码页
     /// 辅码总开关（`[aux_code] enabled`，缺省关）。

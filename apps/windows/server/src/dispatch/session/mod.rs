@@ -70,6 +70,7 @@ impl Router {
         self.pending_selection = None;
         self.sentence = None;
         self.notice = None;
+        self.mode_hint = None;
         self.highlight = 0;
         self.navigated = false;
         self.hide_candidate_window();

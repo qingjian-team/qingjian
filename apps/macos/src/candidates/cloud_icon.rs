@@ -1,4 +1,4 @@
-//! 联想条目前的小云朵：SF Symbols 的 `cloud`，按主题着色；系统太旧拿不到符号时退回文字 `☁︎`。
+//! SF Symbols 小图标：云联想用 `cloud`，常用语用 `cube`；系统太旧拿不到符号时退回文字。
 
 use objc2::rc::Retained;
 use objc2_app_kit::{NSColor, NSCompositingOperation, NSImage, NSImageSymbolConfiguration};
@@ -14,9 +14,18 @@ pub struct CloudIcon {
 
 impl CloudIcon {
     pub fn new(color: &NSColor, size: f64) -> Self {
+        Self::symbol("cloud", "云联想", color, size)
+    }
+
+    /// 常用语右上角的小立方体。
+    pub fn phrase(color: &NSColor, size: f64) -> Self {
+        Self::symbol("cube", "常用语", color, size)
+    }
+
+    fn symbol(name: &str, label: &str, color: &NSColor, size: f64) -> Self {
         let image = NSImage::imageWithSystemSymbolName_accessibilityDescription(
-            &NSString::from_str("cloud"),
-            Some(&NSString::from_str("云联想")),
+            &NSString::from_str(name),
+            Some(&NSString::from_str(label)),
         )
         .and_then(|image| {
             let config = NSImageSymbolConfiguration::configurationWithHierarchicalColor(color);

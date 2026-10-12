@@ -2,7 +2,7 @@
 
 use qingjian_platform::{
     Appearance, CandidateRenderer, Config, DEFAULT_ENGLISH_CANDIDATES_ON_WINDOWS, LayoutMode,
-    LogLevel, PreeditMode, ShiftLetter, UpdateChannel,
+    CommitKey, LogLevel, PreeditMode, ShiftLetter, UpdateChannel,
 };
 use qingjian_render::ThemeLibrary;
 use windows_reactor::*;
@@ -10,7 +10,7 @@ use windows_reactor::*;
 use super::cloud_status::CloudStatus;
 use super::controls::{export_logs, log_dir, open_in_editor, open_with_explorer};
 use super::notice::Notice;
-use super::pages::{about, aux_code, cloud, dictionaries, general, shortcut};
+use super::pages::{about, aux_code, cloud, dictionaries, general, phrases, shortcut};
 use super::recorder::Recorder;
 use super::{Message, Settings};
 
@@ -38,6 +38,7 @@ impl Component for Settings {
             dictionary_status: String::new(),
             families: qingjian_render::system_fonts::families(),
             font_query: None,
+            phrase_editor: None,
         }
     }
 
@@ -45,8 +46,9 @@ impl Component for Settings {
         match message {
             Message::Navigate(Some(tag)) => {
                 self.page = tag;
-                // 上一页的导入提示不跟着过来
+                // 上一页的导入提示 / 常用语草稿不跟着过来
                 self.notice.clear();
+                self.phrase_editor = None;
             }
             Message::Navigate(None) => {}
 
@@ -77,6 +79,10 @@ impl Component for Settings {
             Message::PunctCommits(on) => {
                 self.save("general", "punct_commits", on);
             }
+            Message::CommitKey(Some(i)) if i < CommitKey::ALL.len() => {
+                self.save("general", "commit_key", CommitKey::ALL[i].key());
+            }
+            Message::EmailUrlMode(on) => self.save("general", "email_url_mode", on),
             Message::EnglishOnlyInApps(on) => {
                 let list: Vec<String> = if on {
                     DEFAULT_ENGLISH_CANDIDATES_ON_WINDOWS
@@ -95,6 +101,7 @@ impl Component for Settings {
                 self.save_array("shortcut", "switch_mode", &values);
             }
             Message::EnglishMode(on) => self.save("general", "english_mode", on),
+            Message::RememberInputMode(on) => self.save("general", "remember_input_mode", on),
 
             // 候选窗口页
             Message::Appearance(Some(i)) if i < Appearance::ALL.len() => {
@@ -240,6 +247,18 @@ impl Component for Settings {
                 self.reload();
             }
 
+            // 常用语页
+            Message::PhraseNew => phrases::open_new(self),
+            Message::PhraseEdit(index) => phrases::open_edit(self, index),
+            Message::PhraseDelete(index) => phrases::delete(self, index),
+            Message::PhraseToggle(index, on) => phrases::toggle(self, index, on),
+            Message::PhraseDraftText(text) => phrases::draft_text(self, text),
+            Message::PhraseDraftCode(code) => phrases::draft_code(self, code),
+            Message::PhraseDraftPosition(index) => phrases::draft_position(self, index),
+            Message::PhraseDraftEnabled(on) => phrases::draft_enabled(self, on),
+            Message::PhraseSave => phrases::save(self),
+            Message::PhraseCancel => phrases::cancel(self),
+
             // 辅码页
             Message::AuxCodeEnabled(on) => self.save("aux_code", "enabled", on),
             Message::AuxCodeShow(on) => self.save("general", "aux_code_show", on),
@@ -357,6 +376,7 @@ impl Component for Settings {
             item("general", "通用", Symbol::Setting),
             item("candidates", "候选窗口", Symbol::View),
             item("shortcut", "快捷键", Symbol::Keyboard),
+            item("phrases", "常用语", Symbol::Edit),
             item("cloud", "云服务", Symbol::World),
             item("fuzzy", "模糊音", Symbol::Audio),
             item("dictionaries", "词库", Symbol::Library),

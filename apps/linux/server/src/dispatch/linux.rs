@@ -80,10 +80,12 @@ impl Router {
                     if shift && info.shift_pending {
                         info.shift_pending = false;
                         info.english = !info.english;
+                        let english = info.english;
                         commit =
                             (!self.engine.composition().is_empty()).then(|| self.engine.take_raw());
                         self.reset_composition();
                         outcome = KeyOutcome::Consumed;
+                        self.remember_english(english);
                     }
                 } else {
                     info.shift_pending = shift && !event.modifiers.has_command_key();

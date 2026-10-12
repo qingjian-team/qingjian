@@ -8,5 +8,6 @@ pub(super) mod cloud;
 pub(super) mod dictionaries;
 pub(super) mod fuzzy;
 pub(super) mod general;
+pub(super) mod phrases;
 pub(super) mod shortcut;
 pub(super) mod usage;

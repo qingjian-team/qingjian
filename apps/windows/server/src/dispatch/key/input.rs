@@ -9,13 +9,23 @@ use crate::dispatch::Router;
 impl Router {
     /// 功能键靠键码，其余靠字符。组句中修饰键 + 数字是快捷键；带 Ctrl / Alt / Win 而没配到快捷键的键归应用。
     /// 表达式模式里 Shift + 数字打的是 `^ * ( )`，不当快捷键。
+    /// 纯 Shift + 数字若产出的是 `@` `#` 等符号（不是数字本身），进英文直输 / 邮箱补全，不当删候选。
     pub(crate) fn apply_key(&mut self, event: &KeyEvent) -> Effect {
         if self.composing()
             && !self.engine.expression_mode()
             && let Some(digit) = codes::digit_key(event.virtual_key)
-            && let Some(effect) = self.apply_digit_shortcut(digit, event.modifiers.chord())
         {
-            return effect;
+            let chord = event.modifiers.chord();
+            let shift_symbol = event
+                .character
+                .is_some_and(|c| !c.is_ascii_digit() && c.is_ascii_graphic());
+            let skip_delete_for_symbol =
+                shift_symbol && chord == self.config.delete_keys;
+            if !skip_delete_for_symbol
+                && let Some(effect) = self.apply_digit_shortcut(digit, chord)
+            {
+                return effect;
+            }
         }
         if event.modifiers.has_command_key() {
             return Effect::Passthrough;
@@ -115,11 +125,14 @@ impl Router {
             }
             codes::RETURN => {
                 if self.engine.is_zhuyin_mode() {
+                    // 注音：回车本来就上屏候选；Shift+回车上屏原始字母。不受 commit_key 影响。
                     if event.modifiers.shift {
                         Effect::Changed(Some(self.engine.take_raw()))
                     } else {
                         Effect::Changed(Some(self.commit_highlighted()))
                     }
+                } else if self.config.commit_key.enter_commits() {
+                    Effect::Changed(Some(self.commit_highlighted()))
                 } else {
                     Effect::Changed(Some(self.engine.take_raw()))
                 }
@@ -182,8 +195,11 @@ impl Router {
         // 注音模式下数字与 `- ; , . /` 就是键盘上的音节键，跟着进缓冲区。
         let is_zhuyin_key = self.engine.is_zhuyin_mode()
             && (c.is_ascii_digit() || matches!(c, '-' | ';' | ',' | '.' | '/'));
+        // 常用语输入码可含数字 / 汉字：空缓冲区时，码的首字符开组句（`187` → 电话）。
+        let custom_start = !self.composing() && self.engine.custom_code_starts_with(c);
         if c.is_ascii_lowercase()
             || is_zhuyin_key
+            || custom_start
             || (c.is_ascii_uppercase() && self.config.shift_letter_compose)
         {
             // 辅码态：字母进码段（逐键即筛），不进拼音缓冲区
@@ -238,6 +254,15 @@ impl Router {
             };
             return with_prefix(raw, effect, c);
         }
+        // 常用语：空缓冲时数字 / 汉字也可开组句；组句中续写优先于选第 N 个候选
+        let custom_start = !composing && self.engine.custom_code_starts_with(c);
+        if composing
+            && codes::digit(event).is_some()
+            && self.engine.custom_code_accepts(c)
+        {
+            self.engine.push(c);
+            return Effect::Changed(None);
+        }
         if composing
             && let Some(digit) = codes::digit(event)
             && let Some(index) = self.slot_index(digit)
@@ -245,6 +270,7 @@ impl Router {
             return Effect::Changed(self.commit_index(index));
         }
         if c.is_ascii_alphabetic()
+            || custom_start
             || (composing && (c.is_ascii_digit() || matches!(c, '_' | '\'' | '-')))
         {
             self.engine.push(c);
@@ -254,8 +280,9 @@ impl Router {
             self.page(step);
             return Effect::Navigated;
         }
+        // 英文模式也跟 `[general] commit_key`：缺省空格上屏高亮词，`enter` 时空格原样上屏字母
         let committed = composing.then(|| {
-            if c == ' ' {
+            if c == ' ' && !self.config.commit_key.enter_commits() {
                 self.commit_highlighted()
             } else {
                 self.engine.take_raw()
@@ -308,6 +335,11 @@ impl Router {
         if let Some(digit) = codes::digit(event)
             && (!self.engine.is_zhuyin_mode() || self.navigated)
         {
+            // 常用语输入码续写优先：`18` 后再敲 `7` 进缓冲区，不选第 7 个候选
+            if self.engine.custom_code_accepts(c) {
+                self.engine.push(c);
+                return Effect::Changed(None);
+            }
             if let Some(index) = self.slot_index(digit) {
                 return Effect::Changed(self.commit_index(index));
             }
@@ -321,9 +353,14 @@ impl Router {
             return Effect::Navigated;
         }
         if c == ' ' {
+            // 注音空格是一声，不受 commit_key 影响
             if self.engine.zhuyin_needs_tone() {
                 self.engine.push(c);
                 return Effect::Changed(None);
+            }
+            // `commit_key = enter`：空格上屏原始拼音；缺省空格上屏高亮候选
+            if self.config.commit_key.enter_commits() {
+                return Effect::Changed(Some(self.engine.take_raw()));
             }
             return Effect::Changed(Some(self.commit_highlighted()));
         }

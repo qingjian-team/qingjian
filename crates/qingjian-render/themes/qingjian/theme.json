@@ -69,7 +69,10 @@
           "gloss": { "if": "highlighted", "then": "@hl_gloss", "else": "@gloss" },
           "fresh": { "if": "highlighted", "then": "@hl_fresh", "else": "@fresh" },
           "faint": { "if": "highlighted", "then": "@hl_faint", "else": "@faint" },
-          "margin": [8, 0, 0, 8] }
+          "margin": [8, 0, 0, 8] },
+        { "type": "icon", "icon": "phrase", "when": "custom", "size": 8,
+          "position": "absolute", "inset": [2, 2, "auto", "auto"],
+          "color": { "if": "highlighted", "then": "@hl_faint", "else": "@faint" } }
       ]
     },
 
@@ -80,7 +83,11 @@
           "when": "highlighted", "position": "absolute", "inset": [0, -5, 0, -5], "fill": "@accent", "radius": 4 },
         { "type": "text", "bind": "index", "font": "index", "margin": [8, 3, 0, 0],
           "color": { "if": "highlighted", "then": "@hl_faint", "else": "@faint" } },
-        { "type": "use", "component": "word", "margin": [4, 0, 0, 0] }
+        { "type": "use", "component": "word", "margin": [4, 0, 0, 0] },
+        { "type": "frame", "when": "custom", "width": 12, "height": 1 },
+        { "type": "icon", "icon": "phrase", "when": "custom", "size": 8,
+          "position": "absolute", "inset": [2, 2, "auto", "auto"],
+          "color": { "if": "highlighted", "then": "@hl_faint", "else": "@faint" } }
       ]
     }
   },

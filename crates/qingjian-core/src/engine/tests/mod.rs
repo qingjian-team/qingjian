@@ -5,6 +5,7 @@ mod cloud;
 mod code;
 mod correction;
 mod custom;
+mod email_url;
 mod emoji;
 mod english;
 mod learning;

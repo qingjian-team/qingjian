@@ -1,7 +1,7 @@
 use qingjian_platform::protocol::KeyModifiers;
 use qingjian_platform::{
-    Appearance, AppsConfig, CandidateRenderer, Config, FontSize, KeyCombo, LayoutMode, PreeditMode,
-    Scheme, SwitchKeys,
+    Appearance, AppsConfig, CandidateRenderer, CommitKey, Config, FontSize, KeyCombo, LayoutMode,
+    PreeditMode, Scheme, SwitchKeys,
 };
 
 use super::RenderSettings;
@@ -56,6 +56,12 @@ pub struct RouterConfig {
     /// （切换键与语言栏按钮由 DLL 按同一项拦住，见 `com::service::mode`）。
     pub english_mode: bool,
 
+    /// 记住上次中英（`[general] remember_input_mode`）：切换时写 `last_english`，启动按它恢复。
+    pub remember_input_mode: bool,
+
+    /// 上次中英（`[general] last_english`，`true` 英文）；与 [`Self::remember_input_mode`] 一起决定启动态。
+    pub last_english: bool,
+
     /// 中英切换键（`[shortcut] switch_mode`）：由 Server 经协议下发给 DLL，由它认键。
     pub switch_mode: SwitchKeys,
 
@@ -68,6 +74,9 @@ pub struct RouterConfig {
     /// 组句中可转全角的标点先把高亮候选上屏再补标点（`[general] punct_commits`）；
     /// 关掉恢复老行为：标点进英文直输段。缺省开。
     pub punct_commits: bool,
+
+    /// 拼音 / 双拼组句时哪个键上屏高亮候选（`[general] commit_key`）；注音不受此项影响。
+    pub commit_key: CommitKey,
 
     /// 大千注音（[general] zhuyin）。
     pub zhuyin: bool,
@@ -112,6 +121,11 @@ impl RouterConfig {
         self.english_candidates && self.apps.english_candidates_on(app)
     }
 
+    /// Server 启动时的中英：内置英文模式、记住开关、上次状态三项都开才是英文。
+    pub fn initial_english(&self) -> bool {
+        self.english_mode && self.remember_input_mode && self.last_english
+    }
+
     /// 交给 UI 线程的画法。
     pub fn render_settings(&self) -> RenderSettings {
         RenderSettings {
@@ -146,10 +160,13 @@ impl From<&Config> for RouterConfig {
             page_keys: config.general.page_keys(),
             english_candidates: config.general.english_candidates,
             english_mode: config.general.english_mode,
+            remember_input_mode: config.general.remember_input_mode,
+            last_english: config.general.last_english,
             switch_mode: config.shortcut.switch_mode,
             full_width: config.general.full_width_punctuation,
             english_full_width: config.general.english_full_width_punctuation,
             punct_commits: config.general.punct_commits,
+            commit_key: config.general.commit_key,
             zhuyin: config.general.is_zhuyin(),
             apps: config.apps.clone(),
             translation_keys: {

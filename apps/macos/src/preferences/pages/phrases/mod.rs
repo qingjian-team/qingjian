@@ -253,7 +253,8 @@ impl PhrasesPage {
             .setStringValue(&NSString::from_str(p.map_or("", |p| &p.code)));
         self.text
             .setString(&NSString::from_str(p.map_or("", |p| &p.text)));
-        select(&self.position, Some(p.map_or(0, |p| p.position - 1)));
+        // 新增缺省第 2 位（下拉下标 1），编辑沿用原位置
+        select(&self.position, Some(p.map_or(1, |p| p.position - 1)));
         set_checked(&self.enabled, p.is_none_or(|p| p.enabled));
         self.error.setStringValue(&NSString::from_str(""));
         self.editor

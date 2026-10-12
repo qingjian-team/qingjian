@@ -125,13 +125,14 @@ fn custom_exact_codes_override_mode_prefixes_but_not_longer_input() {
     e.set_input("uu");
     assert!(!e.question_mode());
     e.set_english_mode(true);
+    // 英文模式同样出常用语
     assert!(
         e.query()
             .unwrap()
             .candidates
             .items
             .iter()
-            .all(|c| c.text != "文本")
+            .any(|c| c.text == "文本")
     );
 }
 
@@ -157,4 +158,41 @@ fn custom_preview_handles_unicode_controls_and_limits() {
     assert_eq!(CustomPhrase::preview("甲\n乙", 3), "甲↵乙");
     assert_eq!(CustomPhrase::preview("甲", 0), "…");
     assert_eq!(CustomPhrase::preview("", 0), "");
+}
+
+#[test]
+fn digit_and_han_codes_match_exact_scope() {
+    let mut e = engine();
+    e.set_custom_phrases(vec![
+        phrase("138", 1, "13800138000"),
+        phrase("你好", 1, "Hello"),
+    ])
+    .unwrap();
+    assert!(e.custom_code_starts_with('1'));
+    assert!(e.custom_code_starts_with('你'));
+    e.set_input("13");
+    assert!(e.custom_code_accepts('8'));
+    e.set_input("138");
+    assert_eq!(e.query().unwrap().candidates.items[0].text, "13800138000");
+    e.set_input("你好");
+    assert_eq!(e.query().unwrap().candidates.items[0].text, "Hello");
+}
+
+#[test]
+fn han_code_triggers_when_pinyin_candidate_matches() {
+    let dict = Dictionary::parse("江西\tjiang xi\t9000\n讲习\tjiang xi\t100\n").unwrap();
+    let mut e = Engine::new(dict);
+    e.set_custom_phrases(vec![phrase("江西", 1, "示例省示例市示例县")])
+        .unwrap();
+    e.set_input("jiangxi");
+    let texts: Vec<_> = e
+        .query()
+        .unwrap()
+        .candidates
+        .items
+        .into_iter()
+        .map(|c| c.text)
+        .collect();
+    assert_eq!(texts[0], "示例省示例市示例县");
+    assert!(texts.iter().any(|t| t == "江西"));
 }

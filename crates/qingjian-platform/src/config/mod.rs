@@ -2,6 +2,7 @@ mod appearance;
 mod apps;
 mod aux_code;
 mod candidate_renderer;
+mod commit_key;
 mod dictionaries;
 mod font_size;
 mod general;
@@ -34,6 +35,7 @@ pub use apps::{
 };
 pub use aux_code::AuxCodeConfig;
 pub use candidate_renderer::CandidateRenderer;
+pub use commit_key::CommitKey;
 pub use dictionaries::{DEFAULT_DOMAINS, DictionariesConfig};
 pub use font_size::FontSize;
 pub use general::{
@@ -247,6 +249,11 @@ shift_letter = "passthrough"
 # 内置英文模式：开着时单击切换键（[shortcut] switch_mode）或 Caps Lock 亮着进英文模式
 # 关掉后青简保持中文模式，切换键与语言栏按钮都不再切过去；要打英文请用系统快捷键（Win+Space）切到别的输入法。只有 Windows 用，macOS 的中英切换是 Caps Lock
 english_mode = true
+# 记住上次中英模式：true 时每次切换写入下面的 last_english，Server 启动与新会话按它恢复；false 时启动仍回到中文。
+# 只有 Windows / Linux 用（macOS 跟 Caps Lock）。缺省开
+remember_input_mode = true
+# 上次中英模式（true 英文）。由输入法在切换时自动写回，一般不用手改
+last_english = false
 # 中文模式下（没在组句时）敲的标点转全角：, . ? ! : ; ( ) 等，数字后面的 . 保持半角。Windows 上悬浮状态条的「，。」格可以点着切；macOS 在偏好设置中选择默认中文标点模式
 full_width_punctuation = true
 # 英文模式下的同一件事，中英各记一份，状态条切的是当前模式那份；只有 Windows 用
@@ -254,6 +261,11 @@ english_full_width_punctuation = false
 # 组句中敲会转全角的标点（, . ? ! 等，翻页键除外）先把高亮候选上屏、再补该标点（nihao, 一气打完「你好，」）；
 # 缺省 false：标点进英文直输段，与以前一致
 punct_commits = false
+# 拼音 / 双拼组句时用哪个键上屏高亮候选：space（缺省，空格上屏候选、回车上屏拼音）/ enter（回车上屏候选、空格上屏拼音）
+# 注音方案下回车本来就上屏候选、空格是一声，不受此项影响
+commit_key = "space"
+# 中文模式组句中识别邮箱（qingjian@）与网址（www. / http://）并给出域名 / 后缀补全；缺省开
+email_url_mode = true
 # 辅码触发键：拼音打完之后敲它进辅码态，之后敲的字母按码表缩小候选范围；缺省是分号
 # 单个可见字符，字母、数字与翻页键不能当触发键；微软 / 搜狗双拼里分号先当 ing 的韵母键
 aux_code_key = ";"
@@ -283,7 +295,7 @@ system_text_replacements = true
 
 # 自定义短语示例：取消下面各行注释后启用；同码同位置不能重复。
 # [[custom_phrases]]
-# code = "ww"       # 输入码：1–32 个小写英文字母
+# code = "ww"       # 输入码：1–32 个小写英文字母、数字或汉字
 # text = "；"       # 原样上屏的文本，可包含空格与换行
 # position = 1      # 固定候选位置：1–9
 # enabled = true    # 是否启用；停用仍保留位置

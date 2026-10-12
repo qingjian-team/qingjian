@@ -4,6 +4,7 @@ use super::draw_box;
 use crate::canvas::Canvas;
 use crate::cloud::draw_cloud;
 use crate::gear::draw_gear;
+use crate::phrase::draw_phrase;
 use crate::scene::{BoxPaint, Icon, Visual};
 use crate::text::TextPainter;
 
@@ -28,6 +29,7 @@ pub(in crate::scene) fn draw_visual(
             match icon {
                 Icon::Cloud => draw_cloud(canvas, x, top, *size, *color),
                 Icon::Gear => draw_gear(canvas, x, top, *size, *color),
+                Icon::Phrase => draw_phrase(canvas, x, top, *size, *color),
             }
         }
         Visual::Group => {}

@@ -1,6 +1,6 @@
 //! Linux 首版按键与候选配置。
 use qingjian_platform::protocol::KeyModifiers;
-use qingjian_platform::{Appearance, AppsConfig, Config, LayoutMode, PreeditMode};
+use qingjian_platform::{Appearance, AppsConfig, CommitKey, Config, LayoutMode, PreeditMode};
 
 /// Router 要用的配置项，与 macOS 壳的 `Host` 字段对齐。
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -26,6 +26,12 @@ pub struct RouterConfig {
     /// 英文模式给不给英文候选（`[general] english_candidates`）。
     pub english_candidates: bool,
 
+    /// 记住上次中英（`[general] remember_input_mode`）：切换时写 `last_english`，新会话按它恢复。
+    pub remember_input_mode: bool,
+
+    /// 上次中英（`[general] last_english`，`true` 英文）。
+    pub last_english: bool,
+
     /// Shift 大写字母是否加入中文组句。
     pub shift_letter_compose: bool,
 
@@ -38,6 +44,9 @@ pub struct RouterConfig {
     /// 组句中敲会转全角的标点（`,` `.` `?` `!` 等，翻页键除外）先把高亮候选上屏、再补该标点
     ///（`nihao,` 一气打完「你好，」）的开关（`[general] punct_commits`），缺省关。
     pub punct_commits: bool,
+
+    /// 拼音 / 双拼组句时哪个键上屏高亮候选（`[general] commit_key`）；注音不受此项影响。
+    pub commit_key: CommitKey,
 
     /// 按应用的设置（`[apps]`），按宿主 exe 名认。
     pub apps: AppsConfig,
@@ -54,6 +63,11 @@ impl RouterConfig {
     pub fn english_candidates_in(&self, app: Option<&str>) -> bool {
         self.english_candidates && self.apps.english_candidates_on(app)
     }
+
+    /// 新会话启动时的中英：记住开着且上次是英文时为英文。
+    pub fn initial_english(&self) -> bool {
+        self.remember_input_mode && self.last_english
+    }
 }
 
 impl From<&Config> for RouterConfig {
@@ -66,10 +80,13 @@ impl From<&Config> for RouterConfig {
             appearance: config.general.appearance(),
             page_keys: config.general.page_keys(),
             english_candidates: config.general.english_candidates,
+            remember_input_mode: config.general.remember_input_mode,
+            last_english: config.general.last_english,
             shift_letter_compose: config.general.shift_letter.compose(),
             full_width: config.general.full_width_punctuation,
             english_full_width: config.general.english_full_width_punctuation,
             punct_commits: config.general.punct_commits,
+            commit_key: config.general.commit_key,
             apps: config.apps.clone(),
             translation_keys: {
                 let (first, second) = config.shortcut.translation_keys();

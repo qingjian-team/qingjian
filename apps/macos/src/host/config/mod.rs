@@ -27,6 +27,8 @@ impl Host {
         self.engine
             .set_english_in_chinese(config.general.english_in_chinese);
         self.engine
+            .set_email_url_mode(config.general.email_url_mode);
+        self.engine
             .set_shift_letter_compose(config.general.shift_letter.compose());
         self.apply_scheme(config.general.scheme(), config.general.wubi());
         self.engine
@@ -40,6 +42,7 @@ impl Host {
         self.cloud_slots = config.predict.slots;
         self.page_keys = config.general.page_keys();
         self.punct_commits = config.general.punct_commits;
+        self.commit_key = config.general.commit_key;
         self.preedit_mode = config.general.preedit;
         self.english_candidates = config.general.english_candidates;
         self.apps = config.apps.clone();

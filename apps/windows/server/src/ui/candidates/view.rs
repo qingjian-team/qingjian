@@ -16,6 +16,9 @@ use super::theme::Theme;
 /// 云端候选词前的小云朵（macOS 用 SF Symbol `cloud`）。
 const CLOUD_GLYPH: &str = "☁";
 
+/// 常用语右上角标记（青简渲染器用矢量立方体；GDI 退路用空心方块近似）。
+const PHRASE_GLYPH: &str = "◻";
+
 /// 竖排的列宽与统一行高。
 struct Columns {
     index_width: i32,
@@ -67,11 +70,17 @@ fn horizontal_size(hdc: HDC, data: &RenderData) -> (i32, i32) {
     for row in &data.rows {
         let index = measure(hdc, theme.index_font, &row.index);
         let text = measure(hdc, theme.text_font, &row.text);
+        let phrase_pad = if row.custom {
+            measure(hdc, theme.annotation_font, PHRASE_GLYPH).cx + 4
+        } else {
+            0
+        };
         width += index.cx
             + index_gap
             + cloud_prefix_width(hdc, theme, row)
             + text.cx
-            + code_width(hdc, theme, row);
+            + code_width(hdc, theme, row)
+            + phrase_pad;
         row_height = row_height.max(text.cy + theme.row_padding * 2);
     }
     width += theme.column_gap * (data.rows.len().saturating_sub(1)) as i32 + highlight_inset * 2;
@@ -119,7 +128,7 @@ pub(super) fn paint(hdc: HDC, data: &RenderData, client: RECT) {
 /// 顶部拼音行：各段按样式画、自己画光标、右侧整句补全。返回占用高度。
 /// 「只在行内」时没有拼音行，但整句补全仍要画（占用同一条线）。
 fn draw_top_line(hdc: HDC, data: &RenderData, y: i32) -> i32 {
-    if data.preedit.is_empty() && data.sentence.is_none() {
+    if data.preedit.is_empty() && data.sentence.is_none() && data.mode_hint.is_none() {
         return 0;
     }
     let theme = &data.theme;
@@ -167,7 +176,18 @@ fn draw_top_line(hdc: HDC, data: &RenderData, y: i32) -> i32 {
         };
         fill_rect(hdc, caret, theme.text_color);
     }
-    if let Some(sentence) = &data.sentence {
+    // 邮箱 / 网址模式提示：右侧、无云朵；否则画云整句（带云朵）
+    if let Some(hint) = &data.mode_hint {
+        let hint_x = x + theme.column_gap;
+        draw_text(
+            hdc,
+            theme.annotation_font,
+            theme.gloss_color,
+            hint_x,
+            top,
+            hint,
+        );
+    } else if let Some(sentence) = &data.sentence {
         let sentence_x = x + theme.column_gap;
         let cloud = cloud_glyph_width(hdc, theme);
         draw_text(
@@ -257,6 +277,9 @@ fn draw_rows(hdc: HDC, data: &RenderData, mut y: i32, width: i32) {
                 segment,
             );
         }
+        if row.custom {
+            draw_phrase_badge(hdc, theme, y, width);
+        }
         y += columns.row_height;
     }
     if let Some(footer) = &data.footer {
@@ -290,11 +313,17 @@ fn draw_horizontal(hdc: HDC, data: &RenderData, y: i32, width: i32) {
     for (i, row) in data.rows.iter().enumerate() {
         let index_width = measure(hdc, theme.index_font, &row.index).cx;
         let text_size = measure(hdc, theme.text_font, &row.text);
+        let phrase_pad = if row.custom {
+            measure(hdc, theme.annotation_font, PHRASE_GLYPH).cx + 4
+        } else {
+            0
+        };
         let item_width = index_width
             + index_gap
             + cloud_prefix_width(hdc, theme, row)
             + text_size.cx
-            + code_width(hdc, theme, row);
+            + code_width(hdc, theme, row)
+            + phrase_pad;
         if i == data.highlight {
             let rect = RECT {
                 left: x - highlight_inset,
@@ -321,6 +350,9 @@ fn draw_horizontal(hdc: HDC, data: &RenderData, y: i32, width: i32) {
             baseline,
             small_offset,
         );
+        if row.custom {
+            draw_phrase_badge(hdc, theme, y, x + item_width + highlight_inset);
+        }
         x += item_width + theme.column_gap;
     }
     if let Some(footer) = &data.footer {
@@ -352,7 +384,7 @@ fn draw_horizontal(hdc: HDC, data: &RenderData, y: i32, width: i32) {
 }
 
 fn top_line_size(hdc: HDC, data: &RenderData) -> (i32, i32) {
-    if data.preedit.is_empty() && data.sentence.is_none() {
+    if data.preedit.is_empty() && data.sentence.is_none() && data.mode_hint.is_none() {
         return (0, 0);
     }
     let theme = &data.theme;
@@ -364,7 +396,9 @@ fn top_line_size(hdc: HDC, data: &RenderData) -> (i32, i32) {
         let full: String = data.preedit.iter().map(|(t, _)| t.as_str()).collect();
         measure(hdc, theme.annotation_font, &full).cx + scale_line(theme)
     };
-    if let Some(sentence) = &data.sentence {
+    if let Some(hint) = &data.mode_hint {
+        width += theme.column_gap + measure(hdc, theme.annotation_font, hint).cx;
+    } else if let Some(sentence) = &data.sentence {
         width += theme.column_gap
             + cloud_glyph_width(hdc, theme)
             + measure(hdc, theme.annotation_font, sentence).cx;
@@ -451,6 +485,19 @@ fn draw_word(hdc: HDC, theme: &Theme, row: &Row, x: i32, baseline: i32, small_of
         );
     }
     width
+}
+
+/// 常用语标记画在整行最右上角，不贴着候选词。
+fn draw_phrase_badge(hdc: HDC, theme: &Theme, row_top: i32, row_right: i32) {
+    let badge = measure(hdc, theme.annotation_font, PHRASE_GLYPH);
+    draw_text(
+        hdc,
+        theme.annotation_font,
+        theme.pos_color,
+        (row_right - theme.padding / 2 - badge.cx).max(0),
+        row_top + 2,
+        PHRASE_GLYPH,
+    );
 }
 
 fn tone_color(theme: &Theme, tone: Tone) -> COLORREF {
