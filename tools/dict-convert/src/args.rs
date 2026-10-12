@@ -232,7 +232,7 @@ pub enum Command {
         #[arg(long, default_value = "")]
         data_version: String,
 
-        /// `glossary` 专用：释义表的语言代码（en / ja / zh / es / vi），决定输出文件名 glossary-<语言>.qj
+        /// `glossary` 专用：释义表的语言代码（en / ja / zh / es / vi / de），决定输出文件名 glossary-<语言>.qj
         #[arg(long, default_value = "en")]
         language: String,
     },

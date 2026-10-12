@@ -186,12 +186,7 @@ impl GeneralPage {
         row_checkbox(layout, &traditional);
         let emoji = checkbox(mtm, "候选后面显示 emoji", Setting::Emoji, target);
         row_checkbox(layout, &emoji);
-        let english = checkbox(
-            mtm,
-            "英文模式（Caps Lock）也给候选",
-            Setting::EnglishCandidates,
-            target,
-        );
+        let english = checkbox(mtm, "英文候选与补全", Setting::EnglishCandidates, target);
         row_checkbox(layout, &english);
         note(
             layout,

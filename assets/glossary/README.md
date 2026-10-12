@@ -26,6 +26,33 @@ cargo run --release -p qingjian-gloss-gen -- export --input data/generated/gloss
 2026-09-05 对 `assets/lexicon/dict.tsv` 全量生成：23.9 万词（含旧语料词表的 3.8 万），
 词库多字词 91% 有英文释义、98% 有日文释义。越南语字段是后续加入的，旧 JSONL 没有 `vi` 字段时需重跑 `generate` 或另行补齐后再导出。
 
+## 德语（`glossary-de.tsv`）
+
+同样由 `tools/gloss-gen` 用 LLM（**DeepSeek**）离线批量生成，走与英语 / 日语 / 越南语相同的
+多语言管线：`generate` 加 `--languages de`，JSONL 里只有 `de` 字段，不必重跑英语 / 日语：
+
+```bash
+cargo run --release -p qingjian-gloss-gen -- generate --languages de --words assets/lexicon/dict.tsv --min-count 1 --max-chars 8 --model deepseek-flash --out data/generated/gloss-de-llm.jsonl
+cargo run --release -p qingjian-gloss-gen -- export --input data/generated/gloss-de-llm.jsonl --out-dir assets/glossary
+```
+
+提示词要求名词译词带定冠词（`der` / `die` / `das`）且首字母大写、动词用不定式——冠词本身
+就是德语名词要学的一部分（性别）。全量生成后用 `tools/corpus/verify_german_gender.py`
+对照 Wiktionary 德语词典快照（[kaikki.org](https://kaikki.org) 导出，CC BY-SA 4.0；快照只用于
+自动校验，译文不取自它，放在不进 git 的 `data/` 下）核对名词冠词：可自动判定的名词一致率
+达到 98% 闸门才发布。以后换模型重跑若过不了闸门，可用 `export --strip-german-articles`
+导出剥掉冠词的兜底形态（名词仍保留大写与词性，从已有 JSONL 重新导出即可，不花 API 费用）。
+
+2026-10-10 对 `assets/lexicon/dict.tsv` 全量生成（`--min-count 1 --max-chars 8`，
+模型 deepseek-flash）：选出 92,119 个词，复用 2,000 词 pilot 的 1,998 条结果，新生成 89,749 条，
+372 个生僻词模型未返回而放弃，导出 91,747 条（占选中词 99.6%，规模与越南语表相当）。
+全量闸门结果：名词共 52,896 个，其中 11,338 个按语法本就无冠词（国名 / 地名 / 人名、
+带物主代词或指示限定词的短语），17,498 个 Wiktionary 快照未收录；可自动判定的 24,060 个
+名词里 23,670 个冠词一致，一致率 **98.4%**（390 个不一致多为 der/das 两可的摇摆词，
+如 der/das Blog、der/das Barock；报告在不进 git 的 `data/generated/german-full-report.md`）。
+
+首版不附 `levels-de` 词汇等级表（与越南语首版一致）。
+
 ## 西班牙语（`glossary-es.tsv`）
 
 由 `tools/corpus/glossary_es.py` 用 **Azure Translator** 机器翻译生成，**不是 LLM**，
@@ -76,4 +103,4 @@ cargo run --release -p qingjian-gloss-gen -- export-english
 `data/generated/`，不进 git：它们只是续跑用的中间产物，每重跑一轮就变一份，仓库只保留导出的最终表。
 发布时随 `.qj` 一起作为 Release 附件保存，重跑前先从那里下载。
 
-生成时的提示词在 `tools/gloss-gen/src/prompt.rs`（中→英 / 日 / 越）与 `tools/gloss-gen/src/english.rs`（英→中）。
+生成时的提示词在 `tools/gloss-gen/src/prompt.rs`（中→英 / 日 / 越 / 德）与 `tools/gloss-gen/src/english.rs`（英→中）。

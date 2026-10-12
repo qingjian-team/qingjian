@@ -93,6 +93,9 @@ TSV 解析、查询与生成工具把 `lue` / `nue` 统一成 `lve` / `nve`。
 - `CloudGlossFiller`：释义兜底（Core `GlossFiller` trait，与 Predictor 分开的线程与通道，攒 1.5 秒 / 8 个词发一次，问过不再问）：
   随包释义表没有的词库词 / 云端词上屏后入队，结果壳每秒 `Engine::poll_glosses` 经 `Translator::learn` 写进 `qingjian-translate::PersonalGlossary`
   （`user-glossary-<语言>.tsv`，`LayeredTranslator` 个人表优先）；随云联想开关一起开。
+  云释义的系统 prompt 在 `gloss/prompt.rs` 按学习语言分派：德语臂 `GERMAN_SYSTEM_PROMPT` 要求名词带冠词 der/die/das 且首字母大写、动词用不定式；
+  返回译文经 `clean_text` 按语言设限，德语臂上限 40 字符（`MAX_GERMAN_CHARS`，西语臂 32），字符白名单 `is_latin_ext_char` 为西 / 德共用
+  （拉丁扩展区间 0x00C0–0x024F，汉字与西里尔字母不收）。
 - 问字键（缺省 `u`）开头是问字模式（`PredictionKind::Question`，答案带读音、不校验拼音），`?` 开头要 `ModeKeys::question_mark` 开着才算（配置 `[shortcut] question_mark`，缺省关，壳用 `Engine::takes_question_mark` 决定空缓冲区的 `?` 是入口还是标点）；`PredictionKind::Translate` 是壳里快捷键触发的「翻译选中文字」
   （双向：汉字为主译成学习语言，外文译回中文，`prediction::translation_target`），译文走结果的 `sentence`。
 
@@ -264,6 +267,7 @@ IMK 输入法，源码按 `app / host / imk / candidates / menubar / preferences
 
 一个产品两个 package：`server`（Server 进程：IPC 分派 + Engine + 命名管道 + 自绘候选窗与悬浮状态条）与 `tsf`（TSF 文本服务 DLL，lib 名固定 `qingjian_tsf`），
 外加 `settings`（WinUI 3 设置程序，含「辅码」页）与 `installer`（Inno Setup）。
+设置的共用 `panel/controls` 使用原生主题卡片与 Grid：名称、说明自动换行，控件按内容占宽，页面限制内容宽度并统一间距；通用与云服务页按用途分组。页面按标题保留身份，切换页面重置滚动位置，同页修改保留焦点。配置读写与即时生效方式保持一致。
 Server 侧辅码接线：`RouterConfig.aux_code_key` / `aux_code_show`（`apply_config` 热加载）、`assembly` 从随包 `codes/` 与用户 `codes/` 装码表
 （`[aux_code] disabled` 过滤，`code_tables::load`）、按键在 `dispatch/key/input.rs` 分流（触发键进辅码态、辅码态里字母进码段、
 大写（`shift_letter = "compose"`）先清码段回拼音态再进缓冲区、标点先上屏高亮候选再转全角）、候选窗 `ui/candidates/row.rs` 的 `Row.code` 把码用方括号括起来紧跟在候选词后面（不进 annotation），拼音行 `view.rs` 给码段加下划线。

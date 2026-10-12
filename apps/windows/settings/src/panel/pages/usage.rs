@@ -18,6 +18,7 @@ fn language_name(language: Language) -> &'static str {
         Language::Japanese => "日语",
         Language::Spanish => "西班牙语",
         Language::Vietnamese => "越南语",
+        Language::German => "德语",
         Language::Chinese => "中文",
     }
 }

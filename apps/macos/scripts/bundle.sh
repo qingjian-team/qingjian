@@ -116,7 +116,7 @@ if [[ -f data/generated/dict.tsv || -f data/generated/dict.qj ]]; then
     echo "打包含章·通变：$p2c_dir/hanzhang-tongbian-small.qjm"
   fi
   # 释义表打成 .qj（TSV 比 .qj 新时重打），英文词表仍是 TSV。各表来源不同，元数据按表写（见 assets/glossary/README.md）
-  for lang in en ja zh es vi; do
+  for lang in en ja zh es vi de; do
     src="assets/glossary/glossary-$lang.tsv"
     out="data/generated/glossary-$lang.qj"
     [[ -f "$src" ]] || continue
@@ -126,6 +126,9 @@ if [[ -f data/generated/dict.tsv || -f data/generated/dict.qj ]]; then
     elif [[ "$lang" == vi ]]; then
       license="GPL-3.0-or-later"
       attribution="LLM 生成（gpt-5.5），qingjian-gloss-gen"
+    elif [[ "$lang" == de ]]; then
+      license="GPL-3.0-or-later"
+      attribution="LLM 生成（DeepSeek），qingjian-gloss-gen"
     else
       license="MIT"
       attribution="LLM 生成（DeepSeek），qingjian-gloss-gen"

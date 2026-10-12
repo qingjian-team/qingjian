@@ -146,7 +146,7 @@ pub struct GenerateArgs {
     #[arg(long, default_value = "data/generated/gloss-llm.jsonl")]
     pub out: PathBuf,
 
-    /// 本次生成哪些学习语言，逗号分隔（en / ja / vi）；缺省只生成英日，越南语要显式传 `--languages vi`
+    /// 本次生成哪些学习语言，逗号分隔（en / ja / vi / de）；缺省只生成英日，其余显式传如 `--languages de`
     #[arg(long, value_delimiter = ',', default_value = "en,ja")]
     pub languages: Vec<String>,
 
@@ -181,7 +181,11 @@ pub struct ExportArgs {
     #[arg(long, default_value = "data/generated/gloss-llm.jsonl")]
     pub input: PathBuf,
 
-    /// 输出目录，写 glossary-en.tsv、glossary-ja.tsv 与 glossary-vi.tsv
+    /// 输出目录，写 glossary-en.tsv、glossary-ja.tsv、glossary-vi.tsv 与 glossary-de.tsv
     #[arg(long, default_value = "data/generated")]
     pub out_dir: PathBuf,
+
+    /// 剥掉德语名词译词开头的定冠词（冠词质量闸门未过时的兜底形态，名词保留大写与词性）
+    #[arg(long)]
+    pub strip_german_articles: bool,
 }

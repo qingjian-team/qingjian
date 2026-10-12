@@ -382,6 +382,8 @@ CC-CEDICT 表（`dict-convert cedict`）保留为备用来源，覆盖面广但�
   系统登记、启用、切换的都是模式，顶层 ID 只是父项，所以 `--register` 启用的是 `tsVisibleInputModeOrderedArrayKey` 的第一项；
   模式显示名在 `InfoPlist.strings` 按模式 ID 给，缺了对话框里显示裸 ID。没有模式时标准文本视图（备忘录等）切不过去、
   「添加输入法」列表也不出现（#31）。
+  **Caps Lock 切换**：系统设置里的「用大写锁定键切换 ABC」要出现并认青简为目标，除 `TICapsLockLanguageSwitchCapable = true` 外，
+  顶层与模式级 `…CharacterRepertoireKey` 都不能带 `Latn`——带了系统把输入源归成拉丁类，这个设置项根本不显示（鼠须管 1.0.1 修的同款坑，#211）。
   **图标**：顶层 `tsInputMethodIconFileKey` 与模式里的 Menu / AlternateMenu / Palette 三个图标键都指向同一张 22×16pt 模板 PDF
   （黑色键帽镂空图形，`TISIconIsTemplate` 让系统只取 alpha 按深浅色反色），鼠须管、Fcitx5 同此尺寸与形式，小了整体偏小、
   非模式路径会被非等比压进 16×16。系统自带输入法下拉菜单里的「拼」「あ」是苹果私有素材（KeyboardLayouts.framework），
@@ -391,6 +393,11 @@ CC-CEDICT 表（`dict-convert cedict`）保留为备用来源，覆盖面广但�
   所以 postinstall 切到登录用户来调它。两个坑决定了它的结构：刚换过 bundle 的头几秒系统还在重扫新包，这时启用的记录会被顶掉
   （实测装完 3 秒内都这样），所以启用后隔一会儿要再确认一次；TIS 在进程内缓存输入源状态，本进程怎么重列表、跑 run loop
   回读都是旧值，所以回读与切换放在子进程（`--finish-register`）里做。
+  另外，沙盒应用（微信、备忘录等）各自在 `$DARWIN_USER_CACHE_DIR/<bundle id>/com.apple.IntlDataCache.le*` 存一份输入源表，
+  启动时直接载入、不检查有没有新装的输入法；收到系统「输入源已变更」的广播只作废内存里的表，重新载入的还是磁盘上这份。
+  装之前就开着的沙盒应用因此不认得青简：Control+Space 切过来时系统框架查不到这个 ID、对 NULL 调 `CFRelease` 崩溃（#346），
+  或者切换列表里干脆没有青简。所以 postinstall 注册前先删掉这个用户的输入源缓存（共享的与各应用的），注册时系统重建共享表并广播，
+  开着的应用找不到磁盘缓存，就从输入法目录重建，不用重启或注销（实测；打开 `AppleTISTraceCacheRebuild` 能看到这条链路的日志）。
 - IMK 无法通过 `cargo run` 验证：需要打包成 `.app`、装到 `~/Library/Input Methods/`、
   注销或重启输入法进程才会生效。Core 的验证靠 CLI 测试工具和单元测试，不依赖跑起真实输入法。
 - 已知需要单独处理的场景：Secure Input 字段、沙盒应用、Electron 与 Terminal 各自的 marked text 行为。

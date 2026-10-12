@@ -142,6 +142,7 @@ fn load_vocabulary(user_dir: &Path, levels_dir: Option<&Path>) -> VocabularyBook
         Language::Japanese,
         Language::Spanish,
         Language::Vietnamese,
+        Language::German,
     ] {
         let path = levels_dir.join(format!("levels-{}.tsv", language.code()));
         if !path.is_file() {

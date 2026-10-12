@@ -206,11 +206,12 @@ pub const TEMPLATE: &str = concat!(
     r#"# 青简输入法配置。保存后自动生效；也可以在菜单栏的输入法菜单里改。
 
 [general]
-# 学习语言（en 英语 / ja 日语 / es 西班牙语 / off 不显示译文）：候选旁显示哪种语言的译文，要有对应的释义表才生效
+# 学习语言（en 英语 / ja 日语 / es 西班牙语 / de 德语 / off 不显示译文）：候选旁显示哪种语言的译文，要有对应的释义表才生效
 learning_language = "en"
 # 每页候选数（1–9）
 page_size = 9
-# 翻页键对：前一个上一页、后一个下一页。可选 "[]" 或 ",."；选 ",." 的话组句中敲逗号句号是翻页而不是上屏加标点
+# 翻页键对：前一个上一页、后一个下一页。可选 "[]"、",." 或 "-="
+# 选 ",." 时组句中逗号句号用于翻页而不是上屏加标点；选 "-=" 时中文组句中的 - 用于翻页，不再进入英文直输段
 page_keys = "[]"
 # 候选窗口外观：system 跟随系统 / light 浅色 / dark 深色
 appearance = "system"
@@ -352,7 +353,7 @@ enabled = true
 enabled = false
 # OpenAI 兼容接口地址与模型名（DeepSeek 默认值）
 base_url = "https://api.deepseek.com"
-model = "deepseek-v4-flash"
+model = "deepseek-flash"
 # 推理强度（reasoning_effort）：none 关掉模型的思考，联想要快；留空则不发这个参数
 reasoning_effort = "none"
 # 密钥：填在这里，或留空并设置 api_key_env 指定的环境变量（偏好设置里填的密钥写进配置同目录的 .env）

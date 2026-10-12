@@ -55,7 +55,8 @@ fn old_dlls_do_not_take_clicks() {
     router.handle(ClientMessage::OpenSession {
         session: old,
         app: None,
-        protocol: PROTOCOL_VERSION - 1,
+        // 点击上屏从协议 8 起（`CLICK_SINCE`），7 是最后一版不认 `Update.commit` 的 DLL
+        protocol: 7,
     });
     for c in "nihao".chars() {
         press_in(&mut router, old, letter(c));

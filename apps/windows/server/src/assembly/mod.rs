@@ -129,16 +129,31 @@ pub fn learning_language(config: &Config) -> Option<Language> {
 }
 
 /// 某语言的释义表：`<root>/data/generated/` 打包过的 `.qj` 优先，否则随 git 的 `assets/glossary/` TSV；都没有为 `None`。
+///
+/// 启动装配（main）与热加载（swap_translator）都走这里。中文那张是英→中表，缺失本就可选、保持静默；
+/// 其他学习语言两张候选都缺时警告一条——只陈述「两张候选都没找到」的查找事实，不断言后果，
+/// 因为两种语境后果不同：启动装配时是候选旁不显示译文；热加载时旧译文继续显示（由
+/// reload/mod.rs 那条「没有这门语言的释义表，学习语言不变」说明）。
 pub fn glossary_file(root: &Path, language: Language) -> Option<PathBuf> {
     let code = language.code();
-    [
+    let candidates = [
         root.join("data/generated")
             .join(format!("glossary-{code}.qj")),
         root.join("assets/glossary")
             .join(format!("glossary-{code}.tsv")),
-    ]
-    .into_iter()
-    .find(|path| path.is_file())
+    ];
+    if let Some(path) = candidates.iter().find(|path| path.is_file()) {
+        return Some(path.clone());
+    }
+    if language != Language::Chinese {
+        tracing::warn!(
+            language = code,
+            qj = %candidates[0].display(),
+            tsv = %candidates[1].display(),
+            "学习语言的释义表两张候选都没找到"
+        );
+    }
+    None
 }
 
 /// 随包释义表叠上个人释义表（`user-glossary-<语言>.tsv`）。启动装配与热加载换语言共用。
@@ -176,6 +191,7 @@ fn load_vocabulary(user_dir: &Path, levels_dir: Option<&Path>) -> VocabularyBook
         Language::Japanese,
         Language::Spanish,
         Language::Vietnamese,
+        Language::German,
     ] {
         let path = levels_dir.join(format!("levels-{}.tsv", language.code()));
         if !path.is_file() {

@@ -81,6 +81,14 @@ fn cursor_edits_requery_from_the_start_and_map_into_marked_text() {
 }
 
 #[test]
+fn shifted_brackets_punctuate_to_corner_quotes() {
+    // macOS 上 ⇧[ / ⇧] 产生的字符是 { / }，全角标点下应出「」而不是放行半角花括号（issue #228）
+    let mut engine = engine();
+    assert_eq!(engine.punctuate('{'), Some("「"));
+    assert_eq!(engine.punctuate('}'), Some("」"));
+}
+
+#[test]
 fn punctuation_follows_committed_text() {
     let mut engine = engine();
     assert_eq!(engine.punctuate(','), Some("，"));
