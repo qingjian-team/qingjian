@@ -28,6 +28,9 @@ pub struct Frame {
 
     /// 拼音行右侧的一句临时状态（删了什么词），有它时不画整句补全。
     pub status: Option<String>,
+
+    /// 输入状态，青简渲染器的主题拿来显示中 / 英、简 / 繁等；系统绘制不用。
+    pub mode: qingjian_render::Mode,
 }
 
 impl Frame {

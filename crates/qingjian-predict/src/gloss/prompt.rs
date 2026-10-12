@@ -15,6 +15,9 @@ const MAX_JAPANESE_CHARS: usize = 16;
 /// 单条西班牙文译词最多几个字符：西语词比英文长（`restablecimiento`），放宽一点。
 const MAX_SPANISH_CHARS: usize = 32;
 
+/// 单条越南文译词最多几个字符：越语短语常有空格分词。
+const MAX_VIETNAMESE_CHARS: usize = 36;
+
 pub const ENGLISH_SYSTEM_PROMPT: &str = "你是汉英词典编纂者。给每个中文词写最简短的英文对应词，供拼音输入法在候选词旁边一行显示，所以只要词、不要解释。\n\
 规则：\n\
 - pos：这个中文词最主要的词性，只能是 n. v. adj. adv. pron. prep. conj. num. m. part. int. phr. 之一（m. 量词，part. 助词，phr. 短语或成语）。\n\
@@ -39,11 +42,20 @@ pub const SPANISH_SYSTEM_PROMPT: &str = "你是汉西词典编纂者。给每个
 输出严格的 JSON：{\"items\":[{\"w\":\"开发\",\"pos\":\"v.\",\"senses\":[{\"t\":\"desarrollar\"},{\"t\":\"explotar\"}]}]}。\n\
 items 与输入的词一一对应、顺序一致、每个词恰好一项，w 必须原样照抄输入的词。";
 
+pub const VIETNAMESE_SYSTEM_PROMPT: &str = "你是汉越词典编纂者。给每个中文词写最简短的越南文对应词，供拼音输入法在候选词旁边一行显示，所以只要词、不要解释。\n\
+规则：\n\
+- pos：这个中文词最主要的词性，只能是 n. v. adj. adv. pron. prep. conj. num. m. part. int. phr. 之一（m. 量词，part. 助词，phr. 短语或成语）。\n\
+- senses：1 到 2 条最贴切的越南文对应词，按常用度排；每条不超过 4 个越南文单词；动词用原形，名词用单数或最常用形式；使用越南语变音符；不要括号、不要解释、不要例句。\n\
+- 人名地名等专名照译或用越南语常用写法；多义词只取最常用的义项；网络用语、方言也要给最接近的说法；没有把握也要给最可能的答案，不要留空。\n\
+输出严格的 JSON：{\"items\":[{\"w\":\"开发\",\"pos\":\"v.\",\"senses\":[{\"t\":\"phát triển\"},{\"t\":\"khai thác\"}]}]}。\n\
+items 与输入的词一一对应、顺序一致、每个词恰好一项，w 必须原样照抄输入的词。";
+
 /// 学习语言对应的系统提示；中文没有（不会请求）。
 pub fn system_prompt(language: Language) -> &'static str {
     match language {
         Language::Japanese => JAPANESE_SYSTEM_PROMPT,
         Language::Spanish => SPANISH_SYSTEM_PROMPT,
+        Language::Vietnamese => VIETNAMESE_SYSTEM_PROMPT,
         Language::English | Language::Chinese => ENGLISH_SYSTEM_PROMPT,
     }
 }
@@ -146,7 +158,12 @@ fn clean_text(raw: &str, language: Language) -> Option<String> {
         Language::Spanish => {
             text.chars().count() <= MAX_SPANISH_CHARS
                 && text.split_whitespace().count() <= 4
-                && text.chars().all(is_spanish_char)
+                && text.chars().all(is_latin_word_char)
+        }
+        Language::Vietnamese => {
+            text.chars().count() <= MAX_VIETNAMESE_CHARS
+                && text.split_whitespace().count() <= 5
+                && text.chars().all(is_latin_word_char)
         }
         Language::English | Language::Chinese => {
             text.len() <= MAX_ENGLISH_BYTES
@@ -159,12 +176,12 @@ fn clean_text(raw: &str, language: Language) -> Option<String> {
     ok.then(|| text.to_owned())
 }
 
-/// 西班牙文译词认得的字符：ASCII 字母数字加西语用的拉丁扩展字母（á é í ó ú ü ñ 等）。
-/// 只认字母，避免把汉字或西里尔字母当成译词收进来。
-fn is_spanish_char(c: char) -> bool {
+/// 拉丁文字译词认得的字符：ASCII 字母数字加拉丁扩展字母（西语、越语变音等）。
+/// 只认拉丁字母，避免把汉字或西里尔字母当成译词收进来。
+fn is_latin_word_char(c: char) -> bool {
     c.is_ascii_alphanumeric()
         || matches!(c, ' ' | '-' | '\'' | '.' | '/')
-        || (matches!(c as u32, 0x00C0..=0x024F) && c.is_alphabetic())
+        || (matches!(c as u32, 0x00C0..=0x024F | 0x1E00..=0x1EFF) && c.is_alphabetic())
 }
 
 /// 全是假名（含长音、中点）。
@@ -243,5 +260,20 @@ mod tests {
         assert_eq!(clean_text("开发", Language::Spanish), None);
         assert_eq!(clean_text("разработка", Language::Spanish), None);
         assert!(system_prompt(Language::Spanish).contains("西班牙文"));
+    }
+
+    #[test]
+    fn vietnamese_keeps_diacritics_and_drops_non_latin_text() {
+        let words = vec!["开发".to_owned(), "朋友".to_owned()];
+        let content = r#"{"items":[
+            {"w":"开发","pos":"v.","senses":[{"t":"phát triển"},{"t":"khai thác tài nguyên quá dài"}]},
+            {"w":"朋友","pos":"n.","senses":[{"t":"bạn bè"},{"t":"朋友"}]}
+        ]}"#;
+        let filled = parse_reply(content, Language::Vietnamese, &words);
+        assert_eq!(filled.len(), 2);
+        assert_eq!(filled[0].translation.senses()[0].text, "phát triển");
+        assert_eq!(filled[1].translation.senses()[0].text, "bạn bè");
+        assert_eq!(clean_text("разработка", Language::Vietnamese), None);
+        assert!(system_prompt(Language::Vietnamese).contains("越南文"));
     }
 }

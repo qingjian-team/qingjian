@@ -45,3 +45,14 @@ fn emoji_follow_their_word_and_consume_its_syllables() {
     assert_eq!(engine.commit(&emoji), "👨‍💻");
     assert_eq!(engine.composition().text(), "zhe");
 }
+
+#[test]
+fn emoji_switch_off_leaves_only_words() {
+    let table = EmojiTable::parse("开发\t👨‍💻 🛠️\n").unwrap();
+    let mut engine = engine().with_emoji(table);
+    engine.set_emoji_candidates(false);
+    engine.set_input("kaifa");
+    let items = engine.query().unwrap().candidates.items;
+    assert!(items.iter().any(|c| c.text == "开发"));
+    assert!(items.iter().all(|c| c.kind != CandidateKind::Emoji));
+}

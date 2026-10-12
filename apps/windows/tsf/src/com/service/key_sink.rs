@@ -125,15 +125,13 @@ impl TextService_Impl {
     /// 组句中功能键 / 方向键 / 可打印字符都吃；没在组句时数字 / 标点也先「测吃」送去转全角（中英各有一份开关），
     /// Server 不转的回 Passthrough 再放行；`?` 是问字前缀。
     fn would_eat(&self, event: &KeyEvent) -> bool {
-        let shift_letter_compose = self
-            .input_settings
-            .get()
-            .is_some_and(|input| input.shift_letter_compose);
+        let input = self.input_settings.get().unwrap_or_default();
         eats_key(
             event,
             self.shared.composing(),
             self.shared.translating(),
-            shift_letter_compose,
+            input.shift_letter_compose,
+            input.english_candidates,
         )
     }
 
@@ -280,6 +278,8 @@ fn eats_without_server(event: &KeyEvent) -> bool {
 ///
 /// - 翻译评审中一律吃，交给 Server 定接受 / 取消；
 /// - 带 Ctrl / Alt / Win：只有组句中的「修饰键 + 数字」吃（译词 / 删候选），其余归应用（翻译选中文字走保留键）；
+/// - 没在组句时 Caps 亮着、或英文模式而这个应用不给英文候选（`english_candidates`）：字母归应用。
+///   Server 对它们本来就只是原样上屏，吃了反而让应用收不到按键——Photoshop 画布上的 W / H / V 快捷键就这样失灵；
 /// - 字母只有「中文模式、没在组句、按住 Shift 的大写」归应用，其中 V / U / I 仍吃：双拼下是表达式 / 问字入口。
 ///   `[general] shift_letter = "compose"`（Server 经 [`InputSettings`](qingjian_platform::protocol::InputSettings) 下发）时这种大写也吃：送去 Core 起一段组句，
 ///   `⇧C` 接 `pan` 才能出「C盘」；组句一开始，后面的 Shift 字母本来就被 `composing` 兜住；
@@ -290,6 +290,7 @@ fn eats_key(
     composing: bool,
     translating: bool,
     shift_letter_compose: bool,
+    english_candidates: bool,
 ) -> bool {
     if translating {
         return true;
@@ -300,6 +301,9 @@ fn eats_key(
     }
     let vk = event.virtual_key;
     if is_letter(vk) {
+        if !composing && (modifiers.caps || (modifiers.english_mode && !english_candidates)) {
+            return false;
+        }
         return modifiers.caps
             || modifiers.english_mode
             || !modifiers.shift
@@ -349,13 +353,15 @@ mod tests {
             &with_modifiers(0x41, 'A', shifted),
             false,
             false,
-            false
+            false,
+            true
         ));
         // `[general] shift_letter = "compose"`：没在组句也吃，送去起一段组句（⇧C 接 pan 出 C盘）
         assert!(eats_key(
             &with_modifiers(0x41, 'A', shifted),
             false,
             false,
+            true,
             true
         ));
         // 组句一开始，后面的 Shift 字母就被 `composing` 兜住，一律吃
@@ -363,32 +369,43 @@ mod tests {
             &with_modifiers(0x41, 'A', shifted),
             true,
             false,
-            false
+            false,
+            true
         ));
         // 双拼下 Shift + V / U / I 是表达式 / 问字入口：没在组句也吃
         assert!(eats_key(
             &with_modifiers(0x56, 'V', shifted),
             false,
             false,
-            false
+            false,
+            true
         ));
         // 不带 Shift 的字母本来就吃
         assert!(eats_key(
             &with_modifiers(0x41, 'a', KeyModifiers::default()),
             false,
             false,
-            false
+            false,
+            true
         ));
-        // Caps 亮着（直通大写）也吃，由我们插入
+        // Caps 亮着（直通大写）没在组句：归应用，组句中照吃（先把敲的拼音原样上屏）
         let caps = KeyModifiers {
             caps: true,
             ..KeyModifiers::default()
         };
-        assert!(eats_key(
+        assert!(!eats_key(
             &with_modifiers(0x41, 'A', caps),
             false,
             false,
-            false
+            false,
+            true
+        ));
+        assert!(eats_key(
+            &with_modifiers(0x41, 'A', caps),
+            true,
+            false,
+            false,
+            true
         ));
         // 带 Ctrl 的组合键归应用，翻译评审中一律吃
         let ctrl_c = KeyModifiers {
@@ -399,14 +416,31 @@ mod tests {
             &with_modifiers(0x43, 'c', ctrl_c),
             false,
             false,
-            false
+            false,
+            true
         ));
         assert!(eats_key(
             &with_modifiers(0x43, 'c', ctrl_c),
             false,
             true,
-            false
+            false,
+            true
         ));
+    }
+
+    #[test]
+    fn english_letters_go_to_the_app_without_english_candidates() {
+        let english = KeyModifiers {
+            english_mode: true,
+            ..KeyModifiers::default()
+        };
+        let h = with_modifiers(0x48, 'h', english);
+        // 不给英文候选（Photoshop 画布上的 H 是抓手工具）：没在组句归应用
+        assert!(!eats_key(&h, false, false, false, false));
+        // 给英文候选：送去组英文词
+        assert!(eats_key(&h, false, false, false, true));
+        // 组句中照吃
+        assert!(eats_key(&h, true, false, false, false));
     }
 
     #[test]

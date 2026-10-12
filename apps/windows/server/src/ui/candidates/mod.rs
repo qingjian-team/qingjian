@@ -2,6 +2,7 @@
 //! 缺省交给青简渲染器出位图再贴（[`super::painter`]），配置 `renderer = "system"` 时走 GDI：绘制在 [`view`]，
 //! 配色 / 字体在 [`theme`]。绘制内容在 [`RenderData`]，一行的展示形态在 [`row`]。设计语言对齐 macOS 端。
 
+mod click;
 mod render_data;
 pub(crate) mod row;
 pub(crate) mod theme;
@@ -14,15 +15,18 @@ use windows::Win32::Foundation::{E_INVALIDARG, HWND, LPARAM, LRESULT, POINT, REC
 use windows::Win32::Graphics::Gdi::{GetDC, ReleaseDC};
 use windows::Win32::UI::HiDpi::{GetDpiForSystem, GetDpiForWindow};
 use windows::Win32::UI::WindowsAndMessaging::{
-    CreateWindowExW, DefWindowProcW, DestroyWindow, IDC_ARROW, LoadCursorW, SW_HIDE, SW_SHOWNA,
-    ShowWindow, WNDCLASSEXW, WS_EX_LAYERED, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_EX_TOPMOST,
+    CreateWindowExW, DefWindowProcW, DestroyWindow, IDC_ARROW, KillTimer, LoadCursorW, MSG,
+    SW_HIDE, SW_SHOWNA, SetTimer, ShowWindow, WM_LBUTTONDOWN, WM_MOUSEACTIVATE, WM_NCHITTEST,
+    WM_TIMER, WNDCLASSEXW, WS_EX_LAYERED, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_EX_TOPMOST,
     WS_POPUP,
 };
 use windows::core::{Error, PCWSTR, Result, w};
 
-use qingjian_platform::ThemeMode;
+use qingjian_platform::Appearance;
 use qingjian_platform::protocol::Frame;
+use qingjian_render::Mode;
 
+pub use self::click::CandidateClicks;
 pub(crate) use self::render_data::RenderData;
 use self::theme::Theme;
 use super::layered::{self, Layered};
@@ -33,15 +37,18 @@ use super::window_class::WindowClass;
 const CLASS_NAME: PCWSTR = w!("QingjianCandidateWindow");
 static CLASS: WindowClass = WindowClass::new();
 
+/// 动画定时器的 id（间隔按渲染器给的 `next_frame`；系统定时器精度约 15.6 ms）。
+const ANIMATION_TIMER: usize = 1;
+
 /// 光标行与候选窗之间的间隙（逻辑像素）。
 const CARET_GAP: i32 = 2;
 
 /// 按外观模式解析深浅；`System` 读系统主题。
-pub(super) fn resolve_dark(mode: ThemeMode) -> bool {
+pub(super) fn resolve_dark(mode: Appearance) -> bool {
     match mode {
-        ThemeMode::Light => false,
-        ThemeMode::Dark => true,
-        ThemeMode::System => system_prefers_dark(),
+        Appearance::Light => false,
+        Appearance::Dark => true,
+        Appearance::System => system_prefers_dark(),
     }
 }
 
@@ -71,11 +78,14 @@ pub(crate) struct CandidateWindow {
 
     /// 青简渲染器；`None` 走 GDI。
     painter: SharedPainter,
+
+    /// 最近一次贴图时窗口左上角的屏幕坐标；动画帧贴在同一处。
+    position: Cell<(i32, i32)>,
 }
 
 impl CandidateWindow {
-    /// 建一个隐藏的候选窗口。
-    pub(crate) fn new(painter: SharedPainter) -> Result<Self> {
+    /// 建一个隐藏的候选窗口；点中候选或译词时调 `on_click`。
+    pub(crate) fn new(painter: SharedPainter, on_click: CandidateClicks) -> Result<Self> {
         CLASS.ensure(|| WNDCLASSEXW {
             lpfnWndProc: Some(wndproc),
             hInstance: super::module_handle(),
@@ -84,9 +94,10 @@ impl CandidateWindow {
             ..Default::default()
         })?;
         let dpi = unsafe { GetDpiForSystem() }.max(96);
-        let dark = resolve_dark(ThemeMode::default());
+        let dark = resolve_dark(Appearance::default());
         let data = RefCell::new(RenderData::empty(Rc::new(Theme::new(dpi, dark))));
-        // NOACTIVATE：显示时不抢应用焦点。
+        // NOACTIVATE：显示时不抢应用焦点。鼠标只在候选与译词上收，其余穿透（见 [`click`]）。
+        click::install(on_click);
         let hwnd = unsafe {
             CreateWindowExW(
                 WS_EX_LAYERED | WS_EX_TOOLWINDOW | WS_EX_TOPMOST | WS_EX_NOACTIVATE,
@@ -110,12 +121,13 @@ impl CandidateWindow {
             dark: Cell::new(dark),
             logged_dpi: Cell::new(None),
             painter,
+            position: Cell::new((0, 0)),
         })
     }
 
     /// 刷新内容（不定位、不显示）。
-    pub(crate) fn set_content(&self, frame: &Frame) {
-        self.data.borrow_mut().set(frame);
+    pub(crate) fn set_content(&self, frame: &Frame, mode: Mode) {
+        self.data.borrow_mut().set(frame, mode);
     }
 
     /// 按光标矩形定位并显示：贴光标下方（放不下放上方），四周留出阴影。
@@ -143,16 +155,19 @@ impl CandidateWindow {
                     return;
                 }
                 let (content_x, content_y) = place(anchor, content);
-                layered::present(
-                    self.hwnd,
-                    &rendered.pixmap,
-                    (
-                        content_x - rendered.content_x as i32,
-                        content_y - rendered.content_y as i32,
-                    ),
-                )
+                let position = (
+                    content_x - rendered.content_x as i32,
+                    content_y - rendered.content_y as i32,
+                );
+                self.position.set(position);
+                self.schedule(rendered.next_frame);
+                click::set_hits(rendered.hits.clone(), (content_x, content_y));
+                layered::present(self.hwnd, &rendered.pixmap, position)
             }
-            None => self.show_gdi(anchor),
+            None => {
+                click::set_hits(Vec::new(), (0, 0));
+                self.show_gdi(anchor)
+            }
         };
         if updated.is_ok() {
             let _ = unsafe { ShowWindow(self.hwnd, SW_SHOWNA) };
@@ -186,6 +201,48 @@ impl CandidateWindow {
 
     pub(crate) fn hide(&self) {
         let _ = unsafe { ShowWindow(self.hwnd, SW_HIDE) };
+        click::set_hits(Vec::new(), (0, 0));
+        self.stop_animation();
+        if let Some(painter) = self.painter.borrow_mut().as_mut() {
+            painter.forget();
+        }
+    }
+
+    /// 这条消息是候选窗的动画定时器。
+    pub(crate) fn is_animation_timer(&self, msg: &MSG) -> bool {
+        msg.message == WM_TIMER && msg.hwnd == self.hwnd && msg.wParam.0 == ANIMATION_TIMER
+    }
+
+    /// 定时器每跳：要动画的下一帧贴在原处；播完就停。
+    pub(crate) fn animation_frame(&self) {
+        let rendered = self
+            .painter
+            .borrow_mut()
+            .as_mut()
+            .and_then(|painter| painter.tick());
+        let Some(rendered) = rendered else {
+            self.stop_animation();
+            return;
+        };
+        let _ = layered::present(self.hwnd, &rendered.pixmap, self.position.get());
+        self.schedule(rendered.next_frame);
+    }
+
+    /// 按渲染器给的间隔（过渡 16 ms、循环动画 33 ms）起或改定时器；`None` 停。同一个 id 再 SetTimer 就是改间隔。
+    fn schedule(&self, next_frame: Option<std::time::Duration>) {
+        match next_frame {
+            Some(interval) => {
+                let ms = interval.as_millis().clamp(10, 1000) as u32;
+                // SAFETY: 本线程建的窗口；定时器消息由 UI 线程的消息循环截下交给 animation_frame
+                unsafe { SetTimer(Some(self.hwnd), ANIMATION_TIMER, ms, None) };
+            }
+            None => self.stop_animation(),
+        }
+    }
+
+    fn stop_animation(&self) {
+        // SAFETY: 没在跳时 KillTimer 返回错误，忽略
+        let _ = unsafe { KillTimer(Some(self.hwnd), ANIMATION_TIMER) };
     }
 
     /// DPI 或深浅变了就重建主题；每次 `show` 前调。
@@ -205,7 +262,7 @@ impl CandidateWindow {
             (None, dpi) => dpi,
         };
         self.log_dpi(caret, window_dpi, monitor_dpi, dpi);
-        let dark = resolve_dark(self.data.borrow().theme_mode);
+        let dark = resolve_dark(self.data.borrow().appearance);
         if dpi != self.dpi.get() || dark != self.dark.get() {
             self.data.borrow_mut().theme = Rc::new(Theme::new(dpi, dark));
             self.dpi.set(dpi);
@@ -267,7 +324,15 @@ fn place(anchor: RECT, content: (i32, i32)) -> (i32, i32) {
     (x, y)
 }
 
-/// 分层窗口无需 `WM_PAINT`，全交默认处理。
+/// 分层窗口无需 `WM_PAINT`；鼠标交给 [`click`]，其余全交默认处理。
 unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
-    unsafe { DefWindowProcW(hwnd, msg, wparam, lparam) }
+    match msg {
+        WM_NCHITTEST => click::hit_test(lparam),
+        WM_MOUSEACTIVATE => click::mouse_activate(),
+        WM_LBUTTONDOWN => {
+            click::button_down();
+            LRESULT(0)
+        }
+        _ => unsafe { DefWindowProcW(hwnd, msg, wparam, lparam) },
+    }
 }

@@ -31,7 +31,7 @@ impl CharScorer {
             path.to_owned()
         };
         let device = default_device()?;
-        let dtype = weight_dtype();
+        let dtype = weight_dtype(&device);
         let scorer = if source.is_dir() {
             Self::load_directory(&source, dtype, device)?
         } else {
@@ -215,11 +215,11 @@ impl CharScorer {
 
 /// 权重与中间量的精度：Metal 上缺省 f16（与 f32 打分一致，显存减一半、略快），CPU 上 f32（candle 的 CPU f16 矩阵乘慢）；
 /// 环境变量 `QINGJIAN_NEURAL_DTYPE=f32|f16` 可强制。
-fn weight_dtype() -> DType {
+fn weight_dtype(device: &Device) -> DType {
     match std::env::var("QINGJIAN_NEURAL_DTYPE").as_deref() {
         Ok("f16") => DType::F16,
         Ok("f32") => DType::F32,
-        _ if cfg!(feature = "metal") => DType::F16,
+        _ if device.is_metal() => DType::F16,
         _ => DType::F32,
     }
 }
@@ -231,6 +231,11 @@ fn default_device() -> Result<Device, NeuralError> {
 
 #[cfg(feature = "metal")]
 fn default_device() -> Result<Device, NeuralError> {
+    // candle-metal 在创建设备时会使用此类；旧版 macOS 缺少它会直接 panic。
+    if objc2::runtime::AnyClass::get(c"MTLResidencySetDescriptor").is_none() {
+        tracing::warn!("系统不支持 Metal residency set，本地模型改用 CPU");
+        return Ok(Device::Cpu);
+    }
     Ok(Device::new_metal(0)?)
 }
 
@@ -299,8 +304,8 @@ mod tests {
             eprintln!("没有导出的模型，跳过");
             return;
         };
-        let scorer =
-            CharScorer::load_directory(&dir, weight_dtype(), default_device().unwrap()).unwrap();
+        let device = default_device().unwrap();
+        let scorer = CharScorer::load_directory(&dir, weight_dtype(&device), device).unwrap();
         let scores = scorer
             .score("我今天想去", &["上海", "伤害", "吃饭"])
             .unwrap();
@@ -346,8 +351,8 @@ mod tests {
         assert_eq!(meta.name, "测试模型");
         assert_eq!(meta.entries, parameters);
         // 与 load 同一设备同一精度（workspace 一起测时 metal feature 会被统一打开）
-        let by_dir =
-            CharScorer::load_directory(&dir, weight_dtype(), default_device().unwrap()).unwrap();
+        let device = default_device().unwrap();
+        let by_dir = CharScorer::load_directory(&dir, weight_dtype(&device), device).unwrap();
         let texts = ["上海", "伤害", "吃饭"];
         let a = packed.score("我今天想去", &texts).unwrap();
         let b = by_dir.score("我今天想去", &texts).unwrap();
