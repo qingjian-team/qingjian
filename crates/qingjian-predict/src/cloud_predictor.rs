@@ -1,3 +1,4 @@
+use std::path::PathBuf;
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::time::Duration;
 
@@ -23,10 +24,18 @@ pub struct CloudPredictor {
 impl CloudPredictor {
     /// 没有密钥直接报错，让壳退回 [`qingjian_core::NoPredictor`] 并记日志。
     pub fn new(config: &PredictConfig) -> Result<Self, PredictError> {
+        Self::new_with_usage(config, None)
+    }
+
+    /// 将实际请求和接口用量累计到壳指定的本机文件。
+    pub fn new_with_usage(
+        config: &PredictConfig,
+        usage_path: Option<PathBuf>,
+    ) -> Result<Self, PredictError> {
         let api_key = config
             .resolve_api_key()
             .ok_or_else(|| PredictError::MissingApiKey(config.api_key_env.clone()))?;
-        let client = ChatClient::new(config, api_key);
+        let client = ChatClient::new(config, api_key).with_usage(usage_path);
         let (requests, request_rx) = mpsc::channel();
         let (response_tx, responses) = mpsc::channel();
         let worker = Worker::new(

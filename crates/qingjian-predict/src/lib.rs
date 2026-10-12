@@ -14,6 +14,7 @@ mod error;
 mod gloss;
 mod prompt;
 mod suspension;
+mod usage;
 mod worker;
 
 pub use cloud_predictor::CloudPredictor;
@@ -21,3 +22,5 @@ pub use config::PredictConfig;
 pub use connection::{ConnectionReport, ConnectionTest};
 pub use error::PredictError;
 pub use gloss::CloudGlossFiller;
+
+pub use usage::{API_USAGE_FILE, ApiUsageStats};
