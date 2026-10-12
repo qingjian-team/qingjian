@@ -69,15 +69,15 @@ fn caps_lock_types_direct_uppercase_english_regardless_of_mode() {
 }
 
 #[test]
-fn english_candidates_are_off_in_listed_apps_by_exe_name() {
-    // VS Code 在缺省名单里（exe 名不区分大小写）：英文模式字母直插、不出候选。
+fn english_candidates_are_off_outside_the_whitelist() {
+    // VS Code 不在缺省白名单里：英文模式字母直插、不出候选（DLL 那边这时干脆不吃字母）。
     let mut router = router_in_app("code.exe");
     let (outcome, commit, frame) = press(&mut router, letter_with('h', ENGLISH));
     assert_eq!(
         (outcome, commit.as_deref()),
         (KeyOutcome::Consumed, Some("h"))
     );
-    assert!(frame.is_empty(), "名单里的应用不该有候选：{frame:?}");
+    assert!(frame.is_empty(), "白名单外的应用不该有候选：{frame:?}");
     let (outcome, commit, _) = press(&mut router, KeyEvent::new(0x20, Some(' '), ENGLISH));
     assert_eq!((outcome, commit), (KeyOutcome::Passthrough, None));
     // 中文模式不受名单影响。
@@ -86,13 +86,13 @@ fn english_candidates_are_off_in_listed_apps_by_exe_name() {
 }
 
 #[test]
-fn english_candidates_stay_on_in_other_apps() {
-    let mut router = router_in_app("notepad.exe");
+fn english_candidates_stay_on_in_whitelisted_apps() {
+    let mut router = router_in_app("NOTEPAD.EXE");
     let (outcome, commit, frame) = type_english(&mut router, "hel");
     assert_eq!((outcome, commit), (KeyOutcome::Consumed, None));
     assert!(
         candidate_texts(&frame).contains(&"hello"),
-        "不在名单里的应用照常给英文候选：{frame:?}"
+        "白名单里的应用照常给英文候选：{frame:?}"
     );
 }
 

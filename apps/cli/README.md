@@ -20,7 +20,7 @@ cargo run --release -p qingjian-cli                     # 交互模式
 | `--dict <路径>` | 主词库（`.qj` 或 TSV） |
 | `--extra-dict <路径>` | 附加词库，可给多个，与主词库一起查；领域词库在 `data/generated/dicts/*.qj`（输入法缺省只开 `idioms`，回放要对齐就带上它） |
 | `--glossary <路径>` | 学习语言的释义表 |
-| `--language en\|ja` | 学习语言（也可用环境变量 `QINGJIAN_LEARNING_LANGUAGE`） |
+| `--language en\|ja\|es\|vi` | 学习语言（也可用环境变量 `QINGJIAN_LEARNING_LANGUAGE`） |
 | `--english <路径>` | 英文词表（中英混输、英文模式候选） |
 | `--user-dict <路径>` | 用户词频文件（`user.tsv`，同目录的 `user-words.tsv` / `user-choices.tsv` / `user-ngram.tsv` / `user-english.tsv` 一起读）；给了就在退出时写回，不给则只在本次会话内学习 |
 | `--config <路径>` | 配置文件，缺省与输入法共用 `~/Library/Application Support/Qingjian/config.toml`；测试时给一份 `[predict] enabled = false` 的，免得每次查询都等云端 |

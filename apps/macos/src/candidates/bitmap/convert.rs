@@ -14,6 +14,7 @@ pub(super) fn frame(frame: &Frame) -> qingjian_render::Frame {
         footer: frame.footer.clone(),
         sentence: frame.sentence.clone(),
         status: frame.status.clone(),
+        mode: frame.mode.clone(),
     }
 }
 
@@ -48,6 +49,8 @@ fn row(row: &Row) -> qingjian_render::Row {
                     Tone::Gloss => qingjian_render::Tone::Gloss,
                     Tone::Fresh => qingjian_render::Tone::Fresh,
                     Tone::Faint => qingjian_render::Tone::Faint,
+                    Tone::Pos => qingjian_render::Tone::Pos,
+                    Tone::Separator => qingjian_render::Tone::Separator,
                 };
                 (text.clone(), tone)
             })

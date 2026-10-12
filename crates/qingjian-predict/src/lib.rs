@@ -13,6 +13,7 @@ mod connection;
 mod error;
 mod gloss;
 mod prompt;
+mod suspension;
 mod worker;
 
 pub use cloud_predictor::CloudPredictor;

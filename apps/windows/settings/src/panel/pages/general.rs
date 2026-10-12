@@ -6,14 +6,16 @@ use windows_reactor::{
     StackPanel, ToggleSwitch, View, ViewContext,
 };
 
-use crate::panel::controls::{feedback, field, index_of, page};
+use crate::panel::controls::{feedback, field, index_of, page, section};
 use crate::panel::{Message, Settings};
 
 /// 学习语言：界面名 + 配置写法。
-pub(crate) const LANGUAGES: [(&str, &str); 4] = [
+pub(crate) const LANGUAGES: [(&str, &str); 6] = [
     ("英语", "en"),
     ("日语", "ja"),
     ("西班牙语", "es"),
+    ("越南语", "vi"),
+    ("德语", "de"),
     ("不显示译文", "off"),
 ];
 
@@ -53,20 +55,8 @@ fn shift_letter_combo(current: ShiftLetter, callback: Callback<Option<usize>>) -
 
 pub(crate) fn view(settings: &Settings, context: &mut ViewContext<Settings>) -> View {
     let g = &settings.config.general;
-    let english_off = !settings.config.apps.english_candidates_off.is_empty();
+    let english_only_in_apps = !settings.config.apps.english_candidates_everywhere();
     let rows = [
-        field(
-            "启用内置英文模式",
-            "关掉后青简固定中文模式：切换键与任务栏、悬浮状态条上的「中」「英」按钮都不再切到英文，需要英文时用系统快捷键（Win + Space）切到别的输入法。",
-            ToggleSwitch::new()
-                .is_on(g.english_mode)
-                .on_toggled(context.callback(Message::EnglishMode)),
-        ),
-        field(
-            "中英切换键",
-            "勾上的键都能在中英之间切换，可以多选，改完立刻生效。系统 Ctrl + Space 由 Windows 管理，也会影响微软拼音等简体中文输入法。",
-            switch_key_boxes(settings, context),
-        ),
         field(
             "学习语言",
             "候选词右侧显示哪种语言的译词，只列出装了释义表的语言；「不显示译文」同时关掉生词标记与释义兜底。",
@@ -121,6 +111,13 @@ pub(crate) fn view(settings: &Settings, context: &mut ViewContext<Settings>) -> 
                 .on_toggled(context.callback(Message::Traditional)),
         ),
         field(
+            "候选后面显示 emoji",
+            "开着时有对应 emoji 的词后面跟一两个（kaixin → 开心 😄）；关掉候选里只有字词。",
+            ToggleSwitch::new()
+                .is_on(g.emoji)
+                .on_toggled(context.callback(Message::Emoji)),
+        ),
+        field(
             "中文模式标点转全角",
             "没在打拼音时敲 , . ? ! 等出「，。？！」，数字后面的点保持半角；悬浮状态条的「，。」格也能切，切的是当前模式那份。",
             ToggleSwitch::new()
@@ -135,25 +132,40 @@ pub(crate) fn view(settings: &Settings, context: &mut ViewContext<Settings>) -> 
                 .on_toggled(context.callback(Message::EnglishFullWidthPunctuation)),
         ),
         field(
-            "英文模式（Caps Lock）也给候选",
+            "组句中标点先上屏候选",
+            "打拼音时敲 , . ? ! 等先把高亮候选上屏、再补该标点（nihao, 一气打完「你好，」）；关掉后标点进英文直输段（老行为）。",
+            ToggleSwitch::new()
+                .is_on(g.punct_commits)
+                .on_toggled(context.callback(Message::PunctCommits)),
+        ),
+        field(
+            "英文候选与补全",
             "Tab 或方向键选词；空格、回车、标点仍原样上屏敲的字母，不选词时与直接打字一样。",
             ToggleSwitch::new()
                 .is_on(g.english_candidates)
                 .on_toggled(context.callback(Message::EnglishCandidates)),
         ),
         field(
-            "但在终端和代码编辑器里不给",
-            "终端、Windows Terminal、VS Code、Cursor、JetBrains 等，那里的候选窗口会挡住应用自己的补全；名单可在配置文件里改。",
+            "只在浏览器、聊天和文档类应用里给",
+            "Chrome、Edge、微信、QQ、Word、记事本等；别的应用（终端、代码编辑器、Photoshop 这类靠单键快捷键的软件）里字母原样交给应用。名单可在配置文件里改。",
             ToggleSwitch::new()
-                .is_on(english_off)
+                .is_on(english_only_in_apps)
                 .is_enabled(g.english_candidates)
-                .on_toggled(context.callback(Message::EnglishOffInApps)),
+                .on_toggled(context.callback(Message::EnglishOnlyInApps)),
+        ),
+        field(
+            "输入拼音时也给英文词和补全",
+            "整段是英文词（hello）或像英文词的开头（compa → company）时给英文候选；关掉就只出中文，英文模式不受影响。",
+            ToggleSwitch::new()
+                .is_on(g.english_in_chinese)
+                .on_toggled(context.callback(Message::EnglishInChinese)),
         ),
         field(
             "输入拼音时中文候选排在英文词前面",
             "开着时整段输入是英文词时（hello、key）英文词排第二，空格上屏的仍是中文；关着（缺省）拼音不成立的输入英文词排第一。",
             ToggleSwitch::new()
                 .is_on(g.chinese_first)
+                .is_enabled(g.english_in_chinese)
                 .on_toggled(context.callback(Message::ChineseFirst)),
         ),
         field(
@@ -162,11 +174,33 @@ pub(crate) fn view(settings: &Settings, context: &mut ViewContext<Settings>) -> 
              「进组句」把它收进拼音缓冲区，匹配时按小写算，所以 Cpan 与 cpan 一样能出「C盘」。",
             shift_letter_combo(g.shift_letter, context.callback(Message::ShiftLetter)),
         ),
+        field(
+            "中英切换键",
+            "勾上的键都能在中英之间切换，可以多选，改完立刻生效；中英模式所有应用共用一份。打字时容易误触 Shift 的话改勾「单击 Ctrl」；一个都不勾时只剩任务栏 / 悬浮状态条上的「中」「英」按钮。\
+             「Ctrl + Space（系统）」是 Windows 的设置，由 Windows 管理，也会影响微软拼音等简体中文输入法。",
+            switch_key_boxes(settings, context),
+        ),
+        field(
+            "启用内置英文模式",
+            "关掉后青简固定中文模式：切换键与任务栏、悬浮状态条上的「中」「英」按钮都不再切到英文，需要英文时用系统快捷键（Win + Space）切到别的输入法。",
+            ToggleSwitch::new()
+                .is_on(g.english_mode)
+                .on_toggled(context.callback(Message::EnglishMode)),
+        ),
     ];
-    page("通用", StackPanel::new().spacing(16.0).children(rows))
+    let mut rows = rows.into_iter();
+    page(
+        "通用",
+        StackPanel::new().spacing(24.0).children([
+            section("输入与候选", rows.by_ref().take(7)),
+            section("标点", rows.by_ref().take(3)),
+            section("中英文输入", rows.by_ref().take(7)),
+            feedback(&settings.notice),
+        ]),
+    )
 }
 
-/// 系统 Ctrl + Space 单列一行，其余青简切换键横排，避免窄窗口裁切。
+/// 中英切换键：系统 Ctrl + Space 在最上面，其余青简切换键纵排，避免在窄窗口与高缩放下挤出卡片。
 fn switch_key_boxes(settings: &Settings, context: &mut ViewContext<Settings>) -> View {
     let keys = settings.config.shortcut.switch_mode;
     let boxes = SwitchKey::ALL.map(|key| {
@@ -175,15 +209,14 @@ fn switch_key_boxes(settings: &Settings, context: &mut ViewContext<Settings>) ->
             .on_is_checked_changed(context.callback(move |on| Message::SwitchKey(key, on)))
             .content(key.label())
     });
-    StackPanel::new().spacing(8.0).children([
+    StackPanel::new().spacing(4.0).children([
         CheckBox::new()
             .is_checked(crate::panel::system_hotkey::ctrl_space_enabled())
             .on_is_checked_changed(context.callback(Message::SystemCtrlSpace))
             .content("Ctrl + Space（系统）"),
         StackPanel::new()
-            .orientation(Orientation::Horizontal)
-            .spacing(12.0)
+            .orientation(Orientation::Vertical)
+            .spacing(4.0)
             .children(boxes),
-        feedback(&settings.notice),
     ])
 }
