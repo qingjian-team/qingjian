@@ -23,6 +23,9 @@ pub(crate) enum Composed {
 
         /// 首条本地整句候选的云端译文；未返回时为 `None`。
         sentence_translation: Option<SentenceTranslation>,
+
+        /// 正在等待的手动请求序号，收到后消费；重建输入时清除。
+        manual_sequence: Option<u64>,
     },
 
     /// 查询失败（如上屏后剩下不可切分的残余）：显示原始拼音、无候选。

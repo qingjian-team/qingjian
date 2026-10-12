@@ -171,6 +171,21 @@ impl Component for Settings {
             // 云服务页
             Message::LocalModel(on) => self.save("model", "enabled", on),
             Message::CloudEnabled(on) => self.save("predict", "enabled", on),
+            Message::CloudAutomatic(on) => self.save("predict", "automatic", on),
+            Message::CloudDebounce(Some(value)) => {
+                self.save(
+                    "predict",
+                    "debounce_ms",
+                    (value.round() as i64).clamp(100, 10000),
+                );
+            }
+            Message::CloudMinInterval(Some(value)) => {
+                self.save(
+                    "predict",
+                    "min_interval_ms",
+                    (value.round() as i64).clamp(1000, 60000),
+                );
+            }
             Message::CloudApiKey(value) => self.save("predict", "api_key", value),
             Message::CloudModel(value) => self.save("predict", "model", value),
             Message::CloudBaseUrl(value) => self.save("predict", "base_url", value),
@@ -237,6 +252,11 @@ impl Component for Settings {
                 let key = self.config.shortcut.translate_selection.key;
                 let combo = format!("{}+{key}", shortcut::MODIFIERS[i].1);
                 self.save("shortcut", "translate_selection", combo);
+            }
+            Message::PredictShortcut(Some(i)) if i < shortcut::MODIFIERS.len() => {
+                let key = self.config.shortcut.predict.key;
+                let combo = format!("{}+{key}", shortcut::MODIFIERS[i].1);
+                self.save("shortcut", "predict", combo);
             }
 
             // 模糊音页

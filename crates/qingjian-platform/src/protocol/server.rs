@@ -38,6 +38,10 @@ pub struct InputSettings {
     /// 否则 Photoshop 画布这类没有文本框的地方收不到 W / H / V 这些单键快捷键。老 Server 不带，按给。
     #[serde(default = "english_candidates_default")]
     pub english_candidates: bool,
+
+    /// 组句中的按需 AI 快捷键；旧 Server 没有这项。
+    #[serde(default)]
+    pub predict: Option<KeyCombo>,
 }
 
 fn english_candidates_default() -> bool {
@@ -53,7 +57,32 @@ impl Default for InputSettings {
             shift_letter_compose: false,
             restore_mode: false,
             english_candidates: true,
+            predict: None,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::InputSettings;
+    use crate::config::KeyCombo;
+
+    #[test]
+    fn old_server_settings_disable_the_new_preserved_shortcut() {
+        let input = InputSettings {
+            predict: Some(KeyCombo::PREDICT_DEFAULT),
+            ..InputSettings::default()
+        };
+        let mut wire = serde_json::to_value(input).unwrap();
+        assert_eq!(
+            serde_json::from_value::<InputSettings>(wire.clone()).unwrap(),
+            input
+        );
+        wire.as_object_mut().unwrap().remove("predict");
+        let old = serde_json::from_value::<InputSettings>(wire).unwrap();
+        assert_eq!(old.predict, None);
+        assert_eq!(old.switch_mode, input.switch_mode);
+        assert_eq!(old.english_mode, input.english_mode);
     }
 }
 

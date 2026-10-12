@@ -192,6 +192,8 @@ translation = "ctrl"
 translation_second = "shift+ctrl"
 # 把应用里选中的文字译成学习语言（要开着云服务）：译文先出现在候选窗口，回车替换选中的文字，Esc 保留原文
 translate_selection = "ctrl+alt+t"
+# Windows 组句中按需调用 AI
+predict = "ctrl+alt+j"
 # 数字键配这些修饰键删掉候选：用户词（云端选过的、自动造的）整个删掉，词库里的词清掉对它的学习记录。组句中要打感叹号先把词上屏
 delete_candidate = "shift"
 "#
@@ -368,6 +370,8 @@ api_key_env = "QINGJIAN_API_KEY"
 # 单次请求超时（毫秒）、停止敲键多久后才发请求（毫秒）
 timeout_ms = 5000
 debounce_ms = 300
+# Windows 自动联想开关；关闭后在组句中按 Ctrl+Alt+J 手动请求，快捷键在 [shortcut] predict 中设置
+automatic = true
 # 两次网络请求起始之间的最短间隔，失败也计入；缓存命中不等待
 min_interval_ms = 3000
 # 光标前 / 后最多发多少个字符——这是发往云端的上下文上限

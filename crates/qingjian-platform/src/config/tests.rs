@@ -282,3 +282,13 @@ fn cloud_trigger_settings_parse_and_round_trip() {
         config
     );
 }
+
+#[test]
+fn manual_prediction_shortcut_round_trips() {
+    let config: Config = toml::from_str("[shortcut]\npredict = \"ctrl+alt+k\"\n").unwrap();
+    assert_eq!(config.shortcut.predict.key, 'k');
+    assert_eq!(
+        toml::from_str::<Config>(&toml::to_string(&config).unwrap()).unwrap(),
+        config
+    );
+}

@@ -70,28 +70,31 @@ impl ITfKeyEventSink_Impl for TextService_Impl {
         Ok(FALSE)
     }
 
-    /// 保留键命中：Ctrl+Space 直接切中英（切换键在 DLL 侧，不进 Server）；
-    /// 「翻译选中文字」当作按下了那个组合键转发给 Server（绕过 `would_eat`）。
+    /// 保留键命中：切中英由 DLL 处理，翻译和组句中的 AI 联想转发给 Server。
     fn OnPreservedKey(&self, pic: Ref<ITfContext>, rguid: *const GUID) -> Result<BOOL> {
         let guid = unsafe { *rguid };
         log(&format!("保留键命中 guid={guid:?}"));
+        if self.keyboard_disabled(&pic) {
+            return Ok(FALSE);
+        }
+        self.key_tap.cancel();
         if guid == preserved::GUID_PUNCTUATION {
-            if self.keyboard_disabled(&pic) || self.punctuation_combo.get().is_none() {
-                return Ok(FALSE);
-            }
-            return Ok(self.toggle_punctuation().into());
+            return Ok(
+                (self.punctuation_combo.get().is_some() && self.toggle_punctuation()).into(),
+            );
         }
         if guid == preserved::GUID_SWITCH_MODE {
-            if self.keyboard_disabled(&pic) {
-                return Ok(FALSE);
-            }
             self.set_english_mode(!self.mode_state.english());
             return Ok(true.into());
         }
-        if guid != preserved::GUID_TRANSLATE || self.keyboard_disabled(&pic) {
-            return Ok(FALSE);
-        }
-        let Some(combo) = self.translate_combo.get() else {
+        let combo = if guid == preserved::GUID_TRANSLATE {
+            self.translate_combo.get()
+        } else if guid == preserved::GUID_PREDICT && self.shared.composing() {
+            self.predict_combo.get()
+        } else {
+            None
+        };
+        let Some(combo) = combo else {
             return Ok(FALSE);
         };
         let event = preserved::key_event(combo, self.mode_state.english());
@@ -150,7 +153,12 @@ impl TextService_Impl {
             self.shared.translating(),
             input.shift_letter_compose,
             input.english_candidates,
-        )
+        ) || (self.shared.composing()
+            && input.predict.is_some_and(|combo| {
+                event.virtual_key
+                    == preserved::key_event(combo, self.mode_state.english()).virtual_key
+                    && event.modifiers.chord() == combo.modifiers.into()
+            }))
     }
 
     /// 没在组句的数字：在 Test 里先问 Server。

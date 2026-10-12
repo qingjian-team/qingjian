@@ -57,12 +57,34 @@ impl TextService_Impl {
     /// 应用 Server 下发的按键行为设置：`OpenSession` 的回包给一次，之后每一拍 `SyncMode` 也都带着。
     /// 值没变就什么都不做，所以设置窗口改完在下一拍（约 320 ms）生效，不用切走再切回输入法。
     pub(super) fn apply_input_settings(&self, input: InputSettings) {
-        // 获焦可能早于 Activate 的 thread_mgr 就绪；设置未变也要补上尚未完成的保留键登记。
+        // 获焦可能早于 Activate；与标点键一样，只有登记成功才记住组合，下一拍可补登记。
         self.sync_punctuation_key(input.toggle_punctuation);
-        if self.input_settings.get() == Some(input) {
+        if self.predict_combo.get() != input.predict
+            && let Some(thread_mgr) = self.thread_mgr.borrow().clone()
+            && let Ok(keystroke) = thread_mgr.cast::<ITfKeystrokeMgr>()
+        {
+            if let Some(combo) = self.predict_combo.take() {
+                preserved::unregister(&keystroke, &preserved::GUID_PREDICT, combo);
+            }
+            if let Some(combo) = input.predict {
+                match preserved::register(
+                    &keystroke,
+                    self.client_id.get(),
+                    &preserved::GUID_PREDICT,
+                    combo,
+                    "AI 联想（青简）",
+                ) {
+                    Ok(()) => {
+                        self.predict_combo.set(Some(combo));
+                        log(&format!("AI 联想快捷键已登记为保留键: {combo}"));
+                    }
+                    Err(error) => log(&format!("登记 AI 联想快捷键失败: {error}")),
+                }
+            }
+        }
+        if self.input_settings.replace(Some(input)) == Some(input) {
             return;
         }
-        self.input_settings.set(Some(input));
         log(&format!(
             "按键行为设置：中英切换键 {}，内置英文模式 {}，Shift 字母进组句 {}，英文候选 {}",
             input.switch_mode.describe(),
@@ -190,7 +212,8 @@ impl TextService_Impl {
             return;
         }
         self.shared.set_foreground(foreground);
-        if foreground {
+        // AdviseKeyEventSink 会在 Activate 尚未准备好 thread_mgr 时同步获焦；连接由 Activate 随后补上。
+        if foreground && self.thread_mgr.borrow().is_some() {
             self.ensure_connected();
             self.sync_mode_from_server();
         }

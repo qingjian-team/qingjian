@@ -64,8 +64,33 @@ pub(crate) fn view(settings: &Settings, context: &mut ViewContext<Settings>) -> 
                 .on_toggled(context.callback(Message::CloudEnabled)),
         ),
         field(
+            "停顿后自动联想",
+            "默认开启；关闭后可在组句中按 Ctrl+Alt+J 手动联想。译词自动补充及选中文字翻译继续按原设置工作。",
+            ToggleSwitch::new()
+                .is_on(p.automatic)
+                .on_toggled(context.callback(Message::CloudAutomatic)),
+        ),
+        field(
+            "自动联想等待（毫秒）",
+            "默认停键 300 毫秒；继续输入会重新计时。手动联想跳过这段等待。",
+            NumberBox::new()
+                .minimum(100.0)
+                .maximum(10000.0)
+                .value(p.debounce_ms as f64)
+                .on_value_changed(context.callback(Message::CloudDebounce)),
+        ),
+        field(
+            "最短请求间隔（毫秒）",
+            "默认 3000 毫秒；自动和手动联想均需等待，期间只保留最新输入。缓存命中直接复用。",
+            NumberBox::new()
+                .minimum(1000.0)
+                .maximum(60000.0)
+                .value(p.min_interval_ms as f64)
+                .on_value_changed(context.callback(Message::CloudMinInterval)),
+        ),
+        field(
             "云端词格数",
-            "云端词到了只补进第一页末尾这几格，前面的本地候选不动；没到就什么都不变。0 = 只要整句补全。",
+            "自动联想补在首页末尾，空格选本地首项；手动触发的词按推荐顺序放到前面的空位。0 = 只要整句补全。",
             NumberBox::new()
                 .minimum(0.0)
                 .maximum(9.0)
@@ -134,7 +159,7 @@ pub(crate) fn view(settings: &Settings, context: &mut ViewContext<Settings>) -> 
         "云服务",
         StackPanel::new().spacing(24.0).children([
             section("本地输入", rows.by_ref().take(1)),
-            section("AI 候选", rows.by_ref().take(3)),
+            section("AI 候选", rows.by_ref().take(6)),
             section("服务连接", rows),
         ]),
     )
