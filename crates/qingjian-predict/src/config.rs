@@ -8,6 +8,9 @@ pub struct PredictConfig {
     /// 是否启用。
     pub enabled: bool,
 
+    /// 停顿后自动联想；关闭时仅显式触发。
+    pub automatic: bool,
+
     /// OpenAI 兼容接口地址（不含 `/chat/completions`）。
     pub base_url: String,
 
@@ -25,6 +28,9 @@ pub struct PredictConfig {
 
     /// 防抖：停止敲键多久之后才真正发请求（毫秒）。
     pub debounce_ms: u64,
+
+    /// 两次网络请求起始之间的最短间隔（毫秒），缓存命中不等待。
+    pub min_interval_ms: u64,
 
     /// 光标前最多发多少个字符。
     pub lookback: usize,
@@ -48,12 +54,14 @@ impl Default for PredictConfig {
     fn default() -> Self {
         Self {
             enabled: false,
+            automatic: true,
             base_url: "https://api.deepseek.com".to_owned(),
             model: "deepseek-flash".to_owned(),
             api_key: None,
             api_key_env: "QINGJIAN_API_KEY".to_owned(),
             timeout_ms: 5000,
             debounce_ms: 300,
+            min_interval_ms: 3000,
             lookback: 64,
             lookahead: 32,
             slots: 2,
@@ -77,6 +85,7 @@ impl PredictConfig {
 
     pub fn policy(&self) -> PredictionPolicy {
         PredictionPolicy {
+            automatic: self.automatic,
             before: self.lookback,
             after: self.lookahead,
             slots: self.slots,

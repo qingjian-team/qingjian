@@ -2,6 +2,7 @@
 
 mod aux_code;
 mod cloud;
+mod cloud_trigger;
 mod code;
 mod correction;
 mod custom;
@@ -151,6 +152,7 @@ unsafe impl Send for EchoPredictor {}
 impl Predictor for EchoPredictor {
     fn policy(&self) -> PredictionPolicy {
         PredictionPolicy {
+            automatic: true,
             before: 4,
             after: 2,
             slots: 2,

@@ -280,6 +280,7 @@ mod tests {
     fn request(pinyin: &str, want_sentence: bool) -> PredictionRequest {
         PredictionRequest {
             sequence: 1,
+            manual: false,
             kind: PredictionKind::Compose,
             before: "我们今天".into(),
             after: String::new(),

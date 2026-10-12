@@ -14,7 +14,7 @@ pub struct CloudPredictor {
     policy: PredictionPolicy,
 
     /// 往后台线程发请求。
-    requests: Sender<PredictionRequest>,
+    requests: Sender<Option<PredictionRequest>>,
 
     /// 从后台线程收结果。
     responses: Receiver<Prediction>,
@@ -34,6 +34,7 @@ impl CloudPredictor {
             response_tx,
             client,
             Duration::from_millis(config.debounce_ms),
+            Duration::from_millis(config.min_interval_ms),
         );
         std::thread::Builder::new()
             .name("qingjian-predict".to_owned())
@@ -63,9 +64,13 @@ impl Predictor for CloudPredictor {
     }
 
     fn submit(&mut self, request: PredictionRequest) {
-        if self.requests.send(request).is_err() {
+        if self.requests.send(Some(request)).is_err() {
             tracing::warn!("联想线程已退出，请求被丢弃");
         }
+    }
+
+    fn cancel(&mut self) {
+        let _ = self.requests.send(None);
     }
 
     fn poll(&mut self) -> Option<Prediction> {

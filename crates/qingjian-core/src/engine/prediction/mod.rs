@@ -28,7 +28,15 @@ pub use response::Prediction;
 pub use script::translation_target;
 pub use surrounding_text::SurroundingText;
 
-use super::*;
+use super::{
+    Engine, MIN_PREDICTION_LETTERS, PREDICTION_CANDIDATE_HINTS, is_raw, query,
+    segment_longest_prefix, take_first_chars, take_last_chars,
+};
+use crate::candidate::Candidate;
+use crate::engine::commit::LastCommit;
+use crate::engine::input_log::{InputLogEntry, InputLogger, InputSource};
+use crate::parser::{self, Segmentation};
+use crate::{sentence, shortcut};
 
 impl Engine {
     /// 是否接了会联想的 Predictor；壳据此决定要不要起轮询定时器、画云朵标识。
@@ -50,11 +58,34 @@ impl Engine {
         surrounding: Option<SurroundingText>,
         candidates: &[Candidate],
     ) -> Option<u64> {
+        if !self.predictor.policy().automatic {
+            self.cancel_prediction();
+            return None;
+        }
+        self.submit_prediction(surrounding, candidates, false)
+    }
+
+    /// 显式按需联想，跳过停键等待；保留旧入口的自动等待行为。
+    pub fn request_manual_prediction(
+        &mut self,
+        surrounding: Option<SurroundingText>,
+        candidates: &[Candidate],
+    ) -> Option<u64> {
+        self.submit_prediction(surrounding, candidates, true)
+    }
+
+    fn submit_prediction(
+        &mut self,
+        surrounding: Option<SurroundingText>,
+        candidates: &[Candidate],
+        manual: bool,
+    ) -> Option<u64> {
         if !self.predictor.is_enabled() || self.private {
             return None;
         }
         // 不发也要换序号：正在飞的旧结果对应的是上一个输入状态，回来了也不能显示
         self.prediction_sequence += 1;
+        self.predictor.cancel();
         // 辅码态在按码筛词，云端词没有码、进来只会打乱；不发请求，槽位自然收起
         if self.aux_filter().is_some() {
             return None;
@@ -116,6 +147,7 @@ impl Engine {
         }
         let request = PredictionRequest {
             sequence: self.prediction_sequence,
+            manual,
             kind,
             before,
             after,
@@ -154,8 +186,10 @@ impl Engine {
             return None;
         }
         self.prediction_sequence += 1;
+        self.predictor.cancel();
         let request = PredictionRequest {
             sequence: self.prediction_sequence,
+            manual: true,
             kind: PredictionKind::Translate,
             before: String::new(),
             after: String::new(),
@@ -179,6 +213,7 @@ impl Engine {
     /// 作废正在飞的联想（用户清空了拼音、关掉了联想框）。
     pub fn cancel_prediction(&mut self) {
         self.prediction_sequence += 1;
+        self.predictor.cancel();
     }
 
     /// 取回最近一次请求的结果；过期结果直接丢。没有就绪的结果返回 `None`，不阻塞。

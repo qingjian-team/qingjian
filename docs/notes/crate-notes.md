@@ -87,6 +87,8 @@ TSV 解析、查询与生成工具把 `lue` / `nue` 统一成 `lve` / `nve`。
 
 ## crates/qingjian-predict
 
+请求控制：默认防抖 300 ms、最短起始间隔 3000 ms。Engine 的自动入口尊重 `automatic`，显式入口 `request_manual_prediction` 跳过防抖但遵守间隔；取消通道消息清除待发输入，已发结果由序号过滤。缓存命中不受网络间隔限制。SDK 隐式重试关闭，保留模型拒绝关思考参数时的一次显式兼容重试，以及 401/402/403 暂停 10 分钟。
+
 - `CloudPredictor`：`Predictor` trait 的网络实现（async-openai，OpenAI 兼容接口，默认 DeepSeek），后台线程防抖 / 缓存 / 超时，`submit` / `poll` 非阻塞。
   `PredictConfig` 是配置的 `[predict]` 分节。只在组句中联想，一次请求给云端词（容错校验后补进候选第一页末尾 `[predict] slots` 格，缺省 2，不预留不占位，
   前面的本地候选不挪；排布在 Core `CandidateLayout`）和整句补全（preedit 右侧，Tab）；上屏后不联想，本地历史不进请求。

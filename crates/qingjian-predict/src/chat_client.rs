@@ -3,6 +3,7 @@ use std::time::Duration;
 
 use async_openai::Client;
 use async_openai::config::OpenAIConfig;
+use async_openai::middleware::ReqwestService;
 use async_openai::types::chat::{
     ChatCompletionRequestMessage, ChatCompletionRequestSystemMessage,
     ChatCompletionRequestUserMessage, CreateChatCompletionRequestArgs,
@@ -52,7 +53,8 @@ impl ChatClient {
             .with_api_base(config.base_url.trim_end_matches('/'))
             .with_api_key(api_key);
         Self {
-            client: Client::with_config(openai).with_http_client(http_client(&config.base_url)),
+            client: Client::with_config(openai)
+                .with_http_service(ReqwestService::new(http_client(&config.base_url))),
             model: config.model.clone(),
             timeout: Duration::from_millis(config.timeout_ms),
             reasoning_effort: parse_reasoning_effort(&config.reasoning_effort),
