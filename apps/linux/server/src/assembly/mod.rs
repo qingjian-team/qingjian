@@ -32,7 +32,12 @@ pub fn assemble(spec: &AssemblySpec) -> Result<Engine, ServerError> {
     );
     let mut engine = Engine::new(dictionary).with_learner(Box::new(learner));
     if let Some((language, path)) = &spec.glossary {
-        match load_glossary(*language, path, spec.user_dir.as_deref()) {
+        match load_glossary(
+            *language,
+            path,
+            spec.user_dir.as_deref(),
+            spec.levels_dir.as_deref(),
+        ) {
             Ok(glossary) => engine = engine.with_translator(Box::new(glossary)),
             Err(error) => tracing::warn!(%error, "释义表加载失败，继续中文输入"),
         }
@@ -112,6 +117,7 @@ fn load_glossary(
     language: Language,
     path: &Path,
     user_dir: Option<&Path>,
+    levels_dir: Option<&Path>,
 ) -> Result<LayeredTranslator, ServerError> {
     let bundled = Glossary::from_path(language, path)?;
     let personal = match user_dir {
@@ -128,7 +134,12 @@ fn load_glossary(
             "个人释义表已加载"
         );
     }
-    Ok(LayeredTranslator::new(bundled, personal))
+    let levels = levels_dir
+        .and_then(|dir| {
+            LevelTable::from_path(dir.join(format!("levels-{}.tsv", language.code()))).ok()
+        })
+        .unwrap_or_default();
+    Ok(LayeredTranslator::new(bundled, personal).with_levels(levels))
 }
 
 /// 词汇记录（`user-vocab.tsv`），有等级表就按级统计。

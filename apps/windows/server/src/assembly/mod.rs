@@ -36,6 +36,7 @@ pub fn assemble(spec: &AssemblySpec) -> Result<Engine, ServerError> {
             *language,
             path,
             spec.user_dir.as_deref(),
+            spec.levels_dir.as_deref(),
         )?));
     }
     if let Some(dir) = &spec.user_dir {
@@ -146,6 +147,7 @@ pub(crate) fn load_glossary(
     language: Language,
     path: &Path,
     user_dir: Option<&Path>,
+    levels_dir: Option<&Path>,
 ) -> Result<LayeredTranslator, ServerError> {
     let bundled = Glossary::from_path(language, path)?;
     let personal = match user_dir {
@@ -162,7 +164,12 @@ pub(crate) fn load_glossary(
             "个人释义表已加载"
         );
     }
-    Ok(LayeredTranslator::new(bundled, personal))
+    let levels = levels_dir
+        .and_then(|dir| {
+            LevelTable::from_path(dir.join(format!("levels-{}.tsv", language.code()))).ok()
+        })
+        .unwrap_or_default();
+    Ok(LayeredTranslator::new(bundled, personal).with_levels(levels))
 }
 
 /// 词汇记录（`user-vocab.tsv`），有等级表就按级统计。

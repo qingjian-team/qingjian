@@ -23,6 +23,13 @@ cargo run --release -p qingjian-gloss-gen -- generate --languages vi --words ass
 cargo run --release -p qingjian-gloss-gen -- export --input data/generated/gloss-vi-llm.jsonl --out-dir assets/glossary
 ```
 
+生成工具的英文释义池最多保留六条，常用表达在前，同一义项的书面或进阶同义词在后；日语与越南语仍最多两条。
+
+`learning-en.tsv` 是人工维护的常用中文词学习译词补充，同为 GPL-3.0-or-later。
+`export` 的输入包含英语译词、且输出目录存在此文件时，把补充按原顺序追加到对应英语条目后并去重；原有常用译词保持在前，重导出不会丢失这些补充。只补越南语时不改已有英语 / 日语表。
+补充包含较书面或不常用的同义表达；难度使用既有 CEFR 等级表，未分级的词只在「全部」或无目标等级的兜底池中出现。
+释义池不再只保留前两条，TSV → `.qj` 打包保留全部；候选窗经难度筛选、随机选择后仍最多显示两条。
+
 2026-09-05 对 `assets/lexicon/dict.tsv` 全量生成：23.9 万词（含旧语料词表的 3.8 万），
 词库多字词 91% 有英文释义、98% 有日文释义。越南语字段是后续加入的，旧 JSONL 没有 `vi` 字段时需重跑 `generate` 或另行补齐后再导出。
 

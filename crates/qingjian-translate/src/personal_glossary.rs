@@ -18,7 +18,7 @@ pub struct PersonalGlossary {
     language: Language,
 
     /// 词 → 译词。
-    entries: HashMap<String, Translation>,
+    entries: HashMap<String, Vec<Sense>>,
 
     /// 落盘路径；`None` 只在内存里记。
     path: Option<PathBuf>,
@@ -44,9 +44,7 @@ impl PersonalGlossary {
         match read_text_lossy(&path) {
             Ok(text) => Self {
                 language,
-                entries: text
-                    .as_deref()
-                    .map_or_else(HashMap::new, |t| parse(language, t)),
+                entries: text.as_deref().map_or_else(HashMap::new, parse),
                 path: Some(path),
                 dirty: false,
             },
@@ -62,6 +60,12 @@ impl PersonalGlossary {
     }
 
     pub fn translate(&self, word: &str) -> Option<Translation> {
+        self.senses(word)
+            .map(|senses| Translation::new(self.language, senses))
+    }
+
+    /// 个人释义优先，保留用户填写的全部可选译词。
+    pub fn senses(&self, word: &str) -> Option<Vec<Sense>> {
         self.entries.get(word).cloned()
     }
 
@@ -70,7 +74,8 @@ impl PersonalGlossary {
         if translation.language != self.language || translation.senses().is_empty() {
             return;
         }
-        self.entries.insert(word.to_owned(), translation);
+        self.entries
+            .insert(word.to_owned(), translation.senses().to_vec());
         self.dirty = true;
     }
 
@@ -104,7 +109,7 @@ impl PersonalGlossary {
         words.sort();
         for word in words {
             text.push_str(word);
-            for sense in self.entries[word].senses() {
+            for sense in &self.entries[word] {
                 text.push('\t');
                 text.push_str(&format_sense(sense));
             }
@@ -129,7 +134,7 @@ fn format_sense(sense: &Sense) -> String {
 }
 
 /// 按行解析，坏行跳过。
-fn parse(language: Language, text: &str) -> HashMap<String, Translation> {
+fn parse(text: &str) -> HashMap<String, Vec<Sense>> {
     let mut entries = HashMap::new();
     for (number, raw) in text.lines().enumerate() {
         let line = raw.trim();
@@ -140,14 +145,14 @@ fn parse(language: Language, text: &str) -> HashMap<String, Translation> {
         let word = fields.next().unwrap_or_default();
         let senses: Vec<Sense> = fields
             .filter(|s| !s.is_empty())
-            .take(Translation::MAX_SENSES)
+            .take(usize::from(u16::MAX))
             .map(parse_sense)
             .collect();
         if word.is_empty() || senses.is_empty() {
             tracing::warn!(line = number + 1, "个人释义表有坏行，跳过");
             continue;
         }
-        entries.insert(word.to_owned(), Translation::new(language, senses));
+        entries.insert(word.to_owned(), senses);
     }
     entries
 }
@@ -156,6 +161,21 @@ fn parse(language: Language, text: &str) -> HashMap<String, Translation> {
 mod tests {
     use super::*;
     use qingjian_core::PartOfSpeech;
+
+    #[test]
+    fn saving_new_words_does_not_truncate_existing_learning_pools() {
+        let path =
+            std::env::temp_dir().join(format!("qingjian-personal-pool-{}.tsv", std::process::id()));
+        std::fs::write(&path, "高兴\tadj. happy\tadj. delighted\tadj. elated\n").unwrap();
+        let mut glossary = PersonalGlossary::open(Language::English, &path);
+        assert_eq!(glossary.senses("高兴").unwrap().len(), 3);
+        glossary.insert("你好", translation(Language::English, None, "hello", None));
+        glossary.save().unwrap();
+        let reloaded = PersonalGlossary::open(Language::English, &path);
+        assert_eq!(glossary.senses("高兴"), reloaded.senses("高兴"));
+        assert_eq!(reloaded.translate("高兴").unwrap().senses().len(), 2);
+        std::fs::remove_file(path).unwrap();
+    }
 
     fn translation(
         language: Language,

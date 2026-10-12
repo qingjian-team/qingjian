@@ -11,7 +11,7 @@ pub struct GlossEntry {
     /// 词性缩写（`n.` / `v.` …，Core `PartOfSpeech` 认得的那套）；模型给不出就没有。
     pub pos: Option<String>,
 
-    /// 英文译词，最多两个，按常用度。
+    /// 英文译词，最多六个，常用词在前、准确的进阶同义表达在后。
     pub en: Vec<String>,
 
     /// 日文译词，最多两个，按常用度。

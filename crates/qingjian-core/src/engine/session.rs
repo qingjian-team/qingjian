@@ -11,6 +11,9 @@ pub struct EngineSession {
     /// 拼音与光标位置。
     composition: Composition,
 
+    /// 本段输入的译词抽样轮次，恢复组句时保持所见译词。
+    translation_round: u64,
+
     /// 当前中英文模式。
     english_mode: bool,
 
@@ -58,6 +61,7 @@ impl Engine {
         self.cancel_prediction();
         self.set_rescoring_context(None);
         std::mem::swap(&mut self.composition, &mut session.composition);
+        std::mem::swap(&mut self.translation_round, &mut session.translation_round);
         std::mem::swap(&mut self.english_mode, &mut session.english_mode);
         std::mem::swap(&mut self.punctuation, &mut session.punctuation);
         std::mem::swap(&mut self.recent_commits, &mut session.recent_commits);

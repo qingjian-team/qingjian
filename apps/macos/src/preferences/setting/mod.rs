@@ -23,6 +23,12 @@ pub enum Setting {
     /// `[general] learning_language`，弹出菜单，选项是打进包里的释义表语言。
     LearningLanguage,
 
+    /// `[general] translation_difficulty`，英语译词难度。
+    TranslationDifficulty,
+
+    /// `[general] translation_random_percent`，随机频率。
+    TranslationRandomPercent,
+
     /// `[general] page_size`，弹出菜单 1–9。
     PageSize,
 
@@ -226,6 +232,8 @@ impl Setting {
     pub fn tag(self) -> NSInteger {
         match self {
             Self::LearningLanguage => 1,
+            Self::TranslationDifficulty => 65,
+            Self::TranslationRandomPercent => 66,
             Self::PageSize => 2,
             Self::PageKeys => 3,
             Self::Appearance => 4,
@@ -298,6 +306,8 @@ impl Setting {
     pub fn from_tag(tag: NSInteger) -> Option<Self> {
         Some(match tag {
             1 => Self::LearningLanguage,
+            65 => Self::TranslationDifficulty,
+            66 => Self::TranslationRandomPercent,
             2 => Self::PageSize,
             3 => Self::PageKeys,
             4 => Self::Appearance,
@@ -385,6 +395,8 @@ mod tests {
     fn tags_round_trip() {
         let all = [
             Setting::LearningLanguage,
+            Setting::TranslationDifficulty,
+            Setting::TranslationRandomPercent,
             Setting::PageSize,
             Setting::PageKeys,
             Setting::Appearance,

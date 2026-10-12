@@ -1,0 +1,37 @@
+# 常用中文词的学习译词补充，人工维护，与仓库同为 GPL-3.0-or-later。
+# 导出 glossary-en.tsv 时追加到模型释义后，保留原有默认译词；未知 CEFR 等级不视为高级。
+仔细	adj. meticulous
+使用	v. employ	v. utilize
+决定	v. resolve
+咀	v. masticate
+喙	n. bill
+喜欢	v. adore
+困难	adj. difficult	adj. challenging	adj. arduous
+堆	v. accumulate
+大	adj. enormous	adj. immense
+好	adj. excellent	adj. superb
+宁静	adj. serene	adj. tranquil
+安静	adj. serene	adj. tranquil
+容易	adj. straightforward	adj. effortless
+小	adj. tiny	adj. minuscule
+工作	n. employment	n. occupation
+帮助	v. aid
+开始	v. commence	v. initiate
+快乐	adj. delighted	adj. elated	adj. ecstatic
+想法	n. notion	n. conception
+愤怒	adj. furious	adj. irate
+提高	v. enhance	v. elevate
+改变	v. modify	v. transform
+检查	v. scrutinize
+看	v. observe
+结束	v. conclude	v. terminate
+罪	n. transgression
+美丽	adj. gorgeous	adj. exquisite
+聪明	adj. intelligent	adj. ingenious
+说	v. utter
+贫困	adj. impoverished
+醉	adj. intoxicated	adj. inebriated
+重要	adj. essential	adj. crucial	adj. paramount
+问题	n. issue	n. difficulty
+需要	v. necessitate
+高兴	adj. delighted	adj. elated	adj. ecstatic
