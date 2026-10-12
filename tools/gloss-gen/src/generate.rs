@@ -8,18 +8,20 @@ use crate::batch::{self, Task};
 use crate::client::LlmClient;
 use crate::entry::GlossEntry;
 use crate::error::GlossError;
-use crate::prompt;
+use crate::prompt::{self, GlossLanguages};
 use crate::store::Store;
 use crate::words;
 
 /// 释义任务。
-struct GlossTask;
+struct GlossTask {
+    languages: GlossLanguages,
+}
 
 impl Task for GlossTask {
     type Entry = GlossEntry;
 
     fn system_prompt(&self) -> &str {
-        prompt::SYSTEM_PROMPT
+        prompt::system_prompt(self.languages)
     }
 
     fn user_prompt(&self, words: &[String]) -> String {
@@ -31,11 +33,12 @@ impl Task for GlossTask {
         content: &str,
         words: &[String],
     ) -> Result<Vec<GlossEntry>, serde_json::Error> {
-        prompt::parse_reply(content, words)
+        prompt::parse_reply_for_languages(content, words, self.languages)
     }
 }
 
 pub async fn run(args: GenerateArgs) -> Result<(), GlossError> {
+    let languages = GlossLanguages::parse(&args.languages);
     let selected = words::select(&args.words, args.min_count, args.max_chars, args.limit)?;
     let store = Arc::new(Store::<GlossEntry>::open(&args.out)?);
     let pending: Vec<String> = selected
@@ -48,6 +51,7 @@ pub async fn run(args: GenerateArgs) -> Result<(), GlossError> {
         already_done = store.len(),
         pending = pending.len(),
         model = %args.model,
+        languages = %languages.label(),
         "开始生成释义"
     );
     if pending.is_empty() {
@@ -60,7 +64,7 @@ pub async fn run(args: GenerateArgs) -> Result<(), GlossError> {
         Duration::from_secs(args.timeout_secs),
     ));
     batch::run(
-        Arc::new(GlossTask),
+        Arc::new(GlossTask { languages }),
         client,
         store,
         pending,

@@ -1,5 +1,6 @@
 # 从输入日志里人工挑的领域词 / 通用词：日志里选过 ≥2 次、词库与短语层都没有、且公开语料（LCCC + 中文维基）里出现过（隐私过滤：只在日志里出现的只留在个人词库）。
 # 次数是语料次数，与 dict.tsv 词频同一尺度；语料不足 20 次的输入法 / 开发术语（上屏、候选框、模糊音）按 20 计，免得排到最后。读音全部给定（行数 / 长句 / 这俩 是多音字）。词\t次数\t拼音
+# 2026-09-27 补：jieba 词表（MIT）top2万里词库缺失的高频词 + issue #98/#120/#121/#222 点名词。次数是 jieba 次数的折算值（过原点与 log-log 回归折算，公式 dict_freq = max(1, round(0.829 × jieba^1.082))，方法与对照例见 词库扩充记录.md），不是本机语料统计；读音逐字取 Unihan_Readings 三字段并集，多音字逐条人工判定（判定明细与理由见 00_meta/polyphone-judgments.tsv）。
 看看	92841	kan kan
 再也	16113	zai ye
 在此	13722	zai ci
@@ -48,3 +49,422 @@
 候选框	20	hou xuan kuang
 自签证书	20	zi qian zheng shu
 过期时间	20	guo qi shi jian
+一丝	1757	yi si
+一刀	2342	yi dao
+一剑	1776	yi jian
+一十	40	yi shi
+一名	7853	yi ming
+一团	1675	yi tuan
+一处	3656	yi chu
+一封	1937	yi feng
+一把	7893	yi ba
+一招	4416	yi zhao
+一日	3558	yi ri
+一笔	1728	yi bi
+一类	4633	yi lei
+一脚	1626	yi jiao
+一门	3384	yi men
+一间	1795	yi jian
+一页	6177	yi ye
+万公顷	4347	wan gong qing
+万平方米	3054	wan ping fang mi
+万美元	3149	wan mei yuan
+三种	2136	san zhong
+三面	1768	san mian
+上前	2524	shang qian
+不同于	1669	bu tong yu
+不能不	2167	bu neng bu
+东交民巷	1527	dong jiao min xiang
+东南部	1935	dong nan bu
+两代	2478	liang dai
+两名	2902	liang ming
+两家	1570	liang jia
+两届	1698	liang jie
+两座	2096	liang zuo
+两类	2006	liang lei
+两者	5232	liang zhe
+中亚	1584	zhong ya
+中共中央	6399	zhong gong zhong yang
+中南部	1478	zhong nan bu
+中国政府	1831	zhong guo zheng fu
+中国队	3141	zhong guo dui
+中小学	1511	zhong xiao xue
+中山	1646	zhong shan
+中方	2115	zhong fang
+中日	1469	zhong ri
+中轴线	1848	zhong zhou xian
+九曲回肠	1508	jiu qu hui chang
+事实上	4368	shi shi shang
+二十年	1823	er shi nian
+二年	3644	er nian
+二月	1518	er yue
+五分	1635	wu fen
+五间	1624	wu jian
+亲兵	2887	qin bing
+人口数	2396	ren kou shu
+人大代表	8847	ren da dai biao
+人民日报	1599	ren min ri bao
+亿吨	1675	yi dun
+亿立方米	2321	yi li fang mi
+亿美元	5172	yi mei yuan
+仅次于	3146	jin ci yu
+从不	2079	cong bu
+代码审计	20	dai ma shen ji
+代表团	2746	dai biao tuan
+代表大会	2081	dai biao da hui
+任何人	2050	ren he ren
+会上	3220	hui shang
+传来	3660	chuan lai
+低声	5145	di sheng
+侵略者	2945	qin lve zhe
+便是	11953	bian shi
+元大都	1971	yuan da du
+全党	2671	quan dang
+全国人大	9332	quan guo ren da
+全国政协	2265	quan guo zheng xie
+全省	23229	quan sheng
+八个	1939	ba ge
+八国联军	2467	ba guo lian jun
+六个	1919	liu ge
+六部	1736	liu bu
+军中	1730	jun zhong
+几下	1826	ji xia
+几位	2063	ji wei
+几十年	2039	ji shi nian
+几步	1985	ji bu
+几种	2655	ji zhong
+分为	14344	fen wei
+列为	8074	lie wei
+创建者	1646	chuang jian zhe
+北京城	2406	bei jing cheng
+区长	2541	qu zhang
+十大	2460	shi da
+十月	1508	shi yue
+千公顷	1502	qian gong qing
+千年	1524	qian nian
+半晌	2635	ban shang
+半点	2412	ban dian
+却是	13478	que shi
+原种场	1499	yuan zhong chang
+县市	3865	xian shi
+又名	3248	you ming
+又称	12008	you cheng
+反帝	1484	fan di
+口中	2457	kou zhong
+另一方面	5429	ling yi fang mian
+只见	15564	zhi jian
+叫作	1551	jiao zuo
+可用	2817	ke yong
+可能性	2383	ke neng xing
+各人	2638	ge ren
+各家	1564	ge jia
+各校	1807	ge xiao
+各部	4464	ge bu
+同一	5363	tong yi
+名为	1910	ming wei
+哈哈大笑	2391	ha ha da xiao
+喝道	5765	he dao
+四下	1725	si xia
+回过	2804	hui guo
+国内外	2907	guo nei wai
+国务委员	2257	guo wu wei yuan
+国家级	5445	guo jia ji
+国师	1802	guo shi
+国民政府	2036	guo min zheng fu
+国防部	1950	guo fang bu
+图库	1895	tu ku
+地中海	1922	di zhong hai
+地方性	6122	di fang xing
+坐下	4088	zuo xia
+增加值	2860	zeng jia zhi
+外交部	12408	wai jiao bu
+外长	1747	wai zhang
+多名	1624	duo ming
+多家	1977	duo jia
+大别山	1889	da bie shan
+大叫	4032	da jiao
+大国	2658	da guo
+大大	5587	da da
+大学士	2804	da xue shi
+大清	4483	da qing
+大笑	1961	da xiao
+大规模	6484	da gui mo
+天门	7663	tian men
+天鹅洲	2324	tian e zhou
+奥地利	2010	ao di li
+好象	1534	hao xiang
+如是	1790	ru shi
+委员长	8615	wei yuan zhang
+官军	3265	guan jun
+官家	1827	guan jia
+定为	1556	ding wei
+审计长	1922	shen ji zhang
+宫中	2899	gong zhong
+宫女	3396	gong nv
+家中	2668	jia zhong
+对外开放	2037	dui wai kai fang
+小小	1632	xiao xiao
+尚有	1800	shang you
+工人阶级	1762	gong ren jie ji
+工程学院	1718	gong cheng xue yuan
+已有	6189	yi you
+师范学院	1765	shi fan xue yuan
+常委会	12140	chang wei hui
+常有	1502	chang you
+平方千米	12424	ping fang qian mi
+应有	1714	ying you
+廷杖	1666	ting zhang
+建有	4124	jian you
+开来	1744	kai lai
+弹出	3	tan chu
+很干扰	20	hen gan rao
+得出	1995	de chu
+得名	4516	de ming
+御道	1815	yu dao
+心理学	1889	xin li xue
+必读	1631	bi du
+怀中	1837	huai zhong
+怎地	2470	zen de
+总产量	2500	zong chan liang
+总人口	5307	zong ren kou
+总面积	4242	zong mian ji
+想想	2255	xiang xiang
+我军	2847	wo jun
+我国	41637	wo guo
+所用	1669	suo yong
+所说	5328	suo shuo
+手中	11477	shou zhong
+打死	2500	da si
+打着	1543	da zhe
+抗日战争	3349	kang ri zhan zheng
+指着	3415	zhi zhe
+探明	1853	tan ming
+接到	2249	jie dao
+接过	2842	jie guo
+摇摇头	1797	yao yao tou
+播放器	145	bo fang qi
+数学家	1470	shu xue jia
+新华社	8071	xin hua she
+新华网	1586	xin hua wang
+旅游区	3158	lv you qu
+是从	6642	shi cong
+更是	8858	geng shi
+最小	2044	zui xiao
+有利于	4923	you li yu
+有权	3670	you quan
+本报	9558	ben bao
+本次	4863	ben ci
+本级	19199	ben ji
+检察长	7857	jian cha zhang
+次年	2236	ci nian
+武当山	5344	wu dang shan
+武昌区	4061	wu chang qu
+武装力量	2809	wu zhuang li liang
+死去	1706	si qu
+每人	2169	mei ren
+每日	2994	mei ri
+每月	1951	mei yue
+民族乡	5415	min zu xiang
+民族自治	2018	min zu zi zhi
+水下	1608	shui xia
+水中	3401	shui zhong
+江夏区	6284	jiang xia qu
+江汉平原	3364	jiang han ping yuan
+池河	1918	chi he
+河南省	1879	he nan sheng
+洞庭湖	4095	dong ting hu
+洪山区	8103	hong shan qu
+消费者	5038	xiao fei zhe
+清政府	2506	qing zheng fu
+点亮	5257	dian liang
+点点头	2771	dian dian tou
+物理学	1749	wu li xue
+猛地	1766	meng de
+生产总值	2987	sheng chan zong zhi
+百科	30784	bai ke
+的话	8431	de hua
+省内	4442	sheng nei
+省直	2917	sheng zhi
+省长	6433	sheng zhang
+瞧瞧	3149	qiao qiao
+示范区	3253	shi fan qu
+示范县	1505	shi fan xian
+社会学	1885	she hui xue
+神农架	3283	shen nong jia
+私信	1557	si xin
+科长	1591	ke zhang
+第一批	1568	di yi pi
+答道	1895	da dao
+紧紧	3411	jin jin
+红墙	1462	hong qiang
+组成部分	3595	zu cheng bu fen
+组织法	1592	zu zhi fa
+经济效益	1634	jing ji xiao yi
+绝不	2073	jue bu
+绝大多数	1976	jue da duo shu
+绝大部分	1621	jue da bu fen
+统治者	5772	tong zhi zhe
+综合性	2324	zong he xing
+编辑者	1557	bian ji zhe
+联合会	1997	lian he hui
+背上	2693	bei shang
+自成	2651	zi cheng
+自然资源	1903	zi ran zi yuan
+自由人	1559	zi you ren
+荆江	1746	jing jiang
+菱花	2149	ling hua
+行政公署	1559	xing zheng gong shu
+行政区域	2524	xing zheng qu yu
+行省	2801	xing sheng
+行者	6743	xing zhe
+装有	1581	zhuang you
+西南部	2006	xi nan bu
+设在	2208	she zai
+词条	18486	ci tiao
+说完	3909	shuo wan
+说起	2462	shuo qi
+谈到	1880	tan dao
+负责制	2952	fu ze zhi
+走上	3272	zou shang
+走出	4921	zou chu
+走来	1526	zou lai
+走进	4351	zou jin
+起义军	1763	qi yi jun
+起到	2112	qi dao
+转过	3482	zhuan guo
+轻轻	7271	qing qing
+这份	2216	zhe fen
+这场	5043	zhe chang
+这块	1584	zhe kuai
+这天	2188	zhe tian
+这方面	2641	zhe fang mian
+这时	20770	zhe shi
+送到	2900	song dao
+送来	1538	song lai
+鄂东	1580	e dong
+鄂南	1521	e nan
+鄂西	3597	e xi
+长剑	3209	chang jian
+长安	8976	chang an
+长江大桥	6295	chang jiang da qiao
+长江流域	1616	chang jiang liu yu
+门前	4726	men qian
+问道	12893	wen dao
+阿哥	3240	a ge
+随州	3714	sui zhou
+集团公司	1935	ji tuan gong si
+音乐堂	1706	yin yue tang
+顺着	1744	shun zhe
+领导人	7841	ling dao ren
+首辅	2175	shou fu
+高出	1932	gao chu
+高级中学	1940	gao ji zhong xue
+# 姓氏+称谓层（2026-09-27）：X总 共 98 条。语料类资源（THUOCL/jieba/维基）都不收这类词，
+# 频率为产品定值 500：压过同输入的三音节人名（胡宗南 235），远低于真常用词，宁欠勿过（同 brand.tsv 的定值先例）。
+# 多音姓氏读音按姓氏读法：曾 zeng（非 ceng）。判定留档：00_meta/polyphone-judgments.tsv。
+王总	500	wang zong
+李总	500	li zong
+张总	500	zhang zong
+刘总	500	liu zong
+陈总	500	chen zong
+杨总	500	yang zong
+黄总	500	huang zong
+赵总	500	zhao zong
+吴总	500	wu zong
+周总	500	zhou zong
+徐总	500	xu zong
+孙总	500	sun zong
+马总	500	ma zong
+朱总	500	zhu zong
+胡总	500	hu zong
+郭总	500	guo zong
+何总	500	he zong
+林总	500	lin zong
+罗总	500	luo zong
+高总	500	gao zong
+郑总	500	zheng zong
+梁总	500	liang zong
+谢总	500	xie zong
+宋总	500	song zong
+唐总	500	tang zong
+许总	500	xu zong
+韩总	500	han zong
+冯总	500	feng zong
+邓总	500	deng zong
+曹总	500	cao zong
+彭总	500	peng zong
+曾总	500	zeng zong
+肖总	500	xiao zong
+田总	500	tian zong
+董总	500	dong zong
+潘总	500	pan zong
+袁总	500	yuan zong
+蔡总	500	cai zong
+蒋总	500	jiang zong
+余总	500	yu zong
+于总	500	yu zong
+杜总	500	du zong
+叶总	500	ye zong
+程总	500	cheng zong
+苏总	500	su zong
+魏总	500	wei zong
+吕总	500	lv zong
+丁总	500	ding zong
+任总	500	ren zong
+沈总	500	shen zong
+姚总	500	yao zong
+卢总	500	lu zong
+姜总	500	jiang zong
+崔总	500	cui zong
+钟总	500	zhong zong
+谭总	500	tan zong
+陆总	500	lu zong
+汪总	500	wang zong
+范总	500	fan zong
+金总	500	jin zong
+石总	500	shi zong
+廖总	500	liao zong
+夏总	500	xia zong
+韦总	500	wei zong
+付总	500	fu zong
+方总	500	fang zong
+白总	500	bai zong
+邹总	500	zou zong
+孟总	500	meng zong
+熊总	500	xiong zong
+秦总	500	qin zong
+邱总	500	qiu zong
+江总	500	jiang zong
+尹总	500	yin zong
+薛总	500	xue zong
+闫总	500	yan zong
+段总	500	duan zong
+雷总	500	lei zong
+侯总	500	hou zong
+龙总	500	long zong
+史总	500	shi zong
+陶总	500	tao zong
+黎总	500	li zong
+贺总	500	he zong
+顾总	500	gu zong
+毛总	500	mao zong
+郝总	500	hao zong
+龚总	500	gong zong
+邵总	500	shao zong
+万总	500	wan zong
+钱总	500	qian zong
+严总	500	yan zong
+武总	500	wu zong
+戴总	500	dai zong
+莫总	500	mo zong
+孔总	500	kong zong
+向总	500	xiang zong
+汤总	500	tang zong
+# 符号类词（2026-09-27）：百分号/千分号/间隔号/加减乘除/正负号 语料折算自 jieba（次数标注）；
+# 加减号 jieba 亦缺，用户 input-log 真实输入 3 次，定值 500 对齐符号词档位（星号167/省略号206）。
+百分号	3	bai fen hao
+千分号	3	qian fen hao
+间隔号	2	jian ge hao
+加减乘除	16	jia jian cheng chu
+正负号	3	zheng fu hao
+加减号	500	jia jian hao

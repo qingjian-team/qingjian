@@ -4,7 +4,7 @@ use crate::dispatch::{DataDirs, Router, RouterConfig};
 use qingjian_core::Engine;
 use qingjian_dictionary::Dictionary;
 use qingjian_platform::Config;
-use qingjian_platform::protocol::{KeyEvent, KeyModifiers};
+use qingjian_platform::protocol::{KeyEvent, KeyModifiers, SessionId};
 use std::time::Instant;
 
 #[test]
@@ -39,7 +39,7 @@ fn traditional_state_persists_and_shortcut_reload_reaches_dll() {
     router.reload.as_mut().unwrap().last_check = Instant::now() - CONFIG_POLL_INTERVAL;
     router.poll_config_reload();
     assert_eq!(
-        router.input_settings().toggle_traditional,
+        router.input_settings(SessionId(1)).toggle_traditional,
         Some("ctrl+alt+g".parse().unwrap())
     );
     assert!(router.config.traditional);
@@ -47,7 +47,12 @@ fn traditional_state_persists_and_shortcut_reload_reaches_dll() {
     router.reload.as_mut().unwrap().last_mtime = None;
     router.reload.as_mut().unwrap().last_check = Instant::now() - CONFIG_POLL_INTERVAL;
     router.poll_config_reload();
-    assert!(router.input_settings().toggle_traditional.is_none());
+    assert!(
+        router
+            .input_settings(SessionId(1))
+            .toggle_traditional
+            .is_none()
+    );
     drop(router);
     std::fs::remove_dir_all(dir).unwrap();
 }

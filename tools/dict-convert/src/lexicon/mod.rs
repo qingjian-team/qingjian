@@ -162,10 +162,15 @@ pub fn convert(
     chars.extend(extra.into_iter().map(|c| (c, None)));
     for (ch, level) in &chars {
         let weighted = readings.weighted(*ch, MINOR_READING_SHARE);
-        let valid: Vec<(String, f64)> = weighted
-            .into_iter()
+        let mut valid: Vec<(String, f64)> = weighted
+            .iter()
             .filter(|(syllable, _)| is_syllable(syllable))
+            .cloned()
             .collect();
+        // 嗯 在 Unihan 里只有 ng / n，不是拼音音节会整个字丢掉；各家输入法都用 en 打它
+        if valid.is_empty() && weighted.iter().any(|(s, _)| s == "n" || s == "ng") {
+            valid.push(("en".to_owned(), 1.0));
+        }
         if valid.is_empty() {
             dropped += 1;
             continue;

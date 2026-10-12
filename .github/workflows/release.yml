@@ -127,7 +127,7 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de # v1
+      - uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # v1
         with:
           toolchain: 1.96.0
           targets: aarch64-apple-darwin, x86_64-apple-darwin
@@ -204,7 +204,7 @@ jobs:
         shell: bash
     env:
       VERSION: ${{ needs.prepare.outputs.version }}
-      # 没有代码签名证书：Server 不带 uiAccess（没签名的 exe 带 uiAccess=true 起不来）。证书办下来后去掉这一行并在 build.ps1 加 signtool。
+      # 没有代码签名证书：Server 不带 uiAccess（没签名的 exe 带 uiAccess=true 起不来；build.rs 缺省也不带，build.ps1 还会按 -Sign 重设）。证书办下来后在 build.ps1 加 signtool、走 -Sign。
       QINGJIAN_UIACCESS: '0'
       PYTHON: python
       # Windows 上 Python 的标准输出缺省 cp1252，中文更新日志会编码失败。
@@ -215,7 +215,7 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de # v1
+      - uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # v1
         with:
           toolchain: 1.96.0
           # 安装包另带一份 32 位 TSF DLL（build.ps1 编）
@@ -267,7 +267,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de # v1
+      - uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # v1
         with:
           toolchain: 1.96.0
 
@@ -320,7 +320,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de # v1
+      - uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # v1
         with:
           toolchain: 1.96.0
 
