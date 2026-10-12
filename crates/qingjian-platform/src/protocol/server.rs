@@ -29,6 +29,10 @@ pub struct InputSettings {
     #[serde(default)]
     pub shift_letter_compose: bool,
 
+    /// 重连时先取 Server 的模式，避免旧 DLL 状态覆盖初始模式或按应用记忆。
+    #[serde(default)]
+    pub restore_mode: bool,
+
     /// 这个会话的应用里英文模式给不给英文候选（`[general] english_candidates` 与 `[apps]` 白名单
     /// 由 Server 按会话的 exe 名算好）。不给时英文模式与 Caps 下没在组句的字母 DLL 不吃、原样交给应用，
     /// 否则 Photoshop 画布这类没有文本框的地方收不到 W / H / V 这些单键快捷键。老 Server 不带，按给。
@@ -47,6 +51,7 @@ impl Default for InputSettings {
             switch_mode: SwitchKeys::default(),
             english_mode: true,
             shift_letter_compose: false,
+            restore_mode: false,
             english_candidates: true,
         }
     }

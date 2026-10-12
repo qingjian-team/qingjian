@@ -31,6 +31,8 @@ pub(crate) enum Message {
     SystemCtrlSpace(bool),
     /// 内置英文模式总开关。
     EnglishMode(bool),
+    DefaultEnglish(bool),
+    RememberModePerApp(bool),
 
     // 候选窗口页
     Appearance(Option<usize>),

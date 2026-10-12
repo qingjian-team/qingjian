@@ -233,8 +233,10 @@ impl Router {
         self.engine
             .set_shuangpin_raw_preedit(config.general.shuangpin_raw_preedit);
         let previous = self.config.render_settings();
+        let next = RouterConfig::from(config);
+        self.reload_mode(&next);
         let themes_stamp = self.config.themes_stamp;
-        self.config = RouterConfig::from(config);
+        self.config = next;
         self.config.themes_stamp = themes_stamp;
         let settings = self.config.render_settings();
         if settings != previous {

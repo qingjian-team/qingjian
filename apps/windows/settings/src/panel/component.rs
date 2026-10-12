@@ -99,6 +99,8 @@ impl Component for Settings {
                 self.save_array("shortcut", "switch_mode", &values);
             }
             Message::EnglishMode(on) => self.save("general", "english_mode", on),
+            Message::DefaultEnglish(on) => self.save("general", "default_english", on),
+            Message::RememberModePerApp(on) => self.save("general", "remember_mode_per_app", on),
 
             // 候选窗口页
             Message::Appearance(Some(i)) if i < Appearance::ALL.len() => {
