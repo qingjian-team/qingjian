@@ -13,6 +13,7 @@ mod recorder;
 use std::path::{Path, PathBuf};
 
 use qingjian_platform::Config;
+use qingjian_render::ThemeLibrary;
 use windows_reactor::*;
 
 use self::cloud_status::CloudStatus;
@@ -97,6 +98,22 @@ impl Settings {
             return;
         }
         self.reload();
+    }
+
+    /// 字号框（`style` 是 `candidate` / `annotation`）：清空或填 0 回到主题的，不限范围；
+    /// 没设过时框里显示主题的字号，原样交回不写（见 [`qingjian_platform::FontSize::edited`]）。
+    fn save_font_size(&mut self, style: &str, size: Option<f64>) {
+        let current = match style {
+            "candidate" => self.config.general.candidate_font_size,
+            _ => self.config.general.annotation_font_size,
+        };
+        let themes = ThemeLibrary::load(qingjian_platform::dirs::themes_dir().as_deref());
+        let theme_size = themes
+            .resolve(self.config.general.theme_id(), false)
+            .theme_size(style);
+        if let Some(size) = current.edited(size.filter(|size| !size.is_nan()), theme_size) {
+            self.save("general", &format!("{style}_font_size"), size);
+        }
     }
 
     /// 落盘一个字符串数组再重读。

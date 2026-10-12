@@ -40,6 +40,10 @@ pub(crate) type SharedClient = Rc<RefCell<Option<EngineClient<PipeStream>>>>;
 /// 连不上 Server 后隔多久再试（每次尝试都在应用的 UI 线程上，不能每键都试）。
 const RECONNECT_INTERVAL: Duration = Duration::from_secs(2);
 
+/// 自启拉起 Server 后继续吞「可能是拼音」的键的宽限：正常拉起一两秒内就监听，
+/// 超过这段还连不上多半是冷启动被杀软拖慢或起失败——继续吞就是死键盘，放行字母（英文直通）更好。
+const LAUNCH_GRACE: Duration = Duration::from_secs(3);
+
 /// 一个 TSF 文本服务实例（每线程一个）。
 #[implement(ITfTextInputProcessor, ITfKeyEventSink, ITfDisplayAttributeProvider)]
 pub struct TextService {
@@ -94,6 +98,13 @@ pub struct TextService {
 
     /// 激活后一小段时间内忽略转换模式 compartment 的变化，见 [`TextService_Impl::sync_from_conversion_mode`]。
     conversion_guard_until: Cell<Option<Instant>>,
+
+    /// 自启拉起请求后继续吞拼音键的宽限截止时刻；到点还没连上就放行字母（见 [`super::key_sink`]）。
+    /// 连上即清；拉不起 Server（[`launch::LaunchOutcome::Refused`](self::launch::LaunchOutcome)）立即过期。
+    launch_grace_until: Cell<Option<Instant>>,
+
+    /// 宽限过期的「放行」只记一次日志，别每个键都刷一行。
+    launch_grace_logged: Cell<bool>,
 }
 
 thread_local! {
@@ -178,6 +189,8 @@ impl TextService {
             input_settings: Cell::new(None),
             indicator_state: Cell::new(IndicatorState::default()),
             conversion_guard_until: Cell::new(None),
+            launch_grace_until: Cell::new(None),
+            launch_grace_logged: Cell::new(false),
         }
     }
 }

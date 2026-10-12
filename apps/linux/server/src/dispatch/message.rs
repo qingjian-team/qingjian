@@ -47,6 +47,7 @@ impl Router {
                 Some(ServerMessage::Update {
                     session,
                     frame: self.current_frame(),
+                    commit: None,
                 })
             }
             ClientMessage::Commit { session } if self.sessions.contains_key(&session) => {

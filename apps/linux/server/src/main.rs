@@ -87,6 +87,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         config.general.translation_random_percent,
     );
     engine.set_chinese_first(config.general.chinese_first);
+    engine.set_emoji_candidates(config.general.emoji);
+    engine.set_english_in_chinese(config.general.english_in_chinese);
     engine.set_mode_keys(config.shortcut.mode);
     engine
         .set_custom_phrases(config.custom_phrases.clone())

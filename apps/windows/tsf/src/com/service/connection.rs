@@ -3,7 +3,7 @@
 use std::time::Instant;
 
 use super::launch;
-use super::{RECONNECT_INTERVAL, TextService_Impl};
+use super::{LAUNCH_GRACE, RECONNECT_INTERVAL, TextService_Impl};
 use crate::client::EngineClient;
 use crate::client::pipe::connect_default;
 use crate::com::log::log;
@@ -20,6 +20,8 @@ impl TextService_Impl {
             Ok((client, input)) => {
                 *self.engine.borrow_mut() = Some(client);
                 self.last_connect_failure.set(None);
+                self.launch_grace_until.set(None);
+                self.launch_grace_logged.set(false);
                 log("已连上 Server");
                 // 按键行为设置随 `OpenSession` 的回包一起下来（DLL 不读配置文件，AppContainer 里读不到）。
                 self.apply_input_settings(input);
@@ -31,9 +33,23 @@ impl TextService_Impl {
                 ));
                 // Server 只在登录时由「启动」文件夹拉起，中途挂了以前只能等下次登录；
                 // 这里自己起一次（进程内冷却 + 跨进程互斥体，不会砸出一串 Server）。
-                if launch::launch_server() {
-                    // 不等 RECONNECT_INTERVAL：Server 一百多毫秒就监听管道，下一键就该连上
-                    self.last_connect_failure.set(None);
+                match launch::launch_server() {
+                    launch::LaunchOutcome::Requested | launch::LaunchOutcome::InFlight => {
+                        // 不等 RECONNECT_INTERVAL：Server 一百多毫秒就监听管道，下一键就该连上。
+                        self.last_connect_failure.set(None);
+                        // 拉起在路上：给一小段宽限继续吞拼音键。只在这次断连里记一次（`is_none` 挡住），
+                        // 别让每 5 秒一次的重试把宽限无限续下去——宽限到点必须真的放行。
+                        if self.launch_grace_until.get().is_none() {
+                            self.launch_grace_until
+                                .set(Some(Instant::now() + LAUNCH_GRACE));
+                            self.launch_grace_logged.set(false);
+                        }
+                    }
+                    launch::LaunchOutcome::Refused => {
+                        // 这个宿主里起不出 Server（登录界面 / 商店应用 / 找不到 exe）：
+                        // 短期不会有 Server，宽限立即过期，字母直接放行——死键盘比漏字母难看。
+                        self.launch_grace_until.set(Some(Instant::now()));
+                    }
                 }
             }
         }

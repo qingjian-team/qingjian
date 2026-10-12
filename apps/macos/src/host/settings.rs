@@ -6,13 +6,11 @@ use crate::app::logging;
 use crate::menubar::MenuAction;
 use crate::preferences::DEFAULT_FONT_LABEL;
 use crate::preferences::{Setting, SettingValue};
-use qingjian_core::TranslationDifficulty;
-use qingjian_core::{FuzzyRules, ModeKeys};
-use qingjian_platform::ShiftLetter;
+use qingjian_core::{FuzzyRules, ModeKeys, TranslationDifficulty};
 use qingjian_platform::{
-    CandidateRenderer, DEFAULT_ENGLISH_CANDIDATES_OFF, KeyCombo, LEARNING_LANGUAGE_OFF, LayoutMode,
-    LogLevel, Modifiers, PAGE_KEY_OPTIONS, PreeditMode, Scheme, ShortcutConfig, ThemeMode,
-    UpdateChannel,
+    Appearance, CandidateRenderer, DEFAULT_ENGLISH_CANDIDATES_ON, FontSize, KeyCombo,
+    LEARNING_LANGUAGE_OFF, LayoutMode, LogLevel, Modifiers, PAGE_KEY_OPTIONS, PreeditMode, Scheme,
+    ShiftLetter, ShortcutConfig, UpdateChannel,
 };
 
 impl Host {
@@ -176,6 +174,9 @@ impl Host {
                 self.settings
                     .set_bool("general", "full_width_punctuation", index == 0);
             }
+            (Setting::PunctCommits, SettingValue::Bool(on)) => {
+                self.settings.set_bool("general", "punct_commits", on);
+            }
             (Setting::LearningLanguage, SettingValue::Index(index)) => {
                 // 菜单最后一项是「不显示译文」
                 let code = self
@@ -207,9 +208,18 @@ impl Host {
                     self.settings.set_value("general", "page_keys", *pair);
                 }
             }
+            (Setting::Appearance, SettingValue::Index(index)) => {
+                if let Some(appearance) = Appearance::ALL.get(index) {
+                    self.settings
+                        .set_value("general", "appearance", appearance.key());
+                }
+            }
             (Setting::Theme, SettingValue::Index(index)) => {
-                if let Some(theme) = ThemeMode::ALL.get(index) {
-                    self.settings.set_value("general", "theme", theme.key());
+                // 与偏好设置里的列表同源：都是主题库（内置在前、用户主题按 id 排）
+                self.themes.refresh();
+                if let Some(theme) = self.themes.themes().get(index) {
+                    let id = theme.id().to_owned();
+                    self.settings.set_value("general", "theme", &id);
                 }
             }
             (Setting::Renderer, SettingValue::Index(index)) => {
@@ -227,6 +237,20 @@ impl Host {
                 if let Some(layout) = LayoutMode::ALL.get(index) {
                     self.settings.set_value("general", "layout", layout.key());
                 }
+            }
+            (Setting::CandidateFontSize, SettingValue::Text(text)) => {
+                self.set_font_size("candidate", &text, config.general.candidate_font_size);
+            }
+            (Setting::AnnotationFontSize, SettingValue::Text(text)) => {
+                self.set_font_size("annotation", &text, config.general.annotation_font_size);
+            }
+            (Setting::ResetFontSizes, _) => {
+                self.settings.set_value("general", "candidate_font_size", 0);
+                self.settings
+                    .set_value("general", "annotation_font_size", 0);
+            }
+            (Setting::Animations, SettingValue::Bool(on)) => {
+                self.settings.set_bool("general", "animations", on);
             }
             (Setting::HorizontalGrid, SettingValue::Bool(on)) => {
                 self.settings.set_bool("general", "horizontal_grid", on);
@@ -381,6 +405,12 @@ impl Host {
             (Setting::ChineseFirst, SettingValue::Bool(on)) => {
                 self.settings.set_bool("general", "chinese_first", on);
             }
+            (Setting::EnglishInChinese, SettingValue::Bool(on)) => {
+                self.settings.set_bool("general", "english_in_chinese", on);
+            }
+            (Setting::Emoji, SettingValue::Bool(on)) => {
+                self.settings.set_bool("general", "emoji", on);
+            }
             (Setting::ShiftLetter, SettingValue::Bool(on)) => {
                 let mode = if on {
                     ShiftLetter::Compose
@@ -390,15 +420,15 @@ impl Host {
                 self.settings
                     .set_value("general", "shift_letter", mode.key());
             }
-            // 勾上写缺省的终端 / 编辑器列表，去掉写空表；手改过的列表勾一下就回缺省
-            (Setting::EnglishCandidatesOffInApps, SettingValue::Bool(on)) => {
+            // 勾上写缺省白名单，去掉写 ["*"]（处处都给）；手改过的名单勾一下就回缺省
+            (Setting::EnglishCandidatesOnlyInApps, SettingValue::Bool(on)) => {
                 let apps: toml_edit::Array = if on {
-                    DEFAULT_ENGLISH_CANDIDATES_OFF.iter().copied().collect()
+                    DEFAULT_ENGLISH_CANDIDATES_ON.iter().copied().collect()
                 } else {
-                    toml_edit::Array::new()
+                    ["*"].into_iter().collect()
                 };
                 self.settings
-                    .set_value("apps", "english_candidates_off", apps);
+                    .set_value("apps", "english_candidates_on", apps);
             }
             // 弹出菜单按 Scheme::ALL 的顺序。写的是 [general] scheme（旧键 shuangpin 已并入它）：
             // 写旧键的话，配置里 scheme 的缺省值非空、解析时优先，用户选的方案会被静默忽略。
@@ -527,5 +557,24 @@ impl Host {
             (setting, value) => tracing::warn!(?setting, ?value, "设置项与控件值不匹配"),
         }
         self.apply_config(false);
+    }
+
+    /// 字号文本框（`style` 是 `candidate` / `annotation`）：框里没设过时显示主题的字号，清空或填 0 回到主题的，不限范围；
+    /// 填的不是数就不写（随后的同步把框里改回原值）。
+    fn set_font_size(&mut self, style: &str, text: &str, current: FontSize) {
+        let text = text.trim();
+        let input = if text.is_empty() {
+            None
+        } else if let Ok(size) = text.parse::<f64>() {
+            Some(size)
+        } else {
+            return;
+        };
+        let theme_id = self.settings.config().general.theme_id().to_owned();
+        let theme_size = self.themes.resolve(&theme_id, false).theme_size(style);
+        if let Some(size) = current.edited(input, theme_size) {
+            self.settings
+                .set_value("general", &format!("{style}_font_size"), size);
+        }
     }
 }

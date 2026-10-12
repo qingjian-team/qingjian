@@ -108,25 +108,23 @@ pub fn read_entries<T: Keyed>(path: &Path) -> Result<Vec<T>, GlossError> {
     Ok(entries)
 }
 
-/// 导出成输入法加载的两张表：`词\t词性 译词\t词性 译词`，日文译词后面接 `|假名`。同一个词以最后一条为准，按词排序。
+/// 导出成输入法加载的学习语言表：`词\t词性 译词\t词性 译词`，日文译词后面接 `|假名`。同一个词以最后一条为准，按词排序。
 pub fn export(input: &Path, out_dir: &Path) -> Result<(), GlossError> {
     let mut latest: BTreeMap<String, GlossEntry> = BTreeMap::new();
     for entry in read_entries::<GlossEntry>(input)? {
         latest.insert(entry.word.clone(), entry);
     }
     std::fs::create_dir_all(out_dir)?;
-    let mut english_senses = learning_senses(&out_dir.join("learning-en.tsv"))?;
-    let mut english = BufWriter::new(File::create(out_dir.join("glossary-en.tsv"))?);
-    let mut japanese = BufWriter::new(File::create(out_dir.join("glossary-ja.tsv"))?);
-    writeln!(
-        english,
-        "# 由 qingjian-gloss-gen 生成（LLM）。词\t[词性. ]译词\t[词性. ]译词"
-    )?;
-    writeln!(
-        japanese,
-        "# 由 qingjian-gloss-gen 生成（LLM）。词\t[词性. ]译词|假名\t[词性. ]译词|假名"
-    )?;
-    let (mut en_count, mut ja_count) = (0, 0);
+    // 单独补其他语言时，不让人工英语补充覆盖已有的完整英语表。
+    let mut english_senses = if latest.values().any(|entry| !entry.en.is_empty()) {
+        learning_senses(&out_dir.join("learning-en.tsv"))?
+    } else {
+        BTreeMap::new()
+    };
+    let mut english = Vec::new();
+    let mut japanese = Vec::new();
+    let mut vietnamese = Vec::new();
+    let (mut en_count, mut ja_count, mut vi_count) = (0, 0, 0);
     for entry in latest.values() {
         let pos = entry
             .pos
@@ -158,20 +156,62 @@ pub fn export(input: &Path, out_dir: &Path) -> Result<(), GlossError> {
             writeln!(japanese)?;
             ja_count += 1;
         }
+        if !entry.vi.is_empty() {
+            write!(vietnamese, "{}", entry.word)?;
+            for sense in &entry.vi {
+                write!(vietnamese, "\t{pos}{sense}")?;
+            }
+            writeln!(vietnamese)?;
+            vi_count += 1;
+        }
     }
     for (word, senses) in &english_senses {
         writeln!(english, "{word}\t{}", senses.join("\t"))?;
         en_count += 1;
     }
-    english.flush()?;
-    japanese.flush()?;
+    write_if_non_empty(
+        out_dir,
+        "glossary-en.tsv",
+        "# 由 qingjian-gloss-gen 生成（LLM）。词\t[词性. ]译词\t[词性. ]译词",
+        &english,
+    )?;
+    write_if_non_empty(
+        out_dir,
+        "glossary-ja.tsv",
+        "# 由 qingjian-gloss-gen 生成（LLM）。词\t[词性. ]译词|假名\t[词性. ]译词|假名",
+        &japanese,
+    )?;
+    write_if_non_empty(
+        out_dir,
+        "glossary-vi.tsv",
+        "# 由 qingjian-gloss-gen 生成（LLM）。词\t[词性. ]译词\t[词性. ]译词",
+        &vietnamese,
+    )?;
     tracing::info!(
         words = latest.len(),
         english = en_count,
         japanese = ja_count,
+        vietnamese = vi_count,
         out_dir = %out_dir.display(),
         "导出完成"
     );
+    Ok(())
+}
+
+fn write_if_non_empty(
+    out_dir: &Path,
+    name: &str,
+    header: &str,
+    body: &[u8],
+) -> Result<(), GlossError> {
+    if body.is_empty() {
+        return Ok(());
+    }
+    let path = out_dir.join(name);
+    let mut out = BufWriter::new(File::create(path)?);
+    writeln!(out, "{header}")?;
+    out.write_all(body)?;
+    out.flush()?;
     Ok(())
 }
 
@@ -267,6 +307,43 @@ mod tests {
         assert!(output.contains("高兴\tadj. happy\tadj. glad\tadj. elated\n"));
         assert!(output.contains("安静\tadj. tranquil\n"));
         assert!(output.find("安静").unwrap() < output.find("高兴").unwrap());
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn vietnamese_only_export_preserves_existing_glossaries_with_learning_supplements() {
+        let dir = std::env::temp_dir().join(format!(
+            "qingjian-gloss-export-vietnamese-{}",
+            std::process::id()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        let input = dir.join("input.jsonl");
+        std::fs::write(
+            &input,
+            "{\"word\":\"高兴\",\"pos\":\"adj.\",\"en\":[],\"ja\":[],\"vi\":[\"vui\"]}\n",
+        )
+        .unwrap();
+        std::fs::write(dir.join("learning-en.tsv"), "高兴\tadj. elated\n").unwrap();
+        let english = "高兴\tadj. happy\tadj. glad\n";
+        let japanese = "高兴\tadj. 嬉しい|うれしい\n";
+        std::fs::write(dir.join("glossary-en.tsv"), english).unwrap();
+        std::fs::write(dir.join("glossary-ja.tsv"), japanese).unwrap();
+
+        export(&input, &dir).unwrap();
+
+        assert_eq!(
+            std::fs::read_to_string(dir.join("glossary-en.tsv")).unwrap(),
+            english
+        );
+        assert_eq!(
+            std::fs::read_to_string(dir.join("glossary-ja.tsv")).unwrap(),
+            japanese
+        );
+        assert!(
+            std::fs::read_to_string(dir.join("glossary-vi.tsv"))
+                .unwrap()
+                .contains("高兴\tadj. vui\n")
+        );
         std::fs::remove_dir_all(dir).unwrap();
     }
 }

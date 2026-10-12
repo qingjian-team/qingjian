@@ -2,6 +2,7 @@
 //! 没在组句、本线程在前台时，隔几拍向 Server 取一次全局中英模式（别的应用、悬浮状态条可能切过）。
 //! 云端结果几百毫秒后才回，那时往往没有新按键来「顺手收一次」，所以在 TSF 线程上挂一个 `WM_TIMER`；
 //! 传输仍是一问一答。定时器挂在隐藏的消息窗口上，与按键同在 STA 消息泵上跑。回调上下文在 [`context`]。
+//! 鼠标点候选窗口上屏的文本也是这样拉回来的（Server 不能直接写文档），拉到就开编辑会话写进去。
 
 mod context;
 
@@ -19,8 +20,11 @@ use windows::Win32::UI::WindowsAndMessaging::{
 };
 use windows::core::{Error, PCWSTR, Result, w};
 
+use qingjian_platform::protocol::Frame;
+
 use self::context::PollContext;
-use super::composition::Shared;
+use super::composition::{Shared, preedit_string};
+use super::edit::request_update;
 use super::log::log;
 use super::service::SharedClient;
 use super::window_class::WindowClass;
@@ -47,7 +51,7 @@ pub(crate) struct PollTimer {
 
 impl PollTimer {
     /// 失败返回 `Err`，调用方降级为只在按键时收云结果。
-    pub(crate) fn new(engine: SharedClient, shared: Rc<Shared>) -> Result<Self> {
+    pub(crate) fn new(engine: SharedClient, shared: Rc<Shared>, client_id: u32) -> Result<Self> {
         CLASS.ensure(|| WNDCLASSEXW {
             lpfnWndProc: Some(wndproc),
             hInstance: super::dll_instance(),
@@ -81,6 +85,7 @@ impl PollTimer {
                     engine,
                     shared,
                     ticks: Cell::new(0),
+                    client_id,
                 }),
             )
         });
@@ -129,7 +134,11 @@ fn poll_once(context: &PollContext) {
         return;
     };
     match client.poll() {
-        Ok(frame) => {
+        Ok((frame, Some(commit))) => {
+            drop(guard);
+            commit_clicked(context, &frame, commit);
+        }
+        Ok((frame, None)) => {
             // 翻译评审时回空帧 = 翻译已在 Server 侧结束（云端没给译文）。
             if translating && frame.is_empty() {
                 drop(guard);
@@ -142,6 +151,32 @@ fn poll_once(context: &PollContext) {
             *guard = None;
             context.shared.end_composing();
         }
+    }
+}
+
+/// 鼠标点候选窗口上屏：与按键结果一样经异步编辑会话写进文档，剩下的拼音接着组句。
+fn commit_clicked(context: &PollContext, frame: &Frame, commit: String) {
+    let Some(document) = context.shared.last_context() else {
+        log(&format!("点击上屏没有上下文，丢弃: {commit:?}"));
+        return;
+    };
+    // 「只在候选窗口」模式应用里不放行内拼音，与按键路径一致
+    let preedit = if frame.preedit_mode.inline() {
+        preedit_string(frame)
+    } else {
+        String::new()
+    };
+    context.shared.set_composing(!frame.is_empty());
+    log(&format!("点击上屏: {commit:?} preedit={preedit:?}"));
+    if let Err(error) = request_update(
+        &document,
+        context.client_id,
+        context.engine.clone(),
+        context.shared.clone(),
+        Some(commit),
+        preedit,
+    ) {
+        log(&format!("点击上屏的编辑会话没被受理: {error}"));
     }
 }
 

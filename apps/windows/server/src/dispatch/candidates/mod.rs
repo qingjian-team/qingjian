@@ -3,6 +3,8 @@
 mod sink;
 
 use qingjian_platform::protocol::{Frame, ScreenRect, SessionId};
+use qingjian_platform::scheme_name;
+use qingjian_render::Mode;
 
 pub use self::sink::{CandidateSink, NoopSink, RenderSettings};
 use super::Router;
@@ -14,13 +16,25 @@ impl Router {
             self.engine.note_displayed(std::iter::empty());
             self.hide_candidate_window();
         } else if let Some(rect) = self.last_rect {
-            let unchanged = matches!(&self.last_shown, Some((f, r)) if f == frame && *r == rect);
+            let mode = self.input_mode();
+            let unchanged = matches!(&self.last_shown,
+                Some((f, m, r)) if f == frame && *m == mode && *r == rect);
             if !unchanged {
                 // 词汇记录的「看到轮次」按真正显示的页算，与 macOS 壳对齐。
                 self.engine.note_displayed(frame.candidates.items.iter());
-                self.candidates.show(frame.clone(), rect);
-                self.last_shown = Some((frame.clone(), rect));
+                self.candidates.show(frame.clone(), mode.clone(), rect);
+                self.last_shown = Some((frame.clone(), mode, rect));
             }
+        }
+    }
+
+    /// 给主题显示的输入状态，候选窗口与状态条共用。
+    pub(super) fn input_mode(&self) -> Mode {
+        Mode {
+            english: self.english,
+            traditional: self.config.traditional,
+            full_width: self.full_width_for(self.english),
+            scheme: scheme_name(self.config.scheme, self.config.wubi),
         }
     }
 

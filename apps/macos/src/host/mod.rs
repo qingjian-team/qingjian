@@ -67,6 +67,9 @@ pub struct Host {
     /// 配置文件监视定时器，激活期间跑。
     pub watch: ConfigWatch,
 
+    /// 内置主题与用户主题目录里的主题；激活期间随配置定时器一起看目录有没有变。
+    pub themes: qingjian_render::ThemeLibrary,
+
     /// 上次把学习数据落盘的时间；激活期间的定时器按 [`LEARNING_FLUSH_INTERVAL`] 再刷一次。
     pub last_flush: std::time::Instant,
 
@@ -88,7 +91,7 @@ pub struct Host {
     /// 版本号与构建标识，诊断信息里用。
     version: String,
 
-    /// 见 [`BundleInfo::build`]。
+    /// 见 [`crate::app::BundleInfo::build`]。
     build: String,
 
     /// 每页候选数（配置 `[general] page_size`，已夹到 1–9）。
@@ -99,6 +102,9 @@ pub struct Host {
 
     /// 翻页键对（上一页、下一页）。
     pub page_keys: (char, char),
+
+    /// 组句中敲会转全角的标点先把高亮候选上屏、再补该标点（配置 `[general] punct_commits`，缺省关）。
+    pub punct_commits: bool,
 
     /// 配数字键上屏第一 / 第二个译词的修饰键组合（配置 `[shortcut] translation` / `translation_second`）。
     pub translation_keys: (Modifiers, Modifiers),
@@ -194,8 +200,12 @@ const UPDATE_STATE_FILE: &str = "update.json";
 const VOCABULARY_FILE: &str = "user-vocab.tsv";
 
 /// 可能打进包里的释义表语言，按这个顺序在设置里列出；文件不存在的不列。
-const GLOSSARY_LANGUAGES: [Language; 3] =
-    [Language::English, Language::Japanese, Language::Spanish];
+const GLOSSARY_LANGUAGES: [Language; 4] = [
+    Language::English,
+    Language::Japanese,
+    Language::Spanish,
+    Language::Vietnamese,
+];
 
 /// 在单例上执行操作。未初始化、不在主线程、或正处在另一次 `with` 之内（重入）时返回 `None`。
 ///
