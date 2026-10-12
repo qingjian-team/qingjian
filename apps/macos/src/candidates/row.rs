@@ -2,7 +2,7 @@
 
 use qingjian_core::Candidate;
 
-/// annotation 片段的深浅。
+/// annotation 片段的种类，决定颜色；青简渲染器的主题还按它挑着画。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Tone {
     /// 译文。
@@ -11,8 +11,14 @@ pub enum Tone {
     /// 生词的译文（用户还没在候选里见过几轮，`Sense::fresh`），用强调色。
     Fresh,
 
-    /// 词性与分隔符，最浅。
+    /// 其余的淡色片段（假名注音），最浅。
     Faint,
+
+    /// 词性，与 `Faint` 同色。
+    Pos,
+
+    /// 义项之间的分隔，与 `Faint` 同色。
+    Separator,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -40,10 +46,10 @@ impl Row {
         if let Some(translation) = &candidate.translation {
             for (i, sense) in translation.senses().iter().enumerate() {
                 if i > 0 || !annotation.is_empty() {
-                    annotation.push((" · ".to_owned(), Tone::Faint));
+                    annotation.push((" · ".to_owned(), Tone::Separator));
                 }
                 if let Some(pos) = sense.part_of_speech {
-                    annotation.push((format!("{pos} "), Tone::Faint));
+                    annotation.push((format!("{pos} "), Tone::Pos));
                 }
                 // 日文译词按汉字段注平假名（開発(かいはつ)する），假名淡色
                 let tone = if sense.fresh {

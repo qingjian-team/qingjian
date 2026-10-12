@@ -1,0 +1,97 @@
+{
+  "extends": "qingjian",
+  "schema": 1,
+  "meta": { "id": "showcase", "name": "能力展示", "appearance": "light" },
+
+  "variables": {
+    "surface": "#fffaf2",
+    "accent": "#e85a8c",
+    "hl_text": "#ffffff",
+    "hl_gloss": "#ffffffd9",
+    "hl_faint": "#ffffffb3",
+    "hl_fresh": "#fff3b0",
+    "hl_cloud": "#ffffff"
+  },
+
+  "components": {
+    "top_line": {
+      "fill": { "radial": [0.1, 0.5], "stops": ["#ffd6e6", "#ffd6e600"] },
+      "radius": 6,
+      "effects": [{ "type": "inner-shadow", "y": 1, "blur": 3, "color": "#c2386b40" }]
+    },
+    "word": {
+      "type": "frame",
+      "children": [
+        { "type": "icon", "icon": "cloud", "when": "cloud", "size": 13, "height": 19,
+          "color": { "if": "highlighted", "then": "@hl_cloud", "else": "@cloud" }, "margin": [0, 4, 0, 0] },
+        { "type": "text", "bind": "text", "when": "cloud", "font": "candidate",
+          "color": { "if": "highlighted", "then": "@hl_cloud", "else": "@cloud" } },
+        { "type": "text", "bind": "text", "when": "!cloud", "font": "candidate",
+          "color": { "if": "highlighted", "then": "@hl_text", "else": "@text" },
+          "stroke": { "width": 1.5, "color": { "if": "highlighted", "then": "#c2386b", "else": "#00000000" } } }
+      ]
+    },
+    "item": {
+      "type": "frame", "height": 27,
+      "children": [
+        { "type": "frame", "id": "highlight", "transition": { "duration": 120, "easing": "ease-out" },
+          "when": "highlighted", "position": "absolute", "inset": [0, -5, 0, -5],
+          "fill": "@accent", "radius": 4 },
+        { "type": "text", "bind": "index", "font": "index", "margin": [8, 3, 0, 0],
+          "color": { "if": "highlighted", "then": "@hl_faint", "else": "@faint" } },
+        { "type": "use", "component": "word", "margin": [4, 0, 0, 0] }
+      ]
+    },
+    "row": {
+      "type": "frame",
+      "children": [
+        { "type": "frame", "id": "highlight", "transition": { "duration": 120, "easing": "ease-out" },
+          "when": "highlighted", "span": "row", "margin": [0, -4, 0, -4], "radius": 6,
+          "fill": { "linear": 90, "stops": ["#e85a8c", ["#ff9ec0", 0.7], "#ffc2d6"] },
+          "border": { "width": 1, "color": "#c2386b" },
+          "effects": [{ "type": "drop-shadow", "y": 2, "blur": 6, "color": "#e85a8c66" }] },
+        { "type": "text", "bind": "index", "font": { "base": "index", "weight": "semibold" }, "margin": [8, 0, 0, 0],
+          "color": { "if": "highlighted", "then": "@hl_faint", "else": "@faint" } },
+        { "type": "use", "component": "word", "margin": [4, 0, 0, 8] },
+        { "type": "annotation", "bind": "annotation", "when": "annotations", "font": "annotation",
+          "gloss": { "if": "highlighted", "then": "@hl_gloss", "else": "@gloss" },
+          "fresh": { "if": "highlighted", "then": "@hl_fresh", "else": "@fresh" },
+          "faint": { "if": "highlighted", "then": "@hl_faint", "else": "@faint" },
+          "effects": [{ "type": "drop-shadow", "y": 1, "blur": 2, "color": "#00000040" }],
+          "margin": [8, 0, 0, 8] }
+      ]
+    }
+  },
+
+  "windows": {
+    "vertical": {
+      "fill": { "image": "images/frame.png", "slice": [16, 16, 16, 16], "scale": 2 },
+      "padding": [12, 12, 10, 12],
+      "children": [
+        { "type": "frame", "position": "absolute", "inset": [4, 6, "auto", "auto"], "width": 12, "height": 12,
+          "opacity": 0.6, "fill": { "image": "images/petal.png", "scale": 2 },
+          "animation": { "duration": 2400, "easing": "ease-in-out",
+            "keyframes": [{ "at": 0, "y": 0, "rotate": 0 }, { "at": 0.5, "y": 3, "rotate": 20 }, { "at": 1, "y": 0, "rotate": 0 }] } },
+        { "type": "frame", "position": "absolute", "inset": [-24, -24, "auto", "auto"], "width": 36, "height": 36,
+          "radius": 18, "fill": { "radial": [0.35, 0.3], "stops": ["#ffd6e6", "#e85a8c"] },
+          "border": { "width": 2, "color": "#ffffff" },
+          "effects": [{ "type": "drop-shadow", "y": 2, "blur": 4, "color": "#c2386b66" }] },
+        { "type": "frame", "position": "absolute", "inset": ["auto", "auto", -10, -10], "width": 22, "height": 22,
+          "fill": { "image": "images/petal.png", "scale": 1.1 },
+          "animation": { "duration": 3000, "easing": "ease-in-out",
+            "keyframes": [{ "at": 0, "rotate": 0 }, { "at": 0.5, "rotate": -25, "x": 2 }, { "at": 1, "rotate": 0 }] } },
+        { "type": "use", "component": "top_line" },
+        { "type": "frame", "when": "candidates", "table": { "row_height": 27 }, "align_self": "stretch",
+          "children": [{ "type": "repeat", "bind": "candidates", "component": "row" }] },
+        { "type": "text", "bind": "page", "font": "index", "color": "#ffffff",
+          "stroke": { "width": 1, "color": "#e85a8c" },
+          "effects": [{ "type": "drop-shadow", "blur": 4, "color": "#e85a8cb0" }],
+          "align_self": "end", "margin": [4, 0, 0, 0] }
+      ]
+    },
+    "horizontal": {
+      "fill": { "linear": 180, "stops": ["@surface", "#ffe4ee"] },
+      "border": { "width": 1, "color": "#e85a8c80" }
+    }
+  }
+}

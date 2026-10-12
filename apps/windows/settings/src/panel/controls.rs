@@ -2,10 +2,15 @@
 
 use std::path::{Path, PathBuf};
 
-use windows_reactor::*;
+use windows_reactor::{
+    AutomationExt, Border, Button, CheckBox, ChildrenControl, ContentControl, FontWeight, Grid,
+    GridChildExt, GridLength, HorizontalAlignment, KeyedView, LayoutControl, Orientation,
+    ScrollViewer, StackPanel, TextBlock, TextWrapping, ThemeBrush, VerticalAlignment, View,
+    ViewContext,
+};
 
 use super::notice::Notice;
-use super::{LABEL_WIDTH, Message, Settings};
+use super::{Message, Settings};
 use crate::log;
 
 /// 随包资源（相对随包根，如 `data/generated/dicts`），定位逻辑与 Server 共用。
@@ -78,14 +83,21 @@ pub(super) fn export_logs() {
     }
 }
 
-/// 一行设置：固定宽标签 + 控件。
+/// 一行设置：标签自动换行，控件按内容占宽。
 pub(super) fn labeled(label: &str, control: impl Into<View>) -> View {
-    StackPanel::new()
-        .orientation(Orientation::Horizontal)
-        .spacing(12.0)
+    Grid::new()
+        .columns([GridLength::STAR, GridLength::Auto])
+        .column_spacing(24.0)
         .children([
-            TextBlock::new().text(label).width(LABEL_WIDTH).into(),
-            control.into(),
+            TextBlock::new()
+                .text(label)
+                .text_wrapping(TextWrapping::Wrap)
+                .vertical_alignment(VerticalAlignment::Center)
+                .into(),
+            Border::new()
+                .grid_column(1)
+                .vertical_alignment(VerticalAlignment::Center)
+                .content(control),
         ])
 }
 
@@ -94,19 +106,68 @@ pub(super) fn note(text: &str) -> View {
     TextBlock::new()
         .text(text)
         .text_wrapping(TextWrapping::Wrap)
-        .font_size(12.0)
-        .opacity(0.6)
+        .font_size(13.0)
+        .opacity(0.7)
         .into()
 }
 
-/// 一整项：「标签 + 控件」一行，下接说明（`hint` 为空则不加）。
+/// 一整项：左侧名称与说明、右侧控件，使用随系统明暗主题变化的原生卡片。
 pub(super) fn field(label: &str, hint: &str, control: impl Into<View>) -> View {
-    let row = labeled(label, control);
-    if hint.is_empty() {
-        row
-    } else {
-        StackPanel::new().spacing(4.0).children([row, note(hint)])
+    let mut description = vec![
+        TextBlock::new()
+            .text(label)
+            .text_wrapping(TextWrapping::Wrap)
+            .font_weight(FontWeight::SEMI_BOLD)
+            .into(),
+    ];
+    if !hint.is_empty() {
+        description.push(note(hint));
     }
+    Border::new()
+        .background(ThemeBrush::CardBackground)
+        .border_brush(ThemeBrush::CardStroke)
+        .border_thickness(1.0)
+        .corner_radius(8.0)
+        .padding(16.0)
+        .content(
+            Grid::new()
+                .columns([GridLength::STAR, GridLength::Auto])
+                .column_spacing(24.0)
+                .children([
+                    StackPanel::new()
+                        .spacing(6.0)
+                        .vertical_alignment(VerticalAlignment::Center)
+                        .keyed_children(
+                            description
+                                .into_iter()
+                                .enumerate()
+                                .map(|(index, view)| KeyedView::new(index.to_string(), view)),
+                        ),
+                    Border::new()
+                        .automation_name(label)
+                        .max_width(360.0)
+                        .grid_column(1)
+                        .vertical_alignment(VerticalAlignment::Center)
+                        .content(control),
+                ]),
+        )
+}
+
+/// 一组相关设置，标题与卡片间距在各页保持一致。
+pub(super) fn section(title: &str, fields: impl IntoIterator<Item = View>) -> View {
+    StackPanel::new().spacing(8.0).children([
+        TextBlock::new()
+            .text(title)
+            .font_size(16.0)
+            .font_weight(FontWeight::SEMI_BOLD)
+            .into(),
+        StackPanel::new().spacing(8.0).keyed_children(
+            fields
+                .into_iter()
+                .enumerate()
+                .map(|(index, view)| KeyedView::new(index.to_string(), view)),
+        ),
+    ])
 }
 
 /// 在 `(界面名, 配置写法)` 列表里找 `value` 的下标，找不到取 0。
@@ -185,14 +246,25 @@ pub(super) fn feedback(notice: &Notice) -> View {
 
 /// 一页外壳：可滚动 + 大标题 + 内容。
 pub(super) fn page(title: &str, body: impl Into<View>) -> View {
-    ScrollViewer::new().content(
-        StackPanel::new().spacing(16.0).margin(24.0).children([
-            TextBlock::new()
-                .text(title)
-                .font_size(24.0)
-                .font_weight(FontWeight::SEMI_BOLD)
-                .into(),
-            body.into(),
-        ]),
-    )
+    let content = Border::new()
+        .background(ThemeBrush::SolidBackground)
+        .content(
+            ScrollViewer::new().content(
+                StackPanel::new()
+                    .spacing(24.0)
+                    .margin(28.0)
+                    .max_width(1000.0)
+                    .horizontal_alignment(HorizontalAlignment::Left)
+                    .children([
+                        TextBlock::new()
+                            .text(title)
+                            .font_size(28.0)
+                            .font_weight(FontWeight::SEMI_BOLD)
+                            .into(),
+                        body.into(),
+                    ]),
+            ),
+        );
+    // 切换页面重建滚动区，避免沿用上一页的滚动位置；同页修改仍保留焦点与位置。
+    View::keyed_fragment([KeyedView::new(title.to_owned(), content)])
 }

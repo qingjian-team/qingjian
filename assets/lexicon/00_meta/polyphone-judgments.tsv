@@ -1,0 +1,105 @@
+# 多音字词人工判定（定音依据：词义唯一确定读音；dàn 类名词义/专名义不适用即排除）。
+# 未判定跳过：所长（suǒzhǎng 机构首长 / suǒcháng 各有所长，真歧义）。剔除语料碎片：般的、小小的、余种、那末、万多亩。
+# 词	拼音	判定理由
+全省	quan sheng	省 shěng（行政区划）；xǐng 仅反省/省亲义
+这时	zhe shi	这 zhè 指示代词；zhèi 为口语合音变体，输入无别
+只见	zhi jian	见 jiàn；xiàn 为「现」古字义，不用于只见
+常委会	chang wei hui	会 huì；kuài 仅会计义
+又称	you cheng	称 chēng「叫做」；chèn 仅对称/相称
+便是	bian shi	便 biàn；pián 仅便宜
+全国人大	quan guo ren da	大 dà；dài 仅大夫（医生）
+人大代表	ren da dai biao	大 dà
+长安	chang an	专名长安 Cháng'ān；zhǎng 不成词
+委员长	wei yuan zhang	长 zhǎng（首长）；cháng 不成词
+的话	de hua	的 de 助词；dì 仅目的/的确书面义
+洪山区	hong shan qu	区 qū；ōu 仅姓氏
+检察长	jian cha zhang	长 zhǎng
+行者	xing zhe	行者 xíngzhě（行人/孙行者）；háng 不成词
+大规模	da gui mo	大 dà、模 mó；mú 仅模子
+省长	sheng zhang	省 shěng、长 zhǎng
+长江大桥	chang jiang da qiao	长江 Chángjiāng
+江夏区	jiang xia qu	区 qū
+已有	yi you	已 yǐ（kHanyuPinlu/kXHC 无 sì，选项来自字形近旁误并，仍唯一取 yi）
+地方性	di fang xing	地 dì（属性义）；de 仅助词
+大大	da da	大大 dàdà
+国家级	guo jia ji	家 jiā；jie 仅轻声助词义
+所说	suo shuo	说 shuō；shuì 仅游说；yuè 仅「悦」古字
+这场	zhe chang	这 zhè；场 chǎng/cháng 去声调同为 chang，无歧义
+得名	de ming	得 dé；děi/de 为助词/补语义
+大清	da qing	大 dà
+省内	sheng nei	省 shěng
+万公顷	wan gong qing	万 wàn；mò 仅万俟（复姓）
+武昌区	wu chang qu	区 qū
+大叫	da jiao	大 dà
+说完	shuo wan	说 shuō
+县市	xian shi	市 shì
+传来	chuan lai	传 chuán（动词）；zhuàn 仅传记义
+转过	zhuan guo	转 zhuǎn；zhuǎi 仅口语转文
+指着	zhi zhe	动词+着 zhe（进行/状态）；zháo/zhuó/zhāo 不用于 V+着
+示范区	shi fan qu	区 qū
+阿哥	a ge	阿哥 āgē；ē 仅阿谀/山阿
+会上	hui shang	会 huì
+长剑	chang jian	长剑 chángjiàn（长剑形）——zhǎng 剑不成词
+旅游区	lv you qu	区 qū；旅 lǚ → lv
+万美元	wan mei yuan	万 wàn
+万平方米	wan ping fang mi	万 wàn
+省直	sheng zhi	省 shěng
+亲兵	qin bing	亲 qīn；qìng 仅亲家
+大学士	da xue shi	大 dà
+行省	xing sheng	行省 xíngshěng（行政区划）
+家中	jia zhong	家 jiā
+大国	da guo	大 dà
+几种	ji zhong	种 zhǒng（种类）；zhòng 仅种植动词，chóng 仅姓氏
+这方面	zhe fang mian	这 zhè
+区长	qu zhang	区 qū、长 zhǎng
+行政区域	xing zheng qu yu	行 xíng、区 qū
+怎地	zen de	怎地 zěn·de 助词；dì 义不成词
+说起	shuo qi	说 shuō
+十大	shi da	大 dà
+人口数	ren kou shu	数 shù（名词）；shǔ 仅动词清点，shuò 仅数见不鲜
+哈哈大笑	ha ha da xiao	大 dà
+综合性	zong he xing	综 zōng（zèng 为古织机义）；合 hé（gě 仅市制容量）
+国务委员	guo wu wei yuan	员 yuán（yùn 仅人名伍员古读）
+这份	zhe fen	这 zhè
+这天	zhe tian	这 zhè
+三种	san zhong	种 zhǒng
+代表大会	dai biao da hui	大 dà、会 huì
+奥地利	ao di li	地 dì（音译固定）
+西南部	xi nan bu	南 nán（nā 仅南无）
+联合会	lian he hui	合 hé、会 huì
+得出	de chu	得 dé
+多家	duo jia	家 jiā
+绝大多数	jue da duo shu	大 dà、数 shù
+元大都	yuan da du	元大都 Dàdū（都城义）；dōu 副词义不成词
+大笑	da xiao	大 dà
+东南部	dong nan bu	南 nán
+地中海	di zhong hai	地 dì
+审计长	shen ji zhang	长 zhǎng
+六个	liu ge	六 liù；lù 仅六安/六合地名
+大别山	da bie shan	大 dà
+社会学	she hui xue	会 huì
+河南省	he nan sheng	南 nán、省 shěng
+官家	guan jia	家 jiā
+各校	ge xiao	校 xiào（学校）；jiào 仅校对/校场
+猛地	meng de	猛地 měng·de 助词；dì 义不成词
+外长	wai zhang	长 zhǎng
+顺着	shun zhe	V+着 zhe
+六部	liu bu	六 liù
+音乐堂	yin yue tang	乐 yuè（音乐）；lè 不用于音乐堂
+必读	bi du	读 dú；dòu 仅句读
+一脚	yi jiao	脚 jiǎo（jué 为脚色旧形，不用于一脚）
+绝大部分	jue da bu fen	大 dà
+长江流域	chang jiang liu yu	长 cháng
+科长	ke zhang	长 zhǎng
+这块	zhe kuai	这 zhè
+两家	liang jia	家 jiā
+各家	ge jia	家 jiā
+行政公署	xing zheng gong shu	行 xíng
+打着	da zhe	V+着 zhe
+东交民巷	dong jiao min xiang	巷 xiàng（hàng 仅巷道）
+鄂南	e nan	南 nán
+原种场	yuan zhong chang	种 zhǒng（原种：育种用种子/种畜）
+中南部	zhong nan bu	南 nán
+数学家	shu xue jia	数 shù、家 jiā
+红墙	hong qiang	红 hóng（gōng 仅女红）
+曾总	zeng zong	曾 为姓氏读 zēng（曾祖父/曾孙 读 céng，称谓组合取姓氏读法）

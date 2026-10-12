@@ -22,6 +22,7 @@ pub fn snapshot(dir: &Path) -> Vec<(PathBuf, Option<SystemTime>, u64)> {
 }
 
 /// 列出目录里的词库文件（按文件名排序，同名只留优先扩展名的那个），返回 (文件名不含扩展名, 路径)。目录不存在就是空。
+/// 以 `.` 开头的隐藏文件跳过：macOS 打包 / 拷贝带出的 `._*` 元数据不是词库。
 pub fn list(dir: &Path) -> Vec<(String, PathBuf)> {
     let Ok(entries) = std::fs::read_dir(dir) else {
         return Vec::new();
@@ -30,6 +31,10 @@ pub fn list(dir: &Path) -> Vec<(String, PathBuf)> {
         .filter_map(Result::ok)
         .map(|e| e.path())
         .filter_map(|p| {
+            let name = p.file_name()?.to_str()?;
+            if name.starts_with('.') {
+                return None;
+            }
             let extension = p.extension()?.to_str()?;
             let rank = EXTENSIONS.iter().position(|e| *e == extension)?;
             let stem = p.file_stem()?.to_str()?.to_owned();
@@ -110,6 +115,24 @@ mod tests {
             .map(|(stem, path)| (stem.as_str(), path.file_name().unwrap().to_str().unwrap()))
             .collect();
         assert_eq!(names, [("food", "food.tsv"), ("idioms", "idioms.qj")]);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn list_skips_hidden_files() {
+        let dir = std::env::temp_dir().join(format!("qingjian-dot-dicts-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        for name in ["._idioms.qj", ".hidden.qj", "idioms.qj"] {
+            std::fs::write(dir.join(name), b"").unwrap();
+        }
+
+        let listed = list(&dir);
+        let names: Vec<(&str, &str)> = listed
+            .iter()
+            .map(|(stem, path)| (stem.as_str(), path.file_name().unwrap().to_str().unwrap()))
+            .collect();
+        assert_eq!(names, [("idioms", "idioms.qj")]);
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

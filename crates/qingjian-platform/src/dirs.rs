@@ -20,6 +20,11 @@ pub fn config_path() -> Option<PathBuf> {
     user_dir().map(|dir| dir.join("config.toml"))
 }
 
+/// 用户主题目录 `%APPDATA%\Qingjian\themes`，一个主题一个子目录（`<id>\theme.json`），不负责创建。
+pub fn themes_dir() -> Option<PathBuf> {
+    user_dir().map(|dir| dir.join("themes"))
+}
+
 /// 运行日志目录 `%LOCALAPPDATA%\Qingjian\logs`，不负责创建。
 pub fn log_dir() -> Option<PathBuf> {
     std::env::var_os("LOCALAPPDATA").map(|base| PathBuf::from(base).join("Qingjian").join("logs"))

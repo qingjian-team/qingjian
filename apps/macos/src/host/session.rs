@@ -114,6 +114,16 @@ impl Session {
         (offset < self.layout.page_size() && index < self.layout.len()).then_some(index)
     }
 
+    /// 候选窗口里第 `offset` 格在整个排布里的下标：矩阵展开时按视口行优先数（视口是从 `top` 起连续的几页），
+    /// 没展开时同 [`Self::index_on_page`]。越界返回 `None`。点击上屏用。
+    pub fn index_in_view(&self, offset: usize) -> Option<usize> {
+        let Some(grid) = self.grid else {
+            return self.index_on_page(offset);
+        };
+        let index = grid.top() * self.layout.page_size() + offset;
+        (index < self.layout.len()).then_some(index)
+    }
+
     /// 当前页的格子。
     pub fn page_cells(&self) -> Vec<Cell<'_>> {
         self.layout.page(self.page)
@@ -229,6 +239,21 @@ mod tests {
         assert!(session.move_rows(-1));
         let (cells, _) = session.grid_cells().unwrap();
         assert_eq!(cells.len(), 5);
+    }
+
+    #[test]
+    fn clicks_in_an_expanded_grid_map_to_viewport_cells() {
+        let mut session = Session::default();
+        session.reset(None, candidates(100), 5, 0);
+        assert_eq!(session.index_in_view(3), Some(3));
+        for _ in 0..7 {
+            session.move_rows(1);
+        }
+        let top = session.grid.unwrap().top();
+        assert!(top > 0);
+        // 视口第二行第三格：不是当前页的第 8 格
+        assert_eq!(session.index_in_view(7), Some(top * 5 + 7));
+        assert_ne!(session.index_in_view(7), session.index_on_page(7));
     }
 
     #[test]

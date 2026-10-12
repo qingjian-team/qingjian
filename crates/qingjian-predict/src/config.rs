@@ -49,7 +49,7 @@ impl Default for PredictConfig {
         Self {
             enabled: false,
             base_url: "https://api.deepseek.com".to_owned(),
-            model: "deepseek-v4-flash".to_owned(),
+            model: "deepseek-flash".to_owned(),
             api_key: None,
             api_key_env: "QINGJIAN_API_KEY".to_owned(),
             timeout_ms: 5000,

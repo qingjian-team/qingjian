@@ -8,11 +8,11 @@ use objc2_app_kit::{
     NSWindowLevel, NSWindowStyleMask,
 };
 use objc2_foundation::{NSPoint, NSRect, NSSize};
-use qingjian_platform::{CandidateRenderer, LayoutMode, ThemeMode};
+use qingjian_platform::{Appearance, CandidateRenderer, LayoutMode};
 
 use super::frame::Frame;
 use super::theme::Theme;
-use super::view::CandidateView;
+use super::view::{CandidateView, ClickHandler};
 
 /// `kCGPopUpMenuWindowLevel`：浮在普通窗口和浮动面板之上，与系统输入法候选框同级。
 const POPUP_MENU_LEVEL: NSWindowLevel = 101;
@@ -55,9 +55,14 @@ impl CandidateWindow {
             self.hide();
             return;
         }
-        let size = self.view.set_frame(&frame);
-        let origin = self.place(size, anchor);
-        self.panel.setFrame_display(NSRect::new(origin, size), true);
+        let bounds = self.view.set_frame(&frame);
+        let content = self.place(bounds.content.size, anchor);
+        let origin = NSPoint::new(
+            content.x - bounds.content.origin.x,
+            content.y - bounds.content.origin.y,
+        );
+        self.panel
+            .setFrame_display(NSRect::new(origin, bounds.size), true);
         self.order_front_on_active_space();
         if !self.panel.isVisible() {
             tracing::warn!(?anchor, ?origin, "候选窗口 orderFront 之后仍不可见");
@@ -73,6 +78,7 @@ impl CandidateWindow {
 
     pub fn hide(&self) {
         self.panel.orderOut(None);
+        self.view.stop_animation();
     }
 
     /// 排到最前，并确认真在当前 Space 上；不在就换一块新面板。
@@ -90,6 +96,8 @@ impl CandidateWindow {
         self.panel.orderOut(None);
         let panel = build_panel(self.mtm, &self.view);
         panel.setAppearance(self.appearance.as_deref());
+        panel.setHasShadow(!self.view.uses_bitmap());
+        panel.setIgnoresMouseEvents(!self.view.uses_bitmap());
         panel.setFrame_display(frame, true);
         panel.orderFrontRegardless();
         self.panel = panel;
@@ -100,13 +108,13 @@ impl CandidateWindow {
     }
 
     /// 外观：跟随系统时不指定，否则强制浅色 / 深色。
-    pub fn set_theme(&mut self, mode: ThemeMode) {
+    pub fn set_appearance(&mut self, mode: Appearance) {
         // SAFETY: 只读 AppKit 导出的常量名
         let name = unsafe {
             match mode {
-                ThemeMode::System => None,
-                ThemeMode::Light => Some(NSAppearanceNameAqua),
-                ThemeMode::Dark => Some(NSAppearanceNameDarkAqua),
+                Appearance::System => None,
+                Appearance::Light => Some(NSAppearanceNameAqua),
+                Appearance::Dark => Some(NSAppearanceNameDarkAqua),
             }
         };
         let appearance = name.and_then(NSAppearance::appearanceNamed);
@@ -119,9 +127,27 @@ impl CandidateWindow {
         self.view.set_layout(layout);
     }
 
-    /// 青简渲染器 / 系统绘制。下一帧生效。
+    /// 青简渲染器 / 系统绘制。下一帧生效。青简渲染器的阴影由主题画进位图，系统阴影关掉；
+    /// 只有它给点击区域，所以也只有它收鼠标（系统绘制时点击穿过去）。
     pub fn set_renderer(&self, renderer: CandidateRenderer) {
         self.view.set_renderer(renderer);
+        self.panel.setHasShadow(!self.view.uses_bitmap());
+        self.panel.setIgnoresMouseEvents(!self.view.uses_bitmap());
+    }
+
+    /// 点中候选或译词时调谁。
+    pub fn set_click_handler(&self, handler: ClickHandler) {
+        self.view.set_click_handler(handler);
+    }
+
+    /// 在用青简渲染器（而不是系统绘制）。
+    pub fn uses_bitmap(&self) -> bool {
+        self.view.uses_bitmap()
+    }
+
+    /// 渲染器主题（按 `[general] theme` 从主题库取出的），只对青简渲染器生效。
+    pub fn set_render_theme(&self, theme: qingjian_render::Theme) {
+        self.view.set_render_theme(theme);
     }
 
     /// 候选窗字体（字族名，空为系统字体），只对青简渲染器生效。
@@ -133,7 +159,7 @@ impl CandidateWindow {
         self.view.theme().max_rows
     }
 
-    /// 窗口左下角坐标：贴在光标行下方；下方放不下放上方；不出光标所在的那块屏幕。
+    /// 内容区左下角坐标：贴在光标行下方；下方放不下放上方；不出光标所在的那块屏幕。
     /// 光标矩形是零或落在所有屏幕之外（应用不支持、或给的是胡话）时以鼠标位置为准，至少落在用户看着的屏幕上。
     fn place(&self, size: NSSize, anchor: NSRect) -> NSPoint {
         let (anchor, screen) = match screen_containing(self.mtm, anchor.origin) {
@@ -170,7 +196,8 @@ impl CandidateWindow {
     }
 }
 
-/// 建一块面板并把内容视图装进去：无边框、不抢焦点、透明背景带阴影、不吃鼠标。
+/// 建一块面板并把内容视图装进去：无边框、不抢焦点、透明背景带系统阴影（用青简渲染器时再关）、
+/// 先不吃鼠标（用青简渲染器时再开，见 [`CandidateWindow::set_renderer`]）。
 fn build_panel(mtm: MainThreadMarker, view: &CandidateView) -> Retained<NSPanel> {
     let panel = NSPanel::initWithContentRect_styleMask_backing_defer(
         mtm.alloc::<NSPanel>(),

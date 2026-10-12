@@ -10,6 +10,7 @@ use crate::prompt::Reply;
 use crate::cache::PredictionCache;
 use crate::chat_client::ChatClient;
 use crate::error::PredictError;
+use crate::suspension::Suspension;
 
 /// 缓存条数。
 const CACHE_CAPACITY: usize = 64;
@@ -29,6 +30,9 @@ pub struct Worker {
 
     /// 结果缓存。
     cache: PredictionCache,
+
+    /// 余额不足、密钥无效后的暂停。
+    suspension: Suspension,
 }
 
 /// 缓存里存的是解析后的回复。
@@ -47,6 +51,7 @@ impl Worker {
             client,
             debounce,
             cache: PredictionCache::with_capacity(CACHE_CAPACITY),
+            suspension: Suspension::default(),
         }
     }
 
@@ -66,6 +71,9 @@ impl Worker {
                 continue;
             }
             let start = Instant::now();
+            if self.suspension.active(start) {
+                continue;
+            }
             match runtime.block_on(self.client.complete(&request)) {
                 Ok(reply) => {
                     tracing::info!(
@@ -83,7 +91,9 @@ impl Worker {
                     self.reply(request.sequence, reply);
                 }
                 Err(error) => {
-                    tracing::warn!(sequence = request.sequence, %error, "联想失败");
+                    if !self.suspension.record(&error, Instant::now(), "联想") {
+                        tracing::warn!(sequence = request.sequence, %error, "联想失败");
+                    }
                 }
             }
         }

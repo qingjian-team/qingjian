@@ -84,7 +84,7 @@ pub fn pack(
             let language: Language = language.parse().map_err(|_| ConvertError::Format {
                 path: PathBuf::from(language),
                 line: 0,
-                reason: "language must be en / ja / zh / es".to_owned(),
+                reason: "language must be en / ja / zh / es / de".to_owned(),
             })?;
             let input = inputs.first().cloned().unwrap_or_else(|| {
                 PathBuf::from("assets/glossary").join(format!("glossary-{}.tsv", language.code()))

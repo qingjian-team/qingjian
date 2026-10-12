@@ -147,9 +147,9 @@ fn only_mode_policy_changes_reset_remembered_choices() {
 fn legacy_defaults_and_new_settings_reach_the_dll() {
     let legacy = Router::new(Engine::new(Dictionary::default()), RouterConfig::default());
     assert!(!legacy.english);
-    assert!(!legacy.input_settings().restore_mode);
+    assert!(!legacy.input_settings(SessionId(1)).restore_mode);
     let mut router = router();
-    assert!(router.input_settings().restore_mode);
+    assert!(router.input_settings(SessionId(1)).restore_mode);
     router.config.remember_mode_per_app = false;
-    assert!(router.input_settings().restore_mode);
+    assert!(router.input_settings(SessionId(1)).restore_mode);
 }

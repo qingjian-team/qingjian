@@ -24,3 +24,14 @@ pub enum PredictError {
     #[error("failed to encode request: {0}")]
     Encode(#[from] serde_json::Error),
 }
+
+impl PredictError {
+    /// 账户层面的失败：密钥无效（401）、余额不足（402）、没有权限（403）。充值或换配置之前每次都会一样失败。
+    pub fn is_account_failure(&self) -> bool {
+        matches!(
+            self,
+            Self::Api(async_openai::error::OpenAIError::ApiError(response))
+                if matches!(response.status_code.as_u16(), 401..=403)
+        )
+    }
+}
