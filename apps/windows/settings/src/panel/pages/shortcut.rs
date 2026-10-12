@@ -27,6 +27,14 @@ pub(crate) const MODIFIERS: [(&str, &str); 6] = [
     ("Alt + Shift", "shift+alt"),
 ];
 
+/// 简繁键预设；任意字母数字组合仍可在配置文件中指定。
+pub(crate) const TRADITIONAL_KEYS: [(&str, &str); 4] = [
+    ("关闭", ""),
+    ("Ctrl + Shift + F", "ctrl+shift+f"),
+    ("Ctrl + Alt + F", "ctrl+alt+f"),
+    ("Alt + Shift + F", "alt+shift+f"),
+];
+
 fn mode_combo(current: char, callback: Callback<Option<usize>>) -> ComboBox {
     let selected = MODE_KEYS
         .iter()
@@ -98,6 +106,32 @@ pub(crate) fn view(settings: &Settings, context: &mut ViewContext<Settings>) -> 
                 s.delete_candidate,
                 context.callback(Message::DeleteCandidate),
             ),
+        ),
+        field(
+            "切换简繁输出",
+            "立即切换候选与上屏文字的简繁字形，保留正在输入的拼音。可关闭以免占用应用快捷键；自定义组合可修改配置文件。",
+            ComboBox::new()
+                .items_source(
+                    TRADITIONAL_KEYS
+                        .iter()
+                        .map(|(label, _)| (*label).to_owned())
+                        .chain(
+                            s.toggle_traditional
+                                .filter(|key| {
+                                    !TRADITIONAL_KEYS
+                                        .iter()
+                                        .any(|(_, value)| value.parse().ok() == Some(*key))
+                                })
+                                .map(|key| key.key_string()),
+                        ),
+                )
+                .selected_index(s.toggle_traditional.map_or(0, |key| {
+                    TRADITIONAL_KEYS
+                        .iter()
+                        .position(|(_, value)| value.parse().ok() == Some(key))
+                        .unwrap_or(TRADITIONAL_KEYS.len())
+                }))
+                .on_selection_changed(context.callback(Message::ToggleTraditional)),
         ),
         field(
             "翻译选中文字",

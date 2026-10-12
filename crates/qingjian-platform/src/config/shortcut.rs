@@ -25,6 +25,10 @@ pub struct ShortcutConfig {
     /// 把应用里选中的文字译成学习语言（需要云服务开着）。
     pub translate_selection: KeyCombo,
 
+    /// Windows 简繁切换；空字符串关闭，缺省 Ctrl + Shift + F。
+    #[serde(with = "optional_combo")]
+    pub toggle_traditional: Option<KeyCombo>,
+
     /// 数字键配这些修饰键：删掉候选（用户词整个删掉，词库词清掉对它的学习）。
     pub delete_candidate: Modifiers,
 }
@@ -42,6 +46,7 @@ impl Default for ShortcutConfig {
             translation,
             translation_second,
             translate_selection: KeyCombo::TRANSLATE_DEFAULT,
+            toggle_traditional: cfg!(windows).then_some(KeyCombo::TRADITIONAL_DEFAULT),
             delete_candidate: Modifiers::SHIFT,
         }
     }
@@ -75,9 +80,50 @@ impl ShortcutConfig {
     }
 }
 
+/// 可关闭的组合键在 TOML 中仍使用字符串，避免空值无法序列化。
+mod optional_combo {
+    use super::KeyCombo;
+    use serde::{Deserialize, Deserializer, Serializer};
+
+    pub fn serialize<S: Serializer>(
+        combo: &Option<KeyCombo>,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(&combo.map(|key| key.key_string()).unwrap_or_default())
+    }
+
+    pub fn deserialize<'de, D: Deserializer<'de>>(
+        deserializer: D,
+    ) -> Result<Option<KeyCombo>, D::Error> {
+        let text = String::deserialize(deserializer)?;
+        if text.trim().is_empty() {
+            return Ok(None);
+        }
+        text.parse().map(Some).map_err(serde::de::Error::custom)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn traditional_shortcut_roundtrips_and_can_be_disabled() {
+        let default: ShortcutConfig = toml::from_str("").unwrap();
+        assert_eq!(
+            default.toggle_traditional,
+            cfg!(windows).then_some(KeyCombo::TRADITIONAL_DEFAULT)
+        );
+        for text in ["", "ctrl+shift+f", "ctrl+alt+g"] {
+            let source = format!("toggle_traditional = {text:?}");
+            let config: ShortcutConfig = toml::from_str(&source).unwrap();
+            let restored: ShortcutConfig =
+                toml::from_str(&toml::to_string(&config).unwrap()).unwrap();
+            assert_eq!(restored.toggle_traditional, config.toggle_traditional);
+            assert_eq!(config.toggle_traditional.is_none(), text.is_empty());
+        }
+        assert!(toml::from_str::<ShortcutConfig>("toggle_traditional = \"f\"").is_err());
+    }
 
     #[test]
     fn old_files_without_modifier_keys_still_parse_and_get_defaults() {

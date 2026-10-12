@@ -28,3 +28,6 @@ fn with_prefix(prefix: Option<String>, effect: Effect, c: char) -> Effect {
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod traditional_tests;
