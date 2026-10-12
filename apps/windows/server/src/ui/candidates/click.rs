@@ -95,3 +95,12 @@ pub(super) fn button_down() {
         }
     });
 }
+
+/// 拖动候选窗后只移动命中区域原点，候选内容与回调保持不变。
+pub(super) fn move_origin(origin: (i32, i32)) {
+    CLICKS.with(|clicks| {
+        if let Some(clicks) = clicks.borrow_mut().as_mut() {
+            clicks.origin = origin;
+        }
+    });
+}

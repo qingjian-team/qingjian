@@ -9,6 +9,9 @@ use super::RenderSettings;
 /// Router 要用的配置项，与 macOS 壳的 `Host` 字段对齐。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RouterConfig {
+    /// 允许列出的宿主使用独立游戏候选窗，不依赖光标矩形。
+    pub game_mode: bool,
+
     /// 每页候选数（`[general] page_size`）。
     pub page_size: usize,
 
@@ -128,6 +131,7 @@ impl RouterConfig {
 impl From<&Config> for RouterConfig {
     fn from(config: &Config) -> Self {
         Self {
+            game_mode: config.apps.game_candidates_enabled,
             page_size: config.general.page_size(),
             cloud_slots: config.predict.slots,
             shift_letter_compose: config.general.shift_letter.compose(),

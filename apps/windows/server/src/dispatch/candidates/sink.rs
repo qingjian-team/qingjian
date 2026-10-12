@@ -31,6 +31,9 @@ pub trait CandidateSink: Send {
     /// 把候选窗口摆到 `rect`（组句范围的屏幕矩形）下方并按 `frame` 重绘；`mode` 给主题显示中 / 英等状态。
     fn show(&self, frame: Frame, mode: Mode, rect: ScreenRect);
 
+    /// 游戏候选由 UI 根据当前前台宿主定位；不抢焦点，也不向宿主发送按键。
+    fn show_game(&self, _frame: Frame, _mode: Mode, _app: &str) {}
+
     fn hide(&self);
 
     /// 换画法：装上时与配置热加载后调，只在设置变了时调。

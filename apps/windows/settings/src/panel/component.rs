@@ -146,6 +146,7 @@ impl Component for Settings {
             Message::CandidateFontSize(size) => self.save_font_size("candidate", size),
             Message::AnnotationFontSize(size) => self.save_font_size("annotation", size),
             Message::Animations(on) => self.save("general", "animations", on),
+            Message::GameCandidates(on) => self.save("apps", "game_candidates_enabled", on),
             Message::ResetFontSizes => {
                 self.save("general", "candidate_font_size", 0);
                 self.save("general", "annotation_font_size", 0);

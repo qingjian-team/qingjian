@@ -3,6 +3,7 @@
 //! 配色 / 字体在 [`theme`]。绘制内容在 [`RenderData`]，一行的展示形态在 [`row`]。设计语言对齐 macOS 端。
 
 mod click;
+mod drag;
 mod render_data;
 pub(crate) mod row;
 pub(crate) mod theme;
@@ -15,10 +16,11 @@ use windows::Win32::Foundation::{E_INVALIDARG, HWND, LPARAM, LRESULT, POINT, REC
 use windows::Win32::Graphics::Gdi::{GetDC, ReleaseDC};
 use windows::Win32::UI::HiDpi::{GetDpiForSystem, GetDpiForWindow};
 use windows::Win32::UI::WindowsAndMessaging::{
-    CreateWindowExW, DefWindowProcW, DestroyWindow, IDC_ARROW, KillTimer, LoadCursorW, MSG,
-    SW_HIDE, SW_SHOWNA, SetTimer, ShowWindow, WM_LBUTTONDOWN, WM_MOUSEACTIVATE, WM_NCHITTEST,
-    WM_TIMER, WNDCLASSEXW, WS_EX_LAYERED, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_EX_TOPMOST,
-    WS_POPUP,
+    CreateWindowExW, DefWindowProcW, DestroyWindow, GetWindowRect, HTCLIENT, HWND_TOPMOST,
+    IDC_ARROW, KillTimer, LoadCursorW, MSG, SW_HIDE, SW_SHOWNA, SWP_NOACTIVATE, SWP_NOMOVE,
+    SWP_NOSIZE, SetTimer, SetWindowPos, ShowWindow, WM_CANCELMODE, WM_CAPTURECHANGED,
+    WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MOUSEACTIVATE, WM_MOUSEMOVE, WM_NCHITTEST, WM_TIMER,
+    WNDCLASSEXW, WS_EX_LAYERED, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_EX_TOPMOST, WS_POPUP,
 };
 use windows::core::{Error, PCWSTR, Result, w};
 
@@ -81,6 +83,8 @@ pub(crate) struct CandidateWindow {
 
     /// 最近一次贴图时窗口左上角的屏幕坐标；动画帧贴在同一处。
     position: Cell<(i32, i32)>,
+
+    drag: Rc<drag::DragState>,
 }
 
 impl CandidateWindow {
@@ -116,6 +120,7 @@ impl CandidateWindow {
         };
         Ok(Self {
             hwnd,
+            drag: drag::attach(hwnd),
             data,
             dpi: Cell::new(dpi),
             dark: Cell::new(dark),
@@ -128,6 +133,17 @@ impl CandidateWindow {
     /// 刷新内容（不定位、不显示）。
     pub(crate) fn set_content(&self, frame: &Frame, mode: Mode) {
         self.data.borrow_mut().set(frame, mode);
+    }
+
+    pub(crate) fn set_game(&self, app: Option<&str>) {
+        if self.drag.app.borrow().as_deref() != app {
+            self.drag.finish(self.hwnd);
+            *self.drag.app.borrow_mut() = app.map(str::to_owned);
+        }
+    }
+
+    pub(crate) fn game_anchor(&self, app: &str, bounds: RECT, fallback: RECT) -> RECT {
+        self.drag.anchor(app, bounds, fallback)
     }
 
     /// 按光标矩形定位并显示：贴光标下方（放不下放上方），四周留出阴影。
@@ -150,6 +166,9 @@ impl CandidateWindow {
                     rendered.content_width as i32,
                     rendered.content_height as i32,
                 );
+                self.drag
+                    .content_offset
+                    .set((rendered.content_x as i32, rendered.content_y as i32));
                 if content.0 <= 0 || content.1 <= 0 {
                     self.hide();
                     return;
@@ -170,6 +189,21 @@ impl CandidateWindow {
             }
         };
         if updated.is_ok() {
+            self.drag
+                .header_bottom
+                .set(self.drag.content_offset.get().1 + (26 * self.dpi.get() / 96) as i32);
+            // 无边框游戏也可能是置顶窗口；每次更新重新排序，不改变前台焦点。
+            let _ = unsafe {
+                SetWindowPos(
+                    self.hwnd,
+                    Some(HWND_TOPMOST),
+                    0,
+                    0,
+                    0,
+                    0,
+                    SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE,
+                )
+            };
             let _ = unsafe { ShowWindow(self.hwnd, SW_SHOWNA) };
         } else {
             self.hide();
@@ -179,6 +213,7 @@ impl CandidateWindow {
     /// GDI 画法：量尺寸、定位、合成。
     fn show_gdi(&self, anchor: RECT) -> Result<()> {
         let margin = layered::shadow_margin(self.dpi.get());
+        self.drag.content_offset.set((margin, margin));
         let content = self.preferred_size();
         if content.0 <= 0 || content.1 <= 0 {
             return Err(Error::from(E_INVALIDARG));
@@ -200,6 +235,7 @@ impl CandidateWindow {
     }
 
     pub(crate) fn hide(&self) {
+        self.drag.finish(self.hwnd);
         let _ = unsafe { ShowWindow(self.hwnd, SW_HIDE) };
         click::set_hits(Vec::new(), (0, 0));
         self.stop_animation();
@@ -224,7 +260,14 @@ impl CandidateWindow {
             self.stop_animation();
             return;
         };
-        let _ = layered::present(self.hwnd, &rendered.pixmap, self.position.get());
+        let mut rect = RECT::default();
+        let position = if unsafe { GetWindowRect(self.hwnd, &mut rect) }.is_ok() {
+            (rect.left, rect.top)
+        } else {
+            self.position.get()
+        };
+        self.position.set(position);
+        let _ = layered::present(self.hwnd, &rendered.pixmap, position);
         self.schedule(rendered.next_frame);
     }
 
@@ -299,6 +342,8 @@ impl CandidateWindow {
 
 impl Drop for CandidateWindow {
     fn drop(&mut self) {
+        self.drag.finish(self.hwnd);
+        drag::detach(self.hwnd);
         let _ = unsafe { DestroyWindow(self.hwnd) };
     }
 }
@@ -324,13 +369,47 @@ fn place(anchor: RECT, content: (i32, i32)) -> (i32, i32) {
     (x, y)
 }
 
-/// 分层窗口无需 `WM_PAINT`；鼠标交给 [`click`]，其余全交默认处理。
+/// 候选和译词可点击；游戏候选顶部可拖动，保持不激活。
 unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
     match msg {
-        WM_NCHITTEST => click::hit_test(lparam),
+        WM_NCHITTEST => {
+            if let Some(state) = drag::state(hwnd) {
+                let mut rect = RECT::default();
+                if unsafe { GetWindowRect(hwnd, &mut rect) }.is_ok() {
+                    let client = POINT {
+                        x: (lparam.0 & 0xffff) as i16 as i32 - rect.left,
+                        y: ((lparam.0 >> 16) & 0xffff) as i16 as i32 - rect.top,
+                    };
+                    if state.is_header(client) {
+                        return LRESULT(HTCLIENT as isize);
+                    }
+                }
+            }
+            click::hit_test(lparam)
+        }
         WM_MOUSEACTIVATE => click::mouse_activate(),
         WM_LBUTTONDOWN => {
+            if let Some(state) = drag::state(hwnd)
+                && let Some((client, screen)) = drag::mouse_points(hwnd, lparam)
+                && state.begin(hwnd, client, screen)
+            {
+                return LRESULT(0);
+            }
             click::button_down();
+            LRESULT(0)
+        }
+        WM_MOUSEMOVE => {
+            if let Some(state) = drag::state(hwnd)
+                && let Some((_, screen)) = drag::mouse_points(hwnd, lparam)
+            {
+                state.update(hwnd, screen);
+            }
+            LRESULT(0)
+        }
+        WM_LBUTTONUP | WM_CAPTURECHANGED | WM_CANCELMODE => {
+            if let Some(state) = drag::state(hwnd) {
+                state.finish(hwnd);
+            }
             LRESULT(0)
         }
         _ => unsafe { DefWindowProcW(hwnd, msg, wparam, lparam) },

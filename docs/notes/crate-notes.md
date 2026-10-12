@@ -299,6 +299,24 @@ Server 每次轮询比对用户 `dicts` 的路径 / mtime / 长度快照，配�
 DLL 不读文件、不查 mtime。`SessionOpened` 只回过协议版本对得上的 DLL——老的 `open` 是只写不读，
 多回一条会被它当成下一次 `Poll` 的应答而报错，那条连接就废了；老 DLL 从 `ModeSync` 那一拍也能拿到同一份（新字段直接忽略）。
 
+### Windows 游戏候选窗
+
+`[apps] game_candidates_enabled` 默认 `false`，Windows 设置「候选窗口」页可切换；`game_candidates` 默认 `["dota2.exe"]`，支持现有大小写无关 / 末尾 `*` 匹配。只影响 Windows，不依赖翻译服务或其他 PR。
+开启后 Router 对名单中的宿主发 `show_game`，无须游戏报告有效 caret；UI 线程以 `GetForegroundWindow`、只查询完整镜像路径和窗口矩形重新确认前台宿主，250 ms 定时隐藏失焦窗口。
+沿用青简自己的非激活置顶候选窗口，以 `SetWindowPos` 维持排序；独占全屏仍可能遮挡。`ui/candidates/drag` 仅处理自己的 HWND 鼠标消息，拖动顶部拼音栏，动画贴图使用实际当前位置。
+位置独立写入用户目录的 `game-candidate-positions.toml`，按进程名保存窗口内万分比坐标；损坏文件保留且当前运行只记内存。拖动不向其他应用发送输入，不注入、不安装游戏钩子。
+测试为 Router 的显示/清理、负原点与分辨率换算、保存重载和坏文件保护；位置测试使用独立临时文件。
+`game_drag_check` / `game_window_check` 示例只操作自己的候选窗，APPDATA 需设为全新隔离目录，前者路径须包含 `game-candidate-drag`；两种渲染器分别用缺省参数与 `--qingjian-renderer` 运行。
+已有增强版在 Windows 11、Dota 2 无边框窗口中由用户确认可显示与拖动；本分支新增的设置开关仍需原生设置程序实机复验。其他游戏与独占全屏未据此宣称兼容。
+
+配置示例：
+
+```toml
+[apps]
+game_candidates_enabled = true
+game_candidates = ["dota2.exe", "other-game.exe"]
+```
+
 ## assets
 
 - `assets/sample/`：手写样例词库与释义表，不是产品数据。

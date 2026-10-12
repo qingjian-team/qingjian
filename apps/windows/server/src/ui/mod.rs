@@ -6,6 +6,7 @@
 
 mod candidates;
 mod command;
+mod game;
 mod layered;
 mod monitor;
 mod painter;
@@ -24,8 +25,8 @@ use windows::Win32::UI::HiDpi::{
     DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2, SetProcessDpiAwarenessContext,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
-    ASFW_ANY, AllowSetForegroundWindow, DispatchMessageW, GetMessageW, MSG, PostThreadMessageW,
-    TranslateMessage, WM_APP,
+    ASFW_ANY, AllowSetForegroundWindow, DispatchMessageW, GetMessageW, KillTimer, MSG,
+    PostThreadMessageW, SetTimer, TranslateMessage, WM_APP, WM_TIMER,
 };
 use windows::core::{Error, Result};
 
@@ -91,6 +92,10 @@ impl CandidateSink for UiHandle {
         self.post(UiCommand::Hide);
     }
 
+    fn show_game(&self, frame: Frame, mode: Mode, app: &str) {
+        self.post(UiCommand::ShowGame(Box::new((frame, mode, app.to_owned()))));
+    }
+
     fn configure(&self, settings: RenderSettings) {
         self.post(UiCommand::Configure(settings));
     }
@@ -123,7 +128,17 @@ impl StatusSink for UiHandle {
 /// 起与本 exe 同目录的设置程序。设置程序已开时由新实例把它带到前台，得先把前台权让出去。
 pub(crate) fn open_settings() {
     let _ = unsafe { AllowSetForegroundWindow(ASFW_ANY) };
-    let exe = std::env::current_exe().map(|exe| exe.with_file_name("qingjian-settings.exe"));
+    let exe = std::env::current_exe().map(|exe| {
+        let path = exe.with_file_name("qingjian-settings.exe");
+        if path.is_file() {
+            return path;
+        }
+        std::fs::read_to_string(exe.with_file_name("original-install-path.txt"))
+            .ok()
+            .map(|s| std::path::PathBuf::from(s.trim()).join("qingjian-settings.exe"))
+            .filter(|p| p.is_file())
+            .unwrap_or(path)
+    });
     let spawned = exe.and_then(|exe| std::process::Command::new(exe).spawn());
     if let Err(error) = spawned {
         tracing::warn!(%error, "打开设置程序失败");
@@ -168,6 +183,8 @@ fn run(
         return;
     }
     let mut msg = MSG::default();
+    let game_app: RefCell<Option<String>> = RefCell::new(None);
+    let game_timer = unsafe { SetTimer(None, 0, 250, None) };
     loop {
         let got = unsafe { GetMessageW(&mut msg, None, 0, 0) };
         if got.0 <= 0 {
@@ -180,7 +197,18 @@ fn run(
         if msg.message == WM_WAKE {
             // 一次唤醒排空整个队列，保住 Hide→Show 的先后。
             while let Ok(command) = commands.try_recv() {
-                apply(&window, status.as_ref(), &painter, command);
+                apply(&window, status.as_ref(), &painter, &game_app, command);
+            }
+            continue;
+        }
+        if msg.message == WM_TIMER && game_timer != 0 && msg.wParam.0 == game_timer {
+            if game_app
+                .borrow()
+                .as_deref()
+                .is_some_and(|app| game::foreground_bounds(app).is_none())
+            {
+                window.hide();
+                *game_app.borrow_mut() = None;
             }
             continue;
         }
@@ -189,21 +217,47 @@ fn run(
             DispatchMessageW(&msg);
         }
     }
+    if game_timer != 0 {
+        let _ = unsafe { KillTimer(None, game_timer) };
+    }
 }
 
 fn apply(
     window: &CandidateWindow,
     status: Option<&StatusBar>,
     painter: &SharedPainter,
+    game_app: &RefCell<Option<String>>,
     command: UiCommand,
 ) {
     match command {
+        UiCommand::ShowGame(payload) => {
+            let (frame, mode, app) = *payload;
+            if let Some(anchor) = game::foreground_anchor(&app) {
+                let Some(bounds) = game::foreground_bounds(&app) else {
+                    window.hide();
+                    return;
+                };
+                let anchor = window.game_anchor(&app, bounds, anchor);
+                window.set_game(Some(&app));
+                *game_app.borrow_mut() = Some(app);
+                window.set_content(&frame, mode);
+                window.show(anchor);
+            } else {
+                *game_app.borrow_mut() = None;
+                window.hide();
+            }
+        }
         UiCommand::Show(payload) => {
+            window.set_game(None);
+            *game_app.borrow_mut() = None;
             let (frame, mode, rect) = *payload;
             window.set_content(&frame, mode);
             window.show(to_win_rect(rect));
         }
-        UiCommand::Hide => window.hide(),
+        UiCommand::Hide => {
+            *game_app.borrow_mut() = None;
+            window.hide();
+        }
         UiCommand::StatusShow(view) => {
             if let Some(status) = status {
                 status.update(*view);

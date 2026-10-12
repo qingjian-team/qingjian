@@ -36,6 +36,7 @@ impl Router {
 
     pub(super) fn handle_ime_switched(&mut self) {
         self.ime_active = false;
+        self.hide_candidate_window();
         self.reconcile_status();
     }
 

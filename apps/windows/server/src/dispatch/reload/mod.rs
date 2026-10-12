@@ -234,6 +234,11 @@ impl Router {
             .set_shuangpin_raw_preedit(config.general.shuangpin_raw_preedit);
         let previous = self.config.render_settings();
         let themes_stamp = self.config.themes_stamp;
+        let game_display_changed = self.config.game_mode != config.apps.game_candidates_enabled
+            || self.config.apps.game_candidates != config.apps.game_candidates;
+        if game_display_changed {
+            self.hide_candidate_window();
+        }
         self.config = RouterConfig::from(config);
         self.config.themes_stamp = themes_stamp;
         let settings = self.config.render_settings();

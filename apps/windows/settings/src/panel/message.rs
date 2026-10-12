@@ -44,6 +44,7 @@ pub(crate) enum Message {
     CandidateFontSize(Option<f64>),
     AnnotationFontSize(Option<f64>),
     Animations(bool),
+    GameCandidates(bool),
     ResetFontSizes,
     StatusBar(bool),
 

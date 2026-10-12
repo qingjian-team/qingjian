@@ -120,6 +120,12 @@ pub const DEFAULT_ENGLISH_CANDIDATES_ON: &[&str] = DEFAULT_ENGLISH_CANDIDATES_ON
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct AppsConfig {
+    /// Windows 独立游戏候选窗总开关；其他平台忽略。
+    pub game_candidates_enabled: bool,
+
+    /// 游戏模式下使用可拖动独立候选窗的 Windows 宿主；空列表关闭，末尾 * 按前缀匹配。
+    pub game_candidates: Vec<String>,
+
     /// 英文模式下给候选的应用，`*` 结尾按前缀匹配，单写 `"*"` 就是处处都给。
     pub english_candidates_on: Vec<String>,
 
@@ -137,6 +143,8 @@ impl AppsConfig {
     /// 用给定白名单构造（缺省名单分平台，测试里要指定哪一份）。
     pub fn with_english_candidates_on(apps: &[&str]) -> Self {
         Self {
+            game_candidates_enabled: false,
+            game_candidates: vec!["dota2.exe".to_owned()],
             english_candidates_on: apps.iter().map(|s| (*s).to_owned()).collect(),
             english_candidates_off: Vec::new(),
         }
@@ -154,6 +162,13 @@ impl AppsConfig {
                 .english_candidates_off
                 .iter()
                 .any(|pattern| matches_app(pattern, app))
+    }
+
+    /// 是否为这个宿主显示独立游戏候选窗。
+    pub fn game_candidates(&self, app: &str) -> bool {
+        self.game_candidates
+            .iter()
+            .any(|pattern| matches_app(pattern, app))
     }
 
     /// 白名单是不是「处处都给」（`"*"`）：偏好设置里「只在常用写字应用里给候选」的勾选框据此显示。
@@ -181,6 +196,18 @@ fn matches_app(pattern: &str, app: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn game_candidates_default_and_explicit_disable() {
+        let default: AppsConfig = toml::from_str("").unwrap();
+        assert!(!default.game_candidates_enabled);
+        assert!(default.game_candidates("DOTA2.EXE"));
+        assert!(!default.game_candidates("notepad.exe"));
+        let disabled: AppsConfig = toml::from_str("game_candidates = []").unwrap();
+        assert!(!disabled.game_candidates("dota2.exe"));
+        let custom: AppsConfig = toml::from_str("game_candidates = ['demo*']").unwrap();
+        assert!(custom.game_candidates("DEMO-client.exe"));
+    }
 
     #[test]
     fn macos_list_covers_writing_apps_with_prefix_patterns() {

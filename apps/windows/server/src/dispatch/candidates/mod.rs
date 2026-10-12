@@ -2,6 +2,9 @@
 
 mod sink;
 
+#[cfg(test)]
+mod tests;
+
 use qingjian_platform::protocol::{Frame, ScreenRect, SessionId};
 use qingjian_platform::scheme_name;
 use qingjian_render::Mode;
@@ -15,6 +18,29 @@ impl Router {
         if frame.is_empty() {
             self.engine.note_displayed(std::iter::empty());
             self.hide_candidate_window();
+        } else if self.config.game_mode
+            && self
+                .focused_app()
+                .is_some_and(|app| self.config.apps.game_candidates(app))
+        {
+            // 固定锚点不采信游戏报来的光标位置（可能为零或屏外）。
+            let rect = ScreenRect {
+                left: 0,
+                top: 0,
+                right: 0,
+                bottom: 0,
+            };
+            let mode = self.input_mode();
+            let unchanged = matches!(&self.last_shown, Some((f, m, r)) if f == frame && *m == mode && *r == rect);
+            if !unchanged {
+                self.engine.note_displayed(frame.candidates.items.iter());
+                self.candidates.show_game(
+                    frame.clone(),
+                    self.input_mode(),
+                    self.focused_app().unwrap(),
+                );
+                self.last_shown = Some((frame.clone(), mode, rect));
+            }
         } else if let Some(rect) = self.last_rect {
             let mode = self.input_mode();
             let unchanged = matches!(&self.last_shown,

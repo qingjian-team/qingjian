@@ -10,6 +10,8 @@ pub(super) enum UiCommand {
     /// 把候选窗口摆到组句矩形下方并按帧重绘。
     Show(Box<(Frame, Mode, ScreenRect)>),
 
+    ShowGame(Box<(Frame, Mode, String)>),
+
     /// 收起候选窗口。
     Hide,
 

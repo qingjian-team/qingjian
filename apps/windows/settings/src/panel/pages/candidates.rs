@@ -45,6 +45,13 @@ pub(crate) fn view(settings: &Settings, context: &mut ViewContext<Settings>) -> 
     let theme = themes.resolve(g.theme_id(), false);
     let rows = [
         field(
+            "游戏候选窗",
+            "为已配置的游戏显示可拖动候选窗口，默认包含 Dota 2；建议使用无边框窗口。",
+            ToggleSwitch::new()
+                .is_on(settings.config.apps.game_candidates_enabled)
+                .on_toggled(context.callback(Message::GameCandidates)),
+        ),
+        field(
             "外观",
             "",
             mode_combo(
