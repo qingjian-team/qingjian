@@ -12,6 +12,11 @@ pub(super) fn ui_fonts() -> Vec<PathBuf> {
     ]
 }
 
+/// 界面字体的其余字重：SF 是可变字体、苹方是多字重集合，不用另加文件。
+pub(super) fn ui_weight_fonts() -> Vec<PathBuf> {
+    Vec::new()
+}
+
 /// 按 locale 要的汉字字体，加日文作为日语译文的回退。
 pub(super) fn script_fonts(locale: &str) -> Vec<PathBuf> {
     let mut fonts = Vec::new();
@@ -20,6 +25,11 @@ pub(super) fn script_fonts(locale: &str) -> Vec<PathBuf> {
         // 没找到 PingFang 时的简体兜底
         fonts.push(PathBuf::from(format!(
             "{SYSTEM_FONTS}/Hiragino Sans GB.ttc"
+        )));
+        // 宋体是静态 glyf：macOS 26+ 的苹方换成 swash 读不出的 hvgl 轮廓（fonts/mod.rs 会跳过），
+        // 这时简体回退落到宋体，候选不至于空白
+        fonts.push(PathBuf::from(format!(
+            "{SYSTEM_FONTS}/Supplemental/Songti.ttc"
         )));
     }
     fonts.push(PathBuf::from(format!(

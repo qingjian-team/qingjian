@@ -77,6 +77,27 @@ fn keypad_punctuation_is_half_width_and_regular_punctuation_is_full_width() {
         Some("。")
     );
 }
+/// 关掉 `[general] punct_commits`：组句中的标点回到老行为——进英文直输段，不再上屏候选；开回来恢复。
+#[test]
+fn punct_commits_off_keeps_punctuation_in_raw_segment() {
+    let mut router = router(5);
+    let normal = KeyModifiers::default();
+    router.config.punct_commits = false;
+    compose(&mut router, "ni", normal);
+    assert_eq!(key(&mut router, b',' as u32, Some(','), normal).1, None);
+    assert_eq!(
+        key(&mut router, 32, Some(' '), normal).1.as_deref(),
+        Some("ni, ")
+    );
+    router.config.punct_commits = true;
+    compose(&mut router, "ni", normal);
+    assert_eq!(
+        key(&mut router, b',' as u32, Some(','), normal)
+            .1
+            .as_deref(),
+        Some("你，")
+    );
+}
 #[test]
 fn shift_letter_configuration_does_not_change_caps_or_english() {
     let mut router = router(5);

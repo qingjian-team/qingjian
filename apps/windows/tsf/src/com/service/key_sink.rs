@@ -2,6 +2,8 @@
 //! 吃的键在 `OnKeyDown` 里转发给 Server 并按结果更新文档；单击中英切换键（`[shortcut] switch_mode`）的判定与保留键命中也在这里。
 //! 上下文禁了键盘（密码框，见 [`context`](crate::com::context)）时没在组句的键一律放行。
 
+use std::time::Instant;
+
 use windows::Win32::Foundation::{FALSE, LPARAM, WPARAM};
 use windows::Win32::UI::Input::KeyboardAndMouse::VK_CAPITAL;
 use windows::Win32::UI::TextServices::{ITfContext, ITfKeyEventSink_Impl};
@@ -64,6 +66,12 @@ impl ITfKeyEventSink_Impl for TextService_Impl {
     fn OnPreservedKey(&self, pic: Ref<ITfContext>, rguid: *const GUID) -> Result<BOOL> {
         let guid = unsafe { *rguid };
         log(&format!("保留键命中 guid={guid:?}"));
+        if guid == preserved::GUID_PUNCTUATION {
+            if self.keyboard_disabled(&pic) || self.punctuation_combo.get().is_none() {
+                return Ok(FALSE);
+            }
+            return Ok(self.toggle_punctuation().into());
+        }
         if guid == preserved::GUID_SWITCH_MODE {
             if self.keyboard_disabled(&pic) {
                 return Ok(FALSE);
@@ -125,15 +133,13 @@ impl TextService_Impl {
     /// 组句中功能键 / 方向键 / 可打印字符都吃；没在组句时数字 / 标点也先「测吃」送去转全角（中英各有一份开关），
     /// Server 不转的回 Passthrough 再放行；`?` 是问字前缀。
     fn would_eat(&self, event: &KeyEvent) -> bool {
-        let shift_letter_compose = self
-            .input_settings
-            .get()
-            .is_some_and(|input| input.shift_letter_compose);
+        let input = self.input_settings.get().unwrap_or_default();
         eats_key(
             event,
             self.shared.composing(),
             self.shared.translating(),
-            shift_letter_compose,
+            input.shift_letter_compose,
+            input.english_candidates,
         )
     }
 
@@ -147,11 +153,22 @@ impl TextService_Impl {
 
     /// 把按键送给 Server 并按结果更新文档；返回吃不吃。
     fn forward_key(&self, pic: Ref<ITfContext>, event: KeyEvent) -> bool {
-        // 没连上 Server（没起、刚重启、转发失败后的退避期）：只吃「可能是在打拼音」的键，
-        // 别让拼音字母漏进应用；标点 / 数字 / 英文与 Caps 下的字母本来就会原样交给应用，
-        // 这里放行——一律吃掉会表现为「按了没反应」（连不上时按 `-`、数字都没反应）。
+        // 没连上 Server（没起、刚重启、转发失败后的退避期）：只在「拉起宽限期」内吃「可能是在打拼音」的键，
+        // 别让拼音字母漏进应用；宽限一过（Server 迟迟不来）就全放行——死键盘比漏字母难看，
+        // 而且一律吃掉会表现为「按了没反应」（连不上时按 `-`、数字都没反应）。
         if !self.ensure_connected() {
-            let eat = eats_without_server(&event);
+            let grace = match self.launch_grace_until.get() {
+                Some(until) if Instant::now() < until => true,
+                Some(_) => {
+                    if !self.launch_grace_logged.get() {
+                        self.launch_grace_logged.set(true);
+                        log("Server 迟迟未就绪：拉起宽限已过，字母放行（英文直通），连上后恢复");
+                    }
+                    false
+                }
+                None => false,
+            };
+            let eat = eats_without_server(&event, grace);
             if eat {
                 log(&format!(
                     "没连上 Server，吃掉 vk={} char={:?}",
@@ -264,14 +281,15 @@ impl TextService_Impl {
     }
 }
 
-/// 连不上 Server 时这个键吃不吃。
+/// 连不上 Server 时这个键吃不吃。`grace_active` 是拉起宽限是否还在（见 [`Self::forward_key`] 的调用处）。
 ///
-/// 只有「中文模式下可能是拼音」的字母要吃掉：漏进应用会变成一串字母，比什么都不出更难看。
-/// 标点 / 数字（会话外本来就走 Passthrough 交给应用）与英文模式、Caps 亮着时敲的字母都放行——
-/// 一律吃掉会表现为「按了没反应」，而且连日志都不留（这就是「中文模式按 `-` 偶发无反应」的成因：
-/// 断连到重连成功之间的键全被吞了）。
-fn eats_without_server(event: &KeyEvent) -> bool {
-    !event.modifiers.has_command_key()
+/// 只有「中文模式下可能是拼音」的字母要吃掉：漏进应用会变成一串字母，比什么都不出更难看——
+/// 但只在宽限期内吃：宽限说明自启拉起已在路上，一两秒内就该恢复。标点 / 数字（会话外本来就走
+/// Passthrough 交给应用）与英文模式、Caps 亮着时敲的字母都放行——一律吃掉会表现为「按了没反应」，
+/// 而且连日志都不留（这就是「中文模式按 `-` 偶发无反应」的成因：断连到重连成功之间的键全被吞了）。
+fn eats_without_server(event: &KeyEvent, grace_active: bool) -> bool {
+    grace_active
+        && !event.modifiers.has_command_key()
         && is_letter(event.virtual_key)
         && !(event.modifiers.caps || event.modifiers.english_mode)
 }
@@ -280,6 +298,8 @@ fn eats_without_server(event: &KeyEvent) -> bool {
 ///
 /// - 翻译评审中一律吃，交给 Server 定接受 / 取消；
 /// - 带 Ctrl / Alt / Win：只有组句中的「修饰键 + 数字」吃（译词 / 删候选），其余归应用（翻译选中文字走保留键）；
+/// - 没在组句时 Caps 亮着、或英文模式而这个应用不给英文候选（`english_candidates`）：字母归应用。
+///   Server 对它们本来就只是原样上屏，吃了反而让应用收不到按键——Photoshop 画布上的 W / H / V 快捷键就这样失灵；
 /// - 字母只有「中文模式、没在组句、按住 Shift 的大写」归应用，其中 V / U / I 仍吃：双拼下是表达式 / 问字入口。
 ///   `[general] shift_letter = "compose"`（Server 经 [`InputSettings`](qingjian_platform::protocol::InputSettings) 下发）时这种大写也吃：送去 Core 起一段组句，
 ///   `⇧C` 接 `pan` 才能出「C盘」；组句一开始，后面的 Shift 字母本来就被 `composing` 兜住；
@@ -290,6 +310,7 @@ fn eats_key(
     composing: bool,
     translating: bool,
     shift_letter_compose: bool,
+    english_candidates: bool,
 ) -> bool {
     if translating {
         return true;
@@ -300,6 +321,9 @@ fn eats_key(
     }
     let vk = event.virtual_key;
     if is_letter(vk) {
+        if !composing && (modifiers.caps || (modifiers.english_mode && !english_candidates)) {
+            return false;
+        }
         return modifiers.caps
             || modifiers.english_mode
             || !modifiers.shift
@@ -349,13 +373,15 @@ mod tests {
             &with_modifiers(0x41, 'A', shifted),
             false,
             false,
-            false
+            false,
+            true
         ));
         // `[general] shift_letter = "compose"`：没在组句也吃，送去起一段组句（⇧C 接 pan 出 C盘）
         assert!(eats_key(
             &with_modifiers(0x41, 'A', shifted),
             false,
             false,
+            true,
             true
         ));
         // 组句一开始，后面的 Shift 字母就被 `composing` 兜住，一律吃
@@ -363,32 +389,43 @@ mod tests {
             &with_modifiers(0x41, 'A', shifted),
             true,
             false,
-            false
+            false,
+            true
         ));
         // 双拼下 Shift + V / U / I 是表达式 / 问字入口：没在组句也吃
         assert!(eats_key(
             &with_modifiers(0x56, 'V', shifted),
             false,
             false,
-            false
+            false,
+            true
         ));
         // 不带 Shift 的字母本来就吃
         assert!(eats_key(
             &with_modifiers(0x41, 'a', KeyModifiers::default()),
             false,
             false,
-            false
+            false,
+            true
         ));
-        // Caps 亮着（直通大写）也吃，由我们插入
+        // Caps 亮着（直通大写）没在组句：归应用，组句中照吃（先把敲的拼音原样上屏）
         let caps = KeyModifiers {
             caps: true,
             ..KeyModifiers::default()
         };
-        assert!(eats_key(
+        assert!(!eats_key(
             &with_modifiers(0x41, 'A', caps),
             false,
             false,
-            false
+            false,
+            true
+        ));
+        assert!(eats_key(
+            &with_modifiers(0x41, 'A', caps),
+            true,
+            false,
+            false,
+            true
         ));
         // 带 Ctrl 的组合键归应用，翻译评审中一律吃
         let ctrl_c = KeyModifiers {
@@ -399,37 +436,63 @@ mod tests {
             &with_modifiers(0x43, 'c', ctrl_c),
             false,
             false,
-            false
+            false,
+            true
         ));
         assert!(eats_key(
             &with_modifiers(0x43, 'c', ctrl_c),
             false,
             true,
-            false
+            false,
+            true
         ));
     }
 
     #[test]
-    fn letters_are_eaten_only_in_chinese_mode() {
+    fn english_letters_go_to_the_app_without_english_candidates() {
+        let english = KeyModifiers {
+            english_mode: true,
+            ..KeyModifiers::default()
+        };
+        let h = with_modifiers(0x48, 'h', english);
+        // 不给英文候选（Photoshop 画布上的 H 是抓手工具）：没在组句归应用
+        assert!(!eats_key(&h, false, false, false, false));
+        // 给英文候选：送去组英文词
+        assert!(eats_key(&h, false, false, false, true));
+        // 组句中照吃
+        assert!(eats_key(&h, true, false, false, false));
+    }
+
+    #[test]
+    fn letters_are_eaten_only_in_chinese_mode_within_grace() {
         let (caps, english) = CHINESE;
-        assert!(eats_without_server(&key(0x41, caps, english))); // A
-        assert!(!eats_without_server(&key(0x41, true, english))); // Caps 亮着是直通英文
-        assert!(!eats_without_server(&key(0x41, caps, true))); // 英文模式
+        assert!(eats_without_server(&key(0x41, caps, english), true)); // A
+        assert!(!eats_without_server(&key(0x41, true, english), true)); // Caps 亮着是直通英文
+        assert!(!eats_without_server(&key(0x41, caps, true), true)); // 英文模式
+    }
+
+    /// 宽限一过（或起不出 Server），连拼音字母也放行：死键盘比漏字母难看。
+    #[test]
+    fn nothing_is_eaten_once_the_launch_grace_expires() {
+        let (caps, english) = CHINESE;
+        assert!(!eats_without_server(&key(0x41, caps, english), false));
+        assert!(!eats_without_server(&key(0x41, false, true), false));
+        assert!(!eats_without_server(&key(0xBD, caps, english), false));
     }
 
     #[test]
     fn punctuation_digits_and_command_keys_go_to_the_app() {
         let (caps, english) = CHINESE;
         // `-`（0xBD）、数字 2、`@`：中文模式会话外都是原样交给应用的键
-        assert!(!eats_without_server(&key(0xBD, caps, english)));
-        assert!(!eats_without_server(&key(0x32, caps, english)));
-        assert!(!eats_without_server(&key(0x32, true, english)));
+        assert!(!eats_without_server(&key(0xBD, caps, english), true));
+        assert!(!eats_without_server(&key(0x32, caps, english), true));
+        assert!(!eats_without_server(&key(0x32, true, english), true));
         // Ctrl+C 这类组合键一律归应用
         let mut combo = key(0x43, caps, english);
         combo.modifiers = KeyModifiers {
             ctrl: true,
             ..combo.modifiers
         };
-        assert!(!eats_without_server(&combo));
+        assert!(!eats_without_server(&combo, true));
     }
 }

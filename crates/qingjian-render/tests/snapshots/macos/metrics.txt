@@ -1,0 +1,44 @@
+nihao-vertical-light  bitmap 652x720  content 60,60 532x600
+nihao-horizontal-light  bitmap 1195x290  content 60,60 1075x170
+cloud-vertical-light  bitmap 520x450  content 60,60 400x330
+cloud-horizontal-light  bitmap 666x290  content 60,60 546x170
+corrected-vertical-light  bitmap 520x306  content 60,60 400x186
+corrected-horizontal-light  bitmap 437x290  content 60,60 317x170
+probe-light  bitmap 569x206  content 60,60 449x86
+preedit-only-light  bitmap 520x198  content 60,60 400x78
+short-vertical-light  bitmap 520x360  content 60,60 400x240
+aux-code-vertical-light  bitmap 520x396  content 60,60 400x276
+aux-code-horizontal-light  bitmap 673x290  content 60,60 553x170
+status-light  bitmap 432x174  content 60,60 312x54  edges [153.625, 249.625, 312.0]
+nihao-vertical-dark  bitmap 652x720  content 60,60 532x600
+nihao-horizontal-dark  bitmap 1195x290  content 60,60 1075x170
+cloud-vertical-dark  bitmap 520x450  content 60,60 400x330
+cloud-horizontal-dark  bitmap 666x290  content 60,60 546x170
+corrected-vertical-dark  bitmap 520x306  content 60,60 400x186
+corrected-horizontal-dark  bitmap 437x290  content 60,60 317x170
+probe-dark  bitmap 569x206  content 60,60 449x86
+preedit-only-dark  bitmap 520x198  content 60,60 400x78
+short-vertical-dark  bitmap 520x360  content 60,60 400x240
+aux-code-vertical-dark  bitmap 520x396  content 60,60 400x276
+aux-code-horizontal-dark  bitmap 673x290  content 60,60 553x170
+status-dark  bitmap 432x174  content 60,60 312x54  edges [153.625, 249.625, 312.0]
+system-blue-nihao-vertical-light  bitmap 652x720  content 60,60 532x600
+system-blue-cloud-horizontal-light  bitmap 666x290  content 60,60 546x170
+system-blue-nihao-vertical-dark  bitmap 652x720  content 60,60 532x600
+system-blue-cloud-horizontal-dark  bitmap 666x290  content 60,60 546x170
+wechat-nihao-vertical-light  bitmap 652x720  content 60,60 532x600
+wechat-cloud-horizontal-light  bitmap 666x290  content 60,60 546x170
+wechat-nihao-vertical-dark  bitmap 652x720  content 60,60 532x600
+wechat-cloud-horizontal-dark  bitmap 666x290  content 60,60 546x170
+showcase-nihao-vertical-light  bitmap 677x740  content 60,68 549x612
+showcase-cloud-horizontal-light  bitmap 666x290  content 60,60 546x170
+showcase-nihao-vertical-dark  bitmap 677x740  content 60,68 549x612
+showcase-cloud-horizontal-dark  bitmap 666x290  content 60,60 546x170
+transition-mid  bitmap 652x720  content 60,60 532x600
+showcase-loop  bitmap 677x740  content 60,68 549x612
+nihao-vertical-light-1x  bitmap 326x360  content 30,30 266x300
+large-text-nihao-vertical-light  bitmap 806x987  content 60,60 686x867
+large-text-cloud-horizontal-light  bitmap 845x314  content 60,60 725x194
+large-candidate-nihao-vertical-light  bitmap 762x1234  content 60,60 642x1114
+large-annotation-nihao-vertical-light  bitmap 934x830  content 60,60 814x710
+large-text-status-light  bitmap 648x261  content 90,90 468x81  edges [230.4375, 374.4375, 468.0]

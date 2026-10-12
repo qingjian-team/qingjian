@@ -53,6 +53,13 @@ pub fn user_data_dir() -> Option<PathBuf> {
     Some(dir)
 }
 
+/// 用户主题目录：`~/Library/Application Support/Qingjian/themes/`，一个主题一个子目录（`<id>/theme.json`），不存在则创建。
+pub fn themes_dir() -> Option<PathBuf> {
+    let dir = user_data_dir()?.join("themes");
+    std::fs::create_dir_all(&dir).ok()?;
+    Some(dir)
+}
+
 /// 附加词库目录：`~/Library/Application Support/Qingjian/dicts/`，不存在则创建。
 pub fn dicts_dir() -> Option<PathBuf> {
     let dir = user_data_dir()?.join("dicts");

@@ -224,6 +224,22 @@ fn english_completions_appear_when_pinyin_is_unlikely() {
 }
 
 #[test]
+fn english_in_chinese_off_drops_words_and_completions_but_not_english_mode() {
+    let words =
+        WordList::parse("company\tcompany\t5600\ncompare\tcompare\t4450\nhello\thello\t1000\n")
+            .unwrap();
+    let mut engine = engine().with_english(words);
+    engine.set_english_in_chinese(false);
+    engine.set_input("compa");
+    assert!(!texts_of(&engine).iter().any(|t| t.starts_with("comp")));
+    engine.set_input("hello");
+    assert!(!texts_of(&engine).contains(&"hello".to_owned()));
+    engine.set_english_mode(true);
+    engine.set_input("comp");
+    assert_eq!(texts_of(&engine), ["company", "compare"]);
+}
+
+#[test]
 fn english_mode_suggests_from_the_word_list_and_keeps_the_typed_text() {
     let words = WordList::parse(
         "company\tcompany\t900\ncompare\tcompare\t500\nhello\thello\t1000\nhelp\thelp\t700\n",

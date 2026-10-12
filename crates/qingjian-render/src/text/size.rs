@@ -6,4 +6,7 @@ pub(crate) struct TextSize {
 
     /// 等于所用样式的行高。
     pub height: f32,
+
+    /// 第一行的基线离行框顶边多远，与画字时一样取整。
+    pub baseline: f32,
 }

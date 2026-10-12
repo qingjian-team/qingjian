@@ -27,7 +27,8 @@ public:
         setenv("XDG_STATE_HOME", (directory / "state").c_str(), 1);
         std::filesystem::create_directories(directory / "config/qingjian");
         std::ofstream(directory / "dict.tsv") << "你\tni\t100\n泥\tni\t90\n拟\tni\t80\n你好\tni hao\t100\n好\thao\t80\n开发\tkai fa\t90\n";
-        std::ofstream(directory / "config/qingjian/config.toml") << "[general]\ninput_log = true\npage_size = 2\n" << general << "\n[dictionaries]\ndomains = []\n";
+        std::ofstream(directory / "config/qingjian/config.toml") << "[general]\ninput_log = true\npage_size = 2\n" << general << "\n[dictionaries]\ndomains = []\n"
+            << "[apps]\nenglish_candidates_on = [\"*\"]\n"; // 测试程序报不出白名单里的应用名
         std::filesystem::create_directories(directory / "data/generated");
         std::ofstream(directory / "data/generated/english.tsv") << "hello\thello\t100\nhelp\thelp\t90\nheld\theld\t80\n";
         start();
