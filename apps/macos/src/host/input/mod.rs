@@ -21,6 +21,12 @@ impl Host {
             self.input_config_generation = self.input_config_generation.wrapping_add(1);
             self.update_input_indicator();
         }
+        if selected {
+            let candidates = self.effective_english_candidates();
+            self.indicator.activate(self.input.english, candidates);
+        } else {
+            self.indicator.deactivate();
+        }
     }
 
     pub fn sync_caps_lock(&mut self) {
@@ -35,8 +41,15 @@ impl Host {
         self.input.english
     }
 
+    pub fn effective_english_candidates(&self) -> bool {
+        self.input.english
+            && self.input.candidates
+            && self.english_candidates_in(self.engine.application())
+    }
+
     pub fn update_input_indicator(&mut self) {
-        self.indicator.update(self.input.english);
+        let candidates = self.effective_english_candidates();
+        self.indicator.update(self.input.english, candidates);
     }
 
     pub fn poll_input_mode(&mut self) {

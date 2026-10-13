@@ -227,6 +227,8 @@ P2C 自由生成实验：`--eval-text <集> --eval-generate data/models/hanzhang
 
 IMK 输入法，源码按 `app / host / imk / candidates / menubar / preferences` 分目录。
 
+- 只登记一个 `Hans` 系统输入模式；独立 NSStatusItem 按有效候选策略显示「中 / 英 / A」。启动与输入源通知同步显示，IMK 停用后延迟 0.5 秒检查所选输入源，仍是青简则保持显示并恢复轮询。
+
 - 输入法菜单（状态项 + 系统输入源菜单）与偏好设置窗口都是配置文件的前端：只写 `config.toml`，`Host::apply_config` 一条通路热加载，激活期间每秒看一次文件 mtime。
   输入方案（`[general] scheme`）也在这里装配：双拼 / 注音设给引擎，形码额外按 `paths::code_table_path()` 挂码表
   （用户目录 `wubi/wubi86.tsv` 优先，包里 `Resources/wubi/` 兜底；找不到只警告并按拼音跑）。

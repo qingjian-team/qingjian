@@ -196,6 +196,7 @@ pub fn init(mtm: MainThreadMarker, info: &BundleInfo) -> Result<(), HostError> {
     });
     // 配置里的开关走和菜单 / 设置窗口 / 热加载同一条通路
     with(|host| host.apply_config(false));
+    with(|host| host.sync_input_source());
     Ok(())
 }
 

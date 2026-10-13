@@ -1,12 +1,11 @@
-//! 菜单栏里的「中 / 英」状态项。
+//! 菜单栏里的「中 / 英 / A」状态项。
 //!
 //! 输入源图标（Info.plist 的 tsInputMethodIconFileKey）没法动态换，所以自己放一个 NSStatusItem。
 //! 修饰键变化由输入控制器处理，定时器补充轮询 Caps Lock 并刷新有效中英状态。
 //!
 //! 状态项一旦创建就**不再隐藏**：`setVisible(false)` 再 `setVisible(true)` 会把它重新排到菜单栏最左边，用户 ⌘ 拖到输入法图标旁的位置就丢了
 //! （固定 autosave 名也保不住），而焦点每进出一次输入框 IMK 就 deactivate / activate 一轮。
-//! 停用时改成收成零宽、清空标题，并且延迟 [`COLLAPSE_DELAY`] 再收：焦点只是在输入框之间挪的话，半秒内就会再次激活，根本收不下去；
-//! 真换到别的输入法才收起来，切回来再展开，位置一直在。
+//! 停用后延迟 [`COLLAPSE_DELAY`] 检查所选输入源：仍是青简就继续显示，换到其他输入法才收成零宽。
 
 use objc2::rc::Retained;
 use objc2::runtime::AnyObject;
@@ -33,8 +32,8 @@ pub struct ModeIndicator {
     /// 正展开着（输入法激活中）。收起时不刷新标题。
     shown: bool,
 
-    /// 上次显示的是否英文模式，避免每次轮询都重设标题。
-    english: Option<bool>,
+    /// 上次显示的有效英文与候选状态，避免每次轮询都重设标题。
+    mode: Option<(bool, bool)>,
 
     /// 云联想开着：标题带云朵，让用户一眼知道上下文会发出去。
     cloud: bool,
@@ -52,14 +51,14 @@ impl ModeIndicator {
             timer: None,
             collapse_timer: None,
             shown: false,
-            english: None,
+            mode: None,
             cloud: false,
             mtm,
         }
     }
 
     /// 输入法激活：展开状态项并开始轮询；停用时安排的收起取消。
-    pub fn activate(&mut self, english: bool) {
+    pub fn activate(&mut self, english: bool, candidates: bool) {
         if let Some(timer) = self.collapse_timer.take() {
             timer.invalidate();
         }
@@ -67,8 +66,8 @@ impl ModeIndicator {
             self.shown = true;
             self.item.setLength(NSVariableStatusItemLength);
         }
-        self.english = None;
-        self.update(english);
+        self.mode = None;
+        self.update(english, candidates);
         if self.timer.is_none() {
             let target = ModeMonitor::new(self.mtm);
             let timer = unsafe {
@@ -84,7 +83,7 @@ impl ModeIndicator {
         }
     }
 
-    /// 输入法停用：停止轮询，半秒后没再激活就收起。
+    /// 输入法停用：暂停轮询，半秒后按所选输入源决定是否收起。
     pub fn deactivate(&mut self) {
         if let Some(timer) = self.timer.take() {
             timer.invalidate();
@@ -112,7 +111,7 @@ impl ModeIndicator {
             return;
         }
         self.shown = false;
-        self.english = None;
+        self.mode = None;
         if let Some(button) = self.item.button(self.mtm) {
             button.setTitle(ns_string!(""));
         }
@@ -126,20 +125,24 @@ impl ModeIndicator {
 
     pub fn set_cloud(&mut self, cloud: bool) {
         self.cloud = cloud;
-        self.english = None;
+        self.mode = None;
     }
 
     /// 按 Host 计算的有效中英状态刷新标题；收起时不动。
-    pub fn update(&mut self, english: bool) {
+    pub fn update(&mut self, english: bool, candidates: bool) {
         if !self.shown {
             return;
         }
-        if self.english == Some(english) {
+        if self.mode == Some((english, candidates)) {
             return;
         }
-        self.english = Some(english);
+        self.mode = Some((english, candidates));
         if let Some(button) = self.item.button(self.mtm) {
-            let mode = if english { "英" } else { "中" };
+            let mode = match (english, candidates) {
+                (false, _) => "中",
+                (true, true) => "英",
+                (true, false) => "A",
+            };
             let title = if self.cloud {
                 format!("{mode} ☁︎")
             } else {
@@ -165,7 +168,14 @@ define_class!(
 
         #[unsafe(method(collapse:))]
         fn collapse(&self, _timer: Option<&AnyObject>) {
-            crate::host::with(|h| h.indicator.collapse());
+            crate::host::with(|h| {
+                if crate::app::input_source::current_is_qingjian() == Some(true) {
+                    let candidates = h.effective_english_candidates();
+                    h.indicator.activate(h.input.english, candidates);
+                } else {
+                    h.indicator.collapse();
+                }
+            });
         }
     }
 

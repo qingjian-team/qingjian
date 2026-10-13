@@ -114,7 +114,8 @@ define_class!(
                     h.reload_config_if_changed();
                     self.ivars().generation.set(h.input_config_generation);
                     let english = h.effective_english();
-                    h.indicator.activate(english);
+                    let candidates = h.effective_english_candidates();
+                    h.indicator.activate(english, candidates);
                     h.watch.start();
                 });
             });
