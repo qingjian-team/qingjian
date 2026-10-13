@@ -153,11 +153,23 @@ impl Engine {
             CandidateKind::English | CandidateKind::Shortcut | CandidateKind::Custom(_) => {
                 if candidate.kind == CandidateKind::English {
                     self.learner.record(candidate);
-                    self.learner.learn_english(&candidate.text);
+                    self.note_english_commit(&candidate.text);
                 }
                 self.whole_scope()
             }
         };
+        // BIP-39 连续命中计数：上面几条路里只有「英文候选」和「句末英文词」会经 `note_english_commit`
+        // 累计命中；其余候选（中文、形码、云端词、emoji、快捷 / 自定义候选，或者句末不是英文词的整句）
+        // 都跟「学英文词」无关，一并清零——不然中间夹一次中文上屏，之前攒的连续命中不该继续算数。
+        let noted_english = candidate.kind == CandidateKind::English
+            || (candidate.kind == CandidateKind::Sentence
+                && sentence_words
+                    .as_ref()
+                    .and_then(|words| words.last())
+                    .is_some_and(is_english_word));
+        if !noted_english {
+            self.reset_bip39_streak();
+        }
         self.apply_retraction(&input, &candidate.text);
         self.recording.clear();
         for (typed, intended) in &typos {
@@ -218,7 +230,7 @@ impl Engine {
                 Some(words) => {
                     // 句末的英文词（我想学好rust 的 rust）记进个人英文词表，和英文候选上屏一样
                     if let Some(word) = words.last().filter(|w| is_english_word(w)) {
-                        self.learner.learn_english(&word.text);
+                        self.note_english_commit(&word.text);
                     }
                     // 紧接着同一段拼音里自选的词（`jidiaole` 选了 挤，剩下的 掉了 走整句）：接缝是用户自己定的，
                     // 第一个词的转移按自选记双份。不参与两词造词：我 + 的… 这种接缝太常见、转移计数早就够了，
