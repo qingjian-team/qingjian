@@ -54,6 +54,10 @@ TSV 解析、查询与生成工具把 `lue` / `nue` 统一成 `lve` / `nve`。
   有「每个音节都完整、末尾不是落单单字母」的变体时残尾变体不参与，免得 `keyyi` 的 可以 被 `ke yi y…` 抢走），
   纠正之间比较时换位减 `TypoCosts::correction_transpose_discount`（1 nat，CLI `--tune correction-transpose=`），与原样比不减；
   2026-09-15 回放 283 词 / 23 句：词首选 89.0%、整句 82.6%，与改前持平（折扣若也用在与原样比，`zhongwne` 会误纠成 中文，整句掉一条）。
+- 整句转换的共同入口 `Engine::sentence_paths` 接收 parser 的合法切分，完整拼音优先于简拼；各切分的路径按得分合并去重，再作为同一批进入本地模型重排。
+  `xiangeiwokankan` 的 `xiang ei` 与 `xian gei` 因而共同竞争，拼音显示跟随首选的合法切分，显式单引号边界、双拼及注音解码保持约束。
+  上屏学习与云联想的本地参考共用多切分转换。先只展开原拼音与已启用的模糊音；所有参与的原读法均含占位音节或没有路径时才补敲错边。
+  整句、英文混输头段、读法比较和本地模型重排共用这条规则，避免词频或个人学习将合法的 `jian duan` 改成 `jian dan`。
 
 `EngineSession` 保存可挂起的组句、标点、历史与学习链，`Engine::swap_session` 在同一个引擎里交换输入状态，共用词库与落盘服务。切换上下文时清除查询及异步预测缓存，并由平台恢复各自私密状态。
 
@@ -121,14 +125,20 @@ Core 的 `sentence::SentenceScorer` 有两个实现，同一个 trait 拿到**�
   （配对 McNemar p=0.003，留出验证 λ 未过拟合），中位延迟 18.5 对 22.0 ms，而且同一个模型还能造词。
   字级模型没有下岗，它是移动端「光标联想」那类 `P(下一段 | 前文)` 功能的基础——P2C 的 `<eos>` 明确切断上文，结构上做不了那件事。
 
-Engine 侧在 `engine/rescoring/`：接了打分器就取 Viterbi 前 `RESCORE_PATHS` = 6 条路径按 `路径分 + λ·(神经分 − 静态二元分)` 重排（λ `NEURAL_WEIGHT` 0.5，
-个人 n-gram / 用户加分 / 代价不动）。**神经分只决定名次，不写回 `Conversion::score`**：P2C 打的是 `log P(汉字 | 拼音)`，
+Engine 侧在 `engine/rescoring/`：接了打分器就取 Viterbi 前 `RESCORE_PATHS` = 24 条路径按 `路径分 + λ·(神经分 − 静态二元分) + 整句选择加分` 重排（λ `NEURAL_WEIGHT` 0.5）。
+λ > 0 时整句搜索使用静态模型，不逐词叠加全局词频与个人 n-gram，避免在其他输入里常选的「是 / 一」挤掉「试一试」。
+整句选择加分复用 `weight_bonus`，只计相同完整按键下选过的相同文本，最多约 1.5 nat；词级排序、用户词学习与敲错代价照常保留。
+模型关闭或 λ = 0 时整句继续使用原个人插值。**神经分只决定名次，不写回 `Conversion::score`**：P2C 打的是 `log P(汉字 | 拼音)`，
 比静态分高十几二十 nat 且抬升随句长变化，写回去会污染跨读法的比较（拼写纠错的原样 vs 纠正、混输的头段 vs 整段），
 那两处的门槛都按静态尺度定；按贝叶斯展开也只在同一串按键下可比。分走「(前文, 按键) + 文本 → 神经分」缓存 `NeuralCache`（两个条件任一变了整张作废）；
 按键取的是**当前这批 patterns 覆盖的字母**而不是整个作用域——英文尾巴那条只转换 head，拿整段当条件会让它凭空背上没覆盖的字母；
 同步打分器（`with_sentence_scorer`，CLI 评测）当场补分，
 异步的（`with_async_sentence_scorer`，后台线程 `RescoreWorker`）查询不等模型：缺分的记下来，壳停键后 `request_rescoring`、`poll_rescoring` 到了再 `query` 一次。
 前文优先用壳给的应用光标前文（`set_rescoring_context`），没有用本会话最近 64 个上屏字符。CLI `--neural <导出目录>`（`--neural-weight` / `--neural-context` / `--neural-async`）。
+
+词图搜索（`sentence/viterbi/`）保留多个前驱，束宽 32；按已转换文本及前二词去重，再剪枝，避免同句子的重复分词挤掉不同中段读法。
+例如「来试一试」的路径在接上「这个新输入法好不好用」后继续参与重排。输入方式与拼写纠正的比较走 `convert_sentence_static`；
+混输中输掉的整段拼音备选也只按静态模型转换，模型缓存仅用于当前首选输入方式，避免头段与整段按键来回切换使异步评分反复失效。
 
 P2C 教师强制打分 `CharScorer::score_p2c(keys, texts)`：前缀 `<eos> + 完整拼音 + <sep>`，只累加候选字符的 log 概率（不计 EOS），
 共享拼音前缀 KV，候选批量前向；超过上下文时报错，不截断拼音。CLI 实验入口 `--eval-p2c data/models/hanzhang-tongbian/hanzhang-tongbian-small.qjm --eval-text data/eval/sentences.tsv`，

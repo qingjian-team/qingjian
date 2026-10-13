@@ -1,6 +1,11 @@
 //! 词级查找：每个位置展开成多种写法，再按这些写法查主词库与用户词。
 
-use super::*;
+use qingjian_dictionary::Match;
+
+use crate::correction::{self, typo};
+use crate::engine::{Engine, Learner};
+use crate::fuzzy::Expanded;
+use crate::parser::Segmentation;
 
 impl Engine {
     /// 每个位置的写法：敲的原样、模糊音，再加音节级敲错变体（`correction::typo`）当带代价的边，
@@ -36,11 +41,9 @@ impl Engine {
         expanded
     }
 
-    /// 本地整句转换把最优切分转成的汉字，给云端当参考（问字模式里就是问题的汉字形式）；转不出或有占位音节为空。
+    /// 本地整句转换选出最优合法读法，给云端当参考（问字模式里就是问题的汉字形式）；转不出或有占位音节为空。
     pub(in crate::engine) fn local_guess(&self, segmentations: &[Segmentation]) -> String {
-        segmentations
-            .first()
-            .and_then(|best| self.convert_sentence(&best.patterns(), true))
+        self.convert_sentence(segmentations, true)
             .filter(|conversion| !conversion.has_placeholder())
             .map(|conversion| conversion.text)
             .unwrap_or_default()
