@@ -3,6 +3,8 @@
 CLAUDE.md 只保留目录地图与规则，每个 crate / app / tool 的实现细节收在这里：入口类型、数据文件、常数、生成命令。
 改了实现要同步改这里；与代码冲突时以代码为准。
 
+`tools/offline-translate` 复用现有翻译协议提供中英双向离线后端，不改各 crate 的门面；实现、模型与验证见 [离线翻译扩展](offline-translation.md)。
+
 ## crates/qingjian-dictionary
 
 词库（TSV 解析或 `.qj` mmap），键按字节序排好，查询逐音节位置二分收窄（简拼位置按音节块跳扫），
