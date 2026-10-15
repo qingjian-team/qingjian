@@ -10,6 +10,9 @@ pub struct LastCommit {
     /// 文本的字符数：退格这么多次就算整个删掉了。
     pub chars: usize,
 
+    /// 应用里收到的最后一个字符（上屏译文时是译文的），自动空格按它判断上文。
+    pub tail: Option<char>,
+
     /// 消耗掉的那段拼音（按输入串记选择用的键）。
     pub input: String,
 
@@ -38,6 +41,7 @@ impl LastCommit {
         Self {
             text: text.to_owned(),
             chars: text.chars().count(),
+            tail: text.chars().last(),
             input: String::new(),
             chosen: None,
             transitions: Vec::new(),

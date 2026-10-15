@@ -115,6 +115,39 @@ impl Grid {
         None
     }
 
+    /// 视口滚 `delta` 行（鼠标滚轮），到头为止。高亮滚出视口时落到视口里离它最近的那一行、同一列附近。
+    /// 返回滚动后的高亮下标（可能没变）；视口没动返回 `None`。
+    pub fn scroll(
+        &mut self,
+        layout: &CandidateLayout,
+        highlighted: usize,
+        delta: isize,
+    ) -> Option<usize> {
+        let columns = layout.page_size();
+        let last_top = layout.pages().saturating_sub(GRID_ROWS);
+        let top = (self.top as isize + delta).clamp(0, last_top as isize) as usize;
+        if top == self.top {
+            return None;
+        }
+        self.top = top;
+        let (row, column) = (highlighted / columns, highlighted % columns);
+        let visible = top..top + GRID_ROWS;
+        if visible.contains(&row) {
+            return Some(highlighted);
+        }
+        let target = row.clamp(visible.start, visible.end - 1);
+        let rows: Vec<usize> = if target < row {
+            (visible.start..=target).rev().collect()
+        } else {
+            (target..visible.end.min(layout.pages())).collect()
+        };
+        Some(
+            rows.into_iter()
+                .find_map(|r| nearest_in_row(layout, r, column))
+                .unwrap_or(highlighted),
+        )
+    }
+
     /// 滚动视口让第 `row` 行可见：往上露出就让它当第一行，往下露出就让它当最后一行。
     fn reveal(&mut self, row: usize) {
         if row < self.top {
@@ -241,5 +274,20 @@ mod tests {
         assert_eq!(grid.move_cells(&layout, 5, -1), Some(4));
         assert_eq!(grid.move_cells(&layout, 6, 1), None);
         assert_eq!(grid.move_cells(&layout, 0, -1), None);
+    }
+
+    #[test]
+    fn wheel_scrolls_the_viewport_and_keeps_the_highlight_inside() {
+        let layout = layout(100, 5);
+        let mut grid = Grid::at(&layout, 0);
+        // 高亮在第 0 行第 2 列；往下滚 3 行，它被滚出去，落到视口第一行同一列
+        assert_eq!(grid.scroll(&layout, 2, 3), Some(17));
+        assert_eq!(grid.top(), 3);
+        // 往回滚一行，高亮还在视口里，不动
+        assert_eq!(grid.scroll(&layout, 17, -1), Some(17));
+        // 滚到底为止，再滚不动
+        assert!(grid.scroll(&layout, 17, 100).is_some());
+        assert_eq!(grid.top(), 20 - GRID_ROWS);
+        assert_eq!(grid.scroll(&layout, 97, 1), None);
     }
 }

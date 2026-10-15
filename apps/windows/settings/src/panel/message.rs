@@ -13,7 +13,9 @@ pub(crate) enum Message {
     ShuangpinRawPreedit(bool),
     Wubi(bool),
     Traditional(bool),
-    Emoji(bool),
+    Emoji(Option<usize>),
+    Kaomoji(Option<usize>),
+    Symbols(Option<usize>),
     EnglishCandidates(bool),
     EnglishInChinese(bool),
     ChineseFirst(bool),
@@ -59,6 +61,7 @@ pub(crate) enum Message {
     CloudBaseUrl(String),
     CloudSlots(Option<f64>),
     CloudSentence(bool),
+    CloudSentenceTranslation(bool),
     TestConnection,
     CloudTestDone(Result<String, String>),
 

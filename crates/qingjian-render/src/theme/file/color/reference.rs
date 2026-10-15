@@ -44,10 +44,7 @@ mod tests {
 
     #[test]
     fn parses_hex_and_variables() {
-        assert_eq!(
-            parse_hex("#b0ce7d7f"),
-            Some(Color::rgba(176, 206, 125, 127))
-        );
+        assert_eq!(parse_hex("#94be527f"), Some(Color::rgba(148, 190, 82, 127)));
         assert_eq!(parse_hex("#1e1e1e"), Some(Color::rgb(30, 30, 30)));
         assert_eq!(parse_hex("#12345"), None);
         assert_eq!(

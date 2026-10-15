@@ -3,7 +3,7 @@ name = "qingjian-render"
 description = "自绘渲染器：把候选窗一帧画成位图，各平台只负责贴图"
 version.workspace = true
 edition.workspace = true
-license.workspace = true
+license = "GPL-3.0-or-later OR LicenseRef-Qingjian-Commercial"
 repository.workspace = true
 
 [dependencies]

@@ -15,6 +15,12 @@ pub struct RouterConfig {
     /// 云端候选在第一页预留的格数（`[predict] slots`）。
     pub cloud_slots: usize,
 
+    /// 是否请求云端候选词和整句补全（`[predict] enabled`）。
+    pub cloud_enabled: bool,
+
+    /// 本地整句候选是否异步请求译文（`[predict] sentence_translation`）。
+    pub sentence_translation: bool,
+
     /// 中文模式下 Shift+字母收进组句缓冲区（`[general] shift_letter = "compose"`）。
     /// 关着（缺省）时壳把大写字母交给应用，与以前一致。
     pub shift_letter_compose: bool,
@@ -145,6 +151,8 @@ impl From<&Config> for RouterConfig {
         Self {
             page_size: config.general.page_size(),
             cloud_slots: config.predict.slots,
+            cloud_enabled: config.predict.enabled,
+            sentence_translation: config.predict.sentence_translation,
             shift_letter_compose: config.general.shift_letter.compose(),
             layout: config.general.layout,
             appearance: config.general.appearance(),

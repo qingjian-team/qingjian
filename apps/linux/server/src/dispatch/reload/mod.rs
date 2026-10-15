@@ -90,6 +90,12 @@ impl Router {
             .set_shift_letter_compose(config.general.shift_letter.compose());
         self.engine.set_learning(config.general.learning);
         self.engine.set_chinese_first(config.general.chinese_first);
+        self.engine
+            .set_emoji_limit(usize::from(config.general.emoji.get()));
+        self.engine
+            .set_kaomoji_limit(usize::from(config.general.kaomoji.get()));
+        self.engine
+            .set_symbol_limit(usize::from(config.general.symbols.get()));
         self.engine.set_mode_keys(config.shortcut.mode);
         if let Err(error) = self
             .engine

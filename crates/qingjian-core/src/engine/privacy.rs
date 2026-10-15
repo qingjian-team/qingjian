@@ -17,7 +17,7 @@ impl Engine {
         self.logger.set_muted(private);
         if private {
             // 在飞的云结果不能再显示，前文也不能留
-            self.prediction_sequence += 1;
+            self.cancel_prediction();
             self.rescoring_before = None;
         }
     }

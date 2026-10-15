@@ -33,6 +33,10 @@ pub fn default_config_file() -> PathBuf {
 #[derive(Debug, Parser)]
 #[command(name = "qingjian", about = "青简输入法 Core 测试工具")]
 pub struct Args {
+    /// 每次查询的 emoji 候选上限，0 关闭；缺省保持最多三个。
+    #[arg(long, default_value_t = 3, value_parser = clap::value_parser!(u8).range(0..=3))]
+    pub emoji_limit: u8,
+
     /// 词库路径（TSV）。缺省：data/generated/dict.tsv 存在就用它，否则 assets/sample/dict.tsv
     #[arg(long)]
     pub dict: Option<PathBuf>,

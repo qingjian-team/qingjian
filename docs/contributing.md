@@ -72,6 +72,11 @@
   两个跑编译的钩子按 `uname` 划平台范围：**非 Apple 平台排除 `qingjian-macos`**（IMK 壳依赖 objc2，在别的平台上是硬 `compile_error!`，
   排除不掉就整条命令失败），与 [ci.yml](../.github/workflows/ci.yml) 三个 job 的划分一致；Server 的 uiAccess 缺省不带
   （没签名的 exe 带 uiAccess=true 起不来，os error 740），只有 `build.ps1 -Sign` 设 `QINGJIAN_UIACCESS=1` 打开。
+- **在 Linux / Windows 上改 macOS 壳**：排除之后等于盲改，编译错误要到 CI 才看得到。
+  `rustup target add aarch64-apple-darwin` 一次，之后 pre-commit 在「这次提交碰了 `apps/macos/`、`crates/` 或依赖」时
+  会对 darwin 目标跑一遍 clippy（只做类型检查、不链接，与 CI 的 macOS job 同一道门；第一次约半分钟，之后一两秒）；
+  没装这个 target 的人流程不变。
+  原理与手动跑法见 [notes/crate-notes.md](notes/crate-notes.md) 的 apps/macos 一节。
 - 排序 / 整句 / 纠错的改动先跑 `apps/cli` 再合。
 
 ## CI 与发版
@@ -88,4 +93,4 @@
   PR 的「怎么验证的」写明系统版本、应用与操作步骤。编译与 CI 通过不算验证。没验过的修复发出去，报 issue 的人升级后还得再报一次。
   复现不了的（没有那个应用或系统）不提修复：把分析写在 issue 里，或者提只加日志、不改行为的 PR。
   不改行为的改动（日志、注释、文档）与有测试 / 回放兜底的 Core 逻辑不受此限。
-- 主题与自绘渲染器（`crates/qingjian-render`、各壳的贴图路径、主题文件）还在测试，这部分暂不接受 PR；稳定一版后再开。
+- `crates/qingjian-render` 是双许可（GPL-3.0-or-later 或商业许可，见该目录的 `LICENSE.md`）。**向这个目录提交改动，即表示你同意以 [MIT-0](https://opensource.org/license/mit-0) 许可你的这部分贡献**：版权仍归你，你也可以照常以任何许可在别处使用它；这样维护者才能把它一起放进 GPL 与商业许可。贡献里有别人的代码或素材时，在 PR 里写清来源与许可。仓库其他部分的贡献只按 GPL-3.0-or-later。

@@ -91,6 +91,10 @@ impl Vocabulary {
                 continue;
             };
             let frequency: f64 = frequency.trim().parse().unwrap_or(0.0);
+            // 词频 0 的是生僻字（见 lexicon），不进语言模型
+            if frequency == 0.0 {
+                continue;
+            }
             total += frequency;
             let log = (frequency + 1.0).ln();
             match ids.get(text) {

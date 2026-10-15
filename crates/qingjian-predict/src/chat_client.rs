@@ -32,6 +32,7 @@ const OPENCODE_SESSION_HEADER: &str = "x-opencode-session";
 static SESSION_ID: LazyLock<String> = LazyLock::new(|| uuid::Uuid::new_v4().to_string());
 
 /// OpenAI 兼容聊天接口的封装：一个请求进、若干联想条目出。
+#[derive(Clone)]
 pub struct ChatClient {
     /// 底层客户端。
     client: Client<OpenAIConfig>,

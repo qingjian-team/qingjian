@@ -37,6 +37,11 @@ impl TextService_Impl {
             Some(MenuChoice::Mode { english }) if english != self.mode_state.english() => {
                 self.set_english_mode(english);
             }
+            Some(MenuChoice::Server(IndicatorCommand::OpenSymbolPanel)) => {
+                self.send_indicator(IndicatorCommand::OpenSymbolPanel);
+                // 当场取一拍状态：面板开了就接着把键交给 Server，不等轮询
+                self.sync_mode_from_server();
+            }
             Some(MenuChoice::Server(command)) => self.send_indicator(command),
             _ => {}
         }

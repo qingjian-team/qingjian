@@ -1,4 +1,4 @@
-//! 悬浮状态条：桌面上常驻、可拖动的三格浮窗 `[中 / 英][，。/ ,.][⚙]`。缺省由青简渲染器画（[`super::painter`]），
+//! 悬浮状态条：桌面上常驻、可拖动的四格浮窗 `[中 / 英][，。/ ,.][符][⚙]`，「符」打开符号面板。缺省由青简渲染器画（[`super::painter`]），
 //! `renderer = "system"` 时复用分层窗口合成器与候选窗口的 GDI 主题。
 //!
 //! 按下鼠标先 `DragDetect`：挪出拖动阈值就交给系统的移动循环（`WM_NCLBUTTONDOWN` + `HTCAPTION`），
@@ -76,12 +76,16 @@ pub(super) struct StatusBar {
     painter: SharedPainter,
 }
 
-/// 三格从左到右的动作。
-const ACTIONS: [StatusAction; 3] = [
+/// 各格从左到右的动作。
+const ACTIONS: [StatusAction; 4] = [
     StatusAction::ToggleMode,
     StatusAction::TogglePunctuation,
+    StatusAction::OpenSymbolPanel,
     StatusAction::OpenSettings,
 ];
+
+/// 打开符号面板那一格的字。
+const PANEL_TEXT: &str = "符";
 
 impl StatusBar {
     /// 建一个隐藏的状态条窗口。
@@ -179,16 +183,17 @@ impl StatusBar {
         }
     }
 
-    /// 渲染器要的三格：模式（品牌色）、标点（生效时品牌色，否则灰）、齿轮。
+    /// 渲染器要的四格：模式（品牌色）、标点（生效时品牌色，否则灰）、符号面板（灰）、齿轮。
     fn status_cells(view: &StatusView) -> Vec<StatusCell> {
         vec![
             StatusCell::text(Self::mode_text(view), true),
             StatusCell::text(if view.full_width { "，。" } else { ",." }, view.full_width),
+            StatusCell::text(PANEL_TEXT, false),
             StatusCell::Gear,
         ]
     }
 
-    /// GDI 画法的三格，顺序同 [`ACTIONS`]。
+    /// GDI 画法的各格，顺序同 [`ACTIONS`]。
     fn cells(&self, theme: &Theme) -> Vec<CellSpec> {
         let data = self.data.borrow();
         let Some(view) = data.as_ref() else {
@@ -211,6 +216,12 @@ impl StatusBar {
                     theme.gloss_color
                 },
                 action: StatusAction::TogglePunctuation,
+            },
+            CellSpec {
+                text: PANEL_TEXT.to_owned(),
+                font: theme.text_font,
+                color: theme.gloss_color,
+                action: StatusAction::OpenSymbolPanel,
             },
             CellSpec {
                 text: "\u{2699}".to_owned(),

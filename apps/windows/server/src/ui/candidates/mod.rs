@@ -311,7 +311,7 @@ impl Drop for CandidateWindow {
 /// 内容左上角：贴光标下方，放不下放上方，再放不下贴屏幕内；都夹在所在显示器工作区里。
 /// `overhang` 是位图在内容区上、下伸出去的像素（投影、装饰），按主题而定：
 /// 贴下方让开上沿那截，贴上方让开下沿那截，投影才不会罩在输入行刚打的字上（微信聊天框实测）。
-fn place(anchor: RECT, content: (i32, i32), overhang: (i32, i32)) -> (i32, i32) {
+pub(super) fn place(anchor: RECT, content: (i32, i32), overhang: (i32, i32)) -> (i32, i32) {
     let work = monitor::work_area_near(POINT {
         x: anchor.left,
         y: anchor.top,

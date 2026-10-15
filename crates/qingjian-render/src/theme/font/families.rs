@@ -138,6 +138,12 @@ mod tests {
             match theme.id() {
                 // 候选宋体（mac / Windows 各一个名字），标语 Georgia 斜体
                 "sakura" => assert_eq!(families, ["Songti SC", "SimSun", "Georgia"]),
+                "dafeiyu" | "bocchi" => assert_eq!(families, ["PingFang SC", "Microsoft YaHei"]),
+                // 「01」用 Avenir Next（mac）/ Segoe UI（Windows）
+                "miku" => assert_eq!(
+                    families,
+                    ["PingFang SC", "Microsoft YaHei", "Avenir Next", "Segoe UI"]
+                ),
                 id => assert!(families.is_empty(), "{id}"),
             }
         }

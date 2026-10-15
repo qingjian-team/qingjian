@@ -2,7 +2,7 @@
 
 /// 无声调的普通话合法音节表（含 ü 写作 v / ue 两种写法；j / q / x / y 后的 `v` 是 `u` 的键盘别名，查词前经 `canonical_syllable` 归一）。
 ///
-/// 只放独立成字的音节，不含 `m` / `ng` / `hm` 这类叹词写法。按声母分组便于人工核对。
+/// 只放独立成字的音节，不含 `m` / `ng` / `hm` 这类叹词写法；`fiao`（覅）、`biang`（𰻝）是收进词库的生僻字音节。按声母分组便于人工核对。
 #[rustfmt::skip]
 pub const SYLLABLES: &[&str] = &[
     // 零声母
@@ -10,10 +10,10 @@ pub const SYLLABLES: &[&str] = &[
     "yi", "ya", "yao", "ye", "you", "yan", "yin", "yang", "ying", "yong", "yu", "yv", "yue", "yuan", "yun", "yo",
     "wu", "wa", "wo", "wai", "wei", "wan", "wen", "wang", "weng",
     // b p m f
-    "ba", "bo", "bai", "bei", "bao", "ban", "ben", "bang", "beng", "bi", "bie", "biao", "bian", "bin", "bing", "bu",
+    "ba", "bo", "bai", "bei", "bao", "ban", "ben", "bang", "beng", "bi", "bie", "biao", "bian", "biang", "bin", "bing", "bu",
     "pa", "po", "pai", "pei", "pao", "pou", "pan", "pen", "pang", "peng", "pi", "pie", "piao", "pian", "pin", "ping", "pu",
     "ma", "mo", "me", "mai", "mei", "mao", "mou", "man", "men", "mang", "meng", "mi", "mie", "miao", "miu", "mian", "min", "ming", "mu",
-    "fa", "fo", "fei", "fou", "fan", "fen", "fang", "feng", "fu",
+    "fa", "fo", "fei", "fou", "fan", "fen", "fang", "feng", "fu", "fiao",
     // d t n l
     "da", "de", "dai", "dei", "dao", "dou", "dan", "den", "dang", "deng", "dong", "di", "dia", "die", "diao", "diu", "dian", "ding", "du", "duo", "dui", "duan", "dun",
     "ta", "te", "tai", "tao", "tou", "tan", "tang", "teng", "tong", "ti", "tie", "tiao", "tian", "ting", "tu", "tuo", "tui", "tuan", "tun",
@@ -37,6 +37,9 @@ pub const SYLLABLES: &[&str] = &[
     "ca", "ce", "ci", "cai", "cao", "cou", "can", "cen", "cang", "ceng", "cong", "cu", "cuo", "cui", "cuan", "cun",
     "sa", "se", "si", "sai", "sao", "sou", "san", "sen", "sang", "seng", "song", "su", "suo", "sui", "suan", "sun",
 ];
+
+/// 只有一两个生僻字的音节。双拼里与常用音节同键时让给常用的（小狼 `bm` 是 ben 不是 biang）。
+pub const RARE_SYLLABLES: &[&str] = &["fiao", "biang"];
 
 /// 音节最长 6 个字母（zhuang / chuang / shuang）。
 pub const MAX_SYLLABLE_LEN: usize = 6;

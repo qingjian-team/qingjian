@@ -28,6 +28,22 @@ impl EmojiTable {
         Ok(Self { entries })
     }
 
+    /// 解析一行一条的表：`词\t条目`，整个第二列是一条（颜文字里有空格）；同一个词的多条按行序排。
+    pub fn parse_entries(source: &str) -> Result<Self, usize> {
+        let mut entries: HashMap<String, Vec<String>> = HashMap::new();
+        for (index, line) in source.lines().enumerate() {
+            if line.trim().is_empty() {
+                continue;
+            }
+            let (word, item) = line.split_once('\t').ok_or(index + 1)?;
+            let list = entries.entry(word.to_owned()).or_default();
+            if !list.iter().any(|e| e == item) {
+                list.push(item.to_owned());
+            }
+        }
+        Ok(Self { entries })
+    }
+
     pub fn from_path(path: impl AsRef<Path>) -> Result<Self, std::io::Error> {
         let source = std::fs::read_to_string(path)?;
         Self::parse(&source).map_err(|line| {
@@ -51,8 +67,21 @@ impl EmojiTable {
         }
     }
 
+    /// 只留 `keep` 认的条目，删空的词。
+    pub fn retain(&mut self, mut keep: impl FnMut(&str) -> bool) {
+        self.entries.retain(|_, list| {
+            list.retain(|item| keep(item));
+            !list.is_empty()
+        });
+    }
+
     pub fn lookup(&self, word: &str) -> &[String] {
         self.entries.get(word).map_or(&[], Vec::as_slice)
+    }
+
+    #[cfg(test)]
+    pub(crate) fn words(&self) -> impl Iterator<Item = &str> {
+        self.entries.keys().map(String::as_str)
     }
 
     pub fn len(&self) -> usize {
@@ -74,6 +103,17 @@ mod tests {
         assert_eq!(table.lookup("笑"), ["😄", "😆", "🤣"]);
         assert!(table.lookup("哭").is_empty());
         assert_eq!(EmojiTable::parse("坏行\n").unwrap_err(), 1);
+    }
+
+    #[test]
+    fn entries_keep_spaces_and_line_order() {
+        let mut table =
+            EmojiTable::parse_entries("开心\t( ^▽^ )\n开心\t(＾▽＾)\n哭\t(T_T)\n").unwrap();
+        assert_eq!(table.lookup("开心"), ["( ^▽^ )", "(＾▽＾)"]);
+        table.retain(|item| item != "(T_T)");
+        assert!(table.lookup("哭").is_empty());
+        assert_eq!(table.len(), 1);
+        assert_eq!(EmojiTable::parse_entries("坏行\n").unwrap_err(), 1);
     }
 
     #[test]

@@ -2,6 +2,7 @@
 
 use qingjian_render::HitTarget;
 
+use crate::composing::SentenceTranslator;
 use crate::support::*;
 
 fn poll(router: &mut Router, session: SessionId) -> (Frame, Option<String>) {
@@ -34,6 +35,28 @@ fn clicking_a_translation_commits_that_sense() {
         sense: 0,
     });
     assert_eq!(poll(&mut router, SESSION).1.as_deref(), Some("hello"));
+}
+
+#[test]
+fn clicking_a_sentence_translation_commits_it() {
+    let submitted = Arc::new(Mutex::new(Vec::new()));
+    let mut router = router_with(RouterConfig {
+        sentence_translation: true,
+        ..RouterConfig::default()
+    });
+    router
+        .engine_mut()
+        .set_predictor(Box::new(SentenceTranslator::new(submitted)));
+    let (_, _, frame) = type_letters(&mut router, "xiangkaifa");
+    let slot = slot_of(&frame, "想开发");
+    router.handle_click(HitTarget::Translation {
+        candidate: slot as usize - 1,
+        sense: 0,
+    });
+    assert_eq!(
+        poll(&mut router, SESSION).1.as_deref(),
+        Some("It seems not to work.")
+    );
 }
 
 #[test]

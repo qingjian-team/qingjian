@@ -159,7 +159,9 @@ impl Host {
             return;
         }
         self.rescore.stop();
-        if self.session.page != 0 || self.session.navigated {
+        // 符号面板开着时格子里是面板条目，不拿重排结果换掉
+        if self.session.page != 0 || self.session.navigated || self.engine.symbol_panel().is_some()
+        {
             return;
         }
         let Ok(mut query) = self.engine.query() else {

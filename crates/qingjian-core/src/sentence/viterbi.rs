@@ -314,14 +314,18 @@ fn span_candidates(
             .sum::<f64>()
     };
     // 得分先算好再排：单字母简拼的格子能命中几千条，比较器里每次查两张表会让排序占掉十几毫秒
+    // 词频 0 的生僻字不进词图，用户自己选过的除外：`keneng` 按 `ken eng` 切时有了 鞥 就会读出 肯鞥，压过敲错边读出的 可能
     let mut scored: Vec<(f64, f64, Match<'_>)> = dictionaries
         .iter()
         .flat_map(|d| d.lookup_exact_alt(span))
-        .map(|m| {
+        .filter_map(|m| {
             let seen = weight(m.text) + personal.count(m.text);
+            if m.frequency == 0 && seen == 0 {
+                return None;
+            }
             let penalty = penalty_of(&m);
-            let score = f64::from(m.frequency) * (1.0 + f64::from(seen)) * (-penalty).exp();
-            (score, penalty, m)
+            let score = f64::from(m.frequency.max(1)) * (1.0 + f64::from(seen)) * (-penalty).exp();
+            Some((score, penalty, m))
         })
         .collect();
     scored.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
@@ -546,6 +550,24 @@ mod tests {
                 _ => None,
             }
         }
+    }
+
+    #[test]
+    fn zero_frequency_words_stay_out_until_chosen() {
+        let dictionary = Dictionary::parse("肯\tken\t100\n鞥\teng\t0\n").unwrap();
+        let patterns = complete(&["ken", "eng"]);
+        assert!(unigram(&dictionary, &patterns).unwrap().has_placeholder());
+        let chosen = convert(
+            &[&dictionary],
+            &patterns,
+            &NoLanguageModel,
+            Personal::NONE,
+            |text| u32::from(text == "鞥"),
+            |_, _| 0.0,
+            &mut SpanCache::default(),
+        )
+        .unwrap();
+        assert_eq!(chosen.text, "肯鞥");
     }
 
     #[test]

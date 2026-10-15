@@ -13,7 +13,7 @@ use std::cmp::Reverse;
 
 pub use error::ParseError;
 pub use segmentation::{Segmentation, Syllable};
-pub use syllable::{INITIALS, MAX_SYLLABLE_LEN, SYLLABLES};
+pub use syllable::{INITIALS, MAX_SYLLABLE_LEN, RARE_SYLLABLES, SYLLABLES};
 
 use syllable::initial_lengths;
 use trie::SYLLABLE_TRIE;
@@ -100,11 +100,17 @@ fn prune(segmentations: &mut Vec<Segmentation>) {
     segmentations.truncate(MAX_SEGMENTATIONS);
 }
 
-/// 音节少的优先；同音节数时不完整音节少的优先；再同则前面的音节越长越优先（贪心的结果排最前）。
-fn sort_key(segmentation: &Segmentation) -> (usize, usize, Vec<Reverse<usize>>) {
+/// 音节少的优先；同音节数时不完整音节少的优先；再同则不含生僻音节的优先（`biangeng` 是 bian geng，不是 biang eng），
+/// 最后前面的音节越长越优先（贪心的结果排最前）。
+fn sort_key(segmentation: &Segmentation) -> (usize, usize, usize, Vec<Reverse<usize>>) {
     (
         segmentation.syllables.len(),
         segmentation.incomplete_count(),
+        segmentation
+            .syllables
+            .iter()
+            .filter(|s| RARE_SYLLABLES.contains(&s.text.as_str()))
+            .count(),
         segmentation
             .syllables
             .iter()
@@ -182,6 +188,14 @@ mod tests {
     fn greedy_segmentation_comes_first() {
         assert_eq!(joined("kaifa")[0], "kai fa");
         assert_eq!(joined("zhongwen")[0], "zhong wen");
+    }
+
+    #[test]
+    fn rare_syllables_yield_to_common_ones() {
+        assert_eq!(joined("biangeng")[0], "bian geng");
+        assert!(joined("biangeng").contains(&"biang eng".to_owned()));
+        assert_eq!(joined("biang")[0], "biang");
+        assert_eq!(joined("fiao")[0], "fiao");
     }
 
     #[test]

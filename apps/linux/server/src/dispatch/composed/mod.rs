@@ -141,6 +141,7 @@ impl Router {
                 aux_code_show: false,
                 sentence: None,
                 notice: self.notice.clone(),
+                symbol_panel: false,
             },
             Some(Composed::Candidates {
                 preedit,
@@ -180,6 +181,7 @@ impl Router {
                     aux_code_show: false,
                     sentence: self.sentence.clone(),
                     notice: self.notice.clone(),
+                    symbol_panel: false,
                 }
             }
         }

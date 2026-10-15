@@ -57,11 +57,16 @@ pub struct Frame {
     /// 不参与 [`is_empty`](Self::is_empty)：单有提示不算在组句，否则空组句也会撑开候选窗口。
     #[serde(default)]
     pub notice: Option<String>,
+
+    /// 符号面板开着：缓冲区可能是空的（从菜单打开），DLL 仍要把键交给 Server、照常轮询。
+    /// 面板由 Server 自绘，这一帧的候选不画。
+    #[serde(default)]
+    pub symbol_panel: bool,
 }
 
 impl Frame {
-    /// 没有在组句：DLL 据此收起候选窗口。提示不算数（见 [`notice`](Self::notice)）。
+    /// 没有在组句：DLL 据此收起候选窗口。提示不算数（见 [`notice`](Self::notice)），开着的符号面板算。
     pub fn is_empty(&self) -> bool {
-        self.preedit.is_empty() && self.candidates.items.is_empty()
+        self.preedit.is_empty() && self.candidates.items.is_empty() && !self.symbol_panel
     }
 }

@@ -73,7 +73,9 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     engine.set_shift_letter_compose(config.general.shift_letter.compose());
     engine.set_learning(config.general.learning);
     engine.set_chinese_first(config.general.chinese_first);
-    engine.set_emoji_candidates(config.general.emoji);
+    engine.set_emoji_limit(usize::from(config.general.emoji.get()));
+    engine.set_kaomoji_limit(usize::from(config.general.kaomoji.get()));
+    engine.set_symbol_limit(usize::from(config.general.symbols.get()));
     engine.set_english_in_chinese(config.general.english_in_chinese);
     engine.set_mode_keys(config.shortcut.mode);
     engine
