@@ -19,3 +19,7 @@ thiserror.workspace = true
 toml.workspace = true
 toml_edit.workspace = true
 tracing.workspace = true
+
+# Linux 的 socket 路径要按 euid 隔离私有临时目录；只有这一处用得到
+[target.'cfg(target_os = "linux")'.dependencies]
+libc = "0.2.189"

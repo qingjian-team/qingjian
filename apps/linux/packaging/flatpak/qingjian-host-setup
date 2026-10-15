@@ -1,0 +1,101 @@
+#!/bin/sh
+# 在沙箱里打印一段在**宿主机**上跑的 bash 脚本，登记 / 撤销青简 flatpak 版（都在用户目录，不用 sudo）：
+#   flatpak run app.qingjian.Qingjian | bash               登记
+#   flatpak run app.qingjian.Qingjian --uninstall | bash   撤销（flatpak uninstall 之前跑）
+# 登记的三样：IBus 组件 XML、让 IBus 看得到它的 environment.d 片段、Server 的 systemd 用户服务。
+# 直接在终端里跑（没接管道）只打印用法。
+if [ -t 1 ]; then
+  cat <<'USAGE'
+青简 flatpak 版要在宿主机上登记一次（不用 sudo）：
+  flatpak run app.qingjian.Qingjian | bash
+然后重新登录，在「设置 → 键盘 → 输入源」里添加「青简」。
+
+卸载前先撤销登记：
+  flatpak run app.qingjian.Qingjian --uninstall | bash
+  flatpak uninstall app.qingjian.Qingjian
+USAGE
+  exit 0
+fi
+
+cat <<'COMMON'
+set -e
+app=app.qingjian.Qingjian
+data="${XDG_DATA_HOME:-$HOME/.local/share}"
+config="${XDG_CONFIG_HOME:-$HOME/.config}"
+unit="$config/systemd/user/qingjian-server.service"
+component="$data/ibus/component/qingjian.xml"
+environment="$config/environment.d/qingjian-ibus.conf"
+# ibus-daemon 的注册表缓存只看缓存里记着的目录变没变，IBUS_COMPONENT_PATH 换了它不管：
+# 留着旧缓存，新加的目录（青简）可能看不到，缺了系统目录时 daemon 直接退出。登记、撤销都删掉让它重建。
+registry="${XDG_CACHE_HOME:-$HOME/.cache}/ibus/bus/registry"
+COMMON
+
+if [ "${1:-}" = --uninstall ]; then
+  cat <<'UNINSTALL'
+systemctl --user disable --now qingjian-server.service 2>/dev/null || true
+# 只删我们登记的：文件里写着 flatpak 的应用 id
+for file in "$unit" "$component" "$environment"; do
+  if [ -f "$file" ] && grep -q "$app" "$file"; then rm -f "$file"; fi
+done
+rm -f "$registry"
+systemctl --user daemon-reload
+echo '已撤销登记。接着 flatpak uninstall app.qingjian.Qingjian；学习数据在 ~/.var/app/app.qingjian.Qingjian/，要删请手动删。'
+UNINSTALL
+  exit 0
+fi
+
+cat <<'INSTALL'
+flatpak_bin=$(command -v flatpak)
+# 同名的服务 / 组件是别的装法留下的（apps/linux/scripts/install.sh 装在用户目录的那一份），两份会互相顶
+for file in "$unit" "$component"; do
+  if [ -f "$file" ] && ! grep -q "$app" "$file"; then
+    echo "已经有一份不是 flatpak 装的青简：$file；先卸载那一份（apps/linux/scripts/uninstall.sh）" >&2
+    exit 1
+  fi
+done
+mkdir -p "$(dirname "$component")" "$(dirname "$environment")" "$(dirname "$unit")"
+sed "s|@FLATPAK@|$flatpak_bin|" > "$component" <<'XML'
+INSTALL
+cat /app/share/qingjian/ibus-component.xml
+cat <<'INSTALL'
+XML
+command -v ibus-daemon >/dev/null || echo '注意：宿主机还没装 IBus（ibus-daemon），青简的 flatpak 版要靠它；装好后重新登录。' >&2
+# 只有 IBus 确实装在 /usr/local 下才换过去：登记时 IBus 可能还没装，那时两处都不存在，
+# 退到 /usr/local 的话之后装上的系统组件（dconf 配置程序）就不在路径里，ibus-daemon 起不来（Arch 上踩过）
+system_components=/usr/share/ibus/component
+if [ ! -d "$system_components" ] && [ -d /usr/local/share/ibus/component ]; then
+  system_components=/usr/local/share/ibus/component
+fi
+# IBus 不读用户目录下的组件，只认这个变量；用户目录放最前面，同名组件以前面的为准
+cat > "$environment" <<ENV
+# 青简 flatpak 版（$app）登记的，flatpak run $app --uninstall | bash 删除
+IBUS_COMPONENT_PATH=$data/ibus/component:\${IBUS_COMPONENT_PATH:-$system_components}
+ENV
+rm -f "$registry"
+# 给沙箱里的 Server 发 SIGTERM（它退出前把学习数据写盘），最多等 5 秒。按宿主机上看到的命令行找：
+# IBus 前端是 qingjian-linux-ibus，匹配不上；写进单元的不能带 $（systemd 会当变量展开），用 %U
+stop_server='/bin/sh -c "pkill -TERM -u %U -f ^/app/bin/qingjian-linux-server; timeout 5 sh -c \"while pgrep -u %U -f ^/app/bin/qingjian-linux-server >/dev/null; do sleep 0.1; done\"; true"'
+cat > "$unit" <<UNIT
+[Unit]
+# 青简 flatpak 版（$app）的 Server，两个前端里 IBus 那个连它
+Description=青简输入法 Server（flatpak）
+After=graphical-session.target
+
+[Service]
+Type=simple
+# flatpak run 把沙箱挪进它自己的 app-flatpak-….scope，不在这个服务的 cgroup 里：停服务时 systemd 只杀得到外层的 bwrap，
+# 里面的 Server 留下来占着 socket，之后起的都报 server already running（Arch 上踩过）。所以停之前自己去停 Server，
+# 起之前也清一遍（旧版单元留下的）；--die-with-parent 兜底：外层 bwrap 没了，里面跟着退。
+ExecStartPre=$stop_server
+ExecStart=$flatpak_bin run --die-with-parent --command=qingjian-server $app
+ExecStop=$stop_server
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=default.target
+UNIT
+systemctl --user daemon-reload
+systemctl --user enable --now qingjian-server.service
+echo '已登记，Server 已启动。重新登录一次（IBus 在会话开始时读组件目录），然后在「设置 → 键盘 → 输入源」里添加「青简」。'
+INSTALL

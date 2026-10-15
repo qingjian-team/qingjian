@@ -1,0 +1,5 @@
+#!/bin/sh
+# flatpak 里 Server 与 IBus 前端是两个沙箱实例，各自的 $XDG_RUNTIME_DIR 互不相通；
+# $XDG_RUNTIME_DIR/app/$FLATPAK_ID 是同一应用所有实例共享的目录，socket 放这里两边才连得上。
+export QINGJIAN_SOCKET="${XDG_RUNTIME_DIR}/app/${FLATPAK_ID}/qingjian.sock"
+exec /app/bin/qingjian-linux-ibus "$@"

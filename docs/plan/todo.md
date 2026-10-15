@@ -127,6 +127,14 @@
     data Release 传 `model.qjm`，bundle.sh / qingjian.iss 只带一个文件），待 mac 与 box 真机各装一次验加载与重排；
     密码框已按 TSF 规范做（2026-09-12）：`KEYBOARD_DISABLED` compartment 整键放行不组句，`IS_PRIVATE` / 密码 / PIN 输入范围为私密（组句但不学不记不发云端，`ClientMessage::Privacy` → `Engine::set_private`），box 真机验过：Edge 密码框整键放行；InPrivate 网页文本框报 `IS_SEARCH` 不报 `IS_PRIVATE`，私密路径只靠单测覆盖；CI 两个 job 都从 `data` Release 取 `model.qjm`（已做）。
 - [ ] Linux Fcitx5 后续（默认面板与手动安装已实现）：native Wayland 验证、Server 自绘 / GNOME 位图、神经重排、自动启动与打包；配置同步、跨平台词库
+- [~] Linux 双框架（装的时候认 fcitx5 还是 IBus，两个都支持）：IBus 前端 `apps/linux/ibus` 已能用——
+  socket 客户端、按键翻译、D-Bus 层（按键 / 焦点 / 重置 / 面板三样）都通了，对着真 ibus-daemon 验过。还差：
+  - 密码框与私密输入：`SetContentType` 的映射写了但**没验过**（测试里 IBus 一次都没调它），要找个真密码框试；验法见 [notes/linux-dual-frontend.md](../notes/linux-dual-frontend.md)
+  - 按应用设置：IBus 这条路上还没拿到应用标识，`OpenSession` 的 `app` 报 `None`，`[apps]` 分节对它不生效
+  - `focus_out` 的 `client_preedit` 现在一律报 `false`（缓冲原样上屏，同 IBus 老版本的行为），
+    应用自己画 preedit 的场合要在真机上确认该不该报 `true`
+  - ~~安装脚本按已装框架分支安装、Server 的启动策略~~：`install.sh --frontend auto` 已做，systemd 用户单元 `qingjian-server.service` 随装（`--enable-service` 顺手 enable），两个前端共用一个 Server
+  - `[general] preedit` 三档在 IBus 面板下逐个真机验（它的面板能力比 fcitx5 弱），坑见 [notes/linux-bringup.md](../notes/linux-bringup.md)
 
 ## 四、其他输入方案
 

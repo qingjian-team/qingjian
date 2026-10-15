@@ -142,7 +142,7 @@ macOS 上应避开 `⌃ + 数字`（系统切换桌面）与 `⌘ + 数字`（�
 
 两个平台相同，详见 [快捷输入](../input/shortcuts.md)。`v` 与 `u` 可在「快捷键」页改为 v、u、i 三者之一。
 
-## Linux（Fcitx5）
+## Linux
 
 单击 `Shift` 切换中英；按住 `Shift` 输入字母不会切换。`Space`、`1` 至 `9` 以及候选点击选词，
 全拼 / 双拼下 `Enter` 原样输出，`Backspace` / `Delete` 编辑，`Esc` 取消，方向键移动高亮或光标。

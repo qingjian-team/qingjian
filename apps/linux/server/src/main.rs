@@ -93,7 +93,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         libc::signal(libc::SIGTERM, stop as *const () as libc::sighandler_t);
         libc::signal(libc::SIGINT, stop as *const () as libc::sighandler_t);
     }
-    let socket = qingjian_linux_server::ipc::socket_path();
+    let socket = qingjian_platform::protocol::linux::socket_path();
     tracing::info!(path = %socket.display(), "青简 Linux Server 启动");
     qingjian_linux_server::ipc::serve_socket(socket, &mut router)?;
     Ok(())

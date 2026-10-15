@@ -1,0 +1,33 @@
+# 青简的 Flatpak 清单：Server、IBus 前端与词库。**只支持 IBus**：fcitx5 插件要装进宿主机的 fcitx5，沙箱里的够不着。
+#
+# 装的是 build.sh 编好的二进制（flatpak/assemble.sh 摆进 staging/，与本清单一起拷到 target/linux-pkg/flatpak/），
+# 不是 Flathub 那种从源码离线构建：那要把整棵 cargo 依赖树导成 cargo-sources.json 随包走，自建分发不值得。
+#
+# 输入法跑在沙箱里有两处绕不过去，都由包里的 qingjian-host-setup 打印一段宿主机脚本解决（不用 sudo）：
+# - ibus-daemon 只认 IBUS_COMPONENT_PATH 里的组件，Flatpak 导出的文件它看不到：组件 XML 放用户目录，
+#   用 environment.d 把目录加进 IBUS_COMPONENT_PATH（与 apps/linux/scripts/install.sh 同一套）；
+# - Server 要常驻：登记一个 systemd 用户服务，ExecStart 是 flatpak run。
+app-id: app.qingjian.Qingjian
+runtime: org.freedesktop.Platform
+runtime-version: '25.08'
+sdk: org.freedesktop.Sdk
+# 直接 flatpak run 打印宿主机登记脚本的用法；接管道时打印脚本本身
+command: qingjian-host-setup
+
+finish-args:
+  # IBus 总线是宿主机 ibus-daemon 起的私有 D-Bus：地址文件在 ~/.config/ibus/bus，socket 见过 ~/.cache/ibus
+  # 与 $XDG_RUNTIME_DIR/ibus 两处。只读就够：连 unix socket 不需要文件系统可写
+  - --filesystem=~/.config/ibus/bus:ro
+  - --filesystem=~/.cache/ibus:ro
+  - --filesystem=xdg-run/ibus:ro
+
+modules:
+  - name: qingjian
+    buildsystem: simple
+    build-commands:
+      - install -Dm755 -t /app/bin bin/*
+      - mkdir -p /app/share && cp -r share/qingjian /app/share/
+    sources:
+      # 相对本文件所在目录：assemble.sh 把清单拷到 target/linux-pkg/flatpak/，staging 就在它旁边
+      - type: dir
+        path: staging

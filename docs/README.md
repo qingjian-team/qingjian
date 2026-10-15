@@ -24,6 +24,9 @@ README.md 只介绍项目，所有技术内容放在这里，分四类：前三�
 | [plan/wubi.md](plan/wubi.md) | 五笔（形码）支持方案（2026-09-15）：为什么不能按双拼的方式接、两条平行管线、码表与词频、`[general] scheme` 收敛、分期 |
 | [notes/crate-notes.md](notes/crate-notes.md) | 各 crate / app / tool 的实现要点：入口类型、数据文件、常数、生成命令 |
 | [notes/linux-fcitx5.md](notes/linux-fcitx5.md) | Linux 默认面板构建、协议、安装与排错 |
+| [notes/linux-packaging.md](notes/linux-packaging.md) | Linux 发行包（2026-09-23）：`build.sh` 在容器里打 deb / rpm / flatpak，各包装了什么、能装哪些发行版、装法与限制，`smoke/run.sh` 在五个发行版的干净容器里装包自检 |
+| [notes/linux-dual-frontend.md](notes/linux-dual-frontend.md) | Linux 双前端（Fcitx5 / IBus）怎么验（2026-09-21）：能自动跑的三套、只能真会话手测的六条及其判据、现在验不了的两件事、踩过的四个坑 |
+| [notes/linux-bringup.md](notes/linux-bringup.md) | Linux 走 IBus 那次的工程记录（2026-09-14，路线已改走 Fcitx5，留作双框架支持的参考）：分层怎么切、五个只有真机才暴露的坑（总线地址 / Shift+数字 / GVariant 嵌套 / 把 `/` 当仓库根 / 锁毒化）、合成客户端验不了什么、装机验收数字 |
 | [notes/performance.md](notes/performance.md) | 历次性能优化：起因、定位方法、改法、数字前后对比与经验 |
 | [notes/release.md](notes/release.md) | 发版流程：CHANGELOG、标签触发的 CI 打包、产品数据包、签名公证的 Secrets、官网用的 `releases.json` |
 | [notes/model-identities.md](notes/model-identities.md) | 含章·通变与含章·知微的正式名称和检查点编号 |

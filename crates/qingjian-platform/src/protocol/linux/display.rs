@@ -1,6 +1,6 @@
 //! 窗口提交后回报实际完整可见的译词，索引必须属于当前帧。
 use super::DisplayIdentity;
-use qingjian_platform::protocol::SessionId;
+use crate::protocol::SessionId;
 use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DisplayAcknowledged {
