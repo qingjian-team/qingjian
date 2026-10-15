@@ -4,6 +4,7 @@ use bamboo_slip::taffy::NodeId;
 use bamboo_slip::{Button, RenderError, SettingRow, Stepper, TextField, Ui, group, section_title};
 
 use crate::message::{FieldId, Message};
+use crate::support::Feature;
 use crate::view::Page;
 use crate::view::parts::actions::with_notice;
 use crate::view::parts::controls::toggle_info;
@@ -36,18 +37,43 @@ pub fn cloud(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderErr
             Message::set("predict", "slots", slots.saturating_sub(1) as i64),
             Message::set("predict", "slots", (slots + 1) as i64),
         )?;
-    let rows = vec![
-        toggle_info(
-            ui,
-            page,
-            "启用",
-            Some("打字时把光标附近几十个字发给下面的服务，让模型补全整句、联想下文；密码框里不发"),
-            ("predict", "enabled"),
-            predict.enabled,
-            false,
-        )?,
+    let mut rows = vec![toggle_info(
+        ui,
+        page,
+        "启用",
+        Some("打字时把光标附近几十个字发给下面的服务，让模型补全整句、联想下文；密码框里不发"),
+        ("predict", "enabled"),
+        predict.enabled,
+        false,
+    )?];
+    if Feature::CloudRequestControls.here() {
+        rows.extend([
+            toggle_info(
+                ui,
+                page,
+                "自动联想",
+                Some("停键后自动请求；关掉后在组句中按配置的快捷键手动联想，默认 Ctrl + Alt + J"),
+                ("predict", "automatic"),
+                predict.automatic,
+                off,
+            )?,
+            timing(
+                ui,
+                page,
+                "debounce_ms",
+                predict.debounce_ms,
+                off || !predict.automatic,
+            )?,
+            timing(ui, page, "min_interval_ms", predict.min_interval_ms, off)?,
+        ]);
+    }
+    rows.extend([
         SettingRow::new("云端词")
-            .info("云端的词到了补进第一页末尾这几格，前面的本地候选不动")
+            .info(if Feature::CloudRequestControls.here() {
+                "自动结果补在第一页末尾，空格选本地首项；手动联想的结果放到前面的空位"
+            } else {
+                "云端的词到了补进第一页末尾这几格，前面的本地候选不动"
+            })
             .control(stepper)
             .build(ui, theme)?,
         toggle_info(
@@ -70,7 +96,7 @@ pub fn cloud(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderErr
             predict.sentence_translation,
             off,
         )?,
-    ];
+    ]);
     out.push(section_title(ui, theme, "云联想")?);
     out.push(group(ui, theme, &rows)?);
 
@@ -119,6 +145,56 @@ pub fn cloud(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderErr
     out.push(section_title(ui, theme, "服务")?);
     out.push(group(ui, theme, &rows)?);
     Ok(out)
+}
+
+/// 请求节奏用步进控件，沿用 Windows 旧设置的范围；显示已保存的值，不在建页时改写配置。
+fn timing(
+    ui: &mut Ui<Message>,
+    page: &Page,
+    key: &'static str,
+    value: u64,
+    disabled: bool,
+) -> Result<NodeId, RenderError> {
+    let (title, info, minimum, maximum, step) = match key {
+        "debounce_ms" => (
+            "停键等待",
+            "停止敲键多久后发出自动请求；继续输入会重新计时",
+            100,
+            10000,
+            100,
+        ),
+        "min_interval_ms" => (
+            "最短请求间隔",
+            "两次请求起始至少相隔多久，手动请求也计入；缓存复用不联网",
+            1000,
+            60000,
+            1000,
+        ),
+        _ => unreachable!("unknown prediction timing"),
+    };
+    let label = format!("{value} 毫秒");
+    let control = Stepper::new(&label)
+        .limits(value > minimum, value < maximum)
+        .disabled(disabled)
+        .build(
+            ui,
+            &page.theme,
+            ("predict-timing", key),
+            Message::set(
+                "predict",
+                key,
+                value.saturating_sub(step).clamp(minimum, maximum) as i64,
+            ),
+            Message::set(
+                "predict",
+                key,
+                value.saturating_add(step).clamp(minimum, maximum) as i64,
+            ),
+        )?;
+    SettingRow::new(title)
+        .info(info)
+        .control(control)
+        .build(ui, &page.theme)
 }
 
 fn field(

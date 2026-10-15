@@ -9,17 +9,19 @@ pub enum Shortcut {
     TranslationSecond,
     DeleteCandidate,
     TranslateSelection,
+    Predict,
     /// 辅码触发键（单个符号，不带修饰键）。
     AuxCodeKey,
 }
 
 impl Shortcut {
     #[cfg(test)]
-    pub const ALL: [Self; 5] = [
+    pub const ALL: [Self; 6] = [
         Self::Translation,
         Self::TranslationSecond,
         Self::DeleteCandidate,
         Self::TranslateSelection,
+        Self::Predict,
         Self::AuxCodeKey,
     ];
 
@@ -29,6 +31,7 @@ impl Shortcut {
             Self::TranslationSecond => "上屏第二个译词",
             Self::DeleteCandidate => "删除候选",
             Self::TranslateSelection => "翻译选中文字",
+            Self::Predict => "按需 AI 联想",
             Self::AuxCodeKey => "触发键",
         }
     }
@@ -40,6 +43,7 @@ impl Shortcut {
             Self::TranslationSecond => ("shortcut", "translation_second"),
             Self::DeleteCandidate => ("shortcut", "delete_candidate"),
             Self::TranslateSelection => ("shortcut", "translate_selection"),
+            Self::Predict => ("shortcut", "predict"),
             Self::AuxCodeKey => ("general", "aux_code_key"),
         }
     }
@@ -50,7 +54,7 @@ impl Shortcut {
             Self::Translation | Self::TranslationSecond | Self::DeleteCandidate => {
                 "按住修饰键再按个数字"
             }
-            Self::TranslateSelection => "按下修饰键 + 字母",
+            Self::TranslateSelection | Self::Predict => "按下修饰键 + 字母",
             Self::AuxCodeKey => "按一个符号键",
         }
     }
@@ -64,6 +68,7 @@ impl Shortcut {
             Self::TranslationSecond => digits(second),
             Self::DeleteCandidate => digits(shortcut.delete_keys()),
             Self::TranslateSelection => combo_label(shortcut.translate_selection),
+            Self::Predict => combo_label(shortcut.predict),
             Self::AuxCodeKey => config.general.aux_code_key().to_string(),
         }
     }
@@ -86,9 +91,11 @@ impl Shortcut {
                     ))
                 }
             }
-            Self::TranslateSelection => {
+            Self::TranslateSelection | Self::Predict => {
                 let key = match &press.key {
-                    KeyCode::Character(text) => single(text).filter(char::is_ascii_alphanumeric),
+                    KeyCode::Character(text) => single(text).filter(|key| {
+                        key.is_ascii_alphanumeric() || (self == Self::Predict && *key == '.')
+                    }),
                     _ => None,
                 }
                 .ok_or("要修饰键加一个字母或数字")?;
@@ -248,6 +255,25 @@ mod tests {
         assert!(
             Shortcut::AuxCodeKey
                 .accept(&press(";", alt()), &config)
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn prediction_recorder_accepts_modified_letters_and_period() {
+        let config = Config::default();
+        assert_eq!(Shortcut::Predict.config_key(), ("shortcut", "predict"));
+        assert_eq!(
+            Shortcut::Predict.accept(&press("J", alt()), &config),
+            Ok("option+j".to_owned())
+        );
+        assert_eq!(
+            Shortcut::Predict.accept(&press(".", alt()), &config),
+            Ok("option+.".to_owned())
+        );
+        assert!(
+            Shortcut::Predict
+                .accept(&press("j", Held::default()), &config)
                 .is_err()
         );
     }

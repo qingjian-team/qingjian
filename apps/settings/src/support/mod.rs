@@ -30,11 +30,13 @@ pub enum Feature {
     SystemTextReplacements,
     /// 统计页的云服务用量，测试连接也记进去。
     ApiUsage,
+    /// Windows 的手动云联想与请求节奏设置。
+    CloudRequestControls,
 }
 
 impl Feature {
     #[cfg(test)]
-    pub const ALL: [Self; 13] = [
+    pub const ALL: [Self; 14] = [
         Self::AuxCode,
         Self::SwitchKeys,
         Self::DefaultEnglish,
@@ -48,6 +50,7 @@ impl Feature {
         Self::TogglePunctuation,
         Self::SystemTextReplacements,
         Self::ApiUsage,
+        Self::CloudRequestControls,
     ];
 
     /// 当前平台显示这一项。
@@ -87,6 +90,7 @@ impl Feature {
             Self::SystemTextReplacements => [Yes, No, No],
             // Linux 的输入法还没接云服务
             Self::ApiUsage => [Yes, Yes, Todo],
+            Self::CloudRequestControls => [Todo, Yes, Todo],
         }
     }
 
@@ -107,6 +111,7 @@ impl Feature {
             Self::TogglePunctuation => "Ctrl + . 切换全半角标点",
             Self::SystemTextReplacements => "也用系统的文本替换",
             Self::ApiUsage => "云服务用量统计",
+            Self::CloudRequestControls => "按需云联想与请求节奏",
         }
     }
 
@@ -127,6 +132,12 @@ impl Feature {
             Self::HighlightKeys => &[(PageId::Shortcuts, "高亮移动键")],
             Self::TogglePunctuation => &[(PageId::Shortcuts, "Ctrl + . 切换全半角标点")],
             Self::SystemTextReplacements => &[(PageId::Phrases, "也用系统的文本替换")],
+            Self::CloudRequestControls => &[
+                (PageId::Cloud, "自动联想"),
+                (PageId::Cloud, "停键等待"),
+                (PageId::Cloud, "最短请求间隔"),
+                (PageId::Shortcuts, "按需 AI 联想"),
+            ],
             Self::EnglishPunctuation | Self::StatusBar | Self::HorizontalGrid | Self::ApiUsage => {
                 &[]
             }

@@ -33,6 +33,9 @@ impl Settings {
             "translate_selection",
             defaults.translate_selection.key_string(),
         );
+        if Feature::CloudRequestControls.here() {
+            self.write("shortcut", "predict", defaults.predict.key_string());
+        }
         if Feature::HighlightKeys.here() {
             self.write("shortcut", "highlight_keys", defaults.highlight_keys.key());
         }

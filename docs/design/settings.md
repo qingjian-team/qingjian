@@ -136,6 +136,7 @@ macOS 的切换键是 Caps Lock，由系统决定，所以不显示「切换键�
 | 上屏第二个译词 | 同上 | `shortcut.translation_second` |
 | 删除候选 | 同上 | `shortcut.delete_candidate` |
 | 翻译选中文字 | 按键（组合键） | `shortcut.translate_selection` |
+| 按需 AI 联想（Windows） | 按键（组合键） | `shortcut.predict` |
 
 页底一个「恢复默认」按钮，下面用小字列出组句中固定、不能改的键（空格、1–9、回车、Esc 等），这是全页唯一保留的一段说明文字。
 
@@ -170,6 +171,9 @@ Windows 和 Linux 以前没有这一页，这次都有了。
 |---|---|---|---|
 | 启用 | 开关 | `predict.enabled` | 打字时把光标附近几十个字发给下面的服务，密码框里不发 |
 | 云端词 | 步进 0–4，0 显示「不要」 | `predict.slots` | 补进第一页末尾这几格 |
+| 自动联想（Windows） | 开关 | `predict.automatic` | 关闭后用按需联想快捷键请求 |
+| 停键等待（Windows） | 步进 100–10000 毫秒 | `predict.debounce_ms` | 自动联想关闭时变灰 |
+| 最短请求间隔（Windows） | 步进 1000–60000 毫秒 | `predict.min_interval_ms` | 自动和手动请求共用，缓存复用不联网 |
 | 整句补全 | 开关 | `predict.sentence` | 按 Tab 采用 |
 | 接口地址 | 文本 | `predict.base_url` | |
 | 模型 | 文本 | `predict.model` | |

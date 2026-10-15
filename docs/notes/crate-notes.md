@@ -324,6 +324,8 @@ PKG_CONFIG_PATH="$onig" PKG_CONFIG_ALLOW_CROSS=1 RUSTONIG_SYSTEM_LIBONIG=1 \
 
 云联想与整句译文分别跟踪序号；整句译文保持原接线。导航后只冻结候选布局，小字整句补全仍更新并可 Tab 接受。手动请求和 TSF 保留键均受云联想总开关约束，单独开启整句译文不会启用联想快捷键。
 
+新版 `apps/settings` 的云联想节奏与录键入口登记为 Windows 支持项；旧版 WinUI 设置保留同样的配置写入。两版共用 `[predict] automatic/debounce_ms/min_interval_ms` 和 `[shortcut] predict`，不改其他平台的自动联想入口。
+
 一个产品两个 package：`server`（Server 进程：IPC 分派 + Engine + 命名管道 + 自绘候选窗与悬浮状态条）与 `tsf`（TSF 文本服务 DLL，lib 名固定 `qingjian_tsf`），
 外加 `settings`（旧版 WinUI 3 设置程序 `qingjian-settings-legacy.exe`，下个版本删）与 `installer`（Inno Setup，同时装 `apps/settings` 的 `qingjian-settings.exe`）。
 Server 侧辅码接线：`RouterConfig.aux_code_key` / `aux_code_show`（`apply_config` 热加载）、`assembly` 从随包 `codes/` 与用户 `codes/` 装码表

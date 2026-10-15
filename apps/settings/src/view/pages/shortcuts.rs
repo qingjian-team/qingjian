@@ -74,7 +74,7 @@ pub fn shortcuts(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Rende
     out.push(section_title(ui, theme, "翻页与模式")?);
     out.push(group(ui, theme, &rows)?);
 
-    let rows = vec![
+    let mut rows = vec![
         recorder(
             ui,
             page,
@@ -104,6 +104,15 @@ pub fn shortcuts(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Rende
             false,
         )?,
     ];
+    if Feature::CloudRequestControls.here() {
+        rows.push(recorder(
+            ui,
+            page,
+            Shortcut::Predict,
+            "组句中手动请求 AI 候选，默认 Ctrl + Alt + J；关闭自动联想后仍可使用",
+            false,
+        )?);
+    }
     out.push(section_title(ui, theme, "候选")?);
     out.push(group(ui, theme, &rows)?);
 
