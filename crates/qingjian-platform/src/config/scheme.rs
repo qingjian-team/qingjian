@@ -1,4 +1,4 @@
-//! 拼音侧方案：全拼 / 双拼七套 / 大千注音 / 关。配置项 `[general] scheme` 的值。
+//! 拼音侧方案：全拼 / 双拼八套 / 大千注音 / 关。配置项 `[general] scheme` 的值。
 //!
 //! 「输入方案是配置项，不是模式」：中英切换始终是布尔，换方案不改变别的方案的既定按键行为。
 //!
@@ -18,7 +18,7 @@ pub enum Scheme {
     #[default]
     Pinyin,
 
-    /// 双拼，七套键位见 [`ShuangpinScheme`]。
+    /// 双拼，八套键位见 [`ShuangpinScheme`]。
     Shuangpin(ShuangpinScheme),
 
     /// 大千注音。
@@ -30,7 +30,7 @@ pub enum Scheme {
 
 impl Scheme {
     /// 全部方案，设置界面与状态条按这个顺序列。
-    pub const ALL: [Self; 10] = [
+    pub const ALL: [Self; 11] = [
         Self::Pinyin,
         Self::Shuangpin(ShuangpinScheme::Xiaohe),
         Self::Shuangpin(ShuangpinScheme::Ziranma),
@@ -39,6 +39,7 @@ impl Scheme {
         Self::Shuangpin(ShuangpinScheme::Abc),
         Self::Shuangpin(ShuangpinScheme::Xiaolang),
         Self::Shuangpin(ShuangpinScheme::Shoudao),
+        Self::Shuangpin(ShuangpinScheme::Jiajia),
         Self::Zhuyin,
         Self::Off,
     ];
@@ -106,6 +107,16 @@ pub fn scheme_label(pinyin: Scheme, wubi: bool) -> String {
     parts.join(" + ")
 }
 
+/// 主题显示的方案名：同 [`scheme_label`]，只是单开全拼时也写出「全拼」（主题要一个总有内容的名字）。
+pub fn scheme_name(pinyin: Scheme, wubi: bool) -> String {
+    let label = scheme_label(pinyin, wubi);
+    if label.is_empty() {
+        pinyin.label().to_owned()
+    } else {
+        label
+    }
+}
+
 impl FromStr for Scheme {
     type Err = String;
 
@@ -131,6 +142,16 @@ impl fmt::Display for Scheme {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn scheme_name_always_says_something() {
+        assert_eq!(scheme_name(Scheme::Pinyin, false), "全拼");
+        assert_eq!(scheme_name(Scheme::Zhuyin, false), "大千注音");
+        assert_eq!(
+            scheme_name(Scheme::Pinyin, true),
+            scheme_label(Scheme::Pinyin, true)
+        );
+    }
 
     #[test]
     fn parses_every_key_it_prints() {

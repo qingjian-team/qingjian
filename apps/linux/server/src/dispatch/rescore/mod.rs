@@ -41,7 +41,7 @@ pub fn find_model(user_dir: Option<&Path>, bundled_root: &Path) -> Option<PathBu
 }
 
 impl Router {
-    /// 启动时：记下模型文件，按 `[model] enabled` 决定要不要加载。Linux 没有配置热加载，关了要重启服务。
+    /// 启动时：记下模型文件，按 `[model] enabled` 决定要不要加载。
     pub fn configure_local_model(
         &mut self,
         model_path: Option<PathBuf>,
@@ -52,6 +52,18 @@ impl Router {
             self.load_local_model();
         } else {
             tracing::info!("本地整句模型已关（[model] enabled = false）");
+        }
+    }
+
+    /// 热加载时 `[model]` 变了：开就后台加载，关就卸掉。
+    pub(super) fn apply_model_config(&mut self, config: &LocalModelConfig) {
+        if config.enabled {
+            self.load_local_model();
+        } else {
+            self.model_loader = None;
+            self.engine.set_async_sentence_scorer(None);
+            self.rescore.stop();
+            tracing::info!("本地整句模型已卸载（[model] enabled = false）");
         }
     }
 

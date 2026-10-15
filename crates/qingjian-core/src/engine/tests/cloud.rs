@@ -3,6 +3,22 @@
 use super::*;
 
 #[test]
+fn legacy_and_manual_triggers_keep_distinct_waiting_modes() {
+    let submitted = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
+    let mut engine = engine().with_predictor(Box::new(EchoPredictor {
+        submitted: submitted.clone(),
+        replies: Vec::new(),
+        sentence: false,
+    }));
+    engine.set_input("kaifa");
+    assert!(engine.request_prediction(None, &[]).is_some());
+    assert!(engine.request_manual_prediction(None, &[]).is_some());
+    let requests = submitted.borrow();
+    assert!(!requests[0].manual);
+    assert!(requests[1].manual);
+}
+
+#[test]
 fn question_mode_asks_the_cloud_and_shows_answers_unvalidated() {
     let submitted = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
     let answer = CloudWord {
@@ -386,6 +402,54 @@ fn question_key_answers_code_points_locally_and_keeps_question_mark_alias() {
 }
 
 #[test]
+fn question_mode_falls_back_to_an_english_word_and_skips_the_cloud() {
+    let submitted = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
+    let mut engine = engine()
+        .with_english(WordList::parse("unchanged\tunchanged\t500\n").unwrap())
+        .with_predictor(Box::new(EchoPredictor {
+            submitted: submitted.clone(),
+            replies: Vec::new(),
+            sentence: false,
+        }));
+    // u 开头的英文词：问字模式里本地给词，不当成问题发云端
+    engine.set_input("unchanged");
+    assert!(engine.question_mode());
+    let query = engine.query().unwrap();
+    assert_eq!(query.candidates.items.len(), 1);
+    assert_eq!(query.candidates.items[0].text, "unchanged");
+    assert_eq!(query.candidates.items[0].kind, CandidateKind::English);
+    assert_eq!(query.tail, "unchanged");
+    assert!(
+        engine
+            .request_prediction(None, &query.candidates.items)
+            .is_none()
+    );
+    assert!(submitted.borrow().is_empty());
+    assert_eq!(
+        engine.commit(&query.candidates.items[0].clone()),
+        "unchanged"
+    );
+    assert!(engine.composition().is_empty());
+
+    // 词表不命中仍是问字：本地零候选、问题发云端（序号在入口就递增，此时是 2）
+    engine.set_input("usangemu");
+    assert!(engine.question_mode());
+    let query = engine.query().unwrap();
+    assert!(query.candidates.items.is_empty());
+    assert_eq!(
+        engine.request_prediction(None, &query.candidates.items),
+        Some(2)
+    );
+    assert_eq!(submitted.borrow()[0].kind, PredictionKind::Question);
+
+    // 码点比英文词优先（词表里恰好有个「一」也不影响）
+    engine.set_input("u4e00");
+    let query = engine.query().unwrap();
+    assert_eq!(query.candidates.items[0].text, "一");
+    assert_eq!(query.candidates.items[0].kind, CandidateKind::Shortcut);
+}
+
+#[test]
 fn committing_a_cloud_word_learns_it_and_it_ranks_first_next_time() {
     let mut engine = engine().with_learner(Box::new(WordLearner::default()));
     engine.set_input("zt");
@@ -430,7 +494,7 @@ fn traditional_mode_preserves_original_text_across_queries() {
         }))
         .with_learner(Box::new(WordLearner::default()));
 
-    engine.set_traditional_mode(true);
+    engine.set_traditional(crate::TraditionalVariant::Taiwan);
     engine.set_input("kaifa");
     engine.request_prediction(None, &[]);
     let prediction = engine.poll_prediction().unwrap();
@@ -532,6 +596,41 @@ fn translation_requests_carry_the_text_and_target_language() {
     // 外文选区译回中文
     engine.request_translation("I want to eat.").unwrap();
     assert_eq!(sent.lock().unwrap()[1].target_language, "zh");
+}
+
+#[test]
+fn translation_does_not_discard_the_current_composition_prediction() {
+    let submitted = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
+    let mut engine = engine().with_predictor(Box::new(EchoPredictor {
+        submitted,
+        sentence: true,
+        // EchoPredictor 从末尾取结果，所以先返回翻译、再返回组句请求。
+        replies: vec![
+            Prediction {
+                sequence: 1,
+                words: Vec::new(),
+                sentence: Some("开发输入法".into()),
+            },
+            Prediction {
+                sequence: 2,
+                words: Vec::new(),
+                sentence: Some("I want to develop.".into()),
+            },
+        ],
+    }));
+    engine.set_input("xiangkaifa");
+    let candidates = engine.query().unwrap().candidates.items;
+    assert_eq!(engine.request_prediction(None, &candidates), Some(1));
+    assert_eq!(engine.request_translation("想开发"), Some(2));
+
+    assert_eq!(
+        engine.poll_prediction().unwrap().sentence.as_deref(),
+        Some("I want to develop.")
+    );
+    assert_eq!(
+        engine.poll_prediction().unwrap().sentence.as_deref(),
+        Some("开发输入法")
+    );
 }
 
 #[test]

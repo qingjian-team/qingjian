@@ -172,6 +172,9 @@ impl Engine {
             self.page_turns = 0;
             self.retype_snapshot = None;
         }
+        // 进缓冲区的字符也更新「上一个字符是不是数字」：直通了 `3` 再接着打拼音，
+        // 后面的 `.` 不该仍按小数点保持半角（组句中标点会先把候选上屏，见壳的 apply_printable）
+        self.punctuation.note_passthrough(c);
         // 中文模式下 Shift+字母（配置 `shift_letter = "compose"` 时才收）：按小写进缓冲区参与匹配
         // （`Cpan` 与 `cpan` 一样出 C盘），原样上屏（回车 / 无候选）时再还原大写。
         // 缺省关：壳把大写字母直接交给应用，根本进不到这里；英文模式与英文直输段（`no-Way`）始终保留原样。
@@ -211,6 +214,7 @@ impl Engine {
 
     pub fn clear(&mut self) {
         self.composition.clear();
+        self.panel = None;
         self.aux_code = None;
         self.chain.leave_buffer();
         // 壳给的光标前文只对这段组句有效，下一段第一键再读
@@ -218,7 +222,7 @@ impl Engine {
         self.retype_snapshot = None;
         self.composition_started = None;
         self.page_turns = 0;
-        self.traditional_map.borrow_mut().clear();
+        self.traditional.forget();
     }
 
     pub fn delete_forward(&mut self) -> bool {
@@ -374,13 +378,15 @@ impl Engine {
             self.learner.learn_english(&raw);
         }
         self.meter_commit(&raw, InputSource::Raw, english_word);
+        // 补的空格要在组句清空前判（还没上屏过时靠组句开始时的应用前文），并先于这次上屏记下
+        let lead = self.auto_space_before(&raw);
         self.composition.clear();
-        self.traditional_map.borrow_mut().clear();
+        self.traditional.forget();
         self.remember_commit(LastCommit::plain(&raw));
         self.punctuation.note_committed(&raw);
         self.history.record(&raw);
         self.chain.reset();
-        raw
+        if lead { format!(" {raw}") } else { raw }
     }
 }
 

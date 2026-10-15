@@ -2,6 +2,7 @@
 use crate::dispatch::{Router, RouterConfig};
 use qingjian_core::{CustomPhrase, Engine};
 use qingjian_dictionary::{Dictionary, WordList};
+use qingjian_platform::AppsConfig;
 use qingjian_platform::protocol::{
     ClientMessage, Frame, KeyEvent, KeyModifiers, KeyOutcome, PROTOCOL_VERSION, ServerMessage,
     SessionId,
@@ -27,6 +28,7 @@ pub(super) fn router(size: usize) -> Router {
         engine,
         RouterConfig {
             page_size: size,
+            apps: AppsConfig::with_english_candidates_on(&["*"]),
             ..Default::default()
         },
     );

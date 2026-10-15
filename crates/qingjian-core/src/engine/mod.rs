@@ -16,6 +16,7 @@ mod input_log;
 mod learning;
 mod marked;
 mod mode_keys;
+mod panel;
 mod prediction;
 mod privacy;
 mod query;
@@ -23,6 +24,7 @@ mod raw;
 mod rescoring;
 mod session;
 mod setup;
+mod spacing;
 mod statistics;
 mod timings;
 mod translator;
@@ -68,14 +70,16 @@ use crate::emoji::EmojiTable;
 use crate::english;
 use crate::fuzzy::{Expanded, FuzzyRules};
 use crate::history::InputHistory;
+use crate::panel::SymbolPanel;
 use crate::parser::{self, ParseError, Segmentation};
 use crate::punctuation::Punctuation;
 use crate::ranking::{self, Scored};
 use crate::sentence::{
-    self, Conversion, Interpolation, LanguageModel, NoLanguageModel, Personal, SentenceScorer,
+    self, Conversion, Interpolation, LanguageModel, NoLanguageModel, SentenceScorer,
 };
 use crate::shortcut;
 use crate::shuangpin::Scheme;
+use crate::traditional::Traditional;
 use crate::vietnamese::VietnameseDictionary;
 
 use commit::CommitChain;
@@ -96,6 +100,9 @@ pub struct Engine {
     /// 附加词库（领域词库、用户导入的），与主词库一起查词、一起进整句词图；不参与语言模型（它们没有 bigram，
     /// 走词频兜底）。壳按用户目录 `dicts/` 与配置 `[dictionaries]` 装配。
     extra_dictionaries: Vec<Dictionary>,
+
+    /// 内置的符号、emoji 名字（尖括号、笑死），带上 emoji 表时启用：词库里没有它们，不收就打不出这个词、也就配不上符号。
+    companion_words: Option<&'static Dictionary>,
 
     /// 英文候选的释义（英→中），缺省为 [`NoTranslator`]。英文候选的辅助语言是主语言中文，
     /// 与中文候选查学习语言的表分开，仍是「一个候选只显示一种辅助语言」。
@@ -131,8 +138,14 @@ pub struct Engine {
     /// 用户定义的固定位置文本。
     custom_phrases: Vec<crate::CustomPhrase>,
 
+    /// 中文模式下整段是英文词（或像英文词的开头）时给不给英文候选与补全（配置 `[general] english_in_chinese`，缺省开）。
+    english_in_chinese: bool,
+
     /// 中英混输时中文候选总在英文词前面（缺省关：拼音不像话的输入英文词排第一，常在中文模式里打英文词的人靠它）。
     chinese_first: bool,
+
+    /// 中西文混排自动补空格（配置 `[general] auto_space`，缺省关）。见 [`crate::spacing`]。
+    auto_space: bool,
 
     /// 中文模式下 Shift+字母进组句缓冲区（配置 `[general] shift_letter = "compose"`，缺省关）。
     /// 关着由壳直接把大写字母交给应用，Core 这一路就不该收——否则 `Cpan` 这种会被当成拼音。
@@ -208,9 +221,6 @@ pub struct Engine {
     /// 上次记 `break` 之后有没有上屏过：没有就不再记，免得失焦一次记一条。
     committed_since_break: bool,
 
-    /// 最近一次联想请求时的作用域：结果可能在上屏之后才到，日志里要记请求时的拼音。
-    last_prediction_scope: String,
-
     /// 输入统计的累计方（打了多少字）；缺省不记。
     meter: Box<dyn UsageMeter>,
 
@@ -238,11 +248,8 @@ pub struct Engine {
     /// 最近一次联想请求的序号，0 表示还没发过。
     prediction_sequence: u64,
 
-    /// 最近一次联想请求的种类：只有组句联想的结果要按拼音校验。
-    last_prediction_kind: PredictionKind,
-
-    /// 最近一次问字请求里本地把问题拼音转成的汉字，用来剔掉模型复述问题的「答案」。
-    last_question_guess: String,
+    /// 尚未返回的请求。组句联想与整句候选翻译可同时在飞，不能只记最后一条。
+    pending_predictions: HashMap<u64, prediction::PendingPrediction>,
 
     /// 连续上屏的链，个人 n-gram 与自动造词靠它。
     chain: CommitChain,
@@ -271,6 +278,24 @@ pub struct Engine {
     /// emoji 表，没有就不出 emoji 候选。
     emoji: Option<EmojiTable>,
 
+    /// 每次查询最多插几个 emoji（配置 `[general] emoji`，缺省 3）；0 不出 emoji，表照样加载。
+    emoji_limit: usize,
+
+    /// 内置的颜文字表，带上 emoji 表时一起启用。
+    kaomoji: Option<&'static EmojiTable>,
+
+    /// 每次查询最多插几个颜文字（配置 `[general] kaomoji`，缺省 1）。
+    kaomoji_limit: usize,
+
+    /// 内置的符号表，带上 emoji 表时一起启用。
+    symbols: Option<&'static EmojiTable>,
+
+    /// 每次查询最多插几个符号（配置 `[general] symbols`，缺省 1）。
+    symbol_limit: usize,
+
+    /// 打开着的符号面板；`None` 是没开。上屏与清空时关掉。
+    panel: Option<SymbolPanel>,
+
     /// 辅码态：`None` 是拼音态，`Some` 是辅码态（空串 = 刚敲下触发键、码段还没开始）。
     /// 码段不进 `composition`：它与拼音分段记账、分段画（见 [`AuxSegment`]）。
     aux_code: Option<String>,
@@ -292,14 +317,8 @@ pub struct Engine {
     /// 辅码码表，壳按用户目录 `codes/` 与配置装配；空表示没装码表（辅码态筛不出任何词）。
     aux_codes: Vec<Arc<dyn AuxCodeLookup>>,
 
-    /// 繁体输出模式。
-    traditional: bool,
-
-    /// 繁体转换器。
-    opencc: Option<ferrous_opencc::OpenCC>,
-
-    /// 繁体输出时「繁体 → 原简体」的映射，组句结束清空；学习、译词、撤销都按简体原文走。
-    traditional_map: std::cell::RefCell<HashMap<String, String>>,
+    /// 繁体输出：候选出 Core 时换成繁体、上屏时换回简体，缺省不转（见 [`crate::traditional`]）。
+    traditional: Traditional,
 }
 
 /// 形码编码最长几位（五笔四码）：混输下超过它的输入只可能是拼音。
@@ -337,9 +356,11 @@ const ENGLISH_SWITCH_PENALTY: f64 = 3.0;
 /// 英文词频的下限（Zipf）：没有词频的词按百万分之一算。
 const ENGLISH_ZIPF_FLOOR: f64 = 3.0;
 
-/// emoji 只配给前几个候选，每个词最多几个、一次最多几个。
+/// emoji、颜文字、符号只配给前几个候选，每个词最多几个、每样一次最多几个。
+/// 颜文字宽，一个词只跟一个，免得把横排撑长。
 const EMOJI_SCAN: usize = 5;
 const EMOJI_PER_WORD: usize = 2;
+const KAOMOJI_PER_WORD: usize = 1;
 const EMOJI_TOTAL: usize = 3;
 
 /// 自动造词：用户连着选出的两个词，合起来不在词库里、且这条接续已记过这么多次，就记成用户词。
@@ -396,14 +417,14 @@ pub const RESCORE_CONTEXT_CHARS: usize = 64;
 
 impl Engine {
     pub fn new(dictionary: Dictionary) -> Self {
-        let chinese_readings = chinese_readings_from_dictionaries([&dictionary]);
         Self {
             dictionary,
-            chinese_readings,
             extra_dictionaries: Vec::new(),
+            companion_words: None,
             translator: Box::new(NoTranslator),
             english_translator: Box::new(NoTranslator),
             vietnamese_translator: Box::new(NoTranslator),
+            chinese_readings: HashMap::new(),
             modes: ModeKeys::default(),
             learner: learning::MutedLearner::new(Box::new(NoLearner)),
             composition: Composition::default(),
@@ -414,7 +435,9 @@ impl Engine {
             punctuation: Punctuation::default(),
             full_width_punctuation: true,
             custom_phrases: Vec::new(),
+            english_in_chinese: true,
             chinese_first: false,
+            auto_space: false,
             shift_letter_compose: false,
             predictor: Box::new(NoPredictor),
             language_model: Box::new(NoLanguageModel),
@@ -440,7 +463,6 @@ impl Engine {
             composition_started: None,
             application: None,
             committed_since_break: false,
-            last_prediction_scope: String::new(),
             meter: Box::new(NoUsageMeter),
             vocabulary: Box::new(NoVocabularyTracker),
             gloss_filler: Box::new(NoGlossFiller),
@@ -449,8 +471,7 @@ impl Engine {
             recording: Vec::new(),
             history: InputHistory::default(),
             prediction_sequence: 0,
-            last_prediction_kind: PredictionKind::Compose,
-            last_question_guess: String::new(),
+            pending_predictions: HashMap::new(),
             chain: CommitChain::default(),
             fuzzy: FuzzyRules::default(),
             shuangpin: None,
@@ -459,15 +480,19 @@ impl Engine {
             code: None,
             phonetic: true,
             emoji: None,
+            emoji_limit: EMOJI_TOTAL,
+            kaomoji: None,
+            kaomoji_limit: 1,
+            symbols: None,
+            symbol_limit: 1,
+            panel: None,
             aux_code: None,
             aux_enabled: false,
             aux_show: false,
             aux_code_key: DEFAULT_AUX_CODE_KEY,
             aux_keep_empty: true,
             aux_codes: Vec::new(),
-            traditional: false,
-            opencc: None,
-            traditional_map: std::cell::RefCell::new(HashMap::new()),
+            traditional: Traditional::default(),
         }
     }
 }

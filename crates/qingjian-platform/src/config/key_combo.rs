@@ -12,7 +12,7 @@ pub struct KeyCombo {
     /// 修饰键，至少一个。
     pub modifiers: Modifiers,
 
-    /// 字母或数字键（小写）。
+    /// 字母、数字或句号键（小写）。
     pub key: char,
 }
 
@@ -82,18 +82,12 @@ impl FromStr for KeyCombo {
             .trim()
             .rsplit_once('+')
             .ok_or_else(|| format!("expected modifiers+key, got {text:?}"))?;
-        let key_text = key.trim();
-        let key = if key_text.eq_ignore_ascii_case("space") || key_text == " " {
-            ' '
-        } else {
-            let mut chars = key_text.chars();
-            let (Some(key), None) = (chars.next(), chars.next()) else {
-                return Err(format!("key must be a single character: {key:?}"));
-            };
-            key
+        let mut chars = key.trim().chars();
+        let (Some(key), None) = (chars.next(), chars.next()) else {
+            return Err(format!("key must be a single character: {key:?}"));
         };
-        if key != ' ' && !key.is_ascii_alphanumeric() {
-            return Err(format!("key must be a letter or digit: {key:?}"));
+        if !key.is_ascii_alphanumeric() && key != '.' {
+            return Err(format!("key must be a letter, digit or period: {key:?}"));
         }
         Ok(Self {
             modifiers: modifiers.parse()?,

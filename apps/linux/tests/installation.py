@@ -3,6 +3,7 @@
 import json
 import os
 from pathlib import Path
+import struct
 import subprocess
 import tempfile
 
@@ -24,7 +25,14 @@ with tempfile.TemporaryDirectory(prefix='qingjian-install-') as temporary:
     addon = data / 'fcitx5/addon/qingjian.conf'
     assert f'Library={prefix}/lib/fcitx5/qingjian\n' in addon.read_text()
     assert (prefix / 'bin/qingjian-linux-server').stat().st_mode & 0o111
-    assert (data / 'icons/hicolor/128x128/apps/qingjian.png').is_file()
+    # hicolor 目录名必须与 PNG 实际像素一致：1024px 源图塞进 128x128 会让不缩放的托盘（Waybar）显示巨图（#547）。
+    for size in (16, 22, 24, 32, 48, 64, 128, 256):
+        icon = data / f'icons/hicolor/{size}x{size}/apps/qingjian.png'
+        assert icon.is_file()
+        header = icon.read_bytes()[:24]
+        assert header[:8] == b'\x89PNG\r\n\x1a\n'
+        width, height = struct.unpack('>II', header[16:24])
+        assert (width, height) == (size, size), f'{icon} 实际尺寸 {width}x{height}'
     manifest = json.loads((prefix / 'share/qingjian/install-manifest.json').read_text())
     assert all(Path(filename).is_file() for filename in manifest)
     user = data / 'qingjian/user.tsv'

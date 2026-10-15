@@ -31,6 +31,7 @@ pub(super) fn language_label(language: Language) -> &'static str {
         Language::Japanese => "日语",
         Language::Spanish => "西班牙语",
         Language::Vietnamese => "越南语",
+        Language::German => "德语",
     }
 }
 
@@ -41,6 +42,13 @@ pub(super) fn page_keys_label(pair: &str) -> String {
         (Some(previous), Some(next)) => format!("{previous}   {next}"),
         _ => pair.to_owned(),
     }
+}
+
+/// 换掉弹出菜单的全部选项（列表会变的，如主题）。
+pub(super) fn set_items(popup: &NSPopUpButton, titles: &[String]) {
+    popup.removeAllItems();
+    let items: Vec<Retained<NSString>> = titles.iter().map(|t| NSString::from_str(t)).collect();
+    popup.addItemsWithTitles(&NSArray::from_retained_slice(&items));
 }
 
 pub(super) fn select(popup: &NSPopUpButton, index: Option<usize>) {

@@ -1,0 +1,280 @@
+{
+  "extends": "qingjian",
+  "schema": 1,
+  "meta": { "id": "dafeiyu", "name": "大肥鱼", "author": "青简", "license": "GPL-3.0-or-later AND LicenseRef-Character", "appearance": "light" },
+
+  "variables": {
+    "text": "#11275e",
+    "index": "#2f4f86",
+    "gloss": "#6580a7",
+    "fresh": "#2f7fd8",
+    "faint": "#9db3cf",
+    "cloud": "#3a98f4",
+    "ink": "#11275e",
+    "outline": "#3a98f4",
+    "ring": "#b3e0ff",
+    "divider": "#d3e9fb",
+    "button": "#cfe5fa"
+  },
+
+  "text": {
+    "family": ["PingFang SC", "Microsoft YaHei", "system"],
+    "styles": {
+      "candidate": { "size": 18, "line_height": 24, "weight": "medium" },
+      "annotation": { "size": 11, "line_height": 14 },
+      "index": { "size": 15, "line_height": 24 },
+      "preedit": { "size": 19, "line_height": 26, "weight": "semibold" },
+      "ui": { "size": 12, "line_height": 16 },
+      "speech": { "size": 11, "line_height": 14, "weight": "semibold" },
+      "zzz": { "size": 15, "line_height": 16, "weight": "black" },
+      "status": { "size": 14, "line_height": 18, "weight": "semibold" }
+    }
+  },
+
+  "components": {
+    "whale-rings": {
+      "type": "frame", "position": "absolute", "inset": [3.5, 3.5, 3.5, 3.5], "radius": 16.5,
+      "border": { "width": 1.5, "color": "@ring" },
+      "children": [
+        { "type": "frame", "position": "absolute", "inset": [3.5, 3.5, 3.5, 3.5], "radius": 13,
+          "border": { "width": 1.5, "color": "#ffffff" } }
+      ]
+    },
+
+    "whale-waves": {
+      "type": "frame", "position": "absolute", "inset": ["auto", 6, 5, 6], "height": 13, "opacity": 0.8,
+      "fill": { "image": "images/waves.svg" }
+    },
+
+    "whale-bubble": {
+      "type": "frame", "width": 12, "height": 12, "fill": { "image": "images/bubble.svg" },
+      "animation": { "duration": 3200, "easing": "ease-in-out",
+        "keyframes": [{ "at": 0, "y": 0 }, { "at": 0.5, "y": -3 }, { "at": 1, "y": 0 }] }
+    },
+
+    "whale-mode": {
+      "type": "frame", "children": [
+        { "type": "frame", "when": "mode.scheme", "children": [
+          { "type": "text", "bind": "mode.scheme", "font": "ui", "color": "@gloss" },
+          { "type": "text", "text": " · ", "font": "ui", "color": "@faint" }
+        ] },
+        { "type": "text", "text": "中", "when": "!mode.english", "font": "ui", "color": "@gloss" },
+        { "type": "text", "text": "英", "when": "mode.english", "font": "ui", "color": "@gloss" },
+        { "type": "text", "text": " · ", "font": "ui", "color": "@faint" },
+        { "type": "text", "text": "简", "when": "!mode.traditional", "font": "ui", "color": "@gloss" },
+        { "type": "text", "text": "繁", "when": "mode.traditional", "font": "ui", "color": "@gloss" }
+      ]
+    },
+
+    "whale-trailing": {
+      "type": "frame", "children": [
+        { "type": "icon", "icon": "cloud", "when": "trailing.cloud", "size": 13, "height": 16, "color": "@cloud", "margin": [0, 4, 0, 0] },
+        { "type": "text", "bind": "trailing.text", "when": "trailing.cloud", "font": "ui", "color": "@cloud" },
+        { "type": "text", "bind": "trailing.text", "when": "!trailing.cloud", "font": "ui", "color": "@gloss" }
+      ]
+    },
+
+    "whale-preedit": {
+      "type": "preedit", "font": "preedit", "typed": "@ink", "rest": "#6580a7", "struck": "@faint",
+      "caret": { "width": 1.5, "color": "@outline" }
+    },
+
+    "whale-highlight": {
+      "type": "frame", "id": "highlight", "transition": { "duration": 120, "easing": "ease-out" },
+      "when": "highlighted", "position": "absolute", "inset": [0, 0, 0, 0], "radius": 12,
+      "fill": { "linear": 135, "stops": ["#d6ecff", "#b3dbff"] },
+      "border": { "width": 1, "color": "#e8f8ff" },
+      "effects": [{ "type": "drop-shadow", "y": 1, "blur": 3, "color": "#3a98f430" }]
+    },
+
+    "whale-word": {
+      "type": "frame", "children": [
+        { "type": "icon", "icon": "cloud", "when": "cloud", "size": 14, "height": 24, "color": "@cloud", "margin": [0, 4, 0, 0] },
+        { "type": "text", "bind": "text", "when": "cloud", "font": "candidate", "color": "@cloud" },
+        { "type": "text", "bind": "text", "when": "!cloud", "font": "candidate", "color": "@text" },
+        { "type": "text", "bind": "code", "when": "code", "font": "annotation", "color": "@gloss", "margin": [7, 0, 0, 3] }
+      ]
+    },
+
+    "whale-item": {
+      "type": "frame", "padding": [5, 12, 6, 10], "margin": [0, 6, 0, 0],
+      "children": [
+        { "type": "use", "component": "whale-highlight" },
+        { "type": "text", "bind": "index", "font": "index", "color": "@index", "margin": [0, 6, 0, 0] },
+        { "type": "frame", "direction": "column", "children": [
+          { "type": "use", "component": "whale-word" },
+          { "type": "annotation", "bind": "annotation", "when": "annotation", "font": "annotation", "senses": 1,
+            "gloss": "@gloss", "fresh": "@fresh", "faint": "@faint", "pos": "@gloss" }
+        ] }
+      ]
+    },
+
+    "whale-row": {
+      "type": "frame", "padding": [4, 12, 5, 10], "align_self": "stretch",
+      "children": [
+        { "type": "use", "component": "whale-highlight" },
+        { "type": "text", "bind": "index", "font": "index", "color": "@index", "width": 12, "margin": [0, 8, 0, 0] },
+        { "type": "frame", "direction": "column", "children": [
+          { "type": "use", "component": "whale-word" },
+          { "type": "annotation", "bind": "annotation", "when": "annotation", "font": "annotation", "senses": 1,
+            "gloss": "@gloss", "fresh": "@fresh", "faint": "@faint", "pos": "@gloss" }
+        ] }
+      ]
+    },
+
+
+    "whale-pager": {
+      "type": "frame", "when": "page", "margin": [0, 0, 0, "auto"], "align_self": "center", "gap": 4,
+      "children": [
+        { "type": "frame", "width": 24, "height": 24, "padding": 5, "radius": 12, "fill": "#ffffff", "border": { "width": 1, "color": "@button" }, "effects": [{ "type": "drop-shadow", "y": 1, "blur": 2, "color": "#3a98f430" }], "children": [
+          { "type": "frame", "width": 14, "height": 14, "fill": { "image": "images/chevron-left.svg" } }
+        ] },
+        { "type": "frame", "width": 24, "height": 24, "padding": 5, "radius": 12, "fill": "#ffffff", "border": { "width": 1, "color": "@button" }, "effects": [{ "type": "drop-shadow", "y": 1, "blur": 2, "color": "#3a98f430" }], "children": [
+          { "type": "frame", "width": 14, "height": 14, "fill": { "image": "images/chevron-right.svg" } }
+        ] }
+      ]
+    },
+
+    "whale-speech": {
+      "type": "frame", "width": 84, "height": 63, "fill": { "image": "images/speech-bubble.svg" },
+      "children": [
+        { "type": "frame", "direction": "column", "position": "absolute", "inset": [11, "auto", "auto", 10], "children": [
+          { "type": "text", "text": "假如给我", "font": "speech", "color": "#193c7b", "margin": [0, 0, 0, 6] },
+          { "type": "text", "text": "三天多模态！", "font": "speech", "color": "#193c7b" }
+        ] }
+      ]
+    },
+
+
+    "whale-status-cell": {
+      "type": "frame",
+      "children": [
+        { "type": "frame", "when": "first", "children": [
+          { "type": "frame", "height": 26, "padding": [4, 7, 4, 7], "margin": [0, 3, 0, 3], "radius": 9, "fill": "#ffffff", "border": { "width": 1, "color": "#d6eafc" }, "effects": [{ "type": "drop-shadow", "y": 1, "blur": 2, "color": "#3a98f428" }], "children": [
+            { "type": "text", "text": "中", "when": "!mode.english", "font": "status", "color": "@ink" },
+            { "type": "text", "text": "英", "when": "mode.english", "font": "status", "color": "@ink" },
+            { "type": "frame", "width": 10, "height": 10, "margin": [5, 0, 0, 3], "fill": { "image": "images/chevron-down.svg" } }
+          ] },
+          { "type": "frame", "height": 26, "padding": [4, 7, 4, 7], "margin": [0, 3, 0, 3], "radius": 9, "fill": "#ffffff", "border": { "width": 1, "color": "#d6eafc" }, "effects": [{ "type": "drop-shadow", "y": 1, "blur": 2, "color": "#3a98f428" }], "children": [
+            { "type": "frame", "width": 16, "height": 16, "margin": [1, 0, 0, 0], "fill": { "image": "images/moon.svg" } }
+          ] }
+        ] },
+        { "type": "frame", "when": "!first", "children": [
+          { "type": "frame", "when": "!gear", "children": [
+            { "type": "frame", "height": 26, "padding": [4, 7, 4, 7], "margin": [0, 3, 0, 3], "radius": 9, "fill": "#ffffff", "border": { "width": 1, "color": "#d6eafc" }, "effects": [{ "type": "drop-shadow", "y": 1, "blur": 2, "color": "#3a98f428" }], "children": [
+              { "type": "text", "bind": "text", "font": "status",
+                "color": { "if": "emphasized", "then": "@ink", "else": "#7d93b5" } }
+            ] },
+            { "type": "frame", "height": 26, "padding": [4, 7, 4, 7], "margin": [0, 3, 0, 3], "radius": 9, "fill": "#ffffff", "border": { "width": 1, "color": "#d6eafc" }, "effects": [{ "type": "drop-shadow", "y": 1, "blur": 2, "color": "#3a98f428" }], "children": [
+              { "type": "frame", "width": 18, "height": 18, "fill": { "image": "images/keyboard.svg" } }
+            ] }
+          ] }
+        ] },
+        { "type": "frame", "when": "gear", "children": [
+          { "type": "frame", "height": 26, "padding": [4, 7, 4, 7], "margin": [0, 3, 0, 3], "radius": 9, "fill": "#ffffff", "border": { "width": 1, "color": "#d6eafc" }, "effects": [{ "type": "drop-shadow", "y": 1, "blur": 2, "color": "#3a98f428" }], "children": [
+            { "type": "frame", "width": 18, "height": 18, "fill": { "image": "images/settings.svg" } }
+          ] }
+        ] }
+      ]
+    }
+  },
+
+  "windows": {
+    "horizontal": {
+      "type": "frame", "direction": "column", "padding": [10, 18, 14, 18], "min_width": 440, "radius": 20,
+      "fill": { "linear": 170, "stops": ["#ffffff", "#e7f4ff"] },
+      "border": { "width": 2.5, "color": "@outline" },
+      "effects": [
+        { "type": "drop-shadow", "y": 6, "blur": 14, "color": "#3a98f440" },
+        { "type": "inner-shadow", "blur": 4, "color": "#ffffffcc" }
+      ],
+      "children": [
+        { "type": "use", "component": "whale-rings" },
+        { "type": "use", "component": "whale-waves" },
+
+        { "type": "frame", "padding": [2, 0, 6, 8], "align_self": "stretch", "children": [
+          { "type": "use", "component": "whale-preedit", "when": "preedit" },
+          { "type": "frame", "when": "preedit", "width": 1, "height": 16, "fill": "@divider", "margin": [5, 10, 0, 10] },
+          { "type": "use", "component": "whale-mode", "margin": [5, 0, 0, 0] },
+          { "type": "use", "component": "whale-trailing", "when": "trailing", "margin": [5, 0, 0, 14] },
+          { "type": "frame", "width": 34, "height": 24, "margin": [0, 0, 0, "auto"], "fill": { "image": "images/whale.svg" } }
+        ] },
+        { "type": "frame", "when": "candidates", "align_self": "stretch", "height": 1.5, "fill": "@divider" },
+        { "type": "frame", "when": "candidates", "align_self": "stretch", "margin": [6, 0, 4, 0], "children": [
+          { "type": "repeat", "bind": "candidates", "component": "whale-item" },
+          { "type": "use", "component": "whale-pager" }
+        ] },
+
+        { "type": "frame", "position": "absolute", "inset": [-7, "auto", "auto", 12], "width": 25, "height": 18,
+          "fill": { "image": "images/whale.svg" } },
+        { "type": "frame", "position": "absolute", "inset": [-118, 6, "auto", "auto"], "width": 252, "height": 124,
+          "fill": { "image": "images/girl-top.png", "scale": 2 } },
+        { "type": "use", "component": "whale-speech", "position": "absolute", "inset": [-112, -30, "auto", "auto"] },
+        { "type": "use", "component": "whale-bubble", "position": "absolute", "inset": [-46, 276, "auto", "auto"] },
+        { "type": "use", "component": "whale-bubble", "width": 8, "height": 8, "position": "absolute", "inset": [-62, 272, "auto", "auto"] },
+        { "type": "use", "component": "whale-bubble", "width": 9, "height": 9, "position": "absolute", "inset": [44, -5, "auto", "auto"] },
+        { "type": "use", "component": "whale-bubble", "width": 7, "height": 7, "position": "absolute", "inset": [30, "auto", "auto", -3] }
+      ]
+    },
+
+    "vertical": {
+      "type": "frame", "direction": "column", "padding": [12, 14, 18, 14], "min_width": 180, "radius": 20,
+      "fill": { "linear": 170, "stops": ["#ffffff", "#e7f4ff"] },
+      "border": { "width": 2.5, "color": "@outline" },
+      "effects": [
+        { "type": "drop-shadow", "y": 6, "blur": 14, "color": "#3a98f440" },
+        { "type": "inner-shadow", "blur": 4, "color": "#ffffffcc" }
+      ],
+      "children": [
+        { "type": "use", "component": "whale-rings" },
+        { "type": "use", "component": "whale-waves" },
+
+        { "type": "frame", "padding": [2, 0, 4, 6], "align_self": "stretch", "children": [
+          { "type": "use", "component": "whale-preedit", "when": "preedit" },
+          { "type": "frame", "margin": [0, 0, 0, "auto"] },
+          { "type": "frame", "width": 30, "height": 21, "margin": [2, 0, 0, 12], "fill": { "image": "images/whale.svg" } }
+        ] },
+        { "type": "frame", "padding": [0, 0, 6, 6], "align_self": "stretch", "children": [
+          { "type": "use", "component": "whale-trailing", "when": "trailing" },
+          { "type": "use", "component": "whale-mode", "margin": [0, 0, 0, "auto"] }
+        ] },
+        { "type": "frame", "when": "candidates", "align_self": "stretch", "height": 1.5, "fill": "@divider", "margin": [0, 4, 6, 4] },
+        { "type": "frame", "when": "candidates", "direction": "column", "align_self": "stretch", "gap": 2, "children": [
+          { "type": "repeat", "bind": "candidates", "component": "whale-row" }
+        ] },
+        { "type": "text", "bind": "page", "font": "annotation", "color": "@gloss", "align_self": "end", "margin": [4, 6, 0, 0] },
+
+        { "type": "frame", "position": "absolute", "inset": [18, -115, "auto", "auto"], "width": 120, "height": 228,
+          "fill": { "image": "images/girl-side.png", "scale": 2 } },
+        { "type": "use", "component": "whale-bubble", "width": 8, "height": 8, "position": "absolute", "inset": [70, 7, "auto", "auto"] },
+        { "type": "use", "component": "whale-bubble", "width": 6, "height": 6, "position": "absolute", "inset": ["auto", 8, 60, "auto"] },
+        { "type": "use", "component": "whale-bubble", "width": 10, "height": 10, "position": "absolute", "inset": ["auto", 10, 22, "auto"] }
+      ]
+    }
+  },
+
+  // 点击按格分区，月亮算第一格、键盘算第二格；左边趴着的人物点到也算第一格
+  "status": {
+    "root": {
+      "type": "frame", "padding": [5, 12, 5, 46], "radius": 19,
+      "fill": { "linear": 170, "stops": ["#ffffff", "#e7f4ff"] },
+      "border": { "width": 2, "color": "@outline" },
+      "effects": [{ "type": "drop-shadow", "y": 3, "blur": 8, "color": "#3a98f440" }],
+      "children": [
+        { "type": "frame", "position": "absolute", "inset": [3, 3, 3, 3], "radius": 16, "border": { "width": 1, "color": "@ring" } },
+        { "type": "frame", "position": "absolute", "inset": ["auto", "auto", -6, -96], "width": 140, "height": 73,
+          "fill": { "image": "images/girl-sleep.png", "scale": 2 } },
+        { "type": "frame", "direction": "column", "position": "absolute", "inset": [-30, "auto", "auto", -92],
+          "animation": { "duration": 2400, "easing": "ease-in-out",
+            "keyframes": [{ "at": 0, "y": 0, "opacity": 1 }, { "at": 0.5, "y": -3, "opacity": 0.6 }, { "at": 1, "y": 0, "opacity": 1 }] },
+          "children": [
+            { "type": "text", "text": "Z", "font": "zzz", "color": "#284c9a", "stroke": { "width": 1.5, "color": "#ffffff" }, "margin": [0, 0, 0, 10] },
+            { "type": "text", "text": "z", "font": { "base": "zzz", "size": 11 }, "color": "#284c9a", "stroke": { "width": 1.5, "color": "#ffffff" } }
+          ] },
+        { "type": "frame", "position": "absolute", "inset": [-9, 18, "auto", "auto"], "width": 16, "height": 16,
+          "fill": { "image": "images/heart.svg" } },
+        { "type": "repeat", "bind": "cells", "component": "whale-status-cell" }
+      ]
+    }
+  }
+}

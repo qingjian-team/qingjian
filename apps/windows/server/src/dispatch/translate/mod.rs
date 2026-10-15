@@ -108,10 +108,11 @@ impl Router {
             page: 0,
             page_count: 1,
             layout: self.config.layout,
-            theme: self.config.theme,
+            appearance: self.config.appearance,
             aux_code_show: self.config.aux_code_show,
             sentence: None,
             notice: None,
+            symbol_panel: false,
         }
     }
 }

@@ -3,7 +3,8 @@
 use super::diagnostics::{copy_to_pasteboard, open_with_system};
 use super::*;
 use crate::preferences::DEFAULT_FONT_LABEL;
-use qingjian_platform::{ShiftLetter, SwitchTarget};
+use qingjian_core::TraditionalVariant;
+use qingjian_platform::{FontSize, ShiftLetter, SwitchTarget};
 
 impl Host {
     pub fn caps_lock_switch_target(&self) -> SwitchTarget {
@@ -20,38 +21,23 @@ impl Host {
             return None;
         }
         self.caps_lock_force_english = !self.caps_lock_force_english;
-        let target = self.caps_lock_switch_target();
-        Some(target.label().to_owned())
+        Some(self.caps_lock_switch_target().label().to_owned())
     }
 
     pub fn cycle_learning_language(&mut self) -> Option<String> {
         let mut choices: Vec<Option<Language>> = self.languages.iter().copied().map(Some).collect();
         choices.push(None);
-        if choices.is_empty() {
-            return None;
-        }
         let current = self.learning_language;
-        let index = choices
-            .iter()
-            .position(|choice| *choice == current)
-            .unwrap_or(choices.len().saturating_sub(1));
+        let index = choices.iter().position(|choice| *choice == current)?;
         let next = choices[(index + 1) % choices.len()];
         let value = next.map_or(LEARNING_LANGUAGE_OFF, |language| language.code());
-        if !self
-            .settings
+        self.settings
             .set_value("general", "learning_language", value)
-        {
-            return None;
-        }
-        if let Some(target) = next.and_then(switch_target_for_learning_language) {
-            self.settings
-                .set_value("general", "switch_target", target.key());
-        }
-        self.apply_config(false);
-        Some(match next {
-            Some(language) => format!("学习语言：{}", learning_language_label(language)),
-            None => "学习语言：不显示译文".to_owned(),
-        })
+            .then(|| {
+                next.map_or("不显示译文".to_owned(), |language| {
+                    learning_language_label(language).to_owned()
+                })
+            })
     }
 
     /// 写短语前读取文件；外部规则有变化时同步列表并请用户重新确认。
@@ -129,6 +115,8 @@ impl Host {
                 }
             }
             MenuAction::OpenDownload => open_with_system(&[qingjian_update::DOWNLOAD_URL]),
+            // 要当前会话的文本客户端，控制器在 menuAction: 里先接走了
+            MenuAction::OpenSymbolPanel => {}
         }
     }
 
@@ -214,6 +202,9 @@ impl Host {
                 self.settings
                     .set_bool("general", "full_width_punctuation", index == 0);
             }
+            (Setting::PunctCommits, SettingValue::Bool(on)) => {
+                self.settings.set_bool("general", "punct_commits", on);
+            }
             (Setting::LearningLanguage, SettingValue::Index(index)) => {
                 // 菜单最后一项是「不显示译文」
                 let language = self.languages.get(index).copied();
@@ -234,9 +225,18 @@ impl Host {
                     self.settings.set_value("general", "page_keys", *pair);
                 }
             }
+            (Setting::Appearance, SettingValue::Index(index)) => {
+                if let Some(appearance) = Appearance::ALL.get(index) {
+                    self.settings
+                        .set_value("general", "appearance", appearance.key());
+                }
+            }
             (Setting::Theme, SettingValue::Index(index)) => {
-                if let Some(theme) = ThemeMode::ALL.get(index) {
-                    self.settings.set_value("general", "theme", theme.key());
+                // 与偏好设置里的列表同源：都是主题库（内置在前、用户主题按 id 排）
+                self.themes.refresh();
+                if let Some(theme) = self.themes.themes().get(index) {
+                    let id = theme.id().to_owned();
+                    self.settings.set_value("general", "theme", &id);
                 }
             }
             (Setting::Renderer, SettingValue::Index(index)) => {
@@ -254,6 +254,20 @@ impl Host {
                 if let Some(layout) = LayoutMode::ALL.get(index) {
                     self.settings.set_value("general", "layout", layout.key());
                 }
+            }
+            (Setting::CandidateFontSize, SettingValue::Text(text)) => {
+                self.set_font_size("candidate", &text, config.general.candidate_font_size);
+            }
+            (Setting::AnnotationFontSize, SettingValue::Text(text)) => {
+                self.set_font_size("annotation", &text, config.general.annotation_font_size);
+            }
+            (Setting::ResetFontSizes, _) => {
+                self.settings.set_value("general", "candidate_font_size", 0);
+                self.settings
+                    .set_value("general", "annotation_font_size", 0);
+            }
+            (Setting::Animations, SettingValue::Bool(on)) => {
+                self.settings.set_bool("general", "animations", on);
             }
             (Setting::HorizontalGrid, SettingValue::Bool(on)) => {
                 self.settings.set_bool("general", "horizontal_grid", on);
@@ -433,14 +447,26 @@ impl Host {
             (Setting::CloudSlots, SettingValue::Index(index)) => {
                 self.settings.set_value("predict", "slots", index as i64);
             }
-            (Setting::Traditional, SettingValue::Bool(on)) => {
-                self.settings.set_bool("general", "traditional", on);
-            }
             (Setting::EnglishCandidates, SettingValue::Bool(on)) => {
                 self.settings.set_bool("general", "english_candidates", on);
             }
             (Setting::ChineseFirst, SettingValue::Bool(on)) => {
                 self.settings.set_bool("general", "chinese_first", on);
+            }
+            (Setting::EnglishInChinese, SettingValue::Bool(on)) => {
+                self.settings.set_bool("general", "english_in_chinese", on);
+            }
+            (Setting::Emoji, SettingValue::Index(index)) => {
+                self.settings.set_value("general", "emoji", index as i64);
+            }
+            (Setting::Kaomoji, SettingValue::Index(index)) => {
+                self.settings.set_value("general", "kaomoji", index as i64);
+            }
+            (Setting::Symbols, SettingValue::Index(index)) => {
+                self.settings.set_value("general", "symbols", index as i64);
+            }
+            (Setting::AutoSpace, SettingValue::Bool(on)) => {
+                self.settings.set_bool("general", "auto_space", on);
             }
             (Setting::ShiftLetter, SettingValue::Bool(on)) => {
                 let mode = if on {
@@ -451,15 +477,15 @@ impl Host {
                 self.settings
                     .set_value("general", "shift_letter", mode.key());
             }
-            // 勾上写缺省的终端 / 编辑器列表，去掉写空表；手改过的列表勾一下就回缺省
-            (Setting::EnglishCandidatesOffInApps, SettingValue::Bool(on)) => {
+            // 勾上写缺省白名单，去掉写 ["*"]（处处都给）；手改过的名单勾一下就回缺省
+            (Setting::EnglishCandidatesOnlyInApps, SettingValue::Bool(on)) => {
                 let apps: toml_edit::Array = if on {
-                    DEFAULT_ENGLISH_CANDIDATES_OFF.iter().copied().collect()
+                    DEFAULT_ENGLISH_CANDIDATES_ON.iter().copied().collect()
                 } else {
-                    toml_edit::Array::new()
+                    ["*"].into_iter().collect()
                 };
                 self.settings
-                    .set_value("apps", "english_candidates_off", apps);
+                    .set_value("apps", "english_candidates_on", apps);
             }
             // 弹出菜单按 Scheme::ALL 的顺序。写的是 [general] scheme（旧键 shuangpin 已并入它）：
             // 写旧键的话，配置里 scheme 的缺省值非空、解析时优先，用户选的方案会被静默忽略。
@@ -483,6 +509,15 @@ impl Host {
             (Setting::Wubi, SettingValue::Bool(on)) => {
                 self.settings
                     .set_value("general", "wubi", if on { "wubi86" } else { "" });
+            }
+            // 弹出菜单按 TraditionalVariant::ALL 的顺序，第 0 项是简体
+            (Setting::Traditional, SettingValue::Index(index)) => {
+                let key = TraditionalVariant::ALL
+                    .get(index)
+                    .unwrap_or(&TraditionalVariant::Off)
+                    .key();
+                self.settings
+                    .set_value("general", "traditional_variant", key);
             }
             // 文本框失焦也会发 action：值没变就不写，免得每次切窗口都重写一遍配置
             (Setting::BaseUrl, SettingValue::Text(text)) => {
@@ -595,15 +630,24 @@ impl Host {
         }
         self.apply_config(false);
     }
-}
 
-fn learning_language_label(language: Language) -> &'static str {
-    match language {
-        Language::English => "英语",
-        Language::Japanese => "日语",
-        Language::Spanish => "西班牙语",
-        Language::Vietnamese => "越南语",
-        Language::Chinese => "中文",
+    /// 字号文本框（`style` 是 `candidate` / `annotation`）：框里没设过时显示主题的字号，清空或填 0 回到主题的，不限范围；
+    /// 填的不是数就不写（随后的同步把框里改回原值）。
+    fn set_font_size(&mut self, style: &str, text: &str, current: FontSize) {
+        let text = text.trim();
+        let input = if text.is_empty() {
+            None
+        } else if let Ok(size) = text.parse::<f64>() {
+            Some(size)
+        } else {
+            return;
+        };
+        let theme_id = self.settings.config().general.theme_id().to_owned();
+        let theme_size = self.themes.resolve(&theme_id, false).theme_size(style);
+        if let Some(size) = current.edited(input, theme_size) {
+            self.settings
+                .set_value("general", &format!("{style}_font_size"), size);
+        }
     }
 }
 
@@ -612,5 +656,16 @@ fn switch_target_for_learning_language(language: Language) -> Option<SwitchTarge
         Language::English => Some(SwitchTarget::English),
         Language::Vietnamese => Some(SwitchTarget::VietnameseTelex),
         _ => None,
+    }
+}
+
+fn learning_language_label(language: Language) -> &'static str {
+    match language {
+        Language::English => "英语",
+        Language::Japanese => "日语",
+        Language::Spanish => "西班牙语",
+        Language::Vietnamese => "越南语",
+        Language::German => "德语",
+        Language::Chinese => "中文",
     }
 }

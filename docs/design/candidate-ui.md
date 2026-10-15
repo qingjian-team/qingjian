@@ -102,8 +102,8 @@ collection behavior 是 CanJoinAllSpaces + FullScreenAuxiliary + Stationary。�
 | 上 / 下 | 移动高亮，到页边自动翻页；第一项再按上不动 |
 | ⌥← / ⌥→ | 按音节跳光标（边界规则同 ⌥⌫；`'` 跟着前面的音节，`Engine::move_cursor_syllable_left` / `right`）。光标在末尾发现前面的音节错了：⌥← 跳过去、⌥⌫ 删掉重敲、⌘→ 回末尾 |
 | 左 / 右、Cmd+左 / 右 | 移动拼音光标（不切模式）。光标停在中间时候选只按光标前的拼音算（`ni|hao` 出 你），上屏后剩余拼音留着、光标落到末尾；光标在开头或末尾按整段算 |
-| PageUp / PageDown、Shift+Tab、翻页键对（配置 `[general] page_keys`，缺省 `[` `]`，可选 `,` `.` 或 `-` `=`；选后者时组句中的 `-` 是翻页、不再进英文直输段） | 翻页。每页几个由 `page_size` 定（1–9） |
-| 半角标点（`is_ascii_punctuation`，翻页键除外；⇧+数字已被删候选 / 译词键截走） | 组句中敲它进入**英文直输段**：`no-way` `hello,` `dui'ma?` 整段原样显示，之后的可见字符（含数字、大写）都追加，回车原样上屏，空格原样上屏后空格本身也交给应用（`hello, world` 的空格要在），Esc 清掉。表达式 / 问字模式优先。中文模式下就能打带标点的英文句子；代价是没有了「拼音 + 标点 = 上屏候选 + 全角标点」，要先空格再打标点 |
+| PageUp / PageDown、Shift+Tab、翻页键对（配置 `[general] page_keys`，缺省 `[` `]`，可选 `,` `.` 或 `-` `=`；macOS 选后者时**没有上一页 / 下一页的 `-` `=` 落回英文直输段与字面量**，`[` `]` `,` `.` 翻不动也照旧吃键） | 翻页。每页几个由 `page_size` 定（1–9） |
+| 半角标点（会转全角的那批见 Core `punctuation::converts`，配成翻页键的除外；⇧+数字已被删候选 / 译词键截走） | 组句中分两路。**会转全角的**（`,` `.` `?` `!` `:` 等）：把高亮候选上屏、再接该全角标点，`nihao,` `dui'ma?` 一气打完「你好，」「对吗？」；数字后的 `.` 是否保持半角由 Core 判断，Windows 关掉全角转换时接半角。**不转的**（`-` `/` `@`）：进入**英文直输段**，`no-way` 整段原样显示，之后的可见字符（含数字、大写）都追加，回车原样上屏，空格原样上屏后空格本身也交给应用，Esc 清掉。表达式 / 问字模式优先。`'` 是隔音符，任何模式进缓冲区。这样有了「拼音 + 标点 = 上屏候选 + 全角标点」（`[general] punct_commits`，缺省关：会转全角的标点也进英文直输段，与以前一致）；代价是组句中打不出「字母串 + 半角标点」（`hello, world` 改用英文模式，或 Windows 关掉全角转换） |
 | Tab | 有整句补全（云联想）时接受它；没有则翻页 |
 | 修饰键 + 数字（⌥ / ⇧⌥ 上屏译词、⇧ 删候选） | **只在组句中认**。不在组句时 ⇧4 就是普通的 `$`，走中文标点规则出 ￥（⇧1 ！、⇧6 ……、⇧9 ⇧0 （ ））；曾经在这里被截走后原样还给应用，全角转换就漏了 |
 | 按住 Shift 打的大写字母 | 进拼音缓冲区，与小写一样参与匹配（`⇧C` + `pan` → C盘），拼音行按敲的样子显示大写；原样上屏（回车 / 无候选）时还原大写。macOS 壳仍是「先把拼音原样上屏，再把这个大写字母交给应用」 |
@@ -154,10 +154,13 @@ Caps Lock 亮着（英文模式）敲字母时也组词：字母（以及组词�
 但测试者按直觉都拿空格和数字选词，2026-09-16 改成与中文一致。Esc 清掉，退格删字母。英文模式不发云联想；回车原样上屏也不记「不纠这个串」。
 组词中 Caps Lock 灭了先把字母原样上屏。配置 `[general] english_candidates = false` 关掉候选，回到纯直通；偏好设置里有勾选框。
 
-**按应用关**：终端与代码编辑器里英文候选窗口会挡住应用自己的补全，vim / nano 里 Tab 和方向键又另有含义，所以 `[apps] english_candidates_off`
-列出的应用（按 IMK 客户端的 `bundleIdentifier` 认，`*` 结尾按前缀匹配）里英文模式是纯直通。缺省名单是 Terminal / iTerm / Warp / Ghostty /
-Alacritty / kitty / VS Code / Cursor / Zed / JetBrains 全家 / MacVim / Sublime / Xcode / Neovide；偏好设置「通用」页一个勾选框：勾上写缺省名单、
-去掉写空表，改过名单的勾一下就回缺省。全局开关关着时这一项不起作用。开着详细日志时切到应用会把它的 bundle identifier 记进日志，往名单里加就照抄。
+**按应用给（白名单）**：只有 `[apps] english_candidates_on` 列出的应用（macOS 按 IMK 客户端的 `bundleIdentifier`、Windows 按宿主 exe 名、
+Linux 按 Fcitx5 的应用名，`*` 结尾按前缀匹配）里英文模式给候选，其余是纯直通，字母原样交给应用。缺省名单是浏览器、聊天、办公与笔记这类写成段文字的应用。
+2026-10-10 从黑名单（`english_candidates_off` 列终端 / 编辑器）改成白名单：Photoshop 画布上的 W / H / V 单键快捷键被英文组词吞掉，
+设计、3D、CAD、视频剪辑、游戏都靠单键快捷键，黑名单列不完，而英文补全只在写成段文字的地方有用。
+`english_candidates_off` 留作排除：`english_candidates_on = ["*"]` 处处都给，再排除几个。认不出应用时只有 `"*"` 给。
+偏好设置「通用」页一个勾选框「只在浏览器、聊天和文档类应用里给」：勾上写缺省白名单、去掉写 `["*"]`，改过名单的勾一下就回缺省。
+全局开关关着时这一项不起作用。开着详细日志时切到应用会把它的 bundle identifier 记进日志，往名单里加就照抄。
 `[apps]` 分节以后按应用定 preedit 模式等也放这里。
 
 **个人英文词表**（`user-english.tsv`，`词\t次数`）：随包词表只有两万多词，`gist`、`kubectl` 这类不在里面的词以前永远出不了候选。
@@ -186,8 +189,8 @@ CLI 用 `--fuzzy z-zh,n-l` 或 `--fuzzy all` 临时开。
 
 ### 双拼（默认关，`[general] shuangpin`）
 
-七套方案：小鹤（`xiaohe`）、自然码（`ziranma`）、微软（`microsoft`）、搜狗（`sogou`）、智能ABC（`abc`）、小浪（`xiaolang`）、首道（`shoudao`）。键位表在 Core `shuangpin::table`，
-按 Rime 的 `double_pinyin*.schema.yaml` 核对（搜狗来自 rime-ice 的整理，小浪来自用户提供的搜狗小浪双拼与 Rime 配置，智能ABC 按公开键位资料核对，首道按作者仓库 shoudaoshuangpin/shoudaoshouyouplus 的键位图、并与万象拼音的拼写运算对过），每套方案对全部音节做往返测试；微软与搜狗只差微软的 `v` 键兼作 üe。
+八套方案：小鹤（`xiaohe`）、自然码（`ziranma`）、微软（`microsoft`）、搜狗（`sogou`）、智能ABC（`abc`）、小浪（`xiaolang`）、首道（`shoudao`）、拼音加加（`jiajia`）。键位表在 Core `shuangpin::table`，
+按 Rime 的 `double_pinyin*.schema.yaml` 核对（搜狗来自 rime-ice 的整理，小浪来自用户提供的搜狗小浪双拼与 Rime 配置，智能ABC 按公开键位资料核对，首道按作者仓库 shoudaoshuangpin/shoudaoshouyouplus 的键位图、并与万象拼音的拼写运算对过，拼音加加以 Rime `double_pinyin_pyjj.schema.yaml`、fcitx5 libime `PinyinJiajia` 与公开键位图三方核对），每套方案对全部音节做往返测试；微软与搜狗只差微软的 `v` 键兼作 üe。
 开着时缓冲区里存的仍是敲的键，Engine 在切分前把键两两配对解成全拼（音节之间自动带 `'`，没有切分歧义），
 之后查词、整句、云联想、学习全部走全拼那一套：拼音行显示解出来的全拼（`nihc` → `ni'hao`），学习按全拼记（`user-choices.tsv` 的键与全拼共用，切回全拼也受益），
 上屏消耗按「候选盖住几个音节、每个音节几个键」换算回缓冲区（`kdfave` 选 开发 吃掉 4 个键，剩 `ve`）。
@@ -320,7 +323,7 @@ Core 按 `prediction::restates_question` 剔掉：与本地转出的问题相同
 macOS 上如果系统开了「使用大写锁定键切换 ABC 输入法」，按键会直接切到 ABC 输入源，我们收到 deactivate、
 收窗即可，两条路都能得到小写英文。
 
-中文标点：`, . ? ! : ; ( ) [ ] < > \ ^ _ $ ~` 转全角，`"` `'` 成对切换；数字后的 `.` 保持半角。
+中文标点：`, . ? ! : ; ( ) [ ] { } < > \ ^ _ $ ~` 转全角，`{` `}`（⇧+`[` / ⇧+`]` 产生的字符）出直角引号「」，`"` `'` 成对切换；数字后的 `.` 保持半角。
 `-` `=` 不转换，但**由壳自己插入**、不走放行：Windows 上放行要等宿主把键交回应用，实测在部分宿主（Edge / QQ 等）
 里这个键到不了应用，表现为「中文模式按 `-` 没反应」；插入与全角标点同一条路（`dispatch/key/input.rs` 的
 `apply_punctuation`），一定是半角的 `-` `=`。

@@ -30,10 +30,9 @@ use qingjian_learning::{FrequencyLearner, InputLog, UsageStats, VocabularyBook};
 use qingjian_lm::BigramModel;
 use qingjian_platform::extra_dictionaries;
 use qingjian_platform::{
-    AppsConfig, CandidateRenderer, DEFAULT_ENGLISH_CANDIDATES_OFF, DictionariesConfig,
+    Appearance, AppsConfig, CandidateRenderer, DEFAULT_ENGLISH_CANDIDATES_ON, DictionariesConfig,
     GeneralConfig, KeyCombo, LEARNING_LANGUAGE_OFF, LayoutMode, LocalModelConfig, LogLevel,
-    Modifiers, PAGE_KEY_OPTIONS, PreeditMode, Scheme, ShortcutConfig, SwitchTarget, ThemeMode,
-    UpdateChannel,
+    Modifiers, PAGE_KEY_OPTIONS, PreeditMode, Scheme, ShortcutConfig, SwitchTarget, UpdateChannel,
 };
 use qingjian_predict::{
     CloudGlossFiller, CloudPredictor, ConnectionTest, PredictConfig, PredictError,
@@ -78,6 +77,9 @@ pub struct Host {
     /// 配置文件监视定时器，激活期间跑。
     pub watch: ConfigWatch,
 
+    /// 内置主题与用户主题目录里的主题；激活期间随配置定时器一起看目录有没有变。
+    pub themes: qingjian_render::ThemeLibrary,
+
     /// 上次把学习数据落盘的时间；激活期间的定时器按 [`LEARNING_FLUSH_INTERVAL`] 再刷一次。
     pub last_flush: std::time::Instant,
 
@@ -110,6 +112,9 @@ pub struct Host {
 
     /// 翻页键对（上一页、下一页）。
     pub page_keys: (char, char),
+
+    /// 组句中敲会转全角的标点先把高亮候选上屏、再补该标点（配置 `[general] punct_commits`，缺省关）。
+    pub punct_commits: bool,
 
     /// 配数字键上屏第一 / 第二个译词的修饰键组合（配置 `[shortcut] translation` / `translation_second`）。
     pub translation_keys: (Modifiers, Modifiers),
@@ -217,11 +222,12 @@ const UPDATE_STATE_FILE: &str = "update.json";
 const VOCABULARY_FILE: &str = "user-vocab.tsv";
 
 /// 可能打进包里的释义表语言，按这个顺序在设置里列出；文件不存在的不列。
-const GLOSSARY_LANGUAGES: [Language; 4] = [
+const GLOSSARY_LANGUAGES: [Language; 5] = [
     Language::English,
     Language::Japanese,
     Language::Spanish,
     Language::Vietnamese,
+    Language::German,
 ];
 
 /// 在单例上执行操作。未初始化、不在主线程、或正处在另一次 `with` 之内（重入）时返回 `None`。

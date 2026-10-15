@@ -42,6 +42,10 @@ const DOMAIN_FLOOR: u32 = 30;
 /// 没统计到词频时单字按字表级别给的底值。
 const CHAR_FLOOR: [u32; 3] = [30, 10, 3];
 
+/// 生僻字的词频：0 排在同音字最后，整句词图不收（用户选过的除外），`bigram` 分词时也跳过，
+/// 语料里的日文新字体与繁体残留（戦 砲）不会把它们统计成常用字。
+const RARE_FREQUENCY: u32 = 0;
+
 /// 单字不在 kHanyuPinlu 里的次要读音占主读音权重的比例。
 const MINOR_READING_SHARE: f64 = 0.05;
 
@@ -146,14 +150,16 @@ pub fn convert(
     };
     let mut dropped = 0usize;
 
-    // 单字：规范字表全部 + 通用词里用到而字表没有的
+    // 单字：规范字表全部 + 字表没有、但通用词里用到或日常常用的
     let mut chars: Vec<(char, Option<u8>)> =
         pack.chars.iter().map(|c| (c.ch, Some(c.level))).collect();
     let listed: HashSet<char> = chars.iter().map(|c| c.0).collect();
+    // 通用词里用到的字与生僻字表里标了日常常用的字（诶）
     let mut extra: Vec<char> = pack
         .common
         .iter()
         .flat_map(|row| row.text.chars())
+        .chain(pack.rare.iter().filter(|r| r.everyday).map(|r| r.ch))
         .filter(|c| !listed.contains(c))
         .collect::<HashSet<_>>()
         .into_iter()
@@ -162,10 +168,15 @@ pub fn convert(
     chars.extend(extra.into_iter().map(|c| (c, None)));
     for (ch, level) in &chars {
         let weighted = readings.weighted(*ch, MINOR_READING_SHARE);
-        let valid: Vec<(String, f64)> = weighted
-            .into_iter()
+        let mut valid: Vec<(String, f64)> = weighted
+            .iter()
             .filter(|(syllable, _)| is_syllable(syllable))
+            .cloned()
             .collect();
+        // 嗯 在 Unihan 里只有 ng / n，不是拼音音节会整个字丢掉；各家输入法都用 en 打它
+        if valid.is_empty() && weighted.iter().any(|(s, _)| s == "n" || s == "ng") {
+            valid.push(("en".to_owned(), 1.0));
+        }
         if valid.is_empty() {
             dropped += 1;
             continue;
@@ -181,6 +192,29 @@ pub fn convert(
                 syllables: vec![syllable],
                 frequency,
             });
+        }
+    }
+
+    // 生僻字：词库已有的字不动（读音以 Unihan 那份为准），其余按生僻字表的读音收，不是合法音节的读音丢掉
+    let known: HashSet<char> = chars.iter().map(|c| c.0).collect();
+    let mut rare = 0usize;
+    for row in &pack.rare {
+        if known.contains(&row.ch) {
+            continue;
+        }
+        let mut added = false;
+        for syllable in row.syllables.iter().filter(|s| is_syllable(s)) {
+            insert(LexiconEntry {
+                text: row.ch.to_string(),
+                syllables: vec![syllable.clone()],
+                frequency: RARE_FREQUENCY,
+            });
+            added = true;
+        }
+        if added {
+            rare += 1;
+        } else {
+            dropped += 1;
         }
     }
 
@@ -356,7 +390,7 @@ pub fn convert(
     writeln!(
         file,
         "# 青简基础词库，由 qingjian-dict-convert lexicon 生成。词\t音节\t词频\n\
-# 来源：通用规范汉字表（8105 字）；现代汉语常用词表（liuxilu 校对版）；THUOCL 领域词（MIT，清华大学自然语言处理实验室）；\n\
+# 来源：通用规范汉字表（8105 字）；生僻字（Unihan、CNS 全字库读音）；现代汉语常用词表（liuxilu 校对版）；THUOCL 领域词（MIT，清华大学自然语言处理实验室）；\n\
 # 读音：Unihan（Unicode License）+ LLM 标注多音字词；词频：青简自己的语料统计（中文维基 CC BY-SA 4.0、LCCC MIT）。"
     )?;
     for entry in entries.values() {
@@ -389,6 +423,7 @@ pub fn convert(
         disputed_common_readings = disputed,
         still_ambiguous = ambiguous.len(),
         rejected_annotations,
+        rare,
         dropped,
         "词库写出完成"
     );

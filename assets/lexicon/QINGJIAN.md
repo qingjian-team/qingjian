@@ -54,5 +54,10 @@ cargo run --release -p qingjian-dict-convert -- english assets/lexicon/05_englis
 cargo run --release -p qingjian-dict-convert -- pack dict --name 青简基础词库 --license "MIT AND Unicode-3.0"
 ```
 
+生僻字表 `01_characters/rare_chars.tsv` 不在原数据包里，由 `tools/corpus/rare_chars.py` 从两张表合成（来源、读音出处与许可见脚本文件头）：
+「规范字表外扩充汉字」（GB 18030-2022 原版范围的 Unicode 统一汉字减去 8105 字，读音取 Unihan 17）与台湾教育部罕用字 C 表（读音取 CNS 全字库），
+按字去重、读音取并集，扩展 G 的 𰻝 𰻞 手工补。`lexicon` 每次都会读它，词库已有的字不动，其余按词频 0 收进 `dict.tsv`（不进语言模型与整句），
+标了 `everyday` 的日常常用字（诶 囧）按规范字处理。
+
 读音来自 Unihan（`data/unihan/Unihan_Readings.txt`，从 https://www.unicode.org/Public/UCD/latest/ucd/Unihan.zip 解出，Unicode License v3）；
 多音字词的读音由 LLM 标注后逐字对照 Unihan 校验。最终的基础词库 `dict.tsv` 与拆出的领域词库 `dicts/*.tsv` 也随仓库放在这个目录，没有语料和 API 也能直接打包。

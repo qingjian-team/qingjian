@@ -60,7 +60,8 @@ impl From<CandidateKind> for InputSource {
             CandidateKind::VietnameseRaw => Self::VietnameseRaw,
             CandidateKind::Shortcut => Self::Shortcut,
             CandidateKind::Custom(_) => Self::Custom,
-            CandidateKind::Emoji => Self::Emoji,
+            // 颜文字、符号与 emoji 同是跟在词后面配出来的，回放时一类看
+            CandidateKind::Emoji | CandidateKind::Kaomoji | CandidateKind::Symbol => Self::Emoji,
         }
     }
 }

@@ -29,11 +29,13 @@ CTest 的 `real-server` 实际运行 Rust Server 并通过 InputContext 输入�
 
 同用户 Unix socket，长度前缀为 4 字节小端，单消息上限 16 MiB；每次插件收发共用 200 ms 截止时间。
 插件只持有一条连接和一个 I/O watcher，每个 InputContext 分配独立、递增的 session ID。
-每个会话先 `OpenSession` 校验共享协议版本（6），再协商 `LinuxHello` v3，携带 session/generation/context，返回会话编号和既有预编辑设置。
+每个会话先 `OpenSession` 校验共享协议版本（`PROTOCOL_VERSION`），再协商 `LinuxHello` v3，携带 session/generation/context，返回会话编号和既有预编辑设置。
 首次能力确认前不接受输入；握手与能力状态逐会话保存。同一连接支持超过 64 个上下文，64 条连接的资源保护不限制单连接会话数。
 Linux 的首个回包仍是含 `linux_ui` 的 `Update`，不额外发送 Windows DLL 使用的 `SessionOpened`；旧版插件的协议 5 连接会被拒绝，升级时需同时更新 Server 与插件。
 旧版本或损坏响应关闭连接、清空显示并放行当前输入；重连创建全新输入状态，旧提交不会重放。
-显示 API 同步触发能力变化、失焦或 Reset 时，插件在最终上屏前撤销旧生命周期响应，但保持已接受按键的 Consumed 结果；纯显示失败仍交付有效提交。
+插件先交付有效上屏，再清空或更新预编辑，避免 Chromium 原生 Wayland 在这两步倒置时重复上屏（#213）。
+上屏与显示回调都可能同步重入；上屏前和重画前检查上下文存活、连接代次、生命周期、显示修订号与帧身份，以及焦点和能力。
+上屏回调内的新按键即使不改变生命周期，也会使旧帧失效，外层不得覆盖新组句。已交付的上屏不撤销、不重放；重入或显示失败后仍保留已接受按键的 Consumed 结果。
 
 同一上下文停用后保留会话和中英模式；Reset 只丢弃输入。Password / Disable 关闭目标会话，恢复普通输入后分配新编号。
 销毁上下文时撤销安全引用并排队 CloseSession，由事件循环延迟发送，不阻塞析构，也不关闭其他会话。
@@ -55,7 +57,9 @@ FocusOut 的行内预编辑由框架或声明 ClientUnfocusCommit 的客户端�
 
 ## 本地整句模型
 
-Server 启动时按 `[model] enabled`（缺省开）在后台线程加载模型并预热，`find_model` 优先找用户目录 `~/.local/share/qingjian/models/hanzhang-tongbian/` 与随包的 `resources/data/models/hanzhang-tongbian/`，然后回退知微；旧用户目录仍可读取。Linux 没有配置热加载，改开关要重启服务。
+Server 启动时按 `[model] enabled`（缺省开）在后台线程加载模型并预热，`find_model` 优先找用户目录 `~/.local/share/qingjian/models/hanzhang-tongbian/` 与随包的 `resources/data/models/hanzhang-tongbian/`，然后回退知微；旧用户目录仍可读取。改了 `[model]` 由配置热加载在后台加载或卸载。
+
+配置热加载在 `dispatch/reload`（对齐 Windows Server）：主循环 `tick` 每秒看一次 `config.toml` 的 mtime 与用户 `dicts/` 快照，变了就重读，重设的项与 `main.rs` 启动时一致；解析失败保持原配置。例外：`[general] preedit` 在会话握手时交给插件、`input_log` 只在装配时接，这两样改了仍要重启服务。
 节拍与 Windows Server 的 `dispatch/rescore` 相同：缓冲变化后起 80 ms 防抖，到点把整句路径送去后台打分，每 20 ms 收一次，最长等 2 s；
 结果到了只在用户还看着第一页、没动过高亮时重建候选布局，下一次 `Poll` 回的帧就是新顺序。主循环按 `Router::next_tick` 的绝对到点时间等消息，空闲时一秒一次落盘学习。
 模型在后台接上时用户正在组句，Server 补查一次攒下整句路径再起防抖，这一轮不错过重排。前文用本会话最近上屏的字，首版不读应用光标前文。
@@ -69,6 +73,14 @@ Server 启动时按 `[model] enabled`（缺省开）在后台线程加载模型�
 
 未出候选时先确认手动 Server 在运行，再查看 `$XDG_STATE_HOME/qingjian/logs/server.*.log`（缺省 `~/.local/state`）。
 输入日志由 `[general] input_log` 控制；用户配置和学习文件始终保存在 XDG 用户目录，卸载不删除。
+
+## 发行版打包
+
+做系统级包（deb / rpm / AUR 等）时，把 `assets/icon/linux/hicolor/` 下八档 PNG（16/22/24/32/48/64/128/256）逐档装到
+`/usr/share/icons/hicolor/<尺寸>x<尺寸>/apps/qingjian.png`，文件名保持 `qingjian.png`。八档已随仓库栅格化提交，打包不依赖
+ImageMagick；不要把 1024px 源图塞进尺寸目录，也不要只装 `resources/assets/` 里的程序资源副本（图标主题不读该路径），
+否则不缩放的托盘会显示巨图（#547）。安装循环片段与图标缓存刷新说明见
+[图标说明](../../assets/icon/README.md#linux-发行版打包)。
 
 ## 验证环境
 

@@ -123,7 +123,9 @@ pub fn init(mtm: MainThreadMarker, info: &BundleInfo) -> Result<(), HostError> {
         engine = engine.with_language_model(Box::new(model));
     }
     let window = CandidateWindow::new(mtm);
-    let indicator = ModeIndicator::new(mtm);
+    window.set_click_handler(Box::new(crate::imk::click));
+    window.set_panel_mouse_handler(Box::new(crate::imk::panel_mouse));
+    let mut indicator = ModeIndicator::new(mtm);
     let menu = InputMenu::new(mtm, version);
     indicator.set_menu(&menu.ns_menu());
     let preferences = PreferencesWindow::new(mtm, &languages, version, &info.build);
@@ -138,6 +140,7 @@ pub fn init(mtm: MainThreadMarker, info: &BundleInfo) -> Result<(), HostError> {
             preferences,
             settings,
             watch,
+            themes: qingjian_render::ThemeLibrary::load(paths::themes_dir().as_deref()),
             last_flush: std::time::Instant::now(),
             applied_predict: PredictConfig::default(),
             applied_dictionaries: DictionariesConfig::default(),
@@ -149,6 +152,7 @@ pub fn init(mtm: MainThreadMarker, info: &BundleInfo) -> Result<(), HostError> {
             page_size: 9,
             cloud_slots: 2,
             page_keys: qingjian_platform::DEFAULT_PAGE_KEYS,
+            punct_commits: false,
             translation_keys: ShortcutConfig::default().translation_keys(),
             delete_keys: ShortcutConfig::default().delete_keys(),
             status: None,

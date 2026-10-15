@@ -224,6 +224,22 @@ fn english_completions_appear_when_pinyin_is_unlikely() {
 }
 
 #[test]
+fn english_in_chinese_off_drops_words_and_completions_but_not_english_mode() {
+    let words =
+        WordList::parse("company\tcompany\t5600\ncompare\tcompare\t4450\nhello\thello\t1000\n")
+            .unwrap();
+    let mut engine = engine().with_english(words);
+    engine.set_english_in_chinese(false);
+    engine.set_input("compa");
+    assert!(!texts_of(&engine).iter().any(|t| t.starts_with("comp")));
+    engine.set_input("hello");
+    assert!(!texts_of(&engine).contains(&"hello".to_owned()));
+    engine.set_english_mode(true);
+    engine.set_input("comp");
+    assert_eq!(texts_of(&engine), ["company", "compare"]);
+}
+
+#[test]
 fn english_mode_suggests_from_the_word_list_and_keeps_the_typed_text() {
     let words = WordList::parse(
         "company\tcompany\t900\ncompare\tcompare\t500\nhello\thello\t1000\nhelp\thelp\t700\n",
@@ -264,12 +280,12 @@ fn english_mode_suggests_from_the_word_list_and_keeps_the_typed_text() {
     engine.set_input("helo");
     assert_eq!(texts_of(&engine), ["hello", "help"]);
     assert_eq!(engine.take_raw(), "helo");
-    // emoji 排在所有词后面，不挡上下键选词
+    // emoji 与颜文字排在所有词后面，不挡上下键选词
     let table = EmojiTable::parse("help\t🆘\n").unwrap();
     let mut engine = engine.with_emoji(table);
     engine.set_english_mode(true);
     engine.set_input("helo");
-    assert_eq!(texts_of(&engine), ["hello", "help", "🆘"]);
+    assert_eq!(texts_of(&engine), ["hello", "help", "(＾▽＾)ノ", "🆘"]);
     // 离开英文模式后同一串又按拼音算
     engine.set_english_mode(false);
     engine.set_input("comp");

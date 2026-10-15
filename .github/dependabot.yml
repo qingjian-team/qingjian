@@ -20,6 +20,8 @@ updates:
         update-types: ["version-update:semver-minor"]
       - dependency-name: "windows-registry"
         update-types: ["version-update:semver-minor"]
+      - dependency-name: "windows-numerics"
+        update-types: ["version-update:semver-minor"]
   - package-ecosystem: github-actions
     directory: /
     schedule:

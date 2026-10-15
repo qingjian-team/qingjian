@@ -57,15 +57,18 @@ impl TextService_Impl {
     /// 应用 Server 下发的按键行为设置：`OpenSession` 的回包给一次，之后每一拍 `SyncMode` 也都带着。
     /// 值没变就什么都不做，所以设置窗口改完在下一拍（约 320 ms）生效，不用切走再切回输入法。
     pub(super) fn apply_input_settings(&self, input: InputSettings) {
+        // 获焦可能早于 Activate 的 thread_mgr 就绪；设置未变也要补上尚未完成的保留键登记。
+        self.sync_punctuation_key(input.toggle_punctuation);
         if self.input_settings.get() == Some(input) {
             return;
         }
         self.input_settings.set(Some(input));
         log(&format!(
-            "按键行为设置：中英切换键 {}，内置英文模式 {}，Shift 字母进组句 {}",
+            "按键行为设置：中英切换键 {}，内置英文模式 {}，Shift 字母进组句 {}，英文候选 {}",
             input.switch_mode.describe(),
             input.english_mode,
-            input.shift_letter_compose
+            input.shift_letter_compose,
+            input.english_candidates
         ));
         self.apply_mode_settings(input.english_mode, input.switch_mode);
     }
@@ -127,7 +130,7 @@ impl TextService_Impl {
         match reply {
             Some(Ok(reply)) => {
                 self.apply_input_settings(reply.input);
-                self.indicator_state.set(reply.indicator);
+                self.apply_indicator_state(reply.indicator);
                 if let Some(english) = reply.english {
                     self.adopt_mode(english);
                 }

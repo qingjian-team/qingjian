@@ -58,11 +58,30 @@ apps/linux/scripts/install.sh
 重启 Fcitx5，打开 Fcitx5 配置工具，取消「仅显示当前语言」，添加「青简」。切换到青简后输入 `nihao`，空格选中「你好」。
 单击 `Shift` 切换中英；按键规则见 [按键与快捷键](keys.md#Linux（Fcitx5）)。关闭手动启动的终端会结束青简服务；下次登录后需再次启动。
 
+## 翻页键
+
+中文组句时，默认用 `[` / `]` 上一页 / 下一页，也可用 `PageUp` / `PageDown`；`Shift + Tab` 上一页，`Tab` 在没有整句补全时下一页，有补全时接受补全。
+英文组句中的 `Tab` 是选中高亮候选，不是翻页；完整规则见 [按键与快捷键](keys.md#Linux（Fcitx5）)。
+
+要换成 `-` / `=`，编辑 `~/.config/qingjian/config.toml` 中已有的 `[general]` 分节，然后重启青简服务：
+
+```toml
+[general]
+page_keys = "-="
+```
+
+可选 `"[]"`、`",."`、`"-="`，前一个字符上一页，后一个下一页。不要重复添加 `[general]` 分节。
+青简使用这项配置处理候选翻页，修改 Fcitx5 的全局候选翻页热键不会替代它。
+选择 `",."` 后，中文组句中的逗号、句号用于翻页；选择 `"-="` 后，中文组句中的 `-` 用于翻页，不再进入英文直输段。
+这里匹配的是输入字符，`Shift + -` 的 `_` 和 `Shift + =` 的 `+` 不属于 `"-="`。
+已经进入英文直输段时，`-` 原样追加，不用于翻页。
+
 ## 配置、隐私和数据
 
-首次运行生成 `~/.config/qingjian/config.toml`，修改后重启青简服务。
+首次运行生成 `~/.config/qingjian/config.toml`，保存后约一秒内生效，不用重启；`[general] preedit` 与 `[general] input_log` 例外，改完要重启青简服务。
 `[general] preedit` 可设为 `both`（行内和候选窗口）、`inline`（只在行内）、`window`（只在候选窗口）；应用不支持行内显示时使用候选窗口。
 每页候选数、翻页键、学习、日志和辅助语言使用同一配置文件。`learning_language = "off"` 关闭中文候选的辅助语言释义与生词标记。系统面板外观由 Fcitx5 设置控制。
+
 当前预编译包随附含章·通变与含章·知微：优先用通变处理拼音整句与纠错，没有通变时回退到知微。自己的 `.qjm` 也可放入 `~/.local/share/qingjian/models/` 下对应的模型目录。`[model] enabled = false` 可关闭本地模型，见 [本地整句模型](../input/local-model.md)。
 
 `[general] shift_letter = "compose"` 让 Shift 大写字母参与中文组句，默认 `"passthrough"` 保持临时英文输入。

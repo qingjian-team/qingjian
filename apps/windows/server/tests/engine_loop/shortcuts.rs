@@ -1,5 +1,6 @@
 //! 组句中「修饰键 + 数字」：译词上屏与删候选。
 
+use crate::composing::SentenceTranslator;
 use crate::support::*;
 
 #[test]
@@ -12,6 +13,26 @@ fn alt_digit_commits_first_translation() {
     assert_eq!(
         (outcome, commit.as_deref()),
         (KeyOutcome::Consumed, Some("hello"))
+    );
+    assert!(after.is_empty());
+}
+
+#[test]
+fn alt_digit_commits_a_sentence_translation() {
+    let submitted = Arc::new(Mutex::new(Vec::new()));
+    let mut router = router_with(RouterConfig {
+        sentence_translation: true,
+        ..RouterConfig::default()
+    });
+    router
+        .engine_mut()
+        .set_predictor(Box::new(SentenceTranslator::new(submitted)));
+    let (_, _, frame) = type_letters(&mut router, "xiangkaifa");
+    let slot = slot_of(&frame, "想开发");
+    let (outcome, commit, after) = press(&mut router, digit_with(slot, TRANSLATE));
+    assert_eq!(
+        (outcome, commit.as_deref()),
+        (KeyOutcome::Consumed, Some("It seems not to work."))
     );
     assert!(after.is_empty());
 }
@@ -47,6 +68,8 @@ fn unconfigured_modifier_digit_is_not_a_selection() {
             shift: true,
             ..CTRL
         },
+        // 组句中标点进直输段的老行为（`punct_commits` 关），`$` 才会留在拼音行里
+        punct_commits: false,
         ..RouterConfig::default()
     });
     type_letters(&mut router, "nihao");

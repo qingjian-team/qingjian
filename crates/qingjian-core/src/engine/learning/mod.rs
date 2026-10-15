@@ -152,13 +152,15 @@ impl Engine {
     /// 用户要求删掉一个候选（修饰键 + 数字）：中文词与云端词交给 Learner 删用户词、清学习；英文词删个人英文词；
     /// 整句、快捷候选、emoji 没什么可删。删完缓存作废，它也不再当下一个词的上文。
     pub fn forget(&mut self, candidate: &Candidate) -> Forgotten {
-        let mut candidate_owned = candidate.clone();
-        if self.traditional
-            && let Some(simp) = self.traditional_map.borrow().get(&candidate_owned.text)
-        {
-            candidate_owned.text = simp.clone();
-        }
-        let candidate = &candidate_owned;
+        // 繁体输出开着时删的是简体那条：用户词与学习记录里存的都是简体
+        let restored = self
+            .traditional
+            .restore(&candidate.text)
+            .map(|text| Candidate {
+                text,
+                ..candidate.clone()
+            });
+        let candidate = restored.as_ref().unwrap_or(candidate);
         let forgotten = match candidate.kind {
             CandidateKind::Chinese | CandidateKind::Code | CandidateKind::Cloud => {
                 self.learner.forget(&candidate.text)
@@ -174,6 +176,8 @@ impl Engine {
             | CandidateKind::Shortcut
             | CandidateKind::Custom(_)
             | CandidateKind::Emoji
+            | CandidateKind::Kaomoji
+            | CandidateKind::Symbol
             | CandidateKind::Generated => Forgotten::default(),
         };
         if !forgotten.is_nothing() {

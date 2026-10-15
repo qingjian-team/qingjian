@@ -137,10 +137,11 @@ impl Router {
                 page: 0,
                 page_count: 1,
                 layout: self.config.layout,
-                theme: self.config.theme,
+                appearance: self.config.appearance,
                 aux_code_show: false,
                 sentence: None,
                 notice: self.notice.clone(),
+                symbol_panel: false,
             },
             Some(Composed::Candidates {
                 preedit,
@@ -176,10 +177,11 @@ impl Router {
                     page,
                     page_count: layout.pages().max(1),
                     layout: self.config.layout,
-                    theme: self.config.theme,
+                    appearance: self.config.appearance,
                     aux_code_show: false,
                     sentence: self.sentence.clone(),
                     notice: self.notice.clone(),
+                    symbol_panel: false,
                 }
             }
         }

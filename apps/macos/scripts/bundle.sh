@@ -4,6 +4,7 @@
 #   scripts/bundle.sh            # 只打包到 target/Qingjian.app
 #   scripts/bundle.sh --install  # 打包并安装到 ~/Library/Input Methods/，杀掉旧进程（开发用）
 #   scripts/bundle.sh --pkg      # 打包并做成 target/pkg/qingjian-<版本>-macos-<arm64|x86_64>.pkg（分发给测试者）
+# --install / --pkg 用完 target/Qingjian.app（与 pkg 暂存目录里那份）就删掉并从 LaunchServices 注销，见 forget_bundle。
 #
 # 架构：缺省编译本机架构；QINGJIAN_TARGET=x86_64-apple-darwin（或 aarch64-apple-darwin）交叉编译另一种，
 # 先 `rustup target add` 一次。CI 在 Apple Silicon runner 上两个都打（.github/workflows/release.yml）。
@@ -15,8 +16,9 @@
 #   QINGJIAN_INSTALLER_IDENTITY  "Developer ID Installer: …"     给 .pkg 签名
 #   QINGJIAN_NOTARY_PROFILE      notarytool store-credentials 存的 keychain profile 名，设了就公证并钉票据
 #
-# 首次 --install 后要在「系统设置 → 键盘 → 输入法」里添加「青简」；输入法列表不刷新就注销再登录。
-# pkg 装的不用：postinstall 会以登录用户身份跑 `qingjian-macos --register` 注册并启用。
+# 首次 --install 后注销再登录一次（系统在登录时才刷新输入法列表），菜单里还没有再到「系统设置 → 键盘 → 输入法」里添加「青简」。
+# pkg 装的由 postinstall 以登录用户身份跑 `qingjian-macos --register` 注册并启用；菜单里仍没有青简时同样先注销重登
+# （macOS 27 上两种装法都要这一步，见 docs/notes/crate-notes.md 的 apps/macos 一节）。
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
@@ -119,7 +121,7 @@ if [[ -f data/generated/dict.tsv || -f data/generated/dict.qj ]]; then
     echo "打包含章·通变：$p2c_dir/hanzhang-tongbian-small.qjm"
   fi
   # 释义表打成 .qj（TSV 比 .qj 新时重打），英文词表仍是 TSV。各表来源不同，元数据按表写（见 assets/glossary/README.md）
-  for lang in en ja zh es vi; do
+  for lang in en ja zh es vi de; do
     src="assets/glossary/glossary-$lang.tsv"
     out="data/generated/glossary-$lang.qj"
     [[ -f "$src" ]] || continue
@@ -129,6 +131,9 @@ if [[ -f data/generated/dict.tsv || -f data/generated/dict.qj ]]; then
     elif [[ "$lang" == vi ]]; then
       license="GPL-3.0-or-later"
       attribution="LLM 生成（gpt-5.5），qingjian-gloss-gen"
+    elif [[ "$lang" == de ]]; then
+      license="GPL-3.0-or-later"
+      attribution="LLM 生成（DeepSeek），qingjian-gloss-gen"
     else
       license="MIT"
       attribution="LLM 生成（DeepSeek），qingjian-gloss-gen"
@@ -170,6 +175,17 @@ else
 fi
 echo "打包完成: ${APP}（版本 ${VERSION}，构建 ${BUILD_NUMBER}，${ARCH}）"
 
+# 同一个 bundle id 在 LaunchServices 里登记多份时，系统可能认错那一份（2026-09-22 排查「菜单里没有青简」时
+# target/ 下的副本就登记着）。装完 / 打完包，中间副本删掉并从 LaunchServices 注销，只留装好的那份或 pkg
+LSREGISTER=/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
+forget_bundle() {
+  [[ -d "$1" ]] || return 0
+  # 先删再注销：系统登记新 .app 是异步的，--install 从拷贝到注销只隔零点几秒，先注销的话晚到的登记
+  # 会留下一条指向已删路径的记录。路径不在时 -u 照样按路径清掉记录，只是报一句 failed to scan（-10814）
+  rm -rf "$1"
+  if [[ -x "$LSREGISTER" ]]; then "$LSREGISTER" -u "$1" >/dev/null 2>&1 || true; fi
+}
+
 if [[ "${1:-}" == "--pkg" ]]; then
   # 每个架构一个工作目录，成品都放 target/pkg/，两个架构接着打互不覆盖
   PKG="$ROOT/target/pkg/qingjian-$VERSION-macos-$ARCH.pkg"
@@ -206,6 +222,8 @@ if [[ "${1:-}" == "--pkg" ]]; then
   fi
   echo "pkg: $PKG"
   shasum -a 256 "$PKG"
+  forget_bundle "$PKG_DIR/root/$APP_NAME.app"
+  forget_bundle "$APP"
 fi
 
 if [[ "${1:-}" == "--install" ]]; then
@@ -213,10 +231,15 @@ if [[ "${1:-}" == "--install" ]]; then
     echo "注意: /Library/Input Methods/$APP_NAME.app 也装着一份（pkg 装的），两份同 id 会互相顶；先跑 scripts/uninstall.sh"
   fi
   mkdir -p "$INSTALL_DIR"
-  rm -rf "$INSTALL_DIR/$APP_NAME.app"
-  cp -R "$APP" "$INSTALL_DIR/$APP_NAME.app"
+  # 先整个拷到旁边再换上去：直接删了再拷，拷到一半中断会留下残缺的包，旧进程还在用它
+  STAGING="$INSTALL_DIR/.$APP_NAME.app.new"
+  rm -rf "$STAGING"
+  cp -R "$APP" "$STAGING"
   # 系统会在下次切换到该输入法时重新拉起进程
   pkill -x "$BIN_NAME" 2>/dev/null || true
+  rm -rf "$INSTALL_DIR/$APP_NAME.app"
+  mv "$STAGING" "$INSTALL_DIR/$APP_NAME.app"
+  forget_bundle "$APP"
   echo "已安装到: $INSTALL_DIR/$APP_NAME.app"
   echo "日志: ~/Library/Logs/Qingjian/"
 fi

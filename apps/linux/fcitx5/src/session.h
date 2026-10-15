@@ -31,7 +31,7 @@ struct Session final : fcitx::InputContextProperty {
 
     uint64_t generation = 0;
 
-    /// 框架边界代次；与纯显示失败分开，使重入后的旧提交可被撤销。
+    /// 框架边界代次；重入后阻止旧响应继续上屏或重画。
     uint64_t lifecycle = 0;
 
     nlohmann::json displayIdentity;

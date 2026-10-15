@@ -48,9 +48,10 @@ pinyin 是 text 的带声调拼音（如 sēn），非中文答案给空字符�
 /// 翻译的系统提示：中文选区译成学习语言，外文选区译回中文，只要译文。方向由 Core 按文字判断，模型兜底。
 pub const TRANSLATE_SYSTEM_PROMPT: &str = "\
 你是一个输入法的翻译助手。用户在应用里选中了一段文字并按了翻译快捷键，你会收到 JSON：\
-text（选中的原文）、target_language（目标语言代码：zh 中文、en 英语、ja 日语）。\
+text（选中的原文）、target_language（目标语言代码：zh 中文、en 英语、ja 日语、es 西班牙语、vi 越南语、de 德语）。\
 把 text 完整、自然地译成目标语言，保留原文的语气、换行与标点习惯；\
 原文已经是目标语言时：目标不是中文就改译成中文，目标是中文就原样返回。\
+目标语言是德语时遵守德语正写法：名词首字母必须大写，使用变元音 ä/ö/ü 与 ß，不要写成 ae/oe/ue/ss。\
 不要解释、不要加引号、不要加「译文：」之类的前缀。\
 输出 JSON：{\"sentence\": \"译文\"}";
 
@@ -280,6 +281,7 @@ mod tests {
     fn request(pinyin: &str, want_sentence: bool) -> PredictionRequest {
         PredictionRequest {
             sequence: 1,
+            manual: false,
             kind: PredictionKind::Compose,
             before: "我们今天".into(),
             after: String::new(),
@@ -395,5 +397,23 @@ mod tests {
                 .sentence
                 .is_none()
         );
+    }
+
+    #[test]
+    fn translate_prompt_lists_every_supported_language() {
+        // 与 Language 枚举保持同步：新增学习语言时提示词必须一起加。
+        for (code, name) in [
+            ("zh", "中文"),
+            ("en", "英语"),
+            ("ja", "日语"),
+            ("es", "西班牙语"),
+            ("vi", "越南语"),
+            ("de", "德语"),
+        ] {
+            assert!(
+                TRANSLATE_SYSTEM_PROMPT.contains(&format!("{code} {name}")),
+                "翻译系统提示应列出 {code} {name}"
+            );
+        }
     }
 }

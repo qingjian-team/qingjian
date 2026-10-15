@@ -1,5 +1,6 @@
 //! 读「输入法字词库_分类整理版」目录：`01_characters/standard_8105.tsv`、`02_common/modern_chinese_common_words.tsv`、`03_domains/*.tsv`。
 //! 三种 TSV 首行都是字段名：`词条\t拼音\t排序号\t文档频次\t字表级别\t来源`。
+//! 另有 `01_characters/rare_chars.tsv`（生僻字，`tools/corpus/rare_chars.py` 生成）：`字\t读音（空格分隔）\t来源（逗号分隔）`，`#` 开头是注释。
 
 use std::path::Path;
 
@@ -45,6 +46,18 @@ pub struct DomainRow {
     pub syllables: Option<Vec<String>>,
 }
 
+/// 生僻字表的一行。
+#[derive(Debug, Clone)]
+pub struct RareRow {
+    pub ch: char,
+
+    /// 无声调读音，没核对过是不是合法音节。
+    pub syllables: Vec<String>,
+
+    /// 来源带 `everyday`：日常常用，按规范字处理（读音取 Unihan、词频取语料）。
+    pub everyday: bool,
+}
+
 /// 整个数据包。
 #[derive(Debug, Default)]
 pub struct Pack {
@@ -53,6 +66,8 @@ pub struct Pack {
     pub common: Vec<CommonRow>,
 
     pub domain: Vec<DomainRow>,
+
+    pub rare: Vec<RareRow>,
 }
 
 impl Pack {
@@ -92,6 +107,29 @@ impl Pack {
                 syllables,
                 rank,
             });
+        }
+        let rare = dir.join("01_characters/rare_chars.tsv");
+        if rare.is_file() {
+            for line in std::fs::read_to_string(&rare)?.lines() {
+                if line.starts_with('#') {
+                    continue;
+                }
+                let mut fields = line.split('\t');
+                let (Some(ch), Some(syllables), sources) =
+                    (fields.next(), fields.next(), fields.next())
+                else {
+                    continue;
+                };
+                let mut chars = ch.chars();
+                let (Some(ch), None) = (chars.next(), chars.next()) else {
+                    continue;
+                };
+                pack.rare.push(RareRow {
+                    ch,
+                    syllables: syllables.split_whitespace().map(str::to_owned).collect(),
+                    everyday: sources.is_some_and(|s| s.split(',').any(|s| s == "everyday")),
+                });
+            }
         }
         let domain_dir = dir.join("03_domains");
         let mut files: Vec<_> = std::fs::read_dir(&domain_dir)?
@@ -218,6 +256,33 @@ mod tests {
         assert_eq!(domains, ["law"]);
         let words: Vec<&str> = pack.domain.iter().map(|r| r.text.as_str()).collect();
         assert_eq!(words, ["法院"]);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn rare_table_skips_comments_and_multi_char_rows() {
+        let dir = scratch("rare");
+        std::fs::write(
+            dir.join("01_characters/rare_chars.tsv"),
+            "# 字\t读音\t来源\n覅\tfiao\text\n诶\tei\text,everyday\n𰻝𰻝\tbiang\tmanual\n",
+        )
+        .unwrap();
+        let pack = Pack::load(&dir).unwrap();
+        let rows: Vec<(char, Vec<&str>, bool)> = pack
+            .rare
+            .iter()
+            .map(|r| {
+                (
+                    r.ch,
+                    r.syllables.iter().map(String::as_str).collect(),
+                    r.everyday,
+                )
+            })
+            .collect();
+        assert_eq!(
+            rows,
+            [('覅', vec!["fiao"], false), ('诶', vec!["ei"], true)]
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

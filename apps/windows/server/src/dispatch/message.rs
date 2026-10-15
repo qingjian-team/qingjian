@@ -37,6 +37,7 @@ impl Router {
                     SessionInfo {
                         app,
                         private: false,
+                        english: None,
                         protocol,
                     },
                 );
@@ -46,7 +47,7 @@ impl Router {
                 // 也能拿到同一份（新字段它直接忽略），只是慢一拍。
                 (protocol >= SESSION_OPENED_SINCE).then(|| ServerMessage::SessionOpened {
                     session,
-                    input: self.input_settings(),
+                    input: self.input_settings(session),
                 })
             }
             ClientMessage::Key { session, event } => Some(self.handle_key(session, event)),
@@ -86,15 +87,16 @@ impl Router {
             }
             ClientMessage::ModeChanged { session, english } => {
                 tracing::debug!(?session, english, "中英模式");
-                self.handle_mode_changed(english);
+                self.handle_mode_changed(session, english);
                 None
             }
             ClientMessage::SyncMode { session } => {
+                self.activate_mode(session);
                 self.handle_ime_active();
                 Some(ServerMessage::ModeSync {
                     session,
                     english: Some(self.english),
-                    input: self.input_settings(),
+                    input: self.input_settings(session),
                     indicator: self.indicator_state(),
                 })
             }
@@ -105,11 +107,15 @@ impl Router {
             }
             ClientMessage::Indicator { session, command } => {
                 tracing::debug!(?session, ?command, "任务栏图标菜单");
+                self.activate_mode(session);
                 self.handle_indicator(command);
                 None
             }
             ClientMessage::CloseSession { session } => {
                 self.sessions.remove(&session);
+                if self.mode_session == Some(session) {
+                    self.mode_session = None;
+                }
                 if self.focused == Some(session) {
                     self.reset_composition();
                     self.focused = None;
@@ -127,7 +133,9 @@ impl Router {
         if self.translation.is_some() {
             return self.handle_translation_review(session, &event);
         }
-        if self.engine.composition().is_empty()
+        if self.config.cloud_enabled
+            && self.engine.composition().is_empty()
+            && !self.panel_open()
             && self.engine.prediction_enabled()
             && self.matches_translate_combo(&event)
         {
@@ -150,6 +158,11 @@ impl Router {
             }
             Effect::Navigated => (None, KeyOutcome::Consumed),
             Effect::Passthrough => (None, KeyOutcome::Passthrough),
+        };
+        // 点击上屏的字还没等到轮询就来了键：接在这次结果前面，免得丢
+        let commit = match (self.take_clicked(session), commit) {
+            (Some(clicked), commit) => Some(clicked + commit.as_deref().unwrap_or_default()),
+            (None, commit) => commit,
         };
         self.poll_prediction();
         // 自绘窗吃未降级的帧；发给 DLL 的那份按老协议降级（见 composed 的 current_frame）
@@ -178,6 +191,10 @@ impl Router {
         } else {
             Frame::default()
         };
-        ServerMessage::Update { session, frame }
+        ServerMessage::Update {
+            session,
+            frame,
+            commit: self.take_clicked(session),
+        }
     }
 }

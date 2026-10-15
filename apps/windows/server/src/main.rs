@@ -121,7 +121,47 @@ fn init_logging(config: &Config) -> Option<tracing_appender::non_blocking::Worke
     }
 }
 
+/// 主题投稿用：把主题目录画成预览图写进它的 preview/，不起服务（主题仓库的 tools/preview.py 调它）。
+fn theme_preview(dir: Option<String>) -> i32 {
+    attach_parent_console();
+    let Some(dir) = dir else {
+        eprintln!(
+            "用法：qingjian-server {} <主题目录>",
+            qingjian_render::preview::FLAG
+        );
+        return 2;
+    };
+    #[cfg(windows)]
+    let family_files = qingjian_render::system_fonts::family_files;
+    #[cfg(not(windows))]
+    let family_files = |_: &str| Vec::new();
+    qingjian_render::preview::run(Path::new(&dir), family_files)
+}
+
+/// release 是 GUI 子系统，从 cmd / PowerShell 直接运行时没有标准输出：挂到父进程的控制台上。
+/// 被管道调用（tools/preview.py）时已经有输出句柄，不动。
+#[cfg(windows)]
+fn attach_parent_console() {
+    use windows::Win32::System::Console::{
+        ATTACH_PARENT_PROCESS, AttachConsole, GetStdHandle, STD_OUTPUT_HANDLE,
+    };
+    // SAFETY: 只查询与挂接本进程的控制台，不涉及内存
+    unsafe {
+        let has_stdout = GetStdHandle(STD_OUTPUT_HANDLE).is_ok_and(|handle| !handle.is_invalid());
+        if !has_stdout {
+            let _ = AttachConsole(ATTACH_PARENT_PROCESS);
+        }
+    }
+}
+
+#[cfg(not(windows))]
+fn attach_parent_console() {}
+
 fn main() {
+    let mut arguments = std::env::args().skip(1);
+    if arguments.next().as_deref() == Some(qingjian_render::preview::FLAG) {
+        std::process::exit(theme_preview(arguments.next()));
+    }
     load_env();
 
     // 日志级别取自配置，所以先写模板、读配置，再装日志。
@@ -178,8 +218,12 @@ fn main() {
         }
     };
     engine.set_fuzzy(config.fuzzy);
+    // Windows 端此前漏装 custom_phrases（macOS 端 apply_config 有）；失败只记日志不阻塞启动
+    if let Err(error) = engine.set_custom_phrases(config.custom_phrases.clone()) {
+        tracing::warn!(%error, "自定义短语配置未应用");
+    }
     // 拼音侧与形码侧在 `configure_code_table` 里一起装配（双拼 / 注音 / 混输都在那）
-    engine.set_traditional_mode(config.general.traditional);
+    engine.set_traditional(config.general.traditional());
     engine.set_learning(config.general.learning);
     engine.set_mode_keys(config.shortcut.mode);
     engine.set_aux_code_key(config.general.aux_code_key(), config.general.page_keys());
@@ -187,10 +231,15 @@ fn main() {
     engine.set_aux_enabled(config.aux_code.enabled);
     engine.set_aux_show(config.general.aux_code_show);
     engine.set_chinese_first(config.general.chinese_first);
+    engine.set_emoji_limit(usize::from(config.general.emoji.get()));
+    engine.set_kaomoji_limit(usize::from(config.general.kaomoji.get()));
+    engine.set_symbol_limit(usize::from(config.general.symbols.get()));
+    engine.set_english_in_chinese(config.general.english_in_chinese);
     engine.set_shift_letter_compose(config.general.shift_letter.compose());
     engine.set_shuangpin_raw_preedit(config.general.shuangpin_raw_preedit);
     engine.log_session(env!("CARGO_PKG_VERSION"), "windows");
-    dispatch::attach_cloud(&mut engine, &config.predict);
+    let usage_path = user_dir().map(|dir| dir.join(qingjian_predict::API_USAGE_FILE));
+    dispatch::attach_cloud(&mut engine, &config.predict, usage_path);
     let router_config = RouterConfig::from(&config);
     let mut router = Router::new(engine, router_config.clone());
     let model_path = dispatch::find_model(user_dir().as_deref(), &root);
@@ -217,8 +266,9 @@ fn main() {
         language = language.map_or("off", |l| l.code()),
         page_size = router_config.page_size,
         page_keys = %format!("{}{}", router_config.page_keys.0, router_config.page_keys.1),
+        highlight_keys = router_config.highlight_keys.key(),
         layout = router_config.layout.key(),
-        theme = router_config.theme.key(),
+        appearance = router_config.appearance.key(),
         scheme = %if config.general.scheme_label().is_empty() { "全拼".to_owned() } else { config.general.scheme_label() },
         fuzzy = config.fuzzy.any(),
         cloud = config.predict.enabled,
@@ -260,13 +310,21 @@ fn serve(mut router: Router) {
     use qingjian_windows_server::ipc::{Work, pipe};
     use qingjian_windows_server::ui::UiHandle;
     grant_appcontainer_log_access();
-    // 工人循环的活：各连接的消息 + 状态条上的操作（UI 线程投进来）。
+    // 工人循环的活：各连接的消息 + 状态条、候选窗、符号面板上的操作（UI 线程投进来）。
     let (work_tx, work_rx) = std::sync::mpsc::channel::<Work>();
     let status_events = work_tx.clone();
     let on_status = Box::new(move |event| {
         let _ = status_events.send(Work::Status(event));
     });
-    match UiHandle::spawn(on_status) {
+    let clicks = work_tx.clone();
+    let on_click = Box::new(move |target| {
+        let _ = clicks.send(Work::Click(target));
+    });
+    let panel_events = work_tx.clone();
+    let on_panel = Box::new(move |hit| {
+        let _ = panel_events.send(Work::Panel(hit));
+    });
+    match UiHandle::spawn(on_status, on_click, on_panel) {
         Ok(ui) => {
             router.set_candidate_sink(Box::new(ui.clone()));
             router.set_status_sink(Box::new(ui));
