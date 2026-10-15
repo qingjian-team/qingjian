@@ -649,3 +649,111 @@ fn a_long_raw_commit_with_english_in_the_middle_is_not_learned() {
         "只有真正像一个词的才该进个人英文词表"
     );
 }
+
+/// 掉了首字母的拼音碎片（`ia` / `ialai`）与纯声母串（`sm` / `w` / `i`）回车不学成英文词：
+/// 学进去会越学越出英文候选。词表里 code 恰好等于它的（`IA` / `Sm` / `use`）也一律不学。
+#[test]
+fn pinyin_fragments_are_not_learned_as_english_words() {
+    struct Recorder(std::sync::Arc<std::sync::Mutex<Vec<String>>>);
+
+    impl Learner for Recorder {
+        fn record(&mut self, _candidate: &Candidate) {}
+
+        fn weight(&self, _text: &str) -> u32 {
+            0
+        }
+
+        fn learn_english(&mut self, word: &str) {
+            self.0.lock().unwrap().push(word.to_owned());
+        }
+    }
+
+    let learned = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+    // use 能读成拼音碎片（u 是音节真后缀）且恰好在词表里：豁免已取消，碎片一律不学，
+    // 真英文词用户会在候选里选中走 commit 的 learn_english。
+    // open 能完整切分（o + pen），被 looks_like_english_word 的现有守卫拦下，不涉碎片门。
+    let words = WordList::parse("use\tuse\t5000\n").unwrap();
+    let mut engine = Engine::new(Dictionary::parse(SAMPLE).unwrap())
+        .with_english(words)
+        .with_learner(Box::new(Recorder(learned.clone())));
+
+    for fragment in ["ia", "ialai", "sm", "w", "i", "use"] {
+        engine.set_input(fragment);
+        assert_eq!(engine.take_raw(), fragment);
+    }
+
+    assert!(
+        learned.lock().unwrap().is_empty(),
+        "拼音碎片不该进个人英文词表，即使 code 恰好等于词表里的词（IA/Sm/use）"
+    );
+
+    // 拒绝学习不影响查询：碎片上屏后再打正常拼音，候选与选词照旧
+    engine.set_input("xia");
+    let query = engine.query().unwrap();
+    assert!(
+        query
+            .candidates
+            .items
+            .iter()
+            .any(|c| c.kind == CandidateKind::Chinese && c.text == "下"),
+        "碎片拒绝学习不该影响正常查询：{:?}",
+        query.candidates.items.first(),
+    );
+    let xia = query.candidates.items[0].clone();
+    assert_eq!(engine.commit(&xia), "下");
+}
+
+/// 不在词表里但用户坚持要学的碎片串（`css` / `html` 这类缩写）：连续回车第 3 次起放行学习。
+#[test]
+fn a_rejected_fragment_is_learned_after_repeated_raw_commits() {
+    struct Recorder(std::sync::Arc<std::sync::Mutex<Vec<String>>>);
+
+    impl Learner for Recorder {
+        fn record(&mut self, _candidate: &Candidate) {}
+
+        fn weight(&self, _text: &str) -> u32 {
+            0
+        }
+
+        fn learn_english(&mut self, word: &str) {
+            self.0.lock().unwrap().push(word.to_owned());
+        }
+    }
+
+    let learned = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+    let mut engine = Engine::new(Dictionary::parse(SAMPLE).unwrap())
+        .with_learner(Box::new(Recorder(learned.clone())));
+
+    // 前两次拒绝，第三次放行
+    for _ in 0..2 {
+        engine.set_input("css");
+        assert_eq!(engine.take_raw(), "css");
+    }
+    assert!(learned.lock().unwrap().is_empty(), "前两次不该学");
+    engine.set_input("css");
+    assert_eq!(engine.take_raw(), "css");
+    assert_eq!(*learned.lock().unwrap(), vec!["css".to_owned()]);
+
+    // 学到之后计数清零：又一串要重新数三次
+    for _ in 0..2 {
+        engine.set_input("html");
+        assert_eq!(engine.take_raw(), "html");
+    }
+    assert_eq!(*learned.lock().unwrap(), vec!["css".to_owned()]);
+    engine.set_input("html");
+    assert_eq!(engine.take_raw(), "html");
+    assert_eq!(
+        *learned.lock().unwrap(),
+        vec!["css".to_owned(), "html".to_owned()]
+    );
+
+    // 换串清零：w 被拒两次后换 i，再回 w 要重新数
+    for raw in ["w", "w", "i", "w"] {
+        engine.set_input(raw);
+        assert_eq!(engine.take_raw(), raw);
+    }
+    assert_eq!(
+        *learned.lock().unwrap(),
+        vec!["css".to_owned(), "html".to_owned()]
+    );
+}
