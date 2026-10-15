@@ -280,12 +280,12 @@ fn english_mode_suggests_from_the_word_list_and_keeps_the_typed_text() {
     engine.set_input("helo");
     assert_eq!(texts_of(&engine), ["hello", "help"]);
     assert_eq!(engine.take_raw(), "helo");
-    // emoji 排在所有词后面，不挡上下键选词
+    // emoji 与颜文字排在所有词后面，不挡上下键选词
     let table = EmojiTable::parse("help\t🆘\n").unwrap();
     let mut engine = engine.with_emoji(table);
     engine.set_english_mode(true);
     engine.set_input("helo");
-    assert_eq!(texts_of(&engine), ["hello", "help", "🆘"]);
+    assert_eq!(texts_of(&engine), ["hello", "help", "(＾▽＾)ノ", "🆘"]);
     // 离开英文模式后同一串又按拼音算
     engine.set_english_mode(false);
     engine.set_input("comp");

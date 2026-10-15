@@ -9,7 +9,7 @@
     "fresh": { "light": "#ff8d28", "dark": "#ff9230" },
     "cloud": { "light": "#00c3d0", "dark": "#00d2e0" },
     "surface": { "light": "#ffffff", "dark": "#1e1e1e" },
-    "accent": { "light": "#b0ce7d7f", "dark": "#244c24" },
+    "accent": { "light": "#94be527f", "dark": "#336f33" },
 
     "hl_text": { "light": "#000000d8", "dark": "#ffffffd8" },
     "hl_gloss": { "light": "#000000a6", "dark": "#ffffffb3" },
@@ -74,7 +74,7 @@
     },
 
     "item": {
-      "type": "frame", "height": 27,
+      "type": "frame", "padding": [0, 0, 4, 0],
       "children": [
         { "type": "frame", "id": "highlight", "transition": { "duration": 100, "easing": "ease-out" },
           "when": "highlighted", "position": "absolute", "inset": [0, -5, 0, -5], "fill": "@accent", "radius": 4 },
@@ -87,7 +87,7 @@
 
   "windows": {
     "vertical": {
-      "type": "frame", "direction": "column", "padding": 8, "min_width": 200,
+      "type": "frame", "direction": "column", "padding": 8, "min_width": 180,
       "fill": "@surface", "radius": 8,
       "effects": [{ "type": "drop-shadow", "y": 6, "blur": 12, "color": "#0000005a" }],
       "children": [

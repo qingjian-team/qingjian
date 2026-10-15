@@ -62,6 +62,12 @@ impl InputMenu {
         menu.addItem(&NSMenuItem::separatorItem(mtm));
         menu.addItem(&action_item(
             mtm,
+            "符号面板…",
+            Some(MenuAction::OpenSymbolPanel),
+            &target,
+        ));
+        menu.addItem(&action_item(
+            mtm,
             "偏好设置…",
             Some(MenuAction::OpenPreferences),
             &target,

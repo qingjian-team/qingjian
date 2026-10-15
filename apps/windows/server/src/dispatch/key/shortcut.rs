@@ -79,6 +79,7 @@ impl Router {
             items: vec![candidate],
         };
         self.engine.annotate(&mut list);
+        self.annotate_sentence_translation(&mut list);
         list.items.pop()
     }
 }

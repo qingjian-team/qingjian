@@ -1,6 +1,6 @@
 //! 「通用」页：学习语言、每页候选数、输入方案、英文模式候选。
 
-use qingjian_platform::{MAX_PAGE_SIZE, Scheme, ShiftLetter, SwitchKey};
+use qingjian_platform::{EmojiCount, MAX_PAGE_SIZE, Scheme, ShiftLetter, SwitchKey};
 use windows_reactor::{
     Callback, CheckBox, ChildrenControl, ComboBox, ContentControl, NumberBox, Orientation,
     StackPanel, ToggleSwitch, View, ViewContext,
@@ -111,11 +111,28 @@ pub(crate) fn view(settings: &Settings, context: &mut ViewContext<Settings>) -> 
                 .on_toggled(context.callback(Message::Traditional)),
         ),
         field(
-            "候选后面显示 emoji",
-            "开着时有对应 emoji 的词后面跟一两个（kaixin → 开心 😄）；关掉候选里只有字词。",
-            ToggleSwitch::new()
-                .is_on(g.emoji)
-                .on_toggled(context.callback(Message::Emoji)),
+            "候选后面的 emoji",
+            "有对应 emoji 的词后面跟一两个（kaixin → 开心 😄），这里限一次最多几个；「不显示」时候选里只有字词。",
+            ComboBox::new()
+                .items_source(EmojiCount::LABELS.iter().copied())
+                .selected_index(Some(usize::from(g.emoji.get())))
+                .on_selection_changed(context.callback(Message::Emoji)),
+        ),
+        field(
+            "候选后面的颜文字",
+            "有对应颜文字的词后面跟一个（ku → 哭 (T_T)），这里限一次最多几个。",
+            ComboBox::new()
+                .items_source(EmojiCount::LABELS.iter().copied())
+                .selected_index(Some(usize::from(g.kaomoji.get())))
+                .on_selection_changed(context.callback(Message::Kaomoji)),
+        ),
+        field(
+            "候选后面的符号",
+            "有对应符号的词后面跟一两个（yuedengyu → 约等于 ≈，alpha → α），这里限一次最多几个。",
+            ComboBox::new()
+                .items_source(EmojiCount::LABELS.iter().copied())
+                .selected_index(Some(usize::from(g.symbols.get())))
+                .on_selection_changed(context.callback(Message::Symbols)),
         ),
         field(
             "中文模式标点转全角",

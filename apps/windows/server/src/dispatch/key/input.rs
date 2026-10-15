@@ -11,6 +11,9 @@ impl Router {
     /// 功能键靠键码，其余靠字符。组句中修饰键 + 数字是快捷键；带 Ctrl / Alt / Win 而没配到快捷键的键归应用。
     /// 表达式模式里 Shift + 数字打的是 `^ * ( )`，不当快捷键。
     pub(crate) fn apply_key(&mut self, event: &KeyEvent) -> Effect {
+        if let Some(effect) = self.apply_panel_key(event) {
+            return effect;
+        }
         if self.composing()
             && !self.engine.expression_mode()
             && let Some(digit) = codes::digit_key(event.virtual_key)
@@ -141,6 +144,8 @@ impl Router {
                 }
             },
             codes::DOWN => self.vertical_key(1),
+            // 高亮还在第一个、没动过时 ↑ 没处可去，拿来开符号面板
+            codes::UP if self.open_panel_from_key() => Effect::Navigated,
             codes::UP => self.vertical_key(-1),
             codes::NEXT => {
                 self.page(1);
@@ -276,15 +281,19 @@ impl Router {
         {
             return Effect::Changed(self.commit_index(index));
         }
+        // 翻页键要排在连字符前面，否则 `-` 永远翻不回上一页；翻不动时 `-` 照旧是单词里的连字符（`well-known`）
+        if composing
+            && let Some(step) = self.page_step(event)
+            && (c != '-' || self.can_page(step))
+        {
+            self.page(step);
+            return Effect::Navigated;
+        }
         if c.is_ascii_alphabetic()
             || (composing && (c.is_ascii_digit() || matches!(c, '_' | '\'' | '-')))
         {
             self.engine.push(c);
             return Effect::Changed(None);
-        }
-        if composing && let Some(step) = self.page_step(event) {
-            self.page(step);
-            return Effect::Navigated;
         }
         let committed = composing.then(|| {
             if c == ' ' {
@@ -348,7 +357,10 @@ impl Router {
                 return Effect::Changed(None);
             }
         }
-        if let Some(step) = self.page_step(event) {
+        // `-` `=` 翻不动时落回原字符（与 macOS 一致）；`[` `]` `,` `.` 翻不动照旧吃键，落字会往文档里插标点
+        if let Some(step) = self.page_step(event)
+            && (!matches!(c, '-' | '=') || self.can_page(step))
+        {
             self.page(step);
             return Effect::Navigated;
         }
@@ -394,7 +406,7 @@ impl Router {
         }
     }
 
-    pub(super) fn composing(&self) -> bool {
+    pub(in crate::dispatch) fn composing(&self) -> bool {
         !self.engine.composition().is_empty()
     }
 }

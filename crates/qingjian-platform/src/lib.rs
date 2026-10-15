@@ -16,9 +16,9 @@ pub use config::{
     Appearance, AppsConfig, AuxCodeConfig, CandidateRenderer, Config, DEFAULT_DOMAINS,
     DEFAULT_ENGLISH_CANDIDATES_ON, DEFAULT_ENGLISH_CANDIDATES_ON_LINUX,
     DEFAULT_ENGLISH_CANDIDATES_ON_MACOS, DEFAULT_ENGLISH_CANDIDATES_ON_WINDOWS, DEFAULT_PAGE_KEYS,
-    DEFAULT_THEME, DictionariesConfig, FontSize, GeneralConfig, HighlightKeys, KeyCombo,
-    LEARNING_LANGUAGE_OFF, LayoutMode, LocalModelConfig, LogLevel, MAX_PAGE_SIZE, Modifiers,
-    PAGE_KEY_OPTIONS, PageKeys, PreeditMode, Scheme, ShiftLetter, ShortcutConfig, SwitchKey,
-    SwitchKeys, UpdateChannel, UpdateConfig, scheme_label, scheme_name,
+    DEFAULT_THEME, DictionariesConfig, EmojiCount, FontSize, GeneralConfig, HighlightKeys,
+    KeyCombo, LEARNING_LANGUAGE_OFF, LayoutMode, LocalModelConfig, LogLevel, MAX_PAGE_SIZE,
+    Modifiers, PAGE_KEY_OPTIONS, PageKeys, PreeditMode, Scheme, ShiftLetter, ShortcutConfig,
+    SwitchKey, SwitchKeys, UpdateChannel, UpdateConfig, scheme_label, scheme_name,
 };
 pub use error::ConfigError;

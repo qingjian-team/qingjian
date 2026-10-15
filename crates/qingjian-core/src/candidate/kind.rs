@@ -24,10 +24,23 @@ pub enum CandidateKind {
     /// 按候选词配的 emoji，音节与那个词相同；上屏按音节消耗拼音，不记学习。
     Emoji,
 
+    /// 按候选词配的颜文字，规则同 `Emoji`。
+    Kaomoji,
+
+    /// 按候选词配的符号（约等于 → ≈），规则同 `Emoji`。
+    Symbol,
+
     /// 离线整句转换的结果（多个词拼成），带全部音节；上屏按音节消耗拼音，路径上的词逐条记入个人 n-gram，不记词频。
     Sentence,
 
     /// 模型直接按按键生成的整句（`yongdockerbushuhenfangbian` → 用docker部署很方便）：
     /// 词图读不通整段输入时的兜底来源，没有音节对齐，上屏吃掉整段作用域、不记学习。
     Generated,
+}
+
+impl CandidateKind {
+    /// 跟在某个词后面配出来的（emoji、颜文字、符号）：音节与那个词相同，`reading` 是那个词。
+    pub fn follows_word(self) -> bool {
+        matches!(self, Self::Emoji | Self::Kaomoji | Self::Symbol)
+    }
 }

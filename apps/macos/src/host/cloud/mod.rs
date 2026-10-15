@@ -102,7 +102,8 @@ impl Host {
             }
             return;
         }
-        if self.engine.composition().is_empty() {
+        // 符号面板开着时格子里是面板条目，云端词不往里补
+        if self.engine.composition().is_empty() || self.engine.symbol_panel().is_some() {
             return;
         }
         // 云端词补进第一页末尾（前面的本地候选不动），整句挂在 preedit 右侧；云端词没有译文，先补上。

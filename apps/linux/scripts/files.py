@@ -38,9 +38,12 @@ def main():
         raise SystemExit('XDG_DATA_HOME 必须是绝对路径')
     files = {prefix / 'share/licenses/qingjian/LICENSE': root / 'LICENSE',
              prefix / 'share/licenses/qingjian/LICENSE-CNS11643.txt': root / 'assets/stroke/LICENSE-CNS11643.txt',
-             data / 'icons/hicolor/128x128/apps/qingjian.png': root / 'assets/icon/logo.png',
              prefix / 'bin/qingjian-linux-server': Path(server),
              prefix / 'lib/fcitx5/qingjian.so': Path(plugin)}
+    # 托盘按名义尺寸挑图，目录名与像素必须一致：源图 1024px 不能直接装进 128x128（#547）。
+    for size in (16, 22, 24, 32, 48, 64, 128, 256):
+        files[data / f'icons/hicolor/{size}x{size}/apps/qingjian.png'] = (
+            root / f'assets/icon/linux/hicolor/{size}x{size}/apps/qingjian.png')
     for kind in ('addon', 'inputmethod'):
         files[data / f'fcitx5/{kind}/qingjian.conf'] = root / f'apps/linux/fcitx5/data/{kind}/qingjian.conf'
     resources = prefix / 'share/qingjian/resources'

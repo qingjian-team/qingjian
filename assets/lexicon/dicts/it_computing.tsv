@@ -1026,7 +1026,7 @@
 傅里叶级数	fu li ye ji shu	12
 储存库	chu cun ku	29
 傲游浏览器	ao you liu lan qi	2
-像素点	xiang su dian	47
+像素点	xiang su dian	45
 僵尸网络	jiang shi wang luo	13
 僵尸进程	jiang shi jin cheng	5
 僵死进程	jiang si jin cheng	11
@@ -1044,7 +1044,7 @@
 元组	yuan zu	34
 元组关系演算	yuan zu guan xi yan suan	5
 元编程	yuan bian cheng	6
-元表	yuan biao	3
+元表	yuan biao	2
 元语法	yuan yu fa	7
 元语言	yuan yu yan	6
 兄弟连	xiong di lian	33
@@ -4644,7 +4644,7 @@
 引擎研究	yin qing yan jiu	1
 引用传递	yin yong chuan di	5
 引用变量	yin yong bian liang	14
-引用名	yin yong ming	5
+引用名	yin yong ming	11
 引用形参	yin yong xing can	10
 引用数据类型	yin yong shu ju lei xing	13
 引用类型	yin yong lei xing	8
@@ -5011,7 +5011,7 @@
 执行状态	zhi xing zhuang tai	3
 执行环境	zhi xing huan jing	20
 执行程序	zhi xing cheng xu	16
-执行系统	zhi xing xi tong	10
+执行系统	zhi xing xi tong	9
 执行缓冲区	zhi xing huan chong qu	2
 执行计划	zhi xing ji hua	31
 执行过程	zhi xing guo cheng	34
@@ -6168,7 +6168,7 @@
 日期工具类	ri qi gong ju lei	8
 日期控件	ri qi kong jian	11
 日期方法	ri qi fang fa	7
-日期时间	ri qi shi jian	17
+日期时间	ri qi shi jian	18
 日期格式	ri qi ge shi	6
 日期格式化	ri qi ge shi hua	10
 日期格式转换	ri qi ge shi zhuan huan	7
@@ -6215,7 +6215,7 @@
 时间显示	shi jian xian shi	25
 时间服务器	shi jian fu wu qi	2
 时间查询	shi jian cha xun	11
-时间格式	shi jian ge shi	2
+时间格式	shi jian ge shi	12
 时间格式化	shi jian ge shi hua	9
 时间格式转换	shi jian ge shi zhuan huan	7
 时间片	shi jian pian	14
@@ -7058,7 +7058,7 @@
 段覆盖	duan fu gai	4
 段锁	duan suo	9
 段错误	duan cuo wu	2
-段长度	duan chang du	12
+段长度	duan chang du	11
 母函数	mu han shu	9
 母版页	mu ban ye	10
 每日算法	mei ri suan fa	6
@@ -8652,7 +8652,7 @@
 系统中断	xi tong zhong duan	2
 系统中断请求	xi tong zhong duan qing qiu	5
 系统互连	xi tong hu lian	8
-系统任务	xi tong ren wu	3
+系统任务	xi tong ren wu	4
 系统优化	xi tong you hua	10
 系统体系结构	xi tong ti xi jie gou	1
 系统保护	xi tong bao hu	10
@@ -9300,7 +9300,7 @@
 网络抓包	wang luo zhua bao	1
 网络拓扑	wang luo tuo pu	14
 网络拥塞	wang luo yong se	6
-网络接口	wang luo jie kou	19
+网络接口	wang luo jie kou	21
 网络推广	wang luo tui guang	7
 网络摄像头	wang luo she xiang tou	10
 网络操作系统	wang luo cao zuo xi tong	1

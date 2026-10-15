@@ -76,6 +76,13 @@ pub(crate) fn view(settings: &Settings, context: &mut ViewContext<Settings>) -> 
                 .on_toggled(context.callback(Message::CloudSentence)),
         ),
         field(
+            "整句候选翻译",
+            "本地整句候选出现后，单独把该候选文本发给服务，译文异步显示在候选右侧；不发送光标前后上下文。",
+            ToggleSwitch::new()
+                .is_on(p.sentence_translation)
+                .on_toggled(context.callback(Message::CloudSentenceTranslation)),
+        ),
+        field(
             "接口地址",
             "",
             TextBox::new()

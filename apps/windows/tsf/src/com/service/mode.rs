@@ -130,7 +130,7 @@ impl TextService_Impl {
         match reply {
             Some(Ok(reply)) => {
                 self.apply_input_settings(reply.input);
-                self.indicator_state.set(reply.indicator);
+                self.apply_indicator_state(reply.indicator);
                 if let Some(english) = reply.english {
                     self.adopt_mode(english);
                 }

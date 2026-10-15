@@ -72,6 +72,7 @@ impl Router {
         self.notice = None;
         self.highlight = 0;
         self.navigated = false;
+        self.panel = None;
         self.hide_candidate_window();
     }
 }

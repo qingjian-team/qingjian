@@ -250,3 +250,55 @@ fn punct_commits_off_keeps_punctuation_in_raw_segment() {
         Some("你，")
     );
 }
+
+/// 英文候选里 `-` `=` 作翻页键：`-` 翻得回上一页；第一页没得翻时 `-` 仍是单词里的连字符。
+#[test]
+fn english_minus_pages_back_and_stays_a_hyphen_on_the_first_page() {
+    let mut router = router(1);
+    router.config.page_keys = ('-', '=');
+    let english = KeyModifiers {
+        english_mode: true,
+        ..Default::default()
+    };
+    compose(&mut router, "hel", english);
+    assert_eq!(key(&mut router, 0xBB, Some('='), english).2.page, 1);
+    let back = key(&mut router, 0xBD, Some('-'), english);
+    assert_eq!(
+        (back.0, back.1, back.2.page),
+        (KeyOutcome::Consumed, None, 0)
+    );
+    assert_eq!(router.engine.composition().text(), "hel");
+    key(&mut router, 0xBD, Some('-'), english);
+    assert_eq!(router.engine.composition().text(), "hel-");
+}
+
+/// 中文组句里 `-` `=` 翻不动时落回原字符进直输段；`[` `]` 翻不动照旧吃键。
+#[test]
+fn chinese_minus_equals_fall_back_to_characters_at_page_edges() {
+    let normal = KeyModifiers::default();
+    let mut r = router(4);
+    r.config.page_keys = ('-', '=');
+    compose(&mut r, "qq", normal);
+    key(&mut r, 0xBD, Some('-'), normal);
+    assert_eq!(r.engine.composition().text(), "qq-");
+
+    let mut r = router(4);
+    r.config.page_keys = ('-', '=');
+    compose(&mut r, "qq", normal);
+    for page in 1..=2 {
+        assert_eq!(key(&mut r, 0xBB, Some('='), normal).2.page, page);
+    }
+    assert_eq!(key(&mut r, 0xBD, Some('-'), normal).2.page, 1);
+    key(&mut r, 0xBB, Some('='), normal);
+    key(&mut r, 0xBB, Some('='), normal);
+    assert_eq!(r.engine.composition().text(), "qq=");
+
+    let mut r = router(4);
+    compose(&mut r, "qq", normal);
+    let result = key(&mut r, 0xDB, Some('['), normal);
+    assert_eq!(
+        (result.0, result.1, result.2.page),
+        (KeyOutcome::Consumed, None, 0)
+    );
+    assert_eq!(r.engine.composition().text(), "qq");
+}

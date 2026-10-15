@@ -21,10 +21,11 @@ mod click;
 mod command;
 mod commit;
 mod display;
+mod panel;
 mod text;
 mod translate;
 
-pub use click::click;
+pub use click::{click, panel_mouse};
 
 define_class!(
     // SAFETY:
@@ -121,8 +122,12 @@ define_class!(
         /// 输入源菜单里点了条目：IMK 转发到控制器，sender 是带 IMKCommandMenuItem 的字典。
         #[unsafe(method(menuAction:))]
         fn menu_action(&self, sender: Option<&AnyObject>) {
-            if let Some(action) = menubar::action_from_sender(sender) {
-                host::with(|h| h.perform(action));
+            match menubar::action_from_sender(sender) {
+                Some(menubar::MenuAction::OpenSymbolPanel) => self.open_panel_from_menu(),
+                Some(action) => {
+                    host::with(|h| h.perform(action));
+                }
+                None => {}
             }
         }
 
@@ -220,6 +225,21 @@ impl QingjianInputController {
         // 翻译选中文字进行中：回车 / 空格 / 1 接受，Esc 放弃，其他键放弃后照常交给应用
         if host::with(|h| h.translation.is_some()).unwrap_or(false) {
             return self.handle_translation_review(key, client);
+        }
+        // 符号面板开着：按键先归面板；敲字母时面板收起、按键照常往下走
+        if host::with(|h| h.engine.symbol_panel().is_some()).unwrap_or(false)
+            && let Some(consumed) = self.handle_panel_key(event, key, pressed, client)
+        {
+            return consumed;
+        }
+        // 高亮还在第一个时按 ↑ 打开符号面板；长按连发的不算，免得往回翻过头弹出来
+        if key == 126
+            && pressed.is_empty()
+            && !event.isARepeat()
+            && host::with(|h| !h.engine.composition().is_empty()).unwrap_or(false)
+            && self.open_panel(client)
+        {
+            return true;
         }
         // 翻译快捷键（不在组句中）：读应用里的选区，交给云端
         let typed = event

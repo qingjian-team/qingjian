@@ -227,7 +227,9 @@ fn main() {
     engine.set_aux_enabled(config.aux_code.enabled);
     engine.set_aux_show(config.general.aux_code_show);
     engine.set_chinese_first(config.general.chinese_first);
-    engine.set_emoji_candidates(config.general.emoji);
+    engine.set_emoji_limit(usize::from(config.general.emoji.get()));
+    engine.set_kaomoji_limit(usize::from(config.general.kaomoji.get()));
+    engine.set_symbol_limit(usize::from(config.general.symbols.get()));
     engine.set_english_in_chinese(config.general.english_in_chinese);
     engine.set_shift_letter_compose(config.general.shift_letter.compose());
     engine.set_shuangpin_raw_preedit(config.general.shuangpin_raw_preedit);
@@ -303,7 +305,7 @@ fn serve(mut router: Router) {
     use qingjian_windows_server::ipc::{Work, pipe};
     use qingjian_windows_server::ui::UiHandle;
     grant_appcontainer_log_access();
-    // 工人循环的活：各连接的消息 + 状态条上的操作（UI 线程投进来）。
+    // 工人循环的活：各连接的消息 + 状态条、候选窗、符号面板上的操作（UI 线程投进来）。
     let (work_tx, work_rx) = std::sync::mpsc::channel::<Work>();
     let status_events = work_tx.clone();
     let on_status = Box::new(move |event| {
@@ -313,7 +315,11 @@ fn serve(mut router: Router) {
     let on_click = Box::new(move |target| {
         let _ = clicks.send(Work::Click(target));
     });
-    match UiHandle::spawn(on_status, on_click) {
+    let panel_events = work_tx.clone();
+    let on_panel = Box::new(move |hit| {
+        let _ = panel_events.send(Work::Panel(hit));
+    });
+    match UiHandle::spawn(on_status, on_click, on_panel) {
         Ok(ui) => {
             router.set_candidate_sink(Box::new(ui.clone()));
             router.set_status_sink(Box::new(ui));

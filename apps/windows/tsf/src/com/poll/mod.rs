@@ -144,6 +144,9 @@ fn poll_once(context: &PollContext) {
                 drop(guard);
                 context.shared.set_translating(false);
                 context.shared.hide_candidates();
+            } else if frame.is_empty() && !context.shared.has_composition() {
+                // 没在组句时打开的符号面板被鼠标关掉了：文档里没有组句要收，回到没在组句
+                context.shared.set_composing(false);
             }
         }
         Err(error) => {

@@ -3,6 +3,7 @@ mod apps;
 mod aux_code;
 mod candidate_renderer;
 mod dictionaries;
+mod emoji_count;
 mod font_size;
 mod general;
 mod highlight_keys;
@@ -38,6 +39,7 @@ pub use apps::{
 pub use aux_code::AuxCodeConfig;
 pub use candidate_renderer::CandidateRenderer;
 pub use dictionaries::{DEFAULT_DOMAINS, DictionariesConfig};
+pub use emoji_count::EmojiCount;
 pub use font_size::FontSize;
 pub use general::{
     DEFAULT_PAGE_KEYS, DEFAULT_THEME, GeneralConfig, LEARNING_LANGUAGE_OFF, MAX_PAGE_SIZE,
@@ -218,7 +220,7 @@ page_size = 9
 page_keys = "[]"
 # 候选窗口外观：system 跟随系统 / light 浅色 / dark 深色
 appearance = "system"
-# 候选窗口主题（主题 id）：qingjian 青简绿 / system-blue 系统蓝 / wechat 微信绿 / sakura 樱花。只对青简渲染器生效
+# 候选窗口主题（主题 id）：qingjian 青简绿 / system-blue 系统蓝 / wechat 微信绿 / sakura 樱花 / dafeiyu 大肥鱼 / miku 初音未来 / bocchi 波奇酱。只对青简渲染器生效
 theme = "qingjian"
 # 候选窗口排布：vertical 竖排 / horizontal 横排（横排只给高亮候选显示译文）
 layout = "vertical"
@@ -245,8 +247,14 @@ traditional = false
 chinese_first = false
 # 中文模式下整段是英文词或英文词的开头时给英文候选与补全（hello、compa → company）；false 时中文模式只出中文，英文模式不受影响
 english_in_chinese = true
-# 候选后面配 emoji（kaixin → 开心 😄）；false 时候选里只有字词
-emoji = true
+# 候选后面一次最多配几个 emoji（kaixin → 开心 😄），0–3；0 时候选里只有字词
+emoji = 3
+# 候选后面一次最多配几个颜文字（ku → 哭 (T_T)），0–3
+kaomoji = 1
+# 候选后面一次最多配几个符号（yuedengyu → 约等于 ≈，alpha → α），0–3
+symbols = 1
+# 中西文之间自动补空格：汉字与半角字母 / 数字相邻时补一个空格，「用Go写了30行」上屏成「用 Go 写了 30 行」。缺省关；只有 macOS 用
+auto_space = false
 # 中文模式下按住 Shift 敲的字母：passthrough 拼音原样上屏、字母交给应用（缺省，与以前一致）/ compose 收进组句
 # 缓冲区参与匹配，这样 Cpan 与 cpan 一样能出「C盘」。英文模式与英文直输段（no-Way）不受影响
 shift_letter = "passthrough"
@@ -366,6 +374,8 @@ api_key_env = "QINGJIAN_API_KEY"
 # 单次请求超时（毫秒）、停止敲键多久后才发请求（毫秒）
 timeout_ms = 5000
 debounce_ms = 300
+# 两次网络请求起始之间的最短间隔，失败也计入；缓存命中不等待
+min_interval_ms = 3000
 # 光标前 / 后最多发多少个字符——这是发往云端的上下文上限
 lookback = 64
 lookahead = 32
@@ -373,6 +383,8 @@ lookahead = 32
 slots = 2
 # 组句中除了词候选还要不要整句补全（preedit 右侧，Tab 接受）
 sentence = true
+# 本地整句候选右侧是否显示服务返回的译文；仅发送该候选文本，不发送光标前后上下文
+sentence_translation = false
 
 [status_bar]
 # 桌面上常驻、可拖动的悬浮状态条（Windows）：「中 / 英」格点一下切换模式（开着双拼时还显示方案名）、「，。」格切全角 / 半角标点、齿轮打开设置。
@@ -581,7 +593,7 @@ impl Config {
 const APPEARANCE_COMMENT: &str = "# 候选窗口外观：system 跟随系统 / light 浅色 / dark 深色\n";
 
 /// 模板里 `theme` 那一行上方的注释，同上。
-const THEME_COMMENT: &str = "# 候选窗口主题（主题 id）：qingjian 青简绿 / system-blue 系统蓝 / wechat 微信绿 / sakura 樱花。只对青简渲染器生效\n";
+const THEME_COMMENT: &str = "# 候选窗口主题（主题 id）：qingjian 青简绿 / system-blue 系统蓝 / wechat 微信绿 / sakura 樱花 / dafeiyu 大肥鱼 / miku 初音未来 / bocchi 波奇酱。只对青简渲染器生效\n";
 
 /// 旧写法里 `theme` 写的外观；新写法（或没写）为 `None`。
 fn legacy_appearance(document: &DocumentMut) -> Option<Appearance> {

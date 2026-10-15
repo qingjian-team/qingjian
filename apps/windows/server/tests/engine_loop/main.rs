@@ -6,6 +6,7 @@ mod composing;
 mod english;
 mod highlight;
 mod modes;
+mod prediction;
 mod rescoring;
 mod shortcuts;
 mod status;

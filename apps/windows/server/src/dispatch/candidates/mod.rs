@@ -1,4 +1,5 @@
-//! 候选窗口输出：Router 只产出 [`Frame`] 与光标矩形，交给 [`CandidateSink`] 去画；帧没变就不重画。
+//! 候选窗口输出：Router 只产出 [`Frame`]（符号面板开着时是 [`PanelFrame`](super::PanelFrame)）与光标矩形，
+//! 交给 [`CandidateSink`] 去画；帧没变就不重画。
 
 mod sink;
 
@@ -11,7 +12,13 @@ use super::Router;
 
 impl Router {
     /// 空帧收窗口；非空且已知光标矩形就重绘；还没收到矩形（组句刚起）先不显示，免得在旧位置闪一下。
+    /// 符号面板开着时画面板，候选窗收起。
     pub(super) fn reconcile_candidates(&mut self, frame: &Frame) {
+        if let Some(panel) = self.panel_frame() {
+            self.reconcile_panel(panel);
+            return;
+        }
+        self.hide_panel_window();
         if frame.is_empty() {
             self.engine.note_displayed(std::iter::empty());
             self.hide_candidate_window();
@@ -42,6 +49,7 @@ impl Router {
         self.last_rect = None;
         self.last_shown = None;
         self.candidates.hide();
+        self.hide_panel_window();
     }
 
     pub(super) fn position_candidates(&mut self, session: SessionId, rect: ScreenRect) {

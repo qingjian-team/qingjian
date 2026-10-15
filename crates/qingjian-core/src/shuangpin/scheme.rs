@@ -130,13 +130,18 @@ impl Scheme {
             }
         }
         let initial = self.initial(first)?;
-        self.finals(second)
+        // jv / qv 这类全拼键盘别名也是合法音节，解码结果统一成词库写法
+        let valid: Vec<String> = self
+            .finals(second)
             .iter()
-            .find_map(|final_| {
-                // jv / qv 这类全拼键盘别名也是合法音节，解码结果统一成词库写法
-                let syllable = format!("{initial}{final_}");
-                parser::is_syllable(&syllable).then(|| canonical_syllable(&syllable).to_owned())
-            })
+            .map(|final_| format!("{initial}{final_}"))
+            .filter(|syllable| parser::is_syllable(syllable))
+            .collect();
+        valid
+            .iter()
+            .find(|syllable| !parser::RARE_SYLLABLES.contains(&syllable.as_str()))
+            .or(valid.first())
+            .map(|syllable| canonical_syllable(syllable).to_owned())
             .or_else(|| {
                 // ü 在 j / q / x / y 后写作 u；同键已有的合法音节仍优先。
                 (matches!(initial, "j" | "q" | "x" | "y") && self.finals(second).contains(&"v"))
@@ -293,6 +298,8 @@ mod tests {
                     "dia" if scheme == Scheme::Xiaolang => "dai",
                     "lia" if scheme == Scheme::Xiaolang => "lai",
                     "nen" if scheme == Scheme::Xiaolang => "niang",
+                    // 生僻音节与常用音节同键时让给常用的
+                    "biang" if scheme == Scheme::Xiaolang => "ben",
                     other => other,
                 };
                 assert_eq!(decoded, expected, "{scheme}: {syllable} → {keys:?}");
@@ -451,10 +458,10 @@ mod tests {
 
     #[test]
     fn invalid_pair_starts_the_tail() {
-        let decoded = Scheme::Xiaohe.decode("nibl");
+        let decoded = Scheme::Xiaohe.decode("nifl");
         assert_eq!(decoded.pinyin(), "ni");
-        assert_eq!(decoded.tail(), "bl");
-        assert_eq!(decoded.marked(), "ni'bl");
+        assert_eq!(decoded.tail(), "fl");
+        assert_eq!(decoded.marked(), "ni'fl");
     }
 
     #[test]

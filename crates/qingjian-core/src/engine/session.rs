@@ -124,8 +124,6 @@ impl Engine {
         self.history.clear();
         self.chain = CommitChain::default();
         self.rescoring_before = None;
-        self.last_prediction_scope.clear();
-        self.last_question_guess.clear();
         *self.neural_cache.borrow_mut() = super::rescoring::NeuralCache::default();
         *self.correction_cache.borrow_mut() = None;
         *self.last_query.borrow_mut() = None;

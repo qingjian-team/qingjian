@@ -116,7 +116,8 @@ pub fn init(mtm: MainThreadMarker, info: &BundleInfo) -> Result<(), HostError> {
     }
     let window = CandidateWindow::new(mtm);
     window.set_click_handler(Box::new(crate::imk::click));
-    let indicator = ModeIndicator::new(mtm);
+    window.set_panel_mouse_handler(Box::new(crate::imk::panel_mouse));
+    let mut indicator = ModeIndicator::new(mtm);
     let menu = InputMenu::new(mtm, version);
     indicator.set_menu(&menu.ns_menu());
     let preferences = PreferencesWindow::new(mtm, &languages, version, &info.build);

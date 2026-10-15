@@ -99,7 +99,7 @@ fn fuzzy_toggle_does_not_admit_invalid_pairs_or_change_normal_decoding() {
             query.candidates.items.iter().any(|c| c.text == "是"),
             enabled
         );
-        engine.set_input("bd");
+        engine.set_input("fd");
         assert!(engine.query().is_err());
     }
     engine.set_fuzzy(FuzzyRules {

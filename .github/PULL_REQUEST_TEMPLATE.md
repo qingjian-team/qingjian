@@ -21,6 +21,7 @@
 - [ ] 代码标识符英文、注释与文档中文；新文件有 `//!` 文件头；单文件不超过 800 行
 - [ ] 提交信息用 Conventional Commits（`fix(core): ……` / `feat(windows): ……`，说明写中文）；其余约定见 [docs/contributing.md](../docs/contributing.md)
 - [ ] 不改 `CHANGELOG.md`（发版时由维护者统一写）
+- [ ] 改到 `crates/qingjian-render` 的：同意以 MIT-0 许可这部分贡献（见 [docs/contributing.md](../docs/contributing.md) 的「外部 PR」）
 
 ## 怎么验证的
 

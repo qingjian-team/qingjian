@@ -14,6 +14,9 @@ pub enum IndicatorCommand {
 
     /// 查到新版本时菜单里的「有新版本」：打开下载页，同样交给 Server。
     OpenDownload,
+
+    /// 打开符号面板。
+    OpenSymbolPanel,
 }
 
 /// 右键菜单打勾用的开关状态。DLL 不读配置文件（UWP 沙箱里读不到），由 Server 随
@@ -32,4 +35,7 @@ pub struct IndicatorState {
 
     /// 检查更新查到了新版本，菜单里露出「有新版本」。
     pub update_available: bool,
+
+    /// 符号面板开着。从悬浮条打开时 DLL 靠这一拍得知，没在组句也把键交给 Server。
+    pub symbol_panel: bool,
 }

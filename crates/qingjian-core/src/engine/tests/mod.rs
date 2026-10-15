@@ -2,6 +2,7 @@
 
 mod aux_code;
 mod cloud;
+mod cloud_trigger;
 mod code;
 mod correction;
 mod custom;
@@ -9,9 +10,11 @@ mod emoji;
 mod english;
 mod learning;
 mod lookup;
+mod panel;
 mod privacy;
 mod raw;
 mod shuangpin;
+mod spacing;
 mod zhuyin;
 
 use std::collections::HashMap;
@@ -151,6 +154,7 @@ unsafe impl Send for EchoPredictor {}
 impl Predictor for EchoPredictor {
     fn policy(&self) -> PredictionPolicy {
         PredictionPolicy {
+            automatic: true,
             before: 4,
             after: 2,
             slots: 2,

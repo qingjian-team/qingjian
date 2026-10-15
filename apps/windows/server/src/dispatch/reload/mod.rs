@@ -31,9 +31,9 @@ fn mtime(path: &Path) -> Option<SystemTime> {
         .ok()
 }
 
-/// 按 `[predict]` 接云联想与释义兜底；关着或缺密钥就退回本地实现。启动与热加载共用。
+/// 按 `[predict]` 接云联想、整句候选翻译与释义兜底；关着或缺密钥就退回本地实现。启动与热加载共用。
 pub fn attach_cloud(engine: &mut Engine, predict: &PredictConfig) {
-    if !predict.enabled {
+    if !predict.enabled && !predict.sentence_translation {
         tracing::info!("云联想未开启（[predict] enabled = false）");
         engine.set_predictor(Box::new(NoPredictor));
         engine.set_gloss_filler(Box::new(NoGlossFiller));
@@ -42,19 +42,23 @@ pub fn attach_cloud(engine: &mut Engine, predict: &PredictConfig) {
     match CloudPredictor::new(predict) {
         Ok(predictor) => {
             engine.set_predictor(Box::new(predictor));
-            tracing::info!(model = %predict.model, "云联想已接入");
+            tracing::info!(model = %predict.model, cloud = predict.enabled, sentence_translation = predict.sentence_translation, "云联想已接入");
         }
         Err(error) => {
             tracing::warn!(%error, "云联想接入失败（缺 API key？），退回本地候选");
             engine.set_predictor(Box::new(NoPredictor));
         }
     }
-    match CloudGlossFiller::new(predict) {
-        Ok(filler) => engine.set_gloss_filler(Box::new(filler)),
-        Err(error) => {
-            tracing::warn!(%error, "释义兜底未启用");
-            engine.set_gloss_filler(Box::new(NoGlossFiller));
+    if predict.enabled {
+        match CloudGlossFiller::new(predict) {
+            Ok(filler) => engine.set_gloss_filler(Box::new(filler)),
+            Err(error) => {
+                tracing::warn!(%error, "释义兜底未启用");
+                engine.set_gloss_filler(Box::new(NoGlossFiller));
+            }
         }
+    } else {
+        engine.set_gloss_filler(Box::new(NoGlossFiller));
     }
 }
 
@@ -225,7 +229,12 @@ impl Router {
         self.engine.set_aux_enabled(config.aux_code.enabled);
         self.engine.set_aux_show(config.general.aux_code_show);
         self.engine.set_chinese_first(config.general.chinese_first);
-        self.engine.set_emoji_candidates(config.general.emoji);
+        self.engine
+            .set_emoji_limit(usize::from(config.general.emoji.get()));
+        self.engine
+            .set_kaomoji_limit(usize::from(config.general.kaomoji.get()));
+        self.engine
+            .set_symbol_limit(usize::from(config.general.symbols.get()));
         self.engine
             .set_english_in_chinese(config.general.english_in_chinese);
         self.engine

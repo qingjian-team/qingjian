@@ -1,6 +1,6 @@
 //! 文本服务对象 [`TextService`]：每线程一个，实现 `ITfTextInputProcessor`（激活 / 停用，[`processor`]）、
 //! `ITfKeyEventSink`（收键，[`key_sink`]）与显示属性提供者（[`display`]）。
-//! 连 Server 在 [`connection`]，中英模式在 [`mode`]，往文档写字在 [`document`]。
+//! 连 Server 在 [`connection`]，中英模式在 [`mode`]，往文档写字在 [`document`]，符号面板的开关状态在 [`panel`]。
 
 mod connection;
 mod display;
@@ -10,6 +10,7 @@ mod launch;
 mod menu;
 mod mode;
 mod next;
+mod panel;
 mod processor;
 mod punctuation;
 
@@ -109,6 +110,10 @@ pub struct TextService {
 
     /// 宽限过期的「放行」只记一次日志，别每个键都刷一行。
     launch_grace_logged: Cell<bool>,
+
+    /// `OnTestKeyDown` 已问过 Server 的数字键结果；`OnKeyDown` 取走应用，避免再送一次。
+    /// 仅注音等会 Consumed 的数字会进这里；Passthrough 的数字在 Test 里直接放行、不缓存。
+    pending_digit: RefCell<Option<next::Next>>,
 }
 
 thread_local! {
@@ -167,7 +172,7 @@ pub(super) fn on_input_settings(input: InputSettings) {
 
 /// 轮询取回了右键菜单打勾用的开关状态。
 pub(super) fn on_indicator_state(state: IndicatorState) {
-    with_active(|service| service.indicator_state.set(state));
+    with_active(|service| service.apply_indicator_state(state));
 }
 
 impl TextService {
@@ -196,6 +201,7 @@ impl TextService {
             conversion_guard_until: Cell::new(None),
             launch_grace_until: Cell::new(None),
             launch_grace_logged: Cell::new(false),
+            pending_digit: RefCell::new(None),
         }
     }
 }

@@ -89,10 +89,32 @@ impl Vocab {
             .collect()
     }
 
+    /// 每个字符都在字表里。
+    pub fn knows(&self, text: &str) -> bool {
+        text.chars().all(|c| self.index.contains_key(&c))
+    }
+
     /// 逐字符编码，不认识的记 [`UNK`]。
     pub fn encode(&self, text: &str) -> Vec<u32> {
         text.chars()
             .map(|c| self.index.get(&c).copied().unwrap_or(UNK))
             .collect()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn knows_only_texts_made_of_vocab_characters() {
+        let vocab = Vocab::from_json(
+            r#"{"tokens": ["<pad>", "<unk>", "<eos>", "恩"]}"#,
+            Path::new("vocab.json"),
+        )
+        .unwrap();
+        assert!(vocab.knows("恩恩"));
+        assert!(!vocab.knows("嗯嗯"));
+        assert_eq!(vocab.encode("嗯"), [UNK]);
     }
 }

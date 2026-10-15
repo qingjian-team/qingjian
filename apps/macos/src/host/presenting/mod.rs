@@ -1,6 +1,7 @@
 //! 呈现：删候选、按应用关英文候选、翻译选区的起止、提示气泡、会话重置与候选窗口绘制。
 
 mod notice;
+mod panel;
 mod translation_job;
 
 pub(super) use notice::Notice;
@@ -83,6 +84,10 @@ impl Host {
 
     /// 按会话状态画候选窗口。候选为空且没有 preedit 时收窗。
     pub fn render(&mut self) {
+        if self.engine.symbol_panel().is_some() {
+            self.render_panel();
+            return;
+        }
         let size = self.session.layout.page_size();
         let page = self.session.page;
         // 横排展开成矩阵时画视口里的几行，序号只标在高亮所在那一行（数字键选的就是它）；单行时只画当前页
@@ -147,12 +152,13 @@ impl Host {
             sentence: self.sentence.clone(),
             status: self.status.clone(),
             mode: self.input_mode(),
+            panel: None,
         };
         self.window.show(frame, self.anchor);
     }
 
     /// 给候选窗口主题显示的输入状态：中英看 Caps Lock（与菜单栏一致），其余看配置；英文模式标点是半角。
-    fn input_mode(&self) -> qingjian_render::Mode {
+    pub(super) fn input_mode(&self) -> qingjian_render::Mode {
         let general = &self.settings.config().general;
         let english = crate::imk::modifiers::caps_lock_on();
         qingjian_render::Mode {

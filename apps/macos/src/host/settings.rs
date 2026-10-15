@@ -81,6 +81,8 @@ impl Host {
                 }
             }
             MenuAction::OpenDownload => open_with_system(&[qingjian_update::DOWNLOAD_URL]),
+            // 要当前会话的文本客户端，控制器在 menuAction: 里先接走了
+            MenuAction::OpenSymbolPanel => {}
         }
     }
 
@@ -387,8 +389,17 @@ impl Host {
             (Setting::EnglishInChinese, SettingValue::Bool(on)) => {
                 self.settings.set_bool("general", "english_in_chinese", on);
             }
-            (Setting::Emoji, SettingValue::Bool(on)) => {
-                self.settings.set_bool("general", "emoji", on);
+            (Setting::Emoji, SettingValue::Index(index)) => {
+                self.settings.set_value("general", "emoji", index as i64);
+            }
+            (Setting::Kaomoji, SettingValue::Index(index)) => {
+                self.settings.set_value("general", "kaomoji", index as i64);
+            }
+            (Setting::Symbols, SettingValue::Index(index)) => {
+                self.settings.set_value("general", "symbols", index as i64);
+            }
+            (Setting::AutoSpace, SettingValue::Bool(on)) => {
+                self.settings.set_bool("general", "auto_space", on);
             }
             (Setting::ShiftLetter, SettingValue::Bool(on)) => {
                 let mode = if on {

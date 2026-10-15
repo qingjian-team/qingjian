@@ -8,6 +8,7 @@ use std::mem::ManuallyDrop;
 use std::sync::atomic::{AtomicI32, Ordering};
 
 use windows::Win32::Foundation::{POINT, RECT};
+use windows::Win32::Graphics::Gdi::{MONITOR_DEFAULTTONULL, MonitorFromPoint};
 use windows::Win32::UI::TextServices::{
     ITfContext, ITfRange, TF_ANCHOR_START, TF_DEFAULT_SELECTION, TF_SELECTION,
 };
@@ -107,7 +108,30 @@ fn range_rect(context: &ITfContext, ec: u32, range: &ITfRange) -> Option<RECT> {
         let view = context.GetActiveView().ok()?;
         view.GetTextExt(ec, range, &mut rect, &mut clipped).ok()?;
     }
-    (rect.right > rect.left || rect.bottom > rect.top).then_some(rect)
+    if rect.right <= rect.left && rect.bottom <= rect.top {
+        return None;
+    }
+    // 不实现真文本 store 的应用（部分全屏游戏）GetTextExt 会「成功」返回屏幕外假矩形
+    // （Dota2 进程里实测拿到 (-1000,-1000,…)）。这种锚点会把候选窗钉到错误的屏幕角落，
+    // 一律视为拿不到，退回鼠标位置——游戏里跟随鼠标总比固定在屏幕外好。
+    if !rect_on_real_monitor(&rect) {
+        crate::com::log::log(&format!(
+            "GetTextExt 返回屏幕外矩形 ({},{},{},{})，退回鼠标定位",
+            rect.left, rect.top, rect.right, rect.bottom
+        ));
+        return None;
+    }
+    Some(rect)
+}
+
+/// 矩形是否落在真实显示器上：以中心点命中哪块屏判定。多屏副屏负坐标是合法的，
+/// 只有完全在所有显示器之外（如 (-1000,-1000) 这类假 store 返回值）才判无效。
+fn rect_on_real_monitor(rect: &RECT) -> bool {
+    let center = POINT {
+        x: rect.left + (rect.right - rect.left) / 2,
+        y: rect.top + (rect.bottom - rect.top) / 2,
+    };
+    unsafe { !MonitorFromPoint(center, MONITOR_DEFAULTTONULL).is_invalid() }
 }
 
 fn mouse_anchor() -> RECT {

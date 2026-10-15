@@ -13,13 +13,9 @@ const CLICK_SINCE: u32 = 8;
 impl Router {
     /// 候选窗口上点中了候选或译词（UI 线程经工人通道送来）。
     pub fn handle_click(&mut self, target: HitTarget) {
-        let Some(session) = self.focused else {
+        let Some(session) = self.click_session() else {
             return;
         };
-        if self.focused_dll_protocol() < CLICK_SINCE {
-            tracing::debug!("DLL 协议太老，不收候选窗口的点击");
-            return;
-        }
         if self.translation.is_some() || !self.composing() {
             return;
         }
@@ -36,6 +32,21 @@ impl Router {
             return;
         };
         tracing::debug!(?target, "点击上屏");
+        self.deliver_clicked(session, text);
+    }
+
+    /// 收得了点击的聚焦会话：DLL 太老、读不到 `Update.commit` 时不收。
+    pub(in crate::dispatch) fn click_session(&self) -> Option<SessionId> {
+        let session = self.focused?;
+        if self.focused_dll_protocol() < CLICK_SINCE {
+            tracing::debug!("DLL 协议太老，不收鼠标上屏");
+            return None;
+        }
+        Some(session)
+    }
+
+    /// 点击上屏的文本挂到会话上等 DLL 取走，再按新状态重画。
+    pub(in crate::dispatch) fn deliver_clicked(&mut self, session: SessionId, text: String) {
         let pending = self.take_clicked(session).unwrap_or_default();
         self.clicked = Some((session, pending + &text));
         self.recompose();

@@ -169,6 +169,8 @@ impl Engine {
             | CandidateKind::Shortcut
             | CandidateKind::Custom(_)
             | CandidateKind::Emoji
+            | CandidateKind::Kaomoji
+            | CandidateKind::Symbol
             | CandidateKind::Generated => Forgotten::default(),
         };
         if !forgotten.is_nothing() {
