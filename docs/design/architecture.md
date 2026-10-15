@@ -367,6 +367,11 @@ CC-CEDICT 表（`dict-convert cedict`）保留为备用来源，覆盖面广但�
 - 配置只有一条通路：`Host::apply_config` 把当前 `Config` 推给 Engine（模糊音、模式键、Predictor 重建、释义表切换）与界面
   （每页候选数、翻页键、外观、☁︎ 标识、菜单勾选、设置窗口控件）。启动、菜单开关、设置窗口、`host/config/watch.rs`
   每秒一次的 mtime 监视全都走它；三个入口都只写 `config.toml`，不各存一套状态。解析失败沿用上一份，错误显示在菜单与设置窗口里。
+- **中英切换**：Caps Lock 一直是英文模式开关（系统级，不受配置影响）。勾了 `[shortcut] switch_mode` 的 `shift` 后改成单击 Shift 切换
+  （`host/mode_switch.rs`：IMK 拿不到修饰键的按下 / 抬起，用 30 ms 定时器轮询 `NSEvent::modifierFlags_class()` 做边沿检测，
+  按下到抬起之间插了别的键就不算一次单击，与 Windows 的 `com/key/tap.rs` 同一套规则），此时 Caps Lock 退化成只管大小写（字母按 `shift XOR caps`）。
+  切换时右上角弹一个和候选窗同层级的小浮窗（`host/mode_osd.rs`）显示「中」/「英」，只有大小写变了才显示「大写」/「小写」；组句中切到英文时把拼音原样上屏
+  （`imk/controller/click.rs::commit_raw_after_switch`，借 `activateServer:` 记下的会话客户端，定时器里不能再借 Host）。
   按键走 `inputText:client:` +
   `didCommandBySelector:client:`，不用 `handleEvent:`。**组句期间 `didCommandBySelector:` 对不认识的
   选择器也要返回 YES**：返回 NO 会让应用自己处理方向键，应用一动光标就把 marked text 丢了，

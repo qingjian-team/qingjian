@@ -168,7 +168,7 @@ mod tests {
     }
 
     #[test]
-    fn switch_mode_parses_and_defaults_to_shift() {
+    fn switch_mode_parses_and_falls_back_to_the_platform_default() {
         let parsed: ShortcutConfig = toml::from_str("switch_mode = [\"ctrl\"]\n").unwrap();
         assert!(parsed.switch_mode.control && !parsed.switch_mode.shift);
         let off: ShortcutConfig = toml::from_str("switch_mode = \"none\"\n").unwrap();

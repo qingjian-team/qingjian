@@ -16,6 +16,9 @@ use crate::preferences::setting::Setting;
 use crate::preferences::target::PreferencesTarget;
 
 pub struct ShortcutsPage {
+    /// 单击 Shift 切中英文。
+    switch_mode_shift: Retained<NSButton>,
+
     /// 翻页键对。
     page_keys: Retained<NSPopUpButton>,
 
@@ -43,6 +46,19 @@ pub struct ShortcutsPage {
 
 impl ShortcutsPage {
     pub fn build(layout: &mut Layout, mtm: MainThreadMarker, target: &PreferencesTarget) -> Self {
+        let switch_mode_shift = checkbox(
+            mtm,
+            "单击 Shift 切换中英文（Caps Lock 只管大小写）",
+            Setting::SwitchModeShift,
+            target,
+        );
+        row_checkbox(layout, &switch_mode_shift);
+        note(
+            layout,
+            mtm,
+            "勾上后点一下 Shift 在中 / 英之间切换，Caps Lock 只切换字母大小写；不勾就用 Caps Lock 切换中英文。",
+        );
+        layout.space(GROUP_GAP);
         let page_key_titles: Vec<String> = PAGE_KEY_OPTIONS
             .iter()
             .map(|k| page_keys_label(k))
@@ -162,6 +178,7 @@ impl ShortcutsPage {
              Tab 接受云端整句补全（没有就翻页）；半角标点进入英文直输段。",
         );
         Self {
+            switch_mode_shift,
             page_keys,
             expression,
             question,
@@ -174,6 +191,7 @@ impl ShortcutsPage {
     }
 
     pub fn sync(&self, config: &Config) {
+        set_checked(&self.switch_mode_shift, config.shortcut.switch_mode.shift);
         let (previous, next) = config.general.page_keys();
         let pair = format!("{previous}{next}");
         select(

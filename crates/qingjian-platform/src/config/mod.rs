@@ -170,9 +170,10 @@ english_candidates_on = [
 #[cfg(not(windows))]
 macro_rules! template_shortcut_keys {
     () => {
-        r#"# 中 / 英模式切换键（Windows 用），可多选：shift 单击（缺省）/ control 单击 / ctrl+alt+space 组合键；[] 不用键切换。
-# macOS 的切换键是 Caps Lock（系统级），本项不生效
-switch_mode = ["shift"]
+        r#"# 中 / 英模式切换键，可多选：shift 单击 / control 单击 / ctrl+alt+space 组合键；[] 不用键切换。
+# macOS 只认 shift：写成 ["shift"] 就是单击 Shift 切中英（此时 Caps Lock 只管大小写）；
+# 缺省 [] —— 用 Caps Lock 切换（系统级，不受本项影响）
+switch_mode = []
 # 数字键配这些修饰键上屏候选的译词：translation 第一个译词，translation_second 第二个（候选右侧有两个译词时）
 # 任意修饰键组合（option / shift / control / command 用 + 连），偏好设置里点按钮录制；别用 control+数字（系统切桌面）和 command+数字（应用切标签页）
 translation = "option"
