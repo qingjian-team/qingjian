@@ -68,7 +68,13 @@ impl InputMenu {
         ));
         menu.addItem(&action_item(
             mtm,
-            "偏好设置…",
+            "设置…",
+            Some(MenuAction::OpenSettings),
+            &target,
+        ));
+        menu.addItem(&action_item(
+            mtm,
+            "旧版设置…",
             Some(MenuAction::OpenPreferences),
             &target,
         ));

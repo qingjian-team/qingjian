@@ -1,6 +1,7 @@
 //! 可挂起的会话输入状态；词库与用户学习服务仍由同一个 Engine 持有。
 
 use super::commit::CommitChain;
+use super::statistics::Typing;
 use super::{Engine, LastCommit, Transition};
 use crate::{Composition, InputHistory, Language, Punctuation};
 use std::time::Instant;
@@ -34,6 +35,9 @@ pub struct EngineSession {
 
     /// 本轮组句开始时刻。
     composition_started: Option<Instant>,
+
+    /// 本轮组句的键数与打字时长。
+    typing: Typing,
 
     /// 当前输入应用标识。
     application: Option<String>,
@@ -72,6 +76,7 @@ impl Engine {
             &mut self.composition_started,
             &mut session.composition_started,
         );
+        std::mem::swap(&mut self.typing, &mut session.typing);
         std::mem::swap(&mut self.application, &mut session.application);
         std::mem::swap(
             &mut self.committed_since_break,
@@ -98,6 +103,7 @@ impl EngineSession {
         self.passthrough_pending.clear();
         self.page_turns = 0;
         self.composition_started = None;
+        self.typing.reset();
         self.committed_since_break = false;
         self.displayed.clear();
         self.history.clear();
@@ -119,6 +125,7 @@ impl Engine {
         self.passthrough_pending.clear();
         self.page_turns = 0;
         self.composition_started = None;
+        self.typing.reset();
         self.committed_since_break = false;
         self.displayed.clear();
         self.history.clear();

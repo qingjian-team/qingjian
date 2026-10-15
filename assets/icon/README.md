@@ -1,8 +1,10 @@
 # 图标
 
 - `qingjian-mark.svg`：README 页头使用的透明竹简图标，与官网品牌图标一致。
-- `logo.png`（1024×1024，带透明通道）：应用图标源文件。`apps/macos/scripts/bundle.sh` 打包时用 `sips` + `iconutil`
-  生成 `Qingjian.icns`，生成物不进仓库。
+- `logo.png`（1024×1024，带透明通道的竹简）：Linux 图标的源文件（见下面 `linux/hicolor`），官网等处也用这个透明版。
+- `macos/app.svg`：macOS 应用图标源文件（输入法包与设置程序共用），图形同 Windows 的 `windows/app.svg`，按 macOS 图标网格摆
+  （1024 画布居中 824 的圆角方块；不照网格画，macOS 26 会给图标垫一块灰底）。`macos/render-app-icon.sh` 栅格化成 `macos/app.png`
+  随仓库提交，`apps/macos/scripts/bundle.sh` 打包时用 `sips` + `iconutil` 由它生成 `Qingjian.icns`。
 - `menu.svg`：macOS 输入法图标源文件，黑色键帽镂空四片竹简（模板图，系统只取 alpha）。`menu.pdf` 是它导出的
   22×16pt 矢量版，打包时拷成 `qingjian-menu.pdf`，Info.plist 的图标键都指向它。为什么是这个形式和尺寸见
   `docs/design/architecture.md`「Info.plist 约定」。改了 svg 重新导出：

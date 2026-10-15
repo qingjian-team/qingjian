@@ -128,10 +128,10 @@ jobs:
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
 
       - name: Clippy (Server, TSF DLL, Settings)
-        run: cargo clippy -p qingjian-windows-server -p qingjian-windows-tsf -p qingjian-windows-settings --all-targets --locked -- -D warnings
+        run: cargo clippy -p qingjian-windows-server -p qingjian-windows-tsf -p qingjian-windows-settings -p qingjian-settings --all-targets --locked -- -D warnings
 
       - name: Test (Server, TSF DLL, Settings)
-        run: cargo test -p qingjian-windows-server -p qingjian-windows-tsf -p qingjian-windows-settings --locked
+        run: cargo test -p qingjian-windows-server -p qingjian-windows-tsf -p qingjian-windows-settings -p qingjian-settings --locked
 
       # 安装包另带一份 32 位 DLL（企业微信 / WPS 这类 32 位应用只能加载它）
       - name: Check (TSF DLL, 32-bit)

@@ -2,7 +2,7 @@
 
 use serde::Deserialize;
 
-use crate::color::Color;
+use bamboo_slip::Color;
 
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(try_from = "String")]

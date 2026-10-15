@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::usage::tokens::UsageTokens;
+use crate::usage::{ApiUsageHour, hours};
 
 /// 从首次启用统计起累计的本机 API 用量。
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
@@ -69,13 +70,21 @@ impl ApiUsageStats {
     }
 
     pub(crate) fn record_response(path: &Path, response: Option<&Value>) {
-        Self::record(path, |stats| {
+        let tokens = response.and_then(UsageTokens::from_response);
+        let hour = ApiUsageHour {
+            requests: 1,
+            failures: u64::from(response.is_none()),
+            input_tokens: tokens.as_ref().map_or(0, |tokens| tokens.input),
+            output_tokens: tokens.as_ref().map_or(0, |tokens| tokens.output),
+            total_tokens: tokens.as_ref().map_or(0, |tokens| tokens.total),
+        };
+        Self::record_with_hour(path, Some(hour), |stats| {
             if response.is_some() {
                 stats.responses = stats.responses.saturating_add(1);
             } else {
                 stats.failures = stats.failures.saturating_add(1);
             }
-            match response.and_then(UsageTokens::from_response) {
+            match tokens {
                 Some(tokens) => {
                     stats.input_tokens = stats.input_tokens.saturating_add(tokens.input);
                     stats.output_tokens = stats.output_tokens.saturating_add(tokens.output);
@@ -90,12 +99,20 @@ impl ApiUsageStats {
     }
 
     fn record(path: &Path, change: impl FnOnce(&mut Self)) {
-        if let Err(error) = Self::update(path, change) {
+        Self::record_with_hour(path, None, change);
+    }
+
+    fn record_with_hour(path: &Path, hour: Option<ApiUsageHour>, change: impl FnOnce(&mut Self)) {
+        if let Err(error) = Self::update(path, hour, change) {
             tracing::warn!(%error, "API 用量统计保存失败");
         }
     }
 
-    fn update(path: &Path, change: impl FnOnce(&mut Self)) -> io::Result<()> {
+    fn update(
+        path: &Path,
+        hour: Option<ApiUsageHour>,
+        change: impl FnOnce(&mut Self),
+    ) -> io::Result<()> {
         if let Some(parent) = path.parent().filter(|dir| !dir.as_os_str().is_empty()) {
             fs::create_dir_all(parent)?;
         }
@@ -110,6 +127,10 @@ impl ApiUsageStats {
         let mut stats = Self::load(path)?;
         change(&mut stats);
         let text = serde_json::to_string_pretty(&stats).map_err(io::Error::other)?;
-        write_atomic_str(path, &text)
+        write_atomic_str(path, &text)?;
+        match hour {
+            Some(hour) => hours::append_now(&hours::path_beside(path), hour),
+            None => Ok(()),
+        }
     }
 }

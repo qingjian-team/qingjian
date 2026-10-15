@@ -124,6 +124,7 @@ impl Engine {
 
     /// 组句里要删东西了：第一次删之前把缓冲区留个快照，上屏时对比最终键串，不同就是一次重打（`retype`）。
     fn note_edit(&mut self) {
+        self.typing.edit(Instant::now());
         if self.retype_snapshot.is_none() && !self.composition.is_empty() {
             self.retype_snapshot = Some(self.composition.text().to_owned());
         }
@@ -171,7 +172,9 @@ impl Engine {
             self.composition_started = Some(Instant::now());
             self.page_turns = 0;
             self.retype_snapshot = None;
+            self.typing.restart();
         }
+        self.typing.key(Instant::now());
         // 进缓冲区的字符也更新「上一个字符是不是数字」：直通了 `3` 再接着打拼音，
         // 后面的 `.` 不该仍按小数点保持半角（组句中标点会先把候选上屏，见壳的 apply_printable）
         self.punctuation.note_passthrough(c);
@@ -221,6 +224,7 @@ impl Engine {
         self.rescoring_before = None;
         self.retype_snapshot = None;
         self.composition_started = None;
+        self.typing.restart();
         self.page_turns = 0;
         self.traditional.forget();
     }

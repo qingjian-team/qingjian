@@ -6,6 +6,7 @@ purge=0
 [ "${1:-}" = "--purge" ] && purge=1
 
 pkill -x qingjian-macos 2>/dev/null || true
+pkill -x qingjian-settings 2>/dev/null || true
 
 if [ -d "/Library/Input Methods/Qingjian.app" ]; then
     echo "删除 /Library/Input Methods/Qingjian.app（需要管理员密码）"

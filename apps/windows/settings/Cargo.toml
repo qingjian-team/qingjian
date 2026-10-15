@@ -7,7 +7,7 @@ license.workspace = true
 repository.workspace = true
 
 [[bin]]
-name = "qingjian-settings"
+name = "qingjian-settings-legacy"
 path = "src/main.rs"
 
 [dependencies]

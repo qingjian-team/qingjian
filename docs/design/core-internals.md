@@ -148,7 +148,7 @@ commit(candidate)
  ├─ apply_retraction           删光重打换了个词：上一次记的词频、选择、转移、敲错全部退回
  ├─ record_typo                接受的 (敲的, 要的) 音节对 ──► user-typos.tsv
  ├─ log_commit                 input-log.jsonl 一行（键按原样记，辅码态把触发键与码段接在后面）
- ├─ meter_commit               汉字 / 中文词 / 英文词计数 ──► usage.tsv
+ ├─ meter_commit               汉字 / 词数、首选、键数与打字时长 ──► usage-hourly.tsv
  ├─ vocabulary.record_commit   带译词的中文候选记「上屏过」──► user-vocab.tsv
  ├─ gloss_filler               词库有、释义表没有的词交给后台问云端，回来写进个人释义表
  ├─ record_word                个人 n-gram：用户点选的词记 2 份，整句路径顺带的记 1 份

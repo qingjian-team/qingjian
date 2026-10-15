@@ -20,7 +20,7 @@ mod transition;
 use serde::Deserialize;
 
 pub(crate) use align::Align;
-pub(crate) use animation::{AnimationSpec, KeyframeSpec};
+pub(crate) use animation::AnimationSpec;
 pub(crate) use border::BorderSpec;
 pub(crate) use box_spec::BoxSpec;
 pub(crate) use direction::Direction;

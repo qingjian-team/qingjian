@@ -1,6 +1,6 @@
 use super::Usage;
 
-/// 输入统计的汇总，偏好设置「统计」页显示的就是它。
+/// 输入统计的汇总：旧版偏好设置的「统计」页显示它，新设置程序直接读按天、按小时的数。
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct UsageSummary {
     /// 今天。

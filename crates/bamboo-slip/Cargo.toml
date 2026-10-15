@@ -1,0 +1,43 @@
+[package]
+name = "bamboo-slip"
+description = "自绘 UI 引擎：场景树 + 布局 + 文字 + 动画 → 位图，各平台只负责贴图"
+version.workspace = true
+edition.workspace = true
+# 双许可，见本目录的 LICENSE.md
+license = "GPL-3.0-or-later OR LicenseRef-Qingjian-Commercial"
+repository.workspace = true
+
+[dependencies]
+tiny-skia.workspace = true
+# SVG 图片：解析 + 栅格到 tiny-skia 位图（与上面同一个 tiny-skia）；不要 SVG 文字、系统字体与内嵌位图解码
+resvg = { version = "0.48.1", default-features = false }
+cosmic-text.workspace = true
+zeno.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+taffy.workspace = true
+serde.workspace = true
+# 只用它判断字体有没有能栅格化的轮廓表；与 fontdb 用的同一版本
+ttf-parser = { version = "0.25.1", default-features = false, features = ["std"] }
+
+# 窗口宿主（`host` 特性）
+winit = { workspace = true, optional = true }
+softbuffer = { workspace = true, optional = true }
+arboard = { workspace = true, optional = true }
+
+[features]
+host = ["dep:winit", "dep:softbuffer", "dep:arboard"]
+
+[target.'cfg(windows)'.dependencies]
+# 字体登记走 DirectWrite（按字族名找文件、列字族）
+windows = { version = "0.62.2", features = ["Win32_Graphics_DirectWrite"] }
+
+[dev-dependencies]
+serde_json.workspace = true
+
+[[example]]
+name = "window"
+required-features = ["host"]
+
+[lints]
+workspace = true

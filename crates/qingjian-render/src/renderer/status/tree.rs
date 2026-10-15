@@ -2,13 +2,13 @@
 //! 格子由 `repeat` 绑定 `cells` 展开；点击区域按各格盒子的右边界分，格子之间夹着的装饰算前一格。
 
 use super::{RenderedStatus, StatusCell};
-use crate::error::RenderError;
 use crate::frame::{Frame, Mode};
-use crate::renderer::Renderer;
 use crate::renderer::build::Builder;
-use crate::scene::Scene;
+use crate::renderer::{Rendered, Renderer};
 use crate::theme::Theme;
 use crate::theme::file::node::NodeSpec;
+use bamboo_slip::RenderError;
+use bamboo_slip::Scene;
 
 impl Renderer {
     pub(super) fn render_status_tree(
@@ -28,14 +28,14 @@ impl Renderer {
             scene: &mut scene,
             theme,
             scale,
-            text: &mut self.text,
+            text: self.stage.text(),
             cell_nodes: Vec::new(),
             candidate_nodes: Vec::new(),
             sense_nodes: Vec::new(),
         };
         let root = builder.status(spec, &frame, cells)?;
         let cell_nodes = std::mem::take(&mut builder.cell_nodes);
-        let (content_width, content_height) = scene.layout(root, &mut self.text)?;
+        let (content_width, content_height) = scene.layout(root, self.stage.text())?;
         // 没画出来的格右边界同前一格（点不到它）；最后一格延到内容右边
         let mut edges = Vec::with_capacity(cell_nodes.len());
         let mut previous = 0.0_f32;
@@ -51,7 +51,10 @@ impl Renderer {
         }
         let content = (content_width.ceil(), content_height.ceil());
         Ok(RenderedStatus {
-            rendered: self.rasterize(&scene, root, content, scale)?,
+            rendered: Rendered::new(
+                self.stage.rasterize(&scene, root, content, scale)?,
+                Vec::new(),
+            ),
             cell_edges: edges,
         })
     }

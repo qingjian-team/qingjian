@@ -39,7 +39,9 @@ fn english_word_ranks_first_when_input_is_unlikely_pinyin() {
 fn usage_meter_counts_hanzi_words_and_english_words_per_commit() {
     let recorded = Arc::new(Mutex::new(Vec::new()));
     let mut engine = engine().with_usage_meter(Box::new(MemoryMeter(recorded.clone())));
-    engine.set_input("kaifa");
+    engine.set_input("kaifx");
+    engine.backspace();
+    engine.push('a');
     let kaifa = engine.query().unwrap().candidates.items[0].clone();
     assert_eq!(kaifa.text, "开发");
     engine.commit(&kaifa);
@@ -49,15 +51,26 @@ fn usage_meter_counts_hanzi_words_and_english_words_per_commit() {
     engine.set_input("gist");
     engine.take_raw();
     let recorded = recorded.lock().unwrap();
+    // 选的首选，敲了 6 键、中间删过一次
+    let typing_ms = recorded[0].typing_ms;
     assert_eq!(
         recorded[0],
         Usage {
             hanzi: 2,
             words: 1,
             english_words: 0,
-            commits: 1
+            commits: 1,
+            choices: 1,
+            first_choices: 1,
+            typed_hanzi: 2,
+            keys: 6,
+            typing_ms,
+            edited: 1,
         }
     );
+    // 原样上屏不算选词，键数时长都不记
+    assert_eq!(recorded[1].choices, 0);
+    assert_eq!(recorded[1].keys, 0);
     assert_eq!(recorded[1].english_words, 0);
     assert_eq!(recorded[1].commits, 1);
     assert_eq!(recorded[2].english_words, 1);

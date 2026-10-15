@@ -40,7 +40,7 @@ cd "$ROOT"
 GIT_REV="$(git rev-parse --short HEAD 2>/dev/null || echo unknown)"
 if [[ -n "$(git status --porcelain 2>/dev/null)" ]]; then GIT_REV="${GIT_REV}+"; fi
 export QINGJIAN_BUILD="${GIT_REV} · $(date +%Y-%m-%d)"
-BUILD_ARGS=(-p "$BIN_NAME" --locked)
+BUILD_ARGS=(-p "$BIN_NAME" -p qingjian-settings --locked)
 [[ "$PROFILE" == "release" ]] && BUILD_ARGS+=(--release)
 BIN_DIR="target/$PROFILE"
 if [[ -n "$TARGET" ]]; then
@@ -53,6 +53,12 @@ rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN_DIR/$BIN_NAME" "$APP/Contents/MacOS/$BIN_NAME"
 cp apps/macos/Info.plist "$APP/Contents/Info.plist"
+# 设置程序是独立的 .app（有自己的 Dock 图标与名字），装在输入法包里，菜单「设置…」用 open 打开它；
+# 随包数据它从外层 Qingjian.app 的 Resources 读（apps/settings/src/system/paths.rs）
+SETTINGS_APP="$APP/Contents/Applications/QingjianSettings.app"
+mkdir -p "$SETTINGS_APP/Contents/MacOS" "$SETTINGS_APP/Contents/Resources"
+cp "$BIN_DIR/qingjian-settings" "$SETTINGS_APP/Contents/MacOS/qingjian-settings"
+cp apps/settings/macos/Info.plist "$SETTINGS_APP/Contents/Info.plist"
 # 版本号来自 apps/macos/Cargo.toml（各平台壳版本号独立，不跟 workspace 走），构建号用提交数（单调递增，pkg 升级判断靠它）。
 # 发版之间版本号带 -dev（0.1.2-dev）：本地与 CI 中间构建一眼能与线上包区分；发版提交去掉 -dev 再打标签（docs/notes/release.md）。
 # 开发版再接上 git 短哈希（0.1.3-dev-1a2b3c4，工作区有改动加 +），测试时一眼知道装的是哪个提交；Cargo.toml 里仍只写 -dev。
@@ -63,6 +69,10 @@ PKG_VERSION="${VERSION%%-*}"
 BUILD_NUMBER="$(git rev-list --count HEAD 2>/dev/null || echo 1)"
 /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" \
   -c "Set :CFBundleVersion $BUILD_NUMBER" "$APP/Contents/Info.plist"
+SETTINGS_VERSION="$(sed -n 's/^version = "\(.*\)"/\1/p' apps/settings/Cargo.toml | head -1)"
+if [[ "$SETTINGS_VERSION" == *-dev ]]; then SETTINGS_VERSION="${SETTINGS_VERSION}-${GIT_REV}"; fi
+/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $SETTINGS_VERSION" \
+  -c "Set :CFBundleVersion $BUILD_NUMBER" "$SETTINGS_APP/Contents/Info.plist"
 # 卸载脚本随包，装了 pkg 的用户从 Resources 里运行
 cp apps/macos/scripts/uninstall.sh "$APP/Contents/Resources/uninstall.sh"
 # 输入源名字按系统语言本地化（中文系统显示「青简」，其他显示 Qingjian）
@@ -153,15 +163,16 @@ if [[ -f data/generated/dict.tsv || -f data/generated/dict.qj ]]; then
 fi
 printf 'APPL????' > "$APP/Contents/PkgInfo"
 
-# 图标：应用图标从 assets/icon/logo.png 生成 .icns；输入法菜单图标直接用 assets/icon/menu.pdf（矢量，随 Info.plist 的 TISIconIsTemplate 按深浅色反色）
+# 图标：应用图标从 assets/icon/macos/app.png 生成 .icns；输入法菜单图标直接用 assets/icon/menu.pdf（矢量，随 Info.plist 的 TISIconIsTemplate 按深浅色反色）
 ICONSET="$ROOT/target/Qingjian.iconset"
 rm -rf "$ICONSET" && mkdir -p "$ICONSET"
 for size in 16 32 128 256 512; do
-  sips -z $size $size assets/icon/logo.png --out "$ICONSET/icon_${size}x${size}.png" >/dev/null
+  sips -z $size $size assets/icon/macos/app.png --out "$ICONSET/icon_${size}x${size}.png" >/dev/null
   double=$((size * 2))
-  sips -z $double $double assets/icon/logo.png --out "$ICONSET/icon_${size}x${size}@2x.png" >/dev/null
+  sips -z $double $double assets/icon/macos/app.png --out "$ICONSET/icon_${size}x${size}@2x.png" >/dev/null
 done
 iconutil -c icns "$ICONSET" -o "$APP/Contents/Resources/Qingjian.icns"
+cp "$APP/Contents/Resources/Qingjian.icns" "$SETTINGS_APP/Contents/Resources/Qingjian.icns"
 cp assets/icon/menu.pdf "$APP/Contents/Resources/qingjian-menu.pdf"
 # 仓库放在 iCloud 同步的目录（Documents）时新建的 .app 会带上 Finder 扩展属性，codesign 会拒（detritus not allowed）：签名前清掉
 xattr -cr "$APP"
@@ -237,6 +248,7 @@ if [[ "${1:-}" == "--install" ]]; then
   cp -R "$APP" "$STAGING"
   # 系统会在下次切换到该输入法时重新拉起进程
   pkill -x "$BIN_NAME" 2>/dev/null || true
+  pkill -x qingjian-settings 2>/dev/null || true
   rm -rf "$INSTALL_DIR/$APP_NAME.app"
   mv "$STAGING" "$INSTALL_DIR/$APP_NAME.app"
   forget_bundle "$APP"

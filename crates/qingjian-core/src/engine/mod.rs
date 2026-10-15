@@ -215,6 +215,9 @@ pub struct Engine {
     /// 这段组句第一键的时刻（算首键到上屏的毫秒）。
     composition_started: Option<Instant>,
 
+    /// 输入统计用的键数与打字时长。
+    typing: statistics::Typing,
+
     /// 正在输入的应用标识，壳在焦点变化时给；写进输入日志。
     application: Option<String>,
 
@@ -461,6 +464,7 @@ impl Engine {
             passthrough_pending: String::new(),
             page_turns: 0,
             composition_started: None,
+            typing: statistics::Typing::default(),
             application: None,
             committed_since_break: false,
             meter: Box::new(NoUsageMeter),

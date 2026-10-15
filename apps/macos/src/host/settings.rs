@@ -102,6 +102,14 @@ impl Host {
                     self.apply_config(false);
                 }
             }
+            MenuAction::OpenSettings => {
+                if let Some(app) = settings_app() {
+                    open_with_system(&[&app.to_string_lossy()]);
+                } else {
+                    tracing::warn!("包里没有设置程序，改开旧版偏好设置");
+                    self.perform(MenuAction::OpenPreferences);
+                }
+            }
             MenuAction::OpenPreferences => {
                 self.preferences.sync_usage(
                     &self.engine.usage_summary(),
@@ -685,6 +693,15 @@ fn next_learning_language(
         .position(|choice| *choice == current)
         .unwrap_or(choices.len().saturating_sub(1));
     choices.get((index + 1) % choices.len()).copied()
+}
+
+/// 随包的设置程序；直接跑二进制（不在 .app 里）或包里缺它时为 `None`。
+fn settings_app() -> Option<std::path::PathBuf> {
+    let bundle = objc2_foundation::NSBundle::mainBundle()
+        .bundlePath()
+        .to_string();
+    let app = std::path::Path::new(&bundle).join("Contents/Applications/QingjianSettings.app");
+    app.is_dir().then_some(app)
 }
 
 #[cfg(test)]

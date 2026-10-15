@@ -402,7 +402,10 @@ fn learning_data_persists_to_user_dir() {
 
     let user = std::fs::read_to_string(user_dir.join("user.tsv")).expect("user.tsv 应已写出");
     assert!(user.contains("你好"), "user.tsv 里应记了「你好」：{user}");
-    assert!(user_dir.join("usage.tsv").is_file(), "usage.tsv 应已写出");
+    assert!(
+        user_dir.join(qingjian_learning::USAGE_FILE).is_file(),
+        "上屏时就该追加进输入统计"
+    );
     let _ = std::fs::remove_dir_all(&user_dir);
 }
 

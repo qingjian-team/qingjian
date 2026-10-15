@@ -10,8 +10,9 @@ C:\Program Files\Qingjian\
     qingjian_tsf-<版本>.dll       TSF 文本服务（64 位；被加载进每个应用进程；按版本起名，见「升级」）
     qingjian_tsf-<版本>-x86.dll   同上的 32 位版（企业微信 / WPS / 32 位 QQ 这类 32 位应用只能加载它）
     qingjian-server.exe       输入内核 Server（跑在应用进程外）
-    qingjian-settings.exe     设置界面
-    Microsoft.UI.Xaml.dll …   设置程序自带的 Windows App Runtime（自包含部署，见下节；约 56 MB / 185 个文件）
+    qingjian-settings.exe     设置程序（apps\settings，三平台共用，不依赖 Windows App Runtime）
+    qingjian-settings-legacy.exe  旧版设置程序（WinUI，开始菜单「青简旧版设置」，留一个版本作回退）
+    Microsoft.UI.Xaml.dll …   旧版设置程序自带的 Windows App Runtime（自包含部署，见下节；约 56 MB / 185 个文件）
     qingjian.ico              开始菜单 / 启动项快捷方式的图标（exe 里也嵌了一份）
     data\generated\           dict.qj / lm.qj / glossary-{en,ja,zh,es,vi}.qj / english.tsv / dicts\*.qj
     data\generated\codes\     随包辅码码表 stroke.qj + LICENSE-CNS11643.txt（tools\dict-convert 的 pack codes 生成）
@@ -26,7 +27,7 @@ Server 与设置程序按 **exe 相对**定位随包资源（`qingjian_platform:
 
 ## 安装程序做的几件事
 
-1. **结束旧进程**：`PrepareToInstall` 里 `taskkill` Server 与设置程序（只有这两个 exe 要覆盖）。
+1. **结束旧进程**：`PrepareToInstall` 里 `taskkill` Server 与两个设置程序（只有这几个 exe 要覆盖）。
 2. **应用容器权限**：`icacls` 给安装目录加 `ALL APPLICATION PACKAGES`（SID `*S-1-15-2-1`）读+执行。
    不加的话 UWP/AppContainer 应用（任务栏搜索、设置）读不到 DLL，切不到青简。
 3. **注册文本服务**：64 位 DLL 用 `regsvr32`、32 位 DLL 用 `SysWOW64\regsvr32`，各注册一次（各自写进自己视图的 HKCR，`CTF\TIP` 两边共用；要管理员——安装程序本就提权）。
@@ -46,13 +47,13 @@ Server 与设置程序按 **exe 相对**定位随包资源（`qingjian_platform:
 - 已开着的应用继续用进程里的旧 DLL 直到重启，Server 两个版本都服务（`OpenSession` 带协议版本，对不上只记警告）；
 - 装完删旧 DLL，删不掉的登记成重启后删。
 
-## 设置程序自带 Windows App Runtime
+## 旧版设置程序自带 Windows App Runtime
 
-设置界面用 Windows Reactor（WinUI 3）写，而它的框架依赖引导只有 Windows 11 走得通：要 Windows 11 才有的
+旧版设置界面用 Windows Reactor（WinUI 3）写，而它的框架依赖引导只有 Windows 11 走得通：要 Windows 11 才有的
 AppModel API 把框架包加进进程包图，Windows 10 上没有那两个函数（定位见 `docs\notes\windows-win10.md`）。
-所以设置程序用**自包含部署**——`apps\windows\settings\build.rs` 让 `windows-reactor-setup` 把 Windows App Runtime
+所以旧版设置程序用**自包含部署**——`apps\windows\settings\build.rs` 让 `windows-reactor-setup` 把 Windows App Runtime
 铺到 `target\release\`，打包时按 `settings-runtime.txt` 挑进 `target\installer\settings-runtime`，本目录的
-`qingjian.iss` 再整个目录装到 `{app}` 下、与 `qingjian-settings.exe` 同级。
+`qingjian.iss` 再整个目录装到 `{app}` 下、与 `qingjian-settings-legacy.exe` 同级。下个版本删掉旧版设置程序时，这一节、`settings-runtime.txt` 与运行时文件一起删。
 
 - 这些文件是运行时必需：少一件（或层级装错）设置窗口就起不来，`build.ps1` 发现缺文件会直接失败。
 - 升级 `windows-reactor` / `windows-reactor-setup` 时，照新版 crate 的 `assets/runtime.txt` 核对 `settings-runtime.txt`。

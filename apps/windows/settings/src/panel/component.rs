@@ -377,7 +377,7 @@ impl Component for Settings {
     }
 
     fn view(&self, _input: &(), context: &mut ViewContext<Self>) -> View {
-        context.window_title("青简设置");
+        context.window_title("青简旧版设置");
         let item = |tag: &str, label: &str, symbol| {
             KeyedView::new(
                 tag,

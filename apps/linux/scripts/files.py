@@ -31,7 +31,7 @@ def main():
                 print(f'保留已修改文件：{path}')
         manifest.unlink(missing_ok=True)
         return
-    root, server, plugin, sample = args
+    root, server, settings, plugin, sample = args
     root = Path(root)
     data = Path(os.environ.get('XDG_DATA_HOME', str(Path.home() / '.local/share')))
     if not data.is_absolute():
@@ -39,6 +39,8 @@ def main():
     files = {prefix / 'share/licenses/qingjian/LICENSE': root / 'LICENSE',
              prefix / 'share/licenses/qingjian/LICENSE-CNS11643.txt': root / 'assets/stroke/LICENSE-CNS11643.txt',
              prefix / 'bin/qingjian-linux-server': Path(server),
+             prefix / 'bin/qingjian-settings': Path(settings),
+             data / 'applications/qingjian-settings.desktop': root / 'apps/settings/linux/qingjian-settings.desktop',
              prefix / 'lib/fcitx5/qingjian.so': Path(plugin)}
     # 托盘按名义尺寸挑图，目录名与像素必须一致：源图 1024px 不能直接装进 128x128（#547）。
     for size in (16, 22, 24, 32, 48, 64, 128, 256):
@@ -99,6 +101,8 @@ def main():
         shutil.copy2(source, temporary)
         if target == data / 'fcitx5/addon/qingjian.conf':
             temporary.write_text(temporary.read_text().replace('Library=qingjian\n', f'Library={prefix}/lib/fcitx5/qingjian\n'))
+        if target == data / 'applications/qingjian-settings.desktop':
+            temporary.write_text(temporary.read_text().replace('Exec=qingjian-settings\n', f'Exec={prefix}/bin/qingjian-settings\n'))
         temporary.replace(target)
         installed[str(target)] = digest(target)
     for filename, checksum in old.items():

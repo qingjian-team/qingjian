@@ -1,6 +1,7 @@
 //! 节点效果：`"effects": [{ "type": "drop-shadow", "x": 0, "y": 6, "blur": 12, "spread": 0, "color": "#0000005a" }]`，
 //! 另有 `inner-shadow`。阴影的形状取节点自己画出来的 alpha（圆角框、九宫格图片、文字都行），不含子节点。
 
+use bamboo_slip::{Color, Effect, EffectKind};
 use serde::Deserialize;
 
 use crate::theme::file::ColorSpec;
@@ -39,6 +40,22 @@ impl EffectSpec {
     pub(crate) fn shadow(&self) -> &ShadowSpec {
         match self {
             Self::DropShadow(shadow) | Self::InnerShadow(shadow) => shadow,
+        }
+    }
+
+    /// 按倍数换成像素；颜色由调用方按数据与外观取好。
+    pub(crate) fn to_effect(&self, scale: f32, color: Color) -> Effect {
+        let shadow = self.shadow();
+        Effect {
+            kind: match self {
+                Self::DropShadow(_) => EffectKind::DropShadow,
+                Self::InnerShadow(_) => EffectKind::InnerShadow,
+            },
+            x: shadow.x * scale,
+            y: shadow.y * scale,
+            blur: shadow.blur * scale,
+            spread: shadow.spread * scale,
+            color,
         }
     }
 }

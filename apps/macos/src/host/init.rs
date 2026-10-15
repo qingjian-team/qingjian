@@ -66,7 +66,7 @@ pub fn init(mtm: MainThreadMarker, info: &BundleInfo) -> Result<(), HostError> {
             }
         }
         engine = engine
-            .with_usage_meter(Box::new(UsageStats::open(dir.join(USAGE_FILE))))
+            .with_usage_meter(Box::new(UsageStats::open(&dir)))
             .with_vocabulary_tracker(Box::new(vocabulary));
     }
     // 附加词库：随包的领域词库 + 用户目录 dicts/ 下的文件

@@ -61,6 +61,15 @@ impl ConnectionTest {
         Ok(Self { result })
     }
 
+    /// 一直等到结果（在自己的线程里等，等到了再去叫醒界面）。请求有超时，不会永远等下去。
+    pub fn wait(self) -> Result<ConnectionReport, PredictError> {
+        self.result.recv().unwrap_or_else(|_| {
+            Err(PredictError::Runtime(std::io::Error::other(
+                "connection test thread exited without a result",
+            )))
+        })
+    }
+
     /// 结果到了就取走；没到返回 `None`。取走之后再调永远是 `None`。
     pub fn poll(&self) -> Option<Result<ConnectionReport, PredictError>> {
         self.result.try_recv().ok()

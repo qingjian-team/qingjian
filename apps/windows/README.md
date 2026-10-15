@@ -100,9 +100,10 @@ cargo run -p qingjian-windows-server
 regsvr32 /u target\debug\qingjian_tsf.dll
 ```
 
-## 设置程序与 Windows App Runtime
+## 旧版设置程序与 Windows App Runtime
 
-`settings/`（`qingjian-settings.exe`）用 Windows Reactor（WinUI 3）画界面，是三个产物里唯一依赖 Windows App Runtime 的。
+设置程序是三平台共用的 `apps/settings`（`qingjian-settings.exe`），状态条的齿轮打开它。
+`settings/`（`qingjian-settings-legacy.exe`，开始菜单「青简旧版设置」）是旧版，留一个版本作回退；它用 Windows Reactor（WinUI 3）画界面，是唯一依赖 Windows App Runtime 的产物。
 它的部署方式是**自包含**：`build.rs` 让 `windows-reactor-setup` 把 `Microsoft.WindowsAppSDK.Runtime` 的 MSIX 解到
 `target\release\` 并按自包含标记嵌清单，安装包把这些文件装到 exe 同级——不依赖机器上装没装框架包。
 Windows 10 上框架依赖的引导走不通（它要先调 Windows 11 才有的 `TryCreatePackageDependency`），

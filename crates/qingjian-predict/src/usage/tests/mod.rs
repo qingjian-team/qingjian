@@ -4,7 +4,7 @@ use std::path::PathBuf;
 
 use serde_json::json;
 
-use super::ApiUsageStats;
+use super::{ApiUsageHours, ApiUsageStats};
 
 fn scratch() -> PathBuf {
     std::env::temp_dir()
@@ -108,3 +108,29 @@ fn malformed_statistics_are_preserved_instead_of_reset() {
 }
 
 mod requests;
+
+#[test]
+fn every_finished_request_lands_in_the_hourly_file() {
+    let path = scratch();
+    ApiUsageStats::record_request(&path);
+    ApiUsageStats::record_response(
+        &path,
+        Some(&json!({"usage": {"prompt_tokens": 100, "completion_tokens": 20}})),
+    );
+    ApiUsageStats::record_request(&path);
+    ApiUsageStats::record_response(&path, None);
+    let hours = ApiUsageHours::load(path.parent().unwrap()).unwrap();
+    let today = jiff::Zoned::now().date();
+    let day = hours.days()[&today];
+    assert_eq!(day.requests, 2);
+    assert_eq!(day.failures, 1);
+    assert_eq!(day.total_tokens, 120);
+    assert_eq!(
+        hours
+            .hours_on(today)
+            .iter()
+            .map(|hour| hour.requests)
+            .sum::<u64>(),
+        2
+    );
+}

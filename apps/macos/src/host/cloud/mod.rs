@@ -13,7 +13,8 @@ impl Host {
     /// 「测试连接」：用当前配置发一条最小请求，结果回到偏好设置窗口底部的状态行。
     pub(super) fn start_cloud_test(&mut self) {
         let config = self.settings.config().predict.clone();
-        match ConnectionTest::start(&config) {
+        let usage = paths::user_data_dir().map(|dir| dir.join(API_USAGE_FILE));
+        match ConnectionTest::start_with_usage(&config, usage) {
             Ok(test) => {
                 self.cloud_test = Some(test);
                 self.cloud_test_monitor.start();

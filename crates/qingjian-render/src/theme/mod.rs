@@ -12,26 +12,22 @@ pub(crate) mod file;
 mod font;
 mod jsonc;
 mod library;
-mod svg_image;
 mod text_sizes;
 mod validate;
 
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, OnceLock};
 
-use tiny_skia::Pixmap;
-
-use crate::color::Color;
+use bamboo_slip::tiny_skia::Pixmap;
+use bamboo_slip::{Color, FamilyTable, FontSpec, SvgImage};
 
 pub use error::ThemeError;
-pub(crate) use font::{FamilyId, FontFamilies};
-pub use font::{FontSpec, FontWeight};
+use font::FontFamilies;
 pub use library::ThemeLibrary;
 pub use text_sizes::TextSizes;
 
 use assets::Assets;
 use file::{ColorRef, FontRef, LockedAppearance, SCHEMA, ThemeFile};
-pub(crate) use svg_image::SvgImage;
 
 /// 内置主题编进程序的图片：主题里写的路径与文件内容。
 type EmbeddedFiles = &'static [(&'static str, &'static [u8])];
@@ -445,7 +441,7 @@ impl Theme {
 
     /// 样式里写到的系统字族名（不含 `system`）。壳按名字查出字体文件，交给 [`crate::Renderer::load_theme_fonts`]。
     pub fn font_families(&self) -> Vec<String> {
-        self.families.names()
+        self.families.table().names()
     }
 
     /// 随主题带的字体文件（已检查在主题目录里）。
@@ -497,9 +493,9 @@ impl Theme {
         text_sizes::scaled(spec, self.sizes.ratio(name, |base| self.theme_size(base)))
     }
 
-    /// 字族表，渲染器按 [`FamilyId`] 查回退链；两份 `Theme` 共用同一张表时指针相同。
-    pub(crate) fn families(&self) -> &Arc<FontFamilies> {
-        &self.families
+    /// 字族表，画笔按 [`bamboo_slip::FamilyId`] 查回退链；两份 `Theme` 共用同一张表时指针相同。
+    pub(crate) fn families(&self) -> &Arc<FamilyTable> {
+        self.families.table()
     }
 
     /// 节点里的 `font`：样式名，或在样式上改字号 / 字重。

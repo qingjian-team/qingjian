@@ -77,8 +77,10 @@ impl Host {
         }
         if force || config.predict != self.applied_predict {
             if config.predict.enabled {
+                // 请求与 Token 记进统计页的云服务用量
+                let usage = paths::user_data_dir().map(|dir| dir.join(API_USAGE_FILE));
                 // 没密钥等失败只记日志、退回不联想：输入优先于一切附加功能
-                match CloudPredictor::new(&config.predict) {
+                match CloudPredictor::new_with_usage(&config.predict, usage.clone()) {
                     Ok(predictor) => self.engine.set_predictor(Box::new(predictor)),
                     Err(error) => {
                         tracing::warn!(%error, "云联想未启用");
@@ -86,7 +88,7 @@ impl Host {
                     }
                 }
                 // 释义兜底随云联想一起开：释义表里没有的词上屏后问云端写进个人释义表
-                match CloudGlossFiller::new(&config.predict) {
+                match CloudGlossFiller::new_with_usage(&config.predict, usage) {
                     Ok(filler) => self.engine.set_gloss_filler(Box::new(filler)),
                     Err(error) => {
                         tracing::warn!(%error, "释义兜底未启用");

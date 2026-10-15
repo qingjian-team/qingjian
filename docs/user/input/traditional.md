@@ -8,7 +8,7 @@ description: 让候选与上屏的文字变成繁体：台湾、香港、通用�
 
 ## 开启
 
-「偏好设置 → 通用 → 输出字形」，或在配置文件里写 `[general]` 的 `traditional_variant`：
+「设置 → 候选 → 输出字形」，或在配置文件里写 `[general]` 的 `traditional_variant`：
 
 | 选项 | 配置写法 | 效果 |
 |---|---|---|
@@ -23,7 +23,7 @@ description: 让候选与上屏的文字变成繁体：台湾、香港、通用�
 
 ### Linux
 
-Linux 版没有偏好设置窗口：改配置文件里的这一行，保存后约一秒内生效，不用重启。以台湾字形为例：
+Linux 上也可以直接改配置文件里的这一行，保存后约一秒内生效，不用重启。以台湾字形为例：
 
 ```bash
 sed -i 's/^traditional_variant = .*/traditional_variant = "taiwan"/' ~/.config/qingjian/config.toml

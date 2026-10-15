@@ -74,7 +74,7 @@ pub(crate) fn view(settings: &Settings, context: &mut ViewContext<Settings>) -> 
     });
     let dir = settings.data_dir();
 
-    let usage = UsageStats::open(dir.join("usage.tsv")).summary_on(today);
+    let usage = UsageStats::open(dir).summary_on(today);
     let vocabulary = language.map(|language| {
         let mut book = VocabularyBook::open(dir.join("user-vocab.tsv"));
         if let Some(path) = repo_resource(&format!("assets/levels/levels-{}.tsv", language.code()))

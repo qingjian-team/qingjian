@@ -14,7 +14,7 @@ docs/user/
 ├── input/                # 输入：英文模式、拼写纠错、模糊音与输入方案、快捷输入
 ├── learning/             # 学习：译词与生词、统计
 ├── cloud/                # 云服务：云联想与整句候选翻译（可选）
-├── settings/             # 设置：偏好设置、词库
+├── settings/             # 设置：设置窗口、词库、主题
 └── help/                 # 帮助：数据与日志、卸载、反馈
 ```
 
@@ -37,7 +37,7 @@ docs/user/
 ## 写法
 
 - 说明书体：陈述句，不用「一下 / 多半 / 照常 / 免得」这类口语助词与副词，不拟人、不调侃；条件用「若…则」，可行用「可」，必要用「需」；术语固定（候选窗口、拼音行、上屏、组合键）。
-- 面向普通用户，不出现实现词（`config.toml`、marked text、Viterbi、panic、600 权限这类）。要指路时说「偏好设置 → 高级」，不说文件名；
+- 面向普通用户，不出现实现词（`config.toml`、marked text、Viterbi、panic、600 权限这类）。要指路时说「设置 → 高级」，不说文件名；
   数据文件位置只在 [help/data-and-logs.md](help/data-and-logs.md) 一处列出。
 - 按键按键帽写：`Space`、`Enter`、`Backspace`、`Delete`、`Esc`、`Tab`、`←` `→` `↑` `↓`、`Home` / `End`、`PageUp` / `PageDown`；
   macOS 修饰键用符号（`⌥ + 数字`、`⌃⌥T`、`⇧ + Tab`），Windows 用单词（`Ctrl + 数字`、`Ctrl + Alt + T`）；菜单与页名用「」：「系统设置 → 隐私与安全性」。

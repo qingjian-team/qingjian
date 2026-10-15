@@ -1,29 +1,24 @@
 [package]
 name = "qingjian-render"
-description = "自绘渲染器：把候选窗一帧画成位图，各平台只负责贴图"
+description = "候选窗与状态条：帧数据 + 主题 → 场景树，画在 bamboo-slip 上，各平台只负责贴图"
 version.workspace = true
 edition.workspace = true
 license = "GPL-3.0-or-later OR LicenseRef-Qingjian-Commercial"
 repository.workspace = true
 
 [dependencies]
-tiny-skia.workspace = true
-# 主题里的 SVG 图片：解析 + 栅格到 tiny-skia 位图（与上面同一个 tiny-skia）；不要 SVG 文字、系统字体与内嵌位图解码
-resvg = { version = "0.48.1", default-features = false }
-cosmic-text.workspace = true
-zeno.workspace = true
+bamboo-slip.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
-taffy.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 
-[target.'cfg(windows)'.dependencies]
-# 字体登记走 DirectWrite（按字族名找文件、列字族）
-windows = { version = "0.62.2", features = ["Win32_Graphics_DirectWrite"] }
-
 [dev-dependencies]
 clap.workspace = true
+# 预览工具列字体文件用
+cosmic-text.workspace = true
+# 快照测试画差异图用
+tiny-skia.workspace = true
 tracing-subscriber.workspace = true
 
 [lints]

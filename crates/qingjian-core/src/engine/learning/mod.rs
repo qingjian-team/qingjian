@@ -1,5 +1,7 @@
 //! 学习与统计的挂钩：释义兜底回填、词汇曝光、输入统计、输入日志、删候选、定时落盘。
 
+use std::time::Instant;
+
 use super::Engine;
 use super::input_log::{CommitEntry, InputLogEntry, InputLogger, InputSource, LOGGED_CANDIDATES};
 use super::statistics::Usage;
@@ -78,6 +80,7 @@ impl Engine {
 
     /// 往输入统计记一次上屏：汉字与英文词按文字数，中文词数按来源定（选一个词算一个，整句按语言模型切出来的词数，
     /// 切不了就按字数）。`english_word` 是原样上屏的字母串算不算一个英文词（拼音回车不算）。
+    /// 从候选里选的再记是不是首选、这段敲了几键、打了多久、删过没有；部分上屏后下一段从这一刻接着数。
     pub(super) fn meter_commit(&mut self, text: &str, source: InputSource, english_word: bool) {
         let mut usage = Usage::of_text(text);
         usage.words = match source {
@@ -98,6 +101,24 @@ impl Engine {
         };
         if source == InputSource::Raw && !english_word {
             usage.english_words = 0;
+        }
+        let (keys, typing_ms, edited) = self.typing.take(Instant::now());
+        if source != InputSource::Raw {
+            let first = self
+                .last_query
+                .borrow()
+                .as_ref()
+                .and_then(|snapshot| snapshot.candidates.first().map(|top| top == text))
+                .unwrap_or(false);
+            usage.choices = 1;
+            usage.first_choices = u64::from(first);
+            usage.edited = u64::from(edited);
+            // 速度与码长只看出汉字的：英文候选敲了键却没有字
+            if usage.hanzi > 0 {
+                usage.typed_hanzi = usage.hanzi;
+                usage.keys = keys;
+                usage.typing_ms = typing_ms;
+            }
         }
         self.meter.record(usage);
     }

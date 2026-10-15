@@ -127,6 +127,10 @@ impl StatusSink for UiHandle {
         open_settings();
     }
 
+    fn open_legacy_settings(&self) {
+        launch_sibling("qingjian-settings-legacy.exe");
+    }
+
     fn open_download(&self) {
         let _ = unsafe { AllowSetForegroundWindow(ASFW_ANY) };
         let opened = std::process::Command::new("explorer")
@@ -138,13 +142,18 @@ impl StatusSink for UiHandle {
     }
 }
 
-/// 起与本 exe 同目录的设置程序。设置程序已开时由新实例把它带到前台，得先把前台权让出去。
+/// 起与本 exe 同目录的设置程序。
 pub(crate) fn open_settings() {
+    launch_sibling("qingjian-settings.exe");
+}
+
+/// 起与本 exe 同目录的程序。设置程序已开时由新实例把它带到前台，得先把前台权让出去。
+fn launch_sibling(name: &str) {
     let _ = unsafe { AllowSetForegroundWindow(ASFW_ANY) };
-    let exe = std::env::current_exe().map(|exe| exe.with_file_name("qingjian-settings.exe"));
+    let exe = std::env::current_exe().map(|exe| exe.with_file_name(name));
     let spawned = exe.and_then(|exe| std::process::Command::new(exe).spawn());
     if let Err(error) = spawned {
-        tracing::warn!(%error, "打开设置程序失败");
+        tracing::warn!(%error, name, "打开设置程序失败");
     }
 }
 

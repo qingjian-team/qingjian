@@ -23,4 +23,6 @@ pub use connection::{ConnectionReport, ConnectionTest};
 pub use error::PredictError;
 pub use gloss::CloudGlossFiller;
 
-pub use usage::{API_USAGE_FILE, ApiUsageStats};
+pub use usage::{
+    API_USAGE_FILE, API_USAGE_HOURLY_FILE, ApiUsageHour, ApiUsageHours, ApiUsageStats,
+};
