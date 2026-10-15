@@ -49,6 +49,7 @@ impl Host {
         self.page_keys = config.general.page_keys();
         self.punct_commits = config.general.punct_commits;
         self.preedit_mode = config.general.preedit;
+        self.translation_pinyin = config.general.translation_pinyin;
         self.english_candidates = config.general.english_candidates;
         self.switch_target = config.general.switch_target();
         if matches!(self.switch_target, SwitchTarget::English) {

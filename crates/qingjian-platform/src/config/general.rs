@@ -97,6 +97,9 @@ pub struct GeneralConfig {
     /// 组句中的拼音显示在行内、候选窗口还是两处都显示。
     pub preedit: PreeditMode,
 
+    /// 中文释义后显示带声调拼音；不影响正在输入的拼音行或日语假名。
+    pub translation_pinyin: bool,
+
     /// 英文模式（Caps Lock 亮着）是否给英文候选（补全与拼错纠正）。关掉就是纯直通。
     pub english_candidates: bool,
 
@@ -216,6 +219,7 @@ impl Default for GeneralConfig {
             annotation_font_size: FontSize::default(),
             animations: true,
             preedit: PreeditMode::default(),
+            translation_pinyin: true,
             english_candidates: true,
             chinese_first: false,
             english_in_chinese: true,

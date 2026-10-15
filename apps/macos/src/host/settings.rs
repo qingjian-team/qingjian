@@ -278,6 +278,9 @@ impl Host {
                     self.settings.set_value("general", "preedit", mode.key());
                 }
             }
+            (Setting::TranslationPinyin, SettingValue::Bool(on)) => {
+                self.settings.set_bool("general", "translation_pinyin", on);
+            }
             (Setting::QuestionMark, SettingValue::Bool(on)) => {
                 self.settings.set_bool("shortcut", "question_mark", on);
             }

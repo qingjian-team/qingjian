@@ -164,6 +164,7 @@ pub fn init(mtm: MainThreadMarker, info: &BundleInfo) -> Result<(), HostError> {
             translation: None,
             notice: None,
             preedit_mode: PreeditMode::default(),
+            translation_pinyin: true,
             layout: LayoutMode::default(),
             horizontal_grid: false,
             english_candidates: true,

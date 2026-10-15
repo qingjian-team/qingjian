@@ -47,6 +47,9 @@ pub struct CandidatesPage {
 
     /// 拼音显示位置。
     preedit: Retained<NSPopUpButton>,
+
+    /// 中文释义后显示拼音。
+    translation_pinyin: Retained<NSButton>,
 }
 
 impl CandidatesPage {
@@ -149,6 +152,13 @@ impl CandidatesPage {
             mtm,
             "「只在候选窗口」时正在敲的拼音不显示在应用里，终端或行内拼音显示不正常的应用可以选它。",
         );
+        let translation_pinyin = checkbox(mtm, "显示释义拼音", Setting::TranslationPinyin, target);
+        row_checkbox(layout, &translation_pinyin);
+        note(
+            layout,
+            mtm,
+            "外语输入候选的中文释义后显示带声调拼音；不影响正在输入的拼音行或日语假名。",
+        );
         Self {
             appearance,
             theme,
@@ -160,6 +170,7 @@ impl CandidatesPage {
             annotation_size,
             animations,
             preedit,
+            translation_pinyin,
         }
     }
 
@@ -171,6 +182,7 @@ impl CandidatesPage {
                 .iter()
                 .position(|a| *a == general.appearance()),
         );
+        set_checked(&self.translation_pinyin, general.translation_pinyin);
         // 主题目录里可能新放了主题，每次同步都重列
         let themes = themes();
         set_items(&self.theme, &theme_titles(&themes));

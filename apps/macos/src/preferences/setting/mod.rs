@@ -119,6 +119,9 @@ pub enum Setting {
     /// `[general] preedit`，弹出菜单。
     Preedit,
 
+    /// `[general] translation_pinyin`，勾选框：中文释义后显示带声调拼音。
+    TranslationPinyin,
+
     /// `[general] english_candidates`，勾选框。
     EnglishCandidates,
 
@@ -257,6 +260,7 @@ impl Setting {
             Self::OpenConfigFile => 11,
             Self::Layout => 12,
             Self::Preedit => 13,
+            Self::TranslationPinyin => 71,
             Self::EnglishCandidates => 14,
             Self::ChineseFirst => 42,
             Self::Emoji => 62,
@@ -338,6 +342,7 @@ impl Setting {
             11 => Self::OpenConfigFile,
             12 => Self::Layout,
             13 => Self::Preedit,
+            71 => Self::TranslationPinyin,
             14 => Self::EnglishCandidates,
             42 => Self::ChineseFirst,
             62 => Self::Emoji,
@@ -436,6 +441,7 @@ mod tests {
             Setting::OpenConfigFile,
             Setting::Layout,
             Setting::Preedit,
+            Setting::TranslationPinyin,
             Setting::EnglishCandidates,
             Setting::TranslationKeys,
             Setting::TranslationSecondKeys,

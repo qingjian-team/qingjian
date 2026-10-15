@@ -82,12 +82,20 @@ impl FromStr for KeyCombo {
             .trim()
             .rsplit_once('+')
             .ok_or_else(|| format!("expected modifiers+key, got {text:?}"))?;
-        let mut chars = key.trim().chars();
-        let (Some(key), None) = (chars.next(), chars.next()) else {
-            return Err(format!("key must be a single character: {key:?}"));
+        let key = key.trim();
+        let key = if key.eq_ignore_ascii_case("space") {
+            ' '
+        } else {
+            let mut chars = key.chars();
+            let (Some(key), None) = (chars.next(), chars.next()) else {
+                return Err(format!("key must be a single character: {key:?}"));
+            };
+            key
         };
-        if !key.is_ascii_alphanumeric() && key != '.' {
-            return Err(format!("key must be a letter, digit or period: {key:?}"));
+        if !key.is_ascii_alphanumeric() && !matches!(key, '.' | ' ') {
+            return Err(format!(
+                "key must be a letter, digit, period or space: {key:?}"
+            ));
         }
         Ok(Self {
             modifiers: modifiers.parse()?,

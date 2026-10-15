@@ -118,7 +118,11 @@ impl Host {
                         cloud: false,
                     };
                 };
-                let mut row = Row::from_candidate(offset, candidate);
+                let mut row = Row::from_candidate_with_translation_pinyin(
+                    offset,
+                    candidate,
+                    self.translation_pinyin,
+                );
                 row.index = index;
                 row.cloud = candidate.kind == CandidateKind::Cloud;
                 row

@@ -1,6 +1,6 @@
 //! 候选窗口的一行：序号、候选词、annotation 片段。只是 Core 输出的展示形态，不含任何排序或查词。
 
-use qingjian_core::Candidate;
+use qingjian_core::{Candidate, Language};
 
 /// annotation 片段的种类，决定颜色；青简渲染器的主题还按它挑着画。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -38,6 +38,14 @@ pub struct Row {
 
 impl Row {
     pub fn from_candidate(position: usize, candidate: &Candidate) -> Self {
+        Self::from_candidate_with_translation_pinyin(position, candidate, true)
+    }
+
+    pub fn from_candidate_with_translation_pinyin(
+        position: usize,
+        candidate: &Candidate,
+        show_translation_pinyin: bool,
+    ) -> Self {
         let mut annotation = Vec::new();
         // 读音（问字模式答案的带声调拼音）放在最前
         if let Some(reading) = &candidate.reading {
@@ -59,7 +67,9 @@ impl Row {
                 };
                 for segment in sense.furigana() {
                     annotation.push((segment.text, tone));
-                    if let Some(reading) = segment.reading {
+                    if let Some(reading) = segment.reading
+                        && (translation.language != Language::Chinese || show_translation_pinyin)
+                    {
                         annotation.push((format!("({reading})"), Tone::Faint));
                     }
                 }
@@ -75,5 +85,43 @@ impl Row {
             annotation,
             cloud: false,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use qingjian_core::{CandidateKind, Sense, Translation};
+
+    fn translated_candidate(language: Language, reading: &str) -> Candidate {
+        Candidate {
+            text: "tôi".to_owned(),
+            kind: CandidateKind::VietnameseWord,
+            syllables: Vec::new(),
+            reading: None,
+            translation: Some(Translation::new(
+                language,
+                vec![Sense {
+                    part_of_speech: None,
+                    text: "我".to_owned(),
+                    reading: Some(reading.to_owned()),
+                    fresh: false,
+                }],
+            )),
+            aux_code: None,
+        }
+    }
+
+    #[test]
+    fn translation_pinyin_switch_only_hides_chinese_readings() {
+        let chinese = translated_candidate(Language::Chinese, "wǒ");
+        let shown = Row::from_candidate_with_translation_pinyin(0, &chinese, true);
+        let hidden = Row::from_candidate_with_translation_pinyin(0, &chinese, false);
+        assert!(shown.annotation.iter().any(|(text, _)| text == "(wǒ)"));
+        assert!(!hidden.annotation.iter().any(|(text, _)| text == "(wǒ)"));
+
+        let japanese = translated_candidate(Language::Japanese, "わたし");
+        let row = Row::from_candidate_with_translation_pinyin(0, &japanese, false);
+        assert!(row.annotation.iter().any(|(text, _)| text == "(わたし)"));
     }
 }
