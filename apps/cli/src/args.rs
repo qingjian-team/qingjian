@@ -130,6 +130,19 @@ pub struct Args {
     #[arg(long)]
     pub replay: Option<PathBuf>,
 
+    /// 从输入日志挖词库缺词：上屏文字按语言模型切词，连续单字段与「模型认识、词库没有」的词
+    /// 按出现次数列成 `词\t拼音\t次数` 清单，人工过目后并进词库；只读日志，不写任何文件
+    #[arg(long, conflicts_with_all = ["replay", "eval_text", "eval_cold"])]
+    pub mine_log: Option<PathBuf>,
+
+    /// 挖词的最低出现次数（配 --mine-log，缺省 2）
+    #[arg(long, default_value_t = 2, requires = "mine_log")]
+    pub mine_min_count: u32,
+
+    /// 挖词的最长字数（配 --mine-log，缺省 6）
+    #[arg(long, default_value_t = 6, requires = "mine_log")]
+    pub mine_max_chars: usize,
+
     /// 回放 / 整句评测时打印前 N 条没命中首选的例子
     #[arg(long, default_value_t = 20)]
     pub misses: usize,
@@ -161,7 +174,7 @@ pub struct Args {
     pub eval_details: Option<PathBuf>,
 
     /// 冷启动字词评测：读取 JSONL，不加载个人配置或个人学习文件
-    #[arg(long, requires = "cold_output", conflicts_with_all = ["user_dict", "config", "predict", "replay", "eval_text", "english_mode", "shuangpin", "wubi", "aux_table", "tune", "fuzzy", "inputs", "neural_async"])]
+    #[arg(long, requires = "cold_output", conflicts_with_all = ["user_dict", "config", "predict", "replay", "eval_text", "english_mode", "shuangpin", "wubi", "aux_table", "tune", "fuzzy", "inputs", "neural_async", "mine_log"])]
     pub eval_cold: Option<PathBuf>,
 
     /// 冷启动逐词结果 JSONL（拒绝覆盖）

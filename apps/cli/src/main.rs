@@ -9,6 +9,7 @@ mod display;
 mod error;
 mod eval;
 mod logging;
+mod mine;
 mod repl;
 mod replay;
 mod rescoring;
@@ -71,6 +72,10 @@ fn run() -> Result<(), CliError> {
                 println!("{word}\t{}", codes.join(" "));
             }
         }
+        return Ok(());
+    }
+    if let Some(path) = &args.mine_log {
+        mine::run(&args, path)?;
         return Ok(());
     }
     if let Some(path) = &args.replay {

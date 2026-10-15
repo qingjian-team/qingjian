@@ -5,7 +5,7 @@
 //! 云端词、云端整句、原样上屏、译词不评：它们不是本地排序的结果，只计数。
 //! 其他事件（重打、直通、云端联想、上文断开、会话）按 `docs/plan/model-eval.md` 里的尺子计数。
 
-mod line;
+pub(crate) mod line;
 mod report;
 mod scheme;
 mod tally;
