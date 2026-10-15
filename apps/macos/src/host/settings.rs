@@ -6,6 +6,24 @@ use crate::preferences::DEFAULT_FONT_LABEL;
 use qingjian_platform::{ShiftLetter, SwitchTarget};
 
 impl Host {
+    pub fn caps_lock_switch_target(&self) -> SwitchTarget {
+        if self.caps_lock_force_english {
+            SwitchTarget::English
+        } else {
+            self.switch_target
+        }
+    }
+
+    pub fn toggle_caps_lock_english(&mut self) -> Option<String> {
+        if matches!(self.switch_target, SwitchTarget::English) {
+            self.caps_lock_force_english = false;
+            return None;
+        }
+        self.caps_lock_force_english = !self.caps_lock_force_english;
+        let target = self.caps_lock_switch_target();
+        Some(target.label().to_owned())
+    }
+
     pub fn cycle_learning_language(&mut self) -> Option<String> {
         let mut choices: Vec<Option<Language>> = self.languages.iter().copied().map(Some).collect();
         choices.push(None);
@@ -322,6 +340,18 @@ impl Host {
                     Err(error) => tracing::warn!(%error, "快捷键不合法，未改"),
                 }
             }
+            (Setting::CapsLockEnglishKeys, SettingValue::Text(text)) => {
+                match text.parse::<KeyCombo>() {
+                    Ok(combo) => {
+                        self.settings.set_value(
+                            "shortcut",
+                            "caps_lock_english",
+                            combo.key_string(),
+                        );
+                    }
+                    Err(error) => tracing::warn!(%error, "快捷键不合法，未改"),
+                }
+            }
             (Setting::ResetShortcuts, _) => {
                 let defaults = ShortcutConfig::default();
                 self.settings
@@ -351,6 +381,11 @@ impl Host {
                     "shortcut",
                     "cycle_learning_language",
                     defaults.cycle_learning_language.key_string(),
+                );
+                self.settings.set_value(
+                    "shortcut",
+                    "caps_lock_english",
+                    defaults.caps_lock_english.key_string(),
                 );
                 self.settings.set_value(
                     "shortcut",

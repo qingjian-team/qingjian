@@ -142,6 +142,10 @@ pub struct GenerateArgs {
     #[arg(long)]
     pub limit: Option<usize>,
 
+    /// 只生成现代常用中文词：过滤古字、方言、旧称、冷僻单字。越南语表建议开启。
+    #[arg(long)]
+    pub modern_only: bool,
+
     /// 结果 JSONL，已有的词跳过
     #[arg(long, default_value = "data/generated/gloss-llm.jsonl")]
     pub out: PathBuf,

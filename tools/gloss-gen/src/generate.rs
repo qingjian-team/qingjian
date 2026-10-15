@@ -39,7 +39,13 @@ impl Task for GlossTask {
 
 pub async fn run(args: GenerateArgs) -> Result<(), GlossError> {
     let languages = GlossLanguages::parse(&args.languages);
-    let selected = words::select(&args.words, args.min_count, args.max_chars, args.limit)?;
+    let selected = words::select(
+        &args.words,
+        args.min_count,
+        args.max_chars,
+        args.limit,
+        args.modern_only,
+    )?;
     let store = Arc::new(Store::<GlossEntry>::open(&args.out)?);
     let pending: Vec<String> = selected
         .iter()

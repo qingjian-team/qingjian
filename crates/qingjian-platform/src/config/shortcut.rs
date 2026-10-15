@@ -28,6 +28,9 @@ pub struct ShortcutConfig {
     /// 循环切换学习语言（已安装的释义表 + 不显示译文）。
     pub cycle_learning_language: KeyCombo,
 
+    /// macOS 上 Caps Lock 目标不是英语时，临时在英语与目标输入之间切换。
+    pub caps_lock_english: KeyCombo,
+
     /// 数字键配这些修饰键：删掉候选（用户词整个删掉，词库词清掉对它的学习）。
     pub delete_candidate: Modifiers,
 }
@@ -46,6 +49,7 @@ impl Default for ShortcutConfig {
             translation_second,
             translate_selection: KeyCombo::TRANSLATE_DEFAULT,
             cycle_learning_language: KeyCombo::CYCLE_LEARNING_LANGUAGE_DEFAULT,
+            caps_lock_english: KeyCombo::CAPS_LOCK_ENGLISH_DEFAULT,
             delete_candidate: Modifiers::SHIFT,
         }
     }

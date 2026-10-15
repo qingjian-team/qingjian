@@ -140,8 +140,8 @@ fn reverse_vietnamese_glossary(source: &str) -> String {
     for (vietnamese, mut chinese_words) in map {
         if !chinese_words.is_empty() {
             chinese_words.sort_by(|a, b| {
-                chinese_gloss_priority(&vietnamese, a)
-                    .cmp(&chinese_gloss_priority(&vietnamese, b))
+                chinese_gloss_priority(a)
+                    .cmp(&chinese_gloss_priority(b))
                     .then_with(|| a.chars().count().cmp(&b.chars().count()))
                     .then_with(|| a.cmp(b))
             });
@@ -156,14 +156,69 @@ fn reverse_vietnamese_glossary(source: &str) -> String {
     out
 }
 
-fn chinese_gloss_priority(vietnamese: &str, chinese: &str) -> u8 {
-    match (vietnamese, chinese) {
-        ("tôi", "我") => 0,
-        ("mình", "自己" | "我") => 0,
-        ("bạn", "你") => 0,
-        ("muốn", "想" | "要") => 0,
-        _ => 10,
+fn chinese_gloss_priority(chinese: &str) -> u8 {
+    if is_modern_everyday_chinese(chinese) {
+        return 0;
     }
+    if matches!(
+        chinese,
+        "我" | "你" | "他" | "她" | "它" | "自己" | "想" | "要"
+    ) {
+        return 5;
+    }
+    if is_non_modern_chinese_gloss(chinese) {
+        return 40;
+    }
+    if chinese.chars().count() == 1 {
+        return 30;
+    }
+    10
+}
+
+fn is_modern_everyday_chinese(chinese: &str) -> bool {
+    matches!(
+        chinese,
+        "我" | "你"
+            | "他"
+            | "她"
+            | "它"
+            | "我们"
+            | "你们"
+            | "他们"
+            | "她们"
+            | "自己"
+            | "老婆"
+            | "老公"
+            | "朋友"
+    )
+}
+
+fn is_non_modern_chinese_gloss(chinese: &str) -> bool {
+    matches!(
+        chinese,
+        "吾" | "伲"
+            | "俺"
+            | "偶"
+            | "妇"
+            | "妻"
+            | "夫"
+            | "郎"
+            | "妾"
+            | "堂客"
+            | "婆娘"
+            | "娘子"
+            | "妻室"
+            | "夫君"
+            | "夫婿"
+            | "相公"
+            | "郎君"
+            | "鄙人"
+            | "小可"
+            | "足下"
+            | "旁友"
+            | "盆友"
+            | "阿拉"
+    )
 }
 
 fn clean_vietnamese_sense(text: &str) -> Option<String> {

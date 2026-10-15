@@ -137,6 +137,9 @@ pub enum Setting {
     /// `[shortcut] cycle_learning_language`，快捷键录制按钮（修饰键 + 字母/空格）。
     CycleLearningLanguageKeys,
 
+    /// `[shortcut] caps_lock_english`，快捷键录制按钮（修饰键 + 字母/空格）。
+    CapsLockEnglishKeys,
+
     /// 「恢复默认快捷键」按钮：翻页键、模式键、三组译词 / 翻译快捷键全部回缺省。
     ResetShortcuts,
 
@@ -229,6 +232,7 @@ impl Setting {
             Self::TranslationSecondKeys => 16,
             Self::TranslateSelectionKeys => 17,
             Self::CycleLearningLanguageKeys => 58,
+            Self::CapsLockEnglishKeys => 59,
             Self::ResetShortcuts => 18,
             Self::ImportDictionary => 19,
             Self::Scheme => 20,
@@ -297,6 +301,7 @@ impl Setting {
             16 => Self::TranslationSecondKeys,
             17 => Self::TranslateSelectionKeys,
             58 => Self::CycleLearningLanguageKeys,
+            59 => Self::CapsLockEnglishKeys,
             18 => Self::ResetShortcuts,
             19 => Self::ImportDictionary,
             20 => Self::Scheme,
@@ -379,6 +384,7 @@ mod tests {
             Setting::TranslationSecondKeys,
             Setting::TranslateSelectionKeys,
             Setting::CycleLearningLanguageKeys,
+            Setting::CapsLockEnglishKeys,
             Setting::ResetShortcuts,
             Setting::ImportDictionary,
             Setting::Scheme,

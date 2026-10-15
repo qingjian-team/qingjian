@@ -8,7 +8,7 @@ impl QingjianInputController {
         self.note_application(&client);
         let mut composing = host::with(|h| !h.engine.composition().is_empty()).unwrap_or(false);
         let caps_lock = modifiers::caps_lock_on();
-        let switch_target = host::with(|h| h.switch_target).unwrap_or_default();
+        let switch_target = host::with(|h| h.caps_lock_switch_target()).unwrap_or_default();
         let vietnamese_target = caps_lock
             && matches!(
                 switch_target,

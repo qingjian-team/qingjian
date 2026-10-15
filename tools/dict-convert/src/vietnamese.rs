@@ -54,24 +54,37 @@ pub fn convert(input: &Path, out_dir: &Path) -> Result<(), ConvertError> {
             let Some(telex) = telex_phrase(&text) else {
                 continue;
             };
-            let target = if text.contains(' ') {
-                &mut phrases
+            if text.contains(' ') {
+                insert_row(&mut phrases, text.clone(), telex, base_frequency);
+                for word in text.split_whitespace() {
+                    if let Some(telex) = telex_word(word) {
+                        insert_row(&mut words, word.to_owned(), telex, base_frequency);
+                    }
+                    let lower = word.to_lowercase();
+                    if lower != word
+                        && let Some(telex) = telex_word(&lower)
+                    {
+                        insert_row(&mut words, lower, telex, base_frequency);
+                    }
+                }
             } else {
-                &mut words
-            };
-            target
-                .entry(text.clone())
-                .and_modify(|row| row.frequency = row.frequency.saturating_add(1))
-                .or_insert(Row {
-                    text,
-                    telex,
-                    frequency: base_frequency,
-                });
+                insert_row(&mut words, text, telex, base_frequency);
+            }
         }
     }
     write_rows(&out_dir.join("words.tsv"), "词", words.into_values())?;
     write_rows(&out_dir.join("phrases.tsv"), "短语", phrases.into_values())?;
     Ok(())
+}
+
+fn insert_row(rows: &mut BTreeMap<String, Row>, text: String, telex: String, frequency: u32) {
+    rows.entry(text.clone())
+        .and_modify(|row| row.frequency = row.frequency.saturating_add(1))
+        .or_insert(Row {
+            text,
+            telex,
+            frequency,
+        });
 }
 
 fn write_rows(

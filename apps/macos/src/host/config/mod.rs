@@ -32,12 +32,16 @@ impl Host {
         self.delete_keys = config.shortcut.delete_keys();
         self.translate_keys = config.shortcut.translate_selection;
         self.cycle_learning_language_keys = config.shortcut.cycle_learning_language;
+        self.caps_lock_english_keys = config.shortcut.caps_lock_english;
         self.page_size = config.general.page_size();
         self.cloud_slots = config.predict.slots;
         self.page_keys = config.general.page_keys();
         self.preedit_mode = config.general.preedit;
         self.english_candidates = config.general.english_candidates;
         self.switch_target = config.general.switch_target();
+        if matches!(self.switch_target, SwitchTarget::English) {
+            self.caps_lock_force_english = false;
+        }
         self.apps = config.apps.clone();
         self.window.set_theme(config.general.theme);
         self.window.set_layout(config.general.layout);

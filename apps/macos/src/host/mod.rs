@@ -129,6 +129,12 @@ pub struct Host {
     /// 循环切换学习语言的快捷键（配置 `[shortcut] cycle_learning_language`）。
     pub cycle_learning_language_keys: KeyCombo,
 
+    /// Caps Lock 目标不是英语时，临时切到英语的快捷键（配置 `[shortcut] caps_lock_english`）。
+    pub caps_lock_english_keys: KeyCombo,
+
+    /// Caps Lock 亮起后原本要进入学习语言输入时，是否临时改进英语。
+    pub caps_lock_force_english: bool,
+
     /// 进行中的「翻译选中文字」；有它时候选窗口显示的是译文（或「翻译中…」），按键先归它处理。
     pub translation: Option<TranslationJob>,
 

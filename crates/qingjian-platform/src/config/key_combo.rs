@@ -37,6 +37,16 @@ impl KeyCombo {
         key: 'z',
     };
 
+    pub const CAPS_LOCK_ENGLISH_DEFAULT: Self = Self {
+        modifiers: Modifiers {
+            option: true,
+            shift: false,
+            control: true,
+            command: false,
+        },
+        key: 'e',
+    };
+
     /// 配置文件里的写法。
     pub fn key_string(&self) -> String {
         let key = if self.key == ' ' {

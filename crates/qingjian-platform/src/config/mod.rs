@@ -168,6 +168,8 @@ translation_second = "shift+option"
 translate_selection = "control+option+t"
 # 循环切换学习语言（已安装释义表 + 不显示译文）
 cycle_learning_language = "control+option+z"
+# Caps Lock 切换目标不是英语时，在 Caps Lock 亮起后的目标输入与英语之间切换（macOS 用）
+caps_lock_english = "control+option+e"
 # 数字键配这些修饰键删掉候选：用户词（云端选过的、自动造的）整个删掉，词库里的词清掉对它的学习记录。组句中要打感叹号先把词上屏
 delete_candidate = "shift"
 "#
@@ -189,6 +191,8 @@ translation_second = "shift+ctrl"
 translate_selection = "ctrl+alt+t"
 # 循环切换学习语言（已安装释义表 + 不显示译文）
 cycle_learning_language = "ctrl+alt+z"
+# Caps Lock 切换目标不是英语时，在目标输入与英语之间切换（macOS 用；Windows 暂不生效）
+caps_lock_english = "ctrl+alt+e"
 # 数字键配这些修饰键删掉候选：用户词（云端选过的、自动造的）整个删掉，词库里的词清掉对它的学习记录。组句中要打感叹号先把词上屏
 delete_candidate = "shift"
 "#

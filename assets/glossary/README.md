@@ -16,10 +16,10 @@
   `cargo run --release -p qingjian-gloss-gen -- generate --words assets/lexicon/dict.tsv --min-count 1 --max-chars 8`
 - `glossary-en.tsv` / `glossary-ja.tsv` / `glossary-vi.tsv`：输入法加载的表，由 `... export --out-dir assets/glossary` 导出。
 
-只补越南语时用 `--languages vi`，输出 JSONL 里只有 `vi` 字段，避免重新生成英语 / 日语：
+只补越南语时用 `--languages vi`，输出 JSONL 里只有 `vi` 字段，避免重新生成英语 / 日语。越南语表会反向用于越南语输入候选的中文提示，必须加 `--modern-only`，不要把古字、方言、旧称和冷僻单字生成进去：
 
 ```bash
-cargo run --release -p qingjian-gloss-gen -- generate --languages vi --words assets/lexicon/dict.tsv --min-count 1 --max-chars 8 --out data/generated/gloss-vi-llm.jsonl
+cargo run --release -p qingjian-gloss-gen -- generate --languages vi --modern-only --words assets/lexicon/dict.tsv --min-count 1 --max-chars 8 --out data/generated/gloss-vi-llm.jsonl
 cargo run --release -p qingjian-gloss-gen -- export --input data/generated/gloss-vi-llm.jsonl --out-dir assets/glossary
 ```
 

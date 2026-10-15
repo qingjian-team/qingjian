@@ -222,6 +222,34 @@ impl QingjianInputController {
             .map(|c| c.to_string().to_ascii_lowercase());
         let combo = host::with(|h| h.translate_keys).unwrap_or_default();
         let cycle = host::with(|h| h.cycle_learning_language_keys).unwrap_or_default();
+        let caps_lock_english = host::with(|h| h.caps_lock_english_keys).unwrap_or_default();
+        if pressed == caps_lock_english.modifiers
+            && typed.as_deref().and_then(|t| t.chars().next()) == Some(caps_lock_english.key)
+            && !host::with(|h| matches!(h.switch_target, qingjian_platform::SwitchTarget::English))
+                .unwrap_or(true)
+        {
+            let composing = host::with(|h| !h.engine.composition().is_empty()).unwrap_or(false);
+            if composing {
+                if host::with(|h| h.engine.english_mode()).unwrap_or(false) {
+                    self.commit_raw(client);
+                } else {
+                    self.commit_highlighted(client);
+                }
+            }
+            let anchor = client.caret_rect();
+            if let Some(text) = host::with(|h| h.toggle_caps_lock_english()).flatten() {
+                let text = if modifiers::caps_lock_on() {
+                    format!("当前输入：{text}")
+                } else {
+                    format!("Caps Lock 亮起后：{text}")
+                };
+                host::with(|h| {
+                    h.indicator.update();
+                    h.show_notice(&text, anchor);
+                });
+            }
+            return true;
+        }
         if pressed == cycle.modifiers
             && typed.as_deref().and_then(|t| t.chars().next()) == Some(cycle.key)
         {

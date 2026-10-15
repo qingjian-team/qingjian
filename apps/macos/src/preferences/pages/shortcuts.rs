@@ -42,6 +42,9 @@ pub struct ShortcutsPage {
 
     /// 循环切换学习语言的组合键。
     cycle_learning_language: Retained<KeyRecorder>,
+
+    /// Caps Lock 目标不是英语时，切换英语 / 目标输入的组合键。
+    caps_lock_english: Retained<KeyRecorder>,
 }
 
 impl ShortcutsPage {
@@ -160,6 +163,19 @@ impl ShortcutsPage {
             mtm,
             "在已安装的释义语言与「不显示译文」之间循环切换。默认 ⌃⌥Z。",
         );
+        let caps_lock_english = row_recorder(
+            layout,
+            mtm,
+            "Caps Lock 临时英语",
+            Setting::CapsLockEnglishKeys,
+            false,
+            target,
+        );
+        note(
+            layout,
+            mtm,
+            "当 Caps Lock 切换目标不是英语时，在 Caps Lock 亮起后的目标输入与英语之间切换。默认 ⌃⌥E。",
+        );
         layout.space(GROUP_GAP);
         note_full(
             layout,
@@ -187,6 +203,7 @@ impl ShortcutsPage {
             delete_candidate,
             translate_selection,
             cycle_learning_language,
+            caps_lock_english,
         }
     }
 
@@ -224,5 +241,8 @@ impl ShortcutsPage {
             &cycle_learning_language.key_string(),
             &cycle_learning_language.label(),
         );
+        let caps_lock_english = config.shortcut.caps_lock_english;
+        self.caps_lock_english
+            .show(&caps_lock_english.key_string(), &caps_lock_english.label());
     }
 }
