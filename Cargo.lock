@@ -2943,7 +2943,7 @@ dependencies = [
  "tracing-appender",
  "tracing-subscriber",
  "windows",
- "windows-numerics 0.3.1",
+ "windows-numerics 0.100.0",
  "windows-registry",
  "winresource",
 ]
