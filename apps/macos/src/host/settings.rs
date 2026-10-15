@@ -25,19 +25,20 @@ impl Host {
     }
 
     pub fn cycle_learning_language(&mut self) -> Option<String> {
-        let mut choices: Vec<Option<Language>> = self.languages.iter().copied().map(Some).collect();
-        choices.push(None);
-        let current = self.learning_language;
-        let index = choices.iter().position(|choice| *choice == current)?;
-        let next = choices[(index + 1) % choices.len()];
+        let next = next_learning_language(&self.languages, self.learning_language)?;
         let value = next.map_or(LEARNING_LANGUAGE_OFF, |language| language.code());
-        self.settings
+        if !self
+            .settings
             .set_value("general", "learning_language", value)
-            .then(|| {
-                next.map_or("不显示译文".to_owned(), |language| {
-                    learning_language_label(language).to_owned()
-                })
-            })
+        {
+            return None;
+        }
+        // Settings 已重读文件，但 Host 的学习语言只有 apply_config 才会更新。
+        // 快捷键不经过偏好设置动作的统一收尾，必须在这里立即应用，否则连续按键会一直从旧语言计算。
+        self.apply_config(false);
+        Some(next.map_or("不显示译文".to_owned(), |language| {
+            learning_language_label(language).to_owned()
+        }))
     }
 
     /// 写短语前读取文件；外部规则有变化时同步列表并请用户重新确认。
@@ -667,5 +668,41 @@ fn learning_language_label(language: Language) -> &'static str {
         Language::Vietnamese => "越南语",
         Language::German => "德语",
         Language::Chinese => "中文",
+    }
+}
+
+fn next_learning_language(
+    languages: &[Language],
+    current: Option<Language>,
+) -> Option<Option<Language>> {
+    let mut choices: Vec<Option<Language>> = languages.iter().copied().map(Some).collect();
+    choices.push(None);
+    let index = choices
+        .iter()
+        .position(|choice| *choice == current)
+        .unwrap_or(choices.len().saturating_sub(1));
+    choices.get((index + 1) % choices.len()).copied()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::next_learning_language;
+    use qingjian_core::Language;
+
+    #[test]
+    fn learning_language_cycle_advances_from_current_state() {
+        let languages = [Language::English, Language::Japanese, Language::Vietnamese];
+        assert_eq!(
+            next_learning_language(&languages, Some(Language::Japanese)),
+            Some(Some(Language::Vietnamese))
+        );
+        assert_eq!(
+            next_learning_language(&languages, Some(Language::Vietnamese)),
+            Some(None)
+        );
+        assert_eq!(
+            next_learning_language(&languages, None),
+            Some(Some(Language::English))
+        );
     }
 }
