@@ -1,6 +1,6 @@
 //! 「通用」页：学习语言、每页候选数、输入方案、英文模式候选。
 
-use qingjian_platform::{EmojiCount, MAX_PAGE_SIZE, Scheme, ShiftLetter, SwitchKey};
+use qingjian_platform::{EmojiCount, MAX_PAGE_SIZE, Scheme, ShiftLetter, SwitchKey, SwitchTarget};
 use windows_reactor::{
     Callback, CheckBox, ChildrenControl, ComboBox, ContentControl, NumberBox, Orientation,
     StackPanel, ToggleSwitch, View, ViewContext,
@@ -17,6 +17,12 @@ pub(crate) const LANGUAGES: [(&str, &str); 6] = [
     ("越南语", "vi"),
     ("德语", "de"),
     ("不显示译文", "off"),
+];
+
+/// 中英切换离开中文后的目标，与 [`SwitchTarget::ALL`] 同序。
+pub(crate) const SWITCH_TARGETS: [(&str, &str); SwitchTarget::ALL.len()] = [
+    (SwitchTarget::ALL[0].label(), SwitchTarget::ALL[0].key()),
+    (SwitchTarget::ALL[1].label(), SwitchTarget::ALL[1].key()),
 ];
 
 /// 繁体输出：界面名 + 配置写法，与 `TraditionalVariant::ALL` 同序。
