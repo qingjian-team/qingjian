@@ -1,9 +1,10 @@
-use qingjian_core::ShuangpinScheme;
+use qingjian_core::{ShuangpinScheme, TraditionalVariant};
 use serde::{Deserialize, Serialize};
 
 use super::scheme::{Scheme, scheme_label};
 use super::{
-    Appearance, CandidateRenderer, FontSize, LayoutMode, LogLevel, PreeditMode, ShiftLetter,
+    Appearance, CandidateRenderer, EmojiCount, FontSize, LayoutMode, LogLevel, PreeditMode,
+    ShiftLetter,
 };
 
 /// 每页最多几个候选：数字键只有 1–9。
@@ -71,8 +72,6 @@ pub struct GeneralConfig {
     /// 英文模式（Caps Lock 亮着）是否给英文候选（补全与拼错纠正）。关掉就是纯直通。
     pub english_candidates: bool,
 
-    /// 繁体输出模式。
-    pub traditional: bool,
     /// 中文模式下中英混输时中文候选总排在英文词前面。缺省关：拼音不像话的输入（`hello`）英文词排第一，
     /// 常在中文模式里打英文词的人不受影响；想要中文永远在前的自己打开。
     pub chinese_first: bool,
@@ -80,8 +79,17 @@ pub struct GeneralConfig {
     /// 中文模式下整段是英文词或英文词的开头时给英文候选与补全（`hello`、`compa` → company）。关掉中文模式只出中文，英文模式照旧。
     pub english_in_chinese: bool,
 
-    /// 候选后面配 emoji（`kaixin` → 开心 😄）。关掉候选里就只有字词。
-    pub emoji: bool,
+    /// 候选后面一次最多配几个 emoji（`kaixin` → 开心 😄），0 时候选里只有字词。
+    pub emoji: EmojiCount,
+
+    /// 候选后面一次最多配几个颜文字（`ku` → 哭 (T_T)），缺省 1。
+    pub kaomoji: EmojiCount,
+
+    /// 候选后面一次最多配几个符号（`yuedengyu` → 约等于 ≈），缺省 1。
+    pub symbols: EmojiCount,
+
+    /// 中西文混排自动空格：汉字与半角字母 / 数字之间补一个空格（「用 Go 写了 30 行」）。缺省关；目前只有 macOS 用。
+    pub auto_space: bool,
 
     /// 中文模式下按住 Shift 敲的字母：交给应用（缺省）还是收进组句缓冲区参与匹配。
     /// 收进组句才能打出「C盘」这类混杂词（`Cpan` 与 `cpan` 一样匹配）。
@@ -118,7 +126,8 @@ pub struct GeneralConfig {
     /// 关则删空即回纯拼音态。
     pub aux_code_keep_empty: bool,
 
-    /// 拼音侧方案：`pinyin`（全拼，缺省）/ `xiaohe` / `ziranma` / `microsoft` / `sogou` / `abc` / `xiaolang` / `shoudao` / `zhuyin`
+    /// 拼音侧方案：`pinyin`（全拼，缺省）/ `xiaohe` / `ziranma` / `microsoft` / `sogou` / `abc` / `xiaolang` / `shoudao`
+    /// / `jiajia` / `zhuyin`
     /// / `none`（关，只用形码），见 [`Scheme`]。用不认识的写法时按全拼并警告。
     /// 缺省是空串：文件里没写这一项时要去看旧键，见 [`Self::scheme`]。
     pub scheme: String,
@@ -136,6 +145,17 @@ pub struct GeneralConfig {
 
     /// 旧键（同上的 `[general] zhuyin`）：同上。
     pub zhuyin: Option<bool>,
+
+    /// 繁体输出：`off` / `taiwan` / `hongkong` / `standard`，空串为没写，读法见 [`Self::traditional`]。
+    /// 词库与学习数据始终是简体，只在出 Core 时换（见 [`TraditionalVariant`]）。
+    /// 用字符串不用枚举：配置里出现这一版不认识的写法（退回旧版本时）只让这一项回缺省，不让整个配置解析失败。
+    /// 缺省值是 `off`，但配置里没写这一项时读成空串（字段级 `default`），才轮得到旧键。
+    #[serde(default)]
+    pub traditional_variant: String,
+
+    /// 旧键（0.2.1 及以前的 `[general] traditional`，布尔）：只在 [`Self::traditional`] 里用，
+    /// `traditional_variant` 写了值就不看它。新写法换了键名，旧版本读到新配置时才不会因类型不符整个解析失败。
+    pub traditional: Option<bool>,
 
     /// 日志级别，缺省 info（不含用户敲的内容）。
     pub log_level: LogLevel,
@@ -168,10 +188,12 @@ impl Default for GeneralConfig {
             animations: true,
             preedit: PreeditMode::default(),
             english_candidates: true,
-            traditional: false,
             chinese_first: false,
             english_in_chinese: true,
-            emoji: true,
+            emoji: EmojiCount::default(),
+            kaomoji: EmojiCount::new(1),
+            symbols: EmojiCount::new(1),
+            auto_space: false,
             shift_letter: ShiftLetter::default(),
             english_mode: true,
             default_english: false,
@@ -187,6 +209,8 @@ impl Default for GeneralConfig {
             wubi: String::new(),
             shuangpin: None,
             zhuyin: None,
+            traditional_variant: TraditionalVariant::Off.key().to_owned(),
+            traditional: None,
             log_level: LogLevel::default(),
             input_log: true,
             learning: true,
@@ -196,6 +220,25 @@ impl Default for GeneralConfig {
 }
 
 impl GeneralConfig {
+    /// 繁体输出：`traditional_variant` 优先；没写时看旧的布尔，`true` 是台湾字形（与 0.2.1 的输出相同）。
+    pub fn traditional(&self) -> TraditionalVariant {
+        let key = self.traditional_variant.trim();
+        if key.is_empty() {
+            return if self.traditional == Some(true) {
+                TraditionalVariant::Taiwan
+            } else {
+                TraditionalVariant::Off
+            };
+        }
+        TraditionalVariant::ALL
+            .into_iter()
+            .find(|variant| variant.key() == key)
+            .unwrap_or_else(|| {
+                tracing::warn!(key, "不认识的繁体输出写法，按简体");
+                TraditionalVariant::Off
+            })
+    }
+
     /// 候选窗口外观。`appearance` 没写时看旧写法（`theme` 写的是 system / light / dark），都没有就跟随系统。
     pub fn appearance(&self) -> Appearance {
         self.appearance
@@ -452,6 +495,27 @@ mod tests {
         assert_eq!(
             parse("scheme = \"pinyin\"\nshuangpin = \"xiaohe\"\n"),
             Scheme::Pinyin
+        );
+    }
+
+    /// 0.2.1 及以前的 `traditional = true` 照旧出台湾字形；新键优先；不认识的写法只让这一项回简体。
+    #[test]
+    fn traditional_variant_wins_over_the_legacy_bool() {
+        let parse = |text: &str| toml::from_str::<GeneralConfig>(text).unwrap().traditional();
+        assert_eq!(parse("traditional = true"), TraditionalVariant::Taiwan);
+        assert_eq!(parse("traditional = false"), TraditionalVariant::Off);
+        assert_eq!(parse(""), TraditionalVariant::Off);
+        assert_eq!(
+            parse("traditional = true\ntraditional_variant = \"off\""),
+            TraditionalVariant::Off
+        );
+        assert_eq!(
+            parse("traditional_variant = \"hongkong\""),
+            TraditionalVariant::Hongkong
+        );
+        assert_eq!(
+            parse("traditional_variant = \"macau\"\npage_size = 5"),
+            TraditionalVariant::Off
         );
     }
 

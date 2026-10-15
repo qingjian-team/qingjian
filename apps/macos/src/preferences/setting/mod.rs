@@ -128,8 +128,17 @@ pub enum Setting {
     /// `[general] english_in_chinese`，勾选框：中文模式也给英文词与补全。
     EnglishInChinese,
 
-    /// `[general] emoji`，勾选框：候选后面配 emoji。
+    /// `[general] emoji`，弹出菜单：候选后面一次最多配几个 emoji。
     Emoji,
+
+    /// `[general] kaomoji`，弹出菜单：候选后面一次最多配几个颜文字。
+    Kaomoji,
+
+    /// `[general] symbols`，弹出菜单：候选后面一次最多配几个符号。
+    Symbols,
+
+    /// `[general] auto_space`，勾选框：中西文之间自动补空格。
+    AutoSpace,
 
     /// `[general] horizontal_grid`，勾选框：横排时上 / 下键展开成多行矩阵。
     HorizontalGrid,
@@ -179,7 +188,7 @@ pub enum Setting {
     /// `[general] wubi`，勾选框：勾上是五笔（86 版）。与拼音同时开着就是混输。
     Wubi,
 
-    /// [general] traditional，勾选框：繁体输出。
+    /// `[general] traditional_variant`，弹出菜单：简体 + 三档繁体。
     Traditional,
 
     /// `[general] log_level`，勾选框：勾上是 debug。
@@ -242,7 +251,10 @@ impl Setting {
             Self::EnglishCandidates => 14,
             Self::ChineseFirst => 42,
             Self::Emoji => 62,
+            Self::Kaomoji => 66,
+            Self::Symbols => 67,
             Self::EnglishInChinese => 63,
+            Self::AutoSpace => 65,
             Self::ShiftLetter => 50,
             Self::Theme => 51,
             Self::HorizontalGrid => 57,
@@ -317,7 +329,10 @@ impl Setting {
             14 => Self::EnglishCandidates,
             42 => Self::ChineseFirst,
             62 => Self::Emoji,
+            66 => Self::Kaomoji,
+            67 => Self::Symbols,
             63 => Self::EnglishInChinese,
+            65 => Self::AutoSpace,
             50 => Self::ShiftLetter,
             51 => Self::Theme,
             57 => Self::HorizontalGrid,
@@ -417,6 +432,8 @@ mod tests {
             Setting::ShuangpinRawPreedit,
             Setting::Traditional,
             Setting::Emoji,
+            Setting::Kaomoji,
+            Setting::Symbols,
             Setting::EnglishInChinese,
             Setting::VerboseLog,
             Setting::OpenLogDirectory,
@@ -428,6 +445,7 @@ mod tests {
             Setting::InputLog,
             Setting::SystemTextReplacements,
             Setting::ShiftLetter,
+            Setting::AutoSpace,
             Setting::HorizontalGrid,
             Setting::CandidateFontSize,
             Setting::AnnotationFontSize,

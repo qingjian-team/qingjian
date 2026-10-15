@@ -35,7 +35,7 @@ use qingjian_platform::{
     Modifiers, PAGE_KEY_OPTIONS, PreeditMode, Scheme, ShortcutConfig, UpdateChannel,
 };
 use qingjian_predict::{
-    CloudGlossFiller, CloudPredictor, ConnectionTest, PredictConfig, PredictError,
+    API_USAGE_FILE, CloudGlossFiller, CloudPredictor, ConnectionTest, PredictConfig, PredictError,
 };
 use qingjian_translate::{Glossary, LayeredTranslator, LevelTable, PersonalGlossary};
 
@@ -199,9 +199,6 @@ thread_local! {
 
 /// 激活期间学习数据最多隔这么久落一次盘。
 const LEARNING_FLUSH_INTERVAL: std::time::Duration = std::time::Duration::from_secs(60);
-
-/// 输入统计文件名，与学习数据同目录（按天一行，见 `qingjian-learning::UsageStats`）。
-const USAGE_FILE: &str = "usage.tsv";
 
 /// 检查更新的结果文件名，与学习数据同目录（见 `qingjian-update::UpdateState`）。
 const UPDATE_STATE_FILE: &str = "update.json";

@@ -12,7 +12,8 @@ fn main() {
     // build.rs 跑在宿主机上，只有目标是 Windows 时才嵌。
     println!("cargo:rerun-if-env-changed=QINGJIAN_UIACCESS");
     if std::env::var_os("CARGO_CFG_WINDOWS").is_some() {
-        let ui_access = std::env::var("QINGJIAN_UIACCESS").is_ok_and(|v| v == "1");
+        // cmd 里 `set QINGJIAN_UIACCESS=1 && …` 会把 && 前的空格一起写进值
+        let ui_access = std::env::var("QINGJIAN_UIACCESS").is_ok_and(|v| v.trim() == "1");
         if ui_access {
             println!("cargo:warning=QINGJIAN_UIACCESS=1：Server 带 uiAccess，没签名的话起不来");
         }

@@ -1,3 +1,4 @@
+use std::path::PathBuf;
 use std::sync::mpsc::{self, Receiver, Sender};
 
 use qingjian_core::{FilledGloss, GlossFiller, Language};
@@ -19,10 +20,18 @@ pub struct CloudGlossFiller {
 impl CloudGlossFiller {
     /// 与云联想共用一份配置（接口、模型、密钥、超时）；没有密钥直接报错，壳退回 [`qingjian_core::NoGlossFiller`]。
     pub fn new(config: &PredictConfig) -> Result<Self, PredictError> {
+        Self::new_with_usage(config, None)
+    }
+
+    /// 将实际请求和接口用量累计到壳指定的本机文件。
+    pub fn new_with_usage(
+        config: &PredictConfig,
+        usage_path: Option<PathBuf>,
+    ) -> Result<Self, PredictError> {
         let api_key = config
             .resolve_api_key()
             .ok_or_else(|| PredictError::MissingApiKey(config.api_key_env.clone()))?;
-        let client = ChatClient::new(config, api_key);
+        let client = ChatClient::new(config, api_key).with_usage(usage_path);
         let (requests, request_rx) = mpsc::channel();
         let (response_tx, responses) = mpsc::channel();
         let worker = GlossWorker::new(request_rx, response_tx, client);

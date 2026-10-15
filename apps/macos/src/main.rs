@@ -41,7 +41,9 @@ fn main() {
     if std::env::args().any(|argument| argument == "--register") {
         match app::input_source::register_main_bundle() {
             Ok(true) => println!("青简输入源已注册、启用并切成当前输入源"),
-            Ok(false) => println!("青简输入源已注册并启用，请在输入法菜单里选择「青简」"),
+            Ok(false) => println!(
+                "青简输入源已注册并启用，但没能切成当前输入源；输入法菜单里没有「青简」的话，注销后重新登录（系统在登录时才刷新输入法列表）"
+            ),
             Err(error) => {
                 eprintln!("青简输入源注册失败：{error}");
                 std::process::exit(1);

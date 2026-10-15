@@ -14,7 +14,7 @@ pub use qingjian_platform::{
 };
 pub use qingjian_render::Mode;
 pub use qingjian_windows_server::dispatch::{
-    CandidateSink, RenderSettings, StatusEvent, StatusSink, StatusView,
+    CandidateSink, PanelFrame, RenderSettings, StatusEvent, StatusSink, StatusView,
 };
 pub use qingjian_windows_server::{AssemblySpec, Router, RouterConfig, assembly};
 
@@ -327,6 +327,10 @@ impl CandidateSink for RecordingCandidates {
     }
 
     fn hide(&self) {}
+
+    fn show_panel(&self, _frame: PanelFrame, _rect: Option<ScreenRect>) {}
+
+    fn hide_panel(&self) {}
 
     fn configure(&self, _settings: RenderSettings) {}
 }

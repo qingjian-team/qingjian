@@ -1,8 +1,8 @@
 //! 根组件的 Reactor 生命周期：建状态、按消息落盘、画左侧导航 + 当前页。
 
 use qingjian_platform::{
-    Appearance, CandidateRenderer, Config, DEFAULT_ENGLISH_CANDIDATES_ON_WINDOWS, HighlightKeys,
-    LayoutMode, LogLevel, PreeditMode, ShiftLetter, UpdateChannel,
+    Appearance, CandidateRenderer, Config, DEFAULT_ENGLISH_CANDIDATES_ON_WINDOWS, EmojiCount,
+    HighlightKeys, LayoutMode, LogLevel, PreeditMode, ShiftLetter, UpdateChannel,
 };
 use qingjian_render::ThemeLibrary;
 use windows_reactor::*;
@@ -63,8 +63,18 @@ impl Component for Settings {
             }
             Message::ShuangpinRawPreedit(on) => self.save("general", "shuangpin_raw_preedit", on),
             Message::Wubi(on) => self.save("general", "wubi", if on { "wubi86" } else { "" }),
-            Message::Traditional(on) => self.save("general", "traditional", on),
-            Message::Emoji(on) => self.save("general", "emoji", on),
+            Message::Traditional(Some(i)) if i < general::TRADITIONAL.len() => {
+                self.save("general", "traditional_variant", general::TRADITIONAL[i].1);
+            }
+            Message::Emoji(Some(count)) if count <= usize::from(EmojiCount::MAX) => {
+                self.save("general", "emoji", count as i64);
+            }
+            Message::Kaomoji(Some(count)) if count <= usize::from(EmojiCount::MAX) => {
+                self.save("general", "kaomoji", count as i64);
+            }
+            Message::Symbols(Some(count)) if count <= usize::from(EmojiCount::MAX) => {
+                self.save("general", "symbols", count as i64);
+            }
             Message::EnglishCandidates(on) => self.save("general", "english_candidates", on),
             Message::EnglishInChinese(on) => self.save("general", "english_in_chinese", on),
             Message::ChineseFirst(on) => self.save("general", "chinese_first", on),
@@ -169,14 +179,18 @@ impl Component for Settings {
                 self.save("predict", "slots", slots);
             }
             Message::CloudSentence(on) => self.save("predict", "sentence", on),
+            Message::CloudSentenceTranslation(on) => {
+                self.save("predict", "sentence_translation", on)
+            }
             Message::TestConnection => {
                 if matches!(self.cloud_status, CloudStatus::Testing) {
                     return;
                 }
                 self.cloud_status = CloudStatus::Testing;
                 let config = self.config.predict.clone();
+                let usage_path = self.data_dir().join(qingjian_predict::API_USAGE_FILE);
                 context.spawn_background(move |cancel| {
-                    Message::CloudTestDone(cloud::run_test(&config, &cancel))
+                    Message::CloudTestDone(cloud::run_test(&config, usage_path, &cancel))
                 });
             }
             Message::CloudTestDone(result) => {
@@ -356,7 +370,7 @@ impl Component for Settings {
     }
 
     fn view(&self, _input: &(), context: &mut ViewContext<Self>) -> View {
-        context.window_title("青简设置");
+        context.window_title("青简旧版设置");
         let item = |tag: &str, label: &str, symbol| {
             KeyedView::new(
                 tag,

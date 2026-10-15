@@ -7,10 +7,13 @@
 //! （固定 autosave 名也保不住），而焦点每进出一次输入框 IMK 就 deactivate / activate 一轮。
 //! 停用时改成收成零宽、清空标题，并且延迟 [`COLLAPSE_DELAY`] 再收：焦点只是在输入框之间挪的话，半秒内就会再次激活，根本收不下去；
 //! 真换到别的输入法才收起来，切回来再展开，位置一直在。
+//!
+//! 状态项等第一次激活才建：启动时 NSApplication 还没建、进程没连上 WindowServer，macOS 13 上这时建状态项直接 NSCGSPanic。
+//! 也不能为此把 NSApplication 提前到 IMKServer 之前建：那样装好后，系统弹窗抢走焦点再还回来时会把输入源切回 ABC。
 
 use objc2::rc::Retained;
 use objc2::runtime::AnyObject;
-use objc2::{MainThreadMarker, MainThreadOnly, define_class, msg_send, sel};
+use objc2::{MainThreadMarker, MainThreadOnly, Message, define_class, msg_send, sel};
 use objc2_app_kit::{NSMenu, NSStatusBar, NSStatusItem, NSVariableStatusItemLength};
 use objc2_foundation::{NSObject, NSObjectProtocol, NSString, NSTimer, ns_string};
 
@@ -23,8 +26,11 @@ const POLL_INTERVAL: f64 = 0.25;
 const COLLAPSE_DELAY: f64 = 0.5;
 
 pub struct ModeIndicator {
-    /// 菜单栏状态项。
-    item: Retained<NSStatusItem>,
+    /// 菜单栏状态项；第一次激活时才建。
+    item: Option<Retained<NSStatusItem>>,
+
+    /// 点状态项弹出的菜单，建状态项时挂上。
+    menu: Option<Retained<NSMenu>>,
 
     /// 轮询定时器；未激活时为 `None`。
     timer: Option<Retained<NSTimer>>,
@@ -46,11 +52,9 @@ pub struct ModeIndicator {
 
 impl ModeIndicator {
     pub fn new(mtm: MainThreadMarker) -> Self {
-        let item = NSStatusBar::systemStatusBar().statusItemWithLength(0.0);
-        item.setAutosaveName(Some(ns_string!("QingjianModeIndicator")));
-        item.setVisible(true);
         Self {
-            item,
+            item: None,
+            menu: None,
             timer: None,
             collapse_timer: None,
             shown: false,
@@ -60,6 +64,16 @@ impl ModeIndicator {
         }
     }
 
+    fn item(&mut self) -> &NSStatusItem {
+        self.item.get_or_insert_with(|| {
+            let item = NSStatusBar::systemStatusBar().statusItemWithLength(0.0);
+            item.setAutosaveName(Some(ns_string!("QingjianModeIndicator")));
+            item.setVisible(true);
+            item.setMenu(self.menu.as_deref());
+            item
+        })
+    }
+
     /// 输入法激活：展开状态项并开始轮询；停用时安排的收起取消。
     pub fn activate(&mut self) {
         if let Some(timer) = self.collapse_timer.take() {
@@ -67,7 +81,7 @@ impl ModeIndicator {
         }
         if !self.shown {
             self.shown = true;
-            self.item.setLength(NSVariableStatusItemLength);
+            self.item().setLength(NSVariableStatusItemLength);
         }
         self.english = None;
         self.update();
@@ -115,15 +129,21 @@ impl ModeIndicator {
         }
         self.shown = false;
         self.english = None;
-        if let Some(button) = self.item.button(self.mtm) {
+        let Some(item) = &self.item else {
+            return;
+        };
+        if let Some(button) = item.button(self.mtm) {
             button.setTitle(ns_string!(""));
         }
-        self.item.setLength(0.0);
+        item.setLength(0.0);
     }
 
     /// 点状态项弹出的菜单。
-    pub fn set_menu(&self, menu: &NSMenu) {
-        self.item.setMenu(Some(menu));
+    pub fn set_menu(&mut self, menu: &NSMenu) {
+        self.menu = Some(menu.retain());
+        if let Some(item) = &self.item {
+            item.setMenu(Some(menu));
+        }
     }
 
     pub fn set_cloud(&mut self, cloud: bool) {
@@ -141,7 +161,8 @@ impl ModeIndicator {
             return;
         }
         self.english = Some(english);
-        if let Some(button) = self.item.button(self.mtm) {
+        let mtm = self.mtm;
+        if let Some(button) = self.item().button(mtm) {
             let mode = if english { "英" } else { "中" };
             let title = if self.cloud {
                 format!("{mode} ☁︎")

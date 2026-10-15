@@ -33,11 +33,11 @@ if ((${#missing[@]})); then
 fi
 install_prefix=$(realpath -m -- "$install_prefix")
 cargo_output=$(realpath -m -- "${CARGO_TARGET_DIR:-$repo_root/target}")
-cargo_args=(build --manifest-path "$repo_root/Cargo.toml" --target-dir "$cargo_output" -p qingjian-linux-server --locked)
+cargo_args=(build --manifest-path "$repo_root/Cargo.toml" --target-dir "$cargo_output" -p qingjian-linux-server -p qingjian-settings --locked)
 [[ "$build_profile" != release ]] || cargo_args+=(--release)
 cargo "${cargo_args[@]}"
 cmake_output="$repo_root/target/fcitx5-install-$build_profile"
 cmake -S "$repo_root/apps/linux/fcitx5" -B "$cmake_output" "-DCMAKE_BUILD_TYPE=$cmake_type" -DBUILD_TESTING=OFF
 cmake --build "$cmake_output" --parallel "${CMAKE_BUILD_PARALLEL_LEVEL:-2}"
-python3 "$repo_root/apps/linux/scripts/files.py" install "$install_prefix" "$repo_root" "$cargo_output/$build_profile/qingjian-linux-server" "$cmake_output/qingjian.so" "$sample"
-printf '已安装。手动启动：%s/bin/qingjian-linux-server\n重启 Fcitx5，在配置工具取消“仅显示当前语言”后添加“青简”。\n' "$install_prefix"
+python3 "$repo_root/apps/linux/scripts/files.py" install "$install_prefix" "$repo_root" "$cargo_output/$build_profile/qingjian-linux-server" "$cargo_output/$build_profile/qingjian-settings" "$cmake_output/qingjian.so" "$sample"
+printf '已安装。手动启动：%s/bin/qingjian-linux-server\n重启 Fcitx5，在配置工具取消“仅显示当前语言”后添加“青简”。\n设置：应用菜单里的“青简设置”，或 %s/bin/qingjian-settings\n' "$install_prefix" "$install_prefix"

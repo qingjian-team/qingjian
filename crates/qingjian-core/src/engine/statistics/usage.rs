@@ -16,6 +16,24 @@ pub struct Usage {
 
     /// 上屏次数。
     pub commits: u64,
+
+    /// 从候选里选的上屏（原样上屏的字母串不算）；下面几项只在这些上屏上数。
+    pub choices: u64,
+
+    /// 选的是第一个候选。
+    pub first_choices: u64,
+
+    /// 选词上屏里有汉字的那些，汉字共几个：速度与码长的分子，与下面两项同一批上屏，不含老记录与英文候选。
+    pub typed_hanzi: u64,
+
+    /// 敲进组句的键数（字母、数字、分隔符），退格不算；只数有汉字的选词上屏。
+    pub keys: u64,
+
+    /// 实际打字的毫秒数：从上一次上屏（或输入法刚用上）到这次上屏，键与键之间停顿太久的那段不算；只数有汉字的选词上屏。
+    pub typing_ms: u64,
+
+    /// 上屏前退格或删过的。
+    pub edited: u64,
 }
 
 impl Usage {
@@ -26,6 +44,7 @@ impl Usage {
             words: 0,
             english_words: count_english_words(text),
             commits: 1,
+            ..Self::default()
         }
     }
 
@@ -41,6 +60,12 @@ impl AddAssign for Usage {
         self.words += other.words;
         self.english_words += other.english_words;
         self.commits += other.commits;
+        self.choices += other.choices;
+        self.first_choices += other.first_choices;
+        self.typed_hanzi += other.typed_hanzi;
+        self.keys += other.keys;
+        self.typing_ms += other.typing_ms;
+        self.edited += other.edited;
     }
 }
 
@@ -73,7 +98,8 @@ mod tests {
                 hanzi: 2,
                 words: 0,
                 english_words: 1,
-                commits: 1
+                commits: 1,
+                ..Usage::default()
             }
         );
         assert_eq!(Usage::of_text("open-source don't 2024").english_words, 2);

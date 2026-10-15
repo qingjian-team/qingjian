@@ -9,18 +9,17 @@ mod layout_style;
 mod leaf;
 mod row;
 
-use taffy::NodeId;
+use bamboo_slip::taffy::NodeId;
 
-use crate::animation::Keyframes;
-use crate::error::RenderError;
 use crate::frame::Frame;
 use crate::layout::Layout;
 use crate::renderer::StatusCell;
-use crate::scene::{Effect, Scene, Visual};
-use crate::text::{TextPainter, TextStyle};
 use crate::theme::Theme;
 use crate::theme::file::node::{BorderSpec, BoxSpec, EffectSpec, NodeKind, NodeSpec};
 use crate::theme::file::{ColorSpec, FontRef};
+use bamboo_slip::RenderError;
+use bamboo_slip::{Effect, Scene, Visual};
+use bamboo_slip::{TextPainter, TextStyle};
 
 use context::Context;
 
@@ -74,7 +73,7 @@ impl Builder<'_> {
             Some(&root) => root,
             None => self
                 .scene
-                .node(taffy::Style::default(), Visual::Group, &[])?,
+                .node(bamboo_slip::taffy::Style::default(), Visual::Group, &[])?,
         };
         Ok(root)
     }
@@ -144,7 +143,7 @@ impl Builder<'_> {
     fn mark_transition(&mut self, spec: &NodeSpec, out: &[NodeId]) {
         if let (Some(animation), Some(&node)) = (&spec.animation, out.last()) {
             self.scene
-                .set_animation(node, Keyframes::from_spec(animation, self.scale));
+                .set_animation(node, animation.keyframes(self.scale));
         }
         if let (Some(id), Some(transition), Some(&node)) = (&spec.id, &spec.transition, out.last())
         {
@@ -170,11 +169,11 @@ impl Builder<'_> {
 
     /// 效果换成像素、颜色按当前数据与外观取值。
     fn effect(&self, spec: &EffectSpec, ctx: Context) -> Effect {
-        Effect::from_spec(spec, self.scale, self.color(&spec.shadow().color, ctx))
+        spec.to_effect(self.scale, self.color(&spec.shadow().color, ctx))
     }
 
     /// 节点颜色：条件写法按当前数据取分支，再按外观取值。
-    fn color(&self, spec: &ColorSpec, ctx: Context) -> crate::color::Color {
+    fn color(&self, spec: &ColorSpec, ctx: Context) -> bamboo_slip::Color {
         let color = match spec {
             ColorSpec::Fixed(color) => color,
             ColorSpec::Switch {
@@ -198,11 +197,11 @@ impl Builder<'_> {
         &self,
         stroke: Option<&BorderSpec>,
         ctx: Context,
-    ) -> Option<(f32, crate::color::Color)> {
+    ) -> Option<(f32, bamboo_slip::Color)> {
         stroke.map(|stroke| (stroke.width * self.scale, self.color(&stroke.color, ctx)))
     }
 
-    fn text_style(&self, font: &FontRef, color: crate::color::Color) -> TextStyle {
+    fn text_style(&self, font: &FontRef, color: bamboo_slip::Color) -> TextStyle {
         let spec = self.theme.font_ref(font);
         TextStyle::new(
             spec.scaled(self.scale),

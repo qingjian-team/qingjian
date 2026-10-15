@@ -1,5 +1,7 @@
 //! 「云服务」页：本地整句模型开关（`[model]`）、`[predict]` 各项与「测试连接」（后台线程跑）。
 
+use std::path::PathBuf;
+
 use qingjian_predict::{ConnectionTest, PredictConfig};
 use windows_reactor::{
     Button, CancellationToken, ChildrenControl, ContentControl, LayoutControl, NumberBox,
@@ -14,9 +16,11 @@ use crate::panel::{Message, Settings};
 /// 后台跑一次连通性测试，轮询到有结果或被取消。
 pub(crate) fn run_test(
     config: &PredictConfig,
+    usage_path: PathBuf,
     cancel: &CancellationToken,
 ) -> Result<String, String> {
-    let test = ConnectionTest::start(config).map_err(|error| error.to_string())?;
+    let test = ConnectionTest::start_with_usage(config, Some(usage_path))
+        .map_err(|error| error.to_string())?;
     loop {
         if cancel.is_cancelled() {
             return Err("已取消".to_owned());
@@ -74,6 +78,13 @@ pub(crate) fn view(settings: &Settings, context: &mut ViewContext<Settings>) -> 
             ToggleSwitch::new()
                 .is_on(p.sentence)
                 .on_toggled(context.callback(Message::CloudSentence)),
+        ),
+        field(
+            "整句候选翻译",
+            "本地整句候选出现后，单独把该候选文本发给服务，译文异步显示在候选右侧；不发送光标前后上下文。",
+            ToggleSwitch::new()
+                .is_on(p.sentence_translation)
+                .on_toggled(context.callback(Message::CloudSentenceTranslation)),
         ),
         field(
             "接口地址",

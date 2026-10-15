@@ -17,15 +17,21 @@ impl Host {
     pub fn apply_config(&mut self, force: bool) {
         let config = self.settings.config().clone();
         self.engine.set_fuzzy(config.fuzzy);
-        self.engine.set_traditional_mode(config.general.traditional);
+        self.engine.set_traditional(config.general.traditional());
         self.engine
             .set_full_width_punctuation(config.general.full_width_punctuation);
         self.apply_custom_phrases(&config);
         self.engine.set_mode_keys(config.shortcut.mode);
         self.engine.set_chinese_first(config.general.chinese_first);
-        self.engine.set_emoji_candidates(config.general.emoji);
+        self.engine
+            .set_emoji_limit(usize::from(config.general.emoji.get()));
+        self.engine
+            .set_kaomoji_limit(usize::from(config.general.kaomoji.get()));
+        self.engine
+            .set_symbol_limit(usize::from(config.general.symbols.get()));
         self.engine
             .set_english_in_chinese(config.general.english_in_chinese);
+        self.engine.set_auto_space(config.general.auto_space);
         self.engine
             .set_shift_letter_compose(config.general.shift_letter.compose());
         self.apply_scheme(config.general.scheme(), config.general.wubi());
@@ -64,8 +70,10 @@ impl Host {
         }
         if force || config.predict != self.applied_predict {
             if config.predict.enabled {
+                // 请求与 Token 记进统计页的云服务用量
+                let usage = paths::user_data_dir().map(|dir| dir.join(API_USAGE_FILE));
                 // 没密钥等失败只记日志、退回不联想：输入优先于一切附加功能
-                match CloudPredictor::new(&config.predict) {
+                match CloudPredictor::new_with_usage(&config.predict, usage.clone()) {
                     Ok(predictor) => self.engine.set_predictor(Box::new(predictor)),
                     Err(error) => {
                         tracing::warn!(%error, "云联想未启用");
@@ -73,7 +81,7 @@ impl Host {
                     }
                 }
                 // 释义兜底随云联想一起开：释义表里没有的词上屏后问云端写进个人释义表
-                match CloudGlossFiller::new(&config.predict) {
+                match CloudGlossFiller::new_with_usage(&config.predict, usage) {
                     Ok(filler) => self.engine.set_gloss_filler(Box::new(filler)),
                     Err(error) => {
                         tracing::warn!(%error, "释义兜底未启用");

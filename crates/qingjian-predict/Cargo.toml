@@ -19,3 +19,4 @@ tokio.workspace = true
 tracing.workspace = true
 reqwest.workspace = true
 uuid.workspace = true
+jiff.workspace = true

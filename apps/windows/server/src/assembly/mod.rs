@@ -40,7 +40,7 @@ pub fn assemble(spec: &AssemblySpec) -> Result<Engine, ServerError> {
     }
     if let Some(dir) = &spec.user_dir {
         engine = engine
-            .with_usage_meter(Box::new(UsageStats::open(dir.join("usage.tsv"))))
+            .with_usage_meter(Box::new(UsageStats::open(dir)))
             .with_vocabulary_tracker(Box::new(load_vocabulary(dir, spec.levels_dir.as_deref())));
         if spec.input_log {
             let path = dir.join("input-log.jsonl");

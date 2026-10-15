@@ -7,6 +7,9 @@ pub enum StatusEvent {
     /// 点了「，。」格：翻转当前模式的全角标点（中英各记一份）。
     TogglePunctuation,
 
+    /// 点了「符」格：打开符号面板。
+    OpenSymbolPanel,
+
     /// 拖动结束，内容左上角的新位置（物理像素）。
     Moved(i32, i32),
 }

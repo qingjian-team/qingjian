@@ -12,32 +12,28 @@ pub(crate) mod file;
 mod font;
 mod jsonc;
 mod library;
-mod svg_image;
 mod text_sizes;
 mod validate;
 
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, OnceLock};
 
-use tiny_skia::Pixmap;
-
-use crate::color::Color;
+use bamboo_slip::tiny_skia::Pixmap;
+use bamboo_slip::{Color, FamilyTable, FontSpec, SvgImage};
 
 pub use error::ThemeError;
-pub(crate) use font::{FamilyId, FontFamilies};
-pub use font::{FontSpec, FontWeight};
+use font::FontFamilies;
 pub use library::ThemeLibrary;
 pub use text_sizes::TextSizes;
 
 use assets::Assets;
 use file::{ColorRef, FontRef, LockedAppearance, SCHEMA, ThemeFile};
-pub(crate) use svg_image::SvgImage;
 
 /// 内置主题编进程序的图片：主题里写的路径与文件内容。
 type EmbeddedFiles = &'static [(&'static str, &'static [u8])];
 
 /// 内置主题：id、源文件与图片，按设置界面列出的顺序；第一个是缺省主题。
-const BUILTINS: [(&str, &str, EmbeddedFiles); 4] = [
+const BUILTINS: [(&str, &str, EmbeddedFiles); 7] = [
     (
         "qingjian",
         include_str!("../../themes/qingjian/theme.json"),
@@ -104,6 +100,192 @@ const BUILTINS: [(&str, &str, EmbeddedFiles); 4] = [
             (
                 "images/chevron-right.svg",
                 include_bytes!("../../themes/sakura/images/chevron-right.svg"),
+            ),
+        ],
+    ),
+    (
+        "dafeiyu",
+        include_str!("../../themes/dafeiyu/theme.json"),
+        &[
+            (
+                "images/girl-side.png",
+                include_bytes!("../../themes/dafeiyu/images/girl-side.png"),
+            ),
+            (
+                "images/girl-sleep.png",
+                include_bytes!("../../themes/dafeiyu/images/girl-sleep.png"),
+            ),
+            (
+                "images/girl-top.png",
+                include_bytes!("../../themes/dafeiyu/images/girl-top.png"),
+            ),
+            (
+                "images/bubble.svg",
+                include_bytes!("../../themes/dafeiyu/images/bubble.svg"),
+            ),
+            (
+                "images/chevron-down.svg",
+                include_bytes!("../../themes/dafeiyu/images/chevron-down.svg"),
+            ),
+            (
+                "images/chevron-left.svg",
+                include_bytes!("../../themes/dafeiyu/images/chevron-left.svg"),
+            ),
+            (
+                "images/chevron-right.svg",
+                include_bytes!("../../themes/dafeiyu/images/chevron-right.svg"),
+            ),
+            (
+                "images/heart.svg",
+                include_bytes!("../../themes/dafeiyu/images/heart.svg"),
+            ),
+            (
+                "images/keyboard.svg",
+                include_bytes!("../../themes/dafeiyu/images/keyboard.svg"),
+            ),
+            (
+                "images/moon.svg",
+                include_bytes!("../../themes/dafeiyu/images/moon.svg"),
+            ),
+            (
+                "images/settings.svg",
+                include_bytes!("../../themes/dafeiyu/images/settings.svg"),
+            ),
+            (
+                "images/speech-bubble.svg",
+                include_bytes!("../../themes/dafeiyu/images/speech-bubble.svg"),
+            ),
+            (
+                "images/waves.svg",
+                include_bytes!("../../themes/dafeiyu/images/waves.svg"),
+            ),
+            (
+                "images/whale.svg",
+                include_bytes!("../../themes/dafeiyu/images/whale.svg"),
+            ),
+        ],
+    ),
+    (
+        "miku",
+        include_str!("../../themes/miku/theme.json"),
+        &[
+            (
+                "images/miku-side.png",
+                include_bytes!("../../themes/miku/images/miku-side.png"),
+            ),
+            (
+                "images/miku-sleep.png",
+                include_bytes!("../../themes/miku/images/miku-sleep.png"),
+            ),
+            (
+                "images/miku-top.png",
+                include_bytes!("../../themes/miku/images/miku-top.png"),
+            ),
+            (
+                "images/chevron-left.svg",
+                include_bytes!("../../themes/miku/images/chevron-left.svg"),
+            ),
+            (
+                "images/chevron-right.svg",
+                include_bytes!("../../themes/miku/images/chevron-right.svg"),
+            ),
+            (
+                "images/corner-accent.svg",
+                include_bytes!("../../themes/miku/images/corner-accent.svg"),
+            ),
+            (
+                "images/equalizer.svg",
+                include_bytes!("../../themes/miku/images/equalizer.svg"),
+            ),
+            (
+                "images/keyboard.svg",
+                include_bytes!("../../themes/miku/images/keyboard.svg"),
+            ),
+            (
+                "images/moon.svg",
+                include_bytes!("../../themes/miku/images/moon.svg"),
+            ),
+            (
+                "images/music-note.svg",
+                include_bytes!("../../themes/miku/images/music-note.svg"),
+            ),
+            (
+                "images/panel-horizontal.svg",
+                include_bytes!("../../themes/miku/images/panel-horizontal.svg"),
+            ),
+            (
+                "images/panel-status.svg",
+                include_bytes!("../../themes/miku/images/panel-status.svg"),
+            ),
+            (
+                "images/panel-vertical.svg",
+                include_bytes!("../../themes/miku/images/panel-vertical.svg"),
+            ),
+            (
+                "images/settings.svg",
+                include_bytes!("../../themes/miku/images/settings.svg"),
+            ),
+        ],
+    ),
+    (
+        "bocchi",
+        include_str!("../../themes/bocchi/theme.json"),
+        &[
+            (
+                "images/amp.png",
+                include_bytes!("../../themes/bocchi/images/amp.png"),
+            ),
+            (
+                "images/girl-box.png",
+                include_bytes!("../../themes/bocchi/images/girl-box.png"),
+            ),
+            (
+                "images/girl-side.png",
+                include_bytes!("../../themes/bocchi/images/girl-side.png"),
+            ),
+            (
+                "images/girl-top.png",
+                include_bytes!("../../themes/bocchi/images/girl-top.png"),
+            ),
+            (
+                "images/audio-cable.svg",
+                include_bytes!("../../themes/bocchi/images/audio-cable.svg"),
+            ),
+            (
+                "images/chevron-left.svg",
+                include_bytes!("../../themes/bocchi/images/chevron-left.svg"),
+            ),
+            (
+                "images/chevron-right.svg",
+                include_bytes!("../../themes/bocchi/images/chevron-right.svg"),
+            ),
+            (
+                "images/keyboard.svg",
+                include_bytes!("../../themes/bocchi/images/keyboard.svg"),
+            ),
+            (
+                "images/note-gold.svg",
+                include_bytes!("../../themes/bocchi/images/note-gold.svg"),
+            ),
+            (
+                "images/note.svg",
+                include_bytes!("../../themes/bocchi/images/note.svg"),
+            ),
+            (
+                "images/pick.svg",
+                include_bytes!("../../themes/bocchi/images/pick.svg"),
+            ),
+            (
+                "images/settings.svg",
+                include_bytes!("../../themes/bocchi/images/settings.svg"),
+            ),
+            (
+                "images/star-pink.svg",
+                include_bytes!("../../themes/bocchi/images/star-pink.svg"),
+            ),
+            (
+                "images/star.svg",
+                include_bytes!("../../themes/bocchi/images/star.svg"),
             ),
         ],
     ),
@@ -259,7 +441,7 @@ impl Theme {
 
     /// 样式里写到的系统字族名（不含 `system`）。壳按名字查出字体文件，交给 [`crate::Renderer::load_theme_fonts`]。
     pub fn font_families(&self) -> Vec<String> {
-        self.families.names()
+        self.families.table().names()
     }
 
     /// 随主题带的字体文件（已检查在主题目录里）。
@@ -311,9 +493,9 @@ impl Theme {
         text_sizes::scaled(spec, self.sizes.ratio(name, |base| self.theme_size(base)))
     }
 
-    /// 字族表，渲染器按 [`FamilyId`] 查回退链；两份 `Theme` 共用同一张表时指针相同。
-    pub(crate) fn families(&self) -> &Arc<FontFamilies> {
-        &self.families
+    /// 字族表，画笔按 [`bamboo_slip::FamilyId`] 查回退链；两份 `Theme` 共用同一张表时指针相同。
+    pub(crate) fn families(&self) -> &Arc<FamilyTable> {
+        self.families.table()
     }
 
     /// 节点里的 `font`：样式名，或在样式上改字号 / 字重。
@@ -381,11 +563,11 @@ mod tests {
         assert!(Theme::builtin("nope", false).is_none());
         assert_eq!(
             theme.color(&ColorRef::Variable("accent".to_owned())),
-            Color::rgba(176, 206, 125, 127)
+            Color::rgba(148, 190, 82, 127)
         );
         assert_eq!(
             Theme::dark().color(&ColorRef::Variable("accent".to_owned())),
-            Color::rgb(36, 76, 36)
+            Color::rgb(51, 111, 51)
         );
     }
 

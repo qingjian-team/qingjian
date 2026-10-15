@@ -74,6 +74,14 @@ Server 启动时按 `[model] enabled`（缺省开）在后台线程加载模型�
 未出候选时先确认手动 Server 在运行，再查看 `$XDG_STATE_HOME/qingjian/logs/server.*.log`（缺省 `~/.local/state`）。
 输入日志由 `[general] input_log` 控制；用户配置和学习文件始终保存在 XDG 用户目录，卸载不删除。
 
+## 发行版打包
+
+做系统级包（deb / rpm / AUR 等）时，把 `assets/icon/linux/hicolor/` 下八档 PNG（16/22/24/32/48/64/128/256）逐档装到
+`/usr/share/icons/hicolor/<尺寸>x<尺寸>/apps/qingjian.png`，文件名保持 `qingjian.png`。八档已随仓库栅格化提交，打包不依赖
+ImageMagick；不要把 1024px 源图塞进尺寸目录，也不要只装 `resources/assets/` 里的程序资源副本（图标主题不读该路径），
+否则不缩放的托盘会显示巨图（#547）。安装循环片段与图标缓存刷新说明见
+[图标说明](../../assets/icon/README.md#linux-发行版打包)。
+
 ## 验证环境
 
 - Ubuntu 26.04，未打补丁的 Fcitx5 5.1.19-1 / Core7 / modules，GTK4 4.22.4、Qt6 6.10.2。

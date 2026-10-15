@@ -29,25 +29,27 @@ impl Engine {
         let start = Instant::now();
         let mut hits = 0;
         for candidate in &mut list.items {
-            let mut text = candidate.text.as_str();
-            let traditional_map = self.traditional_map.borrow();
-            if self.traditional
-                && let Some(simp) = traditional_map.get(text)
-            {
-                text = simp.as_str();
-            }
+            // 繁体输出开着时按简体原文查：释义表的键是简体
+            let text = self
+                .traditional
+                .restore(&candidate.text)
+                .unwrap_or_else(|| candidate.text.clone());
             candidate.translation = match candidate.kind {
                 CandidateKind::Custom(_) => None,
                 // 英文候选按敲的大小写显示（Company / COMPANY），释义表键是小写
-                CandidateKind::English => self.english_translator.translate(text).or_else(|| {
+                CandidateKind::English => self.english_translator.translate(&text).or_else(|| {
                     self.english_translator
                         .translate(&text.to_ascii_lowercase())
                 }),
-                _ => self.translator.translate(text).map(|mut translation| {
+                _ => self.translator.translate(&text).map(|mut translation| {
                     self.mark_fresh(&mut translation);
                     translation
                 }),
             };
+            // 中文释义（英文候选的中文译词）也跟着转：候选文本已经是繁体了，释义不能还是简体
+            if let Some(translation) = &mut candidate.translation {
+                self.traditional.apply_translation(translation);
+            }
             hits += usize::from(candidate.translation.is_some());
         }
         AnnotationReport {
@@ -67,14 +69,25 @@ impl Engine {
             .as_ref()
             .and_then(|t| t.senses().get(sense))
             .map(|s| s.text.clone())?;
+        let lead = self.auto_space_before(&text);
         self.commit_with(candidate, InputSource::Translation, Some(sense));
+        let text = if lead { format!(" {text}") } else { text };
+        // 应用里收到的是译文：退格计数与自动空格的上文都按译文算
+        if let Some(last) = self.recent_commits.last_mut() {
+            last.chars = text.chars().count();
+            last.tail = text.chars().last();
+        }
         Some(text)
     }
 
     /// 候选比输入短时（`kaifazhe` 选了 开发），剩余拼音留在缓冲区，壳应接着 [`Self::query`]。
     /// 候选的最后一个音节比输入长时（`kaif` 选了 开发），把输入吃完。
+    /// 开了自动空格（[`Self::set_auto_space`]）时与上文、候选内部的中西文交界都补好空格。
     pub fn commit(&mut self, candidate: &Candidate) -> String {
-        self.commit_with(candidate, InputSource::from(candidate.kind), None)
+        self.panel = None;
+        let lead = self.auto_space_before(&candidate.text);
+        let text = self.commit_with(candidate, InputSource::from(candidate.kind), None);
+        if lead { format!(" {text}") } else { text }
     }
 
     /// [`Self::commit`] 的内部形式：`source` 写进输入日志（上屏译词时不是候选本身），
@@ -85,14 +98,17 @@ impl Engine {
         source: InputSource,
         used_sense: Option<usize>,
     ) -> String {
-        let traditional_text = candidate.text.clone();
-        let mut candidate_owned = candidate.clone();
-        if self.traditional
-            && let Some(simp) = self.traditional_map.borrow().get(&candidate_owned.text)
-        {
-            candidate_owned.text = simp.clone();
-        }
-        let candidate = &candidate_owned;
+        // 繁体输出开着时，壳送回来的是繁体候选：先换回简体，下面的学习、历史、日志一律看简体；
+        // 交给应用的仍是 `output` 那份繁体
+        let output = candidate.text.clone();
+        let restored = self
+            .traditional
+            .restore(&candidate.text)
+            .map(|text| Candidate {
+                text,
+                ..candidate.clone()
+            });
+        let candidate = restored.as_ref().unwrap_or(candidate);
         // 整句不是一个词，不记词频；按路径上的词逐条记转移（喂个人 n-gram），路径要在拼音消耗前重算
         let sentence_words = (candidate.kind == CandidateKind::Sentence)
             .then(|| self.sentence_words(candidate))
@@ -122,14 +138,16 @@ impl Engine {
                 self.learner.record_choice(&input, &candidate.text);
                 (consumed, input)
             }
-            // 英文词带出的 emoji 没有音节，和英文词一样对应整段作用域
-            CandidateKind::Emoji if candidate.syllables.is_empty() => self.whole_scope(),
+            // 英文词带出的 emoji、颜文字、符号没有音节，和英文词一样对应整段作用域
+            kind if kind.follows_word() && candidate.syllables.is_empty() => self.whole_scope(),
             CandidateKind::Sentence => {
                 typos = self.accepted_typos(candidate);
                 self.consumed_by(candidate)
             }
-            // emoji 按它对应词的音节消耗拼音，不记学习
-            CandidateKind::Emoji => self.consumed_by(candidate),
+            // emoji、颜文字、符号按它对应词的音节消耗拼音，不记学习
+            CandidateKind::Emoji | CandidateKind::Kaomoji | CandidateKind::Symbol => {
+                self.consumed_by(candidate)
+            }
             // 云端词是针对整段作用域要的（拼音可能有错，按音节对不上），上屏吃掉整段；词库里没有的记成用户词
             CandidateKind::Cloud => {
                 if let Some(syllables) = self.learned_syllables(candidate) {
@@ -246,6 +264,8 @@ impl Engine {
             | CandidateKind::Shortcut
             | CandidateKind::Custom(_)
             | CandidateKind::Emoji
+            | CandidateKind::Kaomoji
+            | CandidateKind::Symbol
             | CandidateKind::Generated => self.chain.reset(),
         }
         // 一次整句上屏里的几个词不算分段选，只有这段拼音经过至少两次上屏才合起来看
@@ -263,10 +283,22 @@ impl Engine {
                 | CandidateKind::Cloud
                 | CandidateKind::Sentence
         );
+        // 自动空格补在上屏文本里，退格撤销按补过空格的字数数；自定义短语与快捷候选是用户 / 规则给定的原文，不改
+        let verbatim = matches!(
+            candidate.kind,
+            CandidateKind::Custom(_) | CandidateKind::Shortcut
+        );
+        let text = if self.auto_space && !verbatim {
+            crate::spacing::space_inner(&output)
+        } else {
+            output
+        };
         let commit = if learned {
             LastCommit {
+                // 文本是学习键，记简体；字符数按真正上屏的那份算，退格撤销数的是屏幕上的字
                 text: candidate.text.clone(),
-                chars: traditional_text.chars().count(),
+                chars: text.chars().count(),
+                tail: text.chars().last(),
                 input,
                 chosen: matches!(
                     candidate.kind,
@@ -281,11 +313,12 @@ impl Engine {
             }
         } else {
             let mut plain = LastCommit::plain(&candidate.text);
-            plain.chars = traditional_text.chars().count();
+            plain.chars = text.chars().count();
+            plain.tail = text.chars().last();
             plain
         };
         self.remember_commit(commit);
-        traditional_text
+        text
     }
 
     /// 一段拼音分几次选完了（`jidiaole` 先选 挤、剩下的走整句 掉了）：这几个词合起来就是用户对这段拼音的答案。

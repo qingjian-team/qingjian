@@ -102,7 +102,7 @@ collection behavior 是 CanJoinAllSpaces + FullScreenAuxiliary + Stationary。�
 | 上 / 下 | 移动高亮，到页边自动翻页；第一项再按上不动 |
 | ⌥← / ⌥→ | 按音节跳光标（边界规则同 ⌥⌫；`'` 跟着前面的音节，`Engine::move_cursor_syllable_left` / `right`）。光标在末尾发现前面的音节错了：⌥← 跳过去、⌥⌫ 删掉重敲、⌘→ 回末尾 |
 | 左 / 右、Cmd+左 / 右 | 移动拼音光标（不切模式）。光标停在中间时候选只按光标前的拼音算（`ni|hao` 出 你），上屏后剩余拼音留着、光标落到末尾；光标在开头或末尾按整段算 |
-| PageUp / PageDown、Shift+Tab、翻页键对（配置 `[general] page_keys`，缺省 `[` `]`，可选 `,` `.` 或 `-` `=`；选后者时组句中的 `-` 是翻页、不再进英文直输段） | 翻页。每页几个由 `page_size` 定（1–9） |
+| PageUp / PageDown、Shift+Tab、翻页键对（配置 `[general] page_keys`，缺省 `[` `]`，可选 `,` `.` 或 `-` `=`；macOS 选后者时**没有上一页 / 下一页的 `-` `=` 落回英文直输段与字面量**，`[` `]` `,` `.` 翻不动也照旧吃键） | 翻页。每页几个由 `page_size` 定（1–9） |
 | 半角标点（会转全角的那批见 Core `punctuation::converts`，配成翻页键的除外；⇧+数字已被删候选 / 译词键截走） | 组句中分两路。**会转全角的**（`,` `.` `?` `!` `:` 等）：把高亮候选上屏、再接该全角标点，`nihao,` `dui'ma?` 一气打完「你好，」「对吗？」；数字后的 `.` 是否保持半角由 Core 判断，Windows 关掉全角转换时接半角。**不转的**（`-` `/` `@`）：进入**英文直输段**，`no-way` 整段原样显示，之后的可见字符（含数字、大写）都追加，回车原样上屏，空格原样上屏后空格本身也交给应用，Esc 清掉。表达式 / 问字模式优先。`'` 是隔音符，任何模式进缓冲区。这样有了「拼音 + 标点 = 上屏候选 + 全角标点」（`[general] punct_commits`，缺省关：会转全角的标点也进英文直输段，与以前一致）；代价是组句中打不出「字母串 + 半角标点」（`hello, world` 改用英文模式，或 Windows 关掉全角转换） |
 | Tab | 有整句补全（云联想）时接受它；没有则翻页 |
 | 修饰键 + 数字（⌥ / ⇧⌥ 上屏译词、⇧ 删候选） | **只在组句中认**。不在组句时 ⇧4 就是普通的 `$`，走中文标点规则出 ￥（⇧1 ！、⇧6 ……、⇧9 ⇧0 （ ））；曾经在这里被截走后原样还给应用，全角转换就漏了 |
@@ -189,8 +189,8 @@ CLI 用 `--fuzzy z-zh,n-l` 或 `--fuzzy all` 临时开。
 
 ### 双拼（默认关，`[general] shuangpin`）
 
-七套方案：小鹤（`xiaohe`）、自然码（`ziranma`）、微软（`microsoft`）、搜狗（`sogou`）、智能ABC（`abc`）、小浪（`xiaolang`）、首道（`shoudao`）。键位表在 Core `shuangpin::table`，
-按 Rime 的 `double_pinyin*.schema.yaml` 核对（搜狗来自 rime-ice 的整理，小浪来自用户提供的搜狗小浪双拼与 Rime 配置，智能ABC 按公开键位资料核对，首道按作者仓库 shoudaoshuangpin/shoudaoshouyouplus 的键位图、并与万象拼音的拼写运算对过），每套方案对全部音节做往返测试；微软与搜狗只差微软的 `v` 键兼作 üe。
+八套方案：小鹤（`xiaohe`）、自然码（`ziranma`）、微软（`microsoft`）、搜狗（`sogou`）、智能ABC（`abc`）、小浪（`xiaolang`）、首道（`shoudao`）、拼音加加（`jiajia`）。键位表在 Core `shuangpin::table`，
+按 Rime 的 `double_pinyin*.schema.yaml` 核对（搜狗来自 rime-ice 的整理，小浪来自用户提供的搜狗小浪双拼与 Rime 配置，智能ABC 按公开键位资料核对，首道按作者仓库 shoudaoshuangpin/shoudaoshouyouplus 的键位图、并与万象拼音的拼写运算对过，拼音加加以 Rime `double_pinyin_pyjj.schema.yaml`、fcitx5 libime `PinyinJiajia` 与公开键位图三方核对），每套方案对全部音节做往返测试；微软与搜狗只差微软的 `v` 键兼作 üe。
 开着时缓冲区里存的仍是敲的键，Engine 在切分前把键两两配对解成全拼（音节之间自动带 `'`，没有切分歧义），
 之后查词、整句、云联想、学习全部走全拼那一套：拼音行显示解出来的全拼（`nihc` → `ni'hao`），学习按全拼记（`user-choices.tsv` 的键与全拼共用，切回全拼也受益），
 上屏消耗按「候选盖住几个音节、每个音节几个键」换算回缓冲区（`kdfave` 选 开发 吃掉 4 个键，剩 `ve`）。
@@ -282,13 +282,14 @@ Core 按 `prediction::restates_question` 剔掉：与本地转出的问题相同
 |---|---|
 | 云联想（勾选） | 写 `[predict] enabled`。配置开了但 Predictor 没接上（多半是没密钥）时不打勾，标题改成「云联想（启用失败，见日志）」 |
 | 模糊音 ▸ 九条（勾选） | 写 `[fuzzy]` 对应键 |
-| 偏好设置… | 打开设置窗口 |
+| 设置… | 打开设置程序（`Qingjian.app/Contents/Applications/QingjianSettings.app`，见 [settings.md](settings.md)）；包里没有时退回旧版偏好设置 |
+| 旧版设置… | 打开下面这个原生偏好设置窗口，留一个版本作回退 |
 | 打开日志目录 | 访达打开 `~/Library/Logs/Qingjian/` |
 | 有新版本 x.y.z…（查到新版才出现） | 打开下载页，见 [update.md](update.md) |
 | （配置文件有错误：…） | 只在配置解析失败时出现，灰显；此时沿用上一份能用的配置，不让输入法退出 |
 | 青简 0.1.0 | 版本，灰显 |
 
-偏好设置窗口（原生 AppKit，无「保存」按钮，改完立即写回并生效）是 **NSTabView 八页**（通用 / 候选窗口 / 快捷键 / 模糊音 / 词库 / 云服务 / 高级 / 关于），每页一列自上而下，窗口高度取最高的一页：
+旧版偏好设置窗口（原生 AppKit，下个版本删；无「保存」按钮，改完立即写回并生效）是 **NSTabView 八页**（通用 / 候选窗口 / 快捷键 / 模糊音 / 词库 / 云服务 / 高级 / 关于），每页一列自上而下，窗口高度取最高的一页：
 「通用」（学习语言：只列打进包里有释义表的语言；每页候选数 1–9；双拼方案；英文模式候选开关与「终端 / 编辑器里不给」）、「候选窗口」（外观 跟随系统 / 浅色 / 深色；
 排布 竖排 / 横排；拼音显示 行内 + 窗口 / 只在行内 / 只在窗口）、「快捷键」（翻页键对与模式键仍是下拉预设；上屏第一 / 第二个译词的修饰键、删除候选的修饰键、翻译选中文字的组合键是**录制按钮**：
 点一下再按组合键，Esc 取消，`preferences/key_recorder.rs` 的 `KeyRecorder`，NSButton 子类接管 `mouseDown:` / `keyDown:`；

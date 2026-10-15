@@ -1,8 +1,10 @@
+use std::path::PathBuf;
 use std::sync::LazyLock;
 use std::time::Duration;
 
 use async_openai::Client;
 use async_openai::config::OpenAIConfig;
+use async_openai::middleware::ReqwestService;
 use async_openai::types::chat::{
     ChatCompletionRequestMessage, ChatCompletionRequestSystemMessage,
     ChatCompletionRequestUserMessage, CreateChatCompletionRequestArgs,
@@ -14,6 +16,7 @@ use reqwest::header::{HeaderMap, HeaderValue};
 use crate::config::PredictConfig;
 use crate::error::PredictError;
 use crate::prompt::{self, Reply};
+use crate::usage::ApiUsageStats;
 
 /// 联想回复的 token 上限：几条短句足够，防止模型长篇大论。
 const MAX_TOKENS: u32 = 200;
@@ -29,6 +32,7 @@ const OPENCODE_SESSION_HEADER: &str = "x-opencode-session";
 static SESSION_ID: LazyLock<String> = LazyLock::new(|| uuid::Uuid::new_v4().to_string());
 
 /// OpenAI 兼容聊天接口的封装：一个请求进、若干联想条目出。
+#[derive(Clone)]
 pub struct ChatClient {
     /// 底层客户端。
     client: Client<OpenAIConfig>,
@@ -44,6 +48,9 @@ pub struct ChatClient {
 
     /// 接口关思考用的是哪种参数（按接口地址定）。
     thinking_switch: ThinkingSwitch,
+
+    /// 壳选择累计用量的本机文件；None 时保持原有无统计行为。
+    usage_path: Option<PathBuf>,
 }
 
 impl ChatClient {
@@ -52,12 +59,19 @@ impl ChatClient {
             .with_api_base(config.base_url.trim_end_matches('/'))
             .with_api_key(api_key);
         Self {
-            client: Client::with_config(openai).with_http_client(http_client(&config.base_url)),
+            client: Client::with_config(openai)
+                .with_http_service(ReqwestService::new(http_client(&config.base_url))),
             model: config.model.clone(),
             timeout: Duration::from_millis(config.timeout_ms),
             reasoning_effort: parse_reasoning_effort(&config.reasoning_effort),
             thinking_switch: ThinkingSwitch::for_url(&config.base_url),
+            usage_path: None,
         }
+    }
+
+    pub fn with_usage(mut self, path: Option<PathBuf>) -> Self {
+        self.usage_path = path;
+        self
     }
 
     pub async fn complete(&self, request: &PredictionRequest) -> Result<Reply, PredictError> {
@@ -120,10 +134,18 @@ impl ChatClient {
 
     /// 发一次请求，返回原始 JSON。
     async fn send(&self, body: &serde_json::Value) -> Result<serde_json::Value, PredictError> {
-        tokio::time::timeout(self.timeout, self.client.chat().create_byot(body.clone()))
-            .await
-            .map_err(|_| PredictError::Timeout(self.timeout.as_millis() as u64))?
-            .map_err(PredictError::from)
+        if let Some(path) = &self.usage_path {
+            ApiUsageStats::record_request(path);
+        }
+        let response =
+            tokio::time::timeout(self.timeout, self.client.chat().create_byot(body.clone()))
+                .await
+                .map_err(|_| PredictError::Timeout(self.timeout.as_millis() as u64))
+                .and_then(|result| result.map_err(PredictError::from));
+        if let Some(path) = &self.usage_path {
+            ApiUsageStats::record_response(path, response.as_ref().ok());
+        }
+        response
     }
 
     /// 从原始响应里取正文；空正文时把原始响应记进日志，方便排查思考占满预算、模型名不对这类问题。

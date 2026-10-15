@@ -9,7 +9,7 @@ use super::direction::Direction;
 use super::fill::FillSpec;
 use super::table::TableSpec;
 use super::tone_filter::ToneFilter;
-use crate::scene::Icon;
+use crate::icon::Icon;
 use crate::theme::file::{ColorSpec, FontRef};
 
 #[derive(Debug, Clone, Deserialize)]

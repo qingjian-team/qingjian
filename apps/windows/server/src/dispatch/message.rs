@@ -133,7 +133,9 @@ impl Router {
         if self.translation.is_some() {
             return self.handle_translation_review(session, &event);
         }
-        if self.engine.composition().is_empty()
+        if self.config.cloud_enabled
+            && self.engine.composition().is_empty()
+            && !self.panel_open()
             && self.engine.prediction_enabled()
             && self.matches_translate_combo(&event)
         {

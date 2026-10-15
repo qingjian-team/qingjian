@@ -5,6 +5,7 @@
 
 mod click;
 mod matrix;
+mod panel;
 
 use std::cell::{Cell, RefCell};
 
@@ -31,7 +32,7 @@ use super::preedit::PreeditStyle;
 use super::row::{Row, Tone};
 use super::theme::Theme;
 
-pub use click::ClickHandler;
+pub use click::{ClickHandler, PanelMouseHandler};
 
 /// 视图状态。
 pub struct Ivars {
@@ -61,6 +62,12 @@ pub struct Ivars {
 
     /// 点中候选或译词时交给谁（host 注册）。
     on_click: RefCell<Option<ClickHandler>>,
+
+    /// 符号面板里点中格子或标签时交给谁（host 注册）。
+    on_panel_mouse: RefCell<Option<PanelMouseHandler>>,
+
+    /// 触控板滚动攒下还不够一行的距离（点）。
+    scroll_rest: Cell<f64>,
 }
 
 /// preedit 光标的宽度。
@@ -126,9 +133,16 @@ define_class!(
             self.clicked(event);
         }
 
+        #[unsafe(method(scrollWheel:))]
+        fn scroll_wheel(&self, event: &NSEvent) {
+            self.scrolled(event);
+        }
+
         #[unsafe(method(drawRect:))]
         fn draw_rect(&self, _dirty: NSRect) {
-            if let Some(bitmap) = &mut *self.ivars().bitmap.borrow_mut() {
+            if self.ivars().frame.borrow().is_panel() {
+                self.draw();
+            } else if let Some(bitmap) = &mut *self.ivars().bitmap.borrow_mut() {
                 bitmap.draw(self.is_dark(), self.backing_scale());
             } else {
                 self.draw();
@@ -150,6 +164,8 @@ impl CandidateView {
             render_theme: RefCell::new(qingjian_render::Theme::light()),
             animation: RefCell::new(AnimationTimer::default()),
             on_click: RefCell::new(None),
+            on_panel_mouse: RefCell::new(None),
+            scroll_rest: Cell::new(0.0),
         });
         unsafe { msg_send![super(this), initWithFrame: NSRect::ZERO] }
     }
@@ -232,6 +248,10 @@ impl CandidateView {
     pub fn set_frame(&self, frame: &Frame) -> ViewBounds {
         *self.ivars().frame.borrow_mut() = frame.clone();
         self.setNeedsDisplay(true);
+        if frame.is_panel() {
+            self.stop_animation();
+            return ViewBounds::filled(self.preferred_size());
+        }
         let bounds = self.ivars().bitmap.borrow_mut().as_mut().map(|bitmap| {
             bitmap.set_frame(
                 frame,
@@ -301,6 +321,10 @@ impl CandidateView {
     fn preferred_size(&self) -> NSSize {
         let theme = self.theme();
         let frame = self.ivars().frame.borrow();
+        if frame.is_panel() {
+            let (width, height) = self.panel_size(&frame);
+            return NSSize::new(width + theme.padding * 2.0, height + theme.padding * 2.0);
+        }
         let (top_width, top_height) = self.top_line_size(&frame);
         let (body_width, body_height) = match self.ivars().layout.get() {
             LayoutMode::Vertical => self.vertical_size(&frame),
@@ -489,6 +513,10 @@ impl CandidateView {
         )
         .fill();
 
+        if frame.is_panel() {
+            self.draw_panel(&frame, bounds);
+            return;
+        }
         let mut y = theme.padding;
         y += self.draw_top_line(&frame, y);
         match self.ivars().layout.get() {

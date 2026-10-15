@@ -1,14 +1,16 @@
-//! Server 进程内的 UI 线程：候选窗口与悬浮状态条都在这条线程上自绘（普通置顶窗会被商店 / 任务栏搜索
+//! Server 进程内的 UI 线程：候选窗口、符号面板与悬浮状态条都在这条线程上自绘（普通置顶窗会被商店 / 任务栏搜索
 //! 这些高 z-band 宿主盖住，只有本进程配合 uiAccess 签名才能盖过）。
 //!
 //! HWND 线程亲和：Router 在工人线程上产出内容，经通道 + `PostThreadMessageW` 唤醒交给 UI 线程应用。
-//! 线程句柄是 [`UiHandle`]，命令在 [`command`]，候选窗口在 [`candidates`]，状态条在 [`status`]，分层窗口合成在 [`layered`]。
+//! 线程句柄是 [`UiHandle`]，命令在 [`command`]，候选窗口在 [`candidates`]，符号面板在 [`panel`]，状态条在 [`status`]，
+//! 分层窗口合成在 [`layered`]。
 
 mod candidates;
 mod command;
 mod layered;
 mod monitor;
 mod painter;
+mod panel;
 mod status;
 mod window_class;
 
@@ -36,8 +38,12 @@ pub use self::candidates::CandidateClicks;
 use self::candidates::CandidateWindow;
 use self::command::UiCommand;
 use self::painter::{Painter, SharedPainter};
+pub use self::panel::PanelEvents;
+use self::panel::PanelWindow;
 use self::status::StatusBar;
-use crate::dispatch::{CandidateSink, RenderSettings, StatusEvent, StatusSink, StatusView};
+use crate::dispatch::{
+    CandidateSink, PanelFrame, RenderSettings, StatusEvent, StatusSink, StatusView,
+};
 
 /// 状态条上的操作（点格子 / 拖动结束）回给 Router 的回调，UI 线程上调。
 pub type StatusEvents = Box<dyn Fn(StatusEvent) + Send>;
@@ -57,13 +63,17 @@ pub struct UiHandle {
 
 impl UiHandle {
     /// 起 UI 线程并等它建好候选窗口。失败返回 `Err`，调用方退化为不画。
-    pub fn spawn(on_status: StatusEvents, on_click: CandidateClicks) -> Result<Self> {
+    pub fn spawn(
+        on_status: StatusEvents,
+        on_click: CandidateClicks,
+        on_panel: PanelEvents,
+    ) -> Result<Self> {
         // 用 Option<u32> 而非 Result 回报，免得 windows Error 跨线程。
         let (ready_tx, ready_rx) = mpsc::channel::<Option<u32>>();
         let (command_tx, command_rx) = mpsc::channel::<UiCommand>();
         thread::Builder::new()
             .name("qingjian-candidates".to_owned())
-            .spawn(move || run(command_rx, &ready_tx, on_status, on_click))
+            .spawn(move || run(command_rx, &ready_tx, on_status, on_click, on_panel))
             .map_err(|_| Error::from(E_FAIL))?;
         match ready_rx.recv() {
             Ok(Some(thread_id)) => Ok(Self {
@@ -91,6 +101,14 @@ impl CandidateSink for UiHandle {
         self.post(UiCommand::Hide);
     }
 
+    fn show_panel(&self, frame: PanelFrame, rect: Option<ScreenRect>) {
+        self.post(UiCommand::PanelShow(Box::new((frame, rect))));
+    }
+
+    fn hide_panel(&self) {
+        self.post(UiCommand::PanelHide);
+    }
+
     fn configure(&self, settings: RenderSettings) {
         self.post(UiCommand::Configure(settings));
     }
@@ -109,6 +127,10 @@ impl StatusSink for UiHandle {
         open_settings();
     }
 
+    fn open_legacy_settings(&self) {
+        launch_sibling("qingjian-settings-legacy.exe");
+    }
+
     fn open_download(&self) {
         let _ = unsafe { AllowSetForegroundWindow(ASFW_ANY) };
         let opened = std::process::Command::new("explorer")
@@ -120,13 +142,18 @@ impl StatusSink for UiHandle {
     }
 }
 
-/// 起与本 exe 同目录的设置程序。设置程序已开时由新实例把它带到前台，得先把前台权让出去。
+/// 起与本 exe 同目录的设置程序。
 pub(crate) fn open_settings() {
+    launch_sibling("qingjian-settings.exe");
+}
+
+/// 起与本 exe 同目录的程序。设置程序已开时由新实例把它带到前台，得先把前台权让出去。
+fn launch_sibling(name: &str) {
     let _ = unsafe { AllowSetForegroundWindow(ASFW_ANY) };
-    let exe = std::env::current_exe().map(|exe| exe.with_file_name("qingjian-settings.exe"));
+    let exe = std::env::current_exe().map(|exe| exe.with_file_name(name));
     let spawned = exe.and_then(|exe| std::process::Command::new(exe).spawn());
     if let Err(error) = spawned {
-        tracing::warn!(%error, "打开设置程序失败");
+        tracing::warn!(%error, name, "打开设置程序失败");
     }
 }
 
@@ -142,6 +169,7 @@ fn run(
     ready: &Sender<Option<u32>>,
     on_status: StatusEvents,
     on_click: CandidateClicks,
+    on_panel: PanelEvents,
 ) {
     // 按物理像素定位，与应用报来的组句屏幕矩形对齐；已设过会失败，忽略。
     let _ = unsafe { SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2) };
@@ -155,6 +183,13 @@ fn run(
             tracing::error!(%error, "建候选窗口失败，Server 将不显示候选框");
             let _ = ready.send(None);
             return;
+        }
+    };
+    let panel = match PanelWindow::new(on_panel) {
+        Ok(panel) => Some(panel),
+        Err(error) => {
+            tracing::error!(%error, "建符号面板窗口失败，将不显示符号面板");
+            None
         }
     };
     let status = match StatusBar::new(on_status, painter.clone()) {
@@ -180,7 +215,7 @@ fn run(
         if msg.message == WM_WAKE {
             // 一次唤醒排空整个队列，保住 Hide→Show 的先后。
             while let Ok(command) = commands.try_recv() {
-                apply(&window, status.as_ref(), &painter, command);
+                apply(&window, panel.as_ref(), status.as_ref(), &painter, command);
             }
             continue;
         }
@@ -193,6 +228,7 @@ fn run(
 
 fn apply(
     window: &CandidateWindow,
+    panel: Option<&PanelWindow>,
     status: Option<&StatusBar>,
     painter: &SharedPainter,
     command: UiCommand,
@@ -204,6 +240,17 @@ fn apply(
             window.show(to_win_rect(rect));
         }
         UiCommand::Hide => window.hide(),
+        UiCommand::PanelShow(payload) => {
+            let (frame, rect) = *payload;
+            if let Some(panel) = panel {
+                panel.show(frame, rect.map(to_win_rect));
+            }
+        }
+        UiCommand::PanelHide => {
+            if let Some(panel) = panel {
+                panel.hide();
+            }
+        }
         UiCommand::StatusShow(view) => {
             if let Some(status) = status {
                 status.update(*view);

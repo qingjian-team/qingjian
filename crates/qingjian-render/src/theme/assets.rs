@@ -10,9 +10,9 @@ use std::collections::HashMap;
 use std::path::{Component, Path, PathBuf};
 use std::sync::Arc;
 
-use tiny_skia::Pixmap;
+use bamboo_slip::SvgImage;
+use bamboo_slip::tiny_skia::Pixmap;
 
-use super::SvgImage;
 use super::file::ThemeFile;
 use super::file::node::{FillSpec, NodeKind, NodeSpec};
 

@@ -1,13 +1,13 @@
 //! 叶子节点：文字、图标、拼音行、译文。绑定取不到数据时不产出节点。
 
-use taffy::{Dimension, NodeId, Style};
+use bamboo_slip::taffy::{Dimension, NodeId, Style};
 
 use super::layout_style;
 use super::{Builder, Context};
-use crate::error::RenderError;
 use crate::frame::{Preedit, PreeditStyle, Tone};
-use crate::scene::Visual;
 use crate::theme::file::node::{BoxSpec, Direction, NodeKind, NodeSpec, ToneFilter};
+use bamboo_slip::RenderError;
+use bamboo_slip::{Decoration, Visual};
 
 impl Builder<'_> {
     pub(super) fn leaf(
@@ -51,7 +51,7 @@ impl Builder<'_> {
                     style.size.height = Dimension::length(size);
                 }
                 let visual = Visual::Icon {
-                    icon: *icon,
+                    icon: icon.painter(),
                     size,
                     color: self.color(color, ctx),
                 };
@@ -157,11 +157,11 @@ impl Builder<'_> {
                 PreeditStyle::AuxCode => self
                     .text_style(font, self.color(rest, ctx))
                     .stroked(stroke)
-                    .underlined(),
+                    .decorated(Decoration::Underline),
                 PreeditStyle::Struck => self
                     .text_style(font, self.color(struck, ctx))
                     .stroked(stroke)
-                    .struck(),
+                    .decorated(Decoration::Strikethrough),
             };
             let visual = Visual::Text {
                 text: segment.text.clone(),
@@ -171,7 +171,7 @@ impl Builder<'_> {
         }
         let caret_width = caret.width * self.scale;
         let spacer = Style {
-            size: taffy::Size {
+            size: bamboo_slip::taffy::Size {
                 width: Dimension::length(caret_width),
                 height: Dimension::length(0.0),
             },
@@ -183,14 +183,14 @@ impl Builder<'_> {
             .measure(&preedit.before_cursor(), &typed_style)
             .width;
         let caret_style = Style {
-            position: taffy::Position::Absolute,
-            inset: taffy::Rect {
-                left: taffy::LengthPercentageAuto::length(caret_x),
-                right: taffy::LengthPercentageAuto::auto(),
-                top: taffy::LengthPercentageAuto::length(0.0),
-                bottom: taffy::LengthPercentageAuto::auto(),
+            position: bamboo_slip::taffy::Position::Absolute,
+            inset: bamboo_slip::taffy::Rect {
+                left: bamboo_slip::taffy::LengthPercentageAuto::length(caret_x),
+                right: bamboo_slip::taffy::LengthPercentageAuto::auto(),
+                top: bamboo_slip::taffy::LengthPercentageAuto::length(0.0),
+                bottom: bamboo_slip::taffy::LengthPercentageAuto::auto(),
             },
-            size: taffy::Size {
+            size: bamboo_slip::taffy::Size {
                 width: Dimension::length(caret_width),
                 height: Dimension::length(typed_style.line_height),
             },

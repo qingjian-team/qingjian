@@ -1,7 +1,7 @@
 //! 设置里的字号：盖过主题 `candidate`、`annotation` 两个文字样式的字号，行高按同一比例缩放。
 //! 序号（`index`）、拼音（`preedit`）与表格行高跟着候选字缩放，同一行才对得齐；主题自定义的其它样式不动。
 
-use super::font::FontSpec;
+use bamboo_slip::FontSpec;
 
 #[derive(Debug, Clone, Copy, Default, PartialEq)]
 pub struct TextSizes {

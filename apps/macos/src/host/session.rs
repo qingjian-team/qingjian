@@ -74,6 +74,12 @@ impl Session {
         self.land(moved)
     }
 
+    /// 符号面板换上一个分类：每行 `columns` 格，直接展开成矩阵，高亮在第一格。
+    pub fn open_panel(&mut self, items: Vec<Candidate>, columns: usize) {
+        self.reset(None, items, columns, 0);
+        self.grid = Some(Grid::at(&self.layout, 0));
+    }
+
     /// 收回单行，高亮留在原处。返回原来是不是展开着。
     pub fn collapse(&mut self) -> bool {
         self.grid.take().is_some()
@@ -90,6 +96,24 @@ impl Session {
             cells.extend(page);
         }
         Some((cells, columns))
+    }
+
+    /// 视口滚 `delta` 行（面板里的滚轮），高亮滚出去时跟进视口。返回要不要重画。
+    pub fn scroll_rows(&mut self, delta: isize) -> bool {
+        let Some(mut grid) = self.grid else {
+            return false;
+        };
+        let moved = grid.scroll(&self.layout, self.highlighted, delta);
+        self.grid = Some(grid);
+        self.land(moved)
+    }
+
+    /// 把高亮挪到 `index`（点面板格子）。返回动没动。
+    pub fn select(&mut self, index: usize) -> bool {
+        if index == self.highlighted || self.layout.candidate(index).is_none() {
+            return false;
+        }
+        self.land(Some(index))
     }
 
     /// 高亮落到 `index`（`None` 是没动），页号跟着走。
@@ -153,29 +177,42 @@ impl Session {
         true
     }
 
-    /// 翻页并选中新页第一个真实候选，跳过没有候选的页。
-    pub fn turn_page(&mut self, delta: isize) -> bool {
+    /// 往 `delta` 方向翻一页该落到哪个候选下标（跳过没有候选的页）；翻不动（没有上一页 / 下一页）返回 `None`。
+    fn page_target(&self, delta: isize) -> Option<usize> {
         let pages = self.layout.pages().max(1);
-        let current = self.page as isize;
-        let mut next = (current + delta).clamp(0, pages as isize - 1) as usize;
+        let page_size = self.layout.page_size();
+        let mut next = (self.page as isize + delta).clamp(0, pages as isize - 1) as usize;
         loop {
             if next == self.page {
-                return false;
+                return None;
             }
-            let start = next * self.layout.page_size();
-            if let Some(index) = (start..(start + self.layout.page_size()).min(self.layout.len()))
+            let start = next * page_size;
+            if let Some(index) = (start..(start + page_size).min(self.layout.len()))
                 .find(|&i| self.layout.candidate(i).is_some())
             {
-                self.page = next;
-                self.highlighted = index;
-                break;
+                return Some(index);
             }
             let following = next as isize + delta.signum();
             if following < 0 || following >= pages as isize || delta == 0 {
-                return false;
+                return None;
             }
             next = following as usize;
         }
+    }
+
+    /// 这个方向还翻得动吗（不改状态地问一句）。翻页键「翻不动就落字」用，见
+    /// `docs/user/getting-started/keys.md` 的 `[general] page_keys`。
+    pub fn can_turn_page(&self, delta: isize) -> bool {
+        self.page_target(delta).is_some()
+    }
+
+    /// 翻页并选中新页第一个真实候选，跳过没有候选的页。
+    pub fn turn_page(&mut self, delta: isize) -> bool {
+        let Some(index) = self.page_target(delta) else {
+            return false;
+        };
+        self.page = index / self.layout.page_size();
+        self.highlighted = index;
         self.navigated = true;
         true
     }
@@ -201,6 +238,28 @@ mod tests {
                 aux_code: None,
             })
             .collect()
+    }
+
+    #[test]
+    fn can_turn_page_tells_whether_the_page_would_move() {
+        let mut session = Session::default();
+        // 10 条、每页 5：首页往下翻得动、往上翻不动（翻页键「翻不动就落字」靠它）
+        session.reset(None, candidates(10), 5, 0);
+        assert_eq!(session.page, 0);
+        assert!(session.can_turn_page(1));
+        assert!(!session.can_turn_page(-1));
+        assert!(session.turn_page(1));
+        assert_eq!(session.page, 1);
+        // 末页反过来
+        assert!(session.can_turn_page(-1));
+        assert!(!session.can_turn_page(1));
+
+        // 只有一页、以及没有候选：两个方向都翻不动
+        for count in [3, 0] {
+            session.reset(None, candidates(count), 5, 0);
+            assert!(!session.can_turn_page(1));
+            assert!(!session.can_turn_page(-1));
+        }
     }
 
     #[test]
