@@ -88,6 +88,8 @@ cargo 命令全 `--locked`（含 `bundle.sh` 与 `build.ps1`）。普通 CI 只�
   `bundle.sh`、`qingjian.iss` 与 Linux 打包脚本将两份模型分别装入对应目录，产品端优先使用通变。
   标签与各资产哈希记进 `build-info.json`（`data_tag` / `data_sha256` / `model_sha256` / `p2c_model_sha256`）。
 
+macOS 的 `bundle.sh` 在编译与清理旧产物前检查正式词库；缺少非空的 `data/generated/dict.qj` 或 `dict.tsv` 时直接停止，并提示运行 `data-fetch.sh`，不再退回样例数据。已有系统级安装时 `--install` 也会停止，使用 `--pkg` 更新现有安装，避免创建用户级副本。
+
 数据重生成之后（重跑 lexicon / bigram / gloss-gen export）或模型重训之后跑一次 `data-bundle.sh`（三件套比 `.qjm` 新会自动重打），
 把锁文件的改动提交（`chore(data): 数据 data-vN`），否则 CI 打的包还是锁文件指的旧数据。模型文件缺失或哈希不符时 CI 会失败，不会静默地发出错数据的包。
 2026-09-16 之前用的是滚动覆盖的 `data` Release，已冻结不再更新。

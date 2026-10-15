@@ -7,7 +7,7 @@
 #
 # 架构：缺省编译本机架构；QINGJIAN_TARGET=x86_64-apple-darwin（或 aarch64-apple-darwin）交叉编译另一种，
 # 先 `rustup target add` 一次。CI 在 Apple Silicon runner 上两个都打（.github/workflows/release.yml）。
-# 产品数据：data/generated/ 里有 dict.qj 就用自建词库（TSV 比 .qj 新会重打），没有就退回 assets/sample/ 样例。
+# 产品数据：data/generated/ 里有 dict.qj 就用自建词库（TSV 比 .qj 新会重打），缺少正式词库时停止打包。
 #
 # 签名与公证都由环境变量决定，没设就 ad-hoc 签名、pkg 不签（本机自用够了，分发给别人会被 Gatekeeper 拦，
 # 对方要在「系统设置 → 隐私与安全性」里点「仍要打开」）：
@@ -34,6 +34,14 @@ case "${TARGET:-$(uname -m)}" in
 esac
 
 cd "$ROOT"
+if [[ ! -s data/generated/dict.qj && ! -s data/generated/dict.tsv ]]; then
+  echo "缺少正式词库，请先运行 tools/release/data-fetch.sh；打包不使用 assets/sample/ 样例。" >&2
+  exit 1
+fi
+if [[ "${1:-}" == "--install" && -d "/Library/Input Methods/$APP_NAME.app" ]]; then
+  echo "系统目录已安装 $APP_NAME.app，请使用 --pkg 更新系统安装；停止创建用户目录副本。" >&2
+  exit 1
+fi
 # 构建标识进「关于」页与诊断信息：git 短哈希（工作区有改动加 +）与日期；编译期 option_env! 读
 GIT_REV="$(git rev-parse --short HEAD 2>/dev/null || echo unknown)"
 if [[ -n "$(git status --porcelain 2>/dev/null)" ]]; then GIT_REV="${GIT_REV}+"; fi
@@ -65,9 +73,7 @@ BUILD_NUMBER="$(git rev-list --count HEAD 2>/dev/null || echo 1)"
 cp apps/macos/scripts/uninstall.sh "$APP/Contents/Resources/uninstall.sh"
 # 输入源名字按系统语言本地化（中文系统显示「青简」，其他显示 Qingjian）
 cp -R apps/macos/resources/*.lproj "$APP/Contents/Resources/"
-# 词库与释义表打进 Resources。data/generated/ 里有生成好的产品数据（自建词库 + 语言模型 + LLM 释义表）就用它，
-# 否则用 assets/sample/ 的样例。没有数据管道的机器跑 tools/release/data-fetch.sh 按 tools/release/data.lock 下载。
-cp assets/sample/*.tsv "$APP/Contents/Resources/"
+# 正式词库与释义表由下面的产品数据流程打包，不混入样例数据。
 # emoji 表（Unicode CLDR，可发布）
 cp assets/emoji/*.tsv "$APP/Contents/Resources/"
 # 词汇等级表（CEFR-J / Octanove / JLPT，见 assets/levels/README.md），「统计」页按级数词汇
@@ -75,9 +81,9 @@ cp assets/levels/levels-*.tsv "$APP/Contents/Resources/"
 # 五笔码表（输入方案选五笔时用，见 assets/wubi/README.md；极点 86 码表，Apache-2.0）
 mkdir -p "$APP/Contents/Resources/wubi"
 cp assets/wubi/wubi86.tsv "$APP/Contents/Resources/wubi/"
-if [[ -f data/generated/dict.tsv || -f data/generated/dict.qj ]]; then
+if [[ -s data/generated/dict.tsv || -s data/generated/dict.qj ]]; then
   # 词库与语言模型打成 .qj（mmap 直接用），TSV 比 .qj 新时重新打包；只有 .qj（CI 从数据包解出来的）就直接用
-  if [[ -f data/generated/dict.tsv && ( ! -f data/generated/dict.qj || data/generated/dict.tsv -nt data/generated/dict.qj ) ]]; then
+  if [[ -s data/generated/dict.tsv && ( ! -s data/generated/dict.qj || data/generated/dict.tsv -nt data/generated/dict.qj ) ]]; then
     cargo run --release -q -p qingjian-dict-convert -- pack dict --name "青简基础词库" \
       --license "MIT AND Unicode-3.0" --attribution "通用规范汉字表；现代汉语常用词表（liuxilu 校对版）；THUOCL（清华大学自然语言处理实验室，MIT）；读音 Unihan（Unicode）" \
       --source https://github.com/qingjian-team/qingjian/tree/main/assets/lexicon
@@ -201,9 +207,6 @@ if [[ "${1:-}" == "--pkg" ]]; then
 fi
 
 if [[ "${1:-}" == "--install" ]]; then
-  if [[ -d "/Library/Input Methods/$APP_NAME.app" ]]; then
-    echo "注意: /Library/Input Methods/$APP_NAME.app 也装着一份（pkg 装的），两份同 id 会互相顶；先跑 scripts/uninstall.sh"
-  fi
   mkdir -p "$INSTALL_DIR"
   rm -rf "$INSTALL_DIR/$APP_NAME.app"
   cp -R "$APP" "$INSTALL_DIR/$APP_NAME.app"

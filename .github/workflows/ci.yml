@@ -73,6 +73,9 @@ jobs:
       - name: Clippy (IMK shell)
         run: cargo clippy -p qingjian-macos --all-targets --locked -- -D warnings
 
+      - name: Test bundle preflight
+        run: bash apps/macos/tests/bundle.sh
+
       - name: Test (IMK shell)
         run: cargo test -p qingjian-macos --locked
 

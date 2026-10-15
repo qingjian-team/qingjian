@@ -5,11 +5,14 @@ macOS 输入法壳（InputMethodKit）。按键进 Core 的 `Engine`，候选画
 
 ## 开发安装
 
+先运行 `tools/release/data-fetch.sh` 获取锁定版本的正式产品数据。缺少正式词库时打包会在编译前停止，不会使用样例词库。
+
 ```bash
 apps/macos/scripts/bundle.sh --install
 ```
 
 打包到 `target/Qingjian.app` 并装到 `~/Library/Input Methods/`，杀掉旧进程；切换一次输入法就会拉起新的。
+系统目录 `/Library/Input Methods/` 已安装青简时，`--install` 会停止，需使用 `--pkg` 生成安装包更新现有安装，避免两份同名输入法。
 首次要在「系统设置 → 键盘 → 输入法 → 编辑 → +」的简体中文下添加「青简」，列表里没有就注销再登录。
 日志在 `~/Library/Logs/Qingjian/`，用户数据与 `config.toml` 在 `~/Library/Application Support/Qingjian/`。
 
