@@ -22,7 +22,9 @@
    标题下可以写一行 `网盘：[夸克网盘](链接)`（GitHub 下载不方便的用户用）：它不算更新条目，Release 说明把它放在最前面，`releases.json` 单独输出成 `mirrors`，官网显示成按钮。
    网盘文件在 CI 跑完后手动上传。
 3. 提交，打注释标签并推：`git tag -a v0.1.4 -m "青简 0.1.4" && git push origin main v0.1.4`。
-4. 标签推出去之后紧接一个普通提交把版本号改成下一个开发版（`0.1.5-dev`），CHANGELOG 顶上加 `## 0.1.5 · 未发布 · stable`；-dev 版本永远没有标签与 Release。
+4. 标签推出去之后，给历代配置回归测试补一份这一版的模板：`python3 crates/qingjian-platform/tests/config_history/extract.py v<版本> v<版本>`，
+   新文件随下一个提交进库（`tests/config_history.rs` 要求以后的版本都读得进它）。
+5. 紧接一个普通提交把版本号改成下一个开发版（`0.1.5-dev`），CHANGELOG 顶上加 `## 0.1.5 · 未发布 · stable`；-dev 版本永远没有标签与 Release。
 
 `release.yml` 的流程：
 
