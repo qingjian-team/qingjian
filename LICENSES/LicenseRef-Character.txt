@@ -1,0 +1,10 @@
+角色形象：未授权
+
+下列主题 images/ 目录里的人物图是对既有角色的二次创作，角色形象的权利归原作者与权利人，
+青简不拥有、也不授出这些权利：
+
+- crates/qingjian-render/themes/bocchi/images/girl-*.png：《孤独摇滚！》后藤一里，权利归原作者与 Aniplex
+- crates/qingjian-render/themes/dafeiyu/images/girl-*.png：社区里 DeepSeek 的拟人形象「大肥鱼」，形象设定的权利归原作者
+
+这些图片不随 GPL-3.0-or-later 授出，也不在青简商业许可范围内。权利人要求时会移除对应主题。
+第三方再分发（包括发行版软件仓库）前需要自行确认能否带上这部分内容，或在构建时不包含这些主题。

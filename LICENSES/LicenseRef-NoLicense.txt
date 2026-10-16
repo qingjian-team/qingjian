@@ -1,0 +1,13 @@
+上游未附许可证
+
+下列词表取自没有附许可证的转录仓库，权利状态待确认：
+
+- 《通用规范汉字表》：iDvel 的转录 https://github.com/iDvel/The-Table-of-General-Standard-Chinese-Characters
+  （以 shengdoushi 的分级字表 https://github.com/shengdoushi/common-standard-chinese-characters-table 交叉核对）
+- 《现代汉语常用词表（草案）》：liuxilu 的校对版 https://github.com/liuxilu/Proofread-Modern-Chinese-Common-Lexicon
+
+《通用规范汉字表》由国务院公布，属于《中华人民共和国著作权法》第五条不适用著作权保护的官方文件的可能性较大；
+《现代汉语常用词表（草案）》由商务印书馆出版，转录与校对本身也可能有权利，不能直接套用第五条。
+
+在取得上游许可或确认法律依据之前，含这两份来源的文件（assets/lexicon/01_characters、02_common，以及由它们生成的词库）
+不应视为已获得明确的再分发许可。处理进展见 docs/notes/licenses.md。

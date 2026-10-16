@@ -53,7 +53,7 @@
 - 数据文件不并入代码许可：每个数据源在 `assets/` 下带自己的 LICENSE 和署名文件，README 里列出。
   CC BY 只需署名；CC BY-SA 的 share-alike 只约束数据本身及其修改版，不传染到代码，
   但对 CC-CEDICT 做的任何加工（裁剪、合并 gloss）都要以 CC BY-SA 发布。
-- 每新增一个数据源或依赖，同步更新上表和 README 的 License 一节。
+- 每新增一个数据源或依赖，同步更新上表和 README 的 License 一节，以及根目录的 `REUSE.toml`、`LICENSES/` 与 [notes/licenses.md](../notes/licenses.md)（逐个文件的许可清单）。
 - GPL 项目（水杉、部分 Rime 前端）的代码只能读不能搬。
 
 ## 随包数据清单

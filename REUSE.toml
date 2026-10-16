@@ -1,0 +1,151 @@
+# 仓库内各文件的版权与许可（REUSE 规范 3.2，https://reuse.software/spec-3.2/）。
+# 许可原文在 LICENSES/；随包数据与安装包里各文件的来源说明见 docs/notes/licenses.md。
+# 同一路径命中多条时以后面的为准：先写全仓缺省，再逐条覆盖。
+# 草稿：版权人写法、标 LicenseRef-NoLicense / -Character / -PCL / -Qingjian-Logo 的几项都待维护者定，见 docs/notes/licenses.md「待定事项」。
+version = 1
+
+[[annotations]]
+path = "**"
+precedence = "closest"
+SPDX-FileCopyrightText = "青简贡献者"
+SPDX-License-Identifier = "GPL-3.0-or-later"
+
+# 双许可的两个 crate；themes/ 只以 GPL 发布，下面单独覆盖
+[[annotations]]
+path = ["crates/bamboo-slip/**", "crates/qingjian-render/**"]
+precedence = "closest"
+SPDX-FileCopyrightText = "青简贡献者"
+SPDX-License-Identifier = "GPL-3.0-or-later OR LicenseRef-Qingjian-Commercial"
+
+[[annotations]]
+path = "crates/qingjian-render/themes/**"
+precedence = "closest"
+SPDX-FileCopyrightText = "青简贡献者"
+SPDX-License-Identifier = "GPL-3.0-or-later"
+
+[[annotations]]
+path = ["crates/qingjian-render/themes/bocchi/images/girl-*.png", "crates/qingjian-render/themes/dafeiyu/images/girl-*.png"]
+precedence = "override"
+SPDX-FileCopyrightText = "角色形象的权利归原作者与权利人"
+SPDX-License-Identifier = "LicenseRef-Character"
+
+[[annotations]]
+path = "crates/qingjian-render/themes/miku/images/miku-*.png"
+precedence = "override"
+SPDX-FileCopyrightText = "Crypton Future Media, INC."
+SPDX-License-Identifier = "LicenseRef-PCL"
+
+# 名称与 logo：不在代码授权内（README「项目名称与 logo 不包含在代码授权中」）
+[[annotations]]
+path = [
+    "assets/icon/*.png",
+    "assets/icon/*.svg",
+    "assets/icon/*.pdf",
+    "assets/icon/macos/**",
+    "assets/icon/linux/**",
+    "assets/icon/windows/app*.svg",
+    "apps/settings/assets/logo.svg",
+    "apps/windows/tsf/resources/qingjian.ico",
+]
+precedence = "override"
+SPDX-FileCopyrightText = "青简贡献者"
+SPDX-License-Identifier = "LicenseRef-Qingjian-Logo"
+
+# 词库源数据
+[[annotations]]
+path = [
+    "assets/lexicon/01_characters/level*.tsv",
+    "assets/lexicon/01_characters/standard_8105.tsv",
+    "assets/lexicon/02_common/**",
+]
+precedence = "override"
+SPDX-FileCopyrightText = "iDvel、shengdoushi、liuxilu（转录与校对）"
+SPDX-License-Identifier = "LicenseRef-NoLicense"
+
+[[annotations]]
+path = "assets/lexicon/01_characters/rare_chars.tsv"
+precedence = "override"
+SPDX-FileCopyrightText = ["Unicode, Inc.", "數位發展部（CNS11643 中文標準交換碼全字庫）"]
+SPDX-License-Identifier = "Unicode-3.0 AND OGDL-Taiwan-1.0"
+
+[[annotations]]
+path = ["assets/lexicon/03_domains/**", "assets/lexicon/00_meta/THUOCL_LICENSE.txt"]
+precedence = "override"
+SPDX-FileCopyrightText = "清华大学自然语言处理与社会人文计算实验室（THUOCL）"
+SPDX-License-Identifier = "MIT"
+
+[[annotations]]
+path = [
+    "assets/lexicon/05_english/0*.tsv",
+    "assets/lexicon/05_english/sources/ESDB_Copyright.txt",
+]
+precedence = "override"
+SPDX-FileCopyrightText = ["Kevin Atkinson（ESDB）", "Street Side Software（CSpell）", "typos 作者"]
+SPDX-License-Identifier = "LicenseRef-ESDB AND MIT"
+
+[[annotations]]
+path = [
+    "assets/lexicon/05_english/05_tech/**",
+    "assets/lexicon/05_english/06_misspellings.tsv",
+    "assets/lexicon/05_english/sources/CSpell_LICENSE-MIT.txt",
+    "assets/lexicon/05_english/sources/typos_LICENSE-MIT.txt",
+]
+precedence = "override"
+SPDX-FileCopyrightText = ["Street Side Software（CSpell）", "typos 作者"]
+SPDX-License-Identifier = "MIT"
+
+# 生成的词库：多来源合成，见 docs/notes/licenses.md「词库」
+[[annotations]]
+path = ["assets/lexicon/dict.tsv", "assets/lexicon/dicts/**"]
+precedence = "override"
+SPDX-FileCopyrightText = "青简贡献者；各来源见 docs/notes/licenses.md"
+SPDX-License-Identifier = "GPL-3.0-or-later AND LicenseRef-NoLicense AND MIT AND Unicode-3.0 AND OGDL-Taiwan-1.0 AND CC-BY-SA-4.0"
+
+[[annotations]]
+path = ["assets/lexicon/mined_words.tsv", "assets/lexicon/phrases.tsv"]
+precedence = "override"
+SPDX-FileCopyrightText = "青简贡献者；次数统计自中文维基百科与 LCCC"
+SPDX-License-Identifier = "CC-BY-SA-4.0 AND MIT"
+
+[[annotations]]
+path = "assets/lexicon/domain_words.tsv"
+precedence = "override"
+SPDX-FileCopyrightText = "青简贡献者；jieba 词表（fxsjy/jieba）"
+SPDX-License-Identifier = "GPL-3.0-or-later AND MIT AND CC-BY-SA-4.0"
+
+[[annotations]]
+path = "assets/lexicon/english.tsv"
+precedence = "override"
+SPDX-FileCopyrightText = ["Kevin Atkinson（ESDB）", "Street Side Software（CSpell）", "Robyn Speer（wordfreq）"]
+SPDX-License-Identifier = "LicenseRef-ESDB AND MIT AND CC-BY-SA-4.0"
+
+[[annotations]]
+path = "assets/lexicon/english-frequency.tsv"
+precedence = "override"
+SPDX-FileCopyrightText = "Robyn Speer（wordfreq）"
+SPDX-License-Identifier = "CC-BY-SA-4.0"
+
+# 其他随包数据源
+[[annotations]]
+path = "assets/emoji/**"
+precedence = "override"
+SPDX-FileCopyrightText = "Unicode, Inc.（CLDR）"
+SPDX-License-Identifier = "Unicode-3.0"
+
+[[annotations]]
+path = "assets/levels/levels-en.tsv"
+precedence = "override"
+SPDX-FileCopyrightText = ["Yukio Tono, Tokyo University of Foreign Studies（CEFR-J）", "Octanove Labs（C1/C2）"]
+SPDX-License-Identifier = "LicenseRef-CEFR-J AND CC-BY-SA-4.0"
+
+[[annotations]]
+path = "assets/levels/levels-ja.tsv"
+precedence = "override"
+SPDX-FileCopyrightText = ["Jonathan Waller（tanos.co.uk）", "elzup（jlpt-word-list）"]
+SPDX-License-Identifier = "CC-BY-4.0 AND MIT"
+
+[[annotations]]
+path = ["assets/wubi/wubi86.tsv", "assets/wubi/LICENSE"]
+precedence = "override"
+SPDX-FileCopyrightText = "sxjudya（rime-wubi86-jidian）"
+SPDX-License-Identifier = "Apache-2.0"

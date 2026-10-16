@@ -1,0 +1,7 @@
+The CEFR-J Wordlist Version 1.5
+
+assets/levels/levels-en.tsv 的 A1–B2 部分取自 The CEFR-J Wordlist Version 1.5，
+Yukio Tono, Tokyo University of Foreign Studies，http://www.cefr-j.org/download.html 。
+
+发布方的说明：研究与商业用途免费，须按上面的写法署名。
+（草稿：发布页的原文尚未拷入本文件；条款里没有明说是否允许修改与再分发，打包前应向发布方书面确认，确认结果附在这里。）

@@ -1,0 +1,7 @@
+青简商业许可（Qingjian Commercial License）
+
+crates/bamboo-slip 与 crates/qingjian-render 采用双许可：GPL-3.0-or-later，或青简商业许可，任选其一。
+商业许可的条款按个案约定，不在本文件里；需要的请联系 hi@yenharvey.com 。
+
+不想受 GPL 约束（例如用在闭源软件里）时才需要商业许可；按 GPL-3.0-or-later 使用、分发、打包这两个 crate 不需要它。
+商业许可不覆盖主题里的角色形象（见 LicenseRef-Character、LicenseRef-PCL）。

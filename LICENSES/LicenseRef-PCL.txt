@@ -1,0 +1,9 @@
+Piapro Character License（PCL）
+
+crates/qingjian-render/themes/miku/images/miku-*.png 是初音未来的二次创作，角色形象的权利归 Crypton Future Media，
+按 Piapro Character License 随青简免费分发，只能用于非商业用途。
+
+许可原文：https://piapro.net/intl/en_for_creators.html
+（草稿：原文尚未拷入本文件，提交前从上面的地址取回并核对版本。）
+
+这部分不随 GPL-3.0-or-later 授出，也不在青简商业许可范围内。「只能用于非商业用途」不满足多数自由软件仓库的再分发要求。
