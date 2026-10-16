@@ -5,7 +5,7 @@
 
 ## 构建与测试
 
-需要 Rust 1.96、CMake 3.16、C++20 编译器、pkg-config，以及 OpenSSL（`libssl-dev`，云服务依赖的 TLS 绑定要它）、Fcitx5 Core/Config/Utils 和 nlohmann-json 的开发包；`install.sh` 开头会检查并列出缺的。
+需要 Rust 1.96、Python 3、pkg-config 与 OpenSSL（`libssl-dev`，云服务依赖的 TLS 绑定要它）；**fcitx5 那一支**另外要 CMake 3.16、C++20 编译器与 Fcitx5 Core/Config/Utils、nlohmann-json 的开发包（插件是 C++），**IBus 那一支**是纯 Rust，只要机器上有 ibus-daemon。`install.sh` 开头会检查并列出缺的，缺省 `--frontend auto` 是「能装的都装」，装不上的那一支会明说跳过。
 构建最低 API 为 Fcitx5 5.1.8，CI 使用 Ubuntu 26.04 的 Fcitx5 5.1.19；Ubuntu 24.04 自带的 5.1.7 不满足要求。
 桌面运行已验证的范围见下文，构建版本门槛不代表全部桌面已验收。
 
@@ -66,12 +66,12 @@ Server 启动时按 `[model] enabled`（缺省开）在后台线程加载模型�
 
 ## 路径和排错
 
-用户安装与手动启动见 [Linux 用户说明](../user/getting-started/linux.md)。安装只登记实际绝对插件库路径，不修改系统 Fcitx5 搜索规则。
+两支前端的验收清单见 [linux-dual-frontend.md](linux-dual-frontend.md)。用户安装见 [Linux 用户说明](../user/getting-started/linux.md)。安装只登记实际绝对插件库路径，不修改系统 Fcitx5 搜索规则；IBus 那一支装的是 `$XDG_DATA_HOME/ibus/component/qingjian.xml`（`<exec>` 写死安装后的绝对路径，由 install.sh 按 prefix 生成），外加 `$XDG_CONFIG_HOME/environment.d/qingjian-ibus.conf`：**IBus 不读用户目录下的组件**，只认 `IBUS_COMPONENT_PATH`（没设时只有系统目录，IBus 1.5.34 上验过），所以要在会话启动时把用户目录加进去，重新登录生效。Server 的自启是 `$XDG_CONFIG_HOME/systemd/user/qingjian-server.service`（用户级单元，`--enable-service` 顺手 enable）；两个前端共用这一个 Server。
 `QINGJIAN_SOCKET` 可指定绝对 socket 路径；缺省为 `$XDG_RUNTIME_DIR/qingjian.sock`，无 runtime 时用 `/tmp/qingjian-<uid>/qingjian.sock`。
 父目录须归当前用户且不可被其他用户写入；socket 权限为 0600。`QINGJIAN_RESOURCES` 覆盖资源根，`QINGJIAN_DICT` 可指定测试词库。
 默认数据从可执行文件旁 `../share/qingjian/resources` 找，支持源码开发目录回退。
 
-未出候选时先确认手动 Server 在运行，再查看 `$XDG_STATE_HOME/qingjian/logs/server.*.log`（缺省 `~/.local/state`）。
+未出候选时先确认 Server 在运行（`systemctl --user status qingjian-server`，或手动起的那个进程还在），再查看 `$XDG_STATE_HOME/qingjian/logs/server.*.log`（缺省 `~/.local/state`）。
 输入日志由 `[general] input_log` 控制；用户配置和学习文件始终保存在 XDG 用户目录，卸载不删除。
 
 ## 发行版打包

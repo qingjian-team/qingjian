@@ -22,7 +22,8 @@ with tempfile.TemporaryDirectory(prefix='qingjian-install-') as temporary:
     server.chmod(0o755)
     settings.chmod(0o755)
     env = dict(os.environ, XDG_DATA_HOME=str(data))
-    args = ['python3', str(helper), 'install', str(prefix), str(root), str(server), str(settings), str(plugin), 'true']
+    args = ['python3', str(helper), 'install', str(prefix), '--root', str(root),
+            '--server', str(server), '--settings', str(settings), '--plugin', str(plugin), '--sample']
     subprocess.run(args, env=env, check=True)
     subprocess.run(args, env=env, check=True)
     addon = data / 'fcitx5/addon/qingjian.conf'

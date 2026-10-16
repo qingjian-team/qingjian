@@ -13,7 +13,7 @@ members = [
     "crates/qingjian-render",
     "crates/bamboo-slip",
     "crates/qingjian-update",
-    "apps/linux/server", "apps/cli", "apps/settings", "apps/macos", "apps/windows/server", "apps/windows/tsf", "apps/windows/settings", "tools/dict-convert", "tools/gloss-gen", "tools/release-sign",
+    "apps/linux/server", "apps/linux/ibus", "apps/cli", "apps/settings", "apps/macos", "apps/windows/server", "apps/windows/tsf", "apps/windows/settings", "tools/dict-convert", "tools/gloss-gen", "tools/release-sign",
 ]
 
 [workspace.package]
@@ -73,6 +73,9 @@ async-openai = { version = "0.42.0", default-features = false, features = ["chat
 reqwest = { version = "0.13", default-features = false }
 uuid = { version = "1.26", features = ["v4"] }
 tokio = { version = "1.53.1", features = ["rt", "time"] }
+
+# Linux IBus 前端：IBus 走 D-Bus，纯 Rust
+zbus = { version = "5.19.0", default-features = false, features = ["tokio"] }
 
 # 检查更新：releases.json 的 ed25519 签名（发版时 tools/release-sign 签，客户端验）
 ed25519-dalek = "3.0.0"

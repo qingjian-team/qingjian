@@ -1,6 +1,6 @@
 //! Linux 事件：释放、焦点、能力与候选回调不改 Windows 消息格式。
 use super::{Capabilities, DisplayIdentity};
-use qingjian_platform::protocol::KeyEvent;
+use crate::protocol::KeyEvent;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

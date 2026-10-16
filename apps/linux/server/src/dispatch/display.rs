@@ -1,9 +1,9 @@
 //! Linux 版本化显示初始化与实际呈现确认，Windows 协议保持不变。
 use super::Router;
-use crate::protocol::{
+use qingjian_core::Translation;
+use qingjian_platform::protocol::linux::{
     DisplayAcknowledged, DisplayIdentity, LINUX_UI_PROTOCOL, LinuxEvent, LinuxRequest,
 };
-use qingjian_core::Translation;
 use qingjian_platform::protocol::{ClientMessage, ServerMessage, SessionId};
 use serde_json::{Value, json};
 

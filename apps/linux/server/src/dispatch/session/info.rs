@@ -7,7 +7,7 @@ pub(crate) struct SessionInfo {
     pub(crate) app: Option<String>,
 
     /// 新 Linux 客户端已协商显示回报。
-    pub(crate) display_identity: Option<crate::protocol::DisplayIdentity>,
+    pub(crate) display_identity: Option<qingjian_platform::protocol::linux::DisplayIdentity>,
 
     /// 待确认的当前候选帧。
     pub(crate) display_frame: Option<qingjian_platform::protocol::Frame>,
@@ -21,7 +21,7 @@ pub(crate) struct SessionInfo {
     pub(crate) shift_pending: bool,
 
     /// 最近的框架能力，首次报告前为未知。
-    pub(crate) capabilities: Option<crate::protocol::Capabilities>,
+    pub(crate) capabilities: Option<qingjian_platform::protocol::linux::Capabilities>,
 
     pub(crate) disabled: bool,
 

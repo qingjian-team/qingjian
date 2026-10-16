@@ -160,7 +160,7 @@ english_candidates_on = [
 }
 
 /// 模板 `[shortcut]` 一节里的修饰键组合（macOS 命名）。缺省值两个平台一样，只是写法与注释按平台的键名。
-#[cfg(not(windows))]
+#[cfg(target_os = "macos")]
 macro_rules! template_shortcut_keys {
     () => {
         r#"# 中 / 英模式切换键（Windows 用），可多选：shift 单击（缺省）/ control 单击 / ctrl+alt+space 组合键；[] 不用键切换。
@@ -194,6 +194,24 @@ translation_second = "shift+ctrl"
 translate_selection = "ctrl+alt+t"
 # Windows 组句中按需调用 AI
 predict = "ctrl+alt+j"
+# 数字键配这些修饰键删掉候选：用户词（云端选过的、自动造的）整个删掉，词库里的词清掉对它的学习记录。组句中要打感叹号先把词上屏
+delete_candidate = "shift"
+"#
+    };
+}
+
+/// 模板 `[shortcut]` 一节里的修饰键组合（Linux）：配置仍按 macOS 命名写（option 落到 Alt、command 落到 Super），
+/// 缺省值与 macOS 一份。注释按 Linux 的键名，并提醒 Alt+数字常被窗口管理器占去切工作区。
+#[cfg(not(any(windows, target_os = "macos")))]
+macro_rules! template_shortcut_keys {
+    () => {
+        r#"# 数字键配这些修饰键上屏候选的译词：translation 第一个译词，translation_second 第二个（候选右侧有两个译词时）
+# 任意修饰键组合（option / shift / control / command 用 + 连；在 Linux 上 option 是 Alt、command 是 Super）
+# 不少窗口管理器把 Alt+数字占去切工作区了，被占了就改成别的组合，例如 translation = "control+option"
+translation = "option"
+translation_second = "shift+option"
+# 把应用里选中的文字译成学习语言（要开着云服务）：Linux 上还没接
+translate_selection = "control+option+t"
 # 数字键配这些修饰键删掉候选：用户词（云端选过的、自动造的）整个删掉，词库里的词清掉对它的学习记录。组句中要打感叹号先把词上屏
 delete_candidate = "shift"
 "#
