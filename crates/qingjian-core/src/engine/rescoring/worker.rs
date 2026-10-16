@@ -1,3 +1,4 @@
+use std::cell::Cell;
 use std::sync::mpsc::{Receiver, Sender, channel};
 use std::thread::JoinHandle;
 
@@ -8,6 +9,9 @@ use super::{GENERATE_BEAM, GENERATE_MAX_CHARS};
 /// 一次后台任务：两个条件与一批要打分的文本，外加可选的「直接按这段按键生成整句」。
 /// 两件事合成一条任务是因为它们都在用户停顿后一起发出，而排队的任务只算最新一条。
 struct Job {
+    /// 第几次请求，原样带回结果里：壳靠它分辨收到的是不是最新这次请求的（见 [`Scored::serial`]）。
+    serial: u64,
+
     context: String,
     keys: String,
     texts: Vec<String>,
@@ -18,6 +22,9 @@ struct Job {
 
 /// 后台算好的结果，与任务一一对应。
 pub(crate) struct Scored {
+    /// 对应哪次请求。打字比模型快时上一次的结果会先到，它不能算这一轮的结果。
+    pub serial: u64,
+
     pub context: String,
     pub keys: String,
     pub texts: Vec<String>,
@@ -33,6 +40,9 @@ pub(crate) struct RescoreWorker {
     jobs: Sender<Job>,
     results: Receiver<Scored>,
     handle: Option<JoinHandle<()>>,
+
+    /// 最近一次请求的序号；0 是还没请求过。
+    latest: Cell<u64>,
 }
 
 impl RescoreWorker {
@@ -69,6 +79,7 @@ impl RescoreWorker {
                         (keys, texts)
                     });
                     let done = Scored {
+                        serial: job.serial,
                         context: job.context,
                         keys: job.keys,
                         texts: job.texts,
@@ -88,7 +99,13 @@ impl RescoreWorker {
             jobs,
             results,
             handle,
+            latest: Cell::new(0),
         }
+    }
+
+    /// 最近一次请求的序号。
+    pub fn latest(&self) -> u64 {
+        self.latest.get()
     }
 
     pub fn is_alive(&self) -> bool {
@@ -102,9 +119,12 @@ impl RescoreWorker {
         texts: Vec<String>,
         generate: Option<String>,
     ) {
+        let serial = self.latest.get() + 1;
+        self.latest.set(serial);
         if self
             .jobs
             .send(Job {
+                serial,
                 context,
                 keys,
                 texts,

@@ -127,3 +127,65 @@ fn changed_keys_discard_the_cached_scores() {
     assert_eq!(texts(&paths), ["开饭", "开放"]);
     assert!(engine.rescoring_pending());
 }
+
+/// 可控的假模型：每段生成都先告诉测试「开始了」（带上按键），再卡住等测试放行。
+/// 后台线程按顺序处理任务：任务一旦开始就不会再被后来的请求合并掉；下一段开始时，上一段的结果一定已经发出来。
+struct Gated {
+    release: std::sync::Mutex<std::sync::mpsc::Receiver<()>>,
+
+    started: std::sync::Mutex<std::sync::mpsc::Sender<String>>,
+}
+
+impl SentenceScorer for Gated {
+    fn score(&self, _context: &str, _keys: &str, texts: &[&str]) -> Vec<f64> {
+        vec![-1.0; texts.len()]
+    }
+
+    fn generate(&self, keys: &str, _beam: usize, _max_chars: usize) -> Vec<String> {
+        let _ = self.started.lock().unwrap().send(keys.to_owned());
+        let _ = self.release.lock().unwrap().recv();
+        vec![format!("{keys}的整句")]
+    }
+}
+
+/// 打字比模型快时，上一段按键的结果会比这一段的先回来：它不算这一轮的结果，
+/// 壳要接着等。否则壳当成已经拿到、停了轮询，晚几十毫秒到的这一段整句就没人取，空格上屏的还是旧首选
+/// （macOS 上 `firefoxliulanqi` 上屏成「覅」，见 docs/notes/neural-rescoring.md）。
+#[test]
+fn an_earlier_keystrokes_result_does_not_end_the_round() {
+    let (release, release_rx) = std::sync::mpsc::channel();
+    let (started_tx, started) = std::sync::mpsc::channel();
+    let mut engine = engine().with_async_sentence_scorer(
+        Box::new(Gated {
+            release: std::sync::Mutex::new(release_rx),
+            started: std::sync::Mutex::new(started_tx),
+        }),
+        Some(0.5),
+        None,
+        None,
+    );
+    let wait = |keys: &str| assert_eq!(started.recv_timeout(Duration::from_secs(5)).unwrap(), keys);
+    // 敲到 kaifa 停了一下：请求发出，后台开始算
+    assert!(engine.generated_sentences("kaifa").is_empty());
+    assert!(engine.request_rescoring());
+    wait("kaifa");
+    // 接着敲完 kaifang：又一次请求；kaifa 那段这时才算完
+    assert!(engine.generated_sentences(KEYS).is_empty());
+    assert!(engine.request_rescoring());
+    release.send(()).unwrap();
+    wait(KEYS);
+    // 收到的只有 kaifa 的结果：存进缓存，但这一轮还没完
+    assert!(!engine.poll_rescoring());
+    assert_eq!(engine.generated_sentences("kaifa"), ["kaifa的整句"]);
+    // kaifang 的到了，这一轮才算完
+    release.send(()).unwrap();
+    let started_at = Instant::now();
+    while !engine.poll_rescoring() {
+        assert!(
+            started_at.elapsed() < Duration::from_secs(5),
+            "后台没回结果"
+        );
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    assert_eq!(engine.generated_sentences(KEYS), ["kaifang的整句"]);
+}

@@ -161,18 +161,22 @@ impl Engine {
         true
     }
 
-    /// 收后台打好的分。有新分进了缓存返回 `true`，壳该重新 [`Self::query`] 一次；前文已经变了的结果丢掉。
+    /// 收后台打好的分。最近一次请求的结果到了返回 `true`，壳该重新 [`Self::query`] 一次、停止轮询；前文已经变了的分丢掉。
+    ///
+    /// 更早的请求的结果也照样收进缓存，但不返回 `true`：打字比模型快时上一次的结果会先到，
+    /// 壳要是把它当成这一轮的、停了轮询，晚几十毫秒到的这次整句就没人取了（macOS 上 `firefoxliulanqi` 上屏成「覅」）。
     pub fn poll_rescoring(&mut self) -> bool {
         let Some(worker) = &self.rescorer else {
             return false;
         };
+        let latest = worker.latest();
         let mut updated = false;
         while let Some(scored) = worker.poll() {
+            updated |= scored.serial == latest;
             let mut cache = self.neural_cache.borrow_mut();
             // 生成的结果自带按键、与前文无关，不跟着打分那边的条件一起作废
             if let Some((keys, texts)) = scored.generated {
                 cache.insert_generated(&keys, texts);
-                updated = true;
             }
             if scored.context != cache.context()
                 || scored.keys != cache.keys()
@@ -183,7 +187,6 @@ impl Engine {
             for (text, score) in scored.texts.iter().zip(scored.scores) {
                 cache.insert(text, score);
             }
-            updated = true;
         }
         updated
     }
