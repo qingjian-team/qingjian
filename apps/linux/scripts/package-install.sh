@@ -20,7 +20,7 @@ if ((${#missing[@]})); then
   echo 'Debian / Ubuntu：sudo apt install python3 fcitx5 fcitx5-frontend-gtk3 fcitx5-frontend-gtk4 fcitx5-frontend-qt6 fcitx5-config-qt' >&2
   exit 1
 fi
-install_prefix=$(realpath -m -- "$install_prefix")
+install_prefix=$(python3 -c 'import os, sys; print(os.path.realpath(sys.argv[1]))' "$install_prefix")
 mkdir -p "$here/data"
 # 数据包在 macOS 上打，带 LIBARCHIVE.xattr 扩展头，GNU tar 会逐个警告
 tar --warning=no-unknown-keyword -xzf "$here/target/release-data/qingjian-data.tar.gz" -C "$here"

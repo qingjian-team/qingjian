@@ -162,7 +162,7 @@ english_candidates_on = [
 }
 
 /// 模板 `[shortcut]` 一节里的修饰键组合（macOS 命名）。缺省值两个平台一样，只是写法与注释按平台的键名。
-#[cfg(all(not(windows), not(target_os = "linux")))]
+#[cfg(target_os = "macos")]
 macro_rules! template_shortcut_keys {
     () => {
         r#"# 中 / 英模式切换键（Windows 用），可多选：shift 单击（缺省）/ control 单击 / ctrl+alt+space 组合键；[] 不用键切换。
@@ -181,8 +181,8 @@ delete_candidate = "shift"
     };
 }
 
-/// Linux 默认避开桌面常用的 Ctrl + Alt + T（打开终端）。
-#[cfg(target_os = "linux")]
+/// Linux 与 FreeBSD 默认避开桌面常用的 Ctrl + Alt + T（打开终端）。
+#[cfg(not(any(windows, target_os = "macos")))]
 macro_rules! template_shortcut_keys {
     () => {
         r#"# 中 / 英模式切换键：shift 单击（缺省），[] 不用键切换。

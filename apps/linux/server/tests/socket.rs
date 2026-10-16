@@ -1,5 +1,5 @@
 //! 真 Unix socket 回环：连接编号隔离、握手失败、重启与文件权限。
-#![cfg(target_os = "linux")]
+#![cfg(any(target_os = "linux", target_os = "freebsd"))]
 use qingjian_linux_server::ipc::bind_socket;
 use qingjian_platform::protocol::{
     ClientMessage, KeyEvent, KeyModifiers, PROTOCOL_VERSION, ServerMessage, SessionId,

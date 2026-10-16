@@ -2,7 +2,7 @@
 pub mod assembly;
 pub mod dispatch;
 pub mod error;
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "freebsd"))]
 pub mod ipc;
 pub mod protocol;
 pub use assembly::{AssemblySpec, LanguageModelFiles};
