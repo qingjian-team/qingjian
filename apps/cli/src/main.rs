@@ -14,6 +14,7 @@ mod repl;
 mod replay;
 mod rescoring;
 mod tuning;
+mod userwords;
 
 use std::sync::Arc;
 use std::time::Instant;
@@ -76,6 +77,10 @@ fn run() -> Result<(), CliError> {
     }
     if let Some(path) = &args.mine_log {
         mine::run(&args, path)?;
+        return Ok(());
+    }
+    if args.check_user_words {
+        userwords::run(&args, &mut engine)?;
         return Ok(());
     }
     if let Some(path) = &args.replay {
