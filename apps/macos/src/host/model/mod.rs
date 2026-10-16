@@ -175,5 +175,8 @@ impl Host {
             self.session.layout.set_cloud(cloud);
         }
         self.render();
+        // 结果到的时候用户可能又敲了键、新的防抖还没到点，上面的 stop() 把它一起清了；
+        // 这次查询要是又记下了要打分 / 生成的，再起一轮，否则最后这段按键永远不请求（Linux 的 requery_rescored 同理）
+        self.schedule_rescoring();
     }
 }
