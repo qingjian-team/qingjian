@@ -174,7 +174,7 @@ fn load(db: &mut Database, path: &Path) -> bool {
     }
 }
 
-/// 文件里至少有一张面带 swash 能栅格化的轮廓（`glyf` / `CFF `）。先放进一个临时字体库看（mmap，只解析表头），
+/// 文件里至少有一张面带 swash 能栅格化的轮廓（`glyf` / `CFF ` / `CFF2`，最后这种是 Fedora 默认的中文可变字体）。先放进一个临时字体库看（mmap，只解析表头），
 /// 正式的库里只加能画的：macOS 26 起的苹方把轮廓放进私有的 `hvgl` 表，swash 读不出字形，文字会画成空白，跳过它回退才会落到下一个字体。
 fn drawable(path: &Path) -> bool {
     let mut probe = Database::new();
@@ -190,7 +190,7 @@ fn has_outline_table(data: &[u8], index: u32) -> bool {
     let Ok(face) = ttf_parser::RawFace::parse(data, index) else {
         return false;
     };
-    [b"glyf", b"CFF "]
+    [b"glyf", b"CFF ", b"CFF2"]
         .into_iter()
         .any(|tag| face.table(ttf_parser::Tag::from_bytes(tag)).is_some())
 }
