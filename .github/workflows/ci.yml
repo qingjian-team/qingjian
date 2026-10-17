@@ -38,6 +38,9 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y cmake g++ libfcitx5core-dev libfcitx5config-dev libfcitx5utils-dev nlohmann-json3-dev fcitx5
+          # Fcitx4 壳的构建依赖（Ubuntu 22.04 那条线）。fcitx-libs-dev 提供 fcitx 的 pkg-config，
+          # 与 Fcitx5 的三个 -dev 包不冲突，可以同时装。
+          sudo apt-get install -y fcitx-libs-dev libx11-dev libxres-dev
 
       - name: Format
         run: cargo fmt --all --check
@@ -66,6 +69,23 @@ jobs:
           mkdir -p target/ci-logs
           env -u DBUS_SESSION_BUS_ADDRESS ctest --test-dir target/fcitx5-stage1 --output-on-failure 2>&1 | tee target/ci-logs/fcitx5-ctest.log
 
+      # Fcitx4 壳（Ubuntu 22.04 那条线，#351 引入）。上面三步只覆盖 Fcitx5，
+      # 而 apps/linux/fcitx4 下的 C++ 插件（qingjian.cpp 415 行 + key + primary_selection，
+      # 还与 fcitx5 共用 ../fcitx5/src/ipc/connection.cpp）此前没有任何检查碰过：
+      # 改共用的 connection.cpp 时 Fcitx4 那侧编不过，只有装到 22.04 上才会发现。
+      # 它自带一个 CTest（test-surrounding，同样共用 ../tests/surrounding.cpp），一起跑。
+      - name: Configure Fcitx4 shell
+        run: cmake -S apps/linux/fcitx4 -B target/fcitx4-stage1 -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON
+
+      - name: Build Fcitx4 shell
+        run: cmake --build target/fcitx4-stage1 --parallel 2
+
+      - name: Test Fcitx4 shell
+        shell: bash
+        run: |
+          mkdir -p target/ci-logs
+          env -u DBUS_SESSION_BUS_ADDRESS ctest --test-dir target/fcitx4-stage1 --output-on-failure 2>&1 | tee target/ci-logs/fcitx4-ctest.log
+
       - name: Validate Linux install scripts
         run: bash -n apps/linux/scripts/install.sh apps/linux/scripts/uninstall.sh apps/linux/scripts/package.sh apps/linux/scripts/package-install.sh
 
@@ -86,9 +106,16 @@ jobs:
             target/fcitx5-stage1/Testing/**
             target/fcitx5-stage1/CMakeFiles/CMakeOutput.log
             target/fcitx5-stage1/CMakeFiles/CMakeError.log
+            target/fcitx4-stage1/Testing/**
+            target/fcitx4-stage1/CMakeFiles/CMakeOutput.log
+            target/fcitx4-stage1/CMakeFiles/CMakeError.log
 
   macos:
-    runs-on: macos-latest
+    # 与 release.yml 的发版 job 用同一个 label（那边是 macos-26）。同一个仓库里 macOS 侧
+    # 只应有一个版本：`macos-latest` 会随 GitHub 的 runner 策略漂移，CI 跑在一个版本、
+    # 发版构建在另一个版本上，差异只在发版时才暴露——系统库版本、Xcode 命令行工具版本
+    # 都会让「CI 全绿、发版挂」成为可能，而那是最难查的一类。
+    runs-on: macos-26
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
