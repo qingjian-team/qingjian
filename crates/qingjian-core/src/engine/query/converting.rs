@@ -84,6 +84,21 @@ impl Engine {
         if best.syllables.len() < 2 {
             return Vec::new();
         }
+        // 歧义切分下另一种切法有整词完整覆盖输入时，整词优先：`shangou` 的最优切分可能是
+        // `shang'ou`，但词库里的 山沟（`shan'gou`）比临时拼出的 上欧 更可信。
+        let letters = best.joined("");
+        if items.iter().any(|candidate| {
+            candidate.kind == CandidateKind::Chinese
+                && candidate.syllables.len() == best.syllables.len()
+                && candidate.syllables.concat() == letters
+                && candidate
+                    .syllables
+                    .iter()
+                    .zip(&best.syllables)
+                    .any(|(syllable, parsed)| syllable != &parsed.text)
+        }) {
+            return Vec::new();
+        }
         // 末尾只敲了一个声母（viterbi 放行的落单声母，见 #619）时，词级已有一个整词逐音节对上
         // 全部输入（`houxuank` → 候选框、`zaiw` → 在外），整句把同一个声母猜成另一句话
         // （后悬空、在我）就不该插到那个词前面：与「整段本就是词库词时不出整句」同一道理。
