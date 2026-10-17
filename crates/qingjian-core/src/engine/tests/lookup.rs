@@ -284,6 +284,20 @@ fn trailing_initial_sentence_yields_to_a_word_covering_the_whole_input() {
 }
 
 #[test]
+fn ambiguous_segmentation_prefers_a_word_covering_the_whole_input() {
+    let dictionary = Dictionary::parse(
+        "上\tshang\t900000\n欧\tou\t900000\n偶\tou\t800000\n山沟\tshan gou\t500\n",
+    )
+    .unwrap();
+    let mut engine = Engine::new(dictionary);
+
+    engine.set_input("shangou");
+    let items = engine.query().unwrap().candidates.items;
+    assert_eq!(items[0].text, "山沟");
+    assert!(items.iter().all(|c| c.text != "上欧" && c.text != "上偶"));
+}
+
+#[test]
 fn shortcuts_follow_the_first_local_candidate() {
     let all = texts("rq");
     let shortcut = all.iter().position(|t| t.ends_with('日')).unwrap();
