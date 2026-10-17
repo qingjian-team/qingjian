@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Qingjian
+Name[zh_CN]=青简
+Comment=Qingjian input method: install for Fcitx5 and open settings
+Comment[zh_CN]=青简输入法：装进 Fcitx5，打开设置
+Exec=qingjian-settings
+Icon=qingjian
+Categories=Utility;
+Terminal=false
+X-AppImage-Version=@VERSION@

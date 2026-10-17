@@ -4,9 +4,9 @@ order: 6
 description: 在 Linux 上安装青简，使用 Fcitx4 或 Fcitx5 默认候选面板。
 ---
 
-青简 Linux 使用系统默认候选面板。Fcitx5 提供 Ubuntu 26.04 预编译包和源码安装；Fcitx4 提供 Ubuntu 22.04 源码安装。
+青简 Linux 使用系统默认候选面板。Fcitx5 提供 AppImage（较新的发行版通用）、Ubuntu 26.04 预编译包和源码安装；Fcitx4 提供 Ubuntu 22.04 源码安装。
 Fcitx5 已验证 Ubuntu 26.04 的 GNOME 桌面（Wayland）上 GTK4、Qt6 应用与 Firefox；Fcitx4 已验证 Ubuntu 22.04 的 GTK3 文本框输入，以及 X11 下 Chrome 输入框的选中文字翻译与替换。
-当前支持本地候选、学习、本地整句模型重排和可选云联想，提供青简设置程序，暂不自动启动。
+当前支持本地候选、学习、本地整句模型重排和可选云联想，提供青简设置程序；AppImage 装好后登录自动启动，其他装法暂需手动启动。
 
 ## Ubuntu 22.04：Fcitx4 源码安装
 
@@ -55,6 +55,32 @@ sudo apt install python3 fcitx5 fcitx5-frontend-gtk3 fcitx5-frontend-gtk4 fcitx5
 ```
 
 之后的添加输入法、首次输入与源码安装相同，见下一节末尾。更新时下载新包再执行一次 `./install.sh`；卸载用包里的 `./uninstall.sh`。
+
+## AppImage
+
+一个文件就是整个青简，不用编译，也不用管理员权限，适合 Debian 13、Ubuntu 25.04 及以后、Fedora 42 及以后、Arch 这类较新的系统。
+要求系统的 Fcitx5 是 5.1.8 或更新（Ubuntu 24.04 自带的 5.1.7 不够，请用源码安装）。先用系统的包管理器装好 Fcitx5 与 GTK / Qt 输入支持，例如 Debian / Ubuntu：
+
+```sh
+sudo apt install fcitx5 fcitx5-frontend-gtk3 fcitx5-frontend-gtk4 fcitx5-frontend-qt6 fcitx5-config-qt
+```
+
+从[下载页](https://qingjian.app/download)下载 `Qingjian-<版本>-x86_64.AppImage`，放到一个固定的位置（比如 `~/Applications`），然后：
+
+```sh
+chmod +x ~/Applications/Qingjian-*.AppImage
+~/Applications/Qingjian-*.AppImage install
+```
+
+也可以在文件管理器里给它加上执行权限后双击，第一次会自动完成安装并打开青简设置。
+安装会把青简接进 Fcitx5、设成登录后自动启动，并在应用菜单里加上「青简设置」；青简服务当场就会启动，不用重新登录。
+之后重启 Fcitx5（`fcitx5 -r`），在 Fcitx5 配置工具里取消「仅显示当前语言」，添加「青简」。
+
+- **挪动或改名 AppImage 文件后**，再运行一次 `install`：自动启动与菜单项记的是它原来的位置。
+- **更新**：用新版本的文件替换旧文件（保持同一个路径和文件名最省事），注销重新登录或运行一次 `install`，然后重启 Fcitx5。
+- **卸载**：运行 `Qingjian-*.AppImage uninstall`，再重启 Fcitx5；之后可以删掉这个文件。配置、个人词库和学习数据会保留。
+- 已经用源码安装或预编译包装过青简的，先卸载那一份再装 AppImage；两份同时装会互相顶替，安装时会提示。
+- 系统缺少 FUSE、提示无法挂载时，先运行 `export APPIMAGE_EXTRACT_AND_RUN=1` 再执行上面的命令。
 
 ## Fcitx5 源码安装和首次输入
 

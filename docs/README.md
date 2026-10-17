@@ -25,6 +25,7 @@ README.md 只介绍项目，所有技术内容放在这里，分四类：前三�
 | [notes/crate-notes.md](notes/crate-notes.md) | 各 crate / app / tool 的实现要点：入口类型、数据文件、常数、生成命令 |
 | [notes/linux-fcitx5.md](notes/linux-fcitx5.md) | Linux 默认面板构建、协议、安装与排错 |
 | [notes/linux-fcitx4.md](notes/linux-fcitx4.md) | Ubuntu 22.04 的 Fcitx4 源码适配、安装与验证 |
+| [notes/linux-appimage.md](notes/linux-appimage.md) | Linux AppImage：输入法为什么要 install 一步、构建环境与能跑在哪、各发行版容器里的实测 |
 | [notes/performance.md](notes/performance.md) | 历次性能优化：起因、定位方法、改法、数字前后对比与经验 |
 | [notes/release.md](notes/release.md) | 发版流程：CHANGELOG、标签触发的 CI 打包、产品数据包、签名公证的 Secrets、官网用的 `releases.json` |
 | [notes/model-identities.md](notes/model-identities.md) | 含章·通变与含章·知微的正式名称和检查点编号 |
