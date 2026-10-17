@@ -42,6 +42,16 @@ jobs:
       - name: Format
         run: cargo fmt --all --check
 
+      # 依赖的许可证、来源、通配版本。audit.yml 已查 RustSec 漏洞，这里补它不管的三样。
+      # 装 cargo-deny 而不是用 cargo-deny-action：少一个要钉 commit 的第三方 action，
+      # 且版本由这一行钉死，与 workflow 里别的 cargo 命令一致。
+      # cargo-deny 自己读仓库根的 Cargo.lock（不吃 --locked，也没有 manifest-path 参数），
+      # 所以「锁与 Cargo.toml 不一致」这一类由别的 --locked 步骤负责，这里只管内容。
+      - name: Dependency licenses, sources and wildcards
+        run: |
+          cargo install cargo-deny --version 0.20.2 --locked
+          cargo deny check licenses bans sources
+
       - name: Clippy
         run: cargo clippy --workspace --exclude qingjian-macos --all-targets --locked -- -D warnings
 
