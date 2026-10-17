@@ -108,6 +108,56 @@ jobs:
       - name: Test (IMK shell)
         run: cargo test -p qingjian-macos --locked
 
+  # 最老的受支持发行版。docs/user/getting-started/linux.md 写着「Fcitx4 提供 Ubuntu 22.04
+  # 源码安装」并记了「已验证 Ubuntu 22.04 的 GTK3 文本框输入」，而上面 core job 跑在
+  # ubuntu-26.04。两边差四年：22.04 是 glibc 2.35 / GCC 11，26.04 是 glibc 2.39+ / GCC 15。
+  # 依赖或代码只要用一个 2.35 之后才有的符号，26.04 上全绿、22.04 上一装就崩——
+  # 而崩溃点在用户机器上，本地没有那个环境复现不了。
+  #
+  # 用容器而不是 `ubuntu-22.04` 的 runner label：那个 label 会随 GitHub 的镜像策略退休，
+  # 容器里的 22.04 是实打实的那个用户态，与 runner 上装的是什么无关。
+  linux-22_04:
+    runs-on: ubuntu-26.04
+    container: ubuntu:22.04
+    timeout-minutes: 25
+    steps:
+      # 容器里是裸系统：checkout 要 git、rustup 要 curl 与证书。
+      # 依赖按 install.sh 的清单装（cmake / g++ / pkg-config / python3 / libssl-dev）——
+      # 第一版漏了 libssl-dev，openssl-sys 当场编不过，这个 job 也就抓到了它。
+      # 那正是它该干的事：对着用户实际走的 install.sh 路径验，漏一个包就暴露。
+      #
+      # 字体是**额外**的一项，install.sh 的清单里没有：bamboo-slip 的自绘 UI 要一个
+      # 系统 UI 字体（fonts/mod.rs 里 load_first 失败直接返回 NoUiFont，没有回退），
+      # 于是 17 个 UI 测试在没装字体的裸容器里全红。
+      # ubuntu-26.04 runner 上它们是镜像预装的，所以 core job 一直是绿的——
+      # 也就是说 CI 的绿有一部分来自 runner 镜像而不是显式声明的依赖。
+      # 这里显式装上，让这个 job 反映「用户装完依赖后的状态」。
+      # install.sh 自己漏了字体依赖是另一个问题（生产代码同样会硬失败），不在这改。
+      - name: Install base tooling
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            git curl ca-certificates build-essential pkg-config python3 \
+            cmake libssl-dev \
+            fonts-dejavu-core
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: dtolnay/rust-toolchain@e2a55d2ffb04f378e9626c28d38b36d230d1e12f # v1
+        with:
+          toolchain: 1.96.0
+
+      # install.sh 在 22.04 上装的就是这两个包（见它的 cargo_args），所以先按原样编一遍：
+      # 这是「用户装得上」那道关，比跑测试更接近发版路径。
+      - name: Build (what install.sh builds)
+        run: cargo build --locked -p qingjian-linux-server -p qingjian-settings
+
+      # 再跑一遍 workspace 测试：老 glibc 上某个依赖编不过或行为不同，在这里暴露。
+      - name: Test
+        run: cargo test --workspace --exclude qingjian-macos --locked
+
   windows:
     runs-on: windows-latest
     timeout-minutes: 15
