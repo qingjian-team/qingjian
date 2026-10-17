@@ -15,6 +15,7 @@ Fcitx5 已验证 Ubuntu 26.04 的 GNOME 桌面（Wayland）上 GTK4、Qt6 应用
 
 ```sh
 sudo apt install cmake g++ pkg-config python3 libssl-dev fcitx-libs-dev libx11-dev libxres-dev nlohmann-json3-dev \
+  fonts-noto-core fonts-noto-cjk fonts-noto-color-emoji \
   fcitx fcitx-frontend-gtk3 fcitx-frontend-qt5 fcitx-config-gtk
 ```
 
@@ -64,10 +65,13 @@ Debian / Ubuntu 上是：
 ```sh
 sudo apt install cmake g++ pkg-config python3 libssl-dev \
   libfcitx5core-dev libfcitx5utils-dev libfcitx5config-dev nlohmann-json3-dev \
+  fonts-noto-core fonts-noto-cjk fonts-noto-color-emoji \
   fcitx5 fcitx5-frontend-gtk3 fcitx5-frontend-gtk4 fcitx5-frontend-qt6 fcitx5-config-qt
 ```
 
-缺了哪一项，安装脚本开头会直接列出来。
+三个字体包不能省：设置程序的自绘界面要一个系统 UI 字体（`fonts-noto-core` 提供），
+没有它程序直接起不来；`fonts-noto-cjk` 画中文界面文字，`fonts-noto-color-emoji` 画表情，
+缺了不崩但界面残废。缺了哪一项，安装脚本开头会直接列出来。
 按发行版指引启用 Fcitx5；X11 应用通常需要 `GTK_IM_MODULE=fcitx`、`QT_IM_MODULE=fcitx`、`XMODIFIERS=@im=fcitx`，环境变化后重新登录。
 
 在源码目录执行：

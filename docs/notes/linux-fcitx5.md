@@ -8,6 +8,7 @@ Linux Server 在 `[predict] enabled = true` 且密钥可用时接入共享的 `C
 ## 构建与测试
 
 需要 Rust 1.96、CMake 3.16、C++20 编译器、pkg-config，以及 OpenSSL（`libssl-dev`，云服务依赖的 TLS 绑定要它）、Fcitx5 Core/Config/Utils 和 nlohmann-json 的开发包；`install.sh` 开头会检查并列出缺的。
+自绘界面另需三个字体包（`fonts-noto-core` / `fonts-noto-cjk` / `fonts-noto-color-emoji`）：没有 UI 字体时 `FontLibrary::system` 直接返回 `NoUiFont`、程序起不来，缺 CJK 或 emoji 则不崩但中文界面文字与表情画不出来。
 构建最低 API 为 Fcitx5 5.1.8，CI 使用 Ubuntu 26.04 的 Fcitx5 5.1.19；Ubuntu 24.04 自带的 5.1.7 不满足要求。
 桌面运行已验证的范围见下文，构建版本门槛不代表全部桌面已验收。
 

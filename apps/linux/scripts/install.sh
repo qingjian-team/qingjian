@@ -30,12 +30,26 @@ if command -v pkg-config >/dev/null 2>&1; then
     pkg-config --exists "$module" || missing+=("$module")
   done
 fi
+# 自绘界面（设置程序）要一个系统 UI 字体，没有的话 FontLibrary::system 直接返回 NoUiFont、
+# 程序起不来。CJK 与 emoji 字体缺了不崩，但中文界面文字和表情画不出来——对中文输入法来说
+# 等于界面残废，所以一并算依赖。清单与 crates/bamboo-slip/src/fonts/linux.rs 的三个
+# ui_fonts() / script_fonts() / emoji_fonts() 路径对应，改那边时记得同步这里。
+ui_font_found=false
+for candidate in \
+  /usr/share/fonts/truetype/noto/NotoSans-Regular.ttf \
+  /usr/share/fonts/noto/NotoSans-Regular.ttf \
+  /usr/share/fonts/truetype/dejavu/DejaVuSans.ttf; do
+  [[ -f "$candidate" ]] && ui_font_found=true && break
+done
+$ui_font_found || missing+=("系统 UI 字体（Noto Sans 或 DejaVu）")
+[[ -f /usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc || -f /usr/share/fonts/noto-cjk/NotoSansCJK-Regular.ttc ]] || missing+=("中文字体（Noto Sans CJK）")
+[[ -f /usr/share/fonts/truetype/noto/NotoColorEmoji.ttf || -f /usr/share/fonts/noto/NotoColorEmoji.ttf ]] || missing+=("emoji 字体（Noto Color Emoji）")
 if ((${#missing[@]})); then
   echo "缺少依赖：${missing[*]}" >&2
   if $fcitx4; then
-    echo 'Debian / Ubuntu：sudo apt install cmake g++ pkg-config python3 libssl-dev fcitx-libs-dev libx11-dev libxres-dev nlohmann-json3-dev；Rust 见 https://rustup.rs' >&2
+    echo 'Debian / Ubuntu：sudo apt install cmake g++ pkg-config python3 libssl-dev fcitx-libs-dev libx11-dev libxres-dev nlohmann-json3-dev fonts-noto-core fonts-noto-cjk fonts-noto-color-emoji；Rust 见 https://rustup.rs' >&2
   else
-    echo 'Debian / Ubuntu：sudo apt install cmake g++ pkg-config python3 libssl-dev libfcitx5core-dev libfcitx5utils-dev libfcitx5config-dev nlohmann-json3-dev；Rust 见 https://rustup.rs' >&2
+    echo 'Debian / Ubuntu：sudo apt install cmake g++ pkg-config python3 libssl-dev libfcitx5core-dev libfcitx5utils-dev libfcitx5config-dev nlohmann-json3-dev fonts-noto-core fonts-noto-cjk fonts-noto-color-emoji；Rust 见 https://rustup.rs' >&2
   fi
   exit 1
 fi
