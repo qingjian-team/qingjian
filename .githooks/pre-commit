@@ -25,22 +25,15 @@ case "$(uname -s)" in
 esac
 cargo clippy "${clippy_scope[@]}" --all-targets -- -D warnings
 
-# 非 Apple 平台上 IMK 壳编不了，但对 darwin 目标做类型检查是可以的（不链接、不产出可执行文件）。
-# 不做的话在 Linux 上改它等于盲改（见 docs/notes/crate-notes.md 的 apps/macos 一节）。
-# **只在本机装了 aarch64-apple-darwin target 时才跑**，没装的人流程不变；
-# 也只在这次提交碰了 macOS 壳、共享 crate 或依赖时才跑，改 Windows / Linux / 文档不付这个时间。
-if [[ "$(uname -s)" != Darwin ]] \
-  && rustup target list --installed 2>/dev/null | grep -qx aarch64-apple-darwin \
-  && git diff --cached --name-only | grep -qE '^(apps/macos/|crates/|Cargo\.(toml|lock)$)'; then
-  # onig_sys（candle → tokenizers 带进来的 C 库）要编 C；给它一个假的 pkg-config 条目让它改走「系统库」，
-  # cargo check / clippy 不链接，库在不在无所谓
-  onig="$PWD/target/darwin-check/onig"
-  if [[ ! -f "$onig/oniguruma.pc" ]]; then
-    mkdir -p "$onig/include"
-    : > "$onig/include/oniguruma.h"
-    printf 'prefix=%s\nincludedir=${prefix}/include\nName: oniguruma\nDescription: only for cargo check, never linked\nVersion: 6.9.9\nLibs: -lonig\nCflags: -I${includedir}\n' \
-      "$onig" > "$onig/oniguruma.pc"
-  fi
-  PKG_CONFIG_PATH="$onig" PKG_CONFIG_ALLOW_CROSS=1 RUSTONIG_SYSTEM_LIBONIG=1 \
-    cargo clippy --target aarch64-apple-darwin -p qingjian-macos --all-targets -- -D warnings
+# 非 Apple 平台上对 macOS / FreeBSD 做类型检查（不链接、不出可执行文件），不做的话在这里改那两个平台等于盲改。
+# darwin 查**整个 workspace**：Mac 上的人跑这个钩子就是整个 workspace，#628 就是只查了 IMK 壳、Linux Server 在 Mac 上编不过。
+# 只在本机装了对应 target、且这次提交碰了相关代码或依赖时才跑，没装的人流程不变（rustup target add 一次即可启用）。
+staged="$(git diff --cached --name-only)"
+if [[ "$(uname -s)" != Darwin ]]; then
+  cross=()
+  rustup target list --installed 2>/dev/null | grep -qx aarch64-apple-darwin \
+    && grep -qE '^(apps/|crates/|Cargo\.(toml|lock)$)' <<< "$staged" && cross+=(darwin)
+  rustup target list --installed 2>/dev/null | grep -qx x86_64-unknown-freebsd \
+    && grep -qE '^(apps/linux/|apps/settings/|crates/|Cargo\.(toml|lock)$)' <<< "$staged" && cross+=(freebsd)
+  ((${#cross[@]} == 0)) || tools/verify/cross.sh "${cross[@]}"
 fi

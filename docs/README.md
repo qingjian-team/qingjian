@@ -22,6 +22,7 @@ README.md 只介绍项目，所有技术内容放在这里，分四类：前三�
 | [plan/zh_tw_support_plan.md](plan/zh_tw_support_plan.md) | 繁体输出与台湾注音支持的分析与方案（贡献者 pinchiu，#22）：读音标准差异、台湾用语、简转繁一对多；两条路线 |
 | [plan/todo.md](plan/todo.md) | 待办清单，按「从自用到能给别人用」排 |
 | [plan/wubi.md](plan/wubi.md) | 五笔（形码）支持方案（2026-09-15）：为什么不能按双拼的方式接、两条平行管线、码表与词频、`[general] scheme` 收敛、分期 |
+| [notes/testing.md](notes/testing.md) | 验证方法与环境：`tools/verify` 的各检查项、FreeBSD 虚拟机与 Mac 测试机的准备、图形端到端怎么判对错、修 bug 的验证流程、补过的测试缺口 |
 | [notes/crate-notes.md](notes/crate-notes.md) | 各 crate / app / tool 的实现要点：入口类型、数据文件、常数、生成命令 |
 | [notes/linux-fcitx5.md](notes/linux-fcitx5.md) | Linux 默认面板构建、协议、安装与排错 |
 | [notes/linux-fcitx4.md](notes/linux-fcitx4.md) | Ubuntu 22.04 的 Fcitx4 源码适配、安装与验证 |

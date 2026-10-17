@@ -1,0 +1,13 @@
+# provision.sh 装的 FreeBSD 包，一行一组；# 开头是注释。
+# 编译与安装青简（install.sh 的依赖）
+bash cmake pkgconf python3 git rsync sudo rustup-init oniguruma nlohmann-json
+# Fcitx5 与各工具包的输入模块
+fcitx5 fcitx5-gtk3 fcitx5-qt5 fcitx5-qt6 fcitx5-configtool
+# 字体（bamboo-slip 的 FreeBSD 清单按这几个包的路径写）
+noto-basic noto-sc noto-emoji dejavu
+# 两套桌面：XFCE + LightDM 自动登录；KDE Plasma 6；Wayland 用嵌套的 sway
+xorg xf86-video-vesa xf86-video-scfb xfce xfce4-terminal lightdm lightdm-gtk-greeter plasma6-plasma qt6-wayland sway foot
+# 端到端测试：发按键、读剪贴板、截屏辅助
+xdotool xclip wl-clipboard
+# 测试用的应用：GTK3、Qt、Qt6 与浏览器
+mousepad featherpad kate konsole firefox

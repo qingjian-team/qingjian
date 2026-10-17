@@ -1,0 +1,6 @@
+#!/bin/sh
+# //! insession 命令…：带上当前 XFCE 会话的环境变量执行命令（ssh 进来驱动图形测试用）。环境取自 xfce4-session 进程。
+pid=$(pgrep -u "$(id -u)" -x xfce4-session | head -1)
+[ -n "$pid" ] || { echo '没有找到 XFCE 会话' >&2; exit 1; }
+eval "$(tr '\0' '\n' < "/proc/$pid/environ" | grep -E '^(DISPLAY|XAUTHORITY|DBUS_SESSION_BUS_ADDRESS|XDG_RUNTIME_DIR|XDG_SESSION_TYPE|XDG_CURRENT_DESKTOP|XDG_DATA_DIRS|XDG_CONFIG_DIRS|LANG|LC_ALL|GTK_IM_MODULE|QT_IM_MODULE|XMODIFIERS)=' | sed "s/'/'\\\\''/g; s/=/='/; s/\$/'/; s/^/export /")"
+exec "$@"

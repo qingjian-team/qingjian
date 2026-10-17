@@ -1,0 +1,10 @@
+# 端到端用例：各平台的图形测试（FreeBSD 虚拟机、Mac 的 TextEdit）共用这一份。
+# 第一列是按键，空格分隔：SPACE / RET / ESC / BS 是对应的键，WAIT 停一秒，其余按字符逐个敲；第二列是读回的文本。
+# 期望值依赖正式词库（data.lock 那一版）的排序，换词库后对不上要先确认是不是排序回退，再改这里。
+nihao SPACE	你好
+nihao RET	nihao
+nihao ESC	
+nihao BS BS BS SPACE	你
+jintiantianqihenhao SPACE	今天天气很好
+woxiangzaifreebsdshangshurumingzi SPACE	我想在FreeBSD上输入名字
+firefoxliulanqi SPACE	Firefox浏览器

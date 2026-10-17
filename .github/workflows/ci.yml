@@ -1,5 +1,7 @@
-# 三个 job：Linux 跑 fmt / clippy / 全 workspace 测试（排除 IMK 外壳）；macOS 与 Windows runner 各编各的壳并跑平台测试，
-# 平台特有的编译错（Objective-C 调用、TSF 导出、WinUI）在 PR 里就暴露，不等发版。仓库公开，Actions 不计费。
+# 三个 job：Linux 跑 fmt / clippy / 全 workspace 测试（排除 IMK 外壳），再对 FreeBSD 做类型检查；
+# macOS 跑整个 workspace（与 Mac 上的 pre-commit / pre-push 同一范围），Windows 编自己的三件套。
+# 平台特有的编译错（Objective-C 调用、TSF 导出、WinUI、BSD 的 libc）在 PR 里就暴露，不等发版。
+# 本地与虚拟机里的全套验证（图形端到端、Mac 真机）见 tools/verify 与 docs/notes/testing.md。仓库公开，Actions 不计费。
 # actions 一律钉到 commit（注释里是对应的标签），Dependabot 每周提 PR 更新；cargo 全加 --locked，Cargo.lock 没提交就报错。
 name: ci
 
@@ -75,6 +77,19 @@ jobs:
           mkdir -p target/ci-logs
           python3 apps/linux/tests/installation.py 2>&1 | tee target/ci-logs/linux-installation.log
 
+      # FreeBSD 没有 runner，类型检查在这里做：mio / libc、SO_PEERCRED 这类只在 BSD 上编不过的问题在 PR 里就暴露
+      - name: Check FreeBSD (type check)
+        run: tools/verify/cross.sh freebsd
+
+      # 设置程序的截图脚本曾在 Linux 上中途失败没人发现；拷一份缺省配置跑完整个脚本，截图随诊断上传
+      - name: Settings screenshots
+        shell: bash
+        run: |
+          home=$(mktemp -d)
+          cargo build -q --locked -p qingjian-settings
+          XDG_CONFIG_HOME=$home/config XDG_DATA_HOME=$home/data target/debug/qingjian-settings --config "$home/none.toml" --png target/ci-logs/settings-png
+          ls target/ci-logs/settings-png/*.png > /dev/null
+
       - name: Upload Linux diagnostics
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -83,13 +98,14 @@ jobs:
           if-no-files-found: ignore
           path: |
             target/ci-logs/**
+            target/verify/**
             target/fcitx5-stage1/Testing/**
             target/fcitx5-stage1/CMakeFiles/CMakeOutput.log
             target/fcitx5-stage1/CMakeFiles/CMakeError.log
 
   macos:
     runs-on: macos-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -102,11 +118,12 @@ jobs:
 
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
 
-      - name: Clippy (IMK shell)
-        run: cargo clippy -p qingjian-macos --all-targets --locked -- -D warnings
+      # 整个 workspace：Mac 上的人提交时 pre-commit 就是这个范围，只查 IMK 壳的话 Linux Server 在 Mac 上编不过也发现不了（#628）
+      - name: Clippy (workspace)
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
 
-      - name: Test (IMK shell)
-        run: cargo test -p qingjian-macos --locked
+      - name: Test (workspace)
+        run: cargo test --workspace --locked
 
   windows:
     runs-on: windows-latest

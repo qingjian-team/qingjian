@@ -1,0 +1,38 @@
+#!/bin/sh
+# //! 把青简放进 Fcitx5 的输入法列表（英文键盘 + 青简）并重启 Fcitx5；经 insession 以普通用户跑。
+# //! 装好插件之后才能调：Fcitx5 启动时认不出的输入法会被它从列表里丢掉，退出时还会把丢过的列表写回文件。
+pkill -x fcitx5
+for _ in $(seq 30); do pgrep -x fcitx5 >/dev/null || break; sleep 0.5; done
+mkdir -p "$HOME/.config/fcitx5"
+cat > "$HOME/.config/fcitx5/profile" <<'PROFILE'
+[Groups/0]
+Name=默认
+Default Layout=us
+DefaultIM=qingjian
+
+[Groups/0/Items/0]
+Name=keyboard-us
+Layout=
+
+[Groups/0/Items/1]
+Name=qingjian
+Layout=
+
+[GroupOrder]
+0=默认
+PROFILE
+setsid fcitx5 -d </dev/null >/dev/null 2>&1
+# 等它占上总线名再往下走；不用 fcitx5-remote 轮询：名字还没被占时它会经 D-Bus 激活再起一个 Fcitx5，两个抢同一个名字
+for _ in $(seq 30); do
+  dbus-send --session --print-reply --dest=org.freedesktop.DBus /org/freedesktop/DBus org.freedesktop.DBus.NameHasOwner string:org.fcitx.Fcitx5 2>/dev/null \
+    | grep -q 'boolean true' && break
+  sleep 0.5
+done
+# 插件加载上了才会出现在可用输入法里（fcitx5-remote -s 要有聚焦的输入框才生效，这里还没有，不能拿它判断）
+for _ in $(seq 20); do
+  dbus-send --session --print-reply --dest=org.fcitx.Fcitx5 /controller org.fcitx.Fcitx.Controller1.AvailableInputMethods 2>/dev/null \
+    | grep -q '"qingjian"' && exit 0
+  sleep 0.5
+done
+echo 'Fcitx5 没加载青简的插件' >&2
+exit 1

@@ -36,11 +36,12 @@ if ((${#missing[@]})); then
     echo 'Debian / Ubuntu：sudo apt install cmake g++ pkg-config python3 libssl-dev fcitx-libs-dev libx11-dev libxres-dev nlohmann-json3-dev；Rust 见 https://rustup.rs' >&2
   else
     echo 'Debian / Ubuntu：sudo apt install cmake g++ pkg-config python3 libssl-dev libfcitx5core-dev libfcitx5utils-dev libfcitx5config-dev nlohmann-json3-dev；Rust 见 https://rustup.rs' >&2
+    echo 'FreeBSD：pkg install bash cmake pkgconf python3 fcitx5 nlohmann-json rustup-init（rustup-init 装 Rust）' >&2
   fi
   exit 1
 fi
-install_prefix=$(realpath -m -- "$install_prefix")
-cargo_output=$(realpath -m -- "${CARGO_TARGET_DIR:-$repo_root/target}")
+install_prefix=$(python3 -c 'import os, sys; print(os.path.realpath(sys.argv[1]))' "$install_prefix")
+cargo_output=$(python3 -c 'import os, sys; print(os.path.realpath(sys.argv[1]))' "${CARGO_TARGET_DIR:-$repo_root/target}")
 cargo_args=(build --manifest-path "$repo_root/Cargo.toml" --target-dir "$cargo_output" -p qingjian-linux-server -p qingjian-settings --locked)
 [[ "$build_profile" != release ]] || cargo_args+=(--release)
 cargo "${cargo_args[@]}"

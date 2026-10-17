@@ -1,0 +1,13 @@
+# provision.sh 装的 Debian 13 包，一行一组；# 开头是注释。
+# 编译与安装青简（install.sh 的依赖；Rust 另由 rustup 装 rust-toolchain.toml 要的版本）
+build-essential cmake pkg-config python3 git rsync curl ca-certificates libssl-dev libfcitx5core-dev libfcitx5utils-dev libfcitx5config-dev nlohmann-json3-dev
+# 桌面：XFCE + LightDM 自动登录
+xserver-xorg x11-xserver-utils xfce4 xfce4-terminal lightdm dbus-x11 locales
+# Fcitx5、各工具包的输入模块与配置工具；im-config 让会话的输入法变量指向 Fcitx5
+fcitx5 fcitx5-frontend-gtk3 fcitx5-frontend-gtk4 fcitx5-frontend-qt6 fcitx5-config-qt im-config
+# 字体（bamboo-slip 的 Linux 清单按这几个包的路径写）
+fonts-noto-core fonts-noto-cjk fonts-noto-color-emoji
+# 端到端测试：发按键、读剪贴板；AppImage 要 FUSE，菜单项要 gio
+xdotool xclip fuse3 libglib2.0-bin desktop-file-utils
+# 测试用的应用：GTK3、Qt6 与浏览器
+mousepad featherpad firefox-esr

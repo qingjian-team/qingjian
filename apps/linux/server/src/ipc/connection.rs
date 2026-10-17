@@ -17,23 +17,7 @@ pub(super) fn serve_connection(
     sender: SyncSender<Request>,
     settings: Value,
 ) {
-    let mut credentials = libc::ucred {
-        pid: 0,
-        uid: 0,
-        gid: 0,
-    };
-    let mut size = std::mem::size_of::<libc::ucred>() as libc::socklen_t;
-    let trusted = unsafe {
-        libc::getsockopt(
-            stream.as_raw_fd(),
-            libc::SOL_SOCKET,
-            libc::SO_PEERCRED,
-            (&mut credentials as *mut libc::ucred).cast(),
-            &mut size,
-        ) == 0
-            && credentials.uid == libc::geteuid()
-    };
-    if !trusted {
+    if !peer_is_owner(&stream) {
         return;
     }
     let _ = stream.set_write_timeout(Some(Duration::from_secs(1)));
@@ -244,4 +228,35 @@ fn localize(mut response: Value, local: SessionId) -> Value {
         body["session"] = json!(local);
     }
     response
+}
+
+/// socket 对面是不是同一个用户。
+#[cfg(target_os = "linux")]
+fn peer_is_owner(stream: &UnixStream) -> bool {
+    let mut credentials = libc::ucred {
+        pid: 0,
+        uid: 0,
+        gid: 0,
+    };
+    let mut size = std::mem::size_of::<libc::ucred>() as libc::socklen_t;
+    unsafe {
+        libc::getsockopt(
+            stream.as_raw_fd(),
+            libc::SOL_SOCKET,
+            libc::SO_PEERCRED,
+            (&mut credentials as *mut libc::ucred).cast(),
+            &mut size,
+        ) == 0
+            && credentials.uid == libc::geteuid()
+    }
+}
+
+/// socket 对面是不是同一个用户。BSD 没有 `SO_PEERCRED`，用 `getpeereid`（glibc 没有这个函数，所以两边分开写）。
+#[cfg(not(target_os = "linux"))]
+fn peer_is_owner(stream: &UnixStream) -> bool {
+    let mut uid: libc::uid_t = 0;
+    let mut gid: libc::gid_t = 0;
+    unsafe {
+        libc::getpeereid(stream.as_raw_fd(), &mut uid, &mut gid) == 0 && uid == libc::geteuid()
+    }
 }

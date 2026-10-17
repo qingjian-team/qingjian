@@ -5,7 +5,7 @@
 
 #[cfg(target_os = "windows")]
 pub mod directwrite;
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "freebsd"))]
 mod linux;
 #[cfg(target_os = "macos")]
 mod macos;
@@ -26,7 +26,7 @@ pub use ui_font::UiFont;
 
 #[cfg(target_os = "windows")]
 use self::windows as platform;
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "freebsd"))]
 use linux as platform;
 #[cfg(target_os = "macos")]
 use macos as platform;

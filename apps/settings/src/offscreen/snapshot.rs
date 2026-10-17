@@ -8,6 +8,7 @@ use bamboo_slip::{App, Event, FontLibrary, Key, KeyCode, KeyPress, Modifiers, Ru
 
 use crate::page_id::PageId;
 use crate::settings::Settings;
+use crate::support::Feature;
 
 const SCALE: f32 = 2.0;
 
@@ -149,10 +150,15 @@ fn stats(
         Key::ROOT.child((Key::ROOT.child(local), column, row))
     };
     let bar = |local: &str, hour: usize| Key::ROOT.child((Key::ROOT.child(local), hour));
-    for (tab, days, hours) in [
+    // 云服务那一栏只在支持云服务用量统计的平台上有（Linux 还没接），没有它就别去点
+    let tabs = [
         ("输入", "input-days", "input-hours"),
         ("云服务", "cloud-days", "cloud-hours"),
-    ] {
+    ];
+    for (tab, days, hours) in tabs
+        .into_iter()
+        .filter(|(tab, ..)| *tab != "云服务" || Feature::ApiUsage.here())
+    {
         runner.app_mut().stats_cloud = tab == "云服务";
         runner.rebuild(SCALE, SIZE, Instant::now())?;
         hover(runner, cell(days, 50, 2))?;

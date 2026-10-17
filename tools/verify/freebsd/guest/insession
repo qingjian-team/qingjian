@@ -1,0 +1,21 @@
+#!/bin/sh
+# //! insession 命令…：带上当前桌面会话的环境变量执行命令（ssh 进来驱动图形测试用）。
+# //! 环境取自桌面进程（plasmashell / xfce4-session，没有再取 fcitx5）；Plasma 的会话总线走 X11 autolaunch，
+# //! 进程环境里没有 DBUS_SESSION_BUS_ADDRESS，这时取桌面里 fcitx5 连着的总线，否则 fcitx5-remote 会直接崩。
+uid=$(id -u)
+pid=$(pgrep -u "$uid" -x plasmashell || pgrep -u "$uid" -x xfce4-session || pgrep -u "$uid" -x fcitx5)
+pid=$(echo "$pid" | head -1)
+[ -n "$pid" ] || { echo '没有找到桌面会话' >&2; exit 1; }
+eval "$(procstat -e "$pid" | tr ' ' '\n' | grep -E '^(DISPLAY|DBUS_SESSION_BUS_ADDRESS|XDG_RUNTIME_DIR|XDG_SESSION_TYPE|XDG_CURRENT_DESKTOP|LANG|LC_ALL)=' | sed 's/^/export /')"
+# 环境里没有总线地址（Plasma 走 X11 autolaunch）时，用桌面里那个 fcitx5 实际连着的总线：fcitx5-remote 与应用找的就是它。
+# 不能取 /tmp 下最新的 dbus 套接字——嵌套 sway 的 dbus-run-session 也会在那里建，取到的是别的（甚至已经失效的）总线
+[ -n "${DBUS_SESSION_BUS_ADDRESS:-}" ] || {
+  for im in $(pgrep -u "$uid" -x fcitx5); do
+    case "$(ps -o command= -p "$(ps -o ppid= -p "$im" | tr -d ' ')")" in sway*|*dbus-run-session*) continue ;; esac
+    bus=$(procstat -f "$im" | awk '$4 == "s" && $NF ~ /^\/tmp\/dbus-/ {print $NF; exit}')
+    [ -n "$bus" ] && { export DBUS_SESSION_BUS_ADDRESS="unix:path=$bus"; break; }
+  done
+}
+: "${GTK_IM_MODULE:=fcitx}" "${QT_IM_MODULE:=fcitx}" "${XMODIFIERS:=@im=fcitx}"
+export GTK_IM_MODULE QT_IM_MODULE XMODIFIERS
+exec "$@"

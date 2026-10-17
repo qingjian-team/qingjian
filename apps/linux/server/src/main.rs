@@ -1,8 +1,8 @@
 //! Linux 本地输入服务；云联想与本地模型按配置加载，之后改配置由热加载应用。
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "freebsd"))]
 mod paths;
 
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "freebsd"))]
 fn run() -> Result<(), Box<dyn std::error::Error>> {
     use qingjian_core::Language;
     use qingjian_linux_server::{
@@ -100,11 +100,11 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 fn main() {
-    #[cfg(target_os = "linux")]
+    #[cfg(any(target_os = "linux", target_os = "freebsd"))]
     if let Err(error) = run() {
         eprintln!("青简启动失败：{error}");
         std::process::exit(1);
     }
-    #[cfg(not(target_os = "linux"))]
-    eprintln!("qingjian-linux-server 仅支持 Linux");
+    #[cfg(not(any(target_os = "linux", target_os = "freebsd")))]
+    eprintln!("qingjian-linux-server 仅支持 Linux 与 FreeBSD");
 }
