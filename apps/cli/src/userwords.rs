@@ -10,7 +10,7 @@
 //! 词库读音与用户词读音都经 `Dictionary` 规范化（音节按 `canonical_syllable` 归一、空格分隔），可直接比。
 
 use std::collections::{HashMap, HashSet};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use qingjian_core::Engine;
 use qingjian_dictionary::Dictionary;
@@ -48,6 +48,9 @@ struct DictReadings {
 }
 
 /// 核对入口：列出读音对不上的用户词，`--purge-user-words` 时删掉并落盘。
+///
+/// `Learner::flush` 的契约是「持久化失败只记日志」（输入优先于学习），写没写进磁盘它不报错，
+/// 所以删完自己读回 `user-words.tsv` 核实，没删干净就报错、以非零状态退出。
 pub fn run(args: &Args, engine: &mut Engine) -> Result<(), CliError> {
     let Some(user) = engine.learner().user_words() else {
         println!("# 没有用户词可核对（未给 --user-dict，或用户词表为空）");
@@ -66,9 +69,42 @@ pub fn run(args: &Args, engine: &mut Engine) -> Result<(), CliError> {
             engine.learner_mut().forget(&row.text);
         }
         engine.learner_mut().flush();
+        if let Some(path) = &args.user_dict {
+            verify_purged(path, &rows)?;
+        }
         println!("# 已删除 {} 条错读音用户词并落盘", rows.len());
     }
     Ok(())
+}
+
+/// 用户词文件名，与词频文件同目录（`FrequencyLearner::words_path`）。
+const WORDS_FILE: &str = "user-words.tsv";
+
+/// 删完后读回 `user-words.tsv` 核实：这次要删的词必须已经不在文件里。
+///
+/// `flush` 写失败不返回错误，不能凭它没吭声就宣布「已落盘」；文件不存在按已删干净处理
+/// （词全删完就是空文件，或压根没写过）。
+fn verify_purged(path: &Path, rows: &[&Row]) -> Result<(), CliError> {
+    let file = path.with_file_name(WORDS_FILE);
+    let source = match std::fs::read_to_string(&file) {
+        Ok(source) => source,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+        Err(error) => return Err(error.into()),
+    };
+    let remaining: Vec<&str> = rows
+        .iter()
+        .map(|row| row.text.as_str())
+        .filter(|text| {
+            source
+                .lines()
+                .any(|line| line.split('\t').next() == Some(*text))
+        })
+        .collect();
+    if remaining.is_empty() {
+        Ok(())
+    } else {
+        Err(CliError::UserWordsRemain(remaining.join("、")))
+    }
 }
 
 /// 判定一个用户词落哪一档（都不落就跳过）。
@@ -264,5 +300,45 @@ mod tests {
         classify("的的", "de", &readings, &mut report);
         assert_eq!(report.suspect.len(), 1);
         assert_eq!(report.suspect[0].detail, "字数 2 与音节数 1 不符");
+    }
+
+    /// 落盘核实：文件里还留着要删的词就是没写进磁盘
+    #[test]
+    fn flags_words_left_on_disk() {
+        let dir = std::env::temp_dir().join(format!("qingjian-purge-check-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let user_tsv = dir.join("user.tsv");
+        let rows = [Row {
+            text: "我的".to_owned(),
+            reading: "wo di".to_owned(),
+            detail: String::new(),
+        }];
+        let refs: Vec<&Row> = rows.iter().collect();
+
+        std::fs::write(
+            dir.join(WORDS_FILE),
+            "开发\tkai fa\t100\n我的\two di\t100\n",
+        )
+        .unwrap();
+        assert!(verify_purged(&user_tsv, &refs).is_err());
+
+        std::fs::write(dir.join(WORDS_FILE), "开发\tkai fa\t100\n").unwrap();
+        assert!(verify_purged(&user_tsv, &refs).is_ok());
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    /// 文件不在（词全删完、或压根没写过）也算删干净
+    #[test]
+    fn treats_absent_words_file_as_purged() {
+        let dir = std::env::temp_dir().join(format!("qingjian-purge-gone-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let _ = std::fs::remove_file(dir.join(WORDS_FILE));
+        let row = Row {
+            text: "我的".to_owned(),
+            reading: "wo di".to_owned(),
+            detail: String::new(),
+        };
+        assert!(verify_purged(&dir.join("user.tsv"), &[&row]).is_ok());
+        std::fs::remove_dir_all(&dir).ok();
     }
 }

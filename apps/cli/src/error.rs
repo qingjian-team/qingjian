@@ -26,6 +26,10 @@ pub enum CliError {
     #[error("learning language must be en, ja, es or de, got {0:?}")]
     Language(String),
 
+    /// 删用户词后读回核实：要删的词仍在 `user-words.tsv` 里，说明没写进磁盘。
+    #[error("用户词删除未落盘：{0} 仍在 user-words.tsv 里")]
+    UserWordsRemain(String),
+
     #[error(transparent)]
     Config(#[from] ConfigError),
 

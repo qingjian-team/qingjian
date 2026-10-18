@@ -152,7 +152,8 @@ pub struct Args {
     #[arg(long, conflicts_with_all = ["mine_log", "replay", "eval_text", "eval_cold"])]
     pub check_user_words: bool,
 
-    /// 把核对不过的用户词删掉并落盘（配 --check-user-words）：不给 --user-dict 时只预演
+    /// 把核对不过的用户词删掉并落盘（配 --check-user-words，落盘目标由 --user-dict 指定）；
+    /// 删完读回 user-words.tsv 核实，没删干净就报错退出
     #[arg(long, requires = "check_user_words")]
     pub purge_user_words: bool,
 
