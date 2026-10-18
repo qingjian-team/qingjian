@@ -12,12 +12,16 @@ pub trait Learner: Send {
     /// 该词被用户选择过的次数，没记录返回 0。
     fn weight(&self, text: &str) -> u32;
 
-    /// 用户在输入串 `input`（候选覆盖的那段拼音，不含分隔符）下选了 `text`。
-    /// 词级排序里同一输入串下选过的词排最前（`mgs` 选过 美国式，下次 `mgs` 它就是首选），与不分输入的 [`Self::weight`] 分开记：
-    /// `ba` 下选的是 吧，`bazhege` 下选的是 把，混在一起数就分不清。
-    fn record_choice(&mut self, _input: &str, _text: &str) {}
+    /// 用户在输入串 `input`（候选覆盖的那段拼音，不含分隔符）下选了 `text`，候选的读音键是 `reading`
+    /// （音节无分隔符连起来；形码 / 英文候选没有读音是空串）。字面键照记：
+    /// 词级排序里同一输入串下选过的词排最前（`mgs` 选过 美国式，下次 `mgs` 它就是首选）。
+    /// 读音键满足泛化条件（输入至少两个字母且与读音不同）时另记一份，让换个打法也认账
+    /// （`wod` 选的 我的、双拼选的，换回全拼再打同样命中）；单字母简拼（`g`）不泛化——
+    /// 那里翻页选词的意图太弱，带进全拼键会反过来压用户后来认真打的（`gai` 下的 改）。
+    /// 与不分输入的 [`Self::weight`] 分开记：`ba` 下选的是 吧，`bazhege` 下选的是 把，混在一起数就分不清。
+    fn record_choice(&mut self, _input: &str, _reading: &str, _text: &str) {}
 
-    /// `text` 在输入串 `input` 下被选过的次数，没记录返回 0。
+    /// `text` 在输入串 `input` 下被选过的次数（泛化在记录侧完成，查询只看字面键）；没记录返回 0。
     fn choice_weight(&self, _input: &str, _text: &str) -> u32 {
         0
     }
@@ -33,8 +37,8 @@ pub trait Learner: Send {
     /// 撤销一次 [`Self::record`]：用户上屏后马上整个删掉重选了别的词，刚才那次不算数。
     fn unrecord(&mut self, _text: &str) {}
 
-    /// 撤销一次 [`Self::record_choice`]。
-    fn unrecord_choice(&mut self, _input: &str, _text: &str) {}
+    /// 撤销一次 [`Self::record_choice`]（字面键与读音键一起退）。
+    fn unrecord_choice(&mut self, _input: &str, _reading: &str, _text: &str) {}
 
     /// 撤销 `times` 份 [`Self::record_transition`]。
     fn unrecord_transition(&mut self, _context: Context<'_>, _word: &str, _times: u32) {}
@@ -96,6 +100,9 @@ pub trait Learner: Send {
     ///
     /// 失败只记日志不返回错误：输入优先于学习，持久化失败不该影响壳的流程。
     fn flush(&mut self) {}
+
+    /// 选择次数衰减的半衰期（天），0 为不衰减。缺省不动；回放调参（`--tune decay-days=`）才换。
+    fn set_decay_half_life(&mut self, _days: f64) {}
 }
 
 /// 不学习。

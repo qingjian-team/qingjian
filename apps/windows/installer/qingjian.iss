@@ -10,7 +10,7 @@
 ; 升级：DLL 被加载进每个应用进程，文件锁着覆盖不了，所以 DLL 按版本起名（qingjian_tsf-<版本>.dll）并排装，
 ; 注册新的，旧的装完后删（删不掉的登记成重启后删）；已开着的应用继续用旧 DLL 直到重启，Server 两个版本都服务。
 ; Inno 的 CloseApplications 会用 Restart Manager 找出所有加载了 *.dll 的进程要求关闭——对输入法 DLL 就是关一切，故关掉；
-; 只有 Server / 设置程序两个 exe 要覆盖，安装前自己 taskkill。
+; 只有 Server 与两个设置程序这几个 exe 要覆盖，安装前自己 taskkill。
 ; Server 杀掉后，正在打字的应用里 DLL 连不上会自己把它拉起来（见 tsf 的 launch.rs），又占住 exe 和 mmap 着的数据：
 ; 安装 / 卸载期间持有互斥体 Global\QingjianInstaller，新 DLL 看到它就不拉；旧版 DLL 不认得它，
 ; 所以 Server exe 先改名腾位再杀、[Files] 里排最后装，新 exe 落地前 DLL 拉不起任何 Server。
@@ -72,7 +72,9 @@ FinishedLabel=安装完成。请注销后重新登录（或重启电脑），青
 Source: "{#Repo}\target\release\qingjian_tsf.dll";      DestDir: "{app}"; DestName: "{#TsfDll}"; Flags: ignoreversion uninsrestartdelete
 Source: "{#Repo}\target\i686-pc-windows-msvc\release\qingjian_tsf.dll"; DestDir: "{app}"; DestName: "{#TsfDll32}"; Flags: ignoreversion uninsrestartdelete
 Source: "{#Repo}\target\release\qingjian-settings.exe"; DestDir: "{app}"; Flags: ignoreversion
-; 设置程序自带一份 Windows App Runtime（自包含部署：Windows 10 上机器装的框架包用不了，见 docs\notes\windows-win10.md）；
+; 旧版设置程序（WinUI）留一个版本作回退，下个版本删掉它与下面的运行时
+Source: "{#Repo}\target\release\qingjian-settings-legacy.exe"; DestDir: "{app}"; Flags: ignoreversion
+; 旧版设置程序自带一份 Windows App Runtime（自包含部署：Windows 10 上机器装的框架包用不了，见 docs\notes\windows-win10.md）；
 ; 文件由 build.ps1 按 settings-runtime.txt 从 target\release 挑进 target\installer\settings-runtime，必须与 exe 同级。
 Source: "{#Repo}\target\installer\settings-runtime\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "{#Repo}\apps\windows\tsf\resources\qingjian.ico"; DestDir: "{app}"; Flags: ignoreversion
@@ -84,6 +86,7 @@ Source: "{#Repo}\data\generated\glossary-ja.qj"; DestDir: "{app}\data\generated"
 Source: "{#Repo}\data\generated\glossary-zh.qj"; DestDir: "{app}\data\generated";       Flags: ignoreversion
 Source: "{#Repo}\data\generated\glossary-es.qj"; DestDir: "{app}\data\generated";       Flags: ignoreversion
 Source: "{#Repo}\data\generated\glossary-vi.qj"; DestDir: "{app}\data\generated";       Flags: ignoreversion
+Source: "{#Repo}\data\generated\glossary-de.qj"; DestDir: "{app}\data\generated";       Flags: ignoreversion
 Source: "{#Repo}\data\generated\english.tsv";    DestDir: "{app}\data\generated";       Flags: ignoreversion
 Source: "{#Repo}\data\generated\dicts\*.qj";     DestDir: "{app}\data\generated\dicts";  Flags: ignoreversion
 ; —— 随包辅码码表（笔画，开箱可用）：Server 扫 data\generated\codes\；CNS11643 筆順資料派生，署名见「关于」页 ——
@@ -108,6 +111,7 @@ Source: "{#Repo}\target\release\qingjian-server.exe";   DestDir: "{app}"; Flags:
 
 [Icons]
 Name: "{group}\青简设置"; Filename: "{app}\qingjian-settings.exe"; IconFilename: "{app}\qingjian.ico"
+Name: "{group}\青简旧版设置"; Filename: "{app}\qingjian-settings-legacy.exe"; IconFilename: "{app}\qingjian.ico"
 Name: "{group}\卸载青简"; Filename: "{uninstallexe}"
 ; 登录自启：登录时 Explorer 走 ShellExecute 拉起本快捷方式 → AppInfo 授予 uiAccess，候选窗才能盖过商店 / 任务栏搜索。
 ; 用 {commonstartup}（所有用户「启动」文件夹）而非 {userstartup}：本安装器是 admin 机器级安装，
@@ -138,6 +142,8 @@ Filename: "{sys}\taskkill.exe"; Parameters: "/im qingjian-server.exe /f"; \
   Flags: runhidden; RunOnceId: "KillServer"
 Filename: "{sys}\taskkill.exe"; Parameters: "/im qingjian-settings.exe /f"; \
   Flags: runhidden; RunOnceId: "KillSettings"
+Filename: "{sys}\taskkill.exe"; Parameters: "/im qingjian-settings-legacy.exe /f"; \
+  Flags: runhidden; RunOnceId: "KillLegacySettings"
 Filename: "{sys}\regsvr32.exe"; Parameters: "/u /s ""{app}\{#TsfDll}"""; \
   Flags: runhidden; RunOnceId: "UnregDll"
 Filename: "{syswow64}\regsvr32.exe"; Parameters: "/u /s ""{app}\{#TsfDll32}"""; \
@@ -216,13 +222,14 @@ begin
   end;
 end;
 
-{ 覆盖前先结束 Server 与设置程序（只有这两个 exe 要覆盖；DLL 按版本并排装，不用关应用）。
+{ 覆盖前先结束 Server 与设置程序（只有这几个 exe 要覆盖；DLL 按版本并排装，不用关应用）。
   没在跑时 taskkill 返回非 0，忽略。 }
 function PrepareToInstall(var NeedsRestart: Boolean): String;
 begin
   RetireServerExe;
   KillProcess('qingjian-server.exe');
   KillProcess('qingjian-settings.exe');
+  KillProcess('qingjian-settings-legacy.exe');
   RetireLoadedDll('{#TsfDll}');
   RetireLoadedDll('{#TsfDll32}');
   Result := '';

@@ -4,7 +4,7 @@ use super::frame::Frame;
 use super::indicator::IndicatorState;
 use super::key::KeyOutcome;
 use super::session::SessionId;
-use crate::config::SwitchKeys;
+use crate::config::{KeyCombo, SwitchKeys};
 
 /// Server 下发给 DLL 的「按键行为」设置。
 ///
@@ -14,6 +14,10 @@ use crate::config::SwitchKeys;
 /// `%APPDATA%\Qingjian` 对 AppContainer 里的商店应用本来也读不到。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct InputSettings {
+    /// 可选标点切换键；Server 下发并由 DLL 热更新 TSF 保留键。
+    #[serde(default)]
+    pub toggle_punctuation: Option<KeyCombo>,
+
     /// 中英切换键（`[shortcut] switch_mode`）。
     pub switch_mode: SwitchKeys,
 
@@ -25,11 +29,19 @@ pub struct InputSettings {
     #[serde(default)]
     pub shift_letter_compose: bool,
 
+    /// 重连时先取 Server 的模式，避免旧 DLL 状态覆盖初始模式或按应用记忆。
+    #[serde(default)]
+    pub restore_mode: bool,
+
     /// 这个会话的应用里英文模式给不给英文候选（`[general] english_candidates` 与 `[apps]` 白名单
     /// 由 Server 按会话的 exe 名算好）。不给时英文模式与 Caps 下没在组句的字母 DLL 不吃、原样交给应用，
     /// 否则 Photoshop 画布这类没有文本框的地方收不到 W / H / V 这些单键快捷键。老 Server 不带，按给。
     #[serde(default = "english_candidates_default")]
     pub english_candidates: bool,
+
+    /// 组句中的按需 AI 快捷键；旧 Server 没有这项。
+    #[serde(default)]
+    pub predict: Option<KeyCombo>,
 }
 
 fn english_candidates_default() -> bool {
@@ -39,16 +51,43 @@ fn english_candidates_default() -> bool {
 impl Default for InputSettings {
     fn default() -> Self {
         Self {
+            toggle_punctuation: None,
             switch_mode: SwitchKeys::default(),
             english_mode: true,
             shift_letter_compose: false,
+            restore_mode: false,
             english_candidates: true,
+            predict: None,
         }
     }
 }
 
-/// Server 发给 DLL 的消息。
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg(test)]
+mod tests {
+    use super::InputSettings;
+    use crate::config::KeyCombo;
+
+    #[test]
+    fn old_server_settings_disable_the_new_preserved_shortcut() {
+        let input = InputSettings {
+            predict: Some(KeyCombo::PREDICT_DEFAULT),
+            ..InputSettings::default()
+        };
+        let mut wire = serde_json::to_value(input).unwrap();
+        assert_eq!(
+            serde_json::from_value::<InputSettings>(wire.clone()).unwrap(),
+            input
+        );
+        wire.as_object_mut().unwrap().remove("predict");
+        let old = serde_json::from_value::<InputSettings>(wire).unwrap();
+        assert_eq!(old.predict, None);
+        assert_eq!(old.switch_mode, input.switch_mode);
+        assert_eq!(old.english_mode, input.english_mode);
+    }
+}
+
+/// Server 发给 DLL 的消息。`Frame` 带浮点列宽，没有 `Eq`，这里也只有 `PartialEq`。
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum ServerMessage {
     /// 对一次 [`super::ClientMessage::OpenSession`] 的答复：把 DLL 在按键到达之前就要知道的
     /// 设置带过去一次（之后 [`Self::ModeSync`] 的每一拍也带着，改了配置不用重开会话）。

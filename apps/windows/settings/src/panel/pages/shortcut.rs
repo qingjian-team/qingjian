@@ -1,10 +1,13 @@
-//! 「快捷键」页：翻页键、模式键，译词 / 删候选 / 翻译选中文字的修饰键。
+//! 「快捷键」页：翻页键、高亮移动键、模式键，译词 / 删候选 / 翻译选中文字的修饰键。
 //! 翻译选中文字只改修饰键，字母键固定用配置里当前的；要换字母直接改 `config.toml`。
 
-use qingjian_platform::Modifiers;
-use windows_reactor::*;
+use qingjian_platform::{HighlightKeys, Modifiers};
+use windows_reactor::{
+    Callback, CheckBox, ChildrenControl, ComboBox, ContentControl, Orientation, StackPanel,
+    ToggleSwitch, View, ViewContext,
+};
 
-use crate::panel::controls::{field, index_of, page};
+use crate::panel::controls::{field, index_of, mode_combo, page};
 use crate::panel::{Message, Settings};
 
 /// 翻页键对：界面名 + 配置写法。
@@ -27,7 +30,7 @@ pub(crate) const MODIFIERS: [(&str, &str); 6] = [
     ("Alt + Shift", "shift+alt"),
 ];
 
-fn mode_combo(current: char, callback: Callback<Option<usize>>) -> ComboBox {
+fn mode_key_combo(current: char, callback: Callback<Option<usize>>) -> ComboBox {
     let selected = MODE_KEYS
         .iter()
         .position(|key| key.starts_with(current))
@@ -54,6 +57,28 @@ pub(crate) fn view(settings: &Settings, context: &mut ViewContext<Settings>) -> 
     let s = &settings.config.shortcut;
     let rows = [
         field(
+            "额外翻页键（可多选）",
+            "与下面的主翻页键同时生效。选中的符号在拼音候选中用于翻页；表达式、英文直输段、辅码触发键仍按原有规则处理。",
+            StackPanel::new()
+                .orientation(Orientation::Horizontal)
+                .spacing(12.0)
+                .children(PAGE_KEYS.map(|(label, pair)| {
+                    CheckBox::new()
+                        .is_checked(s.extra_page_keys.contains(pair))
+                        .on_is_checked_changed(
+                            context.callback(move |on| Message::ExtraPageKey(pair, on)),
+                        )
+                        .content(label)
+                })),
+        ),
+        field(
+            "全半角标点切换键",
+            "打开使用 Ctrl + . 切换当前中英模式的标点。可在配置文件 [shortcut] toggle_punctuation 修改组合键，空串关闭。",
+            ToggleSwitch::new()
+                .is_on(s.toggle_punctuation.is_some())
+                .on_toggled(context.callback(Message::TogglePunctuation)),
+        ),
+        field(
             "翻页键",
             "选「, .」或「- =」时组句中敲对应符号是翻页，不再是上屏加标点。",
             ComboBox::new()
@@ -62,14 +87,24 @@ pub(crate) fn view(settings: &Settings, context: &mut ViewContext<Settings>) -> 
                 .on_selection_changed(context.callback(Message::PageKeys)),
         ),
         field(
+            "高亮移动键",
+            "选「← / →」时两键连着拼音行一起走：拼音光标到末尾按 → 才移到下一个候选，候选在首位按 ← 才退回拼音行；此时 ↑ / ↓ 不做事。",
+            mode_combo(
+                &HighlightKeys::ALL,
+                s.highlight_keys,
+                HighlightKeys::label,
+                context.callback(Message::HighlightKeys),
+            ),
+        ),
+        field(
             "表达式模式键",
             "",
-            mode_combo(s.mode.expression, context.callback(Message::ModeExpression)),
+            mode_key_combo(s.mode.expression, context.callback(Message::ModeExpression)),
         ),
         field(
             "问字模式键",
             "这两个字母开头进模式：v1+2 出 3，usangemu 问「三个木」（需要云服务）。两个键不能相同。",
-            mode_combo(s.mode.question, context.callback(Message::ModeQuestion)),
+            mode_key_combo(s.mode.question, context.callback(Message::ModeQuestion)),
         ),
         field(
             "没在输入拼音时敲 ? 也进入问字",
@@ -97,6 +132,14 @@ pub(crate) fn view(settings: &Settings, context: &mut ViewContext<Settings>) -> 
             modifier_combo(
                 s.delete_candidate,
                 context.callback(Message::DeleteCandidate),
+            ),
+        ),
+        field(
+            "按需 AI 联想",
+            "输入拼音时按这组键 + 当前字母（缺省 Ctrl+Alt+J），获取置顶候选。只改修饰键；字母可在配置的 shortcut.predict 中修改。",
+            modifier_combo(
+                s.predict.modifiers,
+                context.callback(Message::PredictShortcut),
             ),
         ),
         field(

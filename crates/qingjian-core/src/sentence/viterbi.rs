@@ -48,7 +48,8 @@ struct Node {
 /// （调用方保证它与词库、`weight`、`personal`、`cost` 一致，这些一变就清）。
 ///
 /// 简拼位置（`w x q`）按前缀取词：每个格子的候选会多得多，由语言模型在路径上分辨。
-/// 全拼句子末尾的前缀太短时不算它（多半是没打完的音节）；前面已有简拼的句子里末尾单字母就是一个音节。
+/// 全拼句子末尾落单的声母也当前缀读（`youdiandongx` → 有点东西）；落单的单元音（i / u）与短于
+/// 两个字母的其他前缀多半是没打完的韵母，不算它；前面已有简拼的句子里末尾单字母就是一个音节。
 pub fn convert(
     dictionaries: &[&Dictionary],
     positions: &[Vec<SyllablePattern<'_>>],
@@ -144,6 +145,9 @@ pub fn convert_paths(
         || last.complete
         || abbreviated_head
         || last.text.len() >= MIN_PARTIAL_LETTERS
+        // 全拼句末尾落单的声母当简拼音节（`youdiandongx` → 有点东西）；落单的单元音（i / u）
+        // 更可能是没打完的韵母，仍不算它。a / o / e 在切分器里就是完整音节，走不到这里
+        || crate::parser::INITIALS.contains(&last.text)
     {
         positions
     } else {
@@ -314,14 +318,18 @@ fn span_candidates(
             .sum::<f64>()
     };
     // 得分先算好再排：单字母简拼的格子能命中几千条，比较器里每次查两张表会让排序占掉十几毫秒
+    // 词频 0 的生僻字不进词图，用户自己选过的除外：`keneng` 按 `ken eng` 切时有了 鞥 就会读出 肯鞥，压过敲错边读出的 可能
     let mut scored: Vec<(f64, f64, Match<'_>)> = dictionaries
         .iter()
         .flat_map(|d| d.lookup_exact_alt(span))
-        .map(|m| {
+        .filter_map(|m| {
             let seen = weight(m.text) + personal.count(m.text);
+            if m.frequency == 0 && seen == 0 {
+                return None;
+            }
             let penalty = penalty_of(&m);
-            let score = f64::from(m.frequency) * (1.0 + f64::from(seen)) * (-penalty).exp();
-            (score, penalty, m)
+            let score = f64::from(m.frequency.max(1)) * (1.0 + f64::from(seen)) * (-penalty).exp();
+            Some((score, penalty, m))
         })
         .collect();
     scored.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
@@ -470,10 +478,19 @@ mod tests {
         let mut patterns = complete(&["wo", "xiang"]);
         patterns.push(vec![SyllablePattern::prefix("ka")]);
         assert_eq!(unigram(&dictionary, &patterns).unwrap().text, "我想开");
-        // 全拼句子末尾的单字母多半是没打完的音节，不参与
+        // 全拼句末尾落单的声母也当简拼读
         let mut patterns = complete(&["wo", "xiang"]);
         patterns.push(vec![SyllablePattern::prefix("k")]);
-        assert_eq!(unigram(&dictionary, &patterns).unwrap().text, "我想");
+        let conversion = unigram(&dictionary, &patterns).unwrap();
+        assert_eq!(conversion.text, "我想开");
+        assert_eq!(conversion.syllables, ["wo", "xiang", "kai"]);
+        // 落单的单元音仍当作没打完的韵母：词库里有「一 yi」也不读
+        let dictionary = Dictionary::parse(&format!("{SAMPLE}一\tyi\t700000\n")).unwrap();
+        let mut patterns = complete(&["wo", "xiang"]);
+        patterns.push(vec![SyllablePattern::prefix("i")]);
+        let conversion = unigram(&dictionary, &patterns).unwrap();
+        assert_eq!(conversion.text, "我想");
+        assert_eq!(conversion.syllables, ["wo", "xiang"]);
     }
 
     fn abbreviated<'a>(letters: &[&'a str]) -> Vec<Vec<SyllablePattern<'a>>> {
@@ -546,6 +563,24 @@ mod tests {
                 _ => None,
             }
         }
+    }
+
+    #[test]
+    fn zero_frequency_words_stay_out_until_chosen() {
+        let dictionary = Dictionary::parse("肯\tken\t100\n鞥\teng\t0\n").unwrap();
+        let patterns = complete(&["ken", "eng"]);
+        assert!(unigram(&dictionary, &patterns).unwrap().has_placeholder());
+        let chosen = convert(
+            &[&dictionary],
+            &patterns,
+            &NoLanguageModel,
+            Personal::NONE,
+            |text| u32::from(text == "鞥"),
+            |_, _| 0.0,
+            &mut SpanCache::default(),
+        )
+        .unwrap();
+        assert_eq!(chosen.text, "肯鞥");
     }
 
     #[test]

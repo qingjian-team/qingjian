@@ -1,6 +1,7 @@
 //! 呈现：删候选、按应用关英文候选、翻译选区的起止、提示气泡、会话重置与候选窗口绘制。
 
 mod notice;
+mod panel;
 mod translation_job;
 
 pub(super) use notice::Notice;
@@ -8,6 +9,7 @@ pub use translation_job::TranslationJob;
 
 use super::cloud::cloud_candidate;
 use super::*;
+use qingjian_core::TraditionalVariant;
 
 impl Host {
     /// 删掉当前页第 `offset` 格的候选：用户词整个删、词库词清学习。返回给用户看的一句话；那格没有候选返回 `None`。
@@ -67,10 +69,14 @@ impl Host {
         }
     }
 
-    /// 横排矩阵这套按键是否生效：开关开着（`[general] horizontal_grid`）、排布是横排，而且在用系统绘制。
-    /// 青简渲染器还没有矩阵窗口，用它时不展开，横排照单行走（见 `docs/notes/crate-notes.md`）。
+    /// 横排矩阵这套按键是否生效：开关开着（`[general] horizontal_grid`）、排布是横排。
     pub fn grid_keys(&self) -> bool {
-        self.horizontal_grid && self.layout == LayoutMode::Horizontal && !self.window.uses_bitmap()
+        self.horizontal_grid && self.layout == LayoutMode::Horizontal
+    }
+
+    /// `←` / `→` 归候选：横排矩阵开着，或高亮移动键选了 `←` / `→`。
+    pub fn arrows_move_cells(&self) -> bool {
+        self.grid_keys() || self.highlight_keys == HighlightKeys::LeftRight
     }
 
     /// 新一轮候选：每页格数取配置与窗口能画的行数中较小者，云端槽位数取配置。
@@ -83,6 +89,10 @@ impl Host {
 
     /// 按会话状态画候选窗口。候选为空且没有 preedit 时收窗。
     pub fn render(&mut self) {
+        if self.engine.symbol_panel().is_some() {
+            self.render_panel();
+            return;
+        }
         let size = self.session.layout.page_size();
         let page = self.session.page;
         // 横排展开成矩阵时画视口里的几行，序号只标在高亮所在那一行（数字键选的就是它）；单行时只画当前页
@@ -147,17 +157,18 @@ impl Host {
             sentence: self.sentence.clone(),
             status: self.status.clone(),
             mode: self.input_mode(),
+            panel: None,
         };
         self.window.show(frame, self.anchor);
     }
 
     /// 给候选窗口主题显示的输入状态：中英看 Caps Lock（与菜单栏一致），其余看配置；英文模式标点是半角。
-    fn input_mode(&self) -> qingjian_render::Mode {
+    pub(super) fn input_mode(&self) -> qingjian_render::Mode {
         let general = &self.settings.config().general;
         let english = crate::imk::modifiers::caps_lock_on();
         qingjian_render::Mode {
             english,
-            traditional: general.traditional,
+            traditional: general.traditional() != TraditionalVariant::Off,
             full_width: !english && general.full_width_punctuation,
             scheme: qingjian_platform::scheme_name(general.scheme(), general.wubi()),
         }

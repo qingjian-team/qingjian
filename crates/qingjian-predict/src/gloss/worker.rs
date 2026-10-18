@@ -7,6 +7,7 @@ use qingjian_core::{FilledGloss, Language};
 use super::prompt;
 use crate::chat_client::ChatClient;
 use crate::error::PredictError;
+use crate::suspension::Suspension;
 
 /// 收到第一个词后最多等这么久再发，攒同一批。
 pub const BATCH_WAIT: Duration = Duration::from_millis(1500);
@@ -30,6 +31,9 @@ pub struct GlossWorker {
 
     /// 本进程内问过的 (语言, 词)，不再问。
     asked: HashSet<(Language, String)>,
+
+    /// 余额不足、密钥无效后的暂停。
+    suspension: Suspension,
 }
 
 impl GlossWorker {
@@ -43,6 +47,7 @@ impl GlossWorker {
             responses,
             client,
             asked: HashSet::new(),
+            suspension: Suspension::default(),
         }
     }
 
@@ -96,11 +101,15 @@ impl GlossWorker {
         }
     }
 
-    fn ask(&self, runtime: &tokio::runtime::Runtime, language: Language, words: Vec<String>) {
+    fn ask(&mut self, runtime: &tokio::runtime::Runtime, language: Language, words: Vec<String>) {
         if words.is_empty() {
             return;
         }
         let start = Instant::now();
+        if self.suspension.active(start) {
+            self.forget(language, &words);
+            return;
+        }
         let system = prompt::system_prompt(language);
         let user = prompt::user_prompt(&words);
         match runtime.block_on(self.client.chat(system, &user, MAX_TOKENS)) {
@@ -121,8 +130,19 @@ impl GlossWorker {
                 }
             }
             Err(error) => {
-                tracing::warn!(language = language.code(), asked = words.len(), %error, "释义兜底失败");
+                if self.suspension.record(&error, Instant::now(), "释义兜底") {
+                    self.forget(language, &words);
+                } else {
+                    tracing::warn!(language = language.code(), asked = words.len(), %error, "释义兜底失败");
+                }
             }
+        }
+    }
+
+    /// 暂停期间没问成的词从「问过」里拿掉，恢复后再上屏还会问。
+    fn forget(&mut self, language: Language, words: &[String]) {
+        for word in words {
+            self.asked.remove(&(language, word.clone()));
         }
     }
 }

@@ -23,9 +23,9 @@ use windows::Win32::System::Pipes::{
 };
 use windows::core::{HRESULT, HSTRING};
 
-use qingjian_platform::protocol::{ClientMessage, ServerMessage, read_message, write_message};
+use qingjian_platform::protocol::{ClientMessage, ServerMessage};
 
-use super::Work;
+use super::{Handled, Work};
 use crate::dispatch::Router;
 
 pub use qingjian_platform::protocol::DEFAULT_PIPE_NAME;
@@ -75,6 +75,7 @@ pub fn serve_pipe(
             }
             Ok(Work::Status(event)) => router.handle_status_event(event),
             Ok(Work::Click(target)) => router.handle_click(target),
+            Ok(Work::Panel(hit)) => router.handle_panel_mouse(hit),
             Err(RecvTimeoutError::Timeout) => continue,
             Err(RecvTimeoutError::Disconnected) => break,
         }
@@ -167,32 +168,37 @@ fn wait_client(stream: File) -> io::Result<File> {
 }
 
 /// 服务一条连接：读消息 → 转给工人线程 → 写回，直到对端在帧边界关闭或出错。
+///
+/// 断开后把本连接上开过的会话照单 `CloseSession`：DLL 来不及发（应用被关 / 崩了），
+/// 会话留在 Router 里会让聚焦会话的组句与候选窗口一直挂着，直到别的应用来一个键把它挤掉。
 fn serve_connection(mut stream: File, sender: Sender<Work>) {
     let (reply_sender, reply_receiver) = mpsc::channel::<Option<ServerMessage>>();
-    loop {
-        let message = match read_message::<_, ClientMessage>(&mut stream) {
-            Ok(Some(message)) => message,
-            Ok(None) => break,
-            Err(error) => {
-                tracing::warn!(%error, "客户端会话读出错");
-                break;
+    let mut opened = Vec::new();
+    let outcome = super::pump(
+        &mut stream,
+        |message| {
+            if sender
+                .send(Work::Client(message, reply_sender.clone()))
+                .is_err()
+            {
+                return Handled::Stop;
             }
-        };
-        if sender
-            .send(Work::Client(message, reply_sender.clone()))
-            .is_err()
-        {
-            break;
-        }
-        match reply_receiver.recv() {
-            Ok(Some(response)) => {
-                if write_message(&mut stream, &response).is_err() {
-                    break;
-                }
+            match reply_receiver.recv() {
+                Ok(reply) => Handled::Reply(reply.map(Box::new)),
+                Err(_) => Handled::Stop,
             }
-            Ok(None) => {}
-            Err(_) => break,
-        }
+        },
+        &mut opened,
+    );
+    if let Err(error) = outcome {
+        tracing::warn!(%error, "客户端会话读出错");
+    }
+    for session in opened {
+        // 工人线程已经不在了就没人收，丢掉即可
+        let _ = sender.send(Work::Client(
+            ClientMessage::CloseSession { session },
+            reply_sender.clone(),
+        ));
     }
     let _ = unsafe { DisconnectNamedPipe(HANDLE(stream.as_raw_handle())) };
     tracing::debug!("客户端断开");

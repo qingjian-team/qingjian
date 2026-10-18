@@ -46,7 +46,9 @@ fn run() -> Result<(), GlossError> {
                 .build()?;
             runtime.block_on(generate::run(generate))
         }
-        Command::Export(export) => store::export(&export.input, &export.out_dir),
+        Command::Export(export) => {
+            store::export(&export.input, &export.out_dir, export.strip_german_articles)
+        }
         Command::English(english) => {
             let runtime = tokio::runtime::Builder::new_multi_thread()
                 .enable_all()

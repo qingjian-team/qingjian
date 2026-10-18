@@ -33,6 +33,10 @@ pub fn default_config_file() -> PathBuf {
 #[derive(Debug, Parser)]
 #[command(name = "qingjian", about = "青简输入法 Core 测试工具")]
 pub struct Args {
+    /// 每次查询的 emoji 候选上限，0 关闭；缺省保持最多三个。
+    #[arg(long, default_value_t = 3, value_parser = clap::value_parser!(u8).range(0..=3))]
+    pub emoji_limit: u8,
+
     /// 词库路径（TSV）。缺省：data/generated/dict.tsv 存在就用它，否则 assets/sample/dict.tsv
     #[arg(long)]
     pub dict: Option<PathBuf>,
@@ -41,7 +45,7 @@ pub struct Args {
     #[arg(long)]
     pub glossary: Option<PathBuf>,
 
-    /// 学习语言：en / ja / es / vi。也可用环境变量 QINGJIAN_LEARNING_LANGUAGE
+    /// 学习语言：en / ja / es / vi / de。也可用环境变量 QINGJIAN_LEARNING_LANGUAGE
     #[arg(long, env = "QINGJIAN_LEARNING_LANGUAGE", default_value = "en")]
     pub language: String,
 
@@ -86,7 +90,7 @@ pub struct Args {
     #[arg(long)]
     pub chinese_first: bool,
 
-    /// 双拼方案（xiaohe / ziranma / microsoft / sogou / abc / xiaolang / shoudao），覆盖配置里的 [general] shuangpin；off 强制全拼
+    /// 双拼方案（xiaohe / ziranma / microsoft / sogou / abc / xiaolang / shoudao / jiajia / ziguang），覆盖配置里的 [general] shuangpin；off 强制全拼
     #[arg(long)]
     pub shuangpin: Option<String>,
 
@@ -126,6 +130,24 @@ pub struct Args {
     #[arg(long)]
     pub replay: Option<PathBuf>,
 
+    /// 从输入日志挖词库缺词：上屏文字按语言模型切词，连续单字段与「模型认识、词库没有」的词
+    /// 按出现次数列成 `词\t拼音\t次数` 清单，人工过目后并进词库；只读日志，不写任何文件
+    #[arg(long, conflicts_with_all = ["replay", "eval_text", "eval_cold"])]
+    pub mine_log: Option<PathBuf>,
+
+    /// 挖词的最低出现次数（配 --mine-log，缺省 2）
+    #[arg(long, default_value_t = 2, requires = "mine_log")]
+    pub mine_min_count: u32,
+
+    /// 挖词的最长字数（配 --mine-log，缺省 6）
+    #[arg(long, default_value_t = 6, requires = "mine_log")]
+    pub mine_max_chars: usize,
+
+    /// 把过阈值的**全拼**行直接并进用户词（配 --mine-log）：给了 --user-dict 写回同目录的
+    /// user-words.tsv，不给则只打印预演；简拼行单独列出等人工补读音
+    #[arg(long, requires = "mine_log")]
+    pub mine_apply: bool,
+
     /// 回放 / 整句评测时打印前 N 条没命中首选的例子
     #[arg(long, default_value_t = 20)]
     pub misses: usize,
@@ -157,7 +179,7 @@ pub struct Args {
     pub eval_details: Option<PathBuf>,
 
     /// 冷启动字词评测：读取 JSONL，不加载个人配置或个人学习文件
-    #[arg(long, requires = "cold_output", conflicts_with_all = ["user_dict", "config", "predict", "replay", "eval_text", "english_mode", "shuangpin", "wubi", "aux_table", "tune", "fuzzy", "inputs", "neural_async"])]
+    #[arg(long, requires = "cold_output", conflicts_with_all = ["user_dict", "config", "predict", "replay", "eval_text", "english_mode", "shuangpin", "wubi", "aux_table", "tune", "fuzzy", "inputs", "neural_async", "mine_log"])]
     pub eval_cold: Option<PathBuf>,
 
     /// 冷启动逐词结果 JSONL（拒绝覆盖）

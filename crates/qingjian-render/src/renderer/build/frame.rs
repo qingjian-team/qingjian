@@ -3,18 +3,18 @@
 //! 表格各列取各行最宽，最后补一列 `1fr` 吃掉剩余宽度，这样 `span: row` 的节点（高亮条）能横跨整个表格宽；
 //! 列间距由各格的外边距给（grid 的 gap 会让补的那一列也多出一个间距）。
 
-use taffy::prelude::{FromFr, TaffyAuto, TaffyGridLine, minmax};
-use taffy::{
+use bamboo_slip::taffy::prelude::{FromFr, TaffyAuto, TaffyGridLine, minmax};
+use bamboo_slip::taffy::{
     AlignContent, AlignItems, Display, GridPlacement, GridTemplateComponent, JustifyContent, Line,
     MaxTrackSizingFunction, MinTrackSizingFunction, NodeId, Style,
 };
 
 use super::layout_style;
 use super::{Builder, Context};
-use crate::color::Color;
-use crate::error::RenderError;
-use crate::scene::{BoxPaint, Fill, Visual};
 use crate::theme::file::node::{BoxSpec, FillSpec, NodeKind, NodeSpec, Span, StopSpec};
+use bamboo_slip::Color;
+use bamboo_slip::RenderError;
+use bamboo_slip::{BoxPaint, Fill, Visual};
 
 impl Builder<'_> {
     pub(super) fn frame(
@@ -73,7 +73,10 @@ impl Builder<'_> {
             None => {
                 let mut nodes = Vec::with_capacity(children.len());
                 for child in children {
-                    self.node(child, ctx, &BoxSpec::default(), &mut nodes)?;
+                    match self.matrix(child, layout.gap, ctx)? {
+                        Some(grid) => nodes.push(grid),
+                        None => self.node(child, ctx, &BoxSpec::default(), &mut nodes)?,
+                    }
                 }
                 self.scene
                     .node(layout_style::flex(base, *direction), visual, &nodes)?

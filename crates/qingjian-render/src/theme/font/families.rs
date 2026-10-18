@@ -1,15 +1,17 @@
-//! 主题的字族表：缺省字族与各命名样式的回退链去重后排成一张表，样式里存序号（[`FamilyId`]），文字样式因此仍可按值复制。
-//! 加载主题时建一次；渲染器按序号查链、挑第一个装了的字族。
+//! 主题的字体表：缺省字族与各命名样式的回退链进引擎的字族表（[`FamilyTable`]），命名样式里只存序号。
+//! 加载主题时建一次；画笔按序号查链、挑第一个装了的字族。
 
 use std::collections::HashMap;
+use std::sync::Arc;
 
-use super::{FamilyId, FontSpec};
-use crate::theme::file::{FamilyList, FontStyle, TextSettings};
+use bamboo_slip::{FamilyList, FamilyTable, FontSpec};
+
+use crate::theme::file::{FontStyle, TextSettings};
 
 #[derive(Debug, Default)]
 pub(crate) struct FontFamilies {
-    /// 回退链，序号就是 [`FamilyId`]；第 0 条是缺省字族。
-    chains: Vec<FamilyList>,
+    /// 回退链，交给画笔；同一主题的浅色 / 深色共用这一份。
+    table: Arc<FamilyTable>,
 
     /// 命名样式（点），字族已换成序号。
     styles: HashMap<String, FontSpec>,
@@ -17,60 +19,39 @@ pub(crate) struct FontFamilies {
 
 impl FontFamilies {
     pub(crate) fn new(text: &TextSettings) -> Self {
-        let mut chains = vec![text.family.clone().unwrap_or_else(FamilyList::system)];
+        let mut table = FamilyTable::new(text.family.clone().unwrap_or_else(FamilyList::system));
         // 按样式名排，字族表的顺序（也是壳查字体的顺序）每次加载都一样
         let mut named: Vec<_> = text.styles.iter().collect();
         named.sort_by(|a, b| a.0.cmp(b.0));
         let styles = named
             .into_iter()
             .map(|(name, spec)| {
-                let family = match &spec.family {
-                    Some(list) => intern(&mut chains, list),
-                    None => FamilyId(0),
-                };
                 let font = FontSpec {
                     size: spec.size,
                     line_height: spec.line_height,
                     weight: spec.weight,
                     italic: spec.style == FontStyle::Italic,
-                    family,
+                    family: spec
+                        .family
+                        .as_ref()
+                        .map_or(bamboo_slip::FamilyId(0), |list| table.intern(list)),
                 };
                 (name.clone(), font)
             })
             .collect();
-        Self { chains, styles }
+        Self {
+            table: Arc::new(table),
+            styles,
+        }
     }
 
     pub(crate) fn style(&self, name: &str) -> Option<FontSpec> {
         self.styles.get(name).copied()
     }
 
-    /// 全部回退链，按序号排。
-    pub(crate) fn chains(&self) -> &[FamilyList] {
-        &self.chains
+    pub(crate) fn table(&self) -> &Arc<FamilyTable> {
+        &self.table
     }
-
-    /// 链里写到的字族名（不含 `system`），去重；壳按名字查字体文件交给渲染器加载。
-    pub(crate) fn names(&self) -> Vec<String> {
-        let mut names: Vec<String> = Vec::new();
-        for name in self.chains.iter().flat_map(|chain| &chain.0) {
-            if !FamilyList::is_system(name) && !names.contains(name) {
-                names.push(name.clone());
-            }
-        }
-        names
-    }
-}
-
-fn intern(chains: &mut Vec<FamilyList>, list: &FamilyList) -> FamilyId {
-    let index = chains
-        .iter()
-        .position(|chain| chain == list)
-        .unwrap_or_else(|| {
-            chains.push(list.clone());
-            chains.len() - 1
-        });
-    FamilyId(u16::try_from(index).unwrap_or(0))
 }
 
 #[cfg(test)]
@@ -138,6 +119,12 @@ mod tests {
             match theme.id() {
                 // 候选宋体（mac / Windows 各一个名字），标语 Georgia 斜体
                 "sakura" => assert_eq!(families, ["Songti SC", "SimSun", "Georgia"]),
+                "dafeiyu" | "bocchi" => assert_eq!(families, ["PingFang SC", "Microsoft YaHei"]),
+                // 「01」用 Avenir Next（mac）/ Segoe UI（Windows）
+                "miku" => assert_eq!(
+                    families,
+                    ["PingFang SC", "Microsoft YaHei", "Avenir Next", "Segoe UI"]
+                ),
                 id => assert!(families.is_empty(), "{id}"),
             }
         }

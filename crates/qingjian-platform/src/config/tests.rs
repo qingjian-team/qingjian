@@ -16,6 +16,28 @@ fn partial_file_keeps_other_defaults() {
     assert_eq!(config.predict.model, "deepseek-flash");
     assert_eq!(config.predict.reasoning_effort, "none");
     assert_eq!(config.predict.api_key_env, "QINGJIAN_API_KEY");
+    assert!(config.predict.automatic);
+    assert_eq!(config.predict.debounce_ms, 300);
+    assert_eq!(config.predict.min_interval_ms, 3000);
+}
+
+#[test]
+fn emoji_reads_counts_and_old_switch() {
+    let emoji = |value: &str| {
+        toml::from_str::<Config>(&format!("[general]\nemoji = {value}\n"))
+            .unwrap()
+            .general
+            .emoji
+            .get()
+    };
+    assert_eq!(emoji("true"), 3);
+    assert_eq!(emoji("false"), 0);
+    assert_eq!(emoji("2"), 2);
+    assert_eq!(emoji("0"), 0);
+    assert_eq!(emoji("9"), 3);
+    assert_eq!(emoji("-1"), 0);
+    assert_eq!(emoji("\"yes\""), 3);
+    assert_eq!(emoji("1.5"), 3);
 }
 
 #[test]
@@ -40,9 +62,14 @@ fn general_and_shortcut_sections_parse() {
     assert_eq!(config.general.preedit, PreeditMode::Window);
     assert_eq!(config.general.learning_language, "en");
     assert!(config.general.english_candidates);
-    assert!(config.general.emoji);
+    assert_eq!(config.general.emoji, EmojiCount::new(3));
+    assert_eq!(config.general.kaomoji, EmojiCount::new(1));
+    assert_eq!(config.general.symbols, EmojiCount::new(1));
     assert!(config.general.english_in_chinese);
-    assert!(!config.general.traditional);
+    assert_eq!(
+        config.general.traditional(),
+        qingjian_core::TraditionalVariant::Off
+    );
     assert_eq!(config.general.shuangpin(), None);
     assert_eq!(config.general.log_level, LogLevel::Info);
     assert_eq!(config.shortcut.mode.expression, 'i');
@@ -240,4 +267,28 @@ fn font_size_edits_ignore_echoed_theme_size() {
         Some(FontSize(17.0))
     );
     assert_eq!(unset.edited(None, Some(17.0)), None);
+}
+
+#[test]
+fn cloud_trigger_settings_parse_and_round_trip() {
+    let config: Config =
+        toml::from_str("[predict]\nautomatic = true\ndebounce_ms = 1200\nmin_interval_ms = 5000\n")
+            .unwrap();
+    assert!(config.predict.automatic);
+    assert_eq!(config.predict.debounce_ms, 1200);
+    assert_eq!(config.predict.min_interval_ms, 5000);
+    assert_eq!(
+        toml::from_str::<Config>(&toml::to_string(&config).unwrap()).unwrap(),
+        config
+    );
+}
+
+#[test]
+fn manual_prediction_shortcut_round_trips() {
+    let config: Config = toml::from_str("[shortcut]\npredict = \"ctrl+alt+k\"\n").unwrap();
+    assert_eq!(config.shortcut.predict.key, 'k');
+    assert_eq!(
+        toml::from_str::<Config>(&toml::to_string(&config).unwrap()).unwrap(),
+        config
+    );
 }

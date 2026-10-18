@@ -84,6 +84,24 @@ impl Engine {
         if best.syllables.len() < 2 {
             return Vec::new();
         }
+        // 末尾只敲了一个声母（viterbi 放行的落单声母，见 #619）时，词级已有一个整词逐音节对上
+        // 全部输入（`houxuank` → 候选框、`zaiw` → 在外），整句把同一个声母猜成另一句话
+        // （后悬空、在我）就不该插到那个词前面：与「整段本就是词库词时不出整句」同一道理。
+        let trailing_single_initial =
+            best.last_is_partial() && best.syllables.last().is_some_and(|s| s.text.len() == 1);
+        if trailing_single_initial {
+            let patterns = best.patterns();
+            if items.iter().any(|c| {
+                c.kind == CandidateKind::Chinese
+                    && c.syllables.len() == patterns.len()
+                    && c.syllables
+                        .iter()
+                        .zip(&patterns)
+                        .all(|(syllable, pattern)| pattern.accepts(syllable))
+            }) {
+                return Vec::new();
+            }
+        }
         let wanted = if alternates && best.syllables.len() >= ALTERNATE_MIN_SYLLABLES {
             SENTENCE_CANDIDATES
         } else {

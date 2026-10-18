@@ -1,6 +1,13 @@
-//! 附加候选：日期时间等快捷项、中英混输的英文词与补全、emoji。
+//! 附加候选：日期时间等快捷项、中英混输的英文词与补全、emoji 与颜文字、符号。
 
-use super::*;
+use super::{
+    EMOJI_PER_WORD, EMOJI_SCAN, ENGLISH_COMPLETIONS, Engine, KAOMOJI_PER_WORD, Learner,
+    MIN_COMPLETION_LETTERS,
+};
+use crate::candidate::{Candidate, CandidateKind};
+use crate::emoji::EmojiTable;
+use crate::shortcut;
+use qingjian_dictionary::WordList;
 
 impl Engine {
     /// 精确匹配自定义输入码时，数字键应选择候选。
@@ -98,6 +105,8 @@ impl Engine {
         let word = lists.iter().find_map(|words| words.get(text));
         // 这段字母下用户选中文词（`key` → 可以）比选英文词的次数多：中文词留在第一，英文让到后面；
         // 拼音再不像话也是他自己教的
+        // 仲裁只看字面键：`wenti` 下选的 问题 不能隔着 `went` 把英文词顶下去，
+        // 打的正是这个英文时它得留在第一——同一段字母上选过中文的照旧算。
         let chosen = items
             .first()
             .filter(|c| c.kind == CandidateKind::Chinese)
@@ -164,63 +173,103 @@ impl Engine {
             .collect()
     }
 
-    /// emoji 候选：前几个中文候选里有配 emoji 的，emoji 紧跟在那个词后面，右侧标注它对应的词。
-    /// 词后面紧挨着的英文词候选（中文优先时 `key` → 可以、key）不被 emoji 挤开，emoji 排在它之后。
+    /// emoji、颜文字、符号候选：前几个中文候选里有配的，紧跟在那个词后面，右侧标注它对应的词。
+    /// 同一个词后面按 emoji、颜文字、符号的顺序排，三样各有各的名额；前面已经有的（CLDR 也配了的符号）不重复出。
     pub(super) fn insert_emoji(&self, items: &mut Vec<Candidate>) {
-        let Some(table) = self.emoji.as_ref().filter(|_| self.emoji_candidates) else {
-            return;
+        if let Some(table) = self.emoji.as_ref() {
+            insert_following(
+                items,
+                table,
+                CandidateKind::Emoji,
+                EMOJI_PER_WORD,
+                self.emoji_limit,
+            );
+        }
+        if let Some(table) = self.kaomoji {
+            insert_following(
+                items,
+                table,
+                CandidateKind::Kaomoji,
+                KAOMOJI_PER_WORD,
+                self.kaomoji_limit,
+            );
+        }
+        if let Some(table) = self.symbols {
+            insert_following(
+                items,
+                table,
+                CandidateKind::Symbol,
+                EMOJI_PER_WORD,
+                self.symbol_limit,
+            );
+        }
+    }
+}
+
+/// 给前 [`EMOJI_SCAN`] 个词配 `table` 里的条目，插在词（以及紧挨着它的英文词、已经配上的条目）后面。
+/// 词后面紧挨着的英文词候选（中文优先时 `key` → 可以、key）不被挤开，配的条目排在它之后。
+fn insert_following(
+    items: &mut Vec<Candidate>,
+    table: &EmojiTable,
+    kind: CandidateKind,
+    per_word: usize,
+    limit: usize,
+) {
+    let mut inserted = 0;
+    let mut index = 0;
+    let mut scanned = 0;
+    while index < items.len() && scanned < EMOJI_SCAN && inserted < limit {
+        let item = &items[index];
+        index += 1;
+        if !matches!(
+            item.kind,
+            CandidateKind::Chinese | CandidateKind::Sentence | CandidateKind::English
+        ) {
+            continue;
+        }
+        scanned += 1;
+        // 英文词按小写查英文表（smile → 😀）
+        let key = if item.kind == CandidateKind::English {
+            item.text.to_lowercase()
+        } else {
+            item.text.clone()
         };
-        let mut inserted = 0;
-        let mut index = 0;
-        let mut scanned = 0;
-        while index < items.len() && scanned < EMOJI_SCAN && inserted < EMOJI_TOTAL {
-            let item = &items[index];
+        let fresh: Vec<String> = table
+            .lookup(&key)
+            .iter()
+            .filter(|entry| !items.iter().any(|c| &c.text == *entry))
+            .take(per_word)
+            .cloned()
+            .collect();
+        if fresh.is_empty() {
+            continue;
+        }
+        let word = items[index - 1].text.clone();
+        let syllables = items[index - 1].syllables.clone();
+        let own_kind = items[index - 1].kind;
+        while items.get(index).is_some_and(|next| {
+            (own_kind != CandidateKind::English && next.kind == CandidateKind::English)
+                || (next.kind.follows_word() && next.reading.as_deref() == Some(word.as_str()))
+        }) {
             index += 1;
-            if !matches!(
-                item.kind,
-                CandidateKind::Chinese | CandidateKind::Sentence | CandidateKind::English
-            ) {
-                continue;
+        }
+        for entry in fresh {
+            if inserted >= limit {
+                break;
             }
-            scanned += 1;
-            // 英文词按小写查英文表（smile → 😀）
-            let key = if item.kind == CandidateKind::English {
-                item.text.to_lowercase()
-            } else {
-                item.text.clone()
-            };
-            let emojis = table.lookup(&key);
-            if emojis.is_empty() {
-                continue;
-            }
-            let word = item.text.clone();
-            let syllables = item.syllables.clone();
-            if item.kind != CandidateKind::English {
-                while items
-                    .get(index)
-                    .is_some_and(|next| next.kind == CandidateKind::English)
-                {
-                    index += 1;
-                }
-            }
-            for emoji in emojis.iter().take(EMOJI_PER_WORD) {
-                if inserted >= EMOJI_TOTAL {
-                    break;
-                }
-                items.insert(
-                    index,
-                    Candidate {
-                        text: emoji.clone(),
-                        kind: CandidateKind::Emoji,
-                        syllables: syllables.clone(),
-                        reading: Some(word.clone()),
-                        translation: None,
-                        aux_code: None,
-                    },
-                );
-                index += 1;
-                inserted += 1;
-            }
+            items.insert(
+                index,
+                Candidate {
+                    text: entry,
+                    kind,
+                    syllables: syllables.clone(),
+                    reading: Some(word.clone()),
+                    translation: None,
+                    aux_code: None,
+                },
+            );
+            index += 1;
+            inserted += 1;
         }
     }
 }

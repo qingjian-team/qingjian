@@ -468,3 +468,5 @@
 加减乘除	16	jia jian cheng chu
 正负号	3	zheng fu hao
 加减号	500	jia jian hao
+# 生僻字词（2026-10-13）：𰻝 在扩展 G，只能整词打出，定值按 20 的底值。
+𰻝𰻝面	20	biang biang mian

@@ -65,7 +65,7 @@
 - [x] 中英混杂词与英文专名（2026-09-15）：`assets/lexicon/mixed_words.tsv`（C盘 / B站 / U盘 / T恤 / A股…，`cpan`→C盘，`youpan`→U盘，
   可进整句 `wozaibzhan`→我在B站）；`dict-convert english` 同编码优先大写专名（Windows ≠ windows），`07_display_forms.tsv` 补 VSCode / Bilibili 等；
   产品 `dict.tsv` / `english.tsv` 已更新。句中英文仍只支持句末尾段，见「中英混输」。
-- [ ] 按输入串记的选择只认字面：`wod` 下选的 我的 惠及不到 `wode`；考虑同时按候选全拼记一份、查询取两者最大
+- [x] 按输入串记的选择只认字面：已按「候选全拼记一份、查询取两者最大」做了（`user-choices.tsv` 字面键 + 读音键各一份；读音键只在当前输入是读音前缀且不少于两个字母时参与，简拼不带全拼的选择；英文词位置的仲裁只按字面键）
 - [ ] 已经学进用户词的错读音云端词（`我的 wo di`、`我的哦 wo di e` 这类）没有清理入口：偏好设置词库页给「按读音核对用户词」，或一次性脚本
 - [ ] 正式版前的发布可信性（2026-09-12 外部 CI 检查，测试版先不做）：产品数据改不可变 tag 并在仓库锁版本 + SHA（2026-09-16 已做：`data-vN` Release + `tools/release/data.lock` + `data-fetch.sh`）；
   安装包内容验证（pkg / Setup.exe 里词库、模型、许可齐不齐，`codesign --verify` / `signtool verify`）；`cargo deny`（许可证 + 来源）；`.qj` 读取器越界 fuzz、`qingjian-format` 跑 Miri
@@ -73,11 +73,11 @@
   重排改了切分时应用里的行内拼音要到下一键才更新；日语
 - [ ] 个人微调（LoRA 挂在冻结基模上，基模更新后拿本地日志重训）：先在 train 仓库验证收益，再验 candle CPU 训练能不能跑通，都过了才进壳
   （闲时门禁、加载时合并权重、开关与一键清除）；每个模型假设先按 `docs/plan/model-eval.md` 写尺子与基线
-- [ ] 个人英文词表没有衰减（2026-09-24 发现）：`learn_english` 只加不减，`insert_english` 里的 `choice_weight` 只决定
-  「要不要当第一」（`english_first`），位置只有 0 和 1 两档——用户选一百次中文候选，那条英文还是钉在词级候选第一位。
-  于是打不出来时原样上屏攒下的失败拼音（`houxuanshengcheng`、`shururizhi`）会永久占第一页一格，不危险但也不自愈。
-  合理的改法是让选择次数参与位置而不只是决定第一名，属于排序改动，先跑 `--replay` 冻结日志与整句评测再动。
-  现成出口：删候选快捷键（缺省 `Shift` + 数字）走的就是 `forget_english`。
+- [ ] 通变按当前词库重标拼音重训：训练用的旧词库没有 嗯 / 诶 / 囧，字表里也就没有，带这几个字的路径现在整批不重排（`enen` 靠静态模型出 嗯嗯）
+- [x] 个人英文词表没有衰减（2026-09-24 发现）：用户词频 / 个人英文词 / 敲错表三张表已加牛顿冷却时间衰减
+  （半衰期 90 天，`--tune decay-days=` 可调，0 为不衰减），冷却只压排序权重，记录保留、冷满一年才在落盘时清出，
+  30 天不用的英文词失去「当第一」的资格；自愈出口仍是删候选快捷键（缺省 `Shift` + 数字）走 `forget_english`。
+  「位置只有两档」另见 #606。
 - [ ] 日语 emoji 要等有日语输入模式
 
 ## 二、产品特色
@@ -116,6 +116,8 @@
   - [~] **⑤ 任务栏点中/英反同步**（★☆☆ / 低 / 0.5 天）：**代码完成，待真机测**（2026-09-11）。
     激活时对转换模式 compartment 挂 `ITfCompartmentEventSink`（`com/conversion.rs`），`OnChange` 读回 `NATIVE` 位、与当前模式不同才翻转
     （防回环），顺带刷指示器 + 上报 Server 让悬浮状态条也同步。纯 DLL 改动、无新协议。
+  - [~] **符号面板**：代码完成，待真机测（2026-10-13）。这一版原生画（Direct2D，彩色 emoji），下一版换 qingjian-render；
+    按键与鼠标同 macOS，入口在悬浮状态条「符」格与托盘中 / 英图标的右键菜单。
   - [ ] 发版：换 **Certum 开源代码签名证书**重签（开发全程自签 + 本机受信任根，见 `installer/sign-local.ps1`）、
     `windows-v<版本>` 标签与 CI。
   - [ ] **本地整句模型上 Windows**：Server 已接（`dispatch/rescore/`，CPU 推理，设置「云服务」页有开关，安装包带 `data\model`），待真机验：每次重排的耗时（前文 + 几条路径一次前向，CPU 上可能几十到一百多毫秒，超了就缩前文长度）、模型加载时间；
@@ -124,6 +126,18 @@
     data Release 传 `model.qjm`，bundle.sh / qingjian.iss 只带一个文件），待 mac 与 box 真机各装一次验加载与重排；
     密码框已按 TSF 规范做（2026-09-12）：`KEYBOARD_DISABLED` compartment 整键放行不组句，`IS_PRIVATE` / 密码 / PIN 输入范围为私密（组句但不学不记不发云端，`ClientMessage::Privacy` → `Engine::set_private`），box 真机验过：Edge 密码框整键放行；InPrivate 网页文本框报 `IS_SEARCH` 不报 `IS_PRIVATE`，私密路径只靠单测覆盖；CI 两个 job 都从 `data` Release 取 `model.qjm`（已做）。
 - [ ] Linux Fcitx5 后续（默认面板与手动安装已实现）：native Wayland 验证、Server 自绘 / GNOME 位图、神经重排、自动启动与打包；配置同步、跨平台词库
+- [ ] 设置项的平台缺口（设置程序 `apps/settings/src/support/` 表里标「待实现」的项，输入法接上之前设置里不显示；测试逐条对照这里）：
+  - [ ] 辅码：macOS、Linux
+  - [ ] 默认英文模式：macOS、Linux
+  - [ ] 按应用记住中英模式：macOS、Linux
+  - [ ] 中文与英文、数字之间自动加空格：Windows、Linux
+  - [ ] 横排时 ↑ / ↓ 展开成多行：Linux
+  - [ ] 额外翻页键：macOS、Linux
+  - [ ] 高亮移动键：Linux
+  - [ ] Ctrl + . 切换全半角标点：macOS、Linux
+  - [ ] 云服务用量统计：Linux
+  - [ ] 按需云联想与请求节奏：macOS、Linux
+  - [ ] 生词本整句翻译：Linux
 
 ## 四、其他输入方案
 

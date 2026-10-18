@@ -4,21 +4,8 @@ use qingjian_platform::{Appearance, CandidateRenderer, FontSize, LayoutMode, Pre
 use qingjian_render::ThemeLibrary;
 use windows_reactor::*;
 
-use crate::panel::controls::{field, page};
+use crate::panel::controls::{field, mode_combo, page};
 use crate::panel::{Message, Settings};
-
-/// 枚举下拉：按 `label()` 列项，选中 `current`（找不到取 0）。
-fn mode_combo<T: PartialEq + Copy>(
-    all: &'static [T],
-    current: T,
-    label: fn(T) -> &'static str,
-    callback: Callback<Option<usize>>,
-) -> ComboBox {
-    ComboBox::new()
-        .items_source(all.iter().map(|mode| label(*mode)))
-        .selected_index(all.iter().position(|mode| *mode == current).unwrap_or(0))
-        .on_selection_changed(callback)
-}
 
 /// 字号框：不限范围；没设过显示主题的字号（用户知道从哪个数开始调）。
 fn size_box(size: FontSize, theme: Option<f32>, callback: Callback<Option<f64>>) -> NumberBox {
@@ -77,6 +64,14 @@ pub(crate) fn view(settings: &Settings, context: &mut ViewContext<Settings>) -> 
                 LayoutMode::label,
                 context.callback(Message::Layout),
             ),
+        ),
+        field(
+            "多行展开",
+            "勾上后横排下 ↑ / ↓ 把一行展开成 6 行矩阵并换行，← / → 在候选之间移动（← 顶到第一个候选后接着按可移动拼音光标，→ 移回末尾后恢复移动候选），第一排再按 ↑ 回到第一个候选，Esc 第一下先收回；不勾（缺省）按键与以前一样。",
+            ToggleSwitch::new()
+                .is_on(g.horizontal_grid)
+                .is_enabled(g.layout == LayoutMode::Horizontal)
+                .on_toggled(context.callback(Message::HorizontalGrid)),
         ),
         field(
             "渲染引擎",

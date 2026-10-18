@@ -6,7 +6,9 @@ use serde::{Deserialize, Serialize};
 
 use super::table::Table;
 use super::{Decoded, Unit, table};
+use crate::fuzzy::FuzzyRules;
 use crate::parser;
+use qingjian_dictionary::SyllablePattern;
 
 /// 双拼方案。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -32,11 +34,17 @@ pub enum Scheme {
 
     /// 首道双拼。
     Shoudao,
+
+    /// 拼音加加双拼。
+    Jiajia,
+
+    /// 紫光双拼。
+    Ziguang,
 }
 
 impl Scheme {
     /// 全部方案，设置界面按这个顺序列出。
-    pub const ALL: [Self; 7] = [
+    pub const ALL: [Self; 9] = [
         Self::Xiaohe,
         Self::Ziranma,
         Self::Microsoft,
@@ -44,6 +52,8 @@ impl Scheme {
         Self::Abc,
         Self::Xiaolang,
         Self::Shoudao,
+        Self::Jiajia,
+        Self::Ziguang,
     ];
 
     /// 配置文件里的写法。`const`：设置界面要按方案列表建常量表（见 `qingjian_platform::Scheme`）。
@@ -56,6 +66,8 @@ impl Scheme {
             Self::Abc => "abc",
             Self::Xiaolang => "xiaolang",
             Self::Shoudao => "shoudao",
+            Self::Jiajia => "jiajia",
+            Self::Ziguang => "ziguang",
         }
     }
 
@@ -69,6 +81,8 @@ impl Scheme {
             Self::Abc => "智能ABC",
             Self::Xiaolang => "小浪双拼",
             Self::Shoudao => "首道双拼",
+            Self::Jiajia => "拼音加加",
+            Self::Ziguang => "紫光双拼",
         }
     }
 
@@ -81,6 +95,8 @@ impl Scheme {
             Self::Abc => &table::ABC,
             Self::Xiaolang => &table::XIAOLANG,
             Self::Shoudao => &table::SHOUDAO,
+            Self::Jiajia => &table::JIAJIA,
+            Self::Ziguang => &table::ZIGUANG,
         }
     }
 
@@ -89,7 +105,7 @@ impl Scheme {
         self.table().semicolon
     }
 
-    /// `c` 是不是这套方案的键：小写字母，微软 / 搜狗再加 `;`。
+    /// `c` 是不是这套方案的键：小写字母，微软 / 搜狗 / 紫光再加 `;`。
     pub fn is_key(self, c: char) -> bool {
         c.is_ascii_lowercase() || (c == ';' && self.uses_semicolon())
     }
@@ -128,13 +144,18 @@ impl Scheme {
             }
         }
         let initial = self.initial(first)?;
-        self.finals(second)
+        // jv / qv 这类全拼键盘别名也是合法音节，解码结果统一成词库写法
+        let valid: Vec<String> = self
+            .finals(second)
             .iter()
-            .find_map(|final_| {
-                // jv / qv 这类全拼键盘别名也是合法音节，解码结果统一成词库写法
-                let syllable = format!("{initial}{final_}");
-                parser::is_syllable(&syllable).then(|| canonical_syllable(&syllable).to_owned())
-            })
+            .map(|final_| format!("{initial}{final_}"))
+            .filter(|syllable| parser::is_syllable(syllable))
+            .collect();
+        valid
+            .iter()
+            .find(|syllable| !parser::RARE_SYLLABLES.contains(&syllable.as_str()))
+            .or(valid.first())
+            .map(|syllable| canonical_syllable(syllable).to_owned())
             .or_else(|| {
                 // ü 在 j / q / x / y 后写作 u；同键已有的合法音节仍优先。
                 (matches!(initial, "j" | "q" | "x" | "y") && self.finals(second).contains(&"v"))
@@ -143,7 +164,17 @@ impl Scheme {
     }
 
     /// 一个全拼音节的主写法（两个键）。测试与文档用；拆成声母 + 韵母后查表，零声母查零声母表。
+    ///
+    /// 入参接受全拼键盘别名（`jv`、`jve` 等）。先按原写法编码，保留首道等方案里
+    /// `lue`/`nue` 与 `lve`/`nve` 的故意分键；原写法查不到键位时（如 j/q/x/y 后的
+    /// `van`/`vn`，#531），再归一到主写法重试。
     pub fn encode(self, syllable: &str) -> Option<[char; 2]> {
+        self.encode_spelling(syllable)
+            .or_else(|| self.encode_spelling(canonical_syllable(syllable)))
+    }
+
+    /// 按给定拼写查两键编码，不做键盘别名归一。
+    fn encode_spelling(self, syllable: &str) -> Option<[char; 2]> {
         let table = self.table();
         if let Some((_, spellings)) = table.zero_initials.iter().find(|(s, _)| *s == syllable) {
             let mut chars = spellings[0].chars();
@@ -171,6 +202,12 @@ impl Scheme {
     /// 把敲的键翻成全拼。两键一组从左到右配对；配不出合法音节的位置起全部原样留作尾巴；
     /// 末尾落单的一键当声母（或元音）前缀；用户自己敲的 `'` 结束当前配对。
     pub fn decode(self, keys: &str) -> Decoded {
+        self.decode_fuzzy(keys, FuzzyRules::default())
+    }
+
+    /// 模糊音能补成合法音节时保留原读音，供查询展开与上屏消耗共用。
+    /// 普通解码优先，关闭模糊音时行为与 [`Self::decode`] 一致。
+    pub(crate) fn decode_fuzzy(self, keys: &str, fuzzy: FuzzyRules) -> Decoded {
         let chars: Vec<char> = keys.chars().collect();
         let mut units = Vec::with_capacity(chars.len() / 2 + 1);
         let mut index = 0;
@@ -183,11 +220,24 @@ impl Scheme {
             }
             let second = chars.get(index + 1).copied().filter(|c| *c != '\'');
             let unit = match second {
-                Some(second) => self.syllable(first, second).map(|pinyin| Unit {
-                    keys: [first, second].iter().collect(),
-                    pinyin,
-                    complete: true,
-                }),
+                Some(second) => self
+                    .syllable(first, second)
+                    .or_else(|| {
+                        if !fuzzy.any() {
+                            return None;
+                        }
+                        let initial = self.initial(first)?;
+                        self.finals(second).iter().find_map(|final_| {
+                            let raw = format!("{initial}{final_}");
+                            let expanded = fuzzy.expand(&[SyllablePattern::complete(&raw)]);
+                            expanded.has_alternatives().then_some(raw)
+                        })
+                    })
+                    .map(|pinyin| Unit {
+                        keys: [first, second].iter().collect(),
+                        pinyin,
+                        complete: true,
+                    }),
                 None => self.partial(first).map(|pinyin| Unit {
                     keys: first.to_string(),
                     pinyin,
@@ -268,10 +318,25 @@ mod tests {
                     "qv" => "qu",
                     "xv" => "xu",
                     "yv" => "yu",
+                    // j/q/x/y 后 v 代 ü 的韵母系列（#531），同样解到主写法
+                    "jve" => "jue",
+                    "qve" => "que",
+                    "xve" => "xue",
+                    "yve" => "yue",
+                    "jvan" => "juan",
+                    "qvan" => "quan",
+                    "xvan" => "xuan",
+                    "yvan" => "yuan",
+                    "jvn" => "jun",
+                    "qvn" => "qun",
+                    "xvn" => "xun",
+                    "yvn" => "yun",
                     "eng" if scheme == Scheme::Xiaolang => "en",
                     "dia" if scheme == Scheme::Xiaolang => "dai",
                     "lia" if scheme == Scheme::Xiaolang => "lai",
                     "nen" if scheme == Scheme::Xiaolang => "niang",
+                    // 生僻音节与常用音节同键时让给常用的
+                    "biang" if scheme == Scheme::Xiaolang => "ben",
                     other => other,
                 };
                 assert_eq!(decoded, expected, "{scheme}: {syllable} → {keys:?}");
@@ -375,6 +440,27 @@ mod tests {
             (Scheme::Xiaolang, "urqp", "er'qie"),
             (Scheme::Xiaolang, "nxhk", "nv'hai"),
             (Scheme::Xiaolang, "ahnx", "ang'nv"),
+            (Scheme::Jiajia, "nihd", "ni'hao"),
+            (Scheme::Jiajia, "ihpl", "shuang'pin"),
+            (Scheme::Jiajia, "xxxi", "xue'xi"),
+            (Scheme::Jiajia, "uv", "chui"),
+            (Scheme::Jiajia, "iv", "shui"),
+            (Scheme::Jiajia, "vv", "zhui"),
+            (Scheme::Jiajia, "nvhs", "nv'hai"),
+            (Scheme::Jiajia, "jx", "jue"),
+            (Scheme::Jiajia, "yy", "yong"),
+            (Scheme::Jiajia, "ww", "wei"),
+            (Scheme::Jiajia, "eq", "er"),
+            (Scheme::Jiajia, "er", "en"),
+            (Scheme::Jiajia, "op", "ou"),
+            (Scheme::Ziguang, "nihq", "ni'hao"),
+            (Scheme::Ziguang, "uhww", "zhong'wen"),
+            (Scheme::Ziguang, "igpy", "shuang'pin"),
+            (Scheme::Ziguang, "xnxi", "xue'xi"),
+            (Scheme::Ziguang, "iiii", "shi'shi"),
+            (Scheme::Ziguang, "x;x;", "xing'xing"),
+            (Scheme::Ziguang, "nvoj", "nv'er"),
+            (Scheme::Ziguang, "fsor", "fang'an"),
         ];
         for (scheme, keys, expected) in cases {
             assert_eq!(scheme.decode(keys).pinyin(), expected, "{scheme}: {keys}");
@@ -404,6 +490,39 @@ mod tests {
         assert_eq!(Scheme::Shoudao.decode("jl").pinyin(), "jue");
         assert_eq!(Scheme::Shoudao.decode("ll").pinyin(), "lai");
         assert_eq!(Scheme::Shoudao.decode("lb").pinyin(), "lve");
+        // 拼音加加翘舌 zh/ch/sh 在 v/u/i（ch、sh 与小鹤相反）
+        assert_eq!(Scheme::Jiajia.decode("uu").pinyin(), "chu");
+        assert_eq!(Scheme::Jiajia.decode("ii").pinyin(), "shi");
+        assert_eq!(Scheme::Jiajia.decode("vi").pinyin(), "zhi");
+        // 拼音加加零声母主写法双写，同时兼容 o 前缀；en 双写是 er、er 在 eq
+        assert_eq!(Scheme::Jiajia.decode("aa").pinyin(), "a");
+        assert_eq!(Scheme::Jiajia.decode("oa").pinyin(), "a");
+        assert_eq!(Scheme::Jiajia.decode("ee").pinyin(), "e");
+        assert_eq!(Scheme::Jiajia.decode("oe").pinyin(), "e");
+        assert_eq!(Scheme::Jiajia.decode("os").pinyin(), "ai");
+        assert_eq!(Scheme::Jiajia.decode("oo").pinyin(), "o");
+        // 拼音加加 ü 在 v、üe 在 x（jue/nüe 同键，归一到词库写法）
+        assert_eq!(Scheme::Jiajia.decode("nx").pinyin(), "nve");
+        assert_eq!(Scheme::Jiajia.decode("lx").pinyin(), "lve");
+        assert_eq!(Scheme::Jiajia.decode("yx").pinyin(), "yue");
+        // 紫光翘舌声母在 u / a / i，a 与 i 兼作韵母；ing 在 `;`，与微软 / 搜狗同键
+        assert_eq!(Scheme::Ziguang.decode("ui").pinyin(), "zhi");
+        assert_eq!(Scheme::Ziguang.decode("ai").pinyin(), "chi");
+        assert_eq!(Scheme::Ziguang.decode("ii").pinyin(), "shi");
+        assert_eq!(Scheme::Ziguang.decode("uu").pinyin(), "zhu");
+        assert_eq!(Scheme::Ziguang.decode("x;").pinyin(), "xing");
+        assert_eq!(Scheme::Ziguang.decode("y;").pinyin(), "ying");
+        // 紫光零声母只认 o 前缀（`aa` 是 cha、`ii` 是 shi，双写元音不是零声母写法），er 在 oj
+        assert_eq!(Scheme::Ziguang.decode("oa").pinyin(), "a");
+        assert_eq!(Scheme::Ziguang.decode("or").pinyin(), "an");
+        assert_eq!(Scheme::Ziguang.decode("oj").pinyin(), "er");
+        assert_eq!(Scheme::Ziguang.decode("oo").pinyin(), "o");
+        assert_eq!(Scheme::Ziguang.decode("aa").pinyin(), "cha");
+        // 紫光 ü 在 v；üe 与 ue、ui 同在 n（j / q / x / y 后解到 jue 一族）
+        assert_eq!(Scheme::Ziguang.decode("nv").pinyin(), "nv");
+        assert_eq!(Scheme::Ziguang.decode("nn").pinyin(), "nve");
+        assert_eq!(Scheme::Ziguang.decode("jn").pinyin(), "jue");
+        assert_eq!(Scheme::Ziguang.decode("yn").pinyin(), "yue");
     }
 
     #[test]
@@ -423,17 +542,30 @@ mod tests {
         assert_eq!(Scheme::Abc.decode("o").pinyin(), "o");
         assert_eq!(Scheme::Shoudao.decode("e").pinyin(), "sh");
         assert_eq!(Scheme::Shoudao.decode("u").pinyin(), "e");
+        // 拼音加加落单翘舌键：u 为 ch、i 为 sh、v 为 zh；元音键是元音前缀
+        assert_eq!(Scheme::Jiajia.decode("u").pinyin(), "ch");
+        assert_eq!(Scheme::Jiajia.decode("i").pinyin(), "sh");
+        assert_eq!(Scheme::Jiajia.decode("v").pinyin(), "zh");
+        assert_eq!(Scheme::Jiajia.decode("a").pinyin(), "a");
+        // 紫光落单翘舌键：u 为 zh、a 为 ch、i 为 sh；e、o 是元音前缀
+        assert_eq!(Scheme::Ziguang.decode("u").pinyin(), "zh");
+        assert_eq!(Scheme::Ziguang.decode("a").pinyin(), "ch");
+        assert_eq!(Scheme::Ziguang.decode("i").pinyin(), "sh");
+        assert_eq!(Scheme::Ziguang.decode("e").pinyin(), "e");
+        assert_eq!(Scheme::Ziguang.decode("o").pinyin(), "o");
         // `;` 落单不是任何东西
         assert_eq!(Scheme::Microsoft.decode(";").pinyin(), "");
         assert_eq!(Scheme::Microsoft.decode(";").tail(), ";");
+        assert_eq!(Scheme::Ziguang.decode(";").pinyin(), "");
+        assert_eq!(Scheme::Ziguang.decode(";").tail(), ";");
     }
 
     #[test]
     fn invalid_pair_starts_the_tail() {
-        let decoded = Scheme::Xiaohe.decode("nibl");
+        let decoded = Scheme::Xiaohe.decode("nifl");
         assert_eq!(decoded.pinyin(), "ni");
-        assert_eq!(decoded.tail(), "bl");
-        assert_eq!(decoded.marked(), "ni'bl");
+        assert_eq!(decoded.tail(), "fl");
+        assert_eq!(decoded.marked(), "ni'fl");
     }
 
     #[test]
@@ -452,6 +584,7 @@ mod tests {
         assert_eq!("Xiaohe ".parse::<Scheme>().unwrap(), Scheme::Xiaohe);
         assert!("flypy".parse::<Scheme>().is_err());
         assert!(Scheme::Microsoft.uses_semicolon());
+        assert!(Scheme::Ziguang.uses_semicolon());
         assert!(!Scheme::Xiaohe.uses_semicolon());
         assert!(!Scheme::Abc.uses_semicolon());
     }

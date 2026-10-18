@@ -9,12 +9,13 @@ mod message;
 mod notice;
 mod pages;
 mod recorder;
+mod system_hotkey;
 
 use std::path::{Path, PathBuf};
 
 use qingjian_platform::Config;
 use qingjian_render::ThemeLibrary;
-use windows_reactor::*;
+use windows_reactor::{ElementRef, PasswordBox, View, ViewContext};
 
 use self::cloud_status::CloudStatus;
 pub(crate) use self::message::Message;
@@ -23,9 +24,6 @@ use self::pages::{
     about, advanced, aux_code, candidates, cloud, dictionaries, fuzzy, general, shortcut, usage,
 };
 use self::recorder::Recorder;
-
-/// 左侧标签固定宽度，让各行控件对齐。
-const LABEL_WIDTH: f64 = 140.0;
 
 /// 设置窗口状态。
 pub(crate) struct Settings {

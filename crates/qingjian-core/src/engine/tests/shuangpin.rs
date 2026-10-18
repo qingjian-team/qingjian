@@ -18,10 +18,10 @@ fn shuangpin_decodes_keys_before_lookup_and_shows_full_pinyin() {
     assert_eq!(query.marked_text(), "kai'f");
     assert_eq!(query.candidates.items[0].text, "开放");
     // 配不出音节的键原样留作尾巴
-    engine.set_input("kdbl");
+    engine.set_input("kdfl");
     let query = engine.query().unwrap();
-    assert_eq!(query.marked_text(), "kai'bl");
-    assert_eq!(query.tail, "bl");
+    assert_eq!(query.marked_text(), "kai'fl");
+    assert_eq!(query.tail, "fl");
     assert_eq!(query.candidates.items[0].text, "开");
 }
 

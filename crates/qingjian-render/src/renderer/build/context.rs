@@ -19,6 +19,9 @@ pub(super) struct Context<'a> {
 
     /// 在 `repeat` 里时绑定的那一格。
     pub(super) cell: Option<CellContext<'a>>,
+
+    /// 在横排展开的矩阵里：格子不画逐项译文（见 `matrix.rs`）。
+    pub(super) matrix: bool,
 }
 
 impl<'a> Context<'a> {
@@ -28,6 +31,7 @@ impl<'a> Context<'a> {
             row: None,
             cells: &[],
             cell: None,
+            matrix: false,
         }
     }
 
@@ -51,6 +55,14 @@ impl<'a> Context<'a> {
     pub(super) fn with_row(self, row: &'a Row, index: usize, count: usize) -> Self {
         Self {
             row: Some(RowContext { row, index, count }),
+            ..self
+        }
+    }
+
+    /// 矩阵格子里的上下文。
+    pub(super) fn in_matrix(self) -> Self {
+        Self {
+            matrix: true,
             ..self
         }
     }
@@ -88,8 +100,11 @@ impl<'a> Context<'a> {
             match name {
                 "highlighted" => return self.frame.highlighted == Some(index),
                 "cloud" => return row.cloud,
-                "annotation" => return !row.annotation.is_empty(),
+                "annotation" => return !self.matrix && !row.annotation.is_empty(),
                 "code" => return row.code.is_some(),
+                // 矩阵里按列算：每行的第一格、最后一格
+                "first" if self.matrix => return index % self.frame.columns == 0,
+                "last" if self.matrix => return (index + 1) % self.frame.columns == 0,
                 "first" => return index == 0,
                 "last" => return index + 1 == count,
                 _ => {}
@@ -144,7 +159,7 @@ impl<'a> Context<'a> {
     /// 译文片段绑定。
     pub(super) fn annotation(&self, name: &str) -> Option<&'a [(String, Tone)]> {
         match (name, self.row) {
-            ("annotation", Some(RowContext { row, .. })) => Some(&row.annotation),
+            ("annotation", Some(RowContext { row, .. })) if !self.matrix => Some(&row.annotation),
             ("highlighted.annotation", _) => {
                 self.highlighted().map(|row| row.annotation.as_slice())
             }

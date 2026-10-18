@@ -137,7 +137,14 @@ impl CandidateView {
     }
 
     /// 在信息行里画一段小字，宽度超过 `budget` 就截断；返回画了多宽。
-    fn draw_clipped(&self, text: &str, color: &NSColor, x: f64, top: f64, budget: f64) -> f64 {
+    pub(super) fn draw_clipped(
+        &self,
+        text: &str,
+        color: &NSColor,
+        x: f64,
+        top: f64,
+        budget: f64,
+    ) -> f64 {
         let font = &self.theme().annotation_font;
         let (shown, _) = self.truncate(text, font, budget);
         self.draw_text(&shown, font, color, top, x)
@@ -190,7 +197,7 @@ impl CandidateView {
     }
 
     /// `text` 宽度超过 `max_width` 就从末尾去字、补上「…」直到放得下；返回显示文字与是否截断过。
-    fn truncate(&self, text: &str, font: &NSFont, max_width: f64) -> (String, bool) {
+    pub(super) fn truncate(&self, text: &str, font: &NSFont, max_width: f64) -> (String, bool) {
         if text.is_empty() || self.measure(text, font).width <= max_width {
             return (text.to_owned(), false);
         }

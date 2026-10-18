@@ -13,13 +13,16 @@ pub mod engine;
 pub mod english;
 pub mod fuzzy;
 pub mod history;
+pub mod panel;
 pub mod parser;
 pub mod punctuation;
 pub mod ranking;
 pub mod sentence;
 pub mod shortcut;
 pub mod shuangpin;
+pub mod spacing;
 pub mod storage;
+pub mod traditional;
 pub mod zhuyin;
 
 pub use custom_phrase::CustomPhrase;
@@ -33,17 +36,19 @@ pub use correction::Correction;
 pub use emoji::EmojiTable;
 pub use engine::{
     AnnotationReport, AuxSegment, BOOKS, Book, CloudWord, CommitEntry, DEFAULT_AUX_CODE_KEY,
-    Engine, EngineSession, FRESH_UNTIL, FilledGloss, Forgotten, GlossFiller, INPUT_LOG_VERSION,
-    InputLogEntry, InputLogger, InputSource, Learner, LevelCount, MarkedKind, MarkedSegment,
-    ModeKeys, NEURAL_MARGIN, NEURAL_WEIGHT, NoGlossFiller, NoInputLogger, NoLearner, NoPredictor,
-    NoTranslator, NoUsageMeter, NoVocabularyTracker, Prediction, PredictionKind, PredictionPolicy,
-    PredictionRequest, Predictor, QUESTION_PREFIX, Query, RESCORE_CONTEXT_CHARS, RawPreedit,
-    SurroundingText, Timings, Translator, Usage, UsageMeter, UsageSummary, VocabularySummary,
-    VocabularyTracker, book_scale, is_valid_aux_code_key,
+    Encounter, Engine, EngineSession, FRESH_UNTIL, FilledGloss, Forgotten, GlossFiller,
+    INPUT_LOG_VERSION, InputLogEntry, InputLogger, InputSource, Learner, LevelCount, MarkedKind,
+    MarkedSegment, ModeKeys, NEURAL_MARGIN, NEURAL_WEIGHT, NoGlossFiller, NoInputLogger, NoLearner,
+    NoPredictor, NoTranslator, NoUsageMeter, NoVocabularyTracker, Prediction, PredictionKind,
+    PredictionPolicy, PredictionRequest, Predictor, QUESTION_PREFIX, Query, RESCORE_CONTEXT_CHARS,
+    RawPreedit, SurroundingText, Timings, Translator, Usage, UsageMeter, UsageSummary,
+    VocabularySummary, VocabularyTracker, book_scale, is_valid_aux_code_key,
 };
 pub use fuzzy::FuzzyRules;
 pub use history::InputHistory;
+pub use panel::{PANEL_COLUMNS, PanelGroup, PanelSection, SymbolPanel};
 pub use parser::{ParseError, Segmentation};
 pub use punctuation::Punctuation;
 pub use qingjian_dictionary as dictionary;
 pub use shuangpin::Scheme as ShuangpinScheme;
+pub use traditional::{Traditional, TraditionalVariant};

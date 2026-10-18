@@ -194,3 +194,45 @@ pub fn short() -> Frame {
         column_ems: Vec::new(),
     }
 }
+
+/// 横排展开成矩阵：三行五格，序号只标在高亮那一行，末行补空位；高亮的候选在下面出译文。
+pub fn matrix() -> Frame {
+    let words = [
+        "是", "时", "事", "使", "式", "十", "实", "市", "石", "世", "视", "试", "示",
+    ];
+    let mut rows: Vec<Row> = words
+        .iter()
+        .enumerate()
+        .map(|(i, word)| {
+            let mut row = if *word == "实" {
+                annotated(
+                    i % 5,
+                    word,
+                    &[("adj. ", Tone::Pos), ("real", Tone::Gloss)],
+                    false,
+                )
+            } else {
+                Row::plain(i % 5, *word)
+            };
+            if i / 5 != 1 {
+                row.index = String::new();
+            }
+            row
+        })
+        .collect();
+    rows.resize(15, Row::plain(0, ""));
+    for row in &mut rows[words.len()..] {
+        row.index = String::new();
+    }
+    Frame {
+        preedit: Some(Preedit::plain("shi", 3)),
+        rows,
+        highlighted: Some(6),
+        footer: Some("2/9".to_owned()),
+        sentence: None,
+        status: None,
+        mode: Mode::default(),
+        columns: 5,
+        column_ems: vec![1.0; 5],
+    }
+}

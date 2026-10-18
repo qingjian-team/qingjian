@@ -15,7 +15,7 @@ use serde::Deserialize;
 
 pub(crate) use adaptive::Adaptive;
 pub(crate) use color::{ColorRef, ColorSpec, ColorValue};
-pub(crate) use font::{BundledFont, FamilyList, FontRef, FontStyle};
+pub(crate) use font::{BundledFont, FontRef, FontStyle};
 pub(crate) use meta::{LockedAppearance, Meta};
 pub(crate) use status::StatusSpec;
 pub(crate) use text::TextSettings;

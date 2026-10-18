@@ -23,7 +23,7 @@ impl Engine {
             None
         };
         if let Some(text) = converted {
-            self.history.record(text);
+            self.note_text(text);
             self.remember_commit(LastCommit::plain(text));
             // 全角标点也是文本流的一部分，与直通字符攒在一起
             self.passthrough_pending.push_str(text);
@@ -38,7 +38,7 @@ impl Engine {
     pub fn note_passthrough(&mut self, c: char) {
         self.punctuation.note_passthrough(c);
         let text = c.encode_utf8(&mut [0; 4]).to_owned();
-        self.history.record(&text);
+        self.note_text(&text);
         self.chain.reset();
         self.remember_commit(LastCommit::plain(&text));
         self.passthrough_pending.push(c);
@@ -62,6 +62,7 @@ impl Engine {
         self.chain.reset();
         self.recent_commits.clear();
         self.flush_passthrough();
+        self.finish_examples();
         if self.committed_since_break {
             self.committed_since_break = false;
             self.logger.record(InputLogEntry::Break {
@@ -124,6 +125,7 @@ impl Engine {
 
     /// 组句里要删东西了：第一次删之前把缓冲区留个快照，上屏时对比最终键串，不同就是一次重打（`retype`）。
     fn note_edit(&mut self) {
+        self.typing.edit(Instant::now());
         if self.retype_snapshot.is_none() && !self.composition.is_empty() {
             self.retype_snapshot = Some(self.composition.text().to_owned());
         }
@@ -171,7 +173,9 @@ impl Engine {
             self.composition_started = Some(Instant::now());
             self.page_turns = 0;
             self.retype_snapshot = None;
+            self.typing.restart();
         }
+        self.typing.key(Instant::now());
         // 进缓冲区的字符也更新「上一个字符是不是数字」：直通了 `3` 再接着打拼音，
         // 后面的 `.` 不该仍按小数点保持半角（组句中标点会先把候选上屏，见壳的 apply_printable）
         self.punctuation.note_passthrough(c);
@@ -207,14 +211,16 @@ impl Engine {
 
     pub fn clear(&mut self) {
         self.composition.clear();
+        self.panel = None;
         self.aux_code = None;
         self.chain.leave_buffer();
         // 壳给的光标前文只对这段组句有效，下一段第一键再读
         self.rescoring_before = None;
         self.retype_snapshot = None;
         self.composition_started = None;
+        self.typing.restart();
         self.page_turns = 0;
-        self.traditional_map.borrow_mut().clear();
+        self.traditional.forget();
     }
 
     pub fn delete_forward(&mut self) -> bool {
@@ -372,13 +378,15 @@ impl Engine {
             self.reset_bip39_streak();
         }
         self.meter_commit(&raw, InputSource::Raw, english_word);
+        // 补的空格要在组句清空前判（还没上屏过时靠组句开始时的应用前文），并先于这次上屏记下
+        let lead = self.auto_space_before(&raw);
         self.composition.clear();
-        self.traditional_map.borrow_mut().clear();
+        self.traditional.forget();
         self.remember_commit(LastCommit::plain(&raw));
         self.punctuation.note_committed(&raw);
-        self.history.record(&raw);
+        self.note_text(&raw);
         self.chain.reset();
-        raw
+        if lead { format!(" {raw}") } else { raw }
     }
 }
 

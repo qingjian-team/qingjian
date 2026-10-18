@@ -45,7 +45,7 @@ struct Mock {
         int fd = accept(listener, nullptr, nullptr);
         auto opened = readMessage(fd).at("OpenSession");
         const auto session = opened.at("session");
-        assert(opened.at("protocol") == 8);
+        assert(opened.at("protocol") == 9);
         writeMessage(fd, {{"Update", {{"session", session}, {"linux_ui", {{"version", mode == "mismatch" ? 2 : 3}}}}}});
         if (mode == "mismatch") { close(fd); return; }
         auto identity = readMessage(fd).at("LinuxHello");
@@ -73,9 +73,29 @@ struct Mock {
             const auto &event = message.at("LinuxEvent").at("event");
             Json commit = nullptr;
             std::string outcome = "Passthrough";
+            if (mode == "selection" && event.contains("Key") && !event.at("Key").at("release").get<bool>()) {
+                const auto key = event.at("Key").at("event").at("virtual_key");
+                if (key == 84) {
+                    writeMessage(fd, {{"RequestSelection", {{"session", session}, {"request", uint64_t(1)}}}});
+                    auto selection = readMessage(fd);
+                    assert(selection.at("LinuxEvent").at("event").at("Selection").at("text") == "你好");
+                    messages.push_back(selection);
+                    frame = emptyFrame();
+                    frame["candidates"]["items"] = Json::parse(R"([{"text":"hello","kind":"Cloud","translation":null}])");
+                    outcome = "Consumed";
+                } else if (key == 13) {
+                    commit = "hello";
+                    frame = emptyFrame();
+                    outcome = "Consumed";
+                }
+            }
             if (event.contains("Key") && !event.at("Key").at("release").get<bool>() && event.at("Key").at("event").at("character") == "n") {
                 frame = Json::parse(R"({"preedit":[{"text":"ni","kind":"Typed"}],"cursor":2,"candidates":{"items":[{"text":"","translation":null},{"text":"","translation":null},{"text":"你好","translation":{"senses":[{"text":"hello","fresh":true}]}}]},"highlight":2,"page":0,"page_count":2,"notice":null})");
                 outcome = "Consumed";
+                if (mode == "cloud") {
+                    frame["candidates"]["items"][2]["kind"] = "Cloud";
+                    frame["sentence"] = "你好世界";
+                }
             }
             if (event.contains("Candidate")) {
                 assert(event.at("Candidate").at("index") == 2);

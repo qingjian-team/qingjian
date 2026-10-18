@@ -3,12 +3,18 @@
 //! 「生词」就从这里判断：一条译词被看到的轮次还不到 [`FRESH_UNTIL`]，候选里就标出来（[`crate::candidate::Sense::fresh`]），
 //! 看熟了自然不标。「看到」按上屏那一刻屏幕上的那一页算（`Engine::note_displayed` 记下当前页，上屏时才记进词汇表），
 //! 逐键刷新时一闪而过的候选不算：用户真正读候选是在要选的时候。
+//! 每次上屏有学习语言说法的中文记一次 [`Encounter`]（生词本的时间线）。
+//! 上屏带译词的词所在的那句话由 [`ExampleCollector`] 攒好，句子写完时当例句交出去。
 //! Core 只判断与记录，按词落盘与汇总由实现做（`qingjian-learning` 的 `VocabularyBook`）；缺省 [`NoVocabularyTracker`] 不记、也不标生词。
 
+mod encounter;
+mod example_collector;
 mod level_count;
 mod summary;
 mod tracker;
 
+pub use encounter::Encounter;
+pub use example_collector::ExampleCollector;
 pub use level_count::LevelCount;
 pub use summary::VocabularySummary;
 pub use tracker::{NoVocabularyTracker, VocabularyTracker};

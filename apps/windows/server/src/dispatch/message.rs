@@ -37,6 +37,7 @@ impl Router {
                     SessionInfo {
                         app,
                         private: false,
+                        english: None,
                         protocol,
                     },
                 );
@@ -80,16 +81,18 @@ impl Router {
                 // 组句在 DLL 侧结束（应用终止组句 / 翻译评审失焦）：只收窗口；缓冲留给下一键的 Commit 清。
                 if self.focused == Some(session) {
                     self.end_translation();
+                    self.cancel_prediction();
                     self.hide_candidate_window();
                 }
                 None
             }
             ClientMessage::ModeChanged { session, english } => {
                 tracing::debug!(?session, english, "中英模式");
-                self.handle_mode_changed(english);
+                self.handle_mode_changed(session, english);
                 None
             }
             ClientMessage::SyncMode { session } => {
+                self.activate_mode(session);
                 self.handle_ime_active();
                 Some(ServerMessage::ModeSync {
                     session,
@@ -105,11 +108,15 @@ impl Router {
             }
             ClientMessage::Indicator { session, command } => {
                 tracing::debug!(?session, ?command, "任务栏图标菜单");
+                self.activate_mode(session);
                 self.handle_indicator(command);
                 None
             }
             ClientMessage::CloseSession { session } => {
                 self.sessions.remove(&session);
+                if self.mode_session == Some(session) {
+                    self.mode_session = None;
+                }
                 if self.focused == Some(session) {
                     self.reset_composition();
                     self.focused = None;
@@ -127,7 +134,9 @@ impl Router {
         if self.translation.is_some() {
             return self.handle_translation_review(session, &event);
         }
-        if self.engine.composition().is_empty()
+        if self.config.cloud_enabled
+            && self.engine.composition().is_empty()
+            && !self.panel_open()
             && self.engine.prediction_enabled()
             && self.matches_translate_combo(&event)
         {

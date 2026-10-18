@@ -8,16 +8,19 @@ mod tree;
 pub use cell::StatusCell;
 pub use rendered::RenderedStatus;
 
-use taffy::{AlignItems, Dimension, Display, JustifyContent, NodeId, Position, Size, Style};
+use bamboo_slip::taffy::{
+    AlignItems, Dimension, Display, JustifyContent, NodeId, Position, Size, Style,
+};
 
-use super::Renderer;
-use crate::error::RenderError;
+use super::{Rendered, Renderer};
 use crate::frame::Mode;
-use crate::scene::{Effect, Icon, Scene, Visual};
-use crate::text::TextStyle;
+use crate::icon::Icon;
 use crate::theme::file::ColorSpec;
 use crate::theme::file::node::EffectSpec;
 use crate::theme::{TextSizes, Theme};
+use bamboo_slip::RenderError;
+use bamboo_slip::TextStyle;
+use bamboo_slip::{Effect, Scene, Visual};
 
 /// 一次渲染里按倍数换算好的状态条参数。
 struct Metrics<'a> {
@@ -26,7 +29,7 @@ struct Metrics<'a> {
     scale: f32,
 
     /// 文字样式（颜色后配）。
-    font: crate::theme::FontSpec,
+    font: bamboo_slip::FontSpec,
 }
 
 impl Metrics<'_> {
@@ -57,7 +60,7 @@ impl Metrics<'_> {
                 otherwise: color, ..
             } => color,
         };
-        Effect::from_spec(spec, self.scale, self.theme.color(color))
+        spec.to_effect(self.scale, self.theme.color(color))
     }
 }
 
@@ -75,7 +78,7 @@ impl Renderer {
         // 整条按候选字的比例缩放：去掉设置里的字号再整体乘倍数，图标、边距、点击边界跟文字一起变，与用哪个文字样式无关
         let scale = scale * theme.candidate_scale();
         let theme = &theme.with_text_sizes(TextSizes::default());
-        self.text.use_families(theme.families());
+        self.stage.text().use_families(theme.families());
         let spec = &theme.file().status;
         if let Some(root) = &spec.root {
             return self.render_status_tree(root, cells, mode, theme, scale);
@@ -115,7 +118,7 @@ impl Renderer {
         )?;
         let effects = spec.effects.iter().map(|effect| m.effect(effect)).collect();
         scene.set_effects(root, effects);
-        scene.layout(root, &mut self.text)?;
+        scene.layout(root, self.stage.text())?;
 
         let edges = widths
             .iter()
@@ -125,7 +128,11 @@ impl Renderer {
             })
             .collect();
         Ok(RenderedStatus {
-            rendered: self.rasterize(&scene, root, (content_width, content_height), scale)?,
+            rendered: Rendered::new(
+                self.stage
+                    .rasterize(&scene, root, (content_width, content_height), scale)?,
+                Vec::new(),
+            ),
             cell_edges: edges,
         })
     }
@@ -134,7 +141,10 @@ impl Renderer {
     fn status_cell_width(&mut self, cell: &StatusCell, m: &Metrics) -> f32 {
         match cell {
             StatusCell::Text { text, emphasized } => {
-                self.text.measure(text, &m.text_style(*emphasized)).width
+                self.stage
+                    .text()
+                    .measure(text, &m.text_style(*emphasized))
+                    .width
             }
             StatusCell::Gear => m.px(m.theme.file().status.gear_size),
         }
@@ -155,11 +165,11 @@ fn status_cell(
         let inset = m.px(spec.padding) / 2.0;
         let style = Style {
             position: Position::Absolute,
-            inset: taffy::Rect {
-                left: taffy::LengthPercentageAuto::length(0.0),
-                right: taffy::LengthPercentageAuto::auto(),
-                top: taffy::LengthPercentageAuto::length(inset),
-                bottom: taffy::LengthPercentageAuto::length(inset),
+            inset: bamboo_slip::taffy::Rect {
+                left: bamboo_slip::taffy::LengthPercentageAuto::length(0.0),
+                right: bamboo_slip::taffy::LengthPercentageAuto::auto(),
+                top: bamboo_slip::taffy::LengthPercentageAuto::length(inset),
+                bottom: bamboo_slip::taffy::LengthPercentageAuto::length(inset),
             },
             size: Size {
                 width: Dimension::length(m.px(spec.separator_width)),
@@ -188,7 +198,7 @@ fn status_cell(
                 ..Style::default()
             };
             let visual = Visual::Icon {
-                icon: Icon::Gear,
+                icon: Icon::Gear.painter(),
                 size,
                 color: m.theme.color(&spec.gear),
             };
@@ -212,10 +222,10 @@ fn status_cell(
 #[cfg(test)]
 mod tests {
     use super::StatusCell;
-    use crate::fonts::FontLibrary;
     use crate::frame::Mode;
     use crate::renderer::Renderer;
     use crate::theme::Theme;
+    use bamboo_slip::FontLibrary;
 
     #[test]
     fn cells_have_increasing_edges_ending_at_content_width() {

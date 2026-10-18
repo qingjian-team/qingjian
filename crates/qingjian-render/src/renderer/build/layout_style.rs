@@ -1,6 +1,6 @@
 //! 主题里的盒子属性 → Taffy 样式。长度进来是点，乘倍数成像素。
 
-use taffy::{
+use bamboo_slip::taffy::{
     AlignItems, Dimension, Display, FlexDirection, LengthPercentage, LengthPercentageAuto,
     Position, Rect, Size, Style,
 };

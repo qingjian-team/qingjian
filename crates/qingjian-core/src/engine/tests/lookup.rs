@@ -248,9 +248,39 @@ fn sentence_conversion_leads_when_input_spans_several_words() {
     assert_eq!(all[0], "开发");
     assert_eq!(all.iter().filter(|t| *t == "开发").count(), 1);
 
-    // 末尾只有一个字母时整句不算它：xiangkaif → 想开
+    // 末尾落单的声母也参与整句：xiangkaif → 想开放（f 当前缀，fang / fa 里词频高的 开放 胜出）
     let all = texts("xiangkaif");
-    assert_eq!(all[0], "想开");
+    assert_eq!(all[0], "想开放");
+}
+
+#[test]
+fn trailing_initial_sentence_yields_to_a_word_covering_the_whole_input() {
+    // 单字组句「后悬空」词频远高于低频整词「候选框」，落单 k 进词图后整句本来会赢
+    let dict = "后\thou\t900000\n悬\txuan\t900000\n空\tkong\t900000\n\
+        候\thou\t100\n选\txuan\t100\n框\tkuang\t100\n候选框\thou xuan kuang\t500\n";
+    let mut engine = Engine::new(Dictionary::parse(dict).unwrap());
+    engine.set_input("houxuank");
+    let items = engine.query().unwrap().candidates.items;
+    // 词库整词逐音节对上全部输入（末位 kuang 按前缀 k 命中），整句不插队
+    assert_eq!(items[0].text, "候选框");
+    assert!(items.iter().all(|c| c.kind != CandidateKind::Sentence));
+
+    // 两音节同样：zaiw → 在外（zai wai），不让整句「在我」（zai wo）
+    let dict = "在\tzai\t900000\n我\two\t900000\n外\twai\t100\n在外\tzai wai\t500\n";
+    let mut engine = Engine::new(Dictionary::parse(dict).unwrap());
+    engine.set_input("zaiw");
+    let items = engine.query().unwrap().candidates.items;
+    assert_eq!(items[0].text, "在外");
+    assert!(items.iter().all(|c| c.kind != CandidateKind::Sentence));
+
+    // 对照：没有整词覆盖全部输入时，落单声母的整句照常给出
+    let dict = "后\thou\t900000\n悬\txuan\t900000\n空\tkong\t900000\n\
+        候\thou\t100\n选\txuan\t100\n框\tkuang\t100\n";
+    let mut engine = Engine::new(Dictionary::parse(dict).unwrap());
+    engine.set_input("houxuank");
+    let items = engine.query().unwrap().candidates.items;
+    assert_eq!(items[0].text, "后悬空");
+    assert_eq!(items[0].kind, CandidateKind::Sentence);
 }
 
 #[test]

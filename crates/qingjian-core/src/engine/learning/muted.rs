@@ -65,9 +65,9 @@ impl Learner for MutedLearner {
         self.inner.weight(text)
     }
 
-    fn record_choice(&mut self, input: &str, text: &str) {
+    fn record_choice(&mut self, input: &str, reading: &str, text: &str) {
         if !self.muted() {
-            self.inner.record_choice(input, text);
+            self.inner.record_choice(input, reading, text);
         }
     }
 
@@ -91,9 +91,9 @@ impl Learner for MutedLearner {
         }
     }
 
-    fn unrecord_choice(&mut self, input: &str, text: &str) {
+    fn unrecord_choice(&mut self, input: &str, reading: &str, text: &str) {
         if !self.muted() {
-            self.inner.unrecord_choice(input, text);
+            self.inner.unrecord_choice(input, reading, text);
         }
     }
 
@@ -150,6 +150,11 @@ impl Learner for MutedLearner {
 
     fn typo_count(&self, typed: &str, intended: &str) -> u32 {
         self.inner.typo_count(typed, intended)
+    }
+
+    // 衰减半衰期是调参配置，不是这段输入的学习，私密中照设
+    fn set_decay_half_life(&mut self, days: f64) {
+        self.inner.set_decay_half_life(days);
     }
 
     // 删词是用户在候选窗口里明确要求的管理操作，不算「这段输入的学习」，私密中照做

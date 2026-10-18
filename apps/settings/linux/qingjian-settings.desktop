@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Qingjian Settings
+Name[zh_CN]=青简设置
+Comment=Settings for the Qingjian input method
+Comment[zh_CN]=青简输入法的设置
+Exec=qingjian-settings
+Icon=qingjian
+Categories=Settings;
+Terminal=false

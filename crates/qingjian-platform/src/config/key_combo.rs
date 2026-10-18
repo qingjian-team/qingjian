@@ -12,11 +12,16 @@ pub struct KeyCombo {
     /// 修饰键，至少一个。
     pub modifiers: Modifiers,
 
-    /// 字母或数字键（小写）。
+    /// 字母、数字或句号键（小写）。
     pub key: char,
 }
 
 impl KeyCombo {
+    pub const PREDICT_DEFAULT: Self = Self {
+        key: 'j',
+        ..Self::TRANSLATE_DEFAULT
+    };
+
     pub const TRANSLATE_DEFAULT: Self = Self {
         modifiers: Modifiers {
             option: true,
@@ -60,8 +65,8 @@ impl FromStr for KeyCombo {
         let (Some(key), None) = (chars.next(), chars.next()) else {
             return Err(format!("key must be a single character: {key:?}"));
         };
-        if !key.is_ascii_alphanumeric() {
-            return Err(format!("key must be a letter or digit: {key:?}"));
+        if !key.is_ascii_alphanumeric() && key != '.' {
+            return Err(format!("key must be a letter, digit or period: {key:?}"));
         }
         Ok(Self {
             modifiers: modifiers.parse()?,

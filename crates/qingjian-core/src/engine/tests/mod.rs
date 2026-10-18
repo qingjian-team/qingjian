@@ -2,6 +2,7 @@
 
 mod aux_code;
 mod cloud;
+mod cloud_trigger;
 mod code;
 mod correction;
 mod custom;
@@ -10,9 +11,13 @@ mod english;
 mod learning;
 mod lookup;
 mod mnemonic;
+mod panel;
 mod privacy;
 mod raw;
 mod shuangpin;
+mod spacing;
+mod traditional;
+mod vocabulary;
 mod zhuyin;
 
 use std::collections::HashMap;
@@ -65,7 +70,7 @@ impl Learner for CountingLearner {
         self.0.get(text).copied().unwrap_or(0)
     }
 
-    fn record_choice(&mut self, input: &str, text: &str) {
+    fn record_choice(&mut self, input: &str, _reading: &str, text: &str) {
         *self.0.entry(format!("{input}\t{text}")).or_default() += 1;
     }
 
@@ -106,7 +111,7 @@ impl Learner for CountingLearner {
         }
     }
 
-    fn unrecord_choice(&mut self, input: &str, text: &str) {
+    fn unrecord_choice(&mut self, input: &str, _reading: &str, text: &str) {
         if let Some(count) = self.0.get_mut(&format!("{input}\t{text}")) {
             *count = count.saturating_sub(1);
         }
@@ -152,6 +157,7 @@ unsafe impl Send for EchoPredictor {}
 impl Predictor for EchoPredictor {
     fn policy(&self) -> PredictionPolicy {
         PredictionPolicy {
+            automatic: true,
             before: 4,
             after: 2,
             slots: 2,
@@ -294,7 +300,7 @@ struct WordLearner {
 impl Learner for WordLearner {
     fn record(&mut self, _candidate: &Candidate) {}
 
-    fn record_choice(&mut self, input: &str, text: &str) {
+    fn record_choice(&mut self, input: &str, _reading: &str, text: &str) {
         *self.choices.entry(format!("{input}\t{text}")).or_default() += 1;
     }
 
@@ -305,7 +311,7 @@ impl Learner for WordLearner {
             .unwrap_or(0)
     }
 
-    fn unrecord_choice(&mut self, input: &str, text: &str) {
+    fn unrecord_choice(&mut self, input: &str, _reading: &str, text: &str) {
         if let Some(count) = self.choices.get_mut(&format!("{input}\t{text}")) {
             *count = count.saturating_sub(1);
         }

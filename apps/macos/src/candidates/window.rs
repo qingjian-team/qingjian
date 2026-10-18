@@ -12,7 +12,7 @@ use qingjian_platform::{Appearance, CandidateRenderer, LayoutMode};
 
 use super::frame::Frame;
 use super::theme::Theme;
-use super::view::{CandidateView, ClickHandler};
+use super::view::{CandidateView, ClickHandler, PanelMouseHandler};
 
 /// `kCGPopUpMenuWindowLevel`：浮在普通窗口和浮动面板之上，与系统输入法候选框同级。
 const POPUP_MENU_LEVEL: NSWindowLevel = 101;
@@ -55,6 +55,7 @@ impl CandidateWindow {
             self.hide();
             return;
         }
+        let panel = frame.is_panel();
         let bounds = self.view.set_frame(&frame);
         let content = self.place(bounds.content.size, anchor);
         let origin = NSPoint::new(
@@ -64,6 +65,7 @@ impl CandidateWindow {
         self.panel
             .setFrame_display(NSRect::new(origin, bounds.size), true);
         self.order_front_on_active_space();
+        self.apply_chrome(panel);
         if !self.panel.isVisible() {
             tracing::warn!(?anchor, ?origin, "候选窗口 orderFront 之后仍不可见");
         } else {
@@ -74,6 +76,14 @@ impl CandidateWindow {
                 "候选窗口已显示"
             );
         }
+    }
+
+    /// 阴影与鼠标：系统绘制要系统阴影，青简渲染器的阴影画在位图里；青简渲染器与符号面板收鼠标（点候选、点格子），
+    /// 系统绘制的候选没有点击区域，点击穿过去。
+    fn apply_chrome(&self, panel: bool) {
+        let bitmap = self.view.uses_bitmap() && !panel;
+        self.panel.setHasShadow(!bitmap);
+        self.panel.setIgnoresMouseEvents(!bitmap && !panel);
     }
 
     pub fn hide(&self) {
@@ -140,9 +150,9 @@ impl CandidateWindow {
         self.view.set_click_handler(handler);
     }
 
-    /// 在用青简渲染器（而不是系统绘制）。
-    pub fn uses_bitmap(&self) -> bool {
-        self.view.uses_bitmap()
+    /// 符号面板里点中格子或标签时调谁。
+    pub fn set_panel_mouse_handler(&self, handler: PanelMouseHandler) {
+        self.view.set_panel_mouse_handler(handler);
     }
 
     /// 渲染器主题（按 `[general] theme` 从主题库取出的），只对青简渲染器生效。

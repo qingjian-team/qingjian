@@ -1,6 +1,7 @@
 //! 按键怎么作用到 Engine / 高亮上。分流规则与 macOS 壳的 `handle_text` / `handle_command` 对齐。
 
 use qingjian_core::{QUESTION_PREFIX, punctuation, shortcut};
+use qingjian_platform::HighlightKeys;
 use qingjian_platform::protocol::KeyEvent;
 
 use super::{Effect, codes, with_prefix};
@@ -10,6 +11,29 @@ impl Router {
     /// 功能键靠键码，其余靠字符。组句中修饰键 + 数字是快捷键；带 Ctrl / Alt / Win 而没配到快捷键的键归应用。
     /// 表达式模式里 Shift + 数字打的是 `^ * ( )`，不当快捷键。
     pub(crate) fn apply_key(&mut self, event: &KeyEvent) -> Effect {
+        if let Some(effect) = self.apply_panel_key(event) {
+            return effect;
+        }
+        let combo = self.config.predict;
+        // 句号键是 VK_OEM_PERIOD；ASCII 0x2E 对应 Delete。
+        let key = if combo.key == '.' {
+            0xBE
+        } else {
+            combo.key.to_ascii_uppercase() as u32
+        };
+        if self.composing()
+            && self.config.cloud_enabled
+            && self.engine.prediction_enabled()
+            && event.virtual_key == key
+            && event.modifiers.chord() == combo.modifiers.into()
+        {
+            if self.request_manual_prediction() {
+                // 显式要求刷新时回到第一页，让新的 AI 首选可以置顶。
+                self.highlight = 0;
+                self.navigated = false;
+            }
+            return Effect::Navigated;
+        }
         if self.composing()
             && !self.engine.expression_mode()
             && let Some(digit) = codes::digit_key(event.virtual_key)
@@ -105,6 +129,10 @@ impl Router {
                 Effect::Changed(None)
             }
             codes::ESCAPE => {
+                // 横排矩阵展开着时第一下 Esc 只收回单行（高亮留在原处）
+                if self.collapse_grid() {
+                    return Effect::Navigated;
+                }
                 // 辅码态里 Esc 只清码段、拼音留着（与 Core 的 clear_aux 语义一致）
                 if self.engine.in_aux() {
                     self.engine.clear_aux();
@@ -140,12 +168,26 @@ impl Router {
                 }
             },
             codes::DOWN => {
-                self.move_highlight(1);
-                Effect::Navigated
+                // 横排矩阵开着：↓ 展开成矩阵 / 往下换行；否则按 highlight_keys 移高亮
+                if self.config.grid_keys() {
+                    self.move_rows(1);
+                    Effect::Navigated
+                } else {
+                    self.vertical_key(1)
+                }
             }
+            // 高亮还在第一个、没动过时 ↑ 没处可去，拿来开符号面板（矩阵开着时也一样，`↓` 照旧展开矩阵）
+            codes::UP if self.open_panel_from_key() => Effect::Navigated,
             codes::UP => {
-                self.move_highlight(-1);
-                Effect::Navigated
+                if self.config.grid_keys() {
+                    // ↑ 顶在第一排再往上：回到第一个候选（不是毫无动作）
+                    if !self.move_rows(-1) {
+                        self.jump_to_first();
+                    }
+                    Effect::Navigated
+                } else {
+                    self.vertical_key(-1)
+                }
             }
             codes::NEXT => {
                 self.page(1);
@@ -155,14 +197,8 @@ impl Router {
                 self.page(-1);
                 Effect::Navigated
             }
-            codes::LEFT => {
-                self.engine.move_cursor_left();
-                Effect::Changed(None)
-            }
-            codes::RIGHT => {
-                self.engine.move_cursor_right();
-                Effect::Changed(None)
-            }
+            codes::LEFT => self.horizontal_key(-1),
+            codes::RIGHT => self.horizontal_key(1),
             codes::HOME => {
                 self.engine.move_cursor_home();
                 Effect::Changed(None)
@@ -172,6 +208,50 @@ impl Router {
                 Effect::Changed(None)
             }
             _ => Effect::Passthrough,
+        }
+    }
+
+    /// `↑` / `↓`：按 `[shortcut] highlight_keys` 移高亮。高亮键配成 `←` / `→` 时它俩没活干，
+    /// 这一下吃掉但不动——不吃掉会漏给应用去挪插入符。
+    fn vertical_key(&mut self, step: isize) -> Effect {
+        if self.config.highlight_keys == HighlightKeys::UpDown {
+            self.move_highlight(step);
+        }
+        Effect::Navigated
+    }
+
+    /// `←` / `→`：缺省只走拼音光标；高亮键配成 `←` / `→` 或横排矩阵开着时两键一起管，
+    /// 把「拼音行 + 候选栏」当成一条从左到右的序列走——拼音行在左边，所以 `→` 先走光标、
+    /// 到末位溢出成选词，`←` 先退候选、到首位回光标（macOS 壳的 `move_cells` 是同一套规则）。
+    fn horizontal_key(&mut self, step: isize) -> Effect {
+        if self.config.highlight_keys == HighlightKeys::UpDown && !self.config.grid_keys() {
+            self.move_caret(step);
+            return Effect::Changed(None);
+        }
+        if step > 0 {
+            if self.move_caret(1) {
+                return Effect::Changed(None);
+            }
+            self.move_cells_or_highlight(1);
+            return Effect::Navigated;
+        }
+        if self.highlight > 0 {
+            self.move_cells_or_highlight(-1);
+            return Effect::Navigated;
+        }
+        // 高亮已在首位：把这一下还给拼音光标；光标也在开头时没有去处，照样吃掉
+        if self.move_caret(-1) {
+            return Effect::Changed(None);
+        }
+        Effect::Navigated
+    }
+
+    /// 拼音光标左右移一格。已在开头 / 末尾时返回 `false`，调用方据此溢出到另一个动作。
+    fn move_caret(&mut self, step: isize) -> bool {
+        if step < 0 {
+            self.engine.move_cursor_left()
+        } else {
+            self.engine.move_cursor_right()
         }
     }
 
@@ -244,15 +324,19 @@ impl Router {
         {
             return Effect::Changed(self.commit_index(index));
         }
+        // 翻页键要排在连字符前面，否则 `-` 永远翻不回上一页；翻不动时 `-` 照旧是单词里的连字符（`well-known`）
+        if composing
+            && let Some(step) = self.page_step(event)
+            && (c != '-' || self.can_page(step))
+        {
+            self.page(step);
+            return Effect::Navigated;
+        }
         if c.is_ascii_alphabetic()
             || (composing && (c.is_ascii_digit() || matches!(c, '_' | '\'' | '-')))
         {
             self.engine.push(c);
             return Effect::Changed(None);
-        }
-        if composing && let Some(step) = codes::page_key(event, self.config.page_keys) {
-            self.page(step);
-            return Effect::Navigated;
         }
         let committed = composing.then(|| {
             if c == ' ' {
@@ -316,7 +400,10 @@ impl Router {
                 return Effect::Changed(None);
             }
         }
-        if let Some(step) = codes::page_key(event, self.config.page_keys) {
+        // `-` `=` 翻不动时落回原字符（与 macOS 一致）；`[` `]` `,` `.` 翻不动照旧吃键，落字会往文档里插标点
+        if let Some(step) = self.page_step(event)
+            && (!matches!(c, '-' | '=') || self.can_page(step))
+        {
             self.page(step);
             return Effect::Navigated;
         }
@@ -362,7 +449,16 @@ impl Router {
         }
     }
 
-    pub(super) fn composing(&self) -> bool {
+    pub(in crate::dispatch) fn composing(&self) -> bool {
         !self.engine.composition().is_empty()
+    }
+
+    /// 横排矩阵展开着时按阅读顺序移一格（跨行、跳过空位），否则逐个移动高亮（到页边自动翻页）。
+    fn move_cells_or_highlight(&mut self, delta: isize) {
+        if self.grid.is_some() {
+            self.move_cells(delta);
+        } else {
+            self.move_highlight(delta);
+        }
     }
 }

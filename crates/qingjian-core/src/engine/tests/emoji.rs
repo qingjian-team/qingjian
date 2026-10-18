@@ -3,6 +3,67 @@
 use super::*;
 
 #[test]
+fn emoji_limit_preserves_words_and_can_be_disabled_and_restored() {
+    let table = EmojiTable::parse("开发\t👨‍💻 🛠️ 🧑‍💻\n开\t🔓\n").unwrap();
+    let mut engine = engine().with_emoji(table);
+    engine.set_input("kaifazhe");
+    let original = engine.query().unwrap().candidates.items;
+    let words: Vec<_> = original
+        .iter()
+        .filter(|c| c.kind != CandidateKind::Emoji)
+        .map(|c| c.text.clone())
+        .collect();
+    for limit in [0, 1, 2, 3, usize::MAX, 0, 3] {
+        engine.set_emoji_limit(limit);
+        let items = engine.query().unwrap().candidates.items;
+        assert_eq!(
+            items
+                .iter()
+                .filter(|c| c.kind == CandidateKind::Emoji)
+                .count(),
+            limit.min(3)
+        );
+        assert_eq!(
+            items
+                .iter()
+                .filter(|c| c.kind != CandidateKind::Emoji)
+                .map(|c| c.text.clone())
+                .collect::<Vec<_>>(),
+            words
+        );
+        assert_eq!(engine.composition().text(), "kaifazhe");
+    }
+}
+
+#[test]
+fn emoji_limit_applies_in_english_mode_and_keeps_commit_behavior() {
+    let words = WordList::parse("smile\nsmiled\n").unwrap();
+    let table = EmojiTable::parse("smile\t😀 😄\n").unwrap();
+    let mut engine = engine().with_english(words).with_emoji(table);
+    engine.set_english_mode(true);
+    engine.set_input("smile");
+    engine.set_emoji_limit(0);
+    assert!(
+        engine
+            .query()
+            .unwrap()
+            .candidates
+            .items
+            .iter()
+            .all(|c| c.kind != CandidateKind::Emoji)
+    );
+    engine.set_emoji_limit(1);
+    let items = engine.query().unwrap().candidates.items;
+    let emojis: Vec<_> = items
+        .iter()
+        .filter(|c| c.kind == CandidateKind::Emoji)
+        .collect();
+    assert_eq!(emojis.len(), 1);
+    assert_eq!(engine.commit(emojis[0]), "😀");
+    assert!(engine.composition().is_empty());
+}
+
+#[test]
 fn english_words_bring_their_emoji_and_the_emoji_consumes_the_whole_input() {
     let words = WordList::parse("smile\nsmiled\n").unwrap();
     let table = EmojiTable::parse("smile\t😀 😄\n笑\t😄\n").unwrap();
@@ -47,12 +108,51 @@ fn emoji_follow_their_word_and_consume_its_syllables() {
 }
 
 #[test]
-fn emoji_switch_off_leaves_only_words() {
-    let table = EmojiTable::parse("开发\t👨‍💻 🛠️\n").unwrap();
-    let mut engine = engine().with_emoji(table);
-    engine.set_emoji_candidates(false);
-    engine.set_input("kaifa");
+fn kaomoji_and_symbols_follow_the_emoji_of_their_word_with_their_own_limits() {
+    let dictionary = Dictionary::parse("约等于\tyue deng yu\t100\n哭\tku\t100\n").unwrap();
+    let table = EmojiTable::parse("约等于\t≈\n").unwrap();
+    let mut engine = Engine::new(dictionary).with_emoji(table);
+    // CLDR 表里的普通符号筛掉，改由符号表出
+    engine.set_input("yuedengyu");
     let items = engine.query().unwrap().candidates.items;
-    assert!(items.iter().any(|c| c.text == "开发"));
+    let position = items.iter().position(|c| c.text == "约等于").unwrap();
+    assert_eq!(items[position + 1].text, "≈");
+    assert_eq!(items[position + 1].kind, CandidateKind::Symbol);
     assert!(items.iter().all(|c| c.kind != CandidateKind::Emoji));
+    engine.set_symbol_limit(0);
+    let items = engine.query().unwrap().candidates.items;
+    assert!(items.iter().all(|c| !c.kind.follows_word()));
+
+    engine.set_input("ku");
+    let items = engine.query().unwrap().candidates.items;
+    let ku = items.iter().position(|c| c.text == "哭").unwrap();
+    let kaomoji = items[ku + 1..]
+        .iter()
+        .find(|c| c.kind == CandidateKind::Kaomoji)
+        .unwrap();
+    assert_eq!(kaomoji.text, "(T_T)");
+    assert_eq!(kaomoji.reading.as_deref(), Some("哭"));
+    let kaomoji = kaomoji.clone();
+    engine.set_kaomoji_limit(0);
+    assert!(
+        engine
+            .query()
+            .unwrap()
+            .candidates
+            .items
+            .iter()
+            .all(|c| c.kind != CandidateKind::Kaomoji)
+    );
+    assert_eq!(engine.commit(&kaomoji), "(T_T)");
+    assert!(engine.composition().is_empty());
+}
+
+#[test]
+fn symbol_names_missing_from_the_dictionary_still_bring_their_symbols() {
+    let mut engine = engine().with_emoji(EmojiTable::default());
+    engine.set_input("jiankuohao");
+    let items = engine.query().unwrap().candidates.items;
+    assert_eq!(items[0].text, "尖括号");
+    assert_eq!(items[1].text, "〈〉");
+    assert_eq!(items[1].kind, CandidateKind::Symbol);
 }

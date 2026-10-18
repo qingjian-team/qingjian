@@ -31,7 +31,8 @@ int main(int argc, char **argv) {
     assert(context.inputPanel().preedit().empty() == (mode == "inline"));
     auto candidates = context.inputPanel().candidateList();
     assert(candidates && candidates->size() == 3 && candidates->toPageable()->hasNext());
-    assert(candidates->candidate(2).comment().toString() == "hello · 生");
+    assert(candidates->candidate(2).comment().toString() == (mode == "cloud" ? "☁ hello · 生" : "hello · 生"));
+    if (mode == "cloud") assert(context.inputPanel().auxDown().toString() == "☁ 你好世界 · Tab");
     candidates->candidate(0).select(&context);
     assert(context.committed.empty());
     if (mode == "failure") {

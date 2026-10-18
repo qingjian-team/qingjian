@@ -11,12 +11,12 @@ use windows::core::w;
 ///
 /// 互斥体句柄故意不关，进程退出时由系统回收。
 pub(crate) fn acquire() -> bool {
-    let created = unsafe { CreateMutexW(None, false, w!("Local\\QingjianSettings")) };
+    let created = unsafe { CreateMutexW(None, false, w!("Local\\QingjianSettingsLegacy")) };
     if created.is_err() || unsafe { GetLastError() } != ERROR_ALREADY_EXISTS {
         return true;
     }
     // 第一个实例还没建出窗口（连点两下）就找不到，直接退出即可。
-    if let Ok(hwnd) = unsafe { FindWindowW(None, w!("青简设置")) } {
+    if let Ok(hwnd) = unsafe { FindWindowW(None, w!("青简旧版设置")) } {
         unsafe {
             if IsIconic(hwnd).as_bool() {
                 let _ = ShowWindow(hwnd, SW_RESTORE);

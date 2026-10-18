@@ -10,8 +10,14 @@ public:
     std::string committed;
 
     std::function<void()> onPreedit;
+
+    std::function<void()> onCommit;
 protected:
-    void commitStringImpl(const std::string &text) override { committed += text; }
+    void commitStringImpl(const std::string &text) override {
+        committed += text;
+        auto callback = std::move(onCommit);
+        if (callback) callback();
+    }
     void deleteSurroundingTextImpl(int, unsigned int) override {}
     void forwardKeyImpl(const fcitx::ForwardKeyEvent &) override {}
     void updatePreeditImpl() override {

@@ -49,7 +49,53 @@ fn save_roundtrip_preserves_text_and_rejects_conflicting_positions() {
         format!("{before}\n[[custom_phrases]]\ncode = 'ee'\ntext = '：'\nposition = 2\n"),
     )
     .unwrap();
-    assert!(Config::load(&path).is_err());
+    // 手改出来的冲突条目只丢它自己，前面的短语和其余设置照常生效
+    let loaded = Config::load(&path).unwrap();
+    assert_eq!(loaded.custom_phrases, phrases);
+    assert_eq!(loaded.general.page_size(), 5);
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+fn bad_phrases_are_skipped_on_load_and_kept_on_save() {
+    let dir = std::env::temp_dir().join(format!(
+        "qingjian-phrases-bad-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("config.toml");
+    std::fs::write(
+        &path,
+        "[general]\nscheme = \"xiaohe\"\n\n\
+         [[custom_phrases]]\ncode = \"ww\"\ntext = \"；\"\nposition = 1\n\n\
+         [[custom_phrases]] # 越界\ncode = \"ddz\"\ntext = \"等等\"\nposition = 10\n\n\
+         [[custom_phrases]]\ncode = \"yx\"\ntext = 42\nposition = 1\n\n\
+         [[custom_phrases]]\ncode = \"dz\"\ntext = \"地址\"\nposition = 2\n",
+    )
+    .unwrap();
+    let loaded = Config::load(&path).unwrap();
+    assert_eq!(loaded.general.scheme, "xiaohe");
+    let codes: Vec<_> = loaded
+        .custom_phrases
+        .iter()
+        .map(|p| p.code.as_str())
+        .collect();
+    assert_eq!(codes, ["ww", "dz"]);
+
+    // 偏好设置里停用一条再保存：跳过的两条原样留在文件里
+    let mut phrases = loaded.custom_phrases;
+    phrases[0].enabled = false;
+    Config::set_custom_phrases(&path, &phrases).unwrap();
+    let saved = std::fs::read_to_string(&path).unwrap();
+    assert!(saved.contains("[[custom_phrases]] # 越界"));
+    assert!(saved.contains("code = \"ddz\"") && saved.contains("position = 10"));
+    assert!(saved.contains("code = \"yx\"") && saved.contains("text = 42"));
+    let reloaded = Config::load(&path).unwrap();
+    assert_eq!(reloaded.custom_phrases, phrases);
     std::fs::remove_dir_all(dir).unwrap();
 }
 

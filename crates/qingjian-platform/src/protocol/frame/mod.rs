@@ -12,7 +12,7 @@ use crate::{Appearance, LayoutMode, PreeditMode};
 
 /// Server 告诉 DLL「现在屏幕上该是什么样」：组句的拼音行、候选页、高亮与页码。
 /// 空 [`Frame`]（`preedit` 与 `candidates` 都空）表示没有在组句，DLL 收起候选窗口。
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct Frame {
     /// 组句拼音行的分段，按顺序拼成整行。
     pub preedit: Vec<PreeditSegment>,
@@ -40,6 +40,16 @@ pub struct Frame {
     /// 候选排布（竖排 / 横排）。DLL 是纯渲染端，布局由 Server 按 `[general] layout` 配置随帧下发。
     pub layout: LayoutMode,
 
+    /// 横排展开成矩阵时每行几格，0 为没展开。展开时 `candidates` 是视口里的格子（按行优先排开，
+    /// 空位是 `text` 为空的占位候选），`highlight` 是高亮格在视口里的下标，`page` 是高亮所在行的页号。
+    /// 由 Server 自绘候选窗消费；DLL 不画候选，读不到也照旧。
+    #[serde(default)]
+    pub columns: usize,
+
+    /// 矩阵各列要留几个候选字宽（按整份候选估的，滚动、移动高亮时不变，窗口才不跳）；没展开为空。
+    #[serde(default)]
+    pub column_ems: Vec<f32>,
+
     /// 候选窗口外观（跟随系统 / 浅色 / 深色）。`System` 由绘制端按当前系统深浅色解析。
     /// 线上字段名仍是 `theme`（2026-09-18 之前的名字），没重启的应用里的旧 DLL 要求有这个字段，改名会让它解不出帧。
     #[serde(rename = "theme")]
@@ -50,6 +60,12 @@ pub struct Frame {
     #[serde(default)]
     pub aux_code_show: bool,
 
+    /// 译词旁是否显示词性标注（`[general] translation_pos`）：关掉时注记里不出 v. / n. / adj. 段，译词保留。
+    /// 与 `aux_code_show` 一样，显示开关由 Server 按配置随帧下发；帧的渲染消费者只有 Server 自己的候选窗，
+    /// DLL 不读这个字段。纯加 `#[serde(default)]` 字段不 bump 协议版本（会整条解帧失败的枚举变体才必须 bump）。
+    #[serde(default)]
+    pub translation_pos: bool,
+
     /// 整句补全（云联想给的整段拼音的整句结果）：画在 preedit 行右侧，按 Tab 上屏。无则 `None`。
     pub sentence: Option<String>,
 
@@ -57,11 +73,16 @@ pub struct Frame {
     /// 不参与 [`is_empty`](Self::is_empty)：单有提示不算在组句，否则空组句也会撑开候选窗口。
     #[serde(default)]
     pub notice: Option<String>,
+
+    /// 符号面板开着：缓冲区可能是空的（从菜单打开），DLL 仍要把键交给 Server、照常轮询。
+    /// 面板由 Server 自绘，这一帧的候选不画。
+    #[serde(default)]
+    pub symbol_panel: bool,
 }
 
 impl Frame {
-    /// 没有在组句：DLL 据此收起候选窗口。提示不算数（见 [`notice`](Self::notice)）。
+    /// 没有在组句：DLL 据此收起候选窗口。提示不算数（见 [`notice`](Self::notice)），开着的符号面板算。
     pub fn is_empty(&self) -> bool {
-        self.preedit.is_empty() && self.candidates.items.is_empty()
+        self.preedit.is_empty() && self.candidates.items.is_empty() && !self.symbol_panel
     }
 }

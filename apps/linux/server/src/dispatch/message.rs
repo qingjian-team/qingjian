@@ -26,7 +26,7 @@ impl Router {
                 self.notice = None;
                 let (commit, outcome) = match self.apply_key(&event) {
                     Effect::Changed(commit) => {
-                        self.recompose();
+                        self.recompose(None);
                         (commit, KeyOutcome::Consumed)
                     }
                     Effect::Navigated => (None, KeyOutcome::Consumed),

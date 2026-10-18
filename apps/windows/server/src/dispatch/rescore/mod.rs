@@ -198,6 +198,7 @@ impl Router {
             cursor,
             typed_keys,
             layout,
+            ..
         }) = self.composed.as_mut()
         else {
             return;
@@ -209,7 +210,11 @@ impl Router {
             self.config.cloud_slots,
         );
         if !cloud.is_empty() {
-            rebuilt.set_cloud(cloud);
+            if layout.cloud_first() {
+                rebuilt.set_cloud_first(cloud);
+            } else {
+                rebuilt.set_cloud(cloud);
+            }
         }
         *layout = rebuilt;
         (*preedit, *cursor, *typed_keys) = marked_parts(&query);

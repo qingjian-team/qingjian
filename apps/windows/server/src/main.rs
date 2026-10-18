@@ -219,7 +219,7 @@ fn main() {
         tracing::warn!(%error, "自定义短语配置未应用");
     }
     // 拼音侧与形码侧在 `configure_code_table` 里一起装配（双拼 / 注音 / 混输都在那）
-    engine.set_traditional_mode(config.general.traditional);
+    engine.set_traditional(config.general.traditional());
     engine.set_learning(config.general.learning);
     engine.set_mode_keys(config.shortcut.mode);
     engine.set_aux_code_key(config.general.aux_code_key(), config.general.page_keys());
@@ -227,12 +227,15 @@ fn main() {
     engine.set_aux_enabled(config.aux_code.enabled);
     engine.set_aux_show(config.general.aux_code_show);
     engine.set_chinese_first(config.general.chinese_first);
-    engine.set_emoji_candidates(config.general.emoji);
+    engine.set_emoji_limit(usize::from(config.general.emoji.get()));
+    engine.set_kaomoji_limit(usize::from(config.general.kaomoji.get()));
+    engine.set_symbol_limit(usize::from(config.general.symbols.get()));
     engine.set_english_in_chinese(config.general.english_in_chinese);
     engine.set_shift_letter_compose(config.general.shift_letter.compose());
     engine.set_shuangpin_raw_preedit(config.general.shuangpin_raw_preedit);
     engine.log_session(env!("CARGO_PKG_VERSION"), "windows");
-    dispatch::attach_cloud(&mut engine, &config.predict);
+    let usage_path = user_dir().map(|dir| dir.join(qingjian_predict::API_USAGE_FILE));
+    dispatch::attach_cloud(&mut engine, &config.predict, usage_path);
     let router_config = RouterConfig::from(&config);
     let mut router = Router::new(engine, router_config.clone());
     let model_path = dispatch::find_model(user_dir().as_deref(), &root);
@@ -259,6 +262,7 @@ fn main() {
         language = language.map_or("off", |l| l.code()),
         page_size = router_config.page_size,
         page_keys = %format!("{}{}", router_config.page_keys.0, router_config.page_keys.1),
+        highlight_keys = router_config.highlight_keys.key(),
         layout = router_config.layout.key(),
         appearance = router_config.appearance.key(),
         scheme = %if config.general.scheme_label().is_empty() { "全拼".to_owned() } else { config.general.scheme_label() },
@@ -302,7 +306,7 @@ fn serve(mut router: Router) {
     use qingjian_windows_server::ipc::{Work, pipe};
     use qingjian_windows_server::ui::UiHandle;
     grant_appcontainer_log_access();
-    // 工人循环的活：各连接的消息 + 状态条上的操作（UI 线程投进来）。
+    // 工人循环的活：各连接的消息 + 状态条、候选窗、符号面板上的操作（UI 线程投进来）。
     let (work_tx, work_rx) = std::sync::mpsc::channel::<Work>();
     let status_events = work_tx.clone();
     let on_status = Box::new(move |event| {
@@ -312,7 +316,11 @@ fn serve(mut router: Router) {
     let on_click = Box::new(move |target| {
         let _ = clicks.send(Work::Click(target));
     });
-    match UiHandle::spawn(on_status, on_click) {
+    let panel_events = work_tx.clone();
+    let on_panel = Box::new(move |hit| {
+        let _ = panel_events.send(Work::Panel(hit));
+    });
+    match UiHandle::spawn(on_status, on_click, on_panel) {
         Ok(ui) => {
             router.set_candidate_sink(Box::new(ui.clone()));
             router.set_status_sink(Box::new(ui));

@@ -3,13 +3,19 @@ mod apps;
 mod aux_code;
 mod candidate_renderer;
 mod dictionaries;
+mod emoji_count;
 mod font_size;
 mod general;
+mod highlight_keys;
 mod key_combo;
 mod layout_mode;
+mod legacy_traditional;
 mod log_level;
 mod model;
 mod modifiers;
+mod optional_key_combo;
+mod page_keys;
+mod phrases;
 mod preedit_mode;
 mod scheme;
 mod shift_letter;
@@ -35,16 +41,20 @@ pub use apps::{
 pub use aux_code::AuxCodeConfig;
 pub use candidate_renderer::CandidateRenderer;
 pub use dictionaries::{DEFAULT_DOMAINS, DictionariesConfig};
+pub use emoji_count::EmojiCount;
 pub use font_size::FontSize;
 pub use general::{
     DEFAULT_PAGE_KEYS, DEFAULT_THEME, GeneralConfig, LEARNING_LANGUAGE_OFF, MAX_PAGE_SIZE,
     PAGE_KEY_OPTIONS,
 };
+pub use highlight_keys::HighlightKeys;
 pub use key_combo::KeyCombo;
 pub use layout_mode::LayoutMode;
+pub use legacy_traditional::LegacyTraditional;
 pub use log_level::LogLevel;
 pub use model::LocalModelConfig;
 pub use modifiers::Modifiers;
+pub use page_keys::PageKeys;
 pub use preedit_mode::PreeditMode;
 pub use scheme::{Scheme, scheme_label, scheme_name};
 pub use shift_letter::ShiftLetter;
@@ -62,8 +72,8 @@ pub struct Config {
     /// 常规：学习语言、每页候选数、翻页键、外观。
     pub general: GeneralConfig,
 
-    /// 自定义短语；保存和读取均检查位置冲突。
-    #[serde(deserialize_with = "deserialize_phrases")]
+    /// 自定义短语；保存和读取均检查位置冲突。读的时候写错的条目只跳过它自己（见 [`phrases`]）。
+    #[serde(deserialize_with = "phrases::deserialize")]
     pub custom_phrases: Vec<qingjian_core::CustomPhrase>,
 
     /// 快捷键：前缀模式键（表达式 / 问字）与上屏译词的修饰键组合。
@@ -92,14 +102,6 @@ pub struct Config {
 
     /// 检查更新。
     pub update: UpdateConfig,
-}
-
-fn deserialize_phrases<'de, D: serde::Deserializer<'de>>(
-    deserializer: D,
-) -> Result<Vec<qingjian_core::CustomPhrase>, D::Error> {
-    let phrases = Vec::<qingjian_core::CustomPhrase>::deserialize(deserializer)?;
-    qingjian_core::custom_phrase::validate_phrases(&phrases).map_err(serde::de::Error::custom)?;
-    Ok(phrases)
 }
 
 /// 模板的 `[apps]` 一节（Linux）：应用按 fcitx5 认到的名字（X11 是 WM_CLASS，Wayland 是 app_id）。
@@ -160,7 +162,7 @@ english_candidates_on = [
 }
 
 /// 模板 `[shortcut]` 一节里的修饰键组合（macOS 命名）。缺省值两个平台一样，只是写法与注释按平台的键名。
-#[cfg(not(windows))]
+#[cfg(all(not(windows), not(target_os = "linux")))]
 macro_rules! template_shortcut_keys {
     () => {
         r#"# 中 / 英模式切换键（Windows 用），可多选：shift 单击（缺省）/ control 单击 / ctrl+alt+space 组合键；[] 不用键切换。
@@ -179,6 +181,23 @@ delete_candidate = "shift"
     };
 }
 
+/// Linux 默认避开桌面常用的 Ctrl + Alt + T（打开终端）。
+#[cfg(target_os = "linux")]
+macro_rules! template_shortcut_keys {
+    () => {
+        r#"# 中 / 英模式切换键：shift 单击（缺省），[] 不用键切换。
+switch_mode = ["shift"]
+# 数字键配这些修饰键上屏候选的译词：translation 第一个译词，translation_second 第二个
+translation = "alt"
+translation_second = "shift+alt"
+# 把应用里选中的文字译成学习语言（要开着云服务）；Ctrl + Alt + T 常被桌面占用来打开终端
+translate_selection = "alt+shift+t"
+# 数字键配这些修饰键删掉候选
+delete_candidate = "shift"
+"#
+    };
+}
+
 /// 模板 `[shortcut]` 一节里的修饰键组合（Windows 键名：alt / ctrl / win，读回来与 macOS 的 option / control / command 等价）。
 #[cfg(windows)]
 macro_rules! template_shortcut_keys {
@@ -192,6 +211,8 @@ translation = "ctrl"
 translation_second = "shift+ctrl"
 # 把应用里选中的文字译成学习语言（要开着云服务）：译文先出现在候选窗口，回车替换选中的文字，Esc 保留原文
 translate_selection = "ctrl+alt+t"
+# Windows 组句中按需调用 AI
+predict = "ctrl+alt+j"
 # 数字键配这些修饰键删掉候选：用户词（云端选过的、自动造的）整个删掉，词库里的词清掉对它的学习记录。组句中要打感叹号先把词上屏
 delete_candidate = "shift"
 "#
@@ -204,7 +225,7 @@ pub const TEMPLATE: &str = concat!(
     r#"# 青简输入法配置。保存后自动生效；也可以在菜单栏的输入法菜单里改。
 
 [general]
-# 学习语言（en 英语 / ja 日语 / es 西班牙语 / off 不显示译文）：候选旁显示哪种语言的译文，要有对应的释义表才生效
+# 学习语言（en 英语 / ja 日语 / es 西班牙语 / de 德语 / off 不显示译文）：候选旁显示哪种语言的译文，要有对应的释义表才生效
 learning_language = "en"
 # 每页候选数（1–9）
 page_size = 9
@@ -213,7 +234,7 @@ page_size = 9
 page_keys = "[]"
 # 候选窗口外观：system 跟随系统 / light 浅色 / dark 深色
 appearance = "system"
-# 候选窗口主题（主题 id）：qingjian 青简绿 / system-blue 系统蓝 / wechat 微信绿 / sakura 樱花。只对青简渲染器生效
+# 候选窗口主题（主题 id）：qingjian 青简绿 / system-blue 系统蓝 / wechat 微信绿 / sakura 樱花 / dafeiyu 大肥鱼 / miku 初音未来 / bocchi 波奇酱。只对青简渲染器生效
 theme = "qingjian"
 # 候选窗口排布：vertical 竖排 / horizontal 横排（横排只给高亮候选显示译文）
 layout = "vertical"
@@ -234,20 +255,31 @@ preedit = "both"
 # 英文模式（Caps Lock 亮着）是否给英文候选：Tab 或方向键选词，空格、回车、标点仍原样上屏敲的字母；false 就是纯直通
 english_candidates = true
 
-# 繁体输出模式。开启后上屏繁体，不影响词库和个人词频的简体记录。
-traditional = false
+# 繁体输出：off 简体 / taiwan 台湾字形 / hongkong 香港字形 / standard 通用字形；三档都只换字形不换用语（软件 → 軟件）
+# 候选窗口里看到的就是转换后的字；词库与学习数据始终是简体，改回 off 之前学到的词照样在。旧版的 traditional = true 按台湾字形读
+traditional_variant = "off"
 # 中文模式下整段输入是英文词时（hello / key）是否让中文候选排第一、英文词第二；缺省 false：拼音不像话的输入英文词排第一
 chinese_first = false
 # 中文模式下整段是英文词或英文词的开头时给英文候选与补全（hello、compa → company）；false 时中文模式只出中文，英文模式不受影响
 english_in_chinese = true
-# 候选后面配 emoji（kaixin → 开心 😄）；false 时候选里只有字词
-emoji = true
+# 候选后面一次最多配几个 emoji（kaixin → 开心 😄），0–3；0 时候选里只有字词
+emoji = 3
+# 候选后面一次最多配几个颜文字（ku → 哭 (T_T)），0–3
+kaomoji = 1
+# 候选后面一次最多配几个符号（yuedengyu → 约等于 ≈，alpha → α），0–3
+symbols = 1
+# 中西文之间自动补空格：汉字与半角字母 / 数字相邻时补一个空格，「用Go写了30行」上屏成「用 Go 写了 30 行」。缺省关；只有 macOS 用
+auto_space = false
 # 中文模式下按住 Shift 敲的字母：passthrough 拼音原样上屏、字母交给应用（缺省，与以前一致）/ compose 收进组句
 # 缓冲区参与匹配，这样 Cpan 与 cpan 一样能出「C盘」。英文模式与英文直输段（no-Way）不受影响
 shift_letter = "passthrough"
 # 内置英文模式：开着时单击切换键（[shortcut] switch_mode）或 Caps Lock 亮着进英文模式
 # 关掉后青简保持中文模式，切换键与语言栏按钮都不再切过去；要打英文请用系统快捷键（Win+Space）切到别的输入法。只有 Windows 用，macOS 的中英切换是 Caps Lock
 english_mode = true
+# Windows：初始英文；按应用记忆时也用于没有记录的应用
+default_english = false
+# Windows：按应用 exe 名记住中英状态，重启青简后重新使用初始模式
+remember_mode_per_app = false
 # 中文模式下（没在组句时）敲的标点转全角：, . ? ! : ; ( ) 等，数字后面的 . 保持半角。Windows 上悬浮状态条的「，。」格可以点着切；macOS 在偏好设置中选择默认中文标点模式
 full_width_punctuation = true
 # 英文模式下的同一件事，中英各记一份，状态条切的是当前模式那份；只有 Windows 用
@@ -262,9 +294,9 @@ aux_code_key = ";"
 aux_code_show = false
 # 码段删空后是否留在辅码状态：true 删空后 ; 仍在、候选全部回来，再按一次退格才退出辅码；false 删空即回拼音状态
 aux_code_keep_empty = true
-# 拼音方案：留空或 pinyin 为全拼 / xiaohe 小鹤双拼 / ziranma 自然码 / microsoft 微软双拼 / sogou 搜狗双拼 / abc 智能ABC / xiaolang 小浪双拼 / shoudao 首道双拼 /
+# 拼音方案：留空或 pinyin 为全拼 / xiaohe 小鹤双拼 / ziranma 自然码 / microsoft 微软双拼 / sogou 搜狗双拼 / abc 智能ABC / xiaolang 小浪双拼 / shoudao 首道双拼 / jiajia 拼音加加 / ziguang 紫光双拼 /
 # zhuyin 大千注音 / none 关（只用形码，见下面的 wubi）。
-# 双拼与注音下 v / u / i 都是按键，表达式模式没有入口，问字只能靠 question_mark 打开后用 ? 进；微软、搜狗方案的 ; 键是 ing
+# 双拼与注音下 v / u / i 都是按键，表达式模式没有入口，问字只能靠 question_mark 打开后用 ? 进；微软、搜狗、紫光方案的 ; 键是 ing
 scheme = ""
 # 双拼方案下 preedit 显示原始按键（如 ljse）还是展开成全拼（lan'se）；缺省 false（展开成全拼）
 shuangpin_raw_preedit = false
@@ -290,6 +322,10 @@ system_text_replacements = true
 # enabled = true    # 是否启用；停用仍保留位置
 
 [shortcut]
+# Windows：切换当前模式的全 / 半角标点；空串禁用，可设为 "ctrl+." 或其他修饰键加字母、数字、句号
+toggle_punctuation = ""
+# Windows：主翻页键之外同时启用的键对，可多选，如 ["[]", ",.", "-="]
+extra_page_keys = []
 # 前缀模式键，只能是 v / u / i 之一且互不相同（这三个字母不是任何拼音音节的开头）
 # 表达式模式：v1+2 出 3，v123 出中文数字
 expression = "v"
@@ -297,6 +333,9 @@ expression = "v"
 question = "u"
 # 没在组句时敲 ? 是否也进问字模式（中英文模式都行，后面跟字母才是问题，跟别的键还原成问号）；false 的话问号就是问号
 question_mark = false
+# 候选高亮由哪对方向键移动：updown 用 ↑ / ↓ 移高亮、← / → 移拼音光标（缺省）；leftright 改用 ← / → 移高亮
+# leftright 时两键把「拼音行 + 候选栏」当成一条从左到右的序列走：→ 到拼音光标末位溢出成选词，← 到候选首位回拼音光标；↑ / ↓ 不做事。只有 Windows 用
+highlight_keys = "updown"
 "#,
     template_shortcut_keys!(),
     r#"
@@ -350,6 +389,10 @@ api_key_env = "QINGJIAN_API_KEY"
 # 单次请求超时（毫秒）、停止敲键多久后才发请求（毫秒）
 timeout_ms = 5000
 debounce_ms = 300
+# Windows 自动联想开关；关闭后在组句中按 Ctrl+Alt+J 手动请求，快捷键在 [shortcut] predict 中设置
+automatic = true
+# 两次网络请求起始之间的最短间隔，失败也计入；缓存命中不等待
+min_interval_ms = 3000
 # 光标前 / 后最多发多少个字符——这是发往云端的上下文上限
 lookback = 64
 lookahead = 32
@@ -357,6 +400,10 @@ lookahead = 32
 slots = 2
 # 组句中除了词候选还要不要整句补全（preedit 右侧，Tab 接受）
 sentence = true
+# 本地整句候选右侧是否显示服务返回的译文；仅发送该候选文本，不发送光标前后上下文
+sentence_translation = false
+# 上屏的整句（含分几次打完的一句）翻成学习语言，记进生词本的时间线；只发那一句，不发光标前后的文字
+vocabulary_translation = true
 
 [status_bar]
 # 桌面上常驻、可拖动的悬浮状态条（Windows）：「中 / 英」格点一下切换模式（开着双拼时还显示方案名）、「，。」格切全角 / 半角标点、齿轮打开设置。
@@ -388,11 +435,25 @@ impl Config {
             Err(e) => return Err(e.to_string()),
         };
         let mut document: DocumentMut = source.parse::<DocumentMut>().map_err(|e| e.to_string())?;
-        let old = document
+        let existing = document
             .get("custom_phrases")
             .and_then(toml_edit::Item::as_array_of_tables)
             .cloned()
             .unwrap_or_default();
+        // 读配置时跳过的条目界面上看不到，保存时原样留在文件里，等用户自己改
+        let checked = phrases::check(existing.iter().map(|table| {
+            toml::from_str::<qingjian_core::CustomPhrase>(&table.to_string())
+                .map_err(|e| e.message().to_owned())
+        }));
+        let mut old = toml_edit::ArrayOfTables::new();
+        let mut skipped = Vec::new();
+        for (table, item) in existing.iter().zip(&checked) {
+            if item.is_ok() {
+                old.push(table.clone());
+            } else {
+                skipped.push(table.clone());
+            }
+        }
         let mut used = std::collections::BTreeSet::new();
         // 先按输入码和位置匹配，重排或删除时注释跟随原规则。
         let mut matches: Vec<_> = phrases
@@ -444,6 +505,9 @@ impl Config {
             // 序列化按文档位置排序；统一锚点后，同组条目使用本次列表顺序。
             t.set_position(old.iter().filter_map(toml_edit::Table::position).min());
             tables.push(t);
+        }
+        for table in skipped {
+            tables.push(table);
         }
         document["custom_phrases"] = toml_edit::Item::ArrayOfTables(tables);
         write_file(path, &document.to_string()).map_err(|e| e.to_string())
@@ -565,7 +629,7 @@ impl Config {
 const APPEARANCE_COMMENT: &str = "# 候选窗口外观：system 跟随系统 / light 浅色 / dark 深色\n";
 
 /// 模板里 `theme` 那一行上方的注释，同上。
-const THEME_COMMENT: &str = "# 候选窗口主题（主题 id）：qingjian 青简绿 / system-blue 系统蓝 / wechat 微信绿 / sakura 樱花。只对青简渲染器生效\n";
+const THEME_COMMENT: &str = "# 候选窗口主题（主题 id）：qingjian 青简绿 / system-blue 系统蓝 / wechat 微信绿 / sakura 樱花 / dafeiyu 大肥鱼 / miku 初音未来 / bocchi 波奇酱。只对青简渲染器生效\n";
 
 /// 旧写法里 `theme` 写的外观；新写法（或没写）为 `None`。
 fn legacy_appearance(document: &DocumentMut) -> Option<Appearance> {

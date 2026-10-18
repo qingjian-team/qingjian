@@ -3,6 +3,7 @@
 //! 云端词晚到几百毫秒到一秒。以前它插在本地候选第二位，用户看着 2 号按下去的一瞬间 2 号被云端词顶掉，选错。
 //! 现在第一页前 `page_size−slots` 格永远是本地候选，云端词到了填进最后 `slots` 格（原来那几格的本地候选挪到下一页），
 //! 没到、没词就什么都不变：不预留、不画占位，页面上只会「多出几个词」这一种变化。云端词只在第一页，翻页之后全是本地候选。
+//! 显式调用 `set_cloud_first` 可将手动请求结果按模型顺序放在首页空位；默认 `set_cloud` 保持上述自动末尾布局。
 //! 这是展示规则不是排序规则，但 CLI 与各平台壳都要用同一套，所以放在 Core。
 
 mod candidate_layout;
@@ -12,3 +13,6 @@ mod grid;
 pub use candidate_layout::CandidateLayout;
 pub use cell::Cell;
 pub use grid::{GRID_ROWS, Grid, MAX_CELL_EMS};
+
+#[cfg(test)]
+mod tests;

@@ -70,6 +70,7 @@ impl Placement {
             Some(StatusAction::TogglePunctuation) => {
                 (self.events)(StatusEvent::TogglePunctuation);
             }
+            Some(StatusAction::OpenSymbolPanel) => (self.events)(StatusEvent::OpenSymbolPanel),
             Some(StatusAction::OpenSettings) => crate::ui::open_settings(),
             None => {}
         }

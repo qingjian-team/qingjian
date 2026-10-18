@@ -2,6 +2,7 @@
 
 use qingjian_render::HitTarget;
 
+use crate::composing::SentenceTranslator;
 use crate::support::*;
 
 fn poll(router: &mut Router, session: SessionId) -> (Frame, Option<String>) {
@@ -37,6 +38,28 @@ fn clicking_a_translation_commits_that_sense() {
 }
 
 #[test]
+fn clicking_a_sentence_translation_commits_it() {
+    let submitted = Arc::new(Mutex::new(Vec::new()));
+    let mut router = router_with(RouterConfig {
+        sentence_translation: true,
+        ..RouterConfig::default()
+    });
+    router
+        .engine_mut()
+        .set_predictor(Box::new(SentenceTranslator::new(submitted)));
+    let (_, _, frame) = type_letters(&mut router, "xiangkaifa");
+    let slot = slot_of(&frame, "想开发");
+    router.handle_click(HitTarget::Translation {
+        candidate: slot as usize - 1,
+        sense: 0,
+    });
+    assert_eq!(
+        poll(&mut router, SESSION).1.as_deref(),
+        Some("It seems not to work.")
+    );
+}
+
+#[test]
 fn a_key_before_the_poll_carries_the_clicked_text() {
     let mut router = router();
     let (_, _, frame) = type_letters(&mut router, "nihao");
@@ -55,7 +78,8 @@ fn old_dlls_do_not_take_clicks() {
     router.handle(ClientMessage::OpenSession {
         session: old,
         app: None,
-        protocol: PROTOCOL_VERSION - 1,
+        // 点击上屏从协议 8 起（`CLICK_SINCE`），7 是最后一版不认 `Update.commit` 的 DLL
+        protocol: 7,
     });
     for c in "nihao".chars() {
         press_in(&mut router, old, letter(c));

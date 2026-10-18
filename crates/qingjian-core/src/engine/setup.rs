@@ -1,8 +1,23 @@
 //! 注入与开关：词库、模糊音、双拼、翻译 / 学习 / 联想等 trait 实现的挂接，以及相应的只读访问。
 
+use super::EMOJI_TOTAL;
 use super::aux_code::is_valid_aux_code_key;
-use super::*;
+use super::{
+    DEFAULT_AUX_CODE_KEY, Engine, GlossFiller, InputLogger, Learner, ModeKeys, NEURAL_MARGIN,
+    NEURAL_WEIGHT, Predictor, RESCORE_CONTEXT_CHARS, Translator, UsageMeter, UsageSummary,
+    VocabularyTracker, marked_rest,
+};
+use crate::candidate::Language;
+use crate::correction::TypoCosts;
+use crate::emoji::{EmojiTable, builtin, is_emoji};
 use crate::engine::decoded::EngineDecoded;
+use crate::fuzzy::FuzzyRules;
+use crate::history::InputHistory;
+use crate::sentence::{Interpolation, LanguageModel, Personal, SentenceScorer};
+use crate::shuangpin::Scheme;
+use crate::traditional::{Traditional, TraditionalVariant};
+use qingjian_dictionary::{AuxCodeLookup, CodeTable, Dictionary, WordList};
+use std::sync::Arc;
 
 impl Engine {
     /// 设置中文模式的标点转换。
@@ -89,20 +104,22 @@ impl Engine {
         self.forget_span_cache();
     }
 
-    /// 設置是否啟用繁體輸出模式。
-    pub fn set_traditional_mode(&mut self, on: bool) {
-        self.traditional = on;
-        if on && self.opencc.is_none() {
-            match ferrous_opencc::OpenCC::from_config(ferrous_opencc::config::BuiltinConfig::S2tw) {
-                Ok(opencc) => self.opencc = Some(opencc),
-                Err(error) => tracing::warn!(%error, "繁体转换器初始化失败，候选仍是简体"),
-            }
-        }
-    }
-
     /// 目前是否處於注音模式。
     pub fn is_zhuyin_mode(&self) -> bool {
         self.zhuyin
+    }
+
+    /// 设繁体输出：候选与上屏文本在出 Core 时换成繁体，词库与学习数据仍是简体（见 [`crate::traditional`]）。
+    /// 变体没变就不重建，建一次要把 OpenCC 的字典装起来。
+    pub fn set_traditional(&mut self, variant: TraditionalVariant) {
+        if variant != self.traditional.variant() {
+            self.traditional = Traditional::new(variant);
+        }
+    }
+
+    /// 当前的繁体输出变体。
+    pub fn traditional(&self) -> TraditionalVariant {
+        self.traditional.variant()
     }
 
     /// 换形码码表（五笔），`None` 回到拼音的诸方案。编码与拼音是两套键，纠错缓存一并清掉。
@@ -160,7 +177,7 @@ impl Engine {
             .question_body(self.composition.scope(), self.zhuyin);
         self.shuangpin
             .filter(|scheme| scheme.uses_semicolon())
-            .is_some_and(|scheme| scheme.decode(body).pending_initial())
+            .is_some_and(|scheme| scheme.decode_fuzzy(body, self.fuzzy).pending_initial())
     }
 
     /// 只用形码：码表挂着、拼音侧关着。
@@ -205,7 +222,7 @@ impl Engine {
             Some(EngineDecoded::Zhuyin(crate::zhuyin::decode(keys)))
         } else {
             self.shuangpin
-                .map(|scheme| EngineDecoded::Shuangpin(scheme.decode(keys)))
+                .map(|scheme| EngineDecoded::Shuangpin(scheme.decode_fuzzy(keys, self.fuzzy)))
         }
     }
 
@@ -221,9 +238,32 @@ impl Engine {
         }
     }
 
-    pub fn with_emoji(mut self, table: EmojiTable) -> Self {
+    /// 带上 emoji 表：表里的普通符号（`≈` `¥`）筛掉、改由符号表出，并上内置的口语叫法；内置的颜文字、符号表与它们的词一起启用。
+    pub fn with_emoji(mut self, mut table: EmojiTable) -> Self {
+        table.retain(is_emoji);
+        table.merge(builtin::emoji_supplement());
         self.emoji = Some(table);
+        self.kaomoji = Some(&builtin::KAOMOJI);
+        self.symbols = Some(&builtin::SYMBOLS);
+        self.companion_words = Some(&builtin::WORDS);
+        self.forget_span_cache();
         self
+    }
+
+    /// 每次查询最多插入几个 emoji（0–3）；0 关闭，越界值按 3 处理。
+    /// 保留词表，重新开启时无需加载；不改变普通候选的排序。
+    pub fn set_emoji_limit(&mut self, limit: usize) {
+        self.emoji_limit = limit.min(EMOJI_TOTAL);
+    }
+
+    /// 每次查询最多插入几个颜文字（0–3），规则同 [`Engine::set_emoji_limit`]。
+    pub fn set_kaomoji_limit(&mut self, limit: usize) {
+        self.kaomoji_limit = limit.min(EMOJI_TOTAL);
+    }
+
+    /// 每次查询最多插入几个符号（0–3），规则同 [`Engine::set_emoji_limit`]。
+    pub fn set_symbol_limit(&mut self, limit: usize) {
+        self.symbol_limit = limit.min(EMOJI_TOTAL);
     }
 
     pub fn with_fuzzy(mut self, rules: FuzzyRules) -> Self {
@@ -344,7 +384,7 @@ impl Engine {
         self
     }
 
-    /// 静态语言模型（没接就是 [`NoLanguageModel`]）：评测工具拿它按 [`crate::sentence::segment_text`] 切汉字文本。
+    /// 静态语言模型（没接就是 [`crate::sentence::NoLanguageModel`]）：评测工具拿它按 [`crate::sentence::segment_text`] 切汉字文本。
     pub fn language_model(&self) -> &dyn LanguageModel {
         &*self.language_model
     }
@@ -402,15 +442,6 @@ impl Engine {
         self.modes
     }
 
-    /// 候选后面配不配 emoji（配置 `[general] emoji`，缺省开）。
-    pub fn set_emoji_candidates(&mut self, on: bool) {
-        self.emoji_candidates = on;
-    }
-
-    pub fn emoji_candidates(&self) -> bool {
-        self.emoji_candidates
-    }
-
     /// 中文模式下给不给英文词与补全（配置 `[general] english_in_chinese`，缺省开）；英文模式不受影响。
     pub fn set_english_in_chinese(&mut self, on: bool) {
         self.english_in_chinese = on;
@@ -428,6 +459,15 @@ impl Engine {
 
     pub fn chinese_first(&self) -> bool {
         self.chinese_first
+    }
+
+    /// 中西文之间是否自动补空格（配置 `[general] auto_space`，缺省关）。
+    pub fn set_auto_space(&mut self, on: bool) {
+        self.auto_space = on;
+    }
+
+    pub fn auto_space(&self) -> bool {
+        self.auto_space
     }
 
     /// 中文模式下 Shift+字母是否进组句缓冲区（配置 `[general] shift_letter`，缺省关）。
@@ -501,11 +541,12 @@ impl Engine {
         &self.extra_dictionaries
     }
 
-    /// 查词用的全部词库：主词库、附加词库、用户词。
+    /// 查词用的全部词库：主词库、附加词库、内置的符号与 emoji 名字、用户词。
     pub(super) fn all_dictionaries(&self) -> Vec<&Dictionary> {
         let mut all = Vec::with_capacity(self.extra_dictionaries.len() + 2);
         all.push(&self.dictionary);
         all.extend(self.extra_dictionaries.iter());
+        all.extend(self.companion_words);
         if let Some(user) = self.learner.user_words() {
             all.push(user);
         }

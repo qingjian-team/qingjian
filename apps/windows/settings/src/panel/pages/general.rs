@@ -1,18 +1,30 @@
 //! 「通用」页：学习语言、每页候选数、输入方案、英文模式候选。
 
-use qingjian_platform::{MAX_PAGE_SIZE, Scheme, ShiftLetter, SwitchKey};
-use windows_reactor::*;
+use qingjian_platform::{EmojiCount, MAX_PAGE_SIZE, Scheme, ShiftLetter, SwitchKey};
+use windows_reactor::{
+    Callback, CheckBox, ChildrenControl, ComboBox, ContentControl, NumberBox, Orientation,
+    StackPanel, ToggleSwitch, View, ViewContext,
+};
 
-use crate::panel::controls::{feedback, field, index_of, page};
+use crate::panel::controls::{feedback, field, index_of, page, section};
 use crate::panel::{Message, Settings};
 
 /// 学习语言：界面名 + 配置写法。
-pub(crate) const LANGUAGES: [(&str, &str); 5] = [
+pub(crate) const LANGUAGES: [(&str, &str); 6] = [
     ("英语", "en"),
     ("日语", "ja"),
     ("西班牙语", "es"),
     ("越南语", "vi"),
+    ("德语", "de"),
     ("不显示译文", "off"),
+];
+
+/// 繁体输出：界面名 + 配置写法，与 `TraditionalVariant::ALL` 同序。
+pub(crate) const TRADITIONAL: [(&str, &str); 4] = [
+    ("简体", "off"),
+    ("繁体（台湾）", "taiwan"),
+    ("繁体（香港）", "hongkong"),
+    ("繁体（通用字形）", "standard"),
 ];
 
 /// 输入方案：界面名 + 配置写法，直接照 [`Scheme::ALL`] 建，不另抄一份。
@@ -28,6 +40,8 @@ pub(crate) const SCHEMES: [(&str, &str); Scheme::ALL.len()] = [
     (Scheme::ALL[7].label(), Scheme::ALL[7].key()),
     (Scheme::ALL[8].label(), Scheme::ALL[8].key()),
     (Scheme::ALL[9].label(), Scheme::ALL[9].key()),
+    (Scheme::ALL[10].label(), Scheme::ALL[10].key()),
+    (Scheme::ALL[11].label(), Scheme::ALL[11].key()),
 ];
 
 pub(crate) fn string_combo(
@@ -63,6 +77,14 @@ pub(crate) fn view(settings: &Settings, context: &mut ViewContext<Settings>) -> 
             ),
         ),
         field(
+            "译词显示词性",
+            "关掉后候选旁只显示译词，不显示 v. / n. / adj. 等标注（develop 而非 v. develop）。译文选「不显示译文」时此项无效。",
+            ToggleSwitch::new()
+                .is_on(g.translation_pos)
+                .is_enabled(!g.learning_language_off())
+                .on_toggled(context.callback(Message::TranslationPos)),
+        ),
+        field(
             "每页候选数",
             "",
             NumberBox::new()
@@ -73,8 +95,8 @@ pub(crate) fn view(settings: &Settings, context: &mut ViewContext<Settings>) -> 
         ),
         field(
             "拼音方案",
-            "全拼、五套双拼、大千注音，或关（只用下面的五笔）。\
-             双拼下 v、u、i 是音节键，表达式与问字模式改用 Shift+V、Shift+U 进（微软、搜狗方案的 ; 键是 ing）；\
+            "全拼、九套双拼、大千注音，或关（只用下面的五笔）。\
+             双拼下 v、u、i 是音节键，表达式与问字模式改用 Shift+V、Shift+U 进（微软、搜狗、紫光方案的 ; 键是 ing）；\
              注音下 v、u、i 也是按键，只能用 ? 开头进。",
             string_combo(
                 &SCHEMES,
@@ -100,18 +122,37 @@ pub(crate) fn view(settings: &Settings, context: &mut ViewContext<Settings>) -> 
                 .on_toggled(context.callback(Message::Wubi)),
         ),
         field(
-            "繁体输出",
-            "打字时将候选词转换为繁体中文。",
-            ToggleSwitch::new()
-                .is_on(g.traditional)
-                .on_toggled(context.callback(Message::Traditional)),
+            "输出字形",
+            "只换字形、不换用语（软件 → 軟件）；台湾与香港的字形取舍不同（裡 / 裏）。词库与学习数据始终是简体，改回简体后学过的词照样在。",
+            string_combo(
+                &TRADITIONAL,
+                g.traditional().key(),
+                context.callback(Message::Traditional),
+            ),
         ),
         field(
-            "候选后面显示 emoji",
-            "开着时有对应 emoji 的词后面跟一两个（kaixin → 开心 😄）；关掉候选里只有字词。",
-            ToggleSwitch::new()
-                .is_on(g.emoji)
-                .on_toggled(context.callback(Message::Emoji)),
+            "候选后面的 emoji",
+            "有对应 emoji 的词后面跟一两个（kaixin → 开心 😄），这里限一次最多几个；「不显示」时候选里只有字词。",
+            ComboBox::new()
+                .items_source(EmojiCount::LABELS.iter().copied())
+                .selected_index(Some(usize::from(g.emoji.get())))
+                .on_selection_changed(context.callback(Message::Emoji)),
+        ),
+        field(
+            "候选后面的颜文字",
+            "有对应颜文字的词后面跟一个（ku → 哭 (T_T)），这里限一次最多几个。",
+            ComboBox::new()
+                .items_source(EmojiCount::LABELS.iter().copied())
+                .selected_index(Some(usize::from(g.kaomoji.get())))
+                .on_selection_changed(context.callback(Message::Kaomoji)),
+        ),
+        field(
+            "候选后面的符号",
+            "有对应符号的词后面跟一两个（yuedengyu → 约等于 ≈，alpha → α），这里限一次最多几个。",
+            ComboBox::new()
+                .items_source(EmojiCount::LABELS.iter().copied())
+                .selected_index(Some(usize::from(g.symbols.get())))
+                .on_selection_changed(context.callback(Message::Symbols)),
         ),
         field(
             "中文模式标点转全角",
@@ -135,7 +176,7 @@ pub(crate) fn view(settings: &Settings, context: &mut ViewContext<Settings>) -> 
                 .on_toggled(context.callback(Message::PunctCommits)),
         ),
         field(
-            "英文模式（Caps Lock）也给候选",
+            "英文候选与补全",
             "Tab 或方向键选词；空格、回车、标点仍原样上屏敲的字母，不选词时与直接打字一样。",
             ToggleSwitch::new()
                 .is_on(g.english_candidates)
@@ -164,7 +205,6 @@ pub(crate) fn view(settings: &Settings, context: &mut ViewContext<Settings>) -> 
                 .is_enabled(g.english_in_chinese)
                 .on_toggled(context.callback(Message::ChineseFirst)),
         ),
-        feedback(&settings.notice),
         field(
             "中文模式下的 Shift + 字母",
             "「交给应用」是临时打英文（与以前一致）：拼音先上屏，这个键归应用；\
@@ -173,8 +213,8 @@ pub(crate) fn view(settings: &Settings, context: &mut ViewContext<Settings>) -> 
         ),
         field(
             "中英切换键",
-            "勾上的键都能在中英之间切换，可以多选，改完立刻生效；中英模式所有应用共用一份。打字时容易误触 Shift 的话改勾「单击 Ctrl」；一个都不勾时只剩任务栏 / 悬浮状态条上的「中」「英」按钮。\
-             系统自带的 Ctrl + Space 也能切中英，与微软拼音一致，不用勾（装了别的输入法时 Windows 可能改用它切换输入法）。",
+            "勾上的键都能在中英之间切换，可以多选，改完立刻生效。打字时容易误触 Shift 的话改勾「单击 Ctrl」；一个都不勾时只剩任务栏 / 悬浮状态条上的「中」「英」按钮。\
+             「Ctrl + Space（系统）」是 Windows 的设置，由 Windows 管理，也会影响微软拼音等简体中文输入法。",
             switch_key_boxes(settings, context),
         ),
         field(
@@ -184,11 +224,36 @@ pub(crate) fn view(settings: &Settings, context: &mut ViewContext<Settings>) -> 
                 .is_on(g.english_mode)
                 .on_toggled(context.callback(Message::EnglishMode)),
         ),
+        field(
+            "默认英文模式",
+            "青简启动时使用英文；按应用记忆时，没有记录的应用也从英文开始。更改这两项会重置已记住的状态。",
+            ToggleSwitch::new()
+                .is_on(g.default_english)
+                .is_enabled(g.english_mode)
+                .on_toggled(context.callback(Message::DefaultEnglish)),
+        ),
+        field(
+            "按应用记住中英模式",
+            "切回应用时恢复它上次的中英状态，同一应用的窗口共用。重启青简后重新使用默认模式；关掉则所有应用共用一份。",
+            ToggleSwitch::new()
+                .is_on(g.remember_mode_per_app)
+                .is_enabled(g.english_mode)
+                .on_toggled(context.callback(Message::RememberModePerApp)),
+        ),
     ];
-    page("通用", StackPanel::new().spacing(16.0).children(rows))
+    let mut rows = rows.into_iter();
+    page(
+        "通用",
+        StackPanel::new().spacing(24.0).children([
+            section("输入与候选", rows.by_ref().take(7)),
+            section("标点", rows.by_ref().take(3)),
+            section("中英文输入", rows.by_ref().take(9)),
+            feedback(&settings.notice),
+        ]),
+    )
 }
 
-/// 中英切换键：每个键一个勾选框，横排。
+/// 中英切换键：系统 Ctrl + Space 在最上面，其余青简切换键纵排，避免在窄窗口与高缩放下挤出卡片。
 fn switch_key_boxes(settings: &Settings, context: &mut ViewContext<Settings>) -> View {
     let keys = settings.config.shortcut.switch_mode;
     let boxes = SwitchKey::ALL.map(|key| {
@@ -197,8 +262,14 @@ fn switch_key_boxes(settings: &Settings, context: &mut ViewContext<Settings>) ->
             .on_is_checked_changed(context.callback(move |on| Message::SwitchKey(key, on)))
             .content(key.label())
     });
-    StackPanel::new()
-        .orientation(Orientation::Horizontal)
-        .spacing(12.0)
-        .children(boxes)
+    StackPanel::new().spacing(4.0).children([
+        CheckBox::new()
+            .is_checked(crate::panel::system_hotkey::ctrl_space_enabled())
+            .on_is_checked_changed(context.callback(Message::SystemCtrlSpace))
+            .content("Ctrl + Space（系统）"),
+        StackPanel::new()
+            .orientation(Orientation::Vertical)
+            .spacing(4.0)
+            .children(boxes),
+    ])
 }

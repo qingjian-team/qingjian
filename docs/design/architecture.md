@@ -40,20 +40,22 @@ qingjian/
 │   ├── qingjian-core/          # composition / parser / correction / candidate / ranking / sentence / engine …（下面单列）
 │   ├── qingjian-dictionary/    # 词库加载与查询
 │   ├── qingjian-translate/     # 候选翻译 annotation
-│   ├── qingjian-learning/      # 用户词频、用户词、个人英文词、个人 n-gram、个人敲错表（user.tsv / user-words.tsv / user-english.tsv / user-ngram.tsv / user-typos.tsv）、输入日志（input-log.jsonl）、输入统计（usage.tsv）、词汇记录（user-vocab.tsv）
+│   ├── qingjian-learning/      # 用户词频、用户词、个人英文词、个人 n-gram、个人敲错表（user.tsv / user-words.tsv / user-english.tsv / user-ngram.tsv / user-typos.tsv）、输入日志（input-log.jsonl）、输入统计（usage-hourly.tsv）、词汇记录（user-vocab.tsv）
 │   ├── qingjian-predict/       # 云联想：Predictor 的网络实现（OpenAI 兼容接口）
 │   ├── qingjian-lm/            # 整句转换的 bigram 语言模型：LanguageModel 的实现
 │   ├── qingjian-neural/        # 字级 Transformer 的本地推理（candle）：SentenceScorer 的实现，给整句前几条路径重打分
 │   ├── qingjian-format/        # .qj 数据容器：mmap 打开、零拷贝视图、写入器、可落盘的哈希索引（dictionary / lm 依赖它）
 │   ├── qingjian-render/        # 自绘渲染器：候选窗一帧 + 主题 → 位图，各平台贴图
+│   ├── bamboo-slip/            # 自绘 UI 引擎：场景树、布局、文字、动画、控件 → 位图；候选窗与设置程序共用
 │   ├── qingjian-update/        # 检查更新：读 releases.json、验 ed25519 签名、按平台与渠道挑新版本
 │   └── qingjian-platform/      # 平台层共用的部分：配置文件、协议类型
 │
 ├── apps/
 │   ├── cli/                    # 测试工具：查询、逐键计时、输入日志回放评测、整句评测
-│   ├── macos/                  # IMK 输入法壳（app / host / imk / candidates / menubar / preferences）
+│   ├── settings/               # 设置程序：三平台共用，画在 bamboo-slip 上，读写同一份配置
+│   ├── macos/                  # IMK 输入法壳（app / host / imk / candidates / menubar / preferences（旧版设置））
 │   ├── windows/                # 同一个产品的四个 package：server（IPC 分派 + Engine + 命名管道 + 自绘候选窗）、
-│   │                           #   tsf（TSF 文本服务 DLL：COM 链路 + 连 Server 的管道客户端）、settings（WinUI 3）、installer
+│   │                           #   tsf（TSF 文本服务 DLL：COM 链路 + 连 Server 的管道客户端）、settings（旧版设置，WinUI 3）、installer
 │   └── linux/                  # server（Engine + Unix socket）+ fcitx5（C++ 插件）+ scripts
 │
 ├── tools/
@@ -81,7 +83,7 @@ qingjian-core
 │               #   SentenceScorer trait（qingjian-neural 实现）：convert_paths 出前 K 条路径，Engine（engine/rescoring）按 路径分 + λ·(神经分 − 静态分) 重排，异步时后台线程打分、壳停顿后取
 ├── emoji           # emoji 候选：EmojiTable（词 → emoji，Unicode CLDR 中文 annotations）
 ├── fuzzy           # 模糊音：FuzzyRules（配置 [fuzzy]）把每个音节扩展成多种写法，Expanded 借出给词库多写法查询
-├── shuangpin       # 双拼：Scheme 七套方案的键位表，decode 把敲的键解成全拼（音节间带 '），Decoded 把上屏消耗换算回键数；切分之后全部复用全拼
+├── shuangpin       # 双拼：Scheme 九套方案的键位表，decode 把敲的键解成全拼（音节间带 '），Decoded 把上屏消耗换算回键数；切分之后全部复用全拼
 │                   # engine::ModeKeys（配置 [shortcut]）：表达式 / 问字前缀键，只能是 v / u / i；问字键后跟十六进制出码点字符
 ├── engine          # 对外门面：Engine，以及 Translator / Learner trait 与空实现
 └── storage         # 小文件落盘原语：write_atomic（临时文件 + fsync + 改名）、read_text_lossy；学习 crate 与配置都用它
@@ -118,9 +120,9 @@ qingjian-core
 
 输入法进程随时会被 launchd 杀掉或自己崩掉，用户攒的学习数据和正在打的字都不能因此没了：
 
-- **原子写**（`qingjian_core::storage::write_atomic`）：学习 crate 的六张 TSV、输入统计 `usage.tsv`、词汇记录 `user-vocab.tsv`、`config.toml`、`.env` 都先写同目录的临时文件，
-  flush + fsync 后改名覆盖；任何时刻磁盘上要么是旧文件要么是新文件。输入日志 `input-log.jsonl` 是追加写不走这条路，
-  崩溃最多留半行，回放工具按行跳过坏行并计数。
+- **原子写**（`qingjian_core::storage::write_atomic`）：学习 crate 的六张 TSV、词汇记录 `user-vocab.tsv`、`config.toml`、`.env` 都先写同目录的临时文件，
+  flush + fsync 后改名覆盖；任何时刻磁盘上要么是旧文件要么是新文件。输入日志 `input-log.jsonl` 与输入统计 `usage-hourly.tsv`、`api-usage-hourly.tsv` 是追加写
+  （统计每次上屏 / 每个请求当场追加，不等定时落盘），崩溃最多留半行，读的一方按行跳过坏行；统计文件攒多了才整理成一个时段一行，整理走原子写。
 - **损坏容忍**：学习数据各文件按行解析，格式不对的行记一条警告跳过（下次落盘就清掉了），编码坏掉的字节按替换字符读进来；
   只有权限、坏盘这类真正的 io 错误才算读失败，这时壳退回只在内存里学习（不带路径，不会拿空表覆盖用户的文件），输入法照常启动。
 - **panic 隔离**：`define_class!` 生成的 IMK 回调是 ObjC 运行时直接调的，panic 穿出去进程就没了。壳在按键处理、
@@ -351,7 +353,7 @@ CC-CEDICT 表（`dict-convert cedict`）保留为备用来源，覆盖面广但�
   `preedit/`（`mod.rs` / `segment.rs` / `style.rs`）是拼音行的分段模型（由 Core 的 `MarkedSegment` 转来），`frame.rs` 是一帧的数据；
   `menubar/`：`indicator.rs` 是菜单栏的中 / 英 NSStatusItem（输入源图标没法动态换，只能自己放一个），
   `menu.rs` / `action.rs` / `target.rs` 是输入法菜单；
-  `preferences/`：偏好设置窗口（`window.rs` 手排控件、`layout.rs` 逐页排版、`panel.rs` 关窗时切回激活策略、`setting/`（`Setting` 与 `SettingValue`）控件 ↔ 配置项、
+  `preferences/`：旧版偏好设置窗口（菜单「旧版设置…」，兜底用；`window.rs` 手排控件、`layout.rs` 逐页排版、`panel.rs` 关窗时切回激活策略、`setting/`（`Setting` 与 `SettingValue`）控件 ↔ 配置项、
   `target.rs` 一个 `changed:` 选择器、`key_recorder.rs` 快捷键录制按钮、`usage_page.rs` 「统计」页（数字格子与「几本《某书》」文案）、`about.rs` 「关于」页文案、`edit_menu.rs` 只有编辑项的主菜单、`file_dialog.rs` 导入词库的打开面板）；
   `app/`：`paths.rs` 定位 `.app/Contents/Resources/`（词库、随包领域词库 `dicts/`）与 `~/Library/Application Support/Qingjian/`（用户数据），
   `settings.rs` 是配置文件的运行时状态，`logging/` 只写 `~/Library/Logs/Qingjian/`（自己的 `LogFile` 按天分文件、留 7 天、被删重建），`bundle.rs` 读 Info.plist，
@@ -414,7 +416,14 @@ CC-CEDICT 表（`dict-convert cedict`）保留为备用来源，覆盖面广但�
 - **IPC 协议**：`qingjian-platform::protocol`，Server ↔ DLL 两端共用、全部 serde。`ClientMessage`（DLL → Server：
   开 / 关会话、按键、上屏、回上下文、回选区、报中英模式）与 `ServerMessage`（Server → DLL：按键结果、上屏结果、异步重绘、请求上下文、请求选区）；
   失焦 / 停用时 DLL 发 `Commit`，Server 回 `Committed { text }`（缓冲区原样交出，对应 macOS 的 `commitComposition`），
-  DLL 用最近收键记下的 `ITfContext` 经编辑会话落进文档；应用强行终止组句（`OnCompositionTerminated`）时拼音已被框架定成普通文本，
+  DLL 用最近收键记下的 `ITfContext` 经编辑会话落进文档。**「失焦」有两条路，都汇到 `TextService_Impl::set_focus`**：
+  线程内换文档走 `ITfKeyEventSink::OnSetFocus`，切到别的应用（命令行、终端这类抢焦点的窗口）走
+  `ITfThreadFocusSink::OnKillThreadFocus`——后者才是切窗口时真正触发的那条（`OnSetFocus` 不触发），
+  两边都得落定，否则拼音留在 Server 缓冲里，切回**同一个**应用时 Server 认作同一会话、`ensure_focus` 不清缓冲，
+  接着敲就接在旧拼音后面，候选窗口也一直挂着；
+  连接断开（应用被关 / 崩了，DLL 来不及发 `CloseSession`）时 `ipc::pump` 记下的、本连接开过的会话
+  由 Server 自己 `CloseSession` 掉，同一个循环线上的命名管道与测试里的内存流共用，收尾行为不会出现两份；
+  应用强行终止组句（`OnCompositionTerminated`）时拼音已被框架定成普通文本，
   DLL 只记「Server 缓冲过期」，下次说话前先 `Commit` 并丢掉交出的文本，不再插一次。
   中英模式：**Windows 与 macOS 机制不同**。macOS 用 Caps Lock 当中英切换键；Windows 按本地习惯，单击切换键在中 / 英间翻转，
   切换键由 `[shortcut] switch_mode` 勾选（`SwitchKeys`：单击 `shift`（缺省）/ 单击 `control` / `ctrl+alt+space`，可多选，空列表 = 不用键切），
@@ -457,7 +466,9 @@ CC-CEDICT 表（`dict-convert cedict`）保留为备用来源，覆盖面广但�
   （Core 按小写匹配、原样上屏时还原大写，见 [`Composition`]），不再走「先上屏再放行」；
   组句外没有全角映射的字符里，`-` `=` 也改由壳自己插入（`dispatch/key/input.rs::apply_punctuation`）：
   放行要等宿主把键交回应用，实测在部分宿主（Edge / QQ 等）里这个键到不了，用户看到的是「按了没反应」；
-  其余（`@` 数字等）继续放行，宿主连不上 Server 时也只吃「可能是在打拼音」的字母（`service/key_sink.rs`），
+  其余（`@` 数字等）继续放行——数字在 `OnTestKeyDown` 里先问 Server，Passthrough 时 **Test 就不吃**
+  （原生投递；若 Test 已吃再 `InsertTextAtSelection`，绿联等只报 `IS_NUMERIC_PASSWORD`、未设
+  `KEYBOARD_DISABLED` 的密码框光标不前进会倒序），宿主连不上 Server 时也只吃「可能是在打拼音」的字母（`service/key_sink.rs`），
   免得断连窗口里标点 / 数字跟着一起没反应；
   `[apps] english_candidates_on` 白名单按应用给（`english_candidates_off` 从中排除）：应用标识在 Windows 上是宿主进程的 exe 文件名（DLL 加载在应用进程里，`GetModuleFileNameW(NULL)`
   取到就随 `OpenSession { app }` 报一次，Server 每会话记下，收键时按当前会话查），缺省名单分平台（`AppsConfig` 的三份常量与配置模板的 `[apps]` 一节按目标平台三选一：Windows 是 exe 文件名、macOS 是 bundle identifier、Linux 是 Fcitx5 认到的应用名，X11 下是 WM_CLASS、Wayland 下是 app_id），

@@ -7,6 +7,8 @@ use std::cell::RefCell;
 use objc2::Message;
 use qingjian_render::HitTarget;
 
+use crate::candidates::PanelMouse;
+
 use super::*;
 
 thread_local! {
@@ -21,6 +23,25 @@ pub fn click(target: HitTarget) {
         return;
     };
     if catch_panic("click", || controller.click(target)).is_none() {
+        recover_from_panic(None);
+    }
+}
+
+/// 符号面板的点击回调（host 建窗口时注册）。
+pub fn panel_mouse(hit: PanelMouse) {
+    let Some(controller) = ACTIVE.with(|active| active.borrow().clone()) else {
+        return;
+    };
+    // SAFETY: IMKInputController 的 `client` 返回当前会话的文本客户端（实现 IMKTextInput 的代理），可能为 nil
+    let client: Option<Retained<AnyObject>> = unsafe { msg_send![&*controller, client] };
+    let Some(client) = client else {
+        return;
+    };
+    if catch_panic("panel_click", || {
+        controller.panel_mouse_event(hit, TextClient::new(&client))
+    })
+    .is_none()
+    {
         recover_from_panic(None);
     }
 }

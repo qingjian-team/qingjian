@@ -2,10 +2,10 @@
 //! `{ "base": "candidate", "size": 18, "weight": "semibold", "style": "italic" }`。只改字号不写行高时，行高按字号等比缩放。
 //! 字族不能在这里改：换字族要定义一个命名样式。
 
+use bamboo_slip::{FontSpec, FontWeight};
 use serde::Deserialize;
 
 use super::FontStyle;
-use crate::theme::{FontSpec, FontWeight};
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(untagged)]

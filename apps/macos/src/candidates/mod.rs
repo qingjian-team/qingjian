@@ -5,6 +5,8 @@ mod bitmap;
 mod bounds;
 mod cloud_icon;
 mod frame;
+mod panel_mouse;
+mod panel_tabs;
 mod preedit;
 mod row;
 mod theme;
@@ -13,6 +15,8 @@ mod window;
 
 pub(crate) use bitmap::{available_families, family_files};
 pub use frame::Frame;
+pub use panel_mouse::PanelMouse;
+pub use panel_tabs::PanelTabs;
 pub use preedit::Preedit;
 pub use row::Row;
 pub use window::CandidateWindow;

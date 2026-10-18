@@ -66,7 +66,7 @@ pub fn init(mtm: MainThreadMarker, info: &BundleInfo) -> Result<(), HostError> {
             }
         }
         engine = engine
-            .with_usage_meter(Box::new(UsageStats::open(dir.join(USAGE_FILE))))
+            .with_usage_meter(Box::new(UsageStats::open(&dir)))
             .with_vocabulary_tracker(Box::new(vocabulary));
     }
     // 附加词库：随包的领域词库 + 用户目录 dicts/ 下的文件
@@ -116,7 +116,8 @@ pub fn init(mtm: MainThreadMarker, info: &BundleInfo) -> Result<(), HostError> {
     }
     let window = CandidateWindow::new(mtm);
     window.set_click_handler(Box::new(crate::imk::click));
-    let indicator = ModeIndicator::new(mtm);
+    window.set_panel_mouse_handler(Box::new(crate::imk::panel_mouse));
+    let mut indicator = ModeIndicator::new(mtm);
     let menu = InputMenu::new(mtm, version);
     indicator.set_menu(&menu.ns_menu());
     let preferences = PreferencesWindow::new(mtm, &languages, version, &info.build);
@@ -154,6 +155,7 @@ pub fn init(mtm: MainThreadMarker, info: &BundleInfo) -> Result<(), HostError> {
             preedit_mode: PreeditMode::default(),
             layout: LayoutMode::default(),
             horizontal_grid: false,
+            highlight_keys: HighlightKeys::default(),
             english_candidates: true,
             text_replacements: Vec::new(),
             apps: AppsConfig::default(),

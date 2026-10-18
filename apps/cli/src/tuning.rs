@@ -5,7 +5,7 @@ use qingjian_core::correction::TypoCosts;
 use qingjian_core::sentence::Interpolation;
 
 /// 可调的参数名。
-pub const KEYS: [&str; 11] = [
+pub const KEYS: [&str; 12] = [
     "lambda",
     "k",
     "cap",
@@ -17,6 +17,7 @@ pub const KEYS: [&str; 11] = [
     "typo-cap",
     "correction",
     "correction-transpose",
+    "decay-days",
 ];
 
 /// 把一组 `名=值` 应用到引擎；没给的项保持缺省。
@@ -26,6 +27,7 @@ pub fn apply(engine: &mut Engine, settings: &[String]) -> Result<(), TuneError> 
     }
     let mut interpolation = Interpolation::default();
     let mut costs = TypoCosts::default();
+    let mut half_life: Option<f64> = None;
     for setting in settings {
         let (key, value) = setting
             .split_once('=')
@@ -46,6 +48,7 @@ pub fn apply(engine: &mut Engine, settings: &[String]) -> Result<(), TuneError> 
             "typo-cap" => costs.discount_cap = value,
             "correction" => costs.correction_penalty = value,
             "correction-transpose" => costs.correction_transpose_discount = value,
+            "decay-days" => half_life = Some(value),
             other => {
                 return Err(TuneError::Unknown {
                     name: other.to_owned(),
@@ -53,9 +56,12 @@ pub fn apply(engine: &mut Engine, settings: &[String]) -> Result<(), TuneError> 
             }
         }
     }
-    tracing::info!(?interpolation, ?costs, "参数覆盖");
+    tracing::info!(?interpolation, ?costs, half_life, "参数覆盖");
     engine.set_interpolation(interpolation);
     engine.set_typo_costs(costs);
+    if let Some(days) = half_life {
+        engine.learner_mut().set_decay_half_life(days);
+    }
     Ok(())
 }
 

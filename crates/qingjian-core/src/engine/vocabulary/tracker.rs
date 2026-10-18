@@ -1,4 +1,4 @@
-use super::VocabularySummary;
+use super::{Encounter, VocabularySummary};
 use crate::candidate::Language;
 
 /// 词汇记录的落盘方。实现放学习 crate，Core 只查次数、送事件。
@@ -11,6 +11,12 @@ pub trait VocabularyTracker: Send {
 
     /// 用户上屏了带这条译词的候选：`used` 是直接把译词打出去了（修饰键 + 数字），否则只是上屏了中文、看着译词。
     fn record_commit(&mut self, language: Language, word: &str, used: bool);
+
+    /// 带这条译词上屏的中文 `source` 所在的那句话写完了：记成例句（生词本里给人复习用）。
+    fn record_example(&mut self, _language: Language, _word: &str, _source: &str, _example: &str) {}
+
+    /// 上屏了一段有学习语言说法的中文（生词本的时间线），时间由实现按收到时记。
+    fn record_encounter(&mut self, _encounter: &Encounter) {}
 
     /// 落盘。壳在停用输入法时调用，激活期间也定时调；失败只记日志。
     fn flush(&mut self) {}

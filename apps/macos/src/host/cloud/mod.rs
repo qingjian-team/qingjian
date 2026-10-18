@@ -13,7 +13,8 @@ impl Host {
     /// 「测试连接」：用当前配置发一条最小请求，结果回到偏好设置窗口底部的状态行。
     pub(super) fn start_cloud_test(&mut self) {
         let config = self.settings.config().predict.clone();
-        match ConnectionTest::start(&config) {
+        let usage = paths::user_data_dir().map(|dir| dir.join(API_USAGE_FILE));
+        match ConnectionTest::start_with_usage(&config, usage) {
             Ok(test) => {
                 self.cloud_test = Some(test);
                 self.cloud_test_monitor.start();
@@ -102,7 +103,8 @@ impl Host {
             }
             return;
         }
-        if self.engine.composition().is_empty() {
+        // 符号面板开着时格子里是面板条目，云端词不往里补
+        if self.engine.composition().is_empty() || self.engine.symbol_panel().is_some() {
             return;
         }
         // 云端词补进第一页末尾（前面的本地候选不动），整句挂在 preedit 右侧；云端词没有译文，先补上。
