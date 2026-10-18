@@ -31,26 +31,35 @@ impl Engine {
     }
 
     /// 「学英文词」的单一收口：原样上屏的英文词（[`super::composing`]）、候选选中的英文词、句末英文词
-    /// （都在 [`super::commit`]）都从这里进。命中 BIP-39 表就计一次连续命中；不管命中与否都照常喂给
-    /// [`Self::learner`]——表内词要不要真的落盘，由 [`super::learning::MutedLearner::learn_english`]
-    /// 内部再挡一次（那边同时也是 `system_private` / 学习开关生效的地方），这里只管「要不要转私密」。
+    /// （都在 [`super::commit`]）都从这里进。
+    ///
+    /// 命中 BIP-39 表的词先攒进 `bip39_pending`、不交给学习器，同时计一次连续命中：连击断了（[`Self::reset_bip39_streak`]）
+    /// 再把攒着的照常学进去；连到 [`BIP39_STREAK_THRESHOLD`] 个就把攒着的直接丢掉并转私密，前几个词也不会落盘。
+    /// 表里全是 about / time / work 这类最常用的词，不能一律不学，只有连成一串才是助记词。
+    /// 已经是私密输入时不攒（学习器本来就静音，攒着反而会在离开私密后被冲进词库）。
     pub(in crate::engine) fn note_english_commit(&mut self, word: &str) {
         if mnemonic::is_bip39_word(word) {
             self.bip39_streak = self.bip39_streak.saturating_add(1);
             if self.bip39_streak >= BIP39_STREAK_THRESHOLD {
                 self.set_private_from(PrivacySource::Heuristic, true);
+            } else if !self.private {
+                self.bip39_pending.push(word.to_owned());
             }
         } else {
             self.reset_bip39_streak();
+            self.learner.learn_english(word);
         }
-        self.learner.learn_english(word);
     }
 
-    /// 上屏了跟「学英文词」无关的东西（中文词、形码、emoji、纯标点……）：连续命中数清零，
-    /// 启发式私密也一并撤（如果是壳声明的私密，`system_private` 还在，`private` 不会被这句话动到）。
+    /// 上屏了跟「学英文词」无关的东西（中文词、形码、emoji、纯标点……）或没命中表的词：连续命中数清零，
+    /// 启发式私密也一并撤（如果是壳声明的私密，`system_private` 还在，`private` 不会被这句话动到），
+    /// 攒着的词照常学进去（此时若仍是私密，学习器静音，等于丢掉）。
     pub(in crate::engine) fn reset_bip39_streak(&mut self) {
         self.bip39_streak = 0;
         self.set_private_from(PrivacySource::Heuristic, false);
+        for word in std::mem::take(&mut self.bip39_pending) {
+            self.learner.learn_english(&word);
+        }
     }
 
     fn set_private_from(&mut self, source: PrivacySource, active: bool) {
@@ -66,6 +75,8 @@ impl Engine {
         self.learner.set_private(combined);
         self.logger.set_muted(combined);
         if combined {
+            // 攒着的词丢掉：离开私密后才断连击的话，它们不该被冲进个人词库
+            self.bip39_pending.clear();
             // 在飞的云结果不能再显示，前文也不能留
             self.cancel_prediction();
             self.rescoring_before = None;

@@ -1,4 +1,4 @@
-//! BIP-39 助记词防泄露：黑名单不落盘 + 连续命中转私密。见 `crate::engine::mnemonic`。
+//! BIP-39 助记词防泄露：连续命中转私密，命中的词先攒着不学。见 `crate::engine::mnemonic`。
 
 use super::{Candidate, Dictionary, Engine, Learner, SAMPLE, WordList, engine};
 
@@ -36,31 +36,95 @@ fn commit_raw(engine: &mut Engine, word: &str) {
     assert_eq!(engine.take_raw(), word);
 }
 
+/// 个人英文词表里学到了哪些词（桩学习器记下的 `learn_english` 调用）。
+fn learned(engine: &Engine) -> Vec<String> {
+    [
+        "abstract", "about", "gist", "across", "actress", "address", "afraid", "angry",
+    ]
+    .into_iter()
+    .filter(|w| {
+        engine
+            .learner()
+            .user_english()
+            .and_then(|list| list.get(w))
+            .is_some()
+    })
+    .map(str::to_owned)
+    .collect()
+}
+
 #[test]
-fn bip39_words_are_not_persisted_but_ordinary_english_words_are() {
+fn bip39_words_are_held_back_and_learned_normally_once_the_streak_breaks() {
     let mut engine = Engine::new(Dictionary::parse(SAMPLE).unwrap())
         .with_learner(Box::new(EnglishLearner::default()));
 
-    // "abstract" 在 BIP-39 英文助记词表里：手打一遍不该进个人词库
+    // "abstract" 在 BIP-39 表里：连击还没成，先攒着，不落盘
     commit_raw(&mut engine, "abstract");
+    commit_raw(&mut engine, "about");
     assert!(
-        engine
-            .learner()
-            .user_english()
-            .and_then(|list| list.get("abstract"))
-            .is_none(),
-        "BIP-39 词表内的词不该被学习进个人词库"
+        learned(&engine).is_empty(),
+        "连击进行中，命中表的词不该落盘"
     );
 
-    // "gist" 不在表里：普通英文词学习行为不受影响
+    // "gist" 不在表里：连击断了，攒着的词照常学进去，gist 本身也照常学
+    commit_raw(&mut engine, "gist");
+    assert_eq!(learned(&engine), ["abstract", "about", "gist"]);
+}
+
+#[test]
+fn a_word_in_the_table_is_still_learned_like_any_other_english_word() {
+    // 表里全是 about / time / work 这类最常用的词：单独出现、紧接着敲别的，它们必须能被学到
+    let mut engine = Engine::new(Dictionary::parse(SAMPLE).unwrap())
+        .with_learner(Box::new(EnglishLearner::default()));
+    commit_raw(&mut engine, "about");
+    commit_raw(&mut engine, "gist");
+    assert!(learned(&engine).contains(&"about".to_owned()));
+}
+
+#[test]
+fn a_completed_streak_drops_the_held_back_words_so_none_reach_disk() {
+    let mut engine = Engine::new(Dictionary::parse(SAMPLE).unwrap())
+        .with_learner(Box::new(EnglishLearner::default()));
+    // 连敲 6 个：前 5 个攒着，第 6 个触发私密，攒着的直接丢掉
+    for word in STREAK_WORDS {
+        commit_raw(&mut engine, word);
+    }
+    assert!(engine.is_private());
+    // 连击断了：丢掉的不会再冒出来，只有断了之后的普通词照常学
+    commit_raw(&mut engine, "gist");
+    assert_eq!(learned(&engine), ["gist"], "整串助记词一个都不该落盘");
+}
+
+#[test]
+fn five_in_a_row_is_not_a_streak_so_all_five_are_learned_when_it_breaks() {
+    let mut engine = Engine::new(Dictionary::parse(SAMPLE).unwrap())
+        .with_learner(Box::new(EnglishLearner::default()));
+    for word in &STREAK_WORDS[..5] {
+        commit_raw(&mut engine, word);
+    }
+    assert!(!engine.is_private());
     commit_raw(&mut engine, "gist");
     assert_eq!(
-        engine
-            .learner()
-            .user_english()
-            .and_then(|list| list.get("gist")),
-        Some("gist"),
-        "表外的普通英文词应该照常学习"
+        learned(&engine).len(),
+        6,
+        "差一个到阈值：5 个 + gist 都照常学"
+    );
+}
+
+#[test]
+fn words_held_back_before_a_private_field_are_dropped_not_learned_later() {
+    let mut engine = Engine::new(Dictionary::parse(SAMPLE).unwrap())
+        .with_learner(Box::new(EnglishLearner::default()));
+    commit_raw(&mut engine, "abstract");
+    // 焦点进了密码框：攒着的词丢掉，期间敲的词也不攒
+    engine.set_private(true);
+    commit_raw(&mut engine, "about");
+    engine.set_private(false);
+    commit_raw(&mut engine, "gist");
+    assert_eq!(
+        learned(&engine),
+        ["gist"],
+        "密码框前后攒着的词都不该在之后被冲进词库"
     );
 }
 
@@ -68,16 +132,12 @@ fn bip39_words_are_not_persisted_but_ordinary_english_words_are() {
 fn bip39_matching_ignores_case() {
     let mut engine = Engine::new(Dictionary::parse(SAMPLE).unwrap())
         .with_learner(Box::new(EnglishLearner::default()));
-    // 英文模式下敲的大写不该绕过黑名单
+    // 英文模式下敲的大写同样算命中：六个大写的助记词照样触发私密
     engine.set_english_mode(true);
-    commit_raw(&mut engine, "ABSTRACT");
-    assert!(
-        engine
-            .learner()
-            .user_english()
-            .and_then(|list| list.get("abstract"))
-            .is_none()
-    );
+    for word in STREAK_WORDS {
+        commit_raw(&mut engine, &word.to_ascii_uppercase());
+    }
+    assert!(engine.is_private(), "大小写不该绕过连续命中");
 }
 
 /// 连续 6 个「学英文词」事件都命中 BIP-39 表，够 `BIP39_STREAK_THRESHOLD`，

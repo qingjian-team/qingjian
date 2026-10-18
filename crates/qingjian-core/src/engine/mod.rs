@@ -197,6 +197,10 @@ pub struct Engine {
     /// `heuristic_private`。中间出现没命中的词，或者上屏了非英文候选，就清零。
     bip39_streak: u32,
 
+    /// 连击进行中、命中 BIP-39 表而先攒着没学的词：连击断了照常学进去，连到 [`BIP39_STREAK_THRESHOLD`] 个就整串丢掉，
+    /// 所以前几个词也不会落盘。进了私密输入（密码框 / 已判定是助记词）时清空，私密期间不攒。
+    bip39_pending: Vec<String>,
+
     /// 输入日志条目的序号。
     log_sequence: u64,
 
@@ -465,6 +469,7 @@ impl Engine {
             system_private: false,
             heuristic_private: false,
             bip39_streak: 0,
+            bip39_pending: Vec::new(),
             log_sequence: 0,
             last_rescored: std::cell::Cell::new(false),
             retype_snapshot: None,
