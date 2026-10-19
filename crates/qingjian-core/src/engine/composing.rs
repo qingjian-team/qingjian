@@ -373,7 +373,9 @@ impl Engine {
             && (self.english_mode || self.decode(&raw).is_none_or(|d| !d.is_complete()))
             && (self.english_mode || self.split_english_tail(&raw).is_none());
         if english_word {
-            self.learner.learn_english(&raw);
+            self.note_english_commit(&raw);
+        } else {
+            self.reset_bip39_streak();
         }
         self.meter_commit(&raw, InputSource::Raw, english_word);
         // 补的空格要在组句清空前判（还没上屏过时靠组句开始时的应用前文），并先于这次上屏记下

@@ -77,6 +77,14 @@ CandidateLayout 保持 `set_cloud` 的首页末尾布局与本地首项；`set_c
 
 `Engine::discard_input` / `EngineSession::discard_input` 用于隐私能力变化时无痕清理输入，包括透传缓冲、学习链和暂存词汇曝光；`set_private` 只切换写入开关，保留已输入的组句。
 
+`engine::mnemonic`：BIP-39 英文助记词表（`bip39_english.txt`，官方 2048 词，`include_str!` 编译期嵌入，`LazyLock<HashSet>` 查表），
+挡钱包助记词被当成「新学到的英文词」学进 `user-english.tsv`。表里全是 about / time / work / code 这类最常用的词，所以**不逐词拦着**，
+只看连击：`Engine::note_english_commit`（`privacy.rs`）命中表的词先攒进 `bip39_pending`、不交给学习器；连击断了
+（`reset_bip39_streak`）再把攒着的照常学进去；连续 `BIP39_STREAK_THRESHOLD`（6）个「学英文词」事件都命中就把攒着的整串丢掉并转
+`heuristic_private`，前几个词也不会落盘，不依赖密码框识别。进私密输入时缓冲清空、私密期间不攒，免得离开密码框后被冲进词库。私密状态拆成 `system_private`（壳声明）/ `heuristic_private`（这条启发式）两路「或」（`privacy.rs` 的
+`set_private_from`），互不覆盖——避免启发式的退出逻辑误撤系统声明的密码框状态。`commit/mod.rs` 在候选提交后按
+`candidate.kind` 决定是否 `reset_bip39_streak`（中文 / 形码 / 云端词 / emoji 等都算打断）。
+
 ## crates/qingjian-translate
 
 `Glossary`，本地 TSV 释义表（词性 + 译文）；`LevelTable`，词汇等级表（`assets/levels/levels-{en,ja}.tsv`，CEFR A1–C2 / JLPT N5–N1，

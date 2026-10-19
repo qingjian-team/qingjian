@@ -15,6 +15,7 @@ mod gloss;
 mod input_log;
 mod learning;
 mod marked;
+mod mnemonic;
 mod mode_keys;
 mod panel;
 mod prediction;
@@ -181,8 +182,24 @@ pub struct Engine {
     /// 输入日志的落盘方；缺省不记，私密输入期间一律不记（[`input_log::MutedLogger`]）。
     logger: input_log::MutedLogger,
 
-    /// 私密输入中（见 [`Self::set_private`]）：不学、不记、不发云端。
+    /// 私密输入中（见 [`Self::set_private`]）：不学、不记、不发云端。系统声明与下面的启发式任一为真都算数，
+    /// 这个字段是两者的合并结果，读它（[`Self::is_private`]）不用关心是哪一路触发的。
     private: bool,
+
+    /// 壳（密码框、无痕窗口识别）声明的私密输入。见 [`Self::set_private`]。
+    system_private: bool,
+
+    /// 连续命中 BIP-39 助记词表触发的私密输入，不依赖壳的声明。见 [`Self::note_english_commit`]。
+    /// 跟 `system_private` 分开存，这样其中一路先撤，另一路还在的话 `private` 不会被误关掉。
+    heuristic_private: bool,
+
+    /// 最近连续几个「学英文词」事件命中了 BIP-39 表；够 [`BIP39_STREAK_THRESHOLD`] 个就转
+    /// `heuristic_private`。中间出现没命中的词，或者上屏了非英文候选，就清零。
+    bip39_streak: u32,
+
+    /// 连击进行中、命中 BIP-39 表而先攒着没学的词：连击断了照常学进去，连到 [`BIP39_STREAK_THRESHOLD`] 个就整串丢掉，
+    /// 所以前几个词也不会落盘。进了私密输入（密码框 / 已判定是助记词）时清空，私密期间不攒。
+    bip39_pending: Vec<String>,
 
     /// 输入日志条目的序号。
     log_sequence: u64,
@@ -330,6 +347,11 @@ const MIN_ENGLISH_WORD_LETTERS: usize = 2;
 /// 英文模式下不设这个上限：那时敲的本来就是英文。
 const MAX_ENGLISH_WORD_LETTERS: usize = 15;
 
+/// 连续几个「学英文词」事件都命中 BIP-39 助记词表就转成私密输入（[`Engine::note_english_commit`]）。
+/// 表内词本身是日常英文常用词，偶尔一两个命中很正常；连续 6 个还都命中，日常写作里概率极低，
+/// 但 12 / 24 词助记词整段敲下来必然会经过这个长度。
+const BIP39_STREAK_THRESHOLD: u32 = 6;
+
 /// 英文模式一次最多给几条候选：两页足够，再往后没人翻。
 const ENGLISH_MODE_CANDIDATES: usize = 18;
 
@@ -444,6 +466,10 @@ impl Engine {
             recent_commits: Vec::new(),
             logger: input_log::MutedLogger::new(Box::new(NoInputLogger)),
             private: false,
+            system_private: false,
+            heuristic_private: false,
+            bip39_streak: 0,
+            bip39_pending: Vec::new(),
             log_sequence: 0,
             last_rescored: std::cell::Cell::new(false),
             retype_snapshot: None,
