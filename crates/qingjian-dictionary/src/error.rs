@@ -37,4 +37,8 @@ pub enum DictionaryError {
     /// 方案的词码规则写错了（词长不到 2，或公式不是「大写选字 + 小写选码位」成对写）。
     #[error("invalid word rule: {0}")]
     InvalidWordRule(String),
+
+    /// 一份无读音词表里一条词都没派生出读音（空词表，或词里的字参考词库都不认识）。
+    #[error("no derivable words in this word list")]
+    NoWordEntries,
 }

@@ -162,6 +162,15 @@ pub struct Args {
     #[arg(long, requires = "check_user_words")]
     pub purge_user_words: bool,
 
+    /// 导入无读音词表（每行 `词` 或 `词<Tab>权重`）：读音按 --dict 逐字派生、多音字每种组合各一条；
+    /// 只读、不写文件，配 --import-to 才落盘
+    #[arg(long, value_name = "词表", conflicts_with_all = ["mine_log", "replay", "eval_text", "eval_cold", "check_user_words", "aux_query"])]
+    pub import_words: Option<PathBuf>,
+
+    /// 落盘目录（配 --import-words）：写 `<词表主干>.qj`，与设置页导入同一套命名
+    #[arg(long, requires = "import_words")]
+    pub import_to: Option<PathBuf>,
+
     /// 回放 / 整句评测时打印前 N 条没命中首选的例子
     #[arg(long, default_value_t = 20)]
     pub misses: usize,
@@ -193,7 +202,7 @@ pub struct Args {
     pub eval_details: Option<PathBuf>,
 
     /// 冷启动字词评测：读取 JSONL，不加载个人配置或个人学习文件
-    #[arg(long, requires = "cold_output", conflicts_with_all = ["user_dict", "config", "predict", "replay", "eval_text", "english_mode", "shuangpin", "code", "aux_table", "tune", "fuzzy", "inputs", "neural_async", "mine_log", "check_user_words"])]
+    #[arg(long, requires = "cold_output", conflicts_with_all = ["user_dict", "config", "predict", "replay", "eval_text", "english_mode", "shuangpin", "code", "aux_table", "tune", "fuzzy", "inputs", "neural_async", "mine_log", "check_user_words", "import_words"])]
     pub eval_cold: Option<PathBuf>,
 
     /// 冷启动逐词结果 JSONL（拒绝覆盖）

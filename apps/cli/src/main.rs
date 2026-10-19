@@ -15,6 +15,7 @@ mod replay;
 mod rescoring;
 mod tuning;
 mod userwords;
+mod wordlist;
 
 use std::path::Path;
 use std::sync::Arc;
@@ -82,6 +83,10 @@ fn run() -> Result<(), CliError> {
     }
     if args.check_user_words {
         userwords::run(&args, &mut engine)?;
+        return Ok(());
+    }
+    if let Some(path) = &args.import_words {
+        wordlist::run(&args, path)?;
         return Ok(());
     }
     if let Some(path) = &args.replay {
