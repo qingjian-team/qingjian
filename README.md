@@ -53,3 +53,14 @@ macOS 与 Windows 版本仍处于测试阶段。安装后先选中青简，在�
 - 想参与开发？从[开发文档](docs/)和[开发约定](docs/contributing.md)开始。
 
 青简在[官方渠道](https://qingjian.app/download)免费提供。代码采用 [GPL-3.0-or-later](LICENSE) 许可；项目名称与 logo 不包含在代码授权中。随包数据有各自的来源与许可，见[数据来源清单](docs/design/landscape.md)。
+
+## Star History
+
+<p align="center">
+  <a href="https://www.star-history.com/#qingjian-team/qingjian&Date">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=qingjian-team/qingjian&type=Date&theme=dark">
+      <img src="https://api.star-history.com/svg?repos=qingjian-team/qingjian&type=Date" alt="青简的 GitHub Star 增长曲线" width="600">
+    </picture>
+  </a>
+</p>
