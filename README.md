@@ -1,3 +1,5 @@
+<p align="center"><a href="README.md">简体中文</a> | <a href="README.en.md">English</a></p>
+
 <p align="center">
   <img src="assets/icon/qingjian-mark.svg" alt="青简竹简图标" height="108">
 </p>
