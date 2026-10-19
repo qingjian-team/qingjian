@@ -77,7 +77,7 @@ qingjian-core
 ├── parser          # 拼音切分（全拼 / 简拼 / 双拼 / 模糊音）
 ├── candidate       # 候选数据模型（Candidate / Translation / Sense / PartOfSpeech / Language）；layout 是分页排布（本地候选 + 云端固定槽位），各平台壳共用
 ├── ranking         # 候选排序
-├── shortcut        # 快捷候选：日期 / 时间 / 星期、v 表达式模式（四则运算、中文数字），不查词库
+├── shortcut        # 快捷候选：日期 / 时间 / 星期、v 表达式模式（四则运算、中文数字、中文日期），不查词库
 ├── english         # 英文模式候选：词表精确词 / 前缀补全 / 一处编辑纠正（edit.rs），大小写跟着敲的走
 ├── sentence        # 离线整句转换：词图 + bigram Viterbi + 束搜索，LanguageModel trait（qingjian-lm 实现，缺省退化为一元），UserNgram 个人 n-gram（二元 + 三元），Context 上文（前两个词），
 │               #   SentenceScorer trait（qingjian-neural 实现）：convert_paths 出前 K 条路径，Engine（engine/rescoring）按 路径分 + λ·(神经分 − 静态分) 重排，异步时后台线程打分、壳停顿后取

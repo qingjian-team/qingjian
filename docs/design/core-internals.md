@@ -56,7 +56,7 @@ Engine::query()      engine/query/mod.rs，最热的一条路
       │
       ├─ query_inner：按顺序分派，先命中先走
       │     english_mode             → query_english     英文词表：精确词、前缀补全、拼错纠正
-      │     表达式键开头（v）         → query_expression  算式结果、中文数字
+      │     表达式键开头（v）         → query_expression  算式结果、中文数字、中文日期
       │     问字键开头（u / ?）       → query_question    本地没有候选，答案等云端；u4e00 这类码点直接给字
       │     is_raw（含 - . 这类）     → query_raw         英文直输段，唯一候选就是原文
       │     有码表、拼音关            → query_code        五笔：码表前缀查，没有切分 / 纠错 / 整句
