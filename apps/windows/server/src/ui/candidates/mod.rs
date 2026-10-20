@@ -16,10 +16,10 @@ use windows::Win32::Foundation::{E_INVALIDARG, HWND, LPARAM, LRESULT, POINT, REC
 use windows::Win32::Graphics::Gdi::{GetDC, ReleaseDC};
 use windows::Win32::UI::HiDpi::{GetDpiForSystem, GetDpiForWindow};
 use windows::Win32::UI::WindowsAndMessaging::{
-    CreateWindowExW, DefWindowProcW, DestroyWindow, IDC_ARROW, KillTimer, LoadCursorW, MSG,
-    SW_HIDE, SW_SHOWNA, SetTimer, ShowWindow, WM_LBUTTONDOWN, WM_MOUSEACTIVATE, WM_NCHITTEST,
-    WM_TIMER, WNDCLASSEXW, WS_EX_LAYERED, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_EX_TOPMOST,
-    WS_POPUP,
+    CreateWindowExW, DefWindowProcW, DestroyWindow, HWND_TOPMOST, IDC_ARROW, KillTimer,
+    LoadCursorW, MSG, SW_HIDE, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_SHOWWINDOW, SetTimer,
+    SetWindowPos, ShowWindow, WM_LBUTTONDOWN, WM_MOUSEACTIVATE, WM_NCHITTEST, WM_TIMER,
+    WNDCLASSEXW, WS_EX_LAYERED, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_EX_TOPMOST, WS_POPUP,
 };
 use windows::core::{Error, PCWSTR, Result, w};
 
@@ -207,7 +207,21 @@ impl CandidateWindow {
         };
         match updated {
             Ok(content) => {
-                let _ = unsafe { ShowWindow(self.hwnd, SW_SHOWNA) };
+                // 搜索面板可能在候选窗创建后再弹出，虽然两者都是 topmost，后出现的窗口仍会排在上面。
+                // 每次更新候选时重新插到 topmost 队首，保持候选可见且不激活候选窗。
+                if let Err(error) = unsafe {
+                    SetWindowPos(
+                        self.hwnd,
+                        Some(HWND_TOPMOST),
+                        0,
+                        0,
+                        0,
+                        0,
+                        SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW,
+                    )
+                } {
+                    tracing::warn!(%error, "候选窗口置顶失败");
+                }
                 self.show_key_hint(content, anchor);
             }
             Err(_) => self.hide(),

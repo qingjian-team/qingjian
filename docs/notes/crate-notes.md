@@ -407,6 +407,8 @@ PKG_CONFIG_PATH="$onig" PKG_CONFIG_ALLOW_CROSS=1 RUSTONIG_SYSTEM_LIBONIG=1 \
 
 ## apps/windows
 
+候选窗 `ui::candidates::CandidateWindow::show` 每次更新内容后用 `SetWindowPos(HWND_TOPMOST)` 重新升到置顶序列首位，并保留 `SWP_NOACTIVATE`；Windows 搜索页后弹出的置顶窗口可能盖住较早创建的候选窗。
+
 用量接线：启动与配置热加载为 CloudPredictor 和 CloudGlossFiller 传同一个用户目录 `api-usage.json`；设置页的 ConnectionTest 使用该文件。统计页手动刷新读取累计记录，收到 JSON 响应与正文有效性分开统计；原译词自动补充、用户配置及学习文件沿用。
 
 云联想接线：Ctrl+Alt+J 由可配置 TSF 保留键转发到 Engine 显式入口；自动重组仍走原自动入口。Composed 记录待收手动序号并在输入重建／取消／收结果时清除；自动结果用末尾布局，手动结果用前置布局，导航后保持候选不变，本地重排沿用当前布局模式。应用前文继续用于两类请求，译词自动补充继续装配。设置沿用默认 300/3000 ms，不写入个人偏好。
