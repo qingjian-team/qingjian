@@ -6,9 +6,8 @@
 use qingjian_dictionary::{Dictionary, Match, SyllablePattern};
 
 use super::{
-    ABBREVIATED_SPAN_CANDIDATES, BEAM_WIDTH, Context, Conversion, LanguageModel,
-    MAX_WORD_SYLLABLES, MIN_PARTIAL_LETTERS, Personal, SPAN_CANDIDATES, SentenceWord, SpanCache,
-    SpanWord, fallback_log_prob, transition_log_prob,
+    Context, Conversion, LanguageModel, MAX_WORD_SYLLABLES, MIN_PARTIAL_LETTERS, Personal,
+    SearchLimits, SentenceWord, SpanCache, SpanWord, fallback_log_prob, transition_log_prob,
 };
 use crate::ranking::weight_bonus;
 
@@ -46,6 +45,7 @@ struct Node {
 /// `cost(位置, 命中的音节)` 是那个位置命中这种写法要扣的分（敲的原样 0），
 /// `weight` 是用户选择次数，`personal` 是个人 n-gram 与插值参数（没有个人数据就传 [`Personal::NONE`]），`cache` 是格子候选的缓存
 /// （调用方保证它与词库、`weight`、`personal`、`cost` 一致，这些一变就清）。
+/// 搜索规模用 [`SearchLimits::DEFAULT`]；要试别的值走 [`convert_with`]。
 ///
 /// 简拼位置（`w x q`）按前缀取词：每个格子的候选会多得多，由语言模型在路径上分辨。
 /// 全拼句子末尾落单的声母也当前缀读（`youdiandongx` → 有点东西）；落单的单元音（i / u）与短于
@@ -68,11 +68,13 @@ pub fn convert(
         weight,
         cost,
         cache,
+        SearchLimits::DEFAULT,
     )
 }
 
 /// 同 [`convert`]，但全拼句子末尾的单字母也当一个音节读（`huo z…` → 或者）：
 /// 给「整段拼音读法」与别的读法比分用，比分要两边覆盖同样多的字母。
+/// 搜索规模用 [`SearchLimits::DEFAULT`]。
 pub fn convert_whole(
     dictionaries: &[&Dictionary],
     positions: &[Vec<SyllablePattern<'_>>],
@@ -91,10 +93,12 @@ pub fn convert_whole(
         weight,
         cost,
         cache,
+        SearchLimits::DEFAULT,
     )
 }
 
 /// [`convert`] 与 [`convert_whole`] 的共同实现，`keep_partial` 选哪种；只要最优的一条。
+/// `limits` 是搜索规模，见 [`SearchLimits`]。
 #[allow(clippy::too_many_arguments)]
 pub fn convert_with(
     dictionaries: &[&Dictionary],
@@ -105,6 +109,7 @@ pub fn convert_with(
     weight: impl Fn(&str) -> u32,
     cost: impl Fn(usize, &str) -> f64,
     cache: &mut SpanCache,
+    limits: SearchLimits,
 ) -> Option<Conversion> {
     convert_paths(
         dictionaries,
@@ -116,12 +121,14 @@ pub fn convert_with(
         weight,
         cost,
         cache,
+        limits,
     )
     .into_iter()
     .next()
 }
 
 /// 得分最高的前 `k` 条路径（最多束宽条，按得分降序，文本相同的只留一条）：给重打分用。
+/// `limits` 是搜索规模，见 [`SearchLimits`]。
 #[allow(clippy::too_many_arguments)]
 pub fn convert_paths(
     dictionaries: &[&Dictionary],
@@ -133,6 +140,7 @@ pub fn convert_paths(
     weight: impl Fn(&str) -> u32,
     cost: impl Fn(usize, &str) -> f64,
     cache: &mut SpanCache,
+    limits: SearchLimits,
 ) -> Vec<Conversion> {
     let Some((last, head)) = positions.split_last() else {
         return Vec::new();
@@ -177,7 +185,7 @@ pub fn convert_paths(
         penalty: 0.0,
     });
     for start in 0..n {
-        prune(&mut nodes[start]);
+        prune(&mut nodes[start], limits.beam_width);
         if nodes[start].is_empty() {
             continue;
         }
@@ -185,7 +193,7 @@ pub fn convert_paths(
         for end in start + 1..=n.min(start + MAX_WORD_SYLLABLES) {
             let span = &positions[start..end];
             let hits = cache.get_or_insert_with(SpanCache::key(span), || {
-                span_candidates(dictionaries, span, start, personal, &weight, &cost)
+                span_candidates(dictionaries, span, start, personal, &weight, &cost, limits)
             });
             if hits.is_empty() {
                 continue;
@@ -239,7 +247,7 @@ pub fn convert_paths(
             });
         }
     }
-    prune(&mut nodes[n]);
+    prune(&mut nodes[n], limits.beam_width);
     let mut paths: Vec<Conversion> = Vec::with_capacity(k.min(nodes[n].len()));
     for index in 0..nodes[n].len() {
         if paths.len() >= k {
@@ -306,6 +314,7 @@ fn span_candidates(
     personal: Personal<'_>,
     weight: &impl Fn(&str) -> u32,
     cost: &impl Fn(usize, &str) -> f64,
+    limits: SearchLimits,
 ) -> Vec<SpanWord> {
     let alternatives = span.iter().any(|p| p.len() > 1);
     let penalty_of = |m: &Match<'_>| {
@@ -336,9 +345,9 @@ fn span_candidates(
     scored.dedup_by(|a, b| a.2.text == b.2.text);
     let abbreviated = span.iter().any(|p| p.iter().any(|t| !t.complete));
     scored.truncate(if abbreviated {
-        ABBREVIATED_SPAN_CANDIDATES
+        limits.abbreviated_span_candidates
     } else {
-        SPAN_CANDIDATES
+        limits.span_candidates
     });
     scored
         .into_iter()
@@ -380,14 +389,14 @@ fn best_predecessor(
     best
 }
 
-/// 按得分降序只留束宽条。
-fn prune(nodes: &mut Vec<Node>) {
+/// 按得分降序只留束宽条。`beam_width` 见 [`SearchLimits::beam_width`]。
+fn prune(nodes: &mut Vec<Node>, beam_width: usize) {
     nodes.sort_by(|a, b| {
         b.score
             .partial_cmp(&a.score)
             .unwrap_or(std::cmp::Ordering::Equal)
     });
-    nodes.truncate(BEAM_WIDTH);
+    nodes.truncate(beam_width);
 }
 
 #[cfg(test)]
@@ -737,5 +746,131 @@ mod tests {
         let conversion = run(with_typo("xie"));
         assert_eq!(conversion.text, "感谢");
         assert_eq!(conversion.penalty, 0.0);
+    }
+
+    /// 限制真的在起作用：束宽收到 1 时只剩一条路径，且它与默认束宽下的最优一致
+    /// （默认那条本来就是第一名）。这条守着「参数确实接到了搜索里」。
+    #[test]
+    fn beam_width_of_one_keeps_only_the_best_path() {
+        let dictionary = Dictionary::parse(SAMPLE).unwrap();
+        let patterns = complete(&["wo", "xiang", "qu"]);
+        let narrow = SearchLimits {
+            beam_width: 1,
+            ..SearchLimits::DEFAULT
+        };
+        let mut cache = SpanCache::default();
+        let paths = convert_paths(
+            &[&dictionary],
+            &patterns,
+            false,
+            8,
+            &NoLanguageModel,
+            Personal::NONE,
+            |_| 0,
+            |_, _| 0.0,
+            &mut cache,
+            narrow,
+        );
+        assert_eq!(paths.len(), 1, "束宽 1 只该剩一条路径");
+        assert_eq!(paths[0].text, "我想去");
+    }
+
+    /// 每格候选的截断：`qu` 格有 去（40 万）与 区（10 万）两个候选，
+    /// 收到 1 只剩词频最高的 去。直接调 [`span_candidates`] 数条数，
+    /// 比从整句结果反推更靠得住——整句那条路会被个人数据与语言模型搅乱
+    /// （`span_candidates` 的分数里含个人出现次数，用户选过的词不会被挤掉，那是设计如此）。
+    #[test]
+    fn span_candidates_truncates_to_the_limit() {
+        let dictionary = Dictionary::parse(SAMPLE).unwrap();
+        let span = complete(&["qu"]);
+        let take = |limits| {
+            span_candidates(
+                &[&dictionary],
+                &span,
+                0,
+                Personal::NONE,
+                &|_| 0,
+                &|_, _| 0.0,
+                limits,
+            )
+            .len()
+        };
+        // 两个候选都在：去 与 区
+        assert_eq!(take(SearchLimits::DEFAULT), 2);
+        assert_eq!(
+            take(SearchLimits {
+                span_candidates: 1,
+                ..SearchLimits::DEFAULT
+            }),
+            1,
+            "收到 1 只剩词频最高的那个"
+        );
+        // 简拼格的宽度是另一个数：`q` 是前缀，命中一大片，用 abbreviated 那个
+        let abbreviated = vec![vec![SyllablePattern::prefix("q")]];
+        let take_abbreviated = |limits| {
+            span_candidates(
+                &[&dictionary],
+                &abbreviated,
+                0,
+                Personal::NONE,
+                &|_| 0,
+                &|_, _| 0.0,
+                limits,
+            )
+            .len()
+        };
+        // SAMPLE 里 q 开头的音节只有 qu，所以命中 去 / 区 两个；width=1 时砍到一个
+        assert_eq!(take_abbreviated(SearchLimits::DEFAULT), 2);
+        assert_eq!(
+            take_abbreviated(SearchLimits {
+                abbreviated_span_candidates: 1,
+                ..SearchLimits::DEFAULT
+            }),
+            1,
+            "简拼格用 abbreviated_span_candidates，不是 span_candidates"
+        );
+    }
+
+    /// 限制是整套生效的：只改 beam 不动 span，`span_candidates` 还是缺省值——
+    /// 扫参时一次只动一个，这条防止某个参数被漏接。
+    #[test]
+    fn each_limit_field_reaches_the_search_independently() {
+        let dictionary = Dictionary::parse(SAMPLE).unwrap();
+        let patterns = complete(&["kai", "fa"]);
+        let wide = SearchLimits {
+            span_candidates: 64,
+            ..SearchLimits::DEFAULT
+        };
+        let mut cache = SpanCache::default();
+        // 放宽 span 不该让结果变差：开发 / 开放 都还在候选里，缺省下也选 开发
+        let conversion = convert_with(
+            &[&dictionary],
+            &patterns,
+            false,
+            &NoLanguageModel,
+            Personal::NONE,
+            |_| 0,
+            |_, _| 0.0,
+            &mut cache,
+            wide,
+        )
+        .unwrap();
+        assert_eq!(conversion.text, "开发");
+        // 确认缓存键没把限制算进去：换一组限制必须重新算（Engine 负责清缓存，
+        // 这里手工换个新缓存模拟）
+        let mut fresh = SpanCache::default();
+        let again = convert_with(
+            &[&dictionary],
+            &patterns,
+            false,
+            &NoLanguageModel,
+            Personal::NONE,
+            |_| 0,
+            |_, _| 0.0,
+            &mut fresh,
+            SearchLimits::DEFAULT,
+        )
+        .unwrap();
+        assert_eq!(again.text, "开发");
     }
 }

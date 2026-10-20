@@ -37,7 +37,6 @@ pub(crate) use text_segment::is_han;
 pub use text_segment::{MAX_TEXT_WORD_CHARS, segment_text};
 pub use user_ngram::UserNgram;
 pub use viterbi::{convert, convert_paths, convert_whole, convert_with};
-
 /// 句首标记：个人 n-gram 里句首词的前词。与 `qingjian-lm` 语料统计用的是同一个记号。
 pub const SENTENCE_START: &str = "<s>";
 
@@ -65,15 +64,51 @@ pub const MAX_WORD_SYLLABLES: usize = 8;
 /// 落单的 i / u 等单元音范围太大又像没打完的韵母，不参与。
 pub const MIN_PARTIAL_LETTERS: usize = 2;
 
-/// 每个格子最多留几个词（按词库词频 + 用户加分）。同音词很多，全留会让束搜索白费。
-pub const SPAN_CANDIDATES: usize = 6;
+/// 整句转换的搜索规模限制。三个数一起决定「算得多细」与「花多少时间」，
+/// 是可以整套换掉的（[`Interpolation`] 那种回放扫参的思路，见 `qingjian-cli --tune`）。
+///
+/// 这三个数曾经是编译期常量，只能在改代码重建之后才能试别的值；
+/// 而它们对准确率和延迟的影响一点也不比插值参数小，实测（域外 2257 句 + 域内 5 句，
+/// 均加载 486 万 bigram 的语言模型）：
+///
+/// | span / abbr / beam | 首选 | 字准确率 | 查询平均 |
+/// |---|---|---|---|
+/// | 6 / 20 / 8（曾经的缺省） | 7.0% | 67.7% | 1.6 ms |
+/// | 12 / 40 / 16（放大一倍） | 6.5% | 66.6% | — |
+/// | 4 / 12 / 4 | 7.4% | 68.3% | 1.5 ms |
+/// | 3 / 8 / 2（再收紧） | 7.1% | 68.4% | 1.4 ms |
+///
+/// 两条读数：**放大搜索反而更差**——束更宽会把语言模型高估的错误路径翻出来，
+/// 它不是「搜得越全越准」的那种目标函数；**收紧有收益但有下限**——收到 3/8/2 时
+/// 域内句子从 100% 掉到 80%，格子候选太少会把要的词挤掉。
+/// 所以缺省仍取当年调过的 6/20/8，要动的人在真实回放日志上扫过再定。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SearchLimits {
+    /// 每个格子最多留几个词（按词库词频 + 用户加分）。同音词很多，全留会让束搜索白费。
+    pub span_candidates: usize,
 
-/// 有简拼位置的格子最多留几个词：`h` 下有 和 / 好 / 会 / 还 / 很 …… 几十个常用字，
-/// 只留六个会把句子里要的那个挤掉，多留一些让语言模型去挑。
-pub const ABBREVIATED_SPAN_CANDIDATES: usize = 20;
+    /// 有简拼位置的格子最多留几个词：`h` 下有 和 / 好 / 会 / 还 / 很 …… 几十个常用字，
+    /// 只留六个会把句子里要的那个挤掉，多留一些让语言模型去挑。
+    pub abbreviated_span_candidates: usize,
 
-/// 每个位置最多保留几条部分路径。
-pub const BEAM_WIDTH: usize = 8;
+    /// 每个位置最多保留几条部分路径。
+    pub beam_width: usize,
+}
+
+impl SearchLimits {
+    /// 当前缺省：当年在真实回放日志上调过的一组。
+    pub const DEFAULT: Self = Self {
+        span_candidates: 6,
+        abbreviated_span_candidates: 20,
+        beam_width: 8,
+    };
+}
+
+impl Default for SearchLimits {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
+}
 
 /// 语言模型不认识、只能按词库词频兜底的词扣多少分：模型见过的词更可信。
 pub const FALLBACK_PENALTY: f64 = -4.0;

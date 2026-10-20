@@ -168,6 +168,10 @@ pub struct Engine {
     /// 个人 n-gram 与静态模型插值的参数；只有回放调参会改（`set_interpolation`），壳用缺省值。
     interpolation: Interpolation,
 
+    /// 整句转换的搜索规模（每格候选数、简拼格候选数、束宽）；只有回放调参会改
+    /// （`set_search_limits`），壳用缺省值。见 [`sentence::SearchLimits`]。
+    search_limits: sentence::SearchLimits,
+
     /// 敲错纠正的代价；同上，只有回放调参会改（`set_typo_costs`）。
     typo_costs: TypoCosts,
 
@@ -438,6 +442,7 @@ impl Engine {
             neural_margin: NEURAL_MARGIN,
             interpolation: Interpolation::DEFAULT,
             typo_costs: TypoCosts::DEFAULT,
+            search_limits: sentence::SearchLimits::DEFAULT,
             neural_context: RESCORE_CONTEXT_CHARS,
             correction_cache: std::cell::RefCell::new(None),
             span_cache: std::cell::RefCell::new(sentence::SpanCache::default()),

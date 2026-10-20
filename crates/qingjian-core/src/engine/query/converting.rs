@@ -230,6 +230,7 @@ impl Engine {
             |text| self.learner.weight(text),
             |index, syllable| expanded.cost(index, syllable),
             &mut self.span_cache.borrow_mut(),
+            self.search_limits,
         );
         // 与最优路径差得太远的不参与：那种差距多半是个人 n-gram 拉开的
         if paths.len() > 1 {
