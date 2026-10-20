@@ -225,6 +225,8 @@ P2C 自由生成实验：`--eval-text <集> --eval-generate data/models/hanzhang
 
 ## apps/macos
 
+候选面板 `candidates/window.rs` 的 `CANDIDATE_WINDOW_LEVEL` = 111，高于 Snipaste 截图标注浮窗的 102 / 103。
+
 IMK 输入法，源码按 `app / host / imk / candidates / menubar / preferences` 分目录。
 
 - 只登记一个 `Hans` 系统输入模式；独立 NSStatusItem 按有效候选策略显示「中 / 英 / A」。启动与输入源通知同步显示，IMK 停用后延迟 0.5 秒检查所选输入源，仍是青简则保持显示并恢复轮询。

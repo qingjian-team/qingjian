@@ -14,8 +14,8 @@ use super::frame::Frame;
 use super::theme::Theme;
 use super::view::CandidateView;
 
-/// `kCGPopUpMenuWindowLevel`：浮在普通窗口和浮动面板之上，与系统输入法候选框同级。
-const POPUP_MENU_LEVEL: NSWindowLevel = 101;
+/// 高于 Snipaste 截图标注浮窗（102 / 103），避免候选被遮住。
+const CANDIDATE_WINDOW_LEVEL: NSWindowLevel = 111;
 
 /// 候选窗口与光标行之间的间隙。
 const CARET_GAP: f64 = 4.0;
@@ -189,7 +189,7 @@ fn build_panel(mtm: MainThreadMarker, view: &CandidateView) -> Retained<NSPanel>
     panel.setCollectionBehavior(collection_behavior());
     // 不要 setFloatingPanel(true)：它会把层级改回 NSFloatingWindowLevel（3），全屏应用的 Space 里就看不见了；
     // 层级最后设，别被前面任何一项覆盖
-    panel.setLevel(POPUP_MENU_LEVEL);
+    panel.setLevel(CANDIDATE_WINDOW_LEVEL);
     panel.setContentView(Some(view));
     panel
 }
