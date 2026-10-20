@@ -1,19 +1,16 @@
 //! 「云服务」页：云联想（开关、云端词格数、整句补全、整句候选翻译、生词本整句翻译），服务（接口地址、模型、密钥、测试连接）。
 
 use bamboo_slip::taffy::NodeId;
-use bamboo_slip::{Button, RenderError, SettingRow, Stepper, TextField, Ui, group, section_title};
+use bamboo_slip::{Button, RenderError, SettingRow, Stepper, Ui, group, section_title};
 
 use crate::message::{FieldId, Message};
 use crate::support::Feature;
 use crate::view::Page;
 use crate::view::parts::actions::with_notice;
-use crate::view::parts::controls::toggle_info;
+use crate::view::parts::controls::{text_field, toggle_info};
 
 /// 云端词最多补几格。
 const MAX_SLOTS: usize = 4;
-
-/// 输入框的宽度（点）。
-const FIELD_WIDTH: f32 = 260.0;
 
 pub fn cloud(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderError> {
     let theme = &page.theme;
@@ -113,7 +110,7 @@ pub fn cloud(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderErr
 
     let key_set = predict.resolve_api_key().is_some();
     let rows = vec![
-        field(
+        text_field(
             ui,
             page,
             FieldId::BaseUrl,
@@ -121,8 +118,8 @@ pub fn cloud(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderErr
             None,
             "https://api.deepseek.com",
         )?,
-        field(ui, page, FieldId::Model, "模型", None, "deepseek-v4-flash")?,
-        field(
+        text_field(ui, page, FieldId::Model, "模型", None, "deepseek-v4-flash")?,
+        text_field(
             ui,
             page,
             FieldId::ApiKey,
@@ -206,34 +203,4 @@ fn timing(
         .info(info)
         .control(control)
         .build(ui, &page.theme)
-}
-
-fn field(
-    ui: &mut Ui<Message>,
-    page: &Page,
-    id: FieldId,
-    title: &str,
-    info: Option<&str>,
-    placeholder: &str,
-) -> Result<NodeId, RenderError> {
-    let Some(edit) = page.settings.fields.get(&id) else {
-        return SettingRow::new(title).build(ui, &page.theme);
-    };
-    let input = TextField::new(edit)
-        .placeholder(placeholder)
-        .secret(id == FieldId::ApiKey)
-        .width(FIELD_WIDTH)
-        .build(
-            ui,
-            &page.theme,
-            ("field", id),
-            move |edit| Message::Edit(id, edit),
-            Some(Message::Commit(id)),
-            Some(Message::Cancel(id)),
-        )?;
-    let mut row = SettingRow::new(title).control(input);
-    if let Some(info) = info {
-        row = row.info(info);
-    }
-    row.build(ui, &page.theme)
 }

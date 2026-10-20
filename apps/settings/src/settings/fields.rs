@@ -20,6 +20,8 @@ impl Settings {
             FieldId::BaseUrl => predict.base_url.clone(),
             FieldId::Model => predict.model.clone(),
             FieldId::ApiKey => String::new(),
+            FieldId::LiveBaseUrl => self.config.live_translation.base_url.clone(),
+            FieldId::LiveModel => self.config.live_translation.model.clone(),
             FieldId::VocabularySearch => String::new(),
             FieldId::PhraseCode | FieldId::PhraseText => return,
         };
@@ -36,13 +38,17 @@ impl Settings {
             return;
         };
         match id {
-            FieldId::BaseUrl | FieldId::Model => {
-                let current = match id {
-                    FieldId::BaseUrl => &self.config.predict.base_url,
-                    _ => &self.config.predict.model,
+            FieldId::BaseUrl | FieldId::Model | FieldId::LiveBaseUrl | FieldId::LiveModel => {
+                let (section, current) = match id {
+                    FieldId::BaseUrl => ("predict", &self.config.predict.base_url),
+                    FieldId::Model => ("predict", &self.config.predict.model),
+                    FieldId::LiveBaseUrl => {
+                        ("live_translation", &self.config.live_translation.base_url)
+                    }
+                    _ => ("live_translation", &self.config.live_translation.model),
                 };
                 if !text.is_empty() && text != *current {
-                    self.write("predict", id.key(), text);
+                    self.write(section, id.key(), text);
                 }
             }
             FieldId::PhraseCode | FieldId::PhraseText | FieldId::VocabularySearch => return,

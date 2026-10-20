@@ -60,7 +60,7 @@ pub fn run(config: Option<&Path>, directory: &Path) -> Result<(), Box<dyn std::e
         if page == PageId::About {
             click(&mut runner, Key::ROOT.child("sources"))?;
         }
-        if matches!(page, PageId::About | PageId::Input) {
+        if matches!(page, PageId::About | PageId::Input | PageId::Language) {
             let area = content(&runner);
             hover(&mut runner, area)?;
             runner.handle(&Event::Scroll {

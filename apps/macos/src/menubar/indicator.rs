@@ -1,7 +1,7 @@
 //! 菜单栏里的「中 / 英」状态项。
 //!
 //! 输入源图标（Info.plist 的 tsInputMethodIconFileKey）没法动态换，所以自己放一个 NSStatusItem。
-//! Caps Lock 的变化不会作为按键送到输入法，用一个定时器轮询系统状态刷新。
+//! 中英状态来自输入会话处理的逻辑模式；定时器让配置与状态变化同步到菜单栏。
 //!
 //! 状态项一旦创建就**不再隐藏**：`setVisible(false)` 再 `setVisible(true)` 会把它重新排到菜单栏最左边，用户 ⌘ 拖到输入法图标旁的位置就丢了
 //! （固定 autosave 名也保不住），而焦点每进出一次输入框 IMK 就 deactivate / activate 一轮。
@@ -19,7 +19,7 @@ use objc2_foundation::{NSObject, NSObjectProtocol, NSString, NSTimer, ns_string}
 
 use crate::imk::modifiers;
 
-/// 轮询 Caps Lock 状态的间隔。
+/// 刷新逻辑中英文状态的间隔。
 const POLL_INTERVAL: f64 = 0.25;
 
 /// 停用后隔多久才把状态项收起：焦点在输入框之间挪动时 deactivate 与下一次 activate 只隔几十毫秒。
@@ -151,12 +151,12 @@ impl ModeIndicator {
         self.english = None;
     }
 
-    /// 按当前 Caps Lock 状态刷新标题；收起时不动。
+    /// 按当前逻辑中英文状态刷新标题；收起时不动。
     pub fn update(&mut self) {
         if !self.shown {
             return;
         }
-        let english = modifiers::caps_lock_on();
+        let english = modifiers::english_mode();
         if self.english == Some(english) {
             return;
         }

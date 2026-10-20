@@ -144,7 +144,7 @@ collection behavior 是 CanJoinAllSpaces + FullScreenAuxiliary + Stationary。�
 
 ### 英文模式候选
 
-Caps Lock 亮着（英文模式）敲字母时也组词：字母（以及组词中的数字、`_` `'` `-`）进缓冲区、原样显示，候选来自英文词表
+英文模式敲字母时也组词：字母（以及组词中的数字、`_` `'` `-`）进缓冲区、原样显示，候选来自英文词表
 （Core `english::suggest`）：整段正好是的词第一（按词表写法），然后是前缀补全，4 个字母起再给差一处编辑（换 / 多 / 少一个字母、相邻对调）的纠正
 （`recieve` → receive，`seperate` → separate）；后两组各按选过的次数、词频排。大小写跟着敲的走：`Compa` 出 Company，`COMPA` 出 COMPANY。
 带数字或符号的（`foo1`）是标识符，不猜。emoji 照配，但排在所有词后面（上下键选词时不挡路）。
@@ -153,7 +153,7 @@ Caps Lock 亮着（英文模式）敲字母时也组词：字母（以及组词�
 有候选时数字才选词，没候选（`kubectl` 这类词表没有的词）时数字是标识符的一部分。**回车、标点原样上屏敲的字母**（再把那个键交给应用），
 词表没有的写法靠回车。0.1.3 之前空格只在动过高亮之后才选词、数字一律是数字，理由是不让词表没有的词被补全替换，
 但测试者按直觉都拿空格和数字选词，2026-09-16 改成与中文一致。Esc 清掉，退格删字母。英文模式不发云联想；回车原样上屏也不记「不纠这个串」。
-组词中 Caps Lock 灭了先把字母原样上屏。配置 `[general] english_candidates = false` 关掉候选，回到纯直通；偏好设置里有勾选框。
+组词中切换中英模式时，先把输入原样上屏。配置 `[general] english_candidates = false` 关掉候选，回到纯直通；偏好设置里有勾选框。
 
 **按应用给（白名单）**：只有 `[apps] english_candidates_on` 列出的应用（macOS 按 IMK 客户端的 `bundleIdentifier`、Windows 按宿主 exe 名、
 Linux 按 Fcitx5 的应用名，`*` 结尾按前缀匹配）里英文模式给候选，其余是纯直通，字母原样交给应用。缺省名单是浏览器、聊天、办公与笔记这类写成段文字的应用。
@@ -249,13 +249,13 @@ Core `shortcut` 模块，不查词库、由输入直接算出，`CandidateKind::
 ### 问字模式（云联想的一部分，问字键 `u` 或 `?` 开头）
 
 缓冲区为空时敲问字键（缺省 `u`）或 `?` 进问字模式，接着用拼音敲问题：`usangemushishenmezi`（三个木是什么字）、`umumumu`（报部件）、
-`ufaguoshoudu`（短事实问答）。`?` 在任何配置下都是别名，也是英文模式（Caps Lock）下唯一的入口（`u` 在英文模式里就是字母 u）。
+`ufaguoshoudu`（短事实问答）。`?` 在任何配置下都是别名，也是英文模式下唯一的入口（`u` 在英文模式里就是字母 u）。
 本地不出候选，preedit 显示 `usan'ge'mu…`，停键后云端答字或短答案，
 带云朵与带声调读音（森 sēn），数字键选中上屏、吃掉整段。答案不做拼音校验（它本来就对不上问题的拼音）。
 请求里除了字母与切分还带 `question`：本地整句转换把问题拼音转成的汉字（`PredictionRequest::guess`，可能错字），模型据此理解问题；
 提示词强调用户是打不出这个字才来问的，**只答被问的字、不复述问题**。模型仍把问题整句写回来时（`?sangezhishishenmezi` 曾答 三个直是什么字），
 Core 按 `prediction::restates_question` 剔掉：与本地转出的问题相同、包含它的后半截、问题不短而答案一样长、或答案里带疑问词。
-中英文模式（Caps Lock）都能进：`?` 后面紧跟的不是字母（回车、空格、标点、方向键）就还原成问号上屏
+中英文模式都能进：`?` 后面紧跟的不是字母（回车、空格、标点、方向键）就还原成问号上屏
 （中文模式全角 `？`、英文模式半角 `?`）。回车和空格只做「把这个问号上屏」、键本身吞掉（否则聊天框里回车会连消息一起发出去、
 空格会多一个空格），标点和方向键还原后再交给应用；退格 / Esc 清掉。英文模式下 Caps Lock 送来的大写字母按小写收进问题。
 没开云联想时 `?` 仍然进问字模式但等不到答案，回车上屏原文；离线拆字版（IDS 数据）待做。
@@ -315,11 +315,11 @@ Core 按 `prediction::restates_question` 剔掉：与本地转出的问题相同
 （版本、系统、加载的数据、抹掉密钥的配置原文、日志目录，写进剪贴板）。
 日志缺省 info 级，不含用户敲的内容；`[general] log_level = "debug"`（「高级」页「详细日志」）才逐键记，`tracing_subscriber::reload` 热切换，`RUST_LOG` 环境变量在时以它为准。
 
-### 中英切换（两个系统的习惯不同）
+### 中英切换
 
 | 系统 | 切中英 | 英文模式 |
 |---|---|---|
-| macOS | Caps Lock 位置的中/英键。系统层面它切的是 Caps Lock 状态，我们把「Caps Lock 亮着」当作英文模式 | 默认小写，按住 Shift 大写；标点不转全角。macOS 上 Caps Lock 亮着时按不按 Shift 送来的都是大写，所以按键时读一次 Shift 的硬件状态（`NSEvent.modifierFlags`）决定大小写 |
+| macOS | `[shortcut] switch_mode` 支持单击 `shift`（缺省）、单击 `control`、`ctrl+alt+space`，可多选。修饰键按下到抬起期间使用其他键则取消切换；失焦取消待判定状态。中英状态保存在 `imk::modifiers` 的进程级状态，Caps Lock 状态变化时同步模式，之后 Shift 仍可切换；`general.english_mode` 关闭后固定中文。菜单栏和候选窗读取同一状态 | 默认小写，按住 Shift 大写；标点不转全角。Caps Lock 亮着时按硬件 Shift 状态修正系统送来的大小写；当前模式不能仅由 Caps Lock 指示灯判断 |
 | Windows（Phase 5） | 单击切换键切中英，键与开关在「设置 → 通用」：`[shortcut] switch_mode` 勾选 `shift` / `control` / `ctrl+alt+space`（可多选），中英模式所有应用共用一份，`[general] english_mode` 关掉则固定中文、不再登记语言栏按钮；Caps Lock 是真正的大小写锁定 | 默认小写，按住 Shift 大写 |
 
 macOS 上如果系统开了「使用大写锁定键切换 ABC 输入法」，按键会直接切到 ABC 输入源，我们收到 deactivate、

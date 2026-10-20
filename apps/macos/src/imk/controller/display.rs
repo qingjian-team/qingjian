@@ -1,9 +1,36 @@
 //! 查询与呈现：刷新候选、画候选窗、整句补全、翻页与高亮。
 
-use super::*;
+use super::{QingjianInputController, RESCORE_LOOKBACK};
+use crate::candidates::Preedit;
+use crate::host;
+use crate::imk::{TextClient, modifiers, secure_input};
+use qingjian_core::Candidate;
 use qingjian_platform::HighlightKeys;
 
 impl QingjianInputController {
+    /// 不把编辑器已有文字当作待译输入，只核验受控文本仍紧邻光标。
+    pub(super) fn observe_live_context(&self, client: TextClient<'_>) -> bool {
+        let epoch = host::with(|h| h.live.active().then_some(h.live.epoch)).flatten();
+        let Some(epoch) = epoch else {
+            return true;
+        };
+        let before = client
+            .surrounding_text(4096, 0)
+            .map(|context| context.before);
+        let anchor = client.caret_rect();
+        host::with(|h| {
+            if h.live.epoch != epoch {
+                return false;
+            }
+            h.anchor = anchor;
+            if !h.live.tracker.reconcile_before(before.as_deref()) {
+                h.reset_live_translation();
+            }
+            true
+        })
+        .unwrap_or(false)
+    }
+
     /// 按当前缓冲区重新查候选、更新 marked text，回到第一页并重画候选窗口。
     pub(super) fn refresh(&self, client: TextClient<'_>) {
         // 本地整句模型与自动空格要看光标前文：一段组句只在第一键读一次（组句中它不变；应用偶尔不回话也不至于让前文来回换），
@@ -67,7 +94,7 @@ impl QingjianInputController {
     /// 缓冲区里只有一个 `?` 而用户按了别的键：把它还原成问号上屏（中文遵循标点设置、英文半角）、清空缓冲区。
     /// 返回是否发生了还原。
     pub(super) fn restore_bare_question(&self, client: TextClient<'_>) -> bool {
-        let english = modifiers::caps_lock_on();
+        let english = modifiers::english_mode();
         let restored = host::with(|h| {
             let mark = h.engine.restore_bare_question(english)?;
             h.cancel_prediction();
@@ -77,6 +104,7 @@ impl QingjianInputController {
         let Some(mark) = restored else {
             return false;
         };
+        host::with(|h| h.commit_live_text(&mark));
         client.insert_text(&mark);
         self.refresh(client);
         true
@@ -132,6 +160,7 @@ impl QingjianInputController {
         };
         host::with(|h| h.engine.accept_prediction(&text));
         tracing::debug!(%text, "接受整句补全");
+        host::with(|h| h.commit_live_text(&text));
         client.insert_text(&text);
         self.refresh(client);
         true
@@ -199,6 +228,7 @@ impl QingjianInputController {
         let app = client.bundle_identifier();
         host::with(|h| {
             if h.engine.application() != app.as_deref() {
+                h.reset_live_translation();
                 h.engine.set_application(app);
             }
         });

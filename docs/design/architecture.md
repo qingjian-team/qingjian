@@ -425,7 +425,7 @@ CC-CEDICT 表（`dict-convert cedict`）保留为备用来源，覆盖面广但�
   由 Server 自己 `CloseSession` 掉，同一个循环线上的命名管道与测试里的内存流共用，收尾行为不会出现两份；
   应用强行终止组句（`OnCompositionTerminated`）时拼音已被框架定成普通文本，
   DLL 只记「Server 缓冲过期」，下次说话前先 `Commit` 并丢掉交出的文本，不再插一次。
-  中英模式：**Windows 与 macOS 机制不同**。macOS 用 Caps Lock 当中英切换键；Windows 按本地习惯，单击切换键在中 / 英间翻转，
+  中英模式：macOS 与 Windows 均支持配置单击切换键在中 / 英间翻转；macOS 还保留 Caps Lock 状态变化时同步模式的兼容行为，Shift 可继续覆盖该状态，菜单栏与候选窗统一读取进程级中英状态。Windows 的
   切换键由 `[shortcut] switch_mode` 勾选（`SwitchKeys`：单击 `shift`（缺省）/ 单击 `control` / `ctrl+alt+space`，可多选，空列表 = 不用键切），
   `[general] english_mode` 关掉则整个内置英文模式停用（issue #81）。**模式全局一份、存在 Server**（`Router.english`，与搜狗一致）：
   DLL 里用户切了（切换键、语言栏按钮、右键菜单、任务栏转换模式）用 `ModeChanged` 报上去；激活、线程得到焦点（`com/focus.rs` 的

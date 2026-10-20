@@ -9,13 +9,25 @@ pub(super) use watch::ConfigWatch;
 use qingjian_render::TextSizes;
 
 use super::init::load_glossary;
-use super::*;
+use super::{Host, LEARNING_FLUSH_INTERVAL};
+use crate::app::{logging, paths};
+use crate::preferences::UpdateStatus;
+use qingjian_core::{Language, NoGlossFiller, NoPredictor, NoTranslator};
+use qingjian_platform::{GeneralConfig, Scheme};
+use qingjian_predict::{API_USAGE_FILE, CloudGlossFiller, CloudPredictor};
 
 impl Host {
     /// 把当前配置推给 Engine 与界面：模糊音 / 模式键 / 翻页 / 外观直接设；学习语言变了换释义表；
     /// `[predict]` 变了（或 `force`）才重建 Predictor；最后刷新云朵标识、菜单勾选与设置窗口。
     pub fn apply_config(&mut self, force: bool) {
         let config = self.settings.config().clone();
+        self.live.configure(&config.live_translation, force);
+        self.live.window.set_appearance(config.general.appearance());
+        self.live.window.set_font(&config.general.font);
+        self.live
+            .window
+            .set_render_theme(self.render_theme(&config.general));
+        crate::imk::modifiers::configure(config.general.english_mode, config.shortcut.switch_mode);
         self.engine.set_fuzzy(config.fuzzy);
         self.engine.set_traditional(config.general.traditional());
         self.engine

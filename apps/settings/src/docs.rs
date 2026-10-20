@@ -92,6 +92,24 @@ const LINKS: &[(PageId, &str, &str, &str)] = &[
     (PageId::Language, "Shift + 字母", SETTINGS, "中英文"),
     (
         PageId::Language,
+        "实时中英互译",
+        "input/live-translation",
+        "边输入边翻译",
+    ),
+    (
+        PageId::Language,
+        "本机服务地址",
+        "input/live-translation",
+        "开启",
+    ),
+    (
+        PageId::Language,
+        "本地翻译模型",
+        "input/live-translation",
+        "开启",
+    ),
+    (
+        PageId::Language,
         "切换键",
         "input/english-mode",
         "改掉或关掉中 / 英切换（Windows）",

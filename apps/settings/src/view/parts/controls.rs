@@ -1,10 +1,10 @@
 //! 各页共用的几种设置行：开关、分段选择、下拉框。
 
 use bamboo_slip::taffy::NodeId;
-use bamboo_slip::{RenderError, Segmented, Select, SettingRow, Switch, Ui};
+use bamboo_slip::{RenderError, Segmented, Select, SettingRow, Switch, TextField, Ui};
 
 use super::menus::anchor;
-use crate::message::{Message, Popup};
+use crate::message::{FieldId, Message, Popup};
 use crate::view::Page;
 
 /// 学习语言（配置写法、界面名），最后一项是不显示译文。
@@ -93,4 +93,35 @@ pub fn select(
         .width(width)
         .disabled(disabled)
         .build(ui, &page.theme, anchor(popup), Message::OpenMenu(popup))
+}
+
+/// 可保存、取消的单行配置输入框。
+pub fn text_field(
+    ui: &mut Ui<Message>,
+    page: &Page,
+    id: FieldId,
+    title: &str,
+    info: Option<&str>,
+    placeholder: &str,
+) -> Result<NodeId, RenderError> {
+    let Some(edit) = page.settings.fields.get(&id) else {
+        return SettingRow::new(title).build(ui, &page.theme);
+    };
+    let input = TextField::new(edit)
+        .placeholder(placeholder)
+        .secret(id == FieldId::ApiKey)
+        .width(260.0)
+        .build(
+            ui,
+            &page.theme,
+            ("field", id),
+            move |edit| Message::Edit(id, edit),
+            Some(Message::Commit(id)),
+            Some(Message::Cancel(id)),
+        )?;
+    let mut row = SettingRow::new(title).control(input);
+    if let Some(info) = info {
+        row = row.info(info);
+    }
+    row.build(ui, &page.theme)
 }

@@ -1,12 +1,15 @@
 //! 翻译选中文字、译词键与删候选键。
 
-use super::*;
+use super::{MAX_TRANSLATE_CHARS, QingjianInputController};
+use crate::host;
+use crate::imk::{TextClient, secure_input};
 
 impl QingjianInputController {
     /// Option+数字：上屏当前页第几个候选的译文（学习和拼音消耗与选那个候选一样）。
     /// 不在组句中时不管；候选没有译文就吞掉按键不动，免得 ¡™£ 进应用。
     /// 翻译应用里选中的文字：云服务关着、密码框、没有选区都不动（键交回应用）。
     pub(super) fn translate_selection(&self, client: TextClient<'_>) -> bool {
+        host::with(|h| h.reset_live_translation());
         if !host::with(|h| h.engine.prediction_enabled()).unwrap_or(false) {
             tracing::info!("云服务没开，翻译快捷键不生效");
             return false;
@@ -98,6 +101,7 @@ impl QingjianInputController {
         match text {
             Some(text) => {
                 tracing::debug!(%text, "commit translation");
+                host::with(|h| h.commit_live_text(&text));
                 client.insert_text(&text);
                 self.refresh(client);
             }

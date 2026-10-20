@@ -209,6 +209,8 @@ fn every_key_the_settings_app_writes_is_read_by_the_ime() {
         (FieldId::BaseUrl, "https://example.com/v1"),
         (FieldId::Model, "test-model"),
         (FieldId::ApiKey, "sk-test"),
+        (FieldId::LiveBaseUrl, "http://127.0.0.1:11434"),
+        (FieldId::LiveModel, "test-local-model"),
     ] {
         harness.apply(vec![
             Message::Edit(id, Edit::Text(TextInput::Insert(text.to_owned()))),

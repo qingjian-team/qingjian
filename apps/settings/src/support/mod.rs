@@ -14,8 +14,10 @@ use crate::page_id::PageId;
 pub enum Feature {
     /// 输入页的辅码与码表。
     AuxCode,
-    /// 中英文切换键（含 Windows 系统的 Ctrl + Space）。
+    /// 青简内部的中英文切换键。
     SwitchKeys,
+    /// Windows 系统的 Ctrl + Space，与青简内部切换键独立。
+    SystemCtrlSpace,
     DefaultEnglish,
     RememberModePerApp,
     /// 英文模式的全半角标点。
@@ -34,13 +36,16 @@ pub enum Feature {
     CloudRequestControls,
     /// 上屏的整句翻译后记进生词本（随释义兜底）。
     VocabularyTranslation,
+    /// 本机 Ollama 实时中英互译。
+    LiveTranslation,
 }
 
 impl Feature {
     #[cfg(test)]
-    pub const ALL: [Self; 15] = [
+    pub const ALL: [Self; 17] = [
         Self::AuxCode,
         Self::SwitchKeys,
+        Self::SystemCtrlSpace,
         Self::DefaultEnglish,
         Self::RememberModePerApp,
         Self::EnglishPunctuation,
@@ -54,6 +59,7 @@ impl Feature {
         Self::ApiUsage,
         Self::CloudRequestControls,
         Self::VocabularyTranslation,
+        Self::LiveTranslation,
     ];
 
     /// 当前平台显示这一项。
@@ -75,8 +81,9 @@ impl Feature {
         use Status::{NotApplicable as No, Planned as Todo, Supported as Yes};
         match self {
             Self::AuxCode => [Todo, Yes, Todo],
-            // macOS 用 Caps Lock，由系统决定；Linux 的切换键在 Fcitx5 的设置里
-            Self::SwitchKeys => [No, Yes, No],
+            // Linux 的切换键在 Fcitx5 的设置里
+            Self::SwitchKeys => [Yes, Yes, No],
+            Self::SystemCtrlSpace => [No, Yes, No],
             Self::DefaultEnglish => [Todo, Yes, Todo],
             Self::RememberModePerApp => [Todo, Yes, Todo],
             // macOS 英文模式一律半角
@@ -96,6 +103,7 @@ impl Feature {
             Self::CloudRequestControls => [Todo, Yes, Todo],
             // Linux 还没接释义兜底
             Self::VocabularyTranslation => [Yes, Yes, Todo],
+            Self::LiveTranslation => [Yes, Todo, Todo],
         }
     }
 
@@ -105,6 +113,7 @@ impl Feature {
         match self {
             Self::AuxCode => "辅码",
             Self::SwitchKeys => "中英文切换键",
+            Self::SystemCtrlSpace => "系统 Ctrl + Space",
             Self::DefaultEnglish => "默认英文模式",
             Self::RememberModePerApp => "按应用记住中英模式",
             Self::EnglishPunctuation => "英文标点全半角",
@@ -118,6 +127,7 @@ impl Feature {
             Self::ApiUsage => "云服务用量统计",
             Self::CloudRequestControls => "按需云联想与请求节奏",
             Self::VocabularyTranslation => "生词本整句翻译",
+            Self::LiveTranslation => "本地实时中英互译",
         }
     }
 
@@ -145,9 +155,16 @@ impl Feature {
                 (PageId::Shortcuts, "按需 AI 联想"),
             ],
             Self::VocabularyTranslation => &[(PageId::Cloud, "生词本整句翻译")],
-            Self::EnglishPunctuation | Self::StatusBar | Self::HorizontalGrid | Self::ApiUsage => {
-                &[]
-            }
+            Self::LiveTranslation => &[
+                (PageId::Language, "实时中英互译"),
+                (PageId::Language, "本机服务地址"),
+                (PageId::Language, "本地翻译模型"),
+            ],
+            Self::SystemCtrlSpace
+            | Self::EnglishPunctuation
+            | Self::StatusBar
+            | Self::HorizontalGrid
+            | Self::ApiUsage => &[],
         }
     }
 }
@@ -191,6 +208,32 @@ mod tests {
             listed, expected,
             "todo.md 的「设置项的平台缺口」要照 support 表的「待实现」逐条列"
         );
+    }
+
+    #[test]
+    fn internal_switch_keys_and_system_hotkey_have_separate_support() {
+        assert_eq!(
+            Feature::SwitchKeys.status(Platform::MacOs),
+            Status::Supported
+        );
+        assert_eq!(
+            Feature::SwitchKeys.status(Platform::Windows),
+            Status::Supported
+        );
+        assert_eq!(
+            Feature::SwitchKeys.status(Platform::Linux),
+            Status::NotApplicable
+        );
+        for platform in Platform::ALL {
+            assert_eq!(
+                Feature::SystemCtrlSpace.status(platform),
+                if platform == Platform::Windows {
+                    Status::Supported
+                } else {
+                    Status::NotApplicable
+                }
+            );
+        }
     }
 
     /// 每一项至少一个平台在用，不然该删掉。

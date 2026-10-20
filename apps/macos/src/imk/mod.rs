@@ -5,6 +5,7 @@
 
 mod client;
 mod controller;
+mod mode_switch;
 pub mod modifiers;
 pub mod secure_input;
 
@@ -39,6 +40,7 @@ pub fn recover_from_panic(client: Option<TextClient<'_>>) {
             let text = h.engine.composition().text().to_owned();
             h.engine.clear();
             h.cancel_prediction();
+            h.reset_live_translation();
             h.window.hide();
             text
         });

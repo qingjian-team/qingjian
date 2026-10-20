@@ -28,6 +28,7 @@ use std::path::Path;
 
 use qingjian_core::FuzzyRules;
 use qingjian_predict::PredictConfig;
+use qingjian_predict::live::LiveTranslationConfig;
 use serde::{Deserialize, Serialize};
 use toml_edit::DocumentMut;
 
@@ -94,6 +95,9 @@ pub struct Config {
     /// 云联想。
     pub predict: PredictConfig,
 
+    /// 本机 Ollama 实时中英互译，与云联想分开配置。
+    pub live_translation: LiveTranslationConfig,
+
     /// 悬浮状态条（桌面上常驻、可拖动的中 / 英浮窗）。
     pub status_bar: StatusBarConfig,
 
@@ -130,7 +134,7 @@ macro_rules! template_apps {
     () => {
         r#"[apps]
 # 按应用改行为，条目是 bundle identifier（`*` 结尾按前缀匹配）。开着「详细日志」时切到一个应用会把它的 bundle identifier 记进日志
-# 英文模式（Caps Lock）下给候选的应用（白名单）：浏览器、聊天、办公与笔记这类写成段文字的地方。没列的应用里英文字母原样交给应用，
+# 英文模式下给候选的应用（白名单）：浏览器、聊天、办公与笔记这类写成段文字的地方。没列的应用里英文字母原样交给应用，
 # 免得挡住终端 / 编辑器自己的补全，或吞掉设计、3D 软件的单键快捷键。写成 ["*"] 就处处都给，再用 english_candidates_off 排除个别应用
 english_candidates_on = [
   "com.apple.Safari", "com.google.Chrome*", "org.mozilla.firefox", "com.microsoft.edgemac*", "company.thebrowser.Browser", "com.brave.Browser*",
@@ -165,8 +169,8 @@ english_candidates_on = [
 #[cfg(target_os = "macos")]
 macro_rules! template_shortcut_keys {
     () => {
-        r#"# 中 / 英模式切换键（Windows 用），可多选：shift 单击（缺省）/ control 单击 / ctrl+alt+space 组合键；[] 不用键切换。
-# macOS 的切换键是 Caps Lock（系统级），本项不生效
+        r#"# 中 / 英模式切换键，可多选：shift 单击（缺省）/ control 单击 / ctrl+alt+space（Control + Option + Space）；[] 不用这些键切换。
+# 单击修饰键松开时切换，组合使用时不切换；Caps Lock 也可切换，以菜单栏的中 / 英为准
 switch_mode = ["shift"]
 # 数字键配这些修饰键上屏候选的译词：translation 第一个译词，translation_second 第二个（候选右侧有两个译词时）
 # 任意修饰键组合（option / shift / control / command 用 + 连），偏好设置里点按钮录制；别用 control+数字（系统切桌面）和 command+数字（应用切标签页）
@@ -252,7 +256,7 @@ annotation_font_size = 0
 animations = true
 # 组句中的拼音显示在哪：both 行内和候选窗口 / inline 只在行内 / window 只在候选窗口（应用里不放 marked text）
 preedit = "both"
-# 英文模式（Caps Lock 亮着）是否给英文候选：Tab 或方向键选词，空格、回车、标点仍原样上屏敲的字母；false 就是纯直通
+# 英文模式是否给英文候选：Tab 或方向键选词，空格、回车、标点仍原样上屏敲的字母；false 就是纯直通
 english_candidates = true
 
 # 繁体输出：off 简体 / taiwan 台湾字形 / hongkong 香港字形 / standard 通用字形；三档都只换字形不换用语（软件 → 軟件）
@@ -273,8 +277,8 @@ auto_space = false
 # 中文模式下按住 Shift 敲的字母：passthrough 拼音原样上屏、字母交给应用（缺省，与以前一致）/ compose 收进组句
 # 缓冲区参与匹配，这样 Cpan 与 cpan 一样能出「C盘」。英文模式与英文直输段（no-Way）不受影响
 shift_letter = "passthrough"
-# 内置英文模式：开着时单击切换键（[shortcut] switch_mode）或 Caps Lock 亮着进英文模式
-# 关掉后青简保持中文模式，切换键与语言栏按钮都不再切过去；要打英文请用系统快捷键（Win+Space）切到别的输入法。只有 Windows 用，macOS 的中英切换是 Caps Lock
+# 内置英文模式：开着时可用切换键（[shortcut] switch_mode）或 Caps Lock 进入英文模式
+# 关掉后青简保持中文模式，切换键与语言栏按钮都不再切过去；要打英文请用系统快捷键切到别的输入法。macOS 与 Windows 支持
 english_mode = true
 # Windows：初始英文；按应用记忆时也用于没有记录的应用
 default_english = false
@@ -373,6 +377,16 @@ disabled = []
 [model]
 # 本地整句模型：随包的小模型在本机给整句候选重新排序，全程离线；停顿后几十毫秒生效。关掉只用词库统计
 enabled = true
+
+[live_translation]
+# 本地实时中英互译（目前仅 macOS）：已上屏的本句文字加当前高亮候选，译文显示在独立悬浮条；保留字词释义
+enabled = false
+# 本机 Ollama 服务地址和模型；与云联想独立，不需要 API 密钥，不会回退到云服务
+base_url = "http://localhost:11434"
+model = "maternion/hy-mt2:1.8b"
+# 停键等待与单次请求超时（毫秒），继续输入会取消旧请求
+debounce_ms = 180
+timeout_ms = 5000
 
 [predict]
 # 云联想：把光标附近的文本发到下面的接口，让模型补全整句 / 联想下文。默认关闭。

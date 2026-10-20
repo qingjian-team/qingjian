@@ -4,16 +4,14 @@
 //! **这里不允许出现排序、词库或翻译逻辑。** 会话状态（候选、高亮、页码）在 [`crate::host::Session`]。
 
 use objc2::rc::{Allocated, Retained};
-use objc2::runtime::{AnyObject, Sel};
-use objc2::{define_class, msg_send, sel};
-use objc2_app_kit::{NSEvent, NSEventModifierFlags, NSEventType, NSMenu};
+use objc2::runtime::AnyObject;
+use objc2::{MainThreadMarker, define_class, msg_send, sel};
+use objc2_app_kit::{NSEvent, NSEventMask, NSEventModifierFlags, NSEventType, NSMenu};
 use objc2_foundation::{NSObjectProtocol, NSString};
 use objc2_input_method_kit::{IMKInputController, IMKServer};
-use qingjian_core::{Candidate, QUESTION_PREFIX};
 use qingjian_platform::Modifiers;
 
 use super::{TextClient, catch_panic, modifiers, recover_from_panic, secure_input};
-use crate::candidates::Preedit;
 use crate::host;
 use crate::menubar;
 
@@ -51,6 +49,16 @@ define_class!(
             unsafe { msg_send![super(this), initWithServer: server, delegate: delegate, client: client] }
         }
 
+        /// 默认只订阅 KeyDown；显式订阅修饰键和鼠标，鼠标提交由 dispatch_event 接管。
+        #[unsafe(method(recognizedEvents:))]
+        fn recognized_events(&self, _sender: Option<&AnyObject>) -> usize {
+            let mask = (NSEventMask::KeyDown | NSEventMask::FlagsChanged
+                | NSEventMask::LeftMouseDown | NSEventMask::RightMouseDown
+                | NSEventMask::OtherMouseDown).bits() as usize;
+            tracing::info!(mask = format_args!("{mask:#x}"), "订阅输入事件");
+            mask
+        }
+
         /// 所有按键事件都到这里（IMK 第一层协议）。IMK 按控制器实现了哪一层决定路线，实现了这个方法就不会再分发成
         /// `inputText:client:` / `didCommandBySelector:client:`（父类缺省实现也不分发），所以自己分：
         /// Option+数字上屏候选的译文（Option 会把数字键变成 ¡™£ 这类字符，只能按键码认）；命令键按键码映射成原来的选择器；
@@ -75,6 +83,7 @@ define_class!(
         /// 应用要求立刻结束本次输入（切换焦点、切换输入法等）。
         #[unsafe(method(commitComposition:))]
         fn commit_composition(&self, client: Option<&AnyObject>) {
+            modifiers::cancel_tap("commitComposition");
             let client = client.map(TextClient::new);
             let done = catch_panic("commitComposition", || {
                 if let Some(client) = client {
@@ -82,6 +91,7 @@ define_class!(
                 }
                 host::with(|h| {
                     h.cancel_prediction();
+                    h.reset_live_translation();
                     h.window.hide();
                 });
             });
@@ -93,6 +103,8 @@ define_class!(
         #[unsafe(method(activateServer:))]
         fn activate_server(&self, sender: Option<&AnyObject>) {
             tracing::info!("activateServer");
+            modifiers::cancel_tap("activateServer");
+            modifiers::sync_caps();
             self.set_active();
             let done = catch_panic("activateServer", || {
                 // 会话级把键盘布局覆盖为 ABC（QWERTY）：系统会沿用「上一次使用的拉丁键盘布局」，
@@ -110,6 +122,7 @@ define_class!(
                     tracing::debug!(%bundle, "当前应用");
                 }
                 host::with(|h| {
+                    h.reset_live_translation();
                     h.engine.set_application(bundle);
                     h.refresh_text_replacements();
                     h.reload_config_if_changed();
@@ -143,6 +156,7 @@ define_class!(
         #[unsafe(method(deactivateServer:))]
         fn deactivate_server(&self, sender: Option<&AnyObject>) {
             tracing::info!("deactivateServer");
+            modifiers::cancel_tap("deactivateServer");
             self.clear_active();
             let client = sender.map(TextClient::new);
             let done = catch_panic("deactivateServer", || {
@@ -152,6 +166,7 @@ define_class!(
                 // 切换输入源时无论如何都收掉候选框，不能留一个孤儿窗口在屏幕上
                 host::with(|h| {
                     h.cancel_prediction();
+                    h.reset_live_translation();
                     h.window.hide();
                     h.indicator.deactivate();
                     h.watch.stop();
@@ -201,6 +216,29 @@ fn digit_key(key_code: u16) -> Option<usize> {
 }
 
 impl QingjianInputController {
+    /// 取出旧组句、清理显示与异步结果；成功后才在 Host 借用外提交原文。
+    fn finish_mode_switch(&self, client: TextClient<'_>) -> bool {
+        let Some(raw) = host::with(|h| {
+            let raw = h.engine.take_raw();
+            h.engine.set_english_mode(false);
+            h.engine.close_symbol_panel();
+            h.end_translation();
+            h.clear_notice();
+            h.cancel_prediction();
+            h.reset_session(None, Vec::new());
+            h.window.hide();
+            h.indicator.update();
+            raw
+        }) else {
+            return false;
+        };
+        // 在客户端调用之前确认，调用期间可能重入并产生下一次模式变更。
+        modifiers::did_finish();
+        host::with(|h| h.commit_live_text(&raw));
+        client.commit_pending_raw(&raw);
+        true
+    }
+
     /// 登录 / 锁屏窗口：输入源菜单里没有青简，loginwindow 却照样激活它，按键一律交还系统。
     ///
     /// TODO(#190): 临时防护。现象是开机登录界面打不进模式键（u / i），推断为按键进了青简的组句；
@@ -210,12 +248,56 @@ impl QingjianInputController {
         host::with(|h| h.engine.application() == Some(LOGIN_WINDOW)).unwrap_or(false)
     }
 
-    /// 一个按键事件的分发：只管按下；Cmd / Ctrl 组合除 Cmd+左右外一律交给应用；命令键映射成选择器；其余按字符当文本。
+    /// 修饰键变化先判单击，鼠标显式提交；按下事件分发为命令或文本。
     fn dispatch_event(&self, event: &NSEvent, client: TextClient<'_>) -> bool {
-        if event.r#type() != NSEventType::KeyDown || self.in_login_window() {
+        if secure_input::enabled() {
+            host::with(|h| h.reset_live_translation());
+        }
+        if self.in_login_window() {
+            modifiers::cancel_tap("loginwindow");
+            return false;
+        }
+        if modifiers::needs_finish() && !self.finish_mode_switch(client) {
             return false;
         }
         let flags = event.modifierFlags();
+        match event.r#type() {
+            NSEventType::FlagsChanged => {
+                if modifiers::flags_changed(event.keyCode(), flags.bits()) {
+                    self.finish_mode_switch(client);
+                }
+                return false;
+            }
+            NSEventType::LeftMouseDown
+            | NSEventType::RightMouseDown
+            | NSEventType::OtherMouseDown => {
+                modifiers::cancel_tap("mouse");
+                host::with(|h| h.reset_live_translation());
+                // recognizedEvents 不再只有 KeyDown 后，IMK 不会代为提交点击外的组句。
+                let point = event.locationInWindow();
+                let mtm = MainThreadMarker::new().expect("IMK 回调只在主线程运行");
+                let point = event
+                    .window(mtm)
+                    .map_or(point, |window| window.convertPointToScreen(point));
+                if !client.point_in_marked_text(point) {
+                    self.finish_mode_switch(client);
+                }
+                host::with(|h| h.reset_live_translation());
+                return false;
+            }
+            NSEventType::KeyDown => {}
+            _ => return false,
+        }
+        if !self.observe_live_context(client) {
+            return false;
+        }
+        if modifiers::sync_caps() && !self.finish_mode_switch(client) {
+            return false;
+        }
+        if modifiers::key_down(event.keyCode(), flags.bits(), event.isARepeat()) {
+            self.finish_mode_switch(client);
+            return true;
+        }
         let (command, control, option, shift) = (
             flags.contains(NSEventModifierFlags::Command),
             flags.contains(NSEventModifierFlags::Control),
@@ -310,6 +392,7 @@ impl QingjianInputController {
             return self.handle_command(selector, client);
         }
         if command || control {
+            host::with(|h| h.reset_live_translation());
             return false;
         }
         match event.characters() {

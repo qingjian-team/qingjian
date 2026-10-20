@@ -114,6 +114,8 @@ CandidateLayout 保持 `set_cloud` 的首页末尾布局与本地首项；`set_c
 
 ## crates/qingjian-predict
 
+`live` 提供独立的本地实时中英翻译，配置类型 `LiveTranslationConfig` 对应 `[live_translation]`：默认关闭，Ollama 原生接口地址 `http://localhost:11434`、模型 `maternion/hy-mt2:1.8b`、防抖 180 ms、超时 5000 ms。使用 Ollama 原生纯文本翻译请求，不复用要求 JSON 结果的云联想提示词或同步字词 `Translator`。本地请求与 `[predict]` 的模型、密钥、开关独立，无云端回退；源文、当前候选与断句状态由平台无关代码管理，壳只提交输入事件、轮询结果与显示独立悬浮条。新输入取消旧任务，结果按会话与版本匹配后展示。
+
 API 用量由 ChatClient 的单次发送入口计入：每次 HTTP 尝试分别累计，关思考参数兼容重试计两次；SDK 隐式重试关闭。CloudPredictor、CloudGlossFiller、ConnectionTest 的 `*_with_usage` 接口可指定共享统计文件，旧构造入口保持无统计行为。`api-usage.json` 只保存计数，文件锁合并跨线程／进程更新，原子写入；损坏文件保留并报告错误。缺失 usage 记未知，不估算 Token。
 每个有结果的请求还在同一把锁里往旁边的 `api-usage-hourly.tsv` 追加一行（日期、时、请求、失败、输入、输出、合计），超过 256 KB 整理成一个时段一行，统计页画按天、按小时的图用（`ApiUsageHours`）。
 
@@ -214,7 +216,7 @@ P2C 自由生成实验：`--eval-text <集> --eval-generate data/models/hanzhang
 都还在读、文件不自动改写。
 
 
-`Config`（TOML 配置文件，`[general]` / `[shortcut]` / `[fuzzy]` / `[dictionaries]` / `[apps]` / `[predict]` 分节，首次运行写模板，
+`Config`（TOML 配置文件，`[general]` / `[shortcut]` / `[fuzzy]` / `[dictionaries]` / `[apps]` / `[predict]` / `[live_translation]` 分节，首次运行写模板，
 `set_value` 用 toml_edit 原地改键保留注释；`[model] enabled` 本地整句模型开关，`LocalModelConfig`；
 中英模式两项：`[shortcut] switch_mode`（`SwitchKeys`：勾选 shift / control / ctrl+alt+space，可多选，老配置的单个字符串照读）与 `[general] english_mode`（内置英文模式总开关））；
 `extra_dictionaries` 列出 / 加载随包领域词库与用户 `dicts/`
@@ -297,6 +299,11 @@ Windows Server 自绘候选窗（GDI）按 `Frame.columns` / `column_ems` 画矩
 ## apps/macos
 
 IMK 输入法，源码按 `app / host / imk / candidates / menubar / preferences` 分目录。
+
+- 中英模式独立保存在 `imk::modifiers` 的主线程进程级状态，由输入处理、菜单栏和候选帧共用，不再直接把 Caps Lock 状态当当前模式。
+  `[shortcut] switch_mode` 缺省 `shift`，支持多选 `shift` / `control` / `ctrl+alt+space`；IMK 显式接收修饰键变化，以公共修饰位判定按下、设备低位仅作辅助；单击修饰键在松开时判定，期间其他按键或失焦均取消，组合键不触发切换。诊断日志记录事件键码、修饰位与切换状态，不记录输入文本。
+  Caps Lock 状态变化仍显式同步中英，之后 Shift 可再次切换；指示灯仅表示硬件状态。英文模式下仅在 Caps Lock 亮着时根据 Shift 修正系统送来的大小写，保持默认小写、Shift 大写。
+  切换时将组句原样上屏并清理候选与云联想；`[general] english_mode = false` 固定中文，与 `english_candidates` 仅关闭英文候选的含义不同。
 
 **在 Linux 上也能对它做类型检查**（不链接、不产出可执行文件，但编译错误与 clippy 都查得到）。
 `qingjian-macos` 在非 Apple 平台上是硬 `compile_error!`、提交钩子也排除它，于是在 Linux 上改它等于盲改。办法是对 darwin 目标 check，

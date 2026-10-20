@@ -1,6 +1,8 @@
 //! 上屏：高亮候选、指定候选、拼音原样。
 
-use super::*;
+use super::QingjianInputController;
+use crate::host;
+use crate::imk::TextClient;
 
 impl QingjianInputController {
     pub(super) fn commit_highlighted(&self, client: TextClient<'_>) -> bool {
@@ -21,6 +23,7 @@ impl QingjianInputController {
             return false;
         };
         tracing::debug!(%text, "commit");
+        host::with(|h| h.commit_live_text(&text));
         client.insert_text(&text);
         self.refresh(client);
         true
@@ -35,6 +38,7 @@ impl QingjianInputController {
             return false;
         }
         tracing::debug!(%raw, "commit raw");
+        host::with(|h| h.commit_live_text(&raw));
         client.insert_text(&raw);
         self.refresh(client);
         true

@@ -51,13 +51,60 @@ impl CandidateWindow {
 
     /// 显示一帧。`anchor` 是光标行的屏幕矩形，窗口贴在它下方，放不下就放上方。
     pub fn show(&mut self, frame: Frame, anchor: NSRect) {
+        self.show_at(frame, anchor, false);
+    }
+
+    /// 独立翻译条放在光标上方，鼠标穿透，不参与候选点击。
+    pub fn show_translation(&mut self, frame: Frame, anchor: NSRect, avoid: Option<NSRect>) {
+        self.show_at(frame, anchor, true);
+        self.panel.setIgnoresMouseEvents(true);
+        if let Some(avoid) = avoid {
+            self.avoid_overlap(avoid, anchor);
+        }
+    }
+
+    /// 当前可见窗口的屏幕矩形，供独立翻译条避让候选。
+    pub fn visible_frame(&self) -> Option<NSRect> {
+        self.panel.isVisible().then(|| self.panel.frame())
+    }
+
+    fn avoid_overlap(&self, avoid: NSRect, anchor: NSRect) {
+        let frame = self.panel.frame();
+        let intersects = frame.origin.x < avoid.origin.x + avoid.size.width
+            && frame.origin.x + frame.size.width > avoid.origin.x
+            && frame.origin.y < avoid.origin.y + avoid.size.height
+            && frame.origin.y + frame.size.height > avoid.origin.y;
+        if !intersects {
+            return;
+        }
+        let screen = screen_containing(self.mtm, anchor.origin)
+            .unwrap_or_else(|| main_screen_or_anywhere(self.mtm));
+        let below = avoid.origin.y - CARET_GAP - frame.size.height;
+        let above = avoid.origin.y + avoid.size.height + CARET_GAP;
+        let mut origin = frame.origin;
+        if below >= screen.origin.y {
+            origin.y = below;
+        } else if above + frame.size.height <= screen.origin.y + screen.size.height {
+            origin.y = above;
+        } else if avoid.origin.x + avoid.size.width + CARET_GAP + frame.size.width
+            <= screen.origin.x + screen.size.width
+        {
+            origin.x = avoid.origin.x + avoid.size.width + CARET_GAP;
+        } else {
+            origin.x = (avoid.origin.x - CARET_GAP - frame.size.width).max(screen.origin.x);
+        }
+        self.panel
+            .setFrame_display(NSRect::new(origin, frame.size), true);
+    }
+
+    fn show_at(&mut self, frame: Frame, anchor: NSRect, above: bool) {
         if frame.is_empty() {
             self.hide();
             return;
         }
         let panel = frame.is_panel();
         let bounds = self.view.set_frame(&frame);
-        let content = self.place(bounds.content.size, anchor);
+        let content = self.place(bounds.content.size, anchor, above);
         let origin = NSPoint::new(
             content.x - bounds.content.origin.x,
             content.y - bounds.content.origin.y,
@@ -171,7 +218,7 @@ impl CandidateWindow {
 
     /// 内容区左下角坐标：贴在光标行下方；下方放不下放上方；不出光标所在的那块屏幕。
     /// 光标矩形是零或落在所有屏幕之外（应用不支持、或给的是胡话）时以鼠标位置为准，至少落在用户看着的屏幕上。
-    fn place(&self, size: NSSize, anchor: NSRect) -> NSPoint {
+    fn place(&self, size: NSSize, anchor: NSRect, prefer_above: bool) -> NSPoint {
         let (anchor, screen) = match screen_containing(self.mtm, anchor.origin) {
             Some(screen) if !(anchor.size.height == 0.0 && anchor.origin == NSPoint::ZERO) => {
                 (anchor, screen)
@@ -192,7 +239,9 @@ impl CandidateWindow {
         let below = anchor.origin.y - CARET_GAP - size.height;
         let above = anchor.origin.y + anchor.size.height + CARET_GAP;
         let top = screen.origin.y + screen.size.height;
-        let y = if below >= screen.origin.y {
+        let y = if prefer_above && above + size.height <= top {
+            above
+        } else if below >= screen.origin.y {
             below
         } else if above + size.height <= top {
             above

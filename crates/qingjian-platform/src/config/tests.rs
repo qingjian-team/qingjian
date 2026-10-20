@@ -292,3 +292,22 @@ fn manual_prediction_shortcut_round_trips() {
         config
     );
 }
+
+#[test]
+fn local_live_translation_is_independent_of_cloud_settings() {
+    let config: Config = toml::from_str(
+        "[live_translation]\nenabled = true\nmodel = \"local-translator\"\n[predict]\nenabled = false\nmodel = \"cloud-model\"\n",
+    )
+    .unwrap();
+    assert!(config.live_translation.enabled);
+    assert_eq!(config.live_translation.base_url, "http://localhost:11434");
+    assert_eq!(config.live_translation.model, "local-translator");
+    assert_eq!(config.live_translation.debounce_ms, 180);
+    assert_eq!(config.live_translation.timeout_ms, 5000);
+    assert!(!config.predict.enabled);
+    assert_eq!(config.predict.model, "cloud-model");
+    assert_eq!(
+        toml::from_str::<Config>(&toml::to_string(&config).unwrap()).unwrap(),
+        config
+    );
+}

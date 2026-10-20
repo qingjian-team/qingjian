@@ -61,7 +61,7 @@
 - **译文片段**：壳把译文拼成一串带种类（`Tone`）的片段：`gloss` 译文、`fresh` 生词译文、`pos` 词性、`separator` 义项间的 ` · `、`faint` 假名注音、`code` 辅码。
   `tones` 按种类挑、`senses` 按分隔数截前几个义项，词性与译文分两行排就是两个节点；挑完是空的也留着节点，主题给它定高就照样占行。系统绘制的旧路径把 `pos` / `separator` 画成与 `faint` 同色。
 - **输入状态**（`Frame::mode`）：渲染器只给事实（三个布尔与方案名），显示什么字由主题用 `when` 分支写，渲染器里没有「中 / 英」这类文案。
-  mac 壳组装候选帧时填（中英看 Caps Lock，与菜单栏一致；简繁、标点、方案看配置；英文模式标点算半角）；
+  mac 壳组装候选帧时填（中英看 进程级中英状态，与菜单栏一致；简繁、标点、方案看配置；英文模式标点算半角）；
   Windows 由 Router 现算（与状态条同一来源），经 `CandidateSink::show` 交给 UI 线程，不进 Server ↔ DLL 协议。方案名 `qingjian_platform::scheme_name`：同状态条的 `scheme_label`，单开全拼时也写「全拼」。
 - **设置里的字号**：`[general] candidate_font_size` / `annotation_font_size`（0 用主题的，不限范围）由壳经 `Theme::with_text_sizes` 盖到主题上：
   `candidate` 与 `annotation` 换成设置的字号，行高同比例；`index`、`preedit` 与表格 `row_height` 按候选字的比例缩放（`theme/text_sizes.rs`）。

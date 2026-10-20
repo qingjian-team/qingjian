@@ -19,7 +19,7 @@
 |---|---|---|---|---|
 | 1 | 输入 | 键盘 | 方案、五笔、模糊音、辅码 | 通用、模糊音、辅码 |
 | 2 | 候选 | 列表 | 每页几个、译文、繁体、emoji、排序、英文词 | 通用、高级、云服务 |
-| 3 | 中英文 | 中/英 | 英文模式、切换键、标点、状态条 | 通用、候选窗口 |
+| 3 | 中英文 | 中/英 | 英文模式、切换键、标点、本地实时翻译、状态条 | 通用、候选窗口 |
 | 4 | 外观 | 调色板 | 预览、主题、排布、文字、动效 | 候选窗口 |
 | 5 | 快捷键 | ⌘ | 全部可改的键 | 快捷键 |
 | 6 | 自定义短语 | 引号 | 短语表格 | 自定义短语（只 macOS 有） |
@@ -94,12 +94,12 @@
 | 标题 | 控件 | 配置 | ⓘ | 平台 |
 |---|---|---|---|---|
 | 英文模式 | 开关 | `general.english_mode` | 关掉后固定中文，要英文就切到别的输入法 | 全部 |
-| 切换键 | 三个勾选：单击 Shift / 单击 Ctrl / Ctrl + Alt + Space | `shortcut.switch_mode` | | Windows |
+| 切换键 | 三个勾选：单击 Shift / 单击 Ctrl / Ctrl + Alt + Space | `shortcut.switch_mode` | 单击修饰键期间使用过其他键则不切换 | macOS、Windows |
 | 英文模式也给候选 | 开关 | `general.english_candidates` | Tab 或方向键选词，不选时跟直接打字一样 | 全部 |
 | 只在写字的应用里给 | 勾选，挂在上一行下面 | `apps.english_candidates_on` | 浏览器、聊天、文档类应用；名单在配置文件里改 | 全部 |
 | Shift + 字母 | 分段：交给应用 / 进组句 | `general.shift_letter` | 进组句才能打出「C盘」 | 全部 |
 
-macOS 的切换键是 Caps Lock，由系统决定，所以不显示「切换键」这一行。
+macOS 与 Windows 缺省勾选单击 Shift；macOS 同时保留 Caps Lock 状态变化时同步中英的兼容行为。两种切换方式操作同一份内部模式，当前状态以青简菜单栏为准。英文模式总开关与英文候选开关独立：关闭前者固定中文，关闭后者仍可切英文直输。
 
 **标点**
 
@@ -108,6 +108,16 @@ macOS 的切换键是 Caps Lock，由系统决定，所以不显示「切换键�
 | 中文标点 | 分段：全角 / 半角 | `general.full_width_punctuation` | 全部 |
 | 英文标点 | 分段：半角 / 全角 | `general.english_full_width_punctuation` | Windows、Linux |
 | 标点先上屏候选 | 开关，ⓘ：nihao, 一气打完「你好，」 | `general.punct_commits` | 全部 |
+
+**本地实时翻译**（目前 macOS，Windows / Linux 待实现，登记在 `support` 表）：
+
+| 标题 | 控件 | 配置 | ⓘ |
+|---|---|---|---|
+| 实时中英互译 | 开关 | `live_translation.enabled` | 已上屏的本句文字与高亮候选一起预译，独立悬浮条显示，保留字词释义 |
+| 本机服务地址 | 单行输入 | `live_translation.base_url` | 只允许本机 Ollama，不使用云服务的地址与密钥 |
+| 本地翻译模型 | 单行输入 | `live_translation.model` | 默认 `maternion/hy-mt2:1.8b`，需先下载 |
+
+输入框按 Enter 保存、Esc 取消。默认关闭，地址 `http://localhost:11434`，防抖 180 ms、超时 5000 ms；后两项仅配置文件提供，不增加常用设置负担。此分节与 `[predict]` 独立，服务不可用不阻塞输入、不回退到云端。翻译固定中英互译，不受字词释义的学习语言影响。
 
 **状态条**（只有 Windows）：悬浮状态条，开关，`status_bar.enabled`。以前放在「候选窗口」页，可它显示和切换的是中 / 英与标点。
 

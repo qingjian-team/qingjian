@@ -7,7 +7,7 @@ description: 青简输入法使用文档（macOS 与 Windows 测试版）：安�
 青简是一个拼音输入法。输入时，候选词旁边附带一条所学语言的译词，在输入的同时记住一个词。
 它首先是一个完整的输入法：整句输入、简拼、拼写纠错、模糊音、双拼、英文模式，全部在本机完成，不上传数据。
 
-macOS 版与 Windows 版均为测试版，两个平台功能相同，按键按各自系统的习惯设计，见 [按键与快捷键](getting-started/keys.md)。Linux 版刚起步，使用 Fcitx5 默认候选面板，见 [Linux](getting-started/linux.md)。
+macOS 版与 Windows 版均为测试版，平台功能差异会在对应页面注明，按键按各自系统的习惯设计，见 [按键与快捷键](getting-started/keys.md)。Linux 版刚起步，使用 Fcitx5 默认候选面板，见 [Linux](getting-started/linux.md)。
 
 ## 从哪里开始
 
@@ -15,6 +15,7 @@ macOS 版与 Windows 版均为测试版，两个平台功能相同，按键按�
 - 已安装：[第一次输入](getting-started/first-input.md)，介绍中英切换、选词、翻页与选错后的退回。
 - 查某个键的作用：[按键与快捷键](getting-started/keys.md)，两个平台并列。
 - 候选旁的译词、橙色的含义：[译词与生词](learning/translation.md)。
+- 边输入边看整句中英互译：[本地实时翻译](input/live-translation.md)（目前仅 macOS，使用本机 Ollama）。
 - 为本地整句候选显示译文：[整句候选翻译](cloud/sentence-translation.md)（目前仅 Windows）。
 - 联网补全整句、答字、翻译选中文字：[云联想](cloud/index.md)，缺省关闭，需自行填写 AI 服务商。
 - 青简在本机保存了哪些文件：[数据与日志](help/data-and-logs.md)。

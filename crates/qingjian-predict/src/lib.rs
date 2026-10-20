@@ -12,6 +12,7 @@ mod config;
 mod connection;
 mod error;
 mod gloss;
+pub mod live;
 mod prompt;
 mod suspension;
 mod usage;

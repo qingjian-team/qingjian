@@ -1,6 +1,9 @@
 //! 命令键（回车、退格、方向键、Tab、Esc 等）的处理。
 
-use super::*;
+use super::QingjianInputController;
+use crate::host;
+use crate::imk::TextClient;
+use objc2::{runtime::Sel, sel};
 
 impl QingjianInputController {
     /// 组句期间所有编辑动作都由我们接管；不认识的一律吞掉，否则应用会动光标、丢 marked text。
@@ -12,14 +15,25 @@ impl QingjianInputController {
             // 删的是应用里的文字：刚上屏的词被整个删掉是「选错了」的信号，Engine 记着；
             // 按词 / 按行删的数不清删了几个字，撤销的账就不记了
             if selector == sel!(deleteBackward:) {
-                host::with(|h| h.engine.note_backspace());
+                host::with(|h| {
+                    h.engine.note_backspace();
+                    h.backspace_live_text();
+                });
             } else if selector == sel!(deleteWordBackward:)
                 || selector == sel!(deleteToBeginningOfLine:)
             {
-                host::with(|h| h.engine.break_chain());
+                host::with(|h| {
+                    h.engine.break_chain();
+                    h.reset_live_translation();
+                });
             } else if selector == sel!(insertNewline:) {
                 // 回车交给应用：文本流里是一个段落边界
-                host::with(|h| h.engine.note_passthrough('\n'));
+                host::with(|h| {
+                    h.engine.note_passthrough('\n');
+                    h.commit_live_text("\n");
+                });
+            } else {
+                host::with(|h| h.reset_live_translation());
             }
             return false;
         }
