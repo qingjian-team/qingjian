@@ -146,6 +146,7 @@
   - [ ] 额外翻页键：Linux
   - [ ] 高亮移动键：Linux
   - [ ] Ctrl + . 切换全半角标点：Linux
+  - [ ] 修饰键 + 空格上屏译词：Windows、Linux
   - [ ] 云服务用量统计：Linux
   - [ ] 按需云联想与请求节奏：Linux
   - [ ] 生词本整句翻译：Linux

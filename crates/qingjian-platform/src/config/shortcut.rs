@@ -34,6 +34,9 @@ pub struct ShortcutConfig {
     /// 数字键配这些修饰键：上屏候选的第二个译词（候选右侧有两个译词时）。
     pub translation_second: Modifiers,
 
+    /// 空格配这些修饰键：上屏高亮候选的第一个译词（macOS 用，缺省 ⌃空格）。
+    pub translation_space: Modifiers,
+
     /// 把应用里选中的文字译成学习语言（需要云服务开着）。
     pub translate_selection: KeyCombo,
 
@@ -70,6 +73,7 @@ impl Default for ShortcutConfig {
             extra_page_keys: PageKeys::default(),
             translation,
             translation_second,
+            translation_space: Modifiers::CONTROL,
             translate_selection,
             predict: KeyCombo::PREDICT_DEFAULT,
             delete_candidate: Modifiers::SHIFT,
@@ -148,6 +152,9 @@ mod tests {
             parsed.translation_keys(),
             (default.translation, default.translation_second)
         );
+        assert_eq!(parsed.translation_space, Modifiers::CONTROL);
+        let space: ShortcutConfig = toml::from_str("translation_space = \"option\"\n").unwrap();
+        assert_eq!(space.translation_space, Modifiers::OPTION);
         let same: ShortcutConfig =
             toml::from_str("translation = \"option\"\ntranslation_second = \"option\"\n").unwrap();
         assert_eq!(

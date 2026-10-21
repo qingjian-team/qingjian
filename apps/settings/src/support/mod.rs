@@ -31,6 +31,8 @@ pub enum Feature {
     ExtraPageKeys,
     HighlightKeys,
     TogglePunctuation,
+    /// 修饰键 + 空格上屏高亮候选的译词。
+    TranslationSpace,
     SystemTextReplacements,
     /// 统计页的云服务用量，测试连接也记进去。
     ApiUsage,
@@ -46,7 +48,7 @@ pub enum Feature {
 
 impl Feature {
     #[cfg(test)]
-    pub const ALL: [Self; 19] = [
+    pub const ALL: [Self; 20] = [
         Self::AuxCode,
         Self::Schemes,
         Self::SwitchKeys,
@@ -60,6 +62,7 @@ impl Feature {
         Self::ExtraPageKeys,
         Self::HighlightKeys,
         Self::TogglePunctuation,
+        Self::TranslationSpace,
         Self::SystemTextReplacements,
         Self::ApiUsage,
         Self::CloudRequestControls,
@@ -103,6 +106,8 @@ impl Feature {
             Self::ExtraPageKeys => [Yes, Yes, Todo],
             Self::HighlightKeys => [Yes, Yes, Todo],
             Self::TogglePunctuation => [Yes, Yes, Todo],
+            // Windows 的 Ctrl + Space 归系统（输入法开关），Fcitx 也拿它当触发键，缺省键得另选
+            Self::TranslationSpace => [Yes, Todo, Todo],
             // 系统的文本替换只有 macOS 有
             Self::SystemTextReplacements => [Yes, No, No],
             // Linux 已接云服务，尚未记录云服务用量
@@ -133,6 +138,7 @@ impl Feature {
             Self::ExtraPageKeys => "额外翻页键",
             Self::HighlightKeys => "高亮移动键",
             Self::TogglePunctuation => "Ctrl + . 切换全半角标点",
+            Self::TranslationSpace => "修饰键 + 空格上屏译词",
             Self::SystemTextReplacements => "也用系统的文本替换",
             Self::ApiUsage => "云服务用量统计",
             Self::CloudRequestControls => "按需云联想与请求节奏",
@@ -159,6 +165,7 @@ impl Feature {
             Self::ExtraPageKeys => &[(PageId::Shortcuts, "额外翻页键")],
             Self::HighlightKeys => &[(PageId::Shortcuts, "高亮移动键")],
             Self::TogglePunctuation => &[(PageId::Shortcuts, "Ctrl + . 切换全半角标点")],
+            Self::TranslationSpace => &[(PageId::Shortcuts, "上屏高亮候选的译词")],
             Self::SystemTextReplacements => &[(PageId::Phrases, "也用系统的文本替换")],
             Self::CloudRequestControls => &[
                 (PageId::Cloud, "自动联想"),

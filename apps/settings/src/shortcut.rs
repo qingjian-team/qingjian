@@ -7,6 +7,7 @@ use qingjian_platform::{Config, KeyCombo, Modifiers};
 pub enum Shortcut {
     Translation,
     TranslationSecond,
+    TranslationSpace,
     DeleteCandidate,
     TranslateSelection,
     Predict,
@@ -16,9 +17,10 @@ pub enum Shortcut {
 
 impl Shortcut {
     #[cfg(test)]
-    pub const ALL: [Self; 6] = [
+    pub const ALL: [Self; 7] = [
         Self::Translation,
         Self::TranslationSecond,
+        Self::TranslationSpace,
         Self::DeleteCandidate,
         Self::TranslateSelection,
         Self::Predict,
@@ -29,6 +31,7 @@ impl Shortcut {
         match self {
             Self::Translation => "上屏第一个译词",
             Self::TranslationSecond => "上屏第二个译词",
+            Self::TranslationSpace => "上屏高亮候选的译词",
             Self::DeleteCandidate => "删除候选",
             Self::TranslateSelection => "翻译选中文字",
             Self::Predict => "按需 AI 联想",
@@ -41,6 +44,7 @@ impl Shortcut {
         match self {
             Self::Translation => ("shortcut", "translation"),
             Self::TranslationSecond => ("shortcut", "translation_second"),
+            Self::TranslationSpace => ("shortcut", "translation_space"),
             Self::DeleteCandidate => ("shortcut", "delete_candidate"),
             Self::TranslateSelection => ("shortcut", "translate_selection"),
             Self::Predict => ("shortcut", "predict"),
@@ -54,6 +58,7 @@ impl Shortcut {
             Self::Translation | Self::TranslationSecond | Self::DeleteCandidate => {
                 "按住修饰键再按个数字"
             }
+            Self::TranslationSpace => "按住修饰键再按空格",
             Self::TranslateSelection | Self::Predict => "按下修饰键 + 字母",
             Self::AuxCodeKey => "按一个符号键",
         }
@@ -66,6 +71,9 @@ impl Shortcut {
         match self {
             Self::Translation => digits(first),
             Self::TranslationSecond => digits(second),
+            Self::TranslationSpace => {
+                format!("{} + 空格", modifiers_label(shortcut.translation_space))
+            }
             Self::DeleteCandidate => digits(shortcut.delete_keys()),
             Self::TranslateSelection => combo_label(shortcut.translate_selection),
             Self::Predict => combo_label(shortcut.predict),
@@ -108,6 +116,9 @@ impl Shortcut {
                 }
                 .key_string())
             }
+            // 只配空格，与配数字的几组不会撞
+            Self::TranslationSpace if modifiers.is_empty() => Err("要按住修饰键".to_owned()),
+            Self::TranslationSpace => Ok(modifiers.key()),
             Self::Translation | Self::TranslationSecond | Self::DeleteCandidate => {
                 if modifiers.is_empty() {
                     return Err("要按住修饰键".to_owned());
@@ -223,6 +234,24 @@ mod tests {
         assert_eq!(
             Shortcut::Translation.accept(&press("1", same), &config),
             Ok(first.key())
+        );
+    }
+
+    #[test]
+    fn space_translation_needs_a_modifier() {
+        let config = Config::default();
+        assert_eq!(
+            Shortcut::TranslationSpace.config_key(),
+            ("shortcut", "translation_space")
+        );
+        assert_eq!(
+            Shortcut::TranslationSpace.accept(&press(" ", alt()), &config),
+            Ok("option".to_owned())
+        );
+        assert!(
+            Shortcut::TranslationSpace
+                .accept(&press(" ", Held::default()), &config)
+                .is_err()
         );
     }
 

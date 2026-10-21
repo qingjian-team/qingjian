@@ -155,6 +155,7 @@ pub fn init(mtm: MainThreadMarker, info: &BundleInfo) -> Result<(), HostError> {
             scheme_slot: Default::default(),
             translation_keys: ShortcutConfig::default().translation_keys(),
             delete_keys: ShortcutConfig::default().delete_keys(),
+            translation_space_keys: ShortcutConfig::default().translation_space,
             status: None,
             input_log_enabled: None,
             translate_keys: KeyCombo::TRANSLATE_DEFAULT,

@@ -37,6 +37,7 @@ With ? 也进问字 (? also asks about a character) on, typing `?` when you're n
 ## Glosses and deleting candidates
 
 上屏第一个译词 (Commit first gloss), 上屏第二个译词 (Commit second gloss) and 删除候选 (Delete candidate) are each a modifier key used together with the number keys. Click one, then hold the modifier and press any number to record it.
+上屏高亮候选的译词 (Commit the highlighted candidate's gloss, macOS) is a modifier key used together with `Space`: click it, then hold the modifier and press `Space` to record it.
 
 Defaults:
 
@@ -44,6 +45,7 @@ Defaults:
 |---|---|---|---|
 | Commit first gloss | `⌥` | `Ctrl` | `Alt` |
 | Commit second gloss | `⇧⌥` | `Ctrl + Shift` | `Alt + Shift` |
+| Commit the highlighted candidate's gloss | `⌃` | — | — |
 | Delete candidate | `⇧` | `Shift` | `Shift` |
 
 On macOS, avoid `⌃ + number` (the system uses it to switch desktops) and `⌘ + number` (apps use it to switch tabs); on Windows, apps take `Alt + number` as a menu shortcut, which is why `Ctrl` is the default. The three can't conflict with each other; if you record a key that can't be used, the reason is shown below that row.

@@ -32,12 +32,14 @@ While typing pinyin, you can commit the gloss next to a candidate instead of the
 |---|---|---|---|
 | Commit the first gloss of candidate N | `⌥ + 1` to `9` | `Ctrl + 1` to `9` | `Alt + 1` to `9` |
 | Commit the second gloss (when the entry has one) | `⇧⌥ + 1` to `9` | `Ctrl + Shift + 1` to `9` | `Alt + Shift + 1` to `9` |
+| Commit the first gloss of the highlighted candidate | `⌃ + Space` | — | — |
 
-For example, type `nihao`, and when the candidate 你好 shows `hello` beside it, press `⌥ + 1`: what you get is `hello`.
+For example, type `nihao`, and when the candidate 你好 shows `hello` beside it, press `⌥ + 1`: what you get is `hello`. With 你好 highlighted, `⌃ + Space` also outputs `hello`.
 
 - On macOS and Windows you can also click the gloss to the right of a candidate; whichever gloss you click is committed.
 - Only the gloss itself is committed, without the part of speech, the Japanese kana reading or the new-word mark: `v. 開発(かいはつ)する` outputs just `開発する`.
 - The keys do nothing when a candidate has no gloss. AI services don't need to be on.
+- `⌃ + Space` works only while you are typing pinyin; otherwise it goes to the app as usual (for example, an editor's autocomplete). On macOS, 选择上一个输入法 (Select the previous input source) also uses `⌃ + Space` by default; if it is on, turn it off or give it another key under System Settings → Keyboard → Keyboard Shortcuts → Input Sources, or the system takes the key to switch input sources first. Not available on Windows and Linux yet.
 - The modifier keys can be changed under 设置 → 快捷键 (Settings → Shortcuts); see [Changing keys](../personalize/keys-settings.md#Glosses-and-deleting-candidates).
 
 ## Related

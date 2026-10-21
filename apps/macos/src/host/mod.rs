@@ -145,6 +145,9 @@ pub struct Host {
     /// 配数字键删候选的修饰键（配置 `[shortcut] delete_candidate`）。
     pub delete_keys: Modifiers,
 
+    /// 配空格上屏高亮候选译词的修饰键（配置 `[shortcut] translation_space`）。
+    pub translation_space_keys: Modifiers,
+
     /// 候选窗口顶行显示的一句临时状态（删了什么词），下一次查询就没了。
     pub status: Option<String>,
 

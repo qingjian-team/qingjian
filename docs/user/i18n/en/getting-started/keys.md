@@ -73,6 +73,7 @@ Typing a letter closes the panel and continues typing. Details in [Punctuation, 
 |---|---|---|---|
 | Commit the first gloss of candidate N | `⌥ + number` | `Ctrl + number` | `Alt + number` |
 | Commit the second gloss (when the entry has one) | `⇧⌥ + number` | `Ctrl + Shift + number` | `Alt + Shift + number` |
+| Commit the first gloss of the highlighted candidate | `⌃ + Space` | — | — |
 | Delete candidate N | `⇧ + number` | `Shift + number` | `Shift + number` |
 
 These only work while typing pinyin. See [Glosses beside candidates](../learning/translation.md#Committing-the-gloss-directly) and [Typing habits](../personalize/habits.md#Deleting-candidates-you-don't-want).

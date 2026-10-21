@@ -23,6 +23,13 @@ impl Settings {
             "translation_second",
             defaults.translation_second.key(),
         );
+        if Feature::TranslationSpace.here() {
+            self.write(
+                "shortcut",
+                "translation_space",
+                defaults.translation_space.key(),
+            );
+        }
         self.write(
             "shortcut",
             "delete_candidate",
