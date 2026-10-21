@@ -80,7 +80,7 @@ impl QingjianInputController {
         self.commit_translation_at(index, sense, client)
     }
 
-    /// 上屏排布里第 `index` 格候选的第 `sense` 条译词；数字键与点击共用。不在组句中返回 `false`。
+    /// 上屏排布里第 `index` 格候选的第 `sense` 条译词；数字键、⌃空格与点击共用。不在组句中返回 `false`。
     pub(super) fn commit_translation_at(
         &self,
         index: Option<usize>,

@@ -135,6 +135,7 @@ macOS 的切换键是 Caps Lock，由系统决定，所以不显示「切换键�
 |---|---|---|
 | 上屏第一个译词 | 录键（按住修饰键再按个数字，记修饰键） | `shortcut.translation` |
 | 上屏第二个译词 | 同上 | `shortcut.translation_second` |
+| 上屏高亮候选的译词（macOS） | 录键（按住修饰键再按空格，记修饰键） | `shortcut.translation_space` |
 | 删除候选 | 同上 | `shortcut.delete_candidate` |
 | 翻译选中文字 | 按键（组合键） | `shortcut.translate_selection` |
 | 按需 AI 联想（macOS、Windows） | 按键（组合键） | `shortcut.predict` |
