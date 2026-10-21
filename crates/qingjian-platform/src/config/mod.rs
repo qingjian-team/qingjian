@@ -180,6 +180,9 @@ switch_mode = ["shift"]
 # 任意修饰键组合（option / shift / control / command 用 + 连），偏好设置里点按钮录制；别用 control+数字（系统切桌面）和 command+数字（应用切标签页）
 translation = "option"
 translation_second = "shift+option"
+# 空格配这些修饰键上屏高亮候选的第一个译词（缺省 ⌃空格）：只在组句中拦，没在打字时照常交给应用（编辑器的补全键）
+# 系统设置「键盘 → 键盘快捷键 → 输入法」的「选择上一个输入法」缺省也是 ⌃空格，开着时系统先截走，要关掉或换一个
+translation_space = "control"
 # 把应用里选中的文字译成学习语言（要开着云服务）：译文先出现在候选窗口，回车替换选中的文字，Esc 保留原文
 # 修饰键 + 一个字母或数字，任意组合；避开 ⌘T 这类应用常用键
 translate_selection = "control+option+t"

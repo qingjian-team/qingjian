@@ -1,4 +1,4 @@
-//! 「快捷键」页：翻页与模式（翻页键，平台接了的额外翻页键、高亮移动键、标点切换键，表达式、问字、? 进问字），候选上的组合键（译词上屏、删除、翻译选中文字），
+//! 「快捷键」页：翻页与模式（翻页键，平台接了的额外翻页键、高亮移动键、标点切换键，表达式、问字、? 进问字），候选上的组合键（译词上屏、空格上屏译词、删除、翻译选中文字），
 //! 恢复默认，页底列组句中固定的键。
 
 use bamboo_slip::taffy::{FlexDirection, LengthPercentage, NodeId, Rect, Style};
@@ -89,6 +89,18 @@ pub fn shortcuts(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Rende
             "候选有两个译词时上屏后一个",
             false,
         )?,
+    ];
+    if Feature::TranslationSpace.here() {
+        rows.push(recorder(
+            ui,
+            page,
+            Shortcut::TranslationSpace,
+            "按住它再按空格，上屏高亮候选右侧的译词；没在打字时这组键照常交给应用。\
+             系统的「选择上一个输入法」也是 ⌃空格 时，需先在系统设置的键盘快捷键里关掉那一项",
+            false,
+        )?);
+    }
+    rows.extend([
         recorder(
             ui,
             page,
@@ -103,7 +115,7 @@ pub fn shortcuts(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Rende
             "在应用里选中文字再按它，译文出现在候选窗口：回车替换，Esc 保留原文。要开云服务",
             false,
         )?,
-    ];
+    ]);
     if Feature::CloudRequestControls.here() {
         rows.push(recorder(
             ui,

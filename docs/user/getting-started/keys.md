@@ -73,6 +73,7 @@ Windows 与 Linux 的中 / 英切换键还可以选单击 `Ctrl` 或 `Ctrl + Alt
 |---|---|---|---|
 | 上屏第 N 个候选的第一条译词 | `⌥ + 数字` | `Ctrl + 数字` | `Alt + 数字` |
 | 上屏第二条译词（词条有第二条时） | `⇧⌥ + 数字` | `Ctrl + Shift + 数字` | `Alt + Shift + 数字` |
+| 上屏高亮候选的第一条译词 | `⌃ + Space` | — | — |
 | 删除第 N 个候选 | `⇧ + 数字` | `Shift + 数字` | `Shift + 数字` |
 
 只在打拼音时有效。见 [候选旁的译词](../learning/translation.md#直接上屏译词) 与 [输入习惯](../personalize/habits.md#删除不需要的候选)。

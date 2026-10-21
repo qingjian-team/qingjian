@@ -190,6 +190,12 @@ const LINKS: &[(PageId, &str, &str, &str)] = &[
     ),
     (
         PageId::Shortcuts,
+        "上屏高亮候选的译词",
+        "learning/translation",
+        "直接上屏译词",
+    ),
+    (
+        PageId::Shortcuts,
         "删除候选",
         "personalize/habits",
         "删除不需要的候选",

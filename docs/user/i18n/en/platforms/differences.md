@@ -41,6 +41,7 @@ The macOS and Windows versions are in beta with nearly the same features; keys f
 |---|---|---|---|---|
 | Glosses beside candidates and new-word marks | ✓ | ✓ | ✓ (first gloss only) | ✓ |
 | Committing glosses directly | ✓ | ✓ | ✓ | ✓ (long-press a candidate) |
+| Modifier + Space commits the highlighted candidate's gloss | ✓ | — | — | — |
 | Vocabulary book, statistics | ✓ | ✓ | ✓ | ✓ |
 
 ## Appearance

@@ -304,6 +304,17 @@ impl QingjianInputController {
                 return self.handle_delete_key(digit, client);
             }
         }
+        // 修饰键 + 空格（缺省 ⌃空格）：上屏高亮候选的第一个译词，与 ⌥+数字同一条路。
+        // 只在组句中认：不打字时 ⌃空格 是编辑器的补全键，照常交给应用
+        if composing
+            && !expression
+            && key == 49
+            && !pressed.is_empty()
+            && pressed == host::with(|h| h.translation_space_keys).unwrap_or_default()
+        {
+            let index = host::with(|h| h.session.highlighted);
+            return self.commit_translation_at(index, 0, client);
+        }
         let selector = match key {
             36 | 76 => Some(sel!(insertNewline:)),
             48 if shift => Some(sel!(insertBacktab:)),
