@@ -1,5 +1,5 @@
 //! 导入词库：把用户给的文件（青简 TSV、Rime `.dict.yaml`、现成的 `.qj`）变成用户词库目录里的一个 `.qj`；
-//! 另有 [`import_word_list`] 收「只有词、没有拼音」的词表，读音从参考词库逐字派生（见 `word_list` 模块）。
+//! 另有 [`import_word_list`] 收「只有词、没有拼音」的词表，读音从参考词库取（见 `word_list` 模块）。
 //!
 //! 导入时只做格式转换，不做拼音校验：不合法的音节查不到而已，不影响别的词。
 //! 第二列是形码编码的（五笔词库）不进拼音词库，报 [`DictionaryError::CodeWords`]，由调用方改走 [`import_code_words`]。
@@ -24,7 +24,7 @@ pub use imported::Imported;
 // `dict-convert wubi` 也读 Rime `.dict.yaml`（形码码表的第二列是编码，转换方式一样），共用这一个解析器
 pub use rime::{Parsed, looks_like_rime, to_tsv};
 // CLI 的 `--import-words` 预览直接用这两个：解析词表、派生读音
-pub use word_list::{Derived, Report, derive, parse_words};
+pub use word_list::{Derived, Report, Word, derive, parse_words};
 
 /// 导入无读音词表的结果：写出的文件 + 派生统计。
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -67,18 +67,19 @@ pub fn import(source: &Path, dest_dir: &Path) -> Result<Imported, DictionaryErro
     finish_import(dictionary, metadata, target)
 }
 
-/// 导入无读音词表：每行 `词` 或 `词<Tab>权重`（口径见 `word_list` 模块），读音从 `reference`
-/// （随包基础词库）逐字派生，多音字一个词写多条。写出的 `.qj` 与 [`import`] 同一套命名。
+/// 导入无读音词表：每行 `词` / `词<Tab>词频` / `词<Tab>读音[<Tab>词频]`（口径见 `word_list` 模块），
+/// 读音按 `references`（随包基础词库与领域词库）取：词表自带读音优先，其次整词词条，最后最长匹配切分。
+/// 写出的 `.qj` 与 [`import`] 同一套命名。
 pub fn import_word_list(
     source: &Path,
     dest_dir: &Path,
-    reference: &Dictionary,
+    references: &[&Dictionary],
 ) -> Result<ImportedWordList, DictionaryError> {
     let stem = stem_of(source)?;
     std::fs::create_dir_all(dest_dir)?;
     let target = dest_dir.join(format!("{stem}.qj"));
     let words = parse_words(&std::fs::read_to_string(source)?);
-    let derived = derive(&words, reference);
+    let derived = derive(&words, references);
     if derived.report.words == 0 {
         return Err(DictionaryError::NoWordEntries);
     }
@@ -201,7 +202,7 @@ mod tests {
         let list = dir.join("names.txt");
         std::fs::write(&list, "李三\n囧三\n").unwrap();
 
-        let imported = import_word_list(&list, &dir.join("dicts"), &reference).unwrap();
+        let imported = import_word_list(&list, &dir.join("dicts"), &[&reference]).unwrap();
         assert_eq!(imported.imported.path.file_name().unwrap(), "names.qj");
         assert_eq!(imported.imported.name, "names");
         assert_eq!(imported.imported.entries, 1);
@@ -223,7 +224,7 @@ mod tests {
         std::fs::write(&list, "囧囧\n").unwrap();
 
         assert!(matches!(
-            import_word_list(&list, &dir.join("dicts"), &reference),
+            import_word_list(&list, &dir.join("dicts"), &[&reference]),
             Err(DictionaryError::NoWordEntries)
         ));
         std::fs::remove_dir_all(&dir).unwrap();

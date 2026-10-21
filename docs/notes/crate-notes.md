@@ -454,9 +454,10 @@ Server 把它读进 `RouterConfig.preedit` 并随 `Frame.preedit_mode` 下发给
 起完清掉重连退避，下一键就试。Server 只在登录时由「启动」文件夹拉起，中途挂了以前只能等下次登录。
 
 词库导入（设置「词库」页）走 `qingjian-dictionary::import` 转成 `.qj`（空词库拒绝），多选批量、成功的从 `[dictionaries] disabled` 摘掉、页面显示每个文件的结果；
-另有 `qingjian-dictionary::import::import_word_list` 收「只有词、没有拼音」的词表（每行 `词` 或 `词<Tab>权重`，`---`…`...` 的 Rime 头一并认），
-读音从参考词库（随包基础词库）逐字派生：一个词每个字取一条读音凑一个组合，**多音字把每种组合各写一条**（`美露莘` → `mei lu shen` / `mei lu xin` / `mei lou shen` / `mei lou xin`，谁对交给排序）；
-单字读音按词频留前 `MAX_READINGS_PER_CHAR`（4）条、整词组合上限 `MAX_VARIANTS`（16），超限的词与字不在参考词库里的词整条跳过并进 `Report`（不静默丢词）。
+另有 `qingjian-dictionary::import::import_word_list` 收「只有词、没有拼音」的词表（每行 `词` / `词<Tab>词频` / `词<Tab>读音[<Tab>词频]`，`---`…`...` 的 Rime 头一并认），
+读音按参考词库（基础词库 + `--extra-dict` + `assets/lexicon/dicts/*.tsv` 领域词库）取，顺序是：词表写明的读音 → 整词词条 → 最长匹配切分
+（`中华人民共和国` → `中华` + `人民` + `共和国`）→ 单字取词频最高的读音（`和` 取 `he`）。**一个词只写一条读音组合**，不做多音字的笛卡尔积；
+字不在参考词库里的词跳过并进 `Report::unknown`（不静默丢词）。多音字词（`美露莘 mei lu xin`）在词表第二列直接写读音。
 预览与落盘在 CLI 是 `--import-words` / `--import-to`；
 Server 每次轮询比对用户 `dicts` 的路径 / mtime / 长度快照，配置没变也重载新增、同名更新与移除；配置解析失败时词库沿用上次有效的开关（#36）。
 

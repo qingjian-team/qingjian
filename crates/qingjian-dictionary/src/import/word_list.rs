@@ -1,27 +1,55 @@
-//! 无读音词表的导入：每行一个词（可带 `词<Tab>权重`），读音从参考词库逐字派生。
+//! 无读音词表的导入：每行一个词（可带读音或词频），读音优先取参考词库里的词条，取不到再逐字派生。
 //!
-//! 面向「只有词、没有拼音」的一类词库（批量导入同学名字 / 路名 / 楼宇名这种）：参考词库
-//! （随包基础词库）里每个单字的读音就是派生来源。一个词每个字取一条读音凑成一个组合，
-//! **多音字把每种组合各写一条**（`美露莘` 会同时得到 `mei lu shen` 与 `mei lu xin`），
-//! 哪个是用户想要的交给排序，导入器不做取舍。
+//! 面向「只有词、没有拼音」的一类词库（批量导入同学名字 / 路名 / 楼宇名这种）。派生顺序：
 //!
-//! 单字读音数与整词组合数各有上限：超限的词整条跳过并计入报告，不静默丢词；字不在参考词库里的
-//! 词同样跳过并计入报告（一个字的读音都推不出来，写进去也查不到）。
+//! 1. 词表里自己写了读音（`词<Tab>读音`）就用它——多音字词（`美露莘 mei lu xin`）只有用户知道该怎么读；
+//! 2. 整词在参考词库里有词条（基础词库或随包领域词库）就用词库的读音——`建设银行` 不会派生成 `yin xing`；
+//! 3. 否则从左往右**按词库做最长匹配**切分（`中华人民共和国` → `中华` + `人民` + `共和国`），
+//!    每段用词库读音；切不动的单字取参考词库里词频最高的读音（`和` 取 `he`，不再出 `hu` / `huo`）。
+//!
+//! 一个词**只写一条读音组合**：多音字不再做笛卡尔积（`长春市朝阳区` 不会写出十几条，长词也不会因为
+//! 组合数超上限被整条丢掉）。字不在参考词库里的词跳过并计入报告，不静默丢词。
 
 use std::collections::{HashMap, HashSet};
 
 use crate::dictionary::Dictionary;
 
-/// 一个单字最多留几条读音。
-const MAX_READINGS_PER_CHAR: usize = 4;
+/// 解析后的一个词。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Word {
+    /// 词。
+    pub text: String,
 
-/// 一个词最多留几个读音组合，超过就整条跳过。
-const MAX_VARIANTS: usize = 16;
+    /// 词表里写明的读音（空格分音节）；没写就是 `None`。
+    pub reading: Option<String>,
 
-/// 解析无读音词表：每行 `词` 或 `词<Tab>权重`，`#` 注释与空行忽略，Rime 的 `---` … `...` 头一并忽略。
+    /// 词频；没写按 1。
+    pub weight: u32,
+}
+
+/// 派生结果。
+pub struct Derived {
+    /// 青简 TSV（`词\t拼音\t词频`）。
+    pub tsv: String,
+
+    /// 派生统计。
+    pub report: Report,
+}
+
+/// 派生统计。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Report {
+    /// 写出了读音的词数（一个词一条读音）。
+    pub words: usize,
+
+    /// 跳过的词：有字不在参考词库里，推不出读音。
+    pub unknown: Vec<String>,
+}
+
+/// 解析词表：每行 `词` / `词<Tab>词频` / `词<Tab>读音[<Tab>词频]`，`#` 注释、空行与 Rime 的 `---` … `...` 头忽略。
 ///
-/// 第二列不是整数的行跳过——那是带拼音的词库，该走 [`super::import`]。同一个词只留第一次出现的权重。
-pub fn parse_words(text: &str) -> Vec<(String, u32)> {
+/// 第二列是纯数字就当词频，否则当读音（只收空格分隔的字母音节）；同一个词只留第一次出现的。
+pub fn parse_words(text: &str) -> Vec<Word> {
     let mut words = Vec::new();
     let mut seen: HashSet<String> = HashSet::new();
     let mut in_header = false;
@@ -49,148 +77,179 @@ pub fn parse_words(text: &str) -> Vec<(String, u32)> {
         }
         started = true;
         let mut fields = line.split('\t');
-        let Some(word) = fields.next().filter(|word| !word.is_empty()) else {
+        let Some(text) = fields.next().filter(|text| !text.is_empty()) else {
             continue;
         };
-        let weight = match fields.next().map(str::trim) {
-            None | Some("") => 1,
-            Some(value) => match value.parse::<u32>() {
-                Ok(weight) => weight,
-                Err(_) => continue,
-            },
+        let Some((reading, weight)) = parse_tail(fields.next(), fields.next()) else {
+            continue;
         };
-        if seen.insert(word.to_owned()) {
-            words.push((word.to_owned(), weight));
+        if seen.insert(text.to_owned()) {
+            words.push(Word {
+                text: text.to_owned(),
+                reading,
+                weight,
+            });
         }
     }
     words
 }
 
-/// 派生结果。
-pub struct Derived {
-    /// 青简 TSV（`词\t拼音\t词频`，一个读音组合一行）。
-    pub tsv: String,
-
-    /// 派生统计。
-    pub report: Report,
+/// 第二、三列：`None` / 词频 / 读音 / 读音 + 词频。认不出（第二列既不是数字也不是读音）返回 `None`，跳过该行。
+fn parse_tail(second: Option<&str>, third: Option<&str>) -> Option<(Option<String>, u32)> {
+    let second = second.map(str::trim).filter(|s| !s.is_empty());
+    let Some(second) = second else {
+        return Some((None, 1));
+    };
+    if let Ok(weight) = second.parse::<u32>() {
+        return Some((None, weight));
+    }
+    if !second.bytes().all(|b| b.is_ascii_lowercase() || b == b' ') {
+        return None;
+    }
+    let weight = match third.map(str::trim).filter(|s| !s.is_empty()) {
+        None => 1,
+        Some(value) => value.parse::<u32>().ok()?,
+    };
+    Some((Some(second.to_owned()), weight))
 }
 
-/// 派生统计。
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Report {
-    /// 派生出读音的词数。
-    pub words: usize,
-
-    /// 写出的词条数（多音字一个词好几条）。
-    pub entries: usize,
-
-    /// 跳过的词：有字不在参考词库里，推不出读音。
-    pub unknown: Vec<String>,
-
-    /// 跳过的词：读音组合数超过上限。
-    pub overflowed: Vec<String>,
-}
-
-/// 参考词库里的单字读音：字 → 读音（按词频降序、去重、封顶）。
+/// 参考词库里的读音：整词词条与单字词条，各自按词频降序去重。
+#[derive(Default)]
 struct Readings {
+    /// 词 → 读音，词频高的在前。
+    words: HashMap<String, Vec<String>>,
+
+    /// 单字 → 读音，词频高的在前。
     chars: HashMap<char, Vec<String>>,
 }
 
 impl Readings {
-    /// 只取单字条目；一个字多条读音时留词频高的前 [`MAX_READINGS_PER_CHAR`] 条。
-    fn build(reference: &Dictionary) -> Self {
-        let mut collected: HashMap<char, Vec<(u32, String)>> = HashMap::new();
-        for entry in reference.entries() {
-            let mut chars = entry.text.chars();
-            let (Some(ch), None) = (chars.next(), chars.next()) else {
-                continue;
-            };
-            if entry.pinyin.contains(' ') {
-                continue;
-            }
-            collected
-                .entry(ch)
-                .or_default()
-                .push((entry.frequency, entry.pinyin.to_owned()));
-        }
-        let chars = collected
-            .into_iter()
-            .map(|(ch, mut readings)| {
-                readings.sort_by(|a, b| b.0.cmp(&a.0).then_with(|| a.1.cmp(&b.1)));
-                let mut seen = HashSet::new();
-                let mut kept = Vec::new();
-                for (_, reading) in readings {
-                    if seen.insert(reading.clone()) && kept.len() < MAX_READINGS_PER_CHAR {
-                        kept.push(reading);
-                    }
+    fn build(references: &[&Dictionary]) -> Self {
+        let mut words: HashMap<String, Vec<(u32, String)>> = HashMap::new();
+        let mut chars: HashMap<char, Vec<(u32, String)>> = HashMap::new();
+        for dictionary in references {
+            for entry in dictionary.entries() {
+                words
+                    .entry(entry.text.to_owned())
+                    .or_default()
+                    .push((entry.frequency, entry.pinyin.to_owned()));
+                let mut text_chars = entry.text.chars();
+                if let (Some(ch), None) = (text_chars.next(), text_chars.next()) {
+                    chars
+                        .entry(ch)
+                        .or_default()
+                        .push((entry.frequency, entry.pinyin.to_owned()));
                 }
-                (ch, kept)
-            })
-            .collect();
-        Self { chars }
+            }
+        }
+        Self {
+            words: sorted(words),
+            chars: sorted(chars),
+        }
     }
 
-    fn of(&self, ch: char) -> &[String] {
-        self.chars.get(&ch).map_or(&[], Vec::as_slice)
+    fn word(&self, text: &str) -> Option<&[String]> {
+        self.words.get(text).map(Vec::as_slice)
+    }
+
+    /// 单字词频最高的读音。
+    fn char(&self, ch: char) -> Option<&str> {
+        self.chars
+            .get(&ch)
+            .and_then(|readings| readings.first())
+            .map(String::as_str)
+    }
+
+    /// 从 `text` 开头找最长的词库词条（至少两个字），返回它在字节上的长度与读音。
+    fn longest(&self, text: &str) -> Option<(usize, &str)> {
+        let mut best = None;
+        let mut offsets = text.char_indices().skip(1).map(|(offset, _)| offset);
+        for offset in offsets.by_ref() {
+            if let Some(readings) = self.word(&text[..offset]) {
+                best = Some((offset, readings.first()?.as_str()));
+            }
+        }
+        // char_indices 没有「整串长度」这一项，整词命中要单独查一次
+        if let Some(readings) = self.word(text) {
+            best = Some((text.len(), readings.first()?.as_str()));
+        }
+        best
     }
 }
 
-/// 按参考词库给 `words` 逐字派生读音，多音字把每种组合各写一条。
-pub fn derive(words: &[(String, u32)], reference: &Dictionary) -> Derived {
-    let readings = Readings::build(reference);
+/// 按词频降序去重成读音列表。
+fn sorted<T: std::hash::Hash + Eq>(
+    table: HashMap<T, Vec<(u32, String)>>,
+) -> HashMap<T, Vec<String>> {
+    table
+        .into_iter()
+        .map(|(key, mut readings)| {
+            readings.sort_by(|a, b| b.0.cmp(&a.0).then_with(|| a.1.cmp(&b.1)));
+            let mut seen = HashSet::new();
+            (
+                key,
+                readings
+                    .into_iter()
+                    .map(|(_, reading)| reading)
+                    .filter(|reading| seen.insert(reading.clone()))
+                    .collect(),
+            )
+        })
+        .collect()
+}
+
+/// 按参考词库给 `words` 定读音：词表自带的读音优先，其次整词词条，最后最长匹配切分加单字读音。
+pub fn derive(words: &[Word], references: &[&Dictionary]) -> Derived {
+    let readings = Readings::build(references);
     let mut tsv = String::new();
     let mut report = Report {
         words: 0,
-        entries: 0,
         unknown: Vec::new(),
-        overflowed: Vec::new(),
     };
-    for (word, weight) in words {
-        let mut combos: Vec<String> = vec![String::new()];
-        let mut unreadable = false;
-        let mut overflow = false;
-        for ch in word.chars() {
-            let choices = readings.of(ch);
-            if choices.is_empty() {
-                unreadable = true;
-                break;
-            }
-            if combos.len() * choices.len() > MAX_VARIANTS {
-                overflow = true;
-                break;
-            }
-            let mut next = Vec::with_capacity(combos.len() * choices.len());
-            for prefix in &combos {
-                for syllable in choices {
-                    next.push(if prefix.is_empty() {
-                        syllable.clone()
-                    } else {
-                        format!("{prefix} {syllable}")
-                    });
-                }
-            }
-            combos = next;
-        }
-        if unreadable {
-            report.unknown.push(word.clone());
-            continue;
-        }
-        if overflow {
-            report.overflowed.push(word.clone());
-            continue;
-        }
-        for pinyin in &combos {
-            tsv.push_str(word);
-            tsv.push('\t');
-            tsv.push_str(pinyin);
-            tsv.push('\t');
-            tsv.push_str(&weight.to_string());
-            tsv.push('\n');
-            report.entries += 1;
-        }
+    for word in words {
+        // 一个词只写一条读音：词表写明的 → 整词词条（词频最高的那条）→ 最长匹配切分
+        let reading = match &word.reading {
+            Some(reading) => reading.clone(),
+            None => match readings.word(&word.text).and_then(|known| known.first()) {
+                Some(known) => known.clone(),
+                None => match segment(&word.text, &readings) {
+                    Some(reading) => reading,
+                    None => {
+                        report.unknown.push(word.text.clone());
+                        continue;
+                    }
+                },
+            },
+        };
+        tsv.push_str(&word.text);
+        tsv.push('\t');
+        tsv.push_str(&reading);
+        tsv.push('\t');
+        tsv.push_str(&word.weight.to_string());
+        tsv.push('\n');
         report.words += 1;
     }
     Derived { tsv, report }
+}
+
+/// 最长匹配切分：词库里有整词段就用段读音，切不动的单字用词频最高的读音；有字不认识返回 `None`。
+fn segment(text: &str, readings: &Readings) -> Option<String> {
+    let mut rest = text;
+    let mut syllables: Vec<&str> = Vec::new();
+    while !rest.is_empty() {
+        match readings.longest(rest) {
+            Some((length, reading)) => {
+                syllables.push(reading);
+                rest = &rest[length..];
+            }
+            None => {
+                let ch = rest.chars().next()?;
+                syllables.push(readings.char(ch)?);
+                rest = &rest[ch.len_utf8()..];
+            }
+        }
+    }
+    Some(syllables.join(" "))
 }
 
 #[cfg(test)]
@@ -205,15 +264,47 @@ mod tests {
         Dictionary::parse(&source).unwrap()
     }
 
+    fn texts(derived: &Derived) -> Vec<String> {
+        derived
+            .tsv
+            .lines()
+            .map(|line| line.split('\t').nth(1).unwrap().to_owned())
+            .collect()
+    }
+
     #[test]
-    fn reads_plain_word_lists_and_weights() {
-        let words = parse_words("# 名字\n张三\n李四\t500\n\n王五\t\n");
+    fn reads_plain_word_lists_weights_and_readings() {
+        let words = parse_words(
+            "# 名字\n张三\n李四\t500\n王五\t\n美露莘\tmei lu xin\n赵六\tmei lu xin\t3\n",
+        );
         assert_eq!(
             words,
             [
-                ("张三".to_owned(), 1),
-                ("李四".to_owned(), 500),
-                ("王五".to_owned(), 1)
+                Word {
+                    text: "张三".to_owned(),
+                    reading: None,
+                    weight: 1
+                },
+                Word {
+                    text: "李四".to_owned(),
+                    reading: None,
+                    weight: 500
+                },
+                Word {
+                    text: "王五".to_owned(),
+                    reading: None,
+                    weight: 1
+                },
+                Word {
+                    text: "美露莘".to_owned(),
+                    reading: Some("mei lu xin".to_owned()),
+                    weight: 1
+                },
+                Word {
+                    text: "赵六".to_owned(),
+                    reading: Some("mei lu xin".to_owned()),
+                    weight: 3
+                },
             ]
         );
         // 同一个词只留第一次
@@ -225,82 +316,143 @@ mod tests {
         let words = parse_words(
             "# Rime dictionary\n---\nname: names\nversion: \"1\"\nsort: by_weight\n...\n张三\n李四\t7\n",
         );
-        assert_eq!(words, [("张三".to_owned(), 1), ("李四".to_owned(), 7)]);
+        assert_eq!(words.len(), 2);
+        assert_eq!(words[0].text, "张三");
+        assert_eq!(words[1].weight, 7);
     }
 
     #[test]
-    fn skips_lines_whose_second_column_is_a_reading() {
-        // 第二列是拼音 → 那是带读音的词库，本解析器不认，跳过；纯词表里它才不会误判
-        assert_eq!(parse_words("张三\tzhang san\t100\n李四\n").len(), 1);
+    fn skips_lines_with_an_unreadable_second_column() {
+        // 第二列既不是词频也不是读音（这里带数字），整行跳过
+        assert_eq!(parse_words("张三\tzhang san 1\n李四\n").len(), 1);
     }
 
     #[test]
-    fn derives_reading_for_each_char() {
-        let dictionary = reference(&[("张", "zhang", 900), ("三", "san", 900)]);
-        let derived = derive(&[("张三".to_owned(), 3)], &dictionary);
-        assert_eq!(derived.tsv, "张三\tzhang san\t3\n");
-        assert_eq!(derived.report.words, 1);
-        assert_eq!(derived.report.entries, 1);
-    }
-
-    #[test]
-    fn keeps_every_reading_combination_of_a_polyphonic_char() {
-        // 莘 有 shen / xin 两条读音 → 两种组合都写进去，用户打哪个都出得来
-        let dictionary = reference(&[
-            ("美", "mei", 900),
-            ("露", "lu", 900),
-            ("莘", "shen", 900),
-            ("莘", "xin", 10),
-        ]);
-        let derived = derive(&[("美露莘".to_owned(), 1)], &dictionary);
-        assert_eq!(
-            derived.tsv,
-            "美露莘\tmei lu shen\t1\n美露莘\tmei lu xin\t1\n"
+    fn uses_the_reading_written_in_the_list() {
+        // 词表自己写了读音就用它：多音字词只有用户知道怎么读
+        let dictionary = reference(&[("美", "mei", 900), ("露", "lu", 900), ("莘", "shen", 900)]);
+        let derived = derive(
+            &[Word {
+                text: "美露莘".to_owned(),
+                reading: Some("mei lu xin".to_owned()),
+                weight: 1,
+            }],
+            &[&dictionary],
         );
-        assert_eq!(derived.report.entries, 2);
+        assert_eq!(texts(&derived), ["mei lu xin"]);
     }
 
     #[test]
-    fn puts_the_more_frequent_reading_first() {
-        let dictionary = reference(&[("莘", "shen", 900), ("莘", "xin", 10)]);
-        let derived = derive(&[("莘".to_owned(), 1)], &dictionary);
-        assert!(derived.tsv.starts_with("莘\tshen"));
+    fn uses_the_dictionary_reading_of_a_known_word() {
+        // 整词在词库里就用词库读音，不派生（建设银行 不会出 yin xing / yin heng）
+        let dictionary = reference(&[
+            ("建", "jian", 900),
+            ("设", "she", 900),
+            ("银", "yin", 900),
+            ("行", "xing", 900),
+            ("行", "hang", 800),
+            ("行", "heng", 100),
+            ("建设银行", "jian she yin hang", 23),
+        ]);
+        let derived = derive(
+            &[Word {
+                text: "建设银行".to_owned(),
+                reading: None,
+                weight: 1,
+            }],
+            &[&dictionary],
+        );
+        assert_eq!(texts(&derived), ["jian she yin hang"]);
+        assert_eq!(derived.report.words, 1);
+    }
+
+    #[test]
+    fn segments_unknown_words_by_dictionary_words() {
+        // 中华人民共和国 整体不在词库，靠切分躲开「和」的多音
+        let dictionary = reference(&[
+            ("中华", "zhong hua", 900),
+            ("人民", "ren min", 900),
+            ("共和国", "gong he guo", 900),
+            ("和", "he", 900),
+            ("和", "hu", 100),
+        ]);
+        let derived = derive(
+            &[Word {
+                text: "中华人民共和国".to_owned(),
+                reading: None,
+                weight: 1,
+            }],
+            &[&dictionary],
+        );
+        assert_eq!(texts(&derived), ["zhong hua ren min gong he guo"]);
+        assert_eq!(derived.report.words, 1);
+    }
+
+    #[test]
+    fn writes_one_entry_per_word_however_long_it_is() {
+        // 字一多也只写一条，不再因为组合数超上限整条丢掉
+        let dictionary = reference(&[
+            ("长", "chang", 900),
+            ("春", "chun", 900),
+            ("市", "shi", 900),
+            ("朝", "chao", 900),
+            ("阳", "yang", 900),
+            ("区", "qu", 900),
+            ("大街", "da jie", 900),
+            ("长春市", "chang chun shi", 503),
+        ]);
+        let derived = derive(
+            &[
+                Word {
+                    text: "长春市朝阳区".to_owned(),
+                    reading: None,
+                    weight: 1,
+                },
+                Word {
+                    text: "长春市朝阳区大街".to_owned(),
+                    reading: None,
+                    weight: 1,
+                },
+            ],
+            &[&dictionary],
+        );
+        assert_eq!(
+            texts(&derived),
+            [
+                "chang chun shi chao yang qu",
+                "chang chun shi chao yang qu da jie"
+            ]
+        );
+        assert!(derived.report.unknown.is_empty());
+    }
+
+    #[test]
+    fn takes_the_most_frequent_reading_of_a_lone_char() {
+        let dictionary = reference(&[("和", "he", 900), ("和", "hu", 90), ("和", "huo", 3)]);
+        let derived = derive(
+            &[Word {
+                text: "和".to_owned(),
+                reading: None,
+                weight: 1,
+            }],
+            &[&dictionary],
+        );
+        assert_eq!(texts(&derived), ["he"]);
     }
 
     #[test]
     fn skips_words_whose_char_is_not_in_the_reference() {
         let dictionary = reference(&[("三", "san", 900)]);
-        let derived = derive(&[("囧三".to_owned(), 1)], &dictionary);
+        let derived = derive(
+            &[Word {
+                text: "囧三".to_owned(),
+                reading: None,
+                weight: 1,
+            }],
+            &[&dictionary],
+        );
         assert!(derived.tsv.is_empty());
         assert_eq!(derived.report.unknown, ["囧三".to_owned()]);
-        assert_eq!(derived.report.entries, 0);
-    }
-
-    #[test]
-    fn skips_words_with_too_many_reading_combinations() {
-        // 五字词、每字两条读音 → 32 种组合，超过 MAX_VARIANTS，整条跳进报告
-        let dictionary = reference(&[
-            ("甲", "jia", 900),
-            ("甲", "xia", 10),
-            ("乙", "yi", 900),
-            ("乙", "er", 10),
-        ]);
-        let derived = derive(&[("甲乙甲乙甲".to_owned(), 1)], &dictionary);
-        assert!(derived.tsv.is_empty());
-        assert_eq!(derived.report.overflowed, ["甲乙甲乙甲".to_owned()]);
-    }
-
-    #[test]
-    fn caps_readings_per_char_by_frequency() {
-        let dictionary = reference(&[
-            ("和", "he", 900),
-            ("和", "huo", 800),
-            ("和", "hu", 700),
-            ("和", "huan", 600),
-            ("和", "han", 500),
-        ]);
-        let derived = derive(&[("和".to_owned(), 1)], &dictionary);
-        assert_eq!(derived.report.entries, MAX_READINGS_PER_CHAR);
-        assert!(derived.tsv.starts_with("和\the\t"));
+        assert_eq!(derived.report.words, 0);
     }
 }
