@@ -1,7 +1,8 @@
 //! 自动空格（`[general] auto_space`）的上下文：光标前一个字符是什么，接下来交给应用的文本前面要不要补空格。
+//! 上屏译词另有一条不看开关的词间空格（[`Engine::word_space_before`]）。
 
 use super::Engine;
-use crate::spacing::needs_space;
+use crate::spacing::{needs_space, needs_word_space};
 
 impl Engine {
     /// 壳把 `next` 交给应用之前调（上屏候选、原样上屏、直通字符都算）。与上文是中西文交界时把补的空格记成一次直通
@@ -14,6 +15,22 @@ impl Engine {
             || !self
                 .previous_char()
                 .is_some_and(|prev| needs_space(prev, first))
+        {
+            return false;
+        }
+        self.note_passthrough(' ');
+        true
+    }
+
+    /// 上屏译词前调：译词与上文都是西文这类用空格分词的文字时（见 [`needs_word_space`]）补一个空格，
+    /// 不看自动空格开没开（`hola` 接着上屏 `mundo` 得 `hola mundo`）。补了就记成一次直通并返回 true。
+    pub(super) fn word_space_before(&mut self, next: &str) -> bool {
+        let Some(first) = next.chars().next() else {
+            return false;
+        };
+        if !self
+            .previous_char()
+            .is_some_and(|prev| needs_word_space(prev, first))
         {
             return false;
         }

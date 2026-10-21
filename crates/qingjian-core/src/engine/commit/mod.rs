@@ -64,20 +64,21 @@ impl Engine {
     ///
     /// 上屏候选的译文而不是候选本身（壳里修饰键 + 数字）：学习、拼音消耗都和选了这个候选一样，
     /// 返回第 `sense` 条释义的译文（0 是第一条，日文不带注音）。候选没有那么多条释义时不动，返回 `None`。
+    /// 译词接在西文词后面时前面补一个空格（[`Self::word_space_before`]），不看自动空格开没开。
     pub fn commit_translation(&mut self, candidate: &Candidate, sense: usize) -> Option<String> {
         let text = candidate
             .translation
             .as_ref()
             .and_then(|t| t.senses().get(sense))
             .map(|s| s.text.clone())?;
-        let lead = self.auto_space_before(&text);
+        let lead = self.word_space_before(&text) || self.auto_space_before(&text);
         self.commit_with(candidate, InputSource::Translation, Some(sense));
-        let text = if lead { format!(" {text}") } else { text };
-        // 应用里收到的是译文：退格计数与自动空格的上文都按译文算
+        // 应用里收到的是译文：退格计数与自动空格的上文都按译文算；补的空格已单独记成一次直通，这里不再算进去
         if let Some(last) = self.recent_commits.last_mut() {
             last.chars = text.chars().count();
             last.tail = text.chars().last();
         }
+        let text = if lead { format!(" {text}") } else { text };
         Some(self.take_held() + &text)
     }
 
