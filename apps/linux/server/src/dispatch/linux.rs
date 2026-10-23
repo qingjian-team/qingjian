@@ -3,7 +3,7 @@ use super::{
     Router,
     key::{Effect, codes},
 };
-use crate::protocol::{DisplayIdentity, LinuxEvent, LinuxRequest};
+use qingjian_platform::protocol::linux::{DisplayIdentity, LinuxEvent, LinuxRequest};
 use qingjian_platform::protocol::{KeyOutcome, ServerMessage, SessionId};
 
 impl Router {

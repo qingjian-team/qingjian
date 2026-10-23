@@ -80,6 +80,7 @@ mac 存在 `Session::spelling`（`Host::follow_highlight`）、Windows / Linux �
 读音占比进打分：语言模型按字形计数，`区` 的 qu 撑起来的分会原样落到 `ou` 上（`ou` 首选 区、`ditu` 拼出 的图），所以词级排序（`Engine::word_log_prob`）与整句词图（`SpanWord::reading`）都扣 `sentence::reading_cost` = `-ln(读音占比)`；用户选过的仍按「同输入串选择次数」排在前面。整句按哪种切分转由 `Engine::sentence_segmentation` 定：切分器只按结构排（音节少、完整的在前，打平时贪心），音节数与不完整音节数都与第一种相同的几种（最多 `TIED_SEGMENTATIONS`）各转一遍取路径分最高的（`shangou` 由 shang ou 换成 shan gou → 山沟）。2026-10-22 冻结回放：词 8167 → 8226、整句 2827 → 2788（掉的多是用 `di` 打 的、`du` 打 都 的习惯，和日志里当时选了错句的统计假象）。
 - 中英混输的英文词位置：`Engine::set_chinese_first`（配置 `[general] chinese_first`，缺省关）关着时拼音不像话的输入英文排第一（`extras::insert_english`，
   用户老选中文词时仍让中文在前），开着时整句先插、英文词紧随其后排第二（`query_inner` 里两步的先后按开关掉转）；句末英文词并入整句（`EnglishTail`）不受它影响。
+  关掉「打拼音时也给英文词」（`english_in_chinese = false`）时 `split_english_tail` 整条停：英文词既不进候选，也不作为句尾参与分词（#766）。
   缺省关是回放定的（9241 词 / 269 条英文上屏：缺省开英文首选 82.5% → 7.1%）。
   条数与最高位次两档：`english_max_in_chinese`（1–4，缺省 4 = 1 条精确词 + 最多 3 条补全；1 只留最靠前的一条）与
   `english_min_position`（1–9，缺省 1 不限）；`extras::place_english` 在整句也插进来之后把英文块挪到第 K 位，没有中文候选时不动。
@@ -557,3 +558,35 @@ Unix socket 用共享长度前缀与 Frame（当前公共版本 9，与 `PROTOCO
 候选回报绑定连接代次、上下文和服务端帧序号，仅当前聚焦页的有效释义进入 `note_displayed`，不把生成帧算作已展示。
 Linux 回包由 `dispatch/display/annotation` 给释义添加可选 `annotation`（词性与汉字段假名，`[general] translation_pos` 关掉时不带词性），Fcitx5 面板优先显示它；原始译文和快捷键提交不变，旧 Server 缺该字段时插件回退到 `text`。
 `[general] preedit` 使用已有 `both` / `inline` / `window`；没有新增 Linux 自绘配置。详见 [linux-fcitx5.md](linux-fcitx5.md)。
+
+线上类型（`LinuxEvent` / `Capabilities` / `DisplayIdentity` / `DisplayAcknowledged` / `LINUX_UI_PROTOCOL` / `socket_path`）
+在 `qingjian_platform::protocol::linux`，不在 Server crate 里——与 Windows 的 TSF DLL 同一条理由：
+**前端不能因为要用协议类型就拖进 Engine 的依赖树**（Server 依赖 core / dictionary / lm / neural，前端一个都不要）。
+
+`scripts/install.sh` 按机器上有哪个框架装对应的前端（`--frontend auto|fcitx5|ibus|both`，缺省 auto = 能装的都装），
+`files.py` 只按给的路径照做（清单带 SHA256，装前逐个核对目标不是别人的文件）。三处值得记：
+IBus 的组件 XML 与 systemd 单元里都写死了安装后的绝对路径，所以由 install.sh 按 prefix 生成好再交给 `files.py`；**IBus 不读 `~/.local/share/ibus/component/`**，只认 `IBUS_COMPONENT_PATH`，所以另装一个 environment.d 片段把用户目录加在**最前面**——两个目录里有同名组件时以排在前面的为准，装过旧版 deb 的机器上新装的才会生效（这两条都在 IBus 1.5.34 上实测过）；
+`XMODIFIERS` 只用来提示「你在用的那个框架这次没装上」，不决定装什么（装完再切框架是常事，两支并存不冲突）；
+卸载要先 `systemctl --user disable --now` 再删文件，单元文件没了 systemd 就不认这个名字、停不掉的 Server 会一直占着 socket。
+
+## apps/linux/ibus
+
+第二个前端（IBus），与 `fcitx5` 平级：同一个 Server、同一套协议。按键、焦点、重置与面板三样已经通，
+对着真 ibus-daemon 验过（`tests/ibus_engine.rs`）。密码框（`SetContentType`）代码有但没验过。
+
+- `client/`：一条 Unix socket，一问一答。**哪些消息有回包是协议的一部分**——`OpenSession` 与 `LinuxEvent` 有，
+  `CloseSession` 与展示回执没有；读多了卡住，读少了下一次答复串位。`Shared` 是 `Arc<Mutex<Option<Connection>>>`：
+  锁毒化后取回数据接着用，出错就扔掉连接下次重连（会话要重开）。超时 200 ms，与 Fcitx5 插件一致。
+- `key/`：keysym + X11 修饰键掩码 → `KeyEvent`。**这张表与 `apps/linux/fcitx5/src/key/mapping.cpp` 必须一字不差**，
+  两个前端喂同一个 Server 同一套 `[shortcut]`，不一致同一个键在两个框架下行为就不同。
+  最容易错的是 Shift+数字：X11 给的 keysym 是 `@`，而译词 / 删候选快捷键按物理数字行认，要折回 `0x32`，`character` 仍留 `@`。
+- `ibus/`：D-Bus 那一层。`engine.rs` 每个输入上下文一个对象（对象路径当 Server 那边的上下文标识），
+  `variant.rs` 拼 IBus 的 GVariant 对象，`view.rs` 把帧折成 preedit / 候选表 / 辅助行三样，
+  `service.rs` 找总线地址（`IBUS_ADDRESS` → 按 ibus 的规则算地址文件名 → 扫目录只认 PID 还活着的）。
+  **没有「主循环重画」**：Linux Server 不推送（严格一问一答，云联想与神经重排也没接进 Linux），
+  每一帧都是某次事件的回包——走进程内引擎那一版的 `active.rs` 与节拍循环因此整块不需要了。
+- `UpdatePreeditText` 的参数是 `(vubu)`，**最后那个 `mode` 不能省**：ibus-daemon 解不出来会整条丢掉，
+  只在它自己的日志里留一条 CRITICAL，症状是拼音行不显示而这边一点错都看不到。
+- `--check nihao`：连 Server、开会话、报能力与焦点、逐键发上去、打印回来的候选；Server 没起着时直接报连不上。
+- 端到端测试要等引擎激活再敲键：切引擎之后 daemon 还要走一遍 FocusOut → Enable → FocusIn，
+  不等的话第一个字母会被 FocusOut 当「缓冲原样上屏」交出去（真人用的时候引擎早激活好了，撞不上）。

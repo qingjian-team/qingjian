@@ -90,6 +90,11 @@ pub struct Args {
     #[arg(long)]
     pub english_mode: bool,
 
+    /// 关掉「打拼音时也给英文词」（配置 `[general]` english_in_chinese = false）：英文词既不进候选，
+    /// 也不作为句尾参与整句分词
+    #[arg(long)]
+    pub no_english_in_chinese: bool,
+
     /// 打开中文优先（配置 `[general] chinese_first = true`）：整段是英文词时中文候选排第一、英文第二，评测两种排法用
     #[arg(long)]
     pub chinese_first: bool,
