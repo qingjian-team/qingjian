@@ -97,6 +97,12 @@ impl Router {
         self.engine.set_learning(config.general.learning);
         self.engine.set_chinese_first(config.general.chinese_first);
         self.engine
+            .set_english_in_chinese(config.general.english_in_chinese);
+        self.engine
+            .set_english_max_in_chinese(config.general.english_max_in_chinese());
+        self.engine
+            .set_english_min_position(config.general.english_min_position());
+        self.engine
             .set_emoji_limit(usize::from(config.general.emoji.get()));
         self.engine
             .set_kaomoji_limit(usize::from(config.general.kaomoji.get()));

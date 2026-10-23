@@ -157,14 +157,16 @@ impl Engine {
         } else {
             1
         };
+        let mut budget = self.english_max_in_chinese;
         if let Some(word) = word {
             items.insert(position, english_candidate(word));
             position += 1;
+            budget -= 1;
         }
         // 英文补全：拼音不像话时（`compa` 切成 co'm'pa），整段多半是在打英文词的前面几个字母，补全紧跟在精确词之后；
         // 个人词表在前，两张表里都有的只出一次。
-        if unlikely_pinyin && text.len() >= MIN_COMPLETION_LETTERS {
-            let mut budget = ENGLISH_COMPLETIONS;
+        if unlikely_pinyin && budget > 0 && text.len() >= MIN_COMPLETION_LETTERS {
+            let mut budget = budget.min(ENGLISH_COMPLETIONS);
             for words in &lists {
                 for word in words.complete(text, budget) {
                     if items
@@ -182,6 +184,29 @@ impl Engine {
                 }
             }
         }
+    }
+
+    /// 有中文候选时把英文块挪到第 `english_min_position` 位（配置 `[general] english_min_position`，
+    /// 缺省 1 即不限制）。等整句也插进来之后再调：整句本身是中文，`cargo` 这类只有整句能读通时也得让位。
+    /// 没有中文候选（`github`）时英文照旧在最前。
+    pub(super) fn place_english(&self, items: &mut Vec<Candidate>) {
+        if self.english_min_position <= 1 || !items.iter().any(|c| c.kind == CandidateKind::Chinese)
+        {
+            return;
+        }
+        let mut english = Vec::new();
+        items.retain(|c| {
+            if c.kind != CandidateKind::English {
+                return true;
+            }
+            english.push(c.clone());
+            false
+        });
+        if english.is_empty() {
+            return;
+        }
+        let position = (self.english_min_position - 1).min(items.len());
+        items.splice(position..position, english);
     }
 
     /// 给英文候选用的词表，个人的在前、随包的在后；一张都没有就是空。

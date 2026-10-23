@@ -264,6 +264,10 @@ traditional_variant = "off"
 chinese_first = false
 # 中文模式下整段是英文词或英文词的开头时给英文候选与补全（hello、compa → company）；false 时中文模式只出中文，英文模式不受影响
 english_in_chinese = true
+# 中文模式下英文候选（精确词 + 补全）最多几个，1–4；1 时只留最靠前的一条
+english_max_in_chinese = 4
+# 有中文候选时英文最高排到第几位，1–9；1 为不限制，没有中文候选时英文照旧第一
+english_min_position = 1
 # 候选后面一次最多配几个 emoji（kaixin → 开心 😄），0–3；0 时候选里只有字词
 emoji = 3
 # 候选后面一次最多配几个颜文字（ku → 哭 (T_T)），0–3

@@ -140,6 +140,12 @@ pub struct Engine {
     /// 中英混输时中文候选总在英文词前面（缺省关：拼音不像话的输入英文词排第一，常在中文模式里打英文词的人靠它）。
     chinese_first: bool,
 
+    /// 中文模式下英文候选（精确词 + 补全）最多几个（配置 `[general] english_max_in_chinese`，缺省 4）。
+    english_max_in_chinese: usize,
+
+    /// 有中文候选时英文最高排到第几位（配置 `[general] english_min_position`，缺省 1 即不限制）。
+    english_min_position: usize,
+
     /// 中西文混排自动补空格（配置 `[general] auto_space`，缺省关）。见 [`crate::spacing`]。
     auto_space: bool,
 
@@ -353,6 +359,9 @@ pub struct Engine {
 /// 英文补全最多几条（`compa` → company / compare / …）。
 const ENGLISH_COMPLETIONS: usize = 3;
 
+/// 中文模式下英文候选的缺省上限：1 条精确词 + 3 条补全，与以前的行为一致。
+pub const ENGLISH_CANDIDATES_MAX: usize = ENGLISH_COMPLETIONS + 1;
+
 /// 原样上屏的字母串至少几个字母才当英文词学：单字母（`a`、`I`）不值得记。
 const MIN_ENGLISH_WORD_LETTERS: usize = 2;
 
@@ -465,6 +474,8 @@ impl Engine {
             custom_phrases: Vec::new(),
             english_in_chinese: true,
             chinese_first: false,
+            english_max_in_chinese: ENGLISH_CANDIDATES_MAX,
+            english_min_position: 1,
             auto_space: false,
             shift_letter_compose: false,
             predictor: Box::new(NoPredictor),

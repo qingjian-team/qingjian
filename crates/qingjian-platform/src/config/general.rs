@@ -89,6 +89,12 @@ pub struct GeneralConfig {
     /// 中文模式下整段是英文词或英文词的开头时给英文候选与补全（`hello`、`compa` → company）。关掉中文模式只出中文，英文模式照旧。
     pub english_in_chinese: bool,
 
+    /// 中文模式下英文候选（精确词 + 补全）最多几个。缺省 4（1 条精确词 + 3 条补全），1 时只留最靠前的一条。
+    pub english_max_in_chinese: usize,
+
+    /// 有中文候选时英文最高排到第几位。缺省 1（不限制）；没有中文候选时英文照旧第一。
+    pub english_min_position: usize,
+
     /// 候选后面一次最多配几个 emoji（`kaixin` → 开心 😄），0 时候选里只有字词。
     pub emoji: EmojiCount,
 
@@ -218,6 +224,8 @@ impl Default for GeneralConfig {
             english_candidates: true,
             chinese_first: false,
             english_in_chinese: true,
+            english_max_in_chinese: qingjian_core::ENGLISH_CANDIDATES_MAX,
+            english_min_position: 1,
             emoji: EmojiCount::default(),
             kaomoji: EmojiCount::new(1),
             symbols: EmojiCount::new(1),
@@ -391,6 +399,17 @@ impl GeneralConfig {
         self.page_size.clamp(1, MAX_PAGE_SIZE)
     }
 
+    /// 夹到 1–[`qingjian_core::ENGLISH_CANDIDATES_MAX`] 的英文候选数；写 0 或更大都收到边界。
+    pub fn english_max_in_chinese(&self) -> usize {
+        self.english_max_in_chinese
+            .clamp(1, qingjian_core::ENGLISH_CANDIDATES_MAX)
+    }
+
+    /// 夹到 1–9 的英文最高位次；1 即不限制。
+    pub fn english_min_position(&self) -> usize {
+        self.english_min_position.clamp(1, MAX_PAGE_SIZE)
+    }
+
     /// 翻页键对；写得不对（不是两个不同的 ASCII 可见字符）时退回缺省。
     pub fn page_keys(&self) -> (char, char) {
         let mut chars = self.page_keys.chars();
@@ -431,6 +450,27 @@ mod tests {
         assert!(!general.horizontal_grid);
         let general: GeneralConfig = toml::from_str("horizontal_grid = true\n").unwrap();
         assert!(general.horizontal_grid);
+    }
+
+    #[test]
+    fn english_candidate_limits_are_sanitized() {
+        let mut general = GeneralConfig::default();
+        assert_eq!(
+            general.english_max_in_chinese(),
+            qingjian_core::ENGLISH_CANDIDATES_MAX
+        );
+        assert_eq!(general.english_min_position(), 1);
+        general.english_max_in_chinese = 0;
+        general.english_min_position = 0;
+        assert_eq!(general.english_max_in_chinese(), 1);
+        assert_eq!(general.english_min_position(), 1);
+        general.english_max_in_chinese = 99;
+        general.english_min_position = 99;
+        assert_eq!(
+            general.english_max_in_chinese(),
+            qingjian_core::ENGLISH_CANDIDATES_MAX
+        );
+        assert_eq!(general.english_min_position(), MAX_PAGE_SIZE);
     }
 
     #[test]

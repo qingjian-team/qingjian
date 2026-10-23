@@ -90,9 +90,17 @@ pub struct Args {
     #[arg(long)]
     pub english_mode: bool,
 
-    /// 打开中文优先（配置 `[general]` chinese_first = true）：整段是英文词时中文候选排第一、英文第二，评测两种排法用
+    /// 打开中文优先（配置 `[general] chinese_first = true`）：整段是英文词时中文候选排第一、英文第二，评测两种排法用
     #[arg(long)]
     pub chinese_first: bool,
+
+    /// 中文模式下英文候选（精确词 + 补全）最多几个（配置 `[general] english_max_in_chinese`，缺省 4）
+    #[arg(long, default_value_t = qingjian_core::ENGLISH_CANDIDATES_MAX)]
+    pub english_max_in_chinese: usize,
+
+    /// 有中文候选时英文最高排到第几位（配置 `[general] english_min_position`，缺省 1 即不限制）
+    #[arg(long, default_value_t = 1)]
+    pub english_min_position: usize,
 
     /// 候选旁显示带调拼音（配置 `[general]` show_tones = true）
     #[arg(long)]

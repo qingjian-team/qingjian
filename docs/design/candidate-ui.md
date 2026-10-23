@@ -124,6 +124,9 @@ collection behavior 是 CanJoinAllSpaces + FullScreenAuxiliary + Stationary。�
 缺省关是回放定的：9241 词 / 269 条英文上屏的冻结日志上，缺省开英文首选 82.5% → 7.1%，常在中文模式里打英文词的人被明显伤到；关着与改前完全一致。
 上屏按音节消耗拼音，路径上的词逐条记进个人 n-gram（`user-ngram.tsv`），不记词频。
 
+英文候选的条数与最高位次另有两档：`[general] english_max_in_chinese`（1–4，缺省 4 = 1 条精确词 + 3 条补全）与
+`english_min_position`（1–9，缺省 1 = 不限；有中文候选时英文最高只到第几位，等整句也插进来之后再挪，`cargo` 这类只有整句能读通时也让位）。
+
 **句末英文词**（`Engine::split_english_tail`，`query::EnglishTail`）：整段末尾是英文词表里的词、前面能切成完整拼音时，
 整句是头段的转换加上那个词（`woxiangxuehaorust` → 我想学好rust），排第一，`Query.tail` 是尾段字母（拼音行 `wo'xiang'xue'hao'rust`），
 词级候选只按头段查。整段字母根本切不成拼音的（`wodetv` 的 v、`woyongvim`）直接按英文读；整段也能读成拼音的

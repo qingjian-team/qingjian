@@ -2,7 +2,7 @@
 
 use bamboo_slip::taffy::NodeId;
 use bamboo_slip::{RenderError, SettingRow, Stepper, Ui, group, section_title};
-use qingjian_core::{LEARNING_LANGUAGES, TraditionalVariant};
+use qingjian_core::{ENGLISH_CANDIDATES_MAX, LEARNING_LANGUAGES, TraditionalVariant};
 use qingjian_platform::{EmojiCount, MAX_PAGE_SIZE};
 
 use crate::message::{Message, Popup};
@@ -148,6 +148,24 @@ pub fn candidates(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Rend
             general.english_in_chinese,
             false,
         )?,
+        SettingRow::new("英文候选最多几个")
+            .info("1 时只留最靠前的一条")
+            .control(english_max_stepper(
+                ui,
+                page,
+                general.english_max_in_chinese(),
+                !general.english_in_chinese,
+            )?)
+            .build(ui, theme)?,
+        SettingRow::new("英文词最高排到第几位")
+            .info("有中文候选时；1 为不限")
+            .control(english_min_stepper(
+                ui,
+                page,
+                general.english_min_position(),
+                !general.english_in_chinese,
+            )?)
+            .build(ui, theme)?,
         toggle_with(
             ui,
             page,
@@ -160,6 +178,44 @@ pub fn candidates(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Rend
     out.push(section_title(ui, theme, "英文词")?);
     out.push(group(ui, theme, &rows)?);
     Ok(out)
+}
+
+/// 中文模式下英文候选最多几个：1 到 [`ENGLISH_CANDIDATES_MAX`]。
+fn english_max_stepper(
+    ui: &mut Ui<Message>,
+    page: &Page,
+    current: usize,
+    disabled: bool,
+) -> Result<NodeId, RenderError> {
+    Stepper::new(&current.to_string())
+        .limits(current > 1, current < ENGLISH_CANDIDATES_MAX)
+        .disabled(disabled)
+        .build(
+            ui,
+            &page.theme,
+            "english-max",
+            Message::set("general", "english_max_in_chinese", (current - 1) as i64),
+            Message::set("general", "english_max_in_chinese", (current + 1) as i64),
+        )
+}
+
+/// 有中文候选时英文最高排到第几位：1–[`MAX_PAGE_SIZE`]，1 为不限制。
+fn english_min_stepper(
+    ui: &mut Ui<Message>,
+    page: &Page,
+    current: usize,
+    disabled: bool,
+) -> Result<NodeId, RenderError> {
+    Stepper::new(&current.to_string())
+        .limits(current > 1, current < MAX_PAGE_SIZE)
+        .disabled(disabled)
+        .build(
+            ui,
+            &page.theme,
+            "english-min-position",
+            Message::set("general", "english_min_position", (current - 1) as i64),
+            Message::set("general", "english_min_position", (current + 1) as i64),
+        )
 }
 
 /// 候选后面一次最多配几个：不显示、1–3 个。

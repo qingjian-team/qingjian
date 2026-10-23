@@ -273,6 +273,65 @@ fn english_in_chinese_off_drops_words_and_completions_but_not_english_mode() {
 }
 
 #[test]
+fn english_candidate_count_stops_at_the_configured_limit() {
+    let words =
+        WordList::parse("company\tcompany\t5600\ncompare\tcompare\t4450\ncompass\tcompass\t3000\n")
+            .unwrap();
+    let mut engine = engine().with_english(words);
+    engine.set_input("compa");
+    // 缺省 4：一条精确词都没有时补全仍按老样子最多 3 条
+    assert_eq!(texts_of(&engine)[..3], ["company", "compare", "compass"]);
+    engine.set_english_max_in_chinese(2);
+    let all = texts_of(&engine);
+    assert_eq!(
+        all.iter()
+            .filter(|text| ["company", "compare", "compass"].contains(&text.as_str()))
+            .count(),
+        2
+    );
+    // 1 只留最靠前的一条；0 越界收到 1
+    engine.set_english_max_in_chinese(0);
+    let all = texts_of(&engine);
+    assert_eq!(
+        all.iter()
+            .filter(|text| ["company", "compare", "compass"].contains(&text.as_str()))
+            .count(),
+        1
+    );
+    // 整段就是精确词时，1 也只留它
+    engine.set_input("company");
+    engine.set_english_max_in_chinese(1);
+    assert_eq!(
+        texts_of(&engine)
+            .iter()
+            .filter(|text| ["company", "compare", "compass"].contains(&text.as_str()))
+            .count(),
+        1
+    );
+}
+
+#[test]
+fn english_min_position_keeps_chinese_candidates_above() {
+    const DICT: &str = "吃\tchi\t5000\n拿\tna\t5000\n吃拿\tchi na\t6000\n";
+    let words = WordList::parse("china\tchina\t5000\nGitHub\tgithub\t3000\n").unwrap();
+    let mut engine = Engine::new(Dictionary::parse(DICT).unwrap()).with_english(words);
+    engine.set_input("china");
+    // 缺省不限制：英文词跟在第一个中文候选后面
+    let all = texts_of(&engine);
+    let english = all.iter().position(|text| text == "china").unwrap();
+    assert!(english < 2, "{all:?}");
+    // 中文候选够多时，英文最高排到第 3 位
+    engine.set_english_min_position(3);
+    let all = texts_of(&engine);
+    assert_eq!(all[2], "china", "{all:?}");
+    assert!(all[..2].iter().all(|text| text != "china"));
+    // 没有中文候选时仍排第一
+    engine.set_english_min_position(9);
+    engine.set_input("github");
+    assert_eq!(texts_of(&engine)[0], "GitHub");
+}
+
+#[test]
 fn english_mode_suggests_from_the_word_list_and_keeps_the_typed_text() {
     let words = WordList::parse(
         "company\tcompany\t900\ncompare\tcompare\t500\nhello\thello\t1000\nhelp\thelp\t700\n",

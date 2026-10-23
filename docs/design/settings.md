@@ -86,7 +86,9 @@
 | 标题 | 控件 | 配置 | ⓘ |
 |---|---|---|---|
 | 打拼音时也给英文词 | 开关 | `general.english_in_chinese` | hello、compa → company |
-| 中文排在英文词前面 | 开关，上一项关着时变灰 | `general.chinese_first` | |
+| 英文候选最多几个 | 步进 1–4，「打拼音时也给英文词」关着时变灰 | `general.english_max_in_chinese` | 1 时只留最靠前的一条 |
+| 英文词最高排到第几位 | 步进 1–9，「打拼音时也给英文词」关着时变灰 | `general.english_min_position` | 有中文候选时；1 为不限 |
+| 中文排在英文词前面 | 开关，「打拼音时也给英文词」关着时变灰 | `general.chinese_first` | |
 
 ### 3 中英文
 

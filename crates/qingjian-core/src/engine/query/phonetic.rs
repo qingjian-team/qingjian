@@ -225,6 +225,8 @@ impl Engine {
                     head_wins,
                 );
             }
+            // 整句也是中文：英文候选按 `english_min_position` 让位（缺省不限制）
+            self.place_english(&mut items);
             // 快捷候选按敲的键认（`rq` 日期），双拼下也是
             self.insert_shortcuts(&mut items, keys);
             self.insert_emoji(&mut items);

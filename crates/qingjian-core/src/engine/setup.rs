@@ -3,9 +3,9 @@
 use super::EMOJI_TOTAL;
 use super::aux_code::is_valid_aux_code_key;
 use super::{
-    DEFAULT_AUX_CODE_KEY, Engine, GlossFiller, InputLogger, Learner, ModeKeys, NEURAL_MARGIN,
-    NEURAL_WEIGHT, Predictor, RESCORE_CONTEXT_CHARS, Translator, UsageMeter, UsageSummary,
-    VocabularyTracker, marked_rest,
+    DEFAULT_AUX_CODE_KEY, ENGLISH_CANDIDATES_MAX, Engine, GlossFiller, InputLogger, Learner,
+    ModeKeys, NEURAL_MARGIN, NEURAL_WEIGHT, Predictor, RESCORE_CONTEXT_CHARS, Translator,
+    UsageMeter, UsageSummary, VocabularyTracker, marked_rest,
 };
 use crate::candidate::Language;
 use crate::correction::TypoCosts;
@@ -497,6 +497,18 @@ impl Engine {
 
     pub fn english_in_chinese(&self) -> bool {
         self.english_in_chinese
+    }
+
+    /// 中文模式下英文候选（精确词 + 补全）最多几个（配置 `[general] english_max_in_chinese`，缺省
+    /// [`ENGLISH_CANDIDATES_MAX`]）。1 只留最靠前的一条，越界按 1 与上限收拢。
+    pub fn set_english_max_in_chinese(&mut self, max: usize) {
+        self.english_max_in_chinese = max.clamp(1, ENGLISH_CANDIDATES_MAX);
+    }
+
+    /// 有中文候选时英文最高排到第几位（配置 `[general] english_min_position`，缺省 1 即不限制）。
+    /// 没有中文候选时英文照旧排第一；范围 1–9，越界收拢。
+    pub fn set_english_min_position(&mut self, position: usize) {
+        self.english_min_position = position.clamp(1, 9);
     }
 
     /// 中英混输里中文候选是否总排在英文词前面（配置 `[general] chinese_first`，缺省关）。

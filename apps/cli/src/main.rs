@@ -281,6 +281,8 @@ fn build_engine(args: &Args) -> Result<Engine, CliError> {
     if let Some(words) = english {
         engine = engine.with_english(words);
     }
+    engine.set_english_max_in_chinese(args.english_max_in_chinese);
+    engine.set_english_min_position(args.english_min_position);
     // emoji 表随仓库提供（Unicode License）：中文表 + 英文表合成一张，一张都没有就不出 emoji 候选
     let mut emoji: Option<EmojiTable> = None;
     let started = Instant::now();

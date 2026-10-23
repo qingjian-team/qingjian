@@ -81,6 +81,8 @@ mac 存在 `Session::spelling`（`Host::follow_highlight`）、Windows / Linux �
 - 中英混输的英文词位置：`Engine::set_chinese_first`（配置 `[general] chinese_first`，缺省关）关着时拼音不像话的输入英文排第一（`extras::insert_english`，
   用户老选中文词时仍让中文在前），开着时整句先插、英文词紧随其后排第二（`query_inner` 里两步的先后按开关掉转）；句末英文词并入整句（`EnglishTail`）不受它影响。
   缺省关是回放定的（9241 词 / 269 条英文上屏：缺省开英文首选 82.5% → 7.1%）。
+  条数与最高位次两档：`english_max_in_chinese`（1–4，缺省 4 = 1 条精确词 + 最多 3 条补全；1 只留最靠前的一条）与
+  `english_min_position`（1–9，缺省 1 不限）；`extras::place_english` 在整句也插进来之后把英文块挪到第 K 位，没有中文候选时不动。
 - 中西文自动空格（`spacing` 判交界，`engine/spacing.rs` 判上文；配置 `[general] auto_space`，缺省关）：`commit` / `take_raw` 自己补前导空格并把它记成一次直通，
   候选内部的交界在 `commit_with` 里补、`LastCommit.chars` 按补后的字数记；直通字符由壳先问 `auto_space_before`。上文取最近一条没退格的上屏末字，
   还没上屏过时用组句首键读到的应用前文（`rescoring_before`），删了一半或焦点离开后不知道上文就不补。
@@ -342,6 +344,7 @@ Windows Server 自绘候选窗（GDI）按 `Frame.columns` / `column_ems` 画矩
   按键当编码按前缀查表，候选不带音节，上屏吃掉整段编码。
 - `--typing` 逐键计时（性能测试用 release 构建跑，目标每键 10 ms 以内）。
 - `--chinese-first` 打开中文优先（`[general] chinese_first = true` 的排法），配合 `--replay` 比两种英文词位置。
+- `--english-max-in-chinese <N>` / `--english-min-position <K>` 对应 `[general]` 同名配置：中文模式英文候选最多几条、有中文候选时最高排到第几位，验证 #768 用。
 - `--replay <input-log.jsonl>` 回放评测：把日志里每次上屏的键重新喂给引擎，按来源算首选 / 前五命中率、平均名次、不在候选的条数，打印没命中的例子（`--misses N`）；
   只在内存里学习不写文件，加 `--user-dict` 可带上现有学习数据。
   **按日志记的方案逐条切换**（`replay/scheme.rs` 的 `SchemeSwitcher`，读每条的 `scheme` 字段）：整份日志通常只有一套方案，
