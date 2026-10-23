@@ -85,7 +85,7 @@
 
 | 标题 | 控件 | 配置 | ⓘ |
 |---|---|---|---|
-| 打拼音时也给英文词 | 开关 | `general.english_in_chinese` | hello、compa → company |
+| 打拼音时也给英文词 | 开关 | `general.english_in_chinese` | hello、compa → company；关掉后句末英文词也一并停（`nanine` 不出「那nine」） |
 | 中文排在英文词前面 | 开关，上一项关着时变灰 | `general.chinese_first` | |
 
 ### 3 中英文

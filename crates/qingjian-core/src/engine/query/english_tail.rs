@@ -39,8 +39,12 @@ impl Engine {
     /// 整段本身是英文词（`agent`）、拼音不像话时纠错能纠通（`shiide` → 是的）或有英文补全（`releas` → release）的也不切，
     /// 那几条路本来就排第一。
     /// 切出来只说明「可以这么读」，与拼音读法谁排前面看 `competes` 与比分。
+    ///
+    /// 关掉「打拼音时也给英文词」（`english_in_chinese = false`）时整条路都停：英文词不再作为句尾参与分词，
+    /// `nanine` 回到 `na ni ne` 的拼音读法，`kaifarust` 不再出 开发rust（#766）。
     pub(crate) fn split_english_tail(&self, scope: &str) -> Option<EnglishTail> {
-        if self.shuangpin.is_some()
+        if !self.english_in_chinese
+            || self.shuangpin.is_some()
             || scope.len() < MIN_ENGLISH_TAIL_HEAD_LETTERS + MIN_ENGLISH_TAIL_LETTERS
             || !scope.bytes().all(|b| b.is_ascii_lowercase())
         {

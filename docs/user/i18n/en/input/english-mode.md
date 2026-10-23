@@ -83,6 +83,7 @@ You don't need to switch in Chinese mode:
 - **Words made of a letter plus Chinese characters** are typed as "letter + pinyin": `cpan` → C盘, `bzhan` → B站, `txu` → T恤, `agu` → A股, `xguang` → X光.
   Since `u` is the prefix for asking about characters, type U盘 as `youpan` (same sound as 优盘; U盘 comes first). These words also work in sentences: `wozaibzhan` → 我在B站.
 - If you don't want English words in Chinese mode, turn off 打拼音时也给英文词 (English words while typing pinyin) under 设置 → 候选 (Settings → Candidates); English mode isn't affected.
+  After turning it off, English words also stop joining sentences at the end (`nanine` no longer gives 那nine).
 
 By default, `Shift + letter` while typing pinyin types English temporarily: the pinyin is committed first and the capital letter is output as typed.
 If you change Shift + 字母 (Shift + letter) in 设置 → 中英文 (Settings → Chinese/English) to 进组句 (Join the input), the capital letter takes part in the pinyin as lowercase, so `Cpan` gives C盘 just like `cpan`.

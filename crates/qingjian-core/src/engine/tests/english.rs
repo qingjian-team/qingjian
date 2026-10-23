@@ -272,6 +272,36 @@ fn english_in_chinese_off_drops_words_and_completions_but_not_english_mode() {
     assert_eq!(texts_of(&engine), ["company", "compare"]);
 }
 
+/// 关掉「打拼音时也给英文词」后英文词连句尾都不参与分词（#766）：
+/// `nanine` 不再切成 `na` + `nine`，`nine` 也不再读成英文词。
+#[test]
+fn english_in_chinese_off_stops_the_english_tail() {
+    const DICT: &str = "那\tna\t300000\n你\tni\t400000\n呢\tne\t200000\n那你呢\tna ni ne\t500000\n";
+    let build = || {
+        let words = WordList::parse("nine\tnine\t4500\nrust\trust\t3740\n").unwrap();
+        Engine::new(Dictionary::parse(DICT).unwrap()).with_english(words)
+    };
+
+    // 开着时与 issue 的复现一致：整句把 nine 当英文尾段
+    let mut on = build();
+    on.set_input("nanine");
+    assert_eq!(texts_of(&on)[0], "那nine");
+
+    let mut off = build();
+    off.set_english_in_chinese(false);
+    off.set_input("nanine");
+    let all = texts_of(&off);
+    assert_eq!(all[0], "那你呢");
+    assert!(!all.iter().any(|text| text.contains("nine")), "{all:?}");
+    // 单独打 nine 也回到拼音读法
+    off.set_input("nine");
+    let all = texts_of(&off);
+    assert!(
+        !all.iter().any(|text| text.eq_ignore_ascii_case("nine")),
+        "{all:?}"
+    );
+}
+
 #[test]
 fn english_mode_suggests_from_the_word_list_and_keeps_the_typed_text() {
     let words = WordList::parse(

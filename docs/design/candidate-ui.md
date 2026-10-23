@@ -132,7 +132,8 @@ collection behavior 是 CanJoinAllSpaces + FullScreenAuxiliary + Stationary。�
 末尾单字母也读，`huoz` → 或者，两边覆盖同样多的字母才公平），赢了英文读法排第一、拼音读法第二，输了英文读法不出
 （`womenqubeijing` 只有 我们去北京，`diaoyong` 不出 掉Yong）。尾段自己是完整拼音的（`fan`）要至少 4 个字母，
 两个字母的尾段只认缩写词（ID / TV）和个人表里的词；整段是英文词（`agent`）、拼音不像话时能纠错（`shiide` → 是的）或有英文补全
-（`releas`）的不切。同时满足的取最长尾段。上屏时英文词是路径上最后一个词（音节就是敲的字母），进个人 n-gram，
+（`releas`）的不切。同时满足的取最长尾段。关掉「打拼音时也给英文词」（`[general] english_in_chinese = false`）时整条路停，
+`nanine` 回到 `na ni ne`、`kaifarust` 不再出 开发rust（#766）。上屏时英文词是路径上最后一个词（音节就是敲的字母），进个人 n-gram，
 并记进个人英文词表。回放（2026-09-08，4867 条）与改前持平：词 86.0% / 整句 89.3% / 英文 69.8%。
 只认句末，夹在中间的英文（`wozaidebugzhege`）要等词图上加英文边。
 
