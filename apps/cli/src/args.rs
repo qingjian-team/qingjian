@@ -186,7 +186,7 @@ pub struct Args {
     #[arg(long, requires = "check_user_words")]
     pub purge_user_words: bool,
 
-    /// 导入无读音词表（每行 `词` 或 `词<Tab>权重`）：读音按 --dict 逐字派生、多音字每种组合各一条；
+    /// 导入无读音词表（每行 `词`、`词<Tab>词频` 或 `词<Tab>读音[<Tab>词频]`）：读音按 --dict、--extra-dict 与随包领域词库取，一个词一条；
     /// 只读、不写文件，配 --import-to 才落盘
     #[arg(long, value_name = "词表", conflicts_with_all = ["mine_log", "replay", "eval_text", "eval_cold", "check_user_words", "aux_query"])]
     pub import_words: Option<PathBuf>,
