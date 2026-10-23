@@ -14,6 +14,7 @@ qingjian-render.workspace = true
 qingjian-platform.workspace = true
 # 模式键的候选字母、辅码触发键的校验
 qingjian-core.workspace = true
+qingjian-offline.workspace = true
 toml_edit.workspace = true
 tracing.workspace = true
 # 列本机装的字族（字体下拉框）

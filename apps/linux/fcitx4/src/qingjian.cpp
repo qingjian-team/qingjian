@@ -152,7 +152,7 @@ bool Engine::connect(Session *session) {
         flushRetired();
         nlohmann::json response;
         session->generation = generation_;
-        if (!connection_.send({{"OpenSession", {{"session", session->id}, {"app", ""}, {"protocol", 9}}}}, &response)
+        if (!connection_.send({{"OpenSession", {{"session", session->id}, {"app", ""}, {"protocol", 10}}}}, &response)
             || response.at("Update").at("session") != session->id
             || response.at("Update").at("linux_ui").at("version") != 3)
             throw std::runtime_error("open session");

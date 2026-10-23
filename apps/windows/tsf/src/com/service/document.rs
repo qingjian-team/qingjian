@@ -21,6 +21,7 @@ impl TextService_Impl {
             self.shared.clone(),
             request,
         ) {
+            crate::com::log::log(&format!("翻译选区：请求读选区会话失败: {error}"));
             log(&format!("请求读选区会话失败: {error}"));
         }
     }
@@ -29,6 +30,7 @@ impl TextService_Impl {
     /// 组句已被应用终止的（拼音已是普通文本）只清 Server 不再插。
     pub(super) fn commit_pending(&self) {
         if self.shared.translating() {
+            self.shared.set_selection_anchor(None);
             self.shared.set_translating(false);
             self.shared.hide_candidates();
         }

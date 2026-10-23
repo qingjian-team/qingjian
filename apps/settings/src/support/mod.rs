@@ -59,11 +59,13 @@ pub enum Feature {
     NumpadDigit,
     /// 双拼候选窗口的拼音行显示敲的键。
     ShuangpinRawWindow,
+    /// 在输入法进程内翻译选中文字。
+    OfflineTranslation,
 }
 
 impl Feature {
     #[cfg(test)]
-    pub const ALL: [Self; 28] = [
+    pub const ALL: [Self; 29] = [
         Self::AuxCode,
         Self::Schemes,
         Self::SwitchKeys,
@@ -92,6 +94,7 @@ impl Feature {
         Self::Clipboard,
         Self::NumpadDigit,
         Self::ShuangpinRawWindow,
+        Self::OfflineTranslation,
     ];
 
     /// 当前平台显示这一项。
@@ -149,6 +152,7 @@ impl Feature {
             Self::NumpadDigit => [Todo, Yes, Todo],
             // Fcitx 面板与应用里的行内拼音共用一串，还没分开
             Self::ShuangpinRawWindow => [Yes, Yes, Todo],
+            Self::OfflineTranslation => [Todo, Yes, Todo],
         }
     }
 
@@ -184,6 +188,7 @@ impl Feature {
             Self::Clipboard => "青简剪贴板",
             Self::NumpadDigit => "小键盘数字",
             Self::ShuangpinRawWindow => "双拼候选窗显示按键",
+            Self::OfflineTranslation => "离线选区翻译",
         }
     }
 
@@ -232,7 +237,8 @@ impl Feature {
             | Self::GridPageKeys
             | Self::ApiUsage
             | Self::ExperimentalModels
-            | Self::Clipboard => &[],
+            | Self::Clipboard
+            | Self::OfflineTranslation => &[],
         }
     }
 }

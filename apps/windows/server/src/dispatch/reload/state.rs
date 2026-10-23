@@ -93,6 +93,8 @@ pub(crate) struct ConfigReload {
     /// 已应用的 `[predict]`。
     pub(super) applied_predict: PredictConfig,
 
+    pub(super) applied_offline_translation: bool,
+
     /// 已应用的 `[dictionaries]`。
     pub(super) applied_dictionaries: DictionariesConfig,
 
