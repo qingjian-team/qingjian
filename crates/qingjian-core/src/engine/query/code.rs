@@ -4,6 +4,9 @@ use std::collections::HashSet;
 
 use super::*;
 
+// 86 五笔标准一级简码；码表里同一单字母码也可能命中其他精确单字。
+const WUBI86_FIRST_LEVEL: &str = "工了以在有地一上不是中国同民为这我的要和产发人经主";
+
 impl Engine {
     /// 形码方案（五笔）的候选：编码打全的词排在同前缀的更长编码词前面，其余按词频与上下文。
     ///
@@ -57,6 +60,26 @@ impl Engine {
             );
             (choice, log_prob)
         });
+        if self
+            .code
+            .as_ref()
+            .is_some_and(|scheme| scheme.key == "wubi")
+            && keys.len() == 1
+            && let Some(index) = keys
+                .as_bytes()
+                .first()
+                .and_then(|key| key.checked_sub(b'a'))
+                .map(usize::from)
+            && let Some(text) = WUBI86_FIRST_LEVEL.chars().nth(index)
+        {
+            let text = text.to_string();
+            if let Some(position) = scored
+                .iter()
+                .position(|item| item.hit.text == text.as_str() && item.hit.exact)
+            {
+                scored[..=position].rotate_right(1);
+            }
+        }
         let rank = start.elapsed();
         // `exact` 是排序的最高位，打全的都在最前面
         let exact = scored.iter().take_while(|s| s.hit.exact).count();
