@@ -1,7 +1,7 @@
 [package]
 name = "qingjian-settings"
 description = "三平台共用的设置程序：画在 bamboo-slip 上，读写输入法同一份 config.toml"
-version = "0.2.1-dev"
+version = "0.3.2-dev"
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
@@ -29,6 +29,14 @@ qingjian-translate.workspace = true
 # 导入时的文件选择窗口（与 Windows 旧设置程序同一个）
 rfd = "0.17"
 dotenvy.workspace = true
+# 实验功能：下载模型（清单、分块核对、解压）
+reqwest = { workspace = true, features = ["native-tls", "system-proxy"] }
+tokio = { workspace = true, features = ["macros"] }
+serde.workspace = true
+serde_json.workspace = true
+sha2 = "0.11"
+flate2 = "1.1.10"
+tar = { version = "0.4", default-features = false }
 tracing-subscriber.workspace = true
 tracing-appender.workspace = true
 

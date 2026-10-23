@@ -257,9 +257,6 @@ impl Component for Settings {
             Message::TranslationSecond(Some(i)) if i < shortcut::MODIFIERS.len() => {
                 self.save("shortcut", "translation_second", shortcut::MODIFIERS[i].1);
             }
-            Message::DeleteCandidate(Some(i)) if i < shortcut::MODIFIERS.len() => {
-                self.save("shortcut", "delete_candidate", shortcut::MODIFIERS[i].1);
-            }
             Message::TranslateSelection(Some(i)) if i < shortcut::MODIFIERS.len() => {
                 let key = self.config.shortcut.translate_selection.key;
                 let combo = format!("{}+{key}", shortcut::MODIFIERS[i].1);

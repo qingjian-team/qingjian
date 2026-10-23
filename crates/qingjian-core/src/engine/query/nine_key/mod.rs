@@ -15,7 +15,6 @@ use crate::candidate::{Candidate, CandidateList};
 use crate::engine::{Engine, Learner, MAX_CANDIDATES, Query, Timings};
 use crate::nine_key::{self, Shape};
 use crate::ranking::{self, Scored};
-use crate::sentence;
 
 /// 词级查询看前几种形状。
 const WORD_SHAPES: usize = 3;
@@ -40,14 +39,7 @@ impl Engine {
             // 按输入串记的选择用候选自己的拼音当键，与全拼共用一份学习数据
             let input: String = hit.syllables().collect();
             let choice = self.learner.choice_weight(&input, hit.text);
-            let log_prob = sentence::transition_log_prob(
-                &*self.language_model,
-                self.personal(),
-                self.chain.context(),
-                hit.text,
-                sentence::fallback_log_prob(hit.frequency, log_total),
-            );
-            (choice, log_prob)
+            (choice, self.word_log_prob(hit, log_total))
         });
         let mut items: Vec<Candidate> = Vec::with_capacity(scored.len());
         for item in &scored {
@@ -80,6 +72,7 @@ impl Engine {
             .map(|shape| display::marked(shape, items.first(), tail));
         Query {
             segmentations: Vec::new(),
+            spelled: 0,
             candidates: CandidateList { items },
             tail: tail.to_owned(),
             text: self.composition.text().to_owned(),
@@ -88,6 +81,7 @@ impl Engine {
             decoded_keys: true,
             shuangpin_raw_preedit: false,
             typed_display,
+            typed_case: None,
             pinyin_choices,
             correction: None,
             held: String::new(),

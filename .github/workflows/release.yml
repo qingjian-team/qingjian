@@ -1,5 +1,5 @@
-# 推 v<版本> 标签发三个平台（共用一个 GitHub Release）；单平台补丁推 macos-v / windows-v / linux-v<版本>，只打那一个平台。
-# 版本号读各平台壳：macOS apps/macos/Cargo.toml、Windows apps/windows/server/Cargo.toml、Linux apps/linux/server/Cargo.toml，要打的平台都得与标签一致。
+# 推 v<版本> 标签发四个平台（共用一个 GitHub Release）；单平台补丁推 macos-v / windows-v / linux-v / android-v<版本>，只打那一个平台。
+# 版本号读各平台壳：macOS apps/macos/Cargo.toml、Windows apps/windows/server/Cargo.toml、Linux apps/linux/server/Cargo.toml、Android apps/android/core/Cargo.toml，要打的平台都得与标签一致。
 # 流程：prepare 核对版本、建草稿 Release → 各平台 job 并行打包，把安装包与摘要 / 构建信息片段传到草稿上
 # → publish 合并片段、转正、生成并签名 releases.json、触发官网构建。任何平台失败都停在草稿，不会发出缺平台的版本。
 # 流程见 docs/notes/release.md。macOS 的签名与公证可选，下面的 Secrets 配齐才签，否则出 ad-hoc 包；
@@ -11,6 +11,11 @@
 #   QINGJIAN_NOTARY_KEY          App Store Connect API 密钥 .p8，base64
 #   QINGJIAN_NOTARY_KEY_ID       密钥的 Key ID
 #   QINGJIAN_NOTARY_ISSUER       密钥的 Issuer ID
+# Android 的 APK 签名（打 Android 时必须，没配这个 job 直接失败）：
+#   QINGJIAN_ANDROID_KEYSTORE           密钥库 .jks，base64；换了已装的用户就不能覆盖升级
+#   QINGJIAN_ANDROID_KEYSTORE_PASSWORD  密钥库密码
+#   QINGJIAN_ANDROID_KEY_ALIAS          密钥别名
+#   QINGJIAN_ANDROID_KEY_PASSWORD       密钥密码
 # 版本索引的签名（必须，没配门禁直接失败）：
 #   QINGJIAN_INDEX_SIGNING_KEY   releases.json 的 ed25519 私钥（base64 的 32 字节，tools/release-sign keygen 生成），
 #                                公钥在 crates/qingjian-update/src/index/signature.rs；软件内检查更新只认签过名的索引
@@ -25,7 +30,7 @@ name: release
 
 on:
   push:
-    tags: ['v*', 'macos-v*', 'windows-v*', 'linux-v*']
+    tags: ['v*', 'macos-v*', 'windows-v*', 'linux-v*', 'android-v*']
 
 env:
   CARGO_TERM_COLOR: always
@@ -40,6 +45,7 @@ jobs:
       macos: ${{ steps.gate.outputs.macos }}
       windows: ${{ steps.gate.outputs.windows }}
       linux: ${{ steps.gate.outputs.linux }}
+      android: ${{ steps.gate.outputs.android }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -56,10 +62,10 @@ jobs:
             exit 1
           fi
           case "$GITHUB_REF_NAME" in
-            v*) PLATFORMS="macos windows linux"; VERSION="${GITHUB_REF_NAME#v}" ;;
+            v*) PLATFORMS="macos windows linux android"; VERSION="${GITHUB_REF_NAME#v}" ;;
             *-v*) PLATFORMS="${GITHUB_REF_NAME%%-v*}"; VERSION="${GITHUB_REF_NAME#*-v}" ;;
           esac
-          declare -A MANIFEST=([macos]=apps/macos/Cargo.toml [windows]=apps/windows/server/Cargo.toml [linux]=apps/linux/server/Cargo.toml)
+          declare -A MANIFEST=([macos]=apps/macos/Cargo.toml [windows]=apps/windows/server/Cargo.toml [linux]=apps/linux/server/Cargo.toml [android]=apps/android/core/Cargo.toml)
           for platform in $PLATFORMS; do
             found="$(sed -n 's/^version = "\(.*\)"/\1/p' "${MANIFEST[$platform]}" | head -1)"
             if [[ "$found" != "$VERSION" ]]; then
@@ -77,7 +83,7 @@ jobs:
             exit 1
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          for platform in macos windows linux; do
+          for platform in macos windows linux android; do
             [[ " $PLATFORMS " == *" $platform "* ]] && on=true || on=false
             echo "$platform=$on" >> "$GITHUB_OUTPUT"
           done
@@ -89,6 +95,7 @@ jobs:
           MACOS: ${{ steps.gate.outputs.macos }}
           WINDOWS: ${{ steps.gate.outputs.windows }}
           LINUX: ${{ steps.gate.outputs.linux }}
+          ANDROID: ${{ steps.gate.outputs.android }}
           MAC_SIGNED: ${{ secrets.QINGJIAN_CERT_P12 != '' }}
         run: |
           NOTES="$RUNNER_TEMP/notes.md"
@@ -102,10 +109,14 @@ jobs:
           if [[ "$LINUX" == "true" ]]; then
             printf '\n> Linux：预编译包在 Ubuntu 26.04 上构建，其他发行版请用源码安装；解开后运行 install.sh，说明见官网文档「Linux」。\n' >> "$NOTES"
           fi
+          if [[ "$ANDROID" == "true" ]]; then
+            printf '\n> Android：预览版，功能比桌面版少；APK 只支持 arm64、Android 8.0 及以上，下载后在手机上安装，系统可能要你允许「安装未知应用」。\n' >> "$NOTES"
+          fi
           case "$GITHUB_REF_NAME" in
             macos-v*) TITLE="青简 macOS $VERSION" ;;
             windows-v*) TITLE="青简 Windows $VERSION" ;;
             linux-v*) TITLE="青简 Linux $VERSION" ;;
+            android-v*) TITLE="青简 Android $VERSION" ;;
             *) TITLE="青简 $VERSION" ;;
           esac
           # 带预发布后缀的版本（0.1.4-beta.1）是测试渠道的：标成预发布，不抢 GitHub 的 latest
@@ -145,7 +156,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           tools/release/data-fetch.sh
-          ls -la data/generated data/generated/dicts data/models/hanzhang-zhiwei data/models/hanzhang-tongbian
+          ls -la data/generated data/generated/dicts data/models/hanzhang-tongbian
 
       - name: Import signing certificates
         if: steps.secrets.outputs.sign == 'true'
@@ -228,7 +239,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           tools/release/data-fetch.sh
-          ls -la data/generated data/generated/dicts data/models/hanzhang-zhiwei data/models/hanzhang-tongbian
+          ls -la data/generated data/generated/dicts data/models/hanzhang-tongbian
 
       # 与开发机同版本（7.1.0，自带简体中文翻译；Chocolatey 只有 6.x，6 的安装包不带简中）。钉死 GitHub Release 上的文件。
       - name: Install Inno Setup 7.1.0
@@ -283,7 +294,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           tools/release/data-fetch.sh
-          ls -la data/generated data/generated/dicts data/models/hanzhang-zhiwei data/models/hanzhang-tongbian
+          ls -la data/generated data/generated/dicts data/models/hanzhang-tongbian
 
       - name: Build package
         run: apps/linux/scripts/package.sh
@@ -308,8 +319,81 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: tools/release/upload-build.sh linux "$(. /etc/os-release && echo "$PRETTY_NAME"), Fcitx5 $(pkg-config --modversion Fcitx5Core)" target/linux-package/*.tar.gz
 
+  android:
+    needs: prepare
+    if: needs.prepare.outputs.android == 'true'
+    runs-on: ubuntu-26.04
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ needs.prepare.outputs.version }}
+      NDK_VERSION: 29.0.13599879
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
+        with:
+          toolchain: 1.96.0
+          targets: aarch64-linux-android
+
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+
+      # Gradle 8.14 只认到 JDK 24，runner 缺省的是 25
+      - name: Use JDK 21
+        run: |
+          if [[ ! -d "${JAVA_HOME_21_X64:-}" ]]; then
+            echo "runner 上没有 JDK 21（JAVA_HOME_21_X64）：" >&2
+            ls /usr/lib/jvm >&2
+            exit 1
+          fi
+          echo "JAVA_HOME=$JAVA_HOME_21_X64" >> "$GITHUB_ENV"
+
+      # NDK 版本要与 app/build.gradle.kts 的 ndkVersion 一致
+      - name: Install NDK and cargo-ndk
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;$NDK_VERSION" "platforms;android-36" > /dev/null
+          cargo install cargo-ndk --version 4.1.2 --locked
+          echo "sdk.dir=$ANDROID_HOME" > apps/android/local.properties
+
+      - name: Fetch product data
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tools/release/data-fetch.sh
+          ls -la data/generated data/generated/dicts
+
+      - name: Build signed APK
+        env:
+          KEYSTORE_BASE64: ${{ secrets.QINGJIAN_ANDROID_KEYSTORE }}
+          QINGJIAN_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.QINGJIAN_ANDROID_KEYSTORE_PASSWORD }}
+          QINGJIAN_ANDROID_KEY_ALIAS: ${{ secrets.QINGJIAN_ANDROID_KEY_ALIAS }}
+          QINGJIAN_ANDROID_KEY_PASSWORD: ${{ secrets.QINGJIAN_ANDROID_KEY_PASSWORD }}
+        run: |
+          if [[ -z "$KEYSTORE_BASE64" ]]; then
+            echo "没配 QINGJIAN_ANDROID_KEYSTORE：APK 签不了名，装不上（docs/notes/release.md）" >&2
+            exit 1
+          fi
+          export QINGJIAN_ANDROID_KEYSTORE="$RUNNER_TEMP/release.jks"
+          echo "$KEYSTORE_BASE64" | base64 -d > "$QINGJIAN_ANDROID_KEYSTORE"
+          (cd apps/android && ./gradlew assembleRelease --no-daemon --console=plain)
+          rm -f "$QINGJIAN_ANDROID_KEYSTORE"
+          mkdir -p target/android-package
+          cp apps/android/app/build/outputs/apk/release/app-release.apk "target/android-package/qingjian-$VERSION-android-arm64.apk"
+
+      - name: Verify APK signature
+        run: |
+          apksigner="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)/apksigner"
+          "$apksigner" verify --print-certs target/android-package/*.apk
+
+      - name: Upload to draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: tools/release/upload-build.sh android "$(. /etc/os-release && echo "$PRETTY_NAME"), NDK $NDK_VERSION" target/android-package/*.apk
+
   publish:
-    needs: [prepare, macos, windows, linux]
+    needs: [prepare, macos, windows, linux, android]
     # 没选中的平台是 skipped，照样发；有平台失败就停在草稿
     if: ${{ !cancelled() && needs.prepare.result == 'success' && !contains(needs.*.result, 'failure') }}
     runs-on: ubuntu-26.04

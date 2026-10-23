@@ -8,6 +8,16 @@ val repoRoot = rootDir.resolve("../..").canonicalFile
 val nativeLibs = layout.buildDirectory.dir("native/jniLibs")
 val bundledAssets = layout.buildDirectory.dir("bundled/assets")
 
+// 版本号取 core/Cargo.toml；versionCode = 主*10000 + 次*100 + 修订，-dev 与正式版同号
+val appVersion = rootDir.resolve("core/Cargo.toml").readLines()
+    .first { it.startsWith("version = ") }
+    .substringAfter('"').substringBefore('"')
+val appVersionCode = appVersion.substringBefore('-').split('.').map(String::toInt)
+    .let { (major, minor, patch) -> major * 10000 + minor * 100 + patch }
+
+// 发版 CI 从 Secrets 注入，见 docs/notes/release.md
+val releaseKeystore = System.getenv("QINGJIAN_ANDROID_KEYSTORE")?.takeIf { it.isNotEmpty() }
+
 android {
     namespace = "app.qingjian.inputmethod"
     compileSdk = 36
@@ -17,14 +27,26 @@ android {
         applicationId = "app.qingjian.inputmethod"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.1.0-dev"
+        versionCode = appVersionCode
+        versionName = appVersion
         ndk { abiFilters += "arm64-v8a" }
+    }
+
+    if (releaseKeystore != null) {
+        signingConfigs {
+            create("release") {
+                storeFile = file(releaseKeystore)
+                storePassword = System.getenv("QINGJIAN_ANDROID_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("QINGJIAN_ANDROID_KEY_ALIAS")
+                keyPassword = System.getenv("QINGJIAN_ANDROID_KEY_PASSWORD")
+            }
+        }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
+            if (releaseKeystore != null) signingConfig = signingConfigs.getByName("release")
         }
     }
 
@@ -37,9 +59,6 @@ android {
         jniLibs.srcDir(nativeLibs)
         assets.srcDir(bundledAssets)
     }
-
-    // .qj 解到私有目录后 mmap，APK 里不必再压一遍（压了也省不了多少，解得还慢）
-    androidResources { noCompress += listOf("qj") }
 }
 
 kotlin {

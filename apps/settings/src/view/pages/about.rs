@@ -78,13 +78,13 @@ pub fn about(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderErr
             ui,
             page,
             "自动检查更新",
-            Some("每天向官网读一次版本列表，有新版在这里和菜单里提示，不会自动下载安装"),
+            Some("有新版时提示，不自动安装"),
             ("update", "check"),
             update.check,
             false,
         )?,
         SettingRow::new("渠道")
-            .info("测试版渠道还会提示 alpha / beta / rc 版本")
+            .info("测试版会更早收到新功能")
             .control(channel)
             .build(ui, theme)?,
         with_notice(

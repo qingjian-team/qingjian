@@ -48,9 +48,9 @@ class FunctionPanel(
     private val toggles
         get() = listOf(
             Toggle(Settings.KEY_HAPTIC, "按键震动", "", settings.haptic),
-            Toggle(Settings.KEY_POPUP, "按键气泡", "按下字母时在上方放大显示", settings.keyPopup),
-            Toggle(Settings.KEY_FULLSCREEN, "全面屏适配", "手势条那一截放切换输入法与语音输入", settings.fullscreenAdapt),
-            Toggle(Settings.KEY_KEEP_CHINESE, "换语言时保留中文", "长按中英键换语言；关了就在当前语言和选的之间切", settings.keepChinese),
+            Toggle(Settings.KEY_POPUP, "按键气泡", "按下字母时在上面放大显示", settings.keyPopup),
+            Toggle(Settings.KEY_FULLSCREEN, "全面屏适配", "手势条那一截不留白，两个角各放一个键", settings.fullscreenAdapt),
+            Toggle(Settings.KEY_KEEP_CHINESE, "换语言时保留中文", "开着时总在中文和选的语言之间切", settings.keepChinese),
         )
 
     private val tabs = Tabs(ink, scrollable(true) { x, y -> y < headerHeight && x > ink.dp(BACK_WIDTH_DP) }, Tabs.Style.UNDERLINE)

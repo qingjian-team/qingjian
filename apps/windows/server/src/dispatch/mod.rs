@@ -22,6 +22,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
+use qingjian_core::candidate::arrows::Focus;
 use qingjian_core::{Engine, Grid};
 use qingjian_platform::protocol::{
     ClientMessage, Frame, IndicatorState, InputSettings, ScreenRect, ServerMessage, SessionId,
@@ -29,7 +30,9 @@ use qingjian_platform::protocol::{
 use qingjian_platform::{LocalModelConfig, SchemeSlot};
 use qingjian_render::Mode;
 
-pub use self::candidates::{CandidateSink, NoopSink, RenderSettings};
+pub use self::candidates::{
+    CandidateMenu, CandidateMouse, CandidateSink, NoopSink, RenderSettings,
+};
 use self::composed::Composed;
 pub use self::config::RouterConfig;
 use self::key_hint::KeyHintState;
@@ -38,7 +41,7 @@ use self::panel::PanelGrid;
 pub use self::panel::{PanelCell, PanelFrame, PanelMouse};
 use self::reload::ConfigReload;
 pub use self::reload::{DataDirs, attach_cloud};
-pub use self::rescore::find_model;
+pub use self::rescore::{ModelDirs, find_model};
 use self::rescore::{ModelLoader, RescoreState};
 pub use self::schemes::find_bundled_schemes;
 use self::session::SessionInfo;
@@ -89,6 +92,9 @@ pub struct Router {
     /// 横排展开成矩阵时的视口；`None` 是单行。新一轮查询收回单行（与 macOS 壳的 `Session` 一致）。
     grid: Option<Grid>,
 
+    /// 方向键归拼音行还是候选（`arrows::route`）。改拼音时每敲一键都重查，所以跨查询保留，缓冲清空才回到候选。
+    focus: Focus,
+
     /// 这轮查询里动过高亮：动过就不再拿重排结果换掉候选；注音模式数字键动过之后才选词。
     navigated: bool,
 
@@ -129,8 +135,8 @@ pub struct Router {
     /// 上次显示的面板与光标矩形，没变就不重画；面板没在显示时为 `None`。
     last_panel: Option<(PanelFrame, Option<ScreenRect>)>,
 
-    /// 本地整句模型（`.qjm` 或三件套目录）；没有模型文件为 `None`。
-    model_path: Option<PathBuf>,
+    /// 去哪找本地模型。
+    model_dirs: ModelDirs,
 
     /// 随包的方案目录（启动时找好的，见 [`schemes::find_bundled_schemes`]）；没有为 `None`。
     bundled_schemes: Option<PathBuf>,
@@ -175,6 +181,7 @@ impl Router {
             notice: None,
             highlight: 0,
             grid: None,
+            focus: Focus::default(),
             navigated: false,
             last_flush: Instant::now(),
             reload: None,
@@ -188,7 +195,7 @@ impl Router {
             last_shown: None,
             panel: None,
             last_panel: None,
-            model_path: None,
+            model_dirs: ModelDirs::default(),
             bundled_schemes: None,
             scheme_slot: SchemeSlot::default(),
             model_loader: None,

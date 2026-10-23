@@ -92,7 +92,7 @@ fn details(
     });
     let rate = |value: Option<f64>| value.map_or(NONE_YET.to_owned(), percent);
     let code = keys_per_hanzi(total).map_or(NONE_YET.to_owned(), |v| format!("{v:.1} 键/字"));
-    const SPEED: &str = "上屏的汉字除以在打字的时间（词与词之间的间隔也算，停顿超过 5 秒的那段不算）；只算从这一版起选词打出的字";
+    const SPEED: &str = "每分钟上屏的字数，停顿超过 5 秒不算";
     let mut rows = vec![
         detail(ui, page, "最多的一天", None, &best)?,
         detail(ui, page, "有输入的日子平均", None, &average)?,

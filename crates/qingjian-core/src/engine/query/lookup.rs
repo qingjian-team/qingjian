@@ -46,16 +46,48 @@ impl Engine {
             .unwrap_or_default()
     }
 
+    /// 词级排序里一个候选的上下文得分：语言模型（不认识就按词频兜底）与个人 n-gram 插值，再乘读音占比。
+    pub(in crate::engine) fn word_log_prob(&self, hit: &Match<'_>, log_total: f64) -> f64 {
+        sentence::transition_log_prob(
+            &*self.language_model,
+            self.personal(),
+            self.chain.context(),
+            hit.text,
+            sentence::fallback_log_prob(hit.frequency, hit.secondary, log_total),
+        ) - sentence::reading_cost(hit)
+    }
+
     /// 主词库与用户词一起查（每个位置多种写法）。用户词是用户自己选过的（云联想接受的词等），排序上靠 weight 自然靠前。
+    /// 补充词库只要音节数正好对上的：它的长词当前缀补全会占满第一页（`anzhao` 全是 按照规定 / 按照相关）。
     pub(in crate::engine) fn lookup_all(
         &self,
         positions: &[Vec<qingjian_dictionary::SyllablePattern<'_>>],
     ) -> Vec<Match<'_>> {
         let mut hits = self.dictionary.lookup_pattern_alt(positions);
         for dictionary in self.all_dictionaries().into_iter().skip(1) {
-            hits.extend(dictionary.lookup_pattern_alt(positions));
+            if dictionary.is_secondary() {
+                hits.extend(dictionary.lookup_exact_alt(positions));
+            } else {
+                hits.extend(dictionary.lookup_pattern_alt(positions));
+            }
         }
         hits
+    }
+
+    /// `text` 按这串音节在补充词库以外的词库里（主词库、附加词库、用户词）。
+    pub(in crate::engine) fn in_primary_dictionary(
+        &self,
+        text: &str,
+        syllables: &[String],
+    ) -> bool {
+        let patterns: Vec<_> = syllables
+            .iter()
+            .map(|s| qingjian_dictionary::SyllablePattern::complete(s))
+            .collect();
+        self.all_dictionaries()
+            .into_iter()
+            .filter(|d| !d.is_secondary())
+            .any(|d| d.lookup_exact(&patterns).iter().any(|m| m.text == text))
     }
 
     /// 只要音节数正好等于位置数的词，主词库与用户词一起查。

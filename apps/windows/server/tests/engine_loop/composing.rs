@@ -495,3 +495,18 @@ fn self_drawn_window_gets_input_mode() {
     assert!(!mode.english && mode.traditional && mode.full_width);
     assert_eq!(mode.scheme, "小鹤双拼");
 }
+
+#[test]
+fn space_on_an_email_address_commits_it_without_the_space() {
+    let mut router = router();
+    type_letters(&mut router, "qingjian");
+    let (_, _, frame) = press(&mut router, punct('@'));
+    assert_eq!(
+        candidate_texts(&frame)[..2],
+        ["qingjian@", "qingjian@qq.com"]
+    );
+    press(&mut router, function_key(0x28));
+    let (_, commit, after) = press(&mut router, letter(' '));
+    assert_eq!(commit.as_deref(), Some("qingjian@qq.com"));
+    assert!(after.is_empty());
+}

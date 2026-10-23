@@ -117,9 +117,7 @@ fn manage(
             ui,
             page,
             SettingRow::new("导出列出的词")
-                .info(
-                    "按当前的筛选与搜索导出；Anki 用「导入文件」导入，正面是译词，背面是中文与例句",
-                )
+                .info("导出当前列出的词")
                 .control(buttons),
             "vocabulary-export",
         )?,
@@ -127,7 +125,7 @@ fn manage(
             ui,
             page,
             SettingRow::new("清空生词本")
-                .info("删掉正在看的这门语言的全部记录，候选里的生词标记从头算起")
+                .info("删掉这门语言的全部记录")
                 .control(clear),
             "vocabulary",
         )?,

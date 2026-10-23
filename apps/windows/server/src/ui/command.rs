@@ -3,7 +3,7 @@
 use qingjian_platform::protocol::{Frame, ScreenRect};
 use qingjian_render::Mode;
 
-use crate::dispatch::{KeyHintView, PanelFrame, RenderSettings, StatusView};
+use crate::dispatch::{CandidateMenu, KeyHintView, PanelFrame, RenderSettings, StatusView};
 
 /// 交给 UI 线程执行的命令。`Frame` 较大，装箱免得枚举过胖。
 pub(super) enum UiCommand {
@@ -27,4 +27,10 @@ pub(super) enum UiCommand {
 
     /// 换画法（渲染器 / 字体）。
     Configure(RenderSettings),
+
+    /// 在候选窗口上弹右键菜单。
+    Menu(CandidateMenu),
+
+    /// 收起右键菜单。
+    MenuClose,
 }

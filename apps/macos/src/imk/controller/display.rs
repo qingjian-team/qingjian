@@ -1,17 +1,21 @@
 //! 查询与呈现：刷新候选、画候选窗、整句补全、翻页与高亮。
 
 use super::*;
+use qingjian_core::candidate::arrows::{self, Arrow, ArrowAction};
 use qingjian_platform::HighlightKeys;
 
 impl QingjianInputController {
     /// 按当前缓冲区重新查候选、更新 marked text，回到第一页并重画候选窗口。
     pub(super) fn refresh(&self, client: TextClient<'_>) {
-        // 本地整句模型与自动空格要看光标前文：一段组句只在第一键读一次（组句中它不变；应用偶尔不回话也不至于让前文来回换），
+        // 本地整句模型、选词模型与自动空格要看光标前文：一段组句只在第一键读一次（组句中它不变；应用偶尔不回话也不至于让前文来回换），
         // 读应用文本要等应用回话，放在借 Host 之外（见 request_prediction）
         // 模型还在后台加载也读：接上时会补这一轮的重排，前文得先备好
         let wants_context = host::with(|h| {
             h.attach_loaded_model();
-            (h.engine.has_sentence_scorer() || h.model_loading() || h.engine.auto_space())
+            (h.engine.has_sentence_scorer()
+                || h.engine.has_choice_model()
+                || h.model_loading()
+                || h.engine.auto_space())
                 && h.engine.composition().text().chars().count() == 1
         })
         .unwrap_or(false);
@@ -41,10 +45,13 @@ impl QingjianInputController {
                     cursor = query.marked_cursor();
                     preedit =
                         Preedit::from_marked(&query.marked_segments(), query.segments_cursor());
-                    query.candidates.items
+                    let candidates = std::mem::take(&mut query.candidates.items);
+                    (candidates, Some(query))
                 })
                 .unwrap_or_default();
+            let (candidates, spelling) = candidates;
             h.reset_session(preedit, candidates);
+            h.session.spelling = spelling;
             h.schedule_rescoring();
             (marked, cursor, h.preedit_mode.inline())
         }) else {
@@ -82,13 +89,19 @@ impl QingjianInputController {
         true
     }
 
-    /// 记下光标位置并按会话状态重画候选窗口。
+    /// 记下光标位置并按会话状态重画候选窗口；高亮换了切法不同的候选时 marked text 跟着换。
     pub(super) fn render(&self, client: TextClient<'_>) {
         let anchor = client.caret_rect();
-        host::with(|h| {
+        let marked = host::with(|h| {
+            let marked = h.follow_highlight().filter(|_| h.preedit_mode.inline());
             h.anchor = anchor;
             h.render();
-        });
+            marked
+        })
+        .flatten();
+        if let Some((text, cursor)) = marked {
+            client.set_marked_text(&text, cursor);
+        }
     }
 
     /// 发一次联想请求。Secure Input 里绝不发；没接联想器时是空操作。
@@ -146,6 +159,52 @@ impl QingjianInputController {
         client.insert_text(&text);
         self.refresh(client);
         true
+    }
+
+    /// 方向键分两区时（[`Host::two_area_arrows`]）照 Core 的 [`arrows::route`] 走，规则与 Windows 壳的 `two_area_key` 同一份。
+    /// 返回是不是归了这套规则（不是的话调用方照旧走 [`Self::move_highlight`] / [`Self::move_cells`]）。
+    pub(super) fn two_area_arrow(&self, arrow: Arrow, client: TextClient<'_>) -> bool {
+        /// 拼音光标动了要重新查询；高亮或焦点动了只重画。
+        enum Moved {
+            Cursor,
+            Highlight(bool),
+        }
+        let moved = host::with(|h| {
+            if !h.two_area_arrows() || h.session.layout.is_empty() {
+                return None;
+            }
+            let matrix = h.session.matrix(h.grid_keys());
+            Some(match arrows::route(arrow, h.session.focus, matrix) {
+                ArrowAction::MoveCursor(delta) => {
+                    if delta < 0 {
+                        h.engine.move_cursor_left();
+                    } else {
+                        h.engine.move_cursor_right();
+                    }
+                    Moved::Cursor
+                }
+                ArrowAction::MoveHighlight(delta) if h.session.grid.is_some() => {
+                    Moved::Highlight(h.session.move_cells(delta))
+                }
+                ArrowAction::MoveHighlight(delta) => {
+                    Moved::Highlight(h.session.move_highlight(delta))
+                }
+                ArrowAction::MoveRow(delta) => Moved::Highlight(h.session.move_rows(delta)),
+                ArrowAction::Expand => Moved::Highlight(h.session.move_rows(1)),
+                ArrowAction::Focus(focus) => {
+                    h.session.focus = focus;
+                    Moved::Highlight(true)
+                }
+                ArrowAction::Stay => Moved::Highlight(false),
+            })
+        })
+        .flatten();
+        match moved {
+            Some(Moved::Cursor) => self.refresh(client),
+            Some(Moved::Highlight(true)) => self.render(client),
+            Some(Moved::Highlight(false)) | None => {}
+        }
+        moved.is_some()
     }
 
     /// 上下键。高亮逐个移动，越过页边自动翻页；横排矩阵开着（`[general] horizontal_grid`）时改为：
@@ -251,7 +310,7 @@ impl QingjianInputController {
     }
 
     /// 翻页键：翻得动就翻页并吃键，返回 `true`。`-` / `=` 在**没有上一页 / 下一页**时返回 `false`，
-    /// 由调用方按普通字符处理 —— 没有上一页时 `-` 就是 `-`（见 `docs/user/getting-started/keys.md`
+    /// 由调用方按普通字符处理 —— 没有上一页时 `-` 就是 `-`（见 `docs/user/personalize/keys-settings.md`
     /// 的 `[general] page_keys`）。`fall_through` 为假时（问字模式里按键是问题内容）翻不动也吃键；
     /// 别的翻页键（`[` `]` `,` `.`）一律吃键；`step` 是 [`Self::page_step`] 的结果，`None` 时不是翻页键 —— 落字会往文档里插标点。非翻页键一律返回 `false`。
     pub(super) fn page_key(

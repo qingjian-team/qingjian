@@ -1,6 +1,7 @@
 //! 启动：加载词库 / 语言模型 / 释义表 / 学习数据，建 Engine 与候选窗口，装进线程局部的 HOST。
 
 use super::*;
+use crate::candidates::MenuHandlers;
 
 /// 加载数据并建立单例。必须在主线程、在 IMKServer 建立之前调用。版本显示在菜单末行与「关于」页。
 pub fn init(mtm: MainThreadMarker, info: &BundleInfo) -> Result<(), HostError> {
@@ -118,6 +119,10 @@ pub fn init(mtm: MainThreadMarker, info: &BundleInfo) -> Result<(), HostError> {
     let window = CandidateWindow::new(mtm);
     window.set_click_handler(Box::new(crate::imk::click));
     window.set_panel_mouse_handler(Box::new(crate::imk::panel_mouse));
+    window.set_menu_handlers(MenuHandlers {
+        items: Box::new(crate::imk::menu_items),
+        pick: std::rc::Rc::new(crate::imk::menu_pick),
+    });
     let mut indicator = ModeIndicator::new(mtm);
     let menu = InputMenu::new(mtm, version);
     indicator.set_menu(&menu.ns_menu());
@@ -140,6 +145,7 @@ pub fn init(mtm: MainThreadMarker, info: &BundleInfo) -> Result<(), HostError> {
             applied_aux_code: None,
             aux_files: Vec::new(),
             code_word_files: Vec::new(),
+            dictionary_files: Vec::new(),
             aux_code_show: false,
             dictionary_list: Vec::new(),
             learning_language,
@@ -153,7 +159,6 @@ pub fn init(mtm: MainThreadMarker, info: &BundleInfo) -> Result<(), HostError> {
             punct_commits: false,
             scheme_slot: Default::default(),
             translation_keys: ShortcutConfig::default().translation_keys(),
-            delete_keys: ShortcutConfig::default().delete_keys(),
             status: None,
             input_log_enabled: None,
             translate_keys: KeyCombo::TRANSLATE_DEFAULT,

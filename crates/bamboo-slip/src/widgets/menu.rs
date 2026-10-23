@@ -10,10 +10,11 @@ use taffy::{Dimension, FlexDirection, LengthPercentageAuto, NodeId, Position, Re
 use super::ScrollArea;
 use super::WidgetTheme;
 use super::check_mark::CheckMark;
-use super::parts::{DISABLED_OPACITY, centered, label, overlay, padding, row, solid};
+use super::parts::{DISABLED_OPACITY, centered, label, overlay, padding};
+use super::popup_menu::{item_style, item_visual, panel_shadow, panel_visual};
 use crate::animation::Easing;
 use crate::error::RenderError;
-use crate::scene::{Effect, EffectKind, Visual};
+use crate::scene::Visual;
 use crate::ui::{Interact, Ui};
 
 /// 菜单最宽、最高（点），离窗口底边与触发控件的距离（点）。
@@ -124,15 +125,9 @@ impl<'a> Menu<'a> {
                 } else {
                     colors.hover
                 });
-            let node = ui.scene().node(
-                Style {
-                    padding: padding(theme, 5.0, 8.0),
-                    flex_shrink: 0.0,
-                    ..row(theme, 6.0)
-                },
-                solid(fill, None, radius - theme.px(2.0)),
-                &[check, text],
-            )?;
+            let node =
+                ui.scene()
+                    .node(item_style(theme), item_visual(theme, fill), &[check, text])?;
             if disabled {
                 ui.scene().set_opacity(node, DISABLED_OPACITY);
             }
@@ -179,25 +174,11 @@ impl<'a> Menu<'a> {
                 flex_direction: FlexDirection::Column,
                 ..Style::default()
             },
-            solid(
-                Some(colors.popup),
-                Some((theme.px(1.0), colors.line)),
-                radius,
-            ),
+            panel_visual(theme),
             &[scroll],
         )?;
         ui.scene().set_clip(panel, radius);
-        ui.scene().set_effects(
-            panel,
-            vec![Effect {
-                kind: EffectKind::DropShadow,
-                x: 0.0,
-                y: theme.px(6.0),
-                blur: theme.px(16.0),
-                spread: 0.0,
-                color: colors.shadow,
-            }],
-        );
+        ui.scene().set_effects(panel, vec![panel_shadow(theme)]);
         let scrim = ui.scene().node(overlay(), Visual::Group, &[])?;
         ui.interact(
             scrim,

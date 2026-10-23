@@ -1,4 +1,5 @@
 mod decay;
+mod demotions;
 mod learner_impl;
 mod tables;
 
@@ -28,6 +29,12 @@ const USER_NGRAM_FILE: &str = "user-ngram.tsv";
 
 /// 按输入串记的选择文件名，与词频文件同目录：`输入串\t词\t次数`。
 const USER_CHOICES_FILE: &str = "user-choices.tsv";
+
+/// 候选菜单里降权的词，与词频文件同目录：`输入串\t词\t降了几次`。
+const USER_DEMOTED_FILE: &str = "user-demoted.tsv";
+
+/// 一个词在一个输入串下最多降几次。
+const MAX_DEMOTION: u32 = 99;
 
 /// 个人英文词表文件名，与词频文件同目录：`词\t次数`（词按第一次敲的写法存）。
 const USER_ENGLISH_FILE: &str = "user-english.tsv";
@@ -105,6 +112,12 @@ pub struct FrequencyLearner {
 
     /// 个人敲错表自上次保存后是否有变化。
     typos_dirty: bool,
+
+    /// 输入串 → (词 → 用户在候选菜单里降了它几次)。
+    demoted: HashMap<String, HashMap<String, u32>>,
+
+    /// 降权表自上次保存后是否有变化。
+    demoted_dirty: bool,
 }
 
 impl Default for FrequencyLearner {
@@ -127,6 +140,8 @@ impl Default for FrequencyLearner {
             english_dirty: false,
             typos: HashMap::default(),
             typos_dirty: false,
+            demoted: HashMap::default(),
+            demoted_dirty: false,
         }
     }
 }
@@ -238,6 +253,11 @@ impl FrequencyLearner {
         if let Some(source) = read_text_lossy(Self::typos_days_path(&path).as_path())? {
             learner.load_typos_days(&source);
         }
+        let demoted_path = Self::demoted_path(&path);
+        if let Some(source) = read_text_lossy(&demoted_path)? {
+            let skipped = learner.load_demoted(&source);
+            note_skipped(&demoted_path, skipped);
+        }
         learner.path = Some(path);
         Ok(learner)
     }
@@ -258,6 +278,7 @@ impl FrequencyLearner {
             Self::english_days_path(frequency_path),
             Self::typos_path(frequency_path),
             Self::typos_days_path(frequency_path),
+            Self::demoted_path(frequency_path),
         ]
     }
 
@@ -318,6 +339,7 @@ impl FrequencyLearner {
             || self.ngram_dirty
             || self.choices_dirty
             || self.typos_dirty
+            || self.demoted_dirty
     }
 }
 

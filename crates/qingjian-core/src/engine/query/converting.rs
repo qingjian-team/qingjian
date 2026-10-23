@@ -16,7 +16,7 @@ impl Engine {
         english_tail: Option<&EnglishTail>,
         head_wins: bool,
     ) {
-        let Some(best) = segmentations.first() else {
+        let Some(best) = self.sentence_segmentation(segmentations, typos) else {
             return;
         };
         let keys = self.composition.scope();
@@ -67,6 +67,35 @@ impl Engine {
         }
     }
 
+    /// 整句按哪种切分转：切分器只按结构排序（音节少、完整的在前），打平时靠贪心，`shangou` 排在前面的是 `shang ou`。
+    /// 打平的几种（音节数与不完整音节数都与第一种相同）各转一遍，取路径分最高的，分数相同时留排在前面的。
+    pub(in crate::engine) fn sentence_segmentation<'s>(
+        &self,
+        segmentations: &'s [Segmentation],
+        typos: bool,
+    ) -> Option<&'s Segmentation> {
+        let first = segmentations.first()?;
+        let tied = |s: &&Segmentation| {
+            s.syllables.len() == first.syllables.len()
+                && s.incomplete_count() == first.incomplete_count()
+        };
+        let mut best = (f64::NEG_INFINITY, first);
+        for segmentation in segmentations
+            .iter()
+            .take_while(tied)
+            .take(TIED_SEGMENTATIONS)
+        {
+            let score = self
+                .convert_sentence(&segmentation.patterns(), typos)
+                .filter(|conversion| !conversion.has_placeholder())
+                .map_or(f64::NEG_INFINITY, |conversion| conversion.score);
+            if score > best.0 {
+                best = (score, segmentation);
+            }
+        }
+        Some(best.1)
+    }
+
     /// 整段拼音的整句候选：最优切分至少两个音节、且最优路径不止一个词时才有（空格上屏的就是它）。
     /// 整段本身就是词库里的词时不重复；有音节没转成字的不算句子。
     /// 词级候选里已有同文本同读音的候选时不出（那条留在词级排序给它的位置），同文本不同读音的从 `items` 里去掉。
@@ -112,12 +141,18 @@ impl Engine {
             return Vec::new();
         }
         // 不按原样读的路径（敲错边 / 模糊音）不许压过「敲的拼音本身就是一个词」：`jineng` 按 `jin eng` 切时
-        // 词图里没有 技能，敲错边读出 近藤；`ceshi` 读出 的是。词级候选里有音节正好拼成整段输入的词时退回原样的路径
+        // 词图里没有 技能，敲错边读出 近藤；`ceshi` 读出 的是。词级候选里有音节正好拼成整段输入的词时退回原样的路径。
+        // 只认语言模型认识的主词库词（没接模型时认全部主词库词）：青简词库里几乎每种读音都有个词
+        //（`zanen` 的 赞恩 / 咋嫩、`jiusi` 的 就死），算上它们敲错就再也纠不回 咱们 / 就是；模型没见过的词交给词图按兜底分去比
         if paths[0].altered() {
             let letters = best.joined("");
-            let spelled_exactly = items
-                .iter()
-                .any(|c| c.kind == CandidateKind::Chinese && c.syllables.concat() == letters);
+            let spelled_exactly = items.iter().any(|c| {
+                c.kind == CandidateKind::Chinese
+                    && c.syllables.concat() == letters
+                    && self.in_primary_dictionary(&c.text, &c.syllables)
+                    && (self.language_model.is_empty()
+                        || self.language_model.log_prob(None, &c.text).is_some())
+            });
             if spelled_exactly {
                 paths = self.sentence_paths(&best.patterns(), false, false, wanted);
             }
@@ -139,10 +174,16 @@ impl Engine {
             // 整段本来就是一个词时不出整句；但路径靠敲错变体把整段读成的一个词（`meiganxi` → 没关系）是噪声信道的判断，
             // 词级查询按原样查不到它，作为普通词候选插到最前。只读了一部分（末尾没打完的音节没算进去）的不插。
             // 备选只收真整句，单个词的第 2、3 条路径是噪声
+            // 补充词库的整词（只用、可到）在词级排序里低一档，排在 智永 这种主词库生僻词后面；
+            // 词图拿语言模型比过它和拆开的读法，它是最优就照样插到最前
+            let whole_secondary = first
+                && conversion.word_count() == 1
+                && conversion.syllables.len() == best.syllables.len()
+                && !self.in_primary_dictionary(&conversion.text, &conversion.syllables);
             let kind = if conversion.word_count() >= 2 {
                 CandidateKind::Sentence
             } else if first
-                && conversion.altered()
+                && (conversion.altered() || whole_secondary)
                 && conversion.syllables.len() == best.syllables.len()
             {
                 CandidateKind::Chinese
@@ -157,8 +198,11 @@ impl Engine {
             // 词级候选里已经有同样的文本：读音也相同就是同一个候选，不重复插、词留在词级排序给它的位置
             //（先是 / 有的 这种整句恰好拼成一个词的，词级排序更可信）；读音不同的是按别的读音对上的词
             //（云端学来的错读音用户词 `我的 wo di` 靠敲错变体对上 `wode`），那条不是这个候选，去掉它，整句以正确读音顶上
+            // 撞上的是补充词库的词就不算：它在词级排序里低一档，留着它等于把词图选的首选压到后面去
             if let Some(index) = items.iter().position(|c| c.text == conversion.text) {
-                if items[index].syllables == conversion.syllables {
+                if items[index].syllables == conversion.syllables
+                    && self.in_primary_dictionary(&items[index].text, &items[index].syllables)
+                {
                     // 首选与词级候选撞上：整句这边一条都不出（备选插在它前面会绕到那条词前面去）
                     if first {
                         return Vec::new();

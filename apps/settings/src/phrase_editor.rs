@@ -1,4 +1,4 @@
-//! 自定义短语的编辑：新增或改一条时的草稿（输入码、内容在 `Settings::fields` 里），保存时整张表交给
+//! 自定义短语的编辑：新增或改一条时的草稿（输入码、权重、内容在 `Settings::fields` 里），保存时整张表交给
 //! `Config::set_custom_phrases` 校验写回；打开编辑后表被别处改了，保存时不覆盖、草稿留着。
 
 use qingjian_core::CustomPhrase;
@@ -11,9 +11,6 @@ pub struct PhraseEditor {
 
     /// 打开时那一条的样子，保存前比一下有没有被别处改过。
     pub original: Option<CustomPhrase>,
-
-    /// 候选位置 1–9。
-    pub position: usize,
 
     pub enabled: bool,
 
@@ -29,7 +26,6 @@ impl PhraseEditor {
         Self {
             index: None,
             original: None,
-            position: 1,
             enabled: true,
             error: None,
             confirm_delete: false,
@@ -40,7 +36,6 @@ impl PhraseEditor {
         Self {
             index: Some(index),
             original: Some(phrase.clone()),
-            position: phrase.position,
             enabled: phrase.enabled,
             error: None,
             confirm_delete: false,
@@ -76,26 +71,24 @@ impl PhraseEditor {
 mod tests {
     use super::*;
 
-    fn phrase(code: &str, position: usize) -> CustomPhrase {
+    fn phrase(code: &str, weight: u32) -> CustomPhrase {
         CustomPhrase {
-            code: code.to_owned(),
-            text: "x".to_owned(),
-            position,
-            enabled: true,
+            weight,
+            ..CustomPhrase::new(code, "x")
         }
     }
 
     #[test]
     fn edits_refuse_to_overwrite_a_changed_list() {
-        let list = vec![phrase("ee", 1), phrase("dz", 1)];
+        let list = vec![phrase("ee", 10), phrase("dz", 10)];
         let editor = PhraseEditor::edit(1, &list[1]);
-        let saved = editor.apply(&list, Some(phrase("dz", 2))).unwrap();
-        assert_eq!(saved[1].position, 2);
-        let changed = vec![phrase("ee", 1), phrase("dz", 3)];
+        let saved = editor.apply(&list, Some(phrase("dz", 20))).unwrap();
+        assert_eq!(saved[1].weight, 20);
+        let changed = vec![phrase("ee", 10), phrase("dz", 30)];
         assert!(editor.apply(&changed, None).is_err());
         assert_eq!(
             PhraseEditor::new()
-                .apply(&list, Some(phrase("a", 1)))
+                .apply(&list, Some(phrase("a", 10)))
                 .unwrap()
                 .len(),
             3

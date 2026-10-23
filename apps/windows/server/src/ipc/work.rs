@@ -1,9 +1,8 @@
 use std::sync::mpsc::Sender;
 
 use qingjian_platform::protocol::{ClientMessage, ServerMessage};
-use qingjian_render::HitTarget;
 
-use crate::dispatch::{PanelMouse, StatusEvent};
+use crate::dispatch::{CandidateMouse, PanelMouse, StatusEvent};
 
 /// 工人线程（独占 [`crate::dispatch::Router`]）的一件活：DLL 的一条消息，或状态条 / 候选窗口 / 符号面板上的一次点击。
 pub enum Work {
@@ -13,8 +12,8 @@ pub enum Work {
     /// UI 线程发来的状态条操作。
     Status(StatusEvent),
 
-    /// UI 线程发来的候选窗口点击。
-    Click(HitTarget),
+    /// UI 线程发来的候选窗口鼠标操作（点击、右键、菜单里点中的项）。
+    Click(CandidateMouse),
 
     /// UI 线程发来的符号面板上的鼠标操作。
     Panel(PanelMouse),

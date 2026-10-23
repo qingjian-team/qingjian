@@ -4,6 +4,7 @@
 //! 走下面用 AppKit 逐项绘制的旧路径（过渡期的退路，渲染器稳定一个版本后删）。
 
 mod click;
+mod context_menu;
 mod matrix;
 mod panel;
 
@@ -14,8 +15,9 @@ use objc2::runtime::AnyObject;
 use objc2::{DefinedClass, MainThreadMarker, MainThreadOnly, define_class, msg_send};
 use objc2_app_kit::{
     NSAppearanceCustomization, NSAppearanceNameAqua, NSAppearanceNameDarkAqua,
-    NSAttributedStringNSStringDrawing, NSBezierPath, NSColor, NSEvent, NSFont, NSFontAttributeName,
-    NSForegroundColorAttributeName, NSStrikethroughStyleAttributeName, NSView,
+    NSAttributedStringNSStringDrawing, NSBezierPath, NSColor, NSEvent, NSEventModifierFlags,
+    NSFont, NSFontAttributeName, NSForegroundColorAttributeName, NSStrikethroughStyleAttributeName,
+    NSView,
 };
 use objc2_foundation::{
     NSArray, NSAttributedString, NSDictionary, NSNumber, NSPoint, NSRect, NSSize, NSString,
@@ -33,6 +35,7 @@ use super::row::{Row, Tone};
 use super::theme::Theme;
 
 pub use click::{ClickHandler, PanelMouseHandler};
+pub use context_menu::MenuHandlers;
 
 /// 视图状态。
 pub struct Ivars {
@@ -68,6 +71,12 @@ pub struct Ivars {
 
     /// 触控板滚动攒下还不够一行的距离（点）。
     scroll_rest: Cell<f64>,
+
+    /// 右键菜单的两头（host 注册）。
+    on_menu: RefCell<Option<MenuHandlers>>,
+
+    /// 右键菜单的面板，第一次右键时建。
+    menu: RefCell<Option<super::menu::MenuPanel>>,
 }
 
 /// preedit 光标的宽度。
@@ -130,7 +139,17 @@ define_class!(
 
         #[unsafe(method(mouseDown:))]
         fn mouse_down(&self, event: &NSEvent) {
-            self.clicked(event);
+            if event.modifierFlags().contains(NSEventModifierFlags::Control) {
+                self.right_clicked(event);
+            } else {
+                self.close_menu();
+                self.clicked(event);
+            }
+        }
+
+        #[unsafe(method(rightMouseDown:))]
+        fn right_mouse_down(&self, event: &NSEvent) {
+            self.right_clicked(event);
         }
 
         #[unsafe(method(scrollWheel:))]
@@ -166,6 +185,8 @@ impl CandidateView {
             on_click: RefCell::new(None),
             on_panel_mouse: RefCell::new(None),
             scroll_rest: Cell::new(0.0),
+            on_menu: RefCell::new(None),
+            menu: RefCell::new(None),
         });
         unsafe { msg_send![super(this), initWithFrame: NSRect::ZERO] }
     }

@@ -90,32 +90,58 @@ fn partly_erased_commit_is_unknown() {
     assert!(!engine.auto_space_before("3"));
 }
 
-#[test]
-fn translation_is_spaced_and_becomes_the_context() {
-    let mut engine = spaced_engine().with_translator(Box::new(FixedTranslator));
-    commit_kaifa(&mut engine);
+fn commit_kaifa_translation(engine: &mut Engine) -> Option<String> {
     engine.set_input("kaifa");
     let mut query = engine.query().unwrap();
     engine.annotate(&mut query.candidates);
     let kaifa = query.candidates.items[0].clone();
+    engine.commit_translation(&kaifa, 0)
+}
+
+#[test]
+fn translation_is_spaced_and_becomes_the_context() {
+    let mut engine = spaced_engine().with_translator(Box::new(FixedTranslator));
+    commit_kaifa(&mut engine);
     assert_eq!(
-        engine.commit_translation(&kaifa, 0).as_deref(),
+        commit_kaifa_translation(&mut engine).as_deref(),
         Some(" develop")
     );
     assert!(!engine.auto_space_before("3"));
     assert!(engine.auto_space_before("开"));
 }
 
+/// 西文的词与词之间要空格（`hola` 接 `mundo`），自动空格关着也补；汉字后面仍归自动空格管。
+#[test]
+fn consecutive_translations_are_spaced_without_auto_space() {
+    let mut engine = engine().with_translator(Box::new(FixedTranslator));
+    assert_eq!(
+        commit_kaifa_translation(&mut engine).as_deref(),
+        Some("develop")
+    );
+    assert_eq!(
+        commit_kaifa_translation(&mut engine).as_deref(),
+        Some(" develop")
+    );
+    // 退格删掉第二个译词连同补的空格，上文回到第一个译词的末字，下一个照样补
+    for _ in 0.." develop".len() {
+        engine.note_backspace();
+    }
+    assert_eq!(
+        commit_kaifa_translation(&mut engine).as_deref(),
+        Some(" develop")
+    );
+    commit_kaifa(&mut engine);
+    assert_eq!(
+        commit_kaifa_translation(&mut engine).as_deref(),
+        Some("develop")
+    );
+}
+
 #[test]
 fn custom_phrase_is_committed_verbatim() {
     let mut engine = spaced_engine();
     engine
-        .set_custom_phrases(vec![crate::CustomPhrase {
-            code: "dk".into(),
-            text: "用docker部署".into(),
-            position: 1,
-            enabled: true,
-        }])
+        .set_custom_phrases(vec![crate::CustomPhrase::new("dk", "用docker部署")])
         .unwrap();
     engine.set_input("dk");
     let phrase = engine.query().unwrap().candidates.items[0].clone();

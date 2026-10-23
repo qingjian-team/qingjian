@@ -10,7 +10,7 @@ if [[ "$version" == *-dev ]]; then
   git diff --quiet HEAD || version+='+'
 fi
 tools/release/data-fetch.sh --verify
-[[ -f data/models/hanzhang-zhiwei/hanzhang-zhiwei-small.qjm && -f data/models/hanzhang-tongbian/hanzhang-tongbian-small.qjm && -f data/generated/dict.qj ]] || { echo '缺少产品数据或含章模型，先运行 tools/release/data-fetch.sh' >&2; exit 1; }
+[[ -f data/models/hanzhang-tongbian/hanzhang-tongbian-small.qjm && -f data/generated/dict.qj ]] || { echo '缺少产品数据或含章模型，先运行 tools/release/data-fetch.sh' >&2; exit 1; }
 
 cargo_output=$(python3 -c 'import os, sys; print(os.path.realpath(sys.argv[1]))' "${CARGO_TARGET_DIR:-$root/target}")
 cargo build --release --locked -p qingjian-linux-server -p qingjian-settings --target-dir "$cargo_output"

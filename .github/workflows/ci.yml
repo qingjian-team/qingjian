@@ -1,4 +1,4 @@
-# 三个 job：Linux 跑 fmt / clippy / 全 workspace 测试（排除 IMK 外壳）；macOS 与 Windows runner 各编各的壳并跑平台测试，
+# Linux 跑 fmt / clippy / 全 workspace 测试（排除 IMK 外壳）；macOS 与 Windows runner 各编各的壳并跑平台测试，Android 编 debug APK，
 # 平台特有的编译错（Objective-C 调用、TSF 导出、WinUI）在 PR 里就暴露，不等发版。仓库公开，Actions 不计费。
 # actions 一律钉到 commit（注释里是对应的标签），Dependabot 每周提 PR 更新；cargo 全加 --locked，Cargo.lock 没提交就报错。
 name: ci
@@ -168,7 +168,7 @@ jobs:
       - name: Test (IMK shell)
         run: cargo test -p qingjian-macos --locked
 
-  # 最老的受支持发行版。docs/user/getting-started/linux.md 写着「Fcitx4 提供 Ubuntu 22.04
+  # 最老的受支持发行版。docs/user/platforms/linux.md 写着「Fcitx4 提供 Ubuntu 22.04
   # 源码安装」并记了「已验证 Ubuntu 22.04 的 GTK3 文本框输入」，而上面 core job 跑在
   # ubuntu-26.04。两边差四年：22.04 是 glibc 2.35 / GCC 11，26.04 是 glibc 2.39+ / GCC 15。
   # 依赖或代码只要用一个 2.35 之后才有的符号，26.04 上全绿、22.04 上一装就崩——
@@ -217,6 +217,45 @@ jobs:
       # 再跑一遍 workspace 测试：老 glibc 上某个依赖编不过或行为不同，在这里暴露。
       - name: Test
         run: cargo test --workspace --exclude qingjian-macos --locked
+
+  # Kotlin 与 Gradle 只有这里编；data/generated/ 不在仓库里，带的是随包样例数据
+  android:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 30
+    env:
+      NDK_VERSION: 29.0.13599879
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
+        with:
+          toolchain: 1.96.0
+          targets: aarch64-linux-android
+
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+
+      # Gradle 8.14 只认到 JDK 24，runner 缺省的是 25
+      - name: Use JDK 21
+        run: |
+          if [[ ! -d "${JAVA_HOME_21_X64:-}" ]]; then
+            echo "runner 上没有 JDK 21（JAVA_HOME_21_X64）：" >&2
+            ls /usr/lib/jvm >&2
+            exit 1
+          fi
+          echo "JAVA_HOME=$JAVA_HOME_21_X64" >> "$GITHUB_ENV"
+
+      # NDK 版本要与 app/build.gradle.kts 的 ndkVersion 一致
+      - name: Install NDK and cargo-ndk
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;$NDK_VERSION" "platforms;android-36" > /dev/null
+          cargo install cargo-ndk --version 4.1.2 --locked
+          echo "sdk.dir=$ANDROID_HOME" > apps/android/local.properties
+
+      - name: Build debug APK
+        working-directory: apps/android
+        run: ./gradlew assembleDebug --no-daemon --console=plain
 
   windows:
     runs-on: windows-latest

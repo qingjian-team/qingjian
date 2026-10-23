@@ -83,7 +83,6 @@ pub(crate) enum Message {
     QuestionMark(bool),
     Translation(Option<usize>),
     TranslationSecond(Option<usize>),
-    DeleteCandidate(Option<usize>),
     /// 只换修饰键，字母键固定用当前的。
     TranslateSelection(Option<usize>),
     PredictShortcut(Option<usize>),

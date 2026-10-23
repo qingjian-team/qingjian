@@ -16,7 +16,6 @@ mod snapshot;
 pub(crate) use english_tail::EnglishTail;
 pub use result::Query;
 pub(super) use result::join_marked;
-pub(super) use result::join_marked_typed;
 pub(super) use snapshot::QuerySnapshot;
 
 impl Engine {
@@ -26,6 +25,7 @@ impl Engine {
     /// 上屏之后接着组句；见 [`Composition::scope`]。
     pub fn query(&self) -> Result<Query, ParseError> {
         self.last_rescored.set(false);
+        self.last_choice.set(None);
         let mut query = match self.query_inner() {
             Ok(query) => query,
             Err(error) => {
@@ -48,10 +48,13 @@ impl Engine {
         };
         query.aux = self.aux_segment();
         query.held = self.held_text();
+        self.apply_demotions(&mut query.candidates.items);
         // 辅码态只出命中码的词：自定义短语没有码，不出
         if self.aux_filter().is_none() {
             self.insert_custom_phrases(&mut query.candidates.items);
         }
+        self.rerank_choices(&mut query.candidates.items);
+        query.spelled = result::spelling_for(&query.segmentations, query.candidates.items.first());
         // 给输入日志留个摘要：上屏时才知道选了什么，这里才知道看到了什么
         // 九宫格没有切分，拼音取拼音行（首选读到的写法），云联想也用它问
         let pinyin = match (&query.correction, &query.typed_display) {
@@ -71,6 +74,7 @@ impl Engine {
                 .map(|c| c.text.clone())
                 .collect(),
             rescored: self.last_rescored.get(),
+            choice: self.last_choice.get(),
         });
         // 繁体输出：出 Core 的最后一步才换，并记下「繁体 → 简体」给上屏还原用。
         // 放在输入日志摘要之后，日志与学习数据一律记简体

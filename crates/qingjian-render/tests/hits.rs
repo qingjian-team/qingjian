@@ -80,3 +80,25 @@ fn candidates_and_their_translations_are_clickable() {
         }
     }
 }
+
+#[test]
+fn menu_items_stack_top_to_bottom_and_take_the_hover() {
+    let Ok(library) = FontLibrary::system("zh-CN") else {
+        eprintln!("没有系统字体，跳过");
+        return;
+    };
+    let mut renderer = Renderer::new(library);
+    let items = ["置顶", "降权", "删除"];
+    let rendered = renderer.render_menu(&items, Some(1), false, 2.0).unwrap();
+    let rows: Vec<_> = (0..items.len())
+        .map(|i| region(&rendered.hits, HitTarget::MenuItem(i)))
+        .collect();
+    assert!(
+        rows.windows(2)
+            .all(|pair| pair[0].y + pair[0].height <= pair[1].y + 0.5)
+    );
+    let (x, y) = center(rows[2], rendered.scale);
+    assert_eq!(rendered.hit_at(x, y), Some(HitTarget::MenuItem(2)));
+    let (width, height) = rendered.content_size_points();
+    assert!(width >= 120.0 && height > 3.0 * 20.0, "{width}×{height}");
+}

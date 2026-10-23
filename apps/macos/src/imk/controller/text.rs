@@ -155,7 +155,7 @@ impl QingjianInputController {
         let semicolon =
             composing && c == ';' && host::with(|h| h.engine.takes_semicolon()).unwrap_or(false);
         // 组句中敲不会转全角的符号（`/` `@`，`-` 由上面的 hyphen 接）：进缓冲区，整段成为英文直输段（`a@b`），
-        // 中文模式下也能打带符号的英文；翻页键除外；⇧+数字（! @ # …）在前面已被删候选 / 译词键截走。
+        // 中文模式下也能打带符号的英文；翻页键除外。
         // 会转全角的标点（`,` `.` `?` `!` 引号、括号这些）不进缓冲区：落到下方先把高亮候选上屏再补全角标点
         //（`nihao,` 一气打完「你好，」），与 Windows / Linux 壳一致；这条上屏行为由 `[general] punct_commits`
         // 控制（缺省开），关掉恢复老行为：标点也进缓冲区（英文直输段）。
@@ -190,9 +190,16 @@ impl QingjianInputController {
             self.refresh(client);
             return true;
         }
-        // 直输段里的空格：整段原样上屏，空格本身也交给应用（`hello, world` 里的空格要在）
+        // 直输段里的空格：整段原样上屏，空格本身也交给应用（`hello, world` 里的空格要在）；
+        // 高亮挪到邮箱地址上时只上屏地址
         if raw && c == ' ' {
+            let address = host::with(|h| h.session.candidate(h.session.highlighted))
+                .flatten()
+                .is_some_and(|candidate| candidate.kind == qingjian_core::CandidateKind::Shortcut);
             self.commit_highlighted(client);
+            if address {
+                return true;
+            }
             host::with(|h| h.engine.note_passthrough(c));
             return false;
         }
@@ -237,7 +244,7 @@ impl QingjianInputController {
                     return true;
                 }
                 // 翻页键：翻得动就翻页；`-` / `=` 翻不动时当普通字符落进英文直输段
-                //（没有上一页时 `-` 就是 `-`，见 docs/user/getting-started/keys.md 的 `[general] page_keys`）
+                //（没有上一页时 `-` 就是 `-`，见 docs/user/personalize/keys-settings.md 的「翻页键」）
                 c if page_step.is_some() => {
                     if !self.page_key(c, page_step, !question, client) {
                         host::with(|h| h.engine.push(c));

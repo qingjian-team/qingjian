@@ -178,6 +178,26 @@ mod tests {
     }
 
     #[test]
+    fn imports_tone_numbered_pinyin() {
+        let dir =
+            std::env::temp_dir().join(format!("qingjian-import-tones-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let tsv = dir.join("toned.tsv");
+        std::fs::write(&tsv, "东西\tdong1 xi5\t20\n绿色\tlv4 se4\t10\n").unwrap();
+        assert!(!format::is_code_table(
+            &std::fs::read_to_string(&tsv).unwrap()
+        ));
+        let imported = import(&tsv, &dir.join("dicts")).unwrap();
+        let dictionary = Dictionary::from_path(&imported.path).unwrap();
+        let hit = dictionary.lookup(&["dong", "xi"], false)[0];
+        assert_eq!((hit.text, hit.pinyin), ("东西", "dong xi"));
+        assert_eq!(hit.tones.to_vec(2), [1, 5]);
+        assert_eq!(dictionary.lookup(&["lv", "se"], false)[0].text, "绿色");
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
     fn refuses_wubi_words_as_pinyin() {
         let dir = std::env::temp_dir().join(format!("qingjian-import-wubi-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);

@@ -41,7 +41,7 @@ pub fn cloud(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderErr
         ui,
         page,
         "启用",
-        Some("打字时把光标附近几十个字发给下面的服务，让模型补全整句、联想下文；密码框里不发"),
+        Some("把光标附近的文字发给下面的服务补全整句"),
         ("predict", "enabled"),
         predict.enabled,
         false,
@@ -52,7 +52,7 @@ pub fn cloud(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderErr
                 ui,
                 page,
                 "自动联想",
-                Some("停键后自动请求；关掉后在组句中按配置的快捷键手动联想，默认 Ctrl + Alt + J"),
+                Some("关掉后按 Ctrl + Alt + J 手动联想"),
                 ("predict", "automatic"),
                 predict.automatic,
                 off,
@@ -70,7 +70,7 @@ pub fn cloud(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderErr
     rows.extend([
         SettingRow::new("云端词")
             .info(if Feature::CloudRequestControls.here() {
-                "自动结果补在第一页末尾，空格选本地首项；手动联想的结果放到前面的空位"
+                "云端的词补在第一页末尾"
             } else {
                 "云端的词到了补进第一页末尾这几格，前面的本地候选不动"
             })
@@ -89,9 +89,7 @@ pub fn cloud(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderErr
             ui,
             page,
             "整句候选翻译",
-            Some(
-                "本地整句候选出来后，单独把这条候选发给服务，译文随后显示在它右侧；不发光标前后的文字",
-            ),
+            Some("整句候选右侧显示译文"),
             ("predict", "sentence_translation"),
             predict.sentence_translation,
             off,
@@ -102,7 +100,7 @@ pub fn cloud(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderErr
             ui,
             page,
             "生词本整句翻译",
-            Some("打完一句话后单独把这句发给服务，译文记进生词本的时间线；不发光标前后的文字"),
+            Some("把打完的句子翻译后记进生词本"),
             ("predict", "vocabulary_translation"),
             predict.vocabulary_translation,
             off,
@@ -127,7 +125,7 @@ pub fn cloud(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderErr
             page,
             FieldId::ApiKey,
             "API 密钥",
-            Some("只存在这台电脑的配置文件里，打包日志时会抹掉"),
+            Some("只存在这台电脑上"),
             if key_set {
                 "已设置，输入新的可替换"
             } else {
@@ -147,7 +145,7 @@ pub fn cloud(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderErr
                 ui,
                 page,
                 SettingRow::new("连接")
-                    .info("用上面填的地址、模型、密钥发一条最短的请求")
+                    .info("试一下上面的设置能不能用")
                     .control(button),
                 "cloud",
             )?

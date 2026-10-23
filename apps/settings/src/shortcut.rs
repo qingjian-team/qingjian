@@ -7,7 +7,6 @@ use qingjian_platform::{Config, KeyCombo, Modifiers};
 pub enum Shortcut {
     Translation,
     TranslationSecond,
-    DeleteCandidate,
     TranslateSelection,
     Predict,
     /// 辅码触发键（单个符号，不带修饰键）。
@@ -16,10 +15,9 @@ pub enum Shortcut {
 
 impl Shortcut {
     #[cfg(test)]
-    pub const ALL: [Self; 6] = [
+    pub const ALL: [Self; 5] = [
         Self::Translation,
         Self::TranslationSecond,
-        Self::DeleteCandidate,
         Self::TranslateSelection,
         Self::Predict,
         Self::AuxCodeKey,
@@ -29,7 +27,6 @@ impl Shortcut {
         match self {
             Self::Translation => "上屏第一个译词",
             Self::TranslationSecond => "上屏第二个译词",
-            Self::DeleteCandidate => "删除候选",
             Self::TranslateSelection => "翻译选中文字",
             Self::Predict => "按需 AI 联想",
             Self::AuxCodeKey => "触发键",
@@ -41,7 +38,6 @@ impl Shortcut {
         match self {
             Self::Translation => ("shortcut", "translation"),
             Self::TranslationSecond => ("shortcut", "translation_second"),
-            Self::DeleteCandidate => ("shortcut", "delete_candidate"),
             Self::TranslateSelection => ("shortcut", "translate_selection"),
             Self::Predict => ("shortcut", "predict"),
             Self::AuxCodeKey => ("general", "aux_code_key"),
@@ -51,9 +47,7 @@ impl Shortcut {
     /// 录制时的提示。
     pub fn prompt(self) -> &'static str {
         match self {
-            Self::Translation | Self::TranslationSecond | Self::DeleteCandidate => {
-                "按住修饰键再按个数字"
-            }
+            Self::Translation | Self::TranslationSecond => "按住修饰键再按个数字",
             Self::TranslateSelection | Self::Predict => "按下修饰键 + 字母",
             Self::AuxCodeKey => "按一个符号键",
         }
@@ -66,7 +60,6 @@ impl Shortcut {
         match self {
             Self::Translation => digits(first),
             Self::TranslationSecond => digits(second),
-            Self::DeleteCandidate => digits(shortcut.delete_keys()),
             Self::TranslateSelection => combo_label(shortcut.translate_selection),
             Self::Predict => combo_label(shortcut.predict),
             Self::AuxCodeKey => config.general.aux_code_key().to_string(),
@@ -108,16 +101,14 @@ impl Shortcut {
                 }
                 .key_string())
             }
-            Self::Translation | Self::TranslationSecond | Self::DeleteCandidate => {
+            Self::Translation | Self::TranslationSecond => {
                 if modifiers.is_empty() {
                     return Err("要按住修饰键".to_owned());
                 }
-                let shortcut = &config.shortcut;
-                let (first, second) = shortcut.translation_keys();
+                let (first, second) = config.shortcut.translation_keys();
                 let others = [
                     (Self::Translation, first),
                     (Self::TranslationSecond, second),
-                    (Self::DeleteCandidate, shortcut.delete_keys()),
                 ];
                 if let Some((other, _)) = others
                     .iter()
@@ -209,7 +200,7 @@ mod tests {
                 .accept(&press("1", Held::default()), &config)
                 .is_err()
         );
-        // 删除候选不能跟第一组译词键一样
+        // 第二组译词键不能跟第一组一样
         let same = Held {
             alt: first.option,
             shift: first.shift,
@@ -217,7 +208,7 @@ mod tests {
             logo: first.command,
             ..Held::default()
         };
-        let clash = Shortcut::DeleteCandidate.accept(&press("1", same), &config);
+        let clash = Shortcut::TranslationSecond.accept(&press("1", same), &config);
         assert_eq!(clash, Err("跟「上屏第一个译词」重复了".to_owned()));
         // 自己跟自己不算撞
         assert_eq!(

@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 use std::path::Path;
 
-use qingjian_dictionary::canonical_syllable;
+use qingjian_dictionary::{canonical_syllable, split_tone};
 
 use crate::error::ConvertError;
 
@@ -24,7 +24,8 @@ pub fn rows(path: &Path) -> Result<Vec<(String, u64)>, ConvertError> {
         .collect())
 }
 
-/// `--extra-words` 文件的一行：`词\t次数[\t拼音]`，拼音是空格分隔的音节（短语层由成分词拼出，给了就不再按字猜）。
+/// `--extra-words` 文件的一行：`词\t拼音\t次数`，与词库同一列序；拼音是空格分隔的音节，可带数字声调（短语层由成分词拼出，给了就不再按字猜），
+/// 留空的（`mine` 挖出来的词）按字猜。
 pub struct ExtraWord {
     /// 词。
     pub text: String,
@@ -45,15 +46,15 @@ pub fn extra_words(path: &Path) -> Result<Vec<ExtraWord>, ConvertError> {
         .filter_map(|l| {
             let mut fields = l.split('\t');
             let text = fields.next()?.trim().to_owned();
+            let pinyin = fields.next()?;
             let count = fields.next()?.trim().parse().ok()?;
-            let syllables = fields
-                .next()
-                .map(|p| {
-                    p.split_whitespace()
-                        .map(|s| canonical_syllable(s).to_owned())
-                        .collect::<Vec<_>>()
-                })
-                .filter(|s| !s.is_empty());
+            let syllables = Some(
+                pinyin
+                    .split_whitespace()
+                    .map(|s| canonical_syllable(split_tone(s).0).to_owned())
+                    .collect::<Vec<_>>(),
+            )
+            .filter(|s| !s.is_empty());
             Some(ExtraWord {
                 text,
                 count,
@@ -73,10 +74,13 @@ mod tests {
             "qingjian-extra-words-normalize-{}.tsv",
             std::process::id()
         ));
-        std::fs::write(&path, "策略\t20\tce lue\n虐待\t10\tnue dai\n").unwrap();
+        std::fs::write(&path, "策略\tce lue\t20\n虐待\tnve4 dai4\t10\n回家\t\t30\n").unwrap();
         let words = extra_words(&path).unwrap();
         std::fs::remove_file(path).unwrap();
         assert_eq!(words[0].syllables.as_deref().unwrap(), ["ce", "lve"]);
+        assert_eq!(words[0].count, 20);
         assert_eq!(words[1].syllables.as_deref().unwrap(), ["nve", "dai"]);
+        assert_eq!(words[2].syllables, None);
+        assert_eq!(words[2].count, 30);
     }
 }

@@ -220,6 +220,7 @@ impl Engine {
             scheme: self.scheme_key(),
             english: self.english_mode,
             rescored: snapshot.rescored,
+            choice: snapshot.choice,
             app: self.application.clone(),
             pages: self.page_turns,
             ms,

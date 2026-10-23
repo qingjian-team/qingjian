@@ -17,13 +17,7 @@ use crate::view::parts::actions::with_notice;
 use crate::view::parts::controls::{choice, toggle_info};
 
 /// 组句中固定、不能改的键。
-const FIXED: &str = if cfg!(target_os = "macos") {
-    "组句中固定的键：空格上屏首选，1–9 选词，回车原样上屏，Esc 清空；⌥⌫ 删一个音节，⌘⌫ 删到开头；\
-     ⌥← / ⌥→ 按音节跳，⌘← / ⌘→ 到开头 / 末尾；↑ / ↓ 移动高亮，PageUp / PageDown 与 ⇧Tab 翻页；Tab 采用整句补全。"
-} else {
-    "组句中固定的键：空格上屏首选，1–9 选词，回车原样上屏，Esc 清空；← / → 移动拼音光标，Home / End 到开头 / 末尾；\
-     ↑ / ↓ 移动高亮，PageUp / PageDown 与 Shift + Tab 翻页；Tab 采用整句补全。"
-};
+const FIXED: &str = "组句时：空格上屏首选，1–9 选词，回车上屏拼音，Esc 清空，Tab 采用整句。";
 
 pub fn shortcuts(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderError> {
     let theme = &page.theme;
@@ -47,25 +41,25 @@ pub fn shortcuts(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Rende
     let mode = config.shortcut.mode.sanitized();
     let mut rows = vec![
         SettingRow::new("翻页键")
-            .info("选逗号句号或减号等号时，组句中敲它们是翻页，不再上屏加标点")
+            .info("选了逗号句号，组句时它们用来翻页")
             .control(page_keys)
             .build(ui, theme)?,
     ];
     rows.extend(extra_keys(ui, page, &labels)?);
     rows.extend([
         SettingRow::new("表达式")
-            .info("这个字母开头进表达式：v1+2 出 3")
+            .info("v1+2 出 3")
             .control(mode_key(ui, page, "expression", mode.expression)?)
             .build(ui, theme)?,
         SettingRow::new("问字")
-            .info("这个字母开头问字：usangemu 问「三个木」（要开云服务），u4e00 出对应的字")
+            .info("u4e00 出「一」")
             .control(mode_key(ui, page, "question", mode.question)?)
             .build(ui, theme)?,
         toggle_info(
             ui,
             page,
             "? 也进问字",
-            Some("没在打拼音时敲 ? 先进问字，后面跟字母才是问题，跟别的键还原成问号"),
+            Some("敲 ? 再敲字母问字"),
             ("shortcut", "question_mark"),
             mode.question_mark,
             false,
@@ -92,15 +86,8 @@ pub fn shortcuts(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Rende
         recorder(
             ui,
             page,
-            Shortcut::DeleteCandidate,
-            "按住它再按候选序号：自己造的词整个删掉，词库里的词清掉学习记录",
-            false,
-        )?,
-        recorder(
-            ui,
-            page,
             Shortcut::TranslateSelection,
-            "在应用里选中文字再按它，译文出现在候选窗口：回车替换，Esc 保留原文。要开云服务",
+            "选中文字再按它翻译，回车替换",
             false,
         )?,
     ];
@@ -109,7 +96,7 @@ pub fn shortcuts(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Rende
             ui,
             page,
             Shortcut::Predict,
-            "组句中手动请求 AI 候选，默认 Ctrl + Alt + J；关闭自动联想后仍可使用",
+            "组句时按它请求 AI 候选",
             false,
         )?);
     }
@@ -152,7 +139,7 @@ fn extra_keys(
     if Feature::ExtraPageKeys.here() {
         rows.push(
             SettingRow::new("额外翻页键")
-                .info("跟上面的翻页键一起用；表达式、英文直输段、辅码触发键照旧")
+                .info("和上面的翻页键一起用")
                 .control(page_key_boxes(ui, page, labels)?)
                 .build(ui, theme)?,
         );
@@ -169,7 +156,7 @@ fn extra_keys(
         )?;
         rows.push(
             SettingRow::new("高亮移动键")
-                .info("选 ← / → 时连着拼音行一起走：拼音光标到末尾按 → 才到下一个候选，候选在首位按 ← 退回拼音行；↑ / ↓ 不做事")
+                .info("选 ← / → 时 ← / → 在候选之间移动；横排下 ↑ 移到拼音里改光标位置、↓ 回到候选，竖排下拼音光标到末尾按 → 才到下一个候选")
                 .control(highlight)
                 .build(ui, theme)?,
         );
@@ -188,7 +175,7 @@ fn extra_keys(
         )?;
         rows.push(
             SettingRow::new("Ctrl + . 切换全半角标点")
-                .info("切的是当前中英模式的标点；配置文件里 [shortcut] toggle_punctuation 可以换别的组合键")
+                .info("切换全角、半角标点")
                 .control(switch)
                 .build(ui, theme)?,
         );

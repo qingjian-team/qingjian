@@ -2,19 +2,19 @@
 mod state;
 mod table;
 use crate::preferences::{
-    controls::{button, checkbox, note_full, row_popup, select, set_checked, text_field},
+    controls::{button, checkbox, note_full, row_control, set_checked, text_field},
     layout::{Layout, PAGE_PADDING, ROW_HEIGHT},
     setting::Setting,
     target::PreferencesTarget,
 };
 use objc2::{MainThreadMarker, rc::Retained, runtime::ProtocolObject, sel};
 use objc2_app_kit::{
-    NSBackingStoreType, NSBorderType, NSButton, NSColor, NSControlStateValueOn, NSPopUpButton,
-    NSScrollView, NSTableColumn, NSTableView, NSTextField, NSTextView, NSView, NSWindow,
-    NSWindowStyleMask,
+    NSBackingStoreType, NSBorderType, NSButton, NSColor, NSControlStateValueOn, NSScrollView,
+    NSTableColumn, NSTableView, NSTextField, NSTextView, NSView, NSWindow, NSWindowStyleMask,
 };
 use objc2_foundation::{NSIndexSet, NSPoint, NSRect, NSSize, NSString};
 use qingjian_core::CustomPhrase;
+use qingjian_core::custom_phrase::{DEFAULT_WEIGHT, parse_weight};
 use qingjian_platform::Config;
 use std::cell::{Cell, RefCell};
 use table::PhraseTableSource;
@@ -35,8 +35,8 @@ pub struct PhrasesPage {
     /// 输入码。
     code: Retained<NSTextField>,
 
-    /// 位置。
-    position: Retained<NSPopUpButton>,
+    /// 权重。
+    weight: Retained<NSTextField>,
 
     /// 多行文本。
     text: Retained<NSTextView>,
@@ -68,7 +68,7 @@ impl PhrasesPage {
         for (id, title, width) in [
             ("enabled", "启用", 58.0),
             ("content", "内容", 326.0),
-            ("position", "显示位置", 86.0),
+            ("weight", "权重", 86.0),
         ] {
             let column = NSTableColumn::initWithIdentifier(mtm.alloc(), &NSString::from_str(id));
             column.setTitle(&NSString::from_str(title));
@@ -116,27 +116,22 @@ impl PhrasesPage {
         note_full(
             layout,
             mtm,
-            "输入码为小写字母的条目才用得上，敲全输入码后短语出现在该输入码最靠前的空位；上面的规则优先。 ",
+            "输入码为小写字母的条目才用得上，敲全输入码后出现，排在同权重的规则之后。 ",
         );
         let mut form = Layout::new(520.0, 18.0);
         let layout = &mut form;
         note_full(
             layout,
             mtm,
-            "输入码：1–32 个小写字母。相同输入码可设置多个不同位置；位置冲突时不能保存。 ",
+            "输入码：1–32 个小写字母。同一个输入码下按权重从高到低排在普通候选前面，权重可以相同。 ",
         );
         let code = text_field(mtm, Setting::PhraseDraft, target);
         code.setPlaceholderString(Some(&NSString::from_str("输入码，例如 ee")));
         layout.place(&code, PAGE_PADDING, layout.inner_width(), ROW_HEIGHT);
         layout.next_row(ROW_HEIGHT);
-        let position = row_popup(
-            layout,
-            mtm,
-            "固定候选位置",
-            &(1..=9).map(|n| n.to_string()).collect::<Vec<_>>(),
-            Setting::PhraseDraft,
-            target,
-        );
+        let weight = text_field(mtm, Setting::PhraseDraft, target);
+        weight.setPlaceholderString(Some(&NSString::from_str("1–999")));
+        row_control(layout, mtm, "权重", &weight);
         let enabled = checkbox(mtm, "启用这条规则", Setting::PhraseDraft, target);
         layout.place(&enabled, PAGE_PADDING, layout.inner_width(), ROW_HEIGHT);
         layout.next_row(ROW_HEIGHT);
@@ -197,7 +192,7 @@ impl PhrasesPage {
             editor,
             error,
             code,
-            position,
+            weight,
             text,
             enabled,
             selected: Cell::new(None),
@@ -253,7 +248,9 @@ impl PhrasesPage {
             .setStringValue(&NSString::from_str(p.map_or("", |p| &p.code)));
         self.text
             .setString(&NSString::from_str(p.map_or("", |p| &p.text)));
-        select(&self.position, Some(p.map_or(0, |p| p.position - 1)));
+        self.weight.setStringValue(&NSString::from_str(
+            &p.map_or(DEFAULT_WEIGHT, |p| p.weight).to_string(),
+        ));
         set_checked(&self.enabled, p.is_none_or(|p| p.enabled));
         self.error.setStringValue(&NSString::from_str(""));
         self.editor
@@ -284,13 +281,14 @@ impl PhrasesPage {
         Ok(self.selected.get())
     }
 
-    pub fn draft(&self) -> CustomPhrase {
-        CustomPhrase {
+    /// 表单里填的这一条；权重不是范围内的整数时报错。
+    pub fn draft(&self) -> Result<CustomPhrase, String> {
+        Ok(CustomPhrase {
             code: self.code.stringValue().to_string(),
             text: self.text.string().to_string(),
-            position: self.position.indexOfSelectedItem() as usize + 1,
+            weight: parse_weight(&self.weight.stringValue().to_string())?,
             enabled: self.enabled.state() == NSControlStateValueOn,
-        }
+        })
     }
 }
 
@@ -309,12 +307,7 @@ mod tests {
 
     #[test]
     fn editing_rejects_removed_reordered_and_replaced_rules() {
-        let a = CustomPhrase {
-            code: "aa".into(),
-            text: "甲".into(),
-            position: 1,
-            enabled: true,
-        };
+        let a = CustomPhrase::new("aa", "甲");
         let b = CustomPhrase {
             code: "bb".into(),
             text: "乙".into(),

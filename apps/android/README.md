@@ -3,7 +3,7 @@
 Kotlin 的 `InputMethodService` 壳 + Rust 的 `libqingjian_android.so`。Android 的输入法跑在自己的进程里，
 没有 Server / 薄壳之分，Engine 直接装在 `.so` 里，经 JNI 调用。
 
-功能怎么用见 [docs/user/getting-started/android.md](../../docs/user/getting-started/android.md)，各功能怎么接到 Core、取舍与踩坑见 [docs/notes/android.md](../../docs/notes/android.md)。
+功能怎么用见 [docs/user/platforms/android.md](../../docs/user/platforms/android.md)，各功能怎么接到 Core、取舍与踩坑见 [docs/notes/android.md](../../docs/notes/android.md)。
 
 ## 目录
 
@@ -51,6 +51,8 @@ adb logcat -s qingjian        # Rust 侧日志
 （`data/generated/` 有 `dict.qj` 就带产品数据，没有退回 `assets/sample/` 样例）。只编 arm64。
 
 装好后打开「青简」，按页面上两步启用并切换输入法。
+
+`./gradlew assembleRelease` 出 release 包；版本号取自 `core/Cargo.toml`，签名用的环境变量与发版流程见 [docs/notes/release.md](../../docs/notes/release.md)。
 
 Rust 侧在本机就能测：`cargo test -p qingjian-android`。
 

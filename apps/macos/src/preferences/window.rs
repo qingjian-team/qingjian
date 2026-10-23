@@ -220,7 +220,7 @@ impl PreferencesWindow {
         &self,
         config: &Config,
     ) -> Result<(Option<usize>, qingjian_core::CustomPhrase), String> {
-        Ok((self.phrases.selected(config)?, self.phrases.draft()))
+        Ok((self.phrases.selected(config)?, self.phrases.draft()?))
     }
 
     /// 打开（或带到最前）。

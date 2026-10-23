@@ -3,7 +3,7 @@
 use std::path::Path;
 use std::time::SystemTime;
 
-use qingjian_dictionary::Dictionary;
+use qingjian_dictionary::{Dictionary, GENERAL_DICTIONARY};
 
 use super::Session;
 use crate::options::InputOptions;
@@ -15,9 +15,16 @@ pub(super) type Mounted = (std::path::PathBuf, Option<SystemTime>, u64);
 impl Session {
     /// 交设置时调：按开关列出该挂的文件，与上次挂的一样就不动；坏文件只记日志、跳过。
     pub(super) fn sync_dictionaries(&mut self, options: &InputOptions) {
+        // 通用词库缺省开着、关掉才记进 disabled；别的领域词库缺省关着
         let domains = files(&domains_dir(&self.data_dir))
             .into_iter()
-            .filter(|(id, _)| options.domains.iter().any(|d| d == id));
+            .filter(|(id, _)| {
+                if id == GENERAL_DICTIONARY {
+                    !options.disabled_dictionaries.iter().any(|d| d == id)
+                } else {
+                    options.domains.iter().any(|d| d == id)
+                }
+            });
         let imported = files(&imported_dir(&self.user_dir))
             .into_iter()
             .filter(|(id, _)| !options.disabled_dictionaries.iter().any(|d| d == id));
@@ -33,7 +40,15 @@ impl Session {
         if wanted == self.dictionaries {
             return;
         }
-        let loaded: Vec<Dictionary> = wanted.iter().filter_map(|(path, ..)| open(path)).collect();
+        let loaded: Vec<Dictionary> = wanted
+            .iter()
+            .filter_map(|(path, ..)| {
+                let mut dictionary = open(path)?;
+                let general = path.file_stem().is_some_and(|s| s == GENERAL_DICTIONARY);
+                dictionary.set_secondary(general);
+                Some(dictionary)
+            })
+            .collect();
         tracing::info!(count = loaded.len(), "附加词库已挂上");
         self.engine.set_extra_dictionaries(loaded);
         self.dictionaries = wanted;

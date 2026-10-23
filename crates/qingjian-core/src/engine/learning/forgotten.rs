@@ -13,4 +13,15 @@ impl Forgotten {
     pub fn is_nothing(&self) -> bool {
         !self.user_word && !self.learning
     }
+
+    /// 删完给用户看的一句话（显示在拼音行旁）。
+    pub fn describe(&self, text: &str) -> String {
+        if self.user_word {
+            format!("已删除用户词「{text}」")
+        } else if self.learning {
+            format!("已忘掉对「{text}」的学习记录")
+        } else {
+            format!("「{text}」是词库里的词，也没有学习记录，没什么可删")
+        }
+    }
 }

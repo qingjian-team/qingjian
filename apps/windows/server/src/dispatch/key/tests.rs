@@ -1,12 +1,13 @@
 //! Tab 与分页的三端约定；直接注入整句补全状态，不接云服务。
 use crate::dispatch::{Router, RouterConfig};
+use qingjian_core::candidate::arrows::Focus;
 use qingjian_core::{CustomPhrase, Engine};
 use qingjian_dictionary::{Dictionary, WordList};
 use qingjian_platform::protocol::{
     ClientMessage, Frame, KeyEvent, KeyModifiers, KeyOutcome, PROTOCOL_VERSION, ServerMessage,
     SessionId,
 };
-use qingjian_platform::{AppsConfig, LayoutMode};
+use qingjian_platform::{AppsConfig, HighlightKeys, LayoutMode};
 
 fn router(size: usize) -> Router {
     let mut engine = Engine::new(Dictionary::parse("你\tni\t100\n").unwrap()).with_english(
@@ -15,12 +16,7 @@ fn router(size: usize) -> Router {
     engine
         .set_custom_phrases(
             (1..=9)
-                .map(|position| CustomPhrase {
-                    code: "qq".into(),
-                    text: format!("第{position}项"),
-                    position,
-                    enabled: true,
-                })
+                .map(|n| CustomPhrase::new("qq", &format!("第{n}项")))
                 .collect(),
         )
         .unwrap();
@@ -460,6 +456,64 @@ fn horizontal_grid_up_at_the_first_row_returns_to_the_first_candidate() {
     // 已在第一个候选上再按 ↑：不动（帧照旧）
     let frame = key(&mut router, UP, None, normal).2;
     assert_eq!((frame.columns, frame.highlight), (2, 0));
+}
+
+/// 横排、方向键分两区（高亮移动键选 ← / →）的路由器；`grid` 是开没开「横排时展开成多行」。
+fn two_area_router(grid: bool) -> Router {
+    let mut router = router(2);
+    router.config.layout = LayoutMode::Horizontal;
+    router.config.highlight_keys = HighlightKeys::LeftRight;
+    router.config.horizontal_grid = grid;
+    router
+}
+
+/// 候选里 ↑ 进拼音行（候选不画高亮），← → 只移拼音光标（到末尾不再溢出成选词），↓ 回候选，再 ↓ 才展开。
+/// 帧里的光标在显示串上——单声母 `q` 后自动补的 `'` 让末尾是 3。
+#[test]
+fn two_area_arrows_switch_between_pinyin_and_candidates() {
+    const LEFT: u32 = 0x25;
+    const UP: u32 = 0x26;
+    const RIGHT: u32 = 0x27;
+    const DOWN: u32 = 0x28;
+    let mut router = two_area_router(true);
+    let normal = KeyModifiers::default();
+    compose(&mut router, "qq", normal);
+    let frame = key(&mut router, UP, None, normal).2;
+    assert_eq!(
+        (frame.columns, frame.highlight, frame.cursor),
+        (0, usize::MAX, 3)
+    );
+    assert_eq!(key(&mut router, LEFT, None, normal).2.cursor, 1);
+    assert_eq!(key(&mut router, RIGHT, None, normal).2.cursor, 3);
+    let frame = key(&mut router, RIGHT, None, normal).2;
+    assert_eq!((frame.highlight, frame.cursor), (usize::MAX, 3));
+    assert_eq!(key(&mut router, DOWN, None, normal).2.highlight, 0);
+    assert_eq!(key(&mut router, RIGHT, None, normal).2.highlight, 1);
+    assert_eq!(key(&mut router, DOWN, None, normal).2.columns, 2);
+}
+
+/// 矩阵里 ↑ 先往上换行，到第一行再 ↑ 回拼音行，矩阵不收起（收起用 Esc）；候选里的 ↑ 不开符号面板，拼音行里再按 ↑ 才开。
+#[test]
+fn two_area_up_climbs_rows_then_returns_to_pinyin_and_opens_the_panel() {
+    const UP: u32 = 0x26;
+    const DOWN: u32 = 0x28;
+    let mut router = two_area_router(true);
+    let normal = KeyModifiers::default();
+    compose(&mut router, "qq", normal);
+    key(&mut router, DOWN, None, normal); // ↓ 展开，高亮到第二行（下标 2）
+    assert_eq!(key(&mut router, UP, None, normal).2.highlight, 0);
+    let frame = key(&mut router, UP, None, normal).2;
+    assert_eq!((frame.columns, frame.symbol_panel), (2, false));
+    assert_eq!(router.focus, Focus::Pinyin);
+
+    let mut router = two_area_router(false);
+    compose(&mut router, "qq", normal);
+    assert!(!key(&mut router, UP, None, normal).2.symbol_panel);
+    assert!(key(&mut router, UP, None, normal).2.symbol_panel);
+    // 没开展开：候选里 ↓ 不动
+    let mut router = two_area_router(false);
+    compose(&mut router, "qq", normal);
+    assert_eq!(key(&mut router, DOWN, None, normal).2.columns, 0);
 }
 
 /// 自动空格：上屏汉字后接着打数字补空格；退格删掉那个字后不知道上文，不补。

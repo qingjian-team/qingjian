@@ -57,15 +57,17 @@ if [[ -n "$LEGACY_MODEL" ]]; then
   fi
 else
   tar -xzf "$OUT/qingjian-data.tar.gz" -C "$ROOT"
-  MODEL_SOURCE=data/models/hanzhang-zhiwei/hanzhang-zhiwei-small.qjm
+  # data-v7 及以前的包里还带着含章·知微，之后的不带
+  MODEL_SOURCE=""
+  [[ -f data/models/hanzhang-zhiwei/hanzhang-zhiwei-small.qjm ]] && MODEL_SOURCE=data/models/hanzhang-zhiwei/hanzhang-zhiwei-small.qjm
   P2C_MODEL_SOURCE=data/models/hanzhang-tongbian/hanzhang-tongbian-small.qjm
-  [[ -f "$MODEL_SOURCE" && -f "$P2C_MODEL_SOURCE" && -f data/generated/dict.qj ]] || {
-    echo "产品数据包缺少词库或含章模型（$TAG）" >&2; exit 1;
+  [[ -f "$P2C_MODEL_SOURCE" && -f data/generated/dict.qj ]] || {
+    echo "产品数据包缺少词库或含章·通变（$TAG）" >&2; exit 1;
   }
 fi
 # 解出来的 mtime 比 checkout 出来的 TSV 旧，bundle.sh 会以为要重打
 find data/generated -type f -exec touch {} +
-touch "$MODEL_SOURCE"
+[[ -n "$MODEL_SOURCE" ]] && touch "$MODEL_SOURCE"
 [[ -n "$P2C_MODEL_SOURCE" ]] && touch "$P2C_MODEL_SOURCE"
 echo "产品数据 $TAG 已就位"
 
@@ -73,7 +75,11 @@ if [[ -n "${GITHUB_ENV:-}" ]]; then
   {
     echo "DATA_TAG=$TAG"
     echo "DATA_SHA256=$(lock_value qingjian-data.tar.gz)"
-    echo "MODEL_SHA256=$(sha256 "$MODEL_SOURCE")"
+    if [[ -n "$MODEL_SOURCE" ]]; then
+      echo "MODEL_SHA256=$(sha256 "$MODEL_SOURCE")"
+    else
+      echo "MODEL_SHA256="
+    fi
     if [[ -n "$P2C_MODEL_SOURCE" ]]; then
       echo "P2C_MODEL_SHA256=$(sha256 "$P2C_MODEL_SOURCE")"
     else

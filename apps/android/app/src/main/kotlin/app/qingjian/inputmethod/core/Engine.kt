@@ -26,7 +26,7 @@ class Engine(context: Context, private val onReady: () -> Unit) {
     /** 交给 Rust 的云端配置的摘要；0 是没接（新装配的引擎也是没接）。 */
     private var cloudSignature = 0
 
-    /** 交给 Rust 的释义兜底配置的摘要；0 是关着（新装配的引擎也是关着）。 */
+    /** 交给 Rust 的补充译词配置的摘要；0 是关着（新装配的引擎也是关着）。 */
     private var glossSignature = 0
 
     /** 交给 Rust 的语音识别配置的摘要；0 是没配（新装配的引擎也是）。 */

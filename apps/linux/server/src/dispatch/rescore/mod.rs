@@ -19,7 +19,7 @@ use self::loader::Loaded;
 pub(crate) use self::loader::ModelLoader;
 pub(crate) use self::state::RescoreState;
 use super::Router;
-use super::composed::Composed;
+use super::composed::{Composed, marked_parts};
 
 /// 空闲时主循环多久醒一次：到点落盘学习数据。
 const IDLE_TICK: Duration = Duration::from_secs(1);
@@ -175,26 +175,27 @@ impl Router {
 
     /// 分回来了：按重排后的顺序重建候选布局，下一次 `Poll` 回的帧就是新顺序。
     fn requery_rescored(&mut self) {
-        let Ok(query) = self.engine.query() else {
+        let Ok(mut query) = self.engine.query() else {
             return;
         };
         let Some(Composed::Candidates {
             preedit,
             cursor,
             layout,
+            spelling,
         }) = self.composed.as_mut()
         else {
             return;
         };
         let cloud = layout.cloud().to_vec();
         *layout = CandidateLayout::new(
-            query.candidates.items.clone(),
+            std::mem::take(&mut query.candidates.items),
             self.config.page_size,
             self.config.cloud_slots,
         );
         layout.set_cloud(cloud);
-        *preedit = query.marked_segments().iter().map(Into::into).collect();
-        *cursor = query.marked_cursor();
+        (*preedit, *cursor) = marked_parts(&query);
+        **spelling = query;
         // 这次查询可能又记下了一批要打分的（缓存按前文记，前文没变时不会），再来一轮
         self.schedule_rescoring();
     }

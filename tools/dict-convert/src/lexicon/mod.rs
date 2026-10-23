@@ -14,6 +14,7 @@ mod annotations;
 mod char_tones;
 mod corpus;
 mod entry;
+mod general;
 pub(crate) mod pack;
 mod readings;
 mod tone;
@@ -23,7 +24,7 @@ use std::io::{BufWriter, Write};
 use std::path::Path;
 
 use qingjian_core::parser::is_syllable;
-use qingjian_dictionary::Dictionary;
+use qingjian_dictionary::{Dictionary, GENERAL_DICTIONARY};
 use qingjian_format::Metadata;
 
 use crate::error::ConvertError;
@@ -53,7 +54,7 @@ const RARE_FREQUENCY: u32 = 0;
 const MINOR_READING_SHARE: f64 = 0.05;
 
 /// 常用词表自带的读音与 LLM 标注不一致时，原表读音降到标注读音词频的几分之一保留（怎么打都找得到，但不抢首选）。
-const DISPUTED_READING_DIVISOR: u32 = 8;
+pub(crate) const DISPUTED_READING_DIVISOR: u32 = 8;
 
 /// 领域词库的中文名（文件名主干 → 名称），写进 `.qj` 元数据，偏好设置「词库」页显示它。
 const DOMAIN_NAMES: [(&str, &str); 11] = [
@@ -78,6 +79,7 @@ const DOMAIN_SOURCE: &str = "https://github.com/thunlp/THUOCL";
 
 /// 建词库。`pinyin` 是 LLM 标注 JSONL，`frequency` 是 lm-unigram.tsv，`emit_ambiguous` 写出仍靠猜的多音字词，
 /// `domain_keep_min` 是领域词留在基础词库的最低语料次数（没有词频时按领域词处理，全部拆出去）。
+/// `general` 是青简词库（数字声调版全量），`cleaned` 是它已清洗的子集，见 [`general`] 模块。
 #[allow(clippy::too_many_arguments)]
 pub fn convert(
     pack_dir: &Path,
@@ -87,6 +89,8 @@ pub fn convert(
     emit_ambiguous: Option<&Path>,
     extra_words: &[std::path::PathBuf],
     domain_keep_min: u64,
+    general: Option<&Path>,
+    cleaned: Option<&Path>,
     out_dir: &Path,
 ) -> Result<(), ConvertError> {
     let mut pack = Pack::load(pack_dir)?;
@@ -194,6 +198,7 @@ pub fn convert(
                 text: ch.to_string(),
                 syllables: vec![syllable],
                 frequency,
+                tones: Vec::new(),
             });
         }
     }
@@ -211,6 +216,7 @@ pub fn convert(
                 text: row.ch.to_string(),
                 syllables: vec![syllable.clone()],
                 frequency: RARE_FREQUENCY,
+                tones: Vec::new(),
             });
             added = true;
         }
@@ -265,17 +271,20 @@ pub fn convert(
                     text: row.text.clone(),
                     syllables: annotation.clone(),
                     frequency,
+                    tones: Vec::new(),
                 });
                 insert(LexiconEntry {
                     text: row.text.clone(),
                     syllables: row.syllables.clone(),
                     frequency: (frequency / DISPUTED_READING_DIVISOR).max(1),
+                    tones: Vec::new(),
                 });
             }
             Some(_) => insert(LexiconEntry {
                 text: row.text.clone(),
                 syllables: row.syllables.clone(),
                 frequency,
+                tones: Vec::new(),
             }),
             None => {
                 if polyphonic(&row.text) {
@@ -285,6 +294,7 @@ pub fn convert(
                     text: row.text.clone(),
                     syllables: row.syllables.clone(),
                     frequency,
+                    tones: Vec::new(),
                 });
             }
         }
@@ -347,9 +357,12 @@ pub fn convert(
                         .and_then(|stats| {
                             stats
                                 .iter()
-                                .filter(|(s, _)| options.contains(s))
-                                .max_by_key(|(_, n)| **n)
-                                .map(|(s, _)| s.clone())
+                                .filter_map(|(s, n)| {
+                                    options.iter().position(|o| o == s).map(|i| (s, *n, i))
+                                })
+                                // 次数打平时取 Unihan 排在前面的读音：HashMap 的顺序每次跑都不一样
+                                .max_by_key(|&(_, n, i)| (n, std::cmp::Reverse(i)))
+                                .map(|(s, _, _)| s.clone())
                         })
                         .unwrap_or_else(|| options[0].clone());
                     guess.push(best);
@@ -374,6 +387,7 @@ pub fn convert(
             text: text.to_owned(),
             syllables,
             frequency,
+            tones: Vec::new(),
         };
         // 语料里常见的领域词其实是通用词（医疗器械、侵权行为），留在基础词库；其余进各自的领域词库
         match &row.domain {
@@ -386,6 +400,17 @@ pub fn convert(
             _ => insert(entry),
         }
     }
+
+    let merged = match general {
+        Some(path) => {
+            let cleaned = match cleaned {
+                Some(path) => general::cleaned_texts(path)?,
+                None => HashSet::new(),
+            };
+            Some(general::merge(path, &cleaned, &mut entries)?)
+        }
+        None => None,
+    };
 
     std::fs::create_dir_all(out_dir)?;
     let output = out_dir.join("dict.tsv");
@@ -401,11 +426,46 @@ pub fn convert(
             file,
             "{}\t{}\t{}",
             entry.text,
-            entry.syllables.join(" "),
+            reading(entry),
             entry.frequency
         )?;
     }
     file.flush()?;
+    if let Some(merged) = &merged {
+        write_entries(
+            &out_dir.join(CLEANED_FILE),
+            "# 青简词库已清洗的部分，由 qingjian-dict-convert lexicon --general --cleaned 并入：基础词库没有的词与读音。词\t音节\t词频\n\
+# 不进 bigram 分词；pack dict 与 dict.tsv 合成一份 dict.qj。",
+            &merged.cleaned,
+        )?;
+        let tsv = write_entries(
+            &out_dir.join(GENERAL_FILE),
+            &format!(
+                "# 青简词库还没清洗的部分，由 qingjian-dict-convert lexicon --general 并入。词\t音节\t词频\n\
+# 不进 bigram 分词；随包的是 dicts/{GENERAL_DICTIONARY}.qj，作补充词库加载。"
+            ),
+            &merged.general,
+        )?;
+        let dir = out_dir.join("dicts");
+        std::fs::create_dir_all(&dir)?;
+        let qj_path = dir.join(format!("{GENERAL_DICTIONARY}.qj"));
+        Dictionary::parse(&tsv)?.write_qj(
+            &qj_path,
+            &Metadata {
+                name: GENERAL_NAME.to_owned(),
+                license: GENERAL_LICENSE.to_owned(),
+                attribution: GENERAL_ATTRIBUTION.to_owned(),
+                generator: format!("qingjian-dict-convert {}", env!("CARGO_PKG_VERSION")),
+                ..Metadata::default()
+            },
+        )?;
+        tracing::info!(
+            cleaned = merged.cleaned.len(),
+            general = merged.general.len(),
+            path = %qj_path.display(),
+            "青简词库写出完成"
+        );
+    }
     write_domains(&domains, out_dir)?;
     if let Some(path) = emit_ambiguous {
         let mut file = BufWriter::new(std::fs::File::create(path)?);
@@ -433,6 +493,53 @@ pub fn convert(
     Ok(())
 }
 
+/// 青简词库已清洗的部分（写在输出目录顶层，不进分词词表）；`pack dict` 有它就和 dict.tsv 合成一份。
+pub const CLEANED_FILE: &str = "dict-cleaned.tsv";
+
+/// 还没清洗的部分（同上，不进分词词表）。
+const GENERAL_FILE: &str = "dict-general.tsv";
+
+/// 青简词库的许可与署名，写进 `dicts/general.qj`；合进 dict.qj 的那部分由 `pack dict --license` 一起给。
+const GENERAL_LICENSE: &str = "GPL-3.0-or-later";
+const GENERAL_ATTRIBUTION: &str = "青简词库（青简团队从开源语料清洗整理）";
+
+/// 设置「词库」页上显示的名字。
+const GENERAL_NAME: &str = "通用词库";
+
+/// 写一份 `词\t音节\t词频`，返回写出的正文（不含表头），好接着打包。
+fn write_entries(
+    path: &Path,
+    header: &str,
+    entries: &BTreeMap<(String, Vec<String>), LexiconEntry>,
+) -> Result<String, ConvertError> {
+    let mut tsv = String::new();
+    for entry in entries.values() {
+        tsv.push_str(&format!(
+            "{}\t{}\t{}\n",
+            entry.text,
+            reading(entry),
+            entry.frequency
+        ));
+    }
+    std::fs::write(path, format!("{header}\n{tsv}"))?;
+    Ok(tsv)
+}
+
+/// 写进 TSV 的读音：知道声调的音节带数字（`ni3 hao3`），不知道的照旧。
+fn reading(entry: &LexiconEntry) -> String {
+    let mut out = String::new();
+    for (i, syllable) in entry.syllables.iter().enumerate() {
+        if i > 0 {
+            out.push(' ');
+        }
+        out.push_str(syllable);
+        if let Some(&tone @ 1..=5) = entry.tones.get(i) {
+            out.push(char::from(b'0' + tone));
+        }
+    }
+    out
+}
+
 /// 每个领域写一本 `dicts/<领域>.tsv`（与主词库同格式）和一本带元数据的 `dicts/<领域>.qj`。
 fn write_domains(
     domains: &BTreeMap<String, BTreeMap<(String, Vec<String>), LexiconEntry>>,
@@ -451,7 +558,7 @@ fn write_domains(
         for entry in entries.values() {
             tsv.push_str(&entry.text);
             tsv.push('\t');
-            tsv.push_str(&entry.syllables.join(" "));
+            tsv.push_str(&reading(entry));
             tsv.push('\t');
             tsv.push_str(&entry.frequency.to_string());
             tsv.push('\n');

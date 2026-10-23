@@ -119,8 +119,10 @@ mod tests {
                     text: "开发".to_owned(),
                     syllables: vec!["kai".to_owned(), "fa".to_owned()],
                     frequency: 9,
+                    secondary: false,
                     penalty: 0.0,
                     tone: 0.0,
+                    reading: 0.0,
                 }]
             })
         };

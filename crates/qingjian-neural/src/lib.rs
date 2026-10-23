@@ -23,3 +23,6 @@ pub use p2c::{Candidate, P2c};
 pub use qjm::find_model;
 pub use scorer::CharScorer;
 pub use vocab::Vocab;
+
+#[cfg(feature = "zhiyi")]
+pub mod zhiyi;

@@ -79,7 +79,7 @@ fn navigation(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderEr
     let theme = &page.theme;
     ui.scope("nav", |ui| -> Result<Vec<NodeId>, RenderError> {
         let mut items = Vec::new();
-        for id in PageId::ALL {
+        for id in PageId::ALL.into_iter().filter(|id| id.shown()) {
             let selected = id == page.settings.page;
             let mut item = NavItem::new(id.label())
                 .icon(Arc::new(id.glyph()))

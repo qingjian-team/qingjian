@@ -4,7 +4,8 @@
 //! 反正 Engine 的缓冲区也是全进程一份，会话状态跟着它走。
 //! 候选的分页与云端词的位置由 Core 的 [`CandidateLayout`] 定，这里只管高亮与页码。
 
-use qingjian_core::{Candidate, CandidateLayout, Cell, GRID_ROWS, Grid};
+use qingjian_core::candidate::arrows::{Focus, Matrix};
+use qingjian_core::{Candidate, CandidateLayout, Cell, GRID_ROWS, Grid, Query};
 
 use crate::candidates::Preedit;
 
@@ -25,8 +26,15 @@ pub struct Session {
     /// 候选窗口顶部显示的拼音行（分段 + 光标）。
     pub preedit: Option<Preedit>,
 
+    /// 这轮查询的结果（候选已挪进 `layout`）：高亮换了候选时拼音行按它的读音重切，见 [`Query::follow`]。
+    pub spelling: Option<Query>,
+
     /// 横排展开成矩阵时的视口；`None` 是单行。新一轮查询收回单行。
     pub grid: Option<Grid>,
+
+    /// 方向键分两区时（[`qingjian_core::candidate::arrows`]）归拼音行还是候选。改拼音时每敲一键都是新一轮查询，
+    /// 所以它跨查询保留，整段输入结束（`preedit` 为空）才回到候选。
+    pub focus: Focus,
 }
 
 impl Session {
@@ -39,6 +47,7 @@ impl Session {
         slots: usize,
     ) {
         self.preedit = preedit;
+        self.spelling = None;
         self.layout = CandidateLayout::new(candidates, page_size, slots);
         self.highlighted = (0..self.layout.len())
             .find(|&i| self.layout.candidate(i).is_some())
@@ -46,6 +55,20 @@ impl Session {
         self.page = self.highlighted / self.layout.page_size();
         self.navigated = false;
         self.grid = None;
+        if self.preedit.is_none() {
+            self.focus = Focus::default();
+        }
+    }
+
+    /// 给 [`qingjian_core::candidate::arrows::route`] 的矩阵状态。`enabled` 是开没开「横排时展开成多行」。
+    pub fn matrix(&self, enabled: bool) -> Matrix {
+        match self.grid {
+            Some(_) => Matrix::Open {
+                first_row: self.highlighted < self.layout.page_size(),
+            },
+            None if enabled => Matrix::Closed,
+            None => Matrix::Off,
+        }
     }
 
     /// 矩阵里竖着移 `delta` 行；还是单行就先从当前页展开（展开本身也算变化）。返回要不要重画。
@@ -213,7 +236,7 @@ impl Session {
     }
 
     /// 这个方向还翻得动吗（不改状态地问一句）。翻页键「翻不动就落字」用，见
-    /// `docs/user/getting-started/keys.md` 的 `[general] page_keys`。
+    /// `docs/user/personalize/keys-settings.md` 的「翻页键」。
     pub fn can_turn_page(&self, delta: isize) -> bool {
         self.page_target(delta).is_some()
     }
@@ -352,6 +375,22 @@ mod tests {
         assert_eq!(session.grid.unwrap().top(), 0);
         // 已在第一个候选：不动
         assert!(!session.jump_to_first());
+    }
+
+    /// 给方向键规则的矩阵状态：没开是 Off、单行是 Closed，展开后看高亮在不在第一行；整段输入结束焦点回到候选。
+    #[test]
+    fn matrix_state_and_focus_follow_the_session() {
+        let mut session = Session::default();
+        session.reset(None, candidates(40), 5, 0);
+        assert_eq!(session.matrix(false), Matrix::Off);
+        assert_eq!(session.matrix(true), Matrix::Closed);
+        session.move_rows(1);
+        assert_eq!(session.matrix(true), Matrix::Open { first_row: false });
+        session.move_rows(-1);
+        assert_eq!(session.matrix(true), Matrix::Open { first_row: true });
+        session.focus = Focus::Pinyin;
+        session.reset(None, candidates(40), 5, 0);
+        assert_eq!(session.focus, Focus::Candidates);
     }
 
     #[test]

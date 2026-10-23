@@ -73,12 +73,7 @@ fn custom_phrases_commit_verbatim() {
     let mut engine = engine();
     engine.set_traditional(TraditionalVariant::Taiwan);
     engine
-        .set_custom_phrases(vec![crate::CustomPhrase {
-            code: "dz".into(),
-            text: "我的地址：软件园".into(),
-            position: 1,
-            enabled: true,
-        }])
+        .set_custom_phrases(vec![crate::CustomPhrase::new("dz", "我的地址：软件园")])
         .unwrap();
     engine.set_input("dz");
     let candidate = engine

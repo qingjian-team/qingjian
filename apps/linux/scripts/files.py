@@ -102,12 +102,6 @@ def main():
                 if source.resolve() not in verified:
                     raise SystemExit(f'产品数据没有校验记录：{source}')
                 files[resources / source.relative_to(root)] = source
-        model = root / 'data/models/hanzhang-zhiwei/hanzhang-zhiwei-small.qjm'
-        if not model.is_file():
-            raise SystemExit('缺少含章·知微 hanzhang-zhiwei-small.qjm，请先运行 tools/release/data-fetch.sh，或用 --sample 体验样例词库')
-        if verified.get(model.resolve()) != digest(model):
-            raise SystemExit('含章·知微不在已校验的数据包中')
-        files[resources / model.relative_to(root)] = model
         p2c_model = root / 'data/models/hanzhang-tongbian/hanzhang-tongbian-small.qjm'
         if not p2c_model.is_file() or verified.get(p2c_model.resolve()) != digest(p2c_model):
             raise SystemExit('含章·通变缺失或不在已校验的数据包中')

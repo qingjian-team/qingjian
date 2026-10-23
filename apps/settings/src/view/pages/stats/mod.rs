@@ -143,7 +143,7 @@ const NONE_YET: &str = "还没有记录";
 /// 「请求 12 次，收到 11 次，失败 1 次」，还在等的、没报用量的另说。
 fn requests_line(api: &ApiUsageStats) -> String {
     if api.requests == 0 {
-        return "还没有发过请求：云联想、译词补充、翻译选中文字和「测试连接」都算".to_owned();
+        return "还没有发过请求".to_owned();
     }
     let mut line = format!(
         "请求 {} 次，收到 {} 次，失败 {} 次",

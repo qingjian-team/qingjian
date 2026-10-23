@@ -53,6 +53,20 @@ fn parse(source: &'static str) -> Table {
     table
 }
 
+/// `ch` 读 `syllable` 时的声调：是它最常见的读音就取那个声调，否则这个音只有一种声调才取；拿不准是 0。
+pub fn usual(ch: char, syllable: &str) -> u8 {
+    let Some((readings, first)) = TABLE.get(&ch) else {
+        return 0;
+    };
+    if first.0 == syllable {
+        return first.1;
+    }
+    match readings.iter().find(|(s, _)| *s == syllable) {
+        Some((_, mask)) if mask.count_ones() == 1 => mask.trailing_zeros() as u8,
+        _ => 0,
+    }
+}
+
 /// 候选 `text`（按字对应词库读音 `syllables`）对 `tones`（每个音节敲的声调，None 是没敲）的声调代价，见模块文档。
 ///
 /// 多字词里非首字敲了轻声不计代价：轻声随词变（妈妈 第二个字 表里记一声）。字数与音节数对不上的词不比。
@@ -124,6 +138,14 @@ mod tests {
         assert_eq!(cost_of("妈妈", "ma ma", &[Some(1), Some(3)]), MISMATCH);
         // 前缀候选：字比音节少，只比前面的
         assert_eq!(cost_of("妈", "ma", &[Some(1), Some(3)]), 0);
+    }
+
+    #[test]
+    fn usual_tone_of_a_character() {
+        assert_eq!(usual('的', "de"), 5);
+        assert_eq!(usual('的', "di"), 0);
+        assert_eq!(usual('好', "hao"), 3);
+        assert_eq!(usual('好', "xyz"), 0);
     }
 
     #[test]

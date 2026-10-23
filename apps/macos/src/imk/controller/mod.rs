@@ -9,6 +9,7 @@ use objc2::{define_class, msg_send, sel};
 use objc2_app_kit::{NSEvent, NSEventModifierFlags, NSEventType, NSMenu};
 use objc2_foundation::{NSObjectProtocol, NSString};
 use objc2_input_method_kit::{IMKInputController, IMKServer};
+use qingjian_core::candidate::arrows::Focus;
 use qingjian_core::{Candidate, QUESTION_PREFIX};
 use qingjian_platform::Modifiers;
 
@@ -25,7 +26,7 @@ mod panel;
 mod text;
 mod translate;
 
-pub use click::{click, panel_mouse};
+pub use click::{click, menu_items, menu_pick, panel_mouse};
 
 define_class!(
     // SAFETY:
@@ -111,6 +112,7 @@ define_class!(
                 }
                 host::with(|h| {
                     h.engine.set_application(bundle);
+                    h.engine.enter_input_box();
                     h.refresh_text_replacements();
                     h.reload_config_if_changed();
                     h.indicator.activate();
@@ -178,8 +180,8 @@ define_class!(
 /// 翻译选中文字最多接受多少个字符：再长既慢又贵，也不是输入法该干的事。
 const MAX_TRANSLATE_CHARS: usize = 500;
 
-/// 给本地整句模型看的光标前文最多读多少字符（Engine 自己再按它的前文长度截）。
-const RESCORE_LOOKBACK: usize = qingjian_core::RESCORE_CONTEXT_CHARS;
+/// 给本地模型看的光标前文最多读多少字符：知意英文要 192，含章由 Engine 再按它的前文长度截。
+const RESCORE_LOOKBACK: usize = 192;
 
 /// 登录 / 锁屏窗口的 bundle identifier。
 const LOGIN_WINDOW: &str = "com.apple.loginwindow";
@@ -231,6 +233,13 @@ impl QingjianInputController {
         };
         // 提示在显示：敲任何键先收掉，键照常处理
         host::with(|h| h.clear_notice());
+        // 候选右键菜单开着：Esc 只关菜单、不清输入；别的键关菜单后照常处理
+        if host::with(|h| h.window.menu_open()).unwrap_or(false) {
+            host::with(|h| h.window.close_menu());
+            if key == 53 {
+                return true;
+            }
+        }
         // 翻译选中文字进行中：回车 / 空格 / 1 接受，Esc 放弃，其他键放弃后照常交给应用
         if host::with(|h| h.translation.is_some()).unwrap_or(false) {
             return self.handle_translation_review(key, client);
@@ -241,11 +250,16 @@ impl QingjianInputController {
         {
             return consumed;
         }
-        // 高亮还在第一个时按 ↑ 打开符号面板；长按连发的不算，免得往回翻过头弹出来
+        // 高亮还在第一个时按 ↑ 打开符号面板；长按连发的不算，免得往回翻过头弹出来。
+        // 方向键分两区时（arrows::route）候选里的 ↑ 是回拼音行，要在拼音行里再按一次 ↑
         if key == 126
             && pressed.is_empty()
             && !event.isARepeat()
-            && host::with(|h| !h.engine.composition().is_empty()).unwrap_or(false)
+            && host::with(|h| {
+                !h.engine.composition().is_empty()
+                    && (!h.two_area_arrows() || h.session.focus == Focus::Pinyin)
+            })
+            .unwrap_or(false)
             && self.open_panel(client)
         {
             return true;
@@ -282,7 +296,7 @@ impl QingjianInputController {
             host::with(|h| h.toggle_punctuation());
             return true;
         }
-        // 修饰键 + 数字：按配置的两组组合上屏第一 / 第二个译词（缺省 ⌥ 与 ⇧⌥）、删候选（缺省 ⇧）。
+        // 修饰键 + 数字：按配置的两组组合上屏第一 / 第二个译词（缺省 ⌥ 与 ⇧⌥）。
         // 只在组句中认：不在组句时 ⇧4 就是 `$`，得走下面的标点转换（中文模式出 ￥、⇧6 出 ……、⇧1 出 ！），
         // 以前在这里被截走后原样还给应用，全角转换就没机会做了。
         // 表达式模式（`v2^3`）里 ⇧+数字打的是 `^ * ( )`，不当快捷键
@@ -299,9 +313,6 @@ impl QingjianInputController {
             }
             if pressed == second {
                 return self.handle_translation_key(digit, 1, client);
-            }
-            if pressed == host::with(|h| h.delete_keys).unwrap_or_default() {
-                return self.handle_delete_key(digit, client);
             }
         }
         let selector = match key {

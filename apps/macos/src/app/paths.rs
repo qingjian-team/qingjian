@@ -90,6 +90,17 @@ pub fn model_path() -> Option<PathBuf> {
     qingjian_neural::find_model(&resources_dir().ok()?.join("models/hanzhang-zhiwei"))
 }
 
+/// 设置的「实验功能」里下载的含章·知微：只认用户目录 `models/hanzhang-zhiwei/`。
+pub fn user_zhiwei_model_path() -> Option<PathBuf> {
+    qingjian_neural::find_model(&user_data_dir()?.join("models/hanzhang-zhiwei"))
+}
+
+/// 知意选词模型（试验，safetensors 版的整个目录，设置的「实验功能」里下载）：只认用户目录 `models/zhiyi/`。
+pub fn zhiyi_model_dir() -> Option<PathBuf> {
+    let dir = user_data_dir()?.join("models/zhiyi");
+    dir.join("model.safetensors").is_file().then_some(dir)
+}
+
 /// 含章·通变（P2C，带噪拼音 → 汉字）：用户新目录优先，兼容旧 `model-p2c/`。
 pub fn p2c_model_path() -> Option<PathBuf> {
     let user = user_data_dir()?;

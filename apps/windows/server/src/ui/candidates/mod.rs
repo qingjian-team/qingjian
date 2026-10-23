@@ -4,6 +4,7 @@
 
 mod click;
 mod key_hint;
+mod menu;
 mod render_data;
 pub(crate) mod row;
 pub(crate) mod theme;
@@ -18,8 +19,9 @@ use windows::Win32::UI::HiDpi::{GetDpiForSystem, GetDpiForWindow};
 use windows::Win32::UI::WindowsAndMessaging::{
     CreateWindowExW, DefWindowProcW, DestroyWindow, HWND_TOPMOST, IDC_ARROW, KillTimer,
     LoadCursorW, MSG, SW_HIDE, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_SHOWWINDOW, SetTimer,
-    SetWindowPos, ShowWindow, WM_LBUTTONDOWN, WM_MOUSEACTIVATE, WM_NCHITTEST, WM_TIMER,
-    WNDCLASSEXW, WS_EX_LAYERED, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_EX_TOPMOST, WS_POPUP,
+    SetWindowPos, ShowWindow, WM_LBUTTONDOWN, WM_MOUSEACTIVATE, WM_NCHITTEST, WM_RBUTTONDOWN,
+    WM_RBUTTONUP, WM_TIMER, WNDCLASSEXW, WS_EX_LAYERED, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW,
+    WS_EX_TOPMOST, WS_POPUP,
 };
 use windows::core::{Error, PCWSTR, Result, w};
 
@@ -27,7 +29,7 @@ use qingjian_platform::Appearance;
 use qingjian_platform::protocol::Frame;
 use qingjian_render::Mode;
 
-use crate::dispatch::KeyHintView;
+use crate::dispatch::{CandidateMenu, KeyHintView};
 
 pub use self::click::CandidateClicks;
 use self::key_hint::KeyHintWindow;
@@ -108,6 +110,9 @@ impl CandidateWindow {
         let data = RefCell::new(RenderData::empty(Rc::new(Theme::new(dpi, dark))));
         // NOACTIVATE：显示时不抢应用焦点。鼠标只在候选与译词上收，其余穿透（见 [`click`]）。
         click::install(on_click);
+        if let Err(error) = menu::install() {
+            tracing::error!(%error, "建右键菜单窗口失败，右键候选不出菜单");
+        }
         let hwnd = unsafe {
             CreateWindowExW(
                 WS_EX_LAYERED | WS_EX_TOOLWINDOW | WS_EX_TOPMOST | WS_EX_NOACTIVATE,
@@ -157,6 +162,7 @@ impl CandidateWindow {
 
     /// 按光标矩形定位并显示：贴光标下方（放不下放上方），四周留出阴影。
     pub(crate) fn show(&self, anchor: RECT) {
+        menu::close();
         self.sync_theme(anchor);
         let rendered = {
             let data = self.data.borrow();
@@ -272,7 +278,17 @@ impl CandidateWindow {
         )
     }
 
+    /// 在鼠标处弹右键菜单（深浅与 DPI 跟候选窗）。
+    pub(crate) fn show_menu(&self, menu: CandidateMenu) {
+        menu::open(menu, self.dark.get(), self.dpi.get());
+    }
+
+    pub(crate) fn close_menu(&self) {
+        menu::close();
+    }
+
     pub(crate) fn hide(&self) {
+        menu::close();
         let _ = unsafe { ShowWindow(self.hwnd, SW_HIDE) };
         if let Some(window) = &self.key_hint_window {
             window.hide();
@@ -409,6 +425,12 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: 
         WM_MOUSEACTIVATE => click::mouse_activate(),
         WM_LBUTTONDOWN => {
             click::button_down();
+            LRESULT(0)
+        }
+        // 按下吞掉（不让默认处理生出 WM_CONTEXTMENU），抬起时弹菜单
+        WM_RBUTTONDOWN => LRESULT(0),
+        WM_RBUTTONUP => {
+            click::right_button_up();
             LRESULT(0)
         }
         _ => unsafe { DefWindowProcW(hwnd, msg, wparam, lparam) },

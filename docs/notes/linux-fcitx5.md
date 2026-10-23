@@ -74,7 +74,7 @@ Server 启动时按 `[model] enabled`（缺省开）在后台线程加载模型�
 
 ## 路径和排错
 
-用户安装与手动启动见 [Linux 用户说明](../user/getting-started/linux.md)。安装只登记实际绝对插件库路径，不修改系统 Fcitx5 搜索规则。
+用户安装与手动启动见 [Linux 用户说明](../user/platforms/linux.md)。安装只登记实际绝对插件库路径，不修改系统 Fcitx5 搜索规则。
 `QINGJIAN_SOCKET` 可指定绝对 socket 路径；缺省为 `$XDG_RUNTIME_DIR/qingjian.sock`，无 runtime 时用 `/tmp/qingjian-<uid>/qingjian.sock`。
 父目录须归当前用户且不可被其他用户写入；socket 权限为 0600。`QINGJIAN_RESOURCES` 覆盖资源根，`QINGJIAN_DICT` 可指定测试词库。
 默认数据从可执行文件旁 `../share/qingjian/resources` 找，支持源码开发目录回退。

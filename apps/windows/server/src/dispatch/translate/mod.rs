@@ -101,6 +101,7 @@ impl Router {
             preedit: Vec::new(),
             preedit_mode: self.config.preedit,
             cursor: 0,
+            window_preedit: None,
             candidates: CandidateList {
                 items: vec![translate_candidate(text)],
             },

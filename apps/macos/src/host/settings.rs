@@ -301,20 +301,6 @@ impl Host {
                 }
                 Err(error) => tracing::warn!(%error, "修饰键组合不合法，未改"),
             },
-            (Setting::DeleteCandidateKeys, SettingValue::Text(text)) => {
-                match text.parse::<Modifiers>() {
-                    Ok(chosen) => {
-                        let (first, second) = config.shortcut.translation_keys();
-                        if chosen == first || chosen == second {
-                            tracing::warn!("删候选的快捷键不能与译词快捷键相同，未改");
-                        } else {
-                            self.settings
-                                .set_value("shortcut", "delete_candidate", chosen.key());
-                        }
-                    }
-                    Err(error) => tracing::warn!(%error, "修饰键组合不合法，未改"),
-                }
-            }
             (Setting::TranslateSelectionKeys, SettingValue::Text(text)) => {
                 match text.parse::<KeyCombo>() {
                     Ok(combo) => {
@@ -351,11 +337,6 @@ impl Host {
                     "shortcut",
                     "translate_selection",
                     defaults.translate_selection.key_string(),
-                );
-                self.settings.set_value(
-                    "shortcut",
-                    "delete_candidate",
-                    defaults.delete_candidate.key(),
                 );
             }
             (Setting::DictionaryEnabled(index), SettingValue::Bool(on)) => {

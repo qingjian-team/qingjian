@@ -1,4 +1,4 @@
-//! 「候选」页：每页几个、译文、输出字形，候选后面的 emoji / 颜文字 / 符号，排序（学习、本地整句模型），英文词。
+//! 「候选」页：每页几个、译文、输出字形、拼音行声调，候选后面的 emoji / 颜文字 / 符号，排序（学习、本地整句模型），英文词。
 
 use bamboo_slip::taffy::NodeId;
 use bamboo_slip::{RenderError, SettingRow, Stepper, Ui, group, section_title};
@@ -6,6 +6,7 @@ use qingjian_core::{LEARNING_LANGUAGES, TraditionalVariant};
 use qingjian_platform::{EmojiCount, MAX_PAGE_SIZE};
 
 use crate::message::{Message, Popup};
+use crate::support::Feature;
 use crate::view::Page;
 use crate::view::parts::controls::{select, toggle_info, toggle_with};
 
@@ -49,7 +50,7 @@ pub fn candidates(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Rend
         150.0,
         false,
     )?;
-    let rows = vec![
+    let mut rows = vec![
         SettingRow::new("每页候选数")
             .control(stepper)
             .build(ui, theme)?,
@@ -58,21 +59,30 @@ pub fn candidates(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Rend
             .control(language)
             .build(ui, theme)?,
         SettingRow::new("输出字形")
-            .info("只换字形、不换用语（软件 → 軟件）；台湾与香港的字形取舍不同（裡 / 裏）")
+            .info("软件 → 軟件")
             .control(traditional)
             .build(ui, theme)?,
         toggle_info(
             ui,
             page,
             "译词显示词性",
-            Some(
-                "关掉后候选旁只显示译词，不显示 v. / n. / adj. 等标注（如 develop 而非 v. develop）",
-            ),
+            Some("如 v. develop"),
             ("general", "translation_pos"),
             general.translation_pos,
             general.learning_language_off(),
         )?,
     ];
+    if Feature::ShowTones.here() {
+        rows.push(toggle_info(
+            ui,
+            page,
+            "拼音行显示声调",
+            Some("如 gān'gà"),
+            ("general", "show_tones"),
+            general.show_tones,
+            false,
+        )?);
+    }
     out.push(section_title(ui, theme, "显示")?);
     out.push(group(ui, theme, &rows)?);
 
@@ -110,7 +120,7 @@ pub fn candidates(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Rend
             ui,
             page,
             "学习输入习惯",
-            Some("关掉后不再学，已学的照样用"),
+            Some("关掉后不再学新习惯"),
             ("general", "learning"),
             general.learning,
             false,
@@ -119,7 +129,7 @@ pub fn candidates(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Rend
             ui,
             page,
             "本地整句模型",
-            Some("在本机给整句重新排序，不联网"),
+            Some("在本机排整句，不联网"),
             ("model", "enabled"),
             config.model.enabled,
             false,

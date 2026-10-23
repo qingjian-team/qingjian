@@ -56,6 +56,7 @@ impl CandidateWindow {
 
     /// 显示一帧。`anchor` 是光标行的屏幕矩形，窗口贴在它下方，放不下就放上方。
     pub fn show(&mut self, frame: Frame, anchor: NSRect) {
+        self.view.close_menu();
         if frame.is_empty() {
             self.hide();
             return;
@@ -101,6 +102,7 @@ impl CandidateWindow {
     }
 
     pub fn hide(&self) {
+        self.view.close_menu();
         self.panel.orderOut(None);
         self.key_hint.hide();
         self.view.stop_animation();
@@ -174,6 +176,20 @@ impl CandidateWindow {
     /// 点中候选或译词时调谁。
     pub fn set_click_handler(&self, handler: ClickHandler) {
         self.view.set_click_handler(handler);
+    }
+
+    /// 右键菜单开着（敲 Esc 先关它，不清输入）。
+    pub fn menu_open(&self) -> bool {
+        self.view.menu_open()
+    }
+
+    pub fn close_menu(&self) {
+        self.view.close_menu();
+    }
+
+    /// 右键候选时问谁给菜单项、点中的项交给谁。
+    pub fn set_menu_handlers(&self, handlers: super::view::MenuHandlers) {
+        self.view.set_menu_handlers(handlers);
     }
 
     /// 符号面板里点中格子或标签时调谁。

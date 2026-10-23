@@ -84,7 +84,7 @@ pub fn advanced(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Render
             ui,
             page,
             "记录输入日志",
-            Some("只写在这台电脑上，用来评测候选排序"),
+            Some("只存在这台电脑上"),
             ("general", "input_log"),
             general.input_log,
             false,

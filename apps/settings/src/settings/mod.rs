@@ -21,6 +21,7 @@ use qingjian_render::{TextSizes, Theme, ThemeLibrary};
 
 use crate::jobs::cloud_test::CloudTest;
 use crate::jobs::import::ImportJob;
+use crate::jobs::model_download::ModelDownload;
 use crate::jobs::update_check::UpdateCheck;
 use crate::library::Library;
 use crate::message::{FieldId, Popup, SizeKind};
@@ -82,6 +83,12 @@ pub struct Settings {
     pub library: Library,
 
     pub import: ImportJob,
+
+    /// 实验功能里正在下的模型。
+    pub download: ModelDownload,
+
+    /// 点过一次「删除」、等再点一次确认的模型；点了别的就作废。
+    pub remove_armed: Option<qingjian_platform::LocalModel>,
 
     /// 开着的短语编辑卡片。
     pub phrase: Option<PhraseEditor>,
@@ -161,6 +168,8 @@ impl Settings {
             recording: None,
             library: Library::scan(),
             import: ImportJob::default(),
+            download: ModelDownload::default(),
+            remove_armed: None,
             phrase: None,
             stats: None,
             stats_cloud: false,

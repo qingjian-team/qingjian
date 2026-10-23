@@ -103,9 +103,6 @@ pub struct RouterConfig {
     /// 上屏第一 / 第二个译词的修饰键（`[shortcut] translation` / `translation_second`）。
     pub translation_keys: (KeyModifiers, KeyModifiers),
 
-    /// 删候选的修饰键（`[shortcut] delete_candidate`）。
-    pub delete_keys: KeyModifiers,
-
     /// 「翻译选中文字」快捷键（`[shortcut] translate_selection`）。
     pub translate_selection: KeyCombo,
 
@@ -152,6 +149,11 @@ impl RouterConfig {
     /// 横排矩阵这套按键是否生效：开关开着（`[general] horizontal_grid`）而且排布是横排。
     pub fn grid_keys(&self) -> bool {
         self.horizontal_grid && self.layout == LayoutMode::Horizontal
+    }
+
+    /// 方向键分拼音行与候选两区（Core 的 `arrows::route`）：横排，而且高亮移动键选了 `←` / `→`。
+    pub fn two_area_arrows(&self) -> bool {
+        self.layout == LayoutMode::Horizontal && self.highlight_keys == HighlightKeys::LeftRight
     }
 
     /// 交给 UI 线程的画法。
@@ -206,7 +208,6 @@ impl From<&Config> for RouterConfig {
                 let (first, second) = config.shortcut.translation_keys();
                 (first.into(), second.into())
             },
-            delete_keys: config.shortcut.delete_keys().into(),
             translate_selection: config.shortcut.translate_selection,
             predict: config.shortcut.predict,
             status_enabled: config.status_bar.enabled,

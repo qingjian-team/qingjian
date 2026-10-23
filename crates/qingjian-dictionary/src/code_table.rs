@@ -16,6 +16,7 @@ use std::path::Path;
 
 use crate::error::DictionaryError;
 use crate::matching::Match;
+use crate::tones::Tones;
 
 /// 一条码表词目。
 #[derive(Debug, Clone)]
@@ -151,6 +152,9 @@ impl CodeTable {
                 text: entry.text.as_str(),
                 pinyin: entry.code.as_str(),
                 frequency: entry.frequency,
+                reading_total: 0,
+                tones: Tones::default(),
+                secondary: false,
                 exact: entry.code == code,
             })
             .collect()

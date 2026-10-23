@@ -159,6 +159,7 @@ fn cloud_disable_clears_suspended_candidates_and_translation_review() {
             preedit: Vec::new(),
             cursor: 0,
             layout,
+            spelling: Default::default(),
         })
     };
     router.composed = composed();

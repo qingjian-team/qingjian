@@ -57,7 +57,7 @@ pub use key_hint_mode::KeyHintMode;
 pub use layout_mode::LayoutMode;
 pub use legacy_traditional::LegacyTraditional;
 pub use log_level::LogLevel;
-pub use model::LocalModelConfig;
+pub use model::{LocalModel, LocalModelConfig, ZhiyiTier};
 pub use modifiers::Modifiers;
 pub use page_keys::PageKeys;
 pub use preedit_mode::PreeditMode;
@@ -183,8 +183,6 @@ translation_second = "shift+option"
 # 把应用里选中的文字译成学习语言（要开着云服务）：译文先出现在候选窗口，回车替换选中的文字，Esc 保留原文
 # 修饰键 + 一个字母或数字，任意组合；避开 ⌘T 这类应用常用键
 translate_selection = "control+option+t"
-# 数字键配这些修饰键删掉候选：用户词（云端选过的、自动造的）整个删掉，词库里的词清掉对它的学习记录。组句中要打感叹号先把词上屏
-delete_candidate = "shift"
 "#
     };
 }
@@ -200,8 +198,6 @@ translation = "alt"
 translation_second = "shift+alt"
 # 把应用里选中的文字译成学习语言（要开着云服务）；Ctrl + Alt + T 常被桌面占用来打开终端
 translate_selection = "alt+shift+t"
-# 数字键配这些修饰键删掉候选
-delete_candidate = "shift"
 "#
     };
 }
@@ -221,8 +217,6 @@ translation_second = "shift+ctrl"
 translate_selection = "ctrl+alt+t"
 # Windows 组句中按需调用 AI
 predict = "ctrl+alt+j"
-# 数字键配这些修饰键删掉候选：用户词（云端选过的、自动造的）整个删掉，词库里的词清掉对它的学习记录。组句中要打感叹号先把词上屏
-delete_candidate = "shift"
 "#
     };
 }
@@ -300,6 +294,8 @@ punct_commits = false
 aux_code_key = ";"
 # 候选上是否显示码（方括号紧跟在候选词后面，如「鹤[rbm] crane」）。缺省关
 aux_code_show = false
+# 候选窗口顶部的拼音行按高亮候选显示带调拼音（gān'gà），应用里的拼音不变；macOS、Windows 用。缺省关
+show_tones = false
 # 码段删空后是否留在辅码状态：true 删空后 ; 仍在、候选全部回来，再按一次退格才退出辅码；false 删空即回拼音状态
 aux_code_keep_empty = true
 # 拼音方案：留空或 pinyin 为全拼 / xiaohe 小鹤双拼 / ziranma 自然码 / microsoft 微软双拼 / sogou 搜狗双拼 / abc 智能ABC / xiaolang 小浪双拼 / shoudao 首道双拼 / jiajia 拼音加加 / ziguang 紫光双拼 /
@@ -321,15 +317,15 @@ log_level = "info"
 input_log = true
 # 学习输入习惯：按你的选择调整候选顺序、记新词与敲错纠正。false 不再学，已学的仍参与排序；学习数据在数据目录，删掉文件即清空
 learning = true
-# 把系统设置「键盘 → 文本替换」里的条目当自定义短语：输入码（小写字母）敲全后短语出现在该码最靠前的空位；只有 macOS 用
+# 把系统设置「键盘 → 文本替换」里的条目当自定义短语：输入码（小写字母）敲全后出现，排在同权重的自定义短语之后；只有 macOS 用
 system_text_replacements = true
 
-# 自定义短语示例：取消下面各行注释后启用；同码同位置不能重复。
+# 自定义短语示例：取消下面各行注释后启用；同一个输入码下按权重从高到低排在普通候选前面。
 # [[custom_phrases]]
 # code = "ww"       # 输入码：1–32 个小写英文字母
 # text = "；"       # 原样上屏的文本，可包含空格与换行
-# position = 1      # 固定候选位置：1–9
-# enabled = true    # 是否启用；停用仍保留位置
+# weight = 10       # 权重：1–999，可以相同，相同的按文件里的先后
+# enabled = true    # 是否启用
 
 [shortcut]
 # Windows：切换当前模式的全 / 半角标点；空串禁用，可设为 "ctrl+." 或其他修饰键加字母、数字、句号
@@ -381,8 +377,14 @@ enabled = false
 disabled = []
 
 [model]
-# 本地整句模型：随包的小模型在本机给整句候选重新排序，全程离线；停顿后几十毫秒生效。关掉只用词库统计
+# 本地模型：在本机给候选重新排序，全程离线；停顿后几十毫秒生效。关掉只用词库统计
 enabled = true
+# 用哪个：tongbian 含章·通变（随包）/ zhiwei 含章·知微 / zhiyi 知意；后两个先在设置的「实验功能」里下载，没下载就用通变
+name = "tongbian"
+# 知意的档位：saver 省电 / balanced 均衡 / accurate 准确（比的候选更多、看的前文更长，也更费电）
+zhiyi_tier = "balanced"
+# 应用读不到光标前的文字时，拿这个应用、这个输入框里刚打的字当前文；多少秒没打字就不算（0 表示一直算）
+context_memory_seconds = 60
 
 [predict]
 # 云联想：把光标附近的文本发到下面的接口，让模型补全整句 / 联想下文。默认关闭。
@@ -472,7 +474,7 @@ impl Config {
             }
         }
         let mut used = std::collections::BTreeSet::new();
-        // 先按输入码和位置匹配，重排或删除时注释跟随原规则。
+        // 先按输入码和文本匹配，重排或删除时注释跟随原规则。
         let mut matches: Vec<_> = phrases
             .iter()
             .map(|p| {
@@ -481,8 +483,8 @@ impl Config {
                     .enumerate()
                     .find(|(_, t)| {
                         t.get("code").and_then(toml_edit::Item::as_str) == Some(p.code.as_str())
-                            && t.get("position").and_then(toml_edit::Item::as_integer)
-                                == Some(p.position as i64)
+                            && t.get("text").and_then(toml_edit::Item::as_str)
+                                == Some(p.text.as_str())
                     })
                     .map(|(i, _)| i);
                 if let Some(i) = found {
@@ -491,7 +493,7 @@ impl Config {
                 found
             })
             .collect();
-        // 等长列表中修改了输入码或位置的条目，沿用其未被占用的原表。
+        // 等长列表中修改了输入码或文本的条目，沿用其未被占用的原表。
         if old.len() == phrases.len() {
             for (i, matched) in matches.iter_mut().enumerate() {
                 if matched.is_none() && used.insert(i) {
@@ -505,10 +507,13 @@ impl Config {
                 .and_then(|i| old.get(i))
                 .cloned()
                 .unwrap_or_default();
+            if t.contains_key("position") {
+                t = phrases::position_to_weight(&t);
+            }
             for (key, mut value) in [
                 ("code", toml_edit::Value::from(p.code.as_str())),
                 ("text", toml_edit::Value::from(p.text.as_str())),
-                ("position", toml_edit::Value::from(p.position as i64)),
+                ("weight", toml_edit::Value::from(i64::from(p.weight))),
                 ("enabled", toml_edit::Value::from(p.enabled)),
             ] {
                 if let Some(previous) = t.get(key).and_then(toml_edit::Item::as_value) {

@@ -83,7 +83,7 @@
 - [ ] 通变按当前词库重标拼音重训：训练用的旧词库没有 嗯 / 诶 / 囧，字表里也就没有，带这几个字的路径现在整批不重排（`enen` 靠静态模型出 嗯嗯）
 - [x] 个人英文词表没有衰减（2026-09-24 发现）：用户词频 / 个人英文词 / 敲错表三张表已加牛顿冷却时间衰减
   （半衰期 90 天，`--tune decay-days=` 可调，0 为不衰减），冷却只压排序权重，记录保留、冷满一年才在落盘时清出，
-  30 天不用的英文词失去「当第一」的资格；自愈出口仍是删候选快捷键（缺省 `Shift` + 数字）走 `forget_english`。
+  30 天不用的英文词失去「当第一」的资格；自愈出口仍是删候选（0.3 起在候选右键菜单里）走 `forget_english`。
   「位置只有两档」另见 #606。
 - [ ] 日语 emoji 要等有日语输入模式
 - [ ] 人名输入（2026-10-20 用户群反馈，对照微软拼音）：一串拼音像人名时，第一个音节先按姓氏匹配、不当词语查；
@@ -118,7 +118,7 @@
     状态条自己一个窗口类 + 窗口过程（`ui/status/`）：`WM_NCHITTEST`→`HTCAPTION` 整块可拖、`WM_MOUSEACTIVATE`→`MA_NOACTIVATE` 不抢焦点、
     `WM_EXITSIZEMOVE` 把位置写回 `[status_bar] x/y`（`GWLP_USERDATA` 存自身指针）。新增协议 `ClientMessage::ModeChanged{english}`（fire-and-forget），
     DLL 在 `update_mode_indicator` 推模式；Server 据此刷、会话关就收起；双拼方案 Server 从 `[general] shuangpin` 知道。配置加 `[status_bar]` 分节（`enabled`/`x`/`y`），
-    设置「候选窗口」页加开关。参考水杉 FTB 形态（它用 D2D 且不记位置），我们沿用 GDI 分层窗保持视觉一致并加了记位置。
+    设置「候选窗口」页加开关。沿用 GDI 分层窗保持视觉一致，并记住位置。
     mac 全绿（+3 状态条分派测试）+ windows-gnu 交叉编译 / clippy 过；拖动 / 记位置 / DPI / 深色 / 盖高 z-band 待真机验。
   - [~] **④ 删候选屏幕提示**（★☆☆ / 低 / 0.5 天）：**代码完成，待真机测**（2026-09-11）。
     `Frame` 加 `notice: Option<String>`（不参与 `is_empty`），`dispatch/shortcut.rs::forget_on_page` 填、`handle_key` 开头清（只活到下一次按键）；
@@ -150,6 +150,8 @@
   - [ ] 按需云联想与请求节奏：Linux
   - [ ] 生词本整句翻译：Linux
   - [ ] 双拼键位提示：Linux
+  - [ ] 拼音行显示声调：Linux
+  - [ ] 实验功能（知意、含章·知微）：Linux
 
 ## 四、其他输入方案
 

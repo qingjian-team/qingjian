@@ -157,3 +157,18 @@ fn symbol_names_missing_from_the_dictionary_still_bring_their_symbols() {
     assert_eq!(items[1].text, "〈〉");
     assert_eq!(items[1].kind, CandidateKind::Symbol);
 }
+
+#[test]
+fn circled_numbers_follow_their_spelled_out_names() {
+    let mut engine = engine().with_emoji(EmojiTable::default());
+    for (input, name, symbol) in [
+        ("yuanquanyi", "圆圈一", "①"),
+        ("yuanquanshiwu", "圆圈十五", "⑮"),
+        ("yuanquanershi", "圆圈二十", "⑳"),
+    ] {
+        engine.set_input(input);
+        let items = engine.query().unwrap().candidates.items;
+        assert_eq!(items[0].text, name);
+        assert_eq!(items[1].text, symbol);
+    }
+}

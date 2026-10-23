@@ -6,6 +6,7 @@ pub mod appearance;
 pub mod candidates;
 pub mod cloud;
 pub mod dictionaries;
+pub mod experimental;
 pub mod input;
 pub mod language;
 pub mod phrases;

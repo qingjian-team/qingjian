@@ -6,6 +6,7 @@
 mod build;
 mod hit;
 mod keyboard;
+mod menu;
 mod rendered;
 mod status;
 

@@ -53,7 +53,7 @@ impl Engine {
                 self.personal(),
                 self.chain.context(),
                 item.hit.text,
-                sentence::fallback_log_prob(item.hit.frequency, log_total),
+                sentence::fallback_log_prob(item.hit.frequency, item.hit.secondary, log_total),
             );
             (choice, log_prob)
         });
@@ -75,6 +75,7 @@ impl Engine {
         let query = Query {
             // 形码没有切分：preedit 的显示串靠 `tail` 原样带出去（见 `Query::marked_text`）
             segmentations: Vec::new(),
+            spelled: 0,
             candidates: CandidateList { items },
             tail: keys.to_owned(),
             text: self.composition.text().to_owned(),
@@ -83,6 +84,7 @@ impl Engine {
             decoded_keys: false,
             shuangpin_raw_preedit: false,
             typed_display: None,
+            typed_case: None,
             pinyin_choices: Vec::new(),
             correction: None,
             aux: None,

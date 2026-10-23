@@ -17,6 +17,8 @@ use qingjian_core::{CodeScheme, Engine, InputLogEntry, InputSource, ShuangpinLay
 
 pub use report::Report;
 
+use crate::zhiyi::Reranker;
+
 use line::Line;
 use scheme::SchemeSwitcher;
 use tally::Tally;
@@ -29,6 +31,7 @@ pub fn run(
     show_misses: usize,
     code: Option<CodeScheme>,
     shuangpin: Option<Arc<ShuangpinLayout>>,
+    mut reranker: Option<&mut Reranker>,
 ) -> Result<Report, ReplayError> {
     let text = std::fs::read_to_string(path).map_err(|source| ReplayError::Read {
         path: path.to_owned(),
@@ -51,16 +54,27 @@ pub fn run(
         match line.entry {
             InputLogEntry::Retract { .. } => report.retracts += 1,
             InputLogEntry::Retype { .. } => report.retypes += 1,
-            InputLogEntry::Session { .. } => report.sessions += 1,
+            InputLogEntry::Session { .. } => {
+                report.sessions += 1;
+                if let Some(reranker) = reranker.as_deref_mut() {
+                    reranker.reset();
+                }
+            }
             InputLogEntry::Break { .. } => {
                 report.breaks += 1;
                 engine.break_chain();
+                if let Some(reranker) = reranker.as_deref_mut() {
+                    reranker.reset();
+                }
             }
             InputLogEntry::Passthrough { text } => {
                 // 直通字符也进标点状态与上文链，与真实使用一致
                 report.passthrough_chars += text.chars().count();
                 for c in text.chars() {
                     engine.note_passthrough(c);
+                }
+                if let Some(reranker) = reranker.as_deref_mut() {
+                    reranker.note(&text);
                 }
             }
             InputLogEntry::Prediction { .. } => {
@@ -84,7 +98,17 @@ pub fn run(
                 {
                     report.predictions_accepted += 1;
                 }
-                replay_commit(engine, &mut switcher, &commit, &mut report, show_misses)
+                replay_commit(
+                    engine,
+                    &mut switcher,
+                    &commit,
+                    &mut report,
+                    show_misses,
+                    reranker.as_deref_mut(),
+                );
+                if let Some(reranker) = reranker.as_deref_mut() {
+                    reranker.note(&commit.text);
+                }
             }
         }
     }
@@ -97,6 +121,7 @@ fn replay_commit(
     commit: &qingjian_core::CommitEntry,
     report: &mut Report,
     show_misses: usize,
+    reranker: Option<&mut Reranker>,
 ) {
     // 这条日志所属方案回放不了（形码但没给 `--code`）：只计数。拿拼音的读法去喂形码的键会算出
     // 看着像真的、实则无意义的命中率。
@@ -138,7 +163,7 @@ fn replay_commit(
         engine.set_input(scope);
         None
     };
-    let query = match engine.query() {
+    let mut query = match engine.query() {
         Ok(query) => query,
         Err(_) => {
             tally.unparsable += 1;
@@ -146,6 +171,9 @@ fn replay_commit(
             return;
         }
     };
+    if let Some(reranker) = reranker {
+        reranker.rerank(engine, &mut query, scope);
+    }
     let position = query
         .candidates
         .items

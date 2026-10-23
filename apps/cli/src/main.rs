@@ -16,14 +16,17 @@ mod rescoring;
 mod tuning;
 mod userwords;
 mod wordlist;
+mod zhiyi;
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Instant;
 
 use clap::Parser;
 use qingjian_core::{CodeScheme, EmojiTable, Engine, FuzzyRules, Language, ShuangpinLayout};
-use qingjian_dictionary::{AuxCodeLookup, AuxCodeTable, CodeTable, Dictionary, WordList};
+use qingjian_dictionary::{
+    AuxCodeLookup, AuxCodeTable, CodeTable, Dictionary, GENERAL_DICTIONARY, WordList,
+};
 use qingjian_learning::FrequencyLearner;
 use qingjian_lm::BigramModel;
 use qingjian_platform::{Config, Scheme, code_schemes, shuangpin_schemes};
@@ -50,6 +53,7 @@ fn run() -> Result<(), CliError> {
     tracing::info!(total_ms = started.elapsed().as_millis(), "Engine 就绪");
     engine.set_english_mode(args.english_mode);
     engine.set_chinese_first(args.chinese_first);
+    engine.set_show_tones(args.show_tones);
     engine.set_emoji_limit(usize::from(args.emoji_limit));
     tuning::apply(&mut engine, &args.tune)?;
     if let Some(input) = &args.eval_cold {
@@ -94,8 +98,29 @@ fn run() -> Result<(), CliError> {
         // （`build_engine` 那份的所有权已经交给引擎了）
         let code = args.code.as_deref().map(load_code_scheme).transpose()?;
         let shuangpin = load_shuangpin_scheme(&args)?;
-        let report = replay::run(&mut engine, path, args.misses, code, shuangpin)?;
+        let mut reranker = args
+            .zhiyi
+            .as_deref()
+            .map(|dir| {
+                zhiyi::Reranker::load(
+                    dir,
+                    args.zhiyi_top,
+                    (args.zhiyi_lm_weight, args.zhiyi_rank_weight),
+                )
+            })
+            .transpose()?;
+        let report = replay::run(
+            &mut engine,
+            path,
+            args.misses,
+            code,
+            shuangpin,
+            reranker.as_mut(),
+        )?;
         print!("{report}");
+        if let Some(reranker) = &reranker {
+            println!("{}", reranker.summary());
+        }
         return Ok(());
     }
     if let Some(model) = &args.eval_generate {
@@ -109,14 +134,29 @@ fn run() -> Result<(), CliError> {
         return Ok(());
     }
     if !args.eval_text.is_empty() {
+        let mut reranker = args
+            .zhiyi
+            .as_deref()
+            .map(|dir| {
+                zhiyi::Reranker::load(
+                    dir,
+                    args.zhiyi_top,
+                    (args.zhiyi_lm_weight, args.zhiyi_rank_weight),
+                )
+            })
+            .transpose()?;
         let report = eval::run(
             &mut engine,
             &args.eval_text,
             args.eval_save.as_deref(),
             args.misses,
             args.eval_details.as_deref(),
+            reranker.as_mut(),
         )?;
         print!("{report}");
+        if let Some(reranker) = &reranker {
+            println!("{}", reranker.summary());
+        }
         return Ok(());
     }
     if args.inputs.is_empty() {
@@ -212,13 +252,23 @@ fn build_engine(args: &Args) -> Result<Engine, CliError> {
         .with_learner(Box::new(learner));
     // 回放按日志逐键重喂：日志里选词之后的退格删的是字母，不是撤回选择
     engine.set_hold_selections(false);
-    if !args.extra_dict.is_empty() {
-        let mut extras = Vec::new();
-        for path in &args.extra_dict {
-            let dictionary = Dictionary::from_path(path)?;
-            tracing::info!(path = %path.display(), entries = dictionary.len(), "附加词库已加载");
-            extras.push(dictionary);
-        }
+    let general = args
+        .general_dict
+        .clone()
+        .unwrap_or_else(|| PathBuf::from(format!("data/generated/dicts/{GENERAL_DICTIONARY}.qj")));
+    let mut extras = Vec::new();
+    if general.as_os_str() != "none" && general.is_file() {
+        let mut dictionary = Dictionary::from_path(&general)?;
+        dictionary.set_secondary(true);
+        tracing::info!(path = %general.display(), entries = dictionary.len(), "通用词库已加载");
+        extras.push(dictionary);
+    }
+    for path in &args.extra_dict {
+        let dictionary = Dictionary::from_path(path)?;
+        tracing::info!(path = %path.display(), entries = dictionary.len(), "附加词库已加载");
+        extras.push(dictionary);
+    }
+    if !extras.is_empty() {
         engine.set_extra_dictionaries(extras);
     }
     // 英文候选的中文释义可选
@@ -360,7 +410,7 @@ fn build_engine(args: &Args) -> Result<Engine, CliError> {
         };
     }
     // 两条轴：拼音侧看 `[general] scheme`，形码侧看 `[general] code`；`--code` 给了码表就算开着形码。
-    // 两边都开就是混输，见 docs/user/input/fuzzy-and-shuangpin.md
+    // 两边都开就是混输，见 docs/user/input/wubi.md
     let scheme = if custom.is_some() {
         Scheme::Custom
     } else {

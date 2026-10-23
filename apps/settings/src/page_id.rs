@@ -1,5 +1,6 @@
 //! 侧栏的各页，顺序与名字见 docs/design/settings.md。
 
+use crate::support::Feature;
 use crate::view::icons::Glyph;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -15,11 +16,12 @@ pub enum PageId {
     Stats,
     Vocabulary,
     Advanced,
+    Experimental,
     About,
 }
 
 impl PageId {
-    pub const ALL: [Self; 12] = [
+    pub const ALL: [Self; 13] = [
         Self::Input,
         Self::Candidates,
         Self::Language,
@@ -31,8 +33,14 @@ impl PageId {
         Self::Stats,
         Self::Vocabulary,
         Self::Advanced,
+        Self::Experimental,
         Self::About,
     ];
+
+    /// 这个平台的侧栏有这一页（实验功能只在做了的平台出现）。
+    pub fn shown(self) -> bool {
+        self != Self::Experimental || Feature::ExperimentalModels.here()
+    }
 
     pub fn label(self) -> &'static str {
         match self {
@@ -47,6 +55,7 @@ impl PageId {
             Self::Stats => "统计",
             Self::Vocabulary => "生词本",
             Self::Advanced => "高级",
+            Self::Experimental => "实验功能",
             Self::About => "关于",
         }
     }
@@ -64,6 +73,7 @@ impl PageId {
             Self::Stats => Glyph::Stats,
             Self::Vocabulary => Glyph::Vocabulary,
             Self::Advanced => Glyph::Advanced,
+            Self::Experimental => Glyph::Experimental,
             Self::About => Glyph::About,
         }
     }

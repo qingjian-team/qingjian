@@ -49,8 +49,6 @@ pub enum Message {
     ResetShortcuts,
     /// 打开短语编辑卡片：`None` 新增，`Some(i)` 改第 i 条。
     OpenPhrase(Option<usize>),
-    /// 卡片里的位置加减。
-    PhrasePosition(i32),
     SavePhrase,
     /// 卡片里的「删除」（第一下只是确认）。
     DeletePhrase,
@@ -66,6 +64,11 @@ pub enum Message {
     /// 表达式、问字两个模式键之一换成这个字母（撞了就对调）。
     ModeKey(&'static str, char),
     CheckUpdate,
+    /// 实验功能里下载这个模型（失败后的「重试」也是它）。
+    DownloadModel(qingjian_platform::LocalModel),
+    CancelDownload,
+    /// 删掉下好的模型（第一下只是确认）。
+    RemoveModel(qingjian_platform::LocalModel),
     /// 展开 / 收起「关于」页的数据来源。
     ToggleSources,
     /// 统计页切到「云服务」层（`false` 回「输入」层）。

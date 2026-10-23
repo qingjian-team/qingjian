@@ -67,6 +67,8 @@ fn run() -> Result<(), ConvertError> {
             emit_ambiguous,
             extra_words,
             domain_keep_min,
+            general,
+            cleaned,
         } => lexicon::convert(
             &pack,
             &unihan,
@@ -75,6 +77,8 @@ fn run() -> Result<(), ConvertError> {
             emit_ambiguous.as_deref(),
             &extra_words,
             domain_keep_min,
+            general.as_deref(),
+            cleaned.as_deref(),
             &args.out_dir,
         ),
         Command::Tones { words } => {

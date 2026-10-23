@@ -112,5 +112,13 @@ impl Host {
         tracing::info!(count = loaded.len(), "附加词库已装配");
         self.engine.set_extra_dictionaries(loaded);
         self.applied_dictionaries = config;
+        self.dictionary_files = dictionary_files();
     }
+}
+
+/// 用户 `dicts/` 的快照，只 stat。
+pub(super) fn dictionary_files() -> Vec<(std::path::PathBuf, Option<std::time::SystemTime>, u64)> {
+    paths::dicts_dir()
+        .map(|dir| extra_dictionaries::snapshot(&dir))
+        .unwrap_or_default()
 }

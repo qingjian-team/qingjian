@@ -48,6 +48,7 @@ impl Engine {
                 }
                 return Ok(Query {
                     segmentations: Vec::new(),
+                    spelled: 0,
                     candidates: CandidateList { items },
                     tail: keys.to_owned(),
                     text: self.composition.text().to_owned(),
@@ -56,6 +57,7 @@ impl Engine {
                     decoded_keys: self.shuangpin.is_some() || self.zhuyin,
                     shuangpin_raw_preedit: self.shuangpin.is_some() && self.shuangpin_raw_preedit,
                     typed_display: decoded.as_ref().map(|d| d.marked()),
+                    typed_case: None,
                     pinyin_choices: Vec::new(),
                     correction: None,
                     aux: None,
@@ -164,14 +166,7 @@ impl Engine {
             let choice = letters
                 .get(..covered)
                 .map_or(0, |input| self.learner.choice_weight(input, hit.text));
-            let log_prob = sentence::transition_log_prob(
-                &*self.language_model,
-                self.personal(),
-                self.chain.context(),
-                hit.text,
-                sentence::fallback_log_prob(hit.frequency, log_total),
-            );
-            (choice, log_prob)
+            (choice, self.word_log_prob(hit, log_total))
         });
         // 辅码态：词库候选按码段**反向**过滤（逐个问「有没有以码段开头的码」），无码词直接隐藏；
         // 命中的按「完全匹配码 > 码长降序 > 原词频序」重排（stable sort 保住 rank 排好的原序）。
@@ -242,13 +237,13 @@ impl Engine {
             .as_ref()
             .filter(|_| head_wins)
             .map_or(tail, |t| &keys[t.head_len..]);
-        let typed_display = decoded.as_ref().map(|d| d.marked()).or_else(|| {
-            // 中文模式下 Shift 敲的大写：匹配按小写算，拼音行仍按敲的样子显示（`Cpan`）
-            (correction.is_none() && self.composition.has_shifted())
-                .then(|| join_marked_typed(&self.composition.typed_scope(), &segmentations, tail))
-        });
+        let typed_display = decoded.as_ref().map(|d| d.marked());
+        let typed_case =
+            (decoded.is_none() && correction.is_none() && self.composition.has_shifted())
+                .then(|| self.composition.typed_scope());
         Ok(Query {
             segmentations,
+            spelled: 0,
             candidates: CandidateList { items },
             tail: tail.to_owned(),
             text: self.composition.text().to_owned(),
@@ -257,6 +252,7 @@ impl Engine {
             decoded_keys: self.shuangpin.is_some() || self.zhuyin,
             shuangpin_raw_preedit: self.shuangpin.is_some() && self.shuangpin_raw_preedit,
             typed_display,
+            typed_case,
             pinyin_choices: Vec::new(),
             correction,
             aux: self.aux_segment(),

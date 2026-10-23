@@ -1,6 +1,6 @@
 //! 候选窗口的点击：只有候选与译词那几块收鼠标（`WM_NCHITTEST` 回 `HTCLIENT`），其余地方回 `HTTRANSPARENT`
 //! 穿到下面的应用，主题伸出窗口的装饰、投影都不挡；按下不激活窗口，点中的目标经回调交给 Router。
-//! GDI 画法没有点击区域，整窗穿透。
+//! GDI 画法没有点击区域，整窗穿透。右键候选要菜单，菜单里点中的项也经这个回调交回。
 
 use std::cell::RefCell;
 
@@ -11,8 +11,10 @@ use windows::Win32::UI::WindowsAndMessaging::{
 
 use qingjian_render::{HitRegion, HitTarget};
 
-/// 点中候选或译词时调的回调（UI 线程上调，投给工人线程）。
-pub type CandidateClicks = Box<dyn Fn(HitTarget) + Send>;
+pub(crate) use crate::dispatch::CandidateMouse;
+
+/// 候选窗口上的鼠标操作回调（UI 线程上调，投给工人线程）。
+pub type CandidateClicks = Box<dyn Fn(CandidateMouse) + Send>;
 
 /// 本线程候选窗口的点击状态（只有一个候选窗口）。
 struct Clicks {
@@ -89,9 +91,35 @@ pub(super) fn button_down() {
         return;
     };
     tracing::debug!(?target, "点击候选窗口");
+    send(CandidateMouse::Click(target));
+}
+
+/// `WM_RBUTTONUP`：右键在候选或译词上就要菜单。
+pub(super) fn right_button_up() {
+    let mut point = POINT::default();
+    if unsafe { GetCursorPos(&mut point) }.is_err() {
+        return;
+    }
+    let offset = match target_at(point.x, point.y) {
+        Some(
+            HitTarget::Candidate(offset)
+            | HitTarget::Translation {
+                candidate: offset, ..
+            },
+        ) => offset,
+        Some(HitTarget::MenuItem(_)) | None => return,
+    };
+    send(CandidateMouse::Menu {
+        offset,
+        point: (point.x, point.y),
+    });
+}
+
+/// 交给登记的回调。
+pub(super) fn send(event: CandidateMouse) {
     CLICKS.with(|clicks| {
         if let Some(clicks) = clicks.borrow().as_ref() {
-            (clicks.on_click)(target);
+            (clicks.on_click)(event);
         }
     });
 }

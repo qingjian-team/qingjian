@@ -85,7 +85,10 @@ impl RenderData {
         self.show_code = frame.aux_code_show;
         self.show_pos = frame.translation_pos;
         self.preedit = window_preedit(frame);
-        self.cursor = frame.cursor;
+        self.cursor = frame
+            .window_preedit
+            .as_ref()
+            .map_or(frame.cursor, |window| window.1);
         self.columns = frame.columns;
         self.column_ems = frame.column_ems.clone();
         let grid = frame.columns > 0;
@@ -159,8 +162,11 @@ fn window_preedit(frame: &Frame) -> Vec<(String, PreeditKind)> {
     if !frame.preedit_mode.in_window() {
         return Vec::new();
     }
+    // 带调拼音时窗口里画另一串，应用里的行内拼音仍是 `preedit`
     frame
-        .preedit
+        .window_preedit
+        .as_ref()
+        .map_or(&frame.preedit, |window| &window.0)
         .iter()
         .map(|segment| (segment.text.clone(), segment.kind))
         .collect()

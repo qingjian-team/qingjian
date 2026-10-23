@@ -3,7 +3,7 @@
 mod state;
 
 use qingjian_core::{
-    Candidate, CandidateKind, CandidateLayout, CandidateList, CloudWord, SurroundingText,
+    Candidate, CandidateKind, CandidateLayout, CandidateList, CloudWord, Query, SurroundingText,
 };
 use qingjian_platform::protocol::{Frame, PreeditKind, PreeditSegment};
 
@@ -23,15 +23,13 @@ impl Router {
             return;
         }
         self.attach_loaded_model();
-        let built = self.engine.query().ok().map(|query| {
-            let items = query.candidates.items.clone();
-            let preedit: Vec<PreeditSegment> =
-                query.marked_segments().iter().map(Into::into).collect();
-            // 光标用 Core 的映射：自动补的 `'` 会让显示串比敲的长。
-            (items, preedit, query.marked_cursor())
+        let built = self.engine.query().ok().map(|mut query| {
+            let items = std::mem::take(&mut query.candidates.items);
+            let (preedit, cursor) = marked_parts(&query);
+            (items, preedit, cursor, Box::new(query))
         });
         self.composed = Some(match built {
-            Some((items, preedit, cursor)) => {
+            Some((items, preedit, cursor, spelling)) => {
                 let layout =
                     CandidateLayout::new(items, self.config.page_size, self.config.cloud_slots);
                 if self.prediction_context_active() {
@@ -41,6 +39,7 @@ impl Router {
                     preedit,
                     cursor,
                     layout,
+                    spelling,
                 }
             }
             None => {
@@ -191,6 +190,7 @@ impl Router {
                     kind: PreeditKind::Typed,
                 }],
                 cursor: *cursor,
+                window_preedit: None,
                 preedit_mode: self.config.preedit,
                 candidates: CandidateList { items: Vec::new() },
                 highlight: usize::MAX,
@@ -210,9 +210,19 @@ impl Router {
                 preedit,
                 cursor,
                 layout,
+                spelling,
             }) => {
                 let page_size = self.config.page_size;
                 let highlight = self.highlight.min(layout.len().saturating_sub(1));
+                // 高亮候选的读音切法与首选不同（`ganga` 的 尴尬 / 刚啊）：拼音行按它重切
+                let candidate = layout.candidate(highlight);
+                let (preedit, cursor) = if spelling.spelling_of(candidate) == spelling.spelled {
+                    (preedit.clone(), *cursor)
+                } else {
+                    let mut followed = (**spelling).clone();
+                    followed.follow(candidate);
+                    marked_parts(&followed)
+                };
                 let page = highlight / page_size;
                 let items: Vec<Candidate> = layout
                     .page(page)
@@ -232,8 +242,9 @@ impl Router {
                 let mut candidates = CandidateList { items };
                 self.engine.annotate(&mut candidates);
                 Frame {
-                    preedit: preedit.clone(),
-                    cursor: *cursor,
+                    preedit,
+                    cursor,
+                    window_preedit: None,
                     preedit_mode: self.config.preedit,
                     candidates,
                     highlight: highlight - page * page_size,
@@ -252,4 +263,12 @@ impl Router {
             }
         }
     }
+}
+
+/// 一次查询的拼音行分段与光标。光标用 Core 的映射：自动补的 `'` 会让显示串比敲的长。
+pub(super) fn marked_parts(query: &Query) -> (Vec<PreeditSegment>, usize) {
+    (
+        query.marked_segments().iter().map(Into::into).collect(),
+        query.marked_cursor(),
+    )
 }

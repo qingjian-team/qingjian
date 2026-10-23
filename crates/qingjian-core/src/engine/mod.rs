@@ -6,6 +6,8 @@
 mod alignment;
 mod annotation;
 mod aux_code;
+mod candidate_menu;
+mod choice;
 mod code_keys;
 mod commit;
 mod composing;
@@ -24,6 +26,7 @@ mod prediction;
 mod privacy;
 mod query;
 mod raw;
+mod reading;
 mod rescoring;
 mod session;
 mod setup;
@@ -43,11 +46,12 @@ use qingjian_dictionary::{AuxCodeLookup, Dictionary, Match, WordList};
 pub use alignment::Alignment;
 pub use annotation::AnnotationReport;
 pub use aux_code::is_valid_aux_code_key;
+pub use choice::{ChoiceModel, ChoiceTier};
 pub use commit::{LastCommit, Transition};
 pub use gloss::{FilledGloss, GlossFiller, NoGlossFiller};
 pub use input_log::{
-    CommitEntry, INPUT_LOG_VERSION, InputLogEntry, InputLogger, InputSource, LOGGED_CANDIDATES,
-    NoInputLogger,
+    ChoiceNote, CommitEntry, INPUT_LOG_VERSION, InputLogEntry, InputLogger, InputSource,
+    LOGGED_CANDIDATES, NoInputLogger,
 };
 pub use learning::{Forgotten, Learner, NoLearner};
 pub use marked::{AuxSegment, MarkedKind, MarkedSegment};
@@ -127,7 +131,7 @@ pub struct Engine {
     /// 中文标点转换开关。
     full_width_punctuation: bool,
 
-    /// 用户定义的固定位置文本。
+    /// 用户定义的短语，按输入码精确匹配、按权重排在最前。
     custom_phrases: Vec<crate::CustomPhrase>,
 
     /// 中文模式下整段是英文词（或像英文词的开头）时给不给英文候选与补全（配置 `[general] english_in_chinese`，缺省开）。
@@ -157,6 +161,12 @@ pub struct Engine {
 
     /// 「前文 + 整句文本 → 神经分」缓存，同步与异步打分共用。
     neural_cache: std::cell::RefCell<rescoring::NeuralCache>,
+
+    /// 选词模型（试验）：候选窗前几条交给它重排一次，见 [`choice`]。
+    choice: Option<choice::ChoiceRanker>,
+
+    /// 选词模型比几条、看多长前文。
+    choice_tier: choice::ChoiceTier,
 
     /// 壳给的应用里光标前的文本；`None` 时前文用本会话历史。
     rescoring_before: Option<String>,
@@ -194,6 +204,9 @@ pub struct Engine {
 
     /// 最近一次查询的候选顺序是否经过神经重排（`rescore_paths` 置位，`query` 开头清零），写进输入日志。
     last_rescored: std::cell::Cell<bool>,
+
+    /// 最近一次查询里选词模型排过这页的记录（`rerank_choices` 写，`query` 开头清零），写进输入日志。
+    last_choice: std::cell::Cell<Option<input_log::ChoiceNote>>,
 
     /// 这段组句里第一次退格前的缓冲区：上屏时与最终键串不同就记一条 `retype`。
     retype_snapshot: Option<String>,
@@ -249,7 +262,7 @@ pub struct Engine {
     /// 整句转换的格子候选缓存：跨按键复用，学习数据一变就清（见 [`Self::forget_span_cache`]）。
     span_cache: std::cell::RefCell<sentence::SpanCache>,
 
-    /// 本次会话经我们上屏的文本，应用不给上下文时用它联想。
+    /// 本次会话经我们上屏的文本，按应用分开记；应用不给光标前文时给模型当前文。
     history: InputHistory,
 
     /// 最近一次联想请求的序号，0 表示还没发过。
@@ -319,6 +332,9 @@ pub struct Engine {
     /// 候选上是否显示码（配置项 `[general] aux_code_show`，缺省关）：纯拼音态逐候查首条码的短路开关，
     /// 由壳装配时告知（辅码态不受它管，看码有引导意义）。
     aux_show: bool,
+
+    /// 拼音行按高亮候选显示带调拼音（配置项 `[general] show_tones`，缺省关），见 [`Self::toned_syllables`]。
+    show_tones: bool,
 
     /// 进辅码态的触发键，配置项 `[general] aux_code_key`，缺省 [`DEFAULT_AUX_CODE_KEY`]。
     aux_code_key: char,
@@ -412,6 +428,9 @@ const RESCORE_PATHS: usize = 6;
 /// 长输入最多给几条整句候选（重排后的前几条路径）：一条不够用，长句错一个字就得拆开重打。
 const SENTENCE_CANDIDATES: usize = 3;
 
+/// 结构上打平的切分（`shang ou` / `shan gou`）最多比几种，见 [`Engine::sentence_segmentation`]。
+const TIED_SEGMENTATIONS: usize = 3;
+
 /// 短于这么多音节的不给备选整句：那时候选表里的词级候选比另一种读法有用。
 const ALTERNATE_MIN_SYLLABLES: usize = 4;
 
@@ -453,6 +472,8 @@ impl Engine {
             sentence_scorer: None,
             rescorer: None,
             neural_cache: std::cell::RefCell::new(rescoring::NeuralCache::default()),
+            choice: None,
+            choice_tier: choice::ChoiceTier::default(),
             rescoring_before: None,
             neural_weight: NEURAL_WEIGHT,
             neural_margin: NEURAL_MARGIN,
@@ -466,6 +487,7 @@ impl Engine {
             private: false,
             log_sequence: 0,
             last_rescored: std::cell::Cell::new(false),
+            last_choice: std::cell::Cell::new(None),
             retype_snapshot: None,
             held: Vec::new(),
             hold_selections: true,
@@ -505,6 +527,7 @@ impl Engine {
             aux_code: None,
             aux_enabled: false,
             aux_show: false,
+            show_tones: false,
             aux_code_key: DEFAULT_AUX_CODE_KEY,
             aux_keep_empty: true,
             aux_codes: Vec::new(),

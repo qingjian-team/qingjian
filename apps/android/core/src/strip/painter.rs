@@ -108,7 +108,7 @@ impl StripPainter {
             hits: rendered
                 .hits
                 .iter()
-                .map(|region| StripHit::new(region, offset))
+                .filter_map(|region| StripHit::new(region, offset))
                 .collect(),
             emoji: self.emoji.clone(),
         };

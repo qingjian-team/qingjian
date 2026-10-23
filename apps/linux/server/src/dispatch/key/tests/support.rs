@@ -15,12 +15,7 @@ pub(super) fn router(size: usize) -> Router {
     engine
         .set_custom_phrases(
             (1..=9)
-                .map(|position| CustomPhrase {
-                    code: "qq".into(),
-                    text: format!("第{position}项"),
-                    position,
-                    enabled: true,
-                })
+                .map(|n| CustomPhrase::new("qq", &format!("第{n}项")))
                 .collect(),
         )
         .unwrap();

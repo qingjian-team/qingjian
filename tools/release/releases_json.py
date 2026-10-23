@@ -18,7 +18,7 @@ CHANGELOG.md 的格式（一个版本一节，日期与发布渠道写在标题�
 
 渠道只能是 alpha / beta / rc / stable，是**更新渠道**：定期发的版本标 stable，中间放给测试者的版本标 alpha / beta / rc，
 版本号带对应的预发布后缀（`0.1.4-beta.1`）。api-json 是 `gh api repos/<repo>/releases --paginate` 的输出（数组）。
-只取 tag 形如 [平台-]v<版本> 的非草稿发布（平台前缀可选：macos- / windows- / linux-，各平台壳版本号独立），安装包按文件名识别平台与架构，其他附件（SHA256SUMS、build-info.json、releases.json 本身）不列。
+只取 tag 形如 [平台-]v<版本> 的非草稿发布（平台前缀可选：macos- / windows- / linux- / android-，各平台壳版本号独立），安装包按文件名识别平台与架构，其他附件（SHA256SUMS、build-info.json、releases.json 本身）不列。
 meta-dir 下每个 tag 一个目录，放那次发布的 SHA256SUMS（每个包的 sha256）与 build-info.json（提交哈希、构建时间、工具链），
 没有就对应字段留空。输出结构与官网 src/lib/releases.ts 的 Release / Asset 类型对应：
 
@@ -53,7 +53,7 @@ from pathlib import Path
 HEADING = re.compile(r"^##\s+(?P<version>\d+\.\d+\.\d+(?:-[0-9A-Za-z.]+)?)\s*·\s*(?P<date>\d{4}-\d{2}-\d{2}|未发布)\s*·\s*(?P<channel>\S+)\s*$")
 MIRROR_LINE = re.compile(r"^网盘[：:]")
 MIRROR_LINK = re.compile(r"\[(?P<name>[^\]]+)\]\((?P<url>https?://[^)\s]+)\)")
-TAG = re.compile(r"^(?:(?:macos|windows|linux)-)?v(\d+\.\d+\.\d+(?:-[0-9A-Za-z.]+)?)$")
+TAG = re.compile(r"^(?:(?:macos|windows|linux|android)-)?v(\d+\.\d+\.\d+(?:-[0-9A-Za-z.]+)?)$")
 CHANNELS = ("alpha", "beta", "rc", "stable")
 # 只加字段不用动；改了已有字段的含义或结构才加一，旧客户端见到不认识的号就不读
 SCHEMA_VERSION = 1
@@ -65,6 +65,7 @@ ASSET_KINDS = [
     (re.compile(r"^qingjian-.+-macos-x86_64\.pkg$"), "macos", "Intel", "x86_64"),
     (re.compile(r"^qingjian-.+-windows-x86_64-setup\.exe$"), "windows", "x64", "x86_64"),
     (re.compile(r"^qingjian-.+-linux-x86_64\.tar\.gz$"), "linux", "x64", "x86_64"),
+    (re.compile(r"^qingjian-.+-android-arm64\.apk$"), "android", "arm64", "arm64"),
     (re.compile(r"^Qingjian-.+-arm64\.pkg$"), "macos", "Apple Silicon", "arm64"),
     (re.compile(r"^Qingjian-.+-x86_64\.pkg$"), "macos", "Intel", "x86_64"),
     (re.compile(r"^Qingjian-.+-Setup\.exe$"), "windows", "x64", "x86_64"),

@@ -5,7 +5,7 @@ use qingjian_core::CustomPhrase;
 use qingjian_core::custom_phrase::validate_phrases;
 use serde::Deserialize;
 
-/// 按顺序判定每一条：读不成短语、输入码或位置不合法、与前面的条目占同一位置的，给出原因。
+/// 按顺序判定每一条：读不成短语、输入码或权重不合法、与前面的条目同码同文本的，给出原因。
 pub(super) fn check(
     items: impl IntoIterator<Item = Result<CustomPhrase, String>>,
 ) -> Vec<Result<CustomPhrase, String>> {
@@ -45,4 +45,26 @@ pub(super) fn deserialize<'de, D: serde::Deserializer<'de>>(
             .ok()
         })
         .collect())
+}
+
+/// 0.3 之前的条目写的是固定位置：`position` 那一行原地换成 `weight`（值随后照常写入），注释跟着留下；
+/// 已经有 `weight` 的只去掉 `position`。
+pub(super) fn position_to_weight(table: &toml_edit::Table) -> toml_edit::Table {
+    let mut renamed = toml_edit::Table::new();
+    *renamed.decor_mut() = table.decor().clone();
+    renamed.set_position(table.position());
+    let has_weight = table.contains_key("weight");
+    for (key, item) in table.iter() {
+        let Some(formatted) = table.key(key) else {
+            continue;
+        };
+        if key != "position" {
+            renamed.insert_formatted(formatted, item.clone());
+        } else if !has_weight {
+            let weight =
+                toml_edit::Key::new("weight").with_leaf_decor(formatted.leaf_decor().clone());
+            renamed.insert_formatted(&weight, item.clone());
+        }
+    }
+    renamed
 }

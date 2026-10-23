@@ -19,6 +19,12 @@ use objc2_foundation::NSString;
 use objc2_input_method_kit::IMKServer;
 
 fn main() {
+    // candle 的 CPU 线程池算完每一步先空转再睡，线程一多打字时 CPU 冲到 170%；只有没 Metal 退回 CPU 时才用得上。
+    // 池子第一次用时读这个变量，得在起任何线程之前设
+    if std::env::var_os("CANDLE_NUM_THREADS").is_none() {
+        // SAFETY：进程刚启动，还没有别的线程读写环境变量
+        unsafe { std::env::set_var("CANDLE_NUM_THREADS", "2") };
+    }
     // `--register` 起的子进程：在干净的 TIS 缓存里回读启用状态并切成当前（见 input_source.rs）
     let mut arguments = std::env::args().skip(1);
     if arguments.next().as_deref() == Some(app::input_source::FINISH_FLAG) {

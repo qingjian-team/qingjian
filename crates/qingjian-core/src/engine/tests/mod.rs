@@ -1,23 +1,29 @@
 //! Engine 的测试：共用的样例词库、辅助函数与 mock 在这里，用例按主题分文件。
 
 mod aux_code;
+mod candidate_menu;
 mod cloud;
 mod cloud_trigger;
 mod code;
 mod code_keys;
 mod correction;
 mod custom;
+mod email;
 mod emoji;
 mod english;
+mod general;
 mod held;
 mod learning;
 mod lookup;
 mod nine_key;
 mod panel;
+mod polyphone;
 mod privacy;
 mod raw;
+mod reading;
 mod shuangpin;
 mod spacing;
+mod spelling;
 mod traditional;
 mod vocabulary;
 mod voice;
@@ -126,6 +132,24 @@ impl Learner for CountingLearner {
 
     fn raw_count(&self, input: &str) -> u32 {
         self.0.get(&format!("{input}\t<raw>")).copied().unwrap_or(0)
+    }
+
+    fn demote(&mut self, input: &str, text: &str) {
+        *self
+            .0
+            .entry(format!("demote\t{input}\t{text}"))
+            .or_default() += 1;
+    }
+
+    fn undemote(&mut self, input: &str, text: &str) -> bool {
+        self.0.remove(&format!("demote\t{input}\t{text}")).is_some()
+    }
+
+    fn demotion(&self, input: &str, text: &str) -> u32 {
+        self.0
+            .get(&format!("demote\t{input}\t{text}"))
+            .copied()
+            .unwrap_or(0)
     }
 }
 

@@ -3,6 +3,6 @@ contact_links:
   - name: 使用说明
     url: https://qingjian.app/docs
     about: 安装、按键总表、双拼、云联想等用法都在这里，提问前可以先查一下。
-  - name: 数据与日志
-    url: https://qingjian.app/docs/help/data-and-logs
+  - name: 数据文件与日志
+    url: https://qingjian.app/docs/advanced/data-files
     about: 配置文件、学习数据与运行日志的位置，反馈 bug 时会用到。

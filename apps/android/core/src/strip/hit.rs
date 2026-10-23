@@ -20,19 +20,20 @@ pub struct StripHit {
 }
 
 impl StripHit {
-    /// 区域是内容区坐标，加上内容区在位图里的偏移。
-    pub fn new(region: &HitRegion, offset: (u32, u32)) -> Self {
+    /// 区域是内容区坐标，加上内容区在位图里的偏移。候选条没有右键菜单，菜单项给 `None`。
+    pub fn new(region: &HitRegion, offset: (u32, u32)) -> Option<Self> {
         let (candidate, sense) = match region.target {
             HitTarget::Candidate(candidate) => (candidate, None),
             HitTarget::Translation { candidate, sense } => (candidate, Some(sense)),
+            HitTarget::MenuItem(_) => return None,
         };
-        Self {
+        Some(Self {
             candidate,
             sense,
             x: region.x + offset.0 as f32,
             y: region.y + offset.1 as f32,
             width: region.width,
             height: region.height,
-        }
+        })
     }
 }

@@ -93,9 +93,11 @@ for scheme in assets/schemes/*/; do
 done
 if [[ -f data/generated/dict.tsv || -f data/generated/dict.qj ]]; then
   # 词库与语言模型打成 .qj（mmap 直接用），TSV 比 .qj 新时重新打包；只有 .qj（CI 从数据包解出来的）就直接用
-  if [[ -f data/generated/dict.tsv && ( ! -f data/generated/dict.qj || data/generated/dict.tsv -nt data/generated/dict.qj ) ]]; then
+  # dict-cleaned.tsv 是青简词库已清洗的部分，pack dict 缺省与 dict.tsv 合成一份
+  if [[ -f data/generated/dict.tsv && ( ! -f data/generated/dict.qj || data/generated/dict.tsv -nt data/generated/dict.qj \
+        || ( -f data/generated/dict-cleaned.tsv && data/generated/dict-cleaned.tsv -nt data/generated/dict.qj ) ) ]]; then
     cargo run --release -q -p qingjian-dict-convert -- pack dict --name "青简基础词库" \
-      --license "MIT AND Unicode-3.0" --attribution "通用规范汉字表；现代汉语常用词表（liuxilu 校对版）；THUOCL（清华大学自然语言处理实验室，MIT）；读音 Unihan（Unicode）" \
+      --license "MIT AND Unicode-3.0 AND GPL-3.0-or-later" --attribution "通用规范汉字表；现代汉语常用词表（liuxilu 校对版）；THUOCL（清华大学自然语言处理实验室，MIT）；读音 Unihan（Unicode）；青简词库（GPL-3.0-or-later）" \
       --source https://github.com/qingjian-team/qingjian/tree/main/assets/lexicon
   fi
   if [[ -f data/generated/lm-bigram.tsv && ( ! -f data/generated/lm.qj || data/generated/lm-bigram.tsv -nt data/generated/lm.qj ) ]]; then
@@ -114,18 +116,8 @@ if [[ -f data/generated/dict.tsv || -f data/generated/dict.qj ]]; then
     mkdir -p "$APP/Contents/Resources/codes"
     cp data/generated/codes/*.qj assets/stroke/LICENSE-CNS11643.txt "$APP/Contents/Resources/codes/"
   fi
-  # 含章·知微（字级 Transformer）：三件套与单文件放 data/models/hanzhang-zhiwei/。
-  model_dir="${QINGJIAN_MODEL_DIR:-data/models/hanzhang-zhiwei}"
-  if [[ -f "$model_dir/model.safetensors" ]]; then
-    QINGJIAN_MODEL_DIR="$model_dir" tools/release/pack-model.sh
-  fi
-  if [[ -f "$model_dir/hanzhang-zhiwei-small.qjm" ]]; then
-    mkdir -p "$APP/Contents/Resources/models/hanzhang-zhiwei"
-    cp "$model_dir/hanzhang-zhiwei-small.qjm" "$APP/Contents/Resources/models/hanzhang-zhiwei/"
-    chmod 644 "$APP/Contents/Resources/models/hanzhang-zhiwei/hanzhang-zhiwei-small.qjm"
-    echo "打包含章·知微：$model_dir/hanzhang-zhiwei-small.qjm"
-  fi
   # 含章·通变（P2C，带噪拼音 → 汉字）：放 Resources/models/hanzhang-tongbian/。
+  # 含章·知微（字级模型）不随包：有通变时三个桌面平台都不加载它，用户自己放进数据目录 models/hanzhang-zhiwei/ 仍认
   p2c_dir="${QINGJIAN_P2C_MODEL_DIR:-data/models/hanzhang-tongbian}"
   if [[ -f "$p2c_dir/model.safetensors" ]]; then
     QINGJIAN_MODEL_DIR="$p2c_dir" tools/release/pack-model.sh

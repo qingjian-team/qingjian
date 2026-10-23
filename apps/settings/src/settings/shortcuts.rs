@@ -25,11 +25,6 @@ impl Settings {
         );
         self.write(
             "shortcut",
-            "delete_candidate",
-            defaults.delete_candidate.key(),
-        );
-        self.write(
-            "shortcut",
             "translate_selection",
             defaults.translate_selection.key_string(),
         );

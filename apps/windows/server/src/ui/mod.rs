@@ -42,7 +42,8 @@ pub use self::panel::PanelEvents;
 use self::panel::PanelWindow;
 use self::status::StatusBar;
 use crate::dispatch::{
-    CandidateSink, KeyHintView, PanelFrame, RenderSettings, StatusEvent, StatusSink, StatusView,
+    CandidateMenu, CandidateSink, KeyHintView, PanelFrame, RenderSettings, StatusEvent, StatusSink,
+    StatusView,
 };
 
 /// 状态条上的操作（点格子 / 拖动结束）回给 Router 的回调，UI 线程上调。
@@ -111,6 +112,14 @@ impl CandidateSink for UiHandle {
 
     fn configure(&self, settings: RenderSettings) {
         self.post(UiCommand::Configure(settings));
+    }
+
+    fn show_menu(&self, menu: CandidateMenu) {
+        self.post(UiCommand::Menu(menu));
+    }
+
+    fn close_menu(&self) {
+        self.post(UiCommand::MenuClose);
     }
 }
 
@@ -240,6 +249,8 @@ fn apply(
             window.show(to_win_rect(rect));
         }
         UiCommand::Hide => window.hide(),
+        UiCommand::Menu(menu) => window.show_menu(menu),
+        UiCommand::MenuClose => window.close_menu(),
         UiCommand::PanelShow(payload) => {
             let (frame, rect) = *payload;
             if let Some(panel) = panel {

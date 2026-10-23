@@ -73,6 +73,32 @@ fn choices_are_keyed_by_input_and_round_trip() {
 }
 
 #[test]
+fn demotions_add_up_undo_and_round_trip() {
+    let dir = std::env::temp_dir().join("qingjian-user-demoted-test");
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("user.tsv");
+    let _ = std::fs::remove_file(dir.join(USER_DEMOTED_FILE));
+
+    let mut learner = FrequencyLearner::from_path(&path).unwrap();
+    learner.demote("qj", "前几");
+    learner.demote("qj", "前几");
+    learner.demote("qj", "千金");
+    learner.demote("qianji", "前几");
+    assert_eq!(learner.demotion("qj", "前几"), 2);
+    assert_eq!(learner.demotion("qianji", "千金"), 0);
+    assert!(learner.undemote("qj", "千金"));
+    assert!(!learner.undemote("qj", "千金"));
+    learner.flush();
+
+    let reloaded = FrequencyLearner::from_path(&path).unwrap();
+    assert_eq!(reloaded.demoted_count(), 2);
+    assert_eq!(reloaded.demotion("qj", "前几"), 2);
+    assert_eq!(reloaded.demotion("qianji", "前几"), 1);
+    assert_eq!(reloaded.demotion("qj", "千金"), 0);
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
 fn unrecord_reverses_each_kind_of_record() {
     let mut learner = FrequencyLearner::default();
     let candidate = Candidate {

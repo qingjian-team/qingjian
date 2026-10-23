@@ -39,9 +39,6 @@ pub struct ShortcutConfig {
 
     /// 组句中按需调用 AI（缺省 Ctrl+Alt+J，macOS 是 ⌃⌥J）。
     pub predict: KeyCombo,
-
-    /// 数字键配这些修饰键：删掉候选（用户词整个删掉，词库词清掉对它的学习）。
-    pub delete_candidate: Modifiers,
 }
 
 impl Default for ShortcutConfig {
@@ -72,25 +69,11 @@ impl Default for ShortcutConfig {
             translation_second,
             translate_selection,
             predict: KeyCombo::PREDICT_DEFAULT,
-            delete_candidate: Modifiers::SHIFT,
         }
     }
 }
 
 impl ShortcutConfig {
-    /// 删候选的修饰键；为空或与任一组译词键撞了就退回缺省。
-    pub fn delete_keys(&self) -> Modifiers {
-        let (first, second) = self.translation_keys();
-        if self.delete_candidate.is_empty()
-            || self.delete_candidate == first
-            || self.delete_candidate == second
-        {
-            Self::default().delete_candidate
-        } else {
-            self.delete_candidate
-        }
-    }
-
     /// 两组译词修饰键；两组相同或有一组为空时整个退回缺省，不做一半。
     pub fn translation_keys(&self) -> (Modifiers, Modifiers) {
         if self.translation == self.translation_second
@@ -158,28 +141,6 @@ mod tests {
             toml::from_str("translation = \"control+option\"\ntranslation_second = \"option\"\n")
                 .unwrap();
         assert_eq!(swapped.translation_keys().1, Modifiers::OPTION);
-    }
-
-    #[test]
-    fn delete_keys_fall_back_when_clashing_with_translation_keys() {
-        let default = ShortcutConfig::default();
-        let parsed: ShortcutConfig = toml::from_str("").unwrap();
-        assert_eq!(parsed.delete_keys(), default.delete_candidate);
-        // 与平台缺省的译词键撞上才算「冲突」，两边平台都成立
-        let clash: ShortcutConfig = toml::from_str(&format!(
-            "delete_candidate = \"{}\"\n",
-            default.translation.key()
-        ))
-        .unwrap();
-        assert_eq!(clash.delete_keys(), default.delete_candidate);
-        // 不与任何一组译词键冲突的修饰键：平台上取一个，断言它原样生效
-        let free = [Modifiers::OPTION, Modifiers::CONTROL, Modifiers::SHIFT]
-            .into_iter()
-            .find(|m| *m != default.translation && *m != default.translation_second)
-            .unwrap();
-        let custom: ShortcutConfig =
-            toml::from_str(&format!("delete_candidate = \"{}\"\n", free.key())).unwrap();
-        assert_eq!(custom.delete_keys(), free);
     }
 
     #[test]

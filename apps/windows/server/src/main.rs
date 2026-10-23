@@ -227,6 +227,7 @@ fn main() {
     engine.set_aux_keep_empty(config.general.aux_code_keep_empty);
     engine.set_aux_enabled(config.aux_code.enabled);
     engine.set_aux_show(config.general.aux_code_show);
+    engine.set_show_tones(config.general.show_tones);
     engine.set_chinese_first(config.general.chinese_first);
     engine.set_emoji_limit(usize::from(config.general.emoji.get()));
     engine.set_kaomoji_limit(usize::from(config.general.kaomoji.get()));
@@ -236,13 +237,19 @@ fn main() {
     engine.set_auto_space(config.general.auto_space);
     engine.set_shuangpin_raw_preedit(config.general.shuangpin_raw_preedit);
     engine.set_hold_selections(config.general.hold_selections);
+    engine.set_context_memory(config.model.context_memory_seconds);
     engine.log_session(env!("CARGO_PKG_VERSION"), "windows");
     let usage_path = user_dir().map(|dir| dir.join(qingjian_predict::API_USAGE_FILE));
     dispatch::attach_cloud(&mut engine, &config.predict, usage_path);
     let router_config = RouterConfig::from(&config);
     let mut router = Router::new(engine, router_config.clone());
-    let model_path = dispatch::find_model(user_dir().as_deref(), &root);
-    router.configure_local_model(model_path.clone(), &config.model);
+    router.configure_local_model(
+        dispatch::ModelDirs {
+            user: user_dir(),
+            bundled_root: root.clone(),
+        },
+        &config.model,
+    );
     router.configure_schemes(&config, dispatch::find_bundled_schemes(&root));
     if let Some(path) = config_path() {
         let user = user_dir();
@@ -272,7 +279,7 @@ fn main() {
         scheme = %router.scheme_name(),
         fuzzy = config.fuzzy.any(),
         cloud = config.predict.enabled,
-        model = model_path.as_deref().map(|p| p.display().to_string()).unwrap_or_default(),
+        model = config.model.name.key(),
         model_enabled = config.model.enabled,
         sessions = router.session_count(),
         "青简 Windows Server 就绪"
@@ -317,8 +324,8 @@ fn serve(mut router: Router) {
         let _ = status_events.send(Work::Status(event));
     });
     let clicks = work_tx.clone();
-    let on_click = Box::new(move |target| {
-        let _ = clicks.send(Work::Click(target));
+    let on_click = Box::new(move |mouse| {
+        let _ = clicks.send(Work::Click(mouse));
     });
     let panel_events = work_tx.clone();
     let on_panel = Box::new(move |hit| {

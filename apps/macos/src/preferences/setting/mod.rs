@@ -209,9 +209,6 @@ pub enum Setting {
     /// `[apps] english_candidates_on`，勾选框：勾上写缺省白名单，去掉写 `["*"]`（处处都给）。
     EnglishCandidatesOnlyInApps,
 
-    /// `[shortcut] delete_candidate`，快捷键录制按钮（只记修饰键）。
-    DeleteCandidateKeys,
-
     /// `[general] input_log`，勾选框。
     InputLog,
 
@@ -276,7 +273,6 @@ impl Setting {
             Self::ExportLogs => 48,
             Self::CloudSlots => 24,
             Self::EnglishCandidatesOnlyInApps => 25,
-            Self::DeleteCandidateKeys => 26,
             Self::InputLog => 27,
             Self::Learning => 45,
             Self::ClearInputLog => 28,
@@ -355,7 +351,6 @@ impl Setting {
             48 => Self::ExportLogs,
             24 => Self::CloudSlots,
             25 => Self::EnglishCandidatesOnlyInApps,
-            26 => Self::DeleteCandidateKeys,
             27 => Self::InputLog,
             45 => Self::Learning,
             28 => Self::ClearInputLog,
@@ -441,7 +436,6 @@ mod tests {
             Setting::ExportLogs,
             Setting::CloudSlots,
             Setting::EnglishCandidatesOnlyInApps,
-            Setting::DeleteCandidateKeys,
             Setting::InputLog,
             Setting::SystemTextReplacements,
             Setting::ShiftLetter,

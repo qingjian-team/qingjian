@@ -131,6 +131,7 @@ impl Router {
     fn handle_key(&mut self, session: SessionId, event: KeyEvent) -> ServerMessage {
         self.ensure_focus(session);
         self.notice = None;
+        self.candidates.close_menu();
         if self.translation.is_some() {
             return self.handle_translation_review(session, &event);
         }

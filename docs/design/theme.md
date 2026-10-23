@@ -1,7 +1,7 @@
 # 主题（预览版）
 
 候选窗口与 Windows 悬浮状态条由青简渲染器（`crates/qingjian-render`）按主题画成位图，mac 与 Windows 用同一个渲染器、同一份主题，画出来逐像素一致。
-这里记格式全貌与实现，写给维护的人；用户怎么写主题见 `docs/user/settings/themes.md`。本文只写已经做到的，做不到的列在末尾「预览版的限制」。
+这里记格式全貌与实现，写给维护的人；用户怎么写主题见 `docs/user/advanced/custom-themes.md`。本文只写已经做到的，做不到的列在末尾「预览版的限制」。
 
 ## 主题文件
 

@@ -5,6 +5,7 @@ mod click;
 mod codes;
 mod effect;
 mod input;
+mod menu;
 mod panel;
 mod shortcut;
 

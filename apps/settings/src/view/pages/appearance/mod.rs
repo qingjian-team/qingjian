@@ -68,7 +68,7 @@ pub fn appearance(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Rend
         |value| Message::set("general", "preedit", value.key()),
     )?;
     let preedit = SettingRow::new("拼音显示位置")
-        .info("终端里行内拼音显示不正常时选「只在窗口」")
+        .info("终端里显示不正常时选「只在窗口」")
         .control(preedit)
         .build(ui, theme)?;
     out.push(section_title(ui, theme, "排布")?);

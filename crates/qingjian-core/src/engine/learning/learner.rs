@@ -96,6 +96,19 @@ pub trait Learner: Send {
         false
     }
 
+    /// 用户在候选菜单里把输入串 `input` 下的 `text` 降权一次：以后这个输入串下它每降一次往后挪一格。
+    fn demote(&mut self, _input: &str, _text: &str) {}
+
+    /// 取消 `input` 下 `text` 的降权。返回原来有没有降过。
+    fn undemote(&mut self, _input: &str, _text: &str) -> bool {
+        false
+    }
+
+    /// `input` 下 `text` 降了几次，没降过返回 0。
+    fn demotion(&self, _input: &str, _text: &str) -> u32 {
+        0
+    }
+
     /// 把学习数据落盘。壳在退出或停用输入法时调用；内存实现留空即可。
     ///
     /// 失败只记日志不返回错误：输入优先于学习，持久化失败不该影响壳的流程。

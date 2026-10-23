@@ -45,11 +45,11 @@ data class Settings(
     val inputOptions: InputOptions,
     /** 英文键盘也组句给英文词候选；关了字母直接上屏。 */
     val englishCandidates: Boolean,
-    /** 释义兜底：随包释义表查不到译词的词上屏后问云端补写（缺省关，要先配好云端）。 */
+    /** 补充译词：随包释义表查不到译词的词上屏后问云端补写（缺省关，要先配好云端）。 */
     val glossFill: Boolean,
     /** 云联想与整句补全（缺省关，要先配好云端）。 */
     val cloudPredict: Boolean,
-    /** 云联想只在 Wi-Fi（含有线）下发（缺省开）；快捷翻译与释义兜底不受限。 */
+    /** 云联想只在 Wi-Fi（含有线）下发（缺省开）；快捷翻译与补充译词不受限。 */
     val cloudWifiOnly: Boolean,
     /** 键盘、候选条与面板用的主题（内置主题 id，同 PC 的 `[general] theme`）。 */
     val theme: String,

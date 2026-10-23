@@ -147,21 +147,17 @@ fn handshake_mismatch_and_unknown_session_do_not_change_state() {
 }
 
 #[test]
-fn sparse_custom_slots_keep_labels_and_navigation_skips_empty_cells() {
+fn heavier_custom_phrase_takes_the_first_slot() {
     let mut engine = Engine::new(Dictionary::parse("你\tni\t100\n").unwrap());
     engine
         .set_custom_phrases(vec![
             CustomPhrase {
-                code: "qq".into(),
-                text: "首位".into(),
-                position: 1,
-                enabled: true,
+                weight: 1,
+                ..CustomPhrase::new("qq", "轻")
             },
             CustomPhrase {
-                code: "qq".into(),
-                text: "第九位".into(),
-                position: 9,
-                enabled: true,
+                weight: 9,
+                ..CustomPhrase::new("qq", "重")
             },
         ])
         .unwrap();
@@ -174,21 +170,10 @@ fn sparse_custom_slots_keep_labels_and_navigation_skips_empty_cells() {
     );
     open(&mut router, 1, false);
     let frame = type_text(&mut router, 1, "qq");
-    assert_eq!(frame.candidates.items[0].text, "首位");
-    assert!(frame.candidates.items[1].text.is_empty());
-    assert_eq!(key(&mut router, 1, b'2' as u32, Some('2')).1, None);
-    let frame = key(&mut router, 1, 0x28, None).2;
-    assert_eq!(frame.page, 1);
-    assert_eq!(frame.highlight, 3);
-    assert_eq!(frame.candidates.items[3].text, "第九位");
+    assert_eq!(frame.candidates.items[0].text, "重");
+    assert_eq!(frame.candidates.items[1].text, "轻");
     assert_eq!(
-        key(&mut router, 1, b'4' as u32, Some('4')).1.as_deref(),
-        Some("第九位")
-    );
-    type_text(&mut router, 1, "qq");
-    assert_eq!(key(&mut router, 1, 0x22, None).2.highlight, 3);
-    assert_eq!(
-        key(&mut router, 1, b' ' as u32, Some(' ')).1.as_deref(),
-        Some("第九位")
+        key(&mut router, 1, b'2' as u32, Some('2')).1.as_deref(),
+        Some("轻")
     );
 }

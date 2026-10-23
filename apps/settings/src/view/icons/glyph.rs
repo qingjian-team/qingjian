@@ -17,6 +17,7 @@ pub enum Glyph {
     Stats,
     Vocabulary,
     Advanced,
+    Experimental,
     About,
     Search,
 }
@@ -147,6 +148,21 @@ impl Icon for Glyph {
                 pen.round_rect(1.25, 2.25, 13.5, 11.5, 2.0, false);
                 pen.line(&[(4.25, 6.0), (6.75, 8.0), (4.25, 10.0)]);
                 pen.line(&[(8.5, 10.0), (11.75, 10.0)]);
+            }
+            // 烧瓶，瓶里一道液面
+            Glyph::Experimental => {
+                pen.line(&[(5.75, 1.75), (10.25, 1.75)]);
+                pen.line(&[
+                    (6.75, 1.75),
+                    (6.75, 6.0),
+                    (2.5, 12.5),
+                    (3.5, 14.25),
+                    (12.5, 14.25),
+                    (13.5, 12.5),
+                    (9.25, 6.0),
+                    (9.25, 1.75),
+                ]);
+                pen.line(&[(4.5, 10.25), (11.5, 10.25)]);
             }
             // 圆圈里一个 i
             Glyph::About => {

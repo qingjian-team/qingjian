@@ -100,6 +100,9 @@ pub struct Host {
     /// 上次装形码方案时用户 `code_dicts/` 的文件快照：设置程序导入或移除了五笔词库，下一次看配置时就重装方案。
     code_word_files: Vec<(PathBuf, Option<std::time::SystemTime>, u64)>,
 
+    /// 上次装附加词库时用户 `dicts/` 的文件快照：设置程序导入的词库不一定改配置（本来就没关着），靠它发现新文件。
+    dictionary_files: Vec<(PathBuf, Option<std::time::SystemTime>, u64)>,
+
     /// 候选词后面带上辅码（配置 `[general] aux_code_show`）。
     pub aux_code_show: bool,
 
@@ -138,9 +141,6 @@ pub struct Host {
 
     /// 配数字键上屏第一 / 第二个译词的修饰键组合（配置 `[shortcut] translation` / `translation_second`）。
     pub translation_keys: (Modifiers, Modifiers),
-
-    /// 配数字键删候选的修饰键（配置 `[shortcut] delete_candidate`）。
-    pub delete_keys: Modifiers,
 
     /// 候选窗口顶行显示的一句临时状态（删了什么词），下一次查询就没了。
     pub status: Option<String>,
@@ -212,11 +212,8 @@ pub struct Host {
     rescore: RescoreMonitor,
 
     /// 正在后台加载的模型；加载完接到 Engine 上就清掉。
-    model_loader: Option<
-        std::sync::mpsc::Receiver<
-            Result<Box<dyn qingjian_core::sentence::SentenceScorer>, qingjian_neural::NeuralError>,
-        >,
-    >,
+    model_loader:
+        Option<std::sync::mpsc::Receiver<Result<model::LoadedModel, qingjian_neural::NeuralError>>>,
 
     /// 上次套用的 `[model]`，变了才重载 / 卸载。
     applied_model: Option<LocalModelConfig>,

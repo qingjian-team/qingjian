@@ -31,6 +31,9 @@ pub enum NeuralError {
     #[error("model error: {0}")]
     Candle(#[from] candle_core::Error),
 
+    #[error("onnx runtime: {0}")]
+    Onnx(String),
+
     #[error("corrupt model: {0}")]
     Corrupt(&'static str),
 }

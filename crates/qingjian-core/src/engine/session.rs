@@ -88,6 +88,8 @@ impl Engine {
         );
         std::mem::swap(&mut self.displayed, &mut session.displayed);
         std::mem::swap(&mut self.history, &mut session.history);
+        // 过期时长是配置，跟着 Engine 走，不跟着上下文
+        self.history.fresh_like(&session.history);
         std::mem::swap(&mut self.examples, &mut session.examples);
         std::mem::swap(&mut self.chain, &mut session.chain);
         self.forget_span_cache();

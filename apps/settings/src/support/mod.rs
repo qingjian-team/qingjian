@@ -40,11 +40,15 @@ pub enum Feature {
     VocabularyTranslation,
     /// 双拼键位提示：候选窗旁画键盘。
     KeyHint,
+    /// 拼音行按高亮候选显示带调拼音。
+    ShowTones,
+    /// 「实验功能」页：下载、启用知意与含章·知微。
+    ExperimentalModels,
 }
 
 impl Feature {
     #[cfg(test)]
-    pub const ALL: [Self; 18] = [
+    pub const ALL: [Self; 20] = [
         Self::AuxCode,
         Self::Schemes,
         Self::SwitchKeys,
@@ -63,6 +67,8 @@ impl Feature {
         Self::CloudRequestControls,
         Self::VocabularyTranslation,
         Self::KeyHint,
+        Self::ShowTones,
+        Self::ExperimentalModels,
     ];
 
     /// 当前平台显示这一项。
@@ -108,6 +114,10 @@ impl Feature {
             // Linux 还没接释义兜底
             Self::VocabularyTranslation => [Yes, Yes, Todo],
             Self::KeyHint => [Yes, Yes, Todo],
+            // Fcitx 面板与应用里的行内拼音共用一串，还没分开
+            Self::ShowTones => [Yes, Yes, Todo],
+            // Windows、Linux 的服务进程还没接知意；没有 GPU 时 CPU 上打分要发烫，先只开 macOS（Metal）
+            Self::ExperimentalModels => [Yes, Yes, Todo],
         }
     }
 
@@ -133,6 +143,8 @@ impl Feature {
             Self::CloudRequestControls => "按需云联想与请求节奏",
             Self::VocabularyTranslation => "生词本整句翻译",
             Self::KeyHint => "双拼键位提示",
+            Self::ShowTones => "拼音行显示声调",
+            Self::ExperimentalModels => "实验功能（知意、含章·知微）",
         }
     }
 
@@ -162,11 +174,13 @@ impl Feature {
             ],
             Self::VocabularyTranslation => &[(PageId::Cloud, "生词本整句翻译")],
             Self::KeyHint => &[(PageId::Input, "键位提示")],
+            Self::ShowTones => &[(PageId::Candidates, "拼音行显示声调")],
             Self::SystemCtrlSpace
             | Self::EnglishPunctuation
             | Self::StatusBar
             | Self::HorizontalGrid
-            | Self::ApiUsage => &[],
+            | Self::ApiUsage
+            | Self::ExperimentalModels => &[],
         }
     }
 }

@@ -48,17 +48,18 @@ pub use correction::Correction;
 pub use email::{EmailCompletion, email_completions};
 pub use emoji::{EmojiTable, skin_tone_variants};
 pub use engine::{
-    AnnotationReport, AuxSegment, BOOKS, Book, CloudWord, CommitEntry, DEFAULT_AUX_CODE_KEY,
-    Encounter, Engine, EngineSession, FRESH_UNTIL, FilledGloss, Forgotten, GlossFiller,
-    INPUT_LOG_VERSION, InputLogEntry, InputLogger, InputSource, Learner, LevelCount, MarkedKind,
-    MarkedSegment, ModeKeys, NEURAL_MARGIN, NEURAL_WEIGHT, NoGlossFiller, NoInputLogger, NoLearner,
-    NoPredictor, NoTranslator, NoUsageMeter, NoVocabularyTracker, Prediction, PredictionKind,
-    PredictionPolicy, PredictionRequest, Predictor, QUESTION_PREFIX, Query, RESCORE_CONTEXT_CHARS,
-    RawPreedit, SurroundingText, Timings, Translator, Usage, UsageMeter, UsageSummary,
-    VocabularySummary, VocabularyTracker, book_scale, is_valid_aux_code_key,
+    AnnotationReport, AuxSegment, BOOKS, Book, ChoiceModel, ChoiceNote, ChoiceTier, CloudWord,
+    CommitEntry, DEFAULT_AUX_CODE_KEY, Encounter, Engine, EngineSession, FRESH_UNTIL, FilledGloss,
+    Forgotten, GlossFiller, INPUT_LOG_VERSION, InputLogEntry, InputLogger, InputSource, Learner,
+    LevelCount, MarkedKind, MarkedSegment, ModeKeys, NEURAL_MARGIN, NEURAL_WEIGHT, NoGlossFiller,
+    NoInputLogger, NoLearner, NoPredictor, NoTranslator, NoUsageMeter, NoVocabularyTracker,
+    Prediction, PredictionKind, PredictionPolicy, PredictionRequest, Predictor, QUESTION_PREFIX,
+    Query, RESCORE_CONTEXT_CHARS, RawPreedit, SurroundingText, Timings, Translator, Usage,
+    UsageMeter, UsageSummary, VocabularySummary, VocabularyTracker, book_scale,
+    is_valid_aux_code_key,
 };
 pub use fuzzy::FuzzyRules;
-pub use history::InputHistory;
+pub use history::{DEFAULT_FRESH_SECONDS, InputHistory};
 pub use japanese::RomajiComposer;
 pub use panel::{
     NoPanelHistory, PANEL_COLUMNS, PanelGroup, PanelHistory, PanelSection, PanelUse, SymbolPanel,

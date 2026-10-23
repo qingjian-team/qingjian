@@ -6,6 +6,7 @@
 //! 显式调用 `set_cloud_first` 可将手动请求结果按模型顺序放在首页空位；默认 `set_cloud` 保持上述自动末尾布局。
 //! 这是展示规则不是排序规则，但 CLI 与各平台壳都要用同一套，所以放在 Core。
 
+pub mod arrows;
 mod candidate_layout;
 mod cell;
 mod grid;

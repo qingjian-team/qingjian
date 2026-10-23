@@ -6,7 +6,7 @@ mod sink;
 use qingjian_platform::protocol::{Frame, ScreenRect, SessionId};
 use qingjian_render::Mode;
 
-pub use self::sink::{CandidateSink, NoopSink, RenderSettings};
+pub use self::sink::{CandidateMenu, CandidateMouse, CandidateSink, NoopSink, RenderSettings};
 use super::Router;
 
 impl Router {

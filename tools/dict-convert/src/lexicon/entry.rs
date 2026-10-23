@@ -9,4 +9,7 @@ pub struct LexiconEntry {
 
     /// 词频。
     pub frequency: u32,
+
+    /// 逐音节声调（1–5，0 是没标）；空的是整条都不知道。只有通用大词库带来的有。
+    pub tones: Vec<u8>,
 }

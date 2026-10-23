@@ -3,6 +3,7 @@
 use std::path::{Path, PathBuf};
 
 use qingjian_core::CustomPhrase;
+use qingjian_core::custom_phrase::{MAX_CODE_LEN, valid_code};
 use qingjian_core::storage::{read_text_lossy, write_atomic_str};
 
 use super::Phrase;
@@ -16,11 +17,8 @@ pub const DEFAULT_GROUP: &str = "默认";
 /// 最多存多少条。
 const MAX_PHRASES: usize = 10_000;
 
-/// 输入码最长几个字母；Core 的自定义短语允许更长，这里收紧一些好记。
-pub const MAX_CODE_CHARS: usize = 64;
-
-/// 一个输入码下最多几条常用语（Core 的自定义短语固定在第 1–9 位）。
-const MAX_PER_CODE: usize = 9;
+/// 输入码最长几个字母，跟 Core 自定义短语的上限一致：长了挂不成短语。
+pub const MAX_CODE_CHARS: usize = MAX_CODE_LEN;
 
 #[derive(Debug, Default)]
 pub struct PhraseBook {
@@ -121,18 +119,20 @@ impl PhraseBook {
         self.save()
     }
 
-    /// 带输入码的常用语换成 Core 的自定义短语：同一个码按常用语的先后占第 1–9 位，多出来的不出。
+    /// 带输入码的常用语换成 Core 的自定义短语：权重都一样，同一个码按常用语的先后排。
+    /// 以前存下的超长输入码挂不成短语，跳过它，不连累别的。
     pub fn custom_phrases(&self) -> Vec<CustomPhrase> {
         let mut phrases: Vec<CustomPhrase> = Vec::new();
-        for phrase in self.phrases.iter().filter(|phrase| !phrase.code.is_empty()) {
-            let taken = phrases.iter().filter(|p| p.code == phrase.code).count();
-            if taken < MAX_PER_CODE {
-                phrases.push(CustomPhrase {
-                    code: phrase.code.clone(),
-                    text: phrase.text.clone(),
-                    position: taken + 1,
-                    enabled: true,
-                });
+        for phrase in self
+            .phrases
+            .iter()
+            .filter(|phrase| valid_code(&phrase.code))
+        {
+            if !phrases
+                .iter()
+                .any(|p| p.code == phrase.code && p.text == phrase.text)
+            {
+                phrases.push(CustomPhrase::new(&phrase.code, &phrase.text));
             }
         }
         phrases
@@ -207,8 +207,24 @@ mod tests {
         book.add("无码", "", "").unwrap();
         let custom = book.custom_phrases();
         assert_eq!(custom.len(), 2);
-        assert_eq!((custom[0].text.as_str(), custom[0].position), ("一", 1));
-        assert_eq!((custom[1].text.as_str(), custom[1].position), ("二", 2));
+        assert_eq!(custom[0].text, "一");
+        assert_eq!(custom[1].text, "二");
+        assert!(qingjian_core::custom_phrase::validate_phrases(&custom).is_ok());
+    }
+
+    #[test]
+    fn long_codes_are_cut_and_old_ones_skipped() {
+        let mut book = PhraseBook::default();
+        book.add("新", "", &"a".repeat(40)).unwrap();
+        assert_eq!(book.phrases()[0].code.len(), MAX_CODE_CHARS);
+        book.phrases.push(Phrase {
+            text: "旧".to_owned(),
+            group: DEFAULT_GROUP.to_owned(),
+            code: "b".repeat(64),
+        });
+        book.add("好", "", "hh").unwrap();
+        let custom = book.custom_phrases();
+        assert_eq!(custom.len(), 2);
         assert!(qingjian_core::custom_phrase::validate_phrases(&custom).is_ok());
     }
 }

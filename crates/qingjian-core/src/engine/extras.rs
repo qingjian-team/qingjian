@@ -19,7 +19,8 @@ impl Engine {
                 .any(|p| p.enabled && p.code == self.composition.scope())
     }
 
-    /// 所有普通候选完成排序后按输入码固定位置。
+    /// 所有普通候选完成排序后，这个输入码的短语按权重从高到低占最前面几位（权重相同的按列表顺序），
+    /// 后面跟短语同字的候选去掉，免得同一个词出两遍。
     pub(super) fn insert_custom_phrases(&self, items: &mut Vec<Candidate>) {
         if self.english_mode {
             return;
@@ -29,20 +30,22 @@ impl Engine {
             .iter()
             .filter(|p| p.enabled && p.code == self.composition.scope())
             .collect();
-        phrases.sort_by_key(|p| p.position);
-        for phrase in phrases {
-            items.insert(
-                (phrase.position - 1).min(items.len()),
-                Candidate {
+        phrases.sort_by_key(|p| std::cmp::Reverse(p.weight));
+        items.retain(|c| !phrases.iter().any(|p| p.text == c.text));
+        items.splice(
+            0..0,
+            phrases
+                .into_iter()
+                .enumerate()
+                .map(|(i, phrase)| Candidate {
                     text: phrase.text.clone(),
-                    kind: CandidateKind::Custom(phrase.position),
+                    kind: CandidateKind::Custom(i + 1),
                     syllables: Vec::new(),
                     reading: None,
                     translation: None,
                     aux_code: None,
-                },
-            );
-        }
+                }),
+        );
     }
 
     /// 日期 / 时间 / 星期这类快捷候选插在本地首选之后：`rq` 首选仍是词库里的词，快捷写法紧随其后。

@@ -15,6 +15,10 @@ default = []
 accelerate = ["candle-core/accelerate", "candle-nn/accelerate"]
 # Apple GPU
 metal = ["candle-core/metal", "candle-nn/metal"]
+# 试验：知意的选词模型（只给 CLI 回放对比用，带上 tokenizers）
+zhiyi = ["dep:tokenizers"]
+# 知意的 int8 ONNX 走 ONNX Runtime（Windows 用，CPU）；运行库在运行时按路径加载，编译时不用
+zhiyi-onnx = ["zhiyi", "dep:ort"]
 
 [dependencies]
 qingjian-core.workspace = true
@@ -25,6 +29,9 @@ serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
+tokenizers = { version = "0.22.2", default-features = false, features = ["fancy-regex"], optional = true }
+# api-24 对应随包的 ONNX Runtime 1.24.4
+ort = { version = "=2.0.0-rc.13", default-features = false, features = ["load-dynamic", "api-24"], optional = true }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2.workspace = true

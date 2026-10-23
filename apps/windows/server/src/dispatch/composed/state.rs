@@ -1,6 +1,6 @@
 //! 组句展示状态的枚举。
 
-use qingjian_core::CandidateLayout;
+use qingjian_core::{CandidateLayout, Query};
 use qingjian_platform::protocol::PreeditSegment;
 
 use super::SentenceTranslation;
@@ -20,6 +20,9 @@ pub(crate) enum Composed {
 
         /// 本地 + 云端槽位的候选布局。
         layout: CandidateLayout,
+
+        /// 这轮查询的结果（候选已挪进 `layout`）：高亮候选的读音切法不同时拼音行按它重切，见 [`Query::follow`]。
+        spelling: Box<Query>,
 
         /// 首条本地整句候选的云端译文；未返回时为 `None`。
         sentence_translation: Option<SentenceTranslation>,

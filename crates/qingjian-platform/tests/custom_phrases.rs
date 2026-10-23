@@ -2,7 +2,7 @@ use qingjian_core::CustomPhrase;
 use qingjian_platform::Config;
 
 #[test]
-fn save_roundtrip_preserves_text_and_rejects_conflicting_positions() {
+fn save_roundtrip_preserves_text_and_rejects_duplicate_phrases() {
     let dir = std::env::temp_dir().join(format!(
         "qingjian-phrases-{}-{}",
         std::process::id(),
@@ -20,16 +20,12 @@ fn save_roundtrip_preserves_text_and_rejects_conflicting_positions() {
     .unwrap();
     let phrases = vec![
         CustomPhrase {
-            code: "prompt".into(),
-            text: "  before\nlong text\n ".repeat(4000),
-            position: 1,
             enabled: false,
+            ..CustomPhrase::new("prompt", &"  before\nlong text\n ".repeat(4000))
         },
         CustomPhrase {
-            code: "ee".into(),
-            text: "；".into(),
-            position: 2,
-            enabled: true,
+            weight: 3,
+            ..CustomPhrase::new("ee", "；")
         },
     ];
     Config::set_custom_phrases(&path, &phrases).unwrap();
@@ -42,11 +38,11 @@ fn save_roundtrip_preserves_text_and_rejects_conflicting_positions() {
     let mut invalid = phrases.clone();
     invalid.push(phrases[1].clone());
     let error = Config::set_custom_phrases(&path, &invalid).unwrap_err();
-    assert!(error.contains("ee") && error.contains('2'));
+    assert!(error.contains("ee"));
     assert_eq!(std::fs::read_to_string(&path).unwrap(), before);
     std::fs::write(
         &path,
-        format!("{before}\n[[custom_phrases]]\ncode = 'ee'\ntext = '：'\nposition = 2\n"),
+        format!("{before}\n[[custom_phrases]]\ncode = 'ee'\ntext = '；'\nweight = 20\n"),
     )
     .unwrap();
     // 手改出来的冲突条目只丢它自己，前面的短语和其余设置照常生效
@@ -129,12 +125,12 @@ page_size = 5 # page
 [[custom_phrases]] # first
 code = "aa" # code
 text = "甲" # text
-position = 1 # position
+weight = 10 # weight
 enabled = true # enabled
 [[custom_phrases]] # second
 code = "bb"
 text = "乙"
-position = 2
+weight = 10
 enabled = true
 "#,
     )
@@ -143,7 +139,7 @@ enabled = true
     phrases[0].enabled = false;
     phrases[0].text = "新内容\n第二行".into();
     phrases[0].code = "cc".into();
-    phrases[0].position = 3;
+    phrases[0].weight = 3;
     Config::set_custom_phrases(&path, &phrases).unwrap();
     let saved = std::fs::read_to_string(&path).unwrap();
     for comment in [
@@ -152,7 +148,7 @@ enabled = true
         "# first",
         "# code",
         "# text",
-        "# position",
+        "# weight",
         "# enabled",
         "# second",
     ] {
@@ -171,5 +167,31 @@ enabled = true
     phrases.clear();
     Config::set_custom_phrases(&path, &phrases).unwrap();
     assert!(Config::load(&path).unwrap().custom_phrases.is_empty());
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+fn old_positions_are_saved_as_weights_in_place() {
+    let dir = std::env::temp_dir().join(format!("qingjian-weights-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("config.toml");
+    std::fs::write(
+        &path,
+        "[[custom_phrases]]\ncode = \"ee\"\ntext = \"：\"\nposition = 1 # 首位\nenabled = true\n\n\
+         [[custom_phrases]]\ncode = \"ee\"\ntext = \"；\"\nposition = 2\nenabled = true\n",
+    )
+    .unwrap();
+    let mut phrases = Config::load(&path).unwrap().custom_phrases;
+    assert_eq!(
+        phrases.iter().map(|p| p.weight).collect::<Vec<_>>(),
+        [10, 9]
+    );
+    phrases[1].enabled = false;
+    Config::set_custom_phrases(&path, &phrases).unwrap();
+    let saved = std::fs::read_to_string(&path).unwrap();
+    assert!(!saved.contains("position"));
+    assert!(saved.contains("text = \"：\"\nweight = 10 # 首位\nenabled = true"));
+    assert!(saved.contains("text = \"；\"\nweight = 9\nenabled = false"));
+    assert_eq!(Config::load(&path).unwrap().custom_phrases, phrases);
     std::fs::remove_dir_all(dir).unwrap();
 }

@@ -7,8 +7,9 @@ use qingjian_dictionary::{Dictionary, Match, SyllablePattern};
 
 use super::{
     ABBREVIATED_SPAN_CANDIDATES, BEAM_WIDTH, Context, Conversion, LanguageModel,
-    MAX_WORD_SYLLABLES, MIN_PARTIAL_LETTERS, Personal, SPAN_CANDIDATES, SentenceWord, SpanCache,
-    SpanWord, TONE_PENALTY, fallback_log_prob, transition_log_prob,
+    MAX_WORD_SYLLABLES, MIN_PARTIAL_LETTERS, Personal, SECONDARY_PENALTY, SPAN_CANDIDATES,
+    SentenceWord, SpanCache, SpanWord, TONE_PENALTY, fallback_log_prob, reading_cost,
+    transition_log_prob,
 };
 use crate::ranking::weight_bonus;
 use crate::zhuyin::tone;
@@ -206,7 +207,7 @@ pub fn convert_paths(
             any = true;
             for hit in hits.iter() {
                 let bonus = weight_bonus(weight(&hit.text));
-                let fallback = fallback_log_prob(hit.frequency, log_total);
+                let fallback = fallback_log_prob(hit.frequency, hit.secondary, log_total);
                 let (score, back) =
                     best_predecessor(&nodes, start, &hit.text, model, personal, fallback);
                 let previous = &nodes[start][back];
@@ -219,7 +220,7 @@ pub fn convert_paths(
                     start,
                     text: hit.text.clone(),
                     syllables: hit.syllables.clone(),
-                    score: score + bonus - hit.penalty - hit.tone,
+                    score: score + bonus - hit.penalty - hit.tone - hit.reading,
                     static_score,
                     back,
                     placeholder: false,
@@ -343,8 +344,11 @@ fn span_candidates(
             }
             let penalty = penalty_of(&m);
             let tone = f64::from(tone::cost(m.text, m.syllables(), tones)) * TONE_PENALTY;
-            let score =
-                f64::from(m.frequency.max(1)) * (1.0 + f64::from(seen)) * (-(penalty + tone)).exp();
+            // 补充词库的片段多，不打折会把敲错边上的常用词（`zanen` 的 咱们）挤出格子
+            let secondary = if m.secondary { -SECONDARY_PENALTY } else { 0.0 };
+            let score = f64::from(m.frequency.max(1))
+                * (1.0 + f64::from(seen))
+                * (-(penalty + tone + secondary)).exp();
             Some((score, penalty, tone, m))
         })
         .collect();
@@ -362,8 +366,10 @@ fn span_candidates(
             text: hit.text.to_owned(),
             syllables: hit.syllables().map(str::to_owned).collect(),
             frequency: hit.frequency,
+            secondary: hit.secondary,
             penalty,
             tone,
+            reading: reading_cost(&hit),
         })
         .collect()
 }

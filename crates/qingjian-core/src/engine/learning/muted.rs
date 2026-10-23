@@ -162,6 +162,19 @@ impl Learner for MutedLearner {
         self.inner.forget_english(word)
     }
 
+    // 降权与删词一样是用户明确要求的管理操作，私密中照做
+    fn demote(&mut self, input: &str, text: &str) {
+        self.inner.demote(input, text);
+    }
+
+    fn undemote(&mut self, input: &str, text: &str) -> bool {
+        self.inner.undemote(input, text)
+    }
+
+    fn demotion(&self, input: &str, text: &str) -> u32 {
+        self.inner.demotion(input, text)
+    }
+
     fn flush(&mut self) {
         self.inner.flush();
     }

@@ -42,6 +42,7 @@ pub fn dictionaries(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Re
             entry,
             Some((config.is_enabled(&entry.stem), toggle)),
             true,
+            None,
         )?);
     }
     rows.push(import_row(
@@ -49,7 +50,7 @@ pub fn dictionaries(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Re
         page,
         Kind::Dictionary,
         "导入词库",
-        "接受青简 TSV、Rime 的 .dict.yaml 和 .qj，可以一次选好几个。第二列是拼音（音节用空格分开）的是拼音词库；是五笔编码的自动当五笔词库，跟五笔码表合在一起用。移除只是挪到 removed 目录，不真删",
+        "支持 TSV、Rime .dict.yaml 和 .qj，可以多选",
     )?);
     out.push(section_title(ui, theme, "导入的词库")?);
     out.push(group(ui, theme, &rows)?);

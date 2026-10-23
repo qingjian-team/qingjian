@@ -1,4 +1,4 @@
-//! 「自定义短语」页：每条一行（开关、输入码、位置、内容的开头、编辑），末尾新增；macOS 另有「也用系统的文本替换」。
+//! 「自定义短语」页：每条一行（开关、输入码、权重、内容的开头、编辑），末尾新增；macOS 另有「也用系统的文本替换」。
 //! 新增、编辑在对话框里改，保存时整张表校验。
 
 use bamboo_slip::taffy::{
@@ -6,8 +6,8 @@ use bamboo_slip::taffy::{
     NodeId, Rect, Size, Style,
 };
 use bamboo_slip::{
-    Button, Checkbox, RenderError, SettingRow, Stepper, TextField, Ui, Visual, dialog, group,
-    paragraph, section_title,
+    Button, Checkbox, RenderError, SettingRow, TextField, Ui, Visual, dialog, group, paragraph,
+    section_title,
 };
 
 use crate::message::{FieldId, Message};
@@ -36,7 +36,7 @@ pub fn phrases(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderE
         ui,
         page,
         SettingRow::new("新增短语")
-            .info("输入码敲全后，短语出现在固定的候选位置，空格或数字键上屏；同一个输入码的位置不能重复")
+            .info("输入码敲全后，短语排在普通候选前面，空格或数字键上屏；同一个输入码有几条时权重大的在前")
             .control(add),
         "phrases",
     )?);
@@ -48,9 +48,7 @@ pub fn phrases(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderE
             ui,
             page,
             "也用系统的文本替换",
-            Some(
-                "系统设置「键盘 → 文本替换」里输入码全是小写字母的条目也能打；它们不在上面列出，要改请到系统设置",
-            ),
+            Some("系统「文本替换」里的条目也能打"),
             ("general", "system_text_replacements"),
             config.general.system_text_replacements,
             false,
@@ -78,7 +76,7 @@ fn phrase_row(
         ("phrase-on", index),
         Message::TogglePhrase(index),
     )?;
-    let position = small(ui, page, &format!("第 {} 位", phrase.position))?;
+    let weight = small(ui, page, &format!("权重 {}", phrase.weight))?;
     let leading = ui.scene().node(
         Style {
             flex_direction: FlexDirection::Row,
@@ -88,7 +86,7 @@ fn phrase_row(
             ..Style::default()
         },
         Visual::Group,
-        &[toggle, position],
+        &[toggle, weight],
     )?;
     let preview = small(ui, page, &preview(&phrase.text))?;
     let edit = Button::new("编辑").build(
@@ -138,8 +136,9 @@ fn editor(ui: &mut Ui<Message>, page: &Page) -> Result<(), RenderError> {
         return Ok(());
     };
     let fields = &page.settings.fields;
-    let (Some(code), Some(text)) = (
+    let (Some(code), Some(weight), Some(text)) = (
         fields.get(&FieldId::PhraseCode),
+        fields.get(&FieldId::PhraseWeight),
         fields.get(&FieldId::PhraseText),
     ) else {
         return Ok(());
@@ -169,18 +168,20 @@ fn editor(ui: &mut Ui<Message>, page: &Page) -> Result<(), RenderError> {
             Some(Message::ClosePhrase),
         )?;
     let code = SettingRow::new("输入码").control(code).build(ui, theme)?;
-    let position = Stepper::new(&format!("第 {} 位", editor.position))
-        .limits(editor.position > 1, editor.position < 9)
+    let weight = TextField::new(weight)
+        .placeholder("1–999")
+        .width(80.0)
         .build(
             ui,
             theme,
-            "phrase-position",
-            Message::PhrasePosition(-1),
-            Message::PhrasePosition(1),
+            "phrase-weight",
+            |edit| Message::Edit(FieldId::PhraseWeight, edit),
+            None,
+            Some(Message::ClosePhrase),
         )?;
-    let position = SettingRow::new("位置")
-        .info("短语占第几个候选，1–9；跨页时按当前页的序号选")
-        .control(position)
+    let weight = SettingRow::new("权重")
+        .info("1–999，同一个输入码下权重大的排在前面，可以相同；相同的按列表里的先后")
+        .control(weight)
         .build(ui, theme)?;
     let content = TextField::new(text)
         .placeholder("原样上屏的文字，可以换行")
@@ -194,7 +195,7 @@ fn editor(ui: &mut Ui<Message>, page: &Page) -> Result<(), RenderError> {
             None,
             Some(Message::ClosePhrase),
         )?;
-    let mut children = vec![title, code, position, content];
+    let mut children = vec![title, code, weight, content];
     if let Some(error) = &editor.error {
         children.push(paragraph(ui, theme, error, None)?);
     }

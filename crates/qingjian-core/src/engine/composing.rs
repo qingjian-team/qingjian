@@ -73,7 +73,13 @@ impl Engine {
 
     /// 壳告知正在输入的应用（macOS bundle identifier / Windows exe 名），写进输入日志；不知道就给 `None`。
     pub fn set_application(&mut self, app: Option<String>) {
+        self.history.set_application(app.as_deref());
         self.application = app;
+    }
+
+    /// 焦点进了一个输入框（壳在 IMK `activateServer`、Fcitx focus in 时调）：之前在这个应用里打的字不再当前文。
+    pub fn enter_input_box(&mut self) {
+        self.history.forget_current();
     }
 
     pub fn application(&self) -> Option<&str> {

@@ -52,6 +52,12 @@ pub type SortKey<'a> = (
 );
 
 impl<'a> Scored<'a> {
+    /// 排在第一档的精确命中：补充词库的精确命中不算，与主词库的敲错纠正、前缀词一起按打分比，
+    /// 否则一百多万条里总有个片段读音正好对上，`zanen` 的 咱们 就被 咋嫩 压在后面。
+    fn first_tier(&self) -> bool {
+        self.hit.exact && !self.hit.secondary
+    }
+
     /// 命中不是敲的原样（模糊音或敲错变体）。
     pub fn altered(&self) -> bool {
         self.penalty > 0.0
@@ -66,7 +72,7 @@ impl<'a> Scored<'a> {
         let chars = u128::from(u8::try_from(self.hit.text.chars().count()).unwrap_or(u8::MAX));
         let coverage = u128::from(u8::try_from(self.coverage).unwrap_or(u8::MAX));
         let abbreviated = u128::from(u8::try_from(self.abbreviated).unwrap_or(u8::MAX));
-        (u128::from(self.hit.exact) << 98)
+        (u128::from(self.first_tier()) << 98)
             | (coverage << 90)
             | ((0xFF - abbreviated) << 82)
             | (u128::from(self.full_last) << 81)
@@ -80,7 +86,7 @@ impl<'a> Scored<'a> {
     /// `choice` 是同输入串下的选择次数，`score` 是上下文得分（log 概率，已含用户加分与模糊音 / 敲错扣分）。
     pub(super) fn key(&self, choice: u32, score: f64) -> SortKey<'a> {
         (
-            Reverse(self.hit.exact),
+            Reverse(self.first_tier()),
             Reverse(self.coverage),
             self.abbreviated,
             Reverse(self.full_last),

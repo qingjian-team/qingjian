@@ -21,7 +21,7 @@ impl Settings {
             FieldId::Model => predict.model.clone(),
             FieldId::ApiKey => String::new(),
             FieldId::VocabularySearch => String::new(),
-            FieldId::PhraseCode | FieldId::PhraseText => return,
+            FieldId::PhraseCode | FieldId::PhraseWeight | FieldId::PhraseText => return,
         };
         self.fields.insert(id, TextEdit::new(value));
     }
@@ -45,7 +45,10 @@ impl Settings {
                     self.write("predict", id.key(), text);
                 }
             }
-            FieldId::PhraseCode | FieldId::PhraseText | FieldId::VocabularySearch => return,
+            FieldId::PhraseCode
+            | FieldId::PhraseWeight
+            | FieldId::PhraseText
+            | FieldId::VocabularySearch => return,
             FieldId::ApiKey if text.is_empty() => {}
             // 密码框看不见内容，粘贴多了（带上了终端提示符、命令）用户发现不了
             FieldId::ApiKey if text.chars().any(|c| !c.is_ascii_graphic()) => {

@@ -21,6 +21,8 @@ use std::time::Instant;
 
 use qingjian_core::Engine;
 
+use crate::zhiyi::Reranker;
+
 pub use report::Report;
 
 use pair::Pair;
@@ -33,6 +35,7 @@ pub fn run(
     save: Option<&Path>,
     show_misses: usize,
     details: Option<&Path>,
+    mut reranker: Option<&mut Reranker>,
 ) -> Result<Report, EvalError> {
     // 码表覆盖率与句子集无关，装了码表就先算（词库按词频两段口径）
     let mut report = Report {
@@ -66,7 +69,13 @@ pub fn run(
         })
         .transpose()?;
     for (index, pair) in pairs.iter().enumerate() {
-        let row = evaluate(engine, pair, &mut report, show_misses);
+        let row = evaluate(
+            engine,
+            pair,
+            &mut report,
+            show_misses,
+            reranker.as_deref_mut(),
+        );
         if let Some(writer) = &mut writer {
             writeln!(writer, "{row}").map_err(|source| EvalError::Write {
                 path: details.expect("writer has path").to_owned(),
@@ -141,6 +150,7 @@ fn evaluate(
     pair: &Pair,
     report: &mut Report,
     show_misses: usize,
+    reranker: Option<&mut Reranker>,
 ) -> serde_json::Value {
     report.total += 1;
     engine.clear();
@@ -158,11 +168,15 @@ fn evaluate(
         }
     };
     // 异步重打分：像壳一样停顿后请求、等结果、再查一次；等的时间也算进查询耗时
-    let query = if crate::rescoring::settle(engine) {
+    let mut query = if crate::rescoring::settle(engine) {
         engine.query().unwrap_or(query)
     } else {
         query
     };
+    if let Some(reranker) = reranker {
+        reranker.set_context(&pair.context);
+        reranker.rerank(engine, &mut query, &pair.pinyin);
+    }
     let elapsed = started.elapsed();
     report.query_time += elapsed;
     report.slowest_query = report.slowest_query.max(elapsed);

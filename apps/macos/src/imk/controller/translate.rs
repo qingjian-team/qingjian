@@ -1,4 +1,4 @@
-//! 翻译选中文字、译词键与删候选键。
+//! 翻译选中文字与译词键。
 
 use super::*;
 
@@ -103,24 +103,6 @@ impl QingjianInputController {
             }
             None => tracing::debug!(?index, sense, "这个候选没有这条译文"),
         }
-        true
-    }
-
-    /// 修饰键 + 数字（缺省 ⇧）：删掉当前页第几个候选。不在组句中不管；那格没有候选就吞掉按键不动。
-    /// 删完重新查一遍（排序会变），结果那句话显示在拼音行右侧，敲下一键就没了。
-    pub(super) fn handle_delete_key(&self, digit: usize, client: TextClient<'_>) -> bool {
-        let composing = host::with(|h| !h.engine.composition().is_empty()).unwrap_or(false);
-        if !composing {
-            return false;
-        }
-        let Some(message) = host::with(|h| h.forget_candidate(digit - 1)).flatten() else {
-            tracing::debug!(digit, "这一格没有候选，没什么可删");
-            return true;
-        };
-        tracing::info!(%message);
-        self.refresh(client);
-        host::with(|h| h.status = Some(message));
-        self.render(client);
         true
     }
 }

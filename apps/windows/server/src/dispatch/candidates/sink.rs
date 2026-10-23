@@ -2,7 +2,7 @@
 
 use qingjian_platform::protocol::{Frame, ScreenRect};
 use qingjian_platform::{CandidateRenderer, FontSize};
-use qingjian_render::Mode;
+use qingjian_render::{HitTarget, Mode};
 
 use crate::dispatch::{KeyHintView, PanelFrame};
 
@@ -43,6 +43,38 @@ pub trait CandidateSink: Send {
 
     /// 换画法：装上时与配置热加载后调，只在设置变了时调。
     fn configure(&self, settings: RenderSettings);
+
+    /// 在候选窗口上弹右键菜单，点中的项经工人通道回给 Router。
+    fn show_menu(&self, _menu: CandidateMenu) {}
+
+    /// 收起还弹着的右键菜单（敲了键、候选窗收起）。
+    fn close_menu(&self) {}
+}
+
+/// 候选窗口上的鼠标操作（UI 线程经工人通道送给 Router）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CandidateMouse {
+    /// 左键点中候选或译词。
+    Click(HitTarget),
+
+    /// 右键这一页第 `offset` 格，光标在屏幕 `point`（物理像素）。
+    Menu { offset: usize, point: (i32, i32) },
+
+    /// 右键菜单里点中了编号 `id` 的项。
+    MenuPick { offset: usize, id: u32 },
+}
+
+/// 右键候选弹的菜单。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CandidateMenu {
+    /// 这一页第几格（从 0 起），点中的项连同它回给 Router。
+    pub offset: usize,
+
+    /// 弹在屏幕哪一点（物理像素）。
+    pub point: (i32, i32),
+
+    /// 各项的编号与标题（[`qingjian_platform::candidate_menu::CandidateAction`]）。
+    pub items: Vec<(u32, &'static str)>,
 }
 
 /// 不画候选窗口的空实现。

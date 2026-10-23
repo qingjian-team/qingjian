@@ -199,7 +199,7 @@ pub struct MineOptions {
 
 /// 挖词库里没有的词：分词时连续落成单字的那一段（2–`max_chars` 个字）多半是一个词库没收的词，
 /// 按出现次数统计，出现 `min_count` 次以上的写到 `oov-candidates.tsv`（`词\t次数`），
-/// 再经 [`OovFilter`]（虚词规则 + 相邻字对 PMI）筛成 `oov-filtered.tsv` 与一行一词的 `oov-words.txt`，
+/// 再经 [`OovFilter`]（虚词规则 + 相邻字对 PMI）筛成 `oov-filtered.tsv`（`词\t\t次数`，与词库同一列序、拼音留空）与一行一词的 `oov-words.txt`，
 /// 后者交给 `gloss-gen pinyin` 标音、前者给 `lexicon --extra-words` 并进词库。
 /// 单字词本身在词库里（规范字全收了），所以这里只看「本可以成词却被拆成单字」的连续段：
 /// 段内每个字都是词库里的单字词、且整段不在词库里。
@@ -213,6 +213,7 @@ pub fn mine(options: &MineOptions, out_dir: &Path) -> Result<(), ConvertError> {
                 &out_dir.join("oov-candidates.tsv"),
                 "# 由 qingjian-dict-convert mine 从语料挖出的词库未收词（未过滤）。词\t次数",
                 &sorted_rows(&counts, options.min_count),
+                false,
             )?;
             counts
         }
@@ -231,10 +232,11 @@ pub fn mine(options: &MineOptions, out_dir: &Path) -> Result<(), ConvertError> {
     write_counts(
         &out_dir.join("oov-filtered.tsv"),
         &format!(
-            "# mine 结果经虚词规则 + 相邻字对 PMI≥{} 过滤。词\t次数",
+            "# mine 结果经虚词规则 + 相邻字对 PMI≥{} 过滤。词\t拼音（空）\t次数",
             options.min_pmi
         ),
         &kept,
+        true,
     )?;
     let words_path = out_dir.join("oov-words.txt");
     let mut writer = BufWriter::new(File::create(&words_path)?);
@@ -279,11 +281,18 @@ fn sorted_rows(counts: &HashMap<String, u32>, min_count: u32) -> Vec<(String, u3
     rows
 }
 
-fn write_counts(path: &Path, header: &str, rows: &[(String, u32)]) -> Result<(), ConvertError> {
+/// `blank_pinyin` 为真时中间留一个空拼音列，写成能直接给 `lexicon --extra-words` 的词库列序。
+fn write_counts(
+    path: &Path,
+    header: &str,
+    rows: &[(String, u32)],
+    blank_pinyin: bool,
+) -> Result<(), ConvertError> {
     let mut writer = BufWriter::new(File::create(path)?);
     writeln!(writer, "{header}")?;
+    let separator = if blank_pinyin { "\t\t" } else { "\t" };
     for (word, count) in rows {
-        writeln!(writer, "{word}\t{count}")?;
+        writeln!(writer, "{word}{separator}{count}")?;
     }
     writer.flush()?;
     tracing::info!(rows = rows.len(), path = %path.display(), "已写出");
@@ -452,7 +461,8 @@ pub fn convert(
                 continue;
             }
             let mut fields = line.split('\t');
-            if let (Some(text), Some(count)) = (fields.next(), fields.next())
+            if let (Some(text), Some(_), Some(count)) =
+                (fields.next(), fields.next(), fields.next())
                 && let Some(&id) = vocabulary.ids.get(text.trim())
                 && let Ok(count) = count.trim().parse::<u32>()
             {
