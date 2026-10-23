@@ -326,6 +326,12 @@ impl Engine {
         self.fuzzy
     }
 
+    /// 设置显式选区翻译的提供方，独立于自动联想；取消后旧结果不会上屏。
+    pub fn set_translation_predictor(&mut self, predictor: Option<Box<dyn Predictor>>) {
+        self.cancel_prediction();
+        self.translation_predictor = predictor;
+    }
+
     pub fn with_predictor(mut self, predictor: Box<dyn Predictor>) -> Self {
         self.predictor = predictor;
         self

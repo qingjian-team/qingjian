@@ -156,6 +156,9 @@ pub struct Engine {
     /// 联想提供方，缺省为 [`NoPredictor`]。
     predictor: Box<dyn Predictor>,
 
+    /// 显式选区翻译的独立提供方；未设置时沿用联想服务。
+    translation_predictor: Option<Box<dyn Predictor>>,
+
     /// 整句转换的语言模型，缺省为 [`NoLanguageModel`]（退化成一元词频）。
     language_model: Box<dyn LanguageModel>,
 
@@ -479,6 +482,7 @@ impl Engine {
             auto_space: false,
             shift_letter_compose: false,
             predictor: Box::new(NoPredictor),
+            translation_predictor: None,
             language_model: Box::new(NoLanguageModel),
             sentence_scorer: None,
             rescorer: None,
