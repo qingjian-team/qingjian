@@ -251,8 +251,14 @@ impl TextService_Impl {
                     String::new()
                 };
                 self.shared.set_composing(!response.frame.is_empty());
-                // 翻译评审的任何键都结束评审（Server 侧已同步结束）。
-                self.shared.set_translating(false);
+                // 普通翻译结束评审；备用来源可能继续等待或提示复制失败，按结构化回包维持状态。
+                if self.shared.translating()
+                    && response.commit.is_none()
+                    && !response.reviewing_selection
+                {
+                    self.shared.set_selection_anchor(None);
+                }
+                self.shared.set_translating(response.reviewing_selection);
                 let consumed = matches!(response.outcome, KeyOutcome::Consumed);
                 let m = event.modifiers;
                 log(&format!(
@@ -420,17 +426,21 @@ mod tests {
     use super::{
         digit_passthrough_native, eats_key, eats_without_server, passthrough_digit_to_app,
     };
-    use crate::com::key::event::to_key_event;
     use crate::com::service::next::Next;
 
     /// 中文模式（`caps` / `english_mode` 都灭）。
     const CHINESE: (bool, bool) = (false, false);
 
     fn key(vk: u32, caps: bool, english_mode: bool) -> qingjian_platform::protocol::KeyEvent {
-        let mut event = to_key_event(vk, english_mode);
-        event.modifiers.caps = caps;
-        event.modifiers.english_mode = english_mode;
-        event
+        KeyEvent::new(
+            vk,
+            char::from_u32(vk).filter(char::is_ascii),
+            KeyModifiers {
+                caps,
+                english_mode,
+                ..KeyModifiers::default()
+            },
+        )
     }
 
     fn with_modifiers(vk: u32, character: char, modifiers: KeyModifiers) -> KeyEvent {

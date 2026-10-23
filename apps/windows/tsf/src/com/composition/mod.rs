@@ -1,6 +1,7 @@
 //! 组句 preedit：把 Server 回的拼音行经 TSF 组句（[`ITfComposition`]）显示在文档光标处（对应 macOS 的内联 marked text）。
 //! 只放最朴素的一行拼音；富样式的拼音行在候选窗口里另画。所有写操作都在异步读写编辑会话里做（理由见 `edit_session`）。
 
+mod selection;
 mod shared;
 mod sink;
 
@@ -16,6 +17,7 @@ use windows::core::{Interface, Result};
 
 use qingjian_platform::protocol::{Frame, PreeditKind};
 
+pub(crate) use self::selection::SelectionAnchor;
 pub(crate) use self::shared::Shared;
 use self::sink::CompositionSink;
 use super::edit::{InputContext, anchor_rect, caret_rect, input_context};
@@ -114,6 +116,14 @@ fn report_caret(shared: &Shared, engine: &SharedClient, context: &ITfContext, ec
 /// 有组句就把组句范围替换成 `text` 再结束组句，否则在选区插入。
 fn commit_text(shared: &Shared, context: &ITfContext, ec: u32, text: &str) -> Result<()> {
     let utf16: Vec<u16> = text.encode_utf16().collect();
+    if let Some(anchor) = shared.take_selection_anchor() {
+        let Some(range) = anchor.verified_range(context, ec) else {
+            super::log::log("翻译选区：原选区或焦点已改变，拒绝回填译文");
+            return Ok(());
+        };
+        unsafe { range.SetText(ec, 0, &utf16)? };
+        return move_selection_to_end(context, ec, &range);
+    }
     match shared.composition() {
         Some(composition) => {
             let range = unsafe { composition.GetRange()? };

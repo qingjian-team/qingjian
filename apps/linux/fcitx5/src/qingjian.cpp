@@ -160,7 +160,7 @@ bool QingjianEngine::connect(InputContext *context) {
         if (!shared_->flush()) throw std::runtime_error("close exchange");
         session->generation = shared_->generation;
         nlohmann::json response;
-        if (!shared_->connection.send({{"OpenSession", {{"session", session->id}, {"app", context->program()}, {"protocol", 9}}}}, &response)
+        if (!shared_->connection.send({{"OpenSession", {{"session", session->id}, {"app", context->program()}, {"protocol", 10}}}}, &response)
             || response.at("Update").at("session") != session->id
             || response.at("Update").at("linux_ui").at("version") != 3)
             throw std::runtime_error("protocol mismatch");

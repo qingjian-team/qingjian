@@ -84,6 +84,14 @@ fn client_messages() -> Vec<ClientMessage> {
             text: "选中的文字".to_owned(),
             rect: screen_rect(),
         },
+        ClientMessage::SelectionFallback {
+            session,
+            request: 8,
+            process: 42,
+            window: 0x1234,
+            text: String::new(),
+            rect: screen_rect(),
+        },
         ClientMessage::PositionCandidates {
             session,
             rect: screen_rect(),
@@ -135,6 +143,14 @@ fn server_messages() -> Vec<ServerMessage> {
         ServerMessage::Committed {
             session,
             text: None,
+        },
+        ServerMessage::SelectionReview {
+            session,
+            active: true,
+        },
+        ServerMessage::SelectionReview {
+            session,
+            active: false,
         },
         ServerMessage::Update {
             session,

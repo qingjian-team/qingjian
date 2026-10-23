@@ -44,11 +44,13 @@ pub enum Feature {
     ShowTones,
     /// 「实验功能」页：下载、启用知意与含章·知微。
     ExperimentalModels,
+    /// 在输入法进程内翻译选中文字。
+    OfflineTranslation,
 }
 
 impl Feature {
     #[cfg(test)]
-    pub const ALL: [Self; 20] = [
+    pub const ALL: [Self; 21] = [
         Self::AuxCode,
         Self::Schemes,
         Self::SwitchKeys,
@@ -69,6 +71,7 @@ impl Feature {
         Self::KeyHint,
         Self::ShowTones,
         Self::ExperimentalModels,
+        Self::OfflineTranslation,
     ];
 
     /// 当前平台显示这一项。
@@ -118,6 +121,7 @@ impl Feature {
             Self::ShowTones => [Yes, Yes, Todo],
             // Windows、Linux 的服务进程还没接知意；没有 GPU 时 CPU 上打分要发烫，先只开 macOS（Metal）
             Self::ExperimentalModels => [Yes, Yes, Todo],
+            Self::OfflineTranslation => [Todo, Yes, Todo],
         }
     }
 
@@ -145,6 +149,7 @@ impl Feature {
             Self::KeyHint => "双拼键位提示",
             Self::ShowTones => "拼音行显示声调",
             Self::ExperimentalModels => "实验功能（知意、含章·知微）",
+            Self::OfflineTranslation => "离线选区翻译",
         }
     }
 
@@ -180,7 +185,8 @@ impl Feature {
             | Self::StatusBar
             | Self::HorizontalGrid
             | Self::ApiUsage
-            | Self::ExperimentalModels => &[],
+            | Self::ExperimentalModels
+            | Self::OfflineTranslation => &[],
         }
     }
 }

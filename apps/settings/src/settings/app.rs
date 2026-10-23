@@ -168,6 +168,12 @@ impl App for Settings {
                 }
             }
             Message::CancelDownload => self.download.cancel(),
+            Message::DownloadTranslation => {
+                if let Err(error) = self.translation_download.start(self.waker.clone()) {
+                    self.notice = Some(("offline-translation", error));
+                }
+            }
+            Message::CancelTranslationDownload => self.translation_download.cancel(),
             Message::RemoveModel(model) => {
                 if remove_armed != Some(model) {
                     self.remove_armed = Some(model);
@@ -292,6 +298,11 @@ impl App for Settings {
         }
         // 下载线程每报一次进度都叫醒一次，重画进度条
         changed |= self.download.stage().is_some();
+        changed |= self.translation_download.stage().is_some();
+        if self.translation_download.finished() {
+            self.write("offline_translation", "enabled", true);
+            changed = true;
+        }
         if let Some(model) = self.download.finished() {
             // 下好了直接用上它：用户点下载就是想用
             self.write("model", "name", model.key());

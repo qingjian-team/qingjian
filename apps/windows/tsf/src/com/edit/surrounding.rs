@@ -91,7 +91,7 @@ const SECRET_SCOPES: [InputScope; 5] = [
 ];
 
 /// 输入框声明了私密类输入范围（`GUID_PROP_INPUTSCOPE` 里含 [`SECRET_SCOPES`] 之一）。拿不到属性按不私密。
-fn private_input(context: &ITfContext, ec: u32, range: &ITfRange) -> bool {
+pub(super) fn private_input(context: &ITfContext, ec: u32, range: &ITfRange) -> bool {
     match input_scopes(context, ec, range) {
         Ok(scopes) => {
             crate::com::log::log(&format!("输入范围: {scopes:?}"));

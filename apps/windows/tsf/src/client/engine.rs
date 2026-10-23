@@ -74,6 +74,7 @@ impl<S: Read + Write> EngineClient<S> {
                 frame,
                 ..
             } => Ok(KeyReply::Result(KeyResponse {
+                reviewing_selection: false,
                 outcome,
                 commit,
                 frame,
@@ -81,6 +82,12 @@ impl<S: Read + Write> EngineClient<S> {
             ServerMessage::RequestSelection { request, .. } => {
                 Ok(KeyReply::NeedSelection { request })
             }
+            ServerMessage::SelectionReview { active, .. } => Ok(KeyReply::Result(KeyResponse {
+                reviewing_selection: active,
+                outcome: qingjian_platform::protocol::KeyOutcome::Consumed,
+                commit: None,
+                frame: Frame::default(),
+            })),
             _ => Err(ClientError::Unexpected("expected key result")),
         }
     }
@@ -105,11 +112,34 @@ impl<S: Read + Write> EngineClient<S> {
                 frame,
                 ..
             } => Ok(KeyResponse {
+                reviewing_selection: false,
                 outcome,
                 commit,
                 frame,
             }),
             _ => Err(ClientError::Unexpected("expected key result for selection")),
+        }
+    }
+
+    /// 请求备用选区；回包只包含评审状态，不能携带要写入文档的文本。
+    pub fn fallback_selection(
+        &mut self,
+        request: u64,
+        process: u32,
+        window: u64,
+        text: String,
+        rect: ScreenRect,
+    ) -> Result<bool, ClientError> {
+        match self.call(&ClientMessage::SelectionFallback {
+            session: self.session,
+            request,
+            process,
+            window,
+            text,
+            rect,
+        })? {
+            ServerMessage::SelectionReview { active, .. } => Ok(active),
+            _ => Err(ClientError::Unexpected("expected selection review")),
         }
     }
 
