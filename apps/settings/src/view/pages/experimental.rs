@@ -32,6 +32,9 @@ pub fn experimental(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Re
         let rows = card(ui, page, pack)?;
         out.push(group(ui, theme, &rows)?);
     }
+    if crate::support::Feature::OfflineTranslation.here() {
+        out.extend(super::offline_translation::card(ui, page)?);
+    }
     Ok(out)
 }
 

@@ -84,10 +84,12 @@ Windows 与 Linux 的中 / 英切换键还可以选单击 `Ctrl` 或 `Ctrl + Alt
 | 操作 | macOS | Windows | Linux |
 |---|---|---|---|
 | 翻译应用中选中的文字 | `⌃⌥T` | `Ctrl + Alt + T` | `Alt + Shift + T` |
-| 翻译结果：替换选区 | `Enter` / `Space` / `1` | 同左 | 同左 |
+| 翻译结果：替换选区 | `Enter` / `Space` / `1` | 同左；兼容模式按这些键复制译文，再自行 `Ctrl+V` 粘贴 | 同左 |
 | 翻译结果：保留原文 | `Esc` | `Esc` | `Esc` |
 | 打拼音时手动要 AI 候选 | `⌃⌥J` | `Ctrl + Alt + J` | — |
 | 问字 | `u` 再输入拼音 | 同左 | 同左 |
+
+Windows 配套版本等待译文时，提前按 `Enter`、`Space` 或 `1` 会继续等待；译文出现后再按一次确认。
 
 ## 前缀
 
