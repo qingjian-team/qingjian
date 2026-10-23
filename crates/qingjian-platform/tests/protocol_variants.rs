@@ -120,6 +120,7 @@ fn server_messages() -> Vec<ServerMessage> {
             outcome: KeyOutcome::Consumed,
             commit: None,
             frame: frame(),
+            english: None,
         },
         // `commit` 的 `Some` 侧：上屏时带文字。只测 `None` 的话，`Option` 的序列化形状变了没人发现。
         ServerMessage::KeyResult {
@@ -127,6 +128,7 @@ fn server_messages() -> Vec<ServerMessage> {
             outcome: KeyOutcome::Passthrough,
             commit: Some("上屏".to_owned()),
             frame: Frame::default(),
+            english: Some(true),
         },
         ServerMessage::Committed {
             session,

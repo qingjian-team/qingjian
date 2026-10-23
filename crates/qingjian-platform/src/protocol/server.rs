@@ -115,6 +115,11 @@ pub enum ServerMessage {
 
         /// 处理后要绘制的组句状态（preedit + 候选）；空 [`Frame`] 表示收起候选窗口。
         frame: Frame,
+
+        /// 本次按键切换了中 / 英模式时的新模式；没切换为 `None`。
+        /// Linux 插件拿它弹「中」/「英」提示气泡，其余平台忽略。
+        #[serde(default)]
+        english: Option<bool>,
     },
 
     /// 对一次 [`super::ClientMessage::Commit`] 的答复：缓冲区里原样上屏的文本（拼音字母 / 英文模式下敲的字母）；
