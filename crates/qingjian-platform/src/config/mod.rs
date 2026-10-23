@@ -17,6 +17,7 @@ mod log_level;
 mod model;
 mod modifiers;
 mod numpad_digit;
+mod offline_translation;
 mod optional_key_combo;
 mod page_keys;
 mod phrases;
@@ -66,6 +67,7 @@ pub use log_level::LogLevel;
 pub use model::{LocalModel, LocalModelConfig, ZhiyiTier};
 pub use modifiers::Modifiers;
 pub use numpad_digit::NumpadDigit;
+pub use offline_translation::OfflineTranslationConfig;
 pub use page_keys::PageKeys;
 pub use phrases::{export_phrases, import_phrases};
 pub use preedit_mode::PreeditMode;
@@ -107,6 +109,9 @@ pub struct Config {
 
     /// 云联想。
     pub predict: PredictConfig,
+
+    /// 显式选区翻译的本地模型。
+    pub offline_translation: OfflineTranslationConfig,
 
     /// 悬浮状态条（桌面上常驻、可拖动的中 / 英浮窗）。
     pub status_bar: StatusBarConfig,

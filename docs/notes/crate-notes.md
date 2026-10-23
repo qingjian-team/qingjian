@@ -1,5 +1,7 @@
 # 各 crate 的实现要点
 
+`qingjian-offline`、独立选区翻译提供方、Windows 接线及模型下载见 [原生离线选区翻译](native-offline-translation.md)。
+
 CLAUDE.md 只保留目录地图与规则，每个 crate / app / tool 的实现细节收在这里：入口类型、数据文件、常数、生成命令。
 改了实现要同步改这里；与代码冲突时以代码为准。
 
@@ -626,8 +628,12 @@ Windows 可选的 `[shortcut] toggle_punctuation` 经 `InputSettings` 下发，�
 ### Windows 简繁快捷键
 
 `[shortcut] toggle_traditional` 是可关闭的组合键（空字符串关闭，缺省关；设置程序里开关打开写 `ctrl+shift+f`）。Server 经 `InputSettings` 下发有效组合，与选区翻译冲突时禁用简繁键。TSF 在激活 / 热加载时替换保留键登记、停用时撤销，命中后转发按键；Server 在简体与上次用的繁体之间切（`[general] last_traditional`，切到简体时记下切走前那一档，没记过是台湾），复用 Core 的繁体转换并重查候选，不上屏或清空当前组句，结果写回 `[general] traditional_variant`。老 Server 不下发此字段时 DLL 不登记。激活早期焦点回调可能在 `thread_mgr` 就绪前连接 Server，因此保留键同步先于配置去重，下一次相同设置也能补登记或重试。
+Windows 选区兼容（协议 10）：TSF 为空时，新 DLL 发 `SelectionFallback`（触发进程、前台窗口及可选的 Scintilla 选区），Server 在独立 MTA 工作者中查询 UIA `TextPattern`。工作者核对进程、焦点、密码状态、单一选区与 500 UTF-16 单元限制；仅主动翻译触发，单工作者、5 秒收结果超时，取消后丢弃迟到结果。备用评审用不含 `commit` 的 `SelectionReview` 回包维持等待；只有用户确认才通过 arboard 复制译文，界面提示自行粘贴，复制失败保留结果重试。普通 TSF 来源在 DLL 的 `composition/selection.rs` 保存范围与原文，回填前重验文档、全局前台窗口、线程焦点、起止位置和原文。版本 9 已支持的码段 / 符号降级门槛固定为 9，不因新增协议 10 而错误降级。Linux 只同步公共握手版本，不实现 Windows 的备用入口。
+
+Windows 配套版本在 TSF 翻译未完成时确认，会保留请求并以协议 10 的 `SelectionReview(active=true)` 维持 DLL 评审状态。Server 的 `--verify-translation [资源目录]` 用固定公开样例验证实际配置、本地模型与 Router 的触发、等待、确认及取消路径，使用无窗口输出端；不读取宿主选区，不访问剪贴板，也不代表真实应用验收。
 
 ## assets
+
 
 - `assets/sample/`：手写样例词库与释义表，不是产品数据。
 - `assets/schemes/wubi86/`：随包形码方案（`scheme.toml` + `table.tsv`，码表由 `dict-convert wubi` 生成，来源与许可见同目录 README，Apache-2.0）。
@@ -688,7 +694,7 @@ Windows 可选的 `[shortcut] toggle_punctuation` 经 `InputSettings` 下发，�
 启动与热加载共用 `assembly::attach_cloud`（签名与 Windows 的 `dispatch::attach_cloud` 对齐：`[predict]` 配置 + 用量文件路径）；切换服务先取消旧请求与选区翻译，重建所有会话的本地候选布局以清除旧云词，保留本地高亮，聚焦会话再发新请求。无密钥时退回本地，不预留云词槽。按需联想在 `LinuxEvent::Key` 里拦 `[shortcut] predict` 组合键（按字符匹配，`.` 的键码与 Delete 冲突），结果按模型顺序置顶；自动请求由 `RouterConfig::cloud_enabled` 门控，`automatic = false` 时只剩按需触发。插件把缺失的可选 `kind` / `sentence` 按本地候选 / 无整句处理。
 插件在清空预编辑之前上屏；上屏回调重入后核对生命周期和帧身份，跳过过期重画而不撤销或重复提交，见 [Linux 协议与状态](linux-fcitx5.md#协议与状态)。
 
-Unix socket 用共享长度前缀与 Frame（当前公共版本 9，与 `PROTOCOL_VERSION` 同步，Fcitx5 插件里写死在 `qingjian.cpp` 的 OpenSession）；插件复用一条连接，每个上下文独立会话。Linux v3 扩展逐会话握手、确认 Sensitive/Password/Disable 后接受按下/释放、焦点和点击事实。
+Unix socket 用共享长度前缀与 Frame（当前公共版本 10，与 `PROTOCOL_VERSION` 同步，Fcitx5 插件里写死在 `qingjian.cpp` 的 OpenSession）；插件复用一条连接，每个上下文独立会话。Linux v3 扩展逐会话握手、确认 Sensitive/Password/Disable 后接受按下/释放、焦点和点击事实。
 候选回报绑定连接代次、上下文和服务端帧序号，仅当前聚焦页的有效释义进入 `note_displayed`，不把生成帧算作已展示。
 Linux 回包由 `dispatch/display/annotation` 给释义添加可选 `annotation`（词性与汉字段假名，`[general] translation_pos` 关掉时不带词性），Fcitx5 面板优先显示它；原始译文和快捷键提交不变，旧 Server 缺该字段时插件回退到 `text`。
 `[general] preedit` 使用已有 `both` / `inline` / `window`；没有新增 Linux 自绘配置。详见 [linux-fcitx5.md](linux-fcitx5.md)。

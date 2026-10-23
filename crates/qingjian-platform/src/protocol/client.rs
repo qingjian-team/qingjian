@@ -84,6 +84,23 @@ pub enum ClientMessage {
         rect: ScreenRect,
     },
 
+    /// TSF 无法提供选区时请求备用读取；译文仅供复制，不作为 TSF 上屏文本返回。
+    SelectionFallback {
+        session: SessionId,
+
+        request: u64,
+
+        /// 快捷键所属进程，及触发时同一进程的前台窗口。
+        process: u32,
+
+        window: u64,
+
+        /// Scintilla 原生读取成功时带文字；为空时由 Server 在 MTA 线程查询 UIA。
+        text: String,
+
+        rect: ScreenRect,
+    },
+
     /// 组句更新后，DLL 在编辑会话里量到组句范围的屏幕矩形，发来让 Server 把候选窗口摆到光标下方。
     /// 不等回话：候选窗口由 Server 进程自绘（搬出应用进程，才能盖过微软商店 / 任务栏搜索这些高 z-band 宿主）。
     /// 组句结束 / 失焦时 Server 按空帧与 [`Commit`](Self::Commit) 自行收窗口，不必 DLL 再发。

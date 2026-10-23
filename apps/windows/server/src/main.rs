@@ -3,6 +3,7 @@
 #![cfg_attr(all(windows, not(debug_assertions)), windows_subsystem = "windows")]
 
 mod panic_log;
+mod translation_check;
 
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
@@ -29,14 +30,11 @@ fn write_config_template() -> Option<Result<bool, ConfigError>> {
     Some(Config::write_template_if_missing(&config_path()?))
 }
 
-/// 文件不存在按默认值；解析失败记错误退回默认。
-fn load_config() -> Config {
+/// 保留读取错误，等日志初始化后再报告，避免启动时静默退回默认配置。
+fn load_config() -> Result<Config, ConfigError> {
     match config_path() {
-        Some(path) => Config::load(&path).unwrap_or_else(|error| {
-            tracing::error!(%error, path = %path.display(), "配置解析失败，用默认值");
-            Config::default()
-        }),
-        None => Config::default(),
+        Some(path) => Config::load(&path),
+        None => Ok(Config::default()),
     }
 }
 
@@ -162,14 +160,26 @@ fn attach_parent_console() {}
 
 fn main() -> ExitCode {
     let mut arguments = std::env::args().skip(1);
-    if arguments.next().as_deref() == Some(qingjian_render::preview::FLAG) {
+    let argument = arguments.next();
+    if argument.as_deref() == Some(qingjian_render::preview::FLAG) {
         return ExitCode::from(u8::try_from(theme_preview(arguments.next())).unwrap_or(1));
     }
+    if argument.as_deref() == Some("--verify-translation") {
+        return ExitCode::from(u8::try_from(translation_check::verify(arguments.next())).unwrap_or(1));
+    }
     load_env();
+    if argument.as_deref() == Some("--check-translation") {
+        return ExitCode::from(u8::try_from(translation_check::run(arguments.next())).unwrap_or(1));
+    }
 
     // 日志级别取自配置，所以先写模板、读配置，再装日志。
     let template = write_config_template();
-    let config = load_config();
+    let config_result = load_config();
+    let config_loaded = config_result.is_ok();
+    let (config, config_error) = match config_result {
+        Ok(config) => (config, None),
+        Err(error) => (Config::default(), Some(error)),
+    };
     let _log_guard = init_logging(&config);
     panic_log::install();
     tracing::info!(pid = std::process::id(), "Server process started");
@@ -178,6 +188,20 @@ fn main() -> ExitCode {
         tracing::info!("another qingjian-server is already running, exiting");
         return ExitCode::SUCCESS;
     };
+    if let Some(error) = config_error {
+        // TOML 错误的 Display 包含源文件片段，不能把密钥所在行写进日志。
+        let reason = match error {
+            ConfigError::Read { .. } => "read_failed",
+            ConfigError::Parse { .. } => "parse_failed",
+            _ => "config_failed",
+        };
+        tracing::error!(reason, "配置加载失败，暂用默认值；请检查配置文件");
+    }
+    tracing::info!(
+        config_loaded,
+        offline_configured = config.offline_translation.enabled,
+        "选区翻译启动配置"
+    );
     match template {
         Some(Ok(true)) => tracing::info!("已写出配置模板"),
         Some(Err(error)) => tracing::warn!(%error, "写配置模板失败"),
@@ -254,6 +278,12 @@ fn main() -> ExitCode {
     engine.log_session(env!("CARGO_PKG_VERSION"), "windows");
     let usage_path = user_dir().map(|dir| dir.join(qingjian_predict::API_USAGE_FILE));
     dispatch::attach_cloud(&mut engine, &config.predict, usage_path);
+    dispatch::attach_offline_translation(
+        &mut engine,
+        config.offline_translation.enabled,
+        user_dir().as_deref(),
+        &root,
+    );
     let router_config = RouterConfig::from(&config);
     let mut router = Router::new(engine, router_config.clone());
     router.configure_local_model(
@@ -292,6 +322,8 @@ fn main() -> ExitCode {
         scheme = %router.scheme_name(),
         fuzzy = config.fuzzy.any(),
         cloud = config.predict.enabled,
+        offline_configured = config.offline_translation.enabled,
+        translation_ready = router.engine_mut().translation_enabled(),
         model = config.model.name.key(),
         model_enabled = config.model.enabled,
         sessions = router.session_count(),

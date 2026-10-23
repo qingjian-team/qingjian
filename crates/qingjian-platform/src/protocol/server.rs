@@ -144,6 +144,9 @@ pub enum ServerMessage {
         english: Option<bool>,
     },
 
+    /// 备用选区的评审状态，结构上没有上屏文本，避免把 UIA 文字误写回 TSF 文档。
+    SelectionReview { session: SessionId, active: bool },
+
     /// 对一次 [`super::ClientMessage::Commit`] 的答复：缓冲区里原样上屏的文本（拼音字母 / 英文模式下敲的字母）；
     /// 没在组句时为 `None`。Server 侧组句已清空，DLL 收到后把文本落进文档并收起组句。
     Committed {

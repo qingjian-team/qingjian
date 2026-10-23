@@ -75,6 +75,9 @@ pub enum Message {
     /// 实验功能里下载这个模型（失败后的「重试」也是它）。
     DownloadModel(qingjian_platform::LocalModel),
     CancelDownload,
+    /// 中英双向离线翻译模型，独立于整句排序模型。
+    DownloadTranslation,
+    CancelTranslationDownload,
     /// 删掉下好的模型（第一下只是确认）。
     RemoveModel(qingjian_platform::LocalModel),
     /// 实验功能里开一个模型（`None` 是关掉，不用模型）。

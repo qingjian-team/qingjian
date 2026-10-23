@@ -139,6 +139,7 @@ impl Router {
             code_word_files,
             last_mtime,
             applied_predict: config.predict.clone(),
+            applied_offline_translation: config.offline_translation.enabled,
             applied_dictionaries: config.dictionaries.clone(),
             applied_aux_code: config.aux_code.clone(),
             dictionary_files,
@@ -283,10 +284,24 @@ impl Router {
         self.reconcile_status();
         self.apply_model_config(&config.model);
 
+        if self.reload.as_ref().is_some_and(|reload| {
+            reload.applied_offline_translation != config.offline_translation.enabled
+        }) {
+            self.end_translation();
+        }
         let Some(reload) = &mut self.reload else {
             return;
         };
         reload.update = config.update.clone();
+        if reload.applied_offline_translation != config.offline_translation.enabled {
+            super::offline_translation::attach_offline_translation(
+                &mut self.engine,
+                config.offline_translation.enabled,
+                reload.dirs.user_root.as_deref(),
+                &reload.root,
+            );
+            reload.applied_offline_translation = config.offline_translation.enabled;
+        }
         if config.predict != reload.applied_predict {
             let usage_path = reload
                 .dirs
