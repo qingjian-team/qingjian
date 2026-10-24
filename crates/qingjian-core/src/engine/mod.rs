@@ -146,6 +146,9 @@ pub struct Engine {
     /// 有中文候选时英文最高排到第几位（配置 `[general] english_min_position`，缺省 1 即不限制）。
     english_min_position: usize,
 
+    /// 长拼音首页没有单字时，把首音节最常用的两个字放进首页（配置 `[general] first_page_characters`，缺省开）。
+    first_page_characters: bool,
+
     /// 中西文混排自动补空格（配置 `[general] auto_space`，缺省关）。见 [`crate::spacing`]。
     auto_space: bool,
 
@@ -476,6 +479,7 @@ impl Engine {
             chinese_first: false,
             english_max_in_chinese: ENGLISH_CANDIDATES_MAX,
             english_min_position: 1,
+            first_page_characters: true,
             auto_space: false,
             shift_letter_compose: false,
             predictor: Box::new(NoPredictor),

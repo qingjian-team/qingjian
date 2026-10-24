@@ -38,6 +38,7 @@ All settings are kept in one TOML text file, `config.toml`, with a note for ever
 | `[general] english_in_chinese` | 候选 → 打拼音时也给英文词 (Candidates → English words while typing pinyin) | `true` / `false` |
 | `[general] english_max_in_chinese` | 候选 → 英文候选最多几个 (Candidates → Maximum English candidates) | `1`–`4`, default `4` |
 | `[general] english_min_position` | 候选 → 英文词最高排到第几位 (Candidates → Highest position for English words) | `1`–`9`, default `1` (no limit) |
+| `[general] first_page_characters` | 候选 → 长拼音首页固定单字 (Candidates → Fix single characters on the first page for long pinyin) | `true` / `false`, default `true` |
 | `[model] enabled` | 候选 → 本地整句模型 (Candidates → Local sentence model) | `true` / `false` |
 | `[model] name`, `zhiyi_tier` | 实验功能 (Experimental features) → which model, Zhiyi's level | `name`: `tongbian` (default), `zhiwei`, `zhiyi`; a model that isn't downloaded falls back to `tongbian`. `zhiyi_tier`: `saver`, `balanced` (default), `accurate` |
 | `[model] context_memory_seconds` | Configuration file only | When an app doesn't share the text before the cursor, how long what you just typed counts as context; default 60, 0 means always |

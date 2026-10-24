@@ -38,6 +38,7 @@ description: 青简的全部设置保存在一个文本配置文件里：位置�
 | `[general] english_in_chinese` | 候选 → 打拼音时也给英文词 | `true` / `false` |
 | `[general] english_max_in_chinese` | 候选 → 英文候选最多几个 | `1`–`4`，缺省 `4` |
 | `[general] english_min_position` | 候选 → 英文词最高排到第几位 | `1`–`9`，缺省 `1`（不限） |
+| `[general] first_page_characters` | 候选 → 长拼音首页固定单字 | `true` / `false`，缺省 `true` |
 | `[model] enabled` | 候选 → 本地整句模型 | `true` / `false` |
 | `[model] name`、`zhiyi_tier` | 实验功能 → 用哪个模型、知意的档位 | `name`：`tongbian`（缺省）、`zhiwei`、`zhiyi`，选了没下载的按 `tongbian`；`zhiyi_tier`：`saver`、`balanced`（缺省）、`accurate` |
 | `[model] context_memory_seconds` | 只在配置文件里 | 应用不给光标前文时，刚打的字算作前文的时长，缺省 60，0 为一直算 |

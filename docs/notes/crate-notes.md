@@ -84,6 +84,9 @@ mac 存在 `Session::spelling`（`Host::follow_highlight`）、Windows / Linux �
   缺省关是回放定的（9241 词 / 269 条英文上屏：缺省开英文首选 82.5% → 7.1%）。
   条数与最高位次两档：`english_max_in_chinese`（1–4，缺省 4 = 1 条精确词 + 最多 3 条补全；1 只留最靠前的一条）与
   `english_min_position`（1–9，缺省 1 不限）；`extras::place_english` 在整句也插进来之后把英文块挪到第 K 位，没有中文候选时不动。
+- 长拼音首页保底单字（`extras::insert_first_page_characters`，配置 `[general] first_page_characters`，缺省开，`Engine::set_first_page_characters`）：
+  至少 3 个音节、前 9 条里没有单字时，按词频取首音节最常用的两个字放在第 5、6 位，词级排序里排在后面的同字候选原地删掉（不重复出）；
+  首页已有单字不动。判据看前 9 条而不是壳里的 `page_size`（Engine 不知道每页几格），页调到 5 以下时这两个位置翻过第一页、等于不生效（#769）。
 - 中西文自动空格（`spacing` 判交界，`engine/spacing.rs` 判上文；配置 `[general] auto_space`，缺省关）：`commit` / `take_raw` 自己补前导空格并把它记成一次直通，
   候选内部的交界在 `commit_with` 里补、`LastCommit.chars` 按补后的字数记；直通字符由壳先问 `auto_space_before`。上文取最近一条没退格的上屏末字，
   还没上屏过时用组句首键读到的应用前文（`rescoring_before`），删了一半或焦点离开后不知道上文就不补。

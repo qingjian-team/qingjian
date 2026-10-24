@@ -11,6 +11,12 @@ When you reach the last character of a sentence, typing just its initial is enou
 
 When you pick a stretch of pinyin in several steps, the words picked first stay in the input box and the whole stretch is committed together once it's done; see [Picked the wrong word](../getting-started/first-input.md#Picked-the-wrong-word).
 
+### Single characters in long pinyin
+
+When you type a long stretch of pinyin that isn't in the dictionary, the sentence fills the first page, and getting the first character usually means paging through several screens.
+In that case the first page also carries the two most common characters for the first syllable, in positions 5 and 6, so you can pick one and keep building the word.
+It only kicks in with at least 3 syllables and when the first page has no single character yet; turn it off with 长拼音首页固定单字 (Fix single characters on the first page for long pinyin) under 设置 → 候选 (Settings → Candidates).
+
 ## Abbreviated pinyin
 
 Typing only each character's initial works too: `jttqhh` gives 今天天气很好.

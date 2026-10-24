@@ -134,6 +134,15 @@ pub fn candidates(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Rend
             config.model.enabled,
             false,
         )?,
+        toggle_info(
+            ui,
+            page,
+            "长拼音首页固定单字",
+            Some("首页没有单字时补首音节最常用的两个字"),
+            ("general", "first_page_characters"),
+            general.first_page_characters,
+            false,
+        )?,
     ];
     out.push(section_title(ui, theme, "排序")?);
     out.push(group(ui, theme, &rows)?);

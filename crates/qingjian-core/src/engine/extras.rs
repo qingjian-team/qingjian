@@ -6,8 +6,21 @@ use super::{
 };
 use crate::candidate::{Candidate, CandidateKind};
 use crate::emoji::EmojiTable;
+use crate::parser::Segmentation;
 use crate::shortcut;
 use qingjian_dictionary::WordList;
+
+/// 首页保底单字：至少几个音节才这么做（两三个音节时首页本来就有单字）。
+const FIRST_PAGE_MIN_SYLLABLES: usize = 3;
+
+/// 保底单字从第几位放起（从 1 数）。缺省首页 9 格，第 5、6 位都在第一页。
+const FIRST_PAGE_CHAR_POSITION: usize = 5;
+
+/// 判断「首页有没有单字」时看前几条：缺省首页 9 格；页面调得更小时这里偏保守（有单字就不插）。
+const FIRST_PAGE_WINDOW: usize = 9;
+
+/// 最多放几个保底单字。
+const FIRST_PAGE_CHARS: usize = 2;
 
 impl Engine {
     /// 精确匹配自定义输入码时，数字键应选择候选。
@@ -207,6 +220,72 @@ impl Engine {
         }
         let position = (self.english_min_position - 1).min(items.len());
         items.splice(position..position, english);
+    }
+
+    /// 长拼音首页没有单字时，把首音节最常用的两个字固定放在第 [`FIRST_PAGE_CHAR_POSITION`] 位起，
+    /// 好让人先上屏一个首字再往下组词（配置 `[general] first_page_characters`，缺省开）。
+    ///
+    /// 至少 [`FIRST_PAGE_MIN_SYLLABLES`] 个音节才动：两三个音节时首页本来就有单字。
+    /// 看前 [`FIRST_PAGE_WINDOW`] 条里有没有单字（缺省首页 9 格）；页面更小时这里偏保守，有单字就不插。
+    pub(super) fn insert_first_page_characters(
+        &self,
+        items: &mut Vec<Candidate>,
+        best: &Segmentation,
+    ) {
+        if !self.first_page_characters || best.syllables.len() < FIRST_PAGE_MIN_SYLLABLES {
+            return;
+        }
+        let first = &best.syllables[0];
+        if !first.complete {
+            return;
+        }
+        let window = FIRST_PAGE_WINDOW.min(items.len());
+        if items[..window]
+            .iter()
+            .any(|c| c.kind == CandidateKind::Chinese && c.text.chars().count() == 1)
+        {
+            return;
+        }
+        let raw = self.lookup_exact_all(&[vec![first.pattern()]]);
+        let mut hits: Vec<_> = raw
+            .into_iter()
+            .filter(|hit| hit.text.chars().count() == 1)
+            .collect();
+        hits.sort_by(|a, b| {
+            b.frequency
+                .cmp(&a.frequency)
+                .then_with(|| a.text.cmp(b.text))
+        });
+        let mut seen = std::collections::HashSet::new();
+        let picked: Vec<String> = hits
+            .into_iter()
+            .filter(|hit| seen.insert(hit.text.to_owned()))
+            .take(FIRST_PAGE_CHARS)
+            .map(|hit| hit.text.to_owned())
+            .collect();
+        if picked.is_empty() {
+            return;
+        }
+        // 这些字在词级排序里本来排在后面：原地那几条删掉，免得同一个字出两遍
+        items.retain(|c| {
+            !(c.kind == CandidateKind::Chinese
+                && c.text.chars().count() == 1
+                && picked.iter().any(|text| text == &c.text))
+        });
+        let at = FIRST_PAGE_CHAR_POSITION - 1;
+        for (offset, text) in picked.into_iter().enumerate() {
+            items.insert(
+                (at + offset).min(items.len()),
+                Candidate {
+                    text,
+                    kind: CandidateKind::Chinese,
+                    syllables: vec![first.text.clone()],
+                    reading: None,
+                    translation: None,
+                    aux_code: None,
+                },
+            );
+        }
     }
 
     /// 给英文候选用的词表，个人的在前、随包的在后；一张都没有就是空。
