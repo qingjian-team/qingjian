@@ -36,6 +36,45 @@ pub struct ImportedWordList {
     pub report: Report,
 }
 
+/// 导入一本词库的结果：写出的文件；无读音词表另带派生统计（普通词库为 `None`）。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ImportedDictionary {
+    /// 写出的 `.qj`。
+    pub imported: Imported,
+
+    /// 无读音词表的派生统计；普通词库为 `None`。
+    pub report: Option<Report>,
+}
+
+/// 导入一本词库：源文件里有没写读音的词（只有词的 `.txt` / 混了无读音行的 Rime 词库）时，
+/// 按 [`import_word_list`] 从 `references`（随包基础词库与领域词库）派生读音；全部带读音或 `.qj` 时同 [`import`]。
+/// 判据只看文本：读不出文本的（编码不是 UTF-8 等）也交给 [`import`] 去报它自己的错。
+pub fn import_dictionary(
+    source: &Path,
+    dest_dir: &Path,
+    references: &[&Dictionary],
+) -> Result<ImportedDictionary, DictionaryError> {
+    let needs_readings = !Container::is_qj(source)
+        && std::fs::read_to_string(source).is_ok_and(|text| has_words_without_reading(&text));
+    if needs_readings {
+        let done = import_word_list(source, dest_dir, references)?;
+        Ok(ImportedDictionary {
+            imported: done.imported,
+            report: Some(done.report),
+        })
+    } else {
+        Ok(ImportedDictionary {
+            imported: import(source, dest_dir)?,
+            report: None,
+        })
+    }
+}
+
+/// 词表里有没写读音的词（`词`、`词<Tab>词频`、Rime 里没拼音的行）：这种源文件不能按普通词库解析。
+fn has_words_without_reading(text: &str) -> bool {
+    parse_words(text).iter().any(|word| word.reading.is_none())
+}
+
 /// 把 `source` 导入到 `dest_dir`，返回写出的文件与元数据。
 pub fn import(source: &Path, dest_dir: &Path) -> Result<Imported, DictionaryError> {
     let stem = stem_of(source)?;
@@ -256,5 +295,59 @@ mod tests {
         assert_eq!(strip_extensions("dict.tsv"), "dict");
         assert_eq!(strip_extensions("x.qj"), "x");
         assert_eq!(strip_extensions("noext"), "noext");
+    }
+
+    /// 建一个临时目录，跑完删掉。
+    fn scratch(name: &str) -> PathBuf {
+        let dir =
+            std::env::temp_dir().join(format!("qingjian-import-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    #[test]
+    fn auto_import_derives_readings_for_word_lists() {
+        let dir = scratch("auto-words");
+        let reference = Dictionary::parse("李\tli\t900\n三\tsan\t900\n").unwrap();
+        // 只有词的 txt：全部按参考词库派生
+        let list = dir.join("names.txt");
+        std::fs::write(&list, "李三\n囧三\n").unwrap();
+        let done = import_dictionary(&list, &dir.join("dicts"), &[&reference]).unwrap();
+        assert_eq!(done.imported.entries, 1);
+        assert_eq!(done.report.unwrap().unknown, ["囧三".to_owned()]);
+
+        // Rime 词库混了有读音的行：没读音的派生，写明的原样保留
+        let rime = dir.join("mixed.dict.yaml");
+        std::fs::write(&rime, "---\nname: mixed\n...\n李三\n三\tsan\t5\n").unwrap();
+        let done = import_dictionary(&rime, &dir.join("dicts"), &[&reference]).unwrap();
+        assert_eq!(done.imported.entries, 2);
+        let dictionary = Dictionary::from_path(&done.imported.path).unwrap();
+        assert_eq!(dictionary.lookup(&["li", "san"], false)[0].text, "李三");
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn auto_import_keeps_normal_dictionaries_on_the_plain_path() {
+        let dir = scratch("auto-plain");
+        let reference = Dictionary::parse("李\tli\t900\n三\tsan\t900\n").unwrap();
+        // 每行都有读音：仍走普通导入，返回的 report 为空
+        let rime = dir.join("law.dict.yaml");
+        std::fs::write(&rime, "---\nname: law\n...\n合同法\the tong fa\t120\n").unwrap();
+        let done = import_dictionary(&rime, &dir.join("dicts"), &[&reference]).unwrap();
+        assert!(done.report.is_none());
+        assert_eq!(done.imported.name, "law");
+
+        // 混进来的带数字声调的行也照原样保留（词表按无读音处理时同样认）
+        let list = dir.join("toned.txt");
+        std::fs::write(&list, "东西\tdong1 xi5\t20\n李三\n").unwrap();
+        let done = import_dictionary(&list, &dir.join("dicts"), &[&reference]).unwrap();
+        let dictionary = Dictionary::from_path(&done.imported.path).unwrap();
+        assert_eq!(
+            dictionary.lookup(&["dong", "xi"], false)[0].pinyin,
+            "dong xi"
+        );
+        assert_eq!(dictionary.lookup(&["li", "san"], false)[0].text, "李三");
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 }

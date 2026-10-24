@@ -40,7 +40,26 @@ fn import_rejects_files_without_entries() {
     let user = temp_dir("dict-bad");
     let source = user.join("notes.txt");
     std::fs::write(&source, "这不是词库\n").unwrap();
-    let message = import_one(&source, &user);
+    let message = import_one(&source, &user, &user);
     assert!(message.starts_with("导入失败"), "{message}");
     assert!(files(&imported_dir(&user)).is_empty());
+}
+
+#[test]
+fn import_word_list_derives_readings_from_the_bundled_dictionary() {
+    let data = temp_dir("dict-ref");
+    let user = temp_dir("dict-words");
+    // 随包的只有基础词库这一份：李 li、三 san
+    std::fs::write(data.join("dict.tsv"), "李\tli\t900\n三\tsan\t900\n").unwrap();
+    let source = user.join("names.txt");
+    std::fs::write(&source, "李三\n囧三\n").unwrap();
+    let message = import_one(&source, &data, &user);
+    assert_eq!(
+        message,
+        "已导入「names」，共 1 条；1 条跳过（字不在随包词库）"
+    );
+    let imported = files(&imported_dir(&user));
+    assert_eq!(imported.len(), 1);
+    let dictionary = Dictionary::from_path(&imported[0].1).unwrap();
+    assert_eq!(dictionary.lookup(&["li", "san"], false)[0].text, "李三");
 }

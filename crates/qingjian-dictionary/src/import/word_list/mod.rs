@@ -103,7 +103,16 @@ fn parse_tail(second: Option<&str>, third: Option<&str>) -> Option<(Option<Strin
     if let Ok(weight) = second.parse::<u32>() {
         return Some((None, weight));
     }
-    if !second.bytes().all(|b| b.is_ascii_lowercase() || b == b' ') {
+    // 读音是空格分隔的字母音节，可以带数字声调（`dong1 xi5`），交给 `Dictionary::parse` 收；
+    // 数字只能跟在字母后面（`zhang san 1` 这种第二列不是读音）
+    let is_reading = !second.is_empty()
+        && second.split(' ').all(|syllable| {
+            syllable.bytes().any(|b| b.is_ascii_lowercase())
+                && syllable
+                    .bytes()
+                    .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit())
+        });
+    if !is_reading {
         return None;
     }
     let weight = match third.map(str::trim).filter(|s| !s.is_empty()) {

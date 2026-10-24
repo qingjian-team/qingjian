@@ -50,7 +50,7 @@ pub fn dictionaries(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Re
         page,
         Kind::Dictionary,
         "导入词库",
-        "支持 TSV、Rime .dict.yaml 和 .qj，可以多选",
+        "支持 TSV、Rime .dict.yaml、只有词的表和 .qj，可以多选；只有词的读音按随包词库补",
     )?);
     out.push(section_title(ui, theme, "导入的词库")?);
     out.push(group(ui, theme, &rows)?);
