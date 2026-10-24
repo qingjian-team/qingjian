@@ -1,4 +1,4 @@
-//! 候选右键菜单：某个候选能做哪几件事（置顶 / 取消置顶 / 降权 / 取消降权 / 删除），以及做完给用户看的一句话。
+//! 候选右键菜单：某个候选能做哪几件事，以及做完给用户看的一句话。
 //! 各壳只管弹菜单、认点中的项；置顶与取消置顶改的是配置里的自定义短语，壳做完要重读配置。
 
 use std::path::Path;
@@ -10,6 +10,12 @@ use crate::Config;
 /// 菜单里的一项。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CandidateAction {
+    /// 用户输入并覆盖当前学习语言的译文。
+    EditTranslation,
+
+    /// 请云模型按当前学习语言重新生成译文。
+    RegenerateTranslation,
+
     /// 在当前输入码下排第一：写一条权重最高的自定义短语。
     Pin,
 
@@ -27,7 +33,9 @@ pub enum CandidateAction {
 }
 
 impl CandidateAction {
-    const ALL: [Self; 5] = [
+    const ALL: [Self; 7] = [
+        Self::EditTranslation,
+        Self::RegenerateTranslation,
         Self::Pin,
         Self::Unpin,
         Self::Demote,
@@ -37,6 +45,8 @@ impl CandidateAction {
 
     pub fn label(self) -> &'static str {
         match self {
+            Self::EditTranslation => "修改译文…",
+            Self::RegenerateTranslation => "模型重新生成译文",
             Self::Pin => "置顶",
             Self::Unpin => "取消置顶",
             Self::Demote => "降权",
@@ -62,6 +72,12 @@ pub fn actions(
     phrases: &[CustomPhrase],
 ) -> Vec<CandidateAction> {
     let mut actions = Vec::new();
+    if engine.translation_target(candidate).is_some() {
+        actions.push(CandidateAction::EditTranslation);
+        if engine.prediction_enabled() {
+            actions.push(CandidateAction::RegenerateTranslation);
+        }
+    }
     if let Some((code, text)) = engine.pin_target(candidate) {
         let mut pinned = phrases.to_vec();
         if custom_phrase::pin(&mut pinned, &code, &text) {
@@ -109,6 +125,9 @@ pub fn perform(
         phrases_changed: false,
     };
     match action {
+        CandidateAction::EditTranslation | CandidateAction::RegenerateTranslation => {
+            notice("这项操作需要输入法窗口处理".to_owned())
+        }
         CandidateAction::Pin | CandidateAction::Unpin => {
             let Some((code, stored)) = engine.pin_target(candidate) else {
                 return notice(format!("「{text}」这里不能置顶"));
@@ -160,6 +179,6 @@ mod tests {
             assert_eq!(CandidateAction::from_id(action.id()), Some(action));
         }
         assert_eq!(CandidateAction::from_id(0), None);
-        assert_eq!(CandidateAction::from_id(6), None);
+        assert_eq!(CandidateAction::from_id(8), None);
     }
 }

@@ -15,6 +15,9 @@ use super::*;
 thread_local! {
     /// 最近激活的会话；`deactivateServer:` 时清掉。
     static ACTIVE: RefCell<Option<Retained<QingjianInputController>>> = const { RefCell::new(None) };
+
+    /// 打开右键菜单时的控制器。点菜单会让输入法短暂 deactivate，不能只依赖 `ACTIVE`。
+    static MENU_CONTROLLER: RefCell<Option<Retained<QingjianInputController>>> = const { RefCell::new(None) };
 }
 
 /// 候选窗口的点击回调（host 建窗口时注册）。
@@ -53,6 +56,8 @@ pub fn menu_items(offset: usize) -> Vec<(u32, &'static str)> {
     if !composing {
         return Vec::new();
     }
+    let controller = ACTIVE.with(|active| active.borrow().clone());
+    MENU_CONTROLLER.with(|saved| *saved.borrow_mut() = controller);
     host::with(|h| h.candidate_actions(offset))
         .unwrap_or_default()
         .into_iter()
@@ -65,9 +70,14 @@ pub fn menu_pick(offset: usize, id: u32) {
     let Some(action) = CandidateAction::from_id(id) else {
         return;
     };
-    let Some(controller) = ACTIVE.with(|active| active.borrow().clone()) else {
+    let controller = MENU_CONTROLLER
+        .with(|saved| saved.borrow_mut().take())
+        .or_else(|| ACTIVE.with(|active| active.borrow().clone()));
+    let Some(controller) = controller else {
+        tracing::warn!(offset, id, "候选菜单点击时没有可用的输入会话");
         return;
     };
+    tracing::info!(offset, ?action, "候选菜单已点击");
     if catch_panic("candidate_menu", || {
         controller.candidate_menu_pick(offset, action)
     })
@@ -102,6 +112,61 @@ impl QingjianInputController {
             return;
         };
         let client = TextClient::new(&client);
+        if action == CandidateAction::EditTranslation {
+            let target = host::with(|h| {
+                let candidate = h
+                    .session
+                    .index_in_view(offset)
+                    .and_then(|index| h.session.candidate(index))?;
+                let current = candidate
+                    .translation
+                    .as_ref()
+                    .and_then(|translation| translation.senses().first())
+                    .map_or(String::new(), |sense| sense.text.clone());
+                let language = qingjian_core::LEARNING_LANGUAGES
+                    .iter()
+                    .find(|(code, _)| *code == h.engine.learning_language().code())
+                    .map_or("学习语言", |(_, name)| *name);
+                let (word, _) = h.engine.translation_target(&candidate)?;
+                Some((word, candidate.text, current, language.to_owned()))
+            })
+            .flatten();
+            let Some((word, display, current, language)) = target else {
+                return;
+            };
+            let Some(text) = super::candidate_editor::edit_translation(&current, &language) else {
+                return;
+            };
+            let message = host::with(|h| h.set_candidate_translation(&word, &display, &text));
+            if let Some(message) = message {
+                host::with(|h| h.status = Some(message));
+            }
+            return;
+        }
+        if action == CandidateAction::RegenerateTranslation {
+            let candidate = host::with(|h| {
+                h.session
+                    .index_in_view(offset)
+                    .and_then(|index| h.session.candidate(index))
+            })
+            .flatten();
+            let Some(candidate) = candidate else {
+                return;
+            };
+            let sequence = host::with(|h| {
+                let sequence = h.engine.request_candidate_translation(&candidate.text);
+                if let Some(sequence) = sequence {
+                    h.begin_candidate_translation(sequence, candidate);
+                }
+                sequence
+            })
+            .flatten();
+            if sequence.is_none() {
+                host::with(|h| h.status = Some("模型生成不可用".to_owned()));
+            }
+            self.render(client);
+            return;
+        }
         let Some(message) = host::with(|h| h.perform_candidate_action(offset, action)).flatten()
         else {
             return;

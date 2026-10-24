@@ -93,12 +93,12 @@ impl CandidateWindow {
         }
     }
 
-    /// 阴影与鼠标：系统绘制要系统阴影，青简渲染器的阴影画在位图里；青简渲染器与符号面板收鼠标（点候选、点格子），
-    /// 系统绘制的候选没有点击区域，点击穿过去。
+    /// 阴影与鼠标：系统绘制要系统阴影，青简渲染器的阴影画在位图里；两种候选画法与符号面板都收鼠标，
+    /// 面板本身仍是 `NonactivatingPanel`，不会抢走应用的键盘焦点。
     fn apply_chrome(&self, panel: bool) {
         let bitmap = self.view.uses_bitmap() && !panel;
         self.panel.setHasShadow(!bitmap);
-        self.panel.setIgnoresMouseEvents(!bitmap && !panel);
+        self.panel.setIgnoresMouseEvents(false);
     }
 
     pub fn hide(&self) {
@@ -124,7 +124,7 @@ impl CandidateWindow {
         let panel = build_panel(self.mtm, &self.view);
         panel.setAppearance(self.appearance.as_deref());
         panel.setHasShadow(!self.view.uses_bitmap());
-        panel.setIgnoresMouseEvents(!self.view.uses_bitmap());
+        panel.setIgnoresMouseEvents(false);
         panel.setFrame_display(frame, true);
         panel.orderFrontRegardless();
         self.panel = panel;
@@ -165,12 +165,12 @@ impl CandidateWindow {
         self.view.set_layout(layout);
     }
 
-    /// 青简渲染器 / 系统绘制。下一帧生效。青简渲染器的阴影由主题画进位图，系统阴影关掉；
-    /// 只有它给点击区域，所以也只有它收鼠标（系统绘制时点击穿过去）。
+    /// 青简渲染器 / 系统绘制。下一帧生效。青简渲染器的阴影由主题画进位图，系统绘制用系统阴影；
+    /// 两种画法都有点击区域并接收鼠标。
     pub fn set_renderer(&self, renderer: CandidateRenderer) {
         self.view.set_renderer(renderer);
         self.panel.setHasShadow(!self.view.uses_bitmap());
-        self.panel.setIgnoresMouseEvents(!self.view.uses_bitmap());
+        self.panel.setIgnoresMouseEvents(false);
     }
 
     /// 点中候选或译词时调谁。
@@ -255,7 +255,7 @@ impl CandidateWindow {
 }
 
 /// 建一块面板并把内容视图装进去：无边框、不抢焦点、透明背景带系统阴影（用青简渲染器时再关）、
-/// 先不吃鼠标（用青简渲染器时再开，见 [`CandidateWindow::set_renderer`]）。
+/// 接收鼠标但不激活应用，候选的两种绘制路径都支持点击与右键菜单。
 fn build_panel(mtm: MainThreadMarker, view: &CandidateView) -> Retained<NSPanel> {
     let panel = NSPanel::initWithContentRect_styleMask_backing_defer(
         mtm.alloc::<NSPanel>(),
@@ -268,7 +268,7 @@ fn build_panel(mtm: MainThreadMarker, view: &CandidateView) -> Retained<NSPanel>
     panel.setBackgroundColor(Some(&NSColor::clearColor()));
     panel.setHasShadow(true);
     panel.setBecomesKeyOnlyIfNeeded(true);
-    panel.setIgnoresMouseEvents(true);
+    panel.setIgnoresMouseEvents(false);
     // NSPanel 缺省在应用失活时自动隐藏；输入法进程从来不是前台应用，不能靠这个
     panel.setHidesOnDeactivate(false);
     panel.setCollectionBehavior(collection_behavior());

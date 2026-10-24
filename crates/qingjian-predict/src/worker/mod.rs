@@ -96,30 +96,29 @@ impl Worker {
                     let reply = runtime.block_on(self.client.complete(request));
                     self.finish(request, reply, start);
                 }
-                [first, second] => {
-                    let mut requests = runtime.block_on(async {
-                        let mut requests = JoinSet::new();
-                        for request in [first.clone(), second.clone()] {
+                requests => {
+                    let mut jobs = runtime.block_on(async {
+                        let mut jobs = JoinSet::new();
+                        for request in requests.iter().cloned() {
                             let client = self.client.clone();
-                            requests.spawn(async move {
+                            jobs.spawn(async move {
                                 let result = client.complete(&request).await;
                                 (request, result)
                             });
                         }
-                        requests
+                        jobs
                     });
-                    while let Some(result) = runtime.block_on(requests.join_next()) {
+                    while let Some(result) = runtime.block_on(jobs.join_next()) {
                         let (request, reply) = result.expect("预测任务不应 panic");
                         self.finish(&request, reply, start);
                     }
                 }
-                _ => unreachable!("防抖只保留一条组句请求和一条翻译请求"),
             }
         }
         Ok(())
     }
 
-    /// 等到停键和间隔都满足。组句与翻译各保留最新一条，随后同时发出。
+    /// 等到停键和间隔都满足。组句、普通翻译与用户触发的候选译文各保留最新一条，随后同时发出。
     fn wait_for_requests(
         &self,
         first: Option<PredictionRequest>,
@@ -128,13 +127,15 @@ impl Worker {
         let first = first?;
         let mut composition = None;
         let mut translation = None;
+        let mut candidate_translation = None;
         match first.kind {
             PredictionKind::Translate => translation = Some(first),
+            PredictionKind::CandidateTranslation => candidate_translation = Some(first),
             PredictionKind::Compose | PredictionKind::Question => composition = Some(first),
         }
         let mut changed = Instant::now();
         loop {
-            let requests = [&composition, &translation]
+            let requests = [&composition, &translation, &candidate_translation]
                 .into_iter()
                 .flatten()
                 .collect::<Vec<_>>();
@@ -157,6 +158,7 @@ impl Worker {
                 Ok(Some(newer)) => {
                     match newer.kind {
                         PredictionKind::Translate => translation = Some(newer),
+                        PredictionKind::CandidateTranslation => candidate_translation = Some(newer),
                         PredictionKind::Compose | PredictionKind::Question => {
                             composition = Some(newer)
                         }
@@ -165,7 +167,13 @@ impl Worker {
                 }
                 Ok(None) => return None,
                 Err(RecvTimeoutError::Timeout) => {
-                    return Some(translation.into_iter().chain(composition).collect());
+                    return Some(
+                        candidate_translation
+                            .into_iter()
+                            .chain(translation)
+                            .chain(composition)
+                            .collect(),
+                    );
                 }
                 Err(RecvTimeoutError::Disconnected) => return None,
             }
@@ -206,7 +214,10 @@ impl Worker {
 
     /// 没问成（出错、暂停中）：翻译是用户点了在等的，回一条空结果让壳当场说失败，不必干等到超时；联想照旧不回。
     fn give_up(&self, request: &PredictionRequest) {
-        if request.kind == PredictionKind::Translate {
+        if matches!(
+            request.kind,
+            PredictionKind::Translate | PredictionKind::CandidateTranslation
+        ) {
             self.reply(request.sequence, Cached::default());
         }
     }

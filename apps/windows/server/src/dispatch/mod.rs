@@ -86,6 +86,9 @@ pub struct Router {
     /// 删候选后的屏幕提示，随下一帧下发、下一次按键清。
     notice: Option<String>,
 
+    /// 用户从菜单发起、正在等待的模型译文生成（请求序号、候选）。
+    candidate_translation: Option<(u64, qingjian_core::Candidate)>,
+
     /// 当前高亮候选在布局里的下标（跨页）。
     highlight: usize,
 
@@ -179,6 +182,7 @@ impl Router {
             selection_seq: 0,
             sentence: None,
             notice: None,
+            candidate_translation: None,
             highlight: 0,
             grid: None,
             focus: Focus::default(),

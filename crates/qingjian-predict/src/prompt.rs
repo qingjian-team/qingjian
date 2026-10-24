@@ -59,7 +59,7 @@ pub fn system_prompt(request: &PredictionRequest) -> &'static str {
     match request.kind {
         PredictionKind::Compose => SYSTEM_PROMPT,
         PredictionKind::Question => QUESTION_SYSTEM_PROMPT,
-        PredictionKind::Translate => TRANSLATE_SYSTEM_PROMPT,
+        PredictionKind::Translate | PredictionKind::CandidateTranslation => TRANSLATE_SYSTEM_PROMPT,
     }
 }
 
@@ -106,7 +106,10 @@ struct TranslateMessage<'a> {
 }
 
 pub fn user_prompt(request: &PredictionRequest) -> String {
-    if request.kind == PredictionKind::Translate {
+    if matches!(
+        request.kind,
+        PredictionKind::Translate | PredictionKind::CandidateTranslation
+    ) {
         return serde_json::to_string(&TranslateMessage {
             text: &request.text,
             target_language: &request.target_language,
@@ -182,14 +185,27 @@ pub fn parse_reply(content: &str, request: &PredictionRequest) -> Reply {
     if request.kind == PredictionKind::Question {
         return parse_answers(raw.answers, request.max_items);
     }
-    if request.kind == PredictionKind::Translate {
+    if matches!(
+        request.kind,
+        PredictionKind::Translate | PredictionKind::CandidateTranslation
+    ) {
         // 译文保留换行（原文可能是多段），只去首尾空白
+        let sentence = raw
+            .sentence
+            .map(|s| s.trim().to_owned())
+            .filter(|s| !s.is_empty())
+            .map(|text| {
+                if request.kind == PredictionKind::CandidateTranslation
+                    && matches!(request.target_language.as_str(), "en" | "es" | "vi")
+                {
+                    lowercase_first(text)
+                } else {
+                    text
+                }
+            });
         return Reply {
             words: Vec::new(),
-            sentence: raw
-                .sentence
-                .map(|s| s.trim().to_owned())
-                .filter(|s| !s.is_empty()),
+            sentence,
         };
     }
     let mut reply = Reply::default();
@@ -227,6 +243,15 @@ pub fn parse_reply(content: &str, request: &PredictionRequest) -> Reply {
             .filter(|s| !s.is_empty() && Some(s.as_str()) != first_local);
     }
     reply
+}
+
+/// 候选旁显示的是词典式短译文，不套完整句子的句首大写；Unicode 字母按字符转小写。
+fn lowercase_first(text: String) -> String {
+    let mut chars = text.chars();
+    let Some(first) = chars.next() else {
+        return text;
+    };
+    first.to_lowercase().chain(chars).collect()
 }
 
 /// 问字模式的答案：去空、去重，拼音只是显示用的读音，不校验。
@@ -397,6 +422,38 @@ mod tests {
                 .sentence
                 .is_none()
         );
+    }
+
+    #[test]
+    fn candidate_translation_uses_the_learning_language_translation_prompt() {
+        let mut translate = request("", false);
+        translate.kind = PredictionKind::CandidateTranslation;
+        translate.text = "开发".to_owned();
+        translate.target_language = "de".to_owned();
+
+        assert_eq!(system_prompt(&translate), TRANSLATE_SYSTEM_PROMPT);
+        let user = user_prompt(&translate);
+        assert!(user.contains("\"text\":\"开发\""));
+        assert!(user.contains("\"target_language\":\"de\""));
+        let reply = parse_reply(r#"{"sentence":"Entwicklung"}"#, &translate);
+        assert_eq!(reply.sentence.as_deref(), Some("Entwicklung"));
+    }
+
+    #[test]
+    fn candidate_translation_lowercases_sentence_style_languages() {
+        for (language, generated, expected) in [
+            ("en", "Development", "development"),
+            ("es", "Desarrollo", "desarrollo"),
+            ("vi", "Tôi là", "tôi là"),
+        ] {
+            let mut request = request("", false);
+            request.kind = PredictionKind::CandidateTranslation;
+            request.text = "我是".to_owned();
+            request.target_language = language.to_owned();
+            let content = format!(r#"{{"sentence":"{generated}"}}"#);
+            let reply = parse_reply(&content, &request);
+            assert_eq!(reply.sentence.as_deref(), Some(expected));
+        }
     }
 
     #[test]

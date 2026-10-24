@@ -20,15 +20,15 @@ const INFO_GAP: f64 = 10.0;
 const ELLIPSIS: &str = "…";
 
 /// 量好的网格：每格显示的文字（可能已截断）、各列的宽度与统一的行高。
-struct Cells {
+pub(super) struct Cells {
     texts: Vec<(String, bool)>,
 
     index_width: f64,
 
     /// 每列一格的宽度（序号 + 间距 + 候选词）。
-    column_widths: Vec<f64>,
+    pub(super) column_widths: Vec<f64>,
 
-    row_height: f64,
+    pub(super) row_height: f64,
 }
 
 impl Cells {
@@ -152,7 +152,7 @@ impl CandidateView {
 
     /// 每格的显示文字与各列宽度。序号列按最宽的一位数留，行与行才对得齐。
     /// 列宽优先用帧给的（按整份候选估的，滚动时不变）；没给就按视口里实测、每格封顶 [`MAX_CELL_EMS`]。
-    fn matrix_cells(&self, frame: &Frame) -> Cells {
+    pub(super) fn matrix_cells(&self, frame: &Frame) -> Cells {
         let theme = self.theme();
         let columns = frame.columns.max(1);
         let em = theme.text_font.pointSize();
