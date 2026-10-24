@@ -95,6 +95,10 @@ pub struct GeneralConfig {
     /// 有中文候选时英文最高排到第几位。缺省 1（不限制）；没有中文候选时英文照旧第一。
     pub english_min_position: usize,
 
+    /// 长拼音首页没有单字时，把首音节最常用的两个字放进首页（第 5、6 位）。缺省开：
+    /// 至少 3 个音节、首页里没有单字才补，手动组词时先上屏首字不用翻页。
+    pub first_page_characters: bool,
+
     /// 候选后面一次最多配几个 emoji（`kaixin` → 开心 😄），0 时候选里只有字词。
     pub emoji: EmojiCount,
 
@@ -226,6 +230,7 @@ impl Default for GeneralConfig {
             english_in_chinese: true,
             english_max_in_chinese: qingjian_core::ENGLISH_CANDIDATES_MAX,
             english_min_position: 1,
+            first_page_characters: true,
             emoji: EmojiCount::default(),
             kaomoji: EmojiCount::new(1),
             symbols: EmojiCount::new(1),

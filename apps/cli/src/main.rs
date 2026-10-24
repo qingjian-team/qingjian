@@ -284,6 +284,7 @@ fn build_engine(args: &Args) -> Result<Engine, CliError> {
     engine.set_english_max_in_chinese(args.english_max_in_chinese);
     engine.set_english_min_position(args.english_min_position);
     engine.set_english_in_chinese(!args.no_english_in_chinese);
+    engine.set_first_page_characters(!args.no_first_page_characters);
     // emoji 表随仓库提供（Unicode License）：中文表 + 英文表合成一张，一张都没有就不出 emoji 候选
     let mut emoji: Option<EmojiTable> = None;
     let started = Instant::now();
