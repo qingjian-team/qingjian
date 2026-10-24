@@ -205,6 +205,23 @@ impl Engine {
         }
         // 附加候选（英文尾段与补全、快捷、整句、emoji）都没有码：辅码筛词时一律不出
         if aux_code.is_none() {
+            // 双拼 / 注音末尾落单的一键是「还没敲完」，不是拼错（`veg` → zhe g…）；词级已有整词
+            // 逐音节对上全部输入（`veg` → 这个）时按中文读法：英文候选不排第一、也不给补全，
+            // 空格不会把整串当英文上屏。全拼的落单字母另有「可能敲反了」的意思，照旧（见 correction）
+            let covered_by_word = decoded.is_some()
+                && correction::trailing_single_letter(segmentations.first())
+                && segmentations.first().is_some_and(|best| {
+                    let patterns = best.patterns();
+                    items.iter().any(|c| {
+                        c.kind == CandidateKind::Chinese
+                            && c.syllables.len() == patterns.len()
+                            && c.syllables
+                                .iter()
+                                .zip(&patterns)
+                                .all(|(syllable, pattern)| pattern.accepts(syllable))
+                    })
+                });
+            let english_unlikely = unlikely && !covered_by_word;
             // 中文优先：整句先进去占第一，英文词紧跟其后（第二）；关掉时英文词先进、整句排在开头的英文后面
             if self.chinese_first {
                 self.insert_sentence(
@@ -214,9 +231,9 @@ impl Engine {
                     english_tail.as_ref().filter(|_| correction.is_none()),
                     head_wins,
                 );
-                self.insert_english(&mut items, unlikely);
+                self.insert_english(&mut items, english_unlikely);
             } else {
-                self.insert_english(&mut items, unlikely);
+                self.insert_english(&mut items, english_unlikely);
                 self.insert_sentence(
                     &mut items,
                     &segmentations,

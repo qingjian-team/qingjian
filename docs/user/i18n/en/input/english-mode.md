@@ -78,6 +78,8 @@ You don't need to switch in Chinese mode:
 - When the input isn't valid pinyin and has at least 3 letters, English is completed: `compa` → company / companies / compared.
   How many English candidates appear, and how high they can rank, is set under 设置 → 候选 (Settings → Candidates): the count is 1–4 (default 4; 1 keeps only the topmost one), and with Chinese candidates present the highest position defaults to 1 (no limit).
 - For input like `key` or `id`, which looks like English but can also be read as pinyin, the Chinese word comes first if you usually pick it and the English word moves down.
+- In double pinyin (Shuangpin), when one key is still missing at the end and the keys so far spell a whole dictionary word (Pinyin Jiajia `veg` → zhe g… → 这个), the Chinese reading is used:
+  这个 comes before the English word `veg`, so `Space` no longer commits the raw letters; when the pending key doesn't complete a word (`cat`), English still comes first.
 - When a sentence of pinyin ends with an English word, the sentence includes that word: `woxiangxuehaorust` → 我想学好rust, `wodeid` → 我的ID, `yongwindows` → 用Windows.
   The English word has to be in the word list (words you've typed in English mode count). Input like `database`, which can also be read as pinyin, is ranked by how natural each reading is; short words like `fan` and `to` are treated as pinyin.
   English words are only recognized at the end of a sentence; words in the middle, as in `wozaidebugzhege`, aren't supported yet (commit the Chinese before it first, then type the English word).
