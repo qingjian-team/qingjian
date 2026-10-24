@@ -340,9 +340,9 @@ mod tests {
         for (scheme, keys, expected) in cases {
             assert_eq!(scheme.decode(keys).pinyin(), expected, "{scheme}: {keys}");
         }
-        // 搜狗的 v 不兼作 üe
-        assert_eq!(Scheme::Sogou.decode("lv").pinyin(), "");
-        assert_eq!(Scheme::Sogou.decode("lv").tail(), "lv");
+        // 搜狗的 v 不兼作 üe；配不成音节的 `lv` 按每键一个声母读（`l` + `zh`）
+        assert_eq!(Scheme::Sogou.decode("lv").pinyin(), "l'zh");
+        assert_eq!(Scheme::Sogou.decode("lv").tail(), "");
         // 小浪中 x 为 ü，v 为 sh 或 uai/ing
         assert_eq!(Scheme::Xiaolang.decode("lx").pinyin(), "lv");
         assert_eq!(Scheme::Xiaolang.decode("lv").pinyin(), "ling");

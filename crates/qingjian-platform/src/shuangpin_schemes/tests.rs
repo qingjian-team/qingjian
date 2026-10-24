@@ -64,7 +64,8 @@ fn a_scheme_overrides_its_base_key_by_key() {
     assert_eq!(layout.decode("x;").pinyin(), "xing");
     assert_eq!(layout.decode("kk").pinyin(), "kuai");
     assert_eq!(layout.decode("nihc").pinyin(), "ni'hao");
-    assert_eq!(layout.decode("xk").pinyin(), "");
+    // 两键配不出音节时按每键一个声母的简拼读
+    assert_eq!(layout.decode("xk").pinyin(), "x'k");
 }
 
 #[test]
@@ -89,7 +90,8 @@ a = "aa"
     assert_eq!(entry.label, "tiny");
     assert_eq!(entry.layout.decode("vsaa").pinyin(), "zhong'a");
     assert_eq!(entry.layout.decode("ha").pinyin(), "ha");
-    assert_eq!(entry.layout.decode("hk").pinyin(), "");
+    // 两键配不出音节时按每键一个声母的简拼读
+    assert_eq!(entry.layout.decode("hk").pinyin(), "h'k");
 }
 
 #[test]

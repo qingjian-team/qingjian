@@ -310,7 +310,33 @@ impl Layout {
             index += unit.keys.len();
             units.push(unit);
         }
+        // 整串一个音节都配不出来时，再按「每键一个声母」的简拼读一次（`im` → sh + m → 什么）。
+        // 能正常解出音节的输入不走这条，完整双拼码的读法不受影响。
+        if units.is_empty()
+            && !chars.is_empty()
+            && let Some(abbreviated) = self.decode_initials(&chars)
+        {
+            return Decoded::new(abbreviated, String::new());
+        }
         Decoded::new(units, chars[index..].iter().collect())
+    }
+
+    /// 简拼读法：每键当一个声母（`im` → `sh'm`）。有一个键不是声母键（元音、`'` 之外解不出的）就不是简拼。
+    fn decode_initials(&self, chars: &[char]) -> Option<Vec<Unit>> {
+        let mut units = Vec::with_capacity(chars.len());
+        for &key in chars {
+            if key == '\'' {
+                units.push(Unit::separator());
+                continue;
+            }
+            let initial = self.initial(key)?;
+            units.push(Unit {
+                keys: key.to_string(),
+                pinyin: initial.to_owned(),
+                complete: false,
+            });
+        }
+        Some(units)
     }
 
     /// 落单的一键代表的前缀：声母键是声母；`a` `e` `o` 是元音本身（`a` 后面可能是 ai / an / ang / ao）；
@@ -384,6 +410,19 @@ mod tests {
                 "guai", "kuai", "huai", "zhei", "zhou", "zhuai", "chuai", "shuai"
             ]
         );
+    }
+
+    #[test]
+    fn unmatched_keys_fall_back_to_abbreviated_initials() {
+        // 一个音节都配不出来时按每键一个声母读（拼音加加 i = sh）
+        let decoded = Scheme::Jiajia.decode("im");
+        assert_eq!(decoded.pinyin(), "sh'm");
+        assert!(!decoded.is_complete());
+        assert_eq!(decoded.segmentation().unwrap().to_string(), "sh… m…");
+        // 能正常配出音节的输入不受影响
+        assert_eq!(Scheme::Jiajia.decode("vege").pinyin(), "zhe'ge");
+        // 元音键不是声母键，不按简拼读
+        assert!(Scheme::Xiaohe.decode("ae").segmentation().is_none());
     }
 
     #[test]
