@@ -56,6 +56,30 @@ fn heavier_phrases_go_first_and_ties_keep_their_order() {
 }
 
 #[test]
+fn english_mode_uses_custom_phrases_too() {
+    // #763：`dont` → don't 在英文模式（Caps Lock 亮着）下也该生效，且排第一
+    let words =
+        WordList::parse("dont\tdont\t5000\ndone\tdone\t4000\ndonate\tdonate\t3000\n\t").unwrap();
+    let mut e = engine().with_english(words);
+    e.set_english_mode(true);
+    e.set_custom_phrases(vec![phrase("dont", 10, "don't")])
+        .unwrap();
+    e.set_input("dont");
+    let items = e.query().unwrap().candidates.items;
+    assert_eq!(items[0].text, "don't");
+    assert_eq!(items[0].kind, CandidateKind::Custom(1));
+    // 空格上屏首选就是短语
+    assert_eq!(e.commit(&items[0]), "don't");
+    // 别的输入不受影响
+    e.set_input("don");
+    let items = e.query().unwrap().candidates.items;
+    assert!(
+        items.iter().all(|c| c.kind != CandidateKind::Custom(1)),
+        "{items:?}"
+    );
+}
+
+#[test]
 fn a_phrase_hides_the_same_word_among_normal_candidates() {
     let mut e = engine();
     e.set_input("kaifa");
@@ -157,14 +181,8 @@ fn custom_exact_codes_override_mode_prefixes_but_not_longer_input() {
     e.set_input("uu");
     assert!(!e.question_mode());
     e.set_english_mode(true);
-    assert!(
-        e.query()
-            .unwrap()
-            .candidates
-            .items
-            .iter()
-            .all(|c| c.text != "文本")
-    );
+    // 英文模式也照出这个短语（#763），且排在英文候选前
+    assert_eq!(e.query().unwrap().candidates.items[0].text, "文本");
 }
 
 #[test]

@@ -22,9 +22,6 @@ impl Engine {
     /// 所有普通候选完成排序后，这个输入码的短语按权重从高到低占最前面几位（权重相同的按列表顺序），
     /// 后面跟短语同字的候选去掉，免得同一个词出两遍。
     pub(super) fn insert_custom_phrases(&self, items: &mut Vec<Candidate>) {
-        if self.english_mode {
-            return;
-        }
         let mut phrases: Vec<_> = self
             .custom_phrases
             .iter()

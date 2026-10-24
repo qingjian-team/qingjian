@@ -60,6 +60,8 @@ Letters are lowercase by default; hold `Shift` for capitals.
 
 English words you've committed as typed with `Enter` (like `gist` or `python`) are remembered and come first next time. English candidates you've picked are remembered too.
 
+[Custom phrases](../personalize/phrases.md) work in English mode too: once the whole input code is typed, the phrase comes before the English word candidates — set `dont` to `don't` and `Space` in English mode commits `don't`.
+
 ### Which apps show candidates
 
 - By default, English candidates appear only in browsers, chat and document apps, such as Safari, Chrome, Edge, Firefox, WeChat, QQ, WeCom, DingTalk, Feishu, Word, WPS, Notepad, Notes and Obsidian.

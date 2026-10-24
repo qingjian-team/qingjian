@@ -60,6 +60,8 @@ Linux 上 Fcitx5 缺省把**左** `Shift` 设为「临时在当前和第一个�
 
 按 `Enter` 原样上屏过的英文词（如 `gist`、`python`）会记住，下次输入时排在首位。选过的英文候选同样记住。
 
+[自定义短语](../personalize/phrases.md)在英文模式里同样生效：敲全输入码时短语排在英文词候选前面，例如给 `dont` 配上 `don't`，英文模式下按空格上屏的就是 `don't`。
+
 ### 哪些应用里给候选
 
 - 缺省只在浏览器、聊天和文档类应用中给英文候选，例如 Safari、Chrome、Edge、Firefox、微信、QQ、企业微信、钉钉、飞书、Word、WPS、记事本、备忘录、Obsidian。
