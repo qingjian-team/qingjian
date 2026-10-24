@@ -86,7 +86,7 @@ Windows 与 Linux 的中 / 英切换键还可以选单击 `Ctrl` 或 `Ctrl + Alt
 | 翻译应用中选中的文字 | `⌃⌥T` | `Ctrl + Alt + T` | `Alt + Shift + T` |
 | 翻译结果：替换选区 | `Enter` / `Space` / `1` | 同左 | 同左 |
 | 翻译结果：保留原文 | `Esc` | `Esc` | `Esc` |
-| 打拼音时手动要 AI 候选 | `⌃⌥J` | `Ctrl + Alt + J` | — |
+| 打拼音时手动要 AI 候选 | `⌃⌥J` | `Ctrl + Alt + J` | `Ctrl + Alt + J` |
 | 问字 | `u` 再输入拼音 | 同左 | 同左 |
 
 ## 前缀

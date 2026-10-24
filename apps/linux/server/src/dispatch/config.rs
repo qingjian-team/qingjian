@@ -16,6 +16,12 @@ pub struct RouterConfig {
     /// 云端候选在第一页预留的格数（`[predict] slots`）。
     pub cloud_slots: usize,
 
+    /// 是否请求云端候选词和整句补全（`[predict] enabled`）。
+    pub cloud_enabled: bool,
+
+    /// 组句中按需调用 AI 的组合键（`[shortcut] predict`）。
+    pub predict: KeyCombo,
+
     /// 候选排布（`[general] layout`）。
     pub layout: LayoutMode,
 
@@ -94,6 +100,8 @@ impl From<&Config> for RouterConfig {
             } else {
                 0
             },
+            cloud_enabled: config.predict.enabled,
+            predict: config.shortcut.predict,
             layout: config.general.layout,
             appearance: config.general.appearance(),
             page_keys: config.general.page_keys(),

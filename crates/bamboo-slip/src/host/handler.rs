@@ -122,9 +122,14 @@ impl<A: App> Handler<A> {
         Ok(painted.next_frame.is_some())
     }
 
-    /// 焦点进出输入框时开关输入法，输入法的候选窗跟着输入框走。
+    /// 焦点进出输入框时开关输入法，输入法的候选窗跟着输入框走；秘密输入（API 密钥这类）整段关掉，
+    /// 键按原始键走，输入法组字与上报都不发生。
     fn sync_ime(&mut self, window: &Window) {
-        let target = self.runner.interaction().text_target();
+        let target = self
+            .runner
+            .interaction()
+            .text_target()
+            .filter(|_| self.runner.interaction().ime_allowed());
         if target == self.ime {
             return;
         }

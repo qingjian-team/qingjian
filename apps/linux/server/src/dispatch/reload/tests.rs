@@ -160,6 +160,7 @@ fn cloud_disable_clears_suspended_candidates_and_translation_review() {
             cursor: 0,
             layout,
             spelling: Default::default(),
+            manual_sequence: None,
         })
     };
     router.composed = composed();
@@ -169,7 +170,7 @@ fn cloud_disable_clears_suspended_candidates_and_translation_review() {
     router.translation = Some(Translation { result: None });
     router.pending_selection = Some((SessionId(1), 7));
     router.sentence = Some("旧服务补全".into());
-    router.reload_cloud(&PredictConfig::default());
+    router.reload_cloud(&PredictConfig::default(), None);
     assert!(!router.engine.prediction_enabled());
     assert_eq!(router.config.cloud_slots, 0);
     assert!(router.translation.is_none());

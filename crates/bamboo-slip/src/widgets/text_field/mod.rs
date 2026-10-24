@@ -240,6 +240,7 @@ impl<'a> TextField<'a> {
         let editing = on_edit.clone();
         let commit = on_commit.clone();
         let mut interact = Interact::new()
+            .secret(secret)
             .on_text(move |input| Some(on_edit(Edit::Text(input.clone()))))
             .on_key(move |press| {
                 let command = press.modifiers.command;

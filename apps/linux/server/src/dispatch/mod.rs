@@ -122,12 +122,17 @@ impl Router {
         self.engine.flush_learning();
         self.last_flush = Instant::now();
     }
-    /// 到点了：看配置改没改、接上加载好的模型、推进重排、到点落盘学习（输入停止后也不能一直不落盘）。主循环超时与插件的 `Poll` 都会调。
+    /// 到点了：看配置改没改、接上加载好的模型、推进重排、收释义兜底、到点落盘学习（输入停止后也不能一直不落盘）。
+    /// 主循环超时与插件的 `Poll` 都会调。
     pub fn tick(&mut self) {
         self.poll_config_reload();
         self.attach_loaded_model();
         self.advance_rescoring();
         self.poll_prediction();
+        let learned = self.engine.poll_glosses();
+        if learned > 0 {
+            tracing::info!(learned, "释义兜底写入个人释义表");
+        }
         if self.last_flush.elapsed() >= LEARNING_FLUSH_INTERVAL {
             self.flush_learning();
         }

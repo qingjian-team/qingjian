@@ -216,6 +216,14 @@ impl<M> Interaction<M> {
             .map(Element::rect)
     }
 
+    /// 拿焦点的元素要不要开输入法：秘密输入（API 密钥这类）关掉，免得正在打的字被输入法
+    /// 组字、上报（云端输入法会把组字内容发给服务商）。关着时宿主仍把原始键交给字段。
+    pub fn ime_allowed(&self) -> bool {
+        self.focused
+            .and_then(|key| self.element(key))
+            .is_none_or(|element| !element.interact.secret)
+    }
+
     /// 换焦点；离开的元素有失焦消息就放进 `response`。返回焦点是否变了。
     fn set_focus(&mut self, focused: Option<Key>, response: &mut Response<M>) -> bool
     where

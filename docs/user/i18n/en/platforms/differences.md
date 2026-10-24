@@ -66,13 +66,13 @@ The macOS and Windows versions are in beta with nearly the same features; keys f
 | Feature | macOS | Windows | Linux | Android |
 |---|---|---|---|---|
 | Cloud suggestions and sentence completion | ✓ | ✓ | ✓ | ✓ |
-| On-demand suggestions, request timing | ✓ | ✓ | — | — |
+| On-demand suggestions, request timing | ✓ | ✓ | ✓ | — |
 | Asking about a character | ✓ | ✓ | ✓ | — |
 | Translating selected text | ✓ | ✓ | ✓ | ✓ |
 | Quick translation bar | — | — | — | ✓ |
-| Filling in glosses automatically | ✓ | ✓ | — | ✓ |
-| Sentence translation for the vocabulary book | ✓ | ✓ | — | — |
+| Filling in glosses automatically | ✓ | ✓ | ✓ | ✓ |
+| Sentence translation for the vocabulary book | ✓ | ✓ | ✓ | — |
 | Translating sentence candidates | — | ✓ | — | — |
-| AI usage statistics | ✓ | ✓ | — | — |
+| AI usage statistics | ✓ | ✓ | ✓ | — |
 
 Installation and platform-specific features: [Installation](../getting-started/install.md) (macOS, Windows), [Linux](linux.md), [Android](android.md).

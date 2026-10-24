@@ -86,7 +86,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     engine
         .set_custom_phrases(config.custom_phrases.clone())
         .map_err(std::io::Error::other)?;
-    assembly::attach_cloud(&mut engine, &config.predict);
+    let usage_path = user_dir.join(qingjian_predict::API_USAGE_FILE);
+    assembly::attach_cloud(&mut engine, &config.predict, Some(usage_path));
     engine.log_session(env!("CARGO_PKG_VERSION"), "linux");
     let mut router = Router::new(engine, RouterConfig::from(&config));
     router.configure_local_model(find_model(Some(&user_dir), &root), &config.model);

@@ -109,7 +109,7 @@ Closing the terminal you started Qingjian from stops Qingjian; after your next l
 - **Direct English input**: once in it, digits and punctuation keep being appended, and ending with a space keeps the space (`gpt-6` then Space gives `gpt-6 `).
 - **Sentence completion** is shown in the hint line below the candidate panel; press `Tab` to accept it.
 - **Private input**: you can type in input fields Fcitx5 recognizes as private, but nothing is recorded, learned or sent; password fields are handed straight back to the app. This relies on apps marking fields correctly, and GTK4 apps' private hints currently don't come through. Fcitx4 only recognizes the password-field mark, not other private fields; if you don't want records kept, turn off learning and the input log, see [Editing the configuration file](../advanced/config-file.md#Linux).
-- **Not yet supported**: Wubi and custom schemes, auxiliary code, the symbol panel, extra paging keys and highlight keys, the punctuation shortcut, automatic spacing between Chinese and Latin text, toned pinyin, filling in glosses automatically and sentence translation for the vocabulary book, AI usage statistics, on-demand suggestions.
+- **Not yet supported**: Wubi and custom schemes, auxiliary code, the symbol panel, extra paging keys and highlight keys, the punctuation shortcut, automatic spacing between Chinese and Latin text, toned pinyin.
 
 ## Updating and uninstalling
 

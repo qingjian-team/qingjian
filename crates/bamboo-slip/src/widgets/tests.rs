@@ -186,6 +186,55 @@ fn field_frame(interaction: &mut Interaction<Field>, text: &mut TextPainter, edi
     interaction.attach(&scene, root, elements).unwrap();
 }
 
+/// 秘密输入框聚焦时关输入法，普通输入框开着。
+#[test]
+fn secret_field_disallows_ime() {
+    let mut interaction = Interaction::new();
+    let mut text = TextPainter::new(FontLibrary::system("en").unwrap());
+    let edit = TextEdit::new("");
+    let theme = WidgetTheme::new(WidgetColors::LIGHT, 1.0);
+    let mut ui = Ui::new(&interaction);
+    let plain = TextField::new(&edit)
+        .build(&mut ui, &theme, "plain", Field::Edit, None, None)
+        .unwrap();
+    let secret = TextField::new(&edit)
+        .secret(true)
+        .build(&mut ui, &theme, "secret", Field::Edit, None, None)
+        .unwrap();
+    let root = ui
+        .scene()
+        .node(
+            Style {
+                flex_direction: FlexDirection::Row,
+                ..Style::default()
+            },
+            Visual::Group,
+            &[plain, secret],
+        )
+        .unwrap();
+    let (mut scene, elements) = ui.finish();
+    layout(&mut scene, root, &mut text);
+    interaction.attach(&scene, root, elements).unwrap();
+
+    let (x, y, width, height) = interaction.rect(Key::ROOT.child("plain")).unwrap();
+    interaction.handle(&Event::PointerMoved {
+        x: x + width / 2.0,
+        y: y + height / 2.0,
+    });
+    interaction.handle(&Event::PointerDown);
+    interaction.handle(&Event::PointerUp);
+    assert!(interaction.ime_allowed(), "普通输入框开着输入法");
+
+    let (x, y, width, height) = interaction.rect(Key::ROOT.child("secret")).unwrap();
+    interaction.handle(&Event::PointerMoved {
+        x: x + width / 2.0,
+        y: y + height / 2.0,
+    });
+    interaction.handle(&Event::PointerDown);
+    interaction.handle(&Event::PointerUp);
+    assert!(!interaction.ime_allowed(), "秘密输入框聚焦时宿主关输入法");
+}
+
 #[test]
 fn text_goes_to_the_focused_field_and_leaving_commits() {
     let mut interaction = Interaction::new();

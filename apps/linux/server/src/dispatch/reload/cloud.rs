@@ -1,5 +1,7 @@
 //! 更换云服务时撤销旧请求与翻译评审，并清理所有会话中的旧云候选。
 
+use std::path::PathBuf;
+
 use qingjian_core::CandidateLayout;
 use qingjian_predict::PredictConfig;
 
@@ -19,9 +21,9 @@ fn clear_cloud(composed: &mut Option<Composed>, highlight: &mut usize, page: usi
 }
 
 impl Router {
-    pub(super) fn reload_cloud(&mut self, predict: &PredictConfig) {
+    pub(super) fn reload_cloud(&mut self, predict: &PredictConfig, usage_path: Option<PathBuf>) {
         self.end_translation();
-        assembly::attach_cloud(&mut self.engine, predict);
+        assembly::attach_cloud(&mut self.engine, predict, usage_path);
         if !self.engine.prediction_enabled() {
             self.config.cloud_slots = 0;
         }

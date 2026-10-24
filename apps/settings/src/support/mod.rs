@@ -108,11 +108,9 @@ impl Feature {
             Self::TogglePunctuation => [Yes, Yes, Todo],
             // 系统的文本替换只有 macOS 有
             Self::SystemTextReplacements => [Yes, No, No],
-            // Linux 已接云服务，尚未记录云服务用量
-            Self::ApiUsage => [Yes, Yes, Todo],
-            Self::CloudRequestControls => [Yes, Yes, Todo],
-            // Linux 还没接释义兜底
-            Self::VocabularyTranslation => [Yes, Yes, Todo],
+            Self::ApiUsage => [Yes, Yes, Yes],
+            Self::CloudRequestControls => [Yes, Yes, Yes],
+            Self::VocabularyTranslation => [Yes, Yes, Yes],
             Self::KeyHint => [Yes, Yes, Todo],
             // Fcitx 面板与应用里的行内拼音共用一串，还没分开
             Self::ShowTones => [Yes, Yes, Todo],

@@ -97,8 +97,10 @@ taffy = { version = "0.14.0", default-features = false, features = ["std", "taff
 # 窗口宿主：开窗收事件 + 把位图贴到窗口
 winit = "0.30.13"
 softbuffer = "0.4.8"
-# 输入框的复制粘贴；不要图片剪贴板，免得拉进 image
-arboard = { version = "3.6.1", default-features = false }
+# 输入框的复制粘贴；不要图片剪贴板，免得拉进 image。
+# wayland-data-control：Linux 上只编 X11 后端时走 XWayland 桥，niri 这类会话里桥是空的，
+# 设置程序粘贴拿到空串（2026-10-23 实测）；开 Wayland 协议直读，失败 arboard 自己回退 X11。
+arboard = { version = "3.6.1", default-features = false, features = ["wayland-data-control"] }
 png = "0.18.1"
 
 # macOS 平台层
