@@ -47,12 +47,15 @@ pub trait CandidateSink: Send {
     /// 在候选窗口上弹右键菜单，点中的项经工人通道回给 Router。
     fn show_menu(&self, _menu: CandidateMenu) {}
 
+    /// 弹出系统原生译文编辑框，确认后的文本经 [`CandidateMouse::TranslationEdited`] 回来。
+    fn edit_translation(&self, _offset: usize, _current: String) {}
+
     /// 收起还弹着的右键菜单（敲了键、候选窗收起）。
     fn close_menu(&self) {}
 }
 
 /// 候选窗口上的鼠标操作（UI 线程经工人通道送给 Router）。
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CandidateMouse {
     /// 左键点中候选或译词。
     Click(HitTarget),
@@ -62,6 +65,9 @@ pub enum CandidateMouse {
 
     /// 右键菜单里点中了编号 `id` 的项。
     MenuPick { offset: usize, id: u32 },
+
+    /// 原生编辑框确认了新的候选文本。
+    TranslationEdited { offset: usize, text: String },
 }
 
 /// 右键候选弹的菜单。

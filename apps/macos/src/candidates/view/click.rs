@@ -1,11 +1,13 @@
-//! 鼠标点候选窗口：按位图渲染器给的点击区域认出点中的候选或译词，交给 host 注册的回调上屏。
-//! AppKit 逐项绘制的候选没有点击区域，点了不动；符号面板自己认格子与标签（见 `panel.rs`）。
+//! 鼠标点候选窗口：位图渲染器直接给点击区域，AppKit 系统绘制按排版尺寸反算候选格；
+//! 符号面板自己认格子与标签（见 `panel.rs`）。
 
 use objc2::DefinedClass;
 use objc2_app_kit::NSEvent;
+use objc2_foundation::NSPoint;
+use qingjian_platform::LayoutMode;
 use qingjian_render::HitTarget;
 
-use super::CandidateView;
+use super::{CandidateView, HIGHLIGHT_INSET, INDEX_GAP};
 use crate::candidates::PanelMouse;
 
 /// 点中候选或译词时调的回调。
@@ -39,7 +41,8 @@ impl CandidateView {
             .bitmap
             .borrow()
             .as_ref()
-            .and_then(|bitmap| bitmap.hit(point));
+            .and_then(|bitmap| bitmap.hit(point))
+            .or_else(|| self.system_candidate_at(point).map(HitTarget::Candidate));
         let Some(target) = target else {
             return;
         };
@@ -47,6 +50,67 @@ impl CandidateView {
         if let Some(handler) = &*self.ivars().on_click.borrow() {
             handler(target);
         }
+    }
+
+    /// AppKit 系统绘制没有位图渲染器提供的点击区域，按同一套排版尺寸反算候选格。
+    pub(super) fn system_candidate_at(&self, point: NSPoint) -> Option<usize> {
+        let frame = self.ivars().frame.borrow();
+        let theme = self.theme();
+        let body_y = theme.padding + self.top_line_size(&frame).1;
+        if point.y < body_y {
+            return None;
+        }
+        let offset = match self.ivars().layout.get() {
+            LayoutMode::Vertical => {
+                let row_height = self.columns(&frame.rows).row_height;
+                (row_height > 0.0).then(|| ((point.y - body_y) / row_height) as usize)?
+            }
+            LayoutMode::Horizontal if frame.columns > 0 => {
+                let cells = self.matrix_cells(&frame);
+                if cells.row_height <= 0.0 {
+                    return None;
+                }
+                let row = ((point.y - body_y) / cells.row_height) as usize;
+                let origin = theme.padding + HIGHLIGHT_INSET;
+                let x = point.x - origin;
+                if x < 0.0 {
+                    return None;
+                }
+                let mut left = 0.0;
+                let mut column = None;
+                for (index, width) in cells.column_widths.iter().enumerate() {
+                    if x >= left && x <= left + width + HIGHLIGHT_INSET * 2.0 {
+                        column = Some(index);
+                        break;
+                    }
+                    left += width + theme.column_gap;
+                }
+                row * frame.columns + column?
+            }
+            LayoutMode::Horizontal => {
+                let (items, row_height) = self.items(&frame.rows);
+                if row_height <= 0.0 || point.y > body_y + row_height {
+                    return None;
+                }
+                let mut left = theme.padding;
+                let mut found = None;
+                for (index, item) in items.iter().enumerate() {
+                    let width =
+                        item.index_width + INDEX_GAP + item.text_width + HIGHLIGHT_INSET * 2.0;
+                    if point.x >= left && point.x <= left + width {
+                        found = Some(index);
+                        break;
+                    }
+                    left += width + theme.column_gap;
+                }
+                found?
+            }
+        };
+        frame
+            .rows
+            .get(offset)
+            .filter(|row| !row.text.is_empty())
+            .map(|_| offset)
     }
 
     /// 面板里滚轮 / 触控板：按格子高度攒够一行滚一行；鼠标滚轮一格就是一行。

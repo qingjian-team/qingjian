@@ -26,6 +26,8 @@ Cooling only affects ranking; the records themselves stay.
 
 While typing pinyin, right-click a candidate (on macOS you can also Control-click). Depending on the candidate, the menu offers these items, which apply only to the letters you're typing now:
 
+- **修改译文… (Edit translation…)**: correct the candidate's translation in your current learning language. The personal glossary overrides the bundled glossary and takes effect immediately.
+- **模型重新生成译文 (Regenerate translation with AI)**: asks your configured cloud model to translate the candidate into the current learning language, then saves the result to your personal glossary. This is shown only when both a learning language and the cloud service are enabled; no request is sent from private input fields.
 - **置顶 (Pin to top)**: from now on, typing the same letters puts this word first. It adds a top-weight entry to 自定义短语 (Custom phrases), where you can see it, change its weight or delete it; see [Custom phrases](phrases.md). Only the exact same letters count: abbreviated and full pinyin are separate.
 - **取消置顶 (Unpin)**: deletes that custom phrase.
 - **降权 (Demote)**: moves the word back one place; click again to move it further. Dictionary words can be demoted too.

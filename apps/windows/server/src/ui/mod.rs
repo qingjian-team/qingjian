@@ -5,6 +5,7 @@
 //! 线程句柄是 `UiHandle`，命令在 `command`，候选窗口在 `candidates`，符号面板在 `panel`，状态条在 `status`，
 //! 分层窗口合成在 `layered`。
 
+mod candidate_editor;
 mod candidates;
 mod command;
 mod layered;
@@ -116,6 +117,10 @@ impl CandidateSink for UiHandle {
 
     fn show_menu(&self, menu: CandidateMenu) {
         self.post(UiCommand::Menu(menu));
+    }
+
+    fn edit_translation(&self, offset: usize, current: String) {
+        self.post(UiCommand::TranslationEditor { offset, current });
     }
 
     fn close_menu(&self) {
@@ -250,6 +255,9 @@ fn apply(
         }
         UiCommand::Hide => window.hide(),
         UiCommand::Menu(menu) => window.show_menu(menu),
+        UiCommand::TranslationEditor { offset, current } => {
+            candidate_editor::open(offset, &current)
+        }
         UiCommand::MenuClose => window.close_menu(),
         UiCommand::PanelShow(payload) => {
             let (frame, rect) = *payload;

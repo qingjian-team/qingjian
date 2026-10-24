@@ -18,6 +18,7 @@ use crate::candidates::Preedit;
 use crate::host;
 use crate::menubar;
 
+mod candidate_editor;
 mod click;
 mod command;
 mod commit;
@@ -309,9 +310,11 @@ impl QingjianInputController {
         {
             let (first, second) = host::with(|h| h.translation_keys).unwrap_or_default();
             if pressed == first {
+                tracing::info!(digit, sense = 0, "译词快捷键命中");
                 return self.handle_translation_key(digit, 0, client);
             }
             if pressed == second {
+                tracing::info!(digit, sense = 1, "译词快捷键命中");
                 return self.handle_translation_key(digit, 1, client);
             }
         }

@@ -62,3 +62,87 @@ fn phrases_are_not_demoted_and_pins_need_a_plain_code() {
     let items = e.query().unwrap().candidates.items;
     assert_eq!(e.pin_target(&items[0]), None);
 }
+
+#[test]
+fn edited_translation_overrides_the_existing_gloss() {
+    let mut e = engine().with_translator(Box::new(LearningTranslator::default()));
+    e.set_input("kaifa");
+    let candidate = e
+        .query()
+        .unwrap()
+        .candidates
+        .items
+        .into_iter()
+        .find(|candidate| candidate.text == "开发")
+        .unwrap();
+
+    assert!(e.set_candidate_translation(&candidate, "software development"));
+    assert_eq!(
+        e.candidate_translation("开发").unwrap().senses()[0].text,
+        "software development"
+    );
+    assert_eq!(
+        e.candidate_translation("开发").unwrap().senses()[0].part_of_speech,
+        Some(PartOfSpeech::Verb)
+    );
+}
+
+#[test]
+fn editing_the_first_translation_keeps_the_second_sense_and_metadata() {
+    let original = Translation::new(
+        Language::English,
+        vec![
+            Sense {
+                part_of_speech: Some(PartOfSpeech::Adjective),
+                text: "first".to_owned(),
+                reading: Some("reading".to_owned()),
+                fresh: true,
+            },
+            Sense {
+                part_of_speech: Some(PartOfSpeech::Noun),
+                text: "second".to_owned(),
+                reading: None,
+                fresh: false,
+            },
+        ],
+    );
+    let mut translator = LearningTranslator::default();
+    translator.learn("测试", original);
+    let mut e = engine().with_translator(Box::new(translator));
+
+    assert!(e.set_translation("测试", "replacement"));
+    let translation = e.candidate_translation("测试").unwrap();
+    assert_eq!(translation.senses().len(), 2);
+    assert_eq!(translation.senses()[0].text, "replacement");
+    assert_eq!(
+        translation.senses()[0].part_of_speech,
+        Some(PartOfSpeech::Adjective)
+    );
+    assert_eq!(translation.senses()[0].reading.as_deref(), Some("reading"));
+    assert!(!translation.senses()[0].fresh);
+    assert_eq!(translation.senses()[1].text, "second");
+    assert_eq!(
+        translation.senses()[1].part_of_speech,
+        Some(PartOfSpeech::Noun)
+    );
+}
+
+#[test]
+fn model_translation_targets_the_current_learning_language() {
+    let submitted = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
+    let predictor = EchoPredictor {
+        submitted: submitted.clone(),
+        replies: Vec::new(),
+        sentence: false,
+    };
+    let mut e = engine()
+        .with_translator(Box::new(LearningTranslator::default()))
+        .with_predictor(Box::new(predictor));
+
+    e.request_candidate_translation("开发").unwrap();
+    let requests = submitted.borrow();
+    let request = requests.last().unwrap();
+    assert_eq!(request.kind, PredictionKind::CandidateTranslation);
+    assert_eq!(request.text, "开发");
+    assert_eq!(request.target_language, "en");
+}

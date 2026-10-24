@@ -81,15 +81,48 @@ impl Host {
     pub fn poll_prediction(&mut self) {
         let Some(prediction) = self.engine.poll_prediction() else {
             if self.monitor.expired() {
+                if let Some(job) = self.candidate_translation.take() {
+                    self.engine.cancel_candidate_translation(job.sequence);
+                    self.status = Some("模型生成译文超时，请重试".to_owned());
+                    self.render();
+                }
                 self.monitor.stop();
             }
             return;
         };
-        self.monitor.stop();
         self.apply_prediction(prediction);
+        if self.candidate_translation.is_none() {
+            self.monitor.stop();
+        }
     }
 
     pub(super) fn apply_prediction(&mut self, prediction: Prediction) {
+        if self
+            .candidate_translation
+            .as_ref()
+            .is_some_and(|job| job.sequence == prediction.sequence)
+        {
+            let job = self.candidate_translation.take().expect("刚检查过候选译文");
+            self.monitor.stop();
+            self.status = match prediction.sentence {
+                Some(text) if self.engine.set_candidate_translation(&job.candidate, &text) => {
+                    Some(format!("已更新「{}」的译文", job.candidate.text))
+                }
+                _ => Some("模型没有生成可用译文".to_owned()),
+            };
+            for candidate in self.session.layout.local_mut() {
+                if candidate.text == job.candidate.text {
+                    candidate.translation = self.engine.candidate_translation(&candidate.text);
+                }
+            }
+            for candidate in self.session.layout.cloud_mut() {
+                if candidate.text == job.candidate.text {
+                    candidate.translation = self.engine.candidate_translation(&candidate.text);
+                }
+            }
+            self.render();
+            return;
+        }
         // 翻译选中文字：译文作为唯一候选摆进窗口，等用户回车替换或 Esc 放弃
         if let Some(job) = self.translation.as_mut() {
             match prediction.sentence {

@@ -14,6 +14,9 @@ impl Router {
             CandidateMouse::Click(target) => self.handle_click(target),
             CandidateMouse::Menu { offset, point } => self.handle_candidate_menu(offset, point),
             CandidateMouse::MenuPick { offset, id } => self.handle_candidate_menu_pick(offset, id),
+            CandidateMouse::TranslationEdited { offset, text } => {
+                self.handle_translation_edited(offset, &text)
+            }
         }
     }
 
@@ -41,6 +44,25 @@ impl Router {
         });
     }
 
+    fn handle_translation_edited(&mut self, offset: usize, text: &str) {
+        if self.translation.is_some() || !self.composing() {
+            return;
+        }
+        let Some(candidate) = self.candidate_in_slot(offset) else {
+            return;
+        };
+        let updated = self.engine.set_candidate_translation(&candidate, text);
+        self.notice = Some(if updated {
+            format!("已更新「{}」的译文", candidate.text)
+        } else {
+            "译文不能为空，或当前未启用学习语言".to_owned()
+        });
+        if updated {
+            self.refresh_candidate_translation(&candidate.text);
+        }
+        self.reconcile_candidates(&self.self_drawn_frame());
+    }
+
     /// 右键菜单里点中了编号 `id` 的项。
     pub fn handle_candidate_menu_pick(&mut self, offset: usize, id: u32) {
         let Some(action) = CandidateAction::from_id(id) else {
@@ -52,6 +74,28 @@ impl Router {
         let Some(candidate) = self.candidate_in_slot(offset) else {
             return;
         };
+        if action == CandidateAction::EditTranslation {
+            let current = candidate
+                .translation
+                .as_ref()
+                .and_then(|translation| translation.senses().first())
+                .map_or(String::new(), |sense| sense.text.clone());
+            self.candidates.edit_translation(offset, current);
+            return;
+        }
+        if action == CandidateAction::RegenerateTranslation {
+            self.candidate_translation = self
+                .engine
+                .request_candidate_translation(&candidate.text)
+                .map(|sequence| (sequence, candidate));
+            self.notice = Some(if self.candidate_translation.is_some() {
+                "模型正在重新生成译文…".to_owned()
+            } else {
+                "模型生成不可用".to_owned()
+            });
+            self.reconcile_candidates(&self.self_drawn_frame());
+            return;
+        }
         let path = self.config_path().map(|path| path.to_path_buf());
         let phrases = self.configured_phrases();
         let outcome = candidate_menu::perform(
@@ -81,10 +125,26 @@ impl Router {
     }
 
     /// 配置文件里的自定义短语；没有配置文件（测试）或读不了时为空。
-    fn configured_phrases(&self) -> Vec<qingjian_core::CustomPhrase> {
+    pub(super) fn configured_phrases(&self) -> Vec<qingjian_core::CustomPhrase> {
         self.config_path()
             .and_then(|path| Config::load(path).ok())
             .map(|config| config.custom_phrases)
             .unwrap_or_default()
+    }
+
+    pub(in crate::dispatch) fn refresh_candidate_translation(&mut self, text: &str) {
+        let translation = self.engine.candidate_translation(text);
+        if let Some(crate::dispatch::Composed::Candidates { layout, .. }) = self.composed.as_mut() {
+            for candidate in layout.local_mut() {
+                if candidate.text == text {
+                    candidate.translation = translation.clone();
+                }
+            }
+            for candidate in layout.cloud_mut() {
+                if candidate.text == text {
+                    candidate.translation = translation.clone();
+                }
+            }
+        }
     }
 }

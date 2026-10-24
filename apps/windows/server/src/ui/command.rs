@@ -31,6 +31,9 @@ pub(super) enum UiCommand {
     /// 在候选窗口上弹右键菜单。
     Menu(CandidateMenu),
 
+    /// 弹出候选文本编辑框。
+    TranslationEditor { offset: usize, current: String },
+
     /// 收起右键菜单。
     MenuClose,
 }

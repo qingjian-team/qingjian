@@ -97,11 +97,11 @@ impl QingjianInputController {
             .and_then(|c| host::with(|h| h.engine.commit_translation(&c, sense)).flatten());
         match text {
             Some(text) => {
-                tracing::debug!(%text, "commit translation");
+                tracing::info!(%text, sense, "译词快捷键上屏");
                 client.insert_text(&text);
                 self.refresh(client);
             }
-            None => tracing::debug!(?index, sense, "这个候选没有这条译文"),
+            None => tracing::info!(?index, sense, "这个候选没有这条译文"),
         }
         true
     }

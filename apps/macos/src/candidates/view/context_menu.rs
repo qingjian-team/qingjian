@@ -36,6 +36,7 @@ impl CandidateView {
     }
 
     pub(super) fn right_clicked(&self, event: &NSEvent) {
+        tracing::debug!(point = ?event.locationInWindow(), "候选窗口收到右键");
         self.close_menu();
         if self.ivars().frame.borrow().is_panel() {
             return;
@@ -46,7 +47,8 @@ impl CandidateView {
             .bitmap
             .borrow()
             .as_ref()
-            .and_then(|bitmap| bitmap.hit(point));
+            .and_then(|bitmap| bitmap.hit(point))
+            .or_else(|| self.system_candidate_at(point).map(HitTarget::Candidate));
         let offset = match target {
             Some(
                 HitTarget::Candidate(offset)
@@ -56,6 +58,7 @@ impl CandidateView {
             ) => offset,
             Some(HitTarget::MenuItem(_)) | None => return,
         };
+        tracing::debug!(offset, "候选右键命中");
         let (items, pick) = match &*self.ivars().on_menu.borrow() {
             Some(handlers) => ((handlers.items)(offset), handlers.pick.clone()),
             None => return,

@@ -167,6 +167,7 @@ impl MenuView {
         let (Some(pick), Some(id)) = (pick, id) else {
             return;
         };
+        tracing::info!(id, item, "候选菜单项命中");
         if let Some(window) = self.window() {
             window.orderOut(None);
         }

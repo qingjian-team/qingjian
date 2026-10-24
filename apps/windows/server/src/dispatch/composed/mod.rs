@@ -106,6 +106,23 @@ impl Router {
         let Some(prediction) = self.engine.poll_prediction() else {
             return;
         };
+        if self
+            .candidate_translation
+            .as_ref()
+            .is_some_and(|(sequence, _)| *sequence == prediction.sequence)
+        {
+            let (_, candidate) = self.candidate_translation.take().expect("刚检查过候选译文");
+            let updated = prediction
+                .sentence
+                .is_some_and(|text| self.engine.set_candidate_translation(&candidate, &text));
+            self.notice = Some(if updated {
+                self.refresh_candidate_translation(&candidate.text);
+                format!("已更新「{}」的译文", candidate.text)
+            } else {
+                "模型没有生成可用译文".to_owned()
+            });
+            return;
+        }
         if self.translation.is_some() {
             match prediction.sentence {
                 Some(text) => {
