@@ -222,6 +222,7 @@ fn letters_never_start_a_mode_under_wubi() {
     assert!(!engine.question_mode());
     engine.set_mode_keys(ModeKeys {
         question_mark: true,
+        shortcut: 'i',
         ..ModeKeys::default()
     });
     engine.set_input("?nihao");

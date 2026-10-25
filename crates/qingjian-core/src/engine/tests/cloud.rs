@@ -45,6 +45,7 @@ fn question_mode_asks_the_cloud_and_shows_answers_unvalidated() {
     assert!(!engine.takes_question_mark());
     engine.set_mode_keys(ModeKeys {
         question_mark: true,
+        shortcut: 'i',
         ..ModeKeys::default()
     });
     assert!(engine.takes_question_mark());
@@ -378,6 +379,7 @@ fn question_key_answers_code_points_locally_and_keeps_question_mark_alias() {
     // 开了开关才是别名：同一个问题、同样的切分，只是前缀不同
     engine.set_mode_keys(ModeKeys {
         question_mark: true,
+        shortcut: 'i',
         ..ModeKeys::default()
     });
     assert!(engine.question_mode());
@@ -387,6 +389,7 @@ fn question_key_answers_code_points_locally_and_keeps_question_mark_alias() {
     engine.set_mode_keys(ModeKeys {
         expression: 'v',
         question: 'i',
+        shortcut: 'u',
         question_mark: false,
     });
     engine.set_input("u4e00");
@@ -397,6 +400,7 @@ fn question_key_answers_code_points_locally_and_keeps_question_mark_alias() {
     engine.set_mode_keys(ModeKeys {
         expression: 'u',
         question: 'u',
+        shortcut: 'i',
         question_mark: false,
     });
     assert_eq!(engine.mode_keys(), ModeKeys::default());

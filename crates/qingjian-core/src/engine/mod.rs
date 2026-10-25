@@ -55,7 +55,7 @@ pub use input_log::{
 };
 pub use learning::{Forgotten, Learner, NoLearner};
 pub use marked::{AuxSegment, MarkedKind, MarkedSegment};
-pub use mode_keys::{ModeKeys, QUESTION_PREFIX};
+pub use mode_keys::{ModeKeys, QUESTION_PREFIX, SHORTCUT_PREFIX};
 pub use prediction::{
     CloudWord, NoPredictor, Prediction, PredictionKind, PredictionPolicy, PredictionRequest,
     Predictor, SurroundingText,
@@ -547,7 +547,7 @@ impl Engine {
     }
 }
 
-/// 缓冲区是否是英文直输段：含拼音键与 `'` 以外的字符（`no-way`、`a.b`），且不是表达式 / 问字模式。
+/// 缓冲区是否是英文直输段：含拼音键与 `'` 以外的字符（`no-way`、`a.b`），且不是表达式 / 问字 / 快捷短语模式。
 /// 微软 / 搜狗双拼下 `;` 也是拼音键。
 fn is_raw(text: &str, modes: ModeKeys, shuangpin: Option<&Layout>, zhuyin: bool) -> bool {
     let is_key = |c: char| {
@@ -563,6 +563,7 @@ fn is_raw(text: &str, modes: ModeKeys, shuangpin: Option<&Layout>, zhuyin: bool)
     !text.is_empty()
         && !modes.is_expression(text, zhuyin)
         && !modes.is_question(text, zhuyin)
+        && !modes.is_shortcut(text, zhuyin)
         && text.chars().any(|c| !(is_key(c) || c == '\''))
 }
 

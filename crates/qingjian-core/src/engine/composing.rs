@@ -297,16 +297,22 @@ impl Engine {
         self.composition.move_end();
     }
 
+    /// 是否处在快捷短语模式（缓冲区以快捷短语键、缺省 `i` 开头）：匹配自定义短语表。
+    pub fn shortcut_mode(&self) -> bool {
+        self.modes().is_shortcut(self.composition.text(), self.zhuyin)
+    }
+
     /// 是否处在表达式模式（缓冲区以表达式键、缺省 `v` 开头）。此时壳应把数字和运算符也交给 [`Self::push`]，而不是当选词键。
     pub fn expression_mode(&self) -> bool {
         !self.has_custom_phrase()
+            && !self.shortcut_mode()
             && self
                 .modes()
                 .is_expression(self.composition.text(), self.zhuyin)
     }
 
     /// 英文直输段：缓冲区里有拼音以外的字符（`no-way`），整段原样上屏、不解析拼音。
-    /// 表达式模式与问字模式优先于它。
+    /// 表达式模式、问字模式与快捷短语模式优先于它。
     pub fn raw_mode(&self) -> bool {
         is_raw(
             self.composition.text(),
@@ -319,6 +325,7 @@ impl Engine {
     /// 是否处在问字模式（缓冲区以问字键、缺省 `u`，或 `?` 开头）：拼音问题由云端答，十六进制码点本地答。
     pub fn question_mode(&self) -> bool {
         !self.has_custom_phrase()
+            && !self.shortcut_mode()
             && self
                 .modes()
                 .is_question(self.composition.text(), self.zhuyin)

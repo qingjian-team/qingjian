@@ -7,10 +7,13 @@ use crate::shortcut::EXPRESSION_PREFIX;
 /// 问字模式的标点入口：[`ModeKeys::question_mark`] 打开时任何配置下 `?` 开头都进问字模式，也是英文模式下唯一的入口。
 pub const QUESTION_PREFIX: char = '?';
 
+/// 快捷短语模式前缀：`i` 开头匹配自定义短语表。
+pub const SHORTCUT_PREFIX: char = 'i';
+
 /// 前缀模式键，配置文件 `[shortcut]` 分节。
 ///
 /// 搜狗 / 微软那一家的做法：用不能开头拼任何音节的字母（`v` `u` `i`）一键进模式，
-/// 不要修饰键，中文模式下零冲突。缺省 `v` 表达式、`u` 问字（含 Unicode 码点）。
+/// 不要修饰键，中文模式下零冲突。缺省 `v` 表达式、`u` 问字（含 Unicode 码点）、`i` 快捷短语。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct ModeKeys {
@@ -19,6 +22,9 @@ pub struct ModeKeys {
 
     /// 问字模式前缀：`usangemu`（三个木）、`u4e00`（码点）。
     pub question: char,
+
+    /// 快捷短语模式前缀：`i` 开头匹配自定义短语表，如 `iemail` → 用户邮箱。
+    pub shortcut: char,
 
     /// `?` 开头是否也进问字模式。缺省关：没在组句时敲的问号就是问号；
     /// 开着时缓冲区为空敲 `?` 先进问字，后面跟字母才是问题，跟别的键还原成问号。
@@ -30,6 +36,7 @@ impl Default for ModeKeys {
         Self {
             expression: EXPRESSION_PREFIX,
             question: 'u',
+            shortcut: 'i',
             question_mark: false,
         }
     }
@@ -44,6 +51,7 @@ impl ModeKeys {
         Self {
             expression: self.expression.to_ascii_uppercase(),
             question: self.question.to_ascii_uppercase(),
+            shortcut: self.shortcut.to_ascii_uppercase(),
             question_mark: self.question_mark,
         }
     }
@@ -53,15 +61,19 @@ impl ModeKeys {
         Self {
             expression: '\0',
             question: '\0',
+            shortcut: '\0',
             question_mark: self.question_mark,
         }
     }
 
-    /// 两个键都合法且互不相同。不合法的配置整个退回缺省，不做一半。
+    /// 三个键都合法且互不相同。不合法的配置整个退回缺省，不做一半。
     pub fn is_valid(&self) -> bool {
         self.expression != self.question
+            && self.expression != self.shortcut
+            && self.question != self.shortcut
             && Self::CANDIDATES.contains(&self.expression)
             && Self::CANDIDATES.contains(&self.question)
+            && Self::CANDIDATES.contains(&self.shortcut)
     }
 
     /// 非法配置退回缺省（`?` 开关照旧保留）。
@@ -85,6 +97,21 @@ impl ModeKeys {
         (input.starts_with(self.question)
             && (!zhuyin || crate::zhuyin::layout::map_key(self.question).is_none()))
             || self.is_question_mark(input)
+    }
+
+    /// 快捷短语模式：`i` 开头，匹配自定义短语表。
+    pub fn is_shortcut(&self, input: &str, zhuyin: bool) -> bool {
+        input.starts_with(self.shortcut)
+            && (!zhuyin || crate::zhuyin::layout::map_key(self.shortcut).is_none())
+    }
+
+    /// 快捷短语模式下前缀之后的部分。不在快捷短语模式时原样返回。
+    pub fn shortcut_body<'a>(&self, input: &'a str, zhuyin: bool) -> &'a str {
+        if self.is_shortcut(input, zhuyin) {
+            &input[self.shortcut.len_utf8()..]
+        } else {
+            input
+        }
     }
 
     /// 是否以 `?` 进的问字模式：开关关着时 `?` 不是入口。
@@ -156,6 +183,7 @@ mod tests {
         let same = ModeKeys {
             expression: 'v',
             question: 'v',
+            shortcut: 'v',
             question_mark: true,
         };
         assert!(!same.is_valid());
@@ -169,12 +197,14 @@ mod tests {
         let pinyin_initial = ModeKeys {
             expression: 'v',
             question: 'z',
+            shortcut: 'i',
             question_mark: false,
         };
         assert_eq!(pinyin_initial.sanitized(), ModeKeys::default());
         let swapped = ModeKeys {
             expression: 'i',
             question: 'v',
+            shortcut: 'u',
             question_mark: false,
         };
         assert!(swapped.is_valid());
@@ -187,8 +217,39 @@ mod tests {
             toml::from_str("expression = \"i\"\nquestion = \"u\"\nquestion_mark = true\n").unwrap();
         assert_eq!(keys.expression, 'i');
         assert_eq!(keys.question, 'u');
+        assert_eq!(keys.shortcut, 'i');
         assert!(keys.question_mark);
         let old: ModeKeys = toml::from_str("expression = \"v\"\nquestion = \"u\"\n").unwrap();
         assert!(!old.question_mark);
+    }
+
+    #[test]
+    fn shortcut_mode_is_detected() {
+        let keys = ModeKeys::default();
+        assert!(keys.is_shortcut("iemail", false));
+        assert_eq!(keys.shortcut_body("iemail", false), "email");
+        assert!(!keys.is_shortcut("usangemu", false));
+        assert!(!keys.is_shortcut("nihao", false));
+    }
+
+    #[test]
+    fn shortcut_mode_shifted_on_double_pinyin() {
+        let keys = ModeKeys::default().shifted();
+        assert!(keys.is_shortcut("Iemail", false));
+        assert_eq!(keys.shortcut_body("Iemail", false), "email");
+        assert!(!keys.is_shortcut("usangemu", false));
+    }
+
+    #[test]
+    fn shortcut_mode_is_invalid_with_duplicate_keys() {
+        let duplicate = ModeKeys {
+            expression: 'v',
+            question: 'u',
+            shortcut: 'v',
+            question_mark: false,
+        };
+        assert!(!duplicate.is_valid());
+        let sanitized = duplicate.sanitized();
+        assert_eq!(sanitized.shortcut, 'i');
     }
 }
