@@ -46,9 +46,11 @@ QingjianEngine::QingjianEngine(AddonManager *manager)
     osdDefer_ = instance_->eventLoop().addDeferEvent([this](EventSource *event) {
         event->setEnabled(false);
 #ifdef QINGJIAN_HAS_CUSTOM_IM_INFO
-        if (auto *context = osdContext_.get()) {
-            if (!osdText_.empty()) instance_->showCustomInputMethodInformation(context, osdText_);
-        }
+        // showCustomInputMethodInformation 不看全局设置里的「切换输入法时显示输入法信息」，
+        // 这里自己补上，关掉该项的用户切中英时也不弹，与框架切输入法时的气泡保持一致。
+        if (auto *context = osdContext_.get();
+            context && !osdText_.empty() && instance_->globalConfig().showInputMethodInformation())
+            instance_->showCustomInputMethodInformation(context, osdText_);
 #endif
         osdText_.clear();
         return true;
