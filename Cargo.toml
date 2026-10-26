@@ -93,7 +93,7 @@ cosmic-text = { version = "0.19.0", default-features = false, features = ["std",
 # 字形轮廓的路径命令（cosmic-text 取轮廓返回它，文字描边用）；与 swash 用的同一版本
 zeno = { version = "0.3.3", default-features = false }
 # 场景图的布局：只要 flexbox 与 grid，不要 block / float
-taffy = { version = "0.14.0", default-features = false, features = ["std", "taffy_tree", "flexbox", "grid"] }
+taffy = { version = "0.15.0", default-features = false, features = ["std", "taffy_tree", "flexbox", "grid"] }
 # 窗口宿主：开窗收事件 + 把位图贴到窗口
 winit = "0.30.13"
 softbuffer = "0.4.8"
