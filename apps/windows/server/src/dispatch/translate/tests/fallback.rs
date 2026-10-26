@@ -14,15 +14,7 @@ fn fallback() -> Router {
     router.end_translation();
     let Some(ServerMessage::RequestSelection { request, .. }) = router.handle(ClientMessage::Key {
         session: SessionId(1),
-        event: KeyEvent::new(
-            84,
-            Some('t'),
-            KeyModifiers {
-                ctrl: true,
-                alt: true,
-                ..Default::default()
-            },
-        ),
+        event: super::translation_key(&router),
     }) else {
         panic!("selection request")
     };
