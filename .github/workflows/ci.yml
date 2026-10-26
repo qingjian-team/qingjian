@@ -1,4 +1,4 @@
-# 三个 job：Linux 跑 fmt / clippy / 全 workspace 测试（排除 IMK 外壳）；macOS 与 Windows runner 各编各的壳并跑平台测试，
+# Linux 跑 fmt / clippy / 全 workspace 测试（排除 IMK 外壳）；macOS 与 Windows runner 各编各的壳并跑平台测试，Android 编 debug APK，
 # 平台特有的编译错（Objective-C 调用、TSF 导出、WinUI）在 PR 里就暴露，不等发版。仓库公开，Actions 不计费。
 # actions 一律钉到 commit（注释里是对应的标签），Dependabot 每周提 PR 更新；cargo 全加 --locked，Cargo.lock 没提交就报错。
 name: ci
@@ -21,12 +21,13 @@ env:
 jobs:
   core:
     runs-on: ubuntu-26.04
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
-      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de # v1
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
         with:
           toolchain: 1.96.0
           components: rustfmt, clippy
@@ -36,34 +37,125 @@ jobs:
       - name: Install Fcitx5 build and test dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake g++ libfcitx5core-dev libfcitx5config-dev libfcitx5utils-dev nlohmann-json3-dev
+          sudo apt-get install -y cmake g++ libfcitx5core-dev libfcitx5config-dev libfcitx5utils-dev nlohmann-json3-dev fcitx5
 
       - name: Format
         run: cargo fmt --all --check
 
+      # 依赖的许可证、来源、通配版本。audit.yml 已查 RustSec 漏洞，这里补它不管的三样。
+      # 装 cargo-deny 而不是用 cargo-deny-action：少一个要钉 commit 的第三方 action，
+      # 且版本由这一行钉死，与 workflow 里别的 cargo 命令一致。
+      # cargo-deny 自己读仓库根的 Cargo.lock（不吃 --locked，也没有 manifest-path 参数），
+      # 所以「锁与 Cargo.toml 不一致」这一类由别的 --locked 步骤负责，这里只管内容。
+      - name: Dependency licenses, sources and wildcards
+        run: |
+          cargo install cargo-deny --version 0.20.2 --locked
+          cargo deny check licenses bans sources
+
       - name: Clippy
         run: cargo clippy --workspace --exclude qingjian-macos --all-targets --locked -- -D warnings
+
+      # 文档断链、裸 HTML 标签（<TAB> 这类）平时编译看不出来，只有 rustdoc 会报；文档是给用户直接看的，
+      # 坏了不会红，只能靠这条门禁兜住。RUSTDOCFLAGS 只设在这一步，不污染后面的构建与测试。
+      - name: Rustdoc
+        env:
+          RUSTDOCFLAGS: -D warnings
+        run: cargo doc --no-deps --workspace --exclude qingjian-macos --locked
 
       - name: Test
         run: cargo test --workspace --exclude qingjian-macos --locked
 
-      - name: Build and test Fcitx5 default panel
-        run: |
-          cargo build -p qingjian-linux-server --locked
-          cmake -S apps/linux/fcitx5 -B target/fcitx5-stage1 -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON
-          cmake --build target/fcitx5-stage1 --parallel 2
-          env -u DBUS_SESSION_BUS_ADDRESS ctest --test-dir target/fcitx5-stage1 --output-on-failure
-          bash -n apps/linux/scripts/install.sh apps/linux/scripts/uninstall.sh apps/linux/scripts/package.sh apps/linux/scripts/package-install.sh
-          python3 apps/linux/tests/installation.py
+      - name: Build Linux server
+        run: cargo build -p qingjian-linux-server --locked
 
-  macos:
-    runs-on: macos-latest
+      - name: Configure Fcitx5 default panel
+        run: cmake -S apps/linux/fcitx5 -B target/fcitx5-stage1 -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON
+
+      - name: Build Fcitx5 default panel
+        run: cmake --build target/fcitx5-stage1 --parallel 2
+
+      # 日志用 tee 落盘，失败时由下面的 Upload Linux diagnostics 打包上传，便于排障。
+      # 必须显式 shell: bash：默认的 bash -e 不带 pipefail，`| tee` 会返回 tee 的退出码、把测试失败吞掉，
+      # if: failure() 的诊断上传也不会触发
+      - name: Test Fcitx5 default panel
+        shell: bash
+        run: |
+          mkdir -p target/ci-logs
+          env -u DBUS_SESSION_BUS_ADDRESS ctest --test-dir target/fcitx5-stage1 --output-on-failure 2>&1 | tee target/ci-logs/fcitx5-ctest.log
+
+      # Fcitx4 壳（Ubuntu 22.04 那条线，#351 引入）。上面三步只覆盖 Fcitx5，
+      # 而 apps/linux/fcitx4 下的 C++ 插件（qingjian.cpp 415 行 + key + primary_selection，
+      # 还与 fcitx5 共用 ../fcitx5/src/ipc/connection.cpp）此前没有任何检查碰过：
+      # 改共用的 connection.cpp 时 Fcitx4 那侧编不过，只有装到 22.04 上才会发现。
+      # 它自带一个 CTest（test-surrounding，同样共用 ../tests/surrounding.cpp），一起跑。
+      # 26.04 上装 fcitx-libs-dev 会把 fcitx5 卸掉，所以等 Fcitx5 的测试跑完再装
+      - name: Install Fcitx4 build dependencies
+        run: sudo apt-get install -y fcitx-libs-dev libx11-dev libxres-dev
+
+      - name: Configure Fcitx4 shell
+        run: cmake -S apps/linux/fcitx4 -B target/fcitx4-stage1 -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON
+
+      - name: Build Fcitx4 shell
+        run: cmake --build target/fcitx4-stage1 --parallel 2
+
+      - name: Test Fcitx4 shell
+        shell: bash
+        run: |
+          mkdir -p target/ci-logs
+          env -u DBUS_SESSION_BUS_ADDRESS ctest --test-dir target/fcitx4-stage1 --output-on-failure 2>&1 | tee target/ci-logs/fcitx4-ctest.log
+
+      - name: Validate Linux install scripts
+        run: bash -n apps/linux/scripts/install.sh apps/linux/scripts/uninstall.sh apps/linux/scripts/package.sh apps/linux/scripts/package-install.sh
+
+      - name: Test Linux installation
+        shell: bash
+        run: |
+          mkdir -p target/ci-logs
+          python3 apps/linux/tests/installation.py 2>&1 | tee target/ci-logs/linux-installation.log
+
+      - name: Upload Linux diagnostics
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: linux-ci-diagnostics
+          if-no-files-found: ignore
+          path: |
+            target/ci-logs/**
+            target/fcitx5-stage1/Testing/**
+            target/fcitx5-stage1/CMakeFiles/CMakeOutput.log
+            target/fcitx5-stage1/CMakeFiles/CMakeError.log
+            target/fcitx4-stage1/Testing/**
+            target/fcitx4-stage1/CMakeFiles/CMakeOutput.log
+            target/fcitx4-stage1/CMakeFiles/CMakeError.log
+
+  shellcheck:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
-      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de # v1
+      # 静态检查所有 shell 脚本：安装脚本、发版脚本、图标渲染脚本都在里面。
+      # ubuntu runner 自带 shellcheck，无需额外安装步骤。
+      # 只报 warning 及以上——style/info 级噪音太多，会淹掉真问题。
+      # 用 git ls-files 而不是 find：只管纳入版本控制的文件。
+      - name: Shellcheck
+        run: shellcheck -S warning $(git ls-files "*.sh")
+
+  macos:
+    # 与 release.yml 的发版 job 用同一个 label（那边是 macos-26）。同一个仓库里 macOS 侧
+    # 只应有一个版本：`macos-latest` 会随 GitHub 的 runner 策略漂移，CI 跑在一个版本、
+    # 发版构建在另一个版本上，差异只在发版时才暴露——系统库版本、Xcode 命令行工具版本
+    # 都会让「CI 全绿、发版挂」成为可能，而那是最难查的一类。
+    runs-on: macos-26
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
         with:
           toolchain: 1.96.0
           components: clippy
@@ -76,8 +168,98 @@ jobs:
       - name: Test (IMK shell)
         run: cargo test -p qingjian-macos --locked
 
+  # 最老的受支持发行版。docs/user/platforms/linux.md 写着「Fcitx4 提供 Ubuntu 22.04
+  # 源码安装」并记了「已验证 Ubuntu 22.04 的 GTK3 文本框输入」，而上面 core job 跑在
+  # ubuntu-26.04。两边差四年：22.04 是 glibc 2.35 / GCC 11，26.04 是 glibc 2.39+ / GCC 15。
+  # 依赖或代码只要用一个 2.35 之后才有的符号，26.04 上全绿、22.04 上一装就崩——
+  # 而崩溃点在用户机器上，本地没有那个环境复现不了。
+  #
+  # 用容器而不是 `ubuntu-22.04` 的 runner label：那个 label 会随 GitHub 的镜像策略退休，
+  # 容器里的 22.04 是实打实的那个用户态，与 runner 上装的是什么无关。
+  linux-22_04:
+    runs-on: ubuntu-26.04
+    container: ubuntu:22.04
+    timeout-minutes: 25
+    steps:
+      # 容器里是裸系统：checkout 要 git、rustup 要 curl 与证书。
+      # 依赖按 install.sh 的清单装（cmake / g++ / pkg-config / python3 / libssl-dev）——
+      # 第一版漏了 libssl-dev，openssl-sys 当场编不过，这个 job 也就抓到了它。
+      # 那正是它该干的事：对着用户实际走的 install.sh 路径验，漏一个包就暴露。
+      #
+      # 字体是**额外**的一项，install.sh 的清单里没有：bamboo-slip 的自绘 UI 要一个
+      # 系统 UI 字体（fonts/mod.rs 里 load_first 失败直接返回 NoUiFont，没有回退），
+      # 于是 17 个 UI 测试在没装字体的裸容器里全红。
+      # ubuntu-26.04 runner 上它们是镜像预装的，所以 core job 一直是绿的——
+      # 也就是说 CI 的绿有一部分来自 runner 镜像而不是显式声明的依赖。
+      # 这里显式装上，让这个 job 反映「用户装完依赖后的状态」。
+      # install.sh 自己漏了字体依赖是另一个问题（生产代码同样会硬失败），不在这改。
+      - name: Install base tooling
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            git curl ca-certificates build-essential pkg-config python3 \
+            cmake libssl-dev \
+            fonts-dejavu-core
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
+        with:
+          toolchain: 1.96.0
+
+      # install.sh 在 22.04 上装的就是这两个包（见它的 cargo_args），所以先按原样编一遍：
+      # 这是「用户装得上」那道关，比跑测试更接近发版路径。
+      - name: Build (what install.sh builds)
+        run: cargo build --locked -p qingjian-linux-server -p qingjian-settings
+
+      # 再跑一遍 workspace 测试：老 glibc 上某个依赖编不过或行为不同，在这里暴露。
+      - name: Test
+        run: cargo test --workspace --exclude qingjian-macos --locked
+
+  # Kotlin 与 Gradle 只有这里编；data/generated/ 不在仓库里，带的是随包样例数据
+  android:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 30
+    env:
+      NDK_VERSION: 29.0.13599879
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
+        with:
+          toolchain: 1.96.0
+          targets: aarch64-linux-android
+
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+
+      # Gradle 8.14 只认到 JDK 24，runner 缺省的是 25
+      - name: Use JDK 21
+        run: |
+          if [[ ! -d "${JAVA_HOME_21_X64:-}" ]]; then
+            echo "runner 上没有 JDK 21（JAVA_HOME_21_X64）：" >&2
+            ls /usr/lib/jvm >&2
+            exit 1
+          fi
+          echo "JAVA_HOME=$JAVA_HOME_21_X64" >> "$GITHUB_ENV"
+
+      # NDK 版本要与 app/build.gradle.kts 的 ndkVersion 一致
+      - name: Install NDK and cargo-ndk
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;$NDK_VERSION" "platforms;android-36" > /dev/null
+          cargo install cargo-ndk --version 4.1.2 --locked
+          echo "sdk.dir=$ANDROID_HOME" > apps/android/local.properties
+
+      - name: Build debug APK
+        working-directory: apps/android
+        run: ./gradlew assembleDebug --no-daemon --console=plain
+
   windows:
     runs-on: windows-latest
+    timeout-minutes: 15
     env:
       # Server 的 build.rs 嵌 uiAccess manifest，没签名的 exe（含测试二进制）起不来（os error 740）；与 release.yml 一样关掉
       QINGJIAN_UIACCESS: '0'
@@ -86,7 +268,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de # v1
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
         with:
           toolchain: 1.96.0
           components: clippy
@@ -95,10 +277,16 @@ jobs:
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
 
       - name: Clippy (Server, TSF DLL, Settings)
-        run: cargo clippy -p qingjian-windows-server -p qingjian-windows-tsf -p qingjian-windows-settings --all-targets --locked -- -D warnings
+        run: cargo clippy -p qingjian-windows-server -p qingjian-windows-tsf -p qingjian-windows-settings -p qingjian-settings --all-targets --locked -- -D warnings
+
+      # core job 在 Linux 上文档化不到 #[cfg(windows)] 的模块，那一半的文档错误只有这里看得见。
+      - name: Rustdoc (Server, TSF DLL, Settings)
+        env:
+          RUSTDOCFLAGS: -D warnings
+        run: cargo doc -p qingjian-windows-server -p qingjian-windows-tsf -p qingjian-windows-settings -p qingjian-settings --no-deps --locked
 
       - name: Test (Server, TSF DLL, Settings)
-        run: cargo test -p qingjian-windows-server -p qingjian-windows-tsf -p qingjian-windows-settings --locked
+        run: cargo test -p qingjian-windows-server -p qingjian-windows-tsf -p qingjian-windows-settings -p qingjian-settings --locked
 
       # 安装包另带一份 32 位 DLL（企业微信 / WPS 这类 32 位应用只能加载它）
       - name: Check (TSF DLL, 32-bit)

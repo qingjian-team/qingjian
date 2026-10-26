@@ -16,6 +16,12 @@ pub enum Language {
 
     /// 西班牙语。
     Spanish,
+
+    /// 越南语。
+    Vietnamese,
+
+    /// 德语。
+    German,
 }
 
 impl Language {
@@ -26,9 +32,24 @@ impl Language {
             Self::English => "en",
             Self::Japanese => "ja",
             Self::Spanish => "es",
+            Self::Vietnamese => "vi",
+            Self::German => "de",
         }
     }
 }
+
+/// 学习语言写这个值表示不显示译文（配置 `[general] learning_language`）。
+pub const LEARNING_LANGUAGE_OFF: &str = "off";
+
+/// 设置里列的学习语言：配置写法与界面名，按这个顺序列出；最后一项是不显示译文。
+pub const LEARNING_LANGUAGES: [(&str, &str); 6] = [
+    ("en", "英语"),
+    ("ja", "日语"),
+    ("es", "西班牙语"),
+    ("vi", "越南语"),
+    ("de", "德语"),
+    (LEARNING_LANGUAGE_OFF, "不显示"),
+];
 
 #[derive(Debug, thiserror::Error)]
 #[error("unknown language code: {0}")]
@@ -43,6 +64,8 @@ impl FromStr for Language {
             "en" | "english" => Ok(Self::English),
             "ja" | "jp" | "japanese" => Ok(Self::Japanese),
             "es" | "es-es" | "spanish" => Ok(Self::Spanish),
+            "vi" | "vi-vn" | "vietnamese" => Ok(Self::Vietnamese),
+            "de" | "german" => Ok(Self::German),
             other => Err(UnknownLanguage(other.to_owned())),
         }
     }
@@ -58,18 +81,38 @@ mod tests {
         assert_eq!("ES".parse::<Language>().unwrap(), Language::Spanish);
         assert_eq!(" es-ES ".parse::<Language>().unwrap(), Language::Spanish);
         assert_eq!("Spanish".parse::<Language>().unwrap(), Language::Spanish);
+        assert_eq!("vi-VN".parse::<Language>().unwrap(), Language::Vietnamese);
+        assert_eq!(
+            "Vietnamese".parse::<Language>().unwrap(),
+            Language::Vietnamese
+        );
         assert_eq!("zh-cn".parse::<Language>().unwrap(), Language::Chinese);
+        assert_eq!("de".parse::<Language>().unwrap(), Language::German);
+        assert_eq!("DE".parse::<Language>().unwrap(), Language::German);
+        assert_eq!(" de ".parse::<Language>().unwrap(), Language::German);
+        assert_eq!("German".parse::<Language>().unwrap(), Language::German);
     }
 
     #[test]
     fn rejects_unknown_codes() {
-        let error = "de".parse::<Language>().unwrap_err();
-        assert_eq!(error.0, "de");
+        let error = "fr".parse::<Language>().unwrap_err();
+        assert_eq!(error.0, "fr");
     }
 
     #[test]
     fn codes_are_iso_639_1() {
         assert_eq!(Language::Spanish.code(), "es");
         assert_eq!(Language::Japanese.code(), "ja");
+        assert_eq!(Language::Vietnamese.code(), "vi");
+        assert_eq!(Language::German.code(), "de");
+    }
+
+    #[test]
+    fn learning_languages_parse_except_off() {
+        let (off, rest) = LEARNING_LANGUAGES.split_last().unwrap();
+        assert_eq!(off.0, LEARNING_LANGUAGE_OFF);
+        for (code, _) in rest {
+            assert_eq!(code.parse::<Language>().unwrap().code(), *code);
+        }
     }
 }

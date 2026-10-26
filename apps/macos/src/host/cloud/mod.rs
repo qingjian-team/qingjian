@@ -13,7 +13,8 @@ impl Host {
     /// 「测试连接」：用当前配置发一条最小请求，结果回到偏好设置窗口底部的状态行。
     pub(super) fn start_cloud_test(&mut self) {
         let config = self.settings.config().predict.clone();
-        match ConnectionTest::start(&config) {
+        let usage = paths::user_data_dir().map(|dir| dir.join(API_USAGE_FILE));
+        match ConnectionTest::start_with_usage(&config, usage) {
             Ok(test) => {
                 self.cloud_test = Some(test);
                 self.cloud_test_monitor.start();
@@ -61,9 +62,10 @@ impl Host {
         }
     }
 
-    /// 已发出联想请求：清掉旧结果，开始轮询。
-    pub fn await_prediction(&mut self) {
+    /// 已发出联想请求：清掉旧结果，开始轮询。`manual` 是按需联想的请求序号，自动联想传 `None`。
+    pub fn await_prediction(&mut self, manual: Option<u64>) {
         self.sentence = None;
+        self.manual_prediction = manual;
         self.monitor.start();
     }
 
@@ -72,6 +74,7 @@ impl Host {
         self.engine.cancel_prediction();
         self.monitor.stop();
         self.sentence = None;
+        self.manual_prediction = None;
     }
 
     /// 定时器回调：结果到了就画上去。云端词补进第一页末尾，整句挂在 preedit 右侧。
@@ -102,10 +105,13 @@ impl Host {
             }
             return;
         }
-        if self.engine.composition().is_empty() {
+        // 符号面板开着时格子里是面板条目，云端词不往里补
+        if self.engine.composition().is_empty() || self.engine.symbol_panel().is_some() {
             return;
         }
-        // 云端词补进第一页末尾（前面的本地候选不动），整句挂在 preedit 右侧；云端词没有译文，先补上。
+        // 按需联想的结果排在第一页最前面，高亮回到第一个，与 Windows 一致
+        let manual = self.manual_prediction.take() == Some(prediction.sequence);
+        // 自动联想的云端词补进第一页末尾（前面的本地候选不动），整句挂在 preedit 右侧；云端词没有译文，先补上。
         // 用户已经翻到后面的页、或高亮已经移到会被挪走的那几格时不补：那几格正被他看着 / 要选
         let layout = &self.session.layout;
         let untouched = cloud_slots_untouched(
@@ -115,7 +121,7 @@ impl Host {
             layout.page_size(),
             layout.capacity(),
         );
-        if untouched && !prediction.words.is_empty() {
+        if (manual || untouched) && !prediction.words.is_empty() {
             let mut words = qingjian_core::CandidateList {
                 items: prediction
                     .words
@@ -124,8 +130,15 @@ impl Host {
                     .collect(),
             };
             self.engine.annotate(&mut words);
-            let filled = self.session.layout.set_cloud(words.items);
-            tracing::debug!(filled, "云端词已补进候选");
+            let filled = if manual {
+                self.session.page = 0;
+                self.session.highlighted = 0;
+                self.session.navigated = false;
+                self.session.layout.set_cloud_first(words.items)
+            } else {
+                self.session.layout.set_cloud(words.items)
+            };
+            tracing::debug!(filled, manual, "云端词已补进候选");
         }
         self.sentence = prediction.sentence;
         self.render();

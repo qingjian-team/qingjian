@@ -1,8 +1,26 @@
 //! 注入与开关：词库、模糊音、双拼、翻译 / 学习 / 联想等 trait 实现的挂接，以及相应的只读访问。
 
+use super::EMOJI_TOTAL;
 use super::aux_code::is_valid_aux_code_key;
-use super::*;
+use super::{
+    DEFAULT_AUX_CODE_KEY, ENGLISH_CANDIDATES_MAX, Engine, GlossFiller, InputLogger, Learner,
+    ModeKeys, NEURAL_MARGIN, NEURAL_WEIGHT, Predictor, RESCORE_CONTEXT_CHARS, Translator,
+    UsageMeter, UsageSummary, VocabularyTracker, marked_rest,
+};
+use crate::candidate::Language;
+use crate::correction::TypoCosts;
+use crate::emoji::{EmojiTable, builtin, is_emoji};
 use crate::engine::decoded::EngineDecoded;
+use crate::fuzzy::FuzzyRules;
+use crate::history::InputHistory;
+use crate::panel::PanelHistory;
+use crate::sentence::{Interpolation, LanguageModel, Personal, SentenceScorer};
+use crate::shuangpin::{Layout, Scheme};
+use crate::traditional::{Traditional, TraditionalVariant};
+use qingjian_dictionary::{AuxCodeLookup, CodeTable, Dictionary, WordList};
+
+use crate::code_scheme::CodeScheme;
+use std::sync::Arc;
 
 impl Engine {
     /// 设置中文模式的标点转换。
@@ -17,14 +35,19 @@ impl Engine {
         Ok(())
     }
 
-    /// 设双拼方案，`None` 回到全拼。纠错缓存按作用域记而作用域的含义变了，一并清掉。
+    /// 设内置双拼方案，`None` 回到全拼。
     pub fn set_shuangpin(&mut self, scheme: Option<Scheme>) {
-        self.shuangpin = scheme;
+        self.set_shuangpin_layout(scheme.map(|scheme| Arc::new(scheme.layout().clone())));
+    }
+
+    /// 设双拼键位（内置或用户方案），`None` 回到全拼。纠错缓存按作用域记而作用域的含义变了，一并清掉。
+    pub fn set_shuangpin_layout(&mut self, layout: Option<Arc<Layout>>) {
+        self.shuangpin = layout;
         *self.correction_cache.borrow_mut() = None;
     }
 
-    pub fn shuangpin(&self) -> Option<Scheme> {
-        self.shuangpin
+    pub fn shuangpin(&self) -> Option<&Layout> {
+        self.shuangpin.as_deref()
     }
     /// 换双拼 preedit 显示形式：开着时显示原始按键（如 `ljse`），关着（缺省）展开成全拼（`lan'se`）。
     pub fn set_shuangpin_raw_preedit(&mut self, enabled: bool) {
@@ -77,6 +100,16 @@ impl Engine {
         self.aux_show = show;
     }
 
+    /// 换「候选上显示声调」开关（配置项 `[general] show_tones`，缺省关）。
+    pub fn set_show_tones(&mut self, show: bool) {
+        self.show_tones = show;
+    }
+
+    /// 应用读不到光标前文时，本应用多少秒内上屏的字还当前文（配置项 `[model] context_memory_seconds`，0 表示一直算）。
+    pub fn set_context_memory(&mut self, seconds: u64) {
+        self.history.set_fresh_for(seconds);
+    }
+
     /// 設置是否啟用注音模式。開啟後鍵盤輸入按大千佈局解析。
     /// 学习开关（`[general] learning`）：关掉后不再记词频、用户词、个人 n-gram 与敲错表，已学的照常参与排序；
     /// 私密输入是另一个独立的开关（[`Self::set_private`]）。
@@ -89,31 +122,56 @@ impl Engine {
         self.forget_span_cache();
     }
 
-    /// 設置是否啟用繁體輸出模式。
-    pub fn set_traditional_mode(&mut self, on: bool) {
-        self.traditional = on;
-        if on && self.opencc.is_none() {
-            match ferrous_opencc::OpenCC::from_config(ferrous_opencc::config::BuiltinConfig::S2tw) {
-                Ok(opencc) => self.opencc = Some(opencc),
-                Err(error) => tracing::warn!(%error, "繁体转换器初始化失败，候选仍是简体"),
-            }
-        }
-    }
-
     /// 目前是否處於注音模式。
     pub fn is_zhuyin_mode(&self) -> bool {
         self.zhuyin
     }
 
-    /// 换形码码表（五笔），`None` 回到拼音的诸方案。编码与拼音是两套键，纠错缓存一并清掉。
-    pub fn set_code_table(&mut self, table: Option<CodeTable>) {
-        self.code = table;
+    /// 九宫格方案开关（手机 9 键）。与双拼、注音一样是输入方案，不是模式。
+    pub fn set_nine_key(&mut self, on: bool) {
+        self.nine_key = on;
+        self.forget_span_cache();
+    }
+
+    pub fn is_nine_key(&self) -> bool {
+        self.nine_key
+    }
+
+    /// 设繁体输出：候选与上屏文本在出 Core 时换成繁体，词库与学习数据仍是简体（见 [`crate::traditional`]）。
+    /// 变体没变就不重建，建一次要把 OpenCC 的字典装起来。
+    pub fn set_traditional(&mut self, variant: TraditionalVariant) {
+        if variant != self.traditional.variant() {
+            self.traditional = Traditional::new(variant);
+        }
+    }
+
+    /// 当前的繁体输出变体。
+    pub fn traditional(&self) -> TraditionalVariant {
+        self.traditional.variant()
+    }
+
+    /// 换形码方案，`None` 回到拼音的诸方案。编码与拼音是两套键，纠错缓存一并清掉。
+    pub fn set_code_scheme(&mut self, scheme: Option<CodeScheme>) {
+        self.code = scheme;
         *self.correction_cache.borrow_mut() = None;
         self.forget_span_cache();
     }
 
+    /// 只改当前形码方案的按键规则，不换码表；没装形码时什么也不做。
+    pub fn set_code_rules(&mut self, auto_commit: bool, top: bool) {
+        if let Some(code) = &mut self.code {
+            code.auto_commit = auto_commit;
+            code.top = top;
+        }
+    }
+
     /// 当前的形码码表；`None` 表示走拼音（全拼 / 双拼 / 注音）。
     pub fn code_table(&self) -> Option<&CodeTable> {
+        self.code.as_ref().map(|scheme| &scheme.table)
+    }
+
+    /// 当前的形码方案。
+    pub fn code_scheme(&self) -> Option<&CodeScheme> {
         self.code.as_ref()
     }
 
@@ -123,7 +181,7 @@ impl Engine {
     }
 
     /// 拼音侧参不参与查询。形码开着时把它关掉就是「只用形码」（`[general] scheme = "none"`）；
-    /// 两边都开是混输，见 [`Self::set_code_table`] 与 [`Self::query_mixed`]。
+    /// 两边都开是混输，见 [`Self::set_code_scheme`] 与 `query_mixed`。
     pub fn set_phonetic(&mut self, on: bool) {
         self.phonetic = on;
         *self.correction_cache.borrow_mut() = None;
@@ -159,8 +217,9 @@ impl Engine {
             .modes()
             .question_body(self.composition.scope(), self.zhuyin);
         self.shuangpin
-            .filter(|scheme| scheme.uses_semicolon())
-            .is_some_and(|scheme| scheme.decode(body).pending_initial())
+            .as_deref()
+            .filter(|layout| layout.uses_semicolon())
+            .is_some_and(|layout| layout.decode_fuzzy(body, self.fuzzy).pending_initial())
     }
 
     /// 只用形码：码表挂着、拼音侧关着。
@@ -205,7 +264,8 @@ impl Engine {
             Some(EngineDecoded::Zhuyin(crate::zhuyin::decode(keys)))
         } else {
             self.shuangpin
-                .map(|scheme| EngineDecoded::Shuangpin(scheme.decode(keys)))
+                .as_deref()
+                .map(|layout| EngineDecoded::Shuangpin(layout.decode_fuzzy(keys, self.fuzzy)))
         }
     }
 
@@ -221,9 +281,32 @@ impl Engine {
         }
     }
 
-    pub fn with_emoji(mut self, table: EmojiTable) -> Self {
+    /// 带上 emoji 表：表里的普通符号（`≈` `¥`）筛掉、改由符号表出，并上内置的口语叫法；内置的颜文字、符号表与它们的词一起启用。
+    pub fn with_emoji(mut self, mut table: EmojiTable) -> Self {
+        table.retain(is_emoji);
+        table.merge(builtin::emoji_supplement());
         self.emoji = Some(table);
+        self.kaomoji = Some(&builtin::KAOMOJI);
+        self.symbols = Some(&builtin::SYMBOLS);
+        self.companion_words = Some(&builtin::WORDS);
+        self.forget_span_cache();
         self
+    }
+
+    /// 每次查询最多插入几个 emoji（0–3）；0 关闭，越界值按 3 处理。
+    /// 保留词表，重新开启时无需加载；不改变普通候选的排序。
+    pub fn set_emoji_limit(&mut self, limit: usize) {
+        self.emoji_limit = limit.min(EMOJI_TOTAL);
+    }
+
+    /// 每次查询最多插入几个颜文字（0–3），规则同 [`Engine::set_emoji_limit`]。
+    pub fn set_kaomoji_limit(&mut self, limit: usize) {
+        self.kaomoji_limit = limit.min(EMOJI_TOTAL);
+    }
+
+    /// 每次查询最多插入几个符号（0–3），规则同 [`Engine::set_emoji_limit`]。
+    pub fn set_symbol_limit(&mut self, limit: usize) {
+        self.symbol_limit = limit.min(EMOJI_TOTAL);
     }
 
     pub fn with_fuzzy(mut self, rules: FuzzyRules) -> Self {
@@ -241,6 +324,12 @@ impl Engine {
 
     pub fn fuzzy(&self) -> FuzzyRules {
         self.fuzzy
+    }
+
+    /// 设置显式选区翻译的提供方，独立于自动联想；取消后旧结果不会上屏。
+    pub fn set_translation_predictor(&mut self, predictor: Option<Box<dyn Predictor>>) {
+        self.cancel_prediction();
+        self.translation_predictor = predictor;
     }
 
     pub fn with_predictor(mut self, predictor: Box<dyn Predictor>) -> Self {
@@ -344,7 +433,7 @@ impl Engine {
         self
     }
 
-    /// 静态语言模型（没接就是 [`NoLanguageModel`]）：评测工具拿它按 [`crate::sentence::segment_text`] 切汉字文本。
+    /// 静态语言模型（没接就是 [`crate::sentence::NoLanguageModel`]）：评测工具拿它按 [`crate::sentence::segment_text`] 切汉字文本。
     pub fn language_model(&self) -> &dyn LanguageModel {
         &*self.language_model
     }
@@ -365,6 +454,11 @@ impl Engine {
 
     pub fn english_mode(&self) -> bool {
         self.english_mode
+    }
+
+    /// 随包英文词表（不含用户打过的词）；没装是 `None`。
+    pub fn english_words(&self) -> Option<&WordList> {
+        self.english.as_ref()
     }
 
     pub fn with_english(mut self, words: WordList) -> Self {
@@ -402,6 +496,27 @@ impl Engine {
         self.modes
     }
 
+    /// 中文模式下给不给英文词与补全（配置 `[general] english_in_chinese`，缺省开）；英文模式不受影响。
+    pub fn set_english_in_chinese(&mut self, on: bool) {
+        self.english_in_chinese = on;
+    }
+
+    pub fn english_in_chinese(&self) -> bool {
+        self.english_in_chinese
+    }
+
+    /// 中文模式下英文候选（精确词 + 补全）最多几个（配置 `[general] english_max_in_chinese`，缺省
+    /// [`ENGLISH_CANDIDATES_MAX`]）。1 只留最靠前的一条，越界按 1 与上限收拢。
+    pub fn set_english_max_in_chinese(&mut self, max: usize) {
+        self.english_max_in_chinese = max.clamp(1, ENGLISH_CANDIDATES_MAX);
+    }
+
+    /// 有中文候选时英文最高排到第几位（配置 `[general] english_min_position`，缺省 1 即不限制）。
+    /// 没有中文候选时英文照旧排第一；范围 1–9，越界收拢。
+    pub fn set_english_min_position(&mut self, position: usize) {
+        self.english_min_position = position.clamp(1, 9);
+    }
+
     /// 中英混输里中文候选是否总排在英文词前面（配置 `[general] chinese_first`，缺省关）。
     /// 关着时拼音「不像话」的输入英文词排第一（`hello` 先英文再 荷兰咯）；开了英文词固定第二。
     pub fn set_chinese_first(&mut self, on: bool) {
@@ -410,6 +525,15 @@ impl Engine {
 
     pub fn chinese_first(&self) -> bool {
         self.chinese_first
+    }
+
+    /// 中西文之间是否自动补空格（配置 `[general] auto_space`，缺省关）。
+    pub fn set_auto_space(&mut self, on: bool) {
+        self.auto_space = on;
+    }
+
+    pub fn auto_space(&self) -> bool {
+        self.auto_space
     }
 
     /// 中文模式下 Shift+字母是否进组句缓冲区（配置 `[general] shift_letter`，缺省关）。
@@ -444,9 +568,21 @@ impl Engine {
         self.logger.inner_mut()
     }
 
+    /// 符号面板「常用」按这份记录排，从面板上屏的条目记进去（见 [`Self::commit`]）。
+    pub fn with_panel_history(mut self, history: Box<dyn PanelHistory>) -> Self {
+        self.panel_history = history;
+        self
+    }
+
     pub fn with_usage_meter(mut self, meter: Box<dyn UsageMeter>) -> Self {
         self.meter = meter;
         self
+    }
+
+    /// 上屏记不记进输入统计。壳把输入引到自己的工具框（快捷翻译的原文、常用语编辑框）时关掉：
+    /// 那些字不进应用，算进「打了多少字」就虚高了；学习照常（选词是真的）。
+    pub fn set_metered(&mut self, metered: bool) {
+        self.metered = metered;
     }
 
     /// 输入统计的汇总（偏好设置「统计」页）。
@@ -483,21 +619,24 @@ impl Engine {
         &self.extra_dictionaries
     }
 
-    /// 查词用的全部词库：主词库、附加词库、用户词。
+    /// 查词用的全部词库：主词库、附加词库、内置的符号与 emoji 名字、用户词。
     pub(super) fn all_dictionaries(&self) -> Vec<&Dictionary> {
         let mut all = Vec::with_capacity(self.extra_dictionaries.len() + 2);
         all.push(&self.dictionary);
         all.extend(self.extra_dictionaries.iter());
+        all.extend(self.companion_words);
         if let Some(user) = self.learner.user_words() {
             all.push(user);
         }
         all
     }
 
-    /// 全部词库的词频之和，词频归一化成概率时用。
+    /// 全部词库的词频之和，词频归一化成概率时用。补充词库不算：它的词频是按主词库换算过来的，
+    /// 算进去会把所有兜底打分一起压低。
     pub(super) fn total_frequency(&self) -> u64 {
         self.all_dictionaries()
             .iter()
+            .filter(|d| !d.is_secondary())
             .map(|d| d.total_frequency())
             .sum()
     }

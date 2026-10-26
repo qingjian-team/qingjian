@@ -6,12 +6,13 @@ mod state;
 #[cfg(test)]
 mod tests;
 
+use qingjian_render::ThemeLibrary;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant, SystemTime};
 
 use qingjian_core::{Engine, Language, NoGlossFiller, NoPredictor, NoTranslator};
-use qingjian_platform::{Config, code_tables};
-use qingjian_predict::{CloudGlossFiller, CloudPredictor, PredictConfig};
+use qingjian_platform::Config;
+use qingjian_predict::{API_USAGE_FILE, CloudGlossFiller, CloudPredictor, PredictConfig};
 
 pub(super) use self::state::ConfigReload;
 pub use self::state::DataDirs;
@@ -30,30 +31,34 @@ fn mtime(path: &Path) -> Option<SystemTime> {
         .ok()
 }
 
-/// 按 `[predict]` 接云联想与释义兜底；关着或缺密钥就退回本地实现。启动与热加载共用。
-pub fn attach_cloud(engine: &mut Engine, predict: &PredictConfig) {
-    if !predict.enabled {
+/// 按 `[predict]` 接云联想、整句候选翻译与释义兜底；关着或缺密钥就退回本地实现。启动与热加载共用。
+pub fn attach_cloud(engine: &mut Engine, predict: &PredictConfig, usage_path: Option<PathBuf>) {
+    if !predict.enabled && !predict.sentence_translation {
         tracing::info!("云联想未开启（[predict] enabled = false）");
         engine.set_predictor(Box::new(NoPredictor));
         engine.set_gloss_filler(Box::new(NoGlossFiller));
         return;
     }
-    match CloudPredictor::new(predict) {
+    match CloudPredictor::new_with_usage(predict, usage_path.clone()) {
         Ok(predictor) => {
             engine.set_predictor(Box::new(predictor));
-            tracing::info!(model = %predict.model, "云联想已接入");
+            tracing::info!(model = %predict.model, cloud = predict.enabled, sentence_translation = predict.sentence_translation, "云联想已接入");
         }
         Err(error) => {
             tracing::warn!(%error, "云联想接入失败（缺 API key？），退回本地候选");
             engine.set_predictor(Box::new(NoPredictor));
         }
     }
-    match CloudGlossFiller::new(predict) {
-        Ok(filler) => engine.set_gloss_filler(Box::new(filler)),
-        Err(error) => {
-            tracing::warn!(%error, "释义兜底未启用");
-            engine.set_gloss_filler(Box::new(NoGlossFiller));
+    if predict.enabled {
+        match CloudGlossFiller::new_with_usage(predict, usage_path) {
+            Ok(filler) => engine.set_gloss_filler(Box::new(filler)),
+            Err(error) => {
+                tracing::warn!(%error, "释义兜底未启用");
+                engine.set_gloss_filler(Box::new(NoGlossFiller));
+            }
         }
+    } else {
+        engine.set_gloss_filler(Box::new(NoGlossFiller));
     }
 }
 
@@ -120,6 +125,7 @@ impl Router {
     ) {
         let last_mtime = mtime(&config_path);
         let code_files = dirs.code_snapshot();
+        let code_word_files = dirs.code_word_snapshot();
         let dictionary_files = dirs.dict_snapshot();
         let updates = dirs.user_root.as_deref().map(|dir| {
             qingjian_update::Checker::new(dir.join(UPDATE_STATE_FILE), env!("CARGO_PKG_VERSION"))
@@ -130,6 +136,7 @@ impl Router {
             root,
             dirs,
             code_files,
+            code_word_files,
             last_mtime,
             applied_predict: config.predict.clone(),
             applied_dictionaries: config.dictionaries.clone(),
@@ -162,17 +169,34 @@ impl Router {
                 .set_extra_dictionaries(reload.load_dictionaries());
             reload.dictionary_files = files;
         }
+        // 用户主题文件改了：戳变了设置就不等，UI 线程重读主题当场换上（边改主题边看效果）
+        if let Some(dir) = qingjian_platform::dirs::themes_dir() {
+            let stamp = ThemeLibrary::stamp(&dir);
+            if stamp != self.config.themes_stamp {
+                self.config.themes_stamp = stamp;
+                self.candidates.configure(self.config.render_settings());
+            }
+        }
+        let Some(reload) = &mut self.reload else {
+            return;
+        };
         let config_changed = {
             let current = mtime(&reload.config_path);
             let changed = current != reload.last_mtime;
             reload.last_mtime = current;
             changed
         };
-        // 用户 `codes/` 下的文件增删或更新（设置页刚导入 / 移除一张码表）：不必等配置改动，下一拍就生效
+        // 用户 `codes/` 或 `schemes/` 下的文件增删或更新（设置页刚导入 / 移除一张码表、改了辅码方案）：不必等配置改动，下一拍就生效
         let codes_changed = {
             let current = reload.dirs.code_snapshot();
             let changed = current != reload.code_files;
             reload.code_files = current;
+            changed
+        };
+        let words_changed = {
+            let current = reload.dirs.code_word_snapshot();
+            let changed = current != reload.code_word_files;
+            reload.code_word_files = current;
             changed
         };
         let path = reload.config_path.clone();
@@ -180,6 +204,9 @@ impl Router {
             self.reload_aux_codes();
         }
         if !config_changed {
+            if words_changed && let Ok(config) = Config::load(&path) {
+                self.reload_schemes(&config);
+            }
             return;
         }
         match Config::load(&path) {
@@ -194,9 +221,16 @@ impl Router {
     /// 应用新配置。学习语言变了换释义表（词汇等级表启动时已全装，不用换）。
     fn apply_config(&mut self, config: &Config) {
         self.engine.set_fuzzy(config.fuzzy);
+        // Windows 端此前漏装 custom_phrases（macOS 端 apply_config 有）；失败只记日志，保持原短语
+        if let Err(error) = self
+            .engine
+            .set_custom_phrases(config.custom_phrases.clone())
+        {
+            tracing::warn!(%error, "自定义短语配置未应用，保持原短语");
+        }
         // 拼音侧与形码侧一起装配（双拼 / 注音 / 混输都在里面）
-        self.reload_code_table(config.general.scheme(), config.general.wubi());
-        self.engine.set_traditional_mode(config.general.traditional);
+        self.reload_schemes(config);
+        self.engine.set_traditional(config.general.traditional());
         self.engine.set_learning(config.general.learning);
         self.engine.set_mode_keys(config.shortcut.mode);
         self.engine
@@ -205,13 +239,40 @@ impl Router {
             .set_aux_keep_empty(config.general.aux_code_keep_empty);
         self.engine.set_aux_enabled(config.aux_code.enabled);
         self.engine.set_aux_show(config.general.aux_code_show);
+        self.engine.set_show_tones(config.general.show_tones);
         self.engine.set_chinese_first(config.general.chinese_first);
         self.engine
+            .set_emoji_limit(usize::from(config.general.emoji.get()));
+        self.engine
+            .set_kaomoji_limit(usize::from(config.general.kaomoji.get()));
+        self.engine
+            .set_symbol_limit(usize::from(config.general.symbols.get()));
+        self.engine
+            .set_english_in_chinese(config.general.english_in_chinese);
+        self.engine
+            .set_english_max_in_chinese(config.general.english_max_in_chinese());
+        self.engine
+            .set_english_min_position(config.general.english_min_position());
+        self.engine
             .set_shift_letter_compose(config.general.shift_letter.compose());
+        self.engine.set_auto_space(config.general.auto_space);
         self.engine
             .set_shuangpin_raw_preedit(config.general.shuangpin_raw_preedit);
+        self.engine
+            .set_hold_selections(config.general.hold_selections);
+        self.engine
+            .set_context_memory(config.model.context_memory_seconds);
         let previous = self.config.render_settings();
-        self.config = RouterConfig::from(config);
+        let grid_keys = self.config.grid_keys();
+        let next = RouterConfig::from(config);
+        self.reload_mode(&next);
+        let themes_stamp = self.config.themes_stamp;
+        self.config = next;
+        self.config.themes_stamp = themes_stamp;
+        // 矩阵这套键不生效了（排布切走 / 开关关掉）：展开着的矩阵收回去，等下一帧照单行画
+        if grid_keys && !self.config.grid_keys() {
+            self.collapse_grid();
+        }
         let settings = self.config.render_settings();
         if settings != previous {
             self.candidates.configure(settings);
@@ -224,7 +285,12 @@ impl Router {
         };
         reload.update = config.update.clone();
         if config.predict != reload.applied_predict {
-            attach_cloud(&mut self.engine, &config.predict);
+            let usage_path = reload
+                .dirs
+                .user_root
+                .as_ref()
+                .map(|dir| dir.join(API_USAGE_FILE));
+            attach_cloud(&mut self.engine, &config.predict, usage_path);
             reload.applied_predict = config.predict.clone();
         }
         let language = assembly::learning_language(config);
@@ -254,11 +320,7 @@ impl Router {
         let Some(reload) = &self.reload else {
             return;
         };
-        let tables = code_tables::load(
-            reload.dirs.bundled_codes.as_deref(),
-            reload.dirs.user_codes.as_deref(),
-            &reload.applied_aux_code,
-        );
+        let tables = reload.dirs.aux_sources().load(&reload.applied_aux_code);
         if let Some(reload) = &mut self.reload {
             reload.code_files = reload.dirs.code_snapshot();
         }

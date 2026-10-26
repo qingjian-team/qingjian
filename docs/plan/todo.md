@@ -41,6 +41,11 @@
   个人 n-gram 已做（二元 + 三元），「按应用分别记」看用起来的效果再说
 - [ ] 释义兜底收尾：已做（2026-09-06，只对上屏的词库词 / 云端词查，个人释义表 `user-glossary-<语言>.tsv`）；还可以考虑停顿后高亮的候选也查、
   偏好设置里看 / 清个人释义表、导入词库时批量预填
+- [ ] 本地整句模型的结果偶尔赶不上空格（Linux，2026-10-16）：FreeBSD 端到端 Plasma · Firefox 的 `firefoxliulanqi`，修「只认最新请求」前 8 遍里 2 遍、修后 9 遍里 1 遍
+  按空格时整句还没换上来（上屏「勠」）；同一台虚拟机里生成只要 100–136 ms，不是慢。要 Server 的调试日志才看得清时序，见下一条
+- [ ] Linux Server 的日志级别写死成 info（`main.rs` 的 `with_env_filter("info")`），配置里的 `log_level = "debug"` 不起作用
+- [ ] 本地整句模型的同步 / 异步结果不完全一致（2026-10-16 用 docs/user 抽的 635 句量：首选一致 629、候选列表完全一致 582，差在第 2 位以后）；
+  neural-rescoring.md 记的是 300 句逐句一致。修「只认最新请求的结果」前后都是这个数，不是它引入的；先查是缓存条件还是生成时机
 - [ ] 候选窗口里超长释义要截断（CEDICT 表时 你 那条能拉到整屏宽；LLM 表已短，仍要兜底）
 - [ ] 翻译选中文字：译文很长时候选窗口的折行（读不到选区的提示已做）
 - [ ] 英文模式候选：把数据包的误拼对照表（typos，10 万对）喂进纠正，技术词（kubectl）没有 wordfreq 词频要给底值，两处编辑的纠正
@@ -49,9 +54,11 @@
 - [ ] 快捷短语（`i` 前缀）：编码 → 短语表，用户可增删
 - [ ] 问字模式离线版：拆字表（IDS 数据）按部件查字，云端版已有
 - [ ] 双拼收尾：菜单栏增加方案切换
-- [ ] 双拼方案数据化：加方案不用改代码（放一张键位表就能用，与 #51 的方案导入一起定）；解码支持同码出多个读音——小浪的 `lk`（lai / lia）、`nm`（niang / nen）、`dk`（dai / dia）、`un`（en / eng）现在只解第一个，做完去掉 `every_syllable_round_trips` 里小浪的四个例外（#129）
+- [x] 双拼方案数据化：用户在 `schemes/<id>/scheme.toml` 写 `type = "shuangpin"` 就是一套方案，可拿内置方案当底子只改几个键（2026-10-20，Linux 未接）
+- [ ] 双拼解码支持同码出多个读音——小浪的 `lk`（lai / lia）、`nm`（niang / nen）、`dk`（dai / dia）、`un`（en / eng）现在只解第一个，做完去掉 `every_syllable_round_trips` 里小浪的四个例外（#129）
 - [ ] 辅码（issue #8，设计见 [docs/design/aux-code.md](../design/aux-code.md)）：触发键（缺省 `;`，与「非拼音键进直输段 / 全角标点」排优先级）与逐键即筛、词级过滤、辅码态隐藏无码词；码表走 Rime yaml 导入（`columns` 必须解析、`import_tables` 跨文件合表、「有词无码」行要报警）；码表存**独立码索引**（两段式查询，别复用词库 Slot）；
   原生表只带笔画（CNS11643 笔顺 + 大陆序覆盖表 `dict-convert stroke`，艹 3 / 辶 3 / 阝 2）；设置界面加「辅码」页（macOS 偏好设置 / Windows 设置程序：触发键、显示码、码表列表、导入）；第三方形码表（小鹤形 / 自然码形）不随包，走引导导入
+  - [ ] 整句 + 辅码：辅码态现在只出词候选，整句不出（`dongguaxigua;ppph` 拿不到「冬瓜西瓜」）；要做得把码逐字约束进整句词图（设计文档「后续」）。2026-10-20 用户定先不做
 - [ ] 敲错边收尾：敲错四类代价与整段纠错代价 2026-09-12 已在冻结日志（12886 条可评）上扫过，都在峰上，不改（`docs/notes/constant-sweep.md`）；
   个人折扣上限（3）回放从零学分不出好坏，等 `user-typos.tsv` 能带进回放（`--user-dict`）再看；
   退格重打（组句内、跨上屏）已进输入日志 `retype` 事件（2026-09-12），攒够后先按 `docs/plan/model-eval.md` 的尺子算召回与误纠率，再决定喂不喂个人敲错表；
@@ -65,7 +72,7 @@
 - [x] 中英混杂词与英文专名（2026-09-15）：`assets/lexicon/mixed_words.tsv`（C盘 / B站 / U盘 / T恤 / A股…，`cpan`→C盘，`youpan`→U盘，
   可进整句 `wozaibzhan`→我在B站）；`dict-convert english` 同编码优先大写专名（Windows ≠ windows），`07_display_forms.tsv` 补 VSCode / Bilibili 等；
   产品 `dict.tsv` / `english.tsv` 已更新。句中英文仍只支持句末尾段，见「中英混输」。
-- [ ] 按输入串记的选择只认字面：`wod` 下选的 我的 惠及不到 `wode`；考虑同时按候选全拼记一份、查询取两者最大
+- [x] 按输入串记的选择只认字面：已按「候选全拼记一份、查询取两者最大」做了（`user-choices.tsv` 字面键 + 读音键各一份；读音键只在当前输入是读音前缀且不少于两个字母时参与，简拼不带全拼的选择；英文词位置的仲裁只按字面键）
 - [ ] 已经学进用户词的错读音云端词（`我的 wo di`、`我的哦 wo di e` 这类）没有清理入口：偏好设置词库页给「按读音核对用户词」，或一次性脚本
 - [ ] 正式版前的发布可信性（2026-09-12 外部 CI 检查，测试版先不做）：产品数据改不可变 tag 并在仓库锁版本 + SHA（2026-09-16 已做：`data-vN` Release + `tools/release/data.lock` + `data-fetch.sh`）；
   安装包内容验证（pkg / Setup.exe 里词库、模型、许可齐不齐，`codesign --verify` / `signtool verify`）；`cargo deny`（许可证 + 来源）；`.qj` 读取器越界 fuzz、`qingjian-format` 跑 Miri
@@ -73,14 +80,22 @@
   重排改了切分时应用里的行内拼音要到下一键才更新；日语
 - [ ] 个人微调（LoRA 挂在冻结基模上，基模更新后拿本地日志重训）：先在 train 仓库验证收益，再验 candle CPU 训练能不能跑通，都过了才进壳
   （闲时门禁、加载时合并权重、开关与一键清除）；每个模型假设先按 `docs/plan/model-eval.md` 写尺子与基线
+- [ ] 通变按当前词库重标拼音重训：训练用的旧词库没有 嗯 / 诶 / 囧，字表里也就没有，带这几个字的路径现在整批不重排（`enen` 靠静态模型出 嗯嗯）
+- [x] 个人英文词表没有衰减（2026-09-24 发现）：用户词频 / 个人英文词 / 敲错表三张表已加牛顿冷却时间衰减
+  （半衰期 90 天，`--tune decay-days=` 可调，0 为不衰减），冷却只压排序权重，记录保留、冷满一年才在落盘时清出，
+  30 天不用的英文词失去「当第一」的资格；自愈出口仍是删候选（0.3 起在候选右键菜单里）走 `forget_english`。
+  「位置只有两档」另见 #606。
 - [ ] 日语 emoji 要等有日语输入模式
+- [ ] 人名输入（2026-10-20 用户群反馈，对照微软拼音）：一串拼音像人名时，第一个音节先按姓氏匹配、不当词语查；
+  首字是「长」「令」「欧」这类时再看第二字能不能凑成复姓（长孙、令狐、欧阳），剩下的按名字常用字表组合。
+  要两张表（姓氏含复姓、名字常用字频），来源要许可干净；什么时候按人名排、怎么不挤掉普通词要先定，改了排序过回放
 
 ## 二、产品特色
 
 - [ ] 释义表收尾：覆盖面再扩（次数阈值降到 100 约 10 万词）；JMdict 校对假名与日文词性；等级表（CEFR / JLPT 已随包，见 `assets/levels/`）
   也可做英→中、日→中方向的种子；四六级 / 商务英语词表要先找到许可干净的来源
 - [ ] 可选复习（Phase 4）：输入统计、生词识别、词汇统计（含 CEFR / JLPT 等级分布）已做（2026-09-06）；复习容易变成打扰，先不急
-- [ ] 云联想收尾（Phase 6）：密钥进钥匙串（等签名定了再做，ad-hoc 签名每次重装都弹授权）、按应用禁用、限流与用量统计
+- [ ] 云联想收尾（Phase 6）：密钥进系统密钥库——mac 钥匙串、Windows 凭据管理器（等签名定了再做，ad-hoc 签名每次重装都弹授权；安卓已用 Keystore，见 `docs/notes/android.md`）、按应用禁用、限流与用量统计
 - [ ] 个人模型（Phase 7）：小 Transformer 实验（有评测门槛），见 roadmap
 
 - [ ] ★ **主题与自绘渲染器 spike**（2026-09-13 定向，分支 `renderer-spike`，见 [design/rendering.md](../design/rendering.md)）：
@@ -103,7 +118,7 @@
     状态条自己一个窗口类 + 窗口过程（`ui/status/`）：`WM_NCHITTEST`→`HTCAPTION` 整块可拖、`WM_MOUSEACTIVATE`→`MA_NOACTIVATE` 不抢焦点、
     `WM_EXITSIZEMOVE` 把位置写回 `[status_bar] x/y`（`GWLP_USERDATA` 存自身指针）。新增协议 `ClientMessage::ModeChanged{english}`（fire-and-forget），
     DLL 在 `update_mode_indicator` 推模式；Server 据此刷、会话关就收起；双拼方案 Server 从 `[general] shuangpin` 知道。配置加 `[status_bar]` 分节（`enabled`/`x`/`y`），
-    设置「候选窗口」页加开关。参考水杉 FTB 形态（它用 D2D 且不记位置），我们沿用 GDI 分层窗保持视觉一致并加了记位置。
+    设置「候选窗口」页加开关。沿用 GDI 分层窗保持视觉一致，并记住位置。
     mac 全绿（+3 状态条分派测试）+ windows-gnu 交叉编译 / clippy 过；拖动 / 记位置 / DPI / 深色 / 盖高 z-band 待真机验。
   - [~] **④ 删候选屏幕提示**（★☆☆ / 低 / 0.5 天）：**代码完成，待真机测**（2026-09-11）。
     `Frame` 加 `notice: Option<String>`（不参与 `is_empty`），`dispatch/shortcut.rs::forget_on_page` 填、`handle_key` 开头清（只活到下一次按键）；
@@ -111,6 +126,8 @@
   - [~] **⑤ 任务栏点中/英反同步**（★☆☆ / 低 / 0.5 天）：**代码完成，待真机测**（2026-09-11）。
     激活时对转换模式 compartment 挂 `ITfCompartmentEventSink`（`com/conversion.rs`），`OnChange` 读回 `NATIVE` 位、与当前模式不同才翻转
     （防回环），顺带刷指示器 + 上报 Server 让悬浮状态条也同步。纯 DLL 改动、无新协议。
+  - [~] **符号面板**：代码完成，待真机测（2026-10-13）。这一版原生画（Direct2D，彩色 emoji），下一版换 qingjian-render；
+    按键与鼠标同 macOS，入口在悬浮状态条「符」格与托盘中 / 英图标的右键菜单。
   - [ ] 发版：换 **Certum 开源代码签名证书**重签（开发全程自签 + 本机受信任根，见 `installer/sign-local.ps1`）、
     `windows-v<版本>` 标签与 CI。
   - [ ] **本地整句模型上 Windows**：Server 已接（`dispatch/rescore/`，CPU 推理，设置「云服务」页有开关，安装包带 `data\model`），待真机验：每次重排的耗时（前文 + 几条路径一次前向，CPU 上可能几十到一百多毫秒，超了就缩前文长度）、模型加载时间；
@@ -119,9 +136,32 @@
     data Release 传 `model.qjm`，bundle.sh / qingjian.iss 只带一个文件），待 mac 与 box 真机各装一次验加载与重排；
     密码框已按 TSF 规范做（2026-09-12）：`KEYBOARD_DISABLED` compartment 整键放行不组句，`IS_PRIVATE` / 密码 / PIN 输入范围为私密（组句但不学不记不发云端，`ClientMessage::Privacy` → `Engine::set_private`），box 真机验过：Edge 密码框整键放行；InPrivate 网页文本框报 `IS_SEARCH` 不报 `IS_PRIVATE`，私密路径只靠单测覆盖；CI 两个 job 都从 `data` Release 取 `model.qjm`（已做）。
 - [ ] Linux Fcitx5 后续（默认面板与手动安装已实现）：native Wayland 验证、Server 自绘 / GNOME 位图、神经重排、自动启动与打包；配置同步、跨平台词库
+- [~] Linux 双框架（装的时候认 fcitx5 还是 IBus，两个都支持）：IBus 前端 `apps/linux/ibus` 已能用——
+  socket 客户端、按键翻译、D-Bus 层（按键 / 焦点 / 重置 / 面板三样）都通了，对着真 ibus-daemon 验过。还差：
+  - 密码框与私密输入：`SetContentType` 的映射写了但**没验过**（测试里 IBus 一次都没调它），要找个真密码框试；验法见 [notes/linux-dual-frontend.md](../notes/linux-dual-frontend.md)
+  - 按应用设置：IBus 这条路上还没拿到应用标识，`OpenSession` 的 `app` 报 `None`，`[apps]` 分节对它不生效
+  - ~~`focus_out` 的 `client_preedit`~~：2026-10-15 改报 `true`，preedit 用 COMMIT 模式由框架留在原来的框里（X11）；
+    GNOME Wayland 上改在快捷键交给应用前先原样上屏，鼠标换框仍会丢，见 [notes/linux-bringup.md](../notes/linux-bringup.md)
+  - ~~安装脚本按已装框架分支安装、Server 的启动策略~~：`install.sh --frontend auto` 已做，systemd 用户单元 `qingjian-server.service` 随装（`--enable-service` 顺手 enable），两个前端共用一个 Server
+  - `[general] preedit` 三档在 IBus 面板下逐个真机验（它的面板能力比 fcitx5 弱），坑见 [notes/linux-bringup.md](../notes/linux-bringup.md)
+- [ ] 设置项的平台缺口（设置程序 `apps/settings/src/support/` 表里标「待实现」的项，输入法接上之前设置里不显示；测试逐条对照这里）：
+  - [ ] 辅码：Linux
+  - [ ] 形码与自定义方案：Linux
+  - [ ] 默认英文模式：macOS
+  - [ ] 按应用记住中英模式：macOS、Linux
+  - [ ] 中文与英文、数字之间自动加空格：Linux
+  - [ ] 横排时 ↑ / ↓ 展开成多行：Linux
+  - [ ] 额外翻页键：Linux
+  - [ ] 高亮移动键：Linux
+  - [ ] Ctrl + . 切换全半角标点：Linux
+  - [ ] 双拼键位提示：Linux
+  - [ ] 拼音行显示声调：Linux
+  - [ ] 实验功能（知意、含章·知微）：Linux
 
 ## 四、其他输入方案
 
 - [ ] 五笔（86 版）：方案与分期见 [wubi.md](wubi.md)，第一期 Core + CLI + Windows；
   `[general] scheme` 收敛与配置迁移一起做（顺带解掉〇里的「配置文件版本迁移」）
+- [ ] 自定义形码方案：Core / 平台 / CLI / Windows / macOS / 新版设置程序已做（2026-10-20，见 [wubi.md](wubi.md) 五之三），
+  剩 Windows 与 macOS 真机验顶字和满码自动上屏、Linux 壳接形码
 - [ ] 复杂方案收尾（与上一条共用「输入方案」抽象）：注音只在 Core 与 Windows 接了，macOS 侧还没接；双拼的方案切换要等 `[general] scheme`

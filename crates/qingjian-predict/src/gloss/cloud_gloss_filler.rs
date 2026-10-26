@@ -1,7 +1,9 @@
+use std::path::PathBuf;
 use std::sync::mpsc::{self, Receiver, Sender};
 
-use qingjian_core::{FilledGloss, GlossFiller, Language};
+use qingjian_core::{Encounter, FilledGloss, GlossFiller, Language};
 
+use super::phrase_worker::PhraseWorker;
 use super::worker::GlossWorker;
 use crate::chat_client::ChatClient;
 use crate::config::PredictConfig;
@@ -14,17 +16,33 @@ pub struct CloudGlossFiller {
 
     /// 从后台线程收释义。
     responses: Receiver<FilledGloss>,
+
+    /// 往整段翻译线程送中文；`[predict] vocabulary_translation` 关着为 `None`，线程也不起。
+    phrases: Option<Sender<(Language, String)>>,
+
+    /// 从整段翻译线程收译文。
+    translations: Receiver<Encounter>,
 }
 
 impl CloudGlossFiller {
     /// 与云联想共用一份配置（接口、模型、密钥、超时）；没有密钥直接报错，壳退回 [`qingjian_core::NoGlossFiller`]。
     pub fn new(config: &PredictConfig) -> Result<Self, PredictError> {
+        Self::new_with_usage(config, None)
+    }
+
+    /// 将实际请求和接口用量累计到壳指定的本机文件。
+    pub fn new_with_usage(
+        config: &PredictConfig,
+        usage_path: Option<PathBuf>,
+    ) -> Result<Self, PredictError> {
         let api_key = config
             .resolve_api_key()
             .ok_or_else(|| PredictError::MissingApiKey(config.api_key_env.clone()))?;
-        let client = ChatClient::new(config, api_key);
+        let client = ChatClient::new(config, api_key).with_usage(usage_path);
         let (requests, request_rx) = mpsc::channel();
         let (response_tx, responses) = mpsc::channel();
+        let (translation_tx, translations) = mpsc::channel();
+        let client_for_phrases = client.clone();
         let worker = GlossWorker::new(request_rx, response_tx, client);
         std::thread::Builder::new()
             .name("qingjian-gloss".to_owned())
@@ -33,10 +51,26 @@ impl CloudGlossFiller {
                     tracing::error!(%error, "释义兜底线程退出");
                 }
             })?;
+        let phrases = if config.vocabulary_translation {
+            let (phrases, phrase_rx) = mpsc::channel();
+            let phrase_worker = PhraseWorker::new(phrase_rx, translation_tx, client_for_phrases);
+            std::thread::Builder::new()
+                .name("qingjian-phrase".to_owned())
+                .spawn(move || {
+                    if let Err(error) = phrase_worker.run() {
+                        tracing::error!(%error, "整段翻译线程退出");
+                    }
+                })?;
+            Some(phrases)
+        } else {
+            None
+        };
         tracing::info!("释义兜底已启用");
         Ok(Self {
             requests,
             responses,
+            phrases,
+            translations,
         })
     }
 }
@@ -51,5 +85,18 @@ impl GlossFiller for CloudGlossFiller {
     fn poll(&mut self) -> Vec<FilledGloss> {
         // Empty 与 Disconnected 都当没有：线程退出时已经记过日志
         self.responses.try_iter().collect()
+    }
+
+    fn translate(&mut self, language: Language, text: &str) {
+        let Some(phrases) = &self.phrases else {
+            return;
+        };
+        if phrases.send((language, text.to_owned())).is_err() {
+            tracing::warn!("整段翻译线程已退出，请求被丢弃");
+        }
+    }
+
+    fn poll_translations(&mut self) -> Vec<Encounter> {
+        self.translations.try_iter().collect()
     }
 }

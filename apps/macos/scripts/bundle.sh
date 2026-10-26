@@ -4,6 +4,7 @@
 #   scripts/bundle.sh            # 只打包到 target/Qingjian.app
 #   scripts/bundle.sh --install  # 打包并安装到 ~/Library/Input Methods/，杀掉旧进程（开发用）
 #   scripts/bundle.sh --pkg      # 打包并做成 target/pkg/qingjian-<版本>-macos-<arm64|x86_64>.pkg（分发给测试者）
+# --install / --pkg 用完 target/Qingjian.app（与 pkg 暂存目录里那份）就删掉并从 LaunchServices 注销，见 forget_bundle。
 #
 # 架构：缺省编译本机架构；QINGJIAN_TARGET=x86_64-apple-darwin（或 aarch64-apple-darwin）交叉编译另一种，
 # 先 `rustup target add` 一次。CI 在 Apple Silicon runner 上两个都打（.github/workflows/release.yml）。
@@ -15,8 +16,9 @@
 #   QINGJIAN_INSTALLER_IDENTITY  "Developer ID Installer: …"     给 .pkg 签名
 #   QINGJIAN_NOTARY_PROFILE      notarytool store-credentials 存的 keychain profile 名，设了就公证并钉票据
 #
-# 首次 --install 后要在「系统设置 → 键盘 → 输入法」里添加「青简」；输入法列表不刷新就注销再登录。
-# pkg 装的不用：postinstall 会以登录用户身份跑 `qingjian-macos --register` 注册并启用。
+# 首次 --install 后注销再登录一次（系统在登录时才刷新输入法列表），菜单里还没有再到「系统设置 → 键盘 → 输入法」里添加「青简」。
+# pkg 装的由 postinstall 以登录用户身份跑 `qingjian-macos --register` 注册并启用；菜单里仍没有青简时同样先注销重登
+# （macOS 27 上两种装法都要这一步，见 docs/notes/crate-notes.md 的 apps/macos 一节）。
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
@@ -37,8 +39,9 @@ cd "$ROOT"
 # 构建标识进「关于」页与诊断信息：git 短哈希（工作区有改动加 +）与日期；编译期 option_env! 读
 GIT_REV="$(git rev-parse --short HEAD 2>/dev/null || echo unknown)"
 if [[ -n "$(git status --porcelain 2>/dev/null)" ]]; then GIT_REV="${GIT_REV}+"; fi
-export QINGJIAN_BUILD="${GIT_REV} · $(date +%Y-%m-%d)"
-BUILD_ARGS=(-p "$BIN_NAME" --locked)
+QINGJIAN_BUILD="${GIT_REV} · $(date +%Y-%m-%d)"
+export QINGJIAN_BUILD
+BUILD_ARGS=(-p "$BIN_NAME" -p qingjian-settings --locked)
 [[ "$PROFILE" == "release" ]] && BUILD_ARGS+=(--release)
 BIN_DIR="target/$PROFILE"
 if [[ -n "$TARGET" ]]; then
@@ -51,6 +54,12 @@ rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN_DIR/$BIN_NAME" "$APP/Contents/MacOS/$BIN_NAME"
 cp apps/macos/Info.plist "$APP/Contents/Info.plist"
+# 设置程序是独立的 .app（有自己的 Dock 图标与名字），装在输入法包里，菜单「设置…」用 open 打开它；
+# 随包数据它从外层 Qingjian.app 的 Resources 读（apps/settings/src/system/paths.rs）
+SETTINGS_APP="$APP/Contents/Applications/QingjianSettings.app"
+mkdir -p "$SETTINGS_APP/Contents/MacOS" "$SETTINGS_APP/Contents/Resources"
+cp "$BIN_DIR/qingjian-settings" "$SETTINGS_APP/Contents/MacOS/qingjian-settings"
+cp apps/settings/macos/Info.plist "$SETTINGS_APP/Contents/Info.plist"
 # 版本号来自 apps/macos/Cargo.toml（各平台壳版本号独立，不跟 workspace 走），构建号用提交数（单调递增，pkg 升级判断靠它）。
 # 发版之间版本号带 -dev（0.1.2-dev）：本地与 CI 中间构建一眼能与线上包区分；发版提交去掉 -dev 再打标签（docs/notes/release.md）。
 # 开发版再接上 git 短哈希（0.1.3-dev-1a2b3c4，工作区有改动加 +），测试时一眼知道装的是哪个提交；Cargo.toml 里仍只写 -dev。
@@ -61,6 +70,10 @@ PKG_VERSION="${VERSION%%-*}"
 BUILD_NUMBER="$(git rev-list --count HEAD 2>/dev/null || echo 1)"
 /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" \
   -c "Set :CFBundleVersion $BUILD_NUMBER" "$APP/Contents/Info.plist"
+SETTINGS_VERSION="$(sed -n 's/^version = "\(.*\)"/\1/p' apps/settings/Cargo.toml | head -1)"
+if [[ "$SETTINGS_VERSION" == *-dev ]]; then SETTINGS_VERSION="${SETTINGS_VERSION}-${GIT_REV}"; fi
+/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $SETTINGS_VERSION" \
+  -c "Set :CFBundleVersion $BUILD_NUMBER" "$SETTINGS_APP/Contents/Info.plist"
 # 卸载脚本随包，装了 pkg 的用户从 Resources 里运行
 cp apps/macos/scripts/uninstall.sh "$APP/Contents/Resources/uninstall.sh"
 # 输入源名字按系统语言本地化（中文系统显示「青简」，其他显示 Qingjian）
@@ -72,14 +85,19 @@ cp assets/sample/*.tsv "$APP/Contents/Resources/"
 cp assets/emoji/*.tsv "$APP/Contents/Resources/"
 # 词汇等级表（CEFR-J / Octanove / JLPT，见 assets/levels/README.md），「统计」页按级数词汇
 cp assets/levels/levels-*.tsv "$APP/Contents/Resources/"
-# 五笔码表（输入方案选五笔时用，见 assets/wubi/README.md；极点 86 码表，Apache-2.0）
-mkdir -p "$APP/Contents/Resources/wubi"
-cp assets/wubi/wubi86.tsv "$APP/Contents/Resources/wubi/"
+# 随包形码方案（五笔，见 assets/schemes/wubi86/README.md；极点 86 码表，Apache-2.0）：每套只拷 scheme.toml 与码表
+for scheme in assets/schemes/*/; do
+  name=$(basename "$scheme")
+  mkdir -p "$APP/Contents/Resources/schemes/$name"
+  cp "$scheme"scheme.toml "$scheme"table.tsv "$APP/Contents/Resources/schemes/$name/"
+done
 if [[ -f data/generated/dict.tsv || -f data/generated/dict.qj ]]; then
   # 词库与语言模型打成 .qj（mmap 直接用），TSV 比 .qj 新时重新打包；只有 .qj（CI 从数据包解出来的）就直接用
-  if [[ -f data/generated/dict.tsv && ( ! -f data/generated/dict.qj || data/generated/dict.tsv -nt data/generated/dict.qj ) ]]; then
+  # dict-cleaned.tsv 是青简词库已清洗的部分，pack dict 缺省与 dict.tsv 合成一份
+  if [[ -f data/generated/dict.tsv && ( ! -f data/generated/dict.qj || data/generated/dict.tsv -nt data/generated/dict.qj \
+        || ( -f data/generated/dict-cleaned.tsv && data/generated/dict-cleaned.tsv -nt data/generated/dict.qj ) ) ]]; then
     cargo run --release -q -p qingjian-dict-convert -- pack dict --name "青简基础词库" \
-      --license "MIT AND Unicode-3.0" --attribution "通用规范汉字表；现代汉语常用词表（liuxilu 校对版）；THUOCL（清华大学自然语言处理实验室，MIT）；读音 Unihan（Unicode）" \
+      --license "MIT AND Unicode-3.0 AND GPL-3.0-or-later" --attribution "通用规范汉字表；现代汉语常用词表（liuxilu 校对版）；THUOCL（清华大学自然语言处理实验室，MIT）；读音 Unihan（Unicode）；青简词库（GPL-3.0-or-later）" \
       --source https://github.com/qingjian-team/qingjian/tree/main/assets/lexicon
   fi
   if [[ -f data/generated/lm-bigram.tsv && ( ! -f data/generated/lm.qj || data/generated/lm-bigram.tsv -nt data/generated/lm.qj ) ]]; then
@@ -93,26 +111,37 @@ if [[ -f data/generated/dict.tsv || -f data/generated/dict.qj ]]; then
     cp data/generated/dicts/*.qj "$APP/Contents/Resources/dicts/"
   fi
   [[ -f data/generated/lm.qj ]] && cp data/generated/lm.qj "$APP/Contents/Resources/"
-  # 本地整句模型（字级 Transformer）：训练仓库 ../train 导出三件套到 data/model/，tools/release/pack-model.sh 打成 model.qjm，
-  # 随包只带这一个文件放 Resources/model/（三件套比 .qjm 新就重打）；什么都没有就不重排
-  model_dir="${QINGJIAN_MODEL_DIR:-data/model}"
-  if [[ -f "$model_dir/model.safetensors" ]]; then
-    QINGJIAN_MODEL_DIR="$model_dir" tools/release/pack-model.sh
+  # 随包辅码码表（笔画，CNS11643 筆順資料派生，需署名）放 Resources/codes/，与 Windows 的 data\generated\codes 同一份
+  if ls data/generated/codes/*.qj >/dev/null 2>&1; then
+    mkdir -p "$APP/Contents/Resources/codes"
+    cp data/generated/codes/*.qj assets/stroke/LICENSE-CNS11643.txt "$APP/Contents/Resources/codes/"
   fi
-  if [[ -f "$model_dir/model.qjm" ]]; then
-    mkdir -p "$APP/Contents/Resources/model"
-    cp "$model_dir/model.qjm" "$APP/Contents/Resources/model/"
-    chmod 644 "$APP/Contents/Resources/model/model.qjm"
-    echo "打包本地整句模型：$model_dir/model.qjm"
+  # 含章·通变（P2C，带噪拼音 → 汉字）：放 Resources/models/hanzhang-tongbian/。
+  # 含章·知微（字级模型）不随包：有通变时三个桌面平台都不加载它，用户自己放进数据目录 models/hanzhang-zhiwei/ 仍认
+  p2c_dir="${QINGJIAN_P2C_MODEL_DIR:-data/models/hanzhang-tongbian}"
+  if [[ -f "$p2c_dir/model.safetensors" ]]; then
+    QINGJIAN_MODEL_DIR="$p2c_dir" tools/release/pack-model.sh
+  fi
+  if [[ -f "$p2c_dir/hanzhang-tongbian-small.qjm" ]]; then
+    mkdir -p "$APP/Contents/Resources/models/hanzhang-tongbian"
+    cp "$p2c_dir/hanzhang-tongbian-small.qjm" "$APP/Contents/Resources/models/hanzhang-tongbian/"
+    chmod 644 "$APP/Contents/Resources/models/hanzhang-tongbian/hanzhang-tongbian-small.qjm"
+    echo "打包含章·通变：$p2c_dir/hanzhang-tongbian-small.qjm"
   fi
   # 释义表打成 .qj（TSV 比 .qj 新时重打），英文词表仍是 TSV。各表来源不同，元数据按表写（见 assets/glossary/README.md）
-  for lang in en ja zh es; do
+  for lang in en ja zh es vi de; do
     src="assets/glossary/glossary-$lang.tsv"
     out="data/generated/glossary-$lang.qj"
     [[ -f "$src" ]] || continue
     if [[ "$lang" == es ]]; then
       license="GPL-3.0-or-later"
       attribution="Azure Translator 机器翻译（Tofuzhu，tools/corpus/glossary_es.py）"
+    elif [[ "$lang" == vi ]]; then
+      license="GPL-3.0-or-later"
+      attribution="LLM 生成（gpt-5.5），qingjian-gloss-gen"
+    elif [[ "$lang" == de ]]; then
+      license="GPL-3.0-or-later"
+      attribution="LLM 生成（DeepSeek），qingjian-gloss-gen"
     else
       license="MIT"
       attribution="LLM 生成（DeepSeek），qingjian-gloss-gen"
@@ -130,15 +159,16 @@ if [[ -f data/generated/dict.tsv || -f data/generated/dict.qj ]]; then
 fi
 printf 'APPL????' > "$APP/Contents/PkgInfo"
 
-# 图标：应用图标从 assets/icon/logo.png 生成 .icns；输入法菜单图标直接用 assets/icon/menu.pdf（矢量，随 Info.plist 的 TISIconIsTemplate 按深浅色反色）
+# 图标：应用图标从 assets/icon/macos/app.png 生成 .icns；输入法菜单图标直接用 assets/icon/menu.pdf（矢量，随 Info.plist 的 TISIconIsTemplate 按深浅色反色）
 ICONSET="$ROOT/target/Qingjian.iconset"
 rm -rf "$ICONSET" && mkdir -p "$ICONSET"
 for size in 16 32 128 256 512; do
-  sips -z $size $size assets/icon/logo.png --out "$ICONSET/icon_${size}x${size}.png" >/dev/null
+  sips -z $size $size assets/icon/macos/app.png --out "$ICONSET/icon_${size}x${size}.png" >/dev/null
   double=$((size * 2))
-  sips -z $double $double assets/icon/logo.png --out "$ICONSET/icon_${size}x${size}@2x.png" >/dev/null
+  sips -z $double $double assets/icon/macos/app.png --out "$ICONSET/icon_${size}x${size}@2x.png" >/dev/null
 done
 iconutil -c icns "$ICONSET" -o "$APP/Contents/Resources/Qingjian.icns"
+cp "$APP/Contents/Resources/Qingjian.icns" "$SETTINGS_APP/Contents/Resources/Qingjian.icns"
 cp assets/icon/menu.pdf "$APP/Contents/Resources/qingjian-menu.pdf"
 # 仓库放在 iCloud 同步的目录（Documents）时新建的 .app 会带上 Finder 扩展属性，codesign 会拒（detritus not allowed）：签名前清掉
 xattr -cr "$APP"
@@ -151,6 +181,17 @@ else
   codesign --force --deep --sign - "$APP"
 fi
 echo "打包完成: ${APP}（版本 ${VERSION}，构建 ${BUILD_NUMBER}，${ARCH}）"
+
+# 同一个 bundle id 在 LaunchServices 里登记多份时，系统可能认错那一份（2026-09-22 排查「菜单里没有青简」时
+# target/ 下的副本就登记着）。装完 / 打完包，中间副本删掉并从 LaunchServices 注销，只留装好的那份或 pkg
+LSREGISTER=/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
+forget_bundle() {
+  [[ -d "$1" ]] || return 0
+  # 先删再注销：系统登记新 .app 是异步的，--install 从拷贝到注销只隔零点几秒，先注销的话晚到的登记
+  # 会留下一条指向已删路径的记录。路径不在时 -u 照样按路径清掉记录，只是报一句 failed to scan（-10814）
+  rm -rf "$1"
+  if [[ -x "$LSREGISTER" ]]; then "$LSREGISTER" -u "$1" >/dev/null 2>&1 || true; fi
+}
 
 if [[ "${1:-}" == "--pkg" ]]; then
   # 每个架构一个工作目录，成品都放 target/pkg/，两个架构接着打互不覆盖
@@ -188,6 +229,8 @@ if [[ "${1:-}" == "--pkg" ]]; then
   fi
   echo "pkg: $PKG"
   shasum -a 256 "$PKG"
+  forget_bundle "$PKG_DIR/root/$APP_NAME.app"
+  forget_bundle "$APP"
 fi
 
 if [[ "${1:-}" == "--install" ]]; then
@@ -195,10 +238,16 @@ if [[ "${1:-}" == "--install" ]]; then
     echo "注意: /Library/Input Methods/$APP_NAME.app 也装着一份（pkg 装的），两份同 id 会互相顶；先跑 scripts/uninstall.sh"
   fi
   mkdir -p "$INSTALL_DIR"
-  rm -rf "$INSTALL_DIR/$APP_NAME.app"
-  cp -R "$APP" "$INSTALL_DIR/$APP_NAME.app"
+  # 先整个拷到旁边再换上去：直接删了再拷，拷到一半中断会留下残缺的包，旧进程还在用它
+  STAGING="$INSTALL_DIR/.$APP_NAME.app.new"
+  rm -rf "$STAGING"
+  cp -R "$APP" "$STAGING"
   # 系统会在下次切换到该输入法时重新拉起进程
   pkill -x "$BIN_NAME" 2>/dev/null || true
+  pkill -x qingjian-settings 2>/dev/null || true
+  rm -rf "$INSTALL_DIR/$APP_NAME.app"
+  mv "$STAGING" "$INSTALL_DIR/$APP_NAME.app"
+  forget_bundle "$APP"
   echo "已安装到: $INSTALL_DIR/$APP_NAME.app"
   echo "日志: ~/Library/Logs/Qingjian/"
 fi

@@ -1,163 +1,80 @@
-# 青简 Qingjian
+<p align="center"><b>简体中文</b> | <a href="docs/i18n/README.zh-Hant.md">繁體中文</a> | <a href="docs/i18n/README.en.md">English</a> | <a href="docs/i18n/README.ja.md">日本語</a> | <a href="docs/i18n/README.es.md">Español</a> | <a href="docs/i18n/README.vi.md">Tiếng Việt</a> | <a href="docs/i18n/README.de.md">Deutsch</a></p>
 
-> 输入的不只是文字。
+<p align="center">
+  <img src="assets/icon/qingjian-mark.svg" alt="青简竹简图标" height="108">
+</p>
 
-青简（Qingjian）是一个使用 **Rust** 开发的跨平台输入法。
+<h1 align="center">青简 Qingjian</h1>
+
+<p align="center"><strong>好好输入，顺便多认识一个词。</strong></p>
+
+<p align="center">
+  <a href="https://qingjian.app/download"><img src="https://img.shields.io/github/v/release/qingjian-team/qingjian?label=stable" alt="stable release"></a>
+  <a href="https://github.com/qingjian-team/qingjian/releases"><img src="https://img.shields.io/github/downloads/qingjian-team/qingjian/total?label=downloads" alt="GitHub downloads"></a>
+  <a href="https://github.com/qingjian-team/qingjian/actions/workflows/ci.yml?query=branch%3Amain"><img src="https://img.shields.io/github/actions/workflow/status/qingjian-team/qingjian/ci.yml?branch=main&amp;label=CI" alt="CI"></a>
+  <a href="https://github.com/qingjian-team/qingjian/stargazers"><img src="https://img.shields.io/github/stars/qingjian-team/qingjian?style=flat&amp;label=Stars" alt="GitHub Stars"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0--or--later-blue" alt="License: GPL-3.0-or-later"></a>
+  <a href="https://qingjian.app/docs/getting-started/install"><img src="https://img.shields.io/badge/macOS-13%2B-blue?logo=apple&amp;logoColor=white" alt="macOS 13+"></a>
+  <a href="https://qingjian.app/docs/getting-started/install"><img src="https://img.shields.io/badge/Windows-10%2F11-blue?logo=data:image/svg%2bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI%2BPHBhdGggZmlsbD0id2hpdGUiIGQ9Ik0wIDBoMTEuNHYxMS40SDB6TTEyLjYgMEgyNHYxMS40SDEyLjZ6TTAgMTIuNmgxMS40VjI0SDB6TTEyLjYgMTIuNkgyNFYyNEgxMi42eiIvPjwvc3ZnPg==" alt="Windows 10/11"></a>
+  <a href="https://qingjian.app/docs/platforms/linux"><img src="https://img.shields.io/badge/Linux-Fcitx4%20%2F%205%20manual-lightgrey?logo=linux&amp;logoColor=white" alt="Linux Fcitx4 和 Fcitx5，手动启动"></a>
+  <a href="https://qingjian.app/docs/platforms/android"><img src="https://img.shields.io/badge/Android-8.0%2B%20preview-lightgrey?logo=android&amp;logoColor=white" alt="Android 8.0+，预览版"></a>
+</p>
+
+青简是一款输入法。你可以像平常一样打字：输入拼音、选择候选、写完整句；候选旁的一条译词，让语言学习自然发生在日常输入里。译词始终只是辅助信息，不会盖过你要输入的文字。
 
 https://github.com/user-attachments/assets/d145fde9-a641-4543-8b15-dd7a2685de3d
 
-上面这段话全部由青简在 macOS 上输入：整句拼音一口气敲完，停顿一下由本地小模型重排候选，候选旁附英文译文与词性。
+视频演示了青简在 macOS 上的整句输入、候选重排和候选译词。
 
-它的目标不只是「把拼音转换成中文」，而是让输入本身成为一种轻量、持续、几乎没有额外负担的语言学习方式。
+## 下载与开始使用
 
-当你输入文字时，青简会在候选词旁边显示一条简洁的目标语言译文。
+- **macOS、Windows**：[下载青简](https://qingjian.app/download)；安装步骤见[使用文档](https://qingjian.app/docs/getting-started/install)。
+- **Linux**：提供 Fcitx5 和 Fcitx4 源码安装，使用系统默认候选面板；目前需要手动启动后台服务，详见 [Linux 安装说明](https://qingjian.app/docs/platforms/linux)。
+- **Android**：预览版，功能比桌面版少；arm64 的 APK 在 [GitHub Releases](https://github.com/qingjian-team/qingjian/releases/latest) 下载，启用步骤见 [Android 说明](https://qingjian.app/docs/platforms/android)，从源码构建见 [apps/android](apps/android/README.md)。
 
-例如，当你的主要语言是中文、正在学习英语时：
+**官方发布渠道**：目前只有以下几个，其他地方的「青简」都不是官方发布的。
 
-```text
-1  开发            development
-2  编程            programming
-3  架构            architecture
-4  编译            compile
-5  语言            language
-```
+- [官网下载页](https://qingjian.app/download)
+- [GitHub Releases](https://github.com/qingjian-team/qingjian/releases)
+- 每版更新日志里给出的夸克网盘链接
 
-候选词仍然是输入的主体，翻译只作为较小、较浅的辅助信息存在。
+青简目前没有上架任何包管理器。
 
-**一次只学习一种语言。** 青简不会在一个候选项旁边同时塞入英语、日语、韩语、德语。保持输入体验干净，比堆砌信息更重要。
+macOS 与 Windows 版本仍处于测试阶段。安装后先选中青简，在「偏好设置 / 设置 → 通用」选择想学习的语言，就可以开始输入。第一次使用可从[第一次输入](https://qingjian.app/docs/getting-started/first-input)读起。
 
-- 官网：[qingjian.app](https://qingjian.app)
-- 下载：[qingjian.app/download](https://qingjian.app/download)（macOS、Windows）
-- 文档：[qingjian.app/docs](https://qingjian.app/docs)（安装、按键、设置、数据与隐私）
-- 反馈：[GitHub Issues](https://github.com/qingjian-team/qingjian/issues/new/choose)
-- QQ 群：[902314603](https://qm.qq.com/q/jBvn2gGTxm)（青简输入法用户内测体验交流群）
-
----
-
-## 为什么叫「青简」
-
-「简」是古代记录文字的载体。竹木成简，文字成书。
-
-「青简」也常被用来指代书籍、典籍与文字记录。
-
-我们希望这个名字既保留中文书写文化的意味，又不过度限制输入法未来所支持的语言。青简首先面向中文使用者，但它并不准备永远只做中文输入法。
-
----
-
-## 核心理念
-
-> 学习语言为什么一定要专门打开一个学习软件？
-
-聊天、写代码、搜索、记笔记、写文档、发邮件……大量时间其实都花在输入文字上。
-
-如果这些每天发生数百次的输入行为，本身就能顺便提供一点语言反馈，语言学习就可以从「专门腾时间学习」变成日常行为的一部分。
-
-**输入的时候，顺便多认识一个词。**
-
-不打断。不弹题。不强迫记忆。只是悄悄地把翻译放在那里。
-
----
-
-## 语言模式
-
-用户可以设置：
+## 输入时，你会看到什么
 
 ```text
-Primary Language: 中文
-Learning Language: English
+1  开发        development
+2  编程        programming
+3  架构        architecture
 ```
 
-切换学习语言为日语后，同样的候选会显示：
+候选旁一次只显示一种学习语言的译词。目前可以选择英语、日语、西班牙语、越南语或德语，也可以关闭译词显示。青简还支持整句输入、简拼、拼写纠错、双拼、五笔等输入方式；本地整句模型会在停顿后调整句子候选。
 
-```text
-开发                開発
-学习                学習
-语言                言語
-```
+「统计」页还会显示今天、最近 7 天和累计的输入量，以及学习语言的词汇记录。详细用法见[输入功能](https://qingjian.app/docs/input)、[译词与生词](https://qingjian.app/docs/learning/translation)、[本地统计](https://qingjian.app/docs/learning/statistics)和[按键与快捷键](https://qingjian.app/docs/getting-started/keys)。
 
-未来支持其他输入模式后，也可以反过来：
+## 数据与隐私
 
-```text
-こんにちは          你好
-日本語              日语
-```
+拼音转换、词库查询、本地模型和输入习惯学习在你的设备上完成。输入量与词汇统计也只保存在本机，不会上传；青简不需要账号。输入日志与统计分开保存，日志可在设置中关闭或清空，不影响统计。检查更新会向官网请求版本列表，可在设置中关闭。
 
-核心原则不变：**一个候选词，只显示一种辅助语言。**
+可选的**云联想默认关闭**。开启后，青简会把当前输入和附近的文字直接发送给你自行填写的 AI 服务商，以获取候选或整句补全；请求不经过青简的服务器。发送范围与本机保存的数据，见[数据与日志](https://qingjian.app/docs/help/privacy)。
 
----
+## 文档、反馈与参与开发
 
-## 平台
+- [使用文档](https://qingjian.app/docs)：安装、设置、输入、卸载与常见问题。
+- [反馈问题或建议](https://github.com/qingjian-team/qingjian/issues/new/choose)；也可以加入 [QQ 内测交流群](https://qm.qq.com/q/jBvn2gGTxm)。
+- 想参与开发？从[开发文档](docs/)和[开发约定](docs/contributing.md)开始。
 
-青简从一开始就按跨平台架构设计：核心输入引擎平台无关，各平台只负责接入系统输入接口与候选窗口。
+青简在[官方渠道](https://qingjian.app/download)免费提供。代码采用 [GPL-3.0-or-later](LICENSE) 许可；项目名称与 logo 不包含在代码授权中。随包数据有各自的来源与许可，见[数据来源清单](docs/design/landscape.md)。
 
-```text
-macOS    → Input Method Kit (IMK)
-Windows  → Text Services Framework (TSF)
-Linux    → IBus / Fcitx
-```
-
-开发顺序是 macOS 优先；Windows 版已进入内测（TSF 文本服务 + 独立的输入引擎进程）。
-
----
-
-## 不打算做什么
-
-青简暂时不准备成为一个「大而全」的语言学习软件。它不会：
-
-- 在候选框塞入五六种语言
-- 每输入几个词就弹出测试
-- 强制用户背单词
-- 用复杂 UI 干扰正常输入
-- 为了学习功能牺牲输入效率
-
-输入法首先必须是一个好用的输入法。语言学习建立在这个前提之上。
-
-如果用户需要思考「我现在到底是在打字还是在背单词」，那青简大概就设计错了。
-
----
-
-## Philosophy
-
-**输入优先。**
-
-**学习自然发生。**
-
-**平台只是壳，Core 才是青简。**
-
----
-
-## 隐私
-
-**青简不上传任何数据。** 拼音转换、词库、学习、释义全部在本机完成，没有账号，没有统计上报。
-检查更新每天向官网读一次版本列表，请求不带任何标识，可在设置的「关于」页关掉。
-云联想（缺省关闭）打开后，请求直接从你的电脑发到你自己填写的 AI 服务商，不经过作者；输入日志只写在本机，可以随时关闭和清空。
-细节见文档 [数据与日志](https://qingjian.app/docs/help/data-and-logs)。
-
----
-
-## 许可
-
-代码以 **GPL-3.0-or-later** 发布（见 [LICENSE](LICENSE)）：可以自由使用、修改与再分发，修改后分发须同样开源。
-「青简」名字与 logo 不在授权范围内。青简在官方渠道免费；若你为获得它向他人付费，你被骗了。
-
-随包数据（词库、语言模型、释义表、emoji、英文词表、词汇等级、五笔码表）各自遵循来源的许可证，清单见 [docs/design/landscape.md](docs/design/landscape.md)，偏好设置「关于」页也列了一份。
-
----
-
-## 参与开发
-
-技术架构、设计决定、路线图与工程记录见 [`docs/`](docs/)；改代码前先看 [开发约定](docs/contributing.md)。
-欢迎提 issue 与 PR，PR 模板里有合并前清单。
-
----
-
-## Status
-
-测试版，自用中，正在给少数测试者打包。API、项目结构和功能设计都可能发生较大变化。
-
----
+## Star History
 
 <p align="center">
-  <strong>青简 Qingjian</strong><br/>
-  输入的不只是文字。
+  <a href="https://www.star-history.com/#qingjian-team/qingjian&Date">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=qingjian-team/qingjian&type=Date&theme=dark">
+      <img src="https://api.star-history.com/svg?repos=qingjian-team/qingjian&type=Date" alt="青简的 GitHub Star 增长曲线" width="600">
+    </picture>
+  </a>
 </p>

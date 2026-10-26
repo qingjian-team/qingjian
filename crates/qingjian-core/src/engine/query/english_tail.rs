@@ -39,8 +39,12 @@ impl Engine {
     /// 整段本身是英文词（`agent`）、拼音不像话时纠错能纠通（`shiide` → 是的）或有英文补全（`releas` → release）的也不切，
     /// 那几条路本来就排第一。
     /// 切出来只说明「可以这么读」，与拼音读法谁排前面看 `competes` 与比分。
+    ///
+    /// 关掉「打拼音时也给英文词」（`english_in_chinese = false`）时整条路都停：英文词不再作为句尾参与分词，
+    /// `nanine` 回到 `na ni ne` 的拼音读法，`kaifarust` 不再出 开发rust（#766）。
     pub(crate) fn split_english_tail(&self, scope: &str) -> Option<EnglishTail> {
-        if self.shuangpin.is_some()
+        if !self.english_in_chinese
+            || self.shuangpin.is_some()
             || scope.len() < MIN_ENGLISH_TAIL_HEAD_LETTERS + MIN_ENGLISH_TAIL_LETTERS
             || !scope.bytes().all(|b| b.is_ascii_lowercase())
         {
@@ -50,7 +54,14 @@ impl Engine {
         if lists.is_empty() {
             return None;
         }
-        if lists.iter().any(|words| words.get(scope).is_some()) {
+        // 整段是随包表里的英文词（`agent`）：那条路本来就排第一，不切。
+        // 个人表不算：打不出来时原样上屏会把整串失败的拼音（`woxiangxuexirust`）学成「英文词」，
+        // 再拿它把混输这条路堵掉就是死循环——越打不出来学得越多，越学越打不出来
+        if self
+            .english
+            .as_ref()
+            .is_some_and(|words| words.get(scope).is_some())
+        {
             return None;
         }
         let full = parser::segment(scope).ok();
@@ -91,7 +102,14 @@ impl Engine {
                 head_len,
                 word: word.to_owned(),
                 competes: full.is_some(),
-                log_prob: english_log_prob(words.frequency(tail)),
+                // 词频只问随包表：个人表存的是使用次数，当 Zipf×1000 读会一律塌到兜底值
+                //（`English` 用过 2 次 → Zipf 0.002 → 兜底 3.0，真实 5.19，白丢 5 nat），
+                // 等于一个英文词用过一次就更难打出来。个人表里独有的词（`kubectl`）本来就走兜底
+                log_prob: english_log_prob(
+                    self.english
+                        .as_ref()
+                        .and_then(|words| words.frequency(tail)),
+                ),
             })
         })
     }
@@ -100,6 +118,11 @@ impl Engine {
     /// 拼音读法末尾的单字母也读（`huoz` → 或者，不是 或 + 丢掉 z），两边覆盖同样多的字母才公平。
     /// `wodedatabase`：我的 + database 赢过 我的大塔巴瑟；`womenqubeijing`：我们去北京 赢过 我们去 + Beijing；
     /// `taida`：太大 赢过 他 + Ida；`huoz`：或者 赢过 和 + Oz。
+    ///
+    /// 两边比的是 `static_score - penalty`（静态语言模型 + 敲错代价），**不含个人 n-gram 与用户加分**：
+    /// 头段只覆盖一部分音节，整段读法多出来的那几个音节会白拿一份按长度累积的个人加成。
+    /// `woxiangxuexirust` 上实测头段拿 +6.9、整段拿 +21.2，个人模型越肥差距越大——
+    /// 用户打得越多混输越打不出来。这是「哪种输入方式」的判断，本来也该由静态模型定，不归个人频次管。
     pub(super) fn mixed_beats_plain(&self, scope: &str, tail: &EnglishTail) -> bool {
         let convert = |text: &str, whole: bool| {
             let segmentations = parser::segment(text).ok()?;
@@ -114,7 +137,18 @@ impl Engine {
         if head.has_placeholder() {
             return false;
         }
-        head.score + tail.log_prob - ENGLISH_SWITCH_PENALTY > plain.score
+        let comparable = |c: &Conversion| c.static_score - c.penalty;
+        let mixed = comparable(&head) + tail.log_prob - ENGLISH_SWITCH_PENALTY;
+        let plain_score = comparable(&plain);
+        tracing::debug!(
+            word = %tail.word,
+            head = %head.text, head = comparable(&head),
+            plain = %plain.text, plain = plain_score,
+            tail_log_prob = tail.log_prob, mixed,
+            wins = mixed > plain_score,
+            "混输比分"
+        );
+        mixed > plain_score
     }
 
     /// 头段拼音转成的汉字加上英文尾段：候选的音节是头段的全拼音节加上敲的尾段字母（上屏按它们消耗拼音）。

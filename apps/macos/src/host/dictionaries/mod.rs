@@ -27,14 +27,22 @@ impl Host {
         infos
     }
 
-    /// 导入一本词库（TSV / Rime yaml / .qj）到 `dicts/`，然后重新装配。
+    /// 导入一本词库（TSV / Rime yaml / 只有词的表 / .qj）到 `dicts/`，然后重新装配。
+    /// 只有词的表按随包词库派生读音。
     pub fn import_dictionary(&mut self, source: &std::path::Path) {
         let Some(dir) = paths::dicts_dir() else {
             return;
         };
-        match qingjian_dictionary::import::import(source, &dir) {
-            Ok(imported) => {
-                tracing::info!(name = %imported.name, entries = imported.entries, path = %imported.path.display(), "词库已导入");
+        let references = reference_dictionaries();
+        let borrowed: Vec<&qingjian_dictionary::Dictionary> = references.iter().collect();
+        match qingjian_dictionary::import::import_dictionary(source, &dir, &borrowed) {
+            Ok(done) => {
+                let imported = &done.imported;
+                tracing::info!(
+                    name = %imported.name, entries = imported.entries, path = %imported.path.display(),
+                    skipped = done.report.as_ref().map_or(0, |report| report.unknown.len()),
+                    "词库已导入"
+                );
                 // 之前关掉过同名词库的，导入后自动打开
                 let stem = imported
                     .path
@@ -112,5 +120,32 @@ impl Host {
         tracing::info!(count = loaded.len(), "附加词库已装配");
         self.engine.set_extra_dictionaries(loaded);
         self.applied_dictionaries = config;
+        self.dictionary_files = dictionary_files();
     }
+}
+
+/// 用户 `dicts/` 的快照，只 stat。
+pub(super) fn dictionary_files() -> Vec<(std::path::PathBuf, Option<std::time::SystemTime>, u64)> {
+    paths::dicts_dir()
+        .map(|dir| extra_dictionaries::snapshot(&dir))
+        .unwrap_or_default()
+}
+
+/// 无读音词表的参考词库：随包基础词库加随包领域词库，读不到的跳过。
+fn reference_dictionaries() -> Vec<qingjian_dictionary::Dictionary> {
+    use qingjian_dictionary::Dictionary;
+    let mut references = Vec::new();
+    let mut read = |path: &std::path::Path| match Dictionary::from_path(path) {
+        Ok(dictionary) => references.push(dictionary),
+        Err(error) => tracing::warn!(path = %path.display(), %error, "参考词库打不开"),
+    };
+    if let Ok(base) = paths::resource("dict.qj") {
+        read(&base);
+    }
+    if let Some(dir) = paths::bundled_dicts_dir() {
+        for (_, path) in extra_dictionaries::list(&dir) {
+            read(&path);
+        }
+    }
+    references
 }

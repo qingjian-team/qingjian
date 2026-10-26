@@ -12,6 +12,7 @@ use qingjian_translate::Glossary;
 
 use crate::args::PackKind;
 use crate::error::ConvertError;
+use crate::lexicon::CLEANED_FILE;
 
 /// 随包笔画码表的名称（`pack codes` 的元数据缺省值）。
 const CODES_NAME: &str = "笔画";
@@ -58,11 +59,27 @@ pub fn pack(
     let started = Instant::now();
     match kind {
         PackKind::Dict => {
-            let input = inputs
-                .first()
-                .cloned()
-                .unwrap_or_else(|| out_dir.join("dict.tsv"));
-            let dictionary = Dictionary::from_path(&input)?;
+            let dictionary = match inputs {
+                [input] => Dictionary::from_path(input)?,
+                // 缺省：dict.tsv，有青简词库已清洗的部分就合在一起（它不进分词词表，所以单放一个文件）
+                [] => {
+                    let mut tsv = std::fs::read_to_string(out_dir.join("dict.tsv"))?;
+                    let cleaned = out_dir.join(CLEANED_FILE);
+                    if cleaned.is_file() {
+                        tsv.push('\n');
+                        tsv.push_str(&std::fs::read_to_string(cleaned)?);
+                    }
+                    Dictionary::parse(&tsv)?
+                }
+                _ => {
+                    let mut tsv = String::new();
+                    for input in inputs {
+                        tsv.push_str(&std::fs::read_to_string(input)?);
+                        tsv.push('\n');
+                    }
+                    Dictionary::parse(&tsv)?
+                }
+            };
             let out = out_dir.join("dict.qj");
             dictionary.write_qj(&out, &metadata)?;
             report(&out, dictionary.len(), started);
@@ -84,7 +101,7 @@ pub fn pack(
             let language: Language = language.parse().map_err(|_| ConvertError::Format {
                 path: PathBuf::from(language),
                 line: 0,
-                reason: "language must be en / ja / zh / es".to_owned(),
+                reason: "language must be en / ja / zh / es / de".to_owned(),
             })?;
             let input = inputs.first().cloned().unwrap_or_else(|| {
                 PathBuf::from("assets/glossary").join(format!("glossary-{}.tsv", language.code()))
@@ -98,8 +115,11 @@ pub fn pack(
             let input = inputs
                 .first()
                 .cloned()
-                .unwrap_or_else(|| PathBuf::from("data/model"));
-            let out = out_dir.join("model.qjm");
+                .unwrap_or_else(|| PathBuf::from("data/models/hanzhang-zhiwei"));
+            let out = paths
+                .output
+                .map(Path::to_path_buf)
+                .unwrap_or_else(|| out_dir.join("model.qjm"));
             let parameters = qingjian_neural::qjm::pack(&input, &out, &metadata)?;
             report(
                 &out,

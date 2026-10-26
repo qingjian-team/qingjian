@@ -1,0 +1,22 @@
+[package]
+name = "qingjian-voice"
+description = "云端语音识别：实现 Core 的 Transcriber，现在接的是火山引擎豆包流式语音识别"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+flate2 = "1.1.10"
+qingjian-core.workspace = true
+rustls.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+tungstenite = { version = "0.30.0", default-features = false, features = ["handshake"] }
+uuid.workspace = true
+webpki-roots.workspace = true

@@ -7,12 +7,14 @@ members = [
     "crates/qingjian-learning",
     "crates/qingjian-platform",
     "crates/qingjian-predict",
+    "crates/qingjian-voice",
     "crates/qingjian-lm",
     "crates/qingjian-format",
     "crates/qingjian-neural",
     "crates/qingjian-render",
+    "crates/bamboo-slip",
     "crates/qingjian-update",
-    "apps/linux/server", "apps/cli", "apps/macos", "apps/windows/server", "apps/windows/tsf", "apps/windows/settings", "tools/dict-convert", "tools/gloss-gen", "tools/release-sign",
+    "apps/linux/server", "apps/linux/ibus", "apps/android/core", "apps/cli", "apps/settings", "apps/macos", "apps/windows/server", "apps/windows/tsf", "apps/windows/settings", "tools/dict-convert", "tools/gloss-gen", "tools/release-sign",
 ]
 
 [workspace.package]
@@ -32,11 +34,14 @@ qingjian-translate = { path = "crates/qingjian-translate" }
 qingjian-learning = { path = "crates/qingjian-learning" }
 qingjian-platform = { path = "crates/qingjian-platform" }
 qingjian-predict = { path = "crates/qingjian-predict" }
+qingjian-voice = { path = "crates/qingjian-voice" }
 qingjian-lm = { path = "crates/qingjian-lm" }
 qingjian-format = { path = "crates/qingjian-format" }
 qingjian-neural = { path = "crates/qingjian-neural" }
 qingjian-render = { path = "crates/qingjian-render" }
 qingjian-update = { path = "crates/qingjian-update" }
+# 自绘 UI 引擎：候选窗、状态条、设置程序都画在它上面
+bamboo-slip = { path = "crates/bamboo-slip" }
 
 # 外部依赖统一在这里定版本，子 crate 一律 `xxx.workspace = true`
 serde = { version = "1.0.229", features = ["derive"] }
@@ -54,7 +59,8 @@ jiff = "0.2.35"
 plist = "1.7"
 # 热路径上的字符串键哈希表（词频 / 语言模型 / 个人 n-gram）：SipHash 一次查表几十纳秒，单字母简拼一键要查几万次
 foldhash = "0.2.0"
-# 繁体输出（OpenCC s2tw，内置词表）；只要简→繁那半
+# 简繁转换（OpenCC 的纯 Rust 实现，Apache-2.0）：字典在编译期编进产物，运行时不读外部文件。
+# 只要简 → 繁，反向的 t2s 用不上
 ferrous-opencc = { version = "0.4.0", default-features = false, features = ["s2t-conversion"] }
 # .qj 数据容器：mmap 打开、结构体数组零拷贝读取
 memmap2 = "0.9"
@@ -65,25 +71,42 @@ candle-core = "0.11.0"
 candle-nn = "0.11.0"
 
 # 云联想：OpenAI 兼容接口客户端与它需要的异步运行时
-async-openai = { version = "0.42.0", default-features = false, features = ["chat-completion", "native-tls", "byot"] }
+async-openai = { version = "0.42.0", default-features = false, features = ["chat-completion", "byot", "middleware"] }
 reqwest = { version = "0.13", default-features = false }
 uuid = { version = "1.26", features = ["v4"] }
+# 安卓没有可链的系统 TLS：云联想（只开 rustls 时）与语音识别走 rustls（ring + 内置 Mozilla 根证书）
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
+webpki-roots = "1"
 tokio = { version = "1.53.1", features = ["rt", "time"] }
+
+# Linux IBus 前端：IBus 走 D-Bus，纯 Rust
+zbus = { version = "5.19.0", default-features = false, features = ["tokio"] }
 
 # 检查更新：releases.json 的 ed25519 签名（发版时 tools/release-sign 签，客户端验）
 ed25519-dalek = "3.0.0"
 base64 = "0.23.1"
 
-# 自绘渲染器：CPU 栅格 + 文字整形/回退/栅格（fontdb / rustybuzz / swash）
+# 自绘引擎 bamboo-slip 用的栅格、文字、布局与窗口宿主；渲染器的测试与预览工具也直接用 tiny-skia、cosmic-text
 tiny-skia = "0.12.0"
-# 不开 fontconfig：不扫系统字体库，字体文件由渲染器按平台清单自己加载
+# 不开 fontconfig：不扫系统字体库，字体文件由引擎按平台清单自己加载
 cosmic-text = { version = "0.19.0", default-features = false, features = ["std", "swash"] }
+# 字形轮廓的路径命令（cosmic-text 取轮廓返回它，文字描边用）；与 swash 用的同一版本
+zeno = { version = "0.3.3", default-features = false }
+# 场景图的布局：只要 flexbox 与 grid，不要 block / float
+taffy = { version = "0.14.0", default-features = false, features = ["std", "taffy_tree", "flexbox", "grid"] }
+# 窗口宿主：开窗收事件 + 把位图贴到窗口
+winit = "0.30.13"
+softbuffer = "0.4.8"
+# 输入框的复制粘贴；不要图片剪贴板，免得拉进 image。
+# wayland-data-control：Linux 上只编 X11 后端时走 XWayland 桥，niri 这类会话里桥是空的，
+# 设置程序粘贴拿到空串（2026-10-23 实测）；开 Wayland 协议直读，失败 arboard 自己回退 X11。
+arboard = { version = "3.6.1", default-features = false, features = ["wayland-data-control"] }
 png = "0.18.1"
 
 # macOS 平台层
 objc2 = "0.6.4"
 objc2-foundation = { version = "0.3.2", features = ["NSArray", "NSAttributedString", "NSBundle", "NSDictionary", "NSGeometry", "NSObject", "NSProcessInfo", "NSRange", "NSString", "NSTimer", "NSURL", "NSUserDefaults", "NSValue"] }
-objc2-app-kit = { version = "0.3.2", features = ["NSApplication", "NSAttributedString", "NSEvent", "NSBezierPath", "NSBitmapImageRep", "NSColor", "NSFont", "NSGraphics", "NSImage", "NSImageRep", "NSPanel", "NSResponder", "NSScreen", "NSStatusBar", "NSStatusBarButton", "NSStatusItem", "NSMenu", "NSMenuItem", "NSOpenPanel", "NSPasteboard", "NSSavePanel", "NSCell", "NSFontManager", "NSPopUpButton", "NSPopover", "NSSearchField", "NSSearchFieldCell", "NSViewController", "NSTextField", "NSSecureTextField", "NSTextFieldCell", "NSActionCell", "NSRunningApplication", "NSAppearance", "NSText", "NSButton", "NSButtonCell", "NSControl", "NSStringDrawing", "NSTabView", "NSTabViewItem", "NSView", "NSWindow", "NSScrollView", "NSClipView", "NSTextView", "NSTableView", "NSTableColumn", "NSTableHeaderView", "NSTableHeaderCell", "NSParagraphStyle", "block2"] }
+objc2-app-kit = { version = "0.3.2", features = ["NSApplication", "NSAttributedString", "NSEvent", "NSBezierPath", "NSBitmapImageRep", "NSColor", "NSFont", "NSGraphics", "NSImage", "NSImageRep", "NSImageView", "NSPanel", "NSResponder", "NSScreen", "NSStatusBar", "NSStatusBarButton", "NSStatusItem", "NSMenu", "NSMenuItem", "NSOpenPanel", "NSPasteboard", "NSSavePanel", "NSCell", "NSFontManager", "NSPopUpButton", "NSPopover", "NSSearchField", "NSSearchFieldCell", "NSViewController", "NSTextField", "NSSecureTextField", "NSTextFieldCell", "NSActionCell", "NSRunningApplication", "NSAppearance", "NSText", "NSButton", "NSButtonCell", "NSControl", "NSStringDrawing", "NSTabView", "NSTabViewItem", "NSView", "NSWindow", "NSScrollView", "NSClipView", "NSTextView", "NSTableView", "NSTableColumn", "NSTableHeaderView", "NSTableHeaderCell", "NSTrackingArea", "NSParagraphStyle", "NSWorkspace", "NSAccessibility", "block2"] }
 objc2-input-method-kit = "0.3.2"
 # 候选窗字体设置：按字族名找字体文件（渲染器只加载指定文件）
 objc2-core-text = { version = "0.3.2", features = ["CTFont", "CTFontDescriptor"] }

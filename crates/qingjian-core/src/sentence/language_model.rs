@@ -3,6 +3,11 @@ pub trait LanguageModel: Send {
     /// `log P(word | previous)`；`previous` 为 `None` 表示句首。模型不认识 `word` 时返回 `None`，
     /// 由 Core 用词库词频兜底。
     fn log_prob(&self, previous: Option<&str>, word: &str) -> Option<f64>;
+
+    /// 没接模型（什么词都不认识），「模型认不认识这个词」就没有意义。
+    fn is_empty(&self) -> bool {
+        false
+    }
 }
 
 /// 没接语言模型：一律兜底，整句转换退化为一元词频。
@@ -12,5 +17,9 @@ pub struct NoLanguageModel;
 impl LanguageModel for NoLanguageModel {
     fn log_prob(&self, _previous: Option<&str>, _word: &str) -> Option<f64> {
         None
+    }
+
+    fn is_empty(&self) -> bool {
+        true
     }
 }

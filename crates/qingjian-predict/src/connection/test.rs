@@ -1,6 +1,7 @@
 //! 云服务连通性测试：偏好设置「云服务」页的「测试连接」按钮用。
 //! 起一个线程用当前配置发一条最小的聊天请求，结果经通道回来；调用方在主线程轮询 [`ConnectionTest::poll`]。
 
+use std::path::PathBuf;
 use std::sync::mpsc;
 use std::time::Instant;
 
@@ -27,10 +28,18 @@ pub struct ConnectionTest {
 impl ConnectionTest {
     /// 按配置发起测试。密钥缺失、线程起不来这两种情况当场报错，其余错误从 [`poll`](Self::poll) 回来。
     pub fn start(config: &PredictConfig) -> Result<Self, PredictError> {
+        Self::start_with_usage(config, None)
+    }
+
+    /// 将实际请求和接口用量累计到壳指定的本机文件。
+    pub fn start_with_usage(
+        config: &PredictConfig,
+        usage_path: Option<PathBuf>,
+    ) -> Result<Self, PredictError> {
         let api_key = config
             .resolve_api_key()
             .ok_or_else(|| PredictError::MissingApiKey(config.api_key_env.clone()))?;
-        let client = ChatClient::new(config, api_key);
+        let client = ChatClient::new(config, api_key).with_usage(usage_path);
         let model = config.model.clone();
         let (sender, result) = mpsc::channel();
         std::thread::Builder::new()
@@ -50,6 +59,15 @@ impl ConnectionTest {
                 let _ = sender.send(outcome);
             })?;
         Ok(Self { result })
+    }
+
+    /// 一直等到结果（在自己的线程里等，等到了再去叫醒界面）。请求有超时，不会永远等下去。
+    pub fn wait(self) -> Result<ConnectionReport, PredictError> {
+        self.result.recv().unwrap_or_else(|_| {
+            Err(PredictError::Runtime(std::io::Error::other(
+                "connection test thread exited without a result",
+            )))
+        })
     }
 
     /// 结果到了就取走；没到返回 `None`。取走之后再调永远是 `None`。

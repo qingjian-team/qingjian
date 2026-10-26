@@ -1,6 +1,8 @@
 //! 可挂起的会话输入状态；词库与用户学习服务仍由同一个 Engine 持有。
 
 use super::commit::CommitChain;
+use super::statistics::Typing;
+use super::vocabulary::ExampleCollector;
 use super::{Engine, LastCommit, Transition};
 use crate::{Composition, InputHistory, Language, Punctuation};
 use std::time::Instant;
@@ -35,6 +37,9 @@ pub struct EngineSession {
     /// 本轮组句开始时刻。
     composition_started: Option<Instant>,
 
+    /// 本轮组句的键数与打字时长。
+    typing: Typing,
+
     /// 当前输入应用标识。
     application: Option<String>,
 
@@ -46,6 +51,9 @@ pub struct EngineSession {
 
     /// 本会话最近的上屏前文。
     history: InputHistory,
+
+    /// 本会话里等句子写完的例句。
+    examples: ExampleCollector,
 
     /// 本会话连续上屏的学习链。
     chain: CommitChain,
@@ -72,6 +80,7 @@ impl Engine {
             &mut self.composition_started,
             &mut session.composition_started,
         );
+        std::mem::swap(&mut self.typing, &mut session.typing);
         std::mem::swap(&mut self.application, &mut session.application);
         std::mem::swap(
             &mut self.committed_since_break,
@@ -79,6 +88,9 @@ impl Engine {
         );
         std::mem::swap(&mut self.displayed, &mut session.displayed);
         std::mem::swap(&mut self.history, &mut session.history);
+        // 过期时长是配置，跟着 Engine 走，不跟着上下文
+        self.history.fresh_like(&session.history);
+        std::mem::swap(&mut self.examples, &mut session.examples);
         std::mem::swap(&mut self.chain, &mut session.chain);
         self.forget_span_cache();
         *self.correction_cache.borrow_mut() = None;
@@ -98,9 +110,11 @@ impl EngineSession {
         self.passthrough_pending.clear();
         self.page_turns = 0;
         self.composition_started = None;
+        self.typing.reset();
         self.committed_since_break = false;
         self.displayed.clear();
         self.history.clear();
+        self.examples.clear();
         self.chain = CommitChain::default();
     }
 }
@@ -119,17 +133,17 @@ impl Engine {
         self.passthrough_pending.clear();
         self.page_turns = 0;
         self.composition_started = None;
+        self.typing.reset();
         self.committed_since_break = false;
         self.displayed.clear();
         self.history.clear();
+        self.examples.clear();
         self.chain = CommitChain::default();
         self.rescoring_before = None;
-        self.last_prediction_scope.clear();
-        self.last_question_guess.clear();
         *self.neural_cache.borrow_mut() = super::rescoring::NeuralCache::default();
         *self.correction_cache.borrow_mut() = None;
         *self.last_query.borrow_mut() = None;
         self.forget_span_cache();
-        self.traditional_map.borrow_mut().clear();
+        self.traditional.forget();
     }
 }

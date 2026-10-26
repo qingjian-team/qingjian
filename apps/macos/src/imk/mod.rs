@@ -12,7 +12,7 @@ use std::any::Any;
 use std::panic::{AssertUnwindSafe, catch_unwind};
 
 pub use client::TextClient;
-pub use controller::QingjianInputController;
+pub use controller::{QingjianInputController, click, menu_items, menu_pick, panel_mouse};
 
 /// 在 ObjC 运行时回调的边界拦住 panic。`define_class!` 生成的方法是系统直接调的，panic 穿过去整个进程就没了，
 /// 用户正在打的字也跟着没了。拦住后记一条错误日志（位置与 backtrace 由 `main.rs` 装的 panic hook 记），
@@ -36,7 +36,7 @@ pub fn catch_panic<R>(what: &'static str, f: impl FnOnce() -> R) -> Option<R> {
 pub fn recover_from_panic(client: Option<TextClient<'_>>) {
     let recovered = catch_unwind(AssertUnwindSafe(|| {
         let pending = crate::host::with(|h| {
-            let text = h.engine.composition().text().to_owned();
+            let text = h.engine.held_text() + h.engine.composition().text();
             h.engine.clear();
             h.cancel_prediction();
             h.window.hide();

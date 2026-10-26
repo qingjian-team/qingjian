@@ -8,27 +8,48 @@ impl FrequencyLearner {
         frequency_path.with_file_name(USER_ENGLISH_FILE)
     }
 
-    /// 从 `词\t次数` 读个人英文词，返回跳过的坏行数。
-    pub(super) fn load_english(&mut self, source: &str) -> usize {
+    /// 英文词的最近使用日侧车文件与词频文件同目录。
+    pub(super) fn english_days_path(frequency_path: &Path) -> PathBuf {
+        frequency_path.with_file_name(USER_ENGLISH_DAYS_FILE)
+    }
+
+    /// 从 `词\t次数` 读个人英文词（旧格式，两列），最近使用日先记 `fallback_day`（侧车会覆盖），返回跳过的坏行数。
+    pub(super) fn load_english(&mut self, source: &str, fallback_day: u64) -> usize {
         let mut skipped = 0;
         for line in data_lines(source) {
-            let Some((word, count)) = line
-                .split_once('\t')
-                .and_then(|(word, count)| Some((word, count.trim().parse::<u32>().ok()?)))
-            else {
-                skipped += 1;
-                continue;
-            };
-            if count > 0 {
-                self.english
-                    .insert(word.to_ascii_lowercase(), (word.to_owned(), count));
+            let parsed = line.split_once('\t').and_then(|(word, count)| {
+                count.trim().parse::<u32>().ok().map(|count| (word, count))
+            });
+            match parsed {
+                Some((word, count)) => {
+                    if count > 0 {
+                        self.english.insert(
+                            word.to_ascii_lowercase(),
+                            (word.to_owned(), Decay::from_parts(count, fallback_day)),
+                        );
+                    }
+                }
+                None => skipped += 1,
             }
         }
         self.rebuild_english();
         skipped
     }
 
-    /// 个人英文词很少，每次变化整个重建词表即可。次数当词频，补全时常用的在前。
+    /// 从侧车文件 `词\t天数` 读最近使用日，覆盖英文词表里的初值。
+    pub(super) fn load_english_days(&mut self, source: &str) {
+        for line in data_lines(source) {
+            if let Some((word, day)) = line.split_once('\t')
+                && let Ok(day) = day.trim().parse::<u64>()
+                && let Some((_, entry)) = self.english.get_mut(&word.to_ascii_lowercase())
+            {
+                entry.last_used = day;
+            }
+        }
+    }
+
+    /// 个人英文词很少，每次变化整个重建词表即可。有效次数当词频，补全时常用的在前；
+    /// 衰减只压排序，冷下来的词最低按 1 保留在词表里，别让用户觉得学过的词被忘掉了。
     pub(super) fn rebuild_english(&mut self) {
         if self.english.is_empty() {
             self.english_list = None;
@@ -37,7 +58,9 @@ impl FrequencyLearner {
         let tsv: String = self
             .english
             .iter()
-            .map(|(code, (word, count))| format!("{word}\t{code}\t{count}\n"))
+            .map(|(code, (word, entry))| {
+                format!("{word}\t{code}\t{}\n", self.effective(entry).max(1))
+            })
             .collect();
         match WordList::parse(&tsv) {
             Ok(list) => self.english_list = Some(list),
@@ -51,15 +74,39 @@ impl FrequencyLearner {
     }
 
     pub(super) fn save_english_to(&mut self, path: &Path) -> Result<(), LearningError> {
-        let mut rows: Vec<&(String, u32)> = self.english.values().collect();
-        rows.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
+        let now = self.today.get();
+        let half_life = self.half_life_days;
+        // 衰减只影响排序权重，记录不清；真要清等冷了一年
+        self.english
+            .retain(|_, (_, entry)| now.saturating_sub(entry.last_used) <= decay::COLD_DAYS);
+        let mut rows: Vec<(&String, &(String, Decay))> = self.english.iter().collect();
+        rows.sort_by(|a, b| {
+            b.1.1
+                .effective(now, half_life)
+                .cmp(&a.1.1.effective(now, half_life))
+                .then_with(|| a.1.0.cmp(&b.1.0))
+        });
         write_atomic(path, |file| {
             writeln!(file, "# 青简个人英文词：词\\t次数")?;
-            for (word, count) in rows {
-                writeln!(file, "{word}\t{count}")?;
+            for (_, (word, entry)) in rows {
+                writeln!(file, "{word}\t{}", entry.count)?;
             }
             Ok(())
         })?;
+        let days_path = Self::english_days_path(path);
+        let days: Vec<(&String, u64)> = self
+            .english
+            .iter()
+            .map(|(code, (_, e))| (code, e.last_used))
+            .collect();
+        write_atomic(&days_path, |file| {
+            writeln!(file, "# 青简个人英文词最近使用日：词\\t天数（unix 天）")?;
+            for (code, day) in days {
+                writeln!(file, "{code}\t{day}")?;
+            }
+            Ok(())
+        })?;
+        self.rebuild_english();
         self.english_dirty = false;
         Ok(())
     }
@@ -114,8 +161,13 @@ impl FrequencyLearner {
         frequency_path.with_file_name(USER_TYPOS_FILE)
     }
 
-    /// 从 `敲的\t要的\t次数` 读个人敲错表，返回跳过的坏行数。
-    pub(super) fn load_typos(&mut self, source: &str) -> usize {
+    /// 敲错表的最近使用日侧车文件与词频文件同目录。
+    pub(super) fn typos_days_path(frequency_path: &Path) -> PathBuf {
+        frequency_path.with_file_name(USER_TYPOS_DAYS_FILE)
+    }
+
+    /// 从 `敲的\t要的\t次数` 读个人敲错表（旧格式，三列），最近使用日先记 `fallback_day`（侧车会覆盖），返回跳过的坏行数。
+    pub(super) fn load_typos(&mut self, source: &str, fallback_day: u64) -> usize {
         let mut skipped = 0;
         for line in data_lines(source) {
             let Some((typed, intended, count)) = parse_counted_pair(line) else {
@@ -126,31 +178,79 @@ impl FrequencyLearner {
                 self.typos
                     .entry(typed.to_owned())
                     .or_default()
-                    .insert(intended.to_owned(), count);
+                    .insert(intended.to_owned(), Decay::from_parts(count, fallback_day));
             }
         }
         skipped
     }
 
+    /// 从侧车文件 `敲的\t要的\t天数` 读最近使用日，覆盖敲错表里的初值。
+    pub(super) fn load_typos_days(&mut self, source: &str) {
+        for line in data_lines(source) {
+            let mut fields = line.split('\t');
+            let (Some(typed), Some(intended), Some(day)) =
+                (fields.next(), fields.next(), fields.next())
+            else {
+                continue;
+            };
+            let Ok(day) = day.trim().parse::<u64>() else {
+                continue;
+            };
+            if let Some(intended_counts) = self.typos.get_mut(typed)
+                && let Some(entry) = intended_counts.get_mut(intended)
+            {
+                entry.last_used = day;
+            }
+        }
+    }
+
     pub(super) fn save_typos_to(&mut self, path: &Path) -> Result<(), LearningError> {
-        let mut rows: Vec<(&String, &String, &u32)> = self
+        let now = self.today.get();
+        let half_life = self.half_life_days;
+        // 衰减只影响排序权重，记录不清；真要清等冷了一年
+        for intended in self.typos.values_mut() {
+            intended.retain(|_, entry| now.saturating_sub(entry.last_used) <= decay::COLD_DAYS);
+        }
+        self.typos.retain(|_, intended| !intended.is_empty());
+        let mut rows: Vec<(&String, &String, &Decay)> = self
             .typos
             .iter()
             .flat_map(|(typed, intended)| {
                 intended
                     .iter()
-                    .map(move |(syllable, count)| (typed, syllable, count))
+                    .map(move |(syllable, entry)| (typed, syllable, entry))
             })
             .collect();
         rows.sort_by(|a, b| {
-            a.0.cmp(b.0)
-                .then_with(|| b.2.cmp(a.2))
+            b.2.effective(now, half_life)
+                .cmp(&a.2.effective(now, half_life))
+                .then_with(|| a.0.cmp(b.0))
                 .then_with(|| a.1.cmp(b.1))
         });
         write_atomic(path, |file| {
             writeln!(file, "# 青简个人敲错表：敲的\t要的\t次数")?;
-            for (typed, intended, count) in rows {
-                writeln!(file, "{typed}\t{intended}\t{count}")?;
+            for (typed, intended, entry) in rows {
+                writeln!(file, "{typed}\t{intended}\t{}", entry.count)?;
+            }
+            Ok(())
+        })?;
+        let days_path = Self::typos_days_path(path);
+        let days: Vec<((&String, &String), u64)> = self
+            .typos
+            .iter()
+            .flat_map(|(typed, intended)| {
+                intended
+                    .iter()
+                    .map(move |(syllable, e)| ((typed, syllable), e.last_used))
+            })
+            .collect();
+        write_atomic(&days_path, |file| {
+            writeln!(
+                file,
+                "# 青简个人敲错表最近使用日：敲的\t要的\t天数（unix 天）"
+            )?;
+            for ((typed, intended), day) in days {
+                writeln!(file, "{typed}\t{intended}\t{day}")?;
             }
             Ok(())
         })?;

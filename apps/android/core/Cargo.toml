@@ -1,0 +1,35 @@
+[package]
+name = "qingjian-android"
+description = "Android 输入法的 Rust 侧：Engine 装配 + JNI 接口，编成 libqingjian_android.so"
+version = "0.3.2-dev"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lib]
+name = "qingjian_android"
+crate-type = ["cdylib", "lib"]
+
+[dependencies]
+jiff.workspace = true
+jni = "0.21"
+qingjian-core.workspace = true
+qingjian-dictionary.workspace = true
+qingjian-learning.workspace = true
+qingjian-lm.workspace = true
+# 安卓没有可链的系统 TLS，走 rustls；工作区那份默认开着 native-tls，这里直接引路径才关得掉
+qingjian-predict = { path = "../../../crates/qingjian-predict", default-features = false, features = ["rustls"] }
+qingjian-render.workspace = true
+qingjian-translate.workspace = true
+qingjian-voice.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+
+[lints]
+workspace = true
+
+[target.'cfg(target_os = "android")'.dependencies]
+tracing-android = "0.2.0"
+tracing-subscriber.workspace = true

@@ -61,11 +61,14 @@ fn codes_of_and_prefix_lookup_see_every_code() {
     let table = sample();
     let codes: Vec<&str> = table.codes_of("开发").collect();
     assert_eq!(codes, ["kaifa", "kf"]);
-    assert_eq!(table.code_with_prefix("开发", "k"), Some("kaifa"));
-    assert_eq!(table.code_with_prefix("开发", "kf"), Some("kf"));
-    assert_eq!(table.code_with_prefix("鹤", "h"), Some("hn"));
-    assert_eq!(table.code_with_prefix("鹤", "k"), None);
-    assert_eq!(table.code_with_prefix("没有这个词", "k"), None);
+    assert_eq!(
+        table.code_with_prefix("开发", "k").as_deref(),
+        Some("kaifa")
+    );
+    assert_eq!(table.code_with_prefix("开发", "kf").as_deref(), Some("kf"));
+    assert_eq!(table.code_with_prefix("鹤", "h").as_deref(), Some("hn"));
+    assert_eq!(table.code_with_prefix("鹤", "k").as_deref(), None);
+    assert_eq!(table.code_with_prefix("没有这个词", "k").as_deref(), None);
     assert_eq!(table.codes_of("开放").count(), 1);
 }
 
@@ -98,7 +101,7 @@ fn qj_round_trip_keeps_every_lookup() {
         let after: Vec<&str> = mapped.codes_of(word).collect();
         assert_eq!(before, after, "{word}");
     }
-    assert_eq!(mapped.code_with_prefix("开发", "kf"), Some("kf"));
+    assert_eq!(mapped.code_with_prefix("开发", "kf").as_deref(), Some("kf"));
 }
 
 #[test]
@@ -201,8 +204,8 @@ fn import_tables_are_merged_relative_to_the_main_file() {
     assert_eq!(imported.report.read, 2);
     let table = AuxCodeTable::open(&imported.path).unwrap();
     assert_eq!(table.len(), 2);
-    assert_eq!(table.code_with_prefix("开发", "k"), Some("kf"));
-    assert_eq!(table.code_with_prefix("鹤", "h"), Some("hn"));
+    assert_eq!(table.code_with_prefix("开发", "k").as_deref(), Some("kf"));
+    assert_eq!(table.code_with_prefix("鹤", "h").as_deref(), Some("hn"));
 }
 
 #[test]
@@ -215,7 +218,7 @@ fn skips_bad_codes_but_keeps_the_rest() {
     assert_eq!(imported.report.skipped, 1);
     let table = AuxCodeTable::open(&imported.path).unwrap();
     // `hn zz` 里空格分开的两个码：合法的收下，非法的丢掉
-    assert_eq!(table.code_with_prefix("开", "h"), Some("hn"));
+    assert_eq!(table.code_with_prefix("开", "h").as_deref(), Some("hn"));
 }
 
 #[test]
@@ -273,7 +276,7 @@ fn reads_rime_dict_yaml_and_tsv_from_the_same_entry_point() {
     let rime = "---\nname: 形码\ncolumns: [text, code, weight]\n...\n开发\tkf\t100\n开放\tkfang\n";
     let table = AuxCodeTable::from_text(rime).unwrap();
     assert_eq!(table.len(), 2);
-    assert_eq!(table.code_with_prefix("开发", "k"), Some("kf"));
+    assert_eq!(table.code_with_prefix("开发", "k").as_deref(), Some("kf"));
 
     let tsv = "# 注释\n开发\tkf\n";
     assert_eq!(AuxCodeTable::from_text(tsv).unwrap().len(), 1);

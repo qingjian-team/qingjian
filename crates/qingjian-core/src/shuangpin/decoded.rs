@@ -151,7 +151,7 @@ mod tests {
         let decoded = Scheme::Xiaohe.decode("kdf'ni");
         let segmentation = decoded.segmentation().unwrap();
         assert_eq!(segmentation.to_string(), "kai f… ni");
-        assert!(Scheme::Xiaohe.decode("bl").segmentation().is_none());
+        assert!(Scheme::Xiaohe.decode("ae").segmentation().is_none());
     }
 
     #[test]

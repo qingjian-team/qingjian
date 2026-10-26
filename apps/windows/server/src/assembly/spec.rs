@@ -34,6 +34,9 @@ pub struct AssemblySpec {
     /// 随包辅码码表目录（随包根 `data/generated/codes/`，与 `dicts/` 并列）。
     pub bundled_codes_dir: Option<PathBuf>,
 
+    /// 随包方案目录（辅码方案也在这里找）。
+    pub bundled_schemes_dir: Option<PathBuf>,
+
     /// `[aux_code]` 配置。
     pub aux_code: AuxCodeConfig,
 
@@ -59,6 +62,7 @@ impl AssemblySpec {
             bundled_dicts_dir: None,
             dictionaries: DictionariesConfig::default(),
             bundled_codes_dir: None,
+            bundled_schemes_dir: None,
             aux_code: AuxCodeConfig::default(),
             levels_dir: None,
             user_dir: None,

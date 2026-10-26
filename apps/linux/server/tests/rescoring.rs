@@ -17,7 +17,7 @@ const SESSION: SessionId = SessionId(1);
 struct Prefers(&'static str);
 
 impl SentenceScorer for Prefers {
-    fn score(&self, _context: &str, texts: &[&str]) -> Vec<f64> {
+    fn score(&self, _context: &str, _keys: &str, texts: &[&str]) -> Vec<f64> {
         texts
             .iter()
             .map(|t| if *t == self.0 { -1.0 } else { -20.0 })

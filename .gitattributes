@@ -1,0 +1,9 @@
+# Shell 脚本必须以 LF 存储、以 LF 检出。
+#
+# 没有这条规则时，Windows 上 core.autocrlf=true 会把工作区脚本转成 CRLF，
+# 一旦 CRLF 被提交进去，Linux/macOS 上 shebang 就变成 "#!/bin/bash\r"，
+# 内核报 "bad interpreter: /bin/bash^M: No such file or directory"，
+# 整个脚本直接跑不起来（发版脚本出这种事就是发不了版）。
+#
+# 顺带也保证 CI 里 shellcheck 不会因为回车符刷出成百上千条 SC1017。
+*.sh text eol=lf

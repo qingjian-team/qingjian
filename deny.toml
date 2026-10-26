@@ -1,0 +1,73 @@
+# 依赖的许可证 / 来源 / 重复版本。
+#
+# 这个仓库是 GPL-3.0，所以策略不是「只收最宽松的」：GPL-3.0 及兼容的依赖可以用，
+# 而 GPL-2.0-only、以及任何非 OSI / 非 FSF 认可的私有许可证，应当被挡住。
+# 逐个放行而不是图省事写 `allow = ["*"]`：那个写法等于没设门禁，
+# 以后有人引入一个 GPL-2.0-only 或专有许可证的依赖，这里不会有人知道。
+#
+# 只管三件事，第四件（advisories）故意不在这里做：
+# `.github/workflows/audit.yml` 的 audit-check 已经在查 RustSec 漏洞，
+# 两边都查同一个库只会让同一个漏洞被报两遍。这里补它不管的三样。
+[licenses]
+# 全部已存在于依赖树里，按上面的策略逐条放行。
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "BSD-1-Clause",
+    "0BSD",
+    "ISC",
+    "Zlib",
+    "Unlicense",
+    "BSL-1.0",
+    # Unicode 的字符数据与术语表（CLDR / emoji 注解 / 各语言文字名）走这个。
+    "Unicode-3.0",
+    # 仓库自己是 GPL-3.0，GPL-3.0-or-later 与它兼容，可以收。
+    "GPL-3.0-or-later",
+    # LGPL-2.1-or-later 与 GPL-3.0 的组合见 LGPL-2.1 §3（可升级到任意新版 GPL）。
+    # 目前只在 `OR` 表达式里出现，实际按另一支走；放行它是因为「二选一」的另一种可能就是它。
+    "LGPL-2.1-or-later",
+]
+# 不兼容的许可证不靠 `deny` 列（0.20.2 已移除那个键）：不放进来就是拒绝。
+# 上面 `allow` 是一份白名单，任何不在里面的 SPDX id 一律报错，包括
+# GPL-2.0-only（与 GPL-3.0 不兼容：v2 缺「或更高版本」那句，不能升到 v3）、
+# AGPL 各版、OSL-3.0 这类网络 Copyleft。
+# `Apache-2.0 OR GPL-2.0-only` 这种「二选一」不受影响——那种可以挑 Apache-2.0 走。
+# 工作区成员自己声明 GPL-3.0，`private = true` 让它们不参与未放行许可证的判定
+# （20 个成员先各报一次纯属噪音）。外部依赖仍照常查。
+private = { ignore = true }
+
+# rustls 的 Mozilla/CCADB 根证书数据使用此许可证，只对这两个证书数据包放行。
+exceptions = [
+    { crate = "webpki-root-certs", allow = ["CDLA-Permissive-2.0"] },
+    { crate = "webpki-roots", allow = ["CDLA-Permissive-2.0"] },
+]
+
+[sources]
+# 依赖只能来自这两处。`unknown-registry` / `unknown-git` 挡的是没在这两处登记的来源。
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+# 只登记这一个 fork：上游某个改动本仓库要用而尚未合回，所以钉在具体 rev 上。
+# 加第二个 git 依赖必须同时改这里，改的人会看见这条注释——git 依赖不受 crates.io
+# 的不可变托管约束，供应链上是个需要显式决定的事项。
+# 注意 `allow-git` 与 `unknown-git` 要配对：只留 `unknown-git = "deny"` 而把这里清空，
+# 仍然会报（实测过）；反过来只清 `unknown-git` 则回到「都允许」，门禁就没了。
+allow-git = ["https://github.com/qingjian-team/cosmic-text"]
+unknown-git = "deny"
+unknown-registry = "deny"
+# git 依赖必须钉到不可变的 rev：分支名 / tag 可以被强推改写，那等于让上游作者
+# 能在你仓库里换代码。现在这个 fork 就是钉 rev 的，这条把它固化成必须。
+required-git-spec = "rev"
+
+[bans]
+# 同一 crate 的多个版本：编译时间与产物体积都翻倍，且出漏洞时要逐个跟。
+# 设成 allow 而不是 warn：cargo-deny 对 warn 也返回非零退出码，门禁会天天红在
+# windows-rs 一家身上（dependabot.yml 里写了：windows 0.62 配姊妹包 0.100 编不过，
+# 现在就是多个版本并存）。先让它过，把重复清单留给 `cargo deny check bans` 手动看，
+# 等 windows 一家收敛了再收紧成 warn。
+multiple-versions = "allow"
+# `wildcards` 故意不设成 deny：cargo workspace 的 `xxx.workspace = true` 会被它算成
+# 通配依赖（workspace 里的 path 依赖不带版本号），一开就把全部 20 个工作区成员全报一遍。
+# 那不是真的通配依赖——同版本路径依赖没有「被 update 换掉」的风险，锁文件里是锁着 rev 的。
+# 真要防外部通配依赖，用 `cargo deny check bans --hide-inclusion-graph` 自己看一眼更直接。

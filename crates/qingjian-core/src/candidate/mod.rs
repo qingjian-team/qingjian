@@ -16,8 +16,8 @@ use serde::{Deserialize, Serialize};
 
 pub use furigana::{FuriganaSegment, furigana};
 pub use kind::CandidateKind;
-pub use language::{Language, UnknownLanguage};
-pub use layout::{CandidateLayout, Cell, GRID_ROWS, Grid, MAX_CELL_EMS};
+pub use language::{LEARNING_LANGUAGE_OFF, LEARNING_LANGUAGES, Language, UnknownLanguage};
+pub use layout::{CandidateLayout, Cell, GRID_ROWS, Grid, MAX_CELL_EMS, arrows};
 pub use list::CandidateList;
 pub use part_of_speech::{PartOfSpeech, UnknownPartOfSpeech};
 pub use sense::Sense;

@@ -1,4 +1,4 @@
-| `.github/workflows/ci.yml` | push main、PR | `core`（Linux）fmt / clippy / 全 workspace 测试（排除 IMK 壳）；`macos` 编 IMK 壳并跑它的测试；`windows` 编 Server / TSF DLL / Settings 并跑测试。仓库公开，Actions 不计费 |
+| `.github/workflows/ci.yml` | push main、PR | `core`（Linux）fmt / clippy / 全 workspace 测试（排除 IMK 壳）；`macos` 编 IMK 壳并跑它的测试；`windows` 编 Server / TSF DLL / Settings 并跑测试；`android` 用样例数据编 debug APK。仓库公开，Actions 不计费 |
 | `.github/workflows/audit.yml` | 每周一、Cargo.lock 变动 | `cargo audit`（RustSec 已知漏洞） |
 | `.github/dependabot.yml` | 每周一 | Cargo 依赖与钉 commit 的 actions 的更新 PR |# 发版流程
 
@@ -7,14 +7,14 @@
 
 ## 一次发版做什么
 
-0.1.4 起三个平台共用版本号、共用一个 GitHub Release（标签 `v<版本>`）：同一个版本号、同一份更新日志只出现一次，三个平台的安装包都挂在上面。
+0.1.4 起各平台共用版本号、共用一个 GitHub Release（标签 `v<版本>`）：同一个版本号、同一份更新日志只出现一次，各平台的安装包都挂在上面。0.3.0 起 Android 也在里面（之前没发过包，版本号从 0.1.0-dev 直接跳到 0.3.0）。
 
 1. 改版本号，把 `-dev` 去掉：`apps/macos/Cargo.toml`（Info.plist 与 pkg 文件名从这里取）、`apps/windows/{server,tsf,settings}/Cargo.toml`（三个一起改，打包读 `server`）、
-   `apps/linux/server/Cargo.toml`，然后 `cargo update --workspace --offline` 同步 `Cargo.lock`。
+   `apps/linux/server/Cargo.toml`、`apps/android/core/Cargo.toml`（APK 的 versionName 与 versionCode 从这里算），然后 `cargo update --workspace --offline` 同步 `Cargo.lock`。
    **发版之间版本号一直带 `-dev`**（Rust nightly / Firefox Nightly 那套）：Cargo.toml 写 `0.1.5-dev`，打包脚本再接上 git 短哈希，
    本地装的、CI 中间构建的都显示 `0.1.5-dev-1a2b3c4`（工作区有改动加 `+`），测试时一眼知道装的是哪个提交；版本号干净的一定是线上包；带 `-dev` 的标签 CI 直接拒绝。
    pkg 的 `--version`、Inno 的 `VersionInfoVersion` 只认数字点号，`bundle.sh` / `build.ps1` 去掉后缀再传，文件名保留完整版本。
-2. `CHANGELOG.md` 顶上那一节把「未发布」换成日期：`## <版本> · <日期> · <渠道>`，一行一条、面向用户的措辞；只属于一个平台的条目加「macOS：」「Windows：」「Linux：」前缀。
+2. `CHANGELOG.md` 顶上那一节把「未发布」换成日期：`## <版本> · <日期> · <渠道>`，一行一条、面向用户的措辞；只属于一个平台的条目加「macOS：」「Windows：」「Linux：」「Android：」前缀。
    渠道是**更新渠道**（2026-09-17 定）：定期发的版本标 `stable`、版本号干净（`0.1.4`）；中间放给测试者的版本标 `alpha` / `beta` / `rc`，
    版本号带同名预发布后缀（`0.1.5-beta.1`），`release.yml` 见到后缀就把 GitHub Release 标成预发布、不抢 latest。
    「产品还在测试期」由 0.x 的版本号表达，不占渠道字段；0.1.2 及更早的条目标的 `beta` 是旧含义，不回改。
@@ -22,20 +22,22 @@
    标题下可以写一行 `网盘：[夸克网盘](链接)`（GitHub 下载不方便的用户用）：它不算更新条目，Release 说明把它放在最前面，`releases.json` 单独输出成 `mirrors`，官网显示成按钮。
    网盘文件在 CI 跑完后手动上传。
 3. 提交，打注释标签并推：`git tag -a v0.1.4 -m "青简 0.1.4" && git push origin main v0.1.4`。
-4. 标签推出去之后紧接一个普通提交把版本号改成下一个开发版（`0.1.5-dev`），CHANGELOG 顶上加 `## 0.1.5 · 未发布 · stable`；-dev 版本永远没有标签与 Release。
+4. 标签推出去之后，给历代配置回归测试补一份这一版的模板：`python3 crates/qingjian-platform/tests/config_history/extract.py v<版本> v<版本>`，
+   新文件随下一个提交进库（`tests/config_history.rs` 要求以后的版本都读得进它）。
+5. 紧接一个普通提交把版本号改成下一个开发版（`0.1.5-dev`），CHANGELOG 顶上加 `## 0.1.5 · 未发布 · stable`；-dev 版本永远没有标签与 Release。
 
 `release.yml` 的流程：
 
 - `prepare`（`ubuntu-26.04`）：门禁（要打的平台版本号都与标签一致、不带 `-dev`、标签在 main 上、配了索引签名密钥）→ 用 CHANGELOG 那一节加各平台未签名提示建**草稿** Release。
-- `macos`（`macos-26`）、`windows`（`windows-latest`）、`linux`（`ubuntu-26.04`）并行：下载产品数据 → 打包 → `tools/release/upload-build.sh` 把安装包和
+- `macos`（`macos-26`）、`windows`（`windows-latest`）、`linux`（`ubuntu-26.04`）、`android`（`ubuntu-26.04`）并行：下载产品数据 → 打包 → `tools/release/upload-build.sh` 把安装包和
   这个平台的 `SHA256SUMS-<平台>`、`build-info-<平台>.json` 片段传到草稿上。
-- `publish`：三个平台都成功才跑，`tools/release/finish-release.sh` 把片段合成一份 `SHA256SUMS` 与 `build-info.json`（各平台构建机记在 `platforms` 里）、删掉片段、草稿转正
+- `publish`：要打的平台都成功才跑，`tools/release/finish-release.sh` 把片段合成一份 `SHA256SUMS` 与 `build-info.json`（各平台构建机记在 `platforms` 里）、删掉片段、草稿转正
   → `publish-releases-json.sh` 生成并签名 `releases.json` → `bump-website.sh` 触发官网构建。
   任何平台失败，Release 就停在草稿、用户看不到；修好后删掉草稿与标签重推，或在 Actions 页重跑失败的 job。
 
-**单平台补丁**（只修一个平台的急事）：只改那个平台的版本号，打 `macos-v<版本>` / `windows-v<版本>` / `linux-v<版本>`，同一套流程只打那一个平台，Release 标题带平台名。
+**单平台补丁**（只修一个平台的急事）：只改那个平台的版本号，打 `macos-v<版本>` / `windows-v<版本>` / `linux-v<版本>` / `android-v<版本>`，同一套流程只打那一个平台，Release 标题带平台名。
 
-发版后 GitHub Release 上有：`qingjian-<版本>-macos-arm64.pkg`、`-macos-x86_64.pkg`、`-windows-x86_64-setup.exe`、`-linux-x86_64.tar.gz`、`SHA256SUMS`、`build-info.json`、`releases.json` 与 `.sig`。
+发版后 GitHub Release 上有：`qingjian-<版本>-macos-arm64.pkg`、`-macos-x86_64.pkg`、`-windows-x86_64-setup.exe`、`-linux-x86_64.tar.gz`、`-android-arm64.apk`、`SHA256SUMS`、`build-info.json`、`releases.json` 与 `.sig`。
 
 官网由 Cloudflare Workers Builds 按官网仓库的提交自动构建，没有可调用的构建钩子，所以主仓库靠**往官网仓库推一个小提交**来触发：
 `tools/release/bump-website.sh` 把版本标签与文档提交号写进官网的 `src/content/upstream.json` 并提交推送（提交者 qingjian-ci）。
@@ -51,9 +53,12 @@ Rust 工具链由 `rust-toolchain.toml` 钉版本（现在 1.96.0），两个 wo
   代价是候选窗在任务栏搜索 / 设置这类 UWP 宿主里可能被盖住，用户文档与 CHANGELOG 已列为已知问题。
   Certum 开源证书办下来后：在 `build.ps1` 加 signtool 一步（`sign-local.ps1` 是本机自签的参考），workflow 去掉那个环境变量；SmartScreen 对无签名安装包的拦截也一并消失。
   Inno Setup 钉 7.1.0（与开发机同版本、钉死 GitHub Release 上的安装程序与哈希）。
-- **Linux**：`apps/linux/scripts/package.sh` 打的包里是编好的 Server 与 Fcitx5 插件、产品数据压缩包、`install.sh` / `uninstall.sh` / `files.py`，按仓库相对路径放，
+- **Linux**：`apps/linux/scripts/package.sh` 打的包里是编好的 Server、设置程序与 Fcitx5 插件、产品数据压缩包、`install.sh` / `uninstall.sh` / `files.py`，按仓库相对路径放，
   安装与源码安装走同一份清单与校验；打完先装进临时目录冒烟测试（文件齐、校验过、`ldd` 无缺库）再上传。
   插件链接构建机的 Fcitx5（`build-info.json` 的 `platforms.linux.runner` 记了版本），所以只承诺 Ubuntu 26.04，其他发行版走源码安装。
+- **Android**：runner 自带 SDK 与 JDK，job 里按 `app/build.gradle.kts` 的 `ndkVersion` 装 NDK、装 cargo-ndk，`./gradlew assembleRelease` 带产品数据出 arm64 APK，
+  签名用 Secrets 里的密钥库（见下文「签名与公证」），`apksigner verify` 过了才上传。只出 APK，不进应用商店；官网下载页与软件内检查更新现在都不认 `android`，
+  `releases.json` 里有这条但它们会跳过，用户从 GitHub Release 下载。
 - **官网**：安装包按文件名识别平台（`ASSET_KINDS`），下载页按访问者平台取「有该平台安装包的最新版本」（`latestFor`）；0.1.3 及更早按平台分开的 Release 照样识别，同版本号合在一条里。
 
 ## 提交前检查与 CI
@@ -72,22 +77,21 @@ cargo 命令全 `--locked`（含 `bundle.sh` 与 `build.ps1`）。普通 CI 只�
 | 文件 | 触发 | 做什么 |
 |---|---|---|
 | `.github/workflows/ci.yml` | push main、PR | Linux 上 `cargo fmt --check` / clippy / test，排除 `qingjian-macos`（IMK 外壳只能在 macOS 编译，macOS runner 计费是 Linux 的 10 倍） |
-| `.github/workflows/release.yml` | 推 `v*`（三个平台）或 `macos-v*` / `windows-v*` / `linux-v*`（单平台）标签 | `prepare` 门禁并建草稿 Release → `macos` / `windows` / `linux` 并行打包上传 → `publish` 合并摘要、转正、生成 `releases.json`、触发官网构建（见上文） |
+| `.github/workflows/release.yml` | 推 `v*`（全部平台）或 `macos-v*` / `windows-v*` / `linux-v*` / `android-v*`（单平台）标签 | `prepare` 门禁并建草稿 Release → `macos` / `windows` / `linux` / `android` 并行打包上传 → `publish` 合并摘要、转正、生成 `releases.json`、触发官网构建（见上文） |
 
 ## 产品数据从哪来
 
 词库、语言模型、释义表（`data/generated/*.qj`、`dicts/*.qj`、英文词表）不在 git 里，体积约 90 MB 且由本机数据管道生成。
 它们发在仓库里一个个**不可变**的预发布 Release 上：`data-v1`、`data-v2`……每次数据重生成发一个新号、从不覆盖
-（预发布不会成为 GitHub 的 latest，官网取 latest 时不会拿到它）。仓库里 `tools/release/data.lock` 钉住当前要用的标签与两个资产的 SHA-256，
+（预发布不会成为 GitHub 的 latest，官网取 latest 时不会拿到它）。仓库里 `tools/release/data.lock` 钉住当前要用的标签与资产的 SHA-256，
 跟用到新数据的代码同一个提交进去：checkout 哪个提交就拿到它对应的那版数据，离线自编译的人不会因为我们改了数据而编出坏包。
 
-- `tools/release/data-bundle.sh`：把 `data/generated/` 打成 `qingjian-data.tar.gz`，本地整句模型单文件 `data/model/model.qjm`
-  （训练仓库导出三件套到 `data/model/`，`tools/release/pack-model.sh` 打成一个 `.qj` 容器，fp16 约 56 MB，元数据也写在那个脚本里）原样上传，
-  连同 LLM 续跑中间产物 `qingjian-llm-intermediates.tar.gz` 发到下一个 `data-vN`（`--tag` 可指定，已存在就拒绝），然后改写 `data.lock`。
-- `tools/release/data-fetch.sh`：按 `data.lock` 下载（有 gh 用 gh，没有就 curl 直连）、按锁文件里的哈希校验（不信 Release 自己那份 `SHA256SUMS`），
-  数据包解到 `data/generated/`、`model.qjm` 放到 `data/model/`。`release.yml` 两个 job 和离线自编译走同一个脚本；
-  `bundle.sh` 见到 `dict.qj` 就按产品数据打包、见到 `model.qjm` 就放进 `Resources/model/`，`qingjian.iss` 同理装进 `{app}\data\model`。
-  标签与两个哈希记进 `build-info.json`（`data_tag` / `data_sha256` / `model_sha256`）。
+- `tools/release/data-bundle.sh`：把 `data/generated/`、含章·知微 `hanzhang-zhiwei-small.qjm` 与含章·通变 `hanzhang-tongbian-small.qjm` 装进唯一附件 `qingjian-data.tar.gz`
+  （导出的三件套放各自模型目录，`tools/release/pack-model.sh` 打成 `.qjm` 容器）。训练中间产物不进入公开包；发到下一个 `data-vN`（`--tag` 可指定，已存在就拒绝），然后改写 `data.lock`。
+- `tools/release/data-fetch.sh`：按 `data.lock` 下载（有 gh 用 gh，没有就 curl 直连）、按锁文件里的哈希校验，
+  数据包解到 `data/generated/` 与两份模型各自的 `data/models/<标识>/`。旧锁仍可读取分离附件。`release.yml` 各平台的 job 和离线自编译走同一个脚本；
+  `bundle.sh`、`qingjian.iss` 与 Linux 打包脚本将两份模型分别装入对应目录，产品端优先使用通变。
+  标签与各资产哈希记进 `build-info.json`（`data_tag` / `data_sha256` / `model_sha256` / `p2c_model_sha256`）。
 
 数据重生成之后（重跑 lexicon / bigram / gloss-gen export）或模型重训之后跑一次 `data-bundle.sh`（三件套比 `.qjm` 新会自动重打），
 把锁文件的改动提交（`chore(data): 数据 data-vN`），否则 CI 打的包还是锁文件指的旧数据。模型文件缺失或哈希不符时 CI 会失败，不会静默地发出错数据的包。
@@ -109,6 +113,19 @@ cargo 命令全 `--locked`（含 `bundle.sh` 与 `build.ps1`）。普通 CI 只�
 Apple Developer 账号有了以后，在仓库 Secrets 里配齐 `release.yml` 头部注释列的七个值（.p12 与 .p8 都 base64），
 下一次发版就是签名 + 公证 + 钉票据的包，用户下载双击即装。`bundle.sh` 本身通过 `QINGJIAN_SIGN_IDENTITY` /
 `QINGJIAN_INSTALLER_IDENTITY` / `QINGJIAN_NOTARY_PROFILE` 三个环境变量工作，本机有证书也能这样打。
+
+**Android**：APK 必须签名才装得上，`release.yml` 的 android job 没配密钥库就失败。密钥库只生成一次，**丢了或换了，已装的用户就不能覆盖升级**（只能卸载重装、丢掉学习数据），
+本机与密码管理器各留一份备份。生成与配置：
+
+```sh
+keytool -genkeypair -v -keystore qingjian-release.jks -alias qingjian -keyalg RSA -keysize 4096 -validity 36500 -dname "CN=Qingjian"
+base64 -i qingjian-release.jks | gh secret set QINGJIAN_ANDROID_KEYSTORE
+gh secret set QINGJIAN_ANDROID_KEYSTORE_PASSWORD   # 下面三个按提示粘贴
+gh secret set QINGJIAN_ANDROID_KEY_ALIAS           # qingjian
+gh secret set QINGJIAN_ANDROID_KEY_PASSWORD
+```
+
+本机打签名包：把这四个值设成同名环境变量（`QINGJIAN_ANDROID_KEYSTORE` 写 .jks 的路径）再 `./gradlew assembleRelease`；没设时出未签名的 `app-release-unsigned.apk`。
 
 ## releases.json：官网下载页的数据源
 
@@ -147,7 +164,7 @@ Apple Developer 账号有了以后，在仓库 Secrets 里配齐 `release.yml` �
 
 - `releases` 从新到旧，`latest` 是第一条的版本号；官网「当前版本」取它，历史版本列表就是整个数组。
 - `channel` 是 `alpha` / `beta` / `rc` / `stable`，显示成什么字由官网定；`commit` / `built_at` / `sha256` 给用户核对下载的包，下载页应显示 sha256 与提交短哈希。
-- 安装包文件名固定为 `qingjian-<版本>-<平台>-<cpu>[-setup].<扩展名>`（全小写；平台 `macos` / `windows` / `linux`，cpu `arm64` / `x86_64`，2026-09-17 定，
+- 安装包文件名固定为 `qingjian-<版本>-<平台>-<cpu>[-setup].<扩展名>`（全小写；平台 `macos` / `windows` / `linux` / `android`，cpu `arm64` / `x86_64`，2026-09-17 定，
   包管理器的地址模板与检查更新都靠它稳定）。平台与架构由文件名判定（`ASSET_KINDS`，同时认 0.1.2 及更早的 `Qingjian-<版本>-arm64.pkg` / `-Setup.exe` 旧名），
   `arch` 给人看（Apple Silicon / Intel / x64），`cpu` 给程序比对。
 - `schema_version` 现在是 1：只加字段不用动，改了已有字段的含义或结构才加一。

@@ -2,4 +2,15 @@
 ignore = [
     # paste 停止维护。链路 candle-core → gemm 0.19 → paste，见 issue #38。
     "RUSTSEC-2024-0436",
+    # zip 8.6 解压时的符号链接越界与 SUID 位保留，9.0 才修。链路 candle-core → zip；
+    # 我们只用 candle 读模型文件，不调 extract 解压任何压缩包，碰不到。candle 升到 zip 9 后删掉这三条。
+    "RUSTSEC-2026-0367",
+    "RUSTSEC-2026-0368",
+    "RUSTSEC-2026-0369",
+    # ttf-parser 停止维护。bamboo-slip 直接用它查字体的轮廓表，fontdb / cosmic-text 也依赖它；上游换掉后再跟。
+    "RUSTSEC-2026-0192",
+    # zbus_names / zvariant / zvariant_derive 停止维护。链路 qingjian-linux-ibus → zbus 5.19，等 zbus 换掉它们再删。
+    "RUSTSEC-2026-0370",
+    "RUSTSEC-2026-0371",
+    "RUSTSEC-2026-0372",
 ]

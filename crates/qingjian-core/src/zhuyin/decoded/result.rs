@@ -63,6 +63,15 @@ impl Decoded {
         (!syllables.is_empty()).then_some(Segmentation { syllables })
     }
 
+    /// 每個音節敲的聲調（不含分隔符），與 [`Self::segmentation`] 的音節一一對應。
+    pub fn tones(&self) -> Vec<Option<u8>> {
+        self.units
+            .iter()
+            .filter(|u| u.pinyin != "'")
+            .map(|u| u.tone)
+            .collect()
+    }
+
     pub fn marked(&self) -> String {
         let mut s = String::new();
         for unit in &self.units {

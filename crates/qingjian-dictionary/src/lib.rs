@@ -5,7 +5,10 @@
 //! ```text
 //! 词\t音节（空格分隔）\t词频
 //! 开发\tkai fa\t9000
+//! 开发\tkai1 fa1\t9000
 //! ```
+//!
+//! 音节可以带数字声调（轻声写 5 或 0），查词时不看声调，声调存着给显示用（[`Tones`]）。
 //!
 //! `#` 开头为注释行，空行忽略。
 //!
@@ -22,15 +25,20 @@ mod error;
 pub mod import;
 mod matching;
 mod pattern;
+mod tones;
 mod word_list;
 
 pub use aux_code_table::{
     AuxCodeLookup, AuxCodeTable, AuxCodeTableImport, AuxCodeTableImportReport, AuxCodeTableInfo,
-    aux_code_table_info, import_aux_code_table,
+    WordRules as AuxWordRules, aux_code_table_info, import_aux_code_table,
 };
 pub use code_table::CodeTable;
 pub use dictionary::Dictionary;
 pub use error::DictionaryError;
 pub use matching::Match;
 pub use pattern::{SyllablePattern, canonical_syllable};
+pub use tones::{Tones, marked, split_tone, strip_marks};
 pub use word_list::WordList;
+
+/// 随包通用大词库的文件名主干（`dicts/general.qj`）：缺省打开，各壳加载时标成补充词库（[`Dictionary::set_secondary`]）。
+pub const GENERAL_DICTIONARY: &str = "general";

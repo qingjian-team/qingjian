@@ -34,12 +34,12 @@ if ($Sign) {
     Write-Host 'uiAccess=0（对外分发：Server 任何机器都能起；候选窗在商店 / 任务栏搜索里可能被盖）' -ForegroundColor Cyan
 }
 
-# 1) 构建三个产物。
+# 1) 构建产物：Server、DLL（64 / 32 位）、设置程序、旧版设置程序。
 if (-not $SkipBuild) {
     Write-Host '构建 release 产物…' -ForegroundColor Cyan
     Push-Location $Repo
     try {
-        cargo build --release --locked -p qingjian-windows-server -p qingjian-windows-tsf -p qingjian-windows-settings
+        cargo build --release --locked -p qingjian-windows-server -p qingjian-windows-tsf -p qingjian-settings -p qingjian-windows-settings
         if ($LASTEXITCODE -ne 0) { throw "cargo build 失败（退出码 $LASTEXITCODE）" }
         cargo build --release --locked -p qingjian-windows-tsf --target i686-pc-windows-msvc
         if ($LASTEXITCODE -ne 0) { throw "32 位 DLL cargo build 失败（退出码 $LASTEXITCODE）" }
@@ -51,7 +51,8 @@ $targets = @(
     'release\qingjian_tsf.dll',
     'i686-pc-windows-msvc\release\qingjian_tsf.dll',
     'release\qingjian-server.exe',
-    'release\qingjian-settings.exe'
+    'release\qingjian-settings.exe',
+    'release\qingjian-settings-legacy.exe'
 )
 foreach ($t in $targets) {
     $p = Join-Path $Repo "target\$t"
@@ -79,6 +80,9 @@ foreach ($name in $wanted) {
 # 缺文件说明自包含运行时没铺成功（build.rs 下载 NuGet 或解 MSIX 失败），早报错，别打出个跑不起来的包。
 if ($missing.Count -gt 0) { throw "自包含 Windows App Runtime 缺 $($missing.Count) 项：$($missing -join ', ')" }
 Write-Host "自包含运行时 $($wanted.Count) 项 → target\installer\settings-runtime" -ForegroundColor Cyan
+
+# 1.3) 知意（ONNX）的运行库 ONNX Runtime，装到 Server 旁边。
+& (Join-Path $PSScriptRoot 'fetch-onnxruntime.ps1')
 
 # 1.5) 签名（必须在 iscc 打包前：Inno 把已签的文件原样拷进安装包）。
 if ($Sign) {

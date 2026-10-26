@@ -17,7 +17,7 @@ Windows 端是**一个产品、两个产物**，各自一个 package，同放本
 
 Windows 的文本服务（TSF，Text Services Framework）是一个 COM DLL（`ITfTextInputProcessor`），
 系统会把它加载进**每一个**接受文本输入的应用进程。因此输入内核不能待在 DLL 里（会被复制进几十个进程、
-状态无法共享、崩溃会连累宿主应用）。青简照 Weasel（WeaselServer + WeaselTSF）、水杉（Server 进程）的做法：
+状态无法共享、崩溃会连累宿主应用）。青简照 Weasel（WeaselServer + WeaselTSF）的做法：
 Engine 只此一份，跑在独立的 Server 进程；每个应用进程里的 TSF DLL 只做两件事——把系统按键翻成协议消息发来、
 把 Server 回的候选画到候选窗口。
 
@@ -100,9 +100,10 @@ cargo run -p qingjian-windows-server
 regsvr32 /u target\debug\qingjian_tsf.dll
 ```
 
-## 设置程序与 Windows App Runtime
+## 旧版设置程序与 Windows App Runtime
 
-`settings/`（`qingjian-settings.exe`）用 Windows Reactor（WinUI 3）画界面，是三个产物里唯一依赖 Windows App Runtime 的。
+设置程序是三平台共用的 `apps/settings`（`qingjian-settings.exe`），状态条的齿轮打开它。
+`settings/`（`qingjian-settings-legacy.exe`，开始菜单「青简旧版设置」）是旧版，留一个版本作回退；它用 Windows Reactor（WinUI 3）画界面，是唯一依赖 Windows App Runtime 的产物。
 它的部署方式是**自包含**：`build.rs` 让 `windows-reactor-setup` 把 `Microsoft.WindowsAppSDK.Runtime` 的 MSIX 解到
 `target\release\` 并按自包含标记嵌清单，安装包把这些文件装到 exe 同级——不依赖机器上装没装框架包。
 Windows 10 上框架依赖的引导走不通（它要先调 Windows 11 才有的 `TryCreatePackageDependency`），

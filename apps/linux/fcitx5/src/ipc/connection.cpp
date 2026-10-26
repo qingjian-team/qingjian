@@ -44,9 +44,16 @@ bool Connection::open() {
     if (path.empty() || path[0] != '/' || path.size() >= sizeof(address.sun_path)) { close(); return false; }
     std::memcpy(address.sun_path, path.c_str(), path.size() + 1);
     if (::connect(fd_, reinterpret_cast<sockaddr *>(&address), sizeof(address)) < 0) { close(); return false; }
+#if defined(__linux__)
     ucred credentials{};
     socklen_t size = sizeof(credentials);
     if (getsockopt(fd_, SOL_SOCKET, SO_PEERCRED, &credentials, &size) < 0 || credentials.uid != geteuid()) { close(); return false; }
+#else
+    // BSD 没有 SO_PEERCRED；glibc 没有 getpeereid，所以分开写
+    uid_t uid = 0;
+    gid_t gid = 0;
+    if (getpeereid(fd_, &uid, &gid) < 0 || uid != geteuid()) { close(); return false; }
+#endif
     return true;
 }
 bool Connection::send(const nlohmann::json &message, nlohmann::json *response) {

@@ -3,7 +3,10 @@
 //! 有两条画法：缺省交给 `qingjian-render` 出位图再贴（[`BitmapPainter`]），配置 `[general] renderer = "system"`
 //! 走下面用 AppKit 逐项绘制的旧路径（过渡期的退路，渲染器稳定一个版本后删）。
 
+mod click;
+mod context_menu;
 mod matrix;
+mod panel;
 
 use std::cell::{Cell, RefCell};
 
@@ -12,21 +15,27 @@ use objc2::runtime::AnyObject;
 use objc2::{DefinedClass, MainThreadMarker, MainThreadOnly, define_class, msg_send};
 use objc2_app_kit::{
     NSAppearanceCustomization, NSAppearanceNameAqua, NSAppearanceNameDarkAqua,
-    NSAttributedStringNSStringDrawing, NSBezierPath, NSColor, NSFont, NSFontAttributeName,
-    NSForegroundColorAttributeName, NSStrikethroughStyleAttributeName, NSView,
+    NSAttributedStringNSStringDrawing, NSBezierPath, NSColor, NSEvent, NSEventModifierFlags,
+    NSFont, NSFontAttributeName, NSForegroundColorAttributeName, NSStrikethroughStyleAttributeName,
+    NSView,
 };
 use objc2_foundation::{
     NSArray, NSAttributedString, NSDictionary, NSNumber, NSPoint, NSRect, NSSize, NSString,
 };
 use qingjian_platform::{CandidateRenderer, LayoutMode};
 
+use super::animation::AnimationTimer;
 use super::bitmap::BitmapPainter;
+use super::bounds::ViewBounds;
 use super::cloud_icon::CloudIcon;
 use super::frame::Frame;
 use super::preedit::Preedit;
 use super::preedit::PreeditStyle;
 use super::row::{Row, Tone};
 use super::theme::Theme;
+
+pub use click::{ClickHandler, PanelMouseHandler};
+pub use context_menu::MenuHandlers;
 
 /// 视图状态。
 pub struct Ivars {
@@ -47,6 +56,27 @@ pub struct Ivars {
 
     /// 用户选的字族名（空为系统字体），换了要重建渲染器。
     font: RefCell<String>,
+
+    /// 渲染器用的主题（浅色那一份），重建渲染器时要带上。
+    render_theme: RefCell<qingjian_render::Theme>,
+
+    /// 动画定时器：位图渲染器说有动画在播时跳。
+    animation: RefCell<AnimationTimer>,
+
+    /// 点中候选或译词时交给谁（host 注册）。
+    on_click: RefCell<Option<ClickHandler>>,
+
+    /// 符号面板里点中格子或标签时交给谁（host 注册）。
+    on_panel_mouse: RefCell<Option<PanelMouseHandler>>,
+
+    /// 触控板滚动攒下还不够一行的距离（点）。
+    scroll_rest: Cell<f64>,
+
+    /// 右键菜单的两头（host 注册）。
+    on_menu: RefCell<Option<MenuHandlers>>,
+
+    /// 右键菜单的面板，第一次右键时建。
+    menu: RefCell<Option<super::menu::MenuPanel>>,
 }
 
 /// preedit 光标的宽度。
@@ -101,9 +131,37 @@ define_class!(
             true
         }
 
+        /// 面板不激活，第一下点击就要算数（否则先被当成「激活窗口」吃掉）。
+        #[unsafe(method(acceptsFirstMouse:))]
+        fn accepts_first_mouse(&self, _event: Option<&NSEvent>) -> bool {
+            true
+        }
+
+        #[unsafe(method(mouseDown:))]
+        fn mouse_down(&self, event: &NSEvent) {
+            if event.modifierFlags().contains(NSEventModifierFlags::Control) {
+                self.right_clicked(event);
+            } else {
+                self.close_menu();
+                self.clicked(event);
+            }
+        }
+
+        #[unsafe(method(rightMouseDown:))]
+        fn right_mouse_down(&self, event: &NSEvent) {
+            self.right_clicked(event);
+        }
+
+        #[unsafe(method(scrollWheel:))]
+        fn scroll_wheel(&self, event: &NSEvent) {
+            self.scrolled(event);
+        }
+
         #[unsafe(method(drawRect:))]
         fn draw_rect(&self, _dirty: NSRect) {
-            if let Some(bitmap) = &mut *self.ivars().bitmap.borrow_mut() {
+            if self.ivars().frame.borrow().is_panel() {
+                self.draw();
+            } else if let Some(bitmap) = &mut *self.ivars().bitmap.borrow_mut() {
                 bitmap.draw(self.is_dark(), self.backing_scale());
             } else {
                 self.draw();
@@ -122,6 +180,13 @@ impl CandidateView {
             theme,
             bitmap: RefCell::new(None),
             font: RefCell::new(String::new()),
+            render_theme: RefCell::new(qingjian_render::Theme::light()),
+            animation: RefCell::new(AnimationTimer::default()),
+            on_click: RefCell::new(None),
+            on_panel_mouse: RefCell::new(None),
+            scroll_rest: Cell::new(0.0),
+            on_menu: RefCell::new(None),
+            menu: RefCell::new(None),
         });
         unsafe { msg_send![super(this), initWithFrame: NSRect::ZERO] }
     }
@@ -134,10 +199,27 @@ impl CandidateView {
         *self.ivars().font.borrow_mut() = font.to_owned();
         let mut bitmap = self.ivars().bitmap.borrow_mut();
         if bitmap.is_some() {
-            *bitmap = BitmapPainter::new(font);
+            *bitmap = self.new_bitmap();
             drop(bitmap);
             self.setNeedsDisplay(true);
         }
+    }
+
+    /// 渲染器主题，只对青简渲染器生效。配置或主题文件变了才会调，每次都当场重画。
+    pub fn set_render_theme(&self, theme: qingjian_render::Theme) {
+        *self.ivars().render_theme.borrow_mut() = theme.clone();
+        if let Some(bitmap) = &mut *self.ivars().bitmap.borrow_mut() {
+            bitmap.set_theme(theme);
+            self.setNeedsDisplay(true);
+        }
+        self.sync_animation();
+    }
+
+    /// 新建位图渲染器并带上当前主题。
+    fn new_bitmap(&self) -> Option<BitmapPainter> {
+        let mut bitmap = BitmapPainter::new(&self.ivars().font.borrow())?;
+        bitmap.set_theme(self.ivars().render_theme.borrow().clone());
+        Some(bitmap)
     }
 
     /// 青简渲染器 / 系统绘制。渲染器字体库加载失败就留在系统绘制。
@@ -145,7 +227,7 @@ impl CandidateView {
         let mut bitmap = self.ivars().bitmap.borrow_mut();
         match renderer {
             CandidateRenderer::Qingjian if bitmap.is_none() => {
-                *bitmap = BitmapPainter::new(&self.ivars().font.borrow());
+                *bitmap = self.new_bitmap();
             }
             CandidateRenderer::System if bitmap.is_some() => {
                 tracing::info!("候选窗切回 AppKit 绘制");
@@ -183,24 +265,87 @@ impl CandidateView {
         self.ivars().layout.set(layout);
     }
 
-    /// 更新内容并返回需要的窗口尺寸。
-    pub fn set_frame(&self, frame: &Frame) -> NSSize {
+    /// 更新内容并返回视图该有的尺寸与内容区。
+    pub fn set_frame(&self, frame: &Frame) -> ViewBounds {
         *self.ivars().frame.borrow_mut() = frame.clone();
         self.setNeedsDisplay(true);
-        if let Some(bitmap) = &mut *self.ivars().bitmap.borrow_mut() {
-            return bitmap.set_frame(
+        if frame.is_panel() {
+            self.stop_animation();
+            return ViewBounds::filled(self.preferred_size());
+        }
+        let bounds = self.ivars().bitmap.borrow_mut().as_mut().map(|bitmap| {
+            bitmap.set_frame(
                 frame,
                 self.ivars().layout.get(),
                 self.is_dark(),
                 self.backing_scale(),
-            );
+            )
+        });
+        match bounds {
+            Some(bounds) => {
+                self.sync_animation();
+                bounds
+            }
+            None => ViewBounds::filled(self.preferred_size()),
         }
-        self.preferred_size()
+    }
+
+    /// 位图渲染器说有动画在播就起定时器。
+    fn sync_animation(&self) {
+        let next_frame = self
+            .ivars()
+            .bitmap
+            .borrow()
+            .as_ref()
+            .and_then(BitmapPainter::next_frame);
+        if let (Some(interval), Some(mtm)) = (next_frame, MainThreadMarker::new()) {
+            self.ivars()
+                .animation
+                .borrow_mut()
+                .start(mtm, self, interval);
+        }
+    }
+
+    /// 定时器每跳：要动画的下一帧并重画；播完就停。
+    pub fn animation_frame(&self) {
+        let next_frame = self
+            .ivars()
+            .bitmap
+            .borrow_mut()
+            .as_mut()
+            .and_then(BitmapPainter::tick);
+        self.setNeedsDisplay(true);
+        match (next_frame, MainThreadMarker::new()) {
+            // 过渡播完只剩循环动画时，间隔从 16 ms 换成 33 ms
+            (Some(interval), Some(mtm)) => self
+                .ivars()
+                .animation
+                .borrow_mut()
+                .start(mtm, self, interval),
+            _ => self.ivars().animation.borrow_mut().stop(),
+        }
+    }
+
+    /// 窗口收起：停动画、忘掉上一帧。
+    pub fn stop_animation(&self) {
+        self.ivars().animation.borrow_mut().stop();
+        if let Some(bitmap) = &mut *self.ivars().bitmap.borrow_mut() {
+            bitmap.forget();
+        }
+    }
+
+    /// 在用青简渲染器（阴影画在位图里）；否则是 AppKit 逐项绘制，要系统阴影。
+    pub fn uses_bitmap(&self) -> bool {
+        self.ivars().bitmap.borrow().is_some()
     }
 
     fn preferred_size(&self) -> NSSize {
         let theme = self.theme();
         let frame = self.ivars().frame.borrow();
+        if frame.is_panel() {
+            let (width, height) = self.panel_size(&frame);
+            return NSSize::new(width + theme.padding * 2.0, height + theme.padding * 2.0);
+        }
         let (top_width, top_height) = self.top_line_size(&frame);
         let (body_width, body_height) = match self.ivars().layout.get() {
             LayoutMode::Vertical => self.vertical_size(&frame),
@@ -389,6 +534,10 @@ impl CandidateView {
         )
         .fill();
 
+        if frame.is_panel() {
+            self.draw_panel(&frame, bounds);
+            return;
+        }
         let mut y = theme.padding;
         y += self.draw_top_line(&frame, y);
         match self.ivars().layout.get() {
@@ -596,7 +745,7 @@ impl CandidateView {
         match tone {
             Tone::Gloss => &self.theme().gloss_color,
             Tone::Fresh => &self.theme().fresh_color,
-            Tone::Faint => &self.theme().pos_color,
+            Tone::Faint | Tone::Pos | Tone::Separator => &self.theme().pos_color,
         }
     }
 

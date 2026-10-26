@@ -5,12 +5,13 @@
 //! 2. 覆盖输入字母多者优先（`kaif` → 开发者 排在 开 前）
 //! 3. 切分里非末尾的简拼音节少者优先（`kaifa` 按 `kai fa` 读的 开放 排在按 `kai f a` 读的 开放啊 前）
 //! 4. 最后一个音节完整匹配优先（`kaifa` → 开发 排在 开放 前）
-//! 5. 同一输入串下用户选过的次数（Learner 的 `choice_weight`：`mgs` 选过 美国式，下次 `mgs` 它就是首选）
-//! 6. 上下文得分：语言模型给的 `log P(词 | 上一个上屏的词)`（个人 bigram 插值，模型不认识的按词库词频兜底并扣分，
+//! 5. 注音敲了声调时，声调代价小者优先（ㄇㄚ 一声 → 妈 排在 吗 前；表与规则见 `zhuyin::tone`）
+//! 6. 同一输入串下用户选过的次数（Learner 的 `choice_weight`：`mgs` 选过 美国式，下次 `mgs` 它就是首选）
+//! 7. 上下文得分：语言模型给的 `log P(词 | 上一个上屏的词)`（个人 bigram 插值，模型不认识的按词库词频兜底并扣分，
 //!    见 `sentence::transition_log_prob`）加用户选择次数的加分（[`weight_bonus`]，对数且封顶），模糊音命中扣 ln 2、
 //!    敲错变体命中扣那类敲错的代价（`correction::TypoKind::cost`，个人敲错表打折）。
 //!    这样 `ba` 在「做了」后面出 吧、句首出 把；纯词频排序两处都只能出同一个
-//! 7. 敲的原音节优先，词长短者优先，最后按字符串稳定排序保证结果可复现
+//! 8. 敲的原音节优先，词长短者优先，最后按字符串稳定排序保证结果可复现
 //!
 //! 词库静态词频只用于预选（命中太多时先按词频砍到够排的量）与兜底。
 
@@ -86,6 +87,9 @@ mod tests {
             text,
             pinyin,
             frequency,
+            reading_total: 0,
+            tones: Default::default(),
+            secondary: false,
             exact,
         }
     }
@@ -100,6 +104,7 @@ mod tests {
                 abbreviated: 0,
                 weight: 0,
                 penalty: 0.0,
+                tone_cost: 0,
             },
             Scored {
                 hit: hit("开放", "kai fang", 20000, true),
@@ -108,6 +113,7 @@ mod tests {
                 abbreviated: 0,
                 weight: 5,
                 penalty: 0.0,
+                tone_cost: 0,
             },
             Scored {
                 hit: hit("开发", "kai fa", 9000, true),
@@ -116,6 +122,7 @@ mod tests {
                 abbreviated: 0,
                 weight: 0,
                 penalty: 0.0,
+                tone_cost: 0,
             },
         ];
         rank(&mut items, usize::MAX, |_| (0, 0.0));
@@ -133,6 +140,7 @@ mod tests {
                 abbreviated: 0,
                 weight: 0,
                 penalty: 0.0,
+                tone_cost: 0,
             },
             Scored {
                 hit: hit("吧", "ba", 2_000_000, true),
@@ -141,6 +149,7 @@ mod tests {
                 abbreviated: 0,
                 weight: 0,
                 penalty: 0.0,
+                tone_cost: 0,
             },
         ];
         // 上下文说 吧 更像：词频高的 把 让位
@@ -184,6 +193,7 @@ mod tests {
                 abbreviated: 1,
                 weight: 0,
                 penalty: 0.0,
+                tone_cost: 0,
             },
             Scored {
                 hit: hit("开放", "kai fang", 500_000, true),
@@ -192,6 +202,7 @@ mod tests {
                 abbreviated: 0,
                 weight: 0,
                 penalty: 0.0,
+                tone_cost: 0,
             },
         ];
         rank(&mut items, usize::MAX, |_| (0, 0.0));
@@ -216,6 +227,7 @@ mod tests {
                 abbreviated: 0,
                 weight: 0,
                 penalty: 0.0,
+                tone_cost: 0,
             },
             Scored {
                 hit: hit("西安", "xi an", 4000, true),
@@ -224,6 +236,7 @@ mod tests {
                 abbreviated: 0,
                 weight: 0,
                 penalty: 0.0,
+                tone_cost: 0,
             },
         ];
         rank(&mut items, usize::MAX, |_| (0, 0.0));

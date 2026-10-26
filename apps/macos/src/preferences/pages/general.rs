@@ -3,8 +3,8 @@
 use objc2::MainThreadMarker;
 use objc2::rc::Retained;
 use objc2_app_kit::{NSButton, NSPopUpButton};
-use qingjian_core::Language;
-use qingjian_platform::{Config, MAX_PAGE_SIZE, Scheme};
+use qingjian_core::{Language, TraditionalVariant};
+use qingjian_platform::{Config, EmojiCount, MAX_PAGE_SIZE, Scheme};
 
 use crate::preferences::controls::{
     checkbox, language_label, note, row_checkbox, row_popup, select, set_checked,
@@ -28,17 +28,30 @@ pub struct GeneralPage {
     /// 五笔（86 版形码）；与拼音方案同时开着就是混输。
     wubi: Retained<NSButton>,
 
-    /// 繁体输出模式。
-    traditional: Retained<NSButton>,
+    /// 输出字形（第 0 项是简体）。
+    traditional: Retained<NSPopUpButton>,
+
+    /// 候选后面一次最多配几个 emoji。
+    emoji: Retained<NSPopUpButton>,
+
+    /// 候选后面一次最多配几个颜文字。
+    kaomoji: Retained<NSPopUpButton>,
+
+    /// 候选后面一次最多配几个符号。
+    symbols: Retained<NSPopUpButton>,
 
     /// 英文模式也给候选。
     english: Retained<NSButton>,
 
     /// 终端 / 编辑器里不给英文候选。
-    english_off_in_apps: Retained<NSButton>,
+    english_only_in_apps: Retained<NSButton>,
+
+    /// 中文模式也给英文词与补全。
+    english_in_chinese: Retained<NSButton>,
 
     /// 中英混输时中文候选排在英文词前。
     chinese_first: Retained<NSButton>,
+    auto_space: Retained<NSButton>,
 
     /// 中文模式下 Shift+字母进组句。
     shift_letter: Retained<NSButton>,
@@ -48,6 +61,9 @@ pub struct GeneralPage {
 
     /// 默认中文标点模式。
     punctuation: Retained<NSPopUpButton>,
+
+    /// 组句中会转全角的标点先把高亮候选上屏再补标点。
+    punct_commits: Retained<NSButton>,
 }
 
 impl GeneralPage {
@@ -98,7 +114,7 @@ impl GeneralPage {
         note(
             layout,
             mtm,
-            "全拼、五套双拼、大千注音，或关（只用下面的五笔）。双拼下 v、u、i 是音节键，表达式与问字模式改用 Shift+V、Shift+U 进（微软、搜狗方案的 ; 键是 ing）；注音下 v、u、i 也是按键，只能用 ? 开头进。",
+            "全拼、九套双拼、大千注音，或关（只用下面的五笔）。双拼下 v、u、i 是音节键，表达式与问字模式改用 Shift+V、Shift+U 进（微软、搜狗、紫光方案的 ; 键是 ing）；注音下 v、u、i 也是按键，只能用 ? 开头进。",
         );
         let shuangpin_raw_preedit = checkbox(
             mtm,
@@ -119,6 +135,23 @@ impl GeneralPage {
             mtm,
             "与拼音方案同时开着就是混输：编码打全的五笔词在前，打不出的字直接打拼音。单用五笔请把拼音方案关掉；第 5 个字母起五笔查不到东西，自动只剩拼音。",
         );
+        let traditional_titles: Vec<String> = TraditionalVariant::ALL
+            .iter()
+            .map(|variant| variant.label().to_owned())
+            .collect();
+        let traditional = row_popup(
+            layout,
+            mtm,
+            "输出字形",
+            &traditional_titles,
+            Setting::Traditional,
+            target,
+        );
+        note(
+            layout,
+            mtm,
+            "只换字形、不换用语（软件 → 軟件）；台湾与香港的字形取舍不同（裡 / 裏）。词库与学习数据始终是简体，改回简体后学过的词照样在。",
+        );
         let punctuation = row_popup(
             layout,
             mtm,
@@ -132,31 +165,68 @@ impl GeneralPage {
             mtm,
             "仅影响标点，字母和数字保持半角；自定义短语原样输出。设置会保存。 ",
         );
-        let traditional = checkbox(mtm, "繁体输出", Setting::Traditional, target);
-        row_checkbox(layout, &traditional);
-        let english = checkbox(
+        let punct_commits = checkbox(mtm, "组句中标点先上屏候选", Setting::PunctCommits, target);
+        row_checkbox(layout, &punct_commits);
+        note(
+            layout,
             mtm,
-            "英文模式（Caps Lock）也给候选",
-            Setting::EnglishCandidates,
+            "打拼音时敲 , . ? ! 等先把高亮候选上屏、再补该标点（nihao, 一气打完「你好，」）；不勾恢复老行为：标点进英文直输段。",
+        );
+        let emoji_titles: Vec<String> = EmojiCount::LABELS.iter().map(|&s| s.to_owned()).collect();
+        let emoji = row_popup(
+            layout,
+            mtm,
+            "候选后面的 emoji",
+            &emoji_titles,
+            Setting::Emoji,
             target,
         );
+        let kaomoji = row_popup(
+            layout,
+            mtm,
+            "候选后面的颜文字",
+            &emoji_titles,
+            Setting::Kaomoji,
+            target,
+        );
+        let symbols = row_popup(
+            layout,
+            mtm,
+            "候选后面的符号",
+            &emoji_titles,
+            Setting::Symbols,
+            target,
+        );
+        let english = checkbox(mtm, "英文候选与补全", Setting::EnglishCandidates, target);
         row_checkbox(layout, &english);
         note(
             layout,
             mtm,
             "Tab 或方向键选词；空格、回车、标点仍原样上屏敲的字母，不选词时与直接打字一样。",
         );
-        let english_off_in_apps = checkbox(
+        let english_only_in_apps = checkbox(
             mtm,
-            "但在终端和代码编辑器里不给",
-            Setting::EnglishCandidatesOffInApps,
+            "只在浏览器、聊天和文档类应用里给",
+            Setting::EnglishCandidatesOnlyInApps,
             target,
         );
-        row_checkbox(layout, &english_off_in_apps);
+        row_checkbox(layout, &english_only_in_apps);
         note(
             layout,
             mtm,
-            "终端、iTerm、Warp、Ghostty、VS Code、Cursor、Zed、JetBrains、Xcode 等，那里的候选窗口会挡住应用自己的补全；名单可在配置文件里改。",
+            "Safari、Chrome、微信、QQ、Word、备忘录等；别的应用（终端、代码编辑器、Photoshop 这类靠单键快捷键的软件）里字母原样交给应用。名单可在配置文件里改。",
+        );
+        let english_in_chinese = checkbox(
+            mtm,
+            "输入拼音时也给英文词和补全",
+            Setting::EnglishInChinese,
+            target,
+        );
+        row_checkbox(layout, &english_in_chinese);
+        note(
+            layout,
+            mtm,
+            "整段是英文词（hello）或像英文词的开头（compa → company）时给英文候选；不勾就只出中文，英文模式不受影响。",
         );
         let chinese_first = checkbox(
             mtm,
@@ -169,6 +239,18 @@ impl GeneralPage {
             layout,
             mtm,
             "勾上后整段输入是英文词时（hello、key）英文词排第二，空格上屏的仍是中文；不勾（缺省）拼音不成立的输入英文词排第一。",
+        );
+        let auto_space = checkbox(
+            mtm,
+            "中文与英文、数字之间自动加空格",
+            Setting::AutoSpace,
+            target,
+        );
+        row_checkbox(layout, &auto_space);
+        note(
+            layout,
+            mtm,
+            "「用Go写了30行」上屏成「用 Go 写了 30 行」。只在汉字与半角字母、数字相邻时补，标点两侧不补；点了别处、读不到应用里的文字时不补。",
         );
         let shift_letter = checkbox(
             mtm,
@@ -189,12 +271,18 @@ impl GeneralPage {
             wubi,
             shuangpin_raw_preedit,
             traditional,
+            emoji,
+            kaomoji,
+            symbols,
             english,
-            english_off_in_apps,
+            english_only_in_apps,
+            english_in_chinese,
             chinese_first,
+            auto_space,
             shift_letter,
             languages: languages.to_vec(),
             punctuation,
+            punct_commits,
         }
     }
 
@@ -204,6 +292,7 @@ impl GeneralPage {
             &self.punctuation,
             Some(usize::from(!general.full_width_punctuation)),
         );
+        set_checked(&self.punct_commits, general.punct_commits);
         select(
             &self.learning_language,
             if general.learning_language_off() {
@@ -224,19 +313,33 @@ impl GeneralPage {
                     .unwrap_or(0),
             ),
         );
-        set_checked(&self.wubi, general.wubi());
+        set_checked(
+            &self.wubi,
+            general.code().as_deref() == Some(qingjian_platform::code_schemes::WUBI86),
+        );
         set_checked(&self.shuangpin_raw_preedit, general.shuangpin_raw_preedit);
         self.shuangpin_raw_preedit
             .setEnabled(general.scheme().is_shuangpin());
-        set_checked(&self.traditional, general.traditional);
+        select(
+            &self.traditional,
+            TraditionalVariant::ALL
+                .iter()
+                .position(|variant| *variant == general.traditional()),
+        );
+        select(&self.emoji, Some(usize::from(general.emoji.get())));
+        select(&self.kaomoji, Some(usize::from(general.kaomoji.get())));
+        select(&self.symbols, Some(usize::from(general.symbols.get())));
         set_checked(&self.english, general.english_candidates);
         set_checked(
-            &self.english_off_in_apps,
-            config.apps.has_english_candidates_off(),
+            &self.english_only_in_apps,
+            !config.apps.english_candidates_everywhere(),
         );
-        self.english_off_in_apps
+        self.english_only_in_apps
             .setEnabled(general.english_candidates);
+        set_checked(&self.english_in_chinese, general.english_in_chinese);
         set_checked(&self.chinese_first, general.chinese_first);
+        self.chinese_first.setEnabled(general.english_in_chinese);
+        set_checked(&self.auto_space, general.auto_space);
         set_checked(&self.shift_letter, general.shift_letter.compose());
     }
 }

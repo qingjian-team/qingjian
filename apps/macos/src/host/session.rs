@@ -4,7 +4,8 @@
 //! 反正 Engine 的缓冲区也是全进程一份，会话状态跟着它走。
 //! 候选的分页与云端词的位置由 Core 的 [`CandidateLayout`] 定，这里只管高亮与页码。
 
-use qingjian_core::{Candidate, CandidateLayout, Cell, GRID_ROWS, Grid};
+use qingjian_core::candidate::arrows::{Focus, Matrix};
+use qingjian_core::{Candidate, CandidateLayout, Cell, GRID_ROWS, Grid, Query};
 
 use crate::candidates::Preedit;
 
@@ -25,8 +26,15 @@ pub struct Session {
     /// 候选窗口顶部显示的拼音行（分段 + 光标）。
     pub preedit: Option<Preedit>,
 
+    /// 这轮查询的结果（候选已挪进 `layout`）：高亮换了候选时拼音行按它的读音重切，见 [`Query::follow`]。
+    pub spelling: Option<Query>,
+
     /// 横排展开成矩阵时的视口；`None` 是单行。新一轮查询收回单行。
     pub grid: Option<Grid>,
+
+    /// 方向键分两区时（[`qingjian_core::candidate::arrows`]）归拼音行还是候选。改拼音时每敲一键都是新一轮查询，
+    /// 所以它跨查询保留，整段输入结束（`preedit` 为空）才回到候选。
+    pub focus: Focus,
 }
 
 impl Session {
@@ -39,6 +47,7 @@ impl Session {
         slots: usize,
     ) {
         self.preedit = preedit;
+        self.spelling = None;
         self.layout = CandidateLayout::new(candidates, page_size, slots);
         self.highlighted = (0..self.layout.len())
             .find(|&i| self.layout.candidate(i).is_some())
@@ -46,6 +55,20 @@ impl Session {
         self.page = self.highlighted / self.layout.page_size();
         self.navigated = false;
         self.grid = None;
+        if self.preedit.is_none() {
+            self.focus = Focus::default();
+        }
+    }
+
+    /// 给 [`qingjian_core::candidate::arrows::route`] 的矩阵状态。`enabled` 是开没开「横排时展开成多行」。
+    pub fn matrix(&self, enabled: bool) -> Matrix {
+        match self.grid {
+            Some(_) => Matrix::Open {
+                first_row: self.highlighted < self.layout.page_size(),
+            },
+            None if enabled => Matrix::Closed,
+            None => Matrix::Off,
+        }
     }
 
     /// 矩阵里竖着移 `delta` 行；还是单行就先从当前页展开（展开本身也算变化）。返回要不要重画。
@@ -64,7 +87,7 @@ impl Session {
         self.move_rows(delta * GRID_ROWS as isize)
     }
 
-    /// 矩阵里按阅读顺序移一格；没展开时不动。
+    /// 矩阵里按阅读顺序移一格；没展开时不动。返回要不要重画。
     pub fn move_cells(&mut self, delta: isize) -> bool {
         let Some(mut grid) = self.grid else {
             return false;
@@ -74,9 +97,27 @@ impl Session {
         self.land(moved)
     }
 
+    /// 符号面板换上一个分类：每行 `columns` 格，直接展开成矩阵，高亮在第一格。
+    pub fn open_panel(&mut self, items: Vec<Candidate>, columns: usize) {
+        self.reset(None, items, columns, 0);
+        self.grid = Some(Grid::at(&self.layout, 0));
+    }
+
     /// 收回单行，高亮留在原处。返回原来是不是展开着。
     pub fn collapse(&mut self) -> bool {
         self.grid.take().is_some()
+    }
+
+    /// 矩阵里顶在第一排还往上：高亮回到第一个候选、视口滚回顶部。返回要不要重画。
+    pub fn jump_to_first(&mut self) -> bool {
+        if self.grid.is_none() || self.highlighted == 0 {
+            return false;
+        }
+        self.grid = Some(Grid::at(&self.layout, 0));
+        self.highlighted = 0;
+        self.page = 0;
+        self.navigated = true;
+        true
     }
 
     /// 矩阵视口里的格子（按行优先排开）与每行几格；没展开返回 `None`。
@@ -90,6 +131,24 @@ impl Session {
             cells.extend(page);
         }
         Some((cells, columns))
+    }
+
+    /// 视口滚 `delta` 行（面板里的滚轮），高亮滚出去时跟进视口。返回要不要重画。
+    pub fn scroll_rows(&mut self, delta: isize) -> bool {
+        let Some(mut grid) = self.grid else {
+            return false;
+        };
+        let moved = grid.scroll(&self.layout, self.highlighted, delta);
+        self.grid = Some(grid);
+        self.land(moved)
+    }
+
+    /// 把高亮挪到 `index`（点面板格子）。返回动没动。
+    pub fn select(&mut self, index: usize) -> bool {
+        if index == self.highlighted || self.layout.candidate(index).is_none() {
+            return false;
+        }
+        self.land(Some(index))
     }
 
     /// 高亮落到 `index`（`None` 是没动），页号跟着走。
@@ -112,6 +171,16 @@ impl Session {
     pub fn index_on_page(&self, offset: usize) -> Option<usize> {
         let index = self.page * self.layout.page_size() + offset;
         (offset < self.layout.page_size() && index < self.layout.len()).then_some(index)
+    }
+
+    /// 候选窗口里第 `offset` 格在整个排布里的下标：矩阵展开时按视口行优先数（视口是从 `top` 起连续的几页），
+    /// 没展开时同 [`Self::index_on_page`]。越界返回 `None`。点击上屏用。
+    pub fn index_in_view(&self, offset: usize) -> Option<usize> {
+        let Some(grid) = self.grid else {
+            return self.index_on_page(offset);
+        };
+        let index = grid.top() * self.layout.page_size() + offset;
+        (index < self.layout.len()).then_some(index)
     }
 
     /// 当前页的格子。
@@ -143,29 +212,42 @@ impl Session {
         true
     }
 
-    /// 翻页并选中新页第一个真实候选，跳过没有候选的页。
-    pub fn turn_page(&mut self, delta: isize) -> bool {
+    /// 往 `delta` 方向翻一页该落到哪个候选下标（跳过没有候选的页）；翻不动（没有上一页 / 下一页）返回 `None`。
+    fn page_target(&self, delta: isize) -> Option<usize> {
         let pages = self.layout.pages().max(1);
-        let current = self.page as isize;
-        let mut next = (current + delta).clamp(0, pages as isize - 1) as usize;
+        let page_size = self.layout.page_size();
+        let mut next = (self.page as isize + delta).clamp(0, pages as isize - 1) as usize;
         loop {
             if next == self.page {
-                return false;
+                return None;
             }
-            let start = next * self.layout.page_size();
-            if let Some(index) = (start..(start + self.layout.page_size()).min(self.layout.len()))
+            let start = next * page_size;
+            if let Some(index) = (start..(start + page_size).min(self.layout.len()))
                 .find(|&i| self.layout.candidate(i).is_some())
             {
-                self.page = next;
-                self.highlighted = index;
-                break;
+                return Some(index);
             }
             let following = next as isize + delta.signum();
             if following < 0 || following >= pages as isize || delta == 0 {
-                return false;
+                return None;
             }
             next = following as usize;
         }
+    }
+
+    /// 这个方向还翻得动吗（不改状态地问一句）。翻页键「翻不动就落字」用，见
+    /// `docs/user/personalize/keys-settings.md` 的「翻页键」。
+    pub fn can_turn_page(&self, delta: isize) -> bool {
+        self.page_target(delta).is_some()
+    }
+
+    /// 翻页并选中新页第一个真实候选，跳过没有候选的页。
+    pub fn turn_page(&mut self, delta: isize) -> bool {
+        let Some(index) = self.page_target(delta) else {
+            return false;
+        };
+        self.page = index / self.layout.page_size();
+        self.highlighted = index;
         self.navigated = true;
         true
     }
@@ -191,6 +273,28 @@ mod tests {
                 aux_code: None,
             })
             .collect()
+    }
+
+    #[test]
+    fn can_turn_page_tells_whether_the_page_would_move() {
+        let mut session = Session::default();
+        // 10 条、每页 5：首页往下翻得动、往上翻不动（翻页键「翻不动就落字」靠它）
+        session.reset(None, candidates(10), 5, 0);
+        assert_eq!(session.page, 0);
+        assert!(session.can_turn_page(1));
+        assert!(!session.can_turn_page(-1));
+        assert!(session.turn_page(1));
+        assert_eq!(session.page, 1);
+        // 末页反过来
+        assert!(session.can_turn_page(-1));
+        assert!(!session.can_turn_page(1));
+
+        // 只有一页、以及没有候选：两个方向都翻不动
+        for count in [3, 0] {
+            session.reset(None, candidates(count), 5, 0);
+            assert!(!session.can_turn_page(1));
+            assert!(!session.can_turn_page(-1));
+        }
     }
 
     #[test]
@@ -229,6 +333,79 @@ mod tests {
         assert!(session.move_rows(-1));
         let (cells, _) = session.grid_cells().unwrap();
         assert_eq!(cells.len(), 5);
+    }
+
+    /// ← 顶在第一个候选上移不动（归拼音光标，由控制器分派）；→ 顶在最后一个候选上不动，矩阵保持展开。
+    #[test]
+    fn arrows_at_the_grid_edges_do_not_move() {
+        let mut session = Session::default();
+        session.reset(None, candidates(20), 5, 0);
+        session.move_rows(1);
+        // ← 一路走回第一个候选，全程还是矩阵里移动
+        for _ in 0..5 {
+            assert!(session.move_cells(-1));
+            assert!(session.grid.is_some());
+        }
+        assert_eq!(session.highlighted, 0);
+        // 顶在第一个候选上再按 ←：移不动，矩阵保持展开（这一下由控制器交还拼音光标）
+        assert!(!session.move_cells(-1));
+        assert!(session.grid.is_some());
+        assert_eq!(session.highlighted, 0);
+        // → 顶在最后一个候选上移不动：矩阵保持展开
+        session.move_rows(1);
+        while session.move_cells(1) {}
+        assert_eq!(session.highlighted, 19);
+        assert!(session.grid.is_some());
+    }
+
+    /// 矩阵里顶在第一排再按 ↑：高亮回到第一个候选、视口滚回顶部；已经在第一个候选就不动。
+    #[test]
+    fn up_at_the_first_row_jumps_back_to_the_first_candidate() {
+        let mut session = Session::default();
+        session.reset(None, candidates(40), 5, 0);
+        session.move_rows(1);
+        session.move_cells(1);
+        assert_eq!(session.highlighted, 6);
+        // 回第一排第二格
+        assert!(session.move_rows(-1));
+        assert_eq!(session.highlighted, 1);
+        // 第一排再往上：回到第一个候选
+        assert!(session.jump_to_first());
+        assert_eq!((session.highlighted, session.page), (0, 0));
+        assert_eq!(session.grid.unwrap().top(), 0);
+        // 已在第一个候选：不动
+        assert!(!session.jump_to_first());
+    }
+
+    /// 给方向键规则的矩阵状态：没开是 Off、单行是 Closed，展开后看高亮在不在第一行；整段输入结束焦点回到候选。
+    #[test]
+    fn matrix_state_and_focus_follow_the_session() {
+        let mut session = Session::default();
+        session.reset(None, candidates(40), 5, 0);
+        assert_eq!(session.matrix(false), Matrix::Off);
+        assert_eq!(session.matrix(true), Matrix::Closed);
+        session.move_rows(1);
+        assert_eq!(session.matrix(true), Matrix::Open { first_row: false });
+        session.move_rows(-1);
+        assert_eq!(session.matrix(true), Matrix::Open { first_row: true });
+        session.focus = Focus::Pinyin;
+        session.reset(None, candidates(40), 5, 0);
+        assert_eq!(session.focus, Focus::Candidates);
+    }
+
+    #[test]
+    fn clicks_in_an_expanded_grid_map_to_viewport_cells() {
+        let mut session = Session::default();
+        session.reset(None, candidates(100), 5, 0);
+        assert_eq!(session.index_in_view(3), Some(3));
+        for _ in 0..7 {
+            session.move_rows(1);
+        }
+        let top = session.grid.unwrap().top();
+        assert!(top > 0);
+        // 视口第二行第三格：不是当前页的第 8 格
+        assert_eq!(session.index_in_view(7), Some(top * 5 + 7));
+        assert_ne!(session.index_in_view(7), session.index_on_page(7));
     }
 
     #[test]

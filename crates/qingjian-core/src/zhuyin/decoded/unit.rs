@@ -13,4 +13,7 @@ pub struct Unit {
 
     /// 是否為完整音節（有聲調、或可以作為結尾）
     pub complete: bool,
+
+    /// 敲的聲調（1–4，輕聲 5）；沒敲或是分隔符為 None
+    pub tone: Option<u8>,
 }

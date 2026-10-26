@@ -1,4 +1,4 @@
-//! 翻译选中文字、译词键与删候选键。
+//! 翻译选中文字与译词键。
 
 use super::*;
 
@@ -76,16 +76,23 @@ impl QingjianInputController {
         sense: usize,
         client: TextClient<'_>,
     ) -> bool {
+        let index = host::with(|h| h.session.index_on_page(digit - 1)).flatten();
+        self.commit_translation_at(index, sense, client)
+    }
+
+    /// 上屏排布里第 `index` 格候选的第 `sense` 条译词；数字键与点击共用。不在组句中返回 `false`。
+    pub(super) fn commit_translation_at(
+        &self,
+        index: Option<usize>,
+        sense: usize,
+        client: TextClient<'_>,
+    ) -> bool {
         let composing = host::with(|h| !h.engine.composition().is_empty()).unwrap_or(false);
         if !composing {
             return false;
         }
-        let candidate = host::with(|h| {
-            h.session
-                .index_on_page(digit - 1)
-                .and_then(|index| h.session.candidate(index))
-        })
-        .flatten();
+        let candidate =
+            index.and_then(|index| host::with(|h| h.session.candidate(index)).flatten());
         let text = candidate
             .and_then(|c| host::with(|h| h.engine.commit_translation(&c, sense)).flatten());
         match text {
@@ -94,26 +101,8 @@ impl QingjianInputController {
                 client.insert_text(&text);
                 self.refresh(client);
             }
-            None => tracing::debug!(digit, sense, "这个候选没有这条译文"),
+            None => tracing::debug!(?index, sense, "这个候选没有这条译文"),
         }
-        true
-    }
-
-    /// 修饰键 + 数字（缺省 ⇧）：删掉当前页第几个候选。不在组句中不管；那格没有候选就吞掉按键不动。
-    /// 删完重新查一遍（排序会变），结果那句话显示在拼音行右侧，敲下一键就没了。
-    pub(super) fn handle_delete_key(&self, digit: usize, client: TextClient<'_>) -> bool {
-        let composing = host::with(|h| !h.engine.composition().is_empty()).unwrap_or(false);
-        if !composing {
-            return false;
-        }
-        let Some(message) = host::with(|h| h.forget_candidate(digit - 1)).flatten() else {
-            tracing::debug!(digit, "这一格没有候选，没什么可删");
-            return true;
-        };
-        tracing::info!(%message);
-        self.refresh(client);
-        host::with(|h| h.status = Some(message));
-        self.render(client);
         true
     }
 }

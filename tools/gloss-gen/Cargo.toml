@@ -7,7 +7,8 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
-async-openai.workspace = true
+# 工作区那份不带 TLS（安卓要换 rustls），这里自己开系统 TLS
+async-openai = { workspace = true, features = ["native-tls"] }
 clap.workspace = true
 dotenvy.workspace = true
 qingjian-core.workspace = true

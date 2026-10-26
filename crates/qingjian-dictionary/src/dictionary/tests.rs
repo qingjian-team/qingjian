@@ -237,17 +237,21 @@ fn legacy_qj_umlaut_keys_remain_queryable() {
                 text_start: 0,
                 frequency: 100,
                 text_len: 3,
-                reserved: 0,
+                tones: 0,
             },
             Slot {
                 text_start: 3,
                 frequency: 90,
                 text_len: 3,
-                reserved: 0,
+                tones: 0,
             },
         ]),
+        spills: Table::default(),
+        spilled: Text::default(),
         total_frequency: 190,
         metadata: None,
+        secondary: false,
+        readings: Default::default(),
     };
     let dir = std::env::temp_dir().join("qingjian-dictionary-tests");
     std::fs::create_dir_all(&dir).unwrap();
@@ -270,4 +274,62 @@ fn legacy_qj_umlaut_keys_remain_queryable() {
     assert_eq!(texts(&dictionary.lookup(&["lve"], false)), ["略"]);
     assert_eq!(texts(&dictionary.lookup(&["nue"], false)), ["虐"]);
     assert_eq!(texts(&dictionary.lookup(&["nve"], false)), ["虐"]);
+}
+
+#[test]
+fn toned_and_toneless_pinyin_share_keys() {
+    let dictionary =
+        Dictionary::parse("你好\tni3 hao3\t100\n拟好\tni hao\t10\n东西\tdong1 xi5\t50\n").unwrap();
+    let matches = dictionary.lookup(&["ni", "hao"], false);
+    assert_eq!(texts(&matches), ["你好", "拟好"]);
+    assert_eq!(matches[0].pinyin, "ni hao");
+    assert_eq!(matches[0].tones.to_vec(2), [3, 3]);
+    assert_eq!(matches[1].tones.to_vec(2), [0, 0]);
+    assert_eq!(
+        dictionary.lookup(&["dong", "xi"], false)[0].tones.to_vec(2),
+        [1, 5]
+    );
+}
+
+#[test]
+fn tones_survive_qj_round_trip() {
+    let source = "你好\tni3 hao3\t100\n\
+                  中华人民共和国\tzhong1 hua2 ren2 min2 gong4 he2 guo2\t80\n\
+                  一二三四五六\tyi1 er4 san1 si4 wu3 liu4\t5\n\
+                  一二三四五六\tyi er san si wu liu\t3\n\
+                  绿\tlv4\t9\n";
+    let original = Dictionary::parse(source).unwrap();
+    let dir = std::env::temp_dir().join("qingjian-dictionary-tests");
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join(format!("toned-dict-{}.qj", std::process::id()));
+    original.write_qj(&path, &Metadata::default()).unwrap();
+    let reopened = Dictionary::open_qj(&path).unwrap();
+    std::fs::remove_file(&path).unwrap();
+
+    let tones_of = |dictionary: &Dictionary| {
+        dictionary
+            .entries()
+            .map(|m| (m.text.to_owned(), m.tones.to_vec(m.syllable_count())))
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(tones_of(&reopened), tones_of(&original));
+    let long = reopened.lookup(&["zhong", "hua", "ren", "min", "gong", "he", "guo"], false);
+    assert_eq!(long[0].tones.to_vec(7), [1, 2, 2, 2, 4, 2, 2]);
+    let six = reopened.lookup(&["yi", "er", "san", "si", "wu", "liu"], false);
+    assert_eq!(six[0].tones.to_vec(6), [1, 4, 1, 4, 3, 4]);
+    assert_eq!(six[1].tones.to_vec(6), [0; 6]);
+    assert_eq!(reopened.lookup(&["lv"], false)[0].tones.get(0), 4);
+}
+
+#[test]
+fn reading_share_splits_a_polyphone_by_reading_frequency() {
+    let dictionary =
+        Dictionary::parse("区\tqu\t90\n区\tou\t9\n偶\tou\t5\n区别\tqu bie\t50\n").unwrap();
+    let ou = dictionary.lookup(&["ou"], false);
+    let share = |text: &str| ou.iter().find(|m| m.text == text).unwrap().reading_share();
+    assert!((share("区") - 10.0 / 100.0).abs() < 1e-9);
+    assert_eq!(share("偶"), 1.0);
+    // 多音节的词不查表
+    let bie = dictionary.lookup(&["qu", "bie"], false);
+    assert_eq!(bie[0].reading_share(), 1.0);
 }

@@ -8,13 +8,16 @@ use qingjian_platform::protocol::{
 use serde_json::{Value, json};
 
 pub fn router() -> Router {
+    router_with(RouterConfig::default())
+}
+pub fn router_with(config: RouterConfig) -> Router {
     let mut router = Router::new(
         Engine::new(
             Dictionary::parse("你好\tni hao\t100\n你\tni\t80\n泥\tni\t70\n拟\tni\t60\n").unwrap(),
         ),
         RouterConfig {
             page_size: 1,
-            ..Default::default()
+            ..config
         },
     );
     for id in [1, 2] {
@@ -54,10 +57,27 @@ pub fn key(
     character: Option<char>,
     release: bool,
 ) -> Value {
+    key_with(
+        router,
+        id,
+        code,
+        character,
+        KeyModifiers::default(),
+        release,
+    )
+}
+pub fn key_with(
+    router: &mut Router,
+    id: u64,
+    code: u32,
+    character: Option<char>,
+    modifiers: KeyModifiers,
+    release: bool,
+) -> Value {
     event(
         router,
         id,
-        json!({"Key": {"event": KeyEvent::new(code, character, KeyModifiers::default()), "release": release}}),
+        json!({"Key": {"event": KeyEvent::new(code, character, modifiers), "release": release}}),
     )
 }
 pub fn compose(router: &mut Router, id: u64, text: &str) -> Value {

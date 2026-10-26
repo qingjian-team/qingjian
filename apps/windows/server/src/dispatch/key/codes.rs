@@ -2,6 +2,15 @@
 
 use qingjian_platform::protocol::KeyEvent;
 
+use crate::dispatch::Router;
+
+impl Router {
+    pub(super) fn page_step(&self, event: &KeyEvent) -> Option<isize> {
+        page_key(event, self.config.page_keys)
+            .or_else(|| self.config.extra_page_keys.step(event.character?))
+    }
+}
+
 pub(crate) const BACK: u32 = 0x08;
 pub(crate) const TAB: u32 = 0x09;
 pub(crate) const RETURN: u32 = 0x0D;

@@ -14,7 +14,12 @@
   `HashMap<Lang, String>` 这类多语言并列的数据结构，那会在 API 层面把「一次只学一种语言」这条产品原则给破坏掉。翻译是候选词的 annotation（可选、单条）。
 - **输入优先于学习。** 任何为学习功能增加的延迟、弹窗、UI 干扰都是设计错误。翻译查询不能阻塞候选生成，Core 必须能在翻译尚未就绪时先返回候选。
 - **输入方案是配置项，不是模式。** 双拼、注音这类键盘方案放 `[general]` 里当设置，中 / 英切换始终是布尔；新方案不能改变别的方案的既定按键行为（[user/getting-started/keys.md](user/getting-started/keys.md)）。
-- **显示面自绘、控件面原生。** 候选窗、拼音行、状态条这类显示面由渲染器出位图各平台贴图（主题靠它）；偏好设置、菜单、安装器用各平台原生控件。见 [design/rendering.md](design/rendering.md)。
+- **显示面与设置程序自绘，菜单与安装器原生。** 候选窗、拼音行、状态条这类显示面由渲染器出位图各平台贴图（主题靠它）；设置程序 `apps/settings` 三平台共用一份，画在同一个引擎上；
+  输入法菜单、系统托盘、安装器用各平台原生控件。见 [design/rendering.md](design/rendering.md) 与 [design/settings.md](design/settings.md)。
+- **移动端的屏幕键盘与面板将来统一到 Rust。** Android 现在由 Kotlin 自绘键盘与面板，这是过渡状态；做第二个移动平台（iOS / iPadOS / HarmonyOS）时统一到 Rust，见 [plan/roadmap.md](plan/roadmap.md) Phase 5。
+  在那之前，能跨平台共享的规则（主题推导出的配色、键位与尺寸计算）放 Rust，不在平台壳里新写一份；不为单个平台另起一套键盘或 UI 框架。
+  Kotlin 里现存、统一时要一起搬的规则：键位表与尺寸（`KeyboardLayout` / `KeyboardMetrics`）、滑行起判阈值（`SwipeTrail.START_KEYS`）、
+  面板与 App 里写死的颜色（剪贴板代码高亮的数字色、生词标签色、失败与危险操作的红）。清单在 roadmap Phase 5，搬走一项划掉一项。
 
 ## 代码组织
 
@@ -41,6 +46,7 @@
 
 - 依赖用 `cargo add` 加，共用包提到根 `[workspace.dependencies]`；错误用 `thiserror` 不用 `anyhow`；日志用 `tracing` 门面。
 - 快捷键一律进 `[shortcut]` 可配置，不写死键码。
+- 设置项只有部分平台的输入法读时，在设置程序的 `apps/settings/src/support/` 表里登记三个平台各是「支持 / 不适用 / 待实现」，页面按表显示，不直接写 `cfg!`；「待实现」的同步列进 `docs/plan/todo.md` 的「设置项的平台缺口」。
 
 ## 版本号
 
@@ -55,23 +61,28 @@
   - 类型：`feat` 新功能 / `fix` 修 bug / `docs` 只改文档 / `refactor` 不改行为的整理 / `perf` 性能 / `test` 只改测试 /
     `build` 打包与构建脚本 / `ci` 工作流 / `chore` 版本号、依赖、仓库杂务 / `style` 只改格式 / `revert` 还原。
   - 范围：crate 或壳的名字——`core` `platform` `render` `dictionary` `translate` `learning` `predict` `lm` `neural` `format` `cli`
-    `macos` `windows`（Server / DLL / 设置程序细分时用 `server` `tsf` `settings`）`installer` `linux` `tools` `docs` `ci` `deps` `release`；
+    `macos` `windows`（Server / DLL / 设置程序细分时用 `server` `tsf` `settings`）`installer` `linux` `android` `tools` `docs` `ci` `deps` `release`；
     跨好几处的可以省略。不兼容的改动在范围后加 `!`。
-  - 正文写「为什么」与取舍，一行一条；不加 AI 署名。`.githooks/commit-msg` 会拦第一行不合格式的提交。
+  - 正文写「为什么」与取舍，一行一条。`.githooks/commit-msg` 会拦第一行不合格式的提交，合并提交也一样（`git merge --no-ff -m "feat: …"`）。
   - 2026-09-16 之前的历史是「`macOS：……` / `Core：……`」的中文冒号格式，不重写。
 
 ## 文档同步
 
 - 实现与规划分歧时以代码为准并改文档。技术方向写 `docs/design/`，计划写 `docs/plan/`，工程记录写 `docs/notes/`；不往 README 里加技术内容。
-- **用户能感知的行为改了（按键、菜单、偏好设置、配置文件、数据文件），同一个提交里改 `docs/user/` 对应的页**，按键改动同时改 `keys.md`。
+- **用户能感知的行为改了（按键、菜单、设置程序、配置文件、数据文件），同一个提交里改 `docs/user/` 对应的页**，按键改动同时改 `keys.md`。
 - 改了某个 crate 的实现要点（数据文件、常数、生成命令），同步 `docs/notes/crate-notes.md`。
 
 ## 提交前检查
 
 - 钩子：`.githooks/pre-commit`（禁装饰性分隔注释 + fmt + clippy）、`.githooks/commit-msg`（提交信息格式）、`.githooks/pre-push`（全 workspace 测试）；`git config core.hooksPath .githooks` 启用一次。
   两个跑编译的钩子按 `uname` 划平台范围：**非 Apple 平台排除 `qingjian-macos`**（IMK 壳依赖 objc2，在别的平台上是硬 `compile_error!`，
-  排除不掉就整条命令失败），与 [ci.yml](../.github/workflows/ci.yml) 三个 job 的划分一致；Windows 上 pre-push 另设 `QINGJIAN_UIACCESS=0`
-  （Server 的 build.rs 嵌 uiAccess manifest，没签名的测试二进制起不来，os error 740）。
+  排除不掉就整条命令失败），与 [ci.yml](../.github/workflows/ci.yml) 三个 job 的划分一致；Server 的 uiAccess 缺省不带
+  （没签名的 exe 带 uiAccess=true 起不来，os error 740），只有 `build.ps1 -Sign` 设 `QINGJIAN_UIACCESS=1` 打开。
+- **在 Linux / Windows 上改 macOS 壳**：排除之后等于盲改，编译错误要到 CI 才看得到。
+  `rustup target add aarch64-apple-darwin` 一次，之后 pre-commit 在「这次提交碰了 `apps/macos/`、`crates/` 或依赖」时
+  会对 darwin 目标跑一遍 clippy（只做类型检查、不链接，与 CI 的 macOS job 同一道门；第一次约半分钟，之后一两秒）；
+  没装这个 target 的人流程不变。
+  原理与手动跑法见 [notes/crate-notes.md](notes/crate-notes.md) 的 apps/macos 一节。
 - 排序 / 整句 / 纠错的改动先跑 `apps/cli` 再合。
 
 ## CI 与发版
@@ -87,5 +98,6 @@
 - **修 bug、改壳里行为（按键、上屏、候选窗位置）的 PR 必须真机验过**：先在自己机器上复现问题，改完在同一个应用里确认修好，
   PR 的「怎么验证的」写明系统版本、应用与操作步骤。编译与 CI 通过不算验证。没验过的修复发出去，报 issue 的人升级后还得再报一次。
   复现不了的（没有那个应用或系统）不提修复：把分析写在 issue 里，或者提只加日志、不改行为的 PR。
+- 新功能涉及几个平台时，验你手上有的平台；没有机器的平台在「怎么验证的」里写明没验，由维护者在真机上测。
   不改行为的改动（日志、注释、文档）与有测试 / 回放兜底的 Core 逻辑不受此限。
-- 主题与自绘渲染器（`crates/qingjian-render`、各壳的贴图路径、主题文件）还在测试，这部分暂不接受 PR；稳定一版后再开。
+- `crates/qingjian-render` 与 `crates/bamboo-slip` 是双许可（GPL-3.0-or-later 或商业许可，见各自目录的 `LICENSE.md`）。**向这两个目录提交改动，即表示你同意以 [MIT-0](https://opensource.org/license/mit-0) 许可你的这部分贡献**：版权仍归你，你也可以照常以任何许可在别处使用它；这样维护者才能把它一起放进 GPL 与商业许可。贡献里有别人的代码或素材时，在 PR 里写清来源与许可。仓库其他部分的贡献只按 GPL-3.0-or-later。

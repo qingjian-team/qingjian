@@ -21,6 +21,10 @@ pub struct Report {
     /// 首选就是原句。
     pub top1: usize,
 
+    /// 原句出现在前三 / 前五个候选里（多给几条整句候选值不值，看这两个差多少）。
+    pub top3: usize,
+    pub top5: usize,
+
     /// 整句候选（第一个盖住全部拼音的候选）就是原句。
     pub sentence_hit: usize,
 
@@ -55,13 +59,15 @@ fn percent(part: usize, whole: usize) -> String {
 
 impl fmt::Display for Report {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        writeln!(f, "整句评测（冷启动，不学习，不写文件）")?;
+        writeln!(f, "整句评测（冷启动，不学习，不写用户数据）")?;
         let evaluated = self.evaluated();
         writeln!(
             f,
-            "句子 {:>5} 条  首选 {:>6}  整句候选 {:>6}  字准确率 {:>6}",
+            "句子 {:>5} 条  首选 {:>6}  前三 {:>6}  前五 {:>6}  整句候选 {:>6}  字准确率 {:>6}",
             self.total,
             percent(self.top1, evaluated),
+            percent(self.top3, evaluated),
+            percent(self.top5, evaluated),
             percent(self.sentence_hit, evaluated),
             percent(self.chars_correct, self.chars_total),
         )?;

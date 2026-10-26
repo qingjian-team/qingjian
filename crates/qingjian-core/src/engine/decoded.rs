@@ -27,6 +27,14 @@ impl EngineDecoded {
         }
     }
 
+    /// 每個音節敲的聲調，只有注音有；雙拼給空表（排序不看聲調）。
+    pub fn tones(&self) -> Vec<Option<u8>> {
+        match self {
+            Self::Shuangpin(_) => Vec::new(),
+            Self::Zhuyin(d) => d.tones(),
+        }
+    }
+
     pub fn marked(&self) -> String {
         match self {
             Self::Shuangpin(d) => d.marked(),

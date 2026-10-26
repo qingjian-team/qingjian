@@ -3,6 +3,9 @@
 /// 无论壳传来多长的文本，Core 都只发这么多：这是隐私上限的最后一道闸。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PredictionPolicy {
+    /// 停顿后自动联想；关闭时仅显式触发。
+    pub automatic: bool,
+
     /// 光标前最多看几个字符。
     pub before: usize,
 
@@ -22,6 +25,7 @@ pub struct PredictionPolicy {
 impl Default for PredictionPolicy {
     fn default() -> Self {
         Self {
+            automatic: true,
             before: 64,
             after: 32,
             slots: 2,

@@ -1,6 +1,7 @@
 //! 命令键（回车、退格、方向键、Tab、Esc 等）的处理。
 
 use super::*;
+use qingjian_core::candidate::arrows::Arrow;
 
 impl QingjianInputController {
     /// 组句期间所有编辑动作都由我们接管；不认识的一律吞掉，否则应用会动光标、丢 marked text。
@@ -49,9 +50,14 @@ impl QingjianInputController {
                 self.render(client);
                 return true;
             }
+            // 辅码态里 Esc 只清码段，拼音留着
             host::with(|h| {
-                h.engine.clear();
-                h.cancel_prediction();
+                if h.engine.in_aux() {
+                    h.engine.clear_aux();
+                } else {
+                    h.engine.clear();
+                    h.cancel_prediction();
+                }
             });
             self.refresh(client);
         } else if selector == sel!(insertTab:) {
@@ -65,17 +71,21 @@ impl QingjianInputController {
             host::with(|h| h.engine.delete_forward());
             self.refresh(client);
         } else if selector == sel!(moveDown:) {
-            self.move_highlight(1, client);
+            if !self.two_area_arrow(Arrow::Down, client) {
+                self.move_highlight(1, client);
+            }
         } else if selector == sel!(moveUp:) {
-            self.move_highlight(-1, client);
+            if !self.two_area_arrow(Arrow::Up, client) {
+                self.move_highlight(-1, client);
+            }
         } else if selector == sel!(moveLeft:) {
-            // 横排矩阵开着：左右键在候选之间移动高亮（单行、展开后都是）；否则照旧移动拼音光标
-            if !self.move_cells(-1, client) {
+            // 横排、高亮移动键选 ← / →：分两区走；横排矩阵开着：左右键在候选之间移动高亮；否则照旧移动拼音光标
+            if !self.two_area_arrow(Arrow::Left, client) && !self.move_cells(-1, client) {
                 host::with(|h| h.engine.move_cursor_left());
                 self.refresh(client);
             }
         } else if selector == sel!(moveRight:) {
-            if !self.move_cells(1, client) {
+            if !self.two_area_arrow(Arrow::Right, client) && !self.move_cells(1, client) {
                 host::with(|h| h.engine.move_cursor_right());
                 self.refresh(client);
             }

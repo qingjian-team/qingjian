@@ -9,6 +9,7 @@
 mod cloud_word;
 mod fuzzy;
 mod kind;
+mod pending;
 mod policy;
 mod predictor;
 mod question;
@@ -28,12 +29,30 @@ pub use response::Prediction;
 pub use script::translation_target;
 pub use surrounding_text::SurroundingText;
 
-use super::*;
+use super::{
+    Engine, MIN_PREDICTION_LETTERS, PREDICTION_CANDIDATE_HINTS, is_raw, query,
+    segment_longest_prefix, take_first_chars, take_last_chars,
+};
+use crate::candidate::Candidate;
+use crate::engine::commit::LastCommit;
+use crate::engine::input_log::{InputLogEntry, InputLogger, InputSource};
+use crate::parser::{self, Segmentation};
+use crate::{sentence, shortcut};
+
+pub(crate) use pending::PendingPrediction;
 
 impl Engine {
     /// 是否接了会联想的 Predictor；壳据此决定要不要起轮询定时器、画云朵标识。
     pub fn prediction_enabled(&self) -> bool {
         self.predictor.is_enabled()
+    }
+
+    /// 显式选区翻译是否可用；单独接入本地翻译不会打开云联想。
+    pub fn translation_enabled(&self) -> bool {
+        self.translation_predictor.as_ref().map_or_else(
+            || self.predictor.is_enabled(),
+            |provider| provider.is_enabled(),
+        )
     }
 
     pub fn prediction_policy(&self) -> PredictionPolicy {
@@ -50,11 +69,36 @@ impl Engine {
         surrounding: Option<SurroundingText>,
         candidates: &[Candidate],
     ) -> Option<u64> {
+        if !self.predictor.policy().automatic {
+            self.cancel_prediction();
+            return None;
+        }
+        self.submit_prediction(surrounding, candidates, false)
+    }
+
+    /// 显式按需联想，跳过停键等待；保留旧入口的自动等待行为。
+    pub fn request_manual_prediction(
+        &mut self,
+        surrounding: Option<SurroundingText>,
+        candidates: &[Candidate],
+    ) -> Option<u64> {
+        self.submit_prediction(surrounding, candidates, true)
+    }
+
+    fn submit_prediction(
+        &mut self,
+        surrounding: Option<SurroundingText>,
+        candidates: &[Candidate],
+        manual: bool,
+    ) -> Option<u64> {
         if !self.predictor.is_enabled() || self.private {
             return None;
         }
         // 不发也要换序号：正在飞的旧结果对应的是上一个输入状态，回来了也不能显示
         self.prediction_sequence += 1;
+        // 新一轮组句作废旧组句联想；翻译不依赖拼音，允许它继续返回。
+        self.pending_predictions
+            .retain(|_, pending| pending.kind == PredictionKind::Translate);
         // 辅码态在按码筛词，云端词没有码、进来只会打乱；不发请求，槽位自然收起
         if self.aux_filter().is_some() {
             return None;
@@ -68,18 +112,34 @@ impl Engine {
             None => (String::new(), String::new()),
         };
         let scope = self.composition.scope();
+        // 九宫格敲的是数字：问云端用这次查询的拼音行，没查过这段就不发
+        let nine_key_pinyin = if self.nine_key {
+            let snapshot = self.last_query.borrow();
+            match snapshot.as_ref().filter(|s| s.scope == scope) {
+                Some(snapshot) => Some(snapshot.pinyin.clone()),
+                None => return None,
+            }
+        } else {
+            None
+        };
         if self.english_mode
             || self.modes().is_expression(scope, self.zhuyin)
-            || is_raw(scope, self.modes(), self.shuangpin, self.zhuyin)
+            || (nine_key_pinyin.is_none()
+                && is_raw(scope, self.modes(), self.shuangpin.as_deref(), self.zhuyin))
         {
             return None;
         }
         // 问字模式：问题本身就是全部上下文，不带应用文本、不要整句、本地没有候选可提示
         let question = self.modes().is_question(scope, self.zhuyin);
+        // 不需要云端词或整句补全时不发空的组句请求；候选翻译单独请求。
+        if !question && policy.slots == 0 && !policy.sentence {
+            return None;
+        }
         if question
-            && shortcut::unicode_form(self.modes().question_body(scope, self.zhuyin)).is_some()
+            && (shortcut::unicode_form(self.modes().question_body(scope, self.zhuyin)).is_some()
+                || self.english_word_candidate(scope).is_some())
         {
-            // 码点输入本地就能答，不问云端
+            // 码点输入本地出字符、整段是英文词本地出词，都不问云端
             return None;
         }
         let (kind, pinyin_source, before, after) = if question {
@@ -90,7 +150,12 @@ impl Engine {
                 String::new(),
             )
         } else {
-            (PredictionKind::Compose, scope, before, after)
+            (
+                PredictionKind::Compose,
+                nine_key_pinyin.as_deref().unwrap_or(scope),
+                before,
+                after,
+            )
         };
         // 双拼：问云端用的是解出来的全拼，不是敲的键
         let decoded = self.decode(pinyin_source);
@@ -111,11 +176,9 @@ impl Engine {
             }
             Err(_) => (pinyin_source.to_owned(), 0, String::new(), false),
         };
-        if question {
-            self.last_question_guess = guess.clone();
-        }
         let request = PredictionRequest {
             sequence: self.prediction_sequence,
+            manual,
             kind,
             before,
             after,
@@ -127,7 +190,7 @@ impl Engine {
                 .take(PREDICTION_CANDIDATE_HINTS)
                 .map(|c| c.text.clone())
                 .collect(),
-            guess,
+            guess: guess.clone(),
             // 简拼（半数以上音节是缩写）不问词：模型按声母凑出来的大多是生造词（复合语气、符号映射），
             // 只问整句补全；问字模式的答案不受这条限制（答案本来就对不上问题的拼音）。
             max_items: if abbreviated && !question {
@@ -139,23 +202,45 @@ impl Engine {
             text: String::new(),
             target_language: String::new(),
         };
-        self.last_prediction_kind = kind;
-        self.last_prediction_scope = scope.to_owned();
+        self.pending_predictions.insert(
+            self.prediction_sequence,
+            PendingPrediction {
+                kind,
+                scope: scope.to_owned(),
+                question_guess: if question { guess } else { String::new() },
+            },
+        );
         self.predictor.submit(request);
         Some(self.prediction_sequence)
     }
 
-    /// 把应用里选中的一段文字交给云端翻译（壳里快捷键触发）：主要是汉字就译成学习语言，是外文（拉丁字母、假名）就译成中文
-    /// （[`translation_target`]）。云联想关着、私密输入中、文字为空时不发，返回 `None`；
+    /// 把应用里选中的一段文字交给翻译提供方（壳里快捷键触发）：主要是汉字就译成学习语言，是外文（拉丁字母、假名）就译成中文
+    /// （`translation_target`）。提供方不可用、私密输入中、文字为空时不发，返回 `None`；
     /// 译文从 [`Self::poll_prediction`] 的 `sentence` 里出。不进学习、不动缓冲区。
     pub fn request_translation(&mut self, text: &str) -> Option<u64> {
-        let text = text.trim();
-        if !self.predictor.is_enabled() || self.private || text.is_empty() {
+        self.submit_translation(text, true)
+    }
+
+    /// 为当前整句候选请求译文。和组句联想一样等停键，避免输入变化时重复发出。
+    pub fn request_sentence_translation(&mut self, text: &str) -> Option<u64> {
+        self.submit_translation(text, false)
+    }
+
+    fn submit_translation(&mut self, text: &str, manual: bool) -> Option<u64> {
+        let text = if manual { text } else { text.trim() };
+        let native = manual && self.translation_predictor.is_some();
+        let enabled = if native {
+            self.translation_enabled()
+        } else {
+            self.predictor.is_enabled()
+        };
+        if !enabled || self.private || text.trim().is_empty() {
             return None;
         }
         self.prediction_sequence += 1;
         let request = PredictionRequest {
             sequence: self.prediction_sequence,
+            manual,
             kind: PredictionKind::Translate,
             before: String::new(),
             after: String::new(),
@@ -171,30 +256,67 @@ impl Engine {
                 .code()
                 .to_owned(),
         };
-        self.last_prediction_kind = PredictionKind::Translate;
-        self.predictor.submit(request);
+        // 翻译只保留最新一条；组句联想可继续返回。
+        self.pending_predictions
+            .retain(|_, pending| pending.kind != PredictionKind::Translate);
+        self.pending_predictions.insert(
+            self.prediction_sequence,
+            PendingPrediction {
+                kind: PredictionKind::Translate,
+                scope: String::new(),
+                question_guess: String::new(),
+            },
+        );
+        if native {
+            if let Some(provider) = self.translation_predictor.as_mut() {
+                provider.submit(request);
+            }
+        } else {
+            self.predictor.submit(request);
+        }
         Some(self.prediction_sequence)
     }
 
     /// 作废正在飞的联想（用户清空了拼音、关掉了联想框）。
     pub fn cancel_prediction(&mut self) {
         self.prediction_sequence += 1;
+        self.predictor.cancel();
+        if let Some(provider) = self.translation_predictor.as_mut() {
+            provider.cancel();
+        }
+        self.pending_predictions.clear();
+    }
+
+    /// 作废组句联想，保留当前整句候选翻译；候选文本没有变化时壳无需重新请求翻译。
+    pub fn cancel_composition_prediction(&mut self) {
+        self.prediction_sequence += 1;
+        self.pending_predictions
+            .retain(|_, pending| pending.kind == PredictionKind::Translate);
+    }
+
+    /// 作废当前整句候选翻译；候选变化、清空输入或关闭功能时调用。
+    pub fn cancel_sentence_translation(&mut self) {
+        self.pending_predictions
+            .retain(|_, pending| pending.kind != PredictionKind::Translate);
     }
 
     /// 取回最近一次请求的结果；过期结果直接丢。没有就绪的结果返回 `None`，不阻塞。
     /// 结果可能是空的（模型没给出可用条目），壳据此停止等待。
     pub fn poll_prediction(&mut self) -> Option<Prediction> {
-        while let Some(mut prediction) = self.predictor.poll() {
-            if prediction.sequence == self.prediction_sequence {
+        while let Some(mut prediction) = self
+            .translation_predictor
+            .as_mut()
+            .and_then(|provider| provider.poll())
+            .or_else(|| self.predictor.poll())
+        {
+            if let Some(pending) = self.pending_predictions.remove(&prediction.sequence) {
                 // 问字的答案、翻译的译文和敲的拼音本来就对不上，只有组句联想的云端词要校验
-                if self.last_prediction_kind == PredictionKind::Question {
-                    let guess = &self.last_question_guess;
+                if pending.kind == PredictionKind::Question {
+                    let guess = &pending.question_guess;
                     prediction
                         .words
                         .retain(|word| !restates_question(&word.text, guess));
-                } else if self.last_prediction_kind == PredictionKind::Compose
-                    && !self.question_mode()
-                {
+                } else if pending.kind == PredictionKind::Compose && !self.question_mode() {
                     if self.predictor.policy().slots == 0 {
                         // 用户不要云端词，只留整句补全
                         prediction.words.clear();
@@ -204,29 +326,20 @@ impl Engine {
                     if !prediction.is_empty() {
                         // 给过用户什么：紧接着的上屏说明接没接受（本地联想能不能替代云端的尺子）
                         self.logger.record(InputLogEntry::Prediction {
-                            scope: self.last_prediction_scope.clone(),
+                            scope: pending.scope,
                             words: prediction.words.iter().map(|w| w.text.clone()).collect(),
                             sentence: prediction.sentence.clone(),
                         });
                     }
                 }
-                if self.traditional
-                    && self.last_prediction_kind != PredictionKind::Translate
-                    && let Some(opencc) = &self.opencc
-                {
+                // 云端词与整句不走候选列表，赶不上 query 那边的 apply，这里单独转并记还原表。
+                // 释义那一类不转：它出来的是中文释义，简繁在挂到候选上时才处理
+                if pending.kind != PredictionKind::Translate {
                     for word in &mut prediction.words {
-                        let traditional = opencc.convert(&word.text);
-                        self.traditional_map
-                            .borrow_mut()
-                            .insert(traditional.clone(), word.text.clone());
-                        word.text = traditional;
+                        word.text = self.traditional.convert_remember(&word.text);
                     }
                     if let Some(sentence) = &mut prediction.sentence {
-                        let traditional = opencc.convert(sentence);
-                        self.traditional_map
-                            .borrow_mut()
-                            .insert(traditional.clone(), sentence.clone());
-                        *sentence = traditional;
+                        *sentence = self.traditional.convert_remember(sentence);
                     }
                 }
                 return Some(prediction);
@@ -265,28 +378,20 @@ impl Engine {
     /// 但按语言模型把它切成词（[`sentence::segment_text`]）逐条记进个人 n-gram，与选整句候选一样；
     /// 标点处断句，句尾是标点时之后的词按句首记。整句退格删光再重打时这些转移一并退回。
     pub fn accept_prediction(&mut self, text: &str) -> String {
+        // 壳送回来的是繁体那份：先换回简体，下面的学习、日志、n-gram 一律看简体
         let traditional_text = text.to_owned();
-        let original_text_owned;
-        let text = if self.traditional {
-            original_text_owned = self
-                .traditional_map
-                .borrow()
-                .get(text)
-                .cloned()
-                .unwrap_or_else(|| text.to_owned());
-            &original_text_owned
-        } else {
-            text
-        };
+        let restored = self.traditional.restore(text);
+        let text = restored.as_deref().unwrap_or(text);
         let (_, input) = self.whole_scope();
         self.apply_retraction(&input, text);
         self.recording.clear();
         let keys = self.composition.scope().to_owned();
         let log_id = self.log_commit(&keys, text, InputSource::CloudSentence);
         self.meter_commit(text, InputSource::CloudSentence, false);
+        self.translate_for_encounter(text);
         self.composition.drain_scope();
         self.punctuation.note_committed(text);
-        self.history.record(text);
+        self.note_text(text);
         match sentence::segment_text(text, &*self.language_model) {
             Some(clauses) => {
                 let buffer_left = !self.composition.is_empty();
@@ -310,8 +415,10 @@ impl Engine {
         let commit = LastCommit {
             text: text.to_owned(),
             chars: traditional_text.chars().count(),
+            tail: traditional_text.chars().last(),
             input,
             chosen: None,
+            choice: None,
             transitions: std::mem::take(&mut self.recording),
             typos: Vec::new(),
             erased: 0,
@@ -319,7 +426,7 @@ impl Engine {
             phrase: None,
         };
         self.remember_commit(commit);
-        traditional_text
+        self.take_held() + &traditional_text
     }
 
     /// 云端词学成用户词时用哪套音节。模型给的读音偶有错（我的 → wo di），错读音学进去以后只会按错读音出来，

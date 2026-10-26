@@ -5,35 +5,40 @@
 //! 云端词、云端整句、原样上屏、译词不评：它们不是本地排序的结果，只计数。
 //! 其他事件（重打、直通、云端联想、上文断开、会话）按 `docs/plan/model-eval.md` 里的尺子计数。
 
-mod line;
+pub(crate) mod line;
 mod report;
 mod scheme;
 mod tally;
 
 use std::path::Path;
+use std::sync::Arc;
 
-use qingjian_core::{Engine, InputLogEntry, InputSource};
-use qingjian_dictionary::CodeTable;
+use qingjian_core::{CodeScheme, Engine, InputLogEntry, InputSource, ShuangpinLayout};
 
 pub use report::Report;
+
+use crate::zhiyi::Reranker;
 
 use line::Line;
 use scheme::SchemeSwitcher;
 use tally::Tally;
 
-/// 跑一遍日志，返回报告。`code_table` 是给日志里形码那些行用的（`--wubi` 给的码表）。
+/// 跑一遍日志，返回报告。`code` 是给日志里形码那些行用的（`--code` 给的方案），
+/// `shuangpin` 是给用户双拼方案那些行用的（`--shuangpin` 给的方案目录）。
 pub fn run(
     engine: &mut Engine,
     path: &Path,
     show_misses: usize,
-    code_table: Option<CodeTable>,
+    code: Option<CodeScheme>,
+    shuangpin: Option<Arc<ShuangpinLayout>>,
+    mut reranker: Option<&mut Reranker>,
 ) -> Result<Report, ReplayError> {
     let text = std::fs::read_to_string(path).map_err(|source| ReplayError::Read {
         path: path.to_owned(),
         source,
     })?;
     let mut report = Report::default();
-    let mut switcher = SchemeSwitcher::new(code_table);
+    let mut switcher = SchemeSwitcher::new(code, shuangpin);
     for (number, raw) in text.lines().enumerate() {
         if raw.trim().is_empty() {
             continue;
@@ -49,16 +54,27 @@ pub fn run(
         match line.entry {
             InputLogEntry::Retract { .. } => report.retracts += 1,
             InputLogEntry::Retype { .. } => report.retypes += 1,
-            InputLogEntry::Session { .. } => report.sessions += 1,
+            InputLogEntry::Session { .. } => {
+                report.sessions += 1;
+                if let Some(reranker) = reranker.as_deref_mut() {
+                    reranker.reset();
+                }
+            }
             InputLogEntry::Break { .. } => {
                 report.breaks += 1;
                 engine.break_chain();
+                if let Some(reranker) = reranker.as_deref_mut() {
+                    reranker.reset();
+                }
             }
             InputLogEntry::Passthrough { text } => {
                 // 直通字符也进标点状态与上文链，与真实使用一致
                 report.passthrough_chars += text.chars().count();
                 for c in text.chars() {
                     engine.note_passthrough(c);
+                }
+                if let Some(reranker) = reranker.as_deref_mut() {
+                    reranker.note(&text);
                 }
             }
             InputLogEntry::Prediction { .. } => {
@@ -82,7 +98,17 @@ pub fn run(
                 {
                     report.predictions_accepted += 1;
                 }
-                replay_commit(engine, &mut switcher, &commit, &mut report, show_misses)
+                replay_commit(
+                    engine,
+                    &mut switcher,
+                    &commit,
+                    &mut report,
+                    show_misses,
+                    reranker.as_deref_mut(),
+                );
+                if let Some(reranker) = reranker.as_deref_mut() {
+                    reranker.note(&commit.text);
+                }
             }
         }
     }
@@ -95,8 +121,9 @@ fn replay_commit(
     commit: &qingjian_core::CommitEntry,
     report: &mut Report,
     show_misses: usize,
+    reranker: Option<&mut Reranker>,
 ) {
-    // 这条日志所属方案回放不了（形码但没给 `--wubi`）：只计数。拿拼音的读法去喂形码的键会算出
+    // 这条日志所属方案回放不了（形码但没给 `--code`）：只计数。拿拼音的读法去喂形码的键会算出
     // 看着像真的、实则无意义的命中率。
     if !switcher.can_replay(&commit.scheme) {
         report.skip(commit.source);
@@ -136,7 +163,7 @@ fn replay_commit(
         engine.set_input(scope);
         None
     };
-    let query = match engine.query() {
+    let mut query = match engine.query() {
         Ok(query) => query,
         Err(_) => {
             tally.unparsable += 1;
@@ -144,6 +171,9 @@ fn replay_commit(
             return;
         }
     };
+    if let Some(reranker) = reranker {
+        reranker.rerank(engine, &mut query, scope);
+    }
     let position = query
         .candidates
         .items

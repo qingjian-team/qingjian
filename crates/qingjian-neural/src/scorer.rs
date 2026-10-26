@@ -31,7 +31,7 @@ impl CharScorer {
             path.to_owned()
         };
         let device = default_device()?;
-        let dtype = weight_dtype();
+        let dtype = weight_dtype(&device);
         let scorer = if source.is_dir() {
             Self::load_directory(&source, dtype, device)?
         } else {
@@ -93,6 +93,11 @@ impl CharScorer {
         })
     }
 
+    /// 加载好的模型本体：逐字生成一类的实验直接用它。
+    pub fn model(&self) -> &CharLm {
+        &self.model
+    }
+
     /// `.qjm` 带的元数据（名称 / 许可证 / 署名 / 参数量）；三件套目录加载的没有。
     pub fn metadata(&self) -> Option<&Metadata> {
         self.metadata.as_ref()
@@ -100,6 +105,55 @@ impl CharScorer {
 
     pub fn vocab(&self) -> &Vocab {
         &self.vocab
+    }
+
+    /// 教师强制计算 `log P(候选 | 完整拼音)`，只累加候选字符，不计 EOS。
+    /// 与字级重排使用相同的求和口径；超长输入报错，不截断用户拼音。
+    pub fn score_p2c(&self, keys: &str, texts: &[&str]) -> Result<Vec<f64>, NeuralError> {
+        let sep = self.vocab.sep().ok_or(NeuralError::Corrupt(
+            "Hanzhang Tongbian model requires a <sep> token in its vocabulary",
+        ))?;
+        if texts.is_empty() {
+            return Ok(Vec::new());
+        }
+        let head: Vec<u32> = std::iter::once(EOS)
+            .chain(self.vocab.encode(keys))
+            .collect();
+        let tails: Vec<Vec<u32>> = texts.iter().map(|text| self.vocab.encode(text)).collect();
+        let width = tails.iter().map(Vec::len).max().unwrap_or(0).max(1);
+        if head.len() + width > self.model.config().context {
+            return Err(NeuralError::Corrupt("P2C scoring exceeds model context"));
+        }
+        let batch = tails.len();
+        let mut flat = vec![0u32; batch * width];
+        let mut targets = vec![0u32; batch * width];
+        for (row, tail) in tails.iter().enumerate() {
+            flat[row * width] = sep;
+            if !tail.is_empty() {
+                flat[row * width + 1..row * width + tail.len()]
+                    .copy_from_slice(&tail[..tail.len() - 1]);
+                targets[row * width..row * width + tail.len()].copy_from_slice(tail);
+            }
+        }
+        let idx = Tensor::from_vec(flat, (batch, width), self.model.device())?;
+        let targets = Tensor::from_vec(targets, (batch, width, 1), self.model.device())?;
+        let mut guard = self
+            .cache
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        if guard.as_ref().is_none_or(|(ids, _)| ids != &head) {
+            let cache = self.model.prefix_cache(&head)?;
+            *guard = Some((head, cache));
+        }
+        let (_, cache) = guard.as_ref().expect("filled above");
+        let lp = self.model.log_probs_after(cache, &idx)?;
+        drop(guard);
+        let picked = lp.gather(&targets, 2)?.squeeze(2)?.to_vec2::<f32>()?;
+        Ok(tails
+            .iter()
+            .zip(picked)
+            .map(|(tail, row)| row[..tail.len()].iter().map(|&v| f64::from(v)).sum())
+            .collect())
     }
 
     /// 每个候选接在 `context` 后面的 `log P(候选 | 前文)`，按字累加。
@@ -161,22 +215,27 @@ impl CharScorer {
 
 /// 权重与中间量的精度：Metal 上缺省 f16（与 f32 打分一致，显存减一半、略快），CPU 上 f32（candle 的 CPU f16 矩阵乘慢）；
 /// 环境变量 `QINGJIAN_NEURAL_DTYPE=f32|f16` 可强制。
-fn weight_dtype() -> DType {
+fn weight_dtype(device: &Device) -> DType {
     match std::env::var("QINGJIAN_NEURAL_DTYPE").as_deref() {
         Ok("f16") => DType::F16,
         Ok("f32") => DType::F32,
-        _ if cfg!(feature = "metal") => DType::F16,
+        _ if device.is_metal() => DType::F16,
         _ => DType::F32,
     }
 }
 
 #[cfg(not(feature = "metal"))]
-fn default_device() -> Result<Device, NeuralError> {
+pub(crate) fn default_device() -> Result<Device, NeuralError> {
     Ok(Device::Cpu)
 }
 
 #[cfg(feature = "metal")]
-fn default_device() -> Result<Device, NeuralError> {
+pub(crate) fn default_device() -> Result<Device, NeuralError> {
+    // candle-metal 在创建设备时会使用此类；旧版 macOS 缺少它会直接 panic。
+    if objc2::runtime::AnyClass::get(c"MTLResidencySetDescriptor").is_none() {
+        tracing::warn!("系统不支持 Metal residency set，本地模型改用 CPU");
+        return Ok(Device::Cpu);
+    }
     Ok(Device::new_metal(0)?)
 }
 
@@ -184,10 +243,58 @@ fn default_device() -> Result<Device, NeuralError> {
 mod tests {
     use super::*;
 
-    /// 随包模型的三件套（训练仓库导出到 `data/model/`）；没有就跳过这些测试。
+    /// 随包知微模型的三件套；没有就跳过这些测试。
     fn export_dir() -> Option<std::path::PathBuf> {
-        let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../data/model");
+        let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../data/models/hanzhang-zhiwei");
         dir.join(qjm::WEIGHTS_FILE).exists().then_some(dir)
+    }
+
+    /// 用未拆前缀的完整前向核对位置偏移、批量补齐、缓存切换和长度边界。
+    #[test]
+    fn p2c_cached_scores_match_full_forward() {
+        let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../data/models/hanzhang-tongbian");
+        if !dir.join(qjm::WEIGHTS_FILE).exists() {
+            return;
+        }
+        let scorer = CharScorer::load(&dir).unwrap();
+        for (keys, texts) in [
+            ("jiekou", vec!["接口", "借口", "接", ""]),
+            (
+                "womenmingtiankaihui",
+                vec!["我们明天开会", "我们明天", "我门明天开会"],
+            ),
+            ("jiekou", vec!["接口", "借口"]),
+        ] {
+            let cached = scorer.score_p2c(keys, &texts).unwrap();
+            for (text, score) in texts.iter().zip(&cached) {
+                let mut ids = vec![EOS];
+                ids.extend(scorer.vocab.encode(keys));
+                ids.push(scorer.vocab.sep().unwrap());
+                let offset = ids.len() - 1;
+                let tail = scorer.vocab.encode(text);
+                ids.extend(&tail);
+                let length = ids.len();
+                let idx = Tensor::from_vec(ids, (1, length), scorer.model.device()).unwrap();
+                let lp = scorer
+                    .model
+                    .log_probs(&idx)
+                    .unwrap()
+                    .to_vec3::<f32>()
+                    .unwrap();
+                let full: f64 = tail
+                    .iter()
+                    .enumerate()
+                    .map(|(i, &id)| f64::from(lp[0][offset + i][id as usize]))
+                    .sum();
+                assert!(
+                    (full - score).abs() < 0.08,
+                    "{keys} {text}: {full} vs {score}"
+                );
+                eprintln!("P2C_CHECK {keys} {text:?} {score:.6} full={full:.6}");
+            }
+        }
+        assert!(scorer.score_p2c(&"a".repeat(128), &["字"]).is_err());
+        assert!(scorer.score_p2c("a", &[]).unwrap().is_empty());
     }
 
     /// 与训练脚本 `score.py` 对拍：同一模型、同一序列，log 概率要一致（数值差在 fp16 权重转 f32 的误差内）。
@@ -197,8 +304,8 @@ mod tests {
             eprintln!("没有导出的模型，跳过");
             return;
         };
-        let scorer =
-            CharScorer::load_directory(&dir, weight_dtype(), default_device().unwrap()).unwrap();
+        let device = default_device().unwrap();
+        let scorer = CharScorer::load_directory(&dir, weight_dtype(&device), device).unwrap();
         let scores = scorer
             .score("我今天想去", &["上海", "伤害", "吃饭"])
             .unwrap();
@@ -244,8 +351,8 @@ mod tests {
         assert_eq!(meta.name, "测试模型");
         assert_eq!(meta.entries, parameters);
         // 与 load 同一设备同一精度（workspace 一起测时 metal feature 会被统一打开）
-        let by_dir =
-            CharScorer::load_directory(&dir, weight_dtype(), default_device().unwrap()).unwrap();
+        let device = default_device().unwrap();
+        let by_dir = CharScorer::load_directory(&dir, weight_dtype(&device), device).unwrap();
         let texts = ["上海", "伤害", "吃饭"];
         let a = packed.score("我今天想去", &texts).unwrap();
         let b = by_dir.score("我今天想去", &texts).unwrap();
@@ -276,7 +383,7 @@ mod latency {
     #[test]
     #[ignore]
     fn batch_latency() {
-        let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../data/model");
+        let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../data/models/hanzhang-zhiwei");
         let scorer = CharScorer::load(&dir).unwrap();
         let context: String =
             "今天下午的会议讨论了输入法的排序问题，大家觉得整句转换还可以再准一些，".repeat(2);

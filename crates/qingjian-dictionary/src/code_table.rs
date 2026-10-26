@@ -10,12 +10,13 @@
 //! 开发\tgant\t9000
 //! ```
 //!
-//! `#` 开头为注释行，空行忽略。编码统一按小写存，查询输入也须已小写。
+//! `#` 开头为注释行，空行忽略。编码统一按小写存，查询输入也须已小写；编码里有字母以外的字符的行跳过。
 
 use std::path::Path;
 
 use crate::error::DictionaryError;
 use crate::matching::Match;
+use crate::tones::Tones;
 
 /// 一条码表词目。
 #[derive(Debug, Clone)]
@@ -41,11 +42,16 @@ pub struct CodeTable {
 
     /// 全部词频之和，上下文得分的兜底用。
     total_frequency: u64,
+
+    /// 满码有几个字母（五笔是 4）：码表里最常见的编码长度。全码占绝大多数，取最常见的而不是最长的，
+    /// 个别写错的长编码（极点码表里 `TF卡` 是 `ttfhh`）不至于把满码拖成 5。
+    full_code_len: usize,
 }
 
 impl CodeTable {
     pub fn parse(source: &str) -> Result<Self, DictionaryError> {
         let mut entries: Vec<Entry> = Vec::new();
+        let mut untypable = 0usize;
         for (index, raw) in source.lines().enumerate() {
             let line = raw.trim();
             if line.is_empty() || line.starts_with('#') {
@@ -76,30 +82,43 @@ impl CodeTable {
                     reason: "frequency is not a non-negative integer",
                 })?
                 .unwrap_or(1);
+            // 编码只能是字母：别的键（`;` `,`）进不了形码查询，这种行收了也打不出来
+            if !code.chars().all(|c| c.is_ascii_alphabetic()) {
+                untypable += 1;
+                continue;
+            }
             entries.push(Entry {
                 code: code.to_ascii_lowercase(),
                 text: text.to_owned(),
                 frequency,
             });
         }
-        entries.sort_by(|a, b| {
-            a.code
-                .cmp(&b.code)
-                .then_with(|| b.frequency.cmp(&a.frequency))
-                .then_with(|| a.text.cmp(&b.text))
-        });
-        // 同一个词记了两遍（不同码表版本合并）留词频高的那条，排完序就是靠前的那条
-        entries.dedup_by(|a, b| a.code == b.code && a.text == b.text);
+        sort_and_dedup(&mut entries);
         let total_frequency = entries.iter().map(|e| u64::from(e.frequency)).sum();
-        tracing::debug!(entries = entries.len(), "码表加载完成");
+        let full_code_len = most_common_len(&entries);
+        if untypable > 0 {
+            tracing::warn!(untypable, "码表里有编码不全是字母的行，已跳过");
+        }
+        tracing::debug!(entries = entries.len(), full_code_len, "码表加载完成");
         Ok(Self {
             entries,
             total_frequency,
+            full_code_len,
         })
     }
 
     pub fn from_path(path: impl AsRef<Path>) -> Result<Self, DictionaryError> {
         Self::parse(&std::fs::read_to_string(path)?)
+    }
+
+    /// 把用户的形码词库并进来。满码长度仍按原表算：几条自造词不该改掉方案的码长。
+    pub fn merge(&mut self, other: CodeTable) {
+        if self.entries.is_empty() {
+            self.full_code_len = other.full_code_len;
+        }
+        self.entries.extend(other.entries);
+        sort_and_dedup(&mut self.entries);
+        self.total_frequency = self.entries.iter().map(|e| u64::from(e.frequency)).sum();
     }
 
     /// 编码正好等于输入，或输入是它的前缀的词，最多 `limit` 条。
@@ -133,6 +152,9 @@ impl CodeTable {
                 text: entry.text.as_str(),
                 pinyin: entry.code.as_str(),
                 frequency: entry.frequency,
+                reading_total: 0,
+                tones: Tones::default(),
+                secondary: false,
                 exact: entry.code == code,
             })
             .collect()
@@ -143,6 +165,11 @@ impl CodeTable {
         self.total_frequency
     }
 
+    /// 满码的字母数（最常见的编码长度）；空表为 0。
+    pub fn full_code_len(&self) -> usize {
+        self.full_code_len
+    }
+
     pub fn len(&self) -> usize {
         self.entries.len()
     }
@@ -150,6 +177,34 @@ impl CodeTable {
     pub fn is_empty(&self) -> bool {
         self.entries.is_empty()
     }
+}
+
+/// 按 `(编码, 词频降序)` 排好；同一个词记了两遍（不同码表版本合并、自造词与原表重了）留词频高的那条，排完序就是靠前的那条。
+fn sort_and_dedup(entries: &mut Vec<Entry>) {
+    entries.sort_by(|a, b| {
+        a.code
+            .cmp(&b.code)
+            .then_with(|| b.frequency.cmp(&a.frequency))
+            .then_with(|| a.text.cmp(&b.text))
+    });
+    entries.dedup_by(|a, b| a.code == b.code && a.text == b.text);
+}
+
+/// 最常见的编码长度，一样多时取长的。
+fn most_common_len(entries: &[Entry]) -> usize {
+    let mut counts: Vec<usize> = Vec::new();
+    for entry in entries {
+        let len = entry.code.len();
+        if counts.len() <= len {
+            counts.resize(len + 1, 0);
+        }
+        counts[len] += 1;
+    }
+    counts
+        .iter()
+        .enumerate()
+        .max_by_key(|&(len, count)| (*count, len))
+        .map_or(0, |(len, _)| len)
 }
 
 #[cfg(test)]
@@ -204,9 +259,37 @@ mod tests {
     }
 
     #[test]
+    fn merges_user_words_into_the_table() {
+        let mut table = CodeTable::parse("一\tggll\t100000\n开发\tgant\t900\n").unwrap();
+        table.merge(CodeTable::parse("青简\tgetu\t1\n开发\tgant\t5\n小青\tihge\t1\n").unwrap());
+        assert_eq!(table.len(), 4);
+        assert_eq!(table.lookup("getu", 10)[0].text, "青简");
+        assert_eq!(table.lookup("gant", 10)[0].frequency, 900);
+        assert_eq!(table.total_frequency(), 100000 + 900 + 1 + 1);
+        assert_eq!(table.full_code_len(), 4);
+    }
+
+    #[test]
     fn rejects_lines_without_a_code() {
         assert!(CodeTable::parse("开发\n").is_err());
         assert!(CodeTable::parse("开发\tgant\t不是数字\n").is_err());
+    }
+
+    #[test]
+    fn skips_codes_that_are_not_letters() {
+        let table = CodeTable::parse("开\tga\t5000\n逗\tg;\t10\n").unwrap();
+        assert_eq!(table.len(), 1);
+    }
+
+    #[test]
+    fn the_full_code_is_the_most_common_length_not_the_longest() {
+        let table =
+            CodeTable::parse("开\tga\t5000\n一\tggll\t100000\n中国\tkhlg\t9000\nTF卡\tttfhh\t1\n")
+                .unwrap();
+        assert_eq!(table.full_code_len(), 4);
+        let table = CodeTable::parse("开\tga\t5000\n一\tggll\t100000\n").unwrap();
+        assert_eq!(table.full_code_len(), 4);
+        assert_eq!(CodeTable::default().full_code_len(), 0);
     }
 
     #[test]

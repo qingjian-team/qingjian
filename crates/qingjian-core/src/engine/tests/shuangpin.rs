@@ -18,10 +18,10 @@ fn shuangpin_decodes_keys_before_lookup_and_shows_full_pinyin() {
     assert_eq!(query.marked_text(), "kai'f");
     assert_eq!(query.candidates.items[0].text, "开放");
     // 配不出音节的键原样留作尾巴
-    engine.set_input("kdbl");
+    engine.set_input("kdfl");
     let query = engine.query().unwrap();
-    assert_eq!(query.marked_text(), "kai'bl");
-    assert_eq!(query.tail, "bl");
+    assert_eq!(query.marked_text(), "kai'fl");
+    assert_eq!(query.tail, "fl");
     assert_eq!(query.candidates.items[0].text, "开");
 }
 
@@ -86,7 +86,7 @@ fn shuangpin_commit_consumes_keys_per_syllable() {
         .unwrap();
     engine.commit(&kaifa);
     assert_eq!(engine.composition().text(), "ve");
-    assert_eq!(engine.query().unwrap().marked_text(), "zhe");
+    assert_eq!(engine.query().unwrap().marked_text(), "开发zhe");
     // 未打完的最后一个键也被候选吃掉
     engine.set_input("kdf");
     let kaifang = engine.query().unwrap().candidates.items[0].clone();
@@ -177,4 +177,37 @@ fn shuangpin_raw_commit_does_not_learn_decodable_keys_as_english() {
     assert!(!looks_like_english_word_in(&engine));
     engine.set_input("gist");
     assert!(looks_like_english_word_in(&engine));
+}
+
+#[test]
+fn unmatched_keys_get_abbreviated_candidates() {
+    // 拼音加加：`im` / `zm` 配不出任何音节，按每键一个声母读 → 什么 / 怎么
+    let dictionary =
+        Dictionary::parse("什么\tshen me\t9000\n怎么\tzen me\t8000\n说明\tshuo ming\t500\n")
+            .unwrap();
+    let mut engine = Engine::new(dictionary);
+    engine.set_shuangpin(Some(Scheme::Jiajia));
+    engine.set_input("im");
+    assert_eq!(texts_of(&engine)[0], "什么");
+    engine.set_input("zm");
+    assert_eq!(texts_of(&engine)[0], "怎么");
+}
+
+#[test]
+fn pending_key_that_spells_a_whole_word_keeps_english_out_of_first() {
+    // 拼音加加：`veg` = zhe g…（末尾落单的一键），词级已有「这个」逐音节对上全部输入
+    let word_of = |dict: &str| {
+        let mut engine = Engine::new(Dictionary::parse(dict).unwrap())
+            .with_english(WordList::parse("veg\tveg\t500\n").unwrap());
+        engine.set_shuangpin(Some(Scheme::Jiajia));
+        engine.set_input("veg");
+        texts_of(&engine)
+    };
+    let whole = word_of("这个\tzhe ge\t9000\n");
+    assert_eq!(whole[0], "这个", "{whole:?}");
+    // 英文词还在，只是让到后面：空格不会再把它整串上屏
+    assert!(whole.iter().any(|text| text == "veg"), "{whole:?}");
+    // 只有单字、没有整词覆盖全部音节时不改：那串更像在打英文
+    let single = word_of("遮\tzhe\t9000\n歌\tge\t8000\n");
+    assert_eq!(single[0], "veg", "{single:?}");
 }

@@ -19,3 +19,13 @@ tokio.workspace = true
 tracing.workspace = true
 reqwest.workspace = true
 uuid.workspace = true
+jiff.workspace = true
+rustls = { workspace = true, optional = true }
+webpki-roots = { workspace = true, optional = true }
+
+[features]
+# 加密连接用哪套：桌面走系统 TLS（Windows SChannel、macOS Security、Linux OpenSSL）；
+# 安卓没有可链的系统 TLS，走 rustls（ring + 内置 Mozilla 根证书，不要 Java 侧组件）
+default = ["native-tls"]
+native-tls = ["async-openai/native-tls"]
+rustls = ["async-openai/rustls-no-provider", "dep:rustls", "dep:webpki-roots"]

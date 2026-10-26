@@ -37,11 +37,11 @@ int main() {
     a.preeditHook = [&] { type(b, "hao"); assert(engine.process(&b, fcitx::Key(FcitxKey_space))); };
     assert(engine.process(&a, fcitx::Key(FcitxKey_space)));
     assert(a.committed == "你" && b.committed == "好");
-    // 同一上下文 Reset 重入撤销旧提交，已消费按键仍返回 consumed。
+    // 重画期间 Reset 不撤销已发出的上屏，已消费按键仍返回 consumed。
     a.committed.clear(); type(a, "ni");
     a.preeditHook = [&] { fcitx::InputContextEvent event(&a, fcitx::EventType::InputContextReset); engine.reset(entry, event); };
-    assert(engine.process(&a, fcitx::Key(FcitxKey_space))); assert(a.committed.empty());
-    type(a, "ni"); assert(engine.process(&a, fcitx::Key(FcitxKey_space))); assert(a.committed == "你");
+    assert(engine.process(&a, fcitx::Key(FcitxKey_space))); assert(a.committed == "你");
+    type(a, "ni"); assert(engine.process(&a, fcitx::Key(FcitxKey_space))); assert(a.committed == "你你");
     // Shift 由 Server 判定；Shift+字母不切模式。
     a.committed.clear();
     fcitx::KeyEvent press(&a, fcitx::Key(FcitxKey_Shift_L), false), release(&a, fcitx::Key(FcitxKey_Shift_L), true);
@@ -66,7 +66,7 @@ int main() {
         auto key = qingjian::mapKey(fcitx::Key(static_cast<fcitx::KeySym>(FcitxKey_KP_0 + digit)));
         assert(key["virtual_key"] == 0x60 + digit && key["character"] == std::string(1, '0' + digit));
     }
-    for (auto [sym, code] : {std::pair{FcitxKey_KP_Add, 0x6b}, {FcitxKey_KP_Subtract, 0x6d}, {FcitxKey_KP_Decimal, 0x6e}, {FcitxKey_KP_Divide, 0x6f}, {FcitxKey_KP_Multiply, 0x6a}, {FcitxKey_KP_Enter, 0x0d}, {FcitxKey_KP_Home, 0x24}, {FcitxKey_KP_Left, 0x25}, {FcitxKey_KP_Delete, 0x2e}})
+    for (auto [sym, code] : {std::pair{FcitxKey_KP_Add, 0x6b}, {FcitxKey_KP_Subtract, 0x6d}, {FcitxKey_KP_Decimal, 0x6e}, {FcitxKey_KP_Divide, 0x6f}, {FcitxKey_KP_Multiply, 0x6a}, {FcitxKey_KP_Enter, 0x0d}, {FcitxKey_KP_Home, 0x24}, {FcitxKey_KP_Left, 0x25}, {FcitxKey_KP_Delete, 0x2e}, {FcitxKey_Shift_R, 0x10}, {FcitxKey_Control_L, 0x11}, {FcitxKey_Control_R, 0x11}})
         assert(qingjian::mapKey(fcitx::Key(sym))["virtual_key"] == code);
     a.committed.clear();
     for (auto symbol : {FcitxKey_KP_1, FcitxKey_KP_Add, FcitxKey_KP_2, FcitxKey_KP_Subtract,

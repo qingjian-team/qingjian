@@ -1,5 +1,6 @@
 //! 候选窗口一次绘制的全部内容。窗口记住上一帧，联想结果到了只改一处再重画。
 
+use super::panel_tabs::PanelTabs;
 use super::preedit::Preedit;
 use super::row::Row;
 
@@ -28,9 +29,22 @@ pub struct Frame {
 
     /// 拼音行右侧的一句临时状态（删了什么词），有它时不画整句补全。
     pub status: Option<String>,
+
+    /// 输入状态，青简渲染器的主题拿来显示中 / 英、简 / 繁等；系统绘制不用。
+    pub mode: qingjian_render::Mode,
+
+    /// 符号面板的标签；有它时这一帧是面板：`rows` 是格子（按 `columns` 行优先排开），一律系统绘制。
+    pub panel: Option<PanelTabs>,
+
+    /// 双拼键位提示；有它时在候选窗旁另开一块窗口画键盘。
+    pub keyboard: Option<qingjian_render::Keyboard>,
 }
 
 impl Frame {
+    pub fn is_panel(&self) -> bool {
+        self.panel.is_some()
+    }
+
     pub fn is_empty(&self) -> bool {
         self.rows.is_empty() && self.preedit.is_none() && self.trailing().is_none()
     }

@@ -2,7 +2,7 @@
 //! `META`（名称 / 许可证 / 署名，条数记参数量）+ `CONF`（`config.json` 原文）+ `VOCB`（`vocab.json` 原文）
 //! + `SAFT`（`model.safetensors` 原文，mmap 后切片直接给 candle）。
 //!
-//! 训练仓库导出的仍是三件套目录，开发时直接加载；随包与用户目录用 `.qjm`，`dict-convert pack model` 把前者打成后者。
+//! 导出的仍是三件套目录，开发时直接加载；随包与用户目录用 `.qjm`，`dict-convert pack model` 把前者打成后者。
 //! safetensors 在这里是不透明载荷，容器版本只管自己那一层。
 
 use std::path::{Path, PathBuf};

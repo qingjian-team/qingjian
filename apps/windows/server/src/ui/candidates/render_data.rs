@@ -3,8 +3,8 @@
 use std::rc::Rc;
 
 use qingjian_platform::protocol::{Frame, PreeditKind};
-use qingjian_platform::{LayoutMode, ThemeMode};
-use qingjian_render::{Preedit, PreeditSegment, PreeditStyle, Row};
+use qingjian_platform::{Appearance, LayoutMode};
+use qingjian_render::{Mode, Preedit, PreeditSegment, PreeditStyle, Row};
 
 use super::row;
 use super::theme::Theme;
@@ -38,11 +38,23 @@ pub(crate) struct RenderData {
     /// 候选排布。
     pub(super) layout: LayoutMode,
 
-    /// 外观模式；`System` 由窗口按系统主题解析。
-    pub(super) theme_mode: ThemeMode,
+    /// 矩阵每行几格（`> 0` 是横排展开成矩阵）；单行为 0。
+    pub(super) columns: usize,
+
+    /// 矩阵各列留几个候选字宽（整份候选估的，移动高亮时不变，窗口才不跳）。
+    pub(super) column_ems: Vec<f32>,
+
+    /// 外观；`System` 由窗口按系统深浅色解析。
+    pub(super) appearance: Appearance,
 
     /// 候选上是否显示辅码（随帧下发的 `[general] aux_code_show`）。
     pub(super) show_code: bool,
+
+    /// 译词旁是否显示词性标注（随帧下发的 `[general] translation_pos`）。
+    pub(super) show_pos: bool,
+
+    /// 输入状态，给主题显示中 / 英、简 / 繁等。
+    pub(super) mode: Mode,
 }
 
 impl RenderData {
@@ -57,23 +69,52 @@ impl RenderData {
             sentence: None,
             notice: None,
             layout: LayoutMode::default(),
-            theme_mode: ThemeMode::default(),
+            columns: 0,
+            column_ems: Vec::new(),
+            appearance: Appearance::default(),
             show_code: false,
+            show_pos: true,
+            mode: Mode::default(),
         }
     }
 
-    pub(super) fn set(&mut self, frame: &Frame) {
+    pub(super) fn set(&mut self, frame: &Frame, mode: Mode) {
+        self.mode = mode;
         self.layout = frame.layout;
-        self.theme_mode = frame.theme;
+        self.appearance = frame.appearance;
         self.show_code = frame.aux_code_show;
+        self.show_pos = frame.translation_pos;
         self.preedit = window_preedit(frame);
-        self.cursor = frame.cursor;
+        self.cursor = frame
+            .window_preedit
+            .as_ref()
+            .map_or(frame.cursor, |window| window.1);
+        self.columns = frame.columns;
+        self.column_ems = frame.column_ems.clone();
+        let grid = frame.columns > 0;
+        // 矩阵里序号只标在高亮所在那一行（数字键选的就是它），空位什么都不画；单行照旧全标
+        let highlight_row = grid.then(|| frame.highlight / frame.columns);
         self.rows = frame
             .candidates
             .items
             .iter()
             .enumerate()
-            .map(|(i, candidate)| row::from_candidate(i, candidate, self.show_code))
+            .map(|(i, candidate)| {
+                let mut row = row::from_candidate(
+                    if grid { i % frame.columns } else { i },
+                    candidate,
+                    self.show_code,
+                    self.show_pos,
+                );
+                if grid {
+                    let labelled =
+                        Some(i / frame.columns) == highlight_row && !candidate.text.is_empty();
+                    if !labelled {
+                        row.index = String::new();
+                    }
+                }
+                row
+            })
             .collect();
         self.highlight = frame.highlight;
         self.footer =
@@ -105,11 +146,12 @@ impl RenderData {
             rows: self.rows.clone(),
             // 协议里 usize::MAX 表示不高亮。
             highlighted: (self.highlight != usize::MAX).then_some(self.highlight),
-            columns: 0,
-            column_ems: Vec::new(),
+            columns: self.columns,
+            column_ems: self.column_ems.clone(),
             footer: self.footer.clone(),
             sentence: self.sentence.clone(),
             status: self.notice.clone(),
+            mode: self.mode.clone(),
         }
     }
 }
@@ -120,8 +162,11 @@ fn window_preedit(frame: &Frame) -> Vec<(String, PreeditKind)> {
     if !frame.preedit_mode.in_window() {
         return Vec::new();
     }
+    // 带调拼音时窗口里画另一串，应用里的行内拼音仍是 `preedit`
     frame
-        .preedit
+        .window_preedit
+        .as_ref()
+        .map_or(&frame.preedit, |window| &window.0)
         .iter()
         .map(|segment| (segment.text.clone(), segment.kind))
         .collect()

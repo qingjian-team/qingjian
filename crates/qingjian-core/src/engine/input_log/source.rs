@@ -35,6 +35,9 @@ pub enum InputSource {
 
     /// Tab 接受的云端整句补全。
     CloudSentence,
+
+    /// 语音识别出的一段文字（见 [`crate::Engine::commit_voice`]）。
+    Voice,
 }
 
 impl From<CandidateKind> for InputSource {
@@ -43,11 +46,13 @@ impl From<CandidateKind> for InputSource {
             // 形码的词也是词库里的词，输入日志的来源不另分（方案记在别的字段）
             CandidateKind::Chinese | CandidateKind::Code => Self::Word,
             CandidateKind::Cloud => Self::Cloud,
-            CandidateKind::Sentence => Self::Sentence,
+            // 模型直接生成的也是整句，回放时与词图出的整句同一类看
+            CandidateKind::Sentence | CandidateKind::Generated => Self::Sentence,
             CandidateKind::English => Self::English,
             CandidateKind::Shortcut => Self::Shortcut,
             CandidateKind::Custom(_) => Self::Custom,
-            CandidateKind::Emoji => Self::Emoji,
+            // 颜文字、符号与 emoji 同是跟在词后面配出来的，回放时一类看
+            CandidateKind::Emoji | CandidateKind::Kaomoji | CandidateKind::Symbol => Self::Emoji,
         }
     }
 }

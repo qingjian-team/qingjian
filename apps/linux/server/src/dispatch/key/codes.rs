@@ -1,12 +1,16 @@
 //! 按键分派用的虚拟键码与字符解析。
 
+use qingjian_platform::SwitchKeys;
 use qingjian_platform::protocol::KeyEvent;
 
 pub(crate) const BACK: u32 = 0x08;
 pub(crate) const DELETE: u32 = 0x2E;
 pub(crate) const TAB: u32 = 0x09;
 pub(crate) const RETURN: u32 = 0x0D;
+pub(crate) const SHIFT: u32 = 0x10;
+pub(crate) const CONTROL: u32 = 0x11;
 pub(crate) const ESCAPE: u32 = 0x1B;
+pub(crate) const SPACE: u32 = 0x20;
 pub(crate) const PRIOR: u32 = 0x21;
 pub(crate) const NEXT: u32 = 0x22;
 pub(crate) const END: u32 = 0x23;
@@ -46,4 +50,31 @@ pub(crate) fn digit_key(virtual_key: u32) -> Option<usize> {
 /// 协议保留小键盘来源，运算符保持半角。
 pub(crate) fn is_keypad(virtual_key: u32) -> bool {
     (0x60..=0x6F).contains(&virtual_key)
+}
+
+/// 单击切换用的修饰键本身：按下时交给应用，不进 Engine。
+pub(crate) fn is_tap_modifier(virtual_key: u32) -> bool {
+    matches!(virtual_key, SHIFT | CONTROL)
+}
+
+/// 这次按下的是勾选了的单击切换键、且没和别的修饰键一起按：返回它的键码，等松开时认。
+/// Ctrl 按下那一刻插件报的状态可能已带 Ctrl，只看另外几个修饰键。
+pub(crate) fn switch_tap(keys: SwitchKeys, event: &KeyEvent) -> Option<u32> {
+    let modifiers = event.modifiers;
+    let tap = match event.virtual_key {
+        SHIFT => keys.shift && !modifiers.has_command_key(),
+        CONTROL => keys.control && !modifiers.shift && !modifiers.alt && !modifiers.win,
+        _ => false,
+    };
+    tap.then_some(event.virtual_key)
+}
+
+/// Ctrl + Alt + Space，不带 Shift / Win。
+pub(crate) fn is_ctrl_alt_space(event: &KeyEvent) -> bool {
+    let modifiers = event.modifiers;
+    event.virtual_key == SPACE
+        && modifiers.ctrl
+        && modifiers.alt
+        && !modifiers.shift
+        && !modifiers.win
 }

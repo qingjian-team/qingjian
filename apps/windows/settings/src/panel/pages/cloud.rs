@@ -1,18 +1,26 @@
 //! 「云服务」页：本地整句模型开关（`[model]`）、`[predict]` 各项与「测试连接」（后台线程跑）。
 
+use std::path::PathBuf;
+
 use qingjian_predict::{ConnectionTest, PredictConfig};
-use windows_reactor::*;
+use windows_reactor::{
+    Button, CancellationToken, ChildrenControl, ContentControl, LayoutControl, NumberBox,
+    Orientation, PasswordBox, StackPanel, TextBlock, TextBox, TextWrapping, ToggleSwitch, View,
+    ViewContext,
+};
 
 use crate::panel::cloud_status::CloudStatus;
-use crate::panel::controls::{field, labeled, note, page};
+use crate::panel::controls::{field, labeled, note, page, section};
 use crate::panel::{Message, Settings};
 
 /// 后台跑一次连通性测试，轮询到有结果或被取消。
 pub(crate) fn run_test(
     config: &PredictConfig,
+    usage_path: PathBuf,
     cancel: &CancellationToken,
 ) -> Result<String, String> {
-    let test = ConnectionTest::start(config).map_err(|error| error.to_string())?;
+    let test = ConnectionTest::start_with_usage(config, Some(usage_path))
+        .map_err(|error| error.to_string())?;
     loop {
         if cancel.is_cancelled() {
             return Err("已取消".to_owned());
@@ -56,8 +64,33 @@ pub(crate) fn view(settings: &Settings, context: &mut ViewContext<Settings>) -> 
                 .on_toggled(context.callback(Message::CloudEnabled)),
         ),
         field(
+            "停顿后自动联想",
+            "默认开启；关闭后可在组句中按 Ctrl+Alt+J 手动联想。译词自动补充及选中文字翻译继续按原设置工作。",
+            ToggleSwitch::new()
+                .is_on(p.automatic)
+                .on_toggled(context.callback(Message::CloudAutomatic)),
+        ),
+        field(
+            "自动联想等待（毫秒）",
+            "默认停键 300 毫秒；继续输入会重新计时。手动联想跳过这段等待。",
+            NumberBox::new()
+                .minimum(100.0)
+                .maximum(10000.0)
+                .value(p.debounce_ms as f64)
+                .on_value_changed(context.callback(Message::CloudDebounce)),
+        ),
+        field(
+            "最短请求间隔（毫秒）",
+            "默认 3000 毫秒；自动和手动联想均需等待，期间只保留最新输入。缓存命中直接复用。",
+            NumberBox::new()
+                .minimum(1000.0)
+                .maximum(60000.0)
+                .value(p.min_interval_ms as f64)
+                .on_value_changed(context.callback(Message::CloudMinInterval)),
+        ),
+        field(
             "云端词格数",
-            "云端词到了只补进第一页末尾这几格，前面的本地候选不动；没到就什么都不变。0 = 只要整句补全。",
+            "自动联想补在首页末尾，空格选本地首项；手动触发的词按推荐顺序放到前面的空位。0 = 只要整句补全。",
             NumberBox::new()
                 .minimum(0.0)
                 .maximum(9.0)
@@ -72,9 +105,17 @@ pub(crate) fn view(settings: &Settings, context: &mut ViewContext<Settings>) -> 
                 .on_toggled(context.callback(Message::CloudSentence)),
         ),
         field(
+            "整句候选翻译",
+            "本地整句候选出现后，单独把该候选文本发给服务，译文异步显示在候选右侧；不发送光标前后上下文。",
+            ToggleSwitch::new()
+                .is_on(p.sentence_translation)
+                .on_toggled(context.callback(Message::CloudSentenceTranslation)),
+        ),
+        field(
             "接口地址",
             "",
             TextBox::new()
+                .min_width(240.0)
                 .text(p.base_url.clone())
                 .on_text_changed(context.callback(Message::CloudBaseUrl)),
         ),
@@ -82,6 +123,7 @@ pub(crate) fn view(settings: &Settings, context: &mut ViewContext<Settings>) -> 
             "模型",
             "",
             TextBox::new()
+                .min_width(240.0)
                 .text(p.model.clone())
                 .on_text_changed(context.callback(Message::CloudModel)),
         ),
@@ -89,6 +131,7 @@ pub(crate) fn view(settings: &Settings, context: &mut ViewContext<Settings>) -> 
             "API 密钥",
             "只保存在这台电脑上，不会随配置文件导出，也不显示已填的值。留空则读环境变量 QINGJIAN_API_KEY。",
             PasswordBox::new()
+                .min_width(240.0)
                 .password(p.api_key.clone().unwrap_or_default())
                 .placeholder_text("留空则读环境变量 QINGJIAN_API_KEY")
                 .on_password_changed(context.callback(Message::CloudApiKey)),
@@ -96,18 +139,28 @@ pub(crate) fn view(settings: &Settings, context: &mut ViewContext<Settings>) -> 
         labeled(
             "",
             StackPanel::new()
-                .orientation(Orientation::Horizontal)
-                .spacing(12.0)
+                .orientation(Orientation::Vertical)
+                .spacing(8.0)
                 .children((
                     Button::new()
                         .on_click(context.message(Message::TestConnection))
                         .content("测试连接"),
-                    TextBlock::new().text(status),
+                    TextBlock::new()
+                        .text(status)
+                        .text_wrapping(TextWrapping::Wrap),
                 )),
         ),
         note(
             "用上面填的地址、模型、密钥发一条最小请求。走不通时先查这里；Server 进程看不到终端里的代理变量。",
         ),
     ];
-    page("云服务", StackPanel::new().spacing(16.0).children(rows))
+    let mut rows = rows.into_iter();
+    page(
+        "云服务",
+        StackPanel::new().spacing(24.0).children([
+            section("本地输入", rows.by_ref().take(1)),
+            section("AI 候选", rows.by_ref().take(6)),
+            section("服务连接", rows),
+        ]),
+    )
 }

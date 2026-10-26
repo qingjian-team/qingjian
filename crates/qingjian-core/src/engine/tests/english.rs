@@ -39,7 +39,9 @@ fn english_word_ranks_first_when_input_is_unlikely_pinyin() {
 fn usage_meter_counts_hanzi_words_and_english_words_per_commit() {
     let recorded = Arc::new(Mutex::new(Vec::new()));
     let mut engine = engine().with_usage_meter(Box::new(MemoryMeter(recorded.clone())));
-    engine.set_input("kaifa");
+    engine.set_input("kaifx");
+    engine.backspace();
+    engine.push('a');
     let kaifa = engine.query().unwrap().candidates.items[0].clone();
     assert_eq!(kaifa.text, "开发");
     engine.commit(&kaifa);
@@ -49,19 +51,50 @@ fn usage_meter_counts_hanzi_words_and_english_words_per_commit() {
     engine.set_input("gist");
     engine.take_raw();
     let recorded = recorded.lock().unwrap();
+    // 选的首选，敲了 6 键、中间删过一次
+    let typing_ms = recorded[0].typing_ms;
     assert_eq!(
         recorded[0],
         Usage {
             hanzi: 2,
             words: 1,
             english_words: 0,
-            commits: 1
+            commits: 1,
+            choices: 1,
+            first_choices: 1,
+            typed_hanzi: 2,
+            keys: 6,
+            typing_ms,
+            edited: 1,
         }
     );
+    // 原样上屏不算选词，键数时长都不记
+    assert_eq!(recorded[1].choices, 0);
+    assert_eq!(recorded[1].keys, 0);
     assert_eq!(recorded[1].english_words, 0);
     assert_eq!(recorded[1].commits, 1);
     assert_eq!(recorded[2].english_words, 1);
     assert_eq!(recorded.len(), 3);
+}
+
+#[test]
+fn unmetered_commits_are_not_counted_and_do_not_leak_keys() {
+    let recorded = Arc::new(Mutex::new(Vec::new()));
+    let mut engine = engine().with_usage_meter(Box::new(MemoryMeter(recorded.clone())));
+    // 壳的工具框（快捷翻译的原文）里打的不算
+    engine.set_metered(false);
+    engine.set_input("kaifa");
+    let kaifa = engine.query().unwrap().candidates.items[0].clone();
+    engine.commit(&kaifa);
+    assert!(recorded.lock().unwrap().is_empty());
+    // 回到应用里接着打：键数只算这一段的
+    engine.set_metered(true);
+    engine.set_input("kaifa");
+    let again = engine.query().unwrap().candidates.items[0].clone();
+    engine.commit(&again);
+    let recorded = recorded.lock().unwrap();
+    assert_eq!(recorded.len(), 1);
+    assert_eq!(recorded[0].keys, 5);
 }
 
 #[test]
@@ -224,6 +257,111 @@ fn english_completions_appear_when_pinyin_is_unlikely() {
 }
 
 #[test]
+fn english_in_chinese_off_drops_words_and_completions_but_not_english_mode() {
+    let words =
+        WordList::parse("company\tcompany\t5600\ncompare\tcompare\t4450\nhello\thello\t1000\n")
+            .unwrap();
+    let mut engine = engine().with_english(words);
+    engine.set_english_in_chinese(false);
+    engine.set_input("compa");
+    assert!(!texts_of(&engine).iter().any(|t| t.starts_with("comp")));
+    engine.set_input("hello");
+    assert!(!texts_of(&engine).contains(&"hello".to_owned()));
+    engine.set_english_mode(true);
+    engine.set_input("comp");
+    assert_eq!(texts_of(&engine), ["company", "compare"]);
+}
+
+/// 关掉「打拼音时也给英文词」后英文词连句尾都不参与分词（#766）：
+/// `nanine` 不再切成 `na` + `nine`，`nine` 也不再读成英文词。
+#[test]
+fn english_in_chinese_off_stops_the_english_tail() {
+    const DICT: &str = "那\tna\t300000\n你\tni\t400000\n呢\tne\t200000\n那你呢\tna ni ne\t500000\n";
+    let build = || {
+        let words = WordList::parse("nine\tnine\t4500\nrust\trust\t3740\n").unwrap();
+        Engine::new(Dictionary::parse(DICT).unwrap()).with_english(words)
+    };
+
+    // 开着时与 issue 的复现一致：整句把 nine 当英文尾段
+    let mut on = build();
+    on.set_input("nanine");
+    assert_eq!(texts_of(&on)[0], "那nine");
+
+    let mut off = build();
+    off.set_english_in_chinese(false);
+    off.set_input("nanine");
+    let all = texts_of(&off);
+    assert_eq!(all[0], "那你呢");
+    assert!(!all.iter().any(|text| text.contains("nine")), "{all:?}");
+    // 单独打 nine 也回到拼音读法
+    off.set_input("nine");
+    let all = texts_of(&off);
+    assert!(
+        !all.iter().any(|text| text.eq_ignore_ascii_case("nine")),
+        "{all:?}"
+    );
+}
+
+#[test]
+fn english_candidate_count_stops_at_the_configured_limit() {
+    let words =
+        WordList::parse("company\tcompany\t5600\ncompare\tcompare\t4450\ncompass\tcompass\t3000\n")
+            .unwrap();
+    let mut engine = engine().with_english(words);
+    engine.set_input("compa");
+    // 缺省 4：一条精确词都没有时补全仍按老样子最多 3 条
+    assert_eq!(texts_of(&engine)[..3], ["company", "compare", "compass"]);
+    engine.set_english_max_in_chinese(2);
+    let all = texts_of(&engine);
+    assert_eq!(
+        all.iter()
+            .filter(|text| ["company", "compare", "compass"].contains(&text.as_str()))
+            .count(),
+        2
+    );
+    // 1 只留最靠前的一条；0 越界收到 1
+    engine.set_english_max_in_chinese(0);
+    let all = texts_of(&engine);
+    assert_eq!(
+        all.iter()
+            .filter(|text| ["company", "compare", "compass"].contains(&text.as_str()))
+            .count(),
+        1
+    );
+    // 整段就是精确词时，1 也只留它
+    engine.set_input("company");
+    engine.set_english_max_in_chinese(1);
+    assert_eq!(
+        texts_of(&engine)
+            .iter()
+            .filter(|text| ["company", "compare", "compass"].contains(&text.as_str()))
+            .count(),
+        1
+    );
+}
+
+#[test]
+fn english_min_position_keeps_chinese_candidates_above() {
+    const DICT: &str = "吃\tchi\t5000\n拿\tna\t5000\n吃拿\tchi na\t6000\n";
+    let words = WordList::parse("china\tchina\t5000\nGitHub\tgithub\t3000\n").unwrap();
+    let mut engine = Engine::new(Dictionary::parse(DICT).unwrap()).with_english(words);
+    engine.set_input("china");
+    // 缺省不限制：英文词跟在第一个中文候选后面
+    let all = texts_of(&engine);
+    let english = all.iter().position(|text| text == "china").unwrap();
+    assert!(english < 2, "{all:?}");
+    // 中文候选够多时，英文最高排到第 3 位
+    engine.set_english_min_position(3);
+    let all = texts_of(&engine);
+    assert_eq!(all[2], "china", "{all:?}");
+    assert!(all[..2].iter().all(|text| text != "china"));
+    // 没有中文候选时仍排第一
+    engine.set_english_min_position(9);
+    engine.set_input("github");
+    assert_eq!(texts_of(&engine)[0], "GitHub");
+}
+
+#[test]
 fn english_mode_suggests_from_the_word_list_and_keeps_the_typed_text() {
     let words = WordList::parse(
         "company\tcompany\t900\ncompare\tcompare\t500\nhello\thello\t1000\nhelp\thelp\t700\n",
@@ -264,12 +402,12 @@ fn english_mode_suggests_from_the_word_list_and_keeps_the_typed_text() {
     engine.set_input("helo");
     assert_eq!(texts_of(&engine), ["hello", "help"]);
     assert_eq!(engine.take_raw(), "helo");
-    // emoji 排在所有词后面，不挡上下键选词
+    // emoji 与颜文字排在所有词后面，不挡上下键选词
     let table = EmojiTable::parse("help\t🆘\n").unwrap();
     let mut engine = engine.with_emoji(table);
     engine.set_english_mode(true);
     engine.set_input("helo");
-    assert_eq!(texts_of(&engine), ["hello", "help", "🆘"]);
+    assert_eq!(texts_of(&engine), ["hello", "help", "(＾▽＾)ノ", "🆘"]);
     // 离开英文模式后同一串又按拼音算
     engine.set_english_mode(false);
     engine.set_input("comp");
@@ -423,4 +561,258 @@ fn pinyin_like_english_tail_competes_with_the_plain_reading() {
     assert_eq!(mixed.syllables, ["wo", "de", "database"]);
     assert_eq!(engine.commit(&mixed), "我的database");
     assert!(engine.composition().is_empty());
+}
+
+/// 个人 n-gram 再肥也不该左右「混输还是纯拼音」：头段只覆盖一部分音节，整段读法多出来的那几个音节
+/// 会白拿一份按长度累积的个人加成，用户打得越多混输越打不出来。比分只看静态模型加敲错代价。
+#[test]
+fn personal_ngram_does_not_decide_between_mixed_and_plain_readings() {
+    const DICT: &str = "我\two\t900000\n的\tde\t800000\n我的\two de\t500000\n大\tda\t50000\n塔\tta\t3000\n巴\tba\t3000\n瑟\tse\t500\n";
+
+    struct NgramLearner(crate::sentence::UserNgram);
+
+    impl Learner for NgramLearner {
+        fn record(&mut self, _candidate: &Candidate) {}
+
+        fn weight(&self, _text: &str) -> u32 {
+            0
+        }
+
+        fn user_ngram(&self) -> Option<&crate::sentence::UserNgram> {
+            Some(&self.0)
+        }
+    }
+
+    let mut ngram = crate::sentence::UserNgram::default();
+    // 把纯拼音那条读法的每一步都记成用户的老习惯
+    for (previous, word) in [
+        (None, "我的"),
+        (Some("我的"), "大"),
+        (Some("大"), "塔"),
+        (Some("塔"), "巴"),
+        (Some("巴"), "瑟"),
+    ] {
+        ngram.record_times(
+            crate::sentence::Context {
+                previous,
+                earlier: None,
+            },
+            word,
+            5000,
+        );
+    }
+
+    let words = WordList::parse("database\tdatabase\t4310\n").unwrap();
+    let mut engine = Engine::new(Dictionary::parse(DICT).unwrap())
+        .with_english(words)
+        .with_learner(Box::new(NgramLearner(ngram)));
+
+    engine.set_input("wodedatabase");
+    let first = engine.query().unwrap().candidates.items[0].clone();
+    assert_eq!(first.text, "我的database", "个人 n-gram 不该把混输压下去");
+}
+
+/// 英文词频只问随包表：个人英文表存的是使用次数，当 Zipf×1000 读会一律塌到兜底值
+/// （`English` 用过两次 → Zipf 0.002 → 兜底 3.0，真实 5.19），等于用过一次反而更难打出来。
+#[test]
+fn personal_english_usage_count_does_not_replace_the_shipped_frequency() {
+    const DICT: &str = "我\two\t900000\n的\tde\t800000\n我的\two de\t500000\n大\tda\t50000\n塔\tta\t3000\n巴\tba\t3000\n瑟\tse\t500\n";
+
+    struct PersonalEnglish(WordList);
+
+    impl Learner for PersonalEnglish {
+        fn record(&mut self, _candidate: &Candidate) {}
+
+        fn weight(&self, _text: &str) -> u32 {
+            0
+        }
+
+        fn user_english(&self) -> Option<&WordList> {
+            Some(&self.0)
+        }
+    }
+
+    // 个人表里是「用过 1 次」，随包表里是 Zipf 5.19。个人表排在前面，按 Zipf×1000 读就是 0.001，
+    // 会被夹到兜底的 Zipf 3，白丢 5 nat
+    let personal = WordList::parse("database\tdatabase\t1\n").unwrap();
+    let shipped = WordList::parse("database\tdatabase\t5190\n").unwrap();
+    let mut engine = Engine::new(Dictionary::parse(DICT).unwrap())
+        .with_english(shipped)
+        .with_learner(Box::new(PersonalEnglish(personal)));
+
+    let tail = engine
+        .split_english_tail("wodedatabase")
+        .expect("末尾是英文词");
+    let expected = (5.19 - 9.0) * std::f64::consts::LN_10;
+    assert!(
+        (tail.log_prob - expected).abs() < 1e-9,
+        "log_prob {} 不是随包表的 Zipf 5.19（{expected}）",
+        tail.log_prob,
+    );
+
+    engine.set_input("wodedatabase");
+    let first = engine.query().unwrap().candidates.items[0].clone();
+    assert_eq!(first.text, "我的database");
+}
+
+/// 打不出来时原样上屏的整串（`kaifarust`）不学成英文词，学进去了也不许堵掉混输：
+/// 它能读成「拼音头 + 英文尾」，把整串当英文词会让 `split_english_tail` 一开头就退出，
+/// 于是越打不出来学得越多、越学越打不出来。
+#[test]
+fn a_raw_committed_mixed_input_does_not_block_the_english_tail() {
+    #[derive(Default)]
+    struct EnglishLearner {
+        words: Vec<String>,
+        list: Option<WordList>,
+    }
+
+    impl Learner for EnglishLearner {
+        fn record(&mut self, _candidate: &Candidate) {}
+
+        fn weight(&self, _text: &str) -> u32 {
+            0
+        }
+
+        fn learn_english(&mut self, word: &str) {
+            self.words.push(word.to_owned());
+            let tsv: String = self
+                .words
+                .iter()
+                .map(|w| format!("{w}\t{w}\t1\n"))
+                .collect();
+            self.list = WordList::parse(&tsv).ok();
+        }
+
+        fn user_english(&self) -> Option<&WordList> {
+            self.list.as_ref()
+        }
+    }
+
+    let words = WordList::parse("rust\trust\t3740\n").unwrap();
+    let mut engine = Engine::new(Dictionary::parse(SAMPLE).unwrap())
+        .with_english(words)
+        .with_learner(Box::new(EnglishLearner::default()));
+
+    // 原样上屏整串：不该被记成英文词
+    engine.set_input("kaifarust");
+    assert_eq!(engine.take_raw(), "kaifarust");
+    engine.set_input("kaifarust");
+    let query = engine.query().unwrap();
+    assert!(
+        !query
+            .candidates
+            .items
+            .iter()
+            .any(|c| c.kind == CandidateKind::English && c.text == "kaifarust"),
+        "失败的混输不该进个人英文词表：{:?}",
+        query.candidates.items.first(),
+    );
+    assert_eq!(query.candidates.items[0].text, "开发rust");
+
+    // 就算个人表里已经有这条（老用户攒下的），混输那条路也要照走
+    let polluted = WordList::parse("kaifarust\tkaifarust\t1\n").unwrap();
+    struct Polluted(WordList);
+    impl Learner for Polluted {
+        fn record(&mut self, _candidate: &Candidate) {}
+
+        fn weight(&self, _text: &str) -> u32 {
+            0
+        }
+
+        fn user_english(&self) -> Option<&WordList> {
+            Some(&self.0)
+        }
+    }
+    let words = WordList::parse("rust\trust\t3740\n").unwrap();
+    let mut engine = Engine::new(Dictionary::parse(SAMPLE).unwrap())
+        .with_english(words)
+        .with_learner(Box::new(Polluted(polluted)));
+    engine.set_input("kaifarust");
+    assert_eq!(engine.query().unwrap().candidates.items[0].text, "开发rust");
+}
+
+/// 英文夹在中间的整串（`kaifarustdaima`）原样上屏也不学成英文词。
+///
+/// 上一个测试那条守卫靠 `split_english_tail`，只看得见句尾的英文；英文在中间时它返回 `None`，
+/// 于是整串照学不误——用户表里 `yongdockerbushuhenfangbian` 就是这么来的，学完还会顶到候选第一位。
+/// 这里靠的是长度上限（[`MAX_ENGLISH_WORD_LETTERS`]）。
+#[test]
+fn a_long_raw_commit_with_english_in_the_middle_is_not_learned() {
+    struct Recorder(std::sync::Arc<std::sync::Mutex<Vec<String>>>);
+
+    impl Learner for Recorder {
+        fn record(&mut self, _candidate: &Candidate) {}
+
+        fn weight(&self, _text: &str) -> u32 {
+            0
+        }
+
+        fn learn_english(&mut self, word: &str) {
+            self.0.lock().unwrap().push(word.to_owned());
+        }
+    }
+
+    let learned = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+    let words = WordList::parse("rust\trust\t3740\n").unwrap();
+    let mut engine = Engine::new(Dictionary::parse(SAMPLE).unwrap())
+        .with_english(words)
+        .with_learner(Box::new(Recorder(learned.clone())));
+
+    // 英文夹在中间：`split_english_tail` 看不见 rust，只有长度上限拦得住
+    engine.set_input("yongdockerbushuhenfangbian");
+    assert_eq!(engine.take_raw(), "yongdockerbushuhenfangbian");
+    // 短的英文词照学不误
+    engine.set_input("kubectl");
+    assert_eq!(engine.take_raw(), "kubectl");
+
+    assert_eq!(
+        *learned.lock().unwrap(),
+        vec!["kubectl".to_owned()],
+        "只有真正像一个词的才该进个人英文词表"
+    );
+}
+
+/// 末位落单声母正好是英文词的最后一个字母时（`henhaobook`），英文词内部换位凑出的残尾拼音
+/// （`book` → `…o/bo/k…`）不得被当成拼写纠正：落单声母进词图后原样多读一个位置，残尾对残尾
+/// 就能靠字频赢过原样，把「拼音头 + 英文词」整条挤掉（很好book 退化成 很好哦伯克）。见 #619。
+#[test]
+fn an_unfinished_correction_does_not_push_the_english_tail_away() {
+    let dictionary = Dictionary::parse(
+        "很好\then hao\t900000\n很\then\t800000\n好\thao\t800000\n\
+         波\tbo\t5000\n哦\to\t100\n口\tkou\t5000\n空\tkong\t5000\n克\tke\t5000\n",
+    )
+    .unwrap();
+    let words = WordList::parse("book\tbook\t5000\n").unwrap();
+    let mut engine = Engine::new(dictionary).with_english(words);
+    engine.set_input("henhaobook");
+    let query = engine.query().unwrap();
+    assert!(query.correction.is_none(), "残尾换位不该触发拼写纠正");
+    assert_eq!(query.candidates.items[0].text, "很好book");
+    assert_eq!(query.candidates.items[0].kind, CandidateKind::Sentence);
+}
+
+#[test]
+fn english_word_is_not_buried_by_reading_key_choices() {
+    // `wenti` 下选的 问题（读音键记了一份）不能隔着 `went` 把英文词顶下去：
+    // 英文位置的仲裁按字面键数，读音键泛化只服务中文自己的重打排序
+    let dictionary = Dictionary::parse("问题\twen ti\t900000\n").unwrap();
+    let words = WordList::parse("went\twent\t2000\n").unwrap();
+    let mut engine = Engine::new(dictionary)
+        .with_english(words)
+        .with_learner(Box::new(CountingLearner(HashMap::new())));
+    let commit = |engine: &mut Engine, input: &str, text: &str| {
+        engine.set_input(input);
+        let candidate = engine
+            .query()
+            .unwrap()
+            .candidates
+            .items
+            .into_iter()
+            .find(|c| c.text == text)
+            .unwrap();
+        engine.commit(&candidate);
+    };
+    commit(&mut engine, "wenti", "问题");
+    engine.set_input("went");
+    assert_eq!(texts_of(&engine)[0], "went");
 }

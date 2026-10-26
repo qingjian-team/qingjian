@@ -11,7 +11,7 @@
 | 种类 | 例子 | 要求 | 结论 |
 |---|---|---|---|
 | 显示面 | 候选窗、悬浮状态条、手机键盘面板 | 无边框、不抢焦点、置顶、按键后毫秒级出现；输入只有点击与拖拽 | 只画矩形 / 阴影 / 渐变 / 文字，适合自绘 |
-| 控件面 | 设置程序 | 表单、表格、滚动、文本框、无障碍 | 需要完整控件库，自绘等于写一个 toolkit，不做 |
+| 控件面 | 设置程序 | 表单、列表、滚动、文本框、输入法组字 | 起初定为各平台原生；2026-10 改为自绘：bamboo-slip 补了控件库，三平台共用一份 `apps/settings`，见 [settings.md](settings.md)。无障碍尚未接 |
 
 现有代码量（2026-09-13）：Core 15,655 行；macOS 候选窗 + 菜单栏 1,644 行、偏好设置 3,041 行；Windows 候选窗 + 状态条 + 托盘 2,057 行、设置程序 1,491 行。
 平台层不到总量两成，Core 已经是共享的那「一套」，能收拢的只有显示面的绘制部分。
@@ -122,6 +122,24 @@
 
 真机结果（Windows 11 26200，2026-09-15）：候选窗口深色 / 浅色、竖排 / 横排、Segoe UI Emoji（COLRv0）彩色、阴影，悬浮状态条与矢量齿轮，「渲染引擎 / 字体」设置项与热切换（换成 Maple Mono NF CN 立即生效），`renderer = "system"` 退回 GDI，均通过。灰度抗锯齿与微软雅黑回退看着与 GDI 版没有可感差异；Yu Gothic 回退与首帧耗时没有单独测。
 排查中顺带发现并修掉的与渲染器无关的问题：TSF DLL 动态链 `vcruntime140.dll`，AppContainer 进程（任务栏搜索等）读不到系统里那份时整个 DLL 加载失败、系统切回上一个输入法，已改成静态 CRT（仓库根 `.cargo/config.toml`）。
+
+## Android 候选条（2026-10-17，真机已验）
+
+先迁候选条、键盘还是 Kotlin 原生画：候选条与桌面候选窗同一类东西，迁过来主题就能接上，也顺便验证手机上的字体与性能。
+
+- **排布**：`Layout::Strip`，主题模板 `windows.strip`（青简绿里写，其余主题经 `extends` 继承）：上面一行拼音，候选横排、各自第一条译文在词下面，没有序号与投影。
+  壳按 `Rendered::candidates_top` 分界，拼音行钉在视口上、候选随横向滚动；底色取主题变量 `surface`（`Theme::variable`）。
+- **壳**：`apps/android/core/src/strip/` 把帧里的候选换成 `Row`（译文按 120 点宽截断，用渲染器量宽），`renderStrip` 出 JSON 说明、`copyStrip` 把预乘 RGBA 拷进 Kotlin 的直接缓冲区，
+  `Bitmap.copyPixelsFromBuffer` 直接吃，不用换字节序；缓冲区与位图只增不减地复用。高亮过渡先不播（主题 `with_animations(false)`）。
+- **字体**：`bamboo-slip/src/fonts/android.rs` 按清单读 `/system/fonts` 的 Roboto、Noto CJK、Noto 彩色 emoji。踩到两个坑：
+  Noto CJK 是 CFF2 可变字体，轮廓检查原来只认 `glyf` / `CFF `，汉字全成方框；cosmic-text 在 Android 上没有按 locale 的回退表，汉字落到集合里第一张 JP 面，「骨」「直」画成日本字形，加载后只留 locale 那张面。
+  厂商自带的界面字体没读，以后读 `/system/etc/fonts.xml` 再补。
+- **emoji**：Android 13 起系统 emoji 是 COLRv1（只有 `COLR` / `CPAL` / `glyf`，没有 CBDT），swash 画不出，渲染出来是空白。
+  先由壳在词的位置上用 Canvas 补画（Rust 侧按码位标出含 emoji 的候选）；以后的出路是随包带 CBDT 版 Noto Color Emoji 或给栅格补 COLRv1。
+
+真机结果（Android 16 旗舰机，3.5 倍）：字体库冷启动约 6 ms、热启动不到 1.3 ms；候选条尺寸、无投影连续画 60 帧，中位约 1 ms、p90 不到 2.1 ms。
+同样的内容按桌面候选窗带投影要 30–37 ms，开销几乎全在投影的三遍模糊，手机上的浮窗类显示面要用投影时得另想办法（预画好的九宫格阴影图之类）。
+拼音行、高亮、生词橙色译文、横向滑动、点选上屏、长按译词气泡（高亮跟到气泡对着的候选）、emoji 补画均通过。
 
 ## 不做的事
 

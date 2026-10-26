@@ -25,6 +25,7 @@ pub(crate) fn decode_at(input: &str, cursor: usize) -> (Decoded, usize) {
                 display: "'".to_string(),
                 keys: "'".to_string(),
                 complete: true,
+                tone: None,
             });
             continue;
         }
@@ -75,6 +76,7 @@ fn push_syllable(
         display: current.display_string(),
         keys: current.keys.clone(),
         complete: current.has_tone(),
+        tone: current.tone.map(|(num, _)| num),
     };
     mapping.unit(start, &unit.keys, &unit.display);
     units.push(unit);

@@ -35,6 +35,7 @@ impl Router {
             outcome: KeyOutcome::Consumed,
             commit: None,
             frame: Frame::default(),
+            english: None,
         };
         if self.focused != Some(session) || self.pending_selection != Some(request) {
             return empty;
@@ -80,6 +81,7 @@ impl Router {
             outcome,
             commit,
             frame: Frame::default(),
+            english: None,
         }
     }
 
@@ -101,6 +103,7 @@ impl Router {
             preedit: Vec::new(),
             preedit_mode: self.config.preedit,
             cursor: 0,
+            window_preedit: None,
             candidates: CandidateList {
                 items: vec![translate_candidate(text)],
             },
@@ -108,10 +111,15 @@ impl Router {
             page: 0,
             page_count: 1,
             layout: self.config.layout,
-            theme: self.config.theme,
+            columns: 0,
+            column_ems: Vec::new(),
+            appearance: self.config.appearance,
             aux_code_show: self.config.aux_code_show,
+            // 这条候选是「翻译选中文字」的译文本身，没有词性注记；值不影响渲染
+            translation_pos: self.config.translation_pos,
             sentence: None,
             notice: None,
+            symbol_panel: false,
         }
     }
 }

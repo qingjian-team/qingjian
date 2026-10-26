@@ -37,6 +37,11 @@ impl TextService_Impl {
             Some(MenuChoice::Mode { english }) if english != self.mode_state.english() => {
                 self.set_english_mode(english);
             }
+            Some(MenuChoice::Server(IndicatorCommand::OpenSymbolPanel)) => {
+                self.send_indicator(IndicatorCommand::OpenSymbolPanel);
+                // 当场取一拍状态：面板开了就接着把键交给 Server，不等轮询
+                self.sync_mode_from_server();
+            }
             Some(MenuChoice::Server(command)) => self.send_indicator(command),
             _ => {}
         }
@@ -45,7 +50,9 @@ impl TextService_Impl {
     fn send_indicator(&self, command: IndicatorCommand) {
         if matches!(
             command,
-            IndicatorCommand::OpenSettings | IndicatorCommand::OpenDownload
+            IndicatorCommand::OpenSettings
+                | IndicatorCommand::OpenLegacySettings
+                | IndicatorCommand::OpenDownload
         ) {
             // 设置程序 / 浏览器由 Server 起；前台权在点菜单的这边，让出去它的窗口才能到前面
             let _ = unsafe { AllowSetForegroundWindow(ASFW_ANY) };

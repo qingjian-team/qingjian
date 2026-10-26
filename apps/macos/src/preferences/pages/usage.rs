@@ -40,7 +40,7 @@ pub struct UsagePage {
     /// 词汇块标题：「词汇（英语）」。
     vocabulary_title: Retained<NSTextField>,
 
-    /// 词汇块正文：见过 / 看熟 / 上屏过 / 打出过 / 本周新见。
+    /// 词汇块正文：见过 / 看熟 / 上屏过 / 打出过 / 近 7 天新见。
     vocabulary_line: Retained<NSTextField>,
 
     /// 等级块的表头（没有等级表时整块隐藏）。
@@ -204,13 +204,13 @@ impl UsagePage {
     }
 }
 
-/// 「见过 120 个词，看熟 80 个；上屏过 60 个，直接打出过 3 个；本周新见 12 个。」
+/// 「见过 120 个词，看熟 80 个；上屏过 60 个，直接打出过 3 个；近 7 天新见 12 个。」
 fn vocabulary_line(summary: &VocabularySummary) -> String {
     if summary.seen == 0 {
         return "还没见过译词：打中文时候选右侧的译词就是词汇的来源。".to_owned();
     }
     format!(
-        "见过 {} 个词，看熟 {} 个；上屏过 {} 个，直接打出过 {} 个；本周新见 {} 个。",
+        "见过 {} 个词，看熟 {} 个；上屏过 {} 个，直接打出过 {} 个；近 7 天新见 {} 个。",
         group_digits(summary.seen),
         group_digits(summary.familiar),
         group_digits(summary.committed),

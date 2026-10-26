@@ -15,6 +15,7 @@ cat "$OUT"/SHA256SUMS-* | sort -k2 | tee "$OUT/SHA256SUMS"
 jq -s --arg version "$VERSION" --arg tag "$TAG" \
   '{version: $version, tag: $tag, commit: .[0].commit, built_at: (map(.built_at) | max), toolchain: .[0].toolchain,
     data_tag: .[0].data_tag, data_sha256: .[0].data_sha256, model_sha256: .[0].model_sha256,
+    p2c_model_sha256: .[0].p2c_model_sha256,
     platforms: (map({(.platform): {built_at, runner}}) | add)}' \
   "$OUT"/build-info-*.json | tee "$OUT/build-info.json"
 gh release upload "$TAG" "$OUT/SHA256SUMS" "$OUT/build-info.json" --clobber

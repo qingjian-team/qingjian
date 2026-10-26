@@ -317,8 +317,8 @@ fn input_log_records_commits_with_their_context_and_retractions() {
         assert_eq!(commit.top[0], "开发者");
         assert!(!commit.corrected);
     }
-    // 剩下的 zhe 回车原样上屏
-    assert_eq!(engine.take_raw(), "zhe");
+    // 剩下的 zhe 回车原样上屏，前面留着的 开发 一起
+    assert_eq!(engine.take_raw(), "开发zhe");
     // 整个退格删掉 开发 再重打同一段拼音换选 开放：记一条撤销
     engine.set_input("kaifa");
     engine.query().unwrap();

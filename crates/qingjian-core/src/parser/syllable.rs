@@ -1,19 +1,20 @@
 //! 普通话音节表。查找逻辑在 [`super::trie`]。
 
-/// 无声调的普通话合法音节表（含 ü 写作 v / ue 两种写法）。
+/// 无声调的普通话合法音节表（含 ü 写作 v / ue 两种写法；j / q / x / y 后 `v` 代 ü 的单韵母与整个韵母系列，
+/// 如 `jv` / `jve` / `jvan` / `jvn`，查词前经 `canonical_syllable` 归一）。
 ///
-/// 只放独立成字的音节，不含 `m` / `ng` / `hm` 这类叹词写法。按声母分组便于人工核对。
+/// 只放独立成字的音节，不含 `m` / `ng` / `hm` 这类叹词写法；`fiao`（覅）、`biang`（𰻝）是收进词库的生僻字音节。按声母分组便于人工核对。
 #[rustfmt::skip]
 pub const SYLLABLES: &[&str] = &[
     // 零声母
     "a", "ai", "an", "ang", "ao", "e", "ei", "en", "eng", "er", "o", "ou",
-    "yi", "ya", "yao", "ye", "you", "yan", "yin", "yang", "ying", "yong", "yu", "yue", "yuan", "yun", "yo",
+    "yi", "ya", "yao", "ye", "you", "yan", "yin", "yang", "ying", "yong", "yu", "yv", "yue", "yve", "yuan", "yvan", "yun", "yvn", "yo",
     "wu", "wa", "wo", "wai", "wei", "wan", "wen", "wang", "weng",
     // b p m f
-    "ba", "bo", "bai", "bei", "bao", "ban", "ben", "bang", "beng", "bi", "bie", "biao", "bian", "bin", "bing", "bu",
+    "ba", "bo", "bai", "bei", "bao", "ban", "ben", "bang", "beng", "bi", "bie", "biao", "bian", "biang", "bin", "bing", "bu",
     "pa", "po", "pai", "pei", "pao", "pou", "pan", "pen", "pang", "peng", "pi", "pie", "piao", "pian", "pin", "ping", "pu",
     "ma", "mo", "me", "mai", "mei", "mao", "mou", "man", "men", "mang", "meng", "mi", "mie", "miao", "miu", "mian", "min", "ming", "mu",
-    "fa", "fo", "fei", "fou", "fan", "fen", "fang", "feng", "fu",
+    "fa", "fo", "fei", "fou", "fan", "fen", "fang", "feng", "fu", "fiao",
     // d t n l
     "da", "de", "dai", "dei", "dao", "dou", "dan", "den", "dang", "deng", "dong", "di", "dia", "die", "diao", "diu", "dian", "ding", "du", "duo", "dui", "duan", "dun",
     "ta", "te", "tai", "tao", "tou", "tan", "tang", "teng", "tong", "ti", "tie", "tiao", "tian", "ting", "tu", "tuo", "tui", "tuan", "tun",
@@ -24,9 +25,9 @@ pub const SYLLABLES: &[&str] = &[
     "ka", "ke", "kai", "kei", "kao", "kou", "kan", "ken", "kang", "keng", "kong", "ku", "kua", "kuo", "kuai", "kui", "kuan", "kun", "kuang",
     "ha", "he", "hai", "hei", "hao", "hou", "han", "hen", "hang", "heng", "hong", "hu", "hua", "huo", "huai", "hui", "huan", "hun", "huang",
     // j q x
-    "ji", "jia", "jie", "jiao", "jiu", "jian", "jin", "jiang", "jing", "jiong", "ju", "jue", "juan", "jun",
-    "qi", "qia", "qie", "qiao", "qiu", "qian", "qin", "qiang", "qing", "qiong", "qu", "que", "quan", "qun",
-    "xi", "xia", "xie", "xiao", "xiu", "xian", "xin", "xiang", "xing", "xiong", "xu", "xue", "xuan", "xun",
+    "ji", "jia", "jie", "jiao", "jiu", "jian", "jin", "jiang", "jing", "jiong", "ju", "jv", "jue", "jve", "juan", "jvan", "jun", "jvn",
+    "qi", "qia", "qie", "qiao", "qiu", "qian", "qin", "qiang", "qing", "qiong", "qu", "qv", "que", "qve", "quan", "qvan", "qun", "qvn",
+    "xi", "xia", "xie", "xiao", "xiu", "xian", "xin", "xiang", "xing", "xiong", "xu", "xv", "xue", "xve", "xuan", "xvan", "xun", "xvn",
     // zh ch sh r
     "zha", "zhe", "zhi", "zhai", "zhei", "zhao", "zhou", "zhan", "zhen", "zhang", "zheng", "zhong", "zhu", "zhua", "zhuo", "zhuai", "zhui", "zhuan", "zhun", "zhuang",
     "cha", "che", "chi", "chai", "chao", "chou", "chan", "chen", "chang", "cheng", "chong", "chu", "chua", "chuo", "chuai", "chui", "chuan", "chun", "chuang",
@@ -37,6 +38,9 @@ pub const SYLLABLES: &[&str] = &[
     "ca", "ce", "ci", "cai", "cao", "cou", "can", "cen", "cang", "ceng", "cong", "cu", "cuo", "cui", "cuan", "cun",
     "sa", "se", "si", "sai", "sao", "sou", "san", "sen", "sang", "seng", "song", "su", "suo", "sui", "suan", "sun",
 ];
+
+/// 只有一两个生僻字的音节。双拼里与常用音节同键时让给常用的（小狼 `bm` 是 ben 不是 biang）。
+pub const RARE_SYLLABLES: &[&str] = &["fiao", "biang"];
 
 /// 音节最长 6 个字母（zhuang / chuang / shuang）。
 pub const MAX_SYLLABLE_LEN: usize = 6;

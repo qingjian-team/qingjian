@@ -1,5 +1,5 @@
 //! 短语层：常用词表是词典词头，不收 我的 / 好的 / 不知道 / 有没有 这类人会整块打出来的组合，输入法里它们却是最常打的。
-//! 扫两遍语料：第一遍按词库分词数相邻两词，第二遍只数两段二元都够频的相邻三词；取出现够多、边界像话的组合，读音直接由成分词的读音拼出（不用再标多音字），写成 `phrases.tsv`（`词\t次数\t拼音`），
+//! 扫两遍语料：第一遍按词库分词数相邻两词，第二遍只数两段二元都够频的相邻三词；取出现够多、边界像话的组合，读音直接由成分词的读音拼出（不用再标多音字），写成 `phrases.tsv`（`词\t拼音\t次数`，与词库同一列序），
 //! 由 `lexicon --extra-words` 并入基础词库。
 //!
 //! 次数按语料文件分开数，短语要在**对话语料**（`--dialogue`，人打字的样子）里就够频：维基里的模板句（一个市镇、面积为）
@@ -120,14 +120,14 @@ pub fn mine(options: &PhraseOptions, out_dir: &Path) -> Result<(), ConvertError>
     let mut writer = BufWriter::new(File::create(&path)?);
     writeln!(
         writer,
-        "# 由 qingjian-dict-convert phrases 从语料相邻词组合挖出（总次数与对话语料次数都 ≥ {}），读音由成分词拼出。词\\t次数\\t拼音",
+        "# 由 qingjian-dict-convert phrases 从语料相邻词组合挖出（总次数与对话语料次数都 ≥ {}），读音由成分词拼出。词\\t拼音\\t次数",
         options.min_count
     )?;
     for phrase in &phrases {
         writeln!(
             writer,
             "{}\t{}\t{}",
-            phrase.text, phrase.count, phrase.pinyin
+            phrase.text, phrase.pinyin, phrase.count
         )?;
     }
     writer.flush()?;

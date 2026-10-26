@@ -7,10 +7,12 @@ use qingjian_dictionary::{Dictionary, Match, SyllablePattern};
 
 use super::{
     ABBREVIATED_SPAN_CANDIDATES, BEAM_WIDTH, Context, Conversion, LanguageModel,
-    MAX_WORD_SYLLABLES, MIN_PARTIAL_LETTERS, Personal, SPAN_CANDIDATES, SentenceWord, SpanCache,
-    SpanWord, fallback_log_prob, transition_log_prob,
+    MAX_WORD_SYLLABLES, MIN_PARTIAL_LETTERS, Personal, SECONDARY_PENALTY, SPAN_CANDIDATES,
+    SentenceWord, SpanCache, SpanWord, TONE_PENALTY, fallback_log_prob, reading_cost,
+    transition_log_prob,
 };
 use crate::ranking::weight_bonus;
+use crate::zhuyin::tone;
 
 /// 词库里没有的孤立音节（罕见音节没有单字）按这个 log 概率兜底，让路径总能走通。
 const UNKNOWN_LOG_PROB: f64 = -30.0;
@@ -48,7 +50,8 @@ struct Node {
 /// （调用方保证它与词库、`weight`、`personal`、`cost` 一致，这些一变就清）。
 ///
 /// 简拼位置（`w x q`）按前缀取词：每个格子的候选会多得多，由语言模型在路径上分辨。
-/// 全拼句子末尾的前缀太短时不算它（多半是没打完的音节）；前面已有简拼的句子里末尾单字母就是一个音节。
+/// 全拼句子末尾落单的声母也当前缀读（`youdiandongx` → 有点东西）；落单的单元音（i / u）与短于
+/// 两个字母的其他前缀多半是没打完的韵母，不算它；前面已有简拼的句子里末尾单字母就是一个音节。
 pub fn convert(
     dictionaries: &[&Dictionary],
     positions: &[Vec<SyllablePattern<'_>>],
@@ -114,6 +117,7 @@ pub fn convert_with(
         personal,
         weight,
         cost,
+        &[],
         cache,
     )
     .into_iter()
@@ -121,6 +125,7 @@ pub fn convert_with(
 }
 
 /// 得分最高的前 `k` 条路径（最多束宽条，按得分降序，文本相同的只留一条）：给重打分用。
+/// `tones` 是注音每个位置敲的声调（与 `positions` 对齐，可以更短；全拼 / 双拼给空），按 [`TONE_PENALTY`] 给格子选词打折、给路径扣分。
 #[allow(clippy::too_many_arguments)]
 pub fn convert_paths(
     dictionaries: &[&Dictionary],
@@ -131,6 +136,7 @@ pub fn convert_paths(
     personal: Personal<'_>,
     weight: impl Fn(&str) -> u32,
     cost: impl Fn(usize, &str) -> f64,
+    tones: &[Option<u8>],
     cache: &mut SpanCache,
 ) -> Vec<Conversion> {
     let Some((last, head)) = positions.split_last() else {
@@ -144,6 +150,9 @@ pub fn convert_paths(
         || last.complete
         || abbreviated_head
         || last.text.len() >= MIN_PARTIAL_LETTERS
+        // 全拼句末尾落单的声母当简拼音节（`youdiandongx` → 有点东西）；落单的单元音（i / u）
+        // 更可能是没打完的韵母，仍不算它。a / o / e 在切分器里就是完整音节，走不到这里
+        || crate::parser::INITIALS.contains(&last.text)
     {
         positions
     } else {
@@ -180,8 +189,17 @@ pub fn convert_paths(
         let mut any = false;
         for end in start + 1..=n.min(start + MAX_WORD_SYLLABLES) {
             let span = &positions[start..end];
-            let hits = cache.get_or_insert_with(SpanCache::key(span), || {
-                span_candidates(dictionaries, span, start, personal, &weight, &cost)
+            let span_tones = tones.get(start..end).unwrap_or(&[]);
+            let hits = cache.get_or_insert_with(SpanCache::toned_key(span, span_tones), || {
+                span_candidates(
+                    dictionaries,
+                    span,
+                    start,
+                    personal,
+                    &weight,
+                    &cost,
+                    span_tones,
+                )
             });
             if hits.is_empty() {
                 continue;
@@ -189,7 +207,7 @@ pub fn convert_paths(
             any = true;
             for hit in hits.iter() {
                 let bonus = weight_bonus(weight(&hit.text));
-                let fallback = fallback_log_prob(hit.frequency, log_total);
+                let fallback = fallback_log_prob(hit.frequency, hit.secondary, log_total);
                 let (score, back) =
                     best_predecessor(&nodes, start, &hit.text, model, personal, fallback);
                 let previous = &nodes[start][back];
@@ -202,7 +220,7 @@ pub fn convert_paths(
                     start,
                     text: hit.text.clone(),
                     syllables: hit.syllables.clone(),
-                    score: score + bonus - hit.penalty,
+                    score: score + bonus - hit.penalty - hit.tone - hit.reading,
                     static_score,
                     back,
                     placeholder: false,
@@ -302,6 +320,7 @@ fn span_candidates(
     personal: Personal<'_>,
     weight: &impl Fn(&str) -> u32,
     cost: &impl Fn(usize, &str) -> f64,
+    tones: &[Option<u8>],
 ) -> Vec<SpanWord> {
     let alternatives = span.iter().any(|p| p.len() > 1);
     let penalty_of = |m: &Match<'_>| {
@@ -314,18 +333,27 @@ fn span_candidates(
             .sum::<f64>()
     };
     // 得分先算好再排：单字母简拼的格子能命中几千条，比较器里每次查两张表会让排序占掉十几毫秒
-    let mut scored: Vec<(f64, f64, Match<'_>)> = dictionaries
+    // 词频 0 的生僻字不进词图，用户自己选过的除外：`keneng` 按 `ken eng` 切时有了 鞥 就会读出 肯鞥，压过敲错边读出的 可能
+    let mut scored: Vec<(f64, f64, f64, Match<'_>)> = dictionaries
         .iter()
         .flat_map(|d| d.lookup_exact_alt(span))
-        .map(|m| {
+        .filter_map(|m| {
             let seen = weight(m.text) + personal.count(m.text);
+            if m.frequency == 0 && seen == 0 {
+                return None;
+            }
             let penalty = penalty_of(&m);
-            let score = f64::from(m.frequency) * (1.0 + f64::from(seen)) * (-penalty).exp();
-            (score, penalty, m)
+            let tone = f64::from(tone::cost(m.text, m.syllables(), tones)) * TONE_PENALTY;
+            // 补充词库的片段多，不打折会把敲错边上的常用词（`zanen` 的 咱们）挤出格子
+            let secondary = if m.secondary { -SECONDARY_PENALTY } else { 0.0 };
+            let score = f64::from(m.frequency.max(1))
+                * (1.0 + f64::from(seen))
+                * (-(penalty + tone + secondary)).exp();
+            Some((score, penalty, tone, m))
         })
         .collect();
     scored.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
-    scored.dedup_by(|a, b| a.2.text == b.2.text);
+    scored.dedup_by(|a, b| a.3.text == b.3.text);
     let abbreviated = span.iter().any(|p| p.iter().any(|t| !t.complete));
     scored.truncate(if abbreviated {
         ABBREVIATED_SPAN_CANDIDATES
@@ -334,11 +362,14 @@ fn span_candidates(
     });
     scored
         .into_iter()
-        .map(|(_, penalty, hit)| SpanWord {
+        .map(|(_, penalty, tone, hit)| SpanWord {
             text: hit.text.to_owned(),
             syllables: hit.syllables().map(str::to_owned).collect(),
             frequency: hit.frequency,
+            secondary: hit.secondary,
             penalty,
+            tone,
+            reading: reading_cost(&hit),
         })
         .collect()
 }
@@ -470,10 +501,19 @@ mod tests {
         let mut patterns = complete(&["wo", "xiang"]);
         patterns.push(vec![SyllablePattern::prefix("ka")]);
         assert_eq!(unigram(&dictionary, &patterns).unwrap().text, "我想开");
-        // 全拼句子末尾的单字母多半是没打完的音节，不参与
+        // 全拼句末尾落单的声母也当简拼读
         let mut patterns = complete(&["wo", "xiang"]);
         patterns.push(vec![SyllablePattern::prefix("k")]);
-        assert_eq!(unigram(&dictionary, &patterns).unwrap().text, "我想");
+        let conversion = unigram(&dictionary, &patterns).unwrap();
+        assert_eq!(conversion.text, "我想开");
+        assert_eq!(conversion.syllables, ["wo", "xiang", "kai"]);
+        // 落单的单元音仍当作没打完的韵母：词库里有「一 yi」也不读
+        let dictionary = Dictionary::parse(&format!("{SAMPLE}一\tyi\t700000\n")).unwrap();
+        let mut patterns = complete(&["wo", "xiang"]);
+        patterns.push(vec![SyllablePattern::prefix("i")]);
+        let conversion = unigram(&dictionary, &patterns).unwrap();
+        assert_eq!(conversion.text, "我想");
+        assert_eq!(conversion.syllables, ["wo", "xiang"]);
     }
 
     fn abbreviated<'a>(letters: &[&'a str]) -> Vec<Vec<SyllablePattern<'a>>> {
@@ -546,6 +586,24 @@ mod tests {
                 _ => None,
             }
         }
+    }
+
+    #[test]
+    fn zero_frequency_words_stay_out_until_chosen() {
+        let dictionary = Dictionary::parse("肯\tken\t100\n鞥\teng\t0\n").unwrap();
+        let patterns = complete(&["ken", "eng"]);
+        assert!(unigram(&dictionary, &patterns).unwrap().has_placeholder());
+        let chosen = convert(
+            &[&dictionary],
+            &patterns,
+            &NoLanguageModel,
+            Personal::NONE,
+            |text| u32::from(text == "鞥"),
+            |_, _| 0.0,
+            &mut SpanCache::default(),
+        )
+        .unwrap();
+        assert_eq!(chosen.text, "肯鞥");
     }
 
     #[test]

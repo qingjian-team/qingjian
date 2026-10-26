@@ -8,6 +8,9 @@ pub struct PredictionRequest {
     /// 请求序号，单调递增；回来的结果序号对不上就是过期结果。
     pub sequence: u64,
 
+    /// 显式触发，跳过停键防抖；仍受最短请求间隔限制。
+    pub manual: bool,
+
     /// 组句联想还是问字。
     pub kind: PredictionKind,
 

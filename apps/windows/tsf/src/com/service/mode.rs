@@ -57,15 +57,40 @@ impl TextService_Impl {
     /// 应用 Server 下发的按键行为设置：`OpenSession` 的回包给一次，之后每一拍 `SyncMode` 也都带着。
     /// 值没变就什么都不做，所以设置窗口改完在下一拍（约 320 ms）生效，不用切走再切回输入法。
     pub(super) fn apply_input_settings(&self, input: InputSettings) {
-        if self.input_settings.get() == Some(input) {
+        // 获焦可能早于 Activate；与标点键一样，只有登记成功才记住组合，下一拍可补登记。
+        self.sync_punctuation_key(input.toggle_punctuation);
+        if self.predict_combo.get() != input.predict
+            && let Some(thread_mgr) = self.thread_mgr.borrow().clone()
+            && let Ok(keystroke) = thread_mgr.cast::<ITfKeystrokeMgr>()
+        {
+            if let Some(combo) = self.predict_combo.take() {
+                preserved::unregister(&keystroke, &preserved::GUID_PREDICT, combo);
+            }
+            if let Some(combo) = input.predict {
+                match preserved::register(
+                    &keystroke,
+                    self.client_id.get(),
+                    &preserved::GUID_PREDICT,
+                    combo,
+                    "AI 联想（青简）",
+                ) {
+                    Ok(()) => {
+                        self.predict_combo.set(Some(combo));
+                        log(&format!("AI 联想快捷键已登记为保留键: {combo}"));
+                    }
+                    Err(error) => log(&format!("登记 AI 联想快捷键失败: {error}")),
+                }
+            }
+        }
+        if self.input_settings.replace(Some(input)) == Some(input) {
             return;
         }
-        self.input_settings.set(Some(input));
         log(&format!(
-            "按键行为设置：中英切换键 {}，内置英文模式 {}，Shift 字母进组句 {}",
+            "按键行为设置：中英切换键 {}，内置英文模式 {}，Shift 字母进组句 {}，英文候选 {}",
             input.switch_mode.describe(),
             input.english_mode,
-            input.shift_letter_compose
+            input.shift_letter_compose,
+            input.english_candidates
         ));
         self.apply_mode_settings(input.english_mode, input.switch_mode);
     }
@@ -127,7 +152,7 @@ impl TextService_Impl {
         match reply {
             Some(Ok(reply)) => {
                 self.apply_input_settings(reply.input);
-                self.indicator_state.set(reply.indicator);
+                self.apply_indicator_state(reply.indicator);
                 if let Some(english) = reply.english {
                     self.adopt_mode(english);
                 }
@@ -181,13 +206,28 @@ impl TextService_Impl {
         }
     }
 
+    /// 本线程得到 / 失去键盘焦点。失去：先把敲了一半的拼音原样落定。
+    ///
+    /// 切到别的应用（命令行、终端这类抢焦点的窗口）时 `ITfKeyEventSink::OnSetFocus` 不触发，
+    /// 走的是 `ITfThreadFocusSink::OnKillThreadFocus`（见 [`crate::com::focus`]），两条路都进这里。
+    /// 那边也落定的原因是：不落定的话拼音留在 Server 缓冲里，切回**同一个**应用时 Server 认作
+    /// 同一会话、`ensure_focus` 不清缓冲，接着敲就接在旧拼音后面，候选窗口也一直挂着。
+    /// 组句中才真有东西要落定（`commit_pending` 自己会判），没在组句时这条是空转。
+    pub(super) fn set_focus(&self, foreground: bool) {
+        if !foreground {
+            self.commit_pending();
+        }
+        self.set_thread_focus(foreground);
+    }
+
     /// 本线程得到 / 失去键盘焦点。得到：补连接，跟上全局模式（别的应用里可能刚切过）。
     pub(super) fn set_thread_focus(&self, foreground: bool) {
         if self.shared.foreground() == foreground {
             return;
         }
         self.shared.set_foreground(foreground);
-        if foreground {
+        // AdviseKeyEventSink 会在 Activate 尚未准备好 thread_mgr 时同步获焦；连接由 Activate 随后补上。
+        if foreground && self.thread_mgr.borrow().is_some() {
             self.ensure_connected();
             self.sync_mode_from_server();
         }
@@ -281,5 +321,27 @@ impl TextService_Impl {
         {
             let _ = unsafe { mgr.RemoveItem(&button) };
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use windows::core::ComObject;
+
+    use super::super::TextService;
+
+    /// 组句中被切走（点到命令行这类抢焦点的窗口）而 Server 又连不上：本地组句状态也得清掉。
+    /// 不清的话 `would_eat` 一直当在组句、功能键全被吃掉，看着就是「输入法停了」。
+    /// 连得上时 `commit_pending` 还会把拼音原样落进文档，那条走
+    /// `service/document.rs` 与 Server 侧 `focus_leave_commits_raw_pinyin`，不在这里重复。
+    #[test]
+    fn losing_focus_while_composing_clears_the_local_state() {
+        let service: ComObject<TextService> = TextService::new().into();
+        service.shared.set_composing(true);
+        service.set_focus(false);
+        assert!(
+            !service.shared.composing(),
+            "失焦后不该还当作在组句，否则功能键一直被吃掉"
+        );
     }
 }

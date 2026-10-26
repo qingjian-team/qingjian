@@ -33,6 +33,17 @@ impl PrefixCache {
     pub fn is_empty(&self) -> bool {
         self.len == 0
     }
+
+    /// 按行号重排 batch 维：beam search 每步挑完候选要把各条的 K / V 跟着搬。
+    /// `order` 是 `[b]` 的 u32 行号，允许重复（一行可以分裂成多条）。
+    pub fn select(&self, order: &Tensor) -> Result<Self> {
+        let pick = |t: &Tensor| t.index_select(order, 0);
+        Ok(Self {
+            keys: self.keys.iter().map(pick).collect::<Result<_>>()?,
+            values: self.values.iter().map(pick).collect::<Result<_>>()?,
+            len: self.len,
+        })
+    }
 }
 
 /// 字级 decoder-only Transformer。张量名见 `tools/lm-train/model.py`。
@@ -98,8 +109,8 @@ impl CharLm {
         Tensor::from_vec(data, (t, width), &self.device)?.to_dtype(self.dtype)
     }
 
-    /// 一层注意力。`past` 是前文的 K / V（`[1, h, p, d]`），有就拼在本段 K / V 前面。
-    /// 返回输出与本段自己的 K / V（`[b, h, t, d]`），记前文缓存用。
+    /// 一层注意力。`past` 是前文的 K / V（`[1, h, p, d]` 或 `[b, h, p, d]`），有就拼在本段 K / V 前面。
+    /// 返回输出与拼好的 K / V（`[b, h, p + t, d]`），记缓存用。
     fn attention(
         &self,
         block: &Block,
@@ -133,7 +144,7 @@ impl CharLm {
                 let pv = pv.broadcast_as((b, h, p, d))?.contiguous()?;
                 (Tensor::cat(&[&pk, &k], 2)?, Tensor::cat(&[&pv, &v], 2)?)
             }
-            None => (k.clone(), v.clone()),
+            None => (k, v),
         };
         let scale = 1.0 / (d as f64).sqrt();
         let att = (q.matmul(&k_all.transpose(2, 3)?.contiguous()?)? * scale)?;
@@ -141,11 +152,11 @@ impl CharLm {
         let att = ops::softmax_last_dim(&att)?;
         let y = att.matmul(&v_all)?;
         let y = y.transpose(1, 2)?.contiguous()?.reshape((b, t, c))?;
-        Ok((block.attn_proj.forward(&y)?, k, v))
+        Ok((block.attn_proj.forward(&y)?, k_all, v_all))
     }
 
-    /// 跑一段 token：`idx` 形状 `[b, t]`，位置从 `past` 的长度接着数；`record` 为真时把每层的 K / V 收成缓存返回
-    /// （只在算前文时用，此时 `b` 是 1）。返回 logits `[b, t, vocab]`。
+    /// 跑一段 token：`idx` 形状 `[b, t]`，位置从 `past` 的长度接着数；`record` 为真时把每层的 K / V
+    /// 连同前文一起收成缓存返回。返回 logits `[b, t, vocab]`。
     fn run(
         &self,
         idx: &Tensor,
@@ -207,6 +218,21 @@ impl CharLm {
         let idx = Tensor::from_vec(ids.to_vec(), (1, ids.len()), &self.device)?;
         let (_, cache) = self.run(&idx, None, true)?;
         Ok(cache.expect("record was requested"))
+    }
+
+    /// 接着缓存推进一段（`idx` 形状 `[b, t]`），返回最后一位对下一个 token 的 log-softmax（`[b, vocab]`，f32）
+    /// 与长出这一段之后的新缓存。逐字生成用。
+    pub fn step(&self, cache: &PrefixCache, idx: &Tensor) -> Result<(Tensor, PrefixCache)> {
+        let (logits, next) = self.run(idx, Some(cache), true)?;
+        let t = logits.dim(1)?;
+        let last = logits
+            .narrow(1, t - 1, 1)?
+            .squeeze(1)?
+            .to_dtype(DType::F32)?;
+        Ok((
+            ops::log_softmax(&last, D::Minus1)?,
+            next.expect("record was requested"),
+        ))
     }
 
     /// 接在前文缓存后面的一段（`[b, t]`）每个位置对下一个 token 的 log-softmax，`[b, t, vocab]`，f32。

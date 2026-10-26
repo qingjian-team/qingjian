@@ -25,21 +25,25 @@ pub struct Scored<'a> {
     /// 靠模糊音 / 敲错变体命中的代价（某个音节与敲的不同；0 是敲的原样）：从上下文得分里扣掉，
     /// 预选时词频按 e^(-代价) 打折，同分排在原样命中后面。
     pub penalty: f64,
+
+    /// 注音敲了声调时的声调代价（[`crate::zhuyin::tone::cost`]，越小越对得上）；全拼 / 双拼 / 形码恒为 0。
+    pub tone_cost: u8,
 }
 
 /// 预选键：结构项之后按用户选择次数与词库词频，命中太多时先用它砍到够排的量（不必算上下文得分）。
 /// 打包成一个整数、越大越靠前：单字母简拼一键命中几万条，逐条比元组太慢。
-/// 位从高到低：精确(1) 覆盖字母数(8) 简拼数的补(8) 末音节完整(1) 选择次数(32) 打折后词频(32) 原样命中(1) 字数的补(8)；
+/// 位从高到低：精确(1) 覆盖字母数(8) 简拼数的补(8) 末音节完整(1) 声调代价的补(8) 选择次数(32) 打折后词频(32) 原样命中(1) 字数的补(8)；
 /// 与 [`SortKey`] 的前几项同序，只是不拿文本做最后的平手项（预选边界上的平手谁留下无所谓）。
 pub type PreselectKey = u128;
 
-/// 排序键，越小越靠前。元组的顺序即排序规则，见模块文档；第五项是同输入串下的选择次数，
-/// 第六项是上下文得分（毫分，整数才能比较）。文本借自词库，键可以脱离 `Scored` 存放。
+/// 排序键，越小越靠前。元组的顺序即排序规则，见模块文档；第五项是注音的声调代价，第六项是同输入串下的选择次数，
+/// 第七项是上下文得分（毫分，整数才能比较）。文本借自词库，键可以脱离 `Scored` 存放。
 pub type SortKey<'a> = (
     Reverse<bool>,
     Reverse<usize>,
     usize,
     Reverse<bool>,
+    u8,
     Reverse<u32>,
     Reverse<i64>,
     bool,
@@ -48,6 +52,12 @@ pub type SortKey<'a> = (
 );
 
 impl<'a> Scored<'a> {
+    /// 排在第一档的精确命中：补充词库的精确命中不算，与主词库的敲错纠正、前缀词一起按打分比，
+    /// 否则一百多万条里总有个片段读音正好对上，`zanen` 的 咱们 就被 咋嫩 压在后面。
+    fn first_tier(&self) -> bool {
+        self.hit.exact && !self.hit.secondary
+    }
+
     /// 命中不是敲的原样（模糊音或敲错变体）。
     pub fn altered(&self) -> bool {
         self.penalty > 0.0
@@ -62,10 +72,11 @@ impl<'a> Scored<'a> {
         let chars = u128::from(u8::try_from(self.hit.text.chars().count()).unwrap_or(u8::MAX));
         let coverage = u128::from(u8::try_from(self.coverage).unwrap_or(u8::MAX));
         let abbreviated = u128::from(u8::try_from(self.abbreviated).unwrap_or(u8::MAX));
-        (u128::from(self.hit.exact) << 90)
-            | (coverage << 82)
-            | ((0xFF - abbreviated) << 74)
-            | (u128::from(self.full_last) << 73)
+        (u128::from(self.first_tier()) << 98)
+            | (coverage << 90)
+            | ((0xFF - abbreviated) << 82)
+            | (u128::from(self.full_last) << 81)
+            | (u128::from(0xFF - self.tone_cost) << 73)
             | (u128::from(self.weight) << 41)
             | (u128::from(frequency) << 9)
             | (u128::from(!self.altered()) << 8)
@@ -75,10 +86,11 @@ impl<'a> Scored<'a> {
     /// `choice` 是同输入串下的选择次数，`score` 是上下文得分（log 概率，已含用户加分与模糊音 / 敲错扣分）。
     pub(super) fn key(&self, choice: u32, score: f64) -> SortKey<'a> {
         (
-            Reverse(self.hit.exact),
+            Reverse(self.first_tier()),
             Reverse(self.coverage),
             self.abbreviated,
             Reverse(self.full_last),
+            self.tone_cost,
             Reverse(choice),
             Reverse((score * 1000.0).round() as i64),
             self.altered(),

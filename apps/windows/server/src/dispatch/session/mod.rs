@@ -66,12 +66,14 @@ impl Router {
         self.cancel_prediction();
         self.stop_rescoring();
         self.composed = None;
+        self.grid = None;
         self.translation = None;
         self.pending_selection = None;
         self.sentence = None;
         self.notice = None;
         self.highlight = 0;
         self.navigated = false;
+        self.panel = None;
         self.hide_candidate_window();
     }
 }

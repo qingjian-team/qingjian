@@ -5,6 +5,7 @@
 //! 配置只有一条通路：[`Host::apply_config`] 把当前 `Config` 推给 Engine 与界面。启动、菜单开关、
 //! 设置窗口、手改文件被监视到，全都走它；三个入口都只写 `config.toml`，不各存一套状态。
 
+mod aux_code;
 mod cloud;
 mod config;
 mod diagnostics;
@@ -26,16 +27,17 @@ use qingjian_core::{
     NoGlossFiller, NoInputLogger, NoPredictor, NoTranslator, Prediction,
 };
 use qingjian_dictionary::{Dictionary, WordList};
-use qingjian_learning::{FrequencyLearner, InputLog, UsageStats, VocabularyBook};
+use qingjian_learning::{FrequencyLearner, InputLog, PanelUsage, UsageStats, VocabularyBook};
 use qingjian_lm::BigramModel;
 use qingjian_platform::extra_dictionaries;
 use qingjian_platform::{
-    AppsConfig, CandidateRenderer, DEFAULT_ENGLISH_CANDIDATES_OFF, DictionariesConfig,
-    GeneralConfig, KeyCombo, LEARNING_LANGUAGE_OFF, LayoutMode, LocalModelConfig, LogLevel,
-    Modifiers, PAGE_KEY_OPTIONS, PreeditMode, Scheme, ShortcutConfig, ThemeMode, UpdateChannel,
+    Appearance, AppsConfig, AuxCodeConfig, CandidateRenderer, DEFAULT_ENGLISH_CANDIDATES_ON,
+    DictionariesConfig, GeneralConfig, HighlightKeys, KeyCombo, KeyHintMode, LEARNING_LANGUAGE_OFF,
+    LayoutMode, LocalModelConfig, LogLevel, Modifiers, PAGE_KEY_OPTIONS, PageKeys, PreeditMode,
+    Scheme, ShortcutConfig, UpdateChannel,
 };
 use qingjian_predict::{
-    CloudGlossFiller, CloudPredictor, ConnectionTest, PredictConfig, PredictError,
+    API_USAGE_FILE, CloudGlossFiller, CloudPredictor, ConnectionTest, PredictConfig, PredictError,
 };
 use qingjian_translate::{Glossary, LayeredTranslator, LevelTable, PersonalGlossary};
 
@@ -51,8 +53,8 @@ use config::{ConfigWatch, TextReplacement};
 pub use dictionaries::DictionaryInfo;
 pub use init::init;
 use model::RescoreMonitor;
-use presenting::Notice;
 pub use presenting::TranslationJob;
+use presenting::{KeyHintState, Notice};
 pub use session::Session;
 
 pub struct Host {
@@ -77,6 +79,9 @@ pub struct Host {
     /// 配置文件监视定时器，激活期间跑。
     pub watch: ConfigWatch,
 
+    /// 内置主题与用户主题目录里的主题；激活期间随配置定时器一起看目录有没有变。
+    pub themes: qingjian_render::ThemeLibrary,
+
     /// 上次把学习数据落盘的时间；激活期间的定时器按 [`LEARNING_FLUSH_INTERVAL`] 再刷一次。
     pub last_flush: std::time::Instant,
 
@@ -85,6 +90,21 @@ pub struct Host {
 
     /// 附加词库是按哪份 `[dictionaries]` 装的；开关变了才重新加载。
     applied_dictionaries: DictionariesConfig,
+
+    /// 辅码码表是按哪份 `[aux_code]` 装的；还没装过为 `None`。
+    applied_aux_code: Option<AuxCodeConfig>,
+
+    /// 上次装码表时用户 `codes/` 与 `schemes/` 的文件快照：设置程序导入或改了方案，下一次看配置时就重装。
+    aux_files: Vec<(PathBuf, Option<std::time::SystemTime>, u64)>,
+
+    /// 上次装形码方案时用户 `code_dicts/` 的文件快照：设置程序导入或移除了五笔词库，下一次看配置时就重装方案。
+    code_word_files: Vec<(PathBuf, Option<std::time::SystemTime>, u64)>,
+
+    /// 上次装附加词库时用户 `dicts/` 的文件快照：设置程序导入的词库不一定改配置（本来就没关着），靠它发现新文件。
+    dictionary_files: Vec<(PathBuf, Option<std::time::SystemTime>, u64)>,
+
+    /// 候选词后面带上辅码（配置 `[general] aux_code_show`）。
+    pub aux_code_show: bool,
 
     /// 偏好设置「词库」页显示的列表，勾选框 / 移除按钮的下标对着它。
     dictionary_list: Vec<DictionaryInfo>,
@@ -110,11 +130,17 @@ pub struct Host {
     /// 翻页键对（上一页、下一页）。
     pub page_keys: (char, char),
 
+    /// 和主翻页键一起用的额外翻页键（配置 `[shortcut] extra_page_keys`）。
+    pub extra_page_keys: PageKeys,
+
+    /// 组句中敲会转全角的标点先把高亮候选上屏、再补该标点（配置 `[general] punct_commits`，缺省关）。
+    pub punct_commits: bool,
+
+    /// 装着的形码方案（名字给主题显示），配置没动它时不重读码表。
+    pub scheme_slot: qingjian_platform::SchemeSlot,
+
     /// 配数字键上屏第一 / 第二个译词的修饰键组合（配置 `[shortcut] translation` / `translation_second`）。
     pub translation_keys: (Modifiers, Modifiers),
-
-    /// 配数字键删候选的修饰键（配置 `[shortcut] delete_candidate`）。
-    pub delete_keys: Modifiers,
 
     /// 候选窗口顶行显示的一句临时状态（删了什么词），下一次查询就没了。
     pub status: Option<String>,
@@ -125,20 +151,44 @@ pub struct Host {
     /// 翻译选中文字的快捷键（配置 `[shortcut] translate_selection`）。
     pub translate_keys: KeyCombo,
 
+    /// 切换全半角标点的组合键（配置 `[shortcut] toggle_punctuation`，缺省没有）。
+    pub punctuation_keys: Option<KeyCombo>,
+
+    /// 组句中按需联想的组合键（配置 `[shortcut] predict`）。
+    pub predict_keys: KeyCombo,
+
+    /// 在飞的按需联想请求序号：结果到了排在第一页最前面，自动联想的照旧补在末尾。
+    manual_prediction: Option<u64>,
+
     /// 进行中的「翻译选中文字」；有它时候选窗口显示的是译文（或「翻译中…」），按键先归它处理。
     pub translation: Option<TranslationJob>,
 
     /// 正在显示的提示（候选窗口里一行字，几秒后自动收）。
     pub notice: Option<Notice>,
 
+    /// 双拼键位提示什么时候弹出（配置 `[general] key_hint`）。
+    pub key_hint_mode: KeyHintMode,
+
+    /// 「卡住时显示」的停顿计时与这一段组句里弹没弹过。
+    key_hint: KeyHintState,
+
+    /// 五笔字根图换成的键盘，第一次画时建好（字形解析一次）。
+    root_keyboard: Option<qingjian_render::Keyboard>,
+
     /// 组句中的拼音显示在行内、候选窗口还是两处。
     pub preedit_mode: PreeditMode,
+
+    /// 译词旁是否画词性（配置 `[general] translation_pos`）。
+    pub translation_pos: bool,
 
     /// 候选窗口竖排 / 横排（配置 `[general] layout`）。
     pub layout: LayoutMode,
 
     /// 横排时上下键展开成矩阵的开关（配置 `[general] horizontal_grid`，缺省关）。
     pub horizontal_grid: bool,
+
+    /// 候选高亮由哪对方向键移动（配置 `[shortcut] highlight_keys`）。
+    pub highlight_keys: HighlightKeys,
 
     /// 英文模式是否给英文候选（配置 `[general] english_candidates`）。
     pub english_candidates: bool,
@@ -162,11 +212,8 @@ pub struct Host {
     rescore: RescoreMonitor,
 
     /// 正在后台加载的模型；加载完接到 Engine 上就清掉。
-    model_loader: Option<
-        std::sync::mpsc::Receiver<
-            Result<qingjian_neural::CharScorer, qingjian_neural::NeuralError>,
-        >,
-    >,
+    model_loader:
+        Option<std::sync::mpsc::Receiver<Result<model::LoadedModel, qingjian_neural::NeuralError>>>,
 
     /// 上次套用的 `[model]`，变了才重载 / 卸载。
     applied_model: Option<LocalModelConfig>,
@@ -194,9 +241,6 @@ thread_local! {
 /// 激活期间学习数据最多隔这么久落一次盘。
 const LEARNING_FLUSH_INTERVAL: std::time::Duration = std::time::Duration::from_secs(60);
 
-/// 输入统计文件名，与学习数据同目录（按天一行，见 `qingjian-learning::UsageStats`）。
-const USAGE_FILE: &str = "usage.tsv";
-
 /// 检查更新的结果文件名，与学习数据同目录（见 `qingjian-update::UpdateState`）。
 const UPDATE_STATE_FILE: &str = "update.json";
 
@@ -204,8 +248,13 @@ const UPDATE_STATE_FILE: &str = "update.json";
 const VOCABULARY_FILE: &str = "user-vocab.tsv";
 
 /// 可能打进包里的释义表语言，按这个顺序在设置里列出；文件不存在的不列。
-const GLOSSARY_LANGUAGES: [Language; 3] =
-    [Language::English, Language::Japanese, Language::Spanish];
+const GLOSSARY_LANGUAGES: [Language; 5] = [
+    Language::English,
+    Language::Japanese,
+    Language::Spanish,
+    Language::Vietnamese,
+    Language::German,
+];
 
 /// 在单例上执行操作。未初始化、不在主线程、或正处在另一次 `with` 之内（重入）时返回 `None`。
 ///

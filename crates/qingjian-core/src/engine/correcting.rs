@@ -10,8 +10,10 @@ impl Engine {
         if self.shuangpin.is_some() {
             return None;
         }
-        // 形码敲的是字根编码，不是拼音；混输下四码以内可能是编码，超过四码才只剩拼音
-        if self.code.is_some() && (!self.phonetic || scope.len() <= MAX_CODE_LENGTH) {
+        // 形码敲的是字根编码，不是拼音；混输下码长以内可能是编码，超过码长才只剩拼音
+        if let Some(code) = &self.code
+            && (!self.phonetic || scope.len() <= code.code_length)
+        {
             return None;
         }
         if let Some((cached_scope, cached)) = self.correction_cache.borrow().as_ref()
@@ -45,6 +47,19 @@ impl Engine {
         } else {
             return None;
         };
+        // 原样前面的音节个个完整、只有末尾停着落单声母（词图按简拼放行的那种，见 #619）时，
+        // 纠正后末尾仍残缺的变体不参与：`henhaobook` 在 `book` 内部换位凑出 `hen hao o bo k…`，
+        // 两种读法都通顺，只是用字频投机赢过原样，会把英文尾 `book` 整条挤掉（很好book → 很好哦伯克）。
+        // 用户多半下一键就补韵母，残尾对残尾的比较没有意义。末位是完整音节（`nihoa` → `nihao`）
+        // 或前面本来就有残缺音节（`mignt` 中间夹着 g，换位后头部从不通变通顺）的都不受影响
+        let clean_head_with_lone_initial = segmentations.first().is_some_and(|best| {
+            let n = best.syllables.len();
+            n >= 2
+                && best.syllables[..n - 1].iter().all(|s| s.complete)
+                && best.last_is_partial()
+                && best.syllables[n - 1].text.len() == 1
+                && parser::INITIALS.contains(&best.syllables[n - 1].text.as_str())
+        });
         // 噪声信道：原串按原样能转出的整句得分 vs 纠正后的整句得分扣掉一次编辑的代价，后者高才纠。
         // 原串切不干净（有尾巴）就没有原样得分，任何能转出整句的纠正都胜出
         let raw_score = if tail.is_empty() {
@@ -64,6 +79,10 @@ impl Engine {
             // 「删掉刚敲的最后一个字母」不算纠正：用户可能还没敲完，尾巴留着等下一键
             if matches!(candidate.edit, correction::Edit::Delete { index, .. } if index + 1 == scope.len())
             {
+                continue;
+            }
+            // 改完末尾仍是没敲完的声母：原样本来通顺、只欠末键，这种变体只是字频投机，不纠
+            if clean_head_with_lone_initial && candidate.segmentation.incomplete_count() > 0 {
                 continue;
             }
             // 纠正后的拼音上不再猜第二处敲错：变体本来就是一处编辑之外的读法，再叠一层既慢又几乎不会赢

@@ -40,6 +40,22 @@ impl SpanCache {
         key
     }
 
+    /// 同 [`Self::key`]，注音敲了声调时把各位置的声调接在后面（`ma ma#1 5`，没敲的记 0）：
+    /// 格子候选按声调打折，同一串音节换了声调要另算。
+    pub fn toned_key(span: &[Vec<SyllablePattern<'_>>], tones: &[Option<u8>]) -> String {
+        let mut key = Self::key(span);
+        if tones.iter().any(Option::is_some) {
+            key.push('#');
+            for (index, tone) in tones.iter().enumerate() {
+                if index > 0 {
+                    key.push(' ');
+                }
+                key.push(char::from(b'0' + tone.unwrap_or(0)));
+            }
+        }
+        key
+    }
+
     /// 有就直接给，没有就算一次存起来。
     pub fn get_or_insert_with(
         &mut self,
@@ -87,6 +103,9 @@ mod tests {
         assert_eq!(SpanCache::key(&prefix), "kai…");
         assert_eq!(SpanCache::key(&fuzzy), "z…|zh…");
         assert_ne!(SpanCache::key(&full), SpanCache::key(&prefix));
+        assert_eq!(SpanCache::toned_key(&full, &[]), "kai");
+        assert_eq!(SpanCache::toned_key(&full, &[None]), "kai");
+        assert_eq!(SpanCache::toned_key(&full, &[Some(3)]), "kai#3");
     }
 
     #[test]
@@ -100,7 +119,10 @@ mod tests {
                     text: "开发".to_owned(),
                     syllables: vec!["kai".to_owned(), "fa".to_owned()],
                     frequency: 9,
+                    secondary: false,
                     penalty: 0.0,
+                    tone: 0.0,
+                    reading: 0.0,
                 }]
             })
         };

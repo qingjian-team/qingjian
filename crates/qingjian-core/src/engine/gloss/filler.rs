@@ -1,5 +1,6 @@
 use super::FilledGloss;
 use crate::candidate::Language;
+use crate::engine::vocabulary::Encounter;
 
 /// 释义兜底的提供方。实现可以联网，接口非阻塞：`request` 只入队，`poll` 只取已到的。
 pub trait GlossFiller: Send {
@@ -13,6 +14,14 @@ pub trait GlossFiller: Send {
 
     /// 取已到达的释义，没有返回空。
     fn poll(&mut self) -> Vec<FilledGloss>;
+
+    /// 请把整段上屏的中文（整句、没有译词的长词）翻成 `language`，给生词本的时间线。实现自行攒批。
+    fn translate(&mut self, _language: Language, _text: &str) {}
+
+    /// 取已翻好的整段，没有返回空。
+    fn poll_translations(&mut self) -> Vec<Encounter> {
+        Vec::new()
+    }
 }
 
 /// 不兜底。

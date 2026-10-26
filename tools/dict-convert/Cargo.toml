@@ -17,7 +17,9 @@ qingjian-neural.workspace = true
 qingjian-translate.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+skrifa = "0.44"
 thiserror.workspace = true
+tiny-skia.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
 

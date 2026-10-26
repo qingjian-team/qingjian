@@ -30,15 +30,19 @@ pub fn bundled_dicts_dir() -> Option<PathBuf> {
     dir.is_dir().then_some(dir)
 }
 
-/// 形码码表（五笔）：用户目录 `wubi/wubi86.tsv` 里有就用它（自己换的表），
-/// 否则用包里的 `Resources/wubi/wubi86.tsv`；都没有是 `None`。
-pub fn code_table_path() -> Option<PathBuf> {
-    let user = user_data_dir()?.join("wubi/wubi86.tsv");
-    if user.is_file() {
-        return Some(user);
-    }
-    let bundled = resources_dir().ok()?.join("wubi/wubi86.tsv");
-    bundled.is_file().then_some(bundled)
+/// 随包的辅码码表目录：`.app/Contents/Resources/codes/`；包里没有就是 `None`。
+pub fn bundled_codes_dir() -> Option<PathBuf> {
+    let dir = resources_dir().ok()?.join("codes");
+    dir.is_dir().then_some(dir)
+}
+
+/// 随包的形码方案目录 `Resources/schemes/`；包里没有是 `None`。用户方案由
+/// [`qingjian_platform::code_schemes`] 在用户数据目录里找。
+pub fn bundled_schemes_dir() -> Option<PathBuf> {
+    let dir = resources_dir()
+        .ok()?
+        .join(qingjian_platform::code_schemes::DIR);
+    dir.is_dir().then_some(dir)
 }
 
 /// 配置文件：`~/Library/Application Support/Qingjian/config.toml`。
@@ -53,6 +57,13 @@ pub fn user_data_dir() -> Option<PathBuf> {
     Some(dir)
 }
 
+/// 用户主题目录：`~/Library/Application Support/Qingjian/themes/`，一个主题一个子目录（`<id>/theme.json`），不存在则创建。
+pub fn themes_dir() -> Option<PathBuf> {
+    let dir = user_data_dir()?.join("themes");
+    std::fs::create_dir_all(&dir).ok()?;
+    Some(dir)
+}
+
 /// 附加词库目录：`~/Library/Application Support/Qingjian/dicts/`，不存在则创建。
 pub fn dicts_dir() -> Option<PathBuf> {
     let dir = user_data_dir()?.join("dicts");
@@ -60,12 +71,43 @@ pub fn dicts_dir() -> Option<PathBuf> {
     Some(dir)
 }
 
-/// 本地整句模型（`.qjm` 单文件，或开发时的三件套目录）：
-/// 用户目录 `model/` 里有就用它（自己训的），否则用包里的 `Resources/model/`；都没有是 `None`。
+/// 导入的辅码码表目录：`~/Library/Application Support/Qingjian/codes/`，不存在则创建。
+pub fn codes_dir() -> Option<PathBuf> {
+    let dir = user_data_dir()?.join("codes");
+    std::fs::create_dir_all(&dir).ok()?;
+    Some(dir)
+}
+
+/// 含章·知微（`.qjm` 单文件，或开发时的三件套目录）：
+/// 用户目录 `models/hanzhang-zhiwei/` 优先，兼容旧 `model/`；否则用包里的同名目录。
 pub fn model_path() -> Option<PathBuf> {
-    let user = user_data_dir()?.join("model");
-    if let Some(found) = qingjian_neural::find_model(&user) {
-        return Some(found);
+    let user = user_data_dir()?;
+    for dir in ["models/hanzhang-zhiwei", "model"] {
+        if let Some(found) = qingjian_neural::find_model(&user.join(dir)) {
+            return Some(found);
+        }
     }
-    qingjian_neural::find_model(&resources_dir().ok()?.join("model"))
+    qingjian_neural::find_model(&resources_dir().ok()?.join("models/hanzhang-zhiwei"))
+}
+
+/// 设置的「实验功能」里下载的含章·知微：只认用户目录 `models/hanzhang-zhiwei/`。
+pub fn user_zhiwei_model_path() -> Option<PathBuf> {
+    qingjian_neural::find_model(&user_data_dir()?.join("models/hanzhang-zhiwei"))
+}
+
+/// 知意选词模型（试验，safetensors 版的整个目录，设置的「实验功能」里下载）：只认用户目录 `models/zhiyi/`。
+pub fn zhiyi_model_dir() -> Option<PathBuf> {
+    let dir = user_data_dir()?.join("models/zhiyi");
+    dir.join("model.safetensors").is_file().then_some(dir)
+}
+
+/// 含章·通变（P2C，带噪拼音 → 汉字）：用户新目录优先，兼容旧 `model-p2c/`。
+pub fn p2c_model_path() -> Option<PathBuf> {
+    let user = user_data_dir()?;
+    for dir in ["models/hanzhang-tongbian", "model-p2c"] {
+        if let Some(found) = qingjian_neural::find_model(&user.join(dir)) {
+            return Some(found);
+        }
+    }
+    qingjian_neural::find_model(&resources_dir().ok()?.join("models/hanzhang-tongbian"))
 }

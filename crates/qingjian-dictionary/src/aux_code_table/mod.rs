@@ -13,6 +13,7 @@ mod lookup;
 mod parsed;
 mod report;
 mod table;
+mod word_rules;
 
 #[cfg(test)]
 mod tests;
@@ -23,3 +24,4 @@ pub use info::{AuxCodeTableInfo, aux_code_table_info};
 pub use lookup::AuxCodeLookup;
 pub use report::AuxCodeTableImportReport;
 pub use table::AuxCodeTable;
+pub use word_rules::WordRules;

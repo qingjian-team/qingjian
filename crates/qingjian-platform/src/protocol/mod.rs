@@ -2,7 +2,7 @@
 //!
 //! Windows 的 TSF DLL 会被加载进每一个应用进程，所以 [`qingjian_core::Engine`] 不能待在 DLL 里，
 //! 得跑在独立的 Server 进程；DLL 只做 IPC，把系统按键翻译成 [`ClientMessage`] 发给 Server，
-//! 把 Server 回的 [`ServerMessage`] 画到候选窗口。结构与 Weasel（WeaselServer）/ 水杉（Server 进程）一致。
+//! 把 Server 回的 [`ServerMessage`] 画到候选窗口。结构与 Weasel（WeaselServer）一致。
 //!
 //! 这里的类型两端共用，必须可序列化（serde）。协议只描述「按键进、要画什么出」这一层，
 //! 不复制 Core 的排序 / 词库逻辑：候选直接用 [`qingjian_core::CandidateList`]，preedit 分段用
@@ -22,7 +22,7 @@ mod session;
 /// **加枚举变体不在「仍能对话」之列**：`qingjian_core::Candidate` 是线上格式的一部分（见本模块文档），
 /// 给它加一个 `kind` 变体，老 DLL 解不出来会整条帧失败、按键直接放行——测试时看到的「输入法突然只出英文」
 /// 就是这么来的（`unknown variant `Code``）。加变体必须同时 +1 并重装 DLL，否则连警告都不会有。
-pub const PROTOCOL_VERSION: u32 = 7;
+pub const PROTOCOL_VERSION: u32 = 9;
 
 /// 从哪个协议版本起 DLL 会在 `OpenSession` 后阻塞读一条 [`ServerMessage::SessionOpened`]。
 /// 门槛是固定值而不是当前版本：以后版本再升，没重启的应用里那些旧 DLL 仍在等这条回包，
@@ -31,6 +31,11 @@ pub const SESSION_OPENED_SINCE: u32 = 6;
 
 pub mod frame;
 pub mod key;
+
+/// Linux 前端（Fcitx5 addon / IBus 前端）与 Server 之间多出来的那几种事件。
+///
+/// 线上类型不按平台裁掉：Linux Server 在 macOS 上也要编得过（Mac 上的提交钩子对整个 workspace 跑 clippy）。
+pub mod linux;
 
 pub use client::ClientMessage;
 pub use codec::{CodecError, DEFAULT_PIPE_NAME, read_message, write_message};

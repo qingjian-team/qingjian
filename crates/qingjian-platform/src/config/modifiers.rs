@@ -109,7 +109,7 @@ impl FromStr for Modifiers {
                 "option" | "alt" | "⌥" => out.option = true,
                 "shift" | "⇧" => out.shift = true,
                 "control" | "ctrl" | "⌃" => out.control = true,
-                "command" | "cmd" | "⌘" => out.command = true,
+                "command" | "cmd" | "super" | "win" | "⌘" => out.command = true,
                 other => return Err(format!("unknown modifier: {other}")),
             }
         }
@@ -155,6 +155,11 @@ mod tests {
         assert_eq!(Modifiers::SHIFT_OPTION.label(), "⇧⌥");
         assert!("".parse::<Modifiers>().is_err());
         assert!("hyper".parse::<Modifiers>().is_err());
+        assert!("ctrl+super".parse::<Modifiers>().unwrap().command);
+        assert_eq!(
+            "ctrl+win".parse::<Modifiers>().unwrap(),
+            "ctrl+super".parse::<Modifiers>().unwrap()
+        );
         for option in [
             "option",
             "shift+option",

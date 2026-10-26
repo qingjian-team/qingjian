@@ -1,7 +1,9 @@
 //! 把数据源转换成青简的 TSV 格式，或打包成 `.qj`。
 //!
 //! - `lexicon`：青简基础词库，「输入法字词库_分类整理版」数据包（规范字 / 常用词 / THUOCL 领域词）+ Unihan 读音 + LLM 多音字标注 → `dict.tsv`
-//! - `wubi`：Rime 形码码表（极点 86 五笔，Apache-2.0）→ `wubi86.tsv`（`词\t编码\t词频`，词频由青简词库按词面回填）
+//! - `tones`：通用词表的数字声调 → 单字声调表 `tones.tsv`（编进 Core，注音按敲的声调排序）
+//! - `wubi`：Rime 形码码表（极点 86 五笔，Apache-2.0）→ 形码方案的 `table.tsv`（`词\t编码\t词频`，词频由青简词库按词面回填）
+//! - `wubi-roots`：五笔字根表（`assets/schemes/wubi86/roots86.tsv`）+ 思源黑体（SIL OFL，不进仓库）→ `roots86-glyphs.tsv`（字根图的 SVG 路径，随包，沿用 OFL）
 //! - `cedict`：CC-CEDICT（CC BY-SA 4.0）→ `glossary-en.tsv`（释义表的备用来源，现在用 gloss-gen 的 LLM 表）
 //! - `english`：`词\t编码` 英文词表（数据包的 `05_english`，ESDB / CSpell，MIT）→ `english.tsv`
 //! - `emoji`：Unicode CLDR annotations（Unicode License v3，`--language zh|en`）→ `emoji-<语言>.tsv`（可发布，放 `assets/emoji/`）
@@ -14,7 +16,7 @@
 //! - `pack codes`：笔画表（`stroke` 的产物，`字\t序列`）+ 词库 → `codes/stroke.qj`（随包原生辅码表：单字前 4 笔 + 末笔、
 //!   词组每字首笔；缺字的词跳过并计入统计，见 `codes` 模块）
 //! - `pack dict|lm|glossary|model`：TSV → `.qj` 容器（`dict.qj` / `lm.qj`），带名称 / 许可证 / 署名元数据，输入法与 CLI 优先加载它；
-//!   `model` 把本地整句模型的三件套目录打成一个 `model.qjm`
+//!   `model` 把本地整句模型的三件套目录打成一个 `.qjm` 文件
 //!
 //! 输出默认写到仓库根目录 `data/generated/`（gitignore）。
 
@@ -32,6 +34,7 @@ mod pack;
 mod phrases;
 mod stroke;
 mod wubi;
+mod wubi_roots;
 
 use clap::Parser;
 use tracing_subscriber::EnvFilter;
@@ -64,6 +67,8 @@ fn run() -> Result<(), ConvertError> {
             emit_ambiguous,
             extra_words,
             domain_keep_min,
+            general,
+            cleaned,
         } => lexicon::convert(
             &pack,
             &unihan,
@@ -72,8 +77,30 @@ fn run() -> Result<(), ConvertError> {
             emit_ambiguous.as_deref(),
             &extra_words,
             domain_keep_min,
+            general.as_deref(),
+            cleaned.as_deref(),
             &args.out_dir,
         ),
+        Command::Tones { words } => {
+            let characters = lexicon::char_tones(&words, &args.out_dir.join("tones.tsv"))?;
+            tracing::info!(characters, "单字声调表已写出");
+            Ok(())
+        }
+        Command::WubiRoots {
+            font,
+            spec,
+            name,
+            sheet,
+        } => {
+            let summary =
+                wubi_roots::run(&font, &spec, &args.out_dir.join(name), sheet.as_deref())?;
+            tracing::info!(
+                roots = summary.roots,
+                pending = summary.pending,
+                "五笔字根字形已导出"
+            );
+            Ok(())
+        }
         Command::Wubi {
             input,
             frequency,

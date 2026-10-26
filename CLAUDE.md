@@ -4,28 +4,32 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 仓库现状
 
-跨平台输入法，Core 平台无关，各平台只做壳。已发版 0.1.3（macOS 与 Windows 共用版本号，2026-09-17）；Linux 第一阶段提供 Rust Server + Fcitx5 默认候选面板（源码安装，0.1.4 起另有 Ubuntu 26.04 预编译包）。
+跨平台输入法，Core 平台无关，各平台只做壳。已发版 0.1.3（macOS 与 Windows 共用版本号，2026-09-17）；Linux 提供 Rust Server + Fcitx5 默认候选面板（源码安装，0.1.4 起另有 Ubuntu 26.04 预编译包），另有 Ubuntu 22.04 的 Fcitx4 源码适配。
 阶段与已完成项见 `docs/plan/roadmap.md`，待办见 `docs/plan/todo.md`。
 
 ## 目录地图
 
 一行一个，只说它是什么、入口在哪；实现要点（数据文件、常数、生成命令）在 `docs/notes/crate-notes.md`，改了实现要同步那里。
 
-- `crates/qingjian-core`：引擎。`Engine` 是对外唯一门面，`Translator` / `Learner` 等 trait 在 `engine` 模块；拼音解析、纠错、候选、排序、整句、双拼、注音、英文模式都在这里。
+- `crates/qingjian-core`：引擎。`Engine` 是对外唯一门面，`Translator` / `Learner` 等 trait 在 `engine` 模块；拼音解析、纠错、候选、排序、整句、双拼、注音、九宫格（`nine_key`）、英文模式、繁体输出、emoji 与符号都在这里。
 - `crates/qingjian-dictionary`：词库（TSV 或 `.qj` mmap），按音节位置二分查询。
 - `crates/qingjian-translate`：释义表 `Glossary`、词汇等级表 `LevelTable`。
 - `crates/qingjian-learning`：用户侧落盘：词频 / 用户词 / 个人 n-gram / 敲错表（`FrequencyLearner`）、输入日志（`InputLog`）、输入统计（`UsageStats`）、词汇记录（`VocabularyBook`）。
 - `crates/qingjian-predict`：云联想 `CloudPredictor`（OpenAI 兼容接口）与释义兜底 `CloudGlossFiller`；`PredictConfig` 是 `[predict]` 分节。
+- `crates/qingjian-voice`：云端语音识别，实现 Core 的 `Transcriber`；现在是火山引擎豆包流式语音识别 `VolcengineTranscriber`（WebSocket + rustls，后台线程）。
 - `crates/qingjian-lm`：整句转换的 bigram 语言模型 `BigramModel`。
 - `crates/qingjian-neural`：字级 Transformer 本地推理 `CharScorer`（candle），给整句前几条路径重打分。
 - `crates/qingjian-format`：`.qj` 数据容器（mmap 读、零拷贝视图、写入器、哈希索引）。
-- `crates/qingjian-platform`：平台层共用：`Config`（TOML 配置）、`extra_dictionaries`、Windows Server ↔ DLL 的 `protocol` 类型。
-- `crates/qingjian-render`：自绘渲染器（spike 中，分支 renderer-spike）：候选窗一帧 + 主题 → 位图，各平台只贴图。见 `docs/design/rendering.md`。
+- `crates/qingjian-platform`：平台层共用：`Config`（TOML 配置）、`extra_dictionaries`、`protocol` 线上类型（Windows Server ↔ DLL，以及 `protocol::linux` 的 Server ↔ 各前端）。
+- `crates/qingjian-render`：候选窗与状态条：帧数据 + 主题 → 场景树，画在 bamboo-slip 上，各平台只贴图。见 `docs/design/rendering.md`。
+- `crates/bamboo-slip`：自绘 UI 引擎（场景树、布局、文字、动画 → 位图，另有控件库与窗口宿主），候选窗与设置程序共用；不放任何青简的概念，约定见该目录的 `CLAUDE.md`。双许可，见该目录的 `LICENSE.md`。
 - `crates/qingjian-update`：检查更新：读官网的 `releases.json`、验 ed25519 签名、按平台与渠道挑新版本，只提示不安装；发版侧的签名工具是 `tools/release-sign`。见 `docs/design/update.md`。
+- `apps/settings`：设置程序（三平台共用，画在 bamboo-slip 上，读写同一份配置文件），页面与设置项按 `docs/design/settings.md`；macOS 装在 `Qingjian.app/Contents/Applications/`，Windows、Linux 与 Server 同目录。`--png <目录>` 拷一份配置按脚本截图。
 - `apps/cli`：Core 的验证工具：查询、逐键计时、输入日志回放、整句评测、常数扫描。排序 / 整句 / 纠错的改动先跑它再合。
-- `apps/macos`：IMK 壳，按 `app / host / imk / candidates / menubar / preferences` 分目录；`scripts/bundle.sh --install` 装到本机，`--pkg` 出分发包。
-- `apps/windows`：`server`（Server 进程：Engine + IPC + 自绘候选窗与状态条）+ `tsf`（TSF DLL）+ `settings`（WinUI 3）+ `installer`（Inno）。DLL 不能带 Engine 的依赖树，所以是两个 package。
-- `apps/linux`：`server`（Engine + Unix socket）+ `fcitx5`（框架事件、默认面板）+ `scripts`（用户级安装卸载、`package.sh` 打预编译包）；Server 手动启动，见 `docs/notes/linux-fcitx5.md`。
+- `apps/macos`：IMK 壳，按 `app / host / imk / candidates / menubar / preferences` 分目录（`preferences` 是旧版设置，新版 `apps/settings` 为主、旧版只作兜底）；`scripts/bundle.sh --install` 装到本机，`--pkg` 出分发包。
+- `apps/windows`：`server`（Server 进程：Engine + IPC + 自绘候选窗与状态条）+ `tsf`（TSF DLL）+ `settings`（旧版设置，WinUI 3，只作兜底，新版 `apps/settings` 为主）+ `installer`（Inno）。DLL 不能带 Engine 的依赖树，所以是两个 package。
+- `apps/linux`：`server`（Engine + Unix socket）+ `fcitx5` / `fcitx4`（框架事件、默认面板）+ `ibus`（第二个前端：IBus，按键 / 焦点 / 面板已通，对着真 daemon 验过）+ `scripts`（用户级安装卸载、`package.sh` 打 Fcitx5 预编译包）+ `packaging`（`build.sh` 在容器里打 deb / rpm，见 `docs/notes/linux-packaging.md`）；Server 手动启动或装成 systemd 用户服务，见 `docs/notes/linux-fcitx5.md` 和 `docs/notes/linux-fcitx4.md`。
+- `apps/android`：`core`（Rust crate：Engine 装配 + `Session` + JNI，编成 `libqingjian_android.so`）+ `app`（Kotlin `InputMethodService` 壳，自绘键盘，候选条贴渲染器位图）；Gradle 构建时自动跑 `cargo ndk`，见 `apps/android/README.md`。
 - `tools/dict-convert`、`tools/gloss-gen`、`tools/corpus`：产品数据生成（词库 / 语言模型 / 释义表 / emoji / 英文词表），输出到 `data/generated/`（gitignore）。
 - `assets/`：随包数据源与样例，各目录有 README 写来源与许可。雾凇拼音（GPL）已彻底移除，不要再引入。
 

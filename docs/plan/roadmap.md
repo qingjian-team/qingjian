@@ -67,7 +67,8 @@
 - [x] 英文模式候选（Core `english`，`Engine::set_english_mode`）：词表精确词 / 前缀补全 / 一处编辑纠正，Tab 与上下键选词（上下键动过之后空格也选），空格回车标点原样上屏；
   `[general] english_candidates` 可关；CLI `--english-mode`
 - [x] 按应用关英文候选（2026-09-05）：`[apps] english_candidates_off`，按 `bundleIdentifier` 认，缺省终端 / 编辑器 / IDE 名单，`*` 前缀匹配；
-  偏好设置「通用」页勾选框；`[apps]` 分节留给以后的按应用 preedit 模式
+  偏好设置「通用」页勾选框；`[apps]` 分节留给以后的按应用 preedit 模式。2026-10-10 改成白名单 `english_candidates_on`（缺省浏览器 / 聊天 / 办公），
+  Photoshop 这类靠单键快捷键的软件列不完
 - [x] 个人英文词表（2026-09-05，`user-english.tsv`）：回车 / 英文模式直通原样上屏的英文词（切不成完整拼音的字母串）与选过的英文候选都记，
   与随包词表一起出英文候选且在前；修的是 `gist` 这类随包词表里没有的词永远出不了候选、回车多少次也学不会的问题
 - [x] 中英混输：整段输入在英文词表里即出英文候选，作为拼音「不像话」时排第一，否则排第二（词表 2026-09-05 起来自 `assets/lexicon/05_english`，ESDB / CSpell，MIT）
@@ -168,6 +169,20 @@
   - [ ] 发版：Certum 开源代码签名证书、`windows-v<版本>` 标签与 CI
 - [x] Linux Fcitx5 第一阶段：Rust Server、默认候选面板、用户目录安装与手动启动（2026-09-18）；未改系统 Fcitx5 的 GTK4 / Qt6 X11 输入已验证
 - [ ] Linux 后续：Server 自绘 X11 窗口、Server 向 GNOME 扩展发送位图、神经重排、自动启动与 Debian 包；各自独立 PR，IBus 暂缓
+- [~] Android（`apps/android`，`feat/android` 分支）：输入核心、学习与统计、词库与繁体、高级、云联想已与 PC 对齐，外观（主题）进行中；
+  实现要点见 `docs/notes/android.md`
+- [ ] 移动端与平板：iOS、iPadOS、HarmonyOS
+  - 分工：候选条（显示面）由 `qingjian-render` 出位图，Android 现在的键盘与面板（输入面）由 Kotlin 自绘。
+    只有 Android 一个移动端时这种分法可以接受；做第二个移动平台时，键盘与面板统一移到 Rust，各平台只接输入框连接、触摸转发、震动与无障碍
+  - 统一之前先做：主题推导只留渲染器一份（键盘配色也从主题算出，壳只读）；键位表与尺寸计算挪进共享 crate、按宽度出布局；
+    渲染器补彩色 emoji（Android COLRv1、Apple sbix）与只重画变化区域；在 Android 上验证 Rust 画九宫格的按键延迟与手感
+  - Android 壳里还写在 Kotlin、统一时要搬进 Rust 的规则：
+    - [ ] 键位表与角标：`keyboard/layout/KeyboardLayout.kt`（全键盘、九宫格、注音大千、日语、数字键盘、符号页）
+    - [ ] 尺寸与排版：`keyboard/layout/KeyboardMetrics.kt`（行高、按宽度分键、九宫格列宽）
+    - [ ] 滑行起判阈值：`keyboard/SwipeTrail.kt` 的 `START_KEYS`
+    - [ ] 写死的颜色并进主题推导：`ClipboardPanel` 代码高亮的数字色、`VocabularyPage` 生词标签色、`TranslateBar` / `ProcessTextActivity` 的失败红、`AdvancedActivity` 的危险操作红
+  - 平板与 iPad 有两种形态：接实体键盘时只剩候选窗，按 PC 方式工作（翻页键、Shift 切换等手机上不搬的项要用上）；
+    不接时是屏幕键盘，要适配全宽、浮动与分屏等宽度，面板在大屏上排多列
 - [ ] 配置同步
 - [ ] 跨平台词库
 
@@ -216,9 +231,9 @@ Core 永远不联网。第一个实现接 DeepSeek（OpenAI 兼容接口），�
 - [x] 整句评测集上过门槛（2026-09-08 晚）：冻结集 8322 句，基线整句首选 37.6%，small λ 0.75 前文 64 到 41.9%（+4.3），
   不给前文也有 +2.2；翻好 382 句、翻坏 54 句，见 `docs/notes/neural-rescoring.md`
 - [x] 进壳（2026-09-08 晚）：前文 KV 缓存（64 字前文 × 8 条 133 → 28 ms）、Core `engine/rescoring` 异步重排（后台线程 + 文本分数缓存，壳停键 80 ms 请求）、
-  应用光标前文当前文、λ 缺省 0.5、`[model] enabled` 开关与「云服务」页勾选、模型随包放 `Resources/model/`；TextEdit 端到端 候选声称 → 候选生成
+  应用光标前文当前文、λ 缺省 0.5、`[model] enabled` 开关与「云服务」页勾选、知微模型现随包放 `Resources/models/hanzhang-zhiwei/`；TextEdit 端到端 候选声称 → 候选生成
 - [x] 模型单文件 `.qjm`（2026-09-12）：`.qj` 容器新种类 `Kind::Model`，三节原样装三件套；`find_model` 先 `.qjm` 再目录；`pack model` / `tools/release/pack-model.sh`；
-  data Release 上传 `model.qjm`，mac `Resources/model/` 与 Windows `data\model` 只带这一个文件
+  data Release 上传 `model.qjm`，mac `Resources/models/hanzhang-zhiwei/` 与 Windows `data\models\hanzhang-zhiwei` 只带这一个文件
 - [ ] 本地模型后续：个人微调（闲时训练）；权重许可已定与代码一致 GPL-3.0-or-later（2026-09-12，写在 `pack-model.sh`）
 - [ ] 闲时训练：门禁包括接电源、温度、空闲时长；训练数据来自本地输入历史；模型与数据都可一键清除
 - [ ] 评测门槛：留出用户文本上比 n-gram 的困惑度与 top-1 命中率，赢了才默认启用；每次按键推理延迟有上限

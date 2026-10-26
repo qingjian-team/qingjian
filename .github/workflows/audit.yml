@@ -5,9 +5,9 @@ on:
   schedule:
     - cron: '0 2 * * 1'
   push:
-    paths: ['Cargo.lock', '.github/workflows/audit.yml']
+    paths: ['Cargo.lock', '.cargo/audit.toml', '.github/workflows/audit.yml']
   pull_request:
-    paths: ['Cargo.lock']
+    paths: ['Cargo.lock', '.cargo/audit.toml']
 
 # audit-check 要往提交上写 check run（checks: write）、发现漏洞时开 issue（issues: write）；少了 checks 会在 push 事件上报 "Resource not accessible by integration"
 permissions:

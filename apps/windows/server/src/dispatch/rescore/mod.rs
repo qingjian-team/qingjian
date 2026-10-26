@@ -3,81 +3,77 @@
 //! 按键回调里永远只跑词级模型；模型的意见在停键 80 毫秒后请求、几十毫秒后到，只换候选窗口里的整句候选，
 //! 用户翻过页或动过高亮就不打扰。前文优先用应用里光标前的文字（DLL 起组句时随 `ClientMessage::Surrounding` 送来），没有退回本会话历史。
 //! 节拍由工人循环驱动：[`Router::next_tick`] 说下次多久来一次 [`Router::tick`]；DLL 组句期间每 80 ms 的 `Poll` 也顺带 tick。
-//! 加载在 [`loader`]，进行态在 [`state`]。
+//! 找模型在 [`models`]，加载在 [`loader`]，进行态在 [`state`]。
 
 mod loader;
+mod models;
 mod state;
 
-use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use qingjian_core::CandidateLayout;
 use qingjian_platform::LocalModelConfig;
 use qingjian_platform::protocol::SessionId;
 
-use self::loader::Loaded;
 pub(crate) use self::loader::ModelLoader;
+use self::loader::{Loaded, LoadedModel};
+pub use self::models::{ModelDirs, find_model};
 pub(crate) use self::state::RescoreState;
 use super::Router;
 use super::composed::{Composed, marked_parts};
 
-/// 找模型（`.qjm` 单文件，或开发时的三件套目录）：用户目录 `model/` 优先（用户自己的模型），否则随包 `data/model/`；都没有为 `None`。
-pub fn find_model(user_dir: Option<&Path>, bundled_root: &Path) -> Option<PathBuf> {
-    let candidates = [
-        user_dir.map(|dir| dir.join("model")),
-        Some(bundled_root.join("data/model")),
-    ];
-    candidates
-        .into_iter()
-        .flatten()
-        .find_map(|dir| qingjian_neural::find_model(&dir))
-}
-
 impl Router {
-    /// 启动时：记下模型文件，按 `[model] enabled` 决定要不要加载。
-    pub fn configure_local_model(
-        &mut self,
-        model_path: Option<PathBuf>,
-        config: &LocalModelConfig,
-    ) {
-        self.model_path = model_path;
+    /// 启动时：记下去哪找模型，按 `[model] enabled` 决定要不要加载。
+    pub fn configure_local_model(&mut self, dirs: ModelDirs, config: &LocalModelConfig) {
+        self.model_dirs = dirs;
         self.applied_model = config.clone();
+        self.apply_choice_tier();
         if config.enabled {
             self.load_local_model();
         }
     }
 
-    /// 热加载：`[model]` 变了才重载 / 卸载。
+    /// 热加载：开关或选的模型变了才重载 / 卸载，档位每次都套。
     pub(super) fn apply_model_config(&mut self, config: &LocalModelConfig) {
-        if *config == self.applied_model {
+        let changed =
+            (config.enabled, config.name) != (self.applied_model.enabled, self.applied_model.name);
+        self.applied_model = config.clone();
+        self.apply_choice_tier();
+        if !changed {
             return;
         }
-        self.applied_model = config.clone();
+        self.unload_local_model();
         if config.enabled {
             self.load_local_model();
-        } else {
-            self.unload_local_model();
         }
     }
 
-    /// 在后台线程加载模型；没有模型文件就什么都不做。
+    fn apply_choice_tier(&mut self) {
+        self.engine
+            .set_choice_tier(self.applied_model.zhiyi_tier.choice_tier());
+    }
+
+    /// 在后台线程加载选的模型；没有模型文件就什么都不做。
     fn load_local_model(&mut self) {
-        if self.model_loader.is_some() || self.engine.has_sentence_scorer() {
+        if self.model_loader.is_some()
+            || self.engine.has_sentence_scorer()
+            || self.engine.has_choice_model()
+        {
             return;
         }
-        let Some(path) = &self.model_path else {
-            tracing::info!("没有本地整句模型文件，不重排");
+        let Some(files) = self.model_dirs.resolve(self.applied_model.name) else {
+            tracing::info!("没有本地模型文件，不重排");
             return;
         };
-        self.model_loader = ModelLoader::spawn(path);
+        self.model_loader = ModelLoader::spawn(files);
     }
 
-    /// 卸掉模型（配置关掉）。
+    /// 卸掉模型（配置关掉或换了模型）。
     fn unload_local_model(&mut self) {
         self.model_loader = None;
         self.engine.set_async_sentence_scorer(None);
+        self.engine.set_choice_model(None);
         self.rescore.stop();
-        tracing::info!("本地整句模型已卸载（[model] enabled = false）");
     }
 
     /// 加载线程有结果了就接到 Engine 上；每次按键 / tick 顺手看一眼，不阻塞。
@@ -88,15 +84,21 @@ impl Router {
         match loader.poll() {
             Loaded::Pending => {}
             Loaded::Done(result) => {
-                match *result {
-                    Ok(scorer) => {
-                        self.engine
-                            .set_async_sentence_scorer(Some(Box::new(scorer)));
+                match result {
+                    Ok(loaded) => {
+                        match loaded {
+                            LoadedModel::Sentence(scorer) => {
+                                self.engine.set_async_sentence_scorer(Some(scorer));
+                            }
+                            LoadedModel::Choice(model) => {
+                                self.engine.set_choice_model(Some(model));
+                            }
+                        }
                         // 模型上线了：日志里补一条会话信息，之后的条目知道重排开着
                         self.engine
                             .log_session(env!("CARGO_PKG_VERSION"), "windows");
                     }
-                    Err(error) => tracing::warn!(%error, "本地整句模型加载失败，不重排"),
+                    Err(error) => tracing::warn!(%error, "本地模型加载失败，不重排"),
                 }
                 self.model_loader = None;
             }
@@ -107,6 +109,7 @@ impl Router {
     /// 组句结束：什么都不等了；应用前文也作废（下一段组句 DLL 会再送）。
     pub(super) fn stop_rescoring(&mut self) {
         self.rescore.stop();
+        self.surrounding_before.clear();
         self.engine.set_rescoring_context(None);
     }
 
@@ -116,12 +119,15 @@ impl Router {
         if self.focused != Some(session) || self.engine.composition().is_empty() {
             return;
         }
+        self.surrounding_before = text.clone();
         self.engine
             .set_rescoring_context((!text.is_empty()).then_some(text));
         if matches!(self.composed, Some(Composed::Candidates { .. })) {
             // 查一次只为按新前文重新记下要打分的文本，候选顺序此刻不变
             let _ = self.engine.query();
             self.schedule_rescoring();
+            // 云联想也在等这份前文：带着新上下文重发，作废在飞的空上下文请求（worker 端有防抖）
+            self.refresh_prediction();
         }
     }
 
@@ -134,19 +140,19 @@ impl Router {
         }
     }
 
-    /// 工人循环下次该多久后来一次 [`Self::tick`]：在等重排就按它的节拍，否则按配置热加载的一秒。
+    /// 工人循环下次该多久后来一次 [`Self::tick`]：在等重排、键位提示在等停顿就按它们的节拍，否则按配置热加载的一秒。
     pub fn next_tick(&self) -> Duration {
-        self.rescore
-            .next_deadline()
-            .map_or(super::reload::CONFIG_POLL_INTERVAL, |deadline| {
-                deadline.min(super::reload::CONFIG_POLL_INTERVAL)
-            })
+        [self.rescore.next_deadline(), self.key_hint.next_deadline()]
+            .into_iter()
+            .flatten()
+            .fold(super::reload::CONFIG_POLL_INTERVAL, Duration::min)
     }
 
-    /// 到点了：接上加载好的模型、推进重排、看一眼配置文件。工人循环超时与 DLL 的 `Poll` 都会调。
+    /// 到点了：接上加载好的模型、推进重排、键位提示停顿到点就弹出、看一眼配置文件。工人循环超时与 DLL 的 `Poll` 都会调。
     pub fn tick(&mut self) {
         self.attach_loaded_model();
         self.advance_rescoring();
+        self.advance_key_hint();
         self.poll_config_reload();
     }
 
@@ -183,7 +189,7 @@ impl Router {
 
     /// 分回来了：按重排后的顺序重建候选布局，云端词与整句补全留着，重画当前页。
     fn requery_rescored(&mut self) {
-        let Ok(query) = self.engine.query() else {
+        let Ok(mut query) = self.engine.query() else {
             return;
         };
         let Some(Composed::Candidates {
@@ -191,21 +197,28 @@ impl Router {
             cursor,
             typed_keys,
             layout,
+            spelling,
+            ..
         }) = self.composed.as_mut()
         else {
             return;
         };
         let cloud = layout.cloud().to_vec();
         let mut rebuilt = CandidateLayout::new(
-            query.candidates.items.clone(),
+            std::mem::take(&mut query.candidates.items),
             self.config.page_size,
             self.config.cloud_slots,
         );
         if !cloud.is_empty() {
-            rebuilt.set_cloud(cloud);
+            if layout.cloud_first() {
+                rebuilt.set_cloud_first(cloud);
+            } else {
+                rebuilt.set_cloud(cloud);
+            }
         }
         *layout = rebuilt;
         (*preedit, *cursor, *typed_keys) = marked_parts(&query);
+        **spelling = query;
         let frame = self.self_drawn_frame();
         self.reconcile_candidates(&frame);
         // 前文在结果回来之前换过（Surrounding 晚到）：这次查询又记下了一批要打分的，再来一轮

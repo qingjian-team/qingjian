@@ -1,14 +1,14 @@
-//! 全局中英模式与悬浮状态条：模式只有 Server 这一份，DLL 切了用 `ModeChanged` 报来，激活 / 获焦 / 轮询时用
+//! 中英模式与悬浮状态条：模式由 Server 统一管理，DLL 切了用 `ModeChanged` 报来，激活 / 获焦 / 轮询时用
 //! `SyncMode` 取走（取的同时说明青简是当前输入法，状态条显示）；切成别的输入法时 DLL 发 `ImeSwitched` 收起。
 //! 会话关闭（应用退出）不收——状态条常驻桌面。状态条上的点击经 [`StatusEvent`] 回到这里：
-//! 切模式直接改全局模式，各 DLL 下一拍取走；切标点 / 拖动写回配置文件（热加载会再读回来）。
+//! 切模式改当前应用或全局模式，各 DLL 下一拍取走；切标点 / 拖动写回配置文件（热加载会再读回来）。
 
 mod event;
 mod sink;
 mod view;
 
-use qingjian_platform::protocol::IndicatorCommand;
-use qingjian_platform::{Config, Scheme, scheme_label};
+use qingjian_platform::protocol::{IndicatorCommand, SessionId};
+use qingjian_platform::{Config, Scheme};
 
 pub use self::event::StatusEvent;
 pub use self::sink::{NoopStatusSink, StatusSink};
@@ -16,9 +16,11 @@ pub use self::view::StatusView;
 use super::Router;
 
 impl Router {
-    /// DLL 那边用户切了模式：成为全局模式。内置英文模式关着时不收英文。
-    pub(super) fn handle_mode_changed(&mut self, english: bool) {
+    /// DLL 那边用户切了模式：记入当前应用或全局模式。内置英文模式关着时不收英文。
+    pub(super) fn handle_mode_changed(&mut self, session: SessionId, english: bool) {
+        self.mode_session = Some(session);
         self.english = english && self.config.english_mode;
+        self.remember_mode();
         self.ime_active = true;
         self.reconcile_status();
     }
@@ -49,6 +51,7 @@ impl Router {
                     return;
                 }
                 self.english = !self.english;
+                self.remember_mode();
                 tracing::debug!(english = self.english, "状态条：切换中英模式");
             }
             StatusEvent::TogglePunctuation => {
@@ -64,6 +67,10 @@ impl Router {
                 };
                 tracing::debug!(english, full_width, "状态条：切换全角标点");
                 self.persist("general", key, full_width);
+            }
+            StatusEvent::OpenSymbolPanel => {
+                tracing::debug!("状态条：打开符号面板");
+                self.open_panel_for(self.mode_session);
             }
             StatusEvent::Moved(x, y) => {
                 self.config.status_pos = Some((x, y));
@@ -86,7 +93,9 @@ impl Router {
                 self.reconcile_status();
             }
             IndicatorCommand::OpenSettings => self.status.open_settings(),
+            IndicatorCommand::OpenLegacySettings => self.status.open_legacy_settings(),
             IndicatorCommand::OpenDownload => self.status.open_download(),
+            IndicatorCommand::OpenSymbolPanel => self.open_panel_for(self.mode_session),
         }
     }
 
@@ -116,12 +125,13 @@ impl Router {
                 self.status.show_status(StatusView {
                     english,
                     zhuyin: self.config.scheme == Scheme::Zhuyin,
-                    // 现算，不存下来：存了会与 scheme / wubi 冗余、手搓配置的地方就漂移
-                    scheme: Some(scheme_label(self.config.scheme, self.config.wubi))
+                    scheme: Some(self.scheme_slot.scheme_label(self.config.scheme))
                         .filter(|label| !label.is_empty()),
                     full_width: self.full_width_for(english),
-                    theme: self.config.theme,
+                    appearance: self.config.appearance,
                     anchor: self.config.status_pos,
+                    size: self.config.status_size,
+                    mode: self.input_mode(),
                 });
             }
             _ => self.status.hide_status(),

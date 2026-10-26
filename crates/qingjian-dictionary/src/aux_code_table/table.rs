@@ -1,5 +1,6 @@
 //! 码表本体：词 → 码的映射、`.qj` 读写与查询。
 
+use std::borrow::Cow;
 use std::ops::Range;
 use std::path::Path;
 
@@ -8,6 +9,7 @@ use qingjian_format::{Container, Kind, Metadata, Table, Text, Writer, hash};
 use super::entry::CodeEntry;
 use super::lookup::AuxCodeLookup;
 use super::parsed::ParsedTable;
+use super::word_rules::WordRules;
 use crate::error::DictionaryError;
 
 /// `.qj` 里的分节：词文本 arena、码键 arena、条目表、词 → 条目区间的哈希索引。
@@ -44,6 +46,9 @@ pub struct AuxCodeTable {
 
     /// `.qj` 里的来历（名称、许可证、署名）；内存里造的没有。
     metadata: Option<Metadata>,
+
+    /// 表里没有的词按它从单字的码推导；不落盘，由方案的 `scheme.toml` 给。
+    word_rules: WordRules,
 }
 
 impl AuxCodeTable {
@@ -96,6 +101,7 @@ impl AuxCodeTable {
             index: Table::Owned(index),
             word_count,
             metadata: None,
+            word_rules: WordRules::default(),
         })
     }
 
@@ -208,6 +214,7 @@ impl AuxCodeTable {
             index,
             word_count,
             metadata: Some(container.metadata().clone()),
+            word_rules: WordRules::default(),
         })
     }
 
@@ -224,6 +231,13 @@ impl AuxCodeTable {
             .section(HASH_TAG, self.index.as_bytes())
             .write_to(path)?;
         Ok(())
+    }
+
+    /// 表里没有的词改按 `rules` 从单字的码推导。
+    #[must_use]
+    pub fn with_word_rules(mut self, rules: WordRules) -> Self {
+        self.word_rules = rules;
+        self
     }
 
     /// `.qj` 里的来历；内存里造的返回 `None`。
@@ -289,13 +303,39 @@ fn looks_like_rime(text: &str) -> bool {
         .is_some_and(|line| line == "---" || line.starts_with("name:"))
 }
 
+impl AuxCodeTable {
+    /// 表里没有 `word` 时按词码规则推导；只有一个字或没写规则时为空。
+    fn derived(&self, word: &str) -> Vec<String> {
+        if self.word_rules.is_empty() || word.chars().nth(1).is_none() {
+            return Vec::new();
+        }
+        self.word_rules
+            .derive(word, |c| AuxCodeTable::codes_of(self, c).collect())
+    }
+}
+
 impl AuxCodeLookup for AuxCodeTable {
-    fn code_with_prefix<'a>(&'a self, word: &str, prefix: &str) -> Option<&'a str> {
+    fn code_with_prefix<'a>(&'a self, word: &str, prefix: &str) -> Option<Cow<'a, str>> {
         // inherent 的 codes_of 是迭代器版本，这里要用它（别递归回 trait）
-        AuxCodeTable::codes_of(self, word).find(|code| code.starts_with(prefix))
+        let mut listed = AuxCodeTable::codes_of(self, word).peekable();
+        if listed.peek().is_some() {
+            return listed
+                .find(|code| code.starts_with(prefix))
+                .map(Cow::Borrowed);
+        }
+        self.derived(word)
+            .into_iter()
+            .find(|code| code.starts_with(prefix))
+            .map(Cow::Owned)
     }
 
-    fn codes_of<'a>(&'a self, word: &str) -> Vec<&'a str> {
-        AuxCodeTable::codes_of(self, word).collect()
+    fn codes_of<'a>(&'a self, word: &str) -> Vec<Cow<'a, str>> {
+        let listed: Vec<Cow<'a, str>> = AuxCodeTable::codes_of(self, word)
+            .map(Cow::Borrowed)
+            .collect();
+        if !listed.is_empty() {
+            return listed;
+        }
+        self.derived(word).into_iter().map(Cow::Owned).collect()
     }
 }

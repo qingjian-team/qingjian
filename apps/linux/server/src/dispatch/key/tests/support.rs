@@ -2,6 +2,7 @@
 use crate::dispatch::{Router, RouterConfig};
 use qingjian_core::{CustomPhrase, Engine};
 use qingjian_dictionary::{Dictionary, WordList};
+use qingjian_platform::AppsConfig;
 use qingjian_platform::protocol::{
     ClientMessage, Frame, KeyEvent, KeyModifiers, KeyOutcome, PROTOCOL_VERSION, ServerMessage,
     SessionId,
@@ -14,12 +15,7 @@ pub(super) fn router(size: usize) -> Router {
     engine
         .set_custom_phrases(
             (1..=9)
-                .map(|position| CustomPhrase {
-                    code: "qq".into(),
-                    text: format!("第{position}项"),
-                    position,
-                    enabled: true,
-                })
+                .map(|n| CustomPhrase::new("qq", &format!("第{n}项")))
                 .collect(),
         )
         .unwrap();
@@ -27,6 +23,7 @@ pub(super) fn router(size: usize) -> Router {
         engine,
         RouterConfig {
             page_size: size,
+            apps: AppsConfig::with_english_candidates_on(&["*"]),
             ..Default::default()
         },
     );

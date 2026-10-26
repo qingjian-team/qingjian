@@ -1,11 +1,14 @@
 # Linux Fcitx5 默认面板
 
+Linux Server 在 `[predict] enabled = true` 且密钥可用时接入共享的 `CloudPredictor`，沿现有 Poll 帧返回异步云端候选和整句补全。云端词只补第一页末尾未被用户选中的格，默认面板用 ☁ 标记词并在辅助行显示整句；会话切换、失焦和隐私边界会作废旧结果。Fcitx5 插件从有效的 `surroundingText()` 读取应用光标前后文，跳过选区并各截取最多 80 字；Server 在敏感输入中忽略它。不做云端译词兜底；`[predict]` 配置热加载会重建客户端，撤销旧请求、翻译评审与所有会话中的旧云候选。Fcitx5 的 Sensitive、Password、Disable 能力由插件上报给 Server。
+
 第一阶段保留 Rust Server、薄插件和用户目录安装。输入模式、组句、选词、翻页、隐私和失焦提交均在 Server；
 插件负责 Fcitx 事件与默认预编辑 / 候选 API。长期自绘方向不变，后续由 Server 渲染并管理 X11 窗口，或向 GNOME 扩展发送位图；本阶段不带相关源码、补丁、渲染 FFI、服务管理或 Debian 包。
 
 ## 构建与测试
 
-需要 Rust 1.96、CMake 3.16、C++20 编译器、pkg-config，以及 OpenSSL（`libssl-dev`，云服务依赖的 TLS 绑定要它）、Fcitx5 Core/Config/Utils 和 nlohmann-json 的开发包；`install.sh` 开头会检查并列出缺的。
+需要 Rust 1.96、Python 3、pkg-config 与 OpenSSL（`libssl-dev`，云服务依赖的 TLS 绑定要它）；**fcitx5 那一支**另外要 CMake 3.16、C++20 编译器与 Fcitx5 Core/Config/Utils、nlohmann-json 的开发包（插件是 C++），**IBus 那一支**是纯 Rust，只要机器上有 ibus-daemon。`install.sh` 开头会检查并列出缺的，缺省 `--frontend auto` 是「能装的都装」，装不上的那一支会明说跳过。
+自绘界面另需三个字体包（`fonts-noto-core` / `fonts-noto-cjk` / `fonts-noto-color-emoji`）：没有 UI 字体时 `FontLibrary::system` 直接返回 `NoUiFont`、程序起不来，缺 CJK 或 emoji 则不崩但中文界面文字与表情画不出来。
 构建最低 API 为 Fcitx5 5.1.8，CI 使用 Ubuntu 26.04 的 Fcitx5 5.1.19；Ubuntu 24.04 自带的 5.1.7 不满足要求。
 桌面运行已验证的范围见下文，构建版本门槛不代表全部桌面已验收。
 
@@ -17,7 +20,7 @@ cargo test --workspace --exclude qingjian-macos --locked
 cargo build -p qingjian-linux-server --locked
 cmake -S apps/linux/fcitx5 -B target/fcitx5-stage1 -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON
 cmake --build target/fcitx5-stage1 --parallel 2
-env -u DBUS_SESSION_BUS_ADDRESS ctest --test-dir target/fcitx5-stage1 --output-on-failure
+env -u DBUS_SESSION_BUS_ADDRESS ctest --test-dir target/fcitx5-stage1 --output-on-failure < /dev/null
 python3 apps/linux/tests/installation.py
 ```
 
@@ -29,17 +32,21 @@ CTest 的 `real-server` 实际运行 Rust Server 并通过 InputContext 输入�
 
 同用户 Unix socket，长度前缀为 4 字节小端，单消息上限 16 MiB；每次插件收发共用 200 ms 截止时间。
 插件只持有一条连接和一个 I/O watcher，每个 InputContext 分配独立、递增的 session ID。
-每个会话先 `OpenSession` 校验共享协议版本（6），再协商 `LinuxHello` v3，携带 session/generation/context，返回会话编号和既有预编辑设置。
+每个会话先 `OpenSession` 校验共享协议版本（`PROTOCOL_VERSION`），再协商 `LinuxHello` v3，携带 session/generation/context，返回会话编号和既有预编辑设置。
 首次能力确认前不接受输入；握手与能力状态逐会话保存。同一连接支持超过 64 个上下文，64 条连接的资源保护不限制单连接会话数。
-Linux 的首个回包仍是含 `linux_ui` 的 `Update`，不额外发送 Windows DLL 使用的 `SessionOpened`；旧版插件的协议 5 连接会被拒绝，升级时需同时更新 Server 与插件。
+Linux 的首个回包仍是含 `linux_ui` 的 `Update`，不额外发送 Windows DLL 使用的 `SessionOpened`；旧版插件的协议 7 / 8 连接会被拒绝，升级时需同时更新 Server 与插件。
 旧版本或损坏响应关闭连接、清空显示并放行当前输入；重连创建全新输入状态，旧提交不会重放。
-显示 API 同步触发能力变化、失焦或 Reset 时，插件在最终上屏前撤销旧生命周期响应，但保持已接受按键的 Consumed 结果；纯显示失败仍交付有效提交。
+插件先交付有效上屏，再清空或更新预编辑，避免 Chromium 原生 Wayland 在这两步倒置时重复上屏（#213）。
+上屏与显示回调都可能同步重入；上屏前和重画前检查上下文存活、连接代次、生命周期、显示修订号与帧身份，以及焦点和能力。
+上屏回调内的新按键即使不改变生命周期，也会使旧帧失效，外层不得覆盖新组句。已交付的上屏不撤销、不重放；重入或显示失败后仍保留已接受按键的 Consumed 结果。
 
+Fcitx5 的 `AltTriggerKeys`（缺省 `Shift_L`）在 PreInputMethod 阶段处理，松开左 Shift 时先切到第一个输入法，插件与 Server 都拦不住；`[shortcut] switch_mode` 只管 Fcitx 放进来的键，用户文档写了清空这项的方法。
 同一上下文停用后保留会话和中英模式；Reset 只丢弃输入。Password / Disable 关闭目标会话，恢复普通输入后分配新编号。
 销毁上下文时撤销安全引用并排队 CloseSession，由事件循环延迟发送，不阻塞析构，也不关闭其他会话。
 共享连接故障先让全部会话失效，再清理各自显示；清理回调期间不重连。
 
-LinuxEvent 转发能力、按下 / 释放、焦点、停用原因、客户端预编辑事实、带帧身份的候选点击和翻页。
+LinuxEvent 转发能力、按下 / 释放、焦点、停用原因、客户端预编辑事实、带帧身份的候选点击和翻页。按键事件可带应用前后文；旧插件省略此字段时 Server 仍可解析。焦点恢复与候选点击不会复用旧前后文。
+选区翻译使用 `[shortcut] translate_selection`（Linux 缺省 `Alt + Shift + T`）；新插件在按键事件标记 `selection_supported`，Server 只向支持的插件返回 `RequestSelection`，兼容旧插件。插件从有效的 `surroundingText()` 读取最多 500 字选区并回 `LinuxEvent::Selection`。评审候选无预编辑，返回帧的 `translation_pending` 让插件在「翻译中…」期间轮询；提交前再次核对选区文字和光标位置。焦点、隐私、Reset、停用会取消翻译。
 空能力是普通输入；Sensitive 可组句但不学习、不记输入文本；Password / Disable 优先禁用并丢弃输入。
 能力先由 Server 确认，再清理可能同步重入的预编辑；Reset / 焦点变化不会丢掉能力通知，清理中重入的新按键已受新隐私状态约束。
 能力变化清理组句、暂存透传、学习链与补全；能力即将改变时的 deactivate 原因也触发清理，即使框架此刻仍返回旧能力。
@@ -47,6 +54,9 @@ FocusOut 的行内预编辑由框架或声明 ClientUnfocusCommit 的客户端�
 
 每次候选响应绑定 generation/context/revision，revision 在整个 Server 内递增；过期或跨会话点击返回 Ignored，不改变当前会话的展示状态。
 默认面板只展示第一条释义，完成面板更新后报告当前页对应的 `(候选槽位, 0)`。
+Server 在 Linux 回包的释义上补充显示字段 `annotation`：词性缩写与 `Sense::furigana` 生成的分段假名；
+Fcitx5 用它绘制候选注释，旧 Server 没有该字段时仍显示 `text`。这是 Linux v3 的可选字段，旧插件忽略它，不改公共协议。
+原始 `text` / `reading` 不变，Alt+数字仍由 Engine 上屏原始译文，生词标记与展示回报保持原样。
 隐藏、失焦、私密、无候选与过期回报不产生有效展示记录；Server 只凭已生成帧不记展示。
 
 组句期间插件每 80 ms 发一次 `Poll`（与 Windows DLL 的轮询间隔相同），Server 先 tick 再回当前帧。
@@ -55,20 +65,30 @@ FocusOut 的行内预编辑由框架或声明 ClientUnfocusCommit 的客户端�
 
 ## 本地整句模型
 
-Server 启动时按 `[model] enabled`（缺省开）在后台线程加载模型并预热，`find_model` 先找用户目录 `~/.local/share/qingjian/model/`，再找随包的 `resources/data/model/`；Linux 没有配置热加载，改开关要重启服务。
+Server 启动时按 `[model] enabled`（缺省开）在后台线程加载模型并预热，`find_model` 优先找用户目录 `~/.local/share/qingjian/models/hanzhang-tongbian/` 与随包的 `resources/data/models/hanzhang-tongbian/`，然后回退知微；旧用户目录仍可读取。改了 `[model]` 由配置热加载在后台加载或卸载。
+
+配置热加载在 `dispatch/reload`（对齐 Windows Server）：主循环 `tick` 每秒看一次 `config.toml` 的 mtime 与用户 `dicts/` 快照，变了就重读，重设的项与 `main.rs` 启动时一致；解析失败保持原配置。例外：`[general] preedit` 在会话握手时交给插件、`input_log` 只在装配时接，这两样改了仍要重启服务。
 节拍与 Windows Server 的 `dispatch/rescore` 相同：缓冲变化后起 80 ms 防抖，到点把整句路径送去后台打分，每 20 ms 收一次，最长等 2 s；
 结果到了只在用户还看着第一页、没动过高亮时重建候选布局，下一次 `Poll` 回的帧就是新顺序。主循环按 `Router::next_tick` 的绝对到点时间等消息，空闲时一秒一次落盘学习。
 模型在后台接上时用户正在组句，Server 补查一次攒下整句路径再起防抖，这一轮不错过重排。前文用本会话最近上屏的字，首版不读应用光标前文。
 
 ## 路径和排错
 
-用户安装与手动启动见 [Linux 用户说明](../user/getting-started/linux.md)。安装只登记实际绝对插件库路径，不修改系统 Fcitx5 搜索规则。
+两支前端的验收清单见 [linux-dual-frontend.md](linux-dual-frontend.md)。用户安装见 [Linux 用户说明](../user/platforms/linux.md)。安装只登记实际绝对插件库路径，不修改系统 Fcitx5 搜索规则；IBus 那一支装的是 `$XDG_DATA_HOME/ibus/component/qingjian.xml`（`<exec>` 写死安装后的绝对路径，由 install.sh 按 prefix 生成），外加 `$XDG_CONFIG_HOME/environment.d/qingjian-ibus.conf`：**IBus 不读用户目录下的组件**，只认 `IBUS_COMPONENT_PATH`（没设时只有系统目录，IBus 1.5.34 上验过），所以要在会话启动时把用户目录加进去，重新登录生效。Server 的自启是 `$XDG_CONFIG_HOME/systemd/user/qingjian-server.service`（用户级单元，`--enable-service` 顺手 enable）；两个前端共用这一个 Server。
 `QINGJIAN_SOCKET` 可指定绝对 socket 路径；缺省为 `$XDG_RUNTIME_DIR/qingjian.sock`，无 runtime 时用 `/tmp/qingjian-<uid>/qingjian.sock`。
 父目录须归当前用户且不可被其他用户写入；socket 权限为 0600。`QINGJIAN_RESOURCES` 覆盖资源根，`QINGJIAN_DICT` 可指定测试词库。
 默认数据从可执行文件旁 `../share/qingjian/resources` 找，支持源码开发目录回退。
 
-未出候选时先确认手动 Server 在运行，再查看 `$XDG_STATE_HOME/qingjian/logs/server.*.log`（缺省 `~/.local/state`）。
+未出候选时先确认 Server 在运行（`systemctl --user status qingjian-server`，或手动起的那个进程还在），再查看 `$XDG_STATE_HOME/qingjian/logs/server.*.log`（缺省 `~/.local/state`）。
 输入日志由 `[general] input_log` 控制；用户配置和学习文件始终保存在 XDG 用户目录，卸载不删除。
+
+## 发行版打包
+
+做系统级包（deb / rpm / AUR 等）时，把 `assets/icon/linux/hicolor/` 下八档 PNG（16/22/24/32/48/64/128/256）逐档装到
+`/usr/share/icons/hicolor/<尺寸>x<尺寸>/apps/qingjian.png`，文件名保持 `qingjian.png`。八档已随仓库栅格化提交，打包不依赖
+ImageMagick；不要把 1024px 源图塞进尺寸目录，也不要只装 `resources/assets/` 里的程序资源副本（图标主题不读该路径），
+否则不缩放的托盘会显示巨图（#547）。安装循环片段与图标缓存刷新说明见
+[图标说明](../../assets/icon/README.md#linux-发行版打包)。
 
 ## 验证环境
 
@@ -77,4 +97,31 @@ Server 启动时按 `[model] enabled`（缺省开）在后台线程加载模型�
 - 真实桌面（2026-09-20）：GNOME 50 原生 Wayland，文本编辑器（GTK4）、FeatherPad（Qt6）、Firefox（snap）。Ubuntu 26.04 的 GNOME 已没有 X11 登录项。
   默认面板的外观与位置由 Fcitx5 决定：GTK4 应用里是输入模块自己画的黑白面板，Firefox 里是 Fcitx5 的橙色面板且与光标同一行，Fcitx5 自带拼音表现相同。
 - 真实桌面（2026-09-22，本地整句模型）：CachyOS，niri（原生 Wayland），Fcitx5 5.1.22，Microsoft Edge（Chromium，`--enable-wayland-ime`）与 Konsole（Qt6）：停顿后整句候选按模型换序。
-- 未验证：KDE 与其他桌面、其他发行版、GTK3 / Qt5 应用、真实 X11 桌面会话。
+- 真实桌面（2026-10-16，FreeBSD）：FreeBSD 15.1-RELEASE-p5，XFCE 4.20（X11），Fcitx5 5.1.21，Mousepad（GTK3）：源码安装（`install.sh` + `data-fetch.sh`）、
+  正式词库与含章·通变加载、候选与整句上屏、设置程序；QEMU/KVM 虚拟机里验的，`cargo test`（925 个）与插件 ctest（48 个）在 FreeBSD 上全过。
+  同一台虚拟机上还验了：XFCE 里的 FeatherPad、Kate（Qt6）与 Firefox 158；KDE Plasma 6.7 的 X11 会话里的 Kate 与 Firefox；
+  嵌套在 X11 里的 sway 1.12（Wayland，input-method-v2 / text-input-v3）里原生 Wayland 的 Mousepad、Kate 与 Firefox。
+- 未验证：其他发行版、Qt5 应用；FreeBSD 上完整的 KDE Plasma Wayland 会话（要真机，见下）。
+
+## PR #351 回归验证
+
+在 Ubuntu 26.04.1 容器、Fcitx5 5.1.19-1 中，旧分支复现了 panel 与 lifecycle 用例的 13 个失败：旧帧省略可选 `kind` / `sentence` 时，渲染抛异常使连接断开，进而丢失预编辑、失焦提交和后续能力通知。修复保留旧帧测试形状，新增云字段展示和选区提交复核 / 重入用例，CTest 54 项全过（stdin 接 `/dev/null`）。
+
+同一环境以 Xvfb、私有 D-Bus 和真实 GTK3 输入框验证：输入 `nihao` 后空格只上屏一次「你好」；把 `[predict]` 从关闭改为指向本地模拟服务，同一 Server 进程能发出云联想请求。该 GTK3 控件虽保留选中状态，传给 Fcitx5 的 surrounding text 未包含选区锚点，故本次未完成它的选区替换实测；选区复核由 CTest 覆盖。已有 Fcitx4 桌面验证见 [Fcitx4 适配](linux-fcitx4.md#本机验证)。
+
+## FreeBSD
+
+Server、插件、设置程序与 Linux 共用一份代码，差异只有几处，都按 `target_os` / `__linux__` 分开写：
+
+- 对端身份：Linux 用 `SO_PEERCRED`，FreeBSD 用 `getpeereid`（glibc 没有后者，所以不能统一成一个）。Server（`ipc/connection.rs`）与插件（`ipc/connection.cpp`）各一处。
+- 配置：缺省值与配置模板里按平台分的项（选区翻译的 Alt+Shift+T、`[shortcut]` 的写法）按「不是 Windows 也不是 macOS」走 Linux 那套，不写 `target_os = "linux"`。
+- 字体：FreeBSD 的字体包装在 `/usr/local/share/fonts`（中文是 `noto/NotoSansCJKsc-Regular.otf`），清单在 `bamboo-slip` 的 `fonts/linux.rs`。
+- 安装脚本只依赖 bash 与 python3：`realpath -m` 是 GNU 独有，换成了 `os.path.realpath`。
+- 插件测试：`sockets()` 在 FreeBSD 上读 `procstat -f`（默认不挂 `/proc`），子进程随父进程退出用 `procctl(PROC_PDEATHSIG_CTL)`；
+  一次性回调用 `std::exchange` 取走而不是 `std::move`——libc++ 不保证移走后的 `std::function` 为空，回调会被反复触发。
+- LightDM 会话的 `XDG_RUNTIME_DIR` 是 `/var/run/xdg/<用户>`；从 ssh 起 Server 时要带同一个值，否则插件与 Server 找的不是同一个 socket。
+- 改 `~/.config/fcitx5/profile` 要先停 Fcitx5 再写：它退出时会把内存里的输入法列表存回去，覆盖掉刚写的。
+- 虚拟机里没有 `/dev/dri`（drm-kmod 只有 Intel / AMD / Radeon），整机的 Wayland 会话起不来，只能在 X11 里嵌套合成器验。
+  嵌套的 KWin（X11 窗口后端）建立了输入法上下文、Fcitx5 也申请了截取键盘，但按键始终直接交给应用、不进输入法，
+  所以 Plasma Wayland 要在真机上验；嵌套 sway 没有这个问题。嵌套时给合成器单独开 `dbus-run-session`，否则和外层会话抢 `org.kde.KWin` 等名字。
+- FreeBSD 的 Plasma X11 会话里，会话总线走 X11 autolaunch，进程环境里没有 `DBUS_SESSION_BUS_ADDRESS`；`fcitx5-remote` 因此会直接崩，应用与 Fcitx5 不受影响。

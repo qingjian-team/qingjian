@@ -8,7 +8,7 @@ body:
         标题请用一句话写清现象，例如「Windows 记事本里敲 v 进不了表达式模式」。
 
         感谢反馈。请尽量填全，尤其是复现步骤和版本号，能省去来回追问的时间。
-        提交后维护者会补上平台（`os: *`）与模块（`area: *`）标签，不必自己操心。
+        提交后维护者会补上平台（`os: *`）、模块（`area: *`）、优先级和贡献友好等维护标签，不必自己操心。标签规则见 [Issue 维护标签指南](../ISSUE_LABELS.md)。
   - type: checkboxes
     id: checked
     attributes:
@@ -90,5 +90,5 @@ body:
       description: |
         先贴「设置 → 关于 → 复制诊断信息」的内容（版本、系统、配置，密钥会被抹去）。
         日志文件：macOS 在「关于 → 打开日志目录」里取当天的；Windows 点「关于 → 打包日志到桌面」，把 zip 拖进来作为附件。
-        目录位置见 https://qingjian.app/docs/help/data-and-logs 。缺省级别不含输入内容。
+        目录位置见 https://qingjian.app/docs/advanced/data-files#运行日志 。缺省级别不含输入内容。
       render: text

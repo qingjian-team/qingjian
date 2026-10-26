@@ -60,6 +60,11 @@ impl FuzzyRules {
         "z_zh", "c_ch", "s_sh", "n_l", "f_h", "l_r", "an_ang", "en_eng", "in_ing",
     ];
 
+    /// 设置里显示的规则名：键名 `z_zh` 写成 `z = zh`。
+    pub fn label(name: &str) -> String {
+        name.replace('_', " = ")
+    }
+
     /// 按名字开一条规则（`z-zh` / `z_zh` / `zzh` 都认），CLI 参数用；不认识返回 `false`。
     pub fn enable(&mut self, name: &str) -> bool {
         self.set(name, true)
@@ -279,5 +284,11 @@ mod tests {
         assert_eq!(positions[0][1], SyllablePattern::complete("zhi"));
         assert_eq!(positions[1].len(), 3); // l n r
         assert!(positions[1].iter().all(|p| !p.complete));
+    }
+
+    #[test]
+    fn labels_follow_names() {
+        assert_eq!(FuzzyRules::label("z_zh"), "z = zh");
+        assert_eq!(FuzzyRules::label("an_ang"), "an = ang");
     }
 }

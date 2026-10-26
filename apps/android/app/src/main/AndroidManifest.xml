@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- 按键震动直接调振动器（见 keyboard/Haptics.kt） -->
+    <uses-permission android:name="android.permission.VIBRATE" />
+
+    <!-- 只有快捷翻译、青简翻译、补充译词与云联想（后两样缺省关）连用户自己填的大模型接口（见 cloud/ 与 Rust 侧 apps/android/core/src/cloud），语音输入连用户自己填的识别服务（见 voice/ 与 crates/qingjian-voice）；不开云联想时打字不联网 -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- 云联想「只在 Wi-Fi 下使用」要看当前网络（见 cloud/Network.kt） -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <!-- 语音输入录音（见 voice/EngineRecognizer.kt）；用到时由 voice/MicrophonePermissionActivity.kt 弹框申请 -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+
+    <!-- 试打框等自家输入框的文字选择菜单要列出「青简翻译」这类文字处理项：Android 11 起不声明就查不到 -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.PROCESS_TEXT" />
+            <data android:mimeType="text/plain" />
+        </intent>
+    </queries>
+
+    <application
+        android:allowBackup="false"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.Qingjian">
+
+        <activity
+            android:name=".settings.home.MainActivity"
+            android:exported="true"
+            android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <activity android:name=".settings.page.KeyboardSettingsActivity" android:exported="false" />
+        <activity android:name=".settings.page.AppearanceActivity" android:exported="false" />
+        <activity android:name=".settings.page.AboutActivity" android:exported="false" />
+        <activity android:name=".settings.page.StatsActivity" android:exported="false" />
+        <activity android:name=".settings.page.DictionariesActivity" android:exported="false" />
+        <activity android:name=".settings.page.AdvancedActivity" android:exported="false" />
+        <activity android:name=".settings.page.VoiceSettingsActivity" android:exported="false" />
+
+        <!-- 系统文字选择菜单里的「青简翻译」，见 translate/ProcessTextActivity.kt -->
+        <activity
+            android:name=".translate.ProcessTextActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:label="@string/process_text_label"
+            android:theme="@style/Theme.Qingjian.Sheet">
+            <intent-filter>
+                <action android:name="android.intent.action.PROCESS_TEXT" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+        </activity>
+
+        <!-- 输入法服务弹不了权限框，语音要录音时由它代为申请，见 voice/MicrophonePermissionActivity.kt；不进最近任务，也不带出 App 的任务栈 -->
+        <activity
+            android:name=".voice.MicrophonePermissionActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
+            android:theme="@style/Theme.Qingjian.Transparent" />
+
+        <!-- 剪贴板图片交给别的应用读（发图片、放回系统剪贴板），见 clipboard/ClipboardImageProvider.kt -->
+        <provider
+            android:name=".clipboard.ClipboardImageProvider"
+            android:authorities="app.qingjian.inputmethod.clipboard"
+            android:exported="false"
+            android:grantUriPermissions="true" />
+
+        <service
+            android:name=".service.QingjianInputMethodService"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher"
+            android:label="@string/app_name"
+            android:permission="android.permission.BIND_INPUT_METHOD">
+            <intent-filter>
+                <action android:name="android.view.InputMethod" />
+            </intent-filter>
+            <meta-data
+                android:name="android.view.im"
+                android:resource="@xml/method" />
+        </service>
+    </application>
+</manifest>

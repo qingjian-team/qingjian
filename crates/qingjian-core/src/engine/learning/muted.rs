@@ -64,9 +64,9 @@ impl Learner for MutedLearner {
         self.inner.weight(text)
     }
 
-    fn record_choice(&mut self, input: &str, text: &str) {
+    fn record_choice(&mut self, input: &str, reading: &str, text: &str) {
         if !self.muted() {
-            self.inner.record_choice(input, text);
+            self.inner.record_choice(input, reading, text);
         }
     }
 
@@ -90,9 +90,9 @@ impl Learner for MutedLearner {
         }
     }
 
-    fn unrecord_choice(&mut self, input: &str, text: &str) {
+    fn unrecord_choice(&mut self, input: &str, reading: &str, text: &str) {
         if !self.muted() {
-            self.inner.unrecord_choice(input, text);
+            self.inner.unrecord_choice(input, reading, text);
         }
     }
 
@@ -148,6 +148,11 @@ impl Learner for MutedLearner {
         self.inner.typo_count(typed, intended)
     }
 
+    // 衰减半衰期是调参配置，不是这段输入的学习，私密中照设
+    fn set_decay_half_life(&mut self, days: f64) {
+        self.inner.set_decay_half_life(days);
+    }
+
     // 删词是用户在候选窗口里明确要求的管理操作，不算「这段输入的学习」，私密中照做
     fn forget(&mut self, text: &str) -> Forgotten {
         self.inner.forget(text)
@@ -155,6 +160,19 @@ impl Learner for MutedLearner {
 
     fn forget_english(&mut self, word: &str) -> bool {
         self.inner.forget_english(word)
+    }
+
+    // 降权与删词一样是用户明确要求的管理操作，私密中照做
+    fn demote(&mut self, input: &str, text: &str) {
+        self.inner.demote(input, text);
+    }
+
+    fn undemote(&mut self, input: &str, text: &str) -> bool {
+        self.inner.undemote(input, text)
+    }
+
+    fn demotion(&self, input: &str, text: &str) -> u32 {
+        self.inner.demotion(input, text)
     }
 
     fn flush(&mut self) {

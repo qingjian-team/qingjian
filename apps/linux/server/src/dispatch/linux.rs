@@ -1,6 +1,9 @@
 //! Linux 事件决策；Fcitx 插件只报告事实并应用返回值。
-use super::{Router, key::Effect};
-use crate::protocol::{DisplayIdentity, LinuxEvent, LinuxRequest};
+use super::{
+    Router,
+    key::{Effect, codes},
+};
+use qingjian_platform::protocol::linux::{DisplayIdentity, LinuxEvent, LinuxRequest};
 use qingjian_platform::protocol::{KeyOutcome, ServerMessage, SessionId};
 
 impl Router {
@@ -11,8 +14,14 @@ impl Router {
         }
         let mut outcome = KeyOutcome::Passthrough;
         let mut commit = None;
+        let mut switched = None;
         match request.event {
-            LinuxEvent::Reset => self.discard_session(session),
+            LinuxEvent::Reset => {
+                if self.focused == Some(session) {
+                    self.end_translation();
+                }
+                self.discard_session(session);
+            }
             LinuxEvent::Capabilities(caps) => {
                 let disabled = caps.password || caps.disabled;
                 let private = disabled || caps.sensitive;
@@ -27,15 +36,22 @@ impl Router {
             }
             LinuxEvent::Focus { focused } => {
                 let info = self.sessions.get_mut(&session)?;
+                let was_active = info.active;
                 info.active = focused;
-                info.shift_pending = false;
+                info.switch_tap = None;
                 info.display_frame = None;
                 info.last_frame = None;
                 if !focused && self.focused == Some(session) {
+                    self.end_translation();
                     self.engine.note_displayed(std::iter::empty());
+                    self.engine.cancel_prediction();
                 }
                 if focused {
+                    let was_focused = self.focused == Some(session);
                     self.ensure_focus(session);
+                    if was_focused && !was_active {
+                        self.request_current_prediction();
+                    }
                 }
             }
             LinuxEvent::Deactivate {
@@ -43,6 +59,9 @@ impl Router {
                 client_preedit,
                 capability_changed,
             } => {
+                if self.focused == Some(session) {
+                    self.end_translation();
+                }
                 if capability_changed || self.sessions[&session].disabled {
                     self.discard_session(session);
                 } else {
@@ -56,12 +75,17 @@ impl Router {
                 }
                 let info = self.sessions.get_mut(&session)?;
                 info.active = false;
-                info.shift_pending = false;
+                info.switch_tap = None;
                 info.display_frame = None;
                 info.last_frame = None;
                 self.flush_learning();
             }
-            LinuxEvent::Key { mut event, release } => {
+            LinuxEvent::Key {
+                mut event,
+                release,
+                surrounding,
+                selection_supported,
+            } => {
                 if self.sessions[&session].disabled
                     || self.sessions[&session].capabilities.is_none()
                 {
@@ -70,49 +94,114 @@ impl Router {
                         outcome,
                         commit,
                         frame: Default::default(),
+                        english: None,
                     });
                 }
                 self.ensure_focus(session);
                 self.notice = None;
+                if !release && self.translation.is_some() {
+                    let (outcome, commit) = self.review_translation(&event);
+                    return Some(ServerMessage::KeyResult {
+                        session,
+                        outcome,
+                        commit,
+                        frame: self.current_frame(),
+                        english: None,
+                    });
+                }
+                if !release
+                    && selection_supported
+                    && self.engine.composition().is_empty()
+                    && self.engine.prediction_enabled()
+                    && !self.sessions[&session].private
+                    && self.sessions[&session].active
+                    && self.matches_translate_combo(&event)
+                {
+                    return Some(self.request_selection(session));
+                }
+                if release && self.translation.is_some() {
+                    return Some(ServerMessage::KeyResult {
+                        session,
+                        outcome,
+                        commit,
+                        frame: self.current_frame(),
+                        english: None,
+                    });
+                }
+                let surrounding = (!self.sessions[&session].private)
+                    .then_some(surrounding)
+                    .flatten()
+                    .map(Into::into);
+                let keys = self.config.switch_keys();
                 let info = self.sessions.get_mut(&session)?;
-                let shift = event.virtual_key == 0x10;
                 if release {
-                    if shift && info.shift_pending {
-                        info.shift_pending = false;
-                        info.english = !info.english;
-                        commit =
-                            (!self.engine.composition().is_empty()).then(|| self.engine.take_raw());
-                        self.reset_composition();
+                    if info.switch_tap == Some(event.virtual_key) {
+                        info.switch_tap = None;
+                        commit = self.toggle_english(session);
+                        switched = Some(self.sessions[&session].english);
                         outcome = KeyOutcome::Consumed;
                     }
+                } else if keys.ctrl_alt_space && codes::is_ctrl_alt_space(&event) {
+                    info.switch_tap = None;
+                    commit = self.toggle_english(session);
+                    switched = Some(self.sessions[&session].english);
+                    outcome = KeyOutcome::Consumed;
                 } else {
-                    info.shift_pending = shift && !event.modifiers.has_command_key();
+                    info.switch_tap = codes::switch_tap(keys, &event);
                     event.modifiers.english_mode = info.english;
-                    let effect = if shift {
-                        Effect::Passthrough
-                    } else {
-                        self.apply_key(&event)
-                    };
-                    match effect {
-                        Effect::Changed(text) => {
-                            self.recompose();
-                            commit = text;
-                            outcome = KeyOutcome::Consumed;
+                    if !codes::is_tap_modifier(event.virtual_key)
+                        && !self.engine.composition().is_empty()
+                        && self.config.cloud_enabled
+                        && self.engine.prediction_enabled()
+                        && self.matches_predict_combo(&event)
+                    {
+                        // 组合键一按就吃掉，联想没发出去也不还给应用（与 Windows 壳一致）；
+                        // 显式要求刷新时回到第一页，让新的 AI 首选可以置顶。
+                        if self.request_manual_prediction(surrounding) {
+                            self.highlight = 0;
+                            self.navigated = false;
                         }
-                        Effect::Navigated => outcome = KeyOutcome::Consumed,
-                        Effect::Passthrough => {}
+                        outcome = KeyOutcome::Consumed;
+                    } else {
+                        let effect = if codes::is_tap_modifier(event.virtual_key) {
+                            Effect::Passthrough
+                        } else {
+                            self.apply_key(&event)
+                        };
+                        match effect {
+                            Effect::Changed(text) => {
+                                self.recompose(surrounding);
+                                commit = text;
+                                outcome = KeyOutcome::Consumed;
+                            }
+                            Effect::Navigated => outcome = KeyOutcome::Consumed,
+                            Effect::Passthrough => {}
+                        }
                     }
                 }
             }
             LinuxEvent::Candidate { identity, index } => {
                 if self.valid_panel_event(session, &identity) && index < self.config.page_size {
-                    let offset = self.highlight / self.config.page_size * self.config.page_size;
-                    commit = self.commit_index(offset + index);
-                    if commit.is_some() {
-                        self.recompose();
+                    if self.translation.is_some() {
+                        if index == 0 {
+                            commit = self.translation.as_ref().and_then(|job| job.result.clone());
+                            if commit.is_some() {
+                                self.end_translation();
+                            }
+                        }
                         outcome = KeyOutcome::Consumed;
+                    } else {
+                        let offset = self.highlight / self.config.page_size * self.config.page_size;
+                        commit = self.commit_index(offset + index);
+                        if commit.is_some() {
+                            self.recompose(None);
+                            outcome = KeyOutcome::Consumed;
+                        }
                     }
                 }
+            }
+            LinuxEvent::Selection { request, text } => {
+                outcome = self.receive_selection(session, request, text);
             }
             LinuxEvent::Page { identity, next } => {
                 if self.valid_panel_event(session, &identity) {
@@ -126,11 +215,14 @@ impl Router {
         } else {
             Default::default()
         };
+        // 选词没选完一段拼音时 Core 把词留在组句里、上屏文本是空串
+        let commit = commit.filter(|text| !text.is_empty());
         Some(ServerMessage::KeyResult {
             session,
             outcome,
             commit,
             frame,
+            english: switched,
         })
     }
 
@@ -144,9 +236,18 @@ impl Router {
             && info.display_identity.as_ref() == Some(identity)
     }
 
+    /// 切换中英：组句中的拼音原样上屏。
+    fn toggle_english(&mut self, session: SessionId) -> Option<String> {
+        let info = self.sessions.get_mut(&session).expect("known session");
+        info.english = !info.english;
+        let commit = (!self.engine.composition().is_empty()).then(|| self.engine.take_raw());
+        self.reset_composition();
+        commit
+    }
+
     fn discard_session(&mut self, session: SessionId) {
         let info = self.sessions.get_mut(&session).expect("known session");
-        info.shift_pending = false;
+        info.switch_tap = None;
         info.display_frame = None;
         info.last_frame = None;
         info.composed = None;

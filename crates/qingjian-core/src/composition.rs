@@ -183,6 +183,24 @@ impl Composition {
         };
     }
 
+    /// 开头 `len` 字节那段，光标在它末尾。
+    pub fn prefix(&self, len: usize) -> Composition {
+        let len = len.min(self.buffer.len());
+        let chars = self.char_index(len);
+        Composition {
+            buffer: self.buffer[..len].to_owned(),
+            shifted: self.shifted[..chars].to_vec(),
+            cursor: len,
+        }
+    }
+
+    /// 把 `prefix` 接回开头（撤回一次选词），光标跟着后移。
+    pub fn prepend(&mut self, prefix: &Composition) {
+        self.buffer.insert_str(0, &prefix.buffer);
+        self.shifted.splice(0..0, prefix.shifted.iter().copied());
+        self.cursor += prefix.buffer.len();
+    }
+
     /// 吃掉整个作用域（云端词 / 英文词 / 整句对应的是整个作用域）。
     pub fn drain_scope(&mut self) {
         let len = self.scope().len();
@@ -299,6 +317,21 @@ mod tests {
         composition.drain_scope();
         assert_eq!(composition.text(), "hao");
         assert_eq!(composition.cursor(), 3);
+    }
+
+    #[test]
+    fn prefix_and_prepend_round_trip() {
+        let mut composition = typed("yu");
+        composition.push_shifted('k');
+        for c in "uaide".chars() {
+            composition.push(c);
+        }
+        let before = composition.clone();
+        let prefix = composition.prefix(6);
+        composition.drain_prefix(6);
+        assert_eq!(prefix.typed_text(), "yuKuai");
+        composition.prepend(&prefix);
+        assert_eq!(composition, before);
     }
 
     #[test]

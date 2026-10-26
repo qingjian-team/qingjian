@@ -1,15 +1,20 @@
 //! 形码（五笔）：编码直接查码表，不走拼音的切分与整句。
 
+use qingjian_dictionary::CodeTable;
+
 use super::*;
 
 /// 五笔 86 的一小段：一级简码 V 是 发，`ggll` 是 一。
 /// `甲` 的编码故意取成 `kai`、`乙丙` 取成 `kaik`——与拼音的 开 同形，用来验混输时的排序。
-const CODES: &str = "一\tggll\t90000\n发\tv\t30000\n到\tgc\t20000\n来\tgo\t15000\n开\tga\t5000\n开发\tgant\t900\n甲\tkai\t1000\n乙丙\tkaik\t800\n";
+pub(super) const CODES: &str = "一\tggll\t90000\n发\tv\t30000\n到\tgc\t20000\n来\tgo\t15000\n开\tga\t5000\n开发\tgant\t900\n甲\tkai\t1000\n乙丙\tkaik\t800\n";
 
 /// 只用形码：拼音侧关掉，候选只从码表来。
-fn wubi() -> Engine {
+pub(super) fn wubi() -> Engine {
     let mut engine = engine();
-    engine.set_code_table(Some(CodeTable::parse(CODES).unwrap()));
+    engine.set_code_scheme(Some(CodeScheme::new(
+        "wubi",
+        CodeTable::parse(CODES).unwrap(),
+    )));
     engine.set_phonetic(false);
     engine
 }
@@ -17,7 +22,10 @@ fn wubi() -> Engine {
 /// 混输：形码与拼音两边都出候选。
 fn mixed() -> Engine {
     let mut engine = engine();
-    engine.set_code_table(Some(CodeTable::parse(CODES).unwrap()));
+    engine.set_code_scheme(Some(CodeScheme::new(
+        "wubi",
+        CodeTable::parse(CODES).unwrap(),
+    )));
     engine
 }
 
@@ -223,8 +231,22 @@ fn letters_never_start_a_mode_under_wubi() {
 #[test]
 fn switching_back_to_pinyin_drops_the_code_table() {
     let mut engine = wubi();
-    engine.set_code_table(None);
+    engine.set_code_scheme(None);
     assert!(!engine.is_code_mode());
     engine.set_input("kaifa");
     assert_eq!(engine.query().unwrap().candidates.items[0].text, "开发");
+}
+
+#[test]
+fn mixed_input_works_with_shuangpin() {
+    // 拼音侧换成双拼也是混输：编码照查码表，双拼的键按双拼切
+    let mut engine = mixed();
+    engine.set_shuangpin(Some(crate::shuangpin::Scheme::Xiaohe));
+    assert_eq!(code_texts(&mut engine, "gant"), ["开发"]);
+    assert_eq!(code_texts(&mut engine, "ggll"), ["一"]);
+    assert_eq!(
+        code_texts(&mut engine, "kdfa").first().map(String::as_str),
+        Some("开发")
+    );
+    assert_eq!(code_texts(&mut engine, "xm"), ["先"]);
 }

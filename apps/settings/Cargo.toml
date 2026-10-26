@@ -1,0 +1,62 @@
+[package]
+name = "qingjian-settings"
+description = "三平台共用的设置程序：画在 bamboo-slip 上，读写输入法同一份 config.toml"
+version = "0.3.2-dev"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+bamboo-slip = { workspace = true, features = ["host"] }
+qingjian-render.workspace = true
+qingjian-platform.workspace = true
+# 模式键的候选字母、辅码触发键的校验
+qingjian-core.workspace = true
+toml_edit.workspace = true
+tracing.workspace = true
+# 列本机装的字族（字体下拉框）
+cosmic-text.workspace = true
+jiff.workspace = true
+# 云服务页：测试连接；macOS 上密钥可能在配置同目录的 .env 里，读进来才知道「已设置」
+qingjian-predict.workspace = true
+qingjian-update.workspace = true
+# 词库页：读词库信息、导入词库与码表
+qingjian-dictionary.workspace = true
+# 统计页：读输入量与词汇记录、词汇等级表
+qingjian-learning.workspace = true
+qingjian-translate.workspace = true
+# 导入时的文件选择窗口（与 Windows 旧设置程序同一个）
+rfd = "0.17"
+dotenvy.workspace = true
+# 实验功能：下载模型（清单、分块核对、解压）
+reqwest = { workspace = true, features = ["native-tls", "system-proxy"] }
+tokio = { workspace = true, features = ["macros"] }
+serde.workspace = true
+serde_json.workspace = true
+sha2 = "0.11"
+flate2 = "1.1.10"
+tar = { version = "0.4", default-features = false }
+tracing-subscriber.workspace = true
+tracing-appender.workspace = true
+
+[dev-dependencies]
+toml.workspace = true
+
+# 只开一个窗口：第二次启动把已开的带到前台；系统的 Ctrl + Space
+[target."cfg(windows)".dependencies]
+windows = { version = "0.62.2", features = [
+    "Win32_Foundation",
+    "Win32_Security",
+    "Win32_System_Threading",
+    # 中英文页的「Ctrl + Space（系统）」
+    "Win32_UI_Input_Ime",
+    "Win32_UI_Input_KeyboardAndMouse",
+    "Win32_UI_WindowsAndMessaging",
+] }
+
+[target."cfg(windows)".build-dependencies]
+winresource = "0.1.31"
+
+[lints]
+workspace = true

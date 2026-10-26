@@ -39,20 +39,29 @@ cargo run --release -p qingjian-dict-convert -- lexicon --pinyin data/generated/
 #     语言模型不把短语当 token 统计（那样 而 + 是 的二元证据没了，二十 会压过 而是）：--phrases 让分词跳过短语、统计完按成分合成它们的计数，
 #     短语在整句与词级排序里的得分与原来走两个词的路径完全一样，只是多了个能整块选的词（见 tools/dict-convert/src/bigram.rs 模块注释）
 cargo run --release -p qingjian-dict-convert -- bigram --phrases assets/lexicon/phrases.tsv --phrases assets/lexicon/domain_words.tsv --brand assets/lexicon/brand.tsv --brand assets/lexicon/mixed_words.tsv data/corpus/*.txt
-# 4d. 领域词：输入日志里选过、词库与短语层都没有、但公开语料里出现过的词（对齐 / 后端 / 词库 / 候选框），人工挑进 assets/lexicon/domain_words.tsv（词\t次数\t拼音，
+# 4d. 领域词：输入日志里选过、词库与短语层都没有、但公开语料里出现过的词（对齐 / 后端 / 词库 / 候选框），人工挑进 assets/lexicon/domain_words.tsv（词\t拼音\t次数，
 #     次数用语料次数，不到 20 的按 20；只在日志里出现的不进基础词库，留在个人词库）。语言模型里它们**也走 --phrases 的合成路**：
 #     语料里只有几十次的词当 token 统计会把成分词的二元证据吸走（词库 77 次，词 + 库 的路径没了，反被 词哭 压过），合成计数则整句得分与原路径一样，词级多一个能整块选的词。
 #     见 docs/notes/domain-words.md
-# 4e. 中英混杂词（C盘 / B站 / U盘 / T恤）：assets/lexicon/mixed_words.tsv（词\t次数\t拼音，字母音节 + 汉字拼音），
+# 4e. 中英混杂词（C盘 / B站 / U盘 / T恤）：assets/lexicon/mixed_words.tsv（词\t拼音\t次数，字母音节 + 汉字拼音），
 #     与 phrases / domain_words 一样走 lexicon --extra-words；语言模型走 bigram --brand 直接写一元（--phrases 的合成要成分词在语料里，C 不是 token）。
 #     次数对着同音竞争词定：C盘 8000 > 裁判 5416 可以抢首选；B站 要 40000：本站 7533 次里六成在句首（维基页脚），--brand 的句首二元按八分之一算，得盖过 4562；B股 / H股 / G盘 / F盘 / X光 压到几百，别压过 不顾 / 回顾 / 光盘 / 翻盘 / 星光。
+# 4f. 青简词库：数字声调版全量（158 万条）与已清洗子集两个文件放在仓库外，第 4 步那条 lexicon 加 --general / --cleaned 给路径。
+#     基础词库已有的词补声调；没有的换算词频，已清洗的写 data/generated/dict-cleaned.tsv（pack dict 与 dict.tsv 合成 dict.qj，同一档），
+#     其余写 dict-general.tsv 与 dicts/general.qj（随包，缺省开着、排序低一档）。都不进 bigram 分词，dict.tsv 除声调外不变，语言模型不用重跑
+cargo run --release -p qingjian-dict-convert -- lexicon --pinyin data/generated/pinyin-llm.jsonl --frequency data/generated/lm-unigram.tsv --extra-words assets/lexicon/mined_words.tsv --extra-words assets/lexicon/phrases.tsv --extra-words assets/lexicon/brand.tsv --extra-words assets/lexicon/domain_words.tsv --extra-words assets/lexicon/mixed_words.tsv --general <qingjian-full.tone-numbers.tsv> --cleaned <subsets/curated-machine-draft.tone-numbers.tsv>
 # 5. 英文词表
 cargo run --release -p qingjian-dict-convert -- english assets/lexicon/05_english/00_all_words.tsv assets/lexicon/05_english/07_display_forms.tsv
 uv run tools/corpus/english_frequency.py data/generated/english.tsv -o data/generated/english-frequency.tsv
 cargo run --release -p qingjian-dict-convert -- english assets/lexicon/05_english/00_all_words.tsv assets/lexicon/05_english/07_display_forms.tsv --frequency data/generated/english-frequency.tsv
 # 6. 打包（bundle.sh 会自动做；领域词库的 .qj 第 4 步已经写好，bundle.sh 直接拷进 Resources/dicts/）
-cargo run --release -p qingjian-dict-convert -- pack dict --name 青简基础词库 --license "MIT AND Unicode-3.0"
+cargo run --release -p qingjian-dict-convert -- pack dict --name 青简基础词库 --license "MIT AND Unicode-3.0 AND GPL-3.0-or-later"
 ```
+
+生僻字表 `01_characters/rare_chars.tsv` 不在原数据包里，由 `tools/corpus/rare_chars.py` 从两张表合成（来源、读音出处与许可见脚本文件头）：
+「规范字表外扩充汉字」（GB 18030-2022 原版范围的 Unicode 统一汉字减去 8105 字，读音取 Unihan 17）与台湾教育部罕用字 C 表（读音取 CNS 全字库），
+按字去重、读音取并集，扩展 G 的 𰻝 𰻞 手工补。`lexicon` 每次都会读它，词库已有的字不动，其余按词频 0 收进 `dict.tsv`（不进语言模型与整句），
+标了 `everyday` 的日常常用字（诶 囧）按规范字处理。
 
 读音来自 Unihan（`data/unihan/Unihan_Readings.txt`，从 https://www.unicode.org/Public/UCD/latest/ucd/Unihan.zip 解出，Unicode License v3）；
 多音字词的读音由 LLM 标注后逐字对照 Unihan 校验。最终的基础词库 `dict.tsv` 与拆出的领域词库 `dicts/*.tsv` 也随仓库放在这个目录，没有语料和 API 也能直接打包。

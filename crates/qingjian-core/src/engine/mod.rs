@@ -6,42 +6,52 @@
 mod alignment;
 mod annotation;
 mod aux_code;
+mod candidate_menu;
+mod choice;
+mod code_keys;
 mod commit;
 mod composing;
 mod correcting;
 mod decoded;
 mod extras;
 mod gloss;
+mod held;
 mod input_log;
+mod key_hint;
 mod learning;
 mod marked;
 mod mode_keys;
+mod panel;
 mod prediction;
 mod privacy;
 mod query;
 mod raw;
+mod reading;
 mod rescoring;
 mod session;
 mod setup;
+mod spacing;
 mod statistics;
 mod timings;
 mod translator;
 mod vocabulary;
+mod voice;
 
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use qingjian_dictionary::{AuxCodeLookup, CodeTable, Dictionary, Match, WordList};
+use qingjian_dictionary::{AuxCodeLookup, Dictionary, Match, WordList};
 
 pub use alignment::Alignment;
 pub use annotation::AnnotationReport;
 pub use aux_code::is_valid_aux_code_key;
+pub use choice::{ChoiceModel, ChoiceTier};
 pub use commit::{LastCommit, Transition};
 pub use gloss::{FilledGloss, GlossFiller, NoGlossFiller};
 pub use input_log::{
-    CommitEntry, INPUT_LOG_VERSION, InputLogEntry, InputLogger, InputSource, LOGGED_CANDIDATES,
-    NoInputLogger,
+    ChoiceNote, CommitEntry, INPUT_LOG_VERSION, InputLogEntry, InputLogger, InputSource,
+    LOGGED_CANDIDATES, NoInputLogger,
 };
 pub use learning::{Forgotten, Learner, NoLearner};
 pub use marked::{AuxSegment, MarkedKind, MarkedSegment};
@@ -58,24 +68,27 @@ pub use statistics::{BOOKS, Book, NoUsageMeter, Usage, UsageMeter, UsageSummary,
 pub use timings::Timings;
 pub use translator::{NoTranslator, Translator};
 pub use vocabulary::{
-    FRESH_UNTIL, LevelCount, NoVocabularyTracker, VocabularySummary, VocabularyTracker,
+    Encounter, FRESH_UNTIL, LevelCount, NoVocabularyTracker, VocabularySummary, VocabularyTracker,
 };
 
 use crate::candidate::{Candidate, CandidateKind, CandidateList, Language};
+use crate::code_scheme::CodeScheme;
 use crate::composition::Composition;
 use crate::correction::{self, Correction, TypoCosts, typo};
 use crate::emoji::EmojiTable;
 use crate::english;
 use crate::fuzzy::{Expanded, FuzzyRules};
 use crate::history::InputHistory;
+use crate::panel::{NoPanelHistory, PanelHistory, SymbolPanel};
 use crate::parser::{self, ParseError, Segmentation};
 use crate::punctuation::Punctuation;
 use crate::ranking::{self, Scored};
 use crate::sentence::{
-    self, Conversion, Interpolation, LanguageModel, NoLanguageModel, Personal, SentenceScorer,
+    self, Conversion, Interpolation, LanguageModel, NoLanguageModel, SentenceScorer,
 };
 use crate::shortcut;
-use crate::shuangpin::Scheme;
+use crate::shuangpin::Layout;
+use crate::traditional::Traditional;
 
 use commit::CommitChain;
 
@@ -92,6 +105,9 @@ pub struct Engine {
     /// 附加词库（领域词库、用户导入的），与主词库一起查词、一起进整句词图；不参与语言模型（它们没有 bigram，
     /// 走词频兜底）。壳按用户目录 `dicts/` 与配置 `[dictionaries]` 装配。
     extra_dictionaries: Vec<Dictionary>,
+
+    /// 内置的符号、emoji 名字（尖括号、笑死），带上 emoji 表时启用：词库里没有它们，不收就打不出这个词、也就配不上符号。
+    companion_words: Option<&'static Dictionary>,
 
     /// 英文候选的释义（英→中），缺省为 [`NoTranslator`]。英文候选的辅助语言是主语言中文，
     /// 与中文候选查学习语言的表分开，仍是「一个候选只显示一种辅助语言」。
@@ -115,11 +131,23 @@ pub struct Engine {
     /// 中文标点转换开关。
     full_width_punctuation: bool,
 
-    /// 用户定义的固定位置文本。
+    /// 用户定义的短语，按输入码精确匹配、按权重排在最前。
     custom_phrases: Vec<crate::CustomPhrase>,
+
+    /// 中文模式下整段是英文词（或像英文词的开头）时给不给英文候选与补全（配置 `[general] english_in_chinese`，缺省开）。
+    english_in_chinese: bool,
 
     /// 中英混输时中文候选总在英文词前面（缺省关：拼音不像话的输入英文词排第一，常在中文模式里打英文词的人靠它）。
     chinese_first: bool,
+
+    /// 中文模式下英文候选（精确词 + 补全）最多几个（配置 `[general] english_max_in_chinese`，缺省 4）。
+    english_max_in_chinese: usize,
+
+    /// 有中文候选时英文最高排到第几位（配置 `[general] english_min_position`，缺省 1 即不限制）。
+    english_min_position: usize,
+
+    /// 中西文混排自动补空格（配置 `[general] auto_space`，缺省关）。见 [`crate::spacing`]。
+    auto_space: bool,
 
     /// 中文模式下 Shift+字母进组句缓冲区（配置 `[general] shift_letter = "compose"`，缺省关）。
     /// 关着由壳直接把大写字母交给应用，Core 这一路就不该收——否则 `Cpan` 这种会被当成拼音。
@@ -127,6 +155,9 @@ pub struct Engine {
 
     /// 联想提供方，缺省为 [`NoPredictor`]。
     predictor: Box<dyn Predictor>,
+
+    /// 显式选区翻译的独立提供方；未设置时沿用联想服务。
+    translation_predictor: Option<Box<dyn Predictor>>,
 
     /// 整句转换的语言模型，缺省为 [`NoLanguageModel`]（退化成一元词频）。
     language_model: Box<dyn LanguageModel>,
@@ -139,6 +170,12 @@ pub struct Engine {
 
     /// 「前文 + 整句文本 → 神经分」缓存，同步与异步打分共用。
     neural_cache: std::cell::RefCell<rescoring::NeuralCache>,
+
+    /// 选词模型（试验）：候选窗前几条交给它重排一次，见 [`choice`]。
+    choice: Option<choice::ChoiceRanker>,
+
+    /// 选词模型比几条、看多长前文。
+    choice_tier: choice::ChoiceTier,
 
     /// 壳给的应用里光标前的文本；`None` 时前文用本会话历史。
     rescoring_before: Option<String>,
@@ -177,8 +214,17 @@ pub struct Engine {
     /// 最近一次查询的候选顺序是否经过神经重排（`rescore_paths` 置位，`query` 开头清零），写进输入日志。
     last_rescored: std::cell::Cell<bool>,
 
+    /// 最近一次查询里选词模型排过这页的记录（`rerank_choices` 写，`query` 开头清零），写进输入日志。
+    last_choice: std::cell::Cell<Option<input_log::ChoiceNote>>,
+
     /// 这段组句里第一次退格前的缓冲区：上屏时与最终键串不同就记一条 `retype`。
     retype_snapshot: Option<String>,
+
+    /// 前面选好、还没交给应用的词（见 `held` 模块）。
+    held: Vec<held::HeldSelection>,
+
+    /// 选词后剩下拼音时先不上屏（[`Self::set_hold_selections`]，缺省开）。
+    hold_selections: bool,
 
     /// 组句外直通给应用的字符，攒到下一次上屏或上文断开时写成一条 `passthrough`。
     passthrough_pending: String,
@@ -189,17 +235,20 @@ pub struct Engine {
     /// 这段组句第一键的时刻（算首键到上屏的毫秒）。
     composition_started: Option<Instant>,
 
+    /// 输入统计用的键数与打字时长。
+    typing: statistics::Typing,
+
     /// 正在输入的应用标识，壳在焦点变化时给；写进输入日志。
     application: Option<String>,
 
     /// 上次记 `break` 之后有没有上屏过：没有就不再记，免得失焦一次记一条。
     committed_since_break: bool,
 
-    /// 最近一次联想请求时的作用域：结果可能在上屏之后才到，日志里要记请求时的拼音。
-    last_prediction_scope: String,
-
     /// 输入统计的累计方（打了多少字）；缺省不记。
     meter: Box<dyn UsageMeter>,
+
+    /// 上屏记不记进输入统计（见 [`Self::set_metered`]）；壳的工具框（快捷翻译的原文、常用语编辑）里关掉。
+    metered: bool,
 
     /// 学习语言的词汇记录（见过 / 上屏过哪些译词）；缺省不记也不标生词。
     vocabulary: Box<dyn VocabularyTracker>,
@@ -210,6 +259,9 @@ pub struct Engine {
     /// 候选窗口当前页上的译词（壳每次画完告知），上屏时记成「看到过」。
     displayed: Vec<(Language, String)>,
 
+    /// 上屏过带译词的词、等那句话写完当例句。
+    examples: vocabulary::ExampleCollector,
+
     /// 上一次查询的摘要，上屏时写进输入日志。
     last_query: std::cell::RefCell<Option<query::QuerySnapshot>>,
 
@@ -219,17 +271,14 @@ pub struct Engine {
     /// 整句转换的格子候选缓存：跨按键复用，学习数据一变就清（见 [`Self::forget_span_cache`]）。
     span_cache: std::cell::RefCell<sentence::SpanCache>,
 
-    /// 本次会话经我们上屏的文本，应用不给上下文时用它联想。
+    /// 本次会话经我们上屏的文本，按应用分开记；应用不给光标前文时给模型当前文。
     history: InputHistory,
 
     /// 最近一次联想请求的序号，0 表示还没发过。
     prediction_sequence: u64,
 
-    /// 最近一次联想请求的种类：只有组句联想的结果要按拼音校验。
-    last_prediction_kind: PredictionKind,
-
-    /// 最近一次问字请求里本地把问题拼音转成的汉字，用来剔掉模型复述问题的「答案」。
-    last_question_guess: String,
+    /// 尚未返回的请求。组句联想与整句候选翻译可同时在飞，不能只记最后一条。
+    pending_predictions: HashMap<u64, prediction::PendingPrediction>,
 
     /// 连续上屏的链，个人 n-gram 与自动造词靠它。
     chain: CommitChain,
@@ -238,7 +287,7 @@ pub struct Engine {
     fuzzy: FuzzyRules,
 
     /// 双拼方案，`None` 为全拼。开着时缓冲区里是双拼键，查词前先解成全拼（见 [`crate::shuangpin`]）。
-    shuangpin: Option<Scheme>,
+    shuangpin: Option<Arc<Layout>>,
 
     /// 双拼方案下 preedit 显示原始按键（如 `ljse`）还是展开成全拼（`lan'se`）。
     shuangpin_raw_preedit: bool,
@@ -246,8 +295,11 @@ pub struct Engine {
     /// 注音模式开关，開著時緩衝區裡是注音大千鍵位，查詞前先解成拼音（見 [`crate::zhuyin`]）。
     zhuyin: bool,
 
-    /// 形码码表（五笔）。`Some` 时编码参与查询，按前缀查表（见 [`Engine::query_code`]）。
-    code: Option<CodeTable>,
+    /// 九宫格方案：缓冲区里是数字键（可混着已选定的字母），见 [`crate::nine_key`]。
+    nine_key: bool,
+
+    /// 形码方案（五笔或用户导入的）。`Some` 时编码参与查询，按前缀查表（见 [`Engine::query_code`]）。
+    code: Option<CodeScheme>,
 
     /// 拼音侧（全拼 / 双拼 / 注音）参不参与查询，缺省参与。
     ///
@@ -257,6 +309,27 @@ pub struct Engine {
 
     /// emoji 表，没有就不出 emoji 候选。
     emoji: Option<EmojiTable>,
+
+    /// 每次查询最多插几个 emoji（配置 `[general] emoji`，缺省 3）；0 不出 emoji，表照样加载。
+    emoji_limit: usize,
+
+    /// 内置的颜文字表，带上 emoji 表时一起启用。
+    kaomoji: Option<&'static EmojiTable>,
+
+    /// 每次查询最多插几个颜文字（配置 `[general] kaomoji`，缺省 1）。
+    kaomoji_limit: usize,
+
+    /// 内置的符号表，带上 emoji 表时一起启用。
+    symbols: Option<&'static EmojiTable>,
+
+    /// 每次查询最多插几个符号（配置 `[general] symbols`，缺省 1）。
+    symbol_limit: usize,
+
+    /// 打开着的符号面板；`None` 是没开。上屏与清空时关掉。
+    panel: Option<SymbolPanel>,
+
+    /// 面板条目的使用记录：打开面板时排「常用」，从面板上屏时记一次；缺省不记。
+    panel_history: Box<dyn PanelHistory>,
 
     /// 辅码态：`None` 是拼音态，`Some` 是辅码态（空串 = 刚敲下触发键、码段还没开始）。
     /// 码段不进 `composition`：它与拼音分段记账、分段画（见 [`AuxSegment`]）。
@@ -269,6 +342,9 @@ pub struct Engine {
     /// 由壳装配时告知（辅码态不受它管，看码有引导意义）。
     aux_show: bool,
 
+    /// 拼音行按高亮候选显示带调拼音（配置项 `[general] show_tones`，缺省关），见 [`Self::toned_syllables`]。
+    show_tones: bool,
+
     /// 进辅码态的触发键，配置项 `[general] aux_code_key`，缺省 [`DEFAULT_AUX_CODE_KEY`]。
     aux_code_key: char,
 
@@ -279,24 +355,25 @@ pub struct Engine {
     /// 辅码码表，壳按用户目录 `codes/` 与配置装配；空表示没装码表（辅码态筛不出任何词）。
     aux_codes: Vec<Arc<dyn AuxCodeLookup>>,
 
-    /// 繁体输出模式。
-    traditional: bool,
-
-    /// 繁体转换器。
-    opencc: Option<ferrous_opencc::OpenCC>,
-
-    /// 繁体输出时「繁体 → 原简体」的映射，组句结束清空；学习、译词、撤销都按简体原文走。
-    traditional_map: std::cell::RefCell<HashMap<String, String>>,
+    /// 繁体输出：候选出 Core 时换成繁体、上屏时换回简体，缺省不转（见 [`crate::traditional`]）。
+    traditional: Traditional,
 }
-
-/// 形码编码最长几位（五笔四码）：混输下超过它的输入只可能是拼音。
-const MAX_CODE_LENGTH: usize = 4;
 
 /// 英文补全最多几条（`compa` → company / compare / …）。
 const ENGLISH_COMPLETIONS: usize = 3;
 
+/// 中文模式下英文候选的缺省上限：1 条精确词 + 3 条补全，与以前的行为一致。
+pub const ENGLISH_CANDIDATES_MAX: usize = ENGLISH_COMPLETIONS + 1;
+
 /// 原样上屏的字母串至少几个字母才当英文词学：单字母（`a`、`I`）不值得记。
 const MIN_ENGLISH_WORD_LETTERS: usize = 2;
+
+/// 原样上屏的字母串最多几个字母才当英文词学：再长的多半不是一个词，是一整句打不出来的输入
+/// （`yongdockerbushuhenfangbian`），学进去会反过来堵住混输那条路。
+/// 15 是 2026-09-25 按数据定的：用户个人表 1102 条里超过 15 个字母的 9 条全是失败的拼音、无一真词；
+/// 随包英文词表 94568 条里超过 15 个字母的只占 0.69%，而那些词基本都已经在随包表里、不靠学。
+/// 英文模式下不设这个上限：那时敲的本来就是英文。
+const MAX_ENGLISH_WORD_LETTERS: usize = 15;
 
 /// 英文模式一次最多给几条候选：两页足够，再往后没人翻。
 const ENGLISH_MODE_CANDIDATES: usize = 18;
@@ -317,10 +394,15 @@ const ENGLISH_SWITCH_PENALTY: f64 = 3.0;
 /// 英文词频的下限（Zipf）：没有词频的词按百万分之一算。
 const ENGLISH_ZIPF_FLOOR: f64 = 3.0;
 
-/// emoji 只配给前几个候选，每个词最多几个、一次最多几个。
+/// emoji、颜文字、符号只配给前几个候选，每个词最多几个、每样一次最多几个。
+/// 颜文字宽，一个词只跟一个，免得把横排撑长。
 const EMOJI_SCAN: usize = 5;
 const EMOJI_PER_WORD: usize = 2;
+const KAOMOJI_PER_WORD: usize = 1;
 const EMOJI_TOTAL: usize = 3;
+
+/// 「日期 / 时间 / 星期」这几个词排在前几条里才跟快捷写法（同 emoji 配词的范围；九宫格 7474 的日期常排第四）：再往后多半是长输入的前缀词。
+const KEYWORD_SCAN: usize = 5;
 
 /// 自动造词：用户连着选出的两个词，合起来不在词库里、且这条接续已记过这么多次，就记成用户词。
 /// 同一段拼音里连着选出来的（`qingjian` 选 青 再选 简）是「用户把它当一个词打」的强信号，两次就够；
@@ -355,6 +437,18 @@ const MAX_CANDIDATES: usize = 500;
 /// 神经重打分看 Viterbi 的前几条路径：束宽是 8，再多也没有。
 const RESCORE_PATHS: usize = 6;
 
+/// 长输入最多给几条整句候选（重排后的前几条路径）：一条不够用，长句错一个字就得拆开重打。
+const SENTENCE_CANDIDATES: usize = 3;
+
+/// 结构上打平的切分（`shang ou` / `shan gou`）最多比几种，见 [`Engine::sentence_segmentation`]。
+const TIED_SEGMENTATIONS: usize = 3;
+
+/// 短于这么多音节的不给备选整句：那时候选表里的词级候选比另一种读法有用。
+const ALTERNATE_MIN_SYLLABLES: usize = 4;
+
+/// 短于这么多字母的不让模型直接生成整句：那么短的输入词级候选够用，生成的几十毫秒不值。
+const MIN_GENERATED_LETTERS: usize = 6;
+
 /// 神经重打分的缺省权重 λ（见 `Engine::neural_weight`）：整句评测集上 0.5 到 1.0 一样好、0.75 最高（见 docs/notes/neural-rescoring.md），
 /// 取 0.5 给个人 n-gram 留余量；回放里看到的「λ 大整句掉」是那把尺子的偏差。
 pub const NEURAL_WEIGHT: f64 = 0.5;
@@ -370,6 +464,7 @@ impl Engine {
         Self {
             dictionary,
             extra_dictionaries: Vec::new(),
+            companion_words: None,
             translator: Box::new(NoTranslator),
             english_translator: Box::new(NoTranslator),
             modes: ModeKeys::default(),
@@ -380,13 +475,20 @@ impl Engine {
             punctuation: Punctuation::default(),
             full_width_punctuation: true,
             custom_phrases: Vec::new(),
+            english_in_chinese: true,
             chinese_first: false,
+            english_max_in_chinese: ENGLISH_CANDIDATES_MAX,
+            english_min_position: 1,
+            auto_space: false,
             shift_letter_compose: false,
             predictor: Box::new(NoPredictor),
+            translation_predictor: None,
             language_model: Box::new(NoLanguageModel),
             sentence_scorer: None,
             rescorer: None,
             neural_cache: std::cell::RefCell::new(rescoring::NeuralCache::default()),
+            choice: None,
+            choice_tier: choice::ChoiceTier::default(),
             rescoring_before: None,
             neural_weight: NEURAL_WEIGHT,
             neural_margin: NEURAL_MARGIN,
@@ -400,47 +502,58 @@ impl Engine {
             private: false,
             log_sequence: 0,
             last_rescored: std::cell::Cell::new(false),
+            last_choice: std::cell::Cell::new(None),
             retype_snapshot: None,
+            held: Vec::new(),
+            hold_selections: true,
             passthrough_pending: String::new(),
             page_turns: 0,
             composition_started: None,
+            typing: statistics::Typing::default(),
             application: None,
             committed_since_break: false,
-            last_prediction_scope: String::new(),
             meter: Box::new(NoUsageMeter),
+            metered: true,
             vocabulary: Box::new(NoVocabularyTracker),
             gloss_filler: Box::new(NoGlossFiller),
             displayed: Vec::new(),
+            examples: vocabulary::ExampleCollector::default(),
             last_query: std::cell::RefCell::new(None),
             recording: Vec::new(),
             history: InputHistory::default(),
             prediction_sequence: 0,
-            last_prediction_kind: PredictionKind::Compose,
-            last_question_guess: String::new(),
+            pending_predictions: HashMap::new(),
             chain: CommitChain::default(),
             fuzzy: FuzzyRules::default(),
             shuangpin: None,
             shuangpin_raw_preedit: false,
             zhuyin: false,
+            nine_key: false,
             code: None,
             phonetic: true,
             emoji: None,
+            emoji_limit: EMOJI_TOTAL,
+            kaomoji: None,
+            kaomoji_limit: 1,
+            symbols: None,
+            symbol_limit: 1,
+            panel: None,
+            panel_history: Box::new(NoPanelHistory),
             aux_code: None,
             aux_enabled: false,
             aux_show: false,
+            show_tones: false,
             aux_code_key: DEFAULT_AUX_CODE_KEY,
             aux_keep_empty: true,
             aux_codes: Vec::new(),
-            traditional: false,
-            opencc: None,
-            traditional_map: std::cell::RefCell::new(HashMap::new()),
+            traditional: Traditional::default(),
         }
     }
 }
 
 /// 缓冲区是否是英文直输段：含拼音键与 `'` 以外的字符（`no-way`、`a.b`），且不是表达式 / 问字模式。
 /// 微软 / 搜狗双拼下 `;` 也是拼音键。
-fn is_raw(text: &str, modes: ModeKeys, shuangpin: Option<Scheme>, zhuyin: bool) -> bool {
+fn is_raw(text: &str, modes: ModeKeys, shuangpin: Option<&Layout>, zhuyin: bool) -> bool {
     let is_key = |c: char| {
         if zhuyin {
             crate::zhuyin::layout::map_key(c).is_some() || c == ' '
@@ -459,12 +572,15 @@ fn is_raw(text: &str, modes: ModeKeys, shuangpin: Option<Scheme>, zhuyin: bool) 
 
 /// 命中是否靠模糊音：某个音节不被敲的那个模式接受。
 /// 原样上屏的字母串像不像一个英文词：纯 ASCII 字母、至少两个。中文模式下还要求它**不能**切成完整的拼音
-/// （`hao` 回车多半是要拼音字母本身，`gist` / `python` / `hello` 切不干净才是英文）；英文模式下敲的全是英文，不用判。
+/// （`hao` 回车多半是要拼音字母本身，`gist` / `python` / `hello` 切不干净才是英文），
+/// 且不能长过 [`MAX_ENGLISH_WORD_LETTERS`]；英文模式下敲的全是英文，两条都不用判。
 fn looks_like_english_word(raw: &str, english_mode: bool) -> bool {
     if raw.len() < MIN_ENGLISH_WORD_LETTERS || !raw.bytes().all(|b| b.is_ascii_alphabetic()) {
         return false;
     }
-    english_mode || !parser::is_fully_segmentable(&raw.to_ascii_lowercase())
+    english_mode
+        || (raw.len() <= MAX_ENGLISH_WORD_LETTERS
+            && !parser::is_fully_segmentable(&raw.to_ascii_lowercase()))
 }
 
 /// 模式的记忆化键：完整音节原样，前缀音节后加 `*`。
@@ -540,6 +656,12 @@ fn abbreviated_count(patterns: &[qingjian_dictionary::SyllablePattern<'_>]) -> u
         .skip(1)
         .filter(|p| !p.complete)
         .count()
+}
+
+/// 候选读音的学习键：音节无分隔符连起来（`kai fa` → `kaifa`）。
+/// 按输入串记选择时与字面键各记一份，换个打法也认账（见 [`Learner::record_choice`]）。
+fn reading_key<'a>(syllables: impl IntoIterator<Item = &'a str>) -> String {
+    syllables.into_iter().collect()
 }
 
 #[cfg(test)]

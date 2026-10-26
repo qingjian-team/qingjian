@@ -66,7 +66,8 @@ impl Report {
             | InputSource::Cloud
             | InputSource::CloudSentence
             | InputSource::Raw
-            | InputSource::Translation => None,
+            | InputSource::Translation
+            | InputSource::Voice => None,
         }
     }
 
