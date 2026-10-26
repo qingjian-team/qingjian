@@ -36,13 +36,30 @@ fn translated_selection(ready: bool) -> Router {
 }
 
 fn translated_selection_answer(ready: bool, answer: Option<&str>) -> Router {
+    translated_selection_with_config(ready, answer, RouterConfig::default())
+}
+
+fn translation_key(router: &Router) -> KeyEvent {
+    let combo = router.config.translate_selection;
+    KeyEvent::new(
+        combo.key.to_ascii_uppercase() as u32,
+        Some(combo.key),
+        KeyModifiers::from(combo.modifiers),
+    )
+}
+
+fn translated_selection_with_config(
+    ready: bool,
+    answer: Option<&str>,
+    config: RouterConfig,
+) -> Router {
     let mut engine = Engine::new(Dictionary::default());
     engine.set_translation_predictor(Some(Box::new(LocalTranslation(
         VecDeque::new(),
         answer.map(str::to_owned),
     ))));
     assert!(!engine.prediction_enabled());
-    let mut router = Router::new(engine, RouterConfig::default());
+    let mut router = Router::new(engine, config);
     router.handle(ClientMessage::OpenSession {
         session: SessionId(1),
         app: None,
@@ -50,15 +67,7 @@ fn translated_selection_answer(ready: bool, answer: Option<&str>) -> Router {
     });
     let reply = router.handle(ClientMessage::Key {
         session: SessionId(1),
-        event: KeyEvent::new(
-            84,
-            Some('t'),
-            KeyModifiers {
-                ctrl: true,
-                alt: true,
-                ..Default::default()
-            },
-        ),
+        event: translation_key(&router),
     });
     let Some(ServerMessage::RequestSelection { request, .. }) = reply else {
         panic!("selection request")
@@ -92,6 +101,25 @@ fn translated_selection_answer(ready: bool, answer: Option<&str>) -> Router {
     }
     assert!(router.engine.composition().is_empty());
     router
+}
+
+#[test]
+fn configured_shortcuts_start_translation_and_allow_confirmation() {
+    for shortcut in ["ctrl+alt+t", "alt+shift+t", "ctrl+shift+y"] {
+        let config = RouterConfig {
+            translate_selection: shortcut.parse().unwrap(),
+            ..Default::default()
+        };
+        let mut router = translated_selection_with_config(true, Some("Hello."), config);
+        let reply = router.handle(ClientMessage::Key {
+            session: SessionId(1),
+            event: KeyEvent::new(13, None, KeyModifiers::default()),
+        });
+        assert!(
+            matches!(reply, Some(ServerMessage::KeyResult { commit: Some(text), .. }) if text == "Hello."),
+            "translation must use the configured shortcut: {shortcut}"
+        );
+    }
 }
 
 #[test]
