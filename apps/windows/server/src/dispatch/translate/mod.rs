@@ -35,6 +35,7 @@ impl Router {
             outcome: KeyOutcome::Consumed,
             commit: None,
             frame: Frame::default(),
+            english: None,
         };
         if self.focused != Some(session) || self.pending_selection != Some(request) {
             return empty;
@@ -80,6 +81,7 @@ impl Router {
             outcome,
             commit,
             frame: Frame::default(),
+            english: None,
         }
     }
 

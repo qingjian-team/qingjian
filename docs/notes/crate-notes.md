@@ -84,6 +84,9 @@ mac 存在 `Session::spelling`（`Host::follow_highlight`）、Windows / Linux �
   缺省关是回放定的（9241 词 / 269 条英文上屏：缺省开英文首选 82.5% → 7.1%）。
   条数与最高位次两档：`english_max_in_chinese`（1–4，缺省 4 = 1 条精确词 + 最多 3 条补全；1 只留最靠前的一条）与
   `english_min_position`（1–9，缺省 1 不限）；`extras::place_english` 在整句也插进来之后把英文块挪到第 K 位，没有中文候选时不动。
+  双拼 / 注音末尾落单的一键是正常的「还没敲完」，若连同前面的音节正好拼出词库里的整词（`veg` → 这个），整串不算「拼音不像话」：
+  英文候选不让到第一、也不给补全（`query::phonetic` 里的 `covered_by_word`，全拼的落单字母另有「可能敲反了」的意思，不适用），
+  拼不出整词（`cat`）时英文照旧排第一（#753）。
 - 中西文自动空格（`spacing` 判交界，`engine/spacing.rs` 判上文；配置 `[general] auto_space`，缺省关）：`commit` / `take_raw` 自己补前导空格并把它记成一次直通，
   候选内部的交界在 `commit_with` 里补、`LastCommit.chars` 按补后的字数记；直通字符由壳先问 `auto_space_before`。上文取最近一条没退格的上屏末字，
   还没上屏过时用组句首键读到的应用前文（`rescoring_before`），删了一半或焦点离开后不知道上文就不补。
@@ -319,7 +322,8 @@ Windows Server 自绘候选窗（GDI）按 `Frame.columns` / `column_ems` 画矩
 
 自绘渲染器：候选窗一帧 + 主题 → 预乘 RGBA 位图。主题是 `themes/<id>/theme.json`（内置青简绿 / 系统蓝 / 微信绿 / 樱花 / 大肥鱼 / 初音未来 / 波奇酱编进 crate；新增内置主题前先查主题仓库 qingjian-themes 有没有同名 id，加了之后同步它 `tools/check.py` 的 `RESERVED_IDS`，否则那个用户主题会被拒绝加载；图片也可以 `include_bytes!` 编进去（`BUILTINS` 的文件表），`Theme::builtin(id)` / `builtins()` 取；没写 `extends` 的主题都以青简绿为底（`theme/mod.rs` 的 `ROOT_THEME`），用户主题还能取到所继承内置主题的图片；用户主题在 `<数据目录>/themes/<id>/theme.json`，`ThemeLibrary` 合并并按目录戳热加载；`theme/file/` 是 serde 模型，`theme/jsonc.rs` 解析前去掉注释与尾逗号，格式见 `docs/design/theme.md`「格式（schema 1）」），`renderer/build/` 按模板实例化场景树（`scene/`：Taffy 布局树 + 每节点一个 `Visual`，竖排三列用 grid、其余 flex，高亮条与光标绝对定位；布局不取整，文字测量按节点缓存；表格一行里的格子按第一段文字的基线对齐，`scene/baseline.rs` 补上边距再排一遍），再按树序画（节点的投影 / 内阴影在 `scene/draw/effect.rs`：把节点自己的画面画进离屏图取 alpha，三遍盒式模糊；窗口阴影就是根节点的投影；位图按 `scene/extent.rs` 并出的画出范围开（投影、描边、负 inset 伸出窗口的装饰都在里面），壳按 `Rendered::content_*` 对齐，mac 面板关系统阴影；`Rendered::hits` 是候选与各条译词的点击区域（`renderer/hit/`，译词按义项分隔数分条，横排底下那行算高亮候选的），壳只在这些区域收鼠标、其余穿透）；过渡在 `animation/`（缓动、插值）与 `renderer/{animate,retained}.rs`：`Renderer` 留住上一帧，按节点 `id` 配对算过渡，`Rendered::next_frame` 告诉壳多久后调 `tick`（mac `candidates/animation.rs` 的 NSTimer、Windows UI 线程消息循环截 `WM_TIMER`），窗口收起调 `forget`；动画帧只重画、不重建树，效果遮罩与图片框按键缓存（`scene/cache_key.rs`）；循环动画 `animation/keyframes.rs` 求姿态，带姿态节点整棵子树画进缓存小图再变换贴上，循环帧走局部重画（`renderer/partial.rs` + `scene/split.rs` 分段模式）；tiny-skia 栅格 + cosmic-text 文字（fontdb 按平台清单只加载几个字体文件、不扫系统；
 脚本字体文件要先过轮廓检查，任一面带 `glyf` / `CFF ` / `CFF2` 才加载（Android 的 Noto CJK 是 CFF2 可变字体；Android 上 cosmic-text 没有按 locale 的回退表，`fonts/android.rs` 加载后只留 locale 那张 CJK 面）——macOS 26+ 的苹方换成私有 `hvgl` 可变轮廓，swash 读不出字形，
-这种文件跳过，简体回退到 Songti.ttc），
+这种文件跳过，简体回退到 Songti.ttc）；Windows 在常用中日文字体之后补 `simsunb.ttf` 与 `SimsunExtG.ttf`，
+供扩展区汉字回退（系统没有对应文件时跳过），避免深翻页的生僻字候选因缺字显示成方框或空白，
 自己解析 `trak` 字距表、按主题 gamma 加深笔画；主题样式的字族在 `theme/font/families.rs` 去重成字族表（样式里存序号），`TextPainter::use_families` 换主题时给每条链挑装了的字族，主题要的系统字族由壳查文件经 `Renderer::load_theme_fonts` 加载（mac 同 `bitmap/font_files.rs`、Windows 同 `system_fonts::family_files`），随主题带的字体在 `theme/assets.rs` 核路径；主题图片 `.svg` 结尾的走 `theme/svg_image.rs`（resvg 0.48，与渲染器同一个 tiny-skia，关掉 text / raster-images 与外部文件读取），画时按像素尺寸栅格并缓存；cosmic-text 打了 `opsz` 光学字号补丁（qingjian-team/cosmic-text 分支 `qingjian-opsz`，workspace `[patch.crates-io]` 钉 rev）。
 `examples/preview.rs` 出 PNG 与真机截图并排比、`--measure` 与 AppKit 对宽度、`--theme <目录>` 画用户主题（系统字族在 `--font-dir` 里按名字找）。
 快照测试 `tests/snapshots.rs`：`tests/scenes/` 的样例帧（与 preview 共用）逐像素比 `tests/snapshots/<os>/` 的基准，字体环境（`fingerprint.txt`）对不上或没有基准时跳过；
@@ -477,10 +481,14 @@ Server 把它读进 `RouterConfig.preedit` 并随 `Frame.preedit_mode` 下发给
 起完清掉重连退避，下一键就试。Server 只在登录时由「启动」文件夹拉起，中途挂了以前只能等下次登录。
 
 词库导入（设置「词库」页）走 `qingjian-dictionary::import` 转成 `.qj`（空词库拒绝），多选批量、成功的从 `[dictionaries] disabled` 摘掉、页面显示每个文件的结果；
+`import::import_dictionary` 是各平台导入入口用的那层：源文件里有没写读音的词（只有词的 txt / 混了无读音行的 Rime 词库，
+`parse_words` 判得出）就转 [`import_word_list`] 派生读音，否则仍走 `import`（`.qj`、全带读音的 TSV / Rime 行为不变）；
+返回 `ImportedDictionary { imported, report: Option<Report> }`，设置页的结果行列出跳过的条数与前几个词。
 另有 `qingjian-dictionary::import::import_word_list` 收「只有词、没有拼音」的词表（每行 `词` / `词<Tab>词频` / `词<Tab>读音[<Tab>词频]`，`---`…`...` 的 Rime 头一并认），
-读音按参考词库（基础词库 + `--extra-dict` + `assets/lexicon/dicts/*.tsv` 领域词库）取，顺序是：词表写明的读音 → 整词词条 → 最长匹配切分
+读音列可以带数字声调（`dong1 xi5`），数字只能跟在字母后面。读音按参考词库（基础词库 + `--extra-dict` + `assets/lexicon/dicts/*.tsv` 领域词库）取，顺序是：词表写明的读音 → 整词词条 → 最长匹配切分
 （`中华人民共和国` → `中华` + `人民` + `共和国`）→ 单字取词频最高的读音（`和` 取 `he`）。**一个词只写一条读音组合**，不做多音字的笛卡尔积；
 字不在参考词库里的词跳过并进 `Report::unknown`（不静默丢词）。多音字词（`美露莘 mei lu xin`）在词表第二列直接写读音。
+设置程序、Windows 旧设置、macOS 旧偏好与 Android 的参考词库都是「随包基础词库 + 随包领域词库」，不与用户开关联动。
 预览与落盘在 CLI 是 `--import-words` / `--import-to`；
 Server 每次轮询比对用户 `dicts` 的路径 / mtime / 长度快照，配置没变也重载新增、同名更新与移除；配置解析失败时词库沿用上次有效的开关（#36）。
 

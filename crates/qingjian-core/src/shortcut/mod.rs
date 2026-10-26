@@ -197,7 +197,10 @@ mod tests {
     #[test]
     fn calendar_shortcuts() {
         assert_eq!(texts("rq"), ["2026年9月3日", "2026-09-03", "2026/09/03"]);
-        assert_eq!(texts("sj"), ["19:06", "19:06:23", "19点06分"]);
+        assert_eq!(
+            texts("sj"),
+            ["19:06", "19:06:23", "19点06分", "20260903190623"]
+        );
         assert_eq!(texts("xq"), ["星期四", "周四"]);
         assert!(texts("rqi").is_empty());
     }

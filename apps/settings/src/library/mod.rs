@@ -217,6 +217,33 @@ fn bundled_schemes() -> Option<PathBuf> {
         .or_else(|| paths::bundled(&format!("assets/{}", code_schemes::DIR)))
 }
 
+/// 导入无读音词表时的参考词库：随包基础词库加随包领域词库，读不到的跳过（导入报告里会说到）。
+pub fn reference_dictionaries() -> Vec<Dictionary> {
+    let mut references = Vec::new();
+    let mut read = |path: &Path| match Dictionary::from_path(path) {
+        Ok(dictionary) => references.push(dictionary),
+        Err(error) => tracing::warn!(path = %path.display(), %error, "参考词库打不开"),
+    };
+    if let Some(base) = base_dictionary() {
+        read(&base);
+    }
+    if let Some(dir) = Kind::Dictionary.bundled_dir() {
+        for (_, path) in Kind::Dictionary.list(&dir) {
+            read(&path);
+        }
+    }
+    references
+}
+
+/// 随包基础词库：macOS 在 `Resources/dict.qj`，其他平台在随包根的 `data/generated/dict.qj`。
+fn base_dictionary() -> Option<PathBuf> {
+    paths::mac_resources()
+        .into_iter()
+        .map(|dir| dir.join("dict.qj"))
+        .find(|path| path.is_file())
+        .or_else(|| paths::bundled("data/generated/dict.qj"))
+}
+
 /// 挪进 `removed/`；输入法看到文件没了会自己卸掉。
 pub fn remove(kind: Kind, stem: &str) -> Result<(), String> {
     let dir = kind.user_dir().ok_or("找不到数据目录")?;

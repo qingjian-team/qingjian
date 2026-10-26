@@ -8,7 +8,7 @@ description: "Typing dates, times and weekdays with rq / sj / xq; calculating, w
 
 | Input | Result |
 |---|---|
-| `rq` / `sj` / `xq` | Today's date (`2026年9月3日`, `2026-09-03`), the current time (`19:06`, `19点06分`), the day of the week, inserted after the first candidate |
+| `rq` / `sj` / `xq` | Today's date (`2026年9月3日`, `2026-09-03`), the current time (`19:06`, `19点06分`, timestamp `20260903190623`), the day of the week, inserted after the first candidate |
 | `riqi` / `shijian` / `xingqi` | When 日期 (date), 时间 (time) or 星期 (weekday) appears among the candidates, the same forms follow right after it |
 
 ## Calculations, Chinese numerals and dates

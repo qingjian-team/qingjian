@@ -55,13 +55,15 @@ pub fn date_forms(now: &Zoned) -> Vec<String> {
     ]
 }
 
-/// `sj`：`19:06`、`19:06:23`、`19点06分`。
+/// `sj`：`19:06`、`19:06:23`、`19点06分`、`20260903190623`（时间戳 `yyyyMMddHHmmss`）。
 pub fn time_forms(now: &Zoned) -> Vec<String> {
+    let (year, month, day) = (now.year(), now.month(), now.day());
     let (hour, minute, second) = (now.hour(), now.minute(), now.second());
     vec![
         format!("{hour:02}:{minute:02}"),
         format!("{hour:02}:{minute:02}:{second:02}"),
         format!("{hour}点{minute:02}分"),
+        format!("{year:04}{month:02}{day:02}{hour:02}{minute:02}{second:02}"),
     ]
 }
 

@@ -12,7 +12,8 @@ description: "Entering English mode, changing or turning off the Chinese/English
 - **Windows**: tap `Shift` (press and release on its own, without another key) to switch between Chinese and English. The taskbar shows 中 or 英 to match, and A while Caps Lock is on.
   Clicking the 中 / 英 icon on the taskbar also switches.
   On Windows, `Caps Lock` only controls case: while it's on, capital letters are typed directly in either mode (as with Microsoft Pinyin).
-- **Linux**: tap `Shift` to switch between Chinese and English; holding `Shift` while typing letters doesn't switch. While `Caps Lock` is on, capital letters are typed directly.
+- **Linux**: tap `Shift` to switch between Chinese and English; Fcitx5 briefly shows 中 or 英 when you switch (it disappears after about a second). Holding `Shift` while typing letters doesn't switch. While `Caps Lock` is on, capital letters are typed directly.
+  The hint shares Fcitx5's "Show Input Method Information when switch input method" setting with the input method switching popup; turn that off and it no longer appears.
 
 On Windows, the Chinese/English mode is **shared by all apps** by default: switch to English in one app and other apps, including newly opened ones, are in English too. On Linux, **each window keeps its own**, and new windows start in Chinese.
 
@@ -78,6 +79,8 @@ You don't need to switch in Chinese mode:
 - When the input isn't valid pinyin and has at least 3 letters, English is completed: `compa` → company / companies / compared.
   How many English candidates appear, and how high they can rank, is set under 设置 → 候选 (Settings → Candidates): the count is 1–4 (default 4; 1 keeps only the topmost one), and with Chinese candidates present the highest position defaults to 1 (no limit).
 - For input like `key` or `id`, which looks like English but can also be read as pinyin, the Chinese word comes first if you usually pick it and the English word moves down.
+- In double pinyin (Shuangpin), when one key is still missing at the end and the keys so far spell a whole dictionary word (Pinyin Jiajia `veg` → zhe g… → 这个), the Chinese reading is used:
+  这个 comes before the English word `veg`, so `Space` no longer commits the raw letters; when the pending key doesn't complete a word (`cat`), English still comes first.
 - When a sentence of pinyin ends with an English word, the sentence includes that word: `woxiangxuehaorust` → 我想学好rust, `wodeid` → 我的ID, `yongwindows` → 用Windows.
   The English word has to be in the word list (words you've typed in English mode count). Input like `database`, which can also be read as pinyin, is ranked by how natural each reading is; short words like `fan` and `to` are treated as pinyin.
   English words are only recognized at the end of a sentence; words in the middle, as in `wozaidebugzhege`, aren't supported yet (commit the Chinese before it first, then type the English word).

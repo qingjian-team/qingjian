@@ -94,3 +94,37 @@ fn bundled_font_loads_from_the_theme_directory() {
     assert_eq!(renderer.trace_families("Abc", &theme), ["Georgia"]);
     assert!(Path::new(&theme.font_files()[0]).starts_with(&dir));
 }
+
+#[cfg(target_os = "windows")]
+#[test]
+fn windows_extended_han_uses_system_fallback_in_default_and_sakura_themes() {
+    use qingjian_render::system_fonts;
+
+    let dir = std::env::var_os("WINDIR")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from(r"C:\Windows"))
+        .join("Fonts");
+    for (file, text, family) in [
+        ("simsunb.ttf", "\u{20aa7}", "SimSun-ExtB"),
+        ("SimsunExtG.ttf", "\u{30edd}", "SimSun-ExtG"),
+    ] {
+        if !dir.join(file).is_file() {
+            eprintln!("没有 {file}，跳过对应扩展区字形");
+            continue;
+        }
+        let library = FontLibrary::system("zh-CN").unwrap();
+        assert!(library.font_files().contains(&dir.join(file)));
+        let mut renderer = Renderer::new(library);
+        for id in ["qingjian", "sakura"] {
+            let theme = Theme::builtin(id, false).unwrap();
+            renderer.load_theme_fonts(&theme, system_fonts::family_files);
+            assert_eq!(renderer.trace_families(text, &theme), [family], "{id}");
+            // 扩展字回退不接管主题原本能显示的常用字。
+            let common = renderer.trace_families("我你好骨直曜", &theme);
+            assert!(
+                common.iter().all(|name| !name.starts_with("SimSun-Ext")),
+                "{id}: {common:?}"
+            );
+        }
+    }
+}

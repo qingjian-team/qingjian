@@ -114,3 +114,15 @@ fn default_english_starts_new_sessions_in_english() {
     assert_eq!(tap(&mut router, SHIFT)["outcome"], "Passthrough");
     assert!(!english(&mut router));
 }
+
+#[test]
+fn the_switching_key_result_carries_the_new_mode() {
+    // 插件靠 `english` 弹「中」/「英」气泡；没切换的按键必须是 null，免得误弹。
+    let mut router = router_with(config(&[SwitchKey::Shift]));
+    assert_eq!(tap(&mut router, SHIFT)["english"], json!(true));
+    assert_eq!(tap(&mut router, SHIFT)["english"], json!(false));
+    assert_eq!(
+        key(&mut router, 1, b'n' as u32, Some('n'), false)["english"],
+        json!(null)
+    );
+}

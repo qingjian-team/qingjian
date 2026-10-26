@@ -50,6 +50,7 @@ For candidates whose reading doesn't match the input (fuzzy pinyin, corrections,
 
 - **渲染引擎 (Rendering engine)**: 青简渲染器 (Qingjian renderer, default) or system drawing. Themes, fonts, key hints and so on only apply with the Qingjian renderer.
 - **Font**: the system font by default.
+- **Rare characters on Windows**: when the system's extended SimSun fonts are installed, the candidate window uses them automatically for rare characters. There is no need to change your theme or font. Characters not covered by the installed fonts may still appear as missing glyphs.
 - **Candidate size, gloss size**: the theme's sizes by default; 恢复主题字号 (Restore theme sizes) goes back to them, and they then follow the new theme when you switch themes.
 
 ## Motion

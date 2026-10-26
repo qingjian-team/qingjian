@@ -11,10 +11,13 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
 use bamboo_slip::Waker;
-use qingjian_dictionary::import::import_code_words;
-use qingjian_dictionary::{DictionaryError, import, import_aux_code_table};
+use qingjian_dictionary::import::{ImportedDictionary, import_code_words};
+use qingjian_dictionary::{Dictionary, DictionaryError, import, import_aux_code_table};
 
 use crate::library::Kind;
+
+/// 导入结果里每类跳过的词最多列几个。
+const MAX_SKIPPED_SHOWN: usize = 5;
 
 #[derive(Default)]
 pub struct ImportJob {
@@ -72,13 +75,32 @@ impl ImportJob {
 fn run(kind: Kind, sources: &[PathBuf], dir: &Path, words_dir: &Path, code: &CodeTarget) -> Report {
     let mut imported = Vec::new();
     let mut lines = Vec::new();
+    // 无读音词表按随包词库派生读音：只在词库这一路用得上，也只在这一路读一次
+    let references = (kind == Kind::Dictionary).then(crate::library::reference_dictionaries);
+    let borrowed: Vec<&Dictionary> = references.iter().flatten().collect();
     for source in sources {
         let file = source.file_name().map_or_else(
             || source.display().to_string(),
             |name| name.to_string_lossy().into_owned(),
         );
         let outcome = match kind {
-            Kind::Dictionary | Kind::CodeWords => match import::import(source, dir) {
+            Kind::Dictionary => match import::import_dictionary(source, dir, &borrowed) {
+                Err(DictionaryError::CodeWords) => import_code_words(source, words_dir, &code.id)
+                    .map(|done| {
+                        (
+                            done.path,
+                            format!(
+                                "已导入「{}」，{} 条，并进{}的码表",
+                                done.name, done.entries, code.label
+                            ),
+                        )
+                    }),
+                other => other.map(|done| {
+                    let line = dictionary_line(&done);
+                    (done.imported.path, line)
+                }),
+            },
+            Kind::CodeWords => match import::import(source, dir) {
                 Err(DictionaryError::CodeWords) => import_code_words(source, words_dir, &code.id)
                     .map(|done| {
                         (
@@ -117,12 +139,15 @@ fn run(kind: Kind, sources: &[PathBuf], dir: &Path, words_dir: &Path, code: &Cod
             Err(DictionaryError::NoCodeEntries) => {
                 lines.push(format!("{file}：没认出码表，要「词 + 码」两列，码只收 a–z"));
             }
+            Err(DictionaryError::NoWordEntries) => {
+                lines.push(format!("{file}：词表里的字都不在随包词库，推不出读音"));
+            }
             Err(DictionaryError::Corrupt(_) | DictionaryError::Line { .. })
                 if kind != Kind::CodeTable =>
             {
                 tracing::warn!(source = %source.display(), "导入失败，格式不对");
                 lines.push(format!(
-                    "{file}：没认出格式。拼音词库要「词、拼音、词频」三列，拼音音节用空格分开；五笔词库要「词、编码、词频」三列"
+                    "{file}：没认出格式。词库要「词、拼音、词频」三列，拼音音节用空格分开；只有词的表（txt 或 Rime 词库）也行，读音按随包词库补；五笔词库要「词、编码、词频」三列"
                 ));
             }
             Err(error) => {
@@ -135,5 +160,71 @@ fn run(kind: Kind, sources: &[PathBuf], dir: &Path, words_dir: &Path, code: &Cod
         kind,
         imported,
         lines,
+    }
+}
+
+/// 词库导入的结果行：无读音词表附上跳过的条数与几个词，普通词库只写条数。
+fn dictionary_line(done: &ImportedDictionary) -> String {
+    let imported = &done.imported;
+    let mut line = format!("已导入「{}」，{} 条", imported.name, imported.entries);
+    let Some(report) = &done.report else {
+        return line;
+    };
+    if report.unknown.is_empty() {
+        return line;
+    }
+    let shown: Vec<&str> = report
+        .unknown
+        .iter()
+        .take(MAX_SKIPPED_SHOWN)
+        .map(String::as_str)
+        .collect();
+    line.push_str(&format!(
+        "；{} 条跳过（字不在随包词库）：{}{}",
+        report.unknown.len(),
+        shown.join("、"),
+        if report.unknown.len() > MAX_SKIPPED_SHOWN {
+            "…"
+        } else {
+            ""
+        }
+    ));
+    line
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use qingjian_dictionary::import::{Imported, Report};
+
+    fn done(report: Option<Report>) -> ImportedDictionary {
+        ImportedDictionary {
+            imported: Imported {
+                path: PathBuf::from("dicts/names.qj"),
+                name: "names".to_owned(),
+                entries: 12,
+            },
+            report,
+        }
+    }
+
+    #[test]
+    fn word_list_results_mention_the_skipped_words() {
+        assert_eq!(dictionary_line(&done(None)), "已导入「names」，12 条");
+        let known = Report {
+            words: 12,
+            unknown: Vec::new(),
+        };
+        assert_eq!(
+            dictionary_line(&done(Some(known))),
+            "已导入「names」，12 条"
+        );
+        let unknown = ["囧一", "囧二", "囧三", "囧四", "囧五", "囧六"]
+            .map(str::to_owned)
+            .to_vec();
+        assert_eq!(
+            dictionary_line(&done(Some(Report { words: 12, unknown }))),
+            "已导入「names」，12 条；6 条跳过（字不在随包词库）：囧一、囧二、囧三、囧四、囧五…"
+        );
     }
 }
