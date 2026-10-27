@@ -15,6 +15,7 @@ mod legacy_traditional;
 mod log_level;
 mod model;
 mod modifiers;
+mod numpad_digit;
 mod optional_key_combo;
 mod page_keys;
 mod phrases;
@@ -59,6 +60,7 @@ pub use legacy_traditional::LegacyTraditional;
 pub use log_level::LogLevel;
 pub use model::{LocalModel, LocalModelConfig, ZhiyiTier};
 pub use modifiers::Modifiers;
+pub use numpad_digit::NumpadDigit;
 pub use page_keys::PageKeys;
 pub use preedit_mode::PreeditMode;
 pub use scheme::{Scheme, scheme_label, scheme_name};
@@ -137,7 +139,7 @@ english_candidates_on = [
 macro_rules! template_apps {
     () => {
         r#"[apps]
-# 按应用改行为，条目是 bundle identifier（`*` 结尾按前缀匹配）。开着「详细日志」时切到一个应用会把它的 bundle identifier 记进日志
+# 按应用改行为，条目是 bundle identifier（`*` 结尾按前缀匹配）。切到一个应用时运行日志里会记下它的 bundle identifier
 # 英文模式（Caps Lock）下给候选的应用（白名单）：浏览器、聊天、办公与笔记这类写成段文字的地方。没列的应用里英文字母原样交给应用，
 # 免得挡住终端 / 编辑器自己的补全，或吞掉设计、3D 软件的单键快捷键。写成 ["*"] 就处处都给，再用 english_candidates_off 排除个别应用
 english_candidates_on = [
@@ -173,9 +175,10 @@ english_candidates_on = [
 #[cfg(target_os = "macos")]
 macro_rules! template_shortcut_keys {
     () => {
-        r#"# 中 / 英模式切换键（Windows 用），可多选：shift 单击（缺省）/ control 单击 / ctrl+alt+space 组合键；[] 不用键切换。
-# macOS 的切换键是 Caps Lock（系统级），本项不生效
-switch_mode = ["shift"]
+        r#"# 中 / 英模式切换键，可多选：shift 单击 / control 单击 / ctrl+alt+space 组合键；[] 不用键切换。
+# macOS 只认 shift：写成 ["shift"] 就是单击 Shift 切中英（此时 Caps Lock 只管大小写）；
+# 缺省 [] —— 用 Caps Lock 切换（系统级，不受本项影响）
+switch_mode = []
 # 数字键配这些修饰键上屏候选的译词：translation 第一个译词，translation_second 第二个（候选右侧有两个译词时）
 # 任意修饰键组合（option / shift / control / command 用 + 连），偏好设置里点按钮录制；别用 control+数字（系统切桌面）和 command+数字（应用切标签页）
 translation = "option"
@@ -279,6 +282,8 @@ auto_space = false
 # 中文模式下按住 Shift 敲的字母：passthrough 拼音原样上屏、字母交给应用（缺省，与以前一致）/ compose 收进组句
 # 缓冲区参与匹配，这样 Cpan 与 cpan 一样能出「C盘」。英文模式与英文直输段（no-Way）不受影响
 shift_letter = "passthrough"
+# Windows 中文组句中的小键盘数字：select 选择候选（缺省）/ direct 直接输入数字；主键盘数字不受影响
+numpad_digit = "select"
 # 内置英文模式：开着时单击切换键（[shortcut] switch_mode）或 Caps Lock 亮着进英文模式
 # 关掉后青简保持中文模式，切换键与语言栏按钮都不再切过去；要打英文请用系统快捷键（Win+Space）切到别的输入法。Windows 与 Linux 用，macOS 的中英切换是 Caps Lock
 english_mode = true
@@ -334,6 +339,8 @@ system_text_replacements = true
 [shortcut]
 # Windows：切换当前模式的全 / 半角标点；空串禁用，可设为 "ctrl+." 或其他修饰键加字母、数字、句号
 toggle_punctuation = ""
+# Windows：在简体与上次用的繁体字形之间切换；空串禁用，可设为 "ctrl+shift+f" 或其他修饰键加字母、数字
+toggle_traditional = ""
 # Windows：主翻页键之外同时启用的键对，可多选，如 ["[]", ",.", "-="]
 extra_page_keys = []
 # 前缀模式键，只能是 v / u / i 之一且互不相同（这三个字母不是任何拼音音节的开头）

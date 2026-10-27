@@ -35,6 +35,15 @@ impl Builder<'_> {
         else {
             return Ok(());
         };
+        // 第一个实例化的框就是窗口根节点
+        let material = self.material_root.take();
+        if material.is_some() {
+            self.root_radius = radius * self.scale;
+        }
+        let fill = match &material {
+            Some(tint) => tint.as_ref().map(|tint| FillSpec::Color(tint.clone())),
+            None => fill.clone(),
+        };
         let visual = if fill.is_some() || border.is_some() {
             Visual::Box(BoxPaint {
                 fill: fill.as_ref().and_then(|fill| self.fill(fill, ctx)),
@@ -62,10 +71,10 @@ impl Builder<'_> {
                         ),
                         MaxTrackSizingFunction::auto(),
                     )],
-                    justify_content: Some(JustifyContent::START),
-                    align_content: Some(AlignContent::START),
-                    align_items: Some(AlignItems::START),
-                    justify_items: Some(AlignItems::START),
+                    justify_content: JustifyContent::START,
+                    align_content: AlignContent::START,
+                    align_items: AlignItems::START,
+                    justify_items: AlignItems::START,
                     ..base
                 };
                 self.scene.node(style, visual, &cells)?
@@ -82,7 +91,8 @@ impl Builder<'_> {
                     .node(layout_style::flex(base, *direction), visual, &nodes)?
             }
         };
-        self.apply_layer(node, layout, ctx);
+        // 垫了材质的窗口由系统画阴影
+        self.apply_layer(node, layout, ctx, material.is_none());
         out.push(node);
         Ok(())
     }

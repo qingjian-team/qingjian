@@ -105,6 +105,21 @@ impl Settings {
         true
     }
 
+    /// 原地把一个键改成字符串数组并重读（`[shortcut] switch_mode` 这类多选键用）。写失败只记日志，返回 `false`。
+    pub fn set_array<S: AsRef<str>>(&mut self, section: &str, key: &str, values: &[S]) -> bool {
+        let Some(path) = self.path.clone() else {
+            tracing::warn!("没有配置文件路径，设置不落盘");
+            return false;
+        };
+        if let Err(error) = Config::set_array(&path, section, key, values) {
+            tracing::warn!(%error, section, key, "写配置失败");
+            return false;
+        }
+        tracing::info!(section, key, "配置已改");
+        self.read(&path);
+        true
+    }
+
     /// 把一个环境变量（密钥）写进配置同目录的 `.env` 并立即注入当前进程。
     /// 文件仅本用户可读；值不进日志。返回是否成功。
     pub fn set_env_var(&self, name: &str, value: &str) -> bool {

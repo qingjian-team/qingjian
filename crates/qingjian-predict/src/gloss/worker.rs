@@ -112,7 +112,12 @@ impl GlossWorker {
         }
         let system = prompt::system_prompt(language);
         let user = prompt::user_prompt(&words);
-        match runtime.block_on(self.client.chat(system, &user, MAX_TOKENS)) {
+        match runtime.block_on(self.client.chat(
+            system,
+            &user,
+            MAX_TOKENS,
+            &prompt::reply_schema(language),
+        )) {
             Ok(content) => {
                 let filled = prompt::parse_reply(&content, language, &words);
                 tracing::info!(

@@ -9,6 +9,7 @@ mod message;
 mod reload;
 mod rescore;
 mod session;
+mod trace;
 mod translate;
 
 use self::composed::Composed;
@@ -19,6 +20,7 @@ use self::rescore::{ModelLoader, RescoreState};
 use self::session::SessionInfo;
 use self::translate::Translation;
 use qingjian_core::Engine;
+use qingjian_platform::logs::CompositionTrace;
 use qingjian_platform::protocol::{ClientMessage, ServerMessage, SessionId};
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -81,6 +83,9 @@ pub struct Router {
 
     /// 配置热加载；没开（测试）为 `None`。
     reload: Option<ConfigReload>,
+
+    /// 正在进行的这段组句的按键账；没在组句为 `None`。
+    trace: Option<CompositionTrace>,
 }
 
 impl Router {
@@ -108,11 +113,12 @@ impl Router {
             model_loader: None,
             rescore: RescoreState::default(),
             reload: None,
+            trace: None,
         }
     }
     /// 一条客户端消息；无需答复的通知返回 None。
     pub fn handle(&mut self, message: ClientMessage) -> Option<ServerMessage> {
-        let response = self.dispatch(message);
+        let response = self.traced(message);
         if self.last_flush.elapsed() >= LEARNING_FLUSH_INTERVAL {
             self.flush_learning();
         }
@@ -122,12 +128,17 @@ impl Router {
         self.engine.flush_learning();
         self.last_flush = Instant::now();
     }
-    /// 到点了：看配置改没改、接上加载好的模型、推进重排、到点落盘学习（输入停止后也不能一直不落盘）。主循环超时与插件的 `Poll` 都会调。
+    /// 到点了：看配置改没改、接上加载好的模型、推进重排、收释义兜底、到点落盘学习（输入停止后也不能一直不落盘）。
+    /// 主循环超时与插件的 `Poll` 都会调。
     pub fn tick(&mut self) {
         self.poll_config_reload();
         self.attach_loaded_model();
         self.advance_rescoring();
         self.poll_prediction();
+        let learned = self.engine.poll_glosses();
+        if learned > 0 {
+            tracing::info!(learned, "释义兜底写入个人释义表");
+        }
         if self.last_flush.elapsed() >= LEARNING_FLUSH_INTERVAL {
             self.flush_learning();
         }

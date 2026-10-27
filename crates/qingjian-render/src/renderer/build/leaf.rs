@@ -121,7 +121,7 @@ impl Builder<'_> {
                 return Ok(None);
             }
         };
-        self.apply_layer(node, layout, ctx);
+        self.apply_layer(node, layout, ctx, true);
         Ok(Some(node))
     }
 

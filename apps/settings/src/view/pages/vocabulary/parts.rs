@@ -18,7 +18,7 @@ pub fn row(
         Style {
             flex_direction: FlexDirection::Row,
             flex_wrap: FlexWrap::Wrap,
-            align_items: Some(AlignItems::BASELINE),
+            align_items: AlignItems::BASELINE,
             gap: page.gap(gap),
             ..Style::default()
         },

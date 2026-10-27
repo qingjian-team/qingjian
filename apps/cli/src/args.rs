@@ -213,7 +213,8 @@ pub struct Args {
     pub misses: usize,
 
     /// 覆盖引擎里的调参常数，`名=值`，逗号分隔或多次给。名字：lambda / k / cap / discount（个人 n-gram 插值 λ / K / 封顶 / 三元折扣），
-    /// transpose / substitute / extra / missing / typo-cap / correction（敲错四类代价 / 个人折扣上限 / 整段纠错代价）
+    /// transpose / substitute / extra / missing / typo-cap / correction / correction-transpose（敲错四类代价 / 个人折扣上限 / 整段纠错代价 / 转置单独一份），
+    /// span / abbreviated-span / beam（整句搜索规模：每格候选数 / 简拼格候选数 / 束宽。规模参数不接受 0 与小数，浮点参数不接受 NaN 与 inf）
     #[arg(long, value_delimiter = ',')]
     pub tune: Vec<String>,
 

@@ -13,7 +13,9 @@ use objc2::rc::Retained;
 use objc2_app_kit::{NSBitmapImageRep, NSCalibratedRGBColorSpace, NSCompositingOperation, NSImage};
 use objc2_foundation::{NSPoint, NSRect, NSSize};
 use qingjian_platform::LayoutMode;
-use qingjian_render::{FontLibrary, HitRegion, HitTarget, Layout, Renderer, Theme, UiFont};
+use qingjian_render::{
+    FontLibrary, HitRegion, HitTarget, Layout, MaterialBacking, Renderer, Theme, UiFont,
+};
 
 use super::bounds::ViewBounds;
 use super::frame::Frame;
@@ -51,6 +53,9 @@ pub struct BitmapPainter {
 
     /// 内容区左上角在视图里的位置（点，左上为原点）：位图四周留了投影的边。
     content_origin: NSPoint,
+
+    /// 最近一帧要在内容区底下垫的系统材质，圆角已换成点。
+    material: Option<MaterialBacking>,
 }
 
 impl BitmapPainter {
@@ -79,8 +84,10 @@ impl BitmapPainter {
             font = library.ui_family(),
             "候选窗使用位图渲染器"
         );
+        let mut renderer = Renderer::new(library);
+        renderer.set_material_support(true);
         Some(Self {
-            renderer: Renderer::new(library),
+            renderer,
             image: None,
             frame: qingjian_render::Frame::default(),
             layout: Layout::Vertical,
@@ -91,6 +98,7 @@ impl BitmapPainter {
             next_frame: None,
             hits: Vec::new(),
             content_origin: NSPoint::ZERO,
+            material: None,
         })
     }
 
@@ -157,6 +165,11 @@ impl BitmapPainter {
             .map(|region| region.target)
     }
 
+    /// 最近一帧要垫的系统材质，圆角已换成点；`None` 是不透明窗口。
+    pub fn material(&self) -> Option<MaterialBacking> {
+        self.material
+    }
+
     /// 有动画在播时隔多久要下一帧。
     pub fn next_frame(&self) -> Option<std::time::Duration> {
         self.next_frame
@@ -207,6 +220,10 @@ impl BitmapPainter {
             f64::from(rendered.content_y) / f64::from(rendered.scale),
         );
         self.hits = rendered.hits;
+        self.material = rendered.material.map(|backing| MaterialBacking {
+            radius: backing.radius / rendered.scale,
+            ..backing
+        });
         self.image = to_image(&rendered.pixmap, self.bounds.size);
         tracing::debug!(elapsed = ?started.elapsed(), width, height, "候选窗位图已画");
     }

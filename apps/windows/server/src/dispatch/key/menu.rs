@@ -17,6 +17,7 @@ impl Router {
             CandidateMouse::TranslationEdited { offset, text } => {
                 self.handle_translation_edited(offset, &text)
             }
+            CandidateMouse::Page(step) => self.handle_page_turn(step),
         }
     }
 

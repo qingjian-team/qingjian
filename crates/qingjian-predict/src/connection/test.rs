@@ -9,6 +9,7 @@ use super::report::ConnectionReport;
 use crate::chat_client::ChatClient;
 use crate::config::PredictConfig;
 use crate::error::PredictError;
+use crate::reply::{self, ReplySchema};
 
 /// 系统提示：告诉模型这只是探活。
 const SYSTEM_PROMPT: &str = "你是输入法的连通性测试。";
@@ -76,13 +77,22 @@ impl ConnectionTest {
     }
 }
 
+/// 回复的 JSON 形状：`{"ok": true}`。
+fn reply_schema() -> ReplySchema {
+    ReplySchema::new(
+        "connection_test",
+        reply::object(serde_json::json!({ "ok": { "type": "boolean" } }), &["ok"]),
+    )
+}
+
 /// 在测试线程里跑：建一个单线程运行时，发一条请求，计时。
 fn run(client: &ChatClient, model: String) -> Result<ConnectionReport, PredictError> {
     let runtime = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()?;
     let started = Instant::now();
-    let reply = runtime.block_on(client.chat(SYSTEM_PROMPT, USER_PROMPT, MAX_TOKENS))?;
+    let reply =
+        runtime.block_on(client.chat(SYSTEM_PROMPT, USER_PROMPT, MAX_TOKENS, &reply_schema()))?;
     Ok(ConnectionReport {
         model,
         elapsed: started.elapsed(),

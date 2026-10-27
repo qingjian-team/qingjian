@@ -127,7 +127,7 @@ pub fn shortcuts(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Rende
     Ok(out)
 }
 
-/// 额外翻页键、高亮移动键、切换全半角标点，平台的输入法接了哪个显示哪个。
+/// 额外翻页键、高亮移动键、切换全半角标点与简繁，平台的输入法接了哪个显示哪个。
 fn extra_keys(
     ui: &mut Ui<Message>,
     page: &Page,
@@ -176,6 +176,25 @@ fn extra_keys(
         rows.push(
             SettingRow::new("Ctrl + . 切换全半角标点")
                 .info("切换全角、半角标点")
+                .control(switch)
+                .build(ui, theme)?,
+        );
+    }
+    if Feature::ToggleTraditional.here() {
+        let traditional = shortcut.toggle_traditional.is_some();
+        let switch = bamboo_slip::Switch::new(traditional).build(
+            ui,
+            theme,
+            "toggle-traditional",
+            Message::set(
+                "shortcut",
+                "toggle_traditional",
+                if traditional { "" } else { "ctrl+shift+f" },
+            ),
+        )?;
+        rows.push(
+            SettingRow::new("Ctrl + Shift + F 切换简繁输出")
+                .info("在简体与上次用的繁体字形之间切换")
                 .control(switch)
                 .build(ui, theme)?,
         );

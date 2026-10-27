@@ -2,6 +2,7 @@
 
 use jiff::Zoned;
 use jiff::civil::{Date, Weekday};
+use jiff::tz::TimeZone;
 
 use super::numeral::chinese_lower;
 
@@ -55,13 +56,31 @@ pub fn date_forms(now: &Zoned) -> Vec<String> {
     ]
 }
 
-/// `sj`：`19:06`、`19:06:23`、`19点06分`。
+/// `sj`：`19:06`、`19:06:23`、`19点06分`、`20260903190623`（时间戳 `yyyyMMddHHmmss`）。
 pub fn time_forms(now: &Zoned) -> Vec<String> {
+    let (year, month, day) = (now.year(), now.month(), now.day());
     let (hour, minute, second) = (now.hour(), now.minute(), now.second());
     vec![
         format!("{hour:02}:{minute:02}"),
         format!("{hour:02}:{minute:02}:{second:02}"),
         format!("{hour}点{minute:02}分"),
+        format!("{year:04}{month:02}{day:02}{hour:02}{minute:02}{second:02}"),
+    ]
+}
+
+/// 表达式键之后是这个词时出时间戳（`vts`）。
+pub const TIMESTAMP_KEYWORD: &str = "ts";
+
+/// `vts`：Unix 秒、UTC（RFC 3339，`2026-09-03T11:06:23Z`）、Unix 毫秒、带时区的 ISO 8601（`2026-09-03T19:06:23+08:00`）。
+pub fn timestamp_forms(now: &Zoned) -> Vec<String> {
+    let instant = now.timestamp();
+    vec![
+        instant.as_second().to_string(),
+        now.with_time_zone(TimeZone::UTC)
+            .strftime("%Y-%m-%dT%H:%M:%SZ")
+            .to_string(),
+        instant.as_millisecond().to_string(),
+        now.strftime("%Y-%m-%dT%H:%M:%S%:z").to_string(),
     ]
 }
 

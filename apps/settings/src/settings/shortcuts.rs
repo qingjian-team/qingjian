@@ -40,6 +40,9 @@ impl Settings {
         if Feature::TogglePunctuation.here() {
             self.write("shortcut", "toggle_punctuation", "");
         }
+        if Feature::ToggleTraditional.here() {
+            self.write("shortcut", "toggle_traditional", "");
+        }
         self.recording = None;
     }
 }

@@ -288,12 +288,12 @@ fn cell(
             flex_grow: 1.0,
             flex_basis: Dimension::length(0.0),
             flex_direction: FlexDirection::Row,
-            justify_content: Some(if number {
+            justify_content: if number {
                 JustifyContent::FLEX_END
             } else {
                 JustifyContent::FLEX_START
-            }),
-            align_items: Some(AlignItems::CENTER),
+            },
+            align_items: AlignItems::CENTER,
             size: Size {
                 width: Dimension::auto(),
                 height: Dimension::auto(),

@@ -20,7 +20,7 @@ use crate::view::parts::controls::{choice, toggle_info};
 const LICENSE: &str = "自由软件，GPL-3.0-or-later 许可证：可以自由使用、修改与再分发，修改后分发须同样开源。官方渠道免费。";
 
 /// 随包数据的来源与许可（与旧设置程序「关于」页一致）。
-const SOURCES: [(&str, &str); 8] = [
+const SOURCES: [(&str, &str); 9] = [
     (
         "词库",
         "通用规范汉字表；现代汉语常用词表（liuxilu 校对版）；THUOCL（清华大学自然语言处理实验室，MIT）；读音取自 Unihan（Unicode License v3）。",
@@ -42,6 +42,10 @@ const SOURCES: [(&str, &str); 8] = [
     (
         "五笔码表",
         "86 五笔极点码表（sxjudya/rime-wubi86-jidian，Apache-2.0）；编码来自上游，词频由青简词库按词面回填。",
+    ),
+    (
+        "拆字表",
+        "開放詞典網漢語拆字字典（kaifangcidian.com，CC BY 3.0）；按部件读音重新编排，读音取自青简词库。",
     ),
     (
         "笔画码表",
@@ -208,7 +212,7 @@ fn header(ui: &mut Ui<Message>, page: &Page) -> Result<NodeId, RenderError> {
     let brand = ui.scene().node(
         Style {
             flex_direction: FlexDirection::Row,
-            align_items: Some(AlignItems::CENTER),
+            align_items: AlignItems::CENTER,
             gap: page.gap(14.0),
             flex_grow: 1.0,
             ..Style::default()
@@ -227,7 +231,7 @@ fn header(ui: &mut Ui<Message>, page: &Page) -> Result<NodeId, RenderError> {
     ui.scene().node(
         Style {
             flex_direction: FlexDirection::Row,
-            align_items: Some(AlignItems::CENTER),
+            align_items: AlignItems::CENTER,
             padding: Rect {
                 left: LengthPercentage::length(page.px(4.0)),
                 right: LengthPercentage::length(page.px(4.0)),

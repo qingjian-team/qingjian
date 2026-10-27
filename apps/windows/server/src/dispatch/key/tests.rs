@@ -9,7 +9,7 @@ use qingjian_platform::protocol::{
 };
 use qingjian_platform::{AppsConfig, HighlightKeys, LayoutMode};
 
-fn router(size: usize) -> Router {
+pub(super) fn router(size: usize) -> Router {
     let mut engine = Engine::new(Dictionary::parse("你\tni\t100\n").unwrap()).with_english(
         WordList::parse("hello\thello\t100\nhelp\thelp\t90\nheld\theld\t80\n").unwrap(),
     );
@@ -35,7 +35,7 @@ fn router(size: usize) -> Router {
     });
     router
 }
-fn key(
+pub(super) fn key(
     router: &mut Router,
     code: u32,
     character: Option<char>,
@@ -57,7 +57,7 @@ fn key(
         _ => panic!("key result"),
     }
 }
-fn compose(router: &mut Router, text: &str, modifiers: KeyModifiers) {
+pub(super) fn compose(router: &mut Router, text: &str, modifiers: KeyModifiers) {
     for c in text.chars() {
         key(router, c as u32, Some(c), modifiers);
     }
@@ -94,6 +94,31 @@ fn tab_and_backtab_page_boundaries_and_current_page_selection() {
         assert_eq!(key(&mut router, 0x21, None, normal).2.page, 0);
     }
 }
+/// #250：候选窗上滚轮翻页、点翻页箭头，和翻页键一样到头就停。
+#[test]
+fn wheel_and_page_arrows_turn_pages_like_page_keys() {
+    use crate::dispatch::CandidateMouse;
+
+    let mut router = router(4);
+    let normal = KeyModifiers::default();
+    router.handle_candidate_mouse(CandidateMouse::Page(1));
+    assert_eq!(router.self_drawn_frame().page, 0, "没在打字时滚轮不动");
+    compose(&mut router, "qq", normal);
+    router.handle_candidate_mouse(CandidateMouse::Page(1));
+    assert_eq!(router.self_drawn_frame().page, 1);
+    router.handle_candidate_mouse(CandidateMouse::Page(5));
+    assert_eq!(router.self_drawn_frame().page, 2);
+    router.handle_candidate_mouse(CandidateMouse::Click(qingjian_render::HitTarget::Page(-1)));
+    let frame = router.self_drawn_frame();
+    assert_eq!((frame.page, frame.highlight), (1, 0));
+    let expected = frame.candidates.items[0].text.clone();
+    assert_eq!(
+        key(&mut router, b'1' as u32, Some('1'), normal).1,
+        Some(expected),
+        "滚过去之后数字键选的是这一页"
+    );
+}
+
 #[test]
 fn shift_tab_precedes_prediction_and_english_commit() {
     let mut router = router(1);

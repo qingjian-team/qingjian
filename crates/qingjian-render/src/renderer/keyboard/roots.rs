@@ -35,8 +35,8 @@ pub(super) fn key(
         let glyph = glyph(scene, root, size, paint.lines)?;
         let cell_style = Style {
             display: bamboo_slip::taffy::Display::Flex,
-            justify_content: Some(JustifyContent::CENTER),
-            align_items: Some(AlignItems::CENTER),
+            justify_content: JustifyContent::CENTER,
+            align_items: AlignItems::CENTER,
             ..absolute(
                 (Some(inset + column as f32 * cell), None),
                 Some(inset + row as f32 * cell),

@@ -25,7 +25,9 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 
 use taffy::prelude::TaffyMaxContent;
-use taffy::{AlignItems, AvailableSpace, GridPlacement, Line, NodeId, Size, Style, TaffyTree};
+use taffy::{
+    AlignItems, AvailableSpace, GridPlacement, Line, NodeId, Position, Size, Style, TaffyTree,
+};
 
 use crate::error::RenderError;
 use crate::text::{TextPainter, TextSize};
@@ -98,12 +100,23 @@ impl Scene {
     }
 
     /// 加一个节点，`children` 按画的先后排。
+    ///
+    /// 节点一律是定位容器：绝对定位的子节点按直接父节点摆，控件与主题都按这条写。taffy 0.15 起缺省是
+    /// CSS 的 `static`（绝对定位的子节点越过它去找更远的祖先），所以没写定位的节点在这里改成 `relative`。
     pub fn node(
         &mut self,
         style: Style,
         visual: Visual,
         children: &[NodeId],
     ) -> Result<NodeId, RenderError> {
+        let style = if style.position == Position::Static {
+            Style {
+                position: Position::Relative,
+                ..style
+            }
+        } else {
+            style
+        };
         let node = self.tree.new_with_children(style, children)?;
         self.tree.set_node_context(
             node,

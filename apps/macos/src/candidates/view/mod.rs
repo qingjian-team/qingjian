@@ -42,6 +42,9 @@ pub struct Ivars {
     /// 当前显示的一帧。
     frame: RefCell<Frame>,
 
+    /// 深浅看谁的外观：垫着会随背后内容变深变浅的系统玻璃时是玻璃里的探针，否则看自己。
+    appearance_source: RefCell<Option<Retained<NSView>>>,
+
     /// 竖排 / 横排。
     layout: Cell<LayoutMode>,
 
@@ -175,6 +178,7 @@ impl CandidateView {
         let cloud = CloudIcon::new(&theme.cloud_color, CLOUD_SIZE);
         let this = mtm.alloc::<Self>().set_ivars(Ivars {
             frame: RefCell::new(Frame::default()),
+            appearance_source: RefCell::new(None),
             layout: Cell::new(LayoutMode::default()),
             cloud,
             theme,
@@ -239,14 +243,22 @@ impl CandidateView {
         self.setNeedsDisplay(true);
     }
 
+    /// 深浅改看这个视图的外观（`None` 看自己）；外观变了重画。
+    pub fn set_appearance_source(&self, source: Option<Retained<NSView>>) {
+        *self.ivars().appearance_source.borrow_mut() = source;
+        self.setNeedsDisplay(true);
+    }
+
     /// 当前生效的外观是不是深色。
     fn is_dark(&self) -> bool {
         // SAFETY: 只读 AppKit 导出的常量名
         let names =
             unsafe { NSArray::from_slice(&[NSAppearanceNameAqua, NSAppearanceNameDarkAqua]) };
-        let matched = self
-            .effectiveAppearance()
-            .bestMatchFromAppearancesWithNames(&names);
+        let appearance = match &*self.ivars().appearance_source.borrow() {
+            Some(source) => source.effectiveAppearance(),
+            None => self.effectiveAppearance(),
+        };
+        let matched = appearance.bestMatchFromAppearancesWithNames(&names);
         // SAFETY: 同上
         matched.is_some_and(|name| unsafe { name.isEqualToString(NSAppearanceNameDarkAqua) })
     }
@@ -332,6 +344,18 @@ impl CandidateView {
         if let Some(bitmap) = &mut *self.ivars().bitmap.borrow_mut() {
             bitmap.forget();
         }
+    }
+
+    /// 这一帧要在内容区底下垫的系统材质（圆角已换成点）；符号面板与 AppKit 逐项绘制都不垫。
+    pub fn material(&self) -> Option<qingjian_render::MaterialBacking> {
+        if self.ivars().frame.borrow().is_panel() {
+            return None;
+        }
+        self.ivars()
+            .bitmap
+            .borrow()
+            .as_ref()
+            .and_then(BitmapPainter::material)
     }
 
     /// 在用青简渲染器（阴影画在位图里）；否则是 AppKit 逐项绘制，要系统阴影。

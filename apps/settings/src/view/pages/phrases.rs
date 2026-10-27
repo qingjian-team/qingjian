@@ -80,7 +80,7 @@ fn phrase_row(
     let leading = ui.scene().node(
         Style {
             flex_direction: FlexDirection::Row,
-            align_items: Some(AlignItems::CENTER),
+            align_items: AlignItems::CENTER,
             gap: page.gap(12.0),
             flex_shrink: 0.0,
             ..Style::default()
@@ -98,7 +98,7 @@ fn phrase_row(
     let trailing = ui.scene().node(
         Style {
             flex_direction: FlexDirection::Row,
-            align_items: Some(AlignItems::CENTER),
+            align_items: AlignItems::CENTER,
             gap: page.gap(12.0),
             ..Style::default()
         },
@@ -109,8 +109,8 @@ fn phrase_row(
     ui.scene().node(
         Style {
             flex_direction: FlexDirection::Row,
-            align_items: Some(AlignItems::CENTER),
-            justify_content: Some(JustifyContent::SPACE_BETWEEN),
+            align_items: AlignItems::CENTER,
+            justify_content: JustifyContent::SPACE_BETWEEN,
             gap: page.gap(16.0),
             min_size: Size {
                 width: LengthPercentageAuto::auto(),
@@ -232,7 +232,7 @@ fn editor(ui: &mut Ui<Message>, page: &Page) -> Result<(), RenderError> {
     children.push(ui.scene().node(
         Style {
             flex_direction: FlexDirection::Row,
-            align_items: Some(AlignItems::CENTER),
+            align_items: AlignItems::CENTER,
             gap: page.gap(8.0),
             margin: Rect {
                 top: LengthPercentageAuto::length(page.px(4.0)),

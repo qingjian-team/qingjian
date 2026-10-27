@@ -6,7 +6,7 @@
 ## 主题文件
 
 - 一个主题一个目录：`theme.json`，加上它引用的 `images/…`（PNG、SVG）与 `fonts/…`（TTF / OTF / TTC）。包内路径一律相对 `theme.json`，拒绝 `..` 与绝对路径。
-- 内置主题七个，随 crate 编进来（`crates/qingjian-render/themes/<id>/theme.json`）：`qingjian` 青简绿（缺省）、`system-blue` 系统蓝、`wechat` 微信绿、`sakura` 樱花、`dafeiyu` 大肥鱼、`miku` 初音未来、`bocchi` 波奇酱；系统蓝、微信绿 `extends` 青简绿、只改颜色变量，后四个整套重写了窗口、组件与状态条（只有浅色）。
+- 内置主题八个，随 crate 编进来（`crates/qingjian-render/themes/<id>/theme.json`）：`qingjian` 青简绿（缺省）、`system-blue` 系统蓝、`wechat` 微信绿、`glass` 玻璃、`sakura` 樱花、`dafeiyu` 大肥鱼、`miku` 初音未来、`bocchi` 波奇酱；系统蓝、微信绿 `extends` 青简绿、只改颜色变量，玻璃 `extends` 青简绿、改了窗口与高亮组件并写了 `material`（照 macOS 26 自带简体拼音的胶囊条），后四个整套重写了窗口、组件与状态条（只有浅色）。
   内置主题的图片用 `include_bytes!` 编进程序（`theme/mod.rs` 的 `BUILTINS` 里每个主题一张「路径 → 内容」表，与用户主题走同一套解码），不带字体文件、只用系统字体；测试检查内置主题用到的图片都编进去了。用户主题 `extends` 内置主题时，主题目录里没有的图片到那个内置主题编进程序的文件里找（只看顶层 `extends` 那一层）。
 - 用户主题放在 `<用户数据目录>/themes/<id>/`，由 `ThemeLibrary` 与内置主题合成一个列表（内置在前、用户按 id 排）。目录名必须等于 `meta.id`，不能与内置主题重名，
   不能是 `system` / `light` / `dark`；读不进来的跳过并记警告。设置界面（mac 偏好设置、Windows 设置程序「候选窗口」页）按显示名列出，写回 `[general] theme` 的 id。
@@ -34,6 +34,7 @@
 | `fonts` | 随主题带的字体文件 `[{ "file": "fonts/x.ttf" }]` |
 | `components` | 可复用的节点，`use` / `repeat` 按名字引用 |
 | `windows` | `vertical` / `horizontal` 两个根节点，按用户选的排布取一个 |
+| `material` | 窗口底下垫的系统材质：`{ "kind": "glass" \| "blur", "tint": 颜色, "appearance": "auto" \| "system" }`（`glass` 缺省 `auto`、`blur` 缺省 `system`）（见「填充与效果」） |
 | `status` | 悬浮状态条（只有 Windows 有）：字体、内边距、圆角、各处颜色、`effects`，排法固定；写了 `root` 就按节点树画（见「状态条」） |
 | `keyboard` | 双拼键位提示的键盘：键名与小字的字体、键的宽高与间距、圆角、各状态（平常 / 刚敲下 / 能接 / 拼不出）的填充与文字颜色、`effects`，排法固定（三排错位）；整块跟着候选字比例缩放，透明度由壳设在窗口上 |
 
@@ -43,19 +44,19 @@
 |---|---|
 | `frame` | `direction`（row / column）、`fill`、`border`、`radius`、`children`；带 `table: { row_height }` 时排成表格 |
 | `text` | `bind` 或 `text`（固定文字）、`font`、`color`、`stroke` |
-| `icon` | `icon`（cloud / gear）、`size`、`color`；盒子缺省与图标同大，图标垂直居中 |
+| `icon` | `icon`（cloud / gear / chevron-left / chevron-right）、`size`、`color`；盒子缺省与图标同大，图标垂直居中 |
 | `preedit` | `font`、`typed` / `rest` / `struck` 三种拼音颜色、`caret: { width, color }`、`stroke` |
 | `annotation` | `bind`、`font`、`gloss` / `fresh` / `faint` 三种颜色（`pos`、`separator` 可单独写，缺省同 `faint`）、`tones`（只画哪几种片段）、`senses`（只画前几个义项）、`stroke` |
 | `use` | `component`：引用组件，这里写的盒子属性盖过组件根节点的 |
 | `repeat` | `bind`（`candidates`）、`component`：每项候选实例化一份 |
 
-所有节点都可写：`when`（显示条件）、`id` + `transition`（过渡）、`animation`（循环动画）、`margin` / `padding`（一个数或 `[上, 右, 下, 左]`，外边距可写 `"auto"`）、`gap`、
+所有节点都可写：`when`（显示条件）、`action`（点击动作：`previous_page` / `next_page`，见下面「点击」）、`id` + `transition`（过渡）、`animation`（循环动画）、`margin` / `padding`（一个数或 `[上, 右, 下, 左]`，外边距可写 `"auto"`）、`gap`、
 `width` / `height` / `min_width`、`position: "absolute"` + `inset`、`align_self`（start / end / center / stretch）、`span: "row"`（表格里横跨整行）、`opacity`（整棵子树）、`effects`。长度单位是点。
 
 ### 数据
 
 - **条件**：`when` 是数据字段名，`!` 取反，`a|b` 任一成立。候选项里：`highlighted`、`cloud`、`annotation`、`first`、`last`；
-  整帧：`preedit`、`trailing`、`trailing.cloud`、`page`、`candidates`、`annotations`（任一候选有译文）、`highlighted`、`highlighted.annotation`；
+  整帧：`preedit`、`trailing`、`trailing.cloud`、`page`、`page.previous` / `page.next`（往前 / 往后还有页，壳按页码填）、`candidates`、`annotations`（任一候选有译文）、`highlighted`、`highlighted.annotation`；
   输入状态：`mode.english`、`mode.traditional`、`mode.full_width`、`mode.scheme`（有方案名）。
 - **绑定**：文字 `index`、`text`（候选项）、`page`、`trailing.text`、`mode.scheme`（方案显示名）；译文 `annotation`（候选项）、`highlighted.annotation`；列表 `candidates`。
 - **条件颜色**：`{ "if": "highlighted", "then": "@hl_text", "else": "@text" }`，条件写法同 `when`。系统蓝、微信绿的高亮白字靠它；青简绿里 `hl_*` 与普通颜色同值。
@@ -73,6 +74,9 @@
   格子里的条件 `emphasized`（当前模式、生效的全角标点）、`gear`、`first`、`last`，文字绑定 `text`；整条能用 `mode.*`（`Renderer::render_status` 收一份 `Mode`，Windows 的 `StatusView` 带着，与候选窗口同一个 `Router::input_mode`）。
   点击按格：每格第一个产出的节点的右边界（根坐标），没画出来的格同前一格，最后一格延到内容右边；格子之间的装饰算前一格（`renderer/status/tree.rs`）。
   没写 `root` 走原来的固定排法（内置主题都是），Windows 的状态条快照不变。
+- **点击**：候选与各条译词由渲染器自动出点击区域（`Rendered::hits`）；写了 `action` 的节点连同子树取外接矩形，出 `HitTarget::Page(-1 / 1)`，
+  四周各放 4 点免得小箭头难点，与候选重叠处候选先命中（`renderer/mod.rs` 的 `hit_regions`）。壳把它当翻页键处理（mac `turn_page`、Windows `Router::page`）；
+  Windows 另收候选窗上的滚轮，攒够一格翻一页。内置主题都在页码两侧画了箭头，翻不动的一侧画淡。
 - **表格**：`repeat` 出来的每份组件是一行，组件根节点的子节点依次是各列，每列取各行最宽，行高至少 `row_height`；末尾自动补一列吃掉剩余宽度，
   `span: "row"` 的格子（高亮条）因此能横跨整个表格。列间距用各格的外边距写。竖排三列对齐就靠它。
   一行里的各格（不含 `span`）按各自第一段文字的基线对齐：布局后把基线偏高的格子往下补上边距再排一遍，差不到一像素的不动（`scene/baseline.rs`）；
@@ -93,6 +97,13 @@
 - **伸出窗口的装饰**：负 `inset` 的绝对定位节点（`"inset": [-24, -24, "auto", "auto"]`）。布局后把所有自己画东西的节点（连同投影、描边）并成画出范围，位图按它开，
   根节点的盒子是内容区（`Rendered::content_*`）；壳照旧按内容区对齐光标、夹进屏幕，装饰可以伸到屏幕外。
   鼠标整个穿透：mac 面板本来就 `ignoresMouseEvents`，Windows 候选窗加 `WS_EX_TRANSPARENT`。
+- **系统材质**：顶层 `material` 写了、壳又声明垫得了（`Renderer::set_material_support`，现在只有 mac）时，窗口根节点的 `fill` 换成 `tint`（不写不着色）、
+  根节点不画 `effects`，位图不再为投影留边；`Rendered::material` 给出种类与根节点圆角（像素），壳在内容区底下垫系统视图、按圆角裁，阴影交给系统按窗口形状算。
+  mac：面板的内容视图是个容器，材质视图在候选视图下面（`candidates/backdrop.rs`）；`glass` 用 macOS 26 的 `NSGlassEffectView`，没有这个类时与 `blur` 一样用
+  `NSVisualEffectView`（弹出层材质、窗口后面混合、常亮，圆角靠九宫格遮罩图）；每帧 `invalidateShadow`。
+  新玻璃会随背后内容变深变浅并改它里面视图的外观。`appearance` 为 `auto`（`glass` 的缺省；且主题没锁定外观）时玻璃里放一个不画东西的探针视图，候选视图按探针的深浅取主题、它一变就重画，文字因此跟着反色；
+  否则文字照常跟系统，材质视图的外观钉在锁定的外观或系统外观上（`MaterialBacking::follows_backdrop` / `locked_dark`）；
+  新玻璃不认设给它的外观（macOS 26.6 实测压在深色背景上照样变深），这时 `glass` 换成毛玻璃。垫不了的壳照旧画 `fill` 与投影，所以 `fill` 要写成不透明的兜底。
 - **锁定外观**：`meta.appearance` 写了就不跟随外观设置切换；用浅色图片做底的主题要锁浅色。
 
 ### 文字
@@ -167,9 +178,8 @@ theme.json + Frame 数据
 ## 预览版的限制
 
 - 状态条的节点树画法不播动画；mac 没有悬浮状态条（菜单栏图标），主题的状态条只在 Windows 上显示。
-- 翻页只能显示页码文字；画出来的翻页按钮点不了。
 - 图片是 PNG 与 SVG；SVG 里的文字、内嵌位图不画；没有 APNG 帧动画。
 - 没有窗口出现 / 消失动画、混合模式、图层模糊、渐变字、变体覆盖（用 `when` 分支与条件颜色代替）。
-- 背景毛玻璃做不到：自绘位图读不到窗口后面的内容。
+- 背景毛玻璃只有 macOS 有（`material`，壳垫系统视图）；Windows 与预览图照旧画 `fill`。
 - 主题只能以目录形式安装，`extends` 只能继承内置主题。
 - Linux 上候选窗由 Fcitx5 / IBus 画，主题不生效。

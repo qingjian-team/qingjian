@@ -22,7 +22,7 @@ description: 打开设置的方法、搜索与 ⓘ 说明、设置窗口 12 页�
 | 页 | 内容 | 详见 |
 |---|---|---|
 | 输入 | 拼音方案（全拼、双拼、注音）、形码（五笔）、分次选词、键位提示、模糊音、辅码 | [拼音方案与模糊音](../input/fuzzy-and-shuangpin.md)、[五笔与混输](../input/wubi.md)、[辅码](../input/aux-code.md) |
-| 候选 | 每页候选数、学习语言、词性、繁体、拼音带声调、emoji 与符号、学习输入习惯、本地整句模型、英文词 | [候选旁的译词](../learning/translation.md)、[繁体输出](../input/traditional.md)、[整句、简拼与纠错](../input/sentence.md) |
+| 候选 | 每页候选数、小键盘数字（Windows）、学习语言、词性、繁体、拼音带声调、emoji 与符号、学习输入习惯、本地整句模型、英文词 | [候选旁的译词](../learning/translation.md)、[繁体输出](../input/traditional.md)、[整句、简拼与纠错](../input/sentence.md) |
 | 中英文 | 英文模式、切换键、默认模式、按应用记住、英文候选、标点、自动空格、悬浮状态条 | [中英文](../input/english-mode.md)、[标点、符号与表情](../input/punctuation.md) |
 | 外观 | 主题、深浅色、横排竖排、拼音位置、字体与字号、动画 | [外观与主题](../personalize/appearance.md) |
 | 快捷键 | 翻页键、高亮移动键、前缀字母、译词的修饰键、翻译与 AI 联想的快捷键 | [改按键](../personalize/keys-settings.md) |

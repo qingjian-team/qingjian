@@ -50,8 +50,8 @@ pub fn dialog<M>(
     ui.interact(card, key.child("card"), Interact::new());
     let scrim = ui.scene().node(
         Style {
-            justify_content: Some(JustifyContent::CENTER),
-            align_items: Some(AlignItems::CENTER),
+            justify_content: JustifyContent::CENTER,
+            align_items: AlignItems::CENTER,
             ..overlay()
         },
         Visual::solid(colors.shadow, 0.0),

@@ -26,6 +26,22 @@ pub(crate) const GUID_SWITCH_MODE: GUID = GUID::from_u128(0x2f6b8c51_9a34_4e7d_b
 /// 可配置的全 / 半角标点切换键。
 pub(crate) const GUID_PUNCTUATION: GUID = GUID::from_u128(0xa8e6eafb_d2c5_4db3_96d4_5bfd6432a0d7);
 
+/// 简繁切换保留键标识。
+pub(crate) const GUID_TRADITIONAL: GUID = GUID::from_u128(0x9bd77850_55e8_45cd_aa35_1c02ea349001);
+
+pub(crate) fn register_traditional(
+    keystroke: &ITfKeystrokeMgr,
+    tid: u32,
+    combo: KeyCombo,
+) -> Result<()> {
+    let description: Vec<u16> = "切换简繁输出（青简）".encode_utf16().collect();
+    unsafe { keystroke.PreserveKey(tid, &GUID_TRADITIONAL, &preserved_key(combo), &description) }
+}
+
+pub(crate) fn unregister_traditional(keystroke: &ITfKeystrokeMgr, combo: KeyCombo) {
+    let _ = unsafe { keystroke.UnpreserveKey(&GUID_TRADITIONAL, &preserved_key(combo)) };
+}
+
 /// msctf.h 的 `TF_MOD_LWIN`（windows crate 没导出）。
 const TF_MOD_LWIN: u32 = 0x08;
 

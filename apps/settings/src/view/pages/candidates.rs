@@ -3,12 +3,12 @@
 use bamboo_slip::taffy::NodeId;
 use bamboo_slip::{RenderError, SettingRow, Stepper, Ui, group, section_title};
 use qingjian_core::{ENGLISH_CANDIDATES_MAX, LEARNING_LANGUAGES, TraditionalVariant};
-use qingjian_platform::{EmojiCount, MAX_PAGE_SIZE};
+use qingjian_platform::{EmojiCount, MAX_PAGE_SIZE, NumpadDigit};
 
 use crate::message::{Message, Popup};
 use crate::support::Feature;
 use crate::view::Page;
-use crate::view::parts::controls::{select, toggle_info, toggle_with};
+use crate::view::parts::controls::{choice, select, toggle_info, toggle_with};
 
 pub fn candidates(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderError> {
     let theme = &page.theme;
@@ -72,6 +72,24 @@ pub fn candidates(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Rend
             general.learning_language_off(),
         )?,
     ];
+    if Feature::NumpadDigit.here() {
+        let numpad = choice(
+            ui,
+            page,
+            "numpad-digit",
+            &NumpadDigit::ALL,
+            general.numpad_digit,
+            NumpadDigit::label,
+            |value| Message::set("general", "numpad_digit", value.key()),
+        )?;
+        rows.insert(
+            1,
+            SettingRow::new("小键盘数字")
+                .info("组句中按小键盘数字")
+                .control(numpad)
+                .build(ui, theme)?,
+        );
+    }
     if Feature::ShowTones.here() {
         rows.push(toggle_info(
             ui,

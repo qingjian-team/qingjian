@@ -60,7 +60,7 @@ pub fn convert(
     }
 
     let tsv = to_tsv(&source).tsv;
-    let mut entries: Vec<(String, String, u32)> = Vec::new();
+    let mut entries: Vec<(String, String, u32, usize)> = Vec::new();
     for (index, raw) in tsv.lines().enumerate() {
         // 只去尾部空白：词字段可能是空的（源表里 全角空格 那条以制表符开头），
         // 整行 trim 会把开头的制表符吃掉、后面的列整体左移，编码被当成词
@@ -81,27 +81,32 @@ pub fn convert(
             continue;
         }
         let weight = table.get(word).copied().unwrap_or(UNKNOWN_FREQUENCY);
-        entries.push((word.to_owned(), code, weight));
+        entries.push((word.to_owned(), code, weight, index));
     }
-    // 按 (编码, 词频降序, 词) 排：与 `CodeTable` 在内存里的顺序一致，文件本身也一眼看得出排序；
-    // 同一个 (词, 编码) 出现两次（合并多份码表）留第一次
+    // 单字母编码保留源码表顺序，避免一级简码被回填词频覆盖；其他编码仍按词频排序。
     entries.sort_by(|a, b| {
         a.1.cmp(&b.1)
-            .then_with(|| b.2.cmp(&a.2))
+            .then_with(|| {
+                if a.1.len() == 1 {
+                    a.3.cmp(&b.3)
+                } else {
+                    b.2.cmp(&a.2)
+                }
+            })
             .then_with(|| a.0.cmp(&b.0))
     });
     entries.dedup_by(|a, b| a.0 == b.0 && a.1 == b.1);
 
     let unknown = entries
         .iter()
-        .filter(|(_, _, frequency)| *frequency == UNKNOWN_FREQUENCY)
+        .filter(|(_, _, frequency, _)| *frequency == UNKNOWN_FREQUENCY)
         .count();
     let mut writer = BufWriter::new(std::fs::File::create(output)?);
     writeln!(
         writer,
         "# 形码码表：词\t编码\t词频。词频由青简词库按词面回填（不是码表自带的权重），出处见 assets/schemes/wubi86/README.md"
     )?;
-    for (word, code, frequency) in &entries {
+    for (word, code, frequency, _) in &entries {
         writeln!(writer, "{word}\t{code}\t{frequency}")?;
     }
     writer.flush()?;
@@ -175,6 +180,16 @@ name: wubi86
                 unknown: 1,
             }
         );
+    }
+
+    #[test]
+    fn preserves_source_order_for_single_letter_codes() {
+        let (lines, _) = convert_to_strings(
+            "single-letter-order",
+            "---\nname: t\n...\n以\tc\t1\n又\tc\t2\n",
+            "以\tyi\t1\n又\tyou\t999999\n",
+        );
+        assert_eq!(lines, ["以\tc\t1", "又\tc\t999999"]);
     }
 
     #[test]

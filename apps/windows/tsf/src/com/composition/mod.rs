@@ -18,7 +18,7 @@ use qingjian_platform::protocol::{Frame, PreeditKind};
 
 pub(crate) use self::shared::Shared;
 use self::sink::CompositionSink;
-use super::edit::{InputContext, anchor_rect, caret_rect, input_context};
+use super::edit::{InputContext, caret_rect, input_context, measured_rect, mouse_screen_rect};
 use super::service::SharedClient;
 
 /// 内联要显示的拼音行（跳过被纠错划掉的原字母）；空串表示没有组句内容。
@@ -90,18 +90,38 @@ fn report_surrounding(engine: &SharedClient, before: String) {
 }
 
 /// 组句进行中才报位置；组句已收 Server 会按空帧 / `Commit` 自行收窗口。
+/// 量不到光标（Firefox 等应用的 GetTextExt 时灵时不灵）时沿用这一段先前的锚点，一段里第一次就量不到才用鼠标位置，
+/// 也记下来：否则候选窗逐键跟着鼠标跑（#167）。
+/// 应用（全屏游戏）自己画候选时也不报：Server 没收到位置就不画候选窗。
 fn report_caret(shared: &Shared, engine: &SharedClient, context: &ITfContext, ec: u32) {
-    let rect = match shared.composition() {
+    if shared.candidate_list().app_draws() {
+        return;
+    }
+    let measured = match shared.composition() {
         Some(composition) => {
             let Ok(range) = (unsafe { composition.GetRange() }) else {
                 return;
             };
-            anchor_rect(context, ec, &range)
+            measured_rect(context, ec, &range)
         }
         // 「只在候选窗口」模式应用里不放行内拼音：没有组句范围可量，量插入点。
         None if shared.composing() => caret_rect(context, ec),
         None => return,
     };
+    let rect = match measured {
+        Some(rect) => rect,
+        None => match shared.anchor() {
+            Some(rect) => {
+                super::log::log("候选锚点 来源=沿用本段");
+                rect
+            }
+            None => {
+                super::log::log("候选锚点 来源=鼠标回退");
+                mouse_screen_rect()
+            }
+        },
+    };
+    shared.set_anchor(Some(rect));
     // 引擎正被别处借着（罕见）就跳过这拍，Server 保持上次位置。
     if let Ok(mut guard) = engine.try_borrow_mut()
         && let Some(client) = guard.as_mut()

@@ -3,7 +3,7 @@
 use crate::candidate::{Candidate, CandidateKind};
 use crate::engine::{Engine, Learner};
 use crate::nine_key::{self, Shape};
-use crate::sentence::{self, Conversion, SentenceWord};
+use crate::sentence::{self, Conversion, SearchInput, SentenceWord};
 
 /// 参与整句转换的形状数。
 const SENTENCE_SHAPES: usize = 12;
@@ -43,13 +43,17 @@ impl Engine {
             .take(SENTENCE_SHAPES)
             .filter(|shape| shape.positions.len() >= 2)
             .filter_map(|shape| {
-                sentence::convert(
+                let input = SearchInput::new(
                     &dictionaries,
-                    &shape.patterns(shape.positions.len()),
                     &*self.language_model,
                     self.personal(),
                     |text| self.learner.weight(text),
                     |_, _| 0.0,
+                )
+                .with_limits(self.search_limits);
+                sentence::convert(
+                    &input,
+                    &shape.patterns(shape.positions.len()),
                     &mut self.span_cache.borrow_mut(),
                 )
             })

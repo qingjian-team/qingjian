@@ -113,7 +113,12 @@ impl PhraseWorker {
         }
         let system = phrase_prompt::system_prompt(language);
         let user = phrase_prompt::user_prompt(&texts);
-        match runtime.block_on(self.client.chat(&system, &user, MAX_TOKENS)) {
+        match runtime.block_on(self.client.chat(
+            &system,
+            &user,
+            MAX_TOKENS,
+            &phrase_prompt::reply_schema(language),
+        )) {
             Ok(content) => {
                 let translated = phrase_prompt::parse_reply(&content, language, &texts);
                 tracing::info!(

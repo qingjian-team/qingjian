@@ -4,7 +4,7 @@ use super::diagnostics::{copy_to_pasteboard, open_with_system};
 use super::*;
 use crate::preferences::DEFAULT_FONT_LABEL;
 use qingjian_core::TraditionalVariant;
-use qingjian_platform::{FontSize, ShiftLetter, code_schemes};
+use qingjian_platform::{FontSize, ShiftLetter, SwitchKey, code_schemes};
 
 impl Host {
     /// 写短语前读取文件；外部规则有变化时同步列表并请用户重新确认。
@@ -338,6 +338,13 @@ impl Host {
                     "translate_selection",
                     defaults.translate_selection.key_string(),
                 );
+                let values: Vec<String> = defaults
+                    .switch_mode
+                    .config_values()
+                    .into_iter()
+                    .map(String::from)
+                    .collect();
+                self.settings.set_array("shortcut", "switch_mode", &values);
             }
             (Setting::DictionaryEnabled(index), SettingValue::Bool(on)) => {
                 if let Some(info) = self.dictionary_list.get(index).cloned() {
@@ -408,6 +415,13 @@ impl Host {
                 };
                 self.settings
                     .set_value("general", "shift_letter", mode.key());
+            }
+            // 只动 shift，配置里若还勾着 control / ctrl+alt+space（Windows 用的）保持原样
+            (Setting::SwitchModeShift, SettingValue::Bool(on)) => {
+                let keys = config.shortcut.switch_mode.with(SwitchKey::Shift, on);
+                let values: Vec<String> =
+                    keys.config_values().into_iter().map(String::from).collect();
+                self.settings.set_array("shortcut", "switch_mode", &values);
             }
             // 勾上写缺省白名单，去掉写 ["*"]（处处都给）；手改过的名单勾一下就回缺省
             (Setting::EnglishCandidatesOnlyInApps, SettingValue::Bool(on)) => {

@@ -185,10 +185,15 @@ fn width_label(full: bool) -> &'static str {
 }
 
 /// 中英切换键可以多选，一个都不勾就只剩按钮能切；最后一个是 Windows 自己的 Ctrl + Space，改的是系统设置。
+/// macOS 只有单击 Shift 一项，勾上后 Caps Lock 只管大小写。
 fn switch_keys(ui: &mut Ui<Message>, page: &Page) -> Result<NodeId, RenderError> {
     let keys = page.settings.config.shortcut.switch_mode;
+    let combos = Feature::SwitchKeyCombos.here();
     let mut boxes = Vec::new();
     for key in SwitchKey::ALL {
+        if !combos && key != SwitchKey::Shift {
+            continue;
+        }
         let on = keys.contains(key);
         let values = keys
             .with(key, !on)
@@ -215,7 +220,7 @@ fn switch_keys(ui: &mut Ui<Message>, page: &Page) -> Result<NodeId, RenderError>
     let column = ui.scene().node(
         Style {
             flex_direction: FlexDirection::Column,
-            align_items: Some(bamboo_slip::taffy::AlignItems::FLEX_START),
+            align_items: bamboo_slip::taffy::AlignItems::FLEX_START,
             gap: page.gap(8.0),
             ..Style::default()
         },
@@ -225,7 +230,13 @@ fn switch_keys(ui: &mut Ui<Message>, page: &Page) -> Result<NodeId, RenderError>
     with_notice(
         ui,
         page,
-        SettingRow::new("切换键").info("可以多选").control(column),
+        SettingRow::new("切换键")
+            .info(if combos {
+                "可以多选"
+            } else {
+                "勾上后 Caps Lock 只管大小写"
+            })
+            .control(column),
         "switch-keys",
     )
 }

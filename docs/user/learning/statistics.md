@@ -4,7 +4,7 @@ order: 3
 description: 设置「统计」页：输入字数与速度、近一年的输入日历、学习语言按等级的词汇进度，以及 AI 服务的用量。
 ---
 
-「设置 → 统计」顶上分「输入」和「云服务」两层；云服务一层只在 macOS 与 Windows 上有。Android 的统计在青简应用首页，见 [Android：生词本与设置](../platforms/android-settings.md#生词本与统计)。
+「设置 → 统计」顶上分「输入」和「云服务」两层；Android 的统计在青简应用首页，见 [Android：生词本与设置](../platforms/android-settings.md#生词本与统计)。
 
 ## 输入量
 

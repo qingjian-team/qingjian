@@ -2,8 +2,10 @@
 
 use qingjian_core::{Encounter, Language};
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 
 use super::prompt::is_kana;
+use crate::reply::{self, ReplySchema};
 
 /// 一段译文最长几个字符：再长多半是模型在解释。
 const MAX_CHARS: usize = 200;
@@ -36,6 +38,32 @@ pub fn system_prompt(language: Language) -> String {
     )
 }
 
+/// 回复的 JSON 形状，和系统提示一致；读音 r 只有日文要。
+pub fn reply_schema(language: Language) -> ReplySchema {
+    let item = if language == Language::Japanese {
+        reply::object(
+            json!({
+                "w": { "type": "string" },
+                "t": { "type": "string" },
+                "r": { "type": "string" },
+            }),
+            &["w", "t", "r"],
+        )
+    } else {
+        reply::object(
+            json!({ "w": { "type": "string" }, "t": { "type": "string" } }),
+            &["w", "t"],
+        )
+    };
+    ReplySchema::new(
+        "phrase_translation",
+        reply::object(
+            json!({ "items": { "type": "array", "items": item } }),
+            &["items"],
+        ),
+    )
+}
+
 #[derive(Serialize)]
 struct UserMessage<'a> {
     texts: &'a [String],
@@ -63,12 +91,7 @@ struct RawItem {
 
 /// 只收请求过的中文，每段一条；译文去掉首尾引号与空白，空的、过长的、跟原文一样的丢掉。解析不了返回空。
 pub fn parse_reply(content: &str, language: Language, texts: &[String]) -> Vec<Encounter> {
-    let content = content
-        .trim()
-        .trim_start_matches("```json")
-        .trim_start_matches("```")
-        .trim_end_matches("```");
-    let Ok(reply) = serde_json::from_str::<RawReply>(content.trim()) else {
+    let Ok(reply) = serde_json::from_str::<RawReply>(reply::unfenced(content)) else {
         return Vec::new();
     };
     let mut out: Vec<Encounter> = Vec::with_capacity(texts.len());

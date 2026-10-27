@@ -184,7 +184,7 @@ impl MenuView {
         let y = point.y as f32 - rendered.content_y as f32 / rendered.scale;
         match rendered.hit_at(x, y)? {
             HitTarget::MenuItem(item) => Some(item),
-            HitTarget::Candidate(_) | HitTarget::Translation { .. } => None,
+            HitTarget::Candidate(_) | HitTarget::Translation { .. } | HitTarget::Page(_) => None,
         }
     }
 

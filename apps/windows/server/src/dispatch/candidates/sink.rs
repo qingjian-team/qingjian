@@ -68,6 +68,8 @@ pub enum CandidateMouse {
 
     /// 原生编辑框确认了新的候选文本。
     TranslationEdited { offset: usize, text: String },
+    /// 滚轮翻页：正数往后翻（点翻页箭头走 `Click(HitTarget::Page)`）。
+    Page(isize),
 }
 
 /// 右键候选弹的菜单。

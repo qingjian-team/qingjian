@@ -34,10 +34,23 @@ jobs:
 
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
 
+      # runner 的 apt 镜像偶尔只有 100 kB/s，平时 20 秒的这一步会拖到 18 分钟撞上超时。
+      # 下载的 .deb 放进缓存，按周换键，镜像慢时也只下这周新出的版本。
+      - name: Week for apt cache key
+        id: apt-week
+        run: echo "week=$(date -u +%G-%V)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/apt-archives
+          key: apt-ubuntu-26.04-${{ steps.apt-week.outputs.week }}
+          restore-keys: apt-ubuntu-26.04-
+
       - name: Install Fcitx5 build and test dependencies
         run: |
+          mkdir -p ~/apt-archives/partial
           sudo apt-get update
-          sudo apt-get install -y cmake g++ libfcitx5core-dev libfcitx5config-dev libfcitx5utils-dev nlohmann-json3-dev fcitx5
+          sudo apt-get install -y -o Dir::Cache::Archives="$HOME/apt-archives" cmake g++ libfcitx5core-dev libfcitx5config-dev libfcitx5utils-dev nlohmann-json3-dev fcitx5
 
       - name: Format
         run: cargo fmt --all --check
@@ -89,8 +102,11 @@ jobs:
       # 改共用的 connection.cpp 时 Fcitx4 那侧编不过，只有装到 22.04 上才会发现。
       # 它自带一个 CTest（test-surrounding，同样共用 ../tests/surrounding.cpp），一起跑。
       # 26.04 上装 fcitx-libs-dev 会把 fcitx5 卸掉，所以等 Fcitx5 的测试跑完再装
+      # 缓存在 job 结束时打包，apt 建的 partial/ 归 _apt 所有、runner 读不了，装完交回 runner
       - name: Install Fcitx4 build dependencies
-        run: sudo apt-get install -y fcitx-libs-dev libx11-dev libxres-dev
+        run: |
+          sudo apt-get install -y -o Dir::Cache::Archives="$HOME/apt-archives" fcitx-libs-dev libx11-dev libxres-dev
+          sudo chown -R "$USER" ~/apt-archives
 
       - name: Configure Fcitx4 shell
         run: cmake -S apps/linux/fcitx4 -B target/fcitx4-stage1 -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON

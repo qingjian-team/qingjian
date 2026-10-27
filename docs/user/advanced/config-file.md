@@ -51,6 +51,7 @@ description: 青简的全部设置保存在一个文本配置文件里：位置�
 | `[shortcut] extra_page_keys` | 快捷键 → 额外翻页键 | 列表，如 `["[]", ",.", "-="]`，缺省为空 |
 | `[shortcut] highlight_keys` | 快捷键 → 高亮移动键 | 上下或左右 |
 | `[shortcut] toggle_punctuation` | 快捷键 → Ctrl + . 切换全半角标点 | 空串为关闭，`"ctrl+."` 为 Ctrl + 句号；也可写成修饰键加字母、数字或句号，如 `"ctrl+shift+."` |
+| `[shortcut] toggle_traditional` | 快捷键 → Ctrl + Shift + F 切换简繁输出 | 空串为关闭（缺省），`"ctrl+shift+f"` 为 Ctrl + Shift + F；也可写成修饰键加字母或数字。只有 Windows 用 |
 | `[shortcut] translate_selection` | 快捷键 → 翻译选中文字 | 如 `"alt+shift+t"` |
 | `[shortcut] predict` | 快捷键 → 按需 AI 联想 | 完整的组合键，设置界面只改修饰键 |
 | `[predict]` 一节 | 云服务 | 见下文 |

@@ -39,6 +39,11 @@ pub struct ShortcutConfig {
 
     /// 组句中按需调用 AI（缺省 Ctrl+Alt+J，macOS 是 ⌃⌥J）。
     pub predict: KeyCombo,
+
+    /// 在简体与上次用的繁体字形之间切换（Windows 用），空串禁用（缺省），例如 `ctrl+shift+f`。
+    /// 缺省不开：只要青简是当前输入法，这个组合在所有应用里都会被拿走，编辑器的「在文件中查找」也用它。
+    #[serde(with = "super::optional_key_combo")]
+    pub toggle_traditional: Option<KeyCombo>,
 }
 
 impl Default for ShortcutConfig {
@@ -69,6 +74,7 @@ impl Default for ShortcutConfig {
             translation_second,
             translate_selection,
             predict: KeyCombo::PREDICT_DEFAULT,
+            toggle_traditional: None,
         }
     }
 }
@@ -121,6 +127,21 @@ mod tests {
     }
 
     #[test]
+    fn traditional_shortcut_roundtrips_and_can_be_disabled() {
+        let default: ShortcutConfig = toml::from_str("").unwrap();
+        assert_eq!(default.toggle_traditional, None);
+        for text in ["", "ctrl+shift+f", "ctrl+alt+g"] {
+            let source = format!("toggle_traditional = {text:?}");
+            let config: ShortcutConfig = toml::from_str(&source).unwrap();
+            let restored: ShortcutConfig =
+                toml::from_str(&toml::to_string(&config).unwrap()).unwrap();
+            assert_eq!(restored.toggle_traditional, config.toggle_traditional);
+            assert_eq!(config.toggle_traditional.is_none(), text.is_empty());
+        }
+        assert!(toml::from_str::<ShortcutConfig>("toggle_traditional = \"f\"").is_err());
+    }
+
+    #[test]
     fn old_files_without_modifier_keys_still_parse_and_get_defaults() {
         // 缺省值分平台（Windows 用 Ctrl 系、其余用 Option 系），断言跟着平台的 Default 走
         let default = ShortcutConfig::default();
@@ -144,7 +165,7 @@ mod tests {
     }
 
     #[test]
-    fn switch_mode_parses_and_defaults_to_shift() {
+    fn switch_mode_parses_and_falls_back_to_the_platform_default() {
         let parsed: ShortcutConfig = toml::from_str("switch_mode = [\"ctrl\"]\n").unwrap();
         assert!(parsed.switch_mode.control && !parsed.switch_mode.shift);
         let off: ShortcutConfig = toml::from_str("switch_mode = \"none\"\n").unwrap();

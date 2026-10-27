@@ -117,7 +117,7 @@ impl<'a> Select<'a> {
                 size: size(None, Some(theme.px(theme.control_height))),
                 min_size: bound(self.width.map(|width| theme.px(width))),
                 max_size: bound(self.max_width.map(|width| theme.px(width))),
-                justify_content: Some(JustifyContent::SPACE_BETWEEN),
+                justify_content: JustifyContent::SPACE_BETWEEN,
                 flex_shrink: 0.0,
                 ..row(theme, 12.0)
             },

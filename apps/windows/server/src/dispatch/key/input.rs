@@ -1,9 +1,9 @@
 //! 按键怎么作用到 Engine / 高亮上。分流规则与 macOS 壳的 `handle_text` / `handle_command` 对齐。
 
 use qingjian_core::candidate::arrows::{self, Arrow, ArrowAction, Focus};
-use qingjian_core::{CandidateKind, QUESTION_PREFIX, punctuation, shortcut};
-use qingjian_platform::HighlightKeys;
+use qingjian_core::{CandidateKind, QUESTION_PREFIX, punctuation};
 use qingjian_platform::protocol::KeyEvent;
+use qingjian_platform::{HighlightKeys, NumpadDigit};
 
 use super::{Effect, codes, with_prefix};
 use crate::dispatch::Router;
@@ -12,6 +12,13 @@ impl Router {
     /// 功能键靠键码，其余靠字符。组句中修饰键 + 数字是快捷键；带 Ctrl / Alt / Win 而没配到快捷键的键归应用。
     /// 表达式模式里 Shift + 数字打的是 `^ * ( )`，不当快捷键。
     pub(crate) fn apply_key(&mut self, event: &KeyEvent) -> Effect {
+        if self.config.toggle_traditional.is_some_and(|combo| {
+            event.virtual_key == combo.key.to_ascii_uppercase() as u32
+                && event.modifiers.chord() == combo.modifiers.into()
+        }) {
+            self.toggle_traditional();
+            return Effect::Changed(None);
+        }
         if let Some(effect) = self.apply_panel_key(event) {
             return effect;
         }
@@ -428,7 +435,7 @@ impl Router {
     /// 微软 / 搜狗双拼的 `;` 是 ing 键，末尾有落单声母时进缓冲区。
     fn apply_printable(&mut self, c: char, event: &KeyEvent) -> Effect {
         let expression = self.engine.expression_mode();
-        if (expression && shortcut::is_expression_char(c))
+        if self.engine.expression_input(c)
             || (self.engine.unicode_entry() && (c.is_ascii_digit() || c == '+'))
             || (c == ';' && self.engine.takes_semicolon())
         {
@@ -453,6 +460,18 @@ impl Router {
                 self.engine.push(c);
                 return Effect::Changed(None);
             }
+        }
+        // 只改普通中文组句；表达式、码点、问字与注音保留各自数字键语义。
+        if self.config.numpad_digit == NumpadDigit::Direct
+            && (0x60..=0x69).contains(&event.virtual_key)
+            && c.is_ascii_digit()
+            && !expression
+            && !self.engine.question_mode()
+            && !self.engine.is_zhuyin_mode()
+        {
+            self.engine.clear_aux();
+            self.engine.push(c);
+            return Effect::Changed(None);
         }
         // 辅码触发键：拼音打完整了、这个键也没被键盘方案吃掉 → 进辅码态（触发键不进缓冲区）
         if self.engine.aux_trigger(c) {

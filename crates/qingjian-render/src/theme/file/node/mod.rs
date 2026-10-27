@@ -1,5 +1,6 @@
 //! 主题里的节点：种类 + 显示条件 + 盒子属性。
 
+mod action;
 mod align;
 mod animation;
 mod border;
@@ -19,6 +20,7 @@ mod transition;
 
 use serde::Deserialize;
 
+pub(crate) use action::NodeAction;
 pub(crate) use align::Align;
 pub(crate) use animation::AnimationSpec;
 pub(crate) use border::BorderSpec;
@@ -50,6 +52,9 @@ pub(crate) struct NodeSpec {
 
     /// 循环动画（关键帧）。
     pub(crate) animation: Option<AnimationSpec>,
+
+    /// 点击动作：写了就能点，比如翻页箭头。
+    pub(crate) action: Option<NodeAction>,
 
     #[serde(flatten)]
     pub(crate) layout: BoxSpec,

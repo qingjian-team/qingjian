@@ -1,7 +1,7 @@
 ---
 title: Changing keys
 order: 2
-description: "The 快捷键 (Shortcuts) page in Settings: paging keys, extra paging keys, highlight keys, the full-width/half-width punctuation shortcut, prefix letters for calculations and asking about characters, modifiers for glosses, shortcuts for translation and AI suggestions."
+description: "The 快捷键 (Shortcuts) page in Settings: paging keys, extra paging keys, highlight keys, the shortcuts for full-width/half-width punctuation and for Simplified/Traditional, prefix letters for calculations and asking about characters, modifiers for glosses, shortcuts for translation and AI suggestions."
 ---
 
 All changeable keys are in 设置 → 快捷键 (Settings → Shortcuts), and changes take effect immediately. 恢复默认 (Restore defaults) at the bottom of the page resets the keys on this page, and below it are the keys that are fixed while typing pinyin and can't be changed. The full table of default keys is in the [Key reference](../getting-started/keys.md).
@@ -31,6 +31,12 @@ When you're not typing, the arrow keys go to the app as usual. This applies in b
 With Ctrl + . 切换全半角标点 (Ctrl + . switches punctuation width) on, `Ctrl + .` (`⌃ + .` on macOS) switches punctuation between full-width and half-width for the current Chinese/English mode, without changing letters or digits and without switching Chinese/English.
 It's off by default so it doesn't take over the app's own shortcut. On macOS, English-mode punctuation is always half-width, so the shortcut doesn't switch there and the key goes to the app.
 To use a different key combination, see [Editing the configuration file](../advanced/config-file.md).
+
+## Shortcut for switching Simplified and Traditional (Windows)
+
+With Ctrl + Shift + F 切换简繁输出 (Ctrl + Shift + F switches Simplified/Traditional) on, `Ctrl + Shift + F` switches output between Simplified and Traditional. Candidates change to the new forms right away, the pinyin you are typing stays, and text already committed doesn't change.
+Switching to Traditional uses the variant you had before you last switched away; if you have never used Traditional, it's Taiwan forms. The result is also saved under 候选 → 输出字形 (Candidates → Output characters); for the differences between the variants see [Traditional Chinese output](../input/traditional.md).
+It's off by default: while it's on, Qingjian takes this combination in every app, and editors such as VS Code use it for Find in Files. To use a different key combination, see [Editing the configuration file](../advanced/config-file.md).
 
 ## Prefixes for calculations and asking about characters
 

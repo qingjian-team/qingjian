@@ -139,6 +139,10 @@ fn poll_once(context: &PollContext) {
             commit_clicked(context, &frame, commit);
         }
         Ok((frame, None)) => {
+            context
+                .shared
+                .candidate_list()
+                .show(&frame, context.shared.last_context().as_ref());
             // 翻译评审时回空帧 = 翻译已在 Server 侧结束（云端没给译文）。
             if translating && frame.is_empty() {
                 drop(guard);
@@ -170,6 +174,10 @@ fn commit_clicked(context: &PollContext, frame: &Frame, commit: String) {
         String::new()
     };
     context.shared.set_composing(!frame.is_empty());
+    context
+        .shared
+        .candidate_list()
+        .show(frame, context.shared.last_context().as_ref());
     log(&format!("点击上屏: {commit:?} preedit={preedit:?}"));
     if let Err(error) = request_update(
         &document,

@@ -18,10 +18,13 @@ The core dictionary includes 36,000 rare characters (extended characters outside
 
 ## Importing your own dictionaries
 
-设置 → 词库 → 导入词库 (Settings → Dictionaries → Import dictionary) lets you select several files at once and accepts three kinds:
+设置 → 词库 → 导入词库 (Settings → Dictionaries → Import dictionary) lets you select several files at once and accepts four kinds:
 
 - **Text dictionaries** (`.tsv` / `.txt`): each line is "word, pinyin, frequency", separated by tabs, with spaces between pinyin syllables: `青简	qing jian	100`. Pinyin can carry numeric tones (`ni3 hao3`, with 5 or 0 for the neutral tone) or not; typing works the same either way. Write ü as `v`; `lue` / `nue` are accepted too.
-- **Rime dictionaries** (`.dict.yaml`): the name and entries (each line "word, pinyin, optional weight") are read. Other dictionaries it references, custom column orders and schema settings aren't supported.
+- **Rime dictionaries** (`.dict.yaml`): the name and entries (each line "word, pinyin, optional weight") are read. Other dictionaries it references, custom column orders and schema settings aren't supported. Lines with only a word and no pinyin get readings as described in the next item.
+- **Word lists without readings** (`.txt`, or Rime dictionaries with no pinyin): one word per line, optionally "word, frequency". Readings are filled in from the bundled core and topic dictionaries:
+  a reading written in the list wins, then the whole word's reading in the dictionaries, then readings from splitting it by dictionary words (`中华人民共和国` uses 中华, 人民 and 共和国), and finally the most common reading for each remaining character.
+  Words whose characters aren't in the bundled dictionaries are skipped; the result says how many were skipped and shows the first few.
 - **Qingjian dictionaries** (`.qj`): dictionary files made by others, with their own name and license.
 
 - Imported dictionaries are listed below the bundled ones with their name, entry count and license, and are turned on automatically; the input method usually starts using them within about a second, no restart needed.

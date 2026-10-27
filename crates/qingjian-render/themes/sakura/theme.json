@@ -126,15 +126,22 @@
       ]
     },
 
+    "sakura-page-previous": { "type": "icon", "icon": "chevron-left", "size": 9, "height": 16, "color": "@gloss", "action": "previous_page" },
+    "sakura-page-next": { "type": "icon", "icon": "chevron-right", "size": 9, "height": 16, "color": "@gloss", "action": "next_page" },
+
     "sakura-pager": {
       "type": "frame", "when": "page", "margin": [6, 0, 0, "auto"], "padding": [10, 6, 10, 6], "radius": 10,
       "fill": "#ffffff80", "border": { "width": 1, "color": "#ead6ef" },
       "children": [
-        { "type": "frame", "width": 14, "height": 14, "fill": { "image": "images/chevron-left.svg" } },
+        { "type": "use", "component": "sakura-pager-previous", "when": "page.previous" },
+        { "type": "use", "component": "sakura-pager-previous", "when": "!page.previous", "opacity": 0.4 },
         { "type": "frame", "width": 1, "height": 14, "fill": "@divider", "margin": [0, 5, 0, 5] },
-        { "type": "frame", "width": 14, "height": 14, "fill": { "image": "images/chevron-right.svg" } }
+        { "type": "use", "component": "sakura-pager-next", "when": "page.next" },
+        { "type": "use", "component": "sakura-pager-next", "when": "!page.next", "opacity": 0.4 }
       ]
     },
+    "sakura-pager-previous": { "type": "frame", "width": 14, "height": 14, "action": "previous_page", "fill": { "image": "images/chevron-left.svg" } },
+    "sakura-pager-next": { "type": "frame", "width": 14, "height": 14, "action": "next_page", "fill": { "image": "images/chevron-right.svg" } },
 
     // gap 保证竖排窄窗口下两句不挤在一起
     "sakura-ribbon": {
@@ -240,7 +247,13 @@
         { "type": "frame", "when": "candidates", "table": { "row_height": 30 }, "align_self": "stretch", "children": [
           { "type": "repeat", "bind": "candidates", "component": "sakura-row" }
         ] },
-        { "type": "text", "bind": "page", "font": "annotation", "color": "@gloss", "align_self": "end", "margin": [2, 0, 0, 0] },
+        { "type": "frame", "when": "page", "gap": 3, "align_self": "end", "margin": [2, 0, 0, 0], "children": [
+          { "type": "use", "component": "sakura-page-previous", "when": "page.previous" },
+          { "type": "use", "component": "sakura-page-previous", "when": "!page.previous", "opacity": 0.4 },
+          { "type": "text", "bind": "page", "font": "annotation", "color": "@gloss" },
+          { "type": "use", "component": "sakura-page-next", "when": "page.next" },
+          { "type": "use", "component": "sakura-page-next", "when": "!page.next", "opacity": 0.4 }
+        ] },
         { "type": "use", "component": "sakura-ribbon", "margin": [6, -8, 0, -52] },
 
         { "type": "use", "component": "sakura-character" },

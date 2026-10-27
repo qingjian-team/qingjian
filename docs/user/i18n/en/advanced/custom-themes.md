@@ -182,6 +182,38 @@ use `when` so that only one of two texts appears, and `"bind": "mode.scheme"` fo
 - `mode.scheme` is the scheme name, such as 全拼, 小鹤双拼 or 五笔（86） + 全拼; in `when` it means "there is a scheme name".
 - These nodes go in the window's `children`; `children` has to be written out in full (writing only the new nodes replaces the original contents entirely), so copy one from a built-in theme's `theme.json` and edit it.
 
+## Frosted glass
+
+To let the window show what's behind it like the system's popovers, add `material` at the top level:
+
+```json
+"material": { "kind": "glass" }
+```
+
+- `kind`: `glass` is the glass effect of macOS 26 and later, replaced by frosted glass on earlier versions; `blur` is frosted glass.
+- `appearance`: for `glass` the default is `auto`: the glass turns darker or lighter with what's behind it and the text switches to the theme's light or dark colors to match, so write both `light` and `dark` in `variables`;
+  with `system`, the text follows the system's light or dark mode and the glass becomes frosted glass, since the new glass changes color on its own. For `blur` the default is `system`. A theme that locks its appearance in `meta` always uses that appearance.
+- With it, the system draws the window's `fill` and shadow. To lay a color over the material, write a translucent color such as `"tint": "#ffffff33"`.
+- Only macOS supports it for now. Windows still draws the window's `fill`, so keep `fill` an opaque color.
+
+## Page arrows
+
+To make the arrows beside the page number clickable, give the node an `action`: `previous_page` or `next_page`. On a frame, the whole frame and everything in it can be clicked;
+small arrows don't need to be enlarged, since the clickable area reaches a little beyond them. The side that can't turn any further can be drawn fainter with the conditions `page.previous` (there is an earlier page) and `page.next` (there is a later page):
+
+```json
+{ "type": "frame", "when": "page", "gap": 3, "children": [
+  { "type": "icon", "icon": "chevron-left", "size": 9, "height": 14, "action": "previous_page",
+    "color": { "if": "page.previous", "then": "@faint", "else": "@dim" } },
+  { "type": "text", "bind": "page", "font": "index", "color": "@faint" },
+  { "type": "icon", "icon": "chevron-right", "size": 9, "height": 14, "action": "next_page",
+    "color": { "if": "page.next", "then": "@faint", "else": "@dim" } }
+] }
+```
+
+- `chevron-left` and `chevron-right` are built-in arrow icons that take their color from `color`. For arrows drawn with images, put `action` on the frame that holds the image.
+- Images can't change color, so to fade one write it twice: once with `"when": "page.previous"` and once with `"when": "!page.previous", "opacity": 0.4`.
+
 ## Floating status bar (Windows)
 
 The floating status bar at the bottom right of the screen on Windows can also be drawn by the theme, written the same way as the candidate window: write `root` under `status`, and use `repeat` bound to `cells` to lay out the cells one by one (currently four: Chinese/English, punctuation, symbol panel and the settings gear; clicking a cell toggles that item):

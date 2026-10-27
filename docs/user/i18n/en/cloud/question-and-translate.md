@@ -19,7 +19,7 @@ After a pause, the answer character or a short answer comes back, marked with a 
 - When everything after `u` is exactly an English word (`unchanged`, `us`), it isn't treated as a question: English candidates are shown directly and nothing goes online. Keep typing into something that isn't an English word (`usangemu`) and it's asked as usual.
 - Words not in the English word list (such as `uber`) still go to the question: type one once in English mode and it's remembered, after which Chinese mode gives English candidates for it directly too. If you rarely ask about characters, you can also change the prefix to `i` under 设置 → 快捷键 (Settings → Shortcuts).
 - With double pinyin and Wubi–pinyin mixed input, `u` is a code key, so ask with `Shift + U` followed by pinyin.
-- You can enter a question without AI services on, but you won't get an answer; `Enter` outputs the text as typed.
+- You can enter a question without AI services on, but you won't get an answer; `Enter` outputs the text as typed. Naming components (`umumu`) finds the character locally without AI services; see [Finding a character by its components](../input/shortcuts.md#Finding-a-character-by-its-components).
 
 ### Asking with a question mark
 

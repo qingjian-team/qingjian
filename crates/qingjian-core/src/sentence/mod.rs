@@ -20,6 +20,7 @@ mod language_model;
 mod personal;
 mod pieces;
 mod scorer;
+mod search_input;
 mod sentence_word;
 mod span;
 mod text_segment;
@@ -33,12 +34,13 @@ pub use language_model::{LanguageModel, NoLanguageModel};
 pub use personal::Personal;
 pub use pieces::text_pieces;
 pub use scorer::SentenceScorer;
+pub use search_input::SearchInput;
 pub use sentence_word::SentenceWord;
 pub use span::{MAX_SPAN_CACHE_ENTRIES, SpanCache, SpanWord};
 pub(crate) use text_segment::is_han;
 pub use text_segment::{MAX_TEXT_WORD_CHARS, segment_text};
 pub use user_ngram::UserNgram;
-pub use viterbi::{convert, convert_paths, convert_whole, convert_with};
+pub use viterbi::{convert, convert_paths, convert_whole};
 
 /// 句首标记：个人 n-gram 里句首词的前词。与 `qingjian-lm` 语料统计用的是同一个记号。
 pub const SENTENCE_START: &str = "<s>";
@@ -67,19 +69,38 @@ pub const MAX_WORD_SYLLABLES: usize = 8;
 /// 落单的 i / u 等单元音范围太大又像没打完的韵母，不参与。
 pub const MIN_PARTIAL_LETTERS: usize = 2;
 
-/// 每个格子最多留几个词（按词库词频 + 用户加分）。同音词很多，全留会让束搜索白费。
-pub const SPAN_CANDIDATES: usize = 6;
+/// 整句转换的搜索规模：每格候选数、简拼格候选数、束宽。缺省是在回放日志上调过的一组，壳都用它；
+/// 只有回放调参会改（`qingjian-cli --tune span / abbreviated-span / beam`）。放大不一定更准，改缺省前先跑回放。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SearchLimits {
+    /// 每个格子最多留几个词（按词库词频 + 用户加分）。同音词很多，全留会让束搜索白费。
+    pub span_candidates: usize,
 
-/// 有简拼位置的格子最多留几个词：`h` 下有 和 / 好 / 会 / 还 / 很 …… 几十个常用字，
-/// 只留六个会把句子里要的那个挤掉，多留一些让语言模型去挑。
-pub const ABBREVIATED_SPAN_CANDIDATES: usize = 20;
+    /// 有简拼位置的格子最多留几个词：`h` 下有 和 / 好 / 会 / 还 / 很 …… 几十个常用字，
+    /// 只留六个会把句子里要的那个挤掉，多留一些让语言模型去挑。
+    pub abbreviated_span_candidates: usize,
+
+    /// 每个位置最多保留几条部分路径。
+    pub beam_width: usize,
+}
+
+impl SearchLimits {
+    pub const DEFAULT: Self = Self {
+        span_candidates: 6,
+        abbreviated_span_candidates: 20,
+        beam_width: 8,
+    };
+}
+
+impl Default for SearchLimits {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
+}
 
 /// 注音声调代价（[`crate::zhuyin::tone::cost`]）每一点扣的分：次要读音 / 表里没有的字词频减半，
 /// 对不上声调的（代价 16）扣到几乎不进路径；格子选词也按它打折，ㄕ 一声的 师 才挤得进 是 时 事 前面。
 pub const TONE_PENALTY: f64 = std::f64::consts::LN_2;
-
-/// 每个位置最多保留几条部分路径。
-pub const BEAM_WIDTH: usize = 8;
 
 /// 语言模型不认识、只能按词库词频兜底的词扣多少分：模型见过的词更可信。
 pub const FALLBACK_PENALTY: f64 = -4.0;

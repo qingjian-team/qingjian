@@ -158,7 +158,7 @@ impl Page<'_> {
             Style {
                 position: Position::Absolute,
                 flex_direction: FlexDirection::Column,
-                justify_content: Some(JustifyContent::CENTER),
+                justify_content: JustifyContent::CENTER,
                 inset: Rect {
                     left: LengthPercentageAuto::length(-self.px(9.0)),
                     top: LengthPercentageAuto::length(0.0),

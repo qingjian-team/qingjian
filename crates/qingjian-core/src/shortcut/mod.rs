@@ -8,21 +8,41 @@
 //!   `1998年3月8日` / `1998-03-08`，年份不是四位或月日不合法时回落到算式（见 [`input_date_forms`]）。
 //!   表达式模式下缓冲区允许数字与运算符，候选不走拼音解析。
 //! - 问字键（缺省 `u`）后跟十六进制码点出那个字符：`u4e00` → 一，`u+1f600` → 😀。模式键本身在 `engine::ModeKeys`。
+//! - `vuuid`（全拼下问字键是 `u` 时直接 `uuid`）出 UUID，`vts` 出时间戳（[`generated_forms`]）；值随机或随时间变，
+//!   由 Engine 按组句缓存，不走 [`candidates`]。
 
 mod calendar;
 mod evaluator;
 mod numeral;
+mod uuid_forms;
 
 use jiff::Zoned;
 
 use crate::candidate::{Candidate, CandidateKind};
 
-pub use calendar::{date_forms, input_date_forms, time_forms, weekday_forms};
+pub use calendar::{
+    TIMESTAMP_KEYWORD, date_forms, input_date_forms, time_forms, timestamp_forms, weekday_forms,
+};
 pub use evaluator::evaluate;
 pub use numeral::{
     amount_lower, amount_upper, chinese_decimal_lower, chinese_decimal_upper, chinese_lower,
     chinese_upper,
 };
+pub use uuid_forms::{UUID_KEYWORD, uuid_forms};
+
+/// 表达式键之后整段是 `uuid` / `ts` 时生成的写法；别的词为 `None`。每次调用都重新生成，组句里的缓存在 Engine。
+pub fn generated_forms(keyword: &str, now: &Zoned) -> Option<Vec<String>> {
+    match keyword {
+        UUID_KEYWORD => Some(uuid_forms()),
+        TIMESTAMP_KEYWORD => Some(timestamp_forms(now)),
+        _ => None,
+    }
+}
+
+/// 是不是 [`generated_forms`] 认的词。
+pub fn is_generated_keyword(keyword: &str) -> bool {
+    matches!(keyword, UUID_KEYWORD | TIMESTAMP_KEYWORD)
+}
 
 /// 表达式模式的缺省前缀。`v` 不是任何拼音音节的开头，用它不会和拼音冲突。
 pub const EXPRESSION_PREFIX: char = 'v';
@@ -197,9 +217,30 @@ mod tests {
     #[test]
     fn calendar_shortcuts() {
         assert_eq!(texts("rq"), ["2026年9月3日", "2026-09-03", "2026/09/03"]);
-        assert_eq!(texts("sj"), ["19:06", "19:06:23", "19点06分"]);
+        assert_eq!(
+            texts("sj"),
+            ["19:06", "19:06:23", "19点06分", "20260903190623"]
+        );
         assert_eq!(texts("xq"), ["星期四", "周四"]);
         assert!(texts("rqi").is_empty());
+    }
+
+    #[test]
+    fn timestamp_forms_cover_unix_and_rfc3339() {
+        assert_eq!(
+            timestamp_forms(&now()),
+            [
+                "1788462383",
+                "2026-09-03T19:06:23Z",
+                "1788462383000",
+                "2026-09-03T19:06:23+00:00"
+            ]
+        );
+        let beijing = now().with_time_zone(TimeZone::fixed(jiff::tz::offset(8)));
+        assert_eq!(timestamp_forms(&beijing)[1], "2026-09-03T19:06:23Z");
+        assert_eq!(timestamp_forms(&beijing)[3], "2026-09-04T03:06:23+08:00");
+        assert!(is_generated_keyword("ts") && is_generated_keyword("uuid"));
+        assert!(!is_generated_keyword("t"));
     }
 
     #[test]

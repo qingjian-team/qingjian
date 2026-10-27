@@ -5,7 +5,7 @@ mod state;
 use qingjian_core::{
     Candidate, CandidateKind, CandidateLayout, CandidateList, CloudWord, Query, SurroundingText,
 };
-use qingjian_platform::protocol::{Frame, PreeditKind, PreeditSegment};
+use qingjian_platform::protocol::{Frame, KeyEvent, KeyModifiers, PreeditKind, PreeditSegment};
 
 pub(super) use self::state::Composed;
 use super::Router;
@@ -32,7 +32,10 @@ impl Router {
             Some((items, preedit, cursor, spelling)) => {
                 let layout =
                     CandidateLayout::new(items, self.config.page_size, self.config.cloud_slots);
-                if self.prediction_context_active() {
+                if self.config.cloud_enabled
+                    && self.engine.prediction_enabled()
+                    && self.prediction_context_active()
+                {
                     self.engine.request_prediction(surrounding, layout.local());
                 }
                 Composed::Candidates {
@@ -40,6 +43,7 @@ impl Router {
                     cursor,
                     layout,
                     spelling,
+                    manual_sequence: None,
                 }
             }
             None => {
@@ -58,7 +62,10 @@ impl Router {
 
     /// 已挂起的会话重新获得焦点时，异步请求已经作废；按当前本地候选补发。
     pub(super) fn request_current_prediction(&mut self) {
-        if !self.prediction_context_active() {
+        if !self.config.cloud_enabled
+            || !self.engine.prediction_enabled()
+            || !self.prediction_context_active()
+        {
             return;
         }
         if let Some(Composed::Candidates { layout, .. }) = &self.composed {
@@ -66,7 +73,39 @@ impl Router {
         }
     }
 
-    /// 只补第一页末尾尚未被用户选中的格；整句补全仍可单独显示。
+    /// 显式按需联想：跳过停键等待，用同一份应用上下文；记序号供结果布局匹配。
+    /// 返回是否真的发出了请求。
+    pub(super) fn request_manual_prediction(
+        &mut self,
+        surrounding: Option<SurroundingText>,
+    ) -> bool {
+        if !self.config.cloud_enabled || !self.engine.prediction_enabled() {
+            return false;
+        }
+        let Some(Composed::Candidates {
+            layout,
+            manual_sequence,
+            ..
+        }) = self.composed.as_mut()
+        else {
+            return false;
+        };
+        *manual_sequence = self
+            .engine
+            .request_manual_prediction(surrounding, layout.local());
+        manual_sequence.is_some()
+    }
+
+    /// 组句中按需联想的组合键（`[shortcut] predict`）。按字符匹配：`.` 的键码与 Delete 冲突。
+    pub(super) fn matches_predict_combo(&self, event: &KeyEvent) -> bool {
+        let combo = self.config.predict;
+        event
+            .character
+            .is_some_and(|c| c.eq_ignore_ascii_case(&combo.key))
+            && event.modifiers.chord() == KeyModifiers::from(combo.modifiers)
+    }
+
+    /// 只补第一页末尾尚未被用户选中的格；按需联想的结果置顶并入；整句补全仍可单独显示。
     pub(super) fn poll_prediction(&mut self) {
         if !self.prediction_context_active() {
             return;
@@ -82,22 +121,29 @@ impl Router {
             }
             return;
         }
-        let Some(Composed::Candidates { layout, .. }) = self.composed.as_mut() else {
+        let Some(Composed::Candidates {
+            layout,
+            manual_sequence,
+            ..
+        }) = self.composed.as_mut()
+        else {
             return;
         };
-        if self.highlight < self.config.page_size
-            && (layout.local().is_empty()
-                || self.highlight < self.config.page_size.saturating_sub(layout.capacity()))
-        {
-            layout.set_cloud(
-                prediction
-                    .words
-                    .into_iter()
-                    .map(CloudWord::into_candidate)
-                    .collect(),
-            );
-        }
+        let manual = manual_sequence.take() == Some(prediction.sequence);
         self.sentence = prediction.sentence;
+        if self.navigated || self.highlight >= self.config.page_size {
+            return;
+        }
+        let words = prediction
+            .words
+            .into_iter()
+            .map(CloudWord::into_candidate)
+            .collect();
+        if manual {
+            layout.set_cloud_first(words);
+        } else {
+            layout.set_cloud(words);
+        }
     }
 
     fn prediction_context_active(&self) -> bool {
@@ -211,6 +257,7 @@ impl Router {
                 cursor,
                 layout,
                 spelling,
+                ..
             }) => {
                 let page_size = self.config.page_size;
                 let highlight = self.highlight.min(layout.len().saturating_sub(1));

@@ -31,6 +31,12 @@ const LINKS: &[(PageId, &str, &str, &str)] = &[
     (PageId::Input, "笔画", "input/aux-code", "码表"),
     (PageId::Input, "导入码表", "input/aux-code", "码表"),
     (PageId::Candidates, "译文", "learning/translation", "译词"),
+    (
+        PageId::Candidates,
+        "小键盘数字",
+        "getting-started/keys",
+        "打拼音时",
+    ),
     (PageId::Candidates, "输出字形", "input/traditional", "开启"),
     (
         PageId::Candidates,
@@ -163,6 +169,12 @@ const LINKS: &[(PageId, &str, &str, &str)] = &[
         "Ctrl + . 切换全半角标点",
         "personalize/keys-settings",
         "全半角标点快捷键（macOS、Windows）",
+    ),
+    (
+        PageId::Shortcuts,
+        "Ctrl + Shift + F 切换简繁输出",
+        "personalize/keys-settings",
+        "简繁切换快捷键（Windows）",
     ),
     (PageId::Shortcuts, "表达式", "input/shortcuts", "换前缀字母"),
     (

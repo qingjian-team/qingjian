@@ -51,6 +51,7 @@ All settings are kept in one TOML text file, `config.toml`, with a note for ever
 | `[shortcut] extra_page_keys` | 快捷键 → 额外翻页键 (Shortcuts → Extra paging keys) | A list, such as `["[]", ",.", "-="]`; empty by default |
 | `[shortcut] highlight_keys` | 快捷键 → 高亮移动键 (Shortcuts → Highlight keys) | Up/down or left/right |
 | `[shortcut] toggle_punctuation` | 快捷键 → Ctrl + . 切换全半角标点 (Shortcuts → Ctrl + . switches punctuation width) | An empty string turns it off, `"ctrl+."` is Ctrl + full stop; modifiers plus a letter, digit or full stop also work, such as `"ctrl+shift+."` |
+| `[shortcut] toggle_traditional` | 快捷键 → Ctrl + Shift + F 切换简繁输出 (Shortcuts → Ctrl + Shift + F switches Simplified/Traditional) | An empty string turns it off (default), `"ctrl+shift+f"` is Ctrl + Shift + F; modifiers plus a letter or digit also work. Windows only |
 | `[shortcut] translate_selection` | 快捷键 → 翻译选中文字 (Shortcuts → Translate selected text) | Such as `"alt+shift+t"` |
 | `[shortcut] predict` | 快捷键 → 按需 AI 联想 (Shortcuts → On-demand AI suggestions) | The full key combination; the settings window only changes the modifiers |
 | The `[predict]` section | 云服务 (Cloud services) | See below |

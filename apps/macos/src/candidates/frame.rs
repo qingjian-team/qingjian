@@ -24,6 +24,9 @@ pub struct Frame {
     /// 右下角页码。
     pub footer: Option<String>,
 
+    /// 往前 / 往后还有页：主题把翻不动的箭头画淡。
+    pub pages_around: (bool, bool),
+
     /// 拼音行右侧的整句补全（云联想），组句时才有。
     pub sentence: Option<String>,
 

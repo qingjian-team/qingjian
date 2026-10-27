@@ -12,6 +12,8 @@ pub(super) fn frame(frame: &Frame) -> qingjian_render::Frame {
         columns: frame.columns,
         column_ems: frame.column_ems.clone(),
         footer: frame.footer.clone(),
+        previous_page: frame.pages_around.0,
+        next_page: frame.pages_around.1,
         sentence: frame.sentence.clone(),
         status: frame.status.clone(),
         mode: frame.mode.clone(),

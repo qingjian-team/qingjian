@@ -56,7 +56,8 @@ fn question_mode_asks_the_cloud_and_shows_answers_unvalidated() {
     }
     assert!(!engine.bare_question());
     let query = engine.query().unwrap();
-    assert!(query.candidates.items.is_empty());
+    // 本地先按部件读音拆出 森，云端照样问
+    assert_eq!(query.candidates.items[0].text, "森");
     assert_eq!(query.marked_text(), "?mu'mu'mu");
     assert_eq!(query.marked_cursor(), 9);
 

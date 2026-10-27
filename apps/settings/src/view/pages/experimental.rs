@@ -110,7 +110,7 @@ fn card(ui: &mut Ui<Message>, page: &Page, pack: Pack) -> Result<Vec<NodeId>, Re
             let controls = ui.scene().node(
                 Style {
                     flex_direction: FlexDirection::Row,
-                    align_items: Some(AlignItems::CENTER),
+                    align_items: AlignItems::CENTER,
                     gap: page.gap(12.0),
                     ..Style::default()
                 },

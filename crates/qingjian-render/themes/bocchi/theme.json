@@ -117,17 +117,24 @@
       ]
     },
 
+    "bocchi-page-previous": { "type": "icon", "icon": "chevron-left", "size": 9, "height": 15, "color": "@gloss", "action": "previous_page" },
+    "bocchi-page-next": { "type": "icon", "icon": "chevron-right", "size": 9, "height": 15, "color": "@gloss", "action": "next_page" },
+
     "bocchi-pager": {
       "type": "frame", "when": "page", "margin": [0, 0, 0, "auto"], "align_self": "center", "gap": 4,
       "children": [
-        { "type": "frame", "width": 20, "height": 28, "padding": [7, 3, 7, 3], "radius": 10, "fill": "#f9c9d4", "children": [
-          { "type": "frame", "width": 14, "height": 14, "fill": { "image": "images/chevron-left.svg" } }
-        ] },
-        { "type": "frame", "width": 20, "height": 28, "padding": [7, 3, 7, 3], "radius": 10, "fill": "#f9c9d4", "children": [
-          { "type": "frame", "width": 14, "height": 14, "fill": { "image": "images/chevron-right.svg" } }
-        ] }
+        { "type": "use", "component": "bocchi-pager-previous", "when": "page.previous" },
+        { "type": "use", "component": "bocchi-pager-previous", "when": "!page.previous", "opacity": 0.4 },
+        { "type": "use", "component": "bocchi-pager-next", "when": "page.next" },
+        { "type": "use", "component": "bocchi-pager-next", "when": "!page.next", "opacity": 0.4 }
       ]
     },
+    "bocchi-pager-previous": { "type": "frame", "width": 20, "height": 28, "padding": [7, 3, 7, 3], "radius": 10, "fill": "#f9c9d4", "action": "previous_page", "children": [
+      { "type": "frame", "width": 14, "height": 14, "fill": { "image": "images/chevron-left.svg" } }
+    ] },
+    "bocchi-pager-next": { "type": "frame", "width": 20, "height": 28, "padding": [7, 3, 7, 3], "radius": 10, "fill": "#f9c9d4", "action": "next_page", "children": [
+      { "type": "frame", "width": 14, "height": 14, "fill": { "image": "images/chevron-right.svg" } }
+    ] },
 
     "bocchi-status-cell": {
       "type": "frame",
@@ -210,7 +217,13 @@
         { "type": "frame", "when": "candidates", "direction": "column", "align_self": "stretch", "gap": 2, "children": [
           { "type": "repeat", "bind": "candidates", "component": "bocchi-row" }
         ] },
-        { "type": "text", "bind": "page", "font": "annotation", "color": "@gloss", "align_self": "end", "margin": [4, 6, 0, 0] },
+        { "type": "frame", "when": "page", "gap": 3, "align_self": "end", "margin": [4, 6, 0, 0], "children": [
+          { "type": "use", "component": "bocchi-page-previous", "when": "page.previous" },
+          { "type": "use", "component": "bocchi-page-previous", "when": "!page.previous", "opacity": 0.4 },
+          { "type": "text", "bind": "page", "font": "annotation", "color": "@gloss" },
+          { "type": "use", "component": "bocchi-page-next", "when": "page.next" },
+          { "type": "use", "component": "bocchi-page-next", "when": "!page.next", "opacity": 0.4 }
+        ] },
 
         { "type": "frame", "position": "absolute", "inset": [24, "auto", "auto", -95], "width": 100, "height": 255,
           "fill": { "image": "images/girl-side.png", "scale": 2 } },

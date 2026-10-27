@@ -7,4 +7,10 @@ ignore = [
     "RUSTSEC-2026-0367",
     "RUSTSEC-2026-0368",
     "RUSTSEC-2026-0369",
+    # ttf-parser 停止维护。bamboo-slip 直接用它查字体的轮廓表，fontdb / cosmic-text 也依赖它；上游换掉后再跟。
+    "RUSTSEC-2026-0192",
+    # zbus_names / zvariant / zvariant_derive 停止维护。链路 qingjian-linux-ibus → zbus 5.19，等 zbus 换掉它们再删。
+    "RUSTSEC-2026-0370",
+    "RUSTSEC-2026-0371",
+    "RUSTSEC-2026-0372",
 ]

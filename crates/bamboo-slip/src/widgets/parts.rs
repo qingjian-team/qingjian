@@ -110,7 +110,7 @@ pub(super) fn gap(theme: &WidgetTheme, points: f32) -> Size<LengthPercentage> {
 pub(super) fn row(theme: &WidgetTheme, spacing: f32) -> Style {
     Style {
         flex_direction: FlexDirection::Row,
-        align_items: Some(AlignItems::CENTER),
+        align_items: AlignItems::CENTER,
         gap: gap(theme, spacing),
         ..Style::default()
     }
@@ -128,8 +128,8 @@ pub(super) fn column(theme: &WidgetTheme, spacing: f32) -> Style {
 pub(super) fn centered(width: f32, height: f32) -> Style {
     Style {
         size: size(Some(width), Some(height)),
-        justify_content: Some(JustifyContent::CENTER),
-        align_items: Some(AlignItems::CENTER),
+        justify_content: JustifyContent::CENTER,
+        align_items: AlignItems::CENTER,
         flex_shrink: 0.0,
         ..Style::default()
     }

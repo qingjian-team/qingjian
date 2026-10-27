@@ -182,7 +182,9 @@ impl Menu {
             .find(|region| region.contains(x, y))
             .and_then(|region| match region.target {
                 HitTarget::MenuItem(item) => Some(item),
-                HitTarget::Candidate(_) | HitTarget::Translation { .. } => None,
+                HitTarget::Candidate(_) | HitTarget::Translation { .. } | HitTarget::Page(_) => {
+                    None
+                }
             })
     }
 }

@@ -14,7 +14,7 @@ use bamboo_slip::taffy::NodeId;
 
 use crate::frame::Frame;
 use crate::layout::Layout;
-use crate::renderer::StatusCell;
+use crate::renderer::{HitTarget, StatusCell};
 use crate::theme::Theme;
 use crate::theme::file::node::{BorderSpec, BoxSpec, EffectSpec, NodeKind, NodeSpec};
 use crate::theme::file::{ColorSpec, FontRef};
@@ -43,6 +43,15 @@ pub(super) struct Builder<'a> {
 
     /// 各候选译文里每条译词的片段节点（第几个候选，第几条，节点）。
     pub(super) sense_nodes: Vec<(usize, usize, NodeId)>,
+
+    /// 写了 `action` 的节点（点中的目标，节点）。
+    pub(super) action_nodes: Vec<(HitTarget, NodeId)>,
+
+    /// 壳在窗口底下垫了系统材质：根节点的底色换成这个着色（`None` 不着色）、不画投影。实例化根节点时取走。
+    pub(super) material_root: Option<Option<ColorSpec>>,
+
+    /// 根节点的圆角（像素），壳按它裁材质。
+    pub(super) root_radius: f32,
 }
 
 impl Builder<'_> {
@@ -80,8 +89,25 @@ impl Builder<'_> {
         Ok(root)
     }
 
-    /// 实例化一个模板节点；`over` 是外层 `use` 写的盒子属性，盖过这个节点自己的。
+    /// 实例化一个模板节点；`over` 是外层 `use` 写的盒子属性，盖过这个节点自己的。写了 `action` 的，产出的节点都登记成点击区域。
     fn node(
+        &mut self,
+        spec: &NodeSpec,
+        ctx: Context,
+        over: &BoxSpec,
+        out: &mut Vec<NodeId>,
+    ) -> Result<(), RenderError> {
+        let before = out.len();
+        self.instantiate(spec, ctx, over, out)?;
+        if let Some(action) = spec.action {
+            let target = action.target();
+            self.action_nodes
+                .extend(out[before..].iter().map(|&node| (target, node)));
+        }
+        Ok(())
+    }
+
+    fn instantiate(
         &mut self,
         spec: &NodeSpec,
         ctx: Context,
@@ -156,14 +182,14 @@ impl Builder<'_> {
         }
     }
 
-    /// 盒子属性里的不透明度（作用于整棵子树）与效果设到节点上。
-    fn apply_layer(&mut self, node: NodeId, layout: &BoxSpec, ctx: Context) {
+    /// 盒子属性里的不透明度（作用于整棵子树）与效果设到节点上；`effects` 为假时不设效果。
+    fn apply_layer(&mut self, node: NodeId, layout: &BoxSpec, ctx: Context, effects: bool) {
         if let Some(opacity) = layout.opacity
             && opacity < 1.0
         {
             self.scene.set_opacity(node, opacity);
         }
-        if let Some(effects) = &layout.effects {
+        if let Some(effects) = layout.effects.as_ref().filter(|_| effects) {
             let effects = effects.iter().map(|spec| self.effect(spec, ctx)).collect();
             self.scene.set_effects(node, effects);
         }

@@ -24,9 +24,9 @@ pub use config::{
     DEFAULT_ENGLISH_CANDIDATES_ON_MACOS, DEFAULT_ENGLISH_CANDIDATES_ON_WINDOWS,
     DEFAULT_KEY_HINT_OPACITY, DEFAULT_PAGE_KEYS, DEFAULT_THEME, DictionariesConfig, EmojiCount,
     FontSize, GeneralConfig, HighlightKeys, KeyCombo, KeyHintMode, LEARNING_LANGUAGE_OFF,
-    LayoutMode, LocalModel, LocalModelConfig, LogLevel, MAX_PAGE_SIZE, Modifiers, PAGE_KEY_OPTIONS,
-    PageKeys, PreeditMode, Scheme, ShiftLetter, ShortcutConfig, SwitchKey, SwitchKeys,
-    UpdateChannel, UpdateConfig, ZhiyiTier, scheme_label, scheme_name,
+    LayoutMode, LocalModel, LocalModelConfig, LogLevel, MAX_PAGE_SIZE, Modifiers, NumpadDigit,
+    PAGE_KEY_OPTIONS, PageKeys, PreeditMode, Scheme, ShiftLetter, ShortcutConfig, SwitchKey,
+    SwitchKeys, UpdateChannel, UpdateConfig, ZhiyiTier, scheme_label, scheme_name,
 };
 pub use error::ConfigError;
 pub use scheme_meta::SchemeMeta;

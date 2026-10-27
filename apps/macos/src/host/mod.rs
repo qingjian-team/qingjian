@@ -11,6 +11,8 @@ mod config;
 mod diagnostics;
 mod dictionaries;
 mod init;
+mod mode_osd;
+mod mode_switch;
 mod model;
 mod presenting;
 mod session;
@@ -30,6 +32,7 @@ use qingjian_dictionary::{Dictionary, WordList};
 use qingjian_learning::{FrequencyLearner, InputLog, PanelUsage, UsageStats, VocabularyBook};
 use qingjian_lm::BigramModel;
 use qingjian_platform::extra_dictionaries;
+use qingjian_platform::logs::CompositionTrace;
 use qingjian_platform::{
     Appearance, AppsConfig, AuxCodeConfig, CandidateRenderer, DEFAULT_ENGLISH_CANDIDATES_ON,
     DictionariesConfig, GeneralConfig, HighlightKeys, KeyCombo, KeyHintMode, LEARNING_LANGUAGE_OFF,
@@ -52,6 +55,8 @@ use cloud::{CloudTestMonitor, PredictMonitor};
 use config::{ConfigWatch, TextReplacement};
 pub use dictionaries::DictionaryInfo;
 pub use init::init;
+use mode_osd::ModeOsd;
+use mode_switch::ModeSwitch;
 use model::RescoreMonitor;
 pub use presenting::TranslationJob;
 use presenting::{CandidateTranslation, KeyHintState, Notice};
@@ -78,6 +83,18 @@ pub struct Host {
 
     /// 配置文件监视定时器，激活期间跑。
     pub watch: ConfigWatch,
+
+    /// 单击 Shift 切中英（勾了 `[shortcut] switch_mode` 的 shift 时）；定时器只在激活期间跑。
+    pub mode_switch: ModeSwitch,
+
+    /// 中 / 英与大小写切换时右上角一闪而过的提示。
+    pub osd: ModeOsd,
+
+    /// 上一次已经提示过的中英模式；`None` 表示还没提示过（启动后第一次只记不弹）。
+    last_osd_english: Option<bool>,
+
+    /// 上一次已经提示过的 Caps Lock 状态，同上。
+    last_osd_caps: Option<bool>,
 
     /// 内置主题与用户主题目录里的主题；激活期间随配置定时器一起看目录有没有变。
     pub themes: qingjian_render::ThemeLibrary,
@@ -229,6 +246,9 @@ pub struct Host {
 
     /// 当前会话的候选、高亮、页码、preedit。
     pub session: Session,
+
+    /// 正在进行的这段组句的按键账；没在组句为 `None`。
+    pub trace: Option<CompositionTrace>,
 
     /// 组句中到达的整句补全，Tab 接受。
     pub sentence: Option<String>,

@@ -73,7 +73,7 @@ candle-nn = "0.11.0"
 # 云联想：OpenAI 兼容接口客户端与它需要的异步运行时
 async-openai = { version = "0.42.0", default-features = false, features = ["chat-completion", "byot", "middleware"] }
 reqwest = { version = "0.13", default-features = false }
-uuid = { version = "1.26", features = ["v4"] }
+uuid = { version = "1.26", features = ["v4", "v7"] }
 # 安卓没有可链的系统 TLS：云联想（只开 rustls 时）与语音识别走 rustls（ring + 内置 Mozilla 根证书）
 rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
 webpki-roots = "1"
@@ -93,18 +93,20 @@ cosmic-text = { version = "0.19.0", default-features = false, features = ["std",
 # 字形轮廓的路径命令（cosmic-text 取轮廓返回它，文字描边用）；与 swash 用的同一版本
 zeno = { version = "0.3.3", default-features = false }
 # 场景图的布局：只要 flexbox 与 grid，不要 block / float
-taffy = { version = "0.14.0", default-features = false, features = ["std", "taffy_tree", "flexbox", "grid"] }
+taffy = { version = "0.15.0", default-features = false, features = ["std", "taffy_tree", "flexbox", "grid"] }
 # 窗口宿主：开窗收事件 + 把位图贴到窗口
 winit = "0.30.13"
 softbuffer = "0.4.8"
-# 输入框的复制粘贴；不要图片剪贴板，免得拉进 image
-arboard = { version = "3.6.1", default-features = false }
+# 输入框的复制粘贴；不要图片剪贴板，免得拉进 image。
+# wayland-data-control：Linux 上只编 X11 后端时走 XWayland 桥，niri 这类会话里桥是空的，
+# 设置程序粘贴拿到空串（2026-10-23 实测）；开 Wayland 协议直读，失败 arboard 自己回退 X11。
+arboard = { version = "3.6.1", default-features = false, features = ["wayland-data-control"] }
 png = "0.18.1"
 
 # macOS 平台层
 objc2 = "0.6.4"
 objc2-foundation = { version = "0.3.2", features = ["NSArray", "NSAttributedString", "NSBundle", "NSDictionary", "NSGeometry", "NSObject", "NSProcessInfo", "NSRange", "NSString", "NSTimer", "NSURL", "NSUserDefaults", "NSValue"] }
-objc2-app-kit = { version = "0.3.2", features = ["NSApplication", "NSAttributedString", "NSEvent", "NSBezierPath", "NSBitmapImageRep", "NSColor", "NSFont", "NSGraphics", "NSImage", "NSImageRep", "NSImageView", "NSPanel", "NSResponder", "NSScreen", "NSStatusBar", "NSStatusBarButton", "NSStatusItem", "NSMenu", "NSMenuItem", "NSOpenPanel", "NSPasteboard", "NSSavePanel", "NSCell", "NSFontManager", "NSPopUpButton", "NSPopover", "NSSearchField", "NSSearchFieldCell", "NSViewController", "NSTextField", "NSSecureTextField", "NSTextFieldCell", "NSActionCell", "NSRunningApplication", "NSAppearance", "NSText", "NSButton", "NSButtonCell", "NSControl", "NSStringDrawing", "NSTabView", "NSTabViewItem", "NSView", "NSWindow", "NSScrollView", "NSClipView", "NSTextView", "NSTableView", "NSTableColumn", "NSTableHeaderView", "NSTableHeaderCell", "NSTrackingArea", "NSParagraphStyle", "NSWorkspace", "NSAccessibility", "block2"] }
+objc2-app-kit = { version = "0.3.2", features = ["NSApplication", "NSAttributedString", "NSEvent", "NSBezierPath", "NSBitmapImageRep", "NSColor", "NSFont", "NSGraphics", "NSImage", "NSImageRep", "NSImageView", "NSPanel", "NSResponder", "NSScreen", "NSStatusBar", "NSStatusBarButton", "NSStatusItem", "NSMenu", "NSMenuItem", "NSOpenPanel", "NSPasteboard", "NSSavePanel", "NSCell", "NSFontManager", "NSPopUpButton", "NSPopover", "NSSearchField", "NSSearchFieldCell", "NSViewController", "NSTextField", "NSSecureTextField", "NSTextFieldCell", "NSActionCell", "NSRunningApplication", "NSAppearance", "NSText", "NSButton", "NSButtonCell", "NSControl", "NSStringDrawing", "NSTabView", "NSTabViewItem", "NSView", "NSWindow", "NSScrollView", "NSClipView", "NSTextView", "NSTableView", "NSTableColumn", "NSTableHeaderView", "NSTableHeaderCell", "NSTrackingArea", "NSParagraphStyle", "NSWorkspace", "NSAccessibility", "NSVisualEffectView", "NSGlassEffectView", "block2"] }
 objc2-input-method-kit = "0.3.2"
 # 候选窗字体设置：按字族名找字体文件（渲染器只加载指定文件）
 objc2-core-text = { version = "0.3.2", features = ["CTFont", "CTFontDescriptor"] }

@@ -30,6 +30,12 @@ pub struct Frame {
     /// 右下角页码。
     pub footer: Option<String>,
 
+    /// 往前还有页（矩阵展开时是往上还有屏）：主题拿来把翻不动的箭头画淡。
+    pub previous_page: bool,
+
+    /// 往后还有页。
+    pub next_page: bool,
+
     /// 拼音行右侧的整句补全（云联想），组句时才有。
     pub sentence: Option<String>,
 

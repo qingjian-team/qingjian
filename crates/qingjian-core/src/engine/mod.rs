@@ -156,6 +156,9 @@ pub struct Engine {
     /// 联想提供方，缺省为 [`NoPredictor`]。
     predictor: Box<dyn Predictor>,
 
+    /// 显式选区翻译的独立提供方；未设置时沿用联想服务。
+    translation_predictor: Option<Box<dyn Predictor>>,
+
     /// 整句转换的语言模型，缺省为 [`NoLanguageModel`]（退化成一元词频）。
     language_model: Box<dyn LanguageModel>,
 
@@ -188,6 +191,9 @@ pub struct Engine {
 
     /// 个人 n-gram 与静态模型插值的参数；只有回放调参会改（`set_interpolation`），壳用缺省值。
     interpolation: Interpolation,
+
+    /// 整句转换的搜索规模；同上，只有回放调参会改（`set_search_limits`）。见 [`sentence::SearchLimits`]。
+    search_limits: sentence::SearchLimits,
 
     /// 敲错纠正的代价；同上，只有回放调参会改（`set_typo_costs`）。
     typo_costs: TypoCosts,
@@ -261,6 +267,9 @@ pub struct Engine {
 
     /// 上一次查询的摘要，上屏时写进输入日志。
     last_query: std::cell::RefCell<Option<query::QuerySnapshot>>,
+
+    /// 这段组句生成过的 UUID / 时间戳：(关键字, 各写法)。壳每次刷新都重查候选，同一段组句里得是同一组值；新一段组句的第一键清掉。
+    generated_forms: std::cell::RefCell<Option<(String, Vec<String>)>>,
 
     /// 上一次算过的拼写纠正：(作用域, 结果)。query 算一次，commit / take_raw 复用，别再跑一遍变体枚举。
     correction_cache: std::cell::RefCell<Option<(String, Option<Correction>)>>,
@@ -479,6 +488,7 @@ impl Engine {
             auto_space: false,
             shift_letter_compose: false,
             predictor: Box::new(NoPredictor),
+            translation_predictor: None,
             language_model: Box::new(NoLanguageModel),
             sentence_scorer: None,
             rescorer: None,
@@ -490,6 +500,7 @@ impl Engine {
             neural_margin: NEURAL_MARGIN,
             interpolation: Interpolation::DEFAULT,
             typo_costs: TypoCosts::DEFAULT,
+            search_limits: sentence::SearchLimits::DEFAULT,
             neural_context: RESCORE_CONTEXT_CHARS,
             correction_cache: std::cell::RefCell::new(None),
             span_cache: std::cell::RefCell::new(sentence::SpanCache::default()),
@@ -515,6 +526,7 @@ impl Engine {
             displayed: Vec::new(),
             examples: vocabulary::ExampleCollector::default(),
             last_query: std::cell::RefCell::new(None),
+            generated_forms: std::cell::RefCell::new(None),
             recording: Vec::new(),
             history: InputHistory::default(),
             prediction_sequence: 0,

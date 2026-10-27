@@ -47,5 +47,12 @@ private:
 
     /// 正在轮询的上下文：只有聚焦且在组句的那一个。
     TrackableObjectReference<InputContext> polled_;
+
+    /// 中 / 英切换提示：按键处理里不能直接弹，挪到事件循环下一拍（见 exchange 里的注释）。
+    std::unique_ptr<EventSource> osdDefer_;
+
+    TrackableObjectReference<InputContext> osdContext_;
+
+    std::string osdText_;
 };
 }

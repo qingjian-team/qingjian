@@ -33,7 +33,8 @@ fn umlaut_keys_decode_to_standard_pinyin() {
     assert_eq!(Scheme::Sogou.decode("gy").pinyin(), "guai");
     assert_eq!(Scheme::Sogou.decode("gu").pinyin(), "gu");
     assert_eq!(Scheme::Sogou.decode("ju").pinyin(), "ju");
-    assert_eq!(Scheme::Sogou.decode("lv").tail(), "lv");
+    // 搜狗没有 ü 键的双拼写法：`lv` 两键配不出音节，按简拼读（l + zh）
+    assert_eq!(Scheme::Sogou.decode("lv").pinyin(), "l'zh");
 }
 
 #[test]

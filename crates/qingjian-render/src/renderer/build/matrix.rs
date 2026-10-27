@@ -118,9 +118,9 @@ impl Builder<'_> {
                 width: gap,
                 height: LengthPercentage::length(0.0),
             },
-            align_content: Some(AlignContent::START),
-            align_items: Some(AlignItems::START),
-            justify_items: Some(AlignItems::START),
+            align_content: AlignContent::START,
+            align_items: AlignItems::START,
+            justify_items: AlignItems::START,
             ..Style::default()
         };
         Ok(Some(self.scene.node(style, Visual::Group, &cells)?))

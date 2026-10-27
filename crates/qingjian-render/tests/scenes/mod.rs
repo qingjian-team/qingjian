@@ -200,6 +200,7 @@ pub fn cloud() -> Frame {
         .push(annotated(3, "你好吗", &[("hello?", Tone::Gloss)], true));
     frame.sentence = Some("你好，世界".to_owned());
     frame.footer = Some("1/3".to_owned());
+    frame.next_page = true;
     frame
 }
 
@@ -249,6 +250,8 @@ pub fn corrected_japanese() -> Frame {
         ],
         highlighted: Some(1),
         footer: None,
+        previous_page: false,
+        next_page: false,
         sentence: None,
         status: Some("已删除「开放」".to_owned()),
         mode: Mode::default(),
@@ -264,6 +267,8 @@ pub fn probe() -> Frame {
         rows: vec![Row::plain(0, "青简 hello 🙂 日本語 骨直曜")],
         highlighted: None,
         footer: None,
+        previous_page: false,
+        next_page: false,
         sentence: None,
         status: None,
         mode: Mode::default(),
@@ -309,6 +314,8 @@ pub fn aux_code() -> Frame {
         rows,
         highlighted: Some(0),
         footer: Some("1/1".into()),
+        previous_page: false,
+        next_page: false,
         sentence: None,
         status: None,
         mode: Mode::default(),
@@ -336,6 +343,8 @@ pub fn short() -> Frame {
         ],
         highlighted: None,
         footer: None,
+        previous_page: false,
+        next_page: false,
         sentence: None,
         status: None,
         mode: Mode::default(),
@@ -378,6 +387,8 @@ pub fn matrix() -> Frame {
         rows,
         highlighted: Some(6),
         footer: Some("2/9".to_owned()),
+        previous_page: true,
+        next_page: true,
         sentence: None,
         status: None,
         mode: Mode::default(),

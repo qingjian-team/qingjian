@@ -111,7 +111,7 @@ fn day_switch(ui: &mut Ui<Message>, page: &Page, book: &Vocabulary) -> Result<No
     ui.scene().node(
         Style {
             flex_direction: FlexDirection::Row,
-            align_items: Some(AlignItems::CENTER),
+            align_items: AlignItems::CENTER,
             gap: page.gap(10.0),
             ..Style::default()
         },
@@ -273,7 +273,7 @@ fn item(
     ui.scene().node(
         Style {
             flex_direction: FlexDirection::Row,
-            align_items: Some(AlignItems::FLEX_START),
+            align_items: AlignItems::FLEX_START,
             gap: page.gap(14.0),
             padding: Rect {
                 top: space,

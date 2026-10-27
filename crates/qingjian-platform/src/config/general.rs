@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use super::scheme::Scheme;
 use super::{
     Appearance, CandidateRenderer, EmojiCount, FontSize, KeyHintMode, LayoutMode,
-    LegacyTraditional, LogLevel, PreeditMode, ShiftLetter,
+    LegacyTraditional, LogLevel, NumpadDigit, PreeditMode, ShiftLetter,
 };
 use crate::code_schemes::{self, WUBI86};
 
@@ -110,6 +110,10 @@ pub struct GeneralConfig {
     /// 中文模式下按住 Shift 敲的字母：交给应用（缺省）还是收进组句缓冲区参与匹配。
     /// 收进组句才能打出「C盘」这类混杂词（`Cpan` 与 `cpan` 一样匹配）。
     pub shift_letter: ShiftLetter,
+
+    /// Windows 中文组句中小键盘数字选候选还是直接输入；主键盘数字不受影响。
+    pub numpad_digit: NumpadDigit,
+
     /// 内置英文模式：开着时单击切换键（`[shortcut] switch_mode`）或按 Caps Lock 能进英文模式。
     /// 关掉后青简保持中文模式，切换键与语言栏按钮都不再切过去；要打英文请用系统快捷键切到别的输入法。
     pub english_mode: bool,
@@ -189,6 +193,9 @@ pub struct GeneralConfig {
     /// `traditional_variant` 写了值就不看它。新写法换了键名，旧版本读到新配置时才不会因类型不符整个解析失败。
     pub traditional: Option<LegacyTraditional>,
 
+    /// 简繁快捷键切回繁体时用的字形，快捷键切到简体时记下切走前那一档；读法见 [`Self::last_traditional`]。
+    pub last_traditional: String,
+
     /// 日志级别，缺省 info（不含用户敲的内容）。
     pub log_level: LogLevel,
 
@@ -231,6 +238,7 @@ impl Default for GeneralConfig {
             symbols: EmojiCount::new(1),
             auto_space: false,
             shift_letter: ShiftLetter::default(),
+            numpad_digit: NumpadDigit::default(),
             english_mode: true,
             default_english: false,
             remember_mode_per_app: false,
@@ -252,6 +260,7 @@ impl Default for GeneralConfig {
             zhuyin: None,
             traditional_variant: TraditionalVariant::Off.key().to_owned(),
             traditional: None,
+            last_traditional: String::new(),
             log_level: LogLevel::default(),
             input_log: true,
             learning: true,
@@ -271,6 +280,18 @@ impl GeneralConfig {
             Some(LegacyTraditional::Flag(true)) => TraditionalVariant::Taiwan,
             Some(LegacyTraditional::Key(key)) => traditional_from_key(key.trim()),
             Some(LegacyTraditional::Flag(false)) | None => TraditionalVariant::Off,
+        }
+    }
+
+    /// 简繁快捷键从简体切过去的那一档繁体：没写、写的是 `off` 或不认识时用台湾字形（与 0.2.1 的开关相同）。
+    pub fn last_traditional(&self) -> TraditionalVariant {
+        let key = self.last_traditional.trim();
+        if key.is_empty() {
+            return TraditionalVariant::Taiwan;
+        }
+        match traditional_from_key(key) {
+            TraditionalVariant::Off => TraditionalVariant::Taiwan,
+            variant => variant,
         }
     }
 
@@ -639,6 +660,20 @@ mod tests {
             TraditionalVariant::Off
         );
         assert_eq!(parse("traditional = \"off\""), TraditionalVariant::Off);
+        let last = |text: &str| {
+            toml::from_str::<GeneralConfig>(text)
+                .unwrap()
+                .last_traditional()
+        };
+        assert_eq!(last(""), TraditionalVariant::Taiwan);
+        assert_eq!(
+            last("last_traditional = \"off\""),
+            TraditionalVariant::Taiwan
+        );
+        assert_eq!(
+            last("last_traditional = \"hongkong\""),
+            TraditionalVariant::Hongkong
+        );
         assert_eq!(
             parse("traditional = \"hongkong\""),
             TraditionalVariant::Hongkong

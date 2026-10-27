@@ -18,9 +18,11 @@ use bamboo_slip::{
     Color, FontLibrary, FontSpec, RenderError, Scene, Stage, TextPainter, TextStyle,
 };
 
+use crate::MaterialBacking;
 use crate::frame::Frame;
 use crate::layout::Layout;
 use crate::theme::Theme;
+use crate::theme::file::MaterialAppearance;
 
 use build::Builder;
 
@@ -40,6 +42,12 @@ pub struct Renderer {
 
     /// 上一帧候选窗的点击区域，动画帧照抄（布局不变）。
     hits: Vec<HitRegion>,
+
+    /// 壳能在窗口底下垫系统材质（见 [`Self::set_material_support`]）。
+    material_support: bool,
+
+    /// 上一帧要垫的材质，动画帧照抄。
+    material: Option<MaterialBacking>,
 }
 
 impl Renderer {
@@ -49,7 +57,15 @@ impl Renderer {
         Self {
             stage,
             hits: Vec::new(),
+            material_support: false,
+            material: None,
         }
+    }
+
+    /// 壳能不能在窗口底下垫系统材质。能的话，写了 `material` 的主题不画窗口底色与投影，
+    /// 由 [`Rendered::material`] 告诉壳垫哪种、圆角多大、文字深浅跟谁；不能的话照旧画主题的 `fill`。
+    pub fn set_material_support(&mut self, supported: bool) {
+        self.material_support = supported;
     }
 
     fn text(&mut self) -> &mut TextPainter {
@@ -94,6 +110,11 @@ impl Renderer {
     ) -> Result<Rendered, RenderError> {
         self.text().use_families(theme.families());
         self.stage.set_animations(theme.animations());
+        let material = theme
+            .file()
+            .material
+            .as_ref()
+            .filter(|_| self.material_support);
         let mut scene = Scene::new();
         let mut builder = Builder {
             scene: &mut scene,
@@ -103,16 +124,32 @@ impl Renderer {
             cell_nodes: Vec::new(),
             candidate_nodes: Vec::new(),
             sense_nodes: Vec::new(),
+            action_nodes: Vec::new(),
+            material_root: material.map(|spec| spec.tint.clone()),
+            root_radius: 0.0,
         };
         let root = builder.window(frame, layout)?;
-        let (candidate_nodes, sense_nodes) = (builder.candidate_nodes, builder.sense_nodes);
+        let locked_dark = theme.locked_dark();
+        self.material = material.map(|spec| MaterialBacking {
+            kind: spec.kind,
+            radius: builder.root_radius,
+            // 锁定了外观的主题只有一套颜色，跟不了
+            follows_backdrop: spec.appearance() == MaterialAppearance::Auto
+                && locked_dark.is_none(),
+            locked_dark,
+        });
+        let nodes = HitNodes {
+            candidates: builder.candidate_nodes,
+            senses: builder.sense_nodes,
+            actions: builder.action_nodes,
+        };
         let content = scene.layout(root, self.stage.text())?;
-        self.hits = hit_regions(&scene, root, &candidate_nodes, &sense_nodes)?;
+        self.hits = hit_regions(&scene, root, &nodes, scale)?;
         // 排布变了位置不可比，不与上一帧配对过渡
         let painted = self
             .stage
             .present(scene, root, content, layout as u64, scale, now)?;
-        Ok(Rendered::new(painted, self.hits.clone()))
+        Ok(Rendered::new(painted, self.hits.clone()).with_material(self.material))
     }
 
     /// 跟随系统的「减少动态效果」：开着时过渡直接跳到终点。
@@ -128,7 +165,8 @@ impl Renderer {
     /// 有过渡或循环动画在播时，按 `now` 重画一帧（不重建树、不排版）；没有在播的返回 `None`。
     pub fn tick_at(&mut self, now: Instant) -> Result<Option<Rendered>, RenderError> {
         let painted = self.stage.tick_at(now)?;
-        Ok(painted.map(|painted| Rendered::new(painted, self.hits.clone())))
+        Ok(painted
+            .map(|painted| Rendered::new(painted, self.hits.clone()).with_material(self.material)))
     }
 
     /// 同 [`Self::tick_at`]，用当前时间。
@@ -151,12 +189,25 @@ impl Renderer {
     }
 }
 
-/// 各候选与各条译词的点击区域（内容区像素）：同一个候选 / 同一条译词的节点取外接矩形，译词排在前面先命中。
+/// 点击区域对应的场景节点，实例化时收集。
+struct HitNodes {
+    candidates: Vec<(usize, NodeId)>,
+
+    senses: Vec<(usize, usize, NodeId)>,
+
+    actions: Vec<(HitTarget, NodeId)>,
+}
+
+/// 翻页箭头这类小图标的点击区域往外放几点，免得难点中；和候选重叠的地方候选先命中。
+const ACTION_SLOP: f32 = 4.0;
+
+/// 各候选、各条译词与写了 `action` 的节点的点击区域（内容区像素）：同一个目标的节点取外接矩形，
+/// 译词排在前面先命中，`action` 排在最后。
 fn hit_regions(
     scene: &Scene,
     root: NodeId,
-    candidates: &[(usize, NodeId)],
-    senses: &[(usize, usize, NodeId)],
+    nodes: &HitNodes,
+    scale: f32,
 ) -> Result<Vec<HitRegion>, RenderError> {
     let mut regions: Vec<HitRegion> = Vec::new();
     let mut add = |target: HitTarget, node: NodeId| -> Result<(), RenderError> {
@@ -173,11 +224,27 @@ fn hit_regions(
         }
         Ok(())
     };
-    for &(candidate, sense, node) in senses {
+    for &(candidate, sense, node) in &nodes.senses {
         add(HitTarget::Translation { candidate, sense }, node)?;
     }
-    for &(candidate, node) in candidates {
+    for &(candidate, node) in &nodes.candidates {
         add(HitTarget::Candidate(candidate), node)?;
+    }
+    for &(target, node) in &nodes.actions {
+        add(target, node)?;
+    }
+    let slop = ACTION_SLOP * scale;
+    let actions = regions.iter_mut().filter(|region| {
+        nodes
+            .actions
+            .iter()
+            .any(|(target, _)| *target == region.target)
+    });
+    for region in actions {
+        region.x -= slop;
+        region.y -= slop;
+        region.width += 2.0 * slop;
+        region.height += 2.0 * slop;
     }
     Ok(regions)
 }

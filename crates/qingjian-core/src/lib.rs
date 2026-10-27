@@ -6,6 +6,7 @@
 
 pub mod calculation;
 pub mod candidate;
+pub mod chaizi;
 pub mod code;
 pub mod code_scheme;
 pub mod composition;

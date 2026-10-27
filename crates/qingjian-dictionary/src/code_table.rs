@@ -24,6 +24,9 @@ struct Entry {
     /// 全码，小写。
     code: String,
 
+    /// 码表中的行序；单码精确命中按此顺序选候选。
+    order: usize,
+
     /// 词。
     text: String,
 
@@ -46,6 +49,9 @@ pub struct CodeTable {
     /// 满码有几个字母（五笔是 4）：码表里最常见的编码长度。全码占绝大多数，取最常见的而不是最长的，
     /// 个别写错的长编码（极点码表里 `TF卡` 是 `ttfhh`）不至于把满码拖成 5。
     full_code_len: usize,
+
+    /// 新合并码表的行序起点。
+    next_order: usize,
 }
 
 impl CodeTable {
@@ -89,6 +95,7 @@ impl CodeTable {
             }
             entries.push(Entry {
                 code: code.to_ascii_lowercase(),
+                order: index,
                 text: text.to_owned(),
                 frequency,
             });
@@ -96,6 +103,11 @@ impl CodeTable {
         sort_and_dedup(&mut entries);
         let total_frequency = entries.iter().map(|e| u64::from(e.frequency)).sum();
         let full_code_len = most_common_len(&entries);
+        let next_order = entries
+            .iter()
+            .map(|entry| entry.order)
+            .max()
+            .map_or(0, |order| order + 1);
         if untypable > 0 {
             tracing::warn!(untypable, "码表里有编码不全是字母的行，已跳过");
         }
@@ -104,6 +116,7 @@ impl CodeTable {
             entries,
             total_frequency,
             full_code_len,
+            next_order,
         })
     }
 
@@ -116,14 +129,21 @@ impl CodeTable {
         if self.entries.is_empty() {
             self.full_code_len = other.full_code_len;
         }
-        self.entries.extend(other.entries);
+        let order_offset = self.next_order;
+        self.entries
+            .extend(other.entries.into_iter().map(|mut entry| {
+                entry.order += order_offset;
+                entry
+            }));
+        self.next_order += other.next_order;
         sort_and_dedup(&mut self.entries);
         self.total_frequency = self.entries.iter().map(|e| u64::from(e.frequency)).sum();
     }
 
     /// 编码正好等于输入，或输入是它的前缀的词，最多 `limit` 条。
     ///
-    /// 编码与输入相等（这个词打全了）的排在最前，其余按词频降序；`limit` 之后的不返回。
+    /// 编码与输入相等（这个词打全了）的排在最前；单字母精确码按码表行序，其余按词频降序。
+    /// `limit` 之后的不返回。
     /// 单字母输入（`g`，一级简码）的前缀区间有上万条，所以先按 `limit` 线性选出前面一段再排序，
     /// 不是把整个区间排完再截断——`lookup` 在每次按键的路径上。
     pub fn lookup(&self, code: &str, limit: usize) -> Vec<Match<'_>> {
@@ -133,7 +153,13 @@ impl CodeTable {
         let order = |a: &&Entry, b: &&Entry| {
             (b.code == code)
                 .cmp(&(a.code == code))
-                .then_with(|| b.frequency.cmp(&a.frequency))
+                .then_with(|| {
+                    if code.len() == 1 && a.code == code && b.code == code {
+                        a.order.cmp(&b.order)
+                    } else {
+                        b.frequency.cmp(&a.frequency)
+                    }
+                })
                 .then_with(|| a.code.cmp(&b.code))
                 .then_with(|| a.text.cmp(&b.text))
         };
@@ -238,17 +264,41 @@ mod tests {
     fn truncates_to_the_limit_keeping_the_best() {
         // 命中条数多于 limit 时先线性选一段再排，结果要与整体排序的前几条一致
         let table =
-            CodeTable::parse("甲\tg\t10\n乙\tg\t50\n丙\tg\t30\n丁\tg\t40\n戊\tg\t20\n").unwrap();
+            CodeTable::parse("甲\tgaa\t10\n乙\tgab\t50\n丙\tgac\t30\n丁\tgad\t40\n戊\tgae\t20\n")
+                .unwrap();
         assert_eq!(
             table
-                .lookup("g", 3)
+                .lookup("ga", 3)
                 .iter()
                 .map(|h| h.text)
                 .collect::<Vec<_>>(),
             ["乙", "丁", "丙"]
         );
-        assert_eq!(table.lookup("g", 9).len(), 5);
-        assert_eq!(table.lookup("g", 5).len(), 5);
+        assert_eq!(table.lookup("ga", 9).len(), 5);
+        assert_eq!(table.lookup("ga", 5).len(), 5);
+    }
+
+    #[test]
+    fn single_letter_codes_follow_table_order_before_frequency() {
+        let table =
+            CodeTable::parse("首选\tg\t1\n次选\tg\t999999\n前缀词\tga\t1000000\n第三\tg\t10\n")
+                .unwrap();
+        assert_eq!(
+            table
+                .lookup("g", 2)
+                .iter()
+                .map(|hit| hit.text)
+                .collect::<Vec<_>>(),
+            ["首选", "次选"]
+        );
+        assert_eq!(
+            table
+                .lookup("g", 10)
+                .iter()
+                .map(|hit| hit.text)
+                .collect::<Vec<_>>(),
+            ["首选", "次选", "第三", "前缀词"]
+        );
     }
 
     #[test]
@@ -267,6 +317,20 @@ mod tests {
         assert_eq!(table.lookup("gant", 10)[0].frequency, 900);
         assert_eq!(table.total_frequency(), 100000 + 900 + 1 + 1);
         assert_eq!(table.full_code_len(), 4);
+    }
+
+    #[test]
+    fn merged_single_letter_codes_follow_the_combined_table_order() {
+        let mut table = CodeTable::parse("主表\tg\t1\n").unwrap();
+        table.merge(CodeTable::parse("追加\tg\t999999\n").unwrap());
+        assert_eq!(
+            table
+                .lookup("g", 10)
+                .iter()
+                .map(|hit| hit.text)
+                .collect::<Vec<_>>(),
+            ["主表", "追加"]
+        );
     }
 
     #[test]

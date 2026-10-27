@@ -64,7 +64,7 @@ C 是 `bigram --phrases`：分词时把短语摘掉（二元证据保住），�
 cargo run --release -p qingjian-dict-convert -- phrases data/corpus/*.txt          # 重跑加 --refresh assets/lexicon/phrases.tsv
 cp data/generated/phrases.tsv assets/lexicon/phrases.tsv
 cargo run --release -p qingjian-dict-convert -- lexicon --pinyin data/generated/pinyin-llm.jsonl --frequency data/generated/lm-unigram.tsv \
-  --extra-words assets/lexicon/mined_words.tsv --extra-words assets/lexicon/phrases.tsv --extra-words assets/lexicon/brand.tsv
+  --extra-words assets/lexicon/mined_words.tsv --extra-words assets/lexicon/phrases.tsv --extra-words assets/lexicon/brand.tsv --no-general
 cargo run --release -p qingjian-dict-convert -- bigram --phrases assets/lexicon/phrases.tsv --phrases assets/lexicon/domain_words.tsv --brand assets/lexicon/brand.tsv data/corpus/*.txt
 ```
 

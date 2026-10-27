@@ -4,11 +4,15 @@
 #   scripts/bundle.sh            # 只打包到 target/Qingjian.app
 #   scripts/bundle.sh --install  # 打包并安装到 ~/Library/Input Methods/，杀掉旧进程（开发用）
 #   scripts/bundle.sh --pkg      # 打包并做成 target/pkg/qingjian-<版本>-macos-<arm64|x86_64>.pkg（分发给测试者）
+#   … --sample-data              # 不带产品数据，只用 assets/sample/ 的样例词库（开发自测；不能和 --pkg 一起用）
+#   … --without-model            # 不带含章·通变
 # --install / --pkg 用完 target/Qingjian.app（与 pkg 暂存目录里那份）就删掉并从 LaunchServices 注销，见 forget_bundle。
 #
 # 架构：缺省编译本机架构；QINGJIAN_TARGET=x86_64-apple-darwin（或 aarch64-apple-darwin）交叉编译另一种，
 # 先 `rustup target add` 一次。CI 在 Apple Silicon runner 上两个都打（.github/workflows/release.yml）。
-# 产品数据：data/generated/ 里有 dict.qj 就用自建词库（TSV 比 .qj 新会重打），没有就退回 assets/sample/ 样例。
+# 产品数据缺省全带（词库、语言模型、领域词库、笔画码表、英文词表、释义表、含章·通变），缺哪样就报错停下，
+# 不悄悄退回样例：2026-09 在没有 data/ 的 worktree 里打出过只有 148 条样例词库的包。TSV 比 .qj 新会重打。
+# 没有数据管道的机器跑 tools/release/data-fetch.sh 按 tools/release/data.lock 下载。
 #
 # 签名与公证都由环境变量决定，没设就 ad-hoc 签名、pkg 不签（本机自用够了，分发给别人会被 Gatekeeper 拦，
 # 对方要在「系统设置 → 隐私与安全性」里点「仍要打开」）：
@@ -20,6 +24,22 @@
 # pkg 装的由 postinstall 以登录用户身份跑 `qingjian-macos --register` 注册并启用；菜单里仍没有青简时同样先注销重登
 # （macOS 27 上两种装法都要这一步，见 docs/notes/crate-notes.md 的 apps/macos 一节）。
 set -euo pipefail
+
+MODE=""
+SAMPLE_DATA=0
+WITH_MODEL=1
+for arg in "$@"; do
+  case "$arg" in
+    --install|--pkg) MODE="$arg" ;;
+    --sample-data) SAMPLE_DATA=1 ;;
+    --without-model) WITH_MODEL=0 ;;
+    *) echo "不认识的参数: $arg" >&2; exit 1 ;;
+  esac
+done
+if [[ "$MODE" == "--pkg" && "$SAMPLE_DATA" == 1 ]]; then
+  echo "--pkg 不能带 --sample-data：分发的包必须有完整的产品数据" >&2
+  exit 1
+fi
 
 ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
 APP_NAME="Qingjian"
@@ -36,6 +56,28 @@ case "${TARGET:-$(uname -m)}" in
 esac
 
 cd "$ROOT"
+# 先查产品数据再编译，缺了早停
+P2C_DIR="${QINGJIAN_P2C_MODEL_DIR:-data/models/hanzhang-tongbian}"
+if [[ "$SAMPLE_DATA" == 0 ]]; then
+  missing=()
+  [[ -f data/generated/dict.qj || -f data/generated/dict.tsv ]] || missing+=("data/generated/dict.qj")
+  [[ -f data/generated/lm.qj || -f data/generated/lm-bigram.tsv ]] || missing+=("data/generated/lm.qj")
+  [[ -f data/generated/english.tsv ]] || missing+=("data/generated/english.tsv")
+  ls data/generated/dicts/*.qj >/dev/null 2>&1 || missing+=("data/generated/dicts/*.qj（领域词库）")
+  ls data/generated/codes/*.qj >/dev/null 2>&1 || missing+=("data/generated/codes/*.qj（笔画码表）")
+  for lang in en ja zh es vi de; do
+    [[ -f "assets/glossary/glossary-$lang.tsv" || -f "data/generated/glossary-$lang.qj" ]] || missing+=("data/generated/glossary-$lang.qj")
+  done
+  if [[ "$WITH_MODEL" == 1 && ! -f "$P2C_DIR/model.safetensors" && ! -f "$P2C_DIR/hanzhang-tongbian-small.qjm" ]]; then
+    missing+=("$P2C_DIR/hanzhang-tongbian-small.qjm（含章·通变）")
+  fi
+  if [[ ${#missing[@]} -gt 0 ]]; then
+    echo "缺产品数据：" >&2
+    printf '  %s\n' "${missing[@]}" >&2
+    echo "跑 tools/release/data-fetch.sh 下载；开发自测只用样例词库加 --sample-data，不带模型加 --without-model" >&2
+    exit 1
+  fi
+fi
 # 构建标识进「关于」页与诊断信息：git 短哈希（工作区有改动加 +）与日期；编译期 option_env! 读
 GIT_REV="$(git rev-parse --short HEAD 2>/dev/null || echo unknown)"
 if [[ -n "$(git status --porcelain 2>/dev/null)" ]]; then GIT_REV="${GIT_REV}+"; fi
@@ -78,8 +120,7 @@ if [[ "$SETTINGS_VERSION" == *-dev ]]; then SETTINGS_VERSION="${SETTINGS_VERSION
 cp apps/macos/scripts/uninstall.sh "$APP/Contents/Resources/uninstall.sh"
 # 输入源名字按系统语言本地化（中文系统显示「青简」，其他显示 Qingjian）
 cp -R apps/macos/resources/*.lproj "$APP/Contents/Resources/"
-# 词库与释义表打进 Resources。data/generated/ 里有生成好的产品数据（自建词库 + 语言模型 + LLM 释义表）就用它，
-# 否则用 assets/sample/ 的样例。没有数据管道的机器跑 tools/release/data-fetch.sh 按 tools/release/data.lock 下载。
+# 词库与释义表打进 Resources：产品数据（自建词库 + 语言模型 + LLM 释义表）在下面拷，assets/sample/ 的样例一直带着
 cp assets/sample/*.tsv "$APP/Contents/Resources/"
 # emoji 表（Unicode CLDR，可发布）
 cp assets/emoji/*.tsv "$APP/Contents/Resources/"
@@ -91,7 +132,7 @@ for scheme in assets/schemes/*/; do
   mkdir -p "$APP/Contents/Resources/schemes/$name"
   cp "$scheme"scheme.toml "$scheme"table.tsv "$APP/Contents/Resources/schemes/$name/"
 done
-if [[ -f data/generated/dict.tsv || -f data/generated/dict.qj ]]; then
+if [[ "$SAMPLE_DATA" == 0 ]]; then
   # 词库与语言模型打成 .qj（mmap 直接用），TSV 比 .qj 新时重新打包；只有 .qj（CI 从数据包解出来的）就直接用
   # dict-cleaned.tsv 是青简词库已清洗的部分，pack dict 缺省与 dict.tsv 合成一份
   if [[ -f data/generated/dict.tsv && ( ! -f data/generated/dict.qj || data/generated/dict.tsv -nt data/generated/dict.qj \
@@ -118,21 +159,23 @@ if [[ -f data/generated/dict.tsv || -f data/generated/dict.qj ]]; then
   fi
   # 含章·通变（P2C，带噪拼音 → 汉字）：放 Resources/models/hanzhang-tongbian/。
   # 含章·知微（字级模型）不随包：有通变时三个桌面平台都不加载它，用户自己放进数据目录 models/hanzhang-zhiwei/ 仍认
-  p2c_dir="${QINGJIAN_P2C_MODEL_DIR:-data/models/hanzhang-tongbian}"
-  if [[ -f "$p2c_dir/model.safetensors" ]]; then
-    QINGJIAN_MODEL_DIR="$p2c_dir" tools/release/pack-model.sh
-  fi
-  if [[ -f "$p2c_dir/hanzhang-tongbian-small.qjm" ]]; then
+  if [[ "$WITH_MODEL" == 1 ]]; then
+    if [[ -f "$P2C_DIR/model.safetensors" ]]; then
+      QINGJIAN_MODEL_DIR="$P2C_DIR" tools/release/pack-model.sh
+    fi
     mkdir -p "$APP/Contents/Resources/models/hanzhang-tongbian"
-    cp "$p2c_dir/hanzhang-tongbian-small.qjm" "$APP/Contents/Resources/models/hanzhang-tongbian/"
+    cp "$P2C_DIR/hanzhang-tongbian-small.qjm" "$APP/Contents/Resources/models/hanzhang-tongbian/"
     chmod 644 "$APP/Contents/Resources/models/hanzhang-tongbian/hanzhang-tongbian-small.qjm"
-    echo "打包含章·通变：$p2c_dir/hanzhang-tongbian-small.qjm"
+    echo "打包含章·通变：$P2C_DIR/hanzhang-tongbian-small.qjm"
   fi
   # 释义表打成 .qj（TSV 比 .qj 新时重打），英文词表仍是 TSV。各表来源不同，元数据按表写（见 assets/glossary/README.md）
   for lang in en ja zh es vi de; do
     src="assets/glossary/glossary-$lang.tsv"
     out="data/generated/glossary-$lang.qj"
-    [[ -f "$src" ]] || continue
+    if [[ ! -f "$src" ]]; then
+      cp "$out" "$APP/Contents/Resources/"
+      continue
+    fi
     if [[ "$lang" == es ]]; then
       license="GPL-3.0-or-later"
       attribution="Azure Translator 机器翻译（Tofuzhu，tools/corpus/glossary_es.py）"
@@ -156,6 +199,8 @@ if [[ -f data/generated/dict.tsv || -f data/generated/dict.qj ]]; then
     [[ -f "$f" ]] && cp "$f" "$APP/Contents/Resources/"
   done
   echo "使用 data/generated/ 的产品数据（自建词库）"
+else
+  echo "只带样例词库（--sample-data），不是可分发的包"
 fi
 printf 'APPL????' > "$APP/Contents/PkgInfo"
 
@@ -193,7 +238,7 @@ forget_bundle() {
   if [[ -x "$LSREGISTER" ]]; then "$LSREGISTER" -u "$1" >/dev/null 2>&1 || true; fi
 }
 
-if [[ "${1:-}" == "--pkg" ]]; then
+if [[ "$MODE" == "--pkg" ]]; then
   # 每个架构一个工作目录，成品都放 target/pkg/，两个架构接着打互不覆盖
   PKG="$ROOT/target/pkg/qingjian-$VERSION-macos-$ARCH.pkg"
   PKG_DIR="$ROOT/target/pkg/$ARCH"
@@ -233,7 +278,7 @@ if [[ "${1:-}" == "--pkg" ]]; then
   forget_bundle "$APP"
 fi
 
-if [[ "${1:-}" == "--install" ]]; then
+if [[ "$MODE" == "--install" ]]; then
   if [[ -d "/Library/Input Methods/$APP_NAME.app" ]]; then
     echo "注意: /Library/Input Methods/$APP_NAME.app 也装着一份（pkg 装的），两份同 id 会互相顶；先跑 scripts/uninstall.sh"
   fi

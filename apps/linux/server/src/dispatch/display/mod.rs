@@ -43,7 +43,7 @@ impl Router {
                 // 旧鼠标事件不能改变其他会话的焦点、显示身份或学习回报。
                 return Some(json!({"Ignored": {"session": request.session}}));
             }
-            self.linux_event(request)?
+            self.traced_linux(request)?
         } else {
             let message: ClientMessage = serde_json::from_value(value).ok()?;
             self.handle(message)?

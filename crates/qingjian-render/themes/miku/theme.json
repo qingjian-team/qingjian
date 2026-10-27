@@ -115,12 +115,19 @@
       ]
     },
 
+    "miku-page-previous": { "type": "icon", "icon": "chevron-left", "size": 9, "height": 14, "color": "@gloss", "action": "previous_page" },
+    "miku-page-next": { "type": "icon", "icon": "chevron-right", "size": 9, "height": 14, "color": "@gloss", "action": "next_page" },
+
     "miku-pager": {
       "type": "frame", "when": "page", "margin": [0, 0, 0, "auto"], "align_self": "center", "children": [
-        { "type": "frame", "width": 16, "height": 16, "opacity": 0.5, "fill": { "image": "images/chevron-left.svg" } },
-        { "type": "frame", "width": 16, "height": 16, "fill": { "image": "images/chevron-right.svg" } }
+        { "type": "use", "component": "miku-pager-previous", "when": "page.previous" },
+        { "type": "use", "component": "miku-pager-previous", "when": "!page.previous", "opacity": 0.5 },
+        { "type": "use", "component": "miku-pager-next", "when": "page.next" },
+        { "type": "use", "component": "miku-pager-next", "when": "!page.next", "opacity": 0.5 }
       ]
     },
+    "miku-pager-previous": { "type": "frame", "width": 16, "height": 16, "action": "previous_page", "fill": { "image": "images/chevron-left.svg" } },
+    "miku-pager-next": { "type": "frame", "width": 16, "height": 16, "action": "next_page", "fill": { "image": "images/chevron-right.svg" } },
 
 
     "miku-status-cell": {
@@ -195,7 +202,13 @@
           { "type": "repeat", "bind": "candidates", "component": "miku-row" }
         ] },
         { "type": "frame", "when": "candidates", "align_self": "stretch", "margin": [2, 0, 0, 0], "children": [
-          { "type": "text", "bind": "page", "font": "annotation", "color": "@gloss", "margin": [14, 0, 0, 8] },
+          { "type": "frame", "when": "page", "gap": 3, "margin": [14, 0, 0, 8], "children": [
+          { "type": "use", "component": "miku-page-previous", "when": "page.previous" },
+          { "type": "use", "component": "miku-page-previous", "when": "!page.previous", "opacity": 0.5 },
+          { "type": "text", "bind": "page", "font": "annotation", "color": "@gloss" },
+          { "type": "use", "component": "miku-page-next", "when": "page.next" },
+          { "type": "use", "component": "miku-page-next", "when": "!page.next", "opacity": 0.5 }
+        ] },
           { "type": "text", "text": "01", "font": "number", "color": "@pink", "margin": [0, 2, 0, "auto"] }
         ] },
 

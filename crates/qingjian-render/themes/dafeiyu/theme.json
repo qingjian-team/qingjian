@@ -125,17 +125,24 @@
     },
 
 
+    "whale-page-previous": { "type": "icon", "icon": "chevron-left", "size": 9, "height": 14, "color": "@gloss", "action": "previous_page" },
+    "whale-page-next": { "type": "icon", "icon": "chevron-right", "size": 9, "height": 14, "color": "@gloss", "action": "next_page" },
+
     "whale-pager": {
       "type": "frame", "when": "page", "margin": [0, 0, 0, "auto"], "align_self": "center", "gap": 4,
       "children": [
-        { "type": "frame", "width": 24, "height": 24, "padding": 5, "radius": 12, "fill": "#ffffff", "border": { "width": 1, "color": "@button" }, "effects": [{ "type": "drop-shadow", "y": 1, "blur": 2, "color": "#3a98f430" }], "children": [
-          { "type": "frame", "width": 14, "height": 14, "fill": { "image": "images/chevron-left.svg" } }
-        ] },
-        { "type": "frame", "width": 24, "height": 24, "padding": 5, "radius": 12, "fill": "#ffffff", "border": { "width": 1, "color": "@button" }, "effects": [{ "type": "drop-shadow", "y": 1, "blur": 2, "color": "#3a98f430" }], "children": [
-          { "type": "frame", "width": 14, "height": 14, "fill": { "image": "images/chevron-right.svg" } }
-        ] }
+        { "type": "use", "component": "whale-pager-previous", "when": "page.previous" },
+        { "type": "use", "component": "whale-pager-previous", "when": "!page.previous", "opacity": 0.4 },
+        { "type": "use", "component": "whale-pager-next", "when": "page.next" },
+        { "type": "use", "component": "whale-pager-next", "when": "!page.next", "opacity": 0.4 }
       ]
     },
+    "whale-pager-previous": { "type": "frame", "width": 24, "height": 24, "padding": 5, "radius": 12, "fill": "#ffffff", "border": { "width": 1, "color": "@button" }, "effects": [{ "type": "drop-shadow", "y": 1, "blur": 2, "color": "#3a98f430" }], "action": "previous_page", "children": [
+      { "type": "frame", "width": 14, "height": 14, "fill": { "image": "images/chevron-left.svg" } }
+    ] },
+    "whale-pager-next": { "type": "frame", "width": 24, "height": 24, "padding": 5, "radius": 12, "fill": "#ffffff", "border": { "width": 1, "color": "@button" }, "effects": [{ "type": "drop-shadow", "y": 1, "blur": 2, "color": "#3a98f430" }], "action": "next_page", "children": [
+      { "type": "frame", "width": 14, "height": 14, "fill": { "image": "images/chevron-right.svg" } }
+    ] },
 
     "whale-speech": {
       "type": "frame", "width": 84, "height": 63, "fill": { "image": "images/speech-bubble.svg" },
@@ -244,7 +251,13 @@
         { "type": "frame", "when": "candidates", "direction": "column", "align_self": "stretch", "gap": 2, "children": [
           { "type": "repeat", "bind": "candidates", "component": "whale-row" }
         ] },
-        { "type": "text", "bind": "page", "font": "annotation", "color": "@gloss", "align_self": "end", "margin": [4, 6, 0, 0] },
+        { "type": "frame", "when": "page", "gap": 3, "align_self": "end", "margin": [4, 6, 0, 0], "children": [
+          { "type": "use", "component": "whale-page-previous", "when": "page.previous" },
+          { "type": "use", "component": "whale-page-previous", "when": "!page.previous", "opacity": 0.4 },
+          { "type": "text", "bind": "page", "font": "annotation", "color": "@gloss" },
+          { "type": "use", "component": "whale-page-next", "when": "page.next" },
+          { "type": "use", "component": "whale-page-next", "when": "!page.next", "opacity": 0.4 }
+        ] },
 
         { "type": "frame", "position": "absolute", "inset": [18, -115, "auto", "auto"], "width": 120, "height": 228,
           "fill": { "image": "images/girl-side.png", "scale": 2 } },

@@ -1,5 +1,6 @@
 use std::path::PathBuf;
-use std::sync::LazyLock;
+use std::sync::atomic::{AtomicU8, Ordering};
+use std::sync::{Arc, LazyLock};
 use std::time::Duration;
 
 use async_openai::Client;
@@ -8,7 +9,7 @@ use async_openai::middleware::ReqwestService;
 use async_openai::types::chat::{
     ChatCompletionRequestMessage, ChatCompletionRequestSystemMessage,
     ChatCompletionRequestUserMessage, CreateChatCompletionRequestArgs,
-    CreateChatCompletionResponse, FinishReason, ReasoningEffort, ResponseFormat,
+    CreateChatCompletionResponse, FinishReason, ReasoningEffort,
 };
 use qingjian_core::PredictionRequest;
 use reqwest::header::{HeaderMap, HeaderValue};
@@ -16,6 +17,7 @@ use reqwest::header::{HeaderMap, HeaderValue};
 use crate::config::PredictConfig;
 use crate::error::PredictError;
 use crate::prompt::{self, Reply};
+use crate::reply::{self, ReplyFormat, ReplySchema};
 use crate::usage::ApiUsageStats;
 
 /// 联想回复的 token 上限：几条短句足够，防止模型长篇大论。
@@ -49,6 +51,9 @@ pub struct ChatClient {
     /// 接口关思考用的是哪种参数（按接口地址定）。
     thinking_switch: ThinkingSwitch,
 
+    /// 回复格式降到了哪一级（[`ReplyFormat::index`]）：接口拒过一次就记住，免得每次请求都先挨拒再重试。
+    reply_format: Arc<AtomicU8>,
+
     /// 壳选择累计用量的本机文件；None 时保持原有无统计行为。
     usage_path: Option<PathBuf>,
 }
@@ -66,6 +71,7 @@ impl ChatClient {
             timeout: Duration::from_millis(config.timeout_ms),
             reasoning_effort: parse_reasoning_effort(&config.reasoning_effort),
             thinking_switch: ThinkingSwitch::for_url(&config.base_url),
+            reply_format: Arc::new(AtomicU8::new(ReplyFormat::JsonObject.index())),
             usage_path: None,
         }
     }
@@ -79,28 +85,49 @@ impl ChatClient {
         let user = prompt::user_prompt(request);
         tracing::debug!(sequence = request.sequence, %user, "联想请求");
         let content = self
-            .chat(prompt::system_prompt(request), &user, MAX_TOKENS)
+            .chat(
+                prompt::system_prompt(request),
+                &user,
+                MAX_TOKENS,
+                &prompt::reply_schema(request),
+            )
             .await?;
         Ok(prompt::parse_reply(&content, request))
     }
 
-    /// 一问一答：系统提示 + 用户消息，要 JSON 对象，返回正文。联想与释义兜底共用。
+    /// 一问一答：系统提示 + 用户消息，要 `schema` 形状的 JSON 对象，返回正文。联想与释义兜底共用。
     pub async fn chat(
         &self,
         system: &str,
         user: &str,
         max_tokens: u32,
+        schema: &ReplySchema,
     ) -> Result<String, PredictError> {
+        let mut format = ReplyFormat::from_index(self.reply_format.load(Ordering::Relaxed));
         let mut body = self.request_body(system, user, max_tokens)?;
-        let raw = match self.send(&body).await {
-            Ok(raw) => raw,
-            // 「始终思考」的模型（如 GLM-5 系列）会拒绝关思考参数；去掉它按模型默认重试一次
-            Err(PredictError::Api(error)) if rejects_thinking_control(&error) => {
-                tracing::info!(model = %self.model, error = %error, "模型拒绝关思考，去掉该参数重试");
-                strip_thinking_params(&mut body);
-                self.send(&body).await?
+        format.apply(&mut body, schema);
+        // 两种退路都有尽头：思考参数去掉就没了，回复格式降到最低就不再降，循环必然结束
+        let raw = loop {
+            match self.send(&body).await {
+                Ok(raw) => break raw,
+                // 「始终思考」的模型（如 GLM-5 系列）会拒绝关思考参数；去掉它按模型默认重试
+                Err(PredictError::Api(error))
+                    if rejects_thinking_control(&error) && strip_thinking_params(&mut body) =>
+                {
+                    tracing::info!(model = %self.model, error = %error, "模型拒绝关思考，去掉该参数重试");
+                }
+                // 接口不认这一级的 response_format（LM Studio 不认 json_object）：降一级重试并记住
+                Err(PredictError::Api(error))
+                    if format.fallback().is_some() && reply::rejects_reply_format(&error) =>
+                {
+                    let next = format.fallback().unwrap_or(format);
+                    tracing::info!(model = %self.model, error = %error, from = ?format, to = ?next, "接口不认这种回复格式，降一级重试");
+                    format = next;
+                    format.apply(&mut body, schema);
+                    self.reply_format.store(format.index(), Ordering::Relaxed);
+                }
+                Err(error) => return Err(error),
             }
-            Err(error) => return Err(error),
         };
         self.parse_content(raw)
     }
@@ -120,8 +147,7 @@ impl ChatClient {
         args.model(&self.model)
             .messages(messages)
             .max_tokens(max_tokens)
-            .temperature(TEMPERATURE)
-            .response_format(ResponseFormat::JsonObject);
+            .temperature(TEMPERATURE);
         if let Some(effort) = self.reasoning_effort.clone() {
             args.reasoning_effort(effort);
         }
@@ -173,7 +199,7 @@ impl ChatClient {
                 }
             })?;
         tracing::debug!(%content, "模型回复");
-        Ok(content)
+        Ok(reply::unfenced(&content).to_owned())
     }
 }
 
@@ -258,12 +284,13 @@ fn quantize_temperature(body: &mut serde_json::Value) {
     );
 }
 
-/// 去掉请求里所有关思考参数，交给模型默认行为。
-fn strip_thinking_params(body: &mut serde_json::Value) {
-    if let Some(fields) = body.as_object_mut() {
-        fields.remove("reasoning_effort");
-        fields.remove("thinking");
-    }
+/// 去掉请求里所有关思考参数，交给模型默认行为。返回是否真去掉了什么。
+fn strip_thinking_params(body: &mut serde_json::Value) -> bool {
+    body.as_object_mut().is_some_and(|fields| {
+        let effort = fields.remove("reasoning_effort").is_some();
+        let thinking = fields.remove("thinking").is_some();
+        effort || thinking
+    })
 }
 
 /// 报错是不是「模型始终思考，不支持关闭」类：去掉关思考参数重试或许能通。
@@ -424,7 +451,7 @@ mod tests {
             "thinking": { "type": "disabled" },
             "temperature": 0.3
         });
-        strip_thinking_params(&mut body);
+        assert!(strip_thinking_params(&mut body));
         assert!(body.get("reasoning_effort").is_none());
         assert!(body.get("thinking").is_none());
         assert_eq!(body["temperature"], 0.3);

@@ -59,6 +59,7 @@ impl TextService_Impl {
     pub(super) fn apply_input_settings(&self, input: InputSettings) {
         // 获焦可能早于 Activate；与标点键一样，只有登记成功才记住组合，下一拍可补登记。
         self.sync_punctuation_key(input.toggle_punctuation);
+        self.sync_traditional_key(input.toggle_traditional);
         if self.predict_combo.get() != input.predict
             && let Some(thread_mgr) = self.thread_mgr.borrow().clone()
             && let Ok(keystroke) = thread_mgr.cast::<ITfKeystrokeMgr>()
@@ -93,6 +94,31 @@ impl TextService_Impl {
             input.english_candidates
         ));
         self.apply_mode_settings(input.english_mode, input.switch_mode);
+    }
+
+    /// 简繁组合由 Server 下发，热加载后撤旧键、登记新键。
+    fn sync_traditional_key(&self, combo: Option<qingjian_platform::KeyCombo>) {
+        if self.traditional_combo.get() == combo {
+            return;
+        }
+        let Some(thread_mgr) = self.thread_mgr.borrow().clone() else {
+            return;
+        };
+        let Ok(keystroke) = thread_mgr.cast::<ITfKeystrokeMgr>() else {
+            return;
+        };
+        if let Some(old) = self.traditional_combo.take() {
+            preserved::unregister_traditional(&keystroke, old);
+        }
+        if let Some(combo) = combo {
+            match preserved::register_traditional(&keystroke, self.client_id.get(), combo) {
+                Ok(()) => {
+                    self.traditional_combo.set(Some(combo));
+                    log(&format!("简繁切换快捷键已登记为保留键: {combo}"));
+                }
+                Err(error) => log(&format!("登记简繁切换键失败: {error}")),
+            }
+        }
     }
 
     /// Ctrl + Alt + Space 是组合键、走 TSF 保留键（与「翻译选中文字」同一套）；没勾就撤掉登记，免得白占着。

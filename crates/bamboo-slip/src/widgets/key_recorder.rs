@@ -108,7 +108,7 @@ impl<'a> KeyRecorder<'a> {
                     Some(theme.px(self.width)),
                     Some(theme.px(theme.control_height)),
                 ),
-                justify_content: Some(JustifyContent::CENTER),
+                justify_content: JustifyContent::CENTER,
                 flex_shrink: 0.0,
                 ..row(theme, 0.0)
             },

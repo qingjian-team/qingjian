@@ -1,4 +1,4 @@
-//! Windows 的字体文件清单：Segoe UI、微软雅黑、Yu Gothic、Segoe UI Emoji（COLRv0）。
+//! Windows 的字体文件清单：Segoe UI、微软雅黑、Yu Gothic、宋体扩展字与 Segoe UI Emoji（COLRv0）。
 
 use std::path::PathBuf;
 
@@ -31,7 +31,7 @@ pub(super) fn ui_weight_fonts() -> Vec<PathBuf> {
     .collect()
 }
 
-/// 汉字字体（常规、粗、细三个文件）加日文回退。
+/// 汉字字体（常规、粗、细三个文件）、日文与扩展区汉字回退。
 pub(super) fn script_fonts(locale: &str) -> Vec<PathBuf> {
     let dir = fonts_dir();
     let mut fonts = Vec::new();
@@ -44,6 +44,8 @@ pub(super) fn script_fonts(locale: &str) -> Vec<PathBuf> {
     fonts.push(dir.join("yugothm.ttc"));
     fonts.push(dir.join("YuGothB.ttc"));
     fonts.push(dir.join("YuGothL.ttc"));
+    // 生僻字不都在雅黑与游ゴシック里；缺少这些可选系统字体时，加载方照常跳过。
+    fonts.extend(["simsunb.ttf", "SimsunExtG.ttf"].map(|file| dir.join(file)));
     fonts
 }
 

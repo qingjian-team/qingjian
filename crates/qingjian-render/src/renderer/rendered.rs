@@ -3,6 +3,7 @@
 use bamboo_slip::{Painted, Pixmap};
 
 use super::{HitRegion, HitTarget};
+use crate::MaterialBacking;
 
 pub struct Rendered {
     /// 预乘 RGBA 位图，含阴影边。
@@ -26,6 +27,9 @@ pub struct Rendered {
 
     /// 候选窗口里可点的区域，译词在前（先命中）；状态条为空，它按 [`crate::RenderedStatus::cell_edges`] 分格。
     pub hits: Vec<HitRegion>,
+
+    /// 壳要在内容区底下垫的系统材质；`None` 是不透明窗口，阴影也在位图里。
+    pub material: Option<MaterialBacking>,
 }
 
 impl Rendered {
@@ -39,7 +43,12 @@ impl Rendered {
             scale: painted.scale,
             next_frame: painted.next_frame,
             hits,
+            material: None,
         }
+    }
+
+    pub(crate) fn with_material(self, material: Option<MaterialBacking>) -> Self {
+        Self { material, ..self }
     }
 
     /// 内容区里一点（点，左上为原点）点中了什么。

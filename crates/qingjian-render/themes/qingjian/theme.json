@@ -30,6 +30,17 @@
   },
 
   "components": {
+    "pager": {
+      "type": "frame", "when": "page", "gap": 3,
+      "children": [
+        { "type": "icon", "icon": "chevron-left", "size": 9, "height": 14, "action": "previous_page",
+          "color": { "if": "page.previous", "then": "@faint", "else": "@dim" } },
+        { "type": "text", "bind": "page", "font": "index", "color": "@faint" },
+        { "type": "icon", "icon": "chevron-right", "size": 9, "height": 14, "action": "next_page",
+          "color": { "if": "page.next", "then": "@faint", "else": "@dim" } }
+      ]
+    },
+
     "top_line": {
       "type": "frame", "when": "preedit|trailing", "padding": [4, 0, 4, 0], "gap": 16,
       "children": [
@@ -129,8 +140,7 @@
         { "type": "use", "component": "top_line" },
         { "type": "frame", "when": "candidates", "table": { "row_height": 27 }, "align_self": "stretch",
           "children": [{ "type": "repeat", "bind": "candidates", "component": "row" }] },
-        { "type": "text", "bind": "page", "font": "index", "color": "@faint",
-          "align_self": "end", "margin": [4, 0, 0, 0] }
+        { "type": "use", "component": "pager", "align_self": "end", "margin": [4, 0, 0, 0] }
       ]
     },
     "horizontal": {
@@ -142,7 +152,7 @@
           "children": [
             { "type": "repeat", "bind": "candidates", "component": "item" },
             { "type": "frame", "when": "page", "margin": [0, -5, 0, "auto"], "padding": [0, 0, 0, 5], "children": [
-              { "type": "text", "bind": "page", "font": "index", "color": "@faint", "margin": [8, 0, 0, 0] }
+              { "type": "use", "component": "pager", "margin": [8, 0, 0, 0] }
             ] }
           ] },
         { "type": "annotation", "bind": "highlighted.annotation", "when": "highlighted.annotation",

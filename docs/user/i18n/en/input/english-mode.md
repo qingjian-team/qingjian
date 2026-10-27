@@ -9,10 +9,15 @@ description: "Entering English mode, changing or turning off the Chinese/English
 - **macOS**: English mode is on while the `Caps Lock` light is on; turn it off to return to Chinese.
   If you want `Caps Lock` to switch between Qingjian and "ABC" the way the system pinyin input does, turn on the option to switch to ABC with Caps Lock in System Settings → Keyboard → Text Input → Edit:
   a quick press of `Caps Lock` then switches input methods and holding it still locks capitals; Qingjian's own English mode is no longer needed.
+  You can also tick 单击 Shift (Tap Shift) under 切换键 (Switch key) in 设置 → 中英文 (Settings → Chinese/English): a tap of `Shift` (press and release on its own) then switches between Chinese and English.
+  Holding `Shift` for more than 0.3 seconds before releasing it doesn't count as a tap, so selecting text with Shift held doesn't switch. Leave it off if you often hit Shift by accident while typing. Once it's on, `Caps Lock` only controls capitals, so with it lit you type capital letters directly.
+  A 中 / 英 hint flashes in the top-right corner of the screen when you switch (with Tap Shift on, toggling `Caps Lock` flashes 大写 / 小写, capitals / lowercase).
+  **Tapping Shift while typing pinyin**: the letters you've typed are committed as they are (`nihao` → `nihao`) and English mode starts, so you don't need to press Enter first.
 - **Windows**: tap `Shift` (press and release on its own, without another key) to switch between Chinese and English. The taskbar shows 中 or 英 to match, and A while Caps Lock is on.
   Clicking the 中 / 英 icon on the taskbar also switches.
   On Windows, `Caps Lock` only controls case: while it's on, capital letters are typed directly in either mode (as with Microsoft Pinyin).
-- **Linux**: tap `Shift` to switch between Chinese and English; holding `Shift` while typing letters doesn't switch. While `Caps Lock` is on, capital letters are typed directly.
+- **Linux**: tap `Shift` to switch between Chinese and English; Fcitx5 briefly shows 中 or 英 when you switch (it disappears after about a second). Holding `Shift` while typing letters doesn't switch. While `Caps Lock` is on, capital letters are typed directly.
+  The hint shares Fcitx5's "Show Input Method Information when switch input method" setting with the input method switching popup; turn that off and it no longer appears.
 
 On Windows, the Chinese/English mode is **shared by all apps** by default: switch to English in one app and other apps, including newly opened ones, are in English too. On Linux, **each window keeps its own**, and new windows start in Chinese.
 
@@ -60,6 +65,8 @@ Letters are lowercase by default; hold `Shift` for capitals.
 
 English words you've committed as typed with `Enter` (like `gist` or `python`) are remembered and come first next time. English candidates you've picked are remembered too.
 
+[Custom phrases](../personalize/phrases.md) work in English mode too: once the whole input code is typed, the phrase comes before the English word candidates — set `dont` to `don't` and `Space` in English mode commits `don't`. Phrases with Chinese content don't appear in English mode, including ones added by right-clicking 置顶 (Pin to top) with a pinyin code.
+
 ### Which apps show candidates
 
 - By default, English candidates appear only in browsers, chat and document apps, such as Safari, Chrome, Edge, Firefox, WeChat, QQ, WeCom, DingTalk, Feishu, Word, WPS, Notepad, Notes and Obsidian.
@@ -78,6 +85,8 @@ You don't need to switch in Chinese mode:
 - When the input isn't valid pinyin and has at least 3 letters, English is completed: `compa` → company / companies / compared.
   How many English candidates appear, and how high they can rank, is set under 设置 → 候选 (Settings → Candidates): the count is 1–4 (default 4; 1 keeps only the topmost one), and with Chinese candidates present the highest position defaults to 1 (no limit).
 - For input like `key` or `id`, which looks like English but can also be read as pinyin, the Chinese word comes first if you usually pick it and the English word moves down.
+- In double pinyin (Shuangpin), when one key is still missing at the end and the keys so far spell a whole dictionary word (Pinyin Jiajia `veg` → zhe g… → 这个), the Chinese reading is used:
+  这个 comes before the English word `veg`, so `Space` no longer commits the raw letters; when the pending key doesn't complete a word (`cat`), English still comes first.
 - When a sentence of pinyin ends with an English word, the sentence includes that word: `woxiangxuehaorust` → 我想学好rust, `wodeid` → 我的ID, `yongwindows` → 用Windows.
   The English word has to be in the word list (words you've typed in English mode count). Input like `database`, which can also be read as pinyin, is ranked by how natural each reading is; short words like `fan` and `to` are treated as pinyin.
   English words are only recognized at the end of a sentence; words in the middle, as in `wozaidebugzhege`, aren't supported yet (commit the Chinese before it first, then type the English word).
@@ -108,7 +117,7 @@ If the 中 / 英 indicator on the taskbar is easy to miss, you can open a floati
 | `符` | | Open the [symbol panel](punctuation.md#Symbol-panel) |
 | ⚙ | | Open Settings |
 
-Drag it anywhere on the screen; its position is remembered. Its look follows the system's light or dark appearance. Adjust its size under 状态条大小 (Status bar size) (60%–150%); it doesn't follow the candidate font size.
+Drag it anywhere on the screen; it stops flush against the taskbar and the screen edges, and its position is remembered. Its look follows the system's light or dark appearance. Adjust its size under 状态条大小 (Status bar size) (60%–150%); it doesn't follow the candidate font size.
 It only appears while Qingjian is the current input method: it hides when you switch to another input method or the system's English keyboard and comes back when you switch back.
 It hides automatically while a full-screen app (a game, full-screen video, a presentation) is in front, and returns when you leave full screen. You can also show or hide it at any time from the right-click menu of the 中 / 英 icon on the taskbar.
 Each time it appears, it's moved back into the visible area of the screen. The status bar can also change its look with the theme; see [Custom themes](../advanced/custom-themes.md#Floating-status-bar-(Windows)).

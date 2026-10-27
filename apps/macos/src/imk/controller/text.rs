@@ -7,7 +7,7 @@ impl QingjianInputController {
         tracing::debug!(%text, "inputText");
         self.note_application(&client);
         let mut composing = host::with(|h| !h.engine.composition().is_empty()).unwrap_or(false);
-        let english = modifiers::caps_lock_on();
+        let english = host::with(|h| h.english_mode()).unwrap_or(false);
         // 不在白名单（`[apps] english_candidates_on`）里的应用，英文模式是纯直通
         let english_candidates = english
             && host::with(|h| h.english_candidates_in(client.bundle_identifier().as_deref()))
@@ -32,7 +32,7 @@ impl QingjianInputController {
             return false;
         };
         let c = char::from(*byte);
-        host::with(|h| h.indicator.update());
+        host::with(|h| h.indicator.update(english));
         // 缓冲区为空时敲 ? 先进问字模式（配置 `[shortcut] question_mark`，缺省关），中英文模式都行：
         // 后面跟字母就是在问字，跟别的键就还原成问号
         if !composing
@@ -61,8 +61,9 @@ impl QingjianInputController {
         let page_step = Self::page_step(c);
         // Caps Lock 亮着 = 英文模式：不组句、不转标点，字母默认小写、按住 Shift 才大写
         if english && !question {
-            // Caps Lock 亮着时 macOS 不管按没按 Shift 送来的都是大写，只能读 Shift 状态：按着才大写
-            let letter = if modifiers::shift_down() {
+            // Caps Lock 亮着时 macOS 送来的都是大写，大小写只能自己定：Shift = 大写，
+            // 勾了「单击 Shift」时 Caps Lock 退化成只管大小写，也跟着参与（见 Host::english_letter_uppercase）
+            let letter = if host::with(|h| h.english_letter_uppercase()).unwrap_or(false) {
                 c.to_ascii_uppercase()
             } else {
                 c.to_ascii_lowercase()
@@ -176,7 +177,7 @@ impl QingjianInputController {
         if c.is_ascii_lowercase()
             || (composing && c == '\'')
             || semicolon
-            || (expression && qingjian_core::shortcut::is_expression_char(c))
+            || (expression && host::with(|h| h.engine.expression_input(c)).unwrap_or(false))
             || (raw && c.is_ascii_graphic())
             || (unicode && (c.is_ascii_digit() || c == '+'))
             || hyphen

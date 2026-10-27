@@ -246,6 +246,7 @@ impl Host {
                 Vec::new()
             },
             footer,
+            pages_around: (page > 0, page + 1 < pages),
             sentence: self.sentence.clone(),
             status: self.status.clone(),
             mode: self.input_mode(),
@@ -255,10 +256,10 @@ impl Host {
         self.window.show(frame, self.anchor);
     }
 
-    /// 给候选窗口主题显示的输入状态：中英看 Caps Lock（与菜单栏一致），其余看配置；英文模式标点是半角。
+    /// 给候选窗口主题显示的输入状态：中英跟菜单栏一致（Caps Lock 或单击 Shift），其余看配置；英文模式标点是半角。
     pub(super) fn input_mode(&self) -> qingjian_render::Mode {
         let general = &self.settings.config().general;
-        let english = crate::imk::modifiers::caps_lock_on();
+        let english = self.english_mode();
         qingjian_render::Mode {
             english,
             traditional: general.traditional() != TraditionalVariant::Off,

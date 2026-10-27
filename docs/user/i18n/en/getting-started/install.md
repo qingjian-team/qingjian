@@ -24,6 +24,16 @@ After installing:
 - A 中 / 英 (Chinese / English) item appears at the top right of the menu bar; click it to open the input method menu and settings.
 - Before you start, choose a learning language under 设置 → 候选 → 译文 (Settings → Candidates → Gloss). The gloss beside each candidate will be in that language; see [Glosses beside candidates](../learning/translation.md).
 
+### If it misbehaves after replacing the app directly: add it again
+
+If you replace Qingjian's app directly instead of using the installer, the system may keep using the old registration: Qingjian can still be selected, but it doesn't behave like the new version. In that case:
+
+1. Remove 青简 under System Settings → Keyboard → Input Sources → Edit;
+2. Log out and back in;
+3. Add 青简 again.
+
+The installer doesn't need this: every installation registers it again.
+
 ## Windows
 
 **Requirements**: 64-bit Windows 10 (version 1809 or later) or Windows 11. The installer includes everything it needs; nothing else has to be installed.

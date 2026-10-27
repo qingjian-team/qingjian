@@ -23,6 +23,8 @@ pub(crate) enum Message {
     ChineseFirst(bool),
     /// 中文模式下 Shift+字母：交给应用（缺省）还是进组句缓冲区。
     ShiftLetter(Option<usize>),
+    /// 中文组句中小键盘数字选候选还是直接输入。
+    NumpadDigit(Option<usize>),
     FullWidthPunctuation(bool),
     EnglishFullWidthPunctuation(bool),
     /// 组句中会转全角的标点先把高亮候选上屏再补标点。
@@ -86,6 +88,7 @@ pub(crate) enum Message {
     /// 只换修饰键，字母键固定用当前的。
     TranslateSelection(Option<usize>),
     PredictShortcut(Option<usize>),
+    ToggleTraditional(Option<usize>),
 
     // 模糊音页
     /// 配置键 + 新值。

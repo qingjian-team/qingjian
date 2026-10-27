@@ -90,8 +90,20 @@ fn annotations_keep_part_of_speech_and_segment_readings_without_changing_raw_tex
 
 #[test]
 fn translation_shortcuts_commit_only_the_selected_raw_sense() {
+    // 译词键的缺省按编译平台取（Windows 上是 Ctrl），这里按 Linux 的 Alt 配死，在哪台机器上跑都一样
+    let alt = KeyModifiers {
+        alt: true,
+        ..Default::default()
+    };
+    let config = RouterConfig {
+        translation_keys: (alt, KeyModifiers { shift: true, ..alt }),
+        ..RouterConfig::default()
+    };
     for (shift, expected) in [(false, "開発する"), (true, "開発")] {
-        let mut router = router("开发\tv. 開発する|かいはつする\tn. 開発|かいはつ\n");
+        let mut router = router_with(
+            "开发\tv. 開発する|かいはつする\tn. 開発|かいはつ\n",
+            config.clone(),
+        );
         let result = compose(&mut router);
         assert_eq!(
             result["frame"]["candidates"]["items"][0]["translation"]["senses"][0]["annotation"],

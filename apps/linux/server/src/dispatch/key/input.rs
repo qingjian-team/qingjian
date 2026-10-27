@@ -1,6 +1,6 @@
 //! 按键怎么作用到 Engine / 高亮上。分流规则与 macOS 壳的 `handle_text` / `handle_command` 对齐。
 
-use qingjian_core::{CandidateKind, QUESTION_PREFIX, punctuation, shortcut};
+use qingjian_core::{CandidateKind, QUESTION_PREFIX, punctuation};
 use qingjian_platform::protocol::KeyEvent;
 
 use super::{Effect, codes, with_prefix};
@@ -261,7 +261,7 @@ impl Router {
     /// 微软 / 搜狗双拼的 `;` 是 ing 键，末尾有落单声母时进缓冲区。
     fn apply_printable(&mut self, c: char, event: &KeyEvent) -> Effect {
         let expression = self.engine.expression_mode();
-        if (expression && shortcut::is_expression_char(c))
+        if self.engine.expression_input(c)
             || (self.engine.unicode_entry() && (c.is_ascii_digit() || c == '+'))
             || (c == ';' && self.engine.takes_semicolon())
         {

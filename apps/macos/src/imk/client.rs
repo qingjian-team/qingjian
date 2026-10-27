@@ -2,6 +2,8 @@
 //!
 //! objc2-input-method-kit 没有为 IMKTextInput 生成绑定，这里用 `msg_send!` 直接发消息。
 
+use std::cell::Cell;
+
 use objc2::msg_send;
 use objc2::rc::Retained;
 use objc2::runtime::AnyObject;
@@ -10,6 +12,16 @@ use qingjian_core::SurroundingText;
 
 /// `{NSNotFound, 0}`：不替换任何已有文本，插到当前位置。
 const NO_REPLACEMENT: NSRange = NSRange::new(NSNotFound as usize, 0);
+
+thread_local! {
+    /// 上次 [`take_inserted`] 以来交给应用的字数，组句结束的日志用（见 `host::CompositionTrace`）。
+    static INSERTED: Cell<usize> = const { Cell::new(0) };
+}
+
+/// 取走并清零上屏字数。
+pub fn take_inserted() -> usize {
+    INSERTED.with(|inserted| inserted.replace(0))
+}
 
 #[derive(Clone, Copy)]
 pub struct TextClient<'a> {
@@ -38,6 +50,7 @@ impl<'a> TextClient<'a> {
 
     /// 上屏。
     pub fn insert_text(&self, text: &str) {
+        INSERTED.with(|inserted| inserted.set(inserted.get() + text.chars().count()));
         let string = NSString::from_str(text);
         unsafe {
             let _: () =

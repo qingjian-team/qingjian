@@ -11,11 +11,14 @@ For keys you can change, see [Changing keys](../personalize/keys-settings.md); A
 
 | Action | macOS | Windows | Linux |
 |---|---|---|---|
-| Switch Chinese / English | `Caps Lock` | Tap `Shift`; the system's `Ctrl + Space`; click 中 / 英 on the taskbar or the floating status bar | Tap `Shift` |
+| Switch Chinese / English | `Caps Lock`; after ticking 单击 Shift (Tap Shift) under 切换键 (Switch key) in 设置 → 中英文 (Settings → Chinese/English), also a tap of `Shift` (`Caps Lock` then only controls capitals). A 中 / 英 hint flashes in the top-right corner of the screen when you switch | Tap `Shift`; the system's `Ctrl + Space`; click 中 / 英 on the taskbar or the floating status bar | Tap `Shift` |
 | Type uppercase English directly | Hold `⇧` in English mode | `Caps Lock` on (in either mode) | `Caps Lock` on |
 | Type one capital letter while typing pinyin | `⇧ + letter` | `Shift + letter` | `Shift + letter` |
 | Switch full-width / half-width punctuation | `⌃ + .` can be enabled (off by default) | Click the ，。 cell on the floating status bar; `Ctrl + .` can be enabled (off by default) | — |
+| Switch Simplified / Traditional output | — | `Ctrl + Shift + F` can be enabled (off by default) | — |
 | Switch to another input method | `⌃ + Space` (system) | `Win + Space` (system) | Fcitx's switch hotkey |
+
+On macOS, if you turn on the system option that uses Caps Lock to switch to "ABC", the system takes Caps Lock for switching input methods and Qingjian's own English mode is no longer reachable; see [Chinese and English](../input/english-mode.md).
 
 On Windows and Linux, the Chinese / English switch can also be a tap of `Ctrl` or `Ctrl + Alt + Space`; see [Chinese and English](../input/english-mode.md#Changing-or-turning-off-the-Chinese-English-switch).
 
@@ -33,7 +36,7 @@ On Windows and Linux, the Chinese / English switch can also be a tap of `Ctrl` o
 | Delete all pinyin before the cursor | `⌘ + Backspace` | — | — |
 | Clear | `Esc` | `Esc` | `Esc` |
 | Move the highlight (pages automatically at the edge) | `↑` / `↓` | `↑` / `↓` | `↑` / `↓` |
-| Page | `[` `]`, `PageUp` / `PageDown`, `⇧ + Tab` (previous page) | `[` `]`, `PageUp` / `PageDown`, `Shift + Tab` (previous page) | Same as Windows |
+| Page | `[` `]`, `PageUp` / `PageDown`, `⇧ + Tab` (previous page); click the arrows beside the page number | `[` `]`, `PageUp` / `PageDown`, `Shift + Tab` (previous page); click the arrows beside the page number, or scroll the mouse wheel over the candidates | `[` `]`, `PageUp` / `PageDown`, `Shift + Tab` (previous page) |
 | Accept the AI sentence completion (next page if there is none) | `Tab` | `Tab` | `Tab` |
 | Move the pinyin cursor | `←` / `→` | `←` / `→` | `←` / `→` |
 | Move the cursor by syllable | `⌥ + ←` / `⌥ + →` | — | — |
@@ -41,6 +44,8 @@ On Windows and Linux, the Chinese / English switch can also be a tap of `Ctrl` o
 | Open the symbol panel | `↑` while the first candidate is highlighted (in horizontal layout with highlight keys set to `←` / `→`, press `↑` once to move into the pinyin, then again) | Same | — |
 | Enter auxiliary code | `;` | `;` | — |
 | Expand to several rows in horizontal layout (enable in Settings) | `↑` / `↓` | `↑` / `↓` | — |
+
+On Windows, numpad digits also pick candidates by default. Set 小键盘数字 (Numpad digits) under 设置 → 候选 (Settings → Candidates) to 直接输入数字 (Type digits) and numpad digits typed while composing are appended to the letters and committed with them (`wenti`, then numpad `5` and `Space`, gives `wenti5`); the main keyboard digits still pick candidates. Num Lock must be on.
 
 When the cursor is in the middle of the pinyin, candidates are based only on the pinyin before the cursor (`ni|hao` gives 你); after committing, the rest of the pinyin stays and the cursor moves to the end.
 A few keys differ with Dachen Zhuyin and Wubi; see [Pinyin schemes and fuzzy pinyin](../input/fuzzy-and-shuangpin.md#Dachen-Zhuyin) and [Wubi and mixed input](../input/wubi.md).
@@ -86,7 +91,7 @@ All of these require AI services to be turned on first; see [AI services](../clo
 | Translate the text selected in an app | `⌃⌥T` | `Ctrl + Alt + T` | `Alt + Shift + T` |
 | Translation result: replace the selection | `Enter` / `Space` / `1` | Same | Same |
 | Translation result: keep the original | `Esc` | `Esc` | `Esc` |
-| Ask for AI candidates manually while typing pinyin | `⌃⌥J` | `Ctrl + Alt + J` | — |
+| Ask for AI candidates manually while typing pinyin | `⌃⌥J` | `Ctrl + Alt + J` | `Ctrl + Alt + J` |
 | Ask about a character | `u`, then type pinyin | Same | Same |
 
 ## Prefixes

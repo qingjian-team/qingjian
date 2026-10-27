@@ -61,6 +61,7 @@ impl Host {
             columns,
             column_ems: Vec::new(),
             footer: (pages > 1).then(|| format!("{}/{pages}", self.session.page + 1)),
+            pages_around: (self.session.page > 0, self.session.page + 1 < pages),
             sentence: None,
             status: None,
             mode: self.input_mode(),

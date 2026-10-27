@@ -101,7 +101,7 @@ impl<'a> SettingRow<'a> {
             let mark = info_with_link(ui, theme, ("info", self.title), text, link)?;
             title = ui.scene().node(
                 Style {
-                    align_items: Some(AlignItems::CENTER),
+                    align_items: AlignItems::CENTER,
                     ..row(theme, 6.0)
                 },
                 Visual::Group,
@@ -151,7 +151,7 @@ impl<'a> SettingRow<'a> {
         trailing.extend(self.below);
         let trailing = ui.scene().node(
             Style {
-                align_items: Some(AlignItems::FLEX_END),
+                align_items: AlignItems::FLEX_END,
                 ..column(theme, 8.0)
             },
             Visual::Group,
@@ -160,7 +160,7 @@ impl<'a> SettingRow<'a> {
         ui.scene().node(
             Style {
                 padding: padding(theme, 10.0, 0.0),
-                justify_content: Some(JustifyContent::SPACE_BETWEEN),
+                justify_content: JustifyContent::SPACE_BETWEEN,
                 min_size: taffy::Size {
                     width: taffy::LengthPercentageAuto::auto(),
                     height: taffy::LengthPercentageAuto::length(

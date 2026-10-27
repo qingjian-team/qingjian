@@ -1,4 +1,4 @@
-//! 状态条的摆放状态与点击分发：窗口过程按 HWND 查到它，拖动结束记位置、点击按格分发动作（[`StatusAction`]）。
+//! 状态条的摆放状态与点击分发：窗口过程按 HWND 查到它，拖动中挡在工作区里、拖动结束记位置、点击按格分发动作（[`StatusAction`]）。
 
 mod action;
 
@@ -16,8 +16,12 @@ pub(super) struct Placement {
     /// 状态条窗口。
     pub(super) hwnd: HWND,
 
-    /// 上次合成用的阴影留白，拖动结束时从窗口矩形反推内容左上角用；点击时把客户区坐标换成内容坐标。
-    pub(super) margin: Cell<i32>,
+    /// 上次合成时内容左上角在窗口里的位置（阴影 / 装饰的左、上留白，两者不一定相等），
+    /// 拖动中与拖动结束时从窗口矩形反推内容左上角用；点击时把客户区坐标换成内容坐标。
+    pub(super) offset: Cell<(i32, i32)>,
+
+    /// 上次合成时内容区宽高（不含阴影 / 装饰），拖动中夹进工作区用。
+    pub(super) content: Cell<(i32, i32)>,
 
     /// 内容左上角的屏幕坐标（物理像素）；`None` 表示还没摆放过。
     pub(super) pos: Cell<Option<(i32, i32)>>,
@@ -36,7 +40,8 @@ impl Placement {
     pub(super) fn new(hwnd: HWND, margin: i32, events: StatusEvents) -> Self {
         Self {
             hwnd,
-            margin: Cell::new(margin),
+            offset: Cell::new((margin, margin)),
+            content: Cell::new((0, 0)),
             pos: Cell::new(None),
             cells: RefCell::new(Vec::new()),
             fullscreen_hidden: Cell::new(false),
@@ -44,13 +49,26 @@ impl Placement {
         }
     }
 
+    /// 拖动中：把系统算出的窗口矩形挪到内容区夹进工作区的位置，拖到任务栏、屏幕边就停住。
+    pub(super) fn on_moving(&self, rect: &mut RECT) {
+        let (dx, dy) = self.offset.get();
+        let (x, y) = super::clamp_anchor((rect.left + dx, rect.top + dy), self.content.get());
+        let (left, top) = (x - dx, y - dy);
+        *rect = RECT {
+            left,
+            top,
+            right: left + rect.right - rect.left,
+            bottom: top + rect.bottom - rect.top,
+        };
+    }
+
     /// 拖动结束：从窗口矩形反推内容左上角，记下并交给 Router 写回配置。
     pub(super) fn on_moved(&self) {
         let mut rect = RECT::default();
         if unsafe { GetWindowRect(self.hwnd, &mut rect) }.is_ok() {
-            let margin = self.margin.get();
-            let x = rect.left + margin;
-            let y = rect.top + margin;
+            let (dx, dy) = self.offset.get();
+            let x = rect.left + dx;
+            let y = rect.top + dy;
             self.pos.set(Some((x, y)));
             (self.events)(StatusEvent::Moved(x, y));
         }
@@ -58,7 +76,7 @@ impl Placement {
 
     /// 单击：`client_x` 是客户区横坐标。
     pub(super) fn on_click(&self, client_x: i32) {
-        let x = client_x - self.margin.get();
+        let x = client_x - self.offset.get().0;
         let action = self
             .cells
             .borrow()

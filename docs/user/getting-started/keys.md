@@ -11,11 +11,14 @@ description: 青简在 macOS、Windows 与 Linux 上的缺省按键：切换、�
 
 | 操作 | macOS | Windows | Linux |
 |---|---|---|---|
-| 中 / 英切换 | `Caps Lock` | 单击 `Shift`；系统的 `Ctrl + Space`；点任务栏或悬浮状态条上的「中 / 英」 | 单击 `Shift` |
-| 直接输入大写英文 | 英文模式下按住 `⇧` | `Caps Lock` 亮起（中英模式均可） | `Caps Lock` 亮起 |
+| 中 / 英切换 | `Caps Lock`；在「设置 → 中英文」的「切换键」里勾上「单击 Shift」后也可单击 `Shift`（此时 `Caps Lock` 只管大小写）。切换时屏幕右上角闪一个「中」/「英」提示 | 单击 `Shift`；系统的 `Ctrl + Space`；点任务栏或悬浮状态条上的「中 / 英」 | 单击 `Shift` |
+| 直接输入大写英文 | 英文模式下按住 `⇧`；勾了单击 Shift 后 `Caps Lock` 亮着也是大写 | `Caps Lock` 亮起（中英模式均可） | `Caps Lock` 亮起 |
 | 输入拼音时临时打一个大写字母 | `⇧ + 字母` | `Shift + 字母` | `Shift + 字母` |
 | 切换全角 / 半角标点 | 可启用 `⌃ + .`（缺省关） | 点悬浮状态条上的「，。」格；可启用 `Ctrl + .`（缺省关） | — |
+| 切换简体 / 繁体输出 | — | 可启用 `Ctrl + Shift + F`（缺省关） | — |
 | 切换到其他输入法 | `⌃ + Space`（系统） | `Win + Space`（系统） | Fcitx 的切换热键 |
+
+macOS 上若在系统设置里打开了用 Caps Lock 切换「ABC」的选项，Caps Lock 会被系统拿去切换输入法，青简自己的英文模式就用不到了，见 [中英文](../input/english-mode.md)。
 
 Windows 与 Linux 的中 / 英切换键还可以选单击 `Ctrl` 或 `Ctrl + Alt + Space`，见 [中英文](../input/english-mode.md#改掉或关掉中-英切换)。
 
@@ -33,7 +36,7 @@ Windows 与 Linux 的中 / 英切换键还可以选单击 `Ctrl` 或 `Ctrl + Alt
 | 删除光标前全部拼音 | `⌘ + Backspace` | — | — |
 | 清空 | `Esc` | `Esc` | `Esc` |
 | 移动高亮（到页边自动翻页） | `↑` / `↓` | `↑` / `↓` | `↑` / `↓` |
-| 翻页 | `[` `]`、`PageUp` / `PageDown`、`⇧ + Tab`（上一页） | `[` `]`、`PageUp` / `PageDown`、`Shift + Tab`（上一页） | 同 Windows |
+| 翻页 | `[` `]`、`PageUp` / `PageDown`、`⇧ + Tab`（上一页）；点页码两侧的箭头 | `[` `]`、`PageUp` / `PageDown`、`Shift + Tab`（上一页）；点页码两侧的箭头，或在候选上滚动鼠标滚轮 | `[` `]`、`PageUp` / `PageDown`、`Shift + Tab`（上一页） |
 | 接受 AI 整句补全（无补全时下一页） | `Tab` | `Tab` | `Tab` |
 | 移动拼音光标 | `←` / `→` | `←` / `→` | `←` / `→` |
 | 按音节移动光标 | `⌥ + ←` / `⌥ + →` | — | — |
@@ -41,6 +44,8 @@ Windows 与 Linux 的中 / 英切换键还可以选单击 `Ctrl` 或 `Ctrl + Alt
 | 打开符号面板 | 高亮还在第一个时按 `↑`（横排且高亮移动键选了 `←` / `→` 时，先按 `↑` 移到拼音里再按一次） | 同左 | — |
 | 进入辅码 | `;` | `;` | — |
 | 横排时展开成多行（需在设置中打开） | `↑` / `↓` | `↑` / `↓` | — |
+
+Windows 上小键盘数字缺省也是选候选；在「设置 → 候选」把「小键盘数字」改成「直接输入数字」后，组句中按小键盘数字会把数字接在敲的字母后面，跟着一起上屏（`wenti` 再按小键盘 `5`、空格，得到 `wenti5`），主键盘数字照旧选候选。要开着 Num Lock。
 
 光标停在拼音中间时，候选只按光标之前的拼音计算（`ni|hao` 出「你」）；上屏后其余拼音保留，光标移到末尾。
 大千注音与五笔下有几个键不同，见 [拼音方案与模糊音](../input/fuzzy-and-shuangpin.md#大千注音) 与 [五笔与混输](../input/wubi.md)。
@@ -86,7 +91,7 @@ Windows 与 Linux 的中 / 英切换键还可以选单击 `Ctrl` 或 `Ctrl + Alt
 | 翻译应用中选中的文字 | `⌃⌥T` | `Ctrl + Alt + T` | `Alt + Shift + T` |
 | 翻译结果：替换选区 | `Enter` / `Space` / `1` | 同左 | 同左 |
 | 翻译结果：保留原文 | `Esc` | `Esc` | `Esc` |
-| 打拼音时手动要 AI 候选 | `⌃⌥J` | `Ctrl + Alt + J` | — |
+| 打拼音时手动要 AI 候选 | `⌃⌥J` | `Ctrl + Alt + J` | `Ctrl + Alt + J` |
 | 问字 | `u` 再输入拼音 | 同左 | 同左 |
 
 ## 前缀

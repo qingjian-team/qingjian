@@ -189,8 +189,8 @@ fn word_row(
     ui.scene().node(
         Style {
             flex_direction: FlexDirection::Row,
-            align_items: Some(AlignItems::CENTER),
-            justify_content: Some(JustifyContent::SPACE_BETWEEN),
+            align_items: AlignItems::CENTER,
+            justify_content: JustifyContent::SPACE_BETWEEN,
             gap: page.gap(16.0),
             padding: Rect {
                 top: space,

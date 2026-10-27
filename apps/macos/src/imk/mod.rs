@@ -11,7 +11,7 @@ pub mod secure_input;
 use std::any::Any;
 use std::panic::{AssertUnwindSafe, catch_unwind};
 
-pub use client::TextClient;
+pub use client::{TextClient, take_inserted};
 pub use controller::{QingjianInputController, click, menu_items, menu_pick, panel_mouse};
 
 /// 在 ObjC 运行时回调的边界拦住 panic。`define_class!` 生成的方法是系统直接调的，panic 穿过去整个进程就没了，

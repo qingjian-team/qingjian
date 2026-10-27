@@ -2,6 +2,7 @@
 //!
 //! - `lexicon`：青简基础词库，「输入法字词库_分类整理版」数据包（规范字 / 常用词 / THUOCL 领域词）+ Unihan 读音 + LLM 多音字标注 → `dict.tsv`
 //! - `tones`：通用词表的数字声调 → 单字声调表 `tones.tsv`（编进 Core，注音按敲的声调排序）
+//! - `chaizi`：開放詞典網拆字字典（CC BY 3.0）+ 词库读音 → 拆字表 `chaizi.tsv`（编进 Core，问字模式按部件读音找字）
 //! - `wubi`：Rime 形码码表（极点 86 五笔，Apache-2.0）→ 形码方案的 `table.tsv`（`词\t编码\t词频`，词频由青简词库按词面回填）
 //! - `wubi-roots`：五笔字根表（`assets/schemes/wubi86/roots86.tsv`）+ 思源黑体（SIL OFL，不进仓库）→ `roots86-glyphs.tsv`（字根图的 SVG 路径，随包，沿用 OFL）
 //! - `cedict`：CC-CEDICT（CC BY-SA 4.0）→ `glossary-en.tsv`（释义表的备用来源，现在用 gloss-gen 的 LLM 表）
@@ -23,6 +24,7 @@
 mod args;
 mod bigram;
 mod cedict;
+mod chaizi;
 mod codes;
 mod emoji;
 mod english;
@@ -35,6 +37,8 @@ mod phrases;
 mod stroke;
 mod wubi;
 mod wubi_roots;
+
+use std::path::PathBuf;
 
 use clap::Parser;
 use tracing_subscriber::EnvFilter;
@@ -63,27 +67,66 @@ fn run() -> Result<(), ConvertError> {
             pack,
             unihan,
             pinyin,
+            no_pinyin,
             frequency,
+            no_frequency,
             emit_ambiguous,
             extra_words,
+            no_extra_words,
             domain_keep_min,
             general,
             cleaned,
-        } => lexicon::convert(
-            &pack,
-            &unihan,
-            pinyin.as_deref(),
-            frequency.as_deref(),
-            emit_ambiguous.as_deref(),
-            &extra_words,
-            domain_keep_min,
-            general.as_deref(),
-            cleaned.as_deref(),
-            &args.out_dir,
-        ),
+            no_general,
+        } => {
+            let pinyin = included(
+                pinyin,
+                no_pinyin,
+                "generate it with gloss-gen pinyin (assets/lexicon/QINGJIAN.md), or pass --no-pinyin",
+            )?;
+            let frequency = included(
+                frequency,
+                no_frequency,
+                "run bigram first; pass --no-frequency on the first pass",
+            )?;
+            let extra_words = if no_extra_words {
+                Vec::new()
+            } else {
+                extra_words
+                    .into_iter()
+                    .map(|path| included(path, false, "restore it, list the files with --extra-words, or pass --no-extra-words"))
+                    .collect::<Result<Vec<_>, _>>()?
+                    .into_iter()
+                    .flatten()
+                    .collect()
+            };
+            let hint = "symlink the Qingjian lexicon delivery as data/lexicon (or pass --general / --cleaned), or pass --no-general";
+            let general = included(general, no_general, hint)?;
+            let cleaned = included(cleaned, no_general, hint)?;
+            lexicon::convert(
+                &pack,
+                &unihan,
+                pinyin.as_deref(),
+                frequency.as_deref(),
+                emit_ambiguous.as_deref(),
+                &extra_words,
+                domain_keep_min,
+                general.as_deref(),
+                cleaned.as_deref(),
+                &args.out_dir,
+            )
+        }
         Command::Tones { words } => {
             let characters = lexicon::char_tones(&words, &args.out_dir.join("tones.tsv"))?;
             tracing::info!(characters, "单字声调表已写出");
+            Ok(())
+        }
+        Command::Chaizi { chaizi, dictionary } => {
+            let summary = chaizi::convert(&chaizi, &dictionary, &args.out_dir.join("chaizi.tsv"))?;
+            tracing::info!(
+                characters = summary.characters,
+                unread = summary.unread,
+                "拆字表已写出"
+            );
             Ok(())
         }
         Command::WubiRoots {
@@ -214,4 +257,19 @@ fn run() -> Result<(), ConvertError> {
             &args.out_dir,
         ),
     }
+}
+
+/// 缺省并入的输入：排除了是 `None`，没排除但文件不在就报错（不悄悄少并一份）。
+fn included(
+    path: PathBuf,
+    excluded: bool,
+    hint: &'static str,
+) -> Result<Option<PathBuf>, ConvertError> {
+    if excluded {
+        return Ok(None);
+    }
+    if !path.is_file() {
+        return Err(ConvertError::MissingInput { path, hint });
+    }
+    Ok(Some(path))
 }

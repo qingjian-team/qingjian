@@ -29,6 +29,9 @@ pub struct Interact<M> {
 
     pub(super) disabled: bool,
 
+    /// 秘密输入（API 密钥这类）：聚焦时宿主关掉输入法，键按原始键走，不让输入法组字并上报。
+    pub(super) secret: bool,
+
     /// 滚动区：被滚动的内容节点（元素自己是视口）。
     pub(super) scroll_content: Option<NodeId>,
 }
@@ -49,6 +52,7 @@ impl<M> Interact<M> {
             blur: None,
             focusable: false,
             disabled: false,
+            secret: false,
             scroll_content: None,
         }
     }
@@ -105,6 +109,12 @@ impl<M> Interact<M> {
     /// 禁用：不产出消息、不拿焦点，但仍挡住底下的元素。
     pub fn disabled(self, disabled: bool) -> Self {
         Self { disabled, ..self }
+    }
+
+    /// 秘密输入：聚焦时宿主关掉输入法（见 [`super::interaction::Interaction::ime_allowed`]），
+    /// 打的键以原始键形式交给字段，贴秘密内容请用粘贴。跟着 [`Self::on_text`] 一起设。
+    pub fn secret(self, secret: bool) -> Self {
+        Self { secret, ..self }
     }
 
     /// 元素是滚动区的视口，`content` 是里面被滚动的内容：滚轮在它上面时滚它，滚动位置按元素的 key 记。

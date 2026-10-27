@@ -2,6 +2,9 @@
 
 use qingjian_core::{FilledGloss, Language, PartOfSpeech, Sense, Translation};
 use serde::{Deserialize, Serialize};
+use serde_json::json;
+
+use crate::reply::{self, ReplySchema};
 
 /// 每个词最多留几条译词。
 const MAX_SENSES: usize = Translation::MAX_SENSES;
@@ -70,6 +73,33 @@ pub fn system_prompt(language: Language) -> &'static str {
         Language::German => GERMAN_SYSTEM_PROMPT,
         Language::English | Language::Chinese => ENGLISH_SYSTEM_PROMPT,
     }
+}
+
+/// 回复的 JSON 形状，和系统提示一致；读音 r 只有日文要。
+pub fn reply_schema(language: Language) -> ReplySchema {
+    let sense = if language == Language::Japanese {
+        reply::object(
+            json!({ "t": { "type": "string" }, "r": { "type": "string" } }),
+            &["t", "r"],
+        )
+    } else {
+        reply::object(json!({ "t": { "type": "string" } }), &["t"])
+    };
+    let item = reply::object(
+        json!({
+            "w": { "type": "string" },
+            "pos": { "type": "string" },
+            "senses": { "type": "array", "items": sense },
+        }),
+        &["w", "pos", "senses"],
+    );
+    ReplySchema::new(
+        "gloss",
+        reply::object(
+            json!({ "items": { "type": "array", "items": item } }),
+            &["items"],
+        ),
+    )
 }
 
 #[derive(Serialize)]

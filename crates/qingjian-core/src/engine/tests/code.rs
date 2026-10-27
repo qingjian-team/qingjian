@@ -61,6 +61,51 @@ fn looks_up_by_code_prefix_and_prefers_the_finished_code() {
 }
 
 #[test]
+fn first_level_codes_match_the_wubi_86_key_chart() {
+    // 86 五笔 A–Y 的一级简码必须是首选，不能被同码高词频单字挤下去。
+    let table = CodeTable::parse(include_str!(
+        "../../../../../assets/schemes/wubi86/table.tsv"
+    ))
+    .unwrap();
+    let mut engine = engine();
+    engine.set_code_scheme(Some(CodeScheme::new("wubi", table.clone())));
+    engine.set_phonetic(false);
+
+    for (key, expected) in "abcdefghijklmnopqrstuvwxy"
+        .chars()
+        .zip("工了以在有地一上不是中国同民为这我的要和产发人经主".chars())
+    {
+        let key = key.to_string();
+        let expected = expected.to_string();
+        assert!(
+            table
+                .lookup(&key, usize::MAX)
+                .iter()
+                .any(|hit| hit.text == expected.as_str() && hit.exact),
+            "the code table should contain {expected} as the exact code for {key}"
+        );
+        let candidates = code_texts(&mut engine, &key);
+        assert_eq!(
+            candidates.first(),
+            Some(&expected),
+            "key {key} should prefer {expected}"
+        );
+    }
+}
+
+#[test]
+fn single_letter_code_candidates_follow_table_order_for_custom_schemes() {
+    let mut engine = engine();
+    engine.set_code_scheme(Some(CodeScheme::new(
+        "custom",
+        CodeTable::parse("首选\tg\t1\n次选\tg\t999999\n前缀词\tga\t1000000\n").unwrap(),
+    )));
+    engine.set_phonetic(false);
+
+    assert_eq!(code_texts(&mut engine, "g"), ["首选", "次选", "前缀词"]);
+}
+
+#[test]
 fn commits_the_whole_code_and_empties_the_buffer() {
     let mut engine = wubi();
     engine.set_input("ga");

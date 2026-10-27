@@ -13,6 +13,7 @@ pub const MAX_SPAN_CACHE_ENTRIES: usize = 8192;
 /// 敲键是增量的：第 n+1 键只新增以它结尾的几个格子，其余格子上一键都算过，而格子查词是整句转换里最贵的一步
 /// （每个简拼位置都要在词库里逐音节块收窄）。候选与词库、用户词、用户选择次数、个人出现次数有关，
 /// 这些一变（上屏 / 学习）就整个清掉，由 Engine 负责。
+/// 搜索规模（[`SearchLimits`](crate::sentence::SearchLimits)）也决定候选留几条，一变同样整个清掉。
 #[derive(Debug, Default)]
 pub struct SpanCache {
     /// 格子模式 → 候选。

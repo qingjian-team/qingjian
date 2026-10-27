@@ -17,6 +17,8 @@ The way you type doesn't change: you still type Mandarin pinyin. Only the charac
 | 繁体（香港） (Traditional, Hong Kong) | Hong Kong character forms |
 | 繁体（通用字形） (Traditional, standard forms) | Standard Traditional forms: 这里 → 這裏 |
 
+On Windows you can also turn on a shortcut and press `Ctrl + Shift + F` to switch between Simplified and Traditional; see [Changing keys](../personalize/keys-settings.md#Shortcut-for-switching-Simplified-and-Traditional-(Windows)).
+
 All three only change character forms, not vocabulary: 软件 stays 軟件 and doesn't become 軟體. Taiwan and Hong Kong choose different forms (裡 / 裏, 著 / 着), hence the two separate options. Changes take effect immediately.
 Candidates and sentence completions from AI are converted too. On Android, choose it in the keyboard settings; see [Android: vocabulary book and settings](../platforms/android-settings.md).
 

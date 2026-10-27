@@ -13,6 +13,7 @@ mod connection;
 mod error;
 mod gloss;
 mod prompt;
+mod reply;
 mod suspension;
 mod usage;
 mod worker;

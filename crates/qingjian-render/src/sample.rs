@@ -52,6 +52,8 @@ pub fn nihao() -> Frame {
         ],
         highlighted: Some(0),
         footer: Some("1/6".to_owned()),
+        previous_page: false,
+        next_page: true,
         sentence: None,
         status: None,
         mode: Mode::default(),

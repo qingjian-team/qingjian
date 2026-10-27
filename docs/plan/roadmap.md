@@ -64,6 +64,8 @@
 - [x] 候选框顶部自绘 preedit 行与光标（不依赖应用画插入点）
 - [x] bundle id 改为 `app.qingjian.inputmethod`（2026-09-06，域名 qingjian.app 注册后；`TISInputSourceID` 与连接名同步，旧 id `com.yenharvey.qingjian` 的输入源要在系统设置里删掉重加）
 - [x] 中英切换：Caps Lock 亮着 = 英文模式（默认小写、Shift 大写、标点半角）；按住 Shift 的大写字母直接透传；切换输入源时强制收窗
+- [x] 单击 Shift 切中英（2026-10-12）：复用 `[shortcut] switch_mode` 的 shift，偏好设置「快捷键」页勾选；勾上后单击 Shift 切中英、Caps Lock 退化成只管大小写。
+  IMK 拿不到修饰键的按下 / 抬起，用 30 ms 定时器轮询 `NSEvent::modifierFlags_class()` 做边沿检测（`host/mode_switch.rs`）；缺省不勾，Caps Lock 行为不变
 - [x] 英文模式候选（Core `english`，`Engine::set_english_mode`）：词表精确词 / 前缀补全 / 一处编辑纠正，Tab 与上下键选词（上下键动过之后空格也选），空格回车标点原样上屏；
   `[general] english_candidates` 可关；CLI `--english-mode`
 - [x] 按应用关英文候选（2026-09-05）：`[apps] english_candidates_off`，按 `bundleIdentifier` 认，缺省终端 / 编辑器 / IDE 名单，`*` 前缀匹配；

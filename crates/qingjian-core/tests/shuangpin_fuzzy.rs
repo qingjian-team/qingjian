@@ -86,11 +86,11 @@ fn fuzzy_toggle_does_not_admit_invalid_pairs_or_change_normal_decoding() {
             s_sh: enabled,
             ..FuzzyRules::default()
         });
+        // `sd` 在自然码里两键配不出音节：模糊音开着时解成 suang（排序时 s 再按 sh 展开，能出 双），
+        // 关着时只按每键一个声母的简拼读
         engine.set_input("sd");
-        let found = engine
-            .query()
-            .is_ok_and(|q| q.candidates.items.iter().any(|c| c.text == "双"));
-        assert_eq!(found, enabled);
+        let query = engine.query().unwrap();
+        assert_eq!(query.marked_text(), if enabled { "suang" } else { "s'd" });
         engine.set_input("sj");
         assert_eq!(engine.query().unwrap().candidates.items[0].text, "三");
         engine.set_input("si");
@@ -100,13 +100,14 @@ fn fuzzy_toggle_does_not_admit_invalid_pairs_or_change_normal_decoding() {
             query.candidates.items.iter().any(|c| c.text == "是"),
             enabled
         );
-        engine.set_input("fd");
-        assert!(engine.query().is_err());
+        // 配不出音节的键对同样只按简拼读，不再整个报错
+        assert_eq!(ShuangpinScheme::Ziranma.decode("fd").pinyin(), "f'd");
     }
     engine.set_fuzzy(FuzzyRules {
         n_l: true,
         ..FuzzyRules::default()
     });
     engine.set_input("sd");
-    assert!(engine.query().is_err());
+    // n / l 模糊音也不会让配不出音节的键对变成完整音节（仍是简拼）
+    assert_eq!(ShuangpinScheme::Ziranma.decode("sd").pinyin(), "s'd");
 }

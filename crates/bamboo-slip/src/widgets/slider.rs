@@ -186,7 +186,7 @@ impl<'a> Slider<'a> {
         }
         let node = ui.scene().node(
             Style {
-                align_items: Some(AlignItems::CENTER),
+                align_items: AlignItems::CENTER,
                 ..row(theme, 10.0)
             },
             Visual::Group,

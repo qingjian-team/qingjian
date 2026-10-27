@@ -29,6 +29,9 @@ pub(crate) struct RenderData {
     /// 页码，只有多页时有。
     pub(super) footer: Option<String>,
 
+    /// 往前 / 往后还有页：主题把翻不动的箭头画淡。
+    pub(super) pages_around: (bool, bool),
+
     /// 整句补全，画在拼音行右侧。
     pub(super) sentence: Option<String>,
 
@@ -66,6 +69,7 @@ impl RenderData {
             rows: Vec::new(),
             highlight: usize::MAX,
             footer: None,
+            pages_around: (false, false),
             sentence: None,
             notice: None,
             layout: LayoutMode::default(),
@@ -119,6 +123,7 @@ impl RenderData {
         self.highlight = frame.highlight;
         self.footer =
             (frame.page_count > 1).then(|| format!("{}/{}", frame.page + 1, frame.page_count));
+        self.pages_around = (frame.page > 0, frame.page + 1 < frame.page_count);
         self.sentence = frame.sentence.clone();
         self.notice = frame.notice.clone();
     }
@@ -149,6 +154,8 @@ impl RenderData {
             columns: self.columns,
             column_ems: self.column_ems.clone(),
             footer: self.footer.clone(),
+            previous_page: self.pages_around.0,
+            next_page: self.pages_around.1,
             sentence: self.sentence.clone(),
             status: self.notice.clone(),
             mode: self.mode.clone(),

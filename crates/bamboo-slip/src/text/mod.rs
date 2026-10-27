@@ -15,7 +15,7 @@ use cosmic_text::fontdb::{Family, ID};
 use cosmic_text::{Attrs, Buffer, FontSystem, Metrics, Shaping, Style, SwashCache, SwashContent};
 
 use crate::canvas::Canvas;
-use crate::fonts::{FontLibrary, Trak, UI_FAMILY};
+use crate::fonts::{FontLibrary, Trak, UI_FAMILY, WeightAliases, drawable};
 
 pub use decoration::Decoration;
 pub use size::TextSize;
@@ -57,11 +57,16 @@ pub struct TextPainter {
 
     /// 量过的文字：每帧重建整棵树时同样的文字不再整形。字体、字族、光学字号变了就清。
     measured: HashMap<MeasureKey, TextSize>,
+
+    /// 给字族补的缺档字重，加载了新字体就重补。
+    weight_aliases: WeightAliases,
 }
 
 impl TextPainter {
     pub fn new(library: FontLibrary) -> Self {
         let mut font_system = library.into_font_system();
+        let mut weight_aliases = WeightAliases::default();
+        weight_aliases.refresh(font_system.db_mut());
         let buffer = Buffer::new(&mut font_system, Metrics::new(16.0, 19.0));
         Self {
             font_system,
@@ -73,6 +78,7 @@ impl TextPainter {
             resolved: Vec::new(),
             loaded: HashSet::new(),
             measured: HashMap::new(),
+            weight_aliases,
         }
     }
 
@@ -101,6 +107,7 @@ impl TextPainter {
             added |= load_font(&mut self.font_system, path);
         }
         if added {
+            self.weight_aliases.refresh(self.font_system.db_mut());
             self.families = None;
             self.measured.clear();
         }
@@ -379,8 +386,12 @@ impl TextPainter {
     }
 }
 
-/// 文件能解析就加载进字体库；返回是否加载了。
+/// 文件能解析、有 swash 能画的轮廓（见 [`drawable`]）就加载进字体库；返回是否加载了。
 fn load_font(font_system: &mut FontSystem, path: &Path) -> bool {
+    if !drawable(path) {
+        tracing::warn!(path = %path.display(), "字体文件不存在、读不进来或没有能画的轮廓，跳过");
+        return false;
+    }
     match font_system.db_mut().load_font_file(path) {
         Ok(()) => {
             tracing::debug!(path = %path.display(), "加载字体文件");

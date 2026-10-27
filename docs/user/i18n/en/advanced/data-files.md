@@ -53,7 +53,7 @@ To start your typing habits over, delete the tables whose names start with `user
 - **Linux**: `~/.local/state/qingjian/logs` (under `XDG_STATE_HOME` if that's set).
 
 打开日志目录 (Open log folder) under 设置 → 高级 → 日志文件 (Settings → Advanced → Log files) opens it directly; 打包到桌面 (Bundle to desktop) packs the logs together with your settings (keys scrubbed) into a zip to attach to a report; see [Reporting problems](../help/feedback.md).
-One file per day, kept for 7 days. What you type isn't recorded by default; only with 详细日志 (Verbose logging) on is each keystroke recorded.
+One file per day, kept for 7 days. What you type isn't recorded by default, only counts such as which app you're typing in, how many keys each composition took and how many characters were committed; only with 详细日志 (Verbose logging) on is each keystroke recorded.
 
 ## Using your own local sentence model
 

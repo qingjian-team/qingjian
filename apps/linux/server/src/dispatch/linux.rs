@@ -14,6 +14,7 @@ impl Router {
         }
         let mut outcome = KeyOutcome::Passthrough;
         let mut commit = None;
+        let mut switched = None;
         match request.event {
             LinuxEvent::Reset => {
                 if self.focused == Some(session) {
@@ -93,6 +94,7 @@ impl Router {
                         outcome,
                         commit,
                         frame: Default::default(),
+                        english: None,
                     });
                 }
                 self.ensure_focus(session);
@@ -104,6 +106,7 @@ impl Router {
                         outcome,
                         commit,
                         frame: self.current_frame(),
+                        english: None,
                     });
                 }
                 if !release
@@ -122,6 +125,7 @@ impl Router {
                         outcome,
                         commit,
                         frame: self.current_frame(),
+                        english: None,
                     });
                 }
                 let surrounding = (!self.sessions[&session].private)
@@ -134,28 +138,45 @@ impl Router {
                     if info.switch_tap == Some(event.virtual_key) {
                         info.switch_tap = None;
                         commit = self.toggle_english(session);
+                        switched = Some(self.sessions[&session].english);
                         outcome = KeyOutcome::Consumed;
                     }
                 } else if keys.ctrl_alt_space && codes::is_ctrl_alt_space(&event) {
                     info.switch_tap = None;
                     commit = self.toggle_english(session);
+                    switched = Some(self.sessions[&session].english);
                     outcome = KeyOutcome::Consumed;
                 } else {
                     info.switch_tap = codes::switch_tap(keys, &event);
                     event.modifiers.english_mode = info.english;
-                    let effect = if codes::is_tap_modifier(event.virtual_key) {
-                        Effect::Passthrough
-                    } else {
-                        self.apply_key(&event)
-                    };
-                    match effect {
-                        Effect::Changed(text) => {
-                            self.recompose(surrounding);
-                            commit = text;
-                            outcome = KeyOutcome::Consumed;
+                    if !codes::is_tap_modifier(event.virtual_key)
+                        && !self.engine.composition().is_empty()
+                        && self.config.cloud_enabled
+                        && self.engine.prediction_enabled()
+                        && self.matches_predict_combo(&event)
+                    {
+                        // 组合键一按就吃掉，联想没发出去也不还给应用（与 Windows 壳一致）；
+                        // 显式要求刷新时回到第一页，让新的 AI 首选可以置顶。
+                        if self.request_manual_prediction(surrounding) {
+                            self.highlight = 0;
+                            self.navigated = false;
                         }
-                        Effect::Navigated => outcome = KeyOutcome::Consumed,
-                        Effect::Passthrough => {}
+                        outcome = KeyOutcome::Consumed;
+                    } else {
+                        let effect = if codes::is_tap_modifier(event.virtual_key) {
+                            Effect::Passthrough
+                        } else {
+                            self.apply_key(&event)
+                        };
+                        match effect {
+                            Effect::Changed(text) => {
+                                self.recompose(surrounding);
+                                commit = text;
+                                outcome = KeyOutcome::Consumed;
+                            }
+                            Effect::Navigated => outcome = KeyOutcome::Consumed,
+                            Effect::Passthrough => {}
+                        }
                     }
                 }
             }
@@ -201,6 +222,7 @@ impl Router {
             outcome,
             commit,
             frame,
+            english: switched,
         })
     }
 

@@ -1,14 +1,14 @@
 ---
 title: Dates, calculations and special characters
 order: 4
-description: "Typing dates, times and weekdays with rq / sj / xq; calculating, writing Chinese numerals and amounts, and Chinese dates with a v prefix; typing characters by code point with a u prefix."
+description: "Typing dates, times and weekdays with rq / sj / xq; calculating, writing Chinese numerals and amounts, Chinese dates, timestamps and UUIDs with a v prefix; finding characters by their components or typing them by code point with a u prefix."
 ---
 
 ## Dates, times and weekdays
 
 | Input | Result |
 |---|---|
-| `rq` / `sj` / `xq` | Today's date (`2026年9月3日`, `2026-09-03`), the current time (`19:06`, `19点06分`), the day of the week, inserted after the first candidate |
+| `rq` / `sj` / `xq` | Today's date (`2026年9月3日`, `2026-09-03`), the current time (`19:06`, `19点06分`, timestamp `20260903190623`), the day of the week, inserted after the first candidate |
 | `riqi` / `shijian` / `xingqi` | When 日期 (date), 时间 (time) or 星期 (weekday) appears among the candidates, the same forms follow right after it |
 
 ## Calculations, Chinese numerals and dates
@@ -26,11 +26,29 @@ Start with `v`:
 - After a `v`, digits and operators all go into the expression and are no longer used to pick or page; to pick the second item, use `↑` / `↓` and `Space`. `Enter` outputs what you typed as is.
 - English words starting with `v` (`very`) aren't affected and still get English candidates.
 
+## Timestamps
+
+`vts` gives four candidates: Unix seconds, UTC in RFC 3339 (`2026-09-03T11:06:23Z`), Unix milliseconds and ISO 8601 with your time zone (`2026-09-03T19:06:23+08:00`). Number keys select candidates as usual; the values are taken when you type `vts` and don't change before you pick one.
+
+## UUID
+
+`vuuid` gives four candidates: a random UUID v4, a time-ordered v7, and the same v4 in uppercase and without hyphens. Number keys select candidates as usual.
+With full pinyin you can also just type `uuid`; the UUIDs follow the English word uuid. Every new input gives a fresh set.
+
+## Finding a character by its components
+
+For a character you can't read, type `u` followed by the pinyin of each component: `umumu` gives 林, `uniuniuniu` gives 犇, `uyanshe` gives 话 and 谢. The character's reading is shown next to it (林 lín); number keys select it.
+
+- Type the components left to right, top to bottom; radicals are read as the characters they come from: 讠 is yan, 氵 is shui, 扌 is shou.
+- Candidates appear while you type; full matches come first, then by how common the character is.
+- No AI services needed. With AI services on, the same pinyin is still sent as a question (see below).
+- The splits come from the Chinese character decomposition dictionary of [Kaifangcidian](http://kaifangcidian.com/) (CC BY 3.0).
+
 ## Typing characters by code point
 
 `u` followed by a hexadecimal character code (a Unicode code point) gives that character: `u4e00` gives 一, `u+1f600` gives 😀.
 
-`u` followed by pinyin asks about a character, which requires AI services; see [Asking and translating](../cloud/question-and-translate.md#Asking-about-a-character).
+`u` followed by pinyin also asks about a character; answers require AI services; see [Asking and translating](../cloud/question-and-translate.md#Asking-about-a-character).
 
 ## Changing the prefix letters
 

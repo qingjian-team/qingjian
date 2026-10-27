@@ -30,6 +30,7 @@ jiff.workspace = true
 tracing-subscriber.workspace = true
 dotenvy.workspace = true
 toml_edit.workspace = true
+block2 = "0.6.2"
 
 [lints]
 workspace = true

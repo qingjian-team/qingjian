@@ -27,7 +27,7 @@ All of the following are in the 青简 (Qingjian) app and take effect immediatel
 
 我的 → 外观 (Me → Appearance):
 
-- Themes: the same seven themes as on desktop (青简绿, 系统蓝, 微信绿, 樱花, 大肥鱼, 初音未来, 波奇酱), each card showing what the candidate bar and keyboard look like. Once selected, the keyboard, candidate bar, symbol and emoji panels and quick translation bar all take on that theme's colours.
+- Themes: the same eight themes as on desktop (青简绿, 系统蓝, 微信绿, 玻璃, 樱花, 大肥鱼, 初音未来, 波奇酱), each card showing what the candidate bar and keyboard look like. Once selected, the keyboard, candidate bar, symbol and emoji panels and quick translation bar all take on that theme's colours.
 - Light/dark: follow system, light or dark. 樱花, 大肥鱼, 初音未来 and 波奇酱 are light only and stay light when dark is chosen.
 - Candidate size: small, standard, large or extra large; candidates and glosses scale together, including when all candidates are expanded, and the candidate bar gets taller with larger sizes. The labels on the keys don't change.
 

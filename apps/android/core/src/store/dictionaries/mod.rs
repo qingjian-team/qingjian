@@ -1,6 +1,7 @@
 //! 词库页：随包的领域词库（`data/dicts/`）与导入的词库（学习数据目录的 `dicts/`），列出、导入、删除。
 //! 开关不在这里：开着哪些存在设置里，随键盘选项交给会话（[`crate::Session::set_options`]），会话按文件变化重挂。
-//! 导入用 `qingjian_dictionary::import`，与 PC 设置程序同一套（青简 TSV、Rime `.dict.yaml`、`.qj`，都转成 `.qj`）。
+//! 导入用 `qingjian_dictionary::import`，与 PC 设置程序同一套（青简 TSV、Rime `.dict.yaml`、只有词的表、`.qj`，都转成 `.qj`；
+//! 只有词的表按随包词库派生读音）。
 
 mod entry;
 mod page;
@@ -52,7 +53,7 @@ pub fn dictionaries(
 ) -> DictionaryPage {
     let mut message = String::new();
     if let Some(source) = &request.import {
-        message = import_one(Path::new(source), user_dir);
+        message = import_one(Path::new(source), data_dir, user_dir);
     }
     if let Some(id) = &request.remove {
         message = remove_one(user_dir, id);
@@ -94,11 +95,43 @@ fn entries(dir: &Path) -> Vec<DictionaryEntry> {
         .collect()
 }
 
-fn import_one(source: &Path, user_dir: &Path) -> String {
-    match import::import(source, &imported_dir(user_dir)) {
+/// 无读音词表的参考词库：随包基础词库加随包领域词库，读不到的跳过。
+fn reference_dictionaries(data_dir: &Path) -> Vec<Dictionary> {
+    let mut references = Vec::new();
+    let mut read = |path: &Path| match Dictionary::from_path(path) {
+        Ok(dictionary) => references.push(dictionary),
+        Err(error) => tracing::warn!(path = %path.display(), %error, "参考词库打不开"),
+    };
+    let packed = data_dir.join("dict.qj");
+    let base = if packed.is_file() {
+        packed
+    } else {
+        data_dir.join("dict.tsv")
+    };
+    read(&base);
+    for (_, path) in files(&domains_dir(data_dir)) {
+        read(&path);
+    }
+    references
+}
+
+fn import_one(source: &Path, data_dir: &Path, user_dir: &Path) -> String {
+    let references = reference_dictionaries(data_dir);
+    let borrowed: Vec<&Dictionary> = references.iter().collect();
+    match import::import_dictionary(source, &imported_dir(user_dir), &borrowed) {
         Ok(done) => {
-            tracing::info!(name = %done.name, entries = done.entries, "词库已导入");
-            format!("已导入「{}」，共 {} 条", done.name, done.entries)
+            let imported = &done.imported;
+            tracing::info!(name = %imported.name, entries = imported.entries, "词库已导入");
+            let mut message = format!("已导入「{}」，共 {} 条", imported.name, imported.entries);
+            if let Some(report) = &done.report
+                && !report.unknown.is_empty()
+            {
+                message.push_str(&format!(
+                    "；{} 条跳过（字不在随包词库）",
+                    report.unknown.len()
+                ));
+            }
+            message
         }
         Err(error) => {
             tracing::warn!(%error, file = %source.display(), "词库导入失败");
@@ -106,8 +139,12 @@ fn import_one(source: &Path, user_dir: &Path) -> String {
                 DictionaryError::CodeWords => {
                     "导入失败：这是五笔词库（第二列是编码），手机上还不能导入五笔词库".to_owned()
                 }
+                DictionaryError::NoWordEntries => {
+                    "导入失败：词表里的字都不在随包词库，推不出读音".to_owned()
+                }
                 DictionaryError::Corrupt(_) | DictionaryError::Line { .. } => {
-                    "导入失败：没有可用的词条，每行应是「词<Tab>拼音<Tab>词频」".to_owned()
+                    "导入失败：没有可用的词条，每行应是「词<Tab>拼音<Tab>词频」，也可以只有词（读音按随包词库补）"
+                        .to_owned()
                 }
                 _ => "导入失败：文件读不了，或不是词库文件".to_owned(),
             }

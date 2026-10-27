@@ -30,6 +30,9 @@ By default, English mode only shows candidates in browsers, chat and document ap
 **Pinyin is displayed oddly in some app**
 Try changing 拼音显示位置 (Pinyin position) under 设置 → 外观 (Settings → Appearance), for example to 只在窗口 (In the window only), and please [report](feedback.md) the app name and what happens to the author.
 
+**Candidates in full-screen games** (Windows)
+In games that draw input method candidates themselves, the candidates appear in the game's own interface and Qingjian's candidate window stays hidden. In an exclusive full-screen game that doesn't draw them, Qingjian's candidate window is covered by the game; typing and committing still work.
+
 **The floating status bar has disappeared** (Windows)
 It's only shown while Qingjian is the current input method, and it hides in full-screen apps. Check that 悬浮状态条 (Floating status bar) is on under 设置 → 中英文 (Settings → Chinese/English), or show it from the right-click menu of the 中 / 英 icon on the taskbar.
 

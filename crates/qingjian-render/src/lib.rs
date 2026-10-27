@@ -9,6 +9,7 @@ mod frame;
 mod icon;
 mod keyboard;
 mod layout;
+mod material;
 pub mod preview;
 mod renderer;
 pub mod sample;
@@ -21,5 +22,6 @@ pub use bamboo_slip::{Color, FontLibrary, FontSpec, Pixmap, RenderError, UiFont}
 pub use frame::{Frame, Mode, Preedit, PreeditSegment, PreeditStyle, Row, Tone};
 pub use keyboard::{Keyboard, Keycap, KeycapState, Root};
 pub use layout::Layout;
+pub use material::{Material, MaterialBacking};
 pub use renderer::{HitRegion, HitTarget, Rendered, RenderedStatus, Renderer, StatusCell};
 pub use theme::{KeyboardColors, TextSizes, Theme, ThemeError, ThemeLibrary};

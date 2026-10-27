@@ -160,7 +160,7 @@ fn brand(ui: &mut Ui<Message>, page: &Page) -> Result<NodeId, RenderError> {
     ui.scene().node(
         Style {
             flex_direction: FlexDirection::Row,
-            align_items: Some(bamboo_slip::taffy::AlignItems::CENTER),
+            align_items: bamboo_slip::taffy::AlignItems::CENTER,
             gap: page.gap(8.0),
             padding: Rect {
                 left: LengthPercentage::length(page.px(6.0)),
@@ -213,7 +213,7 @@ fn joint(ui: &mut Ui<Message>, page: &Page) -> Result<NodeId, RenderError> {
         Style {
             position: Position::Absolute,
             flex_direction: FlexDirection::Column,
-            justify_content: Some(JustifyContent::CENTER),
+            justify_content: JustifyContent::CENTER,
             inset: Rect {
                 left: LengthPercentageAuto::length(-page.px(9.0)),
                 top: LengthPercentageAuto::length(0.0),

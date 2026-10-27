@@ -12,4 +12,6 @@
 
 `words.tsv` 是上面三张表里词库没有的词（尖括号、笑死、阿尔法），格式同词库 `词\t音节\t词频`，词频统一 300：不收的话整句会拼成「见括号」，配不上符号。表里加了新词，查一下词库有没有，没有就在这里补读音。
 
+`chaizi.tsv` 是问字模式按部件读音找字的拆字表（`字\t读音…\t部件拼音串…`，按字频排），由 `qingjian-dict-convert --out-dir crates/qingjian-core/data chaizi` 从 `assets/chaizi`（開放詞典網拆字字典，CC BY 3.0）与 `assets/lexicon/dict.tsv` 生成，不手改。
+
 符号表的中文词只收两个字以上的：单字（上、左、角）一打就跟符号，太吵。CLDR 主表在 `assets/emoji/`。

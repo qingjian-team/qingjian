@@ -206,8 +206,8 @@ fn status_cell(
     children.push(scene.node(content_style, content, &[])?);
     let style = Style {
         display: Display::Flex,
-        justify_content: Some(JustifyContent::CENTER),
-        align_items: Some(AlignItems::CENTER),
+        justify_content: JustifyContent::CENTER,
+        align_items: AlignItems::CENTER,
         size: Size {
             width: Dimension::length(width),
             height: Dimension::length(height),

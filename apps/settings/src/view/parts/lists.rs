@@ -49,7 +49,7 @@ pub fn entry_row(
             ui.scene().node(
                 Style {
                     flex_direction: FlexDirection::Row,
-                    align_items: Some(AlignItems::CENTER),
+                    align_items: AlignItems::CENTER,
                     gap: page.gap(6.0),
                     ..Style::default()
                 },
@@ -79,7 +79,7 @@ pub fn entry_row(
     let trailing = ui.scene().node(
         Style {
             flex_direction: FlexDirection::Row,
-            align_items: Some(AlignItems::CENTER),
+            align_items: AlignItems::CENTER,
             gap: page.gap(12.0),
             ..Style::default()
         },
@@ -90,8 +90,8 @@ pub fn entry_row(
     ui.scene().node(
         Style {
             flex_direction: FlexDirection::Row,
-            align_items: Some(AlignItems::CENTER),
-            justify_content: Some(JustifyContent::SPACE_BETWEEN),
+            align_items: AlignItems::CENTER,
+            justify_content: JustifyContent::SPACE_BETWEEN,
             gap: page.gap(16.0),
             min_size: Size {
                 width: LengthPercentageAuto::auto(),
@@ -152,7 +152,7 @@ pub fn domain_grid(ui: &mut Ui<Message>, page: &Page) -> Result<NodeId, RenderEr
         cells.push(ui.scene().node(
             Style {
                 flex_direction: FlexDirection::Row,
-                align_items: Some(AlignItems::CENTER),
+                align_items: AlignItems::CENTER,
                 gap: page.gap(8.0),
                 size: Size {
                     width: Dimension::percent(0.5),

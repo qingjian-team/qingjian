@@ -6,6 +6,7 @@ description: 自己做候选窗口主题：存放位置、以内置主题为底�
 
 主题决定候选窗口的样子，macOS 与 Windows 上同一个主题显示效果一致，只在「设置 → 外观 → 渲染引擎」选「青简渲染器」时生效。
 选择内置主题见 [外观与主题](../personalize/appearance.md#主题)；本页写给想自己做主题的人，主题文件用 JSON 格式书写。
+Linux 版当前候选面板由 Fcitx 绘制，主题与字号暂时只影响设置程序自身的观感与预览。
 
 ## 放在哪里
 
@@ -182,6 +183,38 @@ themes/
 - `mode.scheme` 是方案名，如「全拼」「小鹤双拼」「五笔（86） + 全拼」；写在 `when` 里表示「有方案名」。
 - 这几个节点放在窗口的 `children` 里；`children` 要整组写出来（只写新加的会把原来的内容整个换掉），可以从内置主题的 `theme.json` 复制一份再改。
 
+## 毛玻璃
+
+想让窗口像系统的弹出层一样透出后面的内容，在顶层写 `material`：
+
+```json
+"material": { "kind": "glass" }
+```
+
+- `kind`：`glass` 是 macOS 26 起的玻璃效果，更早的系统自动换成毛玻璃；`blur` 是毛玻璃。
+- `appearance`：`glass` 缺省是 `auto`，玻璃跟着背后的内容变深变浅，文字随之换成主题的浅色或深色那一套颜色，所以 `variables` 的 `light`、`dark` 两套都要写好；
+  写 `system` 时文字跟系统的浅色 / 深色模式走，玻璃会换成毛玻璃，因为新玻璃会自己变色。`blur` 缺省就是 `system`。主题在 `meta` 里锁定了外观的，始终跟锁定的外观。
+- 写了之后窗口的 `fill` 和阴影交给系统来画；想在材质上叠一层颜色，写 `"tint": "#ffffff33"` 这样的半透明颜色。
+- 目前只有 macOS 支持。Windows 上照旧画窗口的 `fill`，所以 `fill` 还要写成不透明的颜色。
+
+## 翻页箭头
+
+页码两侧的箭头要能点，给节点写上 `action`：`previous_page` 上一页，`next_page` 下一页。写在框上，整个框连同里面的内容都能点；
+箭头小的话也不用特意放大，点中的范围会往外放一点。翻不动的那一侧可以画淡，条件是 `page.previous`（前面还有页）和 `page.next`（后面还有页）：
+
+```json
+{ "type": "frame", "when": "page", "gap": 3, "children": [
+  { "type": "icon", "icon": "chevron-left", "size": 9, "height": 14, "action": "previous_page",
+    "color": { "if": "page.previous", "then": "@faint", "else": "@dim" } },
+  { "type": "text", "bind": "page", "font": "index", "color": "@faint" },
+  { "type": "icon", "icon": "chevron-right", "size": 9, "height": 14, "action": "next_page",
+    "color": { "if": "page.next", "then": "@faint", "else": "@dim" } }
+] }
+```
+
+- `chevron-left`、`chevron-right` 是自带的箭头图标，颜色跟着 `color` 走；用图片画的箭头，在写着图片的框上写 `action` 即可。
+- 图片改不了颜色，想画淡就写两份：`"when": "page.previous"` 一份，`"when": "!page.previous", "opacity": 0.4` 一份。
+
 ## 悬浮状态条（Windows）
 
 Windows 屏幕右下角的悬浮状态条也可以按主题画，写法与候选窗口相同：在 `status` 下写 `root`，格子用 `repeat` 绑定 `cells` 一格一格展开（现在是「中 / 英」「标点」「符号面板」「设置齿轮」四格，点哪格就是切换哪一项）：
@@ -245,5 +278,5 @@ Windows 屏幕右下角的悬浮状态条也可以按主题画，写法与候选
 ## 生效方式
 
 - 新放入的主题：重新打开设置后出现在主题卡片中。
-- 修改正在使用的主题：保存 `theme.json` 后，在输入状态下约一秒内生效，可以边改边看。
+- 修改正在使用的主题：保存 `theme.json` 后，在输入状态下约一秒内生效，可以边改边看（Linux 上改的是设置程序自身的观感与预览，候选面板跟随 Fcitx）。
 - 主题文件写错时，该主题不出现在列表中；正在使用的主题读不进来时，候选窗口改用青简绿。原因记录在运行日志中（见[运行日志](data-files.md#运行日志)）。

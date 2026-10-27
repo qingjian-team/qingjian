@@ -11,6 +11,7 @@
 #include <fcitx/userinterfacemanager.h>
 #include <iomanip>
 #include <algorithm>
+#include <optional>
 #include <sstream>
 #include <stdexcept>
 #include <sys/socket.h>
@@ -42,6 +43,19 @@ QingjianEngine::QingjianEngine(AddonManager *manager)
         return true;
     });
     shared_->deferred->setEnabled(false);
+    osdDefer_ = instance_->eventLoop().addDeferEvent([this](EventSource *event) {
+        event->setEnabled(false);
+#ifdef QINGJIAN_HAS_CUSTOM_IM_INFO
+        // showCustomInputMethodInformation 不看全局设置里的「切换输入法时显示输入法信息」，
+        // 这里自己补上，关掉该项的用户切中英时也不弹，与框架切输入法时的气泡保持一致。
+        if (auto *context = osdContext_.get();
+            context && !osdText_.empty() && instance_->globalConfig().showInputMethodInformation())
+            instance_->showCustomInputMethodInformation(context, osdText_);
+#endif
+        osdText_.clear();
+        return true;
+    });
+    osdDefer_->setEnabled(false);
     instance_->inputContextManager().registerProperty("qingjian-session", &sessions_);
     capabilityWatcher_ = instance_->watchEvent(EventType::InputContextCapabilityChanged, EventWatcherPhase::PreInputMethod, [this](Event &event) {
         auto *context = static_cast<InputContextEvent &>(event).inputContext();
@@ -240,6 +254,10 @@ bool QingjianEngine::exchange(InputContext *context, const nlohmann::json &event
         const auto &identity = result.at("identity");
         const auto outcome = result.at("outcome").get<std::string>();
         const auto &commit = result.at("commit");
+        // 本次按键切了中英时的新模式；旧 Server 不带这个键。
+        std::optional<bool> switched;
+        if (result.contains("english") && result.at("english").is_boolean())
+            switched = result.at("english").get<bool>();
         if (result.at("session") != session->id || (outcome != "Consumed" && outcome != "Passthrough")
             || (!commit.is_null() && !commit.is_string()) || identity.at("generation") != session->generation
             || identity.at("context") != contextIdentity(context) || !identity.at("revision").is_number_unsigned()
@@ -267,6 +285,16 @@ bool QingjianEngine::exchange(InputContext *context, const nlohmann::json &event
         }
         if (current() && result.at("frame").at("candidates").at("items").empty()) session->selectionText.clear();
         if (display && current()) render(context, result.at("frame"));
+#ifdef QINGJIAN_HAS_CUSTOM_IM_INFO
+        // 中英切换提示：按键处理过程中弹出的 overlay 会被随后的面板刷新盖掉，挪到下一拍。
+        // 也不能复用 current()：render 会 ++revision。
+        if (switched && watched.get() && session->opened && session->displayIdentity == identity
+            && context->hasFocus() == focused) {
+            osdContext_ = context->watch();
+            osdText_ = *switched ? "英" : "中";
+            osdDefer_->setEnabled(true);
+        }
+#endif
         return outcome == "Consumed";
     } catch (const std::exception &) { disconnectAll(); return consumed; }
 }

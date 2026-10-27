@@ -13,6 +13,7 @@ mod linux;
 mod macos;
 mod trak;
 mod ui_font;
+mod weight_aliases;
 #[cfg(target_os = "windows")]
 mod windows;
 
@@ -25,6 +26,7 @@ use crate::error::RenderError;
 
 pub use trak::Trak;
 pub use ui_font::UiFont;
+pub(crate) use weight_aliases::WeightAliases;
 
 #[cfg(target_os = "windows")]
 use self::windows as platform;
@@ -60,7 +62,11 @@ impl FontLibrary {
     fn build(locale: &str, ui_font: Option<&UiFont>) -> Result<Self, RenderError> {
         let mut db = Database::new();
         let custom_family = ui_font.and_then(|font| {
-            let loaded = font.files.iter().filter(|path| load(&mut db, path)).count();
+            let loaded = font
+                .files
+                .iter()
+                .filter(|path| drawable(path) && load(&mut db, path))
+                .count();
             let found = db.faces().any(|face| {
                 face.families
                     .iter()
@@ -182,7 +188,7 @@ fn load(db: &mut Database, path: &Path) -> bool {
 
 /// 文件里至少有一张面带 swash 能栅格化的轮廓（`glyf` / `CFF ` / `CFF2`，Fedora 默认的中文字体与 Android 的 Noto CJK 都是 CFF2 可变字体）。先放进一个临时字体库看（mmap，只解析表头），
 /// 正式的库里只加能画的：macOS 26 起的苹方把轮廓放进私有的 `hvgl` 表，swash 读不出字形，文字会画成空白，跳过它回退才会落到下一个字体。
-fn drawable(path: &Path) -> bool {
+pub(crate) fn drawable(path: &Path) -> bool {
     let mut probe = Database::new();
     if !load(&mut probe, path) {
         return false;

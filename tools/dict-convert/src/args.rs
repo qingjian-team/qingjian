@@ -21,7 +21,8 @@ pub struct Args {
 
 #[derive(Debug, Subcommand)]
 pub enum Command {
-    /// 青简基础词库：从「输入法字词库_分类整理版」数据包 + Unihan 读音建 dict.tsv（两遍跑，见模块文档）
+    /// 青简基础词库：从「输入法字词库_分类整理版」数据包 + Unihan 读音建 dict.tsv（两遍跑，见模块文档）。
+    /// 各项输入缺省都并入，缺文件就报错；不要哪项用对应的 `--no-…` 排除（第一遍还没有语料词频：`--no-frequency`）
     Lexicon {
         /// 数据包目录（含 01_characters / 02_common / 03_domains），随仓库放在 assets/lexicon
         #[arg(long, default_value = "assets/lexicon")]
@@ -32,33 +33,62 @@ pub enum Command {
         unihan: PathBuf,
 
         /// LLM 标注的多音字词读音（`gloss-gen pinyin` 的 JSONL）
-        #[arg(long)]
-        pinyin: Option<PathBuf>,
+        #[arg(long, default_value = "data/generated/pinyin-llm.jsonl")]
+        pinyin: PathBuf,
 
-        /// 语料词频（lm-unigram.tsv）；没有就按排序号 / 文档频次给底值
+        /// 不用 LLM 标注的读音，多音字词按 Unihan 猜
         #[arg(long)]
-        frequency: Option<PathBuf>,
+        no_pinyin: bool,
+
+        /// 语料词频（lm-unigram.tsv）
+        #[arg(long, default_value = "data/generated/lm-unigram.tsv")]
+        frequency: PathBuf,
+
+        /// 不用语料词频，按排序号 / 文档频次给底值（第一遍还没有语言模型时）
+        #[arg(long)]
+        no_frequency: bool,
 
         /// 把仍靠猜读音的多音字词写到这个文件（一行一个），交给 `gloss-gen pinyin`
         #[arg(long)]
         emit_ambiguous: Option<PathBuf>,
 
-        /// 额外并入的词（`词\t拼音\t次数`，拼音可空：`mine` 挖出来的 oov-filtered.tsv，可给多个）：词库里没有的按次数当词频加进去，读音同领域词
-        #[arg(long)]
+        /// 额外并入的词（`词\t拼音\t次数`，拼音可空，可给多个）：词库里没有的按次数当词频加进去，读音同领域词。
+        /// 缺省是 assets/lexicon 的挖词、短语、品牌、领域、中英混杂五份；给了就只用给的
+        #[arg(
+            long,
+            default_values = [
+                "assets/lexicon/mined_words.tsv",
+                "assets/lexicon/phrases.tsv",
+                "assets/lexicon/brand.tsv",
+                "assets/lexicon/domain_words.tsv",
+                "assets/lexicon/mixed_words.tsv",
+            ]
+        )]
         extra_words: Vec<PathBuf>,
+
+        /// 一份额外词也不并入
+        #[arg(long)]
+        no_extra_words: bool,
 
         /// 领域词在语料里出现不少于这个次数就留在基础词库，否则拆到 dicts/<领域>.qj
         #[arg(long, default_value_t = 50)]
         domain_keep_min: u64,
 
         /// 青简词库全量（数字声调版 `词\t拼音\t权重`）：已有的词补上声调，没有的换算词频，已清洗的写 dict-cleaned.tsv、其余写 dict-general.tsv
-        /// 与 dicts/general.qj（都不进语言模型分词）
-        #[arg(long)]
-        general: Option<PathBuf>,
+        /// 与 dicts/general.qj（都不进语言模型分词）。交付目录在仓库外，软链成 data/lexicon
+        #[arg(long, default_value = "data/lexicon/qingjian-full.tone-numbers.tsv")]
+        general: PathBuf,
 
         /// 青简词库已清洗的子集（同格式，只看第一列），这些词与基础词库同一档
-        #[arg(long, requires = "general")]
-        cleaned: Option<PathBuf>,
+        #[arg(
+            long,
+            default_value = "data/lexicon/subsets/curated-machine-draft.tone-numbers.tsv"
+        )]
+        cleaned: PathBuf,
+
+        /// 不并入青简词库（全量与已清洗子集都不要）
+        #[arg(long)]
+        no_general: bool,
     },
 
     /// 单字声调表：通用词表（带数字声调）→ tones.tsv（`字\t带调音节…`），编进 Core 给注音按声调排序。
@@ -70,6 +100,18 @@ pub enum Command {
             default_value = "assets/lexicon/02_common/modern_chinese_common_words.tsv"
         )]
         words: PathBuf,
+    },
+
+    /// 拆字表：開放詞典網拆字字典 + 词库读音 → chaizi.tsv（`字\t读音\t部件拼音串`），编进 Core 给问字模式按部件找字。
+    /// 生成后放到 `crates/qingjian-core/data/chaizi.tsv`（`--out-dir crates/qingjian-core/data`）
+    Chaizi {
+        /// 拆字字典（`字\t拆法…`，拆法里部件空格分隔）
+        #[arg(long, default_value = "assets/chaizi/chaizi-jt.txt")]
+        chaizi: PathBuf,
+
+        /// 青简词库（`词\t音节\t词频`），取单字读音与字频
+        #[arg(long, default_value = "assets/lexicon/dict.tsv")]
+        dictionary: PathBuf,
     },
 
     /// 形码码表（五笔）：Rime `.dict.yaml` → `词\t编码\t词频`。词频由青简词库按词面回填，不用码表自带的权重

@@ -9,6 +9,7 @@ mod highlight;
 mod key_hint;
 mod menu;
 mod modes;
+mod numpad;
 mod prediction;
 mod rescoring;
 mod shortcuts;

@@ -35,6 +35,7 @@ Nine schemes: Xiaohe, Ziranma, Microsoft, Sogou, Zhineng ABC, Xiaolang, Shoudao,
 
 - The pinyin line in the candidate window shows the decoded full pinyin (`nihc` → `ni'hao`). With 输入框显示按键 (Show keys in the input box) on under 设置 → 输入 (Settings → Input), the app's input box shows the keys you typed (`kdfa`) instead, while the candidate window still shows full pinyin (`kai'fa`).
 - Double pinyin supports fuzzy pinyin too. With s/sh on, `sd` in Ziranma / Microsoft / Sogou and `sl` in Xiaohe find 双.
+- When the whole input can't form a single complete syllable, it's read again as initials, one per key: Pinyin Jiajia `im` → 什么, `zm` → 怎么. Input that decodes normally is unaffected, and complete double pinyin codes still work as before.
 - Spelling mistakes aren't corrected in double pinyin.
 - In double pinyin, v / u / i are all syllable keys, so calculations and asking about characters start with `Shift + V` and `Shift + U` instead; see [Dates, calculations and special characters](shortcuts.md#Changing-the-prefix-letters).
 

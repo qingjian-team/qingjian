@@ -2,6 +2,9 @@
 
 use qingjian_core::{CloudWord, PredictionKind, PredictionRequest};
 use serde::{Deserialize, Serialize};
+use serde_json::json;
+
+use crate::reply::{self, ReplySchema};
 
 /// 系统提示。语言跟随上下文，不限定中文。
 pub const SYSTEM_PROMPT: &str = "\
@@ -60,6 +63,32 @@ pub fn system_prompt(request: &PredictionRequest) -> &'static str {
         PredictionKind::Compose => SYSTEM_PROMPT,
         PredictionKind::Question => QUESTION_SYSTEM_PROMPT,
         PredictionKind::Translate | PredictionKind::CandidateTranslation => TRANSLATE_SYSTEM_PROMPT,
+    }
+}
+
+/// 回复的 JSON 形状，和各系统提示里写的「输出 JSON」一致。
+pub fn reply_schema(request: &PredictionRequest) -> ReplySchema {
+    let word = reply::object(
+        json!({ "text": { "type": "string" }, "pinyin": { "type": "string" } }),
+        &["text", "pinyin"],
+    );
+    let words = json!({ "type": "array", "items": word });
+    match request.kind {
+        PredictionKind::Compose => ReplySchema::new(
+            "compose",
+            reply::object(
+                json!({ "words": words, "sentence": { "type": ["string", "null"] } }),
+                &["words", "sentence"],
+            ),
+        ),
+        PredictionKind::Question => ReplySchema::new(
+            "question",
+            reply::object(json!({ "answers": words }), &["answers"]),
+        ),
+        PredictionKind::Translate | PredictionKind::CandidateTranslation => ReplySchema::new(
+            "translate",
+            reply::object(json!({ "sentence": { "type": "string" } }), &["sentence"]),
+        ),
     }
 }
 

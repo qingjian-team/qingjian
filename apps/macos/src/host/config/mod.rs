@@ -61,6 +61,14 @@ impl Host {
         logging::set_level(config.general.log_level);
         self.translation_keys = config.shortcut.translation_keys();
         self.translate_keys = config.shortcut.translate_selection;
+        // 中英切换键：macOS 只认单击 Shift（勾上后 Caps Lock 退化成只管大小写），其余勾选项不用但要说一声
+        self.mode_switch
+            .set_enabled(config.shortcut.switch_mode.shift);
+        if config.shortcut.switch_mode.control || config.shortcut.switch_mode.ctrl_alt_space {
+            tracing::warn!(
+                "macOS 只支持单击 Shift 作为中英切换键，配置文件里写的 control / ctrl+alt+space 已忽略"
+            );
+        }
         self.punctuation_keys = config.shortcut.toggle_punctuation;
         self.predict_keys = config.shortcut.predict;
         self.page_size = config.general.page_size();
@@ -145,7 +153,7 @@ impl Host {
         self.applied_model = Some(config.model.clone());
         let cloud_active = self.engine.prediction_enabled();
         self.indicator.set_cloud(cloud_active);
-        self.indicator.update();
+        self.refresh_mode_ui();
         self.menu.sync(&config, cloud_active, self.settings.error());
         let key_present = config
             .predict

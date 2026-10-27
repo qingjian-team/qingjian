@@ -14,7 +14,7 @@ use crate::engine::decoded::EngineDecoded;
 use crate::fuzzy::FuzzyRules;
 use crate::history::InputHistory;
 use crate::panel::PanelHistory;
-use crate::sentence::{Interpolation, LanguageModel, Personal, SentenceScorer};
+use crate::sentence::{Interpolation, LanguageModel, Personal, SearchLimits, SentenceScorer};
 use crate::shuangpin::{Layout, Scheme};
 use crate::traditional::{Traditional, TraditionalVariant};
 use qingjian_dictionary::{AuxCodeLookup, CodeTable, Dictionary, WordList};
@@ -326,6 +326,12 @@ impl Engine {
         self.fuzzy
     }
 
+    /// 设置显式选区翻译的提供方，独立于自动联想；取消后旧结果不会上屏。
+    pub fn set_translation_predictor(&mut self, predictor: Option<Box<dyn Predictor>>) {
+        self.cancel_prediction();
+        self.translation_predictor = predictor;
+    }
+
     pub fn with_predictor(mut self, predictor: Box<dyn Predictor>) -> Self {
         self.predictor = predictor;
         self
@@ -383,6 +389,16 @@ impl Engine {
 
     pub fn interpolation(&self) -> Interpolation {
         self.interpolation
+    }
+
+    /// 换一组整句搜索规模（回放调参用）；格子候选留几条由它决定，缓存作废。
+    pub fn set_search_limits(&mut self, limits: SearchLimits) {
+        self.search_limits = limits;
+        self.forget_span_cache();
+    }
+
+    pub fn search_limits(&self) -> SearchLimits {
+        self.search_limits
     }
 
     /// 换一组敲错纠正代价（回放调参用）；整句格子缓存与纠错缓存作废。

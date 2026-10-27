@@ -154,12 +154,11 @@
   - [ ] 额外翻页键：Linux
   - [ ] 高亮移动键：Linux
   - [ ] Ctrl + . 切换全半角标点：Linux
-  - [ ] 云服务用量统计：Linux
-  - [ ] 按需云联想与请求节奏：Linux
-  - [ ] 生词本整句翻译：Linux
+  - [ ] Ctrl + Shift + F 切换简繁输出：macOS、Linux
   - [ ] 双拼键位提示：Linux
   - [ ] 拼音行显示声调：Linux
   - [ ] 实验功能（知意、含章·知微）：Linux
+  - [ ] 小键盘数字：macOS、Linux
 
 ## 四、其他输入方案
 

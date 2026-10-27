@@ -21,14 +21,18 @@ impl Engine {
 
     /// 所有普通候选完成排序后，这个输入码的短语按权重从高到低占最前面几位（权重相同的按列表顺序），
     /// 后面跟短语同字的候选去掉，免得同一个词出两遍。
+    ///
+    /// 英文模式下只出内容不含汉字的短语：`dont` → `don't` 该生效，但中文短语（含在中文模式里右键
+    /// 「置顶」按拼音加的那条，如 `he` → 和）在英文模式按空格上屏就是中文，与英文候选的语义冲突（#763）。
     pub(super) fn insert_custom_phrases(&self, items: &mut Vec<Candidate>) {
-        if self.english_mode {
-            return;
-        }
         let mut phrases: Vec<_> = self
             .custom_phrases
             .iter()
-            .filter(|p| p.enabled && p.code == self.composition.scope())
+            .filter(|p| {
+                p.enabled
+                    && p.code == self.composition.scope()
+                    && (!self.english_mode || !p.text.chars().any(crate::sentence::is_han))
+            })
             .collect();
         phrases.sort_by_key(|p| std::cmp::Reverse(p.weight));
         items.retain(|c| !phrases.iter().any(|p| p.text == c.text));

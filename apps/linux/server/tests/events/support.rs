@@ -5,10 +5,15 @@ use qingjian_linux_server::{Router, RouterConfig};
 use qingjian_platform::protocol::{
     ClientMessage, KeyEvent, KeyModifiers, PROTOCOL_VERSION, SessionId,
 };
+use qingjian_platform::{SwitchKey, SwitchKeys};
 use serde_json::{Value, json};
 
+/// 切换键按 Linux 的缺省（Shift）写死：缺省值随编译平台变，在 macOS 上跑 pre-push 时是不勾。
 pub fn router() -> Router {
-    router_with(RouterConfig::default())
+    router_with(RouterConfig {
+        switch_mode: SwitchKeys::NONE.with(SwitchKey::Shift, true),
+        ..Default::default()
+    })
 }
 pub fn router_with(config: RouterConfig) -> Router {
     let mut router = Router::new(

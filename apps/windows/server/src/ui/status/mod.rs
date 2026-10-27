@@ -2,7 +2,7 @@
 //! `renderer = "system"` 时复用分层窗口合成器与候选窗口的 GDI 主题。
 //!
 //! 按下鼠标先 `DragDetect`：挪出拖动阈值就交给系统的移动循环（`WM_NCLBUTTONDOWN` + `HTCAPTION`），
-//! 结束时 `WM_EXITSIZEMOVE` 报新位置；没挪就是点击，按 x 落进哪格。`WM_MOUSEACTIVATE` 回 `MA_NOACTIVATE` 不抢焦点。
+//! 拖动中 `WM_MOVING` 把内容区挡在工作区里，结束时 `WM_EXITSIZEMOVE` 报新位置；没挪就是点击，按 x 落进哪格。`WM_MOUSEACTIVATE` 回 `MA_NOACTIVATE` 不抢焦点。
 //! 一格的规格在 [`cell`]，摆放与点击在 [`placement`]。
 
 mod cell;
@@ -22,8 +22,8 @@ use windows::Win32::UI::Input::KeyboardAndMouse::{DragDetect, ReleaseCapture};
 use windows::Win32::UI::WindowsAndMessaging::{
     CreateWindowExW, DefWindowProcW, DestroyWindow, GetCursorPos, HTCAPTION, HTCLIENT, IDC_HAND,
     LoadCursorW, MA_NOACTIVATE, SendMessageW, WM_EXITSIZEMOVE, WM_LBUTTONDOWN, WM_MOUSEACTIVATE,
-    WM_NCHITTEST, WM_NCLBUTTONDOWN, WM_TIMER, WNDCLASSEXW, WS_EX_LAYERED, WS_EX_NOACTIVATE,
-    WS_EX_TOOLWINDOW, WS_EX_TOPMOST, WS_POPUP,
+    WM_MOVING, WM_NCHITTEST, WM_NCLBUTTONDOWN, WM_TIMER, WNDCLASSEXW, WS_EX_LAYERED,
+    WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_EX_TOPMOST, WS_POPUP,
 };
 use windows::core::{Error, PCWSTR, Result, w};
 
@@ -256,19 +256,19 @@ impl StatusBar {
                     self.hide();
                     return;
                 }
-                let margin = bitmap.content_x as i32;
-                self.placement.margin.set(margin);
+                let offset = (bitmap.content_x as i32, bitmap.content_y as i32);
+                let size = (bitmap.pixmap.width() as i32, bitmap.pixmap.height() as i32);
                 *self.placement.cells.borrow_mut() = rendered
                     .cell_edges
                     .iter()
                     .zip(ACTIONS)
                     .map(|(edge, action)| (edge.round() as i32, action))
                     .collect();
-                let anchor = self.anchor(content, margin);
+                let anchor = self.anchor(offset, size, content);
                 layered::present(
                     self.hwnd,
                     &bitmap.pixmap,
-                    (anchor.0 - margin, anchor.1 - margin),
+                    (anchor.0 - offset.0, anchor.1 - offset.1),
                 )
             }
             None => self.render_gdi(),
@@ -280,14 +280,17 @@ impl StatusBar {
         }
     }
 
-    /// 内容左上角：记住的位置，没有就右下角，再夹进工作区；顺带记下。
-    fn anchor(&self, content: (i32, i32), margin: i32) -> (i32, i32) {
+    /// 内容左上角：记住的位置，没有就右下角，再夹进工作区；顺带记下，连同这次的留白与内容大小（拖动时用）。
+    /// `offset` 是内容左上角在窗口里的位置，`size` 是窗口大小：带装饰的主题四边留白不等，不能拿一个边距通用（#707）。
+    fn anchor(&self, offset: (i32, i32), size: (i32, i32), content: (i32, i32)) -> (i32, i32) {
+        self.placement.offset.set(offset);
+        self.placement.content.set(content);
         let anchor = self
             .placement
             .pos
             .get()
-            .unwrap_or_else(|| default_anchor(content, margin));
-        let anchor = clamp_anchor(anchor, content, margin);
+            .unwrap_or_else(|| default_anchor(offset, size));
+        let anchor = clamp_anchor(anchor, content);
         self.placement.pos.set(Some(anchor));
         anchor
     }
@@ -296,7 +299,6 @@ impl StatusBar {
     fn render_gdi(&self) -> Result<()> {
         let theme = self.theme.borrow().clone();
         let margin = layered::shadow_margin(self.dpi.get());
-        self.placement.margin.set(margin);
         let cells = self.cells(&theme);
         let hdc = unsafe { GetDC(Some(self.hwnd)) };
         let sizes: Vec<SIZE> = cells
@@ -324,7 +326,8 @@ impl StatusBar {
             })
             .collect();
         *self.placement.cells.borrow_mut() = bounds;
-        let anchor = self.anchor(content, margin);
+        let win_size = (content.0 + margin * 2, content.1 + margin * 2);
+        let anchor = self.anchor((margin, margin), win_size, content);
 
         let separator = theme.pos_color;
         let inset = theme.padding / 2;
@@ -334,7 +337,7 @@ impl StatusBar {
                 content,
                 margin,
                 win_pos: (anchor.0 - margin, anchor.1 - margin),
-                win_size: (content.0 + margin * 2, content.1 + margin * 2),
+                win_size,
                 background: theme.background,
                 corner_radius: theme.corner_radius,
                 paint: &|hdc, client| {
@@ -384,31 +387,31 @@ impl Drop for StatusBar {
     }
 }
 
-/// 首次出现的位置：主显示器工作区右下角，留出边距与阴影。
-fn default_anchor(content: (i32, i32), margin: i32) -> (i32, i32) {
+/// 首次出现的位置：窗口（含阴影）贴主显示器工作区右下角，留出边距；返回内容左上角。
+fn default_anchor(offset: (i32, i32), size: (i32, i32)) -> (i32, i32) {
     let work = monitor::primary_work_area();
-    let gap = ((EDGE_GAP * margin) / 16).max(EDGE_GAP);
+    let gap = ((EDGE_GAP * offset.0) / 16).max(EDGE_GAP);
     (
-        work.right - margin - gap - content.0,
-        work.bottom - margin - gap - content.1,
+        work.right - gap - size.0 + offset.0,
+        work.bottom - gap - size.1 + offset.1,
     )
 }
 
-/// 把内容左上角夹进所在显示器的工作区，使整块内容可见。
-fn clamp_anchor(anchor: (i32, i32), content: (i32, i32), margin: i32) -> (i32, i32) {
+/// 把内容区（不含阴影 / 装饰）夹进它中心所在显示器的工作区，能紧贴任务栏与屏幕边，阴影与装饰伸出去不算，同候选窗；
+/// 按中心挑显示器，跨屏拖时过半才换屏。返回夹好的内容左上角。
+fn clamp_anchor(anchor: (i32, i32), content: (i32, i32)) -> (i32, i32) {
     let work = monitor::work_area_near(POINT {
-        x: anchor.0,
-        y: anchor.1,
+        x: anchor.0 + content.0 / 2,
+        y: anchor.1 + content.1 / 2,
     });
-    let x = anchor.0.clamp(
-        work.left + margin,
-        (work.right - margin - content.0).max(work.left + margin),
-    );
-    let y = anchor.1.clamp(
-        work.top + margin,
-        (work.bottom - margin - content.1).max(work.top + margin),
-    );
-    (x, y)
+    (
+        anchor
+            .0
+            .clamp(work.left, (work.right - content.0).max(work.left)),
+        anchor
+            .1
+            .clamp(work.top, (work.bottom - content.1).max(work.top)),
+    )
 }
 
 fn placement_of(hwnd: HWND) -> Option<Rc<Placement>> {
@@ -445,6 +448,13 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: 
                 fullscreen::on_timer(hwnd, &placement.fullscreen_hidden);
             }
             LRESULT(0)
+        }
+        WM_MOVING => {
+            if let Some(placement) = placement_of(hwnd) {
+                // lparam 指向系统移动循环这一步算出的窗口矩形，改它就改了落点。
+                placement.on_moving(unsafe { &mut *(lparam.0 as *mut RECT) });
+            }
+            LRESULT(1)
         }
         WM_EXITSIZEMOVE => {
             if let Some(placement) = placement_of(hwnd) {
