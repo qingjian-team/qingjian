@@ -7,9 +7,9 @@ use windows::Win32::UI::Input::KeyboardAndMouse::SetFocus;
 use windows::Win32::UI::WindowsAndMessaging::{
     BS_DEFPUSHBUTTON, BS_PUSHBUTTON, CREATESTRUCTW, CS_HREDRAW, CS_VREDRAW, CreateWindowExW,
     DefWindowProcW, DestroyWindow, ES_AUTOHSCROLL, GetWindowTextW, HMENU, IDC_ARROW, LoadCursorW,
-    SW_SHOW, SetForegroundWindow, ShowWindow, WM_CLOSE, WM_COMMAND, WM_CREATE, WM_DESTROY,
-    WNDCLASSEXW, WS_CAPTION, WS_CHILD, WS_EX_TOOLWINDOW, WS_OVERLAPPED, WS_SYSMENU, WS_TABSTOP,
-    WS_VISIBLE,
+    SW_SHOW, SetForegroundWindow, ShowWindow, WINDOW_STYLE, WM_CLOSE, WM_COMMAND, WM_CREATE,
+    WM_DESTROY, WNDCLASSEXW, WS_CAPTION, WS_CHILD, WS_EX_TOOLWINDOW, WS_OVERLAPPED, WS_SYSMENU,
+    WS_TABSTOP, WS_VISIBLE,
 };
 use windows::core::{PCWSTR, Result, w};
 
@@ -67,7 +67,7 @@ pub(super) fn open(offset: usize, current: &str) {
             Default::default(),
             w!("EDIT"),
             PCWSTR(current.as_ptr()),
-            WS_CHILD | WS_VISIBLE | WS_TABSTOP | ES_AUTOHSCROLL,
+            WS_CHILD | WS_VISIBLE | WS_TABSTOP | WINDOW_STYLE(ES_AUTOHSCROLL as u32),
             20,
             22,
             365,
@@ -87,7 +87,7 @@ pub(super) fn open(offset: usize, current: &str) {
             Default::default(),
             w!("BUTTON"),
             w!("保存译文"),
-            WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_DEFPUSHBUTTON,
+            WS_CHILD | WS_VISIBLE | WS_TABSTOP | WINDOW_STYLE(BS_DEFPUSHBUTTON as u32),
             205,
             65,
             100,
@@ -103,7 +103,7 @@ pub(super) fn open(offset: usize, current: &str) {
             Default::default(),
             w!("BUTTON"),
             w!("取消"),
-            WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON,
+            WS_CHILD | WS_VISIBLE | WS_TABSTOP | WINDOW_STYLE(BS_PUSHBUTTON as u32),
             315,
             65,
             70,
@@ -117,7 +117,7 @@ pub(super) fn open(offset: usize, current: &str) {
     EDITOR.with(|state| *state.borrow_mut() = Some(Editor { hwnd, edit, offset }));
     let _ = unsafe { ShowWindow(hwnd, SW_SHOW) };
     let _ = unsafe { SetForegroundWindow(hwnd) };
-    unsafe { SetFocus(Some(edit)) };
+    let _ = unsafe { SetFocus(Some(edit)) };
 }
 
 fn ensure_class() -> Result<()> {
@@ -138,7 +138,7 @@ fn submit() {
         let mut buffer = vec![0u16; 1024];
         let len = unsafe { GetWindowTextW(editor.edit, &mut buffer) } as usize;
         let text = String::from_utf16_lossy(&buffer[..len]).trim().to_owned();
-        (!text.is_empty()).then(|| (editor.offset, text))
+        (!text.is_empty()).then_some((editor.offset, text))
     });
     if let Some((offset, text)) = value {
         click::send(CandidateMouse::TranslationEdited { offset, text });

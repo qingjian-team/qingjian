@@ -2,7 +2,7 @@
 //! 缺省交给青简渲染器出位图再贴（[`super::painter`]），配置 `renderer = "system"` 时走 GDI：绘制在 [`view`]，
 //! 配色 / 字体在 [`theme`]。绘制内容在 [`RenderData`]，一行的展示形态在 [`row`]。设计语言对齐 macOS 端。
 
-mod click;
+pub(super) mod click;
 mod key_hint;
 mod menu;
 mod render_data;

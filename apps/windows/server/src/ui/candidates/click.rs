@@ -138,7 +138,7 @@ pub(super) fn wheel(wparam: WPARAM) {
 }
 
 /// 交给登记的回调。
-pub(super) fn send(event: CandidateMouse) {
+pub(in crate::ui) fn send(event: CandidateMouse) {
     CLICKS.with(|clicks| {
         if let Some(clicks) = clicks.borrow().as_ref() {
             (clicks.on_click)(event);
