@@ -702,3 +702,5 @@ IBus 的组件 XML 与 systemd 单元里都写死了安装后的绝对路径，�
 ## 独立的选区翻译提供方
 
 Core 的 Engine::set_translation_predictor 与 translation_enabled 将显式选区翻译与普通联想分开；未配置时沿用原提供方，显式配置但不可用时不回落在线服务。手动选区保留首尾空白，私密输入及取消请求使迟到结果失效。
+
+Windows Server 受控退出使用 ExitCode 返回以刷新既有 tracing 队列；启动、退出及脱敏 panic 只记入现有 server 日志，不新增文件或轮转机制。原生异常与强制终止仍可能没有记录。

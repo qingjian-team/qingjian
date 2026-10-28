@@ -82,7 +82,13 @@ pub fn serve_pipe(
             Ok(Work::Panel(hit)) => router.handle_panel_mouse(hit),
             Ok(Work::Wake) => router.tick(),
             Err(RecvTimeoutError::Timeout) => continue,
-            Err(RecvTimeoutError::Disconnected) => break,
+            Err(RecvTimeoutError::Disconnected) => {
+                tracing::warn!(
+                    reason = "all_work_senders_disconnected",
+                    "Pipe worker loop stopped"
+                );
+                break;
+            }
         }
         // 处理完消息节拍可能变短了（按键起了防抖）：到点时间只提前不推后
         due = due.min(Instant::now() + router.next_tick());
