@@ -537,3 +537,45 @@ fn committing_the_rest_after_a_separator_split_consumes_it() {
     }
     assert!(engine.composition().is_empty());
 }
+
+/// 长拼音首页保底单字（#769）：单字都排在词后面，首页没有单字时补首音节最常用的两个字。
+const FALLBACK: &str = "实验室\tshi yan shi\t9000\n实验师\tshi yan shi\t9000\n实验\tshi yan\t9000\n\
+    试验\tshi yan\t8000\n饰演\tshi yan\t8000\n十堰\tshi yan\t8000\n石堰\tshi yan\t8000\n\
+    石燕\tshi yan\t8000\n史艳\tshi yan\t8000\n世言\tshi yan\t8000\n适演\tshi yan\t8000\n\
+    实\tshi\t100\n是\tshi\t90\n时\tshi\t80\n";
+
+#[test]
+fn long_pinyin_first_page_gets_the_first_syllable_characters() {
+    let mut engine = Engine::new(Dictionary::parse(FALLBACK).unwrap());
+    engine.set_input("shiyanshi");
+    let all = texts_of(&engine);
+    // 前九条全是词，第 5、6 位补上首音节最常用的两个字
+    assert_eq!(&all[4..6], ["实", "是"], "{all:?}");
+    // 排在后面的同字候选删掉，同一个字只出一次
+    assert_eq!(
+        all.iter().filter(|text| *text == "实").count(),
+        1,
+        "{all:?}"
+    );
+    // 关掉开关就不补
+    engine.set_first_page_characters(false);
+    let all = texts_of(&engine);
+    assert!(
+        all.iter().take(9).all(|text| text.chars().count() > 1),
+        "{all:?}"
+    );
+}
+
+#[test]
+fn a_single_character_already_on_the_first_page_is_left_alone() {
+    // 首页里已经有 实：开关开着也一个字都不补，候选与关着时完全一样
+    let dictionary =
+        "实验室\tshi yan shi\t9000\n实验\tshi yan\t9000\n实\tshi\t8000\n是\tshi\t7000\n";
+    let mut engine = Engine::new(Dictionary::parse(dictionary).unwrap());
+    engine.set_input("shiyanshi");
+    let on = texts_of(&engine);
+    assert!(on.iter().take(9).any(|text| text == "实"), "{on:?}");
+    engine.set_first_page_characters(false);
+    let off = texts_of(&engine);
+    assert_eq!(on, off, "首页已有单字时不动：{on:?}");
+}

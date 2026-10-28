@@ -90,6 +90,9 @@ mac 存在 `Session::spelling`（`Host::follow_highlight`）、Windows / Linux �
   双拼 / 注音末尾落单的一键是正常的「还没敲完」，若连同前面的音节正好拼出词库里的整词（`veg` → 这个），整串不算「拼音不像话」：
   英文候选不让到第一、也不给补全（`query::phonetic` 里的 `covered_by_word`，全拼的落单字母另有「可能敲反了」的意思，不适用），
   拼不出整词（`cat`）时英文照旧排第一（#753）。
+- 长拼音首页保底单字（`extras::insert_first_page_characters`，配置 `[general] first_page_characters`，缺省开，`Engine::set_first_page_characters`）：
+  至少 3 个音节、前 9 条里没有单字时，按词频取首音节最常用的两个字放在第 5、6 位，词级排序里排在后面的同字候选原地删掉（不重复出）；
+  首页已有单字不动。判据看前 9 条而不是壳里的 `page_size`（Engine 不知道每页几格），页调到 5 以下时这两个位置翻过第一页、等于不生效（#769）。
 - 中西文自动空格（`spacing` 判交界，`engine/spacing.rs` 判上文；配置 `[general] auto_space`，缺省关）：`commit` / `take_raw` 自己补前导空格并把它记成一次直通，
   候选内部的交界在 `commit_with` 里补、`LastCommit.chars` 按补后的字数记；直通字符由壳先问 `auto_space_before`。上文取最近一条没退格的上屏末字，
   还没上屏过时用组句首键读到的应用前文（`rescoring_before`），删了一半或焦点离开后不知道上文就不补。

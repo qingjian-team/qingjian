@@ -244,6 +244,10 @@ impl Engine {
             }
             // 整句也是中文：英文候选按 `english_min_position` 让位（缺省不限制）
             self.place_english(&mut items);
+            // 长拼音首页没有单字时，把首音节最常用的两个字放进首页（配置 `[general] first_page_characters`）
+            if let Some(best) = segmentations.first() {
+                self.insert_first_page_characters(&mut items, best);
+            }
             // 快捷候选按敲的键认（`rq` 日期），双拼下也是
             self.insert_shortcuts(&mut items, keys);
             self.insert_emoji(&mut items);

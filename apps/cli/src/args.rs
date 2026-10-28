@@ -95,6 +95,10 @@ pub struct Args {
     #[arg(long)]
     pub no_english_in_chinese: bool,
 
+    /// 关掉「长拼音首页固定单字」（配置 `[general]` first_page_characters = false）
+    #[arg(long)]
+    pub no_first_page_characters: bool,
+
     /// 打开中文优先（配置 `[general] chinese_first = true`）：整段是英文词时中文候选排第一、英文第二，评测两种排法用
     #[arg(long)]
     pub chinese_first: bool,

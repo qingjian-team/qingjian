@@ -271,6 +271,8 @@ english_in_chinese = true
 english_max_in_chinese = 4
 # 有中文候选时英文最高排到第几位，1–9；1 为不限制，没有中文候选时英文照旧第一
 english_min_position = 1
+# 长拼音（至少 3 个音节）首页没有单字时，把首音节最常用的两个字放进首页（第 5、6 位）；false 时不动
+first_page_characters = true
 # 候选后面一次最多配几个 emoji（kaixin → 开心 😄），0–3；0 时候选里只有字词
 emoji = 3
 # 候选后面一次最多配几个颜文字（ku → 哭 (T_T)），0–3

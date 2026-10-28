@@ -527,6 +527,11 @@ impl Engine {
         self.english_min_position = position.clamp(1, 9);
     }
 
+    /// 长拼音首页没有单字时，把首音节最常用的两个字放进首页（配置 `[general] first_page_characters`，缺省开）。
+    pub fn set_first_page_characters(&mut self, on: bool) {
+        self.first_page_characters = on;
+    }
+
     /// 中英混输里中文候选是否总排在英文词前面（配置 `[general] chinese_first`，缺省关）。
     /// 关着时拼音「不像话」的输入英文词排第一（`hello` 先英文再 荷兰咯）；开了英文词固定第二。
     pub fn set_chinese_first(&mut self, on: bool) {

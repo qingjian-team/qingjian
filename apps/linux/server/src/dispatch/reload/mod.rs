@@ -104,6 +104,8 @@ impl Router {
         self.engine
             .set_english_min_position(config.general.english_min_position());
         self.engine
+            .set_first_page_characters(config.general.first_page_characters);
+        self.engine
             .set_emoji_limit(usize::from(config.general.emoji.get()));
         self.engine
             .set_kaomoji_limit(usize::from(config.general.kaomoji.get()));

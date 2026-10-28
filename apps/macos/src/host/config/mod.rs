@@ -36,6 +36,8 @@ impl Host {
             .set_english_max_in_chinese(config.general.english_max_in_chinese());
         self.engine
             .set_english_min_position(config.general.english_min_position());
+        self.engine
+            .set_first_page_characters(config.general.first_page_characters);
         self.engine.set_auto_space(config.general.auto_space);
         self.engine
             .set_shift_letter_compose(config.general.shift_letter.compose());
