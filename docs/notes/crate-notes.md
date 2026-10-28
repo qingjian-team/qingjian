@@ -632,7 +632,7 @@ Windows 可选的 `[shortcut] toggle_punctuation` 经 `InputSettings` 下发，�
 `[shortcut] toggle_traditional` 是可关闭的组合键（空字符串关闭，缺省关；设置程序里开关打开写 `ctrl+shift+f`）。Server 经 `InputSettings` 下发有效组合，与选区翻译冲突时禁用简繁键。TSF 在激活 / 热加载时替换保留键登记、停用时撤销，命中后转发按键；Server 在简体与上次用的繁体之间切（`[general] last_traditional`，切到简体时记下切走前那一档，没记过是台湾），复用 Core 的繁体转换并重查候选，不上屏或清空当前组句，结果写回 `[general] traditional_variant`。老 Server 不下发此字段时 DLL 不登记。激活早期焦点回调可能在 `thread_mgr` 就绪前连接 Server，因此保留键同步先于配置去重，下一次相同设置也能补登记或重试。
 Windows 选区兼容（协议 10）：TSF 为空时，新 DLL 发 `SelectionFallback`（触发进程、前台窗口及可选的 Scintilla 选区），Server 在独立 MTA 工作者中查询 UIA `TextPattern`。工作者核对进程、焦点、密码状态、单一选区与 500 UTF-16 单元限制；仅主动翻译触发，单工作者、5 秒收结果超时，取消后丢弃迟到结果。备用评审用不含 `commit` 的 `SelectionReview` 回包维持等待；只有用户确认才通过 arboard 复制译文，界面提示自行粘贴，复制失败保留结果重试。普通 TSF 来源在 DLL 的 `composition/selection.rs` 保存范围与原文，回填前重验文档、全局前台窗口、线程焦点、起止位置和原文。版本 9 已支持的码段 / 符号降级门槛固定为 9，不因新增协议 10 而错误降级。Linux 只同步公共握手版本，不实现 Windows 的备用入口。
 
-Windows 配套版本在 TSF 翻译未完成时确认，会保留请求并以协议 10 的 `SelectionReview(active=true)` 维持 DLL 评审状态。Server 的 `--verify-translation [资源目录]` 用固定公开样例验证实际配置、本地模型与 Router 的触发、等待、确认及取消路径，使用无窗口输出端；不读取宿主选区，不访问剪贴板，也不代表真实应用验收。
+Windows 配套版本在 TSF 翻译未完成时确认，会保留请求并以协议 10 的 `SelectionReview(active=true)` 维持 DLL 评审状态。这种状态确认的空帧不结束已有 UI-less 候选元素，避免等待或复制期间反复关闭和重建；退出评审时才按空帧结束。Server 的 `--verify-translation [资源目录]` 用固定公开样例验证实际配置、本地模型与 Router 的触发、等待、确认及取消路径，使用无窗口输出端；不读取宿主选区，不访问剪贴板，也不代表真实应用验收。
 
 ## assets
 
