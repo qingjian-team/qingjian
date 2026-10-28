@@ -27,7 +27,7 @@ pub fn attach_offline_translation(
             runtime,
         ) {
             Ok(provider) => {
-                tracing::info!("本地选区翻译已启用");
+                tracing::info!(models = %user.join(qingjian_offline::MODEL_DIR).display(), "本地选区翻译已启用（模型按需加载）");
                 Box::new(provider)
             }
             Err(error) => {
@@ -36,10 +36,13 @@ pub fn attach_offline_translation(
             }
         },
         None => {
-            tracing::warn!("缺少本地翻译目录或 ONNX 运行库");
+            tracing::warn!(user_directory_available = user.is_some(), runtime_available = root.join("onnxruntime.dll").is_file() || root.join("target/installer/onnxruntime/onnxruntime.dll").is_file(), bundle_root = %root.display(), "已开启离线翻译，但缺少用户目录或 ONNX 运行库，提供方未就绪");
             Box::new(NoPredictor)
         }
     };
     // 选择本地翻译后，即使加载失败也不把原文改发到云端。
     engine.set_translation_predictor(Some(provider));
+    if !engine.translation_enabled() {
+        tracing::warn!("离线翻译配置已开启，但提供方未就绪；请检查前面的目录或线程启动错误");
+    }
 }

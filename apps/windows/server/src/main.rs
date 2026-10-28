@@ -33,7 +33,7 @@ fn write_config_template() -> Option<Result<bool, ConfigError>> {
 /// 保留读取错误，等日志初始化后再报告，避免启动时静默退回默认配置。
 fn load_config() -> Result<Config, ConfigError> {
     match config_path() {
-        Some(path) => Config::load(&path),
+        Some(path) => qingjian_windows_server::config_load::read(&path),
         None => Ok(Config::default()),
     }
 }
@@ -175,7 +175,13 @@ fn main() -> ExitCode {
     // 日志级别取自配置，所以先写模板、读配置，再装日志。
     let template = write_config_template();
     let config_result = load_config();
-    let config_loaded = config_result.is_ok();
+    let startup_config_path = config_path();
+    let config_loaded = startup_config_path.is_some() && config_result.is_ok();
+    let config_source = match (&startup_config_path, &config_result) {
+        (None, _) => "path_unavailable",
+        (_, Err(error)) => qingjian_windows_server::config_load::failure_reason(error),
+        _ => "file",
+    };
     let (config, config_error) = match config_result {
         Ok(config) => (config, None),
         Err(error) => (Config::default(), Some(error)),
@@ -190,21 +196,30 @@ fn main() -> ExitCode {
     };
     if let Some(error) = config_error {
         // TOML 错误的 Display 包含源文件片段，不能把密钥所在行写进日志。
-        let reason = match error {
-            ConfigError::Read { .. } => "read_failed",
-            ConfigError::Parse { .. } => "parse_failed",
-            _ => "config_failed",
-        };
+        let reason = qingjian_windows_server::config_load::failure_reason(&error);
         tracing::error!(reason, "配置加载失败，暂用默认值；请检查配置文件");
     }
     tracing::info!(
         config_loaded,
+        config_source,
+        config_path = ?startup_config_path,
+        executable = ?std::env::current_exe().ok(),
+        template_created = matches!(template, Some(Ok(true))),
         offline_configured = config.offline_translation.enabled,
         "选区翻译启动配置"
     );
+    if !config_loaded {
+        tracing::warn!(
+            config_source,
+            "未加载用户配置，当前使用默认值，离线翻译默认关闭"
+        );
+    }
     match template {
         Some(Ok(true)) => tracing::info!("已写出配置模板"),
-        Some(Err(error)) => tracing::warn!(%error, "写配置模板失败"),
+        Some(Err(error)) => tracing::warn!(
+            reason = qingjian_windows_server::config_load::failure_reason(&error),
+            "写配置模板失败"
+        ),
         _ => {}
     }
     let language = learning_language(&config);

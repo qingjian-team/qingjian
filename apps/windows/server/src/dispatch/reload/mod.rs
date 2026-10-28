@@ -4,6 +4,8 @@
 mod state;
 
 #[cfg(test)]
+mod recovery_tests;
+#[cfg(test)]
 mod tests;
 
 use qingjian_render::ThemeLibrary;
@@ -123,7 +125,8 @@ impl Router {
         root: PathBuf,
         dirs: DataDirs,
     ) {
-        let last_mtime = mtime(&config_path);
+        // 首次轮询重新读取，覆盖启动读取后、监听建立前配置已恢复的窗口。
+        let last_mtime = None;
         let code_files = dirs.code_snapshot();
         let code_word_files = dirs.code_word_snapshot();
         let dictionary_files = dirs.dict_snapshot();
@@ -205,17 +208,19 @@ impl Router {
             self.reload_aux_codes();
         }
         if !config_changed {
-            if words_changed && let Ok(config) = Config::load(&path) {
+            if words_changed && let Ok(config) = crate::config_load::read(&path) {
                 self.reload_schemes(&config);
             }
             return;
         }
-        match Config::load(&path) {
+        match crate::config_load::read(&path) {
             Ok(config) => {
                 self.apply_config(&config);
-                tracing::info!("配置已热加载");
+                tracing::info!(config_path = %path.display(), offline_configured = config.offline_translation.enabled, translation_ready = self.engine.translation_enabled(), "配置已热加载");
             }
-            Err(error) => tracing::error!(%error, "配置热加载解析失败，保持原配置"),
+            Err(error) => {
+                tracing::error!(config_path = %path.display(), reason = crate::config_load::failure_reason(&error), "配置热加载失败，保持原配置")
+            }
         }
     }
 

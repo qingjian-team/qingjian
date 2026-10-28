@@ -23,6 +23,10 @@ const LONG_CHINESE: &str =
 
 pub(super) fn run(root: Option<String>) -> i32 {
     super::attach_parent_console();
+    if super::config_path().is_none() {
+        println!("config_loaded=false config_source=path_unavailable");
+        return 1;
+    }
     let config = match super::load_config() {
         Ok(config) => config,
         Err(_) => {
