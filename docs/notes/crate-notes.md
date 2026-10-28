@@ -634,6 +634,10 @@ Windows 选区兼容（协议 10）：TSF 为空时，新 DLL 发 `SelectionFall
 
 Windows 配套版本在 TSF 翻译未完成时确认，会保留请求并以协议 10 的 `SelectionReview(active=true)` 维持 DLL 评审状态。这种状态确认的空帧不结束已有 UI-less 候选元素，避免等待或复制期间反复关闭和重建；退出评审时才按空帧结束。Server 的 `--verify-translation [资源目录]` 用固定公开样例验证实际配置、本地模型与 Router 的触发、等待、确认及取消路径，使用无窗口输出端；不读取宿主选区，不访问剪贴板，也不代表真实应用验收。
 
+### Windows 配置诊断
+
+Windows Server 的每条日志加当前 PID，启动与 `--check-translation` 另记配置的显示路径、`canonicalize` 解析后的实际路径、字节数及修改时间，不输出配置正文或摘要。Windows 打包应用内启动的诊断工具可能读到 AppData 私有副本，不能把相同显示路径当作相同文件；排查时比较实际路径。元信息是独立快照，并发替换时不承诺与解析内容来自同一文件句柄。
+
 ## assets
 
 
