@@ -514,6 +514,8 @@ PKG_CONFIG_PATH="$onig" PKG_CONFIG_ALLOW_CROSS=1 RUSTONIG_SYSTEM_LIBONIG=1 \
 
 ## apps/windows
 
+Server 的 `lifecycle` 模块在服务模式启动时安装脱敏 panic hook，并将启动、受控退出码与原因同步追加到 `server-lifecycle.day-<UTC日编号>.log`；完整记录先构造后写入，不输出 panic payload。每次写入重新选择当天路径，清理精确匹配本模块文件名且早于最近 7 个 UTC 日的文件，因此长跑进程不固定持有将被删除的旧日志。所有记录带 PID；外部终止或原生异常仍可能绕过 Rust hook，不能把缺少记录当作已查明退出原因。正常与错误返回都经 `ExitCode` 退出，让异步运行日志 guard 先析构；主题预览 CLI 保持原行为，不创建生命周期日志。管道工作通道断开、UI 消息循环结束另外记原因，不改变循环行为。
+
 候选窗 `ui::candidates::CandidateWindow::show` 每次更新内容后用 `SetWindowPos(HWND_TOPMOST)` 重新升到置顶序列首位，并保留 `SWP_NOACTIVATE`；Windows 搜索页后弹出的置顶窗口可能盖住较早创建的候选窗。
 
 用量接线：启动与配置热加载为 CloudPredictor 和 CloudGlossFiller 传同一个用户目录 `api-usage.json`；设置页的 ConnectionTest 使用该文件。统计页手动刷新读取累计记录，收到 JSON 响应与正文有效性分开统计；原译词自动补充、用户配置及学习文件沿用。

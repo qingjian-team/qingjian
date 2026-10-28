@@ -220,6 +220,11 @@ fn run(
     loop {
         let got = unsafe { GetMessageW(&mut msg, None, 0, 0) };
         if got.0 <= 0 {
+            if got.0 < 0 {
+                tracing::error!(error = %std::io::Error::last_os_error(), "UI message loop failed");
+            } else {
+                tracing::info!(reason = "wm_quit", "UI message loop stopped");
+            }
             break;
         }
         if window.is_animation_timer(&msg) {
