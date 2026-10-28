@@ -83,7 +83,7 @@ impl Engine {
         self.choice = model.map(|model| ChoiceRanker::new(model, wake));
     }
 
-    /// 接上或卸掉短语级语言模型：选词重排里整段候选的语言模型分改由它给（[`PHRASE_WEIGHT`] 加权）。
+    /// 接上或卸掉短语级语言模型：选词重排里整段候选的语言模型分改由它给（`PHRASE_WEIGHT` 加权）。
     pub fn set_phrase_model(&mut self, model: Option<Arc<dyn crate::sentence::PhraseModel>>) {
         self.phrase_model = model;
     }

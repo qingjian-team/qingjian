@@ -29,7 +29,7 @@ impl Engine {
     /// 解析当前缓冲区并生成排好序的候选。**不带译文**，译文由 [`Self::annotate`] 补。
     ///
     /// 光标停在拼音中间时只按光标前的那段算候选（`ni|hao` 出 你），光标后的拼音留着，
-    /// 上屏之后接着组句；见 [`Composition::scope`]。
+    /// 上屏之后接着组句；见 `Composition::scope`。
     pub fn query(&self) -> Result<Query, ParseError> {
         self.last_rescored.set(false);
         self.last_choice.set(None);
