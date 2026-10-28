@@ -28,6 +28,8 @@ TSF 没有上下文、拒绝编辑会话、未回调以及UIA未提供选区的�
 
 ## 验证入口
 
+Windows Server 启动记录配置绝对路径、程序路径、配置来源与是否新建模板；找不到配置不能标作文件加载成功。热加载读取失败或配置临时消失时保留上一份有效配置，文件恢复后重新加载。日志仅包含错误类别，不打印 TOML 正文或密钥。翻译提供方未就绪时分别记录用户目录、运行库和线程错误；提供方已挂载不代表按需模型已完成加载。
+
 `cargo test -p qingjian-core -p qingjian-offline -p qingjian-windows-server -p qingjian-windows-tsf -p qingjian-settings`。
 
 Server的`--verify-translation <资源目录>`读取实际配置、运行固定公开样例，验证中英互译、多分句、提前确认、明确提交、取消和普通组句保护；不创建窗口、IPC连接、UIA或剪贴板访问，不挂在线提供方，也不写用户学习数据。此检查不等于实际宿主验收。

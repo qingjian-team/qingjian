@@ -1,6 +1,7 @@
 //! Server 的库部分：Engine 装配（[`assembly`]）、协议分派（[`Router`]）与传输（[`ipc`]），供 bin 与集成测试共用。
 
 pub mod assembly;
+pub mod config_load;
 pub mod dispatch;
 pub mod error;
 pub mod ipc;
