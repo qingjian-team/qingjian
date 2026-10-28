@@ -2,11 +2,14 @@
 //! release 编成 GUI 子系统（登录自启静默跑，日志走文件）；debug 保留控制台看 stderr。
 #![cfg_attr(all(windows, not(debug_assertions)), windows_subsystem = "windows")]
 
+mod diagnostics;
 mod panic_log;
 mod translation_check;
 
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
+
+use self::diagnostics::{ConfigSource, ProcessTimer};
 
 use qingjian_core::{Engine, Language};
 use qingjian_platform::{Config, ConfigError, LogLevel, resources};
@@ -110,13 +113,17 @@ fn init_logging(config: &Config) -> Option<tracing_appender::non_blocking::Worke
             );
             tracing_subscriber::fmt()
                 .with_env_filter(filter)
+                .with_timer(ProcessTimer)
                 .with_ansi(false)
                 .with_writer(writer.and(std::io::stderr))
                 .init();
             Some(guard)
         }
         None => {
-            tracing_subscriber::fmt().with_env_filter(filter).init();
+            tracing_subscriber::fmt()
+                .with_env_filter(filter)
+                .with_timer(ProcessTimer)
+                .init();
             None
         }
     }
@@ -165,7 +172,9 @@ fn main() -> ExitCode {
         return ExitCode::from(u8::try_from(theme_preview(arguments.next())).unwrap_or(1));
     }
     if argument.as_deref() == Some("--verify-translation") {
-        return ExitCode::from(u8::try_from(translation_check::verify(arguments.next())).unwrap_or(1));
+        return ExitCode::from(
+            u8::try_from(translation_check::verify(arguments.next())).unwrap_or(1),
+        );
     }
     load_env();
     if argument.as_deref() == Some("--check-translation") {
@@ -176,6 +185,7 @@ fn main() -> ExitCode {
     let template = write_config_template();
     let config_result = load_config();
     let startup_config_path = config_path();
+    let config_metadata = ConfigSource::inspect(startup_config_path.as_deref());
     let config_loaded = startup_config_path.is_some() && config_result.is_ok();
     let config_source = match (&startup_config_path, &config_result) {
         (None, _) => "path_unavailable",
@@ -203,6 +213,9 @@ fn main() -> ExitCode {
         config_loaded,
         config_source,
         config_path = ?startup_config_path,
+        config_resolved_path = ?config_metadata.resolved_path,
+        config_bytes = ?config_metadata.bytes,
+        config_modified_unix_ms = ?config_metadata.modified_unix_ms,
         executable = ?std::env::current_exe().ok(),
         template_created = matches!(template, Some(Ok(true))),
         offline_configured = config.offline_translation.enabled,

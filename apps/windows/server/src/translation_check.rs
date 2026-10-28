@@ -23,6 +23,7 @@ const LONG_CHINESE: &str =
 
 pub(super) fn run(root: Option<String>) -> i32 {
     super::attach_parent_console();
+    super::diagnostics::ConfigSource::inspect(super::config_path().as_deref()).print();
     if super::config_path().is_none() {
         println!("config_loaded=false config_source=path_unavailable");
         return 1;
