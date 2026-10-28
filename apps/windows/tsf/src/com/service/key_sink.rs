@@ -253,9 +253,12 @@ impl TextService_Impl {
                     String::new()
                 };
                 self.shared.set_composing(!response.frame.is_empty());
-                self.shared
-                    .candidate_list()
-                    .show(&response.frame, pic.ok().ok());
+                // SelectionReview 的空帧只确认评审状态；等待/复制期间保留已有 UI 元素。
+                if !response.reviewing_selection || !response.frame.is_empty() {
+                    self.shared
+                        .candidate_list()
+                        .show(&response.frame, pic.ok().ok());
+                }
                 // 普通翻译结束评审；备用来源可能继续等待或提示复制失败，按结构化回包维持状态。
                 if self.shared.translating()
                     && response.commit.is_none()

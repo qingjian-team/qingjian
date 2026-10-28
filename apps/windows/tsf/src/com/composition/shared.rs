@@ -5,8 +5,8 @@ use windows::Win32::UI::TextServices::{ITfComposition, ITfContext};
 
 use qingjian_platform::protocol::ScreenRect;
 
-use crate::com::candidate_list::CandidateList;
 use super::SelectionAnchor;
+use crate::com::candidate_list::CandidateList;
 use crate::com::service::SharedClient;
 
 /// `TextService`、编辑会话、组句 sink、轮询定时器之间共享的组句状态（STA 单线程，`Rc` 传递）。
