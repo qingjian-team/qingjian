@@ -517,6 +517,8 @@ Server 每次轮询比对用户 `dicts` 的路径 / mtime / 长度快照，配�
 DLL 不读文件、不查 mtime。`SessionOpened` 只回过协议版本对得上的 DLL——老的 `open` 是只写不读，
 多回一条会被它当成下一次 `Poll` 的应答而报错，那条连接就废了；老 DLL 从 `ModeSync` 那一拍也能拿到同一份（新字段直接忽略）。
 
+TSF 显示属性枚举的 COM 输出槽可能尚未初始化，必须用 ptr::write 写入接口，不能通过 Rust 赋值释放旧槽。显示属性输出指针与 GUID 入参检查空值和对齐；原生 vtable 单测验证输出初始化及错误 HRESULT，不依赖真实宿主窗口。
+
 Windows 可选的 `[shortcut] toggle_punctuation` 经 `InputSettings` 下发，由 TSF 保留键触发原有标点菜单命令；
 修改或关闭时撤掉旧登记，句号使用 `VK_OEM_PERIOD`，不能使用字符的 ASCII 值（那是 Delete）。
 首次获焦可能早于 `Activate` 设置 `thread_mgr`，因此保留键同步必须在设置值缓存命中前执行，管理器就绪后才能补登记。

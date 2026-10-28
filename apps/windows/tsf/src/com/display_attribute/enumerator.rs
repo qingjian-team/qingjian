@@ -2,7 +2,7 @@
 
 use core::cell::Cell;
 
-use windows::Win32::Foundation::S_FALSE;
+use windows::Win32::Foundation::{E_POINTER, S_FALSE};
 use windows::Win32::UI::TextServices::{
     IEnumTfDisplayAttributeInfo, IEnumTfDisplayAttributeInfo_Impl, ITfDisplayAttributeInfo,
 };
@@ -31,9 +31,15 @@ impl IEnumTfDisplayAttributeInfo_Impl for AttributeEnum_Impl {
         rginfo: *mut Option<ITfDisplayAttributeInfo>,
         pcfetched: *mut u32,
     ) -> Result<()> {
+        if (ulcount > 0 && (rginfo.is_null() || !rginfo.is_aligned()))
+            || (!pcfetched.is_null() && !pcfetched.is_aligned())
+        {
+            return Err(E_POINTER.into());
+        }
         let mut fetched = 0u32;
         if ulcount >= 1 && !self.done.get() {
-            unsafe { *rginfo = Some(info()) };
+            // COM [out] 槽不保证已初始化；赋值会释放其中的任意旧比特。
+            unsafe { rginfo.write(Some(info())) };
             self.done.set(true);
             fetched = 1;
         }

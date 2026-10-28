@@ -1,6 +1,6 @@
 //! `ITfDisplayAttributeProvider`：把组句下划线的显示属性（[`display_attribute`]）交给系统。
 
-use windows::Win32::Foundation::E_INVALIDARG;
+use windows::Win32::Foundation::{E_INVALIDARG, E_POINTER};
 use windows::Win32::UI::TextServices::{
     IEnumTfDisplayAttributeInfo, ITfDisplayAttributeInfo, ITfDisplayAttributeProvider_Impl,
 };
@@ -16,6 +16,9 @@ impl ITfDisplayAttributeProvider_Impl for TextService_Impl {
     }
 
     fn GetDisplayAttributeInfo(&self, guid: *const GUID) -> Result<ITfDisplayAttributeInfo> {
+        if guid.is_null() || !guid.is_aligned() {
+            return Err(E_POINTER.into());
+        }
         if unsafe { *guid } == display_attribute::GUID_DISPLAY_ATTRIBUTE_INPUT {
             Ok(display_attribute::info())
         } else {

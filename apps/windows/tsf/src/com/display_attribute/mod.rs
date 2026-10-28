@@ -5,6 +5,9 @@
 mod enumerator;
 mod info;
 
+#[cfg(test)]
+mod tests;
+
 use core::cell::Cell;
 
 use windows::Win32::System::Com::{CLSCTX_INPROC_SERVER, CoCreateInstance};
