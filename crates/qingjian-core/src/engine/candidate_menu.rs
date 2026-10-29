@@ -35,7 +35,7 @@ impl Engine {
         self.set_translation(&word, text)
     }
 
-    /// 保存模型生成的候选译文。和手工编辑不同，模型结果还带词性，原词条不存在时也要完整写入。
+    /// 保存模型生成的候选译文；模型给了可识别词性就一并保存，没给时仍保留译词。
     pub fn set_generated_candidate_translation(
         &mut self,
         candidate: &Candidate,
@@ -44,28 +44,39 @@ impl Engine {
         let Some((word, language)) = self.translation_target(candidate) else {
             return false;
         };
-        let Some((part_of_speech, text)) = generated.split_once('\t') else {
-            return false;
+        let generated = generated.trim();
+        let (part_of_speech, text) = match generated.split_once('\t') {
+            Some((part_of_speech, text)) => match part_of_speech.trim().parse() {
+                Ok(part_of_speech) => (Some(part_of_speech), text.trim()),
+                Err(_) => (None, text.trim()),
+            },
+            None => (None, generated),
         };
-        let Ok(part_of_speech) = part_of_speech.parse() else {
-            return false;
-        };
-        let text = text.trim();
         if text.is_empty() {
             return false;
         }
-        self.translator.learn(
-            &word,
-            Translation::new(
-                language,
-                vec![Sense {
-                    part_of_speech: Some(part_of_speech),
-                    text: text.to_owned(),
-                    reading: None,
-                    fresh: false,
-                }],
-            ),
-        );
+        let mut senses = self
+            .translator
+            .translate(&word)
+            .map(|translation| translation.senses().to_vec())
+            .unwrap_or_default();
+        match senses.first_mut() {
+            Some(sense) => {
+                sense.text = text.to_owned();
+                if part_of_speech.is_some() {
+                    sense.part_of_speech = part_of_speech;
+                }
+                sense.fresh = false;
+            }
+            None => senses.push(Sense {
+                part_of_speech,
+                text: text.to_owned(),
+                reading: None,
+                fresh: false,
+            }),
+        }
+        self.translator
+            .learn(&word, Translation::new(language, senses));
         self.translator.flush();
         true
     }
