@@ -105,7 +105,11 @@ impl Host {
             let job = self.candidate_translation.take().expect("刚检查过候选译文");
             self.monitor.stop();
             self.status = match prediction.sentence {
-                Some(text) if self.engine.set_candidate_translation(&job.candidate, &text) => {
+                Some(generated)
+                    if self
+                        .engine
+                        .set_generated_candidate_translation(&job.candidate, &generated) =>
+                {
                     Some(format!("已更新「{}」的译文", job.candidate.text))
                 }
                 _ => Some("模型没有生成可用译文".to_owned()),

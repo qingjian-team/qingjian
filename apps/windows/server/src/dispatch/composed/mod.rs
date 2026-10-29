@@ -112,9 +112,10 @@ impl Router {
             .is_some_and(|(sequence, _)| *sequence == prediction.sequence)
         {
             let (_, candidate) = self.candidate_translation.take().expect("刚检查过候选译文");
-            let updated = prediction
-                .sentence
-                .is_some_and(|text| self.engine.set_candidate_translation(&candidate, &text));
+            let updated = prediction.sentence.is_some_and(|generated| {
+                self.engine
+                    .set_generated_candidate_translation(&candidate, &generated)
+            });
             self.notice = Some(if updated {
                 self.refresh_candidate_translation(&candidate.text);
                 format!("已更新「{}」的译文", candidate.text)

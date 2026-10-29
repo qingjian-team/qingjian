@@ -35,6 +35,41 @@ impl Engine {
         self.set_translation(&word, text)
     }
 
+    /// 保存模型生成的候选译文。和手工编辑不同，模型结果还带词性，原词条不存在时也要完整写入。
+    pub fn set_generated_candidate_translation(
+        &mut self,
+        candidate: &Candidate,
+        generated: &str,
+    ) -> bool {
+        let Some((word, language)) = self.translation_target(candidate) else {
+            return false;
+        };
+        let Some((part_of_speech, text)) = generated.split_once('\t') else {
+            return false;
+        };
+        let Ok(part_of_speech) = part_of_speech.parse() else {
+            return false;
+        };
+        let text = text.trim();
+        if text.is_empty() {
+            return false;
+        }
+        self.translator.learn(
+            &word,
+            Translation::new(
+                language,
+                vec![Sense {
+                    part_of_speech: Some(part_of_speech),
+                    text: text.to_owned(),
+                    reading: None,
+                    fresh: false,
+                }],
+            ),
+        );
+        self.translator.flush();
+        true
+    }
+
     /// 按已经还原成存储字形的词覆盖个人译文。弹出编辑框前先保存 `word`，即使 IMK 在弹窗期间重建会话也能写入。
     pub fn set_translation(&mut self, word: &str, text: &str) -> bool {
         let text = text.trim();
