@@ -2,6 +2,8 @@
 //! 现在接的是火山引擎豆包流式语音识别（[`volcengine`]）；Core 不联网，所以放在这个独立 crate。
 //! 设计见 `docs/design/voice-and-swipe.md`。
 
+#![forbid(unsafe_code)]
+
 mod error;
 mod tls;
 pub mod volcengine;

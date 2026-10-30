@@ -5,6 +5,8 @@
 //! 文案表的 TOML 可以分节，`[page] title = "…"` 的键是 `page.title`；`{name}` 是参数，由 [`Catalog::format`] 填。
 //! 每份表顶上的 `[meta] name` 是这门语言自己的叫法（「Tiếng Việt」），给语言选择列表用，不算文案。
 
+#![forbid(unsafe_code)]
+
 mod catalog;
 mod locale;
 

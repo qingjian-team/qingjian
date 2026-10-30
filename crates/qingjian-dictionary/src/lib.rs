@@ -18,6 +18,8 @@
 //! 辅码码表（[`AuxCodeTable`]）是另一套数据：词 → 码的映射，按词文本排序 + 哈希索引定位（见 `aux_code_table` 模块）。
 //! 另有两种旁支：形码码表 [`CodeTable`]（键是五笔编码，按前缀查）与英文词表 [`WordList`]。
 
+#![forbid(unsafe_code)]
+
 mod aux_code_table;
 mod code_table;
 mod dictionary;
