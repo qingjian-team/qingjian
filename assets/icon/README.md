@@ -20,11 +20,12 @@
 - `windows/app.svg` / `app-16.svg`：Windows 应用图标源文件（安装器、开始菜单、Server exe、输入法列表共用的 `qingjian.ico`）。
   深绿圆角底衬白竹简：原图细长、透明底，缩到任务栏的 16px 只剩两根细绿条，深色任务栏上看不清；16px 那档单独画了像素对齐版。
   `windows/render-app-icon.sh` 栅格化成 16–256 八档写到 `apps/windows/tsf/resources/qingjian.ico`，改了 svg 重跑，生成物随仓库提交。
-- `windows/app-mono-dark.svg` / `app-mono-light.svg`：Windows 任务栏单色图标源文件（可选风格，彩色的 `app.svg` 仍是默认）。
-  线稿外框 + 官方竹简几何，左列中段保留品牌绿点缀，深浅任务栏都透底色。两版几何一致，只有外框线宽差一档
-  （深 64 / 浅 72）：白线在深色任务栏上有光晕效应、看着比黑线粗约半像素，两档在真机实拍里基本等重。
-  生成物 `apps/windows/tsf/resources/qingjian-mono-{dark,light}.ico` 与 `qingjian.ico` 同构（16–48 存 BMP，64 起存 PNG），
-  生成物随仓库提交。
+- `windows/app-mono-dark.svg` / `app-mono-light.svg`：Windows 任务栏单色图标源文件（无边框版，任务栏缺省用它；
+  彩色的 `app.svg` 仍用于开始菜单、安装包等带底板的场合）。官方竹简剪影贴满画布，左列中段保留品牌绿点缀，
+  深浅任务栏都透底色，与系统托盘的原生图标同一占格逻辑。两版几何一致，只有墨色不同（白 / 近黑），
+  品牌绿两版同值。生成物 `apps/windows/tsf/resources/qingjian-mono-{dark,light}.ico` 与 `qingjian.ico`
+  同构（16–48 存 BMP，64 起存 PNG），`windows/render-app-mono-icon.sh` 生成，生成物随仓库提交。
+  预览图 `windows/app-mono-preview.png` 是两版在深浅任务栏的 1:1 与放大效果。
 - `linux/hicolor/<尺寸>x<尺寸>/apps/qingjian.png`：Linux 托盘与应用图标，freedesktop hicolor 八档
   （16/22/24/32/48/64/128/256）。`linux/render-icons.sh` 从 `logo.png` 等比栅格化（需要 magick），生成物随仓库提交，
   源码安装与预编译包都不带栅格化依赖；`apps/linux/scripts/files.py` 安装时按目录尺寸逐档拷到 `$XDG_DATA_HOME/icons/hicolor/`。
