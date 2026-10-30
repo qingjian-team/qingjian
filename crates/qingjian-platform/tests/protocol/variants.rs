@@ -92,6 +92,7 @@ fn client_messages() -> Vec<ClientMessage> {
         ClientMessage::ModeChanged {
             session,
             english: true,
+            vietnamese: true,
         },
         ClientMessage::SyncMode { session },
         ClientMessage::ImeSwitched { session },
@@ -146,12 +147,14 @@ fn server_messages() -> Vec<ServerMessage> {
         ServerMessage::ModeSync {
             session,
             english: Some(false),
+            vietnamese: Some(false),
             input: InputSettings::default(),
             indicator: IndicatorState::default(),
         },
         ServerMessage::ModeSync {
             session,
             english: Some(true),
+            vietnamese: Some(true),
             input: InputSettings::default(),
             indicator: IndicatorState::default(),
         },

@@ -15,9 +15,54 @@ use super::cloud::cloud_candidate;
 use super::*;
 use qingjian_core::TraditionalVariant;
 use qingjian_core::candidate::arrows::Focus;
-use qingjian_platform::candidate_menu::{self, CandidateAction};
+use qingjian_platform::candidate_menu::{
+    self, CandidateAction, IndependentActionOutcome, IndependentInputContext,
+};
 
 impl Host {
+    pub fn vietnamese_candidate_actions(&self, offset: usize) -> Vec<CandidateAction> {
+        let Some(candidate) = self
+            .session
+            .index_in_view(offset)
+            .and_then(|index| self.session.candidate(index))
+        else {
+            return Vec::new();
+        };
+        candidate_menu::independent_actions(
+            &self.engine,
+            &candidate,
+            self.vietnamese_candidate_context(),
+        )
+    }
+
+    /// 越南语候选不经过中文 Composition，权重使用带 `vi:` 前缀的独立学习键。
+    /// 返回提示与模型翻译需要的候选。
+    pub fn perform_vietnamese_candidate_action(
+        &mut self,
+        offset: usize,
+        action: CandidateAction,
+    ) -> Option<(IndependentActionOutcome, Candidate)> {
+        let index = self.session.index_in_view(offset)?;
+        let candidate = self.session.candidate(index)?;
+        let input = self.vietnamese.raw().to_owned();
+        let context = IndependentInputContext {
+            namespace: "vi",
+            input: &input,
+            translation_language: qingjian_core::Language::Chinese,
+        };
+        let outcome =
+            candidate_menu::perform_independent(action, &mut self.engine, &candidate, context)?;
+        Some((outcome, candidate))
+    }
+
+    fn vietnamese_candidate_context(&self) -> IndependentInputContext<'_> {
+        IndependentInputContext {
+            namespace: "vi",
+            input: self.vietnamese.raw(),
+            translation_language: qingjian_core::Language::Chinese,
+        }
+    }
+
     /// 右键菜单：视图里第 `offset` 格的候选能做哪几件事；那格没有候选给空。
     pub fn candidate_actions(&self, offset: usize) -> Vec<CandidateAction> {
         let Some(candidate) = self
@@ -73,8 +118,24 @@ impl Host {
         self.candidate_translation = Some(CandidateTranslation {
             sequence,
             candidate,
+            independent_translation: None,
         });
         self.status = Some("模型正在重新生成译文…".to_owned());
+        self.await_prediction(None);
+    }
+
+    pub fn begin_independent_candidate_translation(
+        &mut self,
+        sequence: u64,
+        candidate: Candidate,
+        language: qingjian_core::Language,
+    ) {
+        self.candidate_translation = Some(CandidateTranslation {
+            sequence,
+            candidate,
+            independent_translation: Some(language),
+        });
+        self.status = Some("模型正在重新生成中文译词…".to_owned());
         self.await_prediction(None);
     }
 

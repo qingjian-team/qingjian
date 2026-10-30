@@ -29,7 +29,14 @@ impl TextService_Impl {
     /// 自己按开关登记，这里只管激活之后的变化），设置窗口改完不用切走再切回输入法。
     pub(super) fn apply_mode_settings(&self, english_mode: bool, switch_keys: SwitchKeys) {
         let was_enabled = self.mode_state.enabled();
-        self.mode_state.set_settings(english_mode, switch_keys);
+        let third = self
+            .input_settings
+            .get()
+            .map_or(qingjian_platform::ThirdInputMethod::Off, |input| {
+                input.double_shift_input
+            });
+        self.mode_state
+            .set_settings(english_mode, switch_keys, third);
         // 关掉内置英文模式时立刻回中文，别停在一个再也切不回去的英文状态（Server 那份也跟着回中文）。
         if !english_mode && self.mode_state.english() {
             self.mode_state.set_english(false);
@@ -162,8 +169,14 @@ impl TextService_Impl {
     }
 
     /// 跟上 Server 的全局模式（别的应用切过、点了悬浮状态条）：改状态、刷指示器，不再回报。
-    pub(super) fn adopt_mode(&self, english: bool) {
-        if english != self.mode_state.english() && self.switch_mode(english) {
+    pub(super) fn adopt_mode(&self, english: bool, vietnamese: Option<bool>) {
+        let vietnamese = vietnamese.unwrap_or_else(|| self.mode_state.vietnamese());
+        if (english != self.mode_state.english() || vietnamese != self.mode_state.vietnamese())
+            && self.switch_mode(english)
+        {
+            if vietnamese && self.mode_state.third_enabled() {
+                self.mode_state.set_vietnamese(true);
+            }
             self.refresh_mode_indicator();
         }
     }
@@ -180,7 +193,7 @@ impl TextService_Impl {
                 self.apply_input_settings(reply.input);
                 self.apply_indicator_state(reply.indicator);
                 if let Some(english) = reply.english {
-                    self.adopt_mode(english);
+                    self.adopt_mode(english, reply.vietnamese);
                 }
             }
             Some(Err(error)) => {
@@ -262,8 +275,9 @@ impl TextService_Impl {
     /// 把用户切出的模式报给 Server，成为全局模式。
     pub(super) fn report_mode(&self) {
         let english = self.mode_state.english();
+        let vietnamese = self.mode_state.vietnamese();
         if let Some(client) = self.engine.borrow_mut().as_mut()
-            && let Err(error) = client.mode_changed(english)
+            && let Err(error) = client.mode_changed(english, vietnamese)
         {
             log(&format!("上报中英模式失败: {error}"));
         }

@@ -181,6 +181,9 @@ if [[ "$SAMPLE_DATA" == 0 ]]; then
   for f in assets/lexicon/english.tsv data/generated/english.tsv; do
     [[ -f "$f" ]] && cp "$f" "$APP/Contents/Resources/"
   done
+  python3 tools/corpus/vietnamese_words.py assets/glossary/glossary-vi.tsv \
+    data/generated/vietnamese.tsv data/generated/vietnamese-zh.tsv
+  cp data/generated/vietnamese.tsv data/generated/vietnamese-zh.tsv "$APP/Contents/Resources/"
   echo "使用 data/generated/ 的产品数据（自建词库）"
 else
   echo "只带样例词库（--sample-data），不是可分发的包"

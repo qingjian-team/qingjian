@@ -11,19 +11,28 @@ impl Router {
     pub(super) fn activate_mode(&mut self, session: SessionId) {
         self.mode_session = Some(session);
         let previous = self.english;
+        let previous_vietnamese = self.vietnamese_mode;
         if !self.config.english_mode {
             self.english = false;
+            self.vietnamese_mode = false;
         } else if self.config.remember_mode_per_app {
             let initial = self.config.default_english;
-            self.english = match self.sessions.get_mut(&session) {
+            let mode = match self.sessions.get_mut(&session) {
                 Some(info) => match info.app.as_deref().filter(|app| !app.is_empty()) {
-                    Some(app) => *self.app_modes.entry(app.to_lowercase()).or_insert(initial),
-                    None => *info.english.get_or_insert(initial),
+                    Some(app) => *self
+                        .app_modes
+                        .entry(app.to_lowercase())
+                        .or_insert((initial, false)),
+                    None => (
+                        *info.english.get_or_insert(initial),
+                        *info.vietnamese.get_or_insert(false),
+                    ),
                 },
-                None => initial,
+                None => (initial, false),
             };
+            (self.english, self.vietnamese_mode) = mode;
         }
-        if previous != self.english {
+        if previous != self.english || previous_vietnamese != self.vietnamese_mode {
             self.reconcile_status();
         }
     }
@@ -37,9 +46,13 @@ impl Router {
         };
         match info.app.as_deref().filter(|app| !app.is_empty()) {
             Some(app) => {
-                self.app_modes.insert(app.to_lowercase(), self.english);
+                self.app_modes
+                    .insert(app.to_lowercase(), (self.english, self.vietnamese_mode));
             }
-            None => info.english = Some(self.english),
+            None => {
+                info.english = Some(self.english);
+                info.vietnamese = Some(self.vietnamese_mode);
+            }
         }
     }
 
@@ -52,9 +65,11 @@ impl Router {
             return;
         }
         self.english = next.english_mode && next.default_english;
+        self.vietnamese_mode = false;
         self.app_modes.clear();
         for info in self.sessions.values_mut() {
             info.english = None;
+            info.vietnamese = None;
         }
     }
 }

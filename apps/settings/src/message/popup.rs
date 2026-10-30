@@ -19,4 +19,6 @@ pub enum Popup {
     AuxScheme,
     /// 设置程序与候选窗的界面语言。
     UiLanguage,
+    /// 连按两次 Shift 切换到的第三输入法。
+    ThirdInput,
 }

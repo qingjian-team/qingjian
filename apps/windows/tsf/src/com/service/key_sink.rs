@@ -7,7 +7,7 @@
 use std::time::Instant;
 
 use windows::Win32::Foundation::{FALSE, LPARAM, WPARAM};
-use windows::Win32::UI::Input::KeyboardAndMouse::VK_CAPITAL;
+use windows::Win32::UI::Input::KeyboardAndMouse::{VK_CAPITAL, VK_LSHIFT, VK_RSHIFT, VK_SHIFT};
 use windows::Win32::UI::TextServices::{ITfContext, ITfKeyEventSink_Impl};
 use windows::core::{BOOL, GUID, Ref, Result};
 
@@ -17,7 +17,9 @@ use super::TextService_Impl;
 use super::next::Next;
 use crate::client::KeyReply;
 use crate::com::composition::preedit_string;
-use crate::com::key::event::{digit_key, is_edit, is_letter, is_mode_letter, is_nav, to_key_event};
+use crate::com::key::event::{
+    digit_key, is_edit, is_letter, is_mode_letter, is_nav, to_key_event_with_modes,
+};
 use crate::com::key::preserved;
 use crate::com::log::log;
 
@@ -118,21 +120,65 @@ impl TextService_Impl {
     }
 
     fn key_event(&self, vk: u32) -> KeyEvent {
-        to_key_event(vk, self.mode_state.english())
+        to_key_event_with_modes(vk, self.mode_state.english(), self.mode_state.vietnamese())
     }
 
     fn note_key_down(&self, vk: u32, lparam: LPARAM) {
+        let shift = [VK_SHIFT, VK_LSHIFT, VK_RSHIFT]
+            .iter()
+            .any(|code| vk == u32::from(code.0));
+        if !shift && self.key_tap.take_pending_shift() && self.mode_state.switch_keys().shift {
+            self.commit_pending();
+            self.mode_state.switch_chinese_foreign();
+            self.refresh_mode_indicator();
+            self.report_mode();
+        }
         self.key_tap
-            .key_down(vk, lparam, self.mode_state.switch_keys());
+            .key_down(vk, lparam, self.mode_state.tap_keys());
     }
 
     fn note_key_up(&self, vk: u32) {
         if vk == u32::from(VK_CAPITAL.0) {
             self.mode_state.notify();
         }
-        if self.key_tap.key_up(vk, self.mode_state.switch_keys()) {
-            self.set_english_mode(!self.mode_state.english());
+        if self.key_tap.key_up(vk, self.mode_state.tap_keys()) {
+            let shift = [VK_SHIFT, VK_LSHIFT, VK_RSHIFT]
+                .iter()
+                .any(|code| vk == u32::from(code.0));
+            if shift {
+                if !self.mode_state.third_enabled() {
+                    if self.mode_state.switch_keys().shift {
+                        self.set_english_mode(!self.mode_state.english());
+                    }
+                } else if self.key_tap.double_shift(true) {
+                    self.commit_pending();
+                    self.mode_state.switch_foreign();
+                    self.refresh_mode_indicator();
+                    self.report_mode();
+                }
+            } else if self.mode_state.third_enabled() {
+                self.commit_pending();
+                self.mode_state.switch_chinese_foreign();
+                self.refresh_mode_indicator();
+                self.report_mode();
+            } else {
+                self.set_english_mode(!self.mode_state.english());
+            }
         }
+    }
+
+    /// 轮询取走超过 400 ms、没有第二下的 Shift；只有配置勾了单击 Shift 才切模式。
+    pub(super) fn resolve_pending_shift(&self) {
+        if !self.key_tap.resolve_shift() {
+            return;
+        }
+        if !self.mode_state.switch_keys().shift {
+            return;
+        }
+        self.commit_pending();
+        self.mode_state.switch_chinese_foreign();
+        self.refresh_mode_indicator();
+        self.report_mode();
     }
 
     /// 这个键吃不吃，与 Router 的分派对齐；`OnTestKeyDown` 用，无副作用。判定见 [`eats_key`]。
@@ -400,6 +446,9 @@ fn eats_key(
     }
     let vk = event.virtual_key;
     if is_letter(vk) {
+        if modifiers.vietnamese_mode {
+            return true;
+        }
         if !composing && (modifiers.caps || (modifiers.english_mode && !english_candidates)) {
             return false;
         }
@@ -412,6 +461,9 @@ fn eats_key(
     }
     if composing {
         return is_edit(vk) || is_nav(vk) || event.character.is_some_and(|c| !c.is_control());
+    }
+    if modifiers.vietnamese_mode {
+        return is_edit(vk) || event.character.is_some_and(|c| !c.is_control());
     }
     event
         .character

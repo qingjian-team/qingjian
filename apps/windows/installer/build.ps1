@@ -36,10 +36,17 @@ if ($Sign) {
 
 # 0) 产品数据缺一样就停：与 .iss 的 [Files] 和 data-bundle.sh 的数据包一致，免得编译几分钟后才在 iscc 那步报错，
 #    更免得少了码表的包照样能装（以前它标了 skipifsourcedoesntexist，缺了也悄悄打包）。本地整句模型不随包。
+python (Join-Path $Repo 'tools\corpus\vietnamese_words.py') `
+    (Join-Path $Repo 'assets\glossary\glossary-vi.tsv') `
+    (Join-Path $Repo 'data\generated\vietnamese.tsv') `
+    (Join-Path $Repo 'data\generated\vietnamese-zh.tsv')
+if ($LASTEXITCODE -ne 0) { throw "生成越南语候选词表失败（退出码 $LASTEXITCODE）" }
 $data = @(
     'data\generated\dict.qj',
     'data\generated\lm.qj',
     'data\generated\english.tsv',
+    'data\generated\vietnamese.tsv',
+    'data\generated\vietnamese-zh.tsv',
     'data\generated\dicts\*.qj',
     'data\generated\codes\*.qj'
 ) + ('en', 'ja', 'zh', 'es', 'vi', 'de' | ForEach-Object { "data\generated\glossary-$_.qj" })

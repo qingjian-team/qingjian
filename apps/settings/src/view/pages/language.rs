@@ -2,14 +2,15 @@
 
 use bamboo_slip::taffy::{FlexDirection, NodeId, Style};
 use bamboo_slip::{Checkbox, RenderError, SettingRow, Ui, Visual, group, section_title};
-use qingjian_platform::{DEFAULT_ENGLISH_CANDIDATES_ON, ShiftLetter, SwitchKey};
+use qingjian_platform::{DEFAULT_ENGLISH_CANDIDATES_ON, ShiftLetter, SwitchKey, ThirdInputMethod};
 
 use crate::i18n::tr;
-use crate::message::Message;
+use crate::message::{Message, Popup};
 use crate::support::Feature;
 use crate::view::Page;
 use crate::view::parts::actions::with_notice;
-use crate::view::parts::controls::{choice, percent_slider, toggle, toggle_info};
+use crate::view::parts::controls::{choice, percent_slider, select, toggle, toggle_info};
+use crate::view::parts::menus::third_input_label;
 
 /// 全角 / 半角两档，配置里是布尔。
 const WIDTHS: [bool; 2] = [true, false];
@@ -32,6 +33,25 @@ pub fn language(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Render
     if Feature::SwitchKeys.here() {
         rows.push(switch_keys(ui, page)?);
     }
+    let third = general.double_shift_input;
+    let third_names: Vec<&str> = ThirdInputMethod::ALL
+        .iter()
+        .map(|method| third_input_label(*method))
+        .collect();
+    let third_input = select(
+        ui,
+        page,
+        Popup::ThirdInput,
+        (third_input_label(third), &third_names),
+        140.0,
+        false,
+    )?;
+    rows.push(
+        SettingRow::new(tr("language.double_shift_input"))
+            .info(tr("language.double_shift_input_info"))
+            .control(third_input)
+            .build(ui, theme)?,
+    );
     if Feature::DefaultEnglish.here() {
         rows.push(toggle_info(
             ui,

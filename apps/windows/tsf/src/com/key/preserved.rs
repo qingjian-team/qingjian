@@ -129,6 +129,7 @@ pub(crate) fn key_event(combo: KeyCombo, english_mode: bool) -> KeyEvent {
             win: m.command,
             caps: false,
             english_mode,
+            vietnamese_mode: false,
         },
     )
 }

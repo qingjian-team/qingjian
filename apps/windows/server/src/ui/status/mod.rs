@@ -169,9 +169,11 @@ impl StatusBar {
         }
     }
 
-    /// 模式格的文字：中 / 英 / 注，开着双拼时跟方案名。
+    /// 模式格的文字：中 / 英 / 越 / 注，开着双拼时跟方案名。
     fn mode_text(view: &StatusView) -> String {
-        if view.english {
+        if view.vietnamese {
+            "越".to_owned()
+        } else if view.english {
             "英".to_owned()
         } else if view.zhuyin {
             "注".to_owned()

@@ -24,6 +24,7 @@ impl Router {
                     ..
                 } => sentence_translation,
                 Composed::Raw { .. } => None,
+                Composed::Vietnamese { .. } => None,
             });
         self.highlight = 0;
         self.navigated = false;
@@ -109,16 +110,31 @@ impl Router {
         if self
             .candidate_translation
             .as_ref()
-            .is_some_and(|(sequence, _)| *sequence == prediction.sequence)
+            .is_some_and(|(sequence, _, _)| *sequence == prediction.sequence)
         {
-            let (_, candidate) = self.candidate_translation.take().expect("刚检查过候选译文");
-            let updated = prediction.sentence.is_some_and(|generated| {
-                self.engine
-                    .set_generated_candidate_translation(&candidate, &generated)
-            });
+            let (_, candidate, independent_language) =
+                self.candidate_translation.take().expect("刚检查过候选译文");
+            let generated = prediction.sentence.filter(|text| !text.trim().is_empty());
+            let updated = if independent_language.is_some() {
+                generated.is_some()
+            } else {
+                generated.as_ref().is_some_and(|generated| {
+                    self.engine
+                        .set_generated_candidate_translation(&candidate, generated)
+                })
+            };
             self.notice = Some(if updated {
-                self.refresh_candidate_translation(&candidate.text);
-                format!("已更新「{}」的译文", candidate.text)
+                if let Some(language) = independent_language {
+                    self.set_independent_candidate_translation(
+                        &candidate.text,
+                        language,
+                        generated.as_deref().expect("updated 已检查"),
+                    );
+                    format!("已更新「{}」的中文译词", candidate.text)
+                } else {
+                    self.refresh_candidate_translation(&candidate.text);
+                    format!("已更新「{}」的译文", candidate.text)
+                }
             } else {
                 "模型没有生成可用译文".to_owned()
             });
@@ -413,6 +429,7 @@ impl Router {
     pub(super) fn candidate_count(&self) -> usize {
         match &self.composed {
             Some(Composed::Candidates { layout, .. }) => layout.len(),
+            Some(Composed::Vietnamese { candidates, .. }) => candidates.len(),
             _ => 0,
         }
     }
@@ -421,11 +438,25 @@ impl Router {
     pub(super) fn layout_candidate(&self, index: usize) -> Option<Candidate> {
         match &self.composed {
             Some(Composed::Candidates { layout, .. }) => layout.candidate(index).cloned(),
+            Some(Composed::Vietnamese { candidates, .. }) => candidates.get(index).cloned(),
             _ => None,
         }
     }
 
     pub(super) fn commit_index(&mut self, index: usize) -> Option<String> {
+        if let Some(Composed::Vietnamese { candidates, .. }) = &self.composed {
+            let text = candidates.get(index)?.text.clone();
+            let phrase_prefix = self.vietnamese.phrase_prefix();
+            let phrase =
+                phrase_prefix != self.vietnamese.current() && text.starts_with(phrase_prefix);
+            if phrase {
+                self.vietnamese.choose_phrase(&text, ' ');
+            } else {
+                self.vietnamese.commit_word(Some(&text), ' ');
+            }
+            self.sync_vietnamese_preedit();
+            return Some(String::new());
+        }
         let candidate = self.layout_candidate(index)?;
         Some(self.engine.commit(&candidate))
     }
@@ -503,6 +534,30 @@ impl Router {
     fn composed_frame(&self) -> Frame {
         match &self.composed {
             None => Frame::default(),
+            Some(Composed::Vietnamese { text, candidates }) => Frame {
+                preedit: vec![PreeditSegment {
+                    text: text.clone(),
+                    kind: PreeditKind::Typed,
+                }],
+                preedit_mode: self.config.preedit,
+                cursor: text.chars().count(),
+                window_preedit: None,
+                candidates: CandidateList {
+                    items: candidates.clone(),
+                },
+                highlight: self.highlight.min(candidates.len().saturating_sub(1)),
+                page: 0,
+                page_count: 1,
+                layout: self.config.layout,
+                columns: 0,
+                column_ems: Vec::new(),
+                appearance: self.config.appearance,
+                aux_code_show: false,
+                translation_pos: false,
+                sentence: None,
+                notice: None,
+                symbol_panel: false,
+            },
             Some(Composed::Raw { text, cursor }) => Frame {
                 preedit: vec![PreeditSegment {
                     text: text.clone(),

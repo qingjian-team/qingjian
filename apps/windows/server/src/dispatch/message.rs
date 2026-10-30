@@ -38,6 +38,7 @@ impl Router {
                         app,
                         private: false,
                         english: None,
+                        vietnamese: None,
                         protocol,
                     },
                 );
@@ -86,9 +87,13 @@ impl Router {
                 }
                 None
             }
-            ClientMessage::ModeChanged { session, english } => {
-                tracing::debug!(?session, english, "中英模式");
-                self.handle_mode_changed(session, english);
+            ClientMessage::ModeChanged {
+                session,
+                english,
+                vietnamese,
+            } => {
+                tracing::debug!(?session, english, vietnamese, "输入模式");
+                self.handle_mode_changed(session, english, vietnamese);
                 None
             }
             ClientMessage::SyncMode { session } => {
@@ -97,6 +102,7 @@ impl Router {
                 Some(ServerMessage::ModeSync {
                     session,
                     english: Some(self.english),
+                    vietnamese: Some(self.vietnamese_mode),
                     input: self.input_settings(session),
                     indicator: self.indicator_state(),
                 })
@@ -155,7 +161,9 @@ impl Router {
         }
         let (commit, outcome) = match self.apply_key(&event) {
             Effect::Changed(commit) => {
-                self.recompose();
+                if !event.modifiers.vietnamese_mode {
+                    self.recompose();
+                }
                 (commit, KeyOutcome::Consumed)
             }
             Effect::Navigated => (None, KeyOutcome::Consumed),

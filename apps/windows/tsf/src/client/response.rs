@@ -5,6 +5,9 @@ pub struct ModeSyncReply {
     /// `Some(true)` 切英文、`Some(false)` 切中文；`None` 没有待处理的切换。
     pub english: Option<bool>,
 
+    /// 当前是否为越南语第三输入法；旧 Server 不带时不改本地状态。
+    pub vietnamese: Option<bool>,
+
     /// 当前的按键行为设置（切换键、内置英文模式）。每一拍都带，配置改了靠它生效——
     /// DLL 不读配置文件，`%APPDATA%\Qingjian` 对 AppContainer 里的商店应用本来也读不到。
     pub input: InputSettings,

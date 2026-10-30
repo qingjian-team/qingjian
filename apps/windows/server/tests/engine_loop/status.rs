@@ -14,6 +14,7 @@ fn status_bar_mode_click_changes_the_global_mode() {
     router.handle(ClientMessage::ModeChanged {
         session: SESSION,
         english: false,
+        vietnamese: false,
     });
 
     // 点「中」：状态条翻成「英」，之后每个 DLL 来取都拿到英文（全局一份，不是取一次就清）。
@@ -37,6 +38,7 @@ fn status_bar_mode_click_is_ignored_when_builtin_english_is_off() {
     router.handle(ClientMessage::ModeChanged {
         session: SESSION,
         english: false,
+        vietnamese: false,
     });
     assert_eq!(recorder.calls().last(), Some(&Some("中".to_owned())));
 
@@ -47,6 +49,7 @@ fn status_bar_mode_click_is_ignored_when_builtin_english_is_off() {
     router.handle(ClientMessage::ModeChanged {
         session: SESSION,
         english: true,
+        vietnamese: false,
     });
     assert_eq!(synced_mode(&mut router, SESSION), Some(false));
 }
@@ -65,10 +68,12 @@ fn status_bar_follows_mode_when_enabled() {
     router.handle(ClientMessage::ModeChanged {
         session: SESSION,
         english: false,
+        vietnamese: false,
     });
     router.handle(ClientMessage::ModeChanged {
         session: SESSION,
         english: true,
+        vietnamese: false,
     });
     router.handle(ClientMessage::CloseSession { session: SESSION });
     assert_eq!(
@@ -78,6 +83,35 @@ fn status_bar_follows_mode_when_enabled() {
 
     router.handle(ClientMessage::ImeSwitched { session: SESSION });
     assert_eq!(recorder.calls().last(), Some(&None));
+}
+
+#[test]
+fn status_bar_and_mode_sync_show_vietnamese() {
+    let config = RouterConfig {
+        status_enabled: true,
+        ..RouterConfig::default()
+    };
+    let mut router = router_with(config);
+    let recorder = RecordingStatus::default();
+    router.set_status_sink(Box::new(recorder.clone()));
+
+    router.handle(ClientMessage::ModeChanged {
+        session: SESSION,
+        english: false,
+        vietnamese: true,
+    });
+
+    assert_eq!(recorder.calls().last(), Some(&Some("越".to_owned())));
+    match router.handle(ClientMessage::SyncMode {
+        session: SessionId(2),
+    }) {
+        Some(ServerMessage::ModeSync {
+            english: Some(false),
+            vietnamese: Some(true),
+            ..
+        }) => {}
+        other => panic!("越南语模式应同步到其他 DLL，实际 {other:?}"),
+    }
 }
 
 #[test]
@@ -94,6 +128,7 @@ fn status_bar_shows_shuangpin_scheme_in_chinese() {
     router.handle(ClientMessage::ModeChanged {
         session: SESSION,
         english: false,
+        vietnamese: false,
     });
 
     assert_eq!(recorder.calls(), vec![Some("中 · 小鹤双拼".to_owned())]);
@@ -108,6 +143,7 @@ fn status_bar_stays_hidden_when_disabled() {
     router.handle(ClientMessage::ModeChanged {
         session: SESSION,
         english: false,
+        vietnamese: false,
     });
 
     assert_eq!(recorder.calls(), vec![None]);
@@ -123,6 +159,7 @@ fn indicator_menu_toggles_status_bar() {
     router.handle(ClientMessage::ModeChanged {
         session: SESSION,
         english: false,
+        vietnamese: false,
     });
 
     // 任务栏图标菜单里点「悬浮状态条」：关着的打开，再点收起。
@@ -151,6 +188,7 @@ fn mode_is_shared_by_every_app() {
     router.handle(ClientMessage::ModeChanged {
         session: SESSION,
         english: true,
+        vietnamese: false,
     });
     assert_eq!(synced_mode(&mut router, other_app), Some(true));
     assert_eq!(synced_mode(&mut router, SessionId(3)), Some(true));

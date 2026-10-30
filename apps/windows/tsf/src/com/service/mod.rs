@@ -162,13 +162,19 @@ pub(super) fn on_thread_focus(foreground: bool) {
 /// 轮询发现前台会话没连着 Server（见 [`super::poll`]）：补连一次。
 pub(super) fn on_reconnect_tick() {
     with_active(|service| {
+        service.resolve_pending_shift();
         service.ensure_connected();
     });
 }
 
+/// 每拍落实超过 150 ms 的 Shift 单击。
+pub(super) fn on_shift_tick() {
+    with_active(TextService_Impl::resolve_pending_shift);
+}
+
 /// 轮询取到了 Server 的全局模式（见 [`super::poll`]）；与当前相同就不动。
-pub(super) fn on_mode_sync(english: bool) {
-    with_active(|service| service.adopt_mode(english));
+pub(super) fn on_mode_sync(english: bool, vietnamese: Option<bool>) {
+    with_active(|service| service.adopt_mode(english, vietnamese));
 }
 
 /// 轮询取回了 Server 下发的按键行为设置（见 [`super::poll`]）：切换键 / 内置英文模式改了就地应用。

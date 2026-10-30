@@ -7,6 +7,9 @@ pub struct StatusView {
     /// 英文模式（`false` 中文）。
     pub english: bool,
 
+    /// 越南语第三输入法。
+    pub vietnamese: bool,
+
     /// 是否啟用大千注音。
     pub zhuyin: bool,
 

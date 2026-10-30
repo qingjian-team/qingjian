@@ -4,7 +4,7 @@ use super::frame::Frame;
 use super::indicator::IndicatorState;
 use super::key::KeyOutcome;
 use super::session::SessionId;
-use crate::config::{KeyCombo, SwitchKeys};
+use crate::config::{KeyCombo, SwitchKeys, ThirdInputMethod};
 
 /// Server 下发给 DLL 的「按键行为」设置。
 ///
@@ -23,6 +23,10 @@ pub struct InputSettings {
 
     /// 内置英文模式总开关（`[general] english_mode`）。
     pub english_mode: bool,
+
+    /// 连按两次 Shift 切换到的第三输入法。
+    #[serde(default)]
+    pub double_shift_input: ThirdInputMethod,
 
     /// 中文模式下 Shift+字母进组句（`[general] shift_letter = "compose"`）。DLL 据此决定没在组句时
     /// 按住 Shift 敲的字母吃不吃：缺省交给应用，开着时送 Server 起一段组句（`⇧C` 接 `pan` 出「C盘」）。
@@ -58,6 +62,7 @@ impl Default for InputSettings {
             toggle_punctuation: None,
             switch_mode: SwitchKeys::default(),
             english_mode: true,
+            double_shift_input: ThirdInputMethod::Off,
             shift_letter_compose: false,
             restore_mode: false,
             toggle_traditional: None,
@@ -175,6 +180,10 @@ pub enum ServerMessage {
 
         /// 全局模式：`Some(true)` 英文、`Some(false)` 中文，DLL 与自己不同就跟上；`None` 不动（老 Server 没有待切换时）。
         english: Option<bool>,
+
+        /// 全局第三输入法状态；旧 Server 不带时为 `None`，DLL 保留本地状态。
+        #[serde(default)]
+        vietnamese: Option<bool>,
 
         /// 按键行为设置；老 DLL 不认识这个字段，读到时忽略（serde 默认忽略多余字段）。
         #[serde(default)]
