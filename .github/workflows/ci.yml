@@ -292,17 +292,19 @@ jobs:
 
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
 
-      - name: Clippy (Server, TSF DLL, Settings)
-        run: cargo clippy -p qingjian-windows-server -p qingjian-windows-tsf -p qingjian-windows-settings -p qingjian-settings --all-targets --locked -- -D warnings
+      # `qingjian-platform` 的 `pipe` 模块整个是 `#[cfg(windows)]`：core job 在 Linux 上既不 lint 也不测它，
+      # 只有这里能覆盖。漏了它，管道名派生与两端互验令牌就等于没有 CI 门禁。
+      - name: Clippy (Server, TSF DLL, Settings, platform)
+        run: cargo clippy -p qingjian-windows-server -p qingjian-windows-tsf -p qingjian-windows-settings -p qingjian-settings -p qingjian-platform --all-targets --locked -- -D warnings
 
       # core job 在 Linux 上文档化不到 #[cfg(windows)] 的模块，那一半的文档错误只有这里看得见。
-      - name: Rustdoc (Server, TSF DLL, Settings)
+      - name: Rustdoc (Server, TSF DLL, Settings, platform)
         env:
           RUSTDOCFLAGS: -D warnings
-        run: cargo doc -p qingjian-windows-server -p qingjian-windows-tsf -p qingjian-windows-settings -p qingjian-settings --no-deps --locked
+        run: cargo doc -p qingjian-windows-server -p qingjian-windows-tsf -p qingjian-windows-settings -p qingjian-settings -p qingjian-platform --no-deps --locked
 
-      - name: Test (Server, TSF DLL, Settings)
-        run: cargo test -p qingjian-windows-server -p qingjian-windows-tsf -p qingjian-windows-settings -p qingjian-settings --locked
+      - name: Test (Server, TSF DLL, Settings, platform)
+        run: cargo test -p qingjian-windows-server -p qingjian-windows-tsf -p qingjian-windows-settings -p qingjian-settings -p qingjian-platform --locked
 
       # 安装包另带一份 32 位 DLL（企业微信 / WPS 这类 32 位应用只能加载它）
       - name: Check (TSF DLL, 32-bit)

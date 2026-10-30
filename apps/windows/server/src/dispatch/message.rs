@@ -5,12 +5,17 @@ use qingjian_platform::protocol::{
     ServerMessage, SessionId,
 };
 
+use super::ConnectionId;
 use super::Router;
 use super::key::Effect;
 use super::session::SessionInfo;
 
 impl Router {
-    pub(super) fn dispatch(&mut self, message: ClientMessage) -> Option<ServerMessage> {
+    pub(super) fn dispatch(
+        &mut self,
+        conn: ConnectionId,
+        message: ClientMessage,
+    ) -> Option<ServerMessage> {
         match message {
             ClientMessage::OpenSession {
                 session,
@@ -35,6 +40,8 @@ impl Router {
                 self.sessions.insert(
                     session,
                     SessionInfo {
+                        // 归属记在这条连接上：会话号是 DLL 的线程号，别人猜得到也动不了
+                        owner: conn,
                         app,
                         private: false,
                         english: None,

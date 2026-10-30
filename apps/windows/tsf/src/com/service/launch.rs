@@ -208,7 +208,7 @@ impl Drop for LaunchMutex {
     }
 }
 
-fn server_exe() -> Option<PathBuf> {
+pub(crate) fn server_exe() -> Option<PathBuf> {
     let module = module_path().ok()?;
     Some(server_exe_path(Path::new(&module.to_string())))
 }

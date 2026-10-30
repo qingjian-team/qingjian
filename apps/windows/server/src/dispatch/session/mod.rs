@@ -1,15 +1,43 @@
 //! 会话：DLL 每个应用线程一条，Server 记宿主应用；焦点在哪个会话，组句就属于谁。
 
 mod info;
+#[cfg(test)]
+mod tests;
 
-use qingjian_platform::protocol::SessionId;
+use qingjian_platform::protocol::{ClientMessage, SessionId};
 
 pub(super) use self::info::SessionInfo;
-use super::Router;
+use super::{ConnectionId, Router, UNATTENDED};
 
 impl Router {
     pub fn session_count(&self) -> usize {
         self.sessions.len()
+    }
+
+    /// 这条消息该不该由这条连接发。会话是 DLL 用线程号当编号报上来的、可枚举，
+    /// 所以只认「开它的那条连接」，别的一律不认：
+    ///
+    /// - 来源不可知（测试的内存流、[`UNATTENDED`]）：放行，与加这道门之前一样；
+    /// - [`ClientMessage::ImeSwitched`]：放行，理由见函数体——它是唯一一条合法地跨连接发的消息；
+    /// - 会话已注册：只有 `OpenSession` 的那条连接能动它；
+    /// - 会话没注册：只放行 [`ClientMessage::allowed_before_open`] 那几条。
+    ///
+    /// 不认的消息在 `traced_from` 里丢掉、不回话——合法的 DLL 永远走不到这里。
+    pub(super) fn admits(&self, conn: ConnectionId, message: &ClientMessage) -> bool {
+        if conn == UNATTENDED {
+            return true;
+        }
+        // DLL 切走输入法时是在 TSF 的线程上现连一条管道发这条通知（`EngineClient::notify_ime_switched`），
+        // 会话却开在原来那条连接上：按归属判会把合法通知误杀，状态条就一辈子收不起来。
+        // 它只把状态条收起（`handle_ime_switched` 改的是全局的 `ime_active`），不读也不动任何会话数据，
+        // 代价最多是别人把状态条藏了——和关掉状态条一样，够不上打开归属这道门的理由。
+        if matches!(message, ClientMessage::ImeSwitched { .. }) {
+            return true;
+        }
+        match self.sessions.get(&message.session()) {
+            Some(info) => info.owner == conn,
+            None => message.allowed_before_open(),
+        }
     }
 
     /// 聚焦会话所在应用的 exe 名；DLL 没报时为 `None`。

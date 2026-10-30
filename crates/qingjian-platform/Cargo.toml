@@ -25,3 +25,15 @@ tracing.workspace = true
 # Linux 的 socket 路径要按 euid 隔离私有临时目录；只有这一处用得到
 [target.'cfg(target_os = "linux")'.dependencies]
 libc = "0.2.189"
+
+# 命名管道的对端身份（`pipe`）：管道名按用户 SID 派生、两端互验令牌，Server 与 DLL 共用这一份
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.62.2", features = [
+    "Win32_Foundation",
+    "Win32_Security",
+    "Win32_Security_Authorization",
+    "Win32_Storage_FileSystem",
+    "Win32_System_IO",
+    "Win32_System_Pipes",
+    "Win32_System_Threading",
+] }

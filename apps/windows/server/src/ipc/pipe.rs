@@ -1,12 +1,16 @@
-//! 命名管道传输：在 `\\.\pipe\qingjian` 上服务 DLL 客户端，字节模式，帧由协议 codec 切。
+//! 命名管道传输：在 `\\.\pipe\qingjian-<用户摘要>` 上服务 DLL 客户端，字节模式，帧由协议 codec 切。
 //!
 //! 每个应用进程各开一条连接且失焦后连接仍在，所以不能串行服务（新聚焦的应用连不上会阻塞 UI 线程、
 //! 触发 TSF 看门狗）：后台接受循环每来一个客户端就新建实例、起一条线程；[`Router`] 不跨线程，
 //! 留在调用线程跑工人循环，各连接经通道把消息转给它串行处理。
+//!
+//! 管道名在全局命名空间里，谁都能抢建同名实例，所以每条连接在读进第一帧之后先过 [`verify_client`]：
+//! 不是本用户的直接断开，那一帧也不处理、不回话。
 
 use std::fs::File;
 use std::io;
 use std::os::windows::io::{AsRawHandle, FromRawHandle};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
 use std::thread;
 use std::time::Instant;
@@ -23,23 +27,50 @@ use windows::Win32::System::Pipes::{
 };
 use windows::core::{HRESULT, HSTRING};
 
+use qingjian_platform::pipe::verify_client;
 use qingjian_platform::protocol::{ClientMessage, ServerMessage};
 
 use super::{Handled, Work};
 use crate::dispatch::Router;
 
-pub use qingjian_platform::protocol::DEFAULT_PIPE_NAME;
-
 const BUFFER_SIZE: u32 = 64 * 1024;
 
-/// 管道的 SDDL：放行 Everyone / ALL APPLICATION PACKAGES / ALL RESTRICTED APPLICATION PACKAGES，
-/// 完整性标 Low。任务栏搜索、设置这类 AppContainer 进程在默认 DACL 下连不上。
-const PIPE_SDDL: &str = "D:(A;;GA;;;WD)(A;;GA;;;AC)(A;;GA;;;S-1-15-2-2)S:(ML;;NW;;;LW)";
+/// 同时在线的客户端连接上限。正常一个应用一条，几十条就算多了；上限只用来兜住「有人在刷连接」——
+/// 每条连接占一条线程加一个会话表条目，不封顶的话谁都能把 Server 的线程与内存用干净。
+///
+/// 挡的是资源耗尽，不是拒绝服务本身：把名额占满照样能让新应用连不上，那要鉴权之后按用户限速才能解决。
+const MAX_CONNECTIONS: usize = 256;
+
+/// 当前活着的连接数，连接线程退出时由 [`ConnectionSlot`] 还回去。
+static LIVE_CONNECTIONS: AtomicUsize = AtomicUsize::new(0);
+
+/// 一条连接的占位。拿到就说明没超上限，随连接线程一起结束、自动把名额还回来。
+struct ConnectionSlot;
+
+impl ConnectionSlot {
+    /// 先加再看：并发下可能多放进一两条，但绝不会漏减（漏减会让名额永久少一个，比多放更糟）。
+    fn acquire() -> Option<Self> {
+        if LIVE_CONNECTIONS.fetch_add(1, Ordering::Relaxed) >= MAX_CONNECTIONS {
+            LIVE_CONNECTIONS.fetch_sub(1, Ordering::Relaxed);
+            return None;
+        }
+        Some(Self)
+    }
+}
+
+impl Drop for ConnectionSlot {
+    fn drop(&mut self) {
+        LIVE_CONNECTIONS.fetch_sub(1, Ordering::Relaxed);
+    }
+}
 
 /// 在命名管道上服务多个客户端。当前线程独占 [`Router`] 跑工人循环，正常不返回。
 /// `work` 通道由调用方建（UI 线程也往里投状态条事件），这里拿一份发送端给各连接。
-/// 第一个实例带 `FILE_FLAG_FIRST_PIPE_INSTANCE`：已有一个 Server 在跑就建不出来，直接报错退出（两个 Server
-/// 会各画一条状态条、各持一份状态）。
+///
+/// `name` 由调用方按当前用户派生（[`qingjian_platform::pipe::current_name`]），一个用户一条，
+/// 快速切换用户时各人的 Server 不会互抢。第一个实例带 `FILE_FLAG_FIRST_PIPE_INSTANCE`：名字已被占
+/// （同一个用户的另一个 Server，或抢注者）就建不出来，直接报错退出——两个 Server 会各画一条状态条、
+/// 各持一份状态。
 pub fn serve_pipe(
     name: &str,
     router: &mut Router,
@@ -50,9 +81,9 @@ pub fn serve_pipe(
     let first = match create_instance(&pipe, pipe_security_descriptor(), true) {
         Ok(first) => first,
         Err(error) if error.raw_os_error() == Some(ERROR_ACCESS_DENIED.0 as i32) => {
-            return Err(io::Error::other(
-                "已有一个 qingjian-server 在运行（命名管道被占），本进程退出",
-            ));
+            return Err(io::Error::other(format!(
+                "命名管道 {name} 已被占用（另一个 qingjian-server 或抢占者），本进程退出"
+            )));
         }
         Err(error) => return Err(error),
     };
@@ -74,8 +105,8 @@ pub fn serve_pipe(
             continue;
         }
         match receiver.recv_timeout(due - now) {
-            Ok(Work::Client(message, reply)) => {
-                let _ = reply.send(router.handle(message));
+            Ok(Work::Client(conn, message, reply)) => {
+                let _ = reply.send(router.handle_from(conn, message));
             }
             Ok(Work::Status(event)) => router.handle_status_event(event),
             Ok(Work::Click(mouse)) => router.handle_candidate_mouse(mouse),
@@ -97,6 +128,9 @@ pub fn serve_pipe(
 }
 
 /// 先在建好的第一个实例上等客户端，之后每建一个实例、等一个客户端连上，就起一条线程服务它。建实例出错才停。
+///
+/// 线程数封在 [`MAX_CONNECTIONS`]：名额满了就把刚连上的这条直接关掉（对端读到断管），
+/// 不建实例、不进 [`Router`]。
 fn accept_loop(name: &HSTRING, first: File, sender: Sender<Work>) {
     let descriptor = pipe_security_descriptor();
     let mut instance = Ok(first);
@@ -108,8 +142,21 @@ fn accept_loop(name: &HSTRING, first: File, sender: Sender<Work>) {
                 break;
             }
         };
-        let sender = sender.clone();
-        thread::spawn(move || serve_connection(stream, sender));
+        match ConnectionSlot::acquire() {
+            Some(slot) => {
+                let sender = sender.clone();
+                thread::spawn(move || {
+                    // 名额跟着线程走：线程一结束（对端断开）就还回去
+                    let _slot = slot;
+                    serve_connection(stream, sender);
+                });
+            }
+            None => {
+                tracing::warn!(limit = MAX_CONNECTIONS, "连接数已达上限，断开新连接");
+                // 句柄随 `stream` 一起关掉，对端连不上
+                drop(stream);
+            }
+        }
         instance = create_instance(name, descriptor, false);
     }
 }
@@ -119,7 +166,7 @@ fn pipe_security_descriptor() -> PSECURITY_DESCRIPTOR {
     let mut descriptor = PSECURITY_DESCRIPTOR::default();
     let converted = unsafe {
         ConvertStringSecurityDescriptorToSecurityDescriptorW(
-            &HSTRING::from(PIPE_SDDL),
+            &HSTRING::from(qingjian_platform::pipe::SDDL),
             SDDL_REVISION_1,
             &mut descriptor,
             None,
@@ -185,11 +232,26 @@ fn wait_client(stream: File) -> io::Result<File> {
 fn serve_connection(mut stream: File, sender: Sender<Work>) {
     let (reply_sender, reply_receiver) = mpsc::channel::<Option<ServerMessage>>();
     let mut opened = Vec::new();
+    // 这条连接的身份：会话归属按它判（见 `Router::admits`），别处猜得到会话号也动不了。
+    let conn = super::next_connection();
+    // 验身份卡在第一条消息上：`ImpersonateNamedPipeClient` 要等管道上有数据被读过才能用，只能
+    // 「收下第一帧 → 验 → 再处理」。原始句柄是裸指针，拷一份带进闭包，不借用 `stream`。
+    let handle = stream.as_raw_handle();
+    let mut verified = false;
     let outcome = super::pump(
         &mut stream,
-        |message| {
+        conn,
+        |conn, message| {
+            if !verified {
+                verified = true;
+                if let Err(error) = verify_client(handle) {
+                    // 不回话：对面不是本用户，连它发来的第一帧都不处理
+                    tracing::warn!(%error, "命名管道客户端的用户与本进程不同，断开");
+                    return Handled::Stop;
+                }
+            }
             if sender
-                .send(Work::Client(message, reply_sender.clone()))
+                .send(Work::Client(conn, message, reply_sender.clone()))
                 .is_err()
             {
                 return Handled::Stop;
@@ -207,6 +269,7 @@ fn serve_connection(mut stream: File, sender: Sender<Work>) {
     for session in opened {
         // 工人线程已经不在了就没人收，丢掉即可
         let _ = sender.send(Work::Client(
+            conn,
             ClientMessage::CloseSession { session },
             reply_sender.clone(),
         ));
