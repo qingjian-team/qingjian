@@ -118,6 +118,7 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: 
 
 /// 组句中或翻译评审中拉云结果；否则前台时隔几拍问一次切模式（顺路取回按键行为设置）。引擎正被按键处理借用时跳过这一拍；连接坏了断开。
 fn poll_once(context: &PollContext) {
+    super::service::on_shift_tick();
     let tick = context.ticks.get().wrapping_add(1);
     context.ticks.set(tick);
     let translating = context.shared.translating();

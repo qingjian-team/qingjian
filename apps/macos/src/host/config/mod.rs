@@ -68,6 +68,9 @@ impl Host {
         // 中英切换键：macOS 只认单击 Shift（勾上后 Caps Lock 退化成只管大小写），其余勾选项不用但要说一声
         self.mode_switch
             .set_enabled(config.shortcut.switch_mode.shift);
+        self.mode_switch.set_third_enabled(
+            config.general.double_shift_input == qingjian_platform::ThirdInputMethod::Vietnamese,
+        );
         if config.shortcut.switch_mode.control || config.shortcut.switch_mode.ctrl_alt_space {
             tracing::warn!(
                 "macOS 只支持单击 Shift 作为中英切换键，配置文件里写的 control / ctrl+alt+space 已忽略"

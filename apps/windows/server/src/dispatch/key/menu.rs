@@ -1,9 +1,9 @@
 //! 候选窗口右键：问这一格能做哪几件事、叫 UI 线程弹菜单；点中的项交给平台层的候选菜单去做，
 //! 那句提示随下一帧下发（画在拼音行旁，下一次按键清）。
 
-use qingjian_core::Candidate;
+use qingjian_core::{Candidate, Translator};
 use qingjian_platform::Config;
-use qingjian_platform::candidate_menu::{self, CandidateAction};
+use qingjian_platform::candidate_menu::{self, CandidateAction, IndependentInputContext};
 
 use crate::dispatch::{CandidateMenu, CandidateMouse, Router};
 
@@ -29,11 +29,15 @@ impl Router {
         let Some(candidate) = self.candidate_in_slot(offset) else {
             return;
         };
-        let items: Vec<_> =
+        let actions = if !self.vietnamese.is_empty() {
+            self.vietnamese_candidate_actions(&candidate)
+        } else {
             candidate_menu::actions(&self.engine, &candidate, &self.configured_phrases())
-                .into_iter()
-                .map(|action| (action.id(), action.label()))
-                .collect();
+        };
+        let items: Vec<_> = actions
+            .into_iter()
+            .map(|action| (action.id(), action.label()))
+            .collect();
         if items.is_empty() {
             return;
         }
@@ -75,6 +79,10 @@ impl Router {
         let Some(candidate) = self.candidate_in_slot(offset) else {
             return;
         };
+        if !self.vietnamese.is_empty() {
+            self.handle_vietnamese_candidate_menu_pick(action, candidate);
+            return;
+        }
         if action == CandidateAction::EditTranslation {
             let current = candidate
                 .translation
@@ -88,7 +96,7 @@ impl Router {
             self.candidate_translation = self
                 .engine
                 .request_candidate_translation(&candidate.text)
-                .map(|sequence| (sequence, candidate));
+                .map(|sequence| (sequence, candidate, None));
             self.notice = Some(if self.candidate_translation.is_some() {
                 "模型正在重新生成译文…".to_owned()
             } else {
@@ -125,6 +133,52 @@ impl Router {
             .and_then(|index| self.layout_candidate(index))
     }
 
+    fn vietnamese_candidate_actions(&self, candidate: &Candidate) -> Vec<CandidateAction> {
+        candidate_menu::independent_actions(
+            &self.engine,
+            candidate,
+            self.vietnamese_candidate_context(),
+        )
+    }
+
+    fn handle_vietnamese_candidate_menu_pick(
+        &mut self,
+        action: CandidateAction,
+        candidate: Candidate,
+    ) {
+        let input = self.vietnamese.raw().to_owned();
+        let context = IndependentInputContext {
+            namespace: "vi",
+            input: &input,
+            translation_language: qingjian_core::Language::Chinese,
+        };
+        let Some(outcome) =
+            candidate_menu::perform_independent(action, &mut self.engine, &candidate, context)
+        else {
+            return;
+        };
+        self.notice = Some(outcome.notice);
+        if let Some(language) = outcome.translation_request {
+            self.candidate_translation = self
+                .engine
+                .request_candidate_translation_to(&candidate.text, language)
+                .map(|sequence| (sequence, candidate, Some(language)));
+            if self.candidate_translation.is_none() {
+                self.notice = Some("模型生成不可用".to_owned());
+            }
+        }
+        self.sync_vietnamese_preedit();
+        self.reconcile_candidates(&self.self_drawn_frame());
+    }
+
+    fn vietnamese_candidate_context(&self) -> IndependentInputContext<'_> {
+        IndependentInputContext {
+            namespace: "vi",
+            input: self.vietnamese.raw(),
+            translation_language: qingjian_core::Language::Chinese,
+        }
+    }
+
     /// 配置文件里的自定义短语；没有配置文件（测试）或读不了时为空。
     pub(super) fn configured_phrases(&self) -> Vec<qingjian_core::CustomPhrase> {
         self.config_path()
@@ -144,6 +198,57 @@ impl Router {
             for candidate in layout.cloud_mut() {
                 if candidate.text == text {
                     candidate.translation = translation.clone();
+                }
+            }
+        }
+        if let Some(crate::dispatch::Composed::Vietnamese { candidates, .. }) =
+            self.composed.as_mut()
+        {
+            for candidate in candidates {
+                if candidate.text == text {
+                    candidate.translation = translation.clone();
+                }
+            }
+        }
+    }
+
+    pub(in crate::dispatch) fn set_independent_candidate_translation(
+        &mut self,
+        text: &str,
+        language: qingjian_core::Language,
+        translation: &str,
+    ) {
+        let (part_of_speech, translation) = match translation.trim().split_once('\t') {
+            Some((part, text)) => (part.trim().parse().ok(), text.trim()),
+            None => (None, translation.trim()),
+        };
+        if translation.is_empty() {
+            return;
+        }
+        let translated = qingjian_core::Translation::new(
+            language,
+            vec![qingjian_core::Sense {
+                part_of_speech,
+                text: translation.to_owned(),
+                reading: None,
+                fresh: false,
+            }],
+        );
+        if let Some(glossary) = self.vietnamese_glossary.as_mut() {
+            glossary.learn(text, translated.clone());
+            glossary.flush();
+        }
+        let persisted = self
+            .vietnamese_glossary
+            .as_ref()
+            .and_then(|glossary| glossary.translate(text))
+            .unwrap_or(translated);
+        if let Some(crate::dispatch::Composed::Vietnamese { candidates, .. }) =
+            self.composed.as_mut()
+        {
+            for candidate in candidates {
+                if candidate.text == text {
+                    candidate.translation = Some(persisted.clone());
                 }
             }
         }

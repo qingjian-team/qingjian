@@ -162,8 +162,14 @@ pub(super) fn on_thread_focus(foreground: bool) {
 /// 轮询发现前台会话没连着 Server（见 [`super::poll`]）：补连一次。
 pub(super) fn on_reconnect_tick() {
     with_active(|service| {
+        service.resolve_pending_shift();
         service.ensure_connected();
     });
+}
+
+/// 每拍落实超过 150 ms 的 Shift 单击。
+pub(super) fn on_shift_tick() {
+    with_active(TextService_Impl::resolve_pending_shift);
 }
 
 /// 轮询取到了 Server 的全局模式（见 [`super::poll`]）；与当前相同就不动。

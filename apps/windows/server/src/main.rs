@@ -256,6 +256,39 @@ fn main() -> ExitCode {
     dispatch::attach_cloud(&mut engine, &config.predict, usage_path);
     let router_config = RouterConfig::from(&config);
     let mut router = Router::new(engine, router_config.clone());
+    let vietnamese_words = generated(&root, "vietnamese.tsv").and_then(|path| {
+        match qingjian_dictionary::WordList::from_path(&path) {
+            Ok(words) => Some(words),
+            Err(error) => {
+                tracing::warn!(%error, path = %path.display(), "越南语候选词表读不了");
+                None
+            }
+        }
+    });
+    router.set_vietnamese_words(vietnamese_words);
+    let vietnamese_glossary = generated(&root, "vietnamese-zh.tsv").and_then(|path| {
+        match qingjian_translate::Glossary::from_path(Language::Chinese, &path) {
+            Ok(bundled) => {
+                let personal = user_dir().map_or_else(
+                    || qingjian_translate::PersonalGlossary::in_memory(Language::Chinese),
+                    |dir| {
+                        qingjian_translate::PersonalGlossary::open(
+                            Language::Chinese,
+                            dir.join("user-glossary-input-vi-zh.tsv"),
+                        )
+                    },
+                );
+                Some(qingjian_translate::LayeredTranslator::new(
+                    bundled, personal,
+                ))
+            }
+            Err(error) => {
+                tracing::warn!(%error, path = %path.display(), "越南语中文释义表读不了");
+                None
+            }
+        }
+    });
+    router.set_vietnamese_glossary(vietnamese_glossary);
     router.configure_local_model(
         dispatch::ModelDirs {
             user: user_dir(),

@@ -29,7 +29,14 @@ impl TextService_Impl {
     /// 自己按开关登记，这里只管激活之后的变化），设置窗口改完不用切走再切回输入法。
     pub(super) fn apply_mode_settings(&self, english_mode: bool, switch_keys: SwitchKeys) {
         let was_enabled = self.mode_state.enabled();
-        self.mode_state.set_settings(english_mode, switch_keys);
+        let third = self
+            .input_settings
+            .get()
+            .map_or(qingjian_platform::ThirdInputMethod::Off, |input| {
+                input.double_shift_input
+            });
+        self.mode_state
+            .set_settings(english_mode, switch_keys, third);
         // 关掉内置英文模式时立刻回中文，别停在一个再也切不回去的英文状态（Server 那份也跟着回中文）。
         if !english_mode && self.mode_state.english() {
             self.mode_state.set_english(false);

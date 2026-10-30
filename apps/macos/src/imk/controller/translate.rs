@@ -87,12 +87,40 @@ impl QingjianInputController {
         sense: usize,
         client: TextClient<'_>,
     ) -> bool {
-        let composing = host::with(|h| !h.engine.composition().is_empty()).unwrap_or(false);
+        let (composing, vietnamese) = host::with(|h| {
+            (
+                !h.engine.composition().is_empty()
+                    || (h.vietnamese_mode() && !h.vietnamese.is_empty()),
+                h.vietnamese_mode() && !h.vietnamese.is_empty(),
+            )
+        })
+        .unwrap_or((false, false));
         if !composing {
             return false;
         }
         let candidate =
             index.and_then(|index| host::with(|h| h.session.candidate(index)).flatten());
+        if vietnamese {
+            let text = candidate
+                .as_ref()
+                .and_then(|candidate| candidate.translation.as_ref())
+                .and_then(|translation| translation.senses().get(sense))
+                .map(|sense| sense.text.clone());
+            match text {
+                Some(text) => {
+                    host::with(|h| {
+                        h.vietnamese.clear();
+                        h.reset_session(None, Vec::new());
+                        h.window.hide();
+                    });
+                    client.set_marked_text("", 0);
+                    client.insert_text(&text);
+                    tracing::info!(%text, sense, "独立输入法译词快捷键上屏");
+                }
+                None => tracing::info!(?index, sense, "这个独立输入法候选没有这条译文"),
+            }
+            return true;
+        }
         let text = candidate
             .and_then(|c| host::with(|h| h.engine.commit_translation(&c, sense)).flatten());
         match text {

@@ -22,7 +22,7 @@ grid_page_keys = "Bei horizontaler Anordnung erweitern auch die Blättertasten a
 [page]
 input = "Eingabe"
 candidates = "Kandidaten"
-language = "Chinesisch & Englisch"
+language = "Eingabemethode wechseln"
 appearance = "Erscheinungsbild"
 shortcuts = "Tastenkürzel"
 phrases = "Eigene Phrasen"
@@ -50,8 +50,8 @@ list_separator = ", "
 importing = "Wird importiert …"
 
 [language]
-english_mode = "Englischmodus"
-english_mode_info = "Wenn aus, kann nur Chinesisch getippt werden"
+english_mode = "Chinesisch/Englisch wechseln"
+english_mode_info = "Innerhalb von Qingjian zwischen Chinesisch und Englisch wechseln; ausgeschaltet ist nur Chinesisch verfügbar"
 default_english = "Im Englischmodus starten"
 default_english_info = "Beim Öffnen auf Englisch starten"
 default_english_info_new_window = "Neu geöffnete Apps und Fenster starten auf Englisch"
@@ -61,7 +61,7 @@ english_only_in_apps = "Nur in Apps zum Schreiben"
 english_candidates = "Kandidaten auch im Englischmodus"
 english_candidates_info = "Englische Wörter mit Tab oder den Pfeiltasten wählen"
 shift_letter_info = "„Eingabe beginnen“ wählen, um etwa „C盘“ tippen zu können"
-section_english = "Englisch"
+section_english = "Eingabemethode wechseln"
 chinese_punctuation = "Chinesische Satzzeichen"
 english_punctuation = "Englische Satzzeichen"
 punct_commits = "Satzzeichen übernehmen zuerst den Kandidaten"
@@ -78,8 +78,14 @@ system_ctrl_space = "Strg + Leertaste (System)"
 switch_keys = "Umschalttasten"
 switch_keys_multi = "Mehrfachauswahl möglich"
 switch_keys_caps = "Wenn aktiviert, schaltet die Feststelltaste nur Großbuchstaben"
+double_shift_input = "Zweimal Shift für eine dritte Eingabemethode"
+double_shift_input_info = "Standardmäßig deaktiviert; eine Eingabemethode zum schnellen Wechseln auswählen"
 shift_letter = "Shift + Buchstabe"
 ctrl_space_failed = "Windows konnte Strg + Leertaste nicht ändern. Bitte die Einstellungen neu öffnen und es erneut versuchen."
+
+[third_input]
+off = "Deaktiviert"
+vietnamese = "Vietnamesisch"
 
 [candidates]
 page_size = "Kandidaten pro Seite"
