@@ -142,3 +142,35 @@ pub enum ClientMessage {
         session: SessionId,
     },
 }
+
+impl ClientMessage {
+    /// 这条消息说的是哪个会话。每条都带一个，Server 用它判断这条消息该不该由这条连接发。
+    pub fn session(&self) -> SessionId {
+        match self {
+            Self::OpenSession { session, .. }
+            | Self::Key { session, .. }
+            | Self::Commit { session }
+            | Self::Poll { session }
+            | Self::Surrounding { session, .. }
+            | Self::Privacy { session, .. }
+            | Self::Selection { session, .. }
+            | Self::PositionCandidates { session, .. }
+            | Self::HideCandidates { session }
+            | Self::ModeChanged { session, .. }
+            | Self::SyncMode { session }
+            | Self::ImeSwitched { session }
+            | Self::Indicator { session, .. }
+            | Self::CloseSession { session } => *session,
+        }
+    }
+
+    /// 会话还没 `OpenSession` 过也能发的消息：`OpenSession` 自己，以及两条不带状态的问询 / 通知
+    /// （`SyncMode` 只读全局模式，`ImeSwitched` 走临时连接，见各自字段的说明）。
+    /// 别的消息在会话没注册时一律不认——DLL 一定是先开会话再打字。
+    pub fn allowed_before_open(&self) -> bool {
+        matches!(
+            self,
+            Self::OpenSession { .. } | Self::SyncMode { .. } | Self::ImeSwitched { .. }
+        )
+    }
+}

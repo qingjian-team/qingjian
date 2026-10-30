@@ -53,6 +53,12 @@ use self::translate::Translation;
 /// 学习数据落盘间隔（与 macOS 壳一致）；Server 没有定时器，借消息节拍看时间。
 const LEARNING_FLUSH_INTERVAL: Duration = Duration::from_secs(60);
 
+/// 一条命名管道连接的标识：接受循环每来一个客户端分配一个，会话绑定在打开它的那条连接上。
+pub type ConnectionId = u64;
+
+/// 来源不可知（测试里的内存流、[`serve`](crate::ipc::serve) 的内部调用）：带它处理消息时不校验会话归属。
+pub const UNATTENDED: ConnectionId = 0;
+
 /// 同一时刻只有一个应用有键盘焦点，所以一个 Engine 持当前组句；焦点切到别的会话时先清掉上一个的残留。
 pub struct Router {
     /// 输入内核，进程内唯一。
@@ -263,7 +269,17 @@ impl Router {
 
     /// 处理一条消息；`None` 表示不用回话。到点顺带把学习数据落盘。
     pub fn handle(&mut self, message: ClientMessage) -> Option<ServerMessage> {
-        let response = self.traced(message);
+        self.handle_from(UNATTENDED, message)
+    }
+
+    /// 处理某条连接上收到的消息：会话属于别的连接时丢弃（怎么判见 `admits`），不回话。
+    /// 到点顺带把学习数据落盘。
+    pub fn handle_from(
+        &mut self,
+        conn: ConnectionId,
+        message: ClientMessage,
+    ) -> Option<ServerMessage> {
+        let response = self.traced_from(conn, message);
         if self.last_flush.elapsed() >= LEARNING_FLUSH_INTERVAL {
             self.flush_learning();
         }
