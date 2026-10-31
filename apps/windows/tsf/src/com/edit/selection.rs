@@ -8,8 +8,6 @@ use windows::Win32::UI::TextServices::{
 };
 use windows::core::{Result, implement};
 
-use qingjian_platform::protocol::ScreenRect;
-
 use super::anchor::{anchor_rect, mouse_screen_rect, selection_range};
 use crate::com::composition::Shared;
 use crate::com::log::log;
@@ -35,16 +33,66 @@ pub(crate) struct SelectionSession {
 
 impl ITfEditSession_Impl for SelectionSession_Impl {
     fn DoEditSession(&self, ec: u32) -> Result<()> {
-        let (text, rect) = read_selection(&self.context, ec);
-        let has_text = !text.trim().is_empty();
-        // 发成功再置本地评审态，免得卡在无窗口的评审里。
+        use crate::com::composition::SelectionAnchor;
+        use windows::Win32::System::Threading::GetCurrentProcessId;
+        use windows::Win32::UI::WindowsAndMessaging::{
+            GetForegroundWindow, GetWindowThreadProcessId,
+        };
+        self.shared.set_selection_anchor(None);
+        let range = selection_range(&self.context, ec);
+        let rect = range.as_ref().map_or_else(mouse_screen_rect, |range| {
+            anchor_rect(&self.context, ec, range)
+        });
+        let private = range
+            .as_ref()
+            .is_some_and(|range| super::surrounding::private_input(&self.context, ec, range));
+        let text = if private {
+            String::new()
+        } else {
+            range
+                .as_ref()
+                .map_or_else(String::new, |range| range_text(range, ec))
+        };
+        crate::com::log::log(&format!(
+            "翻译选区：TSF 选区读取完成 units={} private={private}",
+            text.encode_utf16().count()
+        ));
         if let Ok(mut guard) = self.engine.try_borrow_mut()
             && let Some(client) = guard.as_mut()
         {
-            match client.selection(self.request, text, rect) {
-                Ok(_) if has_text => self.shared.set_translating(true),
-                Ok(_) => {}
-                Err(error) => log(&format!("回选区给 Server 失败: {error}")),
+            if !text.trim().is_empty() {
+                let anchor = range
+                    .map(|range| SelectionAnchor::new(self.context.clone(), range, text.clone()));
+                match client.selection(self.request, text, rect) {
+                    Ok(_) => {
+                        self.shared.set_selection_anchor(anchor);
+                        self.shared.set_translating(true);
+                    }
+                    Err(error) => log(&format!("回选区给 Server 失败: {error}")),
+                }
+            } else {
+                let window = unsafe { GetForegroundWindow() };
+                let process = unsafe { GetCurrentProcessId() };
+                let mut foreground_process = 0;
+                unsafe { GetWindowThreadProcessId(window, Some(&mut foreground_process)) };
+                if !private && !window.is_invalid() && foreground_process == process {
+                    let fallback = super::scintilla::selected_text().unwrap_or_default();
+                    crate::com::log::log("翻译选区：TSF 无选区，向 Server 请求备用读取");
+                    match client.fallback_selection(
+                        self.request,
+                        process,
+                        window.0 as usize as u64,
+                        fallback,
+                        rect,
+                    ) {
+                        Ok(active) => self.shared.set_translating(active),
+                        Err(error) => {
+                            crate::com::log::log(&format!("翻译选区：备用请求失败: {error}"))
+                        }
+                    }
+                } else {
+                    let _ = client.selection(self.request, String::new(), rect);
+                }
             }
         }
         Ok(())
@@ -68,24 +116,16 @@ pub(crate) fn request_selection(
     super::update::request(context, client_id, session.into(), TF_ES_READ)
 }
 
-/// 没有选区 / 读不到 / 过长时文本为空串（矩形退到鼠标处）。
-fn read_selection(context: &ITfContext, ec: u32) -> (String, ScreenRect) {
-    let Some(range) = selection_range(context, ec) else {
-        return (String::new(), mouse_screen_rect());
-    };
-    let rect = anchor_rect(context, ec, &range);
-    (range_text(&range, ec), rect)
-}
-
 fn range_text(range: &ITfRange, ec: u32) -> String {
     let mut buf = [0u16; MAX_TRANSLATE_CHARS + 1];
     let mut fetched = 0u32;
-    if unsafe { range.GetText(ec, 0, &mut buf, &mut fetched) }.is_err() {
+    if let Err(error) = unsafe { range.GetText(ec, 0, &mut buf, &mut fetched) } {
+        log(&format!("翻译选中文字：读取范围文字失败: {error}"));
         return String::new();
     }
     let count = fetched as usize;
     if count == 0 || count > MAX_TRANSLATE_CHARS {
         return String::new();
     }
-    String::from_utf16_lossy(&buf[..count])
+    String::from_utf16(&buf[..count]).unwrap_or_default()
 }

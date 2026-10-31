@@ -4,6 +4,8 @@
 mod state;
 
 #[cfg(test)]
+mod recovery_tests;
+#[cfg(test)]
 mod tests;
 
 use qingjian_render::ThemeLibrary;
@@ -123,7 +125,8 @@ impl Router {
         root: PathBuf,
         dirs: DataDirs,
     ) {
-        let last_mtime = mtime(&config_path);
+        // 首次轮询重新读取，覆盖启动读取后、监听建立前配置已恢复的窗口。
+        let last_mtime = None;
         let code_files = dirs.code_snapshot();
         let code_word_files = dirs.code_word_snapshot();
         let dictionary_files = dirs.dict_snapshot();
@@ -139,6 +142,7 @@ impl Router {
             code_word_files,
             last_mtime,
             applied_predict: config.predict.clone(),
+            applied_offline_translation: config.offline_translation.enabled,
             applied_dictionaries: config.dictionaries.clone(),
             applied_aux_code: config.aux_code.clone(),
             dictionary_files,
@@ -204,17 +208,19 @@ impl Router {
             self.reload_aux_codes();
         }
         if !config_changed {
-            if words_changed && let Ok(config) = Config::load(&path) {
+            if words_changed && let Ok(config) = crate::config_load::read(&path) {
                 self.reload_schemes(&config);
             }
             return;
         }
-        match Config::load(&path) {
+        match crate::config_load::read(&path) {
             Ok(config) => {
                 self.apply_config(&config);
-                tracing::info!("配置已热加载");
+                tracing::info!(config_path = %path.display(), offline_configured = config.offline_translation.enabled, translation_ready = self.engine.translation_enabled(), "配置已热加载");
             }
-            Err(error) => tracing::error!(%error, "配置热加载解析失败，保持原配置"),
+            Err(error) => {
+                tracing::error!(config_path = %path.display(), reason = crate::config_load::failure_reason(&error), "配置热加载失败，保持原配置")
+            }
         }
     }
 
@@ -285,10 +291,24 @@ impl Router {
         self.reconcile_status();
         self.apply_model_config(&config.model);
 
+        if self.reload.as_ref().is_some_and(|reload| {
+            reload.applied_offline_translation != config.offline_translation.enabled
+        }) {
+            self.end_translation();
+        }
         let Some(reload) = &mut self.reload else {
             return;
         };
         reload.update = config.update.clone();
+        if reload.applied_offline_translation != config.offline_translation.enabled {
+            super::offline_translation::attach_offline_translation(
+                &mut self.engine,
+                config.offline_translation.enabled,
+                reload.dirs.user_root.as_deref(),
+                &reload.root,
+            );
+            reload.applied_offline_translation = config.offline_translation.enabled;
+        }
         if config.predict != reload.applied_predict {
             let usage_path = reload
                 .dirs

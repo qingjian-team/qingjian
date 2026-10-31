@@ -3940,6 +3940,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "qingjian-offline"
+version = "0.1.1"
+dependencies = [
+ "ort",
+ "qingjian-core",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.21",
+ "tokenizers",
+ "tracing",
+]
+
+[[package]]
 name = "qingjian-platform"
 version = "0.1.1"
 dependencies = [
@@ -4014,6 +4027,7 @@ dependencies = [
  "qingjian-core",
  "qingjian-dictionary",
  "qingjian-learning",
+ "qingjian-offline",
  "qingjian-platform",
  "qingjian-predict",
  "qingjian-render",
@@ -4081,6 +4095,7 @@ dependencies = [
 name = "qingjian-windows-server"
 version = "0.3.3-dev"
 dependencies = [
+ "arboard",
  "bamboo-slip-i18n",
  "dotenvy",
  "embed-manifest",
@@ -4089,6 +4104,7 @@ dependencies = [
  "qingjian-learning",
  "qingjian-lm",
  "qingjian-neural",
+ "qingjian-offline",
  "qingjian-platform",
  "qingjian-predict",
  "qingjian-render",
@@ -4096,6 +4112,7 @@ dependencies = [
  "qingjian-update",
  "serde_json",
  "thiserror 2.0.21",
+ "toml",
  "toml_edit",
  "tracing",
  "tracing-appender",

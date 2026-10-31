@@ -11,6 +11,7 @@ members = [
     "crates/qingjian-lm",
     "crates/qingjian-format",
     "crates/qingjian-neural",
+    "crates/qingjian-offline",
     "crates/qingjian-render",
     "crates/bamboo-slip",
     "crates/bamboo-slip-i18n",
@@ -39,6 +40,7 @@ qingjian-voice = { path = "crates/qingjian-voice" }
 qingjian-lm = { path = "crates/qingjian-lm" }
 qingjian-format = { path = "crates/qingjian-format" }
 qingjian-neural = { path = "crates/qingjian-neural" }
+qingjian-offline = { path = "crates/qingjian-offline" }
 qingjian-render = { path = "crates/qingjian-render" }
 qingjian-update = { path = "crates/qingjian-update" }
 # 自绘 UI 引擎：候选窗、状态条、设置程序都画在它上面
@@ -67,6 +69,10 @@ ferrous-opencc = { version = "0.4.0", default-features = false, features = ["s2t
 # .qj 数据容器：mmap 打开、结构体数组零拷贝读取
 memmap2 = "0.9"
 zerocopy = { version = "0.8", features = ["derive"] }
+
+# 进程内模型共用的分词与 ONNX CPU 推理；运行库按路径加载。
+tokenizers = { version = "0.22.2", default-features = false, features = ["fancy-regex"] }
+ort = { version = "=2.0.0-rc.13", default-features = false, features = ["load-dynamic", "api-24"] }
 
 # 本地神经语言模型推理（字级 Transformer，权重 safetensors）
 candle-core = "0.11.0"

@@ -94,6 +94,8 @@ pub struct Settings {
     /// 实验功能里正在下的模型。
     pub download: ModelDownload,
 
+    pub translation_download: crate::jobs::offline_download::OfflineDownload,
+
     /// 点过一次「删除」、等再点一次确认的模型；点了别的就作废。
     pub remove_armed: Option<qingjian_platform::LocalModel>,
 
@@ -186,6 +188,7 @@ impl Settings {
             library: Library::scan(),
             import: ImportJob::default(),
             download: ModelDownload::default(),
+            translation_download: crate::jobs::offline_download::OfflineDownload::default(),
             remove_armed: None,
             phrase: None,
             stats: None,
