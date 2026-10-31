@@ -12,6 +12,18 @@ impl Router {
     /// 功能键靠键码，其余靠字符。组句中修饰键 + 数字是快捷键；带 Ctrl / Alt / Win 而没配到快捷键的键归应用。
     /// 表达式模式里 Shift + 数字打的是 `^ * ( )`，不当快捷键。
     pub(crate) fn apply_key(&mut self, event: &KeyEvent) -> Effect {
+        if event.modifiers.vietnamese_mode {
+            return self.apply_vietnamese(event);
+        }
+        if !self.vietnamese.is_empty() {
+            let prefix = self.vietnamese.commit();
+            self.composed = None;
+            let effect = self.apply_key(event);
+            return match event.character {
+                Some(c) => with_prefix(Some(prefix), effect, c),
+                None => Effect::Changed(Some(prefix)),
+            };
+        }
         if self.config.toggle_traditional.is_some_and(|combo| {
             event.virtual_key == combo.key.to_ascii_uppercase() as u32
                 && event.modifiers.chord() == combo.modifiers.into()
@@ -579,7 +591,7 @@ impl Router {
     }
 
     pub(in crate::dispatch) fn composing(&self) -> bool {
-        !self.engine.composition().is_empty()
+        !self.engine.composition().is_empty() || !self.vietnamese.is_empty()
     }
 
     /// 横排矩阵展开着时按阅读顺序移一格（跨行、跳过空位），否则逐个移动高亮（到页边自动翻页）。

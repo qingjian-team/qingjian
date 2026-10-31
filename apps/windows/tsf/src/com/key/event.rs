@@ -8,8 +8,21 @@ use windows::Win32::UI::Input::KeyboardAndMouse::{
 use qingjian_platform::protocol::{KeyEvent, KeyModifiers};
 
 /// 采当前修饰键并解析字符（标点 / 数字使用当前键盘布局）。`english_mode` 是 DLL 记的持久中英模式，随事件带给 Server。
+#[cfg(test)]
 pub(crate) fn to_key_event(vk: u32, english_mode: bool) -> KeyEvent {
+    to_key_event_with_modes(vk, english_mode, false)
+}
+
+pub(crate) fn to_key_event_with_modes(
+    vk: u32,
+    english_mode: bool,
+    vietnamese_mode: bool,
+) -> KeyEvent {
     let modifiers = current_modifiers(english_mode);
+    let modifiers = KeyModifiers {
+        vietnamese_mode,
+        ..modifiers
+    };
     KeyEvent::new(
         vk,
         resolve_char(vk, modifiers.shift, modifiers.caps),
@@ -56,6 +69,7 @@ fn current_modifiers(english_mode: bool) -> KeyModifiers {
         win: key_down(VK_LWIN) || key_down(VK_RWIN),
         caps: key_toggled(VK_CAPITAL),
         english_mode,
+        vietnamese_mode: false,
     }
 }
 

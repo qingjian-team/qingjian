@@ -29,6 +29,7 @@ pub const CAPS: KeyModifiers = KeyModifiers {
     win: false,
     caps: true,
     english_mode: false,
+    vietnamese_mode: false,
 };
 
 /// 持久英文模式（Caps 灭）。
@@ -39,6 +40,7 @@ pub const ENGLISH: KeyModifiers = KeyModifiers {
     win: false,
     caps: false,
     english_mode: true,
+    vietnamese_mode: false,
 };
 
 /// 样例词库装一个 Router，开好一个会话。
@@ -169,6 +171,7 @@ pub const ALT_OFF: KeyModifiers = KeyModifiers {
     win: false,
     caps: false,
     english_mode: false,
+    vietnamese_mode: false,
 };
 
 /// 两个平台的缺省快捷键都没用 Win，拿来测「没配到的修饰键归应用」。

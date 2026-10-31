@@ -8,6 +8,7 @@ mod input;
 mod menu;
 mod panel;
 mod shortcut;
+mod vietnamese;
 
 pub(super) use self::codes::{ESCAPE, RETURN};
 pub(super) use self::effect::Effect;

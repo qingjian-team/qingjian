@@ -155,7 +155,9 @@ impl Router {
         }
         let (commit, outcome) = match self.apply_key(&event) {
             Effect::Changed(commit) => {
-                self.recompose();
+                if !event.modifiers.vietnamese_mode {
+                    self.recompose();
+                }
                 (commit, KeyOutcome::Consumed)
             }
             Effect::Navigated => (None, KeyOutcome::Consumed),

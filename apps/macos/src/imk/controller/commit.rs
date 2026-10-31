@@ -17,6 +17,9 @@ impl QingjianInputController {
 
     /// 上屏第 `index` 个候选；没有候选时上屏拼音本身。上屏后剩余拼音继续组句。
     pub(super) fn commit_index(&self, index: usize, client: TextClient<'_>) -> bool {
+        if host::with(|h| h.vietnamese_mode()).unwrap_or(false) {
+            return self.commit_vietnamese_candidate(index, client);
+        }
         let candidate = host::with(|h| h.session.candidate(index)).flatten();
         let Some(candidate) = candidate else {
             if host::with(|h| index < h.session.layout.len()).unwrap_or(false) {

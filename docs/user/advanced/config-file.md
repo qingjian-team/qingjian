@@ -28,6 +28,7 @@ description: 青简的全部设置保存在一个文本配置文件里：位置�
 | 配置项 | 设置界面 | 说明 |
 |---|---|---|
 | `[general] scheme` | 输入 → 拼音 | `pinyin`（全拼）、`xiaohe`、`ziranma`、`microsoft`、`sogou`、`abc`、`xiaolang`、`shoudao`、`jiajia`、`ziguang`、`zhuyin`，或自制方案的文件夹名 |
+| `[general] double_shift_input` | 输入法切换 → 连按两次 Shift 切换第三输入法 | `off`（缺省，不启用）或 `vietnamese`（越南语；输入法实现完成后生效） |
 | `[general] hold_selections` | 输入 → 分次选词先不上屏 | `true` / `false` |
 | `[aux_code] enabled`、`scheme` | 输入 → 辅码 | `scheme` 写码表的文件名或方案的文件夹名，随包笔画码是 `stroke` |
 | `[general] aux_code_keep_empty` | 输入 → 码删空后留在辅码 | `false` 为删空即退出 |

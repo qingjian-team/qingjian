@@ -4,7 +4,8 @@ use bamboo_slip::taffy::NodeId;
 use bamboo_slip::{Menu, RenderError, Ui};
 use qingjian_core::{TraditionalVariant, learning_languages};
 use qingjian_platform::{
-    EmojiCount, GeneralConfig, KeyHintMode, Scheme, UI_LANGUAGE_DEFAULT, UI_LANGUAGE_SYSTEM,
+    EmojiCount, GeneralConfig, KeyHintMode, Scheme, ThirdInputMethod, UI_LANGUAGE_DEFAULT,
+    UI_LANGUAGE_SYSTEM,
 };
 
 use crate::i18n::{CATALOG, tr};
@@ -28,6 +29,7 @@ pub fn anchor(popup: Popup) -> &'static str {
         Popup::KeyHint => "key-hint",
         Popup::AuxScheme => "aux-scheme",
         Popup::UiLanguage => "ui-language",
+        Popup::ThirdInput => "third-input",
     }
 }
 
@@ -86,6 +88,14 @@ pub fn ui_language_options() -> Vec<(&'static str, &'static str)> {
                 .map(|(tag, name)| (name, tag)),
         )
         .collect()
+}
+
+/// 第三输入法下拉框里的名字。
+pub fn third_input_label(method: ThirdInputMethod) -> &'static str {
+    match method {
+        ThirdInputMethod::Off => tr("third_input.off"),
+        ThirdInputMethod::Vietnamese => tr("third_input.vietnamese"),
+    }
 }
 
 pub fn menu(
@@ -207,6 +217,22 @@ pub fn menu(
                 let selected = values.iter().position(|tag| *tag == ui_language(general));
                 ("ui_language", labels, strings(values), selected)
             }
+            Popup::ThirdInput => (
+                "double_shift_input",
+                ThirdInputMethod::ALL
+                    .iter()
+                    .map(|method| third_input_label(*method).to_owned())
+                    .collect(),
+                strings(
+                    ThirdInputMethod::ALL
+                        .iter()
+                        .map(|method| method.key().to_owned())
+                        .collect(),
+                ),
+                ThirdInputMethod::ALL
+                    .iter()
+                    .position(|method| *method == general.double_shift_input),
+            ),
             Popup::Emoji | Popup::Kaomoji | Popup::Symbols => {
                 let (key, count) = match popup {
                     Popup::Emoji => ("emoji", general.emoji),

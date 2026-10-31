@@ -76,6 +76,8 @@ candle-nn = "0.11.0"
 async-openai = { version = "0.42.0", default-features = false, features = ["chat-completion", "byot", "middleware"] }
 reqwest = { version = "0.13", default-features = false }
 uuid = { version = "1.26", features = ["v4", "v7"] }
+# 越南语 Telex 的纯 Rust 音节转换；青简在外层补 Simple Telex、恢复与组词生命周期。
+vi = "0.8.0"
 # 安卓没有可链的系统 TLS：云联想（只开 rustls 时）与语音识别走 rustls（ring + 内置 Mozilla 根证书）
 rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
 webpki-roots = "1"

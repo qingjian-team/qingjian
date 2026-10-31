@@ -35,6 +35,73 @@ pub(super) fn router(size: usize) -> Router {
     });
     router
 }
+
+#[test]
+fn vietnamese_mode_composes_with_conversion_and_raw_candidates() {
+    let mut router = router(9);
+    let session = SessionId(1);
+    let modifiers = KeyModifiers {
+        vietnamese_mode: true,
+        ..KeyModifiers::default()
+    };
+    for c in "tieengs".chars() {
+        let message = router.handle(ClientMessage::Key {
+            session,
+            event: KeyEvent::new(c.to_ascii_uppercase() as u32, Some(c), modifiers),
+        });
+        let Some(ServerMessage::KeyResult { frame, commit, .. }) = message else {
+            panic!("expected key result");
+        };
+        assert!(commit.is_none());
+        assert!(!frame.candidates.items.is_empty());
+    }
+    assert_eq!(
+        router
+            .current_frame()
+            .preedit
+            .iter()
+            .map(|segment| segment.text.as_str())
+            .collect::<String>(),
+        "tiếng"
+    );
+    assert_eq!(
+        router
+            .current_frame()
+            .candidates
+            .items
+            .iter()
+            .map(|candidate| candidate.text.as_str())
+            .collect::<Vec<_>>(),
+        vec!["tiếng", "tieengs"]
+    );
+    let message = router.handle(ClientMessage::Key {
+        session,
+        event: KeyEvent::new(0x20, Some(' '), modifiers),
+    });
+    let Some(ServerMessage::KeyResult { commit, frame, .. }) = message else {
+        panic!("expected key result");
+    };
+    assert!(commit.is_none());
+    assert_eq!(
+        frame
+            .preedit
+            .iter()
+            .map(|segment| segment.text.as_str())
+            .collect::<String>(),
+        "tiếng "
+    );
+    assert!(frame.candidates.items.is_empty());
+
+    let message = router.handle(ClientMessage::Key {
+        session,
+        event: KeyEvent::new(0x0D, Some('\r'), modifiers),
+    });
+    let Some(ServerMessage::KeyResult { commit, frame, .. }) = message else {
+        panic!("expected key result");
+    };
+    assert_eq!(commit.as_deref(), Some("tiếng "));
+    assert!(frame.is_empty());
+}
 pub(super) fn key(
     router: &mut Router,
     code: u32,

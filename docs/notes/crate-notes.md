@@ -41,6 +41,20 @@ TSV 的音节可带数字声调（`ni3`，轻声 5 或 0），键一律去调，
 `sentence::text_pieces` 把任意文本切成可点选的小块（剪贴板「拆词」），**全部拼起来正好是原文**：汉字段按 `segment_text` 切词（模型一个词都不认识就一字一块）；空白也是块（一串空格制表符一块、换行单独一块）；不带空白的 ASCII 串里有 `/ . @ :` 且有字母的（链接、邮箱）去掉首尾括号后整块，数字段之间夹 `- . , : / +` 的算一个数（电话、日期、时间、千分位，可带开头的 `+`），其余字母数字一块、标点一个一块，连着的同一运算符（`//` `==`）合一块。
 `code::looks_like_code` 认出像代码的文字（至少两行，有缩进或括号分号成堆，剪贴板等宽显示用），`code::highlight` 粗切高亮片段（关键字 / 字符串 / 注释 / 数字，字节范围）：不认语言，`//` 与行首 `#` 与 `-- ` 行注释、`/* */` 块注释，三种引号的字符串（单双引号不跨行、找不到收尾就不算，挡住 Rust 生命周期与英文缩写），数字不能紧跟标识符，关键字取常见语言的并集。
 日语罗马音（`japanese/`，目前只给 Android 测试用）：`to_hiragana` 最长匹配转平假名（同辅音连打 → っ、`n` 后接辅音 → ん、`-` → ー，没拼完的罗马音留在末尾），`RomajiComposer` 出候选（汉字词、平假名、片假名、边敲边出的汉字词、原样罗马音）。汉字只查 `words.rs` 里约 130 条手写常用词，正式的词典与转换以后再做，那时删掉这张表。
+
+越南语 Simple Telex 在 `vietnamese/`：`TelexComposer` 只存原始按键，每次编辑后用 MIT 许可的纯 Rust `vi` crate 重算现代声调写法；外层补词首 `w` 不转 `ư`、重复声调键恢复字面文本、Esc 恢复原始按键与按词 commit。`vi` 自带越南语音节校验，所以 `linux` / `changes` 保持英文，`this` → `thí`、`mix` → `mĩ` 这类合法越南语歧义与 UniKey 一致。桌面壳只维护模式和 composition / marked text，不各写一套转换规则。
+候选词表 `vietnamese.tsv` 与反向中文释义表 `vietnamese-zh.tsv` 不进 git，由 `tools/corpus/vietnamese_words.py` 从自建的 `assets/glossary/glossary-vi.tsv` 提取译词、去重，并以释义表出现次数作为近似频率；同一越南语词对应的中文源词按出现次数取前两条。打包脚本生成后随包。输入至少两个越南语字符时用 `WordList` 前缀补全，当前转换结果排第一、原始按键排最后；候选用反向 `Glossary` 显示中文译词。
+越南语候选右键菜单走 `qingjian-platform::candidate_menu::IndependentInputContext` 公共接口：输入法提供命名空间、原始输入码和模型译词目标语言，即可复用提权、降权、取消降权和模型译词。越南语使用 `vi:` 学习键且固定请求中文；将来的日语、韩语应使用各自稳定命名空间，不复制平台菜单逻辑。
+越南语中文译词使用 `LayeredTranslator`：随包 `vietnamese-zh.tsv` 只读，模型重新生成的覆盖写入用户目录 `user-glossary-input-vi-zh.tsv`，个人表优先。当前候选立即从覆盖层回读，下一次输入和重启后仍生效；未来第三输入法应按输入法命名空间与翻译方向使用独立个人表。
+macOS 所有越南语清空和提交路径都使用 IMK 已验证的空 `setMarkedText:`，不能直接向客户端代理发 `unmarkText`：部分应用会抛 Objective-C exception，异常越过 Rust FFI 后导致输入法进程 abort。正常空格、标点和候选提交先清 marked text 再 `insertText:`。菜单栏状态项按中 / 英 / 越三态显示，提交一个词不会改变越南语模式。
+越南语首键刷新与中文 `refresh` 保持同一调用顺序：先更新应用里的 marked text，再读取 caret、呈现候选窗；不要在 `setMarkedText:` 之前显示窗口，避免 IMK 首键回调发生客户端重入。
+`TelexComposer` 同时持有已确认的整段前缀与当前词：空格 / 标点只用 `commit_word` 确认当前词并继续保持 marked text，下一枚字母开始下一词；只有 Enter、失焦或切换模式才用 `commit` 一次性上屏整段。当前词为空时退格可继续删除整段前缀。平台候选始终只按 `current()` 查，不把整段前缀带进词库查询。
+越南语候选查询使用 `suggest_vietnamese`：先按 `phrase_prefix()` 查连续短语，数量不足再按 `current()` 补当前词候选。选择连续短语时调用 `choose_phrase` 替换整段，不能按普通当前词追加，否则会得到 `tôi tôi là…` 这类重复前缀。
+独立输入法候选虽使用共同 `Session` 和渲染器，按键仍可能在平台的语言专用分派中被提前截获；越南语必须显式把方向键、Tab、数字和鼠标点击路由回共同候选索引 / 高亮 API，不能直接交回应用。
+macOS 右键候选菜单可能按“deactivate → 查询菜单项 → 点击”的顺序回调；除当前 `ACTIVE` 外要保留最近激活控制器作为菜单期间的后备，否则菜单能显示但点击后找不到输入会话，模型译词请求不会发出。
+部分 IMK 客户端创建控制器后直接发送 `handleEvent:`，不保证先调用 `activateServer:`；因此每个实际事件都要调用 `note_event_controller` 更新当前 / 最近控制器，不能只在 activate 回调里登记。
+候选译词快捷键属于共同候选交互，必须在第三输入法专用分派之前识别；`commit_translation_at` 也要识别独立输入法 composition，从候选自带的 `Translation` 取 sense，清理独立输入缓冲与 marked text 后上屏，鼠标点击译词和 Command+数字共用。
+第三输入法切换是三态状态机：配置的单击切换键执行“中文 ↔ 上次外文”，400 ms 内双击 Shift 执行“英文 ↔ 越南语”；中文双击直接到另一个外文。第一下 Shift 不得立即改模式或弹 OSD；只有配置勾了单击 Shift，超时或等待期内开始打字才落实为单击。macOS 状态项平时 250 ms 轮询 Caps Lock，仅等待第二下 Shift 时临时改成 50 ms；Windows 用 TSF 80 ms poll timer 落实超时单击。
 符号面板在 `panel/`：`SymbolPanel` 管分组与分类切换，`Engine::open_symbol_panel` 拿当前前 12 个候选词查 `keywords.tsv`、emoji 表与内置符号 / 颜文字表当搜索结果；
 条目是 `Emoji` / `Kaomoji` / `Symbol` 种类、`reading` 为中文名的候选，上屏走 `commit`（没有音节，吃掉整段）并关掉面板。格子移动复用 `Grid`。
 macOS 面板一律系统绘制（青简渲染器还没有面板），`candidates/view/panel.rs`；开着时云端词与模型重排不往格子里写。

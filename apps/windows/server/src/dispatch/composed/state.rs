@@ -7,6 +7,13 @@ use super::SentenceTranslation;
 
 /// 当前组句缓冲对应的展示状态。缓冲变化时重建，导航只挪高亮，云端词异步并进 `layout`。
 pub(crate) enum Composed {
+    /// 越南语 Simple Telex：转换结果第一、原始按键第二，无拼音查询状态。
+    Vietnamese {
+        text: String,
+
+        candidates: Vec<qingjian_core::Candidate>,
+    },
+
     /// 正常查到候选。
     Candidates {
         /// preedit 分段。

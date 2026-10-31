@@ -28,6 +28,10 @@ pub struct KeyModifiers {
     /// 持久的英文模式（Windows 单击 Shift 切换，DLL 记状态）。中文模式为 `false`。macOS 壳不用这个字段。
     #[serde(default)]
     pub english_mode: bool,
+
+    /// 双击 Shift 切出的越南语模式。
+    #[serde(default)]
+    pub vietnamese_mode: bool,
 }
 
 impl KeyModifiers {
@@ -36,6 +40,7 @@ impl KeyModifiers {
         Self {
             caps: false,
             english_mode: false,
+            vietnamese_mode: false,
             ..self
         }
     }
@@ -56,6 +61,7 @@ impl From<Modifiers> for KeyModifiers {
             win: modifiers.command,
             caps: false,
             english_mode: false,
+            vietnamese_mode: false,
         }
     }
 }

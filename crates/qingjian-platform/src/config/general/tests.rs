@@ -59,6 +59,16 @@ fn punct_commits_defaults_off() {
 }
 
 #[test]
+fn double_shift_third_input_defaults_off() {
+    assert_eq!(
+        GeneralConfig::default().double_shift_input,
+        ThirdInputMethod::Off
+    );
+    let general: GeneralConfig = toml::from_str("double_shift_input = \"vietnamese\"\n").unwrap();
+    assert_eq!(general.double_shift_input, ThirdInputMethod::Vietnamese);
+}
+
+#[test]
 fn aux_code_key_falls_back_to_the_default() {
     let mut general = GeneralConfig::default();
     assert_eq!(general.aux_code_key(), ';');

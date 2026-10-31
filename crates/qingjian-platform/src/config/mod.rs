@@ -27,6 +27,7 @@ mod shift_letter;
 mod shortcut;
 mod status_bar;
 mod switch_key;
+mod third_input_method;
 mod transfer;
 mod update;
 
@@ -74,6 +75,7 @@ pub use shift_letter::ShiftLetter;
 pub use shortcut::ShortcutConfig;
 pub use status_bar::StatusBarConfig;
 pub use switch_key::{SwitchKey, SwitchKeys};
+pub use third_input_method::ThirdInputMethod;
 pub use transfer::{export_settings, import_settings};
 pub use update::{UpdateChannel, UpdateConfig};
 
@@ -154,7 +156,7 @@ english_candidates_on = [
   "com.apple.TextEdit", "com.apple.Notes", "com.apple.mail", "com.apple.MobileSMS", "com.apple.iWork.Pages", "com.apple.iWork.Keynote",
   "com.microsoft.Word", "com.microsoft.Powerpoint", "com.microsoft.Outlook", "com.microsoft.onenote.mac", "com.microsoft.teams2", "com.kingsoft.wpsoffice.mac",
   "com.tencent.xinWeChat", "com.tencent.qq", "com.tencent.WeWorkMac", "com.alibaba.DingTalkMac", "com.electron.lark",
-  "ru.keepcoder.Telegram", "com.tdesktop.Telegram", "com.hnc.Discord", "com.tinyspeck.slackmacgap", "md.obsidian", "notion.id", "abnerworks.Typora",
+  "ru.keepcoder.Telegram", "com.tdesktop.Telegram", "com.hnc.Discord", "com.tinyspeck.slackmacgap", "com.vng.zalo", "com.anthropic.claudefordesktop", "md.obsidian", "notion.id", "abnerworks.Typora",
 ]
 "#
     };
@@ -299,6 +301,8 @@ numpad_digit = "select"
 # 内置英文模式：开着时单击切换键（[shortcut] switch_mode）或 Caps Lock 亮着进英文模式
 # 关掉后青简保持中文模式，切换键与语言栏按钮都不再切过去；要打英文请用系统快捷键（Win+Space）切到别的输入法。Windows 与 Linux 用，macOS 的中英切换是 Caps Lock
 english_mode = true
+# 连按两次 Shift 切换到的第三输入法：off 不启用 / vietnamese 越南语。当前版本先保存设置，输入法实现完成后生效
+double_shift_input = "off"
 # 初始英文：Windows 是青简启动时，按应用记忆时也用于没有记录的应用；Linux 是新打开的应用和窗口
 default_english = false
 # Windows：按应用 exe 名记住中英状态，重启青简后重新使用初始模式

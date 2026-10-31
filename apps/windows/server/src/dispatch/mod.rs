@@ -24,7 +24,7 @@ use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
 use qingjian_core::candidate::arrows::Focus;
-use qingjian_core::{Engine, Grid};
+use qingjian_core::{Engine, Grid, TelexComposer};
 use qingjian_platform::logs::CompositionTrace;
 use qingjian_platform::protocol::{
     ClientMessage, Frame, IndicatorState, InputSettings, ScreenRect, ServerMessage, SessionId,
@@ -88,8 +88,12 @@ pub struct Router {
     /// 删候选后的屏幕提示，随下一帧下发、下一次按键清。
     notice: Option<String>,
 
-    /// 用户从菜单发起、正在等待的模型译文生成（请求序号、候选）。
-    candidate_translation: Option<(u64, qingjian_core::Candidate)>,
+    /// 用户从菜单发起、正在等待的模型译文生成；第三项是独立输入法指定的目标语言，中文候选为 `None`。
+    candidate_translation: Option<(
+        u64,
+        qingjian_core::Candidate,
+        Option<qingjian_core::Language>,
+    )>,
 
     /// 当前高亮候选在布局里的下标（跨页）。
     highlight: usize,
@@ -117,6 +121,15 @@ pub struct Router {
 
     /// 当前中英模式（`true` 英文）；按应用记忆时是 `mode_session` 对应的那份。
     english: bool,
+
+    /// 越南语 Simple Telex 当前词。
+    vietnamese: TelexComposer,
+
+    /// 越南语输入候选词表。
+    vietnamese_words: Option<qingjian_dictionary::WordList>,
+
+    /// 越南语候选的中文释义：个人模型译词优先，随包反向词库兜底。
+    vietnamese_glossary: Option<qingjian_translate::LayeredTranslator>,
 
     /// 最近同步中英状态的会话，与持有组句的 `focused` 分开，切模式不抢走待上屏的组句。
     mode_session: Option<SessionId>,
@@ -197,6 +210,9 @@ impl Router {
             candidates: Box::new(NoopSink),
             status: Box::new(NoopStatusSink),
             english,
+            vietnamese: TelexComposer::default(),
+            vietnamese_words: None,
+            vietnamese_glossary: None,
             mode_session: None,
             app_modes: HashMap::new(),
             ime_active: false,
@@ -227,6 +243,7 @@ impl Router {
             toggle_punctuation: self.config.toggle_punctuation,
             switch_mode: self.config.switch_mode,
             english_mode: self.config.english_mode,
+            double_shift_input: self.config.double_shift_input,
             shift_letter_compose: self.config.shift_letter_compose,
             restore_mode: self.config.default_english || self.config.remember_mode_per_app,
             toggle_traditional: self.config.toggle_traditional,
@@ -250,6 +267,17 @@ impl Router {
     pub fn set_candidate_sink(&mut self, sink: Box<dyn CandidateSink>) {
         sink.configure(self.config.render_settings());
         self.candidates = sink;
+    }
+
+    pub fn set_vietnamese_words(&mut self, words: Option<qingjian_dictionary::WordList>) {
+        self.vietnamese_words = words;
+    }
+
+    pub fn set_vietnamese_glossary(
+        &mut self,
+        glossary: Option<qingjian_translate::LayeredTranslator>,
+    ) {
+        self.vietnamese_glossary = glossary;
     }
 
     /// 直接碰 Engine：测试里改模式键这类启动时才设的开关。
