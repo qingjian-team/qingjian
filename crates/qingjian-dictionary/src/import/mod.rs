@@ -9,6 +9,7 @@ mod code_words;
 mod format;
 mod imported;
 mod rime;
+pub mod scel;
 mod word_list;
 
 use std::path::{Path, PathBuf};
@@ -85,7 +86,22 @@ pub fn import(source: &Path, dest_dir: &Path) -> Result<Imported, DictionaryErro
         let metadata = dictionary.metadata().cloned().unwrap_or_default();
         (dictionary, metadata)
     } else {
-        let text = std::fs::read_to_string(source)?;
+        let bytes = std::fs::read(source)?;
+        // 搜狗细胞词库是二进制：先按魔数 / 扩展名认出来，转成 TSV 再走同一条解析
+        if scel::is_scel(&stem, &bytes) {
+            let tsv = scel::to_tsv(&bytes).ok_or(DictionaryError::Corrupt(
+                ".scel 里没有可解析的词条",
+            ))?;
+            let dictionary = Dictionary::parse(&tsv)?;
+            let metadata = Metadata {
+                name: stem.clone(),
+                source: source.display().to_string(),
+                ..Metadata::default()
+            };
+            return finish_import(dictionary, metadata, target);
+        }
+        let text = String::from_utf8(bytes)
+            .map_err(|_| DictionaryError::Corrupt("file is neither text nor .scel"))?;
         let (tsv, name) = if rime::looks_like_rime(&text) {
             let parsed = rime::to_tsv(&text);
             (parsed.tsv, parsed.name)
@@ -166,7 +182,7 @@ fn finish_import(
 /// `law.dict.yaml` → `law`，`dict.tsv` → `dict`。
 pub(crate) fn strip_extensions(file_name: &str) -> String {
     let mut stem = file_name;
-    for suffix in [".dict.yaml", ".yaml", ".yml", ".tsv", ".txt", ".qj"] {
+    for suffix in [".dict.yaml", ".yaml", ".yml", ".tsv", ".txt", ".scel", ".qj"] {
         if let Some(s) = stem.strip_suffix(suffix) {
             stem = s;
             break;

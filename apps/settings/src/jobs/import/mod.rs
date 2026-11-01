@@ -45,7 +45,7 @@ impl ImportJob {
             Kind::Dictionary | Kind::CodeWords => rfd::FileDialog::new()
                 .add_filter(
                     tr("import.dictionary_files"),
-                    &["tsv", "txt", "yaml", "yml", "qj"],
+                    &["tsv", "txt", "yaml", "yml", "scel", "qj"],
                 )
                 .set_title(tr("dictionaries.import")),
             Kind::CodeTable => rfd::FileDialog::new()
