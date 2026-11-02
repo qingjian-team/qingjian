@@ -29,6 +29,15 @@ std::string contextIdentity(const InputContext *context) {
     for (auto byte : context->uuid()) out << std::setw(2) << static_cast<unsigned>(byte);
     return out.str();
 }
+/// 只清插件自己写进面板的字段。InputPanel::reset() 还会清 auxUp 与 overlayMessage，
+/// 那是框架用来显示「输入法信息」（切输入法的一秒提示）的地方：跟着一起清掉，切到青简时
+/// 的提示就只剩一帧（#311）。框架自己的定时器仍会把这些临时内容收走，这里不必代劳。
+void clearPanel(InputPanel &panel) {
+    panel.setPreedit(Text());
+    panel.setClientPreedit(Text());
+    panel.setCandidateList(nullptr);
+    panel.setAuxDown(Text());
+}
 }
 QingjianEngine::QingjianEngine(AddonManager *manager)
     : instance_(manager->instance()), shared_(std::make_shared<qingjian::SharedConnection>()),
@@ -107,7 +116,7 @@ void QingjianEngine::clear(InputContext *context) {
     session->displayIdentity = nullptr;
     session->clientPreedit = false;
     session->selectionText.clear();
-    context->inputPanel().reset();
+    clearPanel(context->inputPanel());
     context->updatePreedit();
     if (watched.get() && session->revision == revision)
         context->updateUserInterface(UserInterfaceComponent::InputPanel);
@@ -396,7 +405,7 @@ void QingjianEngine::render(InputContext *context, const nlohmann::json &frame) 
     auto highlight = frame.at("highlight").get<size_t>();
     if (highlight < items.size()) list->setGlobalCursorIndex(static_cast<int>(highlight));
     auto &panel = context->inputPanel();
-    panel.reset();
+    clearPanel(panel);
     const bool inlinePreedit = context->capabilityFlags().test(CapabilityFlag::Preedit) && session->preeditMode != "window";
     if (inlinePreedit) panel.setClientPreedit(preedit);
     if (session->preeditMode != "inline" || !inlinePreedit) panel.setPreedit(preedit);
