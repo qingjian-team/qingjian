@@ -32,7 +32,7 @@ jobs:
           toolchain: 1.96.0
           components: rustfmt, clippy
 
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
 
       # runner 的 apt 镜像偶尔只有 100 kB/s，平时 20 秒的这一步会拖到 18 分钟撞上超时。
       # 下载的 .deb 放进缓存，按周换键，镜像慢时也只下这周新出的版本。
@@ -176,7 +176,7 @@ jobs:
           toolchain: 1.96.0
           components: clippy
 
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
 
       - name: Clippy (IMK shell)
         run: cargo clippy -p qingjian-macos --all-targets --locked -- -D warnings
@@ -250,7 +250,7 @@ jobs:
           toolchain: 1.96.0
           targets: aarch64-linux-android
 
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
 
       # Gradle 8.14 只认到 JDK 24，runner 缺省的是 25
       - name: Use JDK 21
@@ -290,7 +290,7 @@ jobs:
           components: clippy
           targets: i686-pc-windows-msvc
 
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
 
       - name: Clippy (Server, TSF DLL, Settings)
         run: cargo clippy -p qingjian-windows-server -p qingjian-windows-tsf -p qingjian-windows-settings -p qingjian-settings --all-targets --locked -- -D warnings
