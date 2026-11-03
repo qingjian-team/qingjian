@@ -28,6 +28,14 @@ pub(in crate::scene) fn draw_visual(
             };
             text.draw_within(canvas, &content, style, (x, y), wrap);
         }
+        Visual::RichText {
+            text: content,
+            style,
+            spans,
+        } => {
+            let wrap = style.wrap.then_some(width + 0.5);
+            text.draw_colored(canvas, content, style, (x, y), wrap, spans);
+        }
         Visual::Icon { icon, size, color } => {
             let top = y + (height - size) / 2.0;
             icon.draw(canvas, x, top, *size, *color);

@@ -1,5 +1,6 @@
 //! 场景图节点画什么：节点的盒子由布局算出，这里只描述在盒子里怎么画。
 
+use std::ops::Range;
 use std::sync::Arc;
 
 use super::box_paint::BoxPaint;
@@ -19,6 +20,13 @@ pub enum Visual {
     /// 单行文字，盒子左上角是行框顶边；布局时按文字量宽高。
     Text { text: String, style: TextStyle },
 
+    /// 同一段文字里分片段上色（代码高亮），排版、折行同 [`Self::Text`]。`spans` 是字节范围与颜色，要首尾相接盖满整段。
+    RichText {
+        text: String,
+        style: TextStyle,
+        spans: Vec<(Range<usize>, Color)>,
+    },
+
     /// 图标：边长 `size`，在盒子里垂直居中、靠左。
     Icon {
         icon: Arc<dyn Icon>,
@@ -35,7 +43,7 @@ impl Visual {
                 fill: Some(Fill::Solid(color)),
                 ..
             }) => Some(*color),
-            Self::Text { style, .. } => Some(style.color),
+            Self::Text { style, .. } | Self::RichText { style, .. } => Some(style.color),
             Self::Icon { color, .. } => Some(*color),
             Self::Group | Self::Box(_) => None,
         }
@@ -50,7 +58,7 @@ impl Visual {
                     paint.fill = Some(Fill::Solid(color));
                 }
             }
-            Self::Text { style, .. } => style.color = color,
+            Self::Text { style, .. } | Self::RichText { style, .. } => style.color = color,
             Self::Icon { color: own, .. } => *own = color,
             Self::Group => {}
         }

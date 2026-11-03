@@ -573,3 +573,81 @@ fn menu_ignores_clicks_on_disabled_items() {
     assert!(click(&mut interaction, item(1)).is_empty());
     assert_eq!(click(&mut interaction, item(2)), vec![Message::Pick(2)]);
 }
+
+/// 200 见方的视口里 800 高的内容。
+fn scroller(interaction: &mut Interaction<Message>, text: &mut TextPainter) {
+    use taffy::{Dimension, Size};
+
+    let theme = WidgetTheme::new(WidgetColors::LIGHT, 1.0);
+    let mut ui = Ui::new(interaction);
+    let content = ui
+        .scene()
+        .node(
+            Style {
+                size: Size {
+                    width: Dimension::length(180.0),
+                    height: Dimension::length(800.0),
+                },
+                flex_shrink: 0.0,
+                ..Style::default()
+            },
+            Visual::Group,
+            &[],
+        )
+        .unwrap();
+    let root = crate::ScrollArea::new(Style {
+        size: Size {
+            width: Dimension::length(200.0),
+            height: Dimension::length(200.0),
+        },
+        ..Style::default()
+    })
+    .build(&mut ui, &theme, "list", content)
+    .unwrap();
+    let (mut scene, elements) = ui.finish();
+    scene.layout(root, text).unwrap();
+    interaction.attach(&scene, root, elements).unwrap();
+}
+
+#[test]
+fn scrollbar_drags_and_jumps() {
+    let mut interaction = Interaction::new();
+    let mut text = TextPainter::new(FontLibrary::system("zh-CN").unwrap());
+    let list = Key::ROOT.child("list");
+    // 第二帧才知道内容多高，才有滚动条
+    scroller(&mut interaction, &mut text);
+    scroller(&mut interaction, &mut text);
+    let offset = |interaction: &Interaction<Message>| interaction.scroll_offset(list).1;
+    let near = |actual: f32, expected: f32| {
+        assert!((actual - expected).abs() < 0.5, "{actual} ≠ {expected}");
+    };
+    // 滑块长 48.5、能走 145.5，内容能滚 600。按在滑块上不跳
+    interaction.handle(&Event::PointerMoved { x: 195.0, y: 13.0 });
+    interaction.handle(&Event::PointerDown);
+    near(offset(&interaction), 0.0);
+    let moved = interaction.handle(&Event::PointerMoved { x: 195.0, y: 85.75 });
+    assert!(moved.changed);
+    near(offset(&interaction), 300.0);
+    // 拖到元素外面也跟着，超出的夹到头
+    interaction.handle(&Event::PointerMoved {
+        x: -500.0,
+        y: 900.0,
+    });
+    near(offset(&interaction), 600.0);
+    interaction.handle(&Event::PointerUp);
+    // 抬起之后指针怎么动都不滚
+    interaction.handle(&Event::PointerMoved { x: 100.0, y: 10.0 });
+    near(offset(&interaction), 600.0);
+    // 点轨道：滑块中间跳到指针处
+    scroller(&mut interaction, &mut text);
+    interaction.handle(&Event::PointerMoved { x: 195.0, y: 80.0 });
+    interaction.handle(&Event::PointerDown);
+    near(offset(&interaction), (80.0 - 24.25 - 3.0) / 145.5 * 600.0);
+    interaction.handle(&Event::PointerUp);
+    // 视口其余地方按下不算
+    let before = offset(&interaction);
+    interaction.handle(&Event::PointerMoved { x: 100.0, y: 150.0 });
+    interaction.handle(&Event::PointerDown);
+    interaction.handle(&Event::PointerMoved { x: 100.0, y: 50.0 });
+    near(offset(&interaction), before);
+}

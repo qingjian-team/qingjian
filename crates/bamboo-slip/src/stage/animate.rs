@@ -71,8 +71,14 @@ impl Stage {
         keyed
             .iter()
             .filter_map(|keyed| {
-                let mut from = *shown.get(&keyed.key)?;
                 let to = keyed.placement;
+                let mut from = shown.get(&keyed.key).copied().or_else(|| {
+                    keyed.enter.map(|offset| Placement {
+                        y: to.y + offset,
+                        opacity: 0.0,
+                        ..to
+                    })
+                })?;
                 if keyed.fade {
                     (from.x, from.y, from.width, from.height) = (to.x, to.y, to.width, to.height);
                 } else {

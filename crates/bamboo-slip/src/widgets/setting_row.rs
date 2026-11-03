@@ -110,16 +110,28 @@ impl<'a> SettingRow<'a> {
         }
         let mut texts = vec![title];
         if let Some(detail) = self.detail {
-            texts.push(label(
-                ui,
-                theme,
-                detail,
-                theme.small,
-                400,
-                colors.secondary,
+            // 说明长了折行，不把右边的控件挤出去
+            texts.push(ui.scene().node(
+                Style::default(),
+                Visual::Text {
+                    text: detail.to_owned(),
+                    style: theme.text(theme.small, 400, colors.secondary).wrapped(),
+                },
+                &[],
             )?);
         }
-        let heading = ui.scene().node(column(theme, 2.0), Visual::Group, &texts)?;
+        let heading = ui.scene().node(
+            Style {
+                flex_shrink: 1.0,
+                min_size: taffy::Size {
+                    width: LengthPercentageAuto::length(0.0),
+                    height: LengthPercentageAuto::auto(),
+                },
+                ..column(theme, 2.0)
+            },
+            Visual::Group,
+            &texts,
+        )?;
         let node = if self.stacked {
             let mut children = vec![spot, heading];
             children.extend(self.control);
@@ -152,6 +164,7 @@ impl<'a> SettingRow<'a> {
         let trailing = ui.scene().node(
             Style {
                 align_items: AlignItems::FLEX_END,
+                flex_shrink: 0.0,
                 ..column(theme, 8.0)
             },
             Visual::Group,

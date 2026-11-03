@@ -4,7 +4,9 @@
 mod runner;
 mod traits;
 mod waker;
+mod window_command;
 
 pub use runner::Runner;
 pub use traits::App;
 pub use waker::Waker;
+pub use window_command::WindowCommand;

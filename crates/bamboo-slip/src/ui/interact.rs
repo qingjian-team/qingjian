@@ -2,6 +2,7 @@
 
 use taffy::NodeId;
 
+use super::ScrollbarTrack;
 use super::event::{KeyPress, TextInput};
 
 /// 按键处理：处理了就返回消息，没处理返回 `None` 交给上级。
@@ -12,9 +13,14 @@ type TextHandler<M> = Box<dyn Fn(&TextInput) -> Option<M>>;
 /// 拖动：指针在元素里的横向位置（0 为左边、1 为右边，出界夹到两头）。
 type DragHandler<M> = Box<dyn Fn(f32) -> Option<M>>;
 
+/// 右键：指针在根坐标里的位置（像素）。
+type SecondaryHandler<M> = Box<dyn Fn((f32, f32)) -> M>;
+
 /// 什么都不设也有用：元素会记悬停状态。
 pub struct Interact<M> {
     pub(super) click: Option<M>,
+
+    pub(super) secondary: Option<SecondaryHandler<M>>,
 
     pub(super) key: Option<KeyHandler<M>>,
 
@@ -27,6 +33,9 @@ pub struct Interact<M> {
 
     pub(super) focusable: bool,
 
+    /// 没有元素拿着焦点时自己拿（面板的搜索框）。
+    pub(super) autofocus: bool,
+
     pub(super) disabled: bool,
 
     /// 秘密输入（API 密钥这类）：聚焦时宿主关掉输入法，键按原始键走，不让输入法组字并上报。
@@ -34,6 +43,9 @@ pub struct Interact<M> {
 
     /// 滚动区：被滚动的内容节点（元素自己是视口）。
     pub(super) scroll_content: Option<NodeId>,
+
+    /// 滚动条的轨道：按下与拖动由交互层直接改滚动位置。
+    pub(super) scrollbar: Option<ScrollbarTrack>,
 }
 
 impl<M> Default for Interact<M> {
@@ -46,14 +58,17 @@ impl<M> Interact<M> {
     pub fn new() -> Self {
         Self {
             click: None,
+            secondary: None,
             key: None,
             text: None,
             drag: None,
             blur: None,
             focusable: false,
+            autofocus: false,
             disabled: false,
             secret: false,
             scroll_content: None,
+            scrollbar: None,
         }
     }
 
@@ -61,6 +76,14 @@ impl<M> Interact<M> {
     pub fn on_click(self, message: M) -> Self {
         Self {
             click: Some(message),
+            ..self
+        }
+    }
+
+    /// 右键按下（上下文菜单这类）；交给指针下面最里层接它的元素。
+    pub fn on_secondary(self, handler: impl Fn((f32, f32)) -> M + 'static) -> Self {
+        Self {
+            secondary: Some(Box::new(handler)),
             ..self
         }
     }
@@ -106,6 +129,11 @@ impl<M> Interact<M> {
         }
     }
 
+    /// 没有元素拿着焦点时自己拿，点了别处也回到它身上（一打开就能打字的搜索框）。
+    pub fn autofocus(self, autofocus: bool) -> Self {
+        Self { autofocus, ..self }
+    }
+
     /// 禁用：不产出消息、不拿焦点，但仍挡住底下的元素。
     pub fn disabled(self, disabled: bool) -> Self {
         Self { disabled, ..self }
@@ -121,6 +149,14 @@ impl<M> Interact<M> {
     pub fn scrolls(self, content: NodeId) -> Self {
         Self {
             scroll_content: Some(content),
+            ..self
+        }
+    }
+
+    /// 元素是滚动条的轨道，见 [`ScrollbarTrack`]。
+    pub(crate) fn scrollbar(self, track: ScrollbarTrack) -> Self {
+        Self {
+            scrollbar: Some(track),
             ..self
         }
     }

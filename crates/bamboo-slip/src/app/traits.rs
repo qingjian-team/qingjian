@@ -2,7 +2,7 @@
 
 use taffy::NodeId;
 
-use super::Waker;
+use super::{Waker, WindowCommand};
 use crate::error::RenderError;
 use crate::text::TextPainter;
 use crate::ui::{Key, Ui};
@@ -45,6 +45,11 @@ pub trait App {
     /// 窗口进出前台。用户切到别的应用改了文件再切回来时，可以借这个时机重新读盘。
     fn set_active(&mut self, active: bool) {
         let _ = active;
+    }
+
+    /// 面板窗口（[`crate::WindowOptions::panel`]）要摆放或显隐时返回一条；宿主每次事件后取到空为止。
+    fn take_window_command(&mut self) -> Option<WindowCommand> {
+        None
     }
 
     /// 系统的深浅色变了（开窗时也调一次）。

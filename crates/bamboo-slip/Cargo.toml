@@ -29,8 +29,8 @@ arboard = { workspace = true, optional = true }
 host = ["dep:winit", "dep:softbuffer", "dep:arboard"]
 
 [target.'cfg(windows)'.dependencies]
-# 字体登记走 DirectWrite（按字族名找文件、列字族）
-windows = { version = "0.62.2", features = ["Win32_Graphics_DirectWrite"] }
+# 字体登记走 DirectWrite（按字族名找文件、列字族）；系统强调色在注册表里
+windows = { version = "0.62.2", features = ["Win32_Graphics_DirectWrite", "Win32_System_Registry"] }
 
 [dev-dependencies]
 serde_json.workspace = true

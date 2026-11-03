@@ -6,6 +6,7 @@
 
 mod animation;
 mod app;
+mod appearance;
 mod canvas;
 mod color;
 mod error;
@@ -21,7 +22,8 @@ mod ui;
 mod widgets;
 
 pub use animation::{Easing, Keyframe, Keyframes};
-pub use app::{App, Runner, Waker};
+pub use app::{App, Runner, Waker, WindowCommand};
+pub use appearance::{Accent, system_acrylic};
 pub use canvas::Canvas;
 pub use color::Color;
 pub use error::RenderError;
@@ -44,7 +46,7 @@ pub use widgets::{
     BarChart, Button, Checkbox, Datum, Edit, Heatmap, KeyRecorder, Menu, NavItem, PopupMenu,
     ProgressBar, ScrollArea, SearchField, Segmented, Select, SettingRow, Slider, Stepper, Switch,
     TextEdit, TextField, WidgetColors, WidgetTheme, dialog, group, info, info_with_link, paragraph,
-    section_title,
+    section_title, tooltip,
 };
 
 /// 使用方建树用的布局类型、自己画图标用的路径与混合模式，与这里是同一个 taffy、tiny-skia。

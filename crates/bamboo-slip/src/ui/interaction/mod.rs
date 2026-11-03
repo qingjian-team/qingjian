@@ -33,6 +33,9 @@ pub struct Interaction<M> {
     /// 按下时捕获指针的元素，抬起前一直归它。
     pressed: Option<Key>,
 
+    /// 拖滚动条时指针抓在滑块的哪（离滑块起点的像素）。
+    scrollbar_grab: f32,
+
     focused: Option<Key>,
 
     /// 焦点是键盘带来的，画焦点环。
@@ -68,6 +71,7 @@ impl<M> Interaction<M> {
             pointer: None,
             hovered: Vec::new(),
             pressed: None,
+            scrollbar_grab: 0.0,
             focused: None,
             focus_visible: false,
             offsets: HashMap::new(),
@@ -105,6 +109,11 @@ impl<M> Interaction<M> {
             focused,
             focus_ring: focused && self.focus_visible,
         }
+    }
+
+    /// 按下时捕获了指针、还没抬起：拖到元素外面也算（滚动条拖动时保持粗细）。
+    pub fn captured(&self, key: Key) -> bool {
+        self.pressed == Some(key)
     }
 
     /// 元素上一帧在根坐标里的矩形（左、上、宽、高，像素）：弹出层定位、测试里找点击位置用。
@@ -187,9 +196,26 @@ impl<M> Interaction<M> {
             self.pressed = None;
             changed = true;
         }
+        if self.focused.is_none()
+            && let Some(element) = self
+                .elements
+                .iter()
+                .find(|element| element.interact.autofocus && element.interact.takes_focus())
+        {
+            self.focused = Some(element.key);
+            changed = true;
+        }
         changed |= self.measure_scrolls(&boxes);
         changed |= self.rehover();
         Ok(changed)
+    }
+
+    /// 窗口藏起来了：焦点、按下、指针位置都作废，再显示时从头来。
+    pub fn reset_input(&mut self) {
+        self.focused = None;
+        self.pressed = None;
+        self.pointer = None;
+        self.hovered.clear();
     }
 
     /// 处理一个输入事件。
@@ -202,6 +228,7 @@ impl<M> Interaction<M> {
             Event::PointerLeft => self.pointer_moved(None),
             Event::PointerDown => self.pointer_down(),
             Event::PointerUp => self.pointer_up(),
+            Event::SecondaryDown => self.secondary_down(),
             Event::Key(press) => self.key(press),
             Event::Text(input) => self.text(input),
             Event::Scroll { dx, dy } => self.scroll(*dx, *dy),

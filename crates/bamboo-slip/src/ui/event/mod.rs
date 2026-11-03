@@ -23,6 +23,9 @@ pub enum Event {
 
     PointerUp,
 
+    /// 右键按下；位置以最近一次 `PointerMoved` 为准。
+    SecondaryDown,
+
     Key(KeyPress),
 
     /// 打出来的文字与输入法的组字，只交给拿着焦点、收文字的元素。

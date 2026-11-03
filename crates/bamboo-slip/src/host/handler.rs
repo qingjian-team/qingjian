@@ -2,7 +2,7 @@
 
 use std::num::NonZeroU32;
 use std::sync::Arc;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use softbuffer::{Context, Surface};
 use winit::application::ApplicationHandler;
@@ -12,14 +12,20 @@ use winit::event::StartCause;
 use winit::event::{ElementState, Ime, MouseButton, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, ControlFlow};
 use winit::platform::modifier_supplement::KeyEventExtModifierSupplement;
-use winit::window::{Theme, Window, WindowId};
+use winit::window::{Theme, Window, WindowId, WindowLevel};
 
 use super::blit::blit;
 use super::clipboard::clipboard_text;
 use super::input::{key_code, modifiers, scroll};
 use super::{HostError, WindowOptions};
-use crate::app::{App, Runner};
+use crate::app::{App, Runner, WindowCommand};
+use crate::stage::Painted;
 use crate::ui::{Event, KeyCode, KeyPress, Modifiers, TextInput};
+
+const SLIDE_DURATION: Duration = Duration::from_millis(140);
+
+/// 滑入时多久挪一次窗口。
+const SLIDE_STEP: Duration = Duration::from_millis(8);
 
 pub(super) struct Handler<A: App> {
     runner: Runner<A>,
@@ -34,8 +40,44 @@ pub(super) struct Handler<A: App> {
     /// 输入法开着（焦点在输入框里）时它的位置，与上次告诉系统的比，变了才再告诉。
     ime: Option<(f32, f32, f32, f32)>,
 
+    /// 告诉过系统的输入法开关。
+    ime_on: bool,
+
+    /// 面板正在滑入。
+    slide: Option<Slide>,
+
+    /// 面板上一次画好的位图，滑入时重贴，见 [`Self::present_again`]。
+    last_frame: Option<Painted>,
+
     /// 中途出的错，事件循环退出后交给调用方。
     pub(super) error: Option<HostError>,
+}
+
+/// 面板滑入的动画：只挪窗口，位图不用重画。
+struct Slide {
+    from: (i32, i32),
+
+    to: (i32, i32),
+
+    /// 从第一次空闲算起：显示后拿到焦点的那次重画很慢，从显示就开始算的话一帧都看不到。
+    start: Option<Instant>,
+}
+
+impl Slide {
+    /// 现在该在的位置与动画是否结束；缓出，先快后慢。
+    fn position(&mut self, now: Instant) -> ((i32, i32), bool) {
+        let start = *self.start.get_or_insert(now);
+        let progress = (now - start).as_secs_f32() / SLIDE_DURATION.as_secs_f32();
+        if progress >= 1.0 {
+            return (self.to, true);
+        }
+        let eased = 1.0 - (1.0 - progress).powi(3);
+        let at = |from: i32, to: i32| from + ((to - from) as f32 * eased) as i32;
+        (
+            (at(self.from.0, self.to.0), at(self.from.1, self.to.1)),
+            false,
+        )
+    }
 }
 
 /// 窗口和它的贴图面；softbuffer 的面要借着窗口，两个都用 `Arc` 持有。
@@ -53,6 +95,9 @@ impl<A: App> Handler<A> {
             modifiers: Modifiers::default(),
             window: None,
             ime: None,
+            ime_on: false,
+            slide: None,
+            last_frame: None,
             error: None,
         }
     }
@@ -64,6 +109,27 @@ impl<A: App> Handler<A> {
             .with_title(self.options.title.clone())
             .with_inner_size(LogicalSize::new(width, height))
             .with_min_inner_size(LogicalSize::new(min_width, min_height));
+        let attributes = if self.options.panel {
+            let attributes = attributes
+                .with_visible(false)
+                .with_decorations(false)
+                .with_window_level(WindowLevel::AlwaysOnTop);
+            #[cfg(target_os = "windows")]
+            let attributes = {
+                use winit::platform::windows::{BackdropType, WindowAttributesExtWindows};
+                let attributes = attributes.with_skip_taskbar(true);
+                if self.options.acrylic {
+                    attributes
+                        .with_transparent(true)
+                        .with_system_backdrop(BackdropType::TransientWindow)
+                } else {
+                    attributes
+                }
+            };
+            attributes
+        } else {
+            attributes
+        };
         #[cfg(target_os = "macos")]
         let attributes = {
             use winit::platform::macos::WindowAttributesExtMacOS;
@@ -119,22 +185,51 @@ impl<A: App> Handler<A> {
             blit_ms = painted_at.elapsed().as_secs_f64() * 1000.0,
             "重画"
         );
-        Ok(painted.next_frame.is_some())
+        let more = painted.next_frame.is_some();
+        if self.options.panel {
+            self.last_frame = Some(painted);
+        }
+        Ok(more)
+    }
+
+    /// 把上一次画好的位图再贴一遍，不重画。滑入时窗口有一截在屏幕外，贴上去的那截不会留下，
+    /// 滑进屏幕后是空的（透出没盖主题色的材质），要挪一步贴一次；一次只要几毫秒。
+    fn present_again(&mut self) -> Result<(), HostError> {
+        let (Some(host), Some(painted)) = (self.window.as_mut(), self.last_frame.as_ref()) else {
+            return Ok(());
+        };
+        let size = host.window.inner_size();
+        let (Some(width), Some(height)) =
+            (NonZeroU32::new(size.width), NonZeroU32::new(size.height))
+        else {
+            return Ok(());
+        };
+        host.surface.resize(width, height)?;
+        let mut buffer = host.surface.buffer_mut()?;
+        blit(
+            &painted.pixmap,
+            (painted.content_x, painted.content_y),
+            &mut buffer,
+            width.get(),
+            height.get(),
+        );
+        buffer.present()?;
+        Ok(())
     }
 
     /// 焦点进出输入框时开关输入法，输入法的候选窗跟着输入框走；秘密输入（API 密钥这类）整段关掉，
     /// 键按原始键走，输入法组字与上报都不发生。
     fn sync_ime(&mut self, window: &Window) {
-        let target = self
-            .runner
-            .interaction()
-            .text_target()
-            .filter(|_| self.runner.interaction().ime_allowed());
+        let typing = self.runner.interaction().text_target();
+        let target = typing.filter(|_| self.runner.interaction().ime_allowed());
+        // 开输入法可能阻塞几百毫秒（首次要等文字服务加载）：面板藏起来时也开着，下次呼出不用再开；只有秘密输入才关
+        let on = target.is_some() || (self.options.panel && typing.is_none());
+        if on != self.ime_on {
+            window.set_ime_allowed(on);
+            self.ime_on = on;
+        }
         if target == self.ime {
             return;
-        }
-        if target.is_some() != self.ime.is_some() {
-            window.set_ime_allowed(target.is_some());
         }
         if let Some((x, y, width, height)) = target {
             window.set_ime_cursor_area(
@@ -145,6 +240,43 @@ impl<A: App> Handler<A> {
         self.ime = target;
     }
 
+    /// 执行应用要窗口做的事（面板的摆放与显隐）。
+    fn apply_window_commands(&mut self, window: &Window) {
+        while let Some(command) = self.runner.take_window_command() {
+            match command {
+                WindowCommand::Show {
+                    x,
+                    y,
+                    width,
+                    height,
+                    from,
+                } => {
+                    let (start_x, start_y) = from.unwrap_or((x, y));
+                    window.set_outer_position(PhysicalPosition::new(start_x, start_y));
+                    let _ = window.request_inner_size(PhysicalSize::new(width, height));
+                    // 显示前先画好，否则会闪一下上次藏起来时的内容
+                    self.runner.invalidate();
+                    if let Err(error) = self.redraw() {
+                        tracing::warn!(%error, "panel paint failed");
+                    }
+                    window.set_visible(true);
+                    window.focus_window();
+                    window.request_redraw();
+                    self.slide = from.map(|from| Slide {
+                        from,
+                        to: (x, y),
+                        start: None,
+                    });
+                }
+                WindowCommand::Hide => {
+                    self.slide = None;
+                    self.runner.reset_input();
+                    window.set_visible(false);
+                }
+            }
+        }
+    }
+
     /// 交给交互层；之后按要不要退出、重画收尾。
     fn dispatch(&mut self, event_loop: &ActiveEventLoop, window: &Window, input: &Event) {
         let redraw = self.runner.handle(input);
@@ -153,6 +285,7 @@ impl<A: App> Handler<A> {
         } else if redraw {
             window.request_redraw();
         }
+        self.apply_window_commands(window);
     }
 
     fn fail(&mut self, event_loop: &ActiveEventLoop, error: HostError) {
@@ -173,6 +306,23 @@ impl<A: App> ApplicationHandler for Handler<A> {
 
     /// 输入框有焦点时等到光标下一次翻转再醒，别的时候干等事件。
     fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
+        if let Some(mut slide) = self.slide.take() {
+            let now = Instant::now();
+            let ((x, y), done) = slide.position(now);
+            self.slide = Some(slide);
+            if let Some(host) = &self.window {
+                host.window.set_outer_position(PhysicalPosition::new(x, y));
+            }
+            if let Err(error) = self.present_again() {
+                tracing::warn!(%error, "panel present failed");
+            }
+            if done {
+                self.slide = None;
+            } else {
+                event_loop.set_control_flow(ControlFlow::WaitUntil(now + SLIDE_STEP));
+                return;
+            }
+        }
         event_loop.set_control_flow(match self.runner.next_blink(Instant::now()) {
             Some(at) => ControlFlow::WaitUntil(at),
             None => ControlFlow::Wait,
@@ -180,10 +330,12 @@ impl<A: App> ApplicationHandler for Handler<A> {
     }
 
     fn user_event(&mut self, _: &ActiveEventLoop, (): ()) {
-        if self.runner.wake()
-            && let Some(host) = &self.window
-        {
-            host.window.request_redraw();
+        let rebuild = self.runner.wake();
+        if let Some(window) = self.window.as_ref().map(|host| host.window.clone()) {
+            if rebuild {
+                window.request_redraw();
+            }
+            self.apply_window_commands(&window);
         }
     }
 
@@ -212,6 +364,7 @@ impl<A: App> ApplicationHandler for Handler<A> {
             WindowEvent::Focused(focused) => {
                 self.runner.set_active(focused);
                 window.request_redraw();
+                self.apply_window_commands(&window);
                 return;
             }
             WindowEvent::ThemeChanged(theme) => {
@@ -248,6 +401,11 @@ impl<A: App> ApplicationHandler for Handler<A> {
                 ElementState::Pressed => Event::PointerDown,
                 ElementState::Released => Event::PointerUp,
             },
+            WindowEvent::MouseInput {
+                state: ElementState::Pressed,
+                button: MouseButton::Right,
+                ..
+            } => Event::SecondaryDown,
             WindowEvent::MouseWheel { delta, .. } => {
                 let (dx, dy) = scroll(delta, window.scale_factor() as f32);
                 Event::Scroll { dx, dy }

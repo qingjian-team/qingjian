@@ -27,6 +27,18 @@ pub struct WidgetTheme {
     /// 控件圆角（点）；卡片按它的 1.5 倍。
     pub radius: f32,
 
+    /// 弹出菜单的圆角（点）。
+    pub popup_radius: f32,
+
+    /// 弹出菜单出现时淡入滑入的时长；为零不播。
+    pub popup_motion: Duration,
+
+    /// 滚动条平时的粗细（点）；比 6 点细时，指针放上去才变粗。
+    pub scrollbar_idle: f32,
+
+    /// 输入框聚焦时只在底边画一条强调色（Fluent），不描整圈。
+    pub input_underline: bool,
+
     /// 控件高度（点）：按钮、分段、输入框一样高，排在一行里对得齐。
     pub control_height: f32,
 
@@ -48,6 +60,10 @@ impl WidgetTheme {
             small: 11.0,
             gamma: 1.0,
             radius: 7.0,
+            popup_radius: 7.0,
+            popup_motion: Duration::ZERO,
+            scrollbar_idle: 6.0,
+            input_underline: false,
             control_height: 24.0,
             hover: Duration::from_millis(120),
             flip: Duration::from_millis(240),

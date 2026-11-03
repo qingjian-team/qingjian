@@ -79,7 +79,7 @@ pub(super) fn item_style(theme: &WidgetTheme) -> Style {
 
 /// 一项的底：悬停 / 按下时垫一层，圆角比卡片小一圈。
 pub(super) fn item_visual(theme: &WidgetTheme, fill: Option<crate::color::Color>) -> Visual {
-    solid(fill, None, theme.px(theme.radius) - theme.px(2.0))
+    solid(fill, None, theme.px(theme.popup_radius) - theme.px(2.0))
 }
 
 /// 卡片：弹出层底色、细边、控件圆角。
@@ -87,7 +87,7 @@ pub(super) fn panel_visual(theme: &WidgetTheme) -> Visual {
     solid(
         Some(theme.colors.popup),
         Some((theme.px(1.0), theme.colors.line)),
-        theme.px(theme.radius),
+        theme.px(theme.popup_radius),
     )
 }
 

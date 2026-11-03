@@ -12,8 +12,8 @@ use std::ops::Range;
 use std::sync::Arc;
 
 use taffy::{
-    AlignItems, FlexDirection, FlexWrap, JustifyContent, LengthPercentageAuto, NodeId, Rect, Size,
-    Style,
+    AlignItems, FlexDirection, FlexWrap, JustifyContent, LengthPercentageAuto, NodeId, Position,
+    Rect, Size, Style,
 };
 
 use super::WidgetTheme;
@@ -60,6 +60,8 @@ pub struct TextField<'a> {
     max_rows: Option<usize>,
 
     disabled: bool,
+
+    autofocus: bool,
 }
 
 impl<'a> TextField<'a> {
@@ -74,6 +76,15 @@ impl<'a> TextField<'a> {
             rows: 3,
             max_rows: None,
             disabled: false,
+            autofocus: false,
+        }
+    }
+
+    /// 见 [`Interact::autofocus`]。
+    pub fn autofocus(self) -> Self {
+        Self {
+            autofocus: true,
+            ..self
         }
     }
 
@@ -226,7 +237,8 @@ impl<'a> TextField<'a> {
         let (height, min_height, vertical) = if multiline {
             (None, tall(self.rows), MULTILINE_PADDING)
         } else if self.filled {
-            (Some(theme.px(theme.control_height + 4.0)), 0.0, 0.0)
+            let extra = if theme.input_underline { 0.0 } else { 4.0 };
+            (Some(theme.px(theme.control_height + extra)), 0.0, 0.0)
         } else {
             (Some(theme.px(theme.control_height)), 0.0, 0.0)
         };
@@ -234,7 +246,20 @@ impl<'a> TextField<'a> {
             Some(rows) if multiline => LengthPercentageAuto::length(tall(rows.max(self.rows))),
             _ => LengthPercentageAuto::auto(),
         };
-        let paint = if self.filled {
+        let paint = if theme.input_underline {
+            let fill = if focused {
+                colors.surface
+            } else if state.hovered {
+                over(colors.well, colors.hover)
+            } else {
+                colors.well
+            };
+            solid(
+                Some(fill),
+                Some((theme.px(1.0), colors.line)),
+                theme.px(theme.radius),
+            )
+        } else if self.filled {
             let fill = if state.hovered && !focused {
                 over(colors.well, colors.hover)
             } else {
@@ -264,6 +289,23 @@ impl<'a> TextField<'a> {
             )?);
         }
         children.push(view);
+        if theme.input_underline && focused {
+            children.push(ui.scene().node(
+                Style {
+                    position: Position::Absolute,
+                    inset: Rect {
+                        left: LengthPercentageAuto::length(0.0),
+                        right: LengthPercentageAuto::length(0.0),
+                        bottom: LengthPercentageAuto::length(0.0),
+                        top: LengthPercentageAuto::auto(),
+                    },
+                    size: size(None, Some(theme.px(2.0))),
+                    ..Style::default()
+                },
+                solid(Some(colors.accent), None, 0.0),
+                &[],
+            )?);
+        }
         let node = ui.scene().node(
             Style {
                 padding: padding(theme, vertical, if self.filled { 9.0 } else { 8.0 }),
@@ -288,6 +330,9 @@ impl<'a> TextField<'a> {
             &children,
         )?;
         ui.fade(node, key, theme.hover, Easing::Ease);
+        if theme.input_underline {
+            ui.scene().set_clip(node, theme.px(theme.radius));
+        }
         if self.disabled {
             ui.scene().set_opacity(node, DISABLED_OPACITY);
         }
@@ -296,6 +341,7 @@ impl<'a> TextField<'a> {
         let commit = on_commit.clone();
         let mut interact = Interact::new()
             .secret(secret)
+            .autofocus(self.autofocus)
             .on_text(move |input| Some(on_edit(Edit::Text(input.clone()))))
             .on_key(move |press| {
                 let command = press.modifiers.command;

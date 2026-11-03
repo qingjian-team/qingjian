@@ -59,7 +59,7 @@ impl Scene {
         measured: &HashMap<NodeId, TextSize>,
     ) -> Result<Option<f32>, RenderError> {
         if let Some(SceneNode {
-            visual: Visual::Text { .. },
+            visual: Visual::Text { .. } | Visual::RichText { .. },
             ..
         }) = self.tree.get_node_context(node)
         {

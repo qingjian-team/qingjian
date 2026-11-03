@@ -126,6 +126,7 @@ impl Scene {
                 effects: Vec::new(),
                 transition: None,
                 fade: false,
+                enter: None,
                 anchor: false,
                 placed: None,
                 animation: None,
@@ -224,6 +225,11 @@ impl Scene {
                                 Visual::Text {
                                     text: content,
                                     style,
+                                }
+                                | Visual::RichText {
+                                    text: content,
+                                    style,
+                                    ..
                                 },
                             ..
                         }) if style.wrap => {
@@ -245,6 +251,11 @@ impl Scene {
                                 Visual::Text {
                                     text: content,
                                     style,
+                                }
+                                | Visual::RichText {
+                                    text: content,
+                                    style,
+                                    ..
                                 },
                             ..
                         }) => {

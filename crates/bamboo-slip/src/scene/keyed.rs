@@ -24,6 +24,9 @@ pub struct Keyed {
     /// 只渐变颜色与不透明度，见 [`Scene::set_fade`]。
     pub fade: bool,
 
+    /// 见 [`Scene::set_enter`]。
+    pub enter: Option<f32>,
+
     /// 最近的参照祖先（[`Scene::set_anchor`]）相对根节点的位置；没有参照的为根节点 `(0, 0)`。
     pub anchor: (f32, f32),
 }
@@ -47,6 +50,13 @@ impl Scene {
         self.set_transition(node, key, duration, easing);
         if let Some(context) = self.tree.get_node_context_mut(node) {
             context.fade = true;
+        }
+    }
+
+    /// 节点刚出现时从竖直偏移 `offset`（像素）、全透明过渡到布局位置（弹出菜单）。要先 [`Self::set_transition`]。
+    pub fn set_enter(&mut self, node: NodeId, offset: f32) {
+        if let Some(context) = self.tree.get_node_context_mut(node) {
+            context.enter = Some(offset);
         }
     }
 
@@ -128,6 +138,7 @@ impl Scene {
                     color: context.and_then(|context| context.visual.color()),
                 },
                 fade: context.is_some_and(|context| context.fade),
+                enter: context.and_then(|context| context.enter),
                 anchor,
             });
         }

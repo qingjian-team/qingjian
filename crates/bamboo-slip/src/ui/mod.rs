@@ -16,6 +16,7 @@ mod interaction;
 mod key;
 mod response;
 mod scroll_extent;
+mod scrollbar_track;
 mod searchable;
 mod state;
 
@@ -27,5 +28,6 @@ pub use interaction::Interaction;
 pub use key::Key;
 pub use response::Response;
 pub use scroll_extent::ScrollExtent;
+pub(crate) use scrollbar_track::ScrollbarTrack;
 pub use searchable::Searchable;
 pub use state::ElementState;

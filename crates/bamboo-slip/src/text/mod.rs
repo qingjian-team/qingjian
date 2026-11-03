@@ -8,6 +8,7 @@ mod style;
 
 use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
+use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -242,7 +243,20 @@ impl TextPainter {
         (x, y): (f32, f32),
         width: Option<f32>,
     ) -> f32 {
-        self.shape(text, style, width);
+        self.draw_colored(canvas, text, style, (x, y), width, &[])
+    }
+
+    /// 同 [`Self::draw_within`]，`spans` 非空时各片段用各自的颜色（见 [`crate::Visual::RichText`]）。
+    pub fn draw_colored(
+        &mut self,
+        canvas: &mut Canvas,
+        text: &str,
+        style: &TextStyle,
+        (x, y): (f32, f32),
+        width: Option<f32>,
+        spans: &[(Range<usize>, crate::color::Color)],
+    ) -> f32 {
+        self.shape_colored(text, style, width, spans);
         if let Some((stroke_width, stroke_color)) = style.stroke {
             self.draw_stroke(canvas, style, x, y, stroke_width, stroke_color);
         }
@@ -267,7 +281,13 @@ impl TextPainter {
                     SwashContent::Mask => {
                         let table = gamma_table(&mut self.gamma_tables, style.gamma);
                         let data: Vec<u8> = image.data.iter().map(|&c| table[c as usize]).collect();
-                        canvas.blend_mask(gx, gy, w, h, &data, style.color);
+                        let color = glyph
+                            .color_opt
+                            .filter(|_| !spans.is_empty())
+                            .map_or(style.color, |c| {
+                                crate::color::Color::rgba(c.r(), c.g(), c.b(), c.a())
+                            });
+                        canvas.blend_mask(gx, gy, w, h, &data, color);
                     }
                     SwashContent::Color => canvas.blend_rgba(gx, gy, w, h, &image.data),
                     // 没有申请亚像素格式，不会出现
@@ -365,6 +385,16 @@ impl TextPainter {
     }
 
     fn shape(&mut self, text: &str, style: &TextStyle, width: Option<f32>) {
+        self.shape_colored(text, style, width, &[]);
+    }
+
+    fn shape_colored(
+        &mut self,
+        text: &str,
+        style: &TextStyle,
+        width: Option<f32>,
+        spans: &[(Range<usize>, crate::color::Color)],
+    ) {
         let family = match self.resolved.get(usize::from(style.family.0)) {
             Some(Some(name)) => Family::Name(name),
             _ => UI_FAMILY,
@@ -381,7 +411,18 @@ impl TextPainter {
         self.buffer
             .set_metrics(Metrics::new(style.size, style.line_height));
         self.buffer.set_size(width, None);
-        self.buffer.set_text(text, &attrs, Shaping::Advanced, None);
+        if spans.is_empty() {
+            self.buffer.set_text(text, &attrs, Shaping::Advanced, None);
+        } else {
+            self.buffer.set_rich_text(
+                spans.iter().map(|(range, color)| {
+                    (&text[range.clone()], attrs.clone().color(color.to_cosmic()))
+                }),
+                &attrs,
+                Shaping::Advanced,
+                None,
+            );
+        }
         self.buffer.shape_until_scroll(&mut self.font_system, false);
     }
 }

@@ -72,7 +72,9 @@ impl Scene {
         } = self.tree.get_node_context(node)?;
         let shadow = effects.iter().map(Effect::overhang).fold(0.0, f32::max);
         let stroke = match visual {
-            Visual::Text { style, .. } => style.stroke.map_or(0.0, |(width, _)| width),
+            Visual::Text { style, .. } | Visual::RichText { style, .. } => {
+                style.stroke.map_or(0.0, |(width, _)| width)
+            }
             _ => 0.0,
         };
         (!matches!(visual, Visual::Group) || shadow > 0.0).then_some(shadow.max(stroke))

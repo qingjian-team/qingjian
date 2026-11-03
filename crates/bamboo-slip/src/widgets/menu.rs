@@ -14,7 +14,7 @@ use super::parts::{DISABLED_OPACITY, centered, label, overlay, padding};
 use super::popup_menu::{item_style, item_visual, panel_shadow, panel_visual};
 use crate::animation::Easing;
 use crate::error::RenderError;
-use crate::scene::Visual;
+use crate::scene::{Icon, Visual};
 use crate::ui::{Interact, Ui};
 
 /// 菜单最宽、最高（点），离窗口底边与触发控件的距离（点）。
@@ -34,6 +34,9 @@ pub struct Menu<'a> {
     /// 变灰的项（序号）。
     disabled: &'a [usize],
 
+    /// 各项前面的图标（按序号），占打勾那一格。
+    icons: &'a [Arc<dyn Icon>],
+
     /// 触发控件的矩形（像素，上一帧的）与窗口大小（像素）。
     anchor: (f32, f32, f32, f32),
 
@@ -52,6 +55,7 @@ impl<'a> Menu<'a> {
             items,
             selected,
             disabled: &[],
+            icons: &[],
             anchor,
             window,
         }
@@ -59,6 +63,10 @@ impl<'a> Menu<'a> {
 
     pub fn disabled(self, disabled: &'a [usize]) -> Self {
         Self { disabled, ..self }
+    }
+
+    pub fn icons(self, icons: &'a [Arc<dyn Icon>]) -> Self {
+        Self { icons, ..self }
     }
 
     /// `on_pick(序号)` 点了一项时产出；`on_dismiss` 点了菜单外面时产出（Esc 由使用方在根上接）。
@@ -72,7 +80,7 @@ impl<'a> Menu<'a> {
     ) -> Result<NodeId, RenderError> {
         let key = ui.key(local);
         let colors = &theme.colors;
-        let radius = theme.px(theme.radius);
+        let radius = theme.px(theme.popup_radius);
         let (x, y, width, height) = self.anchor;
         let (gap, margin) = (theme.px(GAP), theme.px(MARGIN));
         // 下面放不下（连一半的最大高度都不够）而上面更宽敞时往上开，同原生菜单
@@ -103,7 +111,17 @@ impl<'a> Menu<'a> {
             let state = ui.state(item_key);
             let side = theme.px(14.0);
             let mut mark = Vec::new();
-            if self.selected == Some(index) {
+            if let Some(icon) = self.icons.get(index) {
+                mark.push(ui.scene().node(
+                    centered(side, side),
+                    Visual::Icon {
+                        icon: icon.clone(),
+                        size: side,
+                        color: colors.text,
+                    },
+                    &[],
+                )?);
+            } else if self.selected == Some(index) {
                 mark.push(ui.scene().node(
                     centered(side, side),
                     Visual::Icon {
@@ -179,6 +197,16 @@ impl<'a> Menu<'a> {
         )?;
         ui.scene().set_clip(panel, radius);
         ui.scene().set_effects(panel, vec![panel_shadow(theme)]);
+        if !theme.popup_motion.is_zero() {
+            let offset = theme.px(if upward { GAP * 2.0 } else { -GAP * 2.0 });
+            ui.enter(
+                panel,
+                key.child("panel"),
+                theme.popup_motion,
+                Easing::Bezier([0.0, 0.0, 0.0, 1.0]),
+                offset,
+            );
+        }
         let scrim = ui.scene().node(overlay(), Visual::Group, &[])?;
         ui.interact(
             scrim,

@@ -8,12 +8,18 @@ impl<M: Clone> Interaction<M> {
         self.pointer = pointer;
         let mut response = Response::new();
         response.changed = self.rehover();
+        response.changed |= self.drag_scrollbar();
         self.drag(&mut response);
         response
     }
 
     pub(super) fn pointer_down(&mut self) -> Response<M> {
         let mut response = Response::new();
+        // 焦点不动：拖滚动条时搜索框还接着能打字
+        if self.press_scrollbar() {
+            response.changed = true;
+            return response;
+        }
         let path: Vec<usize> = match self.hovered.first() {
             Some(&key) => self.chain(self.index.get(&key).copied()).collect(),
             None => Vec::new(),
@@ -51,6 +57,25 @@ impl<M: Clone> Interaction<M> {
         {
             response.messages.push(message);
         }
+        response
+    }
+
+    pub(super) fn secondary_down(&mut self) -> Response<M> {
+        let mut response = Response::new();
+        let Some(pointer) = self.pointer else {
+            return response;
+        };
+        let start = self
+            .hovered
+            .first()
+            .and_then(|key| self.index.get(key).copied());
+        let message = self
+            .chain(start)
+            .map(|position| &self.elements[position].interact)
+            .filter(|interact| !interact.disabled)
+            .find_map(|interact| interact.secondary.as_ref())
+            .map(|handler| handler(pointer));
+        response.messages.extend(message);
         response
     }
 
