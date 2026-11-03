@@ -92,7 +92,7 @@
 
 - CI 七个 job，全部 `--locked`：`core`（Linux 全量：fmt / 文档 / clippy / rustdoc / test / 两个 Fcitx 壳 / 安装脚本，外加 Android 那条 rustls TLS 路径的 lint 与测试）、
   `release`（release profile 下的 clippy）、`shellcheck`、`macos`（IMK 壳）、`linux-22_04`（最老受支持发行版）、`android`（debug APK）、
-  `windows`（Windows 四个 crate + `qingjian-platform` + 32 位 DLL）。Dependabot 升 actions。
+  `windows`（Windows 五个 crate（含青简剪贴板）+ `qingjian-platform` + 32 位 DLL）。Dependabot 升 actions。
 - 依赖门禁分两处，同一份豁免清单：`cargo deny check` 在 `core` job 里当**合并门禁**（每个 PR 查许可证 / 来源 / 重复版本 / RustSec 漏洞 / yanked），
   `audit.yml` 的 `audit-check` 每周一次定时查漏洞并开 issue（没人提 PR 时也能发现新披露的）。两处的 `RUSTSEC-*` 清单由 CI 机械校验必须一致。
 - 发版：推 `<平台>-v<版本>` 标签触发 `release.yml`，门禁是版本号 = 标签且不带 -dev、标签在 main 上、产品数据按 SHA256SUMS 校验。

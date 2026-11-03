@@ -47,7 +47,7 @@
 官网文档只随发版更新（`docs/user/` 平时改动不推官网，免得文档领先于用户装到的版本）。没配就在官网仓库随便提交一次（或本地跑这个脚本）。
 官网构建时才拉最新 Release 的 `releases.json` 与主仓库 `docs/user`，所以提交内容本身不重要，`upstream.json` 只是留个记录、顺便让文档按记下的提交号拉（版本对得上）。
 
-Rust 工具链由 `rust-toolchain.toml` 钉版本（现在 1.96.0），两个 workflow 里 `dtolnay/rust-toolchain` 的 `toolchain:` 输入写同一个号；升级 Rust 时三处一起改。
+Rust 工具链由 `rust-toolchain.toml` 钉版本（现在 1.96.0），各 workflow 里 `dtolnay/rust-toolchain` 的 `toolchain:` 输入写同一个号；升级 Rust 时一起改。
 
 ## 各平台的特别之处
 
@@ -74,11 +74,12 @@ cargo 命令全 `--locked`（含 `bundle.sh` 与 `build.ps1`）。普通 CI 只�
 发版门禁（`release.yml` 第一步）：版本号与标签一致且不带 `-dev`；标签指向的提交必须在 `main` 上（`git merge-base --is-ancestor`）；产品数据下载后按 `data` Release 的 `SHA256SUMS` 校验，摘要写进 `build-info.json` 的 `data_sha256`。
 **正式版前还欠**：产品数据改成不可变 tag 并在仓库里锁定版本（现在滚动覆盖，同一源码 tag 重跑可能拿到不同数据）、安装包内容验证（词库 / 模型 / 许可齐不齐、签名校验）。
 
-## 两个 workflow
+## 几个 workflow
 
 | 文件 | 触发 | 做什么 |
 |---|---|---|
 | `.github/workflows/ci.yml` | push main、PR | Linux 上 `cargo fmt --check` / clippy / test，排除 `qingjian-macos`（IMK 外壳只能在 macOS 编译，macOS runner 计费是 Linux 的 10 倍） |
+| `.github/workflows/clipboard-release.yml` | 推 `clipboard-v*` 标签 | 打青简剪贴板的独立安装包，发到 qingjian-clipboard 的 Release（见下文「青简剪贴板」） |
 | `.github/workflows/release.yml` | 推 `v*`（全部平台）或 `macos-v*` / `windows-v*` / `linux-v*` / `android-v*`（单平台）标签 | `prepare` 门禁并建草稿 Release → `macos` / `windows` / `linux` / `android` 并行打包上传 → `publish` 合并摘要、转正、生成 `releases.json`、触发官网构建（见上文） |
 
 ## 产品数据从哪来
@@ -174,6 +175,20 @@ gh secret set QINGJIAN_ANDROID_KEY_PASSWORD
 - `SHA256SUMS` 与 `releases.json` 自己不列进 `assets`。
 - 官网侧要做的：构建时下载这个文件替代手写的 `releases` 数组（与拉 `docs/user` 的 `sync-docs.mjs` 同一处、同一个令牌），
   `downloadsOpen` 开关仍由官网自己控制。
+
+## 青简剪贴板
+
+剪贴板单独发版，版本号与输入法无关（`apps/clipboard/Cargo.toml`，从 0.1.0 起），源码留在这个仓库，安装包与 issue 在 [qingjian-team/qingjian-clipboard](https://github.com/qingjian-team/qingjian-clipboard)。
+输入法的安装包照常内置一份（缺省关闭），独立安装包给只要剪贴板的人：按用户装、不要管理员，见 `apps/clipboard/installer/clipboard.iss`。
+
+1. `apps/clipboard/Cargo.toml` 去掉 `-dev`，`cargo update --workspace --offline`；`apps/clipboard/CHANGELOG.md` 顶上那节的「未发布」换成日期。
+2. 提交、合进 main 后打注释标签并推：`git tag -a clipboard-v0.1.0 -m "青简剪贴板 0.1.0" && git push origin main clipboard-v0.1.0`。
+3. `clipboard-release.yml` 门禁（版本号 = 标签、不带 `-dev`、标签在 main 上）后在 Windows 上打包，在 qingjian-clipboard 建 `v<版本>` 的 Release，挂安装包与 `SHA256SUMS`，说明取自 CHANGELOG 那节并附源码提交。
+   跨仓库发布要 Secret `QINGJIAN_CLIPBOARD_TOKEN`（fine-grained PAT，对 qingjian-clipboard 有 Contents: read and write），没配门禁直接失败。
+4. 紧接一个提交把版本号改成下一个 `-dev`，CHANGELOG 顶上加新的「未发布」节。
+
+本机打包：`powershell -ExecutionPolicy Bypass -File apps\clipboard\installer\build.ps1`，成品在 `target\installer\qingjian-clipboard-<版本>-windows-x86_64-setup.exe`。
+剪贴板的标签不进 `release.yml`（它只认 `v*` 与各平台前缀），也不进 `releases.json`：输入法的检查更新与官网下载页不认它。
 
 ## 本机打包
 

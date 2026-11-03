@@ -1,0 +1,96 @@
+# 推 clipboard-v<版本> 标签发青简剪贴板的独立安装包，Release 建在 qingjian-team/qingjian-clipboard（源码仍在这个仓库）。
+# 流程见 docs/notes/release.md「青简剪贴板」。
+#
+# 门禁：版本号 = apps/clipboard/Cargo.toml 且不带 -dev、标签指向的提交在 main 上、配了下面的令牌。
+# 需要的 Secret（只注入用它的那一步）：
+#   QINGJIAN_CLIPBOARD_TOKEN   fine-grained PAT，对 qingjian-team/qingjian-clipboard 有 Contents: read and write
+name: clipboard-release
+
+on:
+  push:
+    tags: ['clipboard-v*']
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: bash
+    env:
+      PYTHONUTF8: '1'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Check version matches tag and tag is on main
+        id: gate
+        env:
+          TOKEN_SET: ${{ secrets.QINGJIAN_CLIPBOARD_TOKEN != '' }}
+        run: |
+          if [[ "$TOKEN_SET" != "true" ]]; then
+            echo "没配 QINGJIAN_CLIPBOARD_TOKEN：建不了 qingjian-clipboard 的 Release（docs/notes/release.md）" >&2
+            exit 1
+          fi
+          VERSION="${GITHUB_REF_NAME#clipboard-v}"
+          found="$(sed -n 's/^version = "\(.*\)"/\1/p' apps/clipboard/Cargo.toml | head -1)"
+          if [[ "$found" != "$VERSION" ]]; then
+            echo "apps/clipboard/Cargo.toml 是 $found，标签是 $GITHUB_REF_NAME，先改版本号再打标签" >&2
+            exit 1
+          fi
+          if [[ "$VERSION" == *-dev ]]; then
+            echo "$VERSION 还是开发版号，发版提交要先去掉 -dev" >&2
+            exit 1
+          fi
+          git fetch --no-tags origin main
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "标签 $GITHUB_REF_NAME 指向的提交 $GITHUB_SHA 不在 main 上，先合并再发" >&2
+            exit 1
+          fi
+          python tools/release/releases_json.py --changelog apps/clipboard/CHANGELOG.md --notes-for "$VERSION" > /dev/null
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
+        with:
+          toolchain: 1.96.0
+
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+
+      # 与 release.yml 同一个钉死的安装程序与哈希。
+      - name: Install Inno Setup 7.1.0
+        shell: pwsh
+        run: |
+          $url = 'https://github.com/jrsoftware/issrc/releases/download/is-7_1_0/innosetup-7.1.0-x64.exe'
+          $expected = '0362a383ed217d4c4239b5933866dd96d3eb2102737da92f80f6057a4b40df2f'
+          $exe = Join-Path $env:RUNNER_TEMP 'innosetup.exe'
+          Invoke-WebRequest -Uri $url -OutFile $exe
+          $actual = (Get-FileHash -Path $exe -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($actual -ne $expected) { throw "Inno Setup 安装程序 SHA-256 不符：$actual" }
+          Start-Process -FilePath $exe -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/SP-' -Wait
+          & "${env:ProgramFiles}\Inno Setup 7\ISCC.exe" --version
+
+      - name: Build installer
+        shell: pwsh
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File apps\clipboard\installer\build.ps1
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ secrets.QINGJIAN_CLIPBOARD_TOKEN }}
+          VERSION: ${{ steps.gate.outputs.version }}
+        run: |
+          NOTES="$RUNNER_TEMP/notes.md"
+          python tools/release/releases_json.py --changelog apps/clipboard/CHANGELOG.md --notes-for "$VERSION" > "$NOTES"
+          printf '\n> 这一版没有代码签名：安装时 SmartScreen 拦截请点「更多信息 → 仍要运行」。\n' >> "$NOTES"
+          printf '\n源码：[%s@%s](https://github.com/%s/tree/%s/apps/clipboard)\n' "$GITHUB_REPOSITORY" "${GITHUB_SHA:0:8}" "$GITHUB_REPOSITORY" "$GITHUB_SHA" >> "$NOTES"
+          INSTALLER="target/installer/qingjian-clipboard-$VERSION-windows-x86_64-setup.exe"
+          (cd target/installer && sha256sum "$(basename "$INSTALLER")") > "$RUNNER_TEMP/SHA256SUMS"
+          PRERELEASE=(); [[ "$VERSION" == *-* ]] && PRERELEASE=(--prerelease --latest=false)
+          gh release create "v$VERSION" --repo qingjian-team/qingjian-clipboard --target main \
+            --title "青简剪贴板 $VERSION" --notes-file "$NOTES" ${PRERELEASE[@]+"${PRERELEASE[@]}"} \
+            "$INSTALLER" "$RUNNER_TEMP/SHA256SUMS"
