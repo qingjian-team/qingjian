@@ -24,7 +24,9 @@
 3. 提交，打注释标签并推：`git tag -a v0.1.4 -m "青简 0.1.4" && git push origin main v0.1.4`。
 4. 标签推出去之后，给历代配置回归测试补一份这一版的模板：`python3 crates/qingjian-platform/tests/config_history/extract.py v<版本> v<版本>`，
    新文件随下一个提交进库（`tests/config_history.rs` 要求以后的版本都读得进它）。
-5. 紧接一个普通提交把版本号改成下一个开发版（`0.1.5-dev`），CHANGELOG 顶上加 `## 0.1.5 · 未发布 · stable`；-dev 版本永远没有标签与 Release。
+5. CI 跑完、GitHub Release 转正后，`tools/release/gitee-release.sh v<版本>` 在 Gitee 镜像上建同名发行版（官网下载页有它的链接）：
+   标题、说明、预发布照搬 GitHub Release，不传安装包。要对 Gitee 仓库有推送权限的 `GITEE_TOKEN`；标签由镜像同步过去，还没到就先在 Gitee 仓库页点同步。
+6. 紧接一个普通提交把版本号改成下一个开发版（`0.1.5-dev`），CHANGELOG 顶上加 `## 0.1.5 · 未发布 · stable`；-dev 版本永远没有标签与 Release。
 
 `release.yml` 的流程：
 
