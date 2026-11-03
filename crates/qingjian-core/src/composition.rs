@@ -5,6 +5,9 @@
 //! 中文模式下 Shift+字母按**小写**进缓冲区参与匹配（`Cpan` 与 `cpan` 一样出 C盘），
 //! 敲的是大写记在 `shifted` 里，原样上屏时用 [`Composition::typed_text`] 还原。
 
+/// 手动分音节的分隔符。缓冲区只认它一种分隔符（双拼的 `;` 在解码阶段就消化掉了）。
+const SEPARATOR: char = '\'';
+
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct Composition {
     /// 用户已敲入、尚未上屏的拼音，匹配用的小写形式。
@@ -51,11 +54,25 @@ impl Composition {
     }
 
     /// 在光标处插入一个字符，大小写原样保留。
+    ///
+    /// 分隔符 `'` 连着按只记一次：缓冲区里 `''` 与开头的 `'` 都不参与切分，
+    /// 拼音行会把它们折起来显示成一个，而退格是按字符删的——不在这里吞掉，
+    /// 就成了「只看到一次、要删好几次」。
     pub fn push(&mut self, c: char) {
+        if c == SEPARATOR && self.beside_separator() {
+            return;
+        }
         let index = self.char_index(self.cursor);
         self.buffer.insert(self.cursor, c);
         self.shifted.insert(index, false);
         self.cursor += c.len_utf8();
+    }
+
+    /// 光标紧挨着分隔符：在开头，或前一个 / 后一个字符已经是 `'`。
+    fn beside_separator(&self) -> bool {
+        self.cursor == 0
+            || self.buffer[..self.cursor].ends_with(SEPARATOR)
+            || self.buffer[self.cursor..].starts_with(SEPARATOR)
     }
 
     /// 中文模式下按住 Shift 敲的字母：按小写进缓冲区参与匹配，原样上屏时还原大写。
@@ -218,6 +235,36 @@ mod tests {
             composition.push(c);
         }
         composition
+    }
+
+    #[test]
+    fn repeated_separator_is_swallowed() {
+        let mut composition = Composition::default();
+        for c in "de''bu'''g".chars() {
+            composition.push(c);
+        }
+        // 连按只记一次，退格也只需要一次
+        assert_eq!(composition.text(), "de'bu'g");
+        assert!(composition.backspace());
+        assert_eq!(composition.text(), "de'bu'");
+        assert!(composition.backspace());
+        assert_eq!(composition.text(), "de'bu");
+    }
+
+    #[test]
+    fn separator_at_start_or_around_cursor_is_swallowed() {
+        let mut composition = Composition::default();
+        composition.push('\'');
+        assert!(composition.is_empty());
+        composition.push('n');
+        composition.push('i');
+        // 光标在 `ni` 末尾：再按一次分隔符才记账
+        composition.push('\'');
+        assert_eq!(composition.text(), "ni'");
+        // 光标挪到开头再按分隔符也不记
+        composition.move_home();
+        composition.push('\'');
+        assert_eq!(composition.text(), "ni'");
     }
 
     #[test]
