@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     打青简剪贴板的独立安装包：release 构建 qingjian-clipboard.exe，再用 Inno Setup 编 clipboard.iss。
 .DESCRIPTION
