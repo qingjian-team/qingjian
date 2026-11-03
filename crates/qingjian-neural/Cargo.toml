@@ -35,7 +35,7 @@ rayon = "1.12"
 
 [dev-dependencies]
 # 只拿来与自己的分词对拍（zhiyi::tests）
-tokenizers = { version = "0.22.2", default-features = false, features = ["fancy-regex"] }
+tokenizers = { version = "0.23.2", default-features = false, features = ["fancy-regex"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2.workspace = true
