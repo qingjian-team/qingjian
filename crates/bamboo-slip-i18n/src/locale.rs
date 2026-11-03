@@ -1,7 +1,7 @@
 //! 进程级的界面语言：没设过就跟随系统；中文按简繁归成 `zh-Hans` / `zh-Hant`，其余保留系统给的标签，查表时再去掉地区。
 
-use std::sync::RwLock;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Mutex, RwLock};
 
 /// 系统语言取不到时用的语言。
 const DEFAULT: &str = "zh-Hans";
@@ -11,8 +11,14 @@ static LOCALE: RwLock<Option<&'static str>> = RwLock::new(None);
 /// 测试固定了界面语言（[`pin_locale`]）之后，别处的 [`set_locale`] 都不生效。
 static PINNED: AtomicBool = AtomicBool::new(false);
 
+/// 「看有没有固定、再写」要一口气做完：不然别的线程过了检查还没写时被固定，接着写就把固定的语言盖掉了。
+static WRITING: Mutex<()> = Mutex::new(());
+
 /// 设界面语言；空串表示跟随系统。之后所有文案表都按它查，已经画好的界面要调用方自己重画。
 pub fn set_locale(tag: &str) {
+    let _writing = WRITING
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
     if PINNED.load(Ordering::Relaxed) {
         return;
     }
@@ -21,6 +27,9 @@ pub fn set_locale(tag: &str) {
 
 /// 给测试用：把界面语言固定下来，之后读配置等处的 [`set_locale`] 不再改它。测试并行跑，比对文案的测试都固定同一种语言。
 pub fn pin_locale(tag: &str) {
+    let _writing = WRITING
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
     PINNED.store(true, Ordering::Relaxed);
     store(tag);
 }
@@ -49,7 +58,7 @@ pub fn locale() -> &'static str {
     {
         return tag;
     }
-    store("");
+    set_locale("");
     LOCALE
         .read()
         .unwrap_or_else(|poisoned| poisoned.into_inner())
