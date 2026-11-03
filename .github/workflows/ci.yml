@@ -55,18 +55,50 @@ jobs:
       - name: Format
         run: cargo fmt --all --check
 
-      # 依赖的许可证、来源、通配版本。audit.yml 已查 RustSec 漏洞，这里补它不管的三样。
+      # 依赖的许可证、来源、通配版本、RustSec 漏洞。audit.yml 也在查漏洞，
+      # 但那是每周一次的定时监控（发现新披露的漏洞就开 issue），这里是合并门禁：
+      # 任何 PR 把带漏洞或被撤回（yanked）的版本带进来，这一步当场红。
+      # 同一份豁免清单被两边消费（deny.toml 的 [advisories] 与 .cargo/audit.toml），
+      # 所以下面紧跟一步机械校验两者等价——人记不住「改一处要改两处」。
       # 装 cargo-deny 而不是用 cargo-deny-action：少一个要钉 commit 的第三方 action，
       # 且版本由这一行钉死，与 workflow 里别的 cargo 命令一致。
       # cargo-deny 自己读仓库根的 Cargo.lock（不吃 --locked，也没有 manifest-path 参数），
       # 所以「锁与 Cargo.toml 不一致」这一类由别的 --locked 步骤负责，这里只管内容。
-      - name: Dependency licenses, sources and wildcards
+      - name: Dependency licenses, sources, bans and advisories
         run: |
           cargo install cargo-deny --version 0.20.2 --locked
-          cargo deny check licenses bans sources
+          cargo deny check
+
+      # `ignore` 里每一条都是一次「知道有风险但暂时不能升」的决定。两处清单一旦分叉，
+      # 就会出现「定时那条说没问题、PR 这条说有问题」或者反过来的分裂——
+      # 而两种都不会有人立刻发现，只会在某次合并后才暴露。所以让分叉本身失败。
+      # diff 的方向：`<` 是 audit.toml 独有的，`>` 是 deny.toml 独有的。
+      - name: Advisory ignores in sync
+        shell: bash
+        run: |
+          audit=$(grep -oE 'RUSTSEC-[0-9]{4}-[0-9]{4}' .cargo/audit.toml | sort -u)
+          deny=$(grep -oE 'RUSTSEC-[0-9]{4}-[0-9]{4}' deny.toml | sort -u)
+          if [ "$audit" != "$deny" ]; then
+            echo "两份 RustSec 豁免清单不一致（< 只在 audit.toml，> 只在 deny.toml）：" >&2
+            diff <(echo "$audit") <(echo "$deny") >&2 || true
+            exit 1
+          fi
+          echo "两份豁免清单一致，共 $(echo "$deny" | grep -c . ) 条"
 
       - name: Clippy
         run: cargo clippy --workspace --exclude qingjian-macos --all-targets --locked -- -D warnings
+
+      # 云联想的 TLS 有两套：桌面默认 native-tls（系统栈），安卓没有可链的系统 TLS，
+      # 走 rustls（见 qingjian-predict 的 Cargo.toml 与 apps/android/core）。上面那条
+      # clippy 跑的是默认特性，rustls 那条 `#[cfg(all(feature = "rustls",
+      # not(feature = "native-tls")))]` 分支在 Linux 上从来编不到——只有 android job
+      # 的 assembleDebug 会顺带编一次，而它不跑测试也不 lint。TLS 栈是安全边界的
+      # 一部分，没有 lint 没有测试说不过去，所以在这里单独编一遍、测一遍。
+      - name: Clippy (rustls TLS, as Android builds it)
+        run: cargo clippy -p qingjian-predict --no-default-features --features rustls --all-targets --locked -- -D warnings
+
+      - name: Test (rustls TLS, as Android builds it)
+        run: cargo test -p qingjian-predict --no-default-features --features rustls --locked
 
       # 文档断链、裸 HTML 标签（<TAB> 这类）平时编译看不出来，只有 rustdoc 会报；文档是给用户直接看的，
       # 坏了不会红，只能靠这条门禁兜住。RUSTDOCFLAGS 只设在这一步，不污染后面的构建与测试。
@@ -143,6 +175,41 @@ jobs:
             target/fcitx4-stage1/Testing/**
             target/fcitx4-stage1/CMakeFiles/CMakeOutput.log
             target/fcitx4-stage1/CMakeFiles/CMakeError.log
+
+  # 上面所有 Rust 检查都跑在 debug 下，而发出去的东西是 release profile 编的。
+  # 两者不是同一份代码：
+  #   - `debug_assert!` 在 release 下整个消失，它引用的变量随之变成未使用变量；
+  #   - `#[cfg(debug_assertions)]` 包住的 import / 函数 / 模块在 release 下不存在，
+  #     debug 下不报的「未使用导入」「死代码」只在 release 下冒出来；
+  #   - `cfg!(debug_assertions)` 为假的那侧分支可能整段是空的。
+  # 这类问题此前的暴露时机是 release.yml，也就是打 tag 正在发版的时候——
+  # 修不了也得发，或者撤回 tag。放到这里，它在 PR 上就该红。
+  # 用 clippy 而不是 check：目的就是拿 release 视角下的 lint。
+  release:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
+        with:
+          toolchain: 1.96.0
+          components: clippy
+
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+
+      # 与 linux-22_04 job 同一份最小依赖：native-tls 走系统 OpenSSL（libssl-dev），
+      # cc 编 C 依赖要 pkg-config 与 build-essential。这里不装 fcitx5，因为
+      # C++ 壳不在本 job 范围内。
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq pkg-config libssl-dev
+
+      - name: Clippy (release profile)
+        run: cargo clippy --release --workspace --exclude qingjian-macos --all-targets --locked -- -D warnings
 
   shellcheck:
     runs-on: ubuntu-26.04
@@ -304,6 +371,10 @@ jobs:
       - name: Test (Server, TSF DLL, Settings)
         run: cargo test -p qingjian-windows-server -p qingjian-windows-tsf -p qingjian-windows-settings -p qingjian-settings --locked
 
-      # 安装包另带一份 32 位 DLL（企业微信 / WPS 这类 32 位应用只能加载它）
-      - name: Check (TSF DLL, 32-bit)
-        run: cargo check -p qingjian-windows-tsf --target i686-pc-windows-msvc --locked
+      # 安装包另带一份 32 位 DLL（企业微信 / WPS 这类 32 位应用只能加载它）。
+      # 这里原来只跑 `cargo check`：能编就算过，一条 lint 都不看。而 32 位恰恰是
+      # lint 最该看一眼的地方——usize 只有 32 位、指针宽度不同、`as u32` 的截断
+      # 在 64 位上永远试不出来。改成 clippy，范围与原来一致（不 --all-targets：
+      # examples 是按 64 位宿主写的，不在这条分发路径上）。
+      - name: Clippy (TSF DLL, 32-bit)
+        run: cargo clippy -p qingjian-windows-tsf --target i686-pc-windows-msvc --locked -- -D warnings

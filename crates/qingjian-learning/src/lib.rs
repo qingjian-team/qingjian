@@ -6,6 +6,8 @@
 //! 连同生词本的时间线（`vocab-log.tsv`，每次上屏有学习语言说法的中文一行）；[`PanelUsage`] 记面板里的符号、表情各用了几次（`panel-usage.tsv`），排「常用」；
 //! [`ClipboardHistory`] 存剪贴板历史（`clipboard.jsonl`，图片另存在 `clipboard-images/`），[`PhraseBook`] 存常用语（`phrases.json`，带输入码的换成自定义短语）。
 
+#![forbid(unsafe_code)]
+
 mod clipboard;
 mod encounter_log;
 mod error;

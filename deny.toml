@@ -1,13 +1,45 @@
-# 依赖的许可证 / 来源 / 重复版本。
+# 依赖的许可证 / 来源 / 重复版本 / 已知漏洞。
 #
 # 这个仓库是 GPL-3.0，所以策略不是「只收最宽松的」：GPL-3.0 及兼容的依赖可以用，
 # 而 GPL-2.0-only、以及任何非 OSI / 非 FSF 认可的私有许可证，应当被挡住。
 # 逐个放行而不是图省事写 `allow = ["*"]`：那个写法等于没设门禁，
 # 以后有人引入一个 GPL-2.0-only 或专有许可证的依赖，这里不会有人知道。
 #
-# 只管三件事，第四件（advisories）故意不在这里做：
-# `.github/workflows/audit.yml` 的 audit-check 已经在查 RustSec 漏洞，
-# 两边都查同一个库只会让同一个漏洞被报两遍。这里补它不管的三样。
+# 四件事都查。advisories 与 `.cargo/audit.toml` 是同一份豁免清单的两个消费者：
+#   - 这里（ci.yml）是**合并门禁**：每个 PR 都跑，红了就不许合；
+#   - audit.yml 的 audit-check 是**定时监控**：每周一跑一次，RustSec 新披露的
+#     漏洞即使没人提 PR 也会被翻出来并开 issue。
+# 两者职责不同，所以不合并成一个；但豁免清单必须一致，否则会出现「定时那条
+# 说没问题、PR 那条说有问题」的分裂。ci.yml 的 `Advisory ignores in sync`
+# 那一步就是在机械地校验两份清单等价，改一处忘改另一处会当场红。
+
+[advisories]
+# 与 .cargo/audit.toml 的 ignore 一一对应。每一条都写清为什么现在不能升、
+# 什么条件下能删——没有理由的豁免等于把门禁关掉。
+ignore = [
+    # candle-core → gemm 0.19 → paste。上游已弃用，gemm 换掉它之后删。
+    "RUSTSEC-2024-0436",
+    # candle-core → zip 8.6.0 的三条解压相关漏洞（9.0 才修）。
+    # 我们只让 candle 读 safetensors，仓库里没有任何 `zip::` 调用、没有 `.extract(`，
+    # 也不解压用户提供的压缩包，走不到有漏洞的那几个函数。candle 升到 zip 9 后删掉。
+    "RUSTSEC-2026-0367",
+    "RUSTSEC-2026-0368",
+    "RUSTSEC-2026-0369",
+    # ttf-parser 停止维护。bamboo-slip 直接用它查字体轮廓表，fontdb / cosmic-text
+    # 也依赖它；上游换成别的库之后再跟。
+    "RUSTSEC-2026-0192",
+    # zbus 5.19 的内部依赖（zbus_names / zvariant / zvariant_derive）不再单独维护，
+    # 已并入 zbus 6。等 linux-ibus 升到 zbus 6 后删掉这三条。
+    "RUSTSEC-2026-0370",
+    "RUSTSEC-2026-0371",
+    "RUSTSEC-2026-0372",
+]
+# yanked 版本意味着作者主动撤回（通常是严重缺陷或误发）。默认只是 warn，
+# 而 warn 不会让这一步失败，等于没查：这里设成 deny。
+# 真被卡住时的顺序是「先查为什么被 yank、能不能升」，而不是往 ignore 里加 ID
+# ——ignore 只认 advisory ID，yanked 没有 ID，加了也没用，只能升版本。
+yanked = "deny"
+
 [licenses]
 # 全部已存在于依赖树里，按上面的策略逐条放行。
 allow = [

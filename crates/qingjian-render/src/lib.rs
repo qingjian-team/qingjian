@@ -5,6 +5,8 @@
 //!
 //! 设计与验收见 `docs/design/rendering.md`。
 
+#![forbid(unsafe_code)]
+
 mod frame;
 mod icon;
 mod keyboard;
