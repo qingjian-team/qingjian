@@ -10,7 +10,7 @@ repository.workspace = true
 [dependencies]
 tiny-skia.workspace = true
 # SVG 图片：解析 + 栅格到 tiny-skia 位图（与上面同一个 tiny-skia）；不要 SVG 文字、系统字体与内嵌位图解码
-resvg = { version = "0.48.1", default-features = false }
+resvg = { version = "0.49.0", default-features = false }
 cosmic-text.workspace = true
 zeno.workspace = true
 thiserror.workspace = true
