@@ -360,8 +360,9 @@ system_text_replacements = true
 # enabled = true    # 是否启用
 
 [shortcut]
-# Windows：呼出剪贴板面板（实验功能，要开着 [clipboard] enabled）；至少两个修饰键加字母、数字或句号
-clipboard = "ctrl+alt+v"
+# 呼出剪贴板面板（实验功能，要开着 [clipboard] enabled）；至少两个修饰键加字母、数字或句号。
+# 缺省 Windows 是 "ctrl+alt+v"，macOS 是 "cmd+shift+v"
+# clipboard = "ctrl+alt+v"
 # Windows：切换当前模式的全 / 半角标点；空串禁用，可设为 "ctrl+." 或其他修饰键加字母、数字、句号
 toggle_punctuation = ""
 # Windows：在简体与上次用的繁体字形之间切换；空串禁用，可设为 "ctrl+shift+f" 或其他修饰键加字母、数字

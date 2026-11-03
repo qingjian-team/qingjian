@@ -57,7 +57,7 @@ All settings are kept in one TOML text file, `config.toml`, with a note for ever
 | `[clipboard] paused`, `excluded_apps` | 实验功能 (Experimental features) → Pause recording, Don't record these apps | `paused` defaults to `false`. `excluded_apps` lists app names, case-insensitive; the default is common password managers |
 | `[clipboard] sync_enabled`, `sync_neon` | 实验功能 (Experimental features) → Local network sync, Neon glow while syncing | `sync_enabled` defaults to `false`, `sync_neon` to `true` |
 | `[clipboard] device_name` | Clipboard panel → Devices → Name of this device | An empty string uses the random default name |
-| `[shortcut] clipboard` | 实验功能 (Experimental features) → Open clipboard | Default `"ctrl+alt+v"`; at least two modifier keys (Windows) |
+| `[shortcut] clipboard` | 实验功能 (Experimental features) → Open clipboard | Default `"ctrl+alt+v"` on Windows, `"cmd+shift+v"` on macOS; at least two modifier keys (macOS, Windows) |
 | `[shortcut] translate_selection` | 快捷键 → 翻译选中文字 (Shortcuts → Translate selected text) | Such as `"alt+shift+t"` |
 | `[shortcut] predict` | 快捷键 → 按需 AI 联想 (Shortcuts → On-demand AI suggestions) | The full key combination; the settings window only changes the modifiers |
 | The `[predict]` section | 云服务 (Cloud services) | See below |

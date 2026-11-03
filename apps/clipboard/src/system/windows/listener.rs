@@ -31,9 +31,9 @@ use windows::Win32::UI::WindowsAndMessaging::{
 };
 use windows::core::{PCWSTR, w};
 
-use super::Signal;
 use super::clipboard::{read_capture, set_owner};
 use super::tray::{self, Choice};
+use crate::system::Signal;
 
 /// 窗口过程拿不到闭包，发送端放这里；进程里只有一个监听线程。
 static OUTBOX: OnceLock<(Sender<Signal>, Waker)> = OnceLock::new();

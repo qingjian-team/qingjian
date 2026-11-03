@@ -179,6 +179,7 @@ impl Host {
             &self.update_status,
         );
         self.sync_update();
+        super::clipboard_process::sync(config.clipboard.enabled);
     }
 
     /// 配置里的自定义短语，`[general] system_text_replacements` 开着时再并上系统的文本替换，一起推给 Engine。

@@ -6,6 +6,7 @@
 //! 设置窗口、手改文件被监视到，全都走它；三个入口都只写 `config.toml`，不各存一套状态。
 
 mod aux_code;
+mod clipboard_process;
 mod cloud;
 mod config;
 mod diagnostics;

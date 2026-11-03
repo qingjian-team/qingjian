@@ -17,11 +17,22 @@ pub struct Hotkey {
 }
 
 impl Hotkey {
+    /// 与输入法配置的缺省一致：Windows 是 Ctrl + Alt + V，macOS 是 ⌘⇧V。
+    #[cfg(not(target_os = "macos"))]
     pub const DEFAULT: Self = Self {
         control: true,
         shift: false,
         alt: true,
         win: false,
+        key: 'v',
+    };
+
+    #[cfg(target_os = "macos")]
+    pub const DEFAULT: Self = Self {
+        control: false,
+        shift: true,
+        alt: false,
+        win: true,
         key: 'v',
     };
 

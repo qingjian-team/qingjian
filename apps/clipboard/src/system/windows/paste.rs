@@ -10,7 +10,8 @@ use windows::Win32::UI::Input::KeyboardAndMouse::{
 };
 use windows::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, SetForegroundWindow};
 
-use super::clipboard::{Payload, write_payload};
+use super::clipboard::write_payload;
+use crate::system::Payload;
 
 /// 等面板藏好、系统把焦点让出来。
 const HIDE_DELAY: Duration = Duration::from_millis(80);

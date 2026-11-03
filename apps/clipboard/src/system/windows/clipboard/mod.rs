@@ -1,7 +1,5 @@
 //! 系统剪贴板的读写：HTML、RTF、文件列表按原始字节存，写回去时一字不差，粘贴才能保留格式。
 
-mod payload;
-
 use std::borrow::Cow;
 use std::path::Path;
 use std::sync::atomic::{AtomicBool, AtomicIsize, Ordering};
@@ -23,8 +21,7 @@ use windows::core::{PCWSTR, w};
 
 use super::source::{clipboard_source, total_size};
 use crate::picture;
-
-pub use payload::Payload;
+use crate::system::Payload;
 
 const CF_UNICODETEXT: u32 = 13;
 

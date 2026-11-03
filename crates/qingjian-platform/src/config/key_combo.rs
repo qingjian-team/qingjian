@@ -22,9 +22,22 @@ impl KeyCombo {
         key: 'f',
     };
 
+    /// Windows 是 Ctrl + Alt + V；macOS 是 ⌘⇧V，剪贴板工具常用这个，⌃⌥ 在 mac 上不顺手。
+    #[cfg(not(target_os = "macos"))]
     pub const CLIPBOARD_DEFAULT: Self = Self {
         key: 'v',
         ..Self::TRANSLATE_DEFAULT
+    };
+
+    #[cfg(target_os = "macos")]
+    pub const CLIPBOARD_DEFAULT: Self = Self {
+        modifiers: Modifiers {
+            option: false,
+            shift: true,
+            control: false,
+            command: true,
+        },
+        key: 'v',
     };
 
     pub const PREDICT_DEFAULT: Self = Self {

@@ -11,7 +11,7 @@ use qingjian_clipboard_sync::default_name::default_device_name;
 use qingjian_clipboard_sync::{Identity, SyncOptions, SyncService};
 
 use crate::picture;
-use crate::system::Signal;
+use crate::system::{Signal, computer_name};
 
 pub use pairing::Pairing;
 
@@ -25,10 +25,6 @@ pub struct SyncLink {
 
     /// 服务现在用的名字。
     pub name: String,
-}
-
-fn computer_name() -> String {
-    std::env::var("COMPUTERNAME").unwrap_or_default()
 }
 
 impl SyncLink {

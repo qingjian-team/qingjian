@@ -33,7 +33,7 @@ Settings that exist only on some platforms are hidden on the others; settings th
 | 云服务 (Cloud services) | Turning AI services on, the provider, each AI feature | [AI services](../cloud/index.md) |
 | 统计 (Statistics) | Amount typed, speed, vocabulary progress, AI usage | [Statistics](../learning/statistics.md) |
 | 生词本 (Vocabulary book) | Timeline and word list, export, clear | [Vocabulary book](../learning/vocabulary.md) |
-| 实验功能 (Experimental features) | Qingjian Clipboard's switch, shortcut, direction, history limit, pausing, apps not to record and clearing history (Windows); download and turn on local sentence models: Zhiyi and Hanzhang Tongbian (macOS, Windows) | [Sentences, abbreviations and correction](../input/sentence.md#Experimental-features) |
+| 实验功能 (Experimental features) | Qingjian Clipboard's switch, shortcut, direction, history limit, pausing, apps not to record and clearing history (macOS, Windows); download and turn on local sentence models: Zhiyi and Hanzhang Tongbian (macOS, Windows) | [Sentences, abbreviations and correction](../input/sentence.md#Experimental-features) |
 | 高级 (Advanced) | Configuration file, logs, input log | [Privacy](../help/privacy.md), [Editing the configuration file](../advanced/config-file.md) |
 | 关于 (About) | Version, update check, licenses, data sources, privacy notes | [Privacy](../help/privacy.md#Checking-for-updates) |
 

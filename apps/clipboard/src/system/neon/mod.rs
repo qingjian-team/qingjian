@@ -1,21 +1,15 @@
 //! 同步时屏幕边缘的霓虹灯：每台显示器四条贴边的透明窗口，点得穿、不抢焦点。只有传输时才有这个线程在画。
 //! 只开四条窄窗口：整屏透明窗口每帧要算几百万像素，还容易挡住别的程序的点击。
+//! 这里管节奏与颜色，[`shade`] 算像素；开窗口、贴像素、全屏与动画开关怎么判断在各平台的 `neon_strips`。
 
-mod strip;
-mod strips;
+mod shade;
 
 use std::sync::mpsc::{Receiver, RecvTimeoutError, Sender, channel};
 use std::time::{Duration, Instant};
 
-use windows::Win32::UI::Shell::{
-    QUNS_BUSY, QUNS_PRESENTATION_MODE, QUNS_RUNNING_D3D_FULL_SCREEN, SHQueryUserNotificationState,
-};
-use windows::Win32::UI::WindowsAndMessaging::{
-    SPI_GETCLIENTAREAANIMATION, SYSTEM_PARAMETERS_INFO_UPDATE_FLAGS, SystemParametersInfoW,
-};
-use windows::core::BOOL;
+use super::platform::{Strips, animations_on, should_hide};
 
-use strips::Strips;
+pub(super) use shade::{Edge, PixelOrder};
 
 const FRAME: Duration = Duration::from_millis(33);
 
@@ -24,6 +18,9 @@ const MIN_FLOW: Duration = Duration::from_millis(600);
 
 const CLOSE_TIME: Duration = Duration::from_millis(550);
 
+/// 失败收得慢一点，留出闪两下的时间。
+const FAIL_CLOSE_TIME: Duration = Duration::from_millis(900);
+
 /// 传输卡住太久没有新消息就自己收掉，灯不能一直亮着。
 const STALL_LIMIT: Duration = Duration::from_secs(20);
 
@@ -31,7 +28,7 @@ const SLOW_BYTES: u64 = 1024 * 1024;
 
 const FAST_BYTES: u64 = 10 * 1024 * 1024;
 
-const BLUE: [f32; 3] = [64.0, 140.0, 255.0];
+pub(super) const BLUE: [f32; 3] = [64.0, 140.0, 255.0];
 
 const CYAN: [f32; 3] = [40.0, 220.0, 235.0];
 
@@ -137,61 +134,66 @@ fn animate(commands: &Receiver<Command>) {
         color = mix(color, target, 0.12);
         // 刚亮起时淡入
         let strength = (elapsed / 0.2).min(1.0);
-        strips.draw(color, if animated { elapsed } else { 0.0 }, strength, None);
+        strips.draw(color, if animated { elapsed } else { 0.0 }, strength);
     }
 }
 
 /// 转成结果的颜色，再收起。
 fn close(strips: &Strips, from: [f32; 3], success: bool, time: f32, animated: bool) {
-    let result = if success { GREEN } else { RED };
+    let (result, duration) = if success {
+        (GREEN, CLOSE_TIME)
+    } else {
+        (RED, FAIL_CLOSE_TIME)
+    };
     let started = Instant::now();
     loop {
-        let progress = started.elapsed().as_secs_f32() / CLOSE_TIME.as_secs_f32();
+        let progress = started.elapsed().as_secs_f32() / duration.as_secs_f32();
         if progress >= 1.0 {
             return;
         }
-        let color = mix(from, result, (progress * 3.0).min(1.0));
-        let strength = 1.0 - ((progress - 0.5).max(0.0) * 2.0).powi(2);
+        // 失败要在第一下闪之前就红透
+        let turn = if success { 3.0 } else { 6.0 };
+        let color = mix(from, result, (progress * turn).min(1.0));
         let moving = if animated {
             time + started.elapsed().as_secs_f32()
         } else {
             0.0
         };
-        strips.draw(color, moving, strength, Some((success, strength)));
+        strips.draw(color, moving, closing_strength(progress, success));
         std::thread::sleep(FRAME);
     }
 }
 
-/// 全屏游戏、演示时不打扰。
-fn should_hide() -> bool {
-    let Ok(state) = (unsafe { SHQueryUserNotificationState() }) else {
-        return false;
-    };
-    state == QUNS_RUNNING_D3D_FULL_SCREEN || state == QUNS_PRESENTATION_MODE || state == QUNS_BUSY
-}
-
-/// 系统「显示动画」关了就不流动，只亮和变色。
-fn animations_on() -> bool {
-    let mut on = BOOL(1);
-    let read = unsafe {
-        SystemParametersInfoW(
-            SPI_GETCLIENTAREAANIMATION,
-            0,
-            Some((&raw mut on).cast()),
-            SYSTEM_PARAMETERS_INFO_UPDATE_FLAGS(0),
-        )
-    };
-    read.is_err() || on.as_bool()
+/// 收起时的亮度（`progress` 0..1）。成功平稳淡出；失败先闪两下再收：
+/// 红绿色弱的人分不清转绿和转红，靠闪不闪也看得出出了事。
+fn closing_strength(progress: f32, success: bool) -> f32 {
+    let fade = 1.0 - ((progress - 0.5).max(0.0) * 2.0).powi(2);
+    if success {
+        return fade;
+    }
+    // 先暗下去，0.25 与 0.75 亮、0.5 暗：红色亮两下
+    let flash = 0.5 - 0.5 * (progress * 2.0 * std::f32::consts::TAU).cos();
+    fade * flash
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{BLUE, CYAN, VIOLET, speed_color};
+    use super::{BLUE, CYAN, VIOLET, closing_strength, speed_color};
 
     #[test]
     fn color_follows_speed() {
         assert_eq!(speed_color(0), BLUE);
         assert_eq!(speed_color(2 * 1024 * 1024), CYAN);
         assert_eq!(speed_color(50 * 1024 * 1024), VIOLET);
+    }
+
+    #[test]
+    fn failure_flashes_twice_and_success_fades() {
+        let steps: Vec<f32> = (0..=20).map(|step| step as f32 / 20.0).collect();
+        let success: Vec<f32> = steps.iter().map(|&p| closing_strength(p, true)).collect();
+        assert!(success.windows(2).all(|pair| pair[1] <= pair[0]));
+        let failure = |p: f32| closing_strength(p, false);
+        assert!(failure(0.0) < 0.01 && failure(0.5) < 0.01 && failure(1.0) < 0.01);
+        assert!(failure(0.25) > 0.9 && failure(0.75) > 0.6);
     }
 }

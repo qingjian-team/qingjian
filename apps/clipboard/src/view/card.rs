@@ -12,7 +12,7 @@ use jiff::tz::TimeZone;
 use qingjian_clipboard::{ClipItem, ClipKind};
 
 use super::body::body;
-use super::icons::{COPY, PASTE};
+use super::icons::ActionGlyph;
 use super::{Context, app_name, gap, pad, text_node};
 use crate::app::Message;
 use crate::i18n::{tr, tr_args};
@@ -208,7 +208,7 @@ fn measure(context: &Context, item: &ClipItem) -> String {
 fn action(
     ui: &mut Ui<Message>,
     context: &Context,
-    glyph: &str,
+    glyph: ActionGlyph,
     tip: &str,
     local: (&str, &str),
     on_click: Message,
@@ -224,9 +224,31 @@ fn action(
     } else {
         colors.hover.transparent()
     };
-    let mut style = theme.text(theme.font.size, 400, colors.text);
-    style.family = context.app.icon_font;
-    let icon = text_node(ui, glyph.to_owned(), style, Style::default())?;
+    #[cfg(windows)]
+    let icon = {
+        let mut style = theme.text(theme.font.size, 400, colors.text);
+        style.family = context.app.icon_font;
+        text_node(ui, glyph.text().to_owned(), style, Style::default())?
+    };
+    #[cfg(not(windows))]
+    let icon = {
+        let side = theme.px(theme.font.size);
+        ui.scene().node(
+            Style {
+                size: Size {
+                    width: Dimension::length(side),
+                    height: Dimension::length(side),
+                },
+                ..Style::default()
+            },
+            Visual::Icon {
+                icon: glyph.icon(),
+                size: side,
+                color: colors.text,
+            },
+            &[],
+        )?
+    };
     let side = theme.px(ACTION_SIZE);
     let node = ui.scene().node(
         Style {
@@ -273,7 +295,7 @@ fn footer(
     let paste = action(
         ui,
         context,
-        PASTE,
+        ActionGlyph::Paste,
         tr("menu.paste"),
         ("paste", item.id.as_str()),
         Message::Paste(index),
@@ -281,7 +303,7 @@ fn footer(
     let copy = action(
         ui,
         context,
-        COPY,
+        ActionGlyph::Copy,
         tr("menu.copy"),
         ("copy", item.id.as_str()),
         Message::Copy(index),

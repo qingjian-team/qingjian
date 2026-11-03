@@ -203,11 +203,24 @@ fn today() -> String {
     jiff::Zoned::now().strftime("%Y-%m-%d").to_string()
 }
 
-/// 历史归剪贴板程序管，让同目录的它来清；它开着也没关系，SQLite 自己协调。
+/// 剪贴板程序：Windows 与设置程序同目录；macOS 是输入法包里另一个 .app，与设置程序的 .app 同在 `Contents/Applications/`。
+#[cfg(not(target_os = "macos"))]
+fn clipboard_program(settings: &std::path::Path) -> std::path::PathBuf {
+    settings.with_file_name("qingjian-clipboard.exe")
+}
+
+#[cfg(target_os = "macos")]
+fn clipboard_program(settings: &std::path::Path) -> std::path::PathBuf {
+    // …/Contents/Applications/QingjianSettings.app/Contents/MacOS/qingjian-settings
+    let applications = settings.ancestors().nth(4).unwrap_or(settings);
+    applications.join("QingjianClipboard.app/Contents/MacOS/qingjian-clipboard")
+}
+
+/// 历史归剪贴板程序管，让它来清；它开着也没关系，SQLite 自己协调。
 fn clear_clipboard() -> Result<(), String> {
-    let program = std::env::current_exe()
-        .map_err(|error| tr_args("action.clear_failed", &[("error", &error)]))?
-        .with_file_name("qingjian-clipboard.exe");
+    let settings = std::env::current_exe()
+        .map_err(|error| tr_args("action.clear_failed", &[("error", &error)]))?;
+    let program = clipboard_program(&settings);
     let status = Command::new(program)
         .arg("--clear")
         .status()

@@ -3,10 +3,12 @@
 use std::sync::Arc;
 use std::sync::mpsc;
 
+#[cfg(windows)]
+use bamboo_slip::system_fonts;
 use bamboo_slip::taffy::NodeId;
 use bamboo_slip::{
     App, Edit, FamilyList, FamilyTable, Key, KeyCode, RenderError, TextEdit, TextPainter, Ui,
-    Waker, WindowCommand, set_clipboard, system_fonts,
+    Waker, WindowCommand, set_clipboard,
 };
 
 use super::ClipboardApp;
@@ -17,16 +19,53 @@ use crate::system;
 use crate::view;
 
 /// 代码用的等宽字体，按顺序挑系统里有的。
-const MONO_FONTS: [&str; 3] = ["Cascadia Mono", "Consolas", "Courier New"];
+#[cfg(windows)]
+const MONO_FONTS: &[&str] = &["Cascadia Mono", "Consolas", "Courier New"];
+#[cfg(target_os = "macos")]
+const MONO_FONTS: &[&str] = &["SF Mono", "Menlo", "Courier New"];
 
-/// 界面字体：Windows 11 的；没有时回到引擎的 Segoe UI。
-const UI_FONTS: [&str; 2] = ["Segoe UI Variable", FamilyList::SYSTEM];
+/// 界面字体：Windows 11 的；没有时回到引擎的 Segoe UI。macOS 直接用引擎的系统字体。
+#[cfg(windows)]
+const UI_FONTS: &[&str] = &["Segoe UI Variable", FamilyList::SYSTEM];
+#[cfg(target_os = "macos")]
+const UI_FONTS: &[&str] = &[FamilyList::SYSTEM];
 
 /// 上面那个字体在 DirectWrite 里的字族名，找文件要用它；加载后字体库里叫 `Segoe UI Variable`。
-const UI_FONT_FILES: [&str; 1] = ["Segoe UI Variable Text"];
+#[cfg(windows)]
+const UI_FONT_FILES: &[&str] = &["Segoe UI Variable Text"];
 
-/// 图标字体：Windows 11 的，Windows 10 的。
-const ICON_FONTS: [&str; 2] = ["Segoe Fluent Icons", "Segoe MDL2 Assets"];
+/// macOS 的字体库只带界面与汉字字体，等宽字体按文件加；SF Mono 随系统装在这里（13 起），Menlo 一直有。
+#[cfg(target_os = "macos")]
+const MONO_FONT_FILES: &[&str] = &[
+    "/System/Library/Fonts/SFNSMono.ttf",
+    "/System/Library/Fonts/Menlo.ttc",
+];
+
+/// 图标字体：Windows 11 的，Windows 10 的。macOS 没有，按钮图标自己画（`view::icons`）。
+#[cfg(windows)]
+const ICON_FONTS: &[&str] = &["Segoe Fluent Icons", "Segoe MDL2 Assets"];
+#[cfg(target_os = "macos")]
+const ICON_FONTS: &[&str] = &[];
+
+/// 字体库里还没有、要另外加载的字体文件。
+#[cfg(windows)]
+fn font_files() -> Vec<std::path::PathBuf> {
+    MONO_FONTS
+        .iter()
+        .chain(ICON_FONTS)
+        .chain(UI_FONT_FILES)
+        .flat_map(|name| system_fonts::family_files(name))
+        .collect()
+}
+
+#[cfg(target_os = "macos")]
+fn font_files() -> Vec<std::path::PathBuf> {
+    MONO_FONT_FILES
+        .iter()
+        .map(std::path::PathBuf::from)
+        .filter(|path| path.is_file())
+        .collect()
+}
 
 impl App for ClipboardApp {
     type Message = Message;
@@ -150,13 +189,7 @@ impl App for ClipboardApp {
     }
 
     fn setup(&mut self, text: &mut TextPainter) {
-        let files: Vec<_> = MONO_FONTS
-            .iter()
-            .chain(&ICON_FONTS)
-            .chain(&UI_FONT_FILES)
-            .flat_map(|name| system_fonts::family_files(name))
-            .collect();
-        text.load_fonts(&files);
+        text.load_fonts(&font_files());
         let mut table = FamilyTable::new(FamilyList::system());
         let chain = MONO_FONTS.iter().map(|name| (*name).to_owned()).collect();
         self.mono = table.intern(&FamilyList(chain));

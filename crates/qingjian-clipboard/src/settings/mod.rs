@@ -50,14 +50,17 @@ pub struct ClipSettings {
     pub language: String,
 }
 
-/// 路径里的程序名，去掉 `.exe`，都小写。路径分隔符两种都认：这个 crate 平台无关，来源路径是系统给的。
+/// 路径里的程序名，去掉 `.exe` / `.app`，都小写。路径分隔符两种都认：这个 crate 平台无关，来源路径是系统给的。
 fn app_name(path: &str) -> String {
     let name = path
         .rsplit(['/', '\\'])
         .next()
         .unwrap_or(path)
         .to_lowercase();
-    match name.strip_suffix(".exe") {
+    match name
+        .strip_suffix(".exe")
+        .or_else(|| name.strip_suffix(".app"))
+    {
         Some(stem) => stem.to_owned(),
         None => name,
     }
@@ -256,6 +259,8 @@ mod tests {
         assert!(!paused.records(r"C:\Windows\notepad.exe"));
         // 没写这个键用缺省的密码管理器，写了空表就是都记
         assert!(!ClipSettings::default().records("Bitwarden.exe"));
+        assert!(!ClipSettings::default().records("/Applications/1Password.app"));
+        assert!(ClipSettings::default().records("/System/Applications/TextEdit.app"));
         let none = ClipSettings::parse("[clipboard]\nexcluded_apps = []\n").unwrap();
         assert!(none.records("Bitwarden.exe"));
     }
@@ -298,7 +303,12 @@ mod tests {
 
     #[test]
     fn hotkey_needs_a_modifier_and_one_key() {
-        assert_eq!(Hotkey::parse("ctrl+alt+v"), Some(Hotkey::DEFAULT));
+        let expected = if cfg!(target_os = "macos") {
+            "cmd+shift+v"
+        } else {
+            "ctrl+alt+v"
+        };
+        assert_eq!(Hotkey::parse(expected), Some(Hotkey::DEFAULT));
         for bad in ["v", "ctrl+", "ctrl+vv", "ctrl+-", "hyper+v", "+v"] {
             assert_eq!(Hotkey::parse(bad), None, "{bad}");
         }

@@ -33,7 +33,8 @@ The macOS and Windows versions are in beta with nearly the same features; keys f
 | System text replacements | ✓ | — | — | — |
 | Importing pinyin dictionaries | ✓ | ✓ | ✓ | ✓ |
 | Importing Wubi dictionaries | ✓ | ✓ | — | — |
-| Voice input, swipe typing, clipboard | — | — | — | ✓ |
+| Qingjian Clipboard (copy history, local network sync) | ✓ | ✓ | — | ✓ |
+| Voice input, swipe typing | — | — | — | ✓ |
 
 ## Learning languages
 
