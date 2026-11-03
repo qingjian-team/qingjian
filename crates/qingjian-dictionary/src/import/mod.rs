@@ -89,9 +89,8 @@ pub fn import(source: &Path, dest_dir: &Path) -> Result<Imported, DictionaryErro
         let bytes = std::fs::read(source)?;
         // 搜狗细胞词库是二进制：先按魔数 / 扩展名认出来，转成 TSV 再走同一条解析
         if scel::is_scel(&stem, &bytes) {
-            let tsv = scel::to_tsv(&bytes).ok_or(DictionaryError::Corrupt(
-                ".scel 里没有可解析的词条",
-            ))?;
+            let tsv =
+                scel::to_tsv(&bytes).ok_or(DictionaryError::Corrupt(".scel 里没有可解析的词条"))?;
             let dictionary = Dictionary::parse(&tsv)?;
             let metadata = Metadata {
                 name: stem.clone(),
@@ -182,7 +181,15 @@ fn finish_import(
 /// `law.dict.yaml` → `law`，`dict.tsv` → `dict`。
 pub(crate) fn strip_extensions(file_name: &str) -> String {
     let mut stem = file_name;
-    for suffix in [".dict.yaml", ".yaml", ".yml", ".tsv", ".txt", ".scel", ".qj"] {
+    for suffix in [
+        ".dict.yaml",
+        ".yaml",
+        ".yml",
+        ".tsv",
+        ".txt",
+        ".scel",
+        ".qj",
+    ] {
         if let Some(s) = stem.strip_suffix(suffix) {
             stem = s;
             break;

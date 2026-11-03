@@ -65,7 +65,7 @@ pub fn to_tsv(bytes: &[u8]) -> Option<String> {
         for _ in 0..word_count {
             let length = read_u16(bytes, cursor)? as usize;
             cursor += 2;
-            if length % 2 != 0 || cursor + length > bytes.len() {
+            if !length.is_multiple_of(2) || cursor + length > bytes.len() {
                 return finish(out);
             }
             let word = decode_utf16(bytes.get(cursor..cursor + length)?);
@@ -108,10 +108,14 @@ fn pinyin_table(bytes: &[u8], end: usize) -> Option<std::collections::HashMap<u1
     let mut cursor = 0x1540 + 4;
     let limit = end.min(bytes.len());
     while cursor + 4 <= limit {
-        let Some(code) = read_u16(bytes, cursor) else { break };
-        let Some(length) = read_u16(bytes, cursor + 2).map(usize::from) else { break };
+        let Some(code) = read_u16(bytes, cursor) else {
+            break;
+        };
+        let Some(length) = read_u16(bytes, cursor + 2).map(usize::from) else {
+            break;
+        };
         cursor += 4;
-        if length % 2 != 0 || cursor + length > limit {
+        if !length.is_multiple_of(2) || cursor + length > limit {
             // 错位：跳过这一项的头部，按两字节步进接着找下一项
             continue;
         }
