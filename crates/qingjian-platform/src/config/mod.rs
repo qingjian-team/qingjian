@@ -2,6 +2,7 @@ mod appearance;
 mod apps;
 mod aux_code;
 mod candidate_renderer;
+mod clipboard;
 mod code_rules;
 mod commit_key;
 mod dictionaries;
@@ -47,6 +48,9 @@ pub use apps::{
 };
 pub use aux_code::AuxCodeConfig;
 pub use candidate_renderer::CandidateRenderer;
+pub use clipboard::{
+    CLIPBOARD_HISTORY_LIMITS, ClipboardConfig, ClipboardEdge, DEFAULT_CLIPBOARD_EXCLUDED_APPS,
+};
 pub use code_rules::CodeRules;
 pub use commit_key::{CommitKey, CommitKeys, CommitRoute};
 pub use dictionaries::{DEFAULT_DOMAINS, DictionariesConfig};
@@ -113,6 +117,9 @@ pub struct Config {
 
     /// 本地整句模型。
     pub model: LocalModelConfig,
+
+    /// 青简剪贴板（实验功能）。
+    pub clipboard: ClipboardConfig,
 
     /// 检查更新。
     pub update: UpdateConfig,
@@ -353,6 +360,8 @@ system_text_replacements = true
 # enabled = true    # 是否启用
 
 [shortcut]
+# Windows：呼出剪贴板面板（实验功能，要开着 [clipboard] enabled）；至少两个修饰键加字母、数字或句号
+clipboard = "ctrl+alt+v"
 # Windows：切换当前模式的全 / 半角标点；空串禁用，可设为 "ctrl+." 或其他修饰键加字母、数字、句号
 toggle_punctuation = ""
 # Windows：在简体与上次用的繁体字形之间切换；空串禁用，可设为 "ctrl+shift+f" 或其他修饰键加字母、数字
@@ -460,6 +469,18 @@ enabled = false
 # y = 0
 # 大小（百分比，60–150）；不跟候选字号走
 size = 100
+
+[clipboard]
+# 青简剪贴板（实验功能，Windows）：记录复制过的内容，按快捷键从屏幕一边弹出面板。默认关
+enabled = false
+# 面板从哪条边弹出：top、bottom、left、right
+edge = "bottom"
+# 最多留多少条，超了删最旧的
+history_limit = 1000
+# 暂时不记录新复制的内容
+paused = false
+# 从这些程序复制的内容不记录：程序名，不分大小写
+excluded_apps = ["KeePass", "KeePassXC", "1Password", "Bitwarden"]
 
 [update]
 # 检查更新：每天向官网（qingjian.app）读一次版本索引，有新版在菜单与设置的「关于」页提示；请求不带任何标识，不自动下载安装

@@ -45,6 +45,9 @@ tracing-appender.workspace = true
 toml.workspace = true
 
 # 只开一个窗口：第二次启动把已开的带到前台；系统的 Ctrl + Space
+[target."cfg(windows)".dev-dependencies]
+qingjian-clipboard.workspace = true
+
 [target."cfg(windows)".dependencies]
 windows = { version = "0.62.2", features = [
     "Win32_Foundation",

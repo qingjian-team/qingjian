@@ -72,6 +72,7 @@ FinishedLabel=安装完成。请注销后重新登录（或重启电脑），青
 Source: "{#Repo}\target\release\qingjian_tsf.dll";      DestDir: "{app}"; DestName: "{#TsfDll}"; Flags: ignoreversion uninsrestartdelete
 Source: "{#Repo}\target\i686-pc-windows-msvc\release\qingjian_tsf.dll"; DestDir: "{app}"; DestName: "{#TsfDll32}"; Flags: ignoreversion uninsrestartdelete
 Source: "{#Repo}\target\release\qingjian-settings.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#Repo}\target\release\qingjian-clipboard.exe"; DestDir: "{app}"; Flags: ignoreversion
 ; 旧版设置程序（WinUI）留一个版本作回退，下个版本删掉它与下面的运行时
 Source: "{#Repo}\target\release\qingjian-settings-legacy.exe"; DestDir: "{app}"; Flags: ignoreversion
 ; 旧版设置程序自带一份 Windows App Runtime（自包含部署：Windows 10 上机器装的框架包用不了，见 docs\notes\windows-win10.md）；
@@ -145,6 +146,8 @@ Filename: "{sys}\taskkill.exe"; Parameters: "/im qingjian-server.exe /f"; \
   Flags: runhidden; RunOnceId: "KillServer"
 Filename: "{sys}\taskkill.exe"; Parameters: "/im qingjian-settings.exe /f"; \
   Flags: runhidden; RunOnceId: "KillSettings"
+Filename: "{sys}\taskkill.exe"; Parameters: "/im qingjian-clipboard.exe /f"; \
+  Flags: runhidden; RunOnceId: "KillClipboard"
 Filename: "{sys}\taskkill.exe"; Parameters: "/im qingjian-settings-legacy.exe /f"; \
   Flags: runhidden; RunOnceId: "KillLegacySettings"
 Filename: "{sys}\regsvr32.exe"; Parameters: "/u /s ""{app}\{#TsfDll}"""; \
@@ -232,6 +235,7 @@ begin
   RetireServerExe;
   KillProcess('qingjian-server.exe');
   KillProcess('qingjian-settings.exe');
+  KillProcess('qingjian-clipboard.exe');
   KillProcess('qingjian-settings-legacy.exe');
   RetireLoadedDll('{#TsfDll}');
   RetireLoadedDll('{#TsfDll32}');

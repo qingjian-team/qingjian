@@ -25,7 +25,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `crates/bamboo-slip`：自绘 UI 引擎（场景树、布局、文字、动画 → 位图，另有控件库与窗口宿主），候选窗与设置程序共用；不放任何青简的概念，约定见该目录的 `CLAUDE.md`。双许可，见该目录的 `LICENSE.md`。
 - `crates/bamboo-slip-i18n`：界面文案多语言：各 crate 的 `locales/*.toml` 编译时嵌入，`tr` 按进程级的界面语言查，回退英文再回退中文。双许可，见该目录的 `LICENSE.md`。
 - `crates/qingjian-update`：检查更新：读官网的 `releases.json`、验 ed25519 签名、按平台与渠道挑新版本，只提示不安装；发版侧的签名工具是 `tools/release-sign`。见 `docs/design/update.md`。
+- `crates/qingjian-code`：认出一段文字像不像代码并切高亮片段，输入法与剪贴板共用；core 里转出为 `qingjian_core::code`。
+- `crates/qingjian-clipboard`：剪贴板历史存储（SQLite，留好同步要用的字段）与面板位置，平台无关，不放窗口与界面。
 - `apps/settings`：设置程序（三平台共用，画在 bamboo-slip 上，读写同一份配置文件），页面与设置项按 `docs/design/settings.md`；macOS 装在 `Qingjian.app/Contents/Applications/`，Windows、Linux 与 Server 同目录。`--png <目录>` 拷一份配置按脚本截图。
+- `apps/clipboard`：青简剪贴板（独立进程，原型阶段只有 Windows）：监听复制、全局快捷键呼出卡片面板、粘贴回原窗口，画在 bamboo-slip 上。
 - `apps/cli`：Core 的验证工具：查询、逐键计时、输入日志回放、整句评测、常数扫描。排序 / 整句 / 纠错的改动先跑它再合。
 - `apps/macos`：IMK 壳，按 `app / host / imk / candidates / menubar / preferences` 分目录（`preferences` 是旧版设置，新版 `apps/settings` 为主、旧版只作兜底）；`scripts/bundle.sh --install` 装到本机，`--pkg` 出分发包。
 - `apps/windows`：`server`（Server 进程：Engine + IPC + 自绘候选窗与状态条）+ `tsf`（TSF DLL）+ `settings`（旧版设置，WinUI 3，只作兜底，新版 `apps/settings` 为主）+ `installer`（Inno）。DLL 不能带 Engine 的依赖树，所以是两个 package。

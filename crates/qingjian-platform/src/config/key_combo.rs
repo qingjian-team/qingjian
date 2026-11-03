@@ -22,6 +22,11 @@ impl KeyCombo {
         key: 'f',
     };
 
+    pub const CLIPBOARD_DEFAULT: Self = Self {
+        key: 'v',
+        ..Self::TRANSLATE_DEFAULT
+    };
+
     pub const PREDICT_DEFAULT: Self = Self {
         key: 'j',
         ..Self::TRANSLATE_DEFAULT

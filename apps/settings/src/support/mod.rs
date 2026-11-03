@@ -53,6 +53,8 @@ pub enum Feature {
     ShowTones,
     /// 「实验功能」页：下载、启用知意与含章·通变。
     ExperimentalModels,
+    /// 「实验功能」页的青简剪贴板。
+    Clipboard,
     /// 中文组句中的小键盘数字：选候选还是进组句。
     NumpadDigit,
     /// 双拼候选窗口的拼音行显示敲的键。
@@ -61,7 +63,7 @@ pub enum Feature {
 
 impl Feature {
     #[cfg(test)]
-    pub const ALL: [Self; 27] = [
+    pub const ALL: [Self; 28] = [
         Self::AuxCode,
         Self::Schemes,
         Self::SwitchKeys,
@@ -87,6 +89,7 @@ impl Feature {
         Self::KeyHint,
         Self::ShowTones,
         Self::ExperimentalModels,
+        Self::Clipboard,
         Self::NumpadDigit,
         Self::ShuangpinRawWindow,
     ];
@@ -142,6 +145,7 @@ impl Feature {
             Self::ShowTones => [Yes, Yes, Todo],
             // Windows、Linux 的服务进程还没接知意；没有 GPU 时 CPU 上打分要发烫，先只开 macOS（Metal）
             Self::ExperimentalModels => [Yes, Yes, Todo],
+            Self::Clipboard => [Todo, Yes, Todo],
             Self::NumpadDigit => [Todo, Yes, Todo],
             // Fcitx 面板与应用里的行内拼音共用一串，还没分开
             Self::ShuangpinRawWindow => [Yes, Yes, Todo],
@@ -177,6 +181,7 @@ impl Feature {
             Self::KeyHint => "双拼键位提示",
             Self::ShowTones => "拼音行显示声调",
             Self::ExperimentalModels => "实验功能（知意、含章·通变）",
+            Self::Clipboard => "青简剪贴板",
             Self::NumpadDigit => "小键盘数字",
             Self::ShuangpinRawWindow => "双拼候选窗显示按键",
         }
@@ -226,7 +231,8 @@ impl Feature {
             | Self::HorizontalGrid
             | Self::GridPageKeys
             | Self::ApiUsage
-            | Self::ExperimentalModels => &[],
+            | Self::ExperimentalModels
+            | Self::Clipboard => &[],
         }
     }
 }

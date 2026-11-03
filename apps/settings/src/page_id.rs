@@ -40,7 +40,9 @@ impl PageId {
 
     /// 这个平台的侧栏有这一页（实验功能只在做了的平台出现）。
     pub fn shown(self) -> bool {
-        self != Self::Experimental || Feature::ExperimentalModels.here()
+        self != Self::Experimental
+            || Feature::ExperimentalModels.here()
+            || Feature::Clipboard.here()
     }
 
     pub fn label(self) -> &'static str {

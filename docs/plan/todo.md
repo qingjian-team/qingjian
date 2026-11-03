@@ -163,6 +163,7 @@
   - [ ] 双拼键位提示：Linux
   - [ ] 拼音行显示声调：Linux
   - [ ] 实验功能（知意、含章·通变）：Linux
+  - [ ] 青简剪贴板：macOS、Linux
   - [ ] 小键盘数字：macOS、Linux
   - [ ] 双拼候选窗显示按键：Linux
 

@@ -20,6 +20,8 @@ pub enum Action {
     ExportLogs,
     /// 第一次点只是让按钮变成「再点一次清空」，见 [`crate::settings::Settings::armed`]。
     ClearInputLog,
+    /// 清空剪贴板历史，同样点两下。
+    ClearClipboard,
     OpenWebsite,
     OpenRepository,
     /// 官网的下载页。
@@ -32,6 +34,7 @@ impl Action {
         match self {
             Self::OpenLogDir | Self::ExportLogs => "logs",
             Self::ClearInputLog => "input-log",
+            Self::ClearClipboard => "clipboard-clear",
             Self::OpenConfig | Self::OpenDataDir => "config",
             Self::OpenWebsite | Self::OpenRepository => "links",
             Self::OpenDownload => "update",
@@ -50,6 +53,9 @@ impl Action {
             }),
             Self::ClearInputLog => {
                 clear_input_log().map(|()| tr("action.input_log_cleared").to_owned())
+            }
+            Self::ClearClipboard => {
+                clear_clipboard().map(|()| tr("action.clipboard_cleared").to_owned())
             }
             Self::OpenWebsite => open(WEBSITE_URL).map(|()| String::new()),
             Self::OpenRepository => open(REPOSITORY_URL).map(|()| String::new()),
@@ -195,6 +201,22 @@ fn desktop() -> Option<PathBuf> {
 
 fn today() -> String {
     jiff::Zoned::now().strftime("%Y-%m-%d").to_string()
+}
+
+/// 历史归剪贴板程序管，让同目录的它来清；它开着也没关系，SQLite 自己协调。
+fn clear_clipboard() -> Result<(), String> {
+    let program = std::env::current_exe()
+        .map_err(|error| tr_args("action.clear_failed", &[("error", &error)]))?
+        .with_file_name("qingjian-clipboard.exe");
+    let status = Command::new(program)
+        .arg("--clear")
+        .status()
+        .map_err(|error| tr_args("action.clear_failed", &[("error", &error)]))?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err(tr_args("action.clear_failed", &[("error", &status)]))
+    }
 }
 
 /// 输入法开着输入日志时一直以追加方式写它，截断后接着从头写，不用通知输入法。

@@ -74,6 +74,9 @@ impl App for Settings {
             Message::Record(shortcut) => self.recording = Some(shortcut),
             Message::StopRecording => self.recording = None,
             Message::Recorded(shortcut, press) => match shortcut.accept(&press, &self.config) {
+                Ok(value) if shortcut.taken(&value, &self.config) => {
+                    self.notice = Some((shortcut.title(), tr("shortcut.hotkey_taken").to_owned()));
+                }
                 Ok(value) => {
                     let (section, key) = shortcut.config_key();
                     self.write(section, key, value);
@@ -239,13 +242,16 @@ impl App for Settings {
             }
             Message::Run(action) => {
                 // 清空要点两下：第一下只是把按钮换成确认
-                if action == Action::ClearInputLog && armed != Some(action) {
+                if matches!(action, Action::ClearInputLog | Action::ClearClipboard)
+                    && armed != Some(action)
+                {
                     self.armed = Some(action);
                     self.notice = None;
                 } else {
                     self.notice = action.run(&self.path).map(|text| (action.slot(), text));
                 }
             }
+            Message::ExcludeClipboardApp => self.exclude_clipboard_app(),
             Message::ToggleSources => self.sources_open = !self.sources_open,
             Message::StatsCloud(cloud) => self.stats_cloud = cloud,
             Message::Search(edit) => {

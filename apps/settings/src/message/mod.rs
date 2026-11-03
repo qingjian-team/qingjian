@@ -81,6 +81,8 @@ pub enum Message {
     UseModel(Option<qingjian_platform::LocalModel>),
     /// 展开 / 收起「关于」页的数据来源。
     ToggleSources,
+    /// 选一个程序，从它复制的内容不进剪贴板历史。
+    ExcludeClipboardApp,
     /// 统计页切到「云服务」层（`false` 回「输入」层）。
     StatsCloud(bool),
     /// 搜索框里打字。

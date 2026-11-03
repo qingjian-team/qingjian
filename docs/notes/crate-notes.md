@@ -733,3 +733,23 @@ IBus 的组件 XML 与 systemd 单元里都写死了安装后的绝对路径，�
 Core 的 Engine::set_translation_predictor 与 translation_enabled 将显式选区翻译与普通联想分开；未配置时沿用原提供方，显式配置但不可用时不回落在线服务。手动选区保留首尾空白，私密输入及取消请求使迟到结果失效。
 
 Windows Server 受控退出使用 ExitCode 返回以刷新既有 tracing 队列；启动、退出及脱敏 panic 只记入现有 server 日志，不新增文件或轮转机制。原生异常与强制终止仍可能没有记录。
+
+## 青简剪贴板（qingjian-clipboard、apps/clipboard）
+
+- 独立进程：输入法只有在输入框有焦点时才收得到按键，全局呼出做不到；功能关着时也不占输入法的内存。
+- `ClipStore`：SQLite（`rusqlite` bundled），缺省在 `%LOCALAPPDATA%\Qingjian\clipboard\history.db`，上限 1000 条，一条最多 10 万字符。id 是设备 id + 序号；删除清空内容与格式、留删除标记，给多端同步用。表结构版本不对直接重建（还没发布过，不做迁移）。
+- 内容分文本、富文本、代码、图片、文件。HTML、RTF、文件列表存系统剪贴板的原始字节，写回时一字不差；图片存 PNG 加长边 640 的缩略图。同时有文字和图片时按文字记。重复靠内容指纹（FNV-1a，不含缩略图）。
+- 自己写剪贴板时用 `SELF_WRITE` 挡掉随后的变化通知，只把那一条挪到最前，图片不会重新编码一遍。来源程序取剪贴板主人窗口的进程，没有主人时看前台窗口。
+- 代码识别与高亮在 `qingjian-code`（从 core 搬出，core 用 `pub use` 转出 `code`），这样剪贴板不用带上引擎。
+- 面板是 bamboo-slip 的面板窗口（`WindowOptions::panel` + `App::take_window_command`）。`Edge::horizontal` 决定卡片横排横滚（上下弹出）还是竖排竖滚（左右弹出）。
+- 回车放在根节点处理，不走 `SearchField` 的 `on_commit`：`TextField` 失焦时也发它，点一下卡片就会多粘贴一次。
+- 粘贴：写剪贴板 → 等 80 ms 面板藏好 → 切回呼出前的前台窗口 → 等 40 ms → 模拟 Ctrl+V。目标窗口是管理员权限时模拟按键会被系统拦下，内容留在剪贴板上。
+- 代码卡片一行是一个 `Visual::RichText`，分片段上色、照常折行，不要拆成横排的多个节点（折不了行）。
+- 进程启动后第一次打开面板约 0.7 秒：第一次开输入法（`set_ime_allowed`）要阻塞约 500 ms 等文字服务加载，启动时藏着窗口预先开没有用。所以面板的输入法开了就不再关（秘密输入除外），之后打开约 0.26 秒；整窗重画只要约 37 ms（2880 宽），不是瓶颈。
+- 外观用 bamboo-slip 的 Fluent 预设（`WidgetColors::fluent`、`WidgetTheme::fluent`）与系统强调色（`Accent::system`）；Windows 11 22H2 起且没关透明效果时开亚克力（`WindowOptions::acrylic`，走 winit 的接口，不要自己延伸窗口框架：系统会把标题栏按钮画进内容区）。类型色、代码高亮色留在 `palette.rs`。
+- 配置在输入法的 `config.toml`：`[clipboard] enabled`、`edge` 与 `[shortcut] clipboard`。剪贴板进程不依赖 `qingjian-platform`（`ClipSettings` 自己读这几个键），两边写法要一起改。监听线程每秒看一次文件修改时间，快捷键与方向不用重启。
+- 托盘（`system/tray.rs`，原生菜单）：打开面板、暂停记录、设置（同目录有设置程序才有）、开机启动（只有单独运行时有，写 HKCU Run；由输入法拉起时归输入法）、退出。由输入法拉起时退出等于关掉总开关。纯消息窗口弹不了菜单，托盘单独一个不显示的窗口。
+- 同时有文件列表和位图（有的程序复制图片时给一个临时文件加几种图片格式）按图片记，文件列表也留着；粘贴时写回图片，文件还在才加文件列表。图太大退回只记路径。去重只看图片内容，同一张图每次的临时路径不同。
+- 大小：文件与文件夹只记路径（`CF_HDROP`），不读内容；总大小复制时记一次（`FORMAT_FILE_SIZE`，只看本机磁盘上的文件，有文件夹或在网络盘上就不记，不参与去重）；文字超过 100 万字符、文件列表超 4 MB、图片编码后超 32 MB 的整条不记（截断了粘贴出来是残缺的，也不往下落到别的格式）；HTML、RTF 超 8 MB 只丢格式留文字。读之前先看大小。整个历史超 512 MB 从最旧的删起。
+- 隐私：暂停与黑名单在读剪贴板之前判断（`ClipSettings::records`），不记的内容不进内存。数据库开 `secure_delete`，删除连指纹一起清；设置程序的「清空」调同目录的 `qingjian-clipboard --clear`，清完 `VACUUM`。
+- Server 按 `enabled` 用 `--managed` 拉起进程，关掉时进程自己退出；直接运行（单独下载的版本）不看 `enabled`。命名互斥量保证只开一个。

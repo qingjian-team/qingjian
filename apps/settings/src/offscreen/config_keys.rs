@@ -245,3 +245,39 @@ fn every_key_the_settings_app_writes_is_read_by_the_ime() {
         harness.checked.keys()
     );
 }
+
+/// 剪贴板进程不依赖 `Config`，自己读这几个键：缺省值与写法两边要一致。
+#[cfg(windows)]
+#[test]
+fn clipboard_process_reads_the_same_keys() {
+    use qingjian_clipboard::{ClipSettings, Edge, Hotkey};
+
+    let mut config = Config::default();
+    let text = toml::to_string(&config).unwrap();
+    assert_eq!(ClipSettings::parse(&text), Some(ClipSettings::default()));
+    config.clipboard.enabled = true;
+    config.clipboard.paused = true;
+    config.clipboard.history_limit = 500;
+    config.clipboard.edge = qingjian_platform::ClipboardEdge::Right;
+    config.clipboard.excluded_apps = vec!["Secret".to_owned()];
+    config.shortcut.clipboard = "control+shift+k".parse().unwrap();
+    let settings = ClipSettings::parse(&toml::to_string(&config).unwrap()).unwrap();
+    assert_eq!(
+        settings,
+        ClipSettings {
+            enabled: true,
+            edge: Edge::Right,
+            hotkey: Hotkey {
+                control: true,
+                shift: true,
+                alt: false,
+                win: false,
+                key: 'k',
+            },
+            history_limit: 500,
+            paused: true,
+            excluded_apps: vec!["Secret".to_owned()],
+            language: config.general.ui_language.clone(),
+        }
+    );
+}

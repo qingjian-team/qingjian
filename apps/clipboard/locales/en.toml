@@ -1,0 +1,44 @@
+[panel]
+paused = "Recording paused"
+search = "Search clipboard"
+empty = "Nothing here yet. Copy something first."
+no_results = "No results"
+just_now = "Just now"
+minutes_ago = "{count} min ago"
+hours_ago = "{count} hr ago"
+yesterday = "Yesterday"
+day_before_yesterday = "2 days ago"
+characters = "{count} characters"
+file_count = "{count} items"
+
+[tray]
+tip = "Qingjian Clipboard"
+open = "Open panel"
+pause = "Pause recording"
+settings = "Settings"
+autostart = "Start with Windows"
+quit = "Quit"
+
+[kind]
+text = "Plain text"
+rich = "Rich text"
+code = "Code"
+image = "Image"
+files = "Files"
+
+[filter]
+all = "All"
+text = "Text"
+code = "Code"
+image = "Images"
+files = "Files"
+
+[menu]
+paste = "Paste"
+copy = "Copy"
+edit = "Edit"
+delete = "Delete"
+
+[editor]
+save = "Save"
+cancel = "Cancel"

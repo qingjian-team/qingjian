@@ -254,6 +254,7 @@ fn main() -> ExitCode {
     engine.set_context_memory(config.model.context_memory_seconds);
     engine.log_session(env!("CARGO_PKG_VERSION"), "windows");
     let usage_path = user_dir().map(|dir| dir.join(qingjian_predict::API_USAGE_FILE));
+    qingjian_windows_server::clipboard_process::sync(config.clipboard.enabled);
     dispatch::attach_cloud(&mut engine, &config.predict, usage_path);
     let router_config = RouterConfig::from(&config);
     let mut router = Router::new(engine, router_config.clone());
