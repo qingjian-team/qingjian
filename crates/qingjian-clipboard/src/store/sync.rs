@@ -42,7 +42,7 @@ pub(super) fn capture_id(capture: &Capture) -> Option<String> {
     id_of(capture.kind, &capture.text, png)
 }
 
-/// 试用版的库升上来，已有的历史不能丢。
+/// 版本 2 的库升上来，已有的历史不能丢。
 pub(super) fn migrate_from_v2(connection: &Connection) -> Result<(), ClipboardError> {
     connection.execute_batch(
         "ALTER TABLE items ADD COLUMN forgotten INTEGER NOT NULL DEFAULT 0;

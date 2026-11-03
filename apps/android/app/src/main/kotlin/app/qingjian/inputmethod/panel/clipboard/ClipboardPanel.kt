@@ -356,7 +356,7 @@ class ClipboardPanel(
         } else if (clips.isNotEmpty()) {
             if (clearArmed) {
                 clips = ClipboardStore.clear(context, actions.clipboardLimit)
-                app.qingjian.inputmethod.clipboard.ClipboardSync.changed()
+                app.qingjian.inputmethod.clipboard.sync.ClipboardSync.changed()
                 clearArmed = false
                 collapse()
             } else {
@@ -402,7 +402,7 @@ class ClipboardPanel(
             "拆词" -> actions.openPieces(clips[i].text)
             "删除" -> {
                 clips = ClipboardStore.remove(context, i, actions.clipboardLimit)
-                app.qingjian.inputmethod.clipboard.ClipboardSync.changed()
+                app.qingjian.inputmethod.clipboard.sync.ClipboardSync.changed()
                 collapse()
             }
         }

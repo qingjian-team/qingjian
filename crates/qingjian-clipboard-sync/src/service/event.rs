@@ -1,6 +1,6 @@
 //! [`SyncEvent`]：同步服务告诉界面的事。霓虹灯只看这些事件。
 
-use crate::record::RecordKind;
+use super::received_item::ReceivedItem;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum SyncEvent {
@@ -39,11 +39,4 @@ pub enum SyncEvent {
 
     /// 发不过去：对方在线却连不上或中途断开。对方本来就不在线不算，上线后会补传。
     SendFailed { peer: String },
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ReceivedItem {
-    pub id: String,
-
-    pub kind: RecordKind,
 }

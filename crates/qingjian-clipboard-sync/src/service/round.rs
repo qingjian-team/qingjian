@@ -3,8 +3,9 @@
 use std::net::{SocketAddr, TcpStream};
 use std::time::Instant;
 
-use super::event::{ReceivedItem, SyncEvent};
+use super::event::SyncEvent;
 use super::hello::PairHello;
+use super::received_item::ReceivedItem;
 use super::state::Shared;
 use super::state::now_millis;
 use super::{CONNECT_TIMEOUT, IO_TIMEOUT, device_id_of, lock, scan};

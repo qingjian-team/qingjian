@@ -1,5 +1,5 @@
 //! 青简剪贴板：常驻后台记录复制过的内容，按全局快捷键从屏幕一边弹出面板，选中后粘贴回原窗口。快捷键与方向读输入法的配置文件。
-//! 原型阶段只有 Windows。参数：`--managed`（由输入法拉起，配置里关了就退出）、`--config <配置文件>`、`--edge top|bottom|left|right`、
+//! 目前只有 Windows。参数：`--managed`（由输入法拉起，配置里关了就退出）、`--config <配置文件>`、`--edge top|bottom|left|right`、
 //! `--data <数据库文件>`、`--theme light|dark`（缺省跟系统）、`--clear`（清空历史就退出，设置程序调）、`--neon ok|fail`（亮一次同步霓虹灯就退出，调外观用）。
 
 #![cfg_attr(all(windows, not(debug_assertions)), windows_subsystem = "windows")]

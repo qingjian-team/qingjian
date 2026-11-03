@@ -17,9 +17,9 @@ import android.widget.Toast
 import app.qingjian.inputmethod.R
 import app.qingjian.inputmethod.candidates.CandidateBarView
 import app.qingjian.inputmethod.clipboard.ClipboardImageProvider
-import app.qingjian.inputmethod.clipboard.ClipboardSync
+import app.qingjian.inputmethod.clipboard.sync.ClipboardSync
 import app.qingjian.inputmethod.clipboard.ClipboardWatcher
-import app.qingjian.inputmethod.clipboard.NeonEdgeView
+import app.qingjian.inputmethod.clipboard.sync.NeonEdgeView
 import org.json.JSONObject
 import app.qingjian.inputmethod.cloud.CloudConfig
 import app.qingjian.inputmethod.cloud.Network

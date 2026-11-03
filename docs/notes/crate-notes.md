@@ -763,5 +763,5 @@ Windows Server 受控退出使用 ExitCode 返回以刷新既有 tracing 队列�
 - 发现：桌面端 mdns-sd；Android 11 起应用读不到网卡状态标志，mdns-sd 会跳过所有网卡，所以走 `NsdDiscovery.kt`（服务类型与 TXT 键两边要一致）。有的路由器不转发组播和广播（2026-11 真机：只有单播能到），所以设备页开着时还逐个连同一 /24 的首选端口 53319（`service/scan.rs`），有设备连不上时也隔 5 分钟扫一次找新地址；端口被占用的设备扫不到，只能手填。
 - 连接状态只看实际连接结果（`Link`），不看 mDNS：组播被拦时同步照样通。后台 2 分钟对账一次，设备页开着 10 秒一次。
 - 存储：Windows 的 `StoreReplica` 和面板各开一个连接，收到非 PNG 图片要留原始字节（`sync_original`），转过的 PNG 算不回原 id。Android 的 `HistoryReplica` 把 id、毫秒和删除状态记在 `clipboard-sync-state.json`，历史文件只有秒；面板和监听直接改历史，所以每次对账。
-- 霓虹灯：Windows 是每台显示器四条贴边的分层窗口（`system/neon.rs`，`--neon ok|fail` 可单独看效果），Android 是键盘内的 `NeonEdgeView`，要加在 `InputPanel` 的布局里：在输入法视图外再包一层，键盘会贴到屏幕顶上。节奏和颜色两边要一起改。
+- 霓虹灯：Windows 是每台显示器四条贴边的分层窗口（`system/neon/`，`--neon ok|fail` 可单独看效果），Android 是键盘内的 `NeonEdgeView`，要加在 `InputPanel` 的布局里：在输入法视图外再包一层，键盘会贴到屏幕顶上。节奏和颜色两边要一起改。
 - 真机对测用 `cargo run -p qingjian-clipboard-sync --example peer`，内容只在内存，不碰系统剪贴板。

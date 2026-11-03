@@ -6,7 +6,7 @@ import android.text.InputType
 import android.view.View
 import android.widget.EditText
 import app.qingjian.inputmethod.R
-import app.qingjian.inputmethod.clipboard.ClipboardSync
+import app.qingjian.inputmethod.clipboard.sync.ClipboardSync
 import app.qingjian.inputmethod.core.Native
 import org.json.JSONObject
 

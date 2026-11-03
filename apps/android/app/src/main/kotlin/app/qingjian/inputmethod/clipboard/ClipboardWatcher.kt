@@ -1,5 +1,6 @@
 package app.qingjian.inputmethod.clipboard
 
+import app.qingjian.inputmethod.clipboard.sync.ClipboardSync
 import android.content.ClipDescription
 import android.content.ClipboardManager
 import android.content.Context

@@ -1,4 +1,4 @@
-//! [`ClipStore`]：剪贴板历史存在 SQLite 里。为多端同步留好全局 id、设备 id、修改时刻与删除标记；
+//! [`ClipStore`]：剪贴板历史存在 SQLite 里。每条有全局 id、设备 id、修改时刻与删除标记；
 //! 删除只清空内容、留下标记，同步时别的设备才知道这条删了。
 
 mod sync;
@@ -21,7 +21,7 @@ use crate::kind::{ClipFilter, ClipKind};
 /// 整个历史最多占多少（字节），超了从最旧的删起，最新的一条总留着。
 const MAX_STORED_BYTES: i64 = 512 * 1024 * 1024;
 
-/// 表结构的版本。还没发布过，版本不对直接重建，不做迁移。
+/// 表结构的版本。版本 2 的库就地迁移，更旧的直接重建。
 const SCHEMA_VERSION: i64 = 3;
 
 const SCHEMA: &str = "
