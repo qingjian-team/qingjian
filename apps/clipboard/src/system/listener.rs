@@ -26,8 +26,8 @@ use windows::Win32::UI::WindowsAndMessaging::{
     GetForegroundWindow, GetMessageW, GetTopWindow, GetWindow, GetWindowLongPtrW,
     GetWindowThreadProcessId, HWND_MESSAGE, IsWindowVisible, MSG, RegisterClassW,
     RegisterWindowMessageW, SetTimer, TranslateMessage, WINDOW_EX_STYLE, WINDOW_STYLE,
-    WM_CLIPBOARDUPDATE, WM_HOTKEY, WM_LBUTTONUP, WM_RBUTTONUP, WM_TIMER, WNDCLASSW,
-    WS_EX_TOOLWINDOW, WS_POPUP,
+    WM_CLIPBOARDUPDATE, WM_HOTKEY, WM_LBUTTONUP, WM_RBUTTONUP, WM_SETTINGCHANGE, WM_TIMER,
+    WNDCLASSW, WS_EX_TOOLWINDOW, WS_POPUP,
 };
 use windows::core::{PCWSTR, w};
 
@@ -352,6 +352,11 @@ unsafe extern "system" fn procedure(
             }
             LRESULT(0)
         }
+        // 消息窗口收不到广播，这条只有托盘窗口会收到
+        WM_SETTINGCHANGE if changed_color_mode(lparam) => {
+            tray::refresh(window);
+            LRESULT(0)
+        }
         WM_TIMER => {
             check_config(window);
             LRESULT(0)
@@ -362,6 +367,16 @@ unsafe extern "system" fn procedure(
         }
         _ => unsafe { DefWindowProcW(window, message, wparam, lparam) },
     }
+}
+
+/// 系统切换深浅色时广播的设置名。
+fn changed_color_mode(lparam: LPARAM) -> bool {
+    if lparam.0 == 0 {
+        return false;
+    }
+    // SAFETY: 这条消息的 lParam 不为空时是系统给的、以 0 结尾的 UTF-16 字符串。
+    let name = unsafe { PCWSTR(lparam.0 as *const u16).to_string() };
+    name.is_ok_and(|name| name == "ImmersiveColorSet")
 }
 
 fn send(signal: Signal) {

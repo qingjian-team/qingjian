@@ -14,6 +14,9 @@ workspace = true
 name = "qingjian-clipboard"
 path = "src/main.rs"
 
+[dev-dependencies]
+resvg = { version = "0.49", default-features = false }
+
 [target."cfg(windows)".build-dependencies]
 winresource = "0.1.31"
 

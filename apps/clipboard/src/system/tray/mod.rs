@@ -8,14 +8,17 @@ use std::mem::size_of;
 use windows::Win32::Foundation::{HWND, LPARAM, POINT, WPARAM};
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::System::Registry::{
-    HKEY_CURRENT_USER, REG_SZ, RRF_RT_REG_SZ, RegDeleteKeyValueW, RegGetValueW, RegSetKeyValueW,
+    HKEY_CURRENT_USER, REG_SZ, RRF_RT_REG_DWORD, RRF_RT_REG_SZ, RegDeleteKeyValueW, RegGetValueW,
+    RegSetKeyValueW,
 };
 use windows::Win32::UI::Shell::{
-    NIF_ICON, NIF_MESSAGE, NIF_TIP, NIM_ADD, NIM_DELETE, NOTIFYICONDATAW, Shell_NotifyIconW,
+    NIF_ICON, NIF_MESSAGE, NIF_TIP, NIM_ADD, NIM_DELETE, NIM_MODIFY, NOTIFYICONDATAW,
+    Shell_NotifyIconW,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
-    AppendMenuW, CreatePopupMenu, DestroyMenu, GetCursorPos, HICON, IDI_APPLICATION, LoadIconW,
-    MENU_ITEM_FLAGS, MF_CHECKED, MF_SEPARATOR, MF_STRING, PostMessageW, SetForegroundWindow,
+    AppendMenuW, CreatePopupMenu, DestroyMenu, GetCursorPos, GetSystemMetrics, HICON,
+    IDI_APPLICATION, IMAGE_ICON, LR_SHARED, LoadIconW, LoadImageW, MENU_ITEM_FLAGS, MF_CHECKED,
+    MF_SEPARATOR, MF_STRING, PostMessageW, SM_CXSMICON, SM_CYSMICON, SetForegroundWindow,
     TPM_NONOTIFY, TPM_RETURNCMD, TPM_RIGHTBUTTON, TrackPopupMenuEx, WM_APP, WM_NULL,
 };
 use windows::core::{HSTRING, PCWSTR, w};
@@ -34,6 +37,13 @@ const AUTOSTART_KEY: PCWSTR = w!(r"Software\Microsoft\Windows\CurrentVersion\Run
 
 const AUTOSTART_VALUE: PCWSTR = w!("QingjianClipboard");
 
+/// 嵌进 exe 的托盘图标资源 id，见 build.rs。
+const ICON_ON_DARK: usize = 2;
+
+const ICON_ON_LIGHT: usize = 3;
+
+const PERSONALIZE_KEY: PCWSTR = w!(r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize");
+
 const CHOICES: [Choice; 5] = [
     Choice::Open,
     Choice::TogglePause,
@@ -47,15 +57,43 @@ fn id(choice: Choice) -> usize {
     CHOICES.iter().position(|item| *item == choice).unwrap_or(0) + 1
 }
 
+/// 任务栏是浅色的。任务栏跟的是系统模式，不是应用模式；读不到时按深色算，那是系统的缺省。
+fn taskbar_is_light() -> bool {
+    let mut value = 0_u32;
+    let mut size = size_of::<u32>() as u32;
+    let status = unsafe {
+        RegGetValueW(
+            HKEY_CURRENT_USER,
+            PERSONALIZE_KEY,
+            w!("SystemUsesLightTheme"),
+            RRF_RT_REG_DWORD,
+            None,
+            Some((&raw mut value).cast()),
+            Some(&mut size),
+        )
+    };
+    status.is_ok() && value != 0
+}
+
+/// 按小图标的尺寸取：托盘用它，交给系统缩放会糊。共享的句柄不用释放；没嵌上时用系统的。
 fn icon() -> HICON {
+    let id = if taskbar_is_light() {
+        ICON_ON_LIGHT
+    } else {
+        ICON_ON_DARK
+    };
     let instance = unsafe { GetModuleHandleW(None) }.ok();
-    // 嵌进 exe 的图标资源 id 是 1，见 build.rs；没嵌上时用系统的
     unsafe {
-        LoadIconW(
+        LoadImageW(
             instance.map(Into::into),
-            PCWSTR(std::ptr::without_provenance(1)),
+            PCWSTR(std::ptr::without_provenance(id)),
+            IMAGE_ICON,
+            GetSystemMetrics(SM_CXSMICON),
+            GetSystemMetrics(SM_CYSMICON),
+            LR_SHARED,
         )
     }
+    .map(|handle| HICON(handle.0))
     .or_else(|_| unsafe { LoadIconW(None, IDI_APPLICATION) })
     .unwrap_or_default()
 }
@@ -84,6 +122,16 @@ pub fn add(window: HWND) {
     }
     if !unsafe { Shell_NotifyIconW(NIM_ADD, &icon_data) }.as_bool() {
         tracing::warn!("cannot add the tray icon");
+    }
+}
+
+/// 系统换了深浅色：换一张图标。
+pub fn refresh(window: HWND) {
+    let mut icon_data = data(window);
+    icon_data.uFlags = NIF_ICON;
+    icon_data.hIcon = icon();
+    if !unsafe { Shell_NotifyIconW(NIM_MODIFY, &icon_data) }.as_bool() {
+        tracing::warn!("cannot update the tray icon");
     }
 }
 

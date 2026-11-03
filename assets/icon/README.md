@@ -26,6 +26,8 @@
   品牌绿两版同值。生成物 `apps/windows/tsf/resources/qingjian-mono-{dark,light}.ico` 与 `qingjian.ico`
   同构（16–48 存 BMP，64 起存 PNG），`windows/render-app-mono-icon.sh` 生成，生成物随仓库提交。
   预览图 `windows/app-mono-preview.png` 是两版在深浅任务栏的 1:1 与放大效果。
+- `windows/clipboard-tray.svg` / `clipboard-tray-16.svg`：青简剪贴板的托盘图标源文件：实心剪贴板、品牌绿夹子，四片竹简镂空，16px 那档按像素对齐单独画。
+  `cargo run -p qingjian-clipboard-app --example render_tray_icon` 生成深浅两版 `apps/clipboard/resources/tray-{dark,light}.ico`，生成物随仓库提交。
 - `linux/hicolor/<尺寸>x<尺寸>/apps/qingjian.png`：Linux 托盘与应用图标，freedesktop hicolor 八档
   （16/22/24/32/48/64/128/256）。`linux/render-icons.sh` 从 `logo.png` 等比栅格化（需要 magick），生成物随仓库提交，
   源码安装与预编译包都不带栅格化依赖；`apps/linux/scripts/files.py` 安装时按目录尺寸逐档拷到 `$XDG_DATA_HOME/icons/hicolor/`。

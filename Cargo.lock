@@ -4155,6 +4155,7 @@ dependencies = [
  "qingjian-clipboard",
  "qingjian-clipboard-sync",
  "qingjian-code",
+ "resvg",
  "tracing",
  "windows",
  "winresource",
