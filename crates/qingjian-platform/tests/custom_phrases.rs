@@ -217,7 +217,8 @@ fn exported_phrases_import_back_and_configs_are_refused() {
     let (read, skipped) = qingjian_platform::import_phrases(bad).unwrap();
     assert_eq!(read, vec![CustomPhrase::new("ee", "：")]);
     assert_eq!(skipped, 2);
-    // 设置与短语各自导入：整份配置文件不收
+    // 设置与短语各自导入：整份配置文件不收。别的测试读配置时会改界面语言，比对文案要固定下来
+    bamboo_slip_i18n::pin_locale("zh-Hans");
     let config = format!("[general]\npage_size = 5\n\n{bad}");
     assert!(
         qingjian_platform::import_phrases(&config)
