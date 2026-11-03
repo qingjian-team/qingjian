@@ -354,7 +354,16 @@ fn serve(mut router: Router) -> ExitCode {
         }
         Err(error) => tracing::error!(%error, "UI 线程启动失败，将不显示候选框 / 状态条"),
     }
-    if let Err(error) = pipe::serve_pipe(pipe::DEFAULT_PIPE_NAME, &mut router, work_tx, work_rx) {
+    // 管道名按当前用户的 SID 派生：同一台机器上多个用户各有各的 Server（见 `qingjian_platform::pipe`）。
+    // 读不到 SID 就没法和 DLL 对上名字，也没有可用的身份校验，直接退出更诚实。
+    let pipe_name = match qingjian_platform::pipe::current_name() {
+        Ok(name) => name,
+        Err(error) => {
+            tracing::error!(%error, "读不到当前用户的 SID，无法确定命名管道名");
+            return ExitCode::FAILURE;
+        }
+    };
+    if let Err(error) = pipe::serve_pipe(&pipe_name, &mut router, work_tx, work_rx) {
         tracing::error!(%error, "命名管道服务退出");
         return ExitCode::FAILURE;
     }

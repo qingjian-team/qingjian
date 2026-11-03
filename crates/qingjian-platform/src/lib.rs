@@ -14,6 +14,9 @@ pub mod extra_dictionaries;
 mod i18n;
 pub mod logs;
 pub mod model_words;
+/// Windows 命名管道的对端身份：管道名按用户 SID 派生，两端互验令牌。仅 Windows。
+#[cfg(windows)]
+pub mod pipe;
 pub mod protocol;
 pub mod resources;
 mod scheme;

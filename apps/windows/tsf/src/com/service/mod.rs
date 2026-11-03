@@ -6,7 +6,7 @@ mod connection;
 mod display;
 mod document;
 mod key_sink;
-mod launch;
+pub(crate) mod launch;
 mod menu;
 mod mode;
 mod next;

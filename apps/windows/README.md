@@ -9,7 +9,7 @@ Windows 端是**一个产品、两个产物**，各自一个 package，同放本
 
 ```
 应用进程 A ── qingjian_tsf.dll ─┐
-应用进程 B ── qingjian_tsf.dll ─┼─ 命名管道 \\.\pipe\qingjian ─▶ qingjian-server（唯一的 Engine）
+应用进程 B ── qingjian_tsf.dll ─┼─ 命名管道 \\.\pipe\qingjian-<用户摘要> ─▶ qingjian-server（唯一的 Engine）
 应用进程 C ── qingjian_tsf.dll ─┘
 ```
 
