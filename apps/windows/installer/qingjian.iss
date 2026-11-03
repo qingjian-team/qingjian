@@ -66,6 +66,10 @@ Name: "chs"; MessagesFile: "compiler:Languages\ChineseSimplified.isl"
 ; 这是最容易被误解成「设置/新版没生效」的一点，所以放在完成页明说。
 FinishedLabel=安装完成。请注销后重新登录（或重启电脑），青简才会在所有应用里生效。%n%n不方便注销的话，先关掉再重新打开要打字的应用也可以。
 
+[Dirs]
+; 输入法图标所在目录：regsvr32 在这里写单色图标，之后各用户的 Server 跟着任务栏深浅改写，所以放开给普通用户写
+Name: "{commonappdata}\Qingjian"; Permissions: users-modify
+
 [Files]
 ; —— 二进制 ——
 ; DLL 按版本起名并排装；卸载时若仍被占用，登记成重启后删。

@@ -22,7 +22,7 @@
   `windows/render-app-icon.sh` 栅格化成 16–256 八档写到 `apps/windows/tsf/resources/qingjian.ico`，改了 svg 重跑，生成物随仓库提交。
 - `windows/app-mono-dark.svg` / `app-mono-light.svg`：Windows 任务栏单色图标源文件（无边框版，任务栏缺省用它；
   彩色的 `app.svg` 仍用于开始菜单、安装包等带底板的场合）。官方竹简剪影贴满画布，左列中段保留品牌绿点缀，
-  深浅任务栏都透底色，与系统托盘的原生图标同一占格逻辑。两版几何一致，只有墨色不同（白 / 近黑），
+  深浅任务栏都透底色，与系统托盘的原生图标同一占格逻辑。两版几何一致，只有墨色不同（白 / 深绿 #336F33，与彩色图标底板同色；近黑在浅色任务栏上糊成一团），
   品牌绿两版同值。生成物 `apps/windows/tsf/resources/qingjian-mono-{dark,light}.ico` 与 `qingjian.ico`
   同构（16–48 存 BMP，64 起存 PNG），`windows/render-app-mono-icon.sh` 生成，生成物随仓库提交。
   预览图 `windows/app-mono-preview.png` 是两版在深浅任务栏的 1:1 与放大效果。

@@ -100,8 +100,8 @@ fn pick_size() -> usize {
         .unwrap_or(SIZES.len() - 1)
 }
 
-/// 任务栏浅色（`SystemUsesLightTheme = 1`）画黑字，深色画白字；读不到按深色。
-fn taskbar_is_light() -> bool {
+/// 任务栏浅色（`SystemUsesLightTheme = 1`）画黑字，深色画白字；读不到按深色。注册输入法图标时也按它挑深浅版。
+pub(crate) fn taskbar_is_light() -> bool {
     windows_registry::CURRENT_USER
         .open(r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize")
         .and_then(|key| key.get_u32("SystemUsesLightTheme"))

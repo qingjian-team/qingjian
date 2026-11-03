@@ -13,6 +13,7 @@ mod monitor;
 mod painter;
 mod panel;
 mod status;
+mod taskbar_icon;
 mod window_class;
 
 use std::cell::RefCell;
@@ -213,6 +214,7 @@ fn run(
             None
         }
     };
+    taskbar_icon::sync();
     if ready.send(Some(thread_id)).is_err() {
         return;
     }

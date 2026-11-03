@@ -18,6 +18,7 @@ use windows::core::{Interface, Result};
 use crate::com::log::log;
 
 pub(crate) use self::button::ModeButton;
+pub(crate) use self::icon::taskbar_is_light;
 pub(crate) use self::state::ModeState;
 
 const NATIVE: i32 = TF_CONVERSIONMODE_NATIVE as i32;
