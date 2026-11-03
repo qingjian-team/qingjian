@@ -3,6 +3,8 @@
 格式同仓库根的 `CHANGELOG.md`：一个版本一节，标题写「版本 · 日期 · 渠道」，正文一行一条、面向用户的措辞。
 推 `clipboard-v<版本>` 标签时，CI 取这一节写进 qingjian-team/qingjian-clipboard 的 Release。
 
+## 0.1.1 · 未发布 · stable
+
 ## 0.1.0 · 2026-11-03 · stable
 
 - 按快捷键（缺省 Ctrl + Alt + V）从屏幕一边弹出复制历史，选中后粘贴回原来的窗口；面板可以从上、下、左、右弹出

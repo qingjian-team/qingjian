@@ -4145,7 +4145,7 @@ dependencies = [
 
 [[package]]
 name = "qingjian-clipboard-app"
-version = "0.1.0"
+version = "0.1.1-dev"
 dependencies = [
  "arboard",
  "bamboo-slip",

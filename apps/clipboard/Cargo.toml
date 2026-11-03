@@ -1,7 +1,7 @@
 [package]
 name = "qingjian-clipboard-app"
 description = "青简剪贴板：全局快捷键呼出的剪贴板历史面板，可单独使用，也可由输入法的设置打开"
-version = "0.1.0"
+version = "0.1.1-dev"
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
