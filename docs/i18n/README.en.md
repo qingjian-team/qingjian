@@ -20,6 +20,11 @@
   <a href="https://qingjian.app/docs/platforms/android"><img src="https://img.shields.io/badge/Android-8.0%2B%20preview-lightgrey?logo=android&amp;logoColor=white" alt="Android 8.0+: preview"></a>
 </p>
 
+<p align="center">
+  <a href="https://trendshift.io/repositories/233641?utm_source=trendshift-badge&amp;utm_medium=badge&amp;utm_campaign=badge-trendshift-233641"><img src="https://trendshift.io/api/badge/trendshift/repositories/233641/daily?language=Rust" alt="qingjian-team/qingjian | Trendshift" width="250" height="55"></a>
+  <a href="https://trendshift.io/repositories/233641?utm_source=trendshift-badge&amp;utm_medium=badge&amp;utm_campaign=badge-trendshift-233641"><img src="https://trendshift.io/api/badge/trendshift/repositories/233641/daily" alt="qingjian-team/qingjian | Trendshift" width="250" height="55"></a>
+</p>
+
 Qingjian is an input method. You type the way you normally would: enter pinyin, choose a candidate, write a whole sentence. A gloss beside each candidate lets language learning happen naturally while you type. The gloss is always auxiliary information; it never takes the place of the text you are entering.
 
 https://github.com/user-attachments/assets/d145fde9-a641-4543-8b15-dd7a2685de3d

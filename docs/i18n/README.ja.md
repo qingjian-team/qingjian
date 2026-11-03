@@ -20,6 +20,11 @@
   <a href="https://qingjian.app/docs/platforms/android"><img src="https://img.shields.io/badge/Android-8.0%2B%20preview-lightgrey?logo=android&amp;logoColor=white" alt="Android 8.0+：プレビュー版"></a>
 </p>
 
+<p align="center">
+  <a href="https://trendshift.io/repositories/233641?utm_source=trendshift-badge&amp;utm_medium=badge&amp;utm_campaign=badge-trendshift-233641"><img src="https://trendshift.io/api/badge/trendshift/repositories/233641/daily?language=Rust" alt="qingjian-team/qingjian | Trendshift" width="250" height="55"></a>
+  <a href="https://trendshift.io/repositories/233641?utm_source=trendshift-badge&amp;utm_medium=badge&amp;utm_campaign=badge-trendshift-233641"><img src="https://trendshift.io/api/badge/trendshift/repositories/233641/daily" alt="qingjian-team/qingjian | Trendshift" width="250" height="55"></a>
+</p>
+
 青簡（Qingjian）は中国語の入力メソッドです。ピンインを入力し、候補を選び、文をまるごと書く――いつも通りに入力するだけです。候補の横に表示される訳語によって、日々の入力の中で自然に語学学習ができます。訳語はあくまで補助情報で、入力したい文字を邪魔することはありません。
 
 https://github.com/user-attachments/assets/d145fde9-a641-4543-8b15-dd7a2685de3d

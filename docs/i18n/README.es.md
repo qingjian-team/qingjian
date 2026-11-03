@@ -20,6 +20,11 @@
   <a href="https://qingjian.app/docs/platforms/android"><img src="https://img.shields.io/badge/Android-8.0%2B%20preview-lightgrey?logo=android&amp;logoColor=white" alt="Android 8.0+: versión preliminar"></a>
 </p>
 
+<p align="center">
+  <a href="https://trendshift.io/repositories/233641?utm_source=trendshift-badge&amp;utm_medium=badge&amp;utm_campaign=badge-trendshift-233641"><img src="https://trendshift.io/api/badge/trendshift/repositories/233641/daily?language=Rust" alt="qingjian-team/qingjian | Trendshift" width="250" height="55"></a>
+  <a href="https://trendshift.io/repositories/233641?utm_source=trendshift-badge&amp;utm_medium=badge&amp;utm_campaign=badge-trendshift-233641"><img src="https://trendshift.io/api/badge/trendshift/repositories/233641/daily" alt="qingjian-team/qingjian | Trendshift" width="250" height="55"></a>
+</p>
+
 Qingjian es un método de entrada. Escribes como lo harías normalmente: introduces pinyin, eliges un candidato, escribes una frase completa. Una traducción junto a cada candidato hace que el aprendizaje de idiomas ocurra de forma natural mientras escribes. La traducción es siempre información auxiliar; nunca ocupa el lugar del texto que estás escribiendo.
 
 https://github.com/user-attachments/assets/d145fde9-a641-4543-8b15-dd7a2685de3d

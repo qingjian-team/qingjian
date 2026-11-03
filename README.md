@@ -20,6 +20,11 @@
   <a href="https://qingjian.app/docs/platforms/android"><img src="https://img.shields.io/badge/Android-8.0%2B%20preview-lightgrey?logo=android&amp;logoColor=white" alt="Android 8.0+，预览版"></a>
 </p>
 
+<p align="center">
+  <a href="https://trendshift.io/repositories/233641?utm_source=trendshift-badge&amp;utm_medium=badge&amp;utm_campaign=badge-trendshift-233641"><img src="https://trendshift.io/api/badge/trendshift/repositories/233641/daily?language=Rust" alt="qingjian-team/qingjian | Trendshift" width="250" height="55"></a>
+  <a href="https://trendshift.io/repositories/233641?utm_source=trendshift-badge&amp;utm_medium=badge&amp;utm_campaign=badge-trendshift-233641"><img src="https://trendshift.io/api/badge/trendshift/repositories/233641/daily" alt="qingjian-team/qingjian | Trendshift" width="250" height="55"></a>
+</p>
+
 青简是一款输入法。你可以像平常一样打字：输入拼音、选择候选、写完整句；候选旁的一条译词，让语言学习自然发生在日常输入里。译词始终只是辅助信息，不会盖过你要输入的文字。
 
 https://github.com/user-attachments/assets/d145fde9-a641-4543-8b15-dd7a2685de3d

@@ -20,6 +20,11 @@
   <a href="https://qingjian.app/docs/platforms/android"><img src="https://img.shields.io/badge/Android-8.0%2B%20preview-lightgrey?logo=android&amp;logoColor=white" alt="Android 8.0+: bản xem trước"></a>
 </p>
 
+<p align="center">
+  <a href="https://trendshift.io/repositories/233641?utm_source=trendshift-badge&amp;utm_medium=badge&amp;utm_campaign=badge-trendshift-233641"><img src="https://trendshift.io/api/badge/trendshift/repositories/233641/daily?language=Rust" alt="qingjian-team/qingjian | Trendshift" width="250" height="55"></a>
+  <a href="https://trendshift.io/repositories/233641?utm_source=trendshift-badge&amp;utm_medium=badge&amp;utm_campaign=badge-trendshift-233641"><img src="https://trendshift.io/api/badge/trendshift/repositories/233641/daily" alt="qingjian-team/qingjian | Trendshift" width="250" height="55"></a>
+</p>
+
 Qingjian (Thanh Giản) là một bộ gõ. Bạn gõ như bình thường: nhập pinyin, chọn từ gợi ý, viết cả câu. Một bản dịch nằm bên cạnh mỗi từ gợi ý giúp việc học ngoại ngữ diễn ra tự nhiên trong lúc gõ hằng ngày. Bản dịch luôn chỉ là thông tin phụ, không bao giờ lấn át văn bản bạn đang nhập.
 
 https://github.com/user-attachments/assets/d145fde9-a641-4543-8b15-dd7a2685de3d
