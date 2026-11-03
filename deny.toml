@@ -19,12 +19,13 @@
 ignore = [
     # candle-core → gemm 0.19 → paste。上游已弃用，gemm 换掉它之后删。
     "RUSTSEC-2024-0436",
-    # candle-core → zip 8.6.0 的三条解压相关漏洞（9.0 才修）。
+    # candle-core → zip 8.6.0 的四条解压相关漏洞。
     # 我们只让 candle 读 safetensors，仓库里没有任何 `zip::` 调用、没有 `.extract(`，
-    # 也不解压用户提供的压缩包，走不到有漏洞的那几个函数。candle 升到 zip 9 后删掉。
+    # 也不解压用户提供的压缩包，走不到有漏洞的那几个函数。candle 升到修好的 zip 后删掉。
     "RUSTSEC-2026-0367",
     "RUSTSEC-2026-0368",
     "RUSTSEC-2026-0369",
+    "RUSTSEC-2026-0429",
     # ttf-parser 停止维护。bamboo-slip 直接用它查字体轮廓表，fontdb / cosmic-text
     # 也依赖它；上游换成别的库之后再跟。
     "RUSTSEC-2026-0192",
