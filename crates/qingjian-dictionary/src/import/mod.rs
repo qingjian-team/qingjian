@@ -88,7 +88,7 @@ pub fn import(source: &Path, dest_dir: &Path) -> Result<Imported, DictionaryErro
     } else {
         let bytes = std::fs::read(source)?;
         // 搜狗细胞词库是二进制：先按魔数 / 扩展名认出来，转成 TSV 再走同一条解析
-        if scel::is_scel(&stem, &bytes) {
+        if scel::is_scel(&source.to_string_lossy(), &bytes) {
             let tsv =
                 scel::to_tsv(&bytes).ok_or(DictionaryError::Corrupt(".scel 里没有可解析的词条"))?;
             let dictionary = Dictionary::parse(&tsv)?;

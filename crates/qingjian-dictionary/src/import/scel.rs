@@ -116,7 +116,7 @@ fn pinyin_table(bytes: &[u8], end: usize) -> Option<std::collections::HashMap<u1
         };
         cursor += 4;
         if !length.is_multiple_of(2) || cursor + length > limit {
-            // 错位：跳过这一项的头部，按两字节步进接着找下一项
+            // 错位：跳过这一项的四字节头部，接着找下一项
             continue;
         }
         let text = decode_utf16(&bytes[cursor..cursor + length]);
