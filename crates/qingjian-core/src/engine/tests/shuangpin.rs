@@ -446,3 +446,32 @@ fn pending_key_that_spells_a_whole_word_keeps_english_out_of_first() {
     let single = word_of("遮\tzhe\t9000\n歌\tge\t8000\n");
     assert_eq!(single[0], "veg", "{single:?}");
 }
+
+/// 模糊音命中时末音节要吃满它的键：`cuqk` 解成 `cuqing`，选 出勤（chu qin）不能因为
+/// `qin` 原样能对上 `qing` 的前三个字母就只吃三个，否则 `keys_for` 向下取整，`qk` 留在缓冲区。
+#[test]
+fn fuzzy_final_syllable_consumes_all_its_keys() {
+    let dictionary = Dictionary::parse("出勤\tchu qin\t1000\n").unwrap();
+    let mut engine = Engine::new(dictionary);
+    engine.set_shuangpin(Some(Scheme::Xiaohe));
+    engine.set_fuzzy(FuzzyRules {
+        c_ch: true,
+        in_ing: true,
+        ..FuzzyRules::default()
+    });
+    engine.set_input("cuqk");
+    let chuqin = engine
+        .query()
+        .unwrap()
+        .candidates
+        .items
+        .into_iter()
+        .find(|c| c.text == "出勤")
+        .unwrap();
+    engine.commit(&chuqin);
+    assert!(
+        engine.composition().is_empty(),
+        "残留：{}",
+        engine.composition().text()
+    );
+}
