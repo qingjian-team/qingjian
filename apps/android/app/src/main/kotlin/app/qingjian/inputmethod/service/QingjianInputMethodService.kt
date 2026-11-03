@@ -17,7 +17,10 @@ import android.widget.Toast
 import app.qingjian.inputmethod.R
 import app.qingjian.inputmethod.candidates.CandidateBarView
 import app.qingjian.inputmethod.clipboard.ClipboardImageProvider
+import app.qingjian.inputmethod.clipboard.ClipboardSync
 import app.qingjian.inputmethod.clipboard.ClipboardWatcher
+import app.qingjian.inputmethod.clipboard.NeonEdgeView
+import org.json.JSONObject
 import app.qingjian.inputmethod.cloud.CloudConfig
 import app.qingjian.inputmethod.cloud.Network
 import app.qingjian.inputmethod.cloud.SecretStore
@@ -75,6 +78,24 @@ class QingjianInputMethodService :
     private var reopenPanel: PanelKind? = null
 
     private val clipboardWatcher by lazy { ClipboardWatcher(this) }
+
+    private var neon: NeonEdgeView? = null
+
+    /** 同步的事件：键盘边缘亮灯，收到内容后开着的剪贴板面板重读。 */
+    private val syncListener = object : ClipboardSync.Listener {
+        override fun onSyncEvent(type: String, event: JSONObject) {
+            val glow = neon?.takeIf { ClipboardSync.neonEnabled(this@QingjianInputMethodService) }
+            when (type) {
+                "started" -> glow?.start()
+                "progress" -> glow?.speed(event.optLong("speed"))
+                "finished" -> {
+                    glow?.finish(true)
+                    panel?.refreshClipboard()
+                }
+                "failed" -> glow?.finish(false)
+            }
+        }
+    }
 
     /** 浮在键盘上方接管打字的编辑条（常用语编辑框、快捷翻译）；null 是没开。 */
     private var editor: FloatingEditor? = null
@@ -141,10 +162,13 @@ class QingjianInputMethodService :
         VoiceConfig.prefs(this).registerOnSharedPreferenceChangeListener(voiceListener)
         clipboardWatcher.onChanged = { panel?.refreshClipboard() }
         clipboardWatcher.start()
+        ClipboardSync.addListener(syncListener)
+        ClipboardSync.apply(this)
     }
 
     override fun onDestroy() {
         clipboardWatcher.stop()
+        ClipboardSync.removeListener(syncListener)
         Settings.preferences(this).unregisterOnSharedPreferenceChangeListener(settingsListener)
         SecretStore.prefs(this).unregisterOnSharedPreferenceChangeListener(cloudListener)
         VoiceConfig.prefs(this).unregisterOnSharedPreferenceChangeListener(voiceListener)
@@ -180,6 +204,9 @@ class QingjianInputMethodService :
         showSideItems(emptyList())
         reopenPanel?.let(panel::open)
         reopenPanel = null
+        val glow = NeonEdgeView(this)
+        neon = glow
+        panel.addOverlay(glow)
         return panel.view
     }
 
@@ -205,6 +232,9 @@ class QingjianInputMethodService :
         // 网络可能换了（「只在 Wi-Fi 下使用」）
         syncCloud()
         clipboardWatcher.capture()
+        // 进程可能刚被系统杀过又拉起，或开关刚改过；顺便补一轮
+        ClipboardSync.apply(this)
+        ClipboardSync.changed()
     }
 
     override fun onFinishInputView(finishingInput: Boolean) {

@@ -2,14 +2,17 @@
 
 mod clipboard;
 mod listener;
+mod neon;
 mod paste;
 mod source;
 mod tray;
 
 use qingjian_clipboard::{Capture, ClipSettings, WorkArea};
+use qingjian_clipboard_sync::SyncEvent;
 
-pub use clipboard::Payload;
+pub use clipboard::{Payload, write_payload};
 pub use listener::{Watch, spawn_listener};
+pub use neon::Neon;
 pub use paste::{copy, paste, refocus};
 pub use source::load_icon;
 
@@ -37,6 +40,9 @@ pub enum Signal {
 
     /// 配置改了。
     Settings(ClipSettings),
+
+    /// 同步服务的消息。
+    Sync(SyncEvent),
 
     /// 按了呼出快捷键。
     Hotkey {

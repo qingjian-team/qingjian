@@ -13,7 +13,9 @@ pub(crate) mod stats;
 pub(crate) mod vocabulary;
 
 pub use catalog::{CatalogSection, catalog};
-pub use clipboard::{ClipboardItem, ClipboardRequest, clipboard, clipboard_add_image};
+pub use clipboard::{
+    ClipboardItem, ClipboardRequest, HistoryReplica, clipboard, clipboard_add_image,
+};
 pub use code::{CodeView, code_view};
 pub use dictionaries::{DictionaryEntry, DictionaryPage, DictionaryRequest, dictionaries};
 pub use learning::{clear as clear_learning, export_files};

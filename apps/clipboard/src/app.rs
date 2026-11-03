@@ -1,6 +1,8 @@
 //! 面板的状态与消息：后台线程送来的复制与快捷键在 `wake` 里处理，选中一条就藏起面板、粘贴回原窗口。
 
 use std::collections::HashMap;
+use std::net::SocketAddr;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::mpsc::{self, Receiver};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -12,11 +14,13 @@ use bamboo_slip::{
     TextPainter, Ui, Waker, WindowCommand, set_clipboard, system_fonts,
 };
 use qingjian_clipboard::{
-    ClipFilter, ClipItem, ClipKind, ClipStore, Edge, FORMAT_FILE_SIZE, FORMAT_THUMBNAIL,
-    format_size,
+    ClipFilter, ClipItem, ClipKind, ClipSettings, ClipStore, Edge, FORMAT_FILE_SIZE,
+    FORMAT_THUMBNAIL, format_size,
 };
+use qingjian_clipboard_sync::{ReceivedItem, SyncEvent};
 
-use crate::system::{self, Payload, Signal};
+use crate::link::{Pairing, SyncLink};
+use crate::system::{self, Neon, Payload, Signal};
 use crate::view;
 
 /// 面板最多列多少条，再多靠搜索。
@@ -63,6 +67,29 @@ pub enum Message {
     EditSave,
 
     EditCancel,
+
+    OpenDevices,
+
+    CloseDevices,
+
+    NameChange(Edit),
+
+    NameSave,
+
+    PairShowCode,
+
+    /// 开始输入配对码，地址先填上（可能是空的）。
+    PairEnter(String),
+
+    PairAddress(Edit),
+
+    PairCode(Edit),
+
+    PairSubmit,
+
+    PairCancel,
+
+    Unpair(String),
 
     Close,
 }
@@ -155,18 +182,52 @@ pub struct ClipboardApp {
     target: isize,
 
     command: Option<WindowCommand>,
+
+    pub(crate) link: SyncLink,
+
+    neon: Neon,
+
+    /// 同步时亮霓虹灯。
+    neon_on: bool,
+
+    /// 上次的配置，看同步相关的键变了没有。
+    settings: ClipSettings,
+
+    /// 配置文件，改设备名时写。
+    config: Option<PathBuf>,
+
+    pub(crate) showing_devices: bool,
+
+    pub(crate) name_edit: TextEdit,
+
+    pub(crate) pairing: Pairing,
+
+    /// 配对的结果，显示在设备页。
+    pub(crate) pair_status: String,
 }
 
 impl ClipboardApp {
     pub fn new(
         store: ClipStore,
+        database: &Path,
         watch: system::Watch,
         forced_edge: Option<Edge>,
         forced_dark: Option<bool>,
         acrylic: bool,
     ) -> Self {
+        let settings = watch.settings.clone();
+        let config = watch.path.clone();
         Self {
             store,
+            link: SyncLink::new(database),
+            neon: Neon::spawn(),
+            neon_on: settings.sync_neon,
+            name_edit: TextEdit::new(settings.device_name.as_str()),
+            settings,
+            config,
+            showing_devices: false,
+            pairing: Pairing::Idle,
+            pair_status: String::new(),
             paused: watch.settings.paused,
             edge: forced_edge.unwrap_or(watch.settings.edge),
             fixed_edge: forced_edge.is_some(),
@@ -279,6 +340,10 @@ impl ClipboardApp {
         self.visible = false;
         self.menu = None;
         self.editing = None;
+        // 下次呼出回到列表；显示着的配对码也随之作废
+        if self.showing_devices {
+            self.close_devices();
+        }
         self.command = Some(WindowCommand::Hide);
     }
 
@@ -294,11 +359,26 @@ impl ClipboardApp {
                 if let Err(error) = self.store.add(&capture, now_millis()) {
                     tracing::warn!(%error, "clipboard record failed");
                 }
+                self.link.changed();
                 if self.visible && self.editing.is_none() {
                     self.reload();
                 }
             }
+            Signal::Sync(event) => self.handle_sync(event),
             Signal::Settings(settings) => {
+                let sync_changed = settings.sync_enabled != self.settings.sync_enabled
+                    || settings.device_name != self.settings.device_name
+                    || settings.history_limit != self.settings.history_limit
+                    || settings.language != self.settings.language;
+                self.neon_on = settings.sync_neon;
+                self.settings = settings.clone();
+                if sync_changed {
+                    self.link.apply(&settings);
+                    self.name_edit = TextEdit::new(self.shown_name());
+                    if self.link.service().is_none() {
+                        self.showing_devices = false;
+                    }
+                }
                 self.paused = settings.paused;
                 if let Err(error) = self.store.set_limit(settings.history_limit, now_millis()) {
                     tracing::warn!(%error, "clipboard limit change failed");
@@ -341,6 +421,101 @@ impl ClipboardApp {
         }
     }
 
+    fn shown_name(&self) -> String {
+        if self.link.service().is_some() {
+            self.link.name.clone()
+        } else {
+            self.settings.device_name.clone()
+        }
+    }
+
+    fn handle_sync(&mut self, event: SyncEvent) {
+        match event {
+            SyncEvent::NearbyChanged => {}
+            SyncEvent::Paired { name } => {
+                self.pairing = Pairing::Idle;
+                self.pair_status = crate::i18n::tr("devices.paired_ok").replace("{name}", &name);
+            }
+            SyncEvent::PairFailed => {
+                self.pairing = Pairing::Idle;
+                self.pair_status = crate::i18n::tr("devices.pair_failed").to_owned();
+            }
+            SyncEvent::ReceiveStarted { .. } => {
+                if self.neon_on {
+                    self.neon.start();
+                }
+            }
+            SyncEvent::ReceiveProgress {
+                bytes_per_second, ..
+            } => {
+                if self.neon_on {
+                    self.neon.speed(bytes_per_second);
+                }
+            }
+            SyncEvent::ReceiveFinished { newest, .. } => {
+                if self.neon_on {
+                    self.neon.finish(true);
+                }
+                if let Some(newest) = newest {
+                    self.put_on_clipboard(&newest);
+                }
+                if self.visible && self.editing.is_none() {
+                    self.reload();
+                }
+            }
+            SyncEvent::ReceiveFailed { .. } | SyncEvent::SendFailed { .. } => {
+                if self.neon_on {
+                    self.neon.finish(false);
+                }
+            }
+        }
+    }
+
+    /// 收到的最新内容放上系统剪贴板，这边直接就能粘贴。监听线程认得这是自己写的，不会再记一遍、再传回去。
+    fn put_on_clipboard(&self, received: &ReceivedItem) {
+        let item = match self.store.item_by_sync_id(&received.id) {
+            Ok(Some(item)) => item,
+            Ok(None) => return,
+            Err(error) => {
+                tracing::warn!(%error, "received item read failed");
+                return;
+            }
+        };
+        let formats = self.store.formats(&item.id).unwrap_or_default();
+        let payload = Payload {
+            kind: item.kind,
+            text: item.text,
+            formats,
+        };
+        std::thread::spawn(move || system::write_payload(&payload));
+    }
+
+    fn save_name(&mut self) {
+        let name = self.name_edit.text().trim().to_owned();
+        let Some(config) = &self.config else {
+            return;
+        };
+        // 监听线程一秒内读到配置变化，同步服务按新名字重开
+        if let Err(error) = ClipSettings::write_device_name(config, &name) {
+            tracing::warn!(%error, "cannot write device name");
+        }
+    }
+
+    fn submit_pairing(&mut self) {
+        let Pairing::Entering { address, code } = &self.pairing else {
+            return;
+        };
+        let Some(service) = self.link.service() else {
+            return;
+        };
+        let Ok(target) = address.text().trim().parse::<SocketAddr>() else {
+            self.pair_status = crate::i18n::tr("devices.bad_address").to_owned();
+            return;
+        };
+        self.pair_status.clear();
+        service.join_pairing(target, code.text().trim().to_owned());
+    }
+
     /// 这一条要写回系统剪贴板的内容，并把它挪到最前。
     fn take_payload(&mut self, index: usize) -> Option<Payload> {
         let item = self.items.get(index)?;
@@ -357,6 +532,7 @@ impl ClipboardApp {
         if let Err(error) = self.store.touch(&item.id, now_millis()) {
             tracing::warn!(%error, "clipboard touch failed");
         }
+        self.link.changed();
         Some(payload)
     }
 
@@ -395,6 +571,7 @@ impl ClipboardApp {
                 if let Err(error) = self.store.delete(&id, now_millis()) {
                     tracing::warn!(%error, "clipboard delete failed");
                 }
+                self.link.changed();
                 self.thumbnails.remove(&id);
                 let selected = self.selected;
                 self.reload();
@@ -402,6 +579,22 @@ impl ClipboardApp {
             }
             _ => {}
         }
+    }
+
+    fn cancel_pairing(&mut self) {
+        if let Some(service) = self.link.service() {
+            service.cancel_pairing();
+        }
+        self.pairing = Pairing::Idle;
+    }
+
+    fn close_devices(&mut self) {
+        self.cancel_pairing();
+        if let Some(service) = self.link.service() {
+            service.set_watching(false);
+        }
+        self.showing_devices = false;
+        self.reload();
     }
 
     fn save_edit(&mut self) {
@@ -414,6 +607,7 @@ impl ClipboardApp {
         {
             tracing::warn!(%error, "clipboard edit failed");
         }
+        self.link.changed();
         self.reload();
     }
 }
@@ -448,6 +642,64 @@ impl App for ClipboardApp {
                 }
                 if self.search.text() != before {
                     self.reload();
+                }
+            }
+            Message::Move(_) | Message::PasteSelected if self.showing_devices => {}
+            Message::Close if self.showing_devices => self.close_devices(),
+            Message::OpenDevices => {
+                self.showing_devices = true;
+                if let Some(service) = self.link.service() {
+                    service.set_watching(true);
+                }
+                self.pair_status.clear();
+                self.name_edit = TextEdit::new(self.shown_name());
+            }
+            Message::CloseDevices => self.close_devices(),
+            Message::NameChange(edit) => {
+                if let Some(copied) = self.name_edit.apply(&edit) {
+                    set_clipboard(&copied);
+                }
+            }
+            Message::NameSave => self.save_name(),
+            Message::PairShowCode => {
+                let code = self.link.service().map(|service| service.begin_pairing());
+                match code {
+                    Some(Ok(code)) => {
+                        self.pair_status.clear();
+                        self.pairing = Pairing::Showing(code);
+                    }
+                    Some(Err(error)) => tracing::warn!(%error, "cannot make a pairing code"),
+                    None => {}
+                }
+            }
+            Message::PairEnter(address) => {
+                self.pair_status.clear();
+                self.pairing = Pairing::Entering {
+                    address: TextEdit::new(address.as_str()),
+                    code: TextEdit::new(""),
+                };
+            }
+            Message::PairAddress(edit) => {
+                if let Pairing::Entering { address, .. } = &mut self.pairing
+                    && let Some(copied) = address.apply(&edit)
+                {
+                    set_clipboard(&copied);
+                }
+            }
+            Message::PairCode(edit) => {
+                if let Pairing::Entering { code, .. } = &mut self.pairing
+                    && let Some(copied) = code.apply(&edit)
+                {
+                    set_clipboard(&copied);
+                }
+            }
+            Message::PairSubmit => self.submit_pairing(),
+            Message::PairCancel => self.cancel_pairing(),
+            Message::Unpair(device_id) => {
+                if let Some(service) = self.link.service()
+                    && let Err(error) = service.unpair(&device_id)
+                {
+                    tracing::warn!(%error, "cannot unpair");
                 }
             }
             Message::Move(down) => self.move_selection(down),
@@ -502,6 +754,8 @@ impl App for ClipboardApp {
     fn set_waker(&mut self, waker: Waker) {
         let (sender, receiver) = mpsc::channel();
         self.signals = Some(receiver);
+        self.link.set_outbox(sender.clone(), waker.clone());
+        self.link.apply(&self.settings);
         if let Some(watch) = self.watch.take() {
             system::spawn_listener(watch, sender, waker);
         }

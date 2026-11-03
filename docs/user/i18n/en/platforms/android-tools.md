@@ -10,6 +10,7 @@ description: "Qingjian for Android: clipboard and saved phrases, quick translati
 - A clipboard entry can be added as a saved phrase, or you can use 拆词 (Split into words) to pick part of it word by word.
 - Saved phrases can be grouped and given an input code; type the code to get that phrase directly among the candidates.
 - 键盘设置 → 剪贴板 (Keyboard settings → Clipboard) lets you turn recording off or set the maximum number of entries kept.
+- 键盘设置 → 剪贴板 → 局域网同步 (Local network sync) shares copied text and images with a paired Windows PC on the same network, without any server.
 
 ## Setting up AI services
 

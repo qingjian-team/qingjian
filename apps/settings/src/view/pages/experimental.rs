@@ -115,6 +115,24 @@ fn clipboard(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderErr
         config.paused,
         !on,
     )?;
+    let sync = toggle_info(
+        ui,
+        page,
+        tr("experimental.clipboard_sync"),
+        Some(tr("experimental.clipboard_sync_info")),
+        ("clipboard", "sync_enabled"),
+        config.sync_enabled,
+        !on,
+    )?;
+    let neon = toggle_info(
+        ui,
+        page,
+        tr("experimental.clipboard_neon"),
+        Some(tr("experimental.clipboard_neon_info")),
+        ("clipboard", "sync_neon"),
+        config.sync_neon,
+        !on || !config.sync_enabled,
+    )?;
     let add = Button::new(tr("experimental.clipboard_add_app"))
         .disabled(!on)
         .build(ui, theme, "clipboard-add-app", Message::ExcludeClipboardApp)?;
@@ -124,6 +142,8 @@ fn clipboard(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderErr
         edge,
         limit,
         paused,
+        sync,
+        neon,
         SettingRow::new(tr("experimental.clipboard_excluded"))
             .info(tr("experimental.clipboard_excluded_info"))
             .control(add)

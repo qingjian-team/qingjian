@@ -6,4 +6,7 @@ mod entry;
 mod history;
 
 pub use entry::ClipboardEntry;
-pub use history::{CLIPBOARD_FILE, CLIPBOARD_IMAGE_DIR, ClipboardHistory, DEFAULT_CLIPBOARD_LIMIT};
+pub use history::{
+    CLIPBOARD_FILE, CLIPBOARD_IMAGE_DIR, ClipboardHistory, DEFAULT_CLIPBOARD_LIMIT,
+    MAX_CLIPBOARD_TEXT_CHARS,
+};

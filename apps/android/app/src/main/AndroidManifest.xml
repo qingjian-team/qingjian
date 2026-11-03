@@ -45,6 +45,7 @@
         <activity android:name=".settings.page.DictionariesActivity" android:exported="false" />
         <activity android:name=".settings.page.AdvancedActivity" android:exported="false" />
         <activity android:name=".settings.page.VoiceSettingsActivity" android:exported="false" />
+        <activity android:name=".settings.page.ClipboardSyncActivity" android:exported="false" />
 
         <!-- 系统文字选择菜单里的「青简翻译」，见 translate/ProcessTextActivity.kt -->
         <activity
@@ -71,7 +72,7 @@
         <!-- 剪贴板图片交给别的应用读（发图片、放回系统剪贴板），见 clipboard/ClipboardImageProvider.kt -->
         <provider
             android:name=".clipboard.ClipboardImageProvider"
-            android:authorities="app.qingjian.inputmethod.clipboard"
+            android:authorities="${applicationId}.clipboard"
             android:exported="false"
             android:grantUriPermissions="true" />
 

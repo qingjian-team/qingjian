@@ -43,7 +43,15 @@ android {
         }
     }
 
+    buildFeatures {
+        buildConfig = true
+    }
+
     buildTypes {
+        debug {
+            // 手机上装着发版签名的包时并排装调试版（-PsideBySide），不用卸载、不丢数据
+            if (project.hasProperty("sideBySide")) applicationIdSuffix = ".dev"
+        }
         release {
             isMinifyEnabled = false
             if (releaseKeystore != null) signingConfig = signingConfigs.getByName("release")

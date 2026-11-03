@@ -59,7 +59,7 @@ class ClipboardImageProvider : ContentProvider() {
     override fun delete(uri: Uri, selection: String?, selectionArgs: Array<out String>?) = 0
 
     companion object {
-        const val AUTHORITY = "app.qingjian.inputmethod.clipboard"
+        const val AUTHORITY = "${app.qingjian.inputmethod.BuildConfig.APPLICATION_ID}.clipboard"
 
         private val COLUMNS = arrayOf(OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE, "mime_type")
 

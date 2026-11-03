@@ -56,6 +56,8 @@ description: 青简的全部设置保存在一个文本配置文件里：位置�
 | `[clipboard] enabled`、`edge` | 实验功能 → 青简剪贴板 | `enabled` 缺省 `false`；`edge`：`top`、`bottom`（缺省）、`left`、`right` |
 | `[clipboard] history_limit` | 实验功能 → 最多保留 | 缺省 `1000`，超了删最旧的；改小会立刻删 |
 | `[clipboard] paused`、`excluded_apps` | 实验功能 → 暂停记录、不记录这些程序 | `paused` 缺省 `false`；`excluded_apps` 写程序名，不分大小写，缺省是常见的密码管理器 |
+| `[clipboard] sync_enabled`、`sync_neon` | 实验功能 → 局域网同步、同步时显示霓虹灯 | `sync_enabled` 缺省 `false`，`sync_neon` 缺省 `true` |
+| `[clipboard] device_name` | 剪贴板面板 → 设备 → 这台设备的名字 | 空串用随机的默认名 |
 | `[shortcut] clipboard` | 实验功能 → 呼出剪贴板 | 缺省 `"ctrl+alt+v"`；至少两个修饰键（Windows） |
 | `[shortcut] translate_selection` | 快捷键 → 翻译选中文字 | 如 `"alt+shift+t"` |
 | `[shortcut] predict` | 快捷键 → 按需 AI 联想 | 完整的组合键，设置界面只改修饰键 |

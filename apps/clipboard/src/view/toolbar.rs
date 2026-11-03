@@ -5,7 +5,7 @@ use std::sync::Arc;
 use bamboo_slip::taffy::{
     AlignItems, Dimension, FlexDirection, JustifyContent, NodeId, Size, Style,
 };
-use bamboo_slip::{BoxPaint, Easing, Fill, Interact, RenderError, SearchField, Ui, Visual};
+use bamboo_slip::{BoxPaint, Button, Easing, Fill, Interact, RenderError, SearchField, Ui, Visual};
 use qingjian_clipboard::ClipFilter;
 
 use super::icons::SearchGlyph;
@@ -133,6 +133,14 @@ pub(super) fn toolbar(ui: &mut Ui<Message>, context: &Context) -> Result<NodeId,
         &chips,
     )?;
     let mut children = vec![search_box, filters];
+    if context.app.link.service().is_some() {
+        children.push(Button::new(tr("devices.button")).build(
+            ui,
+            theme,
+            "open-devices",
+            Message::OpenDevices,
+        )?);
+    }
     if context.app.paused {
         children.push(text_node(
             ui,

@@ -2,17 +2,27 @@
 //! 不要句柄（不碰引擎），每次按数据目录打开文件——千条级几百 KB，读一遍是毫秒级。
 
 mod item;
+mod replica;
 mod request;
 
 pub use item::ClipboardItem;
+pub use replica::HistoryReplica;
 pub use request::ClipboardRequest;
 
 use std::path::Path;
+use std::sync::{Mutex, PoisonError};
 
 use qingjian_learning::ClipboardHistory;
 
+/// 面板、监听和同步都读改写同一个历史文件，一次一个，不然后写的盖掉先写的。
+pub(crate) static LOCK: Mutex<()> = Mutex::new(());
+
 /// 跑一个请求，返回操作之后的整份列表（新的在前）。`limit` 是设置里的最大条数，每次都按它裁。
 pub fn clipboard(user_dir: &Path, request: ClipboardRequest, limit: usize) -> Vec<ClipboardItem> {
+    let _guard = LOCK.lock().unwrap_or_else(PoisonError::into_inner);
+    if let ClipboardRequest::Remove { index } = request {
+        replica::mark_deleted(user_dir, index);
+    }
     let mut history = ClipboardHistory::open(user_dir);
     let result = history.set_limit(limit).and_then(|()| match request {
         ClipboardRequest::List => Ok(()),
@@ -33,6 +43,7 @@ pub fn clipboard_add_image(
     extension: &str,
     limit: usize,
 ) -> Vec<ClipboardItem> {
+    let _guard = LOCK.lock().unwrap_or_else(PoisonError::into_inner);
     let mut history = ClipboardHistory::open(user_dir);
     let result = history
         .set_limit(limit)

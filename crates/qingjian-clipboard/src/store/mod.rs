@@ -1,8 +1,11 @@
 //! [`ClipStore`]：剪贴板历史存在 SQLite 里。为多端同步留好全局 id、设备 id、修改时刻与删除标记；
 //! 删除只清空内容、留下标记，同步时别的设备才知道这条删了。
 
+mod sync;
 #[cfg(test)]
 mod tests;
+
+pub use sync::{ImageDecoder, StoreReplica};
 
 use std::collections::hash_map::RandomState;
 use std::hash::{BuildHasher, Hasher};
@@ -19,7 +22,7 @@ use crate::kind::{ClipFilter, ClipKind};
 const MAX_STORED_BYTES: i64 = 512 * 1024 * 1024;
 
 /// 表结构的版本。还没发布过，版本不对直接重建，不做迁移。
-const SCHEMA_VERSION: i64 = 2;
+const SCHEMA_VERSION: i64 = 3;
 
 const SCHEMA: &str = "
 DROP TABLE IF EXISTS items;
@@ -35,7 +38,9 @@ CREATE TABLE items (
     fingerprint TEXT NOT NULL,
     created_at INTEGER NOT NULL,
     updated_at INTEGER NOT NULL,
-    deleted INTEGER NOT NULL DEFAULT 0
+    deleted INTEGER NOT NULL DEFAULT 0,
+    forgotten INTEGER NOT NULL DEFAULT 0,
+    sync_id TEXT
 );
 CREATE TABLE formats (
     item_id TEXT NOT NULL,
@@ -45,6 +50,7 @@ CREATE TABLE formats (
 );
 CREATE INDEX items_recent ON items (deleted, updated_at DESC);
 CREATE INDEX items_fingerprint ON items (fingerprint);
+CREATE INDEX items_sync ON items (sync_id);
 ";
 
 const SELECT_ITEM: &str = "SELECT id, kind, text, source, updated_at FROM items";
@@ -84,7 +90,9 @@ impl ClipStore {
         // 删掉的内容要从文件里抹掉，不只是标记成可复用
         connection.execute_batch("PRAGMA secure_delete = ON")?;
         let version: i64 = connection.query_row("PRAGMA user_version", [], |row| row.get(0))?;
-        if version != SCHEMA_VERSION {
+        if version == 2 {
+            sync::migrate_from_v2(&connection)?;
+        } else if version != SCHEMA_VERSION {
             connection.execute_batch(SCHEMA)?;
             connection.execute_batch(&format!("PRAGMA user_version = {SCHEMA_VERSION}"))?;
         }
@@ -137,8 +145,8 @@ impl ClipStore {
             let id = format!("{}-{sequence:x}", self.device_id);
             transaction.execute(
                 "INSERT INTO items
-                 (id, device_id, kind, text, source, fingerprint, created_at, updated_at)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?7)",
+                 (id, device_id, kind, text, source, fingerprint, created_at, updated_at, sync_id)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?7, ?8)",
                 params![
                     id,
                     self.device_id,
@@ -146,7 +154,8 @@ impl ClipStore {
                     text,
                     capture.source,
                     fingerprint,
-                    now
+                    now,
+                    sync::capture_id(capture)
                 ],
             )?;
             for format in &capture.formats {
@@ -185,7 +194,7 @@ impl ClipStore {
         now: i64,
     ) -> Result<(), ClipboardError> {
         connection.execute(
-            "UPDATE items SET text = '', source = '', fingerprint = '', deleted = 1, updated_at = ?1
+            "UPDATE items SET text = '', source = '', fingerprint = '', deleted = 1, forgotten = 1, updated_at = ?1
              WHERE deleted = 0 AND id NOT IN (
                  SELECT id FROM items WHERE deleted = 0
                  ORDER BY updated_at DESC, rowid DESC LIMIT ?2
@@ -216,7 +225,7 @@ impl ClipStore {
                 break;
             }
             connection.execute(
-                "UPDATE items SET text = '', source = '', fingerprint = '', deleted = 1, updated_at = ?1
+                "UPDATE items SET text = '', source = '', fingerprint = '', deleted = 1, forgotten = 1, updated_at = ?1
                  WHERE id = ?2",
                 params![now, id],
             )?;
@@ -303,14 +312,16 @@ impl ClipStore {
         let text: String = text.chars().take(MAX_TEXT_CHARS).collect();
         let capture = Capture::text(text.clone(), String::new(), Vec::new());
         let transaction = self.connection.transaction()?;
+        sync::leave_tombstone(&transaction, id, now)?;
         transaction.execute(
-            "UPDATE items SET text = ?1, kind = ?2, fingerprint = ?3, updated_at = ?4
-             WHERE id = ?5 AND deleted = 0",
+            "UPDATE items SET text = ?1, kind = ?2, fingerprint = ?3, updated_at = ?4, sync_id = ?5
+             WHERE id = ?6 AND deleted = 0",
             params![
                 text,
                 text_kind(&text, false).key(),
                 capture.fingerprint(),
                 now,
+                sync::capture_id(&capture),
                 id
             ],
         )?;
@@ -323,7 +334,7 @@ impl ClipStore {
     pub fn clear(&mut self, now: i64) -> Result<(), ClipboardError> {
         let transaction = self.connection.transaction()?;
         transaction.execute(
-            "UPDATE items SET text = '', source = '', fingerprint = '', deleted = 1, updated_at = ?1
+            "UPDATE items SET text = '', source = '', fingerprint = '', deleted = 1, forgotten = 1, updated_at = ?1
              WHERE deleted = 0",
             [now],
         )?;

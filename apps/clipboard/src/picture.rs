@@ -51,6 +51,15 @@ fn thumbnail(source: &Pixmap) -> Option<Pixmap> {
     Some(out)
 }
 
+/// 别的设备发来的图片文件转成 PNG 与缩略图。本来就是 PNG 的不重新编码：字节变了同步 id 就对不上了。
+pub fn from_file(bytes: &[u8]) -> Option<(Vec<u8>, Vec<u8>)> {
+    let decoded = image::load_from_memory(bytes).ok()?.into_rgba8();
+    let (width, height) = decoded.dimensions();
+    let (png, thumbnail) = encode(width, height, decoded.as_raw())?;
+    let is_png = image::guess_format(bytes).ok() == Some(image::ImageFormat::Png);
+    Some((if is_png { bytes.to_vec() } else { png }, thumbnail))
+}
+
 /// PNG 解回 `(宽, 高, RGBA)`，写回系统剪贴板用。
 pub fn decode(png: &[u8]) -> Option<(u32, u32, Vec<u8>)> {
     let pixmap = Pixmap::decode_png(png).ok()?;

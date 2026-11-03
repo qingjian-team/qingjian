@@ -16,6 +16,7 @@ members = [
     "crates/bamboo-slip-i18n",
     "crates/qingjian-update",
     "crates/qingjian-clipboard",
+    "crates/qingjian-clipboard-sync",
     "crates/qingjian-code",
     "apps/linux/server", "apps/linux/ibus", "apps/android/core", "apps/cli", "apps/settings", "apps/clipboard", "apps/macos", "apps/windows/server", "apps/windows/tsf", "apps/windows/settings", "tools/dict-convert", "tools/gloss-gen", "tools/release-sign",
 ]
@@ -46,6 +47,7 @@ qingjian-update = { path = "crates/qingjian-update" }
 # 自绘 UI 引擎：候选窗、状态条、设置程序都画在它上面
 bamboo-slip = { path = "crates/bamboo-slip" }
 qingjian-clipboard = { path = "crates/qingjian-clipboard" }
+qingjian-clipboard-sync = { path = "crates/qingjian-clipboard-sync" }
 qingjian-code = { path = "crates/qingjian-code" }
 bamboo-slip-i18n = { path = "crates/bamboo-slip-i18n" }
 

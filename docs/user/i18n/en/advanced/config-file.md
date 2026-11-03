@@ -55,6 +55,8 @@ All settings are kept in one TOML text file, `config.toml`, with a note for ever
 | `[clipboard] enabled`, `edge` | 实验功能 (Experimental features) → Qingjian Clipboard | `enabled` defaults to `false`. `edge`: `top`, `bottom` (default), `left`, `right` |
 | `[clipboard] history_limit` | 实验功能 (Experimental features) → Keep up to | Default `1000`; the oldest items go first. Lowering it deletes them right away |
 | `[clipboard] paused`, `excluded_apps` | 实验功能 (Experimental features) → Pause recording, Don't record these apps | `paused` defaults to `false`. `excluded_apps` lists app names, case-insensitive; the default is common password managers |
+| `[clipboard] sync_enabled`, `sync_neon` | 实验功能 (Experimental features) → Local network sync, Neon glow while syncing | `sync_enabled` defaults to `false`, `sync_neon` to `true` |
+| `[clipboard] device_name` | Clipboard panel → Devices → Name of this device | An empty string uses the random default name |
 | `[shortcut] clipboard` | 实验功能 (Experimental features) → Open clipboard | Default `"ctrl+alt+v"`; at least two modifier keys (Windows) |
 | `[shortcut] translate_selection` | 快捷键 → 翻译选中文字 (Shortcuts → Translate selected text) | Such as `"alt+shift+t"` |
 | `[shortcut] predict` | 快捷键 → 按需 AI 联想 (Shortcuts → On-demand AI suggestions) | The full key combination; the settings window only changes the modifiers |

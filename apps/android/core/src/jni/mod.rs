@@ -5,6 +5,7 @@
 
 mod catalog;
 mod clipboard;
+mod clipboard_sync;
 mod cloud;
 mod expression;
 mod logging;

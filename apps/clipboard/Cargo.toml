@@ -21,6 +21,8 @@ winresource = "0.1.31"
 bamboo-slip = { workspace = true, features = ["host"] }
 bamboo-slip-i18n.workspace = true
 qingjian-clipboard.workspace = true
+qingjian-clipboard-sync.workspace = true
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp", "gif", "bmp"] }
 arboard = { workspace = true, features = ["image-data"] }
 qingjian-code.workspace = true
 jiff.workspace = true

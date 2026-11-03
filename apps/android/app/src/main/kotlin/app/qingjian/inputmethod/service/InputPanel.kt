@@ -116,7 +116,16 @@ class InputPanel(
         main.visibility = View.INVISIBLE
         panelView = panel
         openPanel = kind
+        overlay?.bringToFront()
     }
+
+    /** 一直盖在最上面的一层（同步的边缘光）。放进 [stack] 而不是在外面再包一层：输入法的视图外面多包一层，键盘就贴到屏幕顶上去了。 */
+    fun addOverlay(view: View) {
+        overlay = view
+        stack.addView(view, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+    }
+
+    private var overlay: View? = null
 
     val view: View get() = root
 

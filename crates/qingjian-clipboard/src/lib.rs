@@ -18,4 +18,4 @@ pub use error::ClipboardError;
 pub use item::ClipItem;
 pub use kind::{ClipFilter, ClipKind};
 pub use settings::{ClipSettings, Hotkey};
-pub use store::ClipStore;
+pub use store::{ClipStore, ImageDecoder, StoreReplica};

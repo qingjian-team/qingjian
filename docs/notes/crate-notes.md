@@ -737,7 +737,7 @@ Windows Server 受控退出使用 ExitCode 返回以刷新既有 tracing 队列�
 ## 青简剪贴板（qingjian-clipboard、apps/clipboard）
 
 - 独立进程：输入法只有在输入框有焦点时才收得到按键，全局呼出做不到；功能关着时也不占输入法的内存。
-- `ClipStore`：SQLite（`rusqlite` bundled），缺省在 `%LOCALAPPDATA%\Qingjian\clipboard\history.db`，上限 1000 条，一条最多 10 万字符。id 是设备 id + 序号；删除清空内容与格式、留删除标记，给多端同步用。表结构版本不对直接重建（还没发布过，不做迁移）。
+- `ClipStore`：SQLite（`rusqlite` bundled），缺省在 `%LOCALAPPDATA%\Qingjian\clipboard\history.db`，上限 1000 条，一条最多 10 万字符。id 是设备 id + 序号；删除清空内容与格式、留删除标记，给多端同步用。版本 2 的库就地迁移（试用版的历史不丢），更旧的直接重建（没发布过）。
 - 内容分文本、富文本、代码、图片、文件。HTML、RTF、文件列表存系统剪贴板的原始字节，写回时一字不差；图片存 PNG 加长边 640 的缩略图。同时有文字和图片时按文字记。重复靠内容指纹（FNV-1a，不含缩略图）。
 - 自己写剪贴板时用 `SELF_WRITE` 挡掉随后的变化通知，只把那一条挪到最前，图片不会重新编码一遍。来源程序取剪贴板主人窗口的进程，没有主人时看前台窗口。
 - 代码识别与高亮在 `qingjian-code`（从 core 搬出，core 用 `pub use` 转出 `code`），这样剪贴板不用带上引擎。
@@ -753,3 +753,15 @@ Windows Server 受控退出使用 ExitCode 返回以刷新既有 tracing 队列�
 - 大小：文件与文件夹只记路径（`CF_HDROP`），不读内容；总大小复制时记一次（`FORMAT_FILE_SIZE`，只看本机磁盘上的文件，有文件夹或在网络盘上就不记，不参与去重）；文字超过 100 万字符、文件列表超 4 MB、图片编码后超 32 MB 的整条不记（截断了粘贴出来是残缺的，也不往下落到别的格式）；HTML、RTF 超 8 MB 只丢格式留文字。读之前先看大小。整个历史超 512 MB 从最旧的删起。
 - 隐私：暂停与黑名单在读剪贴板之前判断（`ClipSettings::records`），不记的内容不进内存。数据库开 `secure_delete`，删除连指纹一起清；设置程序的「清空」调同目录的 `qingjian-clipboard --clear`，清完 `VACUUM`。
 - Server 按 `enabled` 用 `--managed` 拉起进程，关掉时进程自己退出；直接运行（单独下载的版本）不看 `enabled`。命名互斥量保证只开一个。
+
+## 剪贴板同步（qingjian-clipboard-sync）
+
+- 通道只要一条字节流，局域网和以后的蓝牙共用配对、加密与合并。连接开头一个字节分流：同步、配对、询问（扫描用，不加密，只回 id、名字和型号）。
+- 配对用 SPAKE2 换出密钥作 Noise XXpsk3 的 PSK。不用「两边比对 6 位码」：中间人能穷举临时密钥凑出相同的码。PSK 在最后一条握手消息才生效，发起方写完就以为成功，所以要等对方回确认。配对时互报监听端口（`PairHello`）：连接来源是临时端口，连不回去。
+- 合并按内容算 id（`content_id`），比修改时刻（毫秒），同一时刻删除优先。`forgotten` 是本机裁掉或清空：不传给别的设备，本机也不再要回来。一轮一问一答，不保持长连接。
+- 回环靠两处：Windows 的 `SELF_WRITE`，Android 的 `ClipboardSync.lastReceived`。
+- 发现：桌面端 mdns-sd；Android 11 起应用读不到网卡状态标志，mdns-sd 会跳过所有网卡，所以走 `NsdDiscovery.kt`（服务类型与 TXT 键两边要一致）。有的路由器不转发组播和广播（2026-11 真机：只有单播能到），所以设备页开着时还逐个连同一 /24 的首选端口 53319（`service/scan.rs`），有设备连不上时也隔 5 分钟扫一次找新地址；端口被占用的设备扫不到，只能手填。
+- 连接状态只看实际连接结果（`Link`），不看 mDNS：组播被拦时同步照样通。后台 2 分钟对账一次，设备页开着 10 秒一次。
+- 存储：Windows 的 `StoreReplica` 和面板各开一个连接，收到非 PNG 图片要留原始字节（`sync_original`），转过的 PNG 算不回原 id。Android 的 `HistoryReplica` 把 id、毫秒和删除状态记在 `clipboard-sync-state.json`，历史文件只有秒；面板和监听直接改历史，所以每次对账。
+- 霓虹灯：Windows 是每台显示器四条贴边的分层窗口（`system/neon.rs`，`--neon ok|fail` 可单独看效果），Android 是键盘内的 `NeonEdgeView`，要加在 `InputPanel` 的布局里：在输入法视图外再包一层，键盘会贴到屏幕顶上。节奏和颜色两边要一起改。
+- 真机对测用 `cargo run -p qingjian-clipboard-sync --example peer`，内容只在内存，不碰系统剪贴板。

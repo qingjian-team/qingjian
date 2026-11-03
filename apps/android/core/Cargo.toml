@@ -13,6 +13,7 @@ crate-type = ["cdylib", "lib"]
 [dependencies]
 jiff.workspace = true
 jni = "0.21"
+qingjian-clipboard-sync.workspace = true
 qingjian-core.workspace = true
 qingjian-dictionary.workspace = true
 qingjian-learning.workspace = true

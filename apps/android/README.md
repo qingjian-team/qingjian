@@ -44,6 +44,7 @@ echo "sdk.dir=$HOME/Library/Android/sdk" > apps/android/local.properties
 
 cd apps/android
 ./gradlew installDebug        # 编 .so、放随包数据、打包、装到连着的设备
+./gradlew installDebug -PsideBySide  # 手机上装着发版签名的包时并排装（包名多 .dev），不用卸载、不丢数据
 adb logcat -s qingjian        # Rust 侧日志
 ```
 

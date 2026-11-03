@@ -23,12 +23,12 @@ pub use options::InputOptions;
 pub use session::Session;
 pub use store::{
     CatalogSection, Choice, ClipboardItem, ClipboardRequest, CodeView, DictionaryEntry,
-    DictionaryPage, DictionaryRequest, PhrasePage, PhraseRequest, PhraseRules, SettingChoices,
-    ShuangpinChoice, ShuangpinKeycap, StatsCount, StatsDay, StatsDetail, StatsLevel, StatsSummary,
-    StatsVocabulary, VocabularyChange, VocabularyFilter, VocabularyPage, VocabularyRequest,
-    VocabularyWord, catalog, clear_learning, clipboard, clipboard_add_image, code_view,
-    dictionaries, export_files, phrase_rules, phrases, setting_choices, shuangpin_choices,
-    shuangpin_keycaps, stats, stats_detail, vocabulary,
+    DictionaryPage, DictionaryRequest, HistoryReplica, PhrasePage, PhraseRequest, PhraseRules,
+    SettingChoices, ShuangpinChoice, ShuangpinKeycap, StatsCount, StatsDay, StatsDetail,
+    StatsLevel, StatsSummary, StatsVocabulary, VocabularyChange, VocabularyFilter, VocabularyPage,
+    VocabularyRequest, VocabularyWord, catalog, clear_learning, clipboard, clipboard_add_image,
+    code_view, dictionaries, export_files, phrase_rules, phrases, setting_choices,
+    shuangpin_choices, shuangpin_keycaps, stats, stats_detail, vocabulary,
 };
 pub use strip::{StripHit, StripMeta, StripPainter};
 pub use voice::{VoiceSettings, test_voice};

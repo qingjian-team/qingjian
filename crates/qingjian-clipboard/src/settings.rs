@@ -91,6 +91,15 @@ pub struct ClipSettings {
     /// 不记录的程序名。
     pub excluded_apps: Vec<String>,
 
+    /// 同步到局域网里配对的设备。缺省关，关着时不监听端口、不公布自己。
+    pub sync_enabled: bool,
+
+    /// 同步时屏幕边缘亮霓虹灯。
+    pub sync_neon: bool,
+
+    /// 给别的设备看的名字；空着用默认名。
+    pub device_name: String,
+
     /// 配置里写的界面语言（`[general] ui_language`），见 [`Self::locale`]。
     pub language: String,
 }
@@ -117,6 +126,9 @@ impl Default for ClipSettings {
             language: String::new(),
             history_limit: DEFAULT_HISTORY_LIMIT,
             paused: false,
+            sync_enabled: false,
+            sync_neon: true,
+            device_name: String::new(),
             excluded_apps: DEFAULT_EXCLUDED
                 .iter()
                 .map(|app| (*app).to_owned())
@@ -153,6 +165,12 @@ struct ClipboardSection {
     paused: Option<toml::Value>,
 
     excluded_apps: Option<toml::Value>,
+
+    sync_enabled: Option<toml::Value>,
+
+    sync_neon: Option<toml::Value>,
+
+    device_name: Option<toml::Value>,
 }
 
 #[derive(Default, Deserialize)]
@@ -173,6 +191,15 @@ impl ClipSettings {
 
     /// 改配置文件里的一个 `[clipboard]` 开关（托盘菜单用），别的内容与注释原样留着。
     pub fn write_flag(path: &Path, key: &str, value: bool) -> Result<(), ClipboardError> {
+        Self::write_value(path, key, toml_edit::value(value))
+    }
+
+    /// 改设备名，写法同 [`Self::write_flag`]。
+    pub fn write_device_name(path: &Path, name: &str) -> Result<(), ClipboardError> {
+        Self::write_value(path, "device_name", toml_edit::value(name))
+    }
+
+    fn write_value(path: &Path, key: &str, value: toml_edit::Item) -> Result<(), ClipboardError> {
         let text = match std::fs::read_to_string(path) {
             Ok(text) => text,
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => String::new(),
@@ -181,7 +208,7 @@ impl ClipSettings {
         let mut document: toml_edit::DocumentMut = text
             .parse()
             .map_err(|_| ClipboardError::BadConfig(path.display().to_string()))?;
-        document["clipboard"].or_insert(toml_edit::table())[key] = toml_edit::value(value);
+        document["clipboard"].or_insert(toml_edit::table())[key] = value;
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent)?;
         }
@@ -235,6 +262,19 @@ impl ClipSettings {
                 .as_ref()
                 .and_then(toml::Value::as_bool)
                 .unwrap_or(defaults.paused),
+            sync_enabled: file
+                .clipboard
+                .sync_enabled
+                .as_ref()
+                .and_then(toml::Value::as_bool)
+                .unwrap_or(defaults.sync_enabled),
+            sync_neon: file
+                .clipboard
+                .sync_neon
+                .as_ref()
+                .and_then(toml::Value::as_bool)
+                .unwrap_or(defaults.sync_neon),
+            device_name: text_of(&file.clipboard.device_name).unwrap_or(defaults.device_name),
             excluded_apps: file
                 .clipboard
                 .excluded_apps

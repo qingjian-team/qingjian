@@ -11,8 +11,10 @@ workspace = true
 
 [dependencies]
 rusqlite = { version = "0.41.1", features = ["bundled"] }
+qingjian-clipboard-sync.workspace = true
 qingjian-code.workspace = true
 serde.workspace = true
 thiserror.workspace = true
 toml.workspace = true
 toml_edit.workspace = true
+tracing.workspace = true

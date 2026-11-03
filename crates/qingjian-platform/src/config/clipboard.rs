@@ -52,6 +52,15 @@ pub struct ClipboardConfig {
 
     /// 从这些程序复制的内容不记录，写程序名，不分大小写，带不带 `.exe` 都行。
     pub excluded_apps: Vec<String>,
+
+    /// 同步到局域网里配对的设备。缺省关，关着时不监听端口、不公布自己。
+    pub sync_enabled: bool,
+
+    /// 同步时屏幕边缘亮霓虹灯。
+    pub sync_neon: bool,
+
+    /// 给别的设备看的名字；空着用默认名。
+    pub device_name: String,
 }
 
 impl Default for ClipboardConfig {
@@ -61,6 +70,9 @@ impl Default for ClipboardConfig {
             edge: ClipboardEdge::default(),
             history_limit: CLIPBOARD_HISTORY_LIMITS[2],
             paused: false,
+            sync_enabled: false,
+            sync_neon: true,
+            device_name: String::new(),
             excluded_apps: DEFAULT_CLIPBOARD_EXCLUDED_APPS
                 .iter()
                 .map(|app| (*app).to_owned())

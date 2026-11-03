@@ -20,6 +20,7 @@ mod vocabulary_book;
 
 pub use clipboard::{
     CLIPBOARD_FILE, CLIPBOARD_IMAGE_DIR, ClipboardEntry, ClipboardHistory, DEFAULT_CLIPBOARD_LIMIT,
+    MAX_CLIPBOARD_TEXT_CHARS,
 };
 pub use encounter_log::{ENCOUNTER_LOG_FILE, LoggedEncounter};
 pub use error::LearningError;

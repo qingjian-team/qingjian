@@ -139,6 +139,10 @@ transfer_info = "Saves the settings to a file for a new computer or a backup; cu
 [experimental]
 clipboard_limit = "Keep up to"
 clipboard_limit_info = "The oldest items go when history passes this many. Lowering it deletes them right away. History never takes more than 512 MB, whatever you pick."
+clipboard_sync = "Local network sync"
+clipboard_sync_info = "Share copied text and images with paired devices on the same network, without any server. Other devices can only find this one while it is on. Pair and rename under Devices in the clipboard panel."
+clipboard_neon = "Neon glow while syncing"
+clipboard_neon_info = "The screen edge glows while content arrives, then turns green or red and fades. Hidden during full-screen games."
 clipboard_paused = "Pause recording"
 clipboard_paused_info = "While paused, new copies are not recorded. Your existing history still works."
 clipboard_excluded = "Don't record these apps"

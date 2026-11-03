@@ -257,6 +257,9 @@ fn clipboard_process_reads_the_same_keys() {
     assert_eq!(ClipSettings::parse(&text), Some(ClipSettings::default()));
     config.clipboard.enabled = true;
     config.clipboard.paused = true;
+    config.clipboard.sync_enabled = true;
+    config.clipboard.sync_neon = false;
+    config.clipboard.device_name = "坚强的高松灯".to_owned();
     config.clipboard.history_limit = 500;
     config.clipboard.edge = qingjian_platform::ClipboardEdge::Right;
     config.clipboard.excluded_apps = vec!["Secret".to_owned()];
@@ -276,6 +279,9 @@ fn clipboard_process_reads_the_same_keys() {
             },
             history_limit: 500,
             paused: true,
+            sync_enabled: true,
+            sync_neon: false,
+            device_name: "坚强的高松灯".to_owned(),
             excluded_apps: vec!["Secret".to_owned()],
             language: config.general.ui_language.clone(),
         }

@@ -127,6 +127,10 @@ class KeyboardSettingsActivity : PageActivity() {
                 ui.toggle(R.string.code_highlight_title, R.string.code_highlight_note, settings.codeHighlight) {
                     prefs.edit().putBoolean(Settings.KEY_CODE_HIGHLIGHT, it).apply()
                 },
+                ui.divider(),
+                ui.action(R.string.page_clipboard_sync, null) {
+                    startActivity(Intent(this, ClipboardSyncActivity::class.java))
+                },
             ),
             ui.sectionTitle(R.string.section_cloud),
             cloudCard(),

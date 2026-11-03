@@ -16,7 +16,7 @@ pub const CLIPBOARD_IMAGE_DIR: &str = "clipboard-images";
 pub const DEFAULT_CLIPBOARD_LIMIT: usize = 1000;
 
 /// 一条文字最多存多少字符；再长的截断（整篇文章复制进来不该撑大文件）。
-const MAX_TEXT_CHARS: usize = 20_000;
+pub const MAX_CLIPBOARD_TEXT_CHARS: usize = 20_000;
 
 #[derive(Debug)]
 pub struct ClipboardHistory {
@@ -90,7 +90,7 @@ impl ClipboardHistory {
         if text.trim().is_empty() {
             return Ok(false);
         }
-        let text: String = text.chars().take(MAX_TEXT_CHARS).collect();
+        let text: String = text.chars().take(MAX_CLIPBOARD_TEXT_CHARS).collect();
         self.push(ClipboardEntry {
             text,
             image: None,
@@ -111,11 +111,54 @@ impl ClipboardHistory {
         extension: &str,
         at: i64,
     ) -> Result<bool, LearningError> {
-        let Some(dir) = &self.dir else {
+        let Some(name) = self.store_image(bytes, extension)? else {
             return Ok(false);
         };
-        if bytes.is_empty() {
+        self.push(ClipboardEntry {
+            text: String::new(),
+            image: Some(name),
+            at,
+        })
+    }
+
+    /// 别的设备同步来的文字：按它的时刻排进去，不抢最前。存下了回真（空白的不存）。
+    pub fn merge_text_at(&mut self, text: &str, at: i64) -> Result<bool, LearningError> {
+        if text.trim().is_empty() {
             return Ok(false);
+        }
+        self.place(ClipboardEntry {
+            text: text.to_owned(),
+            image: None,
+            at,
+        })?;
+        Ok(true)
+    }
+
+    /// 别的设备同步来的图片，同 [`Self::merge_text_at`]。
+    pub fn merge_image_at(
+        &mut self,
+        bytes: &[u8],
+        extension: &str,
+        at: i64,
+    ) -> Result<bool, LearningError> {
+        let Some(name) = self.store_image(bytes, extension)? else {
+            return Ok(false);
+        };
+        self.place(ClipboardEntry {
+            text: String::new(),
+            image: Some(name),
+            at,
+        })?;
+        Ok(true)
+    }
+
+    /// 图片存成文件，回文件名；只在内存里记或内容为空时为 `None`。
+    fn store_image(&self, bytes: &[u8], extension: &str) -> Result<Option<String>, LearningError> {
+        let Some(dir) = &self.dir else {
+            return Ok(None);
+        };
+        if bytes.is_empty() {
+            return Ok(None);
         }
         let extension: String = extension
             .chars()
@@ -137,11 +180,7 @@ impl ClipboardHistory {
         if !path.is_file() {
             std::fs::write(&path, bytes)?;
         }
-        self.push(ClipboardEntry {
-            text: String::new(),
-            image: Some(name),
-            at,
-        })
+        Ok(Some(name))
     }
 
     pub fn add_image(&mut self, bytes: &[u8], extension: &str) -> Result<bool, LearningError> {
@@ -176,6 +215,20 @@ impl ClipboardHistory {
         self.trim();
         self.save()?;
         Ok(true)
+    }
+
+    /// 按时刻插进去：新的在前；同一条先拿掉。
+    fn place(&mut self, entry: ClipboardEntry) -> Result<(), LearningError> {
+        self.entries
+            .retain(|other| other.text != entry.text || other.image != entry.image);
+        let position = self
+            .entries
+            .iter()
+            .position(|other| other.at <= entry.at)
+            .unwrap_or(self.entries.len());
+        self.entries.insert(position, entry);
+        self.trim();
+        self.save()
     }
 
     fn trim(&mut self) {
