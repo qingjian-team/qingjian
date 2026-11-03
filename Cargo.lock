@@ -3757,6 +3757,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "qingjian-code"
+version = "0.1.1"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "qingjian-core"
 version = "0.1.1"
 dependencies = [
@@ -3764,6 +3771,7 @@ dependencies = [
  "ferrous-opencc",
  "foldhash 0.2.0",
  "jiff",
+ "qingjian-code",
  "qingjian-dictionary",
  "serde",
  "thiserror 2.0.21",

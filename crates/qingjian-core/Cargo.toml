@@ -14,6 +14,7 @@ bamboo-slip-i18n.workspace = true
 ferrous-opencc.workspace = true
 foldhash.workspace = true
 jiff.workspace = true
+qingjian-code.workspace = true
 qingjian-dictionary.workspace = true
 serde.workspace = true
 thiserror.workspace = true

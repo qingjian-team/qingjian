@@ -4,10 +4,11 @@
 //! 平台层（IMK / TSF / IBus-Fcitx）只负责把按键喂给 [`Engine`]、把候选画出来。
 //! 判断标准：换掉 IMK 换成 TSF，不应该需要改这里的任何一行。
 
+pub use qingjian_code as code;
+
 pub mod calculation;
 pub mod candidate;
 pub mod chaizi;
-pub mod code;
 pub mod code_scheme;
 pub mod composition;
 pub mod correction;
