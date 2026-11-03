@@ -14,6 +14,10 @@ pub enum SyncError {
     #[error("peer is not paired")]
     UnknownPeer,
 
+    /// 对方已经取消了和这台的配对。
+    #[error("peer has unpaired this device")]
+    NotPaired,
+
     #[error("protocol violation: {0}")]
     Protocol(String),
 

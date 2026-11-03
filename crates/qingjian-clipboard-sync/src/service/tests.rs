@@ -150,10 +150,25 @@ fn pair_push_and_refuse_after_unpair() {
     // 先等排队的那几轮跑完：已经握完手的一轮不会被解除配对打断
     std::thread::sleep(Duration::from_millis(800));
     let phone_id = phone.service.device_id();
+    // 只看解除之后的事件：前面几轮在机器忙时也可能有一次发送失败，与解除配对无关
+    while phone.events.try_recv().is_ok() {}
     host.service.unpair(&phone_id).unwrap();
     add(&phone, Record::text("after unpair".to_owned(), 200));
     std::thread::sleep(Duration::from_secs(2));
     assert_eq!(host.items.lock().unwrap().len(), 1);
+
+    // 手机被拒时知道是对方取消了配对：自己也删掉电脑，不当成发送失败亮红灯
+    let deadline = std::time::Instant::now() + Duration::from_secs(15);
+    while !phone.service.peers().is_empty() && std::time::Instant::now() < deadline {
+        std::thread::sleep(Duration::from_millis(100));
+    }
+    assert!(phone.service.peers().is_empty());
+    assert!(
+        phone
+            .events
+            .try_iter()
+            .all(|event| !matches!(event, SyncEvent::SendFailed { .. }))
+    );
 
     let directories = [host.directory.clone(), phone.directory.clone()];
     drop((host, phone));

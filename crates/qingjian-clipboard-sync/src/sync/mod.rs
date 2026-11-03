@@ -14,7 +14,7 @@ pub use replica::Replica;
 use std::collections::HashMap;
 use std::io::{Read, Write};
 
-use crate::channel::SecureChannel;
+use crate::channel::{NOT_PAIRED, SecureChannel};
 use crate::error::SyncError;
 use crate::record::Stamp;
 use wire::{decode_record, encode_record};
@@ -27,7 +27,11 @@ pub fn run_initiator<S: Read + Write>(
 ) -> Result<usize, SyncError> {
     let local = replica.stamps()?;
     channel.send(&serde_json::to_vec(&local)?)?;
-    let remote: Vec<Stamp> = serde_json::from_slice(&channel.receive()?)?;
+    let first = channel.receive()?;
+    if first == NOT_PAIRED {
+        return Err(SyncError::NotPaired);
+    }
+    let remote: Vec<Stamp> = serde_json::from_slice(&first)?;
     let they_want: Vec<String> = serde_json::from_slice(&channel.receive()?)?;
 
     send_records(channel, replica, &they_want)?;

@@ -121,6 +121,15 @@ pub(super) fn sync_peer(shared: &Shared, peer: &Peer) {
         watcher.finish(&result, &replica, before);
         result
     })();
+    if matches!(result, Err(SyncError::NotPaired)) {
+        // 对方取消了配对：这边也删掉，不再连、不亮红灯
+        tracing::info!(peer = %peer.name, "peer unpaired this device, forgetting it");
+        if let Err(error) = lock(&shared.book).remove(&peer.device_id) {
+            tracing::warn!(%error, "cannot forget peer");
+        }
+        shared.emit(SyncEvent::NearbyChanged);
+        return;
+    }
     shared.record_link(&peer.device_id, result.is_ok());
     if let Err(error) = result {
         tracing::info!(%error, peer = %peer.name, "sync failed");

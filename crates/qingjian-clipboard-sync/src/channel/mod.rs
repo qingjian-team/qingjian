@@ -26,6 +26,10 @@ const SPAKE_CONTEXT: &[u8] = b"qingjian-clipboard-pair-v1";
 
 const PAIR_CONFIRM: &[u8] = b"paired";
 
+/// 接受方已经不认这台设备时回的一句，发起方据此也把对方删掉。走的是认证过的通道，别人冒充不了；
+/// 同步的消息都是 JSON 或以记录头开头，不会是这几个字节。
+pub(crate) const NOT_PAIRED: &[u8] = b"\0not-paired";
+
 /// SPAKE2 消息的长度上限，正常是 33 字节。
 const MAX_SPAKE_MESSAGE: usize = 256;
 
@@ -90,12 +94,16 @@ pub fn accept<S: Read + Write>(
     identity: &Identity,
     known: impl Fn(&[u8; 32]) -> bool,
 ) -> Result<SecureChannel<S>, SyncError> {
-    let channel = SecureChannel::handshake(stream, identity, None, false)?;
+    let mut channel = SecureChannel::handshake(stream, identity, None, false)?;
     if known(channel.remote()) {
-        Ok(channel)
-    } else {
-        Err(SyncError::UnknownPeer)
+        return Ok(channel);
     }
+    // 告诉对方这边已经取消配对（取消时它可能不在线）。再读它的第一条才断：
+    // 直接断开时对方的数据还在路上，系统会重置连接，对方可能读不到这句
+    if channel.send(NOT_PAIRED).is_ok() {
+        let _ = channel.receive();
+    }
+    Err(SyncError::UnknownPeer)
 }
 
 /// 显示配对码的一方（[`read_opening`] 之后）。无论成败这个码都要作废。

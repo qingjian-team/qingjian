@@ -1,7 +1,9 @@
 use std::net::{TcpListener, TcpStream};
 use std::thread;
 
-use super::{Opening, accept, connect, generate_pair_code, pair_host, pair_join, read_opening};
+use super::{
+    NOT_PAIRED, Opening, accept, connect, generate_pair_code, pair_host, pair_join, read_opening,
+};
 use crate::error::SyncError;
 use crate::identity::Identity;
 
@@ -50,6 +52,24 @@ fn unpaired_device_is_refused() {
         accept(server, &host, |_| false).err()
     });
     let _ = connect(client, &stranger, |key| key == &host_public);
+    assert!(matches!(
+        hosting.join().unwrap(),
+        Some(SyncError::UnknownPeer)
+    ));
+}
+
+#[test]
+fn a_forgotten_peer_is_told_it_is_no_longer_paired() {
+    let (host, phone) = (Identity::generate().unwrap(), Identity::generate().unwrap());
+    let host_public = host.public;
+    let (client, mut server) = tcp_pair();
+    let hosting = thread::spawn(move || {
+        read_opening(&mut server).unwrap();
+        accept(server, &host, |_| false).err()
+    });
+    let mut channel = connect(client, &phone, |key| key == &host_public).unwrap();
+    channel.send(b"[]").unwrap();
+    assert_eq!(channel.receive().unwrap(), NOT_PAIRED);
     assert!(matches!(
         hosting.join().unwrap(),
         Some(SyncError::UnknownPeer)
