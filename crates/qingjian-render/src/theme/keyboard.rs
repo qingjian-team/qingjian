@@ -1,5 +1,6 @@
 //! 手机键盘的配色：从主题的颜色变量推出来，主题文件里不用另写，新加的主题手机上自动有一套。
 //! 键面取 `surface`，按下取 `accent`，文字取 `text` / `gloss` / `faint` / `fresh` / `cloud`；底板、功能键、回车键按下面的规则从它们推。
+//! 主题想要别的样子（比如不带色相的灰底板）可以写 `kb_board` / `kb_function` / `kb_brand` 直接给底板、功能键、回车键的颜色。
 //! 推导规则见 `docs/design/theme.md`「手机键盘」。
 
 use bamboo_slip::Color;
@@ -95,13 +96,15 @@ impl KeyboardColors {
                 Color::rgba(0, 0, 0, 0x2e),
             )
         };
+        // 主题直接给的颜色优先；叠在键面上成不透明，回车键照样保证白字看得清
+        let given = |name: &str| theme.variable(name).map(|color| over(color, key));
         Self {
             dark,
-            board,
+            board: given("kb_board").unwrap_or(board),
             key,
-            function_key,
+            function_key: given("kb_function").unwrap_or(function_key),
             pressed: over(accent, key),
-            brand: readable_on_white(tint),
+            brand: readable_on_white(given("kb_brand").unwrap_or(tint)),
             on_brand: white,
             shadow,
             text: get(
@@ -257,6 +260,18 @@ mod tests {
         let dark = KeyboardColors::of(&Theme::dark());
         assert!(dark.dark);
         assert!(luminance(dark.board) < luminance(dark.key));
+    }
+
+    #[test]
+    fn sujian_uses_its_own_board_and_function_keys() {
+        let theme = Theme::builtin("sujian", false).unwrap();
+        let light = KeyboardColors::of(&theme);
+        assert_eq!(light.board, Color::rgb(0xd3, 0xd6, 0xdc));
+        assert_eq!(light.function_key, Color::rgb(0xad, 0xb2, 0xbc));
+        assert_eq!(light.brand, Color::rgb(0x1f, 0x7a, 0x4a));
+        let dark = KeyboardColors::of(&theme.with_dark(true));
+        assert!(dark.dark);
+        assert_eq!(dark.board, Color::rgb(0x1c, 0x1c, 0x1e));
     }
 
     #[test]

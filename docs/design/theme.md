@@ -6,7 +6,7 @@
 ## 主题文件
 
 - 一个主题一个目录：`theme.json`，加上它引用的 `images/…`（PNG、SVG）与 `fonts/…`（TTF / OTF / TTC）。包内路径一律相对 `theme.json`，拒绝 `..` 与绝对路径。
-- 内置主题八个，随 crate 编进来（`crates/qingjian-render/themes/<id>/theme.json`）：`qingjian` 青简绿（缺省）、`system-blue` 系统蓝、`wechat` 微信绿、`glass` 玻璃、`sakura` 樱花、`dafeiyu` 大肥鱼、`miku` 初音未来、`bocchi` 波奇酱；系统蓝、微信绿 `extends` 青简绿、只改颜色变量，玻璃 `extends` 青简绿、改了窗口与高亮组件并写了 `material`（照 macOS 26 自带简体拼音的胶囊条），后四个整套重写了窗口、组件与状态条（只有浅色）。
+- 内置主题九个，随 crate 编进来（`crates/qingjian-render/themes/<id>/theme.json`）：`qingjian` 青简绿（缺省）、`system-blue` 系统蓝、`wechat` 微信绿、`sujian` 素笺、`glass` 玻璃、`sakura` 樱花、`dafeiyu` 大肥鱼、`miku` 初音未来、`bocchi` 波奇酱；系统蓝、微信绿、素笺 `extends` 青简绿、只改颜色变量，玻璃 `extends` 青简绿、改了窗口与高亮组件并写了 `material`（照 macOS 26 自带简体拼音的胶囊条），后四个整套重写了窗口、组件与状态条（只有浅色）。
   内置主题的图片用 `include_bytes!` 编进程序（`theme/mod.rs` 的 `BUILTINS` 里每个主题一张「路径 → 内容」表，与用户主题走同一套解码），不带字体文件、只用系统字体；测试检查内置主题用到的图片都编进去了。用户主题 `extends` 内置主题时，主题目录里没有的图片到那个内置主题编进程序的文件里找（只看顶层 `extends` 那一层）。
 - 用户主题放在 `<用户数据目录>/themes/<id>/`，由 `ThemeLibrary` 与内置主题合成一个列表（内置在前、用户按 id 排）。目录名必须等于 `meta.id`，不能与内置主题重名，
   不能是 `system` / `light` / `dark`；读不进来的跳过并记警告。设置界面（mac 偏好设置、Windows 设置程序「候选窗口」页）按显示名列出，写回 `[general] theme` 的 id。
@@ -144,6 +144,7 @@
 - 深浅按键面亮度判断（不看外观设置），锁定浅色的主题在深色模式下仍是浅色键盘。
 - 底板与功能键：浅色是键面掺一点 `accent` 的色相再压暗（底板 8% 色相、6% 黑，功能键 12%、13%）；深色是键面提亮 8% 当键面，底板压暗 35%，功能键只掺色相。
 - 回车键（品牌色）：`accent` 去掉不透明度后保持色相与饱和度，按 HSL 亮度调暗到白字对比度 ≥ 3.5。
+- 主题可以写 `kb_board` / `kb_function` / `kb_brand` 直接给底板、功能键、回车键的颜色（叠在键面上成不透明，回车键照样按白字对比度调暗），不写就按上面推。素笺用它们做成 iOS 那样不带色相的灰底板、灰功能键。
 - 只换整体样子的角色主题（樱花、大肥鱼、初音未来、波奇酱）高亮写死在组件里，为了候选条与键盘也是这个主题的颜色，各自补了 `surface` 与 `accent` 变量（桌面窗口不用这两个变量，画法不变）。
 
 ## 实现
