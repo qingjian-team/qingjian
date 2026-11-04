@@ -309,6 +309,23 @@
     <string name="section_mixed">中英混打</string>
     <string name="section_punctuation">标点与字形</string>
     <string name="section_gestures">手势</string>
+
+    <string name="page_game_keyboard">游戏键盘</string>
+    <string name="game_keyboard_title">游戏键盘</string>
+    <string name="game_keyboard_note">在下面勾上的应用里横屏打字时，换成半透明的悬浮小键盘，可以拖到任意位置；键盘外的地方照常点游戏。竖屏还是普通键盘。</string>
+    <string name="section_game_look">样子</string>
+    <string name="game_transparency_title">透明度</string>
+    <string name="game_size_title">键盘大小</string>
+    <string name="game_size_small">小</string>
+    <string name="game_size_medium">中</string>
+    <string name="game_size_large">大</string>
+    <string name="game_glosses_title">显示译词</string>
+    <string name="game_look_note">按住键盘顶上那一条拖动，位置按应用记住，下次打开还在原处。顶上左边的半圆按钮换透明度。</string>
+    <string name="section_game_apps">用游戏键盘的应用</string>
+    <string name="game_apps_note">列表里只有横屏用青简打过字的应用。也可以在应用里点工具栏的青简标志，用功能面板的「游戏键盘」开关；点悬浮键盘左上角的键盘按钮就换回普通键盘。</string>
+    <string name="game_apps_empty">还没有横屏打过字的应用</string>
+    <string name="game_on_in_landscape">已给这个应用打开游戏键盘，横屏打字时换成悬浮小键盘</string>
+    <string name="game_switched_off">这个应用换回普通键盘了，可在 设置 › 键盘 › 游戏键盘 重新打开</string>
     <string name="section_service">服务</string>
     <string name="section_cloud_uses">用在哪里</string>
     <string name="stats_quality">打字质量</string>

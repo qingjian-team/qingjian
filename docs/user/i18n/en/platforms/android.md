@@ -1,7 +1,7 @@
 ---
 title: "Android: keyboard and typing"
 order: 3
-description: "Qingjian for Android (preview): enabling it, keyboard types, candidates and glosses, dates and calculations, voice input and swipe typing."
+description: "Qingjian for Android (preview): enabling it, keyboard types, candidates and glosses, dates and calculations, voice input, swipe typing and the game keyboard."
 ---
 
 Qingjian for Android is a preview with fewer features than the desktop versions, and it has no local sentence model yet, so its first choice for long sentences is weaker. It ships as an arm64 APK for Android 8.0 and later: download `qingjian-<version>-android-arm64.apk` from [GitHub Releases](https://github.com/qingjian-team/qingjian/releases/latest) and open it on the phone to install; when the system asks, allow your browser or file manager to install unknown apps. For a new version, download the new APK and install it over the old one; your typing habits and settings are kept. To build it yourself, follow the instructions in the `apps/android` folder of the source repository.
@@ -69,6 +69,16 @@ Letters you pass on a straight line and doubled letters (the ll in hello) don't 
 - Words with nearly the same shape (to and too, pinyin z and zh) are chosen by how common they are; if it's wrong, backspace and try again or tap to correct it.
 - The first swipe after turning it on prepares the word list first and is a little slower.
 - The 9-key keypad, double pinyin, Wubi, Zhuyin and Japanese don't support swipe typing.
+
+## Game keyboard
+
+When you play a game in landscape, the normal keyboard covers almost the whole screen. Once the game keyboard is on for an app, typing in that app in landscape brings up a small, semi-transparent floating keyboard instead, and you can keep tapping the game outside it; in portrait you still get the normal keyboard.
+
+- Turning it on: while typing in that app in landscape, tap the Qingjian mark at the left end of the toolbar, then 游戏键盘 (Game keyboard) under 常用功能 (Common) in the function panel; the floating keyboard appears right away. Tap it again to turn it off. You can also tick the app under 设置 → 键盘 → 游戏键盘 (Settings → Keyboard → Game keyboard), which lists only apps you've typed in with Qingjian in landscape.
+- Hold the bar at the top of the keyboard to drag it anywhere; the position is remembered for each app.
+- The half-filled circle at the top left cycles the transparency through opaque, 20%, 40% and 60%; the keyboard button next to it switches back to the normal keyboard and turns the game keyboard off for this app; ⌄ on the right hides the keyboard.
+- 设置 → 键盘 → 游戏键盘 (Settings → Keyboard → Game keyboard) also sets the transparency, the keyboard size (small / medium / large) and whether glosses appear beside candidates (off by default; while they're off, new words aren't recorded either). With the main switch off, ticked apps also get the normal keyboard.
+- The floating keyboard is always dark; candidates, panels and the toolbar work as on the normal keyboard.
 
 ## Not yet supported
 

@@ -29,7 +29,7 @@ import app.qingjian.inputmethod.settings.Settings
 import app.qingjian.inputmethod.theme.Palette
 
 /**
- * 输入法的整块视图：候选条 + 键盘，全面屏适配开着时底下再接一条操作条，关着只让出导航栏的高度。
+ * 输入法的整块视图：候选条 + 键盘，全面屏适配开着时底下再接一条操作条，关着只让出导航栏的高度（游戏键盘里两样都不要）。
  * 面板（[PanelKind]）盖在候选条与键盘那一整块上，高度跟键盘走；底下的键盘留着占位，关面板就露出来。
  */
 class InputPanel(
@@ -40,8 +40,11 @@ class InputPanel(
     keyboardListener: KeyboardView.Listener,
     private val actions: PanelActions,
     onBottomAction: (BottomAction) -> Unit,
+    /** 游戏键盘里浮着用（[GameFrame]）：不接底下的操作条，也不让导航栏。 */
+    private val floating: Boolean = false,
 ) {
-    private val palette = Palette.of(settings.theme, settings.appearance.dark(context))
+    // 游戏键盘一律深色：浮在游戏画面上，浅色太扎眼
+    private val palette = Palette.of(settings.theme, floating || settings.appearance.dark(context))
 
     val bar = CandidateBarView(context, palette, settings.textSize.scale, stripSource, settings.toolbar, barListener)
     val keyboard = KeyboardView(context, palette, settings, keyboardListener)
@@ -77,6 +80,7 @@ class InputPanel(
         clipToPadding = false
         addView(stack)
         val inset = bottomInset
+        if (floating) return@apply
         if (settings.fullscreenAdapt) {
             addView(BottomActionsView(context, palette, inset, settings.bottomLeft, settings.bottomRight, onBottomAction))
         } else {

@@ -19,6 +19,11 @@
             <action android:name="android.intent.action.PROCESS_TEXT" />
             <data android:mimeType="text/plain" />
         </intent>
+        <!-- 游戏键盘设置页列出横屏打过字的应用，要取它们的名字和图标；只查得到桌面上有图标的应用 -->
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
     </queries>
 
     <application
@@ -49,6 +54,7 @@
         <activity android:name=".settings.page.AdvancedActivity" android:exported="false" />
         <activity android:name=".settings.page.VoiceSettingsActivity" android:exported="false" />
         <activity android:name=".settings.page.ClipboardSyncActivity" android:exported="false" />
+        <activity android:name=".settings.page.GameKeyboardActivity" android:exported="false" />
 
         <!-- 系统文字选择菜单里的「青简翻译」，见 translate/ProcessTextActivity.kt -->
         <activity

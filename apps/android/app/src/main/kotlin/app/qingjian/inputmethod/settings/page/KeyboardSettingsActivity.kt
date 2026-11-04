@@ -1,15 +1,17 @@
 package app.qingjian.inputmethod.settings.page
 
+import android.content.Intent
 import android.view.View
 import app.qingjian.inputmethod.R
 import app.qingjian.inputmethod.keyboard.HapticStrength
 import app.qingjian.inputmethod.settings.BottomAction
+import app.qingjian.inputmethod.settings.GameKeyboard
 import app.qingjian.inputmethod.settings.Settings
 import app.qingjian.inputmethod.theme.TextSize
 
 /**
  * 键盘二级页：管键盘本身——尺寸（高度、全面屏适配与两个角）、按键（震动、键面字号、气泡、符号面板布局）、
- * 手势（滑行、上滑、空格挪光标、长按空格说话、换语言保留中文）。改了马上写设置，开着的键盘跟着重建。
+ * 手势（滑行、上滑、空格挪光标、长按空格说话、换语言保留中文），另有游戏键盘一页。改了马上写设置，开着的键盘跟着重建。
  */
 class KeyboardSettingsActivity : PageActivity() {
     override val title = R.string.page_keyboard
@@ -63,7 +65,19 @@ class KeyboardSettingsActivity : PageActivity() {
                     prefs.edit().putBoolean(Settings.KEY_KEEP_CHINESE, it).apply()
                 },
             ),
+            ui.group(
+                null,
+                ui.link(R.string.page_game_keyboard, getString(if (GameKeyboard.load(this).enabled) R.string.value_on else R.string.value_off)) {
+                    startActivity(Intent(this, GameKeyboardActivity::class.java))
+                },
+            ),
         )
+    }
+
+    // 从游戏键盘页回来，右边的开关状态跟着变
+    override fun onRestart() {
+        super.onRestart()
+        rebuild()
     }
 
     /** 震动开关与强度合成一个分段：关 / 轻 / 标准 / 重；关掉时强度保留，再打开回到原来的。 */
