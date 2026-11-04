@@ -167,9 +167,15 @@ define_class!(
 
         #[unsafe(method(deactivateServer:))]
         fn deactivate_server(&self, sender: Option<&AnyObject>) {
-            tracing::info!("deactivateServer");
-            self.clear_active();
             let client = sender.map(TextClient::new);
+            // 被莫名切回 ABC 时靠这一行查：切到了谁、在哪个应用里、是不是密码框
+            tracing::info!(
+                app = client.and_then(|c| c.bundle_identifier()).as_deref().unwrap_or("-"),
+                next_source = crate::app::input_source::current_id().as_deref().unwrap_or("-"),
+                secure_input = crate::imk::secure_input::enabled(),
+                "deactivateServer"
+            );
+            self.clear_active();
             let done = catch_panic("deactivateServer", || {
                 if let Some(client) = client {
                     self.commit_vietnamese(client);
