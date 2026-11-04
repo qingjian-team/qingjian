@@ -35,7 +35,7 @@ use file::{ColorRef, FontRef, LockedAppearance, SCHEMA, ThemeFile};
 type EmbeddedFiles = &'static [(&'static str, &'static [u8])];
 
 /// 内置主题：id、源文件与图片，按设置界面列出的顺序；第一个是缺省主题。
-const BUILTINS: [(&str, &str, EmbeddedFiles); 9] = [
+const BUILTINS: [(&str, &str, EmbeddedFiles); 10] = [
     (
         "qingjian",
         include_str!("../../themes/qingjian/theme.json"),
@@ -57,6 +57,7 @@ const BUILTINS: [(&str, &str, EmbeddedFiles); 9] = [
         &[],
     ),
     ("glass", include_str!("../../themes/glass/theme.json"), &[]),
+    ("slate", include_str!("../../themes/slate/theme.json"), &[]),
     (
         "sakura",
         include_str!("../../themes/sakura/theme.json"),
