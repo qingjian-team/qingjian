@@ -263,6 +263,15 @@
     <string name="export_note">学过的词、生词本、统计和常用语打包成一个文件，不含剪贴板和导入的词库</string>
     <string name="export_done">已导出 %1$d 个文件</string>
     <string name="export_failed">导出失败，换个位置再试</string>
+    <string name="logs_section">日志</string>
+    <string name="logs_export_title">打包日志</string>
+    <string name="logs_send">发送给…</string>
+    <string name="logs_save">存到手机</string>
+    <string name="logs_export_note">日志、设置和机型信息打包成一个文件，直接发到 QQ、微信或存到手机，反馈问题时附上；不含密钥，不开详细日志时也不含打的字</string>
+    <string name="logs_export_done">已打包 %1$d 个文件</string>
+    <string name="logs_export_empty">还没有日志</string>
+    <string name="logs_verbose_title">详细日志</string>
+    <string name="logs_verbose_note">会记下打的内容，复现完问题请关掉</string>
     <string name="clear_learning_title">清空学习数据</string>
     <string name="clear_learning_note">统计、常用语、剪贴板、词库和设置不受影响</string>
     <string name="clear_habits">输入习惯（常选的词、造的词）</string>

@@ -114,7 +114,7 @@ pub extern "system" fn Java_app_qingjian_inputmethod_core_Native_cloudTest<'loca
     _this: JObject<'local>,
     settings: JString<'local>,
 ) -> jstring {
-    super::logging::init();
+    super::logging::init(None);
     let settings = settings_of(&mut env, &settings);
     let outcome = catch_unwind(AssertUnwindSafe(|| match &settings {
         Some(settings) => crate::test_connection(settings),

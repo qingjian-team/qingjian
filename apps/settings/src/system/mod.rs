@@ -7,3 +7,4 @@ pub mod hotkey;
 pub mod paths;
 #[cfg(windows)]
 pub mod single_instance;
+pub mod system_info;

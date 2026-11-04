@@ -6,6 +6,14 @@ internal object Native {
         System.loadLibrary("qingjian_android")
     }
 
+    /** 日志接到 logcat 并写进 [logDir]，见 [AppLog]。 */
+    external fun initLogging(logDir: String)
+
+    external fun setVerboseLog(on: Boolean)
+
+    /** [level]：0 错误、1 警告、2 信息、其余调试。 */
+    external fun log(level: Int, message: String)
+
     /** 失败返回 0，原因在 logcat（标签 qingjian）。 */
     external fun create(dataDir: String, userDir: String): Long
 

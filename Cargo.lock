@@ -4146,6 +4146,7 @@ dependencies = [
  "thiserror 2.0.21",
  "tracing",
  "tracing-android",
+ "tracing-appender",
  "tracing-subscriber",
 ]
 

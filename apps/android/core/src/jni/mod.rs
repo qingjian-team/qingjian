@@ -36,7 +36,7 @@ pub extern "system" fn Java_app_qingjian_inputmethod_core_Native_create<'local>(
     data_dir: JString<'local>,
     user_dir: JString<'local>,
 ) -> jlong {
-    logging::init();
+    logging::init(None);
     let (Ok(data_dir), Ok(user_dir)) = (env.get_string(&data_dir), env.get_string(&user_dir))
     else {
         return 0;
@@ -75,7 +75,7 @@ pub extern "system" fn Java_app_qingjian_inputmethod_core_Native_createTranslati
     user_dir: JString<'local>,
     language: JString<'local>,
 ) -> jlong {
-    logging::init();
+    logging::init(None);
     let (Ok(data_dir), Ok(user_dir), Ok(language)) = (
         env.get_string(&data_dir).map(String::from),
         env.get_string(&user_dir).map(String::from),

@@ -25,6 +25,7 @@ import org.json.JSONObject
 import app.qingjian.inputmethod.cloud.CloudConfig
 import app.qingjian.inputmethod.cloud.Network
 import app.qingjian.inputmethod.cloud.SecretStore
+import app.qingjian.inputmethod.core.AppLog
 import app.qingjian.inputmethod.core.Engine
 import app.qingjian.inputmethod.core.InputOptions
 import app.qingjian.inputmethod.core.frame.Candidate
@@ -153,6 +154,7 @@ class QingjianInputMethodService :
 
     override fun onCreate() {
         super.onCreate()
+        AppLog.info("ime create")
         engine = Engine(this) {
             composer.onEngineReady()
             syncCloud()
@@ -177,6 +179,7 @@ class QingjianInputMethodService :
     }
 
     override fun onDestroy() {
+        AppLog.info("ime destroy")
         clipboardWatcher.stop()
         ClipboardSync.removeListener(syncListener)
         Settings.preferences(this).unregisterOnSharedPreferenceChangeListener(settingsListener)
@@ -190,6 +193,7 @@ class QingjianInputMethodService :
         // 键盘重建，开着的语音面板跟着没了
         voice.cancel()
         val game = gameTarget()
+        AppLog.info("create input view${if (game != null) " (game keyboard)" else ""}")
         val gameSettings = game?.let { GameKeyboard.load(this) }
         val settings = Settings.load(this).let { settings ->
             gameSettings ?: return@let settings
@@ -341,6 +345,10 @@ class QingjianInputMethodService :
 
     override fun onStartInputView(info: EditorInfo, restarting: Boolean) {
         super.onStartInputView(info, restarting)
+        AppLog.info(
+            "start input view: ${info.packageName}, inputType 0x${Integer.toHexString(info.inputType)}, " +
+                "imeOptions 0x${Integer.toHexString(info.imeOptions)}, restarting $restarting",
+        )
         rememberLandscapeApp(info.packageName)
         if (panel?.stale() == true || gameTarget() != gamePackage) {
             setInputView(onCreateInputView())
@@ -352,6 +360,26 @@ class QingjianInputMethodService :
         // 进程可能刚被系统杀过又拉起，或开关刚改过；顺便补一轮
         ClipboardSync.apply(this)
         ClipboardSync.changed()
+    }
+
+    /** 系统问「该不该显示键盘」：接着实体键盘时缺省不显示，有时候弹不出来先看这一条。 */
+    override fun onEvaluateInputViewShown(): Boolean {
+        val shown = super.onEvaluateInputViewShown()
+        if (!shown) {
+            val config = resources.configuration
+            AppLog.warn("input view not shown: keyboard ${config.keyboard}, hardKeyboardHidden ${config.hardKeyboardHidden}")
+        }
+        return shown
+    }
+
+    override fun onWindowShown() {
+        super.onWindowShown()
+        AppLog.info("window shown")
+    }
+
+    override fun onWindowHidden() {
+        super.onWindowHidden()
+        AppLog.info("window hidden")
     }
 
     override fun onFinishInputView(finishingInput: Boolean) {

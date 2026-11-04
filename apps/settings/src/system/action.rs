@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use crate::i18n::{tr, tr_args};
-use crate::system::paths;
+use crate::system::{paths, system_info};
 
 pub const WEBSITE_URL: &str = "https://qingjian.app";
 
@@ -131,7 +131,7 @@ fn spawn(program: &str, args: &[&str]) -> Result<(), String> {
         })
 }
 
-/// 日志目录里的文件加配置文件打成桌面上的 `qingjian-logs-<日期>.zip`（不带目录层级）。
+/// 日志目录里的文件加配置文件与系统信息（[`system_info::report`]）打成桌面上的 `qingjian-logs-<日期>.zip`（不带目录层级）。
 /// 配置文件里可能写着云服务密钥，打包的是抹掉密钥的副本。
 fn export_logs(config: &Path) -> Result<PathBuf, String> {
     let dir = paths::log_dir().ok_or(tr("action.no_log_dir"))?;
@@ -140,16 +140,22 @@ fn export_logs(config: &Path) -> Result<PathBuf, String> {
         .filter_map(|entry| entry.ok().map(|entry| entry.path()))
         .filter(|path| path.is_file())
         .collect();
+    if files.is_empty() {
+        return Err(tr("action.no_logs").to_owned());
+    }
+    let staging = std::env::temp_dir().join("qingjian-export");
+    std::fs::create_dir_all(&staging)
+        .map_err(|error| tr_args("action.cant_copy_config", &[("error", &error)]))?;
     if let Ok(text) = std::fs::read_to_string(config) {
-        let dir = std::env::temp_dir().join("qingjian-export");
-        let copy = dir.join("config.toml");
-        std::fs::create_dir_all(&dir)
-            .and_then(|()| std::fs::write(&copy, redact_secrets(&text)))
+        let copy = staging.join("config.toml");
+        std::fs::write(&copy, redact_secrets(&text))
             .map_err(|error| tr_args("action.cant_copy_config", &[("error", &error)]))?;
         files.push(copy);
     }
-    if files.is_empty() {
-        return Err(tr("action.no_logs").to_owned());
+    // 系统版本这些取不到就少一份，不挡打包
+    let system = staging.join("system.txt");
+    if std::fs::write(&system, system_info::report()).is_ok() {
+        files.push(system);
     }
     let desktop = desktop().ok_or(tr("action.no_desktop"))?;
     let zip = desktop.join(format!("qingjian-logs-{}.zip", today()));
