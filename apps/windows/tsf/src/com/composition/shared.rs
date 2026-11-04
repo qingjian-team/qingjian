@@ -5,6 +5,7 @@ use windows::Win32::UI::TextServices::{ITfComposition, ITfContext};
 
 use qingjian_platform::protocol::ScreenRect;
 
+use super::SelectionAnchor;
 use crate::com::candidate_list::CandidateList;
 use crate::com::service::SharedClient;
 
@@ -25,6 +26,8 @@ pub(crate) struct Shared {
 
     /// 「翻译选中文字」评审进行中：所有键交给 Server 定接受 / 取消，轮询定时器照常拉云端译文。
     translating: Cell<bool>,
+
+    selection_anchor: RefCell<Option<SelectionAnchor>>,
 
     /// 最近一次收键的文档上下文；失焦 / 停用回调不带上下文，落定拼音要用它。
     last_context: RefCell<Option<ITfContext>>,
@@ -50,6 +53,7 @@ impl Shared {
             anchor: Cell::new(None),
             context_reported: Cell::new(false),
             translating: Cell::new(false),
+            selection_anchor: RefCell::new(None),
             last_context: RefCell::new(None),
             server_stale: Cell::new(false),
             foreground: Cell::new(false),
@@ -115,6 +119,14 @@ impl Shared {
         self.translating.get()
     }
 
+    pub(crate) fn set_selection_anchor(&self, anchor: Option<SelectionAnchor>) {
+        *self.selection_anchor.borrow_mut() = anchor;
+    }
+
+    pub(crate) fn take_selection_anchor(&self) -> Option<SelectionAnchor> {
+        self.selection_anchor.borrow_mut().take()
+    }
+
     pub(crate) fn set_translating(&self, value: bool) {
         self.translating.set(value);
     }
@@ -147,6 +159,7 @@ impl Shared {
 
     /// 组句结束（应用终止组句 / 断线 / 失焦上屏）：不再当作在组句，收起应用的候选列表，并让 Server 收候选窗口。
     pub(crate) fn end_composing(&self) {
+        self.set_selection_anchor(None);
         self.composing.set(false);
         self.translating.set(false);
         self.candidate_list.end();

@@ -100,7 +100,8 @@ impl Router {
 
     /// 拉一次云联想结果：云端词并进候选布局，整句补全记下；翻译评审时结果是译文。
     pub(super) fn poll_prediction(&mut self) {
-        if !self.engine.prediction_enabled() {
+        self.poll_selection_reading();
+        if !self.engine.prediction_enabled() && !self.engine.translation_enabled() {
             return;
         }
         let Some(prediction) = self.engine.poll_prediction() else {
@@ -132,8 +133,10 @@ impl Router {
                     }
                 }
                 None => {
-                    tracing::info!("翻译选中文字：云端没有给出译文");
-                    self.translation = None;
+                    tracing::info!("翻译选中文字：没有获得可用译文");
+                    if let Some(translation) = self.translation.as_mut() {
+                        translation.status = Some("未获得可用译文，请按 Esc 退出后重试".into());
+                    }
                 }
             }
             return;
@@ -196,7 +199,7 @@ impl Router {
         {
             *manual_sequence = None;
         }
-        if self.engine.prediction_enabled() {
+        if self.engine.prediction_enabled() || self.engine.translation_enabled() {
             self.engine.cancel_prediction();
         }
     }
@@ -466,7 +469,7 @@ impl Router {
     /// 协议比 Server 老的 DLL 不认识 `AuxCode` 段与颜文字、符号两种候选，收到会整条消息解析失败：
     /// 码段降级成普通拼音段，那两种候选按 emoji 发（DLL 不看候选种类，只要解得出来）。
     fn downgrade_for_old_dll(&self, frame: &mut Frame) {
-        if self.focused_dll_protocol() >= PROTOCOL_VERSION {
+        if self.focused_dll_protocol() >= 9 {
             return;
         }
         for segment in &mut frame.preedit {

@@ -15,6 +15,9 @@ pub struct ModeSyncReply {
 
 /// Server 对一次按键的处理结果。
 pub struct KeyResponse {
+    /// 选区翻译仍在评审，保持选区锚点和异步轮询。
+    pub reviewing_selection: bool,
+
     /// 吃掉还是放行给应用。
     pub outcome: KeyOutcome,
 

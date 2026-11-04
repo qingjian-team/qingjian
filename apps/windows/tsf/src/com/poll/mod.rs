@@ -145,6 +145,7 @@ fn poll_once(context: &PollContext) {
                 .show(&frame, context.shared.last_context().as_ref());
             // 翻译评审时回空帧 = 翻译已在 Server 侧结束（云端没给译文）。
             if translating && frame.is_empty() {
+                context.shared.set_selection_anchor(None);
                 drop(guard);
                 context.shared.set_translating(false);
                 context.shared.hide_candidates();

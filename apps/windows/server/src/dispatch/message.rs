@@ -73,6 +73,20 @@ impl Router {
                 text,
                 rect,
             } => Some(self.handle_selection(session, request, text, rect)),
+            ClientMessage::SelectionFallback {
+                session,
+                request,
+                process,
+                window,
+                text,
+                rect,
+            } => Some(self.handle_selection_fallback(
+                session,
+                request,
+                (process, window),
+                text,
+                rect,
+            )),
             ClientMessage::PositionCandidates { session, rect } => {
                 self.position_candidates(session, rect);
                 None
@@ -132,18 +146,28 @@ impl Router {
         self.ensure_focus(session);
         self.notice = None;
         self.candidates.close_menu();
+        if self.matches_translate_combo(&event) {
+            tracing::info!(
+                ?session,
+                reviewing = self.translation.is_some(),
+                composition_empty = self.engine.composition().is_empty(),
+                panel_open = self.panel_open(),
+                translation_ready = self.engine.translation_enabled(),
+                private = self.engine.is_private(),
+                "选区翻译：Server 收到快捷键"
+            );
+        }
         if self.translation.is_some() {
             return self.handle_translation_review(session, &event);
         }
-        if self.config.cloud_enabled
-            && self.engine.composition().is_empty()
+        if self.engine.composition().is_empty()
             && !self.panel_open()
-            && self.engine.prediction_enabled()
+            && self.engine.translation_enabled()
             && self.matches_translate_combo(&event)
         {
             self.selection_seq += 1;
             self.pending_selection = Some(self.selection_seq);
-            tracing::debug!(
+            tracing::info!(
                 ?session,
                 request = self.selection_seq,
                 "翻译选中文字：请 DLL 读选区"

@@ -9,6 +9,7 @@ pub mod dictionaries;
 pub mod experimental;
 pub mod input;
 pub mod language;
+mod offline_translation;
 pub mod phrases;
 pub mod shortcuts;
 pub mod stats;

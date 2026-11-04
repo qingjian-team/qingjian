@@ -5,6 +5,9 @@ mod engine;
 mod reply;
 mod response;
 
+#[cfg(test)]
+mod tests;
+
 #[cfg(windows)]
 pub mod pipe;
 

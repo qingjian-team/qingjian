@@ -2,6 +2,7 @@
 
 pub mod assembly;
 pub mod clipboard_process;
+pub mod config_load;
 pub mod dispatch;
 pub mod error;
 pub mod ipc;

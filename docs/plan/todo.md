@@ -166,6 +166,7 @@
   - [ ] 青简剪贴板：macOS、Linux
   - [ ] 小键盘数字：macOS、Linux
   - [ ] 双拼候选窗显示按键：Linux
+  - [ ] 离线选区翻译：macOS、Linux
 - [ ] 剪贴板局域网同步：macOS（缺剪贴板采集）、Linux；扫码配对、Android 全屏霓虹灯、蓝牙兜底
 
 ## 四、其他输入方案
