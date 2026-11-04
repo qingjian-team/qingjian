@@ -5,9 +5,9 @@ use qingjian_core::CustomPhrase;
 use qingjian_core::custom_phrase::{DEFAULT_WEIGHT, WEIGHTS, validate_phrases};
 use serde::Deserialize;
 
-use crate::i18n::tr;
+use crate::i18n::{tr, tr_args};
 
-/// 按顺序判定每一条：读不成短语、输入码或权重不合法、与前面的条目同码同文本的，给出原因。
+/// 按顺序判定每一条：读不成短语、输入码或权重不合法、与前面的条目同码同文本的，给出原因（界面语言写的）。
 pub(super) fn check(
     items: impl IntoIterator<Item = Result<CustomPhrase, String>>,
 ) -> Vec<Result<CustomPhrase, String>> {
@@ -20,8 +20,8 @@ pub(super) fn check(
             match validate_phrases(&accepted) {
                 Ok(()) => Ok(accepted[accepted.len() - 1].clone()),
                 Err(reason) => {
-                    let phrase = accepted.pop().expect("刚放进去");
-                    Err(format!("输入码 {}：{reason}", phrase.code))
+                    accepted.pop();
+                    Err(reason)
                 }
             }
         })
@@ -67,11 +67,11 @@ pub fn export_phrases(phrases: &[CustomPhrase]) -> String {
         "# 青简自定义短语，在设置程序「自定义短语」页导入；写法与配置文件里的 [[custom_phrases]] 相同\n\n{document}"
     )
 }
-/// 读导出的短语文件里的 `[[custom_phrases]]`：返回读得出的短语与写错跳过了几条。
-/// 读导出的文件或整份配置文件里的 `[[custom_phrases]]`：返回读得出的短语与写错跳过了几条。
+/// 读导出的短语文件里的 `[[custom_phrases]]`：返回读得出的短语，与写错跳过的每一条在哪、为什么（按文件顺序，界面语言写的，
+/// 用户照着改文件：码里带数字这类错不说原因就只知道「几条写错」，#857）。
 /// 读不成 TOML 的按「文字、Tab、输入码、Tab、权重」一行一条读（Rime `custom_phrase.txt` 的写法，方便从别的输入法搬）。
 /// 整份配置文件不收：设置与短语各自导入，免得用户以为导了短语、设置也跟着变了。
-pub fn import_phrases(source: &str) -> Result<(Vec<CustomPhrase>, usize), String> {
+pub fn import_phrases(source: &str) -> Result<(Vec<CustomPhrase>, Vec<String>), String> {
     let Ok(mut table) = source.parse::<toml::Table>() else {
         return import_tsv(source);
     };
@@ -87,19 +87,41 @@ pub fn import_phrases(source: &str) -> Result<(Vec<CustomPhrase>, usize), String
         item.try_into::<CustomPhrase>()
             .map_err(|e| e.message().to_owned())
     }));
-    let skipped = checked.iter().filter(|item| item.is_err()).count();
-    Ok((
-        checked.into_iter().filter_map(Result::ok).collect(),
-        skipped,
-    ))
+    Ok(split(checked.into_iter().enumerate().map(
+        |(index, item)| {
+            item.map_err(|reason| {
+                tr_args(
+                    "phrase_file.skipped_entry",
+                    &[("entry", &(index + 1)), ("reason", &reason)],
+                )
+            })
+        },
+    )))
+}
+
+/// 读出来的短语与跳过的说明分开。
+fn split(
+    items: impl Iterator<Item = Result<CustomPhrase, String>>,
+) -> (Vec<CustomPhrase>, Vec<String>) {
+    let mut phrases = Vec::new();
+    let mut skipped = Vec::new();
+    for item in items {
+        match item {
+            Ok(phrase) => phrases.push(phrase),
+            Err(reason) => skipped.push(reason),
+        }
+    }
+    (phrases, skipped)
 }
 
 /// 「文字、Tab、输入码、Tab、权重」一行一条，权重可省；`#` 开头的行与 Rime 文件头（`---` 到 `...`）跳过。
 /// 权重夹到 [`WEIGHTS`] 里（Rime 的权重常上千），没写用缺省；一行里换行写不进去，多行短语请用导出的 TOML。
-fn import_tsv(source: &str) -> Result<(Vec<CustomPhrase>, usize), String> {
+fn import_tsv(source: &str) -> Result<(Vec<CustomPhrase>, Vec<String>), String> {
     let mut header = false;
     let mut items = Vec::new();
-    for line in source.lines() {
+    // 第几行（从 1 数）与那行的文字，跳过时用来说是哪一条
+    let mut places = Vec::new();
+    for (number, line) in source.lines().enumerate() {
         let line = line.trim_end_matches('\r');
         if line == "---" {
             header = true;
@@ -114,6 +136,7 @@ fn import_tsv(source: &str) -> Result<(Vec<CustomPhrase>, usize), String> {
         }
         let mut fields = line.split('\t');
         let (text, code, weight) = (fields.next(), fields.next(), fields.next());
+        places.push((number + 1, text.unwrap_or_default().to_owned()));
         items.push(match (text, code) {
             (Some(text), Some(code)) => Ok(CustomPhrase {
                 weight: weight
@@ -123,18 +146,36 @@ fn import_tsv(source: &str) -> Result<(Vec<CustomPhrase>, usize), String> {
                     }),
                 ..CustomPhrase::new(code.trim(), text)
             }),
-            _ => Err("not text<Tab>code".to_owned()),
+            _ => Err(tr("phrase_file.no_tab").to_owned()),
         });
     }
     if items.is_empty() {
         return Err(tr("phrase_file.unreadable").to_owned());
     }
     let checked = check(items);
-    let skipped = checked.iter().filter(|item| item.is_err()).count();
-    Ok((
-        checked.into_iter().filter_map(Result::ok).collect(),
-        skipped,
-    ))
+    Ok(split(checked.into_iter().zip(places).map(
+        |(item, (line, text))| {
+            item.map_err(|reason| {
+                tr_args(
+                    "phrase_file.skipped_line",
+                    &[
+                        ("line", &line),
+                        ("text", &shortened(&text)),
+                        ("reason", &reason),
+                    ],
+                )
+            })
+        },
+    )))
+}
+
+/// 跳过的说明里引用那行文字：长的只留开头几个字。
+fn shortened(text: &str) -> String {
+    const SHOWN: usize = 10;
+    match text.char_indices().nth(SHOWN) {
+        Some((end, _)) => format!("{}…", &text[..end]),
+        None => text.to_owned(),
+    }
 }
 
 /// 0.3 之前的条目写的是固定位置：`position` 那一行原地换成 `weight`（值随后照常写入），注释跟着留下；

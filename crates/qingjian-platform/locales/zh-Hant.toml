@@ -91,6 +91,9 @@ enter = "回車"
 [phrase_file]
 empty = "文件裡沒有自定義短語"
 is_config = "這是配置文件，不是短語文件；設置在「高級」頁導入，短語請先在另一臺電腦上導出"
+no_tab = "文字與輸入碼之間要用 Tab 隔開"
+skipped_entry = "第 {entry} 條：{reason}"
+skipped_line = "第 {line} 行「{text}」：{reason}"
 unreadable = "讀不了這個文件：既不是青簡導出的短語文件，也不是「文字<Tab>輸入碼」一行一條的文本"
 
 [settings_file]

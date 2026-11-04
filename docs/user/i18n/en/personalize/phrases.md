@@ -12,7 +12,7 @@ Each phrase is a row on the page: an on/off switch (labelled with the input code
 
 Adding and editing happen in a card that pops up:
 
-- **输入码 (Input code)**: 1–32 lowercase English letters, such as `dz`.
+- **输入码 (Input code)**: 1–32 lowercase English letters, such as `dz`. No digits: while typing, digit keys pick candidates. To give a numbered symbol like ⑪ a code, spell it in letters, such as `yqsy`; circled numbers and circled ideographs (㊣) can also be found in the [symbol panel](../input/punctuation.md#Symbol-panel) by searching 序号 or 带圈汉字.
 - **权重 (Weight)**: a whole number from 1 to 999, 10 for a new phrase. Under the same input code, heavier phrases come first; weights can be equal, and equal ones keep their order on the page.
 - **内容 (Content)**: can span several lines and contain spaces, addresses, long replies or punctuation, and is committed exactly as written. The box wraps to its width; for very long content it grows to at most 12 lines and then shows the lines around the cursor.
 
@@ -43,7 +43,7 @@ To move to another computer or keep a backup, click 导出… (Export…) in the
 - Imported phrases are added after your existing ones, keeping the weights and switches from the file; a phrase whose content already exists under the same input code is not added again, so importing the same file twice is harmless.
 - Plain text with one phrase per line as text, Tab, input code, Tab, weight (such as Rime's `custom_phrase.txt`) also works, for bringing phrases over from another input method; the weight is optional, and values outside 1–999 count as 1 or 999. This kind of text can't hold line breaks, so use the exported `.toml` for multi-line phrases.
 - The configuration file `config.toml` can't be imported here: settings and phrases are imported and exported separately, settings on the 高级 (Advanced) page; see [Moving to another computer](../advanced/data-files.md#Moving-to-another-computer).
-- Entries written wrongly in the file are skipped; afterwards the row says how many were added, how many already existed and how many were wrong.
+- Entries written wrongly in the file are skipped; afterwards the row says how many were added, how many already existed and how many were wrong, and points out the line of the first wrong one and what is wrong with it.
 
 The exported file uses the same `[[custom_phrases]]` format as the configuration file, so you can also edit it in a text editor.
 

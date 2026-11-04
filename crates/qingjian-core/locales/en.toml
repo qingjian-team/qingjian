@@ -21,7 +21,7 @@ standard_short = "Standard"
 [phrases]
 position = "The candidate position must be 1–9"
 weight = "The weight must be a whole number from {min} to {max}"
-code = "The code must be 1–{max} lowercase English letters"
+code = "The code must be 1–{max} lowercase English letters, without digits (digit keys pick candidates)"
 empty = "The custom phrase can't be empty"
 duplicate = "The code {code} already has this phrase"
 

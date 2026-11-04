@@ -21,7 +21,7 @@ standard_short = "Chuẩn"
 [phrases]
 position = "Vị trí gợi ý phải từ 1 đến 9"
 weight = "Trọng số phải là số nguyên từ {min} đến {max}"
-code = "Mã gõ phải gồm 1–{max} chữ cái thường"
+code = "Mã gõ phải gồm 1–{max} chữ cái thường, không có chữ số (phím số dùng để chọn ứng viên)"
 empty = "Cụm từ tùy chỉnh không được để trống"
 duplicate = "Mã {code} đã có cụm từ này"
 

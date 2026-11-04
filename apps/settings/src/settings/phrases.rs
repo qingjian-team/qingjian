@@ -105,8 +105,11 @@ impl Settings {
                 if total > added {
                     summary.push_str(&tr_args("phrases.existing", &[("n", &(total - added))]));
                 }
-                if skipped > 0 {
-                    summary.push_str(&tr_args("phrases.skipped", &[("n", &skipped)]));
+                if let Some(first) = skipped.first() {
+                    summary.push_str(&tr_args(
+                        "phrases.skipped",
+                        &[("n", &skipped.len()), ("first", first)],
+                    ));
                 }
                 Ok(summary)
             });

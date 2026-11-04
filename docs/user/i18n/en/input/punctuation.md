@@ -37,7 +37,7 @@ on Windows, click the 符 cell on the floating status bar, or right-click the �
 
 - **Translate**: present when AI services are on. Pressing `↑` while typing lands on this group: type a sentence in the box and the translation appears at the cursor in the app; see [Translating in the symbol panel](../cloud/question-and-translate.md#Translating-in-the-symbol-panel). Press `Tab` to get to the Search group.
 - **Search**: uses the pinyin you just typed as the search term: `ku` gives 😢 😭 (T_T), `jiantou` gives every arrow, `alpha` gives α. The group is absent when nothing is found.
-- **Symbols**: common, Chinese and English punctuation, math, arrows, Greek letters, numbering, currency and units, fractions, superscripts and subscripts, decorative, geometric and box drawing, Hanyu Pinyin (with tones), Zhuyin, hiragana, katakana, IPA, Latin letters, vertical punctuation, full-width letters, mathematical letters.
+- **Symbols**: common, Chinese and English punctuation, math, arrows, Greek letters, numbering, circled ideographs, currency and units, fractions, superscripts and subscripts, decorative, geometric and box drawing, Hanyu Pinyin (with tones), Zhuyin, hiragana, katakana, IPA, Latin letters, vertical punctuation, full-width letters, mathematical letters.
 - **Emoji**: common emoji, kaomoji, and all emoji grouped by category (smileys, people, animals and nature, food, travel and places, activities, objects, symbols, flags).
 
 `Tab` switches group, `[` `]` switch category, arrow keys move, the mouse wheel or trackpad scrolls a row at a time, and `Space` / `Enter` or a double-click commits; the pinyin you just typed is cleared after committing. `Esc` or the ✕ at the top right returns to the candidates.

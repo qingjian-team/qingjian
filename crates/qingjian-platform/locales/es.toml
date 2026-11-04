@@ -91,6 +91,9 @@ enter = "Intro"
 [phrase_file]
 empty = "El archivo no tiene frases personalizadas"
 is_config = "Es un archivo de configuración, no de frases; los ajustes se importan en la página Avanzado, y las frases hay que exportarlas antes en el otro ordenador"
+no_tab = "El texto y el código deben ir separados por un tabulador"
+skipped_entry = "entrada {entry}: {reason}"
+skipped_line = "línea {line} («{text}»): {reason}"
 unreadable = "No se puede leer este archivo: no es un archivo de frases exportado por Qingjian ni un texto con una entrada «texto<Tab>código» por línea"
 
 [settings_file]

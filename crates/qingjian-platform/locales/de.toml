@@ -91,6 +91,9 @@ enter = "Eingabe"
 [phrase_file]
 empty = "Die Datei enthält keine eigenen Phrasen"
 is_config = "Das ist eine Konfigurationsdatei, keine Phrasendatei; Einstellungen werden auf der Seite Erweitert importiert, Phrasen bitte zuerst auf dem anderen Computer exportieren"
+no_tab = "Text und Code müssen durch einen Tab getrennt sein"
+skipped_entry = "Eintrag {entry}: {reason}"
+skipped_line = "Zeile {line} („{text}“): {reason}"
 unreadable = "Diese Datei ist nicht lesbar: Sie ist weder eine von Qingjian exportierte Phrasendatei noch Text mit einem Eintrag „Text<Tab>Code“ pro Zeile"
 
 [settings_file]
