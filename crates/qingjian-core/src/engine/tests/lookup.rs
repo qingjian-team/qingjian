@@ -670,3 +670,22 @@ fn many_whole_words_still_leave_room_for_single_chars() {
         "{all:?}"
     );
 }
+
+#[test]
+fn abbreviation_reading_c_h_as_two_initials_commits_every_key() {
+    // #870：`ljchlsg` 的 `ch` 是 成、灰 两个声母，不能当 成 一个音节吃掉而剩下 `lsg`
+    let dictionary =
+        Dictionary::parse("蜡炬成灰泪始干\tla ju cheng hui lei shi gan\t100\n").unwrap();
+    let mut engine = Engine::new(dictionary);
+    engine.set_input("ljchlsg");
+    let idiom = engine
+        .query()
+        .unwrap()
+        .candidates
+        .items
+        .into_iter()
+        .find(|c| c.text == "蜡炬成灰泪始干")
+        .unwrap();
+    assert_eq!(engine.commit(&idiom), "蜡炬成灰泪始干");
+    assert!(engine.composition().is_empty());
+}

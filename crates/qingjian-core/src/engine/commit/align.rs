@@ -1,5 +1,7 @@
 //! 键串与候选音节的对齐：算出候选吃掉多少键，以及哪几处是敲错变体。
 
+use std::collections::HashSet;
+
 use super::Engine;
 use crate::correction::typo;
 use crate::engine::alignment::Alignment;
@@ -8,20 +10,24 @@ use crate::parser;
 impl Engine {
     /// 候选的音节逐个对到输入上：每个音节按原样 / 规范写法、模糊音或敲错变体（长的在前）、没打完的前缀消耗输入，
     /// 先找能把**每个音节都对上**的对齐（带回溯：`pingyin` 对 拼音 时 `pin` 原样只吃三个字母会剩下 `gyin`，
-    /// 退回来按敲错变体 `ping` → `pin` 吃四个），找不到才退回逐个贪心对、对不上的地方停下。
+    /// 退回来按敲错变体 `ping` → `pin` 吃四个；`ljchlsg` 对 蜡炬成灰泪始干 时 `ch` 当 成 的声母会剩下 灰 对不上，
+    /// 退回来只吃 `c`），找不到才退回逐个贪心对、对不上的地方停下。
     pub(in crate::engine) fn align(&self, input: &str, syllables: &[String]) -> Alignment {
         let mut typos = Vec::new();
-        self.align_full(input, 0, syllables, &mut typos)
+        let mut failed = HashSet::new();
+        self.align_full(input, 0, syllables, &mut typos, &mut failed)
             .unwrap_or_else(|| self.align_greedy(input, syllables))
     }
 
     /// 从 `pos` 起把剩下的音节全对上的第一种对齐（按每步的优先级深度优先）；对不上返回 `None`。
+    /// `failed` 记下已经试过对不上的（输入位置, 剩几个音节），简拼每个音节能吃好几种前缀，不记会指数回溯。
     fn align_full(
         &self,
         input: &str,
         pos: usize,
         syllables: &[String],
         typos: &mut Vec<(String, String)>,
+        failed: &mut HashSet<(usize, usize)>,
     ) -> Option<Alignment> {
         let Some((syllable, remaining)) = syllables.split_first() else {
             return Some(Alignment {
@@ -29,6 +35,9 @@ impl Engine {
                 typos: typos.clone(),
             });
         };
+        if failed.contains(&(pos, syllables.len())) {
+            return None;
+        }
         let (rest, start) = self.rest_at(input, pos);
         for (len, typo) in self.syllable_steps(rest, syllable) {
             // 消耗完输入后还有音节没对：不算全对上（候选比敲的长）
@@ -38,7 +47,7 @@ impl Engine {
             if typo {
                 typos.push((rest[..len].to_owned(), syllable.clone()));
             }
-            let found = self.align_full(input, start + len, remaining, typos);
+            let found = self.align_full(input, start + len, remaining, typos, failed);
             if typo {
                 typos.pop();
             }
@@ -46,6 +55,7 @@ impl Engine {
                 return found;
             }
         }
+        failed.insert((pos, syllables.len()));
         None
     }
 
@@ -92,7 +102,8 @@ impl Engine {
     }
 
     /// 一个音节可以怎么消耗输入段 `rest`：(消耗字节数, 是否靠敲错变体)，按优先级排：
-    /// 整段的模糊音变体、原样或规范写法（`lue` / `lve`）、模糊音或敲错变体（长的在前）、整段是这个音节没打完的前缀。
+    /// 整段的模糊音变体、原样或规范写法（`lue` / `lve`）、模糊音或敲错变体（长的在前）、整段是这个音节没打完的前缀，
+    /// 最后是段里开头一截是这个音节的前缀（简拼，长的在前）。
     fn syllable_steps(&self, rest: &str, syllable: &str) -> Vec<(usize, bool)> {
         let mut steps = Vec::new();
         // 整段就是这个音节的模糊音变体时先吃满：`qing` 选 勤（qin）不能只吃 `qin` 把 `g` 留下
@@ -120,6 +131,11 @@ impl Engine {
                 steps.push((len, false));
             } else if typo::is_variant(typed, syllable) {
                 steps.push((len, true));
+            }
+        }
+        for len in (1..rest.len().min(syllable.len())).rev() {
+            if syllable.starts_with(&rest[..len]) && !steps.iter().any(|&(l, _)| l == len) {
+                steps.push((len, false));
             }
         }
         steps
