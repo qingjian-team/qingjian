@@ -74,8 +74,8 @@ pub fn serve_pipe(
             continue;
         }
         match receiver.recv_timeout(due - now) {
-            Ok(Work::Client(message, reply)) => {
-                let _ = reply.send(router.handle(message));
+            Ok(Work::Client(conn, message, reply)) => {
+                let _ = reply.send(router.handle_from(conn, message));
             }
             Ok(Work::Status(event)) => router.handle_status_event(event),
             Ok(Work::Click(mouse)) => router.handle_candidate_mouse(mouse),
@@ -185,11 +185,14 @@ fn wait_client(stream: File) -> io::Result<File> {
 fn serve_connection(mut stream: File, sender: Sender<Work>) {
     let (reply_sender, reply_receiver) = mpsc::channel::<Option<ServerMessage>>();
     let mut opened = Vec::new();
+    // 这条连接的身份：会话归属按它判（见 `Router::admits`），别处猜得到会话号也动不了。
+    let conn = super::next_connection();
     let outcome = super::pump(
         &mut stream,
-        |message| {
+        conn,
+        |conn, message| {
             if sender
-                .send(Work::Client(message, reply_sender.clone()))
+                .send(Work::Client(conn, message, reply_sender.clone()))
                 .is_err()
             {
                 return Handled::Stop;
@@ -207,6 +210,7 @@ fn serve_connection(mut stream: File, sender: Sender<Work>) {
     for session in opened {
         // 工人线程已经不在了就没人收，丢掉即可
         let _ = sender.send(Work::Client(
+            conn,
             ClientMessage::CloseSession { session },
             reply_sender.clone(),
         ));

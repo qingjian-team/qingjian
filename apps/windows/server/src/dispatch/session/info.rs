@@ -1,8 +1,13 @@
 //! 会话信息。
 
+use crate::dispatch::ConnectionId;
+
 /// 一个活跃会话在 Server 侧记下的信息，开会话时由 DLL 报来。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct SessionInfo {
+    /// 开这个会话的连接。会话号由 DLL 报（就是它的线程号），可枚举，所以只有这条连接能动它。
+    pub(crate) owner: ConnectionId,
+
     /// 宿主应用的 exe 文件名（如 `Code.exe`），查 `[apps]` 用；取不到为 `None`。
     pub(crate) app: Option<String>,
 
