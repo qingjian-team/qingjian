@@ -13,6 +13,7 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import app.qingjian.inputmethod.R
 import app.qingjian.inputmethod.panel.base.PanelIcons.Icon
+import app.qingjian.inputmethod.settings.Settings
 import app.qingjian.inputmethod.settings.widget.SettingsWidgets
 import app.qingjian.inputmethod.settings.widget.TabBar
 import app.qingjian.inputmethod.settings.widget.Wash
@@ -31,6 +32,8 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // 升级前就选了深浅色的，进 App 时补一次（值没变时系统不做事）
+        Settings.load(this).appearance.applyToApp(this)
         ui = SettingsWidgets(this, AppColors.of(this))
         pages = listOf(HomePage(this, ui, ::select), VocabularyPage(this, ui), SettingsPage(this, ui))
         tab = savedInstanceState?.getInt(KEY_TAB) ?: intent.getIntExtra(EXTRA_TAB, TAB_HOME)

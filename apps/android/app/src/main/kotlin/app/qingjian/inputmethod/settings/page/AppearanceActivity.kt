@@ -32,6 +32,7 @@ class AppearanceActivity : PageActivity() {
                 null,
                 ui.segmentedRow(R.string.section_appearance, Appearance.entries.map { getString(it.label) }, settings.appearance.ordinal) {
                     prefs.edit().putString(Settings.KEY_APPEARANCE, Appearance.entries[it].key).apply()
+                    Appearance.entries[it].applyToApp(this)
                     rebuild()
                 },
                 footer = R.string.appearance_note,

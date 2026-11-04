@@ -59,7 +59,7 @@
     <string name="appearance_system">跟随系统</string>
     <string name="appearance_light">浅色</string>
     <string name="appearance_dark">深色</string>
-    <string name="appearance_note">有的主题只有浅色</string>
+    <string name="appearance_note">键盘与本 App 都按它；有的主题只有浅色</string>
     <string name="section_theme">主题</string>
     <string name="section_text_size">候选字号</string>
     <string name="text_size_small">小</string>
