@@ -23,6 +23,7 @@ mod click;
 mod command;
 mod commit;
 mod display;
+mod enter_translation;
 mod navigation;
 mod panel;
 mod text;
@@ -429,6 +430,9 @@ impl QingjianInputController {
                     }
                 }
             }
+            return true;
+        }
+        if self.try_enter_translation(key, pressed, client) {
             return true;
         }
         let selector = match key {

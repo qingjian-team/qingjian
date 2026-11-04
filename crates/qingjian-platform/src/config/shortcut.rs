@@ -38,6 +38,9 @@ pub struct ShortcutConfig {
     /// 数字键配这些修饰键：上屏候选的第二个译词（候选右侧有两个译词时）。
     pub translation_second: Modifiers,
 
+    /// macOS：回车优先上屏高亮候选的第一条英文译词；没有英文时仍走原回车逻辑。
+    pub enter_translation: bool,
+
     /// 把应用里选中的文字译成学习语言（需要云服务开着）。
     pub translate_selection: KeyCombo,
 
@@ -86,6 +89,7 @@ impl Default for ShortcutConfig {
             extra_page_keys: PageKeys::default(),
             translation,
             translation_second,
+            enter_translation: false,
             translate_selection,
             predict: KeyCombo::PREDICT_DEFAULT,
             clipboard: KeyCombo::CLIPBOARD_DEFAULT,
@@ -126,6 +130,22 @@ impl ShortcutConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn enter_translation_defaults_off_and_round_trips() {
+        let old: ShortcutConfig = toml::from_str("expression = 'i'").unwrap();
+        assert!(!old.enter_translation);
+        for enabled in [false, true] {
+            let config: ShortcutConfig =
+                toml::from_str(&format!("enter_translation = {enabled}")).unwrap();
+            let restored: ShortcutConfig =
+                toml::from_str(&toml::to_string(&config).unwrap()).unwrap();
+            assert_eq!(restored.enter_translation, enabled);
+            assert_eq!(restored.commit_raw, old.commit_raw);
+            assert_eq!(restored.commit_candidate, old.commit_candidate);
+        }
+        assert!(toml::from_str::<ShortcutConfig>("enter_translation = 'yes'").is_err());
+    }
 
     #[test]
     fn optional_punctuation_and_extra_page_keys_round_trip() {

@@ -307,7 +307,10 @@ bad_key = "The key wasn't saved: it contains spaces or non-English characters, p
 key_saved = "Key saved"
 
 [shortcuts]
+enter_translation = "Return prefers English translation"
+enter_translation_info = "Return commits the highlighted candidate's first English translation, or falls back to its original behavior if none exists. Space still commits the candidate. Off by default"
 fixed = "While composing: Space commits the first candidate, 1–9 pick a candidate, Return commits the pinyin, Esc clears, Tab accepts the sentence."
+fixed_enter_translation = "While composing: Space commits the Chinese candidate; Return commits the highlighted candidate's first English translation, or the pinyin if none exists. 1–9 pick a candidate, Esc clears, Tab accepts the sentence."
 page_keys = "Page keys"
 page_keys_info = "If comma and period are chosen, they turn pages while composing"
 expression = "Expressions"
