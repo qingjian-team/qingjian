@@ -52,6 +52,7 @@ When one of the first few candidates has a matching emoji, kaomoji or symbol, it
 | `ku` | 哭 😢 😭 (T_T) |
 | `xiaosi` | 笑死 🤣 |
 | `yuedengyu` | 约等于 ≈ |
+| `du` | 度 ° |
 | `sheshidu` / `erfenzhiyi` / `meiyuan` | 摄氏度 ℃, 二分之一 ½, 美元 $ |
 | `alpha` (English candidate) | alpha α |
 | `smile` in English mode | smile 🙂 😊 |

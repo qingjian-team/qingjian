@@ -43,11 +43,20 @@ mod tests {
         assert!(SYMBOLS.lookup("约等于").eq(["≈"]));
     }
 
+    /// 单字本身就是这个符号的读法时才收（度 → °，#900）；其余单字（上、左、角）一打就跟符号，太吵。
+    const SINGLE_CHARACTER_WORDS: [&str; 1] = ["度"];
+
     #[test]
-    fn symbol_words_are_never_single_characters() {
+    fn single_character_symbol_words_are_allowlisted() {
         for word in SYMBOLS.words() {
-            assert!(word.is_ascii() || word.chars().count() >= 2, "{word}");
+            assert!(
+                word.is_ascii()
+                    || word.chars().count() >= 2
+                    || SINGLE_CHARACTER_WORDS.contains(&word),
+                "{word}"
+            );
         }
+        assert!(SYMBOLS.lookup("度").eq(["°"]));
     }
 
     #[test]

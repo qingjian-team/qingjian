@@ -52,6 +52,7 @@ Windows 点悬浮状态条上的「符」格，或右键任务栏的「中 / 英
 | `ku` | 哭 😢 😭 (T_T) |
 | `xiaosi` | 笑死 🤣 |
 | `yuedengyu` | 约等于 ≈ |
+| `du` | 度 ° |
 | `sheshidu` / `erfenzhiyi` / `meiyuan` | 摄氏度 ℃、二分之一 ½、美元 $ |
 | `alpha`（英文候选） | alpha α |
 | 英文模式 `smile` | smile 🙂 😊 |

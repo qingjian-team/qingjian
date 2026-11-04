@@ -14,4 +14,4 @@
 
 `chaizi.tsv` 是问字模式按部件读音找字的拆字表（`字\t读音…\t部件拼音串…`，按字频排），由 `qingjian-dict-convert --out-dir crates/qingjian-core/data chaizi` 从 `assets/chaizi`（開放詞典網拆字字典，CC BY 3.0）与 `assets/lexicon/dict.tsv` 生成，不手改。
 
-符号表的中文词只收两个字以上的：单字（上、左、角）一打就跟符号，太吵。CLDR 主表在 `assets/emoji/`。
+符号表的中文词只收两个字以上的：单字（上、左、角）一打就跟符号，太吵；单字本身就是符号读法的（度 → °）例外，列在 `src/emoji/builtin.rs` 测试的白名单里。CLDR 主表在 `assets/emoji/`。

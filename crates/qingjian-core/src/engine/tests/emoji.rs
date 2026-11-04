@@ -172,3 +172,14 @@ fn circled_numbers_follow_their_spelled_out_names() {
         assert_eq!(items[1].text, symbol);
     }
 }
+
+#[test]
+fn the_degree_sign_follows_its_single_character() {
+    let dictionary = Dictionary::parse("都\tdu\t200\n度\tdu\t100\n").unwrap();
+    let mut engine = Engine::new(dictionary).with_emoji(EmojiTable::default());
+    engine.set_input("du");
+    let items = engine.query().unwrap().candidates.items;
+    let du = items.iter().position(|c| c.text == "度").unwrap();
+    assert_eq!(items[du + 1].text, "°");
+    assert_eq!(items[du + 1].kind, CandidateKind::Symbol);
+}

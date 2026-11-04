@@ -32,7 +32,7 @@ TSV 的音节可带数字声调（`ni3`，轻声 5 或 0），键一律去调，
 ## crates/qingjian-core
 
 `Engine::set_emoji_limit` / `set_kaomoji_limit` / `set_symbol_limit` 控制单次查询插入的 emoji、颜文字、符号数，各自 0–3（缺省 3 / 1 / 1）、0 关闭、越界值按 3 处理；每词 emoji 与符号最多两个、颜文字一个，普通候选相对顺序不变。三端读 `[general] emoji` / `kaomoji` / `symbols`（`qingjian_platform::EmojiCount`，旧配置 emoji 的 `true` / `false` 读成 3 / 0），CLI 用 `--emoji-limit <0..3>`。
-`with_emoji` 带上 CLDR 表时用 `emoji::is_emoji`（Unicode `Emoji` 属性，BMP 码位表取自 emoji-data.txt 15.0）筛掉 `≈` `¥` `«` 这类普通符号，并上 `crates/qingjian-core/data/emoji.tsv` 的口语叫法，同时启用同目录编进程序的 `kaomoji.tsv`、`symbols.tsv`（一行一条 `词\t条目`），以及 `words.tsv`（这些词里词库没有的，带读音，排在附加词库之后、用户词之前一起查）。符号表的中文词只收两个字以上的（有测试守着）。
+`with_emoji` 带上 CLDR 表时用 `emoji::is_emoji`（Unicode `Emoji` 属性，BMP 码位表取自 emoji-data.txt 15.0）筛掉 `≈` `¥` `«` 这类普通符号，并上 `crates/qingjian-core/data/emoji.tsv` 的口语叫法，同时启用同目录编进程序的 `kaomoji.tsv`、`symbols.tsv`（一行一条 `词\t条目`），以及 `words.tsv`（这些词里词库没有的，带读音，排在附加词库之后、用户词之前一起查）。符号表的中文词只收两个字以上的，单字只收白名单里的（度 → °），有测试守着。
 `EmojiTable` 的条目拼进一块缓冲、词只记序号区间，`lookup` 返回 `&str` 迭代器：每个 emoji 一个 `String` 时两张随包表常驻 3.5 MB，现在约 1.6 MB（2026-10-28 探针）。
 `emoji::skin_tone_variants` 给面板里能接肤色的 emoji 列五档（修饰符接在第一个字符后、去掉紧跟的 FE0F；序列里有两个以上能接肤色的字符不给），`Emoji_Modifier_Base` 码位表取自 emoji-data.txt 15.1。面板目录本身仍只收不带肤色的那一条。
 `email::email_completions` 给手机端「用户名@」之后列常见邮箱域名（`email/mod.rs` 的 `DOMAINS`，12 个），按 `@` 后已敲的前缀过滤、不分大小写，`insert` 是去掉已敲部分的余下那截；用户名只认 ASCII 字母数字与 `._-+%`，前面可以紧挨汉字。桌面端由 `query_raw` 接：英文直输段是「用户名@」时原文后面跟整个地址（`Shortcut` 候选，不记学习），壳在直输段里按空格选中地址时不再把空格交给应用。
