@@ -36,6 +36,7 @@ objc2.workspace = true
 objc2-foundation.workspace = true
 objc2-app-kit.workspace = true
 objc2-core-foundation.workspace = true
+objc2-core-graphics.workspace = true
 block2 = "0.6.2"
 
 [target."cfg(windows)".dependencies]
