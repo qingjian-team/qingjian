@@ -27,9 +27,9 @@ class AboutActivity : PageActivity() {
                     setPadding(0, ui.dp(4), 0, 0)
                 })
             },
-            ui.card(
+            ui.group(
+                null,
                 ui.row(R.string.about_local_title, R.string.about_local_note),
-                ui.divider(),
                 ui.row(R.string.about_license_title, R.string.about_license_note),
             ),
         )

@@ -190,12 +190,6 @@ class SettingsWidgets(private val context: Context, val colors: AppColors) {
         note?.let { addView(text(it, 13f, colors.secondary).apply { setPadding(0, dp(4), 0, 0); setLineSpacing(0f, 1.2f) }) }
     }
 
-    /** 卡片里的一段灰字说明（排在行之间用；分组末尾的说明用 [group] 的脚注）。 */
-    fun note(text: Int) = text(context.getString(text), 13f, colors.secondary).apply {
-        setPadding(dp(16), 0, dp(16), dp(12))
-        setLineSpacing(0f, 1.2f)
-    }
-
     /** 单选的一行：选中的右边一个对勾。 */
     fun choice(title: Int, selected: Boolean, onClick: () -> Unit) = LinearLayout(context).apply {
         setOnClickListener { onClick() }

@@ -13,7 +13,6 @@
 
     <string name="stats_today">今日字数</string>
     <string name="stats_recent">近 7 天</string>
-    <string name="stats_english">英文 %1$d 词</string>
     <string name="stats_days">用了 %1$d 天</string>
     <string name="stats_keys_per_hanzi">每字键数</string>
 
@@ -23,9 +22,7 @@
     <string name="stats_month">本月</string>
     <string name="stats_total">累计</string>
     <string name="stats_hanzi_value">%1$d 字</string>
-    <string name="stats_hours">过去 24 小时</string>
     <string name="stats_days_chart">最近 30 天</string>
-    <string name="stats_details">输入详情</string>
     <string name="stats_none">—</string>
     <string name="stats_best_day">最多的一天</string>
     <string name="stats_date">%1$d月%2$d日</string>
@@ -225,9 +222,7 @@
     <string name="vocabulary_intro">打字时候选旁见过的译词都记在这里</string>
     <string name="vocabulary_off">学习语言选了「不显示」，没有在记生词
 点右上角的语言重新选</string>
-    <string name="vocabulary_seen">见过</string>
     <string name="vocabulary_familiar">眼熟</string>
-    <string name="vocabulary_new">近 7 天新见</string>
     <string name="vocabulary_known">认识</string>
     <string name="vocabulary_fresh">生词</string>
     <string name="vocabulary_all_levels">全部等级</string>
@@ -254,7 +249,6 @@
 
     <string name="page_advanced">数据</string>
     <string name="page_voice">语音识别</string>
-    <string name="section_voice_service">识别服务</string>
     <string name="voice_provider">识别服务</string>
     <string name="voice_provider_none">不用</string>
     <string name="voice_provider_volcengine">火山引擎 · 豆包语音</string>
@@ -317,5 +311,6 @@
     <string name="section_gestures">手势</string>
     <string name="section_service">服务</string>
     <string name="section_cloud_uses">用在哪里</string>
+    <string name="stats_quality">打字质量</string>
     <string name="cloud_uses_note">快捷翻译和翻译选中的文字也用这里的服务。</string>
 </resources>
