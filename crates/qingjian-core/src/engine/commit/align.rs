@@ -92,9 +92,13 @@ impl Engine {
     }
 
     /// 一个音节可以怎么消耗输入段 `rest`：(消耗字节数, 是否靠敲错变体)，按优先级排：
-    /// 原样或规范写法（`lue` / `lve`）、模糊音或敲错变体（长的在前）、整段是这个音节没打完的前缀。
+    /// 整段的模糊音变体、原样或规范写法（`lue` / `lve`）、模糊音或敲错变体（长的在前）、整段是这个音节没打完的前缀。
     fn syllable_steps(&self, rest: &str, syllable: &str) -> Vec<(usize, bool)> {
         let mut steps = Vec::new();
+        // 整段就是这个音节的模糊音变体时先吃满：`qing` 选 勤（qin）不能只吃 `qin` 把 `g` 留下
+        if self.fuzzy.is_variant(rest, syllable) {
+            steps.push((rest.len(), false));
+        }
         let exact = rest.get(..syllable.len()).is_some_and(|typed| {
             typed == syllable
                 || qingjian_dictionary::canonical_syllable(typed)
