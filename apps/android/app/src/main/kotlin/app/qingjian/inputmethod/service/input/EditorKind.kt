@@ -3,9 +3,18 @@ package app.qingjian.inputmethod.service.input
 import android.text.InputType
 import android.view.inputmethod.EditorInfo
 
-/** 密码、网址、邮箱与非文本输入框不过引擎：字母直接上屏，不组句不学习。 */
+/**
+ * 密码、网址、邮箱与非文本输入框不过引擎：字母直接上屏，不组句不学习。
+ *
+ * 整个 `inputType` 是 0（终端一类要原始按键的）才算没有文本；类别是 0 却带着文本标志的照常组句：
+ * 抖音直播间的输入框报 `0x20000`（只有多行标志），按非文本处理就打不了汉字（#867）。
+ */
 fun EditorInfo.wantsDirectInput(): Boolean {
-    if (inputType and InputType.TYPE_MASK_CLASS != InputType.TYPE_CLASS_TEXT) return true
+    when (inputType and InputType.TYPE_MASK_CLASS) {
+        InputType.TYPE_CLASS_TEXT -> {}
+        InputType.TYPE_NULL -> return inputType == InputType.TYPE_NULL
+        else -> return true
+    }
     return when (inputType and InputType.TYPE_MASK_VARIATION) {
         InputType.TYPE_TEXT_VARIATION_PASSWORD,
         InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD,
