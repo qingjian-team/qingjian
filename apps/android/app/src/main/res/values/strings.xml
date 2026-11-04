@@ -13,7 +13,6 @@
 
     <string name="stats_today">今日字数</string>
     <string name="stats_recent">近 7 天</string>
-    <string name="stats_days">用了 %1$d 天</string>
     <string name="stats_keys_per_hanzi">每字键数</string>
 
     <string name="page_stats">输入统计</string>
@@ -311,7 +310,6 @@
     <string name="section_gestures">手势</string>
 
     <string name="page_game_keyboard">游戏键盘</string>
-    <string name="game_keyboard_title">游戏键盘</string>
     <string name="game_keyboard_note">在下面勾上的应用里横屏打字时，换成半透明的悬浮小键盘，可以拖到任意位置；键盘外的地方照常点游戏。竖屏还是普通键盘。</string>
     <string name="section_game_look">样子</string>
     <string name="game_transparency_title">透明度</string>

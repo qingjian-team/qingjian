@@ -51,6 +51,7 @@ class GameFrame(
     private fun dp(value: Float) = (value * density).toInt()
 
     private val header = Header(context, palette)
+    private val origin = IntArray(2)
 
     private val box = LinearLayout(context).apply {
         orientation = LinearLayout.VERTICAL
@@ -79,7 +80,6 @@ class GameFrame(
 
     /** 键盘那一块在窗口里的位置，交给 `onComputeInsets` 当可触摸区域。 */
     fun touchableRect(out: Rect) {
-        val origin = IntArray(2)
         getLocationInWindow(origin)
         out.set(origin[0] + box.left, origin[1] + box.top, origin[0] + box.right, origin[1] + box.bottom)
     }

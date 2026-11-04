@@ -56,7 +56,7 @@ abstract class PageActivity : Activity() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             root.setOnApplyWindowInsetsListener { view, insets ->
                 val bars = insets.getInsets(WindowInsets.Type.systemBars() or WindowInsets.Type.ime())
-                // 状态栏（含刘海）那一截算顶栏的，留多高由系统给，浮起来时栏底色一起铺上去
+                // 状态栏（含刘海）那一截算顶栏的，留多高由系统给，栏底色一起铺上去
                 view.setPadding(bars.left, 0, bars.right, bars.bottom)
                 bar.setPadding(ui.dp(4), bars.top, ui.dp(4), 0)
                 insets

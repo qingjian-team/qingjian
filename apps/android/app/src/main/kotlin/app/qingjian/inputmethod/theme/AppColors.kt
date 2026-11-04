@@ -5,7 +5,7 @@ import android.content.res.Configuration
 
 /**
  * App 页面的配色（「素笺」）：浅灰底、白色分组卡片、半透明的顶栏与底栏，只用一个竹青色做强调；
- * 与键盘的 [Palette] 分开，跟随系统深浅色。
+ * 与键盘的 [Palette] 分开；深浅色按「外观」设置（Android 12 起，见 [Appearance.applyToApp]），更早的系统跟随系统。
  */
 class AppColors(
     val background: Int,

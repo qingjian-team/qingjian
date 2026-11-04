@@ -20,7 +20,7 @@ class GameKeyboardActivity : PageActivity() {
         return listOf(
             ui.group(
                 null,
-                ui.toggle(R.string.game_keyboard_title, null, game.enabled) {
+                ui.toggle(R.string.page_game_keyboard, null, game.enabled) {
                     prefs.edit().putBoolean(GameKeyboard.KEY_ENABLED, it).apply()
                 },
                 footer = R.string.game_keyboard_note,
@@ -45,6 +45,12 @@ class GameKeyboardActivity : PageActivity() {
                 getString(R.string.game_apps_note),
             ),
         )
+    }
+
+    // 透明度、勾选在游戏里也能改（拖动栏、功能面板），回到这页重画
+    override fun onRestart() {
+        super.onRestart()
+        rebuild()
     }
 
     private fun appRows(game: GameKeyboard): List<View> {

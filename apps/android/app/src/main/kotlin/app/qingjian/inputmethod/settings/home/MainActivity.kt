@@ -32,7 +32,7 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // 升级前就选了深浅色的，进 App 时补一次（值没变时系统不做事）
+        // 进 App 时按「外观」对一次 App 自己的深浅色：设置可能是别处改的（值没变时系统不做事）
         Settings.load(this).appearance.applyToApp(this)
         ui = SettingsWidgets(this, AppColors.of(this))
         pages = listOf(HomePage(this, ui, ::select), VocabularyPage(this, ui), SettingsPage(this, ui))

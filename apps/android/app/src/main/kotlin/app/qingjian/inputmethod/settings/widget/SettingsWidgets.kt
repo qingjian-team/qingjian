@@ -87,7 +87,7 @@ class SettingsWidgets(private val context: Context, val colors: AppColors) {
         setPadding(dp(16), 0, dp(16), dp(7))
     }
 
-    /** 分组外的标题（旧页面直接排在卡片之间用）。 */
+    /** 不带卡片的小标题（外观页主题列表上方）。 */
     fun sectionTitle(title: Int) = label(context.getString(title)).apply {
         setPadding(dp(16), dp(GROUP_GAP_DP), dp(16), dp(7))
     }
@@ -188,18 +188,6 @@ class SettingsWidgets(private val context: Context, val colors: AppColors) {
         setPadding(dp(16), dp(12), dp(16), dp(12))
         addView(text(title, 16f, colors.text))
         note?.let { addView(text(it, 13f, colors.secondary).apply { setPadding(0, dp(4), 0, 0); setLineSpacing(0f, 1.2f) }) }
-    }
-
-    /** 单选的一行：选中的右边一个对勾。 */
-    fun choice(title: Int, selected: Boolean, onClick: () -> Unit) = LinearLayout(context).apply {
-        setOnClickListener { onClick() }
-        background = pressable()
-        orientation = LinearLayout.HORIZONTAL
-        gravity = Gravity.CENTER_VERTICAL
-        minimumHeight = dp(ROW_HEIGHT_DP)
-        setPadding(dp(16), dp(8), dp(16), dp(8))
-        addView(text(context.getString(title), 16f, colors.text), LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
-        if (selected) addView(icon(Icon.CHECK, colors.brand, 20f))
     }
 
     fun toggle(title: Int, note: Int?, checked: Boolean, onChange: (Boolean) -> Unit) =
