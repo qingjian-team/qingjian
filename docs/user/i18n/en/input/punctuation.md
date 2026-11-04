@@ -57,5 +57,5 @@ When one of the first few candidates has a matching emoji, kaomoji or symbol, it
 | `alpha` (English candidate) | alpha α |
 | `smile` in English mode | smile 🙂 😊 |
 
-After the same word they come in the order emoji, kaomoji, symbols. Each has its own limit: under emoji, 颜文字 (Kaomoji) and 符号 (Symbols) in 设置 → 候选 (Settings → Candidates), choose not to show them or to show at most 1–3 (by default 3 emoji and 1 each of kaomoji and symbols).
+After the same word they come in the order emoji, kaomoji, symbols. Each has its own limit: under emoji, 颜文字 (Kaomoji) and 符号 (Symbols) in 设置 → 候选 (Settings → Candidates), choose not to show them or to show at most 1–3 (by default 3 emoji and 1 each of kaomoji and symbols). On Android, choose under 输入 → 候选后面 (Input → After candidates) in the Qingjian app.
 Committing these candidates isn't recorded as a typing habit.

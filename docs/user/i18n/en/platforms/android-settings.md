@@ -45,6 +45,7 @@ The right side of each row shows the current setting, such as the input method o
 - **中英混打 (Mixed Chinese and English)**:
   - English words while typing pinyin: input such as `hello` or `compa` brings English words among the candidates; you can also choose 中文排在英文词前面 (Chinese before English words).
   - Candidates on the English keyboard: when on, tap a candidate to get it, and space, digits and punctuation commit the letters as typed; when off, letters on the English keyboard are committed directly without candidates.
+- **候选后面 (After candidates)**: three rows, emoji, 颜文字 (Kaomoji) and 符号 (Symbols), each set to 不显示 (Off) or at most 1–3 per word (`kaixin` → 开心 😄, `ku` → 哭 (T_T), `yuedengyu` → 约等于 ≈); by default 3 emoji and 1 each of kaomoji and symbols, the same as the items on the desktop Candidates page.
 - **标点与字形 (Punctuation and character forms)**:
   - Full-width punctuation for Chinese: when off, comma, full stop, question mark and so on are half-width on the Chinese keyboard. A point after a digit is always half-width.
   - Traditional character forms: the forms used when 繁体 (Traditional) is on in the function panel — Taiwan, Hong Kong or standard; see [Traditional Chinese output](../input/traditional.md).

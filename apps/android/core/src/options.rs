@@ -1,4 +1,4 @@
-//! 键盘设置里影响候选的几项：模糊音、中文标点全半角、打拼音时给不给英文词、学习语言、繁体字形、学习开关、附加词库、分次选词留在组句里、拼写纠错。Kotlin 按设置整份交过来。
+//! 键盘设置里影响候选的几项：模糊音、中文标点全半角、打拼音时给不给英文词、学习语言、繁体字形、学习开关、附加词库、分次选词留在组句里、拼写纠错、候选后面配几个 emoji / 颜文字 / 符号。Kotlin 按设置整份交过来。
 
 use qingjian_core::{FuzzyRules, Language, TraditionalVariant};
 use serde::Deserialize;
@@ -46,6 +46,18 @@ pub struct InputOptions {
     /// 拼写纠错（PC 的 `[general] spelling_correction`）：关了拼音只按敲的原样与模糊音读。
     #[serde(default = "default_true")]
     pub spelling_correction: bool,
+
+    /// 候选后面一次最多配几个 emoji（0–3，0 不配），同 PC 的 `[general] emoji`。
+    #[serde(default = "default_emoji")]
+    pub emoji: u8,
+
+    /// 一次最多配几个颜文字，同 PC 的 `[general] kaomoji`。
+    #[serde(default = "default_kaomoji")]
+    pub kaomoji: u8,
+
+    /// 一次最多配几个符号（约等于 ≈、alpha α），同 PC 的 `[general] symbols`。
+    #[serde(default = "default_symbols")]
+    pub symbols: u8,
 }
 
 /// 没选过时的学习语言，同 PC。
@@ -56,6 +68,26 @@ pub const DEFAULT_TRADITIONAL_VARIANT: TraditionalVariant = TraditionalVariant::
 
 /// 缺省打开的随包领域词库，同 PC 的 `[dictionaries] domains`：成语四字全拼几乎不歧义。
 pub const DEFAULT_DOMAINS: [&str; 1] = ["idioms"];
+
+/// 候选后面最多配几个 emoji / 颜文字 / 符号的几档（0 是不配），同 PC 设置程序。
+pub const EXTRA_COUNTS: [u8; 4] = [0, 1, 2, 3];
+
+/// 没选过时一次配几个：emoji 3、颜文字与符号各 1，同 PC 的缺省。
+pub const DEFAULT_EMOJI: u8 = 3;
+pub const DEFAULT_KAOMOJI: u8 = 1;
+pub const DEFAULT_SYMBOLS: u8 = 1;
+
+fn default_emoji() -> u8 {
+    DEFAULT_EMOJI
+}
+
+fn default_kaomoji() -> u8 {
+    DEFAULT_KAOMOJI
+}
+
+fn default_symbols() -> u8 {
+    DEFAULT_SYMBOLS
+}
 
 fn default_learning_language() -> String {
     DEFAULT_LEARNING_LANGUAGE.to_owned()
@@ -111,6 +143,18 @@ pub fn learning_language(code: &str) -> Option<Language> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn extra_counts_default_like_pc_and_can_be_turned_off() {
+        let base =
+            r#""full_width_punctuation":true,"english_in_chinese":true,"chinese_first":false"#;
+        let options: InputOptions = serde_json::from_str(&format!("{{{base}}}")).unwrap();
+        assert_eq!((options.emoji, options.kaomoji, options.symbols), (3, 1, 1));
+        let options: InputOptions =
+            serde_json::from_str(&format!(r#"{{{base},"emoji":0,"kaomoji":0,"symbols":2}}"#))
+                .unwrap();
+        assert_eq!((options.emoji, options.kaomoji, options.symbols), (0, 0, 2));
+    }
 
     #[test]
     fn fuzzy_names_follow_pc_config() {

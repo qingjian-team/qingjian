@@ -1,4 +1,4 @@
-//! 键盘设置页的选项清单（模糊音、学习语言、繁体字形、剪贴板条数）与缺省值：名字从 Core 取，与 PC 设置程序同一份。
+//! 键盘设置页的选项清单（模糊音、学习语言、繁体字形、剪贴板条数、emoji 等的个数）与缺省值：名字从 Core 取，与 PC 设置程序同一份。
 
 mod choice;
 mod choices;
@@ -9,7 +9,10 @@ pub use choices::SettingChoices;
 use qingjian_core::{FuzzyRules, TraditionalVariant, learning_languages};
 use qingjian_learning::DEFAULT_CLIPBOARD_LIMIT;
 
-use crate::options::{DEFAULT_DOMAINS, DEFAULT_LEARNING_LANGUAGE, DEFAULT_TRADITIONAL_VARIANT};
+use crate::options::{
+    DEFAULT_DOMAINS, DEFAULT_EMOJI, DEFAULT_KAOMOJI, DEFAULT_LEARNING_LANGUAGE, DEFAULT_SYMBOLS,
+    DEFAULT_TRADITIONAL_VARIANT, EXTRA_COUNTS,
+};
 
 /// 剪贴板条数的几档，缺省那档在里面。
 const CLIPBOARD_LIMITS: [usize; 4] = [100, 500, DEFAULT_CLIPBOARD_LIMIT, 5000];
@@ -46,6 +49,10 @@ pub fn setting_choices() -> SettingChoices {
         default_domains: DEFAULT_DOMAINS.to_vec(),
         clipboard_limits: CLIPBOARD_LIMITS.to_vec(),
         default_clipboard_limit: DEFAULT_CLIPBOARD_LIMIT,
+        extra_counts: EXTRA_COUNTS.to_vec(),
+        default_emoji: DEFAULT_EMOJI,
+        default_kaomoji: DEFAULT_KAOMOJI,
+        default_symbols: DEFAULT_SYMBOLS,
     }
 }
 

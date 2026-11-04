@@ -4,7 +4,7 @@ import app.qingjian.inputmethod.core.Native
 import org.json.JSONArray
 import org.json.JSONObject
 
-/** 键盘设置页的选项清单与缺省值（模糊音、学习语言、繁体字形、领域词库、剪贴板条数），都从 Rust 侧取（名字与 PC 设置程序同一份），取一次缓存着。 */
+/** 键盘设置页的选项清单与缺省值（模糊音、学习语言、繁体字形、领域词库、剪贴板条数、emoji 等的个数），都从 Rust 侧取（名字与 PC 设置程序同一份），取一次缓存着。 */
 object SettingChoices {
     private val json: JSONObject by lazy {
         runCatching { Native.settingChoices() }.getOrNull()?.let(::JSONObject) ?: JSONObject()
@@ -36,6 +36,18 @@ object SettingChoices {
     }
 
     val defaultClipboardLimit: Int by lazy { json.optInt("default_clipboard_limit", 1) }
+
+    /** 候选后面最多配几个 emoji / 颜文字 / 符号的几档，0 是不配。 */
+    val extraCounts: List<Int> by lazy {
+        val array = json.optJSONArray("extra_counts") ?: JSONArray()
+        List(array.length(), array::getInt)
+    }
+
+    val defaultEmoji: Int by lazy { json.optInt("default_emoji", 3) }
+
+    val defaultKaomoji: Int by lazy { json.optInt("default_kaomoji", 1) }
+
+    val defaultSymbols: Int by lazy { json.optInt("default_symbols", 1) }
 
     /** 学习语言的名字；不认识的代码按缺省语言。 */
     fun learningLanguageName(code: String) = label(learningLanguages, code, defaultLearningLanguage)

@@ -316,6 +316,12 @@
     <string name="section_pinyin">拼音</string>
     <string name="section_mixed">中英混打</string>
     <string name="section_punctuation">标点与字形</string>
+    <string name="section_extras">候选后面</string>
+    <string name="extras_emoji">emoji</string>
+    <string name="extras_kaomoji">颜文字</string>
+    <string name="extras_symbols">符号</string>
+    <string name="extras_off">不显示</string>
+    <string name="extras_note">一次最多配几个：kaixin → 开心 😄，ku → 哭 (T_T)，yuedengyu → 约等于 ≈；不显示时候选里只有字词</string>
     <string name="section_gestures">手势</string>
 
     <string name="page_game_keyboard">游戏键盘</string>

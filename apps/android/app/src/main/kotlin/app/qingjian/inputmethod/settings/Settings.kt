@@ -116,6 +116,9 @@ data class Settings(
         const val KEY_LEARNING = "learning"
         const val KEY_HOLD_SELECTIONS = "hold_selections"
         const val KEY_SPELLING_CORRECTION = "spelling_correction"
+        const val KEY_EMOJI = "emoji"
+        const val KEY_KAOMOJI = "kaomoji"
+        const val KEY_SYMBOLS = "symbols"
         const val KEY_DOMAINS = "domains"
         const val KEY_DISABLED_DICTIONARIES = "disabled_dictionaries"
         const val KEY_GLOSS_FILL = "gloss_fill"
@@ -185,6 +188,9 @@ data class Settings(
                     learning = prefs.getBoolean(KEY_LEARNING, true),
                     holdSelections = prefs.getBoolean(KEY_HOLD_SELECTIONS, true),
                     spellingCorrection = prefs.getBoolean(KEY_SPELLING_CORRECTION, true),
+                    emoji = prefs.getInt(KEY_EMOJI, SettingChoices.defaultEmoji),
+                    kaomoji = prefs.getInt(KEY_KAOMOJI, SettingChoices.defaultKaomoji),
+                    symbols = prefs.getInt(KEY_SYMBOLS, SettingChoices.defaultSymbols),
                     domains = prefs.getStringSet(KEY_DOMAINS, null)?.toSet() ?: SettingChoices.defaultDomains,
                     disabledDictionaries = prefs.getStringSet(KEY_DISABLED_DICTIONARIES, null).orEmpty().toSet(),
                     dictionariesStamp = prefs.getLong(KEY_DICTIONARIES_STAMP, 0),

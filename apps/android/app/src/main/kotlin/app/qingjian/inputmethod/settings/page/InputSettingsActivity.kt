@@ -12,7 +12,7 @@ import app.qingjian.inputmethod.settings.home.SettingsPage
 
 /**
  * 输入二级页：管「打出什么字」——中文输入方案（选了双拼 / 五笔多出各自的选项）、拼音（模糊音、纠错、分次选词）、
- * 中英混打、标点与字形、学习输入习惯。与 PC 设置程序「输入」「中英文」「候选」页的同名项一致；改了马上写设置，开着的键盘跟着重建。
+ * 中英混打、候选后面配的 emoji / 颜文字 / 符号、标点与字形、学习输入习惯。与 PC 设置程序「输入」「中英文」「候选」页的同名项一致；改了马上写设置，开着的键盘跟着重建。
  */
 class InputSettingsActivity : PageActivity() {
     override val title = R.string.page_input
@@ -38,6 +38,13 @@ class InputSettingsActivity : PageActivity() {
                 footer = R.string.fuzzy_note,
             ),
             ui.group(getString(R.string.section_mixed), mixedRows(settings), getString(R.string.english_in_chinese_note)),
+            ui.group(
+                R.string.section_extras,
+                extraRow(R.string.extras_emoji, Settings.KEY_EMOJI, options.emoji),
+                extraRow(R.string.extras_kaomoji, Settings.KEY_KAOMOJI, options.kaomoji),
+                extraRow(R.string.extras_symbols, Settings.KEY_SYMBOLS, options.symbols),
+                footer = R.string.extras_note,
+            ),
             ui.group(
                 R.string.section_punctuation,
                 ui.toggle(R.string.full_width_title, R.string.full_width_note, options.fullWidthPunctuation) {
@@ -151,6 +158,16 @@ class InputSettingsActivity : PageActivity() {
             prefs.edit().putBoolean(Settings.KEY_ENGLISH_CANDIDATES, it).apply()
         }
         return rows
+    }
+
+    /** 不显示 / 1 / 2 / 3：一次最多配几个，同 PC 设置程序「候选后面」。 */
+    private fun extraRow(title: Int, key: String, current: Int): View {
+        val counts = SettingChoices.extraCounts
+        val labels = counts.map { if (it == 0) getString(R.string.extras_off) else it.toString() }
+        return ui.segmentedRow(title, labels, counts.indexOf(current).coerceAtLeast(0)) {
+            prefs.edit().putInt(key, counts[it]).apply()
+            rebuild()
+        }
     }
 
     private fun variantPicker(settings: Settings): View {
