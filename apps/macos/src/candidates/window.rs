@@ -72,7 +72,6 @@ impl CandidateWindow {
             return;
         }
         let anchor = self.steady_anchor(anchor);
-        let panel = frame.is_panel();
         let bounds = self.view.set_frame(&frame);
         let content = self.place(bounds.content.size, anchor);
         let keyboard = frame.keyboard;
@@ -85,7 +84,7 @@ impl CandidateWindow {
         self.panel
             .setFrame_display(NSRect::new(origin, bounds.size), true);
         self.order_front_on_active_space();
-        self.apply_chrome(panel, material.is_some());
+        self.apply_chrome(material.is_some());
         match keyboard {
             Some(keyboard) => {
                 let (caret, screen) = self.caret(anchor);
@@ -108,9 +107,9 @@ impl CandidateWindow {
 
     /// 阴影与鼠标：系统绘制要系统阴影，青简渲染器的阴影画在位图里，垫了系统材质时又交回系统按窗口形状算；
     /// 两种候选画法与符号面板都收鼠标，面板本身仍是 `NonactivatingPanel`，不会抢走应用的键盘焦点。
-    fn apply_chrome(&self, panel: bool, material: bool) {
-        let bitmap = self.view.uses_bitmap() && !panel;
-        self.panel.setHasShadow(!bitmap || material);
+    fn apply_chrome(&self, material: bool) {
+        self.panel
+            .setHasShadow(!self.view.uses_bitmap() || material);
         if material {
             // 窗口形状每帧都变，系统阴影不会自己重算
             self.panel.invalidateShadow();

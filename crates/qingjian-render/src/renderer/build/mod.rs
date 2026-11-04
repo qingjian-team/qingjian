@@ -24,6 +24,7 @@ use bamboo_slip::{Effect, Scene, Visual};
 use bamboo_slip::{TextPainter, TextStyle};
 
 use context::Context;
+pub(super) use frame::resolve_fill;
 
 pub(super) struct Builder<'a> {
     pub(super) scene: &'a mut Scene,

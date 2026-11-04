@@ -1,4 +1,6 @@
-//! 点中的是什么：第几个候选、第几个候选的第几条译词、翻页箭头，或右键菜单里第几项。
+//! 点中的是什么：第几个候选、第几个候选的第几条译词、翻页箭头、右键菜单里第几项，或符号面板上的哪一块。
+
+use super::PanelHit;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum HitTarget {
@@ -13,4 +15,7 @@ pub enum HitTarget {
 
     /// 右键菜单里第 `n` 项（从 0 起）。
     MenuItem(usize),
+
+    /// 符号面板上的一块。
+    Panel(PanelHit),
 }

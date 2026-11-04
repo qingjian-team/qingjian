@@ -200,7 +200,7 @@ fn run(
             return;
         }
     };
-    let panel = match PanelWindow::new(on_panel) {
+    let panel = match PanelWindow::new(on_panel, painter.clone()) {
         Ok(panel) => Some(panel),
         Err(error) => {
             tracing::error!(%error, "建符号面板窗口失败，将不显示符号面板");
@@ -290,6 +290,9 @@ fn apply(
         UiCommand::Configure(settings) => {
             Painter::configure(painter, &settings);
             window.theme_changed();
+            if let Some(panel) = panel {
+                panel.theme_changed();
+            }
         }
     }
 }

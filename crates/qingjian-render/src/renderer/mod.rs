@@ -7,6 +7,7 @@ mod build;
 mod hit;
 mod keyboard;
 mod menu;
+mod panel;
 mod rendered;
 mod status;
 
@@ -26,7 +27,7 @@ use crate::theme::file::MaterialAppearance;
 
 use build::Builder;
 
-pub use hit::{HitRegion, HitTarget};
+pub use hit::{HitRegion, HitTarget, PanelHit};
 pub use rendered::Rendered;
 pub use status::{RenderedStatus, StatusCell};
 

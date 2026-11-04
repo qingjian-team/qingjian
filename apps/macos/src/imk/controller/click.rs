@@ -302,8 +302,8 @@ impl QingjianInputController {
             HitTarget::Page(step) => {
                 self.turn_page(step, client);
             }
-            // 菜单项在菜单自己的窗口里点，候选窗不会给出
-            HitTarget::MenuItem(_) => {}
+            // 菜单项在菜单自己的窗口里点，面板的点击走面板自己的回调，都不会到这里
+            HitTarget::MenuItem(_) | HitTarget::Panel(_) => {}
         }
     }
 }

@@ -11,6 +11,8 @@ use bamboo_slip::taffy::{
 
 use super::layout_style;
 use super::{Builder, Context};
+use crate::theme::Theme;
+use crate::theme::file::ColorSpec;
 use crate::theme::file::node::{BoxSpec, FillSpec, NodeKind, NodeSpec, Span, StopSpec};
 use bamboo_slip::Color;
 use bamboo_slip::RenderError;
@@ -97,46 +99,9 @@ impl Builder<'_> {
         Ok(())
     }
 
-    /// 填充写法 → 画法：颜色按数据与外观解析，图片从主题素材取（没有就不画；SVG 不管 `scale`，它的单位就是点）。
+    /// 填充写法 → 画法，颜色按当前数据与外观取值。
     fn fill(&self, fill: &FillSpec, ctx: Context) -> Option<Fill> {
-        let stops = |stops: &[StopSpec]| -> Vec<(Color, f32)> {
-            let last = stops.len().saturating_sub(1).max(1) as f32;
-            stops
-                .iter()
-                .enumerate()
-                .map(|(i, stop)| match stop {
-                    StopSpec::At(color, position) => (self.color(color, ctx), *position),
-                    StopSpec::Even(color) => (self.color(color, ctx), i as f32 / last),
-                })
-                .collect()
-        };
-        Some(match fill {
-            FillSpec::Color(color) => Fill::Solid(self.color(color, ctx)),
-            FillSpec::Linear { linear, stops: s } => Fill::Linear {
-                angle: *linear,
-                stops: stops(s),
-            },
-            FillSpec::Radial { radial, stops: s } => Fill::Radial {
-                center: *radial,
-                stops: stops(s),
-            },
-            FillSpec::Image {
-                image,
-                slice,
-                scale,
-            } => match self.theme.svg(image) {
-                Some(svg) => Fill::Svg {
-                    image: svg,
-                    slice: *slice,
-                    px_per_unit: self.scale,
-                },
-                None => Fill::Image {
-                    pixmap: self.theme.image(image)?,
-                    slice: *slice,
-                    pixels_per_px: scale / self.scale,
-                },
-            },
-        })
+        resolve_fill(self.theme, self.scale, fill, |color| self.color(color, ctx))
     }
 
     /// 表格的格子（已放好行列）与列数。
@@ -207,4 +172,51 @@ impl Builder<'_> {
         }
         Ok((cells, columns))
     }
+}
+
+/// 填充写法 → 画法：颜色交给 `color` 解析，图片从主题素材取（没有就不画；SVG 不管 `scale`，它的单位就是点）。
+pub(in crate::renderer) fn resolve_fill(
+    theme: &Theme,
+    scale: f32,
+    fill: &FillSpec,
+    color: impl Fn(&ColorSpec) -> Color,
+) -> Option<Fill> {
+    let stops = |stops: &[StopSpec]| -> Vec<(Color, f32)> {
+        let last = stops.len().saturating_sub(1).max(1) as f32;
+        stops
+            .iter()
+            .enumerate()
+            .map(|(i, stop)| match stop {
+                StopSpec::At(spec, position) => (color(spec), *position),
+                StopSpec::Even(spec) => (color(spec), i as f32 / last),
+            })
+            .collect()
+    };
+    Some(match fill {
+        FillSpec::Color(spec) => Fill::Solid(color(spec)),
+        FillSpec::Linear { linear, stops: s } => Fill::Linear {
+            angle: *linear,
+            stops: stops(s),
+        },
+        FillSpec::Radial { radial, stops: s } => Fill::Radial {
+            center: *radial,
+            stops: stops(s),
+        },
+        FillSpec::Image {
+            image,
+            slice,
+            scale: image_scale,
+        } => match theme.svg(image) {
+            Some(svg) => Fill::Svg {
+                image: svg,
+                slice: *slice,
+                px_per_unit: scale,
+            },
+            None => Fill::Image {
+                pixmap: theme.image(image)?,
+                slice: *slice,
+                pixels_per_px: image_scale / scale,
+            },
+        },
+    })
 }

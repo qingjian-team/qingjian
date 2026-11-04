@@ -1,6 +1,7 @@
 //! 面板一次要画的内容，Router 产出、UI 线程画。
 
 use qingjian_platform::Appearance;
+pub use qingjian_render::PanelCell;
 
 /// 面板一帧：两行标签、视口里的格子与信息行。
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -30,12 +31,4 @@ pub struct PanelFrame {
     pub footer: Option<String>,
 
     pub appearance: Appearance,
-}
-
-/// 一格：条目本身与它的中文名字（信息行里显示）。
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct PanelCell {
-    pub text: String,
-
-    pub name: Option<String>,
 }

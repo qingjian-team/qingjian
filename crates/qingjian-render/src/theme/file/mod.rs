@@ -7,6 +7,7 @@ mod keyboard;
 mod material;
 mod meta;
 pub(crate) mod node;
+mod panel;
 mod status;
 mod text;
 mod windows;
@@ -21,6 +22,7 @@ pub(crate) use font::{BundledFont, FontRef, FontStyle};
 pub(crate) use keyboard::KeyboardSpec;
 pub(crate) use material::{MaterialAppearance, MaterialSpec};
 pub(crate) use meta::{LockedAppearance, Meta};
+pub(crate) use panel::PanelSpec;
 pub(crate) use status::StatusSpec;
 pub(crate) use text::TextSettings;
 pub(crate) use windows::Windows;
@@ -59,4 +61,6 @@ pub(crate) struct ThemeFile {
     pub(crate) status: StatusSpec,
 
     pub(crate) keyboard: KeyboardSpec,
+
+    pub(crate) panel: PanelSpec,
 }

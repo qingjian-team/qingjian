@@ -25,7 +25,7 @@ use objc2_foundation::{
 use qingjian_platform::{CandidateRenderer, LayoutMode};
 
 use super::animation::AnimationTimer;
-use super::bitmap::BitmapPainter;
+use super::bitmap::{BitmapPainter, PanelPainter};
 use super::bounds::ViewBounds;
 use super::cloud_icon::CloudIcon;
 use super::frame::Frame;
@@ -56,6 +56,9 @@ pub struct Ivars {
 
     /// 位图渲染器；`None` 走 AppKit 逐项绘制。按配置建或丢。
     bitmap: RefCell<Option<BitmapPainter>>,
+
+    /// 符号面板的位图；第一次打开面板时建，建不起来留空（面板不显示）。
+    panel: RefCell<Option<PanelPainter>>,
 
     /// 用户选的字族名（空为系统字体），换了要重建渲染器。
     font: RefCell<String>,
@@ -163,7 +166,7 @@ define_class!(
         #[unsafe(method(drawRect:))]
         fn draw_rect(&self, _dirty: NSRect) {
             if self.ivars().frame.borrow().is_panel() {
-                self.draw();
+                self.draw_panel();
             } else if let Some(bitmap) = &mut *self.ivars().bitmap.borrow_mut() {
                 bitmap.draw(self.is_dark(), self.backing_scale());
             } else {
@@ -183,6 +186,7 @@ impl CandidateView {
             cloud,
             theme,
             bitmap: RefCell::new(None),
+            panel: RefCell::new(None),
             font: RefCell::new(String::new()),
             render_theme: RefCell::new(qingjian_render::Theme::light()),
             animation: RefCell::new(AnimationTimer::default()),
@@ -212,6 +216,9 @@ impl CandidateView {
     /// 渲染器主题，只对青简渲染器生效。配置或主题文件变了才会调，每次都当场重画。
     pub fn set_render_theme(&self, theme: qingjian_render::Theme) {
         *self.ivars().render_theme.borrow_mut() = theme.clone();
+        if let Some(panel) = &mut *self.ivars().panel.borrow_mut() {
+            panel.set_theme(theme.clone());
+        }
         if let Some(bitmap) = &mut *self.ivars().bitmap.borrow_mut() {
             bitmap.set_theme(theme);
             self.setNeedsDisplay(true);
@@ -281,9 +288,11 @@ impl CandidateView {
     pub fn set_frame(&self, frame: &Frame) -> ViewBounds {
         *self.ivars().frame.borrow_mut() = frame.clone();
         self.setNeedsDisplay(true);
-        if frame.is_panel() {
+        if let Some(panel) = &frame.panel {
             self.stop_animation();
-            return ViewBounds::filled(self.preferred_size());
+            return self
+                .set_panel_frame(panel)
+                .unwrap_or_else(|| ViewBounds::filled(objc2_foundation::NSSize::ZERO));
         }
         let bounds = self.ivars().bitmap.borrow_mut().as_mut().map(|bitmap| {
             bitmap.set_frame(
@@ -358,18 +367,14 @@ impl CandidateView {
             .and_then(BitmapPainter::material)
     }
 
-    /// 在用青简渲染器（阴影画在位图里）；否则是 AppKit 逐项绘制，要系统阴影。
+    /// 这一帧是位图（阴影画在位图里）：青简渲染器画的候选窗与符号面板；否则是 AppKit 逐项绘制，要系统阴影。
     pub fn uses_bitmap(&self) -> bool {
-        self.ivars().bitmap.borrow().is_some()
+        self.ivars().frame.borrow().is_panel() || self.ivars().bitmap.borrow().is_some()
     }
 
     fn preferred_size(&self) -> NSSize {
         let theme = self.theme();
         let frame = self.ivars().frame.borrow();
-        if frame.is_panel() {
-            let (width, height) = self.panel_size(&frame);
-            return NSSize::new(width + theme.padding * 2.0, height + theme.padding * 2.0);
-        }
         let (top_width, top_height) = self.top_line_size(&frame);
         let (body_width, body_height) = match self.ivars().layout.get() {
             LayoutMode::Vertical => self.vertical_size(&frame),
@@ -558,10 +563,6 @@ impl CandidateView {
         )
         .fill();
 
-        if frame.is_panel() {
-            self.draw_panel(&frame, bounds);
-            return;
-        }
         let mut y = theme.padding;
         y += self.draw_top_line(&frame, y);
         match self.ivars().layout.get() {

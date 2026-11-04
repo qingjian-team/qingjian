@@ -56,7 +56,9 @@ impl CandidateView {
                     candidate: offset, ..
                 },
             ) => offset,
-            Some(HitTarget::MenuItem(_) | HitTarget::Page(_)) | None => return,
+            Some(HitTarget::MenuItem(_) | HitTarget::Page(_) | HitTarget::Panel(_)) | None => {
+                return;
+            }
         };
         tracing::debug!(offset, "候选右键命中");
         let (items, pick) = match &*self.ivars().on_menu.borrow() {

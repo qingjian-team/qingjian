@@ -1,7 +1,12 @@
 //! 符号面板的呈现：当前分类的条目排成格子，顶上两行标签，信息行放高亮条目的名字。
 
-use crate::candidates::{Frame, PanelTabs, Row};
+use qingjian_core::GRID_ROWS;
+use qingjian_render::{PanelCell, PanelFrame};
+
+use crate::candidates::Frame;
 use crate::host::Host;
+
+const HINT: &str = "Tab 换组 · [ ] 换类 · 双击或空格上屏";
 
 impl Host {
     /// 面板刚打开或换了分类：格子换成当前分类的条目，高亮回到第一格。
@@ -19,54 +24,37 @@ impl Host {
             return;
         };
         let groups = panel.groups();
-        let tabs = PanelTabs {
-            groups: groups.iter().map(|g| g.label().to_owned()).collect(),
-            group: groups.iter().position(|g| *g == panel.group()).unwrap_or(0),
-            sections: panel
-                .group_sections()
-                .0
-                .iter()
-                .map(|s| (*s).to_owned())
-                .collect(),
-            section: panel.group_sections().1,
-        };
+        let (sections, section) = panel.group_sections();
         let Some((cells, columns)) = self.session.grid_cells() else {
             return;
         };
         let top = self.session.grid.map_or(0, |grid| grid.top());
-        let rows = cells
-            .iter()
-            .map(|cell| match cell.candidate() {
-                Some(candidate) => {
-                    let mut row =
-                        Row::from_candidate(0, candidate, self.translation_pos, self.aux_code_show);
-                    row.index = String::new();
-                    row
-                }
-                None => Row {
-                    index: String::new(),
-                    text: String::new(),
-                    code: None,
-                    annotation: Vec::new(),
-                    cloud: false,
-                },
-            })
-            .collect();
         let size = self.session.layout.page_size();
         let pages = self.session.pages();
-        let frame = Frame {
-            preedit: None,
-            rows,
-            highlighted: self.session.highlighted.saturating_sub(top * size),
+        let panel = PanelFrame {
+            groups: groups.iter().map(|g| g.label().to_owned()).collect(),
+            group: groups.iter().position(|g| *g == panel.group()).unwrap_or(0),
+            sections: sections.iter().map(|s| (*s).to_owned()).collect(),
+            section,
+            cells: cells
+                .iter()
+                .map(|cell| {
+                    cell.candidate().map(|candidate| PanelCell {
+                        text: candidate.text.clone(),
+                        name: candidate.reading.clone(),
+                    })
+                })
+                .collect(),
             columns,
-            column_ems: Vec::new(),
+            rows: GRID_ROWS,
+            highlight: self.session.highlighted.saturating_sub(top * size),
             footer: (pages > 1).then(|| format!("{}/{pages}", self.session.page + 1)),
-            pages_around: (self.session.page > 0, self.session.page + 1 < pages),
-            sentence: None,
-            status: None,
+            hint: HINT.to_owned(),
+        };
+        let frame = Frame {
             mode: self.input_mode(),
-            panel: Some(tabs),
-            keyboard: None,
+            panel: Some(panel),
+            ..Frame::default()
         };
         self.window.show(frame, self.anchor);
     }

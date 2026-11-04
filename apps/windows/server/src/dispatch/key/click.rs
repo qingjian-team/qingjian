@@ -31,7 +31,7 @@ impl Router {
                 .annotated_candidate_on_page(candidate + 1)
                 .and_then(|candidate| self.engine.commit_translation(&candidate, sense)),
             // 菜单项在菜单自己的窗口里点，候选窗不会给出；翻页上面已经处理
-            HitTarget::MenuItem(_) | HitTarget::Page(_) => None,
+            HitTarget::MenuItem(_) | HitTarget::Page(_) | HitTarget::Panel(_) => None,
         };
         let Some(text) = text else {
             tracing::debug!(?target, "点中的格子没有可上屏的");

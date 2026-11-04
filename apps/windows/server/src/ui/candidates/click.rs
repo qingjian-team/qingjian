@@ -112,7 +112,7 @@ pub(super) fn right_button_up() {
                 candidate: offset, ..
             },
         ) => offset,
-        Some(HitTarget::MenuItem(_) | HitTarget::Page(_)) | None => return,
+        Some(HitTarget::MenuItem(_) | HitTarget::Page(_) | HitTarget::Panel(_)) | None => return,
     };
     send(CandidateMouse::Menu {
         offset,

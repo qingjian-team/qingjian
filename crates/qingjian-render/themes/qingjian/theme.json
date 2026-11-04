@@ -188,5 +188,19 @@
     "next_fill": "@accent", "next_text": "@text",
     "dimmed_text": "@dim",
     "effects": [{ "type": "drop-shadow", "y": 6, "blur": 12, "color": "#0000005a" }]
+  },
+
+  "panel": {
+    "label_font": { "base": "candidate", "size": 13, "line_height": 16 },
+    "hint_font": { "base": "index", "size": 11, "line_height": 14, "weight": "regular" },
+    "item_font": { "base": "candidate", "size": 24, "line_height": 30 },
+    "wide_item_font": { "base": "candidate", "size": 17, "line_height": 22 },
+    "padding": 10, "radius": 10, "cell": 46, "cell_gap": 2, "cell_radius": 6,
+    "pill_padding_x": 9, "pill_padding_y": 3, "pill_gap": 4,
+    "tab_gap": 14, "underline": 2, "section_gap": 8, "close_size": 18,
+    "background": "@surface", "text": "@text", "label": "@gloss", "hint": "@faint",
+    "pill_fill": "@accent", "pill_text": "@hl_text", "underline_color": "@accent",
+    "divider": "@key", "highlight": "@accent", "close_fill": "@key", "close_icon": "@gloss",
+    "effects": [{ "type": "drop-shadow", "y": 6, "blur": 12, "color": "#0000005a" }]
   }
 }

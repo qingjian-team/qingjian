@@ -29,6 +29,32 @@ pub(super) fn problems(file: &ThemeFile) -> Vec<String> {
     ] {
         check.color(color, "status");
     }
+    let panel = &file.panel;
+    for font in [
+        &panel.label_font,
+        &panel.hint_font,
+        &panel.item_font,
+        &panel.wide_item_font,
+    ] {
+        check.font(font, "panel");
+    }
+    for fill in [&panel.background, &panel.pill_fill, &panel.highlight] {
+        for color in fill.colors() {
+            check.spec(color, "panel");
+        }
+    }
+    for color in [
+        &panel.text,
+        &panel.label,
+        &panel.hint,
+        &panel.pill_text,
+        &panel.underline_color,
+        &panel.divider,
+        &panel.close_fill,
+        &panel.close_icon,
+    ] {
+        check.color(color, "panel");
+    }
     found
 }
 

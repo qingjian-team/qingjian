@@ -1,0 +1,83 @@
+use crate::panel::{PanelCell, PanelFrame};
+use crate::renderer::{HitTarget, PanelHit, Renderer};
+use crate::theme::Theme;
+use bamboo_slip::FontLibrary;
+
+fn frame(sections: usize, cells: usize, columns: usize) -> PanelFrame {
+    PanelFrame {
+        groups: vec!["搜索".into(), "符号".into(), "表情".into()],
+        group: 1,
+        sections: (0..sections).map(|i| format!("分类{i}")).collect(),
+        section: sections.saturating_sub(1),
+        cells: (0..cells)
+            .map(|i| {
+                Some(PanelCell {
+                    text: format!("{}", char::from_u32(0x2190 + i as u32).unwrap()),
+                    name: Some("箭头".into()),
+                })
+            })
+            .collect(),
+        columns,
+        rows: 6,
+        highlight: 0,
+        footer: Some("1/3".into()),
+        hint: "Tab 换组".into(),
+    }
+}
+
+#[test]
+fn size_does_not_depend_on_content_and_hits_cover_every_part() {
+    // 没有系统字体的环境（CI 容器）跳过
+    let Ok(library) = FontLibrary::system("zh-CN") else {
+        return;
+    };
+    let mut renderer = Renderer::new(library);
+    let theme = Theme::light();
+    let full = renderer
+        .render_panel(&frame(30, 60, 10), &theme, 2.0)
+        .unwrap();
+    let sparse = renderer.render_panel(&frame(2, 3, 4), &theme, 2.0).unwrap();
+    assert_eq!(
+        (full.content_width, full.content_height),
+        (sparse.content_width, sparse.content_height)
+    );
+    let count = |rendered: &crate::Rendered, f: fn(&HitTarget) -> bool| {
+        rendered.hits.iter().filter(|hit| f(&hit.target)).count()
+    };
+    assert_eq!(
+        count(&full, |t| matches!(t, HitTarget::Panel(PanelHit::Group(_)))),
+        3
+    );
+    assert_eq!(
+        count(&full, |t| matches!(t, HitTarget::Panel(PanelHit::Close))),
+        1
+    );
+    assert_eq!(
+        count(&full, |t| matches!(t, HitTarget::Panel(PanelHit::Cell(_)))),
+        60
+    );
+    assert_eq!(
+        count(&sparse, |t| matches!(
+            t,
+            HitTarget::Panel(PanelHit::Cell(_))
+        )),
+        3
+    );
+    // 三十个分类放不下，只露出一部分，当前（最后一个）一定在里面
+    let sections: Vec<usize> = full
+        .hits
+        .iter()
+        .filter_map(|hit| match hit.target {
+            HitTarget::Panel(PanelHit::Section(i)) => Some(i),
+            _ => None,
+        })
+        .collect();
+    assert!(sections.len() < 30 && sections.contains(&29));
+    assert_eq!(
+        count(&sparse, |t| matches!(
+            t,
+            HitTarget::Panel(PanelHit::Section(_))
+        )),
+        2
+    );
+}

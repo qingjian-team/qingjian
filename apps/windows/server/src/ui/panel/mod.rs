@@ -1,16 +1,12 @@
 //! 符号面板窗口：与候选窗同款的不抢焦点、置顶分层窗口，贴在光标下方（从菜单打开时在鼠标旁），尺寸固定。
-//! 背景与阴影走分层窗口合成器，内容用 Direct2D 画（[`d2d`]），各块位置在 [`layout`]，绘制在 [`draw`]。
+//! 面板由青简渲染器按主题画成位图贴上去（[`qingjian_render::Renderer::render_panel`]），点击区域随位图一起给出。
 //! 鼠标：单击选格、双击上屏、点胶囊 / 标签换组换类、滚轮滚行、点 ✕ 收起，认出来经回调交给 Router；
 //! 双击要窗口类带 `CS_DBLCLKS`。按下不激活窗口，焦点留在应用里。
-
-mod d2d;
-mod draw;
-mod layout;
 
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
-use windows::Win32::Foundation::{COLORREF, HWND, LPARAM, LRESULT, POINT, RECT, WPARAM};
+use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, POINT, RECT, WPARAM};
 use windows::Win32::UI::HiDpi::GetDpiForWindow;
 use windows::Win32::UI::WindowsAndMessaging::{
     CS_DBLCLKS, CreateWindowExW, DefWindowProcW, DestroyWindow, GetCursorPos, HTCLIENT,
@@ -20,27 +16,31 @@ use windows::Win32::UI::WindowsAndMessaging::{
 };
 use windows::core::{PCWSTR, Result, w};
 
-use self::d2d::{Direct2D, accent_color};
-use self::draw::Colors;
-use self::layout::{Fonts, PanelLayout};
-use super::candidates::theme::Theme;
+use qingjian_core::GRID_ROWS;
+use qingjian_render::{FontLibrary, HitRegion, HitTarget, PanelHit, Renderer, Theme, system_fonts};
+
 use super::candidates::{place, resolve_dark};
-use super::layered::{self, Layered};
+use super::layered;
 use super::monitor;
+use super::painter::SharedPainter;
 use super::window_class::WindowClass;
 use crate::dispatch::{PanelFrame, PanelMouse};
 
 const CLASS_NAME: PCWSTR = w!("QingjianSymbolPanel");
 static CLASS: WindowClass = WindowClass::new();
 
+const HINT: &str = "Tab 换组 · [ ] 换类 · 双击或空格上屏";
+
 /// 面板上的鼠标操作交给 Router 的回调（UI 线程上调，投给工人线程）。
 pub type PanelEvents = Box<dyn Fn(PanelMouse) + Send>;
 
-/// 窗口过程要读的：上一帧与它的布局、内容左上角的屏幕坐标、回调、没凑够一行的滚轮量。
+/// 窗口过程要读的：上一帧的点击区域、内容区左上角的屏幕坐标与宽高、回调、没凑够一行的滚轮量。
 struct Shared {
-    shown: RefCell<Option<(PanelFrame, PanelLayout)>>,
+    hits: RefCell<Vec<HitRegion>>,
 
     origin: Cell<(i32, i32)>,
+
+    size: Cell<(i32, i32)>,
 
     wheel: Cell<i32>,
 
@@ -54,14 +54,12 @@ thread_local! {
 pub(super) struct PanelWindow {
     hwnd: HWND,
 
-    /// 建不起来（系统缺组件）时为 `None`，面板不显示。
-    d2d: Option<Direct2D>,
+    /// 面板用自己的渲染器：与候选窗共用会打断候选窗的过渡动画；系统绘制时也要有。第一次显示时才建，
+    /// 建不成为 `Some(None)`，不再试。
+    renderer: RefCell<Option<Option<Renderer>>>,
 
-    /// 按 DPI 建的字体，DPI 变了重建。
-    fonts: RefCell<Option<Fonts>>,
-
-    /// 候选窗那套主题（颜色、圆角），DPI 或深浅变了重建。
-    theme: RefCell<Option<(u32, bool, Rc<Theme>)>>,
+    /// 候选窗那份渲染器与主题；系统绘制时为空，面板用青简绿。
+    painter: SharedPainter,
 
     shared: Rc<Shared>,
 
@@ -69,7 +67,7 @@ pub(super) struct PanelWindow {
 }
 
 impl PanelWindow {
-    pub(super) fn new(events: PanelEvents) -> Result<Self> {
+    pub(super) fn new(events: PanelEvents, painter: SharedPainter) -> Result<Self> {
         CLASS.ensure(|| WNDCLASSEXW {
             style: CS_DBLCLKS,
             lpfnWndProc: Some(wndproc),
@@ -94,21 +92,18 @@ impl PanelWindow {
                 None,
             )?
         };
-        let d2d = Direct2D::new()
-            .inspect_err(|error| tracing::error!(%error, "Direct2D 初始化失败，符号面板将不显示"))
-            .ok();
         let shared = Rc::new(Shared {
-            shown: RefCell::new(None),
+            hits: RefCell::new(Vec::new()),
             origin: Cell::new((0, 0)),
+            size: Cell::new((0, 0)),
             wheel: Cell::new(0),
             events,
         });
         SHARED.with(|slot| *slot.borrow_mut() = Some(shared.clone()));
         Ok(Self {
             hwnd,
-            d2d,
-            fonts: RefCell::new(None),
-            theme: RefCell::new(None),
+            renderer: RefCell::new(None),
+            painter,
             shared,
             visible: Cell::new(false),
         })
@@ -116,9 +111,6 @@ impl PanelWindow {
 
     /// 画一帧并显示。`anchor` 是光标矩形；没有时第一次摆在鼠标旁，之后留在原处。
     pub(super) fn show(&self, frame: PanelFrame, anchor: Option<RECT>) {
-        let Some(d2d) = &self.d2d else {
-            return;
-        };
         let anchor = match anchor {
             Some(rect) => Some(rect),
             None if self.visible.get() => None,
@@ -137,70 +129,45 @@ impl PanelWindow {
         let dpi = monitor::dpi_near(point)
             .or_else(|| Some(unsafe { GetDpiForWindow(self.hwnd) }).filter(|&dpi| dpi != 0))
             .unwrap_or(96);
-        let theme = self.theme(dpi, resolve_dark(frame.appearance));
-        if self.fonts.borrow().as_ref().is_none_or(|f| f.dpi != dpi) {
-            match Fonts::new(d2d, dpi) {
-                Ok(fonts) => *self.fonts.borrow_mut() = Some(fonts),
-                Err(error) => {
-                    tracing::warn!(%error, "符号面板建字体失败");
-                    return;
-                }
-            }
-        }
-        let fonts = self.fonts.borrow();
-        let Some(fonts) = fonts.as_ref() else {
-            return;
+        let theme = self.theme().with_dark(resolve_dark(frame.appearance));
+        let rendered = {
+            let mut renderer = self.renderer.borrow_mut();
+            let Some(renderer) = renderer.get_or_insert_with(|| new_renderer(&theme)) else {
+                return;
+            };
+            renderer.render_panel(&content(frame), &theme, dpi.max(96) as f32 / 96.0)
         };
-        let layout = PanelLayout::new(d2d, fonts, &frame);
-        let content = layout.size;
-        let margin = layered::shadow_margin(dpi);
+        let rendered = match rendered {
+            Ok(rendered) => rendered,
+            Err(error) => {
+                tracing::warn!(%error, "symbol panel render failed");
+                self.hide();
+                return;
+            }
+        };
+        let size = (
+            rendered.content_width as i32,
+            rendered.content_height as i32,
+        );
         let origin = match anchor {
-            Some(rect) => place(rect, content, (0, margin)),
+            Some(rect) => {
+                let overhang = rendered.visible_overhang();
+                place(rect, size, (overhang.0 as i32, overhang.1 as i32))
+            }
             None => self.shared.origin.get(),
         };
-        let colors = Colors {
-            text: theme.text_color,
-            gloss: theme.gloss_color,
-            index: theme.index_color,
-            separator: theme.pos_color,
-            highlight: theme.highlight,
-            accent: accent_color(),
-            close: mix(theme.background, theme.text_color, 0.1),
-        };
-        let inset = theme.corner_radius;
-        let composed = layered::composite(
-            self.hwnd,
-            &Layered {
-                content,
-                margin,
-                win_pos: (origin.0 - margin, origin.1 - margin),
-                win_size: (content.0 + margin * 2, content.1 + margin * 2),
-                background: theme.background,
-                corner_radius: theme.corner_radius,
-                // 圆角那一圈留给合成器，D2D 只画里面（内容都在内边距以内）
-                paint: &|hdc, client| {
-                    let area = RECT {
-                        left: inset,
-                        top: inset,
-                        right: client.right - inset,
-                        bottom: client.bottom - inset,
-                    };
-                    let painted = d2d.paint(hdc, area, theme.background, |canvas| {
-                        draw::paint(canvas, &frame, &layout, fonts, &colors);
-                    });
-                    if let Err(error) = painted {
-                        tracing::warn!(%error, "符号面板绘制失败");
-                    }
-                },
-            },
+        let position = (
+            origin.0 - rendered.content_x as i32,
+            origin.1 - rendered.content_y as i32,
         );
-        if let Err(error) = composed {
-            tracing::warn!(%error, "符号面板贴图失败");
+        if let Err(error) = layered::present(self.hwnd, &rendered.pixmap, position) {
+            tracing::warn!(%error, "symbol panel present failed");
             self.hide();
             return;
         }
         self.shared.origin.set(origin);
-        *self.shared.shown.borrow_mut() = Some((frame, layout));
+        self.shared.size.set(size);
+        *self.shared.hits.borrow_mut() = rendered.hits;
         if !self.visible.replace(true) {
             let _ = unsafe { ShowWindow(self.hwnd, SW_SHOWNA) };
         }
@@ -210,19 +177,23 @@ impl PanelWindow {
         let _ = unsafe { ShowWindow(self.hwnd, SW_HIDE) };
         self.visible.set(false);
         self.shared.wheel.set(0);
-        *self.shared.shown.borrow_mut() = None;
+        self.shared.hits.borrow_mut().clear();
     }
 
-    fn theme(&self, dpi: u32, dark: bool) -> Rc<Theme> {
-        let mut cached = self.theme.borrow_mut();
-        match cached.as_ref() {
-            Some((d, k, theme)) if *d == dpi && *k == dark => theme.clone(),
-            _ => {
-                let theme = Rc::new(Theme::new(dpi, dark));
-                *cached = Some((dpi, dark, theme.clone()));
-                theme
-            }
+    /// 主题换了：新主题的字体要装进面板自己的渲染器。
+    pub(super) fn theme_changed(&self) {
+        let theme = self.theme();
+        if let Some(Some(renderer)) = self.renderer.borrow_mut().as_mut() {
+            renderer.load_theme_fonts(&theme, system_fonts::family_files);
         }
+    }
+
+    /// 候选窗用的主题（浅色那一份）；系统绘制时是青简绿。
+    fn theme(&self) -> Theme {
+        self.painter
+            .borrow()
+            .as_ref()
+            .map_or_else(Theme::light, |painter| painter.theme().clone())
     }
 }
 
@@ -233,16 +204,34 @@ impl Drop for PanelWindow {
     }
 }
 
-/// `a` 往 `b` 混 `t`（0–1）。
-fn mix(a: COLORREF, b: COLORREF, t: f32) -> COLORREF {
-    let channel = |shift: u32| {
-        let (x, y) = (
-            ((a.0 >> shift) & 0xFF) as f32,
-            ((b.0 >> shift) & 0xFF) as f32,
-        );
-        ((x + (y - x) * t).round() as u32) << shift
-    };
-    COLORREF(channel(0) | channel(8) | channel(16))
+/// Router 给的一帧换成渲染器的。
+fn content(frame: PanelFrame) -> qingjian_render::PanelFrame {
+    qingjian_render::PanelFrame {
+        groups: frame.groups,
+        group: frame.group,
+        sections: frame.sections,
+        section: frame.section,
+        cells: frame.cells,
+        columns: frame.columns,
+        rows: GRID_ROWS,
+        highlight: frame.highlight,
+        footer: frame.footer,
+        hint: HINT.to_owned(),
+    }
+}
+
+fn new_renderer(theme: &Theme) -> Option<Renderer> {
+    match FontLibrary::system("zh-CN") {
+        Ok(library) => {
+            let mut renderer = Renderer::new(library);
+            renderer.load_theme_fonts(theme, system_fonts::family_files);
+            Some(renderer)
+        }
+        Err(error) => {
+            tracing::warn!(%error, "symbol panel font library failed to load, panel disabled");
+            None
+        }
+    }
 }
 
 /// 鼠标所在处当一行光标，面板摆在它下方。
@@ -273,17 +262,14 @@ fn cursor_in_content(shared: &Shared) -> (f32, f32) {
     to_content(shared, point.x, point.y)
 }
 
-/// 内容区收鼠标，阴影那一圈穿到下面的应用。
+/// 内容区收鼠标（滚轮在空白处也能滚），阴影那一圈穿到下面的应用。
 fn hit_test(lparam: LPARAM) -> LRESULT {
     let x = (lparam.0 & 0xFFFF) as i16 as i32;
     let y = ((lparam.0 >> 16) & 0xFFFF) as i16 as i32;
     let inside = shared().is_some_and(|shared| {
         let (x, y) = to_content(&shared, x, y);
-        shared
-            .shown
-            .borrow()
-            .as_ref()
-            .is_some_and(|(_, layout)| layout.inside(x, y))
+        let (width, height) = shared.size.get();
+        x >= 0.0 && y >= 0.0 && x < width as f32 && y < height as f32
     });
     if inside {
         LRESULT(HTCLIENT as isize)
@@ -297,15 +283,21 @@ fn click(double: bool) {
         return;
     };
     let (x, y) = cursor_in_content(&shared);
-    let hit = shared
-        .shown
+    let target = shared
+        .hits
         .borrow()
-        .as_ref()
-        .and_then(|(frame, layout)| layout.hit(frame, x, y, double));
-    if let Some(hit) = hit {
-        tracing::debug!(?hit, "点击符号面板");
-        (shared.events)(hit);
-    }
+        .iter()
+        .find(|region| region.contains(x, y))
+        .map(|region| region.target);
+    let hit = match target {
+        Some(HitTarget::Panel(PanelHit::Cell(offset))) => PanelMouse::Cell { offset, double },
+        Some(HitTarget::Panel(PanelHit::Group(group))) => PanelMouse::Group(group),
+        Some(HitTarget::Panel(PanelHit::Section(section))) => PanelMouse::Section(section),
+        Some(HitTarget::Panel(PanelHit::Close)) => PanelMouse::Close,
+        _ => return,
+    };
+    tracing::debug!(?hit, "symbol panel click");
+    (shared.events)(hit);
 }
 
 /// 滚轮：凑够一格（120）滚一行，触控板的小步累加起来；往上滚是负行数。
