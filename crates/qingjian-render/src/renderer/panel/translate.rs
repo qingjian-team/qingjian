@@ -1,6 +1,6 @@
 //! 翻译组的格子区：上面是原文编辑区（bamboo-slip 的 [`TextFlow`] 排：折行、光标、还在打的拼音带下划线嵌在光标处），
-//! 放不下时往上滚到能看见光标；下面一行是拼音的候选（高亮候选铺底），信息行写目标语言与翻译进度。
-//! 占的高度与格子区一样，换组窗口不跳。原文里点哪里光标放到哪里（[`PanelHit::Caret`]），要布局之后才知道位置，见 [`TextBox`]。
+//! 选中的字铺高亮底色，放不下时往上滚到能看见光标；下面一行是拼音的候选（高亮候选铺底），信息行写目标语言与翻译进度。
+//! 占的高度与格子区一样，换组窗口不跳。原文里点哪里光标放到哪里、拖到哪里选到哪里（[`PanelHit::Caret`]），要布局之后才知道位置，见 [`TextBox`]。
 
 use bamboo_slip::taffy::{FlexDirection, LengthPercentageAuto, NodeId, Rect, Style};
 use bamboo_slip::{FlowTarget, RenderError, Scene, TextFlow, TextPainter, TextStyle, Visual};
@@ -20,6 +20,9 @@ const SOURCE_GAP: f32 = 6.0;
 
 /// 光标竖线的宽（点）。
 const CARET_WIDTH: f32 = 1.5;
+
+/// 选区底色的圆角（点）。
+const SELECTION_RADIUS: f32 = 2.0;
 
 /// 画翻译框要用的几种字。
 pub(super) struct Styles {
@@ -70,16 +73,23 @@ pub(super) fn draw(
         area.width,
         (row_top - m.px(SOURCE_GAP) - area.y).max(0.0),
     );
-    let caret = frame
-        .source
-        .char_indices()
-        .nth(frame.cursor)
-        .map_or(frame.source.len(), |(i, _)| i);
+    let byte_at = |chars: usize| {
+        frame
+            .source
+            .char_indices()
+            .nth(chars)
+            .map_or(frame.source.len(), |(i, _)| i)
+    };
+    let caret = byte_at(frame.cursor);
+    let selection = match &frame.selection {
+        Some(range) if frame.composing.is_empty() => byte_at(range.start)..byte_at(range.end),
+        _ => caret..caret,
+    };
     let flow = TextFlow {
         text: &frame.source,
         preedit: &frame.composing,
         caret,
-        selection: caret..caret,
+        selection,
         placeholder: &frame.placeholder,
         multiline: true,
         focused: true,
@@ -87,7 +97,7 @@ pub(super) fn draw(
         style: item,
         placeholder_style: styles.hint,
         caret_bar: (m.px(CARET_WIDTH), item.line_height, item.color),
-        selection_paint: Visual::Group,
+        selection_paint: m.fill(&spec.highlight, m.px(SELECTION_RADIUS)),
     }
     .build(&mut canvas.scene)?;
     let content = canvas.scene.node(

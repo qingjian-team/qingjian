@@ -102,6 +102,11 @@ impl SymbolPanel {
         self.draft.cursor()
     }
 
+    /// 原文里选中的字（按字算）；没选中东西时为 `None`。
+    pub fn translate_selection(&self) -> Option<std::ops::Range<usize>> {
+        self.draft.selection()
+    }
+
     /// 最近一条译文，原文改了还没译好时也先留着，这次没翻出来就没有；壳把它放进应用的 preedit。
     pub fn translation(&self) -> Option<&str> {
         self.draft.translation(self.target_language()?)

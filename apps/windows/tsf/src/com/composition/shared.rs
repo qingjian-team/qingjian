@@ -3,7 +3,7 @@ use std::rc::Rc;
 
 use windows::Win32::UI::TextServices::{ITfComposition, ITfContext};
 
-use qingjian_platform::protocol::ScreenRect;
+use qingjian_platform::protocol::{Frame, ScreenRect};
 
 use crate::com::candidate_list::CandidateList;
 use crate::com::service::SharedClient;
@@ -25,6 +25,9 @@ pub(crate) struct Shared {
     /// 这一段的输入框状态（私密与否、光标前文）已经报给 Server 了。
     /// 行内模式下靠「组句刚起」判断，`preedit = window` 模式应用里没有组句，得另记一个标记。
     context_reported: Cell<bool>,
+
+    /// Server 上次回的帧说面板停在翻译框（[`Frame::panel_text_box`]）：Ctrl+A 交给 Server 全选框里的字。
+    text_box: Cell<bool>,
 
     /// 「翻译选中文字」评审进行中：所有键交给 Server 定接受 / 取消，轮询定时器照常拉云端译文。
     translating: Cell<bool>,
@@ -53,6 +56,7 @@ impl Shared {
             composing: Cell::new(false),
             anchor: Cell::new(None),
             context_reported: Cell::new(false),
+            text_box: Cell::new(false),
             translating: Cell::new(false),
             last_context: RefCell::new(None),
             server_stale: Cell::new(false),
@@ -102,6 +106,7 @@ impl Shared {
         self.composing.set(value);
         // 组句结束：下一段重新报输入框状态、重新定锚点。
         if !value {
+            self.text_box.set(false);
             self.context_reported.set(false);
             self.anchor.set(None);
         }
@@ -121,6 +126,16 @@ impl Shared {
 
     pub(crate) fn set_context_reported(&self, value: bool) {
         self.context_reported.set(value);
+    }
+
+    /// 按 Server 回的帧记下在不在组句、面板是不是停在翻译框。
+    pub(crate) fn follow_frame(&self, frame: &Frame) {
+        self.set_composing(!frame.is_empty());
+        self.text_box.set(frame.panel_text_box);
+    }
+
+    pub(crate) fn text_box(&self) -> bool {
+        self.text_box.get()
     }
 
     pub(crate) fn translating(&self) -> bool {
@@ -160,6 +175,7 @@ impl Shared {
     /// 组句结束（应用终止组句 / 断线 / 失焦上屏）：不再当作在组句，收起应用的候选列表，并让 Server 收候选窗口。
     pub(crate) fn end_composing(&self) {
         self.composing.set(false);
+        self.text_box.set(false);
         self.translating.set(false);
         self.candidate_list.end();
         self.hide_candidates();

@@ -1,7 +1,8 @@
-//! 翻译框里的原文和它的翻译进度：原文带一个光标，像记事本那样在光标处插字、删字；
+//! 翻译框里的原文和它的翻译进度：原文带一个光标和选区，像记事本那样在光标处插字、删字，有选区时先删掉选中的字；
 //! 停键满 [`DEBOUNCE`] 才发，原文或目标语言没变不重发，没翻出来的过 [`RETRY_AFTER`] 自动重试一次；
 //! 新译文回来前先留着上一条，免得应用里的 preedit 一闪一闪。
 
+use std::ops::Range;
 use std::time::{Duration, Instant};
 
 use super::{TranslateJob, TranslateStatus};
@@ -34,6 +35,9 @@ pub(crate) struct TranslateDraft {
 
     /// 光标在原文里的位置（第几个字之后）。
     cursor: usize,
+
+    /// 选区的另一头（拖选或按住 Shift 时光标出发的位置）；与光标重合或为 `None` 时没有选区。
+    anchor: Option<usize>,
 
     /// 最后一次改原文的时刻；离现在不满 [`DEBOUNCE`] 就先不发。
     edited: Option<Instant>,
@@ -72,19 +76,43 @@ impl TranslateDraft {
         self.source.chars().count()
     }
 
-    /// 在光标处插字，光标挪到插入的字后面。
+    /// 选中的字（按字算，从小到大）；没选中东西时为 `None`。
+    pub(crate) fn selection(&self) -> Option<Range<usize>> {
+        let anchor = self.anchor?;
+        (anchor != self.cursor).then(|| anchor.min(self.cursor)..anchor.max(self.cursor))
+    }
+
+    /// 删掉选中的字，光标停在原来选区开头。没选中东西时返回 `false`。
+    pub(crate) fn remove_selection(&mut self, now: Instant) -> bool {
+        let selection = self.selection();
+        self.anchor = None;
+        let Some(range) = selection else {
+            return false;
+        };
+        let (start, end) = (self.byte_at(range.start), self.byte_at(range.end));
+        self.source.replace_range(start..end, "");
+        self.cursor = range.start;
+        self.edited = Some(now);
+        true
+    }
+
+    /// 在光标处插字（有选区就替换掉选中的字），光标挪到插入的字后面。
     pub(crate) fn push(&mut self, text: &str, now: Instant) {
         if text.is_empty() {
             return;
         }
+        self.remove_selection(now);
         let at = self.byte_at(self.cursor);
         self.source.insert_str(at, text);
         self.cursor += text.chars().count();
         self.edited = Some(now);
     }
 
-    /// 删掉光标前一个字。光标在最前面时返回 `false`。
+    /// 删掉选中的字，没选中就删光标前一个字。什么都没删（光标在最前面）时返回 `false`。
     pub(crate) fn pop(&mut self, now: Instant) -> bool {
+        if self.remove_selection(now) {
+            return true;
+        }
         if self.cursor == 0 {
             return false;
         }
@@ -95,8 +123,11 @@ impl TranslateDraft {
         true
     }
 
-    /// 删掉光标后一个字（Delete）。光标在最后时返回 `false`。
+    /// Delete：删掉选中的字，没选中就删光标后一个字。什么都没删（光标在最后）时返回 `false`。
     pub(crate) fn delete(&mut self, now: Instant) -> bool {
+        if self.remove_selection(now) {
+            return true;
+        }
         if self.cursor >= self.char_count() {
             return false;
         }
@@ -106,18 +137,36 @@ impl TranslateDraft {
         true
     }
 
-    /// 光标挪到第 `position` 个字之后（超出就到最后）。返回挪没挪。
-    pub(crate) fn place_cursor(&mut self, position: usize) -> bool {
+    /// 光标挪到第 `position` 个字之后（超出就到最后）。`extend` 时选区从原来的光标拉到这里（拖选、Shift），
+    /// 否则取消选区。返回光标或选区变没变。
+    pub(crate) fn place_cursor(&mut self, position: usize, extend: bool) -> bool {
         let position = position.min(self.char_count());
-        let moved = position != self.cursor;
+        let before = (self.cursor, self.selection());
+        if extend {
+            self.anchor.get_or_insert(self.cursor);
+        } else {
+            self.anchor = None;
+        }
         self.cursor = position;
-        moved
+        before != (self.cursor, self.selection())
     }
 
-    /// 光标左右挪 `delta` 个字。返回挪没挪。
-    pub(crate) fn move_cursor(&mut self, delta: isize) -> bool {
+    /// 光标左右挪 `delta` 个字。不扩选区时有选区就只是收起选区，光标停在挪的那一头（同记事本）。返回变没变。
+    pub(crate) fn move_cursor(&mut self, delta: isize, extend: bool) -> bool {
+        if !extend && let Some(range) = self.selection() {
+            let edge = if delta < 0 { range.start } else { range.end };
+            return self.place_cursor(edge, false);
+        }
         let position = (self.cursor as isize + delta).max(0) as usize;
-        self.place_cursor(position)
+        self.place_cursor(position, extend)
+    }
+
+    /// 全选。返回变没变。
+    pub(crate) fn select_all(&mut self) -> bool {
+        let before = (self.cursor, self.selection());
+        self.anchor = Some(0);
+        self.cursor = self.char_count();
+        before != (self.cursor, self.selection())
     }
 
     /// 不等停键，下一次 [`Self::due`] 就发；没翻出来的也重新发（回车时译文还没到）。
@@ -320,18 +369,47 @@ mod tests {
         let now = Instant::now();
         let mut draft = TranslateDraft::default();
         draft.push("你世界", now);
-        assert!(draft.place_cursor(1));
+        assert!(draft.place_cursor(1, false));
         draft.push("好", now);
         assert_eq!((draft.source(), draft.cursor()), ("你好世界", 2));
         assert!(draft.delete(now));
         assert_eq!(draft.source(), "你好界");
         assert!(draft.pop(now));
         assert_eq!((draft.source(), draft.cursor()), ("你界", 1));
-        assert!(draft.move_cursor(-5));
+        assert!(draft.move_cursor(-5, false));
         assert!(!draft.pop(now));
-        assert!(!draft.place_cursor(0));
-        assert!(draft.place_cursor(99));
+        assert!(!draft.place_cursor(0, false));
+        assert!(draft.place_cursor(99, false));
         assert_eq!(draft.cursor(), 2);
         assert!(!draft.delete(now));
+    }
+
+    #[test]
+    fn a_selection_is_replaced_or_removed_as_a_whole() {
+        let now = Instant::now();
+        let mut draft = TranslateDraft::default();
+        draft.push("今天天气很好", now);
+        // 从最后往左拖到第 4 个字
+        assert!(draft.place_cursor(4, true));
+        assert_eq!(draft.selection(), Some(4..6));
+        draft.push("不错", now);
+        assert_eq!((draft.source(), draft.cursor()), ("今天天气不错", 6));
+        assert_eq!(draft.selection(), None);
+        // Shift+→ 两下选两个字，退格整段删掉
+        draft.place_cursor(2, false);
+        draft.move_cursor(1, true);
+        draft.move_cursor(1, true);
+        assert_eq!(draft.selection(), Some(2..4));
+        assert!(draft.pop(now));
+        assert_eq!((draft.source(), draft.cursor()), ("今天不错", 2));
+        // 不按 Shift 的 ←→ 只收起选区
+        draft.place_cursor(0, false);
+        draft.place_cursor(3, true);
+        assert!(draft.move_cursor(-1, false));
+        assert_eq!((draft.cursor(), draft.selection()), (0, None));
+        assert!(draft.select_all());
+        assert!(!draft.select_all());
+        assert!(draft.delete(now));
+        assert_eq!(draft.source(), "");
     }
 }

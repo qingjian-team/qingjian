@@ -65,7 +65,7 @@ A few keys differ with Dachen Zhuyin and Wubi; see [Pinyin schemes and fuzzy pin
 Typing a letter closes the panel and continues typing. Details in [Punctuation, symbols and emoji](../input/punctuation.md#Symbol-panel).
 
 The Translate group works differently: letters type pinyin as usual, `Space` / number keys put words into the box, `[` `]` switch the target language, `Enter` commits the translation, `Esc` clears the box (with an empty box it goes back to the candidates), and `Backspace` deletes pinyin first, then the character before the cursor.
-While typing pinyin, `←` `→` move the candidate highlight; otherwise `←` `→`, `Home` and `End` move the cursor in the box, `Delete` removes the character after it, and clicking in the box places the cursor.
+While typing pinyin, `←` `→` move the candidate highlight; otherwise `←` `→`, `Home` and `End` move the cursor in the box (with `Shift` held they select), `⌘ + A` (`Ctrl + A` on Windows) selects all, and `Delete` removes the selection or the character after the cursor; clicking in the box places the cursor and dragging selects.
 Details in [Translating in the symbol panel](../cloud/question-and-translate.md#Translating-in-the-symbol-panel).
 
 ## In English mode

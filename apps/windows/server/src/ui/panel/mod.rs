@@ -1,6 +1,7 @@
 //! 符号面板窗口：与候选窗同款的不抢焦点、置顶分层窗口，贴在光标下方（从菜单打开时在鼠标旁），尺寸固定。
 //! 面板由青简渲染器按主题画成位图贴上去（[`qingjian_render::Renderer::render_panel`]），点击区域随位图一起给出。
 //! 鼠标：单击选格、双击上屏、点胶囊 / 标签换组换类、滚轮滚行、点 ✕ 收起，认出来经回调交给 Router；
+//! 翻译框的原文点哪里光标放到哪里，按住拖动选字（按下时抓住鼠标，拖出窗口也跟着），Shift 点击扩选区。
 //! 双击要窗口类带 `CS_DBLCLKS`。按下不激活窗口，焦点留在应用里。
 
 use std::cell::{Cell, RefCell};
@@ -8,11 +9,15 @@ use std::rc::Rc;
 
 use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, POINT, RECT, WPARAM};
 use windows::Win32::UI::HiDpi::GetDpiForWindow;
+use windows::Win32::UI::Input::KeyboardAndMouse::{
+    GetKeyState, ReleaseCapture, SetCapture, VK_SHIFT,
+};
 use windows::Win32::UI::WindowsAndMessaging::{
     CS_DBLCLKS, CreateWindowExW, DefWindowProcW, DestroyWindow, GetCursorPos, HTCLIENT,
     HTTRANSPARENT, IDC_ARROW, LoadCursorW, MA_NOACTIVATE, SW_HIDE, SW_SHOWNA, ShowWindow,
-    WHEEL_DELTA, WM_LBUTTONDBLCLK, WM_LBUTTONDOWN, WM_MOUSEACTIVATE, WM_MOUSEWHEEL, WM_NCHITTEST,
-    WNDCLASSEXW, WS_EX_LAYERED, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_EX_TOPMOST, WS_POPUP,
+    WHEEL_DELTA, WM_CAPTURECHANGED, WM_LBUTTONDBLCLK, WM_LBUTTONDOWN, WM_LBUTTONUP,
+    WM_MOUSEACTIVATE, WM_MOUSEMOVE, WM_MOUSEWHEEL, WM_NCHITTEST, WNDCLASSEXW, WS_EX_LAYERED,
+    WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_EX_TOPMOST, WS_POPUP,
 };
 use windows::core::{PCWSTR, Result, w};
 
@@ -36,7 +41,7 @@ const TRANSLATE_HINT: &str = "Tab 换组 · [ ] 换语言 · 回车上屏";
 /// 面板上的鼠标操作交给 Router 的回调（UI 线程上调，投给工人线程）。
 pub type PanelEvents = Box<dyn Fn(PanelMouse) + Send>;
 
-/// 窗口过程要读的：上一帧的点击区域、内容区左上角的屏幕坐标与宽高、回调、没凑够一行的滚轮量。
+/// 窗口过程要读的：上一帧的点击区域、内容区左上角的屏幕坐标与宽高、回调、没凑够一行的滚轮量、拖选到的位置。
 struct Shared {
     hits: RefCell<Vec<HitRegion>>,
 
@@ -45,6 +50,9 @@ struct Shared {
     size: Cell<(i32, i32)>,
 
     wheel: Cell<i32>,
+
+    /// 正在翻译框里拖选：上一次报给 Router 的光标位置，没动就不再报。
+    drag: Cell<Option<usize>>,
 
     events: PanelEvents,
 }
@@ -99,6 +107,7 @@ impl PanelWindow {
             origin: Cell::new((0, 0)),
             size: Cell::new((0, 0)),
             wheel: Cell::new(0),
+            drag: Cell::new(None),
             events,
         });
         SHARED.with(|slot| *slot.borrow_mut() = Some(shared.clone()));
@@ -180,6 +189,7 @@ impl PanelWindow {
         self.visible.set(false);
         self.shared.wheel.set(0);
         self.shared.hits.borrow_mut().clear();
+        end_drag(&self.shared);
     }
 
     /// 主题换了：新主题的字体要装进面板自己的渲染器。
@@ -286,28 +296,64 @@ fn hit_test(lparam: LPARAM) -> LRESULT {
     }
 }
 
-fn click(double: bool) {
-    let Some(shared) = shared() else {
-        return;
-    };
-    let (x, y) = cursor_in_content(&shared);
-    let target = shared
+/// 鼠标下面是哪一块。
+fn target_under_cursor(shared: &Shared) -> Option<HitTarget> {
+    let (x, y) = cursor_in_content(shared);
+    shared
         .hits
         .borrow()
         .iter()
         .find(|region| region.contains(x, y))
-        .map(|region| region.target);
-    let hit = match target {
+        .map(|region| region.target)
+}
+
+fn click(hwnd: HWND, double: bool) {
+    let Some(shared) = shared() else {
+        return;
+    };
+    let hit = match target_under_cursor(&shared) {
         Some(HitTarget::Panel(PanelHit::Cell(offset))) => PanelMouse::Cell { offset, double },
         Some(HitTarget::Panel(PanelHit::Group(group))) => PanelMouse::Group(group),
         Some(HitTarget::Panel(PanelHit::Section(section))) => PanelMouse::Section(section),
         Some(HitTarget::Panel(PanelHit::Candidate(index))) => PanelMouse::Candidate(index),
-        Some(HitTarget::Panel(PanelHit::Caret(position))) => PanelMouse::Caret(position),
+        Some(HitTarget::Panel(PanelHit::Caret(position))) => {
+            // 按下就开始拖选：抓住鼠标，拖出窗口也收得到移动
+            shared.drag.set(Some(position));
+            unsafe { SetCapture(hwnd) };
+            let extend = unsafe { GetKeyState(VK_SHIFT.0 as i32) } < 0;
+            PanelMouse::Caret { position, extend }
+        }
         Some(HitTarget::Panel(PanelHit::Close)) => PanelMouse::Close,
         _ => return,
     };
     tracing::debug!(?hit, "symbol panel click");
     (shared.events)(hit);
+}
+
+/// 按住拖动：选区从按下的地方拉到鼠标下面的字；挪到原文以外的地方时选区不变。
+fn drag() {
+    let Some(shared) = shared() else {
+        return;
+    };
+    let Some(last) = shared.drag.get() else {
+        return;
+    };
+    let Some(HitTarget::Panel(PanelHit::Caret(position))) = target_under_cursor(&shared) else {
+        return;
+    };
+    if position != last {
+        shared.drag.set(Some(position));
+        (shared.events)(PanelMouse::Caret {
+            position,
+            extend: true,
+        });
+    }
+}
+
+fn end_drag(shared: &Shared) {
+    if shared.drag.take().is_some() {
+        let _ = unsafe { ReleaseCapture() };
+    }
 }
 
 /// 滚轮：凑够一格（120）滚一行，触控板的小步累加起来；往上滚是负行数。
@@ -330,11 +376,27 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: 
         WM_NCHITTEST => hit_test(lparam),
         WM_MOUSEACTIVATE => LRESULT(MA_NOACTIVATE as isize),
         WM_LBUTTONDOWN => {
-            click(false);
+            click(hwnd, false);
             LRESULT(0)
         }
         WM_LBUTTONDBLCLK => {
-            click(true);
+            click(hwnd, true);
+            LRESULT(0)
+        }
+        WM_MOUSEMOVE => {
+            drag();
+            LRESULT(0)
+        }
+        WM_LBUTTONUP => {
+            if let Some(shared) = shared() {
+                end_drag(&shared);
+            }
+            LRESULT(0)
+        }
+        WM_CAPTURECHANGED => {
+            if let Some(shared) = shared() {
+                shared.drag.set(None);
+            }
             LRESULT(0)
         }
         WM_MOUSEWHEEL => {

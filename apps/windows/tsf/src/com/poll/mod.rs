@@ -146,6 +146,7 @@ fn poll_once(context: &PollContext) {
                 .show(&frame, context.shared.last_context().as_ref());
             if frame.symbol_panel {
                 drop(guard);
+                context.shared.follow_frame(&frame);
                 follow_panel_preedit(context, &frame);
                 return;
             }
@@ -204,7 +205,7 @@ fn commit_clicked(context: &PollContext, frame: &Frame, commit: String) {
     } else {
         String::new()
     };
-    context.shared.set_composing(!frame.is_empty());
+    context.shared.follow_frame(frame);
     context
         .shared
         .candidate_list()

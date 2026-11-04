@@ -193,7 +193,7 @@ impl QingjianInputController {
         self.refresh(client);
     }
 
-    /// 鼠标：单击格子挪高亮、双击上屏，点胶囊换组，点标签换分类，滚轮滚视口，点 ✕ 收起。
+    /// 鼠标：单击格子挪高亮、双击上屏，点胶囊换组，点标签换分类，滚轮滚视口，点 ✕ 收起；翻译框里点放光标、拖动选字。
     pub(super) fn panel_mouse_event(&self, hit: PanelMouse, client: TextClient<'_>) {
         if !host::with(|h| h.engine.symbol_panel().is_some()).unwrap_or(false) {
             return;
@@ -221,8 +221,8 @@ impl QingjianInputController {
                 }
             }
             PanelMouse::Candidate(offset) => self.pick_into_box(offset, client),
-            PanelMouse::Caret(position) => {
-                if host::with(|h| h.engine.place_panel_cursor(position)).unwrap_or(false) {
+            PanelMouse::Caret { position, extend } => {
+                if host::with(|h| h.engine.place_panel_cursor(position, extend)).unwrap_or(false) {
                     self.render(client);
                 }
             }

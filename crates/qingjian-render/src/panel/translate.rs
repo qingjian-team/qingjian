@@ -1,5 +1,7 @@
 //! 翻译组的翻译框：框里的原文、还在打的拼音与它的候选、底下一行状态。
 
+use std::ops::Range;
+
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct PanelTranslate {
     /// 框里已经打好的原文。
@@ -7,6 +9,9 @@ pub struct PanelTranslate {
 
     /// 光标在原文里的位置（第几个字之后）；`composing` 画在这里。
     pub cursor: usize,
+
+    /// 原文里选中的字（按字算），铺高亮底色；有选区时不画光标。
+    pub selection: Option<Range<usize>>,
 
     /// 框里没字时显示的提示。
     pub placeholder: String,

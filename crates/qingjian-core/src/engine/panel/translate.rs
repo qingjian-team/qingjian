@@ -65,7 +65,7 @@ impl Engine {
         }
     }
 
-    /// 删光标前一个字；框里没字时返回 `false`（壳照别的组收起面板），光标在最前面时什么都不做、返回 `true`。
+    /// 删选中的字或光标前一个字；框里没字时返回 `false`（壳照别的组收起面板），光标在最前面时什么都不做、返回 `true`。
     pub fn panel_backspace(&mut self) -> bool {
         if !self.panel_translating() {
             return false;
@@ -80,7 +80,7 @@ impl Engine {
         true
     }
 
-    /// Delete：删光标后一个字。返回删没删。
+    /// Delete：删选中的字或光标后一个字。返回删没删。
     pub fn panel_delete(&mut self) -> bool {
         self.panel_translating()
             && self
@@ -89,22 +89,41 @@ impl Engine {
                 .is_some_and(|panel| panel.draft_mut().delete(Instant::now()))
     }
 
-    /// 光标左右挪 `delta` 个字（←→）。返回挪没挪。
-    pub fn move_panel_cursor(&mut self, delta: isize) -> bool {
+    /// 光标左右挪 `delta` 个字（←→）；`extend` 时扩选区（Shift）。返回光标或选区变没变。
+    pub fn move_panel_cursor(&mut self, delta: isize, extend: bool) -> bool {
         self.panel_translating()
             && self
                 .panel
                 .as_mut()
-                .is_some_and(|panel| panel.draft_mut().move_cursor(delta))
+                .is_some_and(|panel| panel.draft_mut().move_cursor(delta, extend))
     }
 
-    /// 光标放到第 `position` 个字之后（点框里的字、Home / End）；超出就到最后。返回挪没挪。
-    pub fn place_panel_cursor(&mut self, position: usize) -> bool {
+    /// 光标放到第 `position` 个字之后（点框里的字、Home / End）；超出就到最后。
+    /// `extend` 时选区从原来的光标拉到这里（拖动、Shift 点击、Shift+Home / End）。返回光标或选区变没变。
+    pub fn place_panel_cursor(&mut self, position: usize, extend: bool) -> bool {
         self.panel_translating()
             && self
                 .panel
                 .as_mut()
-                .is_some_and(|panel| panel.draft_mut().place_cursor(position))
+                .is_some_and(|panel| panel.draft_mut().place_cursor(position, extend))
+    }
+
+    /// 全选框里的原文（Cmd / Ctrl+A）。返回变没变。
+    pub fn select_all_panel_text(&mut self) -> bool {
+        self.panel_translating()
+            && self
+                .panel
+                .as_mut()
+                .is_some_and(|panel| panel.draft_mut().select_all())
+    }
+
+    /// 删掉框里选中的字（开始打拼音时）。
+    pub(in crate::engine) fn remove_panel_selection(&mut self) {
+        if self.panel_translating()
+            && let Some(panel) = self.panel.as_mut()
+        {
+            panel.draft_mut().remove_selection(Instant::now());
+        }
     }
 
     /// 在翻译组里选词：学习照常记，选出的字进框里的原文而不是交给应用。不在翻译组返回 `false`。

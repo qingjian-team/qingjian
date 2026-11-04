@@ -110,3 +110,46 @@ fn shortcut_opens_the_box_when_not_typing() {
     let (_, _, frame) = press(&mut router, function_key(0x1B));
     assert!(frame.is_empty());
 }
+
+#[test]
+fn shift_arrows_and_ctrl_a_select_in_the_box() {
+    let (mut router, _) = translating_router();
+    type_letters(&mut router, "nihao");
+    let (_, _, frame) = press(&mut router, function_key(0x26));
+    // 还在打拼音：Ctrl+A 照常归应用
+    assert!(!frame.panel_text_box);
+    let (_, _, frame) = press(&mut router, letter(' '));
+    assert!(frame.panel_text_box);
+    let shift = KeyModifiers {
+        shift: true,
+        ..KeyModifiers::default()
+    };
+    let selection = |router: &mut Router| {
+        router
+            .engine_mut()
+            .symbol_panel()
+            .and_then(|panel| panel.translate_selection())
+    };
+    // Shift+← 选一个字，Shift+Home 拉到开头
+    press(&mut router, KeyEvent::new(0x25, None, shift));
+    assert_eq!(selection(&mut router), Some(1..2));
+    press(&mut router, KeyEvent::new(0x24, None, shift));
+    assert_eq!(selection(&mut router), Some(0..2));
+    // 不按 Shift 的 → 收起选区
+    press(&mut router, function_key(0x27));
+    assert_eq!(selection(&mut router), None);
+    let ctrl = KeyModifiers {
+        ctrl: true,
+        ..KeyModifiers::default()
+    };
+    let (outcome, _, frame) = press(&mut router, KeyEvent::new(0x41, Some('a'), ctrl));
+    assert_eq!(outcome, KeyOutcome::Consumed);
+    assert!(frame.symbol_panel);
+    assert_eq!(selection(&mut router), Some(0..2));
+    press(&mut router, function_key(0x08));
+    let source = router
+        .engine_mut()
+        .symbol_panel()
+        .map(|panel| panel.translate_source().to_owned());
+    assert_eq!(source.as_deref(), Some(""));
+}

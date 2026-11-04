@@ -97,6 +97,7 @@ fn translate_box_keeps_the_size_and_hits_its_candidates() {
         translate: Some(PanelTranslate {
             source: "今天天气很好，我们去公园散步吧。".repeat(20),
             cursor: 3,
+            selection: None,
             placeholder: String::new(),
             composing: "nihao".into(),
             candidates: vec!["你好".into(), "拟好".into(), "泥".into()],
@@ -129,4 +130,33 @@ fn translate_box_keeps_the_size_and_hits_its_candidates() {
         })
         .collect();
     assert!(carets.contains(&0) && carets.contains(&4));
+}
+
+#[test]
+fn a_selection_in_the_translate_box_keeps_its_click_targets() {
+    let Ok(library) = FontLibrary::system("zh-CN") else {
+        return;
+    };
+    let mut renderer = Renderer::new(library);
+    let selected = PanelFrame {
+        translate: Some(PanelTranslate {
+            source: "今天天气很好".into(),
+            cursor: 1,
+            selection: Some(1..4),
+            ..PanelTranslate::default()
+        }),
+        ..frame(5, 0, 10)
+    };
+    let rendered = renderer
+        .render_panel(&selected, &Theme::light(), 2.0)
+        .unwrap();
+    let carets: Vec<usize> = rendered
+        .hits
+        .iter()
+        .filter_map(|hit| match hit.target {
+            HitTarget::Panel(PanelHit::Caret(i)) => Some(i),
+            _ => None,
+        })
+        .collect();
+    assert!((0..=6).all(|i| carets.contains(&i)));
 }

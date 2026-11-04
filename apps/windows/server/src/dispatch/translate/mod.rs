@@ -127,6 +127,7 @@ impl Router {
             sentence: None,
             notice: None,
             symbol_panel: false,
+            panel_text_box: false,
         }
     }
 }

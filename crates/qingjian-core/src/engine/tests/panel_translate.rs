@@ -168,3 +168,37 @@ fn without_a_provider_there_is_no_translate_group() {
     assert!(!panel.groups().contains(&PanelGroup::Translate));
     assert_eq!(panel.target_language(), None);
 }
+
+#[test]
+fn typing_pinyin_over_a_selection_replaces_it() {
+    let queue = Queue::default();
+    let mut engine = engine(&queue);
+    engine.set_input("nihao");
+    assert!(engine.open_symbol_panel());
+    pick(&mut engine);
+    engine.set_input("shijie");
+    pick(&mut engine);
+    // 拖选「世界」，再打 nihao 选进去
+    assert!(engine.place_panel_cursor(2, false));
+    assert!(engine.place_panel_cursor(4, true));
+    assert_eq!(
+        engine.symbol_panel().unwrap().translate_selection(),
+        Some(2..4)
+    );
+    for c in "nihao".chars() {
+        engine.push(c);
+    }
+    let panel = engine.symbol_panel().unwrap();
+    assert_eq!(
+        (panel.translate_source(), panel.translate_selection()),
+        ("你好", None)
+    );
+    pick(&mut engine);
+    assert_eq!(
+        engine.symbol_panel().unwrap().translate_source(),
+        "你好你好"
+    );
+    assert!(engine.select_all_panel_text());
+    assert!(engine.panel_backspace());
+    assert_eq!(engine.symbol_panel().unwrap().translate_source(), "");
+}

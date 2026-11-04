@@ -91,7 +91,7 @@ impl Router {
         Some(self.engine.commit(&candidate))
     }
 
-    /// 鼠标：单击格子挪高亮、双击上屏，点胶囊换组，点标签换分类，滚轮滚视口，点 ✕ 收起。
+    /// 鼠标：单击格子挪高亮、双击上屏，点胶囊换组，点标签换分类，滚轮滚视口，点 ✕ 收起；翻译框里点放光标、拖动选字。
     pub fn handle_panel_mouse(&mut self, hit: PanelMouse) {
         if !self.panel_open() {
             return;
@@ -112,7 +112,9 @@ impl Router {
             PanelMouse::Section(section) => {
                 self.switch_panel(|panel| panel.select_section(section))
             }
-            PanelMouse::Caret(position) => self.engine.place_panel_cursor(position),
+            PanelMouse::Caret { position, extend } => {
+                self.engine.place_panel_cursor(position, extend)
+            }
             PanelMouse::Candidate(offset) => {
                 let first = self.highlight / self.config.page_size * self.config.page_size;
                 if !self.pick_into_box(first + offset) {
@@ -178,6 +180,7 @@ impl Router {
         PanelTranslate {
             source: panel.translate_source().to_owned(),
             cursor: panel.translate_cursor(),
+            selection: panel.translate_selection(),
             placeholder: panel.translate_placeholder().to_owned(),
             composing: self.engine.composition().text().to_owned(),
             candidates: (first..first + size)

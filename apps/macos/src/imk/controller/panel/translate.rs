@@ -1,5 +1,5 @@
 //! 符号面板翻译组里的按键：字母照常打拼音，空格 / 数字 / 点候选把词选进框里（不进应用），英文模式下敲的字直接进框；
-//! `[` `]` 换目标语言；打拼音时 ←→ 挪高亮、翻页键翻候选，没在打拼音时 ←→ / Home / End 挪光标、Delete 删光标后的字；回车上屏译文（还没好就马上发、再按一次），Esc 放弃，退格先删拼音再删框里的字。
+//! `[` `]` 换目标语言；打拼音时 ←→ 挪高亮、翻页键翻候选，没在打拼音时 ←→ / Home / End 挪光标（按住 Shift 扩选区）、⌘A 全选、Delete 删选中的字或光标后的字；回车上屏译文（还没好就马上发、再按一次），Esc 放弃，退格先删拼音再删框里的字。
 //! 译文由 [`Host::poll_prediction`](crate::host::Host::poll_prediction) 收，[`crate::imk::panel_translation_changed`] 写回应用的 preedit。
 
 use objc2_app_kit::NSEvent;
@@ -17,10 +17,22 @@ impl QingjianInputController {
         pressed: Modifiers,
         client: TextClient<'_>,
     ) -> PanelKey {
-        if pressed.command || pressed.control {
-            return Some(false);
-        }
         let composing = host::with(|h| !h.engine.composition().is_empty()).unwrap_or(false);
+        if pressed.command || pressed.control {
+            // ⌘A 全选框里的字，别的组合键照常交给应用
+            let letter_a = event
+                .charactersIgnoringModifiers()
+                .is_some_and(|c| c.to_string().eq_ignore_ascii_case("a"));
+            let select_all = letter_a && pressed.command && !pressed.control && !pressed.option;
+            if !select_all || composing {
+                return Some(false);
+            }
+            if host::with(|h| h.engine.select_all_panel_text()).unwrap_or(false) {
+                self.render(client);
+            }
+            return Some(true);
+        }
+        let extend = pressed.shift;
         match key {
             48 => {
                 let delta = if pressed.shift { -1 } else { 1 };
@@ -53,15 +65,16 @@ impl QingjianInputController {
                 let delta = if key == 123 { -1 } else { 1 };
                 if composing {
                     self.navigate_candidate(delta, client);
-                } else if host::with(|h| h.engine.move_panel_cursor(delta)).unwrap_or(false) {
+                } else if host::with(|h| h.engine.move_panel_cursor(delta, extend)).unwrap_or(false)
+                {
                     self.render(client);
                 }
                 return Some(true);
             }
-            // Home / End 把光标挪到最前 / 最后，Delete 删光标后一个字
+            // Home / End 把光标挪到最前 / 最后，Delete 删选中的字或光标后一个字
             115 | 119 if !composing => {
                 let position = if key == 115 { 0 } else { usize::MAX };
-                if host::with(|h| h.engine.place_panel_cursor(position)).unwrap_or(false) {
+                if host::with(|h| h.engine.place_panel_cursor(position, extend)).unwrap_or(false) {
                     self.render(client);
                 }
                 return Some(true);

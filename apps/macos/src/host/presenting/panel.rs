@@ -80,6 +80,7 @@ impl Host {
         PanelTranslate {
             source: panel.translate_source().to_owned(),
             cursor: panel.translate_cursor(),
+            selection: panel.translate_selection(),
             placeholder: panel.translate_placeholder().to_owned(),
             composing: self.engine.composition().text().to_owned(),
             candidates: (first..first + size)

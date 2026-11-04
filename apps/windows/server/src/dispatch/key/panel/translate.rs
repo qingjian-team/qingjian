@@ -1,6 +1,6 @@
 //! 符号面板翻译组里的按键：字母照常打拼音（交回 [`Router::apply_key`] 的组句路径），空格 / 数字把候选选进框里（不进应用），
 //! 英文模式下敲的字直接进框；`[` `]` 换目标语言；打拼音时 ←→ 挪高亮、↑↓ 与翻页键翻候选，
-//! 没在打拼音时 ←→ / Home / End 挪光标、Delete 删光标后的字；
+//! 没在打拼音时 ←→ / Home / End 挪光标（按住 Shift 扩选区）、Ctrl+A 全选、Delete 删选中的字或光标后的字；
 //! 回车上屏译文（还没好就马上发、再按一次），Esc 放弃，退格先删拼音再删框里的字。与 macOS 壳的 `handle_translate_key` 对齐。
 
 use qingjian_platform::protocol::KeyEvent;
@@ -10,10 +10,21 @@ use crate::dispatch::key::{Effect, codes};
 
 impl Router {
     pub(super) fn apply_translate_key(&mut self, event: &KeyEvent) -> Option<Effect> {
-        if event.modifiers.has_command_key() {
+        let composing = !self.engine.composition().is_empty();
+        let modifiers = event.modifiers;
+        if modifiers.has_command_key() {
+            let select_all = event.virtual_key == codes::KEY_A
+                && modifiers.ctrl
+                && !modifiers.alt
+                && !modifiers.win
+                && !composing;
+            if select_all {
+                self.engine.select_all_panel_text();
+                return Some(Effect::Navigated);
+            }
             return Some(Effect::Passthrough);
         }
-        let composing = !self.engine.composition().is_empty();
+        let extend = modifiers.shift;
         let page = self.config.page_size as isize;
         match event.virtual_key {
             codes::TAB => {
@@ -63,17 +74,17 @@ impl Router {
                 if composing {
                     return Some(self.move_box_highlight(delta));
                 }
-                self.engine.move_panel_cursor(delta);
+                self.engine.move_panel_cursor(delta, extend);
                 return Some(Effect::Navigated);
             }
-            // Home / End 把光标挪到最前 / 最后，Delete 删光标后一个字
+            // Home / End 把光标挪到最前 / 最后，Delete 删选中的字或光标后一个字
             codes::HOME | codes::END if !composing => {
                 let position = if event.virtual_key == codes::HOME {
                     0
                 } else {
                     usize::MAX
                 };
-                self.engine.place_panel_cursor(position);
+                self.engine.place_panel_cursor(position, extend);
                 return Some(Effect::Navigated);
             }
             codes::DELETE if !composing => {

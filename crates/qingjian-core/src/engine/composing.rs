@@ -183,6 +183,8 @@ impl Engine {
             self.page_turns = 0;
             self.retype_snapshot = None;
             self.typing.restart();
+            // 翻译框里选着字时开始打拼音：同记事本一样先删掉选中的字，拼音画在原处
+            self.remove_panel_selection();
         }
         self.typing.key(Instant::now());
         // 进缓冲区的字符也更新「上一个字符是不是数字」：直通了 `3` 再接着打拼音，
