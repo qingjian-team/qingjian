@@ -43,6 +43,19 @@ pub extern "system" fn Java_app_qingjian_inputmethod_core_Native_select<'local>(
 }
 
 #[unsafe(no_mangle)]
+pub extern "system" fn Java_app_qingjian_inputmethod_core_Native_moveCaret<'local>(
+    env: JNIEnv<'local>,
+    _this: JObject<'local>,
+    handle: jlong,
+    index: jint,
+) -> jstring {
+    let Ok(index) = usize::try_from(index) else {
+        return std::ptr::null_mut();
+    };
+    frame(env, handle, |session| session.move_caret(index))
+}
+
+#[unsafe(no_mangle)]
 pub extern "system" fn Java_app_qingjian_inputmethod_core_Native_selectTranslation<'local>(
     env: JNIEnv<'local>,
     _this: JObject<'local>,

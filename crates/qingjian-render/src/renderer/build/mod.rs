@@ -49,6 +49,9 @@ pub(super) struct Builder<'a> {
     /// 写了 `action` 的节点（点中的目标，节点）。
     pub(super) action_nodes: Vec<(HitTarget, NodeId)>,
 
+    /// 拼音行的节点与各字之间那道缝离行首的 x（像素），排版后换成 [`super::PreeditHit`]。
+    pub(super) preedit_node: Option<(NodeId, Vec<f32>)>,
+
     /// 壳在窗口底下垫了系统材质：根节点的底色换成这个着色（`None` 不着色）、不画投影。实例化根节点时取走。
     pub(super) material_root: Option<Option<ColorSpec>>,
 

@@ -34,6 +34,9 @@ internal object Native {
 
     external fun select(handle: Long, index: Int): String?
 
+    /** 点了拼音行第 [index] 个字之后：拼音里的光标挪过去。 */
+    external fun moveCaret(handle: Long, index: Int): String?
+
     external fun selectTranslation(handle: Long, index: Int, sense: Int): String?
 
     external fun forget(handle: Long, index: Int): String?

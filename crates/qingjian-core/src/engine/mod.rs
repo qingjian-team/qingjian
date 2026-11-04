@@ -7,6 +7,7 @@ mod alignment;
 mod annotation;
 mod aux_code;
 mod candidate_menu;
+mod caret;
 mod choice;
 mod code_keys;
 mod commit;

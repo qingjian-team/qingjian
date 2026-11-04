@@ -72,7 +72,7 @@ impl StripPainter {
             .collect();
         self.content = RenderFrame {
             preedit: (!frame.preedit.is_empty())
-                .then(|| Preedit::plain(&frame.preedit, frame.preedit.chars().count())),
+                .then(|| Preedit::plain(&frame.preedit, frame.preedit_cursor)),
             rows: rows(&frame.candidates, self.text_scale, |text, size| {
                 self.renderer.measure_points(text, size)
             }),
@@ -112,6 +112,17 @@ impl StripPainter {
                 .iter()
                 .filter_map(|region| StripHit::new(region, offset))
                 .collect(),
+            preedit_edges: rendered.preedit.as_ref().map_or_else(Vec::new, |hit| {
+                hit.edges.iter().map(|x| x + offset.0 as f32).collect()
+            }),
+            preedit_top: rendered
+                .preedit
+                .as_ref()
+                .map_or(0.0, |hit| hit.y + offset.1 as f32),
+            preedit_bottom: rendered
+                .preedit
+                .as_ref()
+                .map_or(0.0, |hit| hit.y + hit.height + offset.1 as f32),
             emoji: self.emoji.clone(),
         };
         self.last = Some(rendered);

@@ -43,8 +43,23 @@ impl Session {
             kana.backspace();
             return self.refresh(String::new());
         }
+        // 点拼音行把光标放到了开头：屏幕键盘没有方向键挪回去，退格接着从末尾删，不卡住
+        if self.engine.composition().cursor() == 0 {
+            self.engine.move_cursor_end();
+        }
         self.engine.backspace();
         self.refresh(String::new())
+    }
+
+    /// 点了拼音行第 `index` 个字之后（#881）：光标挪过去重查；对不上的写法（双拼外的解码、纠错、辅码）不动。
+    pub fn move_caret(&mut self, index: usize) -> Frame {
+        if self.kana.is_none()
+            && let Ok(query) = self.engine.query()
+            && self.engine.move_cursor_to_marked(&query, index)
+        {
+            return self.refresh(String::new());
+        }
+        self.frame(String::new())
     }
 
     /// 选中上一帧的第 `index` 个候选；拼音没吃完就接着组句。

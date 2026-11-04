@@ -31,6 +31,9 @@ pub struct Session {
 
     preedit: String,
 
+    /// 光标在 `preedit` 里的字符下标。
+    preedit_cursor: usize,
+
     pinyin_choices: Vec<String>,
 
     /// 不在组句时候选条上的补全（邮箱后缀、算式结果）：上屏前删掉光标前几个字符、要上屏的文字，下标同帧里的候选；空即没在补全。
@@ -85,6 +88,7 @@ impl Session {
             engine,
             candidates: CandidateList::default(),
             preedit: String::new(),
+            preedit_cursor: 0,
             pinyin_choices: Vec::new(),
             completions: Vec::new(),
             kana: None,
@@ -108,6 +112,7 @@ impl Session {
         self.engine.flush_learning();
         self.candidates.items.clear();
         self.preedit.clear();
+        self.preedit_cursor = 0;
         self.pinyin_choices.clear();
         self.surrounding = None;
         self.sentence_at = None;
@@ -122,6 +127,7 @@ impl Session {
         self.completions.clear();
         if let Some(kana) = &self.kana {
             self.preedit = kana.preedit();
+            self.preedit_cursor = self.preedit.chars().count();
             let candidates = kana
                 .candidates()
                 .iter()
@@ -132,6 +138,7 @@ impl Session {
                 commit,
                 replace: 0,
                 preedit: self.preedit.clone(),
+                preedit_cursor: self.preedit_cursor,
                 notice: String::new(),
                 pinyin_choices: Vec::new(),
                 candidates,
@@ -141,12 +148,14 @@ impl Session {
         if self.engine.composition().is_empty() {
             self.candidates.items.clear();
             self.preedit.clear();
+            self.preedit_cursor = 0;
         } else {
             match self.engine.query() {
                 Ok(mut query) => {
                     query.candidates.items.truncate(Frame::MAX_CANDIDATES);
                     self.engine.annotate(&mut query.candidates);
                     self.preedit = query.marked_text();
+                    self.preedit_cursor = query.marked_cursor();
                     self.pinyin_choices = std::mem::take(&mut query.pinyin_choices);
                     self.candidates = query.candidates;
                 }
@@ -154,6 +163,7 @@ impl Session {
                 Err(error) => {
                     tracing::debug!(%error, "查询失败，退回原始输入");
                     self.preedit = self.engine.held_text() + self.engine.composition().text();
+                    self.preedit_cursor = self.preedit.chars().count();
                     self.candidates.items.clear();
                 }
             }
@@ -168,6 +178,7 @@ impl Session {
             commit,
             replace: 0,
             preedit: self.preedit.clone(),
+            preedit_cursor: self.preedit_cursor,
             notice: String::new(),
             pinyin_choices: self.pinyin_choices.clone(),
             candidates: self

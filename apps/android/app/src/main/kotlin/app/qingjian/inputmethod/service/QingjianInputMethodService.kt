@@ -501,6 +501,8 @@ class QingjianInputMethodService :
 
     override fun onSelect(index: Int) = composer.select(index)
 
+    override fun onMoveCaret(index: Int) = composer.moveCaret(index)
+
     override fun onSelectTranslation(index: Int, sense: Int) = composer.selectTranslation(index, sense)
 
     override fun onForget(index: Int) = composer.forget(index)

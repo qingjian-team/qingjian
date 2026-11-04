@@ -205,7 +205,9 @@
     <string name="swipe_input_title">滑行输入</string>
     <string name="swipe_input_note">手指不抬起，依次划过要打的字母；打不出来就照常点</string>
     <string name="flick_symbols_title">上滑输入</string>
-    <string name="flick_symbols_note">在键上往上一划，上屏键上角的数字或符号</string>
+    <string name="flick_symbols_note">在键上往上一划（斜着划也算），上屏键上角的数字或符号</string>
+    <string name="long_press_upper_title">长按出大写</string>
+    <string name="long_press_upper_note">长按字母不滑直接松手，上屏大写字母；关着时上屏键上角的符号</string>
     <string name="space_cursor_title">空格滑动移动光标</string>
     <string name="space_cursor_note">按住空格左右滑，按滑过的距离逐字移动光标；打拼音时不响应</string>
     <string name="spelling_correction_title">拼写纠错</string>

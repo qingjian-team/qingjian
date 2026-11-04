@@ -331,6 +331,11 @@ class Composer(private val engine: Engine, private val host: Host) {
 
     fun select(index: Int) = apply(engine.select(index))
 
+    /** 点了拼音行第 [index] 个字之后：光标挪进拼音里，接着敲的字、退格都在那里。 */
+    fun moveCaret(index: Int) {
+        if (composing) apply(engine.moveCaret(index))
+    }
+
     fun selectTranslation(index: Int, sense: Int) = apply(engine.selectTranslation(index, sense))
 
     /** 拼音列：组句中点的是拼音（定下这个音节），平时点的是标点。 */
@@ -377,7 +382,7 @@ class Composer(private val engine: Engine, private val host: Host) {
 
     /** 按住空格左右滑：不在组句时按方向键挪光标。 */
     fun moveCursor(steps: Int) {
-        // 组句中不响应：会话没接 Core 的拼音光标、候选条也不画光标，落下拼音再挪会把没选的字母上屏
+        // 组句中不响应：落下拼音再挪会把没选的字母上屏；拼音里的光标靠点拼音行挪（[moveCaret]）
         if (steps == 0 || composing) return
         val code = if (steps < 0) KeyEvent.KEYCODE_DPAD_LEFT else KeyEvent.KEYCODE_DPAD_RIGHT
         repeat(abs(steps)) { host.sendKey(code) }

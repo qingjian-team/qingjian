@@ -57,7 +57,7 @@ The right side of each row shows the current setting, such as the input method o
 
 - **尺寸 (Size)**: keyboard height, which you can also drag directly on the keyboard with ↕ in the toolbar; with full-screen adaptation on, a key is placed on each side of the gesture bar, and you can choose which.
 - **按键 (Keys)**: key vibration (off / light / standard / strong; standard is the original feel), key label size (small / standard / large / extra large, separate from the candidate size), key popups, and layout (default / left-handed).
-- **手势 (Gestures)**: swipe typing, swipe up for symbols, slide space to move the cursor, hold space to talk, and keep Chinese when switching languages; see [Android: keyboard and typing](android.md).
+- **手势 (Gestures)**: swipe typing, swipe up for symbols, long press for capitals, slide space to move the cursor, hold space to talk, and keep Chinese when switching languages; see [Android: keyboard and typing](android.md).
 - **游戏键盘 (Game keyboard)**: a small, semi-transparent floating keyboard in landscape in the apps you tick; the transparency, size, glosses and the list of apps are on this page; see [Android: keyboard and typing](android.md#Game-keyboard).
 
 ## Appearance

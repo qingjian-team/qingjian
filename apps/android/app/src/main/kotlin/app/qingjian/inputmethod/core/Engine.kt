@@ -90,6 +90,8 @@ class Engine(context: Context, private val onReady: () -> Unit) {
 
     fun select(index: Int): Frame = Frame.parse(Native.select(handle, index))
 
+    fun moveCaret(index: Int): Frame = Frame.parse(Native.moveCaret(handle, index))
+
     fun selectTranslation(index: Int, sense: Int): Frame =
         Frame.parse(Native.selectTranslation(handle, index, sense))
 

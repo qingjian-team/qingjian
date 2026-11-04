@@ -21,6 +21,9 @@ pub struct Frame {
     /// 组句中的拼音显示形式（`kai'fa`），空表示不在组句。
     pub preedit: String,
 
+    /// 光标在 `preedit` 里的字符下标；点拼音行挪过光标时在中间，平时在末尾。
+    pub preedit_cursor: usize,
+
     /// 一句话提示（删候选的结果），画在拼音行右侧，下一帧就没了。
     pub notice: String,
 
@@ -42,7 +45,7 @@ impl Frame {
         serde_json::to_string(self).unwrap_or_else(|error| {
             tracing::error!(%error, "帧序列化失败");
             String::from(
-                r#"{"commit":"","replace":0,"preedit":"","notice":"","pinyin_choices":[],"candidates":[],"expression":false}"#,
+                r#"{"commit":"","replace":0,"preedit":"","preedit_cursor":0,"notice":"","pinyin_choices":[],"candidates":[],"expression":false}"#,
             )
         })
     }

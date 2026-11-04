@@ -198,11 +198,21 @@ impl Builder<'_> {
         };
         let visual = Visual::solid(self.color(&caret.color, ctx), 0.0);
         children.push(self.scene.node(caret_style, visual, &[])?);
-        self.scene.node(
+        // 各段字号相同，按敲的那段的样式量就够，与上面光标的量法一致
+        let text = preedit.text();
+        let edges = text
+            .char_indices()
+            .map(|(byte, _)| byte)
+            .chain([text.len()])
+            .map(|end| self.text.measure(&text[..end], &typed_style).width)
+            .collect();
+        let row = self.scene.node(
             layout_style::flex(style, Direction::Row),
             Visual::Group,
             &children,
-        )
+        )?;
+        self.preedit_node = Some((row, edges));
+        Ok(row)
     }
 }
 

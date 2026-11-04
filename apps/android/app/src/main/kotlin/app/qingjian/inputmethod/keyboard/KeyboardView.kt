@@ -15,6 +15,7 @@ import app.qingjian.inputmethod.popup.ChoicePopup
 import app.qingjian.inputmethod.settings.Settings
 import app.qingjian.inputmethod.theme.Palette
 import kotlin.math.abs
+import kotlin.math.hypot
 
 /**
  * 自绘键盘。多指各自跟踪（快打时前一指没抬后一指已落），抬起时出键；退格长按连发；
@@ -106,13 +107,15 @@ class KeyboardView(
 
     /**
      * 可能是上滑的那根手指与它落下的键（[Key.flick]，开着「上滑输入」时）；-1 是没在看。
-     * 往上划过 [FLICK_DP] 且没横着偏出这一列就 [flickArmed]，抬手出上滑的字，不出键本身、也不算滑行。
+     * 往上划过 [FLICK_DP] 且一路都在往上的扇形里（[FLICK_SLOPE]）就 [flickArmed]，抬手出上滑的字，不出键本身、也不算滑行；
+     * 中途偏出扇形就 [flickBroken]，这一笔不再当上滑。
      */
     private var flickPointer = -1
     private var flickSlot: KeySlot? = null
     private var flickX = 0f
     private var flickY = 0f
     private var flickArmed = false
+    private var flickBroken = false
 
     /** 这一套键位能不能滑行（全键盘拼音与英文键盘，服务按当前键盘设）；还要设置里开着「滑行输入」。 */
     var swipeLayout = false
@@ -236,6 +239,7 @@ class KeyboardView(
                     flickX = event.getX(index)
                     flickY = event.getY(index)
                     flickArmed = false
+                    flickBroken = false
                 }
                 tapFeedback()
                 when {
@@ -341,29 +345,42 @@ class KeyboardView(
     private fun flickable(key: Key) = (key as? Key.Letter)?.flickShift == true || (settings.flickSymbols && key.flick != null)
 
     /**
-     * 上滑的那根手指挪动：往上划够了、横向没比纵向挪得多、也没偏出这一列半个键宽就算上滑，撤掉等着的长按。
-     * 起点与终点要在同一列，所以跨键的滑行（[SwipeTrail]）不会被当成上滑。
+     * 上滑的那根手指挪动：只看方向不看落在哪一列，单手拇指划出的斜线也算（#882）。
+     * 一离开按下的那一点就得在往上的扇形里，往上划够 [FLICK_DP] 算上滑；中途偏出扇形（横着走、往下、拐弯）就作废，
+     * 交给滑行（[SwipeTrail]）或点按，所以跨键的滑行不会被当成上滑。
+     * 刚往上走就撤掉等着的长按：慢慢往斜上划时长按先到点弹出气泡，手指再一歪就选上了气泡左边的大写。
      */
     private fun trackFlick(event: MotionEvent) {
-        val slot = flickSlot ?: return
+        if (flickSlot == null || flickBroken) return
         val at = event.findPointerIndex(flickPointer)
         if (at < 0 || choicePopup.showing) return
-        val x = event.getX(at)
-        val up = flickY - event.getY(at)
-        val slop = slot.bounds.width() / 2
-        val armed = up > metrics.density * FLICK_DP && abs(x - flickX) < up &&
-            x > slot.bounds.left - slop && x < slot.bounds.right + slop
-        if (armed && longPressPointer == flickPointer) {
+        for (h in 0 until event.historySize) followFlick(event.getHistoricalX(at, h), event.getHistoricalY(at, h))
+        followFlick(event.getX(at), event.getY(at))
+    }
+
+    private fun followFlick(x: Float, y: Float) {
+        if (flickBroken) return
+        val up = flickY - y
+        val side = abs(x - flickX)
+        // 按下附近的抖动不算方向
+        if (hypot(x - flickX, up) < metrics.density * TRACK_SLOP_DP) return
+        if (up <= 0f || side > up * FLICK_SLOPE) {
+            flickBroken = true
+            flickArmed = false
+            return
+        }
+        if (longPressPointer == flickPointer) {
             timer.removeCallbacks(longPress)
             longPressPointer = -1
         }
-        flickArmed = armed
+        flickArmed = up > metrics.density * FLICK_DP
     }
 
     private fun endFlick() {
         flickPointer = -1
         flickSlot = null
         flickArmed = false
+        flickBroken = false
     }
 
     private fun flick(key: Key) {
@@ -385,7 +402,11 @@ class KeyboardView(
         getLocationOnScreen(screenLocation)
         choicePopup.show(
             choiceItems.map { ChoicePopup.Item(it) },
-            initial = if (key == Key.Language) languageChoice else key.initialChoice,
+            initial = when {
+                key == Key.Language -> languageChoice
+                key is Key.Letter && settings.longPressUpper -> 0
+                else -> key.initialChoice
+            },
             fingerScreenX = screenLocation[0] + slot.bounds.centerX(),
             bottom = slot.bounds.top,
             centred = key is Key.Letter,
@@ -502,6 +523,12 @@ class KeyboardView(
 
         /** 往上划多远算上滑：点按时手指一般挪不到 10dp，再长短距离一划就够不着。 */
         const val FLICK_DP = 18f
+
+        /**
+         * 上滑的扇形：横向挪的不超过往上的这么多倍，约偏离竖直 50°（tan 50° ≈ 1.2），比横竖一样多（45°）再宽一点，
+         * 给单手拇指的斜线留余量；再宽就和往斜上走的滑行分不开了。
+         */
+        const val FLICK_SLOPE = 1.2f
         const val CURSOR_STEP_DP = 14f
     }
 }

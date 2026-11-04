@@ -34,6 +34,9 @@ class CandidateBarView(
     interface Listener {
         fun onSelect(index: Int)
 
+        /** 点了拼音行：光标挪到第 [index] 个字之后。 */
+        fun onMoveCaret(index: Int)
+
         /** 长按气泡里选了译词：上屏第 [index] 个候选的第 [sense] 条译文。 */
         fun onSelectTranslation(index: Int, sense: Int)
 
@@ -139,7 +142,7 @@ class CandidateBarView(
         override fun onLongPress(e: MotionEvent) = openTranslations(e)
 
         override fun onSingleTapUp(e: MotionEvent): Boolean {
-            tap(e.x)
+            tap(e.x, e.y)
             return true
         }
     })
@@ -217,9 +220,15 @@ class CandidateBarView(
         PanelIcons.draw(canvas, PanelIcons.Icon.EXPAND, left + expandSlot / 2, cy, 24 * density, expandIcon)
     }
 
-    private fun tap(x: Float) {
+    private fun tap(x: Float, y: Float) {
         if (expandable && x >= stripWidth) {
             listener.onExpand()
+            return
+        }
+        // 拼音行钉在视口上，不随候选滚动，按视图坐标查
+        val caret = strip.caretAt(x, y)
+        if (caret >= 0) {
+            listener.onMoveCaret(caret)
             return
         }
         if (!strip.isEmpty) {
