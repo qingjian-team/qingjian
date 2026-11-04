@@ -34,6 +34,7 @@ pub mod spacing;
 pub mod storage;
 pub mod swipe;
 pub mod traditional;
+pub mod vietnamese;
 pub mod voice;
 pub mod zhuyin;
 
@@ -74,4 +75,7 @@ pub use qingjian_dictionary as dictionary;
 pub use shuangpin::{Layout as ShuangpinLayout, Scheme as ShuangpinScheme};
 pub use swipe::{CornerDecoder, ShapeDecoder, SwipeDecoder, SwipeKey, SwipeLexicon, SwipePoint};
 pub use traditional::{Traditional, TraditionalVariant};
+pub use vietnamese::{
+    TelexComposer, complete as complete_vietnamese, suggest as suggest_vietnamese,
+};
 pub use voice::{NoTranscriber, Transcriber, TranscriptEvent};

@@ -39,6 +39,24 @@ pub fn init(mtm: MainThreadMarker, info: &BundleInfo) -> Result<(), HostError> {
         .ok()
         .map(WordList::from_path)
         .transpose()?;
+    let vietnamese_words = paths::resource("vietnamese.tsv")
+        .ok()
+        .map(WordList::from_path)
+        .transpose()?;
+    let vietnamese_glossary = paths::resource("vietnamese-zh.tsv")
+        .ok()
+        .map(|path| {
+            let bundled = Glossary::from_path(Language::Chinese, path)?;
+            let personal = match paths::user_data_dir() {
+                Some(dir) => PersonalGlossary::open(
+                    Language::Chinese,
+                    dir.join("user-glossary-input-vi-zh.tsv"),
+                ),
+                None => PersonalGlossary::in_memory(Language::Chinese),
+            };
+            Ok::<_, HostError>(LayeredTranslator::new(bundled, personal))
+        })
+        .transpose()?;
     tracing::info!(
         entries = dictionary.len(),
         glosses = glossary.as_ref().map_or(0, LayeredTranslator::len),
@@ -141,8 +159,12 @@ pub fn init(mtm: MainThreadMarker, info: &BundleInfo) -> Result<(), HostError> {
             settings,
             watch,
             mode_switch,
+            vietnamese: Default::default(),
+            vietnamese_words,
+            vietnamese_glossary,
             osd,
             last_osd_english: None,
+            last_osd_vietnamese: None,
             last_osd_caps: None,
             themes: qingjian_render::ThemeLibrary::load(paths::themes_dir().as_deref()),
             last_flush: std::time::Instant::now(),

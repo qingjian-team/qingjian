@@ -22,7 +22,7 @@ grid_page_keys = "Con disposición horizontal, las teclas de página también de
 [page]
 input = "Entrada"
 candidates = "Candidatos"
-language = "Chino e inglés"
+language = "Cambio de método de entrada"
 appearance = "Apariencia"
 shortcuts = "Atajos"
 phrases = "Frases personalizadas"
@@ -50,8 +50,8 @@ list_separator = ", "
 importing = "Importando…"
 
 [language]
-english_mode = "Modo inglés"
-english_mode_info = "Si está desactivado, solo se puede escribir en chino"
+english_mode = "Cambio chino/inglés"
+english_mode_info = "Cambia entre chino e inglés dentro de Qingjian; al desactivarlo solo se escribe en chino"
 default_english = "Empezar en modo inglés"
 default_english_info = "Empieza en inglés al abrir"
 default_english_info_new_window = "Las aplicaciones y ventanas nuevas empiezan en inglés"
@@ -61,7 +61,7 @@ english_only_in_apps = "Solo en aplicaciones de escritura"
 english_candidates = "Candidatos también en modo inglés"
 english_candidates_info = "Usa Tab o las flechas para elegir palabras inglesas"
 shift_letter_info = "Elige «Empezar a componer» para escribir cosas como «C盘»"
-section_english = "Inglés"
+section_english = "Cambio de método de entrada"
 chinese_punctuation = "Puntuación china"
 english_punctuation = "Puntuación inglesa"
 punct_commits = "La puntuación confirma antes el candidato"
@@ -78,8 +78,14 @@ system_ctrl_space = "Ctrl + Espacio (sistema)"
 switch_keys = "Teclas de cambio"
 switch_keys_multi = "Puedes elegir varias"
 switch_keys_caps = "Si está marcado, Bloq Mayús solo cambia entre mayúsculas y minúsculas"
+double_shift_input = "Pulsar Shift dos veces para un tercer método de entrada"
+double_shift_input_info = "Desactivado de forma predeterminada; elige el método al que cambiar rápidamente"
 shift_letter = "Shift + letra"
 ctrl_space_failed = "Windows no pudo actualizar Ctrl + Espacio. Vuelve a abrir Ajustes e inténtalo de nuevo."
+
+[third_input]
+off = "Desactivado"
+vietnamese = "Vietnamita"
 
 [candidates]
 page_size = "Candidatos por página"

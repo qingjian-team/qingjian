@@ -1,4 +1,4 @@
-//! 中 / 英输入模式指示器：Win11 托盘品牌图标左边的模式图标。按微软 IME 的做法经 `GUID_LBI_INPUTMODE`
+//! 中 / 英 / 越输入模式指示器：Win11 托盘品牌图标左边的模式图标。按微软 IME 的做法经 `GUID_LBI_INPUTMODE`
 //! 语言栏按钮把图标交给系统（转换模式 compartment 不走这条通道，光写它不显示）。Caps Lock 亮着显示「A」。
 
 use std::rc::Rc;
@@ -92,6 +92,7 @@ impl ITfLangBarItemButton_Impl for ModeButton_Impl {
         Ok(BSTR::from(match self.glyph() {
             Glyph::Chinese => "中",
             Glyph::English => "英",
+            Glyph::Vietnamese => "越",
             Glyph::CapsLock => "A",
         }))
     }
@@ -104,6 +105,8 @@ impl ModeButton_Impl {
             Glyph::CapsLock
         } else if self.state.english() {
             Glyph::English
+        } else if self.state.vietnamese() {
+            Glyph::Vietnamese
         } else {
             Glyph::Chinese
         }

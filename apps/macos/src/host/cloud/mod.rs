@@ -9,6 +9,37 @@ pub(super) use test_monitor::CloudTestMonitor;
 use super::*;
 
 impl Host {
+    /// 保存独立输入法的模型译词覆盖；目前 `vi → zh` 使用越南语个人释义层。
+    /// 后续日语 / 韩语应按各自输入法命名空间持有独立的 LayeredTranslator。
+    fn save_independent_candidate_translation(
+        &mut self,
+        word: &str,
+        language: Language,
+        text: &str,
+    ) {
+        let Some(glossary) = self.vietnamese_glossary.as_mut() else {
+            return;
+        };
+        let (part_of_speech, text) = match text.trim().split_once('\t') {
+            Some((part, text)) => (part.trim().parse().ok(), text.trim()),
+            None => (None, text.trim()),
+        };
+        if text.is_empty() {
+            return;
+        }
+        let translation = Translation::new(
+            language,
+            vec![Sense {
+                part_of_speech,
+                text: text.to_owned(),
+                reading: None,
+                fresh: false,
+            }],
+        );
+        glossary.learn(word, translation);
+        glossary.flush();
+    }
+
     /// 清空输入日志文件；开着的话重新打开继续记。
     /// 「测试连接」：用当前配置发一条最小请求，结果回到偏好设置窗口底部的状态行。
     pub(super) fn start_cloud_test(&mut self) {
@@ -104,24 +135,53 @@ impl Host {
         {
             let job = self.candidate_translation.take().expect("刚检查过候选译文");
             self.monitor.stop();
-            self.status = match prediction.sentence {
-                Some(generated)
-                    if self
-                        .engine
-                        .set_generated_candidate_translation(&job.candidate, &generated) =>
-                {
-                    Some(format!("已更新「{}」的译文", job.candidate.text))
+            let generated = prediction.sentence.filter(|text| !text.trim().is_empty());
+            if let (Some(language), Some(generated)) =
+                (job.independent_translation, generated.as_deref())
+            {
+                self.save_independent_candidate_translation(
+                    &job.candidate.text,
+                    language,
+                    generated,
+                );
+            }
+            self.status = if job.independent_translation.is_some() {
+                generated.as_ref().map_or_else(
+                    || Some("模型没有生成可用译文".to_owned()),
+                    |_| Some(format!("已更新「{}」的中文译词", job.candidate.text)),
+                )
+            } else {
+                match generated.as_deref() {
+                    Some(generated)
+                        if self
+                            .engine
+                            .set_generated_candidate_translation(&job.candidate, generated) =>
+                    {
+                        Some(format!("已更新「{}」的译文", job.candidate.text))
+                    }
+                    _ => Some("模型没有生成可用译文".to_owned()),
                 }
-                _ => Some("模型没有生成可用译文".to_owned()),
             };
             for candidate in self.session.layout.local_mut() {
                 if candidate.text == job.candidate.text {
-                    candidate.translation = self.engine.candidate_translation(&candidate.text);
+                    candidate.translation = if job.independent_translation.is_some() {
+                        self.vietnamese_glossary
+                            .as_ref()
+                            .and_then(|glossary| glossary.translate(&candidate.text))
+                    } else {
+                        self.engine.candidate_translation(&candidate.text)
+                    };
                 }
             }
             for candidate in self.session.layout.cloud_mut() {
                 if candidate.text == job.candidate.text {
-                    candidate.translation = self.engine.candidate_translation(&candidate.text);
+                    candidate.translation = if job.independent_translation.is_some() {
+                        self.vietnamese_glossary
+                            .as_ref()
+                            .and_then(|glossary| glossary.translate(&candidate.text))
+                    } else {
+                        self.engine.candidate_translation(&candidate.text)
+                    };
                 }
             }
             self.render();

@@ -22,7 +22,7 @@ grid_page_keys = "Khi xếp ngang, phím lật trang cũng mở rộng thành nh
 [page]
 input = "Nhập liệu"
 candidates = "Gợi ý"
-language = "Trung và Anh"
+language = "Chuyển bộ gõ"
 appearance = "Giao diện"
 shortcuts = "Phím tắt"
 phrases = "Cụm từ tùy chỉnh"
@@ -50,8 +50,8 @@ list_separator = ", "
 importing = "Đang nhập…"
 
 [language]
-english_mode = "Chế độ tiếng Anh"
-english_mode_info = "Khi tắt, chỉ gõ được tiếng Trung"
+english_mode = "Chuyển Trung/Anh"
+english_mode_info = "Chuyển giữa tiếng Trung và tiếng Anh trong Qingjian; khi tắt chỉ gõ tiếng Trung"
 default_english = "Bắt đầu ở chế độ tiếng Anh"
 default_english_info = "Khi mở sẽ bắt đầu bằng tiếng Anh"
 default_english_info_new_window = "Ứng dụng và cửa sổ mới mở sẽ bắt đầu bằng tiếng Anh"
@@ -61,7 +61,7 @@ english_only_in_apps = "Chỉ trong các ứng dụng soạn thảo"
 english_candidates = "Vẫn có gợi ý ở chế độ tiếng Anh"
 english_candidates_info = "Dùng Tab hoặc phím mũi tên để chọn từ tiếng Anh"
 shift_letter_info = "Chọn “Bắt đầu soạn” để gõ được những chữ như “C盘”"
-section_english = "Tiếng Anh"
+section_english = "Chuyển bộ gõ"
 chinese_punctuation = "Dấu câu tiếng Trung"
 english_punctuation = "Dấu câu tiếng Anh"
 punct_commits = "Dấu câu đưa gợi ý lên trước"
@@ -78,8 +78,14 @@ system_ctrl_space = "Ctrl + Space (hệ thống)"
 switch_keys = "Phím chuyển"
 switch_keys_multi = "Có thể chọn nhiều phím"
 switch_keys_caps = "Khi bật, Caps Lock chỉ dùng để đổi chữ hoa"
+double_shift_input = "Nhấn Shift hai lần để chuyển sang bộ gõ thứ ba"
+double_shift_input_info = "Mặc định không bật; chọn một bộ gõ để chuyển nhanh sang đó"
 shift_letter = "Shift + chữ cái"
 ctrl_space_failed = "Windows không cập nhật được Ctrl + Space. Hãy mở lại Cài đặt rồi thử lại."
+
+[third_input]
+off = "Không bật"
+vietnamese = "Tiếng Việt"
 
 [candidates]
 page_size = "Số gợi ý mỗi trang"

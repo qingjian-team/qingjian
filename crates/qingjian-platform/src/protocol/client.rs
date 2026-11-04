@@ -111,6 +111,10 @@ pub enum ClientMessage {
 
         /// `true` 英文模式，`false` 中文模式。
         english: bool,
+
+        /// 越南语第三输入法；旧 DLL 不带时为 `false`。
+        #[serde(default)]
+        vietnamese: bool,
     },
 
     /// 取全局中英模式：激活、得到焦点时各一次，前台、没在组句时再定时问（别的应用或悬浮状态条可能切过）。

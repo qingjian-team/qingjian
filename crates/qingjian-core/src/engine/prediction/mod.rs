@@ -231,6 +231,47 @@ impl Engine {
         )
     }
 
+    /// 为平台自有候选请求指定语言的译文（例如越南语候选固定译成中文）。
+    pub fn request_candidate_translation_to(
+        &mut self,
+        text: &str,
+        language: crate::Language,
+    ) -> Option<u64> {
+        let text = text.trim();
+        if !self.predictor.is_enabled() || self.private || text.is_empty() {
+            return None;
+        }
+        self.prediction_sequence += 1;
+        let sequence = self.prediction_sequence;
+        self.pending_predictions
+            .retain(|_, pending| !is_translation(pending.kind));
+        self.pending_predictions.insert(
+            sequence,
+            PendingPrediction {
+                kind: PredictionKind::CandidateTranslation,
+                scope: String::new(),
+                question_guess: String::new(),
+            },
+        );
+        self.predictor.submit(PredictionRequest {
+            sequence,
+            manual: true,
+            kind: PredictionKind::CandidateTranslation,
+            before: String::new(),
+            after: String::new(),
+            pinyin: String::new(),
+            letters: String::new(),
+            syllables: 0,
+            candidates: Vec::new(),
+            guess: String::new(),
+            max_items: 1,
+            want_sentence: true,
+            text: text.to_owned(),
+            target_language: language.code().to_owned(),
+        });
+        Some(sequence)
+    }
+
     /// 为当前整句候选请求译文。和组句联想一样等停键，避免输入变化时重复发出。
     pub fn request_sentence_translation(&mut self, text: &str) -> Option<u64> {
         self.submit_translation(text, false)

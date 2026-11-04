@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use super::scheme::Scheme;
 use super::{
     Appearance, CandidateRenderer, EmojiCount, FontSize, KeyHintMode, LayoutMode,
-    LegacyTraditional, LogLevel, NumpadDigit, PreeditMode, ShiftLetter,
+    LegacyTraditional, LogLevel, NumpadDigit, PreeditMode, ShiftLetter, ThirdInputMethod,
 };
 use crate::code_schemes::{self, WUBI86};
 
@@ -131,6 +131,9 @@ pub struct GeneralConfig {
 
     /// Windows：按应用 exe 名记住中英状态，仅保存在本次 Server 运行期间。
     pub remember_mode_per_app: bool,
+
+    /// 连按两次 Shift 时切换到的第三输入法；缺省关。当前先保存用户选择，运行时接入随第三输入法实现补上。
+    pub double_shift_input: ThirdInputMethod,
 
     /// 中文模式下不在组句时敲的标点转成全角（`，。？！` 等，数字后的 `.` 保持半角）。
     /// Windows 悬浮状态条上可点切换；macOS 在偏好设置中选择默认模式。
@@ -269,6 +272,7 @@ impl Default for GeneralConfig {
             english_mode: true,
             default_english: false,
             remember_mode_per_app: false,
+            double_shift_input: ThirdInputMethod::default(),
             full_width_punctuation: true,
             english_full_width_punctuation: false,
             punct_commits: false,

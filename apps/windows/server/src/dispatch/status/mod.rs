@@ -18,9 +18,15 @@ use super::Router;
 
 impl Router {
     /// DLL 那边用户切了模式：记入当前应用或全局模式。内置英文模式关着时不收英文。
-    pub(super) fn handle_mode_changed(&mut self, session: SessionId, english: bool) {
+    pub(super) fn handle_mode_changed(
+        &mut self,
+        session: SessionId,
+        english: bool,
+        vietnamese: bool,
+    ) {
         self.mode_session = Some(session);
         self.english = english && self.config.english_mode;
+        self.vietnamese_mode = vietnamese && !self.english;
         self.remember_mode();
         self.ime_active = true;
         self.reconcile_status();
@@ -52,6 +58,7 @@ impl Router {
                     return;
                 }
                 self.english = !self.english;
+                self.vietnamese_mode = false;
                 self.remember_mode();
                 tracing::debug!(english = self.english, "状态条：切换中英模式");
             }
@@ -142,6 +149,7 @@ impl Router {
             Some(english) if self.config.status_enabled => {
                 self.status.show_status(StatusView {
                     english,
+                    vietnamese: self.vietnamese_mode,
                     zhuyin: self.config.scheme == Scheme::Zhuyin,
                     scheme: Some(self.scheme_slot.scheme_label(self.config.scheme))
                         .filter(|label| !label.is_empty()),

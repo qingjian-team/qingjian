@@ -22,7 +22,7 @@ grid_page_keys = "横並びのときページ送りキーでも複数行に展�
 [page]
 input = "入力"
 candidates = "候補"
-language = "中国語と英語"
+language = "入力方式の切り替え"
 appearance = "外観"
 shortcuts = "ショートカット"
 phrases = "ユーザー定義フレーズ"
@@ -50,8 +50,8 @@ list_separator = "、"
 importing = "読み込み中…"
 
 [language]
-english_mode = "英語モード"
-english_mode_info = "オフにすると中国語だけを入力します"
+english_mode = "中国語／英語の切り替え"
+english_mode_info = "青簡内で中国語と英語を切り替えます。オフにすると中国語だけを入力します"
 default_english = "英語モードで開始"
 default_english_info = "開いたときは英語から始めます"
 default_english_info_new_window = "新しく開いたアプリやウィンドウは英語から始めます"
@@ -61,7 +61,7 @@ english_only_in_apps = "文章を書くアプリでのみ表示"
 english_candidates = "英語モードでも候補を表示"
 english_candidates_info = "Tab または矢印キーで英単語を選びます"
 shift_letter_info = "「C盘」のように入力するには「入力中に含める」を選択"
-section_english = "英語"
+section_english = "入力方式の切り替え"
 chinese_punctuation = "中国語の句読点"
 english_punctuation = "英語の句読点"
 punct_commits = "句読点で候補を先に確定"
@@ -78,8 +78,14 @@ system_ctrl_space = "Ctrl + Space（システム）"
 switch_keys = "切り替えキー"
 switch_keys_multi = "複数選択できます"
 switch_keys_caps = "オンにすると Caps Lock は大文字の切り替えだけに使います"
+double_shift_input = "Shift を2回押して第3の入力方式に切り替える"
+double_shift_input_info = "既定では無効です。素早く切り替える入力方式を選択します"
 shift_letter = "Shift + 英字"
 ctrl_space_failed = "Windows が Ctrl + Space を更新できませんでした。設定を開き直してもう一度お試しください。"
+
+[third_input]
+off = "無効"
+vietnamese = "ベトナム語"
 
 [candidates]
 page_size = "1 ページの候補数"
