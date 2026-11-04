@@ -263,7 +263,7 @@ class VocabularyPage(private val activity: Activity, private val ui: SettingsWid
                 addView(ui.text(word.word, 17f, if (word.known) colors.secondary else colors.text, bold = true))
                 when {
                     word.known -> addView(tag(R.string.vocabulary_known, colors.brand, colors.brandSoft))
-                    word.fresh -> addView(tag(R.string.vocabulary_fresh, FRESH, FRESH and 0x00FFFFFF or 0x24000000))
+                    word.fresh -> addView(tag(R.string.vocabulary_fresh, colors.fresh, colors.fresh and 0x00FFFFFF or 0x24000000))
                 }
                 if (word.level.isNotEmpty()) addView(tag(word.level, colors.secondary, colors.divider))
             })
@@ -324,8 +324,6 @@ class VocabularyPage(private val activity: Activity, private val ui: SettingsWid
 
     companion object {
         /** 生词标签的橙色，同 [AppColors] 的橙色色块。 */
-        private const val FRESH = 0xFFFF9443.toInt()
-
         private const val SEARCH_DELAY_MS = 250L
     }
 }

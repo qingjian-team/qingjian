@@ -49,7 +49,8 @@ import app.qingjian.inputmethod.service.input.wantsPrivacy
 import app.qingjian.inputmethod.settings.BottomAction
 import app.qingjian.inputmethod.settings.Settings
 import app.qingjian.inputmethod.settings.ToolbarTool
-import app.qingjian.inputmethod.settings.page.KeyboardSettingsActivity
+import app.qingjian.inputmethod.settings.home.MainActivity
+import app.qingjian.inputmethod.settings.page.CloudSettingsActivity
 import app.qingjian.inputmethod.settings.page.VoiceSettingsActivity
 import app.qingjian.inputmethod.theme.Palette
 import app.qingjian.inputmethod.translate.QuickTranslate
@@ -451,7 +452,9 @@ class QingjianInputMethodService :
 
     override fun openSettings() {
         startActivity(
-            Intent(this, KeyboardSettingsActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            Intent(this, MainActivity::class.java)
+                .putExtra(MainActivity.EXTRA_TAB, MainActivity.TAB_SETTINGS)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP),
         )
     }
 
@@ -568,7 +571,7 @@ class QingjianInputMethodService :
             return
         }
         if (!syncCloud(translate = true)) {
-            needsSetup(getString(R.string.translate_needs_setup), KeyboardSettingsActivity::class.java)
+            needsSetup(getString(R.string.translate_needs_setup), CloudSettingsActivity::class.java)
             return
         }
         closeEditor()

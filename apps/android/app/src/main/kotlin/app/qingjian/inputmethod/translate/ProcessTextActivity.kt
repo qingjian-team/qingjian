@@ -21,7 +21,7 @@ import android.widget.Toast
 import app.qingjian.inputmethod.R
 import app.qingjian.inputmethod.cloud.CloudConfig
 import app.qingjian.inputmethod.core.TranslationEngine
-import app.qingjian.inputmethod.settings.page.KeyboardSettingsActivity
+import app.qingjian.inputmethod.settings.page.CloudSettingsActivity
 import app.qingjian.inputmethod.settings.widget.SettingsWidgets
 import app.qingjian.inputmethod.theme.AppColors
 
@@ -173,7 +173,7 @@ class ProcessTextActivity : Activity() {
         when (kind) {
             Actions.SETTINGS -> {
                 actions.addView(button(R.string.process_text_settings, primary = true) {
-                    startActivity(Intent(this, KeyboardSettingsActivity::class.java))
+                    startActivity(Intent(this, CloudSettingsActivity::class.java))
                     finish()
                 })
                 return

@@ -24,15 +24,17 @@ class AdvancedActivity : PageActivity() {
     private var exporting = false
 
     override fun content(): List<View> = listOf(
-        ui.sectionTitle(R.string.section_data),
-        ui.card(
+        ui.group(
+            null,
             ui.action(R.string.export_title, getString(if (exporting) R.string.export_running else R.string.export_value)) {
                 if (!exporting) pickTarget()
             },
-            ui.note(R.string.export_note),
-            ui.divider(),
-            ui.action(R.string.clear_learning_title, null, DANGER) { chooseParts() },
-            ui.note(R.string.clear_learning_note),
+            footer = R.string.export_note,
+        ),
+        ui.group(
+            null,
+            ui.action(R.string.clear_learning_title, null, ui.colors.danger) { chooseParts() },
+            footer = R.string.clear_learning_note,
         ),
     )
 
@@ -111,13 +113,10 @@ class AdvancedActivity : PageActivity() {
             .setNegativeButton(android.R.string.cancel, null)
             .show()
             .getButton(AlertDialog.BUTTON_POSITIVE)
-            .setTextColor(DANGER)
+            .setTextColor(ui.colors.danger)
     }
 
     private companion object {
         const val CREATE_ZIP = 1
-
-        /** 清空这类不能撤销的操作用红字。 */
-        const val DANGER = 0xFFE5484D.toInt()
     }
 }
