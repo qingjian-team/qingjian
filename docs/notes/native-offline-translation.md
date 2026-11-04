@@ -24,7 +24,7 @@ TSF 没有上下文、拒绝编辑会话、未回调以及UIA未提供选区的�
 - ONNX导出：[Xenova/opus-mt-zh-en](https://huggingface.co/Xenova/opus-mt-zh-en)、[Xenova/opus-mt-en-zh](https://huggingface.co/Xenova/opus-mt-en-zh)。使用int8权重，来源提交、文件大小和SHA256固定在catalog.json；不把权重提交到Git。
 - 运行库复用Windows安装包提供的ONNX Runtime 1.24.4，CPU执行、关闭遥测。中英方向首次使用时分别加载，支持贪心解码，不承诺术语翻译质量。
 - 设置程序使用跨进程文件锁保护下载与安装，全部文件校验成功后换入用户模型目录；失败保留旧模型及恢复备份。
-- Tokenizer从同版本source.spm读取实际归一化表；最多180个输入token一块，保留换行，未正常生成结束标记时返回失败，不输出截断译文。
+- Tokenizer从同版本source.spm读取实际归一化表；安装归一化器失败时返回推理错误，不继续用不完整的分词配置。最多180个输入token一块，保留换行，未正常生成结束标记时返回失败，不输出截断译文。
 
 ## 验证入口
 

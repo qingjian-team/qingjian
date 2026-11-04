@@ -18,7 +18,9 @@ pub(super) fn load(dir: &Path) -> Result<Tokenizer, OfflineError> {
     let normalizer = bytes_field(&spm, 3)?.ok_or(OfflineError::Invalid("missing normalizer"))?;
     let map = bytes_field(normalizer, 2)?.ok_or(OfflineError::Invalid("missing charsmap"))?;
     let precompiled = Precompiled::from(map).map_err(|e| OfflineError::Inference(e.to_string()))?;
-    tokenizer.with_normalizer(Some(precompiled));
+    tokenizer
+        .with_normalizer(Some(precompiled))
+        .map_err(|e| OfflineError::Inference(e.to_string()))?;
     Ok(tokenizer)
 }
 
