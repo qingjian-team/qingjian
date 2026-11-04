@@ -1,6 +1,7 @@
 //! 查词、切分、光标与上屏消耗。
 
 use super::*;
+use crate::ranking::FIRST_SINGLE_CHAR_BY;
 
 #[test]
 fn exact_word_first_then_longer_then_prefix_expansions_then_prefix_words() {
@@ -178,6 +179,33 @@ fn long_input_without_a_word_offers_the_first_syllables_chars_after_a_few_words(
             "十"
         ]
     );
+}
+
+#[test]
+fn sentences_and_many_words_still_leave_a_first_syllable_char_on_the_first_page() {
+    // #769：整句与词合起来占满第一页时，第一个单字最晚在第 9 位，让出来的词排在单字后面
+    let dictionary = concat!(
+        "实验室\tshi yan shi\t9000\n十堰市\tshi yan shi\t8000\n试验室\tshi yan shi\t7000\n",
+        "实验师\tshi yan shi\t6000\n实验\tshi yan\t9000\n试验\tshi yan\t8000\n饰演\tshi yan\t7000\n",
+        "是\tshi\t9000\n时\tshi\t8000\n情\tqing\t9000\n轻\tqing\t8000\n清\tqing\t7000\n",
+    );
+    let mut engine = Engine::new(Dictionary::parse(dictionary).unwrap());
+    engine.set_input("shiyanshiqing");
+    let items = engine.query().unwrap().candidates.items;
+    let texts: Vec<&str> = items.iter().map(|c| c.text.as_str()).collect();
+    let sentences = items
+        .iter()
+        .take_while(|c| c.kind == CandidateKind::Sentence)
+        .count();
+    assert!(sentences >= 3, "{texts:?}");
+    let first = position_of(&texts, "是");
+    assert!(first < FIRST_SINGLE_CHAR_BY, "{texts:?}");
+    assert_eq!(texts[first + 1], "时", "{texts:?}");
+    assert!(position_of(&texts, "饰演") > first, "{texts:?}");
+}
+
+fn position_of(texts: &[&str], text: &str) -> usize {
+    texts.iter().position(|t| *t == text).unwrap_or(usize::MAX)
 }
 
 #[test]

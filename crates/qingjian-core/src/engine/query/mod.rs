@@ -4,8 +4,8 @@ use std::time::Instant;
 
 use converting::trim_sentence_alternates;
 
-use crate::engine::is_raw;
-use crate::ranking::Scored;
+use crate::engine::{Learner, is_raw};
+use crate::ranking::{self, Scored};
 use crate::{Candidate, CandidateKind, Engine, ParseError};
 
 mod code;
@@ -66,6 +66,26 @@ impl Engine {
         }
         self.rerank_choices(&mut query.candidates.items);
         trim_sentence_alternates(&mut query.candidates.items);
+        // 整句截完、重排完才数得准第一页上排了什么（截之前可能还有十几条整句）；只有拼音输入有切分。
+        // 辅码筛词时顺序按码的匹配程度排过，不再挪
+        let several = self.aux_filter().is_none()
+            && query
+                .segmentations
+                .first()
+                .is_some_and(|best| best.syllables.len() > 1);
+        // 选过的词不挪：盖住的是输入的哪一段这里不知道，开头每一段都问一遍（只问单字前面那几个词）
+        let letters: String = self
+            .composition
+            .scope()
+            .chars()
+            .filter(|&c| c != '\'')
+            .collect();
+        ranking::keep_single_char_on_first_page(&mut query.candidates.items, several, |c| {
+            letters
+                .char_indices()
+                .map(|(at, ch)| at + ch.len_utf8())
+                .any(|end| self.learner.choice_weight(&letters[..end], &c.text) > 0)
+        });
         query.spelled = result::spelling_for(&query.segmentations, query.candidates.items.first());
         // 给输入日志留个摘要：上屏时才知道选了什么，这里才知道看到了什么
         // 九宫格没有切分，拼音取拼音行（首选读到的写法），云联想也用它问

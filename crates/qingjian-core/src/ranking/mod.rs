@@ -15,12 +15,15 @@
 //!
 //! 词库静态词频只用于预选（命中太多时先按词频砍到够排的量）与兜底。
 //!
-//! 排完再由 [`arrange`] 按类别重排一次：首音节的单字不被猜出来的长词、拆开音节的读法与几十个同音整词挤到几页之后。
+//! 排完再由 [`arrange`] 按类别重排一次：首音节的单字不被猜出来的长词、拆开音节的读法与几十个同音整词挤到几页之后；
+//! 整句、emoji 插完、选词模型重排后 [`keep_single_char_on_first_page`] 再保证第一个单字在第一页。
 
+mod first_page;
 mod scored;
 
 use std::collections::HashSet;
 
+pub use first_page::{FIRST_SINGLE_CHAR_BY, keep_single_char_on_first_page};
 pub use scored::{PreselectKey, Scored, SortKey};
 
 /// 用户选择次数的加分系数：加分 = 系数 × ln(1 + min(次数, [`WEIGHT_CAP`]))。
