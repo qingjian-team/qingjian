@@ -415,7 +415,7 @@ fn full_pinyin_keyword_brings_its_shortcuts() {
 }
 
 #[test]
-fn ng_alone_gives_en_interjection_first_in_full_pinyin_only() {
+fn ng_alone_gives_en_interjection_first_in_full_pinyin() {
     let mut engine = engine();
     engine.set_input("ng");
     let query = engine.query().unwrap();
@@ -427,9 +427,30 @@ fn ng_alone_gives_en_interjection_first_in_full_pinyin_only() {
     engine.set_input("ngh");
     assert!(texts_of(&engine).iter().all(|t| t != "嗯"));
 
+    // hng 只有 哼；hm 还是 好吗 一类的简拼，噷 排第二
+    engine.set_input("hng");
+    assert_eq!(texts_of(&engine)[0], "哼");
+    engine.set_input("hm");
+    assert!(
+        texts_of(&engine)
+            .iter()
+            .position(|t| t == "噷")
+            .is_some_and(|at| at <= 1)
+    );
+}
+
+#[test]
+fn shuangpin_ng_offers_en_second_after_neng() {
+    // #880：小鹤里 ng 是 neng，能 留在第一，嗯 跟在后面；双拼的 hm / hng 是别的音，不给叹词
+    let dictionary = Dictionary::parse("能\tneng\t90000\n").unwrap();
+    let mut engine = Engine::new(dictionary);
     engine.set_shuangpin(Some(Scheme::Xiaohe));
     engine.set_input("ng");
-    assert!(texts_of(&engine).iter().all(|t| t != "嗯"));
+    let texts = texts_of(&engine);
+    assert_eq!(texts[0], "能");
+    assert_eq!(texts[1], "嗯");
+    engine.set_input("hm");
+    assert!(texts_of(&engine).iter().all(|t| t != "噷"));
 }
 
 #[test]

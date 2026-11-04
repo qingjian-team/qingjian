@@ -166,3 +166,58 @@ fn calendar_shortcuts_need_pinned_letters() {
     let at = texts.iter().position(|t| *t == "时间").unwrap();
     assert!(texts[at + 1].contains(':'), "{texts:?}");
 }
+
+#[test]
+fn interjection_spellings_are_in_the_pinyin_column() {
+    let mut engine = nine_key();
+    for (keys, spelling) in [("64", "ng"), ("46", "hm"), ("464", "hng")] {
+        let query = query(&mut engine, keys);
+        assert!(
+            query.pinyin_choices.iter().any(|c| c == spelling),
+            "{keys}: {:?}",
+            query.pinyin_choices
+        );
+    }
+}
+
+#[test]
+fn pinned_ng_gives_en_first_and_commits_its_span() {
+    // 64 选定 ng 后 嗯 排第一；后面还有数字时选了 嗯 剩下的接着打
+    let mut engine = nine_key();
+    engine.set_input("6452432");
+    assert!(engine.pin_nine_key("ng"));
+    assert_eq!(engine.composition().text(), "ng'52432");
+    let query = engine.query().unwrap();
+    assert_eq!(texts_of(&query)[0], "嗯");
+    assert!(query.marked_text().starts_with("ng'"));
+    let en = query.candidates.items[0].clone();
+    engine.commit(&en);
+    assert_eq!(engine.composition().text(), "52432");
+}
+
+#[test]
+fn single_n_or_m_offers_the_interjection_but_stays_an_initial() {
+    let mut engine = nine_key();
+    engine.set_input("6");
+    assert!(engine.pin_nine_key("m"));
+    let query = engine.query().unwrap();
+    assert!(texts_of(&query).iter().take(2).any(|t| *t == "呣"));
+    // 后面还有键时 m 是简拼声母，不插 呣
+    engine.set_input("6");
+    assert!(engine.pin_nine_key("n"));
+    engine.set_input("n'6");
+    let query = engine.query().unwrap();
+    assert!(!texts_of(&query).contains(&"嗯"));
+}
+
+#[test]
+fn interjection_is_not_cut_out_of_a_longer_pinned_syllable() {
+    // 选定 hang 后不该再切出 ha + ng
+    let (shapes, _) = crate::nine_key::segment("hang");
+    assert!(
+        shapes
+            .iter()
+            .all(|shape| shape.positions.iter().all(|p| p.alternatives != ["ng"])),
+        "{shapes:?}"
+    );
+}

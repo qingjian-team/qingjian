@@ -4,6 +4,7 @@
 mod commit;
 mod conversion;
 mod display;
+mod interjection;
 mod pin;
 
 use std::time::Instant;
@@ -56,6 +57,10 @@ impl Engine {
         }
         if let Some(sentence) = self.nine_key_sentence(&shapes, &items) {
             items.insert(0, sentence);
+        }
+        if let Some((at, candidate)) = self.nine_key_interjection(keys, shapes.first()) {
+            items.retain(|c| c.text != candidate.text);
+            items.insert(at.min(items.len()), candidate);
         }
         // 数字串不认 `rq` 这些（`77` 多半是别的词）；拼音列或长按把字母都定下来了才算
         let letters: String = keys.chars().filter(|&c| c != '\'').collect();

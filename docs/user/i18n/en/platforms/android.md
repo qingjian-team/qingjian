@@ -46,6 +46,7 @@ The 试一试 (Try it) box on the home screen lets you try typing right away.
 
 - Type `rq`, `sj` or `xq` for today's date, the current time or the day of the week; when you type `riqi`, `shijian` or `xingqi`, the same forms follow right after 日期, 时间 or 星期.
 - The pinyin column on the left of the 9-key keypad lists every syllable and single letter the first few keys can spell, longest first: `643` gives nie, mie, ni, mi and m, n, o; tap ni and the rest is read after ni.
+- Interjections can be picked from the column too: `64` → ng gives 嗯, `46` → hm gives 噷, `464` → hng gives 哼; a lone `6` picked as n or m also offers 嗯 or 呣.
 - On the 9-key keypad, digits like `77` aren't taken as `rq`; tap r and then q in the pinyin column on the left to get the date. `7474` (riqi) also brings the date forms when it gives 日期.
 - On the full keyboard, type `v`, tap 123, then type a calculation such as `v1+2`; the candidates give `3` and `1+2=3`. `v123` gives Chinese numerals and the amount forms.
 - After typing `3+4` directly on the number keyboard and committing it, the candidate bar offers `7` and `3+4=7`: tap `7` to replace the expression with the result, or `3+4=7` to append `=7`. After typing `3×4=`, the candidates offer `12`. Dates (`2026-10-19`) and phone numbers aren't treated as calculations.

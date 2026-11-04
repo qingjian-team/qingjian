@@ -11,6 +11,37 @@ use crate::shortcut;
 use qingjian_dictionary::WordList;
 
 impl Engine {
+    /// 叹词的标准音（嗯 ng、哼 hng、噷 hm）不是拼音音节（音节表不收叹词写法，`n` / `m` 要留给简拼），
+    /// 整段正好是这几个键时按快捷候选给（#880）。双拼里 `ng` 是 neng，能 留在第一、嗯 排第二；
+    /// hm / hng 在双拼里是别的音、注音里不是这些键，都不给。
+    fn insert_interjection(&self, items: &mut Vec<Candidate>, scope: &str) {
+        if self.zhuyin {
+            return;
+        }
+        let shuangpin = self.shuangpin.is_some();
+        let (text, at) = match scope {
+            "ng" => ("嗯", usize::from(shuangpin)),
+            "hng" if !shuangpin => ("哼", 0),
+            // hm 也是 好吗 一类的简拼
+            "hm" if !shuangpin => ("噷", 1),
+            _ => return,
+        };
+        // 已经有这个字（九宫格选定了 ng、或词库按别的读音带出来排在后面）就挪上来，不另插一个
+        let candidate = match items.iter().position(|c| c.text == text) {
+            Some(found) if found <= at => return,
+            Some(found) => items.remove(found),
+            None => Candidate {
+                text: text.to_owned(),
+                kind: CandidateKind::Shortcut,
+                syllables: Vec::new(),
+                reading: None,
+                translation: None,
+                aux_code: None,
+            },
+        };
+        items.insert(at.min(items.len()), candidate);
+    }
+
     /// 精确匹配自定义输入码时，数字键应选择候选。
     pub(super) fn has_custom_phrase(&self) -> bool {
         !self.english_mode
@@ -70,21 +101,7 @@ impl Engine {
             } else {
                 self.modes().expression
             };
-        // 嗯 的标准音 ng 不是拼音音节（音节表不收叹词写法）；整段正好是 ng 时按快捷候选给它，排第一。
-        // 只认全拼：双拼与注音里这两个键是别的音
-        if scope == "ng" && self.shuangpin.is_none() && !self.zhuyin {
-            items.insert(
-                0,
-                Candidate {
-                    text: "嗯".to_owned(),
-                    kind: CandidateKind::Shortcut,
-                    syllables: Vec::new(),
-                    reading: None,
-                    translation: None,
-                    aux_code: None,
-                },
-            );
-        }
+        self.insert_interjection(items, scope);
         let shortcuts = shortcut::candidates(scope, expression_char, &jiff::Zoned::now());
         if shortcuts.is_empty() {
             return;
