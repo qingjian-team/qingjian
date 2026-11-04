@@ -11,7 +11,7 @@ use objc2_app_kit::{
 };
 use objc2_foundation::{NSData, NSObject, NSObjectProtocol, NSSize, NSString};
 
-use super::listener;
+use super::{autostart, listener};
 use crate::i18n::tr;
 
 /// 菜单栏图标：模板图（只看透明度，系统按菜单栏深浅上色），36 像素见方，按 18 点显示。
@@ -43,6 +43,11 @@ define_class!(
         #[unsafe(method(openSettings:))]
         fn open_settings(&self, _sender: Option<&AnyObject>) {
             listener::open_settings();
+        }
+
+        #[unsafe(method(toggleAutostart:))]
+        fn toggle_autostart(&self, _sender: Option<&AnyObject>) {
+            autostart::set(!autostart::enabled());
         }
 
         #[unsafe(method(quit:))]
@@ -100,21 +105,30 @@ fn item(
     item
 }
 
-/// 按现在的状态重建菜单：语言随配置换，暂停打勾。
-fn fill(target: &MenuTarget, menu: &NSMenu) {
-    let mtm = target.mtm();
-    let (paused, has_settings) = listener::menu_state();
-    menu.removeAllItems();
-    menu.addItem(&item(mtm, tr("tray.open"), sel!(openPanel:), target));
-    let pause = item(mtm, tr("tray.pause"), sel!(togglePause:), target);
-    pause.setState(if paused {
+fn set_checked(item: &NSMenuItem, on: bool) {
+    item.setState(if on {
         NSControlStateValueOn
     } else {
         NSControlStateValueOff
     });
+}
+
+/// 按现在的状态重建菜单：语言随配置换，暂停打勾。
+fn fill(target: &MenuTarget, menu: &NSMenu) {
+    let mtm = target.mtm();
+    let state = listener::menu_state();
+    menu.removeAllItems();
+    menu.addItem(&item(mtm, tr("tray.open"), sel!(openPanel:), target));
+    let pause = item(mtm, tr("tray.pause"), sel!(togglePause:), target);
+    set_checked(&pause, state.paused);
     menu.addItem(&pause);
-    if has_settings {
+    if state.has_settings {
         menu.addItem(&item(mtm, tr("tray.settings"), sel!(openSettings:), target));
+    }
+    if state.standalone {
+        let autostart = item(mtm, tr("tray.autostart"), sel!(toggleAutostart:), target);
+        set_checked(&autostart, autostart::enabled());
+        menu.addItem(&autostart);
     }
     menu.addItem(&NSMenuItem::separatorItem(mtm));
     menu.addItem(&item(mtm, tr("tray.quit"), sel!(quit:), target));

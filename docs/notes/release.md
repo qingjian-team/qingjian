@@ -181,15 +181,20 @@ gh secret set QINGJIAN_ANDROID_KEY_PASSWORD
 ## 青简剪贴板
 
 剪贴板单独发版，版本号与输入法无关（`apps/clipboard/Cargo.toml`，从 0.1.0 起），源码留在这个仓库，安装包与 issue 在 [qingjian-team/qingjian-clipboard](https://github.com/qingjian-team/qingjian-clipboard)。
-输入法的安装包照常内置一份（缺省关闭），独立安装包给只要剪贴板的人：按用户装、不要管理员，见 `apps/clipboard/installer/clipboard.iss`。
+输入法的安装包照常内置一份（缺省关闭），独立安装包给只要剪贴板的人：
+- Windows：按用户装、不要管理员，见 `apps/clipboard/installer/clipboard.iss`。
+- macOS：`QingjianClipboard.app` 压成 zip，Apple Silicon 与 Intel 各一个，用户解压后拖进「应用程序」。和输入法包里那份是同一个 bundle id、同一套 `assemble.sh` 装出来的；两份不会同时跑（单实例锁），单独装的那份在菜单栏菜单里多一个「开机启动」（系统登录项）。
 
 1. `apps/clipboard/Cargo.toml` 去掉 `-dev`，`cargo update --workspace --offline`；`apps/clipboard/CHANGELOG.md` 顶上那节的「未发布」换成日期。
 2. 提交、合进 main 后打注释标签并推：`git tag -a clipboard-v0.1.0 -m "青简剪贴板 0.1.0" && git push origin main clipboard-v0.1.0`。
-3. `clipboard-release.yml` 门禁（版本号 = 标签、不带 `-dev`、标签在 main 上）后在 Windows 上打包，在 qingjian-clipboard 建 `v<版本>` 的 Release，挂安装包与 `SHA256SUMS`，说明取自 CHANGELOG 那节并附源码提交。
+3. `clipboard-release.yml`：`gate` 过门禁（版本号 = 标签、不带 `-dev`、标签在 main 上）后在 qingjian-clipboard 建 `v<版本>` 的**草稿** Release，说明取自 CHANGELOG 那节，附两个平台的未签名提示与源码提交；
+   `windows`、`macos` 并行打包传到草稿上；两边都成功 `publish` 才补上 `SHA256SUMS`、转正。任何一边失败就停在草稿，修好后删掉草稿与标签重推，或重跑失败的 job。
    跨仓库发布要 Secret `QINGJIAN_CLIPBOARD_TOKEN`（fine-grained PAT，对 qingjian-clipboard 有 Contents: read and write），没配门禁直接失败。
 4. 紧接一个提交把版本号改成下一个 `-dev`，CHANGELOG 顶上加新的「未发布」节。
 
-本机打包：`powershell -ExecutionPolicy Bypass -File apps\clipboard\installer\build.ps1`，成品在 `target\installer\qingjian-clipboard-<版本>-windows-x86_64-setup.exe`。
+本机打包：
+- Windows：`powershell -ExecutionPolicy Bypass -File apps\clipboard\installer\build.ps1`，成品在 `target\installer\qingjian-clipboard-<版本>-windows-x86_64-setup.exe`。
+- macOS：`apps/clipboard/macos/build.sh`（`QINGJIAN_TARGET=x86_64-apple-darwin` 打 Intel），成品在 `target/installer/qingjian-clipboard-<版本>-macos-<arm64|x86_64>.zip`。
 剪贴板的标签不进 `release.yml`（它只认 `v*` 与各平台前缀），也不进 `releases.json`：输入法的检查更新与官网下载页不认它。
 
 ## 本机打包

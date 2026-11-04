@@ -1,10 +1,12 @@
 //! 和 macOS 打交道的部分：后台线程轮询剪贴板，主线程上收全局快捷键、挂菜单栏图标，读写系统剪贴板，粘贴回原来的程序，霓虹灯的窗口。
 
+mod autostart;
 mod ffi;
 mod hotkey;
 mod keycode;
 mod listener;
 mod main_queue;
+mod menu_state;
 mod neon_strips;
 mod paste;
 mod pasteboard;

@@ -16,6 +16,7 @@ use objc2_foundation::NSTimer;
 use qingjian_clipboard::ClipSettings;
 
 use super::keycode::key_code;
+use super::menu_state::MenuState;
 use super::screen::{cursor_screen, panel_window};
 use super::{hotkey, pasteboard, status_item};
 use crate::system::Signal;
@@ -185,10 +186,18 @@ pub fn open_from_menu(mtm: MainThreadMarker) {
     open_panel(mtm, None);
 }
 
-/// 菜单上显示的状态：暂停中、有没有设置程序。
-pub fn menu_state() -> (bool, bool) {
-    let paused = with_state(|state| state.is_some_and(|(watch, _)| watch.settings.paused));
-    (paused, settings_app().is_some())
+/// 菜单上显示的状态。
+pub fn menu_state() -> MenuState {
+    let (paused, managed) = with_state(|state| {
+        state.map_or((false, false), |(watch, _)| {
+            (watch.settings.paused, watch.managed)
+        })
+    });
+    MenuState {
+        paused,
+        has_settings: settings_app().is_some(),
+        standalone: !managed,
+    }
 }
 
 /// 菜单改配置：写完马上读回来，菜单下次打开就是新状态。
@@ -204,8 +213,7 @@ fn write_flag(key: &str, value: bool) {
 }
 
 pub fn toggle_pause() {
-    let (paused, _) = menu_state();
-    write_flag("paused", !paused);
+    write_flag("paused", !menu_state().paused);
 }
 
 /// 随输入法装在同一个 `Contents/Applications/` 里的设置程序。

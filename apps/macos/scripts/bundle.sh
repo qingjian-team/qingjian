@@ -95,11 +95,6 @@ SETTINGS_APP="$APP/Contents/Applications/QingjianSettings.app"
 mkdir -p "$SETTINGS_APP/Contents/MacOS" "$SETTINGS_APP/Contents/Resources"
 cp "$BIN_DIR/qingjian-settings" "$SETTINGS_APP/Contents/MacOS/qingjian-settings"
 cp apps/settings/macos/Info.plist "$SETTINGS_APP/Contents/Info.plist"
-# 青简剪贴板（实验功能）也是独立的 .app：常驻菜单栏，输入法按配置用 open 拉起它（apps/macos/src/host/clipboard_process.rs）
-CLIPBOARD_APP="$APP/Contents/Applications/QingjianClipboard.app"
-mkdir -p "$CLIPBOARD_APP/Contents/MacOS" "$CLIPBOARD_APP/Contents/Resources"
-cp "$BIN_DIR/qingjian-clipboard" "$CLIPBOARD_APP/Contents/MacOS/qingjian-clipboard"
-cp apps/clipboard/macos/Info.plist "$CLIPBOARD_APP/Contents/Info.plist"
 # 版本号来自 apps/macos/Cargo.toml（各平台壳版本号独立，不跟 workspace 走），构建号用提交数（单调递增，pkg 升级判断靠它）。
 # 发版之间版本号带 -dev（0.1.2-dev）：本地与 CI 中间构建一眼能与线上包区分；发版提交去掉 -dev 再打标签（docs/notes/release.md）。
 # 开发版再接上 git 短哈希（0.1.3-dev-1a2b3c4，工作区有改动加 +），测试时一眼知道装的是哪个提交；Cargo.toml 里仍只写 -dev。
@@ -114,10 +109,6 @@ SETTINGS_VERSION="$(sed -n 's/^version = "\(.*\)"/\1/p' apps/settings/Cargo.toml
 if [[ "$SETTINGS_VERSION" == *-dev ]]; then SETTINGS_VERSION="${SETTINGS_VERSION}-${GIT_REV}"; fi
 /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $SETTINGS_VERSION" \
   -c "Set :CFBundleVersion $BUILD_NUMBER" "$SETTINGS_APP/Contents/Info.plist"
-CLIPBOARD_VERSION="$(sed -n 's/^version = "\(.*\)"/\1/p' apps/clipboard/Cargo.toml | head -1)"
-if [[ "$CLIPBOARD_VERSION" == *-dev ]]; then CLIPBOARD_VERSION="${CLIPBOARD_VERSION}-${GIT_REV}"; fi
-/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $CLIPBOARD_VERSION" \
-  -c "Set :CFBundleVersion $BUILD_NUMBER" "$CLIPBOARD_APP/Contents/Info.plist"
 # 卸载脚本随包，装了 pkg 的用户从 Resources 里运行
 cp apps/macos/scripts/uninstall.sh "$APP/Contents/Resources/uninstall.sh"
 # 输入源名字按系统语言本地化（中文系统显示「青简」，其他显示 Qingjian）
@@ -200,16 +191,12 @@ fi
 printf 'APPL????' > "$APP/Contents/PkgInfo"
 
 # 图标：应用图标从 assets/icon/macos/app.png 生成 .icns；输入法菜单图标直接用 assets/icon/menu.pdf（矢量，随 Info.plist 的 TISIconIsTemplate 按深浅色反色）
-ICONSET="$ROOT/target/Qingjian.iconset"
-rm -rf "$ICONSET" && mkdir -p "$ICONSET"
-for size in 16 32 128 256 512; do
-  sips -z $size $size assets/icon/macos/app.png --out "$ICONSET/icon_${size}x${size}.png" >/dev/null
-  double=$((size * 2))
-  sips -z $double $double assets/icon/macos/app.png --out "$ICONSET/icon_${size}x${size}@2x.png" >/dev/null
-done
-iconutil -c icns "$ICONSET" -o "$APP/Contents/Resources/Qingjian.icns"
+apps/macos/scripts/make-icns.sh "$APP/Contents/Resources/Qingjian.icns"
 cp "$APP/Contents/Resources/Qingjian.icns" "$SETTINGS_APP/Contents/Resources/Qingjian.icns"
-cp "$APP/Contents/Resources/Qingjian.icns" "$CLIPBOARD_APP/Contents/Resources/Qingjian.icns"
+# 青简剪贴板（实验功能）也是独立的 .app：常驻菜单栏，输入法按配置用 open 拉起它（apps/macos/src/host/clipboard_process.rs）。
+# 与剪贴板单独打包共用 assemble.sh
+apps/clipboard/macos/assemble.sh "$BIN_DIR/qingjian-clipboard" "$APP/Contents/Applications/QingjianClipboard.app" \
+  "$BUILD_NUMBER" "$APP/Contents/Resources/Qingjian.icns" >/dev/null
 cp assets/icon/menu.pdf "$APP/Contents/Resources/qingjian-menu.pdf"
 # 仓库放在 iCloud 同步的目录（Documents）时新建的 .app 会带上 Finder 扩展属性，codesign 会拒（detritus not allowed）：签名前清掉
 xattr -cr "$APP"
