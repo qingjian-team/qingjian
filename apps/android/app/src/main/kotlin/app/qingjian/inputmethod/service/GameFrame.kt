@@ -22,6 +22,7 @@ import app.qingjian.inputmethod.theme.Palette
  * 游戏键盘：铺满整屏的透明底，中间浮一块可拖动的键盘（顶上一条拖动栏 + [content]，即候选条与键盘）。
  * 整屏只有键盘那一块收触摸，其余透给下面的游戏，见服务的 `onComputeInsets` 与 [touchableRect]。
  * 位置记成左上角在可挪范围里的比例（[positionX] / [positionY]），换了屏幕尺寸、键盘大小也落在屏内。
+ * 底边留出 [BOTTOM_GUARD_DP]：贴底时最下一排键会落进系统底部手势的感应区（MIUI 上点空格、符号被当成手势吃掉）。
  */
 @SuppressLint("ViewConstructor")
 class GameFrame(
@@ -97,9 +98,12 @@ class GameFrame(
 
     override fun onLayout(changed: Boolean, l: Int, t: Int, r: Int, b: Int) {
         val x = ((width - box.measuredWidth).coerceAtLeast(0) * positionX).toInt()
-        val y = ((height - box.measuredHeight).coerceAtLeast(0) * positionY).toInt()
+        val y = (freeHeight(box.measuredHeight) * positionY).toInt()
         box.layout(x, y, x + box.measuredWidth, y + box.measuredHeight)
     }
+
+    /** 键盘上下能挪的范围：底边让出手势区。 */
+    private fun freeHeight(boxHeight: Int) = (height - dp(BOTTOM_GUARD_DP) - boxHeight).coerceAtLeast(0)
 
     /** 拖动栏：左边透明度、换回普通键盘，中间一道拖动条，右边收起；空白处按住拖动整块键盘。 */
     @SuppressLint("ViewConstructor")
@@ -154,7 +158,7 @@ class GameFrame(
         override fun onTouchEvent(event: MotionEvent): Boolean {
             val frame = this@GameFrame
             val freeX = (frame.width - box.width).coerceAtLeast(1).toFloat()
-            val freeY = (frame.height - box.height).coerceAtLeast(1).toFloat()
+            val freeY = freeHeight(box.height).coerceAtLeast(1).toFloat()
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     downX = event.rawX
@@ -179,5 +183,6 @@ class GameFrame(
         const val BUTTON_DP = 34f
         const val ICON_DP = 18f
         const val GRIP_WIDTH_DP = 44f
+        const val BOTTOM_GUARD_DP = 32f
     }
 }
