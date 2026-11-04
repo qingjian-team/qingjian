@@ -26,12 +26,11 @@ fn accept_until(listener: &TcpListener, timeout: Duration) -> Option<TcpStream> 
 }
 
 fn clearing_input_cancels_pending_requests(clear: impl Fn(&mut Router)) {
-    for sentence_translation in [false, true] {
+    {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         listener.set_nonblocking(true).unwrap();
         let mut router = router_with(RouterConfig {
             cloud_enabled: true,
-            sentence_translation,
             ..RouterConfig::default()
         });
         let predictor = CloudPredictor::new(&PredictConfig {
@@ -40,7 +39,6 @@ fn clearing_input_cancels_pending_requests(clear: impl Fn(&mut Router)) {
             api_key: Some("test".into()),
             debounce_ms: 300,
             min_interval_ms: 3000,
-            sentence_translation,
             ..PredictConfig::default()
         })
         .unwrap();
@@ -51,7 +49,7 @@ fn clearing_input_cancels_pending_requests(clear: impl Fn(&mut Router)) {
         assert!(router.engine_mut().composition().is_empty());
         assert!(
             accept_until(&listener, Duration::from_millis(600)).is_none(),
-            "清空输入后不应发出联想或译文请求（整句翻译：{sentence_translation}）"
+            "清空输入后不应发出联想请求"
         );
 
         // 新输入应只等停键，不能被已取消的输入占掉 3 秒网络间隔。

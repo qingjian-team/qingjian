@@ -202,6 +202,8 @@ translation_second = "shift+option"
 # 把应用里选中的文字译成学习语言（要开着云服务）：译文先出现在候选窗口，回车替换选中的文字，Esc 保留原文
 # 修饰键 + 一个字母或数字，任意组合；避开 ⌘T 这类应用常用键
 translate_selection = "control+option+t"
+# 没在打字时打开符号面板的「翻译」组（要开着云服务）：框里打一句，译文停顿后出现在光标处，回车上屏
+translate_panel = "control+option+y"
 "#
     };
 }
@@ -236,6 +238,8 @@ translation_second = "shift+ctrl"
 translate_selection = "ctrl+alt+t"
 # Windows 组句中按需调用 AI
 predict = "ctrl+alt+j"
+# 没在打字时打开符号面板的「翻译」组（要开着云服务）：框里打一句，译文停顿后出现在光标处，回车上屏
+translate_panel = "ctrl+alt+y"
 "#
     };
 }
@@ -459,8 +463,6 @@ lookahead = 32
 slots = 2
 # 组句中除了词候选还要不要整句补全（preedit 右侧，Tab 接受）
 sentence = true
-# 本地整句候选右侧是否显示服务返回的译文；仅发送该候选文本，不发送光标前后上下文
-sentence_translation = false
 # 上屏的整句（含分几次打完的一句）翻成学习语言，记进生词本的时间线；只发那一句，不发光标前后的文字
 vocabulary_translation = true
 

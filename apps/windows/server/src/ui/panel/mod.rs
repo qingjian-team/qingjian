@@ -31,6 +31,8 @@ static CLASS: WindowClass = WindowClass::new();
 
 const HINT: &str = "Tab 换组 · [ ] 换类 · 双击或空格上屏";
 
+const TRANSLATE_HINT: &str = "Tab 换组 · [ ] 换语言 · 回车上屏";
+
 /// 面板上的鼠标操作交给 Router 的回调（UI 线程上调，投给工人线程）。
 pub type PanelEvents = Box<dyn Fn(PanelMouse) + Send>;
 
@@ -216,7 +218,13 @@ fn content(frame: PanelFrame) -> qingjian_render::PanelFrame {
         rows: GRID_ROWS,
         highlight: frame.highlight,
         footer: frame.footer,
-        hint: HINT.to_owned(),
+        hint: if frame.translate.is_some() {
+            TRANSLATE_HINT
+        } else {
+            HINT
+        }
+        .to_owned(),
+        translate: frame.translate,
     }
 }
 
@@ -293,6 +301,8 @@ fn click(double: bool) {
         Some(HitTarget::Panel(PanelHit::Cell(offset))) => PanelMouse::Cell { offset, double },
         Some(HitTarget::Panel(PanelHit::Group(group))) => PanelMouse::Group(group),
         Some(HitTarget::Panel(PanelHit::Section(section))) => PanelMouse::Section(section),
+        Some(HitTarget::Panel(PanelHit::Candidate(index))) => PanelMouse::Candidate(index),
+        Some(HitTarget::Panel(PanelHit::Caret(position))) => PanelMouse::Caret(position),
         Some(HitTarget::Panel(PanelHit::Close)) => PanelMouse::Close,
         _ => return,
     };

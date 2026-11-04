@@ -30,7 +30,10 @@ mod trace;
 mod translate;
 mod vietnamese;
 
-pub use click::{click, commit_pending_after_switch, menu_items, menu_pick, panel_mouse};
+pub use click::{
+    click, commit_pending_after_switch, menu_items, menu_pick, panel_mouse,
+    panel_translation_changed,
+};
 
 define_class!(
     // SAFETY:
@@ -351,6 +354,14 @@ impl QingjianInputController {
         let typed = event
             .charactersIgnoringModifiers()
             .map(|c| c.to_string().to_ascii_lowercase());
+        // 翻译组快捷键（不在组句中）：打开符号面板停在翻译组
+        let translate_panel = host::with(|h| h.translate_panel_keys).unwrap_or_default();
+        if pressed == translate_panel.modifiers
+            && typed.as_deref().and_then(|t| t.chars().next()) == Some(translate_panel.key)
+            && host::with(|h| h.engine.composition().is_empty()).unwrap_or(false)
+        {
+            return self.open_translate_panel(client);
+        }
         let combo = host::with(|h| h.translate_keys).unwrap_or_default();
         if pressed == combo.modifiers
             && typed.as_deref().and_then(|t| t.chars().next()) == Some(combo.key)

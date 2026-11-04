@@ -58,9 +58,13 @@ macOS 右键候选菜单可能按“deactivate → 查询菜单项 → 点击”
 Windows 的三态模式经 `ModeChanged` / `ModeSync` 同步 `english` 与可选 `vietnamese`：新 Server 给悬浮状态条显示「越」，新 DLL 给 `GUID_LBI_INPUTMODE` 任务栏按钮显示「越」和独立 V 图标；旧 Server 不带 `vietnamese` 时 DLL 保留本地第三输入法状态，旧 DLL 会忽略新字段。按应用记忆模式时 Server 同时保存中英与越南语状态。
 符号面板在 `panel/`：`SymbolPanel` 管分组与分类切换，`Engine::open_symbol_panel` 拿当前前 12 个候选词查 `keywords.tsv`、emoji 表与内置符号 / 颜文字表当搜索结果；
 条目是 `Emoji` / `Kaomoji` / `Symbol` 种类、`reading` 为中文名的候选，上屏走 `commit`（没有音节，吃掉整段）并关掉面板。格子移动复用 `Grid`。
-macOS 面板一律系统绘制（青简渲染器还没有面板），`candidates/view/panel.rs`；开着时云端词与模型重排不往格子里写。
+两端面板都由 qingjian-render 的 `render_panel` 画（壳各持一个渲染器，候选窗选「系统绘制」时也照样画）；开着时云端词与模型重排不往格子里写。
+「翻译」组排在最前，每种目标语言算一个分类（`[` `]` 换语言），原文、光标与进度在 `panel/translate/` 的 `TranslateDraft`：停键 800 ms、两个字以上才发，
+原文 + 实际目标语言没变不重发，没翻出来的 2 秒后自动重试一次、再失败等回车；框的排版用 bamboo-slip 的 `TextFlow`（与 `TextField` 共用），点击按布局后各字的位置给出 `PanelHit::Caret`；请求走 `submit_panel_translation`（与翻译选中文字同一个提供方），结果在 `poll_prediction` 里截下不交给壳，
+进 `TranslationCache`（内存，300 条，换提供方清空）。壳每拍调 `tick_panel_translation`，`panel_preedit` 是要放进应用 preedit 的译文；
+`commit_to_panel` 选词时照常记学习、清掉最近上屏（框里的字不在应用里）。打拼音时打开落在翻译组，没在打字时回到上次关掉时那组，语言也记着。
 一行几格由 `PanelSection::columns` 按最宽条目定（`PANEL_COLUMNS` = 10，颜文字 6 或 4）。Windows 的面板状态在 Server 的 `dispatch/panel/`（格子 `PanelGrid`，按键 `dispatch/key/panel.rs`），
-窗口在 `ui/panel/`，用 Direct2D DC 渲染目标画在分层窗口合成器的 DIB 上（GDI 画不出彩色 emoji）；渲染目标是软件的，硬件类型要起 D3D 设备，显卡驱动初始化就常驻二三十 MB。没在组句时从菜单打开：协议 `Frame::symbol_panel` 让空缓冲也不算空帧，
+窗口在 `ui/panel/`，渲染器出的位图贴分层窗口。翻译组的译文靠轮询送到：DLL 记着写进文档的组句文字，轮询帧带 `symbol_panel` 且文字变了就补一次编辑会话；翻译组快捷键在 DLL 登记成保留键（读配置）。没在组句时从菜单打开：协议 `Frame::symbol_panel` 让空缓冲也不算空帧，
 `IndicatorState::symbol_panel` 随 `ModeSync` 让 DLL 进组句态吃键；老 DLL（协议 < 9）收到的颜文字 / 符号候选降级成 `Emoji`。
 双拼解码由 `Engine::decode` 传入当前模糊音规则：先取普通合法音节，失败时才保留能由模糊音补成合法音节的声韵组合（如 `suang` → `shuang`）。查询沿用带代价的模糊音展开，上屏沿用原读音与按键的消耗换算；不修改无模糊音时的 `Scheme::decode` 行为。
 `Engine::decode_readings` 在开了 `[general] shuangpin_full_pinyin` 时给出一段键的多条读法（`shuangpin::Layout::decode_mixed`）：纯双拼、整段全拼、以及按音节边界交替的读法，

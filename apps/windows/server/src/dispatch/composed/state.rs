@@ -3,8 +3,6 @@
 use qingjian_core::{CandidateLayout, Query};
 use qingjian_platform::protocol::PreeditSegment;
 
-use super::SentenceTranslation;
-
 /// 当前组句缓冲对应的展示状态。缓冲变化时重建，导航只挪高亮，云端词异步并进 `layout`。
 pub(crate) enum Composed {
     /// 越南语 Simple Telex：转换结果第一、原始按键第二，无拼音查询状态。
@@ -30,9 +28,6 @@ pub(crate) enum Composed {
 
         /// 这轮查询的结果（候选已挪进 `layout`）：高亮候选的读音切法不同时拼音行按它重切，见 [`Query::follow`]。
         spelling: Box<Query>,
-
-        /// 首条本地整句候选的云端译文；未返回时为 `None`。
-        sentence_translation: Option<SentenceTranslation>,
 
         /// 正在等待的手动请求序号，收到后消费；重建输入时清除。
         manual_sequence: Option<u64>,

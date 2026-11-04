@@ -16,7 +16,7 @@ Data goes straight from your device to the provider you entered and never passes
 | [Translating selected text](question-and-translate.md#Translating-selected-text) | Translates text selected in an app into your learning language or back into Chinese | macOS, Windows, Linux |
 | [Filling in glosses automatically](sentence-translation.md#Filling-in-glosses-automatically) | Adds a gloss for words that have none in the glossary | macOS, Windows |
 | [Sentence translation for the vocabulary book](sentence-translation.md#Sentence-translation-for-the-vocabulary-book) | Translates finished sentences and records them in the vocabulary book | macOS, Windows |
-| [Translating sentence candidates](sentence-translation.md#Translating-sentence-candidates) | Shows a translation to the right of the sentence candidate | Windows |
+| [Translating in the symbol panel](question-and-translate.md#Translating-in-the-symbol-panel) | Type a sentence in a box; after a pause the translation appears at the cursor | macOS, Windows |
 
 For AI features on Android, see [Android: tools and AI](../platforms/android-tools.md).
 
@@ -41,7 +41,7 @@ On Linux you can also turn them on by editing the configuration file directly; s
 - **Translating selected text**: the selected text (up to 500 characters), read and sent only when you press the translation shortcut.
 - **Filling in glosses automatically**: the one word missing a gloss.
 - **Sentence translation for the vocabulary book**: committed sentences (two characters or more) or sentences finished in several parts (four or more Chinese characters), sent a few at a time; each sentence is sent only once.
-- **Translating sentence candidates**: the current sentence candidate and the target language; no pinyin, no text from the app and no other candidates.
+- **Translating in the symbol panel**: the sentence typed in the box and the target language, sent after you pause; no pinyin and no text from the app.
 
 Nothing is ever sent from password fields or input fields an app marks as private. On Linux, Fcitx4 can only recognize password fields, not other private input fields, so take care when using it.
 Once AI services are turned off, no more requests are sent.

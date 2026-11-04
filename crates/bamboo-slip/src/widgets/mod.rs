@@ -57,6 +57,6 @@ pub use setting_row::SettingRow;
 pub use slider::Slider;
 pub use stepper::Stepper;
 pub use switch::Switch;
-pub use text_field::{Edit, TextEdit, TextField};
+pub use text_field::{Edit, Flow, FlowTarget, TextEdit, TextField, TextFlow};
 pub use theme::WidgetTheme;
 pub use tooltip::tooltip;

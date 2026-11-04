@@ -11,6 +11,12 @@ pub enum PanelHit {
     /// 视口里第 `n` 格（行优先，空格子不算点中）。
     Cell(usize),
 
+    /// 翻译框的原文里点中的位置：光标该放到第 `n` 个字之后。
+    Caret(usize),
+
+    /// 翻译框里第 `n` 个候选。
+    Candidate(usize),
+
     /// 右上角的关闭按钮。
     Close,
 }

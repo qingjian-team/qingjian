@@ -2,8 +2,10 @@
 //! [`crate::Renderer::render_panel`] 按主题的 `panel` 一节画。
 
 mod cell;
+mod translate;
 
 pub use cell::PanelCell;
+pub use translate::PanelTranslate;
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct PanelFrame {
@@ -36,4 +38,7 @@ pub struct PanelFrame {
 
     /// 顶上一行右边的按键提示。
     pub hint: String,
+
+    /// 翻译组：有它时格子区换成翻译框，`cells` 与 `footer` 不画。
+    pub translate: Option<PanelTranslate>,
 }

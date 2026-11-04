@@ -433,24 +433,3 @@ fn navigation_keeps_candidate_cells_but_accepts_late_sentence_completion() {
         }
     }
 }
-
-#[test]
-fn sentence_translation_alone_does_not_register_or_trigger_manual_prediction() {
-    let (_, cloud) = with_cloud();
-    let mut router = router_with(RouterConfig {
-        cloud_enabled: false,
-        sentence_translation: true,
-        ..RouterConfig::default()
-    });
-    router.engine_mut().set_predictor(Box::new(cloud.clone()));
-    match router.handle(ClientMessage::SyncMode { session: SESSION }) {
-        Some(ServerMessage::ModeSync { input, .. }) => assert!(input.predict.is_none()),
-        other => panic!("expected ModeSync, got {other:?}"),
-    }
-    type_letters(&mut router, "kaifa");
-    assert_eq!(
-        press(&mut router, trigger(KeyCombo::PREDICT_DEFAULT)).0,
-        KeyOutcome::Passthrough
-    );
-    assert!(cloud.submitted.lock().unwrap().is_empty());
-}

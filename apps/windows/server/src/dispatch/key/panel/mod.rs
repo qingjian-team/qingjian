@@ -1,6 +1,8 @@
 //! 符号面板开着时的按键：方向键在格子里移动、翻页键（PgUp / PgDn）整屏翻，Tab / Shift+Tab 换组，
 //! `[` `]` 与配置的翻页键换分类，空格 / 回车 / 数字上屏，Esc / 退格收起回到候选；敲字母先收起面板再照常组句。
-//! 与 macOS 壳的 `handle_panel_key` 对齐。
+//! 与 macOS 壳的 `handle_panel_key` 对齐。翻译组里的按键另走 [`translate`]。
+
+mod translate;
 
 use qingjian_core::GRID_ROWS;
 use qingjian_platform::protocol::KeyEvent;
@@ -13,6 +15,9 @@ impl Router {
     pub(super) fn apply_panel_key(&mut self, event: &KeyEvent) -> Option<Effect> {
         if !self.panel_open() {
             return None;
+        }
+        if self.engine.panel_translating() {
+            return self.apply_translate_key(event);
         }
         if event.modifiers.has_command_key() {
             return Some(Effect::Passthrough);

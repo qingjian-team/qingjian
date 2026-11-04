@@ -45,6 +45,11 @@ impl KeyCombo {
         ..Self::TRANSLATE_DEFAULT
     };
 
+    pub const TRANSLATE_PANEL_DEFAULT: Self = Self {
+        key: 'y',
+        ..Self::TRANSLATE_DEFAULT
+    };
+
     pub const TRANSLATE_DEFAULT: Self = Self {
         modifiers: Modifiers {
             option: true,

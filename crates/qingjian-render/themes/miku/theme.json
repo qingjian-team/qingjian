@@ -242,7 +242,7 @@
     "padding": 14, "radius": 0, "cell_radius": 8,
     "background": { "image": "images/panel-vertical.svg", "slice": [20, 50, 16, 14] },
     "text": "@ink", "label": "@gloss", "hint": "@faint",
-    "pill_fill": { "linear": 100, "stops": ["@cyan", "@pink"] }, "pill_text": "#ffffff",
+    "pill_fill": "@cyan", "pill_text": "#ffffff",
     "underline_color": "@pink", "divider": "@divider",
     "highlight": { "linear": 100, "stops": ["#92e3e9", "#a9ebef"] },
     "close_fill": "@accent", "close_icon": "@icon",

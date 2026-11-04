@@ -1,8 +1,9 @@
 //! 符号面板：顶上分组胶囊（当前组实心）、按键提示与关闭按钮，下一行分类标签（当前分类加下划线，放不下时两头画「‹」「›」），
-//! 中间等宽格子（条目居中、高亮格铺底），底下信息行（高亮条目、它的名字与行号）。
+//! 中间等宽格子（条目居中、高亮格铺底），底下信息行（高亮条目、它的名字与行号）；翻译组的格子区换成文本区（见 [`translate`]）。
 //! 排法固定、尺寸与内容无关（换组换分类窗口不跳），字体、尺寸与颜色取主题的 `panel` 一节；各块的矩形就是点击区域。
 
 mod tabs;
+mod translate;
 
 use bamboo_slip::taffy::{Dimension, LengthPercentageAuto, NodeId, Position, Rect, Size, Style};
 use bamboo_slip::{BoxPaint, Color, FontSpec, RenderError, Scene, TextStyle, Visual};
@@ -109,6 +110,16 @@ impl Area {
 
 /// 绝对定位在 `area` 的节点。
 fn placed(scene: &mut Scene, area: Area, visual: Visual) -> Result<NodeId, RenderError> {
+    placed_with(scene, area, visual, &[])
+}
+
+/// 绝对定位在 `area`、带子节点的节点。
+fn placed_with(
+    scene: &mut Scene,
+    area: Area,
+    visual: Visual,
+    children: &[NodeId],
+) -> Result<NodeId, RenderError> {
     let style = Style {
         position: Position::Absolute,
         inset: Rect {
@@ -123,7 +134,7 @@ fn placed(scene: &mut Scene, area: Area, visual: Visual) -> Result<NodeId, Rende
         },
         ..Style::default()
     };
-    scene.node(style, visual, &[])
+    scene.node(style, visual, children)
 }
 
 /// 建场景时收集子节点与点击区域。
@@ -342,82 +353,101 @@ impl Renderer {
             Visual::solid(theme.color(&spec.divider), 0.0),
         )?;
 
-        // 格子：列数少的（颜文字）格子拉宽、用小一号的字，放不下的截尾（信息行里看全文）
-        let columns = frame.columns.clamp(1, FULL_COLUMNS);
-        let cell_width = (grid_width - cell_gap * (columns - 1) as f32) / columns as f32;
-        let item_font = if columns >= FULL_COLUMNS {
-            &spec.item_font
-        } else {
-            &spec.wide_item_font
-        };
-        let item = m.style(theme.font_ref(item_font), &spec.text);
-        let inset = m.px(CELL_INSET);
-        let cell_radius = m.px(spec.cell_radius);
-        for (offset, entry) in frame.cells.iter().enumerate() {
-            let Some(entry) = entry else {
-                continue;
+        let mut text_box = None;
+        if let Some(translate) = &frame.translate {
+            let area = Area::new(left, grid_top, right - left, cell * rows as f32);
+            let styles = translate::Styles {
+                text: current,
+                label,
+                hint,
             };
-            let column = offset % columns;
-            let row = offset / columns;
-            if row >= rows {
-                break;
+            text_box = Some(translate::draw(
+                &mut canvas,
+                &m,
+                text,
+                translate,
+                &styles,
+                area,
+                info_top,
+            )?);
+        } else {
+            // 格子：列数少的（颜文字）格子拉宽、用小一号的字，放不下的截尾（信息行里看全文）
+            let columns = frame.columns.clamp(1, FULL_COLUMNS);
+            let cell_width = (grid_width - cell_gap * (columns - 1) as f32) / columns as f32;
+            let item_font = if columns >= FULL_COLUMNS {
+                &spec.item_font
+            } else {
+                &spec.wide_item_font
+            };
+            let item = m.style(theme.font_ref(item_font), &spec.text);
+            let inset = m.px(CELL_INSET);
+            let cell_radius = m.px(spec.cell_radius);
+            for (offset, entry) in frame.cells.iter().enumerate() {
+                let Some(entry) = entry else {
+                    continue;
+                };
+                let column = offset % columns;
+                let row = offset / columns;
+                if row >= rows {
+                    break;
+                }
+                let area = Area::new(
+                    left + (cell_width + cell_gap) * column as f32,
+                    grid_top + cell * row as f32,
+                    cell_width,
+                    cell,
+                );
+                if offset == frame.highlight {
+                    canvas.add(area, m.fill(&spec.highlight, cell_radius))?;
+                }
+                let size = text.measure(&entry.text, &item);
+                let width = size.width.min(area.width - inset * 2.0);
+                let at = (
+                    area.x + (area.width - width) / 2.0,
+                    area.y + (area.height - size.height) / 2.0,
+                );
+                canvas.text(&entry.text, &item, at, (width + 1.0, size.height))?;
+                canvas
+                    .hits
+                    .push(area.hit(HitTarget::Panel(PanelHit::Cell(offset))));
             }
-            let area = Area::new(
-                left + (cell_width + cell_gap) * column as f32,
-                grid_top + cell * row as f32,
-                cell_width,
-                cell,
-            );
-            if offset == frame.highlight {
-                canvas.add(area, m.fill(&spec.highlight, cell_radius))?;
-            }
-            let size = text.measure(&entry.text, &item);
-            let width = size.width.min(area.width - inset * 2.0);
-            let at = (
-                area.x + (area.width - width) / 2.0,
-                area.y + (area.height - size.height) / 2.0,
-            );
-            canvas.text(&entry.text, &item, at, (width + 1.0, size.height))?;
-            canvas
-                .hits
-                .push(area.hit(HitTarget::Panel(PanelHit::Cell(offset))));
-        }
 
-        // 信息行：左边是高亮条目与它的名字，右边是第几行
-        let gap = m.px(GAP);
-        let mut budget = right - left;
-        if let Some(footer) = frame.footer.as_deref() {
-            let width = text.measure(footer, &hint).width.min(budget);
-            let top = info_top + (line - hint_line) / 2.0;
-            canvas.text(
-                footer,
-                &hint,
-                (right - width, top),
-                (width + 1.0, hint_line),
-            )?;
-            budget -= width + gap;
-        }
-        if let Some(Some(entry)) = frame.cells.get(frame.highlight) {
-            let entry_width = text
-                .measure(&entry.text, &current)
-                .width
-                .min(budget.max(0.0));
-            let size = (entry_width + 1.0, line);
-            canvas.text(&entry.text, &current, (left, info_top), size)?;
-            budget -= entry_width + gap;
-            if let Some(name) = entry.name.as_deref()
-                && budget > 0.0
-            {
-                let width = text.measure(name, &label).width.min(budget);
-                let at = (left + entry_width + gap, info_top);
-                canvas.text(name, &label, at, (width + 1.0, line))?;
+            // 信息行：左边是高亮条目与它的名字，右边是第几行
+            let gap = m.px(GAP);
+            let mut budget = right - left;
+            if let Some(footer) = frame.footer.as_deref() {
+                let width = text.measure(footer, &hint).width.min(budget);
+                let top = info_top + (line - hint_line) / 2.0;
+                canvas.text(
+                    footer,
+                    &hint,
+                    (right - width, top),
+                    (width + 1.0, hint_line),
+                )?;
+                budget -= width + gap;
+            }
+            if let Some(Some(entry)) = frame.cells.get(frame.highlight) {
+                let entry_width = text
+                    .measure(&entry.text, &current)
+                    .width
+                    .min(budget.max(0.0));
+                let size = (entry_width + 1.0, line);
+                canvas.text(&entry.text, &current, (left, info_top), size)?;
+                budget -= entry_width + gap;
+                if let Some(name) = entry.name.as_deref()
+                    && budget > 0.0
+                {
+                    let width = text.measure(name, &label).width.min(budget);
+                    let at = (left + entry_width + gap, info_top);
+                    canvas.text(name, &label, at, (width + 1.0, line))?;
+                }
             }
         }
 
         let Canvas {
             mut scene,
             nodes,
-            hits,
+            mut hits,
         } = canvas;
         let root_style = Style {
             size: Size {
@@ -438,6 +468,15 @@ impl Renderer {
             .collect();
         scene.set_effects(root, effects);
         scene.layout(root, self.stage.text())?;
+        if let Some(text_box) = &text_box {
+            if text_box.follow_caret(&mut scene, root)? {
+                scene.layout(root, self.stage.text())?;
+            }
+            // 原文里的点击排在最前（各块不重叠，排前只为保险）
+            let mut regions = text_box.hits(&scene, root)?;
+            regions.append(&mut hits);
+            hits = regions;
+        }
         let painted = self.stage.rasterize(&scene, root, content, scale)?;
         Ok(Rendered::new(painted, hits))
     }

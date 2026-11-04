@@ -12,7 +12,8 @@ use std::panic::{AssertUnwindSafe, catch_unwind};
 
 pub use client::{TextClient, take_inserted};
 pub use controller::{
-    QingjianInputController, click, commit_pending_after_switch, menu_items, menu_pick, panel_mouse,
+    QingjianInputController, click, commit_pending_after_switch, menu_items, menu_pick,
+    panel_mouse, panel_translation_changed,
 };
 
 /// 在 ObjC 运行时回调的边界拦住 panic。`define_class!` 生成的方法是系统直接调的，panic 穿过去整个进程就没了，

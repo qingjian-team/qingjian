@@ -249,7 +249,7 @@ Windows 屏幕右下角的悬浮状态条也可以按主题画，写法与候选
 "panel": {
   "background": { "image": "images/panel-bg.svg", "slice": [24, 24, 24, 24] },
   "highlight": "@accent",
-  "pill_fill": { "linear": 90, "stops": ["@cyan", "@pink"] },
+  "pill_fill": "@cyan",
   "pill_text": "#ffffff",
   "radius": 14
 }

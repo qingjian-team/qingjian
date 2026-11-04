@@ -144,6 +144,11 @@ fn poll_once(context: &PollContext) {
                 .shared
                 .candidate_list()
                 .show(&frame, context.shared.last_context().as_ref());
+            if frame.symbol_panel {
+                drop(guard);
+                follow_panel_preedit(context, &frame);
+                return;
+            }
             // 翻译评审时回空帧 = 翻译已在 Server 侧结束（云端没给译文）。
             if translating && frame.is_empty() {
                 drop(guard);
@@ -159,6 +164,31 @@ fn poll_once(context: &PollContext) {
             *guard = None;
             context.shared.end_composing();
         }
+    }
+}
+
+/// 符号面板翻译组的译文是轮询送来的：帧里的组句文字与文档里的不同就补写一次（没有按键来顺手写）。
+fn follow_panel_preedit(context: &PollContext, frame: &Frame) {
+    let preedit = if frame.preedit_mode.inline() {
+        preedit_string(frame)
+    } else {
+        String::new()
+    };
+    if preedit == context.shared.preedit() {
+        return;
+    }
+    let Some(document) = context.shared.last_context() else {
+        return;
+    };
+    if let Err(error) = request_update(
+        &document,
+        context.client_id,
+        context.engine.clone(),
+        context.shared.clone(),
+        None,
+        preedit,
+    ) {
+        log(&format!("panel preedit update rejected: {error}"));
     }
 }
 

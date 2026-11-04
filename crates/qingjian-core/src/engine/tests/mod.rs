@@ -18,6 +18,7 @@ mod lookup;
 mod nine_key;
 mod p2c_placement;
 mod panel;
+mod panel_translate;
 mod polyphone;
 mod privacy;
 mod raw;

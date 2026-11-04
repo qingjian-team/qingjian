@@ -6,14 +6,15 @@
 //! 多行：按框宽折行；设了最多几行时超出的裁掉，内容上移到能看见光标那一行。
 
 mod edit;
+mod flow;
 
 use std::hash::Hash;
 use std::ops::Range;
 use std::sync::Arc;
 
 use taffy::{
-    AlignItems, FlexDirection, FlexWrap, JustifyContent, LengthPercentageAuto, NodeId, Position,
-    Rect, Size, Style,
+    AlignItems, FlexDirection, JustifyContent, LengthPercentageAuto, NodeId, Position, Rect, Size,
+    Style,
 };
 
 use super::WidgetTheme;
@@ -22,19 +23,17 @@ use crate::animation::Easing;
 use crate::color::Color;
 use crate::error::RenderError;
 use crate::scene::{Icon, Visual};
-use crate::text::{Decoration, TextStyle};
+use crate::text::TextStyle;
 use crate::ui::{Interact, Key, KeyCode, Ui};
 
 pub use edit::{Edit, TextEdit};
+pub use flow::{Flow, FlowTarget, TextFlow};
 
 /// 多行框上下的留白（点）。
 const MULTILINE_PADDING: f32 = 6.0;
 
 /// 多行框里一段连着的 ASCII 最多几个字符一个折行单位：网址这类没有空格的长串也能折开。
 const MAX_WORD: usize = 16;
-
-/// 密文显示成的圆点。
-const BULLET: char = '•';
 
 pub struct TextField<'a> {
     edit: &'a TextEdit,
@@ -379,8 +378,7 @@ impl<'a> TextField<'a> {
         theme.text(theme.font.size - 1.0, 400, color)
     }
 
-    /// 每行一排：选区前、选区、选区后，或光标前、组字、光标、光标后。单行就是一排。
-    /// 正文按 [`tokens`] 切开，多行时一排放不下就折到下一排；光标登记成 `key` 下的 `caret`，限高时按它挪内容。
+    /// 正文各行，排法在 [`TextFlow`]；光标登记成 `key` 下的 `caret`（限高时按它挪内容），单位与行尾接点击。
     fn lines<M: Clone + 'static>(
         &self,
         ui: &mut Ui<M>,
@@ -390,193 +388,57 @@ impl<'a> TextField<'a> {
         on_edit: &(impl Fn(Edit) -> M + Clone + 'static),
     ) -> Result<Vec<NodeId>, RenderError> {
         let colors = &theme.colors;
-        let text = self.edit.text();
-        let preedit = self.edit.preedit();
-        if text.is_empty() && preedit.is_empty() {
-            let mut pieces = Vec::new();
-            if focused {
-                pieces.push(self.caret(ui, theme)?);
-                ui.interact(pieces[0], key.child("caret"), Interact::new());
-            }
-            if !self.placeholder.is_empty() {
-                pieces.push(self.segment(ui, theme, self.placeholder, colors.secondary, None)?);
-            }
-            return Ok(vec![self.line(ui, theme, &pieces)?]);
-        }
-        let selection = self.edit.selection();
-        let caret = self.edit.caret();
-        let mut lines = Vec::new();
-        let mut start = 0;
-        for line in text.split('\n') {
-            let end = start + line.len();
-            let mut pieces = Vec::new();
-            if !focused {
-                self.pieces(ui, theme, start..end, key, on_edit, &mut pieces)?;
-            } else if !selection.is_empty() {
-                let (from, to) = (
-                    selection.start.clamp(start, end),
-                    selection.end.clamp(start, end),
-                );
-                self.pieces(ui, theme, start..from, key, on_edit, &mut pieces)?;
-                let before = pieces.len();
-                self.pieces(ui, theme, from..to, key, on_edit, &mut pieces)?;
-                for piece in &mut pieces[before..] {
-                    *piece = ui.scene().node(
-                        Style::default(),
-                        solid(Some(colors.selected), None, theme.px(2.0)),
-                        &[*piece],
-                    )?;
-                }
-                self.pieces(ui, theme, to..end, key, on_edit, &mut pieces)?;
-            } else if (start..=end).contains(&caret) {
-                self.pieces(ui, theme, start..caret, key, on_edit, &mut pieces)?;
-                let underline = Some(Decoration::Underline);
-                for token in tokens(preedit) {
-                    pieces.push(self.segment(
-                        ui,
-                        theme,
-                        &preedit[token],
-                        colors.text,
-                        underline,
-                    )?);
-                }
-                let node = self.caret(ui, theme)?;
-                ui.interact(node, key.child("caret"), Interact::new());
-                pieces.push(node);
-                self.pieces(ui, theme, caret..end, key, on_edit, &mut pieces)?;
-            } else {
-                self.pieces(ui, theme, start..end, key, on_edit, &mut pieces)?;
-            }
-            let node = self.line(ui, theme, &pieces)?;
-            // 点在这一行的空白处（行尾后面）：光标到行尾
-            if !self.disabled {
-                let on_edit = on_edit.clone();
-                ui.interact(
-                    node,
-                    key.child(("line-end", start)),
-                    Interact::new().on_drag(move |_| Some(on_edit(Edit::Caret(end)))),
-                );
-            }
-            lines.push(node);
-            start = end + 1;
-        }
-        Ok(lines)
-    }
-
-    /// `range` 那段正文按 [`tokens`] 切开，每个单位一个节点；单行的空串也建一个（各段的位置才稳定）。
-    /// 每个单位都能点：按点在它里面的横向位置，光标落到最近的字符边界上（单位里按字符数均分，汉字一个字一个单位所以是准的）。
-    fn pieces<M: Clone + 'static>(
-        &self,
-        ui: &mut Ui<M>,
-        theme: &WidgetTheme,
-        range: Range<usize>,
-        key: Key,
-        on_edit: &(impl Fn(Edit) -> M + Clone + 'static),
-        out: &mut Vec<NodeId>,
-    ) -> Result<(), RenderError> {
-        let text = &self.edit.text()[range.clone()];
-        let color = theme.colors.text;
-        if text.is_empty() && !self.edit.is_multiline() {
-            out.push(self.segment(ui, theme, "", color, None)?);
-            return Ok(());
-        }
-        for token in tokens(text) {
-            let node = self.segment(ui, theme, &text[token.clone()], color, None)?;
-            if !self.disabled {
-                let at = range.start + token.start;
-                let bounds: Vec<usize> = text[token.clone()]
-                    .char_indices()
-                    .map(|(i, _)| at + i)
-                    .chain(std::iter::once(range.start + token.end))
-                    .collect();
-                let on_edit = on_edit.clone();
-                ui.interact(
-                    node,
-                    key.child(("at", at)),
-                    Interact::new().on_drag(move |fraction| {
-                        let last = bounds.len() - 1;
-                        let index = (fraction * last as f32).round() as usize;
-                        Some(on_edit(Edit::Caret(bounds[index.min(last)])))
-                    }),
-                );
-            }
-            out.push(node);
-        }
-        Ok(())
-    }
-
-    /// 一行：各段横排，空行也有一行高；多行框里放不下的折到下一排。
-    fn line<M>(
-        &self,
-        ui: &mut Ui<M>,
-        theme: &WidgetTheme,
-        pieces: &[NodeId],
-    ) -> Result<NodeId, RenderError> {
-        let height = self.style(theme, theme.colors.text).line_height;
-        ui.scene().node(
-            Style {
-                flex_shrink: 0.0,
-                flex_wrap: if self.edit.is_multiline() {
-                    FlexWrap::Wrap
-                } else {
-                    FlexWrap::NoWrap
-                },
-                align_items: AlignItems::CENTER,
-                min_size: Size {
-                    width: LengthPercentageAuto::auto(),
-                    height: LengthPercentageAuto::length(height),
-                },
-                ..row(theme, 0.0)
-            },
-            Visual::Group,
-            pieces,
-        )
-    }
-
-    fn caret<M>(&self, ui: &mut Ui<M>, theme: &WidgetTheme) -> Result<NodeId, RenderError> {
         // 熄灭的半拍只换透明色，不拿掉节点：文字不跟着挪
-        let color = if ui.caret_visible() {
-            theme.colors.accent
+        let caret_color = if ui.caret_visible() {
+            colors.accent
         } else {
-            theme.colors.accent.transparent()
+            colors.accent.transparent()
         };
-        ui.scene().node(
-            Style {
-                size: size(Some(theme.px(1.5)), Some(theme.px(16.0))),
-                flex_shrink: 0.0,
-                ..Style::default()
-            },
-            Visual::solid(color, 0.0),
-            &[],
-        )
-    }
-
-    /// 一段文字（密文换成圆点）；空串也建（占位为零宽），各段的位置才稳定。
-    fn segment<M>(
-        &self,
-        ui: &mut Ui<M>,
-        theme: &WidgetTheme,
-        text: &str,
-        color: Color,
-        decoration: Option<Decoration>,
-    ) -> Result<NodeId, RenderError> {
-        let mut style = self.style(theme, color);
-        if let Some(decoration) = decoration {
-            style = style.decorated(decoration);
+        let flow = TextFlow {
+            text: self.edit.text(),
+            preedit: self.edit.preedit(),
+            caret: self.edit.caret(),
+            selection: self.edit.selection(),
+            placeholder: self.placeholder,
+            multiline: self.edit.is_multiline(),
+            focused,
+            secret: self.secret,
+            style: self.style(theme, colors.text),
+            placeholder_style: self.style(theme, colors.secondary),
+            caret_bar: (theme.px(1.5), theme.px(16.0), caret_color),
+            selection_paint: solid(Some(colors.selected), None, theme.px(2.0)),
         }
-        let shown = if self.secret && decoration.is_none() && color == theme.colors.text {
-            std::iter::repeat_n(BULLET, text.chars().count()).collect()
-        } else {
-            text.to_owned()
-        };
-        ui.scene().node(
-            Style {
-                flex_shrink: 0.0,
-                ..Style::default()
-            },
-            Visual::Text { text: shown, style },
-            &[],
-        )
+        .build(ui.scene())?;
+        for target in flow.targets {
+            match target {
+                FlowTarget::Caret(node) => {
+                    ui.interact(node, key.child("caret"), Interact::new());
+                }
+                _ if self.disabled => {}
+                FlowTarget::Token { node, bounds } => {
+                    let on_edit = on_edit.clone();
+                    ui.interact(
+                        node,
+                        key.child(("at", bounds[0])),
+                        Interact::new().on_drag(move |fraction| {
+                            Some(on_edit(Edit::Caret(FlowTarget::caret_at(
+                                &bounds, fraction,
+                            ))))
+                        }),
+                    );
+                }
+                // 点在这一行的空白处（行尾后面）：光标到行尾
+                FlowTarget::LineEnd { node, start, end } => {
+                    let on_edit = on_edit.clone();
+                    ui.interact(
+                        node,
+                        key.child(("line-end", start)),
+                        Interact::new().on_drag(move |_| Some(on_edit(Edit::Caret(end)))),
+                    );
+                }
+            }
+        }
+        Ok(flow.lines)
     }
 }
 

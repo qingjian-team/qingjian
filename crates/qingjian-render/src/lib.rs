@@ -26,7 +26,7 @@ pub use frame::{Frame, Mode, Preedit, PreeditSegment, PreeditStyle, Row, Tone};
 pub use keyboard::{Keyboard, Keycap, KeycapState, Root};
 pub use layout::Layout;
 pub use material::{Material, MaterialBacking};
-pub use panel::{PanelCell, PanelFrame};
+pub use panel::{PanelCell, PanelFrame, PanelTranslate};
 pub use renderer::{
     HitRegion, HitTarget, PanelHit, Rendered, RenderedStatus, Renderer, StatusCell,
 };

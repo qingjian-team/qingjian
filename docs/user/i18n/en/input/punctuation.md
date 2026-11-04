@@ -33,14 +33,15 @@ Either way:
 ## Symbol panel
 
 macOS and Windows have a symbol panel. Press `↑` after typing (while the highlight is still on the first candidate and hasn't moved) to open it. When you're not typing: on macOS, choose 符号面板… (Symbol panel…) in the input method menu in the menu bar;
-on Windows, click the 符 cell on the floating status bar, or right-click the 中 / 英 icon on the taskbar and choose 符号面板…. The panel appears next to the mouse (without the Search group in this case). It has three groups:
+on Windows, click the 符 cell on the floating status bar, or right-click the 中 / 英 icon on the taskbar and choose 符号面板…. The panel appears next to the mouse (without the Search group in this case). It has these groups:
 
+- **Translate**: present when AI services are on. Pressing `↑` while typing lands on this group: type a sentence in the box and the translation appears at the cursor in the app; see [Translating in the symbol panel](../cloud/question-and-translate.md#Translating-in-the-symbol-panel). Press `Tab` to get to the Search group.
 - **Search**: uses the pinyin you just typed as the search term: `ku` gives 😢 😭 (T_T), `jiantou` gives every arrow, `alpha` gives α. The group is absent when nothing is found.
 - **Symbols**: common, Chinese and English punctuation, math, arrows, Greek letters, numbering, currency and units, fractions, superscripts and subscripts, decorative, geometric and box drawing, Hanyu Pinyin (with tones), Zhuyin, hiragana, katakana, IPA, Latin letters, vertical punctuation, full-width letters, mathematical letters.
 - **Emoji**: common emoji, kaomoji, and all emoji grouped by category (smileys, people, animals and nature, food, travel and places, activities, objects, symbols, flags).
 
 `Tab` switches group, `[` `]` switch category, arrow keys move, the mouse wheel or trackpad scrolls a row at a time, and `Space` / `Enter` or a double-click commits; the pinyin you just typed is cleared after committing. `Esc` or the ✕ at the top right returns to the candidates.
-The bottom row shows the Chinese name of the highlighted item (😂 笑哭了, € 欧元符号). The panel currently uses the system style and doesn't follow the theme. Emoji that are too new can't be displayed on older systems, so the panel only goes up to Emoji 15.1.
+The bottom row shows the Chinese name of the highlighted item (😂 笑哭了, € 欧元符号). The panel follows the current theme. Emoji that are too new can't be displayed on older systems, so the panel only goes up to Emoji 15.1.
 
 ## Emoji, kaomoji and symbols after candidates
 

@@ -59,6 +59,11 @@ pub fn commit_pending_after_switch() {
     });
 }
 
+/// 符号面板翻译框的译文到了或没翻出来（联想定时器回调）：重画面板，译文写进应用的 preedit。
+pub fn panel_translation_changed() {
+    with_active(|controller, client| controller.render(client));
+}
+
 /// 符号面板的点击回调（host 建窗口时注册）。
 pub fn panel_mouse(hit: PanelMouse) {
     let Some(controller) = ACTIVE.with(|active| active.borrow().clone()) else {

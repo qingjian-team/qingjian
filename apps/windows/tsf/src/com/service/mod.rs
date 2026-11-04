@@ -88,6 +88,9 @@ pub struct TextService {
     /// 登记成保留键的「翻译选中文字」组合；停用时撤掉（见 [`preserved`](crate::com::key::preserved)）。
     translate_combo: Cell<Option<KeyCombo>>,
 
+    /// 登记成保留键的「翻译组」组合（没在组句时打开符号面板的翻译组）。
+    translate_panel_combo: Cell<Option<KeyCombo>>,
+
     /// 已登记的简繁切换键，配置变化时原地替换。
     traditional_combo: Cell<Option<KeyCombo>>,
 
@@ -206,6 +209,7 @@ impl TextService {
             key_tap: KeyTap::default(),
             profile_cookie: Cell::new(None),
             translate_combo: Cell::new(None),
+            translate_panel_combo: Cell::new(None),
             traditional_combo: Cell::new(None),
             switch_preserved: Cell::new(false),
             punctuation_combo: Cell::new(None),

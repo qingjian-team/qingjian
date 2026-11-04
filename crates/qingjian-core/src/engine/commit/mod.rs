@@ -87,7 +87,7 @@ impl Engine {
     /// 开了自动空格（[`Self::set_auto_space`]）时与上文、候选内部的中西文交界都补好空格。
     /// 面板开着时上屏的是面板里的条目：记一次使用（私密输入不记），下次打开排进「常用」。
     pub fn commit(&mut self, candidate: &Candidate) -> String {
-        if self.panel.take().is_some() && !self.private {
+        if self.take_panel().is_some() && !self.private {
             self.panel_history.record(&candidate.text);
         }
         let lead = self.auto_space_before(&candidate.text);

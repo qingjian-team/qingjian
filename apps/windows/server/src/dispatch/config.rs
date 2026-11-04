@@ -20,9 +20,6 @@ pub struct RouterConfig {
     /// 是否请求云端候选词和整句补全（`[predict] enabled`）。
     pub cloud_enabled: bool,
 
-    /// 本地整句候选是否异步请求译文（`[predict] sentence_translation`）。
-    pub sentence_translation: bool,
-
     /// 中文模式下 Shift+字母收进组句缓冲区（`[general] shift_letter = "compose"`）。
     /// 关着（缺省）时壳把大写字母交给应用，与以前一致。
     pub shift_letter_compose: bool,
@@ -116,6 +113,9 @@ pub struct RouterConfig {
     /// 「翻译选中文字」快捷键（`[shortcut] translate_selection`）。
     pub translate_selection: KeyCombo,
 
+    /// 没在组句时打开符号面板翻译组的快捷键（`[shortcut] translate_panel`）。
+    pub translate_panel: KeyCombo,
+
     /// 组句中按需调用 AI 的快捷键（`[shortcut] predict`）。
     pub predict: KeyCombo,
 
@@ -199,7 +199,6 @@ impl From<&Config> for RouterConfig {
             page_size: config.general.page_size(),
             cloud_slots: config.predict.slots,
             cloud_enabled: config.predict.enabled,
-            sentence_translation: config.predict.sentence_translation,
             shift_letter_compose: config.general.shift_letter.compose(),
             numpad_digit: config.general.numpad_digit,
             layout: config.general.layout,
@@ -236,6 +235,7 @@ impl From<&Config> for RouterConfig {
                 (first.into(), second.into())
             },
             translate_selection: config.shortcut.translate_selection,
+            translate_panel: config.shortcut.translate_panel,
             predict: config.shortcut.predict,
             commit_keys: config.shortcut.commit_keys(),
             toggle_traditional: config

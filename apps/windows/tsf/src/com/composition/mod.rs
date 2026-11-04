@@ -56,6 +56,7 @@ pub(crate) fn apply(
     } else {
         update_preedit(shared, context, ec, preedit)?;
     }
+    shared.set_preedit(preedit);
     if let Some(InputContext { private, before }) = input {
         report_privacy(engine, private);
         if let Some(before) = before {

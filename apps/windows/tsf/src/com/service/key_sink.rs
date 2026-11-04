@@ -87,6 +87,8 @@ impl ITfKeyEventSink_Impl for TextService_Impl {
         }
         let combo = if guid == preserved::GUID_TRANSLATE {
             self.translate_combo.get()
+        } else if guid == preserved::GUID_TRANSLATE_PANEL && !self.shared.composing() {
+            self.translate_panel_combo.get()
         } else if guid == preserved::GUID_PREDICT && self.shared.composing() {
             self.predict_combo.get()
         } else if guid == preserved::GUID_TRADITIONAL {

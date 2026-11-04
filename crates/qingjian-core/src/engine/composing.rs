@@ -225,7 +225,7 @@ impl Engine {
     pub fn clear(&mut self) {
         self.composition.clear();
         self.held.clear();
-        self.panel = None;
+        self.take_panel();
         self.aux_code = None;
         self.chain.leave_buffer();
         // 壳给的光标前文只对这段组句有效，下一段第一键再读

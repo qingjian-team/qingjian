@@ -1,4 +1,4 @@
-use crate::panel::{PanelCell, PanelFrame};
+use crate::panel::{PanelCell, PanelFrame, PanelTranslate};
 use crate::renderer::{HitTarget, PanelHit, Renderer};
 use crate::theme::Theme;
 use bamboo_slip::FontLibrary;
@@ -22,6 +22,7 @@ fn frame(sections: usize, cells: usize, columns: usize) -> PanelFrame {
         highlight: 0,
         footer: Some("1/3".into()),
         hint: "Tab 换组".into(),
+        translate: None,
     }
 }
 
@@ -80,4 +81,52 @@ fn size_does_not_depend_on_content_and_hits_cover_every_part() {
         )),
         2
     );
+}
+
+#[test]
+fn translate_box_keeps_the_size_and_hits_its_candidates() {
+    let Ok(library) = FontLibrary::system("zh-CN") else {
+        return;
+    };
+    let mut renderer = Renderer::new(library);
+    let theme = Theme::light();
+    let grid = renderer
+        .render_panel(&frame(5, 60, 10), &theme, 2.0)
+        .unwrap();
+    let boxed = PanelFrame {
+        translate: Some(PanelTranslate {
+            source: "今天天气很好，我们去公园散步吧。".repeat(20),
+            cursor: 3,
+            placeholder: String::new(),
+            composing: "nihao".into(),
+            candidates: vec!["你好".into(), "拟好".into(), "泥".into()],
+            highlight: 1,
+            status: "译成英语 · 翻译中…".into(),
+        }),
+        ..frame(5, 0, 10)
+    };
+    let boxed = renderer.render_panel(&boxed, &theme, 2.0).unwrap();
+    assert_eq!(
+        (grid.content_width, grid.content_height),
+        (boxed.content_width, boxed.content_height)
+    );
+    let candidates: Vec<usize> = boxed
+        .hits
+        .iter()
+        .filter_map(|hit| match hit.target {
+            HitTarget::Panel(PanelHit::Candidate(i)) => Some(i),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(candidates, [0, 1, 2]);
+    // 原文能点：落到各个字的边界上，光标在前面时还看得见开头
+    let carets: Vec<usize> = boxed
+        .hits
+        .iter()
+        .filter_map(|hit| match hit.target {
+            HitTarget::Panel(PanelHit::Caret(i)) => Some(i),
+            _ => None,
+        })
+        .collect();
+    assert!(carets.contains(&0) && carets.contains(&4));
 }

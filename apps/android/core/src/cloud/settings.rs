@@ -31,7 +31,6 @@ impl CloudSettings {
             api_key: Some(self.api_key.trim().to_owned()),
             slots: if self.predict { SLOTS } else { 0 },
             sentence: self.predict,
-            sentence_translation: false,
             vocabulary_translation: false,
             timeout_ms: TIMEOUT_MS,
             debounce_ms: DEBOUNCE_MS,

@@ -14,6 +14,12 @@ pub enum PanelMouse {
     /// 滚轮滚了几行，正数往下。
     Scroll(isize),
 
+    /// 点翻译框的原文：光标放到第几个字之后。
+    Caret(usize),
+
+    /// 点翻译框里当前一页的第几个候选：选进框里。
+    Candidate(usize),
+
     /// 点右上角的 ✕。
     Close,
 }

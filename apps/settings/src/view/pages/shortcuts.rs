@@ -115,6 +115,15 @@ pub fn shortcuts(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Rende
             false,
         )?);
     }
+    if Feature::TranslatePanel.here() {
+        rows.push(recorder(
+            ui,
+            page,
+            Shortcut::TranslatePanel,
+            tr("shortcuts.translate_panel_info"),
+            false,
+        )?);
+    }
     out.push(section_title(
         ui,
         theme,

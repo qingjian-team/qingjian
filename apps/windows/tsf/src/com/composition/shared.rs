@@ -13,6 +13,9 @@ pub(crate) struct Shared {
     /// 当前活动的组句，跨按键存活。
     composition: RefCell<Option<ITfComposition>>,
 
+    /// 最近一次写进文档的组句文字；符号面板翻译组的译文靠轮询送来，对比它才知道要不要补写。
+    preedit: RefCell<String>,
+
     /// Server 上次回的帧非空；决定 `OnTestKeyDown` 要不要吃功能键。
     composing: Cell<bool>,
 
@@ -46,6 +49,7 @@ impl Shared {
     pub(crate) fn new(client: SharedClient) -> Rc<Self> {
         Rc::new(Self {
             composition: RefCell::new(None),
+            preedit: RefCell::new(String::new()),
             composing: Cell::new(false),
             anchor: Cell::new(None),
             context_reported: Cell::new(false),
@@ -80,6 +84,14 @@ impl Shared {
 
     pub(crate) fn take_server_stale(&self) -> bool {
         self.server_stale.replace(false)
+    }
+
+    pub(crate) fn preedit(&self) -> String {
+        self.preedit.borrow().clone()
+    }
+
+    pub(crate) fn set_preedit(&self, text: &str) {
+        text.clone_into(&mut self.preedit.borrow_mut());
     }
 
     pub(crate) fn composing(&self) -> bool {
@@ -156,6 +168,7 @@ impl Shared {
     /// 清掉一切本地组句状态，不碰文档。
     pub(crate) fn reset(&self) {
         self.set_composition(None);
+        self.set_preedit("");
         self.set_last_context(None);
         self.end_composing();
     }

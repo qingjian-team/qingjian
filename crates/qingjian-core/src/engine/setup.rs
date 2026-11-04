@@ -366,6 +366,7 @@ impl Engine {
     /// 设置显式选区翻译的提供方，独立于自动联想；取消后旧结果不会上屏。
     pub fn set_translation_predictor(&mut self, predictor: Option<Box<dyn Predictor>>) {
         self.cancel_prediction();
+        self.panel_translations.clear();
         self.translation_predictor = predictor;
     }
 
@@ -377,6 +378,7 @@ impl Engine {
     /// 运行时换掉 Predictor（菜单开关云联想 / 配置热加载）；正在等的联想一并作废。
     pub fn set_predictor(&mut self, predictor: Box<dyn Predictor>) {
         self.cancel_prediction();
+        self.panel_translations.clear();
         self.predictor = predictor;
     }
 
