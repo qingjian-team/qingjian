@@ -48,6 +48,7 @@ fn default_paths() -> Result<(Option<std::path::PathBuf>, std::path::PathBuf), &
 }
 
 /// 亮一次霓虹灯：慢、中、快三档速度各流一会儿，再按 `success` 收成绿或红。
+#[cfg(any(windows, target_os = "macos"))]
 fn neon_demo(success: bool) {
     let neon = system::Neon::spawn();
     neon.start();
