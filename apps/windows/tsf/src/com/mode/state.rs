@@ -110,11 +110,10 @@ impl ModeState {
         self.switch_keys.get()
     }
 
-    /// 单击切换键加上第三输入法需要监听的 Shift。
+    /// 单击切换键加上第三输入法需要监听的 Shift；第三输入法关着时就是用户勾的切换键。
     pub(crate) fn tap_keys(&self) -> SwitchKeys {
-        self.switch_keys
-            .get()
-            .with(SwitchKey::Shift, self.third_enabled())
+        let keys = self.switch_keys.get();
+        keys.with(SwitchKey::Shift, keys.shift || self.third_enabled())
     }
 
     /// 激活时按配置设一次。
@@ -141,5 +140,27 @@ impl ModeState {
         if let Some(sink) = self.sink.borrow().as_ref() {
             let _ = unsafe { sink.OnUpdate(TF_LBI_ICON | TF_LBI_STATUS) };
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use qingjian_platform::{SwitchKey, SwitchKeys, ThirdInputMethod};
+
+    use super::ModeState;
+
+    #[test]
+    fn tap_keys_keep_shift_when_third_input_is_off() {
+        let state = ModeState::new();
+        let shift = SwitchKeys::NONE.with(SwitchKey::Shift, true);
+        state.set_settings(true, shift, ThirdInputMethod::Off);
+        assert!(state.tap_keys().shift);
+
+        let control = SwitchKeys::NONE.with(SwitchKey::Control, true);
+        state.set_settings(true, control, ThirdInputMethod::Off);
+        assert!(!state.tap_keys().shift);
+
+        state.set_settings(true, control, ThirdInputMethod::Vietnamese);
+        assert!(state.tap_keys().shift && state.tap_keys().control);
     }
 }
