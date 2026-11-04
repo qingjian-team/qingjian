@@ -36,6 +36,12 @@ pub fn is_key(c: char) -> bool {
     matches!(c, '2'..='9' | 'a'..='z' | '\'')
 }
 
+/// 从输入的 `start` 字节起能读成的全部写法：各种长度的完整音节与一码的首字母，长的在前。
+/// 拼音列除了最优切法的那个位置，还要能选更短的音节与单个字母，否则别的切法上的字选不到。
+pub fn spellings_from(input: &str, start: usize) -> Vec<String> {
+    CODE_TABLE.spellings_from(input, start)
+}
+
 /// 把输入切成最优的几种形状（最多 `BEAM` 种，最优在前）。切不到末尾时退到能切到的最长前缀，
 /// 返回值第二项是切掉的尾巴。第一个字符都切不动返回空。
 pub fn segment(input: &str) -> (Vec<Shape>, &str) {

@@ -66,7 +66,7 @@ impl Engine {
         self.insert_keyword_shortcuts(&mut items);
         let rank = start.elapsed();
 
-        let pinyin_choices = display::pinyin_choices(shapes.first(), &items);
+        let pinyin_choices = display::pinyin_choices(keys, shapes.first(), &items);
         let typed_display = shapes
             .first()
             .map(|shape| display::marked(shape, items.first(), tail));

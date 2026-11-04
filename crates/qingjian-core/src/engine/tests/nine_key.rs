@@ -82,6 +82,45 @@ fn pinyin_choices_list_first_open_position() {
 }
 
 #[test]
+fn pinyin_choices_also_offer_shorter_syllables_and_letters() {
+    // 643226：最优切法开头是 nie / mie，还要能选 ni、mi 与单个字母，不然 你 这类字选不到
+    let mut engine = nine_key();
+    let query = query(&mut engine, "643226");
+    let choices = &query.pinyin_choices;
+    for wanted in ["nie", "mie", "ni", "mi", "n", "m", "o"] {
+        assert!(
+            choices.iter().any(|c| c == wanted),
+            "{wanted} 不在 {choices:?}"
+        );
+    }
+    let at = |s: &str| choices.iter().position(|c| c == s).unwrap();
+    assert!(at("nie") < at("ni") && at("ni") < at("n"));
+}
+
+#[test]
+fn shorter_syllables_follow_the_candidates_that_read_them() {
+    // 6433：最优切法是 nie'e，你的 读 ni de；同样长的 ni 要排在没有候选的 mi 前面
+    let mut engine = Engine::new(Dictionary::parse("你的\tni de\t9000\n").unwrap());
+    engine.set_nine_key(true);
+    let query = query(&mut engine, "6433");
+    let choices = &query.pinyin_choices;
+    let at = |s: &str| choices.iter().position(|c| c == s).unwrap();
+    assert!(at("nie") < 2 && at("mie") < 2, "{choices:?}");
+    assert!(at("ni") < at("mi"), "{choices:?}");
+}
+
+#[test]
+fn pinning_a_shorter_syllable_splits_after_it() {
+    let mut engine = nine_key();
+    engine.set_input("643226");
+    assert!(engine.pin_nine_key("ni"));
+    assert_eq!(engine.composition().text(), "ni'3226");
+    engine.set_input("643226");
+    assert!(engine.pin_nine_key("n"));
+    assert_eq!(engine.composition().text(), "n'43226");
+}
+
+#[test]
 fn pinning_replaces_digits_with_letters() {
     let mut engine = nine_key();
     engine.set_input("52432");

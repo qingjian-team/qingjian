@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::sync::LazyLock;
 
 use super::{Position, digit_of};
-use crate::parser::{INITIALS, SYLLABLES};
+use crate::parser::{INITIALS, MAX_SYLLABLE_LEN, SYLLABLES};
 
 pub(super) static CODE_TABLE: LazyLock<CodeTable> = LazyLock::new(CodeTable::build);
 
@@ -91,6 +91,38 @@ impl CodeTable {
             complete: !complete.is_empty(),
             prefix: last || complete.is_empty(),
         })
+    }
+
+    /// 从 `start` 起各种长度能读成的完整音节，外加一码的首字母；遇到 `'` 停。长的在前。
+    pub(super) fn spellings_from(&self, input: &str, start: usize) -> Vec<String> {
+        let mut found: Vec<String> = Vec::new();
+        let limit = (start + MAX_SYLLABLE_LEN).min(input.len());
+        for end in (start + 1..=limit).rev() {
+            let span = &input[start..end];
+            if span.contains('\'') {
+                continue;
+            }
+            let code: String = span.chars().map(|c| digit_of(c).unwrap_or(c)).collect();
+            let fits = |text: &str| {
+                span.bytes()
+                    .zip(text.bytes())
+                    .all(|(typed, letter)| typed.is_ascii_digit() || typed == letter)
+            };
+            let mut push = |text: &str| {
+                if fits(text) && !found.iter().any(|known| known == text) {
+                    found.push(text.to_owned());
+                }
+            };
+            for text in self.syllables.get(&code).into_iter().flatten() {
+                push(text);
+            }
+            if end == start + 1 {
+                for text in self.prefixes.get(&code).into_iter().flatten() {
+                    push(text);
+                }
+            }
+        }
+        found
     }
 }
 
