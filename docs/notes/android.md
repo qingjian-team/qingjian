@@ -125,7 +125,7 @@ PC 上只对实体键盘有意义的项（Shift + 字母、切换键、翻页键
   组句中 Composer 每 150 ms `pollPrediction`，结果插在本地首选之后：先整句补全，再云端词，与本地重复的不要；选中整句走 `accept_prediction`。
 - 九宫格敲的是数字，Core 用这次查询的拼音行（`QuerySnapshot.pinyin`，九宫格时取 `typed_display`）问云端，没查过这段就不发。
 - 候选条的 `strip_cell` 给 `cloud` 候选前加小云朵、字用 `@cloud` 色（同 PC 候选窗）；展开的网格里同样画云朵（`PanelIcons.Icon.CLOUD`），字用 `Palette.cloud`。
-- 「只在 Wi-Fi 下使用」缺省开：服务 `syncCloud` 在键盘建起、每次开始输入和云端配置改了时看 `Network.onWifi`（Wi-Fi 或有线，开 VPN 也认得出），不在就退回只翻译。
+- 「只在 Wi-Fi 下使用」缺省开：`service/CloudServices.sync` 在键盘建起、每次开始输入和云端配置改了时看 `Network.onWifi`（Wi-Fi 或有线，开 VPN 也认得出），不在就退回只翻译。
   打字途中换网络要到下次开始输入才跟上。快捷翻译与释义兜底不看这个开关。
 - 工具框（快捷翻译、常用语编辑）开着时会话不发、不收联想（`set_metered(false)` 时 `tools_open`），快捷翻译的译文不被组句联想作废。
 

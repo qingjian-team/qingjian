@@ -15,7 +15,7 @@ Kotlin 的 `InputMethodService` 壳 + Rust 的 `libqingjian_android.so`。Androi
 - `app/`：Android 应用模块，包名 `app.qingjian.inputmethod`，按职责分包，同一职能的再分子包：
   - `core/`：JNI 封装（`Native` / `Engine`，「青简翻译」用的轻量句柄 `TranslationEngine`）与首次启动解随包数据（`BundledData`）；`frame/` 帧的数据类，`strip/` 画好的一帧候选条（位图 + 分界 + 可点区域），
     `store/` 不要句柄的数据（面板目录、剪贴板与常用语、双拼方案、主题与预览图、统计、生词本）。
-  - `service/`：`QingjianInputMethodService` 只管生命周期、设置与视图，`InputPanel` 拼出整块视图；
+  - `service/`：`QingjianInputMethodService` 只管生命周期、设置与视图，`InputPanel` 拼出整块视图，`GameMode` 游戏键盘（`GameFrame` 是它的浮层），`CloudServices` 把云联想、释义兜底、快捷翻译与语音识别的配置交给引擎；
     `input/` 是输入逻辑：`Composer`（键 → Engine 操作 → 输入框）、`Language` 输入语言、`EditorKind` 哪些输入框不过引擎、`EnterLabel` 回车键文字。
   - `keyboard/`：自绘键盘。`KeyboardView` 管触摸，`SideColumn` 九宫格拼音列，`BottomActionsView` 全面屏底部操作条，`Haptics` 震动，`SwipeTrail` 一笔滑行的判定、轨迹与交 Rust 的 JSON；
     `layout/` 键位与排版（`Key`、`KeyboardLayout` 键位表、`KeyboardMetrics`），`paint/` 绘制（`KeyPainter`、`KeyIcons`）。
