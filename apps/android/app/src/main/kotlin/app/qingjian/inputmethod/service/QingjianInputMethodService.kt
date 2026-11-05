@@ -44,6 +44,7 @@ import app.qingjian.inputmethod.service.input.Composer
 import app.qingjian.inputmethod.service.input.Language
 import app.qingjian.inputmethod.service.input.enterLabel
 import app.qingjian.inputmethod.service.input.wantsDirectInput
+import app.qingjian.inputmethod.service.input.wantsPlainPunctuation
 import app.qingjian.inputmethod.service.input.wantsNumbers
 import app.qingjian.inputmethod.service.input.wantsPrivacy
 import app.qingjian.inputmethod.settings.BottomAction
@@ -252,6 +253,7 @@ class QingjianInputMethodService :
     override fun onStartInput(attribute: EditorInfo, restarting: Boolean) {
         super.onStartInput(attribute, restarting)
         composer.directInput = attribute.wantsDirectInput()
+        composer.plainPunctuation = attribute.wantsPlainPunctuation()
         composer.privateInput = attribute.wantsPrivacy()
         enterLabel = attribute.enterLabel()
         panel?.keyboard?.enterLabel = enterLabel

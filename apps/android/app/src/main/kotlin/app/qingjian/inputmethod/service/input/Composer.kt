@@ -67,6 +67,9 @@ class Composer(private val engine: Engine, private val host: Host) {
     /** 这个输入框不过引擎，见 [wantsDirectInput]。 */
     var directInput = false
 
+    /** 网址框：标点不转全角、敲标点时原样落下字母，见 [wantsPlainPunctuation]。 */
+    var plainPunctuation = false
+
     /** 私密输入（不学习、不记统计与生词、不发云端），见 [wantsPrivacy]；引擎没装好时先记着，装好了在 [onEngineReady] 里补。 */
     var privateInput = false
         set(value) {
@@ -223,12 +226,20 @@ class Composer(private val engine: Engine, private val host: Host) {
                     // 敲邮箱：@ 前的字母是用户名，原样落下，不顶首选
                     key.text == "@" && !zhuyin -> apply(engine.commitRaw())
                     // 英文同空格：数字、标点前落下敲的字母，不换成候选（验证码、型号这类串不是词）
-                    english -> apply(engine.commitRaw())
+                    english || plainPunctuation -> apply(engine.commitRaw())
                     else -> selectFirst()
                 }
                 // 中文标点键：Core 按设置转全角（引号成对、数字后的点保持半角）或原样
                 val punct = key.punct
-                commit(if (punct != null && chinese && !directInput) engine.punctuate(punct) else key.text)
+                commit(
+                    when {
+                        punct == null -> key.text
+                        // 网址框里中文键盘的「。」「，」也落半角
+                        plainPunctuation -> punct.toString()
+                        chinese && !directInput -> engine.punctuate(punct)
+                        else -> key.text
+                    },
+                )
             }
 
             Key.Clear -> if (composing) apply(engine.clear())
