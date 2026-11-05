@@ -36,7 +36,7 @@
     <string name="stats_percent">%1$.0f%%</string>
     <string name="stats_code_length">平均码长</string>
     <string name="stats_code_length_value">%1$.1f 键/字</string>
-    <string name="stats_details_note">速度不算停顿超过 5 秒的时间；首选率是选第一个候选的比例，一次打对是上屏前没退格的比例；打得太少时显示「—」</string>
+    <string name="stats_details_note">速度不算停顿超过 5 秒的时间，最快的一天只算打满 5 分钟的日子；首选率是选第一个候选的比例，一次打对是上屏前没退格的比例；打得太少时显示「—」</string>
     <string name="stats_vocabulary">词汇</string>
     <string name="stats_vocabulary_off">学习语言选了「不显示」，不统计词汇</string>
     <string name="stats_vocabulary_empty">%1$s：还没见过译词</string>
