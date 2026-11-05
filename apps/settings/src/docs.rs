@@ -201,7 +201,7 @@ const LINKS: &[(PageId, &str, &str, &str)] = &[
         PageId::Shortcuts,
         "shortcuts.enter_translation",
         "personalize/keys-settings",
-        "回车优先英文译词（macOS）",
+        "回车优先上屏译词（macOS）",
     ),
     (
         PageId::Shortcuts,

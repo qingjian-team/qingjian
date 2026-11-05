@@ -502,7 +502,7 @@ Windows Server 自绘候选窗（GDI）按 `Frame.columns` / `column_ems` 画矩
 
 ## apps/macos
 
-`[shortcut] enter_translation`（缺省关）只在无修饰键的回车且中文组句有高亮英文译词时，路由到既有 `commit_translation_at`；译词缺失、非英文或空白时继续原来的命令路径。入口读取 `Host.settings` 当前配置，沿用文件监视器热加载；共享设置的快捷键页按平台支持表显示并支持恢复默认，空格与其他键不变。
+`[shortcut] enter_translation`（缺省关）只在无修饰键的回车且中文组句有高亮非中文译词时，路由到既有 `commit_translation_at`；译词缺失、为中文或首条空白时继续原来的命令路径。入口读取 `Host.settings` 当前配置，沿用文件监视器热加载；共享设置的快捷键页按平台支持表显示并支持恢复默认，空格与其他键不变。
 
 IMK 输入法，源码按 `app / host / imk / candidates / menubar / preferences` 分目录。
 

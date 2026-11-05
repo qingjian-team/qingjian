@@ -46,7 +46,7 @@ fn should_commit(
         && composing
         && candidate
             .and_then(|candidate| candidate.translation.as_ref())
-            .filter(|translation| translation.language == Language::English)
+            .filter(|translation| translation.language != Language::Chinese)
             .and_then(|translation| translation.senses().first())
             .is_some_and(|sense| !sense.text.trim().is_empty())
 }
@@ -76,21 +76,29 @@ mod tests {
     }
 
     #[test]
-    fn both_return_keys_use_the_highlighted_english_translation() {
-        let candidate = candidate(Language::English, "develop");
-        for key in [36, 76] {
-            assert!(should_commit(
-                true,
-                key,
-                Modifiers::default(),
-                true,
-                Some(&candidate)
-            ));
+    fn both_return_keys_use_the_highlighted_non_chinese_translation() {
+        for (language, text) in [
+            (Language::English, "develop"),
+            (Language::Japanese, "開発"),
+            (Language::German, "entwickeln"),
+            (Language::Spanish, "desarrollar"),
+            (Language::Vietnamese, "phát triển"),
+        ] {
+            let candidate = candidate(language, text);
+            for key in [36, 76] {
+                assert!(should_commit(
+                    true,
+                    key,
+                    Modifiers::default(),
+                    true,
+                    Some(&candidate)
+                ));
+            }
         }
     }
 
     #[test]
-    fn disabled_empty_or_non_english_translation_preserves_original_return() {
+    fn disabled_empty_or_chinese_translation_preserves_original_return() {
         let mut candidate = candidate(Language::English, "develop");
         assert!(!should_commit(
             false,
@@ -111,7 +119,8 @@ mod tests {
         for (language, text) in [
             (Language::English, "  "),
             (Language::Chinese, "开发"),
-            (Language::Japanese, "開発"),
+            (Language::Japanese, "  "),
+            (Language::German, ""),
         ] {
             candidate = super::tests::candidate(language, text);
             assert!(!should_commit(
@@ -123,6 +132,35 @@ mod tests {
             ));
         }
         candidate.translation = Some(Translation::new(Language::English, vec![]));
+        assert!(!should_commit(
+            true,
+            36,
+            Modifiers::default(),
+            true,
+            Some(&candidate)
+        ));
+    }
+
+    #[test]
+    fn an_empty_first_sense_does_not_select_a_later_translation() {
+        let mut candidate = candidate(Language::Japanese, "");
+        candidate.translation = Some(Translation::new(
+            Language::Japanese,
+            vec![
+                Sense {
+                    part_of_speech: None,
+                    text: "".into(),
+                    reading: None,
+                    fresh: false,
+                },
+                Sense {
+                    part_of_speech: None,
+                    text: "開発".into(),
+                    reading: None,
+                    fresh: false,
+                },
+            ],
+        ));
         assert!(!should_commit(
             true,
             36,

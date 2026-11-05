@@ -34,7 +34,7 @@ pub enum Feature {
     GridPageKeys,
     /// 组句时上屏候选与上屏字母的键可以换。
     CommitKeys,
-    /// macOS 回车优先英文译词。
+    /// macOS 回车优先上屏译词。
     EnterTranslation,
     ExtraPageKeys,
     HighlightKeys,
@@ -173,7 +173,7 @@ impl Feature {
             Self::HorizontalGrid => "横排时 ↑ / ↓ 展开成多行",
             Self::GridPageKeys => "横排时翻页键展开成多行",
             Self::CommitKeys => "上屏键自定义",
-            Self::EnterTranslation => "回车优先英文译词",
+            Self::EnterTranslation => "回车优先上屏译词",
             Self::ExtraPageKeys => "额外翻页键",
             Self::HighlightKeys => "高亮移动键",
             Self::ExtraCandidateNavigation => "Emacs 风格候选键",

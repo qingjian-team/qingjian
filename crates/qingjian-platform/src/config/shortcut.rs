@@ -38,7 +38,7 @@ pub struct ShortcutConfig {
     /// 数字键配这些修饰键：上屏候选的第二个译词（候选右侧有两个译词时）。
     pub translation_second: Modifiers,
 
-    /// macOS：回车优先上屏高亮候选的第一条英文译词；没有英文时仍走原回车逻辑。
+    /// macOS：回车优先上屏高亮候选的第一条非中文译词；没有可用译词时仍走原回车逻辑。
     pub enter_translation: bool,
 
     /// 把应用里选中的文字译成学习语言（需要云服务开着）。
