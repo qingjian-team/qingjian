@@ -14,6 +14,11 @@ pub trait LanguageModel: Send {
         self.log_prob(previous, word)
     }
 
+    /// 最常跟在 `previous` 后面的词，最多 `limit` 个、最常见的在前（上屏后的联想用）；模型列不出来时为空。
+    fn successors(&self, _previous: &str, _limit: usize) -> Vec<String> {
+        Vec::new()
+    }
+
     /// 没接模型（什么词都不认识），「模型认不认识这个词」就没有意义。
     fn is_empty(&self) -> bool {
         false

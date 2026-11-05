@@ -132,6 +132,12 @@ fn replay_commit(
         return;
     }
     switcher.apply(engine, &commit.scheme);
+    // 上屏后点的联想词没有敲键可评，但它接着上文：照样上屏，学习与上文链和当时一致
+    if commit.source == InputSource::FollowUp {
+        report.skip(commit.source);
+        engine.commit_follow_up(&commit.text);
+        return;
+    }
     let Some(tally) = report.tally_for(commit.source) else {
         // 不是本地排序给出的（云端词、原样上屏……）：只计数；那次上屏的词没法接进上文，断链。
         // 原样上屏照样走一遍 `take_raw`：个人英文词（`gist`）与「这个串不纠」都是从这里学的，不走它回放里的英文候选与纠错就比真实使用差

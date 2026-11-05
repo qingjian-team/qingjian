@@ -16,6 +16,7 @@ mod contacts;
 mod correcting;
 mod decoded;
 mod extras;
+mod follow_up;
 mod gloss;
 mod held;
 mod input_log;

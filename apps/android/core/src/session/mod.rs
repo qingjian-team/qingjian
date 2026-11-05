@@ -5,6 +5,7 @@ mod cloud;
 mod contacts;
 mod dictionaries;
 mod display;
+mod follow_up;
 mod keys;
 mod options;
 mod prediction;
@@ -73,6 +74,15 @@ pub struct Session {
     /// 刚上屏的通讯录名字，候选条上正放着它的电话、邮箱；光标前的文字不再以它结尾、或有别的操作就清掉。
     after_contact: Option<String>,
 
+    /// 中文词上屏后候选条给不给联想词（键盘设置里的开关）。
+    follow_ups: bool,
+
+    /// 候选条上放着联想词时，刚上屏的那段文字；光标前的文字不再以它结尾、或有别的操作就清掉。
+    after_commit: Option<String>,
+
+    /// 联想词在 `completions` 里从第几个开始；选到这之后的走 [`qingjian_core::Engine::commit_follow_up`]。
+    follow_up_at: Option<usize>,
+
     /// 删除键上划刚清掉的文字，候选条上放着「撤销」；光标前又有字、或有别的操作就清掉。
     cleared: Option<String>,
 
@@ -113,6 +123,9 @@ impl Session {
             tools_open: false,
             contact_details: false,
             after_contact: None,
+            follow_ups: true,
+            after_commit: None,
+            follow_up_at: None,
             cleared: None,
             transcriber: Box::new(NoTranscriber),
             swipe_decoder: Box::new(ShapeDecoder),
@@ -135,6 +148,8 @@ impl Session {
         self.sentence_at = None;
         self.completions.clear();
         self.after_contact = None;
+        self.after_commit = None;
+        self.follow_up_at = None;
         self.cleared = None;
         if let Some(kana) = &mut self.kana {
             kana.clear();
@@ -146,6 +161,8 @@ impl Session {
         self.preedit_pinned = (0, 0);
         self.completions.clear();
         self.after_contact = None;
+        self.after_commit = None;
+        self.follow_up_at = None;
         self.cleared = None;
         if let Some(kana) = &self.kana {
             self.preedit = kana.preedit();

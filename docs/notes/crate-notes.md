@@ -364,6 +364,9 @@ P2C 自由生成实验：`--eval-text <集> --eval-generate data/models/hanzhang
 （没有这两个文件就退化为一元词频整句）。数据由 `tools/corpus/parquet_to_text.py`（uv 脚本，HF parquet → 简体纯文本）加
 `cargo run --release -p qingjian-dict-convert -- bigram --phrases assets/lexicon/phrases.tsv --phrases assets/lexicon/domain_words.tsv --brand assets/lexicon/brand.tsv --brand assets/lexicon/mixed_words.tsv data/corpus/*.txt` 生成；语料在 `data/corpus/`（gitignore）。
 短语层不当 token 统计（分词时摘掉、统计完按成分合成一元 / 二元，短语得分等于原来两个词的路径，见 `bigram.rs` 模块注释），品牌词按给定次数写进一元与句首二元。
+`LanguageModel::successors`（上屏后的联想，`Engine::follow_ups`）：`BigramModel` 从前词的 CSR 段里按二元计数取前 N 个（`select_nth_unstable` 只排前 N，「的」这类上万条后继的词也在 0.2 ms 内），
+`MixedModel` 先列第一个模型的再补第二个的；`TrigramModel` 没实现（缺省空）。Engine 先列个人 n-gram 里用户接过的，再补模型的，只给全汉字、1–4 字的词（`MAX_FOLLOW_UP_CHARS`）；
+联想词上屏走 `commit_follow_up`：记词频与转移（按自选记双份）、推进上文，输入日志与统计的来源是 `follow_up`，不算选词、不计键数。现在只有 Android 候选条用。
 
 `TrigramModel`（`trigram/`）：读知意输入法的词级三元模型 `zh.ngram`（`ZYNGRAM1` 格式，ARPA 回退、log10 量化成 i16，整文件 mmap），
 实现 Core 的 `sentence::PhraseModel`，选词重排里给整段候选打 ln P(候选 | 上文)（上文取最后一行末 12 字，按字束搜索切词，束宽 8、词最长 8 字），

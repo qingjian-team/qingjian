@@ -14,8 +14,10 @@ impl Session {
         {
             return self.refresh(String::new());
         }
-        // 刚上屏的名字还在光标前：接着给它的电话、邮箱；刚清空、光标前还是空的：留着「撤销」（`refresh` 会清掉，先拿出来）
+        // 刚上屏的名字还在光标前：接着给它的电话、邮箱；刚上屏的词还在光标前：接着给联想词；
+        // 刚清空、光标前还是空的：留着「撤销」（`refresh` 会清掉，先拿出来）
         let after_contact = self.after_contact.take();
+        let after_commit = self.after_commit.take();
         let cleared = self.cleared.take();
         let mut frame = self.refresh(String::new());
         if let Some(text) = cleared.filter(|_| before_cursor.is_empty()) {
@@ -23,6 +25,9 @@ impl Session {
         }
         if let Some(name) = after_contact.filter(|name| before_cursor.ends_with(name.as_str())) {
             self.offer_contact(&name, &mut frame);
+        }
+        if let Some(text) = after_commit.filter(|text| before_cursor.ends_with(text.as_str())) {
+            self.offer_follow_ups(&text, &mut frame);
         }
         let mut labels = Vec::new();
         for completion in qingjian_core::email_completions(before_cursor) {
@@ -77,6 +82,9 @@ impl Session {
     pub fn select(&mut self, index: usize) -> Frame {
         if !self.completions.is_empty() {
             let (replace, commit) = self.completions.get(index).cloned().unwrap_or_default();
+            if self.follow_up_at.is_some_and(|at| index >= at) {
+                return self.select_follow_up(&commit);
+            }
             let mut frame = self.refresh(commit);
             frame.replace = replace;
             return frame;
@@ -95,9 +103,11 @@ impl Session {
             return self.refresh(String::new());
         };
         let commit = self.engine.commit(&candidate);
-        let mut frame = self.refresh(commit);
+        let mut frame = self.refresh(commit.clone());
         if self.engine.is_contact(&candidate.text) {
             self.offer_contact(&candidate.text, &mut frame);
+        } else {
+            self.offer_follow_ups(&commit, &mut frame);
         }
         frame
     }

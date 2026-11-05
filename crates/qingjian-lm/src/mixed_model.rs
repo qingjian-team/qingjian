@@ -36,6 +36,20 @@ impl MixedModel {
 }
 
 impl LanguageModel for MixedModel {
+    /// 先列 `first` 的，再补 `second` 里没有的。
+    fn successors(&self, previous: &str, limit: usize) -> Vec<String> {
+        let mut words = self.first.successors(previous, limit);
+        for word in self.second.successors(previous, limit) {
+            if words.len() >= limit {
+                break;
+            }
+            if !words.contains(&word) {
+                words.push(word);
+            }
+        }
+        words
+    }
+
     fn log_prob(&self, previous: Option<&str>, word: &str) -> Option<f64> {
         self.mix(
             self.first.log_prob(previous, word),
@@ -67,6 +81,17 @@ mod tests {
         fn log_prob(&self, _previous: Option<&str>, word: &str) -> Option<f64> {
             (word == self.0).then(|| self.1.ln())
         }
+
+        fn successors(&self, _previous: &str, _limit: usize) -> Vec<String> {
+            vec![self.0.to_owned(), "都有".to_owned()]
+        }
+    }
+
+    #[test]
+    fn successors_list_the_first_model_then_fill_from_the_second() {
+        let model = MixedModel::new(Box::new(Fixed("甲", 0.4)), Box::new(Fixed("乙", 0.1)), 0.5);
+        assert_eq!(model.successors("前", 8), ["甲", "都有", "乙"]);
+        assert_eq!(model.successors("前", 2), ["甲", "都有"]);
     }
 
     #[test]

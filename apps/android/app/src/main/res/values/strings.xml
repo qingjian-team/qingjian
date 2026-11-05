@@ -221,6 +221,8 @@
     <string name="space_cursor_title">空格滑动移动光标</string>
     <string name="space_cursor_note">按住空格左右滑，按滑过的距离逐字移动光标；打拼音时不响应</string>
     <string name="spelling_correction_title">拼写纠错</string>
+    <string name="follow_ups_title">上屏后联想</string>
+    <string name="follow_ups_note">选完一个词，候选条接着给可能跟在后面的词，点一下直接上屏；先按你自己常接的，再按常见搭配</string>
     <string name="spelling_correction_note">拼音敲错时给纠正后的候选；敲的拼音照原样读得通时，纠正只排在后面当备选</string>
     <string name="arrangement_title">布局</string>
     <string name="arrangement_standard">默认</string>

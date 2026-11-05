@@ -38,6 +38,9 @@ pub enum InputSource {
 
     /// 语音识别出的一段文字（见 [`crate::Engine::commit_voice`]）。
     Voice,
+
+    /// 上屏后点的联想词（见 [`crate::Engine::commit_follow_up`]）。
+    FollowUp,
 }
 
 impl From<CandidateKind> for InputSource {

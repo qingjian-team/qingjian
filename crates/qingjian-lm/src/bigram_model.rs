@@ -286,6 +286,27 @@ fn group(pairs: &[(u32, u32, u32)], word_count: usize) -> (Vec<u32>, Vec<Success
 }
 
 impl LanguageModel for BigramModel {
+    fn successors(&self, previous: &str, limit: usize) -> Vec<String> {
+        let Some(id) = self.word_id(previous) else {
+            return Vec::new();
+        };
+        let start = self.offsets[id as usize] as usize;
+        let end = self.offsets[id as usize + 1] as usize;
+        let mut next: Vec<Successor> = self.successors[start..end].to_vec();
+        let by_count =
+            |a: &Successor, b: &Successor| b.count.cmp(&a.count).then(a.word.cmp(&b.word));
+        // 「的」这类常见词的后继上万条，只排出前 `limit` 个
+        if next.len() > limit && limit > 0 {
+            next.select_nth_unstable_by(limit - 1, by_count);
+            next.truncate(limit);
+        }
+        next.sort_by(by_count);
+        next.iter()
+            .take(limit)
+            .map(|s| word_text(&self.words, &self.entries[s.word as usize]).to_owned())
+            .collect()
+    }
+
     fn log_prob(&self, previous: Option<&str>, word: &str) -> Option<f64> {
         let id = self.word_id(word)?;
         let unigram = f64::from(self.entries[id as usize].count) / self.total;
@@ -327,6 +348,22 @@ mod tests {
         let alone = model.log_prob(Some("火星"), "想").unwrap();
         assert!((alone - (30.0_f64 / 101.0).ln()).abs() < 1e-9);
         assert_eq!(model.log_prob(Some("我"), "火星"), None);
+    }
+
+    #[test]
+    fn successors_are_listed_most_frequent_first() {
+        let model = BigramModel::parse(
+            UNIGRAM,
+            "我	翔	1
+我	想	25
+我	去	7
+",
+        )
+        .unwrap();
+        assert_eq!(model.successors("我", 8), ["想", "去", "翔"]);
+        assert_eq!(model.successors("我", 2), ["想", "去"]);
+        assert!(model.successors("想", 8).is_empty());
+        assert!(model.successors("火星", 8).is_empty());
     }
 
     #[test]

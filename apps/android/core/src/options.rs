@@ -1,4 +1,4 @@
-//! 键盘设置里影响候选的几项：模糊音、中文标点全半角、打拼音时给不给英文词、学习语言、繁体字形、学习开关、附加词库、分次选词留在组句里、拼写纠错、候选后面配几个 emoji / 颜文字 / 符号。Kotlin 按设置整份交过来。
+//! 键盘设置里影响候选的几项：模糊音、中文标点全半角、打拼音时给不给英文词、学习语言、繁体字形、学习开关、附加词库、分次选词留在组句里、拼写纠错、上屏后联想、候选后面配几个 emoji / 颜文字 / 符号。Kotlin 按设置整份交过来。
 
 use qingjian_core::{FuzzyRules, Language, TraditionalVariant};
 use serde::Deserialize;
@@ -46,6 +46,10 @@ pub struct InputOptions {
     /// 拼写纠错（PC 的 `[general] spelling_correction`）：关了拼音只按敲的原样与模糊音读。
     #[serde(default = "default_true")]
     pub spelling_correction: bool,
+
+    /// 中文词上屏后候选条接着给可能跟在后面的词（#861），点了直接上屏。
+    #[serde(default = "default_true")]
+    pub follow_ups: bool,
 
     /// 候选后面一次最多配几个 emoji（0–3，0 不配），同 PC 的 `[general] emoji`。
     #[serde(default = "default_emoji")]

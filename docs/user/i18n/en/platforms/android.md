@@ -46,6 +46,8 @@ The 试一试 (Try it) box on the home screen lets you try typing right away.
 - The ⌄ at the right end of the candidate bar expands all candidates.
 - With 设置 → 词库 → 通讯录 (Settings → Dictionaries → Contacts) on, typing a name's pinyin or initials brings people from your contacts onto the first page, marked with a small person icon; after you commit a name, the candidate bar offers that person's phone numbers and email addresses, committed only when tapped and gone as soon as you keep typing; pressing delete or 重输 (Clear) then only dismisses them and leaves the committed name alone.
 - When you pick a stretch of pinyin in several steps, the words picked first stay in the input box and the whole stretch is committed together once done; if you pick wrong, the delete key undoes the last pick so you can pick again. Enter commits them together with the remaining pinyin as typed. If you don't want this, turn off 分次选词先不上屏 (Keep partial picks until done) under 设置 → 输入 (Settings → Input).
+- After you pick a word, the candidate bar offers words likely to follow it (一起 or 都 after 我们), first the ones you usually type next, then common pairings; tap one to commit it, and the next batch follows, so you can keep tapping.
+  Space, Enter, digits and punctuation work as usual and never pick a suggestion; they go away as soon as you keep typing or move the cursor. Turn this off under 设置 → 输入 → 上屏后联想 (Settings → Input → Suggest the next word); on by default.
 
 ## Dates and calculations
 

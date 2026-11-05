@@ -35,6 +35,9 @@ class InputSettingsActivity : PageActivity() {
                 ui.toggle(R.string.hold_selections_title, R.string.hold_selections_note, options.holdSelections) {
                     prefs.edit().putBoolean(Settings.KEY_HOLD_SELECTIONS, it).apply()
                 },
+                ui.toggle(R.string.follow_ups_title, R.string.follow_ups_note, options.followUps) {
+                    prefs.edit().putBoolean(Settings.KEY_FOLLOW_UPS, it).apply()
+                },
                 footer = R.string.fuzzy_note,
             ),
             ui.group(getString(R.string.section_mixed), mixedRows(settings), getString(R.string.english_in_chinese_note)),

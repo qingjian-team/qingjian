@@ -193,6 +193,21 @@ impl UserNgram {
             .unwrap_or(0)
     }
 
+    /// 用户在 `previous` 后面接过的词与次数，次数多的在前、同次数按字排。
+    pub fn successors(&self, previous: &str) -> Vec<(&str, u32)> {
+        let mut next: Vec<(&str, u32)> = self
+            .pairs
+            .get(previous)
+            .map(|next| {
+                next.iter()
+                    .map(|(word, &times)| (word.as_str(), times))
+                    .collect()
+            })
+            .unwrap_or_default();
+        next.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(b.0)));
+        next
+    }
+
     /// 不同的 (前词, 后词) 对数。
     pub fn pair_count(&self) -> usize {
         self.pairs.values().map(HashMap::len).sum()

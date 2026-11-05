@@ -154,7 +154,7 @@ impl Engine {
         }
         let mut usage = Usage::of_text(text);
         usage.words = match source {
-            InputSource::Word | InputSource::Cloud => 1,
+            InputSource::Word | InputSource::Cloud | InputSource::FollowUp => 1,
             InputSource::Sentence | InputSource::CloudSentence | InputSource::Voice => {
                 sentence::segment_text(text, &*self.language_model).map_or(usage.hanzi, |clauses| {
                     clauses.iter().map(|words| words.len() as u64).sum()
@@ -171,8 +171,11 @@ impl Engine {
             usage.english_words = 0;
         }
         let (keys, typing_ms, edited) = self.typing.take(Instant::now());
-        // 原样上屏与语音不是从候选里选的：不算选词，也不计键数与时长
-        if !matches!(source, InputSource::Raw | InputSource::Voice) {
+        // 原样上屏、语音与联想词没有对应的敲键：不算选词，也不计键数与时长
+        if !matches!(
+            source,
+            InputSource::Raw | InputSource::Voice | InputSource::FollowUp
+        ) {
             let first = self
                 .last_query
                 .borrow()
