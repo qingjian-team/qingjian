@@ -71,6 +71,24 @@ fn emoji_candidates_are_flagged() {
 }
 
 #[test]
+fn emoji_candidates_only_hold_their_place() {
+    let rows = rows(
+        &[
+            candidate("😄", &[]),
+            candidate("👨‍👩‍👧", &[]),
+            candidate("🇨🇳🇯🇵", &[]),
+            candidate("微笑", &[]),
+        ],
+        1.0,
+        chars,
+    );
+    assert_eq!(rows[0].text, "\u{3000}");
+    assert_eq!(rows[1].text, "\u{3000}".repeat(3));
+    assert_eq!(rows[2].text, "\u{3000}".repeat(2));
+    assert_eq!(rows[3].text, "微笑");
+}
+
+#[test]
 fn cloud_candidates_carry_the_cloud_mark() {
     let mut cloud = candidate("空间改造方案", &[]);
     cloud.cloud = true;

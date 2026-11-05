@@ -32,7 +32,7 @@
 
 ## 候选条
 
-- 由 Rust 渲染器（`qingjian-render` 的 `Layout::Strip`）按设置里的主题画成位图贴上（见下文「外观」），与桌面候选窗同一套主题；emoji 渲染器画不出（系统 emoji 是 COLRv1），壳在词的位置上补画。
+- 由 Rust 渲染器（`qingjian-render` 的 `Layout::Strip`）按设置里的主题画成位图贴上（见下文「外观」），与桌面候选窗同一套主题；emoji 渲染器画不出（系统 emoji 是 COLRv1），壳在词的位置上补画；位图里 emoji 候选只用全角空格占位，渲染器也画得出彩色 emoji 时才不会叠成两份（#902，报在 Android 17 上）。
   真机结果见 [design/rendering.md](../design/rendering.md)「Android 候选条」。
 - 长按候选弹气泡：左右排开译词，滑到哪条抬手上屏，对应桌面端修饰键 + 数字。删得掉的候选（Core `CandidateKind::forgettable`）末尾多一项「删除」（`Session::forget`，对应桌面端 ⇧ + 数字），结果用 toast 提示；
   没有译文时气泡里只有「删除」，不预选，得往上滑进气泡才算，免得长按松手误删。
