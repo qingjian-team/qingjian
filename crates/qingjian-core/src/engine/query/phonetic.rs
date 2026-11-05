@@ -6,6 +6,7 @@ use std::time::{Duration, Instant};
 
 use qingjian_dictionary::Match;
 
+use crate::correction::edit_distance;
 use crate::engine::query::chinese_candidate;
 use crate::engine::{
     Learner, MAX_CANDIDATES, abbreviated_count, choice_key, pattern_key, segment_longest_prefix,
@@ -376,9 +377,32 @@ impl Engine {
                 span(&segmentations, &sources, 0, syllables)
             })
         };
-        ranking::arrange(&mut scored, whole, complete, first, clean, |item| {
-            choice(item) > 0
-        });
+        // 拆开音节的读法只有读音与敲的只差一个字母时才可能是要的（`nishui` 的 你说），比的是敲的同样长的开头
+        let typed: String = segmentations
+            .first()
+            .map_or_else(String::new, |segmentation| {
+                segmentation
+                    .syllables
+                    .iter()
+                    .map(|x| x.text.as_str())
+                    .collect()
+            });
+        let near_typed = |item: &Scored<'_>| {
+            let reading: String = item.hit.syllables().collect();
+            let typed = typed
+                .get(..reading.len().min(typed.len()))
+                .unwrap_or(&typed);
+            edit_distance(&reading, typed) <= 1
+        };
+        ranking::arrange(
+            &mut scored,
+            whole,
+            complete,
+            first,
+            clean,
+            |item| choice(item) > 0,
+            near_typed,
+        );
         // 辅码态：词库候选按码段**反向**过滤（逐个问「有没有以码段开头的码」），无码词直接隐藏；
         // 命中的按「完全匹配码 > 码长降序 > 原词频序」重排（stable sort 保住 rank 排好的原序）。
         // 码段为空（刚敲下触发键）时不过滤，候选与纯拼音态一模一样。

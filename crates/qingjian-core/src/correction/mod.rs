@@ -131,6 +131,25 @@ fn candidates_from(input: &str, variants: Vec<(Edit, String)>) -> Vec<Correction
     }
 }
 
+/// Levenshtein 编辑距离（按字节，键串都是 ASCII）。
+pub(crate) fn edit_distance(a: &str, b: &str) -> usize {
+    let a = a.as_bytes();
+    let b = b.as_bytes();
+    let mut previous: Vec<usize> = (0..=b.len()).collect();
+    let mut current = vec![0; b.len() + 1];
+    for (i, &ca) in a.iter().enumerate() {
+        current[0] = i + 1;
+        for (j, &cb) in b.iter().enumerate() {
+            let cost = usize::from(ca != cb);
+            current[j + 1] = (previous[j] + cost)
+                .min(previous[j + 1] + 1)
+                .min(current[j] + 1);
+        }
+        std::mem::swap(&mut previous, &mut current);
+    }
+    previous[b.len()]
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

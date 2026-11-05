@@ -50,6 +50,11 @@ pub const WORDS_BEFORE_SINGLE_CHARS: usize = 6;
 /// 有整词时拆开音节的读法排在首音节的几个单字之后（一页）。
 pub const SINGLE_CHARS_BEFORE_SPLIT: usize = 9;
 
+/// 有整词时拆开音节的读法在首音节其余单字之前至多留几条，其余排到全部单字之后。拆开的音节按声母通配，
+/// `nihao` 读成 `ni h… ao` 能捞出 你会 你回 霓虹 几十条读音对不上的词，不限量就把单字挤到几页之后（#854）；
+/// 留下的只给读音与敲的只差一个字母的（`nishui` 想打 你说、`duizhao` 想打 对着），当敲错音的兜底。
+pub const SPLIT_READINGS_BEFORE_SINGLES: usize = 3;
+
 /// 模糊音命中的单字排在原样读音的头几个单字之后（一页）。模糊音只扣 ln 2，单字之间词频差得远，
 /// 光靠扣分 `zi` 开 z-zh 首选会是 只 而不是 子；不排在这里则沉到原样读音的几百个生僻字之后。
 pub const SINGLE_CHARS_BEFORE_FUZZY: usize = 9;
@@ -126,7 +131,7 @@ fn defer_altered_chars(items: &mut Vec<Scored<'_>>, chosen: impl Fn(&Scored<'_>)
 ///    补全正是用户要往下打的，算作整词），最后是只盖住开头一段的主词库前缀词；
 /// 2. 首音节单字的头 [`SINGLE_CHARS_BEFORE_SPLIT`] 个；
 /// 3. 其余盖住整段的词（`xinjin` 的 新进 这类排在第 7 个以后的，不沉到几百个生僻单字后面）；
-/// 4. 拆开音节的读法——只在有词的读音正好是敲的音节时这样放；一个都没有时（`wodei` 的 我的、`cankai` 的 参考、`mingtia` 的 明天）
+/// 4. 拆开音节的读法里读音与敲的只差一个字母的（`near_typed`），至多 [`SPLIT_READINGS_BEFORE_SINGLES`] 条，其余排在第 5 类全部之后——只在有词的读音正好是敲的音节时这样放；一个都没有时（`wodei` 的 我的、`cankai` 的 参考、`mingtia` 的 明天）
 ///    它们多半是手误或没打完，正是用户要的，按词算；
 /// 5. 其余的词、其余首音节单字、其余猜测、补充词库的前缀词。
 ///
@@ -142,6 +147,7 @@ pub fn arrange(
     first: usize,
     clean: bool,
     chosen: impl Fn(&Scored<'_>) -> bool,
+    near_typed: impl Fn(&Scored<'_>) -> bool,
 ) {
     let worded = items
         .iter()
@@ -200,6 +206,8 @@ pub fn arrange(
         .into_iter()
         .partition(|(item, _)| item.coverage >= complete);
     let more_singles = singles.split_off(singles.len().min(SINGLE_CHARS_BEFORE_SPLIT));
+    let (mut split, far_split): (Vec<_>, Vec<_>) = split.into_iter().partition(&near_typed);
+    let more_split = split.split_off(split.len().min(SPLIT_READINGS_BEFORE_SINGLES));
     items.extend(front.into_iter().map(|(item, _)| item));
     items.extend(singles);
     items.extend(rest_whole.into_iter().map(|(item, _)| item));
@@ -208,6 +216,8 @@ pub fn arrange(
     items.extend(more_singles);
     items.extend(late.into_iter().map(|(item, _)| item));
     items.extend(secondary.into_iter().map(|(item, _)| item));
+    items.extend(more_split);
+    items.extend(far_split);
 }
 
 #[cfg(test)]

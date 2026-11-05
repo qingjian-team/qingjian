@@ -9,6 +9,7 @@ use super::{
     EXPLICIT_TRANSITION_WEIGHT, Engine, choice_key, reading_key, segment_longest_prefix,
 };
 use crate::candidate::{Candidate, CandidateKind, CandidateList, Language};
+use crate::correction::edit_distance;
 use crate::{parser, sentence};
 use qingjian_dictionary::Dictionary;
 use std::time::Instant;
@@ -697,22 +698,3 @@ const RETYPE_MIN_LETTERS: usize = 3;
 
 /// 跨上屏重打最多差几处编辑。
 const RETYPE_MAX_EDITS: usize = 2;
-
-/// Levenshtein 编辑距离（按字节，键串都是 ASCII）。
-fn edit_distance(a: &str, b: &str) -> usize {
-    let a = a.as_bytes();
-    let b = b.as_bytes();
-    let mut previous: Vec<usize> = (0..=b.len()).collect();
-    let mut current = vec![0; b.len() + 1];
-    for (i, &ca) in a.iter().enumerate() {
-        current[0] = i + 1;
-        for (j, &cb) in b.iter().enumerate() {
-            let cost = usize::from(ca != cb);
-            current[j + 1] = (previous[j] + cost)
-                .min(previous[j + 1] + 1)
-                .min(current[j] + 1);
-        }
-        std::mem::swap(&mut previous, &mut current);
-    }
-    previous[b.len()]
-}

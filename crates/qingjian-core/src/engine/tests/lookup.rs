@@ -115,7 +115,9 @@ fn prefix_words_appear_after_full_matches() {
     // 开放 / 开饭 来自 `kai f… a zhe` 这种把 `fa` 拆开的切分，`kai fa zhe` 读得通时排到最后，单字 开 在它们前面
     let all = texts("kaifazhe");
     assert_eq!(&all[..2], ["开发者", "开发"]);
-    assert_eq!(&all[all.len() - 2..], ["开放", "开饭"]);
+    let mut last = all[all.len() - 2..].to_vec();
+    last.sort();
+    assert_eq!(last, ["开放", "开饭"]);
     assert!(all.contains(&"开".to_owned()));
 }
 
@@ -674,6 +676,25 @@ fn split_readings_keep_their_place_when_no_word_reads_as_typed() {
     let all = texts_in(dictionary, "wodei");
     assert_eq!(all[0], "我的");
     assert!(position(&all, "我") < position(&all, "沃"), "{all:?}");
+}
+
+#[test]
+fn split_readings_far_from_the_typed_pinyin_come_after_every_single_char() {
+    // #854：`nihao` 读成 `ni h… ao` 捞出的 你会、霓虹 读音对不上，排在首音节全部单字之后；
+    // 只差一个字母的（你喝 nihe）留在单字中间当敲错的兜底
+    let mut dictionary = String::from(concat!(
+        "你好\tni hao\t9000\n你会\tni hui\t9000\n",
+        "霓虹\tni hong\t8000\n你喝\tni he\t100\n",
+    ));
+    for (i, c) in "你尼妮拟泥倪逆腻呢霓匿溺昵".chars().enumerate() {
+        dictionary.push_str(&format!("{c}\tni\t{}\n", 9000 - i));
+    }
+    let all = texts_in(&dictionary, "nihao");
+    assert_eq!(all[0], "你好");
+    assert!(position(&all, "你喝") < position(&all, "霓"), "{all:?}");
+    for far in ["你会", "霓虹"] {
+        assert!(position(&all, "昵") < position(&all, far), "{all:?}");
+    }
 }
 
 #[test]
