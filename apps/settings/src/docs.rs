@@ -199,6 +199,12 @@ const LINKS: &[(PageId, &str, &str, &str)] = &[
     ),
     (
         PageId::Shortcuts,
+        "shortcuts.enter_translation",
+        "personalize/keys-settings",
+        "回车优先上屏译词（macOS）",
+    ),
+    (
+        PageId::Shortcuts,
         "shortcuts.highlight_keys",
         "personalize/keys-settings",
         "高亮移动键（macOS、Windows）",

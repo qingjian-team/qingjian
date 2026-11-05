@@ -67,6 +67,17 @@ pub fn shortcuts(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Rende
     out.push(group(ui, theme, &rows)?);
 
     let mut rows = Vec::new();
+    if Feature::EnterTranslation.here() {
+        rows.push(toggle_info(
+            ui,
+            page,
+            tr("shortcuts.enter_translation"),
+            Some(tr("shortcuts.enter_translation_info")),
+            ("shortcut", "enter_translation"),
+            config.shortcut.enter_translation,
+            false,
+        )?);
+    }
     if Feature::CommitKeys.here() {
         rows.push(recorder(
             ui,
@@ -140,7 +151,9 @@ pub fn shortcuts(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Rende
     let reset = SettingRow::new(tr("shortcuts.shortcuts"))
         .control(reset)
         .build(ui, theme)?;
-    let fixed = if Feature::CommitKeys.here() {
+    let fixed = if Feature::EnterTranslation.here() && config.shortcut.enter_translation {
+        tr("shortcuts.fixed_enter_translation")
+    } else if Feature::CommitKeys.here() {
         tr("shortcuts.fixed_without_commit")
     } else {
         tr("shortcuts.fixed")

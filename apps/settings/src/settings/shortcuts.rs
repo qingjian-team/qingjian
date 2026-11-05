@@ -18,6 +18,9 @@ impl Settings {
         self.write("shortcut", "question", defaults.mode.question.to_string());
         self.write("shortcut", "question_mark", defaults.mode.question_mark);
         self.write("shortcut", "translation", defaults.translation.key());
+        if Feature::EnterTranslation.here() {
+            self.write("shortcut", "enter_translation", defaults.enter_translation);
+        }
         self.write(
             "shortcut",
             "translation_second",

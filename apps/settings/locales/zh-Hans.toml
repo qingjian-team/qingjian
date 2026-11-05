@@ -305,7 +305,10 @@ bad_key = "密钥没有保存：里面有空格或非英文字符，多半是粘
 key_saved = "密钥已保存"
 
 [shortcuts]
+enter_translation = "回车优先上屏译词"
+enter_translation_info = "回车上屏高亮候选的第一条非中文译词；无可用译词时仍按原逻辑上屏拼音，空格照常选中文。默认关闭"
 fixed = "组句时：空格上屏首选，1–9 选词，回车上屏拼音，Esc 清空，Tab 采用整句。"
+fixed_enter_translation = "组句时：空格选中文，回车优先上屏高亮候选的第一条非中文译词，无可用译词时按原逻辑上屏拼音；1–9 选词，Esc 清空，Tab 采用整句。"
 page_keys = "翻页键"
 page_keys_info = "选了逗号句号，组句时它们用来翻页"
 expression = "表达式"

@@ -34,6 +34,8 @@ pub enum Feature {
     GridPageKeys,
     /// 组句时上屏候选与上屏字母的键可以换。
     CommitKeys,
+    /// macOS 回车优先上屏译词。
+    EnterTranslation,
     ExtraPageKeys,
     HighlightKeys,
     ExtraCandidateNavigation,
@@ -66,7 +68,7 @@ pub enum Feature {
 
 impl Feature {
     #[cfg(test)]
-    pub const ALL: [Self; 29] = [
+    pub const ALL: [Self; 30] = [
         Self::AuxCode,
         Self::Schemes,
         Self::SwitchKeys,
@@ -80,6 +82,7 @@ impl Feature {
         Self::HorizontalGrid,
         Self::GridPageKeys,
         Self::CommitKeys,
+        Self::EnterTranslation,
         Self::ExtraPageKeys,
         Self::HighlightKeys,
         Self::ExtraCandidateNavigation,
@@ -134,6 +137,7 @@ impl Feature {
             Self::GridPageKeys => [Yes, Yes, Todo],
             // macOS 的空格走 insertText、回车走 insertNewline:，要另接
             Self::CommitKeys => [Todo, Yes, Yes],
+            Self::EnterTranslation => [Yes, Todo, Todo],
             Self::ExtraPageKeys => [Yes, Yes, Todo],
             Self::HighlightKeys => [Yes, Yes, Todo],
             Self::ExtraCandidateNavigation => [Yes, Todo, Todo],
@@ -175,6 +179,7 @@ impl Feature {
             Self::HorizontalGrid => "横排时 ↑ / ↓ 展开成多行",
             Self::GridPageKeys => "横排时翻页键展开成多行",
             Self::CommitKeys => "上屏键自定义",
+            Self::EnterTranslation => "回车优先上屏译词",
             Self::ExtraPageKeys => "额外翻页键",
             Self::HighlightKeys => "高亮移动键",
             Self::ExtraCandidateNavigation => "Emacs 风格候选键",
@@ -209,6 +214,7 @@ impl Feature {
             Self::RememberModePerApp => &[(PageId::Language, "language.remember_per_app")],
             Self::AutoSpace => &[(PageId::Language, "language.auto_space")],
             Self::ExtraPageKeys => &[(PageId::Shortcuts, "shortcuts.extra_page_keys")],
+            Self::EnterTranslation => &[(PageId::Shortcuts, "shortcuts.enter_translation")],
             Self::CommitKeys => &[
                 (PageId::Shortcuts, "shortcut.commit_candidate"),
                 (PageId::Shortcuts, "shortcut.commit_raw"),

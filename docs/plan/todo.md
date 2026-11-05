@@ -157,6 +157,7 @@
   - [ ] 横排时 ↑ / ↓ 展开成多行：Linux
   - [ ] 横排时翻页键展开成多行：Linux
   - [ ] 上屏键自定义：macOS
+  - [ ] 回车优先上屏译词：Windows、Linux
   - [ ] 额外翻页键：Linux
   - [ ] 高亮移动键：Linux
   - [ ] Emacs 风格候选键：Windows、Linux
