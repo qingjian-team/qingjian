@@ -7,6 +7,7 @@ mod build;
 mod hit;
 mod keyboard;
 mod menu;
+mod panel;
 mod rendered;
 mod status;
 
@@ -26,7 +27,7 @@ use crate::theme::file::MaterialAppearance;
 
 use build::Builder;
 
-pub use hit::{HitRegion, HitTarget};
+pub use hit::{HitRegion, HitTarget, PanelHit, PreeditHit};
 pub use rendered::Rendered;
 pub use status::{RenderedStatus, StatusCell};
 
@@ -43,6 +44,9 @@ pub struct Renderer {
     /// 上一帧候选窗的点击区域，动画帧照抄（布局不变）。
     hits: Vec<HitRegion>,
 
+    /// 上一帧拼音行各字之间的位置，动画帧照抄。
+    preedit: Option<PreeditHit>,
+
     /// 壳能在窗口底下垫系统材质（见 [`Self::set_material_support`]）。
     material_support: bool,
 
@@ -57,6 +61,7 @@ impl Renderer {
         Self {
             stage,
             hits: Vec::new(),
+            preedit: None,
             material_support: false,
             material: None,
         }
@@ -125,6 +130,7 @@ impl Renderer {
             candidate_nodes: Vec::new(),
             sense_nodes: Vec::new(),
             action_nodes: Vec::new(),
+            preedit_node: None,
             material_root: material.map(|spec| spec.tint.clone()),
             root_radius: 0.0,
         };
@@ -143,13 +149,27 @@ impl Renderer {
             senses: builder.sense_nodes,
             actions: builder.action_nodes,
         };
+        let preedit_node = builder.preedit_node;
         let content = scene.layout(root, self.stage.text())?;
         self.hits = hit_regions(&scene, root, &nodes, scale)?;
+        self.preedit = match preedit_node {
+            Some((node, edges)) => {
+                let (x, y, _, height) = scene.rect_in(node, root)?;
+                Some(PreeditHit {
+                    y,
+                    height,
+                    edges: edges.into_iter().map(|edge| x + edge).collect(),
+                })
+            }
+            None => None,
+        };
         // 排布变了位置不可比，不与上一帧配对过渡
         let painted = self
             .stage
             .present(scene, root, content, layout as u64, scale, now)?;
-        Ok(Rendered::new(painted, self.hits.clone()).with_material(self.material))
+        Ok(Rendered::new(painted, self.hits.clone())
+            .with_material(self.material)
+            .with_preedit(self.preedit.clone()))
     }
 
     /// 跟随系统的「减少动态效果」：开着时过渡直接跳到终点。
@@ -165,8 +185,11 @@ impl Renderer {
     /// 有过渡或循环动画在播时，按 `now` 重画一帧（不重建树、不排版）；没有在播的返回 `None`。
     pub fn tick_at(&mut self, now: Instant) -> Result<Option<Rendered>, RenderError> {
         let painted = self.stage.tick_at(now)?;
-        Ok(painted
-            .map(|painted| Rendered::new(painted, self.hits.clone()).with_material(self.material)))
+        Ok(painted.map(|painted| {
+            Rendered::new(painted, self.hits.clone())
+                .with_material(self.material)
+                .with_preedit(self.preedit.clone())
+        }))
     }
 
     /// 同 [`Self::tick_at`]，用当前时间。

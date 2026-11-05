@@ -59,27 +59,25 @@ class ClipboardSyncActivity : PageActivity(), ClipboardSync.Listener {
     override fun content(): List<View> {
         val on = ClipboardSync.enabled(this)
         val views = mutableListOf<View>(
-            spaced(
-                ui.card(
-                    ui.toggle(R.string.sync_enabled_title, R.string.sync_enabled_note, on) {
-                        prefs.edit().putBoolean(ClipboardSync.KEY_ENABLED, it).apply()
-                        ClipboardSync.apply(this)
-                        if (it) runCatching { Native.clipboardSyncWatch(true) }
-                        rebuild()
-                    },
-                    ui.divider(),
-                    ui.toggle(R.string.sync_neon_title, R.string.sync_neon_note, ClipboardSync.neonEnabled(this)) {
-                        prefs.edit().putBoolean(ClipboardSync.KEY_NEON, it).apply()
-                    },
-                ),
+            ui.group(
+                null,
+                ui.toggle(R.string.sync_enabled_title, R.string.sync_enabled_note, on) {
+                    prefs.edit().putBoolean(ClipboardSync.KEY_ENABLED, it).apply()
+                    ClipboardSync.apply(this)
+                    if (it) runCatching { Native.clipboardSyncWatch(true) }
+                    rebuild()
+                },
+                ui.toggle(R.string.sync_neon_title, R.string.sync_neon_note, ClipboardSync.neonEnabled(this)) {
+                    prefs.edit().putBoolean(ClipboardSync.KEY_NEON, it).apply()
+                },
             ),
         )
         if (!on) return views
         // 配对结果放在最上面：放到页面最后要滚动才看得见，以为没配上
-        status?.let { views += spaced(ui.text(it, 13f, ui.colors.secondary)) }
-        views += ui.sectionTitle(R.string.sync_this_device)
+        status?.let { views += ui.footnote(it) }
         val name = ClipboardSync.deviceName(this)
-        views += ui.card(
+        views += ui.group(
+            R.string.sync_this_device,
             ui.input(R.string.sync_device_name, name, prefs.getString(ClipboardSync.KEY_DEVICE_NAME, "").orEmpty(), false) {
                 prefs.edit().putString(ClipboardSync.KEY_DEVICE_NAME, it.trim()).apply()
                 ClipboardSync.restart(this)
@@ -92,44 +90,40 @@ class ClipboardSyncActivity : PageActivity(), ClipboardSync.Listener {
         val nearby = devices?.optJSONArray("nearby")
         val paired = HashSet<String>()
         if (peers != null && peers.length() > 0) {
-            views += ui.sectionTitle(R.string.sync_paired)
             val rows = mutableListOf<View>()
             for (i in 0 until peers.length()) {
                 val peer = peers.getJSONObject(i)
                 val id = peer.getString("id")
                 paired += id
-                if (rows.isNotEmpty()) rows += ui.divider()
                 val state = peerState(peer)
                 rows += ui.row(peer.getString("name"), state).apply { setOnClickListener { confirmUnpair(id, peer.getString("name")) } }
             }
-            views += ui.card(*rows.toTypedArray())
+            views += ui.group(getString(R.string.sync_paired), rows)
         }
-        views += ui.sectionTitle(R.string.sync_nearby)
         val rows = mutableListOf<View>()
         if (nearby != null) {
             for (i in 0 until nearby.length()) {
                 val device = nearby.getJSONObject(i)
                 if (device.getString("id") in paired) continue
-                if (rows.isNotEmpty()) rows += ui.divider()
                 val address = device.getString("address")
                 rows += ui.row(device.getString("name"), device.optString("model")).apply {
                     setOnClickListener { askCode(address) }
                 }
             }
         }
-        if (rows.isEmpty()) rows += ui.note(R.string.sync_none_nearby)
-        views += ui.card(*rows.toTypedArray())
-        views += ui.sectionTitle(R.string.sync_pairing)
+        views += ui.group(getString(R.string.sync_nearby), rows, if (rows.isEmpty()) getString(R.string.sync_none_nearby) else null)
         val code = showingCode
-        views += ui.card(
-            ui.action(R.string.sync_show_code, code) {
-                showingCode = runCatching { Native.clipboardSyncBeginPairing() }.getOrNull()
-                status = null
-                rebuild()
-            },
-            ui.divider(),
-            ui.action(R.string.sync_enter_address, null) { askAddress() },
-            *(if (code != null) arrayOf<View>(ui.note(R.string.sync_code_hint)) else emptyArray()),
+        views += ui.group(
+            getString(R.string.sync_pairing),
+            listOf(
+                ui.action(R.string.sync_show_code, code) {
+                    showingCode = runCatching { Native.clipboardSyncBeginPairing() }.getOrNull()
+                    status = null
+                    rebuild()
+                },
+                ui.action(R.string.sync_enter_address, null) { askAddress() },
+            ),
+            if (code != null) getString(R.string.sync_code_hint) else null,
         )
         return views
     }

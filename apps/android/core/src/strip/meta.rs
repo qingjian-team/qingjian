@@ -20,6 +20,14 @@ pub struct StripMeta {
     /// 可点区域，译文在前（先命中）。
     pub hits: Vec<StripHit>,
 
+    /// 拼音行上各字之间那道缝的 x（位图像素），第 `i` 个是第 `i` 个字之前；没有拼音行时为空。
+    pub preedit_edges: Vec<f32>,
+
+    /// 拼音行的上下沿（位图像素），点在这一条里才算点拼音行。
+    pub preedit_top: f32,
+
+    pub preedit_bottom: f32,
+
     /// 候选词里有 emoji 的下标：渲染器画不出 COLRv1 的彩色 emoji，壳在词的位置上自己画。
     pub emoji: Vec<usize>,
 }

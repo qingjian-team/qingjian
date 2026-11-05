@@ -47,6 +47,9 @@ pub struct ShortcutConfig {
     /// 组句中按需调用 AI（缺省 Ctrl+Alt+J，macOS 是 ⌃⌥J）。
     pub predict: KeyCombo,
 
+    /// 没在打字时打开符号面板的翻译组（缺省 Ctrl+Alt+Y，macOS 是 ⌃⌥Y；需要云服务开着）。
+    pub translate_panel: KeyCombo,
+
     /// 呼出剪贴板面板（实验功能，Windows 用），见 [`super::ClipboardConfig`]。
     pub clipboard: KeyCombo,
 
@@ -92,6 +95,7 @@ impl Default for ShortcutConfig {
             enter_translation: false,
             translate_selection,
             predict: KeyCombo::PREDICT_DEFAULT,
+            translate_panel: KeyCombo::TRANSLATE_PANEL_DEFAULT,
             clipboard: KeyCombo::CLIPBOARD_DEFAULT,
             toggle_traditional: None,
             commit_candidate: CommitKey::SPACE,

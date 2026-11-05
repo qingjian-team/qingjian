@@ -58,8 +58,17 @@ class Composer(private val engine: Engine, private val host: Host) {
     /** 候选条上是补全（邮箱后缀），见 [refreshCompletions]。 */
     private var completing = false
 
+    /** 删除键按下时在组句（见 [onBackspaceDown]）。 */
+    private var backspaceComposing = false
+
+    /** 删除键按下时光标前的文字，上划清空的撤销用；组句中为 null。 */
+    private var beforeBackspace: String? = null
+
     /** 这个输入框不过引擎，见 [wantsDirectInput]。 */
     var directInput = false
+
+    /** 网址框：标点不转全角、敲标点时原样落下字母，见 [wantsPlainPunctuation]。 */
+    var plainPunctuation = false
 
     /** 私密输入（不学习、不记统计与生词、不发云端），见 [wantsPrivacy]；引擎没装好时先记着，装好了在 [onEngineReady] 里补。 */
     var privateInput = false
@@ -170,6 +179,11 @@ class Composer(private val engine: Engine, private val host: Host) {
     }
 
     fun onKey(key: Key) {
+        // 候选条上放着电话邮箱或「撤销」时，删除、重输先只收起它们，不动输入框里的字
+        if ((key == Key.Backspace || key == Key.Clear) && !composing && completing && engine.hasOffer()) {
+            apply(engine.clear())
+            return
+        }
         when (key) {
             is Key.Letter -> when {
                 // 英文的大小写跟着敲的走（`Compa` 出 Company），验证码这类大小写混着的串也在组句里敲
@@ -212,12 +226,20 @@ class Composer(private val engine: Engine, private val host: Host) {
                     // 敲邮箱：@ 前的字母是用户名，原样落下，不顶首选
                     key.text == "@" && !zhuyin -> apply(engine.commitRaw())
                     // 英文同空格：数字、标点前落下敲的字母，不换成候选（验证码、型号这类串不是词）
-                    english -> apply(engine.commitRaw())
+                    english || plainPunctuation -> apply(engine.commitRaw())
                     else -> selectFirst()
                 }
                 // 中文标点键：Core 按设置转全角（引号成对、数字后的点保持半角）或原样
                 val punct = key.punct
-                commit(if (punct != null && chinese && !directInput) engine.punctuate(punct) else key.text)
+                commit(
+                    when {
+                        punct == null -> key.text
+                        // 网址框里中文键盘的「。」「，」也落半角
+                        plainPunctuation -> punct.toString()
+                        chinese && !directInput -> engine.punctuate(punct)
+                        else -> key.text
+                    },
+                )
             }
 
             Key.Clear -> if (composing) apply(engine.clear())
@@ -331,6 +353,11 @@ class Composer(private val engine: Engine, private val host: Host) {
 
     fun select(index: Int) = apply(engine.select(index))
 
+    /** 点了拼音行第 [index] 个字之后：光标挪进拼音里，接着敲的字、退格都在那里。 */
+    fun moveCaret(index: Int) {
+        if (composing) apply(engine.moveCaret(index))
+    }
+
     fun selectTranslation(index: Int, sense: Int) = apply(engine.selectTranslation(index, sense))
 
     /** 拼音列：组句中点的是拼音（定下这个音节），平时点的是标点。 */
@@ -377,7 +404,7 @@ class Composer(private val engine: Engine, private val host: Host) {
 
     /** 按住空格左右滑：不在组句时按方向键挪光标。 */
     fun moveCursor(steps: Int) {
-        // 组句中不响应：会话没接 Core 的拼音光标、候选条也不画光标，落下拼音再挪会把没选的字母上屏
+        // 组句中不响应：落下拼音再挪会把没选的字母上屏；拼音里的光标靠点拼音行挪（[moveCaret]）
         if (steps == 0 || composing) return
         val code = if (steps < 0) KeyEvent.KEYCODE_DPAD_LEFT else KeyEvent.KEYCODE_DPAD_RIGHT
         repeat(abs(steps)) { host.sendKey(code) }
@@ -394,6 +421,33 @@ class Composer(private val engine: Engine, private val host: Host) {
         val frame = engine.complete(before)
         completing = frame.candidates.isNotEmpty()
         host.showComposition("", frame.candidates)
+    }
+
+    /**
+     * 删除键按下那一刻（删字之前）：组句中记下「这一下是在删拼音」，否则记下光标前的文字，
+     * 接着上划清空时撤销要连按下时删掉的那个字一起放回。
+     */
+    fun onBackspaceDown() {
+        backspaceComposing = composing
+        beforeBackspace = if (composing) null else host.connection?.getTextBeforeCursor(MAX_CLEAR, 0)?.toString()
+    }
+
+    /**
+     * 删除键上划：按下时在组句就只清拼音（删到没拼音了也不去动输入框里的字）；否则删掉光标前的文字（最多 [MAX_CLEAR] 个），
+     * 候选条上放「撤销」，点了原样放回。按下时那一下已经删的字（按键事件可能还没到应用）也算在撤销里。
+     */
+    fun clearBefore() {
+        if (backspaceComposing || composing) {
+            backspaceComposing = false
+            if (composing) apply(engine.clear())
+            return
+        }
+        val connection = host.connection ?: return
+        val remaining = connection.getTextBeforeCursor(MAX_CLEAR, 0)?.toString().orEmpty()
+        val removed = beforeBackspace?.takeIf { it.startsWith(remaining) } ?: remaining
+        beforeBackspace = null
+        if (remaining.isNotEmpty()) connection.deleteSurroundingText(remaining.length, 0)
+        if (removed.isNotEmpty()) apply(engine.cleared(removed))
     }
 
     /** 组句中光标被点到别处：敲的字母原样落下，不留带 ' 的显示形式。 */
@@ -494,7 +548,8 @@ class Composer(private val engine: Engine, private val host: Host) {
         pinyinChoices = frame.pinyinChoices
         expression = frame.expression
         candidates = frame.candidates
-        completing = false
+        // 不在组句却带着候选：上屏通讯录名字后接着给的电话、邮箱，光标再动时要问 Core 还留不留
+        completing = frame.preedit.isEmpty() && frame.candidates.isNotEmpty()
         host.showSideItems(pinyinChoices)
         host.showComposition(frame.preedit, frame.candidates)
         if (frame.notice.isNotEmpty()) host.showNotice(frame.notice)
@@ -533,6 +588,9 @@ class Composer(private val engine: Engine, private val host: Host) {
 
         /** 补全看光标前多少个字：用户名加域名前缀够了。 */
         const val COMPLETION_CONTEXT = 80
+
+        /** 上划清空最多删光标前几个字（UTF-16 单位）：再长的文档一次删不完，再划一次。 */
+        const val MAX_CLEAR = 5000
 
         /** 日语里当长音敲的键。 */
         val LONG_VOWEL = setOf("-", "ー")

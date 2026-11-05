@@ -21,7 +21,7 @@ standard_short = "Estándar"
 [phrases]
 position = "La posición del candidato debe estar entre 1 y 9"
 weight = "El peso debe ser un número entero entre {min} y {max}"
-code = "El código debe tener entre 1 y {max} letras minúsculas"
+code = "El código debe tener entre 1 y {max} letras minúsculas, sin números (las teclas numéricas eligen candidatos)"
 empty = "La frase personalizada no puede estar vacía"
 duplicate = "El código {code} ya tiene esta frase"
 

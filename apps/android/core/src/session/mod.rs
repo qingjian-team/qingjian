@@ -2,6 +2,7 @@
 
 mod clipboard;
 mod cloud;
+mod contacts;
 mod dictionaries;
 mod display;
 mod keys;
@@ -30,6 +31,12 @@ pub struct Session {
     candidates: CandidateList,
 
     preedit: String,
+
+    /// 光标在 `preedit` 里的字符下标。
+    preedit_cursor: usize,
+
+    /// `preedit` 里九宫格选定的音节（字符下标，起止），见 [`Frame::preedit_pinned`]。
+    preedit_pinned: (usize, usize),
 
     pinyin_choices: Vec<String>,
 
@@ -60,6 +67,15 @@ pub struct Session {
     /// 插进候选的整句补全在第几个；选它走 `accept_prediction`。
     sentence_at: Option<usize>,
 
+    /// 上屏通讯录里的名字后给不给这个人的电话、邮箱（键盘设置里的开关）。
+    contact_details: bool,
+
+    /// 刚上屏的通讯录名字，候选条上正放着它的电话、邮箱；光标前的文字不再以它结尾、或有别的操作就清掉。
+    after_contact: Option<String>,
+
+    /// 删除键上划刚清掉的文字，候选条上放着「撤销」；光标前又有字、或有别的操作就清掉。
+    cleared: Option<String>,
+
     /// 快捷翻译、常用语编辑这些工具框开着：打的字不进应用，不发云联想。
     tools_open: bool,
 
@@ -85,6 +101,8 @@ impl Session {
             engine,
             candidates: CandidateList::default(),
             preedit: String::new(),
+            preedit_cursor: 0,
+            preedit_pinned: (0, 0),
             pinyin_choices: Vec::new(),
             completions: Vec::new(),
             kana: None,
@@ -93,6 +111,9 @@ impl Session {
             surrounding: None,
             sentence_at: None,
             tools_open: false,
+            contact_details: false,
+            after_contact: None,
+            cleared: None,
             transcriber: Box::new(NoTranscriber),
             swipe_decoder: Box::new(ShapeDecoder),
             swipe_pinyin: OnceLock::new(),
@@ -108,10 +129,13 @@ impl Session {
         self.engine.flush_learning();
         self.candidates.items.clear();
         self.preedit.clear();
+        self.preedit_cursor = 0;
         self.pinyin_choices.clear();
         self.surrounding = None;
         self.sentence_at = None;
         self.completions.clear();
+        self.after_contact = None;
+        self.cleared = None;
         if let Some(kana) = &mut self.kana {
             kana.clear();
         }
@@ -119,9 +143,13 @@ impl Session {
 
     fn refresh(&mut self, commit: String) -> Frame {
         self.pinyin_choices.clear();
+        self.preedit_pinned = (0, 0);
         self.completions.clear();
+        self.after_contact = None;
+        self.cleared = None;
         if let Some(kana) = &self.kana {
             self.preedit = kana.preedit();
+            self.preedit_cursor = self.preedit.chars().count();
             let candidates = kana
                 .candidates()
                 .iter()
@@ -132,6 +160,8 @@ impl Session {
                 commit,
                 replace: 0,
                 preedit: self.preedit.clone(),
+                preedit_cursor: self.preedit_cursor,
+                preedit_pinned: (0, 0),
                 notice: String::new(),
                 pinyin_choices: Vec::new(),
                 candidates,
@@ -141,12 +171,16 @@ impl Session {
         if self.engine.composition().is_empty() {
             self.candidates.items.clear();
             self.preedit.clear();
+            self.preedit_cursor = 0;
         } else {
             match self.engine.query() {
                 Ok(mut query) => {
                     query.candidates.items.truncate(Frame::MAX_CANDIDATES);
                     self.engine.annotate(&mut query.candidates);
                     self.preedit = query.marked_text();
+                    self.preedit_cursor = query.marked_cursor();
+                    let held = query.held.chars().count();
+                    self.preedit_pinned = (held, held + self.engine.nine_key_pinned());
                     self.pinyin_choices = std::mem::take(&mut query.pinyin_choices);
                     self.candidates = query.candidates;
                 }
@@ -154,6 +188,7 @@ impl Session {
                 Err(error) => {
                     tracing::debug!(%error, "查询失败，退回原始输入");
                     self.preedit = self.engine.held_text() + self.engine.composition().text();
+                    self.preedit_cursor = self.preedit.chars().count();
                     self.candidates.items.clear();
                 }
             }
@@ -168,13 +203,18 @@ impl Session {
             commit,
             replace: 0,
             preedit: self.preedit.clone(),
+            preedit_cursor: self.preedit_cursor,
+            preedit_pinned: self.preedit_pinned,
             notice: String::new(),
             pinyin_choices: self.pinyin_choices.clone(),
             candidates: self
                 .candidates
                 .items
                 .iter()
-                .map(FrameCandidate::from)
+                .map(|candidate| {
+                    FrameCandidate::from(candidate)
+                        .with_contact(self.engine.is_contact(&candidate.text))
+                })
                 .collect(),
             expression: self.engine.expression_mode() || self.engine.unicode_entry(),
         }

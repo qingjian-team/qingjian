@@ -28,9 +28,11 @@ class VoiceSettingsActivity : PageActivity() {
                 rebuild()
             },
         )
-        if (config.provider == VoiceConfig.PROVIDER_VOLCENGINE) rows += volcengineRows(config)
-        else rows += ui.note(R.string.voice_none_note)
-        return listOf(ui.sectionTitle(R.string.section_voice_service), ui.card(*rows.toTypedArray()))
+        val volcengine = config.provider == VoiceConfig.PROVIDER_VOLCENGINE
+        if (volcengine) rows += volcengineRows(config)
+        return listOf(
+            ui.group(null, rows,getString(if (volcengine) R.string.voice_note else R.string.voice_none_note)),
+        )
     }
 
     private fun volcengineRows(config: VoiceConfig): List<View> {
@@ -40,30 +42,25 @@ class VoiceSettingsActivity : PageActivity() {
         )
         val resource = resources.indexOfFirst { it.first == config.resourceId }.coerceAtLeast(0)
         val rows = mutableListOf<View>(
-            ui.divider(),
             ui.picker(R.string.voice_resource, resources[resource].second, resources.map { it.second }, resource) {
                 VoiceConfig.set(this, VoiceConfig.KEY_RESOURCE, resources[it].first)
                 testResult = null
                 rebuild()
             },
-            ui.divider(),
             ui.input(R.string.voice_key, config.keyHint ?: getString(R.string.cloud_key_empty), "", secret = true) {
                 if (it.isNotEmpty()) VoiceConfig.saveKey(this, it)
                 testResult = null
                 rebuild()
             },
-            ui.divider(),
             ui.action(R.string.cloud_test, testResult) { testConnection(config) },
         )
         if (config.keyHint != null) {
-            rows += ui.divider()
-            rows += ui.action(R.string.cloud_clear_key, null) {
+            rows += ui.action(R.string.cloud_clear_key, null, ui.colors.danger) {
                 VoiceConfig.clearKey(this)
                 testResult = null
                 rebuild()
             }
         }
-        rows += ui.note(R.string.voice_note)
         return rows
     }
 

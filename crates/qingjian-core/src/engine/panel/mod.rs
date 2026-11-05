@@ -1,9 +1,12 @@
-//! 符号面板的开关与搜索。面板开着时缓冲区里敲的字是搜索词，选中的条目上屏时吃掉整段（见 [`Engine::commit`]）。
+//! 符号面板的开关与搜索。面板开着时缓冲区里敲的字是搜索词，选中的条目上屏时吃掉整段（见 [`Engine::commit`]）；
+//! 翻译组的原文与翻译在 [`translate`]。
+
+mod translate;
 
 use super::Engine;
 use crate::candidate::{Candidate, CandidateKind};
 use crate::emoji::builtin;
-use crate::panel::{CATALOG, KEYWORDS, SymbolPanel};
+use crate::panel::{CATALOG, KEYWORDS, PanelGroup, SymbolPanel};
 
 /// 搜索拿前几个候选词去查关键词：再往后的词与敲的字关系就远了。
 const SEARCH_WORDS: usize = 12;
@@ -12,23 +15,33 @@ const SEARCH_WORDS: usize = 12;
 const SEARCH_LIMIT: usize = 120;
 
 impl Engine {
-    /// 打开面板：在组句就拿当前候选搜一遍，搜到的放在最前面一组；没在组句（从菜单打开）就没有搜索组。
+    /// 打开面板：在组句就拿当前候选搜一遍，搜到的放进搜索组，停在翻译组（带着这段拼音接着打）；
+    /// 没在组句（从菜单打开）就没有搜索组，停在上次关掉时那组。翻译不可用时没有翻译组。
     /// 返回开没开（目前总是开）。
     pub fn open_symbol_panel(&mut self) -> bool {
-        if self.composition.is_empty() {
-            self.panel = Some(SymbolPanel::new("", Vec::new(), self.panel_history.uses()));
-            return true;
+        let composing = !self.composition.is_empty();
+        let mut panel = if composing {
+            let items = self
+                .query()
+                .map(|query| query.candidates.items)
+                .unwrap_or_default();
+            let results = self.search_panel(&items);
+            SymbolPanel::new(self.composition.text(), results, self.panel_history.uses())
+        } else {
+            SymbolPanel::new("", Vec::new(), self.panel_history.uses())
+        };
+        if self.panel_translate_available() {
+            panel = panel.with_translate(self.panel_language());
         }
-        let items = self
-            .query()
-            .map(|query| query.candidates.items)
-            .unwrap_or_default();
-        let results = self.search_panel(&items);
-        self.panel = Some(SymbolPanel::new(
-            self.composition.text(),
-            results,
-            self.panel_history.uses(),
-        ));
+        let landing = if composing {
+            Some(PanelGroup::Translate)
+        } else {
+            self.panel_group
+        };
+        if let Some(group) = landing {
+            panel.open_on(group);
+        }
+        self.panel = Some(panel);
         true
     }
 
@@ -41,7 +54,20 @@ impl Engine {
     }
 
     pub fn close_symbol_panel(&mut self) {
-        self.panel = None;
+        self.take_panel();
+    }
+
+    /// 收起面板：记下停在哪组、翻译选的语言，作废翻译框在飞的请求（免得译文回来被当成别的结果）。
+    pub(in crate::engine) fn take_panel(&mut self) -> Option<SymbolPanel> {
+        let panel = self.panel.take()?;
+        self.panel_group = Some(panel.group());
+        if let Some(language) = panel.target_language() {
+            self.panel_language = Some(language);
+        }
+        if let Some(sequence) = panel.draft().in_flight() {
+            self.pending_predictions.remove(&sequence);
+        }
+        Some(panel)
     }
 
     /// 候选里已经配好的 emoji / 颜文字 / 符号先收，再拿前几个词查关键词与三张内置表。

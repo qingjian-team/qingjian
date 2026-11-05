@@ -8,4 +8,6 @@ data class Candidate(
     val forgettable: Boolean = false,
     /** 来自云联想（云端词、整句补全），画成云端色。 */
     val cloud: Boolean = false,
+    /** 通讯录里的名字，候选条在词的右上角画一个人头。 */
+    val contact: Boolean = false,
 )

@@ -204,6 +204,8 @@ enter_translation = false
 # 把应用里选中的文字译成学习语言（要开着云服务）：译文先出现在候选窗口，回车替换选中的文字，Esc 保留原文
 # 修饰键 + 一个字母或数字，任意组合；避开 ⌘T 这类应用常用键
 translate_selection = "control+option+t"
+# 没在打字时打开符号面板的「翻译」组（要开着云服务）：框里打一句，译文停顿后出现在光标处，回车上屏
+translate_panel = "control+option+y"
 "#
     };
 }
@@ -238,6 +240,8 @@ translation_second = "shift+ctrl"
 translate_selection = "ctrl+alt+t"
 # Windows 组句中按需调用 AI
 predict = "ctrl+alt+j"
+# 没在打字时打开符号面板的「翻译」组（要开着云服务）：框里打一句，译文停顿后出现在光标处，回车上屏
+translate_panel = "ctrl+alt+y"
 "#
     };
 }
@@ -257,7 +261,7 @@ page_size = 9
 page_keys = "[]"
 # 候选窗口外观：system 跟随系统 / light 浅色 / dark 深色
 appearance = "system"
-# 候选窗口主题（主题 id）：qingjian 青简绿 / system-blue 系统蓝 / wechat 微信绿 / sakura 樱花 / dafeiyu 大肥鱼 / miku 初音未来 / bocchi 波奇酱。只对青简渲染器生效
+# 候选窗口主题（主题 id）：qingjian 青简绿 / system-blue 系统蓝 / wechat 微信绿 / sujian 素笺 / sakura 樱花 / dafeiyu 大肥鱼 / miku 初音未来 / bocchi 波奇酱。只对青简渲染器生效
 theme = "qingjian"
 # 候选窗口排布：vertical 竖排 / horizontal 横排（横排只给高亮候选显示译文）
 layout = "vertical"
@@ -461,8 +465,6 @@ lookahead = 32
 slots = 2
 # 组句中除了词候选还要不要整句补全（preedit 右侧，Tab 接受）
 sentence = true
-# 本地整句候选右侧是否显示服务返回的译文；仅发送该候选文本，不发送光标前后上下文
-sentence_translation = false
 # 上屏的整句（含分几次打完的一句）翻成学习语言，记进生词本的时间线；只发那一句，不发光标前后的文字
 vocabulary_translation = true
 
@@ -707,7 +709,7 @@ impl Config {
 const APPEARANCE_COMMENT: &str = "# 候选窗口外观：system 跟随系统 / light 浅色 / dark 深色\n";
 
 /// 模板里 `theme` 那一行上方的注释，同上。
-const THEME_COMMENT: &str = "# 候选窗口主题（主题 id）：qingjian 青简绿 / system-blue 系统蓝 / wechat 微信绿 / sakura 樱花 / dafeiyu 大肥鱼 / miku 初音未来 / bocchi 波奇酱。只对青简渲染器生效\n";
+const THEME_COMMENT: &str = "# 候选窗口主题（主题 id）：qingjian 青简绿 / system-blue 系统蓝 / wechat 微信绿 / sujian 素笺 / sakura 樱花 / dafeiyu 大肥鱼 / miku 初音未来 / bocchi 波奇酱。只对青简渲染器生效\n";
 
 /// 旧写法里 `theme` 写的外观；新写法（或没写）为 `None`。
 fn legacy_appearance(document: &DocumentMut) -> Option<Appearance> {

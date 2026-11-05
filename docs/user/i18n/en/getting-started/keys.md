@@ -56,13 +56,17 @@ A few keys differ with Dachen Zhuyin and Wubi; see [Pinyin schemes and fuzzy pin
 | Action | Keys |
 |---|---|
 | Move | `↑` `↓` `←` `→` |
-| Switch between the Search / Symbols / Emoji groups | `Tab` / `⇧ + Tab` |
+| Switch between the Translate / Search / Symbols / Emoji groups | `Tab` / `⇧ + Tab` |
 | Switch category | `[` `]` |
 | Scroll a screen | `PageUp` / `PageDown` |
 | Commit | `Space`, `Enter`, a number key or double-click |
 | Back to candidates | `Esc`, `Backspace` or the ✕ at the top right |
 
 Typing a letter closes the panel and continues typing. Details in [Punctuation, symbols and emoji](../input/punctuation.md#Symbol-panel).
+
+The Translate group works differently: letters type pinyin as usual, `Space` / number keys put words into the box, `[` `]` switch the target language, `Enter` commits the translation, `Esc` clears the box (with an empty box it goes back to the candidates), and `Backspace` deletes pinyin first, then the character before the cursor.
+While typing pinyin, `←` `→` move the candidate highlight; otherwise `←` `→`, `Home` and `End` move the cursor in the box (with `Shift` held they select), `⌘ + A` (`Ctrl + A` on Windows) selects all, and `Delete` removes the selection or the character after the cursor; clicking in the box places the cursor and dragging selects.
+Details in [Translating in the symbol panel](../cloud/question-and-translate.md#Translating-in-the-symbol-panel).
 
 ## In English mode
 
@@ -93,6 +97,7 @@ All of these require AI services to be turned on first; see [AI services](../clo
 | Translation result: replace the selection | `Enter` / `Space` / `1` | Same | Same |
 | Translation result: keep the original | `Esc` | `Esc` | `Esc` |
 | Ask for AI candidates manually while typing pinyin | `⌃⌥J` | `Ctrl + Alt + J` | `Ctrl + Alt + J` |
+| Open the Translate group of the symbol panel when not typing | `⌃⌥Y` | `Ctrl + Alt + Y` | — |
 | Ask about a character | `u`, then type pinyin | Same | Same |
 
 ## Prefixes

@@ -8,7 +8,7 @@ use qingjian_core::candidate::arrows::{self, Arrow, ArrowAction};
 use qingjian_platform::HighlightKeys;
 
 /// 拼音只在候选窗口显示时，组句中交给应用的 marked text。
-const HIDDEN_MARKED_TEXT: &str = "\u{200B}";
+pub(super) const HIDDEN_MARKED_TEXT: &str = "\u{200B}";
 
 impl QingjianInputController {
     /// 按当前缓冲区重新查候选、更新 marked text，回到第一页并重画候选窗口。
@@ -65,12 +65,16 @@ impl QingjianInputController {
         };
         // 配置成只在候选窗口显示拼音时，组句中放一个零宽空格当 marked text：微信 4.x 这类应用看不到 marked text
         // 就当输入法没在组句，自己再把字母、退格处理一遍（#815 #816）
-        if inline {
-            client.set_marked_text(&marked, cursor);
-        } else if marked.is_empty() {
-            client.set_marked_text("", 0);
-        } else {
-            client.set_marked_text(HIDDEN_MARKED_TEXT, 0);
+        // 符号面板的翻译组里拼音画在框里，marked text 是译文，由 render 写
+        let translating = host::with(|h| h.engine.panel_translating()).unwrap_or(false);
+        if !translating {
+            if inline {
+                client.set_marked_text(&marked, cursor);
+            } else if marked.is_empty() {
+                client.set_marked_text("", 0);
+            } else {
+                client.set_marked_text(HIDDEN_MARKED_TEXT, 0);
+            }
         }
         // 先发联想再画：发出去就留好云端槽位，画出来的第一帧本地候选就已经在最终位置
         if !marked.is_empty() {
@@ -110,6 +114,19 @@ impl QingjianInputController {
         .flatten();
         if let Some((text, cursor)) = marked {
             client.set_marked_text(&text, cursor);
+        }
+        // 翻译组：应用里显示最近一条译文；还没有时放零宽空格，应用照样当在组句
+        let translation = host::with(|h| {
+            h.engine
+                .panel_translating()
+                .then(|| h.engine.panel_preedit().map(str::to_owned))
+        })
+        .flatten();
+        if let Some(translation) = translation {
+            match translation {
+                Some(text) => client.set_marked_text(&text, text.chars().count()),
+                None => client.set_marked_text(HIDDEN_MARKED_TEXT, 0),
+            }
         }
     }
 

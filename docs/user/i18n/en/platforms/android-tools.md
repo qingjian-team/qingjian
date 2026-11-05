@@ -6,20 +6,20 @@ description: "Qingjian for Android: clipboard and saved phrases, quick translati
 
 ## Clipboard and saved phrases
 
-- The clipboard icon in the toolbar opens the clipboard and saved phrases. Text and images you've copied are stored on the phone; tap one to commit it. Passwords copied from a password manager aren't stored.
+- The clipboard icon in the toolbar opens the clipboard and saved phrases. Text and images you've copied are stored on the phone; tap one to commit it. Passwords copied from a password manager aren't stored. An entry you delete isn't recorded again just because it's still on the system clipboard; it's only recorded again when you copy it anew.
 - A clipboard entry can be added as a saved phrase, or you can use 拆词 (Split into words) to pick part of it word by word.
 - Saved phrases can be grouped and given an input code; type the code to get that phrase directly among the candidates.
-- 键盘设置 → 剪贴板 (Keyboard settings → Clipboard) lets you turn recording off or set the maximum number of entries kept.
-- 键盘设置 → 剪贴板 → 局域网同步 (Local network sync) shares copied text and images with a paired Windows PC on the same network, without any server.
+- 设置 → 剪贴板 (Settings → Clipboard) lets you turn recording off or set the maximum number of entries kept.
+- 设置 → 局域网同步 (Settings → Local network sync) shares copied text and images with a paired Windows PC on the same network, without any server.
 
 ## Setting up AI services
 
-Quick translation, translating selected text, filling in glosses and cloud suggestions all use AI services: in the Qingjian app, under 我的 → 键盘设置 → 云端大模型 (Me → Keyboard settings → Cloud LLM), enter the API address, model and API key of an OpenAI-compatible service, and tap 测试连接 (Test connection) to check.
+Quick translation, translating selected text, filling in glosses and cloud suggestions all use AI services: in the Qingjian app, under 设置 → 云端大模型 (Settings → Cloud LLM), enter the API address, model and API key of an OpenAI-compatible service, and tap 测试连接 (Test connection) to check.
 The key is stored encrypted on the phone and can't be recovered after Qingjian is uninstalled. Using it incurs data usage and the provider's charges.
 
 ## Quick translation
 
-The translation icon in the toolbar opens the quick translation bar. Type the original text in the translation box and the translation appears live in the input field outside; tap 确定 (OK) or Enter to keep it, or 取消 (Cancel) to withdraw it.
+The translation icon in the toolbar opens the quick translation bar. Type the original text in the translation box and the translation appears live in the input field outside; tap 确定 (OK) or Enter to keep it, or 取消 (Cancel) to withdraw it. If AI services aren't set up, tapping the translation icon shows a line in place of the toolbar; tap it to go to 设置 → 云端大模型 (Settings → Cloud LLM) and fill them in.
 Chinese is translated into your learning language, and other languages into Chinese. Text typed in the translation box doesn't count toward today's character count.
 
 ## Translating selected text

@@ -35,6 +35,14 @@ Everything is kept in Qingjian's data folder on your own computer, as text files
 
 For the folder location and what each file contains, see [Data files and logs](../advanced/data-files.md); to delete everything, see [Uninstalling](uninstall.md).
 
+## Contacts on Android
+
+Off by default. After you turn on 通讯录里的名字 (Names from contacts) under 设置 → 词库 (Settings → Dictionaries) and allow access to contacts, Qingjian reads your contacts' names, phone numbers and email addresses and keeps them only in the input method's memory, never in files and never uploaded:
+
+- committing a name from your contacts doesn't learn typing habits or write to the input log;
+- these names aren't sent to AI services (they're removed from the local candidates that cloud prediction includes);
+- turning the switch off clears the names from the keyboard.
+
 ## Password fields and private input fields
 
 In password fields, and in input fields an app declares private (such as a browser's private window):
@@ -60,4 +68,5 @@ It's stored only on your device, to check offline how well candidates are ranked
 ## Runtime logs
 
 Runtime logs record how the input method itself is running, for troubleshooting, one file per day, kept for 7 days. By default they don't record what you type, only counts such as which app you're typing in, how many keys each composition took and how many characters were committed; only with 详细日志 (Verbose logging) on under 设置 → 高级 (Settings → Advanced) is each keystroke logged. Please turn it off when you're done troubleshooting.
+Android also keeps them on the phone, one file per day for 7 days, and notes why Qingjian last stopped (a crash, cleared by the system and so on); 详细日志 (Verbose logging) is under 数据 → 日志 (Data → Logs) in the Qingjian app.
 For how to attach logs when reporting a problem, see [Reporting problems](feedback.md).

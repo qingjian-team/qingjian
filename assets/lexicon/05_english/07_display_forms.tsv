@@ -1,7 +1,18 @@
-# 展示写法补充：CSpell / ESDB 里同一编码先出现全小写写法时（vscode / typescript），候选该出专名写法。
-# 只收没有普通词义的专名：windows / rust / python 也是普通英文词（the windows），不改。
+# 展示写法补充：同一编码的全小写写法优先（vscode / typescript），候选该出专名写法的在这里补。
+# 只收普通词义很少用的专名（japan 漆器、shanghai 拐骗）：windows / rust / python 也是常用的普通英文词（the windows），不改。
 # 由 dict-convert english 作为**最后一个输入**读入：后面的文件覆盖前面同编码的写法，不动其它词的顺序。
 word	key
+I	i
+China	china
+Japan	japan
+Shanghai	shanghai
+Wales	wales
+Oxford	oxford
+Louvre	louvre
+Superman	superman
+Snoopy	snoopy
+Yahoo	yahoo
+Titanic	titanic
 VSCode	vscode
 TypeScript	typescript
 JavaScript	javascript

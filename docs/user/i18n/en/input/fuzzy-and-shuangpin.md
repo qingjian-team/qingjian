@@ -19,7 +19,8 @@ Full pinyin, double pinyin and Zhuyin share the same dictionary, sentence conver
 ## A few spellings in full pinyin
 
 - `lue` / `nue` are equivalent to `lve` / `nve`; `v` after j / q / x / y is accepted too (`tiqv` → 提取), including with a final (`xvexi` → 学习, `jvan` → 卷, `yvn` → 云). The pinyin line spells ü the way Hanyu Pinyin does: `ü` after l and n (typing `lve` or `lue` shows `lüe`, `nv` shows `nü`), and `u` after j / q / x / y (typing `qv` shows `qu`, `jvan` shows `juan`). Pinyin decoded from shuangpin and the nine-key pinyin line are shown the same way.
-- 嗯 is typed as `en` by convention (`enen` → 嗯嗯); `ng` on its own also gives 嗯, but use `en` when it's joined to other pinyin.
+- 嗯 is typed as `en` by convention (`enen` → 嗯嗯); `ng` on its own also gives 嗯, but use `en` when it's joined to other pinyin. Likewise `hng` on its own gives 哼, and 噷 is among the candidates for `hm`.
+- In shuangpin, `ng` on its own (the neng keys in every scheme) keeps 能 first with 嗯 second.
 - `lo` shares its key sequence with `luo` and is treated as luo.
 
 ## Fuzzy pinyin

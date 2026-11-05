@@ -91,6 +91,9 @@ enter = "Return"
 [phrase_file]
 empty = "The file has no custom phrases"
 is_config = "This is a configuration file, not a phrase file; import settings on the Advanced page, and export the phrases on the other computer first"
+no_tab = "The text and the code must be separated by a Tab"
+skipped_entry = "entry {entry}: {reason}"
+skipped_line = "line {line} (“{text}”): {reason}"
 unreadable = "Can't read this file: it's neither a phrase file exported by Qingjian nor text with one “text<Tab>code” entry per line"
 
 [settings_file]

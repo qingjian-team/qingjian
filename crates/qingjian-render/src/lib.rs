@@ -12,6 +12,7 @@ mod icon;
 mod keyboard;
 mod layout;
 mod material;
+mod panel;
 pub mod preview;
 mod renderer;
 pub mod sample;
@@ -25,5 +26,8 @@ pub use frame::{Frame, Mode, Preedit, PreeditSegment, PreeditStyle, Row, Tone};
 pub use keyboard::{Keyboard, Keycap, KeycapState, Root};
 pub use layout::Layout;
 pub use material::{Material, MaterialBacking};
-pub use renderer::{HitRegion, HitTarget, Rendered, RenderedStatus, Renderer, StatusCell};
+pub use panel::{PanelCell, PanelFrame, PanelTranslate};
+pub use renderer::{
+    HitRegion, HitTarget, PanelHit, PreeditHit, Rendered, RenderedStatus, Renderer, StatusCell,
+};
 pub use theme::{KeyboardColors, TextSizes, Theme, ThemeError, ThemeLibrary};

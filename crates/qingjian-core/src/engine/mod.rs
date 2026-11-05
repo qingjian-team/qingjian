@@ -7,10 +7,12 @@ mod alignment;
 mod annotation;
 mod aux_code;
 mod candidate_menu;
+mod caret;
 mod choice;
 mod code_keys;
 mod commit;
 mod composing;
+mod contacts;
 mod correcting;
 mod decoded;
 mod extras;
@@ -22,7 +24,7 @@ mod learning;
 mod marked;
 mod mode_keys;
 mod panel;
-mod prediction;
+pub(crate) mod prediction;
 mod privacy;
 mod query;
 mod raw;
@@ -79,7 +81,7 @@ use crate::correction::{Correction, TypoCosts};
 use crate::emoji::EmojiTable;
 use crate::fuzzy::FuzzyRules;
 use crate::history::InputHistory;
-use crate::panel::{NoPanelHistory, PanelHistory, SymbolPanel};
+use crate::panel::{NoPanelHistory, PanelGroup, PanelHistory, SymbolPanel, TranslationCache};
 use crate::parser::{self, ParseError, Segmentation};
 use crate::punctuation::Punctuation;
 use crate::sentence::{self, Interpolation, LanguageModel, NoLanguageModel, SentenceScorer};
@@ -132,6 +134,9 @@ pub struct Engine {
 
     /// 用户定义的短语，按输入码精确匹配、按权重排在最前。
     custom_phrases: Vec<crate::CustomPhrase>,
+
+    /// 通讯录（壳读系统通讯录交来，用户在设置里开了才有）：名字并进查词，见 [`Self::set_contacts`]。
+    contacts: Option<crate::ContactBook>,
 
     /// 中文模式下整段是英文词（或像英文词的开头）时给不给英文候选与补全（配置 `[general] english_in_chinese`，缺省开）。
     english_in_chinese: bool,
@@ -327,6 +332,11 @@ pub struct Engine {
     /// 九宫格方案：缓冲区里是数字键（可混着已选定的字母），见 [`crate::nine_key`]。
     nine_key: bool,
 
+    /// 九宫格要保住的读法：(当时的缓冲区, 各音节在缓冲区里的起点与写法)。退格把选定的音节退回成数字、
+    /// 点拼音行把光标挪进中间时记下；之后只删键或挪光标时候选与拼音行仍按这些写法排
+    /// （`ni` 退回成 `64` 还读 ni，不换成默认的 mi），见 `unpin_nine_key`、`keep_nine_key_reading`。
+    nine_key_unpinned: Option<(String, Vec<(usize, String)>)>,
+
     /// 形码方案（五笔或用户导入的）。`Some` 时编码参与查询，按前缀查表（见 [`Engine::query_code`]）。
     code: Option<CodeScheme>,
 
@@ -359,6 +369,15 @@ pub struct Engine {
 
     /// 面板条目的使用记录：打开面板时排「常用」，从面板上屏时记一次；缺省不记。
     panel_history: Box<dyn PanelHistory>,
+
+    /// 面板上次关掉时停在哪组：没在组句时打开就回到那组。
+    panel_group: Option<PanelGroup>,
+
+    /// 翻译组上次选的目标语言；没选过跟学习语言走。
+    panel_language: Option<Language>,
+
+    /// 翻译组的译文缓存，换联想提供方时清空。
+    panel_translations: TranslationCache,
 
     /// 辅码态：`None` 是拼音态，`Some` 是辅码态（空串 = 刚敲下触发键、码段还没开始）。
     /// 码段不进 `composition`：它与拼音分段记账、分段画（见 [`AuxSegment`]）。
@@ -513,6 +532,7 @@ impl Engine {
             punctuation: Punctuation::default(),
             full_width_punctuation: true,
             custom_phrases: Vec::new(),
+            contacts: None,
             english_in_chinese: true,
             chinese_first: false,
             spelling_correction: true,
@@ -577,6 +597,7 @@ impl Engine {
             shuangpin_full_pinyin: false,
             zhuyin: false,
             nine_key: false,
+            nine_key_unpinned: None,
             code: None,
             phonetic: true,
             emoji: None,
@@ -587,6 +608,9 @@ impl Engine {
             symbol_limit: 1,
             panel: None,
             panel_history: Box::new(NoPanelHistory),
+            panel_group: None,
+            panel_language: None,
+            panel_translations: TranslationCache::default(),
             aux_code: None,
             aux_enabled: false,
             aux_show: false,

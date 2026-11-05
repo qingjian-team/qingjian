@@ -6,7 +6,7 @@
 ## 主题文件
 
 - 一个主题一个目录：`theme.json`，加上它引用的 `images/…`（PNG、SVG）与 `fonts/…`（TTF / OTF / TTC）。包内路径一律相对 `theme.json`，拒绝 `..` 与绝对路径。
-- 内置主题八个，随 crate 编进来（`crates/qingjian-render/themes/<id>/theme.json`）：`qingjian` 青简绿（缺省）、`system-blue` 系统蓝、`wechat` 微信绿、`glass` 玻璃、`sakura` 樱花、`dafeiyu` 大肥鱼、`miku` 初音未来、`bocchi` 波奇酱；系统蓝、微信绿 `extends` 青简绿、只改颜色变量，玻璃 `extends` 青简绿、改了窗口与高亮组件并写了 `material`（照 macOS 26 自带简体拼音的胶囊条），后四个整套重写了窗口、组件与状态条（只有浅色）。
+- 内置主题十个，随 crate 编进来（`crates/qingjian-render/themes/<id>/theme.json`）：`qingjian` 青简绿（缺省）、`system-blue` 系统蓝、`wechat` 微信绿、`sujian` 素笺、`glass` 玻璃、`slate` 墨岩、`sakura` 樱花、`dafeiyu` 大肥鱼、`miku` 初音未来、`bocchi` 波奇酱；系统蓝、微信绿、素笺 `extends` 青简绿、只改颜色变量，玻璃 `extends` 青简绿、改了窗口与高亮组件并写了 `material`（照 macOS 26 自带简体拼音的胶囊条），墨岩 `extends` 青简绿、换掉整套颜色并把圆角与阴影改成方角，后四个整套重写了窗口、组件与状态条（只有浅色）。
   内置主题的图片用 `include_bytes!` 编进程序（`theme/mod.rs` 的 `BUILTINS` 里每个主题一张「路径 → 内容」表，与用户主题走同一套解码），不带字体文件、只用系统字体；测试检查内置主题用到的图片都编进去了。用户主题 `extends` 内置主题时，主题目录里没有的图片到那个内置主题编进程序的文件里找（只看顶层 `extends` 那一层）。
 - 用户主题放在 `<用户数据目录>/themes/<id>/`，由 `ThemeLibrary` 与内置主题合成一个列表（内置在前、用户按 id 排）。目录名必须等于 `meta.id`，不能与内置主题重名，
   不能是 `system` / `light` / `dark`；读不进来的跳过并记警告。设置界面（mac 偏好设置、Windows 设置程序「候选窗口」页）按显示名列出，写回 `[general] theme` 的 id。
@@ -36,6 +36,7 @@
 | `windows` | `vertical` / `horizontal` 两个根节点，按用户选的排布取一个 |
 | `material` | 窗口底下垫的系统材质：`{ "kind": "glass" \| "blur", "tint": 颜色, "appearance": "auto" \| "system" }`（`glass` 缺省 `auto`、`blur` 缺省 `system`）（见「填充与效果」） |
 | `status` | 悬浮状态条（只有 Windows 有）：字体、内边距、圆角、各处颜色、`effects`，排法固定；写了 `root` 就按节点树画（见「状态条」） |
+| `panel` | 符号面板：分组、分类、格子与信息行的字体、尺寸与颜色，底、当前分组胶囊与高亮格是填充写法（可渐变 / 图片），`effects`，排法固定、尺寸与内容无关；不跟设置的字号；点击区域随位图给出（`HitTarget::Panel`） |
 | `keyboard` | 双拼键位提示的键盘：键名与小字的字体、键的宽高与间距、圆角、各状态（平常 / 刚敲下 / 能接 / 拼不出）的填充与文字颜色、`effects`，排法固定（三排错位）；整块跟着候选字比例缩放，透明度由壳设在窗口上 |
 
 节点：
@@ -143,6 +144,7 @@
 - 深浅按键面亮度判断（不看外观设置），锁定浅色的主题在深色模式下仍是浅色键盘。
 - 底板与功能键：浅色是键面掺一点 `accent` 的色相再压暗（底板 8% 色相、6% 黑，功能键 12%、13%）；深色是键面提亮 8% 当键面，底板压暗 35%，功能键只掺色相。
 - 回车键（品牌色）：`accent` 去掉不透明度后保持色相与饱和度，按 HSL 亮度调暗到白字对比度 ≥ 3.5。
+- 主题可以写 `kb_board` / `kb_function` / `kb_brand` 直接给底板、功能键、回车键的颜色（叠在键面上成不透明，回车键照样按白字对比度调暗），不写就按上面推。素笺用它们做成 iOS 那样不带色相的灰底板、灰功能键。
 - 只换整体样子的角色主题（樱花、大肥鱼、初音未来、波奇酱）高亮写死在组件里，为了候选条与键盘也是这个主题的颜色，各自补了 `surface` 与 `accent` 变量（桌面窗口不用这两个变量，画法不变）。
 
 ## 实现

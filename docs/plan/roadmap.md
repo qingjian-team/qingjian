@@ -181,9 +181,10 @@
   - Android 壳里还写在 Kotlin、统一时要搬进 Rust 的规则：
     - [ ] 键位表与角标：`keyboard/layout/KeyboardLayout.kt`（全键盘、九宫格、注音大千、日语、数字键盘、符号页）
     - [ ] 尺寸与排版：`keyboard/layout/KeyboardMetrics.kt`（行高、按宽度分键、九宫格列宽）
+    - [ ] 游戏键盘（横屏悬浮）的尺寸档与拖动：`settings/GameKeyboard.kt` 的 `Size`（占屏宽比例、行高）、`service/GameFrame.kt`（位置按可挪范围的比例记）
     - [ ] 滑行起判阈值：`keyboard/SwipeTrail.kt` 的 `START_KEYS`；上滑判定：`keyboard/KeyboardView.kt` 的 `FLICK_DP`（往上多远、不偏出本列）；Shift 双击锁定的间隔：`service/input/Composer.kt` 的 `DOUBLE_TAP_MS`
     - [ ] 键位排法：`settings/Settings.kt` 的 `Arrangement`（左手便捷：符号面板分类列在左、返回在左下）
-    - [ ] 写死的颜色并进主题推导：`ClipboardPanel` 代码高亮的数字色、`VocabularyPage` 生词标签色、`TranslateBar` / `ProcessTextActivity` 的失败红、`AdvancedActivity` 的危险操作红
+    - [ ] 写死的颜色并进主题推导：`ClipboardPanel` 代码高亮的数字色、`AppColors` 的生词标签色与危险操作红、`TranslateBar` / `ProcessTextActivity` 的失败红
   - 平板与 iPad 有两种形态：接实体键盘时只剩候选窗，按 PC 方式工作（翻页键、Shift 切换等手机上不搬的项要用上）；
     不接时是屏幕键盘，要适配全宽、浮动与分屏等宽度，面板在大屏上排多列
 - [ ] 配置同步

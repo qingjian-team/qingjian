@@ -63,6 +63,10 @@ EMOJI_GROUPS = {
 NETWORK = [".", "/", "@", "-", "_", ":", ".com", ".cn", ".net", ".org", ".com.cn", ".edu",
            "www.", "http://", "https://", "ftp://", "news.", "?", "=", "&", "#", "%", "~", "+"]
 
+# 带圈汉字：符号库没有，排在序号后面（#857 要 ㊣ ㊤）；㈠–㈩ 已在序号里，㊗ ㊙ 是 emoji 归表情页
+CIRCLED_IDEOGRAPHS = [chr(c) for c in [*range(0x322A, 0x3248), *range(0x3280, 0x32B1)] if c not in (0x3297, 0x3299)]
+CIRCLED_IDEOGRAPH_KEYWORDS = ("带圈汉字", "圈字")
+
 COMMON_EXCLUDED = {"06", "09", "10", "11", "12", "18", "19"}
 
 SKIN_TONES = set(range(0x1F3FB, 0x1F400))
@@ -167,6 +171,11 @@ def main() -> None:
         sections.append(("符号", title, items))
         if stem == "02_英文标点":
             sections.append(("符号", "网络", NETWORK))
+        if stem == "08_序号与数字":
+            sections.append(("符号", "带圈汉字", CIRCLED_IDEOGRAPHS))
+            for word in CIRCLED_IDEOGRAPH_KEYWORDS:
+                for item in CIRCLED_IDEOGRAPHS:
+                    keyword(word, item)
 
     sections.append(("表情", "常用", [r["表情"] for r in common_emoji]))
     sections.append(("表情", "颜文字", [r["表情"] for r in kaomoji]))

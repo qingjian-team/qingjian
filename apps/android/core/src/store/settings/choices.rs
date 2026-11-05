@@ -26,4 +26,13 @@ pub struct SettingChoices {
     pub clipboard_limits: Vec<usize>,
 
     pub default_clipboard_limit: usize,
+
+    /// 候选后面最多配几个 emoji / 颜文字 / 符号的几档，0 是不配。
+    pub extra_counts: Vec<u8>,
+
+    pub default_emoji: u8,
+
+    pub default_kaomoji: u8,
+
+    pub default_symbols: u8,
 }

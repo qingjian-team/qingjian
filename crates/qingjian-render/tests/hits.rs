@@ -95,6 +95,7 @@ fn page_arrows_are_clickable_in_every_builtin_theme() {
         "qingjian",
         "system-blue",
         "wechat",
+        "sujian",
         "glass",
         "sakura",
         "dafeiyu",

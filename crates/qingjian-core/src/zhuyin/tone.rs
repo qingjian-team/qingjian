@@ -67,6 +67,15 @@ pub fn usual(ch: char, syllable: &str) -> u8 {
     }
 }
 
+/// `ch` 的全部无调读音，最常见的在前；表里没有这个字时为空。
+pub fn readings(ch: char) -> Vec<&'static str> {
+    TABLE.get(&ch).map_or_else(Vec::new, |(readings, first)| {
+        std::iter::once(first.0)
+            .chain(readings.iter().map(|(s, _)| *s).filter(|s| *s != first.0))
+            .collect()
+    })
+}
+
 /// 候选 `text`（按字对应词库读音 `syllables`）对 `tones`（每个音节敲的声调，None 是没敲）的声调代价，见模块文档。
 ///
 /// 多字词里非首字敲了轻声不计代价：轻声随词变（妈妈 第二个字 表里记一声）。字数与音节数对不上的词不比。

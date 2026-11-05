@@ -170,6 +170,18 @@ impl Scene {
         }
     }
 
+    /// 改一个节点的布局样式（布局之后按量出的位置挪内容，再布局一次）。
+    pub fn restyle(
+        &mut self,
+        node: NodeId,
+        edit: impl FnOnce(&mut Style),
+    ) -> Result<(), RenderError> {
+        let mut style = self.tree.style(node)?.clone();
+        edit(&mut style);
+        self.tree.set_style(node, style)?;
+        Ok(())
+    }
+
     /// 把表格里的格子放到指定的行、列；`stretch` 时撑满所占的格子（横跨整行的高亮条）。
     pub fn place(
         &mut self,

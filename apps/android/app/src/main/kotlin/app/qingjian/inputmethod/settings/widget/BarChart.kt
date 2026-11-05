@@ -30,7 +30,8 @@ class BarChart(
 
     override fun onDraw(canvas: Canvas) {
         if (values.isEmpty()) return
-        val labelHeight = text.textSize + 8 * density
+        // 没有刻度时不留写字的那一截
+        val labelHeight = if (labels.isEmpty()) density else text.textSize + 8 * density
         val bottom = height - labelHeight
         val slot = width.toFloat() / values.size
         val gap = (slot * 0.28f).coerceAtMost(6 * density)

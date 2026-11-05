@@ -23,6 +23,8 @@ pub(crate) const LEFT: u32 = 0x25;
 pub(crate) const UP: u32 = 0x26;
 pub(crate) const RIGHT: u32 = 0x27;
 pub(crate) const DOWN: u32 = 0x28;
+pub(crate) const DELETE: u32 = 0x2E;
+pub(crate) const KEY_A: u32 = 0x41;
 
 /// 翻页键对 `(上一页, 下一页)`：返回 -1 / +1。
 pub(crate) fn page_key(event: &KeyEvent, page_keys: (char, char)) -> Option<isize> {

@@ -31,9 +31,9 @@ fn mtime(path: &Path) -> Option<SystemTime> {
         .ok()
 }
 
-/// 按 `[predict]` 接云联想、整句候选翻译与释义兜底；关着或缺密钥就退回本地实现。启动与热加载共用。
+/// 按 `[predict]` 接云联想与释义兜底；关着或缺密钥就退回本地实现。启动与热加载共用。
 pub fn attach_cloud(engine: &mut Engine, predict: &PredictConfig, usage_path: Option<PathBuf>) {
-    if !predict.enabled && !predict.sentence_translation {
+    if !predict.enabled {
         tracing::info!("云联想未开启（[predict] enabled = false）");
         engine.set_predictor(Box::new(NoPredictor));
         engine.set_gloss_filler(Box::new(NoGlossFiller));
@@ -42,7 +42,7 @@ pub fn attach_cloud(engine: &mut Engine, predict: &PredictConfig, usage_path: Op
     match CloudPredictor::new_with_usage(predict, usage_path.clone()) {
         Ok(predictor) => {
             engine.set_predictor(Box::new(predictor));
-            tracing::info!(model = %predict.model, cloud = predict.enabled, sentence_translation = predict.sentence_translation, "云联想已接入");
+            tracing::info!(model = %predict.model, "云联想已接入");
         }
         Err(error) => {
             tracing::warn!(%error, "云联想接入失败（缺 API key？），退回本地候选");

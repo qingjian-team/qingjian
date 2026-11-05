@@ -1,8 +1,8 @@
 //! 鼠标点候选窗口：位图渲染器直接给点击区域，AppKit 系统绘制按排版尺寸反算候选格；
-//! 符号面板自己认格子与标签（见 `panel.rs`）。
+//! 符号面板自己认格子与标签（见 `panel.rs`），翻译框里按下就开始拖选、Shift 点击扩选区。
 
 use objc2::DefinedClass;
-use objc2_app_kit::NSEvent;
+use objc2_app_kit::{NSEvent, NSEventModifierFlags};
 use objc2_foundation::NSPoint;
 use qingjian_platform::LayoutMode;
 use qingjian_render::HitTarget;
@@ -28,7 +28,14 @@ impl CandidateView {
     pub(super) fn clicked(&self, event: &NSEvent) {
         let point = self.convertPoint_fromView(event.locationInWindow(), None);
         if self.ivars().frame.borrow().is_panel() {
-            let hit = self.panel_hit(point, event.clickCount() >= 2);
+            let hit = match self.panel_hit(point, event.clickCount() >= 2) {
+                Some(PanelMouse::Caret { position, .. }) => {
+                    self.ivars().drag.set(Some(position));
+                    let extend = event.modifierFlags().contains(NSEventModifierFlags::Shift);
+                    Some(PanelMouse::Caret { position, extend })
+                }
+                hit => hit,
+            };
             if let (Some(hit), Some(handler)) = (hit, &*self.ivars().on_panel_mouse.borrow()) {
                 tracing::debug!(?hit, "点击符号面板");
                 handler(hit);

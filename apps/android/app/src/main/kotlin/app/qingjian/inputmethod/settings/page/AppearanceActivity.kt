@@ -27,28 +27,25 @@ class AppearanceActivity : PageActivity() {
         val settings = Settings.load(this)
         val dark = settings.appearance.dark(this)
         return listOf(
-            spaced(preview(settings, dark), 8),
-            ui.sectionTitle(R.string.section_appearance),
-            ui.card(
-                *Appearance.entries.map { appearance ->
-                    ui.choice(appearance.label, appearance == settings.appearance) {
-                        prefs.edit().putString(Settings.KEY_APPEARANCE, appearance.key).apply()
-                        rebuild()
-                    }
-                }.toTypedArray(),
-                ui.note(R.string.appearance_note),
+            spaced(preview(settings, dark), 20),
+            ui.group(
+                null,
+                ui.segmentedRow(R.string.section_appearance, Appearance.entries.map { getString(it.label) }, settings.appearance.ordinal) {
+                    prefs.edit().putString(Settings.KEY_APPEARANCE, Appearance.entries[it].key).apply()
+                    Appearance.entries[it].applyToApp(this)
+                    rebuild()
+                },
+                footer = R.string.appearance_note,
             ),
             ui.sectionTitle(R.string.section_theme),
             themeGrid(settings, dark),
-            ui.sectionTitle(R.string.section_text_size),
-            ui.card(
-                *TextSize.entries.map { size ->
-                    ui.choice(size.label, size == settings.textSize) {
-                        prefs.edit().putString(Settings.KEY_TEXT_SIZE, size.key).apply()
-                        rebuild()
-                    }
-                }.toTypedArray(),
-                ui.note(R.string.text_size_note),
+            ui.group(
+                null,
+                ui.segmentedRow(R.string.section_text_size, TextSize.entries.map { getString(it.label) }, settings.textSize.ordinal) {
+                    prefs.edit().putString(Settings.KEY_TEXT_SIZE, TextSize.entries[it].key).apply()
+                    rebuild()
+                },
+                footer = R.string.text_size_note,
             ),
         )
     }
@@ -99,7 +96,7 @@ class AppearanceActivity : PageActivity() {
 
     /** 圆角裁好的预览；选中时外面一圈品牌色。 */
     private fun framed(preview: View, selected: Boolean): View {
-        val radius = 12f * resources.displayMetrics.density
+        val radius = 10f * resources.displayMetrics.density
         val border = if (selected) ui.dp(2) else maxOf(1, ui.dp(1) / 2)
         return FrameLayout(this).apply {
             background = GradientDrawable().apply {

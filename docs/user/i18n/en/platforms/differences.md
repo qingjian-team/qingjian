@@ -74,7 +74,7 @@ The macOS and Windows versions are in beta with nearly the same features; keys f
 | Quick translation bar | — | — | — | ✓ |
 | Filling in glosses automatically | ✓ | ✓ | ✓ | ✓ |
 | Sentence translation for the vocabulary book | ✓ | ✓ | ✓ | — |
-| Translating sentence candidates | — | ✓ | — | — |
+| Translating in the symbol panel | ✓ | ✓ | — | — |
 | AI usage statistics | ✓ | ✓ | ✓ | — |
 
 Installation and platform-specific features: [Installation](../getting-started/install.md) (macOS, Windows), [Linux](linux.md), [Android](android.md).

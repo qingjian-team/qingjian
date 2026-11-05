@@ -19,6 +19,9 @@ impl Session {
         self.set_learning_language(options.learning_language());
         self.engine.set_learning(options.learning);
         self.engine.set_hold_selections(options.hold_selections);
+        self.engine.set_emoji_limit(usize::from(options.emoji));
+        self.engine.set_kaomoji_limit(usize::from(options.kaomoji));
+        self.engine.set_symbol_limit(usize::from(options.symbols));
         self.engine
             .set_spelling_correction(options.spelling_correction);
         self.traditional_variant = options.traditional_variant();

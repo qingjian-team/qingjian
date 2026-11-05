@@ -1,10 +1,10 @@
 //! 英文词表：每行 `词\t编码[\t…]`（表头行、YAML 头这类没有制表符或编码不是字母的行自然跳过），`#` 为注释。只收纯字母的词。
 //!
-//! 多个输入文件时：同一文件内同一编码**先到先得**（数据包按常用度排序，第一个就是最常用的写法），
+//! 多个输入文件时：同一文件内同一编码**优先全小写**（[`prefer_lowercase`]：`or` 不出 `OR`、`may` 不出 `May`），
 //! 后面的文件可以**覆盖**前面已经收过的编码——展示写法补充表（`07_display_forms.tsv`：`Windows` / `GitHub` / `VSCode`）
 //! 就是靠这条覆盖全小写的普通词形，而不动别的词的顺序。
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::io::{BufWriter, Write};
 use std::path::{Path, PathBuf};
 
@@ -32,7 +32,8 @@ pub fn convert(
     let mut rows: Vec<(String, String)> = Vec::new();
     for path in inputs {
         let before = rows.len();
-        let mut seen_in_file: HashSet<String> = HashSet::new();
+        // 编码 → 这个文件里留下的写法与它的常见度级别
+        let mut seen_in_file: HashMap<String, (String, Option<u32>)> = HashMap::new();
         for raw in std::fs::read_to_string(path)?.lines() {
             let line = raw.trim_end();
             if line.is_empty() || line.starts_with('#') {
@@ -51,10 +52,16 @@ pub fn convert(
             if word.is_empty() || !word.bytes().all(|b| b.is_ascii_alphabetic()) {
                 continue;
             }
-            // 同一文件内先到先得（数据包按常用度排序）
-            if !seen_in_file.insert(code.clone()) {
+            let level = fields.next().and_then(|l| l.trim().parse::<u32>().ok());
+            // 同一文件内同一编码只留一种写法，见 `prefer_lowercase`
+            if let Some(kept) = seen_in_file.get_mut(&code) {
+                if prefer_lowercase(word, level, &kept.0, kept.1) {
+                    *kept = (word.to_owned(), level);
+                    rows[index_by_code[&code]].0 = word.to_owned();
+                }
                 continue;
             }
+            seen_in_file.insert(code.clone(), (word.to_owned(), level));
             match index_by_code.get(&code) {
                 // 后面的文件覆盖前面的：展示写法补充表用这条把 `windows` 顶成 `Windows`
                 Some(&index) => rows[index].0 = word.to_owned(),
@@ -78,6 +85,19 @@ pub fn convert(
     file.flush()?;
     tracing::info!(path = %output.display(), entries = rows.len(), "写出完成");
     Ok(())
+}
+
+/// 同一文件里同一编码又来一种写法 `word`（常见度级别 `level`，越小越常见，没有算最不常见）时，要不要换掉留着的 `kept`。
+///
+/// 数据包把大写写法排在小写前面（`OR` 在 `or` 前、`May` 在 `may` 前），先到先得会让普通词出成缩写或专名。
+/// 所以全小写的写法优先；只有多于一个字母、且级别**严格**更常见的大写写法留下（`Java` 50 对 `java` 60、`HTML` 50 对没有级别的 `html`）。
+/// 单个字母一律小写，`I` 靠展示写法补充表。
+fn prefer_lowercase(word: &str, level: Option<u32>, kept: &str, kept_level: Option<u32>) -> bool {
+    let lower = |w: &str| !w.bytes().any(|b| b.is_ascii_uppercase());
+    if !lower(word) || lower(kept) {
+        return false;
+    }
+    kept.len() == 1 || kept_level.unwrap_or(u32::MAX) >= level.unwrap_or(u32::MAX)
 }
 
 #[cfg(test)]
@@ -126,6 +146,31 @@ mod tests {
                 ("act".to_owned(), "act".to_owned())
             ]
         );
+    }
+
+    #[test]
+    fn lowercase_wins_unless_the_capitalized_form_is_more_common() {
+        let a = write(
+            "a3.tsv",
+            "OR	or	35
+or	or	35
+B	b	35
+b	b	40
+Java	java	50
+java	java	60
+             HTML	html	50
+html	html
+John	john	35
+john	john	40
+Google	google	50
+google	google	50
+",
+        );
+        let rows = converted("lowercase", std::slice::from_ref(&a));
+        std::fs::remove_file(a).unwrap();
+        let words: Vec<&str> = rows.iter().map(|(word, _)| word.as_str()).collect();
+        // 位置仍是编码第一次出现的位置
+        assert_eq!(words, ["or", "b", "Java", "HTML", "John", "google"]);
     }
 
     #[test]

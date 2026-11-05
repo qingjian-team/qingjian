@@ -106,7 +106,6 @@ fn details(
     let code = keys_per_hanzi(total).map_or(none_yet(), |v| {
         tr_args("stats.keys_per_char", &[("n", &format!("{v:.1}"))])
     });
-    let speed_info = tr("stats.speed_info");
     let mut rows = vec![
         detail(ui, page, tr("stats.best_day"), None, &best)?,
         detail(ui, page, tr("stats.daily_average"), None, &average)?,
@@ -114,21 +113,21 @@ fn details(
             ui,
             page,
             tr("stats.today_speed"),
-            Some(speed_info),
+            Some(tr("stats.today_speed_info")),
             &speed(stats.today_speed()),
         )?,
         detail(
             ui,
             page,
             tr("stats.average_speed"),
-            Some(speed_info),
+            Some(tr("stats.average_speed_info")),
             &speed(stats.average_speed()),
         )?,
         detail(
             ui,
             page,
             tr("stats.fastest_day"),
-            Some(speed_info),
+            Some(tr("stats.fastest_info")),
             &fastest,
         )?,
         detail(

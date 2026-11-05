@@ -87,6 +87,8 @@ impl ITfKeyEventSink_Impl for TextService_Impl {
         }
         let combo = if guid == preserved::GUID_TRANSLATE {
             self.translate_combo.get()
+        } else if guid == preserved::GUID_TRANSLATE_PANEL && !self.shared.composing() {
+            self.translate_panel_combo.get()
         } else if guid == preserved::GUID_PREDICT && self.shared.composing() {
             self.predict_combo.get()
         } else if guid == preserved::GUID_TRADITIONAL {
@@ -183,13 +185,17 @@ impl TextService_Impl {
 
     /// 这个键吃不吃，与 Router 的分派对齐；`OnTestKeyDown` 用，无副作用。判定见 [`eats_key`]。
     ///
-    /// 带 Ctrl/Alt/Win 只有组句中的「修饰键 + 数字」送 Server（译词 / 删候选），其余归应用（翻译选中文字走保留键）；
+    /// 带 Ctrl/Alt/Win 只有组句中的「修饰键 + 数字」送 Server（译词 / 删候选）、面板翻译框里的 Ctrl+A 送 Server（全选），
+    /// 其余归应用（翻译选中文字走保留键）；
     /// 字母只有「中文模式、没在组句、按住 Shift 的大写」归应用（`[general] shift_letter = "compose"` 时也吃，
     /// 让它起一段组句），其中 V / U / I 仍送 Server：双拼下是表达式 / 问字入口；
     /// 组句中功能键 / 方向键 / 可打印字符都吃；没在组句时数字 / 标点也先「测吃」送去转全角（中英各有一份开关），
     /// Server 不转的回 Passthrough 再放行；`?` 是问字前缀。
     /// 没在组句的数字另走 [`Self::preflight_digit`]：Passthrough 时 Test 就不吃。
     fn would_eat(&self, event: &KeyEvent) -> bool {
+        if self.shared.text_box() && is_select_all(event) {
+            return true;
+        }
         let input = self.input_settings.get().unwrap_or_default();
         eats_key(
             event,
@@ -298,7 +304,7 @@ impl TextService_Impl {
                 } else {
                     String::new()
                 };
-                self.shared.set_composing(!response.frame.is_empty());
+                self.shared.follow_frame(&response.frame);
                 self.shared
                     .candidate_list()
                     .show(&response.frame, pic.ok().ok());
@@ -417,6 +423,12 @@ fn eats_without_server(event: &KeyEvent, grace_active: bool) -> bool {
         && !event.modifiers.has_command_key()
         && is_letter(event.virtual_key)
         && !(event.modifiers.caps || event.modifiers.english_mode)
+}
+
+/// Ctrl+A：面板停在翻译框时交给 Server 全选框里的字。
+fn is_select_all(event: &KeyEvent) -> bool {
+    let modifiers = event.modifiers;
+    event.virtual_key == 0x41 && modifiers.ctrl && !modifiers.alt && !modifiers.win
 }
 
 /// 这个键吃不吃（[`TextService_Impl::would_eat`] 的纯逻辑，便于单测）。

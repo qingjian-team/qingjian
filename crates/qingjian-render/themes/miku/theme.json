@@ -233,5 +233,19 @@
         { "type": "repeat", "bind": "cells", "component": "miku-status-cell" }
       ]
     }
+  },
+
+  // 面板的底与候选窗同一张九宫格，切角的图不用圆角
+  "panel": {
+    "label_font": "ui",
+    "item_font": { "base": "candidate", "size": 24, "line_height": 30 },
+    "padding": 14, "radius": 0, "cell_radius": 8,
+    "background": { "image": "images/panel-vertical.svg", "slice": [20, 50, 16, 14] },
+    "text": "@ink", "label": "@gloss", "hint": "@faint",
+    "pill_fill": "@cyan", "pill_text": "#ffffff",
+    "underline_color": "@pink", "divider": "@divider",
+    "highlight": { "linear": 100, "stops": ["#92e3e9", "#a9ebef"] },
+    "close_fill": "@accent", "close_icon": "@icon",
+    "effects": [{ "type": "drop-shadow", "y": 4, "blur": 10, "color": "#27c9da38" }]
   }
 }

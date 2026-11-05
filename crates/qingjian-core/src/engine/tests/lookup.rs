@@ -1,6 +1,7 @@
 //! 查词、切分、光标与上屏消耗。
 
 use super::*;
+use crate::ranking::FIRST_SINGLE_CHAR_BY;
 
 #[test]
 fn exact_word_first_then_longer_then_prefix_expansions_then_prefix_words() {
@@ -178,6 +179,33 @@ fn long_input_without_a_word_offers_the_first_syllables_chars_after_a_few_words(
             "十"
         ]
     );
+}
+
+#[test]
+fn sentences_and_many_words_still_leave_a_first_syllable_char_on_the_first_page() {
+    // #769：整句与词合起来占满第一页时，第一个单字最晚在第 9 位，让出来的词排在单字后面
+    let dictionary = concat!(
+        "实验室\tshi yan shi\t9000\n十堰市\tshi yan shi\t8000\n试验室\tshi yan shi\t7000\n",
+        "实验师\tshi yan shi\t6000\n实验\tshi yan\t9000\n试验\tshi yan\t8000\n饰演\tshi yan\t7000\n",
+        "是\tshi\t9000\n时\tshi\t8000\n情\tqing\t9000\n轻\tqing\t8000\n清\tqing\t7000\n",
+    );
+    let mut engine = Engine::new(Dictionary::parse(dictionary).unwrap());
+    engine.set_input("shiyanshiqing");
+    let items = engine.query().unwrap().candidates.items;
+    let texts: Vec<&str> = items.iter().map(|c| c.text.as_str()).collect();
+    let sentences = items
+        .iter()
+        .take_while(|c| c.kind == CandidateKind::Sentence)
+        .count();
+    assert!(sentences >= 3, "{texts:?}");
+    let first = position_of(&texts, "是");
+    assert!(first < FIRST_SINGLE_CHAR_BY, "{texts:?}");
+    assert_eq!(texts[first + 1], "时", "{texts:?}");
+    assert!(position_of(&texts, "饰演") > first, "{texts:?}");
+}
+
+fn position_of(texts: &[&str], text: &str) -> usize {
+    texts.iter().position(|t| *t == text).unwrap_or(usize::MAX)
 }
 
 #[test]
@@ -387,7 +415,7 @@ fn full_pinyin_keyword_brings_its_shortcuts() {
 }
 
 #[test]
-fn ng_alone_gives_en_interjection_first_in_full_pinyin_only() {
+fn ng_alone_gives_en_interjection_first_in_full_pinyin() {
     let mut engine = engine();
     engine.set_input("ng");
     let query = engine.query().unwrap();
@@ -399,9 +427,30 @@ fn ng_alone_gives_en_interjection_first_in_full_pinyin_only() {
     engine.set_input("ngh");
     assert!(texts_of(&engine).iter().all(|t| t != "嗯"));
 
+    // hng 只有 哼；hm 还是 好吗 一类的简拼，噷 排第二
+    engine.set_input("hng");
+    assert_eq!(texts_of(&engine)[0], "哼");
+    engine.set_input("hm");
+    assert!(
+        texts_of(&engine)
+            .iter()
+            .position(|t| t == "噷")
+            .is_some_and(|at| at <= 1)
+    );
+}
+
+#[test]
+fn shuangpin_ng_offers_en_second_after_neng() {
+    // #880：小鹤里 ng 是 neng，能 留在第一，嗯 跟在后面；双拼的 hm / hng 是别的音，不给叹词
+    let dictionary = Dictionary::parse("能\tneng\t90000\n").unwrap();
+    let mut engine = Engine::new(dictionary);
     engine.set_shuangpin(Some(Scheme::Xiaohe));
     engine.set_input("ng");
-    assert!(texts_of(&engine).iter().all(|t| t != "嗯"));
+    let texts = texts_of(&engine);
+    assert_eq!(texts[0], "能");
+    assert_eq!(texts[1], "嗯");
+    engine.set_input("hm");
+    assert!(texts_of(&engine).iter().all(|t| t != "噷"));
 }
 
 #[test]
@@ -641,4 +690,23 @@ fn many_whole_words_still_leave_room_for_single_chars() {
         all[first_char + 1..].iter().any(|t| t.starts_with('之')),
         "{all:?}"
     );
+}
+
+#[test]
+fn abbreviation_reading_c_h_as_two_initials_commits_every_key() {
+    // #870：`ljchlsg` 的 `ch` 是 成、灰 两个声母，不能当 成 一个音节吃掉而剩下 `lsg`
+    let dictionary =
+        Dictionary::parse("蜡炬成灰泪始干\tla ju cheng hui lei shi gan\t100\n").unwrap();
+    let mut engine = Engine::new(dictionary);
+    engine.set_input("ljchlsg");
+    let idiom = engine
+        .query()
+        .unwrap()
+        .candidates
+        .items
+        .into_iter()
+        .find(|c| c.text == "蜡炬成灰泪始干")
+        .unwrap();
+    assert_eq!(engine.commit(&idiom), "蜡炬成灰泪始干");
+    assert!(engine.composition().is_empty());
 }

@@ -5,6 +5,8 @@ use qingjian_platform::protocol::{
     ServerMessage, SessionId,
 };
 
+use std::time::Instant;
+
 use super::Router;
 use super::key::Effect;
 use super::session::SessionInfo;
@@ -141,6 +143,22 @@ impl Router {
         if self.translation.is_some() {
             return self.handle_translation_review(session, &event);
         }
+        if self.engine.composition().is_empty()
+            && !self.panel_open()
+            && self.matches_translate_panel_combo(&event)
+            && self.open_translate_panel()
+        {
+            tracing::debug!(?session, "translate panel opened by shortcut");
+            let shown = self.self_drawn_frame();
+            self.reconcile_candidates(&shown);
+            return ServerMessage::KeyResult {
+                session,
+                outcome: KeyOutcome::Consumed,
+                commit: None,
+                frame: self.current_frame(),
+                english: None,
+            };
+        }
         if self.config.cloud_enabled
             && self.engine.composition().is_empty()
             && !self.panel_open()
@@ -177,6 +195,7 @@ impl Router {
         // 选词没选完一段拼音时 Core 把词留在组句里、上屏文本是空串：不让 DLL 结束组句
         let commit = commit.filter(|text| !text.is_empty());
         self.poll_prediction();
+        self.engine.tick_panel_translation(Instant::now());
         // 自绘窗吃未降级的帧；发给 DLL 的那份按老协议降级（见 composed 的 current_frame）
         let shown = self.self_drawn_frame();
         self.reconcile_candidates(&shown);
@@ -198,6 +217,7 @@ impl Router {
         }
         let frame = if self.focused == Some(session) {
             self.poll_prediction();
+            self.engine.tick_panel_translation(Instant::now());
             let shown = self.self_drawn_frame();
             self.reconcile_candidates(&shown);
             self.current_frame()

@@ -7,7 +7,9 @@ import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Typeface
 import android.graphics.drawable.ColorDrawable
+import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
+import android.graphics.drawable.LayerDrawable
 import android.graphics.drawable.RippleDrawable
 import android.text.InputType
 import android.util.TypedValue
@@ -15,21 +17,18 @@ import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
-import android.view.ViewOutlineProvider
 import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.LinearLayout
-import android.widget.ScrollView
 import android.widget.SeekBar
-import android.widget.Switch
 import android.widget.TextView
 import app.qingjian.inputmethod.panel.base.PanelIcons
 import app.qingjian.inputmethod.panel.base.PanelIcons.Icon
 import app.qingjian.inputmethod.theme.AppColors
 
 /**
- * App 页面的积木：白色大圆角卡片、粗黑分节标题、彩色图标块、设置入口行、开关、滑杆、单选。
- * 控件用系统原生的，颜色按 [AppColors] 染。
+ * App 页面的积木（「素笺」）：分组卡片（上面一行灰色小标题、下面一行灰色脚注）、设置入口行、开关、分段选择、滑杆、单选。
+ * 页面一般由若干 [group] 排成一列；颜色按 [AppColors] 染。
  */
 class SettingsWidgets(private val context: Context, val colors: AppColors) {
     private val density = context.resources.displayMetrics.density
@@ -40,7 +39,7 @@ class SettingsWidgets(private val context: Context, val colors: AppColors) {
         text = value
         setTextSize(TypedValue.COMPLEX_UNIT_SP, sp)
         setTextColor(color)
-        if (bold) typeface = Typeface.DEFAULT_BOLD
+        if (bold) typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
         includeFontPadding = false
     }
 
@@ -63,16 +62,46 @@ class SettingsWidgets(private val context: Context, val colors: AppColors) {
         children.forEach(::addView)
     }
 
-    /** 卡片外的分节标题：粗黑大字。 */
-    fun sectionTitle(title: Int) = text(context.getString(title), 18f, colors.text, bold = true).apply {
-        setPadding(dp(4), dp(26), dp(4), dp(12))
+    /**
+     * 一组设置：灰色小标题、白色卡片（行与行之间自动加细线）、灰色脚注，标题与脚注都可省。
+     * 带图标块的入口行（[entry]）之间的细线从文字那里起，其余从卡片边起。
+     */
+    fun group(title: String?, rows: List<View>, footer: String? = null) = LinearLayout(context).apply {
+        orientation = LinearLayout.VERTICAL
+        setPadding(0, dp(GROUP_GAP_DP), 0, 0)
+        title?.let { addView(label(it)) }
+        val card = card()
+        rows.forEachIndexed { index, row ->
+            if (index > 0) card.addView(divider(if (row.tag == ICON_ROW) ICON_ROW_INSET_DP else 16))
+            card.addView(row)
+        }
+        addView(card)
+        footer?.let { addView(footnote(it)) }
     }
 
-    fun divider() = View(context).apply {
+    fun group(title: Int?, vararg rows: View, footer: Int? = null) =
+        group(title?.let(context::getString), rows.toList(), footer?.let(context::getString))
+
+    /** 卡片上方的灰色小标题。 */
+    fun label(value: String) = text(value, 13f, colors.secondary).apply {
+        setPadding(dp(16), 0, dp(16), dp(7))
+    }
+
+    /** 不带卡片的小标题（外观页主题列表上方）。 */
+    fun sectionTitle(title: Int) = label(context.getString(title)).apply {
+        setPadding(dp(16), dp(GROUP_GAP_DP), dp(16), dp(7))
+    }
+
+    /** 卡片下方的灰色脚注。 */
+    fun footnote(value: String) = text(value, 13f, colors.secondary).apply {
+        setPadding(dp(16), dp(7), dp(16), 0)
+        setLineSpacing(0f, 1.25f)
+    }
+
+    fun divider(insetDp: Int = 16) = View(context).apply {
         setBackgroundColor(colors.divider)
         layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, maxOf(1, dp(1) / 2)).apply {
-            marginStart = dp(18)
-            marginEnd = dp(18)
+            marginStart = dp(insetDp)
         }
     }
 
@@ -83,110 +112,82 @@ class SettingsWidgets(private val context: Context, val colors: AppColors) {
         override fun onDraw(canvas: Canvas) = PanelIcons.draw(canvas, icon, width / 2f, height / 2f, sizeDp * density, paint)
     }.apply { layoutParams = LinearLayout.LayoutParams(dp(sizeDp.toInt()), dp(sizeDp.toInt())) }
 
-    /** 彩色图标块：上浅下深的圆角色块里一个白色线条图标；[tone] 是 [AppColors.tiles] 的下标。 */
-    fun tile(icon: Icon, tone: Int, sizeDp: Int) = FrameLayout(context).apply {
-        val base = colors.tiles[tone % colors.tiles.size]
-        background = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, intArrayOf(lighten(base), base)).apply {
-            cornerRadius = sizeDp * 0.32f * density
-        }
-        addView(icon(icon, 0xFFFFFFFF.toInt(), sizeDp * 0.56f), FrameLayout.LayoutParams(dp((sizeDp * 0.56f).toInt()), dp((sizeDp * 0.56f).toInt()), Gravity.CENTER))
+    /** 圆角色块里一个白色线条图标；[muted] 用灰色块（次要入口）。 */
+    fun tile(icon: Icon, sizeDp: Int, muted: Boolean = false) = FrameLayout(context).apply {
+        background = rounded(if (muted) colors.tileMuted else colors.tile, sizeDp * 0.27f)
+        val inner = (sizeDp * 0.6f).toInt()
+        addView(icon(icon, 0xFFFFFFFF.toInt(), inner.toFloat()), FrameLayout.LayoutParams(dp(inner), dp(inner), Gravity.CENTER))
         layoutParams = LinearLayout.LayoutParams(dp(sizeDp), dp(sizeDp))
     }
 
-    /** 宫格里的一项：彩色图标块，下面一行字。 */
-    fun gridItem(icon: Icon, tone: Int, label: Int, onClick: () -> Unit) = LinearLayout(context).apply {
-        orientation = LinearLayout.VERTICAL
-        gravity = Gravity.CENTER_HORIZONTAL
-        setPadding(0, dp(16), 0, dp(14))
-        background = pressable(CARD_RADIUS)
-        setOnClickListener { onClick() }
-        addView(tile(icon, tone, 46))
-        addView(text(context.getString(label), 13f, colors.text).apply {
-            gravity = Gravity.CENTER
-            setPadding(0, dp(10), 0, 0)
-        }, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
-    }
-
-    /** 设置入口行：小图标块、粗体标题、一行灰字摘要、右箭头。 */
-    fun entry(icon: Icon, tone: Int, title: Int, summary: String?, onClick: () -> Unit) = LinearLayout(context).apply {
+    /** 设置入口行：小图标块、标题、右边灰字（当前值，可空）、›。 */
+    fun entry(icon: Icon, title: String, value: String?, muted: Boolean = false, onClick: () -> Unit) = LinearLayout(context).apply {
+        tag = ICON_ROW
         orientation = LinearLayout.HORIZONTAL
         gravity = Gravity.CENTER_VERTICAL
-        setPadding(dp(18), dp(16), dp(14), dp(16))
+        minimumHeight = dp(ROW_HEIGHT_DP)
+        setPadding(dp(16), dp(8), dp(12), dp(8))
         background = pressable()
         setOnClickListener { onClick() }
-        addView(tile(icon, tone, 34))
-        addView(LinearLayout(context).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(14), 0, dp(8), 0)
-            addView(text(context.getString(title), 16f, colors.text, bold = true))
-            summary?.let { addView(text(it, 12.5f, colors.secondary).apply { setPadding(0, dp(5), 0, 0) }) }
-        }, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
-        addView(icon(Icon.CHEVRON, colors.faint, 20f))
+        addView(tile(icon, 30, muted))
+        addView(text(title, 16f, colors.text).apply { setPadding(dp(12), 0, dp(8), 0) }, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
+        value?.let { addView(valueText(it)) }
+        addView(chevron())
     }
 
-    /** tab 页固定在顶上的大标题（生词本、我的）。 */
-    fun pageTitle(title: Int) = text(context.getString(title), 20f, colors.text, bold = true).apply {
-        setPadding(dp(4), dp(10), 0, dp(10))
+    fun entry(icon: Icon, title: Int, value: String?, muted: Boolean = false, onClick: () -> Unit) =
+        entry(icon, context.getString(title), value, muted, onClick)
+
+    /** 不带图标块的跳转行：标题、右边灰字、›。 */
+    fun link(title: Int, value: String?, onClick: () -> Unit) = LinearLayout(context).apply {
+        orientation = LinearLayout.HORIZONTAL
+        gravity = Gravity.CENTER_VERTICAL
+        minimumHeight = dp(ROW_HEIGHT_DP)
+        setPadding(dp(16), dp(8), dp(12), dp(8))
+        background = pressable()
+        setOnClickListener { onClick() }
+        addView(text(context.getString(title), 16f, colors.text), LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
+        value?.let { addView(valueText(it)) }
+        addView(chevron())
     }
 
-    /**
-     * 顶栏随滚动浮起来：内容在顶上时透明、露出渐变；往下滚一点就渐渐铺上白底与阴影，和滚到它底下的内容分出层次。
-     * 顶栏要排在 [scroll] 前面、同一个父容器里，阴影才压得住内容。
-     */
-    fun liftOnScroll(bar: View, scroll: ScrollView) {
-        val fill = ColorDrawable(colors.surface)
-        bar.background = fill
-        bar.outlineProvider = ViewOutlineProvider.BOUNDS
-        fun lift(y: Int) {
-            val fraction = (y / (LIFT_DISTANCE_DP * density)).coerceIn(0f, 1f)
-            fill.alpha = (fraction * 255).toInt()
-            bar.elevation = fraction * BAR_ELEVATION_DP * density
+    /** tab 页顶栏的标题：居中，与二级页同一个字号。 */
+    fun pageTitle(title: Int) = FrameLayout(context).apply {
+        minimumHeight = dp(BAR_HEIGHT_DP)
+        addView(barTitle(context.getString(title)), FrameLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT, Gravity.CENTER))
+    }
+
+    /** 顶栏与 tab 栏的底：栏底色加一道细线，[bottomLine] 时线在下边（顶栏），否则在上边（tab 栏），把中间的内容区框出来。 */
+    fun barBackground(bottomLine: Boolean): Drawable {
+        val line = maxOf(1, dp(1) / 2)
+        return LayerDrawable(arrayOf(ColorDrawable(colors.bar), ColorDrawable(colors.divider))).apply {
+            setLayerHeight(1, line)
+            setLayerGravity(1, if (bottomLine) Gravity.BOTTOM else Gravity.TOP)
         }
-        lift(scroll.scrollY)
-        scroll.setOnScrollChangeListener { _, _, y, _, _ -> lift(y) }
     }
 
     /** 二级页的顶栏：左边返回，标题居中。 */
     fun topBar(title: String, onBack: () -> Unit) = FrameLayout(context).apply {
-        setPadding(0, dp(4), 0, dp(8))
-        addView(icon(Icon.BACK, colors.text, 26f).apply {
+        minimumHeight = dp(BAR_HEIGHT_DP)
+        addView(icon(Icon.BACK, colors.brand, 24f).apply {
+            contentDescription = context.getString(android.R.string.cancel)
+            background = RippleDrawable(ColorStateList.valueOf(colors.divider), null, null)
             setOnClickListener { onBack() }
-        }, FrameLayout.LayoutParams(dp(44), dp(44), Gravity.START or Gravity.CENTER_VERTICAL))
-        addView(text(title, 18f, colors.text, bold = true), FrameLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT, Gravity.CENTER))
+        }, FrameLayout.LayoutParams(dp(48), dp(48), Gravity.START or Gravity.CENTER_VERTICAL))
+        addView(barTitle(title), FrameLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT, Gravity.CENTER))
     }
+
+    private fun barTitle(title: String) = text(title, 17f, colors.text, bold = true)
 
     fun row(title: Int, note: Int?) = row(context.getString(title), note?.let(context::getString))
 
     fun row(title: String, note: String?) = LinearLayout(context).apply {
         orientation = LinearLayout.VERTICAL
-        setPadding(dp(18), dp(16), dp(18), dp(if (note == null) 6 else 16))
-        addView(text(title, 16f, colors.text))
-        note?.let { addView(text(it, 12.5f, colors.secondary).apply { setPadding(0, dp(6), 0, 0) }) }
-    }
-
-    fun note(text: Int) = text(context.getString(text), 12.5f, colors.secondary).apply {
-        setPadding(dp(18), dp(4), dp(18), dp(16))
-        setLineSpacing(0f, 1.2f)
-    }
-
-    fun choice(title: Int, selected: Boolean, onClick: () -> Unit) = LinearLayout(context).apply {
-        setOnClickListener { onClick() }
-        background = pressable()
-        orientation = LinearLayout.HORIZONTAL
         gravity = Gravity.CENTER_VERTICAL
-        setPadding(dp(18), dp(14), dp(18), dp(14))
-        addView(text(context.getString(title), 16f, colors.text), LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
-        addView(View(context).apply {
-            background = GradientDrawable().apply {
-                shape = GradientDrawable.OVAL
-                if (selected) {
-                    setColor(this@SettingsWidgets.colors.brand)
-                    setStroke(dp(5), this@SettingsWidgets.colors.brandSoft)
-                } else {
-                    setStroke(dp(2), this@SettingsWidgets.colors.faint)
-                }
-            }
-        }, LinearLayout.LayoutParams(dp(22), dp(22)))
+        minimumHeight = dp(ROW_HEIGHT_DP)
+        setPadding(dp(16), dp(12), dp(16), dp(12))
+        addView(text(title, 16f, colors.text))
+        note?.let { addView(text(it, 13f, colors.secondary).apply { setPadding(0, dp(4), 0, 0); setLineSpacing(0f, 1.2f) }) }
     }
 
     fun toggle(title: Int, note: Int?, checked: Boolean, onChange: (Boolean) -> Unit) =
@@ -198,38 +199,62 @@ class SettingsWidgets(private val context: Context, val colors: AppColors) {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             background = pressable()
-            val switch = Switch(context).apply {
-                isChecked = checked
-                thumbTintList = ColorStateList(
-                    arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()),
-                    intArrayOf(colors.brand, if (colors.dark) colors.secondary else colors.surface),
-                )
-                trackTintList = ColorStateList(
-                    arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()),
-                    intArrayOf(colors.brand, colors.faint),
-                )
-                setOnCheckedChangeListener { _, value -> onChange(value) }
-            }
-            addView(row(title, note).apply {
-                setPadding(dp(18), dp(16), dp(8), dp(16))
-            }, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
+            val switch = switch(checked, onChange)
+            addView(row(title, note).apply { setPadding(dp(16), dp(12), dp(8), dp(12)) }, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
             trailing?.let(::addView)
-            addView(switch, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
-                marginEnd = dp(16)
-            })
+            addView(switch, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply { marginEnd = dp(16) })
             setOnClickListener { switch.toggle() }
         }
 
-    /** 点开弹单选框的一行：左边标题，右边当前选的与一个 ›。 */
-    fun picker(title: Int, value: String, options: List<String>, selected: Int, onPick: (Int) -> Unit) = LinearLayout(context).apply {
+    private fun switch(checked: Boolean, onChange: (Boolean) -> Unit) = PillSwitch(context, colors.brand, colors.faint).apply {
+        isChecked = checked
+        this.onChange = onChange
+    }
+
+    /** 分段选择（几个选项并排、选中的浮起一块白）。 */
+    fun segmented(options: List<String>, selected: Int, onPick: (Int) -> Unit) = LinearLayout(context).apply {
         orientation = LinearLayout.HORIZONTAL
-        gravity = Gravity.CENTER_VERTICAL
-        background = pressable()
-        setPadding(dp(18), dp(14), dp(12), dp(14))
-        addView(text(context.getString(title), 16f, colors.text), LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
-        addView(text(value, 14f, colors.secondary))
-        addView(icon(Icon.CHEVRON, colors.faint, 20f), LinearLayout.LayoutParams(dp(24), dp(24)))
-        setOnClickListener {
+        background = rounded(colors.fill, 9f)
+        setPadding(dp(2), dp(2), dp(2), dp(2))
+        options.forEachIndexed { index, option ->
+            val on = index == selected
+            addView(text(option, 13f, colors.text, bold = on).apply {
+                gravity = Gravity.CENTER
+                if (on) {
+                    background = rounded(if (colors.dark) 0xFF636366.toInt() else colors.surface, 7f)
+                    elevation = dp(1).toFloat()
+                }
+                isSelected = on
+                setOnClickListener { if (!on) onPick(index) }
+            }, LinearLayout.LayoutParams(0, dp(28), 1f))
+        }
+    }
+
+    /** 左边标题、右边分段选择的一行；选项多或字长时分段选择单独占满一行。 */
+    fun segmentedRow(title: Int, options: List<String>, selected: Int, onPick: (Int) -> Unit): View {
+        val wide = options.size > 4 || options.any { it.length > 3 }
+        return if (wide) {
+            LinearLayout(context).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(dp(16), dp(12), dp(16), dp(12))
+                addView(text(context.getString(title), 16f, colors.text))
+                addView(segmented(options, selected, onPick), LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply { topMargin = dp(10) })
+            }
+        } else {
+            LinearLayout(context).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                minimumHeight = dp(ROW_HEIGHT_DP)
+                setPadding(dp(16), dp(8), dp(16), dp(8))
+                addView(text(context.getString(title), 16f, colors.text), LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
+                addView(segmented(options, selected, onPick), LinearLayout.LayoutParams(dp(SEGMENT_WIDTH_DP * options.size), WRAP_CONTENT))
+            }
+        }
+    }
+
+    /** 点开弹单选框的一行：左边标题，右边当前选的与一个 ›。 */
+    fun picker(title: Int, value: String, options: List<String>, selected: Int, onPick: (Int) -> Unit) =
+        link(title, value) {
             AlertDialog.Builder(context)
                 .setTitle(title)
                 .setSingleChoiceItems(options.toTypedArray(), selected) { dialog, which ->
@@ -238,27 +263,17 @@ class SettingsWidgets(private val context: Context, val colors: AppColors) {
                 }
                 .show()
         }
-    }
 
     /** 点开弹多选框的一行：右边是 [value]（选了几项这类概括），点「确定」交出勾选结果。 */
     fun multiPicker(title: Int, value: String, options: List<String>, checked: BooleanArray, onDone: (BooleanArray) -> Unit) =
-        LinearLayout(context).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            background = pressable()
-            setPadding(dp(18), dp(14), dp(12), dp(14))
-            addView(text(context.getString(title), 16f, colors.text), LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
-            addView(text(value, 14f, colors.secondary))
-            addView(icon(Icon.CHEVRON, colors.faint, 20f), LinearLayout.LayoutParams(dp(24), dp(24)))
-            setOnClickListener {
-                val picked = checked.copyOf()
-                AlertDialog.Builder(context)
-                    .setTitle(title)
-                    .setMultiChoiceItems(options.toTypedArray(), picked) { _, which, on -> picked[which] = on }
-                    .setPositiveButton(android.R.string.ok) { _, _ -> onDone(picked) }
-                    .setNegativeButton(android.R.string.cancel, null)
-                    .show()
-            }
+        link(title, value) {
+            val picked = checked.copyOf()
+            AlertDialog.Builder(context)
+                .setTitle(title)
+                .setMultiChoiceItems(options.toTypedArray(), picked) { _, which, on -> picked[which] = on }
+                .setPositiveButton(android.R.string.ok) { _, _ -> onDone(picked) }
+                .setNegativeButton(android.R.string.cancel, null)
+                .show()
         }
 
     /**
@@ -268,16 +283,17 @@ class SettingsWidgets(private val context: Context, val colors: AppColors) {
     fun input(title: Int, value: String, current: String, secret: Boolean, onSave: (String) -> Unit) = LinearLayout(context).apply {
         orientation = LinearLayout.HORIZONTAL
         gravity = Gravity.CENTER_VERTICAL
+        minimumHeight = dp(ROW_HEIGHT_DP)
         background = pressable()
-        setPadding(dp(18), dp(14), dp(12), dp(14))
+        setPadding(dp(16), dp(8), dp(12), dp(8))
         addView(text(context.getString(title), 16f, colors.text), LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
-        addView(text(value, 14f, colors.secondary).apply {
+        addView(valueText(value).apply {
             gravity = Gravity.END
             maxLines = 1
             ellipsize = android.text.TextUtils.TruncateAt.MIDDLE
             setPadding(dp(12), 0, 0, 0)
         }, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
-        addView(icon(Icon.CHEVRON, colors.faint, 20f), LinearLayout.LayoutParams(dp(24), dp(24)))
+        addView(chevron())
         setOnClickListener {
             val field = EditText(context).apply {
                 setSingleLine()
@@ -302,14 +318,15 @@ class SettingsWidgets(private val context: Context, val colors: AppColors) {
         }
     }
 
-    /** 点了做一件事的一行（测试连接、清除密钥）：左边标题，右边 [value]（结果或说明，可空）。 */
-    fun action(title: Int, value: String?, color: Int = colors.text, onClick: () -> Unit) = LinearLayout(context).apply {
+    /** 点了做一件事的一行（测试连接、清除密钥）：左边标题（默认品牌色），右边 [value]（结果或说明，可空）。 */
+    fun action(title: Int, value: String?, color: Int = colors.brand, onClick: () -> Unit) = LinearLayout(context).apply {
         orientation = LinearLayout.HORIZONTAL
         gravity = Gravity.CENTER_VERTICAL
+        minimumHeight = dp(ROW_HEIGHT_DP)
         background = pressable()
-        setPadding(dp(18), dp(14), dp(18), dp(14))
+        setPadding(dp(16), dp(8), dp(16), dp(8))
         addView(text(context.getString(title), 16f, color), LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
-        addView(text(value.orEmpty(), 13.5f, colors.secondary).apply {
+        addView(valueText(value.orEmpty()).apply {
             gravity = Gravity.END
             setPadding(dp(12), 0, 0, 0)
         }, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
@@ -317,16 +334,16 @@ class SettingsWidgets(private val context: Context, val colors: AppColors) {
     }
 
     fun slider(
-        title: Int, note: Int, min: Int, max: Int, value: Int, step: Int,
+        title: Int, note: Int?, min: Int, max: Int, value: Int, step: Int,
         format: (Int) -> String, onChange: (Int) -> Unit,
     ) = LinearLayout(context).apply {
         orientation = LinearLayout.VERTICAL
-        setPadding(0, 0, 0, dp(16))
-        val label = text(format(value), 16f, colors.brand, bold = true)
+        setPadding(0, 0, 0, dp(12))
+        val label = valueText(format(value))
         addView(LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(18), dp(16), dp(18), dp(4))
+            setPadding(dp(16), dp(12), dp(16), dp(2))
             addView(text(context.getString(title), 16f, colors.text), LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
             addView(label)
         })
@@ -336,7 +353,7 @@ class SettingsWidgets(private val context: Context, val colors: AppColors) {
             progressTintList = ColorStateList.valueOf(colors.brand)
             thumbTintList = ColorStateList.valueOf(colors.brand)
             progressBackgroundTintList = ColorStateList.valueOf(colors.faint)
-            setPadding(dp(26), dp(12), dp(26), dp(12))
+            setPadding(dp(24), dp(10), dp(24), dp(10))
             setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
                 override fun onProgressChanged(bar: SeekBar, progress: Int, fromUser: Boolean) {
                     val current = min + progress * step
@@ -348,21 +365,27 @@ class SettingsWidgets(private val context: Context, val colors: AppColors) {
                 override fun onStopTrackingTouch(bar: SeekBar) = Unit
             })
         })
-        addView(text(context.getString(note), 12.5f, colors.secondary).apply {
-            setPadding(dp(18), 0, dp(18), 0)
-            setLineSpacing(0f, 1.2f)
-        })
+        note?.let {
+            addView(text(context.getString(it), 13f, colors.secondary).apply {
+                setPadding(dp(16), 0, dp(16), 0)
+                setLineSpacing(0f, 1.2f)
+            })
+        }
     }
 
-    /** 图标块的上半截：往白里调一点，做出上浅下深。 */
-    private fun lighten(color: Int): Int {
-        fun channel(shift: Int) = (color shr shift and 0xFF).let { it + (255 - it) * 22 / 100 }
-        return (0xFF shl 24) or (channel(16) shl 16) or (channel(8) shl 8) or channel(0)
+    private fun valueText(value: String) = text(value, 15f, colors.secondary)
+
+    private fun chevron() = icon(Icon.CHEVRON, colors.faint, 18f).apply {
+        layoutParams = LinearLayout.LayoutParams(dp(20), dp(20)).apply { marginStart = dp(4) }
     }
 
     companion object {
-        const val CARD_RADIUS = 20f
-        private const val LIFT_DISTANCE_DP = 24f
-        private const val BAR_ELEVATION_DP = 3f
+        const val CARD_RADIUS = 12f
+        private const val GROUP_GAP_DP = 24
+        private const val ROW_HEIGHT_DP = 48
+        private const val BAR_HEIGHT_DP = 52
+        private const val ICON_ROW_INSET_DP = 58
+        private const val SEGMENT_WIDTH_DP = 52
+        private const val ICON_ROW = "icon-row"
     }
 }

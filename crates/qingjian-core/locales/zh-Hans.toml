@@ -21,7 +21,7 @@ standard_short = "通用"
 [phrases]
 position = "候选位置须为 1–9"
 weight = "权重须为 {min}–{max} 的整数"
-code = "输入码须为 1–{max} 个小写英文字母"
+code = "输入码须为 1–{max} 个小写英文字母，不能带数字（数字键用来选候选）"
 empty = "自定义短语不能为空"
 duplicate = "输入码 {code} 下已经有这条短语"
 
@@ -29,3 +29,12 @@ duplicate = "输入码 {code} 下已经有这条短语"
 user_word = "已删除用户词「{text}」"
 learning = "已忘掉对「{text}」的学习记录"
 nothing = "「{text}」是词库里的词，也没有学习记录，没什么可删"
+
+[panel]
+translate_to = "译成{language}"
+chinese = "中文"
+translate_idle = "打完停一下就翻译"
+translate_waiting = "翻译中…"
+translate_ready = "回车上屏"
+translate_failed = "没翻译出来，按回车重试"
+translate_placeholder = "在这里打要翻译的话"

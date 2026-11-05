@@ -21,7 +21,7 @@ standard_short = "Standard"
 [phrases]
 position = "Die Kandidatenposition muss zwischen 1 und 9 liegen"
 weight = "Die Gewichtung muss eine ganze Zahl von {min} bis {max} sein"
-code = "Der Code muss aus 1–{max} Kleinbuchstaben bestehen"
+code = "Der Code muss aus 1–{max} Kleinbuchstaben bestehen, ohne Ziffern (Zifferntasten wählen Kandidaten)"
 empty = "Die eigene Phrase darf nicht leer sein"
 duplicate = "Unter dem Code {code} gibt es diese Phrase schon"
 

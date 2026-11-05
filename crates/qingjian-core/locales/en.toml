@@ -21,7 +21,7 @@ standard_short = "Standard"
 [phrases]
 position = "The candidate position must be 1–9"
 weight = "The weight must be a whole number from {min} to {max}"
-code = "The code must be 1–{max} lowercase English letters"
+code = "The code must be 1–{max} lowercase English letters, without digits (digit keys pick candidates)"
 empty = "The custom phrase can't be empty"
 duplicate = "The code {code} already has this phrase"
 
@@ -29,3 +29,12 @@ duplicate = "The code {code} already has this phrase"
 user_word = "Deleted the user word “{text}”"
 learning = "Forgot what was learned about “{text}”"
 nothing = "“{text}” is a dictionary word with no learning records; there's nothing to delete"
+
+[panel]
+translate_to = "To {language}"
+chinese = "Chinese"
+translate_idle = "Pause typing to translate"
+translate_waiting = "Translating…"
+translate_ready = "Enter to insert"
+translate_failed = "No translation; press Enter to retry"
+translate_placeholder = "Type what you want to translate"

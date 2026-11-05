@@ -315,7 +315,9 @@ fn english_words_round_trip_through_tsv_and_form_a_word_list() {
     learner.learn_english("Gist");
     learner.learn_english("python");
     assert_eq!(learner.english_count(), 2);
-    // 第一次敲的写法留下，次数合并
+    // 次数合并，写法是最近一次敲的
+    assert_eq!(learner.user_english().unwrap().get("gist"), Some("Gist"));
+    learner.learn_english("gist");
     assert_eq!(learner.user_english().unwrap().get("gist"), Some("gist"));
     assert_eq!(learner.user_english().unwrap().complete("g", 3), ["gist"]);
     learner.flush();
@@ -326,7 +328,7 @@ fn english_words_round_trip_through_tsv_and_form_a_word_list() {
         Some("python")
     );
     let saved = std::fs::read_to_string(FrequencyLearner::english_path(&path)).unwrap();
-    assert!(saved.contains("gist\t2"));
+    assert!(saved.contains("gist\t3"));
 }
 
 #[test]

@@ -42,7 +42,7 @@ fn belongs(group: PanelGroup, text: &str) -> bool {
     let wanted = match group {
         PanelGroup::Symbols => CandidateKind::Symbol,
         PanelGroup::Emoji => CandidateKind::Emoji,
-        PanelGroup::Search => return false,
+        PanelGroup::Search | PanelGroup::Translate => return false,
     };
     let probe = Candidate {
         text: text.to_owned(),

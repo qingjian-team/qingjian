@@ -185,12 +185,18 @@ impl Engine {
             pinyin,
             letters: pinyin_source.replace('\'', ""),
             syllables,
+            // 通讯录里的名字不发给云端
             candidates: candidates
                 .iter()
+                .filter(|c| !self.is_contact(&c.text))
                 .take(PREDICTION_CANDIDATE_HINTS)
                 .map(|c| c.text.clone())
                 .collect(),
-            guess: guess.clone(),
+            guess: if self.mentions_contact(&guess) {
+                String::new()
+            } else {
+                guess.clone()
+            },
             // 简拼（半数以上音节是缩写）不问词：模型按声母凑出来的大多是生造词（复合语气、符号映射），
             // 只问整句补全；问字模式的答案不受这条限制（答案本来就对不上问题的拼音）。
             max_items: if abbreviated && !question {
@@ -218,7 +224,7 @@ impl Engine {
     /// （`translation_target`）。提供方不可用、私密输入中、文字为空时不发，返回 `None`；
     /// 译文从 [`Self::poll_prediction`] 的 `sentence` 里出。不进学习、不动缓冲区。
     pub fn request_translation(&mut self, text: &str) -> Option<u64> {
-        self.submit_translation(text, true)
+        self.submit_translation_kind(text, true, PredictionKind::Translate, None)
     }
 
     /// 为候选词按当前学习语言重新生成一条译文。结果在 `sentence` 字段返回。
@@ -228,6 +234,7 @@ impl Engine {
             restored.as_deref().unwrap_or(text),
             true,
             PredictionKind::CandidateTranslation,
+            None,
         )
     }
 
@@ -272,20 +279,22 @@ impl Engine {
         Some(sequence)
     }
 
-    /// 为当前整句候选请求译文。和组句联想一样等停键，避免输入变化时重复发出。
-    pub fn request_sentence_translation(&mut self, text: &str) -> Option<u64> {
-        self.submit_translation(text, false)
+    /// 面板翻译组：目标语言由用户选定（外文原文已在框里换成中文），与「翻译选中文字」走同一个提供方。
+    pub(crate) fn submit_panel_translation(
+        &mut self,
+        text: &str,
+        language: crate::Language,
+    ) -> Option<u64> {
+        self.submit_translation_kind(text, true, PredictionKind::Translate, Some(language))
     }
 
-    fn submit_translation(&mut self, text: &str, manual: bool) -> Option<u64> {
-        self.submit_translation_kind(text, manual, PredictionKind::Translate)
-    }
-
+    /// `target` 为 `None` 时按学习语言定：候选译文就是学习语言，其余按原文是不是外文换（`translation_target`）。
     fn submit_translation_kind(
         &mut self,
         text: &str,
         manual: bool,
         kind: PredictionKind,
+        target: Option<crate::Language>,
     ) -> Option<u64> {
         let candidate = kind == PredictionKind::CandidateTranslation;
         let text = if manual && !candidate {
@@ -322,10 +331,10 @@ impl Engine {
             max_items: 1,
             want_sentence: true,
             text: text.to_owned(),
-            target_language: if kind == PredictionKind::CandidateTranslation {
-                learning.code()
-            } else {
-                translation_target(text, learning).code()
+            target_language: match target {
+                Some(language) => language.code(),
+                None if kind == PredictionKind::CandidateTranslation => learning.code(),
+                None => translation_target(text, learning).code(),
             }
             .to_owned(),
         };
@@ -372,7 +381,7 @@ impl Engine {
             .retain(|_, pending| is_translation(pending.kind));
     }
 
-    /// 作废当前整句候选翻译；候选变化、清空输入或关闭功能时调用。
+    /// 作废在等的文字翻译（翻译选中文字、移动端的翻译框）；清空或关掉翻译框时调。
     pub fn cancel_sentence_translation(&mut self) {
         self.pending_predictions
             .retain(|_, pending| pending.kind != PredictionKind::Translate);
@@ -393,6 +402,9 @@ impl Engine {
             .or_else(|| self.predictor.poll())
         {
             if let Some(pending) = self.pending_predictions.remove(&prediction.sequence) {
+                if self.answer_panel_translation(prediction.sequence, &prediction.sentence) {
+                    continue;
+                }
                 // 问字的答案、翻译的译文和敲的拼音本来就对不上，只有组句联想的云端词要校验
                 if pending.kind == PredictionKind::Question {
                     let guess = &pending.question_guess;

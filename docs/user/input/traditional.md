@@ -20,7 +20,7 @@ description: 让候选与上屏的文字变成繁体：台湾、香港、通用�
 Windows 上还可以打开快捷键，按 `Ctrl + Shift + F` 在简体与繁体之间来回切，见 [改按键](../personalize/keys-settings.md#简繁切换快捷键（Windows）)。
 
 三档都只换字形、不换用语：软件仍是「軟件」，不会换成「軟體」。台湾与香港的字形取舍不同（裡 / 裏、著 / 着），所以分开两档。改动立即生效。
-AI 给出的候选与整句补全同样转换。Android 在键盘设置里选，见 [Android：生词本与设置](../platforms/android-settings.md)。
+AI 给出的候选与整句补全同样转换。Android 在「设置 → 输入」里选，见 [Android：生词本与设置](../platforms/android-settings.md)。
 
 ## 输入习惯始终按简体记
 

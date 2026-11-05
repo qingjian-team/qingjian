@@ -34,6 +34,9 @@ class CandidateBarView(
     interface Listener {
         fun onSelect(index: Int)
 
+        /** 点了拼音行：光标挪到第 [index] 个字之后。 */
+        fun onMoveCaret(index: Int)
+
         /** 长按气泡里选了译词：上屏第 [index] 个候选的第 [sense] 条译文。 */
         fun onSelectTranslation(index: Int, sense: Int)
 
@@ -58,7 +61,7 @@ class CandidateBarView(
 
     private val density = resources.displayMetrics.density
     val barHeight = 62f * density * maxOf(1f, textScale)
-    private val strip = CandidateStrip(density, barHeight, textScale)
+    private val strip = CandidateStrip(density, barHeight, textScale, palette.gloss)
     private val toolbar = Toolbar(context, palette, density, barHeight, tools)
     private val resizeHandle = ResizeHandle(
         palette, density, barHeight,
@@ -110,6 +113,12 @@ class CandidateBarView(
 
     private val scroller = OverScroller(context)
 
+    /** 这一下按在拼音行上：左右拖是挪光标，不滚候选、不弹译词。 */
+    private var onPreedit = false
+
+    /** 拖动中光标上次挪到的位置（拼音行第几个字之后）；还没挪过为 -1。 */
+    private var dragCaret = -1
+
     private val gestures = GestureDetector(context, object : GestureDetector.SimpleOnGestureListener() {
         override fun onDown(e: MotionEvent): Boolean {
             scroller.forceFinished(true)
@@ -117,6 +126,10 @@ class CandidateBarView(
         }
 
         override fun onScroll(e1: MotionEvent?, e2: MotionEvent, dx: Float, dy: Float): Boolean {
+            if (onPreedit) {
+                dragCaret(e2.x)
+                return true
+            }
             if (toolbarShown) {
                 toolbar.scrollTo(toolbar.offset + dx, width)
                 invalidate()
@@ -127,6 +140,7 @@ class CandidateBarView(
         }
 
         override fun onFling(e1: MotionEvent?, e2: MotionEvent, vx: Float, vy: Float): Boolean {
+            if (onPreedit) return true
             if (toolbarShown) {
                 scroller.fling(toolbar.offset.toInt(), 0, -vx.toInt(), 0, 0, toolbar.maxOffset(width).toInt(), 0, 0)
             } else {
@@ -139,7 +153,7 @@ class CandidateBarView(
         override fun onLongPress(e: MotionEvent) = openTranslations(e)
 
         override fun onSingleTapUp(e: MotionEvent): Boolean {
-            tap(e.x)
+            tap(e.x, e.y)
             return true
         }
     })
@@ -204,7 +218,15 @@ class CandidateBarView(
     override fun onTouchEvent(event: MotionEvent): Boolean = when {
         resizing -> resizeHandle.onTouch(event, width)
         popup.showing -> onPopupTouch(event)
-        else -> gestures.onTouchEvent(event)
+        else -> {
+            if (event.actionMasked == MotionEvent.ACTION_DOWN) {
+                onPreedit = !strip.isEmpty && strip.caretAt(event.x, event.y) >= 0
+                dragCaret = -1
+                // 长按一触发 GestureDetector 就不再给拖动；按在拼音行上先停一停再拖也要跟
+                gestures.setIsLongpressEnabled(!onPreedit)
+            }
+            gestures.onTouchEvent(event)
+        }
     }
 
     /** 钉在右端的 ⌄：与候选行同一高度居中，左边一道短竖线隔开。 */
@@ -217,9 +239,27 @@ class CandidateBarView(
         PanelIcons.draw(canvas, PanelIcons.Icon.EXPAND, left + expandSlot / 2, cy, 24 * density, expandIcon)
     }
 
-    private fun tap(x: Float) {
+    /**
+     * 沿拼音行拖：光标跟着手指落到最近的字缝，每过一格轻震一下（#881）。
+     * 拼音行按视图坐标画、不随候选滚动；新的一帧到了缝的位置会变，所以每次按手指重新找。
+     */
+    private fun dragCaret(x: Float) {
+        val caret = strip.caretNear(x)
+        if (caret < 0 || caret == dragCaret) return
+        dragCaret = caret
+        Haptics.tap(context)
+        listener.onMoveCaret(caret)
+    }
+
+    private fun tap(x: Float, y: Float) {
         if (expandable && x >= stripWidth) {
             listener.onExpand()
+            return
+        }
+        // 拼音行钉在视口上，不随候选滚动，按视图坐标查
+        val caret = strip.caretAt(x, y)
+        if (caret >= 0) {
+            listener.onMoveCaret(caret)
             return
         }
         if (!strip.isEmpty) {

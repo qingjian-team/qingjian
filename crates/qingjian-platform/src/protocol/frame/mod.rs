@@ -83,6 +83,10 @@ pub struct Frame {
     /// 面板由 Server 自绘，这一帧的候选不画。
     #[serde(default)]
     pub symbol_panel: bool,
+
+    /// 面板停在翻译组、没在打拼音：框里的字归 Server 编辑，DLL 把 Ctrl+A 也交给 Server（全选框里的字），不放给应用。
+    #[serde(default)]
+    pub panel_text_box: bool,
 }
 
 impl Frame {

@@ -91,6 +91,9 @@ enter = "Enter"
 [phrase_file]
 empty = "Tệp không có cụm từ tùy chỉnh nào"
 is_config = "Đây là tệp cấu hình, không phải tệp cụm từ; cài đặt được nhập ở trang Nâng cao, còn cụm từ hãy xuất trước trên máy kia"
+no_tab = "Chữ và mã gõ phải cách nhau bằng một Tab"
+skipped_entry = "mục {entry}: {reason}"
+skipped_line = "dòng {line} (“{text}”): {reason}"
 unreadable = "Không đọc được tệp này: đây không phải tệp cụm từ do Qingjian xuất, cũng không phải văn bản mỗi dòng một mục “chữ<Tab>mã gõ”"
 
 [settings_file]

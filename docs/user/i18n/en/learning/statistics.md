@@ -13,7 +13,7 @@ The top of 设置 → 统计 (Settings → Statistics) has two tabs, 输入 (Typ
 - The past 24 hours: one bar per hour, with the current hour on the far right; hover over a bar to see how many characters you typed in that hour.
 - Typing details:
   - Your busiest day, and how many characters you type on average on days you type.
-  - Speed (characters per minute): today, on average, and your fastest day. Only time spent typing counts; pauses of more than 5 seconds between keys are left out.
+  - Speed (characters per minute): today, on average, and your fastest day. Only time spent typing counts; pauses of more than 5 seconds between keys are left out. Today's speed appears after 30 seconds of typing and the average after 5 minutes in total; the fastest day only counts days with at least 5 minutes of typing.
   - First-choice rate: when picking from the candidates, how often the pick was the first one.
   - Right first time: how often you committed without pressing Backspace first.
   - Average keystrokes: how many keys you press per Chinese character on average.

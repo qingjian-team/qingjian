@@ -1,10 +1,8 @@
 //! 候选条的画笔：记住最新一帧要显示的内容，壳要画时按宽度倍数与深浅色出一张位图。
 
-use qingjian_render::{
-    FontLibrary, Frame as RenderFrame, Layout, Mode, Preedit, Rendered, Renderer, Theme,
-};
+use qingjian_render::{FontLibrary, Frame as RenderFrame, Layout, Mode, Rendered, Renderer, Theme};
 
-use super::{StripHit, StripMeta, has_emoji, rows};
+use super::{StripHit, StripMeta, has_emoji, preedit, rows};
 use crate::appearance;
 use crate::error::AndroidError;
 use crate::frame::Frame;
@@ -71,8 +69,7 @@ impl StripPainter {
             .map(|(i, _)| i)
             .collect();
         self.content = RenderFrame {
-            preedit: (!frame.preedit.is_empty())
-                .then(|| Preedit::plain(&frame.preedit, frame.preedit.chars().count())),
+            preedit: (!frame.preedit.is_empty()).then(|| preedit(frame)),
             rows: rows(&frame.candidates, self.text_scale, |text, size| {
                 self.renderer.measure_points(text, size)
             }),
@@ -112,6 +109,17 @@ impl StripPainter {
                 .iter()
                 .filter_map(|region| StripHit::new(region, offset))
                 .collect(),
+            preedit_edges: rendered.preedit.as_ref().map_or_else(Vec::new, |hit| {
+                hit.edges.iter().map(|x| x + offset.0 as f32).collect()
+            }),
+            preedit_top: rendered
+                .preedit
+                .as_ref()
+                .map_or(0.0, |hit| hit.y + offset.1 as f32),
+            preedit_bottom: rendered
+                .preedit
+                .as_ref()
+                .map_or(0.0, |hit| hit.y + hit.height + offset.1 as f32),
             emoji: self.emoji.clone(),
         };
         self.last = Some(rendered);

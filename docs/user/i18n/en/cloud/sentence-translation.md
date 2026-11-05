@@ -1,10 +1,10 @@
 ---
 title: AI translation
 order: 3
-description: "Using AI to fill in glosses and sentence translations: filling in missing glosses automatically, translating sentences into the vocabulary book, and showing a translation beside sentence candidates (Windows)."
+description: "Using AI to fill in glosses and sentence translations: filling in missing glosses automatically and translating sentences into the vocabulary book."
 ---
 
-The bundled glossary only has glosses for words. With AI services on, the three options below fill in what's missing; see [AI services](index.md).
+The bundled glossary only has glosses for words. With AI services on, the two options below fill in what's missing; see [AI services](index.md). To translate a sentence you type yourself, use the [Translate group](question-and-translate.md#Translating-in-the-symbol-panel) of the symbol panel.
 
 ## Filling in glosses automatically
 
@@ -18,11 +18,3 @@ finished sentences are collected and sent a few at a time for translation; the t
 
 - What counts is a sentence committed in one go (two characters or more), and a sentence committed in several parts that has four or more Chinese characters when finished.
 - Each sentence is sent only once. If you don't want sentences sent, turn this option off; cloud suggestions and the other features keep working. Not yet available on Linux.
-
-## Translating sentence candidates
-
-Currently Windows only. With 整句候选翻译 (Translate sentence candidates) on under 设置 → 云服务 (Settings → Cloud services), a translation appears to the right of the local sentence candidate (a sentence of Chinese converted from a string of pinyin). It doesn't change the candidate order and doesn't produce AI candidate words or sentence completions.
-
-- Click the translation to commit it, or press `Ctrl + number` to commit the translation of that candidate.
-- Only the current sentence candidate and the target language are sent each time; no pinyin, no text from the app and no other candidates. Nothing is sent from password fields or private input fields.
-- When the input keeps changing, results of old requests are discarded; committing, deleting all the pinyin or pressing `Esc` cancels requests not yet sent.

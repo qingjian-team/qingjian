@@ -4,9 +4,9 @@ mod hit;
 mod meta;
 mod painter;
 
-use qingjian_render::{Row, Tone};
+use qingjian_render::{Preedit, PreeditSegment, PreeditStyle, Row, Tone};
 
-use crate::frame::FrameCandidate;
+use crate::frame::{Frame, FrameCandidate};
 
 pub use self::hit::StripHit;
 pub use self::meta::StripMeta;
@@ -29,7 +29,13 @@ fn rows(
         .iter()
         .enumerate()
         .map(|(i, candidate)| {
-            let mut row = Row::plain(i, candidate.text.clone());
+            // emoji 由壳在词的位置上画，这里只占位：系统字体画得出彩色 emoji 时两份会叠成重影（#902）
+            let text = if has_emoji(&candidate.text) {
+                emoji_placeholder(&candidate.text)
+            } else {
+                candidate.text.clone()
+            };
+            let mut row = Row::plain(i, text);
             row.index.clear();
             row.cloud = candidate.cloud;
             if let Some(sense) = candidate.senses.first() {
@@ -49,6 +55,29 @@ fn rows(
             row
         })
         .collect()
+}
+
+/// 拼音行：九宫格选定的那几个字（[`Frame::preedit_pinned`]）一段画下划线，前后照常。
+fn preedit(frame: &Frame) -> Preedit {
+    let chars: Vec<char> = frame.preedit.chars().collect();
+    let end = frame.preedit_pinned.1.min(chars.len());
+    let start = frame.preedit_pinned.0.min(end);
+    let segments = [
+        (0, start, PreeditStyle::Typed),
+        (start, end, PreeditStyle::Pinned),
+        (end, chars.len(), PreeditStyle::Typed),
+    ]
+    .into_iter()
+    .filter(|(from, to, _)| from < to)
+    .map(|(from, to, style)| PreeditSegment {
+        text: chars[from..to].iter().collect(),
+        style,
+    })
+    .collect();
+    Preedit {
+        segments,
+        cursor: frame.preedit_cursor,
+    }
 }
 
 /// 放不下 `room` 点宽就从尾部去字加「…」。
@@ -74,6 +103,24 @@ fn has_emoji(text: &str) -> bool {
         matches!(c as u32,
             0x1F000..=0x1FAFF | 0x2300..=0x23FF | 0x2600..=0x27BF | 0x2B00..=0x2BFF | 0xFE0F)
     })
+}
+
+/// emoji 候选的占位：每个看得见的 emoji 一个全角空格，与壳画的 emoji 差不多宽。
+/// 连接符、变体选择符、肤色、标签与键帽组合符不占位，国旗的两个区域指示符算一个。
+fn emoji_placeholder(text: &str) -> String {
+    let mut regional = 0;
+    let count = text
+        .chars()
+        .filter(|&c| match c as u32 {
+            0x200D | 0xFE0E | 0xFE0F | 0x20E3 | 0x1F3FB..=0x1F3FF | 0xE0020..=0xE007F => false,
+            0x1F1E6..=0x1F1FF => {
+                regional += 1;
+                regional % 2 == 1
+            }
+            _ => true,
+        })
+        .count();
+    "\u{3000}".repeat(count.max(1))
 }
 
 #[cfg(test)]

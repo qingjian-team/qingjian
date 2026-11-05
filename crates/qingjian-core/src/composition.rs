@@ -172,6 +172,15 @@ impl Composition {
         true
     }
 
+    /// 光标放到第 `byte` 个字节处（超出就放到末尾，不在字符边界上就往前退到边界）。
+    pub fn move_to(&mut self, byte: usize) {
+        let mut byte = byte.min(self.buffer.len());
+        while !self.buffer.is_char_boundary(byte) {
+            byte -= 1;
+        }
+        self.cursor = byte;
+    }
+
     pub fn move_home(&mut self) {
         self.cursor = 0;
     }

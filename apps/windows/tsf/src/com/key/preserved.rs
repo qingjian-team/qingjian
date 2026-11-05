@@ -18,6 +18,10 @@ use crate::com::log::log;
 /// 本保留键的标识，`OnPreservedKey` 按它认。
 pub(crate) const GUID_TRANSLATE: GUID = GUID::from_u128(0x5c0a7b12_3d4e_4f60_8a91_2b3c4d5e6f70);
 
+/// 没在组句时打开符号面板翻译组的保留键标识。
+pub(crate) const GUID_TRANSLATE_PANEL: GUID =
+    GUID::from_u128(0x8d3f2a64_71c5_4b9e_a0d2_6e4b1c9f3a85);
+
 pub(crate) const GUID_PREDICT: GUID = GUID::from_u128(0xe7c13625_b92a_48f0_9e64_673c0a581bd2);
 
 /// Ctrl + Alt + Space 中英切换键的保留键标识。
@@ -45,16 +49,23 @@ pub(crate) fn unregister_traditional(keystroke: &ITfKeystrokeMgr, combo: KeyComb
 /// msctf.h 的 `TF_MOD_LWIN`（windows crate 没导出）。
 const TF_MOD_LWIN: u32 = 0x08;
 
-/// 读 `%APPDATA%\Qingjian\config.toml` 里的组合；读不到 / 解析失败用缺省。
-pub(crate) fn load_combo() -> KeyCombo {
+/// 读 `%APPDATA%\Qingjian\config.toml` 里的「翻译选中文字」与「翻译组」两个组合；读不到 / 解析失败用缺省。
+pub(crate) fn load_combos() -> (KeyCombo, KeyCombo) {
+    let defaults = (
+        KeyCombo::TRANSLATE_DEFAULT,
+        KeyCombo::TRANSLATE_PANEL_DEFAULT,
+    );
     let Some(path) = qingjian_platform::dirs::config_path() else {
-        return KeyCombo::TRANSLATE_DEFAULT;
+        return defaults;
     };
     match Config::load(&path) {
-        Ok(config) => config.shortcut.translate_selection,
+        Ok(config) => (
+            config.shortcut.translate_selection,
+            config.shortcut.translate_panel,
+        ),
         Err(error) => {
             log(&format!("读配置取翻译快捷键失败，用缺省: {error}"));
-            KeyCombo::TRANSLATE_DEFAULT
+            defaults
         }
     }
 }

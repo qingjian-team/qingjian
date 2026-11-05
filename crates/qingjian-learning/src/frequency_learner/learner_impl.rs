@@ -140,6 +140,8 @@ impl Learner for FrequencyLearner {
             .english
             .entry(word.to_ascii_lowercase())
             .or_insert_with(|| (word.to_owned(), Decay::from_parts(0, now)));
+        // 写法跟着最近一次敲的走：句首敲过一次 `Hello`，之后敲回 `hello` 就改回来
+        word.clone_into(&mut entry.0);
         entry.1.record(1, now);
         let count = entry.1.count;
         self.english_dirty = true;

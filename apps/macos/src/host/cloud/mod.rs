@@ -6,6 +6,8 @@ mod test_monitor;
 pub(super) use predict_monitor::PredictMonitor;
 pub(super) use test_monitor::CloudTestMonitor;
 
+use std::time::Instant;
+
 use super::*;
 
 impl Host {
@@ -109,8 +111,12 @@ impl Host {
     }
 
     /// 定时器回调：结果到了就画上去。云端词补进第一页末尾，整句挂在 preedit 右侧。
-    pub fn poll_prediction(&mut self) {
-        let Some(prediction) = self.engine.poll_prediction() else {
+    /// 符号面板的翻译框也借这个节拍防抖、收译文；返回翻译框有没有变化（变了要连 preedit 一起重画，得借文本客户端）。
+    pub fn poll_prediction(&mut self) -> bool {
+        let prediction = self.engine.poll_prediction();
+        let translated = self.engine.tick_panel_translation(Instant::now());
+        let waiting = self.engine.panel_translation_pending();
+        let Some(prediction) = prediction else {
             if self.monitor.expired() {
                 if let Some(job) = self.candidate_translation.take() {
                     self.engine.cancel_candidate_translation(job.sequence);
@@ -119,11 +125,19 @@ impl Host {
                 }
                 self.monitor.stop();
             }
-            return;
+            return translated;
         };
         self.apply_prediction(prediction);
-        if self.candidate_translation.is_none() {
+        if self.candidate_translation.is_none() && !waiting {
             self.monitor.stop();
+        }
+        translated
+    }
+
+    /// 翻译框的原文或语言变了：开始轮询，停键够久就发。
+    pub fn watch_panel_translation(&mut self) {
+        if self.engine.panel_translation_pending() {
+            self.monitor.start();
         }
     }
 

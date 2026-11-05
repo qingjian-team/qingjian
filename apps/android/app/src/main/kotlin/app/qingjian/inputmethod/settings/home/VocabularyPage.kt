@@ -5,6 +5,7 @@ import android.app.AlertDialog
 import android.os.Handler
 import android.os.Looper
 import android.text.Editable
+import android.text.TextUtils
 import android.text.TextWatcher
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
@@ -23,11 +24,11 @@ import app.qingjian.inputmethod.core.store.Vocabulary.Filter
 import app.qingjian.inputmethod.core.store.VocabularyWord
 import app.qingjian.inputmethod.settings.Settings
 import app.qingjian.inputmethod.settings.widget.SettingsWidgets
-import app.qingjian.inputmethod.theme.AppColors
 
 /**
- * 生词本 tab：打字时候选旁见过的学习语言译词。顶上学习语言与三个汇总数字，下面是搜索框和按筛选与等级列出的词（最近见到的在前），
- * 点一个词弹出详情，可标认识或删除（同 PC 生词本的「词表」，时间线不做）。改了只重填这一列，滚动位置不丢。
+ * 生词本 tab：打字时候选旁见过的学习语言译词。固定的顶栏里是标题、搜索框与 全部 / 生词 / 近 7 天 / 认识了 分段，
+ * 下面是等级筛选、词数与学习语言、词表（最近见到的在前）；点一个词弹出详情，可标认识或删除（同 PC 生词本的「词表」，时间线不做）。
+ * 改了只重填这一列，滚动位置不丢。
  */
 class VocabularyPage(private val activity: Activity, private val ui: SettingsWidgets) : AppPage {
     private val colors get() = ui.colors
@@ -48,6 +49,9 @@ class VocabularyPage(private val activity: Activity, private val ui: SettingsWid
 
     private val search: EditText by lazy { searchField() }
 
+    /** 顶栏里搜索框与分段那一块；没开学习语言时藏起来。 */
+    private var tools: LinearLayout? = null
+
     private fun signature(vocabulary: Vocabulary) = Triple(vocabulary.language, vocabulary.seen, vocabulary.matched)
 
     override fun stale() = signature(load()) != shown
@@ -60,7 +64,28 @@ class VocabularyPage(private val activity: Activity, private val ui: SettingsWid
         return Vocabulary.load(activity, query)
     }
 
-    override fun header(): View = ui.pageTitle(R.string.tab_vocabulary)
+    override fun header(): View = LinearLayout(activity).apply {
+        orientation = LinearLayout.VERTICAL
+        addView(ui.pageTitle(R.string.tab_vocabulary))
+        addView(LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(ui.dp(12), 0, ui.dp(12), ui.dp(10))
+            tools = this
+        })
+    }
+
+    /** 搜索框与筛选分段；换了筛选只重建这一块，搜索框原样挪回来、不丢焦点。 */
+    private fun fillTools(vocabulary: Vocabulary) {
+        val tools = tools ?: return
+        tools.removeAllViews()
+        tools.visibility = if (vocabulary.off) View.GONE else View.VISIBLE
+        if (vocabulary.off) return
+        (search.parent as? ViewGroup)?.removeView(search)
+        tools.addView(search, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+        tools.addView(ui.segmented(Filter.entries.map(::filterLabel), query.filter.ordinal) { index ->
+            reload(query.copy(filter = Filter.entries[index]))
+        }, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply { topMargin = ui.dp(10) })
+    }
 
     override fun build(): View = LinearLayout(activity).apply {
         orientation = LinearLayout.VERTICAL
@@ -77,22 +102,17 @@ class VocabularyPage(private val activity: Activity, private val ui: SettingsWid
 
     private fun LinearLayout.fill(vocabulary: Vocabulary) {
         shown = signature(vocabulary)
-        addView(languageRow(vocabulary))
+        fillTools(vocabulary)
         if (vocabulary.off) {
+            addView(languageRow(vocabulary), spaced(16))
             addView(messageCard(activity.getString(R.string.vocabulary_off)))
             return
         }
-        addView(summaryCard(vocabulary))
-        (search.parent as? ViewGroup)?.removeView(search)
-        addView(search, spaced(16))
-        addView(chips(Filter.entries.map { filterLabel(it) to (it == query.filter) }) { index ->
-            reload(query.copy(filter = Filter.entries[index]))
-        }, spaced(12))
         if (vocabulary.levels.isNotEmpty()) {
             val levels = listOf("") + vocabulary.levels
             addView(chips(levels.map { (it.ifEmpty { activity.getString(R.string.vocabulary_all_levels) }) to (it == query.level) }) { index ->
                 reload(query.copy(level = levels[index]))
-            }, spaced(10))
+            }, spaced(14))
         }
         addView(LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
@@ -102,9 +122,7 @@ class VocabularyPage(private val activity: Activity, private val ui: SettingsWid
     }
 
     private fun LinearLayout.fillResults(vocabulary: Vocabulary) {
-        addView(ui.text(activity.getString(R.string.vocabulary_count, vocabulary.matched), 15f, colors.text, bold = true).apply {
-            setPadding(ui.dp(4), ui.dp(20), 0, ui.dp(10))
-        })
+        addView(languageRow(vocabulary), spaced(if (vocabulary.levels.isEmpty()) 16 else 12))
         when {
             vocabulary.words.isNotEmpty() -> addView(wordsCard(vocabulary.words))
             vocabulary.seen == 0L -> addView(messageCard(activity.getString(R.string.vocabulary_empty)))
@@ -140,8 +158,8 @@ class VocabularyPage(private val activity: Activity, private val ui: SettingsWid
         textSize = 15f
         isSingleLine = true
         imeOptions = EditorInfo.IME_ACTION_SEARCH
-        background = ui.rounded(colors.surface, 20f)
-        setPadding(ui.dp(18), ui.dp(10), ui.dp(18), ui.dp(10))
+        background = ui.rounded(colors.fill, 10f)
+        setPadding(ui.dp(14), ui.dp(9), ui.dp(14), ui.dp(9))
         // 回车键是「搜索」：结果已跟着打字出来，按下只收起键盘
         setOnEditorActionListener { view, _, _ ->
             activity.getSystemService(InputMethodManager::class.java)?.hideSoftInputFromWindow(view.windowToken, 0)
@@ -171,15 +189,15 @@ class VocabularyPage(private val activity: Activity, private val ui: SettingsWid
         },
     )
 
-    /** 一行说明，右边是学习语言，点开可换（与键盘设置里的同一项）。 */
+    /** 词表上方一行：左边词数（没开学习语言时是一句说明），右边学习语言，点开可换（与设置页里的同一项）。 */
     private fun languageRow(vocabulary: Vocabulary) = LinearLayout(activity).apply {
         orientation = LinearLayout.HORIZONTAL
         gravity = Gravity.CENTER_VERTICAL
-        setPadding(ui.dp(4), 0, 0, ui.dp(14))
-        addView(ui.text(activity.getString(R.string.vocabulary_intro), 12.5f, colors.secondary), LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
-        addView(ui.text(SettingChoices.learningLanguageName(vocabulary.language) + " ⌄", 13f, colors.brand, bold = true).apply {
-            background = ui.rounded(colors.brandSoft, 14f)
-            setPadding(ui.dp(12), ui.dp(6), ui.dp(12), ui.dp(6))
+        setPadding(ui.dp(16), 0, ui.dp(4), ui.dp(7))
+        val left = if (vocabulary.off) activity.getString(R.string.vocabulary_intro) else activity.getString(R.string.vocabulary_count, vocabulary.matched)
+        addView(ui.text(left, 13f, colors.secondary), LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
+        addView(ui.text(SettingChoices.learningLanguageName(vocabulary.language) + " ⌄", 13f, colors.brand).apply {
+            setPadding(ui.dp(12), ui.dp(4), ui.dp(12), ui.dp(4))
             setOnClickListener { pickLanguage(vocabulary.language) }
         })
     }
@@ -196,36 +214,14 @@ class VocabularyPage(private val activity: Activity, private val ui: SettingsWid
             .show()
     }
 
-    private fun summaryCard(vocabulary: Vocabulary) = ui.card(
-        LinearLayout(activity).apply {
-            orientation = LinearLayout.HORIZONTAL
-            setPadding(0, ui.dp(20), 0, ui.dp(18))
-            listOf(
-                R.string.vocabulary_seen to vocabulary.seen,
-                R.string.vocabulary_familiar to vocabulary.familiar,
-                R.string.vocabulary_new to vocabulary.newThisWeek,
-            ).forEach { (label, value) ->
-                addView(LinearLayout(activity).apply {
-                    orientation = LinearLayout.VERTICAL
-                    gravity = Gravity.CENTER_HORIZONTAL
-                    addView(ui.text(value.toString(), 26f, colors.text, bold = true).apply { gravity = Gravity.CENTER })
-                    addView(ui.text(activity.getString(label), 12f, colors.secondary).apply {
-                        gravity = Gravity.CENTER
-                        setPadding(0, ui.dp(8), 0, 0)
-                    })
-                }, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
-            }
-        },
-    )
-
     /** 一排可横滑的圆角选项，选中的填品牌色。 */
     private fun chips(items: List<Pair<String, Boolean>>, onPick: (Int) -> Unit) = HorizontalScrollView(activity).apply {
         isHorizontalScrollBarEnabled = false
         addView(LinearLayout(activity).apply {
             orientation = LinearLayout.HORIZONTAL
             items.forEachIndexed { index, (label, selected) ->
-                addView(ui.text(label, 13.5f, if (selected) colors.onBrand else colors.text, bold = selected).apply {
-                    background = ui.rounded(if (selected) colors.brand else colors.surface, 16f)
+                addView(ui.text(label, 13.5f, if (selected) colors.brand else colors.text, bold = selected).apply {
+                    background = ui.rounded(if (selected) colors.brandSoft else colors.surface, 16f)
                     setPadding(ui.dp(14), ui.dp(7), ui.dp(14), ui.dp(7))
                     setOnClickListener { if (!selected) onPick(index) }
                 }, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply { if (index > 0) marginStart = ui.dp(8) })
@@ -248,45 +244,47 @@ class VocabularyPage(private val activity: Activity, private val ui: SettingsWid
         }
     }
 
-    /** 一行：左边译词（带 认识 / 生词 与等级小标签）与带它上屏的中文，右边上屏次数与最近日期；点开看详情。 */
+    /** 一行：译词与带它上屏的中文，下面次数与最近日期；右边等级与 认识 / 眼熟 / 生词 小标签。点开看详情。 */
     private fun wordRow(word: VocabularyWord) = LinearLayout(activity).apply {
         orientation = LinearLayout.HORIZONTAL
         gravity = Gravity.CENTER_VERTICAL
         background = ui.pressable()
-        setPadding(ui.dp(18), ui.dp(14), ui.dp(18), ui.dp(14))
+        minimumHeight = ui.dp(60)
+        setPadding(ui.dp(16), ui.dp(10), ui.dp(16), ui.dp(10))
         setOnClickListener { showWord(word) }
         addView(LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
             addView(LinearLayout(activity).apply {
                 orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.CENTER_VERTICAL
-                addView(ui.text(word.word, 17f, if (word.known) colors.secondary else colors.text, bold = true))
-                when {
-                    word.known -> addView(tag(R.string.vocabulary_known, colors.brand, colors.brandSoft))
-                    word.fresh -> addView(tag(R.string.vocabulary_fresh, FRESH, FRESH and 0x00FFFFFF or 0x24000000))
+                gravity = Gravity.BOTTOM
+                addView(ui.text(word.word, 17f, colors.text, bold = true))
+                if (word.source.isNotEmpty()) {
+                    addView(ui.text(word.source, 14f, colors.secondary).apply {
+                        maxLines = 1
+                        ellipsize = TextUtils.TruncateAt.END
+                        setPadding(ui.dp(8), 0, 0, ui.dp(1))
+                    })
                 }
-                if (word.level.isNotEmpty()) addView(tag(word.level, colors.secondary, colors.divider))
             })
-            if (word.source.isNotEmpty()) {
-                addView(ui.text(word.source, 13f, colors.secondary).apply { setPadding(0, ui.dp(6), 0, 0) })
-            }
+            addView(ui.text(
+                activity.getString(R.string.vocabulary_seen_times, word.seen) + " · " + word.last.drop(5),
+                12f, colors.secondary,
+            ).apply { setPadding(0, ui.dp(4), 0, 0) })
         }, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
-        addView(LinearLayout(activity).apply {
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.END
-            addView(ui.text(activity.getString(R.string.vocabulary_commits, word.committed), 12f, colors.secondary).apply { gravity = Gravity.END })
-            addView(ui.text(word.last.drop(5), 11f, colors.faint).apply {
-                gravity = Gravity.END
-                setPadding(0, ui.dp(6), 0, 0)
-            })
-        }, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
+        if (word.level.isNotEmpty()) addView(tag(word.level, colors.secondary, colors.fill))
+        val (label, color) = when {
+            word.known -> R.string.vocabulary_known to colors.brand
+            word.fresh -> R.string.vocabulary_fresh to colors.fresh
+            else -> R.string.vocabulary_familiar to colors.secondary
+        }
+        addView(tag(label, color, color and 0x00FFFFFF or 0x24000000))
     }
 
     private fun tag(label: Int, color: Int, fill: Int) = tag(activity.getString(label), color, fill)
 
-    private fun tag(label: String, color: Int, fill: Int) = ui.text(label, 10.5f, color, bold = true).apply {
-        background = ui.rounded(fill, 6f)
-        setPadding(ui.dp(6), ui.dp(3), ui.dp(6), ui.dp(3))
+    private fun tag(label: String, color: Int, fill: Int) = ui.text(label, 12f, color).apply {
+        background = ui.rounded(fill, 10f)
+        setPadding(ui.dp(8), ui.dp(3), ui.dp(8), ui.dp(3))
         layoutParams = LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply { marginStart = ui.dp(8) }
     }
 
@@ -323,9 +321,6 @@ class VocabularyPage(private val activity: Activity, private val ui: SettingsWid
     }
 
     companion object {
-        /** 生词标签的橙色，同 [AppColors] 的橙色色块。 */
-        private const val FRESH = 0xFFFF9443.toInt()
-
         private const val SEARCH_DELAY_MS = 250L
     }
 }

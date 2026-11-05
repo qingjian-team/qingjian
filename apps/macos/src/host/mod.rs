@@ -186,6 +186,9 @@ pub struct Host {
     /// 组句中按需联想的组合键（配置 `[shortcut] predict`）。
     pub predict_keys: KeyCombo,
 
+    /// 打开符号面板翻译组的组合键（`[shortcut] translate_panel`），缺省 ⌃⌥Y。
+    pub translate_panel_keys: KeyCombo,
+
     /// 在飞的按需联想请求序号：结果到了排在第一页最前面，自动联想的照旧补在末尾。
     manual_prediction: Option<u64>,
 

@@ -1,7 +1,7 @@
 ---
 title: Asking and translating
 order: 2
-description: "Asking a question in pinyin, such as which character is made of three 木, and translating text selected in an app into your learning language or back into Chinese. Both require AI services."
+description: "Asking a question in pinyin, such as which character is made of three 木, translating text selected in an app into your learning language or back into Chinese, and translating as you type in the Translate group of the symbol panel. All require AI services."
 ---
 
 AI services must be turned on first; see [AI services](index.md).
@@ -43,3 +43,18 @@ Limitations on Linux:
 - If you upgraded from an earlier version and your configuration file still has the old translation shortcut, installing the update doesn't change it; change it to `Alt + Shift + T` yourself, see [Editing the configuration file](../advanced/config-file.md#AI-services).
 
 On Android, tap 青简翻译 (Qingjian Translate) in the system's text selection menu; see [Android: tools and AI](../platforms/android-tools.md#Translating-selected-text).
+
+## Translating in the symbol panel
+
+On macOS and Windows the [symbol panel](../input/punctuation.md#Symbol-panel) has a 翻译 (Translate) group: type a sentence of Chinese in its box, pause, and the translation appears at the cursor in the app; press `Enter` to commit it.
+
+- **Opening**: while typing pinyin, press `↑` to open the panel; it lands on the Translate group and carries the pinyin into the box. When not typing, press `⌃⌥Y` (Windows: `Ctrl + Alt + Y`). Opening the panel from the menu or the status bar returns to the group you used last.
+- **Typing in the box**: type pinyin as usual; it shows at the cursor in the box, and `Space`, a number key or clicking a candidate in the box puts the word at the cursor, not into the app. Punctuation is converted to full width as usual. In English mode, what you type goes straight into the box.
+- **Editing the box**: like Notepad, clicking places the cursor, dragging selects text, and `Shift`-clicking extends the selection to that point; when not typing pinyin, `←` `→`, `Home` and `End` move the cursor, with `Shift` held they select, and `⌘ + A` (`Ctrl + A` on Windows) selects all. Typing or picking a word replaces the selected text, and `Backspace` / `Delete` remove it; with nothing selected, `Backspace` deletes the character before the cursor and `Delete` the one after. When the text grows, the box scrolls so the cursor line stays visible.
+- **Target language**: `[` `]` switch the target language (English, Japanese, Spanish, Vietnamese, German). It starts as your learning language and the last one you chose is remembered. If the box holds foreign text, it is translated back into Chinese, decided the same way as in the previous section.
+- **When it's sent**: only after you pause for about 0.8 seconds with two or more characters in the box, and not again if nothing changed. Deleting and retyping, or switching to another language and back, reuses translations remembered on your device instead of sending again; they're kept in memory only and are gone when the input method quits.
+- **Committing and discarding**: once the translation matches the box, `Enter` commits it; pressing `Enter` before it arrives sends right away, and you press it again when it's there. `Esc` clears the box and the translation in the app; with an empty box, `Esc` goes back to the candidates.
+- **When no translation comes back** (usually a network hiccup): it's sent again automatically after 2 seconds; if that fails too, the bottom line says to press Enter to retry, and `Enter` sends it again.
+
+The shortcut can be changed under 设置 → 快捷键 (Settings → Shortcuts); on Windows, switch to another input method and back to Qingjian (or reopen the app) for the change to take effect. With AI services off, or in a password or private input field, the panel has no Translate group.
+Some apps (certain web editors, terminals) don't display uncommitted text at the cursor well, and a long translation may look messy; the line at the bottom of the box shows the progress.

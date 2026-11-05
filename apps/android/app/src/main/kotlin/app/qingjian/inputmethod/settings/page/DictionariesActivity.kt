@@ -1,13 +1,16 @@
 package app.qingjian.inputmethod.settings.page
 
+import android.Manifest
 import android.app.AlertDialog
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.provider.OpenableColumns
 import android.view.Gravity
 import android.view.View
 import android.widget.Toast
 import app.qingjian.inputmethod.R
+import app.qingjian.inputmethod.contacts.ContactsSync
 import app.qingjian.inputmethod.core.BundledData
 import app.qingjian.inputmethod.core.InputOptions
 import app.qingjian.inputmethod.core.Native
@@ -40,38 +43,65 @@ class DictionariesActivity : PageActivity() {
     override fun content(): List<View> {
         val options = Settings.load(this).inputOptions
         return listOf(
-            ui.sectionTitle(R.string.section_domains),
-            domainsCard(options),
-            spaced(ui.sectionTitle(R.string.section_imported), 20),
-            importedCard(options),
+            ui.group(getString(R.string.section_domains), domainRows(options), getString(R.string.domains_note)),
+            ui.group(getString(R.string.section_imported), importedRows(options), getString(R.string.imported_note)),
+            ui.group(getString(R.string.section_contacts), contactRows(), getString(R.string.contacts_footer)),
         )
     }
 
-    private fun domainsCard(options: InputOptions): View {
+    /** 通讯录：打开时才申请读通讯录的权限，没给就保持关着。 */
+    private fun contactRows(): List<View> {
+        val settings = Settings.load(this)
+        val on = settings.contacts && ContactsSync.granted(this)
+        val rows = mutableListOf<View>(
+            ui.toggle(R.string.contacts_title, R.string.contacts_note, on) {
+                when {
+                    !it -> prefs.edit().putBoolean(Settings.KEY_CONTACTS, false).apply()
+                    ContactsSync.granted(this) -> prefs.edit().putBoolean(Settings.KEY_CONTACTS, true).apply()
+                    else -> requestPermissions(arrayOf(Manifest.permission.READ_CONTACTS), REQUEST_CONTACTS)
+                }
+                rebuild()
+            },
+        )
+        if (on) {
+            rows += ui.toggle(R.string.contact_details_title, R.string.contact_details_note, settings.contactDetails) {
+                prefs.edit().putBoolean(Settings.KEY_CONTACT_DETAILS, it).apply()
+            }
+        }
+        return rows
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode != REQUEST_CONTACTS) return
+        val granted = grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED
+        prefs.edit().putBoolean(Settings.KEY_CONTACTS, granted).apply()
+        if (!granted) Toast.makeText(this, R.string.contacts_denied, Toast.LENGTH_LONG).show()
+        rebuild()
+    }
+
+    private fun domainRows(options: InputOptions): List<View> {
         val rows = mutableListOf<View>()
-        domains.forEachIndexed { i, entry ->
-            if (i > 0) rows += ui.divider()
+        domains.forEach { entry ->
             rows += ui.toggle(entry.name, getString(R.string.dictionary_entries, entry.entries), entry.id in options.domains, null) {
                 val current = Settings.load(this).inputOptions.domains
                 val picked = if (it) current + entry.id else current - entry.id
                 prefs.edit().putStringSet(Settings.KEY_DOMAINS, picked).apply()
             }
         }
-        rows += ui.note(R.string.domains_note)
-        return ui.card(*rows.toTypedArray())
+        return rows
     }
 
-    private fun importedCard(options: InputOptions): View {
+    private fun importedRows(options: InputOptions): List<View> {
         val rows = mutableListOf<View>()
         if (imported.isEmpty()) rows += ui.row(getString(R.string.dictionary_none), null)
-        imported.forEachIndexed { i, entry ->
-            if (i > 0) rows += ui.divider()
+        imported.forEach { entry ->
             val note = if (entry.license.isEmpty()) {
                 getString(R.string.dictionary_entries, entry.entries)
             } else {
                 getString(R.string.dictionary_entries_license, entry.entries, entry.license)
             }
-            val delete = ui.text(getString(R.string.dictionary_delete), 14f, ui.colors.secondary).apply {
+            val delete = ui.text(getString(R.string.dictionary_delete), 14f, ui.colors.danger).apply {
                 gravity = Gravity.CENTER
                 setPadding(ui.dp(12), ui.dp(10), ui.dp(12), ui.dp(10))
                 setOnClickListener { confirmDelete(entry) }
@@ -82,12 +112,10 @@ class DictionariesActivity : PageActivity() {
                 prefs.edit().putStringSet(Settings.KEY_DISABLED_DICTIONARIES, disabled).apply()
             }
         }
-        rows += ui.divider()
-        rows += ui.action(if (importing) R.string.dictionary_importing else R.string.dictionary_import, null, ui.colors.brand) {
+        rows += ui.action(if (importing) R.string.dictionary_importing else R.string.dictionary_import, null) {
             if (!importing) pickFiles()
         }
-        rows += ui.note(R.string.imported_note)
-        return ui.card(*rows.toTypedArray())
+        return rows
     }
 
     private fun confirmDelete(entry: Entry) {
@@ -179,5 +207,6 @@ class DictionariesActivity : PageActivity() {
 
     private companion object {
         const val PICK_FILES = 1
+        const val REQUEST_CONTACTS = 2
     }
 }

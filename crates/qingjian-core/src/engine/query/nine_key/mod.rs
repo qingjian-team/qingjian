@@ -4,6 +4,7 @@
 mod commit;
 mod conversion;
 mod display;
+mod interjection;
 mod pin;
 
 use std::time::Instant;
@@ -14,6 +15,7 @@ use super::chinese_candidate;
 use crate::candidate::{Candidate, CandidateList};
 use crate::engine::{Engine, Learner, MAX_CANDIDATES, Query, Timings};
 use crate::nine_key::{self, Shape};
+use crate::parser::umlaut_spelling;
 use crate::ranking::{self, Scored};
 
 /// 词级查询看前几种形状。
@@ -57,6 +59,12 @@ impl Engine {
         if let Some(sentence) = self.nine_key_sentence(&shapes, &items) {
             items.insert(0, sentence);
         }
+        if let Some((at, candidate)) = self.nine_key_interjection(keys, shapes.first()) {
+            items.retain(|c| c.text != candidate.text);
+            items.insert(at.min(items.len()), candidate);
+        }
+        // 叹词插好再排：用户选过、看过的读法（`6` 偏向 n）压过叹词的位置（`6` 的 哦）
+        self.prefer_unpinned(&mut items, shapes.first());
         // 数字串不认 `rq` 这些（`77` 多半是别的词）；拼音列或长按把字母都定下来了才算
         let letters: String = keys.chars().filter(|&c| c != '\'').collect();
         if letters.bytes().all(|b| b.is_ascii_lowercase()) {
@@ -66,7 +74,7 @@ impl Engine {
         self.insert_keyword_shortcuts(&mut items);
         let rank = start.elapsed();
 
-        let pinyin_choices = display::pinyin_choices(shapes.first(), &items);
+        let pinyin_choices = display::pinyin_choices(keys, shapes.first(), &items);
         let typed_display = shapes
             .first()
             .map(|shape| display::marked(shape, items.first(), tail));
@@ -143,5 +151,49 @@ impl Engine {
                 });
             }
         }
+    }
+}
+
+impl Engine {
+    /// 光标后剩下的键（[`Engine::move_cursor_to_marked`] 挪进中间后）读出来，与拼音行一个键一个字母：
+    /// 挪之前这里读成什么还照那样读（[`Self::keep_nine_key_reading`]），没有的取第一种写法。
+    /// 这段不查词，读法只是给人看位置。
+    pub(in crate::engine) fn nine_key_rest(&self, rest: &str) -> String {
+        // 拼音行在这段前面自己接 `'`；选定的音节后面自动接的那个不再算一次
+        let keys = rest.trim_start_matches('\'');
+        let (shapes, tail) = nine_key::segment(keys);
+        let Some(shape) = shapes.first() else {
+            return rest.to_owned();
+        };
+        let offset = self.composition.scope().len() + (rest.len() - keys.len());
+        let kept = self
+            .nine_key_unpinned
+            .as_ref()
+            .filter(|(buffer, _)| buffer == self.composition.text())
+            .map(|(_, syllables)| syllables.as_slice())
+            .unwrap_or_default();
+        let mut parts: Vec<&str> = shape
+            .positions
+            .iter()
+            .map(|position| {
+                pin::kept_at(kept, offset + position.start)
+                    .and_then(|spelling| {
+                        position
+                            .alternatives
+                            .iter()
+                            .find(|a| spelling.starts_with(a.as_str()))
+                    })
+                    .unwrap_or(&position.alternatives[0])
+                    .as_str()
+            })
+            .collect();
+        if !tail.is_empty() {
+            parts.push(tail);
+        }
+        parts
+            .into_iter()
+            .map(umlaut_spelling)
+            .collect::<Vec<_>>()
+            .join("'")
     }
 }

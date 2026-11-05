@@ -244,3 +244,19 @@ fn holding_selections_can_be_turned_off() {
     let frame = select_text(&mut session, &frame, "你好");
     assert_eq!(frame.commit, "你好");
 }
+
+#[test]
+fn clearing_offers_an_undo_until_text_comes_back() {
+    let mut session = session();
+    let frame = session.cleared("你好，世界");
+    assert_eq!(frame.candidates.len(), 1);
+    assert_eq!(frame.candidates[0].text, "撤销");
+    // 删完光标前是空的，壳问补全时留着
+    assert_eq!(session.complete("").candidates.len(), 1);
+    let frame = session.select(0);
+    assert_eq!(frame.commit, "你好，世界");
+    assert!(frame.candidates.is_empty());
+
+    session.cleared("abc");
+    assert!(session.complete("x").candidates.is_empty());
+}

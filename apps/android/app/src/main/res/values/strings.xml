@@ -13,10 +13,6 @@
 
     <string name="stats_today">今日字数</string>
     <string name="stats_recent">近 7 天</string>
-    <string name="stats_english">英文 %1$d 词</string>
-    <string name="stats_days">用了 %1$d 天</string>
-    <string name="stats_today_speed_note">英文 %1$d 词 · %2$.0f 字/分</string>
-    <string name="stats_more">全部统计</string>
     <string name="stats_keys_per_hanzi">每字键数</string>
 
     <string name="page_stats">输入统计</string>
@@ -25,9 +21,7 @@
     <string name="stats_month">本月</string>
     <string name="stats_total">累计</string>
     <string name="stats_hanzi_value">%1$d 字</string>
-    <string name="stats_hours">过去 24 小时</string>
     <string name="stats_days_chart">最近 30 天</string>
-    <string name="stats_details">输入详情</string>
     <string name="stats_none">—</string>
     <string name="stats_best_day">最多的一天</string>
     <string name="stats_date">%1$d月%2$d日</string>
@@ -42,7 +36,7 @@
     <string name="stats_percent">%1$.0f%%</string>
     <string name="stats_code_length">平均码长</string>
     <string name="stats_code_length_value">%1$.1f 键/字</string>
-    <string name="stats_details_note">速度不算停顿超过 5 秒的时间；首选率是选第一个候选的比例，一次打对是上屏前没退格的比例；打得太少时显示「—」</string>
+    <string name="stats_details_note">速度不算停顿超过 5 秒的时间，最快的一天只算打满 5 分钟的日子；首选率是选第一个候选的比例，一次打对是上屏前没退格的比例；打得太少时显示「—」</string>
     <string name="stats_vocabulary">词汇</string>
     <string name="stats_vocabulary_off">学习语言选了「不显示」，不统计词汇</string>
     <string name="stats_vocabulary_empty">%1$s：还没见过译词</string>
@@ -50,46 +44,37 @@
     <string name="stats_level_value">见过 %1$d · 看熟 %2$d / 共 %3$d</string>
     <string name="stats_levels_note">深色是看熟的，浅色是见过的</string>
 
-    <string name="section_shortcuts">常用功能</string>
-    <string name="shortcut_switch">切换输入法</string>
     <string name="section_try">试一试</string>
     <string name="try_hint">在这里试打</string>
     <string name="voice_unavailable">语音输入还不能用，先在青简的「语音识别」里选好识别服务</string>
     <string name="voice_no_permission">没有麦克风权限，到系统设置里允许青简使用麦克风</string>
     <string name="voice_done">完成</string>
 
-    <string name="page_keyboard">键盘设置</string>
+    <string name="page_keyboard">键盘</string>
     <string name="page_about">关于</string>
-    <string name="keyboard_summary">布局、高度、全面屏、按键反馈、剪贴板</string>
+    <string name="keyboard_summary">尺寸、按键、手势</string>
     <string name="page_appearance">外观</string>
-    <string name="appearance_summary">主题、深浅色、候选字号</string>
     <string name="section_appearance">深浅色</string>
     <string name="appearance_system">跟随系统</string>
     <string name="appearance_light">浅色</string>
     <string name="appearance_dark">深色</string>
-    <string name="appearance_note">有的主题只有浅色</string>
+    <string name="appearance_note">键盘与本 App 都按它；有的主题只有浅色</string>
     <string name="section_theme">主题</string>
     <string name="section_text_size">候选字号</string>
     <string name="text_size_small">小</string>
     <string name="text_size_standard">标准</string>
     <string name="text_size_large">大</string>
     <string name="text_size_larger">特大</string>
-    <string name="text_size_note">候选和译词一起变；键上的字在键盘设置「键面字号」里调</string>
+    <string name="text_size_note">候选和译词一起变；键上的字在「设置 → 键盘 → 键面字号」里调</string>
 
-    <string name="section_layout">中文键盘</string>
-    <string name="layout_qwerty">全键盘（26 键）</string>
-    <string name="layout_nine">九宫格（9 键）</string>
+    <string name="section_layout">中文输入方案</string>
     <string name="layout_shuangpin">双拼</string>
-    <string name="layout_wubi">五笔（86 版）</string>
-    <string name="layout_zhuyin">注音（大千）</string>
     <string name="layout_nine_note">九宫格左边一列点一下可以定下拼音；英文都用全键盘</string>
-    <string name="section_shuangpin">双拼</string>
     <string name="shuangpin_scheme">双拼方案</string>
     <string name="shuangpin_raw_title">输入时显示按键</string>
     <string name="shuangpin_raw_note">输入框里显示敲的字母（ljse），关掉显示全拼（lan\'se）</string>
     <string name="shuangpin_hints_title">键上显示声韵母</string>
     <string name="shuangpin_hints_note">关掉键面和拼音全键盘一样</string>
-    <string name="section_wubi">五笔</string>
     <string name="wubi_mixed_title">五笔拼音混输</string>
     <string name="wubi_mixed_note">五笔里也能直接打拼音，打全码的字词排在前面</string>
     <string name="section_clipboard">剪贴板</string>
@@ -146,16 +131,16 @@
     <string name="process_text_source">原文</string>
     <string name="process_text_result">译文</string>
     <string name="process_text_translating">翻译中…</string>
-    <string name="process_text_failed">翻译失败，检查键盘设置里的云端大模型</string>
+    <string name="process_text_failed">翻译失败，检查青简「设置 → 云端大模型」</string>
     <string name="process_text_timeout">翻译失败，服务没有回应，检查网络</string>
     <string name="process_text_empty">翻译失败，服务没有给出译文</string>
     <string name="process_text_retry">重试</string>
-    <string name="process_text_no_cloud">先在「键盘设置 → 云端大模型」里填好接口和密钥</string>
+    <string name="process_text_no_cloud">先在青简「设置 → 云端大模型」里填好接口和密钥</string>
     <string name="process_text_settings">去设置</string>
     <string name="process_text_copy">复制</string>
     <string name="process_text_replace">替换</string>
     <string name="process_text_copied">已复制译文</string>
-    <string name="translate_no_cloud">快捷翻译要先在「键盘设置 → 云端大模型」里填好接口和密钥</string>
+    <string name="translate_no_cloud">快捷翻译要先在青简「设置 → 云端大模型」里填好接口和密钥</string>
     <string name="translate_needs_setup">快捷翻译要先填写云端大模型，点这里去设置</string>
     <string name="voice_needs_setup">语音输入要先选好识别服务，点这里去设置</string>
     <string name="clipboard_limit_value">%1$d 条</string>
@@ -172,10 +157,8 @@
     <string name="bottom_hide">收起键盘</string>
     <string name="bottom_none">不放</string>
 
-    <string name="section_learning">学习</string>
     <string name="learning_language_title">学习语言</string>
     <string name="learning_language_note">候选下面显示这门语言的译词，生词本也按它记；选「不显示」就都不记</string>
-    <string name="section_input">输入</string>
     <string name="fuzzy_title">模糊音</string>
     <string name="fuzzy_off">不用</string>
     <string name="fuzzy_on">开了 %d 条</string>
@@ -193,9 +176,7 @@
     <string name="learning_note">常选的词和自己打的新词排在前面；私密输入框里不学</string>
     <string name="traditional_variant_title">繁体字形</string>
     <string name="traditional_variant_note">功能面板里开了「繁体」时用；只换字形，不换说法</string>
-    <string name="dictionaries_title">词库</string>
     <string name="page_dictionaries">词库</string>
-    <string name="dictionaries_summary">领域词库与导入的词库</string>
     <string name="section_domains">领域词库</string>
     <string name="domains_note">勾上的词库里的词也能打出来</string>
     <string name="section_imported">导入的词库</string>
@@ -207,11 +188,17 @@
     <string name="dictionary_delete_confirm">删除「%1$s」？要用得重新导入</string>
     <string name="dictionary_none">还没有导入词库。</string>
     <string name="imported_note">可以一次选好几个文件</string>
+    <string name="section_contacts">通讯录</string>
+    <string name="contacts_title">通讯录里的名字</string>
+    <string name="contacts_note">打名字的拼音或简拼，通讯录里的人排在第一页，右上角带人头</string>
+    <string name="contact_details_title">上屏名字后给出电话、邮箱</string>
+    <string name="contact_details_note">点了才上屏，接着打字就收起</string>
+    <string name="contacts_footer">只在本机用：不上传、不发给云联想，也不记进学习和输入日志；关掉后键盘里的名字一起清掉</string>
+    <string name="contacts_denied">没有读通讯录的权限，可以在系统设置的应用权限里打开</string>
     <string name="candidate_forget">删除</string>
     <string name="candidate_forget_note">不再优先</string>
     <string name="section_keys">按键</string>
     <string name="haptic_title">按键震动</string>
-    <string name="haptic_strength_title">震动强度</string>
     <string name="haptic_light">轻</string>
     <string name="haptic_standard">标准</string>
     <string name="haptic_strong">重</string>
@@ -225,7 +212,12 @@
     <string name="swipe_input_title">滑行输入</string>
     <string name="swipe_input_note">手指不抬起，依次划过要打的字母；打不出来就照常点</string>
     <string name="flick_symbols_title">上滑输入</string>
-    <string name="flick_symbols_note">在键上往上一划，上屏键上角的数字或符号</string>
+    <string name="flick_symbols_note">在键上往上一划（斜着划也算），上屏键上角的数字或符号</string>
+    <string name="long_press_upper_title">长按出大写</string>
+    <string name="long_press_upper_note">长按字母不滑直接松手，上屏大写字母；关着时上屏键上角的符号</string>
+    <string name="flick_clear_title">上划删除键清空</string>
+    <string name="flick_clear_note">在删除键上往上一划，删掉光标前的全部文字，候选条上可以撤销；打拼音时只清空拼音</string>
+    <string name="flick_clear_bubble">清空</string>
     <string name="space_cursor_title">空格滑动移动光标</string>
     <string name="space_cursor_note">按住空格左右滑，按滑过的距离逐字移动光标；打拼音时不响应</string>
     <string name="spelling_correction_title">拼写纠错</string>
@@ -237,14 +229,11 @@
 
     <string name="tab_home">首页</string>
     <string name="tab_vocabulary">生词本</string>
-    <string name="tab_me">我的</string>
 
     <string name="vocabulary_intro">打字时候选旁见过的译词都记在这里</string>
     <string name="vocabulary_off">学习语言选了「不显示」，没有在记生词
 点右上角的语言重新选</string>
-    <string name="vocabulary_seen">见过</string>
     <string name="vocabulary_familiar">眼熟</string>
-    <string name="vocabulary_new">近 7 天新见</string>
     <string name="vocabulary_known">认识</string>
     <string name="vocabulary_fresh">生词</string>
     <string name="vocabulary_all_levels">全部等级</string>
@@ -269,19 +258,8 @@
     <string name="vocabulary_empty">还没有生词
 打字时候选旁的译词会记到这里</string>
 
-    <string name="me_title">青简</string>
-    <string name="me_note">本机 · 已陪你打字 %1$d 天</string>
-    <string name="me_total">累计字数</string>
-    <string name="me_words">生词</string>
-    <string name="me_days">使用天数</string>
-    <string name="section_settings">设置</string>
-    <string name="switch_summary">在系统输入法之间切换</string>
-    <string name="about_summary">版本、隐私与开源许可</string>
-    <string name="page_advanced">高级</string>
-    <string name="advanced_summary">导出数据、清空学习数据</string>
+    <string name="page_advanced">数据</string>
     <string name="page_voice">语音识别</string>
-    <string name="voice_summary">识别服务与密钥</string>
-    <string name="section_voice_service">识别服务</string>
     <string name="voice_provider">识别服务</string>
     <string name="voice_provider_none">不用</string>
     <string name="voice_provider_volcengine">火山引擎 · 豆包语音</string>
@@ -291,13 +269,21 @@
     <string name="voice_key">API Key</string>
     <string name="voice_none_note">没选识别服务时语音输入用不了</string>
     <string name="voice_note">在火山引擎开通「豆包流式语音识别」，把 API Key 填在这里，计费方式选你开通的那种；说话的录音会发给火山引擎，会产生费用</string>
-    <string name="section_data">数据</string>
     <string name="export_title">导出数据</string>
     <string name="export_value">存为 zip</string>
     <string name="export_running">导出中…</string>
     <string name="export_note">学过的词、生词本、统计和常用语打包成一个文件，不含剪贴板和导入的词库</string>
     <string name="export_done">已导出 %1$d 个文件</string>
     <string name="export_failed">导出失败，换个位置再试</string>
+    <string name="logs_section">日志</string>
+    <string name="logs_export_title">打包日志</string>
+    <string name="logs_send">发送给…</string>
+    <string name="logs_save">存到手机</string>
+    <string name="logs_export_note">日志、设置和机型信息打包成一个文件，直接发到 QQ、微信或存到手机，反馈问题时附上；不含密钥，不开详细日志时也不含打的字</string>
+    <string name="logs_export_done">已打包 %1$d 个文件</string>
+    <string name="logs_export_empty">还没有日志</string>
+    <string name="logs_verbose_title">详细日志</string>
+    <string name="logs_verbose_note">会记下打的内容，复现完问题请关掉</string>
     <string name="clear_learning_title">清空学习数据</string>
     <string name="clear_learning_note">统计、常用语、剪贴板、词库和设置不受影响</string>
     <string name="clear_habits">输入习惯（常选的词、造的词）</string>
@@ -315,4 +301,58 @@
     <string name="about_local_note">打字、词库、学习数据和统计都只在这台手机上；只有填了云端大模型或语音识别，才会把要翻译的文字或录音发给那家服务</string>
     <string name="about_license_title">开源许可</string>
     <string name="about_license_note">GPL-3.0-or-later</string>
+
+    <!-- App 的设置 tab 与拆开后的二级页 -->
+    <string name="tab_settings">设置</string>
+    <string name="section_typing">打字</string>
+    <string name="page_input">输入</string>
+    <string name="section_learning_language">学语言</string>
+    <string name="section_online">联网服务</string>
+    <string name="online_note">都用你自己填的服务；不填时青简完全离线。</string>
+    <string name="value_on">开</string>
+    <string name="value_off">关</string>
+    <string name="value_set">已设置</string>
+    <string name="value_unset">未设置</string>
+    <string name="status_current">青简是当前输入法</string>
+    <string name="layout_qwerty_short">全键盘</string>
+    <string name="layout_nine_short">九宫格</string>
+    <string name="layout_wubi_short">五笔</string>
+    <string name="layout_zhuyin_short">注音</string>
+    <string name="layout_english_note">英文都用全键盘。</string>
+    <string name="welcome_note">候选旁边显示译词，见过的词自动记进生词本。全部在本机，不联网也能用。</string>
+    <string name="section_setup">开始使用</string>
+    <string name="setup_pick_step">切换成青简</string>
+    <string name="setup_done">已完成</string>
+    <string name="stats_today_unit">字 · 英文 %1$d 词</string>
+    <string name="home_recent_words">最近见过的生词</string>
+    <string name="section_pinyin">拼音</string>
+    <string name="section_mixed">中英混打</string>
+    <string name="section_punctuation">标点与字形</string>
+    <string name="section_extras">候选后面</string>
+    <string name="extras_emoji">emoji</string>
+    <string name="extras_kaomoji">颜文字</string>
+    <string name="extras_symbols">符号</string>
+    <string name="extras_off">不显示</string>
+    <string name="extras_note">一次最多配几个：kaixin → 开心 😄，ku → 哭 (T_T)，yuedengyu → 约等于 ≈；不显示时候选里只有字词</string>
+    <string name="section_gestures">手势</string>
+
+    <string name="page_game_keyboard">游戏键盘</string>
+    <string name="game_keyboard_note">在下面勾上的应用里横屏打字时，换成半透明的悬浮小键盘，可以拖到任意位置；键盘外的地方照常点游戏。竖屏还是普通键盘。</string>
+    <string name="section_game_look">样子</string>
+    <string name="game_transparency_title">透明度</string>
+    <string name="game_size_title">键盘大小</string>
+    <string name="game_size_small">小</string>
+    <string name="game_size_medium">中</string>
+    <string name="game_size_large">大</string>
+    <string name="game_glosses_title">显示译词</string>
+    <string name="game_look_note">按住键盘顶上那一条拖动，位置按应用记住，下次打开还在原处。顶上左边的半圆按钮换透明度。</string>
+    <string name="section_game_apps">用游戏键盘的应用</string>
+    <string name="game_apps_note">列表里只有横屏用青简打过字的应用。也可以在应用里点工具栏的青简标志，用功能面板的「游戏键盘」开关；点悬浮键盘左上角的键盘按钮就换回普通键盘。</string>
+    <string name="game_apps_empty">还没有横屏打过字的应用</string>
+    <string name="game_on_in_landscape">已给这个应用打开游戏键盘，横屏打字时换成悬浮小键盘</string>
+    <string name="game_switched_off">这个应用换回普通键盘了，可在 设置 › 键盘 › 游戏键盘 重新打开</string>
+    <string name="section_service">服务</string>
+    <string name="section_cloud_uses">用在哪里</string>
+    <string name="stats_quality">打字质量</string>
+    <string name="cloud_uses_note">快捷翻译和翻译选中的文字也用这里的服务。</string>
 </resources>

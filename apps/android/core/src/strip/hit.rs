@@ -25,7 +25,7 @@ impl StripHit {
         let (candidate, sense) = match region.target {
             HitTarget::Candidate(candidate) => (candidate, None),
             HitTarget::Translation { candidate, sense } => (candidate, Some(sense)),
-            HitTarget::MenuItem(_) | HitTarget::Page(_) => return None,
+            HitTarget::MenuItem(_) | HitTarget::Page(_) | HitTarget::Panel(_) => return None,
         };
         Some(Self {
             candidate,

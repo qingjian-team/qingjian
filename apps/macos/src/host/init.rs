@@ -192,6 +192,7 @@ pub fn init(mtm: MainThreadMarker, info: &BundleInfo) -> Result<(), HostError> {
             translate_keys: KeyCombo::TRANSLATE_DEFAULT,
             punctuation_keys: None,
             predict_keys: KeyCombo::PREDICT_DEFAULT,
+            translate_panel_keys: KeyCombo::TRANSLATE_PANEL_DEFAULT,
             manual_prediction: None,
             candidate_translation: None,
             translation: None,

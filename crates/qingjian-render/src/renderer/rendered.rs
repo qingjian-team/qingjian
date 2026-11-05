@@ -2,7 +2,7 @@
 
 use bamboo_slip::{Painted, Pixmap};
 
-use super::{HitRegion, HitTarget};
+use super::{HitRegion, HitTarget, PreeditHit};
 use crate::MaterialBacking;
 
 /// 不透明度低于它（约 5%）的投影外圈在浅色底上也几乎看不出，避让时不算。
@@ -33,6 +33,9 @@ pub struct Rendered {
 
     /// 壳要在内容区底下垫的系统材质；`None` 是不透明窗口，阴影也在位图里。
     pub material: Option<MaterialBacking>,
+
+    /// 拼音行上各字之间的位置，点拼音行挪光标用；这一帧没画拼音行时为 `None`。
+    pub preedit: Option<PreeditHit>,
 }
 
 impl Rendered {
@@ -47,7 +50,12 @@ impl Rendered {
             next_frame: painted.next_frame,
             hits,
             material: None,
+            preedit: None,
         }
+    }
+
+    pub(crate) fn with_preedit(self, preedit: Option<PreeditHit>) -> Self {
+        Self { preedit, ..self }
     }
 
     pub(crate) fn with_material(self, material: Option<MaterialBacking>) -> Self {

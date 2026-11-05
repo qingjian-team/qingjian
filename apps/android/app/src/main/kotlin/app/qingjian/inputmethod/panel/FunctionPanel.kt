@@ -49,6 +49,8 @@ class FunctionPanel(
         Feature(Icon.TUNE, "定制工具栏") { openPanel(PanelKind.TOOLBAR) },
         Feature(Icon.GLOBE, "切换输入法") { switchInputMethod() },
         Feature(Icon.SETTINGS, "设置") { openSettings() },
+    ) + listOfNotNull(
+        actions.gameKeyboard?.let { on -> Feature(null, "游戏键盘", glyph = "游", on = on) { toggleGameKeyboard() } },
     )
 
     private val toggles

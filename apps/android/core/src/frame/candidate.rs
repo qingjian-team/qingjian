@@ -17,6 +17,9 @@ pub struct FrameCandidate {
 
     /// 来自云联想（云端词或整句补全）：候选条上画小云朵、用云端色。
     pub cloud: bool,
+
+    /// 是通讯录里的名字：候选条在词的右上角画一个人头。
+    pub contact: bool,
 }
 
 impl FrameCandidate {
@@ -27,7 +30,13 @@ impl FrameCandidate {
             senses: Vec::new(),
             forgettable: false,
             cloud: false,
+            contact: false,
         }
+    }
+
+    pub fn with_contact(mut self, contact: bool) -> Self {
+        self.contact = contact;
+        self
     }
 }
 
@@ -43,6 +52,7 @@ impl From<&Candidate> for FrameCandidate {
                 .collect(),
             forgettable: candidate.kind.forgettable(),
             cloud: candidate.kind == CandidateKind::Cloud,
+            contact: false,
         }
     }
 }

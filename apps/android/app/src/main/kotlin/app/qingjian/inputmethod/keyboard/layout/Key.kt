@@ -24,7 +24,7 @@ sealed class Key(val label: String, val weight: Float = 1f) {
         weight: Float = 1f,
         val flickShift: Boolean = false,
     ) : Key(char.toString(), weight) {
-        /** 长按气泡：大写、角标符号、小写，气泡对着键居中，不滑抬手出符号（与键面角标一致）。 */
+        /** 长按气泡：大写、角标符号、小写，气泡对着键居中，不滑抬手出符号（与键面角标一致；「长按出大写」开着时出大写）。 */
         override val choices: List<String>
             get() = if (hint.isEmpty()) emptyList() else listOf(char.uppercase(), hint, char.toString())
 

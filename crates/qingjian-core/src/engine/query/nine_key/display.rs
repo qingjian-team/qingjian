@@ -1,13 +1,37 @@
 //! 九宫格给壳显示的两样东西：拼音列与拼音行。
 
-use crate::candidate::Candidate;
-use crate::nine_key::Shape;
+use std::cmp::Reverse;
 
-/// 拼音列：第一个没定下来的位置上的全部写法，按「带这个音节的最靠前候选」排序，没有候选的排最后。
-pub(super) fn pinyin_choices(shape: Option<&Shape>, items: &[Candidate]) -> Vec<String> {
+use crate::candidate::Candidate;
+use crate::nine_key::{self, Position, Shape};
+
+/// 拼音列：第一个没定下来的位置上的全部写法，按「带这个音节的最靠前候选」排序，没有候选的排最后；
+/// 再接从这个位置起别的长度能读成的音节（长的在前）与单个字母，`643` 除了 nie / mie 还能选 ni、mi、n、m、o。
+pub(super) fn pinyin_choices(
+    keys: &str,
+    shape: Option<&Shape>,
+    items: &[Candidate],
+) -> Vec<String> {
     let Some((index, position)) = shape.and_then(Shape::first_open) else {
         return Vec::new();
     };
+    let mut choices = ranked(index, position, items);
+    let mut others: Vec<String> = nine_key::spellings_from(keys, position.start)
+        .into_iter()
+        .filter(|spelling| !choices.contains(spelling))
+        .collect();
+    let read_as = |spelling: &str| {
+        items
+            .iter()
+            .position(|c| c.syllables.get(index).is_some_and(|s| s == spelling))
+            .unwrap_or(usize::MAX)
+    };
+    others.sort_by_cached_key(|s| (Reverse(s.len()), read_as(s), s.clone()));
+    choices.extend(others);
+    choices
+}
+
+fn ranked(index: usize, position: &Position, items: &[Candidate]) -> Vec<String> {
     let rank = |alternative: &str| {
         items
             .iter()

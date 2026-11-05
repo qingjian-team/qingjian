@@ -5,8 +5,10 @@
 
 mod convert;
 mod font_files;
+mod panel;
 
 pub(crate) use font_files::{available_families, family_files};
+pub use panel::PanelPainter;
 
 use objc2::AnyThread;
 use objc2::rc::Retained;

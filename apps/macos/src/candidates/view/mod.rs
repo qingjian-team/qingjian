@@ -7,6 +7,7 @@ mod click;
 mod context_menu;
 mod matrix;
 mod panel;
+mod size;
 
 use std::cell::{Cell, RefCell};
 
@@ -25,7 +26,7 @@ use objc2_foundation::{
 use qingjian_platform::{CandidateRenderer, LayoutMode};
 
 use super::animation::AnimationTimer;
-use super::bitmap::BitmapPainter;
+use super::bitmap::{BitmapPainter, PanelPainter};
 use super::bounds::ViewBounds;
 use super::cloud_icon::CloudIcon;
 use super::frame::Frame;
@@ -57,6 +58,9 @@ pub struct Ivars {
     /// 位图渲染器；`None` 走 AppKit 逐项绘制。按配置建或丢。
     bitmap: RefCell<Option<BitmapPainter>>,
 
+    /// 符号面板的位图；第一次打开面板时建，建不起来留空（面板不显示）。
+    panel: RefCell<Option<PanelPainter>>,
+
     /// 用户选的字族名（空为系统字体），换了要重建渲染器。
     font: RefCell<String>,
 
@@ -74,6 +78,9 @@ pub struct Ivars {
 
     /// 触控板滚动攒下还不够一行的距离（点）。
     scroll_rest: Cell<f64>,
+
+    /// 正在翻译框里拖选：上一次报出去的光标位置，没动就不再报。
+    drag: Cell<Option<usize>>,
 
     /// 右键菜单的两头（host 注册）。
     on_menu: RefCell<Option<MenuHandlers>>,
@@ -150,6 +157,16 @@ define_class!(
             }
         }
 
+        #[unsafe(method(mouseDragged:))]
+        fn mouse_dragged(&self, event: &NSEvent) {
+            self.panel_dragged(event);
+        }
+
+        #[unsafe(method(mouseUp:))]
+        fn mouse_up(&self, _event: &NSEvent) {
+            self.ivars().drag.set(None);
+        }
+
         #[unsafe(method(rightMouseDown:))]
         fn right_mouse_down(&self, event: &NSEvent) {
             self.right_clicked(event);
@@ -163,7 +180,7 @@ define_class!(
         #[unsafe(method(drawRect:))]
         fn draw_rect(&self, _dirty: NSRect) {
             if self.ivars().frame.borrow().is_panel() {
-                self.draw();
+                self.draw_panel();
             } else if let Some(bitmap) = &mut *self.ivars().bitmap.borrow_mut() {
                 bitmap.draw(self.is_dark(), self.backing_scale());
             } else {
@@ -183,12 +200,14 @@ impl CandidateView {
             cloud,
             theme,
             bitmap: RefCell::new(None),
+            panel: RefCell::new(None),
             font: RefCell::new(String::new()),
             render_theme: RefCell::new(qingjian_render::Theme::light()),
             animation: RefCell::new(AnimationTimer::default()),
             on_click: RefCell::new(None),
             on_panel_mouse: RefCell::new(None),
             scroll_rest: Cell::new(0.0),
+            drag: Cell::new(None),
             on_menu: RefCell::new(None),
             menu: RefCell::new(None),
         });
@@ -212,6 +231,9 @@ impl CandidateView {
     /// 渲染器主题，只对青简渲染器生效。配置或主题文件变了才会调，每次都当场重画。
     pub fn set_render_theme(&self, theme: qingjian_render::Theme) {
         *self.ivars().render_theme.borrow_mut() = theme.clone();
+        if let Some(panel) = &mut *self.ivars().panel.borrow_mut() {
+            panel.set_theme(theme.clone());
+        }
         if let Some(bitmap) = &mut *self.ivars().bitmap.borrow_mut() {
             bitmap.set_theme(theme);
             self.setNeedsDisplay(true);
@@ -281,9 +303,11 @@ impl CandidateView {
     pub fn set_frame(&self, frame: &Frame) -> ViewBounds {
         *self.ivars().frame.borrow_mut() = frame.clone();
         self.setNeedsDisplay(true);
-        if frame.is_panel() {
+        if let Some(panel) = &frame.panel {
             self.stop_animation();
-            return ViewBounds::filled(self.preferred_size());
+            return self
+                .set_panel_frame(panel)
+                .unwrap_or_else(|| ViewBounds::filled(objc2_foundation::NSSize::ZERO));
         }
         let bounds = self.ivars().bitmap.borrow_mut().as_mut().map(|bitmap| {
             bitmap.set_frame(
@@ -358,120 +382,9 @@ impl CandidateView {
             .and_then(BitmapPainter::material)
     }
 
-    /// 在用青简渲染器（阴影画在位图里）；否则是 AppKit 逐项绘制，要系统阴影。
+    /// 这一帧是位图（阴影画在位图里）：青简渲染器画的候选窗与符号面板；否则是 AppKit 逐项绘制，要系统阴影。
     pub fn uses_bitmap(&self) -> bool {
-        self.ivars().bitmap.borrow().is_some()
-    }
-
-    fn preferred_size(&self) -> NSSize {
-        let theme = self.theme();
-        let frame = self.ivars().frame.borrow();
-        if frame.is_panel() {
-            let (width, height) = self.panel_size(&frame);
-            return NSSize::new(width + theme.padding * 2.0, height + theme.padding * 2.0);
-        }
-        let (top_width, top_height) = self.top_line_size(&frame);
-        let (body_width, body_height) = match self.ivars().layout.get() {
-            LayoutMode::Vertical => self.vertical_size(&frame),
-            LayoutMode::Horizontal if frame.columns > 0 => self.matrix_size(&frame),
-            LayoutMode::Horizontal => self.horizontal_size(&frame),
-        };
-        let width = top_width.max(body_width);
-        NSSize::new(
-            width + theme.padding * 2.0,
-            top_height + body_height + theme.padding * 2.0,
-        )
-    }
-
-    /// 顶部拼音行（含右侧整句补全）需要的宽高；没有这一行时都是 0。
-    fn top_line_size(&self, frame: &Frame) -> (f64, f64) {
-        if !frame.has_top_line() {
-            return (0.0, 0.0);
-        }
-        let theme = self.theme();
-        let line_height = self.measure("x", &theme.annotation_font).height;
-        let mut width = 0.0;
-        if let Some(preedit) = &frame.preedit {
-            width += self.measure(&preedit.text(), &theme.annotation_font).width + CARET_WIDTH;
-        }
-        if let Some((text, cloud)) = frame.trailing() {
-            if frame.preedit.is_some() {
-                width += SENTENCE_GAP;
-            }
-            if cloud {
-                width += self.cloud_width();
-            }
-            width += self.measure(text, &theme.annotation_font).width;
-        }
-        (width, line_height + theme.row_padding * 2.0)
-    }
-
-    fn vertical_size(&self, frame: &Frame) -> (f64, f64) {
-        let theme = self.theme();
-        let columns = self.columns(&frame.rows);
-        let mut width = columns.index_width + theme.column_gap + columns.text_width;
-        if columns.annotation_width > 0.0 {
-            width += theme.column_gap + columns.annotation_width;
-        }
-        let mut height = columns.row_height * frame.rows.len() as f64;
-        if let Some(footer) = frame.footer.as_deref() {
-            let footer_size = self.measure(footer, &theme.index_font);
-            width = width.max(footer_size.width);
-            height += footer_size.height + theme.row_padding;
-        }
-        (width, height)
-    }
-
-    fn horizontal_size(&self, frame: &Frame) -> (f64, f64) {
-        let theme = self.theme();
-        if frame.rows.is_empty() {
-            return (0.0, 0.0);
-        }
-        let (items, row_height) = self.items(&frame.rows);
-        let mut width: f64 = items
-            .iter()
-            .map(|item| item.index_width + INDEX_GAP + item.text_width)
-            .sum::<f64>()
-            + theme.column_gap * (items.len().saturating_sub(1)) as f64
-            + HIGHLIGHT_INSET * 2.0;
-        if let Some(footer) = frame.footer.as_deref() {
-            width += theme.column_gap + self.measure(footer, &theme.index_font).width;
-        }
-        let mut height = row_height;
-        if let Some((annotation_width, annotation_height)) = self.highlighted_annotation_size(frame)
-        {
-            width = width.max(annotation_width);
-            height += annotation_height;
-        }
-        (width, height)
-    }
-
-    /// 横排时高亮候选的译文行尺寸；高亮候选没有译文时为 `None`。
-    fn highlighted_annotation_size(&self, frame: &Frame) -> Option<(f64, f64)> {
-        let theme = self.theme();
-        let row = frame.rows.get(frame.highlighted)?;
-        if row.annotation.is_empty() {
-            return None;
-        }
-        let width: f64 = row
-            .annotation
-            .iter()
-            .map(|(s, _)| self.measure(s, &theme.annotation_font).width)
-            .sum();
-        let height = self.measure("x", &theme.annotation_font).height + theme.row_padding;
-        Some((width, height))
-    }
-
-    /// 云朵图标占的宽度（含后面的间距）。
-    fn cloud_width(&self) -> f64 {
-        let cloud = &self.ivars().cloud;
-        let width = if cloud.is_symbol() {
-            cloud.width()
-        } else {
-            self.measure(CLOUD_FALLBACK, &self.theme().annotation_font)
-                .width
-        };
-        width + CLOUD_GAP
+        self.ivars().frame.borrow().is_panel() || self.ivars().bitmap.borrow().is_some()
     }
 
     /// 画云朵，返回占用宽度（含间距）。`top` 是所在行文字的顶边，`line_height` 用来垂直居中。
@@ -558,10 +471,6 @@ impl CandidateView {
         )
         .fill();
 
-        if frame.is_panel() {
-            self.draw_panel(&frame, bounds);
-            return;
-        }
         let mut y = theme.padding;
         y += self.draw_top_line(&frame, y);
         match self.ivars().layout.get() {

@@ -15,7 +15,7 @@ import app.qingjian.inputmethod.settings.widget.Wash
 import app.qingjian.inputmethod.theme.AppColors
 
 /**
- * App 二级页的底子：与首页同样的渐变灰底，顶栏固定、下面一列卡片单独滚，自己让出系统栏（targetSdk 35 起内容强制画到系统栏下面）。
+ * App 二级页的底子：与首页同样的灰底，顶栏固定、下面一列分组单独滚，自己让出系统栏（targetSdk 35 起内容强制画到系统栏下面）。
  * 子类给出 [title] 与 [content] 里的各块，[rebuild] 重画整页（滚动位置保留）。
  */
 abstract class PageActivity : Activity() {
@@ -37,7 +37,7 @@ abstract class PageActivity : Activity() {
         val scrolled = scroll?.scrollY ?: 0
         val column = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(ui.dp(16), ui.dp(4), ui.dp(16), ui.dp(32))
+            setPadding(ui.dp(16), 0, ui.dp(16), ui.dp(32))
             content().forEach(::addView)
         }
         val scroll = ScrollView(this).apply {
@@ -47,7 +47,7 @@ abstract class PageActivity : Activity() {
         }
         this.scroll = scroll
         val bar = ui.topBar(getString(title)) { finish() }
-        ui.liftOnScroll(bar, scroll)
+        bar.background = ui.barBackground(bottomLine = true)
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             addView(bar)
@@ -56,9 +56,9 @@ abstract class PageActivity : Activity() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             root.setOnApplyWindowInsetsListener { view, insets ->
                 val bars = insets.getInsets(WindowInsets.Type.systemBars() or WindowInsets.Type.ime())
-                // 状态栏那一截算顶栏的，浮起来时白底一起铺上去
+                // 状态栏（含刘海）那一截算顶栏的，留多高由系统给，栏底色一起铺上去
                 view.setPadding(bars.left, 0, bars.right, bars.bottom)
-                bar.setPadding(ui.dp(16), bars.top + ui.dp(4), ui.dp(16), ui.dp(8))
+                bar.setPadding(ui.dp(4), bars.top, ui.dp(4), 0)
                 insets
             }
         } else {

@@ -176,6 +176,8 @@ impl Engine {
     }
 
     pub fn push(&mut self, c: char) {
+        // 打了新键：退回成数字的音节不再偏向用户之前选的写法
+        self.nine_key_unpinned = None;
         if self.composition.is_empty() {
             // 新一段组句：从这一键起算耗时、翻页与重打
             self.composition_started = Some(Instant::now());
@@ -183,6 +185,8 @@ impl Engine {
             self.page_turns = 0;
             self.retype_snapshot = None;
             self.typing.restart();
+            // 翻译框里选着字时开始打拼音：同记事本一样先删掉选中的字，拼音画在原处
+            self.remove_panel_selection();
         }
         self.typing.key(Instant::now());
         // 进缓冲区的字符也更新「上一个字符是不是数字」：直通了 `3` 再接着打拼音，
@@ -219,13 +223,25 @@ impl Engine {
             return true;
         }
         self.note_edit();
-        self.composition.backspace()
+        // 九宫格：末尾是拼音列选定的音节就整个退回成数字，先撤选择、再删键
+        if self.unpin_nine_key() {
+            return true;
+        }
+        let before = self.nine_key.then(|| self.composition.text().to_owned());
+        let removed = self.composition.backspace();
+        if removed {
+            if let Some(before) = before {
+                self.follow_nine_key_deletion(&before);
+            }
+            self.drop_pin_separator();
+        }
+        removed
     }
 
     pub fn clear(&mut self) {
         self.composition.clear();
         self.held.clear();
-        self.panel = None;
+        self.take_panel();
         self.aux_code = None;
         self.chain.leave_buffer();
         // 壳给的光标前文只对这段组句有效，下一段第一键再读
@@ -423,7 +439,7 @@ impl Engine {
 }
 
 /// 光标后的第一个「单位」占几个字节：先跳过紧跟的 `'`，再算一个音节；规则同 [`unit_len_before`]。
-fn unit_len_after(after: &str, shuangpin: bool, plain: bool) -> usize {
+pub(super) fn unit_len_after(after: &str, shuangpin: bool, plain: bool) -> usize {
     let trimmed = after.trim_start_matches('\'');
     let separators = after.len() - trimmed.len();
     let Some(first) = trimmed.chars().next() else {

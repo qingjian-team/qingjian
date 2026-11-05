@@ -32,7 +32,7 @@ The simplest approach is to start from a built-in theme and change a few colours
 ```
 
 - `theme.json` can contain comments (`//` to the end of the line, or `/* … */`), and a trailing comma after the last item of an object or list is fine.
-- `extends` names the base theme: `qingjian` (青简绿), `system-blue` (系统蓝), `wechat` (微信绿), `sakura` (樱花), `dafeiyu` (大肥鱼), `miku` (初音未来) or `bocchi` (波奇酱). Anything you don't write is taken from the base theme, and the base theme's images don't need to be copied into your folder. Without `extends`, 青简绿 is the base.
+- `extends` names the base theme: `qingjian` (青简绿), `system-blue` (系统蓝), `wechat` (微信绿), `sujian` (素笺), `sakura` (樱花), `dafeiyu` (大肥鱼), `miku` (初音未来) or `bocchi` (波奇酱). Anything you don't write is taken from the base theme, and the base theme's images don't need to be copied into your folder. Without `extends`, 青简绿 is the base.
 - `meta.id` must be the same as the folder name, can't be the same as a built-in theme, and can't be `system`, `light` or `dark`; `meta.name` is the name shown in the theme list.
 - Colours are written as `#rrggbb`, or `#rrggbbaa` with opacity; written as `{ "light": …, "dark": … }`, the light and dark appearances each use one.
 
@@ -48,6 +48,7 @@ Colours you can change:
 | `fresh` | Glosses of new words |
 | `cloud` | Cloud candidates and the cloud icon |
 | `hl_text`, `hl_gloss`, `hl_faint`, `hl_fresh`, `hl_cloud` | The matching colours within the highlighted row |
+| `kb_board`, `kb_function`, `kb_brand` | The phone keyboard's background, function keys and Enter key (worked out from `surface` and `accent` if not given) |
 
 ## Gradients and images
 

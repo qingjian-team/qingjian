@@ -33,7 +33,7 @@ themes/
 ```
 
 - `theme.json` 里可以写注释（`//` 到行尾，或 `/* … */`），对象和列表的最后一项后面多一个逗号也没关系。
-- `extends` 写底子主题：`qingjian`（青简绿）、`system-blue`（系统蓝）、`wechat`（微信绿）、`sakura`（樱花）、`dafeiyu`（大肥鱼）、`miku`（初音未来）或 `bocchi`（波奇酱）。没写的部分都沿用底子主题；底子主题的图片不用拷进自己的文件夹。不写 `extends` 就以青简绿为底。
+- `extends` 写底子主题：`qingjian`（青简绿）、`system-blue`（系统蓝）、`wechat`（微信绿）、`sujian`（素笺）、`sakura`（樱花）、`dafeiyu`（大肥鱼）、`miku`（初音未来）或 `bocchi`（波奇酱）。没写的部分都沿用底子主题；底子主题的图片不用拷进自己的文件夹。不写 `extends` 就以青简绿为底。
 - `meta.id` 必须与文件夹名相同，且不能与内置主题重名，也不能是 `system`、`light`、`dark`；`meta.name` 是主题列表里显示的名字。
 - 颜色写作 `#rrggbb` 或带不透明度的 `#rrggbbaa`；写成 `{ "light": …, "dark": … }` 时浅色与深色外观各用一个。
 
@@ -49,6 +49,7 @@ themes/
 | `fresh` | 生词的译词 |
 | `cloud` | 云端候选与云朵 |
 | `hl_text`、`hl_gloss`、`hl_faint`、`hl_fresh`、`hl_cloud` | 高亮那一行里对应的颜色 |
+| `kb_board`、`kb_function`、`kb_brand` | 手机键盘的底板、功能键、回车键（不写就按 `surface` 与 `accent` 自动配） |
 
 ## 渐变与图片
 
@@ -239,6 +240,28 @@ Windows 屏幕右下角的悬浮状态条也可以按主题画，写法与候选
 - 整条状态条也能用「显示输入状态」里的 `mode.english` 等，自己决定画什么。
 - 格子之间可以夹装饰，点到装饰算前一格。
 - 不写 `root` 时状态条按原来的样子画，只用 `status` 里的颜色与尺寸。macOS 没有悬浮状态条。
+
+## 符号面板
+
+符号面板（组句时按 ↑，或从状态条、菜单打开）的排法是固定的：顶上一行分组，下面一行分类，中间是格子，底下一行显示选中条目的名字。主题里能改的是字体、尺寸和颜色，写在 `panel` 下面，只写想改的几项就行，其余照青简绿：
+
+```json
+"panel": {
+  "background": { "image": "images/panel-bg.svg", "slice": [24, 24, 24, 24] },
+  "highlight": "@accent",
+  "pill_fill": "@cyan",
+  "pill_text": "#ffffff",
+  "radius": 14
+}
+```
+
+- `background`（整块的底）、`pill_fill`（当前分组）、`highlight`（选中的格子）可以写纯色、渐变或图片，写法同「渐变与图片」。
+- 文字颜色：`text`（条目和当前分类）、`label`（其余分组与分类、条目名字）、`hint`（按键提示和行号）、`pill_text`（当前分组的字）。
+- 其余颜色：`underline_color`（当前分类下划线）、`divider`（分类下面的分隔线）、`close_fill`、`close_icon`（右上角的关闭按钮）。
+- 字体：`label_font`、`hint_font`、`item_font`（一行十格时的条目）、`wide_item_font`（颜文字这类一行放不满十格的条目）。
+- 尺寸（点）：`padding`、`radius`、`cell`（格子高，也是一行十格时的格宽）、`cell_gap`、`cell_radius`、`pill_padding_x`、`pill_padding_y`、`pill_gap`、`tab_gap`、`underline`、`section_gap`、`close_size`。
+- 投影写在 `effects`，写法同「阴影」。
+- 面板不跟设置里的候选字号变大变小。
 
 ## 过渡动画
 

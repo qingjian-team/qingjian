@@ -91,6 +91,9 @@ enter = "Enter"
 [phrase_file]
 empty = "ファイルにユーザー定義フレーズがありません"
 is_config = "これは設定ファイルで、フレーズファイルではありません。設定は「詳細」ページで読み込み、フレーズは先に別のパソコンで書き出してください"
+no_tab = "文字と入力コードはタブで区切ってください"
+skipped_entry = "{entry} 件目：{reason}"
+skipped_line = "{line} 行目「{text}」：{reason}"
 unreadable = "このファイルを読み込めません。青簡が書き出したフレーズファイルでも、「文字<Tab>入力コード」を 1 行 1 件で書いたテキストでもありません"
 
 [settings_file]

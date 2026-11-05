@@ -61,6 +61,9 @@ pub enum Feature {
     NumpadDigit,
     /// 双拼候选窗口的拼音行显示敲的键。
     ShuangpinRawWindow,
+
+    /// 没在打字时打开符号面板翻译组的快捷键。
+    TranslatePanel,
 }
 
 impl Feature {
@@ -95,6 +98,7 @@ impl Feature {
         Self::Clipboard,
         Self::NumpadDigit,
         Self::ShuangpinRawWindow,
+        Self::TranslatePanel,
     ];
 
     /// 当前平台显示这一项。
@@ -144,6 +148,8 @@ impl Feature {
             Self::ApiUsage => [Yes, Yes, Yes],
             Self::CloudRequestControls => [Yes, Yes, Yes],
             Self::VocabularyTranslation => [Yes, Yes, Yes],
+            // 符号面板只有 macOS 与 Windows 有
+            Self::TranslatePanel => [Yes, Yes, No],
             Self::KeyHint => [Yes, Yes, Todo],
             // Fcitx 面板与应用里的行内拼音共用一串，还没分开
             Self::ShowTones => [Yes, Yes, Todo],
@@ -189,6 +195,7 @@ impl Feature {
             Self::Clipboard => "青简剪贴板",
             Self::NumpadDigit => "小键盘数字",
             Self::ShuangpinRawWindow => "双拼候选窗显示按键",
+            Self::TranslatePanel => "打开符号面板的翻译组",
         }
     }
 
@@ -226,6 +233,7 @@ impl Feature {
                 (PageId::Shortcuts, "shortcut.predict"),
             ],
             Self::VocabularyTranslation => &[(PageId::Cloud, "cloud.vocabulary_translation")],
+            Self::TranslatePanel => &[(PageId::Shortcuts, "shortcut.translate_panel")],
             Self::KeyHint => &[(PageId::Input, "input.key_hint")],
             Self::ShowTones => &[(PageId::Candidates, "candidates.show_tones")],
             Self::NumpadDigit => &[(PageId::Candidates, "candidates.numpad_digit")],

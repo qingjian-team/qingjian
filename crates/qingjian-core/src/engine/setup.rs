@@ -312,6 +312,9 @@ impl Engine {
         if self.code_only() || (self.shuangpin.is_some() && self.shuangpin_raw_preedit) {
             return rest.to_owned();
         }
+        if self.nine_key {
+            return self.nine_key_rest(rest);
+        }
         match self.decode(rest) {
             Some(decoded) => decoded.marked(),
             None => marked_rest(rest),
@@ -366,6 +369,7 @@ impl Engine {
     /// 设置显式选区翻译的提供方，独立于自动联想；取消后旧结果不会上屏。
     pub fn set_translation_predictor(&mut self, predictor: Option<Box<dyn Predictor>>) {
         self.cancel_prediction();
+        self.panel_translations.clear();
         self.translation_predictor = predictor;
     }
 
@@ -377,6 +381,7 @@ impl Engine {
     /// 运行时换掉 Predictor（菜单开关云联想 / 配置热加载）；正在等的联想一并作废。
     pub fn set_predictor(&mut self, predictor: Box<dyn Predictor>) {
         self.cancel_prediction();
+        self.panel_translations.clear();
         self.predictor = predictor;
     }
 
@@ -699,13 +704,14 @@ impl Engine {
         self.model_words.as_ref()
     }
 
-    /// 查词用的全部词库：主词库、附加词库、内置的符号与 emoji 名字、用户词。
+    /// 查词用的全部词库：主词库、附加词库、内置的符号与 emoji 名字、通讯录、用户词。
     pub(super) fn all_dictionaries(&self) -> Vec<&Dictionary> {
         let mut all = Vec::with_capacity(self.extra_dictionaries.len() + 2);
         all.push(&self.dictionary);
         all.extend(self.extra_dictionaries.iter());
         all.extend(self.model_words.as_ref());
         all.extend(self.companion_words);
+        all.extend(self.contact_book().map(crate::ContactBook::dictionary));
         if let Some(user) = self.learner.user_words() {
             all.push(user);
         }

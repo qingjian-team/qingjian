@@ -14,6 +14,12 @@ pub enum PanelMouse {
     /// 滚轮滚了几行，正数往下。
     Scroll(isize),
 
+    /// 点或拖到翻译框的原文里：光标放到第 `position` 个字之后；`extend` 时选区从原来的光标拉到这里（拖动、Shift 点击）。
+    Caret { position: usize, extend: bool },
+
+    /// 点翻译框里当前一页的第几个候选：选进框里。
+    Candidate(usize),
+
     /// 点右上角的 ✕。
     Close,
 }
