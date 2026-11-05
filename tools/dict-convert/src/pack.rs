@@ -191,3 +191,23 @@ fn report(out: &Path, entries: usize, started: Instant) {
         "已打包"
     );
 }
+
+/// 每个 `.qj` 压成 `<out_dir>/<主干>.qjz`。
+pub fn qjz(inputs: &[PathBuf], out_dir: &Path) -> Result<(), ConvertError> {
+    std::fs::create_dir_all(out_dir)?;
+    for input in inputs {
+        let stem = input
+            .file_stem()
+            .unwrap_or(input.as_os_str())
+            .to_string_lossy();
+        let output = out_dir.join(format!("{stem}.qjz"));
+        qingjian_format::qjz::compress(input, &output)?;
+        tracing::info!(
+            input = %input.display(),
+            output = %output.display(),
+            bytes = std::fs::metadata(&output)?.len(),
+            "compressed"
+        );
+    }
+    Ok(())
+}

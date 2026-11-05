@@ -15,6 +15,7 @@ mod error;
 mod file;
 pub mod hash;
 mod layout;
+pub mod qjz;
 mod view;
 
 pub use error::FormatError;

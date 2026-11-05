@@ -26,7 +26,7 @@ The core dictionary includes 36,000 rare characters (extended characters outside
   a reading written in the list wins, then the whole word's reading in the dictionaries, then readings from splitting it by dictionary words (`中华人民共和国` uses 中华, 人民 and 共和国), and finally the most common reading for each remaining character.
   Words whose characters aren't in the bundled dictionaries are skipped; the result says how many were skipped and shows the first few.
 - **Sogou cell dictionaries** (`.scel`): dictionaries downloaded from Sogou's dictionary site. Words and pinyin are read; they carry no frequencies (each word counts as 100), and the name comes from the file name.
-- **Qingjian dictionaries** (`.qj`): dictionary files made by others, with their own name and license.
+- **Qingjian dictionaries** (`.qj`, or compressed `.qjz`): dictionary files made by others, with their own name and license. A `.qjz` is unpacked during import; there's no need to decompress it first.
 
 - Imported dictionaries are listed below the bundled ones with their name, entry count and license, and are turned on automatically; the input method usually starts using them within about a second, no restart needed.
 - One file failing doesn't affect the others; the result for each file is shown when done. Files with no usable entries can't be imported.

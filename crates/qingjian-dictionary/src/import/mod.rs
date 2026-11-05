@@ -1,4 +1,4 @@
-//! 导入词库：把用户给的文件（青简 TSV、Rime `.dict.yaml`、现成的 `.qj`）变成用户词库目录里的一个 `.qj`；
+//! 导入词库：把用户给的文件（青简 TSV、Rime `.dict.yaml`、现成的 `.qj` 与压缩的 `.qjz`）变成用户词库目录里的一个 `.qj`；
 //! 另有 [`import_word_list`] 收「只有词、没有拼音」的词表，读音从参考词库取（见 `word_list` 模块）。
 //!
 //! 导入时只做格式转换，不做拼音校验：不合法的音节查不到而已，不影响别的词。
@@ -14,7 +14,7 @@ mod word_list;
 
 use std::path::{Path, PathBuf};
 
-use qingjian_format::{Container, Metadata};
+use qingjian_format::{Container, Kind, Metadata, qjz};
 
 use crate::dictionary::Dictionary;
 use crate::error::DictionaryError;
@@ -56,6 +56,7 @@ pub fn import_dictionary(
     references: &[&Dictionary],
 ) -> Result<ImportedDictionary, DictionaryError> {
     let needs_readings = !Container::is_qj(source)
+        && !qjz::is_qjz(source)
         && std::fs::read_to_string(source).is_ok_and(|text| has_words_without_reading(&text));
     if needs_readings {
         let done = import_word_list(source, dest_dir, references)?;
@@ -81,6 +82,9 @@ pub fn import(source: &Path, dest_dir: &Path) -> Result<Imported, DictionaryErro
     let stem = stem_of(source)?;
     std::fs::create_dir_all(dest_dir)?;
     let target = dest_dir.join(format!("{stem}.qj"));
+    if qjz::is_qjz(source) {
+        return import_qjz(source, &stem, target);
+    }
     let (dictionary, metadata) = if Container::is_qj(source) {
         let dictionary = Dictionary::open_qj(source)?;
         let metadata = dictionary.metadata().cloned().unwrap_or_default();
@@ -119,6 +123,30 @@ pub fn import(source: &Path, dest_dir: &Path) -> Result<Imported, DictionaryErro
         (dictionary, metadata)
     };
     finish_import(dictionary, metadata, target)
+}
+
+/// `.qjz` 先解到系统临时目录，再按 `.qj` 导入；解出来不是拼音词库（释义表等）就拒绝。
+/// 不直接解进词库目录：输入法会扫那里的 `.qj`，半成品不能让它看见。
+fn import_qjz(source: &Path, stem: &str, target: PathBuf) -> Result<Imported, DictionaryError> {
+    let unpacked =
+        std::env::temp_dir().join(format!("qingjian-import-{}-{stem}.qj", std::process::id()));
+    let result = qjz::unpack(source, &unpacked)
+        .map_err(DictionaryError::from)
+        .and_then(|(kind, _)| {
+            if kind != Kind::Dictionary {
+                return Err(DictionaryError::Format(
+                    qingjian_format::FormatError::WrongKind {
+                        expected: Kind::Dictionary,
+                        found: kind as u16,
+                    },
+                ));
+            }
+            let dictionary = Dictionary::open_qj(&unpacked)?;
+            let metadata = dictionary.metadata().cloned().unwrap_or_default();
+            finish_import(dictionary, metadata, target)
+        });
+    let _ = std::fs::remove_file(&unpacked);
+    result
 }
 
 /// 导入无读音词表：每行 `词` / `词<Tab>词频` / `词<Tab>读音[<Tab>词频]`（口径见 `word_list` 模块），
@@ -188,6 +216,7 @@ pub(crate) fn strip_extensions(file_name: &str) -> String {
         ".tsv",
         ".txt",
         ".scel",
+        ".qjz",
         ".qj",
     ] {
         if let Some(s) = stem.strip_suffix(suffix) {
@@ -204,173 +233,4 @@ pub fn target_name(stem: &str) -> PathBuf {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn imports_tsv_and_rime_into_qj() {
-        let dir = std::env::temp_dir().join(format!("qingjian-import-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&dir);
-        std::fs::create_dir_all(&dir).unwrap();
-        let tsv = dir.join("finance.tsv");
-        std::fs::write(&tsv, "账套\tzhang tao\t500\n").unwrap();
-        let imported = import(&tsv, &dir.join("dicts")).unwrap();
-        assert_eq!(imported.name, "finance");
-        assert_eq!(imported.entries, 1);
-        let dictionary = Dictionary::from_path(&imported.path).unwrap();
-        assert_eq!(dictionary.lookup(&["zhang", "tao"], false)[0].text, "账套");
-        assert_eq!(dictionary.metadata().unwrap().name, "finance");
-
-        let rime = dir.join("law.dict.yaml");
-        std::fs::write(
-            &rime,
-            "# Rime dictionary\n---\nname: law\nversion: \"1\"\nsort: by_weight\n...\n合同法\the tong fa\t120\n民法典\tmin fa dian\n",
-        )
-        .unwrap();
-        let imported = import(&rime, &dir.join("dicts")).unwrap();
-        assert_eq!(imported.path.file_name().unwrap(), "law.qj");
-        assert_eq!(imported.name, "law");
-        assert_eq!(imported.entries, 2);
-        let dictionary = Dictionary::from_path(&imported.path).unwrap();
-        assert_eq!(
-            dictionary.lookup(&["min", "fa", "dian"], false)[0].text,
-            "民法典"
-        );
-        std::fs::remove_dir_all(&dir).unwrap();
-    }
-
-    #[test]
-    fn imports_tone_numbered_pinyin() {
-        let dir =
-            std::env::temp_dir().join(format!("qingjian-import-tones-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&dir);
-        std::fs::create_dir_all(&dir).unwrap();
-        let tsv = dir.join("toned.tsv");
-        std::fs::write(&tsv, "东西\tdong1 xi5\t20\n绿色\tlv4 se4\t10\n").unwrap();
-        assert!(!format::is_code_table(
-            &std::fs::read_to_string(&tsv).unwrap()
-        ));
-        let imported = import(&tsv, &dir.join("dicts")).unwrap();
-        let dictionary = Dictionary::from_path(&imported.path).unwrap();
-        let hit = dictionary.lookup(&["dong", "xi"], false)[0];
-        assert_eq!((hit.text, hit.pinyin), ("东西", "dong xi"));
-        assert_eq!(hit.tones.to_vec(2), [1, 5]);
-        assert_eq!(dictionary.lookup(&["lv", "se"], false)[0].text, "绿色");
-        std::fs::remove_dir_all(&dir).unwrap();
-    }
-
-    #[test]
-    fn refuses_wubi_words_as_pinyin() {
-        let dir = std::env::temp_dir().join(format!("qingjian-import-wubi-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&dir);
-        std::fs::create_dir_all(&dir).unwrap();
-        let tsv = dir.join("wubi-test.tsv");
-        std::fs::write(&tsv, "拉混\truji\t1\n青简\tgetu\t1\n").unwrap();
-        assert!(matches!(
-            import(&tsv, &dir.join("dicts")),
-            Err(DictionaryError::CodeWords)
-        ));
-        assert!(!dir.join("dicts/wubi-test.qj").exists());
-        std::fs::remove_dir_all(&dir).unwrap();
-    }
-
-    #[test]
-    fn imports_word_list_deriving_readings_from_the_reference() {
-        let dir =
-            std::env::temp_dir().join(format!("qingjian-import-words-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&dir);
-        std::fs::create_dir_all(&dir).unwrap();
-        let reference = Dictionary::parse("李\tli\t900\n三\tsan\t900\n").unwrap();
-        let list = dir.join("names.txt");
-        std::fs::write(&list, "李三\n囧三\n").unwrap();
-
-        let imported = import_word_list(&list, &dir.join("dicts"), &[&reference]).unwrap();
-        assert_eq!(imported.imported.path.file_name().unwrap(), "names.qj");
-        assert_eq!(imported.imported.name, "names");
-        assert_eq!(imported.imported.entries, 1);
-        assert_eq!(imported.report.words, 1);
-        assert_eq!(imported.report.unknown, ["囧三".to_owned()]);
-        let dictionary = Dictionary::from_path(&imported.imported.path).unwrap();
-        assert_eq!(dictionary.lookup(&["li", "san"], false)[0].text, "李三");
-        std::fs::remove_dir_all(&dir).unwrap();
-    }
-
-    #[test]
-    fn rejects_word_list_without_any_derivable_word() {
-        let dir =
-            std::env::temp_dir().join(format!("qingjian-import-names-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&dir);
-        std::fs::create_dir_all(&dir).unwrap();
-        let reference = Dictionary::parse("三\tsan\t900\n").unwrap();
-        let list = dir.join("names.txt");
-        std::fs::write(&list, "囧囧\n").unwrap();
-
-        assert!(matches!(
-            import_word_list(&list, &dir.join("dicts"), &[&reference]),
-            Err(DictionaryError::NoWordEntries)
-        ));
-        std::fs::remove_dir_all(&dir).unwrap();
-    }
-
-    #[test]
-    fn strips_known_extensions() {
-        assert_eq!(strip_extensions("law.dict.yaml"), "law");
-        assert_eq!(strip_extensions("dict.tsv"), "dict");
-        assert_eq!(strip_extensions("x.qj"), "x");
-        assert_eq!(strip_extensions("noext"), "noext");
-    }
-
-    /// 建一个临时目录，跑完删掉。
-    fn scratch(name: &str) -> PathBuf {
-        let dir =
-            std::env::temp_dir().join(format!("qingjian-import-{name}-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&dir);
-        std::fs::create_dir_all(&dir).unwrap();
-        dir
-    }
-
-    #[test]
-    fn auto_import_derives_readings_for_word_lists() {
-        let dir = scratch("auto-words");
-        let reference = Dictionary::parse("李\tli\t900\n三\tsan\t900\n").unwrap();
-        // 只有词的 txt：全部按参考词库派生
-        let list = dir.join("names.txt");
-        std::fs::write(&list, "李三\n囧三\n").unwrap();
-        let done = import_dictionary(&list, &dir.join("dicts"), &[&reference]).unwrap();
-        assert_eq!(done.imported.entries, 1);
-        assert_eq!(done.report.unwrap().unknown, ["囧三".to_owned()]);
-
-        // Rime 词库混了有读音的行：没读音的派生，写明的原样保留
-        let rime = dir.join("mixed.dict.yaml");
-        std::fs::write(&rime, "---\nname: mixed\n...\n李三\n三\tsan\t5\n").unwrap();
-        let done = import_dictionary(&rime, &dir.join("dicts"), &[&reference]).unwrap();
-        assert_eq!(done.imported.entries, 2);
-        let dictionary = Dictionary::from_path(&done.imported.path).unwrap();
-        assert_eq!(dictionary.lookup(&["li", "san"], false)[0].text, "李三");
-        std::fs::remove_dir_all(&dir).unwrap();
-    }
-
-    #[test]
-    fn auto_import_keeps_normal_dictionaries_on_the_plain_path() {
-        let dir = scratch("auto-plain");
-        let reference = Dictionary::parse("李\tli\t900\n三\tsan\t900\n").unwrap();
-        // 每行都有读音：仍走普通导入，返回的 report 为空
-        let rime = dir.join("law.dict.yaml");
-        std::fs::write(&rime, "---\nname: law\n...\n合同法\the tong fa\t120\n").unwrap();
-        let done = import_dictionary(&rime, &dir.join("dicts"), &[&reference]).unwrap();
-        assert!(done.report.is_none());
-        assert_eq!(done.imported.name, "law");
-
-        // 混进来的带数字声调的行也照原样保留（词表按无读音处理时同样认）
-        let list = dir.join("toned.txt");
-        std::fs::write(&list, "东西\tdong1 xi5\t20\n李三\n").unwrap();
-        let done = import_dictionary(&list, &dir.join("dicts"), &[&reference]).unwrap();
-        let dictionary = Dictionary::from_path(&done.imported.path).unwrap();
-        assert_eq!(
-            dictionary.lookup(&["dong", "xi"], false)[0].pinyin,
-            "dong xi"
-        );
-        assert_eq!(dictionary.lookup(&["li", "san"], false)[0].text, "李三");
-        std::fs::remove_dir_all(&dir).unwrap();
-    }
-}
+mod tests;

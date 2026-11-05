@@ -268,6 +268,13 @@ pub enum Command {
     /// 用的两张开发期对照表到 `data/mmh/`（笔画数、首笔几何类别，见模块文档与 assets/stroke/README.md）
     MmhReference(MmhReferenceOptions),
 
+    /// 把 `.qj` 压成分发用的 `.qjz`（词库仓库的 Release 附件、设置页导入与下载）：每个输入写 <输出目录>/<主干>.qjz
+    Qjz {
+        /// 要压的 `.qj`
+        #[arg(required = true)]
+        inputs: Vec<PathBuf>,
+    },
+
     /// 把 TSV 打包成 `.qj` 容器（mmap 直接用，启动近零耗时）：`dict` 读 dict.tsv 写 dict.qj，`lm` 读 lm-unigram/bigram.tsv 写 lm.qj，
     /// `glossary --language en` 读 glossary-en.tsv 写 glossary-en.qj；`model` 把导出的三件套目录（缺省 data/models/hanzhang-zhiwei）
     /// 打成一个 .qjm（`--out-dir data/models/hanzhang-zhiwei` 就写回原目录，随包只带这一个文件）；

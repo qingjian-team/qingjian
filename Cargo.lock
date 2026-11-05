@@ -4285,6 +4285,7 @@ dependencies = [
 name = "qingjian-format"
 version = "0.1.1"
 dependencies = [
+ "flate2",
  "memmap2",
  "serde",
  "thiserror 2.0.21",

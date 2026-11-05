@@ -20,6 +20,9 @@ pub enum ConvertError {
     #[error(transparent)]
     Neural(#[from] qingjian_neural::NeuralError),
 
+    #[error(transparent)]
+    Container(#[from] qingjian_format::FormatError),
+
     /// `pack` 少了必填的元数据（只有 `codes` 有缺省值）。
     #[error("pack {kind} needs --name")]
     MissingName {

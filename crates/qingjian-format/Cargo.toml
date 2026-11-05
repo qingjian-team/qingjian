@@ -10,6 +10,7 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
+flate2 = "1.1.10"
 memmap2.workspace = true
 serde.workspace = true
 thiserror.workspace = true

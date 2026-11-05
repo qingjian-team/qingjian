@@ -225,6 +225,7 @@ fn run() -> Result<(), ConvertError> {
         ),
         Command::Stroke(options) => stroke::convert(&options, &args.out_dir),
         Command::MmhReference(options) => mmh::generate(&options),
+        Command::Qjz { inputs } => pack::qjz(&inputs, &args.out_dir),
         Command::Pack {
             kind,
             input,
