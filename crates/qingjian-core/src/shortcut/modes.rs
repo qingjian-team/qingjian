@@ -27,11 +27,24 @@ pub enum Mode<'a> {
         /// 冒号之后的表达式原文。
         body: &'a str,
     },
+
+    /// 进制转换：`base;128;16`。
+    Base {
+        /// 冒号之后的参数原文（`128;16`）。
+        args: &'a str,
+    },
+
+    /// 统计：`stat;1;2;3`。
+    Stat {
+        /// 冒号之后的参数原文。
+        args: &'a str,
+    },
 }
 
 /// 拆子模式。`body` 是表达式键之后的部分（不含 `v`）。
 ///
-/// 没有冒号时返回 `None`：那是缺省计算，交给原来的四则 / 日期 / 时间戳那套。
+/// 没有分隔符时先把整段当一个无参子模式名认一次（`vuuid`、`vts`），仍认不出来就返回
+/// `None` —— 那是缺省计算，交给原来的四则 / 日期 / 时间戳那套。
 pub fn parse(body: &str) -> Option<Mode<'_>> {
     match split_colon(body) {
         Some((name, rest)) => named(name, rest),
@@ -43,13 +56,29 @@ pub fn parse(body: &str) -> Option<Mode<'_>> {
 /// 按名字认子模式。`uuid` 与 `ts` 无参（`ts` 的参数是可选时刻），其余要参数。
 fn named<'a>(name: &str, rest: &'a str) -> Option<Mode<'a>> {
     if name == UUID_KEYWORD {
-        return Some(Mode::Uuid);
+        Some(Mode::Uuid)
+    } else if name == TIMESTAMP_KEYWORD {
+        Some(Mode::Timestamp { at: rest.trim() })
+    } else if name == "base" {
+        Some(Mode::Base { args: rest })
+    } else if name == "stat" {
+        Some(Mode::Stat { args: rest })
+    } else {
+        Some(Mode::Bit {
+            width: parse_bit_width(name)?,
+            body: rest,
+        })
     }
-    if name == TIMESTAMP_KEYWORD {
-        return Some(Mode::Timestamp { at: rest.trim() });
-    }
-    let width = parse_bit_width(name)?;
-    Some(Mode::Bit { width, body: rest })
+}
+
+/// 带参数子模式的参数：按分号切，全角半角与逗号都算，空段丢掉。
+///
+/// `vbase;128;16` 与 `vstat;1;2;3` 都走这里，参数个数由各子模式自己校验。
+pub fn split_args(args: &str) -> Vec<&str> {
+    args.split([';', '；', ',', '，'])
+        .map(str::trim)
+        .filter(|part| !part.is_empty())
+        .collect()
 }
 
 /// 认 `bit` / `bitu` / `bitN` / `bitNu`；别的名字返回 `None`。
