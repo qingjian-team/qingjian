@@ -45,6 +45,23 @@ fn shuangpin_uses_shifted_expression_key() {
 }
 
 #[test]
+fn paramless_submodes_need_no_separator() {
+    let mut engine = engine();
+    // `vuuid` 与 `vuuid;` 等价，都是四条
+    engine.set_input("vuuid");
+    assert_eq!(texts_of(&engine).len(), 4);
+    engine.set_input("vuuid;");
+    assert_eq!(texts_of(&engine).len(), 4);
+    // `vts` 与 `vts;` 等价
+    engine.set_input("vts");
+    assert_eq!(texts_of(&engine).len(), 4);
+    engine.set_input("vts;");
+    assert_eq!(texts_of(&engine).len(), 4);
+    // 带参数的仍照旧
+    engine.set_input("vts;2026-11-05");
+    assert_eq!(texts_of(&engine).len(), 4);
+}
+#[test]
 fn timestamp_takes_semicolon_and_its_argument() {
     let mut engine = engine();
     engine.set_input("vts");
