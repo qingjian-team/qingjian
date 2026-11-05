@@ -12,7 +12,7 @@ For keys you can change, see [Changing keys](../personalize/keys-settings.md); A
 | Action | macOS | Windows | Linux |
 |---|---|---|---|
 | Switch Chinese / English | `Caps Lock`; after ticking 单击 Shift (Tap Shift) under 切换键 (Switch key) in 设置 → 中英文 (Settings → Chinese/English), also a tap of `Shift` (`Caps Lock` then only controls capitals). A 中 / 英 hint flashes in the top-right corner of the screen when you switch | Tap `Shift`; the system's `Ctrl + Space`; click 中 / 英 on the taskbar or the floating status bar | Tap `Shift` |
-| Type uppercase English directly | Hold `⇧` in English mode | `Caps Lock` on (in either mode) | `Caps Lock` on |
+| Type uppercase English directly | Hold `⇧` in English mode; with Tap Shift ticked or 中英文切换 (Chinese/English switching) turned off, `Caps Lock` on also types capitals | `Caps Lock` on (in either mode) | `Caps Lock` on |
 | Type one capital letter while typing pinyin | `⇧ + letter` | `Shift + letter` | `Shift + letter` |
 | Switch full-width / half-width punctuation | `⌃ + .` can be enabled (off by default) | Click the ，。 cell on the floating status bar; `Ctrl + .` can be enabled (off by default) | — |
 | Switch Simplified / Traditional output | — | `Ctrl + Shift + F` can be enabled (off by default) | — |

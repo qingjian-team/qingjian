@@ -12,6 +12,7 @@ description: "Entering English mode, changing or turning off the Chinese/English
   You can also tick 单击 Shift (Tap Shift) under 切换键 (Switch key) in 设置 → 中英文 (Settings → Chinese/English): a tap of `Shift` (press and release on its own) then switches between Chinese and English.
   Holding `Shift` for more than 0.3 seconds before releasing it doesn't count as a tap, so selecting text with Shift held doesn't switch. Leave it off if you often hit Shift by accident while typing. Once it's on, `Caps Lock` only controls capitals, so with it lit you type capital letters directly.
   A 中 / 英 hint flashes in the top-right corner of the screen when you switch (with Tap Shift on, toggling `Caps Lock` flashes 大写 / 小写, capitals / lowercase).
+  With 中英文切换 (Chinese/English switching) turned off in 设置 → 中英文 (Settings → Chinese/English), input stays in Chinese and `Caps Lock` only controls capitals.
   **Tapping Shift while typing pinyin**: the letters you've typed are committed as they are (`nihao` → `nihao`) and English mode starts, so you don't need to press Enter first.
 - **Windows**: tap `Shift` (press and release on its own, without another key) to switch between Chinese and English. The taskbar shows 中 or 英 to match, and A while Caps Lock is on.
   Clicking the 中 / 英 icon on the taskbar also switches.
@@ -39,8 +40,8 @@ On Windows, if you also have an English keyboard or another input method install
 On Linux, Fcitx5 by default sets **left** `Shift` to "temporarily switch between the current and the first input method", and it receives the key before Qingjian does: tapping left `Shift` switches straight to the English keyboard regardless of Qingjian's switch key setting.
 To let only Qingjian handle left `Shift`, clear that entry under Global Options → Hotkey in the Fcitx5 configuration.
 
-If you prefer to use two separate input methods for Chinese and English, turn off **英文模式 (English mode)** in the first row of 设置 → 中英文 (Settings → Chinese/English): Qingjian then stays in Chinese, and neither the switch key nor the status bar button switches to English.
-When you need English, switch to another input method with `Win + Space` on Windows or Fcitx's switch hotkey on Linux.
+If you prefer to use two separate input methods for Chinese and English, turn off **中英文切换 (Chinese/English switching)** in the first row of 设置 → 中英文 (Settings → Chinese/English): Qingjian then stays in Chinese, and neither the switch key nor the status bar button switches to English.
+When you need English, switch to another input method with the system input source shortcut on macOS, `Win + Space` on Windows or Fcitx's switch hotkey on Linux.
 
 ## Default mode and per-app memory
 
@@ -51,7 +52,7 @@ The 英文 (English) group in 设置 → 中英文 (Settings → Chinese/English
 
 For example, with both on, new apps start in English, and switching Notepad to Chinese doesn't change the browser's English mode.
 Remembered modes last for as long as Qingjian is running, so closing and reopening an app still restores them; after Qingjian restarts, the default mode applies again.
-Changing either option or toggling 英文模式 (English mode) clears the remembered modes. When English mode is off, it's always Chinese and "Start in English mode" has no effect.
+Changing either option or toggling 中英文切换 (Chinese/English switching) clears the remembered modes. When Chinese/English switching is off, it's always Chinese and "Start in English mode" has no effect.
 
 ## Typing in English mode
 
@@ -112,7 +113,7 @@ If the 中 / 英 indicator on the taskbar is easy to miss, you can open a floati
 
 | Cell | Shows | Click to |
 | --- | --- | --- |
-| `中` / `注` / `英` | The current mode (注 for Dachen Zhuyin; double pinyin and Wubi show something like 中 · 小鹤双拼) | Switch Chinese / English; always 中 when English mode is off |
+| `中` / `注` / `英` | The current mode (注 for Dachen Zhuyin; double pinyin and Wubi show something like 中 · 小鹤双拼) | Switch Chinese / English; always 中 when Chinese/English switching is off |
 | `，。` / `,.` | Whether punctuation is full-width or half-width in the current mode; Chinese and English each keep their own | Switch full-width / half-width for the current mode |
 | `符` | | Open the [symbol panel](punctuation.md#Symbol-panel) |
 | ⚙ | | Open Settings |

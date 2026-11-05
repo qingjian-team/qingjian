@@ -67,9 +67,12 @@ impl Host {
         logging::set_level(config.general.log_level);
         self.translation_keys = config.shortcut.translation_keys();
         self.translate_keys = config.shortcut.translate_selection;
-        // 中英切换键：macOS 只认单击 Shift（勾上后 Caps Lock 退化成只管大小写），其余勾选项不用但要说一声
+        // 中英切换键：macOS 只认单击 Shift（勾上后 Caps Lock 退化成只管大小写），其余勾选项不用但要说一声。
+        // 关掉英文模式时 Shift 与 Caps Lock 两条路都不切
         self.mode_switch
-            .set_enabled(config.shortcut.switch_mode.shift);
+            .set_enabled(config.general.english_mode && config.shortcut.switch_mode.shift);
+        self.mode_switch
+            .set_english_off(!config.general.english_mode);
         self.mode_switch.set_third_enabled(
             config.general.double_shift_input == qingjian_platform::ThirdInputMethod::Vietnamese,
         );

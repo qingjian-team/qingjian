@@ -34,8 +34,11 @@ fn is_shift_key(key_code: u16) -> bool {
 /// 单击 Shift 的判定与它切出来的持久英文模式。
 #[derive(Default)]
 pub struct ModeSwitch {
-    /// 配置里勾了「单击 Shift」（`[shortcut] switch_mode` 含 shift）。
+    /// 配置里勾了「单击 Shift」（`[shortcut] switch_mode` 含 shift）且没关掉英文模式。
     enabled: bool,
+
+    /// 配置关掉了英文模式（`[general] english_mode = false`）：固定中文，Caps Lock 也不再切到英文。
+    english_off: bool,
 
     /// Shift 按下之后还没有别的键插进来时，按下的时刻；抬起时没超过 [`TAP_WINDOW`] 就算一次单击。
     pending: Option<Instant>,
@@ -72,6 +75,14 @@ impl ModeSwitch {
 
     pub fn vietnamese(&self) -> bool {
         self.vietnamese
+    }
+
+    pub fn english_off(&self) -> bool {
+        self.english_off
+    }
+
+    pub fn set_english_off(&mut self, off: bool) {
+        self.english_off = off;
     }
 
     pub fn set_third_enabled(&mut self, enabled: bool) {
@@ -240,9 +251,9 @@ impl Host {
         true
     }
 
-    /// 中英模式：勾了「单击 Shift」时由 Shift 的切换决定（Caps Lock 退化成只管大小写），没勾看 Caps Lock。
+    /// 中英模式：关掉英文模式时固定中文；勾了「单击 Shift」时由 Shift 的切换决定（Caps Lock 退化成只管大小写），没勾看 Caps Lock。
     pub fn english_mode(&self) -> bool {
-        if self.mode_switch.vietnamese() {
+        if self.mode_switch.vietnamese() || self.mode_switch.english_off() {
             return false;
         }
         if self.mode_switch.enabled() {
