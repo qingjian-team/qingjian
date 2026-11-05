@@ -33,7 +33,7 @@ themes/
 ```
 
 - `theme.json` 里可以写注释（`//` 到行尾，或 `/* … */`），对象和列表的最后一项后面多一个逗号也没关系。
-- `extends` 写底子主题：`qingjian`（青简绿）、`system-blue`（系统蓝）、`wechat`（微信绿）、`sujian`（素笺）、`sakura`（樱花）、`dafeiyu`（大肥鱼）、`miku`（初音未来）或 `bocchi`（波奇酱）。没写的部分都沿用底子主题；底子主题的图片不用拷进自己的文件夹。不写 `extends` 就以青简绿为底。
+- `extends` 写底子主题：`qingjian`（青简绿）、`system-blue`（系统蓝）、`wechat`（微信绿）、`sujian`（素笺）、`glass`（玻璃）、`slate`（墨岩）、`sakura`（樱花）、`dafeiyu`（大肥鱼）、`miku`（初音未来）或 `bocchi`（波奇酱）。没写的部分都沿用底子主题；底子主题的图片不用拷进自己的文件夹。不写 `extends` 就以青简绿为底。
 - `meta.id` 必须与文件夹名相同，且不能与内置主题重名，也不能是 `system`、`light`、`dark`；`meta.name` 是主题列表里显示的名字。
 - 颜色写作 `#rrggbb` 或带不透明度的 `#rrggbbaa`；写成 `{ "light": …, "dark": … }` 时浅色与深色外观各用一个。
 

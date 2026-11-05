@@ -65,7 +65,7 @@ The right side of each row shows the current setting, such as the input method o
 设置 → 外观 (Settings → Appearance):
 
 - Light/dark: follow system, light or dark; the app and the keyboard change together (the app itself needs Android 12 or later; on earlier versions it follows the system). 樱花, 大肥鱼, 初音未来 and 波奇酱 are light only and stay light when dark is chosen.
-- Themes: the same nine themes as on desktop (青简绿, 系统蓝, 微信绿, 素笺, 玻璃, 樱花, 大肥鱼, 初音未来, 波奇酱), each card showing what the candidate bar and keyboard look like. Once selected, the keyboard, candidate bar, symbol and emoji panels and quick translation bar all take on that theme's colours.
+- Themes: the same ten themes as on desktop (青简绿, 系统蓝, 微信绿, 素笺, 玻璃, 墨岩, 樱花, 大肥鱼, 初音未来, 波奇酱), each card showing what the candidate bar and keyboard look like. Once selected, the keyboard, candidate bar, symbol and emoji panels and quick translation bar all take on that theme's colours.
 - Candidate size: small, standard, large or extra large; candidates and glosses scale together, including when all candidates are expanded, and the candidate bar gets taller with larger sizes. The labels on the keys are set separately under 设置 → 键盘 → 键面字号 (Settings → Keyboard → Key label size).
 
 The preview at the top of the page shows the current theme, light/dark mode and size.
