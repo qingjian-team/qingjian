@@ -15,10 +15,10 @@ impl Engine {
         start: Instant,
     ) -> Query {
         let body = scope.strip_prefix(self.modes().expression).unwrap_or(scope);
-        let mut items = if shortcut::is_generated_keyword(body) {
-            self.generated_candidates(body)
-        } else {
-            shortcut::candidates(scope, self.modes().expression, &jiff::Zoned::now())
+        // `vts;` 与 `vts` 等价，`vts;2026-11-05` 按指定日期算：分号后面是参数
+        let mut items = match shortcut::generated_call(body) {
+            Some((keyword, args)) => self.generated_candidates(keyword, args),
+            None => shortcut::candidates(scope, self.modes().expression, &jiff::Zoned::now()),
         };
         if let Some(candidate) = self.english_word_candidate(scope) {
             items.push(candidate);
@@ -173,7 +173,7 @@ impl Engine {
                 // `unchanged` 这类长词前面不相干，弱匹配由 `lookup` 的门槛挡着。
                 items.extend(chaizi_candidates(body));
                 if scope == shortcut::UUID_KEYWORD {
-                    items.extend(self.generated_candidates(shortcut::UUID_KEYWORD));
+                    items.extend(self.generated_candidates(shortcut::UUID_KEYWORD, ""));
                 }
                 (CandidateList { items }, tail)
             }
@@ -258,11 +258,15 @@ impl Engine {
     }
 
     /// `keyword`（`uuid` / `ts`）的候选：这段组句第一次查时生成，之后反复查都是同一组，换了词才重新生成。
-    fn generated_candidates(&self, keyword: &str) -> Vec<Candidate> {
+    ///
+    /// 缓存键带上参数：`vts` 与 `vts;2026-11-05` 是两组不同的值，不能互相命中。
+    fn generated_candidates(&self, keyword: &'static str, args: &str) -> Vec<Candidate> {
+        let key = format!("{keyword};{args}");
         let mut cache = self.generated_forms.borrow_mut();
-        if cache.as_ref().is_none_or(|(cached, _)| cached != keyword) {
-            let forms = shortcut::generated_forms(keyword, &jiff::Zoned::now()).unwrap_or_default();
-            *cache = Some((keyword.to_owned(), forms));
+        if cache.as_ref().is_none_or(|(cached, _)| cached != &key) {
+            let forms =
+                shortcut::generated_forms(keyword, args, &jiff::Zoned::now()).unwrap_or_default();
+            *cache = Some((key, forms));
         }
         let forms = cache
             .as_ref()
