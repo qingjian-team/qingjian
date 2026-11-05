@@ -68,7 +68,7 @@ pub enum Feature {
 
 impl Feature {
     #[cfg(test)]
-    pub const ALL: [Self; 29] = [
+    pub const ALL: [Self; 30] = [
         Self::AuxCode,
         Self::Schemes,
         Self::SwitchKeys,
