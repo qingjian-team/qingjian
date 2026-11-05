@@ -1,5 +1,3 @@
-// 墨岩 slate —— 方角 + #1e3a46 主色
-// 底子是内置「青简绿」，只换颜色、圆角与阴影；结构（表格、排布、动画）全部继承。
 {
   "extends": "qingjian",
   "schema": 1,
@@ -11,14 +9,12 @@
   },
 
   "variables": {
-    // 前景
     "text":  { "light": "#14232b", "dark": "#e6f0f4" },
     "gloss": { "light": "#1e3a46cc", "dark": "#a9c3cd" },
     "faint": { "light": "#1e3a4673", "dark": "#6f8d99" },
     "fresh": { "light": "#c1660a", "dark": "#f0a24a" },
     "cloud": { "light": "#1d7d8c", "dark": "#58c9d8" },
 
-    // 底与强调
     "surface": { "light": "#ffffff", "dark": "#16242b" },
     "accent":  { "light": "#1e3a46", "dark": "#2f5c6e" },
     "key":     { "light": "#1e3a460f", "dark": "#ffffff12" },
@@ -28,7 +24,6 @@
     "kb_next_text": { "light": "#14232b", "dark": "#e6f0f4" },
     "shadow":  { "light": "#1e3a4647", "dark": "#0000005c" },
 
-    // 高亮行上的反白
     "hl_text":  "#f5fbfd",
     "hl_gloss": "#cfe0e6",
     "hl_faint": "#a6bfc8",
@@ -46,7 +41,6 @@
   },
 
   "components": {
-    // 方角：高亮条改成直边色块
     "row": {
       "type": "frame",
       "children": [
@@ -99,7 +93,6 @@
   },
 
   "windows": {
-    // 方角 + 1px 墨边；阴影收短，直角不拖尾
     "vertical": {
       "radius": 0,
       "border": { "width": 1, "color": "@edge" },
