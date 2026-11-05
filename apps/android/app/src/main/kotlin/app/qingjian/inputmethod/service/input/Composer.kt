@@ -455,6 +455,20 @@ class Composer(private val engine: Engine, private val host: Host) {
         if (composing) settle()
     }
 
+    /**
+     * 同一个输入框重新开始输入（`restartInput`）时接着组句：有的应用每改一次内容就重启一次输入
+     * （支付宝里淘宝闪购的搜索框），不接上的话每敲一个字母拼音就被丢掉、候选闪一下就没了。
+     * 光标（`selStart` 到 `selEnd`）前正好是这段拼音才把它重新标成组合文字，返回是否接上；对不上（应用改了内容）由调用方丢掉组句。
+     * 不在组句、候选条上放着补全（上屏后的联想、电话邮箱、「撤销」）时也留着：上屏这一下同样会触发重启，光标再动时照常问 Core 还留不留。
+     */
+    fun resume(selStart: Int, selEnd: Int): Boolean {
+        if (!composing) return completing
+        if (selStart != selEnd || selStart < preedit.length) return false
+        val connection = host.connection ?: return false
+        if (connection.getTextBeforeCursor(preedit.length, 0)?.toString() != preedit) return false
+        return connection.setComposingRegion(selStart - preedit.length, selStart)
+    }
+
     /** 输入框换了或键盘收起：组句不带走。 */
     fun abandon() {
         preedit = ""
