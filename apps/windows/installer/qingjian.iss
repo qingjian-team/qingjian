@@ -104,6 +104,7 @@ Source: "{#Repo}\assets\stroke\LICENSE-CNS11643.txt"; DestDir: "{app}\data\gener
 ; —— 随 git 的资源 ——
 Source: "{#Repo}\assets\emoji\emoji-zh.tsv";     DestDir: "{app}\assets\emoji";  Flags: ignoreversion
 Source: "{#Repo}\assets\emoji\emoji-en.tsv";     DestDir: "{app}\assets\emoji";  Flags: ignoreversion
+Source: "{#Repo}\assets\lexicon\english-ipa.tsv"; DestDir: "{app}\assets\lexicon"; Flags: ignoreversion
 Source: "{#Repo}\assets\levels\levels-en.tsv";   DestDir: "{app}\assets\levels"; Flags: ignoreversion
 Source: "{#Repo}\assets\levels\levels-ja.tsv";   DestDir: "{app}\assets\levels"; Flags: ignoreversion
 ; 随包形码方案（五笔，见 assets/schemes/wubi86/README.md；极点 86 码表，Apache-2.0）。
