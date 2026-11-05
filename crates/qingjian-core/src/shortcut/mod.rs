@@ -11,8 +11,10 @@
 //! - `vuuid`（全拼下问字键是 `u` 时直接 `uuid`）出 UUID，`vts` 出时间戳（[`generated_forms`]）；值随机或随时间变，
 //!   由 Engine 按组句缓存，不走 [`candidates`]。
 
+mod bitwise;
 mod calendar;
 mod evaluator;
+pub mod modes;
 mod numeral;
 mod uuid_forms;
 
@@ -34,16 +36,11 @@ pub use uuid_forms::{UUID_KEYWORD, uuid_forms};
 ///
 /// 带参数的子模式一律用 `;` 隔开；分号后面没东西就算空参数（`vts;` 与 `vts` 等价）。
 pub fn generated_call(body: &str) -> Option<(&'static str, &str)> {
-    let (name, args) = match body.char_indices().find(|(_, c)| matches!(c, ';' | '；')) {
-        Some((at, separator)) => (&body[..at], &body[at + separator.len_utf8()..]),
-        None => (body, ""),
-    };
-    let keyword = match name {
-        UUID_KEYWORD => UUID_KEYWORD,
-        TIMESTAMP_KEYWORD => TIMESTAMP_KEYWORD,
-        _ => return None,
-    };
-    Some((keyword, args.trim()))
+    match modes::parse(body)? {
+        modes::Mode::Uuid => Some((UUID_KEYWORD, "")),
+        modes::Mode::Timestamp { at } => Some((TIMESTAMP_KEYWORD, at)),
+        _ => None,
+    }
 }
 
 /// 表达式键之后整段是 `uuid` / `ts` 时生成的写法；别的词为 `None`。
@@ -95,7 +92,11 @@ pub fn could_be_unicode(body: &str) -> bool {
 /// 表达式模式下允许敲进缓冲区的非字母字符：数字与四则运算符号。
 /// 字母（`x` 当乘号）本来就能进缓冲区，不在此列。
 pub fn is_expression_char(c: char) -> bool {
-    c.is_ascii_digit() || matches!(c, '+' | '-' | '*' | '/' | '(' | ')' | '.' | '^')
+    c.is_ascii_digit()
+        || matches!(
+            c,
+            '+' | '-' | '*' | '/' | '(' | ')' | '.' | '^' | ':' | ';' | '：' | '；'
+        )
 }
 
 /// 屏幕键盘上的 `c` 在算式里当什么：乘除号（`×` `÷`）换成 `*` `/`，其余算式字符原样，不是算式字符为 `None`。
@@ -110,12 +111,25 @@ pub fn expression_char(c: char) -> Option<char> {
 
 /// 按输入算快捷候选；不是快捷输入时为空。`expression` 是表达式键；`now` 由调用方给，测试可固定时间。
 pub fn candidates(input: &str, expression: char, now: &Zoned) -> Vec<Candidate> {
+    candidates_with_modes(input, expression, now, true)
+}
+
+/// 同 [`candidates`]，`sub_modes` 决定认不认 `vbit:` 这类子模式。
+///
+/// 子模式只在全拼下开着：双拼、注音、形码里缓冲区里的字母另有含义（`;` 是双拼的 ing 键、
+/// 是辅码触发键），把带冒号的串当子模式解析会把正常输入吃掉。
+pub fn candidates_with_modes(
+    input: &str,
+    expression: char,
+    now: &Zoned,
+    sub_modes: bool,
+) -> Vec<Candidate> {
     let texts: Vec<String> = match input {
         "rq" => date_forms(now),
         "sj" => time_forms(now),
         "xq" => weekday_forms(now),
         _ => match input.strip_prefix(expression) {
-            Some(body) => expression_forms(body, now),
+            Some(body) => expression_forms(body, now, sub_modes),
             None => Vec::new(),
         },
     };
@@ -152,7 +166,11 @@ const AMOUNT_FRACTION_DIGITS: usize = 2;
 
 /// 表达式键之后的部分：一个数出中文数字与金额，四位年份加月日的日期出日期写法，其余当四则运算出结果与「算式=结果」。
 /// 顺序是要紧的：`1998` 与 `1998.3` 是数字与小数，先于日期；四位年份的 `1998-3-8` 才当日期，落在算式之前。
-fn expression_forms(body: &str, now: &Zoned) -> Vec<String> {
+fn expression_forms(body: &str, now: &Zoned, sub_modes: bool) -> Vec<String> {
+    // 子模式优先：`bit:` 这些带冒号的，认出来就只走那一条，不再按四则去猜
+    if sub_modes && let Some(mode) = modes::parse(body) {
+        return mode_forms(mode);
+    }
     let mut forms = number_forms(body).unwrap_or_default();
     // 日期与数字可以并存：`v1234.5` 既是一千二百三十四点五，也可以是 1234 年 5 月，
     // 后者排在后面，不抢前面的常用读法
@@ -179,6 +197,29 @@ fn expression_forms(body: &str, now: &Zoned) -> Vec<String> {
     }
 }
 
+/// 子模式的候选。
+fn mode_forms(mode: modes::Mode<'_>) -> Vec<String> {
+    match mode {
+        // 生成型（`uuid` / `ts`）由 Engine 走 `generated_candidates`：随机值与时刻要按组句缓存，
+        // 不能每次查询都重算。走到这里说明是别处直接调 `shortcut::candidates`，给空即可
+        modes::Mode::Uuid | modes::Mode::Timestamp { .. } => Vec::new(),
+        modes::Mode::Bit { width, body } => {
+            let Some(result) = bitwise::evaluate(body, width) else {
+                return Vec::new();
+            };
+            let forms = result.forms();
+            // 与老四则的 `1+2=3` 同一套：第二条就是「敲的式子 = 结果」
+            match forms.first() {
+                Some(first) if !body.contains('=') && body.trim() != first.as_str() => {
+                    let mut out = vec![first.clone(), format!("{body}={first}")];
+                    out.extend(forms.into_iter().skip(1));
+                    out
+                }
+                _ => forms,
+            }
+        }
+    }
+}
 /// 单个非负数（`123`、`123.5`）：中文数字在前，金额在后；小数超过两位没有金额写法。
 /// 末尾刚敲了 `.`（`123.`）按整数给，候选不闪。
 fn number_forms(body: &str) -> Option<Vec<String>> {
@@ -377,6 +418,21 @@ mod tests {
     }
 
     #[test]
+    fn bit_submode() {
+        // 位运算：位宽与符号由子模式名给
+        let hex = texts("vbit8:0xff");
+        assert!(!hex.is_empty(), "{hex:?}");
+        assert!(hex.iter().any(|t| t == "-1"), "{hex:?}");
+        // 全角冒号、分号都当分隔符
+        assert_eq!(texts("vbit8：1<<3"), texts("vbit8:1<<3"));
+        assert_eq!(texts("vbit8;1<<3"), texts("vbit8:1<<3"));
+        // 认不出来的名字退回缺省计算（`foo:bar` 不是算式，也不出候选）
+        assert!(texts("vfoo:bar").is_empty());
+        // 不带冒号仍是缺省计算
+        assert_eq!(texts("v1+2"), ["3", "1+2=3"]);
+    }
+
+    #[test]
     fn date_inputs_in_expression_mode() {
         let date = texts("v1998.3.8");
         assert_eq!(date[0], "一九九八年三月八日");
@@ -469,6 +525,14 @@ mod tests {
     fn expression_chars() {
         assert!(is_expression_char('7'));
         assert!(is_expression_char('('));
+        // 子模式的分隔符：冒号与分号（全角也认，键盘上冒号就是 Shift + 分号）
+        assert!(is_expression_char(':'));
+        assert!(is_expression_char(';'));
+        assert!(is_expression_char('：'));
+        // 逗号、百分号**不是**算式的一部分：中文模式下它们是标点，
+        // 敲下去要先上屏候选再补标点（`expression_mode_other_punctuation_commits_then_applies`）
+        assert!(!is_expression_char(','));
+        assert!(!is_expression_char('%'));
         assert!(!is_expression_char('='));
         assert!(!is_expression_char('x'));
         assert_eq!(expression_char('×'), Some('*'));

@@ -336,6 +336,13 @@ impl Engine {
                 .is_expression(self.composition.text(), self.zhuyin)
     }
 
+    /// `vbit:` 这类子模式只在全拼下认。
+    ///
+    /// 双拼的 `;` 是 ing 键、注音里字母是另一个键位、形码里字母都是字根 —— 那些方案把带
+    /// 冒号的串当子模式解析，会把正常输入吃掉。
+    pub(in crate::engine) fn expression_sub_modes(&self) -> bool {
+        self.shuangpin.is_none() && !self.zhuyin && self.code.is_none()
+    }
     /// 表达式模式下这个字符进算式（数字与运算符），壳据此决定交给 [`Self::push`] 还是当选词键。
     /// `vuuid`、`vts` 不是算式：数字留给选词；但分号要收，`vts;2026-11-05` 得能接着敲参数。
     pub fn expression_input(&self, c: char) -> bool {
