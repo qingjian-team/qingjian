@@ -79,6 +79,11 @@ class KeyboardView(
     private val timer = Handler(Looper.getMainLooper())
     private val repeatBackspace = object : Runnable {
         override fun run() {
+            // 已经连删起来了：这一笔不再当上划清空，连删时手指往上偏一点不会把整段删掉
+            if (flickSlot?.key == Key.Backspace) {
+                flickBroken = true
+                flickArmed = false
+            }
             listener.onKey(Key.Backspace)
             timer.postDelayed(this, REPEAT_INTERVAL_MS)
         }

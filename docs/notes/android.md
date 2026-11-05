@@ -10,7 +10,7 @@
 - 点拼音行挪光标（#881）：渲染器给出拼音行各字之间的位置（`StripMeta.preedit_edges`），候选条点在拼音行里按最近的缝走 `Native.moveCaret`，
   Core `Engine::move_cursor_to_marked` 换回缓冲区光标（全拼按字母、双拼展开全拼时按最近的音节边界、显示敲的键时按键；纠错 / 辅码 / 注音 / 九宫格对不上，不挪）；`Frame.preedit_cursor` 让候选条把光标画在中间。光标在开头时 `Session::backspace` 先挪到末尾再删（没有方向键挪回去，不然退格就卡住了）。
 - 九宫格拼音行的下划线：`Frame.preedit_pinned` 是拼音行里定下的音节（字符起止，前面留着的词 + `Engine::nine_key_pinned`），`strip::preedit` 把它切成 `PreeditStyle::Pinned` 一段。
-- 删除键上划清空（`flick_clear`，缺省开）：删除键按下照旧先删一个字并起连删，同时 `onBackspaceDown` 记下按下那一刻光标前的文字（最多 `MAX_CLEAR` = 5000）；往上划够上滑距离就停掉连删，抬手 `Composer.clearBefore`。
+- 删除键上划清空（`flick_clear`，缺省开）：删除键按下照旧先删一个字并起连删，同时 `onBackspaceDown` 记下按下那一刻光标前的文字（最多 `MAX_CLEAR` = 5000）；往上划够上滑距离就停掉连删，抬手 `Composer.clearBefore`；连删已经起来（`REPEAT_DELAY_MS` 之后）这一笔就作废，不当清空。
   按下时在组句只清拼音；否则 `deleteSurroundingText` 删光标前的文字，`Native.cleared` 让会话在补全里放「撤销」（光标前还是空的就一直留着），撤销放回按下那一刻的文字，所以按下时删的那个字（按键事件可能还没到应用）也回来。
 - 上滑（`flick_symbols`，缺省开，#882）：只看方向不看列。手指离开按下那一点 10dp 起就得一直在往上的扇形里（横向不超过往上的 1.2 倍，约偏离竖直 50°，含历史点），
   往上过 18dp 抬手出 `Key.flick`（长按不滑直接抬手那一项：字母键是角标，九宫格是数字），出的总是按下的键；中途偏出扇形（横走、往下、拐弯）这一笔就作废，交给滑行或点按。
