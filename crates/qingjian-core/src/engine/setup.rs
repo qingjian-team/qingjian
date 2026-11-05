@@ -312,6 +312,9 @@ impl Engine {
         if self.code_only() || (self.shuangpin.is_some() && self.shuangpin_raw_preedit) {
             return rest.to_owned();
         }
+        if self.nine_key {
+            return self.nine_key_rest(rest);
+        }
         match self.decode(rest) {
             Some(decoded) => decoded.marked(),
             None => marked_rest(rest),

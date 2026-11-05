@@ -227,8 +227,12 @@ impl Engine {
         if self.unpin_nine_key() {
             return true;
         }
+        let before = self.nine_key.then(|| self.composition.text().to_owned());
         let removed = self.composition.backspace();
         if removed {
+            if let Some(before) = before {
+                self.follow_nine_key_deletion(&before);
+            }
             self.drop_pin_separator();
         }
         removed

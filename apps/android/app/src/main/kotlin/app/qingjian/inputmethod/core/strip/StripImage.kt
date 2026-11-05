@@ -24,9 +24,14 @@ class StripImage(
 ) {
     /** ([x], [y]) 落在拼音行上时光标该在第几个字之后（离哪道缝最近），不在拼音行上为 -1。 */
     fun caretAt(x: Float, y: Float): Int {
-        if (preeditEdges.isEmpty() || y < preeditTop || y >= preeditBottom) return -1
+        // 拼音行的字只有十几 dp 高，候选行以上整条都算，手指不用对准字
+        if (preeditEdges.isEmpty() || y >= maxOf(preeditBottom, candidatesTop.toFloat())) return -1
         return preeditEdges.indices.minBy { abs(preeditEdges[it] - x) }
     }
+
+    /** 沿拼音行拖动时只看横坐标：离 [x] 最近的那道缝；没有拼音行为 -1。 */
+    fun caretNear(x: Float): Int =
+        if (preeditEdges.isEmpty()) -1 else preeditEdges.indices.minBy { abs(preeditEdges[it] - x) }
 
     /** 横坐标 [x]（位图像素）落在哪个候选上，没有为 -1；不看纵坐标，按在拼音行上也算正下方那个候选。 */
     fun candidateAt(x: Float): Int =

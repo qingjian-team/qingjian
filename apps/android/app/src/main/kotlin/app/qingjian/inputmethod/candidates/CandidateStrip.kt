@@ -56,6 +56,9 @@ class CandidateStrip(private val density: Float, private val barHeight: Float, t
     /** 点在拼音行上（视图坐标，拼音行不随候选滚动）：光标该落在第几个字之后；不在拼音行上为 -1。 */
     fun caretAt(x: Float, y: Float): Int = image?.caretAt(x, y) ?: -1
 
+    /** 拖动中：只按横坐标找最近的缝，手指上下偏出拼音行也照样跟。 */
+    fun caretNear(x: Float): Int = image?.caretNear(x) ?: -1
+
     /** [scrollX] 是视图已经滚过去的距离，画布已经按它平移过。 */
     fun draw(canvas: Canvas, scrollX: Int, viewWidth: Int) {
         val image = image ?: return

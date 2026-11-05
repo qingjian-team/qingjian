@@ -1,7 +1,8 @@
 //! 点拼音行挪光标（#881）：拼音行上第几个字之后 → 缓冲区里的光标位置。
 //!
 //! 拼音行与敲的键不总是一一对应：全拼多出切分的 `'`，双拼显示解出来的全拼。全拼按字母数对，
-//! 双拼按音节对（落到最近的音节边界）；纠错、辅码、注音、九宫格对不上，不挪。
+//! 双拼按音节对（落到最近的音节边界）；九宫格读出的拼音一个字母对一个键，也按字母数对；
+//! 纠错、辅码、注音对不上，不挪。
 
 use super::composing::unit_len_after;
 use super::{Engine, Query};
@@ -13,15 +14,26 @@ impl Engine {
         if query.text != self.composition.text() {
             return false;
         }
-        let Some(cursor) = text_cursor(query, index, self.shuangpin.is_some()) else {
+        let Some(cursor) = text_cursor(query, index, self.shuangpin.is_some(), self.nine_key)
+        else {
             return false;
         };
         self.composition.move_to(cursor);
+        if self.nine_key {
+            // 拼音行按显示写法（`lü`），记成词库写法
+            let typed: String = query
+                .marked_text()
+                .chars()
+                .skip(query.held.chars().count())
+                .map(|c| if c == 'ü' { 'v' } else { c })
+                .collect();
+            self.keep_nine_key_reading(&typed);
+        }
         true
     }
 }
 
-fn text_cursor(query: &Query, index: usize, shuangpin: bool) -> Option<usize> {
+fn text_cursor(query: &Query, index: usize, shuangpin: bool, nine_key: bool) -> Option<usize> {
     if query.correction.is_some() || query.aux.is_some() {
         return None;
     }
@@ -43,12 +55,13 @@ fn text_cursor(query: &Query, index: usize, shuangpin: bool) -> Option<usize> {
     }
     match (query.decoded_keys, shuangpin) {
         (false, _) => Some(letter_cursor(text, typed, at)),
+        _ if nine_key => Some(letter_cursor(text, typed, at)),
         (true, true) => Some(syllable_cursor(text, typed, at)),
         (true, false) => None,
     }
 }
 
-/// 拼音行与缓冲区只差 `'`：数拼音行上点的位置之前有几个字母，缓冲区里走过同样多的字母。
+/// 拼音行与缓冲区只差 `'`：数拼音行上点的位置之前有几个字母，缓冲区里走过同样多的字母（九宫格是数字与选定的字母）。
 fn letter_cursor(text: &str, typed: &[char], at: usize) -> usize {
     let letters = typed[..at].iter().filter(|c| **c != '\'').count();
     let mut seen = 0;
