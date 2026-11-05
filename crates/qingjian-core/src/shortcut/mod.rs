@@ -11,11 +11,13 @@
 //! - `vuuid`（全拼下问字键是 `u` 时直接 `uuid`）出 UUID，`vts` 出时间戳（[`generated_forms`]）；值随机或随时间变，
 //!   由 Engine 按组句缓存，不走 [`candidates`]。
 
+mod base;
 mod bitwise;
 mod calendar;
 mod evaluator;
 pub mod modes;
 mod numeral;
+mod stat;
 mod uuid_forms;
 
 use jiff::Zoned;
@@ -216,6 +218,8 @@ fn mode_forms(mode: modes::Mode<'_>) -> Vec<String> {
                 _ => forms,
             }
         }
+        modes::Mode::Base { args } => base::forms(args),
+        modes::Mode::Stat { args } => stat::forms(args),
     }
 }
 /// 单个非负数（`123`、`123.5`）：中文数字在前，金额在后；小数超过两位没有金额写法。
@@ -428,6 +432,23 @@ mod tests {
         assert!(texts("vfoo:bar").is_empty());
         // 不带冒号仍是缺省计算
         assert_eq!(texts("v1+2"), ["3", "1+2=3"]);
+    }
+
+    #[test]
+    fn base_and_stat_submodes() {
+        // 进制转换
+        let hex = texts("vbase;128;16");
+        assert_eq!(hex[0], "80", "{hex:?}");
+        assert!(hex.iter().any(|t| t == "128(10) = 80(16)"), "{hex:?}");
+        assert_eq!(texts("vbase;255;2")[0], "11111111");
+        // 统计：平均、中位数、排序这几条
+        let stat = texts("vstat;1;2;3;4");
+        assert!(stat.iter().any(|t| t == "平均 2.5"), "{stat:?}");
+        assert!(stat.iter().any(|t| t == "中位数 2.5"), "{stat:?}");
+        assert!(stat.iter().any(|t| t == "排序 1 2 3 4"), "{stat:?}");
+        // 参数分隔符全角半角都认
+        assert_eq!(texts("vbase；128；16")[0], "80");
+        assert!(texts("vstat；1；2；3；4").iter().any(|t| t == "平均 2.5"));
     }
 
     #[test]
