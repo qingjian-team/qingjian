@@ -406,26 +406,87 @@ pub fn time_forms(now: &Zoned) -> Vec<String> {
 /// 表达式键之后是这个词时出时间戳（`vts`）。
 pub const TIMESTAMP_KEYWORD: &str = "ts";
 
-/// `vts`：Unix 秒、UTC（RFC 3339，`2026-09-03T11:06:23.000Z`）、Unix 毫秒、
-/// 带时区的 ISO 8601（`2026-09-03T19:06:23.000+08:00`）。
-pub fn timestamp_forms(now: &Zoned) -> Vec<String> {
-    let instant = now.timestamp();
-    // ISO 那两条带毫秒：与 `sj` 的毫秒档对齐，也免得「整秒」看起来像少了这一档
+/// `vts`：Unix 秒、UTC（RFC 3339，`2026-09-03T11:06:23Z`）、Unix 毫秒、带时区的 ISO 8601（`2026-09-03T19:06:23+08:00`）。
+///
+/// `at` 为空取此刻；给了日期（`2026-11-05` / `2026.11.5` / `2026/11/5`，三种分隔符都认）
+/// 就取那天本地零点 —— 换算同一套，只是时刻换成指定的那一天。
+pub fn timestamp_forms(now: &Zoned, at: &str) -> Vec<String> {
+    let Some(moment) = moment_of(at, now) else {
+        return Vec::new();
+    };
+    let instant = moment.timestamp();
+    // ISO 那两条也带毫秒：不带的话指定日期（零点）看起来像「没有毫秒这一档」
     let millis = instant.subsec_nanosecond() / 1_000_000;
     vec![
         instant.as_second().to_string(),
         format!(
             "{}.{millis:03}Z",
-            now.with_time_zone(TimeZone::UTC)
+            moment
+                .with_time_zone(TimeZone::UTC)
                 .strftime("%Y-%m-%dT%H:%M:%S")
         ),
         instant.as_millisecond().to_string(),
         format!(
             "{}.{millis:03}{}",
-            now.strftime("%Y-%m-%dT%H:%M:%S"),
-            now.strftime("%:z")
+            moment.strftime("%Y-%m-%dT%H:%M:%S"),
+            moment.strftime("%:z")
         ),
     ]
+}
+
+/// 时间戳要算的时刻：空参数是此刻，日期参数取那天本地零点。
+///
+/// 段数决定精度，`.` `-` `/` 空格 `:` 都当分隔符：
+///
+/// | 段数 | 含义 |
+/// |---|---|
+/// | 3 | 年月日 |
+/// | 4 | 年月日时 |
+/// | 5 | 年月日时分 |
+/// | 6 | 年月日时分秒；末段 ≥60 时当毫秒（`2024.3.4.12.9.383` 是 12:09:00.383） |
+/// | 7 | 年月日时分秒毫秒 |
+fn moment_of(at: &str, now: &Zoned) -> Option<Zoned> {
+    let at = at.trim();
+    if at.is_empty() {
+        return Some(now.clone());
+    }
+    // 分号也算分隔符：`vts;2024;3;4;12;9;383` 与 `vts;2024.3.4-12:9.383` 一样认，
+    // 几种符号可以混用（段数决定精度，见上面的表）
+    let parts: Vec<&str> = at
+        .split(['.', '-', '/', ' ', ':', ';', '；'])
+        .map(str::trim)
+        .filter(|part| !part.is_empty())
+        .collect();
+    if !(3..=7).contains(&parts.len()) {
+        return None;
+    }
+    let year: i16 = parts[0].parse().ok()?;
+    let month: i8 = parts[1].parse().ok()?;
+    let day: i8 = parts[2].parse().ok()?;
+
+    let field = |index: usize| -> Option<i32> { parts.get(index)?.parse().ok() };
+    let hour = field(3).unwrap_or(0);
+    let minute = field(4).unwrap_or(0);
+    // 六段时末段可能是秒，也可能是毫秒：`12.9.38` 是 38 秒，`12.9.383` 只能是毫秒
+    let (second, millis) = match parts.len() {
+        6 => match field(5)? {
+            sixth if sixth >= 60 => (0, sixth),
+            sixth => (sixth, 0),
+        },
+        7 => (field(5)?, field(6)?),
+        _ => (field(5).unwrap_or(0), 0),
+    };
+    if !(0..=23).contains(&hour)
+        || !(0..=59).contains(&minute)
+        || !(0..=59).contains(&second)
+        || !(0..=999).contains(&millis)
+    {
+        return None;
+    }
+    let date = jiff::civil::Date::new(year, month, day).ok()?;
+    date.at(hour as i8, minute as i8, second as i8, millis * 1_000_000)
+        .to_zoned(now.time_zone().clone())
+        .ok()
 }
 
 /// `xq`：`星期四`、`周四`、`礼拜四`。

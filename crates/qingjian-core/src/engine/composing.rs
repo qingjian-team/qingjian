@@ -329,13 +329,22 @@ impl Engine {
     }
 
     /// 表达式模式下这个字符进算式（数字与运算符），壳据此决定交给 [`Self::push`] 还是当选词键。
-    /// `vuuid`、`vts` 不是算式：数字留给选词。
+    /// `vuuid`、`vts` 不是算式：数字留给选词；但分号要收，`vts;2026-11-05` 得能接着敲参数。
     pub fn expression_input(&self, c: char) -> bool {
-        self.expression_mode()
-            && shortcut::is_expression_char(c)
-            && !shortcut::is_generated_keyword(
-                &self.composition.text()[self.modes().expression.len_utf8()..],
-            )
+        if !self.expression_mode() {
+            return false;
+        }
+        let body = &self.composition.text()[self.modes().expression.len_utf8()..];
+        if shortcut::generated_call(body).is_some() {
+            // 分号一律收；数字只有在分号之后才进缓冲区 —— 分号之前那是选词键（`vts` 有四条候选）
+            let typing_arguments = body.contains([';', '；']);
+            return if typing_arguments {
+                c.is_ascii_digit() || matches!(c, '-' | '.' | '/' | ';' | '；')
+            } else {
+                matches!(c, ';' | '；')
+            };
+        }
+        shortcut::is_expression_char(c)
     }
 
     /// 英文直输段：缓冲区里有拼音以外的字符（`no-way`），整段原样上屏、不解析拼音。
