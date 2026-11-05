@@ -257,12 +257,7 @@ class QingjianInputMethodService :
         composer.privateInput = attribute.wantsPrivacy()
         enterLabel = attribute.enterLabel()
         panel?.keyboard?.enterLabel = enterLabel
-        val resumed = restarting && composer.resume(attribute.initialSelStart, attribute.initialSelEnd)
-        if (resumed) {
-            AppLog.info("composition kept across restartInput")
-        } else {
-            composer.abandon()
-        }
+        if (!(restarting && composer.resume())) composer.abandon()
         if (attribute.wantsNumbers()) composer.showNumbers()
     }
 

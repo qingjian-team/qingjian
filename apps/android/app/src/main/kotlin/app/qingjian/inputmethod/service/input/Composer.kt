@@ -53,6 +53,12 @@ class Composer(private val engine: Engine, private val host: Host) {
     /** 上一帧的 preedit，非空即在组句。 */
     private var preedit = ""
 
+    /** 这段组句里最近交给输入框的几版 preedit（新的在后），重启输入后认输入框里停在哪一版，见 [resume]。 */
+    private val sentPreedits = ArrayDeque<String>()
+
+    /** 重启输入后输入框里的组合文字标记没了，下次改输入框前要先删掉留在框里的拼音，见 [resume]。 */
+    private var composingLost = false
+
     private var pinyinChoices: List<String> = emptyList()
 
     /** 候选条上是补全（邮箱后缀），见 [refreshCompletions]。 */
@@ -457,21 +463,35 @@ class Composer(private val engine: Engine, private val host: Host) {
 
     /**
      * 同一个输入框重新开始输入（`restartInput`）时接着组句：有的应用每改一次内容就重启一次输入
-     * （支付宝里淘宝闪购的搜索框），不接上的话每敲一个字母拼音就被丢掉、候选闪一下就没了。
-     * 光标（`selStart` 到 `selEnd`）前正好是这段拼音才把它重新标成组合文字，返回是否接上；对不上（应用改了内容）由调用方丢掉组句。
-     * 不在组句、候选条上放着补全（上屏后的联想、电话邮箱、「撤销」）时也留着：上屏这一下同样会触发重启，光标再动时照常问 Core 还留不留。
+     * （支付宝里淘宝闪购的搜索框），重启后输入框里已经没有组合文字的标记，拼音还在但成了普通文字。
+     * 不接上的话每敲一个字母拼音就被丢掉；只留着状态不处理，下一键的组合文字又会接在旧拼音后面再插一份。
+     * 这里只记下「标记丢了」，下一次改输入框时由 [dropStalePreedit] 先删掉留在框里的那版拼音。返回是否留着当前状态。
+     * 不在组句、候选条上放着补全（上屏后的联想、电话邮箱、「撤销」）时也留着：上屏这一下同样会触发重启。
      */
-    fun resume(selStart: Int, selEnd: Int): Boolean {
+    fun resume(): Boolean {
         if (!composing) return completing
-        if (selStart != selEnd || selStart < preedit.length) return false
-        val connection = host.connection ?: return false
-        if (connection.getTextBeforeCursor(preedit.length, 0)?.toString() != preedit) return false
-        return connection.setComposingRegion(selStart - preedit.length, selStart)
+        composingLost = true
+        return true
+    }
+
+    /**
+     * 重启输入后第一次改输入框：光标前停在这段组句交过的哪一版 preedit（打得快时可能是还没轮到的旧版），先删掉它。
+     * 重启那一刻新连接可能还没就绪、读不准，所以等到真正要写的时候再读；读不到或哪一版都对不上就不删。
+     */
+    private fun dropStalePreedit(connection: InputConnection) {
+        if (!composingLost) return
+        composingLost = false
+        val versions = sentPreedits + preedit
+        val before = connection.getTextBeforeCursor(versions.maxOf { it.length }, 0)?.toString() ?: return
+        val stale = versions.filter { before.endsWith(it) }.maxByOrNull { it.length } ?: return
+        connection.deleteSurroundingText(stale.length, 0)
     }
 
     /** 输入框换了或键盘收起：组句不带走。 */
     fun abandon() {
         preedit = ""
+        sentPreedits.clear()
+        composingLost = false
         pinyinChoices = emptyList()
         expression = false
         candidates = emptyList()
@@ -549,6 +569,7 @@ class Composer(private val engine: Engine, private val host: Host) {
             null
         }
         connection.beginBatchEdit()
+        dropStalePreedit(connection)
         if (frame.replace > 0) connection.deleteSurroundingText(frame.replace, 0)
         if (frame.commit.isNotEmpty()) connection.commitText(frame.commit, 1)
         if (frame.preedit.isNotEmpty()) {
@@ -559,6 +580,12 @@ class Composer(private val engine: Engine, private val host: Host) {
         }
         connection.endBatchEdit()
         preedit = frame.preedit
+        if (preedit.isEmpty()) {
+            sentPreedits.clear()
+        } else {
+            sentPreedits.addLast(preedit)
+            if (sentPreedits.size > SENT_PREEDITS) sentPreedits.removeFirst()
+        }
         pinyinChoices = frame.pinyinChoices
         expression = frame.expression
         candidates = frame.candidates
@@ -599,6 +626,9 @@ class Composer(private val engine: Engine, private val host: Host) {
 
         /** 组句中取云联想结果的间隔。 */
         const val PREDICTION_POLL_MS = 150L
+
+        /** 重启输入后认输入框停在哪一版 preedit 时往回看几版：快打时在路上的改动不会更多。 */
+        const val SENT_PREEDITS = 8
 
         /** 补全看光标前多少个字：用户名加域名前缀够了。 */
         const val COMPLETION_CONTEXT = 80
