@@ -74,6 +74,11 @@ pub enum Message {
     CheckUpdate,
     /// 实验功能里下载这个模型（失败后的「重试」也是它）。
     DownloadModel(qingjian_platform::LocalModel),
+    /// 「词库」页从词库仓库取可下载的词库清单（失败后的「重试」也是它）。
+    FetchDictIndex,
+    /// 「词库」页下载清单里的这一本（id；更新与重试也是它）。
+    DownloadDict(String),
+    /// 取消正在下的模型或词库。
     CancelDownload,
     /// 删掉下好的模型（第一下只是确认）。
     RemoveModel(qingjian_platform::LocalModel),

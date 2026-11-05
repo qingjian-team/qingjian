@@ -25,8 +25,9 @@ use qingjian_platform::{Appearance, Config};
 use qingjian_render::{TextSizes, Theme, ThemeLibrary};
 
 use crate::jobs::cloud_test::CloudTest;
+use crate::jobs::dict_index::DictIndex;
+use crate::jobs::download::Downloads;
 use crate::jobs::import::ImportJob;
-use crate::jobs::model_download::ModelDownload;
 use crate::jobs::update_check::UpdateCheck;
 use crate::library::Library;
 use crate::message::{FieldId, Popup, SizeKind};
@@ -92,8 +93,11 @@ pub struct Settings {
 
     pub import: ImportJob,
 
-    /// 实验功能里正在下的模型。
-    pub download: ModelDownload,
+    /// 正在下的模型或词库，一次一个。
+    pub download: Downloads,
+
+    /// 「词库」页从词库仓库取的可下载清单。
+    pub dict_index: DictIndex,
 
     /// 点过一次「删除」、等再点一次确认的模型；点了别的就作废。
     pub remove_armed: Option<qingjian_platform::LocalModel>,
@@ -186,7 +190,8 @@ impl Settings {
             recording: None,
             library: Library::scan(),
             import: ImportJob::default(),
-            download: ModelDownload::default(),
+            download: Downloads::default(),
+            dict_index: DictIndex::default(),
             remove_armed: None,
             phrase: None,
             stats: None,

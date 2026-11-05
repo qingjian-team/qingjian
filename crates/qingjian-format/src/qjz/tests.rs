@@ -48,22 +48,28 @@ fn round_trips_and_reports_kind_and_metadata() {
     assert!(std::fs::metadata(&qjz).unwrap().len() > 0);
 
     let target = dir.0.join("out.qj");
-    let (kind, unpacked) = unpack(&qjz, &target).unwrap();
-    assert_eq!(kind, Kind::Dictionary);
+    let unpacked = unpack(&qjz, &target, Kind::Dictionary).unwrap();
     assert_eq!(unpacked, metadata);
     assert_eq!(std::fs::read(&target).unwrap(), std::fs::read(&qj).unwrap());
     assert!(!target.with_extension("qj.part").exists());
 }
 
 #[test]
-fn reports_glossary_kind() {
-    let dir = TempDir::new("glossary");
+fn wrong_kind_keeps_old_target() {
+    let dir = TempDir::new("wrong-kind");
     let qj = dir.0.join("glossary-ja.qj");
     write_qj(&qj, Kind::Glossary, "青简释义表·日语");
     let qjz = dir.0.join("glossary-ja.qjz");
     compress(&qj, &qjz).unwrap();
-    let (kind, _) = unpack(&qjz, &dir.0.join("glossary-ja.out.qj")).unwrap();
-    assert_eq!(kind, Kind::Glossary);
+    let target = dir.0.join("medicine.qj");
+    std::fs::write(&target, b"old").unwrap();
+    assert!(matches!(
+        unpack(&qjz, &target, Kind::Dictionary),
+        Err(FormatError::WrongKind { .. })
+    ));
+    assert_eq!(std::fs::read(&target).unwrap(), b"old");
+    assert!(!target.with_extension("qj.part").exists());
+    assert!(unpack(&qjz, &target, Kind::Glossary).is_ok());
 }
 
 #[test]
@@ -85,7 +91,7 @@ fn rejects_unknown_compression_and_keeps_old_target() {
     let target = dir.0.join("kept.qj");
     std::fs::write(&target, b"old").unwrap();
     assert!(matches!(
-        unpack(&source, &target),
+        unpack(&source, &target, Kind::Dictionary),
         Err(FormatError::UnknownCompression)
     ));
     assert_eq!(std::fs::read(&target).unwrap(), b"old");
@@ -101,7 +107,7 @@ fn rejects_compressed_garbage_and_cleans_up() {
         .unwrap();
     encoder.finish().unwrap();
     let target = dir.0.join("garbage.qj");
-    assert!(unpack(&source, &target).is_err());
+    assert!(unpack(&source, &target, Kind::Dictionary).is_err());
     assert!(!target.exists());
     assert!(!target.with_extension("qj.part").exists());
 }

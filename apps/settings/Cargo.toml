@@ -24,6 +24,7 @@ qingjian-predict.workspace = true
 qingjian-update.workspace = true
 # 词库页：读词库信息、导入词库与码表
 qingjian-dictionary.workspace = true
+qingjian-format.workspace = true
 # 统计页：读输入量与词汇记录、词汇等级表
 qingjian-learning.workspace = true
 qingjian-translate.workspace = true

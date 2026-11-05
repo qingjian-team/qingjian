@@ -4,13 +4,12 @@
 
 use bamboo_slip::taffy::{AlignItems, FlexDirection, NodeId, Style};
 use bamboo_slip::{
-    Button, ProgressBar, RenderError, Segmented, SettingRow, Switch, Ui, Visual, group, paragraph,
-    section_title,
+    Button, RenderError, Segmented, SettingRow, Switch, Ui, Visual, group, paragraph, section_title,
 };
 use qingjian_platform::{CLIPBOARD_HISTORY_LIMITS, ClipboardEdge, LocalModel, ZhiyiTier};
 
 use crate::i18n::{tr, tr_args};
-use crate::jobs::model_download::{Pack, Stage};
+use crate::jobs::download::{Item, Pack, Stage};
 use crate::message::Message;
 use crate::shortcut::Shortcut;
 use crate::support::Feature;
@@ -19,6 +18,7 @@ use crate::view::Page;
 use crate::view::pages::shortcuts::recorder;
 use crate::view::parts::actions::with_notice;
 use crate::view::parts::controls::{choice, toggle_info};
+use crate::view::parts::download::progress;
 
 pub fn experimental(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderError> {
     let theme = &page.theme;
@@ -211,11 +211,7 @@ fn card(ui: &mut Ui<Message>, page: &Page, pack: Pack) -> Result<Vec<NodeId>, Re
     let settings = page.settings;
     let model = &settings.config.model;
     let detail = format!("{} · {}", pack.size, description(pack.model));
-    let stage = settings
-        .download
-        .stage()
-        .filter(|(downloading, _)| *downloading == pack.model)
-        .map(|(_, stage)| stage);
+    let stage = settings.download.stage_of(&Item::Model(pack.model));
     let busy = settings.download.busy();
     let mut rows = Vec::new();
     let mut row = SettingRow::new(pack.model.label()).detail(&detail);
@@ -315,36 +311,4 @@ fn card(ui: &mut Ui<Message>, page: &Page, pack: Pack) -> Result<Vec<NodeId>, Re
         }
     }
     Ok(rows)
-}
-
-/// 进度条一行：上面写下了多少，下面一条进度条。
-fn progress(
-    ui: &mut Ui<Message>,
-    page: &Page,
-    done: u64,
-    total: u64,
-) -> Result<NodeId, RenderError> {
-    let theme = &page.theme;
-    let fraction = if total > 0 {
-        done as f32 / total as f32
-    } else {
-        0.0
-    };
-    let text = if total > 0 {
-        tr_args(
-            "experimental.downloading",
-            &[("done", &megabytes(done)), ("total", &megabytes(total))],
-        )
-    } else {
-        tr("experimental.connecting").to_owned()
-    };
-    let bar = ProgressBar::new(fraction).build(ui, theme)?;
-    SettingRow::new(&text)
-        .control(bar)
-        .stacked()
-        .build(ui, theme)
-}
-
-fn megabytes(bytes: u64) -> String {
-    format!("{:.0} MB", bytes as f64 / 1_000_000.0)
 }

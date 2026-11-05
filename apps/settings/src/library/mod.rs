@@ -114,6 +114,7 @@ fn aux_scheme_entry(scheme: AuxSchemeEntry) -> Entry {
         name: scheme.label,
         entries: table.as_ref().map_or(0, AuxCodeTable::len),
         license: scheme.meta.license,
+        version: String::new(),
         broken: table.is_err(),
     }
 }
@@ -145,6 +146,7 @@ fn code_words_entry(stem: String, path: &Path, scheme: &str) -> Entry {
         stem,
         entries: table.as_ref().map_or(0, CodeTable::len),
         license: String::new(),
+        version: String::new(),
         broken: table.is_err(),
     }
 }
@@ -165,6 +167,7 @@ fn entry(kind: Kind, stem: String, path: &Path) -> Entry {
                 Entry {
                     name: metadata.map_or_else(|| stem.clone(), |m| m.name.clone()),
                     license: metadata.map_or_else(String::new, |m| m.license.clone()),
+                    version: metadata.map_or_else(String::new, |m| m.version.clone()),
                     entries: dictionary.len(),
                     broken: false,
                     stem,
@@ -177,6 +180,7 @@ fn entry(kind: Kind, stem: String, path: &Path) -> Entry {
                     stem,
                     entries: 0,
                     license: String::new(),
+                    version: String::new(),
                     broken: true,
                 }
             }
@@ -192,6 +196,7 @@ fn entry(kind: Kind, stem: String, path: &Path) -> Entry {
                 name: info.name,
                 entries: info.entries,
                 license: info.license,
+                version: String::new(),
                 broken: info.broken,
             }
         }

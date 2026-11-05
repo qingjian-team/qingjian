@@ -16,6 +16,12 @@ The core dictionary has 130,000 entries, and a general dictionary and 11 topic d
 The core dictionary includes 36,000 rare characters (extended characters outside the standard character table, plus characters rarely used in Taiwan). They can be typed in pinyin, come last among characters with the same sound, and aren't used in sentences:
 `fiao` gives 覅, `biangbiangmian` gives 𰻝𰻝面. Characters missing from the system fonts are shown as boxes.
 
+## Downloading dictionaries
+
+设置 → 词库 → 可下载的词库 (Settings → Dictionaries → Dictionaries to download) lists the dictionaries you can download from the Qingjian dictionary repository (Gitee or GitHub, whichever answers first). Each shows a description, its size and license; ones put together by others are marked 第三方 (Third-party).
+The list is fetched once when Settings opens; when offline, the last list fetched is shown, with the time it was fetched above it. Click 刷新 (Refresh) to fetch it again. 下载 (Download) installs a dictionary into your data folder; it then appears under 导入的词库 (Imported dictionaries) like an imported one, turned on by default, and can be turned off or removed.
+When the repository has a newer version, the button changes to 更新 (Update).
+
 ## Importing your own dictionaries
 
 设置 → 词库 → 导入词库 (Settings → Dictionaries → Import dictionary) lets you select several files at once and accepts five kinds:

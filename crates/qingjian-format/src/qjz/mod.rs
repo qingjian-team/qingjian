@@ -8,12 +8,10 @@ use std::fs::File;
 use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::Path;
 
+use crate::{Container, FormatError, Kind, Metadata};
 use flate2::Compression;
 use flate2::read::GzDecoder;
 use flate2::write::GzEncoder;
-use zerocopy::FromBytes;
-
-use crate::{Container, FormatError, Header, Kind, MAGIC, Metadata};
 
 const GZIP_MAGIC: [u8; 2] = [0x1f, 0x8b];
 
@@ -41,16 +39,16 @@ pub fn compress(source: &Path, target: &Path) -> Result<(), FormatError> {
     Ok(())
 }
 
-/// 把 `.qjz` 解成 `target`：先写到旁边的临时文件、按文件头里的种类整份校验一遍，通过了才改名换上，
-/// 中途失败不动原来的 `target`。返回解出的种类与元数据，种类对不对由调用方判断。
-pub fn unpack(source: &Path, target: &Path) -> Result<(Kind, Metadata), FormatError> {
+/// 把 `.qjz` 解成 `target`：先写到旁边的临时文件（扩展名 `.qj.part`，扫 `*.qj` 的不会看见），
+/// 按 `expected` 整份校验一遍，通过了才改名换上；种类不对、中途失败都不动原来的 `target`。返回解出的元数据。
+pub fn unpack(source: &Path, target: &Path, expected: Kind) -> Result<Metadata, FormatError> {
     let mut magic = [0u8; GZIP_MAGIC.len()];
     File::open(source)?.read_exact(&mut magic)?;
     if magic != GZIP_MAGIC {
         return Err(FormatError::UnknownCompression);
     }
     let part = target.with_extension("qj.part");
-    let result = unpack_to(source, &part).and_then(|checked| {
+    let result = unpack_to(source, &part, expected).and_then(|checked| {
         std::fs::rename(&part, target)?;
         Ok(checked)
     });
@@ -60,7 +58,7 @@ pub fn unpack(source: &Path, target: &Path) -> Result<(Kind, Metadata), FormatEr
     result
 }
 
-fn unpack_to(source: &Path, part: &Path) -> Result<(Kind, Metadata), FormatError> {
+fn unpack_to(source: &Path, part: &Path, expected: Kind) -> Result<Metadata, FormatError> {
     let decoder = GzDecoder::new(BufReader::new(File::open(source)?));
     let mut output = BufWriter::new(File::create(part)?);
     let written = std::io::copy(&mut decoder.take(MAX_UNPACKED + 1), &mut output)?;
@@ -69,23 +67,8 @@ fn unpack_to(source: &Path, part: &Path) -> Result<(Kind, Metadata), FormatError
     if written > MAX_UNPACKED {
         return Err(FormatError::TooLarge);
     }
-    let kind = header_kind(part)?;
     // 校验完就放掉映射：Windows 上映射着的文件不能改名
-    let metadata = Container::open(part, kind)?.metadata().clone();
-    Ok((kind, metadata))
-}
-
-/// 文件头里写的种类；魔数不对、种类不认识都算坏文件。
-fn header_kind(path: &Path) -> Result<Kind, FormatError> {
-    let mut bytes = [0u8; Header::SIZE];
-    File::open(path)?
-        .read_exact(&mut bytes)
-        .map_err(|_| FormatError::Truncated)?;
-    let header = Header::read_from_bytes(&bytes).map_err(|_| FormatError::Truncated)?;
-    if header.magic != MAGIC {
-        return Err(FormatError::BadMagic);
-    }
-    Kind::from_code(header.kind).ok_or(FormatError::UnknownKind(header.kind))
+    Ok(Container::open(part, expected)?.metadata().clone())
 }
 
 #[cfg(test)]

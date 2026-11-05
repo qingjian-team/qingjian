@@ -247,9 +247,9 @@ rustls 与 `webpki-roots` 提到了工作区依赖，与 `qingjian-predict` 的 
 词库与语言模型都能 `write_qj` / 从 `.qj` 打开，启动 50 ms；`cargo run --release -p qingjian-dict-convert -- pack dict|lm --name … --license …`
 生成 `data/generated/{dict,lm}.qj`，`bundle.sh` 在 TSV 更新时自动重打并只把 `.qj` 打进包。设计见 `docs/design/architecture.md`「数据文件：`.qj` 容器」。
 `qjz` 模块是分发用的压缩 `.qj`（词库仓库 qingjian-dicts 的 Release 附件、设置页导入）：现在是 gzip，按开头魔数认算法，以后换 zstd / xz 扩展名不变。
-只用来传输，`unpack` 先解到旁边的 `.qj.part`、按文件头里的种类整份校验、放掉映射后才改名换上（Windows 上映射着的文件改不了名），返回种类与元数据让调用方判断收不收；
+只用来传输，`unpack` 先解到旁边的 `.qj.part`（扫 `*.qj` 的看不见）、按调用方给的种类整份校验、放掉映射后才改名换上（Windows 上映射着的文件改不了名），种类不对不动原文件；
 不让引擎直接读 `.qjz`：解到堆上要多占整份大小的常驻内存（基础词库 15 MB、通用扩展 69 MB），mmap 按需换页的好处也没了。解压上限 1 GiB 挡压缩炸弹。
-`dict-convert qjz <.qj>…` 写 `<输出目录>/<主干>.qjz`；`qingjian-dictionary` 的导入认 `.qjz`：先解到系统临时目录（不能让输入法在词库目录里扫到半成品），不是拼音词库就拒绝，再按 `.qj` 导入。
+`dict-convert qjz <.qj>…` 写 `<输出目录>/<主干>.qjz`（词库仓库的 `tools/pack.py` 调它）；设置程序下载词库用 `unpack` 直接解进用户词库目录；`qingjian-dictionary` 的导入认 `.qjz`：先解到系统临时目录、只收拼音词库，再按 `.qj` 导入（统一按文件名主干命名、空词库拒绝）。
 
 ## crates/qingjian-neural
 

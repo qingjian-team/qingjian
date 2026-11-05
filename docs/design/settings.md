@@ -178,6 +178,14 @@ Windows 和 Linux 以前没有这一页，这次都有了。
 移除是挪进目录里的 `removed/`，不真删；输入法发现文件变了自己重载。清单进这一页时扫一次，导入、移除后重扫。
 随包词库的位置：macOS 先找设置程序自己所在的 `.app`，再找装好的 `Qingjian.app/Contents/Resources/dicts`；其他平台在随包根的 `data/generated/dicts`。
 
+**可下载的词库**：从词库仓库（`qingjian-team/qingjian-dicts`，Gitee 与 GitHub 各一份）下。设置窗口一打开就在后台同时问两边要 `index.json`（`jobs/dict_index/`），先答且读得懂的那边为准，
+取到的存进数据目录的 `dict-index.json`；没取到时用上次存的那份兜底，打开窗口时也先显示它。分组标题下先一行小字写列表是什么时候取的、这次刷新失败的原因，右边「刷新」，
+再是卡片，一本一行（名称、说明、大小、许可，第三方的标「第三方」）。
+清单格式版本对不上就提示更新输入法；现在只列附加词库（`kind = "extra"`），`.qj` 格式比这一版新的列出来但按钮灰着写「要先更新输入法」。
+每行的按钮与模型卡片同一套状态（下载 / 取消 + 进度条 / 正在安装 / 重试）；装好的按用户词库目录里同名文件元数据的 `version` 比：一样写灰掉的「已安装」，不一样给「更新」。
+下载与模型共用 `jobs/download/`（一次只下一个），装法是把 `.qjz` 解成用户词库目录的 `<id>.qj`；装好后与导入的词库一样列在「导入的词库」里开关、移除，缺省开着。
+本机测下载：设环境变量 `QINGJIAN_DOWNLOAD_MIRROR=http://127.0.0.1:端口` 从终端启动设置程序，清单取 `<地址>/index.json`、附件取 `<地址>/<标签>/<文件>`（模型也一样），词库仓库 `tools/pack.py` 打出的 `dist/` 放上 `index.json` 就能直接当这个地址。
+
 ### 8 云服务
 
 | 标题 | 控件 | 配置 | ⓘ |
@@ -259,7 +267,7 @@ Windows 和 Linux 以前没有这一页，这次都有了。
 | 下好了 | 开关：开了写 `model.name` 并打开 `model.enabled`，关了只关 `model.enabled`（不用模型）；下完自动打开 |
 
 知意开着时多一行「档位」（分段：省电 / 均衡 / 准确，`model.zhiyi_tier`）。
-下载同时问 Gitee 与 GitHub 要清单、先答的那边先下，某块失败换另一边（模型仓库 `qingjian-team/qingjian-models` 的 Release，标签写死在 `jobs/model_download/pack.rs`），
+下载同时问 Gitee 与 GitHub 要清单、先答的那边先下，某块失败换另一边（模型仓库 `qingjian-team/qingjian-models` 的 Release，标签写死在 `jobs/download/model.rs`），
 逐块核对 SHA-256 再核对整个压缩包，解到临时目录后换进用户目录的 `models/zhiyi/`（Windows 是 int8 ONNX 版 `models/zhiyi-onnx/`）、`models/hanzhang-tongbian/`。关掉窗口下载就停，下次从头下。
 Linux 的输入法还没接，support 表登记「待实现」，侧栏不出这一页。
 

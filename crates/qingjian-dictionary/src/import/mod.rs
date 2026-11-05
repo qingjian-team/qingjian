@@ -130,17 +130,9 @@ pub fn import(source: &Path, dest_dir: &Path) -> Result<Imported, DictionaryErro
 fn import_qjz(source: &Path, stem: &str, target: PathBuf) -> Result<Imported, DictionaryError> {
     let unpacked =
         std::env::temp_dir().join(format!("qingjian-import-{}-{stem}.qj", std::process::id()));
-    let result = qjz::unpack(source, &unpacked)
+    let result = qjz::unpack(source, &unpacked, Kind::Dictionary)
         .map_err(DictionaryError::from)
-        .and_then(|(kind, _)| {
-            if kind != Kind::Dictionary {
-                return Err(DictionaryError::Format(
-                    qingjian_format::FormatError::WrongKind {
-                        expected: Kind::Dictionary,
-                        found: kind as u16,
-                    },
-                ));
-            }
+        .and_then(|_| {
             let dictionary = Dictionary::open_qj(&unpacked)?;
             let metadata = dictionary.metadata().cloned().unwrap_or_default();
             finish_import(dictionary, metadata, target)

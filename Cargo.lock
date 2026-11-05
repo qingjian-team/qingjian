@@ -4499,6 +4499,7 @@ dependencies = [
  "qingjian-clipboard",
  "qingjian-core",
  "qingjian-dictionary",
+ "qingjian-format",
  "qingjian-learning",
  "qingjian-platform",
  "qingjian-predict",

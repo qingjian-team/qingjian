@@ -1,23 +1,19 @@
-//! 下载与安装，跑在下载线程里：清单 → 逐块下载并核对 → 核对整个压缩包 → 解到临时目录 → 换进模型目录。
+//! 下载，跑在下载线程里：清单 → 逐块下载并核对 → 核对拼起来的整个文件 → 交给 [`super::Install`] 装。
+//! 取小文件的 [`fetch_small`] 也给 `dict_index` 取词库清单用。
 
 use std::fs::File;
-use std::io::{BufReader, Write};
-use std::path::Path;
+use std::io::Write;
+use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 use sha2::{Digest, Sha256};
 
+use super::Target;
 use super::manifest::Manifest;
-use super::pack::Pack;
-use super::{Shared, Stage};
+use super::shared::Shared;
+use super::stage::Stage;
 
 use crate::i18n::{tr, tr_args};
-
-/// 两边的附件一模一样：同时取清单，先回来的那边先用（大陆多半是 Gitee，海外多半是 GitHub），不通再换另一边。
-const HOSTS: [&str; 2] = [
-    "https://gitee.com/qingjian-team/qingjian-models/releases/download",
-    "https://github.com/qingjian-team/qingjian-models/releases/download",
-];
 
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(15);
 
@@ -27,37 +23,67 @@ const READ_TIMEOUT: Duration = Duration::from_secs(30);
 /// 进度最多这么久报一次，免得每个数据块都重画窗口。
 const REPORT_EVERY: Duration = Duration::from_millis(100);
 
-const MAX_MANIFEST_BYTES: usize = 64 * 1024;
+/// 清单与 `index.json` 最多这么大；词库清单一条几百字节，留得下几百本。
+const MAX_SMALL_BYTES: usize = 512 * 1024;
 
-pub(super) fn run(pack: Pack, user_dir: &Path, shared: &Shared) -> Result<(), String> {
-    let runtime = tokio::runtime::Builder::new_current_thread()
-        .enable_all()
-        .build()
-        .map_err(|error| tr_args("download.cant_start", &[("error", &error)]))?;
-    let models = user_dir.join("models");
-    let work = models.join(format!(".download-{}", pack.tag));
+pub(super) const CANCELLED: &str = "已取消";
+
+pub(super) fn run(target: &Target, user_dir: &Path, shared: &Shared) -> Result<(), String> {
+    let runtime = runtime()?;
+    let work = target.work_dir(user_dir);
     let _ = std::fs::remove_dir_all(&work);
     std::fs::create_dir_all(&work)
         .map_err(|error| tr_args("download.cant_create_dir", &[("error", &error)]))?;
-    let result = runtime.block_on(download(pack, &work, shared));
+    let result = runtime.block_on(download(target, &work, shared));
     let result = result.and_then(|archive| {
         shared.set(Stage::Installing);
-        install(pack, &archive, &work, user_dir)
+        target.install.run(&archive, &work, user_dir)
     });
     let _ = std::fs::remove_dir_all(&work);
     result
 }
 
-/// 下载全部分块拼成一个压缩包，返回它的路径。
-async fn download(pack: Pack, work: &Path, shared: &Shared) -> Result<std::path::PathBuf, String> {
-    let client = reqwest::Client::builder()
+/// 同步版的 [`first_ok`]：几个地址同时取一个小文件，先取到且解析通过的用（给 `dict_index` 的线程用）。
+pub fn fetch_small<T>(
+    urls: Vec<String>,
+    parse: impl Fn(&[u8]) -> Result<T, String>,
+) -> Result<T, String> {
+    let client = client()?;
+    runtime()?
+        .block_on(first_ok(&client, urls, parse))
+        .map(|(value, _)| value)
+}
+
+fn runtime() -> Result<tokio::runtime::Runtime, String> {
+    tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .map_err(|error| tr_args("download.cant_start", &[("error", &error)]))
+}
+
+fn client() -> Result<reqwest::Client, String> {
+    reqwest::Client::builder()
         .connect_timeout(CONNECT_TIMEOUT)
         .read_timeout(READ_TIMEOUT)
         .user_agent(format!("qingjian/{}", env!("CARGO_PKG_VERSION")))
         .build()
-        .map_err(|error| tr_args("download.cant_start", &[("error", &error)]))?;
-    let (manifest, hosts) = manifest(&client, pack).await?;
-    let archive_path = work.join(format!("{}.tar.gz", pack.tag));
+        .map_err(|error| tr_args("download.cant_start", &[("error", &error)]))
+}
+
+/// 下载全部分块拼成一个文件，返回它的路径。
+async fn download(target: &Target, work: &Path, shared: &Shared) -> Result<PathBuf, String> {
+    let client = client()?;
+    let hosts = target.repo.release_hosts();
+    let urls = hosts
+        .iter()
+        .map(|host| format!("{host}/{}/manifest.json", target.tag))
+        .collect();
+    let (manifest, first) =
+        first_ok(&client, urls, |bytes| check_manifest(bytes, &target.tag)).await?;
+    // 先回来的那边在前，分块也先从它下
+    let mut order = hosts.clone();
+    order.rotate_left(first);
+    let archive_path = work.join(format!("{}.download", target.tag));
     let mut archive = File::create(&archive_path)
         .map_err(|error| tr_args("download.cant_write", &[("error", &error)]))?;
     let mut whole = Sha256::new();
@@ -67,8 +93,8 @@ async fn download(pack: Pack, work: &Path, shared: &Shared) -> Result<std::path:
     for part in &manifest.parts {
         let mut last_error = String::new();
         let mut fetched = None;
-        for host in hosts {
-            let url = format!("{host}/{}/{}", pack.tag, part.name);
+        for host in &order {
+            let url = format!("{host}/{}/{}", target.tag, part.name);
             match fetch_part(&client, &url, part.bytes, done, total, shared).await {
                 Ok(bytes) if sha256(&bytes) == part.sha256 => {
                     fetched = Some(bytes);
@@ -80,7 +106,7 @@ async fn download(pack: Pack, work: &Path, shared: &Shared) -> Result<std::path:
             if shared.cancelled() {
                 return Err(CANCELLED.to_owned());
             }
-            tracing::warn!(url, error = last_error, "这一块没下好，换下一个地址");
+            tracing::warn!(url, error = last_error, "part failed, trying the next host");
         }
         let bytes = fetched.ok_or(last_error)?;
         whole.update(&bytes);
@@ -99,57 +125,49 @@ async fn download(pack: Pack, work: &Path, shared: &Shared) -> Result<std::path:
     Ok(archive_path)
 }
 
-pub(super) const CANCELLED: &str = "已取消";
-
-/// 两边同时取清单，返回先取到的那份和接下来下分块的顺序（先回来的在前）；一边失败就等另一边。
-async fn manifest(
-    client: &reqwest::Client,
-    pack: Pack,
-) -> Result<(Manifest, [&'static str; 2]), String> {
-    let [first, second] = HOSTS;
-    let from_first = manifest_from(client, first, pack);
-    let from_second = manifest_from(client, second, pack);
-    tokio::pin!(from_first, from_second);
-    tokio::select! {
-        result = &mut from_first => match result {
-            Ok(manifest) => Ok((manifest, [first, second])),
-            Err(_) => from_second.await.map(|manifest| (manifest, [second, first])),
-        },
-        result = &mut from_second => match result {
-            Ok(manifest) => Ok((manifest, [second, first])),
-            Err(_) => from_first.await.map(|manifest| (manifest, [first, second])),
-        },
+/// 清单的标签与大小要对得上。
+fn check_manifest(bytes: &[u8], tag: &str) -> Result<Manifest, String> {
+    match serde_json::from_slice::<Manifest>(bytes) {
+        Ok(manifest) if manifest.tag != tag || manifest.parts.is_empty() => {
+            Err(tr("download.wrong_manifest").to_owned())
+        }
+        Ok(manifest) => {
+            let sum: u64 = manifest.parts.iter().map(|part| part.bytes).sum();
+            if sum == manifest.archive.bytes {
+                Ok(manifest)
+            } else {
+                Err(tr("download.manifest_size").to_owned())
+            }
+        }
+        Err(error) => Err(tr_args("download.bad_manifest", &[("error", &error)])),
     }
 }
 
-/// 一边的清单，标签与大小要对得上。
-async fn manifest_from(
+/// 几个地址同时取一个小文件，返回第一个取到且 `parse` 通过的结果与它是第几个地址；全都失败时报最后一个错。
+async fn first_ok<T>(
     client: &reqwest::Client,
-    host: &str,
-    pack: Pack,
-) -> Result<Manifest, String> {
-    let url = format!("{host}/{}/manifest.json", pack.tag);
-    let result = match get_small(client, &url).await {
-        Ok(bytes) => match serde_json::from_slice::<Manifest>(&bytes) {
-            Ok(manifest) if manifest.tag != pack.tag || manifest.parts.is_empty() => {
-                Err(tr("download.wrong_manifest").to_owned())
-            }
-            Ok(manifest) => {
-                let sum: u64 = manifest.parts.iter().map(|part| part.bytes).sum();
-                if sum == manifest.archive.bytes {
-                    Ok(manifest)
-                } else {
-                    Err(tr("download.manifest_size").to_owned())
-                }
-            }
-            Err(error) => Err(tr_args("download.bad_manifest", &[("error", &error)])),
-        },
-        Err(error) => Err(error),
-    };
-    if let Err(error) = &result {
-        tracing::warn!(url, error, "下载清单没取到");
+    urls: Vec<String>,
+    parse: impl Fn(&[u8]) -> Result<T, String>,
+) -> Result<(T, usize), String> {
+    let mut pending = tokio::task::JoinSet::new();
+    for (index, url) in urls.into_iter().enumerate() {
+        let client = client.clone();
+        pending.spawn(async move { (index, get_small(&client, &url).await, url) });
     }
-    result
+    let mut last_error = tr("download.unreachable").to_owned();
+    while let Some(joined) = pending.join_next().await {
+        let Ok((index, result, url)) = joined else {
+            continue;
+        };
+        match result.and_then(|bytes| parse(&bytes)) {
+            Ok(value) => return Ok((value, index)),
+            Err(error) => {
+                tracing::warn!(url, error, "small file not fetched");
+                last_error = error;
+            }
+        }
+    }
+    Err(last_error)
 }
 
 async fn get_small(client: &reqwest::Client, url: &str) -> Result<Vec<u8>, String> {
@@ -160,7 +178,7 @@ async fn get_small(client: &reqwest::Client, url: &str) -> Result<Vec<u8>, Strin
         .and_then(reqwest::Response::error_for_status)
         .map_err(describe)?;
     let bytes = response.bytes().await.map_err(describe)?;
-    if bytes.len() > MAX_MANIFEST_BYTES {
+    if bytes.len() > MAX_SMALL_BYTES {
         return Err(tr("download.manifest_too_large").to_owned());
     }
     Ok(bytes.to_vec())
@@ -202,36 +220,6 @@ async fn fetch_part(
     Ok(bytes)
 }
 
-/// 解到临时目录，再把旧的模型目录换掉；中途失败不动原来装着的。
-fn install(pack: Pack, archive: &Path, work: &Path, user_dir: &Path) -> Result<(), String> {
-    let extracted = work.join("extracted");
-    let file =
-        File::open(archive).map_err(|error| tr_args("download.cant_open", &[("error", &error)]))?;
-    let mut tar = tar::Archive::new(flate2::read::GzDecoder::new(BufReader::new(file)));
-    // unpack 不放行绝对路径与 `..`，解不出包外
-    tar.unpack(&extracted)
-        .map_err(|error| tr_args("download.unpack_failed", &[("error", &error)]))?;
-    let source = pack.archive_path(&extracted);
-    if !source.is_dir() {
-        return Err(tr("download.no_model_dir").to_owned());
-    }
-    let target = pack.install_path(user_dir);
-    if let Some(parent) = target.parent() {
-        std::fs::create_dir_all(parent)
-            .map_err(|error| tr_args("download.cant_create_model_dir", &[("error", &error)]))?;
-    }
-    let old = work.join("old");
-    if target.exists() {
-        std::fs::rename(&target, &old)
-            .map_err(|error| tr_args("download.cant_move_old", &[("error", &error)]))?;
-    }
-    if let Err(error) = std::fs::rename(&source, &target) {
-        let _ = std::fs::rename(&old, &target);
-        return Err(tr_args("download.cant_install", &[("error", &error)]));
-    }
-    Ok(())
-}
-
 fn describe(error: reqwest::Error) -> String {
     if error.is_timeout() {
         tr("download.timeout").to_owned()
@@ -254,25 +242,19 @@ fn hex(bytes: &[u8]) -> String {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Mutex;
-    use std::sync::atomic::AtomicBool;
-
     use qingjian_platform::LocalModel;
 
     use super::*;
+    use crate::jobs::download::Pack;
 
     #[test]
     #[ignore = "联网从模型仓库下 43 MB"]
     fn downloads_and_installs_tongbian() {
         let dir = std::env::temp_dir().join("qingjian-model-download-test");
         let _ = std::fs::remove_dir_all(&dir);
-        let shared = Shared {
-            stage: Mutex::new(Stage::Installing),
-            cancel: AtomicBool::new(false),
-            waker: None,
-        };
+        let shared = Shared::new(None);
         let pack = Pack::of(LocalModel::Tongbian).unwrap();
-        run(pack, &dir, &shared).unwrap();
+        run(&pack.target(), &dir, &shared).unwrap();
         let installed = pack.install_path(&dir);
         assert!(installed.join("hanzhang-tongbian-small.qjm").is_file());
         assert!(installed.join("LICENSE").is_file());
@@ -303,9 +285,9 @@ mod tests {
     {"name": "zhiyi-v1.0.0.tar.gz.part2", "bytes": 1, "sha256": "cc"}
   ]
 }"#;
-        let manifest: Manifest = serde_json::from_str(text).unwrap();
-        assert_eq!(manifest.tag, "zhiyi-v1.0.0");
+        let manifest = check_manifest(text.as_bytes(), "zhiyi-v1.0.0").unwrap();
         assert_eq!(manifest.archive.bytes, 3);
         assert_eq!(manifest.parts[1].name, "zhiyi-v1.0.0.tar.gz.part2");
+        assert!(check_manifest(text.as_bytes(), "zhiyi-v2.0.0").is_err());
     }
 }

@@ -2,5 +2,6 @@
 
 pub mod actions;
 pub mod controls;
+pub mod download;
 pub mod lists;
 pub mod menus;

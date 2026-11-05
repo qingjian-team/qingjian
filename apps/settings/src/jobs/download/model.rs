@@ -1,6 +1,10 @@
+//! 能在「实验功能」里下载的本地模型：标签与装到哪写死在代码里，主版本变了旧输入法读不了。
+
 use std::path::{Path, PathBuf};
 
 use qingjian_platform::LocalModel;
+
+use super::{Install, Item, Repo, Target};
 
 use crate::i18n::{tr, tr_args};
 
@@ -68,8 +72,16 @@ impl Pack {
         user_dir.join(self.install_dir)
     }
 
-    pub fn archive_path(self, extracted: &Path) -> PathBuf {
-        extracted.join(self.archive_dir)
+    pub fn target(self) -> Target {
+        Target {
+            item: Item::Model(self.model),
+            repo: Repo::Models,
+            tag: self.tag.to_owned(),
+            install: Install::Archive {
+                archive_dir: self.archive_dir,
+                install_dir: self.install_dir,
+            },
+        }
     }
 
     /// 删掉装好的整个模型目录。
