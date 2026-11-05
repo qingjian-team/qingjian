@@ -77,6 +77,7 @@ The preview at the top of the page shows the current theme, light/dark mode and 
 - Topic dictionaries: law, medicine, place names, idioms, famous lines of poetry, IT and computing, finance, food, animals, cars, historical figures. They ship with the app and can be turned on one by one. Idioms are on by default.
 - Importing dictionaries: tap 导入词库 (Import dictionary) and choose files in the system file picker; you can select several. The format is the same as pinyin dictionaries on desktop, see [Dictionaries](../personalize/dictionaries.md#Importing-your-own-dictionaries). The name and entry count are shown after importing.
 - Imported dictionaries can be turned on or off individually; after 删除 (Delete) they need to be imported again. Turning on, importing and deleting take effect immediately on the keyboard in use.
+- 通讯录 (Contacts): off by default; when you turn it on, the system asks whether Qingjian may read your contacts. Names of 2–6 Chinese characters can then be typed and appear on the first page with a person icon; 上屏名字后给出电话、邮箱 (Offer phone and email after a name) can be turned off separately. Names and numbers are used only on your phone; see [Privacy](../help/privacy.md#Contacts-on-Android).
 
 ## Exporting and clearing
 

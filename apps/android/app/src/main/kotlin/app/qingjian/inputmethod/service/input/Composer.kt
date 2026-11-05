@@ -499,7 +499,8 @@ class Composer(private val engine: Engine, private val host: Host) {
         pinyinChoices = frame.pinyinChoices
         expression = frame.expression
         candidates = frame.candidates
-        completing = false
+        // 不在组句却带着候选：上屏通讯录名字后接着给的电话、邮箱，光标再动时要问 Core 还留不留
+        completing = frame.preedit.isEmpty() && frame.candidates.isNotEmpty()
         host.showSideItems(pinyinChoices)
         host.showComposition(frame.preedit, frame.candidates)
         if (frame.notice.isNotEmpty()) host.showNotice(frame.notice)

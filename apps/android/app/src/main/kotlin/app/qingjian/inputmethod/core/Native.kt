@@ -182,6 +182,12 @@ internal object Native {
     /** 私密输入：应用声明不要学习的输入框里不学习、不记统计与生词、不发云端。 */
     external fun setPrivate(handle: Long, private: Boolean)
 
+    /**
+     * 通讯录（`[{"name":…,"details":[…]}]`，空数组即关掉）：名字并进候选，[details] 是上屏名字后给不给电话、邮箱。
+     * 返回收进来的名字数，出错 -1。
+     */
+    external fun setContacts(handle: Long, contacts: String, details: Boolean): Int
+
     /** 测试连接，阻塞到有结果（请求自带超时），只能在后台线程调；回 `{ok, message}`。 */
     external fun cloudTest(settings: String): String?
 

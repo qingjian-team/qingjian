@@ -187,6 +187,10 @@ class Engine(context: Context, private val onReady: () -> Unit) {
         if (ready) Native.setPrivate(handle, private)
     }
 
+    /** 交通讯录（见 [Native.setContacts]）；引擎还没装好返回 -1。 */
+    fun setContacts(contacts: String, details: Boolean): Int =
+        if (ready) Native.setContacts(handle, contacts, details) else -1
+
     fun cancelTranslation() {
         if (ready) Native.cancelTranslation(handle)
     }

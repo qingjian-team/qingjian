@@ -12,6 +12,7 @@ mod choice;
 mod code_keys;
 mod commit;
 mod composing;
+mod contacts;
 mod correcting;
 mod decoded;
 mod extras;
@@ -133,6 +134,9 @@ pub struct Engine {
 
     /// 用户定义的短语，按输入码精确匹配、按权重排在最前。
     custom_phrases: Vec<crate::CustomPhrase>,
+
+    /// 通讯录（壳读系统通讯录交来，用户在设置里开了才有）：名字并进查词，见 [`Self::set_contacts`]。
+    contacts: Option<crate::ContactBook>,
 
     /// 中文模式下整段是英文词（或像英文词的开头）时给不给英文候选与补全（配置 `[general] english_in_chinese`，缺省开）。
     english_in_chinese: bool,
@@ -523,6 +527,7 @@ impl Engine {
             punctuation: Punctuation::default(),
             full_width_punctuation: true,
             custom_phrases: Vec::new(),
+            contacts: None,
             english_in_chinese: true,
             chinese_first: false,
             spelling_correction: true,

@@ -140,6 +140,10 @@ mac 存在 `Session::spelling`（`Host::follow_highlight`）、Windows / Linux �
   读不通时照旧噪声信道比。开关 `[general] spelling_correction`（`Engine::set_spelling_correction`，CLI `--no-spelling-correction`，缺省开）：
   关掉后 `find_correction` 直接返回、`expand_positions` 不加敲错边，个人敲错表留着不用。
 
+通讯录（`contacts/`、`engine/contacts.rs`，设计见 `docs/design/contacts.md`）：`ContactBook::build` 把壳交来的 `Contact` 收成名字词库（TSV 拼出来再 `Dictionary::parse`，词频 `NAME_FREQUENCY` = 1000，只够进整句词图）与名字 → 内容表。
+读音先看多音字姓（`contacts/surname.rs`），再试整词在主词库里的读音（各字读音组合最多 32 种），否则逐字取 `zhuyin::tone::readings` 的第一个；单字表没有的字由 `Engine::set_contacts` 扫一遍主词库的单字词条补。
+`all_dictionaries` 带上名字词库；`query` 末尾 `lift_contact` 把第一个整段对得上（`consumed_by` 吃满作用域）的名字挪到 `CONTACT_SLOT` = 1。`commit_with` 遇到名字临时把学习与输入日志静音；`QuerySnapshot` 与云联想请求去掉名字。
+
 `EngineSession` 保存可挂起的组句、标点、历史与学习链，`Engine::swap_session` 在同一个引擎里交换输入状态，共用词库与落盘服务。切换上下文时清除查询及异步预测缓存，并由平台恢复各自私密状态。
 
 异步预测按请求序号保存待处理状态：组句请求与翻译请求分别只保留最新一条，可同时等待结果；同类旧请求与清空输入后的结果都会丢弃。

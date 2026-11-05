@@ -25,6 +25,7 @@ import org.json.JSONObject
 import app.qingjian.inputmethod.cloud.CloudConfig
 import app.qingjian.inputmethod.cloud.Network
 import app.qingjian.inputmethod.cloud.SecretStore
+import app.qingjian.inputmethod.contacts.ContactsSync
 import app.qingjian.inputmethod.core.AppLog
 import app.qingjian.inputmethod.core.Engine
 import app.qingjian.inputmethod.core.InputOptions
@@ -124,8 +125,12 @@ class QingjianInputMethodService :
 
     /** 设置页改了就重建键盘，开着键盘能马上看到。 */
     private val settingsListener = SharedPreferences.OnSharedPreferenceChangeListener { _, _ ->
+        contacts.sync()
         if (!writingSettings) setInputView(onCreateInputView())
     }
+
+    /** 通讯录里的名字（设置里开了才读）。 */
+    private lateinit var contacts: ContactsSync
 
     /** 云端配置（地址、模型、密钥）在设置页改了，云联想、释义兜底跟着换。 */
     private val cloudListener = SharedPreferences.OnSharedPreferenceChangeListener { _, _ -> syncCloud() }
@@ -159,7 +164,9 @@ class QingjianInputMethodService :
             composer.onEngineReady()
             syncCloud()
             syncVoice()
+            contacts.sync()
         }
+        contacts = ContactsSync(this, engine)
         composer = Composer(engine, this)
         quickTranslate = QuickTranslate(engine) { currentInputConnection }
         voice = VoiceInput(this, engine, this)
@@ -181,6 +188,7 @@ class QingjianInputMethodService :
     override fun onDestroy() {
         AppLog.info("ime destroy")
         clipboardWatcher.stop()
+        contacts.stop()
         ClipboardSync.removeListener(syncListener)
         Settings.preferences(this).unregisterOnSharedPreferenceChangeListener(settingsListener)
         SecretStore.prefs(this).unregisterOnSharedPreferenceChangeListener(cloudListener)
@@ -356,6 +364,8 @@ class QingjianInputMethodService :
         }
         // 网络可能换了（「只在 Wi-Fi 下使用」）
         syncCloud()
+        // 上次读通讯录时系统给了空结果（「仅在使用中允许」时后台读不到），键盘弹出时再读
+        contacts.retryIfEmpty()
         clipboardWatcher.capture()
         // 进程可能刚被系统杀过又拉起，或开关刚改过；顺便补一轮
         ClipboardSync.apply(this)

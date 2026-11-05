@@ -6,6 +6,7 @@
 mod catalog;
 mod clipboard;
 mod cloud;
+mod contacts;
 mod expression;
 mod logging;
 mod operations;

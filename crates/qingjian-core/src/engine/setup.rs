@@ -701,13 +701,14 @@ impl Engine {
         self.model_words.as_ref()
     }
 
-    /// 查词用的全部词库：主词库、附加词库、内置的符号与 emoji 名字、用户词。
+    /// 查词用的全部词库：主词库、附加词库、内置的符号与 emoji 名字、通讯录、用户词。
     pub(super) fn all_dictionaries(&self) -> Vec<&Dictionary> {
         let mut all = Vec::with_capacity(self.extra_dictionaries.len() + 2);
         all.push(&self.dictionary);
         all.extend(self.extra_dictionaries.iter());
         all.extend(self.model_words.as_ref());
         all.extend(self.companion_words);
+        all.extend(self.contact_book().map(crate::ContactBook::dictionary));
         if let Some(user) = self.learner.user_words() {
             all.push(user);
         }

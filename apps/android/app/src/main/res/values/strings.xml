@@ -188,6 +188,13 @@
     <string name="dictionary_delete_confirm">删除「%1$s」？要用得重新导入</string>
     <string name="dictionary_none">还没有导入词库。</string>
     <string name="imported_note">可以一次选好几个文件</string>
+    <string name="section_contacts">通讯录</string>
+    <string name="contacts_title">通讯录里的名字</string>
+    <string name="contacts_note">打名字的拼音或简拼，通讯录里的人排在第一页，右上角带人头</string>
+    <string name="contact_details_title">上屏名字后给出电话、邮箱</string>
+    <string name="contact_details_note">点了才上屏，接着打字就收起</string>
+    <string name="contacts_footer">只在本机用：不上传、不发给云联想，也不记进学习和输入日志；关掉后键盘里的名字一起清掉</string>
+    <string name="contacts_denied">没有读通讯录的权限，可以在系统设置的应用权限里打开</string>
     <string name="candidate_forget">删除</string>
     <string name="candidate_forget_note">不再优先</string>
     <string name="section_keys">按键</string>

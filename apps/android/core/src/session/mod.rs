@@ -2,6 +2,7 @@
 
 mod clipboard;
 mod cloud;
+mod contacts;
 mod dictionaries;
 mod display;
 mod keys;
@@ -63,6 +64,12 @@ pub struct Session {
     /// 插进候选的整句补全在第几个；选它走 `accept_prediction`。
     sentence_at: Option<usize>,
 
+    /// 上屏通讯录里的名字后给不给这个人的电话、邮箱（键盘设置里的开关）。
+    contact_details: bool,
+
+    /// 刚上屏的通讯录名字，候选条上正放着它的电话、邮箱；光标前的文字不再以它结尾、或有别的操作就清掉。
+    after_contact: Option<String>,
+
     /// 快捷翻译、常用语编辑这些工具框开着：打的字不进应用，不发云联想。
     tools_open: bool,
 
@@ -97,6 +104,8 @@ impl Session {
             surrounding: None,
             sentence_at: None,
             tools_open: false,
+            contact_details: false,
+            after_contact: None,
             transcriber: Box::new(NoTranscriber),
             swipe_decoder: Box::new(ShapeDecoder),
             swipe_pinyin: OnceLock::new(),
@@ -117,6 +126,7 @@ impl Session {
         self.surrounding = None;
         self.sentence_at = None;
         self.completions.clear();
+        self.after_contact = None;
         if let Some(kana) = &mut self.kana {
             kana.clear();
         }
@@ -125,6 +135,7 @@ impl Session {
     fn refresh(&mut self, commit: String) -> Frame {
         self.pinyin_choices.clear();
         self.completions.clear();
+        self.after_contact = None;
         if let Some(kana) = &self.kana {
             self.preedit = kana.preedit();
             self.preedit_cursor = self.preedit.chars().count();
@@ -185,7 +196,10 @@ impl Session {
                 .candidates
                 .items
                 .iter()
-                .map(FrameCandidate::from)
+                .map(|candidate| {
+                    FrameCandidate::from(candidate)
+                        .with_contact(self.engine.is_contact(&candidate.text))
+                })
                 .collect(),
             expression: self.engine.expression_mode() || self.engine.unicode_entry(),
         }

@@ -42,6 +42,7 @@ The 试一试 (Try it) box on the home screen lets you try typing right away.
 - Long-press a candidate to pop up its glosses; slide your finger onto a gloss and release to commit it; slide out of the bubble to cancel.
 - Candidates that can be deleted (words you've created, words learned, English words) have an extra 删除 (Delete) at the end of the bubble: it deletes a word you created, or clears the learning records for that word. For a candidate with no gloss, the bubble only has 删除, and you need to slide up into the bubble to select it.
 - The ⌄ at the right end of the candidate bar expands all candidates.
+- With 设置 → 词库 → 通讯录 (Settings → Dictionaries → Contacts) on, typing a name's pinyin or initials brings people from your contacts onto the first page, marked with a small person icon; after you commit a name, the candidate bar offers that person's phone numbers and email addresses, committed only when tapped and gone as soon as you keep typing.
 - When you pick a stretch of pinyin in several steps, the words picked first stay in the input box and the whole stretch is committed together once done; if you pick wrong, the delete key undoes the last pick so you can pick again. Enter commits them together with the remaining pinyin as typed. If you don't want this, turn off 分次选词先不上屏 (Keep partial picks until done) under 设置 → 输入 (Settings → Input).
 
 ## Dates and calculations

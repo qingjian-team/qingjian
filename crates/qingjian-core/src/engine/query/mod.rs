@@ -65,6 +65,7 @@ impl Engine {
             self.insert_custom_phrases(&mut query.candidates.items);
         }
         self.rerank_choices(&mut query.candidates.items);
+        self.lift_contact(&mut query.candidates.items);
         trim_sentence_alternates(&mut query.candidates.items);
         // 整句截完、重排完才数得准第一页上排了什么（截之前可能还有十几条整句）；只有拼音输入有切分。
         // 辅码筛词时顺序按码的匹配程度排过，不再挪
@@ -102,6 +103,8 @@ impl Engine {
                 .candidates
                 .items
                 .iter()
+                // 输入日志不记通讯录里的名字
+                .filter(|c| !self.is_contact(&c.text))
                 .take(QuerySnapshot::MAX_CANDIDATES)
                 .map(|c| c.text.clone())
                 .collect(),

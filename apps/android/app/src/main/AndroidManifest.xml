@@ -13,6 +13,9 @@
     <!-- 语音输入录音（见 voice/EngineRecognizer.kt）；用到时由 voice/MicrophonePermissionActivity.kt 弹框申请 -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
+    <!-- 通讯录里的名字进候选（缺省关，见 contacts/ContactsSync.kt）；在「设置 → 词库」打开时才申请，只在本机用 -->
+    <uses-permission android:name="android.permission.READ_CONTACTS" />
+
     <!-- 试打框等自家输入框的文字选择菜单要列出「青简翻译」这类文字处理项：Android 11 起不声明就查不到 -->
     <queries>
         <intent>

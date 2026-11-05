@@ -1,13 +1,16 @@
 package app.qingjian.inputmethod.settings.page
 
+import android.Manifest
 import android.app.AlertDialog
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.provider.OpenableColumns
 import android.view.Gravity
 import android.view.View
 import android.widget.Toast
 import app.qingjian.inputmethod.R
+import app.qingjian.inputmethod.contacts.ContactsSync
 import app.qingjian.inputmethod.core.BundledData
 import app.qingjian.inputmethod.core.InputOptions
 import app.qingjian.inputmethod.core.Native
@@ -42,7 +45,39 @@ class DictionariesActivity : PageActivity() {
         return listOf(
             ui.group(getString(R.string.section_domains), domainRows(options), getString(R.string.domains_note)),
             ui.group(getString(R.string.section_imported), importedRows(options), getString(R.string.imported_note)),
+            ui.group(getString(R.string.section_contacts), contactRows(), getString(R.string.contacts_footer)),
         )
+    }
+
+    /** 通讯录：打开时才申请读通讯录的权限，没给就保持关着。 */
+    private fun contactRows(): List<View> {
+        val settings = Settings.load(this)
+        val on = settings.contacts && ContactsSync.granted(this)
+        val rows = mutableListOf<View>(
+            ui.toggle(R.string.contacts_title, R.string.contacts_note, on) {
+                when {
+                    !it -> prefs.edit().putBoolean(Settings.KEY_CONTACTS, false).apply()
+                    ContactsSync.granted(this) -> prefs.edit().putBoolean(Settings.KEY_CONTACTS, true).apply()
+                    else -> requestPermissions(arrayOf(Manifest.permission.READ_CONTACTS), REQUEST_CONTACTS)
+                }
+                rebuild()
+            },
+        )
+        if (on) {
+            rows += ui.toggle(R.string.contact_details_title, R.string.contact_details_note, settings.contactDetails) {
+                prefs.edit().putBoolean(Settings.KEY_CONTACT_DETAILS, it).apply()
+            }
+        }
+        return rows
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode != REQUEST_CONTACTS) return
+        val granted = grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED
+        prefs.edit().putBoolean(Settings.KEY_CONTACTS, granted).apply()
+        if (!granted) Toast.makeText(this, R.string.contacts_denied, Toast.LENGTH_LONG).show()
+        rebuild()
     }
 
     private fun domainRows(options: InputOptions): List<View> {
@@ -172,5 +207,6 @@ class DictionariesActivity : PageActivity() {
 
     private companion object {
         const val PICK_FILES = 1
+        const val REQUEST_CONTACTS = 2
     }
 }

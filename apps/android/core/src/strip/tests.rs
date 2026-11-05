@@ -22,6 +22,7 @@ fn candidate(text: &str, senses: &[(Option<&'static str>, &str, bool)]) -> Frame
             .collect(),
         forgettable: true,
         cloud: false,
+        contact: false,
     }
 }
 

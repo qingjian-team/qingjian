@@ -185,12 +185,18 @@ impl Engine {
             pinyin,
             letters: pinyin_source.replace('\'', ""),
             syllables,
+            // 通讯录里的名字不发给云端
             candidates: candidates
                 .iter()
+                .filter(|c| !self.is_contact(&c.text))
                 .take(PREDICTION_CANDIDATE_HINTS)
                 .map(|c| c.text.clone())
                 .collect(),
-            guess: guess.clone(),
+            guess: if self.mentions_contact(&guess) {
+                String::new()
+            } else {
+                guess.clone()
+            },
             // 简拼（半数以上音节是缩写）不问词：模型按声母凑出来的大多是生造词（复合语气、符号映射），
             // 只问整句补全；问字模式的答案不受这条限制（答案本来就对不上问题的拼音）。
             max_items: if abbreviated && !question {

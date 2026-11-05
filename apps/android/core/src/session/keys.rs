@@ -11,7 +11,12 @@ impl Session {
         {
             return self.refresh(String::new());
         }
+        // 刚上屏的名字还在光标前：接着给它的电话、邮箱（`refresh` 会清掉，先拿出来）
+        let after_contact = self.after_contact.take();
         let mut frame = self.refresh(String::new());
+        if let Some(name) = after_contact.filter(|name| before_cursor.ends_with(name.as_str())) {
+            self.offer_contact(&name, &mut frame);
+        }
         let mut labels = Vec::new();
         for completion in qingjian_core::email_completions(before_cursor) {
             labels.push(completion.domain.to_owned());
@@ -22,10 +27,9 @@ impl Session {
             self.completions
                 .push((completion.replace, completion.insert));
         }
-        frame.candidates = labels
-            .iter()
-            .map(|label| FrameCandidate::plain(label))
-            .collect();
+        frame
+            .candidates
+            .extend(labels.iter().map(|label| FrameCandidate::plain(label)));
         frame
     }
 
@@ -80,11 +84,15 @@ impl Session {
         if let Some(commit) = self.select_sentence(index) {
             return self.refresh(commit);
         }
-        let commit = match self.candidates.items.get(index) {
-            Some(candidate) => self.engine.commit(candidate),
-            None => String::new(),
+        let Some(candidate) = self.candidates.items.get(index).cloned() else {
+            return self.refresh(String::new());
         };
-        self.refresh(commit)
+        let commit = self.engine.commit(&candidate);
+        let mut frame = self.refresh(commit);
+        if self.engine.is_contact(&candidate.text) {
+            self.offer_contact(&candidate.text, &mut frame);
+        }
+        frame
     }
 
     /// 上屏第 `index` 个候选的第 `sense` 条译文；学习与拼音消耗同选了这个候选。没有那条译文就不动。

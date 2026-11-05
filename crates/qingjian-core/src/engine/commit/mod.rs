@@ -87,7 +87,7 @@ impl Engine {
     /// 开了自动空格（[`Self::set_auto_space`]）时与上文、候选内部的中西文交界都补好空格。
     /// 面板开着时上屏的是面板里的条目：记一次使用（私密输入不记），下次打开排进「常用」。
     pub fn commit(&mut self, candidate: &Candidate) -> String {
-        if self.take_panel().is_some() && !self.private {
+        if self.take_panel().is_some() && !self.private && !self.is_contact(&candidate.text) {
             self.panel_history.record(&candidate.text);
         }
         let lead = self.auto_space_before(&candidate.text);
@@ -100,6 +100,26 @@ impl Engine {
     /// [`Self::commit`] 的内部形式：`source` 写进输入日志（上屏译词时不是候选本身），
     /// `used_sense` 是直接打出去的那条译词的序号（词汇记录里算「用过」）。
     pub(super) fn commit_with(
+        &mut self,
+        candidate: &Candidate,
+        source: InputSource,
+        used_sense: Option<usize>,
+    ) -> String {
+        // 通讯录里的名字只在本机用：上屏照常吃拼音，学习与输入日志这一次都不记
+        let mute = !self.private && self.is_contact(&candidate.text);
+        if mute {
+            self.learner.set_private(true);
+            self.logger.set_muted(true);
+        }
+        let text = self.commit_recorded(candidate, source, used_sense);
+        if mute {
+            self.learner.set_private(false);
+            self.logger.set_muted(false);
+        }
+        text
+    }
+
+    fn commit_recorded(
         &mut self,
         candidate: &Candidate,
         source: InputSource,

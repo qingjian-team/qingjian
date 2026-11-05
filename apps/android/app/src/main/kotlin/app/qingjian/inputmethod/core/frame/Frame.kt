@@ -35,6 +35,7 @@ data class Frame(
                     },
                     forgettable = item.optBoolean("forgettable"),
                     cloud = item.optBoolean("cloud"),
+                    contact = item.optBoolean("contact"),
                 )
             }
             val choices = root.getJSONArray("pinyin_choices")

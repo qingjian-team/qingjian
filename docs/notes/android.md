@@ -77,6 +77,9 @@ PC 上只对实体键盘有意义的项（Shift + 字母、切换键、翻页键
 - 导入走 SAF（`ACTION_OPEN_DOCUMENT`，`*/*` 多选：TSV 与 Rime 文件的 MIME 各家文件管理器给得不一样）。壳按原文件名拷到缓存目录，Rust 的 `store::dictionaries` 交 `qingjian_dictionary::import` 转成 `.qj` 放进 `files/user/dicts/`，再删掉拷贝。导入与删除后改设置里的 `dictionaries_stamp`，开着的键盘重建、重交选项、会话按文件重挂。
 - 「删除」直接删文件：PC 的「移除」是挪进 `removed/`，手机上用户碰不到这个目录，挪过去等于留垃圾。
 - 有的厂商文件选择器按自己的文件索引列文件，`adb push` 进去的要先发 `MEDIA_SCANNER_SCAN_FILE` 广播才搜得到。
+- 通讯录（#876，设计见 `docs/design/contacts.md`）：`contacts/ContactsSync` 在设置开着、有 `READ_CONTACTS` 时后台读 `Contacts` 与 `Data`（电话、邮箱）两张表，回主线程交 `Native.setContacts`；55 个联系人读加建词库约 20 ms。
+  MIUI 上只给「仅在使用中允许」时，输入法服务在后台启动那次读到空结果（权限仍显示允许），所以读到零个不算读过，`onStartInputView` 里再读（`retryIfEmpty`）。
+  shell 的 `content delete` 在 MIUI 上删不掉联系人（不报错、不生效），真机测试加的联系人要在通讯录 App 里删。
 
 ## 剪贴板与常用语
 

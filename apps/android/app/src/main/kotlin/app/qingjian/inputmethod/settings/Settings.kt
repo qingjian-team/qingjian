@@ -66,6 +66,10 @@ data class Settings(
     val cloudPredict: Boolean,
     /** 云联想只在 Wi-Fi（含有线）下发（缺省开）；快捷翻译与补充译词不受限。 */
     val cloudWifiOnly: Boolean,
+    /** 通讯录里的名字进候选（缺省关，打开时才要读通讯录的权限），只在本机用。 */
+    val contacts: Boolean,
+    /** 上屏通讯录里的名字后，候选条接着给这个人的电话、邮箱（缺省开，[contacts] 开着才起作用）。 */
+    val contactDetails: Boolean,
     /** 键盘、候选条与面板用的主题（内置主题 id，同 PC 的 `[general] theme`）。 */
     val theme: String,
     val appearance: Appearance,
@@ -127,6 +131,8 @@ data class Settings(
         const val KEY_GLOSS_FILL = "gloss_fill"
         const val KEY_CLOUD_PREDICT = "cloud_predict"
         const val KEY_CLOUD_WIFI_ONLY = "cloud_wifi_only"
+        const val KEY_CONTACTS = "contacts"
+        const val KEY_CONTACT_DETAILS = "contact_details"
         const val KEY_THEME = "theme"
         const val KEY_APPEARANCE = "appearance"
         const val KEY_TEXT_SIZE = "text_size"
@@ -203,6 +209,8 @@ data class Settings(
                 glossFill = prefs.getBoolean(KEY_GLOSS_FILL, false),
                 cloudPredict = prefs.getBoolean(KEY_CLOUD_PREDICT, false),
                 cloudWifiOnly = prefs.getBoolean(KEY_CLOUD_WIFI_ONLY, true),
+                contacts = prefs.getBoolean(KEY_CONTACTS, false),
+                contactDetails = prefs.getBoolean(KEY_CONTACT_DETAILS, true),
                 theme = prefs.getString(KEY_THEME, null) ?: DEFAULT_THEME,
                 appearance = Appearance.of(prefs.getString(KEY_APPEARANCE, null)),
                 textSize = TextSize.of(prefs.getString(KEY_TEXT_SIZE, null)),
