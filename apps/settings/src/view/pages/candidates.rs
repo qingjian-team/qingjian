@@ -73,6 +73,15 @@ pub fn candidates(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Rend
             general.translation_pos,
             general.learning_language_off(),
         )?,
+        toggle_info(
+            ui,
+            page,
+            tr("candidates.english_pronunciation"),
+            Some(tr("candidates.english_pronunciation_info")),
+            ("general", "show_english_pronunciation"),
+            general.show_english_pronunciation,
+            false,
+        )?,
     ];
     if Feature::NumpadDigit.here() {
         let numpad = choice(

@@ -81,6 +81,19 @@ pub fn assemble(spec: &AssemblySpec) -> Result<Engine, ServerError> {
         tracing::info!(words = words.len(), "英文词表已加载");
         engine = engine.with_english(words);
     }
+    // 音标表是可选的：随包数据里没有它（比如样例数据）就只是不显示音标，不影响英文候选本身
+    if let Some(path) = &spec.english_ipa {
+        match std::fs::read_to_string(path) {
+            Ok(source) => match WordList::parse_pronunciations(&source) {
+                Ok(table) => {
+                    tracing::info!(words = table.len(), "英文音标表已加载");
+                    engine.set_english_pronunciations(Some(table));
+                }
+                Err(error) => tracing::warn!(%error, "英文音标表解析失败"),
+            },
+            Err(error) => tracing::warn!(%error, path = %path.display(), "英文音标表读不了"),
+        }
+    }
     if let Some(table) = load_emoji(&spec.emoji) {
         tracing::info!(words = table.len(), "emoji 表已加载");
         engine = engine.with_emoji(table);

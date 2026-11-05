@@ -254,6 +254,7 @@ impl Router {
             english_candidates: self.config.english_candidates_in(app),
             predict: (self.config.cloud_enabled && self.engine.prediction_enabled())
                 .then_some(self.config.predict),
+            show_english_pronunciation: self.config.show_english_pronunciation,
         }
     }
 

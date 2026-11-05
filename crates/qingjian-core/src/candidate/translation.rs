@@ -44,6 +44,7 @@ mod tests {
                 part_of_speech: Some(PartOfSpeech::Verb),
                 text: text.to_owned(),
                 reading: None,
+                pronunciation: None,
                 fresh: false,
             })
             .collect();

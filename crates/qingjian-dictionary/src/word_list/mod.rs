@@ -1,6 +1,10 @@
 //! 英文词表：按小写编码查原样大小写的词，也能按前缀补全。
 //!
 //! 9.5 万词全常驻，所以不给每个词单独分配：编码与原样词拼进一块文字缓冲，条目只记位置（[`Entry`]），按编码排序后二分查。
+//!
+//! 音标表（`english-ipa.tsv`：`词\t/音标/`）用同一套结构加载——两个字符列、按码排序，
+//! 只是「原样词」那列放的是 `/ˈkɑrɡoʊ/` 这样的音标，用 [`WordList::pronunciation`] 取。
+//! 查询一律按小写码，与英文候选查词走同一条路径。
 
 mod entry;
 
@@ -57,13 +61,31 @@ impl WordList {
             }
         }
         drop(seen);
+        Self::from_rows(rows, "word longer than 65535 bytes", "英文词表加载完成")
+    }
+
+    pub fn from_path(path: impl AsRef<Path>) -> Result<Self, DictionaryError> {
+        Self::parse(&std::fs::read_to_string(path)?)
+    }
+
+    /// 词表与音标表共用的装配：按编码排序、去重、拼进一块文字缓冲。
+    ///
+    /// `word` 与 `code` 相同时只存一份（省掉重复的 `hello\thello`），
+    /// 这正是两个表都能共用的原因——结构一样，只是「第二列」的含义不同。
+    fn from_rows(
+        mut rows: Vec<(String, &str, u32)>,
+        too_long: &'static str,
+        loaded: &'static str,
+    ) -> Result<Self, DictionaryError> {
         rows.sort_by(|a, b| a.0.cmp(&b.0));
+        rows.dedup_by(|a, b| a.0 == b.0);
+
         let mut text = String::with_capacity(rows.iter().map(|(code, _, _)| code.len()).sum());
         let mut entries = Vec::with_capacity(rows.len());
         for (code, word, frequency) in rows {
             let too_long = || DictionaryError::Line {
                 line: 0,
-                reason: "word longer than 65535 bytes",
+                reason: too_long,
             };
             let code_start = text.len() as u32;
             text.push_str(&code);
@@ -83,12 +105,8 @@ impl WordList {
             });
         }
         text.shrink_to_fit();
-        tracing::debug!(words = entries.len(), "英文词表加载完成");
+        tracing::debug!(words = entries.len(), loaded, "词表加载完成");
         Ok(Self { text, entries })
-    }
-
-    pub fn from_path(path: impl AsRef<Path>) -> Result<Self, DictionaryError> {
-        Self::parse(&std::fs::read_to_string(path)?)
     }
 
     fn code(&self, entry: &Entry) -> &str {
@@ -110,6 +128,42 @@ impl WordList {
 
     /// 输入（已小写）对应的英文词。
     pub fn get(&self, code: &str) -> Option<&str> {
+        self.find(code).map(|entry| self.word(entry))
+    }
+
+    /// 解析音标表（`词\t/音标/`）：第一列是词（转小写当编码），第二列是音标。
+    ///
+    /// 不能直接用 [`Self::parse`]——那个把第二列当编码（词表是 `词\t编码`），
+    /// 在这里会把音标当成编码存进去，查什么都查不到。
+    pub fn parse_pronunciations(source: &str) -> Result<Self, DictionaryError> {
+        let mut rows: Vec<(String, &str, u32)> = Vec::new();
+        for (index, raw) in source.lines().enumerate() {
+            let line = raw.trim();
+            if line.is_empty() || line.starts_with('#') {
+                continue;
+            }
+            let mut fields = line.split('\t').map(str::trim);
+            let word = fields.next().filter(|s| !s.is_empty());
+            let ipa = fields.next().filter(|s| !s.is_empty());
+            let (Some(word), Some(ipa)) = (word, ipa) else {
+                return Err(DictionaryError::Line {
+                    line: index + 1,
+                    reason: "expected `word\\tpronunciation`",
+                });
+            };
+            rows.push((word.to_ascii_lowercase(), ipa, 0));
+        }
+        Self::from_rows(
+            rows,
+            "pronunciation longer than 65535 bytes",
+            "音标表加载完成",
+        )
+    }
+
+    /// 音标表用：输入（已小写）对应的音标，形如 `/ˈkɑrɡoʊ/`。
+    ///
+    /// 查不到返回 `None`（CMUdict 没收的派生词形就是这样），调用方据此不显示音标。
+    pub fn pronunciation(&self, code: &str) -> Option<&str> {
         self.find(code).map(|entry| self.word(entry))
     }
 
@@ -169,6 +223,17 @@ mod tests {
         assert_eq!(list.get("iphone"), Some("iPhone"));
         assert_eq!(list.get("hello"), Some("hello"));
         assert_eq!(list.get("nope"), None);
+    }
+
+    /// 音标表与词表是两种格式：音标表第一列才是词。
+    #[test]
+    fn pronunciation_reads_the_second_column() {
+        let list =
+            WordList::parse_pronunciations("# 注释\ncargo\t/ˈkɑrɡoʊ/\nhello\t/həˈloʊ/\n").unwrap();
+        assert_eq!(list.pronunciation("cargo"), Some("/ˈkɑrɡoʊ/"));
+        assert_eq!(list.pronunciation("hello"), Some("/həˈloʊ/"));
+        // 查不到音标的词返回 None，调用方据此不显示
+        assert_eq!(list.pronunciation("abacuses"), None);
     }
 
     #[test]

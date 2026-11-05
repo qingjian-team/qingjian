@@ -50,6 +50,14 @@ pub struct InputSettings {
     /// 组句中的按需 AI 快捷键；旧 Server 没有这项。
     #[serde(default)]
     pub predict: Option<KeyCombo>,
+
+    /// 英文候选旁显示音标（`[general] show_english_pronunciation`）。
+    ///
+    /// 音标本身由 Core 填进 `Candidate::reading`，DLL 只是按这个开关决定画不画：
+    /// `reading` 是共用的字段（问字模式的带调拼音也走它），DLL 不区分来源，所以要靠开关告诉它
+    /// 「这次的 reading 是不是英文音标、该不该用淡色」。旧 Server 不带时按关处理。
+    #[serde(default)]
+    pub show_english_pronunciation: bool,
 }
 
 fn english_candidates_default() -> bool {
@@ -68,6 +76,7 @@ impl Default for InputSettings {
             toggle_traditional: None,
             english_candidates: true,
             predict: None,
+            show_english_pronunciation: false,
         }
     }
 }

@@ -50,6 +50,7 @@ impl Engine {
             // 中文释义（英文候选的中文译词）也跟着转：候选文本已经是繁体了，释义不能还是简体
             if let Some(translation) = &mut candidate.translation {
                 self.traditional.apply_translation(translation);
+                self.annotate_pronunciation(translation);
             }
             hits += usize::from(candidate.translation.is_some());
         }

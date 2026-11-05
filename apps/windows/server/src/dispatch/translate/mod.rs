@@ -124,6 +124,8 @@ impl Router {
             aux_code_show: self.config.aux_code_show,
             // 这条候选是「翻译选中文字」的译文本身，没有词性注记；值不影响渲染
             translation_pos: self.config.translation_pos,
+            // 同上：这条候选没有 reading，音标开关也不影响它
+            english_reading_ipa: self.config.show_english_pronunciation,
             sentence: None,
             notice: None,
             symbol_panel: false,

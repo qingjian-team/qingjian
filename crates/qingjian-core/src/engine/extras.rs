@@ -156,14 +156,6 @@ impl Engine {
         if text.contains('\'') {
             return;
         }
-        let english_candidate = |word: &str| Candidate {
-            text: word.to_owned(),
-            kind: CandidateKind::English,
-            syllables: Vec::new(),
-            reading: None,
-            translation: None,
-            aux_code: None,
-        };
         let word = lists.iter().find_map(|words| words.get(text));
         // 这段字母下用户选中文词（`key` → 可以）比选英文词的次数多：中文词留在第一，英文让到后面；
         // 拼音再不像话也是他自己教的
@@ -190,7 +182,7 @@ impl Engine {
         };
         let mut budget = self.english_max_in_chinese;
         if let Some(word) = word {
-            items.insert(position, english_candidate(word));
+            items.insert(position, self.english_candidate(word));
             position += 1;
             budget -= 1;
         }
@@ -206,7 +198,7 @@ impl Engine {
                     {
                         continue;
                     }
-                    items.insert(position, english_candidate(word));
+                    items.insert(position, self.english_candidate(word));
                     position += 1;
                     budget -= 1;
                 }

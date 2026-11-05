@@ -151,6 +151,13 @@ pub struct Engine {
     /// 中文模式下英文候选（精确词 + 补全）最多几个（配置 `[general] english_max_in_chinese`，缺省 4）。
     english_max_in_chinese: usize,
 
+    /// 英文候选旁显示音标（配置 `[general] show_english_pronunciation`，缺省关）。
+    /// 开着时把音标填进 `Candidate::reading`，平台层的 annotation 会画在候选词后面。
+    show_english_pronunciation: bool,
+
+    /// 英文音标表（`english-ipa.tsv`），键是小写词、值是 `/ˈkɑrɡoʊ/`。没有就一律不显示音标。
+    english_pronunciations: Option<WordList>,
+
     /// 有中文候选时英文最高排到第几位（配置 `[general] english_min_position`，缺省 1 即不限制）。
     english_min_position: usize,
 
@@ -539,6 +546,8 @@ impl Engine {
             spelling_correction: true,
             english_max_in_chinese: ENGLISH_CANDIDATES_MAX,
             english_min_position: 1,
+            show_english_pronunciation: false,
+            english_pronunciations: None,
             auto_space: false,
             shift_letter_compose: false,
             predictor: Box::new(NoPredictor),

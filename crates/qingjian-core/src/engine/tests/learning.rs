@@ -194,6 +194,7 @@ fn missing_glosses_are_requested_on_commit_and_learned_when_they_arrive() {
             text: "open".into(),
             reading: None,
             fresh: false,
+            pronunciation: None,
         }],
     );
     ready.lock().unwrap().push(FilledGloss {
@@ -494,6 +495,7 @@ fn committing_the_translation_learns_the_word_and_returns_the_gloss() {
                         text: "開発する".into(),
                         reading: Some("かいはつする".into()),
                         fresh: false,
+                        pronunciation: None,
                     }],
                 )
             })
