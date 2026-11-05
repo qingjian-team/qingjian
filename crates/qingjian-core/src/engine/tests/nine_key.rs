@@ -221,3 +221,75 @@ fn interjection_is_not_cut_out_of_a_longer_pinned_syllable() {
         "{shapes:?}"
     );
 }
+
+#[test]
+fn pinned_syllables_are_marked_and_back_out_whole() {
+    let mut engine = nine_key();
+    engine.set_input("52432");
+    assert_eq!(engine.nine_key_pinned(), 0);
+    assert!(engine.pin_nine_key("kai"));
+    assert_eq!(engine.composition().text(), "kai'32");
+    assert_eq!(engine.nine_key_pinned(), 3);
+    assert!(engine.pin_nine_key("fa"));
+    assert_eq!(engine.composition().text(), "kai'fa");
+    assert_eq!(engine.nine_key_pinned(), 6);
+    // 退格先把刚选定的 fa 整个退回数字，再一个个删数字
+    engine.backspace();
+    assert_eq!(engine.composition().text(), "kai'32");
+    assert_eq!(engine.nine_key_pinned(), 3);
+    engine.backspace();
+    assert_eq!(engine.composition().text(), "kai'3");
+    // 选定时接的 `'` 随最后一个键一起去掉
+    engine.backspace();
+    assert_eq!(engine.composition().text(), "kai");
+    // 删到更早选定的 kai：一样先取消选定、退回数字，再删键
+    engine.backspace();
+    assert_eq!(engine.composition().text(), "524");
+    assert_eq!(engine.nine_key_pinned(), 0);
+}
+
+#[test]
+fn held_words_go_back_before_pinned_syllables() {
+    let mut engine = nine_key();
+    engine.set_input("52432");
+    assert!(engine.pin_nine_key("kai"));
+    let kai = engine
+        .query()
+        .unwrap()
+        .candidates
+        .items
+        .into_iter()
+        .find(|c| c.text == "开")
+        .unwrap();
+    engine.commit(&kai);
+    assert_eq!(engine.held_text(), "开");
+    // 选定音节不把留着的词清掉
+    assert!(engine.pin_nine_key("fa"));
+    assert_eq!(engine.held_text(), "开");
+    // 退格先撤回留着的词，再退选定的音节
+    engine.backspace();
+    assert!(engine.held_text().is_empty());
+    assert_eq!(engine.composition().text(), "kai'fa");
+    engine.backspace();
+    assert_eq!(engine.composition().text(), "kai'32");
+}
+
+#[test]
+fn an_unpinned_syllable_keeps_the_reading_the_user_picked() {
+    // 64：词库里 米 比 你 常用，默认读 mi；选过 ni 再退回成数字仍读 ni
+    let words = "米\tmi\t9000\n你\tni\t5000\n";
+    let mut engine = Engine::new(Dictionary::parse(words).unwrap());
+    engine.set_nine_key(true);
+    engine.set_input("64");
+    assert_eq!(engine.query().unwrap().candidates.items[0].text, "米");
+    assert!(engine.pin_nine_key("ni"));
+    engine.backspace();
+    assert_eq!(engine.composition().text(), "64");
+    let query = engine.query().unwrap();
+    assert_eq!(query.candidates.items[0].text, "你");
+    assert_eq!(query.marked_text(), "ni");
+    // 再打新键就不再偏向
+    engine.push('4');
+    engine.backspace();
+    assert_eq!(engine.query().unwrap().candidates.items[0].text, "米");
+}

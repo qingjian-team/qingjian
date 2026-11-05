@@ -4,9 +4,9 @@ mod hit;
 mod meta;
 mod painter;
 
-use qingjian_render::{Row, Tone};
+use qingjian_render::{Preedit, PreeditSegment, PreeditStyle, Row, Tone};
 
-use crate::frame::FrameCandidate;
+use crate::frame::{Frame, FrameCandidate};
 
 pub use self::hit::StripHit;
 pub use self::meta::StripMeta;
@@ -55,6 +55,29 @@ fn rows(
             row
         })
         .collect()
+}
+
+/// 拼音行：九宫格选定的那几个字（[`Frame::preedit_pinned`]）一段画下划线，前后照常。
+fn preedit(frame: &Frame) -> Preedit {
+    let chars: Vec<char> = frame.preedit.chars().collect();
+    let end = frame.preedit_pinned.1.min(chars.len());
+    let start = frame.preedit_pinned.0.min(end);
+    let segments = [
+        (0, start, PreeditStyle::Typed),
+        (start, end, PreeditStyle::Pinned),
+        (end, chars.len(), PreeditStyle::Typed),
+    ]
+    .into_iter()
+    .filter(|(from, to, _)| from < to)
+    .map(|(from, to, style)| PreeditSegment {
+        text: chars[from..to].iter().collect(),
+        style,
+    })
+    .collect();
+    Preedit {
+        segments,
+        cursor: frame.preedit_cursor,
+    }
 }
 
 /// 放不下 `room` 点宽就从尾部去字加「…」。

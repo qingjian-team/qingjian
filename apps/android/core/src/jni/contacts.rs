@@ -2,7 +2,7 @@
 
 use ::jni::JNIEnv;
 use ::jni::objects::{JObject, JString};
-use ::jni::sys::{JNI_FALSE, jboolean, jint, jlong};
+use ::jni::sys::{JNI_FALSE, JNI_TRUE, jboolean, jint, jlong};
 use qingjian_core::Contact;
 
 use super::with_session;
@@ -31,4 +31,18 @@ pub extern "system" fn Java_app_qingjian_inputmethod_core_Native_setContacts<'lo
         session.set_contacts(&contacts, details != JNI_FALSE)
     })
     .map_or(-1, |count| jint::try_from(count).unwrap_or(jint::MAX))
+}
+
+/// 候选条上放着电话邮箱或「撤销」（[`crate::session::Session::has_offer`]）：壳的删除键、重输键先收起它们。
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_app_qingjian_inputmethod_core_Native_hasOffer<'local>(
+    _env: JNIEnv<'local>,
+    _this: JObject<'local>,
+    handle: jlong,
+) -> jboolean {
+    if with_session(handle, |session| session.has_offer()).unwrap_or(false) {
+        JNI_TRUE
+    } else {
+        JNI_FALSE
+    }
 }

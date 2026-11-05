@@ -58,6 +58,7 @@ impl Engine {
         if let Some(sentence) = self.nine_key_sentence(&shapes, &items) {
             items.insert(0, sentence);
         }
+        self.prefer_unpinned(&mut items, shapes.first());
         if let Some((at, candidate)) = self.nine_key_interjection(keys, shapes.first()) {
             items.retain(|c| c.text != candidate.text);
             items.insert(at.min(items.len()), candidate);

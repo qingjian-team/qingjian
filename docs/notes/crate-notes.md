@@ -426,6 +426,7 @@ id 不能撞拼音侧的写法与日志里的 `wubi`（`is_valid_id`），因为
 画位图的部分已拆到自绘引擎 `crates/bamboo-slip`：下文的 `scene/`、`animation/`、`text/`、`fonts/`、`canvas.rs`、`shadow.rs`
 在 `crates/bamboo-slip/src/`，原 `renderer/{animate,retained,partial}.rs` 成了引擎的 `stage/`（`Stage::present` / `tick_at`），`theme/svg_image.rs` 成了 `SvgImage`。
 这里留下帧数据、主题格式、`renderer/build/` 建树、点击区域、状态条与云朵 / 齿轮图标（`icon/`，实现引擎的 `Icon` trait）。改了引擎回来跑本 crate 的快照测试。
+拼音行的段样式 `PreeditStyle`：`Typed` / `Rest`（淡）/ `Struck`（删除线）/ `AuxCode`（淡 + 下划线）/ `Pinned`（同 `Typed` + 下划线，九宫格定下的音节，现在只有 Android 用）。
 拼音行除了 `hits` 另出 `Rendered.preedit`（`PreeditHit`：行的上下沿与各字之间那道缝的 x，按敲的那段样式量，同光标的量法），壳点拼音行时按最近的缝定光标（Android 候选条，Core 的 `Engine::move_cursor_to_marked` 换回缓冲区位置：全拼按字母、双拼按音节，纠错 / 辅码 / 注音 / 九宫格不挪）。
 候选文字的显示截断在 `renderer/build/clip.rs`：建树前把带换行 / 制表符的画成一行（`↵` / `⇥`），超过 `MAX_TEXT_EMS` = 30 字宽的截尾加「…」（字宽估法与矩阵相同）；只改画出来的，壳按序号上屏不受影响。
 

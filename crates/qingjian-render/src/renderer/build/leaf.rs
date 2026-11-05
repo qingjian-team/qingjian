@@ -158,6 +158,7 @@ impl Builder<'_> {
                     .text_style(font, self.color(rest, ctx))
                     .stroked(stroke)
                     .decorated(Decoration::Underline),
+                PreeditStyle::Pinned => typed_style.decorated(Decoration::Underline),
                 PreeditStyle::Struck => self
                     .text_style(font, self.color(struck, ctx))
                     .stroked(stroke)

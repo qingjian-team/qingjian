@@ -1,10 +1,8 @@
 //! 候选条的画笔：记住最新一帧要显示的内容，壳要画时按宽度倍数与深浅色出一张位图。
 
-use qingjian_render::{
-    FontLibrary, Frame as RenderFrame, Layout, Mode, Preedit, Rendered, Renderer, Theme,
-};
+use qingjian_render::{FontLibrary, Frame as RenderFrame, Layout, Mode, Rendered, Renderer, Theme};
 
-use super::{StripHit, StripMeta, has_emoji, rows};
+use super::{StripHit, StripMeta, has_emoji, preedit, rows};
 use crate::appearance;
 use crate::error::AndroidError;
 use crate::frame::Frame;
@@ -71,8 +69,7 @@ impl StripPainter {
             .map(|(i, _)| i)
             .collect();
         self.content = RenderFrame {
-            preedit: (!frame.preedit.is_empty())
-                .then(|| Preedit::plain(&frame.preedit, frame.preedit_cursor)),
+            preedit: (!frame.preedit.is_empty()).then(|| preedit(frame)),
             rows: rows(&frame.candidates, self.text_scale, |text, size| {
                 self.renderer.measure_points(text, size)
             }),

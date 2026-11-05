@@ -38,6 +38,8 @@ data class Settings(
     val flickSymbols: Boolean,
     /** 长按字母键不滑直接抬手出大写（缺省关，出角标符号）；气泡照样弹，滑着选不受影响。 */
     val longPressUpper: Boolean,
+    /** 在删除键上往上一划清掉光标前的全部文字（缺省开），候选条上给「撤销」。 */
+    val flickClear: Boolean,
     /** 按住空格左右滑逐字挪光标（缺省开）；关了空格上横滑不响应。 */
     val spaceCursor: Boolean,
     /** 键位排法：缺省是 [Arrangement.STANDARD]，另一套挪动了几个键的位置，见 [Arrangement]。 */
@@ -105,6 +107,7 @@ data class Settings(
         const val KEY_FLICK_SYMBOLS = "flick_symbols"
         const val KEY_LONG_PRESS_UPPER = "long_press_upper"
         const val KEY_SPACE_CURSOR = "space_cursor"
+        const val KEY_FLICK_CLEAR = "flick_clear"
         const val KEY_ARRANGEMENT = "arrangement"
         const val KEY_SHUANGPIN = "shuangpin_scheme"
         const val KEY_SHUANGPIN_RAW = "shuangpin_raw_preedit"
@@ -178,6 +181,7 @@ data class Settings(
                 swipeInput = prefs.getBoolean(KEY_SWIPE_INPUT, false),
                 flickSymbols = prefs.getBoolean(KEY_FLICK_SYMBOLS, true),
                 longPressUpper = prefs.getBoolean(KEY_LONG_PRESS_UPPER, false),
+                flickClear = prefs.getBoolean(KEY_FLICK_CLEAR, true),
                 spaceCursor = prefs.getBoolean(KEY_SPACE_CURSOR, true),
                 arrangement = Arrangement.entries.firstOrNull { it.name == prefs.getString(KEY_ARRANGEMENT, null) }
                     ?: Arrangement.STANDARD,

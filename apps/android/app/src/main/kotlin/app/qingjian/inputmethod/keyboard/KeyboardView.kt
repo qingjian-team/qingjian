@@ -7,6 +7,7 @@ import android.os.Handler
 import android.os.Looper
 import android.view.MotionEvent
 import android.view.View
+import app.qingjian.inputmethod.R
 import app.qingjian.inputmethod.keyboard.layout.Key
 import app.qingjian.inputmethod.keyboard.layout.KeySlot
 import app.qingjian.inputmethod.keyboard.layout.KeyboardMetrics
@@ -56,6 +57,12 @@ class KeyboardView(
 
         /** 滑完一笔：[input] 是轨迹与各字母键几何的 JSON，交 Rust 解码。 */
         fun onSwipe(input: String)
+
+        /** 删除键按下（在它删字之前）：上划清空的撤销要记下这一刻光标前的文字。 */
+        fun onBackspaceDown()
+
+        /** 在删除键上往上一划（开着「上划删除键清空」）：清掉光标前的全部文字，组句中只清拼音。 */
+        fun onClearBefore()
     }
 
     private val metrics = KeyboardMetrics(resources.displayMetrics.density, settings.heightPercent)
@@ -212,7 +219,8 @@ class KeyboardView(
         if (flicking == null) trail.draw(canvas)
         if (flicking != null) {
             // 上滑出的是哪个字放在气泡里；`;` 兼大写那个键划出的是 Shift，键本身亮着就够了
-            flicking.key.flick?.let { painter.drawBubble(canvas, flicking, width, it) }
+            val label = if (flicking.key == Key.Backspace) context.getString(R.string.flick_clear_bubble) else flicking.key.flick
+            label?.let { painter.drawBubble(canvas, flicking, width, it) }
         } else if (settings.keyPopup) {
             pressed.values.filter { it.key.poppable && !choicePopup.showing }.forEach { painter.drawBubble(canvas, it, width) }
         }
@@ -244,6 +252,7 @@ class KeyboardView(
                 tapFeedback()
                 when {
                     slot.key == Key.Backspace -> {
+                        if (settings.flickClear) listener.onBackspaceDown()
                         listener.onKey(Key.Backspace)
                         timer.postDelayed(repeatBackspace, REPEAT_DELAY_MS)
                     }
@@ -279,6 +288,7 @@ class KeyboardView(
                     endFlick()
                     if (flicked != null) {
                         if (pointer == trail.pointer) trail.clear()
+                        if (flicked.key == Key.Backspace) timer.removeCallbacks(repeatBackspace)
                         pressed.remove(pointer)
                         flick(flicked.key)
                         invalidate()
@@ -342,7 +352,9 @@ class KeyboardView(
         }
     }
 
-    private fun flickable(key: Key) = (key as? Key.Letter)?.flickShift == true || (settings.flickSymbols && key.flick != null)
+    private fun flickable(key: Key) = (key as? Key.Letter)?.flickShift == true ||
+        (settings.flickSymbols && key.flick != null) ||
+        (settings.flickClear && key == Key.Backspace)
 
     /**
      * 上滑的那根手指挪动：只看方向不看落在哪一列，单手拇指划出的斜线也算（#882）。
@@ -374,6 +386,8 @@ class KeyboardView(
             longPressPointer = -1
         }
         flickArmed = up > metrics.density * FLICK_DP
+        // 删除键往上划够了：不再连删，抬手清空
+        if (flickArmed && flickSlot?.key == Key.Backspace) timer.removeCallbacks(repeatBackspace)
     }
 
     private fun endFlick() {
@@ -383,8 +397,10 @@ class KeyboardView(
         flickBroken = false
     }
 
-    private fun flick(key: Key) {
-        if ((key as? Key.Letter)?.flickShift == true) listener.onKey(Key.Shift) else key.flick?.let(listener::onKeyChoice)
+    private fun flick(key: Key) = when {
+        key == Key.Backspace -> listener.onClearBefore()
+        (key as? Key.Letter)?.flickShift == true -> listener.onKey(Key.Shift)
+        else -> key.flick?.let(listener::onKeyChoice)
     }
 
     /** 长按气泡里的项：中英键是语言名，其余是键自己的。 */

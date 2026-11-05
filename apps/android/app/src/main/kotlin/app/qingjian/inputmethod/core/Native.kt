@@ -45,6 +45,12 @@ internal object Native {
 
     external fun clear(handle: Long): String?
 
+    /** 删除键上划清掉了光标前的 [text]（壳已经删了）：帧里放一个「撤销」，选它原样放回。 */
+    external fun cleared(handle: Long, text: String): String?
+
+    /** 候选条上放着上屏名字后的电话邮箱、或清空后的「撤销」：删除键、重输键先只收起它们。 */
+    external fun hasOffer(handle: Long): Boolean
+
     external fun setNineKey(handle: Long, on: Boolean): String?
 
     external fun pin(handle: Long, alternative: String): String?

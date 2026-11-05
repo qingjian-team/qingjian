@@ -332,6 +332,10 @@ pub struct Engine {
     /// 九宫格方案：缓冲区里是数字键（可混着已选定的字母），见 [`crate::nine_key`]。
     nine_key: bool,
 
+    /// 九宫格退格时退回成数字的那个音节：(退回后的缓冲区, 它在缓冲区里的起点, 用户选过的写法)。
+    /// 之后只删键时候选与拼音行仍按这个写法排（`ni` 退回成 `64` 还读 ni，不换成默认的 mi），见 `unpin_nine_key`。
+    nine_key_unpinned: Option<(String, usize, String)>,
+
     /// 形码方案（五笔或用户导入的）。`Some` 时编码参与查询，按前缀查表（见 [`Engine::query_code`]）。
     code: Option<CodeScheme>,
 
@@ -592,6 +596,7 @@ impl Engine {
             shuangpin_full_pinyin: false,
             zhuyin: false,
             nine_key: false,
+            nine_key_unpinned: None,
             code: None,
             phonetic: true,
             emoji: None,

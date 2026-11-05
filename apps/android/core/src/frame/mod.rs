@@ -24,6 +24,9 @@ pub struct Frame {
     /// 光标在 `preedit` 里的字符下标；点拼音行挪过光标时在中间，平时在末尾。
     pub preedit_cursor: usize,
 
+    /// `preedit` 里九宫格在拼音列选定的那几个字（字符下标，起止）：候选条画下划线；没有时起止相同。
+    pub preedit_pinned: (usize, usize),
+
     /// 一句话提示（删候选的结果），画在拼音行右侧，下一帧就没了。
     pub notice: String,
 

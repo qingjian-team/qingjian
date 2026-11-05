@@ -176,6 +176,8 @@ impl Engine {
     }
 
     pub fn push(&mut self, c: char) {
+        // 打了新键：退回成数字的音节不再偏向用户之前选的写法
+        self.nine_key_unpinned = None;
         if self.composition.is_empty() {
             // 新一段组句：从这一键起算耗时、翻页与重打
             self.composition_started = Some(Instant::now());
@@ -221,7 +223,15 @@ impl Engine {
             return true;
         }
         self.note_edit();
-        self.composition.backspace()
+        // 九宫格：末尾是拼音列选定的音节就整个退回成数字，先撤选择、再删键
+        if self.unpin_nine_key() {
+            return true;
+        }
+        let removed = self.composition.backspace();
+        if removed {
+            self.drop_pin_separator();
+        }
+        removed
     }
 
     pub fn clear(&mut self) {

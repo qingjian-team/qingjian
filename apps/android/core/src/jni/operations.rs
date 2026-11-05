@@ -93,6 +93,20 @@ pub extern "system" fn Java_app_qingjian_inputmethod_core_Native_commitRaw<'loca
     frame(env, handle, Session::commit_raw)
 }
 
+/// 删除键上划清掉了光标前的 `text`（壳已经删了）：帧里放一个「撤销」。
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_app_qingjian_inputmethod_core_Native_cleared<'local>(
+    mut env: JNIEnv<'local>,
+    _this: JObject<'local>,
+    handle: jlong,
+    text: JString<'local>,
+) -> jstring {
+    let Ok(text) = env.get_string(&text).map(String::from) else {
+        return std::ptr::null_mut();
+    };
+    frame(env, handle, |session| session.cleared(&text))
+}
+
 #[unsafe(no_mangle)]
 pub extern "system" fn Java_app_qingjian_inputmethod_core_Native_clear<'local>(
     env: JNIEnv<'local>,

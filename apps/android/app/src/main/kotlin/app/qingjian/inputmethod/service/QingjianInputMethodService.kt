@@ -775,6 +775,10 @@ class QingjianInputMethodService :
 
     override fun onSwipe(input: String) = composer.onSwipe(input)
 
+    override fun onBackspaceDown() = composer.onBackspaceDown()
+
+    override fun onClearBefore() = composer.clearBefore()
+
     // 回车键写的字（发送、搜索…）照搬到面板右边的键上；多行框没有动作，写「完成」
     override fun openVoicePanel(actions: VoicePanel.Actions): VoicePanel? =
         panel?.openVoice((editor?.enterLabel ?: enterLabel) ?: getString(R.string.voice_done), actions)

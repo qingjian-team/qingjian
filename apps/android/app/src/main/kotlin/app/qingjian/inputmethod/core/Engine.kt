@@ -101,6 +101,10 @@ class Engine(context: Context, private val onReady: () -> Unit) {
 
     fun clear(): Frame = Frame.parse(Native.clear(handle))
 
+    fun cleared(text: String): Frame = Frame.parse(Native.cleared(handle, text))
+
+    fun hasOffer(): Boolean = ready && Native.hasOffer(handle)
+
     fun setNineKey(on: Boolean): Frame = Frame.parse(Native.setNineKey(handle, on))
 
     fun pin(alternative: String): Frame = Frame.parse(Native.pin(handle, alternative))
