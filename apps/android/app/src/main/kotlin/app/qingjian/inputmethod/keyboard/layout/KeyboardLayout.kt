@@ -115,11 +115,12 @@ object KeyboardLayout {
     /** 微软双拼在 Core 方案表里的名字（`Scheme::key`）。 */
     private const val MICROSOFT_SHUANGPIN = "microsoft"
 
-    fun nineKey(fullWidth: Boolean = true): List<List<Key>> = listOf(
+    /** 九宫格：底排不放逗号句号（左侧拼音列里有，#905），空出的宽度给空格。 */
+    fun nineKey(): List<List<Key>> = listOf(
         listOf(Key.Digit('1', "分词"), Key.Digit('2', "ABC"), Key.Digit('3', "DEF"), Key.Backspace),
         listOf(Key.Digit('4', "GHI"), Key.Digit('5', "JKL"), Key.Digit('6', "MNO"), Key.Clear),
         listOf(Key.Digit('7', "PQRS"), Key.Digit('8', "TUV"), Key.Digit('9', "WXYZ"), Key.Text("0", 1.5f)),
-        lettersBottom(chinese = true, fullWidth),
+        listOf(Key.Symbols("符", 1.25f), Key.NumberPage("123"), Key.Space(5f), Key.Language, Key.Enter()),
     )
 
     /** 大千键位：注音符号与它在电脑键盘上的键，一行行对齐（同 Core 的 `zhuyin::map_key`）。 */

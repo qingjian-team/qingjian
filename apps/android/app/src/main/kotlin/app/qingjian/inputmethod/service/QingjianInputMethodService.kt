@@ -455,7 +455,7 @@ class QingjianInputMethodService :
             composer.page == Composer.Page.SYMBOLS -> keyboard.setRows(KeyboardLayout.symbols(composer.chinese, fullWidth))
             // 常用语的输入码只收字母，九宫格、注音打不出来，换成英文全键盘
             editor?.lettersOnly == true -> keyboard.setRows(KeyboardLayout.qwerty(chinese = false))
-            composer.nineKey -> keyboard.setRows(KeyboardLayout.nineKey(fullWidth), side = true)
+            composer.nineKey -> keyboard.setRows(KeyboardLayout.nineKey(), side = true)
             composer.zhuyin -> keyboard.setRows(KeyboardLayout.zhuyin(fullWidth))
             composer.shuangpin -> keyboard.setRows(
                 KeyboardLayout.shuangpin(
