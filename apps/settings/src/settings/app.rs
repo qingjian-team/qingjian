@@ -9,6 +9,7 @@ use bamboo_slip::{App, FamilyList, FamilyTable, Key, RenderError, TextPainter, U
 use super::{SIZES, Settings};
 
 use crate::i18n::tr;
+use crate::jobs::dict_index::is_safe_link;
 use crate::jobs::download::{Item, Pack};
 use crate::library::{self, Library};
 use crate::message::{FieldId, Message, Popup, SizeKind};
@@ -33,6 +34,7 @@ impl App for Settings {
     fn update(&mut self, message: Message) -> bool {
         let armed = self.armed.take();
         let remove_armed = self.remove_armed.take();
+        let dict_remove_armed = self.dict_remove_armed.take();
         if !matches!(
             message,
             Message::Run(_)
@@ -191,6 +193,30 @@ impl App for Settings {
             Message::DownloadDict(id) => {
                 if let Some(entry) = self.dict_index.entry(&id)
                     && let Err(error) = self.download.start(entry.target(), self.waker.clone())
+                {
+                    self.notice = Some(("dicts_download", error));
+                }
+            }
+            Message::DictShelf(shelf) => self.dict_shelf = shelf,
+            Message::RemoveDownload(id) => {
+                if dict_remove_armed.as_ref() != Some(&id) {
+                    self.dict_remove_armed = Some(id);
+                } else if let Some(entry) = self.dict_index.entry(&id) {
+                    let stem = entry.stem();
+                    let removed = if entry.glossary_language().is_some() {
+                        library::remove_glossary(&stem)
+                    } else {
+                        library::remove(library::Kind::Dictionary, &stem)
+                    };
+                    if let Err(error) = removed {
+                        self.notice = Some(("dicts_download", error));
+                    }
+                    self.library = Library::scan();
+                }
+            }
+            Message::OpenLink(url) => {
+                if is_safe_link(&url)
+                    && let Err(error) = action::open(&url)
                 {
                     self.notice = Some(("dicts_download", error));
                 }

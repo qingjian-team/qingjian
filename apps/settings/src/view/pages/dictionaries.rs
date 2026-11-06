@@ -1,20 +1,22 @@
 //! 「词库」页：随包领域词库（两列勾选），导入的拼音与五笔词库（开关、移除、导入），从词库仓库下载的词库。基础词库一直启用，不列。
-//! 下载的词库装进用户词库目录，和导入的一样列在「导入的词库」里开关、移除；可下载的清单在设置窗口打开时取（见 `jobs::dict_index`）。
+//! 下载的词库装进用户词库目录，和导入的一样列在「导入的词库」里开关、移除；下载的释义表装进用户目录 `glossaries/`，输入法换上就用。
+//! 可下载的清单在设置窗口打开时取（见 `jobs::dict_index`）。
 
 use std::time::SystemTime;
 
-use bamboo_slip::taffy::{
-    AlignItems, FlexDirection, JustifyContent, LengthPercentage, NodeId, Rect, Style,
+use bamboo_slip::taffy::NodeId;
+use bamboo_slip::{
+    Button, DownloadRow, FieldValue, Link, RenderError, Segmented, Ui, field_points, fields, group,
+    paragraph, section_title, toolbar,
 };
-use bamboo_slip::{Button, RenderError, SettingRow, Ui, Visual, group, paragraph, section_title};
 
 use crate::i18n::{tr, tr_args};
-use crate::jobs::dict_index::{DictEntry, Status};
-use crate::jobs::download::{Item, Stage};
+use crate::jobs::dict_index::{DictEntry, Shelf, Status};
+use crate::jobs::download::Item;
 use crate::library::Kind;
 use crate::message::Message;
 use crate::view::Page;
-use crate::view::parts::download::{megabytes, progress};
+use crate::view::parts::download::{DownloadStatus, labels, megabytes};
 use crate::view::parts::lists::{domain_grid, entry_row, import_row, toggle_disabled};
 
 pub fn dictionaries(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderError> {
@@ -84,13 +86,25 @@ pub fn dictionaries(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Re
     Ok(out)
 }
 
-/// 可下载的词库：分组标题下先一行写清单是什么时候取的、这次取得怎么样，右边「刷新」；再是卡片，一本一行。
+/// 可下载的：分组标题下先一行「词库 ｜ 释义表」与「刷新」，再一行小字写列表是什么时候取的、这次取得怎么样；
+/// 再是选着那一类的卡片，一本一行。
 fn downloads(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderError> {
     let theme = &page.theme;
-    let index = page.settings.dict_index.state();
+    let settings = page.settings;
+    let index = settings.dict_index.state();
+    let shelf = settings.dict_shelf;
     let mut out = Vec::new();
     let time = index.fetched_at.map(fetched_time);
     let loading = index.status == Status::Loading;
+    let shown: Vec<&DictEntry> = index
+        .dicts
+        .iter()
+        .filter(|entry| shelf.holds(entry))
+        .collect();
+    let empty = match shelf {
+        Shelf::Dictionaries => tr("dictionaries.no_downloads"),
+        Shelf::Glossaries => tr("dictionaries.no_glossaries"),
+    };
     let text = match (&index.status, &time) {
         (Status::Loading, Some(_)) => tr("dictionaries.list_refreshing").to_owned(),
         (Status::Loading | Status::Idle, None) => tr("dictionaries.list_loading").to_owned(),
@@ -99,39 +113,33 @@ fn downloads(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderErr
             &[("error", error), ("time", time)],
         ),
         (Status::Failed(error), None) => tr_args("dictionaries.index_failed", &[("error", error)]),
-        (Status::Fetched, _) if index.dicts.is_empty() => {
-            tr("dictionaries.no_downloads").to_owned()
-        }
+        (Status::Fetched, _) if shown.is_empty() => empty.to_owned(),
         (Status::Fetched | Status::Idle, Some(time)) => {
             tr_args("dictionaries.list_source", &[("time", time)])
         }
-        (Status::Fetched, None) => tr("dictionaries.no_downloads").to_owned(),
+        (Status::Fetched, None) => empty.to_owned(),
     };
-    let note = paragraph(ui, theme, &text, None)?;
+    let labels = [
+        tr("dictionaries.shelf_dicts"),
+        tr("dictionaries.shelf_glossaries"),
+    ];
+    let selected = Shelf::ALL
+        .iter()
+        .position(|item| *item == shelf)
+        .unwrap_or(0);
+    let tabs = Segmented::new(&labels, selected).build(ui, theme, "dict-shelf", |index| {
+        Message::DictShelf(Shelf::ALL[index])
+    })?;
     let refresh = Button::new(tr("dictionaries.refresh"))
         .disabled(loading)
         .build(ui, theme, "dict-index", Message::FetchDictIndex)?;
-    out.push(ui.scene().node(
-        Style {
-            flex_direction: FlexDirection::Row,
-            align_items: AlignItems::CENTER,
-            justify_content: JustifyContent::SPACE_BETWEEN,
-            gap: page.gap(12.0),
-            padding: Rect {
-                left: LengthPercentage::length(page.px(4.0)),
-                right: LengthPercentage::length(page.px(4.0)),
-                top: LengthPercentage::length(0.0),
-                bottom: LengthPercentage::length(0.0),
-            },
-            ..Style::default()
-        },
-        Visual::Group,
-        &[note, refresh],
-    )?);
-    if !index.dicts.is_empty() {
+    out.push(toolbar(ui, theme, &[tabs, refresh])?);
+    let note = paragraph(ui, theme, &text, None)?;
+    out.push(toolbar(ui, theme, &[note])?);
+    if !shown.is_empty() {
         let mut rows = Vec::new();
-        for entry in &index.dicts {
-            rows.extend(dict_row(ui, page, entry)?);
+        for entry in shown {
+            rows.push(dict_row(ui, page, entry)?);
         }
         out.push(group(ui, theme, &rows)?);
     }
@@ -150,72 +158,78 @@ fn fetched_time(at: SystemTime) -> String {
         .unwrap_or_default()
 }
 
-/// 一本可下载的词库：没装给「下载」，下着给进度与「取消」，装好了版本一样写「已安装」，版本不同给「更新」。
-fn dict_row(
-    ui: &mut Ui<Message>,
-    page: &Page,
-    entry: &DictEntry,
-) -> Result<Vec<NodeId>, RenderError> {
+/// 一本可下载的词库或释义表：一行下载项（见 [`DownloadRow`]），说明下面写作者（有主页的能点）、大小、许可。
+fn dict_row(ui: &mut Ui<Message>, page: &Page, entry: &DictEntry) -> Result<NodeId, RenderError> {
     let theme = &page.theme;
     let settings = page.settings;
     let id = entry.id.as_str();
-    let mut detail = format!("{} · {}", megabytes(entry.bytes), entry.license);
-    let description = entry.description.trim_end_matches(['。', '.']);
-    if !description.is_empty() {
-        detail = format!("{description} · {detail}");
+    let library = &settings.library;
+    let stem = entry.stem();
+    let outdated = if entry.glossary_language().is_some() {
+        &library.glossaries
+    } else {
+        &library.dictionaries
     }
-    if !entry.official {
-        detail = format!("{} · {detail}", tr("dictionaries.third_party"));
-    }
-    let installed = settings
-        .library
-        .dictionaries
-        .iter()
-        .find(|installed| installed.stem == entry.stem());
-    let stage = settings.download.stage_of(&Item::Dict(entry.id.clone()));
-    let mut rows = Vec::new();
-    let mut row = SettingRow::new(&entry.name).detail(&detail);
-    let download = Message::DownloadDict(entry.id.clone());
-    match &stage {
-        Some(Stage::Downloading { done, total }) => {
-            let cancel = Button::new(tr("experimental.cancel")).build(
-                ui,
-                theme,
-                ("dict-cancel", id),
-                Message::CancelDownload,
-            )?;
-            rows.push(row.control(cancel).build(ui, theme)?);
-            rows.push(progress(ui, page, *done, *total)?);
-            return Ok(rows);
-        }
-        Some(Stage::Installing) => {
-            let waiting = Button::new(tr("experimental.installing"))
-                .disabled(true)
-                .build(ui, theme, ("dict-installing", id), Message::CancelDownload)?;
-            rows.push(row.control(waiting).build(ui, theme)?);
-            return Ok(rows);
-        }
-        _ => {}
-    }
-    let busy = settings.download.busy();
-    let button = if entry.needs_newer_app() {
-        Button::new(tr("dictionaries.needs_newer_app")).disabled(true)
-    } else if installed.is_some_and(|installed| installed.version == entry.version) {
-        Button::new(tr("dictionaries.installed")).disabled(true)
-    } else if installed.is_some() {
-        Button::new(tr("dictionaries.update")).disabled(busy)
-    } else if let Some(Stage::Failed(error)) = &stage {
-        row = row.below(paragraph(
+    .iter()
+    .find(|installed| installed.stem == stem)
+    .map(|installed| installed.version != entry.version);
+    let status = DownloadStatus::of(page, &Item::Dict(entry.id.clone()));
+    DownloadRow::new(&entry.name, status.state(outdated), labels())
+        .detail(entry.description.trim_end_matches(['。', '.']))
+        .badge((!entry.official).then(|| tr("dictionaries.third_party")))
+        .caption(|ui| caption(ui, page, entry))
+        .busy(status.busy)
+        .blocked(entry.needs_newer_app())
+        .armed(settings.dict_remove_armed.as_deref() == Some(id))
+        .build(
             ui,
             theme,
-            &tr_args("experimental.download_failed", &[("error", &error)]),
-            None,
-        )?);
-        Button::new(tr("experimental.retry")).disabled(busy)
-    } else {
-        Button::new(tr("experimental.download")).disabled(busy)
-    };
-    let button = button.build(ui, theme, ("dict-download", id), download)?;
-    rows.push(row.control(button).build(ui, theme)?);
-    Ok(rows)
+            ("dict", id),
+            (
+                Message::DownloadDict(entry.id.clone()),
+                Message::CancelDownload,
+                Message::RemoveDownload(entry.id.clone()),
+            ),
+        )
+}
+
+/// 作者（有主页的能点）、大小、许可。
+fn caption(ui: &mut Ui<Message>, page: &Page, entry: &DictEntry) -> Result<NodeId, RenderError> {
+    let theme = &page.theme;
+    let size = megabytes(entry.bytes);
+    let license = license_label(&entry.license);
+    let mut items = Vec::new();
+    if !entry.author.name.is_empty() {
+        let author = match entry.author.link() {
+            Some(url) => FieldValue::Node(
+                Link::new(&entry.author.name)
+                    .points(field_points(theme))
+                    .build(
+                        ui,
+                        theme,
+                        ("dict-author", entry.id.as_str()),
+                        Message::OpenLink(url.to_owned()),
+                    )?,
+            ),
+            None => FieldValue::Text(&entry.author.name),
+        };
+        items.push((tr("dictionaries.author"), author));
+    }
+    items.push((tr("dictionaries.size"), FieldValue::Text(&size)));
+    items.push((tr("dictionaries.license"), FieldValue::Text(&license)));
+    fields(ui, theme, &items)
+}
+
+/// SPDX 许可表达式写成好读的：`MIT AND CC-BY-SA-4.0` → `MIT / CC BY-SA 4.0`。
+fn license_label(spdx: &str) -> String {
+    spdx.split(" AND ")
+        .map(|id| match id.strip_prefix("CC-") {
+            Some(rest) => match rest.rsplit_once('-') {
+                Some((terms, version)) => format!("CC {terms} {version}"),
+                None => format!("CC {rest}"),
+            },
+            None => id.to_owned(),
+        })
+        .collect::<Vec<_>>()
+        .join(" / ")
 }

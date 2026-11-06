@@ -29,28 +29,53 @@ impl IndexFile {
 
 #[cfg(test)]
 mod tests {
+    use qingjian_format::Kind;
+
     use super::*;
+    use crate::jobs::download::Install;
 
     #[test]
-    fn keeps_extra_dictionaries_and_newer_formats_only() {
+    fn keeps_extra_dictionaries_and_known_glossaries_only() {
         let text = r#"{
   "format": 1,
   "dicts": [
     {"id": "domain-medicine", "name": "青简领域词库·医学", "kind": "extra", "version": "1.0.0",
      "tag": "domain-medicine-v1.0.0", "bytes": 327592, "qj_format": 1, "license": "MIT AND CC-BY-SA-4.0",
-     "description": "医学", "official": true},
-    {"id": "glossary-ja", "name": "日语", "kind": "glossary", "version": "1.0.0",
+     "description": "医学", "official": true, "author": {"name": "青简", "url": "https://qingjian.app"}},
+    {"id": "glossary-ja", "name": "日语", "kind": "glossary", "language": "ja", "version": "1.0.0",
      "tag": "glossary-ja-v1.0.0", "bytes": 1, "qj_format": 1, "license": "CC-BY-SA-4.0"},
+    {"id": "glossary-fr", "name": "法语", "kind": "glossary", "language": "fr", "version": "1.0.0",
+     "tag": "glossary-fr-v1.0.0", "bytes": 1, "qj_format": 1, "license": "CC-BY-SA-4.0"},
+    {"id": "later", "name": "以后的种类", "kind": "theme", "version": "1.0.0",
+     "tag": "later-v1.0.0", "bytes": 1, "qj_format": 1, "license": "CC0-1.0"},
+    {"id": "base", "name": "基础", "kind": "base", "version": "1.0.0",
+     "tag": "base-v1.0.0", "bytes": 1, "qj_format": 1, "license": "CC-BY-SA-4.0"},
     {"id": "future", "name": "未来", "kind": "extra", "version": "1.0.0",
      "tag": "future-v1.0.0", "bytes": 1, "qj_format": 99, "license": "CC0-1.0", "unknown_field": 1}
   ]
 }"#;
         let dicts = IndexFile::parse(text.as_bytes()).unwrap();
-        assert_eq!(dicts.len(), 2);
-        assert_eq!(dicts[0].id, "domain-medicine");
+        let ids: Vec<&str> = dicts.iter().map(|entry| entry.id.as_str()).collect();
+        assert_eq!(ids, ["domain-medicine", "glossary-ja", "future"]);
         assert!(dicts[0].official && !dicts[0].needs_newer_app());
-        assert!(dicts[1].needs_newer_app());
+        assert_eq!(dicts[0].author.link(), Some("https://qingjian.app"));
+        assert_eq!(dicts[1].author.name, "");
+        assert!(dicts[2].needs_newer_app());
         assert_eq!(dicts[0].target().tag, "domain-medicine-v1.0.0");
+        let Install::Qjz { dest, kind } = dicts[0].target().install else {
+            panic!("dictionary installs from a .qjz");
+        };
+        assert_eq!(
+            (dest.as_str(), kind),
+            ("dicts/domain-medicine.qj", Kind::Dictionary)
+        );
+        let Install::Qjz { dest, kind } = dicts[1].target().install else {
+            panic!("glossary installs from a .qjz");
+        };
+        assert_eq!(
+            (dest.as_str(), kind),
+            ("glossaries/glossary-ja.qj", Kind::Glossary)
+        );
     }
 
     #[test]

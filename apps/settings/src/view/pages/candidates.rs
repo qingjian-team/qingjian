@@ -1,12 +1,15 @@
 //! 「候选」页：每页几个、译文、输出字形、拼音行声调，候选后面的 emoji / 颜文字 / 符号，排序（学习、本地整句模型），英文词。
 
-use bamboo_slip::taffy::NodeId;
-use bamboo_slip::{RenderError, SettingRow, Stepper, Ui, group, section_title};
-use qingjian_core::{ENGLISH_CANDIDATES_MAX, TraditionalVariant, learning_languages};
+use bamboo_slip::taffy::{AlignItems, FlexDirection, JustifyContent, NodeId, Style};
+use bamboo_slip::{
+    Button, RenderError, SettingRow, Stepper, Ui, Visual, group, paragraph, section_title,
+};
+use qingjian_core::{ENGLISH_CANDIDATES_MAX, Language, TraditionalVariant, learning_languages};
 use qingjian_platform::{EmojiCount, MAX_PAGE_SIZE, NumpadDigit};
 
 use crate::i18n::tr;
 use crate::message::{Message, Popup};
+use crate::page_id::PageId;
 use crate::support::Feature;
 use crate::view::Page;
 use crate::view::parts::controls::{choice, select, toggle_info, toggle_with};
@@ -56,10 +59,7 @@ pub fn candidates(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Rend
         SettingRow::new(tr("candidates.page_size"))
             .control(stepper)
             .build(ui, theme)?,
-        SettingRow::new(tr("candidates.translation"))
-            .info(tr("candidates.translation_info"))
-            .control(language)
-            .build(ui, theme)?,
+        translation_row(ui, page, language)?,
         SettingRow::new(tr("candidates.traditional"))
             .info(tr("candidates.traditional_info"))
             .control(traditional)
@@ -261,4 +261,43 @@ fn count(
         .info(example)
         .control(control)
         .build(ui, &page.theme)
+}
+
+/// 「译文」行：选了的学习语言没有释义表（没随包、也没下载）时，下面写一句并给「去下载」，点了到「词库」页。
+fn translation_row(
+    ui: &mut Ui<Message>,
+    page: &Page,
+    language: NodeId,
+) -> Result<NodeId, RenderError> {
+    let theme = &page.theme;
+    let general = &page.settings.config.general;
+    let mut row = SettingRow::new(tr("candidates.translation"))
+        .info(tr("candidates.translation_info"))
+        .control(language);
+    let missing = !general.learning_language_off()
+        && general
+            .learning_language
+            .parse::<Language>()
+            .is_ok_and(|language| !page.settings.library.glossary_languages.contains(&language));
+    if missing {
+        let download = Button::new(tr("candidates.translation_download")).build(
+            ui,
+            theme,
+            "glossary-download",
+            Message::Page(PageId::Dictionaries),
+        )?;
+        let note = paragraph(ui, theme, tr("candidates.translation_missing"), None)?;
+        row = row.below(ui.scene().node(
+            Style {
+                flex_direction: FlexDirection::Row,
+                align_items: AlignItems::CENTER,
+                justify_content: JustifyContent::SPACE_BETWEEN,
+                gap: page.gap(12.0),
+                ..Style::default()
+            },
+            Visual::Group,
+            &[note, download],
+        )?);
+    }
+    row.build(ui, theme)
 }

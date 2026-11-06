@@ -25,7 +25,7 @@ use qingjian_platform::{Appearance, Config};
 use qingjian_render::{TextSizes, Theme, ThemeLibrary};
 
 use crate::jobs::cloud_test::CloudTest;
-use crate::jobs::dict_index::DictIndex;
+use crate::jobs::dict_index::{DictIndex, Shelf};
 use crate::jobs::download::Downloads;
 use crate::jobs::import::ImportJob;
 use crate::jobs::update_check::UpdateCheck;
@@ -98,6 +98,12 @@ pub struct Settings {
 
     /// 「词库」页从词库仓库取的可下载清单。
     pub dict_index: DictIndex,
+
+    /// 「可下载的」那一节选着的标签。
+    pub dict_shelf: Shelf,
+
+    /// 点过一次「删除」、等再点一次确认的下载词库（id）；点了别的就作废。
+    pub dict_remove_armed: Option<String>,
 
     /// 点过一次「删除」、等再点一次确认的模型；点了别的就作废。
     pub remove_armed: Option<qingjian_platform::LocalModel>,
@@ -192,6 +198,8 @@ impl Settings {
             import: ImportJob::default(),
             download: Downloads::default(),
             dict_index: DictIndex::default(),
+            dict_shelf: Shelf::default(),
+            dict_remove_armed: None,
             remove_armed: None,
             phrase: None,
             stats: None,

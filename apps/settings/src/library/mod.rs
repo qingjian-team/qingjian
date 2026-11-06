@@ -2,13 +2,17 @@
 //! 移除是挪进目录里的 `removed/`，不真删。
 
 mod entry;
+mod glossaries;
 mod kind;
+
+pub use glossaries::remove as remove_glossary;
 
 pub use entry::Entry;
 pub use kind::Kind;
 
 use std::path::{Path, PathBuf};
 
+use qingjian_core::Language;
 use qingjian_dictionary::import::code_words_scheme;
 use qingjian_dictionary::{AuxCodeTable, CodeTable, Dictionary, aux_code_table_info};
 use qingjian_platform::aux_schemes::{self, AuxSchemeEntry};
@@ -39,6 +43,12 @@ pub struct Library {
 
     /// 用户目录 `schemes/` 下的双拼方案（内置九套不在这里）。
     pub shuangpin_schemes: Vec<ShuangpinSchemeEntry>,
+
+    /// 从词库仓库下载、装在用户目录 `glossaries/` 里的释义表。
+    pub glossaries: Vec<Entry>,
+
+    /// 有释义表（随包的或下载的）的语言：学习语言选了没表的，「候选」页提示去下载。
+    pub glossary_languages: Vec<Language>,
 }
 
 impl Library {
@@ -62,6 +72,8 @@ impl Library {
             aux_schemes: scan_aux_schemes(),
             code_schemes,
             shuangpin_schemes: scan_shuangpin_schemes(),
+            glossaries: glossaries::downloaded(),
+            glossary_languages: glossaries::available(),
         }
     }
 

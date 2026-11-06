@@ -2,14 +2,15 @@
 //! 本地模型一个一张卡片。没下载给「下载」，下着给进度条与「取消」，下好了才有开关与「删除」；
 //! 知意、通变两个只开一个，开了这个就关掉另一个，都关着就是不用模型（只按词库）。知意开着时下面出三档。
 
-use bamboo_slip::taffy::{AlignItems, FlexDirection, NodeId, Style};
+use bamboo_slip::taffy::NodeId;
 use bamboo_slip::{
-    Button, RenderError, Segmented, SettingRow, Switch, Ui, Visual, group, paragraph, section_title,
+    Button, DownloadRow, DownloadState, FieldValue, RenderError, Segmented, SettingRow, Switch, Ui,
+    fields, group, paragraph, section_title, toolbar,
 };
 use qingjian_platform::{CLIPBOARD_HISTORY_LIMITS, ClipboardEdge, LocalModel, ZhiyiTier};
 
-use crate::i18n::{tr, tr_args};
-use crate::jobs::download::{Item, Pack, Stage};
+use crate::i18n::tr;
+use crate::jobs::download::{Item, Pack};
 use crate::message::Message;
 use crate::shortcut::Shortcut;
 use crate::support::Feature;
@@ -18,7 +19,7 @@ use crate::view::Page;
 use crate::view::pages::shortcuts::recorder;
 use crate::view::parts::actions::with_notice;
 use crate::view::parts::controls::{choice, toggle_info};
-use crate::view::parts::download::progress;
+use crate::view::parts::download::{DownloadStatus, labels};
 
 pub fn experimental(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderError> {
     let theme = &page.theme;
@@ -35,8 +36,7 @@ pub fn experimental(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Re
     }
     if Feature::Clipboard.here() {
         out.push(section_title(ui, theme, tr("experimental.clipboard"))?);
-        let rows = clipboard(ui, page)?;
-        out.push(group(ui, theme, &rows)?);
+        out.extend(clipboard(ui, page)?);
     }
     Ok(out)
 }
@@ -50,6 +50,7 @@ fn edge_label(edge: ClipboardEdge) -> &'static str {
     }
 }
 
+/// 青简剪贴板：设置一张卡片，后面跟「不记录这些程序」一节。
 fn clipboard(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderError> {
     let theme = &page.theme;
     let config = &page.settings.config.clipboard;
@@ -134,39 +135,7 @@ fn clipboard(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderErr
         config.sync_neon,
         !on || !config.sync_enabled,
     )?;
-    let add = Button::new(tr("experimental.clipboard_add_app"))
-        .disabled(!on)
-        .build(ui, theme, "clipboard-add-app", Message::ExcludeClipboardApp)?;
-    let mut rows = vec![
-        enabled,
-        hotkey,
-        edge,
-        limit,
-        paused,
-        sync,
-        neon,
-        SettingRow::new(tr("experimental.clipboard_excluded"))
-            .info(tr("experimental.clipboard_excluded_info"))
-            .control(add)
-            .build(ui, theme)?,
-    ];
-    for app in &config.excluded_apps {
-        let kept: Vec<String> = config
-            .excluded_apps
-            .iter()
-            .filter(|other| *other != app)
-            .cloned()
-            .collect();
-        let remove = Button::new(tr("experimental.clipboard_remove_app"))
-            .disabled(!on)
-            .build(
-                ui,
-                theme,
-                ("clipboard-remove-app", app.as_str()),
-                Message::SetList("clipboard", "excluded_apps", kept),
-            )?;
-        rows.push(SettingRow::new(app).control(remove).build(ui, theme)?);
-    }
+    let mut rows = vec![enabled, hotkey, edge, limit, paused, sync, neon];
     // 总开关关着也能清：关掉之后想把留下的历史删了，是最常见的情况
     let armed = page.settings.armed == Some(Action::ClearClipboard);
     let mut clear = Button::new(if armed {
@@ -189,7 +158,47 @@ fn clipboard(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderErr
         SettingRow::new(tr("experimental.clipboard_history")).control(clear),
         Action::ClearClipboard.slot(),
     )?);
-    Ok(rows)
+    let mut out = vec![group(ui, theme, &rows)?];
+    out.extend(excluded_apps(ui, page, on)?);
+    Ok(out)
+}
+
+/// 不记录的程序：自成一节，标题下一行说明与「添加程序」，再是加过的程序，一个一行带「移除」。
+fn excluded_apps(ui: &mut Ui<Message>, page: &Page, on: bool) -> Result<Vec<NodeId>, RenderError> {
+    let theme = &page.theme;
+    let config = &page.settings.config.clipboard;
+    let mut out = vec![section_title(
+        ui,
+        theme,
+        tr("experimental.clipboard_excluded"),
+    )?];
+    let note = paragraph(ui, theme, tr("experimental.clipboard_excluded_info"), None)?;
+    let add = Button::new(tr("experimental.clipboard_add_app"))
+        .disabled(!on)
+        .build(ui, theme, "clipboard-add-app", Message::ExcludeClipboardApp)?;
+    out.push(toolbar(ui, theme, &[note, add])?);
+    let mut rows = Vec::new();
+    for app in &config.excluded_apps {
+        let kept: Vec<String> = config
+            .excluded_apps
+            .iter()
+            .filter(|other| *other != app)
+            .cloned()
+            .collect();
+        let remove = Button::new(tr("experimental.clipboard_remove_app"))
+            .disabled(!on)
+            .build(
+                ui,
+                theme,
+                ("clipboard-remove-app", app.as_str()),
+                Message::SetList("clipboard", "excluded_apps", kept),
+            )?;
+        rows.push(SettingRow::new(app).control(remove).build(ui, theme)?);
+    }
+    if !rows.is_empty() {
+        out.push(group(ui, theme, &rows)?);
+    }
+    Ok(out)
 }
 
 fn title(model: LocalModel) -> &'static str {
@@ -206,109 +215,63 @@ fn description(model: LocalModel) -> &'static str {
     }
 }
 
+/// 一个模型一张卡片：下载项一行（装好后右边多一个开关），开着知意时下面再一行选档位。
 fn card(ui: &mut Ui<Message>, page: &Page, pack: Pack) -> Result<Vec<NodeId>, RenderError> {
     let theme = &page.theme;
     let settings = page.settings;
     let model = &settings.config.model;
-    let detail = format!("{} · {}", pack.size, description(pack.model));
-    let stage = settings.download.stage_of(&Item::Model(pack.model));
-    let busy = settings.download.busy();
-    let mut rows = Vec::new();
-    let mut row = SettingRow::new(pack.model.label()).detail(&detail);
-    match &stage {
-        Some(Stage::Downloading { done, total }) => {
-            let cancel = Button::new(tr("experimental.cancel")).build(
+    let on = model.enabled && model.name == pack.model;
+    let item = Item::Model(pack.model);
+    let status = DownloadStatus::of(page, &item);
+    let switch = if pack.installed() {
+        Some(Switch::new(on).build(
+            ui,
+            theme,
+            ("use", pack.tag),
+            Message::UseModel((!on).then_some(pack.model)),
+        )?)
+    } else {
+        None
+    };
+    let state = status.state(pack.installed().then_some(false));
+    let row = DownloadRow::new(pack.model.label(), state, labels())
+        .detail(description(pack.model))
+        .caption(|ui| {
+            fields(
                 ui,
                 theme,
-                ("cancel", pack.tag),
-                Message::CancelDownload,
-            )?;
-            rows.push(row.control(cancel).build(ui, theme)?);
-            rows.push(progress(ui, page, *done, *total)?);
-        }
-        Some(Stage::Installing) => {
-            let waiting = Button::new(tr("experimental.installing"))
-                .disabled(true)
-                .build(ui, theme, ("installing", pack.tag), Message::CancelDownload)?;
-            rows.push(row.control(waiting).build(ui, theme)?);
-        }
-        _ if pack.installed() => {
-            let on = model.enabled && model.name == pack.model;
-            let switch = Switch::new(on).build(
-                ui,
-                theme,
-                ("use", pack.tag),
-                Message::UseModel((!on).then_some(pack.model)),
-            )?;
-            let armed = settings.remove_armed == Some(pack.model);
-            let mut remove = Button::new(if armed {
-                tr("experimental.delete_confirm")
-            } else {
-                tr("experimental.delete")
-            });
-            if armed {
-                remove = remove.primary();
-            }
-            let remove = remove.build(
-                ui,
-                theme,
-                ("remove", pack.tag),
-                Message::RemoveModel(pack.model),
-            )?;
-            let controls = ui.scene().node(
-                Style {
-                    flex_direction: FlexDirection::Row,
-                    align_items: AlignItems::CENTER,
-                    gap: page.gap(12.0),
-                    ..Style::default()
-                },
-                Visual::Group,
-                &[remove, switch],
-            )?;
-            rows.push(row.control(controls).build(ui, theme)?);
-            if on && pack.model == LocalModel::Zhiyi {
-                let tiers = choice(
-                    ui,
-                    page,
-                    "zhiyi-tier",
-                    &ZhiyiTier::ALL,
-                    model.zhiyi_tier,
-                    ZhiyiTier::label,
-                    |tier| Message::set("model", "zhiyi_tier", tier.key()),
-                )?;
-                rows.push(
-                    SettingRow::new(tr("experimental.tier"))
-                        .control(tiers)
-                        .build(ui, theme)?,
-                );
-            }
-        }
-        _ => {
-            let failed = match &stage {
-                Some(Stage::Failed(error)) => Some(error.as_str()),
-                _ => None,
-            };
-            let label = if failed.is_some() {
-                tr("experimental.retry")
-            } else {
-                tr("experimental.download")
-            };
-            let download = Button::new(label).disabled(busy).build(
-                ui,
-                theme,
-                ("download", pack.tag),
+                &[(tr("dictionaries.size"), FieldValue::Text(pack.size))],
+            )
+        })
+        .busy(status.busy)
+        .armed(settings.remove_armed == Some(pack.model))
+        .extra(switch)
+        .build(
+            ui,
+            theme,
+            pack.tag,
+            (
                 Message::DownloadModel(pack.model),
-            )?;
-            if let Some(error) = failed {
-                row = row.below(paragraph(
-                    ui,
-                    theme,
-                    &tr_args("experimental.download_failed", &[("error", &error)]),
-                    None,
-                )?);
-            }
-            rows.push(row.control(download).build(ui, theme)?);
-        }
+                Message::CancelDownload,
+                Message::RemoveModel(pack.model),
+            ),
+        )?;
+    let mut rows = vec![row];
+    if matches!(state, DownloadState::Installed { .. }) && on && pack.model == LocalModel::Zhiyi {
+        let tiers = choice(
+            ui,
+            page,
+            "zhiyi-tier",
+            &ZhiyiTier::ALL,
+            model.zhiyi_tier,
+            ZhiyiTier::label,
+            |tier| Message::set("model", "zhiyi_tier", tier.key()),
+        )?;
+        rows.push(
+            SettingRow::new(tr("experimental.tier"))
+                .control(tiers)
+                .build(ui, theme)?,
+        );
     }
     Ok(rows)
 }

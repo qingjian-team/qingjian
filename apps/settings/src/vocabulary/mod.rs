@@ -22,7 +22,7 @@ use qingjian_core::{Language, Translator, VocabularySummary};
 use qingjian_learning::figures::recent_start;
 use qingjian_learning::{LoggedEncounter, UsageStats, VocabularyBook, VocabularyEntry};
 use qingjian_platform::GeneralConfig;
-use qingjian_translate::Glossary;
+use qingjian_translate::{Glossary, downloaded_glossary};
 
 use crate::i18n::{tr, tr_args};
 use crate::stats::language_name;
@@ -248,12 +248,17 @@ fn language(general: &GeneralConfig) -> Option<Language> {
     })
 }
 
-/// 英→中释义表：macOS 在 `Qingjian.app/Contents/Resources/`，其他平台在随包根的 `data/generated/`。
+/// 英→中释义表：下载的（用户目录 `glossaries/`）优先；随包的 macOS 在 `Qingjian.app/Contents/Resources/`，其他平台在随包根的 `data/generated/`。
 fn english_glossary() -> Option<Glossary> {
-    let path = paths::mac_resources()
-        .into_iter()
-        .map(|dir| dir.join("glossary-zh.qj"))
-        .find(|path| path.is_file())
+    let path = paths::user_dir()
+        .map(|dir| downloaded_glossary(&dir, Language::Chinese))
+        .filter(|path| path.is_file())
+        .or_else(|| {
+            paths::mac_resources()
+                .into_iter()
+                .map(|dir| dir.join("glossary-zh.qj"))
+                .find(|path| path.is_file())
+        })
         .or_else(|| paths::bundled("data/generated/glossary-zh.qj"))?;
     Glossary::from_path(Language::Chinese, &path)
         .inspect_err(|error| tracing::warn!(%error, "英→中释义表读不了"))

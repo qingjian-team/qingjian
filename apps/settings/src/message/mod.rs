@@ -78,6 +78,12 @@ pub enum Message {
     FetchDictIndex,
     /// 「词库」页下载清单里的这一本（id；更新与重试也是它）。
     DownloadDict(String),
+    /// 删掉下载的这一本（id；第一下只是确认）。
+    RemoveDownload(String),
+    /// 「词库」页「可下载的」换标签：词库或释义表。
+    DictShelf(crate::jobs::dict_index::Shelf),
+    /// 点了作者名：交给系统打开这个主页（打开前再核一次地址）。
+    OpenLink(String),
     /// 取消正在下的模型或词库。
     CancelDownload,
     /// 删掉下好的模型（第一下只是确认）。
