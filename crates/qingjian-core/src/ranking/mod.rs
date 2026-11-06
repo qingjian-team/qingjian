@@ -55,6 +55,11 @@ pub const SINGLE_CHARS_BEFORE_SPLIT: usize = 9;
 /// 留下的只给读音与敲的只差一个字母的（`nishui` 想打 你说、`duizhao` 想打 对着），当敲错音的兜底。
 pub const SPLIT_READINGS_BEFORE_SINGLES: usize = 3;
 
+/// 一串键能整段读出的用户词（自造词、接受过的云端词）至多这么多个当作在这串键下选过，不占
+/// [`WORDS_BEFORE_SINGLE_CHARS`] 的名额、排在没选过的词前面（按用户选过的次数挑）；其余的照常排。
+/// 简拼（`ss`）能对上十几个自造词，全提上来又会把单字挤到几页之后。
+pub const USER_WORDS_BEFORE_SINGLES: usize = 5;
+
 /// 模糊音命中的单字排在原样读音的头几个单字之后（一页）。模糊音只扣 ln 2，单字之间词频差得远，
 /// 光靠扣分 `zi` 开 z-zh 首选会是 只 而不是 子；不排在这里则沉到原样读音的几百个生僻字之后。
 pub const SINGLE_CHARS_BEFORE_FUZZY: usize = 9;

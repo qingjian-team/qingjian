@@ -402,6 +402,8 @@ impl Engine {
             tracing::debug!(text = %candidate.text, "整段拼音分次选完，自动造词");
             self.learner
                 .learn_word(&candidate.text, &candidate.syllables);
+            // 逐字选出来就是用户要的这个词：算选过一次，排序与整句词图里都有它的选择加分
+            self.learner.record(&candidate);
         }
         Some((
             key,
@@ -661,6 +663,23 @@ impl Engine {
         tracing::debug!(text = %candidate.text, "自动造词");
         self.learner
             .learn_word(&candidate.text, &candidate.syllables);
+        self.learner.record(&candidate);
+    }
+
+    /// 用户词（自造词、接受过的云端词）里有这个词（同音节）。
+    pub(super) fn is_user_word(&self, candidate: &Candidate) -> bool {
+        let patterns: Vec<_> = candidate
+            .syllables
+            .iter()
+            .map(|s| qingjian_dictionary::SyllablePattern::complete(s))
+            .collect();
+        !patterns.is_empty()
+            && self.learner.user_words().is_some_and(|words| {
+                words
+                    .lookup_exact(&patterns)
+                    .iter()
+                    .any(|hit| hit.text == candidate.text)
+            })
     }
 
     /// 主词库或用户词里是否已有这个词（同音节）。

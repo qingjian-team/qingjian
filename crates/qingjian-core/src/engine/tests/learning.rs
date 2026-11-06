@@ -126,13 +126,9 @@ fn splitting_a_buffer_into_a_word_and_a_sentence_forms_the_whole_phrase() {
             engine.learner().choice_weight("xiangkaifaxian", &phrase),
             round
         );
-        // 第二次：整段合成 想开X先；接缝处不造两字词
+        // 第一次就整段合成 想开X先；接缝处不造两字词
         let words = shared.lock().unwrap().0.clone();
-        if round == 1 {
-            assert!(words.is_empty(), "{words:?}");
-        } else {
-            assert_eq!(words, [phrase.clone()]);
-        }
+        assert_eq!(words, [phrase.clone()], "round {round}");
         engine.note_passthrough('\n');
     }
     // 第三次整段打出来：合成词直接排第一
@@ -428,7 +424,7 @@ fn commits_feed_the_personal_bigram_and_form_words() {
         assert_eq!(ngram.pair(Some("想"), "开发"), 1);
     }
 
-    // 标点断句；之后连续从同一段拼音里选 开发 + 先：第一次只记转移，第二次自动造词 开发先
+    // 标点断句；之后连续从同一段拼音里选 开发 + 先：第一次就自动造词 开发先
     engine.punctuate('，');
     let select = |engine: &mut Engine, text: &str| {
         let candidate = engine
@@ -457,7 +453,7 @@ fn commits_feed_the_personal_bigram_and_form_words() {
             learned.1.pair(Some("开发"), "先"),
             round * EXPLICIT_TRANSITION_WEIGHT
         );
-        assert_eq!(learned.0.len(), usize::from(round == 2), "round {round}");
+        assert_eq!(learned.0.len(), 1, "round {round}");
         engine.note_passthrough('\n');
     }
     assert_eq!(shared.lock().unwrap().0, ["开发先"]);

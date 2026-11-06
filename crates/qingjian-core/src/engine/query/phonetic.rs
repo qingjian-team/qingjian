@@ -1,7 +1,8 @@
 //! 拼音侧的候选生成：切分、拼写纠错、词级查找与排序，再补上整句、英文、快捷与 emoji 候选。
 
 use std::borrow::Cow;
-use std::collections::HashMap;
+use std::cmp::Reverse;
+use std::collections::{HashMap, HashSet};
 use std::time::{Duration, Instant};
 
 use qingjian_dictionary::Match;
@@ -203,6 +204,8 @@ impl Engine {
         let clean = segmentations
             .iter()
             .any(|s| s.syllables.iter().all(|x| x.complete));
+        // 盖住整段、不靠拆开音节读出的用户词（自造词、接受过的云端词）：(词, 拼音)
+        let mut user_words: HashSet<(&str, &str)> = HashSet::new();
         for (index, segmentation) in segmentations.iter().enumerate() {
             let reading = sources
                 .get(index)
@@ -234,6 +237,15 @@ impl Engine {
             // 没有替代写法时每条命中都是敲的原音节，`penalty` 直接给 0（单字母简拼能命中几万条）
             let hits = self.lookup_all(&positions);
             let whole_split = clean && segmentation.syllables.iter().any(|x| !x.complete);
+            if !whole_split && let Some(words) = self.learner.user_words() {
+                user_words.extend(
+                    words
+                        .lookup_pattern_alt(&positions)
+                        .into_iter()
+                        .filter(|hit| hit.exact)
+                        .map(|hit| (hit.text, hit.pinyin)),
+                );
+            }
             // 末音节读成它的模糊音写法（`zi` 开 z-zh 读成 zhi）也算打完的末音节：否则模糊音命中的常用字
             // 全排在原样读音的几百个生僻字之后，预选还会把它们砍掉（`li` 开 n-l 的 你 进不了前 500）
             let last_readings = if last.complete {
@@ -257,12 +269,15 @@ impl Engine {
                 {
                     penalty += FUZZY_PENALTY;
                 }
+                // 用户词至少算选过一次：简拼命中几万条时预选按词频会把它砍掉
+                let user_word =
+                    hit.exact && !whole_split && user_words.contains(&(hit.text, hit.pinyin));
                 scored.push(Scored {
                     hit,
                     full_last: typed_last || fuzzy_last,
                     coverage: covered_keys(count, segmentation.letters()),
                     abbreviated,
-                    weight: self.learner.weight(hit.text),
+                    weight: self.learner.weight(hit.text).max(u32::from(user_word)),
                     penalty,
                     tone_cost: crate::zhuyin::tone::cost(hit.text, hit.syllables(), &tones),
                     split: whole_split,
@@ -303,6 +318,12 @@ impl Engine {
         }
         let lookup = start.elapsed();
 
+        // 盖住整段的用户词当作在这串键下选过一次（自造词选一次之后用简拼 `ss` 的 屎山 也排在前面），
+        // 只取用得最多的几个：简拼能对上十几个自造词，全提上来又会把单字挤到几页之后
+        let mut lifted: Vec<(&str, &str)> = user_words.into_iter().collect();
+        lifted.sort_by_key(|&(text, pinyin)| (Reverse(self.learner.weight(text)), text, pinyin));
+        lifted.truncate(ranking::USER_WORDS_BEFORE_SINGLES);
+
         let start = Instant::now();
         // 再往后翻也翻不到的候选不必再造：单字母简拼能命中两万个词，排完序只留前面这些。
         // 同输入串（候选覆盖的那段字母）下选过的优先；上下文是上一个上屏的词（句首为 None）：
@@ -341,9 +362,12 @@ impl Engine {
             } else {
                 covered
             };
+            let user_word =
+                item.hit.exact && !item.split && lifted.contains(&(item.hit.text, item.hit.pinyin));
             letters
                 .get(..covered)
                 .map_or(0, |input| self.learner.choice_weight(input, item.hit.text))
+                .max(u32::from(user_word))
         };
         ranking::rank(&mut scored, MAX_CANDIDATES, |item| {
             (choice(item), self.word_log_prob(&item.hit, log_total))
