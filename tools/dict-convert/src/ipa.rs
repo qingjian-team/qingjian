@@ -76,6 +76,116 @@ const VOWELS: &[&str] = &[
     "AA", "AE", "AH", "AO", "AW", "AY", "EH", "ER", "EY", "IH", "IY", "OW", "OY", "UH", "UW",
 ];
 
+/// 英语里能当音节首音的辅音串（ARPAbet，不含 R——R 单独处理）。
+///
+/// 两个元音之间的辅音不是随便全归后一音节：`computer` 的 `M P Y` 里 `MP` 不能起头
+/// （英语没有 /mp/ 开头的音节），得切成 `kəm | pju`。只列真实出现的簇，宁可少收：
+/// 认不出时按「一个辅音归后、其余留前」的稳妥切法，总比把 `m` 判成声母、重音标错位置好。
+const ONSETS: &[&[&str]] = &[
+    // 单辅音
+    &["B"],
+    &["CH"],
+    &["D"],
+    &["DH"],
+    &["F"],
+    &["G"],
+    &["HH"],
+    &["JH"],
+    &["K"],
+    &["L"],
+    &["M"],
+    &["N"],
+    &["P"],
+    &["S"],
+    &["SH"],
+    &["T"],
+    &["TH"],
+    &["V"],
+    &["W"],
+    &["Y"],
+    &["Z"],
+    &["ZH"],
+    // 塞音 + 流音
+    &["P", "L"],
+    &["P", "R"],
+    &["B", "L"],
+    &["B", "R"],
+    &["T", "R"],
+    &["D", "R"],
+    &["K", "L"],
+    &["K", "R"],
+    &["G", "L"],
+    &["G", "R"],
+    &["F", "L"],
+    &["F", "R"],
+    &["TH", "R"],
+    &["SH", "R"],
+    // S + 塞音 / 鼻音 / 流音 / W
+    &["S", "P"],
+    &["S", "T"],
+    &["S", "K"],
+    &["S", "M"],
+    &["S", "N"],
+    &["S", "L"],
+    &["S", "W"],
+    // S + 塞音 + 流音
+    &["S", "P", "L"],
+    &["S", "P", "R"],
+    &["S", "T", "R"],
+    &["S", "K", "R"],
+    &["S", "K", "W"],
+    // 塞音 + W、K + 鼻音
+    &["T", "W"],
+    &["D", "W"],
+    &["K", "W"],
+    &["G", "W"],
+    &["K", "S"],
+    // 辅音 + Y（`computer` 的 `pj`、`pure`、`cute`、`music` 的 `mj`）
+    &["P", "Y"],
+    &["B", "Y"],
+    &["T", "Y"],
+    &["D", "Y"],
+    &["K", "Y"],
+    &["G", "Y"],
+    &["M", "Y"],
+    &["N", "Y"],
+    &["L", "Y"],
+    &["F", "Y"],
+    &["V", "Y"],
+    &["HH", "Y"],
+    &["S", "Y"],
+    &["Z", "Y"],
+    &["TH", "Y"],
+    &["SH", "Y"],
+];
+
+/// 判断某段辅音能否整体当音节首音。
+fn is_onset(cluster: &[&str]) -> bool {
+    cluster.is_empty() || ONSETS.contains(&cluster)
+}
+
+/// 两个元音之间的辅音（`from..to`）里，下一个音节的起点。
+///
+/// 从右往左试出最长的合法首音串；R 不参与——英语的 r 属于前一个音节，
+/// 元音后的 `R` 一律留在左边（`cargo` 是 `kɑr|ɡoʊ`）。
+fn onset_boundary(parts: &[(&str, Option<char>)], from: usize, to: usize) -> usize {
+    let bases: Vec<&str> = parts[from..to].iter().map(|(base, _)| *base).collect();
+    // 末尾那段 R 是前一音节的收尾，不参与首音判定
+    let usable_end = match bases.iter().rposition(|base| *base != "R") {
+        Some(index) => index + 1,
+        // 整段都是 R：全留给前一个音节
+        None => return to,
+    };
+    let usable = &bases[..usable_end];
+    // 从长到短试：整段能起头就整段归后，否则去掉最左一个再试
+    for start in 0..usable.len() {
+        if is_onset(&usable[start..]) {
+            return from + start;
+        }
+    }
+    to
+}
+
 /// 重音调号；无重音的 `AH` 要按中央元音处理，见 [`to_ipa`]。
 fn split_stress(raw: &str) -> (&str, Option<char>) {
     if let Some(base) = raw.strip_suffix('1') {
@@ -92,13 +202,17 @@ fn split_stress(raw: &str) -> (&str, Option<char>) {
 /// 三处不能机械查表的地方：
 /// - **重音挪到音节首**：ARPAbet 把调号标在元音上，IPA 要写在音节最前面——
 ///   `cargo` 是 `/ˈkɑrɡoʊ/` 不是 `/kˈɑrɡoʊ/`。做法是先划音节，再把标记插到该音节第一个音素前。
-/// - **音节边界按最大起首音**：两个元音之间的辅音，**全部**归后一音节当声母，除非它一个都不剩
-///   （前一音节必须留住自己的收尾）。`computer` 是 `kə|mpju` → `/kəˈmpjutɝ/`（`m` 是声母），
-///   `cargo` 是 `kɑr|ɡoʊ`（`r` 是上一音节的儿化收尾，`ɡ` 是声母）——两种都对，
-///   区别在于 `r` 在元音后要跟前一个元音走（英语的 r 属于前一音节）。
+/// - **音节边界按最大起首音**：两个元音之间的辅音，从右往左取最长的**合法**首音串
+///   （见 [`ONSETS`]），剩下的留给前一音节当收尾；元音后的 `R` 一律留在左边。
+///   `computer` 的 `MPY` 里 `MP` 不是合法首音、`PY` 是，所以切 `kəm|pju` →
+///   `/kəmˈpjutɝ/`；早期版本一律把辅音全归后一音节，于是切出 `kə|mpju`、重音跑到了
+///   `m` 前面（`/kəˈmpju.../`）。`cargo` 是 `kɑr|ɡoʊ`（`r` 是上一音节的儿化收尾）。
 /// - **无重音的 `AH` 是 `ə` 不是 `ʌ`**：CMUdict 用同一个 `AH` 表示两个不同的音，靠调号区分——
 ///   带调号的 `AH1`/`AH2` 是 STRUT 元音 `ʌ`，不带调号的 `AH0` 是 schwa `ə`
 ///   （`hello` 的 `HH AH0 L` → `həˈloʊ`，不区分就成了 `/hʌˈloʊ/`）。
+/// - **无重音的 `ER` 是 `ɚ` 不是 `ɝ`**：同一条道理。重读的 `ER1`/`ER2` 是 `ɝ`（`bird`、`learn`），
+///   不带调号的 `ER0` 是 r 化的 schwa `ɚ`（`computer` 的 `... T ER0` → `tɚ`、
+///   `understand` 的 `AH2 N D ER0` → `dɚ`）。
 fn to_ipa(phonemes: &[&str]) -> Option<String> {
     let parts: Vec<(&str, Option<char>)> = phonemes.iter().map(|raw| split_stress(raw)).collect();
 
@@ -117,12 +231,14 @@ fn to_ipa(phonemes: &[&str]) -> Option<String> {
     let mut boundaries: Vec<usize> = vec![0];
     for pair in vowel_positions.windows(2) {
         let (previous, next) = (pair[0], pair[1]);
-        let mut boundary = previous + 1;
-        while boundary < next && parts[boundary].0 == "R" {
-            boundary += 1;
-        }
-        // 若整段都是 R，边界不越过 next，避免把元音划给前一音节
-        boundaries.push(boundary.min(next));
+        // 两个元音之间的辅音按「最大起首音」从右往左取最长的合法首音串，
+        // 剩下的留给前一音节当收尾；R 例外，跟着前一个元音走（`cargo` 是 `kɑr|ɡoʊ`）。
+        let boundary = if previous + 1 < next {
+            onset_boundary(&parts, previous + 1, next)
+        } else {
+            next
+        };
+        boundaries.push(boundary);
     }
 
     // 每个元音所属音节的起点：边界列表里不超过它的最后一个
@@ -150,6 +266,9 @@ fn to_ipa(phonemes: &[&str]) -> Option<String> {
         let ipa = match (*base, stress.is_some()) {
             // 无重音的 AH 是 schwa
             ("AH", false) => "ə",
+            // 无重音的 ER 是 r 化的 schwa：`computer` 末尾、`understand` 中间都是这个，
+            // 和 AH0 写成 ə 是一回事；`ɝ` 只留给重读音节（`bird`、`learn`）
+            ("ER", false) => "ɚ",
             _ => PHONEMES
                 .iter()
                 .find(|(arpabet, _)| arpabet == base)
@@ -229,10 +348,42 @@ mod tests {
             to_ipa(&["HH", "AH0", "L", "OW1"]),
             Some("həˈloʊ".to_owned())
         );
-        // computer  K AH0 M P Y UW1 T ER0 → m 是第二音节的声母，跟着 pyu 走
+        // computer  K AH0 M P Y UW1 T ER0 → MP 不能起头，音节是 kəm|pju|tɚ，
+        // 重音落在 p 前面而不是 m 前面；末尾未重读的 ER 是 ɚ
         assert_eq!(
             to_ipa(&["K", "AH0", "M", "P", "Y", "UW1", "T", "ER0"]),
-            Some("kəˈmpjutɝ".to_owned())
+            Some("kəmˈpjutɚ".to_owned())
+        );
+        // abstract  AE1 B S T R AE0 K T → bstr 不能起头，音节是 æb|strækt，
+        // 主重音仍在第一音节开头
+        assert_eq!(
+            to_ipa(&["AE1", "B", "S", "T", "R", "AE0", "K", "T"]),
+            Some("ˈæbstrækt".to_owned())
+        );
+    }
+
+    /// 两个元音之间的辅音不是全归后一音节：`MP` 之类的非法首音要留在前一音节做收尾。
+    #[test]
+    fn illegal_onsets_stay_with_the_previous_syllable() {
+        // system  S IH1 S T AH0 M → st 是合法首音（`st`），切 sɪ|stəm
+        assert_eq!(
+            to_ipa(&["S", "IH1", "S", "T", "AH0", "M"]),
+            Some("ˈsɪstəm".to_owned())
+        );
+        // husband  HH AH1 Z B AH0 N D → zb 不合法，切 hʌz|bənd
+        assert_eq!(
+            to_ipa(&["HH", "AH1", "Z", "B", "AH0", "N", "D"]),
+            Some("ˈhʌzbənd".to_owned())
+        );
+    }
+
+    /// 元音后的 R 属于前一音节，不跟着后面的辅音当首音。
+    #[test]
+    fn r_after_a_vowel_stays_in_the_previous_syllable() {
+        // garden  G AA1 R D AH0 N → ɡɑr|dən
+        assert_eq!(
+            to_ipa(&["G", "AA1", "R", "D", "AH0", "N"]),
+            Some("ˈɡɑrdən".to_owned())
         );
     }
 
@@ -241,6 +392,23 @@ mod tests {
     fn unstressed_ah_is_schwa() {
         assert_eq!(to_ipa(&["AH1"]), Some("ˈʌ".to_owned()));
         assert_eq!(to_ipa(&["AH0"]), Some("ə".to_owned()));
+    }
+
+    /// `ER` 同理：重读是 `ɝ`，不重读是 r 化的 schwa `ɚ`。
+    #[test]
+    fn unstressed_er_is_r_colored_schwa() {
+        // bird  B ER1 D → 重读，ɝ
+        assert_eq!(to_ipa(&["B", "ER1", "D"]), Some("ˈbɝd".to_owned()));
+        // teacher  T IY1 CH ER0 → 末尾不重读，ɚ
+        assert_eq!(
+            to_ipa(&["T", "IY1", "CH", "ER0"]),
+            Some("ˈtitʃɚ".to_owned())
+        );
+        // understand  AH2 N D ER0 S T AE1 N D → 中间那个 ER0 也是 ɚ
+        assert_eq!(
+            to_ipa(&["AH2", "N", "D", "ER0", "S", "T", "AE1", "N", "D"]),
+            Some("ˌʌndɚˈstænd".to_owned())
+        );
     }
 
     #[test]
