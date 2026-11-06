@@ -101,12 +101,9 @@ val stageData by tasks.registering(Sync::class) {
     val hasGenerated = generated.resolve("dict.qj").isFile
     into(bundledAssets.map { it.dir("data") })
     if (hasGenerated) {
-        from(generated) {
-            // 学习语言可选，几门语言的释义表都带上（共约 65 MB）
-            include("dict.qj", "lm.qj", "glossary-*.qj", "english.tsv")
-        }
-        // 随包领域词库（与 PC 同一份），词库页里勾选
-        from(generated.resolve("dicts")) { into("dicts") }
+        // 随包词库按 tools/release/dicts.lock 从词库仓库取（data-fetch.sh 解到 data/generated/）；安卓没有越南语输入，不带越南语两本。
+        // 其他释义表与领域词库在设置里下载
+        from(generated) { include("dict.qj", "lm.qj", "glossary-en.qj", "glossary-zh.qj", "english.qj", "dicts/idioms.qj") }
     } else {
         from(repoRoot.resolve("assets/sample")) { include("dict.tsv", "glossary-en.tsv", "english.tsv") }
     }

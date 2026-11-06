@@ -28,8 +28,9 @@ install -m 755 "$cmake_output/qingjian.so" "$stage/lib/"
 install -m 755 apps/linux/scripts/package-install.sh "$stage/install.sh"
 install -m 755 apps/linux/scripts/uninstall.sh "$stage/"
 install -m 644 apps/linux/scripts/files.py "$stage/"
-# 产品数据只带压缩包，install.sh 装前解开（files.py 按 data.lock 校验压缩包，再按包内摘要逐个校验解出的文件）
+# 产品数据只带压缩包，install.sh 装前解开（files.py 按 data.lock 校验压缩包，再按包内摘要逐个校验解出的文件；随包词库按 dicts.lock 校验 .qjz 与解出的 .qj）
 cp -r --parents LICENSE apps/settings/linux assets/icon/linux/hicolor assets/stroke/LICENSE-CNS11643.txt apps/linux/fcitx5/data assets/sample assets/glossary assets/levels assets/emoji \
-  tools/release/data.lock target/release-data/qingjian-data.tar.gz "$stage/"
+  tools/release/data.lock target/release-data/qingjian-data.tar.gz \
+  tools/release/dicts.lock tools/release/dicts-fetch.py target/release-data/dicts "$stage/"
 tar -C "$out" -czf "$out/$name.tar.gz" "$name"
 echo "已打包：$out/$name.tar.gz"

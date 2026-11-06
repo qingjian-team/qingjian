@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # 按 tools/release/data.lock 下载并校验单包产品数据；旧锁仍可读取分离的模型附件。
+# 随包词库不在数据包里，最后调 dicts-fetch.py 按 tools/release/dicts.lock 从词库仓库取（data-v9 的包里还带着旧词库，解开后被它盖掉）。
 #
 #   tools/release/data-fetch.sh            # 下载 + 校验 + 解开
 #   tools/release/data-fetch.sh --verify   # 只校验 target/release-data/ 里已下载的文件
@@ -42,7 +43,10 @@ for f in "${ASSETS[@]}"; do
   [[ -n "$expected" && "$actual" == "$expected" ]] || { echo "$f 与 data.lock 不符（$TAG）：期望 $expected，实际 $actual" >&2; exit 1; }
   echo "$f  $actual"
 done
-[[ "${1:-}" == "--verify" ]] && exit 0
+if [[ "${1:-}" == "--verify" ]]; then
+  "${PYTHON:-python3}" tools/release/dicts-fetch.py --verify
+  exit 0
+fi
 
 if [[ -n "$LEGACY_MODEL" ]]; then
   mkdir -p data/generated data/models/hanzhang-zhiwei
@@ -67,6 +71,7 @@ else
 fi
 # 解出来的 mtime 比 checkout 出来的 TSV 旧，bundle.sh 会以为要重打
 find data/generated -type f -exec touch {} +
+"${PYTHON:-python3}" tools/release/dicts-fetch.py
 [[ -n "$MODEL_SOURCE" ]] && touch "$MODEL_SOURCE"
 [[ -n "$P2C_MODEL_SOURCE" ]] && touch "$P2C_MODEL_SOURCE"
 echo "产品数据 $TAG 已就位"

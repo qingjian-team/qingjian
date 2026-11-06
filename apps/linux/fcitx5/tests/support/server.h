@@ -45,7 +45,8 @@ public:
         std::ofstream(directory / "config/qingjian/config.toml") << "[general]\ninput_log = true\npage_size = 2\n" << general << "\n[dictionaries]\ndomains = []\n"
             << "[apps]\nenglish_candidates_on = [\"*\"]\n"; // 测试程序报不出白名单里的应用名
         std::filesystem::create_directories(directory / "data/generated");
-        std::ofstream(directory / "data/generated/english.tsv") << "hello\thello\t100\nhelp\thelp\t90\nheld\theld\t80\n";
+        // Server 找的是 english.qj；词表按内容认格式，写 TSV 也读得了
+        std::ofstream(directory / "data/generated/english.qj") << "hello\thello\t100\nhelp\thelp\t90\nheld\theld\t80\n";
         start();
     }
     ~Server() { stop(); std::filesystem::remove_all(directory); }

@@ -2,6 +2,7 @@
 # //! 安装文件清单与校验；不管理桌面服务、系统文件或用户数据。
 # //! 装哪几支（fcitx5 / fcitx4 插件、IBus 前端、systemd 单元）由 install.sh 决定，这里只按给的路径照做。
 import argparse
+import gzip
 import hashlib
 import json
 import os
@@ -40,34 +41,59 @@ def parse_args():
     return parser.parse_args()
 
 
+def bundled_dicts(root, resources, files):
+    """随包词库按 tools/release/dicts.lock 校验后加入清单：缓存的 .qjz 对上锁文件，解开的 .qj 对上 .qjz 的内容。返回这几个文件。"""
+    owned = set()
+    for line in (root / 'tools/release/dicts.lock').read_text().splitlines():
+        if not line.strip() or line.startswith('#'):
+            continue
+        tag, rest = line.split(' = ', 1)
+        expected, installed = rest.split()
+        packed = root / 'target/release-data/dicts' / f'{tag}.qjz'
+        source = root / 'data/generated' / installed
+        if not packed.is_file() or not source.is_file():
+            raise SystemExit(f'缺少随包词库 {tag}，请先运行 tools/release/data-fetch.sh，或用 --sample 体验样例词库')
+        if digest(packed) != expected:
+            raise SystemExit(f'{packed.name} 与 tools/release/dicts.lock 校验值不符')
+        with gzip.open(packed) as stream:
+            if digest_stream(stream) != digest(source):
+                raise SystemExit(f'随包词库校验失败：{installed}')
+        files[resources / source.relative_to(root)] = source
+        owned.add(source.resolve())
+    return owned
+
+
 def product_data(root, resources, files):
-    """产品数据按 tools/release/data.lock 校验后加入清单。"""
+    """产品数据按 tools/release/data.lock 与 dicts.lock 校验后加入清单。"""
     generated = root / 'data/generated'
-    dictionary = generated / 'dict.qj'
     archive = root / 'target/release-data/qingjian-data.tar.gz'
     lock = dict(line.strip().split(' = ', 1) for line in (root / 'tools/release/data.lock').read_text().splitlines() if ' = ' in line)
-    if not dictionary.is_file() or not archive.is_file():
+    if not archive.is_file():
         raise SystemExit('缺少产品数据，请先运行 tools/release/data-fetch.sh，或用 --sample 体验样例词库')
     if digest(archive) != lock.get('qingjian-data.tar.gz'):
         raise SystemExit('产品数据包与 tools/release/data.lock 校验值不符')
+    owned = bundled_dicts(root, resources, files)
     verified = {}
     with tarfile.open(archive) as bundle:
         for member in bundle.getmembers():
             if not member.isfile():
                 continue
             source = (root / member.name).resolve()
+            # data-v9 的包里还带着旧词库，随包的那几本已被 dicts.lock 的版本盖掉
+            if source in owned:
+                continue
             if not source.is_relative_to((root / 'data').resolve()):
                 raise SystemExit('数据包路径越界')
             checksum = digest_stream(bundle.extractfile(member))
             if not source.is_file() or digest(source) != checksum:
                 raise SystemExit(f'产品数据校验失败：{member.name}')
             verified[source] = checksum
-    wanted = ('dict.qj', 'lm.qj', 'lm-unigram.tsv', 'lm-bigram.tsv', 'english.tsv')
+    wanted = ('lm.qj', 'lm-unigram.tsv', 'lm-bigram.tsv')
     for source in generated.rglob('*'):
         # 点开头的是 macOS 打包混进来的 AppleDouble（`._dict.qj`），data-v1 发布包里有 19 个，不是产品数据
         if source.name.startswith('.'):
             continue
-        if source.is_file() and (source.name in wanted or source.name.startswith('glossary-') or source.parent.name in ('dicts', 'codes')):
+        if source.is_file() and (source.name in wanted or source.parent.name == 'codes'):
             if source.resolve() not in verified:
                 raise SystemExit(f'产品数据没有校验记录：{source}')
             files[resources / source.relative_to(root)] = source

@@ -43,9 +43,9 @@ TSV 的音节可带数字声调（`ni3`，轻声 5 或 0），键一律去调，
 日语罗马音（`japanese/`，目前只给 Android 测试用）：`to_hiragana` 最长匹配转平假名（同辅音连打 → っ、`n` 后接辅音 → ん、`-` → ー，没拼完的罗马音留在末尾），`RomajiComposer` 出候选（汉字词、平假名、片假名、边敲边出的汉字词、原样罗马音）。汉字只查 `words.rs` 里约 130 条手写常用词，正式的词典与转换以后再做，那时删掉这张表。
 
 越南语 Simple Telex 在 `vietnamese/`：`TelexComposer` 只存原始按键，每次编辑后用 MIT 许可的纯 Rust `vi` crate 重算现代声调写法；外层补词首 `w` 不转 `ư`、重复声调键恢复字面文本、Esc 恢复原始按键与按词 commit。`vi` 自带越南语音节校验，所以 `linux` / `changes` 保持英文，`this` → `thí`、`mix` → `mĩ` 这类合法越南语歧义与 UniKey 一致。桌面壳只维护模式和 composition / marked text，不各写一套转换规则。
-候选词表 `vietnamese.tsv` 与反向中文释义表 `vietnamese-zh.tsv` 不进 git，由 `tools/corpus/vietnamese_words.py` 从自建的 `assets/glossary/glossary-vi.tsv` 提取译词、去重，并以释义表出现次数作为近似频率；同一越南语词对应的中文源词按出现次数取前两条。打包脚本生成后随包。输入至少两个越南语字符时用 `WordList` 前缀补全，当前转换结果排第一、原始按键排最后；候选用反向 `Glossary` 显示中文译词。
+候选词表 `vietnamese.qj` 与反向中文释义表 `vietnamese-chinese.qj` 是词库仓库的两本随包词库（`vietnamese` 与 `vietnamese-chinese`），由那边的 `tools/vietnamese.py` 从越南语释义表提取译词、去重，并以释义表出现次数作为近似频率；同一越南语词对应的中文源词按出现次数取前两条。输入至少两个越南语字符时用 `WordList` 前缀补全，当前转换结果排第一、原始按键排最后；候选用反向 `Glossary` 显示中文译词。
 越南语候选右键菜单走 `qingjian-platform::candidate_menu::IndependentInputContext` 公共接口：输入法提供命名空间、原始输入码和模型译词目标语言，即可复用提权、降权、取消降权和模型译词。越南语使用 `vi:` 学习键且固定请求中文；将来的日语、韩语应使用各自稳定命名空间，不复制平台菜单逻辑。
-越南语中文译词使用 `LayeredTranslator`：随包 `vietnamese-zh.tsv` 只读，模型重新生成的覆盖写入用户目录 `user-glossary-input-vi-zh.tsv`，个人表优先。当前候选立即从覆盖层回读，下一次输入和重启后仍生效；未来第三输入法应按输入法命名空间与翻译方向使用独立个人表。
+越南语中文译词使用 `LayeredTranslator`：随包 `vietnamese-chinese.qj` 只读，模型重新生成的覆盖写入用户目录 `user-glossary-input-vi-zh.tsv`，个人表优先。当前候选立即从覆盖层回读，下一次输入和重启后仍生效；未来第三输入法应按输入法命名空间与翻译方向使用独立个人表。
 macOS 所有越南语清空和提交路径都使用 IMK 已验证的空 `setMarkedText:`，不能直接向客户端代理发 `unmarkText`：部分应用会抛 Objective-C exception，异常越过 Rust FFI 后导致输入法进程 abort。正常空格、标点和候选提交先清 marked text 再 `insertText:`。菜单栏状态项按中 / 英 / 越三态显示，提交一个词不会改变越南语模式。
 越南语首键刷新与中文 `refresh` 保持同一调用顺序：先更新应用里的 marked text，再读取 caret、呈现候选窗；不要在 `setMarkedText:` 之前显示窗口，避免 IMK 首键回调发生客户端重入。
 `TelexComposer` 同时持有已确认的整段前缀与当前词：空格 / 标点只用 `commit_word` 确认当前词并继续保持 marked text，下一枚字母开始下一词；只有 Enter、失焦或切换模式才用 `commit` 一次性上屏整段。当前词为空时退格可继续删除整段前缀。平台候选始终只按 `current()` 查，不把整段前缀带进词库查询。

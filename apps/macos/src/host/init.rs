@@ -34,16 +34,17 @@ pub fn init(mtm: MainThreadMarker, info: &BundleInfo) -> Result<(), HostError> {
         Some(dir) => load_learner(&dir),
         None => FrequencyLearner::default(),
     };
-    // 英文词表可选：没有就不出英文候选
-    let english = paths::resource("english.tsv")
+    // 英文词表可选：没有就不出英文候选；随包的是 .qj，样例词库只有 TSV
+    let english = paths::resource("english.qj")
+        .or_else(|_| paths::resource("english.tsv"))
         .ok()
         .map(WordList::from_path)
         .transpose()?;
-    let vietnamese_words = paths::resource("vietnamese.tsv")
+    let vietnamese_words = paths::resource("vietnamese.qj")
         .ok()
         .map(WordList::from_path)
         .transpose()?;
-    let vietnamese_glossary = paths::resource("vietnamese-zh.tsv")
+    let vietnamese_glossary = paths::resource("vietnamese-chinese.qj")
         .ok()
         .map(|path| {
             let bundled = Glossary::from_path(Language::Chinese, path)?;

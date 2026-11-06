@@ -44,7 +44,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             assembly::glossary_file(&root, Some(&user_dir), lang).map(|p| (lang, p))
         }),
         english_glossary: assembly::glossary_file(&root, Some(&user_dir), Language::Chinese),
-        english: paths::generated(&root, "english.tsv")
+        english: paths::generated(&root, "english.qj")
             .or_else(|| paths::asset(&root, "sample/english.tsv")),
         emoji: ["emoji/emoji-zh.tsv", "emoji/emoji-en.tsv"]
             .into_iter()

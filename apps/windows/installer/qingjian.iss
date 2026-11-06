@@ -84,18 +84,15 @@ Source: "{#Repo}\target\release\qingjian-settings-legacy.exe"; DestDir: "{app}";
 Source: "{#Repo}\target\installer\settings-runtime\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "{#Repo}\apps\windows\tsf\resources\qingjian.ico"; DestDir: "{app}"; Flags: ignoreversion
 ; —— 随包生成数据（只装运行时要的 .qj / .tsv，不装 dev 中间产物）——
-Source: "{#Repo}\data\generated\dict.qj";        DestDir: "{app}\data\generated";       Flags: ignoreversion
-Source: "{#Repo}\data\generated\lm.qj";          DestDir: "{app}\data\generated";       Flags: ignoreversion
-Source: "{#Repo}\data\generated\glossary-en.qj"; DestDir: "{app}\data\generated";       Flags: ignoreversion
-Source: "{#Repo}\data\generated\glossary-ja.qj"; DestDir: "{app}\data\generated";       Flags: ignoreversion
-Source: "{#Repo}\data\generated\glossary-zh.qj"; DestDir: "{app}\data\generated";       Flags: ignoreversion
-Source: "{#Repo}\data\generated\glossary-es.qj"; DestDir: "{app}\data\generated";       Flags: ignoreversion
-Source: "{#Repo}\data\generated\glossary-vi.qj"; DestDir: "{app}\data\generated";       Flags: ignoreversion
-Source: "{#Repo}\data\generated\glossary-de.qj"; DestDir: "{app}\data\generated";       Flags: ignoreversion
-Source: "{#Repo}\data\generated\english.tsv";    DestDir: "{app}\data\generated";       Flags: ignoreversion
-Source: "{#Repo}\data\generated\vietnamese.tsv"; DestDir: "{app}\data\generated";       Flags: ignoreversion
-Source: "{#Repo}\data\generated\vietnamese-zh.tsv"; DestDir: "{app}\data\generated";    Flags: ignoreversion
-Source: "{#Repo}\data\generated\dicts\*.qj";     DestDir: "{app}\data\generated\dicts";  Flags: ignoreversion
+; 随包词库从词库仓库取（tools\release\dicts.lock，data-fetch.sh 解到 data\generated），换随包词库要同步这几行与 build.ps1
+Source: "{#Repo}\data\generated\dict.qj";               DestDir: "{app}\data\generated"; Flags: ignoreversion
+Source: "{#Repo}\data\generated\lm.qj";                 DestDir: "{app}\data\generated"; Flags: ignoreversion
+Source: "{#Repo}\data\generated\glossary-en.qj";        DestDir: "{app}\data\generated"; Flags: ignoreversion
+Source: "{#Repo}\data\generated\glossary-zh.qj";        DestDir: "{app}\data\generated"; Flags: ignoreversion
+Source: "{#Repo}\data\generated\english.qj";            DestDir: "{app}\data\generated"; Flags: ignoreversion
+Source: "{#Repo}\data\generated\vietnamese.qj";         DestDir: "{app}\data\generated"; Flags: ignoreversion
+Source: "{#Repo}\data\generated\vietnamese-chinese.qj"; DestDir: "{app}\data\generated"; Flags: ignoreversion
+Source: "{#Repo}\data\generated\dicts\idioms.qj";        DestDir: "{app}\data\generated\dicts"; Flags: ignoreversion
 ; —— 随包辅码码表（笔画，开箱可用）：Server 扫 data\generated\codes\；CNS11643 筆順資料派生，署名见「关于」页 ——
 ;    产品数据一律不加 skipifsourcedoesntexist：缺了就编不过，不悄悄打出少数据的包（build.ps1 编译前先查一遍）
 Source: "{#Repo}\data\generated\codes\*.qj";   DestDir: "{app}\data\generated\codes"; Flags: ignoreversion
@@ -170,6 +167,16 @@ Type: filesandordirs; Name: "{app}\data\model"
 Type: filesandordirs; Name: "{app}\data\models"
 ; 0.1.4 开发版的随包码表旧位置
 Type: filesandordirs; Name: "{app}\codes"
+; 0.3 及以前随包的领域词库、其他语种释义表与 TSV 词表：现在只随包 dicts.lock 里那几本，别的在设置里下载到用户目录。
+; 先清掉再装，成语词库随后照样装回 dicts\
+Type: filesandordirs; Name: "{app}\data\generated\dicts"
+Type: files; Name: "{app}\data\generated\glossary-ja.qj"
+Type: files; Name: "{app}\data\generated\glossary-es.qj"
+Type: files; Name: "{app}\data\generated\glossary-vi.qj"
+Type: files; Name: "{app}\data\generated\glossary-de.qj"
+Type: files; Name: "{app}\data\generated\english.tsv"
+Type: files; Name: "{app}\data\generated\vietnamese.tsv"
+Type: files; Name: "{app}\data\generated\vietnamese-zh.tsv"
 
 [UninstallDelete]
 ; 历次升级留下的旧版本 DLL（正常在升级时就删了；仍被占用的会留到这里）。

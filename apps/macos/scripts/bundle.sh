@@ -9,9 +9,9 @@
 #
 # 架构：缺省编译本机架构；QINGJIAN_TARGET=x86_64-apple-darwin（或 aarch64-apple-darwin）交叉编译另一种，
 # 先 `rustup target add` 一次。CI 在 Apple Silicon runner 上两个都打（.github/workflows/release.yml）。
-# 产品数据缺省全带（词库、语言模型、领域词库、笔画码表、英文词表、释义表），缺哪样就报错停下，
-# 不悄悄退回样例：2026-09 在没有 data/ 的 worktree 里打出过只有 148 条样例词库的包。TSV 比 .qj 新会重打。
-# 没有数据管道的机器跑 tools/release/data-fetch.sh 按 tools/release/data.lock 下载。
+# 产品数据缺省全带（随包词库、语言模型、笔画码表），缺哪样就报错停下，
+# 不悄悄退回样例：2026-09 在没有 data/ 的 worktree 里打出过只有 148 条样例词库的包。语言模型的 TSV 比 .qj 新会重打。
+# 随包词库每次按 tools/release/dicts.lock 从词库仓库取（已下过的只核对）；语言模型与码表没有就跑 tools/release/data-fetch.sh。
 #
 # 签名与公证都由环境变量决定，没设就 ad-hoc 签名、pkg 不签（本机自用够了，分发给别人会被 Gatekeeper 拦，
 # 对方要在「系统设置 → 隐私与安全性」里点「仍要打开」）：
@@ -55,15 +55,10 @@ esac
 cd "$ROOT"
 # 先查产品数据再编译，缺了早停
 if [[ "$SAMPLE_DATA" == 0 ]]; then
+  python3 tools/release/dicts-fetch.py
   missing=()
-  [[ -f data/generated/dict.qj || -f data/generated/dict.tsv ]] || missing+=("data/generated/dict.qj")
   [[ -f data/generated/lm.qj || -f data/generated/lm-bigram.tsv ]] || missing+=("data/generated/lm.qj")
-  [[ -f data/generated/english.tsv ]] || missing+=("data/generated/english.tsv")
-  ls data/generated/dicts/*.qj >/dev/null 2>&1 || missing+=("data/generated/dicts/*.qj（领域词库）")
   ls data/generated/codes/*.qj >/dev/null 2>&1 || missing+=("data/generated/codes/*.qj（笔画码表）")
-  for lang in en ja zh es vi de; do
-    [[ -f "assets/glossary/glossary-$lang.tsv" || -f "data/generated/glossary-$lang.qj" ]] || missing+=("data/generated/glossary-$lang.qj")
-  done
   if [[ ${#missing[@]} -gt 0 ]]; then
     echo "缺产品数据：" >&2
     printf '  %s\n' "${missing[@]}" >&2
@@ -126,65 +121,23 @@ for scheme in assets/schemes/*/; do
   cp "$scheme"scheme.toml "$scheme"table.tsv "$APP/Contents/Resources/schemes/$name/"
 done
 if [[ "$SAMPLE_DATA" == 0 ]]; then
-  # 词库与语言模型打成 .qj（mmap 直接用），TSV 比 .qj 新时重新打包；只有 .qj（CI 从数据包解出来的）就直接用
-  # dict-cleaned.tsv 是青简词库已清洗的部分，pack dict 缺省与 dict.tsv 合成一份
-  if [[ -f data/generated/dict.tsv && ( ! -f data/generated/dict.qj || data/generated/dict.tsv -nt data/generated/dict.qj \
-        || ( -f data/generated/dict-cleaned.tsv && data/generated/dict-cleaned.tsv -nt data/generated/dict.qj ) ) ]]; then
-    cargo run --release -q -p qingjian-dict-convert -- pack dict --name "青简基础词库" \
-      --license "MIT AND Unicode-3.0 AND GPL-3.0-or-later" --attribution "通用规范汉字表；现代汉语常用词表（liuxilu 校对版）；THUOCL（清华大学自然语言处理实验室，MIT）；读音 Unihan（Unicode）；青简词库（GPL-3.0-or-later）" \
-      --source https://github.com/qingjian-team/qingjian/tree/main/assets/lexicon
-  fi
+  # 语言模型打成 .qj（mmap 直接用），TSV 比 .qj 新时重新打包；只有 .qj（CI 从数据包解出来的）就直接用
   if [[ -f data/generated/lm-bigram.tsv && ( ! -f data/generated/lm.qj || data/generated/lm-bigram.tsv -nt data/generated/lm.qj ) ]]; then
     cargo run --release -q -p qingjian-dict-convert -- pack lm --name "青简语言模型（中文维基 + LCCC，青简词库分词）" \
       --license "CC-BY-SA-4.0 AND MIT" --attribution "中文维基百科（CC BY-SA 4.0）；LCCC（清华大学 CoAI，MIT）"
   fi
-  cp data/generated/dict.qj "$APP/Contents/Resources/"
-  # 领域词库（lexicon 拆出的 dicts/*.qj）随包放 Resources/dicts/，缺省只开成语，偏好设置「词库」页可勾选
-  if ls data/generated/dicts/*.qj >/dev/null 2>&1; then
-    mkdir -p "$APP/Contents/Resources/dicts"
-    cp data/generated/dicts/*.qj "$APP/Contents/Resources/dicts/"
-  fi
-  [[ -f data/generated/lm.qj ]] && cp data/generated/lm.qj "$APP/Contents/Resources/"
+  cp data/generated/lm.qj "$APP/Contents/Resources/"
+  # 随包词库（基础词库、成语词库、英文词表、英语与中文释义表、越南语词表与对照）：dicts.lock 里列的逐本拷，附加词库放 Resources/dicts/。
+  # 别的词库与释义表在设置里下载到用户目录，不随包
+  while read -r _ _ _ installed; do
+    mkdir -p "$(dirname "$APP/Contents/Resources/$installed")"
+    cp "data/generated/$installed" "$APP/Contents/Resources/$installed"
+  done < <(grep -v '^#' tools/release/dicts.lock)
   # 随包辅码码表（笔画，CNS11643 筆順資料派生，需署名）放 Resources/codes/，与 Windows 的 data\generated\codes 同一份
-  if ls data/generated/codes/*.qj >/dev/null 2>&1; then
-    mkdir -p "$APP/Contents/Resources/codes"
-    cp data/generated/codes/*.qj assets/stroke/LICENSE-CNS11643.txt "$APP/Contents/Resources/codes/"
-  fi
+  mkdir -p "$APP/Contents/Resources/codes"
+  cp data/generated/codes/*.qj assets/stroke/LICENSE-CNS11643.txt "$APP/Contents/Resources/codes/"
   # 本地整句模型不随包：缺省不用模型，含章·通变与知意都在设置的「实验功能」里下载到用户目录 models/
-  # 释义表打成 .qj（TSV 比 .qj 新时重打），英文词表仍是 TSV。各表来源不同，元数据按表写（见 assets/glossary/README.md）
-  for lang in en ja zh es vi de; do
-    src="assets/glossary/glossary-$lang.tsv"
-    out="data/generated/glossary-$lang.qj"
-    if [[ ! -f "$src" ]]; then
-      cp "$out" "$APP/Contents/Resources/"
-      continue
-    fi
-    if [[ "$lang" == es ]]; then
-      license="GPL-3.0-or-later"
-      attribution="Azure Translator 机器翻译（Tofuzhu，tools/corpus/glossary_es.py）"
-    elif [[ "$lang" == vi ]]; then
-      license="GPL-3.0-or-later"
-      attribution="LLM 生成（gpt-5.5），qingjian-gloss-gen"
-    elif [[ "$lang" == de ]]; then
-      license="GPL-3.0-or-later"
-      attribution="LLM 生成（DeepSeek），qingjian-gloss-gen"
-    else
-      license="MIT"
-      attribution="LLM 生成（DeepSeek），qingjian-gloss-gen"
-    fi
-    if [[ ! -f "$out" || "$src" -nt "$out" ]]; then
-      cargo run --release -q -p qingjian-dict-convert -- pack glossary --language "$lang" --input "$src" \
-        --name "青简释义表（${lang}）" --license "$license" --attribution "$attribution"
-    fi
-    cp "$out" "$APP/Contents/Resources/"
-  done
-  for f in assets/lexicon/english.tsv data/generated/english.tsv; do
-    [[ -f "$f" ]] && cp "$f" "$APP/Contents/Resources/"
-  done
-  python3 tools/corpus/vietnamese_words.py assets/glossary/glossary-vi.tsv \
-    data/generated/vietnamese.tsv data/generated/vietnamese-zh.tsv
-  cp data/generated/vietnamese.tsv data/generated/vietnamese-zh.tsv "$APP/Contents/Resources/"
-  echo "使用 data/generated/ 的产品数据（自建词库）"
+  echo "使用 data/generated/ 的产品数据"
 else
   echo "只带样例词库（--sample-data），不是可分发的包"
 fi

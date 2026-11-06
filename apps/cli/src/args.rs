@@ -74,7 +74,7 @@ pub struct Args {
     #[arg(long, value_delimiter = ',')]
     pub aux_query: Vec<String>,
 
-    /// 英文词表路径（中英混输）。缺省：data/generated/english.tsv 存在就用它，否则不启用
+    /// 英文词表路径（中英混输）。缺省：data/generated/english.qj（或同名 TSV）存在就用它，否则不启用
     #[arg(long)]
     pub english: Option<PathBuf>,
 

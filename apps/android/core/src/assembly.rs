@@ -38,7 +38,7 @@ pub fn assemble(data_dir: &Path, user_dir: &Path) -> Result<Engine, AndroidError
             Err(error) => tracing::warn!(%error, "英→中释义表加载失败"),
         }
     }
-    let english = data_dir.join("english.tsv");
+    let english = packed_or_tsv(data_dir, "english");
     if english.is_file() {
         match WordList::from_path(&english) {
             Ok(words) => engine = engine.with_english(words),

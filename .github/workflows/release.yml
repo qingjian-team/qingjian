@@ -156,7 +156,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           tools/release/data-fetch.sh
-          ls -la data/generated data/generated/dicts data/models/hanzhang-tongbian
+          ls -la data/generated data/models/hanzhang-tongbian
 
       - name: Import signing certificates
         if: steps.secrets.outputs.sign == 'true'
@@ -239,7 +239,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           tools/release/data-fetch.sh
-          ls -la data/generated data/generated/dicts data/models/hanzhang-tongbian
+          ls -la data/generated data/models/hanzhang-tongbian
 
       # 与开发机同版本（7.1.0，自带简体中文翻译；Chocolatey 只有 6.x，6 的安装包不带简中）。钉死 GitHub Release 上的文件。
       - name: Install Inno Setup 7.1.0
@@ -294,7 +294,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           tools/release/data-fetch.sh
-          ls -la data/generated data/generated/dicts data/models/hanzhang-tongbian
+          ls -la data/generated data/models/hanzhang-tongbian
 
       - name: Build package
         run: apps/linux/scripts/package.sh
@@ -399,7 +399,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           tools/release/data-fetch.sh
-          ls -la data/generated data/generated/dicts
+          ls -la data/generated
 
       - name: Build signed APK
         env:
