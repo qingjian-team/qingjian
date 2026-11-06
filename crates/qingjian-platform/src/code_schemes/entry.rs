@@ -29,6 +29,7 @@ pub struct CodeSchemeEntry {
 
     /// `scheme.toml` 写了满码长度就是它，没写为 `None`（读码表时按最常见的编码长度算）。
     pub code_length: Option<usize>,
+    pub phrase_rule: String,
 
     /// 是不是随包的那套（设置页不给删）。用户目录里的同名方案盖过它时为 `false`。
     pub bundled: bool,
@@ -56,6 +57,7 @@ impl CodeSchemeEntry {
         let mut scheme = CodeScheme::new(self.log_key(), table);
         scheme.auto_commit = self.auto_commit;
         scheme.top = self.top;
+        scheme.wubi_phrases = self.phrase_rule == "wubi86";
         if let Some(length) = self.code_length.filter(|length| *length > 0) {
             scheme.code_length = length;
         }

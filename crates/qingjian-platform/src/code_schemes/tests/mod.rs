@@ -3,6 +3,8 @@ use std::path::{Path, PathBuf};
 use qingjian_core::{CodeScheme, Engine};
 use qingjian_dictionary::{CodeTable, Dictionary};
 
+mod phrases;
+
 use super::*;
 use crate::{CodeRules, Config, SchemeSlot};
 

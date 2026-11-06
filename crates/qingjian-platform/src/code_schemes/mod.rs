@@ -218,6 +218,7 @@ fn read(dir: &Path, bundled: bool) -> Option<CodeSchemeEntry> {
         auto_commit: descriptor.auto_commit,
         top: descriptor.top,
         code_length: descriptor.code_length,
+        phrase_rule: descriptor.phrase_rule,
         bundled,
     })
 }

@@ -1,4 +1,4 @@
-//! 自造词与简拼学习：同一段拼音逐字选一次就成词、全拼选过的词简拼也排前，下次整段与简拼都排第一。
+//! 自造词与简拼学习：同一段拼音逐字选两次后成词、全拼选过的词简拼也排前，下次整段与简拼都排第一。
 
 use super::*;
 
@@ -25,13 +25,16 @@ fn select(engine: &mut Engine, text: &str) {
 }
 
 #[test]
-fn picking_the_chars_once_makes_a_word_that_leads_the_whole_input_and_its_abbreviation() {
+fn picking_the_chars_twice_makes_a_word_that_leads_the_whole_input_and_its_abbreviation() {
     let mut engine = shishan_engine();
-    engine.set_input("shishan");
-    select(&mut engine, "屎");
-    select(&mut engine, "山");
-    assert!(engine.composition().is_empty());
-    engine.note_passthrough('\n');
+    for round in 1..=2 {
+        engine.set_input("shishan");
+        select(&mut engine, "屎");
+        select(&mut engine, "山");
+        assert!(engine.composition().is_empty());
+        assert_eq!(engine.learner.user_words().is_some(), round == 2);
+        engine.note_passthrough('\n');
+    }
     for input in ["shishan", "ss", "shis"] {
         engine.set_input(input);
         assert_eq!(texts_of(&engine)[0], "屎山", "{input}");
@@ -71,12 +74,15 @@ fn a_sentence_picked_in_pieces_comes_first_for_its_pinyin_and_abbreviation() {
     );
     let mut engine = Engine::new(Dictionary::parse(dictionary).unwrap())
         .with_learner(Box::new(WordLearner::default()));
-    engine.set_input("xiaomingqulexuexiao");
-    for text in ["晓", "铭", "去了", "学校"] {
-        select(&mut engine, text);
+    engine.set_auto_phrase(true, 10);
+    for _ in 0..2 {
+        engine.set_input("xiaomingqulexuexiao");
+        for text in ["晓", "铭", "去了", "学校"] {
+            select(&mut engine, text);
+        }
+        assert!(engine.composition().is_empty());
+        engine.note_passthrough('\n');
     }
-    assert!(engine.composition().is_empty());
-    engine.note_passthrough('\n');
     for input in ["xiaomingqulexuexiao", "xmqlxx"] {
         engine.set_input(input);
         assert_eq!(texts_of(&engine)[0], "晓铭去了学校", "{input}");
@@ -103,9 +109,13 @@ fn a_word_picked_by_full_pinyin_leads_its_abbreviation() {
 #[test]
 fn the_same_word_typed_twice_does_not_make_a_doubled_word() {
     let mut engine = shishan_engine();
-    engine.set_input("shishan");
-    select(&mut engine, "屎");
-    select(&mut engine, "山");
+    for _ in 0..2 {
+        engine.set_input("shishan");
+        select(&mut engine, "屎");
+        select(&mut engine, "山");
+        engine.note_passthrough('\n');
+    }
+    assert!(engine.learner().user_words().is_some());
     for _ in 0..4 {
         engine.set_input("shishan");
         select(&mut engine, "屎山");

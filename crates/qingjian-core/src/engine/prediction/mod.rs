@@ -473,6 +473,7 @@ impl Engine {
     /// 但按语言模型把它切成词（[`sentence::segment_text`]）逐条记进个人 n-gram，与选整句候选一样；
     /// 标点处断句，句尾是标点时之后的词按句首记。整句退格删光再重打时这些转移一并退回。
     pub fn accept_prediction(&mut self, text: &str) -> String {
+        self.chain.clear_code_words();
         // 壳送回来的是繁体那份：先换回简体，下面的学习、日志、n-gram 一律看简体
         let traditional_text = text.to_owned();
         let restored = self.traditional.restore(text);

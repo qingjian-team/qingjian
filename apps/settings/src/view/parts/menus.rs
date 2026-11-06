@@ -8,7 +8,7 @@ use qingjian_platform::{
     UI_LANGUAGE_SYSTEM,
 };
 
-use crate::i18n::{CATALOG, tr};
+use crate::i18n::{CATALOG, tr, tr_args};
 use crate::message::{Message, Popup};
 use crate::support::Feature;
 use crate::view::Page;
@@ -21,6 +21,7 @@ pub fn anchor(popup: Popup) -> &'static str {
         Popup::Font => "font",
         Popup::Scheme => "scheme",
         Popup::Code => "code",
+        Popup::AutoPhraseLength => "auto-phrase-length",
         Popup::LearningLanguage => "learning-language",
         Popup::Traditional => "traditional",
         Popup::Emoji => "emoji",
@@ -113,6 +114,17 @@ pub fn menu(
     };
     let (key, labels, values, selected): (&str, Vec<String>, Vec<toml_edit::Value>, Option<usize>) =
         match popup {
+            Popup::AutoPhraseLength => {
+                let count = page.settings.config.auto_phrase.max_chars.clamp(2, 10);
+                (
+                    "max_chars",
+                    (2..=10)
+                        .map(|n| tr_args("input.phrase_chars", &[("n", &n)]))
+                        .collect(),
+                    (2..=10).map(toml_edit::Value::from).collect(),
+                    Some(count - 2),
+                )
+            }
             Popup::Font => {
                 let families = page.settings.fonts.as_deref().unwrap_or_default();
                 let labels = std::iter::once(tr("common.system_font").to_owned())
@@ -250,6 +262,7 @@ pub fn menu(
             }
         };
     let section = match popup {
+        Popup::AutoPhraseLength => "auto_phrase",
         Popup::AuxScheme => "aux_code",
         _ => "general",
     };

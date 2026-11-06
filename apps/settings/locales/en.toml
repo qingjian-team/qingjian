@@ -191,6 +191,12 @@ import_info = "Supports TSV, Rime .dict.yaml, word-only lists and .qj, multiple 
 section_imported = "Imported dictionaries"
 
 [input]
+section_auto_phrase = "Automatic phrases"
+auto_phrase = "Learn new phrases automatically"
+auto_phrase_info = "Pinyin learns after 2 split selections from the same composition or 3 separate consecutive inputs; Wubi learns on the first consecutive input. Disabling this keeps learned words and frequency learning. The learning switch and private input take priority."
+auto_phrase_length = "Maximum phrase length"
+auto_phrase_length_info = "2–10 Chinese characters, shared by Pinyin and Wubi. Wubi code length is unchanged."
+phrase_chars = "{n} characters"
 missing = "{id} (not found)"
 pinyin = "Pinyin"
 pinyin_info = "With shuangpin, use Shift + V and Shift + U for expressions and character lookup"

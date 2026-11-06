@@ -1,4 +1,4 @@
-use qingjian_dictionary::{Dictionary, WordList};
+use qingjian_dictionary::{CodeTable, Dictionary, WordList};
 
 use super::{Forgotten, Learner};
 use crate::candidate::Candidate;
@@ -30,8 +30,10 @@ impl MutedLearner {
         self.private = private;
     }
 
-    pub(in crate::engine) fn set_disabled(&mut self, disabled: bool) {
+    pub(in crate::engine) fn set_disabled(&mut self, disabled: bool) -> bool {
+        let changed = self.disabled != disabled;
         self.disabled = disabled;
+        changed
     }
 
     /// 两个开关任一生效就不写。
@@ -110,6 +112,16 @@ impl Learner for MutedLearner {
 
     fn user_words(&self) -> Option<&Dictionary> {
         self.inner.user_words()
+    }
+
+    fn learn_code_word(&mut self, scheme: &str, text: &str, code: &str) {
+        if !self.muted() {
+            self.inner.learn_code_word(scheme, text, code);
+        }
+    }
+
+    fn user_code_words(&self, scheme: &str) -> Option<&CodeTable> {
+        self.inner.user_code_words(scheme)
     }
 
     fn learn_english(&mut self, word: &str) {

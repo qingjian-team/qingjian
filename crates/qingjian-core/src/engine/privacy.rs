@@ -13,6 +13,7 @@ impl Engine {
             return;
         }
         self.private = private;
+        self.chain.reset();
         self.learner.set_private(private);
         self.logger.set_muted(private);
         if private {
