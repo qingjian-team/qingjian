@@ -5,6 +5,31 @@ use qingjian_core::EngineSession;
 use qingjian_dictionary::CodeTable;
 
 #[test]
+fn contact_commits_break_the_code_phrase_window() {
+    let mut engine = engine();
+    let table = CodeTable::parse(
+        "甲\tabcd\t10\n乙\tefgh\t10\n丙\tijkl\t10\n丁\tmnop\t10\n甲乙\tabef\t10\n",
+    )
+    .unwrap();
+    let mut scheme = qingjian_core::CodeScheme::new("wubi", table);
+    scheme.wubi_phrases = true;
+    engine.set_code_scheme(Some(scheme));
+    assert_eq!(
+        engine.set_contacts(&[qingjian_core::Contact {
+            name: "甲乙".into(),
+            details: Vec::new(),
+        }]),
+        1
+    );
+    commit(&mut engine, "ijkl", "丙");
+    commit(&mut engine, "abef", "甲乙");
+    commit(&mut engine, "mnop", "丁");
+    assert!(!has_word(&mut engine, "aemn", "甲乙丁"));
+    assert!(!has_word(&mut engine, "iaem", "丙甲乙丁"));
+    assert!(!has_word(&mut engine, "ijmn", "丙丁"));
+}
+
+#[test]
 fn accepted_cloud_sentence_breaks_the_code_phrase_window() {
     struct Model;
     impl qingjian_core::sentence::LanguageModel for Model {
