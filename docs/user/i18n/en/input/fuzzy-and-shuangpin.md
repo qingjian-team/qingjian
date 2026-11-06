@@ -53,7 +53,7 @@ How the schemes differ:
 - **Pinyin Jiajia**: the retroflex initials are `v` for zh, `u` for ch and `i` for sh (ch / sh are the reverse of Xiaohe and Ziranma); frequent finals sit on the home row: ai→S, ao→D, an→F, ang→G, ei→W, en→R, eng→T, with ing on `q`; ü is on `v` (`nv` 女, `lv` 绿) and üe on `x` (`jx` → jue, `nx` → nüe); zero-initial syllables are mainly doubled (`aa` `as` `af`, `ee` `er` `eq`, `oo` `op`; note that en is `er` and er is `eq`), with the o prefix also accepted (`oa` `oe`); the `;` key isn't used.
 - **Ziguang**: the retroflex initials are `u` for zh, `a` for ch and `i` for sh (`ui` → zhi, `ai` → chi, `ii` → shi; `a` and `i` double as finals); `;` is ing; ü is on `v` (`nv` 女, `lv` 绿), and üe shares `n` with ue and ui (`jn` → jue, `yn` → yue, `gn` → gui); zero-initial syllables are only `o` + the final key, with neither doubled vowels (`aa` is cha) nor doubled finals `ii` `uu` (those are shi and zhu).
 
-If a layout doesn't suit your hands, or the scheme you want isn't listed, you can make your own; see [Custom schemes and code tables](../advanced/custom-schemes.md#Custom-double-pinyin-schemes) (macOS, Windows).
+If a layout doesn't suit your hands, or the scheme you want isn't listed, you can make your own; see [Custom schemes and code tables](../advanced/custom-schemes.md#Custom-double-pinyin-schemes) (macOS, Windows, Linux).
 
 ### Key hints
 

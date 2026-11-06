@@ -41,9 +41,21 @@ with tempfile.TemporaryDirectory(prefix='qingjian-install-') as temporary:
         assert (width, height) == (size, size), f'{icon} 实际尺寸 {width}x{height}'
     manifest = json.loads((prefix / 'share/qingjian/install-manifest.json').read_text())
     assert all(Path(filename).is_file() for filename in manifest)
+    for filename in ('table.tsv', 'scheme.toml', 'LICENSE', 'README.md'):
+        installed = prefix / 'share/qingjian/resources/assets/schemes/wubi86' / filename
+        assert installed.read_bytes() == (root / 'assets/schemes/wubi86' / filename).read_bytes()
+        assert str(installed) in manifest
+    packaged = directory / 'packaged resources'
+    subprocess.run(['python3', str(helper), 'resources', str(packaged), '--root', str(root), '--sample'],
+                   env=env, check=True)
+    assert (packaged / 'assets/schemes/wubi86/table.tsv').is_file()
+    assert (packaged / 'assets/schemes/wubi86/LICENSE').is_file()
     user = data / 'qingjian/user.tsv'
     user.parent.mkdir(parents=True, exist_ok=True)
     user.write_text('学习数据')
+    user_scheme = data / 'qingjian/schemes/custom/table.tsv'
+    user_scheme.parent.mkdir(parents=True)
+    user_scheme.write_text('自定义方案')
     other = data / 'fcitx5/addon/other.conf'
     other.write_text('其他输入法')
     modified = prefix / 'share/qingjian/resources/assets/sample/dict.tsv'
@@ -55,6 +67,7 @@ with tempfile.TemporaryDirectory(prefix='qingjian-install-') as temporary:
     assert not addon.exists() and not (prefix / 'bin/qingjian-linux-server').exists()
     assert not desktop.exists() and not (prefix / 'bin/qingjian-settings').exists()
     assert user.read_text() == '学习数据' and other.read_text() == '其他输入法'
+    assert user_scheme.read_text() == '自定义方案'
     assert modified.read_text() == '用户修改过的样例'
     fcitx4_prefix = directory / 'fcitx4 prefix'
     config = directory / 'user config'

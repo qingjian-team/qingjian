@@ -723,6 +723,12 @@ Windows 可选的 `[shortcut] toggle_punctuation` 经 `InputSettings` 下发，�
 
 ## apps/linux
 
+Fcitx5 的输入法与插件描述均启用配置入口，`settings/` 通过唯一的 `ExternalOption` 交给框架配置工具直接启动青简设置。按已加载插件的位置向上查找同前缀的 `bin/qingjian-settings`（兼容用户安装与系统多架构目录），找不到时按 PATH 启动；命令按 Qt 配置工具的参数解析规则处理空格与引号，不经过 shell。
+
+直接启动依赖配置工具支持跳过唯一 ExternalOption 的中间页（上游 fcitx5-configtool 提交 `8b853b11a32a`）。本机 Ubuntu 24.04 的 `fcitx5-config-qt 5.1.4` 仍显示中间页；D-Bus 配置描述与插件测试通过不代表该旧 GUI 会直接启动，验证时需实际点击配置工具。
+
+形码与自制双拼通过共用 `SchemeSlot` 装配（`dispatch/schemes/`），启动和配置热加载同路；纯形码字母键复用 Core 的 `code_tops` / `commit_unique_code`。配置、方案描述、码表与导入词库的逐文件快照每秒检查一次，坏配置使用最后有效配置。有效方案变化会静默取消所有上下文的未提交输入，停止翻译 / 重排，失效候选展示身份；无关设置不取消输入。安装与发行资源共用 `files.py`，携带 `assets/schemes`（含原始许可证），卸载保留个人方案。验证与限制见 [linux-wubi.md](linux-wubi.md)。
+
 `qingjian-linux-server` 为独立产品，装配本地 Engine、词库、释义、频率学习、个人 n-gram、词汇记录与可选输入日志，
 本地整句模型优先加载用户 `~/.local/share/qingjian/models/hanzhang-tongbian/` 或随包 `data/models/hanzhang-tongbian/`（Linux 继续随包，还没接下载）；含章·知微已下线，不再回退；旧用户目录 `model-p2c/` 兼容读取。按 `[model] enabled` 在后台加载、停键 80 ms 后重排、20 ms 轮询（Windows Server 的 `dispatch/rescore` 已改成 30 ms 防抖 + 后台叫醒，这里还没跟）；云联想按 `[predict]` 接入，用量累计到用户目录的 `api-usage.json`（设置统计页读同一份），释义兜底与生词本整句翻译随 `enabled` 一起接，结果由 `tick` 里的 `poll_glosses` 收。配置热加载在 `dispatch/reload`：`tick` 每秒看 `config.toml` mtime 与用户 `dicts/` 快照，`[predict]` / `[model]` / `[dictionaries]` / 学习语言按变化重建，其余无条件重设；`preedit`、`input_log` 仍要重启。`dispatch/session` 交换每个上下文的 EngineSession；真正的能力变化丢弃输入，普通焦点切换隔离保存。
 默认面板插件仅转换事件（Shift / Ctrl 本身报成 VK `0x10` / `0x11`），中英切换、候选点击、分页和失焦提交都由 Server 决定：`[shortcut] switch_mode` 的单击 Shift / Ctrl 在按下时记进会话的 `switch_tap`、中间按了别的键或失焦就作废，松开时切换；`Ctrl + Alt + Space` 在按下时切换。`[general] default_english` 定新会话的初始模式，`english_mode` 关掉时切换键全不认、热加载时把所有会话拉回中文。

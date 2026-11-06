@@ -5,11 +5,18 @@ use std::time::{Instant, SystemTime};
 
 use qingjian_core::Language;
 use qingjian_dictionary::Dictionary;
-use qingjian_platform::{DictionariesConfig, LocalModelConfig, extra_dictionaries};
+use qingjian_platform::code_tables::AuxCodeSources;
+use qingjian_platform::{
+    Config, DictionariesConfig, LocalModelConfig, code_schemes, extra_dictionaries,
+};
 use qingjian_predict::PredictConfig;
 
 /// 热加载状态。
 pub(crate) struct ConfigReload {
+    pub(super) applied_config: Config,
+
+    pub(super) scheme_files: Vec<(PathBuf, Option<SystemTime>, u64)>,
+
     /// `config.toml` 路径。
     pub(super) config_path: PathBuf,
 
@@ -42,6 +49,39 @@ pub(crate) struct ConfigReload {
 }
 
 impl ConfigReload {
+    pub(super) fn scheme_snapshot(&self) -> Vec<(PathBuf, Option<SystemTime>, u64)> {
+        let mut files = Vec::new();
+        for directory in [&self.user_dir, &self.root.join("assets")] {
+            files.extend(
+                AuxCodeSources {
+                    user_dir: Some(directory.clone()),
+                    ..Default::default()
+                }
+                .snapshot(),
+            );
+        }
+        files.extend(code_schemes::words_snapshot(&code_schemes::user_words_dir(
+            &self.user_dir,
+        )));
+        let legacy = self.user_dir.join("wubi/wubi86.tsv");
+        if let Ok(metadata) = std::fs::metadata(&legacy) {
+            files.push((legacy, metadata.modified().ok(), metadata.len()));
+        }
+        if let Some(id) = self.applied_config.general.code()
+            && let Some(entry) = code_schemes::find(
+                &id,
+                Some(&self.user_dir),
+                Some(&self.root.join("assets/schemes")),
+            )
+            && let Ok(metadata) = std::fs::metadata(&entry.table)
+        {
+            files.push((entry.table, metadata.modified().ok(), metadata.len()));
+        }
+        files.sort();
+        files.dedup();
+        files
+    }
+
     fn user_dicts(&self) -> PathBuf {
         self.user_dir.join("dicts")
     }
