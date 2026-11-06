@@ -11,7 +11,7 @@ use qingjian_core::{EmojiTable, Engine, Language};
 use qingjian_dictionary::{Dictionary, WordList};
 use qingjian_learning::{FrequencyLearner, InputLog, PanelUsage, UsageStats, VocabularyBook};
 use qingjian_platform::{Config, extra_dictionaries};
-use qingjian_translate::{Glossary, LayeredTranslator, PersonalGlossary};
+use qingjian_translate::{Glossary, LayeredTranslator, PersonalGlossary, downloaded_glossary};
 
 use crate::error::ServerError;
 
@@ -59,14 +59,12 @@ pub fn assemble(spec: &AssemblySpec) -> Result<Engine, ServerError> {
         user_dicts_dir(spec.user_dir.as_deref()).as_deref(),
         &spec.dictionaries,
     ));
-    if let Some(path) = &spec.english_glossary {
-        match Glossary::from_path(Language::Chinese, path) {
-            Ok(glossary) => {
-                tracing::info!(glosses = glossary.len(), "英→中释义表已加载");
-                engine = engine.with_english_translator(Box::new(glossary));
-            }
-            Err(error) => tracing::warn!(%error, "英→中释义表加载失败"),
-        }
+    if let Some(glossary) = spec
+        .english_glossary
+        .as_deref()
+        .and_then(load_english_glossary)
+    {
+        engine = engine.with_english_translator(Box::new(glossary));
     }
     if let Some(path) = &spec.english {
         match WordList::from_path(path) {
@@ -124,17 +122,38 @@ pub fn learning_language(config: &Config) -> Option<Language> {
     )
 }
 
-/// 某语言的释义表：`<root>/data/generated/` 打包过的 `.qj` 优先，否则随 git 的 `assets/glossary/` TSV；都没有为 `None`。
-pub fn glossary_file(root: &Path, language: Language) -> Option<PathBuf> {
+/// 某语言的释义表：设置页下载的（`<用户目录>/glossaries/`）优先，其次 `<root>/data/generated/` 打包过的 `.qj`，
+/// 再次随 git 的 `assets/glossary/` TSV；都没有为 `None`。
+pub fn glossary_file(root: &Path, user_dir: Option<&Path>, language: Language) -> Option<PathBuf> {
     let code = language.code();
     [
-        root.join("data/generated")
-            .join(format!("glossary-{code}.qj")),
-        root.join("assets/glossary")
-            .join(format!("glossary-{code}.tsv")),
+        user_dir.map(|dir| downloaded_glossary(dir, language)),
+        Some(
+            root.join("data/generated")
+                .join(format!("glossary-{code}.qj")),
+        ),
+        Some(
+            root.join("assets/glossary")
+                .join(format!("glossary-{code}.tsv")),
+        ),
     ]
     .into_iter()
+    .flatten()
     .find(|path| path.is_file())
+}
+
+/// 英→中释义表（英文候选右侧的中文）：装不上记日志返回 `None`。启动装配与下载后重装共用。
+pub fn load_english_glossary(path: &Path) -> Option<Glossary> {
+    match Glossary::from_path(Language::Chinese, path) {
+        Ok(glossary) => {
+            tracing::info!(glosses = glossary.len(), "英→中释义表已加载");
+            Some(glossary)
+        }
+        Err(error) => {
+            tracing::warn!(%error, "英→中释义表加载失败");
+            None
+        }
+    }
 }
 
 /// 随包释义表叠上个人释义表（`user-glossary-<语言>.tsv`）。启动装配与热加载换语言共用。

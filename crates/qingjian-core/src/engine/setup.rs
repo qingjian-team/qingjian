@@ -532,13 +532,18 @@ impl Engine {
         self
     }
 
-    /// 运行时换学习语言的释义表。
     /// 接英文候选用的释义表（英→中）。
     pub fn with_english_translator(mut self, translator: Box<dyn Translator>) -> Self {
         self.english_translator = translator;
         self
     }
 
+    /// 运行时换英→中释义表（下载装上之后）。
+    pub fn set_english_translator(&mut self, translator: Box<dyn Translator>) {
+        self.english_translator = translator;
+    }
+
+    /// 运行时换学习语言的释义表。
     pub fn set_translator(&mut self, translator: Box<dyn Translator>) {
         self.translator = translator;
     }

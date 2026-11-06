@@ -13,15 +13,18 @@
 //!
 //! [`LevelTable`] 是词汇等级表（`levels-<语言>.tsv`，`词\t等级`），给词汇统计按级数词用。
 //! [`PersonalGlossary`] 是用户目录里的个人释义表（释义兜底写入、可手改），[`LayeredTranslator`] 把它叠在随包表上面。
+//! [`downloaded_glossary`] 是设置页下载的释义表的位置，壳先找它再找随包的。
 
 #![forbid(unsafe_code)]
 
+mod downloaded;
 mod error;
 mod glossary;
 mod layered_translator;
 mod level_table;
 mod personal_glossary;
 
+pub use downloaded::{DOWNLOADED_DIR, downloaded_glossary};
 pub use error::GlossaryError;
 pub use glossary::Glossary;
 pub use layered_translator::LayeredTranslator;

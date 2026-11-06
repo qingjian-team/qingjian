@@ -161,6 +161,7 @@ mac 存在 `Session::spelling`（`Host::follow_highlight`）、Windows / Linux �
 
 `Glossary`，本地 TSV 释义表（词性 + 译文）；`LevelTable`，词汇等级表（`assets/levels/levels-{en,ja}.tsv`，CEFR A1–C2 / JLPT N5–N1，
 `uv run tools/corpus/levels.py` 从 `data/levels/` 的原始 CSV 生成，来源与许可见 `assets/levels/README.md`），「统计」页按级数词汇用，不进候选。
+`downloaded_glossary` 给出设置页下载的释义表位置（用户目录 `glossaries/glossary-<语言>.qj`）：各平台壳先找它、再找随包的，所以下载的新版盖过随包的；壳轮询这个目录（`extra_dictionaries::snapshot`），变了重装英→中表与学习语言的表（`Engine::set_english_translator` / `set_translator`）。
 
 ## crates/qingjian-learning
 

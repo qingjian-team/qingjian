@@ -44,12 +44,14 @@ impl Router {
             root,
             user_dir,
             dictionary_files: Vec::new(),
+            glossary_files: Vec::new(),
             applied_dictionaries: config.dictionaries.clone(),
             applied_model: config.model.clone(),
             applied_predict: config.predict.clone(),
             applied_language: assembly::learning_language(config),
         };
         reload.dictionary_files = reload.dict_snapshot();
+        reload.glossary_files = reload.glossary_snapshot();
         self.reload = Some(reload);
     }
 
@@ -68,6 +70,15 @@ impl Router {
                 .set_extra_dictionaries(reload.load_dictionaries());
             reload.dictionary_files = files;
         }
+        // 设置页下载装上（或更新了）释义表：英→中表与配置里的学习语言都按新文件重装
+        let glossaries = reload.glossary_snapshot();
+        if glossaries != reload.glossary_files {
+            reload.glossary_files = glossaries;
+            self.reload_glossaries();
+        }
+        let Some(reload) = &mut self.reload else {
+            return;
+        };
         let current = mtime(&reload.config_path);
         if current == reload.last_mtime {
             return;
@@ -156,6 +167,29 @@ impl Router {
         self.reload = Some(reload);
     }
 
+    /// 下载的释义表变了：英→中表重装；学习语言按当前配置重新换一次表（之前缺表没换成的这次能换上）。
+    fn reload_glossaries(&mut self) {
+        let Some(mut reload) = self.reload.take() else {
+            return;
+        };
+        // 下载的删了、又没随包的：英文候选右侧留空
+        let english =
+            assembly::glossary_file(&reload.root, Some(&reload.user_dir), Language::Chinese)
+                .and_then(|path| assembly::load_english_glossary(&path));
+        match english {
+            Some(glossary) => self.engine.set_english_translator(Box::new(glossary)),
+            None => self.engine.set_english_translator(Box::new(NoTranslator)),
+        }
+        let language = match Config::load(&reload.config_path) {
+            Ok(config) => assembly::learning_language(&config),
+            Err(_) => reload.applied_language,
+        };
+        if self.swap_translator(language, &reload) {
+            reload.applied_language = language;
+        }
+        self.reload = Some(reload);
+    }
+
     /// 学习语言变了就换释义表：关是不翻译；没有这门语言的表或装不上就保持原样。换成功（或关掉）返回 true。
     fn swap_translator(&mut self, language: Option<Language>, reload: &ConfigReload) -> bool {
         let Some(language) = language else {
@@ -163,7 +197,8 @@ impl Router {
             tracing::info!("学习语言已关，不显示译文");
             return true;
         };
-        let Some(path) = assembly::glossary_file(&reload.root, language) else {
+        let Some(path) = assembly::glossary_file(&reload.root, Some(&reload.user_dir), language)
+        else {
             tracing::warn!(
                 language = language.code(),
                 "没有这门语言的释义表，学习语言不变"

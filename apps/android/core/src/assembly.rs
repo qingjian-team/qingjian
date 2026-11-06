@@ -10,7 +10,7 @@ use qingjian_core::{EmojiTable, Engine, Language, Translator};
 use qingjian_dictionary::{Dictionary, WordList};
 use qingjian_learning::{FrequencyLearner, PhraseBook, UsageStats, VocabularyBook};
 use qingjian_lm::BigramModel;
-use qingjian_translate::{Glossary, LayeredTranslator, PersonalGlossary};
+use qingjian_translate::{Glossary, LayeredTranslator, PersonalGlossary, downloaded_glossary};
 
 use crate::error::AndroidError;
 
@@ -31,7 +31,7 @@ pub fn assemble(data_dir: &Path, user_dir: &Path) -> Result<Engine, AndroidError
             user_dir.join("user-vocab.tsv"),
         )));
     // 学习语言的释义表不在这里装：壳接着交设置（`Session::set_options`），按那里的学习语言装
-    let english_glossary = data_dir.join("glossary-zh.qj");
+    let english_glossary = glossary_path(data_dir, user_dir, Language::Chinese);
     if english_glossary.is_file() {
         match Glossary::from_path(Language::Chinese, &english_glossary) {
             Ok(glossary) => engine = engine.with_english_translator(Box::new(glossary)),
@@ -92,7 +92,7 @@ pub(crate) fn load_translator(
     user_dir: &Path,
     language: Language,
 ) -> Option<Box<dyn Translator>> {
-    let path = packed_or_tsv(data_dir, &format!("glossary-{}", language.code()));
+    let path = glossary_path(data_dir, user_dir, language);
     if !path.is_file() {
         tracing::warn!(language = language.code(), "没有这门语言的释义表");
         return None;
@@ -113,6 +113,16 @@ pub(crate) fn load_translator(
 }
 
 /// `.qj` 优先，没有就用同名 TSV（开发时随包的是 assets/sample/ 样例）。
+/// 释义表：用户目录 `glossaries/` 里下载的优先，其次随包的（可能不存在，调用方再看）。
+fn glossary_path(data_dir: &Path, user_dir: &Path, language: Language) -> PathBuf {
+    let downloaded = downloaded_glossary(user_dir, language);
+    if downloaded.is_file() {
+        downloaded
+    } else {
+        packed_or_tsv(data_dir, &format!("glossary-{}", language.code()))
+    }
+}
+
 fn packed_or_tsv(data_dir: &Path, stem: &str) -> PathBuf {
     let packed = data_dir.join(format!("{stem}.qj"));
     if packed.is_file() {

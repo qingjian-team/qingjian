@@ -43,7 +43,9 @@ use qingjian_platform::{
 use qingjian_predict::{
     API_USAGE_FILE, CloudGlossFiller, CloudPredictor, ConnectionTest, PredictConfig, PredictError,
 };
-use qingjian_translate::{Glossary, LayeredTranslator, LevelTable, PersonalGlossary};
+use qingjian_translate::{
+    DOWNLOADED_DIR, Glossary, LayeredTranslator, LevelTable, PersonalGlossary, downloaded_glossary,
+};
 
 use crate::app::BundleInfo;
 use crate::app::{Settings, logging, paths};
@@ -131,6 +133,9 @@ pub struct Host {
 
     /// 上次装附加词库时用户 `dicts/` 的文件快照：设置程序导入的词库不一定改配置（本来就没关着），靠它发现新文件。
     dictionary_files: Vec<(PathBuf, Option<std::time::SystemTime>, u64)>,
+
+    /// 用户 `glossaries/` 的文件快照：设置页下载装上释义表不改配置，靠它发现新表并重装。
+    glossary_files: Vec<(PathBuf, Option<std::time::SystemTime>, u64)>,
 
     /// 候选词后面带上辅码（配置 `[general] aux_code_show`）。
     pub aux_code_show: bool,

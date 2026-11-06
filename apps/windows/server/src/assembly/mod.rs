@@ -13,7 +13,7 @@ use qingjian_learning::{FrequencyLearner, InputLog, PanelUsage, UsageStats, Voca
 use qingjian_lm::{MixedModel, TRIGRAM_WEIGHT, TrigramModel};
 use qingjian_platform::code_tables::AuxCodeSources;
 use qingjian_platform::{Config, extra_dictionaries, model_words};
-use qingjian_translate::{Glossary, LayeredTranslator, PersonalGlossary};
+use qingjian_translate::{Glossary, LayeredTranslator, PersonalGlossary, downloaded_glossary};
 
 use crate::error::ServerError;
 
@@ -67,14 +67,12 @@ pub fn assemble(spec: &AssemblySpec) -> Result<Engine, ServerError> {
         user_dir: spec.user_dir.clone(),
     };
     engine.set_aux_codes(aux_sources.load(&spec.aux_code));
-    if let Some(path) = &spec.english_glossary {
-        match Glossary::from_path(Language::Chinese, path) {
-            Ok(glossary) => {
-                tracing::info!(glosses = glossary.len(), "英→中释义表已加载");
-                engine = engine.with_english_translator(Box::new(glossary));
-            }
-            Err(error) => tracing::warn!(%error, "英→中释义表加载失败"),
-        }
+    if let Some(glossary) = spec
+        .english_glossary
+        .as_deref()
+        .and_then(load_english_glossary)
+    {
+        engine = engine.with_english_translator(Box::new(glossary));
     }
     if let Some(path) = &spec.english {
         let words = WordList::from_path(path)?;
@@ -199,32 +197,51 @@ pub fn learning_language(config: &Config) -> Option<Language> {
     }))
 }
 
-/// 某语言的释义表：`<root>/data/generated/` 打包过的 `.qj` 优先，否则随 git 的 `assets/glossary/` TSV；都没有为 `None`。
+/// 某语言的释义表：设置页下载的（`<用户目录>/glossaries/`）优先，其次 `<root>/data/generated/` 打包过的 `.qj`，
+/// 再次随 git 的 `assets/glossary/` TSV；都没有为 `None`。
 ///
 /// 启动装配（main）与热加载（swap_translator）都走这里。中文那张是英→中表，缺失本就可选、保持静默；
-/// 其他学习语言两张候选都缺时警告一条——只陈述「两张候选都没找到」的查找事实，不断言后果，
+/// 其他学习语言几处都缺时警告一条——只陈述查找事实，不断言后果，
 /// 因为两种语境后果不同：启动装配时是候选旁不显示译文；热加载时旧译文继续显示（由
 /// reload/mod.rs 那条「没有这门语言的释义表，学习语言不变」说明）。
-pub fn glossary_file(root: &Path, language: Language) -> Option<PathBuf> {
+pub fn glossary_file(root: &Path, user_dir: Option<&Path>, language: Language) -> Option<PathBuf> {
     let code = language.code();
     let candidates = [
-        root.join("data/generated")
-            .join(format!("glossary-{code}.qj")),
-        root.join("assets/glossary")
-            .join(format!("glossary-{code}.tsv")),
+        user_dir.map(|dir| downloaded_glossary(dir, language)),
+        Some(
+            root.join("data/generated")
+                .join(format!("glossary-{code}.qj")),
+        ),
+        Some(
+            root.join("assets/glossary")
+                .join(format!("glossary-{code}.tsv")),
+        ),
     ];
-    if let Some(path) = candidates.iter().find(|path| path.is_file()) {
+    if let Some(path) = candidates.iter().flatten().find(|path| path.is_file()) {
         return Some(path.clone());
     }
     if language != Language::Chinese {
         tracing::warn!(
             language = code,
-            qj = %candidates[0].display(),
-            tsv = %candidates[1].display(),
-            "学习语言的释义表两张候选都没找到"
+            bundled = %root.join("data/generated").display(),
+            "no glossary found for the learning language"
         );
     }
     None
+}
+
+/// 英→中释义表（英文候选右侧的中文）：装不上记日志返回 `None`。启动装配与下载后重装共用。
+pub fn load_english_glossary(path: &Path) -> Option<Glossary> {
+    match Glossary::from_path(Language::Chinese, path) {
+        Ok(glossary) => {
+            tracing::info!(glosses = glossary.len(), "英→中释义表已加载");
+            Some(glossary)
+        }
+        Err(error) => {
+            tracing::warn!(%error, "英→中释义表加载失败");
+            None
+        }
+    }
 }
 
 /// 随包释义表叠上个人释义表（`user-glossary-<语言>.tsv`）。启动装配与热加载换语言共用。

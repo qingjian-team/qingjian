@@ -7,6 +7,7 @@ use qingjian_core::Language;
 use qingjian_dictionary::Dictionary;
 use qingjian_platform::{DictionariesConfig, LocalModelConfig, extra_dictionaries};
 use qingjian_predict::PredictConfig;
+use qingjian_translate::DOWNLOADED_DIR;
 
 /// 热加载状态。
 pub(crate) struct ConfigReload {
@@ -27,6 +28,9 @@ pub(crate) struct ConfigReload {
 
     /// 上次看到的用户 `dicts/` 快照（路径、mtime、长度）。
     pub(super) dictionary_files: Vec<(PathBuf, Option<SystemTime>, u64)>,
+
+    /// 上次看到的用户 `glossaries/`（设置页下载的释义表）快照：装上新表不改配置，靠它发现并重装。
+    pub(super) glossary_files: Vec<(PathBuf, Option<SystemTime>, u64)>,
 
     /// 已应用的 `[dictionaries]`。
     pub(super) applied_dictionaries: DictionariesConfig,
@@ -49,6 +53,11 @@ impl ConfigReload {
     /// 用户 `dicts/` 的逐文件快照。
     pub(super) fn dict_snapshot(&self) -> Vec<(PathBuf, Option<SystemTime>, u64)> {
         extra_dictionaries::snapshot(&self.user_dicts())
+    }
+
+    /// 用户 `glossaries/` 的逐文件快照。
+    pub(super) fn glossary_snapshot(&self) -> Vec<(PathBuf, Option<SystemTime>, u64)> {
+        extra_dictionaries::snapshot(&self.user_dir.join(DOWNLOADED_DIR))
     }
 
     /// 按已应用的 `[dictionaries]` 装配附加词库，目录与启动装配同款。

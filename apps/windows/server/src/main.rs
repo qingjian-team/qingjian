@@ -189,10 +189,11 @@ fn main() -> ExitCode {
     let dict = std::env::var_os("QINGJIAN_DICT")
         .map(PathBuf::from)
         .unwrap_or_else(|| default_dict(&root));
+    let user = user_dir();
     let glossary_path = language.and_then(|language| {
         std::env::var_os("QINGJIAN_GLOSSARY")
             .map(PathBuf::from)
-            .or_else(|| glossary_file(&root, language))
+            .or_else(|| glossary_file(&root, user.as_deref(), language))
             .filter(|path| path.is_file())
     });
     let glossary = language.zip(glossary_path);
@@ -200,7 +201,7 @@ fn main() -> ExitCode {
     let bundled_codes_dir = Some(root.join("data/generated/codes")).filter(|dir| dir.is_dir());
     let spec = AssemblySpec {
         glossary: glossary.clone(),
-        english_glossary: glossary_file(&root, Language::Chinese),
+        english_glossary: glossary_file(&root, user.as_deref(), Language::Chinese),
         english: generated(&root, "english.tsv"),
         emoji: ["emoji-zh.tsv", "emoji-en.tsv"]
             .into_iter()

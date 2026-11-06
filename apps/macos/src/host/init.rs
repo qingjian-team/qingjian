@@ -96,16 +96,8 @@ pub fn init(mtm: MainThreadMarker, info: &BundleInfo) -> Result<(), HostError> {
         &settings.config().dictionaries,
     ));
     // 英文候选的中文释义（英→中）可选：没有这张表英文候选右侧就留空
-    if let Ok(path) =
-        paths::resource("glossary-zh.qj").or_else(|_| paths::resource("glossary-zh.tsv"))
-    {
-        match Glossary::from_path(Language::Chinese, &path) {
-            Ok(glossary) => {
-                tracing::info!(glosses = glossary.len(), "英→中释义表已加载");
-                engine = engine.with_english_translator(Box::new(glossary));
-            }
-            Err(error) => tracing::warn!(%error, "英→中释义表加载失败"),
-        }
+    if let Some(glossary) = load_english_glossary() {
+        engine = engine.with_english_translator(Box::new(glossary));
     }
     if let Some(words) = english {
         engine = engine.with_english(words);
@@ -174,6 +166,7 @@ pub fn init(mtm: MainThreadMarker, info: &BundleInfo) -> Result<(), HostError> {
             aux_files: Vec::new(),
             code_word_files: Vec::new(),
             dictionary_files: Vec::new(),
+            glossary_files: glossary_files(),
             aux_code_show: false,
             dictionary_list: Vec::new(),
             learning_language,
@@ -317,9 +310,38 @@ pub(super) fn load_emoji_tables(names: &[&str]) -> Option<EmojiTable> {
     merged
 }
 
+/// 设置页下载的（用户目录 `glossaries/`）优先，其次随包的 `.qj`、`.tsv`。
 pub(super) fn glossary_path(language: Language) -> Result<PathBuf, HostError> {
+    if let Some(path) = paths::user_data_dir()
+        .map(|dir| downloaded_glossary(&dir, language))
+        .filter(|path| path.is_file())
+    {
+        return Ok(path);
+    }
     paths::resource(&format!("glossary-{}.qj", language.code()))
         .or_else(|_| paths::resource(&format!("glossary-{}.tsv", language.code())))
+}
+
+/// 英→中释义表（英文候选右侧的中文）：没有这张表返回 `None`，坏了记日志也返回 `None`。
+pub(super) fn load_english_glossary() -> Option<Glossary> {
+    let path = glossary_path(Language::Chinese).ok()?;
+    match Glossary::from_path(Language::Chinese, &path) {
+        Ok(glossary) => {
+            tracing::info!(glosses = glossary.len(), "英→中释义表已加载");
+            Some(glossary)
+        }
+        Err(error) => {
+            tracing::warn!(%error, "英→中释义表加载失败");
+            None
+        }
+    }
+}
+
+/// 用户目录 `glossaries/` 的快照，只 stat；设置页下载装上新表后变。
+pub(super) fn glossary_files() -> Vec<(PathBuf, Option<std::time::SystemTime>, u64)> {
+    paths::user_data_dir()
+        .map(|dir| extra_dictionaries::snapshot(&dir.join(DOWNLOADED_DIR)))
+        .unwrap_or_default()
 }
 
 /// 随包释义表叠上用户目录的个人释义表（`user-glossary-<语言>.tsv`，释义兜底写入、可手改）。

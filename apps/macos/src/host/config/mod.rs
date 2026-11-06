@@ -9,7 +9,7 @@ pub(super) use watch::ConfigWatch;
 use qingjian_platform::Config;
 use qingjian_render::TextSizes;
 
-use super::init::load_glossary;
+use super::init::{glossary_files, glossary_path, load_english_glossary, load_glossary};
 use super::*;
 
 impl Host {
@@ -264,6 +264,27 @@ impl Host {
         if super::dictionaries::dictionary_files() != self.dictionary_files {
             self.reload_dictionaries();
         }
+        let glossaries = glossary_files();
+        if glossaries != self.glossary_files {
+            self.glossary_files = glossaries;
+            self.reload_glossaries();
+        }
+    }
+
+    /// 下载装上（或更新了）释义表：重算有表的学习语言，英→中表与当前学习语言的表都重装。
+    fn reload_glossaries(&mut self) {
+        self.languages = GLOSSARY_LANGUAGES
+            .into_iter()
+            .filter(|language| glossary_path(*language).is_ok())
+            .collect();
+        // 下载的删了、又没随包的：英文候选右侧留空
+        match load_english_glossary() {
+            Some(glossary) => self.engine.set_english_translator(Box::new(glossary)),
+            None => self.engine.set_english_translator(Box::new(NoTranslator)),
+        }
+        self.learning_language = None;
+        let general = self.settings.config().general.clone();
+        self.apply_learning_language(&general);
     }
 
     /// 激活期间的定时器每秒调一次：看配置文件，再看学习数据要不要落盘。

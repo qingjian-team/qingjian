@@ -40,9 +40,10 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         .unwrap_or_else(|| root.join("assets/sample/dict.tsv"));
     let user_dir = paths::user_dir();
     let mut spec = AssemblySpec {
-        glossary: assembly::learning_language(&config)
-            .and_then(|lang| assembly::glossary_file(&root, lang).map(|p| (lang, p))),
-        english_glossary: assembly::glossary_file(&root, Language::Chinese),
+        glossary: assembly::learning_language(&config).and_then(|lang| {
+            assembly::glossary_file(&root, Some(&user_dir), lang).map(|p| (lang, p))
+        }),
+        english_glossary: assembly::glossary_file(&root, Some(&user_dir), Language::Chinese),
         english: paths::generated(&root, "english.tsv")
             .or_else(|| paths::asset(&root, "sample/english.tsv")),
         emoji: ["emoji/emoji-zh.tsv", "emoji/emoji-en.tsv"]
