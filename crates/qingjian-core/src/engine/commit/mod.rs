@@ -5,9 +5,8 @@ use super::input_log::{InputLogEntry, InputLogger, InputSource};
 use super::learning::Learner;
 use super::query::EnglishTail;
 use super::{
-    ABBREVIATION_CHOICE_PREFIX, AUTO_WORD_MAX_CHARS, AUTO_WORD_THRESHOLD,
-    AUTO_WORD_THRESHOLD_SAME_BUFFER, BUFFER_PHRASE_MAX_CHARS, EXPLICIT_TRANSITION_WEIGHT, Engine,
-    choice_key, reading_key, segment_longest_prefix,
+    ABBREVIATION_CHOICE_PREFIX, AUTO_WORD_THRESHOLD, AUTO_WORD_THRESHOLD_SAME_BUFFER,
+    EXPLICIT_TRANSITION_WEIGHT, Engine, choice_key, reading_key, segment_longest_prefix,
 };
 use crate::candidate::{Candidate, CandidateKind, CandidateList, Language};
 use crate::correction::edit_distance;
@@ -16,6 +15,7 @@ use qingjian_dictionary::Dictionary;
 use std::time::Instant;
 
 mod align;
+mod auto_phrase;
 mod chain;
 mod last;
 mod transition;
@@ -270,9 +270,25 @@ impl Engine {
         // 上屏即收尾：码段清空、回初始态（数字键与「标点先上屏」都走这里）
         self.aux_code = None;
         let buffer_left = !self.composition.is_empty();
+        if candidate.kind != CandidateKind::Code {
+            self.chain.clear_code_words();
+        }
         match candidate.kind {
-            CandidateKind::Chinese | CandidateKind::Cloud | CandidateKind::Code => {
-                // 形码没有音节，`record_word` 里按音节数做的整段造词自然不会触发
+            CandidateKind::Code => {
+                self.record_word(
+                    &candidate.text,
+                    &[],
+                    EXPLICIT_TRANSITION_WEIGHT,
+                    false,
+                    buffer_left,
+                );
+                if source == InputSource::Translation {
+                    self.chain.clear_code_words();
+                } else {
+                    self.learn_code_phrase(&candidate.text);
+                }
+            }
+            CandidateKind::Chinese | CandidateKind::Cloud => {
                 self.record_word(
                     &candidate.text,
                     &candidate.syllables,
@@ -381,8 +397,7 @@ impl Engine {
 
     /// 一段拼音分几次选完了（`jidiaole` 先选 挤、剩下的走整句 掉了）：这几个词合起来就是用户对这段拼音的答案。
     /// 记一次「整段拼音 → 合成词」的选择；选到 [`AUTO_WORD_THRESHOLD_SAME_BUFFER`] 次、词库里没有、
-    /// 不超过 [`BUFFER_PHRASE_MAX_CHARS`] 字就记成用户词，下次整段或它的简拼打出来直接排第一（整句也是：
-    /// `xiaomingqulexuexiao` 逐字选出 晓铭去了学校，之后 `xmqlxx` 也出它）。返回记下的选择，撤销时退回。
+    /// 不超过配置字数就造成用户词，下次整段打出来它直接排第一。返回记下的选择，撤销时退回。
     pub(super) fn finish_buffer(&mut self) -> Option<(String, Choice)> {
         let words = self.chain.buffer_words();
         if words.len() < 2 {
@@ -392,7 +407,7 @@ impl Engine {
         let syllables: Vec<String> = words.iter().flat_map(|(_, s)| s.iter().cloned()).collect();
         let chars = text.chars().count();
         let key = self.chain.buffer_key().to_owned();
-        if key.is_empty() || chars > BUFFER_PHRASE_MAX_CHARS || chars != syllables.len() {
+        if key.is_empty() || chars > self.auto_phrase_max_chars || chars != syllables.len() {
             return None;
         }
         let candidate = Candidate {
@@ -410,7 +425,8 @@ impl Engine {
             self.learner
                 .record_choice(&abbreviation, "", &candidate.text);
         }
-        if !self.knows_word(&candidate)
+        if self.auto_phrase
+            && !self.knows_word(&candidate)
             && self.learner.choice_weight(&key, &candidate.text) >= AUTO_WORD_THRESHOLD_SAME_BUFFER
         {
             tracing::debug!(text = %candidate.text, "整段拼音分次选完，自动造词");
@@ -654,6 +670,9 @@ impl Engine {
 
     /// 上一个词 + 这个词合成用户词的条件见 [`AUTO_WORD_THRESHOLD`]。
     pub(super) fn try_auto_word(&mut self, text: &str, syllables: &[String], threshold: u32) {
+        if !self.auto_phrase {
+            return;
+        }
         let Some(previous) = self.chain.previous().map(str::to_owned) else {
             return;
         };
@@ -665,7 +684,7 @@ impl Engine {
         let chars = joined.chars().count();
         let mut joined_syllables = self.chain.previous_syllables().to_vec();
         joined_syllables.extend(syllables.iter().cloned());
-        if chars > AUTO_WORD_MAX_CHARS || chars != joined_syllables.len() {
+        if chars > self.auto_phrase_max_chars || chars != joined_syllables.len() {
             return;
         }
         // 这条转移刚记过，计数已含本次；阈值按「选了几次」算，计数是按份记的

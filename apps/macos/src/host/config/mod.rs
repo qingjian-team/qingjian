@@ -64,6 +64,8 @@ impl Host {
         self.engine
             .set_context_memory(config.model.context_memory_seconds);
         self.engine.set_learning(config.general.learning);
+        self.engine
+            .set_auto_phrase(config.auto_phrase.enabled, config.auto_phrase.max_chars);
         logging::set_level(config.general.log_level);
         self.translation_keys = config.shortcut.translation_keys();
         self.translate_keys = config.shortcut.translate_selection;

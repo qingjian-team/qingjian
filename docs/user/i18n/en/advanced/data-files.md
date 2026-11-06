@@ -22,6 +22,7 @@ Where the data folder is:
 | `.env` | The AI service key, only once you've entered one; readable only by your user account | No |
 | `user.tsv` | How many times each word was picked | Words you picked |
 | `user-words.tsv` | Words you created and AI candidates you picked | Words you picked |
+| `user-code-words.tsv` | Automatic code phrases by scheme (scheme key, word, code) | Consecutive words and codes |
 | `user-choices.tsv` | Words picked for a given stretch of pinyin | Pinyin and words you picked |
 | `user-demoted.tsv` | Words demoted from the candidate right-click menu (which letters, which word, how many times) | Pinyin and words |
 | `user-days.tsv` and other `*-days.tsv` | When the entries in the tables above were last used | No |

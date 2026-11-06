@@ -1,5 +1,6 @@
 mod appearance;
 mod apps;
+mod auto_phrase;
 mod aux_code;
 mod candidate_renderer;
 mod clipboard;
@@ -47,6 +48,7 @@ pub use apps::{
     AppsConfig, DEFAULT_ENGLISH_CANDIDATES_ON, DEFAULT_ENGLISH_CANDIDATES_ON_LINUX,
     DEFAULT_ENGLISH_CANDIDATES_ON_MACOS, DEFAULT_ENGLISH_CANDIDATES_ON_WINDOWS,
 };
+pub use auto_phrase::AutoPhraseConfig;
 pub use aux_code::AuxCodeConfig;
 pub use candidate_renderer::CandidateRenderer;
 pub use clipboard::{
@@ -89,6 +91,7 @@ pub use update::{UpdateChannel, UpdateConfig};
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Config {
+    pub auto_phrase: AutoPhraseConfig,
     /// 常规：学习语言、每页候选数、翻页键、外观。
     pub general: GeneralConfig,
 
@@ -368,6 +371,12 @@ system_text_replacements = true
 # text = "；"       # 原样上屏的文本，可包含空格与换行；{year} {month} {day} {hour} {minute} {second} {weekday} 换成当前时间，{{ }} 是花括号本身
 # weight = 10       # 权重：1–999，可以相同，相同的按文件里的先后
 # enabled = true    # 是否启用
+
+[auto_phrase]
+# 自动组词：拼音同段选词重复 2 次、分段连续输入重复 3 次；五笔首次连续输入即学。关闭不删除已有词，不影响词频学习
+enabled = true
+# 最大汉字数（2～10），不改变五笔的编码长度；学习总开关和私密输入优先
+max_chars = 4
 
 [shortcut]
 # 呼出剪贴板面板（实验功能，要开着 [clipboard] enabled）；至少两个修饰键加字母、数字或句号。
