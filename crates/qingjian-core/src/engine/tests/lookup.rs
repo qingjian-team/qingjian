@@ -698,6 +698,17 @@ fn split_readings_far_from_the_typed_pinyin_come_after_every_single_char() {
 }
 
 #[test]
+fn an_abbreviation_with_thousands_of_words_still_offers_the_first_initials_chars() {
+    // `ss` 读得出的两字词多到预选装不下时，首音节的单字仍在几个词之后出现，不被一起砍掉
+    let mut dictionary = String::from("是\tshi\t9000\n说\tshuo\t8000\n");
+    for n in 0..3000 {
+        dictionary.push_str(&format!("森森{n}\tsen sen\t{}\n", 9000 - n % 100));
+    }
+    let all = texts_in(&dictionary, "ss");
+    assert!(all.iter().any(|t| t == "是"), "{all:?}");
+}
+
+#[test]
 fn many_whole_words_still_leave_room_for_single_chars() {
     // `zhiyi` 读得出五十多个整词：前 6 个之后先给首音节的单字，再接其余整词
     let mut dictionary = String::from("知\tzhi\t100\n");

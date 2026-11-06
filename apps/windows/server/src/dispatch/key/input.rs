@@ -34,6 +34,15 @@ impl Router {
         if let Some(effect) = self.apply_panel_key(event) {
             return effect;
         }
+        if self.composing()
+            && self.config.single_chars.is_some_and(|combo| {
+                event.virtual_key == combo.key.to_ascii_uppercase() as u32
+                    && event.modifiers.chord() == combo.modifiers.into()
+            })
+            && self.engine.toggle_single_chars()
+        {
+            return Effect::Changed(None);
+        }
         if let Some(effect) = self.apply_commit_key(event) {
             return effect;
         }

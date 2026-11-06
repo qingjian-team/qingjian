@@ -175,6 +175,12 @@ impl Engine {
         &self.composition
     }
 
+    /// 单字模式开关（#848）：组句中候选只留单字，再切一次恢复；只管这一段组句，上屏完或清空就回到正常候选。
+    /// 没在组句时不起作用，返回 `false`，壳把按键交还应用。切完要重新 [`Self::query`]。
+    pub fn toggle_single_chars(&mut self) -> bool {
+        self.composition.toggle_single_chars()
+    }
+
     pub fn push(&mut self, c: char) {
         // 打了新键：退回成数字的音节不再偏向用户之前选的写法
         self.nine_key_unpinned = None;

@@ -2,7 +2,7 @@
 
 use std::cell::{Cell, RefCell};
 
-use windows::Win32::Foundation::{E_FAIL, E_INVALIDARG};
+use windows::Win32::Foundation::{E_FAIL, E_INVALIDARG, E_POINTER};
 use windows::Win32::UI::TextServices::{
     ITfCandidateListUIElement, ITfCandidateListUIElement_Impl, ITfDocumentMgr, ITfUIElement_Impl,
     TF_CLUIE_COUNT, TF_CLUIE_CURRENTPAGE, TF_CLUIE_DOCUMENTMGR, TF_CLUIE_PAGEINDEX,
@@ -120,10 +120,13 @@ impl ITfCandidateListUIElement_Impl for CandidateElement_Impl {
     }
 
     fn GetPageIndex(&self, pindex: *mut u32, usize: u32, pupagecnt: *mut u32) -> Result<()> {
+        if pupagecnt.is_null() {
+            return Err(E_POINTER.into());
+        }
         unsafe {
-            *pupagecnt = 1;
+            pupagecnt.write(1);
             if !pindex.is_null() && usize > 0 {
-                *pindex = 0;
+                pindex.write(0);
             }
         }
         Ok(())

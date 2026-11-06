@@ -8,6 +8,9 @@ pub struct Choice {
 
     /// 记录的文本。
     pub text: String,
+
+    /// 同时记了一份的简拼记录键（`shishan` 选的 屎山 记到 `^ss`，见 `Engine::abbreviation_key`）；没记时是空串。
+    pub abbreviation: String,
 }
 
 /// 最近一次上屏记了哪些学习：用户把它退格删掉、再打同一段拼音换选别的词时，把这些记录退回去。

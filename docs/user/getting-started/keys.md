@@ -36,6 +36,7 @@ Windows 与 Linux 的中 / 英切换键还可以选单击 `Ctrl` 或 `Ctrl + Alt
 | 删除光标前一个音节 | `⌥ + Backspace` | — | — |
 | 删除光标前全部拼音 | `⌘ + Backspace` | — | — |
 | 清空 | `Esc` | `Esc` | `Esc` |
+| 候选只列单字（再按一次恢复，上屏后自动恢复；可在设置中改或关） | — | `Ctrl + D` | — |
 | 移动高亮（到页边自动翻页） | `↑` / `↓`；可启用 Emacs 风格候选键 | `↑` / `↓` | `↑` / `↓` |
 | 翻页 | `[` `]`、`PageUp` / `PageDown`、`⇧ + Tab`（上一页）；点页码两侧的箭头 | `[` `]`、`PageUp` / `PageDown`、`Shift + Tab`（上一页）；点页码两侧的箭头，或在候选上滚动鼠标滚轮 | `[` `]`、`PageUp` / `PageDown`、`Shift + Tab`（上一页） |
 | 接受 AI 整句补全（无补全时下一页） | `Tab` | `Tab` | `Tab` |

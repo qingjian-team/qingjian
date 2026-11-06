@@ -185,8 +185,8 @@ impl TextService_Impl {
 
     /// 这个键吃不吃，与 Router 的分派对齐；`OnTestKeyDown` 用，无副作用。判定见 [`eats_key`]。
     ///
-    /// 带 Ctrl/Alt/Win 只有组句中的「修饰键 + 数字」送 Server（译词 / 删候选）、面板翻译框里的 Ctrl+A 送 Server（全选），
-    /// 其余归应用（翻译选中文字走保留键）；
+    /// 带 Ctrl/Alt/Win 只有组句中的「修饰键 + 数字」送 Server（译词 / 删候选）、组句中的 AI 与单字模式组合键、
+    /// 面板翻译框里的 Ctrl+A 送 Server（全选），其余归应用（翻译选中文字走保留键）；
     /// 字母只有「中文模式、没在组句、按住 Shift 的大写」归应用（`[general] shift_letter = "compose"` 时也吃，
     /// 让它起一段组句），其中 V / U / I 仍送 Server：双拼下是表达式 / 问字入口；
     /// 组句中功能键 / 方向键 / 可打印字符都吃；没在组句时数字 / 标点也先「测吃」送去转全角（中英各有一份开关），
@@ -204,11 +204,14 @@ impl TextService_Impl {
             input.shift_letter_compose,
             input.english_candidates,
         ) || (self.shared.composing()
-            && input.predict.is_some_and(|combo| {
-                event.virtual_key
-                    == preserved::key_event(combo, self.mode_state.english()).virtual_key
-                    && event.modifiers.chord() == combo.modifiers.into()
-            }))
+            && [input.predict, input.single_chars]
+                .into_iter()
+                .flatten()
+                .any(|combo| {
+                    event.virtual_key
+                        == preserved::key_event(combo, self.mode_state.english()).virtual_key
+                        && event.modifiers.chord() == combo.modifiers.into()
+                }))
     }
 
     /// 没在组句的数字：在 Test 里先问 Server。

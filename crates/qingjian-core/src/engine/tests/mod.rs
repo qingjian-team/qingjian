@@ -1,5 +1,6 @@
 //! Engine 的测试：共用的样例词库、辅助函数与 mock 在这里，用例按主题分文件。
 
+mod auto_word;
 mod aux_code;
 mod candidate_menu;
 mod caret;
@@ -27,6 +28,7 @@ mod privacy;
 mod raw;
 mod reading;
 mod shuangpin;
+mod single_chars;
 mod spacing;
 mod spelling;
 mod traditional;

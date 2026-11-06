@@ -34,6 +34,9 @@ internal object Native {
 
     external fun select(handle: Long, index: Int): String?
 
+    /** 展开面板的「全部 / 单字」：切换这段组句的单字模式。 */
+    external fun toggleSingleChars(handle: Long): String?
+
     /** 点了拼音行第 [index] 个字之后：拼音里的光标挪过去。 */
     external fun moveCaret(handle: Long, index: Int): String?
 

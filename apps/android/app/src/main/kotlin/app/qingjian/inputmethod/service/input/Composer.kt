@@ -160,6 +160,10 @@ class Composer(private val engine: Engine, private val host: Host) {
     /** 组句处在算式（`v1+2`）或码点里，见 [Frame.expression]。 */
     private var expression = false
 
+    /** 这段组句在单字模式，见 [Frame.singleChars]。 */
+    var singleChars = false
+        private set
+
     /** 上一帧的候选。 */
     private var candidates: List<Candidate> = emptyList()
 
@@ -358,6 +362,9 @@ class Composer(private val engine: Engine, private val host: Host) {
     }
 
     fun select(index: Int) = apply(engine.select(index))
+
+    /** 展开面板里点了「全部 / 单字」。 */
+    fun toggleSingleChars() = apply(engine.toggleSingleChars())
 
     /** 点了拼音行第 [index] 个字之后：光标挪进拼音里，接着敲的字、退格都在那里。 */
     fun moveCaret(index: Int) {
@@ -588,6 +595,7 @@ class Composer(private val engine: Engine, private val host: Host) {
         }
         pinyinChoices = frame.pinyinChoices
         expression = frame.expression
+        singleChars = frame.singleChars
         candidates = frame.candidates
         // 不在组句却带着候选：上屏通讯录名字后接着给的电话、邮箱，光标再动时要问 Core 还留不留
         completing = frame.preedit.isEmpty() && frame.candidates.isNotEmpty()

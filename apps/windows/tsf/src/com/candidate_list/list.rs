@@ -79,12 +79,15 @@ impl CandidateList {
     }
 
     /// 收掉进行中的元素（组句结束 / 断线 / 停用）。
+    /// 元素要活到 `EndUIElement` 返回之后：不能指望系统在 `BeginUIElement` 时替我们留了引用，
+    /// 先放掉再收，元素可能已经释放，宿主随即堆损坏退出（#877）。
     pub(crate) fn end(&self) {
-        let Some((_, id)) = self.current.borrow_mut().take() else {
+        let Some((element, id)) = self.current.borrow_mut().take() else {
             return;
         };
         if let Some(manager) = self.manager.borrow().clone() {
             let _ = unsafe { manager.EndUIElement(id) };
         }
+        drop(element);
     }
 }

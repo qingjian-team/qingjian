@@ -18,6 +18,9 @@ interface PanelActions {
     /** 候选展开里点了第 [index] 个候选。 */
     fun selectCandidate(index: Int)
 
+    /** 候选展开里点了「全部 / 单字」。 */
+    fun toggleSingleChars()
+
     /** 清空组句（候选展开里的「重输」）。 */
     fun clearComposition()
 

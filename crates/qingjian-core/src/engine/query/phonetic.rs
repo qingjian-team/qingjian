@@ -1,7 +1,8 @@
 //! 拼音侧的候选生成：切分、拼写纠错、词级查找与排序，再补上整句、英文、快捷与 emoji 候选。
 
 use std::borrow::Cow;
-use std::collections::HashMap;
+use std::cmp::Reverse;
+use std::collections::{HashMap, HashSet};
 use std::time::{Duration, Instant};
 
 use qingjian_dictionary::Match;
@@ -9,13 +10,17 @@ use qingjian_dictionary::Match;
 use crate::correction::edit_distance;
 use crate::engine::query::chinese_candidate;
 use crate::engine::{
-    Learner, MAX_CANDIDATES, abbreviated_count, choice_key, pattern_key, segment_longest_prefix,
+    ABBREVIATION_CHOICE_PREFIX, Learner, MAX_CANDIDATES, abbreviated_count, choice_key,
+    pattern_key, segment_longest_prefix,
 };
 use crate::ranking::{FUZZY_PENALTY, Scored};
 use crate::{
     Candidate, CandidateKind, CandidateList, Engine, ParseError, Query, Segmentation, Timings,
     correction, parser, ranking,
 };
+
+/// 排序用的选择次数里，真在这串键下选过的一次顶这么多次全拼按简拼记的（见 [`ABBREVIATION_CHOICE_PREFIX`]）。
+const CHOICE_TIERS: u32 = 1024;
 
 impl Engine {
     /// 拼音侧（全拼 / 双拼 / 注音）的候选生成：整段作用域是一串读音。
@@ -203,6 +208,8 @@ impl Engine {
         let clean = segmentations
             .iter()
             .any(|s| s.syllables.iter().all(|x| x.complete));
+        // 盖住整段、不靠拆开音节读出的用户词（自造词、接受过的云端词）：(词, 拼音)
+        let mut user_words: HashSet<(&str, &str)> = HashSet::new();
         for (index, segmentation) in segmentations.iter().enumerate() {
             let reading = sources
                 .get(index)
@@ -234,6 +241,15 @@ impl Engine {
             // 没有替代写法时每条命中都是敲的原音节，`penalty` 直接给 0（单字母简拼能命中几万条）
             let hits = self.lookup_all(&positions);
             let whole_split = clean && segmentation.syllables.iter().any(|x| !x.complete);
+            if !whole_split && let Some(words) = self.learner.user_words() {
+                user_words.extend(
+                    words
+                        .lookup_pattern_alt(&positions)
+                        .into_iter()
+                        .filter(|hit| hit.exact)
+                        .map(|hit| (hit.text, hit.pinyin)),
+                );
+            }
             // 末音节读成它的模糊音写法（`zi` 开 z-zh 读成 zhi）也算打完的末音节：否则模糊音命中的常用字
             // 全排在原样读音的几百个生僻字之后，预选还会把它们砍掉（`li` 开 n-l 的 你 进不了前 500）
             let last_readings = if last.complete {
@@ -257,12 +273,15 @@ impl Engine {
                 {
                     penalty += FUZZY_PENALTY;
                 }
+                // 用户词至少算选过一次：简拼命中几万条时预选按词频会把它砍掉
+                let user_word =
+                    hit.exact && !whole_split && user_words.contains(&(hit.text, hit.pinyin));
                 scored.push(Scored {
                     hit,
                     full_last: typed_last || fuzzy_last,
                     coverage: covered_keys(count, segmentation.letters()),
                     abbreviated,
-                    weight: self.learner.weight(hit.text),
+                    weight: self.learner.weight(hit.text).max(u32::from(user_word)),
                     penalty,
                     tone_cost: crate::zhuyin::tone::cost(hit.text, hit.syllables(), &tones),
                     split: whole_split,
@@ -303,6 +322,12 @@ impl Engine {
         }
         let lookup = start.elapsed();
 
+        // 盖住整段的用户词当作在这串键下选过一次（自造词选一次之后用简拼 `ss` 的 屎山 也排在前面），
+        // 只取用得最多的几个：简拼能对上十几个自造词，全提上来又会把单字挤到几页之后
+        let mut lifted: Vec<(&str, &str)> = user_words.into_iter().collect();
+        lifted.sort_by_key(|&(text, pinyin)| (Reverse(self.learner.weight(text)), text, pinyin));
+        lifted.truncate(ranking::USER_WORDS_BEFORE_SINGLES);
+
         let start = Instant::now();
         // 再往后翻也翻不到的候选不必再造：单字母简拼能命中两万个词，排完序只留前面这些。
         // 同输入串（候选覆盖的那段字母）下选过的优先；上下文是上一个上屏的词（句首为 None）：
@@ -329,6 +354,11 @@ impl Engine {
             Vec::new()
         };
         // 纠错生效时覆盖的是纠正后的字母，换算回原串再查「这个输入串下选过什么」
+        // 全拼选过、按简拼另记的选择（`^ss`），按覆盖到的长度先拼好键：几万条命中逐条拼键太慢
+        let abbreviation_keys: Vec<String> = (0..=letters.len())
+            .map(|end| format!("{ABBREVIATION_CHOICE_PREFIX}{}", &letters[..end]))
+            .collect();
+        // 真在这串键下的选择排在前面；全拼选过按简拼记的、当作选过的用户词排在没选过的词前面、真选过的后面
         let choice = |item: &Scored<'_>| {
             let covered = correction
                 .as_ref()
@@ -341,13 +371,17 @@ impl Engine {
             } else {
                 covered
             };
-            letters
+            let user_word =
+                item.hit.exact && !item.split && lifted.contains(&(item.hit.text, item.hit.pinyin));
+            let chosen = letters
                 .get(..covered)
-                .map_or(0, |input| self.learner.choice_weight(input, item.hit.text))
+                .map_or(0, |input| self.learner.choice_weight(input, item.hit.text));
+            let by_full_pinyin = abbreviation_keys
+                .get(covered)
+                .map_or(0, |key| self.learner.choice_weight(key, item.hit.text))
+                .max(u32::from(user_word));
+            chosen.saturating_mul(CHOICE_TIERS) + by_full_pinyin.min(CHOICE_TIERS - 1)
         };
-        ranking::rank(&mut scored, MAX_CANDIDATES, |item| {
-            (choice(item), self.word_log_prob(&item.hit, log_total))
-        });
         // 覆盖量的单位与 coverage 一致：混输按键算，非混输按字母算
         let whole = (0..segmentations.len())
             .map(|index| {
@@ -363,6 +397,38 @@ impl Engine {
         let first = segmentations
             .first()
             .map_or(0, |_| span(&segmentations, &sources, 0, 1));
+        // 多音节输入时首音节的单字单独排、单独留名额：简拼 `ss` 读得出几万个两字词，合在一起预选会把单字全砍掉
+        let mut singles = Vec::new();
+        if whole > first {
+            let (chars, rest): (Vec<_>, Vec<_>) = scored
+                .into_iter()
+                .partition(|item| item.coverage == first && item.hit.text.chars().count() == 1);
+            singles = chars;
+            scored = rest;
+        }
+        let context = |item: &Scored<'_>| (choice(item), self.word_log_prob(&item.hit, log_total));
+        // 这串键下选过的词不进预选，并按主词库的词排：预选只看结构与词频，排序先比是不是主词库，
+        // `ss` 选过几次的 屎山（知意词表里的词，低主词库一档）会排在几千个主词库两字词后面被截掉，轮不到按选择次数排
+        let rank_keeping_chosen = |items: &mut Vec<Scored<'_>>, limit: usize| {
+            let (mut chosen, rest): (Vec<_>, Vec<_>) = std::mem::take(items)
+                .into_iter()
+                .partition(|item| choice(item) > 0);
+            for item in &mut chosen {
+                item.hit.secondary = false;
+            }
+            *items = rest;
+            ranking::rank(items, limit, context);
+            if !chosen.is_empty() {
+                items.extend(chosen);
+                ranking::rank(items, limit, context);
+            }
+        };
+        rank_keeping_chosen(&mut scored, MAX_CANDIDATES);
+        rank_keeping_chosen(&mut singles, ranking::FIRST_SYLLABLE_CHARS_KEPT);
+        // 同一个字别的切分也读得出（`kaif` 的 开 既是 kai 也是 k… a i f 的前缀），只留单字那条
+        let chars: HashSet<&str> = singles.iter().map(|item| item.hit.text).collect();
+        scored.retain(|item| !chars.contains(item.hit.text));
+        scored.append(&mut singles);
         // 末尾只敲了个没打完的音节（`woganj` 的 j）时，盖住前面完整音节的词（我敢）也算整词；
         // 有一种全是完整音节的切法时（`mingtia` 读得成 ming ti a）末尾不算没打完
         let complete = if clean {

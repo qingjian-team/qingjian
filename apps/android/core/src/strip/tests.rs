@@ -110,6 +110,7 @@ fn pinned_syllables_are_their_own_underlined_segment() {
         pinyin_choices: Vec::new(),
         candidates: Vec::new(),
         expression: false,
+        single_chars: false,
     };
     let preedit = preedit(&frame);
     let parts: Vec<(&str, PreeditStyle)> = preedit
