@@ -429,3 +429,73 @@ fn drag_reports_position_until_release_even_outside() {
     let after = interaction.handle(&Event::PointerMoved { x: 60.0, y: 10.0 });
     assert!(after.messages.is_empty());
 }
+
+/// 左边一个能点的链接（里面有个没声明指针的图标），右边一个禁用了的链接。
+fn cursor_frame(interaction: &mut Interaction<Message>) {
+    let mut ui = Ui::new(interaction);
+    let fixed = |width: f32, height: f32| Style {
+        size: Size {
+            width: Dimension::length(width),
+            height: Dimension::length(height),
+        },
+        ..Style::default()
+    };
+    let icon = ui
+        .scene()
+        .node(fixed(20.0, 20.0), Visual::Group, &[])
+        .unwrap();
+    let icon_key = ui.key("icon");
+    ui.interact(icon, icon_key, Interact::new());
+    let link = ui
+        .scene()
+        .node(fixed(100.0, 100.0), Visual::Group, &[icon])
+        .unwrap();
+    let link_key = ui.key("link");
+    ui.interact(
+        link,
+        link_key,
+        Interact::new()
+            .on_click(Message::Ok)
+            .cursor(Cursor::Pointer),
+    );
+    let off = ui
+        .scene()
+        .node(fixed(100.0, 100.0), Visual::Group, &[])
+        .unwrap();
+    let off_key = ui.key("off");
+    ui.interact(
+        off,
+        off_key,
+        Interact::new()
+            .on_click(Message::Cancel)
+            .cursor(Cursor::Pointer)
+            .disabled(true),
+    );
+    let root = ui
+        .scene()
+        .node(
+            Style {
+                flex_direction: FlexDirection::Row,
+                ..Style::default()
+            },
+            Visual::Group,
+            &[link, off],
+        )
+        .unwrap();
+    let (mut scene, elements) = ui.finish();
+    layout(&mut scene, root);
+    interaction.attach(&scene, root, elements).unwrap();
+}
+
+#[test]
+fn cursor_comes_from_innermost_declaring_element() {
+    let mut interaction = Interaction::new();
+    cursor_frame(&mut interaction);
+    assert_eq!(interaction.cursor(), Cursor::Default);
+    interaction.handle(&Event::PointerMoved { x: 5.0, y: 5.0 });
+    assert_eq!(interaction.cursor(), Cursor::Pointer);
+    interaction.handle(&Event::PointerMoved { x: 150.0, y: 50.0 });
+    assert_eq!(interaction.cursor(), Cursor::Default);
+    interaction.handle(&Event::PointerLeft);
+    assert_eq!(interaction.cursor(), Cursor::Default);
+}

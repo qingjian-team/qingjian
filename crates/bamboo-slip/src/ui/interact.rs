@@ -2,8 +2,8 @@
 
 use taffy::NodeId;
 
-use super::ScrollbarTrack;
 use super::event::{KeyPress, TextInput};
+use super::{Cursor, ScrollbarTrack};
 
 /// 按键处理：处理了就返回消息，没处理返回 `None` 交给上级。
 type KeyHandler<M> = Box<dyn Fn(&KeyPress) -> Option<M>>;
@@ -46,6 +46,9 @@ pub struct Interact<M> {
 
     /// 滚动条的轨道：按下与拖动由交互层直接改滚动位置。
     pub(super) scrollbar: Option<ScrollbarTrack>,
+
+    /// 指针在它上面时的样子；`None` 交给上级定。
+    pub(super) cursor: Option<Cursor>,
 }
 
 impl<M> Default for Interact<M> {
@@ -69,6 +72,15 @@ impl<M> Interact<M> {
             secret: false,
             scroll_content: None,
             scrollbar: None,
+            cursor: None,
+        }
+    }
+
+    /// 指针悬停在它上面时换成这个样子（禁用时不换）。
+    pub fn cursor(self, cursor: Cursor) -> Self {
+        Self {
+            cursor: Some(cursor),
+            ..self
         }
     }
 
@@ -101,6 +113,7 @@ impl<M> Interact<M> {
         Self {
             text: Some(Box::new(handler)),
             focusable: true,
+            cursor: self.cursor.or(Some(Cursor::Text)),
             ..self
         }
     }

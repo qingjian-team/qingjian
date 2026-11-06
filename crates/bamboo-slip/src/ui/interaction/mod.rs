@@ -13,7 +13,7 @@ use taffy::NodeId;
 
 use super::ScrollExtent;
 use super::element::Element;
-use super::{ElementState, Elements, Event, Key, Response};
+use super::{Cursor, ElementState, Elements, Event, Key, Response};
 use crate::error::RenderError;
 use crate::scene::Scene;
 
@@ -109,6 +109,20 @@ impl<M> Interaction<M> {
             focused,
             focus_ring: focused && self.focus_visible,
         }
+    }
+
+    /// 指针该是什么样子：悬停路径上从里到外第一个声明了的、没禁用的元素；都没声明是箭头。
+    pub fn cursor(&self) -> Cursor {
+        self.hovered
+            .iter()
+            .filter_map(|key| self.element(*key))
+            .find_map(|element| {
+                element
+                    .interact
+                    .cursor
+                    .filter(|_| !element.interact.disabled)
+            })
+            .unwrap_or_default()
     }
 
     /// 按下时捕获了指针、还没抬起：拖到元素外面也算（滚动条拖动时保持粗细）。

@@ -12,7 +12,7 @@ use winit::event::StartCause;
 use winit::event::{ElementState, Ime, MouseButton, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, ControlFlow};
 use winit::platform::modifier_supplement::KeyEventExtModifierSupplement;
-use winit::window::{Theme, Window, WindowId, WindowLevel};
+use winit::window::{CursorIcon, Theme, Window, WindowId, WindowLevel};
 
 use super::blit::blit;
 use super::clipboard::clipboard_text;
@@ -20,7 +20,7 @@ use super::input::{key_code, modifiers, scroll};
 use super::{HostError, WindowOptions};
 use crate::app::{App, Runner, WindowCommand};
 use crate::stage::Painted;
-use crate::ui::{Event, KeyCode, KeyPress, Modifiers, TextInput};
+use crate::ui::{Cursor, Event, KeyCode, KeyPress, Modifiers, TextInput};
 
 const SLIDE_DURATION: Duration = Duration::from_millis(140);
 
@@ -42,6 +42,9 @@ pub(super) struct Handler<A: App> {
 
     /// 告诉过系统的输入法开关。
     ime_on: bool,
+
+    /// 告诉过系统的指针样子。
+    cursor: Cursor,
 
     /// 面板正在滑入。
     slide: Option<Slide>,
@@ -96,6 +99,7 @@ impl<A: App> Handler<A> {
             window: None,
             ime: None,
             ime_on: false,
+            cursor: Cursor::Default,
             slide: None,
             last_frame: None,
             error: None,
@@ -286,6 +290,21 @@ impl<A: App> Handler<A> {
             window.request_redraw();
         }
         self.apply_window_commands(window);
+        self.sync_cursor(window);
+    }
+
+    /// 指针下的元素声明的样子变了才告诉系统。
+    fn sync_cursor(&mut self, window: &Window) {
+        let cursor = self.runner.interaction().cursor();
+        if cursor == self.cursor {
+            return;
+        }
+        self.cursor = cursor;
+        window.set_cursor(match cursor {
+            Cursor::Default => CursorIcon::Default,
+            Cursor::Pointer => CursorIcon::Pointer,
+            Cursor::Text => CursorIcon::Text,
+        });
     }
 
     fn fail(&mut self, event_loop: &ActiveEventLoop, error: HostError) {
@@ -380,6 +399,8 @@ impl<A: App> ApplicationHandler for Handler<A> {
                     Err(error) => self.fail(event_loop, error),
                 }
                 self.sync_ime(&window);
+                // 重建后指针下换了元素（切了标签、列表挪了）也要跟着换
+                self.sync_cursor(&window);
                 return;
             }
             WindowEvent::Ime(Ime::Preedit(text, _)) => Event::Text(TextInput::Preedit(text)),

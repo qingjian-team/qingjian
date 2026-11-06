@@ -8,6 +8,7 @@
 //! 命中只看布局给的矩形：过渡、循环动画中途的位置不算。
 
 mod builder;
+mod cursor;
 mod element;
 mod elements;
 mod event;
@@ -20,6 +21,7 @@ mod searchable;
 mod state;
 
 pub use builder::Ui;
+pub use cursor::Cursor;
 pub use elements::Elements;
 pub use event::{Event, KeyCode, KeyPress, Modifiers, TextInput};
 pub use interact::Interact;

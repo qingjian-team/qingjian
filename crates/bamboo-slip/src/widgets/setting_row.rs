@@ -1,4 +1,4 @@
-//! 一行设置：左边标题（可带一行说明、一个悬停说明的 ⓘ），右边控件，控件下面还能挂附加项（勾选框、链接）。
+//! 一行设置：左边标题（可带小标签、一行说明、再一层小字、一个悬停说明的 ⓘ），右边控件，控件下面还能挂附加项（勾选框、链接）。
 //! 控件很宽的（主题卡片）用 [`SettingRow::stacked`] 放到标题下面。
 
 use std::time::Duration;
@@ -21,11 +21,18 @@ pub struct SettingRow<'a> {
 
     detail: Option<&'a str>,
 
+    caption: Option<NodeId>,
+
+    badge: Option<&'a str>,
+
     info: Option<&'a str>,
 
     control: Option<NodeId>,
 
     below: Vec<NodeId>,
+
+    /// 横跨整行、排在标题与控件下面的一块（下载进度）；与这一行是一体，中间不分隔。
+    footer: Option<NodeId>,
 
     stacked: bool,
 
@@ -38,9 +45,12 @@ impl<'a> SettingRow<'a> {
         Self {
             title,
             detail: None,
+            caption: None,
+            badge: None,
             info: None,
             control: None,
             below: Vec::new(),
+            footer: None,
             stacked: false,
             keywords: &[],
         }
@@ -50,6 +60,30 @@ impl<'a> SettingRow<'a> {
     pub fn detail(self, detail: &'a str) -> Self {
         Self {
             detail: Some(detail),
+            ..self
+        }
+    }
+
+    /// 说明下面再一层：使用方拼好的一行小字（大小、许可、能点的作者名这类附带信息），与说明分开一层。
+    pub fn caption(self, node: NodeId) -> Self {
+        Self {
+            caption: Some(node),
+            ..self
+        }
+    }
+
+    /// 标题与控件下面横跨整行的一块（下载进度这类）；只用于标题在左、控件在右的行。
+    pub fn footer(self, node: NodeId) -> Self {
+        Self {
+            footer: Some(node),
+            ..self
+        }
+    }
+
+    /// 标题右边的小标签（「第三方」这类），比标题小一号、垫一块底。
+    pub fn badge(self, text: &'a str) -> Self {
+        Self {
+            badge: Some(text),
             ..self
         }
     }
@@ -91,7 +125,14 @@ impl<'a> SettingRow<'a> {
     /// 行登记成可搜索项（标题与 ⓘ 全文），key 由标题派生；应用醒目标出它时铺一层底色。
     pub fn build<M>(self, ui: &mut Ui<M>, theme: &WidgetTheme) -> Result<NodeId, RenderError> {
         let key = ui.key(("row", self.title));
-        let owned: Vec<NodeId> = self.control.iter().chain(&self.below).copied().collect();
+        let owned: Vec<NodeId> = self
+            .control
+            .iter()
+            .chain(&self.caption)
+            .chain(&self.below)
+            .chain(&self.footer)
+            .copied()
+            .collect();
         ui.searchable(key, (self.title, self.info), &owned, self.keywords);
         let spot = spotlight(ui, theme, key, (-2.0, 8.0))?;
         let colors = &theme.colors;
@@ -108,6 +149,17 @@ impl<'a> SettingRow<'a> {
                 &[title, mark],
             )?;
         }
+        if let Some(text) = self.badge {
+            let badge = badge(ui, theme, text)?;
+            title = ui.scene().node(
+                Style {
+                    align_items: AlignItems::CENTER,
+                    ..row(theme, 8.0)
+                },
+                Visual::Group,
+                &[title, badge],
+            )?;
+        }
         let mut texts = vec![title];
         if let Some(detail) = self.detail {
             // 说明长了折行，不把右边的控件挤出去
@@ -119,6 +171,9 @@ impl<'a> SettingRow<'a> {
                 },
                 &[],
             )?);
+        }
+        if let Some(caption) = self.caption {
+            texts.push(caption);
         }
         let heading = ui.scene().node(
             Style {
@@ -159,6 +214,7 @@ impl<'a> SettingRow<'a> {
         spot: NodeId,
         heading: NodeId,
     ) -> Result<NodeId, RenderError> {
+        let footer = self.footer;
         let mut trailing: Vec<NodeId> = self.control.into_iter().collect();
         trailing.extend(self.below);
         let trailing = ui.scene().node(
@@ -170,6 +226,29 @@ impl<'a> SettingRow<'a> {
             Visual::Group,
             &trailing,
         )?;
+        let min_height = taffy::Size {
+            width: taffy::LengthPercentageAuto::auto(),
+            height: taffy::LengthPercentageAuto::length(theme.px(theme.control_height)),
+        };
+        if let Some(footer) = footer {
+            let line = ui.scene().node(
+                Style {
+                    justify_content: JustifyContent::SPACE_BETWEEN,
+                    min_size: min_height,
+                    ..row(theme, 16.0)
+                },
+                Visual::Group,
+                &[heading, trailing],
+            )?;
+            return ui.scene().node(
+                Style {
+                    padding: padding(theme, 10.0, 0.0),
+                    ..column(theme, 10.0)
+                },
+                Visual::Group,
+                &[spot, line, footer],
+            );
+        }
         ui.scene().node(
             Style {
                 padding: padding(theme, 10.0, 0.0),
@@ -221,4 +300,19 @@ pub(super) fn spotlight<M>(
     )?;
     ui.fade(node, key.child("spot"), SPOTLIGHT_FADE, Easing::Ease);
     Ok(node)
+}
+
+/// 标题旁的小标签：小一号的次要色字，垫一块控件槽色的圆角底。
+fn badge<M>(ui: &mut Ui<M>, theme: &WidgetTheme, text: &str) -> Result<NodeId, RenderError> {
+    let colors = &theme.colors;
+    let text = label(ui, theme, text, theme.small - 1.0, 500, colors.secondary)?;
+    ui.scene().node(
+        Style {
+            padding: padding(theme, 1.0, 6.0),
+            flex_shrink: 0.0,
+            ..row(theme, 0.0)
+        },
+        solid(Some(colors.well), None, theme.px(theme.radius) / 2.0),
+        &[text],
+    )
 }
