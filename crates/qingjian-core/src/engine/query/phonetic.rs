@@ -10,13 +10,17 @@ use qingjian_dictionary::Match;
 use crate::correction::edit_distance;
 use crate::engine::query::chinese_candidate;
 use crate::engine::{
-    Learner, MAX_CANDIDATES, abbreviated_count, choice_key, pattern_key, segment_longest_prefix,
+    ABBREVIATION_CHOICE_PREFIX, Learner, MAX_CANDIDATES, abbreviated_count, choice_key,
+    pattern_key, segment_longest_prefix,
 };
 use crate::ranking::{FUZZY_PENALTY, Scored};
 use crate::{
     Candidate, CandidateKind, CandidateList, Engine, ParseError, Query, Segmentation, Timings,
     correction, parser, ranking,
 };
+
+/// 排序用的选择次数里，真在这串键下选过的一次顶这么多次全拼按简拼记的（见 [`ABBREVIATION_CHOICE_PREFIX`]）。
+const CHOICE_TIERS: u32 = 1024;
 
 impl Engine {
     /// 拼音侧（全拼 / 双拼 / 注音）的候选生成：整段作用域是一串读音。
@@ -350,6 +354,11 @@ impl Engine {
             Vec::new()
         };
         // 纠错生效时覆盖的是纠正后的字母，换算回原串再查「这个输入串下选过什么」
+        // 全拼选过、按简拼另记的选择（`^ss`），按覆盖到的长度先拼好键：几万条命中逐条拼键太慢
+        let abbreviation_keys: Vec<String> = (0..=letters.len())
+            .map(|end| format!("{ABBREVIATION_CHOICE_PREFIX}{}", &letters[..end]))
+            .collect();
+        // 真在这串键下的选择排在前面；全拼选过按简拼记的、当作选过的用户词排在没选过的词前面、真选过的后面
         let choice = |item: &Scored<'_>| {
             let covered = correction
                 .as_ref()
@@ -364,14 +373,15 @@ impl Engine {
             };
             let user_word =
                 item.hit.exact && !item.split && lifted.contains(&(item.hit.text, item.hit.pinyin));
-            letters
+            let chosen = letters
                 .get(..covered)
-                .map_or(0, |input| self.learner.choice_weight(input, item.hit.text))
-                .max(u32::from(user_word))
+                .map_or(0, |input| self.learner.choice_weight(input, item.hit.text));
+            let by_full_pinyin = abbreviation_keys
+                .get(covered)
+                .map_or(0, |key| self.learner.choice_weight(key, item.hit.text))
+                .max(u32::from(user_word));
+            chosen.saturating_mul(CHOICE_TIERS) + by_full_pinyin.min(CHOICE_TIERS - 1)
         };
-        ranking::rank(&mut scored, MAX_CANDIDATES, |item| {
-            (choice(item), self.word_log_prob(&item.hit, log_total))
-        });
         // 覆盖量的单位与 coverage 一致：混输按键算，非混输按字母算
         let whole = (0..segmentations.len())
             .map(|index| {
@@ -387,6 +397,38 @@ impl Engine {
         let first = segmentations
             .first()
             .map_or(0, |_| span(&segmentations, &sources, 0, 1));
+        // 多音节输入时首音节的单字单独排、单独留名额：简拼 `ss` 读得出几万个两字词，合在一起预选会把单字全砍掉
+        let mut singles = Vec::new();
+        if whole > first {
+            let (chars, rest): (Vec<_>, Vec<_>) = scored
+                .into_iter()
+                .partition(|item| item.coverage == first && item.hit.text.chars().count() == 1);
+            singles = chars;
+            scored = rest;
+        }
+        let context = |item: &Scored<'_>| (choice(item), self.word_log_prob(&item.hit, log_total));
+        // 这串键下选过的词不进预选，并按主词库的词排：预选只看结构与词频，排序先比是不是主词库，
+        // `ss` 选过几次的 屎山（知意词表里的词，低主词库一档）会排在几千个主词库两字词后面被截掉，轮不到按选择次数排
+        let rank_keeping_chosen = |items: &mut Vec<Scored<'_>>, limit: usize| {
+            let (mut chosen, rest): (Vec<_>, Vec<_>) = std::mem::take(items)
+                .into_iter()
+                .partition(|item| choice(item) > 0);
+            for item in &mut chosen {
+                item.hit.secondary = false;
+            }
+            *items = rest;
+            ranking::rank(items, limit, context);
+            if !chosen.is_empty() {
+                items.extend(chosen);
+                ranking::rank(items, limit, context);
+            }
+        };
+        rank_keeping_chosen(&mut scored, MAX_CANDIDATES);
+        rank_keeping_chosen(&mut singles, ranking::FIRST_SYLLABLE_CHARS_KEPT);
+        // 同一个字别的切分也读得出（`kaif` 的 开 既是 kai 也是 k… a i f 的前缀），只留单字那条
+        let chars: HashSet<&str> = singles.iter().map(|item| item.hit.text).collect();
+        scored.retain(|item| !chars.contains(item.hit.text));
+        scored.append(&mut singles);
         // 末尾只敲了个没打完的音节（`woganj` 的 j）时，盖住前面完整音节的词（我敢）也算整词；
         // 有一种全是完整音节的切法时（`mingtia` 读得成 ming ti a）末尾不算没打完
         let complete = if clean {

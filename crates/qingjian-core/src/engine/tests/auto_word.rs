@@ -1,4 +1,4 @@
-//! 自造词：同一段拼音逐字选一次就成词，下次整段与简拼都排第一。
+//! 自造词与简拼学习：同一段拼音逐字选一次就成词、全拼选过的词简拼也排前，下次整段与简拼都排第一。
 
 use super::*;
 
@@ -82,4 +82,61 @@ fn a_sentence_picked_in_pieces_comes_first_for_its_pinyin_and_abbreviation() {
         assert_eq!(texts_of(&engine)[0], "晓铭去了学校", "{input}");
         engine.clear();
     }
+}
+
+#[test]
+fn a_word_picked_by_full_pinyin_leads_its_abbreviation() {
+    // 词库里的词：用全拼选过一次，下次打简拼也排第一（选择按简拼键也记一份）
+    let dictionary = "事实\tshi shi\t9000\n实施\tshi shi\t5000\n是\tshi\t9000\n";
+    let mut engine = Engine::new(Dictionary::parse(dictionary).unwrap())
+        .with_learner(Box::new(WordLearner::default()));
+    engine.set_input("ss");
+    assert_eq!(texts_of(&engine)[0], "事实");
+    engine.clear();
+    engine.set_input("shishi");
+    select(&mut engine, "实施");
+    engine.note_passthrough('\n');
+    engine.set_input("ss");
+    assert_eq!(texts_of(&engine)[0], "实施");
+}
+
+#[test]
+fn the_same_word_typed_twice_does_not_make_a_doubled_word() {
+    let mut engine = shishan_engine();
+    engine.set_input("shishan");
+    select(&mut engine, "屎");
+    select(&mut engine, "山");
+    for _ in 0..4 {
+        engine.set_input("shishan");
+        select(&mut engine, "屎山");
+    }
+    let patterns: Vec<_> = ["shi", "shan", "shi", "shan"]
+        .map(qingjian_dictionary::SyllablePattern::complete)
+        .to_vec();
+    let doubled = engine.learner().user_words().is_some_and(|words| {
+        words
+            .lookup_exact(&patterns)
+            .iter()
+            .any(|hit| hit.text == "屎山屎山")
+    });
+    assert!(!doubled);
+}
+
+#[test]
+fn a_chosen_low_tier_word_survives_thousands_of_abbreviation_hits() {
+    // 补充词库里的词（低主词库一档）在 `ss` 下选过：几千个主词库两字词预选时也不把它砍掉，按选择排第一
+    let mut base = String::from("是\tshi\t9000\n");
+    for n in 0..3000 {
+        base.push_str(&format!("森森{n}\tsen sen\t{}\n", 9000 - n % 100));
+    }
+    let mut general = Dictionary::parse("屎山\tshi shan\t10\n").unwrap();
+    general.set_secondary(true);
+    let mut engine = Engine::new(Dictionary::parse(&base).unwrap())
+        .with_learner(Box::new(WordLearner::default()));
+    engine.set_extra_dictionaries(vec![general]);
+    engine.set_input("shishan");
+    select(&mut engine, "屎山");
+    engine.note_passthrough('\n');
+    engine.set_input("ss");
+    assert_eq!(texts_of(&engine)[0], "屎山");
 }

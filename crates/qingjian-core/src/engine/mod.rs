@@ -464,6 +464,10 @@ const AUTO_WORD_THRESHOLD: u32 = 3;
 /// 退格撤销最多回看几次上屏：删掉「沃德 书」两个词再重打时，要能找到两个词之前的那一次。
 const RECENT_COMMITS: usize = 4;
 
+/// 全拼选过的词按简拼另记一份选择时键的前缀（`^ss`）：与真在那串键下的选择分开，排序时排在它们后面，
+/// 中英文谁在前也不看它。真的键只有小写字母，不会撞上。
+const ABBREVIATION_CHOICE_PREFIX: char = '^';
+
 /// 前后两个词自动合成的词最多几个字：再长就不是词而是短语了。
 const AUTO_WORD_MAX_CHARS: usize = 4;
 

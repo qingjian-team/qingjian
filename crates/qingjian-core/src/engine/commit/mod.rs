@@ -5,9 +5,9 @@ use super::input_log::{InputLogEntry, InputLogger, InputSource};
 use super::learning::Learner;
 use super::query::EnglishTail;
 use super::{
-    AUTO_WORD_MAX_CHARS, AUTO_WORD_THRESHOLD, AUTO_WORD_THRESHOLD_SAME_BUFFER,
-    BUFFER_PHRASE_MAX_CHARS, EXPLICIT_TRANSITION_WEIGHT, Engine, choice_key, reading_key,
-    segment_longest_prefix,
+    ABBREVIATION_CHOICE_PREFIX, AUTO_WORD_MAX_CHARS, AUTO_WORD_THRESHOLD,
+    AUTO_WORD_THRESHOLD_SAME_BUFFER, BUFFER_PHRASE_MAX_CHARS, EXPLICIT_TRANSITION_WEIGHT, Engine,
+    choice_key, reading_key, segment_longest_prefix,
 };
 use crate::candidate::{Candidate, CandidateKind, CandidateList, Language};
 use crate::correction::edit_distance;
@@ -155,12 +155,18 @@ impl Engine {
         // 候选的读音键：按输入串记选择时与字面键各记一份（[`Learner::record_choice`]）。
         // 形码 / 英文 / emoji 候选没有音节，自然得到空串。
         let reading = reading_key(candidate.syllables.iter().map(String::as_str));
+        let mut abbreviation = String::new();
         let (consumed, input) = match candidate.kind {
             CandidateKind::Chinese => {
                 self.learner.record(candidate);
                 let (consumed, input) = self.consumed_by(candidate);
                 self.learner
                     .record_choice(&input, &reading, &candidate.text);
+                abbreviation = self.abbreviation_key(&candidate.syllables, &input);
+                if !abbreviation.is_empty() {
+                    self.learner
+                        .record_choice(&abbreviation, "", &candidate.text);
+                }
                 typos = self.accepted_typos(candidate);
                 (consumed, input)
             }
@@ -355,6 +361,7 @@ impl Engine {
                 .then(|| Choice {
                     reading: reading.clone(),
                     text: candidate.text.clone(),
+                    abbreviation,
                 }),
                 transitions: std::mem::take(&mut self.recording),
                 typos,
@@ -398,6 +405,11 @@ impl Engine {
         };
         let reading = reading_key(candidate.syllables.iter().map(String::as_str));
         self.learner.record_choice(&key, &reading, &candidate.text);
+        let abbreviation = self.abbreviation_key(&candidate.syllables, &key);
+        if !abbreviation.is_empty() {
+            self.learner
+                .record_choice(&abbreviation, "", &candidate.text);
+        }
         if !self.knows_word(&candidate)
             && self.learner.choice_weight(&key, &candidate.text) >= AUTO_WORD_THRESHOLD_SAME_BUFFER
         {
@@ -412,6 +424,7 @@ impl Engine {
             Choice {
                 reading,
                 text: candidate.text,
+                abbreviation,
             },
         ))
     }
@@ -457,6 +470,10 @@ impl Engine {
         if let Some(choice) = &last.choice {
             self.learner
                 .unrecord_choice(&last.input, &choice.reading, &choice.text);
+            if !choice.abbreviation.is_empty() {
+                self.learner
+                    .unrecord_choice(&choice.abbreviation, "", &choice.text);
+            }
         }
         for transition in &last.transitions {
             self.learner.unrecord_transition(
@@ -471,6 +488,10 @@ impl Engine {
         if let Some((key, choice)) = &last.phrase {
             self.learner
                 .unrecord_choice(key, &choice.reading, &choice.text);
+            if !choice.abbreviation.is_empty() {
+                self.learner
+                    .unrecord_choice(&choice.abbreviation, "", &choice.text);
+            }
         }
     }
 
@@ -636,6 +657,10 @@ impl Engine {
         let Some(previous) = self.chain.previous().map(str::to_owned) else {
             return;
         };
+        // 同一个词连打几遍（试输入、强调）不是在造新词：屎山 + 屎山 不合成 屎山屎山
+        if previous == text {
+            return;
+        }
         let joined = format!("{previous}{text}");
         let chars = joined.chars().count();
         let mut joined_syllables = self.chain.previous_syllables().to_vec();
@@ -666,6 +691,22 @@ impl Engine {
         self.learner
             .learn_word(&candidate.text, &candidate.syllables);
         self.learner.record(&candidate);
+    }
+
+    /// 选了一个多音节词时它的简拼记录键（[`ABBREVIATION_CHOICE_PREFIX`] + 各音节首字母）：用全拼选过的词，
+    /// 下次打简拼也排在前面（`shishan` 选过 屎山，`ss` 也排它在前）。和真在简拼下的选择分开记：
+    /// 在 `zj` 下选过 自己 的不被全拼选的 直接 盖过，`cd` 原样上屏的英文也不被全拼选的 才对 挤到后面。
+    /// 只有全拼这样记：双拼、注音、九宫格的同一串键是别的意思；不足两个音节或就是敲的那串键时为空串。
+    pub(super) fn abbreviation_key(&self, syllables: &[String], input: &str) -> String {
+        if syllables.len() < 2 || self.shuangpin.is_some() || self.zhuyin || self.nine_key {
+            return String::new();
+        }
+        let key: String = syllables.iter().filter_map(|s| s.chars().next()).collect();
+        if key == input {
+            String::new()
+        } else {
+            format!("{ABBREVIATION_CHOICE_PREFIX}{key}")
+        }
     }
 
     /// 用户词（自造词、接受过的云端词）里有这个词（同音节）。
