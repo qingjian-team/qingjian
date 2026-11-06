@@ -4,6 +4,9 @@
 mod entry;
 mod kind;
 
+#[cfg(all(test, target_os = "linux"))]
+mod tests;
+
 pub use entry::Entry;
 pub use kind::Kind;
 

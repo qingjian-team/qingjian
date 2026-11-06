@@ -42,6 +42,9 @@ impl Engine {
 
     /// 设双拼键位（内置或用户方案），`None` 回到全拼。纠错缓存按作用域记而作用域的含义变了，一并清掉。
     pub fn set_shuangpin_layout(&mut self, layout: Option<Arc<Layout>>) {
+        if self.shuangpin != layout {
+            self.chain.clear_code_words();
+        }
         self.shuangpin = layout;
         *self.correction_cache.borrow_mut() = None;
     }
@@ -134,10 +137,25 @@ impl Engine {
     /// 学习开关（`[general] learning`）：关掉后不再记词频、用户词、个人 n-gram 与敲错表，已学的照常参与排序；
     /// 私密输入是另一个独立的开关（[`Self::set_private`]）。
     pub fn set_learning(&mut self, enabled: bool) {
-        self.learner.set_disabled(!enabled);
+        if self.learner.set_disabled(!enabled) {
+            self.chain.clear_code_words();
+        }
+    }
+
+    /// 全局自动组词；只控制新词创建，不影响已有词与词频学习。
+    pub fn set_auto_phrase(&mut self, enabled: bool, max_chars: usize) {
+        let max_chars = max_chars.clamp(2, 10);
+        if self.auto_phrase != enabled || self.auto_phrase_max_chars != max_chars {
+            self.chain.reset();
+        }
+        self.auto_phrase = enabled;
+        self.auto_phrase_max_chars = max_chars;
     }
 
     pub fn set_zhuyin_mode(&mut self, on: bool) {
+        if self.zhuyin != on {
+            self.chain.clear_code_words();
+        }
         self.zhuyin = on;
         self.forget_span_cache();
     }
@@ -149,6 +167,9 @@ impl Engine {
 
     /// 九宫格方案开关（手机 9 键）。与双拼、注音一样是输入方案，不是模式。
     pub fn set_nine_key(&mut self, on: bool) {
+        if self.nine_key != on {
+            self.chain.clear_code_words();
+        }
         self.nine_key = on;
         self.forget_span_cache();
     }
@@ -172,6 +193,7 @@ impl Engine {
 
     /// 换形码方案，`None` 回到拼音的诸方案。编码与拼音是两套键，纠错缓存一并清掉。
     pub fn set_code_scheme(&mut self, scheme: Option<CodeScheme>) {
+        self.chain.reset();
         self.code = scheme;
         *self.correction_cache.borrow_mut() = None;
         self.forget_span_cache();
@@ -203,6 +225,9 @@ impl Engine {
     /// 拼音侧参不参与查询。形码开着时把它关掉就是「只用形码」（`[general] scheme = "none"`）；
     /// 两边都开是混输，见 [`Self::set_code_scheme`] 与 `query_mixed`。
     pub fn set_phonetic(&mut self, on: bool) {
+        if self.phonetic != on {
+            self.chain.reset();
+        }
         self.phonetic = on;
         *self.correction_cache.borrow_mut() = None;
         self.forget_span_cache();

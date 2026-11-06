@@ -66,14 +66,13 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         }
     };
     engine.set_fuzzy(config.fuzzy);
-    engine.set_shuangpin(config.general.shuangpin());
     engine.set_shuangpin_raw_preedit(config.general.shuangpin_raw_preedit);
     engine.set_shuangpin_full_pinyin(config.general.shuangpin_full_pinyin);
     engine.set_hold_selections(config.general.hold_selections);
     engine.set_context_memory(config.model.context_memory_seconds);
-    engine.set_zhuyin_mode(config.general.is_zhuyin());
     engine.set_shift_letter_compose(config.general.shift_letter.compose());
     engine.set_learning(config.general.learning);
+    engine.set_auto_phrase(config.auto_phrase.enabled, config.auto_phrase.max_chars);
     engine.set_chinese_first(config.general.chinese_first);
     engine.set_spelling_correction(config.general.spelling_correction);
     engine.set_emoji_limit(usize::from(config.general.emoji.get()));

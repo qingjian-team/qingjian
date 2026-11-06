@@ -4,7 +4,9 @@ order: 6
 description: "Typing with shape-based codes such as Wubi (86 edition): turning it on, short codes and automatic commit, commit-on-next-code, the radical chart, and mixed input with Wubi and pinyin on together."
 ---
 
-Shape-based input is supported on macOS and Windows (Android has its own Wubi keyboard); not yet on Linux.
+Shape-based input is supported on macOS, Windows and Linux (Android has its own Wubi keyboard). Fcitx5, Fcitx4 and IBus share the same schemes and key rules on Linux.
+
+Linux reloads schemes, code tables and enabled Wubi dictionaries within about a second. Effective scheme changes cancel uncommitted input in all contexts; unrelated settings do not. Missing or unreadable schemes fall back to pinyin. Root charts and key hints remain unavailable on Linux.
 
 ## Turning it on
 
@@ -12,6 +14,10 @@ Under 设置 → 输入 → 形码 (Settings → Input → Shape-based), choose 
 
 - **Wubi only**: set 拼音 (Pinyin) on the same page to 关 (Off).
 - **Wubi–pinyin mixed input**: leave the pinyin scheme on; see [Mixed input](#Mixed-input) below.
+
+## Automatic phrases
+
+Settings → Input → Automatic phrases controls learning and maximum length (2–10 Chinese characters, default: 4). Wubi learns a new combination on its first consecutive input, using full character codes regardless of shortcuts. For four or more characters it takes the first code letter of the first three and last characters. Pinyin shares the settings but retains its 2- or 3-repetition thresholds; see [Automatic phrases](../personalize/dictionaries.md#Automatic-phrases).
 
 ## Typing
 

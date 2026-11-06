@@ -42,7 +42,11 @@ impl Session {
                 .inspect_err(|error| {
                     tracing::error!(%error, path = %self.code_table.display(), "五笔码表读取失败，仍用拼音");
                 })
-                .map(|table| CodeScheme::new(WUBI_LOG_KEY, table))
+                .map(|table| {
+                    let mut scheme = CodeScheme::new(WUBI_LOG_KEY, table);
+                    scheme.wubi_phrases = true;
+                    scheme
+                })
                 .ok()
         } else {
             None

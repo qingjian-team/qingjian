@@ -52,6 +52,17 @@ On Windows, numpad digits also pick candidates by default. Set 小键盘数字 (
 When the cursor is in the middle of the pinyin, candidates are based only on the pinyin before the cursor (`ni|hao` gives 你); after committing, the rest of the pinyin stays and the cursor moves to the end.
 A few keys differ with Dachen Zhuyin and Wubi; see [Pinyin schemes and fuzzy pinyin](../input/fuzzy-and-shuangpin.md#Dachen-Zhuyin) and [Wubi and mixed input](../input/wubi.md).
 
+## Pure Wubi
+
+| Action | macOS, Windows, Linux |
+|---|---|
+| Commit highlighted candidate / candidate N | `Space` / `1` to `9` |
+| Auto-commit a unique full code | On by default; can be disabled in Settings |
+| Type another letter after a full code | Commit the highlight and start the next code; commit-on-next-code can be disabled |
+| Clear an unmatched code / keep raw letters | `Space` or punctuation clears it; `Enter` commits raw letters |
+
+Automatic commits apply only to pure shape-based input, not mixed input. See [Wubi and mixed input](../input/wubi.md).
+
 ## In the symbol panel
 
 | Action | Keys |

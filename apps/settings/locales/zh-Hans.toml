@@ -191,6 +191,12 @@ import_info = "支持 TSV、Rime .dict.yaml、只有词的表和 .qj，可以多
 section_imported = "导入的词库"
 
 [input]
+section_auto_phrase = "自动组词"
+auto_phrase = "自动学习新词"
+auto_phrase_info = "拼音同段连续选词重复 2 次、分开输入重复 3 次后学习；五笔首次连续输入即学习。关闭不删除已学词，不影响词频学习；学习总开关和私密输入优先。"
+auto_phrase_length = "最大词长"
+auto_phrase_length_info = "最多 2～10 个汉字，拼音和五笔共用；不改变五笔编码长度。"
+phrase_chars = "{n} 字"
 missing = "{id}（找不到）"
 pinyin = "拼音"
 pinyin_info = "双拼下表达式和问字用 Shift + V、Shift + U"

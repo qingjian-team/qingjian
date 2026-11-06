@@ -16,6 +16,17 @@ The core dictionary has 130,000 entries, and a general dictionary and 11 topic d
 The core dictionary includes 36,000 rare characters (extended characters outside the standard character table, plus characters rarely used in Taiwan). They can be typed in pinyin, come last among characters with the same sound, and aren't used in sentences:
 `fiao` gives 覅, `biangbiangmian` gives 𰻝𰻝面. Characters missing from the system fonts are shown as boxes.
 
+## Automatic phrases
+
+Settings → Input → Automatic phrases provides a learning switch and a maximum length of 2–10 Chinese characters (default: 4), shared by Pinyin, Shuangpin, Wubi and mixed input.
+
+- Consecutive picks from the same Pinyin composition learn a phrase after 2 repetitions; words typed in separate compositions require 3 repetitions.
+- Wubi learns consecutive committed words on the first occurrence. Phrase codes use full character codes even when you type shortcuts. A phrase of up to 10 characters still uses four letters. Only complete committed words are combined.
+- Punctuation, English, raw commits, focus changes and edits interrupt Wubi phrase formation. Mixed input keeps Pinyin readings separate from Wubi codes.
+- Turning automatic phrases off keeps learned words and frequency-based ranking. Disabling learning or using private input prevents new phrase learning.
+
+Custom code schemes must explicitly declare compatible Wubi phrase rules. Android uses the same learning rules; its settings do not yet offer separate automatic-phrase controls.
+
 ## Importing your own dictionaries
 
 设置 → 词库 → 导入词库 (Settings → Dictionaries → Import dictionary) lets you select several files at once and accepts five kinds:
@@ -49,4 +60,4 @@ Each line of a Wubi dictionary is "word, code, frequency", separated by tabs; th
 - Imported words are used together with the bundled Wubi code table; you don't need to replace the whole table. Words with the same code are ranked by frequency, so give your words a higher frequency if you want them first.
 - The dictionary belongs to the scheme selected under 设置 → 输入 → 形码 (Settings → Input → Shape-based) when you import it (Wubi, if shape-based input is off). It's inactive under other shape-based schemes and works again when you switch back.
 - The list shows the scheme name after the dictionary name, for example 我的五笔词（五笔（86））, and it can be turned on, off and removed like a pinyin dictionary.
-- Supported on macOS and Windows; Linux and Android can't import Wubi dictionaries yet.
+- Supported on macOS, Windows and Linux; Android can't import Wubi dictionaries yet. Imports, edits and deletions take effect within about a second on Linux.

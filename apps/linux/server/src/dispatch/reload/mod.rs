@@ -37,7 +37,10 @@ impl Router {
         root: PathBuf,
         user_dir: PathBuf,
     ) {
+        self.apply_schemes(config, &root, &user_dir);
         let mut reload = ConfigReload {
+            applied_config: config.clone(),
+            scheme_files: Vec::new(),
             last_mtime: mtime(&config_path),
             config_path,
             last_check: Instant::now(),
@@ -50,6 +53,7 @@ impl Router {
             applied_language: assembly::learning_language(config),
         };
         reload.dictionary_files = reload.dict_snapshot();
+        reload.scheme_files = reload.scheme_snapshot();
         self.reload = Some(reload);
     }
 
@@ -69,23 +73,34 @@ impl Router {
             reload.dictionary_files = files;
         }
         let current = mtime(&reload.config_path);
-        if current == reload.last_mtime {
+        let changed = current != reload.last_mtime;
+        reload.last_mtime = current;
+        let files = reload.scheme_snapshot();
+        let schemes_changed = files != reload.scheme_files;
+        reload.scheme_files = files;
+        if !changed && !schemes_changed {
             return;
         }
-        reload.last_mtime = current;
-        match Config::load(&reload.config_path) {
-            Ok(config) => {
-                self.apply_config(&config);
-                tracing::info!("配置已热加载");
+        let path = reload.config_path.clone();
+        let applied = reload.applied_config.clone();
+        let root = reload.root.clone();
+        let user_dir = reload.user_dir.clone();
+        if changed {
+            match Config::load(&path) {
+                Ok(config) => {
+                    self.apply_config(&config);
+                    tracing::info!("配置已热加载");
+                    return;
+                }
+                Err(error) => tracing::error!(%error, "配置热加载解析失败，保持原配置"),
             }
-            Err(error) => tracing::error!(%error, "配置热加载解析失败，保持原配置"),
         }
+        self.apply_schemes(&applied, &root, &user_dir);
     }
 
     /// 应用新配置，项目与 `main.rs` 启动时设的一致。
     fn apply_config(&mut self, config: &Config) {
         self.engine.set_fuzzy(config.fuzzy);
-        self.engine.set_shuangpin(config.general.shuangpin());
         self.engine
             .set_shuangpin_raw_preedit(config.general.shuangpin_raw_preedit);
         self.engine
@@ -94,10 +109,11 @@ impl Router {
             .set_hold_selections(config.general.hold_selections);
         self.engine
             .set_context_memory(config.model.context_memory_seconds);
-        self.engine.set_zhuyin_mode(config.general.is_zhuyin());
         self.engine
             .set_shift_letter_compose(config.general.shift_letter.compose());
         self.engine.set_learning(config.general.learning);
+        self.engine
+            .set_auto_phrase(config.auto_phrase.enabled, config.auto_phrase.max_chars);
         self.engine.set_chinese_first(config.general.chinese_first);
         self.engine
             .set_spelling_correction(config.general.spelling_correction);
@@ -132,6 +148,8 @@ impl Router {
         let Some(mut reload) = self.reload.take() else {
             return;
         };
+        self.apply_schemes(config, &reload.root, &reload.user_dir);
+        reload.applied_config = config.clone();
         if config.predict != reload.applied_predict {
             let usage_path = Some(reload.user_dir.join(API_USAGE_FILE));
             self.reload_cloud(&config.predict, usage_path);

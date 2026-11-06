@@ -17,7 +17,7 @@ use crate::{Config, DictionariesConfig, Scheme, scheme_label, scheme_name};
 type Stamp = Vec<(Option<SystemTime>, u64)>;
 
 /// 当前装上的用户双拼方案与形码方案（含码表文件的指纹）；没选或没装上为 `None`。
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct SchemeSlot {
     shuangpin: Option<ShuangpinSchemeEntry>,
 
@@ -153,9 +153,13 @@ impl SchemeSlot {
     }
 }
 
-/// 换了这几项才要重读码表；只改规则不用。
+/// 换了码表或组词规则才重装方案；只改按键规则不用。
 fn same_table(a: &CodeSchemeEntry, b: &CodeSchemeEntry) -> bool {
-    a.id == b.id && a.table == b.table && a.words == b.words && a.code_length == b.code_length
+    a.id == b.id
+        && a.table == b.table
+        && a.words == b.words
+        && a.code_length == b.code_length
+        && a.phrase_rule == b.phrase_rule
 }
 
 /// 形码词库与拼音词库共用 `[dictionaries] disabled`，按文件名开关。

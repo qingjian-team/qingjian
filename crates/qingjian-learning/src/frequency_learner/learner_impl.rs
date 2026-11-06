@@ -1,6 +1,11 @@
 //! `Learner` trait 的实现：Engine 上屏 / 撤销 / 删候选时调进来的记账。
 
-use super::*;
+use super::decay::Decay;
+use super::{FrequencyLearner, MAX_CHOICE_ENTRIES, MAX_DEMOTION, RAW_MARK};
+use foldhash::HashMap;
+use qingjian_core::sentence::{Context, UserNgram};
+use qingjian_core::{Candidate, Forgotten, Learner};
+use qingjian_dictionary::{CodeTable, Dictionary, WordList};
 
 /// 这次选择要不要在读音键上另记一份：换个打法（`wod` / 双拼对全拼读音）也认账。
 /// 候选盖满整段时读音与字面相同，只记一份；单字母简拼不泛化——那里翻页选词的意图太弱，
@@ -130,6 +135,14 @@ impl Learner for FrequencyLearner {
         self.user_dictionary.as_ref()
     }
 
+    fn learn_code_word(&mut self, scheme: &str, text: &str, code: &str) {
+        self.code_words.learn(scheme, text, code);
+    }
+
+    fn user_code_words(&self, scheme: &str) -> Option<&CodeTable> {
+        self.code_words.table(scheme)
+    }
+
     fn learn_english(&mut self, word: &str) {
         if word.is_empty() {
             return;
@@ -210,7 +223,10 @@ impl Learner for FrequencyLearner {
     }
 
     fn forget(&mut self, text: &str) -> Forgotten {
-        let mut forgotten = Forgotten::default();
+        let mut forgotten = Forgotten {
+            user_word: self.code_words.forget(text),
+            ..Forgotten::default()
+        };
         if self.words.remove(text).is_some() {
             forgotten.user_word = true;
             self.words_dirty = true;
@@ -290,6 +306,13 @@ impl Learner for FrequencyLearner {
                 }
                 Err(error) => tracing::warn!(path = %path.display(), %error, "用户词频保存失败"),
             }
+        }
+        if self.code_words.dirty
+            && let Err(error) = self
+                .code_words
+                .save(&path.with_file_name("user-code-words.tsv"))
+        {
+            tracing::warn!(%error, "形码用户词保存失败");
         }
         if self.words_dirty {
             let words_path = Self::words_path(&path);

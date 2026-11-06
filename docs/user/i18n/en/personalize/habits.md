@@ -10,7 +10,7 @@ Qingjian remembers your typing habits so that words you use often rank higher. E
 
 - Words you've picked, and which word you picked for a given stretch of pinyin; a word picked by its full pinyin also counts as picked for its abbreviation (pick 屎山 for `shishan` and it comes first for `ss` too).
 - Which words you tend to type together, which sentence conversion adjusts to.
-- Words you've created: when you pick a stretch of pinyin in several steps (`shishan`: first 屎, then 山) and the result isn't in the dictionary, it's saved as one word right away, and next time it comes first for `shishan` and for the abbreviation `ss`; whole sentences work the same way (up to 20 characters): after picking 晓铭去了学校 piece by piece for `xiaomingqulexuexiao`, the same full pinyin or the sentence abbreviation `xmqlxx` brings it up first. Two words picked one after the other across separate inputs are saved as one word after you've picked them a few times.
+- Words you've created: when you pick a stretch of pinyin in several steps (`shishan`: first 屎, then 山) and the result isn't in the dictionary, two repetitions save it as one word; it is then prioritized for `shishan` and the abbreviation `ss`. Consecutive words typed in separate inputs require three repetitions. Pinyin and Wubi share the switch and maximum length in Settings → Input → Automatic phrases: 2–10 Chinese characters, default 4. See [Automatic phrases](dictionaries.md#Automatic-phrases).
 - AI candidates you've picked (recorded by the reading you typed).
 - English words you've committed as typed.
 - Spelling corrections you've accepted; see [Sentences, abbreviations and correction](../input/sentence.md#Remembering-habitual-typos).

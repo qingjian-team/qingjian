@@ -175,7 +175,12 @@ mac 存在 `Session::spelling`（`Host::follow_highlight`）、Windows / Linux �
   也不能读成「拼音头 + 英文尾」——打不出来时整串上屏的失败拼音学进去会反过来堵住混输那条路，越打不出来学得越多）、
   个人敲错表（`user-typos.tsv`，接受过的 (敲的, 要的) 音节对，词图敲错边与整段纠错的代价按它打折）与个人 n-gram（`user-ngram.tsv`，Core `sentence::UserNgram`，
   二元 + 三元在线计数，整句转换与词级排序里与静态模型插值；Tab 接受的云端整句按 `sentence::segment_text` 切词后也记；
-  连着选出的两个词记够次数自动造词进用户词：同一段拼音里连着选出的 `AUTO_WORD_THRESHOLD_SAME_BUFFER` = 1 次就造、分两段打的 `AUTO_WORD_THRESHOLD` = 3 次，一段拼音分几次选完的合成词也是一次就造，不超过 `BUFFER_PHRASE_MAX_CHARS` = 20 字（整句记忆：长句也记成用户词，下次全拼与整句简拼按用户词排第一；前后两词自动合成的仍限 `AUTO_WORD_MAX_CHARS` = 4 字）；造词同时记一次选择（`record`），整句词图里也认它）。
+  连着选出的两个词记够次数自动造词进用户词，一段拼音分几次选完的合成词记两次也造）。
+  自动组词用全局 `[auto_phrase]`（默认开启、4 字，2～10 字），`Engine::set_auto_phrase` 同时约束相邻词与整段拼音路径，拼音原有 2/3 次阈值不变。
+  五笔方案显式声明 `phrase_rule = "wubi86"`；`CodeScheme::phrase_code` 从 `CodeTable` 缓存的最长单字码取 2+2 / 1+1+2 / 前三字与末字首码。
+  `CommitChain` 的有界形码窗口只组合完整上屏词，首次连续输入即学，拼音与形码来源隔离；编辑、标点、焦点/会话与方案切换打断窗口。
+  `FrequencyLearner` 的 `code_words` 独立保存 `user-code-words.tsv`（方案键、词、编码），查询合并静态表与按方案用户表并去重，满码唯一判断也查用户表；一级简码顺序不变。
+  新词增量插入有序码表，不在每次上屏重建全部用户表；删除走 `Learner::forget`，文件纳入 `FrequencyLearner::files` 导出/清空。隐私与学习总开关由 `MutedLearner` 拦截写入。
   全拼选一个多音节词时选择按简拼另记一份，键是 `^` + 各音节首字母（`Engine::abbreviation_key`，`LastCommit` 的 `Choice::abbreviation` 撤销时一起退；双拼、注音、九宫格不记），`shishan` 选过的词 `ss` 也排前；和真在那串键下的选择分开：排序用的选择次数里真选过的一次顶 `CHOICE_TIERS` = 1024 次简拼另记的，中英文谁在前也不看它（混在一起时冻结回放 `cd` / `kl` / `qq` 的英文被全拼选过的 才对 / 看来 / 全球 挤到第二，`zj` 下选过的 自己 被 直接 盖过）；前后两个相同的词不自动合成（屎山 + 屎山）。多音节输入的首音节单字与其余候选分开排、单独留 `FIRST_SYLLABLE_CHARS_KEPT` = 100 个（`ss` 的两字词几万条，合在一起按覆盖字母数预选会把单字全砍掉）。这串键下选过的词不进预选、并按主词库的词排（`ss` 选过的 屎山 在知意词表里、低主词库一档，预选会被砍掉，排序先比是不是主词库也会排在几千个两字词后面被截掉），预选后并回来再排一次。`arrange` 里首音节其余单字之前的词封顶 `WORDS_BEFORE_ALL_SINGLE_CHARS` = 30 个（含单字前那 6 个），再多的排到全部单字之后：简拼 `ss` 不封顶时单字要翻五十多页；30 按输入日志定，冻结日志与一份本机日志共一万四千条多音节选词没有一条在第 30 位以后（最靠后第 29 位，99% 在前 4 位）。
   用户词在词级排序里当作「这串键下选过一次」：盖住整段、不靠拆开音节读出的用户词 `weight` 至少 1（`query/phonetic.rs`），简拼 `ss` 几万条命中时预选不会把它砍掉；其中按选过次数取头 `USER_WORDS_BEFORE_SINGLES` = 5 个选择次数也至少 1，不占 `WORDS_BEFORE_SINGLE_CHARS` 的名额、排在没选过的词前面，其余的照常占名额（简拼对得上十几个自造词时单字不被挤后）；词级排第一、盖住整段的用户词排在整句与生成的整句前面（`insert_sentence`，`shishan` 的 屎山 不再排在 是山 后面，整句记忆的 `xmqlxx` 不排在通变生成的 下面请来学习 后面），除非排第一的整句在这串键下选得更多；词库里的词不这样，冻结回放里同一串键这次要词还是要整句常随上下文变（`shiyong` 选过 使用，这次要 是用），一律让词在前整句首选少十几条。
   候选右键菜单的降权记在 `user-demoted.tsv`（`frequency_learner/demotions.rs`，输入串 → 词 → 降了几次，封顶 99，不衰减），私密输入与关学习时照记。
@@ -719,6 +724,12 @@ Windows 可选的 `[shortcut] toggle_punctuation` 经 `InputSettings` 下发，�
   2026-09-20 实测：词库 92,821 词条 / 91,904 词，有码 91,773、无码跳过 131，码表 91,773 条 / 3.0 MB。
 
 ## apps/linux
+
+Fcitx5 的输入法与插件描述均启用配置入口，`settings/` 通过唯一的 `ExternalOption` 交给框架配置工具直接启动青简设置。按已加载插件的位置向上查找同前缀的 `bin/qingjian-settings`（兼容用户安装与系统多架构目录），找不到时按 PATH 启动；命令按 Qt 配置工具的参数解析规则处理空格与引号，不经过 shell。
+
+直接启动依赖配置工具支持跳过唯一 ExternalOption 的中间页（上游 fcitx5-configtool 提交 `8b853b11a32a`）。本机 Ubuntu 24.04 的 `fcitx5-config-qt 5.1.4` 仍显示中间页；D-Bus 配置描述与插件测试通过不代表该旧 GUI 会直接启动，验证时需实际点击配置工具。
+
+形码与自制双拼通过共用 `SchemeSlot` 装配（`dispatch/schemes/`），启动和配置热加载同路；纯形码字母键复用 Core 的 `code_tops` / `commit_unique_code`。配置、方案描述、码表与导入词库的逐文件快照每秒检查一次，坏配置使用最后有效配置。有效方案变化会静默取消所有上下文的未提交输入，停止翻译 / 重排，失效候选展示身份；无关设置不取消输入。安装与发行资源共用 `files.py`，携带 `assets/schemes`（含原始许可证），卸载保留个人方案。验证与限制见 [linux-wubi.md](linux-wubi.md)。
 
 `qingjian-linux-server` 为独立产品，装配本地 Engine、词库、释义、频率学习、个人 n-gram、词汇记录与可选输入日志，
 本地整句模型优先加载用户 `~/.local/share/qingjian/models/hanzhang-tongbian/` 或随包 `data/models/hanzhang-tongbian/`（Linux 继续随包，还没接下载）；含章·知微已下线，不再回退；旧用户目录 `model-p2c/` 兼容读取。按 `[model] enabled` 在后台加载、停键 80 ms 后重排、20 ms 轮询（Windows Server 的 `dispatch/rescore` 已改成 30 ms 防抖 + 后台叫醒，这里还没跟）；云联想按 `[predict]` 接入，用量累计到用户目录的 `api-usage.json`（设置统计页读同一份），释义兜底与生词本整句翻译随 `enabled` 一起接，结果由 `tick` 里的 `poll_glosses` 收。配置热加载在 `dispatch/reload`：`tick` 每秒看 `config.toml` mtime 与用户 `dicts/` 快照，`[predict]` / `[model]` / `[dictionaries]` / 学习语言按变化重建，其余无条件重设；`preedit`、`input_log` 仍要重启。`dispatch/session` 交换每个上下文的 EngineSession；真正的能力变化丢弃输入，普通焦点切换隔离保存。
