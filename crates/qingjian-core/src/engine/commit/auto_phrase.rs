@@ -4,7 +4,10 @@ use crate::{Engine, Learner};
 
 impl Engine {
     pub(super) fn learn_code_phrase(&mut self, text: &str) {
-        if !self.auto_phrase || !self.code.as_ref().is_some_and(|scheme| scheme.wubi_phrases) {
+        if !self.auto_phrase
+            || self.is_contact(text)
+            || !self.code.as_ref().is_some_and(|scheme| scheme.wubi_phrases)
+        {
             self.chain.clear_code_words();
             return;
         }
