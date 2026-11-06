@@ -52,21 +52,6 @@ impl Engine {
                 let alternates = !self.scope_is_english_word();
                 let sentences = self.plain_sentence(items, best, typos, alternates);
                 let position = leading_english(items);
-                // 这串键下选过、盖住整段的用户词（逐字选出的自造词）排在整句前面，除非整句选得更多：
-                // 词库里的词不这样，同一串键这次要词还是要整句由上下文定（`shiyong` 选过 使用，这次要 是用）
-                let letters = choice_key(keys, keys.len());
-                let sentence_choice = sentences
-                    .first()
-                    .map_or(0, |s| self.learner.choice_weight(&letters, &s.text));
-                let chosen = items
-                    .get(position)
-                    .filter(|c| {
-                        c.kind == CandidateKind::Chinese
-                            && c.syllables.len() == best.syllables.len()
-                            && self.is_user_word(c)
-                            && self.learner.choice_weight(&letters, &c.text) > sentence_choice
-                    })
-                    .map(|c| c.text.clone());
                 // 词图读不通整段时模型直接生成的整句排在词图那几条前面：这时词图给的是把英文段
                 // 硬读成拼音的结果（`yongdockerbushuhenfangbian` → 用的哦乘客仍不熟很方便），排它前面没有可惜的
                 // `typos` 为假就是拼写纠错已经生效（见调用处），那时 `best` 是纠正后的切分
@@ -106,10 +91,20 @@ impl Engine {
                         kept <= SENTENCE_CANDIDATES
                     });
                 }
-                let position = position
-                    + usize::from(
-                        chosen.is_some() && items.get(position).map(|c| &c.text) == chosen.as_ref(),
-                    );
+                // 词级排第一、盖住整段的用户词（逐字选出的自造词、整句记忆）排在整句与生成的整句前面，
+                // 除非排第一的整句在这串键下选得更多：简拼 `xmqlxx` 的 晓铭去了学校 没在这串键下选过，也不该排在 下面请来学习 后面。
+                // 词库里的词不这样，同一串键这次要词还是要整句由上下文定（`shiyong` 选过 使用，这次要 是用）
+                let letters = choice_key(keys, keys.len());
+                let lead_choice = ordered
+                    .first()
+                    .map_or(0, |s| self.learner.choice_weight(&letters, &s.text));
+                let user_word_first = items.get(position).is_some_and(|c| {
+                    c.kind == CandidateKind::Chinese
+                        && c.syllables.len() == best.syllables.len()
+                        && self.is_user_word(c)
+                        && self.learner.choice_weight(&letters, &c.text) >= lead_choice
+                });
+                let position = position + usize::from(user_word_first);
                 for (offset, candidate) in ordered.into_iter().enumerate() {
                     items.insert((position + offset).min(items.len()), candidate);
                 }
