@@ -53,6 +53,7 @@ description: 青简的全部设置保存在一个文本配置文件里：位置�
 | `[shortcut] extra_candidate_navigation` | 快捷键 → Emacs 风格候选键（macOS） | `false`（默认）或 `true` |
 | `[shortcut] highlight_keys` | 快捷键 → 高亮移动键 | 上下或左右 |
 | `[shortcut] toggle_punctuation` | 快捷键 → Ctrl + . 切换全半角标点 | 空串为关闭，`"ctrl+."` 为 Ctrl + 句号；也可写成修饰键加字母、数字或句号，如 `"ctrl+shift+."` |
+| `[shortcut] single_chars` | 快捷键 → 单字模式快捷键 | 打拼音时按它候选只列单字，再按一次恢复，上屏后自动恢复；缺省 `"ctrl+d"`，空串为关闭，也可写成修饰键加字母或数字。只在打字时拿走这个组合。只有 Windows 用 |
 | `[shortcut] toggle_traditional` | 快捷键 → Ctrl + Shift + F 切换简繁输出 | 空串为关闭（缺省），`"ctrl+shift+f"` 为 Ctrl + Shift + F；也可写成修饰键加字母或数字。只有 Windows 用 |
 | `[clipboard] enabled`、`edge` | 实验功能 → 青简剪贴板 | `enabled` 缺省 `false`；`edge`：`top`、`bottom`（缺省）、`left`、`right` |
 | `[clipboard] history_limit` | 实验功能 → 最多保留 | 缺省 `1000`，超了删最旧的；改小会立刻删 |

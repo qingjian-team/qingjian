@@ -377,6 +377,8 @@ system_text_replacements = true
 toggle_punctuation = ""
 # Windows：在简体与上次用的繁体字形之间切换；空串禁用，可设为 "ctrl+shift+f" 或其他修饰键加字母、数字
 toggle_traditional = ""
+# Windows：组句中只看单字，再按一次恢复，上屏完自动回到正常候选；只在打字时拿走这个组合。空串禁用
+single_chars = "ctrl+d"
 # Windows：主翻页键之外同时启用的键对，可多选，如 ["[]", ",.", "-="]
 extra_page_keys = []
 # 前缀模式键，只能是 v / u / i 之一且互不相同（这三个字母不是任何拼音音节的开头）

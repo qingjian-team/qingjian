@@ -20,11 +20,13 @@
 
 mod first_page;
 mod scored;
+mod single_chars;
 
 use std::collections::HashSet;
 
 pub use first_page::{FIRST_SINGLE_CHAR_BY, keep_single_char_on_first_page};
 pub use scored::{PreselectKey, Scored, SortKey};
+pub use single_chars::keep_only_single_chars;
 
 /// 用户选择次数的加分系数：加分 = 系数 × ln(1 + min(次数, [`WEIGHT_CAP`]))。
 /// 这个加分只负责「同音词里偏向用户常选的那个」，所以既取对数又封顶（最多约 1.5 分，e^1.5 ≈ 4.5 倍），

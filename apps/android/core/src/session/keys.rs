@@ -153,6 +153,12 @@ impl Session {
         self.refresh(raw)
     }
 
+    /// 展开面板的「全部 / 单字」：切换单字模式（#848），只管这一段组句；没在组句时不变。
+    pub fn toggle_single_chars(&mut self) -> Frame {
+        self.engine.toggle_single_chars();
+        self.refresh(String::new())
+    }
+
     /// 清空组句（九宫格的「重输」）。
     pub fn clear(&mut self) -> Frame {
         if let Some(kana) = &mut self.kana {

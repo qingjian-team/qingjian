@@ -147,8 +147,8 @@ class InputPanel(
     }
 
     /** 候选展开开着时换上这一帧的拼音与候选。 */
-    fun showCandidates(preedit: String, candidates: List<Candidate>) {
-        (panelView as? CandidateGrid)?.show(preedit, candidates)
+    fun showCandidates(preedit: String, candidates: List<Candidate>, singleChars: Boolean) {
+        (panelView as? CandidateGrid)?.show(preedit, candidates, singleChars)
     }
 
     /** 回到键盘；没开面板时什么都不做。 */

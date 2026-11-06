@@ -7,7 +7,7 @@ use bamboo_slip::{
     paragraph, section_title,
 };
 use qingjian_core::ModeKeys;
-use qingjian_platform::{HighlightKeys, PAGE_KEY_OPTIONS};
+use qingjian_platform::{HighlightKeys, KeyCombo, PAGE_KEY_OPTIONS};
 
 use crate::i18n::tr;
 use crate::message::Message;
@@ -134,6 +134,38 @@ pub fn shortcuts(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Rende
             tr("shortcuts.translate_panel_info"),
             false,
         )?);
+    }
+    if Feature::SingleChars.here() {
+        let enabled = config.shortcut.single_chars.is_some();
+        let switch = bamboo_slip::Switch::new(enabled).build(
+            ui,
+            theme,
+            "single-chars",
+            Message::set(
+                "shortcut",
+                "single_chars",
+                if enabled {
+                    String::new()
+                } else {
+                    KeyCombo::SINGLE_CHARS_DEFAULT.key_string()
+                },
+            ),
+        )?;
+        rows.push(
+            SettingRow::new(tr("shortcuts.single_chars"))
+                .info(tr("shortcuts.single_chars_info"))
+                .control(switch)
+                .build(ui, theme)?,
+        );
+        if enabled {
+            rows.push(recorder(
+                ui,
+                page,
+                Shortcut::SingleChars,
+                tr("shortcuts.single_chars_key_info"),
+                false,
+            )?);
+        }
     }
     out.push(section_title(
         ui,

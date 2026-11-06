@@ -43,6 +43,15 @@ pub extern "system" fn Java_app_qingjian_inputmethod_core_Native_select<'local>(
 }
 
 #[unsafe(no_mangle)]
+pub extern "system" fn Java_app_qingjian_inputmethod_core_Native_toggleSingleChars<'local>(
+    env: JNIEnv<'local>,
+    _this: JObject<'local>,
+    handle: jlong,
+) -> jstring {
+    frame(env, handle, Session::toggle_single_chars)
+}
+
+#[unsafe(no_mangle)]
 pub extern "system" fn Java_app_qingjian_inputmethod_core_Native_moveCaret<'local>(
     env: JNIEnv<'local>,
     _this: JObject<'local>,

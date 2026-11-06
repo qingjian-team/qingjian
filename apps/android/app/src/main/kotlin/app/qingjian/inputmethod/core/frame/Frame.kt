@@ -15,6 +15,8 @@ data class Frame(
     val candidates: List<Candidate>,
     /** 组句处在算式（`v1+2`）或码点里：数字与运算符进缓冲区，换数字键盘不顶首选。 */
     val expression: Boolean,
+    /** 这段组句在单字模式：候选只有单字，展开面板的「单字」标签亮着。 */
+    val singleChars: Boolean = false,
 ) {
     companion object {
         val EMPTY = Frame("", 0, "", "", emptyList(), emptyList(), false)
@@ -42,6 +44,7 @@ data class Frame(
             return Frame(
                 root.getString("commit"), root.optInt("replace"), root.getString("preedit"), root.getString("notice"),
                 List(choices.length(), choices::getString), candidates, root.optBoolean("expression"),
+                root.optBoolean("single_chars"),
             )
         }
 

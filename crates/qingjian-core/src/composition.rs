@@ -1,6 +1,6 @@
 //! 输入状态机：拼音缓冲区与光标。
 //!
-//! 只维护「用户已经敲了什么、光标在哪」，不理解拼音，也不知道候选。
+//! 只维护「用户已经敲了什么、光标在哪」与这段组句是否在单字模式，不理解拼音，也不知道候选。
 //! 缓冲区只含 ASCII 小写字母和 `'`（表达式模式下还有数字与运算符，见 `shortcut`；微软 / 搜狗双拼下还有 `;`），所以字节下标即字符下标。
 //! 中文模式下 Shift+字母按**小写**进缓冲区参与匹配（`Cpan` 与 `cpan` 一样出 C盘），
 //! 敲的是大写记在 `shifted` 里，原样上屏时用 [`Composition::typed_text`] 还原。
@@ -18,6 +18,9 @@ pub struct Composition {
 
     /// 光标位置（字节下标，`0..=buffer.len()`），插入和退格都相对它。
     cursor: usize,
+
+    /// 单字模式（#848）：候选只留单字。只管这一段组句，缓冲区空了就回到正常候选。
+    single_chars: bool,
 }
 
 impl Composition {
@@ -31,6 +34,26 @@ impl Composition {
 
     pub fn cursor(&self) -> usize {
         self.cursor
+    }
+
+    pub fn single_chars(&self) -> bool {
+        self.single_chars
+    }
+
+    /// 切换单字模式；缓冲区空着时不进，返回 `false`。
+    pub fn toggle_single_chars(&mut self) -> bool {
+        if self.buffer.is_empty() {
+            return false;
+        }
+        self.single_chars = !self.single_chars;
+        true
+    }
+
+    /// 缓冲区删空或上屏完，这段组句就结束了：单字模式不带到下一段。
+    fn end_if_empty(&mut self) {
+        if self.buffer.is_empty() {
+            self.single_chars = false;
+        }
     }
 
     /// 参与候选生成的那段拼音：光标停在中间时只算光标前的（`ni|hao` → `ni`），
@@ -126,6 +149,7 @@ impl Composition {
         self.cursor -= 1;
         self.buffer.remove(self.cursor);
         self.shifted.remove(index);
+        self.end_if_empty();
         true
     }
 
@@ -137,6 +161,7 @@ impl Composition {
         let index = self.char_index(self.cursor);
         self.buffer.remove(self.cursor);
         self.shifted.remove(index);
+        self.end_if_empty();
         true
     }
 
@@ -169,6 +194,7 @@ impl Composition {
         self.buffer.drain(self.cursor - len..self.cursor);
         self.shifted.drain(from..to);
         self.cursor -= len;
+        self.end_if_empty();
         true
     }
 
@@ -193,6 +219,7 @@ impl Composition {
         self.buffer.clear();
         self.shifted.clear();
         self.cursor = 0;
+        self.single_chars = false;
     }
 
     /// 删掉开头 `len` 个字节（上屏消耗掉的拼音），光标随之前移；
@@ -207,6 +234,7 @@ impl Composition {
         } else {
             self.buffer.len()
         };
+        self.end_if_empty();
     }
 
     /// 开头 `len` 字节那段，光标在它末尾。
@@ -217,6 +245,7 @@ impl Composition {
             buffer: self.buffer[..len].to_owned(),
             shifted: self.shifted[..chars].to_vec(),
             cursor: len,
+            single_chars: false,
         }
     }
 

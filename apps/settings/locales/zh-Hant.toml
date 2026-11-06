@@ -310,6 +310,9 @@ traditional_info = "在簡體與上次用的繁體字形之間切換"
 fixed_without_commit = "組句時：1–9 選詞，Esc 清空，Tab 採用整句。"
 commit_candidate_info = "打拼音時按它上屏高亮的候選"
 commit_raw_info = "打拼音時按它把敲的字母原樣上屏"
+single_chars = "單字模式快捷鍵"
+single_chars_info = "打字時按下面的鍵，候選只列單字，再按一次恢復；上屏後自動回到正常候選"
+single_chars_key_info = "打字時按它切換單字模式"
 
 [shortcut]
 translation = "上屏第一個譯詞"
@@ -336,6 +339,7 @@ letters_reserved = "字母、數字與單引號用來打字和選詞，不能當
 need_commit_key = "要空格、回車或一個符號鍵"
 is_page_key = "「{key}」已經是翻頁鍵"
 is_aux_key = "「{key}」已經是輔碼觸發鍵"
+single_chars = "單字模式"
 
 [phrases]
 add = "新增…"

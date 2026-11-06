@@ -51,6 +51,7 @@ All settings are kept in one TOML text file, `config.toml`, with a note for ever
 | `[shortcut] extra_page_keys` | 快捷键 → 额外翻页键 (Shortcuts → Extra paging keys) | A list, such as `["[]", ",.", "-="]`; empty by default |
 | `[shortcut] highlight_keys` | 快捷键 → 高亮移动键 (Shortcuts → Highlight keys) | Up/down or left/right |
 | `[shortcut] toggle_punctuation` | 快捷键 → Ctrl + . 切换全半角标点 (Shortcuts → Ctrl + . switches punctuation width) | An empty string turns it off, `"ctrl+."` is Ctrl + full stop; modifiers plus a letter, digit or full stop also work, such as `"ctrl+shift+."` |
+| `[shortcut] single_chars` | 快捷键 → 单字模式快捷键 (Shortcuts → Single-character mode) | While typing pinyin, press it to list only single characters; press again to go back, and normal candidates return after you commit. Default `"ctrl+d"`, an empty string turns it off; modifiers plus a letter or digit also work. It is only taken while you are typing. Windows only |
 | `[shortcut] toggle_traditional` | 快捷键 → Ctrl + Shift + F 切换简繁输出 (Shortcuts → Ctrl + Shift + F switches Simplified/Traditional) | An empty string turns it off (default), `"ctrl+shift+f"` is Ctrl + Shift + F; modifiers plus a letter or digit also work. Windows only |
 | `[clipboard] enabled`, `edge` | 实验功能 (Experimental features) → Qingjian Clipboard | `enabled` defaults to `false`. `edge`: `top`, `bottom` (default), `left`, `right` |
 | `[clipboard] history_limit` | 实验功能 (Experimental features) → Keep up to | Default `1000`; the oldest items go first. Lowering it deletes them right away |

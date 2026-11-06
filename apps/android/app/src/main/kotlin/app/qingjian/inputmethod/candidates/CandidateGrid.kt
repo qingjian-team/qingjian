@@ -15,7 +15,7 @@ import app.qingjian.inputmethod.panel.base.PanelView
 import app.qingjian.inputmethod.theme.Palette
 
 /**
- * 候选展开：候选条右端点 ⌄ 打开，盖住键盘。顶上一条是拼音与收起 ⌃，下面候选按字宽往一行里排、
+ * 候选展开：候选条右端点 ⌄ 打开，盖住键盘。顶上一条是拼音、「全部 / 单字」与收起 ⌃，下面候选按字宽往一行里排、
  * 排不下换行，每行左右撑满，上下滑；右列 返回 / 删除 / 重输。词下面照候选条带第一条译文。
  */
 @SuppressLint("ViewConstructor")
@@ -32,6 +32,9 @@ class CandidateGrid(
     private var preedit = ""
     private var candidates: List<Candidate> = emptyList()
 
+    /** 单字模式（#848）：只列单字，顶上「单字」亮着；收起面板就回到全部。 */
+    private var singleChars = false
+
     /** 排好的格子（内容坐标，未减滚动），下标同 [candidates]。 */
     private val cells = mutableListOf<RectF>()
     private var laidOutWidth = 0
@@ -44,9 +47,10 @@ class CandidateGrid(
     private val glossSp = GLOSS_SP * textScale
     private val cloudDp = CLOUD_DP * textScale
 
-    fun show(preedit: String, candidates: List<Candidate>) {
+    fun show(preedit: String, candidates: List<Candidate>, singleChars: Boolean) {
         this.preedit = preedit
         this.candidates = candidates
+        this.singleChars = singleChars
         laidOutWidth = 0
         scroll.reset()
         invalidate()
@@ -111,7 +115,18 @@ class CandidateGrid(
         canvas.drawRect(0f, 0f, width.toFloat(), headerHeight, ink.fill)
         val collapse = ink.dp(COLLAPSE_DP)
         val cy = headerHeight / 2
-        ink.textStart(canvas, preedit, HEADER_SP, palette.text, ink.dp(PAD_DP + 2), cy, width - collapse - ink.dp(PAD_DP))
+        val tab = ink.dp(TAB_DP)
+        val tabsRight = width - collapse
+        ink.textStart(canvas, preedit, HEADER_SP, palette.text, ink.dp(PAD_DP + 2), cy, tabsRight - tab * 2 - ink.dp(PAD_DP))
+        for ((i, label) in TABS.withIndex()) {
+            val selected = (i == 1) == singleChars
+            val cx = tabsRight - tab * (TABS.size - i) + tab / 2
+            ink.text(canvas, label, HEADER_SP, if (selected) palette.brand else palette.gloss, cx, cy)
+            if (selected) {
+                val half = ink.dp(12f)
+                ink.line(canvas, cx - half, headerHeight - ink.dp(6f), cx + half, headerHeight - ink.dp(6f), palette.brand)
+            }
+        }
         ink.icon(canvas, Icon.COLLAPSE, width - collapse / 2, cy, 26f, palette.text)
         ink.line(canvas, 0f, headerHeight, width.toFloat(), headerHeight, palette.faint)
     }
@@ -169,7 +184,16 @@ class CandidateGrid(
 
     override fun onTap(x: Float, y: Float) {
         when {
-            y < headerHeight -> if (x > width - ink.dp(COLLAPSE_DP)) actions.closePanel()
+            y < headerHeight -> {
+                val tabsRight = width - ink.dp(COLLAPSE_DP)
+                val tab = ink.dp(TAB_DP)
+                when {
+                    x > tabsRight -> actions.closePanel()
+                    // 点的是没亮着的那个标签才切
+                    x > tabsRight - tab -> if (!singleChars) actions.toggleSingleChars()
+                    x > tabsRight - tab * 2 -> if (singleChars) actions.toggleSingleChars()
+                }
+            }
             side.contains(x, y) -> when (((y - side.top) / (side.height() / 3)).toInt()) {
                 0 -> actions.closePanel()
                 1 -> actions.deleteBackward()
@@ -187,6 +211,8 @@ class CandidateGrid(
     private companion object {
         const val SIDE_DP = 64f
         const val COLLAPSE_DP = 56f
+        const val TAB_DP = 56f
+        val TABS = listOf("全部", "单字")
         const val ROW_DP = 58f
         const val PAD_DP = 14f
         const val WORD_SP = 19f

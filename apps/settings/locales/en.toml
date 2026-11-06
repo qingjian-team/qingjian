@@ -339,6 +339,9 @@ traditional_info = "Switches between Simplified and the Traditional form used la
 fixed_without_commit = "While composing: 1–9 pick a candidate, Esc clears, Tab accepts the sentence."
 commit_candidate_info = "Press while typing pinyin to commit the highlighted candidate"
 commit_raw_info = "Press while typing pinyin to commit the typed letters as is"
+single_chars = "Single-character mode"
+single_chars_info = "While typing, press the key below to list only single characters; press again to go back. Normal candidates return after you commit"
+single_chars_key_info = "Press while typing to toggle single-character mode"
 
 [shortcut]
 clipboard = "Open clipboard"
@@ -368,6 +371,7 @@ letters_reserved = "Letters, digits and the apostrophe are for typing and pickin
 need_commit_key = "Needs Space, Return or a symbol key"
 is_page_key = "“{key}” is already a page key"
 is_aux_key = "“{key}” is already the auxiliary code trigger"
+single_chars = "Single characters"
 
 [phrases]
 add = "Add…"

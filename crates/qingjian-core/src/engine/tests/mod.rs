@@ -28,6 +28,7 @@ mod privacy;
 mod raw;
 mod reading;
 mod shuangpin;
+mod single_chars;
 mod spacing;
 mod spelling;
 mod traditional;
