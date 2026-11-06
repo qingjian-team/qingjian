@@ -6,6 +6,7 @@ pub enum Popup {
     Scheme,
     /// 形码方案：关、内置五笔、用户目录里的方案。
     Code,
+    AutoPhraseLength,
     LearningLanguage,
     /// 输出字形：简体与三档繁体。
     Traditional,

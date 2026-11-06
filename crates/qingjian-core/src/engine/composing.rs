@@ -139,6 +139,7 @@ impl Engine {
 
     /// 组句里要删东西了：第一次删之前把缓冲区留个快照，上屏时对比最终键串，不同就是一次重打（`retype`）。
     fn note_edit(&mut self) {
+        self.chain.clear_code_words();
         self.typing.edit(Instant::now());
         if self.retype_snapshot.is_none() && !self.composition.is_empty() {
             self.retype_snapshot = Some(self.composition.text().to_owned());
@@ -149,6 +150,7 @@ impl Engine {
     /// 接着重打那段拼音选了别的词，那次记的学习就退回去（见 `apply_retraction`）。
     /// 删得比记着的几次上屏加起来还多说明在改别处，全忘掉。
     pub fn note_backspace(&mut self) {
+        self.chain.clear_code_words();
         let Some(commit) = self
             .recent_commits
             .iter_mut()

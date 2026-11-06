@@ -5,9 +5,9 @@ use super::input_log::{InputLogEntry, InputLogger, InputSource};
 use super::learning::Learner;
 use super::query::EnglishTail;
 use super::{
-    ABBREVIATION_CHOICE_PREFIX, AUTO_WORD_MAX_CHARS, AUTO_WORD_THRESHOLD,
-    AUTO_WORD_THRESHOLD_SAME_BUFFER, BUFFER_PHRASE_MAX_CHARS, EXPLICIT_TRANSITION_WEIGHT, Engine,
-    SENTENCE_WORD_MAX_CHARS, choice_key, reading_key, segment_longest_prefix,
+    ABBREVIATION_CHOICE_PREFIX, AUTO_WORD_THRESHOLD, AUTO_WORD_THRESHOLD_SAME_BUFFER,
+    EXPLICIT_TRANSITION_WEIGHT, Engine, SENTENCE_WORD_MAX_CHARS, choice_key, reading_key,
+    segment_longest_prefix,
 };
 use crate::candidate::{Candidate, CandidateKind, CandidateList, Language};
 use crate::correction::edit_distance;
@@ -16,6 +16,7 @@ use qingjian_dictionary::Dictionary;
 use std::time::Instant;
 
 mod align;
+mod auto_phrase;
 mod chain;
 mod last;
 mod transition;
@@ -271,9 +272,25 @@ impl Engine {
         // 上屏即收尾：码段清空、回初始态（数字键与「标点先上屏」都走这里）
         self.aux_code = None;
         let buffer_left = !self.composition.is_empty();
+        if candidate.kind != CandidateKind::Code {
+            self.chain.clear_code_words();
+        }
         match candidate.kind {
-            CandidateKind::Chinese | CandidateKind::Cloud | CandidateKind::Code => {
-                // 形码没有音节，`record_word` 里按音节数做的整段造词自然不会触发
+            CandidateKind::Code => {
+                self.record_word(
+                    &candidate.text,
+                    &[],
+                    EXPLICIT_TRANSITION_WEIGHT,
+                    false,
+                    buffer_left,
+                );
+                if source == InputSource::Translation {
+                    self.chain.clear_code_words();
+                } else {
+                    self.learn_code_phrase(&candidate.text);
+                }
+            }
+            CandidateKind::Chinese | CandidateKind::Cloud => {
                 self.record_word(
                     &candidate.text,
                     &candidate.syllables,
@@ -323,7 +340,7 @@ impl Engine {
         let phrase = if buffer_left {
             None
         } else if split {
-            self.finish_buffer(BUFFER_PHRASE_MAX_CHARS)
+            self.finish_buffer(self.auto_phrase_max_chars)
         } else if candidate.kind == CandidateKind::Sentence
             && self
                 .chain
@@ -331,7 +348,7 @@ impl Engine {
                 .iter()
                 .all(|(text, _)| text.chars().count() > 1)
         {
-            self.finish_buffer(SENTENCE_WORD_MAX_CHARS)
+            self.finish_buffer(SENTENCE_WORD_MAX_CHARS.min(self.auto_phrase_max_chars))
         } else {
             None
         };
@@ -405,7 +422,10 @@ impl Engine {
         let syllables: Vec<String> = words.iter().flat_map(|(_, s)| s.iter().cloned()).collect();
         let chars = text.chars().count();
         let key = self.chain.buffer_key().to_owned();
-        if key.is_empty() || chars > max_chars || chars != syllables.len() {
+        if key.is_empty()
+            || chars > max_chars.min(self.auto_phrase_max_chars)
+            || chars != syllables.len()
+        {
             return None;
         }
         let candidate = Candidate {
@@ -423,7 +443,8 @@ impl Engine {
             self.learner
                 .record_choice(&abbreviation, "", &candidate.text);
         }
-        let created = !self.knows_word(&candidate)
+        let created = self.auto_phrase
+            && !self.knows_word(&candidate)
             && self.learner.choice_weight(&key, &candidate.text) >= AUTO_WORD_THRESHOLD_SAME_BUFFER;
         if created {
             tracing::debug!(text = %candidate.text, "buffer phrase learned as a user word");
@@ -674,6 +695,9 @@ impl Engine {
 
     /// 上一个词 + 这个词合成用户词的条件见 [`AUTO_WORD_THRESHOLD`]。
     pub(super) fn try_auto_word(&mut self, text: &str, syllables: &[String], threshold: u32) {
+        if !self.auto_phrase {
+            return;
+        }
         let Some(previous) = self.chain.previous().map(str::to_owned) else {
             return;
         };
@@ -685,7 +709,7 @@ impl Engine {
         let chars = joined.chars().count();
         let mut joined_syllables = self.chain.previous_syllables().to_vec();
         joined_syllables.extend(syllables.iter().cloned());
-        if chars > AUTO_WORD_MAX_CHARS || chars != joined_syllables.len() {
+        if chars > self.auto_phrase_max_chars || chars != joined_syllables.len() {
             return;
         }
         // 这条转移刚记过，计数已含本次；阈值按「选了几次」算，计数是按份记的

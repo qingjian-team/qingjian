@@ -20,6 +20,8 @@ impl Session {
         self.engine.set_chinese_first(options.chinese_first);
         self.set_learning_language(options.learning_language());
         self.engine.set_learning(options.learning);
+        self.engine
+            .set_auto_phrase(options.auto_phrase, options.auto_phrase_max_chars);
         self.engine.set_hold_selections(options.hold_selections);
         self.engine.set_emoji_limit(usize::from(options.emoji));
         self.engine.set_kaomoji_limit(usize::from(options.kaomoji));

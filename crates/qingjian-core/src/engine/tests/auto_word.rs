@@ -1,4 +1,4 @@
-//! 自造词与简拼学习：同一段拼音逐字选一次就成词、全拼选过的词简拼也排前，下次整段与简拼都排第一。
+//! 自造词与简拼学习：同一段拼音逐字选两次后成词、全拼选过的词简拼也排前，下次整段与简拼都排第一。
 
 use super::*;
 
@@ -25,13 +25,16 @@ fn select(engine: &mut Engine, text: &str) {
 }
 
 #[test]
-fn picking_the_chars_once_makes_a_word_that_leads_the_whole_input_and_its_abbreviation() {
+fn picking_the_chars_twice_makes_a_word_that_leads_the_whole_input_and_its_abbreviation() {
     let mut engine = shishan_engine();
-    engine.set_input("shishan");
-    select(&mut engine, "屎");
-    select(&mut engine, "山");
-    assert!(engine.composition().is_empty());
-    engine.note_passthrough('\n');
+    for round in 1..=2 {
+        engine.set_input("shishan");
+        select(&mut engine, "屎");
+        select(&mut engine, "山");
+        assert!(engine.composition().is_empty());
+        assert_eq!(engine.learner.user_words().is_some(), round == 2);
+        engine.note_passthrough('\n');
+    }
     for input in ["shishan", "ss", "shis"] {
         engine.set_input(input);
         assert_eq!(texts_of(&engine)[0], "屎山", "{input}");
@@ -71,12 +74,15 @@ fn a_sentence_picked_in_pieces_comes_first_for_its_pinyin_and_abbreviation() {
     );
     let mut engine = Engine::new(Dictionary::parse(dictionary).unwrap())
         .with_learner(Box::new(WordLearner::default()));
-    engine.set_input("xiaomingqulexuexiao");
-    for text in ["晓", "铭", "去了", "学校"] {
-        select(&mut engine, text);
+    engine.set_auto_phrase(true, 10);
+    for _ in 0..2 {
+        engine.set_input("xiaomingqulexuexiao");
+        for text in ["晓", "铭", "去了", "学校"] {
+            select(&mut engine, text);
+        }
+        assert!(engine.composition().is_empty());
+        engine.note_passthrough('\n');
     }
-    assert!(engine.composition().is_empty());
-    engine.note_passthrough('\n');
     for input in ["xiaomingqulexuexiao", "xmqlxx"] {
         engine.set_input(input);
         assert_eq!(texts_of(&engine)[0], "晓铭去了学校", "{input}");
@@ -103,9 +109,13 @@ fn a_word_picked_by_full_pinyin_leads_its_abbreviation() {
 #[test]
 fn the_same_word_typed_twice_does_not_make_a_doubled_word() {
     let mut engine = shishan_engine();
-    engine.set_input("shishan");
-    select(&mut engine, "屎");
-    select(&mut engine, "山");
+    for _ in 0..2 {
+        engine.set_input("shishan");
+        select(&mut engine, "屎");
+        select(&mut engine, "山");
+        engine.note_passthrough('\n');
+    }
+    assert!(engine.learner().user_words().is_some());
     for _ in 0..4 {
         engine.set_input("shishan");
         select(&mut engine, "屎山");
@@ -159,14 +169,16 @@ fn commit_sentence(engine: &mut Engine, input: &str) -> String {
 }
 
 #[test]
-fn a_short_sentence_picked_once_becomes_a_word_for_its_abbreviation() {
-    // #875：全拼一次选中的陌生词（整句 交易中心），下次简拼 jyzx 也排第一
+fn a_short_sentence_picked_twice_becomes_a_word_for_its_abbreviation() {
     let mut engine = jiaoyi_engine();
     engine.set_input("jyzx");
     assert_ne!(texts_of(&engine)[0], "交易中心");
     engine.clear();
-    assert_eq!(commit_sentence(&mut engine, "jiaoyizhongxin"), "交易中心");
-    engine.note_passthrough('\n');
+    for round in 1..=2 {
+        assert_eq!(commit_sentence(&mut engine, "jiaoyizhongxin"), "交易中心");
+        assert_eq!(engine.learner().weight("交易中心"), u32::from(round == 2));
+        engine.note_passthrough('\n');
+    }
     for input in ["jiaoyizhongxin", "jyzx"] {
         engine.set_input(input);
         assert_eq!(texts_of(&engine)[0], "交易中心", "{input}");
@@ -187,10 +199,14 @@ fn a_sentence_picked_once_with_a_single_char_or_over_six_chars_is_not_a_word() {
     );
     assert_eq!(engine.learner().weight("交易中心交易中心"), 0);
     engine.note_passthrough('\n');
-    assert_eq!(
-        commit_sentence(&mut engine, "jiaoyizhongxinzhongxin"),
-        "交易中心中心"
-    );
+    engine.set_auto_phrase(true, 6);
+    for _ in 0..2 {
+        assert_eq!(
+            commit_sentence(&mut engine, "jiaoyizhongxinzhongxin"),
+            "交易中心中心"
+        );
+        engine.note_passthrough('\n');
+    }
     assert_eq!(engine.learner().weight("交易中心中心"), 1);
 }
 
@@ -199,6 +215,8 @@ fn erasing_the_sentence_and_picking_another_forgets_the_new_word() {
     // 按空格上屏了 交易中心，删掉重打改选 交易：刚造的词一并删掉
     let mut engine = jiaoyi_engine();
     commit_sentence(&mut engine, "jiaoyizhongxin");
+    engine.note_passthrough('\n');
+    commit_sentence(&mut engine, "jiaoyizhongxin");
     assert_eq!(engine.learner().weight("交易中心"), 1);
     for _ in 0..4 {
         engine.note_backspace();
@@ -206,4 +224,33 @@ fn erasing_the_sentence_and_picking_another_forgets_the_new_word() {
     engine.set_input("jiaoyizhongxin");
     select(&mut engine, "交易");
     assert_eq!(engine.learner().weight("交易中心"), 0);
+}
+
+#[test]
+fn accepted_sentences_respect_auto_phrase_switch_and_length() {
+    for (enabled, max_chars, learned_short, learned_long) in [
+        (false, 10, false, false),
+        (true, 3, false, false),
+        (true, 4, true, false),
+        (true, 6, true, true),
+        (true, 10, true, true),
+    ] {
+        for (input, text, learned) in [
+            ("jiaoyizhongxin", "交易中心", learned_short),
+            ("jiaoyizhongxinzhongxin", "交易中心中心", learned_long),
+            ("jiaoyizhongxinjiaoyizhongxin", "交易中心交易中心", false),
+        ] {
+            let mut engine = jiaoyi_engine();
+            engine.set_auto_phrase(enabled, max_chars);
+            for round in 1..=2 {
+                assert_eq!(commit_sentence(&mut engine, input), text);
+                assert_eq!(
+                    engine.learner().weight(text),
+                    u32::from(learned && round == 2),
+                    "enabled={enabled}, max_chars={max_chars}, round={round}, text={text}"
+                );
+                engine.note_passthrough('\n');
+            }
+        }
+    }
 }

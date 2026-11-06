@@ -11,6 +11,23 @@ use crate::{
 };
 
 impl Engine {
+    pub(in crate::engine) fn code_hits(
+        &self,
+        keys: &str,
+        limit: usize,
+    ) -> Vec<qingjian_dictionary::Match<'_>> {
+        let Some(scheme) = &self.code else {
+            return Vec::new();
+        };
+        let mut hits = scheme.table.lookup(keys, limit);
+        if let Some(words) = self.learner.user_code_words(&scheme.key) {
+            hits.extend(words.lookup(keys, limit));
+        }
+        let mut seen = HashSet::new();
+        hits.retain(|hit| seen.insert((hit.text, hit.pinyin)));
+        hits
+    }
+
     /// 形码方案（五笔）的候选：编码打全的词排在同前缀的更长编码词前面，其余按词频与上下文。
     ///
     /// 拼音那一套在这里都不成立：编码不需要切分，没有简拼与模糊音，一处编辑的拼写纠错更不适用，
@@ -41,7 +58,7 @@ impl Engine {
 
         let start = Instant::now();
         let log_total = (table.total_frequency() as f64).max(1.0).ln();
-        let hits = table.lookup(keys, MAX_CANDIDATES);
+        let hits = self.code_hits(keys, MAX_CANDIDATES);
         let single_letter_order = (keys.len() == 1).then(|| {
             hits.iter()
                 .filter(|hit| hit.exact)

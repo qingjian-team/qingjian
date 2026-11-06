@@ -15,6 +15,7 @@
 //! 随包方案的码表打成 `.qj`（`Kind::CodeTable`，`dict-convert pack codetable`）：方案的名字、作者、许可、版本、简介写在元数据里，
 //! `TEXT` 一节是按原行序写回的 TSV，打开时照旧解析。
 
+use std::collections::BTreeMap;
 use std::fmt::Write as _;
 use std::path::Path;
 
@@ -61,6 +62,7 @@ pub struct CodeTable {
 
     /// 新合并码表的行序起点。
     next_order: usize,
+    full_codes: BTreeMap<char, String>,
 }
 
 impl CodeTable {
@@ -122,6 +124,7 @@ impl CodeTable {
         }
         tracing::debug!(entries = entries.len(), full_code_len, "码表加载完成");
         Ok(Self {
+            full_codes: full_codes(&entries),
             entries,
             total_frequency,
             full_code_len,
@@ -171,6 +174,50 @@ impl CodeTable {
         self.next_order += other.next_order;
         sort_and_dedup(&mut self.entries);
         self.total_frequency = self.entries.iter().map(|e| u64::from(e.frequency)).sum();
+        self.full_codes = full_codes(&self.entries);
+    }
+
+    /// 单字最长编码；同长时按码表排序取第一条，不用用户敲入的简码取词码。
+    pub fn full_code(&self, character: char) -> Option<&str> {
+        self.full_codes.get(&character).map(String::as_str)
+    }
+
+    /// 插入新组词，不重排整张表或改变单字简码顺序；相同词码已存在时不重复插入。
+    pub fn insert_phrase(&mut self, text: &str, code: &str, frequency: u32) -> bool {
+        if !(2..=10).contains(&text.chars().count())
+            || code.is_empty()
+            || !code.chars().all(|character| character.is_ascii_lowercase())
+        {
+            return false;
+        }
+        let start = self
+            .entries
+            .partition_point(|entry| entry.code.as_str() < code);
+        let end = self
+            .entries
+            .partition_point(|entry| entry.code.as_str() <= code);
+        if self.entries[start..end]
+            .iter()
+            .any(|entry| entry.text == text)
+        {
+            return false;
+        }
+        let offset = self.entries[start..end].partition_point(|entry| {
+            entry.frequency > frequency
+                || (entry.frequency == frequency && entry.text.as_str() < text)
+        });
+        self.entries.insert(
+            start + offset,
+            Entry {
+                code: code.to_owned(),
+                order: self.next_order,
+                text: text.to_owned(),
+                frequency,
+            },
+        );
+        self.next_order += 1;
+        self.total_frequency += u64::from(frequency);
+        true
     }
 
     /// 编码正好等于输入，或输入是它的前缀的词，最多 `limit` 条。
@@ -238,6 +285,22 @@ impl CodeTable {
     }
 }
 
+fn full_codes(entries: &[Entry]) -> BTreeMap<char, String> {
+    let mut codes: BTreeMap<char, String> = BTreeMap::new();
+    for entry in entries {
+        let mut chars = entry.text.chars();
+        if let Some(character) = chars.next()
+            && chars.next().is_none()
+            && codes
+                .get(&character)
+                .is_none_or(|code| code.len() < entry.code.len())
+        {
+            codes.insert(character, entry.code.clone());
+        }
+    }
+    codes
+}
+
 /// 按 `(编码, 词频降序)` 排好；同一个词记了两遍（不同码表版本合并、自造词与原表重了）留词频高的那条，排完序就是靠前的那条。
 fn sort_and_dedup(entries: &mut Vec<Entry>) {
     entries.sort_by(|a, b| {
@@ -269,6 +332,24 @@ fn most_common_len(entries: &[Entry]) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn inserts_phrases_without_changing_shortcut_order_or_duplicates() {
+        let mut table = CodeTable::parse("甲\ta\t1\n乙\ta\t100\n甲\tabcd\t10\n").unwrap();
+        assert!(table.insert_phrase("甲乙", "abef", 100));
+        assert!(!table.insert_phrase("甲乙", "abef", 100));
+        assert!(!table.insert_phrase("甲", "x", 100));
+        assert_eq!(
+            table
+                .lookup("a", 3)
+                .iter()
+                .map(|hit| hit.text)
+                .collect::<Vec<_>>(),
+            ["甲", "乙", "甲乙"]
+        );
+        assert_eq!(table.full_code('甲'), Some("abcd"));
+        assert_eq!(table.total_frequency(), 211);
+    }
 
     #[test]
     fn looks_up_by_prefix_and_prefers_the_exact_code() {

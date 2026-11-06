@@ -63,6 +63,8 @@ impl Engine {
     /// 切换保存的输入上下文。调用方还应恢复该上下文的私密状态。
     /// 异步结果与查询缓存不跨上下文复用，用户词频和词库仍是进程内唯一实例。
     pub fn swap_session(&mut self, session: &mut EngineSession) {
+        self.chain.clear_code_words();
+        session.chain.clear_code_words();
         self.cancel_prediction();
         self.set_rescoring_context(None);
         std::mem::swap(&mut self.composition, &mut session.composition);

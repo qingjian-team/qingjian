@@ -18,7 +18,7 @@ impl Engine {
         scheme.top
             && c.is_ascii_lowercase()
             && scope.len() >= scheme.code_length
-            && !scheme.table.lookup(scope, 1).is_empty()
+            && !self.code_hits(scope, 1).is_empty()
     }
 
     /// 方案开着自动上屏、编码刚好满码长且这个全码只有一个词时把它上屏，返回上屏的文本（与 [`Self::commit`] 一样）。
@@ -29,7 +29,7 @@ impl Engine {
         if !scheme.auto_commit || scope.len() != scheme.code_length {
             return None;
         }
-        let hits = scheme.table.lookup(scope, 2);
+        let hits = self.code_hits(scope, 2);
         if !matches!(hits.as_slice(), [only] if only.exact) {
             return None;
         }

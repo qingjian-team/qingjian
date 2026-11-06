@@ -11,6 +11,10 @@ When you reach the last character of a sentence, typing just its initial is enou
 
 When you pick a stretch of pinyin in several steps, the words picked first stay in the input box and the whole stretch is committed together once it's done; see [Picked the wrong word](../getting-started/first-input.md#Picked-the-wrong-word).
 
+## Learning unfamiliar words
+
+Picking the words of a pinyin buffer in several steps saves the combined phrase after two repetitions. Accepting a whole sentence made only of multi-character words (such as 交易 + 中心) uses the same two-repetition threshold, with an additional 6-character cap. Both paths respect Settings → Input → Automatic phrases and its maximum length (2–10 characters, default 4). Deleting a newly learned phrase and retyping the same input with a different choice removes it again.
+
 ## Abbreviated pinyin
 
 Typing only each character's initial works too: `jttqhh` gives 今天天气很好.

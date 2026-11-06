@@ -26,6 +26,16 @@ When the repository has a newer version, the button changes to 更新 (Update). 
 When you upgrade from an older version, the domain dictionaries and the general dictionary that used to ship with Qingjian and that you had turned on, plus the glossary your learning language uses, are downloaded again one by one the next time you open Settings, so things work as they did before the upgrade.
 
 Entries under 释义表 (Glossaries) are the tables behind the glosses beside candidates (learning languages such as Japanese or Spanish, and the Chinese beside English candidates). Once downloaded, the input method switches to them without a restart. They don't appear under 我的词库 (My dictionaries), and a downloaded table takes precedence over the bundled one for the same language.
+## Automatic phrases
+
+Settings → Input → Automatic phrases provides a learning switch and a maximum length of 2–10 Chinese characters (default: 4), shared by Pinyin, Shuangpin, Wubi and mixed input.
+
+- Consecutive picks from the same Pinyin composition learn a phrase after 2 repetitions; words typed in separate compositions require 3 repetitions.
+- Wubi learns consecutive committed words on the first occurrence. Phrase codes use full character codes even when you type shortcuts. A phrase of up to 10 characters still uses four letters. Only complete committed words are combined.
+- Punctuation, English, raw commits, focus changes and edits interrupt Wubi phrase formation. Mixed input keeps Pinyin readings separate from Wubi codes.
+- Turning automatic phrases off keeps learned words and frequency-based ranking. Disabling learning or using private input prevents new phrase learning.
+
+Custom code schemes must explicitly declare compatible Wubi phrase rules. Android uses the same learning rules; its settings do not yet offer separate automatic-phrase controls.
 
 ## Importing your own dictionaries
 
