@@ -327,14 +327,17 @@ impl ChaiziTable {
     }
 }
 
-/// 排序键：吃得最多 → 切得最省 → 档位 → 字频。
-fn sort_key(scored: &(Hit, u32)) -> (std::cmp::Reverse<usize>, bool, bool, usize, Tier, u32) {
+/// 排序键：吃得最多 → 整字笔顺 → 走完没走完 → 档位 → 还差几笔 → 字频。
+///
+/// 档位（全读音 > 混合 > 全笔画 > 倒序）排在「还差几笔」之前：打 uhsp 三笔时，木（正序、差一笔）
+/// 与 片（倒序、也差一笔）不该让倒着的那个插到正序前面。
+fn sort_key(scored: &(Hit, u32)) -> (std::cmp::Reverse<usize>, bool, bool, Tier, usize, u32) {
     (
         std::cmp::Reverse(scored.0.consumed),
         !scored.0.whole,
         !scored.0.complete,
-        scored.0.remaining,
         scored.0.tier,
+        scored.0.remaining,
         scored.1,
     )
 }
