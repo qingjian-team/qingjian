@@ -61,3 +61,25 @@ fn only_a_few_user_words_skip_the_word_quota_before_single_chars() {
         "{all:?}"
     );
 }
+
+#[test]
+fn a_sentence_picked_in_pieces_comes_first_for_its_pinyin_and_abbreviation() {
+    // 整句记忆：逐字纠正过的整句（人名不在词库里）下次全拼与整句简拼都排第一
+    let dictionary = concat!(
+        "小\txiao\t9000\n晓\txiao\t10\n明\tming\t9000\n铭\tming\t10\n小明\txiao ming\t9000\n",
+        "去了\tqu le\t9000\n学校\txue xiao\t9000\n",
+    );
+    let mut engine = Engine::new(Dictionary::parse(dictionary).unwrap())
+        .with_learner(Box::new(WordLearner::default()));
+    engine.set_input("xiaomingqulexuexiao");
+    for text in ["晓", "铭", "去了", "学校"] {
+        select(&mut engine, text);
+    }
+    assert!(engine.composition().is_empty());
+    engine.note_passthrough('\n');
+    for input in ["xiaomingqulexuexiao", "xmqlxx"] {
+        engine.set_input(input);
+        assert_eq!(texts_of(&engine)[0], "晓铭去了学校", "{input}");
+        engine.clear();
+    }
+}

@@ -6,7 +6,8 @@ use super::learning::Learner;
 use super::query::EnglishTail;
 use super::{
     AUTO_WORD_MAX_CHARS, AUTO_WORD_THRESHOLD, AUTO_WORD_THRESHOLD_SAME_BUFFER,
-    EXPLICIT_TRANSITION_WEIGHT, Engine, choice_key, reading_key, segment_longest_prefix,
+    BUFFER_PHRASE_MAX_CHARS, EXPLICIT_TRANSITION_WEIGHT, Engine, choice_key, reading_key,
+    segment_longest_prefix,
 };
 use crate::candidate::{Candidate, CandidateKind, CandidateList, Language};
 use crate::correction::edit_distance;
@@ -373,7 +374,8 @@ impl Engine {
 
     /// 一段拼音分几次选完了（`jidiaole` 先选 挤、剩下的走整句 掉了）：这几个词合起来就是用户对这段拼音的答案。
     /// 记一次「整段拼音 → 合成词」的选择；选到 [`AUTO_WORD_THRESHOLD_SAME_BUFFER`] 次、词库里没有、
-    /// 不超过 [`AUTO_WORD_MAX_CHARS`] 字就造成用户词，下次整段打出来它直接排第一。返回记下的选择，撤销时退回。
+    /// 不超过 [`BUFFER_PHRASE_MAX_CHARS`] 字就记成用户词，下次整段或它的简拼打出来直接排第一（整句也是：
+    /// `xiaomingqulexuexiao` 逐字选出 晓铭去了学校，之后 `xmqlxx` 也出它）。返回记下的选择，撤销时退回。
     pub(super) fn finish_buffer(&mut self) -> Option<(String, Choice)> {
         let words = self.chain.buffer_words();
         if words.len() < 2 {
@@ -383,7 +385,7 @@ impl Engine {
         let syllables: Vec<String> = words.iter().flat_map(|(_, s)| s.iter().cloned()).collect();
         let chars = text.chars().count();
         let key = self.chain.buffer_key().to_owned();
-        if key.is_empty() || chars > AUTO_WORD_MAX_CHARS || chars != syllables.len() {
+        if key.is_empty() || chars > BUFFER_PHRASE_MAX_CHARS || chars != syllables.len() {
             return None;
         }
         let candidate = Candidate {
