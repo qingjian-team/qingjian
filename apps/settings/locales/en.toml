@@ -19,6 +19,7 @@ candidate_weight_info = "100 thinnest, 400 regular, 500 medium, 700 bold; follow
 section_text = "Text"
 animations = "Transition animations"
 section_motion = "Motion"
+reverse_above = "When vertical and above the cursor, list upward so 1 sits next to the text"
 grid_page_keys = "Page keys also expand to multiple rows when horizontal"
 
 [page]

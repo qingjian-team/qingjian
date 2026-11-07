@@ -271,6 +271,8 @@ horizontal_grid = false
 # 横排时翻页键（主翻页键、额外翻页键、PageUp / PageDown、Tab）也像 ↓ 一样展开成矩阵并换行，展开后一次翻一屏。
 # 缺省 false：翻页键照旧整页翻。macOS 与 Windows 用
 grid_page_keys = false
+# 竖排的候选窗口放在光标上方时（下方放不下）倒着排，1 在最下面、紧挨输入行；缺省关。只有 Windows 用
+vertical_reverse_above = false
 # 候选窗口由谁绘制：qingjian 青简渲染器（各平台一致，主题走它）/ system 系统原生绘制（渲染器有问题时的退路）
 renderer = "qingjian"
 # 候选窗口字体（字族名，如 "LXGW WenKai"）；空为系统字体。只对青简渲染器生效，没装这个字体时自动回到系统字体

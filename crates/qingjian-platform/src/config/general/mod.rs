@@ -65,6 +65,9 @@ pub struct GeneralConfig {
     /// 缺省关：翻页键照旧整页翻（#805）。
     pub grid_page_keys: bool,
 
+    /// 竖排的候选窗口放在光标上方时（下方放不下）候选倒着排，1 在最下面、紧挨输入行。缺省关：1 总在最上面。
+    pub vertical_reverse_above: bool,
+
     /// 候选窗口由青简渲染器还是系统原生绘制。
     pub renderer: CandidateRenderer,
 
@@ -265,6 +268,7 @@ impl Default for GeneralConfig {
             layout: LayoutMode::default(),
             horizontal_grid: false,
             grid_page_keys: false,
+            vertical_reverse_above: false,
             renderer: CandidateRenderer::default(),
             font: String::new(),
             candidate_font_size: FontSize::default(),

@@ -134,8 +134,14 @@ impl Builder<'_> {
             };
             for (i, row) in rows.iter().enumerate() {
                 let row_ctx = ctx.with_row(row, i, rows.len());
+                // 倒着排：第一个候选放进最后一行
+                let line = if ctx.frame.reversed {
+                    rows.len() - i
+                } else {
+                    i + 1
+                };
                 let grid_row = Line {
-                    start: GridPlacement::from_line_index(i as i16 + 1),
+                    start: GridPlacement::from_line_index(line as i16),
                     end: GridPlacement::AUTO,
                 };
                 let mut column = 0;

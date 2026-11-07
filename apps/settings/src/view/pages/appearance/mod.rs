@@ -58,6 +58,24 @@ pub fn appearance(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Rend
             )?;
         layout = layout.below(grid);
     }
+    if Feature::VerticalReverseAbove.here() {
+        let reverse = Checkbox::new(
+            general.vertical_reverse_above,
+            tr("appearance.reverse_above"),
+        )
+        .disabled(general.layout != LayoutMode::Vertical)
+        .build(
+            ui,
+            theme,
+            "reverse-above",
+            Message::set(
+                "general",
+                "vertical_reverse_above",
+                !general.vertical_reverse_above,
+            ),
+        )?;
+        layout = layout.below(reverse);
+    }
     if Feature::GridPageKeys.here() {
         let paging = Checkbox::new(general.grid_page_keys, tr("appearance.grid_page_keys"))
             .disabled(general.layout != LayoutMode::Horizontal)

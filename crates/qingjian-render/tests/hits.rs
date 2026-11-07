@@ -150,3 +150,34 @@ fn menu_items_stack_top_to_bottom_and_take_the_hover() {
     let (width, height) = rendered.content_size_points();
     assert!(width >= 120.0 && height > 3.0 * 20.0, "{width}×{height}");
 }
+
+/// 倒着排的竖排：第一个候选在最下面，点击仍按原来的下标，大小不变；各内置主题都要对。
+#[test]
+fn reversed_vertical_puts_the_first_candidate_at_the_bottom() {
+    let Ok(library) = FontLibrary::system("zh-CN") else {
+        eprintln!("没有系统字体，跳过");
+        return;
+    };
+    let mut renderer = Renderer::new(library);
+    let frame = scenes::nihao();
+    let last = frame.rows.len() - 1;
+    let reversed = qingjian_render::Frame {
+        reversed: true,
+        ..frame.clone()
+    };
+    for theme in Theme::builtins() {
+        let name = theme.id();
+        let upright = renderer
+            .render(&frame, Layout::Vertical, theme, 2.0)
+            .unwrap();
+        let flipped = renderer
+            .render(&reversed, Layout::Vertical, theme, 2.0)
+            .unwrap();
+        let y = |rendered: &qingjian_render::Rendered, i| {
+            region(&rendered.hits, HitTarget::Candidate(i)).y
+        };
+        assert!(y(&upright, 0) < y(&upright, last), "{name}");
+        assert!(y(&flipped, 0) > y(&flipped, last), "{name}");
+        assert_eq!(flipped.content_height, upright.content_height, "{name}");
+    }
+}

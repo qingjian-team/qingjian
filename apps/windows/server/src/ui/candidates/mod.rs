@@ -25,9 +25,9 @@ use windows::Win32::UI::WindowsAndMessaging::{
 };
 use windows::core::{Error, PCWSTR, Result, w};
 
-use qingjian_platform::Appearance;
 use qingjian_platform::protocol::Frame;
-use qingjian_render::Mode;
+use qingjian_platform::{Appearance, LayoutMode};
+use qingjian_render::{Mode, Rendered};
 
 use crate::dispatch::{CandidateMenu, KeyHintView};
 
@@ -81,6 +81,10 @@ pub(crate) struct CandidateWindow {
 
     /// 上次记进日志的缩放值（窗口 DPI、光标所在显示器 DPI）：变了才再记一条（#146）。
     logged_dpi: Cell<Option<(u32, Option<u32>)>>,
+
+    /// 上一次画的是不是倒着排：先照它画，位置没换边就只画一次。正着画完再倒着画一遍的话，
+    /// 高亮的过渡会把正着那帧当上一帧，每敲一键都从顶上滑到 1。
+    reversed: Cell<bool>,
 
     /// 青简渲染器；`None` 走 GDI。
     painter: SharedPainter,
@@ -138,6 +142,7 @@ impl CandidateWindow {
             dpi: Cell::new(dpi),
             dark: Cell::new(dark),
             logged_dpi: Cell::new(None),
+            reversed: Cell::new(false),
             painter,
             position: Cell::new((0, 0)),
             key_hint_window,
@@ -164,17 +169,17 @@ impl CandidateWindow {
     pub(crate) fn show(&self, anchor: RECT) {
         menu::close();
         self.sync_theme(anchor);
-        let rendered = {
-            let data = self.data.borrow();
-            self.painter.borrow_mut().as_mut().and_then(|painter| {
-                painter.render_frame(
-                    &data.render_frame(),
-                    data.layout,
-                    self.dark.get(),
-                    self.dpi.get(),
-                )
-            })
-        };
+        // 倒着排不改大小，按画出来的大小定位就知道该不该倒；只有换了边才重画
+        let guess = self.reversed.get();
+        let rendered = self.render(guess).and_then(|rendered| {
+            let reversed = self.reverses_above(&rendered, anchor);
+            self.reversed.set(reversed);
+            if reversed == guess {
+                Some(rendered)
+            } else {
+                self.render(reversed).or(Some(rendered))
+            }
+        });
         let updated = match rendered {
             Some(rendered) => {
                 let content = (
@@ -230,6 +235,35 @@ impl CandidateWindow {
             }
             Err(_) => self.hide(),
         }
+    }
+
+    /// 用青简渲染器画一帧；`reversed` 是候选倒着排。没装渲染器或画失败为 `None`。
+    fn render(&self, reversed: bool) -> Option<Rendered> {
+        let data = self.data.borrow();
+        let mut frame = data.render_frame();
+        frame.reversed = reversed;
+        self.painter.borrow_mut().as_mut().and_then(|painter| {
+            painter.render_frame(&frame, data.layout, self.dark.get(), self.dpi.get())
+        })
+    }
+
+    /// 开着「竖排在光标上方时倒着排」、竖排、窗口要放到光标上方：1 挪到最下面，紧挨输入行。
+    fn reverses_above(&self, rendered: &Rendered, anchor: RECT) -> bool {
+        let enabled = self
+            .painter
+            .borrow()
+            .as_ref()
+            .is_some_and(|painter| painter.reverse_above);
+        if !enabled || self.data.borrow().layout != LayoutMode::Vertical {
+            return false;
+        }
+        let content = (
+            rendered.content_width as i32,
+            rendered.content_height as i32,
+        );
+        let overhang = rendered.visible_overhang();
+        let (_, y) = place(anchor, content, (overhang.0 as i32, overhang.1 as i32));
+        y < anchor.top
     }
 
     /// 候选窗画好之后在它旁边贴键位提示；没有键位提示、或走 GDI 画法（`content` 为 `None`）时收起。

@@ -57,6 +57,9 @@ pub struct RouterConfig {
     /// 过渡动画（`[general] animations`）。
     pub animations: bool,
 
+    /// 竖排窗口在光标上方时倒着排（`[general] vertical_reverse_above`）。
+    pub reverse_above: bool,
+
     /// 用户主题目录的戳，热加载轮询时更新；不来自配置文件，重读配置时沿用。
     pub themes_stamp: u64,
 
@@ -195,6 +198,7 @@ impl RouterConfig {
             font_sizes: self.font_sizes,
             candidate_weight: self.candidate_weight,
             animations: self.animations,
+            reverse_above: self.reverse_above,
             themes_stamp: self.themes_stamp,
         }
     }
@@ -221,6 +225,7 @@ impl From<&Config> for RouterConfig {
             ),
             candidate_weight: config.general.candidate_font_weight(),
             animations: config.general.animations,
+            reverse_above: config.general.vertical_reverse_above,
             themes_stamp: 0,
             preedit: config.general.preedit,
             page_keys: config.general.page_keys(),

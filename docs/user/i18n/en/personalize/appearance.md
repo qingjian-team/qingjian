@@ -28,6 +28,7 @@ To make a theme of your own, see [Custom themes](../advanced/custom-themes.md); 
 ## Layout
 
 - **Vertical or horizontal**: vertical shows one candidate per row; horizontal puts the candidates in one row, with only the highlighted candidate's gloss on a separate line below and the page number at the end of the row.
+- **List upward above the cursor**: when the input box is near the bottom of the screen and the candidate window goes above the cursor, candidates run bottom to top so 1 sits next to the text. Unticked by default (1 is always at the top); Windows only for now, with the Qingjian renderer.
 - **Candidates per page**: choose 1 to 9 under 设置 → 候选 (Settings → Candidates).
 - **Pinyin position**: inline and in the window, inline only, or in the window only. "Inline" shows the pinyin you're typing in the app's input box; terminals and some apps don't display inline pinyin well, so choose "in the window only" for them.
 

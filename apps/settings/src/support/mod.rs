@@ -71,11 +71,13 @@ pub enum Feature {
     CandidateFontWeight,
     /// 成对符号（中文与英文两个开关）。
     PairPunctuation,
+    /// 竖排窗口在光标上方时倒着排。
+    VerticalReverseAbove,
 }
 
 impl Feature {
     #[cfg(test)]
-    pub const ALL: [Self; 33] = [
+    pub const ALL: [Self; 34] = [
         Self::AuxCode,
         Self::Schemes,
         Self::SwitchKeys,
@@ -109,6 +111,7 @@ impl Feature {
         Self::SingleChars,
         Self::CandidateFontWeight,
         Self::PairPunctuation,
+        Self::VerticalReverseAbove,
     ];
 
     /// 当前平台显示这一项。
@@ -172,6 +175,7 @@ impl Feature {
             Self::SingleChars => [Todo, Yes, Todo],
             // Linux 用 Fcitx 自己的候选面板
             Self::CandidateFontWeight => [Todo, Yes, No],
+            Self::VerticalReverseAbove => [Todo, Yes, No],
             Self::PairPunctuation => [Todo, Yes, Todo],
         }
     }
@@ -212,6 +216,7 @@ impl Feature {
             Self::TranslatePanel => "打开符号面板的翻译组",
             Self::SingleChars => "组句时切换单字模式",
             Self::CandidateFontWeight => "候选字粗细",
+            Self::VerticalReverseAbove => "竖排在光标上方时倒着排",
             Self::PairPunctuation => "成对符号自动补全",
         }
     }
@@ -260,6 +265,7 @@ impl Feature {
                 (PageId::Shortcuts, "shortcut.single_chars"),
             ],
             Self::CandidateFontWeight => &[(PageId::Appearance, "appearance.candidate_weight")],
+            Self::VerticalReverseAbove => &[(PageId::Appearance, "appearance.reverse_above")],
             Self::PairPunctuation => &[
                 (PageId::Language, "language.pair_punctuation"),
                 (PageId::Language, "language.english_pair_punctuation"),

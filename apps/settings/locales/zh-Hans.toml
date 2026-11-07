@@ -19,6 +19,7 @@ candidate_weight_info = "100 最细、400 常规、500 中等、700 粗体；没
 section_text = "文字"
 animations = "过渡动画"
 section_motion = "动效"
+reverse_above = "竖排在光标上方时倒着排，1 紧挨输入行"
 grid_page_keys = "横排时翻页键也展开成多行"
 
 [page]

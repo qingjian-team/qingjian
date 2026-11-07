@@ -159,6 +159,7 @@ impl RenderData {
             sentence: self.sentence.clone(),
             status: self.notice.clone(),
             mode: self.mode.clone(),
+            reversed: false,
         }
     }
 }
