@@ -72,6 +72,8 @@ pub fn export_phrases(phrases: &[CustomPhrase]) -> String {
 /// 读不成 TOML 的按「文字、Tab、输入码、Tab、权重」一行一条读（Rime `custom_phrase.txt` 的写法，方便从别的输入法搬）。
 /// 整份配置文件不收：设置与短语各自导入，免得用户以为导了短语、设置也跟着变了。
 pub fn import_phrases(source: &str) -> Result<(Vec<CustomPhrase>, Vec<String>), String> {
+    // 「UTF-8 带 BOM」存的短语文件：不去掉，第一条短语的文字就带着看不见的 U+FEFF
+    let source = source.strip_prefix('\u{feff}').unwrap_or(source);
     let Ok(mut table) = source.parse::<toml::Table>() else {
         return import_tsv(source);
     };

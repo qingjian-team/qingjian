@@ -65,6 +65,12 @@ fn skips_header_of_rime_word_lists() {
 }
 
 #[test]
+fn drops_a_bom_before_the_first_word() {
+    let words = parse_words("\u{feff}张三\n李四\n");
+    assert_eq!(words[0].text, "张三");
+}
+
+#[test]
 fn skips_lines_with_an_unreadable_second_column() {
     // 第二列既不是词频也不是读音（这里带数字），整行跳过
     assert_eq!(parse_words("张三\tzhang san 1\n李四\n").len(), 1);

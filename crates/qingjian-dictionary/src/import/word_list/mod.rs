@@ -50,6 +50,7 @@ pub struct Report {
 ///
 /// 第二列是纯数字就当词频，否则当读音（只收空格分隔的字母音节）；同一个词只留第一次出现的。
 pub fn parse_words(text: &str) -> Vec<Word> {
+    let text = text.strip_prefix('\u{feff}').unwrap_or(text);
     let mut words = Vec::new();
     let mut seen: HashSet<String> = HashSet::new();
     let mut in_header = false;
