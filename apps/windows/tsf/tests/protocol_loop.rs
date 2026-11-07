@@ -25,7 +25,7 @@ fn letter(c: char) -> KeyEvent {
 /// 取常规按键结果；收到「读选区」请求（不该在这些用例里出现）就 panic。
 fn result(reply: KeyReply) -> KeyResponse {
     match reply {
-        KeyReply::Result(response) => response,
+        KeyReply::Result(response) => *response,
         KeyReply::NeedSelection { .. } => panic!("没料到 Server 要读选区"),
     }
 }
