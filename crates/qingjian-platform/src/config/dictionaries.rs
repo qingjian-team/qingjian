@@ -13,6 +13,13 @@ pub struct DictionariesConfig {
 
     /// 关掉的用户词库（文件名，不含 `.qj`）。
     pub disabled: Vec<String>,
+
+    /// 屏蔽词：候选里**含有**这些词的整条都不出（`搜狗` 也挡掉 `搜狗拼音`、`搜狗输入法`）。
+    ///
+    /// 用在导入的词库带进来一堆用不上的品牌词时——某些第三方词库里「搜狗」这类词频被填得很高，
+    /// 打 `sougo` 这种错拼都能顶到第一页。自定义短语不受影响：那是用户自己写下的原文。
+    #[serde(default)]
+    pub blocked: Vec<String>,
 }
 
 /// 缺省打开的随包领域词库：成语四字全拼几乎不歧义，收益稳；其余按需打开。
@@ -23,6 +30,7 @@ impl Default for DictionariesConfig {
         Self {
             domains: DEFAULT_DOMAINS.iter().map(|s| (*s).to_owned()).collect(),
             disabled: Vec::new(),
+            blocked: Vec::new(),
         }
     }
 }
@@ -36,5 +44,12 @@ impl DictionariesConfig {
     /// 随包领域词库是否启用。
     pub fn is_domain_enabled(&self, stem: &str) -> bool {
         self.domains.iter().any(|d| d == stem)
+    }
+
+    /// 这个候选是不是该按屏蔽词丢掉：文本里**含有**任一屏蔽词就算。
+    pub fn is_blocked(&self, text: &str) -> bool {
+        self.blocked
+            .iter()
+            .any(|word| !word.is_empty() && text.contains(word.as_str()))
     }
 }
