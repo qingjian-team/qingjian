@@ -17,11 +17,7 @@ impl Engine {
     pub fn punctuate(&mut self, c: char) -> Option<&'static str> {
         // 组句外敲的标点：辅码态到此结束（壳已经把高亮候选上屏了）
         self.aux_code = None;
-        let converted = if self.full_width_punctuation {
-            self.punctuation.convert(c)
-        } else {
-            None
-        };
+        let converted = self.full_width_punctuation_of(c);
         if let Some(text) = converted {
             self.note_text(text);
             self.remember_commit(LastCommit::plain(text));
@@ -32,6 +28,15 @@ impl Engine {
         }
         self.chain.reset();
         converted
+    }
+
+    /// 中文标点开着、`c` 又没被指定保持半角时转成的全角标点。
+    pub(super) fn full_width_punctuation_of(&mut self, c: char) -> Option<&'static str> {
+        if self.full_width_punctuation && !self.half_width_symbols.contains(&c) {
+            self.punctuation.convert(c)
+        } else {
+            None
+        }
     }
 
     /// 壳把字符原样透传给应用后告知，用于「数字后的点保持半角」，也记入输入历史与输入日志（攒成一条 `passthrough`）。

@@ -259,6 +259,8 @@ impl Router {
         self.engine
             .set_shift_letter_compose(config.general.shift_letter.compose());
         self.engine.set_auto_space(config.general.auto_space);
+        self.engine
+            .set_half_width_symbols(&config.general.half_width_symbols);
         self.engine.set_pair_punctuation(
             config.general.pair_punctuation,
             config.general.english_pair_punctuation,

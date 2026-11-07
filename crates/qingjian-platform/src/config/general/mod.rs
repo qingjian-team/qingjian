@@ -152,6 +152,10 @@ pub struct GeneralConfig {
     /// 英文模式下的同一件事（半角括号与双引号）；缺省关：代码编辑器、浏览器地址栏自己会补，两边一起补会多出一个。
     pub english_pair_punctuation: bool,
 
+    /// 中文标点开着也保持半角的符号，几个字符连写（如 `` ` `` 让它出反引号而不是 `·`，#893）；缺省空。
+    /// 只认会转全角的标点，别的字符忽略。
+    pub half_width_symbols: String,
+
     /// 组句中敲会转全角的标点（`,` `.` `?` `!` 等，翻页键除外）先把高亮候选上屏、再补该标点
     ///（`nihao,` 一气打完「你好，」）。缺省关：标点进英文直输段整段原样上屏，与以前一致。
     pub punct_commits: bool,
@@ -288,6 +292,7 @@ impl Default for GeneralConfig {
             english_full_width_punctuation: false,
             pair_punctuation: true,
             english_pair_punctuation: false,
+            half_width_symbols: String::new(),
             punct_commits: false,
             aux_code_key: qingjian_core::DEFAULT_AUX_CODE_KEY.to_string(),
             aux_code_show: false,

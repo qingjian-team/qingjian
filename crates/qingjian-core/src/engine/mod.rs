@@ -134,6 +134,9 @@ pub struct Engine {
     /// 中文标点转换开关。
     full_width_punctuation: bool,
 
+    /// 中文标点开着也保持半角的符号（`[general] half_width_symbols`，#893）。
+    half_width_symbols: Vec<char>,
+
     /// 成对符号开关：中文与日文模式一份、英文模式一份（见 [`Self::pair_punctuation`]）。
     pair_punctuation: (bool, bool),
 
@@ -548,6 +551,7 @@ impl Engine {
             english_mode: false,
             punctuation: Punctuation::default(),
             full_width_punctuation: true,
+            half_width_symbols: Vec::new(),
             pair_punctuation: (true, false),
             custom_phrases: Vec::new(),
             contacts: None,

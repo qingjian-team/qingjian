@@ -54,12 +54,7 @@ impl Engine {
 
     /// 框里敲的标点：中文标点开着时按组句外的规则换成全角。不在翻译组返回 `false`。
     pub fn push_panel_char(&mut self, c: char) -> bool {
-        let converted = if self.full_width_punctuation {
-            self.punctuation.convert(c)
-        } else {
-            None
-        };
-        match converted {
+        match self.full_width_punctuation_of(c) {
             Some(text) => self.push_panel_text(text),
             None => self.push_panel_text(c.encode_utf8(&mut [0; 4])),
         }

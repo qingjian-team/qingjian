@@ -330,6 +330,8 @@ english_full_width_punctuation = false
 # 中文与日文模式一份（缺省开），英文模式一份（缺省关：代码编辑器自己会补）。Windows 与 Android 用
 pair_punctuation = true
 english_pair_punctuation = false
+# 中文标点开着也保持半角的符号，几个连写；比如写 "`" 让 ` 键出反引号而不是间隔号 ·。缺省空
+half_width_symbols = ""
 # 组句中敲会转全角的标点（, . ? ! 等，翻页键除外）先把高亮候选上屏、再补该标点（nihao, 一气打完「你好，」）；
 # 缺省 false：标点进英文直输段，与以前一致
 punct_commits = false

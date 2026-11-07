@@ -6,11 +6,12 @@ description: "Chinese punctuation and switching between full-width and half-widt
 
 ## Chinese punctuation
 
-When you're not typing pinyin, typing `, . ? ! : ; ( ) [ ] { } < > \ ^ _ $ ~` in Chinese mode gives full-width punctuation; `{` `}` give the corner brackets 「」, and `"` `'` alternate between opening and closing quotes. A `.` after a digit stays half-width (`3.14`).
+When you're not typing pinyin, typing `, . ? ! : ; ( ) [ ] { } < > \ ^ _ $ ~` in Chinese mode gives full-width punctuation; `{` `}` give the corner brackets 「」, `` ` `` gives the interpunct ·, and `"` `'` alternate between opening and closing quotes. A `.` after a digit stays half-width (`3.14`).
 
 ### Full-width and half-width
 
 - 中文标点 (Chinese punctuation) in 设置 → 中英文 (Settings → Chinese/English) can be set to half-width; letters and digits aren't affected.
+- To keep only a few symbols half-width (say the backtick `` ` `` for code), write them together in 保持半角的符号 (Keep these half-width) on the same page; other punctuation still turns full-width. Available on Windows, macOS and Linux.
 - On Windows and Linux, English mode has its own 英文标点 (English punctuation), half-width by default; on macOS, English mode is always half-width.
 - On Windows, clicking the ，。 cell on the floating status bar switches full-width / half-width for the current mode at any time.
 - On macOS and Windows you can enable `Ctrl + .` (`⌃ + .` on macOS) under 设置 → 快捷键 (Settings → Shortcuts) to switch full-width / half-width for the current mode. It's off by default so it doesn't take over the app's own shortcut.

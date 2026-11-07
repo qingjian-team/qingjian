@@ -247,6 +247,7 @@ fn main() -> ExitCode {
     engine.set_english_min_position(config.general.english_min_position());
     engine.set_shift_letter_compose(config.general.shift_letter.compose());
     engine.set_auto_space(config.general.auto_space);
+    engine.set_half_width_symbols(&config.general.half_width_symbols);
     engine.set_shuangpin_raw_preedit(config.general.shuangpin_raw_preedit);
     engine.set_shuangpin_raw_window(config.general.shuangpin_raw_window);
     engine.set_shuangpin_full_pinyin(config.general.shuangpin_full_pinyin);
