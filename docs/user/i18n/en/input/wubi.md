@@ -19,6 +19,7 @@ You type codes, not pronunciations: `ggll` gives 一, `khlg` gives 中国, `gant
 
 - Words are looked up by however much of the code you've typed. Words whose code is exactly what you've typed come before words with longer codes; these are the level 1 / 2 / 3 short codes.
 - Space commits the highlighted candidate and number keys pick; paging, deleting and committing work as with pinyin, and the left and right arrows move the cursor one letter at a time. Glosses beside candidates, typing habits and the vocabulary book work as usual.
+- Words you type are followed by their emoji as with pinyin (`ga` gives 开 followed by 🔓). `rq`, `sj` and `xq` give today's date, the current time and the day of the week, placed after the words whose code is exactly those two letters, so they never take the first spot.
 - Features that belong to pinyin aren't available with Wubi: sentence input, abbreviated pinyin, fuzzy pinyin, spelling correction, and the [calculations and special characters](shortcuts.md) that start with `v` / `u`.
 
 With Wubi only, a few more rules apply:

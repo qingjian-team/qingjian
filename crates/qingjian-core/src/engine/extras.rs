@@ -310,7 +310,10 @@ fn insert_following(
         index += 1;
         if !matches!(
             item.kind,
-            CandidateKind::Chinese | CandidateKind::Sentence | CandidateKind::English
+            CandidateKind::Chinese
+                | CandidateKind::Code
+                | CandidateKind::Sentence
+                | CandidateKind::English
         ) {
             continue;
         }
