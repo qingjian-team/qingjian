@@ -35,14 +35,14 @@ fn backspace_undoes_selections_before_deleting_letters() {
     pick(&mut engine, "开");
     pick(&mut engine, "开");
     assert_eq!(engine.held_text(), "开开");
-    assert!(engine.backspace());
+    assert!(engine.backspace().consumed());
     assert_eq!(engine.held_text(), "开");
     assert_eq!(engine.composition().text(), "kaixian");
-    assert!(engine.backspace());
+    assert!(engine.backspace().consumed());
     assert_eq!(engine.held_text(), "");
     assert_eq!(engine.composition().text(), "kaikaixian");
     assert_eq!(engine.composition().cursor(), 10);
-    assert!(engine.backspace());
+    assert!(engine.backspace().consumed());
     assert_eq!(engine.composition().text(), "kaikaixia");
 }
 
@@ -52,7 +52,7 @@ fn undone_selection_retracts_its_learning_when_another_word_is_chosen() {
     engine.set_input("kaifangxian");
     pick(&mut engine, "开放");
     assert_eq!(engine.learner().weight("开放"), 1);
-    engine.backspace();
+    engine.backspace().consumed();
     pick(&mut engine, "开");
     assert_eq!(engine.learner().weight("开放"), 0);
     assert_eq!(engine.learner().weight("开"), 1);
@@ -85,6 +85,36 @@ fn holding_can_be_turned_off() {
     engine.set_hold_selections(false);
     engine.set_input("kaifaxian");
     assert_eq!(pick(&mut engine, "开发"), "开发");
-    assert!(engine.backspace());
+    assert!(engine.backspace().consumed());
     assert_eq!(engine.composition().text(), "xia");
+}
+
+/// 长按保护：组句被删空之后那一记重复要被吞掉，别让它删到应用里的字。
+///
+/// 真实时钟下连按的间隔是零，正好落在窗口里；窗口本身设短一点，测试不必真的等 250 ms。
+#[test]
+fn backspace_holds_after_emptying_the_buffer() {
+    use crate::engine::Backspace;
+    use std::time::Duration;
+
+    let mut engine = engine().with_backspace_hold(Duration::from_millis(250));
+    engine.set_input("ni");
+    assert_eq!(engine.backspace(), Backspace::Deleted);
+    assert_eq!(engine.backspace(), Backspace::Deleted);
+    // 这一下把组句删空了，后面的重复该停在输入法里
+    assert_eq!(engine.backspace(), Backspace::Held);
+    assert_eq!(engine.backspace(), Backspace::Held);
+    assert!(engine.composition().is_empty());
+}
+
+/// 窗口是零就是不保护：一次退格一次删除，壳立刻把空缓冲区之后的键交给应用。
+#[test]
+fn backspace_without_hold_releases_right_away() {
+    use crate::engine::Backspace;
+
+    let mut engine = engine();
+    engine.set_input("ni");
+    assert_eq!(engine.backspace(), Backspace::Deleted);
+    assert_eq!(engine.backspace(), Backspace::Deleted);
+    assert_eq!(engine.backspace(), Backspace::Released);
 }

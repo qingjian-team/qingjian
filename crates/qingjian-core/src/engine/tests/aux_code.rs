@@ -208,14 +208,14 @@ fn backspace_widens_then_stays_in_aux_mode() {
     engine.push_aux_code('f');
     engine.push_aux_code('h');
     assert!(candidates(&engine).is_empty());
-    assert!(engine.backspace());
+    assert!(engine.backspace().consumed());
     assert_eq!(engine.aux_code(), "kf");
     assert_eq!(candidates(&engine), ["开发", "开发者"]);
-    assert!(engine.backspace());
+    assert!(engine.backspace().consumed());
     assert_eq!(engine.aux_code(), "k");
     assert_eq!(candidates(&engine), ["开发者", "开发", "开"]);
     // 删到空：停在辅码态，`;` 仍在 preedit，候选全回来
-    assert!(engine.backspace());
+    assert!(engine.backspace().consumed());
     assert!(engine.in_aux());
     assert_eq!(engine.aux_code(), "");
     assert_eq!(engine.query().unwrap().marked_text(), "kai'fa;");
@@ -223,10 +223,10 @@ fn backspace_widens_then_stays_in_aux_mode() {
     // 再敲字母重新筛——辅码态还活着
     assert!(engine.push_aux_code('k'));
     assert_eq!(candidates(&engine), ["开发者", "开发", "开"]);
-    assert!(engine.backspace());
+    assert!(engine.backspace().consumed());
     assert!(engine.in_aux());
     // 空码段再按退格：退出辅码态，拼音一字不动
-    assert!(engine.backspace());
+    assert!(engine.backspace().consumed());
     assert!(!engine.in_aux());
     assert_eq!(engine.query().unwrap().marked_text(), "kai'fa");
     assert_eq!(candidates(&engine), full);
@@ -243,10 +243,10 @@ fn backspace_leaves_aux_mode_when_keep_empty_is_off() {
     engine.enter_aux();
     engine.push_aux_code('k');
     engine.push_aux_code('f');
-    assert!(engine.backspace());
+    assert!(engine.backspace().consumed());
     assert_eq!(engine.aux_code(), "k");
     // 删到空：回拼音态，`;` 从 preedit 消失，候选全回来
-    assert!(engine.backspace());
+    assert!(engine.backspace().consumed());
     assert!(!engine.in_aux());
     assert_eq!(engine.query().unwrap().marked_text(), "kai'fa");
     assert_eq!(candidates(&engine), full);
@@ -260,7 +260,7 @@ fn backspace_on_an_empty_code_leaves_the_pinyin_alone() {
     engine.set_input("kaifa");
     let full = candidates(&engine);
     engine.enter_aux();
-    assert!(engine.backspace());
+    assert!(engine.backspace().consumed());
     assert!(!engine.in_aux());
     assert_eq!(engine.composition().text(), "kaifa");
     assert_eq!(candidates(&engine), full);
@@ -271,7 +271,7 @@ fn backspace_on_an_empty_code_leaves_the_pinyin_alone() {
 fn backspace_in_pinyin_state_deletes_a_letter() {
     let mut engine = aux_engine();
     engine.set_input("kaifa");
-    assert!(engine.backspace());
+    assert!(engine.backspace().consumed());
     assert_eq!(engine.composition().text(), "kaif");
 }
 

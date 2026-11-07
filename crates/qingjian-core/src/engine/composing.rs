@@ -7,10 +7,41 @@ use super::mode_keys::QUESTION_PREFIX;
 use super::{Engine, RECENT_COMMITS, is_raw, looks_like_english_word, segment_longest_prefix};
 use crate::composition::Composition;
 use crate::shortcut;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 /// 直通字符攒到这么多就先写一条，免得长时间纯英文输入时一条攒得没边。
 const MAX_PENDING_PASSTHROUGH: usize = 200;
+
+/// 长按保护窗口：组句刚被删空之后这段时间里的退格都算自动重复，先吞掉。
+///
+/// 取值依据是各平台的自动重复间隔：Windows `KeyboardSpeed` 0–31 对应约 400–33 ms/次
+/// （缺省最快档 33 ms），macOS `KeyRepeat` 缺省约 100 ms，X11 `repeat rate` 缺省约 40 ms，
+/// 安卓软键盘约 50 ms。250 ms 能吃掉这些常见档位，又不会误伤手动连按——人手连按退格的
+/// 间隔普遍在 250 ms 以上，何况「看着候选删空了」本身会让人自然停一下。
+pub(crate) const BACKSPACE_HOLD: Duration = Duration::from_millis(250);
+
+/// 一次退格的处理结果：壳据此决定这个键是吞掉还是交给应用。
+///
+/// 没有长按保护时，壳只看 `true` 就吞、`false` 就放行；有了三态，删空的那一记重复能停在
+/// 输入法里，不会接着删掉应用里已经上屏的字（微软拼音至今做不到这件事，见 issue #932）。
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Backspace {
+    /// 删掉了组句里的东西（拼音 / 选好的词 / 码段），这个键吞掉。
+    Deleted,
+
+    /// 组句已经空着，交给应用删字。
+    Released,
+
+    /// 刚把组句删空，这一记重复先吞掉，并把窗口续上——手一直按就一直不往下传。
+    Held,
+}
+
+impl Backspace {
+    /// 组句里删掉东西没有（`Held` 也算，这个键终究没交给应用）。
+    pub fn consumed(self) -> bool {
+        !matches!(self, Self::Released)
+    }
+}
 
 impl Engine {
     /// 中文模式下把半角字符转成全角标点；不需要转换返回 `None`。
@@ -222,7 +253,31 @@ impl Engine {
     /// 开（缺省）停在辅码态（`;` 仍在、无码词也回来），关则回拼音态。码段本来就空（刚触发，或删空停住）
     /// 时按退格 = 退出辅码态、拼音一个字符都不动。每次退格候选都当场重筛。
     /// 前面有选好还没上屏的词时，退格先撤回最后一次选择（那段拼音接回来），都撤完了才删字母。
-    pub fn backspace(&mut self) -> bool {
+    ///
+    /// 返回三态而不是 `bool`：把组句删空的那一下之后，长按的自动重复由 [`Backspace::Held`] 拦在输入法里，
+    /// 别让它接着删掉应用里已经上屏的字（见 `Engine::backspace_hold`）。
+    pub fn backspace(&mut self) -> Backspace {
+        // 刚删空过：还在窗口里的退格是长按的自动重复，吞掉并把窗口续上，手不松就一直吞
+        if let Some(emptied) = self.backspace_emptied {
+            if emptied.elapsed() < self.backspace_hold {
+                self.backspace_emptied = Some(Instant::now());
+                return Backspace::Held;
+            }
+            self.backspace_emptied = None;
+        }
+        let removed = self.backspace_inner();
+        if removed && self.composition.is_empty() {
+            self.backspace_emptied = Some(Instant::now());
+        }
+        if removed {
+            Backspace::Deleted
+        } else {
+            Backspace::Released
+        }
+    }
+
+    /// 退格真正删东西的那部分，与长按保护无关。
+    fn backspace_inner(&mut self) -> bool {
         if let Some(code) = self.aux_code.take() {
             if code.len() > 1 {
                 self.aux_code = Some(code[..code.len() - 1].to_owned());

@@ -234,16 +234,16 @@ fn pinned_syllables_are_marked_and_back_out_whole() {
     assert_eq!(engine.composition().text(), "kai'fa");
     assert_eq!(engine.nine_key_pinned(), 6);
     // 退格先把刚选定的 fa 整个退回数字，再一个个删数字
-    engine.backspace();
+    engine.backspace().consumed();
     assert_eq!(engine.composition().text(), "kai'32");
     assert_eq!(engine.nine_key_pinned(), 3);
-    engine.backspace();
+    engine.backspace().consumed();
     assert_eq!(engine.composition().text(), "kai'3");
     // 选定时接的 `'` 随最后一个键一起去掉
-    engine.backspace();
+    engine.backspace().consumed();
     assert_eq!(engine.composition().text(), "kai");
     // 删到更早选定的 kai：一样先取消选定、退回数字，再删键
-    engine.backspace();
+    engine.backspace().consumed();
     assert_eq!(engine.composition().text(), "524");
     assert_eq!(engine.nine_key_pinned(), 0);
 }
@@ -267,10 +267,10 @@ fn held_words_go_back_before_pinned_syllables() {
     assert!(engine.pin_nine_key("fa"));
     assert_eq!(engine.held_text(), "开");
     // 退格先撤回留着的词，再退选定的音节
-    engine.backspace();
+    engine.backspace().consumed();
     assert!(engine.held_text().is_empty());
     assert_eq!(engine.composition().text(), "kai'fa");
-    engine.backspace();
+    engine.backspace().consumed();
     assert_eq!(engine.composition().text(), "kai'32");
 }
 
@@ -283,13 +283,13 @@ fn an_unpinned_syllable_keeps_the_reading_the_user_picked() {
     engine.set_input("64");
     assert_eq!(engine.query().unwrap().candidates.items[0].text, "米");
     assert!(engine.pin_nine_key("ni"));
-    engine.backspace();
+    engine.backspace().consumed();
     assert_eq!(engine.composition().text(), "64");
     let query = engine.query().unwrap();
     assert_eq!(query.candidates.items[0].text, "你");
     assert_eq!(query.marked_text(), "ni");
     // 再打新键就不再偏向
     engine.push('4');
-    engine.backspace();
+    engine.backspace().consumed();
     assert_eq!(engine.query().unwrap().candidates.items[0].text, "米");
 }

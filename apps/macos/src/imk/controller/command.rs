@@ -1,6 +1,7 @@
 //! 命令键（回车、退格、方向键、Tab、Esc 等）的处理。
 
 use super::*;
+use qingjian_core::Backspace;
 use qingjian_core::candidate::arrows::Arrow;
 
 impl QingjianInputController {
@@ -11,9 +12,19 @@ impl QingjianInputController {
         let composing = host::with(|h| !h.engine.composition().is_empty()).unwrap_or(false);
         if !composing {
             // 删的是应用里的文字：刚上屏的词被整个删掉是「选错了」的信号，Engine 记着；
-            // 按词 / 按行删的数不清删了几个字，撤销的账就不记了
+            // 按词 / 按行删的数不清删了几个字，撤销的账就不记了。
+            //
+            // 退格要先问 Core：组句刚被删空之后，那一记自动重复该吞在输入法里（issue #932），
+            // 别让它接着删掉应用里已经上屏的字。只有 Core 说 `Released` 才真的放给应用。
             if selector == sel!(deleteBackward:) {
-                host::with(|h| h.engine.note_backspace());
+                let verdict = host::with(|h| h.engine.backspace()).unwrap_or(Backspace::Released);
+                return match verdict {
+                    Backspace::Released => {
+                        host::with(|h| h.engine.note_backspace());
+                        false
+                    }
+                    Backspace::Deleted | Backspace::Held => true,
+                };
             } else if selector == sel!(deleteWordBackward:)
                 || selector == sel!(deleteToBeginningOfLine:)
             {

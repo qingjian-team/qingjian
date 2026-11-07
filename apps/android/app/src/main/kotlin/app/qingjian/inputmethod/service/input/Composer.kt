@@ -67,6 +67,14 @@ class Composer(private val engine: Engine, private val host: Host) {
     /** 删除键按下时在组句（见 [onBackspaceDown]）。 */
     private var backspaceComposing = false
 
+    /**
+     * 组句刚被删空的时刻（[SystemClock.uptimeMillis]）。之后 [EMPTIED_HOLD_MS] 内的退格也交给
+     * 引擎处理，别让长按的自动重复接着删输入框里已经上屏的字（issue #932）。
+     *
+     * 与 Core 的 BACKSPACE_HOLD、Windows DLL 的 EMPTIED_HOLD 是同一个值。
+     */
+    private var emptiedAt = 0L
+
     /** 删除键按下时光标前的文字，上划清空的撤销用；组句中为 null。 */
     private var beforeBackspace: String? = null
 
@@ -258,7 +266,11 @@ class Composer(private val engine: Engine, private val host: Host) {
             // 拼音、日语组句里的大写字母另有含义，组句中只有英文能换大小写
             Key.Shift -> if (!composing || english) toggleShift()
 
-            Key.Backspace -> if (composing) apply(engine.backspace()) else deleteBackward()
+            Key.Backspace -> {
+                // 组句刚删空的一小段里，退格还要问引擎：长按的自动重复吞在输入法里（issue #932）
+                val holding = composing || SystemClock.uptimeMillis() - emptiedAt < EMPTIED_HOLD_MS
+                if (holding) apply(engine.backspace()) else deleteBackward()
+            }
 
             is Key.Space -> when {
                 !composing -> commit(" ")
@@ -587,7 +599,9 @@ class Composer(private val engine: Engine, private val host: Host) {
             connection.finishComposingText()
         }
         connection.endBatchEdit()
+        val wasComposing = preedit.isNotEmpty()
         preedit = frame.preedit
+        if (wasComposing && preedit.isEmpty()) emptiedAt = SystemClock.uptimeMillis()
         if (preedit.isEmpty()) {
             sentPreedits.clear()
         } else {
@@ -680,6 +694,13 @@ class Composer(private val engine: Engine, private val host: Host) {
 
         /** 两次点 Shift 间隔在这以内算双击（锁定大写）。 */
         const val DOUBLE_TAP_MS = 350L
+
+        /**
+         * 组句删空之后还继续走引擎的时长，别让长按的自动重复删到输入框里的字（issue #932）。
+         * 与 Core 的 BACKSPACE_HOLD、Windows DLL 的 EMPTIED_HOLD 是同一个值：各平台的自动重复
+         * 间隔在 33–100 ms（Windows 最慢档 400 ms），250 ms 能吃掉常见档位又不误伤手动连按。
+         */
+        const val EMPTIED_HOLD_MS = 250L
 
         /** 云联想给的光标前后文：Engine 会按观察窗口再裁（前 64、后 32）。 */
         const val SURROUNDING_BEFORE = 64
