@@ -24,6 +24,7 @@ mod key_hint;
 mod learning;
 mod marked;
 mod mode_keys;
+mod pairing;
 mod panel;
 pub(crate) mod prediction;
 mod privacy;
@@ -132,6 +133,9 @@ pub struct Engine {
 
     /// 中文标点转换开关。
     full_width_punctuation: bool,
+
+    /// 成对符号开关：中文与日文模式一份、英文模式一份（见 [`Self::pair_punctuation`]）。
+    pair_punctuation: (bool, bool),
 
     /// 用户定义的短语，按输入码精确匹配、按权重排在最前。
     custom_phrases: Vec<crate::CustomPhrase>,
@@ -544,6 +548,7 @@ impl Engine {
             english_mode: false,
             punctuation: Punctuation::default(),
             full_width_punctuation: true,
+            pair_punctuation: (true, false),
             custom_phrases: Vec::new(),
             contacts: None,
             english_in_chinese: true,

@@ -21,6 +21,7 @@ mod learning;
 mod lookup;
 mod nine_key;
 mod p2c_placement;
+mod pairing;
 mod panel;
 mod panel_translate;
 mod polyphone;

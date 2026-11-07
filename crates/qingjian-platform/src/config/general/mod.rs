@@ -146,6 +146,12 @@ pub struct GeneralConfig {
     /// 英文模式下的同一件事，中英各记一份；缺省半角。只有 Windows 用（macOS 英文模式一律半角）。
     pub english_full_width_punctuation: bool,
 
+    /// 中文与日文模式下敲左括号、左引号、左书名号时连右半边一起补上，光标停在中间（#928）；缺省开。
+    pub pair_punctuation: bool,
+
+    /// 英文模式下的同一件事（半角括号与双引号）；缺省关：代码编辑器、浏览器地址栏自己会补，两边一起补会多出一个。
+    pub english_pair_punctuation: bool,
+
     /// 组句中敲会转全角的标点（`,` `.` `?` `!` 等，翻页键除外）先把高亮候选上屏、再补该标点
     ///（`nihao,` 一气打完「你好，」）。缺省关：标点进英文直输段整段原样上屏，与以前一致。
     pub punct_commits: bool,
@@ -280,6 +286,8 @@ impl Default for GeneralConfig {
             double_shift_input: ThirdInputMethod::default(),
             full_width_punctuation: true,
             english_full_width_punctuation: false,
+            pair_punctuation: true,
+            english_pair_punctuation: false,
             punct_commits: false,
             aux_code_key: qingjian_core::DEFAULT_AUX_CODE_KEY.to_string(),
             aux_code_show: false,

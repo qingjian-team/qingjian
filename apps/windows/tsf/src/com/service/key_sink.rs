@@ -330,6 +330,7 @@ impl TextService_Impl {
                     commit: response.commit,
                     preedit,
                     consumed,
+                    caret: response.caret,
                 }
             }
             Ok(KeyReply::NeedSelection { request }) => {
@@ -361,6 +362,7 @@ impl TextService_Impl {
                     consumed: false,
                     commit,
                     preedit,
+                    ..
                 },
                 Some(c),
             ) if insertable && preedit.is_empty() => {
@@ -369,7 +371,7 @@ impl TextService_Impl {
                 }
                 let mut text = commit.unwrap_or_default();
                 text.push(c);
-                self.update_document(pic, Some(text), String::new());
+                self.update_document(pic, Some(text), String::new(), None);
                 true
             }
             // 放行的功能键：Server 没动缓冲区，交还应用（应用处理这个键时光标可能会移）。
@@ -381,11 +383,14 @@ impl TextService_Impl {
             ) => false,
             (
                 Next::Document {
-                    commit, preedit, ..
+                    commit,
+                    preedit,
+                    caret,
+                    ..
                 },
                 _,
             ) => {
-                self.update_document(pic, commit, preedit);
+                self.update_document(pic, commit, preedit, caret);
                 true
             }
             // 读选区是异步的：先吃掉这个键，选区文本在回调里发给 Server。
@@ -406,6 +411,7 @@ fn digit_passthrough_native(next: &Next) -> bool {
             consumed: false,
             commit,
             preedit,
+            caret: None,
         } if preedit.is_empty() && commit.as_ref().is_none_or(|text| text.is_empty())
     ) || matches!(next, Next::Abort)
 }
@@ -654,6 +660,7 @@ mod tests {
             consumed: false,
             commit: None,
             preedit: String::new(),
+            caret: None,
         }));
         assert!(digit_passthrough_native(&Next::Abort));
         // `-` `=` 等非数字仍由壳插入；有前缀 / 已 Consumed 时不能 Test 放行
@@ -663,11 +670,13 @@ mod tests {
             consumed: true,
             commit: None,
             preedit: String::new(),
+            caret: None,
         }));
         assert!(!digit_passthrough_native(&Next::Document {
             consumed: false,
             commit: Some("hi".into()),
             preedit: String::new(),
+            caret: None,
         }));
     }
 }

@@ -95,6 +95,7 @@ impl Router {
                         commit,
                         frame: Default::default(),
                         english: None,
+                        caret: None,
                     });
                 }
                 self.ensure_focus(session);
@@ -107,6 +108,7 @@ impl Router {
                         commit,
                         frame: self.current_frame(),
                         english: None,
+                        caret: None,
                     });
                 }
                 if !release
@@ -126,6 +128,7 @@ impl Router {
                         commit,
                         frame: self.current_frame(),
                         english: None,
+                        caret: None,
                     });
                 }
                 let surrounding = (!self.sessions[&session].private)
@@ -223,6 +226,7 @@ impl Router {
             commit,
             frame,
             english: switched,
+            caret: None,
         })
     }
 

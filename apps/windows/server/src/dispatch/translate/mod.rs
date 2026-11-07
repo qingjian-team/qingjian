@@ -43,6 +43,7 @@ impl Router {
             commit: None,
             frame: Frame::default(),
             english: None,
+            caret: None,
         };
         if self.focused != Some(session) || self.pending_selection != Some(request) {
             return empty;
@@ -89,6 +90,7 @@ impl Router {
             commit,
             frame: Frame::default(),
             english: None,
+            caret: None,
         }
     }
 

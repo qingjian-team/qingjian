@@ -1,6 +1,10 @@
-//! 中文模式下的全角标点。
+//! 中文模式下的全角标点，以及各模式通用的成对符号（[`Pairs`]）。
 //!
 //! 组句期间 `,` `.` 是翻页键、`-` `=` 也是，这些由壳决定；这里只回答「这个半角字符在中文模式下该变成什么」。
+
+mod pairs;
+
+pub use pairs::{PairEdit, Pairs};
 
 /// 这个半角字符是不是会转成全角标点的一员（`,` `.` `?` `!` 引号、括号这些）。
 /// 壳用它分流组句中的标点：会转的先把高亮候选上屏再补标点（`nihao,` 一气打完「你好，」），
@@ -33,7 +37,7 @@ pub fn converts(c: char) -> bool {
     )
 }
 
-/// 引号成对切换的状态。
+/// 引号成对切换与成对符号的状态。
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct Punctuation {
     /// 下一个 `"` 是左引号。
@@ -44,6 +48,9 @@ pub struct Punctuation {
 
     /// 上一个上屏字符是 ASCII 数字：`3.14` 里的 `.` 保持半角。
     after_digit: bool,
+
+    /// 补过、还没跳过的右半边。
+    pairs: Pairs,
 }
 
 impl Punctuation {
@@ -90,11 +97,42 @@ impl Punctuation {
     /// 壳把没有转换的字符原样交给应用后调用，用来记住「刚打了数字」。
     pub fn note_passthrough(&mut self, c: char) {
         self.after_digit = c.is_ascii_digit();
+        self.pairs.note_typed();
     }
 
     /// 有文本上屏后调用（候选、拼音、英文词），数字状态按最后一个字符更新。
     pub fn note_committed(&mut self, text: &str) {
         self.after_digit = text.chars().last().is_some_and(|c| c.is_ascii_digit());
+        self.pairs.note_typed();
+    }
+
+    /// 成对符号的记录，见 [`Pairs`]。
+    pub fn pairs(&mut self) -> &mut Pairs {
+        &mut self.pairs
+    }
+
+    /// 符号 `text` 要上屏了，按成对规则改（见 [`Pairs::edit`]）。开着成对时中文弯引号的左右由成对记录定：
+    /// 补过、还没跳过的右引号才是右引号，别的一律当左引号补一对——交替状态可能停在上一次（删掉过半边、挪过光标），
+    /// 不能再信它；左右交替跟着成对记录走，关了成对之后接着交替也是对的。
+    pub fn pair(&mut self, text: &str, enabled: bool) -> Option<PairEdit> {
+        let text = match text {
+            "”" if enabled && !self.pairs.closes('”') => "“",
+            "’" if enabled && !self.pairs.closes('’') => "‘",
+            _ => text,
+        };
+        let edit = self.pairs.edit(text, enabled);
+        match &edit {
+            Some(PairEdit::Insert { text, .. }) if text.starts_with('“') => {
+                self.double_quote_open = true
+            }
+            Some(PairEdit::Insert { text, .. }) if text.starts_with('‘') => {
+                self.single_quote_open = true
+            }
+            Some(PairEdit::Skip { closer: '”' }) => self.double_quote_open = false,
+            Some(PairEdit::Skip { closer: '’' }) => self.single_quote_open = false,
+            _ => {}
+        }
+        edit
     }
 }
 

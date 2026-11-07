@@ -191,6 +191,7 @@ fn follow_panel_preedit(context: &PollContext, frame: &Frame) {
         context.shared.clone(),
         None,
         preedit,
+        None,
     ) {
         log(&format!("panel preedit update rejected: {error}"));
     }
@@ -221,6 +222,7 @@ fn commit_clicked(context: &PollContext, frame: &Frame, commit: String) {
         context.shared.clone(),
         Some(commit),
         preedit,
+        None,
     ) {
         log(&format!("点击上屏的编辑会话没被受理: {error}"));
     }

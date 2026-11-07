@@ -36,4 +36,7 @@ mod tests;
 mod single_chars_tests;
 
 #[cfg(test)]
+mod pairing_tests;
+
+#[cfg(test)]
 mod traditional_tests;

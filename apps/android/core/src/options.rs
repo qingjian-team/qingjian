@@ -1,4 +1,4 @@
-//! 键盘设置里影响候选的几项：模糊音、中文标点全半角、打拼音时给不给英文词、学习语言、繁体字形、学习开关、附加词库、分次选词留在组句里、拼写纠错、上屏后联想、候选后面配几个 emoji / 颜文字 / 符号。Kotlin 按设置整份交过来。
+//! 键盘设置里影响候选的几项：模糊音、中文标点全半角、成对符号、打拼音时给不给英文词、学习语言、繁体字形、学习开关、附加词库、分次选词留在组句里、拼写纠错、上屏后联想、候选后面配几个 emoji / 颜文字 / 符号。Kotlin 按设置整份交过来。
 
 use qingjian_core::{FuzzyRules, Language, TraditionalVariant};
 use serde::Deserialize;
@@ -12,6 +12,14 @@ pub struct InputOptions {
 
     /// 中文键盘的标点键出全角（，。）还是半角（,.）。
     pub full_width_punctuation: bool,
+
+    /// 中文与日文键盘敲左括号、左引号、左书名号时连右半边一起补上（PC 的 `[general] pair_punctuation`）。
+    #[serde(default = "default_true")]
+    pub pair_punctuation: bool,
+
+    /// 英文键盘的半角括号与双引号也成对（PC 的 `english_pair_punctuation`），缺省关。
+    #[serde(default)]
+    pub english_pair_punctuation: bool,
 
     /// 打拼音时也给英文词。
     pub english_in_chinese: bool,
@@ -154,6 +162,8 @@ mod tests {
             r#""full_width_punctuation":true,"english_in_chinese":true,"chinese_first":false"#;
         let options: InputOptions = serde_json::from_str(&format!("{{{base}}}")).unwrap();
         assert_eq!((options.emoji, options.kaomoji, options.symbols), (3, 1, 1));
+        // 成对符号缺省同 PC：中文开、英文关
+        assert!(options.pair_punctuation && !options.english_pair_punctuation);
         let options: InputOptions =
             serde_json::from_str(&format!(r#"{{{base},"emoji":0,"kaomoji":0,"symbols":2}}"#))
                 .unwrap();

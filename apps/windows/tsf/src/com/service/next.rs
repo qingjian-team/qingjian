@@ -1,5 +1,7 @@
 //! 按键转发给 Server 之后要做的事：Server 交互在引擎借用里做完，放掉借用再按这个枚举走编辑会话。
 
+use qingjian_platform::protocol::CaretEdit;
+
 /// 一次按键转发给 Server 后、放掉引擎借用要做的事。
 pub(super) enum Next {
     /// 把上屏文本 / 组句拼音行写进文档。
@@ -12,6 +14,9 @@ pub(super) enum Next {
 
         /// 这个键吃不吃。
         consumed: bool,
+
+        /// 成对符号要做的光标编辑（#928）。
+        caret: Option<CaretEdit>,
     },
 
     /// 「翻译选中文字」：起异步只读会话读当前选区。

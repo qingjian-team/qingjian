@@ -42,6 +42,7 @@ impl Router {
                     commit,
                     frame,
                     english: None,
+                    caret: None,
                 })
             }
             ClientMessage::Poll { session } if self.sessions.contains_key(&session) => {

@@ -72,7 +72,7 @@ pub use panel::{
     catalog_sections, common_items,
 };
 pub use parser::{ParseError, Segmentation};
-pub use punctuation::Punctuation;
+pub use punctuation::{PairEdit, Punctuation};
 pub use qingjian_dictionary as dictionary;
 pub use shuangpin::{Layout as ShuangpinLayout, Scheme as ShuangpinScheme};
 pub use swipe::{CornerDecoder, ShapeDecoder, SwipeDecoder, SwipeKey, SwipeLexicon, SwipePoint};

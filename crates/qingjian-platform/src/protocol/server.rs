@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use super::frame::Frame;
 use super::indicator::IndicatorState;
-use super::key::KeyOutcome;
+use super::key::{CaretEdit, KeyOutcome};
 use super::session::SessionId;
 use crate::config::{KeyCombo, SwitchKeys, ThirdInputMethod};
 
@@ -155,6 +155,10 @@ pub enum ServerMessage {
         /// Linux 插件拿它弹「中」/「英」提示气泡，其余平台忽略。
         #[serde(default)]
         english: Option<bool>,
+
+        /// 成对符号要对文档做的事（#928）；老 DLL 读不到时只是多插一个右半边、光标停在后面。
+        #[serde(default)]
+        caret: Option<CaretEdit>,
     },
 
     /// 对一次 [`super::ClientMessage::Commit`] 的答复：缓冲区里原样上屏的文本（拼音字母 / 英文模式下敲的字母）；

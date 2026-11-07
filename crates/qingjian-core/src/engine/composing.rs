@@ -60,6 +60,7 @@ impl Engine {
     /// 上次断开之后有过上屏才往输入日志记一条 `break`，连着失焦几次只记一次。
     pub fn break_chain(&mut self) {
         self.chain.reset();
+        self.punctuation.pairs().clear();
         self.recent_commits.clear();
         self.flush_passthrough();
         self.finish_examples();

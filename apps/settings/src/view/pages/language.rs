@@ -165,6 +165,26 @@ pub fn language(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Render
         general.punct_commits,
         false,
     )?);
+    if Feature::PairPunctuation.here() {
+        rows.push(toggle_info(
+            ui,
+            page,
+            tr("language.pair_punctuation"),
+            Some(tr("language.pair_punctuation_info")),
+            ("general", "pair_punctuation"),
+            general.pair_punctuation,
+            false,
+        )?);
+        rows.push(toggle_info(
+            ui,
+            page,
+            tr("language.english_pair_punctuation"),
+            Some(tr("language.english_pair_punctuation_info")),
+            ("general", "english_pair_punctuation"),
+            general.english_pair_punctuation,
+            false,
+        )?);
+    }
     if Feature::AutoSpace.here() {
         rows.push(toggle_info(
             ui,

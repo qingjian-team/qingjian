@@ -118,6 +118,8 @@ data class Settings(
         const val KEY_CODE_HIGHLIGHT = "code_highlight"
         const val KEY_FUZZY = "fuzzy"
         const val KEY_FULL_WIDTH = "full_width_punctuation"
+        const val KEY_PAIR_PUNCTUATION = "pair_punctuation"
+        const val KEY_ENGLISH_PAIR_PUNCTUATION = "english_pair_punctuation"
         const val KEY_ENGLISH_IN_CHINESE = "english_in_chinese"
         const val KEY_CHINESE_FIRST = "chinese_first"
         const val KEY_ENGLISH_CANDIDATES = "english_candidates"
@@ -196,6 +198,8 @@ data class Settings(
                 inputOptions = InputOptions(
                     fuzzy = prefs.getStringSet(KEY_FUZZY, null).orEmpty().toSet(),
                     fullWidthPunctuation = prefs.getBoolean(KEY_FULL_WIDTH, true),
+                    pairPunctuation = prefs.getBoolean(KEY_PAIR_PUNCTUATION, true),
+                    englishPairPunctuation = prefs.getBoolean(KEY_ENGLISH_PAIR_PUNCTUATION, false),
                     englishInChinese = prefs.getBoolean(KEY_ENGLISH_IN_CHINESE, true),
                     chineseFirst = prefs.getBoolean(KEY_CHINESE_FIRST, false),
                     learningLanguage = learningLanguage(context),

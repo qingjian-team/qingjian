@@ -72,12 +72,14 @@ impl<S: Read + Write> EngineClient<S> {
                 outcome,
                 commit,
                 frame,
+                caret,
                 ..
-            } => Ok(KeyReply::Result(KeyResponse {
+            } => Ok(KeyReply::Result(Box::new(KeyResponse {
                 outcome,
                 commit,
                 frame,
-            })),
+                caret,
+            }))),
             ServerMessage::RequestSelection { request, .. } => {
                 Ok(KeyReply::NeedSelection { request })
             }
@@ -103,11 +105,13 @@ impl<S: Read + Write> EngineClient<S> {
                 outcome,
                 commit,
                 frame,
+                caret,
                 ..
             } => Ok(KeyResponse {
                 outcome,
                 commit,
                 frame,
+                caret,
             }),
             _ => Err(ClientError::Unexpected("expected key result for selection")),
         }

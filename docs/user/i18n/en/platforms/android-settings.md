@@ -49,6 +49,7 @@ The right side of each row shows the current setting, such as the input method o
 - **候选后面 (After candidates)**: three rows, emoji, 颜文字 (Kaomoji) and 符号 (Symbols), each set to 不显示 (Off) or at most 1–3 per word (`kaixin` → 开心 😄, `ku` → 哭 (T_T), `yuedengyu` → 约等于 ≈); by default 3 emoji and 1 each of kaomoji and symbols, the same as the items on the desktop Candidates page.
 - **标点与字形 (Punctuation and character forms)**:
   - Full-width punctuation for Chinese: when off, comma, full stop, question mark and so on are half-width on the Chinese keyboard. A point after a digit is always half-width.
+  - Auto-close paired punctuation: on the Chinese and Japanese keyboards, typing an opening bracket, quote or title mark adds the closing one with the cursor in between; on by default. 英文键盘也补全 (Also on the English keyboard) covers half-width brackets and double quotes and is off by default. See [Paired punctuation](../input/punctuation.md#Paired-punctuation).
   - Traditional character forms: the forms used when 繁体 (Traditional) is on in the function panel — Taiwan, Hong Kong or standard; see [Traditional Chinese output](../input/traditional.md).
 - **学习输入习惯 (Learn typing habits)**: when off, words you pick often and words you create are no longer remembered; what's already learned still affects ranking.
 
