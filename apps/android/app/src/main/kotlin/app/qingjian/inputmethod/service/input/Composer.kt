@@ -383,7 +383,8 @@ class Composer(private val engine: Engine, private val host: Host) {
 
     /**
      * 长按气泡里选的字符。全键盘选小写 = 照常敲这个字母；九宫格组句中选小写 = 这一位就是这个字母
-     * （进缓冲区，和拼音列定音节一个道理）。其余（数字、大写、符号）先顶首选再上屏。
+     * （进缓冲区，和拼音列定音节一个道理）。其余（数字、大写、符号）先顶首选再上屏；
+     * 角标里有全角写法的标点（`;` `?` 这些）同标点键一样交 Core 按设置转全角。
      */
     fun onKeyChoice(text: String) {
         val letter = text.singleOrNull()?.takeIf { it in 'a'..'z' }
@@ -391,7 +392,7 @@ class Composer(private val engine: Engine, private val host: Host) {
             // 全键盘长按选小写 = 照常敲这个字母
             letter != null && !nineKey -> onKey(Key.Letter(letter))
             composing && letter != null && engine.ready -> apply(engine.push(letter.code))
-            else -> onKey(Key.Text(text))
+            else -> onKey(Key.Text(text, punct = text.singleOrNull()?.takeIf { it in FULL_WIDTH_HINTS }))
         }
     }
 
@@ -698,5 +699,11 @@ class Composer(private val engine: Engine, private val host: Host) {
 
         /** 日语里当长音敲的键。 */
         val LONG_VOWEL = setOf("-", "ー")
+
+        /**
+         * 字母键角标里转全角后还是同一个符号的标点：中文键盘上划、长按出它们时按「中文标点」设置转全角。
+         * `_` `^` 这类转出来是另一个符号（——、……），照键面原样上屏。
+         */
+        private const val FULL_WIDTH_HINTS = "!?:;()~,."
     }
 }
