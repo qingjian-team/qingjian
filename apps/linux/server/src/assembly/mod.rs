@@ -59,6 +59,7 @@ pub fn assemble(spec: &AssemblySpec) -> Result<Engine, ServerError> {
         user_dicts_dir(spec.user_dir.as_deref()).as_deref(),
         &spec.dictionaries,
     ));
+    engine.set_blocked_words(spec.dictionaries.blocked.clone());
     if let Some(path) = &spec.english_glossary {
         match Glossary::from_path(Language::Chinese, path) {
             Ok(glossary) => {

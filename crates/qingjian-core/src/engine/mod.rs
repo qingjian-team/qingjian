@@ -143,6 +143,9 @@ pub struct Engine {
     /// 用户定义的短语，按输入码精确匹配、按权重排在最前。
     custom_phrases: Vec<crate::CustomPhrase>,
 
+    /// 屏蔽词：候选文本里含有其中任何一个就整条丢掉。自定义短语不过这一关。
+    blocked: Vec<String>,
+
     /// 通讯录（壳读系统通讯录交来，用户在设置里开了才有）：名字并进查词，见 [`Self::set_contacts`]。
     contacts: Option<crate::ContactBook>,
 
@@ -554,6 +557,7 @@ impl Engine {
             half_width_symbols: Vec::new(),
             pair_punctuation: (true, false),
             custom_phrases: Vec::new(),
+            blocked: Vec::new(),
             contacts: None,
             english_in_chinese: true,
             chinese_first: false,
