@@ -255,7 +255,7 @@ impl Engine {
     /// 前面有选好还没上屏的词时，退格先撤回最后一次选择（那段拼音接回来），都撤完了才删字母。
     ///
     /// 返回三态而不是 `bool`：把组句删空的那一下之后，长按的自动重复由 [`Backspace::Held`] 拦在输入法里，
-    /// 别让它接着删掉应用里已经上屏的字（见 [`BACKSPACE_HOLD`]）。
+    /// 别让它接着删掉应用里已经上屏的字（见 `Engine::backspace_hold`）。
     pub fn backspace(&mut self) -> Backspace {
         // 刚删空过：还在窗口里的退格是长按的自动重复，吞掉并把窗口续上，手不松就一直吞
         if let Some(emptied) = self.backspace_emptied {
