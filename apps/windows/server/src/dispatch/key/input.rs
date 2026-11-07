@@ -1,7 +1,7 @@
 //! 按键怎么作用到 Engine / 高亮上。分流规则与 macOS 壳的 `handle_text` / `handle_command` 对齐。
 
 use qingjian_core::candidate::arrows::{self, Arrow, ArrowAction, Focus};
-use qingjian_core::{CandidateKind, PairEdit, QUESTION_PREFIX, punctuation};
+use qingjian_core::{Backspace, CandidateKind, PairEdit, QUESTION_PREFIX, punctuation};
 use qingjian_platform::protocol::{CaretEdit, KeyEvent};
 use qingjian_platform::{CommitRoute, HighlightKeys, NumpadDigit};
 
@@ -162,13 +162,22 @@ impl Router {
 
     /// 退格 / Esc / 回车 / Tab / 方向键；没在组句时都交还应用。
     fn apply_function_key(&mut self, event: &KeyEvent) -> Effect {
+        // 退格先问 Core：组句刚被删空之后那一记重复要吞在输入法里（issue #932），
+        // 别让它接着删掉应用里已经上屏的字；Core 说 `Released` 才真的交给应用。
+        if event.virtual_key == codes::BACK {
+            return match self.engine.backspace() {
+                Backspace::Released => {
+                    // 删的是应用里刚上屏的字：自动空格据此知道光标前还是不是那个字
+                    self.engine.note_backspace();
+                    Effect::Passthrough
+                }
+                Backspace::Deleted | Backspace::Held => Effect::Changed(None),
+            };
+        }
         if !self.composing() {
-            match event.virtual_key {
+            if event.virtual_key == codes::RETURN {
                 // 回车交给应用：文本流里是一个段落边界（macOS 壳同样记）
-                codes::RETURN => self.engine.note_passthrough('\n'),
-                // 删的是应用里刚上屏的字：自动空格据此知道光标前还是不是那个字
-                codes::BACK => self.engine.note_backspace(),
-                _ => {}
+                self.engine.note_passthrough('\n');
             }
             return Effect::Passthrough;
         }
@@ -181,10 +190,6 @@ impl Router {
             return Effect::Changed(Some(self.restore_bare_question(english)));
         }
         match event.virtual_key {
-            codes::BACK => {
-                self.engine.backspace();
-                Effect::Changed(None)
-            }
             codes::ESCAPE => {
                 // 横排矩阵展开着时第一下 Esc 只收回单行（高亮留在原处）
                 if self.collapse_grid() {

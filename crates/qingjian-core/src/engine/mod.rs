@@ -12,6 +12,7 @@ mod choice;
 mod code_keys;
 mod commit;
 mod composing;
+pub use composing::Backspace;
 mod contacts;
 mod correcting;
 mod decoded;
@@ -264,6 +265,13 @@ pub struct Engine {
 
     /// 这段组句第一键的时刻（算首键到上屏的毫秒）。
     composition_started: Option<Instant>,
+
+    /// 上一次退格把组句删空的时刻：之后 ackspace_hold 内的退格算长按的自动重复，
+    /// 先吞掉，别让它接着删应用里已经上屏的字。
+    backspace_emptied: Option<Instant>,
+
+    /// 长按保护的窗口。缺省 250 ms；测试里设成零，一次退格就是一次删除。
+    backspace_hold: std::time::Duration,
 
     /// 输入统计用的键数与打字时长。
     typing: statistics::Typing,
@@ -596,6 +604,14 @@ impl Engine {
             passthrough_pending: String::new(),
             page_turns: 0,
             composition_started: None,
+            backspace_emptied: None,
+            // 测试里默认关掉长按保护：一次退格就是一次删除，不受 250 ms 窗口影响；
+            // 要验保护的测试自己用 with_backspace_hold 打开。
+            backspace_hold: if cfg!(test) {
+                std::time::Duration::ZERO
+            } else {
+                composing::BACKSPACE_HOLD
+            },
             typing: statistics::Typing::default(),
             application: None,
             committed_since_break: false,
@@ -765,3 +781,12 @@ fn reading_key<'a>(syllables: impl IntoIterator<Item = &'a str>) -> String {
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+impl Engine {
+    /// 打开长按保护并指定窗口，给专测这条的用例用（其余测试默认是关的）。
+    pub(crate) fn with_backspace_hold(mut self, hold: std::time::Duration) -> Self {
+        self.backspace_hold = hold;
+        self
+    }
+}

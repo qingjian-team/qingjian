@@ -42,7 +42,7 @@ fn usage_meter_counts_hanzi_words_and_english_words_per_commit() {
     let recorded = Arc::new(Mutex::new(Vec::new()));
     let mut engine = engine().with_usage_meter(Box::new(MemoryMeter(recorded.clone())));
     engine.set_input("kaifx");
-    engine.backspace();
+    engine.backspace().consumed();
     engine.push('a');
     let kaifa = engine.query().unwrap().candidates.items[0].clone();
     assert_eq!(kaifa.text, "开发");

@@ -1,3 +1,8 @@
+use std::time::Duration;
+
+/// 组句删空之后还继续吃掉退格的时长，与 Core 的 BACKSPACE_HOLD 对齐（issue #932）。
+const EMPTIED_HOLD: Duration = Duration::from_millis(250);
+
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
@@ -18,6 +23,10 @@ pub(crate) struct Shared {
 
     /// Server 上次回的帧非空；决定 `OnTestKeyDown` 要不要吃功能键。
     composing: Cell<bool>,
+
+    /// 组句刚被删空的时刻。之后 [EMPTIED_HOLD] 内的退格也吃掉、交给 Server 定（issue #932）：
+    /// 不这样的话 composing 一变 false，DLL 就把长按的退格直接放给应用，删掉已上屏的字。
+    emptied_at: Cell<Option<std::time::Instant>>,
 
     /// 这一段最近报给 Server 的候选窗锚点：之后量不到光标时沿用它，不追着鼠标走。组句结束时清掉。
     anchor: Cell<Option<ScreenRect>>,
@@ -54,6 +63,7 @@ impl Shared {
             composition: RefCell::new(None),
             preedit: RefCell::new(String::new()),
             composing: Cell::new(false),
+            emptied_at: Cell::new(None),
             anchor: Cell::new(None),
             context_reported: Cell::new(false),
             text_box: Cell::new(false),
@@ -102,7 +112,18 @@ impl Shared {
         self.composing.get()
     }
 
+    /// 组句刚被删空、还在保护窗口里：退格照样吃掉，由 Server 判该不该交给应用。
+    pub(crate) fn just_emptied(&self) -> bool {
+        self.emptied_at
+            .get()
+            .is_some_and(|at| at.elapsed() < EMPTIED_HOLD)
+    }
+
     pub(crate) fn set_composing(&self, value: bool) {
+        // 从「在组句」变成「空」：记下时刻，接下来一小段的退格还要吃掉
+        if self.composing.get() && !value {
+            self.emptied_at.set(Some(std::time::Instant::now()));
+        }
         self.composing.set(value);
         // 组句结束：下一段重新报输入框状态、重新定锚点。
         if !value {
