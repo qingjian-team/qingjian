@@ -67,11 +67,13 @@ pub enum Feature {
 
     /// 组句时切换单字模式的快捷键（#848）。
     SingleChars,
+    /// 候选字字重。
+    CandidateFontWeight,
 }
 
 impl Feature {
     #[cfg(test)]
-    pub const ALL: [Self; 31] = [
+    pub const ALL: [Self; 32] = [
         Self::AuxCode,
         Self::Schemes,
         Self::SwitchKeys,
@@ -103,6 +105,7 @@ impl Feature {
         Self::ShuangpinRawWindow,
         Self::TranslatePanel,
         Self::SingleChars,
+        Self::CandidateFontWeight,
     ];
 
     /// 当前平台显示这一项。
@@ -164,6 +167,8 @@ impl Feature {
             // Fcitx 面板与应用里的行内拼音共用一串，还没分开
             Self::ShuangpinRawWindow => [Yes, Yes, Todo],
             Self::SingleChars => [Todo, Yes, Todo],
+            // Linux 用 Fcitx 自己的候选面板
+            Self::CandidateFontWeight => [Todo, Yes, No],
         }
     }
 
@@ -202,6 +207,7 @@ impl Feature {
             Self::ShuangpinRawWindow => "双拼候选窗显示按键",
             Self::TranslatePanel => "打开符号面板的翻译组",
             Self::SingleChars => "组句时切换单字模式",
+            Self::CandidateFontWeight => "候选字粗细",
         }
     }
 
@@ -248,6 +254,7 @@ impl Feature {
                 (PageId::Shortcuts, "shortcuts.single_chars"),
                 (PageId::Shortcuts, "shortcut.single_chars"),
             ],
+            Self::CandidateFontWeight => &[(PageId::Appearance, "appearance.candidate_weight")],
             Self::SwitchKeyCombos
             | Self::SystemCtrlSpace
             | Self::EnglishPunctuation

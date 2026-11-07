@@ -30,6 +30,8 @@ pub enum Message {
     /// 关掉弹出菜单（点了菜单外面、按了 Esc）。
     CloseMenu,
     Size(SizeKind, i32),
+    /// 候选字字重加减一档（100）。
+    Weight(i32),
     ResetSizes,
     Run(Action),
     /// 输入框里的一次编辑（打字、挪光标、输入法组字）。

@@ -278,6 +278,8 @@ font = ""
 # 候选字、译文的字号（点），盖过主题；0 用主题的。只对青简渲染器生效
 candidate_font_size = 0
 annotation_font_size = 0
+# 候选字的字重（粗细），100–900（400 常规、500 中等、700 粗体），盖过主题；0 用主题的。只对青简渲染器生效
+candidate_font_weight = 0
 # 候选窗口的过渡动画（高亮滑动、主题里的循环动画）；false 时直接跳到位，与系统「减弱动态效果」一样
 animations = true
 # 组句中的拼音显示在哪：both 行内和候选窗口 / inline 只在行内 / window 只在候选窗口（应用里不放 marked text）

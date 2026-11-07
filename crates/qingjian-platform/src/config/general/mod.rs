@@ -77,6 +77,10 @@ pub struct GeneralConfig {
     /// 译文字号（点），同上。
     pub annotation_font_size: FontSize,
 
+    /// 候选字字重（100–900，与 CSS 的 `font-weight` 一样），盖过主题 `candidate` 样式的；0 用主题的。
+    /// 不在范围里的当 0，其余取最近的整百。只对青简渲染器生效。
+    pub candidate_font_weight: u16,
+
     /// 候选窗口的过渡与循环动画。关掉与系统「减弱动态效果」一样：高亮直接跳过去，循环动画停在第一帧。
     pub animations: bool,
 
@@ -255,6 +259,7 @@ impl Default for GeneralConfig {
             font: String::new(),
             candidate_font_size: FontSize::default(),
             annotation_font_size: FontSize::default(),
+            candidate_font_weight: 0,
             animations: true,
             preedit: PreeditMode::default(),
             english_candidates: true,
@@ -456,6 +461,13 @@ impl GeneralConfig {
             (Some(key), None) if qingjian_core::is_valid_aux_code_key(key, self.page_keys()) => key,
             _ => qingjian_core::DEFAULT_AUX_CODE_KEY,
         }
+    }
+
+    /// 设置里的候选字字重：100–900 取最近的整百，0 和范围外的为 `None`（用主题的）。
+    pub fn candidate_font_weight(&self) -> Option<u16> {
+        (100..=900)
+            .contains(&self.candidate_font_weight)
+            .then(|| ((self.candidate_font_weight + 50) / 100 * 100).min(900))
     }
 
     /// 夹到合法范围的每页候选数。

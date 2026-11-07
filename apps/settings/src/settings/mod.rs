@@ -217,6 +217,16 @@ impl Settings {
                 general.candidate_font_size.0,
                 general.annotation_font_size.0,
             ))
+            .with_candidate_weight(general.candidate_font_weight())
+    }
+
+    /// 字重框里显示的数：设置里写了用它，没写用主题的。
+    pub fn weight(&self) -> u16 {
+        let general = &self.config.general;
+        general
+            .candidate_font_weight()
+            .or_else(|| self.theme(general.theme_id()).theme_weight("candidate"))
+            .unwrap_or(400)
     }
 
     /// 字号框里显示的数：设置里写了用它，没写用主题的。

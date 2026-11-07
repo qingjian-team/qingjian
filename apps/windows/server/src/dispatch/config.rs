@@ -51,6 +51,9 @@ pub struct RouterConfig {
     /// 候选字、译文字号（`[general] candidate_font_size` / `annotation_font_size`）。
     pub font_sizes: (FontSize, FontSize),
 
+    /// 候选字字重（`[general] candidate_font_weight`）；只对青简渲染器生效。
+    pub candidate_weight: Option<u16>,
+
     /// 过渡动画（`[general] animations`）。
     pub animations: bool,
 
@@ -190,6 +193,7 @@ impl RouterConfig {
             font: self.font.clone(),
             theme: self.theme.clone(),
             font_sizes: self.font_sizes,
+            candidate_weight: self.candidate_weight,
             animations: self.animations,
             themes_stamp: self.themes_stamp,
         }
@@ -215,6 +219,7 @@ impl From<&Config> for RouterConfig {
                 config.general.candidate_font_size,
                 config.general.annotation_font_size,
             ),
+            candidate_weight: config.general.candidate_font_weight(),
             animations: config.general.animations,
             themes_stamp: 0,
             preedit: config.general.preedit,

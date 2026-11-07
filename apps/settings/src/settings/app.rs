@@ -236,9 +236,14 @@ impl App for Settings {
                 };
                 self.write("general", key, f64::from(value));
             }
+            Message::Weight(delta) => {
+                let value = (i32::from(self.weight()) + delta * 100).clamp(100, 900);
+                self.write("general", "candidate_font_weight", i64::from(value));
+            }
             Message::ResetSizes => {
                 self.write("general", "candidate_font_size", 0.0);
                 self.write("general", "annotation_font_size", 0.0);
+                self.write("general", "candidate_font_weight", 0_i64);
             }
             Message::Run(action) => {
                 // 清空要点两下：第一下只是把按钮换成确认

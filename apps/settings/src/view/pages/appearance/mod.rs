@@ -1,4 +1,4 @@
-//! 「外观」页：预览卡，外观（外观、主题），排布（排布、拼音显示位置），文字（渲染引擎、字体、两个字号），动效。
+//! 「外观」页：预览卡，外观（外观、主题），排布（排布、拼音显示位置），文字（渲染引擎、字体、两个字号、候选字粗细），动效。
 
 mod themes;
 
@@ -114,8 +114,9 @@ pub fn appearance(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Rend
         .control(candidate)
         .build(ui, theme)?;
     let annotation = size(ui, page, SizeKind::Annotation, own)?;
-    let customized =
-        general.candidate_font_size.get().is_some() || general.annotation_font_size.get().is_some();
+    let customized = general.candidate_font_size.get().is_some()
+        || general.annotation_font_size.get().is_some()
+        || general.candidate_font_weight().is_some();
     let reset = Button::new(tr("appearance.reset_sizes"))
         .disabled(!own || !customized)
         .build(ui, theme, "reset-sizes", Message::ResetSizes)?;
@@ -123,8 +124,29 @@ pub fn appearance(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Rend
         .control(annotation)
         .below(reset)
         .build(ui, theme)?;
+    let mut rows = vec![renderer, font, candidate];
+    if Feature::CandidateFontWeight.here() {
+        let value = page.settings.weight();
+        let weight = Stepper::new(&value.to_string())
+            .limits(value > 100, value < 900)
+            .disabled(!own)
+            .build(
+                ui,
+                theme,
+                "candidate-weight",
+                Message::Weight(-1),
+                Message::Weight(1),
+            )?;
+        rows.push(
+            SettingRow::new(tr("appearance.candidate_weight"))
+                .info(tr("appearance.candidate_weight_info"))
+                .control(weight)
+                .build(ui, theme)?,
+        );
+    }
+    rows.push(annotation);
     out.push(section_title(ui, theme, tr("appearance.section_text"))?);
-    out.push(group(ui, theme, &[renderer, font, candidate, annotation])?);
+    out.push(group(ui, theme, &rows)?);
 
     let animations = toggle(
         ui,

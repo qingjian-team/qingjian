@@ -77,6 +77,7 @@ impl Painter {
                             candidate: candidate.get(),
                             annotation: annotation.get(),
                         })
+                        .with_candidate_weight(settings.candidate_weight)
                         .with_animations(settings.animations);
                     painter
                         .renderer
