@@ -21,7 +21,7 @@ pub struct InputOptions {
     #[serde(default)]
     pub english_pair_punctuation: bool,
 
-    /// 屏蔽词：候选里含有其中任何一个就整条不出（PC 的 [dictionaries] blocked）。
+    /// 屏蔽词：候选里含有其中任何一个就整条不出（对应 PC 配置的同名项）。
     #[serde(default)]
     pub blocked: Vec<String>,
 
