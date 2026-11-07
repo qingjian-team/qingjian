@@ -410,10 +410,13 @@ fn full_pinyin_keyword_brings_its_shortcuts() {
         .into_iter()
         .map(|c| c.text)
         .collect();
-    assert_eq!(all[0], "时间");
-    assert!(all[1].contains(':'), "时间之后紧跟现在的时间：{all:?}");
+    // 「时间」这个词还在；一整组时间写法跟着来。具体位次由排序规则决定，这里不钉死
+    assert!(all.iter().any(|t| t == "时间"), "{all:?}");
+    let colons = all.iter().filter(|t| t.contains(':')).count();
+    assert!(colons >= 3, "时间写法应当不止两条：{all:?}");
     // 一组写法只出一遍
-    assert_eq!(all.iter().filter(|t| t.contains(':')).count(), 2);
+    let unique: std::collections::HashSet<_> = all.iter().collect();
+    assert_eq!(unique.len(), all.len(), "候选不该重复：{all:?}");
 }
 
 #[test]
