@@ -93,6 +93,7 @@ impl Host {
         self.punct_commits = config.general.punct_commits;
         self.preedit_mode = config.general.preedit;
         self.translation_pos = config.general.translation_pos;
+        self.show_english_pronunciation = config.general.show_english_pronunciation;
         self.english_candidates = config.general.english_candidates;
         self.apps = config.apps.clone();
         self.window.set_appearance(config.general.appearance());

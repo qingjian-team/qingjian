@@ -56,6 +56,9 @@ pub(crate) struct RenderData {
     /// 译词旁是否显示词性标注（随帧下发的 `[general] translation_pos`）。
     pub(super) show_pos: bool,
 
+    /// 英文候选的 `reading` 是音标、用淡色画（随帧下发的 `[general] show_english_pronunciation`）。
+    pub(super) english_reading_ipa: bool,
+
     /// 输入状态，给主题显示中 / 英、简 / 繁等。
     pub(super) mode: Mode,
 }
@@ -78,6 +81,7 @@ impl RenderData {
             appearance: Appearance::default(),
             show_code: false,
             show_pos: true,
+            english_reading_ipa: false,
             mode: Mode::default(),
         }
     }
@@ -88,6 +92,7 @@ impl RenderData {
         self.appearance = frame.appearance;
         self.show_code = frame.aux_code_show;
         self.show_pos = frame.translation_pos;
+        self.english_reading_ipa = frame.english_reading_ipa;
         self.preedit = window_preedit(frame);
         self.cursor = frame
             .window_preedit
@@ -109,6 +114,7 @@ impl RenderData {
                     candidate,
                     self.show_code,
                     self.show_pos,
+                    self.english_reading_ipa,
                 );
                 if grid {
                     let labelled =

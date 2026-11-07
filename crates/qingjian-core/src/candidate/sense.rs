@@ -14,6 +14,11 @@ pub struct Sense {
     /// 译文的读音（日语假名），给不认识汉字读法的人看；英文等没有。
     pub reading: Option<String>,
 
+    /// 译文是英文词时的音标（`/həˈloʊ/`）。与 [`Self::reading`] 分开：假名按汉字段对位，
+    /// 音标是整条译词的一个整体。由 `[general] show_english_pronunciation` 决定填不填。
+    #[serde(default)]
+    pub pronunciation: Option<String>,
+
     /// 生词：这条译词用户在候选里还没见过几轮（`Engine::annotate` 按词汇记录填，释义表里恒为 false），壳可以标出来。
     #[serde(default)]
     pub fresh: bool,

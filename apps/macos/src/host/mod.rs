@@ -216,6 +216,9 @@ pub struct Host {
     /// 译词旁是否画词性（配置 `[general] translation_pos`）。
     pub translation_pos: bool,
 
+    /// 英文候选的 reading 是音标、用淡色画（配置 `[general] show_english_pronunciation`）。
+    pub show_english_pronunciation: bool,
+
     /// 候选窗口竖排 / 横排（配置 `[general] layout`）。
     pub layout: LayoutMode,
 

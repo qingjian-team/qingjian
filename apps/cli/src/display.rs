@@ -186,12 +186,15 @@ pub fn show_prediction(engine: &mut Engine, candidates: &[Candidate]) {
 }
 
 /// 候选词左对齐，右侧是「词性 译文」，多条释义用 · 分隔。
+///
+/// 音标排在**最后**（`cargo [en] n. 货物 /ˈkɑrˌɡoʊ/`）：它是辅助信息，铺在译文后面读起来
+/// 与候选窗一致（候选窗里音标也跟在译词后面）。译文缺席时它紧跟候选词。
 fn format_candidate(candidate: &Candidate, width: usize) -> String {
     let padding = " ".repeat(width.saturating_sub(display_width(&candidate.text)) + 2);
     let reading = candidate
         .reading
         .as_ref()
-        .map(|r| format!("{r} "))
+        .map(|r| format!(" {r}"))
         .unwrap_or_default();
     let annotation = candidate
         .translation
@@ -201,7 +204,7 @@ fn format_candidate(candidate: &Candidate, width: usize) -> String {
                 .iter()
                 .map(|s| {
                     // 日文译词按汉字段注平假名：開発(かいはつ)する
-                    let text: String = s
+                    let mut text: String = s
                         .furigana()
                         .iter()
                         .map(|segment| match &segment.reading {
@@ -209,6 +212,10 @@ fn format_candidate(candidate: &Candidate, width: usize) -> String {
                             None => segment.text.clone(),
                         })
                         .collect();
+                    // 英文音标跟在译词后面、不加括号：hello /həˈloʊ/
+                    if let Some(pronunciation) = &s.pronunciation {
+                        text.push_str(&format!(" {pronunciation}"));
+                    }
                     match s.part_of_speech {
                         Some(pos) => format!("{pos} {text}"),
                         None => text,
@@ -237,7 +244,7 @@ fn format_candidate(candidate: &Candidate, width: usize) -> String {
         | qingjian_core::CandidateKind::Symbol => "",
     };
     format!(
-        "{}{padding}{marker}{reading}{aux}{annotation}",
+        "{}{padding}{marker}{aux}{annotation}{reading}",
         candidate.text
     )
     .trim_end()

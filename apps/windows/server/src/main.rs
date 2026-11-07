@@ -202,6 +202,8 @@ fn main() -> ExitCode {
         glossary: glossary.clone(),
         english_glossary: glossary_file(&root, Language::Chinese),
         english: generated(&root, "english.tsv"),
+        // 音标表随包放在 assets/lexicon（与源码里的词表同目录），不在 data/generated
+        english_ipa: asset(&root, "lexicon/english-ipa.tsv"),
         emoji: ["emoji-zh.tsv", "emoji-en.tsv"]
             .into_iter()
             .filter_map(|name| asset(&root, &format!("emoji/{name}")))
@@ -243,6 +245,7 @@ fn main() -> ExitCode {
     engine.set_kaomoji_limit(usize::from(config.general.kaomoji.get()));
     engine.set_symbol_limit(usize::from(config.general.symbols.get()));
     engine.set_english_in_chinese(config.general.english_in_chinese);
+    engine.set_show_english_pronunciation(config.general.show_english_pronunciation);
     engine.set_english_max_in_chinese(config.general.english_max_in_chinese());
     engine.set_english_min_position(config.general.english_min_position());
     engine.set_shift_letter_compose(config.general.shift_letter.compose());

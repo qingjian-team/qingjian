@@ -588,6 +588,26 @@ impl Engine {
         self.chinese_first
     }
 
+    /// 英文候选旁显示音标（配置 `[general] show_english_pronunciation`，缺省关）。
+    /// 关着时英文候选不带音标，与加这个功能之前完全一样。
+    pub fn set_show_english_pronunciation(&mut self, on: bool) {
+        self.show_english_pronunciation = on;
+    }
+
+    pub fn show_english_pronunciation(&self) -> bool {
+        self.show_english_pronunciation
+    }
+
+    /// 英文音标表（`english-ipa.tsv`：`词\t/音标/`）。没设或设为空就不显示任何音标。
+    /// 重复设置会换掉旧表——热加载时改的是同一个文件。
+    pub fn set_english_pronunciations(&mut self, table: Option<WordList>) {
+        self.english_pronunciations = table;
+    }
+
+    pub fn english_pronunciations(&self) -> Option<&WordList> {
+        self.english_pronunciations.as_ref()
+    }
+
     /// 拼写纠错开关（配置 `[general] spelling_correction`，缺省开）。关掉后拼音只按敲的原样（与模糊音）读：
     /// 不做整段纠正，整句词图也不加敲错边，学来的敲错表不再起作用（表本身留着）。
     pub fn set_spelling_correction(&mut self, on: bool) {

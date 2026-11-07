@@ -1,6 +1,7 @@
 //! 候选窗口的一行：序号、候选词、annotation 片段。只是 Core 输出的展示形态，不含任何排序或查词。
 
 use qingjian_core::Candidate;
+use qingjian_core::CandidateKind;
 
 /// annotation 片段的种类，决定颜色；青简渲染器的主题还按它挑着画。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -42,15 +43,24 @@ pub struct Row {
 impl Row {
     /// `show_pos` 是 `[general] translation_pos`：关掉时译词保留、词性段（v. / n. / adj.）不画；
     /// `show_code` 是 `[general] aux_code_show`。
+    /// `english_reading_ipa` 是 `[general] show_english_pronunciation`：英文候选的 `reading` 是音标
+    /// （`/ˈkɑrɡoʊ/`）而不是问字模式的带调拼音，用淡色画，免得跟后面同色的译文混在一起。
     pub fn from_candidate(
         position: usize,
         candidate: &Candidate,
         show_pos: bool,
         show_code: bool,
+        english_reading_ipa: bool,
     ) -> Self {
         let mut annotation = Vec::new();
-        // 读音（问字模式答案的带声调拼音）放在最前
-        if let Some(reading) = &candidate.reading {
+        // 英文候选的 reading 是音标（辅助信息，排到译文之后、淡色）；其余候选的 reading 是问字模式
+        // 答案的带调拼音，那是候选本身的内容，留在最前面、用译词色。
+        let english_ipa = candidate
+            .reading
+            .as_ref()
+            .filter(|_| english_reading_ipa && candidate.kind == CandidateKind::English)
+            .cloned();
+        if let Some(reading) = candidate.reading.as_ref().filter(|_| english_ipa.is_none()) {
             annotation.push((reading.clone(), Tone::Gloss));
         }
         if let Some(translation) = &candidate.translation {
@@ -73,7 +83,19 @@ impl Row {
                         annotation.push((format!("({reading})"), Tone::Faint));
                     }
                 }
+                // 英文音标跟在译词后面、不加括号（`hello /həˈloʊ/`）；
+                // 括号是日语假名的写法，音标整条标一个词，用空格隔开更清楚
+                if let Some(pronunciation) = &sense.pronunciation {
+                    annotation.push((format!(" {pronunciation}"), Tone::Faint));
+                }
             }
+        }
+        // 英文候选自己的音标也排在译文之后，前面补一个空格与译文分开
+        if let Some(reading) = english_ipa {
+            if !annotation.is_empty() {
+                annotation.push((" ".to_owned(), Tone::Separator));
+            }
+            annotation.push((reading, Tone::Faint));
         }
         Self {
             index: (position + 1).to_string(),

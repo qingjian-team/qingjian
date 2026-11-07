@@ -235,6 +235,7 @@ mod tests {
             text: text.to_owned(),
             reading: None,
             fresh: false,
+            pronunciation: None,
         };
         let mut candidates = CandidateList {
             items: vec![

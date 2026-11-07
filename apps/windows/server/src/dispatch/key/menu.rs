@@ -231,6 +231,7 @@ impl Router {
                 part_of_speech,
                 text: translation.to_owned(),
                 reading: None,
+                pronunciation: None,
                 fresh: false,
             }],
         );

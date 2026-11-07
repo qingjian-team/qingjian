@@ -202,6 +202,7 @@ pub fn init(mtm: MainThreadMarker, info: &BundleInfo) -> Result<(), HostError> {
             root_keyboard: None,
             preedit_mode: PreeditMode::default(),
             translation_pos: true,
+            show_english_pronunciation: false,
             layout: LayoutMode::default(),
             horizontal_grid: false,
             grid_page_keys: false,

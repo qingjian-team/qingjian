@@ -163,6 +163,17 @@ pub enum Command {
         frequency: Option<PathBuf>,
     },
 
+    /// CMU 发音词典（`cmudict.dict`，ARPAbet）→ `english-ipa.tsv`：`词\t/IPA/`（General American），
+    /// 随包给英文候选显示音标。只收纯小写字母的词，多音词取第一个
+    Ipa {
+        /// 输入的 CMUdict 文件（`cmudict.dict`）
+        input: PathBuf,
+
+        /// 输出文件名（写在 --out-dir 下）
+        #[arg(long, default_value = "english-ipa.tsv")]
+        name: String,
+    },
+
     /// Unicode CLDR emoji annotations（`annotations/<语言>/annotations.json`、`annotationsDerived/…`）→ emoji-<语言>.tsv：`词\temoji …`
     Emoji {
         /// 输入的 JSON 文件

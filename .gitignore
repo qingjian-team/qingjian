@@ -7,3 +7,4 @@
 /data
 .playwright-mcp/
 __pycache__/
+.vscode/
