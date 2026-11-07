@@ -59,6 +59,15 @@ impl Engine {
         };
         query.aux = self.aux_segment();
         query.held = self.held_text();
+        // 屏蔽词先过一遍：排在后面几步（重排、补单字、留联系人）之前，省得给不出的词排序
+        if !self.blocked.is_empty() {
+            query.candidates.items.retain(|item| {
+                !self
+                    .blocked
+                    .iter()
+                    .any(|word| item.text.contains(word.as_str()))
+            });
+        }
         self.apply_demotions(&mut query.candidates.items);
         // 辅码态只出命中码的词：自定义短语没有码，不出
         if self.aux_filter().is_none() {

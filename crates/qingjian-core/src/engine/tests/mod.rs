@@ -2,6 +2,7 @@
 
 mod auto_word;
 mod aux_code;
+mod blocked;
 mod candidate_menu;
 mod caret;
 mod chaizi;

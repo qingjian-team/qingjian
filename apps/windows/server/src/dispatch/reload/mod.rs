@@ -318,6 +318,8 @@ impl Router {
             reload.applied_dictionaries = config.dictionaries.clone();
             self.engine
                 .set_extra_dictionaries(reload.load_dictionaries());
+            self.engine
+                .set_blocked_words(config.dictionaries.blocked.clone());
         }
         if config.aux_code != reload.applied_aux_code {
             reload.applied_aux_code = config.aux_code.clone();
