@@ -32,6 +32,9 @@ t07（数据源查证）/ t09（归一化决议）两张票：**CNS 作字形来
 
 ## 生成与验收
 
+`--filter` 可以给多张字表（逗号分隔），按给出的顺序拼接、同一个字取先出现的那次；`--keys` 把序列写成键位形式
+（`h`/`s`/`p`/`n`/`z`）而不是 CNS 的 `1 2 3 5 n` ——问字模式按笔画找字要的是这一份，`pack codes` 要的是数字形式。
+
 ```bash
 # 生成（缺省写 data/generated/codes/stroke.tsv）
 cargo run --release -p qingjian-dict-convert -- stroke --cns-count data/cns/CNS_stroke.txt --verify
