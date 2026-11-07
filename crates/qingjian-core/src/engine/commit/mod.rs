@@ -7,7 +7,7 @@ use super::query::EnglishTail;
 use super::{
     ABBREVIATION_CHOICE_PREFIX, AUTO_WORD_MAX_CHARS, AUTO_WORD_THRESHOLD,
     AUTO_WORD_THRESHOLD_SAME_BUFFER, BUFFER_PHRASE_MAX_CHARS, EXPLICIT_TRANSITION_WEIGHT, Engine,
-    choice_key, reading_key, segment_longest_prefix,
+    SENTENCE_WORD_MAX_CHARS, choice_key, reading_key, segment_longest_prefix,
 };
 use crate::candidate::{Candidate, CandidateKind, CandidateList, Language};
 use crate::correction::edit_distance;
@@ -21,8 +21,8 @@ mod last;
 mod transition;
 
 pub(super) use chain::CommitChain;
-pub(super) use last::Choice;
 pub use last::LastCommit;
+pub(super) use last::{BufferPhrase, Choice};
 pub use transition::Transition;
 
 impl Engine {
@@ -317,9 +317,20 @@ impl Engine {
             | CandidateKind::Symbol
             | CandidateKind::Generated => self.chain.reset(),
         }
-        // 一次整句上屏里的几个词不算分段选，只有这段拼音经过至少两次上屏才合起来看
-        let phrase = if split && !buffer_left {
-            self.finish_buffer()
+        // 这段拼音上屏完了：分几次选完的合起来看；一次选中的整句只看由几个多字词拼成的短句（陌生词 交易中心 = 交易 + 中心），
+        // 带单字的（想开发、对每条）多半是句子不是词，每句都记的话用户词一周就涨上千条
+        let phrase = if buffer_left {
+            None
+        } else if split {
+            self.finish_buffer(BUFFER_PHRASE_MAX_CHARS)
+        } else if candidate.kind == CandidateKind::Sentence
+            && self
+                .chain
+                .buffer_words()
+                .iter()
+                .all(|(text, _)| text.chars().count() > 1)
+        {
+            self.finish_buffer(SENTENCE_WORD_MAX_CHARS)
         } else {
             None
         };
@@ -379,11 +390,12 @@ impl Engine {
         text
     }
 
-    /// 一段拼音分几次选完了（`jidiaole` 先选 挤、剩下的走整句 掉了）：这几个词合起来就是用户对这段拼音的答案。
+    /// 一段拼音上屏完了：分几次选完（`jidiaole` 先选 挤、剩下的走整句 掉了），或一次选中由几个词组成的整句
+    /// （`jiaoyizhongxin` 的 交易中心）。这几个词合起来就是用户对这段拼音的答案。
     /// 记一次「整段拼音 → 合成词」的选择；选到 [`AUTO_WORD_THRESHOLD_SAME_BUFFER`] 次、词库里没有、
-    /// 不超过 [`BUFFER_PHRASE_MAX_CHARS`] 字就记成用户词，下次整段或它的简拼打出来直接排第一（整句也是：
+    /// 不超过 `max_chars` 字就记成用户词，下次整段或它的简拼打出来直接排第一（整句也是：
     /// `xiaomingqulexuexiao` 逐字选出 晓铭去了学校，之后 `xmqlxx` 也出它）。返回记下的选择，撤销时退回。
-    pub(super) fn finish_buffer(&mut self) -> Option<(String, Choice)> {
+    pub(super) fn finish_buffer(&mut self, max_chars: usize) -> Option<BufferPhrase> {
         let words = self.chain.buffer_words();
         if words.len() < 2 {
             return None;
@@ -392,7 +404,7 @@ impl Engine {
         let syllables: Vec<String> = words.iter().flat_map(|(_, s)| s.iter().cloned()).collect();
         let chars = text.chars().count();
         let key = self.chain.buffer_key().to_owned();
-        if key.is_empty() || chars > BUFFER_PHRASE_MAX_CHARS || chars != syllables.len() {
+        if key.is_empty() || chars > max_chars || chars != syllables.len() {
             return None;
         }
         let candidate = Candidate {
@@ -410,23 +422,24 @@ impl Engine {
             self.learner
                 .record_choice(&abbreviation, "", &candidate.text);
         }
-        if !self.knows_word(&candidate)
-            && self.learner.choice_weight(&key, &candidate.text) >= AUTO_WORD_THRESHOLD_SAME_BUFFER
-        {
-            tracing::debug!(text = %candidate.text, "整段拼音分次选完，自动造词");
+        let created = !self.knows_word(&candidate)
+            && self.learner.choice_weight(&key, &candidate.text) >= AUTO_WORD_THRESHOLD_SAME_BUFFER;
+        if created {
+            tracing::debug!(text = %candidate.text, "buffer phrase learned as a user word");
             self.learner
                 .learn_word(&candidate.text, &candidate.syllables);
             // 逐字选出来就是用户要的这个词：算选过一次，排序与整句词图里都有它的选择加分
             self.learner.record(&candidate);
         }
-        Some((
+        Some(BufferPhrase {
             key,
-            Choice {
+            choice: Choice {
                 reading,
                 text: candidate.text,
                 abbreviation,
             },
-        ))
+            created,
+        })
     }
 
     /// 最近删掉的上屏里有一次是同一段拼音（或它的前缀）、这次却选了别的词：把那次记的学习退回去。
@@ -485,12 +498,18 @@ impl Engine {
         for (typed, intended) in &last.typos {
             self.learner.unrecord_typo(typed, intended);
         }
-        if let Some((key, choice)) = &last.phrase {
-            self.learner
-                .unrecord_choice(key, &choice.reading, &choice.text);
-            if !choice.abbreviation.is_empty() {
+        if let Some(phrase) = &last.phrase {
+            let choice = &phrase.choice;
+            if phrase.created {
+                self.learner.forget(&choice.text);
+                *self.correction_cache.borrow_mut() = None;
+            } else {
                 self.learner
-                    .unrecord_choice(&choice.abbreviation, "", &choice.text);
+                    .unrecord_choice(&phrase.key, &choice.reading, &choice.text);
+                if !choice.abbreviation.is_empty() {
+                    self.learner
+                        .unrecord_choice(&choice.abbreviation, "", &choice.text);
+                }
             }
         }
     }

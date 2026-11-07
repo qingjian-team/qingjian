@@ -336,6 +336,17 @@ struct WordLearner {
     choices: HashMap<String, u32>,
 }
 
+impl WordLearner {
+    fn rebuild_words(&mut self) {
+        let tsv: String = self
+            .words
+            .iter()
+            .map(|(t, s)| format!("{t}\t{}\t100\n", s.join(" ")))
+            .collect();
+        self.dictionary = Some(Dictionary::parse(&tsv).unwrap());
+    }
+}
+
 impl Learner for WordLearner {
     fn record(&mut self, _candidate: &Candidate) {}
 
@@ -362,13 +373,20 @@ impl Learner for WordLearner {
 
     fn learn_word(&mut self, text: &str, syllables: &[String]) {
         self.words.push((text.to_owned(), syllables.to_vec()));
-        let tsv: String = self
-            .words
-            .iter()
-            .map(|(t, s)| format!("{t}\t{}\t100\n", s.join(" ")))
-            .collect();
-        self.dictionary = Some(Dictionary::parse(&tsv).unwrap());
+        self.rebuild_words();
         self.shared.lock().unwrap().0.push(text.to_owned());
+    }
+
+    fn forget(&mut self, text: &str) -> Forgotten {
+        let before = self.words.len();
+        self.words.retain(|(t, _)| t != text);
+        self.rebuild_words();
+        let suffix = format!("\t{text}");
+        self.choices.retain(|key, _| !key.ends_with(&suffix));
+        Forgotten {
+            user_word: self.words.len() < before,
+            learning: true,
+        }
     }
 
     fn user_words(&self) -> Option<&Dictionary> {

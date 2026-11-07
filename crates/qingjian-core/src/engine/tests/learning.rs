@@ -413,7 +413,7 @@ fn commits_feed_the_personal_bigram_and_form_words() {
     };
     let mut engine = engine().with_learner(Box::new(learner));
 
-    // 整句上屏：按路径上的词记转移，第一个词在句首
+    // 整句上屏：按路径上的词记转移，第一个词在句首；带单字的整句（想 + 开发）不记成用户词
     engine.set_input("xiangkaifa");
     let sentence = engine.query().unwrap().candidates.items[0].clone();
     assert_eq!(sentence.kind, CandidateKind::Sentence);

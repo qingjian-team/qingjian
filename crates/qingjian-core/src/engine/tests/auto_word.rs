@@ -140,3 +140,70 @@ fn a_chosen_low_tier_word_survives_thousands_of_abbreviation_hits() {
     engine.set_input("ss");
     assert_eq!(texts_of(&engine)[0], "屎山");
 }
+
+/// 词库有 交易、中心，没有 交易中心；简拼 jyzx 下 就要、主席 词频更高。
+fn jiaoyi_engine() -> Engine {
+    let dictionary = concat!(
+        "交易\tjiao yi\t5000\n中心\tzhong xin\t5000\n就要\tjiu yao\t20000\n主席\tzhu xi\t20000\n",
+        "区\tqu\t9000\n",
+    );
+    Engine::new(Dictionary::parse(dictionary).unwrap())
+        .with_learner(Box::new(WordLearner::default()))
+}
+
+fn commit_sentence(engine: &mut Engine, input: &str) -> String {
+    engine.set_input(input);
+    let first = engine.query().unwrap().candidates.items.remove(0);
+    assert_eq!(first.kind, CandidateKind::Sentence, "{input}");
+    engine.commit(&first)
+}
+
+#[test]
+fn a_short_sentence_picked_once_becomes_a_word_for_its_abbreviation() {
+    // #875：全拼一次选中的陌生词（整句 交易中心），下次简拼 jyzx 也排第一
+    let mut engine = jiaoyi_engine();
+    engine.set_input("jyzx");
+    assert_ne!(texts_of(&engine)[0], "交易中心");
+    engine.clear();
+    assert_eq!(commit_sentence(&mut engine, "jiaoyizhongxin"), "交易中心");
+    engine.note_passthrough('\n');
+    for input in ["jiaoyizhongxin", "jyzx"] {
+        engine.set_input(input);
+        assert_eq!(texts_of(&engine)[0], "交易中心", "{input}");
+        engine.clear();
+    }
+}
+
+#[test]
+fn a_sentence_picked_once_with_a_single_char_or_over_six_chars_is_not_a_word() {
+    // 一次接受的整句带单字（交易 + 区）多半是句子，超过 6 个字的多半是模型首选，都不记成用户词
+    let mut engine = jiaoyi_engine();
+    assert_eq!(commit_sentence(&mut engine, "jiaoyiqu"), "交易区");
+    assert_eq!(engine.learner().weight("交易区"), 0);
+    engine.note_passthrough('\n');
+    assert_eq!(
+        commit_sentence(&mut engine, "jiaoyizhongxinjiaoyizhongxin"),
+        "交易中心交易中心"
+    );
+    assert_eq!(engine.learner().weight("交易中心交易中心"), 0);
+    engine.note_passthrough('\n');
+    assert_eq!(
+        commit_sentence(&mut engine, "jiaoyizhongxinzhongxin"),
+        "交易中心中心"
+    );
+    assert_eq!(engine.learner().weight("交易中心中心"), 1);
+}
+
+#[test]
+fn erasing_the_sentence_and_picking_another_forgets_the_new_word() {
+    // 按空格上屏了 交易中心，删掉重打改选 交易：刚造的词一并删掉
+    let mut engine = jiaoyi_engine();
+    commit_sentence(&mut engine, "jiaoyizhongxin");
+    assert_eq!(engine.learner().weight("交易中心"), 1);
+    for _ in 0..4 {
+        engine.note_backspace();
+    }
+    engine.set_input("jiaoyizhongxin");
+    select(&mut engine, "交易");
+    assert_eq!(engine.learner().weight("交易中心"), 0);
+}

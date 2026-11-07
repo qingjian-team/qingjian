@@ -471,6 +471,10 @@ const ABBREVIATION_CHOICE_PREFIX: char = '^';
 /// 前后两个词自动合成的词最多几个字：再长就不是词而是短语了。
 const AUTO_WORD_MAX_CHARS: usize = 4;
 
+/// 一次选中的整句（几个多字词拼成，交易 + 中心）记成用户词的最多几个字：一次接受的长句多半是模型给的首选，
+/// 下次一字不差再打的机会也小（分几次选完的见 [`BUFFER_PHRASE_MAX_CHARS`]）。冻结回放里 4 字与 6 字逐条相同，取宽的。
+const SENTENCE_WORD_MAX_CHARS: usize = 6;
+
 /// 一段拼音分几次选完、合起来记成用户词的最多几个字（整句记忆）：用户逐字纠正过的整句，下次同样的全拼或简拼直接出。
 /// 再长的多半是一大段话，下次一字不差再打一遍的机会很小。
 const BUFFER_PHRASE_MAX_CHARS: usize = 20;
