@@ -7,7 +7,7 @@ description: "Qingjian for Android: clipboard and saved phrases, quick translati
 ## Clipboard and saved phrases
 
 - The clipboard icon in the toolbar opens the clipboard and saved phrases. Text and images you've copied are stored on the phone; tap one to commit it. Passwords copied from a password manager aren't stored. An entry you delete isn't recorded again just because it's still on the system clipboard; it's only recorded again when you copy it anew.
-- A clipboard entry can be added as a saved phrase, or you can use 拆词 (Split into words) to pick part of it word by word.
+- A text entry in the clipboard can be edited with 编辑 (Edit); the edited entry moves to the top, and with LAN sync on the computer gets the change too. An entry can also be added as a saved phrase, or you can use 拆词 (Split into words) to pick part of it word by word.
 - Saved phrases can be grouped and given an input code; type the code to get that phrase directly among the candidates.
 - 设置 → 剪贴板 (Settings → Clipboard) lets you turn recording off or set the maximum number of entries kept.
 - 设置 → 局域网同步 (Settings → Local network sync) shares copied text and images with a paired Windows PC on the same network, without any server.

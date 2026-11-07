@@ -636,6 +636,30 @@ class QingjianInputMethodService :
         panel?.showEditor(editor)
     }
 
+    override fun editClip(index: Int, text: String) {
+        closeEditor()
+        closePanel()
+        composer.abandon()
+        val editor = PhraseEditor(
+            this, Palette.of(this), emptyList(), null, "",
+            onDone = { edited, _, _ ->
+                ClipboardStore.edit(this, index, text, edited, clipboardLimit)
+                ClipboardSync.changed()
+                closeEditor()
+                openPanel(PanelKind.CLIPBOARD)
+            },
+            onCancel = {
+                closeEditor()
+                openPanel(PanelKind.CLIPBOARD)
+            },
+            onFocusCode = {},
+            clip = text,
+        )
+        engine.setMetered(false)
+        this.editor = editor
+        panel?.showEditor(editor)
+    }
+
     /**
      * 工具栏的翻译：开快捷翻译条（再点一下收起，译文留着）。没配云端就提示去设置。
      * 方向胶囊写学习语言。
