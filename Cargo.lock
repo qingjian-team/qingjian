@@ -4127,7 +4127,7 @@ checksum = "d55d956fa96f5ec02be2e13af0e20391a5aa83d6a074e3ad368959d0fab299ea"
 
 [[package]]
 name = "qingjian-android"
-version = "0.3.3-dev"
+version = "0.3.3"
 dependencies = [
  "bamboo-slip-i18n",
  "jiff",
@@ -4343,7 +4343,7 @@ dependencies = [
 
 [[package]]
 name = "qingjian-linux-server"
-version = "0.3.3-dev"
+version = "0.3.3"
 dependencies = [
  "libc",
  "qingjian-core",
@@ -4376,7 +4376,7 @@ dependencies = [
 
 [[package]]
 name = "qingjian-macos"
-version = "0.3.3-dev"
+version = "0.3.3"
 dependencies = [
  "block2 0.6.2",
  "dotenvy",
@@ -4487,7 +4487,7 @@ dependencies = [
 
 [[package]]
 name = "qingjian-settings"
-version = "0.3.3-dev"
+version = "0.3.3"
 dependencies = [
  "bamboo-slip",
  "bamboo-slip-i18n",
@@ -4564,7 +4564,7 @@ dependencies = [
 
 [[package]]
 name = "qingjian-windows-server"
-version = "0.3.3-dev"
+version = "0.3.3"
 dependencies = [
  "bamboo-slip-i18n",
  "dotenvy",
@@ -4593,7 +4593,7 @@ dependencies = [
 
 [[package]]
 name = "qingjian-windows-settings"
-version = "0.3.3-dev"
+version = "0.3.3"
 dependencies = [
  "jiff",
  "qingjian-core",
@@ -4614,7 +4614,7 @@ dependencies = [
 
 [[package]]
 name = "qingjian-windows-tsf"
-version = "0.3.3-dev"
+version = "0.3.3"
 dependencies = [
  "qingjian-core",
  "qingjian-platform",
