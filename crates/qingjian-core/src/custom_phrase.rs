@@ -72,7 +72,8 @@ fn enabled() -> bool {
 
 /// 短语里的时间变量（#800），出候选时按当时的本地时间换掉，候选窗里显示的就是要上屏的：
 /// `{year}` 四位年；`{month}` `{day}` `{hour}` 不补零；`{minute}` `{second}` 补到两位（读成「9 时 05 分」）；
-/// `{weekday}` 是「一」到「日」（写成「星期{weekday}」）。`{{` `}}` 输出花括号本身，认不出的 `{…}` 原样留着。
+/// `{weekday}` 是「一」到「日」（写成「星期{weekday}」）。数字变量后面加 `:0` 和位数补零（`{month:02}` 出 03，#906），
+/// 写法同 Rust 的 `format!`。`{{` `}}` 输出花括号本身，认不出的 `{…}` 原样留着。
 pub fn expand_variables<'a>(text: &'a str, now: &Zoned) -> Cow<'a, str> {
     if !text.contains(['{', '}']) {
         return Cow::Borrowed(text);
@@ -112,6 +113,14 @@ pub fn expand_variables<'a>(text: &'a str, now: &Zoned) -> Cow<'a, str> {
 }
 
 fn variable(name: &str, now: &Zoned) -> Option<String> {
+    if let Some((name, spec)) = name.split_once(':') {
+        let width = spec.strip_prefix('0')?.parse::<usize>().ok()?;
+        let value = variable(name, now)?;
+        if name == "weekday" || !(1..=9).contains(&width) {
+            return None;
+        }
+        return Some(format!("{value:0>width$}"));
+    }
     Some(match name {
         "year" => now.year().to_string(),
         "month" => now.month().to_string(),
@@ -311,6 +320,15 @@ mod tests {
                 &now
             ),
             "今天是2026年3月8日 9:05:07，星期日"
+        );
+        assert_eq!(
+            expand_variables("{year}-{month:02}-{day:02} {hour:02}:{minute:02}", &now),
+            "2026-03-08 09:05"
+        );
+        // 补零只认 `:0` 加 1–9 位，星期不是数字；认不出的原样留着
+        assert_eq!(
+            expand_variables("{month:2} {day:00} {weekday:02} {year:05}", &now),
+            "{month:2} {day:00} {weekday:02} 02026"
         );
         assert_eq!(
             expand_variables("{{year}} {unknown} }", &now),

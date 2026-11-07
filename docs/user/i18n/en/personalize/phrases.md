@@ -33,6 +33,8 @@ The content can contain time variables, replaced with the current time when the 
 | `{minute}` `{second}` | Minute, second, two digits | 05, 07 |
 | `{weekday}` | Day of the week, 一 to 日 | 日 |
 
+Add `:02` after a number variable to pad it to two digits: `{year}-{month:02}-{day:02} {hour:02}:{minute}` gives 2026-03-08 09:05, which sorts neatly and works in file names; use the width you need (`:03` pads to three).
+
 For example, give `jt` the content 今天是{year}年{month}月{day}日，星期{weekday} and typing `jt` gives 今天是2026年3月8日，星期日; `{weekday}` is a single character, so you can put 星期 or 周 in front of it.
 To output braces as they are, double them: `{{year}}` gives `{year}`. Anything not recognized (such as `{abc}`) stays as written. These variables are also replaced in macOS system text replacements.
 
