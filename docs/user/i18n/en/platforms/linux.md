@@ -7,6 +7,7 @@ description: "Installing Qingjian on Linux (and FreeBSD): the Fcitx5 prebuilt pa
 The Linux version of Qingjian runs as an input method in Fcitx5 or Fcitx4, and candidates use Fcitx's own candidate panel. For now it's installed from a terminal, and the background service has to be started by hand after each login.
 
 - On Debian, Ubuntu and Fedora you can install the deb / rpm packages, which start automatically at login; see "deb / rpm packages" below.
+- Newer distributions (Debian 13, Ubuntu 25.04, Fedora 42, Arch and later) can also use the AppImage: a single file, no administrator rights, starts automatically at login; see "AppImage" below.
 - For Fcitx5 there's a prebuilt package for Ubuntu 26.04; other distributions install from source. Verified with GTK4 and Qt6 apps and Firefox on the GNOME desktop (Wayland) of Ubuntu 26.04.
 - For Fcitx4 there's a source install for Ubuntu 22.04, verified with GTK3 text fields.
 - On FreeBSD 15.1, a Fcitx5 source install has been verified in XFCE and KDE Plasma X11 sessions and with Wayland apps under sway.
@@ -47,6 +48,32 @@ sudo dnf install ./qingjian-<version>-1.fc42.x86_64.rpm ./qingjian-fcitx5-<versi
 - `qingjian` installs on Debian 12 and Ubuntu 22.04 or later; `qingjian-fcitx5` needs a recent Fcitx5 and only installs on Debian 13, Ubuntu 25.04, Fedora 42 or later. On older systems use IBus or the source install.
 - With IBus, log out and back in once before Qingjian shows up.
 - To uninstall: `sudo apt remove qingjian qingjian-fcitx5` or `sudo dnf remove qingjian qingjian-fcitx5`. Settings and learned data are kept.
+
+## AppImage
+
+One file is all of Qingjian: nothing to compile and no administrator rights needed. It suits newer systems such as Debian 13, Ubuntu 25.04 and later, Fedora 42 and later, and Arch.
+Your system's Fcitx5 has to be 5.1.8 or newer (the 5.1.7 shipped with Ubuntu 24.04 is too old; use the source install there). First install Fcitx5 and GTK / Qt input support with your package manager, for example on Debian / Ubuntu:
+
+```sh
+sudo apt install fcitx5 fcitx5-frontend-gtk3 fcitx5-frontend-gtk4 fcitx5-frontend-qt6 fcitx5-config-qt
+```
+
+Download `Qingjian-<version>-x86_64.AppImage` from the [download page](https://qingjian.app/download), put it somewhere permanent (such as `~/Applications`), then:
+
+```sh
+chmod +x ~/Applications/Qingjian-*.AppImage
+~/Applications/Qingjian-*.AppImage install
+```
+
+You can also make it executable in your file manager and double-click it; the first run installs it and opens Qingjian Settings.
+Installing hooks Qingjian into Fcitx5, makes it start at login and adds "Qingjian Settings" to the application menu; the Qingjian service starts right away, no need to log in again.
+Then restart Fcitx5 (`fcitx5 -r`), untick "Only Show Current Language" in the Fcitx5 configuration tool and add "Qingjian".
+
+- **After moving or renaming the AppImage file**, run `install` again: autostart and the menu entry remember where it used to be.
+- **Updating**: replace the old file with the new one (keeping the same path and file name is easiest), log out and back in or run `install` once, then restart Fcitx5.
+- **Uninstalling**: run `Qingjian-*.AppImage uninstall`, then restart Fcitx5; after that you can delete the file. Your configuration, personal dictionaries and learning data are kept.
+- If you already installed Qingjian from source or from a package, uninstall that copy before installing the AppImage; two copies would replace each other, and the installer will tell you.
+- If the system lacks FUSE and says it can't mount, run `export APPIMAGE_EXTRACT_AND_RUN=1` first, then the commands above.
 
 ## Fcitx5 source install
 
