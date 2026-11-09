@@ -11,12 +11,21 @@
 //! ```
 //!
 //! `#` 开头为注释行，空行忽略。编码统一按小写存，查询输入也须已小写；编码里有字母以外的字符的行跳过。
+//!
+//! 随包方案的码表打成 `.qj`（`Kind::CodeTable`，`dict-convert pack codetable`）：方案的名字、作者、许可、版本、简介写在元数据里，
+//! `TEXT` 一节是按原行序写回的 TSV，打开时照旧解析。
 
+use std::fmt::Write as _;
 use std::path::Path;
+
+use qingjian_format::{Container, Kind, Metadata, Writer};
 
 use crate::error::DictionaryError;
 use crate::matching::Match;
 use crate::tones::Tones;
+
+/// `.qj` 里放 TSV 原文的那一节。
+const TEXT_TAG: [u8; 4] = *b"TEXT";
 
 /// 一条码表词目。
 #[derive(Debug, Clone)]
@@ -120,8 +129,32 @@ impl CodeTable {
         })
     }
 
+    /// 按文件内容选加载方式：`.qj` 取出 `TEXT` 一节解析，否则当 TSV 读。
     pub fn from_path(path: impl AsRef<Path>) -> Result<Self, DictionaryError> {
-        Self::parse(&std::fs::read_to_string(path)?)
+        let path = path.as_ref();
+        if Container::is_qj(path) {
+            Self::parse(&Container::open(path, Kind::CodeTable)?.text(TEXT_TAG)?)
+        } else {
+            Self::parse(&std::fs::read_to_string(path)?)
+        }
+    }
+
+    /// 写成 `.qj`：词目按码表原来的行序写回 TSV（单码按行序出候选，顺序不能丢）。`metadata.entries` 会填成词目数。
+    pub fn write_qj(&self, path: &Path, metadata: &Metadata) -> Result<(), DictionaryError> {
+        let mut rows: Vec<&Entry> = self.entries.iter().collect();
+        rows.sort_by_key(|entry| entry.order);
+        let mut text = String::new();
+        for entry in rows {
+            let _ = writeln!(text, "{}\t{}\t{}", entry.text, entry.code, entry.frequency);
+        }
+        let metadata = Metadata {
+            entries: self.entries.len() as u64,
+            ..metadata.clone()
+        };
+        Writer::new(Kind::CodeTable, &metadata)?
+            .section(TEXT_TAG, text.as_bytes())
+            .write_to(path)?;
+        Ok(())
     }
 
     /// 把用户的形码词库并进来。满码长度仍按原表算：几条自造词不该改掉方案的码长。
@@ -360,5 +393,29 @@ mod tests {
     fn normalizes_codes_to_lowercase() {
         let table = CodeTable::parse("开\tGA\t5000\n").unwrap();
         assert_eq!(table.lookup("ga", 10)[0].text, "开");
+    }
+
+    /// 随包五笔是 `.qj`：打包后单码的行序、词频与满码长度都不变。
+    #[test]
+    fn qj_round_trip_keeps_order_and_frequency() {
+        let dir = std::env::temp_dir().join(format!("qingjian-code-table-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("wubi86.qj");
+        let table =
+            CodeTable::parse("工\ta\t100\n戈\ta\t900\n开发\tgant\t9000\n一\tggll\t50\n").unwrap();
+        table.write_qj(&path, &Metadata::default()).unwrap();
+        let packed = CodeTable::from_path(&path).unwrap();
+        std::fs::remove_dir_all(&dir).unwrap();
+        let texts = |table: &CodeTable, code: &str| {
+            table
+                .lookup(code, 5)
+                .into_iter()
+                .map(|m| m.text.to_owned())
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(texts(&packed, "a"), texts(&table, "a"));
+        assert_eq!(texts(&packed, "gan"), ["开发"]);
+        assert_eq!(packed.total_frequency(), table.total_frequency());
+        assert_eq!(packed.full_code_len(), table.full_code_len());
     }
 }

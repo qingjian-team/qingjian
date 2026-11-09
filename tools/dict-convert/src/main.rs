@@ -4,7 +4,7 @@
 //! - `tones`：通用词表的数字声调 → 单字声调表 `tones.tsv`（编进 Core，注音按敲的声调排序）
 //! - `chaizi`：開放詞典網拆字字典（CC BY 3.0）+ 词库读音 → 拆字表 `chaizi.tsv`（编进 Core，问字模式按部件读音找字）
 //! - `wubi`：Rime 形码码表（极点 86 五笔，Apache-2.0）→ 形码方案的 `table.tsv`（`词\t编码\t词频`，词频由青简词库按词面回填）
-//! - `wubi-roots`：五笔字根表（`assets/schemes/wubi86/roots86.tsv`）+ 思源黑体（SIL OFL，不进仓库）→ `roots86-glyphs.tsv`（字根图的 SVG 路径，随包，沿用 OFL）
+//! - `wubi-roots`：五笔字根表（`crates/qingjian-core/data/roots86.tsv`）+ 思源黑体（SIL OFL，不进仓库）→ `roots86-glyphs.tsv`（字根图的 SVG 路径，随包，沿用 OFL）
 //! - `cedict`：CC-CEDICT（CC BY-SA 4.0）→ `glossary-en.tsv`（释义表的备用来源，现在用 gloss-gen 的 LLM 表）
 //! - `english`：`词\t编码` 英文词表（数据包的 `05_english`，ESDB / CSpell，MIT）→ `english.tsv`
 //! - `emoji`：Unicode CLDR annotations（Unicode License v3，`--language zh|en`）→ `emoji-<语言>.tsv`（可发布，放 `assets/emoji/`）
@@ -239,6 +239,7 @@ fn run() -> Result<(), ConvertError> {
             attribution,
             source,
             data_version,
+            description,
             language,
         } => pack::pack(
             kind,
@@ -255,6 +256,7 @@ fn run() -> Result<(), ConvertError> {
                 attribution,
                 source,
                 version: data_version,
+                description,
                 ..qingjian_format::Metadata::default()
             },
             &args.out_dir,

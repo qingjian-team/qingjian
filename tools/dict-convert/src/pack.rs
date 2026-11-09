@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use std::time::Instant;
 
 use qingjian_core::Language;
-use qingjian_dictionary::{Dictionary, WordList};
+use qingjian_dictionary::{CodeTable, Dictionary, WordList};
 use qingjian_format::Metadata;
 use qingjian_lm::BigramModel;
 use qingjian_translate::Glossary;
@@ -26,7 +26,7 @@ const CODES_ATTRIBUTION: &str = "CNS11643 全字庫筆順資料（數位發展�
 /// 来源：全字庫开放数据的数据集页。
 const CODES_SOURCE: &str = "https://data.gov.tw/dataset/5961";
 
-/// `pack codes` 的三个路径（`model`、`wordlist`、`pronunciations` 只用 `output`）。都不给时都从 `out_dir` 里找。
+/// `pack codes` 的三个路径（`model`、`wordlist`、`pronunciations`、`codetable` 只用 `output`）。都不给时都从 `out_dir` 里找。
 #[derive(Debug, Default)]
 pub struct CodePaths<'a> {
     /// 笔画表（`stroke` 子命令的产物）。
@@ -111,7 +111,7 @@ pub fn pack(
             glossary.write_qj(&out, &metadata)?;
             report(&out, glossary.len(), started);
         }
-        PackKind::Wordlist | PackKind::Pronunciations => {
+        PackKind::Wordlist | PackKind::Pronunciations | PackKind::Codetable => {
             let [input] = inputs else {
                 return Err(ConvertError::Format {
                     path: PathBuf::from("--input"),
@@ -123,13 +123,24 @@ pub fn pack(
                 let stem = input.file_stem().unwrap_or_default();
                 out_dir.join(stem).with_extension("qj")
             });
-            let words = if kind == PackKind::Pronunciations {
-                WordList::pronunciations_from_path(input)?
-            } else {
-                WordList::from_path(input)?
+            let entries = match kind {
+                PackKind::Codetable => {
+                    let table = CodeTable::from_path(input)?;
+                    table.write_qj(&out, &metadata)?;
+                    table.len()
+                }
+                PackKind::Pronunciations => {
+                    let table = WordList::pronunciations_from_path(input)?;
+                    table.write_qj(&out, &metadata)?;
+                    table.len()
+                }
+                _ => {
+                    let words = WordList::from_path(input)?;
+                    words.write_qj(&out, &metadata)?;
+                    words.len()
+                }
             };
-            words.write_qj(&out, &metadata)?;
-            report(&out, words.len(), started);
+            report(&out, entries, started);
         }
         PackKind::Model => {
             let input = inputs

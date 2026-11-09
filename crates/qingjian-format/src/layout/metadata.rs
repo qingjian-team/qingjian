@@ -22,6 +22,10 @@ pub struct Metadata {
     #[serde(default)]
     pub version: String,
 
+    /// 一两句话说这份数据是什么（形码方案在设置页显示的简介）；空着不写进文件，老文件读出来也是空。
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub description: String,
+
     /// 条数（词库是词条数，语言模型是 bigram 对数），只用于显示。
     #[serde(default)]
     pub entries: u64,

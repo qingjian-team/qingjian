@@ -22,6 +22,9 @@ pub enum Kind {
 
     /// 辅码码表（`qingjian-dictionary::AuxCodeTable`）：词 → 码的映射，辅码态逐键即筛用。
     AuxCodeTable = 7,
+
+    /// 形码方案的码表（`qingjian-dictionary::CodeTable`）：编码 → 字词，随包方案（五笔）用它分发。
+    CodeTable = 8,
 }
 
 impl Kind {
@@ -34,6 +37,7 @@ impl Kind {
             5 => Self::WordList,
             6 => Self::Model,
             7 => Self::AuxCodeTable,
+            8 => Self::CodeTable,
             _ => return None,
         })
     }
