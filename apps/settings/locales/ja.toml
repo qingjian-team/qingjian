@@ -389,6 +389,7 @@ no_input_yet = "まだ入力の記録がありません。少し入力してか�
 scale = "累計 {total}、約 {ratio} 冊分の『{book}』（約 {book_size}）"
 
 [lists]
+export = "書き出す…"
 entries = "{n} 件"
 entries_large = "{n}{unit}件"
 broken = "ファイルが壊れていて開けません"
@@ -622,6 +623,10 @@ zip_failed = "圧縮に失敗しました（{status}）"
 clear_failed = "消去に失敗しました：{error}"
 
 [library]
+export_title = "辞書を書き出す"
+tsv_filter = "TSV 辞書"
+exported = "{n} 件を {path} に書き出しました"
+export_failed = "書き出せませんでした：{error}"
 gone = "ファイルがもうありません"
 remove_failed = "削除に失敗しました：{error}"
 bad_name = "ファイル名が正しくありません"

@@ -389,6 +389,7 @@ no_input_yet = "Todavía no has escrito nada; vuelve cuando hayas escrito un poc
 scale = "{total} en total, unas {ratio} veces 《{book}》 (unos {book_size})"
 
 [lists]
+export = "Exportar…"
 entries = "{n} entradas"
 entries_large = "{n} {unit} entradas"
 broken = "El archivo está dañado y no se puede abrir"
@@ -622,6 +623,10 @@ zip_failed = "Error al comprimir ({status})"
 clear_failed = "Error al borrar: {error}"
 
 [library]
+export_title = "Exportar diccionario"
+tsv_filter = "Diccionario TSV"
+exported = "{n} entradas exportadas a {path}"
+export_failed = "No se pudo exportar: {error}"
 gone = "El archivo ya no está"
 remove_failed = "Error al quitar: {error}"
 bad_name = "Nombre de archivo no válido"

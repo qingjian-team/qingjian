@@ -41,6 +41,7 @@ Entries under 释义表 (Glossaries) are the tables behind the glosses beside ca
 - Imported dictionaries are listed below the bundled ones with their name, entry count and license, and are turned on automatically; the input method usually starts using them within about a second, no restart needed.
 - One file failing doesn't affect the others; the result for each file is shown when done. Files with no usable entries can't be imported.
 - Each can be turned on or off on its own; 移除 (Remove) only moves the file aside rather than deleting it. To delete it for good, see [Uninstalling](../help/uninstall.md#Clearing-only-some-data).
+- 导出… (Export…) saves one as TSV (word, pinyin, frequency; known tones as digits, with the name and license in comment lines at the top), so you can edit it and import it again. Downloaded dictionaries can be exported too.
 - Re-importing a dictionary with the same name replaces the old one. Rime dictionaries need to go through 导入词库 (Import dictionary) to be converted; putting them straight into Qingjian's data folder doesn't work.
 
 On Android, dictionaries are imported in the Qingjian app; see [Android: vocabulary book and settings](../platforms/android-settings.md#Dictionaries).

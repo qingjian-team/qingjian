@@ -389,6 +389,7 @@ no_input_yet = "Chưa có dữ liệu gõ, hãy gõ một ít rồi quay lại x
 scale = "Tổng cộng {total}, bằng khoảng {ratio} cuốn 《{book}》 (khoảng {book_size})"
 
 [lists]
+export = "Xuất…"
 entries = "{n} mục"
 entries_large = "{n} {unit} mục"
 broken = "Tệp bị hỏng, không mở được"
@@ -622,6 +623,10 @@ zip_failed = "Nén thất bại ({status})"
 clear_failed = "Xóa thất bại: {error}"
 
 [library]
+export_title = "Xuất từ điển"
+tsv_filter = "Từ điển TSV"
+exported = "Đã xuất {n} mục vào {path}"
+export_failed = "Xuất thất bại: {error}"
 gone = "Tệp không còn nữa"
 remove_failed = "Gỡ bỏ thất bại: {error}"
 bad_name = "Tên tệp không hợp lệ"

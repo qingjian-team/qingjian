@@ -272,18 +272,37 @@ fn custom_dir() -> Option<PathBuf> {
 
 /// 挪进它所在目录的 `removed/`；输入法看到文件没了会自己卸掉。
 pub fn remove(kind: Kind, stem: &str) -> Result<(), String> {
-    let (dir, path) = kind
-        .user_dirs()
-        .into_iter()
-        .find_map(|dir| {
-            let (_, path) = kind.list(&dir).into_iter().find(|(name, _)| name == stem)?;
-            Some((dir, path))
-        })
-        .ok_or(tr("library.gone"))?;
+    let (dir, path) = locate(kind, stem)?;
     let removed = dir.join("removed");
     std::fs::create_dir_all(&removed)
         .map_err(|error| tr_args("library.remove_failed", &[("error", &error)]))?;
     let name = path.file_name().ok_or(tr("library.bad_name"))?;
     std::fs::rename(&path, removed.join(name))
         .map_err(|error| tr_args("library.remove_failed", &[("error", &error)]))
+}
+
+/// 用户目录里的一本在哪：(所在目录, 文件)。
+fn locate(kind: Kind, stem: &str) -> Result<(PathBuf, PathBuf), String> {
+    kind.user_dirs()
+        .into_iter()
+        .find_map(|dir| {
+            let (_, path) = kind.list(&dir).into_iter().find(|(name, _)| name == stem)?;
+            Some((dir, path))
+        })
+        .ok_or_else(|| tr("library.gone").to_owned())
+}
+
+/// 把「我的词库」里的一本导出成 TSV，返回写了几条。
+pub fn export_tsv(stem: &str, target: &Path) -> Result<usize, String> {
+    let (_, path) = locate(Kind::Dictionary, stem)?;
+    let failed =
+        |error: &dyn std::fmt::Display| tr_args("library.export_failed", &[("error", error)]);
+    let dictionary = Dictionary::from_path(&path).map_err(|error| failed(&error))?;
+    let file = std::fs::File::create(target).map_err(|error| failed(&error))?;
+    let mut out = std::io::BufWriter::new(file);
+    let count = dictionary
+        .write_tsv(&mut out)
+        .map_err(|error| failed(&error))?;
+    std::io::Write::flush(&mut out).map_err(|error| failed(&error))?;
+    Ok(count)
 }

@@ -423,6 +423,7 @@ no_input_yet = "還沒有輸入記錄，打幾個字再來看"
 scale = "累計 {total}，約等於 {ratio} 本《{book}》（約 {book_size}）"
 
 [lists]
+export = "匯出…"
 entries = "{n} 條"
 entries_large = "{n} {unit}條"
 broken = "文件壞了，打不開"
@@ -658,6 +659,10 @@ zip_failed = "壓縮失敗（{status}）"
 clear_failed = "清空失敗：{error}"
 
 [library]
+export_title = "匯出詞庫"
+tsv_filter = "TSV 詞庫"
+exported = "已匯出 {n} 條到 {path}"
+export_failed = "匯出失敗：{error}"
 gone = "文件已經不在了"
 remove_failed = "移除失敗：{error}"
 bad_name = "文件名不對"

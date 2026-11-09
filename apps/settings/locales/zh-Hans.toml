@@ -455,6 +455,7 @@ no_input_yet = "还没有输入记录，打几个字再来看"
 scale = "累计 {total}，约等于 {ratio} 本《{book}》（约 {book_size}）"
 
 [lists]
+export = "导出…"
 entries = "{n} 条"
 entries_large = "{n} {unit}条"
 broken = "文件坏了，打不开"
@@ -691,6 +692,10 @@ zip_failed = "压缩失败（{status}）"
 clear_failed = "清空失败：{error}"
 
 [library]
+export_title = "导出词库"
+tsv_filter = "TSV 词库"
+exported = "已导出 {n} 条到 {path}"
+export_failed = "导出失败：{error}"
 gone = "文件已经不在了"
 remove_failed = "移除失败：{error}"
 bad_name = "文件名不对"

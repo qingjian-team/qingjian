@@ -69,6 +69,8 @@ pub enum Message {
     Import(Kind),
     /// 移除用户导入的一本（文件名不含扩展名）。
     Remove(Kind, String),
+    /// 把「我的词库」里的一本导出成 TSV（文件名不含扩展名）。
+    ExportDict(String),
     /// 勾掉或勾上 Windows 的系统 Ctrl + Space（改的是系统设置，不是配置文件）。
     SystemCtrlSpace(bool),
     /// 表达式、问字两个模式键之一换成这个字母（撞了就对调）。

@@ -389,6 +389,7 @@ no_input_yet = "Noch nichts getippt; schau wieder vorbei, wenn du etwas getippt 
 scale = "Insgesamt {total}, etwa {ratio}-mal 《{book}》 (etwa {book_size})"
 
 [lists]
+export = "Exportieren…"
 entries = "{n} Einträge"
 entries_large = "{n} {unit} Einträge"
 broken = "Die Datei ist beschädigt und lässt sich nicht öffnen"
@@ -622,6 +623,10 @@ zip_failed = "Komprimieren fehlgeschlagen ({status})"
 clear_failed = "Leeren fehlgeschlagen: {error}"
 
 [library]
+export_title = "Wörterbuch exportieren"
+tsv_filter = "TSV-Wörterbuch"
+exported = "{n} Einträge nach {path} exportiert"
+export_failed = "Export fehlgeschlagen: {error}"
 gone = "Die Datei ist nicht mehr da"
 remove_failed = "Entfernen fehlgeschlagen: {error}"
 bad_name = "Ungültiger Dateiname"

@@ -333,3 +333,48 @@ fn reading_share_splits_a_polyphone_by_reading_frequency() {
     let bie = dictionary.lookup(&["qu", "bie"], false);
     assert_eq!(bie[0].reading_share(), 1.0);
 }
+
+/// 导出的 TSV 再读回来是同一本：词、拼音、词频与已知的声调都在，元数据写成开头的注释。
+#[test]
+fn exported_tsv_reads_back_as_the_same_dictionary() {
+    let source = "你好\tni3 hao3\t900\n行\txing2\t50\n行\thang\t30\n绿色\tlv4 se4\t70\n";
+    let dictionary = Dictionary::parse(source).unwrap();
+    let dir = std::env::temp_dir().join("qingjian-dictionary-tests");
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join(format!("export-{}.qj", std::process::id()));
+    let metadata = Metadata {
+        name: "测试词库".to_owned(),
+        license: "CC-BY-SA-4.0".to_owned(),
+        attribution: "青简".to_owned(),
+        ..Metadata::default()
+    };
+    dictionary.write_qj(&path, &metadata).unwrap();
+    let packed = Dictionary::from_path(&path).unwrap();
+    std::fs::remove_file(&path).unwrap();
+
+    let mut out = Vec::new();
+    assert_eq!(packed.write_tsv(&mut out).unwrap(), 4);
+    let text = String::from_utf8(out).unwrap();
+    assert!(text.starts_with("# name: 测试词库\n# license: CC-BY-SA-4.0\n# attribution: 青简\n"));
+    assert!(text.contains("你好\tni3 hao3\t900\n"));
+    assert!(text.contains("行\thang\t30\n"));
+
+    let reread = Dictionary::parse(&text).unwrap();
+    let rows = |d: &Dictionary| {
+        let mut rows: Vec<(String, String, u32, Vec<u8>)> = d
+            .entries()
+            .map(|m| {
+                let syllables = m.pinyin.split(' ').count();
+                (
+                    m.text.to_owned(),
+                    m.pinyin.to_owned(),
+                    m.frequency,
+                    m.tones.to_vec(syllables),
+                )
+            })
+            .collect();
+        rows.sort();
+        rows
+    };
+    assert_eq!(rows(&reread), rows(&dictionary));
+}

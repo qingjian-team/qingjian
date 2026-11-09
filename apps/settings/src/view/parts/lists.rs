@@ -74,6 +74,14 @@ pub fn entry_row(
     };
     let detail = text(ui, page, &detail)?;
     let mut trailing = vec![detail];
+    if removable && kind == Kind::Dictionary {
+        trailing.push(Button::new(tr("lists.export")).build(
+            ui,
+            theme,
+            ("export", kind, entry.stem.as_str()),
+            Message::ExportDict(entry.stem.clone()),
+        )?);
+    }
     if removable {
         trailing.push(Button::new(tr("lists.remove")).build(
             ui,

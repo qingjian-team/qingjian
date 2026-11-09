@@ -3,8 +3,9 @@
 use super::Settings;
 use qingjian_platform::code_schemes::WUBI86;
 
+use crate::i18n::{tr, tr_args};
 use crate::jobs::import::{CodeTarget, Report};
-use crate::library::{Kind, Library};
+use crate::library::{self, Kind, Library};
 
 impl Settings {
     /// 导入的形码词库记给哪套方案：现在选的形码方案，没开形码就是 86 五笔。
@@ -43,6 +44,28 @@ impl Settings {
         }
         self.library = Library::scan();
         self.notice = Some((kind.slot(), report.lines.join("\n")));
+    }
+
+    /// 把「我的词库」里的一本导出成 TSV：选存到哪，结果显示在词库那一组下面。
+    pub(super) fn export_dict(&mut self, stem: &str) {
+        let Some(target) = rfd::FileDialog::new()
+            .set_title(tr("library.export_title"))
+            .set_file_name(format!("{stem}.tsv"))
+            .add_filter(tr("library.tsv_filter"), &["tsv"])
+            .save_file()
+        else {
+            return;
+        };
+        let notice = library::export_tsv(stem, &target).map(|count| {
+            tr_args(
+                "library.exported",
+                &[("n", &count), ("path", &target.display())],
+            )
+        });
+        self.notice = Some((
+            Kind::Dictionary.slot(),
+            notice.unwrap_or_else(|error| error),
+        ));
     }
 
     /// 升级后要补下的词库下一本：词库清单到手、没有别的在下时起。下载失败的不在这里重试，

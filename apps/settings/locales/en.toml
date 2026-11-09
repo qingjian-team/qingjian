@@ -455,6 +455,7 @@ no_input_yet = "Nothing typed yet; come back after typing a little"
 scale = "{total} in total, about {ratio} copies of 《{book}》 (about {book_size})"
 
 [lists]
+export = "Export…"
 entries = "{n} entries"
 entries_large = "{n}{unit} entries"
 broken = "The file is damaged and can't be opened"
@@ -691,6 +692,10 @@ zip_failed = "Compression failed ({status})"
 clear_failed = "Clearing failed: {error}"
 
 [library]
+export_title = "Export dictionary"
+tsv_filter = "TSV dictionary"
+exported = "Exported {n} entries to {path}"
+export_failed = "Export failed: {error}"
 gone = "The file is no longer there"
 remove_failed = "Removing failed: {error}"
 bad_name = "Invalid file name"
