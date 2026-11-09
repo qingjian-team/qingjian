@@ -1,8 +1,8 @@
 //! 附加候选：日期时间等快捷项、中英混输的英文词与补全、emoji 与颜文字、符号。
 
 use super::{
-    EMOJI_PER_WORD, EMOJI_SCAN, ENGLISH_COMPLETIONS, Engine, KAOMOJI_PER_WORD, KEYWORD_SCAN,
-    Learner, MIN_COMPLETION_LETTERS,
+    EMOJI_PER_WORD, EMOJI_SCAN, ENGLISH_COMPLETIONS, Engine, INLINE_SHORTCUTS, KAOMOJI_PER_WORD,
+    KEYWORD_SCAN, Learner, MIN_COMPLETION_LETTERS,
 };
 use crate::candidate::{Candidate, CandidateKind};
 use crate::custom_phrase::{CustomPhrase, expand_variables};
@@ -106,8 +106,13 @@ impl Engine {
         if shortcuts.is_empty() {
             return;
         }
+        // 前几条紧跟第一个词，其余垫到最后：写法一多（`sj` 有十五条）会把简拼原来
+        // 第一页的词整片推走——`sj` 打的是 世纪，不该翻到第二页才找得到。
+        let inline = shortcuts.len().min(INLINE_SHORTCUTS);
+        let (head, tail) = shortcuts.split_at(inline);
         let position = items.len().min(1);
-        items.splice(position..position, shortcuts);
+        items.splice(position..position, head.iter().cloned());
+        items.extend(tail.iter().cloned());
     }
 
     /// 全拼打出了「日期 / 时间 / 星期」（排在前 [`KEYWORD_SCAN`] 个词里，配的 emoji 这些不算）：对应的快捷写法
@@ -133,8 +138,12 @@ impl Engine {
                 (!forms.is_empty()).then_some((i, forms))
             });
         if let Some((index, forms)) = found {
+            let candidates = shortcut::as_candidates(forms);
+            let inline = candidates.len().min(INLINE_SHORTCUTS);
+            let (head, tail) = candidates.split_at(inline);
             let position = index + 1;
-            items.splice(position..position, shortcut::as_candidates(forms));
+            items.splice(position..position, head.iter().cloned());
+            items.extend(tail.iter().cloned());
         }
     }
 
