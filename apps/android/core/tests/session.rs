@@ -17,7 +17,7 @@ fn session() -> Session {
     let engine = Engine::new(Dictionary::from_path(sample("dict.tsv")).unwrap())
         .with_translator(Box::new(glossary));
     let code_table =
-        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../assets/schemes/wubi86/table.tsv");
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../assets/sample/wubi86.tsv");
     let user_dir = std::env::temp_dir().join(format!("qingjian-session-{}", std::process::id()));
     Session::new(engine, code_table, sample(""), user_dir)
 }

@@ -104,7 +104,7 @@ pub fn convert(
     let mut writer = BufWriter::new(std::fs::File::create(output)?);
     writeln!(
         writer,
-        "# 形码码表：词\t编码\t词频。词频由青简词库按词面回填（不是码表自带的权重），出处见 assets/schemes/wubi86/README.md"
+        "# 形码码表：词\t编码\t词频。词频由青简词库按词面回填（不是码表自带的权重），出处见同目录 README.md"
     )?;
     for (word, code, frequency, _) in &entries {
         writeln!(writer, "{word}\t{code}\t{frequency}")?;

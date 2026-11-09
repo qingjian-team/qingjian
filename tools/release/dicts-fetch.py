@@ -36,7 +36,7 @@ RAW_HOSTS = (
 )
 # 壳认得的 .qj 格式版本；词库仓库升了格式要先改壳再改这里
 QJ_FORMAT = 1
-# 装成的文件名缺省是 `<id>.qj`，附加词库放 dicts/；基础词库沿用壳一直找的 dict.qj，成语词库沿用配置 `[dictionaries] domains` 里的 idioms
+# 装成的文件名缺省是 `<id>.qj`，附加词库放 dicts/、形码方案放 schemes/（id 就是方案 id）；基础词库沿用壳一直找的 dict.qj，成语词库沿用配置 `[dictionaries] domains` 里的 idioms
 NAMES = {"base": "dict.qj", "domain-idioms": "idioms.qj"}
 # 单次读写的超时：连不上的那边（GitHub 在大陆常这样）拖着线程，脚本退出前要等它超时
 TIMEOUT = 20
@@ -178,6 +178,8 @@ def update() -> None:
         installed = NAMES.get(entry["id"], f"{entry['id']}.qj")
         if entry["kind"] == "extra":
             installed = f"dicts/{installed}"
+        elif entry["kind"] == "scheme":
+            installed = f"schemes/{installed}"
         lines.append(f"{entry['tag']} = {part['sha256']} {installed}")
         print(lines[-1])
     LOCK.write_text("\n".join(lines) + "\n", "utf-8")

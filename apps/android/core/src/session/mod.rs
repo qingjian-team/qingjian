@@ -47,7 +47,7 @@ pub struct Session {
     /// 日语罗马音模式的缓冲区；`Some` 时敲键、选词都走它，不经拼音引擎（还没有日语词库，见 Core 的 `japanese`）。
     kana: Option<RomajiComposer>,
 
-    /// 五笔码表的位置（随包数据里的 `wubi86.tsv`）；切到五笔时才读。
+    /// 五笔码表的位置（随包数据里的 `wubi86.qj`）；切到五笔时才读。
     code_table: PathBuf,
 
     /// 随包数据目录，换学习语言时从这里装释义表。

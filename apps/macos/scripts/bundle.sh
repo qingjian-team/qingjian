@@ -114,12 +114,6 @@ cp assets/sample/*.tsv "$APP/Contents/Resources/"
 cp assets/emoji/*.tsv "$APP/Contents/Resources/"
 # 词汇等级表（CEFR-J / Octanove / JLPT，见 assets/levels/README.md），「统计」页按级数词汇
 cp assets/levels/levels-*.tsv "$APP/Contents/Resources/"
-# 随包形码方案（五笔，见 assets/schemes/wubi86/README.md；极点 86 码表，Apache-2.0）：每套只拷 scheme.toml 与码表
-for scheme in assets/schemes/*/; do
-  name=$(basename "$scheme")
-  mkdir -p "$APP/Contents/Resources/schemes/$name"
-  cp "$scheme"scheme.toml "$scheme"table.tsv "$APP/Contents/Resources/schemes/$name/"
-done
 if [[ "$SAMPLE_DATA" == 0 ]]; then
   # 语言模型打成 .qj（mmap 直接用），TSV 比 .qj 新时重新打包；只有 .qj（CI 从数据包解出来的）就直接用
   if [[ -f data/generated/lm-bigram.tsv && ( ! -f data/generated/lm.qj || data/generated/lm-bigram.tsv -nt data/generated/lm.qj ) ]]; then
@@ -127,7 +121,7 @@ if [[ "$SAMPLE_DATA" == 0 ]]; then
       --license "CC-BY-SA-4.0 AND MIT" --attribution "中文维基百科（CC BY-SA 4.0）；LCCC（清华大学 CoAI，MIT）"
   fi
   cp data/generated/lm.qj "$APP/Contents/Resources/"
-  # 随包词库（基础词库、成语词库、英文词表与音标表、英语与中文释义表、越南语词表与对照）：dicts.lock 里列的逐本拷，附加词库放 Resources/dicts/。
+  # 随包词库（基础词库、成语词库、英文词表与音标表、英语与中文释义表、越南语词表与对照、五笔码表）：dicts.lock 里列的逐本拷，附加词库放 Resources/dicts/、形码方案放 Resources/schemes/。
   # 别的词库与释义表在设置里下载到用户目录，不随包
   while read -r _ _ _ installed; do
     mkdir -p "$(dirname "$APP/Contents/Resources/$installed")"

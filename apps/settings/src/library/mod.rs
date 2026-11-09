@@ -229,13 +229,13 @@ fn bundled_dir(name: &str) -> Option<PathBuf> {
         .or_else(|| paths::bundled(&format!("data/generated/{name}")))
 }
 
-/// 随包的形码方案目录，与各平台输入法读的同一处：macOS 在 `Resources/schemes/`，其他平台在随包根的 `assets/schemes/`。
+/// 随包的形码方案目录，与各平台输入法读的同一处：macOS 在 `Resources/schemes/`，其他平台在随包根的 `data/generated/schemes/`。
 fn bundled_schemes() -> Option<PathBuf> {
     paths::mac_resources()
         .into_iter()
         .map(|dir| dir.join(code_schemes::DIR))
         .find(|dir| dir.is_dir())
-        .or_else(|| paths::bundled(&format!("assets/{}", code_schemes::DIR)))
+        .or_else(|| paths::bundled(&format!("data/generated/{}", code_schemes::DIR)))
 }
 
 /// 导入无读音词表时的参考词库：随包基础词库加随包领域词库，读不到的跳过（导入报告里会说到）。

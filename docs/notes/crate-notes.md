@@ -33,10 +33,10 @@ TSV 的音节可带数字声调（`ni3`，轻声 5 或 0），键一律去调，
 字有多码时按组合出多条（上限 16）；所以 `AuxCodeLookup` 返回 `Cow`，推出来的码是新串。
 
 `CodeTable` 是形码码表（五笔），与词库并列的另一类查表：键是编码本身（`ggll`），不是拼音音节序列，
-格式 `词\t编码\t词频`（随包五笔 `assets/schemes/wubi86/table.tsv`，8.9 万条），按编码排序、`lookup` 二分定位前缀区间。
+格式 `词\t编码\t词频`（随包五笔是词库仓库发的 `wubi86.qj`，8.9 万条：`Kind::CodeTable`，`TEXT` 一节是按原行序写回的 TSV，打开时照旧解析；`dict-convert pack codetable` 打），按编码排序、`lookup` 二分定位前缀区间。
 编码打全的词（`exact`）排在同前缀的更长编码词前面；单字母精确码按码表行序排列（五笔生成器保留上游行序），其他命中仍按词频排序，
 引擎在上下文排序后恢复这组单字候选的码表顺序。二级 / 三级简码仍是编码前缀查询的自然结果。
-与词库的一处关键差别：码表没有 `.qj` 容器，只读 TSV。
+与词库的一处关键差别：码表的 `.qj` 只是把 TSV 原文装进容器（带元数据、方便分发），打开时仍逐行解析、不映射。
 
 ## crates/qingjian-core
 
@@ -85,7 +85,7 @@ CandidateLayout 保持 `set_cloud` 的首页末尾布局与本地首项；`set_c
 候选右键菜单可修正学习语言译文：手工修改由 macOS / Windows 原生输入框收文字，`Engine::set_candidate_translation` 写入个人释义表并立即 flush；模型重生成使用 `PredictionKind::CandidateTranslation` 和 `Engine::request_candidate_translation`，目标语言取当前 `Translator::language`，专用词典提示请模型同时返回词性；解析层有可识别词性时规范成 `词性\t译词`，漏了或认不出词性时保留纯译词。`Engine::set_generated_candidate_translation` 只替换第一条译词：模型给了合法词性才更新原词性，原有读音和后续释义都保留；原来没有释义时才新建一条。个人释义优先于随包释义；私密输入、未选学习语言或 Predictor 未接入时不发。
 
 模块：`composition`（缓冲区与光标；中文模式下 Shift+字母按小写进 `buffer` 参与匹配、大写记在 `shifted`，`typed_text` 还原后用于原样上屏）/ `parser` / `correction`（拼写纠错：整段一处编辑的候选纠正 + `typo` 音节级敲错变体表，后者进整句词图当带代价的边）/
-`candidate` / `ranking` / `shortcut` / `sentence` / `fuzzy` / `shuangpin`（双拼：`Layout` 是键位表 + 键 → 全拼解码与消耗换算，九套内置方案的常量表在 `table.rs`、`Scheme::layout` 取出，用户方案由平台层读 `scheme.toml` 拼成 `Layout`；整串一个音节都配不出时 `decode_fuzzy` 按每键一个声母再解一次（`im` → sh'm → 什么，`decode_initials`），能正常解出的输入不走这条；`Layout::check` 报写错的键与打不出来的音节——按全部两键组合实际解出哪些音节算，不是按能不能编码；`key_hint::KeyHint` 按 `Layout` 画键位提示，用户方案也画自己的键）/ `root_chart`（86 五笔字根图，字形表 `assets/schemes/wubi86/roots86-glyphs.tsv` 编进 Core，`Engine::root_chart` 只在挂着 86 五笔时给，别的形码方案不画）/ `zhuyin`（大千注音：键 → 注音符号 → 拼音，`[general] zhuyin` 开关；声调判音节完整，不进查询、只进排序：`zhuyin::tone` 按单字声调表 `data/tones.tsv` 给每个候选算声调代价——字的首读音 0、次要读音或表里没有 1、对不上 16，多字词非首字的轻声不计——排序键里排在「末音节完整」之后、「同输入串选择次数」之前，全拼 / 双拼恒为 0；整句词图同样用它：格子选词按 `sentence::TONE_PENALTY`（每点 ln 2）打折、路径得分扣同样的分，格子缓存键带上声调（`SpanCache::toned_key`），只在要转的音节正是当前注音输入解出的那串时才给声调，纠错与英文尾段换过切分的不给）/ `emoji` /
+`candidate` / `ranking` / `shortcut` / `sentence` / `fuzzy` / `shuangpin`（双拼：`Layout` 是键位表 + 键 → 全拼解码与消耗换算，九套内置方案的常量表在 `table.rs`、`Scheme::layout` 取出，用户方案由平台层读 `scheme.toml` 拼成 `Layout`；整串一个音节都配不出时 `decode_fuzzy` 按每键一个声母再解一次（`im` → sh'm → 什么，`decode_initials`），能正常解出的输入不走这条；`Layout::check` 报写错的键与打不出来的音节——按全部两键组合实际解出哪些音节算，不是按能不能编码；`key_hint::KeyHint` 按 `Layout` 画键位提示，用户方案也画自己的键）/ `root_chart`（86 五笔字根图，字形表 `data/roots86-glyphs.tsv` 编进 Core，`Engine::root_chart` 只在挂着 86 五笔时给，别的形码方案不画）/ `zhuyin`（大千注音：键 → 注音符号 → 拼音，`[general] zhuyin` 开关；声调判音节完整，不进查询、只进排序：`zhuyin::tone` 按单字声调表 `data/tones.tsv` 给每个候选算声调代价——字的首读音 0、次要读音或表里没有 1、对不上 16，多字词非首字的轻声不计——排序键里排在「末音节完整」之后、「同输入串选择次数」之前，全拼 / 双拼恒为 0；整句词图同样用它：格子选词按 `sentence::TONE_PENALTY`（每点 ln 2）打折、路径得分扣同样的分，格子缓存键带上声调（`SpanCache::toned_key`），只在要转的音节正是当前注音输入解出的那串时才给声调，纠错与英文尾段换过切分的不给）/ `emoji` /
 `english`（英文模式候选）/ `traditional`（繁体输出：`[general] traditional_variant` 四选一，`off` / `taiwan` / `hongkong` / `standard` 对应 OpenCC 的 s2tw / s2hk / s2t，都只换字形；旧键 `traditional = true` 读成 taiwan，开发版在旧键里写过的字符串（`traditional = "off"`）按同一套写法读。新写法换键名是为了退回旧版本时旧版只认布尔、不会整个配置解析失败，字典由 `ferrous-opencc` 在编译期编进产物、运行时不读外部文件）/ `engine`（`query::EnglishTail`：句末英文词并入整句，`woxiangxuehaorust` → 我想学好rust，尾段也像拼音时按分数与拼音读法比；比分与第二条整句里的拼音读法都按整句的切分规则挑——`sentence_segmentation`，不是切分器打平时贪心的那种，否则 `zhengcenanti` 拿 zheng cen an ti 的 政策安提 去比，政策anti 赢、政策难题 连候选都没有）。
 辅码（`engine/aux_code.rs`）：`Engine.aux_code: Option<String>` 是码段（`None` 拼音态，`Some("")` 刚触发或删空停在辅码态——`Engine.aux_keep_empty`，配置 `[general] aux_code_keep_empty` 缺省开），
 不进 `Composition`；`aux_trigger`（配的触发键 + 光标在段尾 + 作用域能完整切分 + 双拼韵母键优先）、`enter_aux`、
@@ -413,7 +413,7 @@ Common Crawl、CSL、SkyPile、C4 的统计），可按 GPL-3.0-or-later 使用�
 `code_schemes`：形码方案的发现。随包与用户的方案同一种格式：`schemes/<id>/` 下 `scheme.toml`（必须有，`type` 空着或 `code`）+ 码表（缺省 `table.tsv`），
 自动上屏与顶字缺省开；`SchemeMeta`（author / version / description / license）两种方案共用，留给分享与设置里显示。
 用户在设置里改的规则存配置的 `[code.<id>]`（`CodeRules`，`Config::code_rules`），盖过 `scheme.toml`：随包方案只读，换码表也不丢；
-`Config::set_value` 的分节写成 `code.wubi86` 就是嵌套表（外层隐式）。随包的 `schemes` 目录由壳给（macOS `Resources/schemes/`、Windows `assets/schemes/`），用户的在数据目录；
+`Config::set_value` 的分节写成 `code.wubi86` 就是嵌套表（外层隐式）。随包的 `schemes` 目录由壳给（macOS `Resources/schemes/`、其他平台 `data/generated/schemes/`），里面是词库仓库发的 `<id>.qj`（名字、作者、许可、版本、简介取文件头元数据，按键规则用缺省），用户的在数据目录；
 同 id 的用户方案盖过随包的，老位置 `wubi/wubi86.tsv` 只换随包五笔的码表。
 `shuangpin_schemes`：用户双拼方案的发现，与形码共用 `schemes/` 目录与 id 规则，`scheme.toml` 写 `type = "shuangpin"` 的才算（形码那边见到它跳过）；
 `base` 拿内置方案当底子，`[initials]` / `[finals]` / `[zero]` 按键（零声母按音节）整条替换。内置九套仍编在 Core 里：回放与 CLI 不依赖外部文件，日志里的 `xiaohe` 永远是同一套键位。
@@ -628,8 +628,8 @@ Windows 的 `dispatch/mode` 管理可选的初始英文与按应用模式记忆�
 `remember_mode_per_app`，缺省关闭）：exe 名不区分大小写，相同 exe 的会话共享；未知宿主按会话隔离。
 应用记忆只驻留 Server 内存，配置中的模式策略变更时重置；模式焦点与组句焦点分开，避免切应用时丢掉待提交的输入。
 `InputSettings.restore_mode` 让启用这些设置的 DLL 重连时先取 Server 状态，不用旧状态覆盖默认值；旧协议缺字段按 false 处理。
-输入方案由 `[general] scheme` 与 `code` 决定，Server 启动与热加载各装配一次（`dispatch/schemes.rs`）；随包方案目录 `assets/schemes/` 启动时由 `find_bundled_schemes` 找好
-（走 `assets/` 与 emoji / levels 一致，开发布局也对得上），装配交给 `Router::scheme_slot`，用户在设置里换方案、新放进方案热加载即生效，码表没变不重读。
+输入方案由 `[general] scheme` 与 `code` 决定，Server 启动与热加载各装配一次（`dispatch/schemes.rs`）；随包方案目录 `data/generated/schemes/` 启动时由 `find_bundled_schemes` 找好
+（安装目录与开发布局是同一个相对路径），装配交给 `Router::scheme_slot`，用户在设置里换方案、新放进方案热加载即生效，码表没变不重读。
 选了形码却找不到方案或码表读不了时只警告并按拼音跑——配置说五笔、引擎还在拼音是静默错位，宁可吵。
 顶字与满码自动上屏在 `key/input.rs` 的 `push_letter`。
 中英模式的两项设置（`[shortcut] switch_mode` 切换键：勾选 shift / control / ctrl+alt+space，`[general] english_mode` 内置英文模式开关）
@@ -692,8 +692,8 @@ Windows 可选的 `[shortcut] toggle_punctuation` 经 `InputSettings` 下发，�
 ## assets
 
 - `assets/sample/`：手写样例词库与释义表，不是产品数据。
-- `assets/schemes/wubi86/`：随包形码方案（`scheme.toml` + `table.tsv`，码表由 `dict-convert wubi` 生成，来源与许可见同目录 README，Apache-2.0）。
-  `bundle.sh` 把 `assets/schemes/*/` 的 `scheme.toml` 与 `table.tsv` 拷到 `Resources/schemes/`，Windows 安装器拷到 `{app}\assets\schemes\`
+- 随包形码方案（五笔）：词库仓库 `official/schemes/wubi86/` 发的 `wubi86.qj`（码表由 `dict-convert wubi` 生成，来源与许可见那边的 README，Apache-2.0），
+  dicts-fetch 按 dicts.lock 取到 `data/generated/schemes/`；`bundle.sh` 按锁文件拷到 `Resources/schemes/`，Windows 安装器拷到 `{app}\data\generated\schemes\`
   （与两边的找法对齐：macOS `paths::bundled_schemes_dir`、Windows `dispatch::schemes::find_bundled_schemes`）。
 - `assets/emoji/emoji-zh.tsv` / `emoji-en.tsv`：Unicode CLDR 中文 / 英文 annotations 转出的 emoji 表（Unicode License v3，可发布；中文词与英文词各配 emoji，两张表加载时合成一张），
   `cargo run --release -p qingjian-dict-convert -- --out-dir assets/emoji emoji --language zh data/cldr/annotations-zh.json data/cldr/annotationsDerived-zh.json`（en 同理）。

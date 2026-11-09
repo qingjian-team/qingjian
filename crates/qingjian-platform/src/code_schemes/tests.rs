@@ -227,3 +227,44 @@ fn imported_code_words_join_their_own_scheme() {
     slot.apply(&mut engine, &config, Some(&user), Some(&bundled));
     assert_eq!(engine.code_table().unwrap().len(), 1);
 }
+
+/// 随包五笔从词库仓库来时是单个 `wubi86.qj`：元数据当名字与作者，用户目录里的同名方案照样盖过它，用户目录里的 `.qj` 不认。
+#[test]
+fn a_packed_bundled_scheme_reads_its_metadata() {
+    let root = scratch("packed");
+    let bundled = root.join("bundled/schemes");
+    std::fs::create_dir_all(&bundled).unwrap();
+    let metadata = qingjian_format::Metadata {
+        name: "五笔（86）".to_owned(),
+        attribution: "青简、极点五笔".to_owned(),
+        license: "Apache-2.0".to_owned(),
+        version: "1.0.0".to_owned(),
+        description: "86 版五笔".to_owned(),
+        ..qingjian_format::Metadata::default()
+    };
+    CodeTable::parse("一\tggll\t1\n")
+        .unwrap()
+        .write_qj(&bundled.join("wubi86.qj"), &metadata)
+        .unwrap();
+
+    let wubi = find(WUBI86, None, Some(&bundled)).unwrap();
+    assert_eq!(wubi.label, "五笔（86）");
+    assert_eq!(wubi.meta.author, "青简、极点五笔");
+    assert_eq!(wubi.meta.description, "86 版五笔");
+    assert!(wubi.bundled && wubi.auto_commit && wubi.top);
+    assert_eq!(wubi.load().unwrap().table.len(), 1);
+
+    let user = root.join("user");
+    write(
+        &user.join("schemes/wubi86/scheme.toml"),
+        "name = \"我的五笔\"\n",
+    );
+    write(&user.join("schemes/wubi86/table.tsv"), "一\tg\t1\n");
+    let wubi = find(WUBI86, Some(&user), Some(&bundled)).unwrap();
+    assert_eq!(wubi.label, "我的五笔");
+    assert!(!wubi.bundled);
+
+    // 用户目录里的 .qj 不当方案：那边一套方案一个目录
+    std::fs::copy(bundled.join("wubi86.qj"), user.join("schemes/huma.qj")).unwrap();
+    assert!(find("huma", Some(&user), Some(&bundled)).is_none());
+}

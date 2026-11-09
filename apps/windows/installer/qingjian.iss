@@ -94,6 +94,8 @@ Source: "{#Repo}\data\generated\english-ipa.qj";        DestDir: "{app}\data\gen
 Source: "{#Repo}\data\generated\vietnamese.qj";         DestDir: "{app}\data\generated"; Flags: ignoreversion
 Source: "{#Repo}\data\generated\vietnamese-chinese.qj"; DestDir: "{app}\data\generated"; Flags: ignoreversion
 Source: "{#Repo}\data\generated\dicts\idioms.qj";        DestDir: "{app}\data\generated\dicts"; Flags: ignoreversion
+; 随包形码方案（五笔），Server 的 `dispatch::find_bundled_schemes` 在 data\generated\schemes 找
+Source: "{#Repo}\data\generated\schemes\wubi86.qj";      DestDir: "{app}\data\generated\schemes"; Flags: ignoreversion
 ; —— 随包辅码码表（笔画，开箱可用）：Server 扫 data\generated\codes\；CNS11643 筆順資料派生，署名见「关于」页 ——
 ;    产品数据一律不加 skipifsourcedoesntexist：缺了就编不过，不悄悄打出少数据的包（build.ps1 编译前先查一遍）
 Source: "{#Repo}\data\generated\codes\*.qj";   DestDir: "{app}\data\generated\codes"; Flags: ignoreversion
@@ -104,11 +106,6 @@ Source: "{#Repo}\assets\emoji\emoji-zh.tsv";     DestDir: "{app}\assets\emoji"; 
 Source: "{#Repo}\assets\emoji\emoji-en.tsv";     DestDir: "{app}\assets\emoji";  Flags: ignoreversion
 Source: "{#Repo}\assets\levels\levels-en.tsv";   DestDir: "{app}\assets\levels"; Flags: ignoreversion
 Source: "{#Repo}\assets\levels\levels-ja.tsv";   DestDir: "{app}\assets\levels"; Flags: ignoreversion
-; 随包形码方案（五笔，见 assets/schemes/wubi86/README.md；极点 86 码表，Apache-2.0）。
-; 走 assets\ 与 emoji / levels 一致，Server 的 `dispatch::code::find_bundled_schemes` 照同一个相对路径找，
-; 开发布局（cargo run）也对得上
-Source: "{#Repo}\assets\schemes\wubi86\scheme.toml";  DestDir: "{app}\assets\schemes\wubi86"; Flags: ignoreversion
-Source: "{#Repo}\assets\schemes\wubi86\table.tsv";    DestDir: "{app}\assets\schemes\wubi86"; Flags: ignoreversion
 Source: "{#Repo}\assets\sample\dict.tsv";        DestDir: "{app}\assets\sample"; Flags: ignoreversion
 ; —— 知意（ONNX）的运行库：Server 按路径加载 exe 旁边的 onnxruntime.dll；
 ;    由 build.ps1 调 fetch-onnxruntime.ps1 取到 target\installer\onnxruntime（含许可）——
@@ -168,6 +165,10 @@ Type: filesandordirs; Name: "{app}\data\model"
 Type: filesandordirs; Name: "{app}\data\models"
 ; 0.1.4 开发版的随包码表旧位置
 Type: filesandordirs; Name: "{app}\codes"
+; 随包五笔的旧位置（scheme.toml + table.tsv），现在是 data\generated\schemes\wubi86.qj
+Type: filesandordirs; Name: "{app}\assets\schemes"
+; 随包音标表的旧位置，现在是 data\generated\english-ipa.qj
+Type: filesandordirs; Name: "{app}\assets\lexicon"
 ; 旧版本随包的领域词库、其他语种释义表与 TSV 词表：现在只随包 dicts.lock 里那几本，别的在设置里下载到用户目录。
 ; 先清掉再装，成语词库随后照样装回 dicts\
 Type: filesandordirs; Name: "{app}\data\generated\dicts"

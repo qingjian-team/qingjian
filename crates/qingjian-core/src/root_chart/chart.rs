@@ -5,7 +5,7 @@ use std::sync::OnceLock;
 use super::{RootGlyph, RootKey};
 
 /// 字形表：键、区位、键名字、字、说明、露出区域、SVG 路径。
-const TABLE: &str = include_str!("../../../../assets/schemes/wubi86/roots86-glyphs.tsv");
+const TABLE: &str = include_str!("../../data/roots86-glyphs.tsv");
 
 const ROWS: [&str; 3] = ["QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM"];
 

@@ -49,6 +49,7 @@ $data = @(
     'data\generated\vietnamese.qj',
     'data\generated\vietnamese-chinese.qj',
     'data\generated\dicts\idioms.qj',
+    'data\generated\schemes\wubi86.qj',
     'data\generated\codes\*.qj'
 )
 $absent = @($data | Where-Object { -not (Test-Path (Join-Path $Repo $_)) })

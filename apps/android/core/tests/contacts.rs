@@ -9,7 +9,7 @@ fn session(details: bool) -> Session {
     let sample = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../assets/sample");
     let engine = Engine::new(Dictionary::from_path(sample.join("dict.tsv")).unwrap());
     let code_table =
-        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../assets/schemes/wubi86/table.tsv");
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../assets/sample/wubi86.tsv");
     let user_dir = std::env::temp_dir().join(format!("qingjian-contacts-{}", std::process::id()));
     let mut session = Session::new(engine, code_table, sample, user_dir);
     let contacts = [Contact {

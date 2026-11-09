@@ -1,6 +1,6 @@
 //! 输入方案的装载：拼音侧（内置或用户双拼）与形码侧按配置找出来挂到引擎上。
 //!
-//! 随包方案在安装目录的 `assets/schemes/`，用户方案在 `%APPDATA%\Qingjian\schemes\<id>\`，
+//! 随包方案在安装目录的 `data/generated/schemes/`（词库仓库发的 `<id>.qj`），用户方案在 `%APPDATA%\Qingjian\schemes\<id>\`，
 //! 找法与「没变不重读」见 [`qingjian_platform::SchemeSlot`]。
 
 use std::path::{Path, PathBuf};
@@ -9,10 +9,8 @@ use qingjian_platform::Config;
 
 use super::Router;
 
-/// 随包的方案目录。走 `assets/` 而不是 `data/`：码表随 git 跟踪（`data/` 是给生成物的，
-/// 装机时从数据包解出来），与 emoji / levels 一样在仓库与安装目录里是同一个相对路径，
-/// 所以 `cargo run` 的开发布局也找得到。
-const BUNDLED_SCHEMES: &str = "assets/schemes";
+/// 随包的方案目录：dicts-fetch 把词库仓库的码表解到这里，安装目录与开发布局是同一个相对路径。
+const BUNDLED_SCHEMES: &str = "data/generated/schemes";
 
 /// 随包的方案目录；不在为 `None`。
 pub fn find_bundled_schemes(bundled_root: &Path) -> Option<PathBuf> {

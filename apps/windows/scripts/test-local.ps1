@@ -35,7 +35,7 @@ $ErrorActionPreference = 'Stop'
 
 # apps\windows\scripts -> apps\windows -> apps -> 仓库根
 $repo = Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $PSScriptRoot))
-$table = Join-Path $repo 'assets\schemes\wubi86\table.tsv'
+$table = Join-Path $repo 'data\generated\schemes\wubi86.qj'
 $ipa = Join-Path $repo 'data\generated\english-ipa.qj'
 $server = Join-Path $repo 'target\debug\qingjian-server.exe'
 $dll = Join-Path $repo 'target\debug\qingjian_tsf.dll'
@@ -54,7 +54,7 @@ function Assert-Path($path, $what) {
 
 Write-Host '== 前置检查' -ForegroundColor Cyan
 Assert-Path $InstallDir '安装目录（先装一次青简，或者用 -InstallDir 指过去）'
-Assert-Path $table '五笔码表（跑 dict-convert wubi 生成，见 assets/schemes/wubi86/README.md）'
+Assert-Path $table '五笔码表（tools\release\dicts-fetch.py 从词库仓库取）'
 if (-not $SkipBuild) {
     Write-Host '   安装目录 ✓  码表 ✓'
 }
@@ -114,10 +114,10 @@ robocopy $InstallDir $WorkDir /MIR /NFL /NDL /NJH /NJS | Out-Null
 if ($LASTEXITCODE -ge 8) { throw "robocopy 失败（exit $LASTEXITCODE）" }
 
 Copy-Item -LiteralPath $server -Destination $WorkDir -Force
-# 随包方案整个目录拷过去（scheme.toml + table.tsv），与安装器装的一样
-$schemeDir = Join-Path $WorkDir 'assets\schemes\wubi86'
+# 随包五笔拷过去，与安装器装的位置一样
+$schemeDir = Join-Path $WorkDir 'data\generated\schemes'
 New-Item -ItemType Directory -Force -Path $schemeDir | Out-Null
-Copy-Item -Path (Join-Path (Split-Path -Parent $table) '*') -Include 'scheme.toml', 'table.tsv' -Destination $schemeDir -Force
+Copy-Item -LiteralPath $table -Destination $schemeDir -Force
 # 英文音标表：发行版安装目录里还没有这份数据，从仓库拷一份（data-fetch.sh 取到 data\generated）
 $ipaDir = Join-Path $WorkDir 'data\generated'
 New-Item -ItemType Directory -Force -Path $ipaDir | Out-Null

@@ -47,7 +47,7 @@ pub extern "system" fn Java_app_qingjian_inputmethod_core_Native_create<'local>(
         crate::assemble(Path::new(&data_dir), Path::new(&user_dir)).map(|engine| {
             Handle::new(Session::new(
                 engine,
-                Path::new(&data_dir).join("wubi86.tsv"),
+                Path::new(&data_dir).join("wubi86.qj"),
                 PathBuf::from(&data_dir),
                 PathBuf::from(&user_dir),
             ))
@@ -90,7 +90,7 @@ pub extern "system" fn Java_app_qingjian_inputmethod_core_Native_createTranslati
         crate::assemble_translation(&data_dir, &user_dir, language).map(|engine| {
             Handle::new(Session::new(
                 engine,
-                data_dir.join("wubi86.tsv"),
+                data_dir.join("wubi86.qj"),
                 data_dir,
                 user_dir,
             ))

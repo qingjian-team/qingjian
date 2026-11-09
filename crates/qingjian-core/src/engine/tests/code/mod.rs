@@ -66,10 +66,8 @@ fn looks_up_by_code_prefix_and_prefers_the_finished_code() {
 #[test]
 fn first_level_codes_match_the_wubi_86_key_chart() {
     // 86 五笔 A–Y 的一级简码必须是首选，不能被同码高词频单字挤下去。
-    let table = CodeTable::parse(include_str!(
-        "../../../../../../assets/schemes/wubi86/table.tsv"
-    ))
-    .unwrap();
+    let table =
+        CodeTable::parse(include_str!("../../../../../../assets/sample/wubi86.tsv")).unwrap();
     let mut engine = engine();
     engine.set_code_scheme(Some(CodeScheme::new("wubi", table.clone())));
     engine.set_phonetic(false);
