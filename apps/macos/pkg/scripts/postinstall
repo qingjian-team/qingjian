@@ -25,6 +25,8 @@ if [ -n "$user" ] && [ "$user" != "root" ]; then
             '<dict><key>Bundle ID</key><string>app.qingjian.inputmethod</string><key>InputSourceKind</key><string>Keyboard Input Method</string></dict>'
     fi
     if launchctl asuser "$uid" sudo -u "$user" "$BIN" --register; then
+        # 青简本来就是当前输入源时系统不会再拉起它，上面杀掉旧进程后菜单里就只剩系统项，要手动起一次
+        launchctl asuser "$uid" sudo -u "$user" open "$APP" || true
         echo "青简：已为 $user 注册并启用输入源；输入法菜单里没有「青简」就注销后重新登录（系统在登录时才刷新输入法列表）"
     else
         echo "青简：自动注册输入源失败，请注销后重新登录；仍没有再到「系统设置 → 键盘 → 输入法 → 编辑… → +」的「简体中文」下添加「青简」"
