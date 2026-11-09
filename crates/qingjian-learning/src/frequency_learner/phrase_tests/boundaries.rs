@@ -71,6 +71,7 @@ fn translated_output_breaks_the_code_phrase_window() {
             part_of_speech: None,
             text: "B".into(),
             reading: None,
+            pronunciation: None,
             fresh: false,
         }],
     ));
