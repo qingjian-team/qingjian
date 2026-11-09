@@ -11,6 +11,7 @@ use serde_json::{Value, json};
 
 use super::scratch;
 use crate::chat_client::ChatClient;
+use crate::reply::{self, ReplySchema};
 use crate::{ApiUsageStats, ConnectionTest, PredictConfig};
 
 fn reply(content: Option<&str>) -> Value {
@@ -82,13 +83,20 @@ fn with_server(
     server.join().unwrap();
 }
 
+fn schema() -> ReplySchema {
+    ReplySchema::new(
+        "test",
+        reply::object(json!({ "ok": { "type": "boolean" } }), &["ok"]),
+    )
+}
+
 fn chat(config: &PredictConfig, path: &Path) -> Result<String, crate::PredictError> {
     let client = ChatClient::new(config, "test-key".into()).with_usage(Some(path.to_owned()));
     tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
         .unwrap()
-        .block_on(client.chat("test", "test", 32))
+        .block_on(client.chat("test", "test", 32, &schema()))
 }
 
 #[test]
@@ -146,6 +154,73 @@ fn thinking_fallback_counts_both_attempts_and_successful_usage() {
             assert_eq!(stats.failures, 1);
             assert_eq!(stats.unreported_usage, 1);
             assert_eq!(stats.total_tokens, 312);
+        },
+    );
+}
+
+/// 回归 #515：LM Studio 不认 `json_object`（报错体是字符串，不合 OpenAI 错误结构），
+/// 降到 `json_schema` 重试；同一个客户端之后的请求直接用 `json_schema`。
+#[test]
+fn rejected_json_object_falls_back_to_json_schema_and_is_remembered() {
+    with_server(
+        vec![
+            (
+                400,
+                json!({"error": "'response_format.type' must be 'json_schema' or 'text'"}),
+            ),
+            (200, reply(Some("{\"ok\": true}"))),
+            (200, reply(Some("{\"ok\": true}"))),
+        ],
+        |config, path, calls| {
+            let client =
+                ChatClient::new(config, "test-key".into()).with_usage(Some(path.to_owned()));
+            let runtime = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .unwrap();
+            assert!(
+                runtime
+                    .block_on(client.chat("test", "test", 32, &schema()))
+                    .is_ok()
+            );
+            assert!(
+                runtime
+                    .block_on(client.chat("test", "test", 32, &schema()))
+                    .is_ok()
+            );
+            let sent: Vec<_> = calls.try_iter().collect();
+            assert_eq!(sent.len(), 3);
+            assert_eq!(sent[0]["response_format"]["type"], "json_object");
+            assert_eq!(sent[1]["response_format"]["type"], "json_schema");
+            assert_eq!(
+                sent[1]["response_format"]["json_schema"]["schema"],
+                schema().schema
+            );
+            assert_eq!(sent[2]["response_format"]["type"], "json_schema");
+        },
+    );
+}
+
+/// 两种格式都不认的服务：去掉 `response_format`，回复包在代码块里也能取出 JSON。
+#[test]
+fn rejected_json_schema_falls_back_to_unconstrained() {
+    with_server(
+        vec![
+            (
+                400,
+                json!({"error": {"message": "response_format is not supported"}}),
+            ),
+            (
+                400,
+                json!({"error": {"message": "response_format is not supported"}}),
+            ),
+            (200, reply(Some("```json\n{\"ok\": true}\n```"))),
+        ],
+        |config, path, calls| {
+            assert_eq!(chat(config, path).unwrap(), "{\"ok\": true}");
+            let sent: Vec<_> = calls.try_iter().collect();
+            assert_eq!(sent.len(), 3);
+            assert!(sent[2].get("response_format").is_none());
         },
     );
 }

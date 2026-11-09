@@ -1,9 +1,10 @@
-//! 「高级」页：配置文件与数据目录，日志，输入日志。
+//! 「高级」页：配置文件与数据目录、设置的导入导出，日志，输入日志。
 
-use bamboo_slip::taffy::NodeId;
-use bamboo_slip::{Button, RenderError, SettingRow, Switch, Ui, group, section_title};
+use bamboo_slip::taffy::{FlexDirection, NodeId, Style};
+use bamboo_slip::{Button, RenderError, SettingRow, Switch, Ui, Visual, group, section_title};
 use qingjian_platform::LogLevel;
 
+use crate::i18n::tr;
 use crate::message::Message;
 use crate::system::action::Action;
 use crate::view::Page;
@@ -19,15 +20,44 @@ pub fn advanced(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Render
         ui,
         page,
         &[
-            ("在编辑器中打开", Action::OpenConfig),
-            ("打开数据目录", Action::OpenDataDir),
+            (tr("advanced.open_in_editor"), Action::OpenConfig),
+            (tr("advanced.open_data_dir"), Action::OpenDataDir),
         ],
     )?;
-    let row = SettingRow::new("配置文件")
+    let row = SettingRow::new(tr("advanced.config_file"))
         .control(buttons)
         .build(ui, theme)?;
-    out.push(section_title(ui, theme, "配置")?);
-    out.push(group(ui, theme, &[row])?);
+    let import = Button::new(tr("advanced.import")).build(
+        ui,
+        theme,
+        "import-config",
+        Message::ImportConfig,
+    )?;
+    let export = Button::new(tr("advanced.export")).build(
+        ui,
+        theme,
+        "export-config",
+        Message::ExportConfig,
+    )?;
+    let transfer = ui.scene().node(
+        Style {
+            flex_direction: FlexDirection::Row,
+            gap: page.gap(8.0),
+            ..Style::default()
+        },
+        Visual::Group,
+        &[import, export],
+    )?;
+    let transfer = with_notice(
+        ui,
+        page,
+        SettingRow::new(tr("advanced.transfer"))
+            .info(tr("advanced.transfer_info"))
+            .control(transfer),
+        "config-transfer",
+    )?;
+    out.push(section_title(ui, theme, tr("advanced.section_config"))?);
+    out.push(group(ui, theme, &[row, transfer])?);
 
     let verbose = general.log_level == LogLevel::Debug;
     let next = if verbose {
@@ -45,30 +75,30 @@ pub fn advanced(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Render
         ui,
         page,
         &[
-            ("打开日志目录", Action::OpenLogDir),
-            ("打包到桌面", Action::ExportLogs),
+            (tr("advanced.open_log_dir"), Action::OpenLogDir),
+            (tr("advanced.export_logs"), Action::ExportLogs),
         ],
     )?;
     let rows = vec![
-        SettingRow::new("详细日志")
-            .info("会记下敲的内容，排查完关掉")
+        SettingRow::new(tr("advanced.verbose_log"))
+            .info(tr("advanced.verbose_log_info"))
             .control(switch)
             .build(ui, theme)?,
         with_notice(
             ui,
             page,
-            SettingRow::new("日志文件").control(buttons),
+            SettingRow::new(tr("advanced.log_files")).control(buttons),
             "logs",
         )?,
     ];
-    out.push(section_title(ui, theme, "日志")?);
+    out.push(section_title(ui, theme, tr("advanced.section_logs"))?);
     out.push(group(ui, theme, &rows)?);
 
     let armed = page.settings.armed == Some(Action::ClearInputLog);
     let mut clear = Button::new(if armed {
-        "再点一次清空"
+        tr("advanced.clear_confirm")
     } else {
-        "清空"
+        tr("advanced.clear")
     });
     if armed {
         clear = clear.primary();
@@ -83,8 +113,8 @@ pub fn advanced(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Render
         toggle_info(
             ui,
             page,
-            "记录输入日志",
-            Some("只写在这台电脑上，用来评测候选排序"),
+            tr("advanced.input_log"),
+            Some(tr("advanced.input_log_info")),
             ("general", "input_log"),
             general.input_log,
             false,
@@ -92,11 +122,11 @@ pub fn advanced(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Render
         with_notice(
             ui,
             page,
-            SettingRow::new("清空输入日志").control(clear),
+            SettingRow::new(tr("advanced.clear_input_log")).control(clear),
             "input-log",
         )?,
     ];
-    out.push(section_title(ui, theme, "输入日志")?);
+    out.push(section_title(ui, theme, tr("advanced.section_input_log"))?);
     out.push(group(ui, theme, &rows)?);
     Ok(out)
 }

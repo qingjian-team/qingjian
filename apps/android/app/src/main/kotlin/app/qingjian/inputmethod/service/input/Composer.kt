@@ -1,0 +1,709 @@
+package app.qingjian.inputmethod.service.input
+
+import android.os.Handler
+import android.os.Looper
+import android.os.SystemClock
+import android.view.KeyEvent
+import android.view.inputmethod.InputConnection
+import app.qingjian.inputmethod.core.Engine
+import app.qingjian.inputmethod.core.InputOptions
+import app.qingjian.inputmethod.core.frame.Candidate
+import app.qingjian.inputmethod.core.frame.Frame
+import app.qingjian.inputmethod.keyboard.ShiftState
+import app.qingjian.inputmethod.keyboard.layout.Key
+import app.qingjian.inputmethod.keyboard.layout.KeyboardLayout
+import app.qingjian.inputmethod.settings.Settings
+import kotlin.math.abs
+
+/**
+ * 输入逻辑：把键盘的键翻成 Engine 操作，把帧落到输入框（组句文本）上，再让 [Host] 重画。
+ * 不碰视图，也不管服务的生命周期。
+ */
+class Composer(private val engine: Engine, private val host: Host) {
+    private val handler = Handler(Looper.getMainLooper())
+
+    interface Host {
+        val connection: InputConnection?
+
+        /** Shift 的状态；单次的出过一个大写字母后由这边熄掉。 */
+        var shift: ShiftState
+
+        fun sendKey(keyCode: Int)
+
+        /** 执行输入框的缺省动作（搜索、发送、下一项）；没有缺省动作返回 false。 */
+        fun performEditorAction(): Boolean
+
+        fun showComposition(preedit: String, candidates: List<Candidate>)
+
+        /** 键位表变了（中英、符号页、九宫格）。 */
+        fun showKeyboard()
+
+        fun showSideItems(pinyinChoices: List<String>)
+
+        /** 打开分类符号面板。 */
+        fun openSymbolPanel()
+
+        /** 语言或中英键的另一边变了：记下来，中英键重画。 */
+        fun onLanguageChanged()
+
+        /** 一句话提示（删候选的结果）。 */
+        fun showNotice(text: String)
+    }
+
+    /** 上一帧的 preedit，非空即在组句。 */
+    private var preedit = ""
+
+    /** 这段组句里最近交给输入框的几版 preedit（新的在后），重启输入后认输入框里停在哪一版，见 [resume]。 */
+    private val sentPreedits = ArrayDeque<String>()
+
+    /** 重启输入后输入框里的组合文字标记没了，下次改输入框前要先删掉留在框里的拼音，见 [resume]。 */
+    private var composingLost = false
+
+    private var pinyinChoices: List<String> = emptyList()
+
+    /** 候选条上是补全（邮箱后缀），见 [refreshCompletions]。 */
+    private var completing = false
+
+    /** 删除键按下时在组句（见 [onBackspaceDown]）。 */
+    private var backspaceComposing = false
+
+    /** 删除键按下时光标前的文字，上划清空的撤销用；组句中为 null。 */
+    private var beforeBackspace: String? = null
+
+    /** 这个输入框不过引擎，见 [wantsDirectInput]。 */
+    var directInput = false
+
+    /** 网址框：标点不转全角、敲标点时原样落下字母，见 [wantsPlainPunctuation]。 */
+    var plainPunctuation = false
+
+    /** 私密输入（不学习、不记统计与生词、不发云端），见 [wantsPrivacy]；引擎没装好时先记着，装好了在 [onEngineReady] 里补。 */
+    var privateInput = false
+        set(value) {
+            field = value
+            engine.setPrivate(value)
+        }
+
+    /** 现在用的语言。 */
+    var language = Language.CHINESE
+        private set
+
+    /** 中英键按一下切到的另一种语言；与 [language] 是一对。 */
+    var partner = Language.ENGLISH
+        private set
+
+    /** 长按挑语言时另一边固定是中文（缺省开）；关了就是「当前语言 ↔ 挑的那种」，见 [chooseLanguage]。 */
+    var keepChinese = true
+
+    val chinese: Boolean get() = language == Language.CHINESE
+
+    /** 日语罗马音：敲的字母进 Core 的罗马音缓冲区，不经拼音引擎。 */
+    val japanese: Boolean get() = language == Language.JAPANESE
+
+    private val english: Boolean get() = language == Language.ENGLISH
+
+    /** 上次点 Shift 的时刻，两次点得够近就锁定。 */
+    private var lastShiftTap = 0L
+
+    /** 键盘停在哪一页：字母、常用符号页（英文 !?#）、数字键盘（123）。 */
+    enum class Page { LETTERS, SYMBOLS, NUMBERS }
+
+    var page = Page.LETTERS
+        private set
+
+    var layout = Settings.Layout.QWERTY
+        set(value) {
+            if (field == value) return
+            field = value
+            applyScheme()
+        }
+
+    /** 候选出繁体（功能面板的「繁体」）；引擎没装好时先记着，装好了在 [onEngineReady] 里补上。 */
+    var traditional = false
+        set(value) {
+            if (field == value) return
+            field = value
+            if (engine.ready) apply(engine.setTraditional(value))
+        }
+
+    /** 九宫格只管中文；英文模式退回全键盘。 */
+    val nineKey: Boolean get() = layout == Settings.Layout.NINE_KEY && chinese
+
+    /** 注音（大千）同样只管中文，英文退回全键盘。 */
+    val zhuyin: Boolean get() = layout == Settings.Layout.ZHUYIN && chinese
+
+    /** 双拼、五笔也只管中文；英文退回全键盘、英文模式。 */
+    val shuangpin: Boolean get() = layout == Settings.Layout.SHUANGPIN && chinese
+
+    val wubi: Boolean get() = layout == Settings.Layout.WUBI && chinese
+
+    /** 双拼方案与 preedit 写法、五笔混输（键盘设置里的，同 PC 的 `[general]` 那几项）。 */
+    var shuangpinScheme = Settings.DEFAULT_SHUANGPIN
+    var shuangpinRawPreedit = false
+    var wubiMixed = false
+
+    /** 模糊音、中文标点全半角、打拼音时给不给英文词（键盘设置里的，交给 Core）；引擎没装好时先记着。 */
+    var options = InputOptions()
+        set(value) {
+            if (field == value) return
+            field = value
+            if (engine.ready) apply(engine.setOptions(value))
+        }
+
+    /** 英文键盘也组句给英文词候选；关了字母直接上屏。 */
+    var englishCandidates = true
+
+    /** 敲的字母进组句：中文、日语总是进，英文看 [englishCandidates]。 */
+    private val composesLetters: Boolean get() = !directInput && (chinese || japanese || englishCandidates)
+
+    private val composing: Boolean get() = preedit.isNotEmpty()
+
+    /** 组句处在算式（`v1+2`）或码点里，见 [Frame.expression]。 */
+    private var expression = false
+
+    /** 这段组句在单字模式，见 [Frame.singleChars]。 */
+    var singleChars = false
+        private set
+
+    /** 上一帧的候选。 */
+    private var candidates: List<Candidate> = emptyList()
+
+    /**
+     * 滑完一笔（[input] 是轨迹与键位的 JSON）：同点字母，组句时解出的字母进组句，
+     * 字母直接上屏时上屏解出的整串（Shift 单次首字母大写，锁定全大写）。
+     */
+    fun onSwipe(input: String) {
+        if (composing || (engine.ready && composesLetters && !host.shift.on)) {
+            apply(engine.swipe(input))
+            return
+        }
+        val letters = engine.decodeSwipe(input)
+        if (letters.isEmpty()) return
+        commit(
+            when (host.shift) {
+                ShiftState.LOCKED -> letters.uppercase()
+                ShiftState.ONCE -> letters.replaceFirstChar { it.uppercase() }
+                ShiftState.OFF -> letters
+            },
+        )
+        consumeShift()
+    }
+
+    fun onKey(key: Key) {
+        // 候选条上放着电话邮箱或「撤销」时，删除、重输先只收起它们，不动输入框里的字
+        if ((key == Key.Backspace || key == Key.Clear) && !composing && completing && engine.hasOffer()) {
+            apply(engine.clear())
+            return
+        }
+        when (key) {
+            is Key.Letter -> when {
+                // 英文的大小写跟着敲的走（`Compa` 出 Company），验证码这类大小写混着的串也在组句里敲
+                english && (composing || (engine.ready && composesLetters)) -> {
+                    apply(engine.push((if (host.shift.on) key.char.uppercaseChar() else key.char).code))
+                    consumeShift()
+                }
+
+                composing || (engine.ready && composesLetters && !host.shift.on) ->
+                    apply(engine.push(key.char.code))
+
+                else -> {
+                    commit(if (host.shift.on) key.label.uppercase() else key.label)
+                    consumeShift()
+                }
+            }
+
+            is Key.Zhuyin ->
+                if (engine.ready && !directInput) apply(engine.push(key.code.code)) else commit(key.label)
+
+            is Key.Digit -> when {
+                !engine.ready -> Unit
+                key.digit != SEPARATOR_DIGIT -> apply(engine.push(key.digit.code))
+                // 分词键只在组句中有意义
+                composing -> apply(engine.push('\''.code))
+            }
+
+            is Key.Text -> {
+                // 日语里的长音：罗马音的 `-`，进缓冲区转成「ー」
+                if (japanese && engine.ready && !directInput && key.text in LONG_VOWEL) {
+                    apply(engine.push('-'.code))
+                    return
+                }
+                if (composing && expression) {
+                    onExpressionText(key.text)
+                    return
+                }
+                when {
+                    !composing -> Unit
+                    // 敲邮箱：@ 前的字母是用户名，原样落下，不顶首选
+                    key.text == "@" && !zhuyin -> apply(engine.commitRaw())
+                    // 英文同空格：数字、标点前落下敲的字母，不换成候选（验证码、型号这类串不是词）
+                    english || plainPunctuation -> apply(engine.commitRaw())
+                    else -> selectFirst()
+                }
+                // 中文标点键：Core 按设置转全角（引号成对、数字后的点保持半角）或原样
+                val punct = key.punct
+                commitSymbol(
+                    when {
+                        punct == null -> key.text
+                        // 网址框里中文键盘的「。」「，」也落半角
+                        plainPunctuation -> punct.toString()
+                        chinese && !directInput -> engine.punctuate(punct)
+                        else -> key.text
+                    },
+                    pairable = !plainPunctuation && !directInput,
+                )
+            }
+
+            Key.Clear -> if (composing) apply(engine.clear())
+
+            // 拼音、日语组句里的大写字母另有含义，组句中只有英文能换大小写
+            Key.Shift -> if (!composing || english) toggleShift()
+
+            Key.Backspace -> if (composing) apply(engine.backspace()) else deleteBackward()
+
+            is Key.Space -> when {
+                !composing -> commit(" ")
+                chinese || japanese -> apply(engine.space())
+                // 英文模式：敲的字母原样上屏，空格照给
+                else -> {
+                    apply(engine.commitRaw())
+                    commit(" ")
+                }
+            }
+
+            is Key.Enter -> when {
+                composing -> settle()
+                !host.performEditorAction() -> host.sendKey(KeyEvent.KEYCODE_ENTER)
+            }
+
+            is Key.Symbols -> {
+                if (composing) selectFirst()
+                host.openSymbolPanel()
+            }
+
+            is Key.SymbolPage, is Key.NumberPage, is Key.Letters -> {
+                // 算式里换去数字键盘接着打，不顶首选
+                if (composing && !expression) selectFirst()
+                page = when (key) {
+                    is Key.SymbolPage -> Page.SYMBOLS
+                    is Key.NumberPage -> Page.NUMBERS
+                    else -> Page.LETTERS
+                }
+                host.showKeyboard()
+            }
+
+            Key.Language -> {
+                val from = language
+                switchTo(partner)
+                partner = from
+                host.onLanguageChanged()
+            }
+        }
+    }
+
+    /** 上次用的语言与另一边（从设置里读回来）；引擎的模式在 [onEngineReady] 里补。 */
+    fun restoreLanguages(language: Language, partner: Language) {
+        this.language = language
+        this.partner = when {
+            partner != language -> partner
+            language == Language.CHINESE -> Language.ENGLISH
+            else -> Language.CHINESE
+        }
+    }
+
+    /**
+     * 长按中英键或键盘选择里挑了 [target]：切过去，并把中英键的另一边定下来。[keepChinese] 开着另一边总有中文
+     * （挑中文时另一边是切走前那种）；关着另一边就是切走前的语言，英 ↔ 日 这种也行。
+     */
+    fun chooseLanguage(target: Language) {
+        if (target == language) return
+        val from = language
+        partner = if (keepChinese && target != Language.CHINESE && from != Language.CHINESE) Language.CHINESE else from
+        switchTo(target)
+        host.onLanguageChanged()
+    }
+
+    /** 切到 [target]：离开日语先关罗马音缓冲区，进英文 / 中文换引擎的模式；组句中的输入由会话先落下。 */
+    private fun switchTo(target: Language) {
+        if (target == language) return
+        if (composing && zhuyin) selectFirst()
+        val wasJapanese = japanese
+        language = target
+        if (engine.ready) {
+            if (wasJapanese) apply(engine.setJapanese(false))
+            applyLanguage()
+        }
+        host.showKeyboard()
+    }
+
+    /** 引擎按 [language] 设好模式。 */
+    private fun applyLanguage() {
+        if (japanese) {
+            apply(engine.setJapanese(true))
+        } else {
+            apply(engine.setEnglishMode(!chinese))
+            applyScheme()
+        }
+    }
+
+    /** 符号 / 表情面板里点的一格：组句中先顶首选再上屏。 */
+    fun commitPanelText(text: String) {
+        if (composing) selectFirst()
+        commit(text)
+    }
+
+    /** 开始说话前：组句落下（同回车），识别出的字接在后面。 */
+    fun prepareVoice() {
+        if (composing) settle()
+    }
+
+    /** 识别出的字上屏：过引擎（繁体输出、输入历史与统计）；不过引擎的输入框与引擎没装好时原样上屏。 */
+    fun commitVoice(text: String) {
+        if (engine.ready && !directInput) apply(engine.commitVoice(text)) else commit(text)
+    }
+
+    fun select(index: Int) = apply(engine.select(index))
+
+    /** 展开面板里点了「全部 / 单字」。 */
+    fun toggleSingleChars() = apply(engine.toggleSingleChars())
+
+    /** 点了拼音行第 [index] 个字之后：光标挪进拼音里，接着敲的字、退格都在那里。 */
+    fun moveCaret(index: Int) {
+        if (composing) apply(engine.moveCaret(index))
+    }
+
+    fun selectTranslation(index: Int, sense: Int) = apply(engine.selectTranslation(index, sense))
+
+    /** 拼音列：组句中点的是拼音（定下这个音节），平时点的是标点。 */
+    fun onSideItem(item: String) {
+        if (item in pinyinChoices) apply(engine.pin(item)) else onKey(KeyboardLayout.sideKey(item))
+    }
+
+    /** 长按候选选了「删除」：用户词整删、词库词清学习记录，结果用一句话提示。 */
+    fun forget(index: Int) = apply(engine.forget(index))
+
+    /**
+     * 长按气泡里选的字符。全键盘选小写 = 照常敲这个字母；九宫格组句中选小写 = 这一位就是这个字母
+     * （进缓冲区，和拼音列定音节一个道理）。其余（数字、大写、符号）先顶首选再上屏；
+     * 角标里有全角写法的标点（`;` `?` 这些）同标点键一样交 Core 按设置转全角。
+     */
+    fun onKeyChoice(text: String) {
+        val letter = text.singleOrNull()?.takeIf { it in 'a'..'z' }
+        when {
+            // 全键盘长按选小写 = 照常敲这个字母
+            letter != null && !nineKey -> onKey(Key.Letter(letter))
+            composing && letter != null && engine.ready -> apply(engine.push(letter.code))
+            else -> onKey(Key.Text(text, punct = text.singleOrNull()?.takeIf { it in FULL_WIDTH_HINTS }))
+        }
+    }
+
+    /**
+     * 算式里按的符号键：数字与运算符进缓冲区（× ÷ 换成 Core 认的 * /）；`=` 上屏「算式=结果」那条，没有就上屏首选；
+     * 别的符号先顶首选再上屏。
+     */
+    private fun onExpressionText(text: String) {
+        val c = text.singleOrNull()?.let(engine::expressionChar)
+        when {
+            c != null -> apply(engine.push(c.code))
+            c == '=' -> {
+                val index = candidates.indexOfFirst { '=' in it.text }
+                if (index >= 0) select(index) else selectFirst()
+            }
+
+            else -> {
+                selectFirst()
+                commit(text)
+            }
+        }
+    }
+
+    /** 按住空格左右滑：不在组句时按方向键挪光标。 */
+    fun moveCursor(steps: Int) {
+        // 组句中不响应：落下拼音再挪会把没选的字母上屏；拼音里的光标靠点拼音行挪（[moveCaret]）
+        if (steps == 0 || composing) return
+        val code = if (steps < 0) KeyEvent.KEYCODE_DPAD_LEFT else KeyEvent.KEYCODE_DPAD_RIGHT
+        repeat(abs(steps)) { host.sendKey(code) }
+    }
+
+    /**
+     * 光标停下（上屏、删字、挪光标之后）且不在组句：按光标前的文字问 Core 有没有补全（「用户名@」后的邮箱后缀），
+     * 有就放在候选条上，选中走 [select]。只显示、不写输入框，所以不会再触发光标变化。
+     */
+    fun refreshCompletions() {
+        if (composing || !engine.ready) return
+        val before = host.connection?.getTextBeforeCursor(COMPLETION_CONTEXT, 0)?.toString().orEmpty()
+        if (!completing && '@' !in before && before.lastOrNull()?.let(engine::mayEndCalculation) != true) return
+        val frame = engine.complete(before)
+        completing = frame.candidates.isNotEmpty()
+        host.showComposition("", frame.candidates)
+    }
+
+    /**
+     * 删除键按下那一刻（删字之前）：组句中记下「这一下是在删拼音」，否则记下光标前的文字，
+     * 接着上划清空时撤销要连按下时删掉的那个字一起放回。
+     */
+    fun onBackspaceDown() {
+        backspaceComposing = composing
+        beforeBackspace = if (composing) null else host.connection?.getTextBeforeCursor(MAX_CLEAR, 0)?.toString()
+    }
+
+    /**
+     * 删除键上划：按下时在组句就只清拼音（删到没拼音了也不去动输入框里的字）；否则删掉光标前的文字（最多 [MAX_CLEAR] 个），
+     * 候选条上放「撤销」，点了原样放回。按下时那一下已经删的字（按键事件可能还没到应用）也算在撤销里。
+     */
+    fun clearBefore() {
+        if (backspaceComposing || composing) {
+            backspaceComposing = false
+            if (composing) apply(engine.clear())
+            return
+        }
+        val connection = host.connection ?: return
+        val remaining = connection.getTextBeforeCursor(MAX_CLEAR, 0)?.toString().orEmpty()
+        val removed = beforeBackspace?.takeIf { it.startsWith(remaining) } ?: remaining
+        beforeBackspace = null
+        if (remaining.isNotEmpty()) connection.deleteSurroundingText(remaining.length, 0)
+        if (removed.isNotEmpty()) apply(engine.cleared(removed))
+    }
+
+    /** 组句中光标被点到别处：敲的字母原样落下，不留带 ' 的显示形式。 */
+    fun onCursorMovedAway() {
+        if (composing) settle()
+    }
+
+    /**
+     * 同一个输入框重新开始输入（`restartInput`）时接着组句：有的应用每改一次内容就重启一次输入
+     * （支付宝里淘宝闪购的搜索框），重启后输入框里已经没有组合文字的标记，拼音还在但成了普通文字。
+     * 不接上的话每敲一个字母拼音就被丢掉；只留着状态不处理，下一键的组合文字又会接在旧拼音后面再插一份。
+     * 这里只记下「标记丢了」，下一次改输入框时由 [dropStalePreedit] 先删掉留在框里的那版拼音。返回是否留着当前状态。
+     * 不在组句、候选条上放着补全（上屏后的联想、电话邮箱、「撤销」）时也留着：上屏这一下同样会触发重启。
+     */
+    fun resume(): Boolean {
+        if (!composing) return completing
+        composingLost = true
+        return true
+    }
+
+    /**
+     * 重启输入后第一次改输入框：光标前停在这段组句交过的哪一版 preedit（打得快时可能是还没轮到的旧版），先删掉它。
+     * 重启那一刻新连接可能还没就绪、读不准，所以等到真正要写的时候再读；读不到或哪一版都对不上就不删。
+     */
+    private fun dropStalePreedit(connection: InputConnection) {
+        if (!composingLost) return
+        composingLost = false
+        val versions = sentPreedits + preedit
+        val before = connection.getTextBeforeCursor(versions.maxOf { it.length }, 0)?.toString() ?: return
+        val stale = versions.filter { before.endsWith(it) }.maxByOrNull { it.length } ?: return
+        connection.deleteSurroundingText(stale.length, 0)
+    }
+
+    /** 输入框换了或键盘收起：组句不带走。 */
+    fun abandon() {
+        preedit = ""
+        sentPreedits.clear()
+        composingLost = false
+        pinyinChoices = emptyList()
+        expression = false
+        candidates = emptyList()
+        completing = false
+        engine.reset()
+        host.shift = ShiftState.OFF
+        host.showSideItems(pinyinChoices)
+        host.showComposition("", emptyList())
+        if (page != Page.LETTERS) {
+            page = Page.LETTERS
+            host.showKeyboard()
+        }
+    }
+
+    /** 数字类输入框（电话、数字、日期时间）：直接换到数字键盘，「返回」仍可回字母。 */
+    fun showNumbers() {
+        if (page == Page.NUMBERS) return
+        page = Page.NUMBERS
+        host.showKeyboard()
+    }
+
+    /** 引擎刚装好：补上输入方案与繁体开关。 */
+    fun onEngineReady() {
+        engine.setPrivate(privateInput)
+        applyScheme()
+        if (!chinese) applyLanguage()
+        if (traditional) apply(engine.setTraditional(true))
+        apply(engine.setOptions(options))
+    }
+
+    /** 引擎的输入方案跟着键盘走；引擎装好、换布局、切中英时调。 */
+    fun applyScheme() {
+        if (!engine.ready) return
+        apply(engine.setNineKey(nineKey))
+        apply(engine.setZhuyin(zhuyin))
+        apply(engine.setShuangpin(if (shuangpin) shuangpinScheme else "", shuangpinRawPreedit))
+        apply(engine.setWubi(wubi, wubiMixed))
+    }
+
+    /**
+     * 回车、挪光标时把组句落下：拼音原样落下敲的字母；注音缓冲区里是大千键位的 ASCII，落下没意义，上屏首选（与桌面端回车一致）。
+     */
+    private fun settle() = if (zhuyin) selectFirst() else apply(engine.commitRaw())
+
+    /** 点 Shift：灭 → 单次；单次时紧接着再点 → 锁定，隔久了再点 → 灭；锁定时点 → 灭。 */
+    private fun toggleShift() {
+        val now = SystemClock.uptimeMillis()
+        host.shift = when (host.shift) {
+            ShiftState.OFF -> ShiftState.ONCE
+            ShiftState.ONCE -> if (now - lastShiftTap < DOUBLE_TAP_MS) ShiftState.LOCKED else ShiftState.OFF
+            ShiftState.LOCKED -> ShiftState.OFF
+        }
+        lastShiftTap = now
+    }
+
+    /** 出过一个字母：单次的 Shift 熄掉，锁定的留着。 */
+    private fun consumeShift() {
+        if (host.shift == ShiftState.ONCE) host.shift = ShiftState.OFF
+    }
+
+    /** 空格 / 标点顶首选；没有候选（切不动）就原样上屏。 */
+    private fun selectFirst() {
+        var frame = engine.select(0)
+        if (frame.commit.isEmpty() && frame.preedit.isNotEmpty()) frame = engine.commitRaw()
+        apply(frame)
+    }
+
+    private fun apply(frame: Frame) {
+        val connection = host.connection ?: return
+        // 一段组句开头：组合文字放进去之前读光标前后文，给云联想
+        val surrounding = if (engine.predicting && preedit.isEmpty() && frame.preedit.isNotEmpty()) {
+            (connection.getTextBeforeCursor(SURROUNDING_BEFORE, 0)?.toString().orEmpty()) to
+                (connection.getTextAfterCursor(SURROUNDING_AFTER, 0)?.toString().orEmpty())
+        } else {
+            null
+        }
+        connection.beginBatchEdit()
+        dropStalePreedit(connection)
+        if (frame.replace > 0) connection.deleteSurroundingText(frame.replace, 0)
+        if (frame.commit.isNotEmpty()) connection.commitText(frame.commit, 1)
+        if (frame.preedit.isNotEmpty()) {
+            connection.setComposingText(frame.preedit, 1)
+        } else if (frame.commit.isEmpty()) {
+            connection.setComposingText("", 1)
+            connection.finishComposingText()
+        }
+        connection.endBatchEdit()
+        preedit = frame.preedit
+        if (preedit.isEmpty()) {
+            sentPreedits.clear()
+        } else {
+            sentPreedits.addLast(preedit)
+            if (sentPreedits.size > SENT_PREEDITS) sentPreedits.removeFirst()
+        }
+        pinyinChoices = frame.pinyinChoices
+        expression = frame.expression
+        singleChars = frame.singleChars
+        candidates = frame.candidates
+        // 不在组句却带着候选：上屏通讯录名字后接着给的电话、邮箱，光标再动时要问 Core 还留不留
+        completing = frame.preedit.isEmpty() && frame.candidates.isNotEmpty()
+        host.showSideItems(pinyinChoices)
+        host.showComposition(frame.preedit, frame.candidates)
+        if (frame.notice.isNotEmpty()) host.showNotice(frame.notice)
+        surrounding?.let { (before, after) -> engine.setSurrounding(before, after) }
+        handler.removeCallbacks(pollPrediction)
+        if (engine.predicting && composing) handler.postDelayed(pollPrediction, PREDICTION_POLL_MS)
+    }
+
+    /** 组句中隔一会儿取一次云联想结果；到了就插进候选重画，组句结束不再取。 */
+    private val pollPrediction: Runnable = Runnable {
+        if (!composing) return@Runnable
+        val frame = engine.pollPrediction()
+        if (frame != null && frame.preedit == preedit) {
+            candidates = frame.candidates
+            host.showComposition(frame.preedit, frame.candidates)
+        }
+        if (engine.predicting) handler.postDelayed(pollPrediction, PREDICTION_POLL_MS)
+    }
+
+    private fun commit(text: String) {
+        host.connection?.commitText(text, 1)
+    }
+
+    /**
+     * 键盘上的标点、符号上屏。成对符号（#928）由 Core 定：左半边连右半边一起上屏、光标停在中间；
+     * 补过的右半边在光标后面就跳过它，不在（挪过光标）就照常上屏。`pairable` 为假（网址框、直接输入）时照常上屏。
+     */
+    private fun commitSymbol(text: String, pairable: Boolean) {
+        val edit = if (pairable) engine.pairPunctuation(text, english) else null
+        val connection = host.connection
+        if (edit == null || connection == null) {
+            commit(text)
+            return
+        }
+        val parts = edit.split(':', limit = 3)
+        when (parts[0]) {
+            "insert" -> {
+                val pair = parts[2]
+                val back = parts[1].toInt().coerceIn(0, pair.length)
+                connection.beginBatchEdit()
+                connection.commitText(pair.dropLast(back), 1)
+                // 光标位置 0 落在这段的开头，也就是左右两半中间
+                connection.commitText(pair.takeLast(back), 0)
+                connection.endBatchEdit()
+            }
+            "skip" -> {
+                val closer = parts[1]
+                if (connection.getTextAfterCursor(closer.length, 0)?.toString() == closer) {
+                    // 换掉光标后的那个再上屏同一个字：光标落到它后面，不用算绝对位置
+                    connection.beginBatchEdit()
+                    connection.deleteSurroundingText(0, closer.length)
+                    connection.commitText(closer, 1)
+                    connection.endBatchEdit()
+                } else {
+                    commit(closer)
+                }
+            }
+            else -> commit(text)
+        }
+    }
+
+    /** 没在组句时的退格：刚补完一对、光标前后正是这一对就一起删，否则照常退格。 */
+    private fun deleteBackward() {
+        val pair = engine.pairBackspace()
+        val connection = host.connection
+        if (pair != null && pair.length == 2 && connection != null &&
+            connection.getTextBeforeCursor(1, 0)?.toString() == pair.substring(0, 1) &&
+            connection.getTextAfterCursor(1, 0)?.toString() == pair.substring(1)
+        ) {
+            connection.deleteSurroundingText(1, 1)
+        } else {
+            host.sendKey(KeyEvent.KEYCODE_DEL)
+        }
+    }
+
+    private companion object {
+        const val SEPARATOR_DIGIT = '1'
+
+        /** 两次点 Shift 间隔在这以内算双击（锁定大写）。 */
+        const val DOUBLE_TAP_MS = 350L
+
+        /** 云联想给的光标前后文：Engine 会按观察窗口再裁（前 64、后 32）。 */
+        const val SURROUNDING_BEFORE = 64
+        const val SURROUNDING_AFTER = 32
+
+        /** 组句中取云联想结果的间隔。 */
+        const val PREDICTION_POLL_MS = 150L
+
+        /** 重启输入后认输入框停在哪一版 preedit 时往回看几版：快打时在路上的改动不会更多。 */
+        const val SENT_PREEDITS = 8
+
+        /** 补全看光标前多少个字：用户名加域名前缀够了。 */
+        const val COMPLETION_CONTEXT = 80
+
+        /** 上划清空最多删光标前几个字（UTF-16 单位）：再长的文档一次删不完，再划一次。 */
+        const val MAX_CLEAR = 5000
+
+        /** 日语里当长音敲的键。 */
+        val LONG_VOWEL = setOf("-", "ー")
+
+        /**
+         * 字母键角标里转全角后还是同一个符号的标点：中文键盘上划、长按出它们时按「中文标点」设置转全角。
+         * `_` `^` 这类转出来是另一个符号（——、……），照键面原样上屏。
+         */
+        private const val FULL_WIDTH_HINTS = "!?:;()~,."
+    }
+}

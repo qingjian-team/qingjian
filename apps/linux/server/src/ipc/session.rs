@@ -1,6 +1,6 @@
 //! 一条连接内的会话映射与独立协商状态。
-use crate::protocol::DisplayIdentity;
 use qingjian_platform::protocol::SessionId;
+use qingjian_platform::protocol::linux::DisplayIdentity;
 
 pub(super) struct Session {
     pub(super) global: SessionId,

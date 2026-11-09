@@ -1,43 +1,52 @@
 //! 协议分派：把 DLL 发来的 [`ClientMessage`] 交给 Engine，产出回给 DLL 的 [`ServerMessage`]。
-//! 消息分派在 [`message`]，会话在 [`session`]，组句展示状态在 [`composed`]，按键在 [`key`]，
-//! 候选窗口输出在 [`candidates`]，状态条在 [`status`]，翻译选中文字在 [`translate`]，配置热加载在 [`reload`]，
-//! 本地整句模型在 [`rescore`]，形码码表在 [`code`]，符号面板在 [`panel`]。
+//! 消息分派在 `message`，会话在 `session`，组句展示状态在 `composed`，按键在 `key`，
+//! 候选窗口输出在 `candidates`，状态条在 `status`，翻译选中文字在 `translate`，配置热加载在 `reload`，
+//! 本地整句模型在 `rescore`，形码码表在 `code`，符号面板在 `panel`。
 
 mod candidates;
-mod code;
 mod composed;
 mod config;
 mod key;
+mod key_hint;
 mod message;
 mod mode;
 mod panel;
 mod reload;
 mod rescore;
+mod schemes;
 mod session;
 mod status;
+mod trace;
 mod translate;
 
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
-use qingjian_core::{Engine, Grid};
-use qingjian_platform::LocalModelConfig;
+use qingjian_core::candidate::arrows::Focus;
+use qingjian_core::{Engine, Grid, TelexComposer};
+use qingjian_platform::logs::CompositionTrace;
 use qingjian_platform::protocol::{
-    ClientMessage, Frame, IndicatorState, InputSettings, ScreenRect, ServerMessage, SessionId,
+    CaretEdit, ClientMessage, Frame, IndicatorState, InputSettings, ScreenRect, ServerMessage,
+    SessionId,
 };
+use qingjian_platform::{LocalModelConfig, SchemeSlot};
 use qingjian_render::Mode;
 
-pub use self::candidates::{CandidateSink, NoopSink, RenderSettings};
-pub use self::code::find_code_table;
+pub use self::candidates::{
+    CandidateMenu, CandidateMouse, CandidateSink, NoopSink, RenderSettings,
+};
 use self::composed::Composed;
 pub use self::config::RouterConfig;
+use self::key_hint::KeyHintState;
+pub use self::key_hint::{KeyHintContent, KeyHintView};
 use self::panel::PanelGrid;
 pub use self::panel::{PanelCell, PanelFrame, PanelMouse};
 use self::reload::ConfigReload;
 pub use self::reload::{DataDirs, attach_cloud};
-pub use self::rescore::find_model;
+pub use self::rescore::{ModelDirs, find_model};
 use self::rescore::{ModelLoader, RescoreState};
+pub use self::schemes::find_bundled_schemes;
 use self::session::SessionInfo;
 pub use self::status::{NoopStatusSink, StatusEvent, StatusSink, StatusView};
 use self::translate::Translation;
@@ -74,17 +83,30 @@ pub struct Router {
     /// 「翻译选中文字」请求号计数器。
     selection_seq: u64,
 
+    /// 这一键要 DLL 对文档做的成对符号编辑（#928），随这次 `KeyResult` 带走。
+    pending_caret: Option<CaretEdit>,
+
     /// 整句补全（preedit 右侧、Tab 上屏）；缓冲变化时清空。
     sentence: Option<String>,
 
     /// 删候选后的屏幕提示，随下一帧下发、下一次按键清。
     notice: Option<String>,
 
+    /// 用户从菜单发起、正在等待的模型译文生成；第三项是独立输入法指定的目标语言，中文候选为 `None`。
+    candidate_translation: Option<(
+        u64,
+        qingjian_core::Candidate,
+        Option<qingjian_core::Language>,
+    )>,
+
     /// 当前高亮候选在布局里的下标（跨页）。
     highlight: usize,
 
     /// 横排展开成矩阵时的视口；`None` 是单行。新一轮查询收回单行（与 macOS 壳的 `Session` 一致）。
     grid: Option<Grid>,
+
+    /// 方向键归拼音行还是候选（`arrows::route`）。改拼音时每敲一键都重查，所以跨查询保留，缓冲清空才回到候选。
+    focus: Focus,
 
     /// 这轮查询里动过高亮：动过就不再拿重排结果换掉候选；注音模式数字键动过之后才选词。
     navigated: bool,
@@ -104,11 +126,23 @@ pub struct Router {
     /// 当前中英模式（`true` 英文）；按应用记忆时是 `mode_session` 对应的那份。
     english: bool,
 
+    /// 当前是否为越南语第三输入法。
+    vietnamese_mode: bool,
+
+    /// 越南语 Simple Telex 当前词。
+    vietnamese: TelexComposer,
+
+    /// 越南语输入候选词表。
+    vietnamese_words: Option<qingjian_dictionary::WordList>,
+
+    /// 越南语候选的中文释义：个人模型译词优先，随包反向词库兜底。
+    vietnamese_glossary: Option<qingjian_translate::LayeredTranslator>,
+
     /// 最近同步中英状态的会话，与持有组句的 `focused` 分开，切模式不抢走待上屏的组句。
     mode_session: Option<SessionId>,
 
     /// 应用 exe 名（小写）到中英状态；会话断开仍保留，Server 重启后清空。
-    app_modes: HashMap<String, bool>,
+    app_modes: HashMap<String, (bool, bool)>,
 
     /// 当前输入法是不是青简：有 DLL 来取模式就是，切成别的输入法时收起。状态条只在这时显示；
     /// 应用退出不影响它，状态条是桌面常驻的。
@@ -118,7 +152,7 @@ pub struct Router {
     last_rect: Option<ScreenRect>,
 
     /// 上次真正显示的帧与位置：没变就不重画（组字期间的空转 Poll 很多）。
-    last_shown: Option<(Frame, Mode, ScreenRect)>,
+    last_shown: Option<(Frame, Mode, ScreenRect, Option<KeyHintView>)>,
 
     /// 符号面板当前分类的格子；面板没开时为 `None`。
     panel: Option<PanelGrid>,
@@ -126,11 +160,14 @@ pub struct Router {
     /// 上次显示的面板与光标矩形，没变就不重画；面板没在显示时为 `None`。
     last_panel: Option<(PanelFrame, Option<ScreenRect>)>,
 
-    /// 本地整句模型（`.qjm` 或三件套目录）；没有模型文件为 `None`。
-    model_path: Option<PathBuf>,
+    /// 去哪找本地模型。
+    model_dirs: ModelDirs,
 
-    /// 形码码表（`wubi/wubi86.tsv`，启动时找好的，见 [`code::find_code_table`]）；没有为 `None`。
-    code_table: Option<PathBuf>,
+    /// 随包的方案目录（启动时找好的，见 [`schemes::find_bundled_schemes`]）；没有为 `None`。
+    bundled_schemes: Option<PathBuf>,
+
+    /// 装着的形码方案（名字给状态条与主题显示），配置没动它时不重读码表。
+    scheme_slot: SchemeSlot,
 
     /// 进行中的模型加载；加载完接到 Engine 上就清掉。
     model_loader: Option<ModelLoader>,
@@ -144,6 +181,12 @@ pub struct Router {
 
     /// 重排的防抖 / 轮询进行态。
     rescore: RescoreState,
+
+    /// 键位提示「卡住时显示」的进行态。
+    key_hint: KeyHintState,
+
+    /// 正在进行的这段组句的按键账；没在组句为 `None`。
+    trace: Option<CompositionTrace>,
 }
 
 impl Router {
@@ -162,16 +205,23 @@ impl Router {
             pending_selection: None,
             clicked: None,
             selection_seq: 0,
+            pending_caret: None,
             sentence: None,
             notice: None,
+            candidate_translation: None,
             highlight: 0,
             grid: None,
+            focus: Focus::default(),
             navigated: false,
             last_flush: Instant::now(),
             reload: None,
             candidates: Box::new(NoopSink),
             status: Box::new(NoopStatusSink),
             english,
+            vietnamese_mode: false,
+            vietnamese: TelexComposer::default(),
+            vietnamese_words: None,
+            vietnamese_glossary: None,
             mode_session: None,
             app_modes: HashMap::new(),
             ime_active: false,
@@ -179,12 +229,15 @@ impl Router {
             last_shown: None,
             panel: None,
             last_panel: None,
-            model_path: None,
-            code_table: None,
+            trace: None,
+            model_dirs: ModelDirs::default(),
+            bundled_schemes: None,
+            scheme_slot: SchemeSlot::default(),
             model_loader: None,
             applied_model: LocalModelConfig::default(),
             surrounding_before: String::new(),
             rescore: RescoreState::default(),
+            key_hint: KeyHintState::default(),
         }
     }
 
@@ -199,11 +252,14 @@ impl Router {
             toggle_punctuation: self.config.toggle_punctuation,
             switch_mode: self.config.switch_mode,
             english_mode: self.config.english_mode,
+            double_shift_input: self.config.double_shift_input,
             shift_letter_compose: self.config.shift_letter_compose,
             restore_mode: self.config.default_english || self.config.remember_mode_per_app,
+            toggle_traditional: self.config.toggle_traditional,
             english_candidates: self.config.english_candidates_in(app),
             predict: (self.config.cloud_enabled && self.engine.prediction_enabled())
                 .then_some(self.config.predict),
+            single_chars: self.config.single_chars,
         }
     }
 
@@ -223,6 +279,17 @@ impl Router {
         self.candidates = sink;
     }
 
+    pub fn set_vietnamese_words(&mut self, words: Option<qingjian_dictionary::WordList>) {
+        self.vietnamese_words = words;
+    }
+
+    pub fn set_vietnamese_glossary(
+        &mut self,
+        glossary: Option<qingjian_translate::LayeredTranslator>,
+    ) {
+        self.vietnamese_glossary = glossary;
+    }
+
     /// 直接碰 Engine：测试里改模式键这类启动时才设的开关。
     pub fn engine_mut(&mut self) -> &mut Engine {
         &mut self.engine
@@ -234,7 +301,7 @@ impl Router {
 
     /// 处理一条消息；`None` 表示不用回话。到点顺带把学习数据落盘。
     pub fn handle(&mut self, message: ClientMessage) -> Option<ServerMessage> {
-        let response = self.dispatch(message);
+        let response = self.traced(message);
         if self.last_flush.elapsed() >= LEARNING_FLUSH_INTERVAL {
             self.flush_learning();
         }

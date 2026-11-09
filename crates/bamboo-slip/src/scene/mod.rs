@@ -25,7 +25,9 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 
 use taffy::prelude::TaffyMaxContent;
-use taffy::{AlignItems, AvailableSpace, GridPlacement, Line, NodeId, Size, Style, TaffyTree};
+use taffy::{
+    AlignItems, AvailableSpace, GridPlacement, Line, NodeId, Position, Size, Style, TaffyTree,
+};
 
 use crate::error::RenderError;
 use crate::text::{TextPainter, TextSize};
@@ -98,12 +100,23 @@ impl Scene {
     }
 
     /// 加一个节点，`children` 按画的先后排。
+    ///
+    /// 节点一律是定位容器：绝对定位的子节点按直接父节点摆，控件与主题都按这条写。taffy 0.15 起缺省是
+    /// CSS 的 `static`（绝对定位的子节点越过它去找更远的祖先），所以没写定位的节点在这里改成 `relative`。
     pub fn node(
         &mut self,
         style: Style,
         visual: Visual,
         children: &[NodeId],
     ) -> Result<NodeId, RenderError> {
+        let style = if style.position == Position::Static {
+            Style {
+                position: Position::Relative,
+                ..style
+            }
+        } else {
+            style
+        };
         let node = self.tree.new_with_children(style, children)?;
         self.tree.set_node_context(
             node,
@@ -113,6 +126,7 @@ impl Scene {
                 effects: Vec::new(),
                 transition: None,
                 fade: false,
+                enter: None,
                 anchor: false,
                 placed: None,
                 animation: None,
@@ -154,6 +168,18 @@ impl Scene {
         if let Some(context) = self.tree.get_node_context_mut(node) {
             context.effects = effects;
         }
+    }
+
+    /// 改一个节点的布局样式（布局之后按量出的位置挪内容，再布局一次）。
+    pub fn restyle(
+        &mut self,
+        node: NodeId,
+        edit: impl FnOnce(&mut Style),
+    ) -> Result<(), RenderError> {
+        let mut style = self.tree.style(node)?.clone();
+        edit(&mut style);
+        self.tree.set_style(node, style)?;
+        Ok(())
     }
 
     /// 把表格里的格子放到指定的行、列；`stretch` 时撑满所占的格子（横跨整行的高亮条）。
@@ -211,6 +237,11 @@ impl Scene {
                                 Visual::Text {
                                     text: content,
                                     style,
+                                }
+                                | Visual::RichText {
+                                    text: content,
+                                    style,
+                                    ..
                                 },
                             ..
                         }) if style.wrap => {
@@ -232,6 +263,11 @@ impl Scene {
                                 Visual::Text {
                                     text: content,
                                     style,
+                                }
+                                | Visual::RichText {
+                                    text: content,
+                                    style,
+                                    ..
                                 },
                             ..
                         }) => {

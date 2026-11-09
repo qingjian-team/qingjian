@@ -13,6 +13,7 @@ pub const MAX_SPAN_CACHE_ENTRIES: usize = 8192;
 /// 敲键是增量的：第 n+1 键只新增以它结尾的几个格子，其余格子上一键都算过，而格子查词是整句转换里最贵的一步
 /// （每个简拼位置都要在词库里逐音节块收窄）。候选与词库、用户词、用户选择次数、个人出现次数有关，
 /// 这些一变（上屏 / 学习）就整个清掉，由 Engine 负责。
+/// 搜索规模（[`SearchLimits`](crate::sentence::SearchLimits)）也决定候选留几条，一变同样整个清掉。
 #[derive(Debug, Default)]
 pub struct SpanCache {
     /// 格子模式 → 候选。
@@ -35,6 +36,22 @@ impl SpanCache {
                 if !pattern.complete {
                     key.push('…');
                 }
+            }
+        }
+        key
+    }
+
+    /// 同 [`Self::key`]，注音敲了声调时把各位置的声调接在后面（`ma ma#1 5`，没敲的记 0）：
+    /// 格子候选按声调打折，同一串音节换了声调要另算。
+    pub fn toned_key(span: &[Vec<SyllablePattern<'_>>], tones: &[Option<u8>]) -> String {
+        let mut key = Self::key(span);
+        if tones.iter().any(Option::is_some) {
+            key.push('#');
+            for (index, tone) in tones.iter().enumerate() {
+                if index > 0 {
+                    key.push(' ');
+                }
+                key.push(char::from(b'0' + tone.unwrap_or(0)));
             }
         }
         key
@@ -87,6 +104,9 @@ mod tests {
         assert_eq!(SpanCache::key(&prefix), "kai…");
         assert_eq!(SpanCache::key(&fuzzy), "z…|zh…");
         assert_ne!(SpanCache::key(&full), SpanCache::key(&prefix));
+        assert_eq!(SpanCache::toned_key(&full, &[]), "kai");
+        assert_eq!(SpanCache::toned_key(&full, &[None]), "kai");
+        assert_eq!(SpanCache::toned_key(&full, &[Some(3)]), "kai#3");
     }
 
     #[test]
@@ -100,7 +120,10 @@ mod tests {
                     text: "开发".to_owned(),
                     syllables: vec!["kai".to_owned(), "fa".to_owned()],
                     frequency: 9,
+                    secondary: false,
                     penalty: 0.0,
+                    tone: 0.0,
+                    reading: 0.0,
                 }]
             })
         };

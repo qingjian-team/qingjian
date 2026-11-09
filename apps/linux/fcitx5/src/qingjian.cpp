@@ -11,6 +11,7 @@
 #include <fcitx/userinterfacemanager.h>
 #include <iomanip>
 #include <algorithm>
+#include <optional>
 #include <sstream>
 #include <stdexcept>
 #include <sys/socket.h>
@@ -28,6 +29,15 @@ std::string contextIdentity(const InputContext *context) {
     for (auto byte : context->uuid()) out << std::setw(2) << static_cast<unsigned>(byte);
     return out.str();
 }
+/// 只清插件自己写进面板的字段。InputPanel::reset() 还会清 auxUp 与 overlayMessage，
+/// 那是框架用来显示「输入法信息」（切输入法的一秒提示）的地方：跟着一起清掉，切到青简时
+/// 的提示就只剩一帧（#311）。框架自己的定时器仍会把这些临时内容收走，这里不必代劳。
+void clearPanel(InputPanel &panel) {
+    panel.setPreedit(Text());
+    panel.setClientPreedit(Text());
+    panel.setCandidateList(nullptr);
+    panel.setAuxDown(Text());
+}
 }
 QingjianEngine::QingjianEngine(AddonManager *manager)
     : instance_(manager->instance()), shared_(std::make_shared<qingjian::SharedConnection>()),
@@ -42,6 +52,19 @@ QingjianEngine::QingjianEngine(AddonManager *manager)
         return true;
     });
     shared_->deferred->setEnabled(false);
+    osdDefer_ = instance_->eventLoop().addDeferEvent([this](EventSource *event) {
+        event->setEnabled(false);
+#ifdef QINGJIAN_HAS_CUSTOM_IM_INFO
+        // showCustomInputMethodInformation 不看全局设置里的「切换输入法时显示输入法信息」，
+        // 这里自己补上，关掉该项的用户切中英时也不弹，与框架切输入法时的气泡保持一致。
+        if (auto *context = osdContext_.get();
+            context && !osdText_.empty() && instance_->globalConfig().showInputMethodInformation())
+            instance_->showCustomInputMethodInformation(context, osdText_);
+#endif
+        osdText_.clear();
+        return true;
+    });
+    osdDefer_->setEnabled(false);
     instance_->inputContextManager().registerProperty("qingjian-session", &sessions_);
     capabilityWatcher_ = instance_->watchEvent(EventType::InputContextCapabilityChanged, EventWatcherPhase::PreInputMethod, [this](Event &event) {
         auto *context = static_cast<InputContextEvent &>(event).inputContext();
@@ -93,7 +116,7 @@ void QingjianEngine::clear(InputContext *context) {
     session->displayIdentity = nullptr;
     session->clientPreedit = false;
     session->selectionText.clear();
-    context->inputPanel().reset();
+    clearPanel(context->inputPanel());
     context->updatePreedit();
     if (watched.get() && session->revision == revision)
         context->updateUserInterface(UserInterfaceComponent::InputPanel);
@@ -240,6 +263,10 @@ bool QingjianEngine::exchange(InputContext *context, const nlohmann::json &event
         const auto &identity = result.at("identity");
         const auto outcome = result.at("outcome").get<std::string>();
         const auto &commit = result.at("commit");
+        // 本次按键切了中英时的新模式；旧 Server 不带这个键。
+        std::optional<bool> switched;
+        if (result.contains("english") && result.at("english").is_boolean())
+            switched = result.at("english").get<bool>();
         if (result.at("session") != session->id || (outcome != "Consumed" && outcome != "Passthrough")
             || (!commit.is_null() && !commit.is_string()) || identity.at("generation") != session->generation
             || identity.at("context") != contextIdentity(context) || !identity.at("revision").is_number_unsigned()
@@ -267,6 +294,16 @@ bool QingjianEngine::exchange(InputContext *context, const nlohmann::json &event
         }
         if (current() && result.at("frame").at("candidates").at("items").empty()) session->selectionText.clear();
         if (display && current()) render(context, result.at("frame"));
+#ifdef QINGJIAN_HAS_CUSTOM_IM_INFO
+        // 中英切换提示：按键处理过程中弹出的 overlay 会被随后的面板刷新盖掉，挪到下一拍。
+        // 也不能复用 current()：render 会 ++revision。
+        if (switched && watched.get() && session->opened && session->displayIdentity == identity
+            && context->hasFocus() == focused) {
+            osdContext_ = context->watch();
+            osdText_ = *switched ? "英" : "中";
+            osdDefer_->setEnabled(true);
+        }
+#endif
         return outcome == "Consumed";
     } catch (const std::exception &) { disconnectAll(); return consumed; }
 }
@@ -354,7 +391,7 @@ void QingjianEngine::render(InputContext *context, const nlohmann::json &frame) 
         const auto &translation = item.at("translation");
         if (!text.empty() && translation.is_object() && !translation.at("senses").empty()) {
             const auto &sense = translation.at("senses").front();
-            annotation = sense.at("text").get<std::string>();
+            annotation = sense.value("annotation", sense.at("text").get<std::string>());
             if (!annotation.empty()) senses.push_back({index, 0});
             if (sense.value("fresh", false)) annotation += " · 生";
         }
@@ -368,7 +405,7 @@ void QingjianEngine::render(InputContext *context, const nlohmann::json &frame) 
     auto highlight = frame.at("highlight").get<size_t>();
     if (highlight < items.size()) list->setGlobalCursorIndex(static_cast<int>(highlight));
     auto &panel = context->inputPanel();
-    panel.reset();
+    clearPanel(panel);
     const bool inlinePreedit = context->capabilityFlags().test(CapabilityFlag::Preedit) && session->preeditMode != "window";
     if (inlinePreedit) panel.setClientPreedit(preedit);
     if (session->preeditMode != "inline" || !inlinePreedit) panel.setPreedit(preedit);

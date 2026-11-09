@@ -15,6 +15,7 @@ mod processor;
 mod punctuation;
 
 use std::cell::{Cell, RefCell};
+use std::mem::ManuallyDrop;
 use std::rc::Rc;
 use std::time::{Duration, Instant};
 
@@ -88,6 +89,12 @@ pub struct TextService {
     /// 登记成保留键的「翻译选中文字」组合；停用时撤掉（见 [`preserved`](crate::com::key::preserved)）。
     translate_combo: Cell<Option<KeyCombo>>,
 
+    /// 登记成保留键的「翻译组」组合（没在组句时打开符号面板的翻译组）。
+    translate_panel_combo: Cell<Option<KeyCombo>>,
+
+    /// 已登记的简繁切换键，配置变化时原地替换。
+    traditional_combo: Cell<Option<KeyCombo>>,
+
     /// Ctrl + Alt + Space 切换键当前是否已登记为保留键（`[shortcut] switch_mode` 勾了它时才有）。
     switch_preserved: Cell<bool>,
 
@@ -121,7 +128,10 @@ pub struct TextService {
 
 thread_local! {
     /// 本线程当前激活的文本服务，供 compartment 回调 / 轮询定时器切模式。`Activate` 设、`Deactivate` 清。
-    static ACTIVE: RefCell<Option<ComObject<TextService>>> = const { RefCell::new(None) };
+    /// 应用退出时 TSF 不调 `Deactivate`，留着的服务不能在线程局部析构里放：那时 TSF 自己正在拆，
+    /// 往它身上 `Release` 会让宿主 fail-fast（#593 的 Word 退出报错），所以 `ManuallyDrop` 不析构。
+    static ACTIVE: ManuallyDrop<RefCell<Option<ComObject<TextService>>>> =
+        const { ManuallyDrop::new(RefCell::new(None)) };
 }
 
 fn with_active(f: impl FnOnce(&TextService_Impl)) {
@@ -159,13 +169,19 @@ pub(super) fn on_thread_focus(foreground: bool) {
 /// 轮询发现前台会话没连着 Server（见 [`super::poll`]）：补连一次。
 pub(super) fn on_reconnect_tick() {
     with_active(|service| {
+        service.resolve_pending_shift();
         service.ensure_connected();
     });
 }
 
+/// 每拍落实超过 150 ms 的 Shift 单击。
+pub(super) fn on_shift_tick() {
+    with_active(TextService_Impl::resolve_pending_shift);
+}
+
 /// 轮询取到了 Server 的全局模式（见 [`super::poll`]）；与当前相同就不动。
-pub(super) fn on_mode_sync(english: bool) {
-    with_active(|service| service.adopt_mode(english));
+pub(super) fn on_mode_sync(english: bool, vietnamese: Option<bool>) {
+    with_active(|service| service.adopt_mode(english, vietnamese));
 }
 
 /// 轮询取回了 Server 下发的按键行为设置（见 [`super::poll`]）：切换键 / 内置英文模式改了就地应用。
@@ -197,6 +213,8 @@ impl TextService {
             key_tap: KeyTap::default(),
             profile_cookie: Cell::new(None),
             translate_combo: Cell::new(None),
+            translate_panel_combo: Cell::new(None),
+            traditional_combo: Cell::new(None),
             switch_preserved: Cell::new(false),
             punctuation_combo: Cell::new(None),
             predict_combo: Cell::new(None),

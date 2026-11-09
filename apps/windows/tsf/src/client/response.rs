@@ -1,9 +1,12 @@
-use qingjian_platform::protocol::{Frame, IndicatorState, InputSettings, KeyOutcome};
+use qingjian_platform::protocol::{CaretEdit, Frame, IndicatorState, InputSettings, KeyOutcome};
 
 /// Server 对一次「同步中英模式」轮询的答复。
 pub struct ModeSyncReply {
     /// `Some(true)` 切英文、`Some(false)` 切中文；`None` 没有待处理的切换。
     pub english: Option<bool>,
+
+    /// 当前是否为越南语第三输入法；旧 Server 不带时不改本地状态。
+    pub vietnamese: Option<bool>,
 
     /// 当前的按键行为设置（切换键、内置英文模式）。每一拍都带，配置改了靠它生效——
     /// DLL 不读配置文件，`%APPDATA%\Qingjian` 对 AppContainer 里的商店应用本来也读不到。
@@ -23,4 +26,7 @@ pub struct KeyResponse {
 
     /// 处理后的组句状态（preedit + 候选）；空帧表示收起候选窗口。
     pub frame: Frame,
+
+    /// 成对符号要对文档做的光标编辑（#928）。
+    pub caret: Option<CaretEdit>,
 }

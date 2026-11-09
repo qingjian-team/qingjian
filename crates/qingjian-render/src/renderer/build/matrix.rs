@@ -12,15 +12,13 @@ use bamboo_slip::taffy::{
     MaxTrackSizingFunction, MinTrackSizingFunction, NodeId, Size, Style,
 };
 
+use super::clip::clipped;
 use super::{Builder, Context};
 use crate::frame::Row;
 use crate::theme::file::node::{NodeKind, NodeSpec};
 
 /// 帧没给列宽时每格最多几个字宽，与 Core 的 `MAX_CELL_EMS` 一致。
 const MAX_CELL_EMS: f32 = 4.0;
-
-/// ASCII 字符按几个字宽算，与 Core 估列宽的 `NARROW_EMS` 一致。
-const NARROW_EMS: f32 = 0.62;
 
 /// 云朵图标占几个字宽，与 Core 的 `CLOUD_EMS` 一致。
 const CLOUD_EMS: f32 = 1.1;
@@ -118,44 +116,11 @@ impl Builder<'_> {
                 width: gap,
                 height: LengthPercentage::length(0.0),
             },
-            align_content: Some(AlignContent::START),
-            align_items: Some(AlignItems::START),
-            justify_items: Some(AlignItems::START),
+            align_content: AlignContent::START,
+            align_items: AlignItems::START,
+            justify_items: AlignItems::START,
             ..Style::default()
         };
         Ok(Some(self.scene.node(style, Visual::Group, &cells)?))
-    }
-}
-
-/// `text` 超过 `limit` 个字宽时截尾加「…」（「…」占一个字宽）；放得下返回 `None`。
-fn clipped(text: &str, limit: f32) -> Option<String> {
-    let width = |c: char| if c.is_ascii() { NARROW_EMS } else { 1.0 };
-    // 估宽是浮点累加，留一点余量免得刚好放得下的也被截
-    let limit = limit + 0.01;
-    if text.chars().map(width).sum::<f32>() <= limit {
-        return None;
-    }
-    let mut used = 1.0;
-    let kept: String = text
-        .chars()
-        .take_while(|&c| {
-            used += width(c);
-            used <= limit
-        })
-        .collect();
-    Some(format!("{kept}…"))
-}
-
-#[cfg(test)]
-mod tests {
-    use super::clipped;
-
-    #[test]
-    fn long_candidates_are_clipped_to_the_column() {
-        assert_eq!(clipped("你好", 4.0), None);
-        assert_eq!(clipped("你好世界", 4.0), None);
-        assert_eq!(clipped("你好世界啊", 4.0).as_deref(), Some("你好世…"));
-        assert_eq!(clipped("hello", 4.0), None);
-        assert_eq!(clipped("historical", 4.0).as_deref(), Some("hist…"));
     }
 }

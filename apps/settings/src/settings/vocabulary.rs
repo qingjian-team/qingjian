@@ -3,6 +3,7 @@
 use bamboo_slip::TextEdit;
 
 use super::Settings;
+use crate::i18n::{tr, tr_args};
 use crate::message::{FieldId, Message};
 use crate::vocabulary::Vocabulary;
 
@@ -56,7 +57,7 @@ impl Settings {
             Message::VocabularyKnown(word, known) => vocabulary.set_known(&word, known),
             Message::VocabularyRemove(word) => vocabulary.remove(&word),
             Message::VocabularyClear if confirm_clear => vocabulary.clear().map(|()| {
-                self.notice = Some(("vocabulary", "生词本已清空".to_owned()));
+                self.notice = Some(("vocabulary", tr("vocabulary.cleared").to_owned()));
             }),
             Message::VocabularyClear => {
                 vocabulary.confirm_clear = true;
@@ -64,8 +65,10 @@ impl Settings {
             }
             Message::VocabularyExport(format) => match vocabulary.export(format, &query) {
                 Ok(Some(path)) => {
-                    self.notice =
-                        Some(("vocabulary-export", format!("已导出到 {}", path.display())));
+                    self.notice = Some((
+                        "vocabulary-export",
+                        tr_args("vocabulary.exported", &[("path", &path.display())]),
+                    ));
                     Ok(())
                 }
                 Ok(None) => Ok(()),

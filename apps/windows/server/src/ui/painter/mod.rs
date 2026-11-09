@@ -24,6 +24,9 @@ pub(super) struct Painter {
 
     /// 主题（浅色那一份，画的时候按外观取深浅）。
     theme: Theme,
+
+    /// 竖排窗口在光标上方时倒着排（`[general] vertical_reverse_above`）；只有青简渲染器画得了。
+    pub(super) reverse_above: bool,
 }
 
 impl Painter {
@@ -55,6 +58,7 @@ impl Painter {
             renderer: Renderer::new(library),
             font: font.to_owned(),
             theme: Theme::light(),
+            reverse_above: false,
         })
     }
 
@@ -77,7 +81,9 @@ impl Painter {
                             candidate: candidate.get(),
                             annotation: annotation.get(),
                         })
+                        .with_candidate_weight(settings.candidate_weight)
                         .with_animations(settings.animations);
+                    painter.reverse_above = settings.reverse_above;
                     painter
                         .renderer
                         .load_theme_fonts(&painter.theme, system_fonts::family_files);
@@ -129,21 +135,28 @@ impl Painter {
             .flatten()
     }
 
+    /// 当前主题（浅色那一份），键位提示窗口按它画键盘。
+    pub(super) fn theme(&self) -> &Theme {
+        &self.theme
+    }
+
     /// 候选窗收起：忘掉上一帧，下次显示不从旧位置过渡。
     pub(super) fn forget(&mut self) {
         self.renderer.forget();
     }
 
-    /// 画状态条。
+    /// 画状态条；`size` 是设置里的大小（百分比）。
     pub(super) fn render_status(
         &mut self,
         cells: &[StatusCell],
         mode: &Mode,
         dark: bool,
         dpi: u32,
+        size: u8,
     ) -> Option<RenderedStatus> {
+        let scale = scale(dpi) * f32::from(size) / 100.0;
         self.renderer
-            .render_status(cells, mode, &self.theme.with_dark(dark), scale(dpi))
+            .render_status(cells, mode, &self.theme.with_dark(dark), scale)
             .inspect_err(|error| tracing::warn!(%error, "状态条渲染失败"))
             .ok()
     }

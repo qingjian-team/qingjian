@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use crate::i18n::tr;
+
 /// 组句中的拼音（preedit）显示在哪里。
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -31,9 +33,9 @@ impl PreeditMode {
     /// 界面上的名字。
     pub fn label(self) -> &'static str {
         match self {
-            Self::Both => "行内 + 候选窗口",
-            Self::Inline => "只在行内",
-            Self::Window => "只在候选窗口",
+            Self::Both => tr("preedit.both"),
+            Self::Inline => tr("preedit.inline"),
+            Self::Window => tr("preedit.window"),
         }
     }
 

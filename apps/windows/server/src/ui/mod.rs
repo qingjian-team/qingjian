@@ -2,9 +2,10 @@
 //! 这些高 z-band 宿主盖住，只有本进程配合 uiAccess 签名才能盖过）。
 //!
 //! HWND 线程亲和：Router 在工人线程上产出内容，经通道 + `PostThreadMessageW` 唤醒交给 UI 线程应用。
-//! 线程句柄是 [`UiHandle`]，命令在 [`command`]，候选窗口在 [`candidates`]，符号面板在 [`panel`]，状态条在 [`status`]，
-//! 分层窗口合成在 [`layered`]。
+//! 线程句柄是 `UiHandle`，命令在 `command`，候选窗口在 `candidates`，符号面板在 `panel`，状态条在 `status`，
+//! 分层窗口合成在 `layered`。
 
+mod candidate_editor;
 mod candidates;
 mod command;
 mod layered;
@@ -12,6 +13,7 @@ mod monitor;
 mod painter;
 mod panel;
 mod status;
+mod taskbar_icon;
 mod window_class;
 
 use std::cell::RefCell;
@@ -42,7 +44,8 @@ pub use self::panel::PanelEvents;
 use self::panel::PanelWindow;
 use self::status::StatusBar;
 use crate::dispatch::{
-    CandidateSink, PanelFrame, RenderSettings, StatusEvent, StatusSink, StatusView,
+    CandidateMenu, CandidateSink, KeyHintView, PanelFrame, RenderSettings, StatusEvent, StatusSink,
+    StatusView,
 };
 
 /// 状态条上的操作（点格子 / 拖动结束）回给 Router 的回调，UI 线程上调。
@@ -93,8 +96,8 @@ impl UiHandle {
 }
 
 impl CandidateSink for UiHandle {
-    fn show(&self, frame: Frame, mode: Mode, rect: ScreenRect) {
-        self.post(UiCommand::Show(Box::new((frame, mode, rect))));
+    fn show(&self, frame: Frame, mode: Mode, rect: ScreenRect, key_hint: Option<KeyHintView>) {
+        self.post(UiCommand::Show(Box::new((frame, mode, rect, key_hint))));
     }
 
     fn hide(&self) {
@@ -111,6 +114,18 @@ impl CandidateSink for UiHandle {
 
     fn configure(&self, settings: RenderSettings) {
         self.post(UiCommand::Configure(settings));
+    }
+
+    fn show_menu(&self, menu: CandidateMenu) {
+        self.post(UiCommand::Menu(menu));
+    }
+
+    fn edit_translation(&self, offset: usize, current: String) {
+        self.post(UiCommand::TranslationEditor { offset, current });
+    }
+
+    fn close_menu(&self) {
+        self.post(UiCommand::MenuClose);
     }
 }
 
@@ -185,7 +200,7 @@ fn run(
             return;
         }
     };
-    let panel = match PanelWindow::new(on_panel) {
+    let panel = match PanelWindow::new(on_panel, painter.clone()) {
         Ok(panel) => Some(panel),
         Err(error) => {
             tracing::error!(%error, "建符号面板窗口失败，将不显示符号面板");
@@ -199,6 +214,7 @@ fn run(
             None
         }
     };
+    taskbar_icon::sync();
     if ready.send(Some(thread_id)).is_err() {
         return;
     }
@@ -206,6 +222,11 @@ fn run(
     loop {
         let got = unsafe { GetMessageW(&mut msg, None, 0, 0) };
         if got.0 <= 0 {
+            if got.0 < 0 {
+                tracing::error!(error = %std::io::Error::last_os_error(), "UI message loop failed");
+            } else {
+                tracing::info!(reason = "wm_quit", "UI message loop stopped");
+            }
             break;
         }
         if window.is_animation_timer(&msg) {
@@ -235,11 +256,16 @@ fn apply(
 ) {
     match command {
         UiCommand::Show(payload) => {
-            let (frame, mode, rect) = *payload;
-            window.set_content(&frame, mode);
+            let (frame, mode, rect, key_hint) = *payload;
+            window.set_content(&frame, mode, key_hint);
             window.show(to_win_rect(rect));
         }
         UiCommand::Hide => window.hide(),
+        UiCommand::Menu(menu) => window.show_menu(menu),
+        UiCommand::TranslationEditor { offset, current } => {
+            candidate_editor::open(offset, &current)
+        }
+        UiCommand::MenuClose => window.close_menu(),
         UiCommand::PanelShow(payload) => {
             let (frame, rect) = *payload;
             if let Some(panel) = panel {
@@ -261,7 +287,13 @@ fn apply(
                 status.hide();
             }
         }
-        UiCommand::Configure(settings) => Painter::configure(painter, &settings),
+        UiCommand::Configure(settings) => {
+            Painter::configure(painter, &settings);
+            window.theme_changed();
+            if let Some(panel) = panel {
+                panel.theme_changed();
+            }
+        }
     }
 }
 

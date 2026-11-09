@@ -15,9 +15,10 @@ use bamboo_slip::FontSpec;
 use bamboo_slip::taffy::{Dimension, FlexDirection, LengthPercentage, NodeId, Rect, Size, Style};
 use bamboo_slip::{
     Interact, Interaction, KeyCode, RenderError, ScrollArea, TITLEBAR, Ui, Visual, WidgetColors,
-    WidgetTheme,
+    WidgetTheme, paragraph,
 };
 
+use crate::i18n::{tr, tr_args};
 use crate::message::Message;
 use crate::page_id::PageId;
 use crate::search::Entry;
@@ -52,7 +53,7 @@ pub fn view(
         content_width: width as f32 - (sidebar::WIDTH + CONTENT_PADDING * 2.0) * scale,
     };
     let current = settings.page;
-    ui.info_links("点一下 ⓘ 打开文档", move |title| {
+    ui.info_links(tr("common.info_hint"), move |title| {
         crate::docs::link(current, title).map(Message::OpenDoc)
     });
     let sidebar = sidebar::sidebar(ui, &page)?;
@@ -107,7 +108,7 @@ pub fn index(settings: &Settings) -> Vec<Entry> {
         content_width: 600.0,
     };
     let mut entries = Vec::new();
-    for id in PageId::ALL {
+    for id in PageId::ALL.into_iter().filter(|id| id.shown()) {
         entries.push(Entry {
             page: id,
             key: None,
@@ -147,12 +148,19 @@ fn page_children(
         PageId::Stats => pages::stats::stats(ui, page)?,
         PageId::Vocabulary => pages::vocabulary::vocabulary(ui, page)?,
         PageId::Advanced => pages::advanced::advanced(ui, page)?,
+        PageId::Experimental => pages::experimental::experimental(ui, page)?,
         PageId::About => pages::about::about(ui, page)?,
     })
 }
 
 fn content(ui: &mut Ui<Message>, page: &Page) -> Result<NodeId, RenderError> {
-    let children = page_children(ui, page, page.settings.page)?;
+    let mut children = Vec::new();
+    // 配置文件读不了时每页顶上都说一声：界面这时是缺省值，不是文件里写的
+    if let Some(error) = &page.settings.config_error {
+        let text = tr_args("common.config_error", &[("error", error)]);
+        children.push(paragraph(ui, &page.theme, &text, None)?);
+    }
+    children.extend(page_children(ui, page, page.settings.page)?);
     let column = ui.scene().node(
         Style {
             flex_direction: FlexDirection::Column,

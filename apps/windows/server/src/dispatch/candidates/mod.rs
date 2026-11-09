@@ -4,10 +4,9 @@
 mod sink;
 
 use qingjian_platform::protocol::{Frame, ScreenRect, SessionId};
-use qingjian_platform::scheme_name;
 use qingjian_render::Mode;
 
-pub use self::sink::{CandidateSink, NoopSink, RenderSettings};
+pub use self::sink::{CandidateMenu, CandidateMouse, CandidateSink, NoopSink, RenderSettings};
 use super::Router;
 
 impl Router {
@@ -21,16 +20,20 @@ impl Router {
         self.hide_panel_window();
         if frame.is_empty() {
             self.engine.note_displayed(std::iter::empty());
+            // 组句结束：顺带清掉键位提示「卡住时显示」的状态
+            self.key_hint_view();
             self.hide_candidate_window();
         } else if let Some(rect) = self.last_rect {
             let mode = self.input_mode();
+            let key_hint = self.key_hint_view();
             let unchanged = matches!(&self.last_shown,
-                Some((f, m, r)) if f == frame && *m == mode && *r == rect);
+                Some((f, m, r, k)) if f == frame && *m == mode && *r == rect && *k == key_hint);
             if !unchanged {
                 // 词汇记录的「看到轮次」按真正显示的页算，与 macOS 壳对齐。
                 self.engine.note_displayed(frame.candidates.items.iter());
-                self.candidates.show(frame.clone(), mode.clone(), rect);
-                self.last_shown = Some((frame.clone(), mode, rect));
+                self.candidates
+                    .show(frame.clone(), mode.clone(), rect, key_hint.clone());
+                self.last_shown = Some((frame.clone(), mode, rect, key_hint));
             }
         }
     }
@@ -41,7 +44,7 @@ impl Router {
             english: self.english,
             traditional: self.config.traditional,
             full_width: self.full_width_for(self.english),
-            scheme: scheme_name(self.config.scheme, self.config.wubi),
+            scheme: self.scheme_name(),
         }
     }
 

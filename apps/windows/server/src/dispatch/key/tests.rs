@@ -1,26 +1,22 @@
 //! Tab 与分页的三端约定；直接注入整句补全状态，不接云服务。
 use crate::dispatch::{Router, RouterConfig};
+use qingjian_core::candidate::arrows::Focus;
 use qingjian_core::{CustomPhrase, Engine};
 use qingjian_dictionary::{Dictionary, WordList};
 use qingjian_platform::protocol::{
     ClientMessage, Frame, KeyEvent, KeyModifiers, KeyOutcome, PROTOCOL_VERSION, ServerMessage,
     SessionId,
 };
-use qingjian_platform::{AppsConfig, LayoutMode};
+use qingjian_platform::{AppsConfig, HighlightKeys, LayoutMode};
 
-fn router(size: usize) -> Router {
+pub(super) fn router(size: usize) -> Router {
     let mut engine = Engine::new(Dictionary::parse("你\tni\t100\n").unwrap()).with_english(
         WordList::parse("hello\thello\t100\nhelp\thelp\t90\nheld\theld\t80\n").unwrap(),
     );
     engine
         .set_custom_phrases(
             (1..=9)
-                .map(|position| CustomPhrase {
-                    code: "qq".into(),
-                    text: format!("第{position}项"),
-                    position,
-                    enabled: true,
-                })
+                .map(|n| CustomPhrase::new("qq", &format!("第{n}项")))
                 .collect(),
         )
         .unwrap();
@@ -39,7 +35,74 @@ fn router(size: usize) -> Router {
     });
     router
 }
-fn key(
+
+#[test]
+fn vietnamese_mode_composes_with_conversion_and_raw_candidates() {
+    let mut router = router(9);
+    let session = SessionId(1);
+    let modifiers = KeyModifiers {
+        vietnamese_mode: true,
+        ..KeyModifiers::default()
+    };
+    for c in "tieengs".chars() {
+        let message = router.handle(ClientMessage::Key {
+            session,
+            event: KeyEvent::new(c.to_ascii_uppercase() as u32, Some(c), modifiers),
+        });
+        let Some(ServerMessage::KeyResult { frame, commit, .. }) = message else {
+            panic!("expected key result");
+        };
+        assert!(commit.is_none());
+        assert!(!frame.candidates.items.is_empty());
+    }
+    assert_eq!(
+        router
+            .current_frame()
+            .preedit
+            .iter()
+            .map(|segment| segment.text.as_str())
+            .collect::<String>(),
+        "tiếng"
+    );
+    assert_eq!(
+        router
+            .current_frame()
+            .candidates
+            .items
+            .iter()
+            .map(|candidate| candidate.text.as_str())
+            .collect::<Vec<_>>(),
+        vec!["tiếng", "tieengs"]
+    );
+    let message = router.handle(ClientMessage::Key {
+        session,
+        event: KeyEvent::new(0x20, Some(' '), modifiers),
+    });
+    let Some(ServerMessage::KeyResult { commit, frame, .. }) = message else {
+        panic!("expected key result");
+    };
+    assert!(commit.is_none());
+    assert_eq!(
+        frame
+            .preedit
+            .iter()
+            .map(|segment| segment.text.as_str())
+            .collect::<String>(),
+        "tiếng "
+    );
+    assert!(frame.candidates.items.is_empty());
+
+    let message = router.handle(ClientMessage::Key {
+        session,
+        event: KeyEvent::new(0x0D, Some('\r'), modifiers),
+    });
+    let Some(ServerMessage::KeyResult { commit, frame, .. }) = message else {
+        panic!("expected key result");
+    };
+    assert_eq!(commit.as_deref(), Some("tiếng "));
+    assert!(frame.is_empty());
+}
+pub(super) fn key(
     router: &mut Router,
     code: u32,
     character: Option<char>,
@@ -61,7 +124,7 @@ fn key(
         _ => panic!("key result"),
     }
 }
-fn compose(router: &mut Router, text: &str, modifiers: KeyModifiers) {
+pub(super) fn compose(router: &mut Router, text: &str, modifiers: KeyModifiers) {
     for c in text.chars() {
         key(router, c as u32, Some(c), modifiers);
     }
@@ -98,6 +161,31 @@ fn tab_and_backtab_page_boundaries_and_current_page_selection() {
         assert_eq!(key(&mut router, 0x21, None, normal).2.page, 0);
     }
 }
+/// #250：候选窗上滚轮翻页、点翻页箭头，和翻页键一样到头就停。
+#[test]
+fn wheel_and_page_arrows_turn_pages_like_page_keys() {
+    use crate::dispatch::CandidateMouse;
+
+    let mut router = router(4);
+    let normal = KeyModifiers::default();
+    router.handle_candidate_mouse(CandidateMouse::Page(1));
+    assert_eq!(router.self_drawn_frame().page, 0, "没在打字时滚轮不动");
+    compose(&mut router, "qq", normal);
+    router.handle_candidate_mouse(CandidateMouse::Page(1));
+    assert_eq!(router.self_drawn_frame().page, 1);
+    router.handle_candidate_mouse(CandidateMouse::Page(5));
+    assert_eq!(router.self_drawn_frame().page, 2);
+    router.handle_candidate_mouse(CandidateMouse::Click(qingjian_render::HitTarget::Page(-1)));
+    let frame = router.self_drawn_frame();
+    assert_eq!((frame.page, frame.highlight), (1, 0));
+    let expected = frame.candidates.items[0].text.clone();
+    assert_eq!(
+        key(&mut router, b'1' as u32, Some('1'), normal).1,
+        Some(expected),
+        "滚过去之后数字键选的是这一页"
+    );
+}
+
 #[test]
 fn shift_tab_precedes_prediction_and_english_commit() {
     let mut router = router(1);
@@ -368,6 +456,43 @@ fn horizontal_grid_page_keys_turn_screens() {
     assert_eq!((frame.highlight, frame.page), (0, 0));
 }
 
+/// 开了「翻页键展开」（`[general] grid_page_keys`，#805）：横排单行时翻页键展开成矩阵、高亮移到下一行，展开后方向键按矩阵走、
+/// 翻页键一次翻一屏；数字键选高亮所在那一行。
+#[test]
+fn page_keys_expand_the_grid() {
+    let mut router = router(2);
+    let normal = KeyModifiers::default();
+    router.config.layout = LayoutMode::Horizontal;
+    router.config.page_keys = ('-', '=');
+    router.config.grid_page_keys = true;
+    compose(&mut router, "qq", normal);
+    let frame = key(&mut router, 0xBB, Some('='), normal).2;
+    assert_eq!((frame.columns, frame.highlight, frame.page), (2, 2, 1));
+    let frame = key(&mut router, 0x22, None, normal).2;
+    assert_eq!((frame.columns, frame.highlight, frame.page), (2, 8, 4));
+    let frame = key(&mut router, 0x26, None, normal).2;
+    assert_eq!((frame.highlight, frame.page), (6, 3));
+    assert_eq!(
+        key(&mut router, 0x32, Some('2'), normal).1.as_deref(),
+        Some("第8项")
+    );
+}
+
+/// 「翻页键展开」关着（缺省）：横排下翻页键照旧整页翻、不展开。
+#[test]
+fn page_keys_without_the_switch_still_turn_pages() {
+    let mut router = router(2);
+    let normal = KeyModifiers::default();
+    router.config.layout = LayoutMode::Horizontal;
+    compose(&mut router, "qq", normal);
+    let frame = key(&mut router, 0x22, None, normal).2;
+    assert_eq!((frame.columns, frame.highlight, frame.page), (0, 0, 1));
+    assert_eq!(
+        key(&mut router, 0x0D, None, normal).1.as_deref(),
+        Some("qq")
+    );
+}
+
 /// 开关关着时横排按键与以前一样：↑ ↓ 逐个移高亮（不展开），← → 移拼音光标，Alt + ← 归应用。
 #[test]
 fn horizontal_grid_off_keeps_old_keys() {
@@ -460,4 +585,128 @@ fn horizontal_grid_up_at_the_first_row_returns_to_the_first_candidate() {
     // 已在第一个候选上再按 ↑：不动（帧照旧）
     let frame = key(&mut router, UP, None, normal).2;
     assert_eq!((frame.columns, frame.highlight), (2, 0));
+}
+
+/// 横排、方向键分两区（高亮移动键选 ← / →）的路由器；`grid` 是开没开「横排时展开成多行」。
+fn two_area_router(grid: bool) -> Router {
+    let mut router = router(2);
+    router.config.layout = LayoutMode::Horizontal;
+    router.config.highlight_keys = HighlightKeys::LeftRight;
+    router.config.horizontal_grid = grid;
+    router
+}
+
+/// 候选里 ↑ 进拼音行（候选不画高亮），← → 只移拼音光标（到末尾不再溢出成选词），↓ 回候选，再 ↓ 才展开。
+/// 帧里的光标在显示串上——单声母 `q` 后自动补的 `'` 让末尾是 3。
+#[test]
+fn two_area_arrows_switch_between_pinyin_and_candidates() {
+    const LEFT: u32 = 0x25;
+    const UP: u32 = 0x26;
+    const RIGHT: u32 = 0x27;
+    const DOWN: u32 = 0x28;
+    let mut router = two_area_router(true);
+    let normal = KeyModifiers::default();
+    compose(&mut router, "qq", normal);
+    let frame = key(&mut router, UP, None, normal).2;
+    assert_eq!(
+        (frame.columns, frame.highlight, frame.cursor),
+        (0, usize::MAX, 3)
+    );
+    assert_eq!(key(&mut router, LEFT, None, normal).2.cursor, 1);
+    assert_eq!(key(&mut router, RIGHT, None, normal).2.cursor, 3);
+    let frame = key(&mut router, RIGHT, None, normal).2;
+    assert_eq!((frame.highlight, frame.cursor), (usize::MAX, 3));
+    assert_eq!(key(&mut router, DOWN, None, normal).2.highlight, 0);
+    assert_eq!(key(&mut router, RIGHT, None, normal).2.highlight, 1);
+    assert_eq!(key(&mut router, DOWN, None, normal).2.columns, 2);
+}
+
+/// 矩阵里 ↑ 先往上换行，到第一行再 ↑ 回拼音行，矩阵不收起（收起用 Esc）；候选里的 ↑ 不开符号面板，拼音行里再按 ↑ 才开。
+#[test]
+fn two_area_up_climbs_rows_then_returns_to_pinyin_and_opens_the_panel() {
+    const UP: u32 = 0x26;
+    const DOWN: u32 = 0x28;
+    let mut router = two_area_router(true);
+    let normal = KeyModifiers::default();
+    compose(&mut router, "qq", normal);
+    key(&mut router, DOWN, None, normal); // ↓ 展开，高亮到第二行（下标 2）
+    assert_eq!(key(&mut router, UP, None, normal).2.highlight, 0);
+    let frame = key(&mut router, UP, None, normal).2;
+    assert_eq!((frame.columns, frame.symbol_panel), (2, false));
+    assert_eq!(router.focus, Focus::Pinyin);
+
+    let mut router = two_area_router(false);
+    compose(&mut router, "qq", normal);
+    assert!(!key(&mut router, UP, None, normal).2.symbol_panel);
+    assert!(key(&mut router, UP, None, normal).2.symbol_panel);
+    // 没开展开：候选里 ↓ 不动
+    let mut router = two_area_router(false);
+    compose(&mut router, "qq", normal);
+    assert_eq!(key(&mut router, DOWN, None, normal).2.columns, 0);
+}
+
+/// 自动空格：上屏汉字后接着打数字补空格；退格删掉那个字后不知道上文，不补。
+#[test]
+fn auto_space_follows_commits_and_backspace() {
+    let mut router = router(5);
+    router.engine.set_auto_space(true);
+    let normal = KeyModifiers::default();
+    compose(&mut router, "ni", normal);
+    assert_eq!(
+        key(&mut router, 0x20, Some(' '), normal).1.as_deref(),
+        Some("你")
+    );
+    let (outcome, commit, _) = key(&mut router, 0x33, Some('3'), normal);
+    assert_eq!(
+        (outcome, commit.as_deref()),
+        (KeyOutcome::Consumed, Some(" 3"))
+    );
+    // 数字后面再打数字不补
+    assert_eq!(
+        key(&mut router, 0x34, Some('4'), normal).0,
+        KeyOutcome::Passthrough
+    );
+
+    let mut router = self::router(5);
+    router.engine.set_auto_space(true);
+    compose(&mut router, "ni", normal);
+    key(&mut router, 0x20, Some(' '), normal);
+    assert_eq!(
+        key(&mut router, 0x08, None, normal).0,
+        KeyOutcome::Passthrough
+    );
+    assert_eq!(
+        key(&mut router, 0x33, Some('3'), normal).0,
+        KeyOutcome::Passthrough
+    );
+}
+
+/// 上屏键换过（`[shortcut] commit_candidate = "enter"`、`commit_raw = "shift+enter"`）：回车上屏高亮候选、
+/// Shift + 回车原样上屏字母，让出去的空格组句中吃掉不做事；一个符号键也能当上屏键。
+#[test]
+fn rebound_commit_keys_commit_and_free_space_does_nothing() {
+    use qingjian_platform::{CommitKey, CommitKeys};
+    let normal = KeyModifiers::default();
+    let shift = KeyModifiers {
+        shift: true,
+        ..normal
+    };
+    let mut r = router(4);
+    r.config.commit_keys = CommitKeys {
+        candidate: CommitKey::ENTER,
+        raw: CommitKey::Enter { shift: true },
+    };
+    compose(&mut r, "qq", normal);
+    assert_eq!(key(&mut r, 0x0D, None, normal).1.as_deref(), Some("第1项"));
+    compose(&mut r, "qq", normal);
+    assert_eq!(key(&mut r, 0x0D, None, shift).1.as_deref(), Some("qq"));
+    compose(&mut r, "qq", normal);
+    let (outcome, commit, _) = key(&mut r, 0x20, Some(' '), normal);
+    assert_eq!((outcome, commit), (KeyOutcome::Consumed, None));
+    assert_eq!(r.engine.composition().text(), "qq");
+    r.config.commit_keys.candidate = CommitKey::Symbol(';');
+    assert_eq!(
+        key(&mut r, 0xBA, Some(';'), normal).1.as_deref(),
+        Some("第1项")
+    );
 }

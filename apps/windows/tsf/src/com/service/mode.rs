@@ -29,7 +29,14 @@ impl TextService_Impl {
     /// 自己按开关登记，这里只管激活之后的变化），设置窗口改完不用切走再切回输入法。
     pub(super) fn apply_mode_settings(&self, english_mode: bool, switch_keys: SwitchKeys) {
         let was_enabled = self.mode_state.enabled();
-        self.mode_state.set_settings(english_mode, switch_keys);
+        let third = self
+            .input_settings
+            .get()
+            .map_or(qingjian_platform::ThirdInputMethod::Off, |input| {
+                input.double_shift_input
+            });
+        self.mode_state
+            .set_settings(english_mode, switch_keys, third);
         // 关掉内置英文模式时立刻回中文，别停在一个再也切不回去的英文状态（Server 那份也跟着回中文）。
         if !english_mode && self.mode_state.english() {
             self.mode_state.set_english(false);
@@ -59,6 +66,7 @@ impl TextService_Impl {
     pub(super) fn apply_input_settings(&self, input: InputSettings) {
         // 获焦可能早于 Activate；与标点键一样，只有登记成功才记住组合，下一拍可补登记。
         self.sync_punctuation_key(input.toggle_punctuation);
+        self.sync_traditional_key(input.toggle_traditional);
         if self.predict_combo.get() != input.predict
             && let Some(thread_mgr) = self.thread_mgr.borrow().clone()
             && let Ok(keystroke) = thread_mgr.cast::<ITfKeystrokeMgr>()
@@ -93,6 +101,31 @@ impl TextService_Impl {
             input.english_candidates
         ));
         self.apply_mode_settings(input.english_mode, input.switch_mode);
+    }
+
+    /// 简繁组合由 Server 下发，热加载后撤旧键、登记新键。
+    fn sync_traditional_key(&self, combo: Option<qingjian_platform::KeyCombo>) {
+        if self.traditional_combo.get() == combo {
+            return;
+        }
+        let Some(thread_mgr) = self.thread_mgr.borrow().clone() else {
+            return;
+        };
+        let Ok(keystroke) = thread_mgr.cast::<ITfKeystrokeMgr>() else {
+            return;
+        };
+        if let Some(old) = self.traditional_combo.take() {
+            preserved::unregister_traditional(&keystroke, old);
+        }
+        if let Some(combo) = combo {
+            match preserved::register_traditional(&keystroke, self.client_id.get(), combo) {
+                Ok(()) => {
+                    self.traditional_combo.set(Some(combo));
+                    log(&format!("简繁切换快捷键已登记为保留键: {combo}"));
+                }
+                Err(error) => log(&format!("登记简繁切换键失败: {error}")),
+            }
+        }
     }
 
     /// Ctrl + Alt + Space 是组合键、走 TSF 保留键（与「翻译选中文字」同一套）；没勾就撤掉登记，免得白占着。
@@ -136,8 +169,14 @@ impl TextService_Impl {
     }
 
     /// 跟上 Server 的全局模式（别的应用切过、点了悬浮状态条）：改状态、刷指示器，不再回报。
-    pub(super) fn adopt_mode(&self, english: bool) {
-        if english != self.mode_state.english() && self.switch_mode(english) {
+    pub(super) fn adopt_mode(&self, english: bool, vietnamese: Option<bool>) {
+        let vietnamese = vietnamese.unwrap_or_else(|| self.mode_state.vietnamese());
+        if (english != self.mode_state.english() || vietnamese != self.mode_state.vietnamese())
+            && self.switch_mode(english)
+        {
+            if vietnamese && self.mode_state.third_enabled() {
+                self.mode_state.set_vietnamese(true);
+            }
             self.refresh_mode_indicator();
         }
     }
@@ -154,7 +193,7 @@ impl TextService_Impl {
                 self.apply_input_settings(reply.input);
                 self.apply_indicator_state(reply.indicator);
                 if let Some(english) = reply.english {
-                    self.adopt_mode(english);
+                    self.adopt_mode(english, reply.vietnamese);
                 }
             }
             Some(Err(error)) => {
@@ -236,8 +275,9 @@ impl TextService_Impl {
     /// 把用户切出的模式报给 Server，成为全局模式。
     pub(super) fn report_mode(&self) {
         let english = self.mode_state.english();
+        let vietnamese = self.mode_state.vietnamese();
         if let Some(client) = self.engine.borrow_mut().as_mut()
-            && let Err(error) = client.mode_changed(english)
+            && let Err(error) = client.mode_changed(english, vietnamese)
         {
             log(&format!("上报中英模式失败: {error}"));
         }

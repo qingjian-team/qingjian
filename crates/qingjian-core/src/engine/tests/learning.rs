@@ -126,13 +126,9 @@ fn splitting_a_buffer_into_a_word_and_a_sentence_forms_the_whole_phrase() {
             engine.learner().choice_weight("xiangkaifaxian", &phrase),
             round
         );
-        // 第二次：整段合成 想开X先；接缝处不造两字词
+        // 第一次就整段合成 想开X先；接缝处不造两字词
         let words = shared.lock().unwrap().0.clone();
-        if round == 1 {
-            assert!(words.is_empty(), "{words:?}");
-        } else {
-            assert_eq!(words, [phrase.clone()]);
-        }
+        assert_eq!(words, [phrase.clone()], "round {round}");
         engine.note_passthrough('\n');
     }
     // 第三次整段打出来：合成词直接排第一
@@ -317,8 +313,8 @@ fn input_log_records_commits_with_their_context_and_retractions() {
         assert_eq!(commit.top[0], "开发者");
         assert!(!commit.corrected);
     }
-    // 剩下的 zhe 回车原样上屏
-    assert_eq!(engine.take_raw(), "zhe");
+    // 剩下的 zhe 回车原样上屏，前面留着的 开发 一起
+    assert_eq!(engine.take_raw(), "开发zhe");
     // 整个退格删掉 开发 再重打同一段拼音换选 开放：记一条撤销
     engine.set_input("kaifa");
     engine.query().unwrap();
@@ -417,7 +413,7 @@ fn commits_feed_the_personal_bigram_and_form_words() {
     };
     let mut engine = engine().with_learner(Box::new(learner));
 
-    // 整句上屏：按路径上的词记转移，第一个词在句首
+    // 整句上屏：按路径上的词记转移，第一个词在句首；带单字的整句（想 + 开发）不记成用户词
     engine.set_input("xiangkaifa");
     let sentence = engine.query().unwrap().candidates.items[0].clone();
     assert_eq!(sentence.kind, CandidateKind::Sentence);
@@ -428,7 +424,7 @@ fn commits_feed_the_personal_bigram_and_form_words() {
         assert_eq!(ngram.pair(Some("想"), "开发"), 1);
     }
 
-    // 标点断句；之后连续从同一段拼音里选 开发 + 先：第一次只记转移，第二次自动造词 开发先
+    // 标点断句；之后连续从同一段拼音里选 开发 + 先：第一次就自动造词 开发先
     engine.punctuate('，');
     let select = |engine: &mut Engine, text: &str| {
         let candidate = engine
@@ -457,7 +453,7 @@ fn commits_feed_the_personal_bigram_and_form_words() {
             learned.1.pair(Some("开发"), "先"),
             round * EXPLICIT_TRANSITION_WEIGHT
         );
-        assert_eq!(learned.0.len(), usize::from(round == 2), "round {round}");
+        assert_eq!(learned.0.len(), 1, "round {round}");
         engine.note_passthrough('\n');
     }
     assert_eq!(shared.lock().unwrap().0, ["开发先"]);

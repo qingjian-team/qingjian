@@ -1,4 +1,4 @@
 ---
-title: 帮助
-order: 6
+title: 隐私与帮助
+order: 7
 ---

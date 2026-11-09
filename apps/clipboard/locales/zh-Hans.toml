@@ -1,0 +1,70 @@
+[panel]
+paused = "已暂停记录"
+search = "搜索剪贴板"
+empty = "还没有内容，复制点什么吧"
+no_results = "没有找到"
+just_now = "刚刚"
+minutes_ago = "{count} 分钟前"
+hours_ago = "{count} 小时前"
+yesterday = "昨天"
+day_before_yesterday = "前天"
+characters = "{count} 字符"
+file_count = "{count} 项"
+
+[tray]
+tip = "青简剪贴板"
+open = "打开面板"
+pause = "暂停记录"
+settings = "设置"
+autostart = "开机启动"
+quit = "退出"
+
+[kind]
+text = "纯文本"
+rich = "富文本"
+code = "代码"
+image = "图片"
+files = "文件"
+
+[filter]
+all = "全部"
+text = "文本"
+code = "代码"
+image = "图片"
+files = "文件"
+
+[menu]
+paste = "粘贴"
+copy = "复制"
+edit = "编辑"
+delete = "删除"
+
+[devices]
+button = "设备"
+title = "设备"
+back = "返回"
+this_device = "这台设备的名字"
+save_name = "保存"
+paired = "已配对"
+nearby = "附近的设备"
+none_nearby = "还没有发现设备。对方也要打开局域网同步，并连在同一个网络。"
+connected = "已连接"
+connecting = "正在连接…"
+unreachable = "连不上"
+unreachable_since = "连不上 · 上次同步：{time}"
+unpair = "解除配对"
+pair = "配对"
+show_code = "显示配对码"
+enter_address = "手动输入地址"
+code_hint = "在另一台设备上输入这个配对码，2 分钟内有效，输错一次就作废："
+address = "地址（如 192.168.1.5:53319）"
+code = "6 位配对码"
+connect = "连接"
+cancel = "取消"
+paired_ok = "已和 {name} 配对"
+pair_failed = "配对失败，请确认配对码和网络后重试"
+bad_address = "地址写得不对"
+
+[editor]
+save = "保存"
+cancel = "取消"

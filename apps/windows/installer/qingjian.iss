@@ -66,12 +66,17 @@ Name: "chs"; MessagesFile: "compiler:Languages\ChineseSimplified.isl"
 ; 这是最容易被误解成「设置/新版没生效」的一点，所以放在完成页明说。
 FinishedLabel=安装完成。请注销后重新登录（或重启电脑），青简才会在所有应用里生效。%n%n不方便注销的话，先关掉再重新打开要打字的应用也可以。
 
+[Dirs]
+; 输入法图标所在目录：regsvr32 在这里写单色图标，之后各用户的 Server 跟着任务栏深浅改写，所以放开给普通用户写
+Name: "{commonappdata}\Qingjian"; Permissions: users-modify
+
 [Files]
 ; —— 二进制 ——
 ; DLL 按版本起名并排装；卸载时若仍被占用，登记成重启后删。
 Source: "{#Repo}\target\release\qingjian_tsf.dll";      DestDir: "{app}"; DestName: "{#TsfDll}"; Flags: ignoreversion uninsrestartdelete
 Source: "{#Repo}\target\i686-pc-windows-msvc\release\qingjian_tsf.dll"; DestDir: "{app}"; DestName: "{#TsfDll32}"; Flags: ignoreversion uninsrestartdelete
 Source: "{#Repo}\target\release\qingjian-settings.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#Repo}\target\release\qingjian-clipboard.exe"; DestDir: "{app}"; Flags: ignoreversion
 ; 旧版设置程序（WinUI）留一个版本作回退，下个版本删掉它与下面的运行时
 Source: "{#Repo}\target\release\qingjian-settings-legacy.exe"; DestDir: "{app}"; Flags: ignoreversion
 ; 旧版设置程序自带一份 Windows App Runtime（自包含部署：Windows 10 上机器装的框架包用不了，见 docs\notes\windows-win10.md）；
@@ -88,24 +93,29 @@ Source: "{#Repo}\data\generated\glossary-es.qj"; DestDir: "{app}\data\generated"
 Source: "{#Repo}\data\generated\glossary-vi.qj"; DestDir: "{app}\data\generated";       Flags: ignoreversion
 Source: "{#Repo}\data\generated\glossary-de.qj"; DestDir: "{app}\data\generated";       Flags: ignoreversion
 Source: "{#Repo}\data\generated\english.tsv";    DestDir: "{app}\data\generated";       Flags: ignoreversion
+Source: "{#Repo}\data\generated\vietnamese.tsv"; DestDir: "{app}\data\generated";       Flags: ignoreversion
+Source: "{#Repo}\data\generated\vietnamese-zh.tsv"; DestDir: "{app}\data\generated";    Flags: ignoreversion
 Source: "{#Repo}\data\generated\dicts\*.qj";     DestDir: "{app}\data\generated\dicts";  Flags: ignoreversion
 ; —— 随包辅码码表（笔画，开箱可用）：Server 扫 data\generated\codes\；CNS11643 筆順資料派生，署名见「关于」页 ——
-;    缺表时不阻塞打包（skipifsourcedoesntexist），但发布前应先跑 dict-convert pack codes 生成它
-Source: "{#Repo}\data\generated\codes\*.qj";   DestDir: "{app}\data\generated\codes"; Flags: ignoreversion skipifsourcedoesntexist
+;    产品数据一律不加 skipifsourcedoesntexist：缺了就编不过，不悄悄打出少数据的包（build.ps1 编译前先查一遍）
+Source: "{#Repo}\data\generated\codes\*.qj";   DestDir: "{app}\data\generated\codes"; Flags: ignoreversion
 Source: "{#Repo}\assets\stroke\LICENSE-CNS11643.txt"; DestDir: "{app}\data\generated\codes"; Flags: ignoreversion
-; —— 含章·知微与含章·通变模型 ——
-Source: "{#Repo}\data\models\hanzhang-zhiwei\hanzhang-zhiwei-small.qjm"; DestDir: "{app}\data\models\hanzhang-zhiwei"; Flags: ignoreversion skipifsourcedoesntexist
-Source: "{#Repo}\data\models\hanzhang-tongbian\hanzhang-tongbian-small.qjm"; DestDir: "{app}\data\models\hanzhang-tongbian"; Flags: ignoreversion skipifsourcedoesntexist
+; 本地整句模型不随包：含章·通变与知意都在设置的「实验功能」里下载到用户目录 %APPDATA%\Qingjian\models
 ; —— 随 git 的资源 ——
 Source: "{#Repo}\assets\emoji\emoji-zh.tsv";     DestDir: "{app}\assets\emoji";  Flags: ignoreversion
 Source: "{#Repo}\assets\emoji\emoji-en.tsv";     DestDir: "{app}\assets\emoji";  Flags: ignoreversion
 Source: "{#Repo}\assets\levels\levels-en.tsv";   DestDir: "{app}\assets\levels"; Flags: ignoreversion
 Source: "{#Repo}\assets\levels\levels-ja.tsv";   DestDir: "{app}\assets\levels"; Flags: ignoreversion
-; 五笔码表（输入方案选五笔时用，见 assets/wubi/README.md；极点 86 码表，Apache-2.0）。
-; 走 assets\ 与 emoji / levels 一致，Server 的 `dispatch::code::find_code_table` 照同一个相对路径找，
+; 随包形码方案（五笔，见 assets/schemes/wubi86/README.md；极点 86 码表，Apache-2.0）。
+; 走 assets\ 与 emoji / levels 一致，Server 的 `dispatch::code::find_bundled_schemes` 照同一个相对路径找，
 ; 开发布局（cargo run）也对得上
-Source: "{#Repo}\assets\wubi\wubi86.tsv";        DestDir: "{app}\assets\wubi";   Flags: ignoreversion
+Source: "{#Repo}\assets\schemes\wubi86\scheme.toml";  DestDir: "{app}\assets\schemes\wubi86"; Flags: ignoreversion
+Source: "{#Repo}\assets\schemes\wubi86\table.tsv";    DestDir: "{app}\assets\schemes\wubi86"; Flags: ignoreversion
 Source: "{#Repo}\assets\sample\dict.tsv";        DestDir: "{app}\assets\sample"; Flags: ignoreversion
+; —— 知意（ONNX）的运行库：Server 按路径加载 exe 旁边的 onnxruntime.dll；
+;    由 build.ps1 调 fetch-onnxruntime.ps1 取到 target\installer\onnxruntime（含许可）——
+Source: "{#Repo}\target\installer\onnxruntime\onnxruntime.dll"; DestDir: "{app}"; Flags: ignoreversion uninsrestartdelete
+Source: "{#Repo}\target\installer\onnxruntime\*.txt"; DestDir: "{app}\licenses"; Flags: ignoreversion
 ; —— Server 放最后：它一落地，旧版 DLL 就能把它拉起来并占住数据文件（见文件头）——
 Source: "{#Repo}\target\release\qingjian-server.exe";   DestDir: "{app}"; Flags: ignoreversion
 
@@ -142,6 +152,8 @@ Filename: "{sys}\taskkill.exe"; Parameters: "/im qingjian-server.exe /f"; \
   Flags: runhidden; RunOnceId: "KillServer"
 Filename: "{sys}\taskkill.exe"; Parameters: "/im qingjian-settings.exe /f"; \
   Flags: runhidden; RunOnceId: "KillSettings"
+Filename: "{sys}\taskkill.exe"; Parameters: "/im qingjian-clipboard.exe /f"; \
+  Flags: runhidden; RunOnceId: "KillClipboard"
 Filename: "{sys}\taskkill.exe"; Parameters: "/im qingjian-settings-legacy.exe /f"; \
   Flags: runhidden; RunOnceId: "KillLegacySettings"
 Filename: "{sys}\regsvr32.exe"; Parameters: "/u /s ""{app}\{#TsfDll}"""; \
@@ -152,10 +164,10 @@ Filename: "{syswow64}\regsvr32.exe"; Parameters: "/u /s ""{app}\{#TsfDll32}"""; 
 [InstallDelete]
 ; 更早版本装在当前用户「启动」文件夹里的自启快捷方式：与机器级那份并存会起两个 Server（两条状态条）。
 Type: files; Name: "{userstartup}\Qingjian Server.lnk"
-; 更早版本装的模型三件套（现在只带正式命名的 .qjm）：留着白占 56 MB。
-Type: files; Name: "{app}\data\model\model.safetensors"
-Type: files; Name: "{app}\data\model\config.json"
-Type: files; Name: "{app}\data\model\vocab.json"
+; 更早版本随包的本地模型（三件套、含章·知微与通变的 .qjm）：现在不随包，通变要在设置里下载到用户目录。
+; 留着的话没下载的用户照样从这里加载到通变，选了「没下载就不用模型」也不灵，还白占一百来 MB。
+Type: filesandordirs; Name: "{app}\data\model"
+Type: filesandordirs; Name: "{app}\data\models"
 ; 0.1.4 开发版的随包码表旧位置
 Type: filesandordirs; Name: "{app}\codes"
 
@@ -229,6 +241,7 @@ begin
   RetireServerExe;
   KillProcess('qingjian-server.exe');
   KillProcess('qingjian-settings.exe');
+  KillProcess('qingjian-clipboard.exe');
   KillProcess('qingjian-settings-legacy.exe');
   RetireLoadedDll('{#TsfDll}');
   RetireLoadedDll('{#TsfDll32}');

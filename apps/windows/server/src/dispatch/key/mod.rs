@@ -5,8 +5,10 @@ mod click;
 mod codes;
 mod effect;
 mod input;
+mod menu;
 mod panel;
 mod shortcut;
+mod vietnamese;
 
 pub(super) use self::codes::{ESCAPE, RETURN};
 pub(super) use self::effect::Effect;
@@ -29,3 +31,12 @@ fn with_prefix(prefix: Option<String>, effect: Effect, c: char) -> Effect {
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod single_chars_tests;
+
+#[cfg(test)]
+mod pairing_tests;
+
+#[cfg(test)]
+mod traditional_tests;

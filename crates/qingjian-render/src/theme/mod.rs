@@ -11,6 +11,7 @@ mod extends;
 pub(crate) mod file;
 mod font;
 mod jsonc;
+mod keyboard;
 mod library;
 mod text_sizes;
 mod validate;
@@ -19,10 +20,11 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, OnceLock};
 
 use bamboo_slip::tiny_skia::Pixmap;
-use bamboo_slip::{Color, FamilyTable, FontSpec, SvgImage};
+use bamboo_slip::{Color, FamilyTable, FontSpec, FontWeight, SvgImage};
 
 pub use error::ThemeError;
 use font::FontFamilies;
+pub use keyboard::KeyboardColors;
 pub use library::ThemeLibrary;
 pub use text_sizes::TextSizes;
 
@@ -33,7 +35,7 @@ use file::{ColorRef, FontRef, LockedAppearance, SCHEMA, ThemeFile};
 type EmbeddedFiles = &'static [(&'static str, &'static [u8])];
 
 /// 内置主题：id、源文件与图片，按设置界面列出的顺序；第一个是缺省主题。
-const BUILTINS: [(&str, &str, EmbeddedFiles); 7] = [
+const BUILTINS: [(&str, &str, EmbeddedFiles); 10] = [
     (
         "qingjian",
         include_str!("../../themes/qingjian/theme.json"),
@@ -49,6 +51,13 @@ const BUILTINS: [(&str, &str, EmbeddedFiles); 7] = [
         include_str!("../../themes/wechat/theme.json"),
         &[],
     ),
+    (
+        "sujian",
+        include_str!("../../themes/sujian/theme.json"),
+        &[],
+    ),
+    ("glass", include_str!("../../themes/glass/theme.json"), &[]),
+    ("slate", include_str!("../../themes/slate/theme.json"), &[]),
     (
         "sakura",
         include_str!("../../themes/sakura/theme.json"),
@@ -305,14 +314,21 @@ pub struct Theme {
     /// 用深色那一套值。
     dark: bool,
 
-    /// 图片与字体素材（主题目录里的），同一主题的浅色 / 深色共用。
-    assets: Arc<Assets>,
+    /// 图片与字体素材，同一主题的浅色 / 深色共用。用户主题读目录时就填好；
+    /// 内置主题第一次画到才从 `embedded` 解码：内置主题有好几个带图的，而一次只画一个。
+    assets: Arc<OnceLock<Assets>>,
+
+    /// 内置主题编进程序的图片；别的主题为空。
+    embedded: EmbeddedFiles,
 
     /// 字族表与命名样式，同一主题的浅色 / 深色共用。
     families: Arc<FontFamilies>,
 
     /// 设置里的字号，盖过主题的。
     sizes: TextSizes,
+
+    /// 设置里的候选字字重，盖过主题 `candidate` 样式的；节点上自己写了字重的（键位提示的键帽字）不动。
+    candidate_weight: Option<FontWeight>,
 
     /// 设置里关了过渡动画时为 `false`：过渡直接跳到终点，循环动画停在第一帧。
     animations: bool,
@@ -361,10 +377,12 @@ impl Theme {
         let theme = Self {
             families: Arc::new(FontFamilies::new(&file.text)),
             sizes: TextSizes::default(),
+            candidate_weight: None,
             animations: true,
             file: Arc::new(file),
             dark,
             assets: Arc::default(),
+            embedded: &[],
         };
         Ok(theme.with_dark(dark))
     }
@@ -374,7 +392,7 @@ impl Theme {
         let json = std::fs::read_to_string(dir.join("theme.json"))?;
         let mut theme = Self::from_json(&json, dark)?;
         let inherited = extends::base_id(&json).map_or(&[][..], |id| builtin_files(&id));
-        theme.assets = Arc::new(Assets::load(&theme.file, dir, inherited));
+        theme.assets = Arc::new(OnceLock::from(Assets::load(&theme.file, dir, inherited)));
         Ok(theme)
     }
 
@@ -384,8 +402,10 @@ impl Theme {
             file: Arc::clone(&self.file),
             dark: self.locked_dark().unwrap_or(dark),
             assets: Arc::clone(&self.assets),
+            embedded: self.embedded,
             families: Arc::clone(&self.families),
             sizes: self.sizes,
+            candidate_weight: self.candidate_weight,
             animations: self.animations,
         }
     }
@@ -396,6 +416,19 @@ impl Theme {
             sizes,
             ..self.clone()
         }
+    }
+
+    /// 同一主题换上设置里的候选字字重（100–900）；`None` 用主题的。
+    pub fn with_candidate_weight(&self, weight: Option<u16>) -> Self {
+        Self {
+            candidate_weight: weight.map(FontWeight),
+            ..self.clone()
+        }
+    }
+
+    /// 主题自己写的字重（不算设置里的）：设置界面拿它当字重框的初始值。
+    pub fn theme_weight(&self, name: &str) -> Option<u16> {
+        self.families.style(name).map(|spec| spec.weight.0)
     }
 
     /// 同一主题换上设置里的动画开关。
@@ -410,7 +443,7 @@ impl Theme {
         self.animations
     }
 
-    /// 设置里的候选字号相对主题的比例：表格行高与状态条整体跟着它缩放。
+    /// 设置里的候选字号相对主题的比例：表格行高与键位提示键盘跟着它缩放。
     pub(crate) fn candidate_scale(&self) -> f32 {
         self.sizes.ratio("candidate", |name| self.theme_size(name))
     }
@@ -440,13 +473,32 @@ impl Theme {
     }
 
     /// 样式里写到的系统字族名（不含 `system`）。壳按名字查出字体文件，交给 [`crate::Renderer::load_theme_fonts`]。
+    /// 主题变量按当前外观取的颜色（`surface`、`accent`…）；没有这个变量时为 `None`。
+    /// 渲染器之外还要配色的地方用（手机壳的候选条底色、键盘）。
+    pub fn variable(&self, name: &str) -> Option<Color> {
+        self.file
+            .variables
+            .get(name)
+            .map(|value| value.get(self.dark).0)
+    }
+
     pub fn font_families(&self) -> Vec<String> {
         self.families.table().names()
     }
 
     /// 随主题带的字体文件（已检查在主题目录里）。
     pub fn font_files(&self) -> &[PathBuf] {
-        self.assets.fonts()
+        self.assets().fonts()
+    }
+
+    fn assets(&self) -> &Assets {
+        self.assets.get_or_init(|| {
+            if self.embedded.is_empty() {
+                Assets::default()
+            } else {
+                Assets::embedded(&self.file, self.embedded)
+            }
+        })
     }
 
     fn default_builtin() -> &'static Theme {
@@ -479,18 +531,27 @@ impl Theme {
 
     /// 主题里写的图片路径对应的位图；没有、没读进来或是 SVG 时为 `None`。
     pub(crate) fn image(&self, path: &str) -> Option<Arc<Pixmap>> {
-        self.assets.image(path)
+        self.assets().image(path)
     }
 
     /// 主题里写的 SVG 图片；没有、没读进来或不是 SVG 时为 `None`。
     pub(crate) fn svg(&self, path: &str) -> Option<Arc<SvgImage>> {
-        self.assets.svg(path)
+        self.assets().svg(path)
     }
 
     /// 命名文字样式（点）。
     pub(crate) fn font(&self, name: &str) -> FontSpec {
-        let spec = self.families.style(name).unwrap_or(FALLBACK_FONT);
+        let spec = self.style(name).unwrap_or(FALLBACK_FONT);
         text_sizes::scaled(spec, self.sizes.ratio(name, |base| self.theme_size(base)))
+    }
+
+    /// 主题里的命名样式，候选字换上设置里的字重。
+    fn style(&self, name: &str) -> Option<FontSpec> {
+        let spec = self.families.style(name)?;
+        Some(match self.candidate_weight {
+            Some(weight) if name == "candidate" => FontSpec { weight, ..spec },
+            _ => spec,
+        })
     }
 
     /// 字族表，画笔按 [`bamboo_slip::FamilyId`] 查回退链；两份 `Theme` 共用同一张表时指针相同。
@@ -499,8 +560,14 @@ impl Theme {
     }
 
     /// 节点里的 `font`：样式名，或在样式上改字号 / 字重。
+    /// 在样式上写死的字号也按设置里那个样式的比例缩放（手机候选条在 `candidate` 上写 19 点，用户调大候选字号时它跟着大）。
     pub(crate) fn font_ref(&self, font: &FontRef) -> FontSpec {
-        font.apply(font.base().map_or(FALLBACK_FONT, |name| self.font(name)))
+        let Some(name) = font.base() else {
+            return font.apply(FALLBACK_FONT);
+        };
+        let ratio = self.sizes.ratio(name, |base| self.theme_size(base));
+        let base = self.style(name).unwrap_or(FALLBACK_FONT);
+        text_sizes::scaled(font.apply(base), ratio)
     }
 
     /// 当前外观下的文字覆盖率 gamma。
@@ -519,7 +586,7 @@ fn builtins() -> &'static [Theme] {
                 let mut theme = Theme::from_json(source, false)
                     .unwrap_or_else(|error| panic!("内置主题 {id} 解析失败：{error}"));
                 debug_assert_eq!(theme.id(), *id, "内置主题 id 与目录名不一致");
-                theme.assets = Arc::new(Assets::embedded(&theme.file, files));
+                theme.embedded = files;
                 theme
             })
             .collect()
@@ -656,7 +723,41 @@ mod tests {
         assert_eq!(sized.candidate_scale(), ratio);
         // 换外观不丢设置里的字号
         assert_eq!(sized.with_dark(true).font("candidate").size, 26.0);
+        // 在样式上写死的字号（手机候选条）按同一比例缩放
+        let inline: FontRef =
+            serde_json::from_str(r#"{ "base": "candidate", "size": 19, "line_height": 23 }"#)
+                .unwrap();
+        assert_eq!(theme.font_ref(&inline).size, 19.0);
+        assert_eq!(sized.font_ref(&inline).size, 19.0 * ratio);
+        assert_eq!(sized.font_ref(&inline).line_height, 23.0 * ratio);
         // 不是正数当没填
         assert_eq!(TextSizes::new(-1.0, f32::NAN), TextSizes::default());
+    }
+
+    #[test]
+    fn candidate_weight_overrides_the_candidate_style_only() {
+        let theme = Theme::light();
+        let bold = theme.with_candidate_weight(Some(700));
+        assert_eq!(bold.font("candidate").weight, FontWeight(700));
+        assert_eq!(bold.font("annotation"), theme.font("annotation"));
+        assert_eq!(
+            bold.with_dark(true).font("candidate").weight,
+            FontWeight(700)
+        );
+        assert_eq!(
+            bold.theme_weight("candidate"),
+            theme.theme_weight("candidate")
+        );
+        // 节点上自己写了字重的不动，只写字号的跟着设置
+        let semibold: FontRef =
+            serde_json::from_str(r#"{ "base": "candidate", "weight": "semibold" }"#).unwrap();
+        assert_eq!(bold.font_ref(&semibold).weight, FontWeight(600));
+        let sized: FontRef =
+            serde_json::from_str(r#"{ "base": "candidate", "size": 19 }"#).unwrap();
+        assert_eq!(bold.font_ref(&sized).weight, FontWeight(700));
+        assert_eq!(
+            theme.with_candidate_weight(None).font("candidate"),
+            theme.font("candidate")
+        );
     }
 }

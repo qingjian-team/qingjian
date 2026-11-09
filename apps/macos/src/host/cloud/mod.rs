@@ -6,9 +6,42 @@ mod test_monitor;
 pub(super) use predict_monitor::PredictMonitor;
 pub(super) use test_monitor::CloudTestMonitor;
 
+use std::time::Instant;
+
 use super::*;
 
 impl Host {
+    /// 保存独立输入法的模型译词覆盖；目前 `vi → zh` 使用越南语个人释义层。
+    /// 后续日语 / 韩语应按各自输入法命名空间持有独立的 LayeredTranslator。
+    fn save_independent_candidate_translation(
+        &mut self,
+        word: &str,
+        language: Language,
+        text: &str,
+    ) {
+        let Some(glossary) = self.vietnamese_glossary.as_mut() else {
+            return;
+        };
+        let (part_of_speech, text) = match text.trim().split_once('\t') {
+            Some((part, text)) => (part.trim().parse().ok(), text.trim()),
+            None => (None, text.trim()),
+        };
+        if text.is_empty() {
+            return;
+        }
+        let translation = Translation::new(
+            language,
+            vec![Sense {
+                part_of_speech,
+                text: text.to_owned(),
+                reading: None,
+                fresh: false,
+            }],
+        );
+        glossary.learn(word, translation);
+        glossary.flush();
+    }
+
     /// 清空输入日志文件；开着的话重新打开继续记。
     /// 「测试连接」：用当前配置发一条最小请求，结果回到偏好设置窗口底部的状态行。
     pub(super) fn start_cloud_test(&mut self) {
@@ -62,9 +95,10 @@ impl Host {
         }
     }
 
-    /// 已发出联想请求：清掉旧结果，开始轮询。
-    pub fn await_prediction(&mut self) {
+    /// 已发出联想请求：清掉旧结果，开始轮询。`manual` 是按需联想的请求序号，自动联想传 `None`。
+    pub fn await_prediction(&mut self, manual: Option<u64>) {
         self.sentence = None;
+        self.manual_prediction = manual;
         self.monitor.start();
     }
 
@@ -73,21 +107,100 @@ impl Host {
         self.engine.cancel_prediction();
         self.monitor.stop();
         self.sentence = None;
+        self.manual_prediction = None;
     }
 
     /// 定时器回调：结果到了就画上去。云端词补进第一页末尾，整句挂在 preedit 右侧。
-    pub fn poll_prediction(&mut self) {
-        let Some(prediction) = self.engine.poll_prediction() else {
+    /// 符号面板的翻译框也借这个节拍防抖、收译文；返回翻译框有没有变化（变了要连 preedit 一起重画，得借文本客户端）。
+    pub fn poll_prediction(&mut self) -> bool {
+        let prediction = self.engine.poll_prediction();
+        let translated = self.engine.tick_panel_translation(Instant::now());
+        let waiting = self.engine.panel_translation_pending();
+        let Some(prediction) = prediction else {
             if self.monitor.expired() {
+                if let Some(job) = self.candidate_translation.take() {
+                    self.engine.cancel_candidate_translation(job.sequence);
+                    self.status = Some("模型生成译文超时，请重试".to_owned());
+                    self.render();
+                }
                 self.monitor.stop();
             }
-            return;
+            return translated;
         };
-        self.monitor.stop();
         self.apply_prediction(prediction);
+        if self.candidate_translation.is_none() && !waiting {
+            self.monitor.stop();
+        }
+        translated
+    }
+
+    /// 翻译框的原文或语言变了：开始轮询，停键够久就发。
+    pub fn watch_panel_translation(&mut self) {
+        if self.engine.panel_translation_pending() {
+            self.monitor.start();
+        }
     }
 
     pub(super) fn apply_prediction(&mut self, prediction: Prediction) {
+        if self
+            .candidate_translation
+            .as_ref()
+            .is_some_and(|job| job.sequence == prediction.sequence)
+        {
+            let job = self.candidate_translation.take().expect("刚检查过候选译文");
+            self.monitor.stop();
+            let generated = prediction.sentence.filter(|text| !text.trim().is_empty());
+            if let (Some(language), Some(generated)) =
+                (job.independent_translation, generated.as_deref())
+            {
+                self.save_independent_candidate_translation(
+                    &job.candidate.text,
+                    language,
+                    generated,
+                );
+            }
+            self.status = if job.independent_translation.is_some() {
+                generated.as_ref().map_or_else(
+                    || Some("模型没有生成可用译文".to_owned()),
+                    |_| Some(format!("已更新「{}」的中文译词", job.candidate.text)),
+                )
+            } else {
+                match generated.as_deref() {
+                    Some(generated)
+                        if self
+                            .engine
+                            .set_generated_candidate_translation(&job.candidate, generated) =>
+                    {
+                        Some(format!("已更新「{}」的译文", job.candidate.text))
+                    }
+                    _ => Some("模型没有生成可用译文".to_owned()),
+                }
+            };
+            for candidate in self.session.layout.local_mut() {
+                if candidate.text == job.candidate.text {
+                    candidate.translation = if job.independent_translation.is_some() {
+                        self.vietnamese_glossary
+                            .as_ref()
+                            .and_then(|glossary| glossary.translate(&candidate.text))
+                    } else {
+                        self.engine.candidate_translation(&candidate.text)
+                    };
+                }
+            }
+            for candidate in self.session.layout.cloud_mut() {
+                if candidate.text == job.candidate.text {
+                    candidate.translation = if job.independent_translation.is_some() {
+                        self.vietnamese_glossary
+                            .as_ref()
+                            .and_then(|glossary| glossary.translate(&candidate.text))
+                    } else {
+                        self.engine.candidate_translation(&candidate.text)
+                    };
+                }
+            }
+            self.render();
+            return;
+        }
         // 翻译选中文字：译文作为唯一候选摆进窗口，等用户回车替换或 Esc 放弃
         if let Some(job) = self.translation.as_mut() {
             match prediction.sentence {
@@ -107,7 +220,9 @@ impl Host {
         if self.engine.composition().is_empty() || self.engine.symbol_panel().is_some() {
             return;
         }
-        // 云端词补进第一页末尾（前面的本地候选不动），整句挂在 preedit 右侧；云端词没有译文，先补上。
+        // 按需联想的结果排在第一页最前面，高亮回到第一个，与 Windows 一致
+        let manual = self.manual_prediction.take() == Some(prediction.sequence);
+        // 自动联想的云端词补进第一页末尾（前面的本地候选不动），整句挂在 preedit 右侧；云端词没有译文，先补上。
         // 用户已经翻到后面的页、或高亮已经移到会被挪走的那几格时不补：那几格正被他看着 / 要选
         let layout = &self.session.layout;
         let untouched = cloud_slots_untouched(
@@ -117,7 +232,7 @@ impl Host {
             layout.page_size(),
             layout.capacity(),
         );
-        if untouched && !prediction.words.is_empty() {
+        if (manual || untouched) && !prediction.words.is_empty() {
             let mut words = qingjian_core::CandidateList {
                 items: prediction
                     .words
@@ -126,8 +241,15 @@ impl Host {
                     .collect(),
             };
             self.engine.annotate(&mut words);
-            let filled = self.session.layout.set_cloud(words.items);
-            tracing::debug!(filled, "云端词已补进候选");
+            let filled = if manual {
+                self.session.page = 0;
+                self.session.highlighted = 0;
+                self.session.navigated = false;
+                self.session.layout.set_cloud_first(words.items)
+            } else {
+                self.session.layout.set_cloud(words.items)
+            };
+            tracing::debug!(filled, manual, "云端词已补进候选");
         }
         self.sentence = prediction.sentence;
         self.render();

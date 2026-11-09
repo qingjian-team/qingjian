@@ -12,6 +12,8 @@ use windows::Win32::UI::TextServices::{
 };
 use windows::core::{Error, Result, implement};
 
+use qingjian_platform::protocol::CaretEdit;
+
 use crate::com::composition::{Shared, apply};
 use crate::com::log::log;
 use crate::com::service::SharedClient;
@@ -33,6 +35,9 @@ pub(crate) struct UpdateSession {
 
     /// 本次组句拼音行；空串表示收起组句。
     preedit: String,
+
+    /// 成对符号要做的光标编辑。
+    caret: Option<CaretEdit>,
 }
 
 impl ITfEditSession_Impl for UpdateSession_Impl {
@@ -46,6 +51,7 @@ impl ITfEditSession_Impl for UpdateSession_Impl {
                 ec,
                 self.commit.as_deref(),
                 &self.preedit,
+                self.caret,
             )
         }));
         match result {
@@ -70,6 +76,7 @@ pub(crate) fn request_update(
     shared: Rc<Shared>,
     commit: Option<String>,
     preedit: String,
+    caret: Option<CaretEdit>,
 ) -> Result<()> {
     let session = UpdateSession {
         context: context.clone(),
@@ -77,6 +84,7 @@ pub(crate) fn request_update(
         shared,
         commit,
         preedit,
+        caret,
     };
     request(context, client_id, session.into(), TF_ES_READWRITE)
 }

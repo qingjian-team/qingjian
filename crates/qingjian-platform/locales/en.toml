@@ -1,0 +1,102 @@
+[meta]
+name = "English"
+
+[candidate_menu]
+edit_translation = "Edit translation…"
+regenerate_translation = "Regenerate translation with the model"
+pin = "Pin to top"
+unpin = "Unpin"
+demote = "Move down"
+undemote = "Undo move down"
+delete = "Delete"
+promote = "Promote"
+needs_window = "This action has to be handled by the input method window"
+cant_pin = "“{text}” can't be pinned here"
+unchanged = "Nothing to change for “{text}”"
+no_config = "There's no configuration file, so the pin can't be saved"
+not_saved = "Not saved: {error}"
+pinned = "“{text}” is pinned and comes first when you type {code}"
+unpinned = "Unpinned “{text}”"
+demoted = "“{text}” moved down one place"
+undemoted = "“{text}” is no longer moved down"
+
+[appearance]
+system = "Follow system"
+light = "Light"
+dark = "Dark"
+
+[renderer]
+qingjian = "Qingjian renderer"
+system = "System drawing"
+
+[key_hint]
+off = "Off"
+auto = "When stuck"
+always = "Always"
+
+[layout]
+vertical = "Vertical"
+horizontal = "Horizontal"
+
+[log_level]
+info = "Brief (info)"
+debug = "Detailed (debug)"
+
+[model]
+tongbian = "Hanzhang Tongbian"
+zhiyi = "Zhiyi"
+
+[zhiyi_tier]
+saver = "Power saver"
+balanced = "Balanced"
+accurate = "Accurate"
+
+[numpad_digit]
+select = "Pick a candidate"
+direct = "Type the digit"
+
+[preedit]
+both = "Inline + candidate window"
+inline = "Inline only"
+window = "Window only"
+
+[shift_letter]
+passthrough = "Pass to the app"
+compose = "Start composing"
+
+[channel]
+stable = "Stable"
+beta = "Beta"
+
+[scheme]
+pinyin = "Full pinyin"
+custom = "Custom shuangpin"
+zhuyin = "Zhuyin (Dachen)"
+off = "Off (shape code only)"
+
+[switch_key]
+shift = "Tap Shift"
+control = "Tap Ctrl"
+none = "None"
+separator = ", "
+
+[emoji_count]
+off = "Hidden"
+at_most = "Up to {n}"
+
+[commit_key]
+space = "Space"
+enter = "Return"
+
+[phrase_file]
+empty = "The file has no custom phrases"
+is_config = "This is a configuration file, not a phrase file; import settings on the Advanced page, and export the phrases on the other computer first"
+no_tab = "The text and the code must be separated by a Tab"
+skipped_entry = "entry {entry}: {reason}"
+skipped_line = "line {line} (“{text}”): {reason}"
+unreadable = "Can't read this file: it's neither a phrase file exported by Qingjian nor text with one “text<Tab>code” entry per line"
+
+[settings_file]
+invalid = "The settings in this file have errors: {error}"
+merge_failed = "The merged settings can't be read: {error}"
+unreadable = "Can't read this file: {error}"

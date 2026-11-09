@@ -220,7 +220,7 @@ impl PreferencesWindow {
         &self,
         config: &Config,
     ) -> Result<(Option<usize>, qingjian_core::CustomPhrase), String> {
-        Ok((self.phrases.selected(config)?, self.phrases.draft()))
+        Ok((self.phrases.selected(config)?, self.phrases.draft()?))
     }
 
     /// 打开（或带到最前）。
@@ -248,7 +248,7 @@ impl PreferencesWindow {
             config,
             key_present,
             crate::app::paths::p2c_model_path().is_some()
-                || crate::app::paths::model_path().is_some(),
+                || crate::app::paths::zhiyi_model_dir().is_some(),
         );
         self.advanced.sync(config);
         let status = error

@@ -3,6 +3,7 @@
 //!
 //! 与输入日志无关：日志关着或清空了统计照记。0.2 以前按天记的 `usage.tsv` 照读不写，合进按天的数里。
 
+pub mod figures;
 mod file;
 
 #[cfg(test)]
@@ -22,9 +23,6 @@ pub const USAGE_FILE: &str = "usage-hourly.tsv";
 
 /// 0.2 以前按天记的统计文件，只读。
 const LEGACY_USAGE_FILE: &str = "usage.tsv";
-
-/// 汇总里「最近」算几天（含今天）。
-const RECENT_DAYS: i64 = 7;
 
 /// 文件行数比时段数多出这么多就整理一次。
 const COMPACT_AFTER: usize = 2_000;
@@ -126,7 +124,7 @@ impl UsageStats {
     /// 以 `today` 为准的汇总（[`UsageMeter::summary`] 以本机今天为准）。
     pub fn summary_on(&self, today: Date) -> UsageSummary {
         let days = self.days();
-        let recent_from = today.saturating_sub(jiff::Span::new().days(RECENT_DAYS - 1));
+        let recent_from = figures::recent_start(today);
         let mut summary = UsageSummary {
             since: days.keys().next().map(ToString::to_string),
             days: days.len() as u32,

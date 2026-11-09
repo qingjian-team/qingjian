@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use crate::i18n::tr;
+
 /// 日志级别。缺省 info 不含用户敲的内容；debug 会把敲的拼音与上屏的文字记进日志，只在配合排查问题时开。
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -19,8 +21,8 @@ impl LogLevel {
     /// 界面上的名字。
     pub fn label(self) -> &'static str {
         match self {
-            Self::Info => "简略（info）",
-            Self::Debug => "详细（debug）",
+            Self::Info => tr("log_level.info"),
+            Self::Debug => tr("log_level.debug"),
         }
     }
 

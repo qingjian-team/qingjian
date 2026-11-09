@@ -11,29 +11,34 @@ mod scheme;
 mod tally;
 
 use std::path::Path;
+use std::sync::Arc;
 
-use qingjian_core::{Engine, InputLogEntry, InputSource};
-use qingjian_dictionary::CodeTable;
+use qingjian_core::{CodeScheme, Engine, InputLogEntry, InputSource, ShuangpinLayout};
 
 pub use report::Report;
+
+use crate::zhiyi::Reranker;
 
 use line::Line;
 use scheme::SchemeSwitcher;
 use tally::Tally;
 
-/// 跑一遍日志，返回报告。`code_table` 是给日志里形码那些行用的（`--wubi` 给的码表）。
+/// 跑一遍日志，返回报告。`code` 是给日志里形码那些行用的（`--code` 给的方案），
+/// `shuangpin` 是给用户双拼方案那些行用的（`--shuangpin` 给的方案目录）。
 pub fn run(
     engine: &mut Engine,
     path: &Path,
     show_misses: usize,
-    code_table: Option<CodeTable>,
+    code: Option<CodeScheme>,
+    shuangpin: Option<Arc<ShuangpinLayout>>,
+    mut reranker: Option<&mut Reranker>,
 ) -> Result<Report, ReplayError> {
     let text = std::fs::read_to_string(path).map_err(|source| ReplayError::Read {
         path: path.to_owned(),
         source,
     })?;
     let mut report = Report::default();
-    let mut switcher = SchemeSwitcher::new(code_table);
+    let mut switcher = SchemeSwitcher::new(code, shuangpin);
     for (number, raw) in text.lines().enumerate() {
         if raw.trim().is_empty() {
             continue;
@@ -49,16 +54,27 @@ pub fn run(
         match line.entry {
             InputLogEntry::Retract { .. } => report.retracts += 1,
             InputLogEntry::Retype { .. } => report.retypes += 1,
-            InputLogEntry::Session { .. } => report.sessions += 1,
+            InputLogEntry::Session { .. } => {
+                report.sessions += 1;
+                if let Some(reranker) = reranker.as_deref_mut() {
+                    reranker.reset();
+                }
+            }
             InputLogEntry::Break { .. } => {
                 report.breaks += 1;
                 engine.break_chain();
+                if let Some(reranker) = reranker.as_deref_mut() {
+                    reranker.reset();
+                }
             }
             InputLogEntry::Passthrough { text } => {
                 // 直通字符也进标点状态与上文链，与真实使用一致
                 report.passthrough_chars += text.chars().count();
                 for c in text.chars() {
                     engine.note_passthrough(c);
+                }
+                if let Some(reranker) = reranker.as_deref_mut() {
+                    reranker.note(&text);
                 }
             }
             InputLogEntry::Prediction { .. } => {
@@ -82,7 +98,17 @@ pub fn run(
                 {
                     report.predictions_accepted += 1;
                 }
-                replay_commit(engine, &mut switcher, &commit, &mut report, show_misses)
+                replay_commit(
+                    engine,
+                    &mut switcher,
+                    &commit,
+                    &mut report,
+                    show_misses,
+                    reranker.as_deref_mut(),
+                );
+                if let Some(reranker) = reranker.as_deref_mut() {
+                    reranker.note(&commit.text);
+                }
             }
         }
     }
@@ -95,8 +121,9 @@ fn replay_commit(
     commit: &qingjian_core::CommitEntry,
     report: &mut Report,
     show_misses: usize,
+    reranker: Option<&mut Reranker>,
 ) {
-    // 这条日志所属方案回放不了（形码但没给 `--wubi`）：只计数。拿拼音的读法去喂形码的键会算出
+    // 这条日志所属方案回放不了（形码但没给 `--code`）：只计数。拿拼音的读法去喂形码的键会算出
     // 看着像真的、实则无意义的命中率。
     if !switcher.can_replay(&commit.scheme) {
         report.skip(commit.source);
@@ -105,6 +132,12 @@ fn replay_commit(
         return;
     }
     switcher.apply(engine, &commit.scheme);
+    // 上屏后点的联想词没有敲键可评，但它接着上文：照样上屏，学习与上文链和当时一致
+    if commit.source == InputSource::FollowUp {
+        report.skip(commit.source);
+        engine.commit_follow_up(&commit.text);
+        return;
+    }
     let Some(tally) = report.tally_for(commit.source) else {
         // 不是本地排序给出的（云端词、原样上屏……）：只计数；那次上屏的词没法接进上文，断链。
         // 原样上屏照样走一遍 `take_raw`：个人英文词（`gist`）与「这个串不纠」都是从这里学的，不走它回放里的英文候选与纠错就比真实使用差
@@ -136,7 +169,7 @@ fn replay_commit(
         engine.set_input(scope);
         None
     };
-    let query = match engine.query() {
+    let mut query = match engine.query() {
         Ok(query) => query,
         Err(_) => {
             tally.unparsable += 1;
@@ -144,6 +177,11 @@ fn replay_commit(
             return;
         }
     };
+    // 接了后台模型（知意、异步神经重打分）时按壳停顿后的样子量：等分数回来再查一次
+    query = crate::rescoring::settled(engine, query);
+    if let Some(reranker) = reranker {
+        reranker.rerank(engine, &mut query, scope);
+    }
     let position = query
         .candidates
         .items

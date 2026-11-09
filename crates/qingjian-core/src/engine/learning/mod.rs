@@ -147,10 +147,15 @@ impl Engine {
     /// 切不了就按字数）。`english_word` 是原样上屏的字母串算不算一个英文词（拼音回车不算）。
     /// 从候选里选的再记是不是首选、这段敲了几键、打了多久、删过没有；部分上屏后下一段从这一刻接着数。
     pub(super) fn meter_commit(&mut self, text: &str, source: InputSource, english_word: bool) {
+        if !self.metered {
+            // 键数与时长也清掉，免得算到下一次记的上屏头上
+            self.typing.take(Instant::now());
+            return;
+        }
         let mut usage = Usage::of_text(text);
         usage.words = match source {
-            InputSource::Word | InputSource::Cloud => 1,
-            InputSource::Sentence | InputSource::CloudSentence => {
+            InputSource::Word | InputSource::Cloud | InputSource::FollowUp => 1,
+            InputSource::Sentence | InputSource::CloudSentence | InputSource::Voice => {
                 sentence::segment_text(text, &*self.language_model).map_or(usage.hanzi, |clauses| {
                     clauses.iter().map(|words| words.len() as u64).sum()
                 })
@@ -166,7 +171,11 @@ impl Engine {
             usage.english_words = 0;
         }
         let (keys, typing_ms, edited) = self.typing.take(Instant::now());
-        if source != InputSource::Raw {
+        // 原样上屏、语音与联想词没有对应的敲键：不算选词，也不计键数与时长
+        if !matches!(
+            source,
+            InputSource::Raw | InputSource::Voice | InputSource::FollowUp
+        ) {
             let first = self
                 .last_query
                 .borrow()
@@ -214,6 +223,7 @@ impl Engine {
             scheme: self.scheme_key(),
             english: self.english_mode,
             rescored: snapshot.rescored,
+            choice: snapshot.choice,
             app: self.application.clone(),
             pages: self.page_turns,
             ms,

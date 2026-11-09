@@ -68,12 +68,9 @@ fn key(router: &mut Router, character: char, modifiers: KeyModifiers) -> Value {
 }
 
 fn start(router: &mut Router) -> u64 {
-    let shortcut = KeyModifiers {
-        alt: true,
-        shift: true,
-        ..Default::default()
-    };
-    key(router, 'T', shortcut)["RequestSelection"]["request"]
+    // 缺省键按平台分（Linux 是 Alt+Shift+T），整个 workspace 在 macOS 上跑测试时是另一组
+    let combo = RouterConfig::default().translate_selection;
+    key(router, combo.key, combo.modifiers.into())["RequestSelection"]["request"]
         .as_u64()
         .unwrap()
 }

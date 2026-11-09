@@ -56,6 +56,10 @@ pub fn serve_pipe(
         }
         Err(error) => return Err(error),
     };
+    let waker = sender.clone();
+    router.set_rescoring_wake(std::sync::Arc::new(move || {
+        let _ = waker.send(Work::Wake);
+    }));
     thread::spawn(move || accept_loop(&pipe, first, sender));
     tracing::info!(pipe = name, "命名管道监听中");
     // 按 Router 的节拍来 tick：在等本地整句模型就几十毫秒一次，否则一秒看一次配置文件。
@@ -74,10 +78,17 @@ pub fn serve_pipe(
                 let _ = reply.send(router.handle(message));
             }
             Ok(Work::Status(event)) => router.handle_status_event(event),
-            Ok(Work::Click(target)) => router.handle_click(target),
+            Ok(Work::Click(mouse)) => router.handle_candidate_mouse(mouse),
             Ok(Work::Panel(hit)) => router.handle_panel_mouse(hit),
+            Ok(Work::Wake) => router.tick(),
             Err(RecvTimeoutError::Timeout) => continue,
-            Err(RecvTimeoutError::Disconnected) => break,
+            Err(RecvTimeoutError::Disconnected) => {
+                tracing::warn!(
+                    reason = "all_work_senders_disconnected",
+                    "Pipe worker loop stopped"
+                );
+                break;
+            }
         }
         // 处理完消息节拍可能变短了（按键起了防抖）：到点时间只提前不推后
         due = due.min(Instant::now() + router.next_tick());

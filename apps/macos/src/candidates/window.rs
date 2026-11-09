@@ -4,18 +4,20 @@ use objc2::MainThreadMarker;
 use objc2::rc::Retained;
 use objc2_app_kit::{
     NSAppearance, NSAppearanceCustomization, NSAppearanceNameAqua, NSAppearanceNameDarkAqua,
-    NSBackingStoreType, NSColor, NSEvent, NSPanel, NSScreen, NSWindowCollectionBehavior,
+    NSBackingStoreType, NSColor, NSEvent, NSPanel, NSScreen, NSView, NSWindowCollectionBehavior,
     NSWindowLevel, NSWindowStyleMask,
 };
 use objc2_foundation::{NSPoint, NSRect, NSSize};
 use qingjian_platform::{Appearance, CandidateRenderer, LayoutMode};
 
+use super::backdrop::Backdrop;
 use super::frame::Frame;
+use super::key_hint::KeyHintPanel;
 use super::theme::Theme;
 use super::view::{CandidateView, ClickHandler, PanelMouseHandler};
 
 /// `kCGPopUpMenuWindowLevel`：浮在普通窗口和浮动面板之上，与系统输入法候选框同级。
-const POPUP_MENU_LEVEL: NSWindowLevel = 101;
+pub(super) const POPUP_MENU_LEVEL: NSWindowLevel = 101;
 
 /// 候选窗口与光标行之间的间隙。
 const CARET_GAP: f64 = 4.0;
@@ -27,11 +29,20 @@ pub struct CandidateWindow {
     /// 面板本体。不在当前 Space 时会整个换新（见 [`Self::order_front_on_active_space`]）。
     panel: Retained<NSPanel>,
 
-    /// 内容视图；换面板时搬过去。
+    /// 候选视图。
     view: Retained<CandidateView>,
+
+    /// 面板的内容视图：候选视图装在里面，主题要系统材质时垫在它底下；换面板时整个搬过去。
+    backdrop: Backdrop,
 
     /// 当前外观（跟随系统时为 `None`）；换面板时要重设。
     appearance: Option<Retained<NSAppearance>>,
+
+    /// 双拼键位提示，跟着候选窗显示与收起。
+    key_hint: KeyHintPanel,
+
+    /// 这一段（候选窗从显示到收起）用过的光标行：应用中途给不出光标时沿用它，不追着鼠标走（#167）。
+    last_anchor: Option<NSRect>,
 
     /// 用来取屏幕尺寸。
     mtm: MainThreadMarker,
@@ -40,32 +51,48 @@ pub struct CandidateWindow {
 impl CandidateWindow {
     pub fn new(mtm: MainThreadMarker) -> Self {
         let view = CandidateView::new(mtm, Theme::system_default());
-        let panel = build_panel(mtm, &view);
+        let backdrop = Backdrop::new(mtm, &view);
+        let panel = build_panel(mtm, backdrop.container());
         Self {
             panel,
             view,
+            backdrop,
             appearance: None,
+            key_hint: KeyHintPanel::new(mtm),
+            last_anchor: None,
             mtm,
         }
     }
 
     /// 显示一帧。`anchor` 是光标行的屏幕矩形，窗口贴在它下方，放不下就放上方。
     pub fn show(&mut self, frame: Frame, anchor: NSRect) {
+        self.view.close_menu();
         if frame.is_empty() {
             self.hide();
             return;
         }
-        let panel = frame.is_panel();
+        let anchor = self.steady_anchor(anchor);
         let bounds = self.view.set_frame(&frame);
         let content = self.place(bounds.content.size, anchor);
+        let keyboard = frame.keyboard;
         let origin = NSPoint::new(
             content.x - bounds.content.origin.x,
             content.y - bounds.content.origin.y,
         );
+        let material = self.view.material();
+        self.backdrop.update(material, bounds.content);
         self.panel
             .setFrame_display(NSRect::new(origin, bounds.size), true);
         self.order_front_on_active_space();
-        self.apply_chrome(panel);
+        self.apply_chrome(material.is_some());
+        match keyboard {
+            Some(keyboard) => {
+                let (caret, screen) = self.caret(anchor);
+                let candidate = NSRect::new(content, bounds.content.size);
+                self.key_hint.show(&keyboard, candidate, caret, screen);
+            }
+            None => self.key_hint.hide(),
+        }
         if !self.panel.isVisible() {
             tracing::warn!(?anchor, ?origin, "候选窗口 orderFront 之后仍不可见");
         } else {
@@ -78,16 +105,23 @@ impl CandidateWindow {
         }
     }
 
-    /// 阴影与鼠标：系统绘制要系统阴影，青简渲染器的阴影画在位图里；青简渲染器与符号面板收鼠标（点候选、点格子），
-    /// 系统绘制的候选没有点击区域，点击穿过去。
-    fn apply_chrome(&self, panel: bool) {
-        let bitmap = self.view.uses_bitmap() && !panel;
-        self.panel.setHasShadow(!bitmap);
-        self.panel.setIgnoresMouseEvents(!bitmap && !panel);
+    /// 阴影与鼠标：系统绘制要系统阴影，青简渲染器的阴影画在位图里，垫了系统材质时又交回系统按窗口形状算；
+    /// 两种候选画法与符号面板都收鼠标，面板本身仍是 `NonactivatingPanel`，不会抢走应用的键盘焦点。
+    fn apply_chrome(&self, material: bool) {
+        self.panel
+            .setHasShadow(!self.view.uses_bitmap() || material);
+        if material {
+            // 窗口形状每帧都变，系统阴影不会自己重算
+            self.panel.invalidateShadow();
+        }
+        self.panel.setIgnoresMouseEvents(false);
     }
 
-    pub fn hide(&self) {
+    pub fn hide(&mut self) {
+        self.last_anchor = None;
+        self.view.close_menu();
         self.panel.orderOut(None);
+        self.key_hint.hide();
         self.view.stop_animation();
     }
 
@@ -104,10 +138,10 @@ impl CandidateWindow {
         }
         let frame = self.panel.frame();
         self.panel.orderOut(None);
-        let panel = build_panel(self.mtm, &self.view);
+        let panel = build_panel(self.mtm, self.backdrop.container());
         panel.setAppearance(self.appearance.as_deref());
         panel.setHasShadow(!self.view.uses_bitmap());
-        panel.setIgnoresMouseEvents(!self.view.uses_bitmap());
+        panel.setIgnoresMouseEvents(false);
         panel.setFrame_display(frame, true);
         panel.orderFrontRegardless();
         self.panel = panel;
@@ -129,7 +163,18 @@ impl CandidateWindow {
         };
         let appearance = name.and_then(NSAppearance::appearanceNamed);
         self.panel.setAppearance(appearance.as_deref());
+        self.key_hint.set_appearance(appearance.clone());
         self.appearance = appearance;
+    }
+
+    /// 键位提示窗口的不透明度（0–1）。
+    pub fn set_key_hint_opacity(&mut self, opacity: f32) {
+        self.key_hint.set_opacity(opacity);
+    }
+
+    /// 键位提示键盘的大小（1 为原大）。
+    pub fn set_key_hint_size(&mut self, zoom: f32) {
+        self.key_hint.set_zoom(zoom);
     }
 
     /// 竖排 / 横排。下一帧生效。
@@ -137,17 +182,31 @@ impl CandidateWindow {
         self.view.set_layout(layout);
     }
 
-    /// 青简渲染器 / 系统绘制。下一帧生效。青简渲染器的阴影由主题画进位图，系统阴影关掉；
-    /// 只有它给点击区域，所以也只有它收鼠标（系统绘制时点击穿过去）。
+    /// 青简渲染器 / 系统绘制。下一帧生效。青简渲染器的阴影由主题画进位图，系统绘制用系统阴影；
+    /// 两种画法都有点击区域并接收鼠标。
     pub fn set_renderer(&self, renderer: CandidateRenderer) {
         self.view.set_renderer(renderer);
         self.panel.setHasShadow(!self.view.uses_bitmap());
-        self.panel.setIgnoresMouseEvents(!self.view.uses_bitmap());
+        self.panel.setIgnoresMouseEvents(false);
     }
 
     /// 点中候选或译词时调谁。
     pub fn set_click_handler(&self, handler: ClickHandler) {
         self.view.set_click_handler(handler);
+    }
+
+    /// 右键菜单开着（敲 Esc 先关它，不清输入）。
+    pub fn menu_open(&self) -> bool {
+        self.view.menu_open()
+    }
+
+    pub fn close_menu(&self) {
+        self.view.close_menu();
+    }
+
+    /// 右键候选时问谁给菜单项、点中的项交给谁。
+    pub fn set_menu_handlers(&self, handlers: super::view::MenuHandlers) {
+        self.view.set_menu_handlers(handlers);
     }
 
     /// 符号面板里点中格子或标签时调谁。
@@ -156,7 +215,8 @@ impl CandidateWindow {
     }
 
     /// 渲染器主题（按 `[general] theme` 从主题库取出的），只对青简渲染器生效。
-    pub fn set_render_theme(&self, theme: qingjian_render::Theme) {
+    pub fn set_render_theme(&mut self, theme: qingjian_render::Theme) {
+        self.key_hint.set_theme(theme.clone());
         self.view.set_render_theme(theme);
     }
 
@@ -172,20 +232,7 @@ impl CandidateWindow {
     /// 内容区左下角坐标：贴在光标行下方；下方放不下放上方；不出光标所在的那块屏幕。
     /// 光标矩形是零或落在所有屏幕之外（应用不支持、或给的是胡话）时以鼠标位置为准，至少落在用户看着的屏幕上。
     fn place(&self, size: NSSize, anchor: NSRect) -> NSPoint {
-        let (anchor, screen) = match screen_containing(self.mtm, anchor.origin) {
-            Some(screen) if !(anchor.size.height == 0.0 && anchor.origin == NSPoint::ZERO) => {
-                (anchor, screen)
-            }
-            _ => {
-                let mouse = NSEvent::mouseLocation();
-                let anchor = NSRect::new(mouse, NSSize::new(0.0, FALLBACK_LINE_HEIGHT));
-                (
-                    anchor,
-                    screen_containing(self.mtm, mouse)
-                        .unwrap_or_else(|| main_screen_or_anywhere(self.mtm)),
-                )
-            }
-        };
+        let (anchor, screen) = self.caret(anchor);
         let min_x = screen.origin.x;
         let max_x = (screen.origin.x + screen.size.width - size.width).max(min_x);
         let x = anchor.origin.x.clamp(min_x, max_x);
@@ -204,11 +251,45 @@ impl CandidateWindow {
         let max_y = (top - size.height).max(screen.origin.y);
         NSPoint::new(x, y.clamp(screen.origin.y, max_y))
     }
+
+    /// 应用给得出光标就用它并记下；给不出时沿用这一段记下的，一段里第一次就给不出才用鼠标位置，同样记下。
+    fn steady_anchor(&mut self, anchor: NSRect) -> NSRect {
+        let known = !(anchor.size.height == 0.0 && anchor.origin == NSPoint::ZERO)
+            && screen_containing(self.mtm, anchor.origin).is_some();
+        let anchor = match (known, self.last_anchor) {
+            (true, _) => anchor,
+            (false, Some(last)) => last,
+            (false, None) => NSRect::new(
+                NSEvent::mouseLocation(),
+                NSSize::new(0.0, FALLBACK_LINE_HEIGHT),
+            ),
+        };
+        self.last_anchor = Some(anchor);
+        anchor
+    }
+
+    /// 光标行与它所在屏幕的可见区域。光标矩形是零或落在所有屏幕之外（应用不支持、或给的是胡话）时以鼠标位置为准。
+    fn caret(&self, anchor: NSRect) -> (NSRect, NSRect) {
+        match screen_containing(self.mtm, anchor.origin) {
+            Some(screen) if !(anchor.size.height == 0.0 && anchor.origin == NSPoint::ZERO) => {
+                (anchor, screen)
+            }
+            _ => {
+                let mouse = NSEvent::mouseLocation();
+                let anchor = NSRect::new(mouse, NSSize::new(0.0, FALLBACK_LINE_HEIGHT));
+                (
+                    anchor,
+                    screen_containing(self.mtm, mouse)
+                        .unwrap_or_else(|| main_screen_or_anywhere(self.mtm)),
+                )
+            }
+        }
+    }
 }
 
 /// 建一块面板并把内容视图装进去：无边框、不抢焦点、透明背景带系统阴影（用青简渲染器时再关）、
-/// 先不吃鼠标（用青简渲染器时再开，见 [`CandidateWindow::set_renderer`]）。
-fn build_panel(mtm: MainThreadMarker, view: &CandidateView) -> Retained<NSPanel> {
+/// 接收鼠标但不激活应用，候选的两种绘制路径都支持点击与右键菜单。
+fn build_panel(mtm: MainThreadMarker, view: &NSView) -> Retained<NSPanel> {
     let panel = NSPanel::initWithContentRect_styleMask_backing_defer(
         mtm.alloc::<NSPanel>(),
         NSRect::new(NSPoint::ZERO, NSSize::new(200.0, 100.0)),
@@ -220,7 +301,7 @@ fn build_panel(mtm: MainThreadMarker, view: &CandidateView) -> Retained<NSPanel>
     panel.setBackgroundColor(Some(&NSColor::clearColor()));
     panel.setHasShadow(true);
     panel.setBecomesKeyOnlyIfNeeded(true);
-    panel.setIgnoresMouseEvents(true);
+    panel.setIgnoresMouseEvents(false);
     // NSPanel 缺省在应用失活时自动隐藏；输入法进程从来不是前台应用，不能靠这个
     panel.setHidesOnDeactivate(false);
     panel.setCollectionBehavior(collection_behavior());
@@ -232,7 +313,7 @@ fn build_panel(mtm: MainThreadMarker, view: &CandidateView) -> Retained<NSPanel>
 }
 
 /// 面板的 Space 归属：出现在所有 Space 上、能与全屏应用同处一个 Space、Mission Control 里不动。
-fn collection_behavior() -> NSWindowCollectionBehavior {
+pub(super) fn collection_behavior() -> NSWindowCollectionBehavior {
     NSWindowCollectionBehavior::CanJoinAllSpaces
         | NSWindowCollectionBehavior::FullScreenAuxiliary
         | NSWindowCollectionBehavior::Stationary

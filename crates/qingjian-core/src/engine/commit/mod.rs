@@ -1,27 +1,28 @@
 //! 上屏：译词标注、按候选消耗缓冲区、对齐音节、学习与撤销、自动造词。
 
-use super::alignment::Alignment;
 use super::annotation::AnnotationReport;
 use super::input_log::{InputLogEntry, InputLogger, InputSource};
 use super::learning::Learner;
 use super::query::EnglishTail;
 use super::{
-    AUTO_WORD_MAX_CHARS, AUTO_WORD_THRESHOLD, AUTO_WORD_THRESHOLD_SAME_BUFFER,
-    EXPLICIT_TRANSITION_WEIGHT, Engine, choice_key, reading_key, segment_longest_prefix,
+    ABBREVIATION_CHOICE_PREFIX, AUTO_WORD_MAX_CHARS, AUTO_WORD_THRESHOLD,
+    AUTO_WORD_THRESHOLD_SAME_BUFFER, BUFFER_PHRASE_MAX_CHARS, EXPLICIT_TRANSITION_WEIGHT, Engine,
+    SENTENCE_WORD_MAX_CHARS, choice_key, reading_key, segment_longest_prefix,
 };
 use crate::candidate::{Candidate, CandidateKind, CandidateList, Language};
-use crate::correction::typo;
+use crate::correction::edit_distance;
 use crate::{parser, sentence};
 use qingjian_dictionary::Dictionary;
 use std::time::Instant;
 
+mod align;
 mod chain;
 mod last;
 mod transition;
 
 pub(super) use chain::CommitChain;
-pub(super) use last::Choice;
 pub use last::LastCommit;
+pub(super) use last::{BufferPhrase, Choice};
 pub use transition::Transition;
 
 impl Engine {
@@ -64,36 +65,63 @@ impl Engine {
     ///
     /// 上屏候选的译文而不是候选本身（壳里修饰键 + 数字）：学习、拼音消耗都和选了这个候选一样，
     /// 返回第 `sense` 条释义的译文（0 是第一条，日文不带注音）。候选没有那么多条释义时不动，返回 `None`。
+    /// 译词接在西文词后面时前面补一个空格（`word_space_before`），不看自动空格开没开。
     pub fn commit_translation(&mut self, candidate: &Candidate, sense: usize) -> Option<String> {
         let text = candidate
             .translation
             .as_ref()
             .and_then(|t| t.senses().get(sense))
             .map(|s| s.text.clone())?;
-        let lead = self.auto_space_before(&text);
+        let lead = self.word_space_before(&text) || self.auto_space_before(&text);
         self.commit_with(candidate, InputSource::Translation, Some(sense));
-        let text = if lead { format!(" {text}") } else { text };
-        // 应用里收到的是译文：退格计数与自动空格的上文都按译文算
+        // 应用里收到的是译文：退格计数与自动空格的上文都按译文算；补的空格已单独记成一次直通，这里不再算进去
         if let Some(last) = self.recent_commits.last_mut() {
             last.chars = text.chars().count();
             last.tail = text.chars().last();
         }
-        Some(text)
+        let text = if lead { format!(" {text}") } else { text };
+        Some(self.take_held() + &text)
     }
 
-    /// 候选比输入短时（`kaifazhe` 选了 开发），剩余拼音留在缓冲区，壳应接着 [`Self::query`]。
+    /// 候选比输入短时（`kaifazhe` 选了 开发），剩余拼音留在缓冲区，壳应接着 [`Self::query`]；
+    /// 这时选的词先留在组句里、返回空串，整段选完时连同前面留着的一起返回（见 [`Self::take_held`]）。
     /// 候选的最后一个音节比输入长时（`kaif` 选了 开发），把输入吃完。
     /// 开了自动空格（[`Self::set_auto_space`]）时与上文、候选内部的中西文交界都补好空格。
+    /// 面板开着时上屏的是面板里的条目：记一次使用（私密输入不记），下次打开排进「常用」。
     pub fn commit(&mut self, candidate: &Candidate) -> String {
-        self.panel = None;
+        if self.take_panel().is_some() && !self.private && !self.is_contact(&candidate.text) {
+            self.panel_history.record(&candidate.text);
+        }
         let lead = self.auto_space_before(&candidate.text);
+        let before = self.hold_selections.then(|| self.composition.clone());
         let text = self.commit_with(candidate, InputSource::from(candidate.kind), None);
-        if lead { format!(" {text}") } else { text }
+        let text = if lead { format!(" {text}") } else { text };
+        self.hold_or_release(before, text)
     }
 
     /// [`Self::commit`] 的内部形式：`source` 写进输入日志（上屏译词时不是候选本身），
     /// `used_sense` 是直接打出去的那条译词的序号（词汇记录里算「用过」）。
     pub(super) fn commit_with(
+        &mut self,
+        candidate: &Candidate,
+        source: InputSource,
+        used_sense: Option<usize>,
+    ) -> String {
+        // 通讯录里的名字只在本机用：上屏照常吃拼音，学习与输入日志这一次都不记
+        let mute = !self.private && self.is_contact(&candidate.text);
+        if mute {
+            self.learner.set_private(true);
+            self.logger.set_muted(true);
+        }
+        let text = self.commit_recorded(candidate, source, used_sense);
+        if mute {
+            self.learner.set_private(false);
+            self.logger.set_muted(false);
+        }
+        text
+    }
+
+    fn commit_recorded(
         &mut self,
         candidate: &Candidate,
         source: InputSource,
@@ -127,12 +155,18 @@ impl Engine {
         // 候选的读音键：按输入串记选择时与字面键各记一份（[`Learner::record_choice`]）。
         // 形码 / 英文 / emoji 候选没有音节，自然得到空串。
         let reading = reading_key(candidate.syllables.iter().map(String::as_str));
+        let mut abbreviation = String::new();
         let (consumed, input) = match candidate.kind {
             CandidateKind::Chinese => {
                 self.learner.record(candidate);
                 let (consumed, input) = self.consumed_by(candidate);
                 self.learner
                     .record_choice(&input, &reading, &candidate.text);
+                abbreviation = self.abbreviation_key(&candidate.syllables, &input);
+                if !abbreviation.is_empty() {
+                    self.learner
+                        .record_choice(&abbreviation, "", &candidate.text);
+                }
                 typos = self.accepted_typos(candidate);
                 (consumed, input)
             }
@@ -283,9 +317,20 @@ impl Engine {
             | CandidateKind::Symbol
             | CandidateKind::Generated => self.chain.reset(),
         }
-        // 一次整句上屏里的几个词不算分段选，只有这段拼音经过至少两次上屏才合起来看
-        let phrase = if split && !buffer_left {
-            self.finish_buffer()
+        // 这段拼音上屏完了：分几次选完的合起来看；一次选中的整句只看由几个多字词拼成的短句（陌生词 交易中心 = 交易 + 中心），
+        // 带单字的（想开发、对每条）多半是句子不是词，每句都记的话用户词一周就涨上千条
+        let phrase = if buffer_left {
+            None
+        } else if split {
+            self.finish_buffer(BUFFER_PHRASE_MAX_CHARS)
+        } else if candidate.kind == CandidateKind::Sentence
+            && self
+                .chain
+                .buffer_words()
+                .iter()
+                .all(|(text, _)| text.chars().count() > 1)
+        {
+            self.finish_buffer(SENTENCE_WORD_MAX_CHARS)
         } else {
             None
         };
@@ -327,6 +372,7 @@ impl Engine {
                 .then(|| Choice {
                     reading: reading.clone(),
                     text: candidate.text.clone(),
+                    abbreviation,
                 }),
                 transitions: std::mem::take(&mut self.recording),
                 typos,
@@ -344,10 +390,12 @@ impl Engine {
         text
     }
 
-    /// 一段拼音分几次选完了（`jidiaole` 先选 挤、剩下的走整句 掉了）：这几个词合起来就是用户对这段拼音的答案。
+    /// 一段拼音上屏完了：分几次选完（`jidiaole` 先选 挤、剩下的走整句 掉了），或一次选中由几个词组成的整句
+    /// （`jiaoyizhongxin` 的 交易中心）。这几个词合起来就是用户对这段拼音的答案。
     /// 记一次「整段拼音 → 合成词」的选择；选到 [`AUTO_WORD_THRESHOLD_SAME_BUFFER`] 次、词库里没有、
-    /// 不超过 [`AUTO_WORD_MAX_CHARS`] 字就造成用户词，下次整段打出来它直接排第一。返回记下的选择，撤销时退回。
-    pub(super) fn finish_buffer(&mut self) -> Option<(String, Choice)> {
+    /// 不超过 `max_chars` 字就记成用户词，下次整段或它的简拼打出来直接排第一（整句也是：
+    /// `xiaomingqulexuexiao` 逐字选出 晓铭去了学校，之后 `xmqlxx` 也出它）。返回记下的选择，撤销时退回。
+    pub(super) fn finish_buffer(&mut self, max_chars: usize) -> Option<BufferPhrase> {
         let words = self.chain.buffer_words();
         if words.len() < 2 {
             return None;
@@ -356,7 +404,7 @@ impl Engine {
         let syllables: Vec<String> = words.iter().flat_map(|(_, s)| s.iter().cloned()).collect();
         let chars = text.chars().count();
         let key = self.chain.buffer_key().to_owned();
-        if key.is_empty() || chars > AUTO_WORD_MAX_CHARS || chars != syllables.len() {
+        if key.is_empty() || chars > max_chars || chars != syllables.len() {
             return None;
         }
         let candidate = Candidate {
@@ -369,20 +417,29 @@ impl Engine {
         };
         let reading = reading_key(candidate.syllables.iter().map(String::as_str));
         self.learner.record_choice(&key, &reading, &candidate.text);
-        if !self.knows_word(&candidate)
-            && self.learner.choice_weight(&key, &candidate.text) >= AUTO_WORD_THRESHOLD_SAME_BUFFER
-        {
-            tracing::debug!(text = %candidate.text, "整段拼音分次选完，自动造词");
+        let abbreviation = self.abbreviation_key(&candidate.syllables, &key);
+        if !abbreviation.is_empty() {
+            self.learner
+                .record_choice(&abbreviation, "", &candidate.text);
+        }
+        let created = !self.knows_word(&candidate)
+            && self.learner.choice_weight(&key, &candidate.text) >= AUTO_WORD_THRESHOLD_SAME_BUFFER;
+        if created {
+            tracing::debug!(text = %candidate.text, "buffer phrase learned as a user word");
             self.learner
                 .learn_word(&candidate.text, &candidate.syllables);
+            // 逐字选出来就是用户要的这个词：算选过一次，排序与整句词图里都有它的选择加分
+            self.learner.record(&candidate);
         }
-        Some((
+        Some(BufferPhrase {
             key,
-            Choice {
+            choice: Choice {
                 reading,
                 text: candidate.text,
+                abbreviation,
             },
-        ))
+            created,
+        })
     }
 
     /// 最近删掉的上屏里有一次是同一段拼音（或它的前缀）、这次却选了别的词：把那次记的学习退回去。
@@ -426,6 +483,10 @@ impl Engine {
         if let Some(choice) = &last.choice {
             self.learner
                 .unrecord_choice(&last.input, &choice.reading, &choice.text);
+            if !choice.abbreviation.is_empty() {
+                self.learner
+                    .unrecord_choice(&choice.abbreviation, "", &choice.text);
+            }
         }
         for transition in &last.transitions {
             self.learner.unrecord_transition(
@@ -437,9 +498,19 @@ impl Engine {
         for (typed, intended) in &last.typos {
             self.learner.unrecord_typo(typed, intended);
         }
-        if let Some((key, choice)) = &last.phrase {
-            self.learner
-                .unrecord_choice(key, &choice.reading, &choice.text);
+        if let Some(phrase) = &last.phrase {
+            let choice = &phrase.choice;
+            if phrase.created {
+                self.learner.forget(&choice.text);
+                *self.correction_cache.borrow_mut() = None;
+            } else {
+                self.learner
+                    .unrecord_choice(&phrase.key, &choice.reading, &choice.text);
+                if !choice.abbreviation.is_empty() {
+                    self.learner
+                        .unrecord_choice(&choice.abbreviation, "", &choice.text);
+                }
+            }
         }
     }
 
@@ -447,7 +518,7 @@ impl Engine {
     /// 双拼不记（键与全拼对不上）。
     pub(super) fn accepted_typos(&self, candidate: &Candidate) -> Vec<(String, String)> {
         let keys = self.composition.scope();
-        if self.decode(keys).is_some() {
+        if self.nine_key || self.decode(keys).is_some() {
             return Vec::new();
         }
         match self.active_correction(keys) {
@@ -468,18 +539,33 @@ impl Engine {
         candidate: &Candidate,
     ) -> Option<Vec<sentence::SentenceWord>> {
         let scope = self.composition.scope();
+        if self.nine_key {
+            return self.nine_key_sentence_words(candidate);
+        }
         if self.decode(scope).is_none()
             && let Some(tail) = self.split_english_tail(scope)
             && let Some(words) = self.mixed_words(scope, &tail, &candidate.text)
         {
             return Some(words);
         }
-        let conversion = match (self.decode(scope), self.active_correction(scope)) {
-            (Some(decoded), _) => {
-                self.convert_sentence(&decoded.segmentation()?.patterns(), true)?
+        // 混输：候选的文本可能来自任意一条读法的整句转换，逐条对上就取那条的词序列
+        let readings = self.decode_readings(scope);
+        if !readings.is_empty() {
+            for decoded in &readings {
+                let Some(segmentation) = decoded.segmentation() else {
+                    continue;
+                };
+                if let Some(conversion) = self.convert_sentence(&segmentation.patterns(), true)
+                    && conversion.text == candidate.text
+                {
+                    return Some(conversion.words);
+                }
             }
-            (None, Some(c)) => self.convert_sentence(&c.segmentation.patterns(), false)?,
-            (None, None) => {
+            return None;
+        }
+        let conversion = match self.active_correction(scope) {
+            Some(c) => self.convert_sentence(&c.segmentation.patterns(), false)?,
+            None => {
                 let (segmentations, _) = segment_longest_prefix(scope).ok()?;
                 self.convert_sentence(&segmentations.first()?.patterns(), true)?
             }
@@ -512,12 +598,33 @@ impl Engine {
     /// 纠错生效时按纠正后的拼音算，再按那处编辑换算回原串；双拼按解出的全拼算，再换算回键数。
     pub(super) fn consumed_by(&self, candidate: &Candidate) -> (usize, String) {
         let keys = self.composition.scope();
-        if let Some(decoded) = self.decode(keys) {
-            let pinyin_len = self.align(decoded.pinyin(), &candidate.syllables).consumed;
+        // 九宫格：按音节长度消耗，学习键用候选自己的拼音（与全拼共用）
+        if self.nine_key {
             return (
-                decoded.keys_for(pinyin_len),
-                choice_key(decoded.pinyin(), pinyin_len),
+                self.nine_key_consumed(candidate),
+                candidate.syllables.concat(),
             );
+        }
+        // 混输时候选可能来自全拼或交替读法：挑对得上最多音节的那条读法换算键数与学习键
+        let readings = self.decode_readings(keys);
+        if !readings.is_empty() {
+            let mut best: Option<(usize, String)> = None;
+            for decoded in &readings {
+                let pinyin_len = self.align(decoded.pinyin(), &candidate.syllables).consumed;
+                if pinyin_len == 0 {
+                    continue;
+                }
+                let consumed = decoded.keys_for(pinyin_len);
+                if best
+                    .as_ref()
+                    .is_none_or(|(keys_used, _)| consumed > *keys_used)
+                {
+                    best = Some((consumed, choice_key(decoded.pinyin(), pinyin_len)));
+                }
+            }
+            if let Some(best) = best {
+                return best;
+            }
         }
         let consumed = match self.active_correction(keys) {
             Some(c) => c
@@ -527,120 +634,6 @@ impl Engine {
             None => self.align(keys, &candidate.syllables).consumed,
         };
         (consumed, choice_key(keys, consumed))
-    }
-
-    /// 候选的音节逐个对到输入上：每个音节按原样 / 规范写法、模糊音或敲错变体（长的在前）、没打完的前缀消耗输入，
-    /// 先找能把**每个音节都对上**的对齐（带回溯：`pingyin` 对 拼音 时 `pin` 原样只吃三个字母会剩下 `gyin`，
-    /// 退回来按敲错变体 `ping` → `pin` 吃四个），找不到才退回逐个贪心对、对不上的地方停下。
-    pub(super) fn align(&self, input: &str, syllables: &[String]) -> Alignment {
-        let mut typos = Vec::new();
-        self.align_full(input, 0, syllables, &mut typos)
-            .unwrap_or_else(|| self.align_greedy(input, syllables))
-    }
-
-    /// 从 `pos` 起把剩下的音节全对上的第一种对齐（按每步的优先级深度优先）；对不上返回 `None`。
-    fn align_full(
-        &self,
-        input: &str,
-        pos: usize,
-        syllables: &[String],
-        typos: &mut Vec<(String, String)>,
-    ) -> Option<Alignment> {
-        let Some((syllable, remaining)) = syllables.split_first() else {
-            return Some(Alignment {
-                consumed: pos,
-                typos: typos.clone(),
-            });
-        };
-        let (rest, start) = self.rest_at(input, pos);
-        for (len, typo) in self.syllable_steps(rest, syllable) {
-            // 消耗完输入后还有音节没对：不算全对上（候选比敲的长）
-            if start + len == input.len() && !remaining.is_empty() {
-                continue;
-            }
-            if typo {
-                typos.push((rest[..len].to_owned(), syllable.clone()));
-            }
-            let found = self.align_full(input, start + len, remaining, typos);
-            if typo {
-                typos.pop();
-            }
-            if found.is_some() {
-                return found;
-            }
-        }
-        None
-    }
-
-    /// 逐个贪心对：每个音节取第一种能对上的消耗，都对不上就取公共前缀，公共前缀也没有就停。
-    fn align_greedy(&self, input: &str, syllables: &[String]) -> Alignment {
-        let mut alignment = Alignment::default();
-        let mut pos = 0;
-        for syllable in syllables {
-            let (rest, start) = self.rest_at(input, pos);
-            if let Some((len, typo)) = self.syllable_steps(rest, syllable).into_iter().next() {
-                if typo {
-                    alignment
-                        .typos
-                        .push((rest[..len].to_owned(), syllable.clone()));
-                }
-                pos = start + len;
-                continue;
-            }
-            let common = syllable
-                .bytes()
-                .zip(rest.bytes())
-                .take_while(|(a, b)| a == b)
-                .count();
-            if common == 0 {
-                break;
-            }
-            pos = start + common;
-        }
-        alignment.consumed = pos;
-        alignment
-    }
-
-    /// `pos` 处这个音节能看到的输入段（到下一个 `'` 为止）与它的起点（跳过开头的 `'`）。
-    fn rest_at<'a>(&self, input: &'a str, pos: usize) -> (&'a str, usize) {
-        let start = if pos > 0 && input[pos..].starts_with('\'') {
-            pos + 1
-        } else {
-            pos
-        };
-        let rest = &input[start..];
-        let rest = &rest[..rest.find('\'').unwrap_or(rest.len())];
-        (rest, start)
-    }
-
-    /// 一个音节可以怎么消耗输入段 `rest`：(消耗字节数, 是否靠敲错变体)，按优先级排：
-    /// 原样或规范写法（`lue` / `lve`）、模糊音或敲错变体（长的在前）、整段是这个音节没打完的前缀。
-    fn syllable_steps(&self, rest: &str, syllable: &str) -> Vec<(usize, bool)> {
-        let mut steps = Vec::new();
-        let exact = rest.get(..syllable.len()).is_some_and(|typed| {
-            typed == syllable
-                || qingjian_dictionary::canonical_syllable(typed)
-                    == qingjian_dictionary::canonical_syllable(syllable)
-        });
-        if exact {
-            steps.push((syllable.len(), false));
-        }
-        // 没打完排在变体前面：`shijia` 选 时间 是 jian 没敲完，不是把 jian 敲成了 jia
-        if !rest.is_empty() && rest.len() < syllable.len() && syllable.starts_with(rest) {
-            steps.push((rest.len(), false));
-        }
-        for len in (1..=rest.len().min(parser::MAX_SYLLABLE_LEN)).rev() {
-            if exact && len == syllable.len() {
-                continue;
-            }
-            let typed = &rest[..len];
-            if self.fuzzy.is_variant(typed, syllable) {
-                steps.push((len, false));
-            } else if typo::is_variant(typed, syllable) {
-                steps.push((len, true));
-            }
-        }
-        steps
     }
 
     /// 整段作用域对应的候选（英文词、云端词、快捷候选）：吃掉全部键，学习键是整段全拼。
@@ -683,6 +676,10 @@ impl Engine {
         let Some(previous) = self.chain.previous().map(str::to_owned) else {
             return;
         };
+        // 同一个词连打几遍（试输入、强调）不是在造新词：屎山 + 屎山 不合成 屎山屎山
+        if previous == text {
+            return;
+        }
         let joined = format!("{previous}{text}");
         let chars = joined.chars().count();
         let mut joined_syllables = self.chain.previous_syllables().to_vec();
@@ -712,6 +709,39 @@ impl Engine {
         tracing::debug!(text = %candidate.text, "自动造词");
         self.learner
             .learn_word(&candidate.text, &candidate.syllables);
+        self.learner.record(&candidate);
+    }
+
+    /// 选了一个多音节词时它的简拼记录键（[`ABBREVIATION_CHOICE_PREFIX`] + 各音节首字母）：用全拼选过的词，
+    /// 下次打简拼也排在前面（`shishan` 选过 屎山，`ss` 也排它在前）。和真在简拼下的选择分开记：
+    /// 在 `zj` 下选过 自己 的不被全拼选的 直接 盖过，`cd` 原样上屏的英文也不被全拼选的 才对 挤到后面。
+    /// 只有全拼这样记：双拼、注音、九宫格的同一串键是别的意思；不足两个音节或就是敲的那串键时为空串。
+    pub(super) fn abbreviation_key(&self, syllables: &[String], input: &str) -> String {
+        if syllables.len() < 2 || self.shuangpin.is_some() || self.zhuyin || self.nine_key {
+            return String::new();
+        }
+        let key: String = syllables.iter().filter_map(|s| s.chars().next()).collect();
+        if key == input {
+            String::new()
+        } else {
+            format!("{ABBREVIATION_CHOICE_PREFIX}{key}")
+        }
+    }
+
+    /// 用户词（自造词、接受过的云端词）里有这个词（同音节）。
+    pub(super) fn is_user_word(&self, candidate: &Candidate) -> bool {
+        let patterns: Vec<_> = candidate
+            .syllables
+            .iter()
+            .map(|s| qingjian_dictionary::SyllablePattern::complete(s))
+            .collect();
+        !patterns.is_empty()
+            && self.learner.user_words().is_some_and(|words| {
+                words
+                    .lookup_exact(&patterns)
+                    .iter()
+                    .any(|hit| hit.text == candidate.text)
+            })
     }
 
     /// 主词库或用户词里是否已有这个词（同音节）。
@@ -749,22 +779,3 @@ const RETYPE_MIN_LETTERS: usize = 3;
 
 /// 跨上屏重打最多差几处编辑。
 const RETYPE_MAX_EDITS: usize = 2;
-
-/// Levenshtein 编辑距离（按字节，键串都是 ASCII）。
-fn edit_distance(a: &str, b: &str) -> usize {
-    let a = a.as_bytes();
-    let b = b.as_bytes();
-    let mut previous: Vec<usize> = (0..=b.len()).collect();
-    let mut current = vec![0; b.len() + 1];
-    for (i, &ca) in a.iter().enumerate() {
-        current[0] = i + 1;
-        for (j, &cb) in b.iter().enumerate() {
-            let cost = usize::from(ca != cb);
-            current[j + 1] = (previous[j] + cost)
-                .min(previous[j + 1] + 1)
-                .min(current[j] + 1);
-        }
-        std::mem::swap(&mut previous, &mut current);
-    }
-    previous[b.len()]
-}

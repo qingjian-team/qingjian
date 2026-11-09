@@ -8,11 +8,13 @@ mod controller;
 pub mod modifiers;
 pub mod secure_input;
 
-use std::any::Any;
 use std::panic::{AssertUnwindSafe, catch_unwind};
 
-pub use client::TextClient;
-pub use controller::{QingjianInputController, click, panel_mouse};
+pub use client::{TextClient, take_inserted};
+pub use controller::{
+    QingjianInputController, click, commit_pending_after_switch, menu_items, menu_pick,
+    panel_mouse, panel_translation_changed,
+};
 
 /// 在 ObjC 运行时回调的边界拦住 panic。`define_class!` 生成的方法是系统直接调的，panic 穿过去整个进程就没了，
 /// 用户正在打的字也跟着没了。拦住后记一条错误日志（位置与 backtrace 由 `main.rs` 装的 panic hook 记），
@@ -20,12 +22,8 @@ pub use controller::{QingjianInputController, click, panel_mouse};
 pub fn catch_panic<R>(what: &'static str, f: impl FnOnce() -> R) -> Option<R> {
     match catch_unwind(AssertUnwindSafe(f)) {
         Ok(value) => Some(value),
-        Err(payload) => {
-            tracing::error!(
-                what,
-                message = panic_message(&*payload),
-                "回调里 panic，已拦下"
-            );
+        Err(_) => {
+            tracing::error!(what, "回调里 panic，已拦下");
             None
         }
     }
@@ -36,7 +34,11 @@ pub fn catch_panic<R>(what: &'static str, f: impl FnOnce() -> R) -> Option<R> {
 pub fn recover_from_panic(client: Option<TextClient<'_>>) {
     let recovered = catch_unwind(AssertUnwindSafe(|| {
         let pending = crate::host::with(|h| {
-            let text = h.engine.composition().text().to_owned();
+            let text = if h.vietnamese.is_empty() {
+                h.engine.held_text() + h.engine.composition().text()
+            } else {
+                h.vietnamese.commit()
+            };
             h.engine.clear();
             h.cancel_prediction();
             h.window.hide();
@@ -52,13 +54,4 @@ pub fn recover_from_panic(client: Option<TextClient<'_>>) {
     if recovered.is_err() {
         tracing::error!("panic 善后又 panic，放弃本次会话状态");
     }
-}
-
-/// panic payload 里的文字：`panic!("...")` 是 `&str` 或 `String`，别的类型给个占位。
-fn panic_message(payload: &(dyn Any + Send)) -> &str {
-    payload
-        .downcast_ref::<&str>()
-        .copied()
-        .or_else(|| payload.downcast_ref::<String>().map(String::as_str))
-        .unwrap_or("<非文字 payload>")
 }

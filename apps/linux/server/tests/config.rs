@@ -1,5 +1,5 @@
 //! 实际启动 Server 读取 TOML 配置，关闭辅助语言不应回落英文释义。
-#![cfg(target_os = "linux")]
+#![cfg(any(target_os = "linux", target_os = "freebsd"))]
 #[path = "support/server.rs"]
 mod server;
 use qingjian_platform::protocol::{PROTOCOL_VERSION, read_message, write_message};

@@ -3,11 +3,10 @@
 //! 独立线程、独立通道，与联想互不干扰：把主线程送来的词攒成一小批（等 [`worker::BATCH_WAIT`] 或攒够
 //! [`worker::BATCH_SIZE`]），一次请求让模型给每个词写 1–2 条学习语言的译词（提示词与 `gloss-gen` 同源，
 //! 只要当前学习语言），解析、清洗后逐条回给主线程。问过的词本进程内不再问，失败也不重试（下次上屏再说）。
-//! 另有一条线程做整段翻译（[`phrase_worker`]）：上屏的整句等没有现成译词的中文翻成学习语言，给生词本的时间线。
+//! 另有一条线程做整段翻译（[`phrase`]）：上屏的整句等没有现成译词的中文翻成学习语言，给生词本的时间线。
 
 mod cloud_gloss_filler;
-mod phrase_prompt;
-mod phrase_worker;
+mod phrase;
 mod prompt;
 mod worker;
 

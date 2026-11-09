@@ -6,6 +6,7 @@
 //! 系统热键生效时调 [`KeyTap::cancel`] 作废这次按下。
 
 use std::cell::Cell;
+use std::time::{Duration, Instant};
 
 use windows::Win32::Foundation::LPARAM;
 use windows::Win32::UI::Input::KeyboardAndMouse::{
@@ -18,7 +19,11 @@ use qingjian_platform::{SwitchKey, SwitchKeys};
 pub(crate) struct KeyTap {
     /// 按下了哪个切换键、之后还没有别的键插进来。
     pressed: Cell<Option<SwitchKey>>,
+
+    pending_shift: Cell<Option<Instant>>,
 }
+
+const DOUBLE_TAP_WINDOW: Duration = Duration::from_millis(400);
 
 impl KeyTap {
     /// 任一键按下。`lparam` 第 30 位是按下前的状态（1 = 自动重复，不算新按下）。
@@ -54,6 +59,43 @@ impl KeyTap {
     /// 作废正按着的切换键（按下之后发生了别的事，这次抬起不算单击）。
     pub(crate) fn cancel(&self) {
         self.pressed.set(None);
+    }
+
+    /// Shift 单击进入待定；400 ms 内第二次返回 true（双击），第一下不立即切模式。
+    pub(crate) fn double_shift(&self, enabled: bool) -> bool {
+        if !enabled {
+            self.pending_shift.set(None);
+            return false;
+        }
+        let now = Instant::now();
+        let double = self
+            .pending_shift
+            .get()
+            .is_some_and(|at| now.duration_since(at) <= DOUBLE_TAP_WINDOW);
+        self.pending_shift.set((!double).then_some(now));
+        double
+    }
+
+    /// 待定 Shift 已超过 400 ms，取走并交给调用方按单击 Shift 配置处理。
+    pub(crate) fn resolve_shift(&self) -> bool {
+        if self.pressed.get() == Some(SwitchKey::Shift) {
+            return false;
+        }
+        let now = Instant::now();
+        if self
+            .pending_shift
+            .get()
+            .is_none_or(|at| now.duration_since(at) < DOUBLE_TAP_WINDOW)
+        {
+            return false;
+        }
+        self.pending_shift.set(None);
+        true
+    }
+
+    /// 用户在等待窗口内开始敲别的键：立即把待定 Shift 当单击落实。
+    pub(crate) fn take_pending_shift(&self) -> bool {
+        self.pending_shift.take().is_some()
     }
 }
 

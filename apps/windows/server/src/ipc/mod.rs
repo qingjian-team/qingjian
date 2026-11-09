@@ -1,7 +1,9 @@
 //! Server 与 DLL 之间的传输。线上帧格式在 [`qingjian_platform::protocol`]（两端共用），
-//! 这层只提供双工字节流上的消息循环（[`serve`]）与具体传输（命名管道 [`pipe`]）。
+//! 这层只提供双工字节流上的消息循环（[`serve`]）与具体传输（命名管道 `pipe`）。
 
 mod handled;
+#[cfg(windows)]
+pub mod instance;
 #[cfg(windows)]
 pub mod pipe;
 mod work;

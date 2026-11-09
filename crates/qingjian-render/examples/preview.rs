@@ -173,6 +173,28 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         );
     }
 
+    // 双拼键位提示；`-60` 是壳把窗口设成 60% 透明度时的样子
+    for (scene, keyboard) in scenes::keyboard_scenes() {
+        for (theme_name, theme) in &themes {
+            let rendered = renderer.render_keyboard(&keyboard, theme, args.scale, 1.0)?;
+            let path = args.out.join(format!("{scene}-{theme_name}.png"));
+            rendered.pixmap.save_png(&path)?;
+            let mut faded = rendered.pixmap.clone();
+            for byte in faded.data_mut() {
+                *byte = (f32::from(*byte) * 0.6).round() as u8;
+            }
+            faded.save_png(args.out.join(format!("{scene}-{theme_name}-60.png")))?;
+            let (w, h) = rendered.content_size_points();
+            println!(
+                "{:<28} {:>4.0}×{:<4.0}pt  {}",
+                format!("{scene}-{theme_name}"),
+                w,
+                h,
+                path.display()
+            );
+        }
+    }
+
     for probe in [
         "青简 hello 🙂 日本語 骨直曜",
         "開発(かいはつ)する",

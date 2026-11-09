@@ -35,6 +35,9 @@ pub struct TextStyle {
 
     /// 按节点宽度折行（段落）；不折行时一行到底，节点宽度就是文字宽度。
     pub wrap: bool,
+
+    /// 一行放不下时截短并补「…」（节点被布局压得比文字窄时）；不截时照原样画出节点外。
+    pub truncate: bool,
 }
 
 impl TextStyle {
@@ -52,11 +55,19 @@ impl TextStyle {
             decoration: None,
             gamma,
             wrap: false,
+            truncate: false,
         }
     }
 
     pub fn wrapped(self) -> Self {
         Self { wrap: true, ..self }
+    }
+
+    pub fn truncated(self) -> Self {
+        Self {
+            truncate: true,
+            ..self
+        }
     }
 
     /// 宽度不大于 0 的描边当没有。

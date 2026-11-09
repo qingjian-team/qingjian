@@ -3,9 +3,8 @@
 use std::collections::BTreeMap;
 
 use jiff::civil::Date;
+use qingjian_learning::figures;
 use qingjian_predict::{ApiUsageHour, ApiUsageStats};
-
-use super::{first_of_month, sum_days, week_start};
 
 #[derive(Debug, Clone, Default)]
 pub struct CloudStats {
@@ -20,7 +19,7 @@ pub struct CloudStats {
     /// 每天的用量；按小时记是这一版才有的，更早的只在累计里。
     pub days: BTreeMap<Date, ApiUsageHour>,
 
-    /// 过去 24 小时各个小时的用量，最后一格是现在这个钟点（见 [`super::last_24`]）。
+    /// 过去 24 小时各个小时的用量，最后一格是现在这个钟点（见 [`figures::last_24`]）。
     pub hours: [ApiUsageHour; 24],
 }
 
@@ -29,12 +28,13 @@ impl CloudStats {
         self.days.get(&self.today).copied().unwrap_or_default()
     }
 
-    pub fn week(&self) -> ApiUsageHour {
-        sum_days(&self.days, week_start(self.today), self.today)
+    /// 近 7 天（含今天），与输入层同一个口径。
+    pub fn recent(&self) -> ApiUsageHour {
+        figures::recent(&self.days, self.today)
     }
 
     pub fn month(&self) -> ApiUsageHour {
-        sum_days(&self.days, first_of_month(self.today), self.today)
+        figures::month(&self.days, self.today)
     }
 
     /// Token 最多的一天。

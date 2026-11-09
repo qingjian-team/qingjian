@@ -37,17 +37,26 @@ mod tests {
 
     #[test]
     fn built_in_tables_parse() {
-        assert!(emoji_supplement().lookup("笑死").contains(&"🤣".to_owned()));
-        assert_eq!(KAOMOJI.lookup("哭")[0], "(T_T)");
-        assert_eq!(SYMBOLS.lookup("alpha"), ["α", "Α"]);
-        assert_eq!(SYMBOLS.lookup("约等于"), ["≈"]);
+        assert!(emoji_supplement().lookup("笑死").any(|e| e == "🤣"));
+        assert_eq!(KAOMOJI.lookup("哭").next(), Some("(T_T)"));
+        assert!(SYMBOLS.lookup("alpha").eq(["α", "Α"]));
+        assert!(SYMBOLS.lookup("约等于").eq(["≈"]));
     }
 
+    /// 单字本身就是这个符号的读法时才收（度 → °，#900）；其余单字（上、左、角）一打就跟符号，太吵。
+    const SINGLE_CHARACTER_WORDS: [&str; 1] = ["度"];
+
     #[test]
-    fn symbol_words_are_never_single_characters() {
+    fn single_character_symbol_words_are_allowlisted() {
         for word in SYMBOLS.words() {
-            assert!(word.is_ascii() || word.chars().count() >= 2, "{word}");
+            assert!(
+                word.is_ascii()
+                    || word.chars().count() >= 2
+                    || SINGLE_CHARACTER_WORDS.contains(&word),
+                "{word}"
+            );
         }
+        assert!(SYMBOLS.lookup("度").eq(["°"]));
     }
 
     #[test]

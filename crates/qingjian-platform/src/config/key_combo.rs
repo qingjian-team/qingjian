@@ -17,8 +17,42 @@ pub struct KeyCombo {
 }
 
 impl KeyCombo {
+    pub const TRADITIONAL_DEFAULT: Self = Self {
+        modifiers: Modifiers::SHIFT_CONTROL,
+        key: 'f',
+    };
+
+    /// Windows 是 Ctrl + Alt + V；macOS 是 ⌘⇧V，剪贴板工具常用这个，⌃⌥ 在 mac 上不顺手。
+    #[cfg(not(target_os = "macos"))]
+    pub const CLIPBOARD_DEFAULT: Self = Self {
+        key: 'v',
+        ..Self::TRANSLATE_DEFAULT
+    };
+
+    #[cfg(target_os = "macos")]
+    pub const CLIPBOARD_DEFAULT: Self = Self {
+        modifiers: Modifiers {
+            option: false,
+            shift: true,
+            control: false,
+            command: true,
+        },
+        key: 'v',
+    };
+
+    /// 单字模式：Ctrl + D，只在组句时拿走。
+    pub const SINGLE_CHARS_DEFAULT: Self = Self {
+        modifiers: Modifiers::CONTROL,
+        key: 'd',
+    };
+
     pub const PREDICT_DEFAULT: Self = Self {
         key: 'j',
+        ..Self::TRANSLATE_DEFAULT
+    };
+
+    pub const TRANSLATE_PANEL_DEFAULT: Self = Self {
+        key: 'y',
         ..Self::TRANSLATE_DEFAULT
     };
 

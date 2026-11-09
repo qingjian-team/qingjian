@@ -31,6 +31,8 @@ pub const DEFAULT_ENGLISH_CANDIDATES_ON_MACOS: &[&str] = &[
     "com.tdesktop.Telegram",
     "com.hnc.Discord",
     "com.tinyspeck.slackmacgap",
+    "com.vng.zalo",
+    "com.anthropic.claudefordesktop",
     "md.obsidian",
     "notion.id",
     "abnerworks.Typora",
@@ -188,6 +190,8 @@ mod tests {
         assert!(apps.english_candidates_on(Some("com.apple.TextEdit")));
         assert!(apps.english_candidates_on(Some("com.google.Chrome.canary")));
         assert!(apps.english_candidates_on(Some("COM.TENCENT.XINWECHAT")));
+        assert!(apps.english_candidates_on(Some("com.vng.zalo")));
+        assert!(apps.english_candidates_on(Some("com.anthropic.claudefordesktop")));
         assert!(!apps.english_candidates_on(Some("com.adobe.Photoshop")));
         assert!(!apps.english_candidates_on(Some("com.apple.Terminal")));
         assert!(!apps.english_candidates_on(Some("")));

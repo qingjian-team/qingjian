@@ -1,0 +1,5 @@
+name = "五笔（86）"
+author = "极点五笔（rime-wubi86-jidian）"
+version = "4.3"
+description = "86 版五笔，编码来自极点码表，词频按青简词库回填"
+license = "Apache-2.0"

@@ -44,9 +44,6 @@ pub struct PredictConfig {
     /// 组句中要不要整句补全。
     pub sentence: bool,
 
-    /// 给本地整句候选自动请求译文，并显示在候选右侧。
-    pub sentence_translation: bool,
-
     /// 上屏的整句翻成学习语言，记进生词本的时间线（只发那一句）。
     pub vocabulary_translation: bool,
 
@@ -72,7 +69,6 @@ impl Default for PredictConfig {
             lookahead: 32,
             slots: 2,
             sentence: true,
-            sentence_translation: false,
             vocabulary_translation: true,
             reasoning_effort: "none".to_owned(),
         }

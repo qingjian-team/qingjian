@@ -21,6 +21,8 @@ use std::time::Instant;
 
 use qingjian_core::Engine;
 
+use crate::zhiyi::Reranker;
+
 pub use report::Report;
 
 use pair::Pair;
@@ -33,6 +35,7 @@ pub fn run(
     save: Option<&Path>,
     show_misses: usize,
     details: Option<&Path>,
+    mut reranker: Option<&mut Reranker>,
 ) -> Result<Report, EvalError> {
     // 码表覆盖率与句子集无关，装了码表就先算（词库按词频两段口径）
     let mut report = Report {
@@ -66,7 +69,13 @@ pub fn run(
         })
         .transpose()?;
     for (index, pair) in pairs.iter().enumerate() {
-        let row = evaluate(engine, pair, &mut report, show_misses);
+        let row = evaluate(
+            engine,
+            pair,
+            &mut report,
+            show_misses,
+            reranker.as_deref_mut(),
+        );
         if let Some(writer) = &mut writer {
             writeln!(writer, "{row}").map_err(|source| EvalError::Write {
                 path: details.expect("writer has path").to_owned(),
@@ -141,6 +150,7 @@ fn evaluate(
     pair: &Pair,
     report: &mut Report,
     show_misses: usize,
+    reranker: Option<&mut Reranker>,
 ) -> serde_json::Value {
     report.total += 1;
     engine.clear();
@@ -158,11 +168,11 @@ fn evaluate(
         }
     };
     // 异步重打分：像壳一样停顿后请求、等结果、再查一次；等的时间也算进查询耗时
-    let query = if crate::rescoring::settle(engine) {
-        engine.query().unwrap_or(query)
-    } else {
-        query
-    };
+    let mut query = crate::rescoring::settled(engine, query);
+    if let Some(reranker) = reranker {
+        reranker.set_context(&pair.context);
+        reranker.rerank(engine, &mut query, &pair.pinyin);
+    }
     let elapsed = started.elapsed();
     report.query_time += elapsed;
     report.slowest_query = report.slowest_query.max(elapsed);
@@ -203,6 +213,14 @@ fn evaluate(
             )),
         ));
     }
+    let loss = if position == Some(0) {
+        None
+    } else {
+        engine.diagnose_sentence(&pair.text, items.first().map(|c| c.text.as_str()))
+    };
+    if let Some(loss) = &loss {
+        *report.losses.entry(loss.kind()).or_default() += 1;
+    }
     let row = serde_json::json!({
         "text": pair.text, "pinyin": pair.pinyin, "context": pair.context,
         "top": items.first().map(|c| c.text.as_str()),
@@ -210,6 +228,12 @@ fn evaluate(
         "position": position,
         "query_ms": elapsed.as_secs_f64() * 1000.0,
         "candidates": items.iter().map(|c| c.text.as_str()).collect::<Vec<_>>(),
+        "loss": loss.as_ref().map(|l| l.kind()),
+        "path_rank": engine.sentence_path_rank(&pair.text, 64),
+        "choice": engine.last_choice_scores().iter().map(|s| serde_json::json!({
+            "text": s.text, "rank": s.rank, "model": s.model, "lm": s.language_model, "prior": s.prior,
+        })).collect::<Vec<_>>(),
+        "loss_detail": loss.as_ref().map(|l| format!("{l:?}")),
     });
     engine.clear();
     row

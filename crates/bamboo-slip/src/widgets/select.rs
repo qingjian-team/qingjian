@@ -3,13 +3,11 @@
 use std::hash::Hash;
 use std::sync::Arc;
 
-use taffy::{JustifyContent, NodeId, Style};
+use taffy::{JustifyContent, LengthPercentageAuto, NodeId, Style};
 
 use super::WidgetTheme;
 use super::chevron::Chevron;
-use super::parts::{
-    DISABLED_OPACITY, centered, focus_ring, label, over, padding, row, size, solid,
-};
+use super::parts::{DISABLED_OPACITY, centered, focus_ring, over, padding, row, size, solid};
 use crate::animation::Easing;
 use crate::error::RenderError;
 use crate::scene::Visual;
@@ -22,8 +20,11 @@ pub struct Select<'a> {
     /// 弹出菜单里的全部选项：不画，只给搜索当关键词。
     options: &'a [&'a str],
 
-    /// 宽度（点）；`None` 按内容撑开。
+    /// 最小宽度（点）；值比它长时跟着撑开，不让箭头被挤出框外。`None` 按内容撑开。
     width: Option<f32>,
+
+    /// 最大宽度（点）；值再长就截短补「…」，框不再变宽。`None` 不设上限。
+    max_width: Option<f32>,
 
     disabled: bool,
 }
@@ -34,6 +35,7 @@ impl<'a> Select<'a> {
             value,
             options: &[],
             width: None,
+            max_width: None,
             disabled: false,
         }
     }
@@ -46,6 +48,13 @@ impl<'a> Select<'a> {
     pub fn width(self, points: f32) -> Self {
         Self {
             width: Some(points),
+            ..self
+        }
+    }
+
+    pub fn max_width(self, points: f32) -> Self {
+        Self {
+            max_width: Some(points),
             ..self
         }
     }
@@ -65,13 +74,20 @@ impl<'a> Select<'a> {
         let state = ui.state(key);
         let colors = &theme.colors;
         let radius = theme.px(theme.radius);
-        let value = label(
-            ui,
-            theme,
-            self.value,
-            theme.font.size - 1.0,
-            400,
-            colors.text,
+        // 值可以被压窄（最小宽 0），压窄了画的时候截短补「…」；箭头不让压
+        let value = ui.scene().node(
+            Style {
+                flex_shrink: 1.0,
+                min_size: bound(Some(0.0)),
+                ..Style::default()
+            },
+            Visual::Text {
+                text: self.value.to_owned(),
+                style: theme
+                    .text(theme.font.size - 1.0, 400, colors.text)
+                    .truncated(),
+            },
+            &[],
         )?;
         let arrow_size = theme.px(10.0);
         let arrow = ui.scene().node(
@@ -98,11 +114,10 @@ impl<'a> Select<'a> {
         let node = ui.scene().node(
             Style {
                 padding: padding(theme, 0.0, 10.0),
-                size: size(
-                    self.width.map(|width| theme.px(width)),
-                    Some(theme.px(theme.control_height)),
-                ),
-                justify_content: Some(JustifyContent::SPACE_BETWEEN),
+                size: size(None, Some(theme.px(theme.control_height))),
+                min_size: bound(self.width.map(|width| theme.px(width))),
+                max_size: bound(self.max_width.map(|width| theme.px(width))),
+                justify_content: JustifyContent::SPACE_BETWEEN,
                 flex_shrink: 0.0,
                 ..row(theme, 12.0)
             },
@@ -126,5 +141,13 @@ impl<'a> Select<'a> {
             ui.keyword(node, option);
         }
         Ok(node)
+    }
+}
+
+/// 只限宽度的 `min_size` / `max_size`（像素）；`None` 不限。
+fn bound(width: Option<f32>) -> taffy::Size<LengthPercentageAuto> {
+    taffy::Size {
+        width: width.map_or(LengthPercentageAuto::auto(), LengthPercentageAuto::length),
+        height: LengthPercentageAuto::auto(),
     }
 }

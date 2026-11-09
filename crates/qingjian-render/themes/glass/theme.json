@@ -1,0 +1,104 @@
+{
+  "extends": "qingjian",
+  "schema": 1,
+  "meta": { "id": "glass", "name": "玻璃", "author": "青简", "license": "GPL-3.0-or-later" },
+
+  // 照 macOS 26 自带简体拼音：胶囊条、淡灰描边、轻阴影，选中项是蓝色胶囊，右端分隔线加箭头
+  "variables": {
+    "text": { "light": "#1d1d1f", "dark": "#f5f5f7" },
+    "gloss": { "light": "#1d1d1f99", "dark": "#f5f5f7a6" },
+    "faint": { "light": "#1d1d1f73", "dark": "#f5f5f780" },
+    "dim": { "light": "#1d1d1f2e", "dark": "#f5f5f72e" },
+    "surface": { "light": "#fbfbfdf5", "dark": "#2c2c2ef2" },
+    "edge": { "light": "#00000024", "dark": "#ffffff26" },
+    "divider": { "light": "#0000001f", "dark": "#ffffff26" },
+    "accent": { "light": "#2f7cf6", "dark": "#2f7cf6" },
+
+    "hl_text": "#ffffff",
+    "hl_gloss": "#ffffffd9",
+    "hl_faint": "#ffffffcc",
+    "hl_fresh": "#ffe0b2",
+    "hl_cloud": "#ffffff"
+  },
+
+  // 垫得了系统材质时（macOS）窗口底下是系统的玻璃，fill 只在垫不了时用（Windows）；
+  // 玻璃随背后内容变深变浅，文字跟着换浅色 / 深色那一套颜色
+  "material": { "kind": "glass" },
+
+  "text": {
+    "styles": {
+      "candidate": { "size": 16, "line_height": 22 },
+      "index": { "size": 10, "line_height": 13 }
+    }
+  },
+
+  "components": {
+    "glass-pager": {
+      "type": "frame", "when": "page", "margin": [0, 2, 0, "auto"], "align_self": "center", "gap": 2,
+      "children": [
+        { "type": "frame", "width": 1, "height": 18, "fill": "@divider", "margin": [0, 6, 0, 0], "align_self": "center" },
+        { "type": "icon", "icon": "chevron-left", "size": 11, "width": 16, "height": 22, "action": "previous_page",
+          "color": { "if": "page.previous", "then": "@faint", "else": "@dim" } },
+        { "type": "icon", "icon": "chevron-right", "size": 11, "width": 16, "height": 22, "action": "next_page",
+          "color": { "if": "page.next", "then": "@faint", "else": "@dim" } }
+      ]
+    },
+
+    "row": {
+      "type": "frame",
+      "children": [
+        { "type": "frame", "id": "highlight", "transition": { "duration": 120, "easing": "ease-out" },
+          "when": "highlighted", "span": "row", "margin": [0, -1, 0, -1], "fill": "@accent", "radius": 9 },
+        { "type": "text", "bind": "index", "font": "index", "margin": [6, 0, 0, 6],
+          "color": { "if": "highlighted", "then": "@hl_faint", "else": "@faint" } },
+        { "type": "use", "component": "word", "margin": [0, 0, 0, 6] },
+        { "type": "annotation", "bind": "annotation", "when": "annotations", "font": "annotation",
+          "gloss": { "if": "highlighted", "then": "@hl_gloss", "else": "@gloss" },
+          "fresh": { "if": "highlighted", "then": "@hl_fresh", "else": "@fresh" },
+          "faint": { "if": "highlighted", "then": "@hl_faint", "else": "@faint" },
+          "margin": [5, 6, 0, 10] }
+      ]
+    },
+
+    "item": {
+      "type": "frame", "padding": [0, 9, 0, 8],
+      "children": [
+        { "type": "frame", "id": "highlight", "transition": { "duration": 120, "easing": "ease-out" },
+          "when": "highlighted", "position": "absolute", "inset": [0, 0, 0, 0], "fill": "@accent", "radius": 11 },
+        { "type": "text", "bind": "index", "font": "index", "margin": [6, 4, 0, 0],
+          "color": { "if": "highlighted", "then": "@hl_faint", "else": "@faint" } },
+        { "type": "use", "component": "word" }
+      ]
+    }
+  },
+
+  "windows": {
+    "vertical": {
+      "type": "frame", "direction": "column", "padding": 6, "min_width": 180,
+      "fill": "@surface", "radius": 12, "border": { "width": 1, "color": "@edge" },
+      "effects": [{ "type": "drop-shadow", "y": 4, "blur": 14, "color": "#00000026" }],
+      "children": [
+        { "type": "use", "component": "top_line", "margin": [0, 8, 0, 8] },
+        { "type": "frame", "when": "candidates", "table": { "row_height": 26 }, "align_self": "stretch",
+          "children": [{ "type": "repeat", "bind": "candidates", "component": "row" }] },
+        { "type": "use", "component": "pager", "align_self": "end", "margin": [2, 6, 2, 0] }
+      ]
+    },
+    "horizontal": {
+      "type": "frame", "direction": "column", "padding": 3,
+      "fill": "@surface", "radius": 14, "border": { "width": 1, "color": "@edge" },
+      "effects": [{ "type": "drop-shadow", "y": 4, "blur": 14, "color": "#00000026" }],
+      "children": [
+        { "type": "use", "component": "top_line", "margin": [0, 11, 0, 11] },
+        { "type": "frame", "when": "candidates", "align_self": "stretch", "gap": 2,
+          "children": [
+            { "type": "repeat", "bind": "candidates", "component": "item" },
+            { "type": "use", "component": "glass-pager" }
+          ] },
+        { "type": "annotation", "bind": "highlighted.annotation", "when": "highlighted.annotation",
+          "font": "annotation", "gloss": "@gloss", "fresh": "@fresh", "faint": "@faint",
+          "margin": [2, 11, 2, 11] }
+      ]
+    }
+  }
+}

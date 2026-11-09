@@ -137,6 +137,19 @@ impl CharReadings {
             .collect()
     }
 
+    /// 这个读音的权重是不是有用例撑着：kHanyuPinlu 里有频次，或者字没有 kHanyuPinlu 时它排第一；
+    /// 否则是 [`weighted`](Self::weighted) 按主读音比例猜的。
+    pub fn attested(&self, ch: char, reading: &str) -> bool {
+        let Some(entry) = self.entries.get(&ch) else {
+            return false;
+        };
+        if entry.pinlu.is_empty() {
+            self.all(ch).first().is_some_and(|first| first == reading)
+        } else {
+            entry.pinlu.iter().any(|(r, _)| r == reading)
+        }
+    }
+
     /// 一个词的标注是否每个字都落在该字的已知读音里（LLM 标注的校验）。
     pub fn accepts_word(&self, text: &str, syllables: &[String]) -> bool {
         let chars: Vec<char> = text.chars().collect();
@@ -182,6 +195,10 @@ U+884C\tkXHC1983\t0442.080:háng 0443.050:hàng 0460.010:héng 1290.030:xíng\nU
         let weighted = readings.weighted('行', 0.05);
         assert_eq!(weighted[0].0, "xing");
         assert!(weighted[0].1 > weighted[1].1);
+        // heng 只在词典里出现，没有频次
+        assert!(readings.attested('行', "hang"));
+        assert!(!readings.attested('行', "heng"));
+        assert!(readings.attested('女', "nv"));
         // 长 没加载进来，整词校验不过
         assert!(!readings.accepts_word("行长", &["hang".to_owned(), "zhang".to_owned()]));
         assert!(readings.accepts_word("女", &["nv".to_owned()]));

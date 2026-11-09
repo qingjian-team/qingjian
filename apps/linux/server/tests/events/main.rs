@@ -1,5 +1,6 @@
 //! 能力优先级、焦点边界和薄插件事件的业务决策。
 mod support;
+mod switch;
 use self::support::{caps, compose, event, key, router};
 use serde_json::json;
 

@@ -10,6 +10,8 @@ apps/macos/scripts/bundle.sh --install
 ```
 
 打包到 `target/Qingjian.app` 并装到 `~/Library/Input Methods/`，杀掉旧进程；切换一次输入法就会拉起新的。
+产品数据（词库、语言模型、领域词库、笔画码表、英文词表、释义表、含章·通变）缺省全带，缺哪样就报错停下，
+没有数据管道的机器先跑 `tools/release/data-fetch.sh`；只想用样例词库自测加 `--sample-data`。
 首次要在「系统设置 → 键盘 → 输入法 → 编辑 → +」的简体中文下添加「青简」，列表里没有就注销再登录。
 日志在 `~/Library/Logs/Qingjian/`，用户数据与 `config.toml` 在 `~/Library/Application Support/Qingjian/`。
 

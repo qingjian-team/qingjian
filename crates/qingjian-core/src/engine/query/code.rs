@@ -1,8 +1,14 @@
-//! 形码查询：编码按前缀查码表，没有切分、没有整句；以及与拼音的混输。
+//! 形码查询：编码按前缀查码表，没有切分、没有整句，快捷写法与 emoji 照配；以及与拼音的混输。
 
 use std::collections::HashSet;
+use std::time::Instant;
 
-use super::*;
+use crate::engine::{Learner, MAX_CANDIDATES, choice_key};
+use crate::ranking::Scored;
+use crate::{
+    Candidate, CandidateKind, CandidateList, Engine, ParseError, Query, Timings, ranking, sentence,
+    shortcut,
+};
 
 impl Engine {
     /// 形码方案（五笔）的候选：编码打全的词排在同前缀的更长编码词前面，其余按词频与上下文。
@@ -10,13 +16,23 @@ impl Engine {
     /// 拼音那一套在这里都不成立：编码不需要切分，没有简拼与模糊音，一处编辑的拼写纠错更不适用，
     /// 整句转换、中英混输与神经重排也没有可以展开的东西。反过来，译词标注、生词记录、输入日志、
     /// 用户选择学习与个人 n-gram 都按上屏的词工作，与拼音方案共用同一条路。
+    ///
+    /// 快捷写法（`rq` / `sj` / `xq`）排在编码打全的字词后面：这几个也是常用字的编码前缀（`rq` 是 的 的 `rqyy`），
+    /// 不抢首选；emoji 与「日期 / 时间 / 星期」的快捷写法按上屏的字词配，与拼音一样。
     pub(super) fn query_code(&self, keys: &str, rest: String, start: Instant) -> Query {
-        self.query_code_counted(keys, rest, start).0
+        let (mut query, exact) = self.query_code_counted(keys, rest, start);
+        let items = &mut query.candidates.items;
+        let shortcuts = shortcut::candidates(keys, '\0', &jiff::Zoned::now());
+        let position = exact.min(items.len());
+        items.splice(position..position, shortcuts);
+        self.insert_emoji(items);
+        self.insert_keyword_shortcuts(items);
+        query
     }
 
     /// 同 [`Self::query_code`]，另带回排在最前面的「编码打全」的候选有几条（混输按它分两段）。
     fn query_code_counted(&self, keys: &str, rest: String, start: Instant) -> (Query, usize) {
-        let table = self.code.as_ref().expect("只在形码方案下调用");
+        let table = &self.code.as_ref().expect("只在形码方案下调用").table;
         // 编码以外的字符（`no-way` 的 `-`）不是编码，交给原样上屏那条路
         if !keys.chars().all(|c| c.is_ascii_lowercase()) {
             return (self.query_raw(keys, rest, start), 0);
@@ -25,8 +41,14 @@ impl Engine {
 
         let start = Instant::now();
         let log_total = (table.total_frequency() as f64).max(1.0).ln();
-        let mut scored: Vec<Scored<'_>> = table
-            .lookup(keys, MAX_CANDIDATES)
+        let hits = table.lookup(keys, MAX_CANDIDATES);
+        let single_letter_order = (keys.len() == 1).then(|| {
+            hits.iter()
+                .filter(|hit| hit.exact)
+                .map(|hit| hit.text.to_owned())
+                .collect::<Vec<_>>()
+        });
+        let mut scored: Vec<Scored<'_>> = hits
             .into_iter()
             .map(|hit| Scored {
                 hit,
@@ -36,6 +58,8 @@ impl Engine {
                 abbreviated: 0,
                 weight: self.learner.weight(hit.text),
                 penalty: 0.0,
+                tone_cost: 0,
+                split: false,
             })
             .collect();
         let lookup = start.elapsed();
@@ -52,10 +76,24 @@ impl Engine {
                 self.personal(),
                 self.chain.context(),
                 item.hit.text,
-                sentence::fallback_log_prob(item.hit.frequency, log_total),
+                sentence::fallback_log_prob(item.hit.frequency, item.hit.secondary, log_total),
             );
             (choice, log_prob)
         });
+        // 一级简码的码表顺序优先于个人选择与上下文排序。
+        if let Some(order) = single_letter_order {
+            let mut first_level = Vec::with_capacity(order.len());
+            for text in order {
+                if let Some(position) = scored
+                    .iter()
+                    .position(|item| item.hit.text == text && item.hit.exact)
+                {
+                    first_level.push(scored.remove(position));
+                }
+            }
+            first_level.append(&mut scored);
+            scored = first_level;
+        }
         let rank = start.elapsed();
         // `exact` 是排序的最高位，打全的都在最前面
         let exact = scored.iter().take_while(|s| s.hit.exact).count();
@@ -74,6 +112,7 @@ impl Engine {
         let query = Query {
             // 形码没有切分：preedit 的显示串靠 `tail` 原样带出去（见 `Query::marked_text`）
             segmentations: Vec::new(),
+            spelled: 0,
             candidates: CandidateList { items },
             tail: keys.to_owned(),
             text: self.composition.text().to_owned(),
@@ -81,9 +120,13 @@ impl Engine {
             rest,
             decoded_keys: false,
             shuangpin_raw_preedit: false,
+            shuangpin_raw_window: false,
             typed_display: None,
+            typed_case: None,
+            pinyin_choices: Vec::new(),
             correction: None,
             aux: None,
+            held: String::new(),
             timings: Timings {
                 parse,
                 lookup,

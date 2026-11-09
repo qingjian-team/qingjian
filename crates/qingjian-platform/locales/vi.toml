@@ -1,0 +1,102 @@
+[meta]
+name = "Tiếng Việt"
+
+[candidate_menu]
+edit_translation = "Sửa bản dịch…"
+regenerate_translation = "Tạo lại bản dịch bằng mô hình"
+pin = "Ghim lên đầu"
+unpin = "Bỏ ghim"
+demote = "Hạ thứ hạng"
+undemote = "Bỏ hạ thứ hạng"
+delete = "Xóa"
+promote = "Tăng ưu tiên"
+needs_window = "Thao tác này phải do cửa sổ bộ gõ xử lý"
+cant_pin = "Không thể ghim “{text}” ở đây"
+unchanged = "Không có gì để đổi với “{text}”"
+no_config = "Không có tệp cấu hình nên không lưu được mục ghim"
+not_saved = "Chưa lưu được: {error}"
+pinned = "Đã ghim “{text}”, sẽ đứng đầu khi gõ {code}"
+unpinned = "Đã bỏ ghim “{text}”"
+demoted = "Đã hạ “{text}” xuống một bậc"
+undemoted = "Đã bỏ hạ thứ hạng của “{text}”"
+
+[appearance]
+system = "Theo hệ thống"
+light = "Sáng"
+dark = "Tối"
+
+[renderer]
+qingjian = "Trình vẽ Qingjian"
+system = "Hệ thống vẽ"
+
+[key_hint]
+off = "Tắt"
+auto = "Khi bị vướng"
+always = "Luôn hiện"
+
+[layout]
+vertical = "Dọc"
+horizontal = "Ngang"
+
+[log_level]
+info = "Ngắn gọn (info)"
+debug = "Chi tiết (debug)"
+
+[model]
+tongbian = "Hanzhang Tongbian"
+zhiyi = "Zhiyi"
+
+[zhiyi_tier]
+saver = "Tiết kiệm pin"
+balanced = "Cân bằng"
+accurate = "Chính xác"
+
+[numpad_digit]
+select = "Chọn từ gợi ý"
+direct = "Gõ thẳng chữ số"
+
+[preedit]
+both = "Trong dòng + cửa sổ gợi ý"
+inline = "Chỉ trong dòng"
+window = "Chỉ trong cửa sổ"
+
+[shift_letter]
+passthrough = "Chuyển cho ứng dụng"
+compose = "Bắt đầu soạn"
+
+[channel]
+stable = "Chính thức"
+beta = "Thử nghiệm"
+
+[scheme]
+pinyin = "Pinyin đầy đủ"
+custom = "Shuangpin tùy chỉnh"
+zhuyin = "Chú âm (Dachen)"
+off = "Tắt (chỉ mã hình)"
+
+[switch_key]
+shift = "Nhấn Shift"
+control = "Nhấn Ctrl"
+none = "Không có"
+separator = ", "
+
+[emoji_count]
+off = "Không hiện"
+at_most = "Tối đa {n}"
+
+[commit_key]
+space = "Space"
+enter = "Enter"
+
+[phrase_file]
+empty = "Tệp không có cụm từ tùy chỉnh nào"
+is_config = "Đây là tệp cấu hình, không phải tệp cụm từ; cài đặt được nhập ở trang Nâng cao, còn cụm từ hãy xuất trước trên máy kia"
+no_tab = "Chữ và mã gõ phải cách nhau bằng một Tab"
+skipped_entry = "mục {entry}: {reason}"
+skipped_line = "dòng {line} (“{text}”): {reason}"
+unreadable = "Không đọc được tệp này: đây không phải tệp cụm từ do Qingjian xuất, cũng không phải văn bản mỗi dòng một mục “chữ<Tab>mã gõ”"
+
+[settings_file]
+invalid = "Cài đặt trong tệp này có lỗi: {error}"
+merge_failed = "Không đọc được cài đặt sau khi gộp: {error}"
+unreadable = "Không đọc được tệp này: {error}"

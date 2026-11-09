@@ -1,6 +1,7 @@
 //! 启动：加载词库 / 语言模型 / 释义表 / 学习数据，建 Engine 与候选窗口，装进线程局部的 HOST。
 
 use super::*;
+use crate::candidates::MenuHandlers;
 
 /// 加载数据并建立单例。必须在主线程、在 IMKServer 建立之前调用。版本显示在菜单末行与「关于」页。
 pub fn init(mtm: MainThreadMarker, info: &BundleInfo) -> Result<(), HostError> {
@@ -38,6 +39,24 @@ pub fn init(mtm: MainThreadMarker, info: &BundleInfo) -> Result<(), HostError> {
         .ok()
         .map(WordList::from_path)
         .transpose()?;
+    let vietnamese_words = paths::resource("vietnamese.tsv")
+        .ok()
+        .map(WordList::from_path)
+        .transpose()?;
+    let vietnamese_glossary = paths::resource("vietnamese-zh.tsv")
+        .ok()
+        .map(|path| {
+            let bundled = Glossary::from_path(Language::Chinese, path)?;
+            let personal = match paths::user_data_dir() {
+                Some(dir) => PersonalGlossary::open(
+                    Language::Chinese,
+                    dir.join("user-glossary-input-vi-zh.tsv"),
+                ),
+                None => PersonalGlossary::in_memory(Language::Chinese),
+            };
+            Ok::<_, HostError>(LayeredTranslator::new(bundled, personal))
+        })
+        .transpose()?;
     tracing::info!(
         entries = dictionary.len(),
         glosses = glossary.as_ref().map_or(0, LayeredTranslator::len),
@@ -67,6 +86,7 @@ pub fn init(mtm: MainThreadMarker, info: &BundleInfo) -> Result<(), HostError> {
         }
         engine = engine
             .with_usage_meter(Box::new(UsageStats::open(&dir)))
+            .with_panel_history(Box::new(PanelUsage::open(&dir)))
             .with_vocabulary_tracker(Box::new(vocabulary));
     }
     // 附加词库：随包的领域词库 + 用户目录 dicts/ 下的文件
@@ -75,6 +95,7 @@ pub fn init(mtm: MainThreadMarker, info: &BundleInfo) -> Result<(), HostError> {
         paths::dicts_dir().as_deref(),
         &settings.config().dictionaries,
     ));
+    engine.set_blocked_words(settings.config().dictionaries.blocked.clone());
     // 英文候选的中文释义（英→中）可选：没有这张表英文候选右侧就留空
     if let Ok(path) =
         paths::resource("glossary-zh.qj").or_else(|_| paths::resource("glossary-zh.tsv"))
@@ -117,12 +138,18 @@ pub fn init(mtm: MainThreadMarker, info: &BundleInfo) -> Result<(), HostError> {
     let window = CandidateWindow::new(mtm);
     window.set_click_handler(Box::new(crate::imk::click));
     window.set_panel_mouse_handler(Box::new(crate::imk::panel_mouse));
+    window.set_menu_handlers(MenuHandlers {
+        items: Box::new(crate::imk::menu_items),
+        pick: std::rc::Rc::new(crate::imk::menu_pick),
+    });
     let mut indicator = ModeIndicator::new(mtm);
     let menu = InputMenu::new(mtm, version);
     indicator.set_menu(&menu.ns_menu());
     let preferences = PreferencesWindow::new(mtm, &languages, version, &info.build);
     let monitor = PredictMonitor::new(mtm);
     let watch = ConfigWatch::new(mtm);
+    let mode_switch = ModeSwitch::default();
+    let osd = ModeOsd::new(mtm);
     HOST.with(|host| {
         *host.borrow_mut() = Some(Host {
             engine,
@@ -132,10 +159,23 @@ pub fn init(mtm: MainThreadMarker, info: &BundleInfo) -> Result<(), HostError> {
             preferences,
             settings,
             watch,
+            mode_switch,
+            vietnamese: Default::default(),
+            vietnamese_words,
+            vietnamese_glossary,
+            osd,
+            last_osd_english: None,
+            last_osd_vietnamese: None,
+            last_osd_caps: None,
             themes: qingjian_render::ThemeLibrary::load(paths::themes_dir().as_deref()),
             last_flush: std::time::Instant::now(),
             applied_predict: PredictConfig::default(),
             applied_dictionaries: DictionariesConfig::default(),
+            applied_aux_code: None,
+            aux_files: Vec::new(),
+            code_word_files: Vec::new(),
+            dictionary_files: Vec::new(),
+            aux_code_show: false,
             dictionary_list: Vec::new(),
             learning_language,
             languages,
@@ -144,18 +184,30 @@ pub fn init(mtm: MainThreadMarker, info: &BundleInfo) -> Result<(), HostError> {
             page_size: 9,
             cloud_slots: 2,
             page_keys: qingjian_platform::DEFAULT_PAGE_KEYS,
+            extra_page_keys: PageKeys::default(),
             punct_commits: false,
+            scheme_slot: Default::default(),
             translation_keys: ShortcutConfig::default().translation_keys(),
-            delete_keys: ShortcutConfig::default().delete_keys(),
             status: None,
             input_log_enabled: None,
             translate_keys: KeyCombo::TRANSLATE_DEFAULT,
+            punctuation_keys: None,
+            predict_keys: KeyCombo::PREDICT_DEFAULT,
+            translate_panel_keys: KeyCombo::TRANSLATE_PANEL_DEFAULT,
+            manual_prediction: None,
+            candidate_translation: None,
             translation: None,
             notice: None,
+            key_hint_mode: KeyHintMode::default(),
+            key_hint: KeyHintState::default(),
+            root_keyboard: None,
             preedit_mode: PreeditMode::default(),
+            translation_pos: true,
             layout: LayoutMode::default(),
             horizontal_grid: false,
+            grid_page_keys: false,
             highlight_keys: HighlightKeys::default(),
+            extra_candidate_navigation: false,
             english_candidates: true,
             text_replacements: Vec::new(),
             apps: AppsConfig::default(),
@@ -169,6 +221,7 @@ pub fn init(mtm: MainThreadMarker, info: &BundleInfo) -> Result<(), HostError> {
                 .map(|dir| qingjian_update::Checker::new(dir.join(UPDATE_STATE_FILE), version)),
             update_status: UpdateStatus::default(),
             session: Session::default(),
+            trace: None,
             sentence: None,
             anchor: NSRect::ZERO,
         })

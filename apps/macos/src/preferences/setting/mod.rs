@@ -158,6 +158,9 @@ pub enum Setting {
     /// `[general] shift_letter`，勾选框：中文模式下 Shift+字母进组句（勾上是 compose，否则 passthrough）。
     ShiftLetter,
 
+    /// `[shortcut] switch_mode` 里的 `shift`，勾选框：单击 Shift 切中英文（此时 Caps Lock 只管大小写）。
+    SwitchModeShift,
+
     /// `[shortcut] translation`，快捷键录制按钮（只记修饰键）。
     TranslationKeys,
 
@@ -185,7 +188,7 @@ pub enum Setting {
     /// `[general] shuangpin_raw_preedit`，勾选框：双拼模式下输入框保留原始输入按键。
     ShuangpinRawPreedit,
 
-    /// `[general] wubi`，勾选框：勾上是五笔（86 版）。与拼音同时开着就是混输。
+    /// `[general] code`，勾选框：勾上是五笔（86 版），取消是关。与拼音同时开着就是混输。
     Wubi,
 
     /// `[general] traditional_variant`，弹出菜单：简体 + 三档繁体。
@@ -208,9 +211,6 @@ pub enum Setting {
 
     /// `[apps] english_candidates_on`，勾选框：勾上写缺省白名单，去掉写 `["*"]`（处处都给）。
     EnglishCandidatesOnlyInApps,
-
-    /// `[shortcut] delete_candidate`，快捷键录制按钮（只记修饰键）。
-    DeleteCandidateKeys,
 
     /// `[general] input_log`，勾选框。
     InputLog,
@@ -256,6 +256,7 @@ impl Setting {
             Self::EnglishInChinese => 63,
             Self::AutoSpace => 65,
             Self::ShiftLetter => 50,
+            Self::SwitchModeShift => 68,
             Self::Theme => 51,
             Self::HorizontalGrid => 57,
             Self::CandidateFontSize => 58,
@@ -276,7 +277,6 @@ impl Setting {
             Self::ExportLogs => 48,
             Self::CloudSlots => 24,
             Self::EnglishCandidatesOnlyInApps => 25,
-            Self::DeleteCandidateKeys => 26,
             Self::InputLog => 27,
             Self::Learning => 45,
             Self::ClearInputLog => 28,
@@ -334,6 +334,7 @@ impl Setting {
             63 => Self::EnglishInChinese,
             65 => Self::AutoSpace,
             50 => Self::ShiftLetter,
+            68 => Self::SwitchModeShift,
             51 => Self::Theme,
             57 => Self::HorizontalGrid,
             58 => Self::CandidateFontSize,
@@ -355,7 +356,6 @@ impl Setting {
             48 => Self::ExportLogs,
             24 => Self::CloudSlots,
             25 => Self::EnglishCandidatesOnlyInApps,
-            26 => Self::DeleteCandidateKeys,
             27 => Self::InputLog,
             45 => Self::Learning,
             28 => Self::ClearInputLog,
@@ -441,10 +441,10 @@ mod tests {
             Setting::ExportLogs,
             Setting::CloudSlots,
             Setting::EnglishCandidatesOnlyInApps,
-            Setting::DeleteCandidateKeys,
             Setting::InputLog,
             Setting::SystemTextReplacements,
             Setting::ShiftLetter,
+            Setting::SwitchModeShift,
             Setting::AutoSpace,
             Setting::HorizontalGrid,
             Setting::CandidateFontSize,

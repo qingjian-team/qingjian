@@ -73,6 +73,17 @@ impl<A: App> Runner<A> {
         &self.interaction
     }
 
+    /// 窗口藏起来了，见 [`Interaction::reset_input`]。
+    pub fn reset_input(&mut self) {
+        self.interaction.reset_input();
+        self.stale = true;
+    }
+
+    /// 取应用要窗口做的下一件事，见 [`App::take_window_command`]。
+    pub fn take_window_command(&mut self) -> Option<super::WindowCommand> {
+        self.app.take_window_command()
+    }
+
     /// 窗口大小、倍数变了这类：下一帧重建。
     pub fn invalidate(&mut self) {
         self.stale = true;
@@ -93,8 +104,9 @@ impl<A: App> Runner<A> {
         rebuild
     }
 
-    /// 窗口进出前台：光标跟着显示、熄灭。
+    /// 窗口进出前台：光标跟着显示、熄灭，应用也知道一声（见 [`App::set_active`]）。
     pub fn set_active(&mut self, active: bool) {
+        self.app.set_active(active);
         self.active = active;
         self.blink_from = Instant::now();
         self.stale = true;

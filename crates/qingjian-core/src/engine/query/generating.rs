@@ -1,11 +1,18 @@
-//! 词图读不通整段输入时的兜底候选：让模型直接按按键生成整句。
+//! 让模型直接按按键生成的整句候选：接了生成器（含章·通变）时整句以它为主，否则只在词图读不通整段时兜底。
 
-use super::*;
+use crate::engine::{GENERATED_LEAD_MIN_SYLLABLES, MIN_GENERATED_LETTERS};
+use crate::{Candidate, CandidateKind, Engine, Segmentation, sentence};
 
 impl Engine {
     /// 模型直接按整段按键生成的整句候选，最好的在前；不该生成或生成不出来时是空的。
+    /// 第二项为真时这些候选排在词图的整句前面，否则跟在词图第一条整句后面。
     ///
-    /// 只在**词图读不通整段**时才走，三种读不通：
+    /// 接了生成器（[`Self::generates_sentences`]）时拼音干净的输入也生成，够 [`GENERATED_LEAD_MIN_SYLLABLES`] 个音节的
+    /// 排在词图前面（`sentences` 是词图给出的整句，整段就是一个词、词图不出整句时不抢那个词的位置），更短的排第二；拼音没打完（只有末尾一个残缺音节）或敲错纠正过时
+    /// 词图排第一、生成的跟在后面：生成器是按敲的拼音出字的，没打完、敲错的拼音它读不准（`mingtia` / `nihooma`），
+    /// 词图在那儿有补全和纠错兜着。
+    ///
+    /// 没接生成器时只在**词图读不通整段**时才走，三种读不通：
     ///
     /// - 最优切分里有读不完整的音节（`yongdockerbushuhenfangbian` → `yong d… o c… ke r… bu shu…`）；
     /// - 切分压根没覆盖到末尾（`woyongvscodexiedaima` 切到 `wo yong` 就停了，`v` 起不了音节）；
@@ -26,19 +33,28 @@ impl Engine {
         best: &Segmentation,
         keys: &str,
         corrected: bool,
-    ) -> Vec<Candidate> {
+        sentences: &[Candidate],
+    ) -> (Vec<Candidate>, bool) {
         if keys.len() < MIN_GENERATED_LETTERS
             || self.shuangpin.is_some()
             || self.zhuyin
             || !keys.bytes().all(|b| b.is_ascii_lowercase())
         {
-            return Vec::new();
+            return (Vec::new(), false);
         }
         // 上面已经保证整段都是小写字母，没有 `'`，`letters()` 与字节长度可比
         let covers_all = best.letters() == keys.len();
-        if best.incomplete_count() == 0 && covers_all && !corrected {
-            return Vec::new();
+        let clean = best.incomplete_count() == 0 && covers_all && !corrected;
+        let generator = self.generates_sentences();
+        if clean && !generator {
+            return (Vec::new(), false);
         }
+        let unfinished = best.incomplete_count() == 1 && best.last_is_partial() && covers_all;
+        let lead = if clean {
+            !sentences.is_empty() && best.syllables.len() >= GENERATED_LEAD_MIN_SYLLABLES
+        } else {
+            !generator || !(unfinished || corrected)
+        };
         let mut out: Vec<Candidate> = Vec::new();
         for text in self.generated_sentences(keys) {
             // 一个汉字都没有的（整段被当成英文原样抄回来）不算候选：那条路英文词表那边本来就有
@@ -54,6 +70,6 @@ impl Engine {
                 aux_code: None,
             });
         }
-        out
+        (out, lead)
     }
 }

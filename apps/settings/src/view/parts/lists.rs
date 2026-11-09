@@ -4,32 +4,65 @@ use bamboo_slip::taffy::{
     AlignItems, Dimension, FlexDirection, FlexWrap, JustifyContent, LengthPercentage,
     LengthPercentageAuto, NodeId, Rect, Size, Style,
 };
-use bamboo_slip::{Button, Checkbox, RenderError, SettingRow, Ui, Visual};
+use bamboo_slip::{Button, Checkbox, RenderError, SettingRow, Ui, Visual, info_with_link};
+use qingjian_dictionary::GENERAL_DICTIONARY;
 
+use crate::i18n::{tr, tr_args};
 use crate::library::{Entry, Kind};
 use crate::message::Message;
+use crate::stats::compact;
 use crate::view::Page;
 use crate::view::parts::actions::with_notice;
 
 /// 随包领域词库名字的统一前缀。
 const DOMAIN_PREFIX: &str = "青简领域词库：";
 
-/// 一本用户导入的（或随包的码表）：勾选是开关，后面是条数与许可证，`removable` 的带「移除」。
+/// 一本用户导入的词库或一套码表：`toggle` 给了就是勾选开关（是否开着、点了发什么），没给只写名字（码表在下拉框里选）；
+/// 后面是条数与许可证，`removable` 的带「移除」。给了 `info` 的名字后面跟 ⓘ（链到文档），这一行也能搜到。
 pub fn entry_row(
     ui: &mut Ui<Message>,
     page: &Page,
     kind: Kind,
     entry: &Entry,
-    on: bool,
-    toggle: Message,
+    toggle: Option<(bool, Message)>,
     removable: bool,
+    info: Option<&str>,
 ) -> Result<NodeId, RenderError> {
     let theme = &page.theme;
-    let checkbox = Checkbox::new(on && !entry.broken, &entry.name)
-        .disabled(entry.broken)
-        .build(ui, theme, ("entry", kind, entry.stem.as_str()), toggle)?;
+    let checkbox = match toggle {
+        Some((on, toggle)) => Checkbox::new(on && !entry.broken, &entry.name)
+            .disabled(entry.broken)
+            .build(ui, theme, ("entry", kind, entry.stem.as_str()), toggle)?,
+        None => ui.scene().node(
+            Style::default(),
+            Visual::Text {
+                text: entry.name.clone(),
+                style: theme.text(theme.font.size, 400, theme.colors.text),
+            },
+            &[],
+        )?,
+    };
+    let checkbox = match info {
+        Some(text) => {
+            let key = ui.key(("row", entry.name.as_str()));
+            ui.searchable(key, (&entry.name, Some(text)), &[], &[]);
+            let link = ui.info_link(&entry.name);
+            let mark = info_with_link(ui, theme, ("info", entry.name.as_str()), text, link)?;
+            ui.scene().node(
+                Style {
+                    flex_direction: FlexDirection::Row,
+                    align_items: AlignItems::CENTER,
+                    gap: page.gap(6.0),
+                    ..Style::default()
+                },
+                Visual::Group,
+                &[checkbox, mark],
+            )?
+        }
+        None => checkbox,
+    };
     let detail = if entry.broken {
-        "文件坏了，打不开".to_owned()
+        tr("lists.broken").to_owned()
     } else if entry.license.is_empty() {
         count(entry.entries)
     } else {
@@ -38,7 +71,7 @@ pub fn entry_row(
     let detail = text(ui, page, &detail)?;
     let mut trailing = vec![detail];
     if removable {
-        trailing.push(Button::new("移除").build(
+        trailing.push(Button::new(tr("lists.remove")).build(
             ui,
             theme,
             ("remove", kind, entry.stem.as_str()),
@@ -48,7 +81,7 @@ pub fn entry_row(
     let trailing = ui.scene().node(
         Style {
             flex_direction: FlexDirection::Row,
-            align_items: Some(AlignItems::CENTER),
+            align_items: AlignItems::CENTER,
             gap: page.gap(12.0),
             ..Style::default()
         },
@@ -59,8 +92,8 @@ pub fn entry_row(
     ui.scene().node(
         Style {
             flex_direction: FlexDirection::Row,
-            align_items: Some(AlignItems::CENTER),
-            justify_content: Some(JustifyContent::SPACE_BETWEEN),
+            align_items: AlignItems::CENTER,
+            justify_content: JustifyContent::SPACE_BETWEEN,
             gap: page.gap(16.0),
             min_size: Size {
                 width: LengthPercentageAuto::auto(),
@@ -79,26 +112,35 @@ pub fn entry_row(
     )
 }
 
-/// 随包领域词库：两列勾选，名字后面跟条数。
+/// 随包词库（通用词库与领域词库）：两列勾选，名字后面跟条数。
 pub fn domain_grid(ui: &mut Ui<Message>, page: &Page) -> Result<NodeId, RenderError> {
     let config = &page.settings.config.dictionaries;
     let mut cells = Vec::new();
     for entry in &page.settings.library.domains {
-        let on = config.is_domain_enabled(&entry.stem);
-        let domains: Vec<String> = if on {
-            config
-                .domains
-                .iter()
-                .filter(|stem| **stem != entry.stem)
-                .cloned()
-                .collect()
+        // 通用词库缺省开着，关掉是记进 disabled；领域词库缺省关着，打开是记进 domains
+        let (on, message) = if entry.stem == GENERAL_DICTIONARY {
+            (
+                config.is_enabled(&entry.stem),
+                toggle_disabled(Kind::Dictionary, &config.disabled, &entry.stem),
+            )
         } else {
-            config
-                .domains
-                .iter()
-                .cloned()
-                .chain(std::iter::once(entry.stem.clone()))
-                .collect()
+            let on = config.is_domain_enabled(&entry.stem);
+            let domains: Vec<String> = if on {
+                config
+                    .domains
+                    .iter()
+                    .filter(|stem| **stem != entry.stem)
+                    .cloned()
+                    .collect()
+            } else {
+                config
+                    .domains
+                    .iter()
+                    .cloned()
+                    .chain(std::iter::once(entry.stem.clone()))
+                    .collect()
+            };
+            (on, Message::SetList("dictionaries", "domains", domains))
         };
         // 随包词库的名字都带着这个前缀，页上已经分了组，去掉
         let name = entry
@@ -107,17 +149,12 @@ pub fn domain_grid(ui: &mut Ui<Message>, page: &Page) -> Result<NodeId, RenderEr
             .unwrap_or(&entry.name);
         let checkbox = Checkbox::new(on && !entry.broken, name)
             .disabled(entry.broken)
-            .build(
-                ui,
-                &page.theme,
-                ("domain", entry.stem.as_str()),
-                Message::SetList("dictionaries", "domains", domains),
-            )?;
+            .build(ui, &page.theme, ("domain", entry.stem.as_str()), message)?;
         let detail = text(ui, page, &count(entry.entries))?;
         cells.push(ui.scene().node(
             Style {
                 flex_direction: FlexDirection::Row,
-                align_items: Some(AlignItems::CENTER),
+                align_items: AlignItems::CENTER,
                 gap: page.gap(8.0),
                 size: Size {
                     width: Dimension::percent(0.5),
@@ -161,9 +198,9 @@ pub fn import_row(
 ) -> Result<NodeId, RenderError> {
     let running = page.settings.import.running() == Some(kind);
     let button = Button::new(if running {
-        "导入中…"
+        tr("lists.importing")
     } else {
-        "选择文件…"
+        tr("lists.choose_files")
     })
     .disabled(page.settings.import.running().is_some())
     .build(ui, &page.theme, ("import", kind), Message::Import(kind))?;
@@ -208,11 +245,9 @@ fn text(ui: &mut Ui<Message>, page: &Page, text: &str) -> Result<NodeId, RenderE
 
 /// 条数：上万的写成「3.2 万条」。
 fn count(entries: usize) -> String {
-    if entries >= 10_000 {
-        let tens = (entries as f64 / 1000.0).round() / 10.0;
-        format!("{tens} 万条")
-    } else {
-        format!("{entries} 条")
+    match compact(entries as u64) {
+        Some((number, unit)) => tr_args("lists.entries_large", &[("n", &number), ("unit", &unit)]),
+        None => tr_args("lists.entries", &[("n", &entries)]),
     }
 }
 
@@ -222,6 +257,7 @@ mod tests {
 
     #[test]
     fn counts_read_naturally() {
+        bamboo_slip_i18n::pin_locale("zh-Hans");
         assert_eq!(count(865), "865 条");
         assert_eq!(count(32_456), "3.2 万条");
         assert_eq!(count(87_000), "8.7 万条");

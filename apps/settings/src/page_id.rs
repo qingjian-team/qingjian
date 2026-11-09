@@ -1,5 +1,7 @@
 //! 侧栏的各页，顺序与名字见 docs/design/settings.md。
 
+use crate::i18n::tr;
+use crate::support::Feature;
 use crate::view::icons::Glyph;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -15,11 +17,12 @@ pub enum PageId {
     Stats,
     Vocabulary,
     Advanced,
+    Experimental,
     About,
 }
 
 impl PageId {
-    pub const ALL: [Self; 12] = [
+    pub const ALL: [Self; 13] = [
         Self::Input,
         Self::Candidates,
         Self::Language,
@@ -31,23 +34,32 @@ impl PageId {
         Self::Stats,
         Self::Vocabulary,
         Self::Advanced,
+        Self::Experimental,
         Self::About,
     ];
 
+    /// 这个平台的侧栏有这一页（实验功能只在做了的平台出现）。
+    pub fn shown(self) -> bool {
+        self != Self::Experimental
+            || Feature::ExperimentalModels.here()
+            || Feature::Clipboard.here()
+    }
+
     pub fn label(self) -> &'static str {
         match self {
-            Self::Input => "输入",
-            Self::Candidates => "候选",
-            Self::Language => "中英文",
-            Self::Appearance => "外观",
-            Self::Shortcuts => "快捷键",
-            Self::Phrases => "自定义短语",
-            Self::Dictionaries => "词库",
-            Self::Cloud => "云服务",
-            Self::Stats => "统计",
-            Self::Vocabulary => "生词本",
-            Self::Advanced => "高级",
-            Self::About => "关于",
+            Self::Input => tr("page.input"),
+            Self::Candidates => tr("page.candidates"),
+            Self::Language => tr("page.language"),
+            Self::Appearance => tr("page.appearance"),
+            Self::Shortcuts => tr("page.shortcuts"),
+            Self::Phrases => tr("page.phrases"),
+            Self::Dictionaries => tr("page.dictionaries"),
+            Self::Cloud => tr("page.cloud"),
+            Self::Stats => tr("page.stats"),
+            Self::Vocabulary => tr("page.vocabulary"),
+            Self::Advanced => tr("page.advanced"),
+            Self::Experimental => tr("page.experimental"),
+            Self::About => tr("page.about"),
         }
     }
 
@@ -64,6 +76,7 @@ impl PageId {
             Self::Stats => Glyph::Stats,
             Self::Vocabulary => Glyph::Vocabulary,
             Self::Advanced => Glyph::Advanced,
+            Self::Experimental => Glyph::Experimental,
             Self::About => Glyph::About,
         }
     }

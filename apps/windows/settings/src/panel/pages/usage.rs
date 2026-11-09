@@ -215,7 +215,7 @@ fn vocabulary_line(summary: &VocabularySummary) -> String {
         return "还没见过译词：打中文时候选右侧的译词就是词汇的来源。".to_owned();
     }
     format!(
-        "见过 {} 个词，看熟 {} 个；上屏过 {} 个，直接打出过 {} 个；本周新见 {} 个。",
+        "见过 {} 个词，看熟 {} 个；上屏过 {} 个，直接打出过 {} 个；近 7 天新见 {} 个。",
         group_digits(summary.seen),
         group_digits(summary.familiar),
         group_digits(summary.committed),

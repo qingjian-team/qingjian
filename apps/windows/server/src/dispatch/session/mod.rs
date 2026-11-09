@@ -53,8 +53,15 @@ impl Router {
 
     /// 焦点离开：把缓冲区原样交出并清组句。组句不属于 `session` 时只清不交，别把 A 应用的拼音落进 B。
     pub(super) fn commit_raw_for(&mut self, session: SessionId) -> Option<String> {
-        let text = (self.focused == Some(session) && !self.engine.composition().is_empty())
-            .then(|| self.engine.take_raw());
+        let text = if self.focused != Some(session) {
+            None
+        } else if !self.vietnamese.is_empty() {
+            Some(self.vietnamese.commit())
+        } else if !self.engine.composition().is_empty() {
+            Some(self.engine.take_raw())
+        } else {
+            None
+        };
         self.reset_composition();
         text
     }
@@ -63,6 +70,7 @@ impl Router {
     pub(super) fn reset_composition(&mut self) {
         self.engine.break_chain();
         self.engine.clear();
+        self.vietnamese.clear();
         self.cancel_prediction();
         self.stop_rescoring();
         self.composed = None;

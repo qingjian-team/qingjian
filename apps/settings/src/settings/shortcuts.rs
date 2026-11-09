@@ -1,6 +1,6 @@
 //! 快捷键页的「恢复默认」。
 
-use qingjian_platform::{PAGE_KEY_OPTIONS, ShortcutConfig};
+use qingjian_platform::{KeyCombo, PAGE_KEY_OPTIONS, ShortcutConfig};
 
 use super::Settings;
 use crate::support::Feature;
@@ -18,15 +18,13 @@ impl Settings {
         self.write("shortcut", "question", defaults.mode.question.to_string());
         self.write("shortcut", "question_mark", defaults.mode.question_mark);
         self.write("shortcut", "translation", defaults.translation.key());
+        if Feature::EnterTranslation.here() {
+            self.write("shortcut", "enter_translation", defaults.enter_translation);
+        }
         self.write(
             "shortcut",
             "translation_second",
             defaults.translation_second.key(),
-        );
-        self.write(
-            "shortcut",
-            "delete_candidate",
-            defaults.delete_candidate.key(),
         );
         self.write(
             "shortcut",
@@ -36,14 +34,46 @@ impl Settings {
         if Feature::CloudRequestControls.here() {
             self.write("shortcut", "predict", defaults.predict.key_string());
         }
+        if Feature::TranslatePanel.here() {
+            self.write(
+                "shortcut",
+                "translate_panel",
+                defaults.translate_panel.key_string(),
+            );
+        }
         if Feature::HighlightKeys.here() {
             self.write("shortcut", "highlight_keys", defaults.highlight_keys.key());
+        }
+        if Feature::ExtraCandidateNavigation.here() {
+            self.write(
+                "shortcut",
+                "extra_candidate_navigation",
+                defaults.extra_candidate_navigation,
+            );
         }
         if Feature::ExtraPageKeys.here() {
             self.write_list("shortcut", "extra_page_keys", &[]);
         }
         if Feature::TogglePunctuation.here() {
             self.write("shortcut", "toggle_punctuation", "");
+        }
+        if Feature::ToggleTraditional.here() {
+            self.write("shortcut", "toggle_traditional", "");
+        }
+        if Feature::SingleChars.here() {
+            self.write(
+                "shortcut",
+                "single_chars",
+                KeyCombo::SINGLE_CHARS_DEFAULT.key_string(),
+            );
+        }
+        if Feature::CommitKeys.here() {
+            self.write(
+                "shortcut",
+                "commit_candidate",
+                defaults.commit_candidate.key_string(),
+            );
+            self.write("shortcut", "commit_raw", defaults.commit_raw.key_string());
         }
         self.recording = None;
     }

@@ -9,6 +9,7 @@ mod segmentation;
 mod syllable;
 mod trie;
 
+use std::borrow::Cow;
 use std::cmp::Reverse;
 
 pub use error::ParseError;
@@ -25,6 +26,30 @@ pub fn is_syllable(s: &str) -> bool {
 /// `s` 是否为某个合法音节的**真**前缀（不包含它自己就是完整音节的情况）。
 pub fn is_syllable_prefix(s: &str) -> bool {
     SYLLABLE_TRIE.is_proper_prefix(s)
+}
+
+/// 一个音节按《汉语拼音方案》显示的写法：ü 敲成 `v`（或 `lue` / `nue` 的 `u`），l、n 后写 `ü`（`lve` → `lüe`、`nv` → `nü`），
+/// j、q、x、y 后省去两点写 `u`（`qv` → `qu`、`jvan` → `juan`、`yvn` → `yun`）。
+/// 只给拼音行用，输入日志、云端请求与学习仍用敲法。换的是一个字符，按字符数算的光标位置不受影响。
+pub fn umlaut_spelling(syllable: &str) -> Cow<'_, str> {
+    let lower: Vec<u8> = syllable
+        .bytes()
+        .take(3)
+        .map(|b| b.to_ascii_lowercase())
+        .collect();
+    let umlaut = match lower[..] {
+        [b'l' | b'n', b'v', ..] | [b'l' | b'n', b'u', b'e'] => true,
+        [b'j' | b'q' | b'x' | b'y', b'v', ..] => false,
+        _ => return Cow::Borrowed(syllable),
+    };
+    // Shift 敲的大写（`LVe`）保留大小写
+    let vowel = match (umlaut, syllable.as_bytes()[1].is_ascii_uppercase()) {
+        (true, true) => "Ü",
+        (true, false) => "ü",
+        (false, true) => "U",
+        (false, false) => "u",
+    };
+    Cow::Owned(format!("{}{vowel}{}", &syllable[..1], &syllable[2..]))
 }
 
 /// `text` 能否切成每个音节都完整的拼音。只回答是否，不产生切分、不分配音节：
@@ -50,7 +75,7 @@ pub fn is_fully_segmentable(text: &str) -> bool {
 /// 切分上限。简拼让歧义切分数量指数增长，每个位置只保留这么多种最优切分。
 const MAX_SEGMENTATIONS: usize = 8;
 
-/// 切分。返回按「音节少、不完整音节少、前面的音节长」排序的切分，最多 [`MAX_SEGMENTATIONS`] 种。
+/// 切分。返回按「音节少、不完整音节少、前面的音节长」排序的切分，最多 `MAX_SEGMENTATIONS` 种。
 pub fn segment(input: &str) -> Result<Vec<Segmentation>, ParseError> {
     let input = input.trim();
     if input.is_empty() {
@@ -270,6 +295,34 @@ mod tests {
         }
         for text in ["", "nih", "kaif", "zhzh", "v", "nihoa"] {
             assert!(!is_fully_segmentable(text), "{text}");
+        }
+    }
+
+    #[test]
+    fn umlaut_spelling_follows_pinyin_orthography() {
+        for (typed, shown) in [
+            ("lv", "lü"),
+            ("lve", "lüe"),
+            ("lue", "lüe"),
+            ("nv", "nü"),
+            ("nue", "nüe"),
+            ("LVe", "LÜe"),
+            ("Lue", "Lüe"),
+            ("lu", "lu"),
+            ("luo", "luo"),
+            ("nu", "nu"),
+            ("jve", "jue"),
+            ("qv", "qu"),
+            ("jvan", "juan"),
+            ("yvn", "yun"),
+            ("QVe", "QUe"),
+            ("que", "que"),
+            ("xv", "xu"),
+            ("ju", "ju"),
+            ("l", "l"),
+            ("v", "v"),
+        ] {
+            assert_eq!(umlaut_spelling(typed), shown, "{typed}");
         }
     }
 

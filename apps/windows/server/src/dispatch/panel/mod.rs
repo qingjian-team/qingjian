@@ -6,8 +6,9 @@ mod frame;
 mod grid;
 mod mouse;
 
-use qingjian_core::SymbolPanel;
+use qingjian_core::{PanelGroup, SymbolPanel};
 use qingjian_platform::protocol::SessionId;
+use qingjian_render::PanelTranslate;
 
 pub use self::frame::{PanelCell, PanelFrame};
 pub(super) use self::grid::PanelGrid;
@@ -46,12 +47,23 @@ impl Router {
         true
     }
 
-    /// 格子换成当前分类的条目，高亮回到第一格。
+    /// 快捷键：没在组句时打开面板停在翻译组。翻译不可用时不开，返回 `false`。
+    pub(in crate::dispatch) fn open_translate_panel(&mut self) -> bool {
+        if !self.engine.open_translate_panel() {
+            tracing::info!("translate panel unavailable: cloud translation is off");
+            return false;
+        }
+        self.load_panel();
+        true
+    }
+
+    /// 格子换成当前分类的条目，高亮回到第一格。翻译组没有格子（空着占位），框里的候选是组句的。
     fn load_panel(&mut self) {
         self.panel = self
             .engine
             .symbol_panel()
             .map(|panel| PanelGrid::new(panel.section().items.clone(), panel.section().columns()));
+        self.highlight = 0;
     }
 
     pub(super) fn panel_open(&self) -> bool {
@@ -79,7 +91,7 @@ impl Router {
         Some(self.engine.commit(&candidate))
     }
 
-    /// 鼠标：单击格子挪高亮、双击上屏，点胶囊换组，点标签换分类，滚轮滚视口，点 ✕ 收起。
+    /// 鼠标：单击格子挪高亮、双击上屏，点胶囊换组，点标签换分类，滚轮滚视口，点 ✕ 收起；翻译框里点放光标、拖动选字。
     pub fn handle_panel_mouse(&mut self, hit: PanelMouse) {
         if !self.panel_open() {
             return;
@@ -99,6 +111,17 @@ impl Router {
             PanelMouse::Group(group) => self.switch_panel(|panel| panel.select_group(group)),
             PanelMouse::Section(section) => {
                 self.switch_panel(|panel| panel.select_section(section))
+            }
+            PanelMouse::Caret { position, extend } => {
+                self.engine.place_panel_cursor(position, extend)
+            }
+            PanelMouse::Candidate(offset) => {
+                let first = self.highlight / self.config.page_size * self.config.page_size;
+                if !self.pick_into_box(first + offset) {
+                    return;
+                }
+                self.recompose();
+                true
             }
             PanelMouse::Close => {
                 self.close_panel();
@@ -135,6 +158,7 @@ impl Router {
         let grid = self.panel.as_ref()?;
         let groups = panel.groups();
         let (sections, section) = panel.group_sections();
+        let translate = (panel.group() == PanelGroup::Translate).then(|| self.box_frame(panel));
         Some(PanelFrame {
             groups: groups.iter().map(|g| g.label().to_owned()).collect(),
             group: groups.iter().position(|g| *g == panel.group()).unwrap_or(0),
@@ -145,7 +169,27 @@ impl Router {
             highlight: grid.highlight_in_view(),
             footer: grid.footer(),
             appearance: self.config.appearance,
+            translate,
         })
+    }
+
+    /// 翻译框：原文、还在打的拼音与高亮所在那一页候选。
+    fn box_frame(&self, panel: &SymbolPanel) -> PanelTranslate {
+        let size = self.config.page_size.max(1);
+        let first = self.highlight / size * size;
+        PanelTranslate {
+            source: panel.translate_source().to_owned(),
+            cursor: panel.translate_cursor(),
+            selection: panel.translate_selection(),
+            placeholder: panel.translate_placeholder().to_owned(),
+            composing: self.engine.composition().text().to_owned(),
+            candidates: (first..first + size)
+                .map_while(|index| self.layout_candidate(index))
+                .map(|candidate| candidate.text)
+                .collect(),
+            highlight: self.highlight - first,
+            status: panel.translate_line(),
+        }
     }
 
     /// 面板开着时画面板（不画候选窗）；没变就不重画。没有光标矩形（从菜单打开）时由 UI 摆在鼠标旁。

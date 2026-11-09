@@ -1,0 +1,102 @@
+[meta]
+name = "日本語"
+
+[candidate_menu]
+edit_translation = "訳語を編集…"
+regenerate_translation = "モデルで訳語を再生成"
+pin = "先頭に固定"
+unpin = "固定を解除"
+demote = "順位を下げる"
+undemote = "順位下げを取り消す"
+delete = "削除"
+promote = "優先度を上げる"
+needs_window = "この操作は入力メソッドのウィンドウで行う必要があります"
+cant_pin = "「{text}」はここでは固定できません"
+unchanged = "「{text}」に変更する内容はありません"
+no_config = "設定ファイルがないため、固定を保存できません"
+not_saved = "保存できませんでした：{error}"
+pinned = "「{text}」を固定しました。{code} を入力すると先頭に出ます"
+unpinned = "「{text}」の固定を解除しました"
+demoted = "「{text}」の順位を 1 つ下げました"
+undemoted = "「{text}」の順位下げを取り消しました"
+
+[appearance]
+system = "システムに合わせる"
+light = "ライト"
+dark = "ダーク"
+
+[renderer]
+qingjian = "青簡レンダラー"
+system = "システム描画"
+
+[key_hint]
+off = "オフ"
+auto = "迷ったとき表示"
+always = "常に表示"
+
+[layout]
+vertical = "縦並び"
+horizontal = "横並び"
+
+[log_level]
+info = "簡易（info）"
+debug = "詳細（debug）"
+
+[model]
+tongbian = "含章·通変"
+zhiyi = "知意"
+
+[zhiyi_tier]
+saver = "省電力"
+balanced = "バランス"
+accurate = "精度優先"
+
+[numpad_digit]
+select = "候補を選ぶ"
+direct = "数字をそのまま入力"
+
+[preedit]
+both = "インライン + 候補ウィンドウ"
+inline = "インラインのみ"
+window = "候補ウィンドウのみ"
+
+[shift_letter]
+passthrough = "アプリに渡す"
+compose = "入力中に含める"
+
+[channel]
+stable = "正式版"
+beta = "ベータ版"
+
+[scheme]
+pinyin = "全拼"
+custom = "カスタム双拼"
+zhuyin = "大千注音"
+off = "オフ（形コードのみ）"
+
+[switch_key]
+shift = "Shift を単独で押す"
+control = "Ctrl を単独で押す"
+none = "なし"
+separator = "、"
+
+[emoji_count]
+off = "表示しない"
+at_most = "最大 {n} 個"
+
+[commit_key]
+space = "スペース"
+enter = "Enter"
+
+[phrase_file]
+empty = "ファイルにユーザー定義フレーズがありません"
+is_config = "これは設定ファイルで、フレーズファイルではありません。設定は「詳細」ページで読み込み、フレーズは先に別のパソコンで書き出してください"
+no_tab = "文字と入力コードはタブで区切ってください"
+skipped_entry = "{entry} 件目：{reason}"
+skipped_line = "{line} 行目「{text}」：{reason}"
+unreadable = "このファイルを読み込めません。青簡が書き出したフレーズファイルでも、「文字<Tab>入力コード」を 1 行 1 件で書いたテキストでもありません"
+
+[settings_file]
+invalid = "このファイルの設定に誤りがあります：{error}"
+merge_failed = "統合後の設定を読み込めません：{error}"
+unreadable = "このファイルを読み込めません：{error}"

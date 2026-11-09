@@ -9,9 +9,6 @@ pub struct Table {
 
     /// 零声母音节 → 两键写法（可以有多种，第一种是主写法）。
     pub zero_initials: &'static [(&'static str, &'static [&'static str])],
-
-    /// 是否用到 `;` 键（微软 / 搜狗的 ing）。
-    pub semicolon: bool,
 }
 
 /// 三个占键的翘舌声母：小鹤、自然码、微软、搜狗一致。
@@ -77,7 +74,6 @@ pub const XIAOHE: Table = Table {
         ("o", &["oo"]),
         ("ou", &["ou", "oz"]),
     ],
-    semicolon: false,
 };
 
 /// 自然码。
@@ -125,7 +121,6 @@ pub const ZIRANMA: Table = Table {
         ("o", &["oo"]),
         ("ou", &["ou", "ob"]),
     ],
-    semicolon: false,
 };
 
 /// 微软 / 搜狗共用的零声母写法：`o` 加韵母键，`a` / `e` 开头的也接受双写元音的写法。
@@ -177,7 +172,6 @@ pub const MICROSOFT: Table = Table {
         ('m', &["ian"]),
     ],
     zero_initials: O_PREFIX_ZERO_INITIALS,
-    semicolon: true,
 };
 
 /// 搜狗双拼：与微软只差 `v` 键不兼作 üe。
@@ -213,7 +207,6 @@ pub const SOGOU: Table = Table {
         ('m', &["ian"]),
     ],
     zero_initials: O_PREFIX_ZERO_INITIALS,
-    semicolon: true,
 };
 
 /// 智能 ABC 的零声母写法：`o` 加韵母键。不像微软 / 搜狗还认双写元音——`aa` / `ee` 在 ABC 里是 zha / che。
@@ -264,7 +257,6 @@ pub const ABC: Table = Table {
         ('m', &["ui", "ve", "ue"]),
     ],
     zero_initials: ABC_ZERO_INITIALS,
-    semicolon: false,
 };
 
 /// 小浪双拼。
@@ -311,7 +303,6 @@ pub const XIAOLANG: Table = Table {
         ("o", &["oo"]),
         ("ou", &["ou"]),
     ],
-    semicolon: false,
 };
 
 /// 首道双拼的零声母写法：a / o 开头的双写首字母或照全拼敲（ang 是 `ay`），`e` 键让给了 sh，
@@ -364,7 +355,6 @@ pub const SHOUDAO: Table = Table {
         ('m', &["ei"]),
     ],
     zero_initials: SHOUDAO_ZERO_INITIALS,
-    semicolon: false,
 };
 
 /// 拼音加加的零声母写法：主写法双写首字母（`aa` `as` `af`，en 是 `er`、er 是 `eq`），
@@ -417,7 +407,6 @@ pub const JIAJIA: Table = Table {
         ('m', &["ie"]),
     ],
     zero_initials: JIAJIA_ZERO_INITIALS,
-    semicolon: false,
 };
 
 /// 紫光双拼的零声母写法：`o` 加韵母键。老码表的零声母节只定义了这十二个（a / ai / an / ang / ao / e / ei / en / eng / er / o / ou），
@@ -472,5 +461,4 @@ pub const ZIGUANG: Table = Table {
         ('m', &["un"]),
     ],
     zero_initials: ZIGUANG_ZERO_INITIALS,
-    semicolon: true,
 };

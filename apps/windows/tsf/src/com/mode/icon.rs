@@ -1,4 +1,4 @@
-//! 任务栏中 / 英 / A 图标。SVG 预先栅格化成四档 DPI 的 8 位 alpha 蒙版（`assets/icon/windows/render-mode-icons.sh`），
+//! 任务栏中 / 英 / 越 / A 图标。SVG 预先栅格化成四档 DPI 的 8 位 alpha 蒙版（`assets/icon/windows/render-mode-icons.sh`），
 //! 这里按系统 DPI 挑一档、按任务栏深浅色填白或填黑拼成 HICON；系统取走后负责销毁。
 
 use windows::Win32::Graphics::Gdi::{
@@ -9,11 +9,12 @@ use windows::Win32::UI::HiDpi::GetDpiForSystem;
 use windows::Win32::UI::WindowsAndMessaging::{CreateIconIndirect, HICON, ICONINFO};
 use windows::core::Result;
 
-/// 三个图标。
+/// 四个图标。
 #[derive(Clone, Copy)]
 pub(super) enum Glyph {
     Chinese,
     English,
+    Vietnamese,
     CapsLock,
 }
 
@@ -33,6 +34,7 @@ macro_rules! masks {
 
 const CHINESE: [&[u8]; 4] = masks!("zh");
 const ENGLISH: [&[u8]; 4] = masks!("en");
+const VIETNAMESE: [&[u8]; 4] = masks!("vi");
 const CAPS_LOCK: [&[u8]; 4] = masks!("caps");
 
 impl Glyph {
@@ -40,6 +42,7 @@ impl Glyph {
         match self {
             Self::Chinese => &CHINESE,
             Self::English => &ENGLISH,
+            Self::Vietnamese => &VIETNAMESE,
             Self::CapsLock => &CAPS_LOCK,
         }
     }
@@ -100,8 +103,8 @@ fn pick_size() -> usize {
         .unwrap_or(SIZES.len() - 1)
 }
 
-/// 任务栏浅色（`SystemUsesLightTheme = 1`）画黑字，深色画白字；读不到按深色。
-fn taskbar_is_light() -> bool {
+/// 任务栏浅色（`SystemUsesLightTheme = 1`）画黑字，深色画白字；读不到按深色。注册输入法图标时也按它挑深浅版。
+pub(crate) fn taskbar_is_light() -> bool {
     windows_registry::CURRENT_USER
         .open(r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize")
         .and_then(|key| key.get_u32("SystemUsesLightTheme"))

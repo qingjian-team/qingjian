@@ -1,4 +1,5 @@
 mod decay;
+mod demotions;
 mod learner_impl;
 mod tables;
 
@@ -29,7 +30,13 @@ const USER_NGRAM_FILE: &str = "user-ngram.tsv";
 /// 按输入串记的选择文件名，与词频文件同目录：`输入串\t词\t次数`。
 const USER_CHOICES_FILE: &str = "user-choices.tsv";
 
-/// 个人英文词表文件名，与词频文件同目录：`词\t次数`（词按第一次敲的写法存）。
+/// 候选菜单里降权的词，与词频文件同目录：`输入串\t词\t降了几次`。
+const USER_DEMOTED_FILE: &str = "user-demoted.tsv";
+
+/// 一个词在一个输入串下最多降几次。
+const MAX_DEMOTION: u32 = 99;
+
+/// 个人英文词表文件名，与词频文件同目录：`词\t次数`（词按最近一次敲的写法存）。
 const USER_ENGLISH_FILE: &str = "user-english.tsv";
 
 /// 个人敲错表文件名，与词频文件同目录：`敲的\t要的\t次数`（音节级，接受过的纠正）。
@@ -49,9 +56,9 @@ const RAW_MARK: &str = "<raw>";
 
 /// 内存中的用户词频表。
 ///
-/// 词频、个人英文词与个人敲错表三张表带时间衰减（[`Decay`]，牛顿冷却）：记录时刷新最近使用日，
+/// 词频、个人英文词与个人敲错表三张表带时间衰减（`Decay`，牛顿冷却）：记录时刷新最近使用日，
 /// 查询时按半衰期折算有效次数。衰减只用在排序权重上，记录本身留着——真要清等冷了一年
-/// （[`COLD_DAYS`]），落盘时才连侧车一起清出。不改「一次误选翻不过静态证据」的封顶设计。
+/// （`COLD_DAYS`），落盘时才连侧车一起清出。不改「一次误选翻不过静态证据」的封顶设计。
 #[derive(Debug)]
 pub struct FrequencyLearner {
     /// 词 → 用户选择次数（带最近使用日）。
@@ -91,7 +98,7 @@ pub struct FrequencyLearner {
     /// 按输入串记的选择自上次保存后是否有变化。
     choices_dirty: bool,
 
-    /// 个人英文词：小写编码 → (第一次敲的写法, 带衰减的次数)。回车原样上屏的英文词、选过的英文候选。
+    /// 个人英文词：小写编码 → (最近一次敲的写法, 带衰减的次数)。回车原样上屏的英文词、选过的英文候选。
     english: BTreeMap<String, (String, Decay)>,
 
     /// 个人英文词组成的词表，随 `english` 重建。
@@ -105,6 +112,12 @@ pub struct FrequencyLearner {
 
     /// 个人敲错表自上次保存后是否有变化。
     typos_dirty: bool,
+
+    /// 输入串 → (词 → 用户在候选菜单里降了它几次)。
+    demoted: HashMap<String, HashMap<String, u32>>,
+
+    /// 降权表自上次保存后是否有变化。
+    demoted_dirty: bool,
 }
 
 impl Default for FrequencyLearner {
@@ -127,6 +140,8 @@ impl Default for FrequencyLearner {
             english_dirty: false,
             typos: HashMap::default(),
             typos_dirty: false,
+            demoted: HashMap::default(),
+            demoted_dirty: false,
         }
     }
 }
@@ -238,12 +253,33 @@ impl FrequencyLearner {
         if let Some(source) = read_text_lossy(Self::typos_days_path(&path).as_path())? {
             learner.load_typos_days(&source);
         }
+        let demoted_path = Self::demoted_path(&path);
+        if let Some(source) = read_text_lossy(&demoted_path)? {
+            let skipped = learner.load_demoted(&source);
+            note_skipped(&demoted_path, skipped);
+        }
         learner.path = Some(path);
         Ok(learner)
     }
 
     pub fn is_dirty(&self) -> bool {
         self.dirty
+    }
+
+    /// 词频文件 `frequency_path` 与它同目录的各张表、侧车文件：清空或导出学习数据时按这份清单。
+    pub fn files(frequency_path: &Path) -> Vec<PathBuf> {
+        vec![
+            frequency_path.to_path_buf(),
+            Self::days_path(frequency_path),
+            Self::words_path(frequency_path),
+            Self::ngram_path(frequency_path),
+            Self::choices_path(frequency_path),
+            Self::english_path(frequency_path),
+            Self::english_days_path(frequency_path),
+            Self::typos_path(frequency_path),
+            Self::typos_days_path(frequency_path),
+            Self::demoted_path(frequency_path),
+        ]
     }
 
     /// 词频的最近使用日侧车文件与词频文件同目录。
@@ -262,7 +298,7 @@ impl FrequencyLearner {
     pub fn save_to(&mut self, path: impl AsRef<Path>) -> Result<(), LearningError> {
         let now = self.today.get();
         let half_life = self.half_life_days;
-        // 衰减只影响排序权重，记录不清；真要清等冷了一年（[`COLD_DAYS`]），文件与内存一起
+        // 衰减只影响排序权重，记录不清；真要清等冷了一年（`COLD_DAYS`），文件与内存一起
         self.counts
             .retain(|_, entry| now.saturating_sub(entry.last_used) <= decay::COLD_DAYS);
         let mut rows: Vec<(&String, &Decay)> = self.counts.iter().collect();
@@ -303,6 +339,7 @@ impl FrequencyLearner {
             || self.ngram_dirty
             || self.choices_dirty
             || self.typos_dirty
+            || self.demoted_dirty
     }
 }
 

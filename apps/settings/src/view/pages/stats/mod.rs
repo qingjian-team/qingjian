@@ -1,4 +1,4 @@
-//! 「统计」页：顶上分「输入 / 云服务」两层，每层是四张数字卡（今天、本周、本月、累计）、按天的格子图、过去 24 小时的柱状图和详情；
+//! 「统计」页：顶上分「输入 / 云服务」两层，每层是四张数字卡（今天、近 7 天、本月、累计）、按天的格子图、过去 24 小时的柱状图和详情；
 //! 输入层末尾是词汇（学习语言的译词见过、看熟、上屏过，有等级表时按级列）。云服务层只在记用量的平台显示。
 
 mod charts;
@@ -6,20 +6,26 @@ mod cloud;
 mod input;
 
 use bamboo_slip::taffy::{
-    AlignItems, Dimension, FlexDirection, JustifyContent, LengthPercentage, NodeId, Rect, Size,
-    Style,
+    AlignItems, Dimension, FlexDirection, FlexWrap, JustifyContent, LengthPercentage, NodeId, Rect,
+    Size, Style,
 };
 use bamboo_slip::{BoxPaint, Fill, RenderError, Segmented, SettingRow, Ui, Visual, paragraph};
 use qingjian_core::VocabularySummary;
 use qingjian_predict::ApiUsageStats;
 
+use crate::i18n::{tr, tr_args};
 use crate::message::Message;
 use crate::stats::group_digits;
 use crate::support::Feature;
 use crate::view::Page;
 
-/// 等级表的四列。
-const LEVEL_COLUMNS: [&str; 4] = ["词表", "见过", "看熟", "上屏过"];
+/// 等级表的四列（文案键）。
+const LEVEL_COLUMNS: [&str; 4] = [
+    "stats.column_list",
+    "stats.column_seen",
+    "stats.column_familiar",
+    "stats.column_committed",
+];
 
 pub fn stats(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderError> {
     let Some(stats) = &page.settings.stats else {
@@ -28,12 +34,13 @@ pub fn stats(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderErr
     let mut out = Vec::new();
     let cloud = Feature::ApiUsage.here() && page.settings.stats_cloud;
     if Feature::ApiUsage.here() {
-        let tabs = Segmented::new(&["输入", "云服务"], usize::from(cloud)).build(
-            ui,
-            &page.theme,
-            "stats-tab",
-            |index| Message::StatsCloud(index == 1),
-        )?;
+        let tabs = Segmented::new(
+            &[tr("stats.tab_input"), tr("stats.tab_cloud")],
+            usize::from(cloud),
+        )
+        .build(ui, &page.theme, "stats-tab", |index| {
+            Message::StatsCloud(index == 1)
+        })?;
         out.push(ui.scene().node(
             Style {
                 flex_direction: FlexDirection::Row,
@@ -58,14 +65,30 @@ pub fn stats(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderErr
 
 /// 四张数字卡排成一行。
 fn cards(ui: &mut Ui<Message>, page: &Page, cards: &[NodeId]) -> Result<NodeId, RenderError> {
+    // 两张一组再换行：放得下一排四张，放不下（越南语、德语的数长）变成两排两张，不出现三张加一张
+    let mut pairs = Vec::new();
+    for pair in cards.chunks(2) {
+        pairs.push(ui.scene().node(
+            Style {
+                flex_direction: FlexDirection::Row,
+                flex_grow: 1.0,
+                flex_basis: Dimension::length(0.0),
+                gap: page.gap(10.0),
+                ..Style::default()
+            },
+            Visual::Group,
+            pair,
+        )?);
+    }
     ui.scene().node(
         Style {
             flex_direction: FlexDirection::Row,
+            flex_wrap: FlexWrap::Wrap,
             gap: page.gap(10.0),
             ..Style::default()
         },
         Visual::Group,
-        cards,
+        &pairs,
     )
 }
 
@@ -134,31 +157,42 @@ fn percent(rate: f64) -> String {
 
 /// `2026年10月15日`：格子图能跨年，最多、最快的一天也可能在去年。
 fn full_date(date: jiff::civil::Date) -> String {
-    format!("{}年{}月{}日", date.year(), date.month(), date.day())
+    tr_args(
+        "stats.date",
+        &[
+            ("year", &date.year()),
+            ("month", &date.month()),
+            ("day", &date.day()),
+        ],
+    )
 }
 
 /// 还没有记录时详情里的数。
-const NONE_YET: &str = "还没有记录";
+fn none_yet() -> String {
+    tr("stats.none_yet").to_owned()
+}
 
 /// 「请求 12 次，收到 11 次，失败 1 次」，还在等的、没报用量的另说。
 fn requests_line(api: &ApiUsageStats) -> String {
     if api.requests == 0 {
-        return "还没有发过请求：云联想、译词补充、翻译选中文字和「测试连接」都算".to_owned();
+        return tr("stats.no_requests").to_owned();
     }
-    let mut line = format!(
-        "请求 {} 次，收到 {} 次，失败 {} 次",
-        group_digits(api.requests),
-        group_digits(api.responses),
-        group_digits(api.failures)
+    let mut line = tr_args(
+        "stats.requests",
+        &[
+            ("requests", &group_digits(api.requests)),
+            ("responses", &group_digits(api.responses)),
+            ("failures", &group_digits(api.failures)),
+        ],
     );
     let unresolved = api.unresolved_requests();
     if unresolved > 0 {
-        line += &format!("，还没有结果 {} 次", group_digits(unresolved));
+        line += &tr_args("stats.unresolved", &[("n", &group_digits(unresolved))]);
     }
     if api.unreported_usage > 0 {
-        line += &format!(
-            "；{} 次服务没报用量，不在下面的数里",
-            group_digits(api.unreported_usage)
+        line += &tr_args(
+            "stats.unreported",
+            &[("n", &group_digits(api.unreported_usage))],
         );
     }
     line
@@ -166,7 +200,13 @@ fn requests_line(api: &ApiUsageStats) -> String {
 
 /// Token 表：表头一行，累计一行。缓存输入已经算在输入里。
 fn tokens(ui: &mut Ui<Message>, page: &Page, api: &ApiUsageStats) -> Result<NodeId, RenderError> {
-    let header = ["输入", "输出", "合计", "其中缓存"].map(str::to_owned);
+    let header = [
+        "stats.token_input",
+        "stats.token_output",
+        "stats.token_total",
+        "stats.token_cached",
+    ]
+    .map(|key| tr(key).to_owned());
     let values = [
         api.input_tokens,
         api.output_tokens,
@@ -176,7 +216,7 @@ fn tokens(ui: &mut Ui<Message>, page: &Page, api: &ApiUsageStats) -> Result<Node
     .map(group_digits);
     let rows = [
         level_row(ui, page, "Token", &header, true)?,
-        level_row(ui, page, "累计", &values, false)?,
+        level_row(ui, page, tr("stats.total"), &values, false)?,
     ];
     let space = LengthPercentage::length(page.px(12.0));
     ui.scene().node(
@@ -196,18 +236,20 @@ fn tokens(ui: &mut Ui<Message>, page: &Page, api: &ApiUsageStats) -> Result<Node
     )
 }
 
-/// 「见过 120 个词，看熟 80 个；上屏过 60 个，直接打出过 3 个；本周新见 12 个」
+/// 「见过 120 个词，看熟 80 个；上屏过 60 个，直接打出过 3 个；近 7 天新见 12 个」
 fn vocabulary_line(summary: &VocabularySummary) -> String {
     if summary.seen == 0 {
-        return "还没见过译词：打中文时候选右侧的译词就是词汇的来源".to_owned();
+        return tr("stats.no_vocabulary").to_owned();
     }
-    format!(
-        "见过 {} 个词，看熟 {} 个；上屏过 {} 个，直接打出过 {} 个；本周新见 {} 个",
-        group_digits(summary.seen),
-        group_digits(summary.familiar),
-        group_digits(summary.committed),
-        group_digits(summary.used),
-        group_digits(summary.new_this_week)
+    tr_args(
+        "stats.vocabulary_line",
+        &[
+            ("seen", &group_digits(summary.seen)),
+            ("familiar", &group_digits(summary.familiar)),
+            ("committed", &group_digits(summary.committed)),
+            ("used", &group_digits(summary.used)),
+            ("new", &group_digits(summary.new_this_week)),
+        ],
     )
 }
 
@@ -220,9 +262,9 @@ fn levels(
     let mut rows = Vec::new();
     let header: Vec<String> = LEVEL_COLUMNS
         .iter()
-        .map(|title| (*title).to_owned())
+        .map(|title| tr(title).to_owned())
         .collect();
-    rows.push(level_row(ui, page, "等级", &header, true)?);
+    rows.push(level_row(ui, page, tr("stats.level"), &header, true)?);
     for level in &vocabulary.levels {
         let values = [level.total, level.seen, level.familiar, level.committed].map(group_digits);
         rows.push(level_row(ui, page, &level.name, &values, false)?);
@@ -288,12 +330,12 @@ fn cell(
             flex_grow: 1.0,
             flex_basis: Dimension::length(0.0),
             flex_direction: FlexDirection::Row,
-            justify_content: Some(if number {
+            justify_content: if number {
                 JustifyContent::FLEX_END
             } else {
                 JustifyContent::FLEX_START
-            }),
-            align_items: Some(AlignItems::CENTER),
+            },
+            align_items: AlignItems::CENTER,
             size: Size {
                 width: Dimension::auto(),
                 height: Dimension::auto(),

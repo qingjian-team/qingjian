@@ -1,9 +1,8 @@
-//! 把画好的位图拷进 softbuffer 的缓冲（每像素 `0x00RRGGBB`）。
+//! 把画好的位图拷进 softbuffer 的缓冲（每像素预乘的 `0xAARRGGBB`；透明窗口靠 alpha，普通窗口系统不看它）。
 
 use tiny_skia::Pixmap;
 
 /// 位图里内容区左上角 `(left, top)` 对齐窗口左上角；窗口比位图大的部分填黑。
-/// 根节点铺不透明底色的应用预乘与否结果一样，直接取 RGB。
 pub(super) fn blit(
     pixmap: &Pixmap,
     (left, top): (u32, u32),
@@ -25,7 +24,8 @@ pub(super) fn blit(
             let source_x = x as u32 + left;
             *out = if source_x < stride {
                 let pixel = pixels[start + source_x as usize];
-                (u32::from(pixel.red()) << 16)
+                (u32::from(pixel.alpha()) << 24)
+                    | (u32::from(pixel.red()) << 16)
                     | (u32::from(pixel.green()) << 8)
                     | u32::from(pixel.blue())
             } else {

@@ -1,6 +1,7 @@
 //! 组句 preedit：把 Server 回的拼音行经 TSF 组句（[`ITfComposition`]）显示在文档光标处（对应 macOS 的内联 marked text）。
 //! 只放最朴素的一行拼音；富样式的拼音行在候选窗口里另画。所有写操作都在异步读写编辑会话里做（理由见 `edit_session`）。
 
+mod caret;
 mod shared;
 mod sink;
 
@@ -14,11 +15,11 @@ use windows::Win32::UI::TextServices::{
 };
 use windows::core::{Interface, Result};
 
-use qingjian_platform::protocol::{Frame, PreeditKind};
+use qingjian_platform::protocol::{CaretEdit, Frame, PreeditKind};
 
 pub(crate) use self::shared::Shared;
 use self::sink::CompositionSink;
-use super::edit::{InputContext, anchor_rect, caret_rect, input_context};
+use super::edit::{InputContext, caret_rect, input_context, measured_rect, mouse_screen_rect};
 use super::service::SharedClient;
 
 /// 内联要显示的拼音行（跳过被纠错划掉的原字母）；空串表示没有组句内容。
@@ -33,6 +34,7 @@ pub(crate) fn preedit_string(frame: &Frame) -> String {
 
 /// 在编辑会话回调（持写锁 `ec`）里调：先落定 `commit`，再按 `preedit` 起 / 改 / 收组句，最后把光标位置报给 Server。
 /// 新起一段组句时顺手判输入框私密不私密（变了就告诉 Server）、把光标前的文字送给 Server（本地整句模型的前文）。
+/// `caret` 是成对符号要做的光标编辑（见 [`CaretEdit`]），在上屏这一步里一起做。
 pub(crate) fn apply(
     shared: &Rc<Shared>,
     engine: &SharedClient,
@@ -40,9 +42,28 @@ pub(crate) fn apply(
     ec: u32,
     commit: Option<&str>,
     preedit: &str,
+    caret: Option<CaretEdit>,
 ) -> Result<()> {
-    if let Some(text) = commit {
-        commit_text(shared, context, ec, text)?;
+    match (commit, caret) {
+        // 最后一个字是补上过的右半边：前面的照常上屏，光标后面正是它就跳过、不是就照常插入
+        (Some(text), Some(CaretEdit::Skip(closer))) if text.ends_with(closer) => {
+            let head = &text[..text.len() - closer.len_utf8()];
+            if !head.is_empty() || shared.has_composition() {
+                commit_text(shared, context, ec, head)?;
+            }
+            if caret::next_is(context, ec, closer) {
+                caret::move_caret(context, ec, 1)?;
+            } else {
+                commit_text(shared, context, ec, closer.encode_utf8(&mut [0; 4]))?;
+            }
+        }
+        (Some(text), caret) => {
+            commit_text(shared, context, ec, text)?;
+            if let Some(CaretEdit::Back(back)) = caret {
+                caret::move_caret(context, ec, -(back as i32))?;
+            }
+        }
+        (None, _) => {}
     }
     // 一段组句里只问一次输入框状态。行内模式看组句刚起；`preedit = window` 模式应用里根本没有组句，
     // 得另用一个标记，否则每敲一键都要重读一遍光标前文、重报一次私密状态。
@@ -56,6 +77,7 @@ pub(crate) fn apply(
     } else {
         update_preedit(shared, context, ec, preedit)?;
     }
+    shared.set_preedit(preedit);
     if let Some(InputContext { private, before }) = input {
         report_privacy(engine, private);
         if let Some(before) = before {
@@ -90,18 +112,38 @@ fn report_surrounding(engine: &SharedClient, before: String) {
 }
 
 /// 组句进行中才报位置；组句已收 Server 会按空帧 / `Commit` 自行收窗口。
+/// 量不到光标（Firefox 等应用的 GetTextExt 时灵时不灵）时沿用这一段先前的锚点，一段里第一次就量不到才用鼠标位置，
+/// 也记下来：否则候选窗逐键跟着鼠标跑（#167）。
+/// 应用（全屏游戏）自己画候选时也不报：Server 没收到位置就不画候选窗。
 fn report_caret(shared: &Shared, engine: &SharedClient, context: &ITfContext, ec: u32) {
-    let rect = match shared.composition() {
+    if shared.candidate_list().app_draws() {
+        return;
+    }
+    let measured = match shared.composition() {
         Some(composition) => {
             let Ok(range) = (unsafe { composition.GetRange() }) else {
                 return;
             };
-            anchor_rect(context, ec, &range)
+            measured_rect(context, ec, &range)
         }
         // 「只在候选窗口」模式应用里不放行内拼音：没有组句范围可量，量插入点。
         None if shared.composing() => caret_rect(context, ec),
         None => return,
     };
+    let rect = match measured {
+        Some(rect) => rect,
+        None => match shared.anchor() {
+            Some(rect) => {
+                super::log::log("候选锚点 来源=沿用本段");
+                rect
+            }
+            None => {
+                super::log::log("候选锚点 来源=鼠标回退");
+                mouse_screen_rect()
+            }
+        },
+    };
+    shared.set_anchor(Some(rect));
     // 引擎正被别处借着（罕见）就跳过这拍，Server 保持上次位置。
     if let Ok(mut guard) = engine.try_borrow_mut()
         && let Some(client) = guard.as_mut()

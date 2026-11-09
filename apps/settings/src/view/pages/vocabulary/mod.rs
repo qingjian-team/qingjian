@@ -10,6 +10,7 @@ use bamboo_slip::{
     Button, RenderError, Segmented, SettingRow, Ui, Visual, group, paragraph, section_title,
 };
 
+use crate::i18n::tr;
 use crate::message::Message;
 use crate::stats::language_name;
 use crate::view::Page;
@@ -28,12 +29,7 @@ pub fn vocabulary(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Rend
                 &empty
             }
             None => {
-                let note = paragraph(
-                    ui,
-                    theme,
-                    "「候选」页的译文选了「不显示」，没有在记生词",
-                    None,
-                )?;
+                let note = paragraph(ui, theme, tr("vocabulary.off"), None)?;
                 return Ok(vec![note]);
             }
         },
@@ -92,7 +88,7 @@ fn manage(
     book: &Vocabulary,
 ) -> Result<Vec<NodeId>, RenderError> {
     let theme = &page.theme;
-    let mut out = vec![section_title(ui, theme, "导出与清空")?];
+    let mut out = vec![section_title(ui, theme, tr("vocabulary.section_export"))?];
     let mut buttons = Vec::new();
     for format in Format::ALL {
         buttons.push(Button::new(format.label()).build(
@@ -104,9 +100,9 @@ fn manage(
     }
     let buttons = row(ui, page, 8.0, &buttons)?;
     let mut clear = Button::new(if book.confirm_clear {
-        "再点一次清空"
+        tr("vocabulary.clear_confirm")
     } else {
-        "清空"
+        tr("vocabulary.clear")
     });
     if book.confirm_clear {
         clear = clear.primary();
@@ -116,18 +112,16 @@ fn manage(
         with_notice(
             ui,
             page,
-            SettingRow::new("导出列出的词")
-                .info(
-                    "按当前的筛选与搜索导出；Anki 用「导入文件」导入，正面是译词，背面是中文与例句",
-                )
+            SettingRow::new(tr("vocabulary.export"))
+                .info(tr("vocabulary.export_info"))
                 .control(buttons),
             "vocabulary-export",
         )?,
         with_notice(
             ui,
             page,
-            SettingRow::new("清空生词本")
-                .info("删掉正在看的这门语言的全部记录，候选里的生词标记从头算起")
+            SettingRow::new(tr("vocabulary.clear_book"))
+                .info(tr("vocabulary.clear_book_info"))
                 .control(clear),
             "vocabulary",
         )?,

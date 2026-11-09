@@ -3,6 +3,8 @@
 //! 输入拼音，打印候选（词性 + 译文）和各阶段耗时；输入序号上屏并记入用户词频。
 //! 不依赖任何平台 API，是 Core 的第一个「壳」。
 
+#![forbid(unsafe_code)]
+
 mod args;
 mod cold;
 mod display;
@@ -14,21 +16,30 @@ mod repl;
 mod replay;
 mod rescoring;
 mod tuning;
+mod userwords;
+mod wordlist;
+mod zhiyi;
 
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Instant;
 
 use clap::Parser;
-use qingjian_core::{EmojiTable, Engine, FuzzyRules, Language};
-use qingjian_dictionary::{AuxCodeLookup, AuxCodeTable, CodeTable, Dictionary, WordList};
+use qingjian_core::{CodeScheme, EmojiTable, Engine, FuzzyRules, Language, ShuangpinLayout};
+use qingjian_dictionary::{
+    AuxCodeLookup, AuxCodeTable, CodeTable, Dictionary, GENERAL_DICTIONARY, WordList,
+};
 use qingjian_learning::FrequencyLearner;
 use qingjian_lm::BigramModel;
-use qingjian_platform::{Config, Scheme};
+use qingjian_platform::{Config, Scheme, code_schemes, shuangpin_schemes};
 use qingjian_predict::CloudPredictor;
 use qingjian_translate::Glossary;
 
 use crate::args::Args;
 use crate::error::CliError;
+
+/// 知意用几个线程，与 Windows Server 一致。
+const ZHIYI_THREADS: usize = 2;
 
 fn main() {
     if let Err(error) = run() {
@@ -47,6 +58,8 @@ fn run() -> Result<(), CliError> {
     tracing::info!(total_ms = started.elapsed().as_millis(), "Engine 就绪");
     engine.set_english_mode(args.english_mode);
     engine.set_chinese_first(args.chinese_first);
+    engine.set_spelling_correction(!args.no_spelling_correction);
+    engine.set_show_tones(args.show_tones);
     engine.set_emoji_limit(usize::from(args.emoji_limit));
     tuning::apply(&mut engine, &args.tune)?;
     if let Some(input) = &args.eval_cold {
@@ -61,7 +74,7 @@ fn run() -> Result<(), CliError> {
     // 查码：只看码表，不查词、不进交互
     if !args.aux_query.is_empty() {
         for word in &args.aux_query {
-            let codes: Vec<&str> = engine
+            let codes: Vec<_> = engine
                 .aux_codes()
                 .iter()
                 .flat_map(|table| table.codes_of(word))
@@ -78,12 +91,42 @@ fn run() -> Result<(), CliError> {
         mine::run(&args, path)?;
         return Ok(());
     }
+    if args.check_user_words {
+        userwords::run(&args, &mut engine)?;
+        return Ok(());
+    }
+    if let Some(path) = &args.import_words {
+        wordlist::run(&args, path)?;
+        return Ok(());
+    }
     if let Some(path) = &args.replay {
         // 日志里形码那些行也要能重放：回放按每条的方案切引擎，所以它自己得留一份码表
         // （`build_engine` 那份的所有权已经交给引擎了）
-        let code_table = args.wubi.as_ref().map(CodeTable::from_path).transpose()?;
-        let report = replay::run(&mut engine, path, args.misses, code_table)?;
+        let code = args.code.as_deref().map(load_code_scheme).transpose()?;
+        let shuangpin = load_shuangpin_scheme(&args)?;
+        let mut reranker = args
+            .zhiyi
+            .as_deref()
+            .map(|dir| {
+                zhiyi::Reranker::load(
+                    dir,
+                    args.zhiyi_top,
+                    (args.zhiyi_lm_weight, args.zhiyi_rank_weight),
+                )
+            })
+            .transpose()?;
+        let report = replay::run(
+            &mut engine,
+            path,
+            args.misses,
+            code,
+            shuangpin,
+            reranker.as_mut(),
+        )?;
         print!("{report}");
+        if let Some(reranker) = &reranker {
+            println!("{}", reranker.summary());
+        }
         return Ok(());
     }
     if let Some(model) = &args.eval_generate {
@@ -97,14 +140,29 @@ fn run() -> Result<(), CliError> {
         return Ok(());
     }
     if !args.eval_text.is_empty() {
+        let mut reranker = args
+            .zhiyi
+            .as_deref()
+            .map(|dir| {
+                zhiyi::Reranker::load(
+                    dir,
+                    args.zhiyi_top,
+                    (args.zhiyi_lm_weight, args.zhiyi_rank_weight),
+                )
+            })
+            .transpose()?;
         let report = eval::run(
             &mut engine,
             &args.eval_text,
             args.eval_save.as_deref(),
             args.misses,
             args.eval_details.as_deref(),
+            reranker.as_mut(),
         )?;
         print!("{report}");
+        if let Some(reranker) = &reranker {
+            println!("{}", reranker.summary());
+        }
         return Ok(());
     }
     if args.inputs.is_empty() {
@@ -124,6 +182,31 @@ fn run() -> Result<(), CliError> {
 }
 
 /// 组装 Engine：这是 Core 之外唯一知道具体 Translator / Learner 类型的地方。
+/// `--code` 给的形码：目录按方案读（`scheme.toml` 的规则照用），文件当 86 五笔的码表、规则全关。
+fn load_code_scheme(path: &Path) -> Result<CodeScheme, CliError> {
+    if path.is_dir() {
+        let entry =
+            code_schemes::from_dir(path).ok_or_else(|| CliError::CodeScheme(path.to_owned()))?;
+        return Ok(entry.load()?);
+    }
+    Ok(CodeScheme::new("wubi", CodeTable::from_path(path)?))
+}
+
+/// `--shuangpin` 给的是目录时按用户双拼方案读；给的是方案写法（`xiaohe`）时为 `None`。
+fn load_shuangpin_scheme(args: &Args) -> Result<Option<Arc<ShuangpinLayout>>, CliError> {
+    let Some(path) = args
+        .shuangpin
+        .as_deref()
+        .map(Path::new)
+        .filter(|path| path.is_dir())
+    else {
+        return Ok(None);
+    };
+    let entry = shuangpin_schemes::from_dir(path)
+        .ok_or_else(|| CliError::ShuangpinScheme(path.to_owned()))?;
+    Ok(Some(entry.layout))
+}
+
 fn build_engine(args: &Args) -> Result<Engine, CliError> {
     let language: Language = args
         .language
@@ -173,13 +256,25 @@ fn build_engine(args: &Args) -> Result<Engine, CliError> {
     let mut engine = Engine::new(dictionary)
         .with_translator(Box::new(glossary))
         .with_learner(Box::new(learner));
-    if !args.extra_dict.is_empty() {
-        let mut extras = Vec::new();
-        for path in &args.extra_dict {
-            let dictionary = Dictionary::from_path(path)?;
-            tracing::info!(path = %path.display(), entries = dictionary.len(), "附加词库已加载");
-            extras.push(dictionary);
-        }
+    // 回放按日志逐键重喂：日志里选词之后的退格删的是字母，不是撤回选择
+    engine.set_hold_selections(false);
+    let general = args
+        .general_dict
+        .clone()
+        .unwrap_or_else(|| PathBuf::from(format!("data/generated/dicts/{GENERAL_DICTIONARY}.qj")));
+    let mut extras = Vec::new();
+    if general.as_os_str() != "none" && general.is_file() {
+        let mut dictionary = Dictionary::from_path(&general)?;
+        dictionary.set_secondary(true);
+        tracing::info!(path = %general.display(), entries = dictionary.len(), "通用词库已加载");
+        extras.push(dictionary);
+    }
+    for path in &args.extra_dict {
+        let dictionary = Dictionary::from_path(path)?;
+        tracing::info!(path = %path.display(), entries = dictionary.len(), "附加词库已加载");
+        extras.push(dictionary);
+    }
+    if !extras.is_empty() {
         engine.set_extra_dictionaries(extras);
     }
     // 英文候选的中文释义可选
@@ -192,6 +287,9 @@ fn build_engine(args: &Args) -> Result<Engine, CliError> {
     if let Some(words) = english {
         engine = engine.with_english(words);
     }
+    engine.set_english_max_in_chinese(args.english_max_in_chinese);
+    engine.set_english_min_position(args.english_min_position);
+    engine.set_english_in_chinese(!args.no_english_in_chinese);
     // emoji 表随仓库提供（Unicode License）：中文表 + 英文表合成一张，一张都没有就不出 emoji 候选
     let mut emoji: Option<EmojiTable> = None;
     let started = Instant::now();
@@ -218,6 +316,7 @@ fn build_engine(args: &Args) -> Result<Engine, CliError> {
     let packed = std::path::PathBuf::from("data/generated/lm.qj");
     let unigram = std::path::PathBuf::from("data/generated/lm-unigram.tsv");
     let bigram = std::path::PathBuf::from("data/generated/lm-bigram.tsv");
+    let mut bigram_model = None;
     if packed.is_file() || (unigram.is_file() && bigram.is_file()) {
         let started = Instant::now();
         let model = if packed.is_file() {
@@ -231,7 +330,7 @@ fn build_engine(args: &Args) -> Result<Engine, CliError> {
             load_ms = started.elapsed().as_millis(),
             "语言模型已加载"
         );
-        engine = engine.with_language_model(Box::new(model));
+        bigram_model = Some(model);
     }
     if let Some(dir) = &args.neural {
         let started = Instant::now();
@@ -264,6 +363,56 @@ fn build_engine(args: &Args) -> Result<Engine, CliError> {
                 args.neural_context,
             )
         };
+    }
+    if let (Some(dir), Some(runtime)) = (&args.zhiyi_onnx, &args.onnx_runtime) {
+        let started = Instant::now();
+        let scorer = qingjian_neural::zhiyi::ChoiceScorer::load_onnx(dir, runtime, ZHIYI_THREADS)?;
+        engine.set_choice_model(Some(Arc::new(scorer)));
+        engine.set_choice_tier(args.zhiyi_tier.choice_tier());
+        tracing::info!(
+            load_ms = started.elapsed().as_millis(),
+            tier = args.zhiyi_tier.key(),
+            "知意选词重排已启用"
+        );
+    }
+    if let Some(path) = &args.ngram {
+        let started = Instant::now();
+        let model = qingjian_lm::TrigramModel::open(path)?;
+        tracing::info!(
+            unigrams = model.unigram_count(),
+            bigrams = model.bigram_count(),
+            trigrams = model.trigram_count(),
+            mb = model.bytes() >> 20,
+            load_ms = started.elapsed().as_millis(),
+            "三元模型已加载"
+        );
+        if !args.no_ngram_words {
+            let started = Instant::now();
+            let mut references = vec![engine.dictionary()];
+            references.extend(engine.extra_dictionaries());
+            let mut words = qingjian_dictionary::supplement(model.vocabulary(), &references)?;
+            tracing::info!(
+                entries = words.len(),
+                build_ms = started.elapsed().as_millis(),
+                "三元模型词表补词已生成"
+            );
+            words.set_secondary(true);
+            engine.set_model_words(Some(words));
+        }
+        engine.set_phrase_model(Some(Arc::new(model)));
+        // 整句词图另映射一份（同一文件，页面共用）：与二元模型插值
+        let trigram = Box::new(qingjian_lm::TrigramModel::open(path)?);
+        engine = engine.with_language_model(match bigram_model.take() {
+            Some(bigram) => Box::new(qingjian_lm::MixedModel::new(
+                trigram,
+                Box::new(bigram),
+                qingjian_lm::TRIGRAM_WEIGHT,
+            )),
+            None => trigram,
+        });
+    }
+    if let Some(model) = bigram_model {
+        engine = engine.with_language_model(Box::new(model));
     }
     if let Some(path) = &args.eval_p2c {
         let scorer = qingjian_neural::CharScorer::load(path)?;
@@ -308,37 +457,56 @@ fn build_engine(args: &Args) -> Result<Engine, CliError> {
     if config.fuzzy.any() {
         tracing::info!(rules = ?config.fuzzy, "模糊音已启用");
     }
+    engine.set_blocked_words(config.dictionaries.blocked.clone());
     engine.set_traditional(config.general.traditional());
     engine.set_fuzzy(config.fuzzy);
     engine.set_mode_keys(config.shortcut.mode);
-    // `--shuangpin` 现在写的是 [general] scheme（同一个维度的旧键已经并进去），off 就是全拼
-    if let Some(scheme) = &args.shuangpin {
+    // `--shuangpin` 写的是 [general] scheme，off 就是全拼
+    let custom = load_shuangpin_scheme(args)?;
+    if let Some(scheme) = args.shuangpin.as_ref().filter(|_| custom.is_none()) {
         config.general.scheme = if scheme == "off" {
             Scheme::Pinyin.key().to_owned()
         } else {
             scheme.clone()
         };
     }
-    // 两条轴：拼音侧看 `[general] scheme`，形码侧看 `[general] wubi`；`--wubi` 给了码表就算开着形码。
-    // 两边都开就是混输，见 docs/user/input/fuzzy-and-shuangpin.md
-    let scheme = config.general.scheme();
-    let wubi = config.general.wubi() || args.wubi.is_some();
-    tracing::info!(pinyin = scheme.key(), wubi, "输入方案已启用");
-    engine.set_shuangpin(scheme.shuangpin());
+    // 两条轴：拼音侧看 `[general] scheme`，形码侧看 `[general] code`；`--code` 给了码表就算开着形码。
+    // 两边都开就是混输，见 docs/user/input/wubi.md
+    let scheme = if custom.is_some() {
+        Scheme::Custom
+    } else {
+        config.general.scheme()
+    };
+    let code = config.general.code().is_some() || args.code.is_some();
+    tracing::info!(pinyin = scheme.key(), code, "输入方案已启用");
+    match custom {
+        Some(layout) => engine.set_shuangpin_layout(Some(layout)),
+        None => engine.set_shuangpin(scheme.shuangpin()),
+    }
+    engine.set_shuangpin_full_pinyin(
+        args.shuangpin_full_pinyin || config.general.shuangpin_full_pinyin,
+    );
     engine.set_zhuyin_mode(scheme == Scheme::Zhuyin);
+    engine.set_nine_key(args.nine_key);
     // 拼音侧关掉且形码开着才是「只用形码」；两边都关着时留拼音兜底
-    engine.set_phonetic(scheme.is_on() || !wubi);
-    // 形码的码表由 `--wubi` 显式给（方案本身只说「用哪套」，码表文件在哪由壳决定）
-    if let Some(path) = &args.wubi {
-        engine.set_code_table(Some(CodeTable::from_path(path)?));
-        tracing::info!(table = %path.display(), "形码码表已载入");
+    engine.set_phonetic(scheme.is_on() || !code);
+    // 形码的码表由 `--code` 显式给（配置只说「用哪套」，码表文件在哪由壳决定）
+    if let Some(path) = &args.code {
+        engine.set_code_scheme(Some(load_code_scheme(path)?));
+        tracing::info!(table = %path.display(), "形码方案已载入");
     }
     engine.set_aux_code_key(config.general.aux_code_key(), config.general.page_keys());
     engine.set_aux_keep_empty(config.general.aux_code_keep_empty);
     if !args.aux_table.is_empty() {
         let mut tables: Vec<Arc<dyn AuxCodeLookup>> = Vec::new();
         for path in &args.aux_table {
-            let table = AuxCodeTable::from_path(path)?;
+            let table = if path.is_dir() {
+                let scheme = qingjian_platform::aux_schemes::from_dir(path)
+                    .ok_or_else(|| CliError::AuxScheme(path.to_owned()))?;
+                AuxCodeTable::from_path(&scheme.table)?.with_word_rules(scheme.words)
+            } else {
+                AuxCodeTable::from_path(path)?
+            };
             tracing::info!(
                 path = %path.display(),
                 entries = table.len(),

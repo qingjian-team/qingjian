@@ -1,0 +1,31 @@
+[meta]
+name = "Tiếng Việt"
+
+[languages]
+en = "Tiếng Anh"
+ja = "Tiếng Nhật"
+es = "Tiếng Tây Ban Nha"
+vi = "Tiếng Việt"
+de = "Tiếng Đức"
+off = "Không hiện"
+
+[traditional]
+off = "Giản thể"
+taiwan = "Phồn thể (Đài Loan)"
+hongkong = "Phồn thể (Hồng Kông)"
+standard = "Phồn thể (tự hình chuẩn)"
+taiwan_short = "Đài Loan"
+hongkong_short = "Hồng Kông"
+standard_short = "Chuẩn"
+
+[phrases]
+position = "Vị trí gợi ý phải từ 1 đến 9"
+weight = "Trọng số phải là số nguyên từ {min} đến {max}"
+code = "Mã gõ phải gồm 1–{max} chữ cái thường, không có chữ số (phím số dùng để chọn ứng viên)"
+empty = "Cụm từ tùy chỉnh không được để trống"
+duplicate = "Mã {code} đã có cụm từ này"
+
+[forget]
+user_word = "Đã xóa từ của người dùng “{text}”"
+learning = "Đã quên những gì đã học về “{text}”"
+nothing = "“{text}” là từ trong từ điển và không có dữ liệu học, không có gì để xóa"

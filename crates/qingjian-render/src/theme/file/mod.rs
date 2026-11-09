@@ -3,8 +3,11 @@
 mod adaptive;
 mod color;
 mod font;
+mod keyboard;
+mod material;
 mod meta;
 pub(crate) mod node;
+mod panel;
 mod status;
 mod text;
 mod windows;
@@ -16,7 +19,10 @@ use serde::Deserialize;
 pub(crate) use adaptive::Adaptive;
 pub(crate) use color::{ColorRef, ColorSpec, ColorValue};
 pub(crate) use font::{BundledFont, FontRef, FontStyle};
+pub(crate) use keyboard::KeyboardSpec;
+pub(crate) use material::{MaterialAppearance, MaterialSpec};
 pub(crate) use meta::{LockedAppearance, Meta};
+pub(crate) use panel::PanelSpec;
 pub(crate) use status::StatusSpec;
 pub(crate) use text::TextSettings;
 pub(crate) use windows::Windows;
@@ -49,5 +55,12 @@ pub(crate) struct ThemeFile {
 
     pub(crate) windows: Windows,
 
+    /// 窗口底下垫的系统材质；不写是不透明的窗口。
+    pub(crate) material: Option<MaterialSpec>,
+
     pub(crate) status: StatusSpec,
+
+    pub(crate) keyboard: KeyboardSpec,
+
+    pub(crate) panel: PanelSpec,
 }

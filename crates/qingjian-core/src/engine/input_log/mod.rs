@@ -6,11 +6,13 @@
 //! [`InputLogger`] 的实现定（`qingjian-learning` 写本机 jsonl）；缺省 [`NoInputLogger`] 什么都不记。
 //! 条目里只有用户敲的键与上屏的文字，不含应用里的上下文。
 
+mod choice_note;
 mod entry;
 mod logger;
 mod muted;
 mod source;
 
+pub use choice_note::ChoiceNote;
 pub use entry::{CommitEntry, INPUT_LOG_VERSION, InputLogEntry};
 pub use logger::{InputLogger, NoInputLogger};
 pub(super) use muted::MutedLogger;

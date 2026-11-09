@@ -52,7 +52,7 @@ pub(super) fn flex(style: Style, direction: Direction) -> Style {
             Direction::Row => FlexDirection::Row,
             Direction::Column => FlexDirection::Column,
         },
-        align_items: Some(AlignItems::START),
+        align_items: AlignItems::START,
         ..style
     }
 }

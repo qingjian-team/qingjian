@@ -2,10 +2,15 @@
 
 use qingjian_platform::{
     Appearance, CandidateRenderer, Config, DEFAULT_ENGLISH_CANDIDATES_ON_WINDOWS, EmojiCount,
-    HighlightKeys, LayoutMode, LogLevel, PreeditMode, ShiftLetter, UpdateChannel,
+    HighlightKeys, LayoutMode, LogLevel, NumpadDigit, PreeditMode, ShiftLetter, UpdateChannel,
 };
 use qingjian_render::ThemeLibrary;
-use windows_reactor::*;
+use windows_reactor::{
+    Component, ComponentContext, ElementRef, KeyedView, NavigationView,
+    NavigationViewBackButtonVisible, NavigationViewItem, NavigationViewItemSlot,
+    NavigationViewPaneDisplayMode, NavigationViewSlot, SlotView, SlotsControl, Symbol, SymbolIcon,
+    View, ViewContext,
+};
 
 use super::cloud_status::CloudStatus;
 use super::controls::{export_logs, log_dir, open_in_editor, open_with_explorer};
@@ -63,7 +68,15 @@ impl Component for Settings {
                 self.save("general", "scheme", general::SCHEMES[i].1);
             }
             Message::ShuangpinRawPreedit(on) => self.save("general", "shuangpin_raw_preedit", on),
-            Message::Wubi(on) => self.save("general", "wubi", if on { "wubi86" } else { "" }),
+            Message::Wubi(on) => self.save(
+                "general",
+                "code",
+                if on {
+                    qingjian_platform::code_schemes::WUBI86
+                } else {
+                    "off"
+                },
+            ),
             Message::Traditional(Some(i)) if i < general::TRADITIONAL.len() => {
                 self.save("general", "traditional_variant", general::TRADITIONAL[i].1);
             }
@@ -79,6 +92,9 @@ impl Component for Settings {
             Message::EnglishCandidates(on) => self.save("general", "english_candidates", on),
             Message::EnglishInChinese(on) => self.save("general", "english_in_chinese", on),
             Message::ChineseFirst(on) => self.save("general", "chinese_first", on),
+            Message::NumpadDigit(Some(i)) if i < NumpadDigit::ALL.len() => {
+                self.save("general", "numpad_digit", NumpadDigit::ALL[i].key());
+            }
             Message::FullWidthPunctuation(on) => {
                 self.save("general", "full_width_punctuation", on);
             }
@@ -198,9 +214,6 @@ impl Component for Settings {
                 self.save("predict", "slots", slots);
             }
             Message::CloudSentence(on) => self.save("predict", "sentence", on),
-            Message::CloudSentenceTranslation(on) => {
-                self.save("predict", "sentence_translation", on)
-            }
             Message::TestConnection => {
                 if matches!(self.cloud_status, CloudStatus::Testing) {
                     return;
@@ -249,8 +262,12 @@ impl Component for Settings {
             Message::TranslationSecond(Some(i)) if i < shortcut::MODIFIERS.len() => {
                 self.save("shortcut", "translation_second", shortcut::MODIFIERS[i].1);
             }
-            Message::DeleteCandidate(Some(i)) if i < shortcut::MODIFIERS.len() => {
-                self.save("shortcut", "delete_candidate", shortcut::MODIFIERS[i].1);
+            Message::ToggleTraditional(Some(i)) if i < shortcut::TRADITIONAL_KEYS.len() => {
+                self.save(
+                    "shortcut",
+                    "toggle_traditional",
+                    shortcut::TRADITIONAL_KEYS[i].1,
+                );
             }
             Message::TranslateSelection(Some(i)) if i < shortcut::MODIFIERS.len() => {
                 let key = self.config.shortcut.translate_selection.key;

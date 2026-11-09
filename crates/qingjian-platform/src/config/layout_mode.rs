@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use crate::i18n::tr;
+
 /// 候选窗口排布。
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -27,8 +29,8 @@ impl LayoutMode {
     /// 界面上的名字。
     pub fn label(self) -> &'static str {
         match self {
-            Self::Vertical => "竖排",
-            Self::Horizontal => "横排",
+            Self::Vertical => tr("layout.vertical"),
+            Self::Horizontal => tr("layout.horizontal"),
         }
     }
 }

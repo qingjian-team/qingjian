@@ -1,4 +1,5 @@
 //! 候选窗口的定位锚点：组句起点 / 选区在屏幕上的矩形，拿不到时退到鼠标位置。
+//! 组句期间拿不到时不再逐键追着鼠标走，由调用方沿用这一段先前的锚点（见 `composition::report_caret`）。
 //!
 //! 微信 4.x 对「非空范围」的 GetTextExt 只回终点处 1 像素残片（首键却给整行高，实测
 //! (…,1062,…,1082) 对 (…,1063,…,1064)），锚点因此逐键跳、贴下方还盖住输入行——组句
@@ -18,12 +19,19 @@ use windows::core::BOOL;
 use qingjian_platform::protocol::ScreenRect;
 
 /// `range` 的屏幕矩形，拿不到（有些应用给全零 / 空矩形）退到鼠标处；残片矩形补回整行。
-/// 每次取锚都留一行日志：候选框「上下乱跳」的排查全靠它（微信首键矩形坏掉一类的应用怪癖要有数据才能定）。
 pub(crate) fn anchor_rect(context: &ITfContext, ec: u32, range: &ITfRange) -> ScreenRect {
+    measured_rect(context, ec, range).unwrap_or_else(|| {
+        crate::com::log::log("候选锚点 来源=鼠标回退");
+        mouse_screen_rect()
+    })
+}
+
+/// `range` 的屏幕矩形，拿不到（有些应用给全零 / 空矩形）为 `None`；残片矩形补回整行。
+/// 每次量都留一行日志：候选框「上下乱跳」的排查全靠它（微信首键矩形坏掉一类的应用怪癖要有数据才能定）。
+pub(crate) fn measured_rect(context: &ITfContext, ec: u32, range: &ITfRange) -> Option<ScreenRect> {
     let (mut rect, source) = collapsed_rect(context, ec, range)
         .map(|rect| (rect, "起点"))
-        .or_else(|| range_rect(context, ec, range).map(|rect| (rect, "整段")))
-        .unwrap_or_else(|| (mouse_anchor(), "鼠标回退"));
+        .or_else(|| range_rect(context, ec, range).map(|rect| (rect, "整段")))?;
     let repaired = repair_degenerate(&mut rect);
     crate::com::log::log(&format!(
         "候选锚点 来源={source} rect=({},{},{},{}){}",
@@ -37,7 +45,7 @@ pub(crate) fn anchor_rect(context: &ITfContext, ec: u32, range: &ITfRange) -> Sc
             ""
         },
     ));
-    to_screen(rect)
+    Some(to_screen(rect))
 }
 
 /// 组句**起点**的矩形：克隆范围折叠到起点再量。组句期间起点不动，锚点逐键稳定；
@@ -49,13 +57,10 @@ fn collapsed_rect(context: &ITfContext, ec: u32, range: &ITfRange) -> Option<REC
     range_rect(context, ec, &clone)
 }
 
-/// 插入点（没有选区时是光标，有选区时是选区）的屏幕矩形。「只在候选窗口」模式应用里不放 marked text，
+/// 插入点（没有选区时是光标，有选区时是选区）的屏幕矩形，量不到为 `None`。「只在候选窗口」模式应用里不放 marked text，
 /// 没有组句范围可量，就用它给候选窗口定位。
-pub(crate) fn caret_rect(context: &ITfContext, ec: u32) -> ScreenRect {
-    match selection_range(context, ec) {
-        Some(range) => anchor_rect(context, ec, &range),
-        None => mouse_screen_rect(),
-    }
+pub(crate) fn caret_rect(context: &ITfContext, ec: u32) -> Option<ScreenRect> {
+    measured_rect(context, ec, &selection_range(context, ec)?)
 }
 
 /// 当前选区的范围；`GetSelection` 移交所有权，由调用方释放。

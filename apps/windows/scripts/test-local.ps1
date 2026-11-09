@@ -35,7 +35,7 @@ $ErrorActionPreference = 'Stop'
 
 # apps\windows\scripts -> apps\windows -> apps -> 仓库根
 $repo = Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $PSScriptRoot))
-$table = Join-Path $repo 'assets\wubi\wubi86.tsv'
+$table = Join-Path $repo 'assets\schemes\wubi86\table.tsv'
 $server = Join-Path $repo 'target\debug\qingjian-server.exe'
 $dll = Join-Path $repo 'target\debug\qingjian_tsf.dll'
 $config = Join-Path $env:APPDATA 'Qingjian\config.toml'
@@ -53,7 +53,7 @@ function Assert-Path($path, $what) {
 
 Write-Host '== 前置检查' -ForegroundColor Cyan
 Assert-Path $InstallDir '安装目录（先装一次青简，或者用 -InstallDir 指过去）'
-Assert-Path $table '五笔码表（跑 dict-convert wubi 生成，见 assets/wubi/README.md）'
+Assert-Path $table '五笔码表（跑 dict-convert wubi 生成，见 assets/schemes/wubi86/README.md）'
 if (-not $SkipBuild) {
     Write-Host '   安装目录 ✓  码表 ✓'
 }
@@ -113,8 +113,10 @@ robocopy $InstallDir $WorkDir /MIR /NFL /NDL /NJH /NJS | Out-Null
 if ($LASTEXITCODE -ge 8) { throw "robocopy 失败（exit $LASTEXITCODE）" }
 
 Copy-Item -LiteralPath $server -Destination $WorkDir -Force
-New-Item -ItemType Directory -Force -Path (Join-Path $WorkDir 'assets\wubi') | Out-Null
-Copy-Item -LiteralPath $table -Destination (Join-Path $WorkDir 'assets\wubi') -Force
+# 随包方案整个目录拷过去（scheme.toml + table.tsv），与安装器装的一样
+$schemeDir = Join-Path $WorkDir 'assets\schemes\wubi86'
+New-Item -ItemType Directory -Force -Path $schemeDir | Out-Null
+Copy-Item -Path (Join-Path (Split-Path -Parent $table) '*') -Include 'scheme.toml', 'table.tsv' -Destination $schemeDir -Force
 # DLL 也拷过来再注册：从 `target\debug` 注册的话，那个文件会被加载它的进程锁住，
 # 之后 `cargo build` 写不进去（链接报 LNK1104，看着像代码坏了）
 $workDll = Join-Path $WorkDir 'qingjian_tsf.dll'

@@ -6,7 +6,9 @@ mod measure_key;
 mod size;
 mod style;
 
+use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
+use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -14,7 +16,7 @@ use cosmic_text::fontdb::{Family, ID};
 use cosmic_text::{Attrs, Buffer, FontSystem, Metrics, Shaping, Style, SwashCache, SwashContent};
 
 use crate::canvas::Canvas;
-use crate::fonts::{FontLibrary, Trak, UI_FAMILY};
+use crate::fonts::{FontLibrary, Trak, UI_FAMILY, WeightAliases, drawable};
 
 pub use decoration::Decoration;
 pub use size::TextSize;
@@ -25,6 +27,9 @@ use measure_key::MeasureKey;
 
 /// 量宽缓存的上限，满了整个清掉（设置页一屏的文字在几百条以内）。
 const MEASURED_LIMIT: usize = 4096;
+
+/// 截短文字时补在末尾的省略号。
+const ELLIPSIS: &str = "…";
 
 pub struct TextPainter {
     /// 字体库与回退链。
@@ -53,11 +58,16 @@ pub struct TextPainter {
 
     /// 量过的文字：每帧重建整棵树时同样的文字不再整形。字体、字族、光学字号变了就清。
     measured: HashMap<MeasureKey, TextSize>,
+
+    /// 给字族补的缺档字重，加载了新字体就重补。
+    weight_aliases: WeightAliases,
 }
 
 impl TextPainter {
     pub fn new(library: FontLibrary) -> Self {
         let mut font_system = library.into_font_system();
+        let mut weight_aliases = WeightAliases::default();
+        weight_aliases.refresh(font_system.db_mut());
         let buffer = Buffer::new(&mut font_system, Metrics::new(16.0, 19.0));
         Self {
             font_system,
@@ -69,6 +79,7 @@ impl TextPainter {
             resolved: Vec::new(),
             loaded: HashSet::new(),
             measured: HashMap::new(),
+            weight_aliases,
         }
     }
 
@@ -97,6 +108,7 @@ impl TextPainter {
             added |= load_font(&mut self.font_system, path);
         }
         if added {
+            self.weight_aliases.refresh(self.font_system.db_mut());
             self.families = None;
             self.measured.clear();
         }
@@ -187,6 +199,29 @@ impl TextPainter {
         }
     }
 
+    /// 一行放进 `width` 像素：放得下原样返回，放不下截到能放下的最长前缀再补「…」（一个字都放不下就只剩「…」）。
+    pub fn fit<'a>(&mut self, text: &'a str, style: &TextStyle, width: f32) -> Cow<'a, str> {
+        // 量出来的宽与布局给的宽可能差一点舍入，放宽半个像素
+        let width = width + 0.5;
+        if self.measure(text, style).width <= width {
+            return Cow::Borrowed(text);
+        }
+        let ends: Vec<usize> = text.char_indices().map(|(i, _)| i).skip(1).collect();
+        // 二分找最长的放得下的前缀（`ends[i]` 是前 i + 1 个字的结尾）
+        let (mut low, mut high) = (0, ends.len());
+        while low < high {
+            let middle = (low + high).div_ceil(2);
+            let candidate = format!("{}{ELLIPSIS}", &text[..ends[middle - 1]]);
+            if self.measure(&candidate, style).width <= width {
+                low = middle;
+            } else {
+                high = middle - 1;
+            }
+        }
+        let prefix = if low == 0 { "" } else { &text[..ends[low - 1]] };
+        Cow::Owned(format!("{}{ELLIPSIS}", prefix.trim_end()))
+    }
+
     /// 把文字画到 `(x, y)`，`y` 是行框顶边，一行到底。返回宽度。
     pub fn draw(
         &mut self,
@@ -208,7 +243,20 @@ impl TextPainter {
         (x, y): (f32, f32),
         width: Option<f32>,
     ) -> f32 {
-        self.shape(text, style, width);
+        self.draw_colored(canvas, text, style, (x, y), width, &[])
+    }
+
+    /// 同 [`Self::draw_within`]，`spans` 非空时各片段用各自的颜色（见 [`crate::Visual::RichText`]）。
+    pub fn draw_colored(
+        &mut self,
+        canvas: &mut Canvas,
+        text: &str,
+        style: &TextStyle,
+        (x, y): (f32, f32),
+        width: Option<f32>,
+        spans: &[(Range<usize>, crate::color::Color)],
+    ) -> f32 {
+        self.shape_colored(text, style, width, spans);
         if let Some((stroke_width, stroke_color)) = style.stroke {
             self.draw_stroke(canvas, style, x, y, stroke_width, stroke_color);
         }
@@ -233,7 +281,13 @@ impl TextPainter {
                     SwashContent::Mask => {
                         let table = gamma_table(&mut self.gamma_tables, style.gamma);
                         let data: Vec<u8> = image.data.iter().map(|&c| table[c as usize]).collect();
-                        canvas.blend_mask(gx, gy, w, h, &data, style.color);
+                        let color = glyph
+                            .color_opt
+                            .filter(|_| !spans.is_empty())
+                            .map_or(style.color, |c| {
+                                crate::color::Color::rgba(c.r(), c.g(), c.b(), c.a())
+                            });
+                        canvas.blend_mask(gx, gy, w, h, &data, color);
                     }
                     SwashContent::Color => canvas.blend_rgba(gx, gy, w, h, &image.data),
                     // 没有申请亚像素格式，不会出现
@@ -331,6 +385,16 @@ impl TextPainter {
     }
 
     fn shape(&mut self, text: &str, style: &TextStyle, width: Option<f32>) {
+        self.shape_colored(text, style, width, &[]);
+    }
+
+    fn shape_colored(
+        &mut self,
+        text: &str,
+        style: &TextStyle,
+        width: Option<f32>,
+        spans: &[(Range<usize>, crate::color::Color)],
+    ) {
         let family = match self.resolved.get(usize::from(style.family.0)) {
             Some(Some(name)) => Family::Name(name),
             _ => UI_FAMILY,
@@ -347,13 +411,28 @@ impl TextPainter {
         self.buffer
             .set_metrics(Metrics::new(style.size, style.line_height));
         self.buffer.set_size(width, None);
-        self.buffer.set_text(text, &attrs, Shaping::Advanced, None);
+        if spans.is_empty() {
+            self.buffer.set_text(text, &attrs, Shaping::Advanced, None);
+        } else {
+            self.buffer.set_rich_text(
+                spans.iter().map(|(range, color)| {
+                    (&text[range.clone()], attrs.clone().color(color.to_cosmic()))
+                }),
+                &attrs,
+                Shaping::Advanced,
+                None,
+            );
+        }
         self.buffer.shape_until_scroll(&mut self.font_system, false);
     }
 }
 
-/// 文件能解析就加载进字体库；返回是否加载了。
+/// 文件能解析、有 swash 能画的轮廓（见 [`drawable`]）就加载进字体库；返回是否加载了。
 fn load_font(font_system: &mut FontSystem, path: &Path) -> bool {
+    if !drawable(path) {
+        tracing::warn!(path = %path.display(), "字体文件不存在、读不进来或没有能画的轮廓，跳过");
+        return false;
+    }
     match font_system.db_mut().load_font_file(path) {
         Ok(()) => {
             tracing::debug!(path = %path.display(), "加载字体文件");

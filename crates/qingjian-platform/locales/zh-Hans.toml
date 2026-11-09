@@ -1,0 +1,102 @@
+[meta]
+name = "简体中文"
+
+[candidate_menu]
+edit_translation = "修改译文…"
+regenerate_translation = "模型重新生成译文"
+pin = "置顶"
+unpin = "取消置顶"
+demote = "降权"
+undemote = "取消降权"
+delete = "删除"
+promote = "提权"
+needs_window = "这项操作需要输入法窗口处理"
+cant_pin = "「{text}」这里不能置顶"
+unchanged = "「{text}」没有要改的"
+no_config = "没有配置文件，置顶存不下来"
+not_saved = "没存上：{error}"
+pinned = "「{text}」已置顶，输入 {code} 时排第一"
+unpinned = "已取消置顶「{text}」"
+demoted = "「{text}」已降权，往后挪了一位"
+undemoted = "已取消「{text}」的降权"
+
+[appearance]
+system = "跟随系统"
+light = "浅色"
+dark = "深色"
+
+[renderer]
+qingjian = "青简渲染器"
+system = "系统绘制"
+
+[key_hint]
+off = "关"
+auto = "卡住时显示"
+always = "一直显示"
+
+[layout]
+vertical = "竖排"
+horizontal = "横排"
+
+[log_level]
+info = "简略（info）"
+debug = "详细（debug）"
+
+[model]
+tongbian = "含章·通变"
+zhiyi = "知意"
+
+[zhiyi_tier]
+saver = "省电"
+balanced = "均衡"
+accurate = "准确"
+
+[numpad_digit]
+select = "选择候选"
+direct = "直接输入数字"
+
+[preedit]
+both = "行内 + 候选窗口"
+inline = "只在行内"
+window = "只在候选窗口"
+
+[shift_letter]
+passthrough = "交给应用"
+compose = "进组句"
+
+[channel]
+stable = "正式版"
+beta = "测试版"
+
+[scheme]
+pinyin = "全拼"
+custom = "自定义双拼"
+zhuyin = "大千注音"
+off = "关（只用形码）"
+
+[switch_key]
+shift = "单击 Shift"
+control = "单击 Ctrl"
+none = "无"
+separator = "、"
+
+[emoji_count]
+off = "不显示"
+at_most = "最多 {n} 个"
+
+[commit_key]
+space = "空格"
+enter = "回车"
+
+[phrase_file]
+empty = "文件里没有自定义短语"
+is_config = "这是配置文件，不是短语文件；设置在「高级」页导入，短语请先在另一台电脑上导出"
+no_tab = "文字与输入码之间要用 Tab 隔开"
+skipped_entry = "第 {entry} 条：{reason}"
+skipped_line = "第 {line} 行「{text}」：{reason}"
+unreadable = "读不了这个文件：既不是青简导出的短语文件，也不是「文字<Tab>输入码」一行一条的文本"
+
+[settings_file]
+invalid = "这个文件里的设置有错：{error}"
+merge_failed = "合并后的设置读不了：{error}"
+unreadable = "读不了这个文件：{error}"

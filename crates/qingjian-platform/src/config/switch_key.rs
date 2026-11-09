@@ -2,8 +2,13 @@ use serde::de::{self, Deserializer, SeqAccess, Visitor};
 use serde::ser::{SerializeSeq, Serializer};
 use serde::{Deserialize, Serialize};
 
-/// 一个中 / 英切换键（Windows）。`shift` / `control` 是**单击**那个修饰键；`ctrl+alt+space` 是组合键
-/// （走 TSF 保留键登记，与「翻译选中文字」同一套机制）。macOS 的切换键是 Caps Lock，本项不生效。
+use crate::i18n::tr;
+
+/// 一个中 / 英切换键。`shift` / `control` 是**单击**那个修饰键；`ctrl+alt+space` 是组合键
+/// （Windows 走 TSF 保留键登记，与「翻译选中文字」同一套机制；Linux 由 Server 在按下时认）。
+///
+/// 平台差异：Windows、Linux 三种都认；macOS 只认 `shift`（单击 Shift 切中英，此时 Caps Lock 只管大小写），
+/// `control` / `ctrl+alt+space` 在 macOS 上忽略。macOS 始终还能用 Caps Lock 切换（系统级，不受本项影响）。
 ///
 /// 不用 Ctrl + Space：中文 Windows 把它绑成系统的「输入法/非输入法切换」，系统先截走，输入法拿不到。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -32,10 +37,10 @@ impl SwitchKey {
     }
 
     /// 界面上的名字。
-    pub const fn label(self) -> &'static str {
+    pub fn label(self) -> &'static str {
         match self {
-            Self::Shift => "单击 Shift",
-            Self::Control => "单击 Ctrl",
+            Self::Shift => tr("switch_key.shift"),
+            Self::Control => tr("switch_key.control"),
             Self::CtrlAltSpace => "Ctrl + Alt + Space",
         }
     }
@@ -53,7 +58,7 @@ impl SwitchKey {
     }
 }
 
-/// 勾选了哪些中 / 英切换键（`[shortcut] switch_mode`），可以多选，一个都不勾就只剩按钮能切。
+/// 勾选了哪些中 / 英切换键（`[shortcut] switch_mode`），可以多选，一个都不勾就只剩按钮（macOS 是只剩 Caps Lock）能切。
 ///
 /// 配置里写成列表 `["shift", "control"]`；老配置的单个字符串（`"shift"`、`"none"`）照样读。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -64,9 +69,14 @@ pub struct SwitchKeys {
 }
 
 impl Default for SwitchKeys {
-    /// 缺省只勾单击 Shift。
+    /// Windows、Linux 缺省单击 Shift（与微软拼音一致）；macOS 原先只用 Caps Lock，缺省不勾（`[]`），
+    /// 免得老用户升级后打大写字母被切走，要单击 Shift 切中英得在设置里勾上。
     fn default() -> Self {
-        Self::NONE.with(SwitchKey::Shift, true)
+        if cfg!(target_os = "macos") {
+            Self::NONE
+        } else {
+            Self::NONE.with(SwitchKey::Shift, true)
+        }
     }
 }
 
@@ -112,9 +122,9 @@ impl SwitchKeys {
     pub fn describe(self) -> String {
         let labels: Vec<&str> = self.keys().map(SwitchKey::label).collect();
         if labels.is_empty() {
-            "无".to_owned()
+            tr("switch_key.none").to_owned()
         } else {
-            labels.join("、")
+            labels.join(tr("switch_key.separator"))
         }
     }
 }
@@ -196,7 +206,13 @@ mod tests {
         let chord = SwitchKeys::NONE.with(SwitchKey::CtrlAltSpace, true);
         assert_eq!(parse(r#""ctrl+space""#).unwrap(), chord);
         assert_eq!(parse(r#"["ctrl+alt+space"]"#).unwrap(), chord);
-        assert_eq!(SwitchKeys::default(), shift);
+        // 缺省分平台：macOS 用 Caps Lock 不勾，其余单击 Shift
+        let default = if cfg!(target_os = "macos") {
+            SwitchKeys::NONE
+        } else {
+            shift
+        };
+        assert_eq!(SwitchKeys::default(), default);
     }
 
     #[test]
@@ -207,6 +223,7 @@ mod tests {
 
     #[test]
     fn writes_a_list_in_display_order() {
+        bamboo_slip_i18n::pin_locale("zh-Hans");
         let keys = SwitchKeys::NONE
             .with(SwitchKey::CtrlAltSpace, true)
             .with(SwitchKey::Shift, true);

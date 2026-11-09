@@ -3,6 +3,8 @@
 //! 只提示不安装。壳在自己的定时器里调 [`Checker::poll`]，到点了它起一个一次性线程去查，结果写进数据目录的 `update.json`；
 //! 菜单与设置页用 [`Checker::available`] 取要提示的版本。设计与发版侧的签名见 `docs/design/update.md`。
 
+#![forbid(unsafe_code)]
+
 mod checker;
 mod error;
 mod index;

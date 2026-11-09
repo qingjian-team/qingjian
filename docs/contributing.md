@@ -16,6 +16,10 @@
 - **输入方案是配置项，不是模式。** 双拼、注音这类键盘方案放 `[general]` 里当设置，中 / 英切换始终是布尔；新方案不能改变别的方案的既定按键行为（[user/getting-started/keys.md](user/getting-started/keys.md)）。
 - **显示面与设置程序自绘，菜单与安装器原生。** 候选窗、拼音行、状态条这类显示面由渲染器出位图各平台贴图（主题靠它）；设置程序 `apps/settings` 三平台共用一份，画在同一个引擎上；
   输入法菜单、系统托盘、安装器用各平台原生控件。见 [design/rendering.md](design/rendering.md) 与 [design/settings.md](design/settings.md)。
+- **移动端的屏幕键盘与面板将来统一到 Rust。** Android 现在由 Kotlin 自绘键盘与面板，这是过渡状态；做第二个移动平台（iOS / iPadOS / HarmonyOS）时统一到 Rust，见 [plan/roadmap.md](plan/roadmap.md) Phase 5。
+  在那之前，能跨平台共享的规则（主题推导出的配色、键位与尺寸计算）放 Rust，不在平台壳里新写一份；不为单个平台另起一套键盘或 UI 框架。
+  Kotlin 里现存、统一时要一起搬的规则：键位表与尺寸（`KeyboardLayout` / `KeyboardMetrics`）、滑行起判阈值（`SwipeTrail.START_KEYS`）、
+  面板与 App 里写死的颜色（剪贴板代码高亮的数字色、生词标签色、失败与危险操作的红）。清单在 roadmap Phase 5，搬走一项划掉一项。
 
 ## 代码组织
 
@@ -32,7 +36,10 @@
 
 ## 命名与注释
 
-- 代码标识符一律英文，注释与文档用中文；`thiserror` 的 `#[error]` 文案用英文，日志与 UI 文案用中文。
+- 代码标识符一律英文，注释与文档用中文；`thiserror` 的 `#[error]` 文案用英文。
+- **界面文字不写死在代码里**：写进所在 crate 的 `locales/`（简体中文与英文两份必填，其余语言可以先空着），代码里用 `tr("节.键")`，见 [notes/crate-notes.md](notes/crate-notes.md) 的 bamboo-slip-i18n 一节。日志与 `#[error]` 不进文案表。
+- **新写的日志用英文**（消息正文与字段值），已有的中文日志保持不动。日志是给开发者排查用的：
+  字段名、`#[error]` 与系统给的值（进程名、bundle identifier、系统错误信息）本来就是英文，一行里不中英混着读；排查时人或 AI 按 `commit`、`backspace` 这类英文关键词就能搜到，不用先猜当初写的是哪个中文词；日文、韩文、英文用户报问题也会附日志，自己得看得懂。
 - 新文件都要有 `//!` 文件头；结构体 / 枚举字段之间空一行，字段名说不清的加 `///`（`r` / `g` / `b`、`width` 这类不用，`a`「255 为不透明」这类要）。
 - 注释只写维护时用得上的：文件头一两句说它是什么、怎么用；代码里只解释读代码看不出来的约束与原因（平台怪癖、协议约定、踩过的坑），一两句说完。
   不写复述代码的教学性注释，不写改动经过、调试过程这类日志型注释；较长的设计理由写进 `docs/`，注释里留一句指过去。
@@ -57,7 +64,7 @@
   - 类型：`feat` 新功能 / `fix` 修 bug / `docs` 只改文档 / `refactor` 不改行为的整理 / `perf` 性能 / `test` 只改测试 /
     `build` 打包与构建脚本 / `ci` 工作流 / `chore` 版本号、依赖、仓库杂务 / `style` 只改格式 / `revert` 还原。
   - 范围：crate 或壳的名字——`core` `platform` `render` `dictionary` `translate` `learning` `predict` `lm` `neural` `format` `cli`
-    `macos` `windows`（Server / DLL / 设置程序细分时用 `server` `tsf` `settings`）`installer` `linux` `tools` `docs` `ci` `deps` `release`；
+    `macos` `windows`（Server / DLL / 设置程序细分时用 `server` `tsf` `settings`）`installer` `linux` `android` `tools` `docs` `ci` `deps` `release`；
     跨好几处的可以省略。不兼容的改动在范围后加 `!`。
   - 正文写「为什么」与取舍，一行一条。`.githooks/commit-msg` 会拦第一行不合格式的提交，合并提交也一样（`git merge --no-ff -m "feat: …"`）。
   - 2026-09-16 之前的历史是「`macOS：……` / `Core：……`」的中文冒号格式，不重写。
@@ -72,7 +79,7 @@
 
 - 钩子：`.githooks/pre-commit`（禁装饰性分隔注释 + fmt + clippy）、`.githooks/commit-msg`（提交信息格式）、`.githooks/pre-push`（全 workspace 测试）；`git config core.hooksPath .githooks` 启用一次。
   两个跑编译的钩子按 `uname` 划平台范围：**非 Apple 平台排除 `qingjian-macos`**（IMK 壳依赖 objc2，在别的平台上是硬 `compile_error!`，
-  排除不掉就整条命令失败），与 [ci.yml](../.github/workflows/ci.yml) 三个 job 的划分一致；Server 的 uiAccess 缺省不带
+  排除不掉就整条命令失败），与 [ci.yml](../.github/workflows/ci.yml) 里 core / macos / windows 三个 Rust job 的划分一致；Server 的 uiAccess 缺省不带
   （没签名的 exe 带 uiAccess=true 起不来，os error 740），只有 `build.ps1 -Sign` 设 `QINGJIAN_UIACCESS=1` 打开。
 - **在 Linux / Windows 上改 macOS 壳**：排除之后等于盲改，编译错误要到 CI 才看得到。
   `rustup target add aarch64-apple-darwin` 一次，之后 pre-commit 在「这次提交碰了 `apps/macos/`、`crates/` 或依赖」时
@@ -83,7 +90,11 @@
 
 ## CI 与发版
 
-- CI 三个 job（Linux 全量 / macOS 壳 / Windows 三 crate）都 `--locked`；Dependabot 升 actions；每周 `cargo audit`。
+- CI 七个 job，全部 `--locked`：`core`（Linux 全量：fmt / 文档 / clippy / rustdoc / test / 两个 Fcitx 壳 / 安装脚本，外加 Android 那条 rustls TLS 路径的 lint 与测试）、
+  `release`（release profile 下的 clippy）、`shellcheck`、`macos`（IMK 壳）、`linux-22_04`（最老受支持发行版）、`android`（debug APK）、
+  `windows`（Windows 五个 crate（含青简剪贴板）+ `qingjian-platform` + 32 位 DLL）。Dependabot 升 actions。
+- 依赖门禁分两处，同一份豁免清单：`cargo deny check` 在 `core` job 里当**合并门禁**（每个 PR 查许可证 / 来源 / 重复版本 / RustSec 漏洞 / yanked），
+  `audit.yml` 的 `audit-check` 每周一次定时查漏洞并开 issue（没人提 PR 时也能发现新披露的）。两处的 `RUSTSEC-*` 清单由 CI 机械校验必须一致。
 - 发版：推 `<平台>-v<版本>` 标签触发 `release.yml`，门禁是版本号 = 标签且不带 -dev、标签在 main 上、产品数据按 SHA256SUMS 校验。
 - CHANGELOG 手写、发版时由维护者统一改（PR 不动它）。流程与 Secrets 见 [notes/release.md](notes/release.md)。
 
@@ -96,4 +107,4 @@
   复现不了的（没有那个应用或系统）不提修复：把分析写在 issue 里，或者提只加日志、不改行为的 PR。
 - 新功能涉及几个平台时，验你手上有的平台；没有机器的平台在「怎么验证的」里写明没验，由维护者在真机上测。
   不改行为的改动（日志、注释、文档）与有测试 / 回放兜底的 Core 逻辑不受此限。
-- `crates/qingjian-render` 与 `crates/bamboo-slip` 是双许可（GPL-3.0-or-later 或商业许可，见各自目录的 `LICENSE.md`）。**向这两个目录提交改动，即表示你同意以 [MIT-0](https://opensource.org/license/mit-0) 许可你的这部分贡献**：版权仍归你，你也可以照常以任何许可在别处使用它；这样维护者才能把它一起放进 GPL 与商业许可。贡献里有别人的代码或素材时，在 PR 里写清来源与许可。仓库其他部分的贡献只按 GPL-3.0-or-later。
+- `crates/qingjian-render`、`crates/bamboo-slip` 与 `crates/bamboo-slip-i18n` 是双许可（GPL-3.0-or-later 或商业许可，见各自目录的 `LICENSE.md`）。**向这几个目录提交改动，即表示你同意以 [MIT-0](https://opensource.org/license/mit-0) 许可你的这部分贡献**：版权仍归你，你也可以照常以任何许可在别处使用它；这样维护者才能把它一起放进 GPL 与商业许可。贡献里有别人的代码或素材时，在 PR 里写清来源与许可。仓库其他部分的贡献只按 GPL-3.0-or-later。

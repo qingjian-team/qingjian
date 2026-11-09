@@ -1,38 +1,58 @@
 //! 录快捷键：哪几项能录、按下的键能不能用（缺修饰键、跟别的撞了），以及各平台给人看的写法。
 
 use bamboo_slip::{KeyCode, KeyPress};
-use qingjian_platform::{Config, KeyCombo, Modifiers};
+use qingjian_platform::{CommitKey, Config, KeyCombo, Modifiers};
+
+use crate::i18n::{tr, tr_args};
+use crate::support::Feature;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Shortcut {
     Translation,
     TranslationSecond,
-    DeleteCandidate,
     TranslateSelection,
     Predict,
+    /// 没在打字时打开符号面板的翻译组。
+    TranslatePanel,
+    /// 呼出剪贴板面板（全局快捷键）。
+    Clipboard,
     /// 辅码触发键（单个符号，不带修饰键）。
     AuxCodeKey,
+    /// 组句时上屏高亮候选的键（空格、回车或一个符号键，可加 Shift）。
+    CommitCandidate,
+    /// 组句时原样上屏敲的字母的键。
+    CommitRaw,
+    /// 组句时切换单字模式（只在组句时拿走）。
+    SingleChars,
 }
 
 impl Shortcut {
     #[cfg(test)]
-    pub const ALL: [Self; 6] = [
+    pub const ALL: [Self; 10] = [
         Self::Translation,
         Self::TranslationSecond,
-        Self::DeleteCandidate,
         Self::TranslateSelection,
         Self::Predict,
+        Self::TranslatePanel,
+        Self::Clipboard,
         Self::AuxCodeKey,
+        Self::CommitCandidate,
+        Self::CommitRaw,
+        Self::SingleChars,
     ];
 
     pub fn title(self) -> &'static str {
         match self {
-            Self::Translation => "上屏第一个译词",
-            Self::TranslationSecond => "上屏第二个译词",
-            Self::DeleteCandidate => "删除候选",
-            Self::TranslateSelection => "翻译选中文字",
-            Self::Predict => "按需 AI 联想",
-            Self::AuxCodeKey => "触发键",
+            Self::Translation => tr("shortcut.translation"),
+            Self::TranslationSecond => tr("shortcut.translation_second"),
+            Self::TranslateSelection => tr("shortcut.translate_selection"),
+            Self::Predict => tr("shortcut.predict"),
+            Self::TranslatePanel => tr("shortcut.translate_panel"),
+            Self::Clipboard => tr("shortcut.clipboard"),
+            Self::AuxCodeKey => tr("shortcut.aux_code_key"),
+            Self::CommitCandidate => tr("shortcut.commit_candidate"),
+            Self::CommitRaw => tr("shortcut.commit_raw"),
+            Self::SingleChars => tr("shortcut.single_chars"),
         }
     }
 
@@ -41,21 +61,28 @@ impl Shortcut {
         match self {
             Self::Translation => ("shortcut", "translation"),
             Self::TranslationSecond => ("shortcut", "translation_second"),
-            Self::DeleteCandidate => ("shortcut", "delete_candidate"),
             Self::TranslateSelection => ("shortcut", "translate_selection"),
             Self::Predict => ("shortcut", "predict"),
+            Self::TranslatePanel => ("shortcut", "translate_panel"),
+            Self::Clipboard => ("shortcut", "clipboard"),
             Self::AuxCodeKey => ("general", "aux_code_key"),
+            Self::CommitCandidate => ("shortcut", "commit_candidate"),
+            Self::CommitRaw => ("shortcut", "commit_raw"),
+            Self::SingleChars => ("shortcut", "single_chars"),
         }
     }
 
     /// 录制时的提示。
     pub fn prompt(self) -> &'static str {
         match self {
-            Self::Translation | Self::TranslationSecond | Self::DeleteCandidate => {
-                "按住修饰键再按个数字"
-            }
-            Self::TranslateSelection | Self::Predict => "按下修饰键 + 字母",
-            Self::AuxCodeKey => "按一个符号键",
+            Self::Translation | Self::TranslationSecond => tr("shortcut.prompt_digit"),
+            Self::TranslateSelection
+            | Self::Predict
+            | Self::TranslatePanel
+            | Self::Clipboard
+            | Self::SingleChars => tr("shortcut.prompt_combo"),
+            Self::AuxCodeKey => tr("shortcut.prompt_symbol"),
+            Self::CommitCandidate | Self::CommitRaw => tr("shortcut.prompt_commit"),
         }
     }
 
@@ -66,10 +93,55 @@ impl Shortcut {
         match self {
             Self::Translation => digits(first),
             Self::TranslationSecond => digits(second),
-            Self::DeleteCandidate => digits(shortcut.delete_keys()),
             Self::TranslateSelection => combo_label(shortcut.translate_selection),
             Self::Predict => combo_label(shortcut.predict),
+            Self::TranslatePanel => combo_label(shortcut.translate_panel),
+            Self::Clipboard => combo_label(shortcut.clipboard),
             Self::AuxCodeKey => config.general.aux_code_key().to_string(),
+            Self::CommitCandidate => shortcut.commit_candidate.label(),
+            Self::CommitRaw => shortcut.commit_raw.label(),
+            Self::SingleChars => combo_label(
+                shortcut
+                    .single_chars
+                    .unwrap_or(KeyCombo::SINGLE_CHARS_DEFAULT),
+            ),
+        }
+    }
+
+    /// 录下的全局快捷键被别的程序占着。与现在的相同时不算：多半是剪贴板自己占着。
+    pub fn taken(self, value: &str, config: &Config) -> bool {
+        #[cfg(windows)]
+        if self == Self::Clipboard
+            && let Ok(combo) = value.parse::<KeyCombo>()
+            && combo != config.shortcut.clipboard
+        {
+            return !crate::system::hotkey::combo_available(combo);
+        }
+        #[cfg(not(windows))]
+        let _ = (value, config);
+        false
+    }
+
+    /// 组合键那几项现在的值；别的项取不到，给剪贴板比较用的只有前两个。
+    fn combo(self, config: &Config) -> KeyCombo {
+        match self {
+            Self::Predict => config.shortcut.predict,
+            Self::TranslatePanel => config.shortcut.translate_panel,
+            Self::Clipboard => config.shortcut.clipboard,
+            Self::SingleChars => config
+                .shortcut
+                .single_chars
+                .unwrap_or(KeyCombo::SINGLE_CHARS_DEFAULT),
+            _ => config.shortcut.translate_selection,
+        }
+    }
+
+    /// 两个上屏键现在的值；别的项是 `None`。
+    fn commit_key(self, config: &Config) -> Option<CommitKey> {
+        match self {
+            Self::CommitCandidate => Some(config.shortcut.commit_candidate),
+            Self::CommitRaw => Some(config.shortcut.commit_raw),
+            _ => None,
         }
     }
 
@@ -82,48 +154,161 @@ impl Shortcut {
                     KeyCode::Character(text) if modifiers.is_empty() => single(text),
                     _ => None,
                 }
-                .ok_or("要不带修饰键的单个符号键")?;
-                if qingjian_core::is_valid_aux_code_key(key, config.general.page_keys()) {
-                    Ok(key.to_string())
-                } else {
-                    Err(format!(
-                        "「{key}」不行：字母、数字、单引号与翻页键都不能当触发键"
-                    ))
+                .ok_or(tr("shortcut.need_symbol"))?;
+                if !qingjian_core::is_valid_aux_code_key(key, config.general.page_keys()) {
+                    return Err(tr_args("shortcut.bad_trigger", &[("key", &key)]));
                 }
+                if let Some(other) = [Self::CommitCandidate, Self::CommitRaw]
+                    .into_iter()
+                    .find(|other| other.commit_key(config) == Some(CommitKey::Symbol(key)))
+                {
+                    return Err(tr_args("shortcut.clash", &[("other", &other.title())]));
+                }
+                Ok(key.to_string())
             }
-            Self::TranslateSelection | Self::Predict => {
+            Self::CommitCandidate | Self::CommitRaw => {
+                if modifiers.control || modifiers.option || modifiers.command {
+                    return Err(tr("shortcut.shift_only").to_owned());
+                }
+                let key = match &press.key {
+                    KeyCode::Space => CommitKey::Space {
+                        shift: modifiers.shift,
+                    },
+                    KeyCode::Enter => CommitKey::Enter {
+                        shift: modifiers.shift,
+                    },
+                    KeyCode::Character(text) => single(text)
+                        .and_then(|symbol| symbol.to_string().parse().ok())
+                        .ok_or(tr("shortcut.letters_reserved"))?,
+                    _ => return Err(tr("shortcut.need_commit_key").to_owned()),
+                };
+                if let CommitKey::Symbol(symbol) = key {
+                    let (previous, next) = config.general.page_keys();
+                    if symbol == previous
+                        || symbol == next
+                        || config.shortcut.extra_page_keys.step(symbol).is_some()
+                    {
+                        return Err(tr_args("shortcut.is_page_key", &[("key", &symbol)]));
+                    }
+                    if symbol == config.general.aux_code_key() {
+                        return Err(tr_args("shortcut.is_aux_key", &[("key", &symbol)]));
+                    }
+                }
+                let other = if self == Self::CommitCandidate {
+                    Self::CommitRaw
+                } else {
+                    Self::CommitCandidate
+                };
+                if other.commit_key(config) == Some(key) {
+                    return Err(tr_args("shortcut.clash", &[("other", &other.title())]));
+                }
+                Ok(key.key_string())
+            }
+            Self::Clipboard => {
+                let key = match &press.key {
+                    KeyCode::Character(text) => {
+                        single(text).filter(|key| key.is_ascii_alphanumeric() || *key == '.')
+                    }
+                    _ => None,
+                }
+                .ok_or(tr("shortcut.need_combo"))?;
+                // 全局生效：只按一个修饰键的组合（Ctrl + V 这类）一占，所有程序里都用不了了
+                let held = [
+                    modifiers.control,
+                    modifiers.shift,
+                    modifiers.option,
+                    modifiers.command,
+                ];
+                if held.iter().filter(|on| **on).count() < 2 {
+                    return Err(tr("shortcut.need_two_modifiers").to_owned());
+                }
+                let combo = KeyCombo {
+                    modifiers,
+                    key: key.to_ascii_lowercase(),
+                };
+                for other in [
+                    Self::TranslateSelection,
+                    Self::Predict,
+                    Self::TranslatePanel,
+                ] {
+                    if other.combo(config) == combo {
+                        return Err(tr_args("shortcut.clash", &[("other", &other.title())]));
+                    }
+                }
+                Ok(combo.key_string())
+            }
+            Self::SingleChars => {
+                let key = match &press.key {
+                    KeyCode::Character(text) => {
+                        single(text).filter(|key| key.is_ascii_alphanumeric())
+                    }
+                    _ => None,
+                }
+                .ok_or(tr("shortcut.need_combo"))?;
+                if modifiers.is_empty() {
+                    return Err(tr("shortcut.need_modifier").to_owned());
+                }
+                let combo = KeyCombo {
+                    modifiers,
+                    key: key.to_ascii_lowercase(),
+                };
+                for other in [
+                    Self::TranslateSelection,
+                    Self::Predict,
+                    Self::TranslatePanel,
+                    Self::Clipboard,
+                ] {
+                    if other.combo(config) == combo {
+                        return Err(tr_args("shortcut.clash", &[("other", &other.title())]));
+                    }
+                }
+                // 组句中「译词修饰键 + 数字」上屏译词
+                let (first, second) = config.shortcut.translation_keys();
+                if key.is_ascii_digit() && (modifiers == first || modifiers == second) {
+                    let other = if modifiers == first {
+                        Self::Translation
+                    } else {
+                        Self::TranslationSecond
+                    };
+                    return Err(tr_args("shortcut.clash", &[("other", &other.title())]));
+                }
+                Ok(combo.key_string())
+            }
+            Self::TranslateSelection | Self::Predict | Self::TranslatePanel => {
                 let key = match &press.key {
                     KeyCode::Character(text) => single(text).filter(|key| {
                         key.is_ascii_alphanumeric() || (self == Self::Predict && *key == '.')
                     }),
                     _ => None,
                 }
-                .ok_or("要修饰键加一个字母或数字")?;
+                .ok_or(tr("shortcut.need_combo"))?;
                 if modifiers.is_empty() {
-                    return Err("要带修饰键".to_owned());
+                    return Err(tr("shortcut.need_modifier").to_owned());
                 }
-                Ok(KeyCombo {
+                let combo = KeyCombo {
                     modifiers,
                     key: key.to_ascii_lowercase(),
+                };
+                if Feature::Clipboard.here() && config.shortcut.clipboard == combo {
+                    let other = Self::Clipboard.title();
+                    return Err(tr_args("shortcut.clash", &[("other", &other)]));
                 }
-                .key_string())
+                Ok(combo.key_string())
             }
-            Self::Translation | Self::TranslationSecond | Self::DeleteCandidate => {
+            Self::Translation | Self::TranslationSecond => {
                 if modifiers.is_empty() {
-                    return Err("要按住修饰键".to_owned());
+                    return Err(tr("shortcut.hold_modifier").to_owned());
                 }
-                let shortcut = &config.shortcut;
-                let (first, second) = shortcut.translation_keys();
+                let (first, second) = config.shortcut.translation_keys();
                 let others = [
                     (Self::Translation, first),
                     (Self::TranslationSecond, second),
-                    (Self::DeleteCandidate, shortcut.delete_keys()),
                 ];
                 if let Some((other, _)) = others
                     .iter()
                     .find(|(other, keys)| *other != self && *keys == modifiers)
                 {
-                    return Err(format!("跟「{}」重复了", other.title()));
+                    return Err(tr_args("shortcut.clash", &[("other", &other.title())]));
                 }
                 Ok(modifiers.key())
             }
@@ -172,7 +357,10 @@ fn modifiers_label(modifiers: Modifiers) -> String {
 
 /// 修饰键配候选序号。
 fn digits(modifiers: Modifiers) -> String {
-    format!("{} + 序号", modifiers_label(modifiers))
+    tr_args(
+        "shortcut.digits",
+        &[("modifiers", &modifiers_label(modifiers))],
+    )
 }
 
 fn combo_label(combo: KeyCombo) -> String {
@@ -209,7 +397,7 @@ mod tests {
                 .accept(&press("1", Held::default()), &config)
                 .is_err()
         );
-        // 删除候选不能跟第一组译词键一样
+        // 第二组译词键不能跟第一组一样
         let same = Held {
             alt: first.option,
             shift: first.shift,
@@ -217,7 +405,8 @@ mod tests {
             logo: first.command,
             ..Held::default()
         };
-        let clash = Shortcut::DeleteCandidate.accept(&press("1", same), &config);
+        bamboo_slip_i18n::pin_locale("zh-Hans");
+        let clash = Shortcut::TranslationSecond.accept(&press("1", same), &config);
         assert_eq!(clash, Err("跟「上屏第一个译词」重复了".to_owned()));
         // 自己跟自己不算撞
         assert_eq!(
@@ -256,6 +445,89 @@ mod tests {
             Shortcut::AuxCodeKey
                 .accept(&press(";", alt()), &config)
                 .is_err()
+        );
+    }
+
+    #[test]
+    fn commit_keys_take_space_enter_or_symbols_and_must_not_clash() {
+        bamboo_slip_i18n::pin_locale("zh-Hans");
+        let config = Config::default();
+        let shift = Held {
+            shift: true,
+            ..Held::default()
+        };
+        let enter = |held| KeyPress::new(KeyCode::Enter, held);
+        assert_eq!(
+            Shortcut::CommitRaw.accept(&enter(shift), &config),
+            Ok("shift+enter".to_owned())
+        );
+        // 回车已经是「上屏敲的字母」，先得把它挪走
+        assert_eq!(
+            Shortcut::CommitCandidate.accept(&enter(Held::default()), &config),
+            Err("跟「上屏敲的字母」重复了".to_owned())
+        );
+        assert_eq!(
+            Shortcut::CommitCandidate.accept(&press(";", Held::default()), &config),
+            Err("「;」已经是辅码触发键".to_owned())
+        );
+        assert_eq!(
+            Shortcut::CommitCandidate.accept(&press("/", Held::default()), &config),
+            Ok("/".to_owned())
+        );
+        for bad in [
+            press("a", Held::default()),
+            press("1", Held::default()),
+            press("[", Held::default()),
+            KeyPress::new(KeyCode::Tab, Held::default()),
+            KeyPress::new(KeyCode::Space, alt()),
+        ] {
+            assert!(
+                Shortcut::CommitCandidate.accept(&bad, &config).is_err(),
+                "{bad:?}"
+            );
+        }
+        let mut moved = Config::default();
+        moved.shortcut.commit_candidate = CommitKey::Symbol('/');
+        assert!(
+            Shortcut::AuxCodeKey
+                .accept(&press("/", Held::default()), &moved)
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn clipboard_hotkey_needs_two_modifiers_and_must_not_clash() {
+        bamboo_slip_i18n::pin_locale("zh-Hans");
+        let config = Config::default();
+        let ctrl_alt = Held {
+            control: true,
+            alt: true,
+            ..Held::default()
+        };
+        assert_eq!(
+            Shortcut::Clipboard.accept(&press("K", ctrl_alt), &config),
+            Ok("control+option+k".to_owned())
+        );
+        for held in [
+            Held::default(),
+            Held {
+                control: true,
+                ..Held::default()
+            },
+            Held {
+                shift: true,
+                ..Held::default()
+            },
+        ] {
+            assert!(
+                Shortcut::Clipboard
+                    .accept(&press("v", held), &config)
+                    .is_err()
+            );
+        }
+        assert_eq!(
+            Shortcut::Clipboard.accept(&press("j", ctrl_alt), &config),
+            Err(format!("跟「{}」重复了", Shortcut::Predict.title()))
         );
     }
 

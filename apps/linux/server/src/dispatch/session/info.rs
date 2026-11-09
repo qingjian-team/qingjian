@@ -7,7 +7,7 @@ pub(crate) struct SessionInfo {
     pub(crate) app: Option<String>,
 
     /// 新 Linux 客户端已协商显示回报。
-    pub(crate) display_identity: Option<crate::protocol::DisplayIdentity>,
+    pub(crate) display_identity: Option<qingjian_platform::protocol::linux::DisplayIdentity>,
 
     /// 待确认的当前候选帧。
     pub(crate) display_frame: Option<qingjian_platform::protocol::Frame>,
@@ -15,13 +15,14 @@ pub(crate) struct SessionInfo {
     /// 上次发给插件的帧；插件定时 Poll 时内容没变就沿用展示身份，不算新的展示。
     pub(crate) last_frame: Option<qingjian_platform::protocol::Frame>,
 
-    /// Server 持有的中英模式与单击 Shift 状态。
+    /// Server 持有的中英模式。
     pub(crate) english: bool,
 
-    pub(crate) shift_pending: bool,
+    /// 按下、还没松开的单击切换键（Shift / Ctrl 的虚拟键码）；中间按了别的键就作废。
+    pub(crate) switch_tap: Option<u32>,
 
     /// 最近的框架能力，首次报告前为未知。
-    pub(crate) capabilities: Option<crate::protocol::Capabilities>,
+    pub(crate) capabilities: Option<qingjian_platform::protocol::linux::Capabilities>,
 
     pub(crate) disabled: bool,
 
@@ -44,11 +45,11 @@ pub(crate) struct SessionInfo {
     pub(crate) navigated: bool,
 }
 impl SessionInfo {
-    pub(crate) fn new(app: Option<String>) -> Self {
+    pub(crate) fn new(app: Option<String>, english: bool) -> Self {
         Self {
             app,
-            english: false,
-            shift_pending: false,
+            english,
+            switch_tap: None,
             capabilities: None,
             disabled: false,
             active: true,

@@ -24,7 +24,7 @@ pub fn run(config: Option<&Path>, directory: &Path) -> Result<(), Box<dyn std::e
             let _ = std::fs::remove_file(&copy);
         }
     }
-    let settings = Settings::load(copy)?;
+    let settings = Settings::load(copy);
     let themes: Vec<String> = settings
         .themes
         .themes()
@@ -88,6 +88,13 @@ pub fn run(config: Option<&Path>, directory: &Path) -> Result<(), Box<dyn std::e
     shot(&mut runner, "自定义短语：点「新增」弹出编辑卡片")?;
     click(&mut runner, Key::ROOT.child("phrase-save"))?;
     shot(&mut runner, "空着点保存：卡片里说原因")?;
+    click(&mut runner, Key::ROOT.child("phrase-text"))?;
+    let long = "您好，这里是青简输入法的自定义短语示例，内容很长时按框宽自动折行。详情见 https://qingjian.app/docs/personalize/phrases 。";
+    runner.handle(&Event::Text(TextInput::Insert(long.repeat(4))));
+    shot(
+        &mut runner,
+        "长短语：按框宽折行，超过 12 行时露出光标那几行",
+    )?;
     click(&mut runner, Key::ROOT.child("phrase-cancel"))?;
 
     click(&mut runner, Key::ROOT.child("nav").child(PageId::Advanced))?;

@@ -2,6 +2,8 @@ use std::str::FromStr;
 
 use serde::{Deserialize, Serialize};
 
+use crate::i18n::tr;
+
 /// 主语言或学习语言。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Language {
@@ -36,6 +38,21 @@ impl Language {
             Self::German => "de",
         }
     }
+}
+
+/// 学习语言写这个值表示不显示译文（配置 `[general] learning_language`）。
+pub const LEARNING_LANGUAGE_OFF: &str = "off";
+
+/// 设置里列的学习语言：配置写法与界面名（随界面语言），按这个顺序列出；最后一项是不显示译文。
+pub fn learning_languages() -> [(&'static str, &'static str); 6] {
+    [
+        ("en", tr("languages.en")),
+        ("ja", tr("languages.ja")),
+        ("es", tr("languages.es")),
+        ("vi", tr("languages.vi")),
+        ("de", tr("languages.de")),
+        (LEARNING_LANGUAGE_OFF, tr("languages.off")),
+    ]
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -92,5 +109,15 @@ mod tests {
         assert_eq!(Language::Japanese.code(), "ja");
         assert_eq!(Language::Vietnamese.code(), "vi");
         assert_eq!(Language::German.code(), "de");
+    }
+
+    #[test]
+    fn learning_languages_parse_except_off() {
+        let languages = learning_languages();
+        let (off, rest) = languages.split_last().unwrap();
+        assert_eq!(off.0, LEARNING_LANGUAGE_OFF);
+        for (code, _) in rest {
+            assert_eq!(code.parse::<Language>().unwrap().code(), *code);
+        }
     }
 }

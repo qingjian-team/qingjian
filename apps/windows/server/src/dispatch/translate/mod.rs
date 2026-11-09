@@ -21,6 +21,13 @@ impl Router {
             && event.modifiers.chord() == KeyModifiers::from(combo.modifiers)
     }
 
+    /// 翻译组快捷键：同上，比字符与物理修饰键。
+    pub(super) fn matches_translate_panel_combo(&self, event: &KeyEvent) -> bool {
+        let combo = self.config.translate_panel;
+        event.character == Some(combo.key)
+            && event.modifiers.chord() == KeyModifiers::from(combo.modifiers)
+    }
+
     /// DLL 回来的选区：非空且云服务开着就进入评审；否则回空帧让 DLL 清掉本地翻译态。
     /// 回给 DLL 的帧恒空（候选窗在 Server 自绘）。
     pub(super) fn handle_selection(
@@ -35,6 +42,8 @@ impl Router {
             outcome: KeyOutcome::Consumed,
             commit: None,
             frame: Frame::default(),
+            english: None,
+            caret: None,
         };
         if self.focused != Some(session) || self.pending_selection != Some(request) {
             return empty;
@@ -80,6 +89,8 @@ impl Router {
             outcome,
             commit,
             frame: Frame::default(),
+            english: None,
+            caret: None,
         }
     }
 
@@ -101,6 +112,7 @@ impl Router {
             preedit: Vec::new(),
             preedit_mode: self.config.preedit,
             cursor: 0,
+            window_preedit: None,
             candidates: CandidateList {
                 items: vec![translate_candidate(text)],
             },
@@ -117,6 +129,7 @@ impl Router {
             sentence: None,
             notice: None,
             symbol_panel: false,
+            panel_text_box: false,
         }
     }
 }

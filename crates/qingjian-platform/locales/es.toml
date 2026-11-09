@@ -1,0 +1,102 @@
+[meta]
+name = "Español"
+
+[candidate_menu]
+edit_translation = "Editar traducción…"
+regenerate_translation = "Volver a generar la traducción con el modelo"
+pin = "Fijar arriba"
+unpin = "Dejar de fijar"
+demote = "Bajar"
+undemote = "Deshacer bajada"
+delete = "Eliminar"
+promote = "Aumentar prioridad"
+needs_window = "Esta acción la debe gestionar la ventana del método de entrada"
+cant_pin = "«{text}» no se puede fijar aquí"
+unchanged = "No hay nada que cambiar en «{text}»"
+no_config = "No hay archivo de configuración, así que no se puede guardar lo fijado"
+not_saved = "No se guardó: {error}"
+pinned = "«{text}» está fijado y aparece primero al escribir {code}"
+unpinned = "«{text}» ya no está fijado"
+demoted = "«{text}» bajó un puesto"
+undemoted = "«{text}» ya no está bajado"
+
+[appearance]
+system = "Según el sistema"
+light = "Claro"
+dark = "Oscuro"
+
+[renderer]
+qingjian = "Renderizador de Qingjian"
+system = "Dibujo del sistema"
+
+[key_hint]
+off = "Desactivado"
+auto = "Si te atascas"
+always = "Siempre"
+
+[layout]
+vertical = "Vertical"
+horizontal = "Horizontal"
+
+[log_level]
+info = "Breve (info)"
+debug = "Detallado (debug)"
+
+[model]
+tongbian = "Hanzhang Tongbian"
+zhiyi = "Zhiyi"
+
+[zhiyi_tier]
+saver = "Ahorro de energía"
+balanced = "Equilibrado"
+accurate = "Preciso"
+
+[numpad_digit]
+select = "Elegir un candidato"
+direct = "Escribir el número"
+
+[preedit]
+both = "En línea + ventana de candidatos"
+inline = "Solo en línea"
+window = "Solo en la ventana"
+
+[shift_letter]
+passthrough = "Pasar a la aplicación"
+compose = "Empezar a componer"
+
+[channel]
+stable = "Estable"
+beta = "Beta"
+
+[scheme]
+pinyin = "Pinyin completo"
+custom = "Shuangpin personalizado"
+zhuyin = "Zhuyin (Dachen)"
+off = "Desactivado (solo código de forma)"
+
+[switch_key]
+shift = "Pulsar Shift"
+control = "Pulsar Ctrl"
+none = "Ninguna"
+separator = ", "
+
+[emoji_count]
+off = "Ocultos"
+at_most = "Hasta {n}"
+
+[commit_key]
+space = "Espacio"
+enter = "Intro"
+
+[phrase_file]
+empty = "El archivo no tiene frases personalizadas"
+is_config = "Es un archivo de configuración, no de frases; los ajustes se importan en la página Avanzado, y las frases hay que exportarlas antes en el otro ordenador"
+no_tab = "El texto y el código deben ir separados por un tabulador"
+skipped_entry = "entrada {entry}: {reason}"
+skipped_line = "línea {line} («{text}»): {reason}"
+unreadable = "No se puede leer este archivo: no es un archivo de frases exportado por Qingjian ni un texto con una entrada «texto<Tab>código» por línea"
+
+[settings_file]
+invalid = "Los ajustes de este archivo tienen errores: {error}"
+merge_failed = "No se pueden leer los ajustes combinados: {error}"
+unreadable = "No se puede leer este archivo: {error}"

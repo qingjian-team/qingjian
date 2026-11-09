@@ -3,7 +3,8 @@
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use crate::system::paths;
+use crate::i18n::{tr, tr_args};
+use crate::system::{paths, system_info};
 
 pub const WEBSITE_URL: &str = "https://qingjian.app";
 
@@ -19,6 +20,8 @@ pub enum Action {
     ExportLogs,
     /// 第一次点只是让按钮变成「再点一次清空」，见 [`crate::settings::Settings::armed`]。
     ClearInputLog,
+    /// 清空剪贴板历史，同样点两下。
+    ClearClipboard,
     OpenWebsite,
     OpenRepository,
     /// 官网的下载页。
@@ -31,6 +34,7 @@ impl Action {
         match self {
             Self::OpenLogDir | Self::ExportLogs => "logs",
             Self::ClearInputLog => "input-log",
+            Self::ClearClipboard => "clipboard-clear",
             Self::OpenConfig | Self::OpenDataDir => "config",
             Self::OpenWebsite | Self::OpenRepository => "links",
             Self::OpenDownload => "update",
@@ -45,9 +49,14 @@ impl Action {
             Self::OpenLogDir => open_dir(paths::log_dir()),
             Self::ExportLogs => export_logs(config).map(|zip| {
                 reveal(&zip);
-                "日志已打包到桌面，发给作者即可".to_owned()
+                tr("action.logs_exported").to_owned()
             }),
-            Self::ClearInputLog => clear_input_log().map(|()| "输入日志已清空".to_owned()),
+            Self::ClearInputLog => {
+                clear_input_log().map(|()| tr("action.input_log_cleared").to_owned())
+            }
+            Self::ClearClipboard => {
+                clear_clipboard().map(|()| tr("action.clipboard_cleared").to_owned())
+            }
             Self::OpenWebsite => open(WEBSITE_URL).map(|()| String::new()),
             Self::OpenRepository => open(REPOSITORY_URL).map(|()| String::new()),
             Self::OpenDownload => open(qingjian_update::DOWNLOAD_URL).map(|()| String::new()),
@@ -65,7 +74,7 @@ impl Action {
 fn open_in_editor(path: &Path) -> Result<String, String> {
     if !path.exists() {
         qingjian_platform::Config::write_template_if_missing(path)
-            .map_err(|error| format!("配置文件建不出来：{error}"))?;
+            .map_err(|error| tr_args("action.cant_create_config", &[("error", &error)]))?;
     }
     let path = path.to_string_lossy();
     if cfg!(windows) {
@@ -79,8 +88,9 @@ fn open_in_editor(path: &Path) -> Result<String, String> {
 }
 
 fn open_dir(dir: Option<PathBuf>) -> Result<String, String> {
-    let dir = dir.ok_or("找不到这个目录")?;
-    std::fs::create_dir_all(&dir).map_err(|error| format!("建不了目录：{error}"))?;
+    let dir = dir.ok_or(tr("action.no_dir"))?;
+    std::fs::create_dir_all(&dir)
+        .map_err(|error| tr_args("action.cant_create_dir", &[("error", &error)]))?;
     open(&dir.to_string_lossy())?;
     Ok(String::new())
 }
@@ -113,30 +123,41 @@ fn spawn(program: &str, args: &[&str]) -> Result<(), String> {
         .args(args)
         .spawn()
         .map(drop)
-        .map_err(|error| format!("起不了 {program}：{error}"))
+        .map_err(|error| {
+            tr_args(
+                "action.cant_launch",
+                &[("program", &program), ("error", &error)],
+            )
+        })
 }
 
-/// 日志目录里的文件加配置文件打成桌面上的 `qingjian-logs-<日期>.zip`（不带目录层级）。
+/// 日志目录里的文件加配置文件与系统信息（[`system_info::report`]）打成桌面上的 `qingjian-logs-<日期>.zip`（不带目录层级）。
 /// 配置文件里可能写着云服务密钥，打包的是抹掉密钥的副本。
 fn export_logs(config: &Path) -> Result<PathBuf, String> {
-    let dir = paths::log_dir().ok_or("找不到日志目录")?;
+    let dir = paths::log_dir().ok_or(tr("action.no_log_dir"))?;
     let mut files: Vec<PathBuf> = std::fs::read_dir(&dir)
-        .map_err(|error| format!("读不到日志目录：{error}"))?
+        .map_err(|error| tr_args("action.cant_read_logs", &[("error", &error)]))?
         .filter_map(|entry| entry.ok().map(|entry| entry.path()))
         .filter(|path| path.is_file())
         .collect();
+    if files.is_empty() {
+        return Err(tr("action.no_logs").to_owned());
+    }
+    let staging = std::env::temp_dir().join("qingjian-export");
+    std::fs::create_dir_all(&staging)
+        .map_err(|error| tr_args("action.cant_copy_config", &[("error", &error)]))?;
     if let Ok(text) = std::fs::read_to_string(config) {
-        let dir = std::env::temp_dir().join("qingjian-export");
-        let copy = dir.join("config.toml");
-        std::fs::create_dir_all(&dir)
-            .and_then(|()| std::fs::write(&copy, redact_secrets(&text)))
-            .map_err(|error| format!("写不了配置副本：{error}"))?;
+        let copy = staging.join("config.toml");
+        std::fs::write(&copy, redact_secrets(&text))
+            .map_err(|error| tr_args("action.cant_copy_config", &[("error", &error)]))?;
         files.push(copy);
     }
-    if files.is_empty() {
-        return Err("没有可打包的日志".to_owned());
+    // 系统版本这些取不到就少一份，不挡打包
+    let system = staging.join("system.txt");
+    if std::fs::write(&system, system_info::report()).is_ok() {
+        files.push(system);
     }
-    let desktop = desktop().ok_or("找不到桌面")?;
+    let desktop = desktop().ok_or(tr("action.no_desktop"))?;
     let zip = desktop.join(format!("qingjian-logs-{}.zip", today()));
     let _ = std::fs::remove_file(&zip);
     // Windows 10 起自带 bsdtar，`-a` 按扩展名出 zip；macOS 与 Linux 用 zip
@@ -156,9 +177,9 @@ fn export_logs(config: &Path) -> Result<PathBuf, String> {
             .args(&files)
             .status()
     }
-    .map_err(|error| format!("起不了压缩程序：{error}"))?;
+    .map_err(|error| tr_args("action.cant_zip", &[("error", &error)]))?;
     if !status.success() {
-        return Err(format!("压缩失败（{status}）"));
+        return Err(tr_args("action.zip_failed", &[("status", &status)]));
     }
     tracing::warn!(zip = %zip.display(), "用户导出日志");
     Ok(zip)
@@ -188,13 +209,42 @@ fn today() -> String {
     jiff::Zoned::now().strftime("%Y-%m-%d").to_string()
 }
 
+/// 剪贴板程序：Windows 与设置程序同目录；macOS 是输入法包里另一个 .app，与设置程序的 .app 同在 `Contents/Applications/`。
+#[cfg(not(target_os = "macos"))]
+fn clipboard_program(settings: &std::path::Path) -> std::path::PathBuf {
+    settings.with_file_name("qingjian-clipboard.exe")
+}
+
+#[cfg(target_os = "macos")]
+fn clipboard_program(settings: &std::path::Path) -> std::path::PathBuf {
+    // …/Contents/Applications/QingjianSettings.app/Contents/MacOS/qingjian-settings
+    let applications = settings.ancestors().nth(4).unwrap_or(settings);
+    applications.join("QingjianClipboard.app/Contents/MacOS/qingjian-clipboard")
+}
+
+/// 历史归剪贴板程序管，让它来清；它开着也没关系，SQLite 自己协调。
+fn clear_clipboard() -> Result<(), String> {
+    let settings = std::env::current_exe()
+        .map_err(|error| tr_args("action.clear_failed", &[("error", &error)]))?;
+    let program = clipboard_program(&settings);
+    let status = Command::new(program)
+        .arg("--clear")
+        .status()
+        .map_err(|error| tr_args("action.clear_failed", &[("error", &error)]))?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err(tr_args("action.clear_failed", &[("error", &status)]))
+    }
+}
+
 /// 输入法开着输入日志时一直以追加方式写它，截断后接着从头写，不用通知输入法。
 fn clear_input_log() -> Result<(), String> {
-    let path = paths::input_log().ok_or("找不到数据目录")?;
+    let path = paths::input_log().ok_or(tr("common.no_data_dir"))?;
     if !path.exists() {
         return Ok(());
     }
     std::fs::File::create(&path)
         .map(drop)
-        .map_err(|error| format!("清空失败：{error}"))
+        .map_err(|error| tr_args("action.clear_failed", &[("error", &error)]))
 }

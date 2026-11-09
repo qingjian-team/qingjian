@@ -5,7 +5,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
 OUT="$ROOT/apps/windows/tsf/resources/mode"
 mkdir -p "$OUT"
-for name in zh en caps; do
+for name in zh en vi caps; do
   for size in 16 20 24 32; do
     rsvg-convert -w "$size" -h "$size" "$ROOT/assets/icon/windows/mode-$name.svg" -o "$OUT/tmp.png"
     magick "$OUT/tmp.png" -alpha extract -depth 8 "gray:$OUT/$name-$size.alpha"

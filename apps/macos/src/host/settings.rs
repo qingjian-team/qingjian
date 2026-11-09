@@ -4,7 +4,7 @@ use super::diagnostics::{copy_to_pasteboard, open_with_system};
 use super::*;
 use crate::preferences::DEFAULT_FONT_LABEL;
 use qingjian_core::TraditionalVariant;
-use qingjian_platform::{FontSize, ShiftLetter};
+use qingjian_platform::{FontSize, ShiftLetter, SwitchKey, code_schemes};
 
 impl Host {
     /// 写短语前读取文件；外部规则有变化时同步列表并请用户重新确认。
@@ -92,6 +92,18 @@ impl Host {
             MenuAction::OpenDownload => open_with_system(&[qingjian_update::DOWNLOAD_URL]),
             // 要当前会话的文本客户端，控制器在 menuAction: 里先接走了
             MenuAction::OpenSymbolPanel => {}
+        }
+    }
+
+    /// 标点切换键：翻转中文模式的全半角标点，落盘后热加载。英文模式一律半角，调用方不在英文模式下调。
+    pub fn toggle_punctuation(&mut self) {
+        let full_width = !self.settings.config().general.full_width_punctuation;
+        tracing::debug!(full_width, "切换全角标点");
+        if self
+            .settings
+            .set_bool("general", "full_width_punctuation", full_width)
+        {
+            self.apply_config(false);
         }
     }
 
@@ -289,20 +301,6 @@ impl Host {
                 }
                 Err(error) => tracing::warn!(%error, "修饰键组合不合法，未改"),
             },
-            (Setting::DeleteCandidateKeys, SettingValue::Text(text)) => {
-                match text.parse::<Modifiers>() {
-                    Ok(chosen) => {
-                        let (first, second) = config.shortcut.translation_keys();
-                        if chosen == first || chosen == second {
-                            tracing::warn!("删候选的快捷键不能与译词快捷键相同，未改");
-                        } else {
-                            self.settings
-                                .set_value("shortcut", "delete_candidate", chosen.key());
-                        }
-                    }
-                    Err(error) => tracing::warn!(%error, "修饰键组合不合法，未改"),
-                }
-            }
             (Setting::TranslateSelectionKeys, SettingValue::Text(text)) => {
                 match text.parse::<KeyCombo>() {
                     Ok(combo) => {
@@ -340,11 +338,13 @@ impl Host {
                     "translate_selection",
                     defaults.translate_selection.key_string(),
                 );
-                self.settings.set_value(
-                    "shortcut",
-                    "delete_candidate",
-                    defaults.delete_candidate.key(),
-                );
+                let values: Vec<String> = defaults
+                    .switch_mode
+                    .config_values()
+                    .into_iter()
+                    .map(String::from)
+                    .collect();
+                self.settings.set_array("shortcut", "switch_mode", &values);
             }
             (Setting::DictionaryEnabled(index), SettingValue::Bool(on)) => {
                 if let Some(info) = self.dictionary_list.get(index).cloned() {
@@ -416,6 +416,13 @@ impl Host {
                 self.settings
                     .set_value("general", "shift_letter", mode.key());
             }
+            // 只动 shift，配置里若还勾着 control / ctrl+alt+space（Windows 用的）保持原样
+            (Setting::SwitchModeShift, SettingValue::Bool(on)) => {
+                let keys = config.shortcut.switch_mode.with(SwitchKey::Shift, on);
+                let values: Vec<String> =
+                    keys.config_values().into_iter().map(String::from).collect();
+                self.settings.set_array("shortcut", "switch_mode", &values);
+            }
             // 勾上写缺省白名单，去掉写 ["*"]（处处都给）；手改过的名单勾一下就回缺省
             (Setting::EnglishCandidatesOnlyInApps, SettingValue::Bool(on)) => {
                 let apps: toml_edit::Array = if on {
@@ -440,8 +447,11 @@ impl Host {
             }
             // 五笔：勾上就是 86 版，取消就是关。与上面的拼音方案同时开着就是混输。
             (Setting::Wubi, SettingValue::Bool(on)) => {
-                self.settings
-                    .set_value("general", "wubi", if on { "wubi86" } else { "" });
+                self.settings.set_value(
+                    "general",
+                    "code",
+                    if on { code_schemes::WUBI86 } else { "off" },
+                );
             }
             // 弹出菜单按 TraditionalVariant::ALL 的顺序，第 0 项是简体
             (Setting::Traditional, SettingValue::Index(index)) => {

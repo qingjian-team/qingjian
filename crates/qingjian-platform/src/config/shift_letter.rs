@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use crate::i18n::tr;
+
 /// 中文模式下按住 Shift 敲的字母怎么处理（`[general] shift_letter`）。
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -28,8 +30,8 @@ impl ShiftLetter {
     /// 界面上的名字。
     pub fn label(self) -> &'static str {
         match self {
-            Self::Passthrough => "交给应用",
-            Self::Compose => "进组句",
+            Self::Passthrough => tr("shift_letter.passthrough"),
+            Self::Compose => tr("shift_letter.compose"),
         }
     }
 

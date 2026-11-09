@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
+  <!-- 剪贴板托盘图标的 16px 版，按像素对齐单独画：缩小通用版时竹简的边缘会虚。 -->
+  <path fill="#FFFFFF" fill-rule="evenodd" d="M3 2H4V4H12V2H13Q14 2 14 3V14Q14 15 13 15H3Q2 15 2 14V3Q2 2 3 2ZM4 6V9H7V6ZM9 6V9H12V6ZM4 10V13H7V10ZM9 10V13H12V10Z"/>
+  <rect x="5" y="0" width="6" height="3" rx="0.5" fill="#94BE52"/>
+</svg>

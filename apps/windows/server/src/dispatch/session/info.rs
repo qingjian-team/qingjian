@@ -12,6 +12,9 @@ pub(crate) struct SessionInfo {
     /// 取不到宿主名时，模式仅按会话隔离；不让未知应用共享同一个占位名称。
     pub(crate) english: Option<bool>,
 
+    /// 未知宿主按会话隔离的越南语状态。
+    pub(crate) vietnamese: Option<bool>,
+
     /// DLL 报来的协议版本。比 Server 低的（应用还没重启、加载着旧 DLL）要按老协议发帧，
     /// 见 composed 里的 downgrade_for_old_dll。
     pub(crate) protocol: u32,

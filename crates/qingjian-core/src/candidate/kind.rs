@@ -18,7 +18,7 @@ pub enum CandidateKind {
     /// 快捷候选（日期 / 时间 / 星期 / 算式结果 / 中文数字），由输入直接算出，上屏时吃掉整段作用域、不记学习。
     Shortcut,
 
-    /// 自定义短语的固定位置，从 1 开始。
+    /// 自定义短语，带它在列表里的固定位置（从 1 开始，按权重排出来的名次）。
     Custom(usize),
 
     /// 按候选词配的 emoji，音节与那个词相同；上屏按音节消耗拼音，不记学习。
@@ -42,5 +42,20 @@ impl CandidateKind {
     /// 跟在某个词后面配出来的（emoji、颜文字、符号）：音节与那个词相同，`reading` 是那个词。
     pub fn follows_word(self) -> bool {
         matches!(self, Self::Emoji | Self::Kaomoji | Self::Symbol)
+    }
+
+    /// 删得掉的（[`crate::Engine::forget`]）：中文词、码表词、云端词删用户词与学习记录，英文词删个人英文词；
+    /// 整句、快捷候选、自定义短语、emoji 这些没什么可删，壳不必给删除入口。
+    pub fn forgettable(self) -> bool {
+        match self {
+            Self::Chinese | Self::Code | Self::Cloud | Self::English => true,
+            Self::Shortcut
+            | Self::Custom(_)
+            | Self::Emoji
+            | Self::Kaomoji
+            | Self::Symbol
+            | Self::Sentence
+            | Self::Generated => false,
+        }
     }
 }

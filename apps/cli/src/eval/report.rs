@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::fmt;
 use std::time::Duration;
 
@@ -41,6 +42,9 @@ pub struct Report {
 
     /// 没命中首选的例子。
     pub misses: Vec<String>,
+
+    /// 没命中首选的句子按丢在哪一步计数（`qingjian_core::sentence::Loss::kind`）。
+    pub losses: BTreeMap<&'static str, usize>,
 }
 
 impl Report {
@@ -101,6 +105,14 @@ impl fmt::Display for Report {
                 "抽出 {} 条，{} 条有字查不到读音，跳过",
                 self.extracted, self.untranscribable
             )?;
+        }
+        if !self.losses.is_empty() {
+            let missed: usize = self.losses.values().sum();
+            write!(f, "没命中首选的 {missed} 条丢在：")?;
+            for (kind, count) in &self.losses {
+                write!(f, " {kind} {count}（{}）", percent(*count, missed))?;
+            }
+            writeln!(f)?;
         }
         if !self.misses.is_empty() {
             writeln!(f, "\n没命中首选的例子：")?;

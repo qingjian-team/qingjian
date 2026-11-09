@@ -72,6 +72,34 @@ fn missing_families_fall_back_to_the_ui_font() {
     );
 }
 
+/// macOS 27 的苹方把轮廓放进私有的 `hvgl` 表：这种文件不进字体库，回退链落到后面的字族，不能选中它画成空白。
+#[test]
+fn undrawable_family_falls_back_instead_of_drawing_blank() {
+    let (Some(file), Some(mut renderer)) = (georgia(), renderer()) else {
+        eprintln!("没有 Georgia 或系统字体，跳过");
+        return;
+    };
+    let mut data = std::fs::read(&file).unwrap();
+    let tables = usize::from(u16::from_be_bytes([data[4], data[5]]));
+    let glyf = (0..tables)
+        .map(|i| 12 + 16 * i)
+        .find(|&at| &data[at..at + 4] == b"glyf")
+        .unwrap();
+    data[glyf..glyf + 4].copy_from_slice(b"hvgl");
+    let dir = PathBuf::from(env!("CARGO_TARGET_TMPDIR")).join("undrawable-font");
+    std::fs::create_dir_all(&dir).unwrap();
+    let outline_less = dir.join("georgia-hvgl.ttf");
+    std::fs::write(&outline_less, data).unwrap();
+
+    let plain = Theme::light();
+    let theme = Theme::from_json(&theme_json(r#"["Georgia", "system"]"#, "[]"), false).unwrap();
+    renderer.load_theme_fonts(&theme, |_| vec![outline_less.clone()]);
+    assert_eq!(
+        renderer.trace_families("Abc", &theme),
+        renderer.trace_families("Abc", &plain)
+    );
+}
+
 #[test]
 fn bundled_font_loads_from_the_theme_directory() {
     let (Some(file), Some(mut renderer)) = (georgia(), renderer()) else {
@@ -93,4 +121,38 @@ fn bundled_font_loads_from_the_theme_directory() {
     renderer.load_theme_fonts(&theme, |family| panic!("不该查 {family}"));
     assert_eq!(renderer.trace_families("Abc", &theme), ["Georgia"]);
     assert!(Path::new(&theme.font_files()[0]).starts_with(&dir));
+}
+
+#[cfg(target_os = "windows")]
+#[test]
+fn windows_extended_han_uses_system_fallback_in_default_and_sakura_themes() {
+    use qingjian_render::system_fonts;
+
+    let dir = std::env::var_os("WINDIR")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from(r"C:\Windows"))
+        .join("Fonts");
+    for (file, text, family) in [
+        ("simsunb.ttf", "\u{20aa7}", "SimSun-ExtB"),
+        ("SimsunExtG.ttf", "\u{30edd}", "SimSun-ExtG"),
+    ] {
+        if !dir.join(file).is_file() {
+            eprintln!("没有 {file}，跳过对应扩展区字形");
+            continue;
+        }
+        let library = FontLibrary::system("zh-CN").unwrap();
+        assert!(library.font_files().contains(&dir.join(file)));
+        let mut renderer = Renderer::new(library);
+        for id in ["qingjian", "sakura"] {
+            let theme = Theme::builtin(id, false).unwrap();
+            renderer.load_theme_fonts(&theme, system_fonts::family_files);
+            assert_eq!(renderer.trace_families(text, &theme), [family], "{id}");
+            // 扩展字回退不接管主题原本能显示的常用字。
+            let common = renderer.trace_families("我你好骨直曜", &theme);
+            assert!(
+                common.iter().all(|name| !name.starts_with("SimSun-Ext")),
+                "{id}: {common:?}"
+            );
+        }
+    }
 }

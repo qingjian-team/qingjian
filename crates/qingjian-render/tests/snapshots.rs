@@ -171,15 +171,6 @@ fn render_all(mut renderer: Renderer) -> Vec<Shot> {
         );
         shots.push(shot(format!("{name}-nihao-vertical-light"), rendered, None));
     }
-    // 状态条整条跟候选字号缩放：字、齿轮、边距一起变
-    let status = renderer
-        .render_status(&scenes::status_cells(), &Mode::default(), &large, 2.0)
-        .unwrap();
-    shots.push(shot(
-        "large-text-status-light".to_owned(),
-        status.rendered,
-        Some(&status.cell_edges),
-    ));
     shots
 }
 

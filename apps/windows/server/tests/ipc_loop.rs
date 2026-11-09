@@ -9,7 +9,7 @@ use qingjian_platform::protocol::{
     ClientMessage, Frame, KeyEvent, PROTOCOL_VERSION, ScreenRect, ServerMessage, SessionId,
 };
 use qingjian_render::Mode;
-use qingjian_windows_server::dispatch::{CandidateSink, PanelFrame, RenderSettings};
+use qingjian_windows_server::dispatch::{CandidateSink, KeyHintView, PanelFrame, RenderSettings};
 use qingjian_windows_server::ipc::{read_message, serve, write_message};
 use qingjian_windows_server::{AssemblySpec, Router, RouterConfig, assembly};
 
@@ -212,7 +212,7 @@ struct RecordingSink {
 }
 
 impl CandidateSink for RecordingSink {
-    fn show(&self, _frame: Frame, _mode: Mode, _rect: ScreenRect) {
+    fn show(&self, _frame: Frame, _mode: Mode, _rect: ScreenRect, _key_hint: Option<KeyHintView>) {
         self.events.lock().unwrap().push("show");
     }
 

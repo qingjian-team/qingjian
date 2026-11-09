@@ -104,7 +104,7 @@ pub(crate) fn view(settings: &Settings, context: &mut ViewContext<Settings>) -> 
                 Button::new()
                     .on_click(context.message(Message::ImportDictionary))
                     .content("导入词库…"),
-                note("接受青简 TSV、Rime .dict.yaml 与现成的 .qj；导入即转换进上面的目录，同名覆盖。"),
+                note("接受青简 TSV、Rime .dict.yaml、只有词的表（读音按随包词库补）与现成的 .qj；导入即转换进上面的目录，同名覆盖。"),
             )),
         note(&settings.dictionary_status),
     ]);
@@ -133,10 +133,28 @@ pub(crate) fn remove_user_dict(settings: &mut Settings, stem: &str) {
     }
 }
 
+/// 无读音词表的参考词库：随包基础词库加随包领域词库，读不到的跳过。
+fn reference_dictionaries() -> Vec<Dictionary> {
+    let mut references = Vec::new();
+    let mut read = |path: &Path| match Dictionary::from_path(path) {
+        Ok(dictionary) => references.push(dictionary),
+        Err(error) => crate::log::warn(format!("参考词库打不开 {}：{error}", path.display())),
+    };
+    if let Some(base) = repo_resource("data/generated/dict.qj") {
+        read(&base);
+    }
+    if let Some(dir) = repo_resource("data/generated/dicts") {
+        for (_, path) in extra_dictionaries::list(&dir) {
+            read(&path);
+        }
+    }
+    references
+}
+
 /// 多选词库，逐个转换并汇总结果；成功项的开关一次写回。
 pub(crate) fn import(settings: &mut Settings) {
     let Some(sources) = rfd::FileDialog::new()
-        .add_filter("词库文件", &["tsv", "yaml", "yml", "qj"])
+        .add_filter("词库文件", &["tsv", "txt", "yaml", "yml", "qj"])
         .add_filter("所有文件", &["*"])
         .set_title("导入词库")
         .pick_files()
@@ -144,20 +162,31 @@ pub(crate) fn import(settings: &mut Settings) {
         return;
     };
     let dir = user_dir(settings);
+    let references = reference_dictionaries();
+    let borrowed: Vec<&Dictionary> = references.iter().collect();
     let mut disabled = settings.config.dictionaries.disabled.clone();
     let mut results = Vec::new();
     let mut succeeded = 0;
     for source in &sources {
-        match qingjian_core::dictionary::import::import(source, &dir) {
-            Ok(imported) => {
-                if let Some(stem) = imported.path.file_stem().and_then(|s| s.to_str()) {
+        match qingjian_core::dictionary::import::import_dictionary(source, &dir, &borrowed) {
+            Ok(done) => {
+                if let Some(stem) = done.imported.path.file_stem().and_then(|s| s.to_str()) {
                     disabled.retain(|name| name != stem);
                 }
                 succeeded += 1;
-                results.push(format!(
+                let mut line = format!(
                     "已导入「{}」，共 {} 条。",
-                    imported.name, imported.entries
-                ));
+                    done.imported.name, done.imported.entries
+                );
+                if let Some(report) = &done.report
+                    && !report.unknown.is_empty()
+                {
+                    line.push_str(&format!(
+                        "{} 条跳过（字不在随包词库）。",
+                        report.unknown.len()
+                    ));
+                }
+                results.push(line);
             }
             Err(error) => {
                 let message = format!("{} 导入失败：{error}", source.display());

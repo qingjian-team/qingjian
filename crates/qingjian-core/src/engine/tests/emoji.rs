@@ -103,7 +103,8 @@ fn emoji_follow_their_word_and_consume_its_syllables() {
         3
     );
     let emoji = items[kaifa + 1].clone();
-    assert_eq!(engine.commit(&emoji), "👨‍💻");
+    assert_eq!(engine.commit(&emoji), "");
+    assert_eq!(engine.held_text(), "👨‍💻");
     assert_eq!(engine.composition().text(), "zhe");
 }
 
@@ -155,4 +156,30 @@ fn symbol_names_missing_from_the_dictionary_still_bring_their_symbols() {
     assert_eq!(items[0].text, "尖括号");
     assert_eq!(items[1].text, "〈〉");
     assert_eq!(items[1].kind, CandidateKind::Symbol);
+}
+
+#[test]
+fn circled_numbers_follow_their_spelled_out_names() {
+    let mut engine = engine().with_emoji(EmojiTable::default());
+    for (input, name, symbol) in [
+        ("yuanquanyi", "圆圈一", "①"),
+        ("yuanquanshiwu", "圆圈十五", "⑮"),
+        ("yuanquanershi", "圆圈二十", "⑳"),
+    ] {
+        engine.set_input(input);
+        let items = engine.query().unwrap().candidates.items;
+        assert_eq!(items[0].text, name);
+        assert_eq!(items[1].text, symbol);
+    }
+}
+
+#[test]
+fn the_degree_sign_follows_its_single_character() {
+    let dictionary = Dictionary::parse("都\tdu\t200\n度\tdu\t100\n").unwrap();
+    let mut engine = Engine::new(dictionary).with_emoji(EmojiTable::default());
+    engine.set_input("du");
+    let items = engine.query().unwrap().candidates.items;
+    let du = items.iter().position(|c| c.text == "度").unwrap();
+    assert_eq!(items[du + 1].text, "°");
+    assert_eq!(items[du + 1].kind, CandidateKind::Symbol);
 }

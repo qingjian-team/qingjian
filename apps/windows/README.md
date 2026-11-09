@@ -17,7 +17,7 @@ Windows 端是**一个产品、两个产物**，各自一个 package，同放本
 
 Windows 的文本服务（TSF，Text Services Framework）是一个 COM DLL（`ITfTextInputProcessor`），
 系统会把它加载进**每一个**接受文本输入的应用进程。因此输入内核不能待在 DLL 里（会被复制进几十个进程、
-状态无法共享、崩溃会连累宿主应用）。青简照 Weasel（WeaselServer + WeaselTSF）、水杉（Server 进程）的做法：
+状态无法共享、崩溃会连累宿主应用）。青简照 Weasel（WeaselServer + WeaselTSF）的做法：
 Engine 只此一份，跑在独立的 Server 进程；每个应用进程里的 TSF DLL 只做两件事——把系统按键翻成协议消息发来、
 把 Server 回的候选画到候选窗口。
 

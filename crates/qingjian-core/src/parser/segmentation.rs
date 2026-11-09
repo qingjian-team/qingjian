@@ -2,6 +2,8 @@ use std::fmt;
 
 use qingjian_dictionary::{SyllablePattern, canonical_syllable};
 
+use super::umlaut_spelling;
+
 /// 切分出的一个音节。
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Syllable {
@@ -58,6 +60,15 @@ impl Segmentation {
 
     pub fn last_is_partial(&self) -> bool {
         self.syllables.last().is_some_and(|s| !s.complete)
+    }
+
+    /// 拼音行显示用：各音节换成 [`umlaut_spelling`] 的写法后用 `'` 连接，`ce'lve` → `ce'lüe`。
+    pub fn spelled(&self) -> String {
+        self.syllables
+            .iter()
+            .map(|s| umlaut_spelling(&s.text))
+            .collect::<Vec<_>>()
+            .join("'")
     }
 
     /// 用分隔符连接各音节，给 marked text 用：`kai'fa`、`k'f`。

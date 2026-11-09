@@ -7,6 +7,9 @@ use bamboo_slip::taffy::NodeId;
 use bamboo_slip::{App, FamilyList, FamilyTable, Key, RenderError, TextPainter, Ui, Waker};
 
 use super::{SIZES, Settings};
+
+use crate::i18n::tr;
+use crate::jobs::model_download::Pack;
 use crate::library::{self, Library};
 use crate::message::{FieldId, Message, Popup, SizeKind};
 use crate::page_id::PageId;
@@ -29,13 +32,19 @@ impl App for Settings {
 
     fn update(&mut self, message: Message) -> bool {
         let armed = self.armed.take();
+        let remove_armed = self.remove_armed.take();
         if !matches!(
             message,
             Message::Run(_)
+                | Message::ImportConfig
+                | Message::ExportConfig
                 | Message::TestCloud
                 | Message::CheckUpdate
+                | Message::DownloadModel(_)
                 | Message::Import(_)
                 | Message::VocabularyExport(_)
+                | Message::ImportPhrases
+                | Message::ExportPhrases
         ) {
             self.notice = None;
         }
@@ -51,6 +60,9 @@ impl App for Settings {
                 if page == PageId::Dictionaries {
                     self.library = Library::scan();
                 }
+                if page == PageId::Input {
+                    self.library.rescan_schemes();
+                }
                 if page == PageId::Stats {
                     self.stats = Some(Stats::load(&self.config.general));
                 }
@@ -62,6 +74,9 @@ impl App for Settings {
             Message::Record(shortcut) => self.recording = Some(shortcut),
             Message::StopRecording => self.recording = None,
             Message::Recorded(shortcut, press) => match shortcut.accept(&press, &self.config) {
+                Ok(value) if shortcut.taken(&value, &self.config) => {
+                    self.notice = Some((shortcut.title(), tr("shortcut.hotkey_taken").to_owned()));
+                }
                 Ok(value) => {
                     let (section, key) = shortcut.config_key();
                     self.write(section, key, value);
@@ -71,14 +86,6 @@ impl App for Settings {
             },
             Message::ResetShortcuts => self.reset_shortcuts(),
             Message::OpenPhrase(index) => self.open_phrase(index),
-            Message::PhrasePosition(delta) => {
-                if let Some(editor) = self.phrase.as_mut() {
-                    editor.position = editor
-                        .position
-                        .saturating_add_signed(delta as isize)
-                        .clamp(1, 9);
-                }
-            }
             Message::SavePhrase => self.save_phrase(false),
             Message::DeletePhrase => {
                 let confirmed = self
@@ -101,11 +108,22 @@ impl App for Settings {
                     });
                 }
             }
-            Message::Import(kind) => match self.import.start(kind, self.waker.clone()) {
-                Ok(true) => self.notice = Some((kind.slot(), "正在导入…".to_owned())),
-                Ok(false) => {}
-                Err(error) => self.notice = Some((kind.slot(), error)),
-            },
+            Message::ImportPhrases => self.import_phrases(),
+            Message::ExportPhrases => self.export_phrases(),
+            Message::ImportConfig => self.import_config(),
+            Message::ExportConfig => self.export_config(),
+            Message::Import(kind) => {
+                match self
+                    .import
+                    .start(kind, self.code_target(), self.waker.clone())
+                {
+                    Ok(true) => {
+                        self.notice = Some((kind.slot(), tr("common.importing").to_owned()))
+                    }
+                    Ok(false) => {}
+                    Err(error) => self.notice = Some((kind.slot(), error)),
+                }
+            }
             Message::Remove(kind, stem) => {
                 if let Err(error) = library::remove(kind, &stem) {
                     self.notice = Some((kind.slot(), error));
@@ -153,8 +171,30 @@ impl App for Settings {
                     let started = self.update.start(&self.config.update, self.waker.clone());
                     self.notice = Some((
                         "update",
-                        started.err().unwrap_or_else(|| "正在检查…".to_owned()),
+                        started
+                            .err()
+                            .unwrap_or_else(|| tr("about.checking").to_owned()),
                     ));
+                }
+            }
+            Message::DownloadModel(model) => {
+                if let Err(error) = self.download.start(model, self.waker.clone()) {
+                    self.notice = Some(("download", error));
+                }
+            }
+            Message::CancelDownload => self.download.cancel(),
+            Message::UseModel(model) => self.use_model(model),
+            Message::RemoveModel(model) => {
+                if remove_armed != Some(model) {
+                    self.remove_armed = Some(model);
+                } else if let Some(pack) = Pack::of(model) {
+                    // 先关掉再删，输入法不会去读删了一半的目录
+                    if self.config.model.name == model {
+                        self.use_model(None);
+                    }
+                    if let Err(error) = pack.remove() {
+                        self.notice = Some(("download", error));
+                    }
                 }
             }
             Message::Commit(id) => self.commit(id),
@@ -165,7 +205,7 @@ impl App for Settings {
                         .cloud_test
                         .start(&self.config.predict, self.waker.clone())
                     {
-                        Ok(()) => "正在测试…".to_owned(),
+                        Ok(()) => tr("cloud.testing").to_owned(),
                         Err(error) => error,
                     };
                     self.notice = Some(("cloud", text));
@@ -176,6 +216,11 @@ impl App for Settings {
                 self.write(section, key, value);
             }
             Message::SetList(section, key, values) => self.write_list(section, key, &values),
+            Message::SetCodeRule(key, value) => {
+                if let Some(id) = self.config.general.code() {
+                    self.write(&format!("code.{id}"), key, value);
+                }
+            }
             Message::OpenMenu(popup) => {
                 if popup == Popup::Font && self.fonts.is_none() {
                     self.fonts = Some(fonts::families());
@@ -191,19 +236,27 @@ impl App for Settings {
                 };
                 self.write("general", key, f64::from(value));
             }
+            Message::Weight(delta) => {
+                let value = (i32::from(self.weight()) + delta * 100).clamp(100, 900);
+                self.write("general", "candidate_font_weight", i64::from(value));
+            }
             Message::ResetSizes => {
                 self.write("general", "candidate_font_size", 0.0);
                 self.write("general", "annotation_font_size", 0.0);
+                self.write("general", "candidate_font_weight", 0_i64);
             }
             Message::Run(action) => {
                 // 清空要点两下：第一下只是把按钮换成确认
-                if action == Action::ClearInputLog && armed != Some(action) {
+                if matches!(action, Action::ClearInputLog | Action::ClearClipboard)
+                    && armed != Some(action)
+                {
                     self.armed = Some(action);
                     self.notice = None;
                 } else {
                     self.notice = action.run(&self.path).map(|text| (action.slot(), text));
                 }
             }
+            Message::ExcludeClipboardApp => self.exclude_clipboard_app(),
             Message::ToggleSources => self.sources_open = !self.sources_open,
             Message::StatsCloud(cloud) => self.stats_cloud = cloud,
             Message::Search(edit) => {
@@ -261,6 +314,12 @@ impl App for Settings {
             self.imported(report);
             changed = true;
         }
+        // 下载线程每报一次进度都叫醒一次，重画进度条
+        changed |= self.download.stage().is_some();
+        if let Some(model) = self.download.finished() {
+            // 下好了直接用上它：用户点下载就是想用
+            self.use_model(Some(model));
+        }
         if let Some(text) = self.update.finish(&self.config.update) {
             self.notice = Some(("update", text));
             changed = true;
@@ -270,6 +329,13 @@ impl App for Settings {
 
     fn set_system_dark(&mut self, dark: bool) {
         self.system_dark = dark;
+    }
+
+    /// 切回设置窗口时重扫输入方案：用户多半是刚在访达 / 资源管理器里往 `schemes/` 放了方案。
+    fn set_active(&mut self, active: bool) {
+        if active {
+            self.library.rescan_schemes();
+        }
     }
 
     fn spotlight(&self) -> Option<Key> {

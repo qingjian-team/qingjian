@@ -3,6 +3,8 @@
 
 use serde::{Deserialize, Deserializer, Serialize};
 
+use crate::i18n::{tr, tr_args};
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(transparent)]
 pub struct EmojiCount(u8);
@@ -14,6 +16,14 @@ impl EmojiCount {
     /// 设置里下拉的选项，下标就是个数。
     pub const LABELS: [&str; Self::MAX as usize + 1] =
         ["不显示", "最多 1 个", "最多 2 个", "最多 3 个"];
+
+    /// 设置里下拉的选项名（随界面语言），下标就是个数。
+    pub fn label(count: u8) -> String {
+        match count {
+            0 => tr("emoji_count.off").to_owned(),
+            count => tr_args("emoji_count.at_most", &[("n", &count)]),
+        }
+    }
 
     pub fn new(count: u8) -> Self {
         Self(count.min(Self::MAX))

@@ -3,7 +3,7 @@ use std::sync::mpsc::{self, Receiver, Sender};
 
 use qingjian_core::{Encounter, FilledGloss, GlossFiller, Language};
 
-use super::phrase_worker::PhraseWorker;
+use super::phrase::PhraseWorker;
 use super::worker::GlossWorker;
 use crate::chat_client::ChatClient;
 use crate::config::PredictConfig;

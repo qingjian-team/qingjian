@@ -24,6 +24,7 @@ nlohmann::json mapKey(FcitxKeySym key, unsigned int state) {
     case FcitxKey_KP_Insert: code = 0x2d; break;
     case FcitxKey_KP_Begin: code = 0x0c; break;
     case FcitxKey_Shift_L: case FcitxKey_Shift_R: code = 0x10; break;
+    case FcitxKey_Control_L: case FcitxKey_Control_R: code = 0x11; break;
     case FcitxKey_KP_Multiply: code = 0x6a; break;
     case FcitxKey_KP_Add: code = 0x6b; break;
     case FcitxKey_KP_Separator: code = 0x6c; break;

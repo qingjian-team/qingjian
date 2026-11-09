@@ -55,13 +55,13 @@ pub fn preview(ui: &mut Ui<Message>, page: &Page) -> Result<NodeId, RenderError>
     ui.scene().node(
         Style {
             flex_direction: FlexDirection::Row,
-            justify_content: Some(JustifyContent::CENTER),
+            justify_content: JustifyContent::CENTER,
             size: Size {
                 width: Dimension::auto(),
                 height: Dimension::length(page.px(PREVIEW_HEIGHT)),
             },
             flex_shrink: 0.0,
-            align_items: Some(bamboo_slip::taffy::AlignItems::CENTER),
+            align_items: bamboo_slip::taffy::AlignItems::CENTER,
             ..Style::default()
         },
         Visual::Box(BoxPaint {
@@ -117,8 +117,8 @@ pub fn cards(ui: &mut Ui<Message>, page: &Page) -> Result<NodeId, RenderError> {
         let tile = ui.scene().node(
             Style {
                 flex_direction: FlexDirection::Row,
-                justify_content: Some(JustifyContent::CENTER),
-                align_items: Some(bamboo_slip::taffy::AlignItems::CENTER),
+                justify_content: JustifyContent::CENTER,
+                align_items: bamboo_slip::taffy::AlignItems::CENTER,
                 size: Size {
                     width: Dimension::length(width),
                     height: Dimension::length(height),
@@ -148,7 +148,7 @@ pub fn cards(ui: &mut Ui<Message>, page: &Page) -> Result<NodeId, RenderError> {
         let card = ui.scene().node(
             Style {
                 flex_direction: FlexDirection::Column,
-                align_items: Some(bamboo_slip::taffy::AlignItems::CENTER),
+                align_items: bamboo_slip::taffy::AlignItems::CENTER,
                 gap: page.gap(6.0),
                 ..Style::default()
             },

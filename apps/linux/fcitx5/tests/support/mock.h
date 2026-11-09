@@ -92,6 +92,10 @@ struct Mock {
             if (event.contains("Key") && !event.at("Key").at("release").get<bool>() && event.at("Key").at("event").at("character") == "n") {
                 frame = Json::parse(R"({"preedit":[{"text":"ni","kind":"Typed"}],"cursor":2,"candidates":{"items":[{"text":"","translation":null},{"text":"","translation":null},{"text":"你好","translation":{"senses":[{"text":"hello","fresh":true}]}}]},"highlight":2,"page":0,"page_count":2,"notice":null})");
                 outcome = "Consumed";
+                if (mode == "annotation") {
+                    frame["candidates"]["items"][2]["translation"]["senses"][0] = {
+                        {"text", "開発する"}, {"annotation", "v. 開発(かいはつ)する"}, {"fresh", true}};
+                }
                 if (mode == "cloud") {
                     frame["candidates"]["items"][2]["kind"] = "Cloud";
                     frame["sentence"] = "你好世界";

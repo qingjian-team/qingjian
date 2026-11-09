@@ -60,6 +60,11 @@ impl FuzzyRules {
         "z_zh", "c_ch", "s_sh", "n_l", "f_h", "l_r", "an_ang", "en_eng", "in_ing",
     ];
 
+    /// 设置里显示的规则名：键名 `z_zh` 写成 `z = zh`。
+    pub fn label(name: &str) -> String {
+        name.replace('_', " = ")
+    }
+
     /// 按名字开一条规则（`z-zh` / `z_zh` / `zzh` 都认），CLI 参数用；不认识返回 `false`。
     pub fn enable(&mut self, name: &str) -> bool {
         self.set(name, true)
@@ -115,11 +120,16 @@ impl FuzzyRules {
         }))
     }
 
+    /// 打完的音节 `typed` 按当前规则的全部写法，第一个是它自己（`zi` 开 z-zh 是 zi、zhi）。
+    pub fn readings(&self, typed: &str) -> Vec<String> {
+        self.alternatives(SyllablePattern::complete(typed))
+    }
+
     /// `syllable` 是不是 `typed` 按当前规则的一种模糊写法（不含它自己）。
     pub fn is_variant(&self, typed: &str, syllable: &str) -> bool {
         canonical_syllable(typed) != canonical_syllable(syllable)
             && self
-                .alternatives(SyllablePattern::complete(typed))
+                .readings(typed)
                 .iter()
                 .any(|form| canonical_syllable(form) == canonical_syllable(syllable))
     }
@@ -279,5 +289,11 @@ mod tests {
         assert_eq!(positions[0][1], SyllablePattern::complete("zhi"));
         assert_eq!(positions[1].len(), 3); // l n r
         assert!(positions[1].iter().all(|p| !p.complete));
+    }
+
+    #[test]
+    fn labels_follow_names() {
+        assert_eq!(FuzzyRules::label("z_zh"), "z = zh");
+        assert_eq!(FuzzyRules::label("an_ang"), "an = ang");
     }
 }

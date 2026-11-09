@@ -1,5 +1,7 @@
 //! 辅码态：触发键的判定、码段的增删、码表查询。码段独立于拼音缓冲区（见 [`Engine`] 的 `aux_code` 字段）。
 
+use std::borrow::Cow;
+
 use super::{AuxSegment, Engine};
 use crate::parser;
 
@@ -81,7 +83,7 @@ impl Engine {
     }
 
     /// 码表插桩：`word` 有没有以 `prefix` 开头的码，有就返回命中的那条（多张表按注入顺序取第一条）。
-    pub(super) fn matching_code<'a>(&'a self, word: &str, prefix: &str) -> Option<&'a str> {
+    pub(super) fn matching_code<'a>(&'a self, word: &str, prefix: &str) -> Option<Cow<'a, str>> {
         self.aux_codes
             .iter()
             .find_map(|table| table.code_with_prefix(word, prefix))

@@ -74,7 +74,9 @@ define_class!(
     impl PredictTicker {
         #[unsafe(method(tick:))]
         fn tick(&self, _timer: Option<&AnyObject>) {
-            crate::host::with(|h| h.poll_prediction());
+            if crate::host::with(|h| h.poll_prediction()).unwrap_or(false) {
+                crate::imk::panel_translation_changed();
+            }
         }
     }
 

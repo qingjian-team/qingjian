@@ -41,8 +41,16 @@ impl CandidateLayout {
         &self.local
     }
 
+    pub fn local_mut(&mut self) -> &mut [Candidate] {
+        &mut self.local
+    }
+
     pub fn cloud(&self) -> &[Candidate] {
         &self.cloud
+    }
+
+    pub fn cloud_mut(&mut self) -> &mut [Candidate] {
+        &mut self.cloud
     }
 
     /// 当前布局是否使用显式候选优先入口。

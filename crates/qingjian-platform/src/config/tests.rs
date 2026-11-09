@@ -21,6 +21,35 @@ fn partial_file_keeps_other_defaults() {
     assert_eq!(config.predict.min_interval_ms, 3000);
 }
 
+/// 含章·知微下线后，老配置里的 `name = "zhiwei"` 按通变读，不让整个配置读失败。
+#[test]
+fn retired_zhiwei_model_reads_as_tongbian() {
+    let config: Config = toml::from_str("[model]\nenabled = true\nname = \"zhiwei\"\n").unwrap();
+    assert!(config.model.enabled);
+    assert_eq!(config.model.name, LocalModel::Tongbian);
+}
+
+/// 设置程序启动时把下线的 `zhiwei` 改写成 `tongbian`，注释与别的键原样留着；已经是现在的取值就不碰文件。
+#[test]
+fn retired_zhiwei_is_rewritten_to_tongbian() {
+    let path = std::env::temp_dir().join("qingjian-config-retired-zhiwei-test.toml");
+    std::fs::write(
+        &path,
+        "[model]\n# 我的注释\nenabled = true\nname = \"zhiwei\"\n",
+    )
+    .unwrap();
+    assert!(Config::rewrite_retired_values(&path).unwrap());
+    let text = std::fs::read_to_string(&path).unwrap();
+    assert!(text.contains("# 我的注释"));
+    assert!(text.contains("name = \"tongbian\""));
+    assert!(text.contains("enabled = true"));
+    assert!(!Config::rewrite_retired_values(&path).unwrap());
+    std::fs::remove_file(&path).unwrap();
+    let missing = std::env::temp_dir().join("qingjian-config-retired-missing-test.toml");
+    assert!(!Config::rewrite_retired_values(&missing).unwrap());
+    assert!(!missing.exists());
+}
+
 #[test]
 fn emoji_reads_counts_and_old_switch() {
     let emoji = |value: &str| {
@@ -66,6 +95,11 @@ fn general_and_shortcut_sections_parse() {
     assert_eq!(config.general.kaomoji, EmojiCount::new(1));
     assert_eq!(config.general.symbols, EmojiCount::new(1));
     assert!(config.general.english_in_chinese);
+    assert_eq!(
+        config.general.english_max_in_chinese(),
+        qingjian_core::ENGLISH_CANDIDATES_MAX
+    );
+    assert_eq!(config.general.english_min_position(), 1);
     assert_eq!(
         config.general.traditional(),
         qingjian_core::TraditionalVariant::Off
@@ -167,6 +201,28 @@ fn set_value_writes_strings_and_integers() {
 }
 
 #[test]
+fn per_scheme_code_rules_go_into_nested_sections() {
+    let path = std::env::temp_dir().join("qingjian-config-code-rules-test.toml");
+    std::fs::write(&path, "[general]\ncode = \"wubi86\"\n").unwrap();
+    Config::set_value(&path, "code.wubi86", "top", false).unwrap();
+    Config::set_value(&path, "code.wubi86", "auto_commit", true).unwrap();
+    Config::set_value(&path, "code.huma", "top", true).unwrap();
+    let text = std::fs::read_to_string(&path).unwrap();
+    assert!(text.contains("[code.wubi86]") && !text.contains("[code]\n"));
+    let config = Config::load(&path).unwrap();
+    assert_eq!(
+        config.code_rules("wubi86"),
+        CodeRules {
+            auto_commit: Some(true),
+            top: Some(false),
+        }
+    );
+    assert_eq!(config.code_rules("huma").top, Some(true));
+    assert_eq!(config.code_rules("zhengma"), CodeRules::default());
+    let _ = std::fs::remove_file(&path);
+}
+
+#[test]
 fn set_bool_keeps_comments_and_flips_only_that_key() {
     let path = std::env::temp_dir().join("qingjian-config-set-bool-test.toml");
     std::fs::write(
@@ -247,6 +303,21 @@ fn font_sizes_and_animations_parse_and_default() {
     assert_eq!(default.general.candidate_font_size.get(), None);
     assert!(default.general.animations);
     assert_eq!(FontSize(-3.0).get(), None);
+}
+
+#[test]
+fn candidate_font_weight_rounds_to_hundreds_and_zero_follows_the_theme() {
+    let weight = |value: u16| {
+        let mut general = Config::default().general;
+        general.candidate_font_weight = value;
+        general.candidate_font_weight()
+    };
+    assert_eq!(weight(0), None);
+    assert_eq!(weight(500), Some(500));
+    assert_eq!(weight(449), Some(400));
+    assert_eq!(weight(880), Some(900));
+    assert_eq!(weight(99), None);
+    assert_eq!(weight(1000), None);
 }
 
 #[test]

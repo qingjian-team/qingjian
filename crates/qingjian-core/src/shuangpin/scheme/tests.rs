@@ -1,0 +1,317 @@
+use super::*;
+
+/// 每套方案：全部音节都能编成两键、再解回来是同一个音节。
+/// 只有 `lue` / `nue`（与 `lve` / `nve` 同键）和 `lo`（与 `luo` 同键）解回来是另一个写法。
+#[test]
+fn every_syllable_round_trips() {
+    for scheme in Scheme::ALL {
+        for syllable in parser::SYLLABLES {
+            let keys = scheme
+                .encode(syllable)
+                .unwrap_or_else(|| panic!("{scheme}: {syllable} 编不出"));
+            let decoded = scheme
+                .syllable(keys[0], keys[1])
+                .unwrap_or_else(|| panic!("{scheme}: {syllable} → {keys:?} 解不回"));
+            let expected = match *syllable {
+                // 首道的 ue 与 üe 分在两个键：lue / nue 按 ue 键编出来撞上 lai / nai
+                "lue" if scheme == Scheme::Shoudao => "lai",
+                "nue" if scheme == Scheme::Shoudao => "nai",
+                // 方案自带的同码：`dk` 是 den / dia，取键位图上排在前面的 en
+                "dia" if scheme == Scheme::Shoudao => "den",
+                "lue" => "lve",
+                "nue" => "nve",
+                "lo" => "luo",
+                // 全拼的键盘别名，双拼解成词库写法
+                "jv" => "ju",
+                "qv" => "qu",
+                "xv" => "xu",
+                "yv" => "yu",
+                // j/q/x/y 后 v 代 ü 的韵母系列（#531），同样解到主写法
+                "jve" => "jue",
+                "qve" => "que",
+                "xve" => "xue",
+                "yve" => "yue",
+                "jvan" => "juan",
+                "qvan" => "quan",
+                "xvan" => "xuan",
+                "yvan" => "yuan",
+                "jvn" => "jun",
+                "qvn" => "qun",
+                "xvn" => "xun",
+                "yvn" => "yun",
+                "eng" if scheme == Scheme::Xiaolang => "en",
+                "dia" if scheme == Scheme::Xiaolang => "dai",
+                "lia" if scheme == Scheme::Xiaolang => "lai",
+                "nen" if scheme == Scheme::Xiaolang => "niang",
+                // 生僻音节与常用音节同键时让给常用的
+                "biang" if scheme == Scheme::Xiaolang => "ben",
+                other => other,
+            };
+            assert_eq!(decoded, expected, "{scheme}: {syllable} → {keys:?}");
+        }
+    }
+}
+
+/// 两键组合最多对应一个音节：解码不会有歧义。
+#[test]
+fn every_key_pair_is_unambiguous() {
+    for scheme in Scheme::ALL {
+        let keys: Vec<char> = "abcdefghijklmnopqrstuvwxyz;".chars().collect();
+        for first in &keys {
+            for second in &keys {
+                // `syllable` 本身就是确定的；这里确认零声母写法与「声母 + 韵母」不撞车
+                let zero = scheme
+                    .layout()
+                    .zero_initials
+                    .iter()
+                    .filter(|(_, spellings)| {
+                        spellings.iter().any(|s| s.chars().eq([*first, *second]))
+                    })
+                    .count();
+                let max_zero = if scheme == Scheme::Xiaolang && *first == 'u' && *second == 'n' {
+                    2
+                } else {
+                    1
+                };
+                assert!(
+                    zero <= max_zero,
+                    "{scheme}: {first}{second} 对应多个零声母音节"
+                );
+                if zero >= 1 {
+                    // 首道的 `en` `er` 以 sh 键开头，但 sh 配不出 ian / ie，仍然不撞
+                    let clash = scheme.initial(*first).is_some_and(|initial| {
+                        scheme
+                            .finals(*second)
+                            .iter()
+                            .any(|final_| parser::is_syllable(&format!("{initial}{final_}")))
+                    });
+                    assert!(
+                        !clash,
+                        "{scheme}: {first}{second} 既是零声母写法又能拼成声母 + 韵母"
+                    );
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn well_known_words_decode_per_scheme() {
+    let cases = [
+        (Scheme::Xiaohe, "nihc", "ni'hao"),
+        (Scheme::Xiaohe, "vsgo", "zhong'guo"),
+        (Scheme::Xiaohe, "ulpb", "shuang'pin"),
+        (Scheme::Xiaohe, "xtxi", "xue'xi"),
+        (Scheme::Xiaohe, "uiui", "shi'shi"),
+        (Scheme::Xiaohe, "wdgo", "wai'guo"),
+        (Scheme::Xiaohe, "yske", "yong'ke"),
+        (Scheme::Xiaohe, "nvhd", "nv'hai"),
+        (Scheme::Xiaohe, "ahnv", "ang'nv"),
+        (Scheme::Ziranma, "nihk", "ni'hao"),
+        (Scheme::Ziranma, "udpn", "shuang'pin"),
+        (Scheme::Ziranma, "xtxi", "xue'xi"),
+        (Scheme::Ziranma, "eeyu", "e'yu"),
+        (Scheme::Microsoft, "nihk", "ni'hao"),
+        (Scheme::Microsoft, "udpn", "shuang'pin"),
+        (Scheme::Microsoft, "ly", "lv"),
+        (Scheme::Microsoft, "oaol", "a'ai"),
+        (Scheme::Microsoft, "lv", "lve"),
+        (Scheme::Microsoft, "x;", "xing"),
+        (Scheme::Sogou, "nihk", "ni'hao"),
+        (Scheme::Sogou, "oe", "e"),
+        (Scheme::Sogou, "y;", "ying"),
+        (Scheme::Abc, "nihk", "ni'hao"),
+        (Scheme::Abc, "asgo", "zhong'guo"),
+        (Scheme::Abc, "vtpc", "shuang'pin"),
+        (Scheme::Abc, "xmxi", "xue'xi"),
+        (Scheme::Abc, "vivi", "shi'shi"),
+        (Scheme::Abc, "wlgo", "wai'guo"),
+        (Scheme::Abc, "orqx", "er'qie"),
+        (Scheme::Abc, "nvhl", "nv'hai"),
+        (Scheme::Abc, "ohnv", "ang'nv"),
+        (Scheme::Shoudao, "nihd", "ni'hao"),
+        (Scheme::Shoudao, "vhgo", "zhong'guo"),
+        (Scheme::Shoudao, "expc", "shuang'pin"),
+        (Scheme::Shoudao, "xlxi", "xue'xi"),
+        (Scheme::Shoudao, "eiei", "shi'shi"),
+        (Scheme::Shoudao, "wlgo", "wai'guo"),
+        (Scheme::Shoudao, "erqr", "er'qie"),
+        (Scheme::Shoudao, "nvhl", "nv'hai"),
+        (Scheme::Shoudao, "lbjl", "lve'jue"),
+        (Scheme::Xiaolang, "nihs", "ni'hao"),
+        (Scheme::Xiaolang, "elgo", "zhong'guo"),
+        (Scheme::Xiaolang, "vzpd", "shuang'pin"),
+        (Scheme::Xiaolang, "xbxi", "xue'xi"),
+        (Scheme::Xiaolang, "vivi", "shi'shi"),
+        (Scheme::Xiaolang, "wkgo", "wai'guo"),
+        (Scheme::Xiaolang, "urqp", "er'qie"),
+        (Scheme::Xiaolang, "nxhk", "nv'hai"),
+        (Scheme::Xiaolang, "ahnx", "ang'nv"),
+        (Scheme::Jiajia, "nihd", "ni'hao"),
+        (Scheme::Jiajia, "ihpl", "shuang'pin"),
+        (Scheme::Jiajia, "xxxi", "xue'xi"),
+        (Scheme::Jiajia, "uv", "chui"),
+        (Scheme::Jiajia, "iv", "shui"),
+        (Scheme::Jiajia, "vv", "zhui"),
+        (Scheme::Jiajia, "nvhs", "nv'hai"),
+        (Scheme::Jiajia, "jx", "jue"),
+        (Scheme::Jiajia, "yy", "yong"),
+        (Scheme::Jiajia, "ww", "wei"),
+        (Scheme::Jiajia, "eq", "er"),
+        (Scheme::Jiajia, "er", "en"),
+        (Scheme::Jiajia, "op", "ou"),
+        (Scheme::Ziguang, "nihq", "ni'hao"),
+        (Scheme::Ziguang, "uhww", "zhong'wen"),
+        (Scheme::Ziguang, "igpy", "shuang'pin"),
+        (Scheme::Ziguang, "xnxi", "xue'xi"),
+        (Scheme::Ziguang, "iiii", "shi'shi"),
+        (Scheme::Ziguang, "x;x;", "xing'xing"),
+        (Scheme::Ziguang, "nvoj", "nv'er"),
+        (Scheme::Ziguang, "fsor", "fang'an"),
+    ];
+    for (scheme, keys, expected) in cases {
+        assert_eq!(scheme.decode(keys).pinyin(), expected, "{scheme}: {keys}");
+    }
+    // 搜狗的 v 不兼作 üe；配不成音节的 `lv` 按每键一个声母读（`l` + `zh`）
+    assert_eq!(Scheme::Sogou.decode("lv").pinyin(), "l'zh");
+    assert_eq!(Scheme::Sogou.decode("lv").tail(), "");
+    // 小浪中 x 为 ü，v 为 sh 或 uai/ing
+    assert_eq!(Scheme::Xiaolang.decode("lx").pinyin(), "lv");
+    assert_eq!(Scheme::Xiaolang.decode("lv").pinyin(), "ling");
+    // 智能 ABC 的翘舌声母在 a / e / v；零声母只认 o 前缀，`aa` / `ee` 是 zha / che
+    assert_eq!(Scheme::Abc.decode("ai").pinyin(), "zhi");
+    assert_eq!(Scheme::Abc.decode("ei").pinyin(), "chi");
+    assert_eq!(Scheme::Abc.decode("vi").pinyin(), "shi");
+    assert_eq!(Scheme::Abc.decode("oa").pinyin(), "a");
+    assert_eq!(Scheme::Abc.decode("oe").pinyin(), "e");
+    assert_eq!(Scheme::Abc.decode("aa").pinyin(), "zha");
+    assert_eq!(Scheme::Abc.decode("ee").pinyin(), "che");
+    // 首道的 sh 在 e：e / ei / eng 用 u 引导，en / er 照全拼敲，ang 是 ay
+    assert_eq!(Scheme::Shoudao.decode("ue").pinyin(), "e");
+    assert_eq!(Scheme::Shoudao.decode("ui").pinyin(), "ei");
+    assert_eq!(Scheme::Shoudao.decode("uf").pinyin(), "eng");
+    assert_eq!(Scheme::Shoudao.decode("en").pinyin(), "en");
+    assert_eq!(Scheme::Shoudao.decode("er").pinyin(), "er");
+    assert_eq!(Scheme::Shoudao.decode("ay").pinyin(), "ang");
+    assert_eq!(Scheme::Shoudao.decode("ek").pinyin(), "shen");
+    assert_eq!(Scheme::Shoudao.decode("jl").pinyin(), "jue");
+    assert_eq!(Scheme::Shoudao.decode("ll").pinyin(), "lai");
+    assert_eq!(Scheme::Shoudao.decode("lb").pinyin(), "lve");
+    // 拼音加加翘舌 zh/ch/sh 在 v/u/i（ch、sh 与小鹤相反）
+    assert_eq!(Scheme::Jiajia.decode("uu").pinyin(), "chu");
+    assert_eq!(Scheme::Jiajia.decode("ii").pinyin(), "shi");
+    assert_eq!(Scheme::Jiajia.decode("vi").pinyin(), "zhi");
+    // 拼音加加零声母主写法双写，同时兼容 o 前缀；en 双写是 er、er 在 eq
+    assert_eq!(Scheme::Jiajia.decode("aa").pinyin(), "a");
+    assert_eq!(Scheme::Jiajia.decode("oa").pinyin(), "a");
+    assert_eq!(Scheme::Jiajia.decode("ee").pinyin(), "e");
+    assert_eq!(Scheme::Jiajia.decode("oe").pinyin(), "e");
+    assert_eq!(Scheme::Jiajia.decode("os").pinyin(), "ai");
+    assert_eq!(Scheme::Jiajia.decode("oo").pinyin(), "o");
+    // 拼音加加 ü 在 v、üe 在 x（jue/nüe 同键，归一到词库写法）
+    assert_eq!(Scheme::Jiajia.decode("nx").pinyin(), "nve");
+    assert_eq!(Scheme::Jiajia.decode("lx").pinyin(), "lve");
+    assert_eq!(Scheme::Jiajia.decode("yx").pinyin(), "yue");
+    // 紫光翘舌声母在 u / a / i，a 与 i 兼作韵母；ing 在 `;`，与微软 / 搜狗同键
+    assert_eq!(Scheme::Ziguang.decode("ui").pinyin(), "zhi");
+    assert_eq!(Scheme::Ziguang.decode("ai").pinyin(), "chi");
+    assert_eq!(Scheme::Ziguang.decode("ii").pinyin(), "shi");
+    assert_eq!(Scheme::Ziguang.decode("uu").pinyin(), "zhu");
+    assert_eq!(Scheme::Ziguang.decode("x;").pinyin(), "xing");
+    assert_eq!(Scheme::Ziguang.decode("y;").pinyin(), "ying");
+    // 紫光零声母只认 o 前缀（`aa` 是 cha、`ii` 是 shi，双写元音不是零声母写法），er 在 oj
+    assert_eq!(Scheme::Ziguang.decode("oa").pinyin(), "a");
+    assert_eq!(Scheme::Ziguang.decode("or").pinyin(), "an");
+    assert_eq!(Scheme::Ziguang.decode("oj").pinyin(), "er");
+    assert_eq!(Scheme::Ziguang.decode("oo").pinyin(), "o");
+    assert_eq!(Scheme::Ziguang.decode("aa").pinyin(), "cha");
+    // 紫光 ü 在 v；üe 与 ue、ui 同在 n（j / q / x / y 后解到 jue 一族）
+    assert_eq!(Scheme::Ziguang.decode("nv").pinyin(), "nv");
+    assert_eq!(Scheme::Ziguang.decode("nn").pinyin(), "nve");
+    assert_eq!(Scheme::Ziguang.decode("jn").pinyin(), "jue");
+    assert_eq!(Scheme::Ziguang.decode("yn").pinyin(), "yue");
+}
+
+#[test]
+fn trailing_single_key_is_a_prefix() {
+    let decoded = Scheme::Xiaohe.decode("kdf");
+    assert_eq!(decoded.pinyin(), "kai'f");
+    assert!(!decoded.is_complete());
+    assert_eq!(Scheme::Xiaohe.decode("v").pinyin(), "zh");
+    assert_eq!(Scheme::Xiaohe.decode("a").pinyin(), "a");
+    assert_eq!(Scheme::Xiaolang.decode("e").pinyin(), "zh");
+    assert_eq!(Scheme::Xiaolang.decode("i").pinyin(), "ch");
+    assert_eq!(Scheme::Xiaolang.decode("v").pinyin(), "sh");
+    assert_eq!(Scheme::Xiaolang.decode("u").pinyin(), "e");
+    assert_eq!(Scheme::Abc.decode("a").pinyin(), "zh");
+    assert_eq!(Scheme::Abc.decode("e").pinyin(), "ch");
+    assert_eq!(Scheme::Abc.decode("v").pinyin(), "sh");
+    assert_eq!(Scheme::Abc.decode("o").pinyin(), "o");
+    assert_eq!(Scheme::Shoudao.decode("e").pinyin(), "sh");
+    assert_eq!(Scheme::Shoudao.decode("u").pinyin(), "e");
+    // 拼音加加落单翘舌键：u 为 ch、i 为 sh、v 为 zh；元音键是元音前缀
+    assert_eq!(Scheme::Jiajia.decode("u").pinyin(), "ch");
+    assert_eq!(Scheme::Jiajia.decode("i").pinyin(), "sh");
+    assert_eq!(Scheme::Jiajia.decode("v").pinyin(), "zh");
+    assert_eq!(Scheme::Jiajia.decode("a").pinyin(), "a");
+    // 紫光落单翘舌键：u 为 zh、a 为 ch、i 为 sh；e、o 是元音前缀
+    assert_eq!(Scheme::Ziguang.decode("u").pinyin(), "zh");
+    assert_eq!(Scheme::Ziguang.decode("a").pinyin(), "ch");
+    assert_eq!(Scheme::Ziguang.decode("i").pinyin(), "sh");
+    assert_eq!(Scheme::Ziguang.decode("e").pinyin(), "e");
+    assert_eq!(Scheme::Ziguang.decode("o").pinyin(), "o");
+    // `;` 落单不是任何东西
+    assert_eq!(Scheme::Microsoft.decode(";").pinyin(), "");
+    assert_eq!(Scheme::Microsoft.decode(";").tail(), ";");
+    assert_eq!(Scheme::Ziguang.decode(";").pinyin(), "");
+    assert_eq!(Scheme::Ziguang.decode(";").tail(), ";");
+}
+
+#[test]
+fn single_keys_are_derived_from_the_layout() {
+    for scheme in Scheme::ALL {
+        for key in "abcdefghijklmnopqrstuvwxyz;".chars() {
+            let expected = scheme
+                .initial(key)
+                .map(str::to_owned)
+                .or_else(|| match scheme {
+                    Scheme::Xiaolang | Scheme::Shoudao => match key {
+                        'a' | 'o' => Some(key.to_string()),
+                        'u' => Some("e".to_owned()),
+                        _ => None,
+                    },
+                    _ => matches!(key, 'a' | 'e' | 'o').then(|| key.to_string()),
+                });
+            assert_eq!(scheme.layout().partial(key), expected, "{scheme}: {key}");
+        }
+    }
+}
+
+#[test]
+fn invalid_pair_starts_the_tail() {
+    let decoded = Scheme::Xiaohe.decode("nifl");
+    assert_eq!(decoded.pinyin(), "ni");
+    assert_eq!(decoded.tail(), "fl");
+    assert_eq!(decoded.marked(), "ni'fl");
+}
+
+#[test]
+fn apostrophe_ends_a_pair() {
+    let decoded = Scheme::Xiaohe.decode("x'ni");
+    assert_eq!(decoded.pinyin(), "x'ni");
+    assert_eq!(decoded.units()[1].keys, "'");
+    assert_eq!(Scheme::Xiaohe.decode("ni'hc").pinyin(), "ni'hao");
+}
+
+#[test]
+fn parses_config_keys() {
+    for scheme in Scheme::ALL {
+        assert_eq!(scheme.key().parse::<Scheme>().unwrap(), scheme);
+    }
+    assert_eq!("Xiaohe ".parse::<Scheme>().unwrap(), Scheme::Xiaohe);
+    assert!("flypy".parse::<Scheme>().is_err());
+    assert!(Scheme::Microsoft.uses_semicolon());
+    assert!(Scheme::Ziguang.uses_semicolon());
+    assert!(!Scheme::Xiaohe.uses_semicolon());
+    assert!(!Scheme::Abc.uses_semicolon());
+}

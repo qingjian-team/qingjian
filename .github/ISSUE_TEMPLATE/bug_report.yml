@@ -90,5 +90,5 @@ body:
       description: |
         先贴「设置 → 关于 → 复制诊断信息」的内容（版本、系统、配置，密钥会被抹去）。
         日志文件：macOS 在「关于 → 打开日志目录」里取当天的；Windows 点「关于 → 打包日志到桌面」，把 zip 拖进来作为附件。
-        目录位置见 https://qingjian.app/docs/help/data-and-logs 。缺省级别不含输入内容。
+        目录位置见 https://qingjian.app/docs/advanced/data-files#运行日志 。缺省级别不含输入内容。
       render: text

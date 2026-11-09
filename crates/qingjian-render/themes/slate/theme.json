@@ -1,0 +1,125 @@
+{
+  "extends": "qingjian",
+  "schema": 1,
+  "meta": {
+    "id": "slate",
+    "name": "墨岩",
+    "author": "YG",
+    "license": "GPL-3.0-or-later"
+  },
+
+  "variables": {
+    "text":  { "light": "#14232b", "dark": "#e6f0f4" },
+    "gloss": { "light": "#1e3a46cc", "dark": "#a9c3cd" },
+    "faint": { "light": "#1e3a4673", "dark": "#6f8d99" },
+    "fresh": { "light": "#c1660a", "dark": "#f0a24a" },
+    "cloud": { "light": "#1d7d8c", "dark": "#58c9d8" },
+
+    "surface": { "light": "#ffffff", "dark": "#16242b" },
+    "accent":  { "light": "#1e3a46", "dark": "#2f5c6e" },
+    "key":     { "light": "#1e3a460f", "dark": "#ffffff12" },
+    "dim":     { "light": "#1e3a4624", "dark": "#ffffff26" },
+    "edge":    { "light": "#1e3a4629", "dark": "#ffffff1f" },
+    "kb_next": { "light": "#c3d7de", "dark": "#2f5c6e" },
+    "kb_next_text": { "light": "#14232b", "dark": "#e6f0f4" },
+    "shadow":  { "light": "#1e3a4647", "dark": "#0000005c" },
+
+    "hl_text":  "#f5fbfd",
+    "hl_gloss": "#cfe0e6",
+    "hl_faint": "#a6bfc8",
+    "hl_fresh": "#ffd08a",
+    "hl_cloud": "#8fe3ef"
+  },
+
+  "text": {
+    "gamma": { "light": 0.85, "dark": 0.75 },
+    "styles": {
+      "candidate": { "size": 16, "line_height": 19 },
+      "annotation": { "size": 12, "line_height": 15 },
+      "index": { "size": 11, "line_height": 14 }
+    }
+  },
+
+  "components": {
+    "row": {
+      "type": "frame",
+      "children": [
+        { "type": "frame", "id": "highlight", "transition": { "duration": 100, "easing": "ease-out" },
+          "when": "highlighted", "span": "row", "margin": [0, -4, 0, -4], "fill": "@accent", "radius": 0 },
+        { "type": "text", "bind": "index", "font": "index", "margin": [8, 0, 0, 0],
+          "color": { "if": "highlighted", "then": "@hl_faint", "else": "@faint" } },
+        { "type": "use", "component": "word", "margin": [4, 0, 0, 8] },
+        { "type": "annotation", "bind": "annotation", "when": "annotations", "font": "annotation",
+          "gloss": { "if": "highlighted", "then": "@hl_gloss", "else": "@gloss" },
+          "fresh": { "if": "highlighted", "then": "@hl_fresh", "else": "@fresh" },
+          "faint": { "if": "highlighted", "then": "@hl_faint", "else": "@faint" },
+          "margin": [8, 0, 0, 8] }
+      ]
+    },
+
+    "item": {
+      "type": "frame", "padding": [0, 0, 4, 0],
+      "children": [
+        { "type": "frame", "id": "highlight", "transition": { "duration": 100, "easing": "ease-out" },
+          "when": "highlighted", "position": "absolute", "inset": [0, -5, 0, -5], "fill": "@accent", "radius": 0 },
+        { "type": "text", "bind": "index", "font": "index", "margin": [8, 3, 0, 0],
+          "color": { "if": "highlighted", "then": "@hl_faint", "else": "@faint" } },
+        { "type": "use", "component": "word", "margin": [4, 0, 0, 0] }
+      ]
+    },
+
+    "strip_cell": {
+      "type": "frame", "direction": "column", "padding": [3, 12, 3, 12],
+      "children": [
+        { "type": "frame", "id": "highlight", "transition": { "duration": 100, "easing": "ease-out" },
+          "when": "highlighted", "position": "absolute", "inset": [0, 2, 0, 2], "fill": "@accent", "radius": 0 },
+        { "type": "frame", "align_self": "center", "children": [
+          { "type": "icon", "icon": "cloud", "when": "cloud", "size": 14, "height": 23,
+            "color": { "if": "highlighted", "then": "@hl_cloud", "else": "@cloud" }, "margin": [0, 4, 0, 0] },
+          { "type": "text", "bind": "text", "when": "cloud",
+            "font": { "base": "candidate", "size": 19, "line_height": 23 },
+            "color": { "if": "highlighted", "then": "@hl_cloud", "else": "@cloud" } },
+          { "type": "text", "bind": "text", "when": "!cloud",
+            "font": { "base": "candidate", "size": 19, "line_height": 23 },
+            "color": { "if": "highlighted", "then": "@hl_text", "else": "@text" } }
+        ] },
+        { "type": "annotation", "bind": "annotation", "when": "annotations", "align_self": "center",
+          "font": { "base": "annotation", "size": 11.5, "line_height": 14 },
+          "gloss": { "if": "highlighted", "then": "@hl_gloss", "else": "@gloss" },
+          "fresh": { "if": "highlighted", "then": "@hl_fresh", "else": "@fresh" },
+          "faint": { "if": "highlighted", "then": "@hl_faint", "else": "@faint" } }
+      ]
+    }
+  },
+
+  "windows": {
+    "vertical": {
+      "radius": 0,
+      "border": { "width": 1, "color": "@edge" },
+      "effects": [{ "type": "drop-shadow", "y": 2, "blur": 0, "color": "@shadow" }]
+    },
+    "horizontal": {
+      "radius": 0,
+      "border": { "width": 1, "color": "@edge" },
+      "effects": [{ "type": "drop-shadow", "y": 2, "blur": 0, "color": "@shadow" }]
+    },
+    "strip": {
+      "radius": 0
+    }
+  },
+
+  "status": {
+    "radius": 0,
+    "separator_width": 1,
+    "effects": [{ "type": "drop-shadow", "y": 2, "blur": 0, "color": "@shadow" }]
+  },
+
+  "keyboard": {
+    "radius": 0,
+    "key_radius": 0,
+    "next_fill": "@kb_next",
+    "next_text": "@kb_next_text",
+    "label": "@gloss",
+    "effects": [{ "type": "drop-shadow", "y": 2, "blur": 0, "color": "@shadow" }]
+  }
+}

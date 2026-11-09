@@ -25,7 +25,16 @@ pub const TITLEBAR: f32 = if cfg!(target_os = "macos") { 28.0 } else { 0.0 };
 pub fn run<A: App + 'static>(app: A, options: WindowOptions) -> Result<(), HostError> {
     let library = FontLibrary::system(&options.locale)?;
     let mut runner = Runner::new(app, library);
-    let event_loop = EventLoop::with_user_event().build()?;
+    let mut builder = EventLoop::with_user_event();
+    // 面板常驻后台：macOS 上不进程序坞、不占菜单栏。winit 启动时自己设激活策略，Info.plist 的 LSUIElement 会被它盖掉
+    #[cfg(target_os = "macos")]
+    if options.panel {
+        use winit::platform::macos::{ActivationPolicy, EventLoopBuilderExtMacOS};
+        builder
+            .with_activation_policy(ActivationPolicy::Accessory)
+            .with_default_menu(false);
+    }
+    let event_loop = builder.build()?;
     let proxy = event_loop.create_proxy();
     runner.app_mut().set_waker(Waker::new(move || {
         // 事件循环已经停了就算了

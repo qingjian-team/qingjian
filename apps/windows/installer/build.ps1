@@ -8,7 +8,7 @@
       3) 找 ISCC.exe（PATH 或常见安装位置）；
       4) iscc /DAppVersion=<版本> 编脚本，成品在 target\installer\qingjian-<版本>-windows-x86_64-setup.exe。
     随包数据（.qj / .tsv）直接由 .iss 从仓库 data\generated 与 assets 里取，不另建暂存目录；
-    确保打包前 data\generated 里的 .qj 是最新的（bundle 流程见仓库 CLAUDE.md）。
+    产品数据缺省全带，编译前先查一遍，缺了就停（tools\release\data-fetch.sh 按 data.lock 下载）。
     uiAccess 跟着 -Sign 走，不用手设 QINGJIAN_UIACCESS（见 -Sign）。
 .PARAMETER SkipBuild
     跳过 cargo build（数据或 .iss 改了、二进制没变时重编安装包用）。
@@ -34,12 +34,33 @@ if ($Sign) {
     Write-Host 'uiAccess=0（对外分发：Server 任何机器都能起；候选窗在商店 / 任务栏搜索里可能被盖）' -ForegroundColor Cyan
 }
 
+# 0) 产品数据缺一样就停：与 .iss 的 [Files] 和 data-bundle.sh 的数据包一致，免得编译几分钟后才在 iscc 那步报错，
+#    更免得少了码表的包照样能装（以前它标了 skipifsourcedoesntexist，缺了也悄悄打包）。本地整句模型不随包。
+python (Join-Path $Repo 'tools\corpus\vietnamese_words.py') `
+    (Join-Path $Repo 'assets\glossary\glossary-vi.tsv') `
+    (Join-Path $Repo 'data\generated\vietnamese.tsv') `
+    (Join-Path $Repo 'data\generated\vietnamese-zh.tsv')
+if ($LASTEXITCODE -ne 0) { throw "生成越南语候选词表失败（退出码 $LASTEXITCODE）" }
+$data = @(
+    'data\generated\dict.qj',
+    'data\generated\lm.qj',
+    'data\generated\english.tsv',
+    'data\generated\vietnamese.tsv',
+    'data\generated\vietnamese-zh.tsv',
+    'data\generated\dicts\*.qj',
+    'data\generated\codes\*.qj'
+) + ('en', 'ja', 'zh', 'es', 'vi', 'de' | ForEach-Object { "data\generated\glossary-$_.qj" })
+$absent = @($data | Where-Object { -not (Test-Path (Join-Path $Repo $_)) })
+if ($absent.Count -gt 0) {
+    throw "缺产品数据：$($absent -join ', ')。先跑 tools\release\data-fetch.sh 下载（或从别的机器拷 data\generated）"
+}
+
 # 1) 构建产物：Server、DLL（64 / 32 位）、设置程序、旧版设置程序。
 if (-not $SkipBuild) {
     Write-Host '构建 release 产物…' -ForegroundColor Cyan
     Push-Location $Repo
     try {
-        cargo build --release --locked -p qingjian-windows-server -p qingjian-windows-tsf -p qingjian-settings -p qingjian-windows-settings
+        cargo build --release --locked -p qingjian-windows-server -p qingjian-windows-tsf -p qingjian-settings -p qingjian-clipboard-app -p qingjian-windows-settings
         if ($LASTEXITCODE -ne 0) { throw "cargo build 失败（退出码 $LASTEXITCODE）" }
         cargo build --release --locked -p qingjian-windows-tsf --target i686-pc-windows-msvc
         if ($LASTEXITCODE -ne 0) { throw "32 位 DLL cargo build 失败（退出码 $LASTEXITCODE）" }
@@ -52,6 +73,7 @@ $targets = @(
     'i686-pc-windows-msvc\release\qingjian_tsf.dll',
     'release\qingjian-server.exe',
     'release\qingjian-settings.exe',
+    'release\qingjian-clipboard.exe',
     'release\qingjian-settings-legacy.exe'
 )
 foreach ($t in $targets) {
@@ -80,6 +102,9 @@ foreach ($name in $wanted) {
 # 缺文件说明自包含运行时没铺成功（build.rs 下载 NuGet 或解 MSIX 失败），早报错，别打出个跑不起来的包。
 if ($missing.Count -gt 0) { throw "自包含 Windows App Runtime 缺 $($missing.Count) 项：$($missing -join ', ')" }
 Write-Host "自包含运行时 $($wanted.Count) 项 → target\installer\settings-runtime" -ForegroundColor Cyan
+
+# 1.3) 知意（ONNX）的运行库 ONNX Runtime，装到 Server 旁边。
+& (Join-Path $PSScriptRoot 'fetch-onnxruntime.ps1')
 
 # 1.5) 签名（必须在 iscc 打包前：Inno 把已签的文件原样拷进安装包）。
 if ($Sign) {

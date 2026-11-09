@@ -2,7 +2,7 @@
 
 use std::path::PathBuf;
 
-use qingjian_render::{FontLibrary, Mode, Renderer, StatusCell, Theme};
+use qingjian_render::{FontLibrary, Mode, Renderer, StatusCell, TextSizes, Theme};
 
 /// 左边按中英各画一个同尺寸不同色的方块（不用字：Linux CI 没有中文字体，两个字都画成同一个缺字框），
 /// 格子之间各夹一个 10 点宽的装饰，格子 4 点内边距。
@@ -88,4 +88,25 @@ fn status_tree_cells_and_mode() {
         english.rendered.pixmap.data(),
         chinese.rendered.pixmap.data()
     );
+}
+
+/// 设置里调大候选字号，状态条不跟着变：和不调字号画出来一模一样。
+#[test]
+fn status_ignores_candidate_font_size() {
+    let Ok(library) = FontLibrary::system("zh-CN") else {
+        eprintln!("没有系统字体，跳过");
+        return;
+    };
+    let mut renderer = Renderer::new(library);
+    let cells = [StatusCell::text("中", true), StatusCell::Gear];
+    let plain = Theme::light();
+    let large = plain.with_text_sizes(TextSizes::new(32.0, 22.0));
+    let a = renderer
+        .render_status(&cells, &Mode::default(), &plain, 2.0)
+        .unwrap();
+    let b = renderer
+        .render_status(&cells, &Mode::default(), &large, 2.0)
+        .unwrap();
+    assert_eq!(a.cell_edges, b.cell_edges);
+    assert_eq!(a.rendered.pixmap.data(), b.rendered.pixmap.data());
 }

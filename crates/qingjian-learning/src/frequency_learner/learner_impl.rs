@@ -140,6 +140,8 @@ impl Learner for FrequencyLearner {
             .english
             .entry(word.to_ascii_lowercase())
             .or_insert_with(|| (word.to_owned(), Decay::from_parts(0, now)));
+        // 写法跟着最近一次敲的走：句首敲过一次 `Hello`，之后敲回 `hello` 就改回来
+        word.clone_into(&mut entry.0);
         entry.1.record(1, now);
         let count = entry.1.count;
         self.english_dirty = true;
@@ -239,6 +241,34 @@ impl Learner for FrequencyLearner {
         forgotten
     }
 
+    fn demote(&mut self, input: &str, text: &str) {
+        let count = self
+            .demoted
+            .entry(input.to_owned())
+            .or_default()
+            .entry(text.to_owned())
+            .or_default();
+        *count = (*count + 1).min(MAX_DEMOTION);
+        self.demoted_dirty = true;
+        tracing::debug!(input, text, times = *count, "降权");
+    }
+
+    fn undemote(&mut self, input: &str, text: &str) -> bool {
+        let Some(texts) = self.demoted.get_mut(input) else {
+            return false;
+        };
+        let removed = texts.remove(text).is_some();
+        if texts.is_empty() {
+            self.demoted.remove(input);
+        }
+        self.demoted_dirty |= removed;
+        removed
+    }
+
+    fn demotion(&self, input: &str, text: &str) -> u32 {
+        lookup_choice(&self.demoted, input, text)
+    }
+
     fn forget_english(&mut self, word: &str) -> bool {
         if self.english.remove(&word.to_ascii_lowercase()).is_none() {
             return false;
@@ -302,6 +332,17 @@ impl Learner for FrequencyLearner {
                 }
                 Err(error) => {
                     tracing::warn!(path = %choices_path.display(), %error, "输入串选择保存失败")
+                }
+            }
+        }
+        if self.demoted_dirty {
+            let demoted_path = Self::demoted_path(&path);
+            match self.save_demoted_to(&demoted_path) {
+                Ok(()) => {
+                    tracing::info!(path = %demoted_path.display(), entries = self.demoted_count(), "降权表已保存")
+                }
+                Err(error) => {
+                    tracing::warn!(path = %demoted_path.display(), %error, "降权表保存失败")
                 }
             }
         }

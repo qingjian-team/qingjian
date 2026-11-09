@@ -14,4 +14,9 @@ pub trait SentenceScorer: Send {
     fn generate(&self, _keys: &str, _beam: usize, _max_chars: usize) -> Vec<String> {
         Vec::new()
     }
+
+    /// 是生成器（P2C）：整句以它生成的为主，不再拿它重排词图的路径；词图只在拼音没打完、敲错纠正过时兜底。
+    fn generates(&self) -> bool {
+        false
+    }
 }

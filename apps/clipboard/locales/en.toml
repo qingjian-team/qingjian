@@ -1,0 +1,70 @@
+[panel]
+paused = "Recording paused"
+search = "Search clipboard"
+empty = "Nothing here yet. Copy something first."
+no_results = "No results"
+just_now = "Just now"
+minutes_ago = "{count} min ago"
+hours_ago = "{count} hr ago"
+yesterday = "Yesterday"
+day_before_yesterday = "2 days ago"
+characters = "{count} characters"
+file_count = "{count} items"
+
+[tray]
+tip = "Qingjian Clipboard"
+open = "Open panel"
+pause = "Pause recording"
+settings = "Settings"
+autostart = "Start with Windows"
+quit = "Quit"
+
+[kind]
+text = "Plain text"
+rich = "Rich text"
+code = "Code"
+image = "Image"
+files = "Files"
+
+[filter]
+all = "All"
+text = "Text"
+code = "Code"
+image = "Images"
+files = "Files"
+
+[menu]
+paste = "Paste"
+copy = "Copy"
+edit = "Edit"
+delete = "Delete"
+
+[devices]
+button = "Devices"
+title = "Devices"
+back = "Back"
+this_device = "Name of this device"
+save_name = "Save"
+paired = "Paired"
+nearby = "Nearby devices"
+none_nearby = "No devices found yet. The other device must turn on network sync and join the same network."
+connected = "Connected"
+connecting = "Connecting…"
+unreachable = "Can't connect"
+unreachable_since = "Can't connect · last synced {time}"
+unpair = "Unpair"
+pair = "Pair"
+show_code = "Show pairing code"
+enter_address = "Enter address"
+code_hint = "Enter this code on the other device. It lasts 2 minutes and one wrong try voids it:"
+address = "Address (such as 192.168.1.5:53319)"
+code = "6-digit code"
+connect = "Connect"
+cancel = "Cancel"
+paired_ok = "Paired with {name}"
+pair_failed = "Pairing failed. Check the code and network, then try again."
+bad_address = "That address is not valid"
+
+[editor]
+save = "Save"
+cancel = "Cancel"

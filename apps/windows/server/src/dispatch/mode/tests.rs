@@ -41,6 +41,7 @@ fn change(router: &mut Router, id: u64, english: bool) {
     router.handle(ClientMessage::ModeChanged {
         session: SessionId(id),
         english,
+        vietnamese: false,
     });
 }
 

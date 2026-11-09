@@ -1,6 +1,6 @@
 [package]
 name = "qingjian-lm"
-description = "二元语言模型：从 .qj 或 TSV 加载，供整句转换打分"
+description = "词级语言模型：二元（.qj 或 TSV，整句转换打分）与知意的三元 .ngram（选词重排）"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -12,6 +12,7 @@ workspace = true
 [dependencies]
 qingjian-core.workspace = true
 qingjian-format.workspace = true
+memmap2.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
 zerocopy.workspace = true

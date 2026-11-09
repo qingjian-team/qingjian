@@ -29,4 +29,16 @@ pub enum DictionaryError {
     /// 一份码表里一条可用的码都没有（不是码表文件，或码列全非法）。
     #[error("no usable code entries in this file")]
     NoCodeEntries,
+
+    /// 要导入成拼音词库的文件第二列是形码编码（五笔词库），见 [`crate::import::import_code_words`]。
+    #[error("the second column holds shape codes, not pinyin")]
+    CodeWords,
+
+    /// 方案的词码规则写错了（词长不到 2，或公式不是「大写选字 + 小写选码位」成对写）。
+    #[error("invalid word rule: {0}")]
+    InvalidWordRule(String),
+
+    /// 一份无读音词表里一条词都没派生出读音（空词表，或词里的字参考词库都不认识）。
+    #[error("no derivable words in this word list")]
+    NoWordEntries,
 }

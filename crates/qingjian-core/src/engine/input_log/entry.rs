@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use super::InputSource;
+use super::{ChoiceNote, InputSource};
 
 /// 一次上屏。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -42,6 +42,10 @@ pub struct CommitEntry {
     /// 查询时的候选顺序经过了神经重排（本地整句模型的分已经进了排序）。
     #[serde(default)]
     pub rescored: bool,
+
+    /// 查询时选词模型（知意，试验）排过这页；没排过不写。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub choice: Option<ChoiceNote>,
 
     /// 正在输入的应用（macOS bundle identifier / Windows exe 名）；壳没给为 `None`。
     #[serde(default, skip_serializing_if = "Option::is_none")]

@@ -7,7 +7,7 @@ impl QingjianInputController {
         tracing::debug!(%text, "inputText");
         self.note_application(&client);
         let mut composing = host::with(|h| !h.engine.composition().is_empty()).unwrap_or(false);
-        let english = modifiers::caps_lock_on();
+        let english = host::with(|h| h.english_mode()).unwrap_or(false);
         // 不在白名单（`[apps] english_candidates_on`）里的应用，英文模式是纯直通
         let english_candidates = english
             && host::with(|h| h.english_candidates_in(client.bundle_identifier().as_deref()))
@@ -26,13 +26,16 @@ impl QingjianInputController {
                 if host::with(|h| h.engine.english_mode()).unwrap_or(false) {
                     self.commit_raw(client);
                 } else {
-                    self.commit_highlighted(client);
+                    self.commit_highlighted_then(client);
                 }
             }
             return false;
         };
         let c = char::from(*byte);
-        host::with(|h| h.indicator.update());
+        host::with(|h| {
+            let vietnamese = h.vietnamese_mode();
+            h.indicator.update(english, vietnamese);
+        });
         // 缓冲区为空时敲 ? 先进问字模式（配置 `[shortcut] question_mark`，缺省关），中英文模式都行：
         // 后面跟字母就是在问字，跟别的键就还原成问号
         if !composing
@@ -58,12 +61,12 @@ impl QingjianInputController {
             c
         };
         host::with(|h| h.engine.set_english_mode(english_candidates && !question));
-        let (page_previous, page_next) =
-            host::with(|h| h.page_keys).unwrap_or(qingjian_platform::DEFAULT_PAGE_KEYS);
+        let page_step = Self::page_step(c);
         // Caps Lock 亮着 = 英文模式：不组句、不转标点，字母默认小写、按住 Shift 才大写
         if english && !question {
-            // Caps Lock 亮着时 macOS 不管按没按 Shift 送来的都是大写，只能读 Shift 状态：按着才大写
-            let letter = if modifiers::shift_down() {
+            // Caps Lock 亮着时 macOS 送来的都是大写，大小写只能自己定：Shift = 大写，
+            // 勾了「单击 Shift」时 Caps Lock 退化成只管大小写，也跟着参与（见 Host::english_letter_uppercase）
+            let letter = if host::with(|h| h.english_letter_uppercase()).unwrap_or(false) {
                 c.to_ascii_uppercase()
             } else {
                 c.to_ascii_lowercase()
@@ -106,7 +109,7 @@ impl QingjianInputController {
                 return true;
             }
             // 翻页键：翻得动就翻页；`=` 没有下一页时按普通字符走（先把英文词原样上屏再交给应用）
-            if composing && self.page_key(c, (page_previous, page_next), true, client) {
+            if composing && self.page_key(c, page_step, true, client) {
                 return true;
             }
             if composing {
@@ -118,46 +121,89 @@ impl QingjianInputController {
             }
             return self.pass_through(c, client);
         }
+        // 辅码态：字母进码段（逐键即筛），不进拼音缓冲区
+        if c.is_ascii_lowercase() && host::with(|h| h.engine.push_aux_code(c)).unwrap_or(false) {
+            self.refresh(client);
+            return true;
+        }
+        // 辅码触发键：拼音打完整了、这个键也没被双拼方案当韵母吃掉 → 进辅码态（触发键不进缓冲区）
+        if host::with(|h| h.engine.aux_trigger(c)).unwrap_or(false) {
+            host::with(|h| h.engine.enter_aux());
+            self.refresh(client);
+            return true;
+        }
+        let aux = host::with(|h| h.engine.in_aux()).unwrap_or(false);
+        if aux {
+            let (key, filtering, empty) = host::with(|h| {
+                (
+                    h.engine.aux_code_key(),
+                    !h.engine.aux_code().is_empty(),
+                    h.session.candidate(0).is_none(),
+                )
+            })
+            .unwrap_or((';', false, false));
+            // 已在辅码态再敲触发键是幂等的；码段筛空时空格、标点、数字都吞掉，停在辅码态等退格
+            if c == key || (filtering && empty) {
+                return true;
+            }
+        }
         // 表达式模式（v 开头）：数字与运算符进缓冲区，不当选词 / 翻页键
         let expression = composing && host::with(|h| h.engine.expression_mode()).unwrap_or(false);
         // 英文直输段（缓冲区里已有 `-` 这类字符）：可见字符一律追加，空格 / 回车整段原样上屏
         let raw = composing && host::with(|h| h.engine.raw_mode()).unwrap_or(false);
-        // 组句中敲 `-`：进入英文直输段（`no-way`）；配成翻页键（`[general] page_keys` 选 `-=`）时才翻页
-        let hyphen = composing && !question && c == '-' && c != page_previous && c != page_next;
+        // 组句中敲 `-`：进入英文直输段（`no-way`）；配成翻页键（`[general] page_keys` 或 `[shortcut] extra_page_keys` 里的 `-=`）时才翻页
+        let hyphen = composing && !question && !aux && c == '-' && page_step.is_none();
         // 问字模式下敲的还可能是码点（`u4e00`、`u+1f600`）：数字与 `+` 进缓冲区而不是选词
         let unicode = question && host::with(|h| h.engine.unicode_entry()).unwrap_or(false);
         // 微软 / 搜狗双拼的 `;` 是 ing 键：末尾有落单声母时进缓冲区，其他时候还是标点
         let semicolon =
             composing && c == ';' && host::with(|h| h.engine.takes_semicolon()).unwrap_or(false);
         // 组句中敲不会转全角的符号（`/` `@`，`-` 由上面的 hyphen 接）：进缓冲区，整段成为英文直输段（`a@b`），
-        // 中文模式下也能打带符号的英文；翻页键除外；⇧+数字（! @ # …）在前面已被删候选 / 译词键截走。
+        // 中文模式下也能打带符号的英文；翻页键除外。
         // 会转全角的标点（`,` `.` `?` `!` 引号、括号这些）不进缓冲区：落到下方先把高亮候选上屏再补全角标点
         //（`nihao,` 一气打完「你好，」），与 Windows / Linux 壳一致；这条上屏行为由 `[general] punct_commits`
         // 控制（缺省开），关掉恢复老行为：标点也进缓冲区（英文直输段）。
-        let punct_commits = host::with(|h| h.punct_commits).unwrap_or(false);
+        // 单用形码时标点总是先上屏（五笔的习惯），不看这个开关
+        let punct_commits =
+            host::with(|h| h.punct_commits || h.engine.composing_code()).unwrap_or(false);
         let punctuation = composing
             && !question
+            && !aux
             && !expression
             && c.is_ascii_punctuation()
-            && c != page_previous
-            && c != page_next
+            && page_step.is_none()
             && !(punct_commits && qingjian_core::punctuation::converts(c));
+        // 形码满码再敲字母：先把高亮候选顶上屏，这个字母起下一段编码
+        if host::with(|h| h.engine.code_tops(c)).unwrap_or(false) {
+            self.commit_highlighted(client);
+        }
         if c.is_ascii_lowercase()
             || (composing && c == '\'')
             || semicolon
-            || (expression && qingjian_core::shortcut::is_expression_char(c))
+            || (expression && host::with(|h| h.engine.expression_input(c)).unwrap_or(false))
             || (raw && c.is_ascii_graphic())
             || (unicode && (c.is_ascii_digit() || c == '+'))
             || hyphen
             || punctuation
         {
             host::with(|h| h.engine.push(c));
+            if let Some(text) = host::with(|h| h.engine.commit_unique_code()).flatten() {
+                tracing::debug!(%text, "commit unique code");
+                client.insert_text(&text);
+            }
             self.refresh(client);
             return true;
         }
-        // 直输段里的空格：整段原样上屏，空格本身也交给应用（`hello, world` 里的空格要在）
+        // 直输段里的空格：整段原样上屏，空格本身也交给应用（`hello, world` 里的空格要在）；
+        // 高亮挪到邮箱地址上时只上屏地址
         if raw && c == ' ' {
+            let address = host::with(|h| h.session.candidate(h.session.highlighted))
+                .flatten()
+                .is_some_and(|candidate| candidate.kind == qingjian_core::CandidateKind::Shortcut);
             self.commit_highlighted(client);
+            if address {
+                return true;
+            }
             host::with(|h| h.engine.note_passthrough(c));
             return false;
         }
@@ -172,7 +218,11 @@ impl QingjianInputController {
         // `[general] shift_letter = "compose"` 时进缓冲区（Core 按小写匹配、原样上屏时还原大写）
         if c.is_ascii_uppercase() {
             if host::with(|h| h.engine.shift_letter_compose()).unwrap_or(false) {
-                host::with(|h| h.engine.push(c));
+                // 码段不清会挂在变了的拼音上接着筛
+                host::with(|h| {
+                    h.engine.clear_aux();
+                    h.engine.push(c);
+                });
                 self.refresh(client);
                 return true;
             }
@@ -198,9 +248,9 @@ impl QingjianInputController {
                     return true;
                 }
                 // 翻页键：翻得动就翻页；`-` / `=` 翻不动时当普通字符落进英文直输段
-                //（没有上一页时 `-` 就是 `-`，见 docs/user/getting-started/keys.md 的 `[general] page_keys`）
-                c if c == page_previous || c == page_next => {
-                    if !self.page_key(c, (page_previous, page_next), !question, client) {
+                //（没有上一页时 `-` 就是 `-`，见 docs/user/personalize/keys-settings.md 的「翻页键」）
+                c if page_step.is_some() => {
+                    if !self.page_key(c, page_step, !question, client) {
                         host::with(|h| h.engine.push(c));
                         self.refresh(client);
                     }
@@ -208,7 +258,7 @@ impl QingjianInputController {
                 }
                 // 其他字符：把当前高亮候选上屏，再按非组句状态处理这个字符
                 _ => {
-                    self.commit_highlighted(client);
+                    self.commit_highlighted_then(client);
                 }
             }
         }

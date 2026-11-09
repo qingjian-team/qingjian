@@ -14,7 +14,8 @@ pub use qingjian_platform::{
 };
 pub use qingjian_render::Mode;
 pub use qingjian_windows_server::dispatch::{
-    CandidateSink, PanelFrame, RenderSettings, StatusEvent, StatusSink, StatusView,
+    CandidateMenu, CandidateMouse, CandidateSink, KeyHintContent, KeyHintView, PanelFrame,
+    RenderSettings, StatusEvent, StatusSink, StatusView,
 };
 pub use qingjian_windows_server::{AssemblySpec, Router, RouterConfig, assembly};
 
@@ -28,6 +29,7 @@ pub const CAPS: KeyModifiers = KeyModifiers {
     win: false,
     caps: true,
     english_mode: false,
+    vietnamese_mode: false,
 };
 
 /// 持久英文模式（Caps 灭）。
@@ -38,6 +40,7 @@ pub const ENGLISH: KeyModifiers = KeyModifiers {
     win: false,
     caps: false,
     english_mode: true,
+    vietnamese_mode: false,
 };
 
 /// 样例词库装一个 Router，开好一个会话。
@@ -161,11 +164,6 @@ pub const SHIFT: KeyModifiers = KeyModifiers {
     ..ALT_OFF
 };
 
-pub const CTRL: KeyModifiers = KeyModifiers {
-    ctrl: true,
-    ..ALT_OFF
-};
-
 pub const ALT_OFF: KeyModifiers = KeyModifiers {
     ctrl: false,
     shift: false,
@@ -173,6 +171,7 @@ pub const ALT_OFF: KeyModifiers = KeyModifiers {
     win: false,
     caps: false,
     english_mode: false,
+    vietnamese_mode: false,
 };
 
 /// 两个平台的缺省快捷键都没用 Win，拿来测「没配到的修饰键归应用」。
@@ -252,10 +251,11 @@ impl RecordingStatus {
 
 impl StatusSink for RecordingStatus {
     fn show_status(&self, view: StatusView) {
-        let label = match (view.english, view.scheme) {
-            (true, _) => "英".to_owned(),
-            (false, Some(scheme)) => format!("中 · {scheme}"),
-            (false, None) => "中".to_owned(),
+        let label = match (view.vietnamese, view.english, view.scheme) {
+            (true, _, _) => "越".to_owned(),
+            (false, true, _) => "英".to_owned(),
+            (false, false, Some(scheme)) => format!("中 · {scheme}"),
+            (false, false, None) => "中".to_owned(),
         };
         self.0.lock().unwrap().push(Some(label));
     }
@@ -316,14 +316,20 @@ pub fn press_in(router: &mut Router, session: SessionId, event: KeyEvent) {
     let _ = router.handle(ClientMessage::Key { session, event });
 }
 
-/// 记录自绘候选窗收到的帧与输入状态。
+/// 记录自绘候选窗收到的帧、输入状态、键位提示与右键菜单。
 #[derive(Clone, Default)]
-pub struct RecordingCandidates(pub Arc<Mutex<Vec<Frame>>>, pub Arc<Mutex<Vec<Mode>>>);
+pub struct RecordingCandidates(
+    pub Arc<Mutex<Vec<Frame>>>,
+    pub Arc<Mutex<Vec<Mode>>>,
+    pub Arc<Mutex<Vec<Option<KeyHintView>>>>,
+    pub Arc<Mutex<Vec<CandidateMenu>>>,
+);
 
 impl CandidateSink for RecordingCandidates {
-    fn show(&self, frame: Frame, mode: Mode, _rect: ScreenRect) {
+    fn show(&self, frame: Frame, mode: Mode, _rect: ScreenRect, key_hint: Option<KeyHintView>) {
         self.0.lock().unwrap().push(frame);
         self.1.lock().unwrap().push(mode);
+        self.2.lock().unwrap().push(key_hint);
     }
 
     fn hide(&self) {}
@@ -333,6 +339,10 @@ impl CandidateSink for RecordingCandidates {
     fn hide_panel(&self) {}
 
     fn configure(&self, _settings: RenderSettings) {}
+
+    fn show_menu(&self, menu: CandidateMenu) {
+        self.3.lock().unwrap().push(menu);
+    }
 }
 
 pub fn rect() -> ScreenRect {

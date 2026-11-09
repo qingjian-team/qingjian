@@ -23,7 +23,7 @@ Server 与设置程序按 **exe 相对**定位随包资源（`qingjian_platform:
 开发时是仓库 `ime\`（exe 在 `target\{debug,release}\` 下往上三层）。相对写法两套布局一致，只有根不同。
 
 用户数据仍在 `%APPDATA%\Qingjian`（config.toml、密钥 .env、学习数据、统计），三个进程的日志在 `%LOCALAPPDATA%\Qingjian\logs`（`server.` / `tsf.` / `settings.` 前缀，按天，留 7 天）；
-卸载不动这些。图标由 `regsvr32` 写到 `%ProgramData%\Qingjian\qingjian.ico`（DLL 里 include_bytes 内嵌）。
+卸载不动这些。输入法图标由 `regsvr32` 写到 `%ProgramData%\Qingjian\qingjian.ico`（DLL 里 include_bytes 内嵌单色深浅两版，按注册时任务栏深浅挑一版；之后 Server 启动与系统切深浅色时改写，任务栏在下次切换输入法时换过来。安装包给这个目录放开了普通用户写权限）。
 
 ## 安装程序做的几件事
 

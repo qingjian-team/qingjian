@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use crate::i18n::tr;
+
 /// 候选窗口外观：浅色 / 深色，或跟随系统。与选哪个主题（`[general] theme`）无关，每个主题都有两套颜色。
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -31,9 +33,9 @@ impl Appearance {
     /// 界面上的名字。
     pub fn label(self) -> &'static str {
         match self {
-            Self::System => "跟随系统",
-            Self::Light => "浅色",
-            Self::Dark => "深色",
+            Self::System => tr("appearance.system"),
+            Self::Light => tr("appearance.light"),
+            Self::Dark => tr("appearance.dark"),
         }
     }
 

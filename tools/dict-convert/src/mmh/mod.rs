@@ -4,8 +4,8 @@
 //! 数据许可是 Arphic Public License，与仓库的 GPL-3.0 不兼容：只作开发期对照，**不进仓库、不随包**，
 //! 产物写在 `data/mmh/`（gitignore），`--verify` 找不到哪张就跳过哪张对照。两个产物：
 //!
-//! - `prc-counts-l1.tsv`：字<TAB>大陆笔画数（每字 medians 的笔画条数）；
-//! - `prc-first-strokes-l1.tsv`：字<TAB>首笔几何类别，类别见 `first_class`。
+//! - `prc-counts-l1.tsv`：`字<TAB>`大陆笔画数（每字 medians 的笔画条数）；
+//! - `prc-first-strokes-l1.tsv`：`字<TAB>`首笔几何类别，类别见 `first_class`。
 //!
 //! 首笔类别是首笔中点折线的几何近似，只用来**找**不一致：带尖角转折的记 z、竖撇的走向记 s 这类，
 //! 都以规范裁定量为准，不是规范口径本身；规范依据与白名单见 `assets/stroke/README.md`。

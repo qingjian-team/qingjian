@@ -1,7 +1,7 @@
 # Linux AppImage
 
 一个文件装下 Server、设置程序、Fcitx5 插件与产品数据，下载、加执行权限、运行一次就能用，不用编译也不用 root。
-脚本在 `apps/linux/appimage/`：`build.sh` 打包，`AppRun` 是包的入口，`test/test.sh` 在各发行版的容器里实测。用户怎么装见 [user/getting-started/linux.md](../user/getting-started/linux.md#appimage)。
+脚本在 `apps/linux/appimage/`：`build.sh` 打包，`AppRun` 是包的入口，`test/test.sh` 在各发行版的容器里实测。用户怎么装见 [user/platforms/linux.md](../user/platforms/linux.md#AppImage)。
 
 ## 输入法为什么不能「双击就跑」
 

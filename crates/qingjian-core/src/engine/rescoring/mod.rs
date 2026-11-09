@@ -6,15 +6,20 @@
 //! 一次送去后台，[`Engine::poll_rescoring`] 收到结果后再查一次，这时全部路径的分都在缓存里，排序自然换成重排后的。
 //! 按键回调永远不等模型：先按词级模型出候选，模型的意见晚几十毫秒到。
 
+use crate::Engine;
+use crate::engine::take_last_chars;
+use crate::sentence::Conversion;
+
 mod cache;
+mod wake;
 mod worker;
 
 #[cfg(test)]
 mod tests;
 
-use super::*;
-
 pub(crate) use cache::NeuralCache;
+pub use wake::Wake;
+pub(crate) use wake::WakeSlot;
 pub(crate) use worker::RescoreWorker;
 
 /// 直接生成整句时的 beam 宽度。5 是 2026-09-24 在冻结集上量的：beam 5 首选 51.9%、前五 73.5%，
@@ -34,8 +39,18 @@ impl Engine {
             || self.rescorer.as_ref().is_some_and(RescoreWorker::is_alive)
     }
 
+    /// 接了打分器、且它是拿来重排词图路径的（不是生成器）。
+    pub(super) fn reranks_paths(&self) -> bool {
+        self.has_sentence_scorer() && !self.generative
+    }
+
+    /// 接了生成器（含章·通变）：整句以它生成的为主。
+    pub(in crate::engine) fn generates_sentences(&self) -> bool {
+        self.has_sentence_scorer() && self.generative
+    }
+
     /// 给模型看的前文：壳给了应用里的光标前文就用它（[`Self::set_rescoring_context`]），
-    /// 否则用本会话最近上屏的字符；长度按 `neural_context` 截。
+    /// 否则用当前应用最近上屏的字符（太久没打的不算）；长度按 `neural_context` 截。
     pub(super) fn rescoring_context(&self) -> String {
         if self.neural_context == 0 {
             return String::new();
@@ -56,7 +71,7 @@ impl Engine {
     /// `keys` 是这批路径共同解释的那段用户按键（P2C 的条件）。
     /// 只改顺序，每条路径的 `score` 原样不动（理由见下面的注释）。
     pub(super) fn rescore_paths(&self, paths: &mut [Conversion], keys: &str) {
-        if paths.len() < 2 || !self.has_sentence_scorer() {
+        if paths.len() < 2 || !self.reranks_paths() {
             return;
         }
         let context = self.rescoring_context();
@@ -130,22 +145,24 @@ impl Engine {
 
     /// 最近一次查询里有整句路径还没拿到神经分、或有整段还没生成：壳该在用户停顿后调 [`Self::request_rescoring`]。
     pub fn rescoring_pending(&self) -> bool {
-        self.rescorer.is_some() && {
-            let cache = self.neural_cache.borrow();
-            cache.has_wanted() || cache.wanted_generation().is_some()
-        }
+        self.choice_pending()
+            || self.rescorer.is_some() && {
+                let cache = self.neural_cache.borrow();
+                cache.has_wanted() || cache.wanted_generation().is_some()
+            }
     }
 
     /// 把攒着的文本送去后台打分。没接异步打分器或没什么要打的返回 `false`。
     pub fn request_rescoring(&mut self) -> bool {
+        let chose = self.request_choice();
         let Some(worker) = &self.rescorer else {
-            return false;
+            return chose;
         };
         let mut cache = self.neural_cache.borrow_mut();
         let wanted = cache.take_wanted();
         let generate = cache.take_wanted_generation();
         if wanted.is_empty() && generate.is_none() {
-            return false;
+            return chose;
         }
         tracing::debug!(
             texts = wanted.len(),
@@ -161,18 +178,22 @@ impl Engine {
         true
     }
 
-    /// 收后台打好的分。有新分进了缓存返回 `true`，壳该重新 [`Self::query`] 一次；前文已经变了的结果丢掉。
+    /// 收后台打好的分。最近一次请求的结果到了返回 `true`，壳该重新 [`Self::query`] 一次、停止轮询；前文已经变了的分丢掉。
+    ///
+    /// 更早的请求的结果也照样收进缓存，但不返回 `true`：打字比模型快时上一次的结果会先到，
+    /// 壳要是把它当成这一轮的、停了轮询，晚几十毫秒到的这次整句就没人取了（macOS 上 `firefoxliulanqi` 上屏成「覅」）。
     pub fn poll_rescoring(&mut self) -> bool {
+        let mut updated = self.poll_choice();
         let Some(worker) = &self.rescorer else {
-            return false;
+            return updated;
         };
-        let mut updated = false;
+        let latest = worker.latest();
         while let Some(scored) = worker.poll() {
+            updated |= scored.serial == latest;
             let mut cache = self.neural_cache.borrow_mut();
             // 生成的结果自带按键、与前文无关，不跟着打分那边的条件一起作废
             if let Some((keys, texts)) = scored.generated {
                 cache.insert_generated(&keys, texts);
-                updated = true;
             }
             if scored.context != cache.context()
                 || scored.keys != cache.keys()
@@ -183,7 +204,6 @@ impl Engine {
             for (text, score) in scored.texts.iter().zip(scored.scores) {
                 cache.insert(text, score);
             }
-            updated = true;
         }
         updated
     }

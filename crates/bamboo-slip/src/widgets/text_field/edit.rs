@@ -11,6 +11,9 @@ pub enum Edit {
     Key(KeyPress),
 
     Text(TextInput),
+
+    /// 点了文字里的这个位置（字节下标；越界夹到末尾、落在字符中间往前退到边界）：光标挪过去，选区取消。
+    Caret(usize),
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -92,6 +95,14 @@ impl TextEdit {
                 None
             }
             Edit::Key(press) => self.key(press),
+            Edit::Caret(at) => {
+                let mut at = (*at).min(self.text.len());
+                while !self.text.is_char_boundary(at) {
+                    at -= 1;
+                }
+                self.move_to(at, false);
+                None
+            }
         }
     }
 

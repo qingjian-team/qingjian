@@ -70,6 +70,11 @@ impl<'a, M> Ui<'a, M> {
         self.interaction.state(key)
     }
 
+    /// 见 [`Interaction::captured`]。
+    pub(crate) fn captured(&self, key: Key) -> bool {
+        self.interaction.captured(key)
+    }
+
     /// 元素上一帧在根坐标里的矩形（左、上、宽、高，像素）：弹出层贴着它定位。第一帧还没有。
     pub fn rect(&self, key: Key) -> Option<(f32, f32, f32, f32)> {
         self.interaction.rect(key)
@@ -159,6 +164,19 @@ impl<'a, M> Ui<'a, M> {
     pub fn fade(&mut self, node: NodeId, key: Key, duration: Duration, easing: Easing) {
         self.scene
             .set_fade(node, key.transition_name(), duration, easing);
+    }
+
+    /// 同 [`Self::transition`]，节点刚出现时也播：从竖直偏移 `offset`（像素）淡入。
+    pub fn enter(
+        &mut self,
+        node: NodeId,
+        key: Key,
+        duration: Duration,
+        easing: Easing,
+        offset: f32,
+    ) {
+        self.transition(node, key, duration, easing);
+        self.scene.set_enter(node, offset);
     }
 
     /// 子孙的滑动过渡以 `node` 为参照，见 [`Scene::set_anchor`]。控件里会滑的部件（开关的圆钮、分段的底块）

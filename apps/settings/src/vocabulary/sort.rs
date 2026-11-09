@@ -4,6 +4,8 @@ use std::cmp::Ordering;
 
 use qingjian_learning::VocabularyEntry;
 
+use crate::i18n::tr;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Sort {
     /// 最近见到的在前。
@@ -20,9 +22,9 @@ impl Sort {
 
     pub fn label(self) -> &'static str {
         match self {
-            Self::Recent => "最近",
-            Self::Frequent => "次数",
-            Self::Alphabetical => "字母",
+            Self::Recent => tr("vocabulary.sort_recent"),
+            Self::Frequent => tr("vocabulary.sort_frequent"),
+            Self::Alphabetical => tr("vocabulary.sort_alphabetical"),
         }
     }
 

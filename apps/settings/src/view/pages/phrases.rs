@@ -1,4 +1,4 @@
-//! 「自定义短语」页：每条一行（开关、输入码、位置、内容的开头、编辑），末尾新增；macOS 另有「也用系统的文本替换」。
+//! 「自定义短语」页：每条一行（开关、输入码、权重、内容的开头、编辑），末尾新增与导入导出；macOS 另有「也用系统的文本替换」。
 //! 新增、编辑在对话框里改，保存时整张表校验。
 
 use bamboo_slip::taffy::{
@@ -6,10 +6,11 @@ use bamboo_slip::taffy::{
     NodeId, Rect, Size, Style,
 };
 use bamboo_slip::{
-    Button, Checkbox, RenderError, SettingRow, Stepper, TextField, Ui, Visual, dialog, group,
-    paragraph, section_title,
+    Button, Checkbox, RenderError, SettingRow, TextField, Ui, Visual, dialog, group, paragraph,
+    section_title,
 };
 
+use crate::i18n::{tr, tr_args};
 use crate::message::{FieldId, Message};
 use crate::support::Feature;
 use crate::view::Page;
@@ -31,31 +32,59 @@ pub fn phrases(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderE
     for (index, phrase) in config.custom_phrases.iter().enumerate() {
         rows.push(phrase_row(ui, page, index, phrase)?);
     }
-    let add = Button::new("新增…").build(ui, theme, "add-phrase", Message::OpenPhrase(None))?;
+    let add =
+        Button::new(tr("phrases.add")).build(ui, theme, "add-phrase", Message::OpenPhrase(None))?;
     rows.push(with_notice(
         ui,
         page,
-        SettingRow::new("新增短语")
-            .info("输入码敲全后，短语出现在固定的候选位置，空格或数字键上屏；同一个输入码的位置不能重复")
+        SettingRow::new(tr("phrases.new_phrase"))
+            .info(tr("phrases.new_phrase_info"))
             .control(add),
         "phrases",
     )?);
-    out.push(section_title(ui, theme, "短语")?);
+    let import = Button::new(tr("phrases.import")).build(
+        ui,
+        theme,
+        "import-phrases",
+        Message::ImportPhrases,
+    )?;
+    let export = Button::new(tr("phrases.export")).build(
+        ui,
+        theme,
+        "export-phrases",
+        Message::ExportPhrases,
+    )?;
+    let buttons = ui.scene().node(
+        Style {
+            flex_direction: FlexDirection::Row,
+            gap: page.gap(8.0),
+            ..Style::default()
+        },
+        Visual::Group,
+        &[import, export],
+    )?;
+    rows.push(with_notice(
+        ui,
+        page,
+        SettingRow::new(tr("phrases.transfer"))
+            .info(tr("phrases.transfer_info"))
+            .control(buttons),
+        "phrases-transfer",
+    )?);
+    out.push(section_title(ui, theme, tr("phrases.section_phrases"))?);
     out.push(group(ui, theme, &rows)?);
 
     if Feature::SystemTextReplacements.here() {
         let replacements = toggle_info(
             ui,
             page,
-            "也用系统的文本替换",
-            Some(
-                "系统设置「键盘 → 文本替换」里输入码全是小写字母的条目也能打；它们不在上面列出，要改请到系统设置",
-            ),
+            tr("phrases.system_replacements"),
+            Some(tr("phrases.system_replacements_info")),
             ("general", "system_text_replacements"),
             config.general.system_text_replacements,
             false,
         )?;
-        out.push(section_title(ui, theme, "系统")?);
+        out.push(section_title(ui, theme, tr("phrases.section_system"))?);
         out.push(group(ui, theme, &[replacements])?);
     }
 
@@ -78,20 +107,24 @@ fn phrase_row(
         ("phrase-on", index),
         Message::TogglePhrase(index),
     )?;
-    let position = small(ui, page, &format!("第 {} 位", phrase.position))?;
+    let weight = small(
+        ui,
+        page,
+        &tr_args("phrases.weight_value", &[("weight", &phrase.weight)]),
+    )?;
     let leading = ui.scene().node(
         Style {
             flex_direction: FlexDirection::Row,
-            align_items: Some(AlignItems::CENTER),
+            align_items: AlignItems::CENTER,
             gap: page.gap(12.0),
             flex_shrink: 0.0,
             ..Style::default()
         },
         Visual::Group,
-        &[toggle, position],
+        &[toggle, weight],
     )?;
     let preview = small(ui, page, &preview(&phrase.text))?;
-    let edit = Button::new("编辑").build(
+    let edit = Button::new(tr("phrases.edit")).build(
         ui,
         theme,
         ("phrase-edit", index),
@@ -100,7 +133,7 @@ fn phrase_row(
     let trailing = ui.scene().node(
         Style {
             flex_direction: FlexDirection::Row,
-            align_items: Some(AlignItems::CENTER),
+            align_items: AlignItems::CENTER,
             gap: page.gap(12.0),
             ..Style::default()
         },
@@ -111,8 +144,8 @@ fn phrase_row(
     ui.scene().node(
         Style {
             flex_direction: FlexDirection::Row,
-            align_items: Some(AlignItems::CENTER),
-            justify_content: Some(JustifyContent::SPACE_BETWEEN),
+            align_items: AlignItems::CENTER,
+            justify_content: JustifyContent::SPACE_BETWEEN,
             gap: page.gap(16.0),
             min_size: Size {
                 width: LengthPercentageAuto::auto(),
@@ -138,8 +171,9 @@ fn editor(ui: &mut Ui<Message>, page: &Page) -> Result<(), RenderError> {
         return Ok(());
     };
     let fields = &page.settings.fields;
-    let (Some(code), Some(text)) = (
+    let (Some(code), Some(weight), Some(text)) = (
         fields.get(&FieldId::PhraseCode),
+        fields.get(&FieldId::PhraseWeight),
         fields.get(&FieldId::PhraseText),
     ) else {
         return Ok(());
@@ -148,9 +182,9 @@ fn editor(ui: &mut Ui<Message>, page: &Page) -> Result<(), RenderError> {
         Style::default(),
         Visual::Text {
             text: if editor.index.is_some() {
-                "编辑短语"
+                tr("phrases.edit_phrase")
             } else {
-                "新增短语"
+                tr("phrases.new_phrase")
             }
             .to_owned(),
             style: theme.text(theme.font.size + 2.0, 600, theme.colors.text),
@@ -158,7 +192,7 @@ fn editor(ui: &mut Ui<Message>, page: &Page) -> Result<(), RenderError> {
         &[],
     )?;
     let code = TextField::new(code)
-        .placeholder("小写字母，如 dz")
+        .placeholder(tr("phrases.code_placeholder"))
         .width(200.0)
         .build(
             ui,
@@ -168,24 +202,29 @@ fn editor(ui: &mut Ui<Message>, page: &Page) -> Result<(), RenderError> {
             None,
             Some(Message::ClosePhrase),
         )?;
-    let code = SettingRow::new("输入码").control(code).build(ui, theme)?;
-    let position = Stepper::new(&format!("第 {} 位", editor.position))
-        .limits(editor.position > 1, editor.position < 9)
+    let code = SettingRow::new(tr("phrases.code"))
+        .control(code)
+        .build(ui, theme)?;
+    let weight = TextField::new(weight)
+        .placeholder("1–999")
+        .width(80.0)
         .build(
             ui,
             theme,
-            "phrase-position",
-            Message::PhrasePosition(-1),
-            Message::PhrasePosition(1),
+            "phrase-weight",
+            |edit| Message::Edit(FieldId::PhraseWeight, edit),
+            None,
+            Some(Message::ClosePhrase),
         )?;
-    let position = SettingRow::new("位置")
-        .info("短语占第几个候选，1–9；跨页时按当前页的序号选")
-        .control(position)
+    let weight = SettingRow::new(tr("phrases.weight"))
+        .info(tr("phrases.weight_info"))
+        .control(weight)
         .build(ui, theme)?;
     let content = TextField::new(text)
-        .placeholder("原样上屏的文字，可以换行")
+        .placeholder(tr("phrases.text_placeholder_time"))
         .width(DIALOG_WIDTH - 40.0)
         .rows(4)
+        .max_rows(12)
         .build(
             ui,
             theme,
@@ -194,16 +233,16 @@ fn editor(ui: &mut Ui<Message>, page: &Page) -> Result<(), RenderError> {
             None,
             Some(Message::ClosePhrase),
         )?;
-    let mut children = vec![title, code, position, content];
+    let mut children = vec![title, code, weight, content];
     if let Some(error) = &editor.error {
         children.push(paragraph(ui, theme, error, None)?);
     }
     let mut buttons = Vec::new();
     if editor.index.is_some() {
         let delete = Button::new(if editor.confirm_delete {
-            "再点一次删除"
+            tr("phrases.delete_confirm")
         } else {
-            "删除"
+            tr("phrases.delete")
         })
         .build(ui, theme, "phrase-delete", Message::DeletePhrase)?;
         buttons.push(delete);
@@ -221,8 +260,13 @@ fn editor(ui: &mut Ui<Message>, page: &Page) -> Result<(), RenderError> {
         &[],
     )?;
     buttons.push(spacer);
-    buttons.push(Button::new("取消").build(ui, theme, "phrase-cancel", Message::ClosePhrase)?);
-    buttons.push(Button::new("保存").primary().build(
+    buttons.push(Button::new(tr("phrases.cancel")).build(
+        ui,
+        theme,
+        "phrase-cancel",
+        Message::ClosePhrase,
+    )?);
+    buttons.push(Button::new(tr("phrases.save")).primary().build(
         ui,
         theme,
         "phrase-save",
@@ -231,7 +275,7 @@ fn editor(ui: &mut Ui<Message>, page: &Page) -> Result<(), RenderError> {
     children.push(ui.scene().node(
         Style {
             flex_direction: FlexDirection::Row,
-            align_items: Some(AlignItems::CENTER),
+            align_items: AlignItems::CENTER,
             gap: page.gap(8.0),
             margin: Rect {
                 top: LengthPercentageAuto::length(page.px(4.0)),

@@ -1,4 +1,4 @@
-//! 「快捷键」页：翻页键、高亮移动键、模式键，译词 / 删候选 / 翻译选中文字的修饰键。
+//! 「快捷键」页：翻页键、高亮移动键、模式键，译词 / 翻译选中文字的修饰键。
 //! 翻译选中文字只改修饰键，字母键固定用配置里当前的；要换字母直接改 `config.toml`。
 
 use qingjian_platform::{HighlightKeys, Modifiers};
@@ -28,6 +28,14 @@ pub(crate) const MODIFIERS: [(&str, &str); 6] = [
     ("Ctrl + Shift", "shift+ctrl"),
     ("Ctrl + Alt", "ctrl+alt"),
     ("Alt + Shift", "shift+alt"),
+];
+
+/// 简繁键预设；任意字母数字组合仍可在配置文件中指定。
+pub(crate) const TRADITIONAL_KEYS: [(&str, &str); 4] = [
+    ("关闭", ""),
+    ("Ctrl + Shift + F", "ctrl+shift+f"),
+    ("Ctrl + Alt + F", "ctrl+alt+f"),
+    ("Alt + Shift + F", "alt+shift+f"),
 ];
 
 fn mode_key_combo(current: char, callback: Callback<Option<usize>>) -> ComboBox {
@@ -88,7 +96,7 @@ pub(crate) fn view(settings: &Settings, context: &mut ViewContext<Settings>) -> 
         ),
         field(
             "高亮移动键",
-            "选「← / →」时两键连着拼音行一起走：拼音光标到末尾按 → 才移到下一个候选，候选在首位按 ← 才退回拼音行；此时 ↑ / ↓ 不做事。",
+            "选「← / →」时 ← / → 在候选之间移动；横排下 ↑ 移到拼音里改光标位置、↓ 回到候选，竖排下拼音光标到末尾按 → 才到下一个候选。",
             mode_combo(
                 &HighlightKeys::ALL,
                 s.highlight_keys,
@@ -127,20 +135,38 @@ pub(crate) fn view(settings: &Settings, context: &mut ViewContext<Settings>) -> 
             ),
         ),
         field(
-            "删除候选",
-            "按住修饰键再按候选序号：自己造的词、云端选过的词整删；词库里的词清掉学习记录，回到原排序。",
-            modifier_combo(
-                s.delete_candidate,
-                context.callback(Message::DeleteCandidate),
-            ),
-        ),
-        field(
             "按需 AI 联想",
             "输入拼音时按这组键 + 当前字母（缺省 Ctrl+Alt+J），获取置顶候选。只改修饰键；字母可在配置的 shortcut.predict 中修改。",
             modifier_combo(
                 s.predict.modifiers,
                 context.callback(Message::PredictShortcut),
             ),
+        ),
+        field(
+            "切换简繁输出",
+            "立即切换候选与上屏文字的简繁字形，保留正在输入的拼音。可关闭以免占用应用快捷键；自定义组合可修改配置文件。",
+            ComboBox::new()
+                .items_source(
+                    TRADITIONAL_KEYS
+                        .iter()
+                        .map(|(label, _)| (*label).to_owned())
+                        .chain(
+                            s.toggle_traditional
+                                .filter(|key| {
+                                    !TRADITIONAL_KEYS
+                                        .iter()
+                                        .any(|(_, value)| value.parse().ok() == Some(*key))
+                                })
+                                .map(|key| key.key_string()),
+                        ),
+                )
+                .selected_index(s.toggle_traditional.map_or(0, |key| {
+                    TRADITIONAL_KEYS
+                        .iter()
+                        .position(|(_, value)| value.parse().ok() == Some(key))
+                        .unwrap_or(TRADITIONAL_KEYS.len())
+                }))
+                .on_selection_changed(context.callback(Message::ToggleTraditional)),
         ),
         field(
             "翻译选中文字",

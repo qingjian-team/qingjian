@@ -25,6 +25,11 @@ pub struct Frame {
     /// 光标在拼音行里的位置，按 `preedit` 拼接后的字符（`char`）数算。
     pub cursor: usize,
 
+    /// 候选窗口顶部拼音行的分段与光标，与 `preedit` / `cursor` 不同时才有（带调拼音，见 `Query::window_segments`）；
+    /// 应用里的行内拼音仍按 `preedit`。由 Server 自绘候选窗与 Linux 面板消费，DLL 不读。
+    #[serde(default)]
+    pub window_preedit: Option<Box<(Vec<PreeditSegment>, usize)>>,
+
     /// 当前页的候选（已排好序、不带译文由后续 [`super::ServerMessage::Update`] 补）。
     pub candidates: CandidateList,
 
@@ -78,6 +83,10 @@ pub struct Frame {
     /// 面板由 Server 自绘，这一帧的候选不画。
     #[serde(default)]
     pub symbol_panel: bool,
+
+    /// 面板停在翻译组、没在打拼音：框里的字归 Server 编辑，DLL 把 Ctrl+A 也交给 Server（全选框里的字），不放给应用。
+    #[serde(default)]
+    pub panel_text_box: bool,
 }
 
 impl Frame {

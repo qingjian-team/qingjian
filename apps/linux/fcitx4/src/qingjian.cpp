@@ -222,7 +222,8 @@ bool Engine::exchange(Session *session, const nlohmann::json &event, bool displa
             throw std::runtime_error("response identity");
         consumed = outcome == "Consumed";
         session->identity = id;
-        if (display) render(session, result.at("frame"));
+        // 上屏先于清空预编辑：Chromium 系（Electron）在预编辑被清空时会中止组合，
+        // 之后再提交就会丢字（与 fcitx5 版注释的 Chromium #213 同源）。
         if (live(session) && session->opened && session->generation == generation
             && session->lifecycle == lifecycle && result.at("commit").is_string()
             && session->context && FcitxInstanceGetCurrentIC(instance_) == session->context) {
@@ -231,6 +232,7 @@ bool Engine::exchange(Session *session, const nlohmann::json &event, bool displa
                 && cursor == session->selectionCursor && anchor == session->selectionAnchor))
                 FcitxInstanceCommitString(instance_, session->context, result.at("commit").get_ref<const std::string &>().c_str());
         }
+        if (display) render(session, result.at("frame"));
         if (result.at("frame").at("candidates").at("items").empty()) session->selectionText.clear();
         return consumed;
     } catch (const std::exception &) { disconnect(); return consumed; }

@@ -19,20 +19,17 @@ use self::loader::Loaded;
 pub(crate) use self::loader::ModelLoader;
 pub(crate) use self::state::RescoreState;
 use super::Router;
-use super::composed::Composed;
+use super::composed::{Composed, marked_parts};
 
 /// 空闲时主循环多久醒一次：到点落盘学习数据。
 const IDLE_TICK: Duration = Duration::from_secs(1);
 
-/// P2C 优先，同类模型里用户目录优先；没有 P2C 才回退字级模型。
+/// 含章·通变：用户目录（设置里下载的、或自己放的）优先于随包的。含章·知微已下线，它的目录不再找。
 pub fn find_model(user_dir: Option<&Path>, bundled_root: &Path) -> Option<PathBuf> {
     let candidates = [
         user_dir.map(|dir| dir.join("models/hanzhang-tongbian")),
         user_dir.map(|dir| dir.join("model-p2c")),
         Some(bundled_root.join("data/models/hanzhang-tongbian")),
-        user_dir.map(|dir| dir.join("models/hanzhang-zhiwei")),
-        user_dir.map(|dir| dir.join("model")),
-        Some(bundled_root.join("data/models/hanzhang-zhiwei")),
     ];
     candidates
         .into_iter()
@@ -175,26 +172,28 @@ impl Router {
 
     /// 分回来了：按重排后的顺序重建候选布局，下一次 `Poll` 回的帧就是新顺序。
     fn requery_rescored(&mut self) {
-        let Ok(query) = self.engine.query() else {
+        let Ok(mut query) = self.engine.query() else {
             return;
         };
         let Some(Composed::Candidates {
             preedit,
             cursor,
             layout,
+            spelling,
+            ..
         }) = self.composed.as_mut()
         else {
             return;
         };
         let cloud = layout.cloud().to_vec();
         *layout = CandidateLayout::new(
-            query.candidates.items.clone(),
+            std::mem::take(&mut query.candidates.items),
             self.config.page_size,
             self.config.cloud_slots,
         );
         layout.set_cloud(cloud);
-        *preedit = query.marked_segments().iter().map(Into::into).collect();
-        *cursor = query.marked_cursor();
+        (*preedit, *cursor) = marked_parts(&query);
+        **spelling = query;
         // 这次查询可能又记下了一批要打分的（缓存按前文记，前文没变时不会），再来一轮
         self.schedule_rescoring();
     }
@@ -205,22 +204,18 @@ mod tests {
     use super::find_model;
 
     #[test]
-    fn p2c_precedes_old_model_and_user_precedes_bundled() {
+    fn user_tongbian_precedes_bundled_and_zhiwei_is_ignored() {
         let root =
             std::env::temp_dir().join(format!("qingjian-model-choice-{}", std::process::id()));
         let user = root.join("user");
         let bundled = root.join("bundled");
         let _ = std::fs::remove_dir_all(&root);
 
-        let old = bundled.join("data/models/hanzhang-zhiwei/model.qjm");
-        std::fs::create_dir_all(old.parent().unwrap()).unwrap();
-        std::fs::write(&old, b"").unwrap();
-        assert_eq!(find_model(Some(&user), &bundled), Some(old));
-
-        let user_old = user.join("models/hanzhang-zhiwei/model.qjm");
-        std::fs::create_dir_all(user_old.parent().unwrap()).unwrap();
-        std::fs::write(&user_old, b"").unwrap();
-        assert_eq!(find_model(Some(&user), &bundled), Some(user_old));
+        // 含章·知微已下线：只有它的时候什么都不加载
+        let zhiwei = user.join("models/hanzhang-zhiwei/model.qjm");
+        std::fs::create_dir_all(zhiwei.parent().unwrap()).unwrap();
+        std::fs::write(&zhiwei, b"").unwrap();
+        assert_eq!(find_model(Some(&user), &bundled), None);
 
         let bundled_p2c = bundled.join("data/models/hanzhang-tongbian/model.qjm");
         std::fs::create_dir_all(bundled_p2c.parent().unwrap()).unwrap();

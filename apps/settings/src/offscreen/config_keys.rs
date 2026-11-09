@@ -187,7 +187,7 @@ fn every_key_the_settings_app_writes_is_read_by_the_ime() {
     std::fs::create_dir_all(&dir).unwrap();
     let path = dir.join("config.toml");
     let _ = std::fs::remove_file(&path);
-    let mut settings = Settings::load(path.clone()).unwrap();
+    let mut settings = Settings::load(path.clone());
     let mut text = TextPainter::new(FontLibrary::system("zh-CN").unwrap());
     settings.setup(&mut text);
     let mut harness = Harness {
@@ -209,6 +209,7 @@ fn every_key_the_settings_app_writes_is_read_by_the_ime() {
         (FieldId::BaseUrl, "https://example.com/v1"),
         (FieldId::Model, "test-model"),
         (FieldId::ApiKey, "sk-test"),
+        (FieldId::HalfWidthSymbols, "`;"),
     ] {
         harness.apply(vec![
             Message::Edit(id, Edit::Text(TextInput::Insert(text.to_owned()))),
@@ -243,5 +244,47 @@ fn every_key_the_settings_app_writes_is_read_by_the_ime() {
         "只核对到 {} 个键：{:#?}",
         harness.checked.len(),
         harness.checked.keys()
+    );
+}
+
+/// 剪贴板进程不依赖 `Config`，自己读这几个键：缺省值与写法两边要一致。
+#[cfg(windows)]
+#[test]
+fn clipboard_process_reads_the_same_keys() {
+    use qingjian_clipboard::{ClipSettings, Edge, Hotkey};
+
+    let mut config = Config::default();
+    let text = toml::to_string(&config).unwrap();
+    assert_eq!(ClipSettings::parse(&text), Some(ClipSettings::default()));
+    config.clipboard.enabled = true;
+    config.clipboard.paused = true;
+    config.clipboard.sync_enabled = true;
+    config.clipboard.sync_neon = false;
+    config.clipboard.device_name = "坚强的高松灯".to_owned();
+    config.clipboard.history_limit = 500;
+    config.clipboard.edge = qingjian_platform::ClipboardEdge::Right;
+    config.clipboard.excluded_apps = vec!["Secret".to_owned()];
+    config.shortcut.clipboard = "control+shift+k".parse().unwrap();
+    let settings = ClipSettings::parse(&toml::to_string(&config).unwrap()).unwrap();
+    assert_eq!(
+        settings,
+        ClipSettings {
+            enabled: true,
+            edge: Edge::Right,
+            hotkey: Hotkey {
+                control: true,
+                shift: true,
+                alt: false,
+                win: false,
+                key: 'k',
+            },
+            history_limit: 500,
+            paused: true,
+            sync_enabled: true,
+            sync_neon: false,
+            device_name: "坚强的高松灯".to_owned(),
+            excluded_apps: vec!["Secret".to_owned()],
+            language: config.general.ui_language.clone(),
+        }
     );
 }

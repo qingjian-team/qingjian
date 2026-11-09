@@ -1,4 +1,4 @@
-//! 指针事件：移动更新悬停，按下捕获并给焦点，抬起时还在捕获的元素上就算一次点击。
+//! 指针事件：移动更新悬停，按下捕获并给焦点，抬起时还在捕获的元素上就算一次点击；能拖动的元素按下与按住移动时都收到位置。
 
 use super::Interaction;
 use crate::ui::Response;
@@ -8,11 +8,18 @@ impl<M: Clone> Interaction<M> {
         self.pointer = pointer;
         let mut response = Response::new();
         response.changed = self.rehover();
+        response.changed |= self.drag_scrollbar();
+        self.drag(&mut response);
         response
     }
 
     pub(super) fn pointer_down(&mut self) -> Response<M> {
         let mut response = Response::new();
+        // 焦点不动：拖滚动条时搜索框还接着能打字
+        if self.press_scrollbar() {
+            response.changed = true;
+            return response;
+        }
         let path: Vec<usize> = match self.hovered.first() {
             Some(&key) => self.chain(self.index.get(&key).copied()).collect(),
             None => Vec::new(),
@@ -21,7 +28,7 @@ impl<M: Clone> Interaction<M> {
         self.pressed = path
             .iter()
             .map(|&position| &self.elements[position])
-            .find(|element| element.interact.click.is_some())
+            .find(|element| element.interact.click.is_some() || element.interact.drag.is_some())
             .filter(|element| !element.interact.disabled)
             .map(|element| element.key);
         let focused = path
@@ -30,6 +37,7 @@ impl<M: Clone> Interaction<M> {
             .find(|element| element.interact.takes_focus())
             .map(|element| element.key);
         let moved = self.set_focus(focused, &mut response);
+        self.drag(&mut response);
         response.changed = self.pressed.is_some() || moved || self.focus_visible;
         self.focus_visible = false;
         response
@@ -50,5 +58,52 @@ impl<M: Clone> Interaction<M> {
             response.messages.push(message);
         }
         response
+    }
+
+    pub(super) fn secondary_down(&mut self) -> Response<M> {
+        let mut response = Response::new();
+        let Some(pointer) = self.pointer else {
+            return response;
+        };
+        let start = self
+            .hovered
+            .first()
+            .and_then(|key| self.index.get(key).copied());
+        let message = self
+            .chain(start)
+            .map(|position| &self.elements[position].interact)
+            .filter(|interact| !interact.disabled)
+            .find_map(|interact| interact.secondary.as_ref())
+            .map(|handler| handler(pointer));
+        response.messages.extend(message);
+        response
+    }
+
+    /// 捕获指针的元素能拖动时，按指针的横向位置要一条消息。
+    fn drag(&self, response: &mut Response<M>) {
+        let (Some(key), Some((x, _))) = (self.pressed, self.pointer) else {
+            return;
+        };
+        let Some(element) = self
+            .element(key)
+            .filter(|element| element.interact.draggable())
+        else {
+            return;
+        };
+        let (left, _, width, _) = element.rect();
+        let fraction = if width > 0.0 {
+            ((x - left) / width).clamp(0.0, 1.0)
+        } else {
+            0.0
+        };
+        if let Some(message) = element
+            .interact
+            .drag
+            .as_ref()
+            .and_then(|drag| drag(fraction))
+        {
+            response.messages.push(message);
+            response.changed = true;
+        }
     }
 }

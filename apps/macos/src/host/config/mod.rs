@@ -6,6 +6,7 @@ mod watch;
 pub(super) use text_replacements::TextReplacement;
 pub(super) use watch::ConfigWatch;
 
+use qingjian_platform::Config;
 use qingjian_render::TextSizes;
 
 use super::init::load_glossary;
@@ -24,6 +25,8 @@ impl Host {
         self.engine.set_mode_keys(config.shortcut.mode);
         self.engine.set_chinese_first(config.general.chinese_first);
         self.engine
+            .set_spelling_correction(config.general.spelling_correction);
+        self.engine
             .set_emoji_limit(usize::from(config.general.emoji.get()));
         self.engine
             .set_kaomoji_limit(usize::from(config.general.kaomoji.get()));
@@ -31,32 +34,83 @@ impl Host {
             .set_symbol_limit(usize::from(config.general.symbols.get()));
         self.engine
             .set_english_in_chinese(config.general.english_in_chinese);
+        self.engine
+            .set_english_max_in_chinese(config.general.english_max_in_chinese());
+        self.engine
+            .set_english_min_position(config.general.english_min_position());
         self.engine.set_auto_space(config.general.auto_space);
         self.engine
+            .set_half_width_symbols(&config.general.half_width_symbols);
+        self.engine
             .set_shift_letter_compose(config.general.shift_letter.compose());
-        self.apply_scheme(config.general.scheme(), config.general.wubi());
+        self.apply_scheme(&config);
+        self.engine
+            .set_aux_code_key(config.general.aux_code_key(), config.general.page_keys());
+        self.engine
+            .set_aux_keep_empty(config.general.aux_code_keep_empty);
+        self.engine.set_aux_enabled(config.aux_code.enabled);
+        self.engine.set_aux_show(config.general.aux_code_show);
+        self.engine.set_show_tones(config.general.show_tones);
+        self.aux_code_show = config.general.aux_code_show;
+        if force || self.applied_aux_code.as_ref() != Some(&config.aux_code) {
+            self.reload_aux_codes();
+        }
         self.engine
             .set_shuangpin_raw_preedit(config.general.shuangpin_raw_preedit);
+        self.engine
+            .set_shuangpin_raw_window(config.general.shuangpin_raw_window);
+        self.engine
+            .set_shuangpin_full_pinyin(config.general.shuangpin_full_pinyin);
+        self.engine
+            .set_hold_selections(config.general.hold_selections);
+        self.engine
+            .set_context_memory(config.model.context_memory_seconds);
         self.engine.set_learning(config.general.learning);
         logging::set_level(config.general.log_level);
         self.translation_keys = config.shortcut.translation_keys();
-        self.delete_keys = config.shortcut.delete_keys();
         self.translate_keys = config.shortcut.translate_selection;
+        // 中英切换键：macOS 只认单击 Shift（勾上后 Caps Lock 退化成只管大小写），其余勾选项不用但要说一声。
+        // 关掉英文模式时 Shift 与 Caps Lock 两条路都不切
+        self.mode_switch
+            .set_enabled(config.general.english_mode && config.shortcut.switch_mode.shift);
+        self.mode_switch
+            .set_english_off(!config.general.english_mode);
+        self.mode_switch.set_third_enabled(
+            config.general.double_shift_input == qingjian_platform::ThirdInputMethod::Vietnamese,
+        );
+        if config.shortcut.switch_mode.control || config.shortcut.switch_mode.ctrl_alt_space {
+            tracing::warn!(
+                "macOS 只支持单击 Shift 作为中英切换键，配置文件里写的 control / ctrl+alt+space 已忽略"
+            );
+        }
+        self.punctuation_keys = config.shortcut.toggle_punctuation;
+        self.predict_keys = config.shortcut.predict;
+        self.translate_panel_keys = config.shortcut.translate_panel;
         self.page_size = config.general.page_size();
         self.cloud_slots = config.predict.slots;
         self.page_keys = config.general.page_keys();
+        self.extra_page_keys = config.shortcut.extra_page_keys;
         self.highlight_keys = config.shortcut.highlight_keys;
+        self.extra_candidate_navigation = config.shortcut.extra_candidate_navigation;
         self.punct_commits = config.general.punct_commits;
         self.preedit_mode = config.general.preedit;
+        self.translation_pos = config.general.translation_pos;
         self.english_candidates = config.general.english_candidates;
         self.apps = config.apps.clone();
         self.window.set_appearance(config.general.appearance());
+        self.key_hint_mode = config.general.key_hint;
+        self.window
+            .set_key_hint_opacity(config.general.key_hint_opacity());
+        self.window
+            .set_key_hint_size(config.general.key_hint_size());
         self.window.set_layout(config.general.layout);
         if self.layout != config.general.layout
             || self.horizontal_grid != config.general.horizontal_grid
+            || self.grid_page_keys != config.general.grid_page_keys
         {
             self.layout = config.general.layout;
             self.horizontal_grid = config.general.horizontal_grid;
+            self.grid_page_keys = config.general.grid_page_keys;
             self.session.collapse();
         }
         self.window.set_font(&config.general.font);
@@ -100,17 +154,24 @@ impl Host {
         if force || config.dictionaries != self.applied_dictionaries {
             self.reload_dictionaries();
         }
-        if self.applied_model.as_ref() != Some(&config.model) {
+        // 只有开关与选的模型变了才换；档位、前文记多久当场改
+        let wanted = (config.model.enabled, config.model.name);
+        let applied = self
+            .applied_model
+            .as_ref()
+            .map(|model| (model.enabled, model.name));
+        if applied != Some(wanted) {
+            self.unload_local_model();
             if config.model.enabled {
-                self.load_local_model();
-            } else {
-                self.unload_local_model();
+                self.load_local_model(config.model.name);
             }
-            self.applied_model = Some(config.model.clone());
         }
+        self.engine
+            .set_choice_tier(config.model.zhiyi_tier.choice_tier());
+        self.applied_model = Some(config.model.clone());
         let cloud_active = self.engine.prediction_enabled();
         self.indicator.set_cloud(cloud_active);
-        self.indicator.update();
+        self.refresh_mode_ui();
         self.menu.sync(&config, cloud_active, self.settings.error());
         let key_present = config
             .predict
@@ -127,6 +188,7 @@ impl Host {
             &self.update_status,
         );
         self.sync_update();
+        super::clipboard_process::sync(config.clipboard.enabled);
     }
 
     /// 配置里的自定义短语，`[general] system_text_replacements` 开着时再并上系统的文本替换，一起推给 Engine。
@@ -196,6 +258,14 @@ impl Host {
         if self.settings.reload_if_changed() {
             self.apply_config(false);
         }
+        self.reload_aux_codes_if_changed();
+        if code_word_files() != self.code_word_files {
+            let config = self.settings.config().clone();
+            self.apply_scheme(&config);
+        }
+        if super::dictionaries::dictionary_files() != self.dictionary_files {
+            self.reload_dictionaries();
+        }
     }
 
     /// 激活期间的定时器每秒调一次：看配置文件，再看学习数据要不要落盘。
@@ -254,33 +324,25 @@ impl Host {
         }
     }
 
-    /// 按配置的两条轴装配引擎：拼音侧（全拼 / 双拼 / 注音 / 关）与形码侧（五笔）。
-    /// 两边都开就是混输——编码打全的形码候选在前，见 `Engine::query_mixed`。
-    ///
-    /// 开了形码却找不到码表时只警告并退回只用拼音——配置说五笔、引擎一个字都打不出更糟。
-    fn apply_scheme(&mut self, pinyin: Scheme, wubi: bool) {
-        self.engine.set_shuangpin(pinyin.shuangpin());
-        self.engine.set_zhuyin_mode(pinyin == Scheme::Zhuyin);
-        // 拼音侧关掉且形码开着才是「只用形码」；两边都关着时留拼音兜底（否则一个候选都没有）
-        self.engine.set_phonetic(pinyin.is_on() || !wubi);
-        if !wubi {
-            self.engine.set_code_table(None);
-            return;
-        }
-        let Some(path) = paths::code_table_path() else {
-            tracing::warn!("选了形码方案但找不到码表，仍按拼音输入；随包数据里应当带一份");
-            self.engine.set_code_table(None);
-            return;
-        };
-        match qingjian_dictionary::CodeTable::from_path(&path) {
-            Ok(table) => {
-                tracing::info!(table = %path.display(), entries = table.len(), "形码码表已载入");
-                self.engine.set_code_table(Some(table));
-            }
-            Err(error) => {
-                tracing::error!(%error, table = %path.display(), "形码码表读不了，仍按拼音输入");
-                self.engine.set_code_table(None);
-            }
-        }
+    /// 按配置的两条轴装配引擎：拼音侧（全拼 / 双拼 / 注音 / 关）与形码侧（随包或用户方案），
+    /// 找法、退回拼音与「没变不重读」见 [`qingjian_platform::SchemeSlot`]。
+    fn apply_scheme(&mut self, config: &Config) {
+        self.scheme_slot.apply(
+            &mut self.engine,
+            config,
+            paths::user_data_dir().as_deref(),
+            paths::bundled_schemes_dir().as_deref(),
+        );
+        self.code_word_files = code_word_files();
     }
+}
+
+/// 用户 `code_dicts/` 的快照，只 stat。
+fn code_word_files() -> Vec<(std::path::PathBuf, Option<std::time::SystemTime>, u64)> {
+    paths::user_data_dir()
+        .map(|dir| {
+            let dir = qingjian_platform::code_schemes::user_words_dir(&dir);
+            qingjian_platform::code_schemes::words_snapshot(&dir)
+        })
+        .unwrap_or_default()
 }

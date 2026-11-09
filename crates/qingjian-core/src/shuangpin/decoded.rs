@@ -1,5 +1,5 @@
 use super::Unit;
-use crate::parser::{Segmentation, Syllable};
+use crate::parser::{Segmentation, Syllable, umlaut_spelling};
 
 /// 一段双拼键解码的结果：能解的单元 + 解不动的尾巴。
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
@@ -76,12 +76,18 @@ impl Decoded {
         (!syllables.is_empty()).then_some(Segmentation { syllables })
     }
 
-    /// 显示形式：全拼接上尾巴（`ni'bl`）。
+    /// 显示形式：全拼（l、n 后的 ü 按 [`umlaut_spelling`] 写成 `ü`）接上尾巴（`ni'bl`、`lüe`）。
     pub fn marked(&self) -> String {
-        match (self.pinyin.is_empty(), self.tail.is_empty()) {
-            (_, true) => self.pinyin.clone(),
+        let pinyin = self
+            .pinyin
+            .split('\'')
+            .map(umlaut_spelling)
+            .collect::<Vec<_>>()
+            .join("'");
+        match (pinyin.is_empty(), self.tail.is_empty()) {
+            (_, true) => pinyin,
             (true, false) => self.tail.clone(),
-            (false, false) => format!("{}'{}", self.pinyin, self.tail),
+            (false, false) => format!("{pinyin}'{}", self.tail),
         }
     }
 
@@ -151,7 +157,7 @@ mod tests {
         let decoded = Scheme::Xiaohe.decode("kdf'ni");
         let segmentation = decoded.segmentation().unwrap();
         assert_eq!(segmentation.to_string(), "kai f… ni");
-        assert!(Scheme::Xiaohe.decode("fl").segmentation().is_none());
+        assert!(Scheme::Xiaohe.decode("ae").segmentation().is_none());
     }
 
     #[test]

@@ -29,6 +29,9 @@ pub(crate) struct RenderData {
     /// 页码，只有多页时有。
     pub(super) footer: Option<String>,
 
+    /// 往前 / 往后还有页：主题把翻不动的箭头画淡。
+    pub(super) pages_around: (bool, bool),
+
     /// 整句补全，画在拼音行右侧。
     pub(super) sentence: Option<String>,
 
@@ -66,6 +69,7 @@ impl RenderData {
             rows: Vec::new(),
             highlight: usize::MAX,
             footer: None,
+            pages_around: (false, false),
             sentence: None,
             notice: None,
             layout: LayoutMode::default(),
@@ -85,7 +89,10 @@ impl RenderData {
         self.show_code = frame.aux_code_show;
         self.show_pos = frame.translation_pos;
         self.preedit = window_preedit(frame);
-        self.cursor = frame.cursor;
+        self.cursor = frame
+            .window_preedit
+            .as_ref()
+            .map_or(frame.cursor, |window| window.1);
         self.columns = frame.columns;
         self.column_ems = frame.column_ems.clone();
         let grid = frame.columns > 0;
@@ -116,6 +123,7 @@ impl RenderData {
         self.highlight = frame.highlight;
         self.footer =
             (frame.page_count > 1).then(|| format!("{}/{}", frame.page + 1, frame.page_count));
+        self.pages_around = (frame.page > 0, frame.page + 1 < frame.page_count);
         self.sentence = frame.sentence.clone();
         self.notice = frame.notice.clone();
     }
@@ -146,9 +154,12 @@ impl RenderData {
             columns: self.columns,
             column_ems: self.column_ems.clone(),
             footer: self.footer.clone(),
+            previous_page: self.pages_around.0,
+            next_page: self.pages_around.1,
             sentence: self.sentence.clone(),
             status: self.notice.clone(),
             mode: self.mode.clone(),
+            reversed: false,
         }
     }
 }
@@ -159,8 +170,11 @@ fn window_preedit(frame: &Frame) -> Vec<(String, PreeditKind)> {
     if !frame.preedit_mode.in_window() {
         return Vec::new();
     }
+    // 带调拼音时窗口里画另一串，应用里的行内拼音仍是 `preedit`
     frame
-        .preedit
+        .window_preedit
+        .as_ref()
+        .map_or(&frame.preedit, |window| &window.0)
         .iter()
         .map(|segment| (segment.text.clone(), segment.kind))
         .collect()

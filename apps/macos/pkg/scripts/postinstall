@@ -14,6 +14,14 @@ if [ -n "$user" ] && [ "$user" != "root" ]; then
     # 找不到磁盘缓存就从输入法目录重建，认得青简；不删的话它们重新载入装之前那份，Control+Space 切到青简时崩溃（#346）
     cache="$(sudo -u "$user" getconf DARWIN_USER_CACHE_DIR 2>/dev/null)"
     [ -n "$cache" ] && rm -f "$cache"com.apple.IntlDataCache.le* "$cache"*/com.apple.IntlDataCache.le* 2>/dev/null
+    # TISEnableInputSource 不写这张第三方输入源表；有的机器上表里没有青简，「+」列表里就找不到、也切不过去（#209），
+    # 注销重新登录后系统才按它重建输入法列表。已有青简的条目就不动，免得重复。
+    prefs="launchctl asuser $uid sudo -u $user defaults"
+    if ! $prefs read com.apple.inputsources AppleEnabledThirdPartyInputSources 2>/dev/null | grep -q 'app.qingjian.inputmethod'; then
+        $prefs write com.apple.inputsources AppleEnabledThirdPartyInputSources -array-add \
+            '<dict><key>Bundle ID</key><string>app.qingjian.inputmethod</string><key>Input Mode</key><string>app.qingjian.inputmethod.Hans</string><key>InputSourceKind</key><string>Input Mode</string></dict>' \
+            '<dict><key>Bundle ID</key><string>app.qingjian.inputmethod</string><key>InputSourceKind</key><string>Keyboard Input Method</string></dict>'
+    fi
     if launchctl asuser "$uid" sudo -u "$user" "$BIN" --register; then
         echo "青简：已为 $user 注册并启用输入源；输入法菜单里没有「青简」就注销后重新登录（系统在登录时才刷新输入法列表）"
     else

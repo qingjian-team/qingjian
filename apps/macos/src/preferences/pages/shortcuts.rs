@@ -1,4 +1,4 @@
-//! 「快捷键」页：翻页键、模式键、译词上屏 / 删候选 / 翻译选中文字的组合键。
+//! 「快捷键」页：翻页键、模式键、译词上屏 / 翻译选中文字的组合键。
 
 use objc2::MainThreadMarker;
 use objc2::rc::Retained;
@@ -16,6 +16,9 @@ use crate::preferences::setting::Setting;
 use crate::preferences::target::PreferencesTarget;
 
 pub struct ShortcutsPage {
+    /// 单击 Shift 切中英文。
+    switch_mode_shift: Retained<NSButton>,
+
     /// 翻页键对。
     page_keys: Retained<NSPopUpButton>,
 
@@ -34,15 +37,25 @@ pub struct ShortcutsPage {
     /// 上屏第二个译词的修饰键。
     translation_second: Retained<KeyRecorder>,
 
-    /// 删除候选的修饰键。
-    delete_candidate: Retained<KeyRecorder>,
-
     /// 翻译选中文字的组合键。
     translate_selection: Retained<KeyRecorder>,
 }
 
 impl ShortcutsPage {
     pub fn build(layout: &mut Layout, mtm: MainThreadMarker, target: &PreferencesTarget) -> Self {
+        let switch_mode_shift = checkbox(
+            mtm,
+            "单击 Shift 切换中英文（Caps Lock 只管大小写）",
+            Setting::SwitchModeShift,
+            target,
+        );
+        row_checkbox(layout, &switch_mode_shift);
+        note(
+            layout,
+            mtm,
+            "勾上后点一下 Shift 在中 / 英之间切换，Caps Lock 只切换字母大小写；不勾就用 Caps Lock 切换中英文。",
+        );
+        layout.space(GROUP_GAP);
         let page_key_titles: Vec<String> = PAGE_KEY_OPTIONS
             .iter()
             .map(|k| page_keys_label(k))
@@ -117,20 +130,6 @@ impl ShortcutsPage {
             "按住修饰键再按候选序号，上屏的是候选右侧的译词而不是中文；候选有两个译词时第二组键上屏后一个。两组不能相同。",
         );
         layout.space(GROUP_GAP);
-        let delete_candidate = row_recorder(
-            layout,
-            mtm,
-            "删除候选",
-            Setting::DeleteCandidateKeys,
-            true,
-            target,
-        );
-        note(
-            layout,
-            mtm,
-            "按住修饰键再按候选序号：自己造的词、云端选过的词整个删掉；词库里的词清掉对它的学习记录，回到原来的排序。组句中要打感叹号先把词上屏。",
-        );
-        layout.space(GROUP_GAP);
         let translate_selection = row_recorder(
             layout,
             mtm,
@@ -162,18 +161,19 @@ impl ShortcutsPage {
              Tab 接受云端整句补全（没有就翻页）；半角标点进入英文直输段。",
         );
         Self {
+            switch_mode_shift,
             page_keys,
             expression,
             question,
             question_mark,
             translation,
             translation_second,
-            delete_candidate,
             translate_selection,
         }
     }
 
     pub fn sync(&self, config: &Config) {
+        set_checked(&self.switch_mode_shift, config.shortcut.switch_mode.shift);
         let (previous, next) = config.general.page_keys();
         let pair = format!("{previous}{next}");
         select(
@@ -197,8 +197,6 @@ impl ShortcutsPage {
         let (first, second) = config.shortcut.translation_keys();
         self.translation.show(&first.key(), &first.label());
         self.translation_second.show(&second.key(), &second.label());
-        let delete = config.shortcut.delete_keys();
-        self.delete_candidate.show(&delete.key(), &delete.label());
         let translate = config.shortcut.translate_selection;
         self.translate_selection
             .show(&translate.key_string(), &translate.label());

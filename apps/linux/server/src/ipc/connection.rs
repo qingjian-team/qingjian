@@ -1,6 +1,8 @@
 //! 同用户连接内复用独立会话，拒绝未协商输入，关闭通知不产生回包。
 use super::{NEXT_SESSION, Request, dispatch, dispatch_json, session::Session};
-use crate::protocol::{DisplayAcknowledged, DisplayIdentity, LINUX_UI_PROTOCOL, LinuxEvent};
+use qingjian_platform::protocol::linux::{
+    DisplayAcknowledged, DisplayIdentity, LINUX_UI_PROTOCOL, LinuxEvent,
+};
 use qingjian_platform::protocol::{
     ClientMessage, Frame, PROTOCOL_VERSION, SessionId, read_message, write_message,
 };
@@ -17,23 +19,7 @@ pub(super) fn serve_connection(
     sender: SyncSender<Request>,
     settings: Value,
 ) {
-    let mut credentials = libc::ucred {
-        pid: 0,
-        uid: 0,
-        gid: 0,
-    };
-    let mut size = std::mem::size_of::<libc::ucred>() as libc::socklen_t;
-    let trusted = unsafe {
-        libc::getsockopt(
-            stream.as_raw_fd(),
-            libc::SOL_SOCKET,
-            libc::SO_PEERCRED,
-            (&mut credentials as *mut libc::ucred).cast(),
-            &mut size,
-        ) == 0
-            && credentials.uid == libc::geteuid()
-    };
-    if !trusted {
+    if !peer_is_owner(&stream) {
         return;
     }
     let _ = stream.set_write_timeout(Some(Duration::from_secs(1)));
@@ -143,7 +129,17 @@ pub(super) fn serve_connection(
                     app,
                     protocol,
                 } => {
-                    if protocol != PROTOCOL_VERSION || sessions.contains_key(&local) {
+                    if protocol != PROTOCOL_VERSION {
+                        // 前端与 Server 不是同一版装的（比如用户目录里 install.sh 的旧 Server 盖着发行包的新前端）：
+                        // 断开之后前端的按键一律放行、打不出中文，日志里不留一句的话很难查
+                        tracing::warn!(
+                            protocol,
+                            expected = PROTOCOL_VERSION,
+                            "前端开会话带的协议版本与 Server 不一致，断开；前端与 Server 要是同一版"
+                        );
+                        break;
+                    }
+                    if sessions.contains_key(&local) {
                         break;
                     }
                     let global = SessionId(NEXT_SESSION.fetch_add(1, Ordering::Relaxed));
@@ -244,4 +240,35 @@ fn localize(mut response: Value, local: SessionId) -> Value {
         body["session"] = json!(local);
     }
     response
+}
+
+/// socket 对面是不是同一个用户。
+#[cfg(target_os = "linux")]
+fn peer_is_owner(stream: &UnixStream) -> bool {
+    let mut credentials = libc::ucred {
+        pid: 0,
+        uid: 0,
+        gid: 0,
+    };
+    let mut size = std::mem::size_of::<libc::ucred>() as libc::socklen_t;
+    unsafe {
+        libc::getsockopt(
+            stream.as_raw_fd(),
+            libc::SOL_SOCKET,
+            libc::SO_PEERCRED,
+            (&mut credentials as *mut libc::ucred).cast(),
+            &mut size,
+        ) == 0
+            && credentials.uid == libc::geteuid()
+    }
+}
+
+/// socket 对面是不是同一个用户。BSD 没有 `SO_PEERCRED`，用 `getpeereid`（glibc 没有这个函数，所以两边分开写）。
+#[cfg(not(target_os = "linux"))]
+fn peer_is_owner(stream: &UnixStream) -> bool {
+    let mut uid: libc::uid_t = 0;
+    let mut gid: libc::gid_t = 0;
+    unsafe {
+        libc::getpeereid(stream.as_raw_fd(), &mut uid, &mut gid) == 0 && uid == libc::geteuid()
+    }
 }

@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
 use clap::Parser;
+use qingjian_platform::ZhiyiTier;
 
 /// 按优先级挑一个存在的数据文件：`data/generated/` 里打包好的 `.qj`、那里的 TSV、仓库自带的产品数据
 /// （`assets/lexicon/dict.tsv`、`assets/glossary/glossary-*.tsv`、`assets/lexicon/english.tsv`），最后是 `assets/sample/` 的样例。
@@ -18,6 +19,13 @@ pub fn default_data_file(name: &str) -> PathBuf {
         }
     }
     PathBuf::from("assets/sample").join(name)
+}
+
+fn parse_zhiyi_tier(value: &str) -> Result<ZhiyiTier, String> {
+    ZhiyiTier::ALL
+        .into_iter()
+        .find(|tier| tier.key() == value)
+        .ok_or_else(|| format!("unknown tier {value:?}, expected saver / balanced / accurate"))
 }
 
 /// 缺省配置文件位置：与输入法共用同一份。
@@ -41,7 +49,7 @@ pub struct Args {
     #[arg(long)]
     pub dict: Option<PathBuf>,
 
-    /// 释义表路径。缺省：data/generated/glossary-<language>.tsv 存在就用它，否则 assets/sample/ 下的同名文件
+    /// 释义表路径。缺省：`data/generated/glossary-<language>.tsv` 存在就用它，否则 assets/sample/ 下的同名文件
     #[arg(long)]
     pub glossary: Option<PathBuf>,
 
@@ -53,7 +61,11 @@ pub struct Args {
     #[arg(long)]
     pub extra_dict: Vec<PathBuf>,
 
-    /// 辅码码表（.qj，或 `词<TAB>码` 的 TSV），可给多个一起筛。给了之后 `kaifa;kf` 这样的输入
+    /// 通用词库（补充词库，排序低主词库一档）。缺省：data/generated/dicts/general.qj 存在就用它；给 `none` 不加载
+    #[arg(long)]
+    pub general_dict: Option<PathBuf>,
+
+    /// 辅码码表（.qj，或 `词<TAB>码` 的 TSV；也可以是写了 `type = "aux"` 的方案目录，带上它的词码规则），可给多个一起筛。给了之后 `kaifa;kf` 这样的输入
     /// 按辅码态走：触发键进辅码态、之后的字母按码缩小候选
     #[arg(long)]
     pub aux_table: Vec<PathBuf>,
@@ -78,7 +90,7 @@ pub struct Args {
     #[arg(long)]
     pub predict: bool,
 
-    /// 模糊音，逗号分隔（z-zh,c-ch,s-sh,n-l,f-h,l-r,an-ang,en-eng,in-ing），`all` 全开；给了就覆盖配置里的 [fuzzy]
+    /// 模糊音，逗号分隔（z-zh,c-ch,s-sh,n-l,f-h,l-r,an-ang,en-eng,in-ing），`all` 全开；给了就覆盖配置里的 `[fuzzy]`
     #[arg(long, value_delimiter = ',')]
     pub fuzzy: Vec<String>,
 
@@ -86,17 +98,47 @@ pub struct Args {
     #[arg(long)]
     pub english_mode: bool,
 
-    /// 打开中文优先（配置 [general] chinese_first = true）：整段是英文词时中文候选排第一、英文第二，评测两种排法用
+    /// 关掉「打拼音时也给英文词」（配置 `[general]` english_in_chinese = false）：英文词既不进候选，
+    /// 也不作为句尾参与整句分词
+    #[arg(long)]
+    pub no_english_in_chinese: bool,
+
+    /// 打开中文优先（配置 `[general] chinese_first = true`）：整段是英文词时中文候选排第一、英文第二，评测两种排法用
     #[arg(long)]
     pub chinese_first: bool,
 
-    /// 双拼方案（xiaohe / ziranma / microsoft / sogou / abc / xiaolang / shoudao / jiajia / ziguang），覆盖配置里的 [general] shuangpin；off 强制全拼
+    /// 关掉拼写纠错（配置 `[general] spelling_correction = false`）：只按敲的原样（与模糊音）读，比开关两种排法用
+    #[arg(long)]
+    pub no_spelling_correction: bool,
+
+    /// 中文模式下英文候选（精确词 + 补全）最多几个（配置 `[general] english_max_in_chinese`，缺省 4）
+    #[arg(long, default_value_t = qingjian_core::ENGLISH_CANDIDATES_MAX)]
+    pub english_max_in_chinese: usize,
+
+    /// 有中文候选时英文最高排到第几位（配置 `[general] english_min_position`，缺省 1 即不限制）
+    #[arg(long, default_value_t = 1)]
+    pub english_min_position: usize,
+
+    /// 候选旁显示带调拼音（配置 `[general]` show_tones = true）
+    #[arg(long)]
+    pub show_tones: bool,
+
+    /// 双拼方案（xiaohe / ziranma / microsoft / sogou / abc / xiaolang / shoudao / jiajia / ziguang，或用户双拼方案的目录），覆盖配置里的 `[general]` scheme；off 强制全拼
     #[arg(long)]
     pub shuangpin: Option<String>,
 
-    /// 形码码表（五笔）的 TSV 文件（`词\t编码\t词频`）：给了就用编码查表，不走拼音那一套
-    #[arg(long, value_name = "码表")]
-    pub wubi: Option<PathBuf>,
+    /// 双拼方案下同时接受全拼（覆盖配置里的 `[general]` shuangpin_full_pinyin）：同一段输入里两种打法可以混用
+    #[arg(long)]
+    pub shuangpin_full_pinyin: bool,
+
+    /// 九宫格方案：输入写数字键（`64426` → 你好），验证手机 9 键的候选与整句
+    #[arg(long)]
+    pub nine_key: bool,
+
+    /// 形码：码表 TSV（`词\t编码\t词频`，按 86 五笔记日志、按键规则全关）或方案目录（`scheme.toml` + 码表）。
+    /// 给了就开着形码；`--wubi` 是旧写法
+    #[arg(long, alias = "wubi", value_name = "码表或方案目录")]
+    pub code: Option<PathBuf>,
 
     /// 神经重打分：字级 Transformer 的 .qjm 文件或导出目录（model.safetensors / config.json / vocab.json），整句前几条路径用它重排
     #[arg(long)]
@@ -113,6 +155,44 @@ pub struct Args {
     /// 神经重打分给模型看的前文字符数（缺省 64，0 为不给前文）
     #[arg(long)]
     pub neural_context: Option<usize>,
+
+    /// 试验：回放时用知意的选词模型重排第一页候选（解压的 safetensors 模型目录）
+    #[arg(long)]
+    pub zhiyi: Option<PathBuf>,
+
+    /// 知意重排看前这么多个候选（知意是 2 × 每页候选数）
+    #[arg(long, default_value_t = 18)]
+    pub zhiyi_top: usize,
+
+    /// 知意重排里语言模型分的权重（知意配它自己的三元模型是 1.0）
+    #[arg(long, default_value_t = 1.0)]
+    pub zhiyi_lm_weight: f64,
+
+    /// 知意重排里中文位置先验的权重（我们原来的顺序带着个人学习；知意是 0）
+    #[arg(long, default_value_t = 0.0)]
+    pub zhiyi_rank_weight: f64,
+
+    /// 知意的 ONNX 版（与 Windows Server 同一条路）：模型目录（含 `laya.int8g.onnx`），接到引擎的选词重排上，
+    /// 查询后等分数回来再取结果；要配 `--onnx-runtime`
+    #[arg(long, requires = "onnx_runtime", conflicts_with = "zhiyi")]
+    pub zhiyi_onnx: Option<PathBuf>,
+
+    /// ONNX Runtime 动态库（Windows 是安装目录里的 `onnxruntime.dll`），配 `--zhiyi-onnx`
+    #[arg(long, requires = "zhiyi_onnx")]
+    pub onnx_runtime: Option<PathBuf>,
+
+    /// 词级三元模型（知意输入法的 `zh.ngram`）：选词重排里整段候选的语言模型分改由它给，整句词图里与二元模型插值
+    #[arg(long)]
+    pub ngram: Option<PathBuf>,
+
+    /// 不从 `--ngram` 的词表补词（缺省补：词库没有的词按 `qingjian_dictionary::supplement` 在内存里生成，与 Windows Server 一样），
+    /// 前后对比用
+    #[arg(long, requires = "ngram")]
+    pub no_ngram_words: bool,
+
+    /// 知意的档位：saver / balanced / accurate，与配置 `[model] zhiyi_tier` 同义
+    #[arg(long, default_value = "balanced", value_parser = parse_zhiyi_tier)]
+    pub zhiyi_tier: ZhiyiTier,
 
     /// 神经重打分走后台线程（输入法壳里的接法）：查询先按词级模型出候选，再请求 / 等待重打分后重查一次；结果应与同步一致
     #[arg(long)]
@@ -148,12 +228,31 @@ pub struct Args {
     #[arg(long, requires = "mine_log")]
     pub mine_apply: bool,
 
+    /// 按读音核对用户词（配 --user-dict）：逐条列出读音与主词库对不上的用户词，只读、不写文件
+    #[arg(long, conflicts_with_all = ["mine_log", "replay", "eval_text", "eval_cold"])]
+    pub check_user_words: bool,
+
+    /// 把核对不过的用户词删掉并落盘（配 --check-user-words，落盘目标由 --user-dict 指定）；
+    /// 删完读回 user-words.tsv 核实，没删干净就报错退出
+    #[arg(long, requires = "check_user_words")]
+    pub purge_user_words: bool,
+
+    /// 导入无读音词表（每行 `词`、`词<Tab>词频` 或 `词<Tab>读音[<Tab>词频]`）：读音按 --dict、--extra-dict 与随包领域词库取，一个词一条；
+    /// 只读、不写文件，配 --import-to 才落盘
+    #[arg(long, value_name = "词表", conflicts_with_all = ["mine_log", "replay", "eval_text", "eval_cold", "check_user_words", "aux_query"])]
+    pub import_words: Option<PathBuf>,
+
+    /// 落盘目录（配 --import-words）：写 `<词表主干>.qj`，与设置页导入同一套命名
+    #[arg(long, requires = "import_words")]
+    pub import_to: Option<PathBuf>,
+
     /// 回放 / 整句评测时打印前 N 条没命中首选的例子
     #[arg(long, default_value_t = 20)]
     pub misses: usize,
 
     /// 覆盖引擎里的调参常数，`名=值`，逗号分隔或多次给。名字：lambda / k / cap / discount（个人 n-gram 插值 λ / K / 封顶 / 三元折扣），
-    /// transpose / substitute / extra / missing / typo-cap / correction（敲错四类代价 / 个人折扣上限 / 整段纠错代价）
+    /// transpose / substitute / extra / missing / typo-cap / correction / correction-transpose（敲错四类代价 / 个人折扣上限 / 整段纠错代价 / 转置单独一份），
+    /// span / abbreviated-span / beam（整句搜索规模：每格候选数 / 简拼格候选数 / 束宽。规模参数不接受 0 与小数，浮点参数不接受 NaN 与 inf）
     #[arg(long, value_delimiter = ',')]
     pub tune: Vec<String>,
 
@@ -179,7 +278,7 @@ pub struct Args {
     pub eval_details: Option<PathBuf>,
 
     /// 冷启动字词评测：读取 JSONL，不加载个人配置或个人学习文件
-    #[arg(long, requires = "cold_output", conflicts_with_all = ["user_dict", "config", "predict", "replay", "eval_text", "english_mode", "shuangpin", "wubi", "aux_table", "tune", "fuzzy", "inputs", "neural_async", "mine_log"])]
+    #[arg(long, requires = "cold_output", conflicts_with_all = ["user_dict", "config", "predict", "replay", "eval_text", "english_mode", "shuangpin", "code", "aux_table", "tune", "fuzzy", "inputs", "neural_async", "mine_log", "check_user_words", "import_words"])]
     pub eval_cold: Option<PathBuf>,
 
     /// 冷启动逐词结果 JSONL（拒绝覆盖）

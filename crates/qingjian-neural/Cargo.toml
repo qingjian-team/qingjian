@@ -1,6 +1,6 @@
 [package]
 name = "qingjian-neural"
-description = "字级 Transformer 语言模型的本地推理：加载 tools/lm-train 导出的权重，给整句路径重打分"
+description = "本地神经模型的推理：含章（tools/lm-train 训的字级 Transformer，整句打分与按拼音生成）与知意选词模型"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -15,6 +15,10 @@ default = []
 accelerate = ["candle-core/accelerate", "candle-nn/accelerate"]
 # Apple GPU
 metal = ["candle-core/metal", "candle-nn/metal"]
+# 知意的选词模型
+zhiyi = []
+# 知意的 int8 ONNX 走 ONNX Runtime（Windows 用，CPU）；运行库在运行时按路径加载，编译时不用
+zhiyi-onnx = ["zhiyi", "dep:ort"]
 
 [dependencies]
 qingjian-core.workspace = true
@@ -25,6 +29,13 @@ serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
+# api-24 对应随包的 ONNX Runtime 1.24.4
+ort = { version = "=2.0.0-rc.13", default-features = false, features = ["load-dynamic", "api-24"], optional = true }
+rayon = "1.12"
+
+[dev-dependencies]
+# 只拿来与自己的分词对拍（zhiyi::tests）
+tokenizers = { version = "0.23.2", default-features = false, features = ["fancy-regex"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2.workspace = true

@@ -17,6 +17,8 @@ pub struct SearchField<'a> {
     placeholder: &'a str,
 
     icon: Option<Arc<dyn Icon>>,
+
+    autofocus: bool,
 }
 
 impl<'a> SearchField<'a> {
@@ -25,6 +27,7 @@ impl<'a> SearchField<'a> {
             edit,
             placeholder: "",
             icon: None,
+            autofocus: false,
         }
     }
 
@@ -38,6 +41,14 @@ impl<'a> SearchField<'a> {
     pub fn icon(self, icon: Arc<dyn Icon>) -> Self {
         Self {
             icon: Some(icon),
+            ..self
+        }
+    }
+
+    /// 见 [`crate::Interact::autofocus`]。
+    pub fn autofocus(self) -> Self {
+        Self {
+            autofocus: true,
             ..self
         }
     }
@@ -58,6 +69,9 @@ impl<'a> SearchField<'a> {
             .stretch();
         if let Some(icon) = self.icon {
             field = field.icon(icon);
+        }
+        if self.autofocus {
+            field = field.autofocus();
         }
         field.build(ui, theme, local, on_edit, on_commit, on_cancel)
     }

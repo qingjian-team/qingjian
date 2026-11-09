@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.Qingjian" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:colorAccent">@color/brand</item>
+        <item name="android:windowBackground">@color/app_background</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">true</item>
+    </style>
+
+    <!-- 「青简翻译」：透明窗口、底下压暗，卡片从底部滑出 -->
+    <style name="Theme.Qingjian.Sheet" parent="Theme.Qingjian">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:backgroundDimEnabled">true</item>
+        <item name="android:windowAnimationStyle">@android:style/Animation.InputMethod</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+
+    <!-- 申请麦克风权限：整窗透明，只露出系统的权限框 -->
+    <style name="Theme.Qingjian.Transparent" parent="Theme.Qingjian">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:backgroundDimEnabled">false</item>
+        <item name="android:windowAnimationStyle">@null</item>
+    </style>
+</resources>

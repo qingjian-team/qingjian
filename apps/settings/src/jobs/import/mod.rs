@@ -1,17 +1,24 @@
 //! 导入词库、码表：选文件在界面线程（系统的文件选择窗口要在主线程开），转换放后台线程（大的 Rime 词库要转好几秒），
-//! 转完叫醒窗口。
+//! 转完叫醒窗口。词库只有一个入口：第二列是形码编码的（五笔词库）自动改存成形码词库，跟方案的码表合用。
 
 mod report;
+mod target;
 
 pub use report::Report;
+pub use target::CodeTarget;
 
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
 use bamboo_slip::Waker;
-use qingjian_dictionary::{DictionaryError, import, import_aux_code_table};
+use qingjian_dictionary::import::{ImportedDictionary, import_code_words};
+use qingjian_dictionary::{Dictionary, DictionaryError, import, import_aux_code_table};
 
+use crate::i18n::{tr, tr_args};
 use crate::library::Kind;
+
+/// 导入结果里每类跳过的词最多列几个。
+const MAX_SKIPPED_SHOWN: usize = 5;
 
 #[derive(Default)]
 pub struct ImportJob {
@@ -26,23 +33,35 @@ impl ImportJob {
     }
 
     /// 弹出文件选择窗口；没选就算了。
-    pub fn start(&mut self, kind: Kind, waker: Option<Waker>) -> Result<bool, String> {
-        let dir = kind.user_dir().ok_or("找不到数据目录")?;
+    pub fn start(
+        &mut self,
+        kind: Kind,
+        code: CodeTarget,
+        waker: Option<Waker>,
+    ) -> Result<bool, String> {
+        let dir = kind.user_dir().ok_or(tr("common.no_data_dir"))?;
+        let words_dir = Kind::CodeWords.user_dir().ok_or(tr("common.no_data_dir"))?;
         let dialog = match kind {
-            Kind::Dictionary => rfd::FileDialog::new()
-                .add_filter("词库文件", &["tsv", "yaml", "yml", "qj"])
-                .set_title("导入词库"),
+            Kind::Dictionary | Kind::CodeWords => rfd::FileDialog::new()
+                .add_filter(
+                    tr("import.dictionary_files"),
+                    &["tsv", "txt", "yaml", "yml", "scel", "qj"],
+                )
+                .set_title(tr("dictionaries.import")),
             Kind::CodeTable => rfd::FileDialog::new()
-                .add_filter("码表文件", &["yaml", "yml", "qj"])
-                .set_title("导入码表"),
+                .add_filter(tr("import.code_table_files"), &["yaml", "yml", "qj"])
+                .set_title(tr("input.import_code_table")),
         };
-        let Some(sources) = dialog.add_filter("所有文件", &["*"]).pick_files() else {
+        let Some(sources) = dialog
+            .add_filter(tr("import.all_files"), &["*"])
+            .pick_files()
+        else {
             return Ok(false);
         };
         self.running = Some(kind);
         let result = Arc::clone(&self.result);
         std::thread::spawn(move || {
-            let report = run(kind, &sources, &dir);
+            let report = run(kind, &sources, &dir, &words_dir, &code);
             if let Ok(mut slot) = result.lock() {
                 *slot = Some(report);
             }
@@ -60,28 +79,76 @@ impl ImportJob {
     }
 }
 
-fn run(kind: Kind, sources: &[PathBuf], dir: &Path) -> Report {
+fn run(kind: Kind, sources: &[PathBuf], dir: &Path, words_dir: &Path, code: &CodeTarget) -> Report {
     let mut imported = Vec::new();
     let mut lines = Vec::new();
+    // 无读音词表按随包词库派生读音：只在词库这一路用得上，也只在这一路读一次
+    let references = (kind == Kind::Dictionary).then(crate::library::reference_dictionaries);
+    let borrowed: Vec<&Dictionary> = references.iter().flatten().collect();
     for source in sources {
         let file = source.file_name().map_or_else(
             || source.display().to_string(),
             |name| name.to_string_lossy().into_owned(),
         );
         let outcome = match kind {
-            Kind::Dictionary => import::import(source, dir).map(|done| {
-                (
-                    done.path,
-                    format!("已导入「{}」，{} 条", done.name, done.entries),
-                )
-            }),
+            Kind::Dictionary => match import::import_dictionary(source, dir, &borrowed) {
+                Err(DictionaryError::CodeWords) => import_code_words(source, words_dir, &code.id)
+                    .map(|done| {
+                        (
+                            done.path,
+                            tr_args(
+                                "import.merged",
+                                &[
+                                    ("name", &done.name),
+                                    ("n", &done.entries),
+                                    ("code", &code.label),
+                                ],
+                            ),
+                        )
+                    }),
+                other => other.map(|done| {
+                    let line = dictionary_line(&done);
+                    (done.imported.path, line)
+                }),
+            },
+            Kind::CodeWords => match import::import(source, dir) {
+                Err(DictionaryError::CodeWords) => import_code_words(source, words_dir, &code.id)
+                    .map(|done| {
+                        (
+                            done.path,
+                            tr_args(
+                                "import.merged",
+                                &[
+                                    ("name", &done.name),
+                                    ("n", &done.entries),
+                                    ("code", &code.label),
+                                ],
+                            ),
+                        )
+                    }),
+                imported => imported.map(|done| {
+                    (
+                        done.path,
+                        tr_args(
+                            "import.imported",
+                            &[("name", &done.name), ("n", &done.entries)],
+                        ),
+                    )
+                }),
+            },
             Kind::CodeTable => import_aux_code_table(source, dir).map(|done| {
                 let report = done.report;
                 (
                     done.path,
-                    format!(
-                        "已导入「{}」：读入 {}，有码 {}，无码 {}，跳过 {}",
-                        done.name, report.read, report.with_code, report.no_code, report.skipped
+                    tr_args(
+                        "import.code_table_report",
+                        &[
+                            ("name", &done.name),
+                            ("read", &report.read),
+                            ("with_code", &report.with_code),
+                            ("no_code", &report.no_code),
+                            ("skipped", &report.skipped),
+                        ],
                     ),
                 )
             }),
@@ -94,11 +161,23 @@ fn run(kind: Kind, sources: &[PathBuf], dir: &Path) -> Report {
                 lines.push(line);
             }
             Err(DictionaryError::NoCodeEntries) => {
-                lines.push(format!("{file}：没认出码表，要「词 + 码」两列，码只收 a–z"));
+                lines.push(tr_args("import.no_codes", &[("file", &file)]));
+            }
+            Err(DictionaryError::NoWordEntries) => {
+                lines.push(tr_args("import.no_words", &[("file", &file)]));
+            }
+            Err(DictionaryError::Corrupt(_) | DictionaryError::Line { .. })
+                if kind != Kind::CodeTable =>
+            {
+                tracing::warn!(source = %source.display(), "导入失败，格式不对");
+                lines.push(tr_args("import.bad_format", &[("file", &file)]));
             }
             Err(error) => {
                 tracing::warn!(source = %source.display(), %error, "导入失败");
-                lines.push(format!("{file} 导入失败：{error}"));
+                lines.push(tr_args(
+                    "import.failed",
+                    &[("file", &file), ("error", &error)],
+                ));
             }
         }
     }
@@ -106,5 +185,80 @@ fn run(kind: Kind, sources: &[PathBuf], dir: &Path) -> Report {
         kind,
         imported,
         lines,
+    }
+}
+
+/// 词库导入的结果行：无读音词表附上跳过的条数与几个词，普通词库只写条数。
+fn dictionary_line(done: &ImportedDictionary) -> String {
+    let imported = &done.imported;
+    let mut line = tr_args(
+        "import.imported",
+        &[("name", &imported.name), ("n", &imported.entries)],
+    );
+    let Some(report) = &done.report else {
+        return line;
+    };
+    if report.unknown.is_empty() {
+        return line;
+    }
+    let shown: Vec<&str> = report
+        .unknown
+        .iter()
+        .take(MAX_SKIPPED_SHOWN)
+        .map(String::as_str)
+        .collect();
+    line.push_str(&tr_args(
+        "import.skipped",
+        &[
+            ("n", &report.unknown.len()),
+            ("words", &shown.join(tr("common.list_separator"))),
+            (
+                "more",
+                &if report.unknown.len() > MAX_SKIPPED_SHOWN {
+                    "…"
+                } else {
+                    ""
+                },
+            ),
+        ],
+    ));
+    line
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use qingjian_dictionary::import::{Imported, Report};
+
+    fn done(report: Option<Report>) -> ImportedDictionary {
+        ImportedDictionary {
+            imported: Imported {
+                path: PathBuf::from("dicts/names.qj"),
+                name: "names".to_owned(),
+                entries: 12,
+            },
+            report,
+        }
+    }
+
+    #[test]
+    fn word_list_results_mention_the_skipped_words() {
+        bamboo_slip_i18n::pin_locale("zh-Hans");
+        assert_eq!(dictionary_line(&done(None)), "已导入「names」，12 条");
+        let known = Report {
+            words: 12,
+            unknown: Vec::new(),
+        };
+        assert_eq!(
+            dictionary_line(&done(Some(known))),
+            "已导入「names」，12 条"
+        );
+        let unknown = ["囧一", "囧二", "囧三", "囧四", "囧五", "囧六"]
+            .map(str::to_owned)
+            .to_vec();
+        assert_eq!(
+            dictionary_line(&done(Some(Report { words: 12, unknown }))),
+            "已导入「names」，12 条；6 条跳过（字不在随包词库）：囧一、囧二、囧三、囧四、囧五…"
+        );
     }
 }

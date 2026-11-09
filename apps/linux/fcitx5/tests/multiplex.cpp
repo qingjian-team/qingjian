@@ -66,7 +66,7 @@ int main() {
         auto key = qingjian::mapKey(fcitx::Key(static_cast<fcitx::KeySym>(FcitxKey_KP_0 + digit)));
         assert(key["virtual_key"] == 0x60 + digit && key["character"] == std::string(1, '0' + digit));
     }
-    for (auto [sym, code] : {std::pair{FcitxKey_KP_Add, 0x6b}, {FcitxKey_KP_Subtract, 0x6d}, {FcitxKey_KP_Decimal, 0x6e}, {FcitxKey_KP_Divide, 0x6f}, {FcitxKey_KP_Multiply, 0x6a}, {FcitxKey_KP_Enter, 0x0d}, {FcitxKey_KP_Home, 0x24}, {FcitxKey_KP_Left, 0x25}, {FcitxKey_KP_Delete, 0x2e}})
+    for (auto [sym, code] : {std::pair{FcitxKey_KP_Add, 0x6b}, {FcitxKey_KP_Subtract, 0x6d}, {FcitxKey_KP_Decimal, 0x6e}, {FcitxKey_KP_Divide, 0x6f}, {FcitxKey_KP_Multiply, 0x6a}, {FcitxKey_KP_Enter, 0x0d}, {FcitxKey_KP_Home, 0x24}, {FcitxKey_KP_Left, 0x25}, {FcitxKey_KP_Delete, 0x2e}, {FcitxKey_Shift_R, 0x10}, {FcitxKey_Control_L, 0x11}, {FcitxKey_Control_R, 0x11}})
         assert(qingjian::mapKey(fcitx::Key(sym))["virtual_key"] == code);
     a.committed.clear();
     for (auto symbol : {FcitxKey_KP_1, FcitxKey_KP_Add, FcitxKey_KP_2, FcitxKey_KP_Subtract,

@@ -2,6 +2,8 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::i18n::tr;
+
 /// 候选与上屏文本要不要转成繁体，转成哪一地的写法。
 ///
 /// 不做成布尔是因为台湾与香港的字形取舍不同（裡 / 裏、著 / 着）；一个开关表达不了这三种结果。
@@ -40,10 +42,20 @@ impl TraditionalVariant {
     /// 界面上的名字。
     pub fn label(self) -> &'static str {
         match self {
-            Self::Off => "简体",
-            Self::Taiwan => "繁体（台湾）",
-            Self::Hongkong => "繁体（香港）",
-            Self::Standard => "繁体（通用字形）",
+            Self::Off => tr("traditional.off"),
+            Self::Taiwan => tr("traditional.taiwan"),
+            Self::Hongkong => tr("traditional.hongkong"),
+            Self::Standard => tr("traditional.standard"),
+        }
+    }
+
+    /// 只说字形的短名，用在已经写明「繁体」的地方（手机键盘设置的「繁体字形」）。
+    pub fn short_label(self) -> &'static str {
+        match self {
+            Self::Off => tr("traditional.off"),
+            Self::Taiwan => tr("traditional.taiwan_short"),
+            Self::Hongkong => tr("traditional.hongkong_short"),
+            Self::Standard => tr("traditional.standard_short"),
         }
     }
 }

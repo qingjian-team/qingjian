@@ -17,11 +17,7 @@ impl Engine {
     pub fn punctuate(&mut self, c: char) -> Option<&'static str> {
         // 组句外敲的标点：辅码态到此结束（壳已经把高亮候选上屏了）
         self.aux_code = None;
-        let converted = if self.full_width_punctuation {
-            self.punctuation.convert(c)
-        } else {
-            None
-        };
+        let converted = self.full_width_punctuation_of(c);
         if let Some(text) = converted {
             self.note_text(text);
             self.remember_commit(LastCommit::plain(text));
@@ -32,6 +28,15 @@ impl Engine {
         }
         self.chain.reset();
         converted
+    }
+
+    /// 中文标点开着、`c` 又没被指定保持半角时转成的全角标点。
+    pub(super) fn full_width_punctuation_of(&mut self, c: char) -> Option<&'static str> {
+        if self.full_width_punctuation && !self.half_width_symbols.contains(&c) {
+            self.punctuation.convert(c)
+        } else {
+            None
+        }
     }
 
     /// 壳把字符原样透传给应用后告知，用于「数字后的点保持半角」，也记入输入历史与输入日志（攒成一条 `passthrough`）。
@@ -60,6 +65,7 @@ impl Engine {
     /// 上次断开之后有过上屏才往输入日志记一条 `break`，连着失焦几次只记一次。
     pub fn break_chain(&mut self) {
         self.chain.reset();
+        self.punctuation.pairs().clear();
         self.recent_commits.clear();
         self.flush_passthrough();
         self.finish_examples();
@@ -73,7 +79,13 @@ impl Engine {
 
     /// 壳告知正在输入的应用（macOS bundle identifier / Windows exe 名），写进输入日志；不知道就给 `None`。
     pub fn set_application(&mut self, app: Option<String>) {
+        self.history.set_application(app.as_deref());
         self.application = app;
+    }
+
+    /// 焦点进了一个输入框（壳在 IMK `activateServer`、Fcitx focus in 时调）：之前在这个应用里打的字不再当前文。
+    pub fn enter_input_box(&mut self) {
+        self.history.forget_current();
     }
 
     pub fn application(&self) -> Option<&str> {
@@ -98,29 +110,31 @@ impl Engine {
     }
 
     /// 键盘方案的键，输入日志用。全拼为空串（老日志里没有这个字段就是全拼），双拼是 `xiaohe` 这类，
-    /// 注音是 `zhuyin`，只用形码是 `wubi`，**混输是 `<拼音侧>+wubi`**（`pinyin+wubi` / `xiaohe+wubi`）。
+    /// 注音是 `zhuyin`，只用形码是形码方案的键（86 五笔是 `wubi`），
+    /// **混输是 `<拼音侧>+<形码>`**（`pinyin+wubi` / `xiaohe+wubi`）。
     ///
     /// 日志里必须能分辨这几种：形码那些行的「拼音」列其实是编码，回放要照着它装配引擎，
-    /// 混输的行两边都要装配。`wubi` 单独出现是「只用形码」，不是「全拼 + 五笔」。
+    /// 混输的行两边都要装配。形码键单独出现是「只用形码」，不是「全拼 + 形码」。
     pub(super) fn scheme_key(&self) -> String {
         let phonetic = if self.zhuyin {
             "zhuyin".to_owned()
         } else {
             self.shuangpin
-                .map_or_else(String::new, |s| s.key().to_owned())
+                .as_deref()
+                .map_or_else(String::new, |layout| layout.key().to_owned())
         };
-        if self.code.is_none() {
+        let Some(code) = &self.code else {
             return phonetic;
-        }
+        };
         if !self.phonetic {
-            return "wubi".to_owned();
+            return code.key.clone();
         }
         let base = if phonetic.is_empty() {
             "pinyin"
         } else {
             &phonetic
         };
-        format!("{base}+wubi")
+        format!("{base}+{}", code.key)
     }
 
     /// 组句里要删东西了：第一次删之前把缓冲区留个快照，上屏时对比最终键串，不同就是一次重打（`retype`）。
@@ -132,7 +146,7 @@ impl Engine {
     }
 
     /// 壳告知：不在组句时按了退格，删的是应用里刚上屏的文字。从最近一次上屏往前数，一次上屏的字删光了就是「可能选错了」的信号：
-    /// 接着重打那段拼音选了别的词，那次记的学习就退回去（见 [`Self::apply_retraction`]）。
+    /// 接着重打那段拼音选了别的词，那次记的学习就退回去（见 `apply_retraction`）。
     /// 删得比记着的几次上屏加起来还多说明在改别处，全忘掉。
     pub fn note_backspace(&mut self) {
         let Some(commit) = self
@@ -167,13 +181,24 @@ impl Engine {
         &self.composition
     }
 
+    /// 单字模式开关（#848）：组句中候选只留单字，再切一次恢复；只管这一段组句，上屏完或清空就回到正常候选。
+    /// 没在组句时不起作用，返回 `false`，壳把按键交还应用。切完要重新 [`Self::query`]。
+    pub fn toggle_single_chars(&mut self) -> bool {
+        self.composition.toggle_single_chars()
+    }
+
     pub fn push(&mut self, c: char) {
+        // 打了新键：退回成数字的音节不再偏向用户之前选的写法
+        self.nine_key_unpinned = None;
         if self.composition.is_empty() {
             // 新一段组句：从这一键起算耗时、翻页与重打
             self.composition_started = Some(Instant::now());
+            *self.generated_forms.borrow_mut() = None;
             self.page_turns = 0;
             self.retype_snapshot = None;
             self.typing.restart();
+            // 翻译框里选着字时开始打拼音：同记事本一样先删掉选中的字，拼音画在原处
+            self.remove_panel_selection();
         }
         self.typing.key(Instant::now());
         // 进缓冲区的字符也更新「上一个字符是不是数字」：直通了 `3` 再接着打拼音，
@@ -196,6 +221,7 @@ impl Engine {
     /// 退格。辅码态里删的是码段：删掉最后一个码字母；删空时按「码删空后留在辅码态」开关分岔——
     /// 开（缺省）停在辅码态（`;` 仍在、无码词也回来），关则回拼音态。码段本来就空（刚触发，或删空停住）
     /// 时按退格 = 退出辅码态、拼音一个字符都不动。每次退格候选都当场重筛。
+    /// 前面有选好还没上屏的词时，退格先撤回最后一次选择（那段拼音接回来），都撤完了才删字母。
     pub fn backspace(&mut self) -> bool {
         if let Some(code) = self.aux_code.take() {
             if code.len() > 1 {
@@ -205,13 +231,29 @@ impl Engine {
             }
             return true;
         }
+        if self.undo_selection() {
+            return true;
+        }
         self.note_edit();
-        self.composition.backspace()
+        // 九宫格：末尾是拼音列选定的音节就整个退回成数字，先撤选择、再删键
+        if self.unpin_nine_key() {
+            return true;
+        }
+        let before = self.nine_key.then(|| self.composition.text().to_owned());
+        let removed = self.composition.backspace();
+        if removed {
+            if let Some(before) = before {
+                self.follow_nine_key_deletion(&before);
+            }
+            self.drop_pin_separator();
+        }
+        removed
     }
 
     pub fn clear(&mut self) {
         self.composition.clear();
-        self.panel = None;
+        self.held.clear();
+        self.take_panel();
         self.aux_code = None;
         self.chain.leave_buffer();
         // 壳给的光标前文只对这段组句有效，下一段第一键再读
@@ -292,13 +334,23 @@ impl Engine {
                 .is_expression(self.composition.text(), self.zhuyin)
     }
 
+    /// 表达式模式下这个字符进算式（数字与运算符），壳据此决定交给 [`Self::push`] 还是当选词键。
+    /// `vuuid`、`vts` 不是算式：数字留给选词。
+    pub fn expression_input(&self, c: char) -> bool {
+        self.expression_mode()
+            && shortcut::is_expression_char(c)
+            && !shortcut::is_generated_keyword(
+                &self.composition.text()[self.modes().expression.len_utf8()..],
+            )
+    }
+
     /// 英文直输段：缓冲区里有拼音以外的字符（`no-way`），整段原样上屏、不解析拼音。
     /// 表达式模式与问字模式优先于它。
     pub fn raw_mode(&self) -> bool {
         is_raw(
             self.composition.text(),
             self.modes(),
-            self.shuangpin,
+            self.shuangpin.as_deref(),
             self.zhuyin,
         )
     }
@@ -312,11 +364,15 @@ impl Engine {
     }
 
     /// 问字模式下正在敲的还可能是 Unicode 码点（前缀后为空，或到目前为止全是十六进制 / 开头 `+`）：
-    /// 此时壳应把数字交给 [`Self::push`] 而不是当选词键。
+    /// 此时壳应把数字交给 [`Self::push`] 而不是当选词键。全是字母又拆得出字（`udada`）时数字留给选字。
     pub fn unicode_entry(&self) -> bool {
         let text = self.composition.text();
-        self.modes().is_question(text, self.zhuyin)
-            && shortcut::could_be_unicode(self.modes().question_body(text, self.zhuyin))
+        if !self.modes().is_question(text, self.zhuyin) {
+            return false;
+        }
+        let body = self.modes().question_body(text, self.zhuyin);
+        shortcut::could_be_unicode(body)
+            && !(body.bytes().all(|b| b.is_ascii_alphabetic()) && crate::chaizi::has_match(body))
     }
 
     /// 缓冲区里只有一个 `?`：还没决定是问字还是标点。壳在确认标点时调用 [`Self::restore_bare_question`]。
@@ -341,6 +397,7 @@ impl Engine {
     /// 用一段完整拼音替换当前缓冲区，供 CLI 和测试一次性喂入。
     pub fn set_input(&mut self, input: &str) {
         self.composition.clear();
+        self.held.clear();
         for c in input.chars() {
             self.push(c);
         }
@@ -358,11 +415,12 @@ impl Engine {
             *self.correction_cache.borrow_mut() = None;
         }
         let raw = self.raw_preedit().text;
+        let held = self.take_held();
         if raw.is_empty() {
             // 壳在回车 / 失焦时不管有没有在组句都会来一趟：空的不记日志、不计统计
             self.clear();
             self.chain.reset();
-            return raw;
+            return held;
         }
         self.log_commit(&raw, &raw, InputSource::Raw);
         // 原样上屏的是个英文词（`gist`）：记进个人英文词表，下次直接出候选。
@@ -384,12 +442,16 @@ impl Engine {
         self.punctuation.note_committed(&raw);
         self.note_text(&raw);
         self.chain.reset();
-        if lead { format!(" {raw}") } else { raw }
+        if lead {
+            format!("{held} {raw}")
+        } else {
+            held + &raw
+        }
     }
 }
 
 /// 光标后的第一个「单位」占几个字节：先跳过紧跟的 `'`，再算一个音节；规则同 [`unit_len_before`]。
-fn unit_len_after(after: &str, shuangpin: bool, plain: bool) -> usize {
+pub(super) fn unit_len_after(after: &str, shuangpin: bool, plain: bool) -> usize {
     let trimmed = after.trim_start_matches('\'');
     let separators = after.len() - trimmed.len();
     let Some(first) = trimmed.chars().next() else {

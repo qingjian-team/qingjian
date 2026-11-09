@@ -116,6 +116,8 @@ impl<'a> Context<'a> {
             "trailing" => frame.trailing().is_some(),
             "trailing.cloud" => frame.trailing().is_some_and(|(_, cloud)| cloud),
             "page" => frame.footer.is_some(),
+            "page.previous" => frame.previous_page,
+            "page.next" => frame.next_page,
             "candidates" => !frame.rows.is_empty(),
             "annotations" => frame.rows.iter().any(|row| !row.annotation.is_empty()),
             "highlighted" => self.highlighted().is_some(),

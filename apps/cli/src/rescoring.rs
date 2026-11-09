@@ -2,7 +2,10 @@
 
 use std::time::{Duration, Instant};
 
-use qingjian_core::Engine;
+use qingjian_core::{Engine, Query};
+
+/// 最多来回几轮：生成的整句回来后，选词模型还要再给新的一页打分。
+const ROUNDS: usize = 3;
 
 /// 最多等多久。
 const WAIT: Duration = Duration::from_secs(5);
@@ -21,4 +24,18 @@ pub fn settle(engine: &mut Engine) -> bool {
         std::thread::sleep(Duration::from_millis(1));
     }
     true
+}
+
+/// 一直等到没有后台请求在等（最多 [`ROUNDS`] 轮），返回最后一次查询的结果。
+pub fn settled(engine: &mut Engine, mut query: Query) -> Query {
+    for _ in 0..ROUNDS {
+        if !settle(engine) {
+            break;
+        }
+        match engine.query() {
+            Ok(next) => query = next,
+            Err(_) => break,
+        }
+    }
+    query
 }

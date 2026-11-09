@@ -30,6 +30,7 @@ fn candidates_and_their_translations_are_clickable() {
         ("qingjian", Theme::light()),
         ("system-blue", Theme::builtin("system-blue", false).unwrap()),
         ("wechat", Theme::builtin("wechat", false).unwrap()),
+        ("glass", Theme::builtin("glass", false).unwrap()),
         ("sakura", Theme::builtin("sakura", false).unwrap()),
     ];
     for (name, theme) in &themes {
@@ -78,5 +79,105 @@ fn candidates_and_their_translations_are_clickable() {
             );
             assert_eq!(rendered.hit_at(-1.0, -1.0), None, "{what}");
         }
+    }
+}
+
+/// #250：主题里写了 `action` 的翻页箭头可以点，内置主题横竖排都有；点中的是箭头不是候选。
+#[test]
+fn page_arrows_are_clickable_in_every_builtin_theme() {
+    let Ok(library) = FontLibrary::system("zh-CN") else {
+        eprintln!("没有系统字体，跳过");
+        return;
+    };
+    let mut renderer = Renderer::new(library);
+    let frame = scenes::nihao();
+    let themes = [
+        "qingjian",
+        "system-blue",
+        "wechat",
+        "sujian",
+        "glass",
+        "sakura",
+        "dafeiyu",
+        "miku",
+        "bocchi",
+    ];
+    for name in themes {
+        let theme = Theme::builtin(name, false).unwrap();
+        for layout in [Layout::Vertical, Layout::Horizontal] {
+            let rendered = renderer.render(&frame, layout, &theme, 2.0).unwrap();
+            let what = format!("{name} {layout:?}");
+            for step in [-1, 1] {
+                let arrow = region(&rendered.hits, HitTarget::Page(step));
+                let (x, y) = center(arrow, rendered.scale);
+                assert_eq!(rendered.hit_at(x, y), Some(HitTarget::Page(step)), "{what}");
+            }
+        }
+    }
+    let mut single = frame.clone();
+    single.footer = None;
+    single.next_page = false;
+    let rendered = renderer
+        .render(&single, Layout::Horizontal, &Theme::light(), 2.0)
+        .unwrap();
+    assert!(
+        !rendered
+            .hits
+            .iter()
+            .any(|region| matches!(region.target, HitTarget::Page(_))),
+        "只有一页时不画箭头，也就没有点击区域"
+    );
+}
+
+#[test]
+fn menu_items_stack_top_to_bottom_and_take_the_hover() {
+    let Ok(library) = FontLibrary::system("zh-CN") else {
+        eprintln!("没有系统字体，跳过");
+        return;
+    };
+    let mut renderer = Renderer::new(library);
+    let items = ["置顶", "降权", "删除"];
+    let rendered = renderer.render_menu(&items, Some(1), false, 2.0).unwrap();
+    let rows: Vec<_> = (0..items.len())
+        .map(|i| region(&rendered.hits, HitTarget::MenuItem(i)))
+        .collect();
+    assert!(
+        rows.windows(2)
+            .all(|pair| pair[0].y + pair[0].height <= pair[1].y + 0.5)
+    );
+    let (x, y) = center(rows[2], rendered.scale);
+    assert_eq!(rendered.hit_at(x, y), Some(HitTarget::MenuItem(2)));
+    let (width, height) = rendered.content_size_points();
+    assert!(width >= 120.0 && height > 3.0 * 20.0, "{width}×{height}");
+}
+
+/// 倒着排的竖排：第一个候选在最下面，点击仍按原来的下标，大小不变；各内置主题都要对。
+#[test]
+fn reversed_vertical_puts_the_first_candidate_at_the_bottom() {
+    let Ok(library) = FontLibrary::system("zh-CN") else {
+        eprintln!("没有系统字体，跳过");
+        return;
+    };
+    let mut renderer = Renderer::new(library);
+    let frame = scenes::nihao();
+    let last = frame.rows.len() - 1;
+    let reversed = qingjian_render::Frame {
+        reversed: true,
+        ..frame.clone()
+    };
+    for theme in Theme::builtins() {
+        let name = theme.id();
+        let upright = renderer
+            .render(&frame, Layout::Vertical, theme, 2.0)
+            .unwrap();
+        let flipped = renderer
+            .render(&reversed, Layout::Vertical, theme, 2.0)
+            .unwrap();
+        let y = |rendered: &qingjian_render::Rendered, i| {
+            region(&rendered.hits, HitTarget::Candidate(i)).y
+        };
+        assert!(y(&upright, 0) < y(&upright, last), "{name}");
+        assert!(y(&flipped, 0) > y(&flipped, last), "{name}");
+        assert_eq!(flipped.content_height, upright.content_height, "{name}");
     }
 }

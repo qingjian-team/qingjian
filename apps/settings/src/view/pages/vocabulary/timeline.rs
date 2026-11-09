@@ -12,7 +12,8 @@ use bamboo_slip::{
 use jiff::civil::Date;
 use qingjian_learning::LoggedEncounter;
 
-use super::parts::{pager, row, text};
+use super::parts::{pager, row, text, wrapped_text};
+use crate::i18n::{tr, tr_args};
 use crate::message::Message;
 use crate::stats::group_digits;
 use crate::view::Page;
@@ -42,27 +43,40 @@ pub fn timeline(
         800,
         colors.text,
     )?;
-    let unit = text(ui, page, "个词与你相遇", 20.0, 500, colors.secondary)?;
+    let unit = text(ui, page, tr("timeline.met"), 20.0, 500, colors.secondary)?;
     out.push(row(ui, page, 10.0, &[count, unit])?);
-    let day = if book.is_today() { "今天" } else { "这天" };
-    let lines = format!(
-        "其中 {} 个是你{day}第一次见到的生词。\n已连续输入 {} 天",
-        group_digits(book.first_seen() as u64),
-        book.streak()
+    let day = if book.is_today() {
+        tr("timeline.today")
+    } else {
+        tr("timeline.this_day")
+    };
+    let lines = tr_args(
+        "timeline.first_seen",
+        &[
+            ("n", &group_digits(book.first_seen() as u64)),
+            ("day", &day),
+            ("streak", &book.streak()),
+        ],
     );
     out.push(paragraph(ui, theme, &lines, Some(colors.text))?);
     let now = book.is_today().then(|| jiff::Zoned::now().hour() as usize);
     out.push(band(ui, page, &book.hours(), day, now)?);
 
     let title = if book.is_today() {
-        "今天".to_owned()
+        tr("timeline.today").to_owned()
     } else {
         date_text(book.day)
     };
     out.push(section_title(
         ui,
         theme,
-        &format!("{title}　{} 个词", group_digits(encounters.len() as u64)),
+        &tr_args(
+            "timeline.day_title",
+            &[
+                ("title", &title),
+                ("n", &group_digits(encounters.len() as u64)),
+            ],
+        ),
     )?);
     let pages = Vocabulary::pages(encounters.len());
     let current = book.page.min(pages - 1);
@@ -72,8 +86,8 @@ pub fn timeline(
     }
     if rows.is_empty() {
         rows.push(
-            SettingRow::new("这天还没有遇到词")
-                .info("上屏带译词的中文就记在这里；整句要开着云服务才有译文")
+            SettingRow::new(tr("timeline.none_today"))
+                .info(tr("timeline.none_today_info"))
                 .build(ui, theme)?,
         );
     }
@@ -111,7 +125,7 @@ fn day_switch(ui: &mut Ui<Message>, page: &Page, book: &Vocabulary) -> Result<No
     ui.scene().node(
         Style {
             flex_direction: FlexDirection::Row,
-            align_items: Some(AlignItems::CENTER),
+            align_items: AlignItems::CENTER,
             gap: page.gap(10.0),
             ..Style::default()
         },
@@ -135,9 +149,9 @@ fn band(
         .enumerate()
         .map(|(hour, count)| {
             let tip = if *count == 0 {
-                "没有遇到词".to_owned()
+                tr("timeline.none_hour").to_owned()
             } else {
-                format!("{count} 个词")
+                tr_args("timeline.hour_words", &[("n", count)])
             };
             Datum::new(
                 *count as f32 / max as f32,
@@ -158,7 +172,7 @@ fn band(
     let title = text(
         ui,
         page,
-        &format!("{day}的记忆色带"),
+        &tr_args("timeline.band", &[("day", &day)]),
         theme.small,
         500,
         theme.colors.secondary,
@@ -211,7 +225,7 @@ fn item(
         }),
         &[],
     )?;
-    let mut title = vec![text(
+    let mut title = vec![wrapped_text(
         ui,
         page,
         &encounter.translation,
@@ -231,7 +245,7 @@ fn item(
     }
     let mut lines = vec![
         row(ui, page, 8.0, &title)?,
-        text(
+        wrapped_text(
             ui,
             page,
             &encounter.text,
@@ -273,7 +287,7 @@ fn item(
     ui.scene().node(
         Style {
             flex_direction: FlexDirection::Row,
-            align_items: Some(AlignItems::FLEX_START),
+            align_items: AlignItems::FLEX_START,
             gap: page.gap(14.0),
             padding: Rect {
                 top: space,
@@ -289,16 +303,34 @@ fn item(
 }
 
 fn date_text(date: Date) -> String {
-    format!("{}年{}月{}日", date.year(), date.month(), date.day())
+    tr_args(
+        "timeline.date",
+        &[
+            ("year", &date.year()),
+            ("month", &date.month()),
+            ("day", &date.day()),
+        ],
+    )
 }
 
 /// 「下午 4:53」
 fn time_text(encounter: &LoggedEncounter) -> String {
     let hour = encounter.time.hour();
-    let half = if hour < 12 { "上午" } else { "下午" };
+    let half = if hour < 12 {
+        tr("timeline.am")
+    } else {
+        tr("timeline.pm")
+    };
     let twelve = match hour % 12 {
         0 => 12,
         other => other,
     };
-    format!("{half} {twelve}:{:02}", encounter.time.minute())
+    tr_args(
+        "timeline.time",
+        &[
+            ("half", &half),
+            ("hour", &twelve),
+            ("minute", &format!("{:02}", encounter.time.minute())),
+        ],
+    )
 }

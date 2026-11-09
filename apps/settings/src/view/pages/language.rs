@@ -1,17 +1,22 @@
 //! 「中英文」页：英文模式（开关、切换键、默认英文与按应用记住、英文候选、Shift + 字母），标点与中西文空格，悬浮状态条。
 
 use bamboo_slip::taffy::{FlexDirection, NodeId, Style};
-use bamboo_slip::{Checkbox, RenderError, SettingRow, Ui, Visual, group, section_title};
-use qingjian_platform::{DEFAULT_ENGLISH_CANDIDATES_ON, ShiftLetter, SwitchKey};
+use bamboo_slip::{Checkbox, RenderError, SettingRow, TextField, Ui, Visual, group, section_title};
+use qingjian_platform::{DEFAULT_ENGLISH_CANDIDATES_ON, ShiftLetter, SwitchKey, ThirdInputMethod};
 
-use crate::message::Message;
+use crate::i18n::tr;
+use crate::message::{FieldId, Message, Popup};
 use crate::support::Feature;
 use crate::view::Page;
 use crate::view::parts::actions::with_notice;
-use crate::view::parts::controls::{choice, toggle, toggle_info};
+use crate::view::parts::controls::{choice, percent_slider, select, toggle, toggle_info};
+use crate::view::parts::menus::third_input_label;
 
 /// 全角 / 半角两档，配置里是布尔。
 const WIDTHS: [bool; 2] = [true, false];
+
+/// 「保持半角的符号」输入框的宽度（点）：放得下十来个符号。
+const SYMBOLS_WIDTH: f32 = 120.0;
 
 pub fn language(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderError> {
     let theme = &page.theme;
@@ -22,8 +27,8 @@ pub fn language(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Render
     let mut rows = vec![toggle_info(
         ui,
         page,
-        "英文模式",
-        Some("关掉后固定中文，要英文就切到别的输入法"),
+        tr("language.english_mode"),
+        Some(tr("language.english_mode_info")),
         ("general", "english_mode"),
         general.english_mode,
         false,
@@ -31,12 +36,35 @@ pub fn language(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Render
     if Feature::SwitchKeys.here() {
         rows.push(switch_keys(ui, page)?);
     }
+    let third = general.double_shift_input;
+    let third_names: Vec<&str> = ThirdInputMethod::ALL
+        .iter()
+        .map(|method| third_input_label(*method))
+        .collect();
+    let third_input = select(
+        ui,
+        page,
+        Popup::ThirdInput,
+        (third_input_label(third), &third_names),
+        140.0,
+        false,
+    )?;
+    rows.push(
+        SettingRow::new(tr("language.double_shift_input"))
+            .info(tr("language.double_shift_input_info"))
+            .control(third_input)
+            .build(ui, theme)?,
+    );
     if Feature::DefaultEnglish.here() {
         rows.push(toggle_info(
             ui,
             page,
-            "默认英文模式",
-            Some("青简启动时用英文；按应用记住时，没记过的应用也从英文开始。改这两项会清掉已记住的状态"),
+            tr("language.default_english"),
+            Some(if Feature::RememberModePerApp.here() {
+                tr("language.default_english_info")
+            } else {
+                tr("language.default_english_info_new_window")
+            }),
             ("general", "default_english"),
             general.default_english,
             !general.english_mode,
@@ -46,8 +74,8 @@ pub fn language(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Render
         rows.push(toggle_info(
             ui,
             page,
-            "按应用记住中英模式",
-            Some("切回应用时恢复它上次的中英状态，同一应用的窗口共用；重启青简后从默认模式开始"),
+            tr("language.remember_per_app"),
+            Some(tr("language.remember_per_app_info")),
             ("general", "remember_mode_per_app"),
             general.remember_mode_per_app,
             !general.english_mode,
@@ -62,7 +90,7 @@ pub fn language(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Render
             .map(|&app| app.to_owned())
             .collect()
     };
-    let only = Checkbox::new(only_in_apps, "只在写字的应用里给")
+    let only = Checkbox::new(only_in_apps, tr("language.english_only_in_apps"))
         .disabled(!general.english_candidates)
         .build(
             ui,
@@ -77,8 +105,8 @@ pub fn language(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Render
         Message::set("general", "english_candidates", !general.english_candidates),
     )?;
     rows.push(
-        SettingRow::new("英文模式也给候选")
-            .info("Tab 或方向键选词，不选时跟直接打字一样；下面勾上就只在浏览器、聊天、文档类应用里给")
+        SettingRow::new(tr("language.english_candidates"))
+            .info(tr("language.english_candidates_info"))
             .control(switch)
             .below(only)
             .build(ui, theme)?,
@@ -93,12 +121,12 @@ pub fn language(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Render
         |value| Message::set("general", "shift_letter", value.key()),
     )?;
     rows.push(
-        SettingRow::new("Shift + 字母")
-            .info("进组句才能打出「C盘」")
+        SettingRow::new(tr("language.shift_letter"))
+            .info(tr("language.shift_letter_info"))
             .control(shift)
             .build(ui, theme)?,
     );
-    out.push(section_title(ui, theme, "英文")?);
+    out.push(section_title(ui, theme, tr("language.section_english"))?);
     out.push(group(ui, theme, &rows)?);
 
     let chinese = choice(
@@ -111,7 +139,7 @@ pub fn language(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Render
         |value| Message::set("general", "full_width_punctuation", value),
     )?;
     let mut rows = vec![
-        SettingRow::new("中文标点")
+        SettingRow::new(tr("language.chinese_punctuation"))
             .control(chinese)
             .build(ui, theme)?,
     ];
@@ -126,57 +154,99 @@ pub fn language(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Render
             |value| Message::set("general", "english_full_width_punctuation", value),
         )?;
         rows.push(
-            SettingRow::new("英文标点")
+            SettingRow::new(tr("language.english_punctuation"))
                 .control(english)
                 .build(ui, theme)?,
         );
     }
+    rows.push(half_width_symbols(ui, page)?);
     rows.push(toggle_info(
         ui,
         page,
-        "标点先上屏候选",
-        Some("nihao, 一气打完「你好，」"),
+        tr("language.punct_commits"),
+        Some(tr("language.punct_commits_info")),
         ("general", "punct_commits"),
         general.punct_commits,
         false,
     )?);
+    if Feature::PairPunctuation.here() {
+        rows.push(toggle_info(
+            ui,
+            page,
+            tr("language.pair_punctuation"),
+            Some(tr("language.pair_punctuation_info")),
+            ("general", "pair_punctuation"),
+            general.pair_punctuation,
+            false,
+        )?);
+        rows.push(toggle_info(
+            ui,
+            page,
+            tr("language.english_pair_punctuation"),
+            Some(tr("language.english_pair_punctuation_info")),
+            ("general", "english_pair_punctuation"),
+            general.english_pair_punctuation,
+            false,
+        )?);
+    }
     if Feature::AutoSpace.here() {
         rows.push(toggle_info(
             ui,
             page,
-            "中文与英文、数字之间自动加空格",
-            Some("「用Go写了30行」上屏成「用 Go 写了 30 行」；标点两侧不补，读不到应用里的文字时不补"),
+            tr("language.auto_space"),
+            Some(tr("language.auto_space_info")),
             ("general", "auto_space"),
             general.auto_space,
             false,
         )?);
     }
-    out.push(section_title(ui, theme, "标点")?);
+    out.push(section_title(
+        ui,
+        theme,
+        tr("language.section_punctuation"),
+    )?);
     out.push(group(ui, theme, &rows)?);
 
     if Feature::StatusBar.here() {
         let status = toggle(
             ui,
             page,
-            "悬浮状态条",
+            tr("language.status_bar"),
             ("status_bar", "enabled"),
             config.status_bar.enabled,
         )?;
-        out.push(section_title(ui, theme, "状态条")?);
-        out.push(group(ui, theme, &[status])?);
+        let size = percent_slider(
+            ui,
+            page,
+            (tr("language.status_bar_size"), ("status_bar", "size")),
+            config.status_bar.size(),
+            (60.0, 150.0),
+            !config.status_bar.enabled,
+        )?;
+        out.push(section_title(ui, theme, tr("language.section_status_bar"))?);
+        out.push(group(ui, theme, &[status, size])?);
     }
     Ok(out)
 }
 
 fn width_label(full: bool) -> &'static str {
-    if full { "全角" } else { "半角" }
+    if full {
+        tr("language.full_width")
+    } else {
+        tr("language.half_width")
+    }
 }
 
 /// 中英切换键可以多选，一个都不勾就只剩按钮能切；最后一个是 Windows 自己的 Ctrl + Space，改的是系统设置。
+/// macOS 只有单击 Shift 一项，勾上后 Caps Lock 只管大小写。
 fn switch_keys(ui: &mut Ui<Message>, page: &Page) -> Result<NodeId, RenderError> {
     let keys = page.settings.config.shortcut.switch_mode;
+    let combos = Feature::SwitchKeyCombos.here();
     let mut boxes = Vec::new();
     for key in SwitchKey::ALL {
+        if !combos && key != SwitchKey::Shift {
+            continue;
+        }
         let on = keys.contains(key);
         let values = keys
             .with(key, !on)
@@ -191,17 +261,21 @@ fn switch_keys(ui: &mut Ui<Message>, page: &Page) -> Result<NodeId, RenderError>
             Message::SetList("shortcut", "switch_mode", values),
         )?);
     }
-    let system = page.settings.ctrl_space;
-    boxes.push(Checkbox::new(system, "Ctrl + Space（系统）").build(
-        ui,
-        &page.theme,
-        "switch-key-system",
-        Message::SystemCtrlSpace(!system),
-    )?);
+    if Feature::SystemCtrlSpace.here() {
+        let system = page.settings.ctrl_space;
+        boxes.push(
+            Checkbox::new(system, tr("language.system_ctrl_space")).build(
+                ui,
+                &page.theme,
+                "switch-key-system",
+                Message::SystemCtrlSpace(!system),
+            )?,
+        );
+    }
     let column = ui.scene().node(
         Style {
             flex_direction: FlexDirection::Column,
-            align_items: Some(bamboo_slip::taffy::AlignItems::FLEX_START),
+            align_items: bamboo_slip::taffy::AlignItems::FLEX_START,
             gap: page.gap(8.0),
             ..Style::default()
         },
@@ -211,9 +285,35 @@ fn switch_keys(ui: &mut Ui<Message>, page: &Page) -> Result<NodeId, RenderError>
     with_notice(
         ui,
         page,
-        SettingRow::new("切换键")
-            .info("勾上的都能切，可以多选。Ctrl + Space（系统）是 Windows 的设置，也会影响微软拼音等简体中文输入法")
+        SettingRow::new(tr("language.switch_keys"))
+            .info(if combos {
+                tr("language.switch_keys_multi")
+            } else {
+                tr("language.switch_keys_caps")
+            })
             .control(column),
         "switch-keys",
     )
+}
+
+/// 中文标点开着也保持半角的符号（#893）：几个符号连写，失焦或回车存。
+fn half_width_symbols(ui: &mut Ui<Message>, page: &Page) -> Result<NodeId, RenderError> {
+    let id = FieldId::HalfWidthSymbols;
+    let row = SettingRow::new(tr("language.half_width_symbols"))
+        .info(tr("language.half_width_symbols_info"));
+    let Some(edit) = page.settings.fields.get(&id) else {
+        return row.build(ui, &page.theme);
+    };
+    let input = TextField::new(edit)
+        .placeholder("`")
+        .width(SYMBOLS_WIDTH)
+        .build(
+            ui,
+            &page.theme,
+            ("field", id),
+            move |edit| Message::Edit(id, edit),
+            Some(Message::Commit(id)),
+            Some(Message::Cancel(id)),
+        )?;
+    row.control(input).build(ui, &page.theme)
 }

@@ -1,7 +1,8 @@
 //! 符号面板。
 
 use super::*;
-use crate::panel::PanelGroup;
+use crate::panel::{CATALOG, PanelGroup, PanelHistory, PanelUse};
+use std::sync::{Arc, Mutex};
 
 #[test]
 fn panel_searches_the_typed_words_and_commits_the_whole_input() {
@@ -54,4 +55,61 @@ fn panel_searches_the_typed_words_and_commits_the_whole_input() {
     assert!(texts.contains(&"→".to_owned()), "{texts:?}");
     engine.clear();
     assert!(engine.symbol_panel().is_none());
+}
+
+/// 记在内存里的面板使用记录，`recorded` 留给测试看记了哪些。
+struct MemoryPanelHistory {
+    uses: Vec<PanelUse>,
+
+    recorded: Arc<Mutex<Vec<String>>>,
+}
+
+impl PanelHistory for MemoryPanelHistory {
+    fn uses(&self) -> &[PanelUse] {
+        &self.uses
+    }
+
+    fn record(&mut self, item: &str) {
+        self.recorded.lock().unwrap().push(item.to_owned());
+        match self.uses.iter_mut().find(|entry| entry.item == item) {
+            Some(entry) => entry.count += 1,
+            None => self.uses.push(PanelUse {
+                item: item.to_owned(),
+                count: 1,
+                last: 0,
+            }),
+        }
+    }
+}
+
+#[test]
+fn panel_commits_are_recorded_and_lead_the_common_section() {
+    let dictionary = Dictionary::parse("哭\tku\t100\n").unwrap();
+    let recorded = Arc::new(Mutex::new(Vec::new()));
+    let mut engine = Engine::new(dictionary)
+        .with_emoji(EmojiTable::default())
+        .with_panel_history(Box::new(MemoryPanelHistory {
+            uses: Vec::new(),
+            recorded: recorded.clone(),
+        }));
+    let star = CATALOG.item("★").unwrap().clone();
+    assert!(engine.open_symbol_panel());
+    assert_ne!(engine.symbol_panel().unwrap().section().items[0].text, "★");
+    assert_eq!(engine.commit(&star), "★");
+    // 重新打开，「常用」第一个就是刚用过的
+    assert!(engine.open_symbol_panel());
+    let panel = engine.symbol_panel().unwrap();
+    assert_eq!(panel.section().name, "常用");
+    assert_eq!(panel.section().items[0].text, "★");
+
+    // 面板没开时上屏的候选不记
+    engine.close_symbol_panel();
+    engine.set_input("ku");
+    let first = engine.query().unwrap().candidates.items[0].clone();
+    engine.commit(&first);
+    // 私密输入时从面板上屏也不记
+    engine.set_private(true);
+    assert!(engine.open_symbol_panel());
+    engine.commit(&star);
+    assert_eq!(*recorded.lock().unwrap(), ["★"]);
 }

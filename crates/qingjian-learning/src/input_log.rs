@@ -131,6 +131,7 @@ mod tests {
             scheme: String::new(),
             english: false,
             rescored: false,
+            choice: None,
             app: None,
             pages: 0,
             ms: 120,

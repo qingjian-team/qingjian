@@ -16,7 +16,7 @@ TMP="$(mktemp -d)"
 
 gh api "repos/$REPO/releases" --paginate > "$TMP/releases.api.json"
 META="$TMP/meta"
-for tag in $(gh release list --limit 100 --json tagName --jq '.[].tagName' | grep -E '^(macos-|windows-|linux-)?v[0-9]'); do
+for tag in $(gh release list --limit 100 --json tagName --jq '.[].tagName' | grep -E '^(macos-|windows-|linux-|android-)?v[0-9]'); do
   mkdir -p "$META/$tag"
   gh release download "$tag" --pattern SHA256SUMS --pattern build-info.json --dir "$META/$tag" || true
 done

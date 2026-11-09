@@ -1,5 +1,5 @@
 //! 同一真实 socket 的 128 会话、逐会话身份、回收及错误握手。
-#![cfg(target_os = "linux")]
+#![cfg(any(target_os = "linux", target_os = "freebsd"))]
 #[path = "support/server.rs"]
 mod server;
 use qingjian_platform::protocol::{PROTOCOL_VERSION, read_message, write_message};

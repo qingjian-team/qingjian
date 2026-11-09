@@ -11,6 +11,8 @@ enum Message {
     Ok,
     Cancel,
     Close,
+    /// 拖动到的位置（百分比）。
+    At(u8),
 }
 
 /// 200×100 的根（登记了 Esc）里左右两个按钮：左边「确定」里有个图标，右边「取消」按 `cancel_disabled` 禁用。
@@ -367,4 +369,63 @@ fn reveal_scrolls_just_enough_and_only_once() {
     far_below(&mut interaction);
     // 已经在视野里：不动
     assert!(!interaction.reveal(key("far"), 0.0));
+}
+
+/// 一条 200×20 的拖动条，左边空出 50 像素。
+fn track(interaction: &mut Interaction<Message>) {
+    let mut ui = Ui::new(interaction);
+    let bar = ui
+        .scene()
+        .node(
+            Style {
+                size: Size {
+                    width: Dimension::length(200.0),
+                    height: Dimension::length(20.0),
+                },
+                ..Style::default()
+            },
+            Visual::Group,
+            &[],
+        )
+        .unwrap();
+    let bar_key = ui.key("bar");
+    ui.interact(
+        bar,
+        bar_key,
+        Interact::new().on_drag(|fraction| Some(Message::At((fraction * 100.0).round() as u8))),
+    );
+    let root = ui
+        .scene()
+        .node(
+            Style {
+                padding: Rect {
+                    left: LengthPercentage::length(50.0),
+                    right: LengthPercentage::length(0.0),
+                    top: LengthPercentage::length(0.0),
+                    bottom: LengthPercentage::length(0.0),
+                },
+                ..Style::default()
+            },
+            Visual::Group,
+            &[bar],
+        )
+        .unwrap();
+    let (mut scene, elements) = ui.finish();
+    layout(&mut scene, root);
+    interaction.attach(&scene, root, elements).unwrap();
+}
+
+#[test]
+fn drag_reports_position_until_release_even_outside() {
+    let mut interaction = Interaction::new();
+    track(&mut interaction);
+    interaction.handle(&Event::PointerMoved { x: 100.0, y: 10.0 });
+    let down = interaction.handle(&Event::PointerDown);
+    assert_eq!(down.messages, vec![Message::At(25)]);
+    let moved = interaction.handle(&Event::PointerMoved { x: 400.0, y: 80.0 });
+    assert_eq!(moved.messages, vec![Message::At(100)]);
+    let up = interaction.handle(&Event::PointerUp);
+    assert!(up.messages.is_empty());
+    let after = interaction.handle(&Event::PointerMoved { x: 60.0, y: 10.0 });
+    assert!(after.messages.is_empty());
 }

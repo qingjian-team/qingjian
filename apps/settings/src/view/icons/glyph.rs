@@ -17,8 +17,10 @@ pub enum Glyph {
     Stats,
     Vocabulary,
     Advanced,
+    Experimental,
     About,
     Search,
+    Translate,
 }
 
 impl Icon for Glyph {
@@ -148,6 +150,21 @@ impl Icon for Glyph {
                 pen.line(&[(4.25, 6.0), (6.75, 8.0), (4.25, 10.0)]);
                 pen.line(&[(8.5, 10.0), (11.75, 10.0)]);
             }
+            // 烧瓶，瓶里一道液面
+            Glyph::Experimental => {
+                pen.line(&[(5.75, 1.75), (10.25, 1.75)]);
+                pen.line(&[
+                    (6.75, 1.75),
+                    (6.75, 6.0),
+                    (2.5, 12.5),
+                    (3.5, 14.25),
+                    (12.5, 14.25),
+                    (13.5, 12.5),
+                    (9.25, 6.0),
+                    (9.25, 1.75),
+                ]);
+                pen.line(&[(4.5, 10.25), (11.5, 10.25)]);
+            }
             // 圆圈里一个 i
             Glyph::About => {
                 pen.circle(8.0, 8.0, 6.5, false);
@@ -157,6 +174,15 @@ impl Icon for Glyph {
             Glyph::Search => {
                 pen.circle(7.0, 7.0, 4.75, false);
                 pen.line(&[(10.5, 10.5), (14.0, 14.0)]);
+            }
+            // 「文」：点、横、交叉的撇捺；「A」：两条斜边与一横，压在右下
+            Glyph::Translate => {
+                pen.line(&[(4.75, 1.5), (4.75, 2.75)]);
+                pen.line(&[(1.5, 3.5), (8.0, 3.5)]);
+                pen.line(&[(2.75, 3.75), (7.75, 9.0)]);
+                pen.line(&[(6.75, 3.75), (1.75, 9.0)]);
+                pen.line(&[(8.5, 14.5), (11.5, 7.0), (14.5, 14.5)]);
+                pen.line(&[(9.6, 11.75), (13.4, 11.75)]);
             }
         }
         let width = 1.5 * pen.unit;

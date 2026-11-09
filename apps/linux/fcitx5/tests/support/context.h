@@ -2,6 +2,7 @@
 #pragma once
 #include <fcitx/inputcontext.h>
 #include <functional>
+#include <utility>
 class Context final : public fcitx::InputContext {
 public:
     explicit Context(fcitx::InputContextManager &manager) : InputContext(manager, "panel-test") { created(); }
@@ -21,7 +22,8 @@ protected:
     void deleteSurroundingTextImpl(int, unsigned int) override {}
     void forwardKeyImpl(const fcitx::ForwardKeyEvent &) override {}
     void updatePreeditImpl() override {
-        auto callback = std::move(onPreedit);
+        // 回调只触发一次。不用 std::move：libc++ 不保证移走后的 std::function 变空
+        auto callback = std::exchange(onPreedit, nullptr);
         if (callback) callback();
     }
 };

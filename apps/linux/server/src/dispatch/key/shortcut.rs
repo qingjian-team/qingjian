@@ -1,4 +1,4 @@
-//! 组句中「修饰键 + 数字」的快捷键：上屏译词、删候选。与 macOS 壳对齐。
+//! 组句中「修饰键 + 数字」的快捷键：上屏译词。与 macOS 壳对齐。
 
 use qingjian_core::{Candidate, CandidateList};
 use qingjian_platform::protocol::KeyModifiers;
@@ -7,7 +7,7 @@ use super::Effect;
 use crate::dispatch::Router;
 
 impl Router {
-    /// 配到哪组就上屏第一 / 第二个译词或删候选；哪组都不是返回 `None`，按普通键处理。
+    /// 配到哪组就上屏第一 / 第二个译词；哪组都不是返回 `None`，按普通键处理。
     pub(super) fn apply_digit_shortcut(
         &mut self,
         digit: usize,
@@ -21,8 +21,6 @@ impl Router {
             self.commit_translation_on_page(digit, 0)
         } else if chord == second {
             self.commit_translation_on_page(digit, 1)
-        } else if chord == self.config.delete_keys {
-            self.forget_on_page(digit)
         } else {
             return None;
         };
@@ -42,25 +40,6 @@ impl Router {
                 Effect::Navigated
             }
         }
-    }
-
-    /// 删第 `digit` 个候选（用户词整删、词库词清学习记录），提示随下一帧下发。
-    fn forget_on_page(&mut self, digit: usize) -> Effect {
-        let Some(candidate) = self.candidate_on_page(digit) else {
-            tracing::debug!(digit, "这一格没有候选，没什么可删");
-            return Effect::Navigated;
-        };
-        let forgotten = self.engine.forget(&candidate);
-        let text = &candidate.text;
-        let message = if forgotten.user_word {
-            format!("已删除用户词「{text}」")
-        } else if forgotten.learning {
-            format!("已忘掉对「{text}」的学习记录")
-        } else {
-            format!("「{text}」是词库里的词，也没有学习记录，没什么可删")
-        };
-        self.notice = Some(message);
-        Effect::Changed(None)
     }
 
     /// 当前页第 `digit` 个候选（1 起）。

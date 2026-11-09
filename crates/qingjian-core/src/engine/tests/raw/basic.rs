@@ -50,6 +50,8 @@ fn raw_preedit_keeps_suffix_after_editing_and_excludes_auxiliary_codes() {
 #[test]
 fn raw_preedit_only_contains_the_uncommitted_remainder() {
     let mut engine = engine();
+    // 只看剩下的拼音：选的词直接上屏，不留在组句里
+    engine.set_hold_selections(false);
     engine.set_input("kaifazhe");
     let candidate = engine
         .query()

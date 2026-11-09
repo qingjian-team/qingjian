@@ -2,6 +2,8 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::i18n::tr;
+
 /// 候选窗口由谁绘制：青简自己的渲染器（各平台一致，主题走它）还是系统的原生绘制。
 /// 原生绘制是过渡期的退路：渲染器有问题时用户能切回去继续用，稳定一个版本后删掉。
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -30,8 +32,8 @@ impl CandidateRenderer {
     /// 界面上的名字。
     pub fn label(self) -> &'static str {
         match self {
-            Self::Qingjian => "青简渲染器",
-            Self::System => "系统绘制",
+            Self::Qingjian => tr("renderer.qingjian"),
+            Self::System => tr("renderer.system"),
         }
     }
 }

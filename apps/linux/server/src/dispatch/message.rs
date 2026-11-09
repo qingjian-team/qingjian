@@ -14,7 +14,8 @@ impl Router {
                     return None;
                 }
                 self.close_session(session);
-                self.sessions.insert(session, SessionInfo::new(app));
+                self.sessions
+                    .insert(session, SessionInfo::new(app, self.config.starts_english()));
                 None
             }
             ClientMessage::Privacy { session, private } => {
@@ -33,11 +34,15 @@ impl Router {
                     Effect::Passthrough => (None, KeyOutcome::Passthrough),
                 };
                 let frame = self.current_frame();
+                // 选词没选完一段拼音时 Core 把词留在组句里、上屏文本是空串
+                let commit = commit.filter(|text| !text.is_empty());
                 Some(ServerMessage::KeyResult {
                     session,
                     outcome,
                     commit,
                     frame,
+                    english: None,
+                    caret: None,
                 })
             }
             ClientMessage::Poll { session } if self.sessions.contains_key(&session) => {

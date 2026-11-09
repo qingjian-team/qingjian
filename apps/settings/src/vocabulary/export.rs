@@ -6,6 +6,8 @@ use qingjian_learning::VocabularyEntry;
 
 use super::Format;
 
+use crate::i18n::tr;
+
 pub fn render(format: Format, language: &str, words: &[(&str, &VocabularyEntry)]) -> String {
     match format {
         Format::Csv => csv(words),
@@ -16,7 +18,7 @@ pub fn render(format: Format, language: &str, words: &[(&str, &VocabularyEntry)]
 
 /// 带 BOM：Excel 不带 BOM 时按本地编码读，中文成乱码。
 fn csv(words: &[(&str, &VocabularyEntry)]) -> String {
-    let mut out = String::from("\u{feff}译词,中文,例句,看到,上屏,直接打出,首见,最近,认识\r\n");
+    let mut out = format!("\u{feff}{}\r\n", tr("export.csv_header"));
     for (word, entry) in words {
         let fields = [
             (*word).to_owned(),
@@ -27,7 +29,7 @@ fn csv(words: &[(&str, &VocabularyEntry)]) -> String {
             entry.used.to_string(),
             entry.first.to_string(),
             entry.last.to_string(),
-            if entry.known { "是" } else { "" }.to_owned(),
+            if entry.known { tr("export.yes") } else { "" }.to_owned(),
         ];
         let line: Vec<String> = fields.iter().map(|field| csv_field(field)).collect();
         out += &line.join(",");
@@ -46,7 +48,10 @@ fn csv_field(text: &str) -> String {
 
 /// Anki 2.1.55 起认文件头：制表符分隔、字段是 HTML，正面译词，背面中文与例句。
 fn anki(words: &[(&str, &VocabularyEntry)]) -> String {
-    let mut out = String::from("#separator:tab\n#html:true\n#columns:正面\t背面\n");
+    let mut out = format!(
+        "#separator:tab\n#html:true\n#columns:{}\n",
+        tr("export.anki_columns")
+    );
     for (word, entry) in words {
         let mut back = escape(&entry.source);
         if !entry.example.is_empty() {

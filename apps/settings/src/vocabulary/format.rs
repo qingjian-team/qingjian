@@ -1,4 +1,5 @@
 //! 导出的格式。
+use crate::i18n::tr;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Format {
@@ -17,7 +18,7 @@ impl Format {
         match self {
             Self::Csv => "CSV",
             Self::Anki => "Anki",
-            Self::Html => "网页",
+            Self::Html => tr("vocabulary.format_html"),
         }
     }
 

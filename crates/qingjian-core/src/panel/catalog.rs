@@ -95,6 +95,14 @@ mod tests {
             Some("笑哭了")
         );
         assert_eq!(CATALOG.item("(T_T)").unwrap().kind, CandidateKind::Kaomoji);
-        assert!(KEYWORDS.lookup("箭头").contains(&"→".to_owned()));
+        assert!(KEYWORDS.lookup("箭头").any(|e| e == "→"));
+        // #857：㊣ ㊤ 这类带圈汉字有自己的分类，搜得到
+        let circled = CATALOG
+            .sections
+            .iter()
+            .find(|s| s.name == "带圈汉字")
+            .unwrap();
+        assert!(circled.items.iter().any(|item| item.text == "㊣"));
+        assert!(KEYWORDS.lookup("带圈汉字").any(|e| e == "㊤"));
     }
 }

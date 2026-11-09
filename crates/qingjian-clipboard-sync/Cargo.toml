@@ -1,0 +1,21 @@
+[package]
+name = "qingjian-clipboard-sync"
+description = "青简剪贴板的设备间同步：配对、加密通道、合并与局域网发现，不依赖具体存储和传输"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+if-addrs = "0.15"
+mdns-sd = "0.21.7"
+serde.workspace = true
+serde_json.workspace = true
+sha2 = "0.10"
+snow = "0.10"
+spake2 = "0.4"
+thiserror.workspace = true
+tracing.workspace = true

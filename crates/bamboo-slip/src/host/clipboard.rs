@@ -25,5 +25,12 @@ pub fn set_clipboard(text: &str) {
 
 /// 剪贴板上的文字；没有文字或读不了为 `None`。
 pub(super) fn clipboard_text() -> Option<String> {
-    clipboard().lock().ok()?.as_mut()?.get_text().ok()
+    let text = clipboard()
+        .lock()
+        .ok()?
+        .as_mut()?
+        .get_text()
+        .inspect_err(|error| tracing::warn!(%error, "读剪贴板失败"))
+        .ok()?;
+    (!text.is_empty()).then_some(text)
 }

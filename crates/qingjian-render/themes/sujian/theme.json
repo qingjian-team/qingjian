@@ -1,0 +1,16 @@
+{
+  "extends": "qingjian",
+  "schema": 1,
+  "meta": { "id": "sujian", "name": "素笺", "author": "青简", "license": "GPL-3.0-or-later" },
+
+  "variables": {
+    "text": { "light": "#1c1c1e", "dark": "#f2f2f7" },
+    "surface": { "light": "#ffffff", "dark": "#2c2c2e" },
+    "accent": { "light": "#1f7a4a29", "dark": "#3fbf7a40" },
+    "hl_text": { "light": "#1c1c1e", "dark": "#f2f2f7" },
+
+    "kb_board": { "light": "#d3d6dc", "dark": "#1c1c1e" },
+    "kb_function": { "light": "#adb2bc", "dark": "#2a2a2c" },
+    "kb_brand": { "light": "#1f7a4a", "dark": "#2e8f5b" }
+  }
+}

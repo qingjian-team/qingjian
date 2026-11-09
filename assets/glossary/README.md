@@ -96,6 +96,8 @@ cargo run --release -p qingjian-gloss-gen -- export-english
 ```
 
 `data/generated/gloss-en-llm.jsonl` 是它的原始输出。表的键是小写，Engine 查表时把候选转小写。
+约 170 个普通词（may、march、brown）的释义是人工按小写的普通词义写的，追加在 JSONL 末尾（导出时同一个词取最后一条）：
+模型当初拿到的是英文词表里的大写写法（May、March、Brown），写成了专名的释义。
 
 ## 中间产物
 

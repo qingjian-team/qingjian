@@ -1,6 +1,9 @@
 //! 拼音以外的几种查询：表达式（`v`）、原样字母、英文模式、问字（`?`）。
 
-use super::*;
+use std::time::{Duration, Instant};
+
+use crate::engine::{ENGLISH_MODE_CANDIDATES, Learner};
+use crate::{Candidate, CandidateKind, CandidateList, Engine, Query, Timings, english, shortcut};
 
 impl Engine {
     /// 表达式模式（`v` 开头）：不解析拼音，候选是算式结果 / 中文数字，再加上整段是英文词的情况（`very`）。
@@ -11,12 +14,18 @@ impl Engine {
         rest: String,
         start: Instant,
     ) -> Query {
-        let mut items = shortcut::candidates(scope, self.modes().expression, &jiff::Zoned::now());
+        let body = scope.strip_prefix(self.modes().expression).unwrap_or(scope);
+        let mut items = if shortcut::is_generated_keyword(body) {
+            self.generated_candidates(body)
+        } else {
+            shortcut::candidates(scope, self.modes().expression, &jiff::Zoned::now())
+        };
         if let Some(candidate) = self.english_word_candidate(scope) {
             items.push(candidate);
         }
         Query {
             segmentations: Vec::new(),
+            spelled: 0,
             candidates: CandidateList { items },
             tail: scope.to_owned(),
             text: self.composition.text().to_owned(),
@@ -24,9 +33,13 @@ impl Engine {
             rest,
             decoded_keys: self.shuangpin.is_some() || self.zhuyin,
             shuangpin_raw_preedit: false,
+            shuangpin_raw_window: false,
             typed_display: None,
+            typed_case: None,
+            pinyin_choices: Vec::new(),
             correction: None,
             aux: None,
+            held: String::new(),
             timings: Timings {
                 parse: Duration::ZERO,
                 lookup: Duration::ZERO,
@@ -35,9 +48,10 @@ impl Engine {
         }
     }
 
-    /// 英文直输段：唯一候选就是原文（`no-way`），空格 / 回车都上屏它；preedit 原样显示。
+    /// 英文直输段：首选就是原文（`no-way`），空格 / 回车都上屏它；preedit 原样显示。
+    /// 原文是「用户名@」（`qingjian@`、`zhang.san@q`）时后面跟常见邮箱的整个地址，不记学习。
     pub(in crate::engine) fn query_raw(&self, scope: &str, rest: String, start: Instant) -> Query {
-        let items = vec![Candidate {
+        let mut items = vec![Candidate {
             text: scope.to_owned(),
             kind: CandidateKind::English,
             syllables: Vec::new(),
@@ -45,8 +59,21 @@ impl Engine {
             translation: None,
             aux_code: None,
         }];
+        items.extend(
+            crate::email_completions(scope)
+                .into_iter()
+                .map(|completion| Candidate {
+                    text: format!("{scope}{}", completion.insert),
+                    kind: CandidateKind::Shortcut,
+                    syllables: Vec::new(),
+                    reading: None,
+                    translation: None,
+                    aux_code: None,
+                }),
+        );
         Query {
             segmentations: Vec::new(),
+            spelled: 0,
             candidates: CandidateList { items },
             tail: scope.to_owned(),
             text: self.composition.text().to_owned(),
@@ -54,9 +81,13 @@ impl Engine {
             rest,
             decoded_keys: self.shuangpin.is_some() || self.zhuyin,
             shuangpin_raw_preedit: false,
+            shuangpin_raw_window: false,
             typed_display: None,
+            typed_case: None,
+            pinyin_choices: Vec::new(),
             correction: None,
             aux: None,
+            held: String::new(),
             timings: Timings {
                 parse: Duration::ZERO,
                 lookup: Duration::ZERO,
@@ -93,6 +124,7 @@ impl Engine {
         items.sort_by_key(|c| c.kind.follows_word());
         Query {
             segmentations: Vec::new(),
+            spelled: 0,
             candidates: CandidateList { items },
             tail: scope.to_owned(),
             text: self.composition.text().to_owned(),
@@ -100,9 +132,13 @@ impl Engine {
             rest,
             decoded_keys: self.shuangpin.is_some() || self.zhuyin,
             shuangpin_raw_preedit: false,
+            shuangpin_raw_window: false,
             typed_display: None,
+            typed_case: None,
+            pinyin_choices: Vec::new(),
             correction: None,
             aux: None,
+            held: String::new(),
             timings: Timings {
                 parse: Duration::ZERO,
                 lookup: Duration::ZERO,
@@ -112,7 +148,8 @@ impl Engine {
     }
 
     /// 问字模式（问字键或 `?` 开头）：十六进制码点（`u4e00`、`u+1f600`）本地直接给出那个字符；
-    /// 整段是英文词时（`unchanged`）给英文候选，否则本地没有候选，preedit 显示前缀加切分好的问题拼音，答案等云端。
+    /// 整段是英文词时（`unchanged`）先给英文候选，再跟按部件读音拆出的字（`umumu` → 林，见 [`crate::chaizi`]）；
+    /// 都不是时 preedit 显示前缀加切分好的问题拼音，答案等云端。
     pub(in crate::engine) fn query_question(
         &self,
         scope: &str,
@@ -135,22 +172,25 @@ impl Engine {
                 },
                 scope.to_owned(),
             ),
-            None => match self.english_word_candidate(scope) {
+            None => {
                 // u 开头的英文词不当成问字问题：原样给词，空格可直接上屏
-                Some(candidate) => (
-                    CandidateList {
-                        items: vec![candidate],
-                    },
-                    scope.to_owned(),
-                ),
-                None => (
-                    CandidateList::default(),
-                    format!("{prefix}{}", self.marked_rest(body)),
-                ),
-            },
+                let english = self.english_word_candidate(scope);
+                let tail = if english.is_some() {
+                    scope.to_owned()
+                } else {
+                    format!("{prefix}{}", self.marked_rest(body))
+                };
+                let mut items: Vec<Candidate> = english.into_iter().collect();
+                if !items.is_empty() && scope == shortcut::UUID_KEYWORD {
+                    items.extend(self.generated_candidates(shortcut::UUID_KEYWORD));
+                }
+                items.extend(chaizi_candidates(body));
+                (CandidateList { items }, tail)
+            }
         };
         Query {
             segmentations: Vec::new(),
+            spelled: 0,
             candidates,
             tail,
             text: self.composition.text().to_owned(),
@@ -158,9 +198,13 @@ impl Engine {
             rest,
             decoded_keys: self.shuangpin.is_some() || self.zhuyin,
             shuangpin_raw_preedit: false,
+            shuangpin_raw_window: false,
             typed_display: None,
+            typed_case: None,
+            pinyin_choices: Vec::new(),
             correction: None,
             aux: None,
+            held: String::new(),
             timings: Timings {
                 parse: start.elapsed(),
                 lookup: Duration::ZERO,
@@ -186,4 +230,39 @@ impl Engine {
             aux_code: None,
         })
     }
+
+    /// `keyword`（`uuid` / `ts`）的候选：这段组句第一次查时生成，之后反复查都是同一组，换了词才重新生成。
+    fn generated_candidates(&self, keyword: &str) -> Vec<Candidate> {
+        let mut cache = self.generated_forms.borrow_mut();
+        if cache.as_ref().is_none_or(|(cached, _)| cached != keyword) {
+            let forms = shortcut::generated_forms(keyword, &jiff::Zoned::now()).unwrap_or_default();
+            *cache = Some((keyword.to_owned(), forms));
+        }
+        let forms = cache
+            .as_ref()
+            .map(|(_, forms)| forms.clone())
+            .unwrap_or_default();
+        shortcut::as_candidates(forms)
+    }
+}
+
+/// 问字模式里拆字最多出几个候选（短前缀能命中几千个字）。
+const CHAIZI_LIMIT: usize = 50;
+
+/// 按部件读音拆出的字，带上这个字最常见的读音（有声调的标上调号），生僻字也知道怎么念。
+fn chaizi_candidates(keys: &str) -> Vec<Candidate> {
+    crate::chaizi::lookup(keys, CHAIZI_LIMIT)
+        .into_iter()
+        .map(|(ch, syllable)| Candidate {
+            text: ch.to_string(),
+            kind: CandidateKind::Shortcut,
+            syllables: Vec::new(),
+            reading: Some(qingjian_dictionary::marked(
+                syllable,
+                crate::zhuyin::tone::usual(ch, syllable),
+            )),
+            translation: None,
+            aux_code: None,
+        })
+        .collect()
 }

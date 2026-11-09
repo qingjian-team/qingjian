@@ -30,6 +30,12 @@ pub struct Frame {
     /// 右下角页码。
     pub footer: Option<String>,
 
+    /// 往前还有页（矩阵展开时是往上还有屏）：主题拿来把翻不动的箭头画淡。
+    pub previous_page: bool,
+
+    /// 往后还有页。
+    pub next_page: bool,
+
     /// 拼音行右侧的整句补全（云联想），组句时才有。
     pub sentence: Option<String>,
 
@@ -38,6 +44,10 @@ pub struct Frame {
 
     /// 输入状态（中 / 英、简 / 繁、标点、方案）。
     pub mode: Mode,
+
+    /// 候选倒着排：第一个在最后（竖排就是最下面）。窗口在光标上方时壳打开它，序号从靠近输入行的一头数；
+    /// 序号、高亮、点击仍按原来的下标。
+    pub reversed: bool,
 }
 
 impl Frame {

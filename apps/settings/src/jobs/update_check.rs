@@ -8,6 +8,8 @@ use bamboo_slip::Waker;
 use qingjian_platform::UpdateConfig;
 use qingjian_update::{Available, Checker, UpdateError, UpdateState};
 
+use crate::i18n::{tr, tr_args};
+
 /// 本程序与输入法同一个版本号，按它判断有没有新版。
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -48,9 +50,9 @@ impl UpdateCheck {
 
     pub fn start(&mut self, config: &UpdateConfig, waker: Option<Waker>) -> Result<(), String> {
         if Checker::is_dev_version(VERSION) {
-            return Err("本地开发版，不检查更新".to_owned());
+            return Err(tr("update.dev").to_owned());
         }
-        let path = self.path.clone().ok_or("找不到数据目录")?;
+        let path = self.path.clone().ok_or(tr("common.no_data_dir"))?;
         self.running = true;
         let config = config.clone();
         let result = Arc::clone(&self.result);
@@ -71,16 +73,16 @@ impl UpdateCheck {
         let outcome = self.result.lock().ok()?.take()?;
         self.running = false;
         Some(match outcome {
-            None => "本地开发版，不检查更新".to_owned(),
+            None => tr("update.dev").to_owned(),
             Some(Err(error)) => {
                 tracing::warn!(%error, "检查更新失败");
-                format!("检查失败：{error}")
+                tr_args("update.failed", &[("error", &error)])
             }
             Some(Ok(state)) => {
                 self.state = state;
                 match self.available(config) {
-                    Some(found) => format!("有新版本 {}", found.version),
-                    None => "已是最新版本".to_owned(),
+                    Some(found) => tr_args("update.available", &[("version", &found.version)]),
+                    None => tr("update.latest").to_owned(),
                 }
             }
         })

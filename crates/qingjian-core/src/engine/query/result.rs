@@ -1,8 +1,10 @@
-use crate::candidate::CandidateList;
-use crate::correction::Correction;
-use crate::parser::Segmentation;
+use std::borrow::Cow;
 
-/// 最优切分的音节用 `'` 连接，再接未切分尾部。
+use crate::candidate::{Candidate, CandidateList};
+use crate::correction::Correction;
+use crate::parser::{Segmentation, umlaut_spelling};
+
+/// 最优切分的音节照敲法用 `'` 连接，再接未切分尾部：输入日志与云端请求用它。
 pub(crate) fn join_marked(segmentations: &[Segmentation], tail: &str) -> String {
     let mut text = segmentations
         .first()
@@ -17,7 +19,52 @@ pub(crate) fn join_marked(segmentations: &[Segmentation], tail: &str) -> String 
     text
 }
 
-/// 与 [`join_marked`] 相同的分段，但用原样大小写的输入（`Cpan`）：切分是按小写算的，
+/// 与 [`join_marked`] 相同，但音节按显示写法（[`Segmentation::spelled`]，`lve` → `lüe`），给拼音行用；尾部照敲的。
+pub(crate) fn join_spelled(segmentations: &[Segmentation], tail: &str) -> String {
+    let mut text = segmentations
+        .first()
+        .map(Segmentation::spelled)
+        .unwrap_or_default();
+    if !tail.is_empty() {
+        if !text.is_empty() {
+            text.push('\'');
+        }
+        text.push_str(tail);
+    }
+    text
+}
+
+/// 拼音行该按哪种切分画（`segmentations` 的下标）：与候选读音逐音节相同的最多，其次是候选音节以敲的开头（简拼、没打完）；
+/// 一样多取靠前的。`ganga` 候选 尴尬 画成 `gan'ga`、刚啊 画成 `gang'a`；没有音节的候选（英文、快捷）按最优切分。
+pub(crate) fn spelling_for(segmentations: &[Segmentation], candidate: Option<&Candidate>) -> usize {
+    let Some(syllables) = candidate.map(|c| &c.syllables).filter(|s| !s.is_empty()) else {
+        return 0;
+    };
+    let score = |segmentation: &Segmentation| -> usize {
+        segmentation
+            .syllables
+            .iter()
+            .zip(syllables)
+            .map(
+                |(typed, read)| match read.strip_prefix(typed.text.as_str()) {
+                    Some("") => 2,
+                    Some(_) => 1,
+                    None => 0,
+                },
+            )
+            .sum()
+    };
+    let mut best = (0, 0);
+    for (index, segmentation) in segmentations.iter().enumerate() {
+        let score = score(segmentation);
+        if score > best.1 {
+            best = (index, score);
+        }
+    }
+    best.0
+}
+
+/// 与 [`join_spelled`] 相同的分段，但用原样大小写的输入（`Cpan`）：切分是按小写算的，
 /// 大小写只影响显示，逐段按同样的字节长度取回原样文本。
 pub(crate) fn join_marked_typed(typed: &str, segmentations: &[Segmentation], tail: &str) -> String {
     let mut text = String::new();
@@ -28,7 +75,7 @@ pub(crate) fn join_marked_typed(typed: &str, segmentations: &[Segmentation], tai
                 text.push('\'');
             }
             let end = (offset + syllable.text.len()).min(typed.len());
-            text.push_str(&typed[offset..end]);
+            text.push_str(&umlaut_spelling(&typed[offset..end]));
             offset = end;
         }
     }
@@ -49,6 +96,9 @@ use crate::engine::{AuxSegment, MarkedKind, MarkedSegment};
 pub struct Query {
     /// 参与候选生成的所有切分，索引 0 为首选切分。
     pub segmentations: Vec<Segmentation>,
+
+    /// 拼音行按 `segmentations` 里的哪一种画：缺省对着首选候选挑（见 [`Self::follow`]）。
+    pub spelled: usize,
 
     /// 排好序的候选，`translation` 均为 `None`。
     pub candidates: CandidateList,
@@ -77,12 +127,24 @@ pub struct Query {
     /// 双拼模式下是否在 preedit（应用输入框内 marked text）保留原始输入按键。
     pub shuangpin_raw_preedit: bool,
 
+    /// 双拼模式下候选窗口的拼音行是否显示原始输入按键（[`Self::window_segments`]）。
+    pub shuangpin_raw_window: bool,
+
     /// 开启双拼或注音时的显示字串（如 "ㄅㄨˋ"）。如果有此值，preedit 就优先显示它，而不是拼音。
     pub typed_display: Option<String>,
+
+    /// 中文模式下 Shift 敲了大写时敲的原样（`Cpan`）：匹配按小写算，拼音行按它的大小写画。
+    pub typed_case: Option<String>,
+
+    /// 九宫格的拼音列：第一个没定下来的位置上的全部写法，最可能的在前；壳点了其中一个就调 `Engine::pin_nine_key`。
+    pub pinyin_choices: Vec<String>,
 
     /// 辅码态：触发键与码段（码段可为空——刚触发）。`Some` 时 preedit 在拼音段之后多出
     /// [触发键 `Typed`][码段 `AuxCode`] 两段，候选也已经按码段筛过。
     pub aux: Option<AuxSegment>,
+
+    /// 同一段拼音里前面选好、还没上屏的词（见 [`crate::Engine::take_held`]），显示在拼音前面。
+    pub held: String,
 }
 
 impl Query {
@@ -92,6 +154,7 @@ impl Query {
         cursor: usize,
         decoded_keys: bool,
         shuangpin_raw_preedit: bool,
+        shuangpin_raw_window: bool,
         scope: &str,
         rest: String,
     ) -> Self {
@@ -100,19 +163,30 @@ impl Query {
             cursor,
             decoded_keys,
             shuangpin_raw_preedit,
+            shuangpin_raw_window,
             tail: scope.to_owned(),
             rest,
             ..Self::default()
         }
     }
 
-    /// 给 marked text（应用输入框未上屏文本）用的显示形式：最优切分的音节用 `'` 连接，再接未切分尾部，
+    /// 拼音行改按 `candidate` 的读音切分（壳换了高亮候选时调）：`ganga` 高亮 尴尬 时是 `gan'ga`。
+    pub fn follow(&mut self, candidate: Option<&Candidate>) {
+        self.spelled = self.spelling_of(candidate);
+    }
+
+    /// [`Self::follow`] 会换成的切分下标，不改自己：与 `spelled` 相同就不必重画。
+    pub fn spelling_of(&self, candidate: Option<&Candidate>) -> usize {
+        spelling_for(&self.segmentations, candidate)
+    }
+
+    /// 给 marked text（应用输入框未上屏文本）用的显示形式：`spelled` 那种切分的音节用 `'` 连接，再接未切分尾部，
     /// 辅码态接上触发键与码段，光标后的剩余拼音跟在最后。
     /// `kaifa` → `kai'fa`，`kf` → `k'f`，`ni|hao` → `ni'hao`，`nihao;rb` → `ni'hao;rb`。
     /// 双拼模式且 `shuangpin_raw_preedit` 开启时，返回原始按键（如 `kdfa`）。
     pub fn marked_text(&self) -> String {
         if self.shuangpin_raw_preedit {
-            return self.text.clone();
+            return format!("{}{}", self.held, self.text);
         }
         self.marked_segments()
             .iter()
@@ -120,18 +194,117 @@ impl Query {
             .collect()
     }
 
-    /// [`Self::marked_text`] 的分段形式：敲的拼音一段（`Typed`），光标后剩下的拼音连同前面的 `'` 一段（`Rest`）。
+    /// [`Self::marked_text`] 的分段形式：前面选好还没上屏的词与敲的拼音各一段（`Typed`），
+    /// 光标后剩下的拼音连同前面的 `'` 一段（`Rest`）。
     /// 壳按段画样式；[`Self::segments_cursor`] 的位置按各段拼接后的字符数算。
     pub fn marked_segments(&self) -> Vec<MarkedSegment> {
+        let mut segments = Vec::with_capacity(3);
+        if !self.held.is_empty() {
+            segments.push(MarkedSegment::new(self.held.clone(), MarkedKind::Typed));
+        }
+        segments.extend(self.pinyin_segments(None));
+        segments
+    }
+
+    /// 候选窗口顶部的拼音行与光标。带调拼音开着、高亮候选读得出声调（`toned`，见
+    /// [`crate::Engine::toned_syllables`]）时，敲的那段换成候选的带调读音，候选没覆盖到的音节照切分接在后面
+    /// （`nihao` 高亮 你好 是 `nǐ'hǎo`、高亮 你 是 `nǐ'hao`，简拼 `nh` 高亮 你好 也是 `nǐ'hǎo`）；纠错生效时不换。
+    /// 应用输入框里的 marked text 不受影响，仍是 [`Self::marked_text`]。
+    /// 双拼「候选窗显示按键」开着时不换读音，直接是敲的键（`raw_segments`）。
+    pub fn window_segments(&self, toned: Option<&[String]>) -> (Vec<MarkedSegment>, usize) {
+        if self.shuangpin_raw_window {
+            return self.raw_segments();
+        }
+        let spelled = self.segmentations.get(self.spelled);
+        // 读音对不上敲的（模糊音、敲错变体、云端推荐）不换：拼音行仍是用户敲的
+        let fits = |toned: &[String]| {
+            spelled.is_some_and(|spelled| {
+                spelled.syllables.iter().zip(toned).all(|(typed, read)| {
+                    // ü 的几种敲法（`qv`、`lue`）先归一成词库写法再比
+                    qingjian_dictionary::strip_marks(read)
+                        .starts_with(qingjian_dictionary::canonical_syllable(&typed.text))
+                })
+            })
+        };
+        let Some(toned) = toned.filter(|t| !t.is_empty() && self.correction.is_none() && fits(t))
+        else {
+            return (self.marked_segments(), self.segments_cursor());
+        };
+        let mut parts: Vec<Cow<str>> = toned.iter().map(|t| Cow::Borrowed(t.as_str())).collect();
+        if let Some(spelled) = spelled {
+            parts.extend(
+                spelled
+                    .syllables
+                    .iter()
+                    .skip(toned.len())
+                    .map(|s| umlaut_spelling(&s.text)),
+            );
+        }
+        if !self.tail.is_empty() {
+            parts.push(Cow::Borrowed(&self.tail));
+        }
+        let mut segments = Vec::with_capacity(4);
+        if !self.held.is_empty() {
+            segments.push(MarkedSegment::new(self.held.clone(), MarkedKind::Typed));
+        }
+        segments.extend(self.pinyin_segments(Some(parts.join("'"))));
+        // 光标总在作用域末尾：作用域就是光标前的那段，后面只剩 `Rest`
+        let cursor = segments
+            .iter()
+            .filter(|s| s.kind != MarkedKind::Rest)
+            .map(|s| s.text.chars().count())
+            .sum();
+        (segments, cursor)
+    }
+
+    /// 敲的键原样分段：前面留着的词、光标前的键、辅码态的触发键与码段，光标后的键单成一段（`Rest`）。
+    fn raw_segments(&self) -> (Vec<MarkedSegment>, usize) {
+        let (before, after) = self.text.split_at(self.cursor.min(self.text.len()));
+        let mut segments = Vec::with_capacity(5);
+        if !self.held.is_empty() {
+            segments.push(MarkedSegment::new(self.held.clone(), MarkedKind::Typed));
+        }
+        if !before.is_empty() {
+            segments.push(MarkedSegment::new(before.to_owned(), MarkedKind::Typed));
+        }
+        if let Some(aux) = &self.aux {
+            segments.push(MarkedSegment::new(
+                aux.trigger.to_string(),
+                MarkedKind::Typed,
+            ));
+            if !aux.code.is_empty() {
+                segments.push(MarkedSegment::new(aux.code.clone(), MarkedKind::AuxCode));
+            }
+        }
+        let cursor = segments.iter().map(|s| s.text.chars().count()).sum();
+        if !after.is_empty() {
+            segments.push(MarkedSegment::new(after.to_owned(), MarkedKind::Rest));
+        }
+        (segments, cursor)
+    }
+
+    /// 拼音部分（不含前面留着的词）的分段；`typed` 给了就用它当敲的那段（[`Self::window_segments`]）。
+    fn pinyin_segments(&self, typed: Option<String>) -> Vec<MarkedSegment> {
         let mut segments = match &self.correction {
             Some(correction) => correction.marked_segments(),
             None => Vec::with_capacity(2),
         };
         if self.correction.is_none() {
-            let typed = if let Some(display) = &self.typed_display {
-                display.clone()
+            let typed = if let Some(typed) = typed {
+                typed
+            } else if let Some(display) = &self.typed_display {
+                // 九宫格的拼音行同时是输入日志里的拼音，构造时照词库写法（`lv`），到这里才换成显示写法
+                display
+                    .split('\'')
+                    .map(umlaut_spelling)
+                    .collect::<Vec<_>>()
+                    .join("'")
             } else {
-                join_marked(&self.segmentations, &self.tail)
+                let spelled = self.segmentations.get(self.spelled..).unwrap_or_default();
+                match &self.typed_case {
+                    Some(typed) => join_marked_typed(typed, spelled, &self.tail),
+                    None => join_spelled(spelled, &self.tail),
+                }
             };
             if !typed.is_empty() {
                 segments.push(MarkedSegment::new(typed, MarkedKind::Typed));
@@ -160,6 +333,11 @@ impl Query {
 
     /// 光标在 [`Self::marked_segments`] 拼接文本里的字符下标（候选窗口顶部拼音行使用）。
     pub fn segments_cursor(&self) -> usize {
+        self.held.chars().count() + self.pinyin_cursor()
+    }
+
+    /// 光标在拼音部分（[`Self::pinyin_segments`]）里的字符下标。
+    fn pinyin_cursor(&self) -> usize {
         // 纠错生效、解码时显示串与敲的不一样长，作用域又总在光标前：光标就在敲的部分末尾
         // （光标在开头时作用域是整段，光标仍在开头）
         if self.decoded_keys && self.cursor == 0 {
@@ -202,9 +380,10 @@ impl Query {
     /// 光标在 [`Self::marked_text`] 里的字符下标（给平台层传给宿主应用输入框用的，所以按字符算，不是字节）。
     pub fn marked_cursor(&self) -> usize {
         if self.shuangpin_raw_preedit {
-            return self.text[..self.cursor.min(self.text.len())]
-                .chars()
-                .count();
+            return self.held.chars().count()
+                + self.text[..self.cursor.min(self.text.len())]
+                    .chars()
+                    .count();
         }
         self.segments_cursor()
     }

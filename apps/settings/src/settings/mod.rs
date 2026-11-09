@@ -2,13 +2,18 @@
 //! 结构体与构造在这里，各职责的 `impl` 在子模块。
 
 mod app;
+mod clipboard;
 mod config;
 mod fields;
 mod library;
 mod phrases;
 mod search;
 mod shortcuts;
+mod transfer;
 mod vocabulary;
+
+#[cfg(test)]
+mod tests;
 
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -16,11 +21,12 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use bamboo_slip::{FamilyId, SvgImage, TextEdit, Waker};
-use qingjian_platform::{Appearance, Config, ConfigError};
+use qingjian_platform::{Appearance, Config};
 use qingjian_render::{TextSizes, Theme, ThemeLibrary};
 
 use crate::jobs::cloud_test::CloudTest;
 use crate::jobs::import::ImportJob;
+use crate::jobs::model_download::ModelDownload;
 use crate::jobs::update_check::UpdateCheck;
 use crate::library::Library;
 use crate::message::{FieldId, Popup, SizeKind};
@@ -65,6 +71,9 @@ pub struct Settings {
     /// 点过一次、等再点一次确认的动作（清空输入日志）；点了别的就作废。
     pub armed: Option<Action>,
 
+    /// 配置文件读不了时的错误：这时界面按缺省值显示，每页顶上都提示，改好了重读成功就清掉。
+    pub config_error: Option<String>,
+
     /// 做完一件事的那句话和它显示在哪一行下面（[`Action::slot`]、`"cloud"`），点了别的就收掉。
     pub notice: Option<(&'static str, String)>,
 
@@ -82,6 +91,12 @@ pub struct Settings {
     pub library: Library,
 
     pub import: ImportJob,
+
+    /// 实验功能里正在下的模型。
+    pub download: ModelDownload,
+
+    /// 点过一次「删除」、等再点一次确认的模型；点了别的就作废。
+    pub remove_armed: Option<qingjian_platform::LocalModel>,
 
     /// 开着的短语编辑卡片。
     pub phrase: Option<PhraseEditor>,
@@ -128,22 +143,32 @@ impl Settings {
         self.ctrl_space = system_ctrl_space();
     }
 
-    pub fn load(path: PathBuf) -> Result<Self, ConfigError> {
+    pub fn load(path: PathBuf) -> Self {
         // macOS 偏好设置以前把密钥写在配置同目录的 .env 里，读进环境才知道密钥设没设、测试连接也用得上
         let _ = dotenvy::from_path(path.with_file_name(".env"));
-        let config = if path.exists() {
-            Config::load(&path)?
-        } else {
-            Config::default()
+        // 下线的取值（含章·知微）改写成现在的；只由设置程序做，输入法进程只读配置
+        match Config::rewrite_retired_values(&path) {
+            Ok(true) => tracing::info!("配置里已下线的取值改写成现在的"),
+            Ok(false) => {}
+            Err(error) => tracing::warn!(%error, "改写配置里已下线的取值失败，照旧读"),
+        }
+        // 配置写坏了也要能打开设置：按缺省值显示、每页顶上提示，不然用户连改回来的地方都没有
+        let (config, config_error) = match Config::load(&path) {
+            Ok(config) => (config, None),
+            Err(error) => {
+                tracing::warn!(%error, "配置文件有错误，设置按缺省值打开");
+                (Config::default(), Some(error.to_string()))
+            }
         };
         let themes = ThemeLibrary::load(paths::themes_dir().as_deref());
         let logo = SvgImage::parse(include_bytes!("../../assets/logo.svg"))
             .map(Arc::new)
             .inspect_err(|error| tracing::warn!(%error, "logo 解析失败"))
             .ok();
-        Ok(Self {
+        Self {
             path,
             config,
+            config_error,
             themes,
             page: PageId::Input,
             system_dark: false,
@@ -161,6 +186,8 @@ impl Settings {
             recording: None,
             library: Library::scan(),
             import: ImportJob::default(),
+            download: ModelDownload::default(),
+            remove_armed: None,
             phrase: None,
             stats: None,
             stats_cloud: false,
@@ -169,7 +196,7 @@ impl Settings {
             search: Search::default(),
             ctrl_space: system_ctrl_space(),
         }
-        .with_fields())
+        .with_fields()
     }
 
     /// 候选窗该用深色：按「外观」设置，跟随系统时看系统。
@@ -190,6 +217,16 @@ impl Settings {
                 general.candidate_font_size.0,
                 general.annotation_font_size.0,
             ))
+            .with_candidate_weight(general.candidate_font_weight())
+    }
+
+    /// 字重框里显示的数：设置里写了用它，没写用主题的。
+    pub fn weight(&self) -> u16 {
+        let general = &self.config.general;
+        general
+            .candidate_font_weight()
+            .or_else(|| self.theme(general.theme_id()).theme_weight("candidate"))
+            .unwrap_or(400)
     }
 
     /// 字号框里显示的数：设置里写了用它，没写用主题的。

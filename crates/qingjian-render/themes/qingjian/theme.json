@@ -10,6 +10,8 @@
     "cloud": { "light": "#00c3d0", "dark": "#00d2e0" },
     "surface": { "light": "#ffffff", "dark": "#1e1e1e" },
     "accent": { "light": "#94be527f", "dark": "#336f33" },
+    "key": { "light": "#0000000d", "dark": "#ffffff14" },
+    "dim": { "light": "#0000002e", "dark": "#ffffff2e" },
 
     "hl_text": { "light": "#000000d8", "dark": "#ffffffd8" },
     "hl_gloss": { "light": "#000000a6", "dark": "#ffffffb3" },
@@ -28,6 +30,17 @@
   },
 
   "components": {
+    "pager": {
+      "type": "frame", "when": "page", "gap": 3,
+      "children": [
+        { "type": "icon", "icon": "chevron-left", "size": 9, "height": 14, "action": "previous_page",
+          "color": { "if": "page.previous", "then": "@faint", "else": "@dim" } },
+        { "type": "text", "bind": "page", "font": "index", "color": "@faint" },
+        { "type": "icon", "icon": "chevron-right", "size": 9, "height": 14, "action": "next_page",
+          "color": { "if": "page.next", "then": "@faint", "else": "@dim" } }
+      ]
+    },
+
     "top_line": {
       "type": "frame", "when": "preedit|trailing", "padding": [4, 0, 4, 0], "gap": 16,
       "children": [
@@ -82,6 +95,39 @@
           "color": { "if": "highlighted", "then": "@hl_faint", "else": "@faint" } },
         { "type": "use", "component": "word", "margin": [4, 0, 0, 0] }
       ]
+    },
+
+    "strip_top": {
+      "type": "frame", "when": "preedit|trailing", "padding": [2, 12, 1, 12], "gap": 16,
+      "children": [
+        { "type": "preedit", "when": "preedit", "font": "annotation",
+          "typed": "@gloss", "rest": "@faint", "struck": "@faint",
+          "caret": { "width": 1.5, "color": "@text" } },
+        { "type": "text", "bind": "trailing.text", "when": "trailing", "font": "annotation", "color": "@gloss" }
+      ]
+    },
+
+    "strip_cell": {
+      "type": "frame", "direction": "column", "padding": [3, 12, 3, 12],
+      "children": [
+        { "type": "frame", "id": "highlight", "transition": { "duration": 100, "easing": "ease-out" },
+          "when": "highlighted", "position": "absolute", "inset": [0, 2, 0, 2], "fill": "@accent", "radius": 8 },
+        { "type": "frame", "align_self": "center", "children": [
+          { "type": "icon", "icon": "cloud", "when": "cloud", "size": 14, "height": 23,
+            "color": { "if": "highlighted", "then": "@hl_cloud", "else": "@cloud" }, "margin": [0, 4, 0, 0] },
+          { "type": "text", "bind": "text", "when": "cloud",
+            "font": { "base": "candidate", "size": 19, "line_height": 23 },
+            "color": { "if": "highlighted", "then": "@hl_cloud", "else": "@cloud" } },
+          { "type": "text", "bind": "text", "when": "!cloud",
+            "font": { "base": "candidate", "size": 19, "line_height": 23 },
+            "color": { "if": "highlighted", "then": "@hl_text", "else": "@text" } }
+        ] },
+        { "type": "annotation", "bind": "annotation", "when": "annotations", "align_self": "center",
+          "font": { "base": "annotation", "size": 11.5, "line_height": 14 },
+          "gloss": { "if": "highlighted", "then": "@hl_gloss", "else": "@gloss" },
+          "fresh": { "if": "highlighted", "then": "@hl_fresh", "else": "@fresh" },
+          "faint": { "if": "highlighted", "then": "@hl_faint", "else": "@faint" } }
+      ]
     }
   },
 
@@ -94,8 +140,7 @@
         { "type": "use", "component": "top_line" },
         { "type": "frame", "when": "candidates", "table": { "row_height": 27 }, "align_self": "stretch",
           "children": [{ "type": "repeat", "bind": "candidates", "component": "row" }] },
-        { "type": "text", "bind": "page", "font": "index", "color": "@faint",
-          "align_self": "end", "margin": [4, 0, 0, 0] }
+        { "type": "use", "component": "pager", "align_self": "end", "margin": [4, 0, 0, 0] }
       ]
     },
     "horizontal": {
@@ -107,12 +152,20 @@
           "children": [
             { "type": "repeat", "bind": "candidates", "component": "item" },
             { "type": "frame", "when": "page", "margin": [0, -5, 0, "auto"], "padding": [0, 0, 0, 5], "children": [
-              { "type": "text", "bind": "page", "font": "index", "color": "@faint", "margin": [8, 0, 0, 0] }
+              { "type": "use", "component": "pager", "margin": [8, 0, 0, 0] }
             ] }
           ] },
         { "type": "annotation", "bind": "highlighted.annotation", "when": "highlighted.annotation",
           "font": "annotation", "gloss": "@gloss", "fresh": "@fresh", "faint": "@faint",
           "margin": [2, -5, 0, 5], "padding": [0, 0, 2, 0] }
+      ]
+    },
+    "strip": {
+      "type": "frame", "direction": "column", "fill": "@surface", "padding": [0, 0, 4, 0],
+      "children": [
+        { "type": "use", "component": "strip_top" },
+        { "type": "frame", "when": "candidates", "padding": [0, 10, 0, 10],
+          "children": [{ "type": "repeat", "bind": "candidates", "component": "strip_cell" }] }
       ]
     }
   },
@@ -121,6 +174,33 @@
     "font": "candidate", "padding": 8, "radius": 8,
     "background": "@surface", "separator": "@faint", "separator_width": 1,
     "normal": "@gloss", "emphasized": "@cloud", "gear": "@gloss", "gear_size": 15,
+    "effects": [{ "type": "drop-shadow", "y": 6, "blur": 12, "color": "#0000005a" }]
+  },
+
+  "keyboard": {
+    "key_font": { "base": "candidate", "size": 13, "weight": "semibold" },
+    "label_font": { "base": "index", "size": 9.5, "line_height": 11 },
+    "root_font": { "base": "candidate", "size": 13 },
+    "key_width": 42, "key_height": 50, "root_key_width": 62, "root_key_height": 66, "gap": 4, "padding": 8, "radius": 10, "key_radius": 6,
+    "background": "@surface", "key_fill": "@key", "key_text": "@text",
+    "label": "@gloss", "initial": "@fresh",
+    "pressed_fill": "@fresh", "pressed_text": "@surface",
+    "next_fill": "@accent", "next_text": "@text",
+    "dimmed_text": "@dim",
+    "effects": [{ "type": "drop-shadow", "y": 6, "blur": 12, "color": "#0000005a" }]
+  },
+
+  "panel": {
+    "label_font": { "base": "candidate", "size": 13, "line_height": 16 },
+    "hint_font": { "base": "index", "size": 11, "line_height": 14, "weight": "regular" },
+    "item_font": { "base": "candidate", "size": 24, "line_height": 30 },
+    "wide_item_font": { "base": "candidate", "size": 17, "line_height": 22 },
+    "padding": 10, "radius": 10, "cell": 46, "cell_gap": 2, "cell_radius": 6,
+    "pill_padding_x": 9, "pill_padding_y": 3, "pill_gap": 4,
+    "tab_gap": 14, "underline": 2, "section_gap": 8, "close_size": 18,
+    "background": "@surface", "text": "@text", "label": "@gloss", "hint": "@faint",
+    "pill_fill": "@accent", "pill_text": "@hl_text", "underline_color": "@accent",
+    "divider": "@key", "highlight": "@accent", "close_fill": "@key", "close_icon": "@gloss",
     "effects": [{ "type": "drop-shadow", "y": 6, "blur": 12, "color": "#0000005a" }]
   }
 }

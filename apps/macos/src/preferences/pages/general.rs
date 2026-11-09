@@ -313,7 +313,10 @@ impl GeneralPage {
                     .unwrap_or(0),
             ),
         );
-        set_checked(&self.wubi, general.wubi());
+        set_checked(
+            &self.wubi,
+            general.code().as_deref() == Some(qingjian_platform::code_schemes::WUBI86),
+        );
         set_checked(&self.shuangpin_raw_preedit, general.shuangpin_raw_preedit);
         self.shuangpin_raw_preedit
             .setEnabled(general.scheme().is_shuangpin());

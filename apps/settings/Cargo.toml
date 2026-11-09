@@ -1,7 +1,7 @@
 [package]
 name = "qingjian-settings"
 description = "三平台共用的设置程序：画在 bamboo-slip 上，读写输入法同一份 config.toml"
-version = "0.2.1-dev"
+version = "0.3.4-dev"
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
@@ -9,6 +9,7 @@ publish = false
 
 [dependencies]
 bamboo-slip = { workspace = true, features = ["host"] }
+bamboo-slip-i18n.workspace = true
 qingjian-render.workspace = true
 qingjian-platform.workspace = true
 # 模式键的候选字母、辅码触发键的校验
@@ -29,6 +30,14 @@ qingjian-translate.workspace = true
 # 导入时的文件选择窗口（与 Windows 旧设置程序同一个）
 rfd = "0.17"
 dotenvy.workspace = true
+# 实验功能：下载模型（清单、分块核对、解压）
+reqwest = { workspace = true, features = ["native-tls", "system-proxy"] }
+tokio = { workspace = true, features = ["macros"] }
+serde.workspace = true
+serde_json.workspace = true
+sha2 = "0.11"
+flate2 = "1.1.10"
+tar = { version = "0.4", default-features = false }
 tracing-subscriber.workspace = true
 tracing-appender.workspace = true
 
@@ -36,6 +45,9 @@ tracing-appender.workspace = true
 toml.workspace = true
 
 # 只开一个窗口：第二次启动把已开的带到前台；系统的 Ctrl + Space
+[target."cfg(windows)".dev-dependencies]
+qingjian-clipboard.workspace = true
+
 [target."cfg(windows)".dependencies]
 windows = { version = "0.62.2", features = [
     "Win32_Foundation",

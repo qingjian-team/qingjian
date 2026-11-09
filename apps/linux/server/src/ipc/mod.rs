@@ -7,7 +7,7 @@ use std::os::unix::net::{UnixListener, UnixStream};
 mod connection;
 mod session;
 use connection::serve_connection;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::sync::mpsc::{self, SyncSender};
 use std::thread;
@@ -23,21 +23,6 @@ pub fn request_shutdown() {
     STOP.store(true, Ordering::Relaxed);
 }
 static NEXT_SESSION: AtomicU64 = AtomicU64::new(1);
-
-/// 取得 Linux socket 路径；没有运行时目录时使用按用户隔离的私有临时目录。
-pub fn socket_path() -> PathBuf {
-    std::env::var_os("QINGJIAN_SOCKET")
-        .map(PathBuf::from)
-        .unwrap_or_else(|| {
-            std::env::var_os("XDG_RUNTIME_DIR")
-                .filter(|p| !p.is_empty())
-                .map(PathBuf::from)
-                .unwrap_or_else(|| {
-                    PathBuf::from(format!("/tmp/qingjian-{}", unsafe { libc::geteuid() }))
-                })
-                .join("qingjian.sock")
-        })
-}
 
 /// 仅移除同用户、确认拒绝连接的陈旧 socket；拒绝符号链接和不安全的父目录。
 pub fn bind_socket(path: &Path) -> io::Result<UnixListener> {

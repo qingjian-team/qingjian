@@ -66,7 +66,7 @@ impl Metrics<'_> {
 
 impl Renderer {
     /// 画状态条，返回位图与各格右边界（供点击命中）。`mode` 给节点树画法的主题显示中 / 英等状态。
-    /// 设置里改了候选字号时整条按同一比例放大缩小。
+    /// 不跟设置里的候选字号走（字号调大了状态条会比候选窗还显眼），大小由调用方乘进 `scale`。
     /// 固定排法：每格宽 = 内容宽 + 两侧内边距，高 = 行高 + 内边距。
     pub fn render_status(
         &mut self,
@@ -75,8 +75,6 @@ impl Renderer {
         theme: &Theme,
         scale: f32,
     ) -> Result<RenderedStatus, RenderError> {
-        // 整条按候选字的比例缩放：去掉设置里的字号再整体乘倍数，图标、边距、点击边界跟文字一起变，与用哪个文字样式无关
-        let scale = scale * theme.candidate_scale();
         let theme = &theme.with_text_sizes(TextSizes::default());
         self.stage.text().use_families(theme.families());
         let spec = &theme.file().status;
@@ -208,8 +206,8 @@ fn status_cell(
     children.push(scene.node(content_style, content, &[])?);
     let style = Style {
         display: Display::Flex,
-        justify_content: Some(JustifyContent::CENTER),
-        align_items: Some(AlignItems::CENTER),
+        justify_content: JustifyContent::CENTER,
+        align_items: AlignItems::CENTER,
         size: Size {
             width: Dimension::length(width),
             height: Dimension::length(height),

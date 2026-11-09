@@ -1,0 +1,102 @@
+[meta]
+name = "Deutsch"
+
+[candidate_menu]
+edit_translation = "Übersetzung bearbeiten …"
+regenerate_translation = "Übersetzung vom Modell neu erzeugen"
+pin = "Oben anheften"
+unpin = "Nicht mehr anheften"
+demote = "Nach unten verschieben"
+undemote = "Verschieben rückgängig machen"
+delete = "Löschen"
+promote = "Höher gewichten"
+needs_window = "Diese Aktion muss das Fenster der Eingabemethode ausführen"
+cant_pin = "„{text}“ kann hier nicht angeheftet werden"
+unchanged = "An „{text}“ gibt es nichts zu ändern"
+no_config = "Es gibt keine Konfigurationsdatei, daher kann das Anheften nicht gespeichert werden"
+not_saved = "Nicht gespeichert: {error}"
+pinned = "„{text}“ ist angeheftet und steht bei der Eingabe von {code} an erster Stelle"
+unpinned = "„{text}“ ist nicht mehr angeheftet"
+demoted = "„{text}“ ist um eine Stelle nach unten gerückt"
+undemoted = "„{text}“ steht wieder an seiner Stelle"
+
+[appearance]
+system = "Wie System"
+light = "Hell"
+dark = "Dunkel"
+
+[renderer]
+qingjian = "Qingjian-Renderer"
+system = "Systemzeichnung"
+
+[key_hint]
+off = "Aus"
+auto = "Wenn du hängst"
+always = "Immer"
+
+[layout]
+vertical = "Vertikal"
+horizontal = "Horizontal"
+
+[log_level]
+info = "Kurz (info)"
+debug = "Ausführlich (debug)"
+
+[model]
+tongbian = "Hanzhang Tongbian"
+zhiyi = "Zhiyi"
+
+[zhiyi_tier]
+saver = "Energiesparend"
+balanced = "Ausgewogen"
+accurate = "Genau"
+
+[numpad_digit]
+select = "Kandidaten wählen"
+direct = "Ziffer eingeben"
+
+[preedit]
+both = "Im Text + Kandidatenfenster"
+inline = "Nur im Text"
+window = "Nur im Fenster"
+
+[shift_letter]
+passthrough = "An die App weitergeben"
+compose = "Eingabe beginnen"
+
+[channel]
+stable = "Stabil"
+beta = "Beta"
+
+[scheme]
+pinyin = "Volles Pinyin"
+custom = "Eigenes Shuangpin"
+zhuyin = "Zhuyin (Dachen)"
+off = "Aus (nur Formcode)"
+
+[switch_key]
+shift = "Shift antippen"
+control = "Strg antippen"
+none = "Keine"
+separator = ", "
+
+[emoji_count]
+off = "Ausgeblendet"
+at_most = "Bis zu {n}"
+
+[commit_key]
+space = "Leertaste"
+enter = "Eingabe"
+
+[phrase_file]
+empty = "Die Datei enthält keine eigenen Phrasen"
+is_config = "Das ist eine Konfigurationsdatei, keine Phrasendatei; Einstellungen werden auf der Seite Erweitert importiert, Phrasen bitte zuerst auf dem anderen Computer exportieren"
+no_tab = "Text und Code müssen durch einen Tab getrennt sein"
+skipped_entry = "Eintrag {entry}: {reason}"
+skipped_line = "Zeile {line} („{text}“): {reason}"
+unreadable = "Diese Datei ist nicht lesbar: Sie ist weder eine von Qingjian exportierte Phrasendatei noch Text mit einem Eintrag „Text<Tab>Code“ pro Zeile"
+
+[settings_file]
+invalid = "Die Einstellungen in dieser Datei sind fehlerhaft: {error}"
+merge_failed = "Die zusammengeführten Einstellungen sind nicht lesbar: {error}"
+unreadable = "Diese Datei ist nicht lesbar: {error}"

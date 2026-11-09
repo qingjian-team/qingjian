@@ -1,9 +1,12 @@
 //! 输入状态机：拼音缓冲区与光标。
 //!
-//! 只维护「用户已经敲了什么、光标在哪」，不理解拼音，也不知道候选。
+//! 只维护「用户已经敲了什么、光标在哪」与这段组句是否在单字模式，不理解拼音，也不知道候选。
 //! 缓冲区只含 ASCII 小写字母和 `'`（表达式模式下还有数字与运算符，见 `shortcut`；微软 / 搜狗双拼下还有 `;`），所以字节下标即字符下标。
 //! 中文模式下 Shift+字母按**小写**进缓冲区参与匹配（`Cpan` 与 `cpan` 一样出 C盘），
 //! 敲的是大写记在 `shifted` 里，原样上屏时用 [`Composition::typed_text`] 还原。
+
+/// 手动分音节的分隔符。缓冲区只认它一种分隔符（双拼的 `;` 在解码阶段就消化掉了）。
+const SEPARATOR: char = '\'';
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct Composition {
@@ -15,6 +18,9 @@ pub struct Composition {
 
     /// 光标位置（字节下标，`0..=buffer.len()`），插入和退格都相对它。
     cursor: usize,
+
+    /// 单字模式（#848）：候选只留单字。只管这一段组句，缓冲区空了就回到正常候选。
+    single_chars: bool,
 }
 
 impl Composition {
@@ -28,6 +34,26 @@ impl Composition {
 
     pub fn cursor(&self) -> usize {
         self.cursor
+    }
+
+    pub fn single_chars(&self) -> bool {
+        self.single_chars
+    }
+
+    /// 切换单字模式；缓冲区空着时不进，返回 `false`。
+    pub fn toggle_single_chars(&mut self) -> bool {
+        if self.buffer.is_empty() {
+            return false;
+        }
+        self.single_chars = !self.single_chars;
+        true
+    }
+
+    /// 缓冲区删空或上屏完，这段组句就结束了：单字模式不带到下一段。
+    fn end_if_empty(&mut self) {
+        if self.buffer.is_empty() {
+            self.single_chars = false;
+        }
     }
 
     /// 参与候选生成的那段拼音：光标停在中间时只算光标前的（`ni|hao` → `ni`），
@@ -51,11 +77,25 @@ impl Composition {
     }
 
     /// 在光标处插入一个字符，大小写原样保留。
+    ///
+    /// 分隔符 `'` 连着按只记一次：缓冲区里 `''` 与开头的 `'` 都不参与切分，
+    /// 拼音行会把它们折起来显示成一个，而退格是按字符删的——不在这里吞掉，
+    /// 就成了「只看到一次、要删好几次」。
     pub fn push(&mut self, c: char) {
+        if c == SEPARATOR && self.beside_separator() {
+            return;
+        }
         let index = self.char_index(self.cursor);
         self.buffer.insert(self.cursor, c);
         self.shifted.insert(index, false);
         self.cursor += c.len_utf8();
+    }
+
+    /// 光标紧挨着分隔符：在开头，或前一个 / 后一个字符已经是 `'`。
+    fn beside_separator(&self) -> bool {
+        self.cursor == 0
+            || self.buffer[..self.cursor].ends_with(SEPARATOR)
+            || self.buffer[self.cursor..].starts_with(SEPARATOR)
     }
 
     /// 中文模式下按住 Shift 敲的字母：按小写进缓冲区参与匹配，原样上屏时还原大写。
@@ -109,6 +149,7 @@ impl Composition {
         self.cursor -= 1;
         self.buffer.remove(self.cursor);
         self.shifted.remove(index);
+        self.end_if_empty();
         true
     }
 
@@ -120,6 +161,7 @@ impl Composition {
         let index = self.char_index(self.cursor);
         self.buffer.remove(self.cursor);
         self.shifted.remove(index);
+        self.end_if_empty();
         true
     }
 
@@ -152,7 +194,17 @@ impl Composition {
         self.buffer.drain(self.cursor - len..self.cursor);
         self.shifted.drain(from..to);
         self.cursor -= len;
+        self.end_if_empty();
         true
+    }
+
+    /// 光标放到第 `byte` 个字节处（超出就放到末尾，不在字符边界上就往前退到边界）。
+    pub fn move_to(&mut self, byte: usize) {
+        let mut byte = byte.min(self.buffer.len());
+        while !self.buffer.is_char_boundary(byte) {
+            byte -= 1;
+        }
+        self.cursor = byte;
     }
 
     pub fn move_home(&mut self) {
@@ -167,6 +219,7 @@ impl Composition {
         self.buffer.clear();
         self.shifted.clear();
         self.cursor = 0;
+        self.single_chars = false;
     }
 
     /// 删掉开头 `len` 个字节（上屏消耗掉的拼音），光标随之前移；
@@ -181,6 +234,26 @@ impl Composition {
         } else {
             self.buffer.len()
         };
+        self.end_if_empty();
+    }
+
+    /// 开头 `len` 字节那段，光标在它末尾。
+    pub fn prefix(&self, len: usize) -> Composition {
+        let len = len.min(self.buffer.len());
+        let chars = self.char_index(len);
+        Composition {
+            buffer: self.buffer[..len].to_owned(),
+            shifted: self.shifted[..chars].to_vec(),
+            cursor: len,
+            single_chars: false,
+        }
+    }
+
+    /// 把 `prefix` 接回开头（撤回一次选词），光标跟着后移。
+    pub fn prepend(&mut self, prefix: &Composition) {
+        self.buffer.insert_str(0, &prefix.buffer);
+        self.shifted.splice(0..0, prefix.shifted.iter().copied());
+        self.cursor += prefix.buffer.len();
     }
 
     /// 吃掉整个作用域（云端词 / 英文词 / 整句对应的是整个作用域）。
@@ -200,6 +273,36 @@ mod tests {
             composition.push(c);
         }
         composition
+    }
+
+    #[test]
+    fn repeated_separator_is_swallowed() {
+        let mut composition = Composition::default();
+        for c in "de''bu'''g".chars() {
+            composition.push(c);
+        }
+        // 连按只记一次，退格也只需要一次
+        assert_eq!(composition.text(), "de'bu'g");
+        assert!(composition.backspace());
+        assert_eq!(composition.text(), "de'bu'");
+        assert!(composition.backspace());
+        assert_eq!(composition.text(), "de'bu");
+    }
+
+    #[test]
+    fn separator_at_start_or_around_cursor_is_swallowed() {
+        let mut composition = Composition::default();
+        composition.push('\'');
+        assert!(composition.is_empty());
+        composition.push('n');
+        composition.push('i');
+        // 光标在 `ni` 末尾：再按一次分隔符才记账
+        composition.push('\'');
+        assert_eq!(composition.text(), "ni'");
+        // 光标挪到开头再按分隔符也不记
+        composition.move_home();
+        composition.push('\'');
+        assert_eq!(composition.text(), "ni'");
     }
 
     #[test]
@@ -299,6 +402,21 @@ mod tests {
         composition.drain_scope();
         assert_eq!(composition.text(), "hao");
         assert_eq!(composition.cursor(), 3);
+    }
+
+    #[test]
+    fn prefix_and_prepend_round_trip() {
+        let mut composition = typed("yu");
+        composition.push_shifted('k');
+        for c in "uaide".chars() {
+            composition.push(c);
+        }
+        let before = composition.clone();
+        let prefix = composition.prefix(6);
+        composition.drain_prefix(6);
+        assert_eq!(prefix.typed_text(), "yuKuai");
+        composition.prepend(&prefix);
+        assert_eq!(composition, before);
     }
 
     #[test]

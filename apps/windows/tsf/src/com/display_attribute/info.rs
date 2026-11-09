@@ -1,5 +1,6 @@
 //! 青简唯一的显示属性描述（组句「输入中」的点虚线下划线）；用户不可改样式。
 
+use windows::Win32::Foundation::E_POINTER;
 use windows::Win32::UI::TextServices::{
     ITfDisplayAttributeInfo, ITfDisplayAttributeInfo_Impl, TF_DISPLAYATTRIBUTE,
 };
@@ -21,7 +22,10 @@ impl ITfDisplayAttributeInfo_Impl for AttributeInfo_Impl {
     }
 
     fn GetAttributeInfo(&self, pda: *mut TF_DISPLAYATTRIBUTE) -> Result<()> {
-        unsafe { *pda = input_attribute() };
+        if pda.is_null() || !pda.is_aligned() {
+            return Err(E_POINTER.into());
+        }
+        unsafe { pda.write(input_attribute()) };
         Ok(())
     }
 

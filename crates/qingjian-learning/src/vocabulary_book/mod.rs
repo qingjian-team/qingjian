@@ -10,7 +10,8 @@ mod tracker;
 
 pub use entry::VocabularyEntry;
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, HashSet};
+use std::hash::{BuildHasher, BuildHasherDefault, DefaultHasher};
 use std::path::PathBuf;
 use std::time::SystemTime;
 
@@ -21,10 +22,8 @@ use qingjian_translate::LevelTable;
 
 use crate::encounter_log::{self, ENCOUNTER_LOG_FILE, LoggedEncounter};
 use crate::error::LearningError;
+use crate::usage_stats::figures::recent_start;
 use file::Key;
-
-/// 「最近」算几天（含今天）。
-const RECENT_DAYS: i64 = 7;
 
 /// 文件坏了按行跳过，读不了就只在内存里记（记一次警告），输入不受影响。
 #[derive(Debug, Default)]
@@ -41,7 +40,8 @@ pub struct VocabularyBook {
     /// 上次读或写完时文件的样子（修改时间、长度）与里面有哪些词；文件变了说明对方写过。
     synced: Option<(SystemTime, u64)>,
 
-    synced_keys: BTreeSet<Key>,
+    /// 那时文件里各词的指纹（[`fingerprint`]）：只用来认出对方删了哪些词，不必再存一份词。
+    synced_keys: HashSet<u64>,
 
     /// 各语言的等级表，汇总时按级数词；没有的语言不分级。
     levels: Vec<(Language, LevelTable)>,
@@ -62,7 +62,7 @@ impl VocabularyBook {
                 let entries = text.as_deref().map(file::parse).unwrap_or_default();
                 Self {
                     synced: file::stamp(&path),
-                    synced_keys: entries.keys().cloned().collect(),
+                    synced_keys: entries.keys().map(fingerprint).collect(),
                     entries,
                     dirty: false,
                     path: Some(path),
@@ -237,30 +237,30 @@ impl VocabularyBook {
                 return;
             }
         };
-        for gone in self
-            .synced_keys
-            .difference(&external.keys().cloned().collect())
-        {
-            self.entries.remove(gone);
-        }
+        let in_file: HashSet<u64> = external.keys().map(fingerprint).collect();
+        // 上次同步时文件里有、这次没有的：对方删了
+        self.entries.retain(|key, _| {
+            let print = fingerprint(key);
+            !self.synced_keys.contains(&print) || in_file.contains(&print)
+        });
         for (key, theirs) in &external {
             match self.entries.get_mut(key) {
                 Some(ours) => ours.known = theirs.known,
-                None if !self.synced_keys.contains(key) => {
+                None if !self.synced_keys.contains(&fingerprint(key)) => {
                     self.entries.insert(key.clone(), theirs.clone());
                 }
                 None => {}
             }
         }
         self.synced = stamp;
-        self.synced_keys = external.into_keys().collect();
+        self.synced_keys = in_file;
         // 合并后的内容与文件不同就得写回
         self.dirty = true;
     }
 
     /// 以 `today` 为准的汇总（`summary` 以本机今天为准）。
     pub fn summary_on(&self, language: Language, today: Date) -> VocabularySummary {
-        let recent_from = today.saturating_sub(jiff::Span::new().days(RECENT_DAYS - 1));
+        let recent_from = recent_start(today);
         let table = self
             .levels
             .iter()
@@ -314,9 +314,14 @@ impl VocabularyBook {
         write_atomic_str(&path, &file::render(&self.entries))?;
         self.dirty = false;
         self.synced = file::stamp(&path);
-        self.synced_keys = self.entries.keys().cloned().collect();
+        self.synced_keys = self.entries.keys().map(fingerprint).collect();
         Ok(())
     }
+}
+
+/// 词的指纹：进程内固定的哈希，碰撞概率可以忽略。
+fn fingerprint(key: &Key) -> u64 {
+    BuildHasherDefault::<DefaultHasher>::default().hash_one(key)
 }
 
 fn key(language: Language, word: &str) -> Key {

@@ -147,6 +147,49 @@ fn paragraph_wraps_to_the_column_width() {
     assert!(height > line.height * 3.0, "{height}");
 }
 
+/// 多行输入框按框宽折行，设了最多几行时不再往下长。
+#[test]
+fn multiline_field_wraps_to_its_width() {
+    let interaction = Interaction::<Message>::new();
+    let mut text = TextPainter::new(FontLibrary::system("en").unwrap());
+    let theme = WidgetTheme::new(WidgetColors::LIGHT, 1.0);
+    let mut ui = Ui::new(&interaction);
+    let edit = TextEdit::multiline("word ".repeat(40));
+    let grown = TextField::new(&edit)
+        .width(160.0)
+        .rows(1)
+        .build(&mut ui, &theme, "grown", |_| Message::Toggle, None, None)
+        .unwrap();
+    let capped = TextField::new(&edit)
+        .width(160.0)
+        .rows(1)
+        .max_rows(3)
+        .build(&mut ui, &theme, "capped", |_| Message::Toggle, None, None)
+        .unwrap();
+    let root = ui
+        .scene()
+        .node(
+            Style {
+                flex_direction: FlexDirection::Column,
+                align_items: taffy::AlignItems::FLEX_START,
+                ..Style::default()
+            },
+            Visual::Group,
+            &[grown, capped],
+        )
+        .unwrap();
+    let (mut scene, _) = ui.finish();
+    layout(&mut scene, root, &mut text);
+    let line = theme
+        .text(theme.font.size - 1.0, 400, theme.colors.text)
+        .line_height;
+    let (_, _, width, grown) = scene.rect_in(grown, root).unwrap();
+    let (_, _, _, capped) = scene.rect_in(capped, root).unwrap();
+    assert!(width <= 160.5, "{width}");
+    assert!(grown > line * 6.0, "{grown}");
+    assert!(capped < line * 4.0, "{capped}");
+}
+
 #[derive(Debug, Clone, PartialEq)]
 enum Field {
     Edit(Edit),
@@ -184,6 +227,98 @@ fn field_frame(interaction: &mut Interaction<Field>, text: &mut TextPainter, edi
     let (mut scene, elements) = ui.finish();
     layout(&mut scene, root, text);
     interaction.attach(&scene, root, elements).unwrap();
+}
+
+/// 在输入框里按下的位置：(x 占元素宽度的比例, 元素)。
+fn press_at(interaction: &mut Interaction<Field>, key: Key, fraction: f32) -> Vec<Field> {
+    let (x, y, width, height) = interaction.rect(key).unwrap();
+    interaction.handle(&Event::PointerMoved {
+        x: x + width * fraction,
+        y: y + height / 2.0,
+    });
+    let messages = interaction.handle(&Event::PointerDown).messages;
+    interaction.handle(&Event::PointerUp);
+    messages
+}
+
+/// 点字的左半边光标落在它前面、右半边落在后面；点在文字后面的空白落到末尾。没拿焦点时点也一样。
+#[test]
+fn clicking_text_moves_the_caret() {
+    let mut interaction = Interaction::new();
+    let mut text = TextPainter::new(FontLibrary::system("zh-CN").unwrap());
+    let edit = TextEdit::new("你好 hello");
+    field_frame(&mut interaction, &mut text, &edit);
+    let field = Key::ROOT.child("field");
+    // 「好 」是一个单位（字节 3..7）：左边一点落在 3，右边落在 7
+    assert_eq!(
+        press_at(&mut interaction, field.child(("at", 3_usize)), 0.1),
+        vec![Field::Edit(Edit::Caret(3))]
+    );
+    assert_eq!(
+        press_at(&mut interaction, field.child(("at", 3_usize)), 0.95),
+        vec![Field::Edit(Edit::Caret(7))]
+    );
+    // 「hello」按字符数均分：中间偏右落在 hel|lo
+    assert_eq!(
+        press_at(&mut interaction, field.child(("at", 7_usize)), 0.55),
+        vec![Field::Edit(Edit::Caret(10))]
+    );
+    assert_eq!(
+        press_at(&mut interaction, field.child("view"), 0.99),
+        vec![Field::Edit(Edit::Caret(12))]
+    );
+    let mut edit = edit;
+    edit.apply(&Edit::Caret(4));
+    assert_eq!((edit.caret(), edit.selection()), (3, 3..3));
+}
+
+/// 秘密输入框聚焦时关输入法，普通输入框开着。
+#[test]
+fn secret_field_disallows_ime() {
+    let mut interaction = Interaction::new();
+    let mut text = TextPainter::new(FontLibrary::system("en").unwrap());
+    let edit = TextEdit::new("");
+    let theme = WidgetTheme::new(WidgetColors::LIGHT, 1.0);
+    let mut ui = Ui::new(&interaction);
+    let plain = TextField::new(&edit)
+        .build(&mut ui, &theme, "plain", Field::Edit, None, None)
+        .unwrap();
+    let secret = TextField::new(&edit)
+        .secret(true)
+        .build(&mut ui, &theme, "secret", Field::Edit, None, None)
+        .unwrap();
+    let root = ui
+        .scene()
+        .node(
+            Style {
+                flex_direction: FlexDirection::Row,
+                ..Style::default()
+            },
+            Visual::Group,
+            &[plain, secret],
+        )
+        .unwrap();
+    let (mut scene, elements) = ui.finish();
+    layout(&mut scene, root, &mut text);
+    interaction.attach(&scene, root, elements).unwrap();
+
+    let (x, y, width, height) = interaction.rect(Key::ROOT.child("plain")).unwrap();
+    interaction.handle(&Event::PointerMoved {
+        x: x + width / 2.0,
+        y: y + height / 2.0,
+    });
+    interaction.handle(&Event::PointerDown);
+    interaction.handle(&Event::PointerUp);
+    assert!(interaction.ime_allowed(), "普通输入框开着输入法");
+
+    let (x, y, width, height) = interaction.rect(Key::ROOT.child("secret")).unwrap();
+    interaction.handle(&Event::PointerMoved {
+        x: x + width / 2.0,
+        y: y + height / 2.0,
+    });
+    interaction.handle(&Event::PointerDown);
+    interaction.handle(&Event::PointerUp);
+    assert!(!interaction.ime_allowed(), "秘密输入框聚焦时宿主关输入法");
 }
 
 #[test]
@@ -346,4 +481,173 @@ fn info_marks_with_a_link_send_it_when_clicked() {
         [Message::Toggle]
     );
     assert!(click(&mut interaction, Key::ROOT.child(("info", "没链接"))).is_empty());
+}
+
+#[test]
+fn a_long_select_value_stays_inside_its_box() {
+    let mut text = TextPainter::new(FontLibrary::system("en").unwrap());
+    let theme = WidgetTheme::new(WidgetColors::LIGHT, 1.0);
+    let interaction = Interaction::<Message>::new();
+    let mut ui = Ui::new(&interaction);
+    let long = "一个名字特别特别特别长的方案".repeat(3);
+    let select = Select::new(&long)
+        .width(160.0)
+        .max_width(240.0)
+        .build(&mut ui, &theme, "select", Message::Toggle)
+        .unwrap();
+    let short = Select::new("关")
+        .width(160.0)
+        .max_width(240.0)
+        .build(&mut ui, &theme, "short", Message::Toggle)
+        .unwrap();
+    let root = ui
+        .scene()
+        .node(
+            Style {
+                flex_direction: FlexDirection::Column,
+                align_items: taffy::AlignItems::FLEX_START,
+                ..Style::default()
+            },
+            Visual::Group,
+            &[select, short],
+        )
+        .unwrap();
+    let (mut scene, _) = ui.finish();
+    layout(&mut scene, root, &mut text);
+    let (_, _, width, _) = scene.rect_in(select, root).unwrap();
+    assert!((width - 240.0).abs() < 0.5, "{width}");
+    let (_, _, width, _) = scene.rect_in(short, root).unwrap();
+    assert!((width - 160.0).abs() < 0.5, "{width}");
+}
+
+#[test]
+fn fitting_text_cuts_it_and_adds_an_ellipsis() {
+    let mut text = TextPainter::new(FontLibrary::system("en").unwrap());
+    let theme = WidgetTheme::new(WidgetColors::LIGHT, 1.0);
+    let style = theme.text(13.0, 400, theme.colors.text);
+    let whole = "五笔测试（不自动上屏）";
+    let width = text.measure(whole, &style).width;
+    assert_eq!(text.fit(whole, &style, width), whole);
+    let fitted = text.fit(whole, &style, width / 2.0);
+    assert!(
+        fitted.ends_with('…') && fitted.len() < whole.len(),
+        "{fitted}"
+    );
+    assert!(text.measure(&fitted, &style).width <= width / 2.0 + 0.5);
+    assert_eq!(text.fit(whole, &style, 1.0), "…");
+}
+
+#[test]
+fn menu_ignores_clicks_on_disabled_items() {
+    let mut text = TextPainter::new(FontLibrary::system("en").unwrap());
+    let mut interaction = Interaction::new();
+    let theme = WidgetTheme::new(WidgetColors::LIGHT, 1.0);
+    let mut ui = Ui::new(&interaction);
+    let menu = Menu::new(
+        &["one", "two", "three"],
+        Some(0),
+        (0.0, 0.0, 100.0, 20.0),
+        (400.0, 400.0),
+    )
+    .disabled(&[1])
+    .build(&mut ui, &theme, "menu", Message::Pick, Message::Up)
+    .unwrap();
+    let root = ui
+        .scene()
+        .node(
+            Style {
+                size: taffy::Size {
+                    width: taffy::Dimension::length(400.0),
+                    height: taffy::Dimension::length(400.0),
+                },
+                ..Style::default()
+            },
+            Visual::Group,
+            &[menu],
+        )
+        .unwrap();
+    let (mut scene, elements) = ui.finish();
+    layout(&mut scene, root, &mut text);
+    interaction.attach(&scene, root, elements).unwrap();
+    let item = |index: usize| Key::ROOT.child("menu").child(index);
+    assert!(click(&mut interaction, item(1)).is_empty());
+    assert_eq!(click(&mut interaction, item(2)), vec![Message::Pick(2)]);
+}
+
+/// 200 见方的视口里 800 高的内容。
+fn scroller(interaction: &mut Interaction<Message>, text: &mut TextPainter) {
+    use taffy::{Dimension, Size};
+
+    let theme = WidgetTheme::new(WidgetColors::LIGHT, 1.0);
+    let mut ui = Ui::new(interaction);
+    let content = ui
+        .scene()
+        .node(
+            Style {
+                size: Size {
+                    width: Dimension::length(180.0),
+                    height: Dimension::length(800.0),
+                },
+                flex_shrink: 0.0,
+                ..Style::default()
+            },
+            Visual::Group,
+            &[],
+        )
+        .unwrap();
+    let root = crate::ScrollArea::new(Style {
+        size: Size {
+            width: Dimension::length(200.0),
+            height: Dimension::length(200.0),
+        },
+        ..Style::default()
+    })
+    .build(&mut ui, &theme, "list", content)
+    .unwrap();
+    let (mut scene, elements) = ui.finish();
+    scene.layout(root, text).unwrap();
+    interaction.attach(&scene, root, elements).unwrap();
+}
+
+#[test]
+fn scrollbar_drags_and_jumps() {
+    let mut interaction = Interaction::new();
+    let mut text = TextPainter::new(FontLibrary::system("zh-CN").unwrap());
+    let list = Key::ROOT.child("list");
+    // 第二帧才知道内容多高，才有滚动条
+    scroller(&mut interaction, &mut text);
+    scroller(&mut interaction, &mut text);
+    let offset = |interaction: &Interaction<Message>| interaction.scroll_offset(list).1;
+    let near = |actual: f32, expected: f32| {
+        assert!((actual - expected).abs() < 0.5, "{actual} ≠ {expected}");
+    };
+    // 滑块长 48.5、能走 145.5，内容能滚 600。按在滑块上不跳
+    interaction.handle(&Event::PointerMoved { x: 195.0, y: 13.0 });
+    interaction.handle(&Event::PointerDown);
+    near(offset(&interaction), 0.0);
+    let moved = interaction.handle(&Event::PointerMoved { x: 195.0, y: 85.75 });
+    assert!(moved.changed);
+    near(offset(&interaction), 300.0);
+    // 拖到元素外面也跟着，超出的夹到头
+    interaction.handle(&Event::PointerMoved {
+        x: -500.0,
+        y: 900.0,
+    });
+    near(offset(&interaction), 600.0);
+    interaction.handle(&Event::PointerUp);
+    // 抬起之后指针怎么动都不滚
+    interaction.handle(&Event::PointerMoved { x: 100.0, y: 10.0 });
+    near(offset(&interaction), 600.0);
+    // 点轨道：滑块中间跳到指针处
+    scroller(&mut interaction, &mut text);
+    interaction.handle(&Event::PointerMoved { x: 195.0, y: 80.0 });
+    interaction.handle(&Event::PointerDown);
+    near(offset(&interaction), (80.0 - 24.25 - 3.0) / 145.5 * 600.0);
+    interaction.handle(&Event::PointerUp);
+    // 视口其余地方按下不算
+    let before = offset(&interaction);
+    interaction.handle(&Event::PointerMoved { x: 100.0, y: 150.0 });
+    interaction.handle(&Event::PointerDown);
+    interaction.handle(&Event::PointerMoved { x: 100.0, y: 50.0 });
+    near(offset(&interaction), before);
 }

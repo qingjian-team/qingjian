@@ -1,0 +1,19 @@
+[Unit]
+# 青简的 Server：引擎在这里，两个前端（fcitx5 插件与 IBus 前端）都连它。
+# @EXEC@ 由 install.sh 按安装路径填好。
+Description=青简输入法 Server
+Documentation=https://qingjian.app
+After=graphical-session.target
+# 登录界面（gdm 这类系统账户）的会话里不起：发行包 --global enable 对所有用户生效，greeter 用不着输入法引擎，
+# 起了只是白白加载词库与模型
+ConditionUser=!@system
+
+[Service]
+Type=simple
+ExecStart=@EXEC@
+# 崩了自己起来：输入法停了用户就打不出字，而 Server 的状态（组句）本来就是一次性的
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=default.target

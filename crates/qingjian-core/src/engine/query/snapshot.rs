@@ -1,3 +1,5 @@
+use crate::engine::input_log::ChoiceNote;
+
 /// 上一次查询留给输入日志的摘要：上屏时才知道选了什么，查询时才知道看到了什么，两头在这里接上。
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct QuerySnapshot {
@@ -15,6 +17,9 @@ pub struct QuerySnapshot {
 
     /// 候选顺序经过了神经重排。
     pub rescored: bool,
+
+    /// 选词模型排过这页。
+    pub choice: Option<ChoiceNote>,
 }
 
 impl QuerySnapshot {

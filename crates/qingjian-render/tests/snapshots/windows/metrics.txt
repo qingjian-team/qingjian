@@ -41,4 +41,3 @@ large-text-nihao-vertical-light  bitmap 795x987  content 60,60 675x867
 large-text-cloud-horizontal-light  bitmap 864x314  content 60,60 744x194
 large-candidate-nihao-vertical-light  bitmap 737x1234  content 60,60 617x1114
 large-annotation-nihao-vertical-light  bitmap 910x830  content 60,60 790x710
-large-text-status-light  bitmap 646x261  content 90,90 466x81  edges [228.70313, 372.70313, 466.0]

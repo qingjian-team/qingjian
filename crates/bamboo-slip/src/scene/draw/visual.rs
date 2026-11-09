@@ -21,7 +21,20 @@ pub(in crate::scene) fn draw_visual(
         } => {
             // 量出来的宽就是最长那行，原样再折一次可能因舍入多折一行，放宽半个像素
             let wrap = style.wrap.then_some(width + 0.5);
-            text.draw_within(canvas, content, style, (x, y), wrap);
+            let content = if style.truncate && !style.wrap {
+                text.fit(content, style, width)
+            } else {
+                content.as_str().into()
+            };
+            text.draw_within(canvas, &content, style, (x, y), wrap);
+        }
+        Visual::RichText {
+            text: content,
+            style,
+            spans,
+        } => {
+            let wrap = style.wrap.then_some(width + 0.5);
+            text.draw_colored(canvas, content, style, (x, y), wrap, spans);
         }
         Visual::Icon { icon, size, color } => {
             let top = y + (height - size) / 2.0;

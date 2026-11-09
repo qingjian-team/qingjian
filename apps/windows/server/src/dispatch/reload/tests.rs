@@ -5,7 +5,7 @@ use std::time::{Duration, Instant, SystemTime};
 
 use qingjian_core::Engine;
 use qingjian_dictionary::{Dictionary, import};
-use qingjian_platform::Config;
+use qingjian_platform::{Config, NumpadDigit};
 
 use super::CONFIG_POLL_INTERVAL;
 use crate::dispatch::{DataDirs, Router, RouterConfig};
@@ -22,6 +22,35 @@ fn modified_at(path: &Path, seconds: u64) {
         .unwrap()
         .set_modified(SystemTime::UNIX_EPOCH + Duration::from_secs(seconds))
         .unwrap();
+}
+
+#[test]
+fn numpad_setting_reloads_and_invalid_value_preserves_previous_config() {
+    let dir = std::env::temp_dir().join(format!("qingjian-numpad-reload-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("config.toml");
+    std::fs::write(&path, "").unwrap();
+    modified_at(&path, 100);
+    let config = Config::load(&path).unwrap();
+    let mut router = Router::new(
+        Engine::new(Dictionary::default()),
+        RouterConfig::from(&config),
+    );
+    router.watch_config(&config, path.clone(), dir.clone(), DataDirs::default());
+    Config::set_value(&path, "general", "numpad_digit", "direct").unwrap();
+    modified_at(&path, 200);
+    poll(&mut router);
+    assert_eq!(router.config.numpad_digit, NumpadDigit::Direct);
+    Config::set_value(&path, "general", "numpad_digit", "invalid").unwrap();
+    modified_at(&path, 300);
+    poll(&mut router);
+    assert_eq!(router.config.numpad_digit, NumpadDigit::Direct);
+    Config::set_value(&path, "general", "numpad_digit", "select").unwrap();
+    modified_at(&path, 400);
+    poll(&mut router);
+    assert_eq!(router.config.numpad_digit, NumpadDigit::Select);
+    drop(router);
+    std::fs::remove_dir_all(&dir).unwrap();
 }
 
 #[test]

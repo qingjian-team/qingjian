@@ -6,18 +6,19 @@ mod input;
 mod numbers;
 
 pub use cloud::CloudStats;
-pub use input::{InputStats, clean_rate, first_choice_rate, keys_per_hanzi};
-pub use numbers::{group_digits, hanzi_text, scale_line, tokens_text};
+pub use input::InputStats;
+pub use numbers::{compact, group_digits, hanzi_text, scale_line, tokens_text};
 
 use std::path::PathBuf;
 
-use jiff::civil::Date;
-use qingjian_core::{Language, Usage, VocabularySummary};
+use qingjian_core::{Language, VocabularySummary};
+use qingjian_learning::figures::last_24;
 use qingjian_learning::{UsageStats, VocabularyBook};
 use qingjian_platform::GeneralConfig;
 use qingjian_predict::{API_USAGE_FILE, ApiUsageHours, ApiUsageStats};
 use qingjian_translate::LevelTable;
 
+use crate::i18n::tr;
 use crate::system::paths;
 
 pub struct Stats {
@@ -77,59 +78,15 @@ impl Stats {
     }
 }
 
-/// `from` 到 `to`（含两头）这几天加起来。
-fn sum_days<T: Copy + Default + std::ops::AddAssign>(
-    days: &std::collections::BTreeMap<Date, T>,
-    from: Date,
-    to: Date,
-) -> T {
-    let mut total = T::default();
-    for value in days.range(from..=to).map(|(_, value)| *value) {
-        total += value;
-    }
-    total
-}
-
-/// 过去 24 小时：从昨天这个钟点的下一个小时排到现在这个钟点（最后一格）。
-pub fn last_24<T: Copy>(yesterday: [T; 24], today: [T; 24], hour: u8) -> [T; 24] {
-    std::array::from_fn(|index| {
-        let back = 23 - index;
-        let hour = usize::from(hour);
-        if back <= hour {
-            today[hour - back]
-        } else {
-            yesterday[hour + 24 - back]
-        }
-    })
-}
-
-/// 这一周的星期日（一周从周日算，同代码托管网站的提交日历）。
-pub fn week_start(date: Date) -> Date {
-    let back = i64::from(date.weekday().to_sunday_zero_offset());
-    date.saturating_sub(jiff::Span::new().days(back))
-}
-
-/// 这个月的 1 号。
-fn first_of_month(date: Date) -> Date {
-    date.first_of_month()
-}
-
-/// 速度（字 / 分钟）：记了时长的那些上屏打出的汉字除以打字时长，老记录与原样上屏只有字数、不在里面。
-/// 打字不到 `min_ms` 不算，免得几个字就出个离谱的数。
-fn speed(usage: &Usage, min_ms: u64) -> Option<f64> {
-    (usage.typing_ms >= min_ms)
-        .then(|| usage.typed_hanzi as f64 * 60_000.0 / usage.typing_ms as f64)
-}
-
 pub fn language_name(language: Language) -> &'static str {
-    match language {
-        Language::Chinese => "中文",
-        Language::English => "英语",
-        Language::Japanese => "日语",
-        Language::Spanish => "西班牙语",
-        Language::Vietnamese => "越南语",
-        Language::German => "德语",
-    }
+    tr(match language {
+        Language::Chinese => "languages.zh",
+        Language::English => "languages.en",
+        Language::Japanese => "languages.ja",
+        Language::Spanish => "languages.es",
+        Language::Vietnamese => "languages.vi",
+        Language::German => "languages.de",
+    })
 }
 
 /// 词汇等级表：macOS 在 `Qingjian.app/Contents/Resources/`，其他平台在随包根的 `assets/levels/`。
@@ -143,22 +100,4 @@ fn level_table(language: Language) -> Option<PathBuf> {
         return found;
     }
     crate::system::paths::bundled(&format!("assets/levels/{name}"))
-}
-
-#[cfg(test)]
-mod tests {
-    use super::last_24;
-
-    #[test]
-    fn last_24_hours_end_at_the_current_one() {
-        let yesterday: [u32; 24] = std::array::from_fn(|hour| 100 + hour as u32);
-        let today: [u32; 24] = std::array::from_fn(|hour| hour as u32);
-        let hours = last_24(yesterday, today, 2);
-        // 昨天 3 点到 23 点，接着今天 0 点到 2 点
-        assert_eq!(hours[0], 103);
-        assert_eq!(hours[20], 123);
-        assert_eq!(hours[21], 0);
-        assert_eq!(hours[23], 2);
-        assert_eq!(last_24(yesterday, today, 23), today);
-    }
 }

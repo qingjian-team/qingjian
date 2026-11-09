@@ -1,4 +1,9 @@
-use super::*;
+use crate::engine::{
+    ENGLISH_SWITCH_PENALTY, ENGLISH_ZIPF_FLOOR, Learner, MIN_COMPLETION_LETTERS,
+    MIN_ENGLISH_TAIL_HEAD_LETTERS, MIN_ENGLISH_TAIL_LETTERS, MIN_PINYIN_LIKE_TAIL_LETTERS,
+};
+use crate::sentence::Conversion;
+use crate::{Candidate, CandidateKind, Engine, Segmentation, correction, parser};
 
 /// 「拼音头 + 英文尾」的切法：`woxiangxuehaorust` 切成头 `woxiangxuehao` 与尾 rust。
 /// 见 [`Engine::split_english_tail`]。
@@ -39,8 +44,12 @@ impl Engine {
     /// 整段本身是英文词（`agent`）、拼音不像话时纠错能纠通（`shiide` → 是的）或有英文补全（`releas` → release）的也不切，
     /// 那几条路本来就排第一。
     /// 切出来只说明「可以这么读」，与拼音读法谁排前面看 `competes` 与比分。
+    ///
+    /// 关掉「打拼音时也给英文词」（`english_in_chinese = false`）时整条路都停：英文词不再作为句尾参与分词，
+    /// `nanine` 回到 `na ni ne` 的拼音读法，`kaifarust` 不再出 开发rust（#766）。
     pub(crate) fn split_english_tail(&self, scope: &str) -> Option<EnglishTail> {
-        if self.shuangpin.is_some()
+        if !self.english_in_chinese
+            || self.shuangpin.is_some()
             || scope.len() < MIN_ENGLISH_TAIL_HEAD_LETTERS + MIN_ENGLISH_TAIL_LETTERS
             || !scope.bytes().all(|b| b.is_ascii_lowercase())
         {
@@ -120,9 +129,11 @@ impl Engine {
     /// `woxiangxuexirust` 上实测头段拿 +6.9、整段拿 +21.2，个人模型越肥差距越大——
     /// 用户打得越多混输越打不出来。这是「哪种输入方式」的判断，本来也该由静态模型定，不归个人频次管。
     pub(super) fn mixed_beats_plain(&self, scope: &str, tail: &EnglishTail) -> bool {
+        // 按整句同一个规则挑切分：切分器打平时贪心取的那种（`zhengcenanti` 的 zheng cen an ti）会让拼音读法白白输掉
         let convert = |text: &str, whole: bool| {
             let segmentations = parser::segment(text).ok()?;
-            self.convert_sentence_with(&segmentations.first()?.patterns(), true, whole)
+            let best = self.sentence_segmentation(&segmentations, true)?;
+            self.convert_sentence_with(&best.patterns(), true, whole)
         };
         let (Some(head), Some(plain)) = (
             convert(&scope[..tail.head_len], false),

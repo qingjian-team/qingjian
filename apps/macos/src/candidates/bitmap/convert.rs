@@ -12,9 +12,12 @@ pub(super) fn frame(frame: &Frame) -> qingjian_render::Frame {
         columns: frame.columns,
         column_ems: frame.column_ems.clone(),
         footer: frame.footer.clone(),
+        previous_page: frame.pages_around.0,
+        next_page: frame.pages_around.1,
         sentence: frame.sentence.clone(),
         status: frame.status.clone(),
         mode: frame.mode.clone(),
+        reversed: false,
     }
 }
 
@@ -40,7 +43,7 @@ fn row(row: &Row) -> qingjian_render::Row {
     qingjian_render::Row {
         index: row.index.clone(),
         text: row.text.clone(),
-        code: None,
+        code: row.code.clone(),
         annotation: row
             .annotation
             .iter()

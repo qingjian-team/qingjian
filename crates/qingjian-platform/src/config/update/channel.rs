@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use crate::i18n::tr;
+
 /// 更新渠道。
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -27,8 +29,8 @@ impl UpdateChannel {
     /// 界面上的名字。
     pub fn label(self) -> &'static str {
         match self {
-            Self::Stable => "正式版",
-            Self::Beta => "测试版",
+            Self::Stable => tr("channel.stable"),
+            Self::Beta => tr("channel.beta"),
         }
     }
 

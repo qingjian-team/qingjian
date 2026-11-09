@@ -1,0 +1,31 @@
+[meta]
+name = "Español"
+
+[languages]
+en = "Inglés"
+ja = "Japonés"
+es = "Español"
+vi = "Vietnamita"
+de = "Alemán"
+off = "Ocultar"
+
+[traditional]
+off = "Simplificado"
+taiwan = "Tradicional (Taiwán)"
+hongkong = "Tradicional (Hong Kong)"
+standard = "Tradicional (formas estándar)"
+taiwan_short = "Taiwán"
+hongkong_short = "Hong Kong"
+standard_short = "Estándar"
+
+[phrases]
+position = "La posición del candidato debe estar entre 1 y 9"
+weight = "El peso debe ser un número entero entre {min} y {max}"
+code = "El código debe tener entre 1 y {max} letras minúsculas, sin números (las teclas numéricas eligen candidatos)"
+empty = "La frase personalizada no puede estar vacía"
+duplicate = "El código {code} ya tiene esta frase"
+
+[forget]
+user_word = "Se eliminó la palabra de usuario «{text}»"
+learning = "Se olvidó lo aprendido sobre «{text}»"
+nothing = "«{text}» es una palabra del diccionario sin registros de aprendizaje; no hay nada que eliminar"

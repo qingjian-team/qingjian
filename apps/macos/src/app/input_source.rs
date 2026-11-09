@@ -5,7 +5,9 @@ use std::ffi::c_void;
 use std::path::Path;
 use std::ptr::NonNull;
 
-use objc2_core_foundation::{CFArray, CFBoolean, CFDictionary, CFRetained, CFString, CFURL};
+use objc2_core_foundation::{
+    CFArray, CFBoolean, CFDictionary, CFRetained, CFString, CFType, CFURL,
+};
 use objc2_foundation::{NSArray, NSBundle, NSDictionary, NSString};
 
 /// TIS 的输入源句柄（不透明）。
@@ -37,6 +39,9 @@ unsafe extern "C" {
         source: *const TISInputSource,
         key: NonNull<CFString>,
     ) -> *const c_void;
+
+    /// 当前键盘输入源；返回值归调用方释放。
+    fn TISCopyCurrentKeyboardInputSource() -> *mut TISInputSource;
 
     /// 属性键：输入源 ID（`Info.plist` 的 `TISInputSourceID`）。
     static kTISPropertyInputSourceID: NonNull<CFString>;
@@ -173,6 +178,22 @@ pub const FINISH_NOT_ENABLED: i32 = 1;
 
 /// 子进程退出码：已启用但切换失败。
 pub const FINISH_ENABLED_ONLY: i32 = 2;
+
+/// 系统当前的键盘输入源 ID（`com.apple.keylayout.ABC`、`app.qingjian.inputmethod.Hans`）；取不到时 `None`。只给日志用。
+pub fn current_id() -> Option<String> {
+    // SAFETY: Copy 规则，返回的输入源由这里释放；属性值归输入源所有，只读。
+    unsafe {
+        let source = NonNull::new(TISCopyCurrentKeyboardInputSource())?;
+        let source: CFRetained<CFType> = CFRetained::from_raw(source.cast());
+        TISGetInputSourceProperty(
+            CFRetained::as_ptr(&source).as_ptr().cast(),
+            kTISPropertyInputSourceID,
+        )
+        .cast::<CFString>()
+        .as_ref()
+        .map(ToString::to_string)
+    }
+}
 
 /// 回读输入源的启用状态。
 fn is_enabled(source: *const TISInputSource) -> bool {

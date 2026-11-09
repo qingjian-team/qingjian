@@ -96,8 +96,8 @@ impl PhraseTableSource {
             check.setTag(row);
             view.addSubview(&check);
         } else {
-            let value = if identifier == "position" {
-                phrase.position.to_string()
+            let value = if identifier == "weight" {
+                phrase.weight.to_string()
             } else {
                 preview(phrase)
             };
@@ -109,7 +109,7 @@ impl PhraseTableSource {
             text.setFont(Some(&NSFont::systemFontOfSize(13.0)));
             text.setUsesSingleLineMode(true);
             text.setLineBreakMode(NSLineBreakMode::ByTruncatingTail);
-            if identifier == "position" {
+            if identifier == "weight" {
                 text.setAlignment(NSTextAlignment::Center);
             }
             if !phrase.enabled {

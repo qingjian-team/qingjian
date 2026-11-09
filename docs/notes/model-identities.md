@@ -4,8 +4,8 @@
 
 | 模型 | 英文名 | 标识 | 用途 | 当前检查点 |
 | --- | --- | --- | --- | --- |
-| 含章·通变 | Hanzhang Tongbian — neural pinyin decoding and correction | `hanzhang-tongbian` | 拼音到汉字解码、纠错、整句候选重排与词图未覆盖时的生成 | `small-15000` |
-| 含章·知微 | Hanzhang Zhiwei — context-aware candidate rescoring | `hanzhang-zhiwei` | 依据光标前文给整句候选重排；没有通变时作为回退 | `small-155478` |
+| 含章·通变 | Hanzhang Tongbian — neural pinyin decoding and correction | `hanzhang-tongbian` | 拼音到汉字解码：直接生成整句（干净拼音 ≥ 6 个音节时为首选，更短、没打完、纠正过的排在词图后面）与词图未覆盖时的生成 | `small-15000` |
+| 含章·知微 | Hanzhang Zhiwei — context-aware candidate rescoring | `hanzhang-zhiwei` | 依据光标前文给整句候选重排。**2026-10-27 下线**：同是看前文排序，知意强得多（开发集首选 75.0 对 58.0），产品不再加载 | `small-155478` |
 
 `tools/release/pack-model.sh` 把正式名称写进 `.qjm` 的 `name` 元数据，`version` 暂记型号 `hanzhang-tongbian-small` / `hanzhang-zhiwei-small`，不附检查点编号。文件名与型号相同，分别放在 `models/hanzhang-tongbian/` 与 `models/hanzhang-zhiwei/`；检查点仍记录在上表和原始配置中，数据 Release 用独立的 `data-vN` 标签和 SHA-256 锁定具体字节。
 

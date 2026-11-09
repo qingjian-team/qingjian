@@ -1,8 +1,9 @@
-//! 「云服务」页：云联想（开关、云端词格数、整句补全、整句候选翻译、生词本整句翻译），服务（接口地址、模型、密钥、测试连接）。
+//! 「云服务」页：云联想（开关、云端词格数、整句补全、生词本整句翻译），服务（接口地址、模型、密钥、测试连接）。
 
 use bamboo_slip::taffy::NodeId;
 use bamboo_slip::{Button, RenderError, SettingRow, Stepper, TextField, Ui, group, section_title};
 
+use crate::i18n::{tr, tr_args};
 use crate::message::{FieldId, Message};
 use crate::support::Feature;
 use crate::view::Page;
@@ -23,9 +24,9 @@ pub fn cloud(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderErr
 
     let slots = predict.slots.min(MAX_SLOTS);
     let label = if slots == 0 {
-        "不要".to_owned()
+        tr("cloud.slots_none").to_owned()
     } else {
-        format!("{slots} 格")
+        tr_args("cloud.slots", &[("n", &slots)])
     };
     let stepper = Stepper::new(&label)
         .limits(slots > 0, slots < MAX_SLOTS)
@@ -40,8 +41,8 @@ pub fn cloud(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderErr
     let mut rows = vec![toggle_info(
         ui,
         page,
-        "启用",
-        Some("打字时把光标附近几十个字发给下面的服务，让模型补全整句、联想下文；密码框里不发"),
+        tr("cloud.enabled"),
+        Some(tr("cloud.enabled_info")),
         ("predict", "enabled"),
         predict.enabled,
         false,
@@ -51,8 +52,8 @@ pub fn cloud(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderErr
             toggle_info(
                 ui,
                 page,
-                "自动联想",
-                Some("停键后自动请求；关掉后在组句中按配置的快捷键手动联想，默认 Ctrl + Alt + J"),
+                tr("cloud.auto"),
+                Some(tr("cloud.auto_info")),
                 ("predict", "automatic"),
                 predict.automatic,
                 off,
@@ -68,32 +69,21 @@ pub fn cloud(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderErr
         ]);
     }
     rows.extend([
-        SettingRow::new("云端词")
+        SettingRow::new(tr("cloud.cloud_words"))
             .info(if Feature::CloudRequestControls.here() {
-                "自动结果补在第一页末尾，空格选本地首项；手动联想的结果放到前面的空位"
+                tr("cloud.cloud_words_info")
             } else {
-                "云端的词到了补进第一页末尾这几格，前面的本地候选不动"
+                tr("cloud.cloud_words_info_slots")
             })
             .control(stepper)
             .build(ui, theme)?,
         toggle_info(
             ui,
             page,
-            "整句补全",
-            Some("拼音后面给出整句，按 Tab 采用"),
+            tr("cloud.sentence"),
+            Some(tr("cloud.sentence_info")),
             ("predict", "sentence"),
             predict.sentence,
-            off,
-        )?,
-        toggle_info(
-            ui,
-            page,
-            "整句候选翻译",
-            Some(
-                "本地整句候选出来后，单独把这条候选发给服务，译文随后显示在它右侧；不发光标前后的文字",
-            ),
-            ("predict", "sentence_translation"),
-            predict.sentence_translation,
             off,
         )?,
     ]);
@@ -101,14 +91,14 @@ pub fn cloud(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderErr
         rows.push(toggle_info(
             ui,
             page,
-            "生词本整句翻译",
-            Some("打完一句话后单独把这句发给服务，译文记进生词本的时间线；不发光标前后的文字"),
+            tr("cloud.vocabulary_translation"),
+            Some(tr("cloud.vocabulary_translation_info")),
             ("predict", "vocabulary_translation"),
             predict.vocabulary_translation,
             off,
         )?);
     }
-    out.push(section_title(ui, theme, "云联想")?);
+    out.push(section_title(ui, theme, tr("cloud.section_prediction"))?);
     out.push(group(ui, theme, &rows)?);
 
     let key_set = predict.resolve_api_key().is_some();
@@ -117,43 +107,50 @@ pub fn cloud(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderErr
             ui,
             page,
             FieldId::BaseUrl,
-            "接口地址",
+            tr("cloud.base_url"),
             None,
             "https://api.deepseek.com",
         )?,
-        field(ui, page, FieldId::Model, "模型", None, "deepseek-v4-flash")?,
+        field(
+            ui,
+            page,
+            FieldId::Model,
+            tr("cloud.model"),
+            None,
+            "deepseek-v4-flash",
+        )?,
         field(
             ui,
             page,
             FieldId::ApiKey,
-            "API 密钥",
-            Some("只存在这台电脑的配置文件里，打包日志时会抹掉"),
+            tr("cloud.api_key"),
+            Some(tr("cloud.api_key_info")),
             if key_set {
-                "已设置，输入新的可替换"
+                tr("cloud.api_key_set")
             } else {
-                "未设置"
+                tr("cloud.api_key_unset")
             },
         )?,
         {
             let running = page.settings.cloud_test.running();
             let button = Button::new(if running {
-                "测试中…"
+                tr("cloud.testing")
             } else {
-                "测试连接"
+                tr("cloud.test")
             })
             .disabled(running)
             .build(ui, theme, "test-cloud", Message::TestCloud)?;
             with_notice(
                 ui,
                 page,
-                SettingRow::new("连接")
-                    .info("用上面填的地址、模型、密钥发一条最短的请求")
+                SettingRow::new(tr("cloud.connection"))
+                    .info(tr("cloud.connection_info"))
                     .control(button),
                 "cloud",
             )?
         },
     ];
-    out.push(section_title(ui, theme, "服务")?);
+    out.push(section_title(ui, theme, tr("cloud.section_service"))?);
     out.push(group(ui, theme, &rows)?);
     Ok(out)
 }
@@ -168,22 +165,22 @@ fn timing(
 ) -> Result<NodeId, RenderError> {
     let (title, info, minimum, maximum, step) = match key {
         "debounce_ms" => (
-            "停键等待",
-            "停止敲键多久后发出自动请求；继续输入会重新计时",
+            tr("cloud.debounce"),
+            tr("cloud.debounce_info"),
             100,
             10000,
             100,
         ),
         "min_interval_ms" => (
-            "最短请求间隔",
-            "两次请求起始至少相隔多久，手动请求也计入；缓存复用不联网",
+            tr("cloud.min_interval"),
+            tr("cloud.min_interval_info"),
             1000,
             60000,
             1000,
         ),
         _ => unreachable!("unknown prediction timing"),
     };
-    let label = format!("{value} 毫秒");
+    let label = tr_args("cloud.milliseconds", &[("n", &value)]);
     let control = Stepper::new(&label)
         .limits(value > minimum, value < maximum)
         .disabled(disabled)

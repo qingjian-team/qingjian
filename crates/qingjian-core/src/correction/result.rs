@@ -55,7 +55,7 @@ impl Correction {
     /// preedit 的分段：纠正后的切分拼音（`'` 连接），被改掉的原字母以 [`MarkedKind::Corrected`] 插在它原来的位置。
     /// `nihooma` → `ni'h` + ~~o~~ + `ao'ma`。
     pub fn marked_segments(&self) -> Vec<MarkedSegment> {
-        let display = self.segmentation.joined("'");
+        let display = self.segmentation.spelled();
         let Some((at, struck)) = self.edit.struck() else {
             return vec![MarkedSegment::new(display, MarkedKind::Typed)];
         };

@@ -34,6 +34,16 @@ pub enum ConvertError {
         unmatched: usize,
     },
 
+    /// 缺省并入的输入文件不在。
+    #[error("missing input {path}: {hint}")]
+    MissingInput {
+        /// 缺的文件。
+        path: PathBuf,
+
+        /// 怎么补上或排除它。
+        hint: &'static str,
+    },
+
     /// 文件不是预期格式。
     #[error("{path}:{line}: {reason}")]
     Format {

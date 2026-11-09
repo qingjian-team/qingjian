@@ -7,6 +7,7 @@ use qingjian_predict::{
     API_USAGE_FILE, ConnectionReport, ConnectionTest, PredictConfig, PredictError,
 };
 
+use crate::i18n::{tr, tr_args};
 use crate::support::Feature;
 
 type Outcome = Result<ConnectionReport, PredictError>;
@@ -51,28 +52,26 @@ impl CloudTest {
         let outcome = self.result.lock().ok()?.take()?;
         self.running = false;
         Some(match outcome {
-            Ok(report) => format!(
-                "连接正常：{} 在 {} ms 内回复",
-                report.model,
-                report.elapsed.as_millis()
+            Ok(report) => tr_args(
+                "cloud_test.ok",
+                &[
+                    ("model", &report.model),
+                    ("ms", &report.elapsed.as_millis()),
+                ],
             ),
-            Err(error) => format!("连接失败：{}", describe(&error)),
+            Err(error) => tr_args("cloud_test.failed", &[("error", &describe(&error))]),
         })
     }
 }
 
 fn describe(error: &PredictError) -> String {
     match error {
-        PredictError::MissingApiKey(_) => "还没有填 API 密钥".to_owned(),
-        PredictError::Timeout(ms) => {
-            format!("{ms} ms 内没有回复，检查网络或代理：输入法不读终端里的代理变量")
-        }
-        PredictError::EmptyReply => "接口通了但没有返回正文，检查模型名".to_owned(),
-        PredictError::BudgetExhausted => {
-            "接口通了但正文是空的：模型开着思考，把输出额度用光了".to_owned()
-        }
-        PredictError::Encode(error) => format!("请求编码失败：{error}"),
-        PredictError::Runtime(error) => format!("起不了后台线程：{error}"),
-        PredictError::Api(error) => format!("请求失败：{error}"),
+        PredictError::MissingApiKey(_) => tr("cloud_test.no_key").to_owned(),
+        PredictError::Timeout(ms) => tr_args("cloud_test.timeout", &[("ms", ms)]),
+        PredictError::EmptyReply => tr("cloud_test.empty").to_owned(),
+        PredictError::BudgetExhausted => tr("cloud_test.budget").to_owned(),
+        PredictError::Encode(error) => tr_args("cloud_test.encode", &[("error", error)]),
+        PredictError::Runtime(error) => tr_args("cloud_test.runtime", &[("error", error)]),
+        PredictError::Api(error) => tr_args("cloud_test.api", &[("error", error)]),
     }
 }

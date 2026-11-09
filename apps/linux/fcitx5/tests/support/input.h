@@ -3,6 +3,7 @@
 #include <fcitx/inputcontext.h>
 #include <fcitx/inputpanel.h>
 #include <functional>
+#include <utility>
 class Input final : public fcitx::InputContext {
 public:
     explicit Input(fcitx::InputContextManager &manager) : InputContext(manager, "real-test") { created(); setCapabilityFlags(fcitx::CapabilityFlag::Preedit); }
@@ -18,10 +19,11 @@ public:
 protected:
     void commitStringImpl(const std::string &text) override {
         committed += text;
-        auto callback = std::move(commitHook);
+        // 回调只触发一次。不用 std::move：libc++ 不保证移走后的 std::function 变空
+        auto callback = std::exchange(commitHook, nullptr);
         if (callback) callback();
     }
     void deleteSurroundingTextImpl(int, unsigned int) override {}
     void forwardKeyImpl(const fcitx::ForwardKeyEvent &) override {}
-    void updatePreeditImpl() override { auto callback = std::move(preeditHook); if (callback) callback(); }
+    void updatePreeditImpl() override { auto callback = std::exchange(preeditHook, nullptr); if (callback) callback(); }
 };

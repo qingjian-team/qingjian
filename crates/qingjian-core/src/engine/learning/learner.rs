@@ -65,7 +65,7 @@ pub trait Learner: Send {
     /// `times` 是这次记几份：用户自己点选的词记双份（[`EXPLICIT_TRANSITION_WEIGHT`]），整句路径里顺带的记一份，
     /// 否则一次误按空格上屏的整句要用户改选两次才能翻回来。
     ///
-    /// [`EXPLICIT_TRANSITION_WEIGHT`]: super::EXPLICIT_TRANSITION_WEIGHT
+    /// [`EXPLICIT_TRANSITION_WEIGHT`]: crate::engine::EXPLICIT_TRANSITION_WEIGHT
     fn record_transition(&mut self, _context: Context<'_>, _word: &str, _times: u32) {}
 
     /// 个人 n-gram，整句转换与词级排序用它与静态模型插值；没有就返回 `None`。
@@ -94,6 +94,19 @@ pub trait Learner: Send {
     /// 用户要求删掉一个个人英文词。返回是否真有这个词。
     fn forget_english(&mut self, _word: &str) -> bool {
         false
+    }
+
+    /// 用户在候选菜单里把输入串 `input` 下的 `text` 降权一次：以后这个输入串下它每降一次往后挪一格。
+    fn demote(&mut self, _input: &str, _text: &str) {}
+
+    /// 取消 `input` 下 `text` 的降权。返回原来有没有降过。
+    fn undemote(&mut self, _input: &str, _text: &str) -> bool {
+        false
+    }
+
+    /// `input` 下 `text` 降了几次，没降过返回 0。
+    fn demotion(&self, _input: &str, _text: &str) -> u32 {
+        0
     }
 
     /// 把学习数据落盘。壳在退出或停用输入法时调用；内存实现留空即可。

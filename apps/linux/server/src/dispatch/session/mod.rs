@@ -30,7 +30,7 @@ impl Router {
             previous.navigated = self.navigated;
             previous.display_frame = None;
             previous.last_frame = None;
-            previous.shift_pending = false;
+            previous.switch_tap = None;
         }
         let Some(next) = self.sessions.get_mut(&session) else {
             return;

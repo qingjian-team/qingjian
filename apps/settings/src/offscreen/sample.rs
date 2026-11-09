@@ -4,9 +4,10 @@ use std::collections::BTreeMap;
 
 use jiff::civil::Date;
 use qingjian_core::Usage;
+use qingjian_learning::figures::last_24;
 use qingjian_predict::{ApiUsageHour, ApiUsageStats};
 
-use crate::stats::{CloudStats, InputStats, last_24};
+use crate::stats::{CloudStats, InputStats};
 
 /// 今天是 `today`、现在 `hour` 点时的样例。
 pub fn stats(today: Date, hour: u8) -> (InputStats, CloudStats) {

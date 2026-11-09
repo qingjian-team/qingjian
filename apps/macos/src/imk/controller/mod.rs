@@ -6,9 +6,10 @@
 use objc2::rc::{Allocated, Retained};
 use objc2::runtime::{AnyObject, Sel};
 use objc2::{define_class, msg_send, sel};
-use objc2_app_kit::{NSEvent, NSEventModifierFlags, NSEventType, NSMenu};
-use objc2_foundation::{NSObjectProtocol, NSString};
+use objc2_app_kit::{NSEvent, NSEventMask, NSEventModifierFlags, NSEventType, NSMenu};
+use objc2_foundation::{NSObjectProtocol, NSString, NSUInteger};
 use objc2_input_method_kit::{IMKInputController, IMKServer};
+use qingjian_core::candidate::arrows::Focus;
 use qingjian_core::{Candidate, QUESTION_PREFIX};
 use qingjian_platform::Modifiers;
 
@@ -17,15 +18,23 @@ use crate::candidates::Preedit;
 use crate::host;
 use crate::menubar;
 
+mod candidate_editor;
 mod click;
 mod command;
 mod commit;
 mod display;
+mod enter_translation;
+mod navigation;
 mod panel;
 mod text;
+mod trace;
 mod translate;
+mod vietnamese;
 
-pub use click::{click, panel_mouse};
+pub use click::{
+    click, commit_pending_after_switch, menu_items, menu_pick, panel_mouse,
+    panel_translation_changed,
+};
 
 define_class!(
     // SAFETY:
@@ -60,9 +69,16 @@ define_class!(
         fn handle_event(&self, event: Option<&NSEvent>, client: Option<&AnyObject>) -> bool {
             match (event, client) {
                 (Some(event), Some(client)) => {
+                    self.note_event_controller();
                     let client = TextClient::new(client);
                     // panic 拦下后把缓冲区原样上屏，这个按键交还给应用
-                    catch_panic("handleEvent", || self.dispatch_event(event, client))
+                    catch_panic("handleEvent", || {
+                        if event.r#type() == NSEventType::KeyDown {
+                            self.dispatch_traced(event, client)
+                        } else {
+                            self.dispatch_event(event, client)
+                        }
+                    })
                         .unwrap_or_else(|| {
                             recover_from_panic(Some(client));
                             false
@@ -72,14 +88,23 @@ define_class!(
             }
         }
 
+        /// 声明要收的事件种类。父类缺省只回 `NSKeyDownMask`（Apple 文档原文），所以修饰键事件一直收不到，
+        /// Shift 的按下 / 抬起只能靠轮询采样（见 `host/mode/switch.rs`）；补上 flagsChanged 才有精确边沿。
+        #[unsafe(method(recognizedEvents:))]
+        fn recognized_events(&self, _sender: Option<&AnyObject>) -> NSUInteger {
+            (NSEventMask::KeyDown.0 | NSEventMask::FlagsChanged.0) as NSUInteger
+        }
+
         /// 应用要求立刻结束本次输入（切换焦点、切换输入法等）。
         #[unsafe(method(commitComposition:))]
         fn commit_composition(&self, client: Option<&AnyObject>) {
             let client = client.map(TextClient::new);
             let done = catch_panic("commitComposition", || {
                 if let Some(client) = client {
+                    self.commit_vietnamese(client);
                     self.commit_raw(client);
                 }
+                self.end_trace("commit-request", true);
                 host::with(|h| {
                     h.cancel_prediction();
                     h.window.hide();
@@ -104,16 +129,20 @@ define_class!(
                     let _: () =
                         unsafe { msg_send![sender, overrideKeyboardWithKeyboardNamed: &*layout] };
                 }
-                // 用户要往 [apps] 里加应用时，从这条日志抄 bundle identifier
+                // 用户要往 [apps] 里加应用时，从这条日志抄 bundle identifier；排查应用兼容问题也靠它，所以缺省级别就记
                 let bundle = sender.and_then(|s| TextClient::new(s).bundle_identifier());
                 if let Some(bundle) = &bundle {
-                    tracing::debug!(%bundle, "当前应用");
+                    tracing::info!(%bundle, "当前应用");
                 }
                 host::with(|h| {
                     h.engine.set_application(bundle);
+                    h.engine.enter_input_box();
                     h.refresh_text_replacements();
                     h.reload_config_if_changed();
-                    h.indicator.activate();
+                    h.mode_switch.reset();
+                    let english = h.english_mode();
+                    let vietnamese = h.vietnamese_mode();
+                    h.indicator.activate(english, vietnamese);
                     h.watch.start();
                 });
             });
@@ -142,19 +171,29 @@ define_class!(
 
         #[unsafe(method(deactivateServer:))]
         fn deactivate_server(&self, sender: Option<&AnyObject>) {
-            tracing::info!("deactivateServer");
-            self.clear_active();
             let client = sender.map(TextClient::new);
+            // 被莫名切回 ABC 时靠这一行查：切到了谁、在哪个应用里、是不是密码框
+            tracing::info!(
+                app = client.and_then(|c| c.bundle_identifier()).as_deref().unwrap_or("-"),
+                next_source = crate::app::input_source::current_id().as_deref().unwrap_or("-"),
+                secure_input = crate::imk::secure_input::enabled(),
+                "deactivateServer"
+            );
+            self.clear_active();
             let done = catch_panic("deactivateServer", || {
                 if let Some(client) = client {
+                    self.commit_vietnamese(client);
                     self.commit_raw(client);
                 }
+                self.end_trace("focus-out", true);
                 // 切换输入源时无论如何都收掉候选框，不能留一个孤儿窗口在屏幕上
                 host::with(|h| {
                     h.cancel_prediction();
                     h.window.hide();
                     h.indicator.deactivate();
                     h.watch.stop();
+                    h.mode_switch.reset();
+                    h.forget_osd_state();
                     h.engine.break_chain();
                     h.engine.flush_learning();
                     h.last_flush = std::time::Instant::now();
@@ -166,6 +205,8 @@ define_class!(
                 host::with(|h| {
                     h.indicator.deactivate();
                     h.watch.stop();
+                    h.mode_switch.reset();
+                    h.forget_osd_state();
                     h.engine.flush_learning();
                 });
             }
@@ -178,8 +219,8 @@ define_class!(
 /// 翻译选中文字最多接受多少个字符：再长既慢又贵，也不是输入法该干的事。
 const MAX_TRANSLATE_CHARS: usize = 500;
 
-/// 给本地整句模型看的光标前文最多读多少字符（Engine 自己再按它的前文长度截）。
-const RESCORE_LOOKBACK: usize = qingjian_core::RESCORE_CONTEXT_CHARS;
+/// 给本地模型看的光标前文最多读多少字符：知意英文要 192，含章由 Engine 再按它的前文长度截。
+const RESCORE_LOOKBACK: usize = 192;
 
 /// 登录 / 锁屏窗口的 bundle identifier。
 const LOGIN_WINDOW: &str = "com.apple.loginwindow";
@@ -210,8 +251,27 @@ impl QingjianInputController {
         host::with(|h| h.engine.application() == Some(LOGIN_WINDOW)).unwrap_or(false)
     }
 
-    /// 一个按键事件的分发：只管按下；Cmd / Ctrl 组合除 Cmd+左右外一律交给应用；命令键映射成选择器；其余按字符当文本。
+    /// 修饰键事件：Shift 按下 / 抬起交给 [`Host::shift_event`] 判定单击；切到英文时把组句里的拼音原样上屏
+    /// （要借文本客户端，所以放在 Host 借用之外，同定时器那条路）。
+    fn handle_shift_event(&self, event: &NSEvent, client: TextClient<'_>) {
+        let key = event.keyCode();
+        let down = event.modifierFlags().contains(NSEventModifierFlags::Shift);
+        if host::with(|h| h.shift_event(key, down)).unwrap_or(false) {
+            click::commit_raw_after_switch();
+            self.commit_vietnamese(client);
+        }
+    }
+
+    /// 一个按键事件的分发：只管按下；配置的组合键先处理，其他 Cmd / Ctrl 组合交给应用；命令键映射成选择器。
     fn dispatch_event(&self, event: &NSEvent, client: TextClient<'_>) -> bool {
+        // 修饰键事件（`recognizedEvents:` 声明了 flagsChanged 才有）：Shift 的按下 / 抬起在这里，
+        // 是精确边沿。事件本身继续照常交给系统，不吞。
+        if event.r#type() == NSEventType::FlagsChanged {
+            if !self.in_login_window() {
+                self.handle_shift_event(event, client);
+            }
+            return false;
+        }
         if event.r#type() != NSEventType::KeyDown || self.in_login_window() {
             return false;
         }
@@ -229,8 +289,44 @@ impl QingjianInputController {
             control,
             command,
         };
+        // 第一下 Shift 还在等双击时用户已开始打字：先落实单击并清理切换前的 composition，
+        // 再按新模式处理当前键。
+        if host::with(|h| h.note_key(key)).unwrap_or(false) {
+            self.commit_vietnamese(client);
+            self.commit_raw(client);
+        }
+        // 独立输入法也复用候选译词快捷键。必须放在语言专用分派之前，否则越南语看到 Command / Control
+        // 会先结束整段并把事件交给应用，Command+1 永远到不了共同快捷键。
+        let independent_composing = host::with(|h| {
+            h.vietnamese_mode() && !h.vietnamese.is_empty() && !h.session.layout.is_empty()
+        })
+        .unwrap_or(false);
+        if independent_composing
+            && !pressed.is_empty()
+            && let Some(digit) = digit_key(key)
+        {
+            let (first, second) = host::with(|h| h.translation_keys).unwrap_or_default();
+            if pressed == first {
+                tracing::info!(digit, sense = 0, "独立输入法译词快捷键命中");
+                return self.handle_translation_key(digit, 0, client);
+            }
+            if pressed == second {
+                tracing::info!(digit, sense = 1, "独立输入法译词快捷键命中");
+                return self.handle_translation_key(digit, 1, client);
+            }
+        }
+        if host::with(|h| h.vietnamese_mode()).unwrap_or(false) {
+            return self.handle_vietnamese_event(event, client);
+        }
         // 提示在显示：敲任何键先收掉，键照常处理
         host::with(|h| h.clear_notice());
+        // 候选右键菜单开着：Esc 只关菜单、不清输入；别的键关菜单后照常处理
+        if host::with(|h| h.window.menu_open()).unwrap_or(false) {
+            host::with(|h| h.window.close_menu());
+            if key == 53 {
+                return true;
+            }
+        }
         // 翻译选中文字进行中：回车 / 空格 / 1 接受，Esc 放弃，其他键放弃后照常交给应用
         if host::with(|h| h.translation.is_some()).unwrap_or(false) {
             return self.handle_translation_review(key, client);
@@ -241,11 +337,16 @@ impl QingjianInputController {
         {
             return consumed;
         }
-        // 高亮还在第一个时按 ↑ 打开符号面板；长按连发的不算，免得往回翻过头弹出来
+        // 高亮还在第一个时按 ↑ 打开符号面板；长按连发的不算，免得往回翻过头弹出来。
+        // 方向键分两区时（arrows::route）候选里的 ↑ 是回拼音行，要在拼音行里再按一次 ↑
         if key == 126
             && pressed.is_empty()
             && !event.isARepeat()
-            && host::with(|h| !h.engine.composition().is_empty()).unwrap_or(false)
+            && host::with(|h| {
+                !h.engine.composition().is_empty()
+                    && (!h.two_area_arrows() || h.session.focus == Focus::Pinyin)
+            })
+            .unwrap_or(false)
             && self.open_panel(client)
         {
             return true;
@@ -254,6 +355,14 @@ impl QingjianInputController {
         let typed = event
             .charactersIgnoringModifiers()
             .map(|c| c.to_string().to_ascii_lowercase());
+        // 翻译组快捷键（不在组句中）：打开符号面板停在翻译组
+        let translate_panel = host::with(|h| h.translate_panel_keys).unwrap_or_default();
+        if pressed == translate_panel.modifiers
+            && typed.as_deref().and_then(|t| t.chars().next()) == Some(translate_panel.key)
+            && host::with(|h| h.engine.composition().is_empty()).unwrap_or(false)
+        {
+            return self.open_translate_panel(client);
+        }
         let combo = host::with(|h| h.translate_keys).unwrap_or_default();
         if pressed == combo.modifiers
             && typed.as_deref().and_then(|t| t.chars().next()) == Some(combo.key)
@@ -261,7 +370,28 @@ impl QingjianInputController {
         {
             return self.translate_selection(client);
         }
-        // 修饰键 + 数字：按配置的两组组合上屏第一 / 第二个译词（缺省 ⌥ 与 ⇧⌥）、删候选（缺省 ⇧）。
+        // 按需联想键（`[shortcut] predict`，缺省 ⌃⌥J）：组句中立刻请求一次，结果排在第一页最前面
+        let predict = host::with(|h| h.predict_keys).unwrap_or_default();
+        if pressed == predict.modifiers
+            && typed.as_deref().and_then(|t| t.chars().next()) == Some(predict.key)
+            && host::with(|h| !h.engine.composition().is_empty() && h.engine.prediction_enabled())
+                .unwrap_or(false)
+        {
+            let candidates = host::with(|h| h.session.layout.local().to_vec()).unwrap_or_default();
+            self.request_prediction(client, &candidates, true);
+            return true;
+        }
+        // 标点切换键（`[shortcut] toggle_punctuation`，设置程序里勾上是 Ctrl + .）：切的是中文模式的标点，
+        // 英文模式一律半角，这时键照常交给应用
+        if let Some(combo) = host::with(|h| h.punctuation_keys).flatten()
+            && pressed == combo.modifiers
+            && typed.as_deref().and_then(|t| t.chars().next()) == Some(combo.key)
+            && !modifiers::caps_lock_on()
+        {
+            host::with(|h| h.toggle_punctuation());
+            return true;
+        }
+        // 修饰键 + 数字：按配置的两组组合上屏第一 / 第二个译词（缺省 ⌥ 与 ⇧⌥）。
         // 只在组句中认：不在组句时 ⇧4 就是 `$`，得走下面的标点转换（中文模式出 ￥、⇧6 出 ……、⇧1 出 ！），
         // 以前在这里被截走后原样还给应用，全角转换就没机会做了。
         // 表达式模式（`v2^3`）里 ⇧+数字打的是 `^ * ( )`，不当快捷键
@@ -274,14 +404,47 @@ impl QingjianInputController {
         {
             let (first, second) = host::with(|h| h.translation_keys).unwrap_or_default();
             if pressed == first {
+                tracing::info!(digit, sense = 0, "译词快捷键命中");
                 return self.handle_translation_key(digit, 0, client);
             }
             if pressed == second {
+                tracing::info!(digit, sense = 1, "译词快捷键命中");
                 return self.handle_translation_key(digit, 1, client);
             }
-            if pressed == host::with(|h| h.delete_keys).unwrap_or_default() {
-                return self.handle_delete_key(digit, client);
+        }
+        let navigation = host::with(|h| {
+            navigation::shortcut(
+                h.extra_candidate_navigation,
+                composing,
+                (0..h.session.layout.len())
+                    .any(|index| h.session.layout.candidate(index).is_some()),
+                h.layout,
+                pressed,
+                typed.as_deref().and_then(|t| t.chars().next()),
+            )
+        })
+        .flatten();
+        if let Some(navigation) = navigation {
+            match navigation {
+                navigation::Navigation::Candidate(delta) => self.navigate_candidate(delta, client),
+                navigation::Navigation::PageEdge(last) => self.navigate_page_edge(last, client),
+                navigation::Navigation::Page(delta) => {
+                    let focus_changed = host::with(|h| {
+                        let changed = h.session.focus != Focus::Candidates;
+                        h.session.focus = Focus::Candidates;
+                        changed
+                    })
+                    .unwrap_or(false);
+                    self.turn_page(delta, client);
+                    if focus_changed {
+                        self.render(client);
+                    }
+                }
             }
+            return true;
+        }
+        if self.try_enter_translation(key, pressed, client) {
+            return true;
         }
         let selector = match key {
             36 | 76 => Some(sel!(insertNewline:)),

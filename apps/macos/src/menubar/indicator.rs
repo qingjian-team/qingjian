@@ -1,7 +1,7 @@
-//! 菜单栏里的「中 / 英」状态项。
+//! 菜单栏里的「中 / 英 / 越」状态项。
 //!
 //! 输入源图标（Info.plist 的 tsInputMethodIconFileKey）没法动态换，所以自己放一个 NSStatusItem。
-//! Caps Lock 的变化不会作为按键送到输入法，用一个定时器轮询系统状态刷新。
+//! Caps Lock 的变化不会作为普通按键送到输入法，用一个定时器轮询系统状态刷新。
 //!
 //! 状态项一旦创建就**不再隐藏**：`setVisible(false)` 再 `setVisible(true)` 会把它重新排到菜单栏最左边，用户 ⌘ 拖到输入法图标旁的位置就丢了
 //! （固定 autosave 名也保不住），而焦点每进出一次输入框 IMK 就 deactivate / activate 一轮。
@@ -17,10 +17,9 @@ use objc2::{MainThreadMarker, MainThreadOnly, Message, define_class, msg_send, s
 use objc2_app_kit::{NSMenu, NSStatusBar, NSStatusItem, NSVariableStatusItemLength};
 use objc2_foundation::{NSObject, NSObjectProtocol, NSString, NSTimer, ns_string};
 
-use crate::imk::modifiers;
-
-/// 轮询 Caps Lock 状态的间隔。
-const POLL_INTERVAL: f64 = 0.25;
+/// 平时只需低频轮询 Caps Lock；有第一下 Shift 等待双击时临时加快。
+const IDLE_POLL_INTERVAL: f64 = 0.25;
+const SHIFT_POLL_INTERVAL: f64 = 0.05;
 
 /// 停用后隔多久才把状态项收起：焦点在输入框之间挪动时 deactivate 与下一次 activate 只隔几十毫秒。
 const COLLAPSE_DELAY: f64 = 0.5;
@@ -35,14 +34,17 @@ pub struct ModeIndicator {
     /// 轮询定时器；未激活时为 `None`。
     timer: Option<Retained<NSTimer>>,
 
+    /// 正在等待双击 Shift，轮询临时加快。
+    fast_poll: bool,
+
     /// 停用后延迟收起的一次性定时器；再次激活时取消。
     collapse_timer: Option<Retained<NSTimer>>,
 
     /// 正展开着（输入法激活中）。收起时不刷新标题。
     shown: bool,
 
-    /// 上次显示的是否英文模式，避免每次轮询都重设标题。
-    english: Option<bool>,
+    /// 上次显示的（英文、越南语）模式，避免每次轮询都重设标题。
+    mode: Option<(bool, bool)>,
 
     /// 云联想开着：标题带云朵，让用户一眼知道上下文会发出去。
     cloud: bool,
@@ -56,9 +58,10 @@ impl ModeIndicator {
             item: None,
             menu: None,
             timer: None,
+            fast_poll: false,
             collapse_timer: None,
             shown: false,
-            english: None,
+            mode: None,
             cloud: false,
             mtm,
         }
@@ -75,7 +78,7 @@ impl ModeIndicator {
     }
 
     /// 输入法激活：展开状态项并开始轮询；停用时安排的收起取消。
-    pub fn activate(&mut self) {
+    pub fn activate(&mut self, english: bool, vietnamese: bool) {
         if let Some(timer) = self.collapse_timer.take() {
             timer.invalidate();
         }
@@ -83,21 +86,9 @@ impl ModeIndicator {
             self.shown = true;
             self.item().setLength(NSVariableStatusItemLength);
         }
-        self.english = None;
-        self.update();
-        if self.timer.is_none() {
-            let target = ModeMonitor::new(self.mtm);
-            let timer = unsafe {
-                NSTimer::scheduledTimerWithTimeInterval_target_selector_userInfo_repeats(
-                    POLL_INTERVAL,
-                    &target,
-                    sel!(tick:),
-                    None,
-                    true,
-                )
-            };
-            self.timer = Some(timer);
-        }
+        self.mode = None;
+        self.update(english, vietnamese);
+        self.start_poll_timer();
     }
 
     /// 输入法停用：停止轮询，半秒后没再激活就收起。
@@ -105,6 +96,7 @@ impl ModeIndicator {
         if let Some(timer) = self.timer.take() {
             timer.invalidate();
         }
+        self.fast_poll = false;
         if self.collapse_timer.is_some() {
             return;
         }
@@ -128,7 +120,7 @@ impl ModeIndicator {
             return;
         }
         self.shown = false;
-        self.english = None;
+        self.mode = None;
         let Some(item) = &self.item else {
             return;
         };
@@ -148,22 +140,67 @@ impl ModeIndicator {
 
     pub fn set_cloud(&mut self, cloud: bool) {
         self.cloud = cloud;
-        self.english = None;
+        self.mode = None;
     }
 
-    /// 按当前 Caps Lock 状态刷新标题；收起时不动。
-    pub fn update(&mut self) {
+    /// 只在等待第二下 Shift 时使用 50 ms；其余时间恢复 250 ms。
+    pub fn set_fast_poll(&mut self, fast: bool) {
+        if self.fast_poll == fast {
+            return;
+        }
+        self.fast_poll = fast;
+        if self.timer.is_some() {
+            self.restart_poll_timer();
+        }
+    }
+
+    fn start_poll_timer(&mut self) {
+        if self.timer.is_some() || !self.shown {
+            return;
+        }
+        let interval = if self.fast_poll {
+            SHIFT_POLL_INTERVAL
+        } else {
+            IDLE_POLL_INTERVAL
+        };
+        let target = ModeMonitor::new(self.mtm);
+        let timer = unsafe {
+            NSTimer::scheduledTimerWithTimeInterval_target_selector_userInfo_repeats(
+                interval,
+                &target,
+                sel!(tick:),
+                None,
+                true,
+            )
+        };
+        self.timer = Some(timer);
+    }
+
+    fn restart_poll_timer(&mut self) {
+        if let Some(timer) = self.timer.take() {
+            timer.invalidate();
+        }
+        self.start_poll_timer();
+    }
+
+    /// 按当前中 / 英 / 越模式刷新标题；收起时不动。
+    pub fn update(&mut self, english: bool, vietnamese: bool) {
         if !self.shown {
             return;
         }
-        let english = modifiers::caps_lock_on();
-        if self.english == Some(english) {
+        if self.mode == Some((english, vietnamese)) {
             return;
         }
-        self.english = Some(english);
+        self.mode = Some((english, vietnamese));
         let mtm = self.mtm;
         if let Some(button) = self.item().button(mtm) {
-            let mode = if english { "英" } else { "中" };
+            let mode = if vietnamese {
+                "越"
+            } else if english {
+                "英"
+            } else {
+                "中"
+            };
             let title = if self.cloud {
                 format!("{mode} ☁︎")
             } else {
@@ -184,7 +221,15 @@ define_class!(
     impl ModeMonitor {
         #[unsafe(method(tick:))]
         fn tick(&self, _timer: Option<&AnyObject>) {
-            crate::host::with(|h| h.indicator.update());
+            let switched = crate::host::with(|h| {
+                let switched = h.resolve_pending_shift();
+                h.refresh_mode_ui();
+                switched
+            })
+            .unwrap_or(false);
+            if switched {
+                crate::imk::commit_pending_after_switch();
+            }
         }
 
         #[unsafe(method(collapse:))]

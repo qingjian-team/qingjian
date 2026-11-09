@@ -1,0 +1,16 @@
+[package]
+name = "bamboo-slip-i18n"
+description = "界面文案多语言：按语言嵌入的 TOML 文案表、全局界面语言与回退链"
+version.workspace = true
+edition.workspace = true
+# 双许可，见本目录的 LICENSE.md
+license = "GPL-3.0-or-later OR LicenseRef-Qingjian-Commercial"
+repository.workspace = true
+
+[dependencies]
+toml.workspace = true
+tracing.workspace = true
+sys-locale = "0.3.2"
+
+[lints]
+workspace = true

@@ -24,7 +24,7 @@ impl ITfTextInputProcessor_Impl for TextService_Impl {
         let keystroke: ITfKeystrokeMgr = thread_mgr.cast()?;
         let sink: ITfKeyEventSink = self.to_interface();
         unsafe { keystroke.AdviseKeyEventSink(tid, &sink, true)? };
-        let combo = preserved::load_combo();
+        let (combo, panel_combo) = preserved::load_combos();
         match preserved::register(
             &keystroke,
             tid,
@@ -37,6 +37,18 @@ impl ITfTextInputProcessor_Impl for TextService_Impl {
                 log(&format!("翻译选中文字快捷键已登记为保留键: {combo}"));
             }
             Err(error) => log(&format!("登记翻译快捷键失败: {error}")),
+        }
+        if panel_combo != combo {
+            match preserved::register(
+                &keystroke,
+                tid,
+                &preserved::GUID_TRANSLATE_PANEL,
+                panel_combo,
+                "翻译组",
+            ) {
+                Ok(()) => self.translate_panel_combo.set(Some(panel_combo)),
+                Err(error) => log(&format!("translate panel preserved key failed: {error}")),
+            }
         }
 
         self.client_id.set(tid);
@@ -58,6 +70,9 @@ impl ITfTextInputProcessor_Impl for TextService_Impl {
         }
         // 激活时线程已有焦点的话，不会再来一次「得到焦点」。
         let focused = unsafe { thread_mgr.IsThreadFocus() }.is_ok_and(|focus| focus.as_bool());
+        self.shared
+            .candidate_list()
+            .set_manager(thread_mgr.cast().ok());
         *self.thread_mgr.borrow_mut() = Some(thread_mgr);
         // 连 Server：它随 `OpenSession` 的回包把按键行为设置带下来，就地应用。那两个值在按键到达之前
         // 就要有，而且应用时要登记 Ctrl + Alt + Space 保留键，所以这一步必须排在 `thread_mgr` 就绪之后。
@@ -107,6 +122,9 @@ impl ITfTextInputProcessor_Impl for TextService_Impl {
             && let Ok(keystroke) = thread_mgr.cast::<ITfKeystrokeMgr>()
         {
             self.drop_switch_preserved_key(&keystroke);
+            if let Some(combo) = self.traditional_combo.take() {
+                preserved::unregister_traditional(&keystroke, combo);
+            }
             if let Some(combo) = self.punctuation_combo.take() {
                 preserved::unregister_punctuation(&keystroke, combo);
             }
@@ -116,6 +134,9 @@ impl ITfTextInputProcessor_Impl for TextService_Impl {
             if let Some(combo) = self.translate_combo.take() {
                 preserved::unregister(&keystroke, &preserved::GUID_TRANSLATE, combo);
             }
+            if let Some(combo) = self.translate_panel_combo.take() {
+                preserved::unregister(&keystroke, &preserved::GUID_TRANSLATE_PANEL, combo);
+            }
             let _ = unsafe { keystroke.UnadviseKeyEventSink(self.client_id.get()) };
         }
         if let Some(client) = self.engine.borrow_mut().take() {
@@ -123,6 +144,7 @@ impl ITfTextInputProcessor_Impl for TextService_Impl {
         }
         self.pending_digit.borrow_mut().take();
         self.shared.reset();
+        self.shared.candidate_list().set_manager(None);
         self.shared.take_server_stale();
         self.shared.set_foreground(false);
         log("青简 TSF 已停用");

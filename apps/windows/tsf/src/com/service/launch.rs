@@ -92,7 +92,7 @@ pub(super) fn launch_server() -> LaunchOutcome {
         .parent()
         .map(|dir| HSTRING::from(dir.as_os_str()))
         .unwrap_or_default();
-    // 起完就返回：Server 一百多毫秒就监听管道，阻塞在应用 UI 线程上会被 TSF 看门狗切走输入法。
+    // 起完就返回：Server 装配完（一秒多）才监听管道，阻塞在应用 UI 线程上会被 TSF 看门狗切走输入法。
     let code = unsafe {
         ShellExecuteW(
             None,
