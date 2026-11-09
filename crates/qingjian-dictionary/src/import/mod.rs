@@ -243,7 +243,7 @@ mod tests {
 
     #[test]
     fn imports_files_saved_with_a_bom() {
-        // 记事本、Excel 存的「UTF-8 带 BOM」：Rime 词库曾整份报「第 1 行缺拼音」，TSV 的第一个词带上看不见的 U+FEFF
+        // 记事本、Excel 存的「UTF-8 带 BOM」：Rime 词库要认得出 YAML 头，TSV 的第一个词不能带上看不见的 U+FEFF
         let dir = std::env::temp_dir().join(format!("qingjian-import-bom-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
