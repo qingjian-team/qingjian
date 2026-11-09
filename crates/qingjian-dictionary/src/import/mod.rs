@@ -101,11 +101,13 @@ pub fn import(source: &Path, dest_dir: &Path) -> Result<Imported, DictionaryErro
         }
         let text = String::from_utf8(bytes)
             .map_err(|_| DictionaryError::Corrupt("file is neither text nor .scel"))?;
-        let (tsv, name) = if rime::looks_like_rime(&text) {
-            let parsed = rime::to_tsv(&text);
+        // 带 BOM 的 Rime 词库认不出 YAML 头，整份按 TSV 读、报第 1 行缺拼音
+        let text = text.strip_prefix('\u{feff}').unwrap_or(&text);
+        let (tsv, name) = if rime::looks_like_rime(text) {
+            let parsed = rime::to_tsv(text);
             (parsed.tsv, parsed.name)
         } else {
-            (text, None)
+            (text.to_owned(), None)
         };
         if format::is_code_table(&tsv) {
             return Err(DictionaryError::CodeWords);
@@ -231,6 +233,34 @@ mod tests {
         assert_eq!(imported.path.file_name().unwrap(), "law.qj");
         assert_eq!(imported.name, "law");
         assert_eq!(imported.entries, 2);
+        let dictionary = Dictionary::from_path(&imported.path).unwrap();
+        assert_eq!(
+            dictionary.lookup(&["min", "fa", "dian"], false)[0].text,
+            "民法典"
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn imports_files_saved_with_a_bom() {
+        // 记事本、Excel 存的「UTF-8 带 BOM」：Rime 词库曾整份报「第 1 行缺拼音」，TSV 的第一个词带上看不见的 U+FEFF
+        let dir = std::env::temp_dir().join(format!("qingjian-import-bom-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let tsv = dir.join("finance.tsv");
+        std::fs::write(&tsv, "\u{feff}账套\tzhang tao\t500\n").unwrap();
+        let imported = import(&tsv, &dir.join("dicts")).unwrap();
+        let dictionary = Dictionary::from_path(&imported.path).unwrap();
+        assert_eq!(dictionary.lookup(&["zhang", "tao"], false)[0].text, "账套");
+
+        let rime = dir.join("law.dict.yaml");
+        std::fs::write(
+            &rime,
+            "\u{feff}# Rime dictionary\n---\nname: law\n...\n民法典\tmin fa dian\n",
+        )
+        .unwrap();
+        let imported = import(&rime, &dir.join("dicts")).unwrap();
+        assert_eq!(imported.name, "law");
         let dictionary = Dictionary::from_path(&imported.path).unwrap();
         assert_eq!(
             dictionary.lookup(&["min", "fa", "dian"], false)[0].text,
