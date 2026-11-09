@@ -45,11 +45,4 @@ impl DictionariesConfig {
     pub fn is_domain_enabled(&self, stem: &str) -> bool {
         self.domains.iter().any(|d| d == stem)
     }
-
-    /// 这个候选是不是该按屏蔽词丢掉：文本里**含有**任一屏蔽词就算。
-    pub fn is_blocked(&self, text: &str) -> bool {
-        self.blocked
-            .iter()
-            .any(|word| !word.is_empty() && text.contains(word.as_str()))
-    }
 }
