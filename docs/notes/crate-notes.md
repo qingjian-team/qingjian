@@ -189,6 +189,7 @@ mac 存在 `Session::spelling`（`Host::follow_highlight`）、Windows / Linux �
   二元 + 三元在线计数，整句转换与词级排序里与静态模型插值；Tab 接受的云端整句按 `sentence::segment_text` 切词后也记；
   连着选出的两个词记够次数自动造词进用户词：同段拼音一次、分段三次，相邻两词合计最多 4 字；一段拼音分几次选完的整段记忆一次即学，最多 20 字）。
   `[auto_phrase]`（默认开启、4 字，2～10 字）只控制五笔连续组词，`Engine::set_auto_phrase` 改值只清形码窗口，不打断拼音学习链。
+  学习组件的注入、学习总开关与五笔组词设置集中在 `engine/setup/learning.rs`；设置页通过 `support::Feature::AutoPhrase` 登记平台支持，与形码一样，Linux 壳接入前标为待实现并隐藏整组控件及搜索项。
   拼音与双拼共用既有规则，不受五笔组词开关和词长限制；整段学习在 `engine/commit/buffer.rs`，配置中自定义短语的读写在 `config/phrases.rs`。
   五笔方案显式声明 `phrase_rule = "wubi86"`；`CodeScheme::phrase_code` 从 `CodeTable` 缓存的最长单字码取 2+2 / 1+1+2 / 前三字与末字首码。
   `CommitChain` 的有界形码窗口只组合完整上屏词，首次连续输入即学，拼音与形码来源隔离；编辑、标点、焦点/会话与方案切换打断窗口。

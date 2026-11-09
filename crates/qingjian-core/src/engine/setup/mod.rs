@@ -1,12 +1,14 @@
 //! 注入与开关（词库的在 `dictionaries.rs`）：模糊音、双拼、翻译 / 学习 / 联想等 trait 实现的挂接，以及相应的只读访问。
 
-use super::EMOJI_TOTAL;
+mod learning;
+
 use super::aux_code::is_valid_aux_code_key;
 use super::{
-    DEFAULT_AUX_CODE_KEY, ENGLISH_CANDIDATES_MAX, Engine, GlossFiller, InputLogger, Learner,
-    ModeKeys, NEURAL_MARGIN, NEURAL_WEIGHT, Predictor, RESCORE_CONTEXT_CHARS, Translator,
-    UsageMeter, UsageSummary, VocabularyTracker, marked_rest,
+    DEFAULT_AUX_CODE_KEY, ENGLISH_CANDIDATES_MAX, Engine, GlossFiller, InputLogger, ModeKeys,
+    NEURAL_MARGIN, NEURAL_WEIGHT, Predictor, RESCORE_CONTEXT_CHARS, Translator, UsageMeter,
+    UsageSummary, VocabularyTracker, marked_rest,
 };
+use super::EMOJI_TOTAL;
 use crate::candidate::Language;
 use crate::correction::TypoCosts;
 use crate::emoji::{EmojiTable, builtin, is_emoji};
@@ -142,24 +144,6 @@ impl Engine {
     }
 
     /// 設置是否啟用注音模式。開啟後鍵盤輸入按大千佈局解析。
-    /// 学习开关（`[general] learning`）：关掉后不再记词频、用户词、个人 n-gram 与敲错表，已学的照常参与排序；
-    /// 私密输入是另一个独立的开关（[`Self::set_private`]）。
-    pub fn set_learning(&mut self, enabled: bool) {
-        if self.learner.set_disabled(!enabled) {
-            self.chain.clear_code_words();
-        }
-    }
-
-    /// 五笔连续上屏组词；不改变拼音学习规则、已有词与词频学习。
-    pub fn set_auto_phrase(&mut self, enabled: bool, max_chars: usize) {
-        let max_chars = max_chars.clamp(2, 10);
-        if self.auto_phrase != enabled || self.auto_phrase_max_chars != max_chars {
-            self.chain.clear_code_words();
-        }
-        self.auto_phrase = enabled;
-        self.auto_phrase_max_chars = max_chars;
-    }
-
     pub fn set_zhuyin_mode(&mut self, on: bool) {
         if self.zhuyin != on {
             self.chain.clear_code_words();
@@ -680,12 +664,6 @@ impl Engine {
         self.shift_letter_compose
     }
 
-    pub fn with_learner(mut self, learner: Box<dyn Learner>) -> Self {
-        self.learner.replace(learner);
-        self.forget_span_cache();
-        self
-    }
-
     pub fn with_input_logger(mut self, logger: Box<dyn InputLogger>) -> Self {
         self.logger.replace(logger);
         self
@@ -736,16 +714,6 @@ impl Engine {
     /// 运行时换释义兜底（随云联想开关）。
     pub fn set_gloss_filler(&mut self, filler: Box<dyn GlossFiller>) {
         self.gloss_filler = filler;
-    }
-
-    pub fn learner(&self) -> &dyn Learner {
-        self.learner.inner()
-    }
-
-    /// 拿到可变的 Learner 就当它要改：格子缓存一起作废。
-    pub fn learner_mut(&mut self) -> &mut dyn Learner {
-        self.forget_span_cache();
-        self.learner.inner_mut()
     }
 
     pub fn learning_language(&self) -> Language {

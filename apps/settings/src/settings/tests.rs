@@ -59,15 +59,17 @@ fn auto_phrase_controls_write_shared_settings_and_are_searchable() {
         settings.config.auto_phrase
     );
     let index = crate::view::index(&settings);
-    assert!(
+    assert_eq!(
         index
             .iter()
-            .any(|entry| entry.title == crate::i18n::tr("input.auto_phrase"))
+            .any(|entry| entry.title == crate::i18n::tr("input.auto_phrase")),
+        crate::support::Feature::Schemes.here()
     );
-    assert!(
+    assert_eq!(
         index
             .iter()
-            .any(|entry| entry.title == crate::i18n::tr("input.auto_phrase_length"))
+            .any(|entry| entry.title == crate::i18n::tr("input.auto_phrase_length")),
+        crate::support::Feature::Schemes.here()
     );
     std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
 }

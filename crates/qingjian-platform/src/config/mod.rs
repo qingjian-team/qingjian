@@ -91,6 +91,7 @@ pub use update::{UpdateChannel, UpdateConfig};
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Config {
+    /// 五笔连续组词的开关与最大词长，不改变拼音、双拼的学习规则。
     pub auto_phrase: AutoPhraseConfig,
     /// 常规：学习语言、每页候选数、翻页键、外观。
     pub general: GeneralConfig,

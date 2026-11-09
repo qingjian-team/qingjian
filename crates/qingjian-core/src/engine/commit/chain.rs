@@ -19,6 +19,7 @@ pub struct CommitChain {
 
     /// 这段拼音整段的学习键（按输入串记选择用的全部字母），第一个词上屏前记下。
     buffer_key: String,
+    /// 连续上屏的完整五笔词，按汉字总数限长，供下一次组词使用。
     code_words: Vec<String>,
 }
 

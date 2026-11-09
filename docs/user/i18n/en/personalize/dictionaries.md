@@ -35,7 +35,7 @@ Settings → Input → Automatic Wubi phrases provides a learning switch and a m
 - Punctuation, English, raw commits, focus changes and edits interrupt Wubi phrase formation. Mixed input keeps Pinyin readings separate from Wubi codes.
 - Turning automatic phrases off keeps learned words and frequency-based ranking. Disabling learning or using private input prevents new phrase learning.
 
-Custom code schemes must explicitly declare compatible Wubi phrase rules. Android uses the same learning rules; its settings do not yet offer separate automatic-phrase controls.
+Custom code schemes must explicitly declare compatible Wubi phrase rules. These controls are available on macOS and Windows; Linux has not integrated shape-based input yet, so they are hidden there. Android uses the same learning rules; its settings do not yet offer separate automatic-phrase controls.
 
 ## Importing your own dictionaries
 

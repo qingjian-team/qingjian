@@ -21,6 +21,7 @@ pub struct CodeScheme {
     /// 编码已经满码长时再敲一个字母：先把高亮的候选上屏，这个字母起新的一段编码。
     pub top: bool,
 
+    /// 是否声明兼容 86 五笔取码规则，允许用单字全码生成连续上屏词的编码。
     pub wubi_phrases: bool,
 }
 

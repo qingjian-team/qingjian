@@ -5,7 +5,9 @@ use serde::{Deserialize, Deserializer, Serialize};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct AutoPhraseConfig {
+    /// 是否学习连续上屏的五笔新词，默认开启；不删除已有词或关闭词频学习。
     pub enabled: bool,
+    /// 五笔组词的最大汉字数，默认 4；读取时限制在 2～10。
     #[serde(deserialize_with = "max_chars")]
     pub max_chars: usize,
 }

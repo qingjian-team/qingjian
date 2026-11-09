@@ -65,6 +65,7 @@ const RAW_MARK: &str = "<raw>";
 /// （`COLD_DAYS`），落盘时才连侧车一起清出。不改「一次误选翻不过静态证据」的封顶设计。
 #[derive(Debug)]
 pub struct FrequencyLearner {
+    /// 按形码方案隔离的用户词与编码，独立保存到 `user-code-words.tsv`。
     code_words: code_words::CodeWords,
     /// 词 → 用户选择次数（带最近使用日）。
     counts: HashMap<String, Decay>,

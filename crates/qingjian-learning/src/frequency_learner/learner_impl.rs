@@ -312,7 +312,7 @@ impl Learner for FrequencyLearner {
                 .code_words
                 .save(&path.with_file_name("user-code-words.tsv"))
         {
-            tracing::warn!(%error, "形码用户词保存失败");
+            tracing::warn!(%error, "failed to save user code words");
         }
         if self.words_dirty {
             let words_path = Self::words_path(&path);

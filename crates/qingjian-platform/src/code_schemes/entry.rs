@@ -29,6 +29,7 @@ pub struct CodeSchemeEntry {
 
     /// `scheme.toml` 写了满码长度就是它，没写为 `None`（读码表时按最常见的编码长度算）。
     pub code_length: Option<usize>,
+    /// 连续组词的取码规则；`wubi86` 启用 86 五笔规则，空串不生成词码。
     pub phrase_rule: String,
 
     /// 是不是随包的那套（设置页不给删）。用户目录里的同名方案盖过它时为 `false`。
