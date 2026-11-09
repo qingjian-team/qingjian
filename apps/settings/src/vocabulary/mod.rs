@@ -71,7 +71,9 @@ impl Vocabulary {
     /// 学习语言关着为 `None`。
     pub fn load(general: &GeneralConfig) -> Option<Self> {
         let mut vocabulary = Self::with_book(VocabularyBook::open(path()), language(general)?);
-        let dir = paths::user_dir().unwrap_or_default();
+        let dir = paths::user_dirs()
+            .map(|dirs| dirs.records())
+            .unwrap_or_default();
         vocabulary.typed_days = UsageStats::open(&dir)
             .days()
             .into_iter()
@@ -248,10 +250,10 @@ fn language(general: &GeneralConfig) -> Option<Language> {
     })
 }
 
-/// 英→中释义表：下载的（用户目录 `glossaries/`）优先；随包的 macOS 在 `Qingjian.app/Contents/Resources/`，其他平台在随包根的 `data/generated/`。
+/// 英→中释义表：下载的（`downloads/glossaries/`）优先；随包的 macOS 在 `Qingjian.app/Contents/Resources/`，其他平台在随包根的 `data/generated/`。
 fn english_glossary() -> Option<Glossary> {
-    let path = paths::user_dir()
-        .map(|dir| downloaded_glossary(&dir, Language::Chinese))
+    let path = paths::user_dirs()
+        .map(|dirs| downloaded_glossary(&dirs.downloads(), Language::Chinese))
         .filter(|path| path.is_file())
         .or_else(|| {
             paths::mac_resources()
@@ -266,5 +268,8 @@ fn english_glossary() -> Option<Glossary> {
 }
 
 fn path() -> PathBuf {
-    paths::user_dir().unwrap_or_default().join("user-vocab.tsv")
+    paths::user_dirs()
+        .map(|dirs| dirs.records())
+        .unwrap_or_default()
+        .join("user-vocab.tsv")
 }

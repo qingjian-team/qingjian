@@ -3,7 +3,9 @@
 
 use std::path::PathBuf;
 
-/// 用户数据目录：学习数据、统计、输入日志都在这里。
+use qingjian_platform::UserDirs;
+
+/// 用户数据目录的根（「打开数据文件夹」打开它），里面按 [`UserDirs`] 分类。
 pub fn user_dir() -> Option<PathBuf> {
     if cfg!(windows) {
         qingjian_platform::dirs::user_dir()
@@ -11,6 +13,15 @@ pub fn user_dir() -> Option<PathBuf> {
         home().map(|home| home.join("Library/Application Support/Qingjian"))
     } else {
         xdg("XDG_DATA_HOME", ".local/share")
+    }
+}
+
+/// 用户数据的分类布局；Windows 的下载与缓存另在 `%LOCALAPPDATA%`。
+pub fn user_dirs() -> Option<UserDirs> {
+    if cfg!(windows) {
+        qingjian_platform::dirs::user_dirs()
+    } else {
+        user_dir().map(UserDirs::at)
     }
 }
 
@@ -23,7 +34,7 @@ pub fn config_path() -> Option<PathBuf> {
 }
 
 pub fn themes_dir() -> Option<PathBuf> {
-    user_dir().map(|dir| dir.join("themes"))
+    user_dirs().map(|dirs| dirs.themes())
 }
 
 /// 输入法的运行日志目录。
@@ -39,7 +50,7 @@ pub fn log_dir() -> Option<PathBuf> {
 
 /// 输入日志（每次上屏一行）。
 pub fn input_log() -> Option<PathBuf> {
-    user_dir().map(|dir| dir.join("input-log.jsonl"))
+    user_dirs().map(|dirs| dirs.input_log())
 }
 
 /// macOS 上找随包数据的几个 `Resources` 目录，按先后试：自己所在的 .app 往外每一层（设置程序装在

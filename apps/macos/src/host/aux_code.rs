@@ -30,6 +30,6 @@ fn aux_sources() -> AuxCodeSources {
         bundled_codes: paths::bundled_codes_dir(),
         user_codes: paths::codes_dir(),
         bundled_schemes: paths::bundled_schemes_dir(),
-        user_dir: paths::user_data_dir(),
+        user_dir: paths::custom_dir(),
     }
 }

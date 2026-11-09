@@ -25,6 +25,9 @@ pub fn append(path: &Path, encounters: &[LoggedEncounter]) -> Result<(), Learnin
     for encounter in encounters {
         line(&mut text, encounter);
     }
+    if let Some(parent) = path.parent().filter(|dir| !dir.as_os_str().is_empty()) {
+        std::fs::create_dir_all(parent)?;
+    }
     let mut file = std::fs::OpenOptions::new()
         .create(true)
         .append(true)

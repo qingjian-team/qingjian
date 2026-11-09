@@ -43,14 +43,14 @@ impl Downloads {
         if self.busy() {
             return Err(tr("download.busy").to_owned());
         }
-        let user_dir = crate::system::paths::user_dir().ok_or(tr("common.no_data_dir"))?;
+        let downloads = super::downloads_dir().ok_or(tr("common.no_data_dir"))?;
         let shared = Arc::new(Shared::new(waker));
         let worker = Arc::clone(&shared);
         let item = target.item.clone();
         std::thread::Builder::new()
             .name("qingjian-download".to_owned())
             .spawn(move || {
-                let stage = match fetch::run(&target, &user_dir, &worker) {
+                let stage = match fetch::run(&target, &downloads, &worker) {
                     Ok(()) => {
                         tracing::info!(tag = target.tag, "download installed");
                         Stage::Done

@@ -34,7 +34,9 @@ impl Stats {
     pub fn load(general: &GeneralConfig) -> Self {
         let now = jiff::Zoned::now().datetime();
         let today = now.date();
-        let dir = paths::user_dir().unwrap_or_default();
+        let dir = paths::user_dirs()
+            .map(|dirs| dirs.records())
+            .unwrap_or_default();
         let hour = now.hour() as u8;
         let yesterday = today.yesterday().unwrap_or(today);
         let usage = UsageStats::open(&dir);

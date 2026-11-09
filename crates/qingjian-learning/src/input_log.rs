@@ -37,6 +37,9 @@ impl InputLog {
     /// 追加模式打开（不存在就建）。
     pub fn open(path: impl Into<PathBuf>) -> Self {
         let path = path.into();
+        if let Some(parent) = path.parent().filter(|dir| !dir.as_os_str().is_empty()) {
+            let _ = std::fs::create_dir_all(parent);
+        }
         let file = match OpenOptions::new().create(true).append(true).open(&path) {
             Ok(file) => Some(BufWriter::new(file)),
             Err(error) => {

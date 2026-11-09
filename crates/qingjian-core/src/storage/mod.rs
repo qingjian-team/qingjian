@@ -40,6 +40,10 @@ fn write_atomic_with(
 ) -> io::Result<()> {
     let temporary = temporary_path(path);
     let result = (|| {
+        // 用户数据分在 learning/、records/ 这类子文件夹里，不能假定它们已经建好
+        if let Some(parent) = path.parent().filter(|dir| !dir.as_os_str().is_empty()) {
+            fs::create_dir_all(parent)?;
+        }
         let file = create(&temporary, private)?;
         let mut writer = BufWriter::new(file);
         write(&mut writer)?;

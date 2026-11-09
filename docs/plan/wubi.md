@@ -170,7 +170,7 @@ wubi   = "wubi86"    # 形码侧：空为关
 ## 五之三、自定义方案与顶字（2026-10-20 追加）
 
 形码侧从「只有 86 五笔」扩成**方案**：Core 的 `CodeScheme` = 码表 + 两条按键规则（满码唯一自动上屏、顶字）+ 日志键，
-平台层 `code_schemes` 负责发现（内置 `wubi86` + 用户数据目录 `schemes/<id>/`，`scheme.toml` + 码表 TSV）。
+平台层 `code_schemes` 负责发现（内置 `wubi86` + 用户数据目录 `custom/schemes/<id>/`，`scheme.toml` + 码表 TSV）。
 配置收成 `[general] code = "<id>"`（`off` 为关），旧的 `wubi = "wubi86"` 读取时认、不再写出。
 
 - 两条规则只在**只用形码**时生效：混输下满码之后的字母可能是在接着打拼音，自动上屏会替用户截断，顶字更不对。

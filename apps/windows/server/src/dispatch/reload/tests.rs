@@ -5,7 +5,7 @@ use std::time::{Duration, Instant, SystemTime};
 
 use qingjian_core::Engine;
 use qingjian_dictionary::{Dictionary, import};
-use qingjian_platform::{Config, NumpadDigit};
+use qingjian_platform::{Config, NumpadDigit, UserDirs};
 
 use super::CONFIG_POLL_INTERVAL;
 use crate::dispatch::{DataDirs, Router, RouterConfig};
@@ -67,15 +67,14 @@ fn import_replace_and_remove_without_config_changes() {
         config_path.clone(),
         dir.clone(),
         DataDirs {
-            user_root: Some(dir.clone()),
-            user_dicts: Some(dir.join("dicts")),
+            user: Some(UserDirs::at(dir.clone())),
             ..DataDirs::default()
         },
     );
 
     let source = dir.join("law.dict.yaml");
     std::fs::write(&source, "---\nname: law\n...\n合同法\the tong fa\t120\n").unwrap();
-    let imported = import::import(&source, &dir.join("dicts")).unwrap();
+    let imported = import::import(&source, &dir.join("custom/dicts")).unwrap();
     modified_at(&imported.path, 100);
     poll(&mut router);
     let dictionaries = router.engine.extra_dictionaries();
@@ -88,7 +87,7 @@ fn import_replace_and_remove_without_config_changes() {
     // 只改词频，输出长度保持不变，必须靠 mtime 发现更新。
     let original_len = std::fs::metadata(&imported.path).unwrap().len();
     std::fs::write(&source, "---\nname: law\n...\n合同法\the tong fa\t121\n").unwrap();
-    import::import(&source, &dir.join("dicts")).unwrap();
+    import::import(&source, &dir.join("custom/dicts")).unwrap();
     modified_at(&imported.path, 200);
     assert_eq!(
         std::fs::metadata(&imported.path).unwrap().len(),
@@ -106,7 +105,7 @@ fn import_replace_and_remove_without_config_changes() {
         "---\nname: law\n...\n民法典\tmin fa dian\t100\n法律\tfa lv\t30\n",
     )
     .unwrap();
-    import::import(&source, &dir.join("dicts")).unwrap();
+    import::import(&source, &dir.join("custom/dicts")).unwrap();
     poll(&mut router);
     let dictionary = &router.engine.extra_dictionaries()[0];
     assert!(dictionary.lookup(&["he", "tong", "fa"], false).is_empty());
@@ -117,10 +116,10 @@ fn import_replace_and_remove_without_config_changes() {
 
     // YAML 头中只有引用、没有本文件词条时，失败不能覆盖已有词库。
     std::fs::write(&source, "---\nname: law\nimport_tables:\n  - other\n...\n").unwrap();
-    assert!(import::import(&source, &dir.join("dicts")).is_err());
+    assert!(import::import(&source, &dir.join("custom/dicts")).is_err());
     assert_eq!(Dictionary::from_path(&imported.path).unwrap().len(), 2);
 
-    let removed = dir.join("dicts/removed");
+    let removed = dir.join("custom/dicts/removed");
     std::fs::create_dir_all(&removed).unwrap();
     std::fs::rename(&imported.path, removed.join("law.qj")).unwrap();
     poll(&mut router);
@@ -147,8 +146,7 @@ fn dictionary_changes_do_not_retry_broken_config() {
         config_path.clone(),
         dir.clone(),
         DataDirs {
-            user_root: Some(dir.clone()),
-            user_dicts: Some(dir.join("dicts")),
+            user: Some(UserDirs::at(dir.clone())),
             ..DataDirs::default()
         },
     );
@@ -158,7 +156,7 @@ fn dictionary_changes_do_not_retry_broken_config() {
     poll(&mut router);
     let source = dir.join("law.dict.yaml");
     std::fs::write(&source, "---\nname: law\n...\n合同法\the tong fa\t120\n").unwrap();
-    let imported = import::import(&source, &dir.join("dicts")).unwrap();
+    let imported = import::import(&source, &dir.join("custom/dicts")).unwrap();
     poll(&mut router);
     assert_eq!(router.config.page_size, 5);
     assert_eq!(router.engine.extra_dictionaries().len(), 1);
@@ -168,7 +166,7 @@ fn dictionary_changes_do_not_retry_broken_config() {
     modified_at(&config_path, 200);
     poll(&mut router);
     assert_eq!(router.config.page_size, 5);
-    let removed = dir.join("dicts/removed");
+    let removed = dir.join("custom/dicts/removed");
     std::fs::create_dir_all(&removed).unwrap();
     std::fs::rename(&imported.path, removed.join("law.qj")).unwrap();
     poll(&mut router);

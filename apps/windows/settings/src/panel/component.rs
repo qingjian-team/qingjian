@@ -220,7 +220,10 @@ impl Component for Settings {
                 }
                 self.cloud_status = CloudStatus::Testing;
                 let config = self.config.predict.clone();
-                let usage_path = self.data_dir().join(qingjian_predict::API_USAGE_FILE);
+                let usage_path = self
+                    .user_dirs()
+                    .records()
+                    .join(qingjian_predict::API_USAGE_FILE);
                 context.spawn_background(move |cancel| {
                     Message::CloudTestDone(cloud::run_test(&config, usage_path, &cancel))
                 });
@@ -362,7 +365,7 @@ impl Component for Settings {
             }
             Message::ExportLogs => export_logs(),
             Message::ClearInputLog => {
-                let log = self.data_dir().join("input-log.jsonl");
+                let log = self.user_dirs().input_log();
                 if let Err(error) = std::fs::remove_file(&log)
                     && error.kind() != std::io::ErrorKind::NotFound
                 {

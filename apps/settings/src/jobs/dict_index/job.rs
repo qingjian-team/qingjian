@@ -105,7 +105,7 @@ impl DictIndex {
 }
 
 fn cache_path() -> Option<PathBuf> {
-    crate::system::paths::user_dir().map(|dir| dir.join(CACHE_FILE))
+    crate::system::paths::user_dirs().map(|dirs| dirs.cache().join(CACHE_FILE))
 }
 
 /// 写临时文件再改名，半截的缓存不会留下。

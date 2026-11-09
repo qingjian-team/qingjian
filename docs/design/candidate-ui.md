@@ -391,7 +391,7 @@ Viterbi 按噪声信道挑路径：`meiganxi` 读成 没关系 只扣一次 5.5�
 学习：选了纠正后的词按原输入串记选择（`user-choices.tsv`），下次同样敲错直接首选；回车原样上屏过的串记成 `<raw>`，以后不再纠它。
 Core `correction` 模块只产生候选纠正，挑选与学习在 Engine 里。
 
-**输入日志**（`[general] input_log`，缺省开）：每次上屏往数据目录的 `input-log.jsonl` 追加一行——`keys`（消耗掉的原始键）、`pinyin`（整段切分，纠错时是纠正后的）、
+**输入日志**（`[general] input_log`，缺省开）：每次上屏往数据目录的 `records/input-log.jsonl` 追加一行——`keys`（消耗掉的原始键）、`pinyin`（整段切分，纠错时是纠正后的）、
 `corrected`、`text`、`source`（word / cloud / sentence / english / shortcut / emoji / raw / translation / cloud_sentence）、`index`（选的是查询时候选列表里第几个，
 晚到的云端词与原样上屏为空）、`top`（查询时前 5 个候选）、`scheme`、`english`、`t`（本机时间）；退格撤销另记一行 `retract`，指回被撤销那条的 `id`。
 只有敲的键与上屏的文字，不含应用里的上下文；只写本机，「高级」页可关可清，「关于」页隐私说明有写。用途：离线回放算首选命中率做排序 / 整句的回归评测，

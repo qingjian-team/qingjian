@@ -7,7 +7,7 @@ pub enum Stage {
         total: u64,
     },
 
-    /// 下完、核对过，在解压换进用户目录。
+    /// 下完、核对过，在解压换进下载目录。
     Installing,
 
     Done,

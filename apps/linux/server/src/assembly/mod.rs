@@ -10,7 +10,7 @@ use std::time::Instant;
 use qingjian_core::{EmojiTable, Engine, Language};
 use qingjian_dictionary::{Dictionary, WordList};
 use qingjian_learning::{FrequencyLearner, InputLog, PanelUsage, UsageStats, VocabularyBook};
-use qingjian_platform::{Config, extra_dictionaries};
+use qingjian_platform::{Config, UserDirs, extra_dictionaries};
 use qingjian_translate::{Glossary, LayeredTranslator, PersonalGlossary, downloaded_glossary};
 
 use crate::error::ServerError;
@@ -22,8 +22,8 @@ pub use self::spec::AssemblySpec;
 pub fn assemble(spec: &AssemblySpec) -> Result<Engine, ServerError> {
     let started = Instant::now();
     let dictionary = Dictionary::from_path(&spec.dict)?;
-    let learner = match &spec.user_dir {
-        Some(dir) => load_learner(dir),
+    let learner = match &spec.user {
+        Some(user) => load_learner(&user.learning()),
         None => FrequencyLearner::default(),
     };
     tracing::info!(
@@ -34,29 +34,34 @@ pub fn assemble(spec: &AssemblySpec) -> Result<Engine, ServerError> {
     );
     let mut engine = Engine::new(dictionary).with_learner(Box::new(learner));
     if let Some((language, path)) = &spec.glossary {
-        match load_glossary(*language, path, spec.user_dir.as_deref()) {
+        match load_glossary(
+            *language,
+            path,
+            spec.user.as_ref().map(UserDirs::learning).as_deref(),
+        ) {
             Ok(glossary) => engine = engine.with_translator(Box::new(glossary)),
             Err(error) => tracing::warn!(%error, "释义表加载失败，继续中文输入"),
         }
     }
-    if let Some(dir) = &spec.user_dir {
+    if let Some(user) = &spec.user {
+        let records = user.records();
         engine = engine
-            .with_usage_meter(Box::new(UsageStats::open(dir)))
-            .with_panel_history(Box::new(PanelUsage::open(dir)))
-            .with_vocabulary_tracker(Box::new(VocabularyBook::open(dir.join("user-vocab.tsv"))));
+            .with_usage_meter(Box::new(UsageStats::open(&records)))
+            .with_panel_history(Box::new(PanelUsage::open(&records)))
+            .with_vocabulary_tracker(Box::new(VocabularyBook::open(
+                records.join("user-vocab.tsv"),
+            )));
         if spec.input_log {
-            let path = spec
-                .log_dir
-                .as_deref()
-                .unwrap_or(dir)
-                .join("input-log.jsonl");
+            let path = user.input_log();
             tracing::info!(path = %path.display(), "输入日志开着");
             engine = engine.with_input_logger(Box::new(InputLog::open(path)));
         }
     }
+    let user_dicts = spec.user.as_ref().map(UserDirs::extra_dict_dirs);
+    let user_dicts: Vec<&Path> = user_dicts.iter().flatten().map(PathBuf::as_path).collect();
     engine.set_extra_dictionaries(extra_dictionaries::load(
         spec.bundled_dicts_dir.as_deref(),
-        user_dicts_dir(spec.user_dir.as_deref()).as_deref(),
+        &user_dicts,
         &spec.dictionaries,
     ));
     if let Some(glossary) = spec
@@ -89,13 +94,6 @@ pub fn assemble(spec: &AssemblySpec) -> Result<Engine, ServerError> {
     Ok(engine)
 }
 
-/// 用户导入词库目录 `dicts/`，不存在则创建；建不了当没有。
-fn user_dicts_dir(user_dir: Option<&Path>) -> Option<std::path::PathBuf> {
-    let dir = user_dir?.join("dicts");
-    std::fs::create_dir_all(&dir).ok()?;
-    Some(dir)
-}
-
 /// 读不了就退回只在内存里学，不拿空表覆盖用户文件。
 fn load_learner(dir: &Path) -> FrequencyLearner {
     let path = dir.join("user.tsv");
@@ -124,10 +122,10 @@ pub fn learning_language(config: &Config) -> Option<Language> {
 
 /// 某语言的释义表：设置页下载的（`<用户目录>/glossaries/`）优先，其次 `<root>/data/generated/` 打包过的 `.qj`，
 /// 再次随 git 的 `assets/glossary/` TSV；都没有为 `None`。
-pub fn glossary_file(root: &Path, user_dir: Option<&Path>, language: Language) -> Option<PathBuf> {
+pub fn glossary_file(root: &Path, downloads: Option<&Path>, language: Language) -> Option<PathBuf> {
     let code = language.code();
     [
-        user_dir.map(|dir| downloaded_glossary(dir, language)),
+        downloads.map(|dir| downloaded_glossary(dir, language)),
         Some(
             root.join("data/generated")
                 .join(format!("glossary-{code}.qj")),
@@ -160,10 +158,10 @@ pub fn load_english_glossary(path: &Path) -> Option<Glossary> {
 pub(crate) fn load_glossary(
     language: Language,
     path: &Path,
-    user_dir: Option<&Path>,
+    learning: Option<&Path>,
 ) -> Result<LayeredTranslator, ServerError> {
     let bundled = Glossary::from_path(language, path)?;
-    let personal = match user_dir {
+    let personal = match learning {
         Some(dir) => PersonalGlossary::open(
             language,
             dir.join(format!("user-glossary-{}.tsv", language.code())),

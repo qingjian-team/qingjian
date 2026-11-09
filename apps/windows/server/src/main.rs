@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use qingjian_core::{Engine, Language};
-use qingjian_platform::{Config, ConfigError, LogLevel, resources};
+use qingjian_platform::{Config, ConfigError, LogLevel, UserDirs, resources};
 use qingjian_windows_server::assembly::{glossary_file, learning_language};
 use qingjian_windows_server::{
     AssemblySpec, LanguageModelFiles, Router, RouterConfig, ServerError, assembly, dispatch,
@@ -189,11 +189,15 @@ fn main() -> ExitCode {
     let dict = std::env::var_os("QINGJIAN_DICT")
         .map(PathBuf::from)
         .unwrap_or_else(|| default_dict(&root));
-    let user = user_dir();
+    let user = qingjian_platform::dirs::user_dirs();
+    if let Some(user) = &user {
+        user.prepare();
+    }
+    let downloads = user.as_ref().map(UserDirs::downloads);
     let glossary_path = language.and_then(|language| {
         std::env::var_os("QINGJIAN_GLOSSARY")
             .map(PathBuf::from)
-            .or_else(|| glossary_file(&root, user.as_deref(), language))
+            .or_else(|| glossary_file(&root, downloads.as_deref(), language))
             .filter(|path| path.is_file())
     });
     let glossary = language.zip(glossary_path);
@@ -201,7 +205,7 @@ fn main() -> ExitCode {
     let bundled_codes_dir = Some(root.join("data/generated/codes")).filter(|dir| dir.is_dir());
     let spec = AssemblySpec {
         glossary: glossary.clone(),
-        english_glossary: glossary_file(&root, user.as_deref(), Language::Chinese),
+        english_glossary: glossary_file(&root, downloads.as_deref(), Language::Chinese),
         english: generated(&root, "english.qj"),
         emoji: ["emoji-zh.tsv", "emoji-en.tsv"]
             .into_iter()
@@ -213,7 +217,7 @@ fn main() -> ExitCode {
         bundled_codes_dir: bundled_codes_dir.clone(),
         bundled_schemes_dir: dispatch::find_bundled_schemes(&root),
         aux_code: config.aux_code.clone(),
-        user_dir: user_dir(),
+        user: user.clone(),
         input_log: config.general.input_log,
         ..AssemblySpec::new(&dict)
     };
@@ -254,7 +258,9 @@ fn main() -> ExitCode {
     engine.set_hold_selections(config.general.hold_selections);
     engine.set_context_memory(config.model.context_memory_seconds);
     engine.log_session(env!("CARGO_PKG_VERSION"), "windows");
-    let usage_path = user_dir().map(|dir| dir.join(qingjian_predict::API_USAGE_FILE));
+    let usage_path = user
+        .as_ref()
+        .map(|user| user.records().join(qingjian_predict::API_USAGE_FILE));
     qingjian_windows_server::clipboard_process::sync(config.clipboard.enabled);
     dispatch::attach_cloud(&mut engine, &config.predict, usage_path);
     let router_config = RouterConfig::from(&config);
@@ -272,12 +278,12 @@ fn main() -> ExitCode {
     let vietnamese_glossary = generated(&root, "vietnamese-chinese.qj").and_then(|path| {
         match qingjian_translate::Glossary::from_path(Language::Chinese, &path) {
             Ok(bundled) => {
-                let personal = user_dir().map_or_else(
+                let personal = user.as_ref().map_or_else(
                     || qingjian_translate::PersonalGlossary::in_memory(Language::Chinese),
-                    |dir| {
+                    |user| {
                         qingjian_translate::PersonalGlossary::open(
                             Language::Chinese,
-                            dir.join("user-glossary-input-vi-zh.tsv"),
+                            user.learning().join("user-glossary-input-vi-zh.tsv"),
                         )
                     },
                 );
@@ -294,25 +300,22 @@ fn main() -> ExitCode {
     router.set_vietnamese_glossary(vietnamese_glossary);
     router.configure_local_model(
         dispatch::ModelDirs {
-            user: user_dir(),
+            downloaded: user.as_ref().map(UserDirs::models),
             bundled_root: root.clone(),
         },
         &config.model,
     );
     router.configure_schemes(&config, dispatch::find_bundled_schemes(&root));
     if let Some(path) = config_path() {
-        let user = user_dir();
         router.watch_config(
             &config,
             path,
             root.clone(),
             dispatch::DataDirs {
-                user_root: user.clone(),
+                user: user.clone(),
                 bundled_dicts: bundled_dicts_dir,
                 bundled_codes: bundled_codes_dir,
                 bundled_schemes: dispatch::find_bundled_schemes(&root),
-                user_dicts: assembly::user_dicts_dir(user.as_deref()),
-                user_codes: assembly::user_codes_dir(user.as_deref()),
             },
         );
     }

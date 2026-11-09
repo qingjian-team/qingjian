@@ -4,11 +4,11 @@ use std::path::{Path, PathBuf};
 
 use qingjian_platform::LocalModel;
 
-use super::{Install, Item, Repo, Target};
+use super::{Install, Item, Repo, Target, downloads_dir};
 
 use crate::i18n::{tr, tr_args};
 
-/// 一个能在「实验功能」里下载的模型：从模型仓库的哪个 Release 取，解到用户目录的哪里。
+/// 一个能在「实验功能」里下载的模型：从模型仓库的哪个 Release 取，解到下载目录的哪里。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Pack {
     pub model: LocalModel,
@@ -19,7 +19,7 @@ pub struct Pack {
     /// 压缩包里那一层目录。
     archive_dir: &'static str,
 
-    /// 解到用户目录下的哪里，与输入法读的位置一致。
+    /// 解到下载目录（`downloads/`）下的哪里，与输入法读的位置一致。
     install_dir: &'static str,
 
     /// 有这个文件就算装好了。
@@ -68,8 +68,8 @@ impl Pack {
         Self::ALL.into_iter().find(|pack| pack.model == model)
     }
 
-    pub fn install_path(self, user_dir: &Path) -> PathBuf {
-        user_dir.join(self.install_dir)
+    pub fn install_path(self, downloads: &Path) -> PathBuf {
+        downloads.join(self.install_dir)
     }
 
     pub fn target(self) -> Target {
@@ -86,13 +86,12 @@ impl Pack {
 
     /// 删掉装好的整个模型目录。
     pub fn remove(self) -> Result<(), String> {
-        let dir = crate::system::paths::user_dir().ok_or(tr("common.no_data_dir"))?;
+        let dir = downloads_dir().ok_or(tr("common.no_data_dir"))?;
         std::fs::remove_dir_all(self.install_path(&dir))
             .map_err(|error| tr_args("download.cant_remove", &[("error", &error)]))
     }
 
     pub fn installed(self) -> bool {
-        crate::system::paths::user_dir()
-            .is_some_and(|dir| self.install_path(&dir).join(self.marker).is_file())
+        downloads_dir().is_some_and(|dir| self.install_path(&dir).join(self.marker).is_file())
     }
 }

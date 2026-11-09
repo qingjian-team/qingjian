@@ -36,12 +36,21 @@ impl Kind {
 
     /// 用户导入的放在哪。
     pub fn user_dir(self) -> Option<PathBuf> {
-        let user = paths::user_dir()?;
+        let dirs = paths::user_dirs()?;
         Some(match self {
-            Self::Dictionary => user.join("dicts"),
-            Self::CodeWords => code_schemes::user_words_dir(&user),
-            Self::CodeTable => user.join("codes"),
+            Self::Dictionary => dirs.custom_dicts(),
+            Self::CodeWords => code_schemes::user_words_dir(&dirs.custom()),
+            Self::CodeTable => dirs.code_tables(),
         })
+    }
+
+    /// 列「导入的词库」时看哪些目录：拼音词库还有设置里下载的那些，同一组开关、同样能移除。
+    pub fn user_dirs(self) -> Vec<PathBuf> {
+        let downloaded = match self {
+            Self::Dictionary => paths::user_dirs().map(|dirs| dirs.downloaded_dicts()),
+            Self::CodeWords | Self::CodeTable => None,
+        };
+        self.user_dir().into_iter().chain(downloaded).collect()
     }
 
     /// 随包的那一份；形码词库只有用户导入的。

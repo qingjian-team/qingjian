@@ -11,15 +11,22 @@ description: 青简数据文件夹的位置、每个文件记的是什么、搬�
 数据文件夹的位置：
 
 - **macOS**：`~/Library/Application Support/Qingjian/`（访达中按 `⇧⌘G` 输入此路径）。
-- **Windows**：`%APPDATA%\Qingjian`（在资源管理器地址栏中直接输入此路径）。
+- **Windows**：`%APPDATA%\Qingjian`（在资源管理器地址栏中直接输入此路径）；下载的词库、模型与缓存在 `%LOCALAPPDATA%\Qingjian`。
 - **Linux**：`~/.local/share/qingjian`；配置文件在 `~/.config/qingjian/`。设置了 `XDG_DATA_HOME` / `XDG_CONFIG_HOME` 时用它们下面的 `qingjian`。
 
-「设置 → 高级」的「打开数据目录」直接打开它。文件都是纯文本，可随时打开查看：
+「设置 → 高级」的「打开数据目录」直接打开它。里面按用途分成几个文件夹，根下只留配置。文件都是纯文本，可随时打开查看。
+
+根下：
 
 | 文件 | 内容 | 含输入内容 |
 |---|---|---|
 | `config.toml` | 设置，见 [直接编辑配置文件](config-file.md) | 否 |
 | `.env` | AI 服务的密钥，填写后才有；只有当前账户可读 | 否 |
+
+`learning/`：输入法从你打字里学到的。
+
+| 文件 | 内容 | 含输入内容 |
+|---|---|---|
 | `user.tsv` | 每个词被选择的次数 | 选过的词 |
 | `user-words.tsv` | 自己造的词与选过的 AI 候选 | 选过的词 |
 | `user-choices.tsv` | 某段拼音下选过的词 | 拼音与选过的词 |
@@ -28,23 +35,50 @@ description: 青简数据文件夹的位置、每个文件记的是什么、搬�
 | `user-english.tsv` | 原样上屏过的英文词 | 英文词 |
 | `user-typos.tsv` | 被接受的拼写纠正（敲成了什么、本意是什么） | 拼音音节 |
 | `user-ngram.tsv` | 词与词之间的接续 | 连续输入过的词 |
-| `user-glossary-<语言>.tsv` | AI 补充的译词 | 词与译词 |
+| `user-glossary-<语言>.tsv` | AI 补充、自己修改的译词 | 词与译词 |
+
+`records/`：统计与记录。
+
+| 文件 | 内容 | 含输入内容 |
+|---|---|---|
 | `vocab-log.tsv` | 生词本的时间线：每次上屏有译词的中文一行（时刻、中文、译词、读音） | 中文与译文 |
 | `user-vocab.tsv` | 生词本的词表：每条译词被看到 / 上屏 / 输出的次数，最近一次的中文与例句，是否标了认识 | 译词、中文与例句 |
 | `usage-hourly.tsv` | 按小时的字数、词数、上屏次数、首选次数、键数、打字时长，只有数字 | 否 |
 | `usage.tsv` | 0.2.2 以前按天的输入统计，只读不再写 | 否 |
+| `panel-usage.tsv` | 符号面板里各项的使用次数 | 否 |
 | `api-usage.json`、`api-usage-hourly.tsv` | AI 服务的请求次数与 Token 数，只有数字 | 否 |
-| `update.json` | 上次检查更新的时间与查到的新版本 | 否 |
 | `input-log.jsonl` | 输入日志，见 [隐私](../help/privacy.md#输入日志) | 按键与上屏的文字 |
-| `dicts/` | 导入的词库；移除的在 `dicts/removed/` | 否 |
-| `codes/` | 导入的辅码码表 | 否 |
-| `themes/` | 自制主题，见 [自制主题](custom-themes.md) | 否 |
-| `schemes/` | 自制双拼、形码与辅码方案，见 [自制方案与码表](custom-schemes.md) | 否 |
-| `models/` | 自己放入的本地整句模型，见下文 | 否 |
 
-这些文件每次整体替换，即使输入法中途崩溃也不会留下写到一半的文件。
+`custom/`：你自己导入、自己做的。
 
-想让输入习惯从头开始，删掉 `user` 开头的这些表（`user-glossary-*`、`user-vocab.tsv` 除外）；生词本在设置的「生词本」页清空。
+| 文件夹 | 内容 |
+|---|---|
+| `dicts/` | 导入的词库；移除的在 `dicts/removed/` |
+| `code_dicts/` | 导入的五笔这类形码词库 |
+| `codes/` | 导入的辅码码表 |
+| `schemes/` | 自制双拼、形码与辅码方案，见 [自制方案与码表](custom-schemes.md) |
+| `themes/` | 自制主题，见 [自制主题](custom-themes.md) |
+
+`downloads/`：在「设置」里下载的（Windows 在 `%LOCALAPPDATA%\Qingjian` 下）。
+
+| 文件夹 | 内容 |
+|---|---|
+| `dicts/` | 下载的词库；移除的在 `dicts/removed/` |
+| `glossaries/` | 下载的释义表 |
+| `models/` | 下载或自己放入的本地整句模型，见下文 |
+
+`cache/`：删掉也没关系，用到时会重新生成（Windows 在 `%LOCALAPPDATA%\Qingjian` 下）。
+
+| 文件 | 内容 |
+|---|---|
+| `dict-index.json` | 上次取到的可下载词库列表 |
+| `update.json` | 上次检查更新的时间与查到的新版本 |
+
+`clipboard/` 是青简剪贴板的历史与设备同步数据，见 [剪贴板同步](../personalize/clipboard-sync.md)。
+
+这些文件每次整体替换，即使输入法中途崩溃也不会留下写到一半的文件。以前的版本把它们平铺在数据文件夹里，升级后第一次启动时自动挪进上面这些文件夹；挪完以后再换回旧版本，旧版本就找不到它们了。
+
+想让输入习惯从头开始，删掉 `learning/` 里 `user` 开头的这些表（`user-glossary-*` 除外）；生词本在设置的「生词本」页清空。
 
 ## 搬到另一台电脑
 
@@ -67,13 +101,12 @@ Windows 后台的启动、受控退出及 Rust panic 位置都写入现有 `serv
 
 ## 换用自己的本地整句模型
 
-本地整句模型含章·通变在 macOS 与 Windows 上从「设置 → 实验功能」下载到下面的目录，Linux 版随包附带。要换用自己训练的模型，把 `hanzhang-tongbian-small.qjm` 放进数据文件夹的 `models/hanzhang-tongbian/`，重启输入法后优先使用：
+本地整句模型含章·通变在 macOS 与 Windows 上从「设置 → 实验功能」下载到下面的目录，Linux 版随包附带。要换用自己训练的模型，把 `hanzhang-tongbian-small.qjm` 放进下面的目录，重启输入法后优先使用：
 
-- **macOS**：`~/Library/Application Support/Qingjian/models/hanzhang-tongbian/`
-- **Windows**：`%APPDATA%\Qingjian\models\hanzhang-tongbian\`
-- **Linux**：`~/.local/share/qingjian/models/hanzhang-tongbian/`
+- **macOS**：`~/Library/Application Support/Qingjian/downloads/models/hanzhang-tongbian/`
+- **Windows**：`%LOCALAPPDATA%\Qingjian\downloads\models\hanzhang-tongbian\`
+- **Linux**：`~/.local/share/qingjian/downloads/models/hanzhang-tongbian/`
 
-- 知意下载后在 `models/zhiyi/`（Windows 是 `models/zhiyi-onnx/`）。含章·知微已下线，`models/hanzhang-zhiwei/` 不再读取，可以删掉。
-- 知意输入法的词库模型（`zh.ngram`）目前不随包，只有 Windows 版会读：放进 `%APPDATA%\Qingjian\models\zhiyi-ngram\` 后重启输入法，整句和候选排序都会参考它；它认识而词库没收的词（摸鱼、老梗这类）也能打出来。放进去后第一次启动会多等一秒左右，在同一目录生成 `zh.words.qj`；之后直接读这个文件，换了模型或升级词库时会自动重新生成，删掉也没关系。
-- 旧版用过的 `model-p2c/` 与 `model/` 文件夹仍可读取；同一模型的新文件夹优先。
+- 知意下载后在同一层的 `zhiyi/`（Windows 是 `zhiyi-onnx/`）。含章·知微已下线，`hanzhang-zhiwei/` 不再读取，可以删掉。
+- 知意输入法的词库模型（`zh.ngram`）目前不随包，只有 Windows 版会读：放进 `%LOCALAPPDATA%\Qingjian\downloads\models\zhiyi-ngram\` 后重启输入法，整句和候选排序都会参考它；它认识而词库没收的词（摸鱼、老梗这类）也能打出来。放进去后第一次启动会多等一秒左右，在同一目录生成 `zh.words.qj`；之后直接读这个文件，换了模型或升级词库时会自动重新生成，删掉也没关系。
 - 直接导出的 `model.safetensors`、`config.json`、`vocab.json` 三个文件也能识别；同一文件夹里两种都有时优先用 `.qjm`。

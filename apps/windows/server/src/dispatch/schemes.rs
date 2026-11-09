@@ -34,11 +34,11 @@ impl Router {
 
     /// 热加载：按新配置的两条轴重新装配；方案与码表都没变时不重读码表。
     pub(super) fn reload_schemes(&mut self, config: &Config) {
-        let user_dir = qingjian_platform::dirs::user_dir();
+        let custom = qingjian_platform::dirs::user_dirs().map(|dirs| dirs.custom());
         self.scheme_slot.apply(
             &mut self.engine,
             config,
-            user_dir.as_deref(),
+            custom.as_deref(),
             self.bundled_schemes.as_deref(),
         );
     }

@@ -18,9 +18,9 @@ pub struct Target {
 
 impl Target {
     /// 下载用的临时目录，放在装到的目录旁边（同一个盘，装的时候改名就行）；点开头，扫词库的不会看见。
-    pub(super) fn work_dir(&self, user_dir: &Path) -> PathBuf {
+    pub(super) fn work_dir(&self, downloads: &Path) -> PathBuf {
         self.install
-            .parent(user_dir)
+            .parent(downloads)
             .join(format!(".download-{}", self.tag))
     }
 }

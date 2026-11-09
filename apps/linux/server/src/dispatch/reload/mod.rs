@@ -12,7 +12,7 @@ use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant, SystemTime};
 
 use qingjian_core::{Language, NoTranslator};
-use qingjian_platform::Config;
+use qingjian_platform::{Config, UserDirs};
 use qingjian_predict::API_USAGE_FILE;
 
 pub(crate) use self::state::ConfigReload;
@@ -35,14 +35,14 @@ impl Router {
         config: &Config,
         config_path: PathBuf,
         root: PathBuf,
-        user_dir: PathBuf,
+        user: UserDirs,
     ) {
         let mut reload = ConfigReload {
             last_mtime: mtime(&config_path),
             config_path,
             last_check: Instant::now(),
             root,
-            user_dir,
+            user,
             dictionary_files: Vec::new(),
             glossary_files: Vec::new(),
             applied_dictionaries: config.dictionaries.clone(),
@@ -144,7 +144,7 @@ impl Router {
             return;
         };
         if config.predict != reload.applied_predict {
-            let usage_path = Some(reload.user_dir.join(API_USAGE_FILE));
+            let usage_path = Some(reload.user.records().join(API_USAGE_FILE));
             self.reload_cloud(&config.predict, usage_path);
             reload.applied_predict = config.predict.clone();
         }
@@ -173,9 +173,12 @@ impl Router {
             return;
         };
         // 下载的删了、又没随包的：英文候选右侧留空
-        let english =
-            assembly::glossary_file(&reload.root, Some(&reload.user_dir), Language::Chinese)
-                .and_then(|path| assembly::load_english_glossary(&path));
+        let english = assembly::glossary_file(
+            &reload.root,
+            Some(&reload.user.downloads()),
+            Language::Chinese,
+        )
+        .and_then(|path| assembly::load_english_glossary(&path));
         match english {
             Some(glossary) => self.engine.set_english_translator(Box::new(glossary)),
             None => self.engine.set_english_translator(Box::new(NoTranslator)),
@@ -197,7 +200,8 @@ impl Router {
             tracing::info!("学习语言已关，不显示译文");
             return true;
         };
-        let Some(path) = assembly::glossary_file(&reload.root, Some(&reload.user_dir), language)
+        let Some(path) =
+            assembly::glossary_file(&reload.root, Some(&reload.user.downloads()), language)
         else {
             tracing::warn!(
                 language = language.code(),
@@ -205,7 +209,7 @@ impl Router {
             );
             return false;
         };
-        match assembly::load_glossary(language, &path, Some(&reload.user_dir)) {
+        match assembly::load_glossary(language, &path, Some(&reload.user.learning())) {
             Ok(glossary) => {
                 tracing::info!(language = language.code(), "释义表已切换");
                 self.engine.set_translator(Box::new(glossary));

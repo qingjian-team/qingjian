@@ -13,7 +13,7 @@ mod system_hotkey;
 
 use std::path::{Path, PathBuf};
 
-use qingjian_platform::Config;
+use qingjian_platform::{Config, UserDirs};
 use qingjian_render::ThemeLibrary;
 use windows_reactor::{ElementRef, PasswordBox, View, ViewContext};
 
@@ -72,9 +72,9 @@ impl Settings {
         qingjian_platform::dirs::config_path().unwrap_or_else(|| PathBuf::from("config.toml"))
     }
 
-    /// 检查更新的结果文件 `%APPDATA%\Qingjian\update.json`（Server 写，这里读）。
+    /// 检查更新的结果文件 `%LOCALAPPDATA%\Qingjian\cache\update.json`（Server 写，这里读）。
     fn update_state_path() -> Option<PathBuf> {
-        qingjian_platform::dirs::user_dir().map(|dir| dir.join("update.json"))
+        qingjian_platform::dirs::user_dirs().map(|dirs| dirs.cache().join("update.json"))
     }
 
     /// 配置文件不在就写出模板：这个账户下 Server 还没跑过时，保存与「在记事本中打开」都要有文件。
@@ -84,9 +84,15 @@ impl Settings {
         }
     }
 
-    /// 数据目录 `%APPDATA%\Qingjian`。
+    /// 数据目录 `%APPDATA%\Qingjian`（「打开数据文件夹」打开它）。
     fn data_dir(&self) -> &Path {
         self.path.parent().unwrap_or_else(|| Path::new("."))
+    }
+
+    /// 用户数据的分类布局；拿不到 `APPDATA` 时按配置文件所在的目录。
+    fn user_dirs(&self) -> UserDirs {
+        qingjian_platform::dirs::user_dirs()
+            .unwrap_or_else(|| UserDirs::at(self.data_dir().to_path_buf()))
     }
 
     /// 落盘一个配置值再重读。失败只打印。

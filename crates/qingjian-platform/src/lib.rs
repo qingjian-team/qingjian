@@ -18,6 +18,7 @@ pub mod protocol;
 pub mod resources;
 mod scheme;
 pub mod shuangpin_schemes;
+mod user_dirs;
 
 pub use config::{
     Appearance, AppsConfig, AuxCodeConfig, CLIPBOARD_HISTORY_LIMITS, CandidateRenderer,
@@ -34,3 +35,4 @@ pub use config::{
 };
 pub use error::ConfigError;
 pub use scheme::{SchemeMeta, SchemeSlot};
+pub use user_dirs::UserDirs;

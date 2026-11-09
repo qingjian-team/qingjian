@@ -4,8 +4,8 @@
 use std::sync::Arc;
 
 use qingjian_dictionary::{AuxCodeLookup, AuxCodeTable};
-use qingjian_platform::Config;
 use qingjian_platform::protocol::PreeditKind;
+use qingjian_platform::{Config, UserDirs};
 use qingjian_windows_server::dispatch::DataDirs;
 
 use super::support::*;
@@ -307,12 +307,12 @@ fn the_self_drawn_window_keeps_the_code_segment_for_an_old_dll() {
     );
 }
 
-/// 设置页刚导入一张码表：`codes/` 目录里出现新文件就重装，不必等配置改动、也不必重启。
+/// 设置页刚导入一张码表：`custom/codes/` 目录里出现新文件就重装，不必等配置改动、也不必重启。
 #[test]
 fn a_new_code_table_in_the_user_dir_hot_reloads() {
     let dir = std::env::temp_dir().join(format!("qingjian-codes-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
-    let codes = dir.join("codes");
+    let codes = dir.join("custom/codes");
     std::fs::create_dir_all(&codes).unwrap();
     let mut router = router();
     router.engine_mut().set_aux_enabled(true);
@@ -321,7 +321,7 @@ fn a_new_code_table_in_the_user_dir_hot_reloads() {
         dir.join("config.toml"),
         dir.clone(),
         DataDirs {
-            user_codes: Some(codes.clone()),
+            user: Some(UserDirs::at(dir.clone())),
             ..DataDirs::default()
         },
     );
@@ -353,7 +353,7 @@ fn a_new_code_table_in_the_user_dir_hot_reloads() {
 fn a_rewritten_code_table_hot_reloads() {
     let dir = std::env::temp_dir().join(format!("qingjian-codes-rw-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
-    let codes = dir.join("codes");
+    let codes = dir.join("custom/codes");
     std::fs::create_dir_all(&codes).unwrap();
     let first = AuxCodeTable::from_pairs([("开发".to_owned(), "kf".to_owned())]).unwrap();
     first
@@ -367,7 +367,7 @@ fn a_rewritten_code_table_hot_reloads() {
         dir.join("config.toml"),
         dir.clone(),
         DataDirs {
-            user_codes: Some(codes.clone()),
+            user: Some(UserDirs::at(dir.clone())),
             ..DataDirs::default()
         },
     );

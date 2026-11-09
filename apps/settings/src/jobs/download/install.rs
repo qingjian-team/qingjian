@@ -10,34 +10,34 @@ use crate::i18n::{tr, tr_args};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Install {
-    /// 模型：压缩包里的 `archive_dir` 整个换进用户目录下的 `install_dir`（与输入法读的位置一致）。
+    /// 模型：压缩包里的 `archive_dir` 整个换进下载目录（`downloads/`）下的 `install_dir`（与输入法读的位置一致）。
     Archive {
         archive_dir: &'static str,
 
         install_dir: &'static str,
     },
 
-    /// 词库：`.qjz` 解成用户目录下的 `dest`（相对路径，如 `dicts/domain-medicine.qj`），解出来要是 `kind`。
+    /// 词库：`.qjz` 解成下载目录（`downloads/`）下的 `dest`（相对路径，如 `dicts/domain-medicine.qj`），解出来要是 `kind`。
     Qjz { dest: String, kind: Kind },
 }
 
 impl Install {
     /// 装到的目录的上一级：下载的临时目录放这里。
-    pub(super) fn parent(&self, user_dir: &Path) -> PathBuf {
-        let target = self.target(user_dir);
+    pub(super) fn parent(&self, downloads: &Path) -> PathBuf {
+        let target = self.target(downloads);
         target.parent().map_or(target.clone(), Path::to_path_buf)
     }
 
-    fn target(&self, user_dir: &Path) -> PathBuf {
+    fn target(&self, downloads: &Path) -> PathBuf {
         match self {
-            Self::Archive { install_dir, .. } => user_dir.join(install_dir),
-            Self::Qjz { dest, .. } => user_dir.join(dest),
+            Self::Archive { install_dir, .. } => downloads.join(install_dir),
+            Self::Qjz { dest, .. } => downloads.join(dest),
         }
     }
 
-    /// 把下好的 `archive` 装进用户目录；`work` 是这次下载的临时目录。
-    pub(super) fn run(&self, archive: &Path, work: &Path, user_dir: &Path) -> Result<(), String> {
-        let target = self.target(user_dir);
+    /// 把下好的 `archive` 装进下载目录；`work` 是这次下载的临时目录。
+    pub(super) fn run(&self, archive: &Path, work: &Path, downloads: &Path) -> Result<(), String> {
+        let target = self.target(downloads);
         if let Some(parent) = target.parent() {
             std::fs::create_dir_all(parent)
                 .map_err(|error| tr_args("download.cant_create_model_dir", &[("error", &error)]))?;

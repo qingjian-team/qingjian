@@ -24,11 +24,11 @@ const LANGUAGES: [Language; 6] = [
 
 /// 有释义表的语言（随包的或下载的）。
 pub fn available() -> Vec<Language> {
-    let user_dir = paths::user_dir();
+    let downloads = paths::user_dirs().map(|dirs| dirs.downloads());
     LANGUAGES
         .into_iter()
         .filter(|language| {
-            user_dir
+            downloads
                 .as_deref()
                 .is_some_and(|dir| downloaded_glossary(dir, *language).is_file())
                 || bundled(*language).is_some()
@@ -48,9 +48,9 @@ fn bundled(language: Language) -> Option<PathBuf> {
         .or_else(|| paths::bundled(&format!("assets/glossary/glossary-{code}.tsv")))
 }
 
-/// 用户目录 `glossaries/` 里下载的释义表，文件名主干就是词库仓库里的 id（`glossary-ja`）。
+/// `downloads/glossaries/` 里下载的释义表，文件名主干就是词库仓库里的 id（`glossary-ja`）。
 pub fn downloaded() -> Vec<Entry> {
-    let Some(dir) = paths::user_dir().map(|dir| dir.join(DOWNLOADED_DIR)) else {
+    let Some(dir) = paths::user_dirs().map(|dirs| dirs.downloads().join(DOWNLOADED_DIR)) else {
         return Vec::new();
     };
     extra_dictionaries::list(&dir)
@@ -61,8 +61,9 @@ pub fn downloaded() -> Vec<Entry> {
 
 /// 移除一张下载的释义表：挪进 `glossaries/removed/`，不真删；输入法看到文件没了就退回随包的。
 pub fn remove(stem: &str) -> Result<(), String> {
-    let dir = paths::user_dir()
+    let dir = paths::user_dirs()
         .ok_or(tr("common.no_data_dir"))?
+        .downloads()
         .join(DOWNLOADED_DIR);
     let (_, path) = extra_dictionaries::list(&dir)
         .into_iter()

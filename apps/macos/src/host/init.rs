@@ -6,6 +6,9 @@ use crate::candidates::MenuHandlers;
 /// 加载数据并建立单例。必须在主线程、在 IMKServer 建立之前调用。版本显示在菜单末行与「关于」页。
 pub fn init(mtm: MainThreadMarker, info: &BundleInfo) -> Result<(), HostError> {
     let version = info.version.as_str();
+    if let Some(dirs) = paths::user_dirs() {
+        dirs.prepare();
+    }
     let settings = Settings::load();
     let started = std::time::Instant::now();
     // 打包过的 .qj 直接映射；没有就解析 TSV（样例词库）
@@ -30,8 +33,8 @@ pub fn init(mtm: MainThreadMarker, info: &BundleInfo) -> Result<(), HostError> {
             .or_else(|| languages.first().copied())
     };
     let glossary = learning_language.map(load_glossary).transpose()?;
-    let learner = match paths::user_data_dir() {
-        Some(dir) => load_learner(&dir),
+    let learner = match paths::user_dirs() {
+        Some(dirs) => load_learner(&dirs.learning()),
         None => FrequencyLearner::default(),
     };
     // 英文词表可选：没有就不出英文候选；随包的是 .qj，样例词库只有 TSV
@@ -48,10 +51,10 @@ pub fn init(mtm: MainThreadMarker, info: &BundleInfo) -> Result<(), HostError> {
         .ok()
         .map(|path| {
             let bundled = Glossary::from_path(Language::Chinese, path)?;
-            let personal = match paths::user_data_dir() {
-                Some(dir) => PersonalGlossary::open(
+            let personal = match paths::user_dirs() {
+                Some(dirs) => PersonalGlossary::open(
                     Language::Chinese,
-                    dir.join("user-glossary-input-vi-zh.tsv"),
+                    dirs.learning().join("user-glossary-input-vi-zh.tsv"),
                 ),
                 None => PersonalGlossary::in_memory(Language::Chinese),
             };
@@ -70,8 +73,8 @@ pub fn init(mtm: MainThreadMarker, info: &BundleInfo) -> Result<(), HostError> {
     if let Some(glossary) = glossary {
         engine = engine.with_translator(Box::new(glossary));
     }
-    // 输入统计（打了多少字）：与学习数据同目录；没有数据目录就只在内存里数
-    if let Some(dir) = paths::user_data_dir() {
+    // 输入统计（打了多少字）、生词本、面板用量记在 `records/`；没有数据目录就只在内存里数
+    if let Some(dir) = paths::user_dirs().map(|dirs| dirs.records()) {
         // 词汇等级表（levels-en.tsv / levels-ja.tsv）随包可选：有就按级统计
         let mut vocabulary = VocabularyBook::open(dir.join(VOCABULARY_FILE));
         for language in GLOSSARY_LANGUAGES {
@@ -90,10 +93,12 @@ pub fn init(mtm: MainThreadMarker, info: &BundleInfo) -> Result<(), HostError> {
             .with_panel_history(Box::new(PanelUsage::open(&dir)))
             .with_vocabulary_tracker(Box::new(vocabulary));
     }
-    // 附加词库：随包的领域词库 + 用户目录 dicts/ 下的文件
+    // 附加词库：随包的领域词库 + 用户导入的、设置里下载的
+    let user_dicts = user_dict_dirs();
+    let user_dicts: Vec<&std::path::Path> = user_dicts.iter().map(PathBuf::as_path).collect();
     engine.set_extra_dictionaries(extra_dictionaries::load(
         paths::bundled_dicts_dir().as_deref(),
-        paths::dicts_dir().as_deref(),
+        &user_dicts,
         &settings.config().dictionaries,
     ));
     // 英文候选的中文释义（英→中）可选：没有这张表英文候选右侧就留空
@@ -210,8 +215,9 @@ pub fn init(mtm: MainThreadMarker, info: &BundleInfo) -> Result<(), HostError> {
             rescore: RescoreMonitor::new(mtm),
             model_loader: None,
             applied_model: None,
-            updates: paths::user_data_dir()
-                .map(|dir| qingjian_update::Checker::new(dir.join(UPDATE_STATE_FILE), version)),
+            updates: paths::user_dirs().map(|dirs| {
+                qingjian_update::Checker::new(dirs.cache().join(UPDATE_STATE_FILE), version)
+            }),
             update_status: UpdateStatus::default(),
             session: Session::default(),
             trace: None,
@@ -311,10 +317,10 @@ pub(super) fn load_emoji_tables(names: &[&str]) -> Option<EmojiTable> {
     merged
 }
 
-/// 设置页下载的（用户目录 `glossaries/`）优先，其次随包的 `.qj`、`.tsv`。
+/// 设置页下载的（`downloads/glossaries/`）优先，其次随包的 `.qj`、`.tsv`。
 pub(super) fn glossary_path(language: Language) -> Result<PathBuf, HostError> {
-    if let Some(path) = paths::user_data_dir()
-        .map(|dir| downloaded_glossary(&dir, language))
+    if let Some(path) = paths::user_dirs()
+        .map(|dirs| downloaded_glossary(&dirs.downloads(), language))
         .filter(|path| path.is_file())
     {
         return Ok(path);
@@ -338,20 +344,29 @@ pub(super) fn load_english_glossary() -> Option<Glossary> {
     }
 }
 
-/// 用户目录 `glossaries/` 的快照，只 stat；设置页下载装上新表后变。
+/// `downloads/glossaries/` 的快照，只 stat；设置页下载装上新表后变。
 pub(super) fn glossary_files() -> Vec<(PathBuf, Option<std::time::SystemTime>, u64)> {
-    paths::user_data_dir()
-        .map(|dir| extra_dictionaries::snapshot(&dir.join(DOWNLOADED_DIR)))
+    paths::user_dirs()
+        .map(|dirs| extra_dictionaries::snapshot(&dirs.downloads().join(DOWNLOADED_DIR)))
         .unwrap_or_default()
+}
+
+/// 用户的附加词库目录：导入的（`custom/dicts/`）与设置里下载的（`downloads/dicts/`）。
+pub(super) fn user_dict_dirs() -> Vec<PathBuf> {
+    [paths::dicts_dir(), paths::downloaded_dicts_dir()]
+        .into_iter()
+        .flatten()
+        .collect()
 }
 
 /// 随包释义表叠上用户目录的个人释义表（`user-glossary-<语言>.tsv`，释义兜底写入、可手改）。
 pub(super) fn load_glossary(language: Language) -> Result<LayeredTranslator, HostError> {
     let bundled = Glossary::from_path(language, glossary_path(language)?)?;
-    let personal = match paths::user_data_dir() {
-        Some(dir) => PersonalGlossary::open(
+    let personal = match paths::user_dirs() {
+        Some(dirs) => PersonalGlossary::open(
             language,
-            dir.join(format!("user-glossary-{}.tsv", language.code())),
+            dirs.learning()
+                .join(format!("user-glossary-{}.tsv", language.code())),
         ),
         None => PersonalGlossary::in_memory(language),
     };

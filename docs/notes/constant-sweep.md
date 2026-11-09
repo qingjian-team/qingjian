@@ -112,7 +112,7 @@
 ## 怎么复现
 
 ```bash
-cp ~/Library/Application\ Support/Qingjian/input-log.jsonl /tmp/frozen.jsonl
+cp ~/Library/Application\ Support/Qingjian/records/input-log.jsonl /tmp/frozen.jsonl
 # 配置副本里把 [predict] enabled 改成 false
 cargo build --release -p qingjian-cli
 printf '\nlambda=0.75\nsubstitute=5.5\n' > /tmp/settings.txt

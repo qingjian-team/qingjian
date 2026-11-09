@@ -10,7 +10,7 @@ Linux 版当前候选面板由 Fcitx 绘制，主题与字号暂时只影响设�
 
 ## 放在哪里
 
-自制主题放在[数据文件夹](data-files.md#数据文件)的 `themes` 文件夹中，一个主题一个文件夹，文件夹里放一个 `theme.json`：
+自制主题放在[数据文件夹](data-files.md#数据文件)的 `custom/themes` 文件夹中，一个主题一个文件夹，文件夹里放一个 `theme.json`：
 
 ```text
 themes/

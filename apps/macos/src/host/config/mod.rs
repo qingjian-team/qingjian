@@ -124,7 +124,7 @@ impl Host {
         if force || config.predict != self.applied_predict {
             if config.predict.enabled {
                 // 请求与 Token 记进统计页的云服务用量
-                let usage = paths::user_data_dir().map(|dir| dir.join(API_USAGE_FILE));
+                let usage = paths::user_dirs().map(|dirs| dirs.records().join(API_USAGE_FILE));
                 // 没密钥等失败只记日志、退回不联想：输入优先于一切附加功能
                 match CloudPredictor::new_with_usage(&config.predict, usage.clone()) {
                     Ok(predictor) => self.engine.set_predictor(Box::new(predictor)),
@@ -349,16 +349,16 @@ impl Host {
         self.scheme_slot.apply(
             &mut self.engine,
             config,
-            paths::user_data_dir().as_deref(),
+            paths::custom_dir().as_deref(),
             paths::bundled_schemes_dir().as_deref(),
         );
         self.code_word_files = code_word_files();
     }
 }
 
-/// 用户 `code_dicts/` 的快照，只 stat。
+/// 用户 `custom/code_dicts/` 的快照，只 stat。
 fn code_word_files() -> Vec<(std::path::PathBuf, Option<std::time::SystemTime>, u64)> {
-    paths::user_data_dir()
+    paths::custom_dir()
         .map(|dir| {
             let dir = qingjian_platform::code_schemes::user_words_dir(&dir);
             qingjian_platform::code_schemes::words_snapshot(&dir)

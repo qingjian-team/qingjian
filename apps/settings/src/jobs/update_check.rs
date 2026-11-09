@@ -29,7 +29,7 @@ pub struct UpdateCheck {
 
 impl UpdateCheck {
     pub fn load() -> Self {
-        let path = crate::system::paths::user_dir().map(|dir| dir.join("update.json"));
+        let path = crate::system::paths::user_dirs().map(|dirs| dirs.cache().join("update.json"));
         let state = path.as_deref().map(UpdateState::load).unwrap_or_default();
         Self {
             path,

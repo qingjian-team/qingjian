@@ -45,7 +45,7 @@ TSV 的音节可带数字声调（`ni3`，轻声 5 或 0），键一律去调，
 越南语 Simple Telex 在 `vietnamese/`：`TelexComposer` 只存原始按键，每次编辑后用 MIT 许可的纯 Rust `vi` crate 重算现代声调写法；外层补词首 `w` 不转 `ư`、重复声调键恢复字面文本、Esc 恢复原始按键与按词 commit。`vi` 自带越南语音节校验，所以 `linux` / `changes` 保持英文，`this` → `thí`、`mix` → `mĩ` 这类合法越南语歧义与 UniKey 一致。桌面壳只维护模式和 composition / marked text，不各写一套转换规则。
 候选词表 `vietnamese.qj` 与反向中文释义表 `vietnamese-chinese.qj` 是词库仓库的两本随包词库（`vietnamese` 与 `vietnamese-chinese`），由那边的 `tools/vietnamese.py` 从越南语释义表提取译词、去重，并以释义表出现次数作为近似频率；同一越南语词对应的中文源词按出现次数取前两条。输入至少两个越南语字符时用 `WordList` 前缀补全，当前转换结果排第一、原始按键排最后；候选用反向 `Glossary` 显示中文译词。
 越南语候选右键菜单走 `qingjian-platform::candidate_menu::IndependentInputContext` 公共接口：输入法提供命名空间、原始输入码和模型译词目标语言，即可复用提权、降权、取消降权和模型译词。越南语使用 `vi:` 学习键且固定请求中文；将来的日语、韩语应使用各自稳定命名空间，不复制平台菜单逻辑。
-越南语中文译词使用 `LayeredTranslator`：随包 `vietnamese-chinese.qj` 只读，模型重新生成的覆盖写入用户目录 `user-glossary-input-vi-zh.tsv`，个人表优先。当前候选立即从覆盖层回读，下一次输入和重启后仍生效；未来第三输入法应按输入法命名空间与翻译方向使用独立个人表。
+越南语中文译词使用 `LayeredTranslator`：随包 `vietnamese-chinese.qj` 只读，模型重新生成的覆盖写入用户的 `learning/user-glossary-input-vi-zh.tsv`，个人表优先。当前候选立即从覆盖层回读，下一次输入和重启后仍生效；未来第三输入法应按输入法命名空间与翻译方向使用独立个人表。
 macOS 所有越南语清空和提交路径都使用 IMK 已验证的空 `setMarkedText:`，不能直接向客户端代理发 `unmarkText`：部分应用会抛 Objective-C exception，异常越过 Rust FFI 后导致输入法进程 abort。正常空格、标点和候选提交先清 marked text 再 `insertText:`。菜单栏状态项按中 / 英 / 越三态显示，提交一个词不会改变越南语模式。
 越南语首键刷新与中文 `refresh` 保持同一调用顺序：先更新应用里的 marked text，再读取 caret、呈现候选窗；不要在 `setMarkedText:` 之前显示窗口，避免 IMK 首键回调发生客户端重入。
 `TelexComposer` 同时持有已确认的整段前缀与当前词：空格 / 标点只用 `commit_word` 确认当前词并继续保持 marked text，下一枚字母开始下一词；只有 Enter、失焦或切换模式才用 `commit` 一次性上屏整段。当前词为空时退格可继续删除整段前缀。平台候选始终只按 `current()` 查，不把整段前缀带进词库查询。
@@ -161,7 +161,7 @@ mac 存在 `Session::spelling`（`Host::follow_highlight`）、Windows / Linux �
 
 `Glossary`，本地 TSV 释义表（词性 + 译文）；`LevelTable`，词汇等级表（`assets/levels/levels-{en,ja}.tsv`，CEFR A1–C2 / JLPT N5–N1，
 `uv run tools/corpus/levels.py` 从 `data/levels/` 的原始 CSV 生成，来源与许可见 `assets/levels/README.md`），「统计」页按级数词汇用，不进候选。
-`downloaded_glossary` 给出设置页下载的释义表位置（用户目录 `glossaries/glossary-<语言>.qj`）：各平台壳先找它、再找随包的，所以下载的新版盖过随包的；壳轮询这个目录（`extra_dictionaries::snapshot`），变了重装英→中表与学习语言的表（`Engine::set_english_translator` / `set_translator`）。
+`downloaded_glossary` 给出设置页下载的释义表位置（下载目录 `downloads/glossaries/glossary-<语言>.qj`）：各平台壳先找它、再找随包的，所以下载的新版盖过随包的；壳轮询这个目录（`extra_dictionaries::snapshot`），变了重装英→中表与学习语言的表（`Engine::set_english_translator` / `set_translator`）。
 
 ## crates/qingjian-learning
 
@@ -379,7 +379,7 @@ P2C 自由生成实验：`--eval-text <集> --eval-generate data/models/hanzhang
 也实现 `LanguageModel`（`log_prob_trigram` 带前前词），由 `MixedModel` 按概率与二元模型插值后当整句词图的语言模型（三元权重 `TRIGRAM_WEIGHT`，
 一边不认识的词只用另一边）。只用三元时无上文的新闻掉分（不认识的专名、技术词被拆错），插值后六个开发集都涨：devA 63.5→65.6、项目文档 40.8→46.2、新闻 74.1→76.6。`TRIGRAM_WEIGHT` = 0.5：0.3 时冻结回放整句略好（79.1%）但开发集合计略低，0.7 时新闻掉分。读取器按文件头注释的格式自己实现（知意的代码是 GPL-3.0-only，不搬）。
 模型 79 MB，不进仓库也不随包，放 `data/models/zhiyi-ngram/zh.ngram`；许可 LGPL-2.1-or-later（底子是有墨输入法 / libime 的模型，混了 FineWeb-2、
-Common Crawl、CSL、SkyPile、C4 的统计），可按 GPL-3.0-or-later 使用；再分发前要按知意的 NOTICE 列全来源并跟作者确认。CLI 用 `--ngram`，Windows Server 读用户目录的 `models/zhiyi-ngram/zh.ngram`。
+Common Crawl、CSL、SkyPile、C4 的统计），可按 GPL-3.0-or-later 使用；再分发前要按知意的 NOTICE 列全来源并跟作者确认。CLI 用 `--ngram`，Windows Server 读 `%LOCALAPPDATA%\Qingjian\downloads\models\zhiyi-ngram\zh.ngram`。
 `TrigramModel::vocabulary` 列词表与一元概率，`qingjian_dictionary::supplement` 拿它补出词库没收的词（摸鱼、老梗、七神）：已有的、能切成已有多字词的（进行分析）、非汉字的不补；读音按参照词库里每个字的读音统计猜（词里的读音权重 ×4），次要读音占比 ≥ 0.25 另收、组合至多 4 种；词频按与主词库重合的词拟 ln 词频 = a + b·log10 P（实测约 9.6 万条）。结果挂在 `Engine::set_model_words`（补充词库，单独一格，附加词库重载不动它）。只在本机生成，不分发派生数据：Windows Server 缓存到模型旁的 `zh.words.qj`（`qingjian_platform::model_words`，戳 = 规则版本 + 模型与主词库的大小 / 修改时间，第一次约 1.1 s），CLI 每次在内存里生成（`--no-ngram-words` 关掉）。社区开发集首选 74.7% → 75.0%、首页 +0.43，无上文首页 +0.43，冻结回放整句 +3；CLI 查询 95 分位 209 → 242 ms（中位 +3 ms）。B 站游戏黑话（蜂医、冥古龙）模型里也没有，补不到。
 
 ## crates/qingjian-platform
@@ -416,7 +416,13 @@ id 不能撞拼音侧的写法与日志里的 `wubi`（`is_valid_id`），因为
 `Config`（TOML 配置文件，`[general]` / `[shortcut]` / `[fuzzy]` / `[dictionaries]` / `[apps]` / `[predict]` 分节，首次运行写模板，
 `set_value` 用 toml_edit 原地改键保留注释；`[model] enabled` 本地整句模型开关，`LocalModelConfig`；
 中英模式两项：`[shortcut] switch_mode`（`SwitchKeys`：勾选 shift / control / ctrl+alt+space，可多选，老配置的单个字符串照读）与 `[general] english_mode`（内置英文模式总开关））；
-`extra_dictionaries` 列出 / 加载随包领域词库与用户 `dicts/`；随包的 `general` 例外：缺省加载、列进 `[dictionaries] disabled` 才关，标成补充词库
+`UserDirs` 是用户目录的分类布局，三个桌面平台的输入法与设置程序共用：根下只留 `config.toml`，`learning/`（`FrequencyLearner` 的几张表、个人释义表）、
+`records/`（输入统计、生词本、面板与 AI 用量、输入日志）、`custom/`（导入的 `dicts/` `code_dicts/` `codes/`、自制 `schemes/` `themes/`）、`clipboard/`，
+下载与缓存在「本机」根下的 `downloads/`（`dicts/` `glossaries/` `models/`，设置程序按这个相对位置装）与 `cache/`（词库列表缓存、`update.json`）；
+本机根在 Windows 是 `%LOCALAPPDATA%\Qingjian`（`dirs::user_dirs`），mac 与 Linux 就是数据根。`prepare` 建分类目录并把旧版本平铺在根下的文件搬进去
+（`migrate.rs`：`user*.tsv` 进 `learning/`，旧 `dicts/` 按词库列表缓存里的 id 拆成下载的与导入的，目标已有同名的不覆盖，跨盘先复制到临时名再改名），
+输入法与设置程序启动时各调一次。安卓还是平铺在应用私有目录里（core 不依赖本 crate）。
+`extra_dictionaries` 列出 / 加载随包领域词库与用户的导入、下载两处（`UserDirs::extra_dict_dirs`）；`general` 不管在哪都标成补充词库，随包的那本缺省加载、列进 `[dictionaries] disabled` 才关
 （mac 壳与 Windows Server 共用，同名 `.qj` 优先于 `.tsv`）；`code_tables` 同构地列出 / 加载随包根 `codes/` 与用户 `codes/` 的码表
 （`[aux_code] disabled` 是黑名单，`[general] aux_code_key` 缺省 `;` 且校验后退回缺省、`aux_code_show` 是显示码开关）；
 `aux_schemes` 找 `schemes/` 里 `type = "aux"` 的辅码方案（码表 + `[words]` 词码规则），`code_tables::AuxCodeSources::options` 把 `codes/` 与方案按先后列出，
@@ -566,13 +572,13 @@ PKG_CONFIG_PATH="$onig" PKG_CONFIG_ALLOW_CROSS=1 RUSTONIG_SYSTEM_LIBONIG=1 \
   单击的边沿用修饰键事件（`IMKInputController` 的 `recognizedEvents:` 声明 `NSKeyDownMask | NSFlagsChangedMask`——缺省只回 `NSKeyDownMask`，
   实测就只有 keyDown 送进来、Shift 的按下 / 抬起完全收不到，那时只能靠 30 ms 轮询采样、整拍跨越的快点会漏掉）、模式键 v / u、`question_mark`（缺省关，开了空缓冲区敲 `?` 进问字）、上屏第一 / 第二个译词的修饰键 `translation` / `translation_second`、翻译选中文字 `translate_selection`（Linux 缺省 Alt+Shift+T）；
   `[apps] english_candidates_on` 按应用标识列出英文模式给候选的应用（白名单，缺省浏览器 / 聊天 / 办公 / 笔记，`*` 前缀匹配，`["*"]` 处处都给），`english_candidates_off` 从中排除；
-  `[dictionaries] domains` 打开随包的领域词库（`Resources/dicts/` 11 本，缺省只开 `idioms`），`disabled` 关掉用户目录 `dicts/` 里的某本导入词库；
+  `[dictionaries] domains` 打开随包的领域词库（`Resources/dicts/` 11 本，缺省只开 `idioms`），`disabled` 关掉用户导入或下载的某本词库；
   偏好设置「词库」页随包的可开关、导入的可开关 / 移除，可导入 TSV / Rime yaml / .qj。
 - 系统文本替换（系统设置「键盘 → 文本替换」）：`host/config/text_replacements.rs` 从 `NSUserDefaults` 全局域读 `NSUserDictionaryReplacementItems`
   （每条 `{ on, replace, with }`），激活输入法时重读，变了就经 Core `merge_replacements` 并进配置里的自定义短语再 `set_custom_phrases`；
   `[general] system_text_replacements` 开关（缺省开，「自定义短语」页勾选框），内容可能含证件号、地址，日志只记条数。
 - 输入法进程由 launchd 拉起，看不到 shell 的环境变量：密钥写进配置同目录的 `.env`（`QINGJIAN_API_KEY=...`，输入法启动时 dotenvy 读入）或 `config.toml` 的 `api_key`。
-- 本地整句模型：安装包不带模型，通变与知意都由设置程序下载到用户目录 `models/hanzhang-tongbian/`、`models/zhiyi/`；选的没下载就不用模型（`paths::p2c_model_path` 仍认包里的同名目录与旧 `model-p2c/`，给开发时自己放的那份）。`host/model/mod.rs` 在后台线程加载并预热（首次 Metal 编译）后
+- 本地整句模型：安装包不带模型，通变与知意都由设置程序下载到 `downloads/models/hanzhang-tongbian/`、`downloads/models/zhiyi/`；选的没下载就不用模型（`paths::p2c_model_path` 仍认包里的同名目录，给开发时自己放的那份）。`host/model/mod.rs` 在后台线程加载并预热（首次 Metal 编译）后
   `set_async_sentence_scorer` 接上，`refresh` 每键先读应用光标前 64 字给 Engine 当前文、查询后 `schedule_rescoring`，`RescoreMonitor` 停键 80 ms 请求、20 ms 轮询，
   结果到了重查一次只重画当前页（翻过页 / 动过高亮不动）；「云服务」页有开关（`[model] enabled`）。
 - 端到端验证可用 `osascript` 的 System Events 往 TextEdit 发按键再读回文本（终端需要辅助功能权限；输入法得在中文模式）。
@@ -581,7 +587,7 @@ PKG_CONFIG_PATH="$onig" PKG_CONFIG_ALLOW_CROSS=1 RUSTONIG_SYSTEM_LIBONIG=1 \
 
 候选窗 `ui::candidates::CandidateWindow::show` 每次更新内容后用 `SetWindowPos(HWND_TOPMOST)` 重新升到置顶序列首位，并保留 `SWP_NOACTIVATE`；Windows 搜索页后弹出的置顶窗口可能盖住较早创建的候选窗。
 
-用量接线：启动与配置热加载为 CloudPredictor 和 CloudGlossFiller 传同一个用户目录 `api-usage.json`；设置页的 ConnectionTest 使用该文件。统计页手动刷新读取累计记录，收到 JSON 响应与正文有效性分开统计；原译词自动补充、用户配置及学习文件沿用。
+用量接线：启动与配置热加载为 CloudPredictor 和 CloudGlossFiller 传同一个 `records/api-usage.json`；设置页的 ConnectionTest 使用该文件。统计页手动刷新读取累计记录，收到 JSON 响应与正文有效性分开统计；原译词自动补充、用户配置及学习文件沿用。
 
 云联想接线：Ctrl+Alt+J 由可配置 TSF 保留键转发到 Engine 显式入口；自动重组仍走原自动入口。Composed 记录待收手动序号并在输入重建／取消／收结果时清除；自动结果用末尾布局，手动结果用前置布局，导航后保持候选不变，本地重排沿用当前布局模式。应用前文继续用于两类请求，译词自动补充继续装配。设置沿用默认 300/3000 ms，不写入个人偏好。
 
@@ -722,7 +728,7 @@ Windows 可选的 `[shortcut] toggle_punctuation` 经 `InputSettings` 下发，�
 ## apps/linux
 
 `qingjian-linux-server` 为独立产品，装配本地 Engine、词库、释义、频率学习、个人 n-gram、词汇记录与可选输入日志，
-本地整句模型优先加载用户 `~/.local/share/qingjian/models/hanzhang-tongbian/` 或随包 `data/models/hanzhang-tongbian/`（Linux 继续随包，还没接下载）；含章·知微已下线，不再回退；旧用户目录 `model-p2c/` 兼容读取。按 `[model] enabled` 在后台加载、停键 80 ms 后重排、20 ms 轮询（Windows Server 的 `dispatch/rescore` 已改成 30 ms 防抖 + 后台叫醒，这里还没跟）；云联想按 `[predict]` 接入，用量累计到用户目录的 `api-usage.json`（设置统计页读同一份），释义兜底与生词本整句翻译随 `enabled` 一起接，结果由 `tick` 里的 `poll_glosses` 收。配置热加载在 `dispatch/reload`：`tick` 每秒看 `config.toml` mtime 与用户 `dicts/` 快照，`[predict]` / `[model]` / `[dictionaries]` / 学习语言按变化重建，其余无条件重设；`preedit`、`input_log` 仍要重启。`dispatch/session` 交换每个上下文的 EngineSession；真正的能力变化丢弃输入，普通焦点切换隔离保存。
+本地整句模型优先加载 `~/.local/share/qingjian/downloads/models/hanzhang-tongbian/` 或随包 `data/models/hanzhang-tongbian/`（Linux 继续随包，还没接下载）；含章·知微已下线，不再回退。按 `[model] enabled` 在后台加载、停键 80 ms 后重排、20 ms 轮询（Windows Server 的 `dispatch/rescore` 已改成 30 ms 防抖 + 后台叫醒，这里还没跟）；云联想按 `[predict]` 接入，用量累计到用户目录的 `api-usage.json`（设置统计页读同一份），释义兜底与生词本整句翻译随 `enabled` 一起接，结果由 `tick` 里的 `poll_glosses` 收。配置热加载在 `dispatch/reload`：`tick` 每秒看 `config.toml` mtime 与用户 `dicts/` 快照，`[predict]` / `[model]` / `[dictionaries]` / 学习语言按变化重建，其余无条件重设；`preedit`、`input_log` 仍要重启。`dispatch/session` 交换每个上下文的 EngineSession；真正的能力变化丢弃输入，普通焦点切换隔离保存。
 默认面板插件仅转换事件（Shift / Ctrl 本身报成 VK `0x10` / `0x11`），中英切换、候选点击、分页和失焦提交都由 Server 决定：`[shortcut] switch_mode` 的单击 Shift / Ctrl 在按下时记进会话的 `switch_tap`、中间按了别的键或失焦就作废，松开时切换；`Ctrl + Alt + Space` 在按下时切换。`[general] default_english` 定新会话的初始模式，`english_mode` 关掉时切换键全不认、热加载时把所有会话拉回中文。
 启动与热加载共用 `assembly::attach_cloud`（签名与 Windows 的 `dispatch::attach_cloud` 对齐：`[predict]` 配置 + 用量文件路径）；切换服务先取消旧请求与选区翻译，重建所有会话的本地候选布局以清除旧云词，保留本地高亮，聚焦会话再发新请求。无密钥时退回本地，不预留云词槽。按需联想在 `LinuxEvent::Key` 里拦 `[shortcut] predict` 组合键（按字符匹配，`.` 的键码与 Delete 冲突），结果按模型顺序置顶；自动请求由 `RouterConfig::cloud_enabled` 门控，`automatic = false` 时只剩按需触发。插件把缺失的可选 `kind` / `sentence` 按本地候选 / 无整句处理。
 插件在清空预编辑之前上屏；上屏回调重入后核对生命周期和帧身份，跳过过期重画而不撤销或重复提交，见 [Linux 协议与状态](linux-fcitx5.md#协议与状态)。

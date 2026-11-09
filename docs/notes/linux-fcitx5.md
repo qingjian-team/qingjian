@@ -65,7 +65,7 @@ Fcitx5 用它绘制候选注释，旧 Server 没有该字段时仍显示 `text`�
 
 ## 本地整句模型
 
-Server 启动时按 `[model] enabled`（缺省关）在后台线程加载模型并预热，`find_model` 优先找用户目录 `~/.local/share/qingjian/models/hanzhang-tongbian/` 与随包的 `resources/data/models/hanzhang-tongbian/`；含章·知微已下线，不再回退；旧用户目录仍可读取。改了 `[model]` 由配置热加载在后台加载或卸载。
+Server 启动时按 `[model] enabled`（缺省关）在后台线程加载模型并预热，`find_model` 优先找 `~/.local/share/qingjian/downloads/models/hanzhang-tongbian/` 与随包的 `resources/data/models/hanzhang-tongbian/`；含章·知微已下线，不再回退。改了 `[model]` 由配置热加载在后台加载或卸载。
 
 配置热加载在 `dispatch/reload`（对齐 Windows Server）：主循环 `tick` 每秒看一次 `config.toml` 的 mtime 与用户 `dicts/` 快照，变了就重读，重设的项与 `main.rs` 启动时一致；解析失败保持原配置。例外：`[general] preedit` 在会话握手时交给插件、`input_log` 只在装配时接，这两样改了仍要重启服务。
 节拍与 Windows Server 的 `dispatch/rescore` 相同：缓冲变化后起 80 ms 防抖，到点把整句路径送去后台打分，每 20 ms 收一次，最长等 2 s；

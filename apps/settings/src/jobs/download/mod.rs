@@ -20,3 +20,8 @@ pub use model::Pack;
 pub use repo::Repo;
 pub use stage::Stage;
 pub use target::Target;
+
+/// 下载的东西装在哪：下面的 `dicts/`、`glossaries/`、`models/` 与输入法读的同一处。
+fn downloads_dir() -> Option<std::path::PathBuf> {
+    crate::system::paths::user_dirs().map(|dirs| dirs.downloads())
+}

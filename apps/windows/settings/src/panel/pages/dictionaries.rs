@@ -10,9 +10,9 @@ use windows_reactor::*;
 use crate::panel::controls::{check_row, entry_title, note, page, repo_resource};
 use crate::panel::{Message, Settings};
 
-/// 用户词库目录 `%APPDATA%\Qingjian\dicts`。
+/// 用户导入的词库目录 `%APPDATA%\Qingjian\custom\dicts`。
 fn user_dir(settings: &Settings) -> PathBuf {
-    settings.data_dir().join("dicts")
+    settings.user_dirs().custom_dicts()
 }
 
 /// 打开词库读显示信息：(显示名, 词条数, 许可证, 是否坏文件)。
@@ -61,7 +61,7 @@ fn user_list(settings: &Settings, context: &mut ViewContext<Settings>) -> View {
     let dicts = extra_dictionaries::list(&user_dir(settings));
     if dicts.is_empty() {
         return note(
-            "还没有导入词库。点下面「导入词库」加一本，或把文件放进 %APPDATA%\\Qingjian\\dicts。",
+            "还没有导入词库。点下面「导入词库」加一本，或把文件放进 %APPDATA%\\Qingjian\\custom\\dicts。",
         );
     }
     let mut rows: Vec<KeyedView> = Vec::with_capacity(dicts.len());

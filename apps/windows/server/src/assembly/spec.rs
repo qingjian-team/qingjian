@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use qingjian_core::Language;
-use qingjian_platform::{AuxCodeConfig, DictionariesConfig};
+use qingjian_platform::{AuxCodeConfig, DictionariesConfig, UserDirs};
 
 use super::LanguageModelFiles;
 
@@ -40,8 +40,8 @@ pub struct AssemblySpec {
     /// `[aux_code]` 配置。
     pub aux_code: AuxCodeConfig,
 
-    /// 用户数据目录（`%APPDATA%\Qingjian`）；没有就都只在内存。
-    pub user_dir: Option<PathBuf>,
+    /// 用户数据（`%APPDATA%\Qingjian` 与 `%LOCALAPPDATA%\Qingjian`，分类见 `UserDirs`）；没有就都只在内存。
+    pub user: Option<UserDirs>,
 
     /// 是否写输入日志（`[general] input_log`）。
     pub input_log: bool,
@@ -61,7 +61,7 @@ impl AssemblySpec {
             bundled_codes_dir: None,
             bundled_schemes_dir: None,
             aux_code: AuxCodeConfig::default(),
-            user_dir: None,
+            user: None,
             input_log: false,
         }
     }

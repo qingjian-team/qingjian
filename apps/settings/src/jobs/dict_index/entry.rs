@@ -66,7 +66,7 @@ impl DictEntry {
         self.language.as_deref()?.parse().ok()
     }
 
-    /// 装好后的文件名主干：附加词库在用户 `dicts/` 里与导入的同一套开关，释义表在 `glossaries/` 里是 `glossary-<语言>`。
+    /// 装好后的文件名主干：附加词库在 `downloads/dicts/` 里与导入的同一套开关，释义表在 `downloads/glossaries/` 里是 `glossary-<语言>`。
     pub fn stem(&self) -> String {
         match self.glossary_language() {
             Some(language) => format!("glossary-{}", language.code()),

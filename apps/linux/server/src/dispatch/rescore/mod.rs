@@ -24,11 +24,10 @@ use super::composed::{Composed, marked_parts};
 /// 空闲时主循环多久醒一次：到点落盘学习数据。
 const IDLE_TICK: Duration = Duration::from_secs(1);
 
-/// 含章·通变：用户目录（设置里下载的、或自己放的）优先于随包的。含章·知微已下线，它的目录不再找。
-pub fn find_model(user_dir: Option<&Path>, bundled_root: &Path) -> Option<PathBuf> {
+/// 含章·通变：下载的（`downloads/models/`，或自己放的）优先于随包的。含章·知微已下线，它的目录不再找。
+pub fn find_model(downloaded: Option<&Path>, bundled_root: &Path) -> Option<PathBuf> {
     let candidates = [
-        user_dir.map(|dir| dir.join("models/hanzhang-tongbian")),
-        user_dir.map(|dir| dir.join("model-p2c")),
+        downloaded.map(|dir| dir.join("hanzhang-tongbian")),
         Some(bundled_root.join("data/models/hanzhang-tongbian")),
     ];
     candidates
@@ -212,7 +211,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(&root);
 
         // 含章·知微已下线：只有它的时候什么都不加载
-        let zhiwei = user.join("models/hanzhang-zhiwei/model.qjm");
+        let zhiwei = user.join("hanzhang-zhiwei/model.qjm");
         std::fs::create_dir_all(zhiwei.parent().unwrap()).unwrap();
         std::fs::write(&zhiwei, b"").unwrap();
         assert_eq!(find_model(Some(&user), &bundled), None);
@@ -222,16 +221,10 @@ mod tests {
         std::fs::write(&bundled_p2c, b"").unwrap();
         assert_eq!(find_model(Some(&user), &bundled), Some(bundled_p2c));
 
-        let user_p2c = user.join("models/hanzhang-tongbian/model.qjm");
+        let user_p2c = user.join("hanzhang-tongbian/model.qjm");
         std::fs::create_dir_all(user_p2c.parent().unwrap()).unwrap();
         std::fs::write(&user_p2c, b"").unwrap();
-        assert_eq!(find_model(Some(&user), &bundled), Some(user_p2c.clone()));
-        let legacy_p2c = user.join("model-p2c/model.qjm");
-        std::fs::create_dir_all(legacy_p2c.parent().unwrap()).unwrap();
-        std::fs::write(&legacy_p2c, b"").unwrap();
-        assert_eq!(find_model(Some(&user), &bundled), Some(user_p2c.clone()));
-        std::fs::remove_file(&user_p2c).unwrap();
-        assert_eq!(find_model(Some(&user), &bundled), Some(legacy_p2c));
+        assert_eq!(find_model(Some(&user), &bundled), Some(user_p2c));
         std::fs::remove_dir_all(&root).unwrap();
     }
 }

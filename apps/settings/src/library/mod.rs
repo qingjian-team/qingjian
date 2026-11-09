@@ -53,22 +53,25 @@ pub struct Library {
 
 impl Library {
     pub fn scan() -> Self {
-        let scan = |kind: Kind, dir: Option<PathBuf>| -> Vec<Entry> {
-            dir.map(|dir| {
-                kind.list(&dir)
-                    .into_iter()
-                    .map(|(stem, path)| entry(kind, stem, &path))
-                    .collect()
-            })
-            .unwrap_or_default()
+        let scan = |kind: Kind, dirs: Vec<PathBuf>| -> Vec<Entry> {
+            dirs.iter()
+                .flat_map(|dir| kind.list(dir))
+                .map(|(stem, path)| entry(kind, stem, &path))
+                .collect()
         };
         let code_schemes = scan_code_schemes();
         Self {
-            domains: scan(Kind::Dictionary, Kind::Dictionary.bundled_dir()),
-            dictionaries: scan(Kind::Dictionary, Kind::Dictionary.user_dir()),
+            domains: scan(
+                Kind::Dictionary,
+                Kind::Dictionary.bundled_dir().into_iter().collect(),
+            ),
+            dictionaries: scan(Kind::Dictionary, Kind::Dictionary.user_dirs()),
             code_words: scan_code_words(&code_schemes),
-            bundled_codes: scan(Kind::CodeTable, Kind::CodeTable.bundled_dir()),
-            codes: scan(Kind::CodeTable, Kind::CodeTable.user_dir()),
+            bundled_codes: scan(
+                Kind::CodeTable,
+                Kind::CodeTable.bundled_dir().into_iter().collect(),
+            ),
+            codes: scan(Kind::CodeTable, Kind::CodeTable.user_dirs()),
             aux_schemes: scan_aux_schemes(),
             code_schemes,
             shuangpin_schemes: scan_shuangpin_schemes(),
@@ -110,7 +113,7 @@ impl Library {
 }
 
 fn scan_aux_schemes() -> Vec<Entry> {
-    aux_schemes::list(paths::user_dir().as_deref(), bundled_schemes().as_deref())
+    aux_schemes::list(custom_dir().as_deref(), bundled_schemes().as_deref())
         .into_iter()
         .map(aux_scheme_entry)
         .collect()
@@ -164,11 +167,11 @@ fn code_words_entry(stem: String, path: &Path, scheme: &str) -> Entry {
 }
 
 fn scan_code_schemes() -> Vec<CodeSchemeEntry> {
-    code_schemes::list(paths::user_dir().as_deref(), bundled_schemes().as_deref())
+    code_schemes::list(custom_dir().as_deref(), bundled_schemes().as_deref())
 }
 
 fn scan_shuangpin_schemes() -> Vec<ShuangpinSchemeEntry> {
-    shuangpin_schemes::list(paths::user_dir().as_deref(), bundled_schemes().as_deref())
+    shuangpin_schemes::list(custom_dir().as_deref(), bundled_schemes().as_deref())
 }
 
 fn entry(kind: Kind, stem: String, path: &Path) -> Entry {
@@ -262,13 +265,20 @@ fn base_dictionary() -> Option<PathBuf> {
         .or_else(|| paths::bundled("data/generated/dict.qj"))
 }
 
-/// 挪进 `removed/`；输入法看到文件没了会自己卸掉。
+/// 用户自己做的形码方案在这下面（`schemes/`），与输入法读的同一处。
+fn custom_dir() -> Option<PathBuf> {
+    paths::user_dirs().map(|dirs| dirs.custom())
+}
+
+/// 挪进它所在目录的 `removed/`；输入法看到文件没了会自己卸掉。
 pub fn remove(kind: Kind, stem: &str) -> Result<(), String> {
-    let dir = kind.user_dir().ok_or(tr("common.no_data_dir"))?;
-    let (_, path) = kind
-        .list(&dir)
+    let (dir, path) = kind
+        .user_dirs()
         .into_iter()
-        .find(|(name, _)| name == stem)
+        .find_map(|dir| {
+            let (_, path) = kind.list(&dir).into_iter().find(|(name, _)| name == stem)?;
+            Some((dir, path))
+        })
         .ok_or(tr("library.gone"))?;
     let removed = dir.join("removed");
     std::fs::create_dir_all(&removed)

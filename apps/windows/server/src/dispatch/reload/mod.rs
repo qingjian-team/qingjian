@@ -68,21 +68,21 @@ fn swap_translator(
     engine: &mut Engine,
     language: Option<Language>,
     root: &Path,
-    user_dir: Option<&Path>,
+    dirs: &DataDirs,
 ) -> bool {
     let Some(language) = language else {
         engine.set_translator(Box::new(NoTranslator));
         tracing::info!("学习语言已关，不显示译文");
         return true;
     };
-    let Some(path) = assembly::glossary_file(root, user_dir, language) else {
+    let Some(path) = assembly::glossary_file(root, dirs.downloads().as_deref(), language) else {
         tracing::warn!(
             language = language.code(),
             "没有这门语言的释义表，学习语言不变"
         );
         return false;
     };
-    match assembly::load_glossary(language, &path, user_dir) {
+    match assembly::load_glossary(language, &path, dirs.learning().as_deref()) {
         Ok(glossary) => {
             tracing::info!(language = language.code(), "释义表已切换");
             engine.set_translator(Box::new(glossary));
@@ -128,8 +128,11 @@ impl Router {
         let code_word_files = dirs.code_word_snapshot();
         let dictionary_files = dirs.dict_snapshot();
         let glossary_files = dirs.glossary_snapshot();
-        let updates = dirs.user_root.as_deref().map(|dir| {
-            qingjian_update::Checker::new(dir.join(UPDATE_STATE_FILE), env!("CARGO_PKG_VERSION"))
+        let updates = dirs.user.as_ref().map(|user| {
+            qingjian_update::Checker::new(
+                user.cache().join(UPDATE_STATE_FILE),
+                env!("CARGO_PKG_VERSION"),
+            )
         });
         self.reload = Some(ConfigReload {
             config_path,
@@ -231,10 +234,11 @@ impl Router {
         let Some(reload) = &mut self.reload else {
             return;
         };
-        let user_dir = reload.dirs.user_root.as_deref();
+        let downloads = reload.dirs.downloads();
         // 下载的删了、又没随包的：英文候选右侧留空
-        let english = assembly::glossary_file(&reload.root, user_dir, Language::Chinese)
-            .and_then(|path| assembly::load_english_glossary(&path));
+        let english =
+            assembly::glossary_file(&reload.root, downloads.as_deref(), Language::Chinese)
+                .and_then(|path| assembly::load_english_glossary(&path));
         match english {
             Some(glossary) => self.engine.set_english_translator(Box::new(glossary)),
             None => self.engine.set_english_translator(Box::new(NoTranslator)),
@@ -243,7 +247,7 @@ impl Router {
             Ok(config) => assembly::learning_language(&config),
             Err(_) => reload.applied_language,
         };
-        if swap_translator(&mut self.engine, language, &reload.root, user_dir) {
+        if swap_translator(&mut self.engine, language, &reload.root, &reload.dirs) {
             reload.applied_language = language;
         }
     }
@@ -323,20 +327,15 @@ impl Router {
         if config.predict != reload.applied_predict {
             let usage_path = reload
                 .dirs
-                .user_root
+                .user
                 .as_ref()
-                .map(|dir| dir.join(API_USAGE_FILE));
+                .map(|user| user.records().join(API_USAGE_FILE));
             attach_cloud(&mut self.engine, &config.predict, usage_path);
             reload.applied_predict = config.predict.clone();
         }
         let language = assembly::learning_language(config);
         if language != reload.applied_language
-            && swap_translator(
-                &mut self.engine,
-                language,
-                &reload.root,
-                reload.dirs.user_root.as_deref(),
-            )
+            && swap_translator(&mut self.engine, language, &reload.root, &reload.dirs)
         {
             reload.applied_language = language;
         }

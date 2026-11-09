@@ -79,9 +79,9 @@ impl Host {
         out
     }
 
-    /// 输入日志文件的路径（数据目录下 `input-log.jsonl`）。
+    /// 输入日志文件的路径（`records/input-log.jsonl`）。
     pub fn input_log_path() -> Option<PathBuf> {
-        paths::user_data_dir().map(|dir| dir.join("input-log.jsonl"))
+        paths::user_dirs().map(|dirs| dirs.input_log())
     }
 
     /// 按开关接上 / 拆掉输入日志。

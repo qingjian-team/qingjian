@@ -28,9 +28,9 @@ impl CloudTest {
     /// 开始测试；当场就失败（没有密钥）时返回那句话。
     pub fn start(&mut self, config: &PredictConfig, waker: Option<Waker>) -> Result<(), String> {
         // 测试连接也是一次真请求，记进统计页的云服务用量
-        let usage = crate::system::paths::user_dir()
+        let usage = crate::system::paths::user_dirs()
             .filter(|_| Feature::ApiUsage.here())
-            .map(|dir| dir.join(API_USAGE_FILE));
+            .map(|dirs| dirs.records().join(API_USAGE_FILE));
         let test =
             ConnectionTest::start_with_usage(config, usage).map_err(|error| describe(&error))?;
         self.running = true;

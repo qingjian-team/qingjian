@@ -1,6 +1,7 @@
 //! 中文组句：出候选、选词、上屏、翻页键、直输段、失焦与学习落盘。
 
 use crate::support::*;
+use qingjian_platform::UserDirs;
 #[test]
 fn typing_pinyin_shows_candidates() {
     let mut router = router();
@@ -260,7 +261,7 @@ fn learning_data_persists_to_user_dir() {
             Language::English,
             root.join("assets/sample/glossary-en.tsv"),
         )),
-        user_dir: Some(user_dir.clone()),
+        user: Some(UserDirs::at(user_dir.clone())),
         ..AssemblySpec::new(root.join("assets/sample/dict.tsv"))
     })
     .unwrap();
@@ -284,10 +285,14 @@ fn learning_data_persists_to_user_dir() {
     // 关会话时落盘。
     router.handle(ClientMessage::CloseSession { session: SESSION });
 
-    let user = std::fs::read_to_string(user_dir.join("user.tsv")).expect("user.tsv 应已写出");
+    let user =
+        std::fs::read_to_string(user_dir.join("learning/user.tsv")).expect("user.tsv 应已写出");
     assert!(user.contains("你好"), "user.tsv 里应记了「你好」：{user}");
     assert!(
-        user_dir.join(qingjian_learning::USAGE_FILE).is_file(),
+        user_dir
+            .join("records")
+            .join(qingjian_learning::USAGE_FILE)
+            .is_file(),
         "上屏时就该追加进输入统计"
     );
     let _ = std::fs::remove_dir_all(&user_dir);

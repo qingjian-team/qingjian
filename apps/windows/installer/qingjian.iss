@@ -167,7 +167,7 @@ Type: filesandordirs; Name: "{app}\data\model"
 Type: filesandordirs; Name: "{app}\data\models"
 ; 0.1.4 开发版的随包码表旧位置
 Type: filesandordirs; Name: "{app}\codes"
-; 0.3 及以前随包的领域词库、其他语种释义表与 TSV 词表：现在只随包 dicts.lock 里那几本，别的在设置里下载到用户目录。
+; 旧版本随包的领域词库、其他语种释义表与 TSV 词表：现在只随包 dicts.lock 里那几本，别的在设置里下载到用户目录。
 ; 先清掉再装，成语词库随后照样装回 dicts\
 Type: filesandordirs; Name: "{app}\data\generated\dicts"
 Type: files; Name: "{app}\data\generated\glossary-ja.qj"

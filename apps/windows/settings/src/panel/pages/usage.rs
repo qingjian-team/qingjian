@@ -72,9 +72,9 @@ pub(crate) fn view(settings: &Settings, context: &mut ViewContext<Settings>) -> 
             .parse::<Language>()
             .unwrap_or(Language::English)
     });
-    let dir = settings.data_dir();
+    let dir = settings.user_dirs().records();
 
-    let usage = UsageStats::open(dir).summary_on(today);
+    let usage = UsageStats::open(&dir).summary_on(today);
     let vocabulary = language.map(|language| {
         let mut book = VocabularyBook::open(dir.join("user-vocab.tsv"));
         if let Some(path) = repo_resource(&format!("assets/levels/levels-{}.tsv", language.code()))
@@ -135,7 +135,7 @@ fn api_usage_block(settings: &Settings, context: &mut ViewContext<Settings>) -> 
                 .on_click(context.message(Message::Navigate(Some("usage".to_owned()))))
                 .content("刷新统计"),
         ));
-    let stats = match ApiUsageStats::load(&settings.data_dir().join(API_USAGE_FILE)) {
+    let stats = match ApiUsageStats::load(&settings.user_dirs().records().join(API_USAGE_FILE)) {
         Ok(stats) => stats,
         Err(error) => {
             crate::log::warn(format!("API 用量统计读取失败: {error}"));

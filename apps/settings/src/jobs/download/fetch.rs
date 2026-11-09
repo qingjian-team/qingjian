@@ -28,16 +28,16 @@ const MAX_SMALL_BYTES: usize = 512 * 1024;
 
 pub(super) const CANCELLED: &str = "已取消";
 
-pub(super) fn run(target: &Target, user_dir: &Path, shared: &Shared) -> Result<(), String> {
+pub(super) fn run(target: &Target, downloads: &Path, shared: &Shared) -> Result<(), String> {
     let runtime = runtime()?;
-    let work = target.work_dir(user_dir);
+    let work = target.work_dir(downloads);
     let _ = std::fs::remove_dir_all(&work);
     std::fs::create_dir_all(&work)
         .map_err(|error| tr_args("download.cant_create_dir", &[("error", &error)]))?;
     let result = runtime.block_on(download(target, &work, shared));
     let result = result.and_then(|archive| {
         shared.set(Stage::Installing);
-        target.install.run(&archive, &work, user_dir)
+        target.install.run(&archive, &work, downloads)
     });
     let _ = std::fs::remove_dir_all(&work);
     result

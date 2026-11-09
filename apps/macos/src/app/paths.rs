@@ -1,8 +1,9 @@
-//! 数据文件位置：只读数据在 `.app/Contents/Resources/`，用户数据在 `~/Library/Application Support/Qingjian/`。
+//! 数据文件位置：只读数据在 `.app/Contents/Resources/`，用户数据在 `~/Library/Application Support/Qingjian/`，按 [`UserDirs`] 分类。
 
 use std::path::PathBuf;
 
 use objc2_foundation::NSBundle;
+use qingjian_platform::UserDirs;
 
 use crate::error::HostError;
 
@@ -50,48 +51,61 @@ pub fn config_file() -> Option<PathBuf> {
     user_data_dir().map(|dir| dir.join("config.toml"))
 }
 
-/// 用户数据目录，不存在则创建。
+/// 用户数据目录的根，不存在则创建。
 pub fn user_data_dir() -> Option<PathBuf> {
     let dir = PathBuf::from(std::env::var_os("HOME")?).join("Library/Application Support/Qingjian");
     std::fs::create_dir_all(&dir).ok()?;
     Some(dir)
 }
 
-/// 用户主题目录：`~/Library/Application Support/Qingjian/themes/`，一个主题一个子目录（`<id>/theme.json`），不存在则创建。
+/// 用户数据的分类布局（下载与缓存也在同一个根下）。
+pub fn user_dirs() -> Option<UserDirs> {
+    user_data_dir().map(UserDirs::at)
+}
+
+/// 用户自己做的形码方案（`schemes/`）与导入的五笔词库（`code_dicts/`）的上一级 `custom/`。
+pub fn custom_dir() -> Option<PathBuf> {
+    user_dirs().map(|dirs| dirs.custom())
+}
+
+/// 用户主题目录 `custom/themes/`，一个主题一个子目录（`<id>/theme.json`），不存在则创建。
 pub fn themes_dir() -> Option<PathBuf> {
-    let dir = user_data_dir()?.join("themes");
-    std::fs::create_dir_all(&dir).ok()?;
-    Some(dir)
+    existing(user_dirs()?.themes())
 }
 
-/// 附加词库目录：`~/Library/Application Support/Qingjian/dicts/`，不存在则创建。
+/// 导入的附加词库 `custom/dicts/`，不存在则创建。
 pub fn dicts_dir() -> Option<PathBuf> {
-    let dir = user_data_dir()?.join("dicts");
-    std::fs::create_dir_all(&dir).ok()?;
-    Some(dir)
+    existing(user_dirs()?.custom_dicts())
 }
 
-/// 导入的辅码码表目录：`~/Library/Application Support/Qingjian/codes/`，不存在则创建。
+/// 设置里下载的附加词库 `downloads/dicts/`，不存在则创建。
+pub fn downloaded_dicts_dir() -> Option<PathBuf> {
+    existing(user_dirs()?.downloaded_dicts())
+}
+
+/// 导入的辅码码表 `custom/codes/`，不存在则创建。
 pub fn codes_dir() -> Option<PathBuf> {
-    let dir = user_data_dir()?.join("codes");
+    existing(user_dirs()?.code_tables())
+}
+
+fn existing(dir: PathBuf) -> Option<PathBuf> {
     std::fs::create_dir_all(&dir).ok()?;
     Some(dir)
 }
 
-/// 知意选词模型（试验，safetensors 版的整个目录，设置的「实验功能」里下载）：只认用户目录 `models/zhiyi/`。
+/// 知意选词模型（试验，safetensors 版的整个目录，设置的「实验功能」里下载）：只认 `downloads/models/zhiyi/`。
 pub fn zhiyi_model_dir() -> Option<PathBuf> {
-    let dir = user_data_dir()?.join("models/zhiyi");
+    let dir = user_dirs()?.models().join("zhiyi");
     dir.join("model.safetensors").is_file().then_some(dir)
 }
 
-/// 含章·通变（P2C，带噪拼音 → 汉字）：设置的「实验功能」里下载到用户目录 `models/hanzhang-tongbian/`，兼容旧 `model-p2c/`；
+/// 含章·通变（P2C，带噪拼音 → 汉字）：设置的「实验功能」里下载到 `downloads/models/hanzhang-tongbian/`；
 /// 安装包不再带它，包里的同名目录只给开发时自己放的那份。
 pub fn p2c_model_path() -> Option<PathBuf> {
-    let user = user_data_dir()?;
-    for dir in ["models/hanzhang-tongbian", "model-p2c"] {
-        if let Some(found) = qingjian_neural::find_model(&user.join(dir)) {
-            return Some(found);
-        }
+    if let Some(found) = user_dirs()
+        .and_then(|dirs| qingjian_neural::find_model(&dirs.models().join("hanzhang-tongbian")))
+    {
+        return Some(found);
     }
     qingjian_neural::find_model(&resources_dir().ok()?.join("models/hanzhang-tongbian"))
 }

@@ -4,11 +4,11 @@ mod info;
 
 pub use info::DictionaryInfo;
 
-use super::init::{dictionary_info, string_array, toggle_membership};
+use super::init::{dictionary_info, string_array, toggle_membership, user_dict_dirs};
 use super::*;
 
 impl Host {
-    /// 「词库」页的列表：随包领域词库在前、用户目录 `dicts/` 里的在后（含关掉的）。
+    /// 「词库」页的列表：随包领域词库在前、用户导入与下载的在后（含关掉的）。
     pub(super) fn dictionary_infos(&self) -> Vec<DictionaryInfo> {
         let config = &self.settings.config().dictionaries;
         let mut infos = Vec::new();
@@ -18,7 +18,7 @@ impl Host {
                 infos.push(dictionary_info(stem, path, true, enabled));
             }
         }
-        if let Some(dir) = paths::dicts_dir() {
+        for dir in user_dict_dirs() {
             for (stem, path) in extra_dictionaries::list(&dir) {
                 let enabled = config.is_enabled(&stem);
                 infos.push(dictionary_info(stem, path, false, enabled));
@@ -27,7 +27,7 @@ impl Host {
         infos
     }
 
-    /// 导入一本词库（TSV / Rime yaml / 只有词的表 / .qj）到 `dicts/`，然后重新装配。
+    /// 导入一本词库（TSV / Rime yaml / 只有词的表 / .qj）到 `custom/dicts/`，然后重新装配。
     /// 只有词的表按随包词库派生读音。
     pub fn import_dictionary(&mut self, source: &std::path::Path) {
         let Some(dir) = paths::dicts_dir() else {
@@ -58,7 +58,7 @@ impl Host {
         }
     }
 
-    /// 移除一本导入的词库：文件挪到 `dicts/removed/`（可手工找回），配置里的开关项一并清掉。随包词库不能移除。
+    /// 移除一本导入或下载的词库：文件挪到它所在目录的 `removed/`（可手工找回），配置里的开关项一并清掉。随包词库不能移除。
     pub fn remove_dictionary(&mut self, index: usize) {
         let Some(info) = self.dictionary_list.get(index).cloned() else {
             return;
@@ -66,7 +66,7 @@ impl Host {
         if info.builtin {
             return;
         }
-        let Some(dir) = paths::dicts_dir() else {
+        let Some(dir) = info.path.parent() else {
             return;
         };
         let removed = dir.join("removed");
@@ -77,8 +77,10 @@ impl Host {
             )
         });
         match moved {
-            Ok(()) => tracing::info!(name = %info.name, "词库已移除（挪到 dicts/removed/）"),
-            Err(error) => tracing::warn!(%error, path = %info.path.display(), "移除词库失败"),
+            Ok(()) => tracing::info!(name = %info.name, "dictionary removed (moved to removed/)"),
+            Err(error) => {
+                tracing::warn!(%error, path = %info.path.display(), "dictionary not removed")
+            }
         }
         self.set_dictionary_enabled(&info.stem, true);
         self.reload_dictionaries();
@@ -109,14 +111,13 @@ impl Host {
         }
     }
 
-    /// 按当前配置重新加载 `dicts/` 目录（导入、移除、开关之后）。
+    /// 按当前配置重新加载附加词库（导入、移除、开关、下载之后）。
     pub fn reload_dictionaries(&mut self) {
         let config = self.settings.config().dictionaries.clone();
-        let loaded = extra_dictionaries::load(
-            paths::bundled_dicts_dir().as_deref(),
-            paths::dicts_dir().as_deref(),
-            &config,
-        );
+        let user_dirs = user_dict_dirs();
+        let borrowed: Vec<&std::path::Path> = user_dirs.iter().map(PathBuf::as_path).collect();
+        let loaded =
+            extra_dictionaries::load(paths::bundled_dicts_dir().as_deref(), &borrowed, &config);
         tracing::info!(count = loaded.len(), "附加词库已装配");
         self.engine.set_extra_dictionaries(loaded);
         self.applied_dictionaries = config;
@@ -124,11 +125,12 @@ impl Host {
     }
 }
 
-/// 用户 `dicts/` 的快照，只 stat。
+/// 用户附加词库（导入的与下载的）的快照，只 stat。
 pub(super) fn dictionary_files() -> Vec<(std::path::PathBuf, Option<std::time::SystemTime>, u64)> {
-    paths::dicts_dir()
-        .map(|dir| extra_dictionaries::snapshot(&dir))
-        .unwrap_or_default()
+    user_dict_dirs()
+        .iter()
+        .flat_map(|dir| extra_dictionaries::snapshot(dir))
+        .collect()
 }
 
 /// 无读音词表的参考词库：随包基础词库加随包领域词库，读不到的跳过。

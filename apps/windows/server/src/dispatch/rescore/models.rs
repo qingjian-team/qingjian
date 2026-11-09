@@ -1,13 +1,15 @@
-//! 去哪找本地模型：设置里下载的在用户目录，随包的在安装目录。每次加载时现找，下载完不用重启。
+//! 去哪找本地模型：设置里下载的在 `%LOCALAPPDATA%\Qingjian\downloads\models`，随包的在安装目录。每次加载时现找，下载完不用重启。
 
 use std::path::{Path, PathBuf};
 
 use qingjian_platform::LocalModel;
 
-/// 用户目录与随包根。
+/// 下载的模型目录与随包根。
 #[derive(Debug, Clone, Default)]
 pub struct ModelDirs {
-    pub user: Option<PathBuf>,
+    /// 下载的模型，一个模型一个子目录。
+    pub downloaded: Option<PathBuf>,
+
     pub bundled_root: PathBuf,
 }
 
@@ -36,7 +38,7 @@ impl ModelDirs {
                 }
             },
             LocalModel::Tongbian => {
-                let found = find_model(self.user.as_deref(), &self.bundled_root);
+                let found = find_model(self.downloaded.as_deref(), &self.bundled_root);
                 if found.is_none() {
                     tracing::warn!("选了含章·通变但没下载，不用模型");
                 }
@@ -46,7 +48,7 @@ impl ModelDirs {
     }
 
     fn zhiyi_dir(&self) -> Option<PathBuf> {
-        let dir = self.user.as_deref()?.join("models/zhiyi-onnx");
+        let dir = self.downloaded.as_deref()?.join("zhiyi-onnx");
         dir.join("laya.int8g.onnx").is_file().then_some(dir)
     }
 
@@ -62,11 +64,10 @@ impl ModelDirs {
     }
 }
 
-/// 含章·通变：用户目录（设置里下载的、或自己放的）优先于随包的。含章·知微已下线，它的目录不再找。
-pub fn find_model(user_dir: Option<&Path>, bundled_root: &Path) -> Option<PathBuf> {
+/// 含章·通变：下载的（或自己放的）优先于随包的。含章·知微已下线，它的目录不再找。
+pub fn find_model(downloaded: Option<&Path>, bundled_root: &Path) -> Option<PathBuf> {
     let candidates = [
-        user_dir.map(|dir| dir.join("models/hanzhang-tongbian")),
-        user_dir.map(|dir| dir.join("model-p2c")),
+        downloaded.map(|dir| dir.join("hanzhang-tongbian")),
         Some(bundled_root.join("data/models/hanzhang-tongbian")),
     ];
     candidates
