@@ -1,4 +1,4 @@
-//! 自动组词的全局开关和最大汉字数。
+//! 五笔连续上屏自动组词的开关和最大汉字数。
 
 use serde::{Deserialize, Deserializer, Serialize};
 

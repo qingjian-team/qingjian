@@ -478,8 +478,9 @@ const KEYWORD_SCAN: usize = 5;
 const INLINE_SHORTCUTS: usize = 3;
 
 /// 自动造词：用户连着选出的两个词，合起来不在词库里、且这条接续已记过这么多次，就记成用户词。
-/// 同一段拼音里连着选出来的（`qingjian` 选 青 再选 简），重复两次后学习。
-const AUTO_WORD_THRESHOLD_SAME_BUFFER: u32 = 2;
+/// 同一段拼音里连着选出来的（`qingjian` 选 青 再选 简）是「用户把它当一个词打」的强信号，一次就造：
+/// 下次整段与简拼都排在前面，不用逐字再选；选错造出的词只在敲同样的音时出现，可以删掉。
+const AUTO_WORD_THRESHOLD_SAME_BUFFER: u32 = 1;
 
 /// 分两段打的（`qing` 选 青、再打 `jian` 选 简）信号弱一些，要三次，免得 了我 这类虚词接续也成词。
 const AUTO_WORD_THRESHOLD: u32 = 3;
@@ -491,7 +492,16 @@ const RECENT_COMMITS: usize = 4;
 /// 中英文谁在前也不看它。真的键只有小写字母，不会撞上。
 const ABBREVIATION_CHOICE_PREFIX: char = '^';
 
+/// 前后两个词自动合成的词最多几个字：再长就不是词而是短语了。
+const AUTO_WORD_MAX_CHARS: usize = 4;
+
+/// 一次选中的整句（几个多字词拼成，交易 + 中心）记成用户词的最多几个字：一次接受的长句多半是模型给的首选，
+/// 下次一字不差再打的机会也小（分几次选完的见 [`BUFFER_PHRASE_MAX_CHARS`]）。冻结回放里 4 字与 6 字逐条相同，取宽的。
 const SENTENCE_WORD_MAX_CHARS: usize = 6;
+
+/// 一段拼音分几次选完、合起来记成用户词的最多几个字（整句记忆）：用户逐字纠正过的整句，下次同样的全拼或简拼直接出。
+/// 再长的多半是一大段话，下次一字不差再打一遍的机会很小。
+const BUFFER_PHRASE_MAX_CHARS: usize = 20;
 
 /// 用户自己点选的词，转移记几份；整句路径里顺带的记一份。
 /// 整句是模型自己算出来的，按空格接受它会把这条路径喂回模型，形成自我强化；用户明确改选的词要能压过这种回声。

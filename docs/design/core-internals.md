@@ -152,7 +152,7 @@ commit(candidate)
  ├─ vocabulary.record_commit   带译词的中文候选记「上屏过」──► user-vocab.tsv
  ├─ gloss_filler               词库有、释义表没有的词交给后台问云端，回来写进个人释义表
  ├─ record_word                个人 n-gram：用户点选的词记 2 份，整句路径顺带的记 1 份
- │    └─ try_auto_word         连选两词、合起来 ≤ 4 字且哪里都没有：同一段拼音里选出 2 次、分两段打 3 次就成用户词
+ │    └─ try_auto_word         连选两词、合起来 ≤ 4 字且哪里都没有：同一段拼音里选出 1 次、分两段打 3 次就成用户词
  └─ finish_buffer              一段拼音分几次才选完：整段合起来记一次选择，够次数也造词
 ```
 

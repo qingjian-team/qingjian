@@ -15,7 +15,7 @@ Under 设置 → 输入 → 形码 (Settings → Input → Shape-based), choose 
 
 ## Automatic phrases
 
-Settings → Input → Automatic phrases controls learning and maximum length (2–10 Chinese characters, default: 4). Wubi learns a new combination on its first consecutive input, using full character codes regardless of shortcuts. For four or more characters it takes the first code letter of the first three and last characters. Pinyin shares the settings but retains its 2- or 3-repetition thresholds; see [Automatic phrases](../personalize/dictionaries.md#Automatic-phrases).
+Settings → Input → Automatic Wubi phrases controls Wubi learning and maximum length (2–10 Chinese characters, default: 4). Wubi learns a new combination on its first consecutive input, using full character codes regardless of shortcuts. For four or more characters it takes the first code letter of the first three and last characters. These settings do not affect Pinyin or Shuangpin learning; see [Automatic phrases](../personalize/dictionaries.md#Automatic-phrases).
 
 ## Typing
 

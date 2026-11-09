@@ -58,7 +58,7 @@
 - [x] bigram 语言模型（`qingjian-lm`，`LanguageModel` trait 注入）：`dict-convert bigram` 从中文维基 + LCCC 统计，`pack lm` 打成 `lm.qj` 随 bundle 打包，没有时退化为一元
 - [x] 个人 n-gram（Core `sentence::UserNgram`，`Learner::user_ngram()`）：上屏词序列在线计数，与静态模型插值进 Viterbi；`user-ngram.tsv` 落盘；
   2026-09-06 加三元（绝对折扣回退到二元，Viterbi 前二词取前驱回指，`CommitChain` 记两个词）
-- [x] 自动造词：连着选出的两个词合起来词库没有、记够次数就成用户词（同段拼音两次 / 分段三次）
+- [x] 自动造词：连着选出的两个词合起来词库没有、记够次数就成用户词（同段拼音一次 / 分段三次）
 - [x] 快捷候选（Core `shortcut`）：`rq` / `sj` / `xq` 出日期 / 时间 / 星期，`v` 开头表达式模式出四则运算结果与中文数字（见 candidate-ui.md）
 - [x] 中文标点（Core `punctuation`：全角映射、引号配对、数字后的点保持半角；组句期间 `,` `.` 把高亮候选上屏再补标点；配成翻页键时只翻页）
 - [x] 候选框顶部自绘 preedit 行与光标（不依赖应用画插入点）

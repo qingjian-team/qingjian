@@ -82,7 +82,7 @@ phrase_rule = "wubi86" # Optional: only for schemes compatible with Wubi 86 phra
 Once it's in place, reopen Settings and choose it under 设置 → 输入 → 形码 (Settings → Input → Shape-based). A scheme whose folder is named `wubi86` replaces the bundled Wubi, which you can use to swap in a different Wubi code table.
 If you just want to add a few words of your own without replacing the code table, see [Importing Wubi dictionaries](../personalize/dictionaries.md#Importing-Wubi-dictionaries).
 
-With `phrase_rule = "wubi86"`, longest character codes supply the first 2+2 letters for two characters, 1+1+2 for three, and the first letter of the first three and last characters for four to ten. Missing character codes prevent learning. Global `[auto_phrase]` settings control the switch and length limit.
+With `phrase_rule = "wubi86"`, longest character codes supply the first 2+2 letters for two characters, 1+1+2 for three, and the first letter of the first three and last characters for four to ten. Missing character codes prevent learning. `[auto_phrase]` controls Wubi phrase learning and its length limit without affecting Pinyin or Shuangpin learning.
 
 ## Auxiliary code tables
 
