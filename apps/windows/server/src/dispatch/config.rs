@@ -161,6 +161,9 @@ pub struct RouterConfig {
     /// 译词旁是否显示词性标注（`[general] translation_pos`）。随帧下发给候选窗。
     pub translation_pos: bool,
 
+    /// 英文候选的 `reading` 是音标、用淡色画（`[general] show_english_pronunciation`）。随帧下发。
+    pub show_english_pronunciation: bool,
+
     /// 键位提示（`[general] key_hint`）。
     pub key_hint: KeyHintMode,
 
@@ -265,6 +268,7 @@ impl From<&Config> for RouterConfig {
             aux_code_key: config.general.aux_code_key(),
             aux_code_show: config.general.aux_code_show,
             translation_pos: config.general.translation_pos,
+            show_english_pronunciation: config.general.show_english_pronunciation,
             key_hint: config.general.key_hint,
             key_hint_look: (
                 config.general.key_hint_opacity.clamp(30, 100),

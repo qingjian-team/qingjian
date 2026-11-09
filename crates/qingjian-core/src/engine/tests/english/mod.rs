@@ -2,6 +2,7 @@
 
 use super::*;
 
+mod pronunciation;
 mod tail;
 
 #[test]

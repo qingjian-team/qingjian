@@ -1,4 +1,4 @@
-﻿# 本地联调：拿刚编出来的 Server 与 TSF DLL，配一份装着真实数据的安装目录跑起来。
+# 本地联调：拿刚编出来的 Server 与 TSF DLL，配一份装着真实数据的安装目录跑起来。
 #
 # 为什么不直接在仓库里跑：`bundled_root()` 按 exe 位置找数据，`target\debug\` 下会落到仓库根，
 # 而 `data\generated\`（词库 / LM / 释义表）是 gitignore 的、本机多半没有，于是退回 `assets\sample\`
@@ -36,6 +36,7 @@ $ErrorActionPreference = 'Stop'
 # apps\windows\scripts -> apps\windows -> apps -> 仓库根
 $repo = Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $PSScriptRoot))
 $table = Join-Path $repo 'assets\schemes\wubi86\table.tsv'
+$ipa = Join-Path $repo 'assets\lexicon\english-ipa.tsv'
 $server = Join-Path $repo 'target\debug\qingjian-server.exe'
 $dll = Join-Path $repo 'target\debug\qingjian_tsf.dll'
 $config = Join-Path $env:APPDATA 'Qingjian\config.toml'
@@ -117,11 +118,15 @@ Copy-Item -LiteralPath $server -Destination $WorkDir -Force
 $schemeDir = Join-Path $WorkDir 'assets\schemes\wubi86'
 New-Item -ItemType Directory -Force -Path $schemeDir | Out-Null
 Copy-Item -Path (Join-Path (Split-Path -Parent $table) '*') -Include 'scheme.toml', 'table.tsv' -Destination $schemeDir -Force
+# 英文音标表：发行版安装目录里还没有这份资产，从仓库拷一份
+$ipaDir = Join-Path $WorkDir 'assets\lexicon'
+New-Item -ItemType Directory -Force -Path $ipaDir | Out-Null
+Copy-Item -LiteralPath $ipa -Destination $ipaDir -Force
 # DLL 也拷过来再注册：从 `target\debug` 注册的话，那个文件会被加载它的进程锁住，
 # 之后 `cargo build` 写不进去（链接报 LNK1104，看着像代码坏了）
 $workDll = Join-Path $WorkDir 'qingjian_tsf.dll'
 Copy-Item -LiteralPath $dll -Destination $workDll -Force
-Write-Host '   新 Server、TSF DLL 与五笔码表已就位'
+Write-Host '   新 Server、TSF DLL、五笔码表与音标表已就位'
 
 $elevated = [Security.Principal.WindowsPrincipal]::new(
     [Security.Principal.WindowsIdentity]::GetCurrent()

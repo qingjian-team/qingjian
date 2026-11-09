@@ -253,6 +253,8 @@ impl Router {
         self.engine
             .set_english_in_chinese(config.general.english_in_chinese);
         self.engine
+            .set_show_english_pronunciation(config.general.show_english_pronunciation);
+        self.engine
             .set_english_max_in_chinese(config.general.english_max_in_chinese());
         self.engine
             .set_english_min_position(config.general.english_min_position());

@@ -234,6 +234,11 @@ fn build_engine(args: &Args) -> Result<Engine, CliError> {
         let path = args::default_data_file("english.tsv");
         path.is_file().then_some(path)
     });
+    // 音标表随仓库放在 assets/lexicon，与产品词表同目录；CLI 从仓库根跑就能找到
+    let english_ipa = args.english_ipa.clone().or_else(|| {
+        let path = Path::new("assets/lexicon/english-ipa.tsv").to_path_buf();
+        path.is_file().then_some(path)
+    });
     let started = Instant::now();
     let english = english_path.as_ref().map(WordList::from_path).transpose()?;
     let english_load = started.elapsed();
@@ -287,6 +292,18 @@ fn build_engine(args: &Args) -> Result<Engine, CliError> {
     if let Some(words) = english {
         engine = engine.with_english(words);
     }
+    if let Some(path) = english_ipa
+        && let Ok(source) = std::fs::read_to_string(&path)
+    {
+        match WordList::parse_pronunciations(&source) {
+            Ok(table) => {
+                tracing::info!(words = table.len(), "英文音标表已加载");
+                engine.set_english_pronunciations(Some(table));
+            }
+            Err(error) => tracing::warn!(%error, "英文音标表解析失败"),
+        }
+    }
+    engine.set_show_english_pronunciation(args.show_english_pronunciation);
     engine.set_english_max_in_chinese(args.english_max_in_chinese);
     engine.set_english_min_position(args.english_min_position);
     engine.set_english_in_chinese(!args.no_english_in_chinese);

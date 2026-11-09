@@ -24,6 +24,7 @@ impl Translator for Glosses {
                         part_of_speech: None,
                         text: text.into(),
                         reading: None,
+                        pronunciation: None,
                         fresh: false,
                     })
                     .collect(),

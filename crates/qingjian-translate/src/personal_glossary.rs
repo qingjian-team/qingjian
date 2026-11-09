@@ -169,6 +169,7 @@ mod tests {
                 part_of_speech: pos,
                 text: text.to_owned(),
                 reading: reading.map(str::to_owned),
+                pronunciation: None,
                 fresh: false,
             }],
         )
