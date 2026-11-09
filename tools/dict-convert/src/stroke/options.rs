@@ -24,7 +24,10 @@ pub struct StrokeOptions {
     pub max_diff: usize,
 
     /// 字表白名单（缺省通用规范字表）：只出表里的字，按表序排列
-    #[arg(long, default_value = "assets/lexicon/01_characters/standard_8105.tsv")]
+    #[arg(
+        long,
+        default_value = "../qingjian-dicts/official/upstream/01_characters/standard_8105.tsv"
+    )]
     pub filter: PathBuf,
 
     /// 大陆序覆盖表：部件重写规则 + 例外字 + 整字补录
@@ -41,7 +44,10 @@ pub struct StrokeOptions {
     pub verify: bool,
 
     /// 抽样用的字表：按表序每 `--stride` 字取一个
-    #[arg(long, default_value = "assets/lexicon/01_characters/level1_3500.tsv")]
+    #[arg(
+        long,
+        default_value = "../qingjian-dicts/official/upstream/01_characters/level1_3500.tsv"
+    )]
     pub sample: PathBuf,
 
     /// 抽样密度：每几字取一个

@@ -1,7 +1,7 @@
 # /// script
 # requires-python = ">=3.10"
 # ///
-"""生僻字表：把「规范字表外扩充汉字」与「台湾教育部罕用字 C 表」合成 `assets/lexicon/01_characters/rare_chars.tsv`。
+"""生僻字表：把「规范字表外扩充汉字」与「台湾教育部罕用字 C 表」合成词库仓库（qingjian-dicts，与本仓库并排放）的 `official/upstream/01_characters/rare_chars.tsv`。
 
 用法：uv run tools/corpus/rare_chars.py <规范字表外扩充汉字_79782.tsv> <台湾教育部罕用字_C表_18318.tsv>
 
@@ -16,8 +16,9 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-OUT = ROOT / "assets/lexicon/01_characters/rare_chars.tsv"
-STANDARD = ROOT / "assets/lexicon/01_characters/standard_8105.tsv"
+CHARACTERS = ROOT.parent / "qingjian-dicts/official/upstream/01_characters"
+OUT = CHARACTERS / "rare_chars.tsv"
+STANDARD = CHARACTERS / "standard_8105.tsv"
 
 # 两张表都按 Unicode 11 / GB 18030-2022 原版取字，扩展 G 以后的字只能手工补（kMandarin 读音）
 MANUAL = {"𰻝": ["biang"], "𰻞": ["biang"]}

@@ -131,7 +131,7 @@ pub fn learning_language(config: &Config) -> Option<Language> {
 }
 
 /// 某语言的释义表：设置页下载的（`<用户目录>/glossaries/`）优先，其次 `<root>/data/generated/` 打包过的 `.qj`，
-/// 再次随 git 的 `assets/glossary/` TSV；都没有为 `None`。
+/// 再次同一目录里开发时导出的 TSV；都没有为 `None`。
 pub fn glossary_file(root: &Path, downloads: Option<&Path>, language: Language) -> Option<PathBuf> {
     let code = language.code();
     [
@@ -141,7 +141,7 @@ pub fn glossary_file(root: &Path, downloads: Option<&Path>, language: Language) 
                 .join(format!("glossary-{code}.qj")),
         ),
         Some(
-            root.join("assets/glossary")
+            root.join("data/generated")
                 .join(format!("glossary-{code}.tsv")),
         ),
     ]

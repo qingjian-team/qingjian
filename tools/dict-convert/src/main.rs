@@ -82,7 +82,7 @@ fn run() -> Result<(), ConvertError> {
             let pinyin = included(
                 pinyin,
                 no_pinyin,
-                "generate it with gloss-gen pinyin (assets/lexicon/QINGJIAN.md), or pass --no-pinyin",
+                "generate it with gloss-gen pinyin (see BUILD.md of the base dictionary in qingjian-dicts), or pass --no-pinyin",
             )?;
             let frequency = included(
                 frequency,

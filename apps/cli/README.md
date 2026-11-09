@@ -12,7 +12,7 @@ cargo run --release -p qingjian-cli                     # 交互模式
 
 ## 数据文件
 
-缺省按优先级找：`data/generated/` 里打包好的 `.qj` → 那里的 TSV → 仓库自带的产品数据（`assets/lexicon/`、`assets/glossary/`）→ `assets/sample/` 的样例。
+缺省按优先级找：`data/generated/` 里的 `.qj`（`tools/release/data-fetch.sh` 与 dicts-fetch 取下来的）→ 那里的 TSV → `assets/sample/` 的样例。
 语言模型 `data/generated/lm.qj`（或 `lm-unigram.tsv` / `lm-bigram.tsv`）有就加载，没有就退化成一元词频整句；emoji 表在 `assets/emoji/`。
 
 | 参数 | 作用 |

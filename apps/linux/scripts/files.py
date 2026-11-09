@@ -106,7 +106,7 @@ def product_data(root, resources, files):
 def resource_files(root, resources, sample):
     """随包资源：目标路径 → 源文件。布局与 Server 的 paths::resource_root 对应（其下 assets/ 与 data/generated/）。"""
     files = {}
-    for kind in ('sample', 'glossary', 'levels', 'emoji'):
+    for kind in ('sample', 'levels', 'emoji'):
         for source in (root / 'assets' / kind).rglob('*'):
             if source.is_file():
                 files[resources / source.relative_to(root)] = source

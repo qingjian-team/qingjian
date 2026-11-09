@@ -4,10 +4,10 @@
 # ///
 """把中文词表翻成青简的 `glossary-es.tsv`（`词\t[词性. ]译词\t…`），译文来自 Azure Translator。
 
-词表、词性、英文释义三样都取自 `assets/glossary/glossary-en.tsv`：那张表是 LLM 生成的，
+词表、词性、英文释义三样都取自词库仓库（qingjian-dicts，与本仓库并排放）的 `official/glossary/en/glossary.tsv`：那张表是 LLM 生成的，
 义项已经挑过一遍，直接复用等于免费多做一次义项消歧（动词尤其明显，见下面的翻译策略）。
 
-产出 `assets/glossary/glossary-es.tsv`，与仓库同许可 GPL-3.0-or-later。
+产出词库仓库的 `official/glossary/es/glossary.tsv`，许可见那边的 dict.toml。
 这张表**不经过** `tools/gloss-gen` 的 `export`（那只写 en / ja），是 tools/ 下这个脚本的
 直接产物，可复现：有 Azure 免费 key 就能重跑。
 
@@ -17,7 +17,7 @@ Azure Translator F0 免费层每月 200 万字符，跑完这 23 万词用掉约
     AZURE_TRANSLATOR_KEY=… AZURE_TRANSLATOR_REGION=eastus \\
         uv run tools/corpus/glossary_es.py
     uv run tools/corpus/glossary_es.py --limit 200                      # 小样本先看一眼
-    uv run tools/corpus/glossary_es.py --verify assets/glossary/glossary-es.tsv
+    uv run tools/corpus/glossary_es.py --verify ../qingjian-dicts/official/glossary/es/glossary.tsv
 
 翻译策略（2026-09-14 用真实 API 做的三组对照实验，样本 20~60 词）：
 
@@ -28,7 +28,7 @@ Azure Translator F0 免费层每月 200 万字符，跑完这 23 万词用掉约
                英文泄漏），而 n. 占全部词条的 71.5%，加提示要多烧 66 万字符。
     其余       中文源裸词。
 
-已知问题（同样写在 `assets/glossary/README.md` 里）：名词约 13% 还是复数、个别错译
+已知问题（同样写在词库仓库 `official/glossary/README.md` 里）：名词约 13% 还是复数、个别错译
 （椅子 -> presidente、工作 -> obra）、生僻字与专名准确率低、约 177 条全小写的英文短语没翻
 （会买 -> will buy、你需要 -> you need）、7 条没有词性（源表就没有）、短语中间的词首字母
 有时被无端大写（开发区 -> zona de Desarrollo）。上了之后有用户反馈可以再用 LLM 精修一轮。
@@ -315,9 +315,9 @@ def parse_pos_set(spec: str) -> set[str]:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--en-table", default="assets/glossary/glossary-en.tsv",
+    ap.add_argument("--en-table", default="../qingjian-dicts/official/glossary/en/glossary.tsv",
                     help="词表与英文释义的来源（缺省上游那张英译表）")
-    ap.add_argument("--out", default="assets/glossary/glossary-es.tsv")
+    ap.add_argument("--out", default="../qingjian-dicts/official/glossary/es/glossary.tsv")
     ap.add_argument("--progress", default="data/generated/gloss-es-progress.jsonl",
                     help="续跑用的 JSONL，中断了再跑会跳过已处理的词")
     ap.add_argument("--key", default=os.environ.get("AZURE_TRANSLATOR_KEY", ""))

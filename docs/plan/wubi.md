@@ -87,7 +87,7 @@ if let Some(code) = self.code {
 | [rime/rime-wubi](https://github.com/rime/rime-wubi) 官方 `wubi86.dict.yaml` | LGPL-3.0 | 备选：与本仓库 GPL-3.0-or-later 兼容，但要单独带 LICENSE |
 | Gitee「大一统五笔」 | 未声明 | 不能用 |
 
-**词频不用码表自带的权重**（那是码表顺序，不是语料词频）。用现有 `assets/lexicon/dict.tsv` 里
+**词频不用码表自带的权重**（那是码表顺序，不是语料词频）。用现有 `../qingjian-dicts/official/lexicon/zh/base/words.tsv` 里
 同一个词的语料词频交叉回填——换方案不会让同一个词的排序变奇怪，释义兜底与生词识别也对得上。
 
 管线：`tools/dict-convert` 加 `wubi` 子命令读码表 → `assets/wubi/wubi86.tsv`（`词\t码\t词频`）

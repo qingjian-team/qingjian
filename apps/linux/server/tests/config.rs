@@ -15,9 +15,9 @@ fn learning_language_off_disables_annotations_in_real_server() {
             language.trim()
         ));
         std::fs::create_dir_all(directory.join("config/qingjian")).unwrap();
-        std::fs::create_dir_all(directory.join("resources/assets/glossary")).unwrap();
+        std::fs::create_dir_all(directory.join("resources/data/generated")).unwrap();
         std::fs::write(
-            directory.join("resources/assets/glossary/glossary-en.tsv"),
+            directory.join("resources/data/generated/glossary-en.tsv"),
             "你好\thello\n",
         )
         .unwrap();

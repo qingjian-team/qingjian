@@ -29,8 +29,11 @@ pub enum Command {
 
 #[derive(Debug, clap::Args)]
 pub struct EnglishArgs {
-    /// 英文词表（`词\t编码\t词频`）
-    #[arg(long, default_value = "assets/lexicon/english.tsv")]
+    /// 英文词表（`词\t编码\t词频`），缺省是并排的词库仓库里那份
+    #[arg(
+        long,
+        default_value = "../qingjian-dicts/official/lexicon/en/english.tsv"
+    )]
     pub words: PathBuf,
 
     /// 只要词频（wordfreq Zipf ×1000）不低于这个值的词
@@ -46,7 +49,7 @@ pub struct EnglishArgs {
     pub limit: Option<usize>,
 
     /// 结果 JSONL，已有的词跳过
-    #[arg(long, default_value = "assets/glossary/gloss-en-llm.jsonl")]
+    #[arg(long, default_value = "data/generated/gloss-en-llm.jsonl")]
     pub out: PathBuf,
 
     /// 每个请求带几个词
@@ -77,11 +80,11 @@ pub struct EnglishArgs {
 #[derive(Debug, clap::Args)]
 pub struct ExportEnglishArgs {
     /// `english` 写出的 JSONL
-    #[arg(long, default_value = "assets/glossary/gloss-en-llm.jsonl")]
+    #[arg(long, default_value = "data/generated/gloss-en-llm.jsonl")]
     pub input: PathBuf,
 
-    /// 输出目录，写 glossary-zh.tsv
-    #[arg(long, default_value = "assets/glossary")]
+    /// 输出目录，写 glossary-zh.tsv（再拷到词库仓库 official/glossary/zh/glossary.tsv）
+    #[arg(long, default_value = "data/generated")]
     pub out_dir: PathBuf,
 }
 

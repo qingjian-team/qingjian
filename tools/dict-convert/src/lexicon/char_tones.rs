@@ -43,7 +43,7 @@ pub fn convert(words: &Path, output: &Path) -> Result<usize, ConvertError> {
     let mut out = BufWriter::new(std::fs::File::create(output)?);
     writeln!(
         out,
-        "# 单字声调表，由 qingjian-dict-convert tones 从 assets/lexicon/02_common 的通用词表生成。字\t带调音节（轻声记 5）"
+        "# 单字声调表，由 qingjian-dict-convert tones 从词库仓库 upstream/02_common 的通用词表生成。字\t带调音节（轻声记 5）"
     )?;
     for ch in &order {
         writeln!(out, "{ch}\t{}", readings[ch].join(" "))?;

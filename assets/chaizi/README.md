@@ -12,5 +12,5 @@
 
 ## 生成
 
-`cargo run -p qingjian-dict-convert -- --out-dir crates/qingjian-core/data chaizi` 读这张表与 `assets/lexicon/dict.tsv`（部件与字的读音、字频），
+`cargo run -p qingjian-dict-convert -- --out-dir crates/qingjian-core/data chaizi` 读这张表与 `../qingjian-dicts/official/lexicon/zh/base/words.tsv`（部件与字的读音、字频），
 写 `crates/qingjian-core/data/chaizi.tsv`（编进 Core）。部件读不出来（`㇆` 这类笔画符号）的那种拆法跳过。

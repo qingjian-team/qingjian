@@ -195,7 +195,7 @@ pub fn learning_language(config: &Config) -> Option<Language> {
 }
 
 /// 某语言的释义表：设置页下载的（`downloads\glossaries\`，`downloads` 是下载目录）优先，其次 `<root>/data/generated/` 打包过的 `.qj`，
-/// 再次随 git 的 `assets/glossary/` TSV；都没有为 `None`。
+/// 再次同一目录里开发时导出的 TSV；都没有为 `None`。
 ///
 /// 启动装配（main）与热加载（swap_translator）都走这里。中文那张是英→中表，缺失本就可选、保持静默；
 /// 其他学习语言几处都缺时警告一条——只陈述查找事实，不断言后果，
@@ -210,7 +210,7 @@ pub fn glossary_file(root: &Path, downloads: Option<&Path>, language: Language) 
                 .join(format!("glossary-{code}.qj")),
         ),
         Some(
-            root.join("assets/glossary")
+            root.join("data/generated")
                 .join(format!("glossary-{code}.tsv")),
         ),
     ];

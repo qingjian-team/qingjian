@@ -9,8 +9,8 @@ int main() {
     Server server("learning_language = \"ja\"\n");
     server.stop();
     std::filesystem::remove(server.directory / "server.sock");
-    std::filesystem::create_directories(server.directory / "assets/glossary");
-    std::ofstream(server.directory / "assets/glossary/glossary-ja.tsv")
+    std::filesystem::create_directories(server.directory / "data/generated");
+    std::ofstream(server.directory / "data/generated/glossary-ja.tsv")
         << "开发\tv. 開発する|かいはつする\tn. 開発|かいはつ\n";
     server.start();
     char program[] = "qingjian-test"; char disable[] = "--disable=all";

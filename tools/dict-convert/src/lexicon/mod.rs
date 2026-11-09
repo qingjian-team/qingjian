@@ -17,8 +17,6 @@ mod entry;
 mod general;
 pub(crate) mod pack;
 mod readings;
-#[cfg(test)]
-mod tests;
 mod tone;
 
 use std::collections::{BTreeMap, HashMap, HashSet};

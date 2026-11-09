@@ -24,8 +24,8 @@ pub enum Command {
     /// 青简基础词库：从「输入法字词库_分类整理版」数据包 + Unihan 读音建 dict.tsv（两遍跑，见模块文档）。
     /// 各项输入缺省都并入，缺文件就报错；不要哪项用对应的 `--no-…` 排除（第一遍还没有语料词频：`--no-frequency`）
     Lexicon {
-        /// 数据包目录（含 01_characters / 02_common / 03_domains），随仓库放在 assets/lexicon
-        #[arg(long, default_value = "assets/lexicon")]
+        /// 数据包目录（含 01_characters / 02_common / 03_domains），在词库仓库 ../qingjian-dicts/official/upstream（两个仓库并排放）
+        #[arg(long, default_value = "../qingjian-dicts/official/upstream")]
         pack: PathBuf,
 
         /// Unihan_Readings.txt
@@ -53,15 +53,15 @@ pub enum Command {
         emit_ambiguous: Option<PathBuf>,
 
         /// 额外并入的词（`词\t拼音\t次数`，拼音可空，可给多个）：词库里没有的按次数当词频加进去，读音同领域词。
-        /// 缺省是 assets/lexicon 的挖词、短语、品牌、领域、中英混杂五份；给了就只用给的
+        /// 缺省是词库仓库基础词库 inputs/ 的挖词、短语、品牌、人工补充、中英混杂五份；给了就只用给的
         #[arg(
             long,
             default_values = [
-                "assets/lexicon/mined_words.tsv",
-                "assets/lexicon/phrases.tsv",
-                "assets/lexicon/brand.tsv",
-                "assets/lexicon/domain_words.tsv",
-                "assets/lexicon/mixed_words.tsv",
+                "../qingjian-dicts/official/lexicon/zh/base/inputs/mined.tsv",
+                "../qingjian-dicts/official/lexicon/zh/base/inputs/phrases.tsv",
+                "../qingjian-dicts/official/lexicon/zh/base/inputs/brands.tsv",
+                "../qingjian-dicts/official/lexicon/zh/base/inputs/manual.tsv",
+                "../qingjian-dicts/official/lexicon/zh/base/inputs/mixed.tsv",
             ]
         )]
         extra_words: Vec<PathBuf>,
@@ -97,7 +97,7 @@ pub enum Command {
         /// 通用词表（`word\tpinyin\t…`，首行表头）
         #[arg(
             long,
-            default_value = "assets/lexicon/02_common/modern_chinese_common_words.tsv"
+            default_value = "../qingjian-dicts/official/upstream/02_common/modern_chinese_common_words.tsv"
         )]
         words: PathBuf,
     },
@@ -110,7 +110,10 @@ pub enum Command {
         chaizi: PathBuf,
 
         /// 青简词库（`词\t音节\t词频`），取单字读音与字频
-        #[arg(long, default_value = "assets/lexicon/dict.tsv")]
+        #[arg(
+            long,
+            default_value = "../qingjian-dicts/official/lexicon/zh/base/words.tsv"
+        )]
         dictionary: PathBuf,
     },
 
@@ -120,7 +123,7 @@ pub enum Command {
         input: PathBuf,
 
         /// 词频来源：青简词库 TSV（`词\t拼音\t词频`）。可给多个（基础词库 + 随包领域词库），同一个词取词频最大的那份
-        #[arg(long, default_value = "assets/lexicon/dict.tsv", num_args = 1..)]
+        #[arg(long, default_value = "../qingjian-dicts/official/lexicon/zh/base/words.tsv", num_args = 1..)]
         frequency: Vec<PathBuf>,
 
         /// 输出文件名（写在 --out-dir 下）；缺省是形码方案目录里码表的缺省名
@@ -152,7 +155,7 @@ pub enum Command {
         input: PathBuf,
     },
 
-    /// 英文词表（每行 `词\t编码[\t…]`，带不带表头都行，比如 `assets/lexicon/05_english/00_all_words.tsv`）→ english.tsv
+    /// 英文词表（每行 `词\t编码[\t…]`，带不带表头都行，比如 `../qingjian-dicts/official/upstream/05_english/00_all_words.tsv`）→ english.tsv
     English {
         /// 输入文件
         #[arg(required = true)]
@@ -195,11 +198,11 @@ pub enum Command {
         #[arg(long, default_value = "data/generated/dict.tsv")]
         dict: PathBuf,
 
-        /// 短语层文件（assets/lexicon/phrases.tsv，可给多个，人工挑的领域词 domain_words.tsv 也走这条路）：里面的词不参与分词，统计完按成分合成它们的一元 / 二元计数（见 bigram.rs 模块注释）
+        /// 短语层文件（../qingjian-dicts/official/lexicon/zh/base/inputs/phrases.tsv，可给多个，人工补充的 manual.tsv 也走这条路）：里面的词不参与分词，统计完按成分合成它们的一元 / 二元计数（见 bigram.rs 模块注释）
         #[arg(long)]
         phrases: Vec<PathBuf>,
 
-        /// 品牌词文件（assets/lexicon/brand.tsv，可给多个，中英混杂词 mixed_words.tsv 也走这条路）：语料里没有的词按文件给的次数写进一元表。
+        /// 品牌词文件（../qingjian-dicts/official/lexicon/zh/base/inputs/brands.tsv，可给多个，中英混杂词 mixed.tsv 也走这条路）：语料里没有的词按文件给的次数写进一元表。
         /// 与 --phrases 的区别：合成计数要成分词在语料里，C盘 的 C 不是语料 token，只能直接给
         #[arg(long)]
         brand: Vec<PathBuf>,
@@ -232,7 +235,10 @@ pub enum Command {
         candidates: Option<PathBuf>,
 
         /// 分词用的词库（青简 TSV）
-        #[arg(long, default_value = "assets/lexicon/dict.tsv")]
+        #[arg(
+            long,
+            default_value = "../qingjian-dicts/official/lexicon/zh/base/words.tsv"
+        )]
         dict: PathBuf,
 
         /// 出现次数低于此值的不要
@@ -244,7 +250,7 @@ pub enum Command {
         max_chars: usize,
     },
 
-    /// 短语层：从 bigram 表的相邻两词与语料的相邻三词里挖 我的 / 不知道 这类人会整块打的组合 → phrases.tsv（人工过一遍后拷进 assets/lexicon/，`lexicon --extra-words` 并入）
+    /// 短语层：从 bigram 表的相邻两词与语料的相邻三词里挖 我的 / 不知道 这类人会整块打的组合 → phrases.tsv（人工过一遍后拷进词库仓库基础词库的 inputs/，`lexicon --extra-words` 并入）
     Phrases {
         /// 语料文件
         #[arg(required = true)]

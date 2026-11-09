@@ -20,7 +20,7 @@
 - 读音由成分词拼出（同一个词多个读音取词频最高的），不用再标多音字；`--extra-words` 文件加了第三列拼音，`lexicon` 给了就不按字猜。
 - 结果 5398 条（二词 4300 多、三词 1100 左右），人工抽样精度约九成，覆盖日志 449 个缺词里的 188 个（语料里 ≥ 20 次的 299 个里 170 个）。
   剩下的是 词库 / 对齐 / 后端 这类语料里少的领域词，与 是不 / 看一 这类日志里接受的碎片。
-- 词库已并入短语后重跑要 `--refresh assets/lexicon/phrases.tsv`：不摘掉上次的短语，我的 就是一个词，挖不出 我 + 的（踩过：只挖出 34 条）。
+- 词库已并入短语后重跑要 `--refresh ../qingjian-dicts/official/lexicon/zh/base/inputs/phrases.tsv`：不摘掉上次的短语，我的 就是一个词，挖不出 我 + 的（踩过：只挖出 34 条）。
 
 ## 进语言模型的三种接法（都在同一份冻结日志 + 整句评测集上比）
 
@@ -54,18 +54,18 @@ C 是 `bigram --phrases`：分词时把短语摘掉（二元证据保住），�
 
 ## 品牌词
 
-`assets/lexicon/brand.tsv`：青简 210，既是词频也写进语言模型一元（句首二元按八分之一算，与 请柬 的句首占比一致）。
+`../qingjian-dicts/official/lexicon/zh/base/inputs/brands.tsv`：青简 210，既是词频也写进语言模型一元（句首二元按八分之一算，与 请柬 的句首占比一致）。
 只写词频没用：词级排序用语言模型概率，语料里没有的词兜底扣 4 nat，青简 排不进前三；句首二元给整个 210 又压过了整句 请见。
 目标是 `qingjian` 下 请见（整句）/ 青简 / 请柬 的顺序，用户选一次个人学习就把它顶到第一。
 
 ## 复现
 
 ```bash
-cargo run --release -p qingjian-dict-convert -- phrases data/corpus/*.txt          # 重跑加 --refresh assets/lexicon/phrases.tsv
-cp data/generated/phrases.tsv assets/lexicon/phrases.tsv
+cargo run --release -p qingjian-dict-convert -- phrases data/corpus/*.txt          # 重跑加 --refresh ../qingjian-dicts/official/lexicon/zh/base/inputs/phrases.tsv
+cp data/generated/phrases.tsv ../qingjian-dicts/official/lexicon/zh/base/inputs/phrases.tsv
 cargo run --release -p qingjian-dict-convert -- lexicon --pinyin data/generated/pinyin-llm.jsonl --frequency data/generated/lm-unigram.tsv \
-  --extra-words assets/lexicon/mined_words.tsv --extra-words assets/lexicon/phrases.tsv --extra-words assets/lexicon/brand.tsv --no-general
-cargo run --release -p qingjian-dict-convert -- bigram --phrases assets/lexicon/phrases.tsv --phrases assets/lexicon/domain_words.tsv --brand assets/lexicon/brand.tsv data/corpus/*.txt
+  --extra-words ../qingjian-dicts/official/lexicon/zh/base/inputs/mined.tsv --extra-words ../qingjian-dicts/official/lexicon/zh/base/inputs/phrases.tsv --extra-words ../qingjian-dicts/official/lexicon/zh/base/inputs/brands.tsv --no-general
+cargo run --release -p qingjian-dict-convert -- bigram --phrases ../qingjian-dicts/official/lexicon/zh/base/inputs/phrases.tsv --phrases ../qingjian-dicts/official/lexicon/zh/base/inputs/manual.tsv --brand ../qingjian-dicts/official/lexicon/zh/base/inputs/brands.tsv data/corpus/*.txt
 ```
 
 再 `pack dict` / `pack lm`（`bundle.sh` 会做），然后 `--eval-text data/eval/sentences.tsv` 与 `--replay` 冻结日志各跑一遍与改前比。

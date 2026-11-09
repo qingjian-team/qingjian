@@ -36,7 +36,7 @@ pub fn available() -> Vec<Language> {
         .collect()
 }
 
-/// 随包的释义表：macOS 在 `Resources/`，其他平台在随包根的 `data/generated/`，开发布局还有 `assets/glossary/` 的 TSV。
+/// 随包的释义表：macOS 在 `Resources/`，其他平台在随包根的 `data/generated/`（开发时还可能有同目录导出的 TSV）。
 fn bundled(language: Language) -> Option<PathBuf> {
     let code = language.code();
     let packed = format!("glossary-{code}.qj");
@@ -45,7 +45,7 @@ fn bundled(language: Language) -> Option<PathBuf> {
         .flat_map(|dir| [dir.join(&packed), dir.join(format!("glossary-{code}.tsv"))])
         .find(|path| path.is_file())
         .or_else(|| paths::bundled(&format!("data/generated/{packed}")))
-        .or_else(|| paths::bundled(&format!("assets/glossary/glossary-{code}.tsv")))
+        .or_else(|| paths::bundled(&format!("data/generated/glossary-{code}.tsv")))
 }
 
 /// `downloads/glossaries/` 里下载的释义表，文件名主干就是词库仓库里的 id（`glossary-ja`）。

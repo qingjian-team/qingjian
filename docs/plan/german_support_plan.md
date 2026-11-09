@@ -53,10 +53,10 @@ Windows 设置页与 mac host 本就「文件不存在的不列」，所以代�
 3. ai：`core_dict_ext.py::CORE_VOCAB_EXT`，3,968 条 AI 生成；
 统一 schema `lemma -> (cefr, pos, gender, plural, definition_zh)`。管线用 `--sources` 控制启用哪些层；本地测试 = 三层全开。
 
-**输出两层合并成 `assets/glossary/glossary-de.tsv`**（格式同现有释义表：UTF-8 无 BOM、LF、按码点排序，走同一套严格解析）：
+**输出两层合并成 `../qingjian-dicts/official/glossary/de/glossary.tsv`**（格式同现有释义表：UTF-8 无 BOM、LF、按码点排序，走同一套严格解析）：
 
 - **机翻基础层**：复刻西语路线，以 `glossary-en.tsv` 的词表/词性/英文释义为源，Azure Translator 翻德语（密钥仍只从 `AZURE_TRANSLATOR_KEY` / `AZURE_TRANSLATOR_REGION` 读），带断点续跑缓存；**机翻结果一律剥离开头的 der/die/das**（MT 不保证性别正确）。
-- **精修覆盖层**：反转三层数据的 `definition_zh`（分隔符 `，；、,;/`，去括号注释），只保留命中 `assets/lexicon/dict.tsv` 的中文键。同一中文键的多个德语 lemma 按「来源优先级（official > manual > ai）→ CEFR 易→难」排序。与机翻层按 sense 槽位合并：精修译词先占槽，不足 2 条时用机翻译词补槽（各槽冠词策略按自身来源，正是方案 (b) 的语义）；精修层给满 2 条则机翻该键不显示。
+- **精修覆盖层**：反转三层数据的 `definition_zh`（分隔符 `，；、,;/`，去括号注释），只保留命中 `../qingjian-dicts/official/lexicon/zh/base/words.tsv` 的中文键。同一中文键的多个德语 lemma 按「来源优先级（official > manual > ai）→ CEFR 易→难」排序。与机翻层按 sense 槽位合并：精修译词先占槽，不足 2 条时用机翻译词补槽（各槽冠词策略按自身来源，正是方案 (b) 的语义）；精修层给满 2 条则机翻该键不显示。
 - 不取 `official_vocab_rich.py`：IPA / 德汉例句不进释义表 schema，本轮无消费方。
 - 精修层词形规则：POS 映射 NOUN→n.、VERB→v.、ADJ→adj.、ADV→adv.、PRON→pron.、PREP→prep.、CONJ→conj.、NUM→num.、INTERJ→int.、PART→part.；名词首字母大写；gender 映射冠词并并入译文文本：Masc→der、Fem→die、Neut→das、Plur→die（即 `haus` → `n. das Haus`）；动词 lemma 为不定式原样，连字符形式（`an-sein`）渲染为空格（`an sein`）；无 reading 列（德语拼读规则，与西语同）。
 - 同脚本另出 `assets/levels/levels-de.tsv`：`# levels\tA1\tA2\tB1\tB2\tC1`；**键与释义表译词文本逐字一致**（名词含冠词，查表双方都做 lowercase，`LevelTable` 无需改）；只收实际落进 glossary-de 的 lemma（没显示路径的词不进表）。

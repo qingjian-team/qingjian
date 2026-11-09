@@ -3,7 +3,7 @@
 //! 判据与设置页的「导入词库」共用一套（`qingjian_dictionary::import::word_list`）：词表里写明的读音优先，
 //! 其次整词词条（`建设银行`），再次按词库最长匹配切分（`中华人民共和国`），切不动的单字取词频最高的读音。
 //! 一个词只写一条读音组合；字不在参考词库里的词跳过并列出。参考词库是 `--dict`（缺省随包基础词库）
-//! 加 `--extra-dict`，再加随包的领域词库（`assets/lexicon/dicts/*.tsv`）。
+//! 加 `--extra-dict`，再加随包的领域词库（`data/generated/dicts/` 里的 `.qj` 与 TSV）。
 //! 不给 `--import-to` 只打印预览，不写任何文件。
 
 use std::path::{Path, PathBuf};
@@ -16,8 +16,8 @@ use crate::error::CliError;
 /// 预览里每类跳过原因最多列几个词。
 const MAX_SKIPPED_SHOWN: usize = 10;
 
-/// 随包领域词库目录（`dict-convert` 产出的 `词\t音节\t词频`）。
-const DOMAIN_DICTS: &str = "assets/lexicon/dicts";
+/// 随包领域词库目录：dicts-fetch 解出的 `.qj`，开发时也可能有 `dict-convert` 产出的 TSV。
+const DOMAIN_DICTS: &str = "data/generated/dicts";
 
 pub fn run(args: &Args, source: &Path) -> Result<(), CliError> {
     let references = load_references(args)?;
@@ -61,8 +61,15 @@ fn load_references(args: &Args) -> Result<Vec<Dictionary>, CliError> {
         let mut paths: Vec<PathBuf> = entries
             .flatten()
             .map(|entry| entry.path())
-            .filter(|path| path.extension().is_some_and(|ext| ext == "tsv"))
+            .filter(|path| {
+                path.extension()
+                    .is_some_and(|ext| ext == "tsv" || ext == "qj")
+            })
             .collect();
+        // 同一本词库同时有 .qj 与 TSV 时只读 .qj
+        paths.retain(|path| {
+            path.extension().is_some_and(|ext| ext == "qj") || !path.with_extension("qj").is_file()
+        });
         paths.sort();
         for path in paths {
             references.push(Dictionary::from_path(path)?);

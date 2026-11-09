@@ -103,9 +103,10 @@ pub fn pack(
                 line: 0,
                 reason: "language must be en / ja / zh / es / de".to_owned(),
             })?;
-            let input = inputs.first().cloned().unwrap_or_else(|| {
-                PathBuf::from("assets/glossary").join(format!("glossary-{}.tsv", language.code()))
-            });
+            let input = inputs
+                .first()
+                .cloned()
+                .unwrap_or_else(|| out_dir.join(format!("glossary-{}.tsv", language.code())));
             let glossary = Glossary::from_path(language, &input)?;
             let out = out_dir.join(format!("glossary-{}.qj", language.code()));
             glossary.write_qj(&out, &metadata)?;
