@@ -3,7 +3,7 @@
 //! 9.5 万词全常驻，所以不给每个词单独分配：编码与原样词拼进一块文字缓冲，条目只记位置（[`Entry`]），按编码排序后二分查。
 //! 打包成 `.qj` 时这两块原样落盘，打开时直接映射，不用再解析、排序。
 //!
-//! 音标表（`english-ipa.tsv`：`词\t/音标/`）用同一套结构加载——两个字符列、按码排序，
+//! 音标表（`english-ipa.tsv`：`词\t/音标/`，随包打成 `english-ipa.qj`）用同一套结构加载——两个字符列、按码排序，
 //! 只是「原样词」那列放的是 `/ˈkɑrɡoʊ/` 这样的音标，用 [`WordList::pronunciation`] 取。
 //! 查询一律按小写码，与英文候选查词走同一条路径。
 
@@ -122,6 +122,16 @@ impl WordList {
             Self::open_qj(path)
         } else {
             Self::parse(&std::fs::read_to_string(path)?)
+        }
+    }
+
+    /// 音标表的 [`Self::from_path`]：`.qj`（`pack pronunciations` 打的）直接映射，否则按 [`Self::parse_pronunciations`] 解析。
+    pub fn pronunciations_from_path(path: impl AsRef<Path>) -> Result<Self, DictionaryError> {
+        let path = path.as_ref();
+        if Container::is_qj(path) {
+            Self::open_qj(path)
+        } else {
+            Self::parse_pronunciations(&std::fs::read_to_string(path)?)
         }
     }
 
@@ -331,5 +341,23 @@ mod tests {
         assert_eq!(list.frequency("company"), Some(900));
         assert_eq!(list.complete("comp", 5), ["company", "compare"]);
         assert_eq!(list.complete("tiếng", 5), ["tiếng Việt"]);
+    }
+
+    /// 随包的音标表是 `.qj`：打包后与解析 TSV 查到的一样。
+    #[test]
+    fn pronunciations_qj_round_trip() {
+        let dir = std::env::temp_dir().join(format!("qingjian-ipa-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let tsv = dir.join("english-ipa.tsv");
+        let qj = dir.join("english-ipa.qj");
+        std::fs::write(&tsv, "Cargo\t/ˈkɑrɡoʊ/\naccede\t/ækˈsid/\n").unwrap();
+        WordList::pronunciations_from_path(&tsv)
+            .unwrap()
+            .write_qj(&qj, &Metadata::default())
+            .unwrap();
+        let list = WordList::pronunciations_from_path(&qj).unwrap();
+        std::fs::remove_dir_all(&dir).unwrap();
+        assert_eq!(list.pronunciation("cargo"), Some("/ˈkɑrɡoʊ/"));
+        assert_eq!(list.pronunciation("accede"), Some("/ækˈsid/"));
     }
 }

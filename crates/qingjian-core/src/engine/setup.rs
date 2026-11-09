@@ -611,7 +611,7 @@ impl Engine {
         self.show_english_pronunciation
     }
 
-    /// 英文音标表（`english-ipa.tsv`：`词\t/音标/`）。没设或设为空就不显示任何音标。
+    /// 英文音标表（随包 `english-ipa.qj`，`WordList::pronunciations_from_path` 读）。没设或设为空就不显示任何音标。
     /// 重复设置会换掉旧表——热加载时改的是同一个文件。
     pub fn set_english_pronunciations(&mut self, table: Option<WordList>) {
         self.english_pronunciations = table;

@@ -8,6 +8,7 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use qingjian_core::{Engine, Language};
+use qingjian_platform::pronunciations::ENGLISH_PRONUNCIATIONS_FILE;
 use qingjian_platform::{Config, ConfigError, LogLevel, UserDirs, resources};
 use qingjian_windows_server::assembly::{glossary_file, learning_language};
 use qingjian_windows_server::{
@@ -179,8 +180,8 @@ fn main() -> ExitCode {
         return ExitCode::SUCCESS;
     };
     match template {
-        Some(Ok(true)) => tracing::info!("已写出配置模板"),
-        Some(Err(error)) => tracing::warn!(%error, "写配置模板失败"),
+        Some(Ok(true)) => tracing::info!("config template written"),
+        Some(Err(error)) => tracing::warn!(%error, "failed to write config template"),
         _ => {}
     }
     let language = learning_language(&config);
@@ -207,8 +208,7 @@ fn main() -> ExitCode {
         glossary: glossary.clone(),
         english_glossary: glossary_file(&root, downloads.as_deref(), Language::Chinese),
         english: generated(&root, "english.qj"),
-        // 音标表随包放在 assets/lexicon（与源码里的词表同目录），不在 data/generated
-        english_ipa: asset(&root, "lexicon/english-ipa.tsv"),
+        english_ipa: generated(&root, ENGLISH_PRONUNCIATIONS_FILE),
         emoji: ["emoji-zh.tsv", "emoji-en.tsv"]
             .into_iter()
             .filter_map(|name| asset(&root, &format!("emoji/{name}")))
@@ -226,14 +226,14 @@ fn main() -> ExitCode {
     let mut engine = match assemble_with_fallback(spec, &root) {
         Ok(engine) => engine,
         Err(error) => {
-            tracing::error!(%error, "样例词库也装配失败");
+            tracing::error!(%error, "sample dictionary failed to assemble too");
             return ExitCode::FAILURE;
         }
     };
     engine.set_fuzzy(config.fuzzy);
     // Windows 端此前漏装 custom_phrases（macOS 端 apply_config 有）；失败只记日志不阻塞启动
     if let Err(error) = engine.set_custom_phrases(config.custom_phrases.clone()) {
-        tracing::warn!(%error, "自定义短语配置未应用");
+        tracing::warn!(%error, "custom phrase config not applied");
     }
     // 拼音侧与形码侧在 `configure_schemes` 里一起装配（双拼 / 注音 / 混输都在那）
     engine.set_traditional(config.general.traditional());
@@ -273,7 +273,7 @@ fn main() -> ExitCode {
         match qingjian_dictionary::WordList::from_path(&path) {
             Ok(words) => Some(words),
             Err(error) => {
-                tracing::warn!(%error, path = %path.display(), "越南语候选词表读不了");
+                tracing::warn!(%error, path = %path.display(), "vietnamese word list unreadable");
                 None
             }
         }
@@ -296,7 +296,7 @@ fn main() -> ExitCode {
                 ))
             }
             Err(error) => {
-                tracing::warn!(%error, path = %path.display(), "越南语中文释义表读不了");
+                tracing::warn!(%error, path = %path.display(), "vietnamese-chinese glossary unreadable");
                 None
             }
         }
@@ -338,7 +338,7 @@ fn main() -> ExitCode {
         model = config.model.name.key(),
         model_enabled = config.model.enabled,
         sessions = router.session_count(),
-        "青简 Windows Server 就绪"
+        "Qingjian Windows Server ready"
     );
 
     let code = serve(router);

@@ -165,7 +165,7 @@ pub struct Engine {
     /// 开着时把音标填进 `Candidate::reading`，平台层的 annotation 会画在候选词后面。
     show_english_pronunciation: bool,
 
-    /// 英文音标表（`english-ipa.tsv`），键是小写词、值是 `/ˈkɑrɡoʊ/`。没有就一律不显示音标。
+    /// 英文音标表（随包 `english-ipa.qj`），键是小写词、值是 `/ˈkɑrɡoʊ/`。没有就一律不显示音标。
     english_pronunciations: Option<WordList>,
 
     /// 有中文候选时英文最高排到第几位（配置 `[general] english_min_position`，缺省 1 即不限制）。

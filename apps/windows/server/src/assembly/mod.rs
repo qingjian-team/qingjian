@@ -12,6 +12,7 @@ use qingjian_dictionary::{Dictionary, WordList};
 use qingjian_learning::{FrequencyLearner, InputLog, PanelUsage, UsageStats, VocabularyBook};
 use qingjian_lm::{MixedModel, TRIGRAM_WEIGHT, TrigramModel};
 use qingjian_platform::code_tables::AuxCodeSources;
+use qingjian_platform::pronunciations::load_english_pronunciations;
 use qingjian_platform::{Config, UserDirs, extra_dictionaries, model_words};
 use qingjian_translate::{Glossary, LayeredTranslator, PersonalGlossary, downloaded_glossary};
 
@@ -34,7 +35,7 @@ pub fn assemble(spec: &AssemblySpec) -> Result<Engine, ServerError> {
         entries = dictionary.len(),
         learned = learner.len(),
         dictionary_ms = started.elapsed().as_millis(),
-        "词库与学习数据已加载"
+        "dictionary and learning data loaded"
     );
     let mut engine = Engine::new(dictionary).with_learner(Box::new(learner));
     if let Some((language, path)) = &spec.glossary {
@@ -54,7 +55,7 @@ pub fn assemble(spec: &AssemblySpec) -> Result<Engine, ServerError> {
             )));
         if spec.input_log {
             let path = user.input_log();
-            tracing::info!(path = %path.display(), "输入日志开着");
+            tracing::info!(path = %path.display(), "input log enabled");
             engine = engine.with_input_logger(Box::new(InputLog::open(path)));
         }
     }
@@ -82,24 +83,14 @@ pub fn assemble(spec: &AssemblySpec) -> Result<Engine, ServerError> {
     }
     if let Some(path) = &spec.english {
         let words = WordList::from_path(path)?;
-        tracing::info!(words = words.len(), "英文词表已加载");
+        tracing::info!(words = words.len(), "english word list loaded");
         engine = engine.with_english(words);
     }
-    // 音标表是可选的：随包数据里没有它（比如样例数据）就只是不显示音标，不影响英文候选本身
     if let Some(path) = &spec.english_ipa {
-        match std::fs::read_to_string(path) {
-            Ok(source) => match WordList::parse_pronunciations(&source) {
-                Ok(table) => {
-                    tracing::info!(words = table.len(), "英文音标表已加载");
-                    engine.set_english_pronunciations(Some(table));
-                }
-                Err(error) => tracing::warn!(%error, "英文音标表解析失败"),
-            },
-            Err(error) => tracing::warn!(%error, path = %path.display(), "英文音标表读不了"),
-        }
+        engine.set_english_pronunciations(load_english_pronunciations(path));
     }
     if let Some(table) = load_emoji(&spec.emoji) {
-        tracing::info!(words = table.len(), "emoji 表已加载");
+        tracing::info!(words = table.len(), "emoji table loaded");
         engine = engine.with_emoji(table);
     }
     let mut bigram = None;
@@ -110,7 +101,7 @@ pub fn assemble(spec: &AssemblySpec) -> Result<Engine, ServerError> {
             words = model.word_count(),
             bigrams = model.bigram_count(),
             load_ms = started.elapsed().as_millis(),
-            "语言模型已加载"
+            "language model loaded"
         );
         bigram = Some(model);
     }

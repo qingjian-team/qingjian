@@ -127,7 +127,7 @@ if [[ "$SAMPLE_DATA" == 0 ]]; then
       --license "CC-BY-SA-4.0 AND MIT" --attribution "中文维基百科（CC BY-SA 4.0）；LCCC（清华大学 CoAI，MIT）"
   fi
   cp data/generated/lm.qj "$APP/Contents/Resources/"
-  # 随包词库（基础词库、成语词库、英文词表、英语与中文释义表、越南语词表与对照）：dicts.lock 里列的逐本拷，附加词库放 Resources/dicts/。
+  # 随包词库（基础词库、成语词库、英文词表与音标表、英语与中文释义表、越南语词表与对照）：dicts.lock 里列的逐本拷，附加词库放 Resources/dicts/。
   # 别的词库与释义表在设置里下载到用户目录，不随包
   while read -r _ _ _ installed; do
     mkdir -p "$(dirname "$APP/Contents/Resources/$installed")"

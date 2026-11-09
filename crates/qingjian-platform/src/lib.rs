@@ -14,6 +14,7 @@ pub mod extra_dictionaries;
 mod i18n;
 pub mod logs;
 pub mod model_words;
+pub mod pronunciations;
 pub mod protocol;
 pub mod resources;
 mod scheme;

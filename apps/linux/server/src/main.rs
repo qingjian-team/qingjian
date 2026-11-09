@@ -8,6 +8,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     use qingjian_linux_server::{
         AssemblySpec, LanguageModelFiles, Router, RouterConfig, assembly, find_model,
     };
+    use qingjian_platform::pronunciations::ENGLISH_PRONUNCIATIONS_FILE;
     use qingjian_platform::{Config, UserDirs};
     use std::path::PathBuf;
     if std::env::args().any(|arg| arg == "--version") {
@@ -48,6 +49,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         english_glossary: assembly::glossary_file(&root, Some(&downloads), Language::Chinese),
         english: paths::generated(&root, "english.qj")
             .or_else(|| paths::asset(&root, "sample/english.tsv")),
+        english_ipa: paths::generated(&root, ENGLISH_PRONUNCIATIONS_FILE),
         emoji: ["emoji/emoji-zh.tsv", "emoji/emoji-en.tsv"]
             .into_iter()
             .filter_map(|n| paths::asset(&root, n))
@@ -62,7 +64,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let mut engine = match assembly::assemble(&spec) {
         Ok(engine) => engine,
         Err(error) => {
-            tracing::warn!(%error, "主词库不可用，降级样例词库");
+            tracing::warn!(%error, "main dictionary unavailable, falling back to the sample");
             spec.dict = root.join("assets/sample/dict.tsv");
             assembly::assemble(&spec)?
         }
@@ -103,7 +105,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         libc::signal(libc::SIGINT, stop as *const () as libc::sighandler_t);
     }
     let socket = qingjian_platform::protocol::linux::socket_path();
-    tracing::info!(path = %socket.display(), "青简 Linux Server 启动");
+    tracing::info!(path = %socket.display(), "Qingjian Linux Server started");
     qingjian_linux_server::ipc::serve_socket(socket, &mut router)?;
     Ok(())
 }

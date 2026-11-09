@@ -287,14 +287,14 @@ pub enum Command {
     },
 
     /// 把 TSV 打包成 `.qj` 容器（mmap 直接用，启动近零耗时）：`dict` 读 dict.tsv 写 dict.qj，`lm` 读 lm-unigram/bigram.tsv 写 lm.qj，
-    /// `glossary --language en` 读 glossary-en.tsv 写 glossary-en.qj，`wordlist --input english.tsv` 写 english.qj；`model` 把导出的三件套目录（缺省 data/models/hanzhang-zhiwei）
+    /// `glossary --language en` 读 glossary-en.tsv 写 glossary-en.qj，`wordlist --input english.tsv` 写 english.qj，`pronunciations --input english-ipa.tsv` 写 english-ipa.qj；`model` 把导出的三件套目录（缺省 data/models/hanzhang-zhiwei）
     /// 打成一个 .qjm（`--out-dir data/models/hanzhang-zhiwei` 就写回原目录，随包只带这一个文件）；
     /// `codes` 是唯一不「原样落盘」的一种：读笔画表与词库，按取码规则算成本地码表 codes/stroke.qj（见 codes 模块）
     Pack {
         /// 打包哪种数据
         kind: PackKind,
 
-        /// 输入文件；`dict` 一个或几个 TSV（几个合成一本；缺省 dict.tsv，有 dict-cleaned.tsv 就一起），`lm` 两个（一元表、二元表），`wordlist` 一个（必给），`model` 一个目录。缺省从输出目录里找同名 TSV（`model` 缺省 data/models/hanzhang-zhiwei）
+        /// 输入文件；`dict` 一个或几个 TSV（几个合成一本；缺省 dict.tsv，有 dict-cleaned.tsv 就一起），`lm` 两个（一元表、二元表），`wordlist` / `pronunciations` 一个（必给），`model` 一个目录。缺省从输出目录里找同名 TSV（`model` 缺省 data/models/hanzhang-zhiwei）
         #[arg(long, num_args = 1..)]
         input: Vec<PathBuf>,
 
@@ -306,7 +306,7 @@ pub enum Command {
         #[arg(long)]
         dict: Option<PathBuf>,
 
-        /// `codes`、`model` 或 `wordlist` 用：输出文件；模型缺省 <输出目录>/model.qjm，词表缺省 <输出目录>/<输入主干>.qj
+        /// `codes`、`model`、`wordlist` 或 `pronunciations` 用：输出文件；模型缺省 <输出目录>/model.qjm，词表与音标表缺省 <输出目录>/<输入主干>.qj
         #[arg(long)]
         output: Option<PathBuf>,
 
@@ -356,6 +356,9 @@ pub enum PackKind {
 
     /// 词表（英文、越南语等，`词\t编码[\t词频]` → <主干>.qj）
     Wordlist,
+
+    /// 音标表（`词\t/音标/` → <主干>.qj，与词表同一种容器）
+    Pronunciations,
 }
 
 impl PackKind {
@@ -368,6 +371,7 @@ impl PackKind {
             Self::Model => "model",
             Self::Codes => "codes",
             Self::Wordlist => "wordlist",
+            Self::Pronunciations => "pronunciations",
         }
     }
 }

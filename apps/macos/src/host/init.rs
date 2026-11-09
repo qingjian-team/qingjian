@@ -2,6 +2,7 @@
 
 use super::*;
 use crate::candidates::MenuHandlers;
+use qingjian_platform::pronunciations::{ENGLISH_PRONUNCIATIONS_FILE, load_english_pronunciations};
 
 /// 加载数据并建立单例。必须在主线程、在 IMKServer 建立之前调用。版本显示在菜单末行与「关于」页。
 pub fn init(mtm: MainThreadMarker, info: &BundleInfo) -> Result<(), HostError> {
@@ -67,7 +68,7 @@ pub fn init(mtm: MainThreadMarker, info: &BundleInfo) -> Result<(), HostError> {
         english = english.as_ref().map_or(0, WordList::len),
         learned = learner.len(),
         dictionary_ms,
-        "数据加载完成"
+        "data loaded"
     );
     let mut engine = Engine::new(dictionary).with_learner(Box::new(learner));
     if let Some(glossary) = glossary {
@@ -84,7 +85,7 @@ pub fn init(mtm: MainThreadMarker, info: &BundleInfo) -> Result<(), HostError> {
             match LevelTable::from_path(&path) {
                 Ok(table) => vocabulary = vocabulary.with_levels(language, table),
                 Err(error) => {
-                    tracing::warn!(path = %path.display(), %error, "词汇等级表读不了，不分级")
+                    tracing::warn!(path = %path.display(), %error, "level table unreadable, vocabulary not graded")
                 }
             }
         }
@@ -109,8 +110,12 @@ pub fn init(mtm: MainThreadMarker, info: &BundleInfo) -> Result<(), HostError> {
     if let Some(words) = english {
         engine = engine.with_english(words);
     }
+    // 音标表可选：没有就只是英文候选不显示音标
+    if let Ok(path) = paths::resource(ENGLISH_PRONUNCIATIONS_FILE) {
+        engine.set_english_pronunciations(load_english_pronunciations(&path));
+    }
     if let Some(table) = load_emoji_tables(&["emoji-zh.tsv", "emoji-en.tsv"]) {
-        tracing::info!(words = table.len(), "emoji 表已加载");
+        tracing::info!(words = table.len(), "emoji table loaded");
         engine = engine.with_emoji(table);
     }
     // 语言模型可选：没有就退化成一元词频整句；打包过的 lm.qj 优先
@@ -129,7 +134,7 @@ pub fn init(mtm: MainThreadMarker, info: &BundleInfo) -> Result<(), HostError> {
             words = model.word_count(),
             bigrams = model.bigram_count(),
             total_ms = started.elapsed().as_millis(),
-            "语言模型已加载"
+            "language model loaded"
         );
         engine = engine.with_language_model(Box::new(model));
     }

@@ -9,7 +9,7 @@ CLAUDE.md 只保留目录地图与规则，每个 crate / app / tool 的实现�
 `lookup_pattern`（≥ 模式长度）与 `lookup_exact`（正好等长）同一套实现。词库键以 `v` 表示 ü，
 TSV 解析、查询与生成工具把 `lue` / `nue` 统一成 `lve` / `nve`。
 英文词表 `WordList`（`english.tsv`，9.5 万词）编码与原样词拼进一块缓冲、条目只记位置，按编码二分：每词三个 `String` 加 `HashMap` 时常驻 18 MB，现在约 4 MB（2026-10-28 探针）。
-英文音标复用同一结构（`assets/lexicon/english-ipa.tsv`，11.7 万条）：音标放「原样词」那列，由 `WordList::parse_pronunciations` 解析——**不能用 `parse`**，那个把第二列当编码，音标会被存成键；查询用 `pronunciation(code)`，键一律小写。
+英文音标复用同一结构（随包 `english-ipa.qj`，11.7 万条，词库仓库 `official/lexicon/en/ipa/` 发版、dicts-fetch 取）：音标放「原样词」那列，TSV 由 `WordList::parse_pronunciations` 解析——**不能用 `parse`**，那个把第二列当编码，音标会被存成键；打包用 `dict-convert pack pronunciations`，各壳经 `qingjian_platform::pronunciations` 读 `.qj`；查询用 `pronunciation(code)`，键一律小写。
 数据由 `dict-convert ipa` 从 CMUdict 生成。ARPAbet → IPA 有两处不能机械查表：重音要**从元音挪到音节首**（`cargo` 是 `/ˈkɑrˌɡoʊ/` 不是 `/kˈɑrɡoʊ/`），先按「元音之间的辅音归后一音节、R 除外」划界再插标记；无重音的 `AH` 是 schwa `ə` 而不是 `ʌ`（CMUdict 同一个符号表示两个音，只能靠调号区分，混了就会得到 `/hʌˈloʊ/`）。
 只覆盖产品词表的约 57%：CMUdict 不收规则派生的复数 / 过去式 / 进行式（`abacuses`、`abstracting`），查不到就不显示，不做后缀反推。
 候选侧不新增字段：音标填进 `Candidate::reading`（问字模式的带调拼音本来就走它），平台层照旧画在最前面。

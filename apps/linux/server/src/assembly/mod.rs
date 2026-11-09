@@ -10,6 +10,7 @@ use std::time::Instant;
 use qingjian_core::{EmojiTable, Engine, Language};
 use qingjian_dictionary::{Dictionary, WordList};
 use qingjian_learning::{FrequencyLearner, InputLog, PanelUsage, UsageStats, VocabularyBook};
+use qingjian_platform::pronunciations::load_english_pronunciations;
 use qingjian_platform::{Config, UserDirs, extra_dictionaries};
 use qingjian_translate::{Glossary, LayeredTranslator, PersonalGlossary, downloaded_glossary};
 
@@ -30,7 +31,7 @@ pub fn assemble(spec: &AssemblySpec) -> Result<Engine, ServerError> {
         entries = dictionary.len(),
         learned = learner.len(),
         dictionary_ms = started.elapsed().as_millis(),
-        "词库与学习数据已加载"
+        "dictionary and learning data loaded"
     );
     let mut engine = Engine::new(dictionary).with_learner(Box::new(learner));
     if let Some((language, path)) = &spec.glossary {
@@ -40,7 +41,7 @@ pub fn assemble(spec: &AssemblySpec) -> Result<Engine, ServerError> {
             spec.user.as_ref().map(UserDirs::learning).as_deref(),
         ) {
             Ok(glossary) => engine = engine.with_translator(Box::new(glossary)),
-            Err(error) => tracing::warn!(%error, "释义表加载失败，继续中文输入"),
+            Err(error) => tracing::warn!(%error, "glossary failed to load, continuing without it"),
         }
     }
     if let Some(user) = &spec.user {
@@ -53,7 +54,7 @@ pub fn assemble(spec: &AssemblySpec) -> Result<Engine, ServerError> {
             )));
         if spec.input_log {
             let path = user.input_log();
-            tracing::info!(path = %path.display(), "输入日志开着");
+            tracing::info!(path = %path.display(), "input log enabled");
             engine = engine.with_input_logger(Box::new(InputLog::open(path)));
         }
     }
@@ -75,21 +76,29 @@ pub fn assemble(spec: &AssemblySpec) -> Result<Engine, ServerError> {
     if let Some(path) = &spec.english {
         match WordList::from_path(path) {
             Ok(words) => engine = engine.with_english(words),
-            Err(error) => tracing::warn!(%error, "英文词表加载失败"),
+            Err(error) => tracing::warn!(%error, "english word list failed to load"),
         }
     }
+    if let Some(path) = &spec.english_ipa {
+        engine.set_english_pronunciations(load_english_pronunciations(path));
+    }
     if let Some(table) = load_emoji(&spec.emoji) {
-        tracing::info!(words = table.len(), "emoji 表已加载");
+        tracing::info!(words = table.len(), "emoji table loaded");
         engine = engine.with_emoji(table);
     }
     if let Some(files) = &spec.language_model {
         let started = Instant::now();
         match files.load() {
             Ok(model) => {
-                tracing::info!(load_ms = started.elapsed().as_millis(), "语言模型已加载");
+                tracing::info!(
+                    load_ms = started.elapsed().as_millis(),
+                    "language model loaded"
+                );
                 engine = engine.with_language_model(Box::new(model));
             }
-            Err(error) => tracing::warn!(%error, "语言模型加载失败，使用词频整句"),
+            Err(error) => {
+                tracing::warn!(%error, "language model failed to load, using word frequencies for sentences")
+            }
         }
     }
     Ok(engine)

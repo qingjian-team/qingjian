@@ -45,6 +45,7 @@ $data = @(
     'data\generated\glossary-en.qj',
     'data\generated\glossary-zh.qj',
     'data\generated\english.qj',
+    'data\generated\english-ipa.qj',
     'data\generated\vietnamese.qj',
     'data\generated\vietnamese-chinese.qj',
     'data\generated\dicts\idioms.qj',

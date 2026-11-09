@@ -36,7 +36,7 @@ $ErrorActionPreference = 'Stop'
 # apps\windows\scripts -> apps\windows -> apps -> 仓库根
 $repo = Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $PSScriptRoot))
 $table = Join-Path $repo 'assets\schemes\wubi86\table.tsv'
-$ipa = Join-Path $repo 'assets\lexicon\english-ipa.tsv'
+$ipa = Join-Path $repo 'data\generated\english-ipa.qj'
 $server = Join-Path $repo 'target\debug\qingjian-server.exe'
 $dll = Join-Path $repo 'target\debug\qingjian_tsf.dll'
 $config = Join-Path $env:APPDATA 'Qingjian\config.toml'
@@ -118,8 +118,8 @@ Copy-Item -LiteralPath $server -Destination $WorkDir -Force
 $schemeDir = Join-Path $WorkDir 'assets\schemes\wubi86'
 New-Item -ItemType Directory -Force -Path $schemeDir | Out-Null
 Copy-Item -Path (Join-Path (Split-Path -Parent $table) '*') -Include 'scheme.toml', 'table.tsv' -Destination $schemeDir -Force
-# 英文音标表：发行版安装目录里还没有这份资产，从仓库拷一份
-$ipaDir = Join-Path $WorkDir 'assets\lexicon'
+# 英文音标表：发行版安装目录里还没有这份数据，从仓库拷一份（data-fetch.sh 取到 data\generated）
+$ipaDir = Join-Path $WorkDir 'data\generated'
 New-Item -ItemType Directory -Force -Path $ipaDir | Out-Null
 Copy-Item -LiteralPath $ipa -Destination $ipaDir -Force
 # DLL 也拷过来再注册：从 `target\debug` 注册的话，那个文件会被加载它的进程锁住，

@@ -19,7 +19,7 @@ pub struct AssemblySpec {
     /// 英文词表。
     pub english: Option<PathBuf>,
 
-    /// 英文音标表（`english-ipa.tsv`：`词\t/音标/`）。可选，没有就只是不显示音标。
+    /// 英文音标表（随包 `english-ipa.qj`）。可选，没有就只是不显示音标。
     pub english_ipa: Option<PathBuf>,
 
     /// emoji 表（多张合成一张）。
