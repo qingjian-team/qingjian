@@ -12,8 +12,10 @@ dir="$HOME/Applications/青简 测试"
 mkdir -p "$dir"
 cp /appimage/Qingjian.AppImage "$dir/" && chmod 755 "$dir/Qingjian.AppImage"
 app="$dir/Qingjian.AppImage"
-export XDG_RUNTIME_DIR="/tmp/runtime-$(id -u)"
-mkdir -p -m 700 "$XDG_RUNTIME_DIR"
+XDG_RUNTIME_DIR="/tmp/runtime-$(id -u)"
+export XDG_RUNTIME_DIR
+mkdir -p "$XDG_RUNTIME_DIR"
+chmod 700 "$XDG_RUNTIME_DIR"
 # 不用 FUSE：AppImage 解到临时目录再跑（没有 /dev/fuse 的容器、沙箱里就是这样）
 [[ "$mode" == extract ]] && export APPIMAGE_EXTRACT_AND_RUN=1
 data="$HOME/.local/share" config="$HOME/.config"
