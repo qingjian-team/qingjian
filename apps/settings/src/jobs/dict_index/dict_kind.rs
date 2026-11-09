@@ -14,8 +14,8 @@ pub enum DictKind {
     /// 释义表，装进用户 `glossaries/`。
     Glossary,
 
-    /// 英文词表，随包装。
-    English,
+    /// 词表（英文、越南语），随包装。
+    Wordlist,
 
     /// 这一版输入法不认得的种类（词库仓库后来加的）：不列，也不让整份清单读不了。
     #[serde(other)]

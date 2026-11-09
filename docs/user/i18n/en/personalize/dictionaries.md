@@ -18,7 +18,7 @@ The core dictionary includes 36,000 rare characters (extended characters outside
 
 ## Downloading dictionaries
 
-设置 → 词库 → 下载 (Settings → Dictionaries → Download) lists the dictionaries and glossaries you can download from the Qingjian dictionary repository; 词库 ｜ 释义表 (Dictionaries | Glossaries) at the top switches between the two. Each shows a description, its author, size and license; click an author's name, when it is a link, to open their homepage. Ones put together by others are marked 第三方 (Third-party) next to the name.
+设置 → 词库 → 下载 (Settings → Dictionaries → Download) lists the dictionaries and glossaries you can download from the Qingjian dictionary repository; 词库 ｜ 释义表 (Dictionaries | Glossaries) at the top switches between the two; dictionaries are grouped by language when there is more than one. Each shows a description, its author, size and license; click an author's name, when it is a link, to open their homepage. Ones put together by others are marked 第三方 (Third-party) next to the name.
 The list is fetched once when Settings opens; when offline, the last list fetched is shown, with the time it was fetched above it. Click 刷新 (Refresh) to fetch it again. 下载 (Download) installs a dictionary into your data folder; it then appears under 我的词库 (My dictionaries) alongside imported ones, turned on by default; its checkbox turns it on or off, and it can be removed.
 When the repository has a newer version, the button changes to 更新 (Update).
 

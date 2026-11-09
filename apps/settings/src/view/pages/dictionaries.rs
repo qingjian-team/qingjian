@@ -10,11 +10,14 @@ use bamboo_slip::{
     paragraph, section_title, toolbar,
 };
 
+use qingjian_core::Language;
+
 use crate::i18n::{tr, tr_args};
 use crate::jobs::dict_index::{DictEntry, Shelf, Status};
 use crate::jobs::download::Item;
 use crate::library::Kind;
 use crate::message::Message;
+use crate::stats::language_name;
 use crate::view::Page;
 use crate::view::parts::download::{DownloadStatus, labels, megabytes};
 use crate::view::parts::lists::{
@@ -142,14 +145,46 @@ fn downloads(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderErr
         let hint = paragraph(ui, theme, tr("dictionaries.downloaded_hint"), None)?;
         out.push(toolbar(ui, theme, &[hint])?);
     }
-    if !shown.is_empty() {
+    // 释义表一张一门语言，名字里就有，不分组
+    let shelves = match shelf {
+        Shelf::Dictionaries => by_language(&shown),
+        Shelf::Glossaries if shown.is_empty() => Vec::new(),
+        Shelf::Glossaries => vec![(String::new(), shown)],
+    };
+    let titled = shelves.len() > 1;
+    for (language, entries) in shelves {
+        if titled {
+            let title = paragraph(ui, theme, &language_label(&language), None)?;
+            out.push(toolbar(ui, theme, &[title])?);
+        }
         let mut rows = Vec::new();
-        for entry in shown {
+        for entry in entries {
             rows.push(dict_row(ui, page, entry)?);
         }
         out.push(group(ui, theme, &rows)?);
     }
     Ok(out)
+}
+
+/// 按语言分组，组的先后照清单里第一次出现的顺序；只有一种语言时调用方不写组名。
+fn by_language<'a>(entries: &[&'a DictEntry]) -> Vec<(String, Vec<&'a DictEntry>)> {
+    let mut groups: Vec<(String, Vec<&'a DictEntry>)> = Vec::new();
+    for entry in entries {
+        let language = entry.language.clone().unwrap_or_default();
+        match groups.iter_mut().find(|(code, _)| *code == language) {
+            Some((_, list)) => list.push(entry),
+            None => groups.push((language, vec![entry])),
+        }
+    }
+    groups
+}
+
+/// 组名：认得的语言写名字，不认得的照写代码。
+fn language_label(code: &str) -> String {
+    code.parse::<Language>().map_or_else(
+        |_| code.to_owned(),
+        |language| language_name(language).to_owned(),
+    )
 }
 
 /// 清单取到的时间，按本机时区写到分钟。
