@@ -54,6 +54,9 @@ struct Row {
 struct Split {
     parts: Vec<char>,
     readings: Vec<Vec<String>>,
+
+    /// 这条拆法来自繁体字典（`瞭` 的 `目尞` 落到了 `了` 上）：简体设置下排在简体拆法后面。
+    traditional: bool,
 }
 
 impl Split {
@@ -69,6 +72,11 @@ impl Split {
             .map(|list| list.join(","))
             .collect::<Vec<_>>()
             .join("'")
+    }
+
+    /// 来源：`jt` 简体字典，`ft` 繁体字典。
+    fn origin_text(&self) -> &'static str {
+        if self.traditional { "ft" } else { "jt" }
     }
 }
 
@@ -127,16 +135,19 @@ pub fn convert(options: &ChaiziOptions, out_dir: &Path) -> Result<Summary, Conve
             if !is_han(ch) {
                 continue;
             }
-            if base {
-                plain.insert(ch);
-            } else if plain.contains(&ch) {
-                // 简体表已经有了，繁体字形与它完全同形，拆法不重复收
-                continue;
-            }
-            // 繁简索引里没有简体对应的字写成 `□` 占位，这种退回原字，不要整个丢掉
-            let mut key = if base { ch } else { simplified.simplify(ch) };
+            // 简体表里也漏着繁体字形（`內`、`円`）：两张表都过一遍繁简索引，
+            // 认得出的按简体主键并到一起，否则简体设置下会冒出「內」这种字形。
+            // 索引里没有对应的字（`長`）原样保留。
+            let mut key = simplified.simplify(ch);
             if !is_han(key) {
                 key = ch;
+            }
+            if base {
+                plain.insert(key);
+            } else if plain.contains(&ch) {
+                // 简体表已经有这个字形，拆法不重复收（罓）；能简化的是另一种字形，
+                // 拆法照旧并到简体主键（這 的拆法并进 这）
+                continue;
             }
             if !base && key != ch {
                 merged += 1;
@@ -167,7 +178,7 @@ pub fn convert(options: &ChaiziOptions, out_dir: &Path) -> Result<Summary, Conve
                 }
             }
             for split in fields {
-                let Some(one) = split_of(split, &readings) else {
+                let Some(one) = split_of(split, &readings, !base) else {
                     continue;
                 };
                 if !row.splits.iter().any(|known| known.parts == one.parts) {
@@ -182,7 +193,8 @@ pub fn convert(options: &ChaiziOptions, out_dir: &Path) -> Result<Summary, Conve
     writeln!(
         out,
         "# 拆字表，由 qingjian-dict-convert chaizi 从 assets/chaizi（開放詞典網拆字字典，CC BY 3.0）\
-         与青简词库生成。字\t读音\t拆法部件\t拆法读音（部件间 '，同一部件多读音用 ,）"
+         与青简词库生成。字\t读音\t拆法部件\t拆法读音\t拆法来源（部件间 '，同一部件多读音用 ,；\
+         来源 jt 简体字典、ft 繁体字典，与拆法一一对应，简体设置下 ft 排在后面）"
     )?;
     let mut splits = 0;
     for row in &rows {
@@ -192,13 +204,15 @@ pub fn convert(options: &ChaiziOptions, out_dir: &Path) -> Result<Summary, Conve
         splits += row.splits.len();
         let parts: Vec<String> = row.splits.iter().map(Split::parts_text).collect();
         let reading: Vec<String> = row.splits.iter().map(Split::readings_text).collect();
+        let origin: Vec<&str> = row.splits.iter().map(Split::origin_text).collect();
         writeln!(
             out,
-            "{}\t{}\t{}\t{}",
+            "{}\t{}\t{}\t{}\t{}",
             row.ch,
             row.syllables.join(" "),
             parts.join(" "),
-            reading.join(" ")
+            reading.join(" "),
+            origin.join(" ")
         )?;
     }
     out.flush()?;
@@ -211,7 +225,11 @@ pub fn convert(options: &ChaiziOptions, out_dir: &Path) -> Result<Summary, Conve
 }
 
 /// 一种拆法（`言 射`）里的部件与每个部件的读音；一个部件都认不出时返回 `None`。
-fn split_of(split: &str, readings: &HashMap<char, Vec<(String, u64)>>) -> Option<Split> {
+fn split_of(
+    split: &str,
+    readings: &HashMap<char, Vec<(String, u64)>>,
+    traditional: bool,
+) -> Option<Split> {
     let mut parts = Vec::new();
     let mut lists = Vec::new();
     for part in split.split(' ') {
@@ -233,6 +251,7 @@ fn split_of(split: &str, readings: &HashMap<char, Vec<(String, u64)>>) -> Option
     (!parts.is_empty()).then_some(Split {
         parts,
         readings: lists,
+        traditional,
     })
 }
 

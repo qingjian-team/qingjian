@@ -34,6 +34,9 @@ static TABLE: LazyLock<table::ChaiziTable> = LazyLock::new(|| {
 
 /// 按 `body` 找字，最多 `limit` 个，按「吃得最多的、切得最省的、刚好对上的」排在前面。
 /// `body` 为空时没有结果。
+///
+/// `prefer_traditional` 跟界面的简繁设置走：简体设置时繁体字典来的拆法（`瞭` 的 `目尞` 落到 `了` 上）
+/// 排在简体拆法后面，繁体设置反过来。
 pub fn lookup(body: &str, limit: usize) -> Vec<Hit> {
     TABLE.lookup(body, limit)
 }

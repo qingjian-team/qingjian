@@ -28,6 +28,10 @@ pub struct StrokeOptions {
     #[arg(long, num_args = 1.., value_delimiter = ',', default_value = "assets/lexicon/01_characters/standard_8105.tsv")]
     pub filter: Vec<PathBuf>,
 
+    /// 繁简索引（每行「繁体、简体」，制表符分隔）：白名单里的繁体字形并到简体主键，內/円 这类不再单独成行
+    #[arg(long, default_value = "assets/chaizi/fanjian_suoyin.txt")]
+    pub fanjian: PathBuf,
+
     /// 大陆序覆盖表：部件重写规则 + 例外字 + 整字补录
     #[arg(long, default_value = "assets/stroke/prc-rules.tsv")]
     pub prc_rules: PathBuf,

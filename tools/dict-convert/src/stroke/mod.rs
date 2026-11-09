@@ -63,7 +63,8 @@ pub fn convert(options: &StrokeOptions, out_dir: &Path) -> Result<(), ConvertErr
         }
         None => HashMap::new(),
     };
-    let table = read_filter(&options.filter)?;
+    let simplified = read_fanjian(&options.fanjian)?;
+    let table = read_filter(&options.filter, &simplified)?;
     tracing::info!(
         chars = table.len(),
         files = options.filter.len(),
@@ -293,7 +294,31 @@ fn read_stroke_counts(
 
 /// 读字表白名单：一行一个字（第一列），别的列忽略；表序即输出序。给多张表就按下标顺序拼接，
 /// 同一个字只留先出现的那次。
-fn read_filter(paths: &[PathBuf]) -> Result<Vec<char>, ConvertError> {
+fn read_fanjian(path: &Path) -> Result<HashMap<char, char>, ConvertError> {
+    let mut map = HashMap::new();
+    for line in lines_of(path)? {
+        let line = line?;
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+        let mut fields = line.split('\t');
+        let (Some(from), Some(to)) = (
+            fields.next().and_then(single_char),
+            fields.next().and_then(single_char),
+        ) else {
+            continue;
+        };
+        if from != to {
+            map.insert(from, to);
+        }
+    }
+    Ok(map)
+}
+
+fn read_filter(
+    paths: &[PathBuf],
+    simplified: &HashMap<char, char>,
+) -> Result<Vec<char>, ConvertError> {
     let mut chars = Vec::new();
     let mut seen = HashSet::new();
     for path in paths {
@@ -305,6 +330,8 @@ fn read_filter(paths: &[PathBuf]) -> Result<Vec<char>, ConvertError> {
             let Some(ch) = single_char(line.split('\t').next().unwrap_or_default()) else {
                 continue;
             };
+            // 繁体字形并到简体主键：內 落到 内，円 落到 圆
+            let ch = simplified.get(&ch).copied().unwrap_or(ch);
             if seen.insert(ch) {
                 chars.push(ch);
             }

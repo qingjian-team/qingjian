@@ -29,11 +29,11 @@ fn split_keeps_parts_and_their_readings_apart() {
         ),
         ("口", &[("kou", 80)]),
     ]);
-    let one = split_of("木 行", &table).unwrap();
+    let one = split_of("木 行", &table, false).unwrap();
     assert_eq!(one.parts_text(), "木行");
     // 一个部件最多留三个读音，按词频
     assert_eq!(one.readings_text(), "mu'xing,hang,heng");
-    let two = split_of("木 口", &table).unwrap();
+    let two = split_of("木 口", &table, false).unwrap();
     assert_eq!(two.readings_text(), "mu'kou");
 }
 
@@ -41,7 +41,7 @@ fn split_keeps_parts_and_their_readings_apart() {
 #[test]
 fn unreadable_part_keeps_an_empty_slot() {
     let table = readings(&[("囗", &[]), ("木", &[("mu", 100)])]);
-    let one = split_of("囗 木", &table).unwrap();
+    let one = split_of("囗 木", &table, false).unwrap();
     assert_eq!(one.parts_text(), "囗木");
     assert_eq!(one.readings_text(), "'mu");
     // 空间量对齐：有几个部件就有几段
@@ -52,11 +52,11 @@ fn unreadable_part_keeps_an_empty_slot() {
 #[test]
 fn rejects_splits_without_known_parts() {
     let table = readings(&[("木", &[("mu", 100)])]);
-    assert_eq!(split_of("木", &table).unwrap().parts_text(), "木");
-    let bare = split_of("㇆", &table).unwrap();
+    assert_eq!(split_of("木", &table, false).unwrap().parts_text(), "木");
+    let bare = split_of("㇆", &table, false).unwrap();
     assert_eq!(bare.parts_text(), "㇆");
     assert_eq!(bare.readings_text(), "");
-    assert!(split_of("", &table).is_none());
+    assert!(split_of("", &table, false).is_none());
 }
 
 /// 繁简索引只收两列不同的行，其余字原样返回。

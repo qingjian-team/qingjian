@@ -42,6 +42,9 @@ pub struct Hit {
 
     /// 来自整字笔顺表（而不是部件拆法）：整字笔顺对上的最像用户要的字，倒着打也一样。
     pub whole: bool,
+
+    /// 这条拆法来自繁体字典（瞭 的 目尞 落到了 了 上）：按设置的简繁排在简体拆法之后。
+    pub traditional: bool,
 }
 
 /// 一种拆法：部件连写（`木木`）与每个部件的读音（`mu'mu`，部件内多读音用 `,`）。
@@ -49,6 +52,9 @@ pub(super) struct Split {
     pub entry: u32,
     pub parts: &'static str,
     pub readings: &'static str,
+
+    /// 来自繁体字典：简体设置下这些拆法出的字排在后面。
+    pub traditional: bool,
 }
 
 /// 部件别名：额外的读音（囗 认 kou）与笔顺（CNS 里没有的笔画符号）。
@@ -105,7 +111,9 @@ impl ChaiziTable {
                     entries.len() as u32 - 1
                 }
             };
-            for (one, list) in parts.split(' ').zip(readings.split(' ')) {
+            // 第五列是每条拆法的来源（jt / t）：老表没有这一列，按简体算
+            let origin = fields.next().unwrap_or_default();
+            for (at, (one, list)) in parts.split(' ').zip(readings.split(' ')).enumerate() {
                 if one.is_empty() || one.chars().count() != list.split('\'').count() {
                     continue;
                 }
@@ -113,6 +121,7 @@ impl ChaiziTable {
                     entry,
                     parts: one,
                     readings: list,
+                    traditional: origin.split(' ').nth(at) == Some("ft"),
                 });
                 joined.entry(joined_key(list)).or_default().push(entry);
             }
@@ -254,7 +263,14 @@ impl ChaiziTable {
             // 只吃掉小半段的匹配是「另一条路的巧合」：`usangemu`（三个木是什么字）不该被
             // 「桑」的读音 `sang` 拆出一个候选来，那是要问云端的整句问题。
             // 四分之三以上（`umum` 要吃 `mumu` 的 4/5）仍算「敲到一半」，照常出。
-            if hit.consumed < body.len() && hit.consumed * 4 < body.len() * 3 {
+            // 吃得太少的丢掉，免得 `uface`、`usangemu` 这类输入冒出几个不相干的字。
+            // 读数打一半、笔画打一半（``ushangxia`` 的 卡 是 上卜，只吃了 5/8）都是常用姿势，
+            // 门槛给得松；带笔画的匹配容易凑（一个 `s` 就能对上很多字），门槛按 3/4 卡。
+            let (needed, total) = match hit.tier {
+                Tier::Reading => (3, 5),
+                Tier::Mixed | Tier::Stroke | Tier::Reversed => (3, 4),
+            };
+            if hit.consumed < body.len() && hit.consumed * total <= body.len() * needed {
                 continue;
             }
             seen.push(entry);
@@ -279,6 +295,7 @@ impl ChaiziTable {
                         remaining: sequence.chars().count() - body.chars().count(),
                         complete: sequence.len() == body.len(),
                         whole: true,
+                        traditional: false,
                     },
                     *rank,
                 ));
@@ -331,13 +348,21 @@ impl ChaiziTable {
 ///
 /// 档位（全读音 > 混合 > 全笔画 > 倒序）排在「还差几笔」之前：打 uhsp 三笔时，木（正序、差一笔）
 /// 与 片（倒序、也差一笔）不该让倒着的那个插到正序前面。
-fn sort_key(scored: &(Hit, u32)) -> (std::cmp::Reverse<usize>, bool, bool, Tier, usize, u32) {
+fn sort_key(scored: &(Hit, u32)) -> (std::cmp::Reverse<usize>, bool, usize, Tier, bool, bool, u32) {
     (
         std::cmp::Reverse(scored.0.consumed),
         !scored.0.whole,
-        !scored.0.complete,
-        scored.0.tier,
+        // 还差几笔在档位之前：uhzs 倒着打的 口 是三笔全对（remaining 0），
+        // 屯 是正序吃了三笔还差一笔——不能让正序把倒着打完整对上的挤出 50 条。
         scored.0.remaining,
+        // 档位在「走完没走完」之前：ushui 想找三点水的字，炭（s 当一笔竖 + hui 当灰）
+        // 虽然把两个部件都走完了，也不该压过按读音出的 没——整段读得通时读音优先。
+        scored.0.tier,
+        !scored.0.complete,
+        // 繁体字典来的、又没走完的拆法往后挪一位：umu 的 了（繁体 瞭 的 目尞，只走到 目）
+        // 不该压过 本。走完的不分（uzouyan 用 辶言 找到 这/這，两个部件都走到，按字频排）。
+        // 方向固定，不看简繁设置——设置只管出口换不换字形，问字怎么排序是另一件事。
+        scored.0.traditional && !scored.0.complete,
         scored.1,
     )
 }
