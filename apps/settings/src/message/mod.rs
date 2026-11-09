@@ -11,6 +11,7 @@ pub use size_kind::SizeKind;
 use bamboo_slip::{Edit, KeyPress};
 use qingjian_core::Language;
 
+use crate::jobs::download::Item;
 use crate::library::Kind;
 use crate::page_id::PageId;
 use crate::shortcut::Shortcut;
@@ -89,7 +90,7 @@ pub enum Message {
     /// 点了作者名：交给系统打开这个主页（打开前再核一次地址）。
     OpenLink(String),
     /// 取消正在下的模型或词库。
-    CancelDownload,
+    CancelDownload(Item),
     /// 删掉下好的模型（第一下只是确认）。
     RemoveModel(qingjian_platform::LocalModel),
     /// 实验功能里开一个模型（`None` 是关掉，不用模型）。

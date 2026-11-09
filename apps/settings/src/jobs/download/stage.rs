@@ -2,6 +2,9 @@
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Stage {
+    /// 排着队，前面的下完才轮到。
+    Queued,
+
     Downloading {
         done: u64,
         total: u64,

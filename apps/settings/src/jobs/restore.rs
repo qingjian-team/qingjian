@@ -1,5 +1,5 @@
 //! 升级后补下词库：老版本随包带着全部领域词库、通用扩展词库和德、西、日、越释义表，新版只随包基础几本，其余改从词库仓库下载。
-//! 老用户开着的那几本在设置程序打开时依次下回来，升级前后候选不变。要下哪些记在 `downloads/restore.txt`
+//! 老用户开着的那几本在设置程序打开时排进下载队列依次下回来，升级前后候选不变。要下哪些记在 `downloads/restore.txt`
 //! （见 `UserDirs::restore_list`）：文件不在时按配置算一次写进去，下好一本划掉一本。
 
 use std::path::PathBuf;
@@ -18,21 +18,22 @@ pub struct Restore {
 }
 
 impl Restore {
-    /// 下一本该下的：清单里第一本还没装、词库清单里也有的。第一次调用时读（或算出并写下）要补下的清单。
-    pub fn next(
+    /// 还要下的：清单里还没装、词库清单里也有的，按清单顺序。第一次调用时读（或算出并写下）要补下的清单。
+    pub fn pending(
         &mut self,
         config: &Config,
         library: &Library,
         index: &[DictEntry],
-    ) -> Option<DictEntry> {
+    ) -> Vec<DictEntry> {
         if index.is_empty() {
-            return None;
+            return Vec::new();
         }
         let pending = self.pending.get_or_insert_with(|| load(config, library));
         pending.retain(|id| !installed(library, id));
         pending
             .iter()
-            .find_map(|id| index.iter().find(|entry| entry.id == *id).cloned())
+            .filter_map(|id| index.iter().find(|entry| entry.id == *id).cloned())
+            .collect()
     }
 
     /// 下好了一本：从清单里划掉。不在清单里的（用户自己点的下载）不管。

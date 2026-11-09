@@ -243,7 +243,6 @@ fn card(ui: &mut Ui<Message>, page: &Page, pack: Pack) -> Result<Vec<NodeId>, Re
                 &[(tr("dictionaries.size"), FieldValue::Text(pack.size))],
             )
         })
-        .busy(status.busy)
         .armed(settings.remove_armed == Some(pack.model))
         .extra(switch)
         .build(
@@ -252,7 +251,7 @@ fn card(ui: &mut Ui<Message>, page: &Page, pack: Pack) -> Result<Vec<NodeId>, Re
             pack.tag,
             (
                 Message::DownloadModel(pack.model),
-                Message::CancelDownload,
+                Message::CancelDownload(Item::Model(pack.model)),
                 Message::RemoveModel(pack.model),
             ),
         )?;

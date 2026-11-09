@@ -219,7 +219,6 @@ fn dict_row(ui: &mut Ui<Message>, page: &Page, entry: &DictEntry) -> Result<Node
         .detail(entry.description.trim_end_matches(['。', '.']))
         .badge((!entry.official).then(|| tr("dictionaries.third_party")))
         .caption(|ui| caption(ui, page, entry))
-        .busy(status.busy)
         .blocked(entry.needs_newer_app())
         .armed(settings.dict_remove_armed.as_deref() == Some(id))
         .build(
@@ -228,7 +227,7 @@ fn dict_row(ui: &mut Ui<Message>, page: &Page, entry: &DictEntry) -> Result<Node
             ("dict", id),
             (
                 Message::DownloadDict(entry.id.clone()),
-                Message::CancelDownload,
+                Message::CancelDownload(Item::Dict(entry.id.clone())),
                 Message::RemoveDownload(entry.id.clone()),
             ),
         )

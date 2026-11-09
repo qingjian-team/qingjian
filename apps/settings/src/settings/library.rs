@@ -4,6 +4,7 @@ use super::Settings;
 use qingjian_platform::code_schemes::WUBI86;
 
 use crate::i18n::{tr, tr_args};
+use crate::jobs::download::Item;
 use crate::jobs::import::{CodeTarget, Report};
 use crate::library::{self, Kind, Library};
 
@@ -68,19 +69,22 @@ impl Settings {
         ));
     }
 
-    /// 升级后要补下的词库下一本：词库清单到手、没有别的在下时起。下载失败的不在这里重试，
-    /// 等下次有一本下完、清单再取到或下次打开设置时再试。
+    /// 升级后要补下的词库全部排进下载队列（已经在下、在排的不重复加）。词库清单到手时调；
+    /// 失败的这次不重试，下次打开设置再排。
     pub(super) fn restore_next(&mut self) {
-        if self.download.busy() {
-            return;
-        }
         let index = self.dict_index.state().dicts;
-        let Some(entry) = self.restore.next(&self.config, &self.library, &index) else {
-            return;
-        };
-        tracing::info!(id = entry.id, "restoring dictionary after upgrade");
-        if let Err(error) = self.download.start(entry.target(), self.waker.clone()) {
-            tracing::warn!(id = entry.id, error, "restore download not started");
+        for entry in self.restore.pending(&self.config, &self.library, &index) {
+            if self
+                .download
+                .stage_of(&Item::Dict(entry.id.clone()))
+                .is_some()
+            {
+                continue;
+            }
+            tracing::info!(id = entry.id, "restoring dictionary after upgrade");
+            if let Err(error) = self.download.start(entry.target(), self.waker.clone()) {
+                tracing::warn!(id = entry.id, error, "restore download not started");
+            }
         }
     }
 }

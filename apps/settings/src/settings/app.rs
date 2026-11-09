@@ -222,7 +222,7 @@ impl App for Settings {
                     self.notice = Some(("dicts_download", error));
                 }
             }
-            Message::CancelDownload => self.download.cancel(),
+            Message::CancelDownload(item) => self.download.cancel(&item),
             Message::UseModel(model) => self.use_model(model),
             Message::RemoveModel(model) => {
                 if remove_armed != Some(model) {
