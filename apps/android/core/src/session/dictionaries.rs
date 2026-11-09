@@ -51,6 +51,7 @@ impl Session {
             .collect();
         tracing::info!(count = loaded.len(), "附加词库已挂上");
         self.engine.set_extra_dictionaries(loaded);
+        self.engine.set_blocked_words(options.blocked.clone());
         self.dictionaries = wanted;
     }
 }

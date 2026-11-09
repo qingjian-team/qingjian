@@ -119,6 +119,7 @@ impl Host {
         );
         tracing::info!(count = loaded.len(), "附加词库已装配");
         self.engine.set_extra_dictionaries(loaded);
+        self.engine.set_blocked_words(config.blocked.clone());
         self.applied_dictionaries = config;
         self.dictionary_files = dictionary_files();
     }

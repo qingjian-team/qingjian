@@ -50,3 +50,18 @@ Each line of a Wubi dictionary is "word, code, frequency", separated by tabs; th
 - The dictionary belongs to the scheme selected under 设置 → 输入 → 形码 (Settings → Input → Shape-based) when you import it (Wubi, if shape-based input is off). It's inactive under other shape-based schemes and works again when you switch back.
 - The list shows the scheme name after the dictionary name, for example 我的五笔词（五笔（86））, and it can be turned on, off and removed like a pinyin dictionary.
 - Supported on macOS and Windows; Linux and Android can't import Wubi dictionaries yet.
+
+## Blocked words
+
+Imported dictionaries sometimes drag in words you never want to see — some third-party packs fill brand words like "搜狗" with a very high frequency, so even a typo like `sougo` puts them on the first page. One line in the config file drops them:
+
+```toml
+[dictionaries]
+blocked = ["搜狗"]
+```
+
+Matching is by **substring**: blocking "搜狗" also removes "搜狗拼音", "搜狗输入法" and the rest.
+Custom phrases are left alone — those are your own text.
+
+Save the file and the input method reloads it within about a second; no restart needed. There is no
+setting page for this yet, so edit the config file for now.
