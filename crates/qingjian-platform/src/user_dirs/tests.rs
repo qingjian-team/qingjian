@@ -108,3 +108,22 @@ fn downloads_and_cache_go_to_local() {
     let _ = std::fs::remove_dir_all(&root);
     let _ = std::fs::remove_dir_all(&local);
 }
+
+/// 新装的（根目录不在或是空的）记下没有要补下的词库；从老版本升上来的不写，留给设置程序去算。
+#[test]
+fn only_fresh_installs_get_an_empty_restore_list() {
+    let fresh = temp("fresh");
+    let dirs = UserDirs::at(fresh.clone());
+    dirs.prepare();
+    assert_eq!(std::fs::read_to_string(dirs.restore_list()).unwrap(), "");
+
+    let upgraded = temp("upgraded");
+    write(&upgraded.join("learning/user.tsv"), "words");
+    let dirs = UserDirs::at(upgraded.clone());
+    dirs.prepare();
+    assert!(!dirs.restore_list().exists());
+    dirs.prepare();
+    assert!(!dirs.restore_list().exists());
+    let _ = std::fs::remove_dir_all(&fresh);
+    let _ = std::fs::remove_dir_all(&upgraded);
+}

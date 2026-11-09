@@ -98,6 +98,13 @@ impl UserDirs {
         self.custom().join("themes")
     }
 
+    /// 升级后要补下的词库（词库仓库的 id，一行一个）：老版本随包的领域词库、通用扩展词库和几张释义表新版改成下载，
+    /// 老用户开着的由设置程序依次下回来、下好一个划掉一个。新装的在 [`Self::prepare`] 里写成空文件；
+    /// 文件不在说明是从老版本升上来、还没算过要下哪些。
+    pub fn restore_list(&self) -> PathBuf {
+        self.downloads().join("restore.txt")
+    }
+
     /// 删了会自己重建的文件。
     pub fn cache(&self) -> PathBuf {
         self.local.join("cache")
@@ -111,6 +118,8 @@ impl UserDirs {
     /// 建好各分类目录，把旧版本平铺在根目录的文件搬进来。输入法与设置程序启动时各调一次；
     /// 两边同时跑也没事，搬过的不会再搬，出错只记日志。
     pub fn prepare(&self) {
+        let fresh =
+            std::fs::read_dir(&self.root).map_or(true, |mut entries| entries.next().is_none());
         for dir in [
             self.learning(),
             self.records(),
@@ -123,6 +132,9 @@ impl UserDirs {
             }
         }
         migrate::run(self);
+        if fresh && let Err(error) = std::fs::write(self.restore_list(), "") {
+            tracing::warn!(%error, "restore list not written");
+        }
     }
 }
 

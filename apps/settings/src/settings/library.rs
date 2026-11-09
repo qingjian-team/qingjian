@@ -1,4 +1,4 @@
-//! 词库导入完成后的收尾。
+//! 词库导入完成后的收尾，升级后补下词库。
 
 use super::Settings;
 use qingjian_platform::code_schemes::WUBI86;
@@ -43,5 +43,21 @@ impl Settings {
         }
         self.library = Library::scan();
         self.notice = Some((kind.slot(), report.lines.join("\n")));
+    }
+
+    /// 升级后要补下的词库下一本：词库清单到手、没有别的在下时起。下载失败的不在这里重试，
+    /// 等下次有一本下完、清单再取到或下次打开设置时再试。
+    pub(super) fn restore_next(&mut self) {
+        if self.download.busy() {
+            return;
+        }
+        let index = self.dict_index.state().dicts;
+        let Some(entry) = self.restore.next(&self.config, &self.library, &index) else {
+            return;
+        };
+        tracing::info!(id = entry.id, "restoring dictionary after upgrade");
+        if let Err(error) = self.download.start(entry.target(), self.waker.clone()) {
+            tracing::warn!(id = entry.id, error, "restore download not started");
+        }
     }
 }

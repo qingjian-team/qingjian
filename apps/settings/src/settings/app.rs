@@ -340,9 +340,11 @@ impl App for Settings {
     }
 
     /// 窗口起来、拿到叫醒的句柄时取一次词库清单：进「词库」页时多半已经取好了。
+    /// 有上次缓存的清单就先按它补下升级前开着的词库。
     fn set_waker(&mut self, waker: Waker) {
         self.dict_index.start(Some(waker.clone()));
         self.waker = Some(waker);
+        self.restore_next();
     }
 
     fn wake(&mut self) -> bool {
@@ -359,12 +361,22 @@ impl App for Settings {
         changed |= self.download.stage().is_some();
         match self.download.finished() {
             // 下好了直接用上它：用户点下载就是想用
-            Some(Item::Model(model)) => self.use_model(Some(model)),
+            Some(Item::Model(model)) => {
+                self.use_model(Some(model));
+                self.restore_next();
+            }
             // 下好的词库和导入的一样缺省开着，重扫清单显示出来
-            Some(Item::Dict(_)) => self.library = Library::scan(),
+            Some(Item::Dict(id)) => {
+                self.library = Library::scan();
+                self.restore.done(&id);
+                self.restore_next();
+            }
             None => {}
         }
-        changed |= self.dict_index.take_finished();
+        if self.dict_index.take_finished() {
+            changed = true;
+            self.restore_next();
+        }
         if let Some(text) = self.update.finish(&self.config.update) {
             self.notice = Some(("update", text));
             changed = true;

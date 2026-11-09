@@ -28,6 +28,7 @@ use crate::jobs::cloud_test::CloudTest;
 use crate::jobs::dict_index::{DictIndex, Shelf};
 use crate::jobs::download::Downloads;
 use crate::jobs::import::ImportJob;
+use crate::jobs::restore::Restore;
 use crate::jobs::update_check::UpdateCheck;
 use crate::library::Library;
 use crate::message::{FieldId, Popup, SizeKind};
@@ -98,6 +99,9 @@ pub struct Settings {
 
     /// 「词库」页从词库仓库取的可下载清单。
     pub dict_index: DictIndex,
+
+    /// 从老版本升上来时要补下的词库，依次下。
+    pub restore: Restore,
 
     /// 「可下载的」那一节选着的标签。
     pub dict_shelf: Shelf,
@@ -198,6 +202,7 @@ impl Settings {
             import: ImportJob::default(),
             download: Downloads::default(),
             dict_index: DictIndex::default(),
+            restore: Restore::default(),
             dict_shelf: Shelf::default(),
             dict_remove_armed: None,
             remove_armed: None,
