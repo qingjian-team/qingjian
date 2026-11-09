@@ -133,6 +133,7 @@ mod tests {
                     part_of_speech: Some(PartOfSpeech::Verb),
                     text: "develop".to_owned(),
                     reading: None,
+                    pronunciation: None,
                     fresh: false,
                 }],
             )),
@@ -154,6 +155,7 @@ mod tests {
                 0,
                 &candidate_with_gloss(),
                 true,
+                false,
                 false
             )),
             "v. develop"
@@ -162,6 +164,7 @@ mod tests {
             joined(&Row::from_candidate(
                 0,
                 &candidate_with_gloss(),
+                false,
                 false,
                 false
             )),
