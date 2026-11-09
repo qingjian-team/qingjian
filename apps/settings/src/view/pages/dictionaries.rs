@@ -1,5 +1,5 @@
-//! 「词库」页：随包领域词库（两列勾选），导入的拼音与五笔词库（开关、移除、导入），从词库仓库下载的词库。基础词库一直启用，不列。
-//! 下载的词库装进用户词库目录，和导入的一样列在「导入的词库」里开关、移除；下载的释义表装进用户目录 `glossaries/`，输入法换上就用。
+//! 「词库」页：随包领域词库（两列勾选），我的词库（导入的拼音与五笔词库、下载的词库：开关、移除、导入），从词库仓库下载的词库。基础词库一直启用，不列。
+//! 下载的词库装进用户词库目录，和导入的一样列在「我的词库」里开关、移除；下载的释义表装进用户目录 `glossaries/`，输入法换上就用。
 //! 可下载的清单在设置窗口打开时取（见 `jobs::dict_index`）。
 
 use std::time::SystemTime;
@@ -17,7 +17,9 @@ use crate::library::Kind;
 use crate::message::Message;
 use crate::view::Page;
 use crate::view::parts::download::{DownloadStatus, labels, megabytes};
-use crate::view::parts::lists::{domain_grid, entry_row, import_row, toggle_disabled};
+use crate::view::parts::lists::{
+    domain_grid, entry_row, import_row, license_label, toggle_disabled,
+};
 
 pub fn dictionaries(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderError> {
     let theme = &page.theme;
@@ -136,6 +138,10 @@ fn downloads(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderErr
     out.push(toolbar(ui, theme, &[tabs, refresh])?);
     let note = paragraph(ui, theme, &text, None)?;
     out.push(toolbar(ui, theme, &[note])?);
+    if shelf == Shelf::Dictionaries {
+        let hint = paragraph(ui, theme, tr("dictionaries.downloaded_hint"), None)?;
+        out.push(toolbar(ui, theme, &[hint])?);
+    }
     if !shown.is_empty() {
         let mut rows = Vec::new();
         for entry in shown {
@@ -218,18 +224,4 @@ fn caption(ui: &mut Ui<Message>, page: &Page, entry: &DictEntry) -> Result<NodeI
     items.push((tr("dictionaries.size"), FieldValue::Text(&size)));
     items.push((tr("dictionaries.license"), FieldValue::Text(&license)));
     fields(ui, theme, &items)
-}
-
-/// SPDX 许可表达式写成好读的：`MIT AND CC-BY-SA-4.0` → `MIT / CC BY-SA 4.0`。
-fn license_label(spdx: &str) -> String {
-    spdx.split(" AND ")
-        .map(|id| match id.strip_prefix("CC-") {
-            Some(rest) => match rest.rsplit_once('-') {
-                Some((terms, version)) => format!("CC {terms} {version}"),
-                None => format!("CC {rest}"),
-            },
-            None => id.to_owned(),
-        })
-        .collect::<Vec<_>>()
-        .join(" / ")
 }

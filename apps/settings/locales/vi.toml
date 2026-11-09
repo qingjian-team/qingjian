@@ -164,7 +164,8 @@ section_bundled = "Từ điển đi kèm"
 no_bundled = "Không tìm thấy từ điển chuyên ngành đi kèm"
 import = "Nhập từ điển"
 import_info = "Hỗ trợ TSV, .dict.yaml của Rime, danh sách chỉ có từ, .qj và .qjz, chọn được nhiều tệp; cách đọc của danh sách chỉ có từ lấy từ từ điển đi kèm"
-section_imported = "Từ điển đã nhập"
+section_imported = "Từ điển của tôi"
+downloaded_hint = "Từ điển đã tải xuống nằm ở mục Từ điển của tôi phía trên, có thể bật, tắt hoặc gỡ bỏ"
 
 [input]
 missing = "{id} (không tìm thấy)"

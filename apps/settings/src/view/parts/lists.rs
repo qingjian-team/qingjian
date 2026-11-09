@@ -66,7 +66,11 @@ pub fn entry_row(
     } else if entry.license.is_empty() {
         count(entry.entries)
     } else {
-        format!("{} · {}", count(entry.entries), entry.license)
+        format!(
+            "{} · {}",
+            count(entry.entries),
+            license_label(&entry.license)
+        )
     };
     let detail = text(ui, page, &detail)?;
     let mut trailing = vec![detail];
@@ -249,6 +253,20 @@ fn count(entries: usize) -> String {
         Some((number, unit)) => tr_args("lists.entries_large", &[("n", &number), ("unit", &unit)]),
         None => tr_args("lists.entries", &[("n", &entries)]),
     }
+}
+
+/// SPDX 许可表达式写成好读的：`MIT AND CC-BY-SA-4.0` → `MIT / CC BY-SA 4.0`。
+pub fn license_label(spdx: &str) -> String {
+    spdx.split(" AND ")
+        .map(|id| match id.strip_prefix("CC-") {
+            Some(rest) => match rest.rsplit_once('-') {
+                Some((terms, version)) => format!("CC {terms} {version}"),
+                None => format!("CC {rest}"),
+            },
+            None => id.to_owned(),
+        })
+        .collect::<Vec<_>>()
+        .join(" / ")
 }
 
 #[cfg(test)]

@@ -44,7 +44,7 @@ impl Kind {
         })
     }
 
-    /// 列「导入的词库」时看哪些目录：拼音词库还有设置里下载的那些，同一组开关、同样能移除。
+    /// 列「我的词库」时看哪些目录：拼音词库还有设置里下载的那些，同一组开关、同样能移除。
     pub fn user_dirs(self) -> Vec<PathBuf> {
         let downloaded = match self {
             Self::Dictionary => paths::user_dirs().map(|dirs| dirs.downloaded_dicts()),

@@ -164,7 +164,8 @@ section_bundled = "同梱の辞書"
 no_bundled = "同梱の分野別辞書が見つかりません"
 import = "辞書を読み込む"
 import_info = "TSV、Rime の .dict.yaml、単語だけのリスト、.qj、.qjz に対応し、複数選択できます。単語だけのリストの読みは同梱の辞書から補います"
-section_imported = "読み込んだ辞書"
+section_imported = "マイ辞書"
+downloaded_hint = "ダウンロードした辞書は上の「マイ辞書」に並び、オン・オフや削除ができます"
 
 [input]
 missing = "{id}（見つかりません）"

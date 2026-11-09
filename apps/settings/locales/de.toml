@@ -164,7 +164,8 @@ section_bundled = "Mitgelieferte Wörterbücher"
 no_bundled = "Keine mitgelieferten Fachwörterbücher gefunden"
 import = "Wörterbuch importieren"
 import_info = "Unterstützt TSV, Rime-.dict.yaml, reine Wortlisten, .qj und .qjz, auch mehrere zugleich; Lesungen für reine Wortlisten kommen aus dem mitgelieferten Wörterbuch"
-section_imported = "Importierte Wörterbücher"
+section_imported = "Meine Wörterbücher"
+downloaded_hint = "Heruntergeladene Wörterbücher stehen oben unter „Meine Wörterbücher“ und lassen sich dort ein- und ausschalten oder entfernen"
 
 [input]
 missing = "{id} (nicht gefunden)"
