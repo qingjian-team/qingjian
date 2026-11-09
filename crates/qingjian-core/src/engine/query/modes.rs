@@ -181,10 +181,11 @@ impl Engine {
                     format!("{prefix}{}", self.marked_rest(body))
                 };
                 let mut items: Vec<Candidate> = english.into_iter().collect();
-                if items.is_empty() {
-                    items.extend(chaizi_candidates(body));
-                } else if scope == shortcut::UUID_KEYWORD {
-                    // 整段是英文词时不出拆字候选：`unchanged` 是词，不该跟着一串按部件凑出来的字
+                // 英文词归英文词，字照旧跟在后面：`uh` 既是英文的 uh，也是「一」——
+                // 那是笔画输入最基础的入口，不能因为撞上一个英文词就一条字都不给。
+                // `unchanged` 这类长词前面不相干，弱匹配由 `lookup` 的门槛挡着。
+                items.extend(chaizi_candidates(body));
+                if scope == shortcut::UUID_KEYWORD {
                     items.extend(self.generated_candidates(shortcut::UUID_KEYWORD));
                 }
                 (CandidateList { items }, tail)

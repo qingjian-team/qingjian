@@ -220,3 +220,32 @@ fn weak_matches_produce_no_candidates() {
         );
     }
 }
+
+/// 最基础的一笔：`uh`/`us`/`up`/`un` 正好也是英文词（uh/us/up/UN），
+/// 但它们是笔画输入最常用的入口，不能因为撞上英文词就一条字都不给。
+#[test]
+fn a_single_stroke_still_gives_the_character() {
+    let mut engine = engine();
+    for (input, expected) in [("uh", "一"), ("us", "丨"), ("up", "丿"), ("un", "丶")] {
+        engine.set_input(input);
+        let all = texts_of(&engine);
+        assert!(
+            all.contains(&expected.to_owned()),
+            "{input} 该出 {expected}：{all:?}"
+        );
+    }
+    // 英文词排在前面这一条由 english_words_stay_first 管（这里没有英文词表）
+}
+/// 长英文串不该带出一串按部件凑出来的字：弱匹配由 `lookup` 的门槛挡着。
+#[test]
+fn a_long_english_string_stays_clean() {
+    let mut engine = engine();
+    for input in ["unchanged", "uabcd", "udeadbeef"] {
+        engine.set_input(input);
+        assert!(
+            texts_of(&engine).is_empty(),
+            "{input} 不该有拆字候选：{:?}",
+            texts_of(&engine)
+        );
+    }
+}
