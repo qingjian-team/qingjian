@@ -89,8 +89,8 @@ int main(int argc, char **argv) {
         std::ifstream input(path);
         return std::string(std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>());
     };
-    const auto learning = read(userDirectory / "user.tsv");
-    const auto log = read(userDirectory / "logs/input-log.jsonl");
+    const auto learning = read(userDirectory / "learning/user.tsv");
+    const auto log = read(userDirectory / "records/input-log.jsonl");
     assert(learning.find("开发") != std::string::npos && learning.find("中国") != std::string::npos);
     assert(log.find("开发") != std::string::npos && log.find("中国") != std::string::npos);
     assert(learning.find("你好") == std::string::npos);
