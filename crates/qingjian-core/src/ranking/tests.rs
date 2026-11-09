@@ -205,7 +205,7 @@ fn a_few_words_then_single_chars_and_secondary_prefix_words_last() {
         candidate("日", 2, false),
         candidate("驲", 2, false),
     ];
-    arrange(&mut items, 5, 5, 2, true, |_| false);
+    arrange(&mut items, 5, 5, 2, true, |_| false, |_| false);
     let texts: Vec<&str> = items.iter().map(|s| s.hit.text).collect();
     assert_eq!(
         texts,
@@ -231,7 +231,7 @@ fn a_single_syllable_keeps_the_ranked_order() {
         candidate("尼", 2, true),
         candidate("妮", 2, false),
     ];
-    arrange(&mut items, 2, 2, 2, true, |_| false);
+    arrange(&mut items, 2, 2, 2, true, |_| false, |_| false);
     let texts: Vec<&str> = items.iter().map(|s| s.hit.text).collect();
     assert_eq!(texts, ["你", "尼", "妮"]);
 }
@@ -247,7 +247,15 @@ fn a_single_syllable_puts_fuzzy_chars_after_the_first_typed_chars() {
     items.extend(typed.iter().map(|text| candidate(text, 2, false)));
     items.push(candidate("孖", 2, false));
     // 这个输入串下选过的 知 不等
-    arrange(&mut items, 2, 2, 2, true, |item| item.hit.text == "知");
+    arrange(
+        &mut items,
+        2,
+        2,
+        2,
+        true,
+        |item| item.hit.text == "知",
+        |_| false,
+    );
     let texts: Vec<&str> = items.iter().map(|s| s.hit.text).collect();
     let mut expected = vec!["知"];
     expected.extend(typed);

@@ -7,6 +7,7 @@ description: 在 Linux（以及 FreeBSD）上安装青简：Fcitx5 预编译包�
 青简 Linux 版作为 Fcitx5、IBus 或 Fcitx4 的一个输入法运行，候选使用输入法框架自己的候选面板。目前需要在终端中安装；源码安装可以让青简的后台服务随登录自动启动，预编译包要每次登录后手动启动。
 
 - Debian、Ubuntu、Fedora 可以装 deb / rpm 包，随登录自动启动，见下文「deb / rpm 包」一节。
+- 较新的发行版（Debian 13、Ubuntu 25.04、Fedora 42、Arch 及以后）也可以用 AppImage：一个文件、不用管理员权限，随登录自动启动，见下文「AppImage」一节。
 - Fcitx5 提供 Ubuntu 26.04 预编译包，其他发行版用源码安装。已验证 Ubuntu 26.04 的 GNOME 桌面（Wayland）上 GTK4、Qt6 应用与 Firefox。
 - IBus（GNOME 自带的输入法框架）用源码安装，不用换框架。已验证按键、候选与上屏，各类应用里的表现尚未逐个验证。
 - Fcitx4 提供 Ubuntu 22.04 源码安装，已验证 GTK3 文本框输入。
@@ -48,6 +49,32 @@ sudo dnf install ./qingjian-<版本>-1.fc42.x86_64.rpm ./qingjian-fcitx5-<版本
 - `qingjian` 在 Debian 12、Ubuntu 22.04 及以后都能装；`qingjian-fcitx5` 要较新的 Fcitx5，只有 Debian 13、Ubuntu 25.04、Fedora 42 及以后装得上，更早的系统请用 IBus 或源码安装。
 - IBus 装完要重新登录一次才看得到青简。
 - 卸载：`sudo apt remove qingjian qingjian-fcitx5` 或 `sudo dnf remove qingjian qingjian-fcitx5`，设置与学习数据保留。
+
+## AppImage
+
+一个文件就是整个青简，不用编译，也不用管理员权限，适合 Debian 13、Ubuntu 25.04 及以后、Fedora 42 及以后、Arch 这类较新的系统。
+要求系统的 Fcitx5 是 5.1.8 或更新（Ubuntu 24.04 自带的 5.1.7 不够，请用源码安装）。先用系统的包管理器装好 Fcitx5 与 GTK / Qt 输入支持，例如 Debian / Ubuntu：
+
+```sh
+sudo apt install fcitx5 fcitx5-frontend-gtk3 fcitx5-frontend-gtk4 fcitx5-frontend-qt6 fcitx5-config-qt
+```
+
+从[下载页](https://qingjian.app/download)下载 `Qingjian-<版本>-x86_64.AppImage`，放到一个固定的位置（比如 `~/Applications`），然后：
+
+```sh
+chmod +x ~/Applications/Qingjian-*.AppImage
+~/Applications/Qingjian-*.AppImage install
+```
+
+也可以在文件管理器里给它加上执行权限后双击，第一次会自动完成安装并打开青简设置。
+安装会把青简接进 Fcitx5、设成登录后自动启动，并在应用菜单里加上「青简设置」；青简服务当场就会启动，不用重新登录。
+之后重启 Fcitx5（`fcitx5 -r`），在 Fcitx5 配置工具里取消「仅显示当前语言」，添加「青简」。
+
+- **挪动或改名 AppImage 文件后**，再运行一次 `install`：自动启动与菜单项记的是它原来的位置。
+- **更新**：用新版本的文件替换旧文件（保持同一个路径和文件名最省事），注销重新登录或运行一次 `install`，然后重启 Fcitx5。
+- **卸载**：运行 `Qingjian-*.AppImage uninstall`，再重启 Fcitx5；之后可以删掉这个文件。配置、个人词库和学习数据会保留。
+- 已经用源码安装或预编译包装过青简的，先卸载那一份再装 AppImage；两份同时装会互相顶替，安装时会提示。
+- 系统缺少 FUSE、提示无法挂载时，先运行 `export APPIMAGE_EXTRACT_AND_RUN=1` 再执行上面的命令。
 
 ## Fcitx5 与 IBus 源码安装
 

@@ -82,6 +82,7 @@ impl StripPainter {
             mode: Mode::default(),
             columns: 0,
             column_ems: Vec::new(),
+            reversed: false,
         };
     }
 

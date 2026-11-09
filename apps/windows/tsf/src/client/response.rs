@@ -1,4 +1,4 @@
-use qingjian_platform::protocol::{Frame, IndicatorState, InputSettings, KeyOutcome};
+use qingjian_platform::protocol::{CaretEdit, Frame, IndicatorState, InputSettings, KeyOutcome};
 
 /// Server 对一次「同步中英模式」轮询的答复。
 pub struct ModeSyncReply {
@@ -26,4 +26,7 @@ pub struct KeyResponse {
 
     /// 处理后的组句状态（preedit + 候选）；空帧表示收起候选窗口。
     pub frame: Frame,
+
+    /// 成对符号要对文档做的光标编辑（#928）。
+    pub caret: Option<CaretEdit>,
 }

@@ -29,6 +29,7 @@ mod codes;
 mod emoji;
 mod english;
 mod error;
+mod ipa;
 mod lexicon;
 mod mmh;
 mod oov_filter;
@@ -164,6 +165,7 @@ fn run() -> Result<(), ConvertError> {
             frequency.as_deref(),
             &args.out_dir.join("english.tsv"),
         ),
+        Command::Ipa { input, name } => ipa::convert(&input, &args.out_dir.join(name)),
         Command::Emoji { inputs, language } => emoji::convert(
             &inputs,
             &args.out_dir.join(format!("emoji-{language}.tsv")),

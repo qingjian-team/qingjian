@@ -31,6 +31,7 @@ README.md 只介绍项目（各语言译本在 [i18n/](i18n/)），所有技术�
 | [notes/linux-dual-frontend.md](notes/linux-dual-frontend.md) | Linux 双前端（Fcitx5 / IBus）怎么验（2026-09-21）：能自动跑的三套、只能真会话手测的六条及其判据、现在验不了的两件事、踩过的四个坑 |
 | [notes/linux-bringup.md](notes/linux-bringup.md) | Linux 走 IBus 那次的工程记录（2026-09-14，路线已改走 Fcitx5，留作双框架支持的参考）：分层怎么切、五个只有真机才暴露的坑（总线地址 / Shift+数字 / GVariant 嵌套 / 把 `/` 当仓库根 / 锁毒化）、合成客户端验不了什么、装机验收数字 |
 | [notes/linux-fcitx4.md](notes/linux-fcitx4.md) | Ubuntu 22.04 的 Fcitx4 源码适配、安装与验证 |
+| [notes/linux-appimage.md](notes/linux-appimage.md) | Linux AppImage：输入法为什么要 install 一步、构建环境与能跑在哪、各发行版容器里的实测 |
 | [notes/android.md](notes/android.md) | Android 输入法：键盘、候选条、面板、剪贴板、快捷翻译怎么接到 Core，取舍与踩坑 |
 | [notes/performance.md](notes/performance.md) | 历次性能优化：起因、定位方法、改法、数字前后对比与经验 |
 | [notes/release.md](notes/release.md) | 发版流程：CHANGELOG、标签触发的 CI 打包、产品数据包、签名公证的 Secrets、官网用的 `releases.json` |

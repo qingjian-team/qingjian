@@ -1,8 +1,8 @@
 //! 按键怎么作用到 Engine / 高亮上。分流规则与 macOS 壳的 `handle_text` / `handle_command` 对齐。
 
 use qingjian_core::candidate::arrows::{self, Arrow, ArrowAction, Focus};
-use qingjian_core::{CandidateKind, QUESTION_PREFIX, punctuation};
-use qingjian_platform::protocol::KeyEvent;
+use qingjian_core::{CandidateKind, PairEdit, QUESTION_PREFIX, punctuation};
+use qingjian_platform::protocol::{CaretEdit, KeyEvent};
 use qingjian_platform::{CommitRoute, HighlightKeys, NumpadDigit};
 
 use super::{Effect, codes, with_prefix};
@@ -33,6 +33,15 @@ impl Router {
         }
         if let Some(effect) = self.apply_panel_key(event) {
             return effect;
+        }
+        if self.composing()
+            && self.config.single_chars.is_some_and(|combo| {
+                event.virtual_key == combo.key.to_ascii_uppercase() as u32
+                    && event.modifiers.chord() == combo.modifiers.into()
+            })
+            && self.engine.toggle_single_chars()
+        {
+            return Effect::Changed(None);
         }
         if let Some(effect) = self.apply_commit_key(event) {
             return effect;
@@ -397,13 +406,36 @@ impl Router {
             && self.full_width_for(english)
             && let Some(text) = self.engine.punctuate(c)
         {
-            return Effect::Changed(Some(text.to_owned()));
+            let text = text.to_owned();
+            return Effect::Changed(Some(self.pair(text, english)));
+        }
+        // 没转全角的原字符（英文模式、关了全角）：半角括号与双引号也成对
+        if !codes::is_keypad(event.virtual_key) && !lead {
+            let text = self.pair(c.to_string(), english);
+            if self.pending_caret.is_some() {
+                return Effect::Changed(Some(text));
+            }
         }
         self.engine.note_passthrough(c);
         if lead {
             Effect::Changed(Some(format!(" {c}")))
         } else {
             Effect::Passthrough
+        }
+    }
+
+    /// 成对符号（#928）：符号 `text` 要补右半边或要跳过补上的那个时，记下要 DLL 做的光标编辑，返回要上屏的文本。
+    fn pair(&mut self, text: String, english: bool) -> String {
+        match self.engine.pair_punctuation(&text, english) {
+            Some(PairEdit::Insert { text, back }) => {
+                self.pending_caret = Some(CaretEdit::Back(back as u32));
+                text
+            }
+            Some(PairEdit::Skip { closer }) => {
+                self.pending_caret = Some(CaretEdit::Skip(closer));
+                text
+            }
+            None => text,
         }
     }
 

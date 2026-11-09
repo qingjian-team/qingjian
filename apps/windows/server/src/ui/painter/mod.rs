@@ -24,6 +24,9 @@ pub(super) struct Painter {
 
     /// 主题（浅色那一份，画的时候按外观取深浅）。
     theme: Theme,
+
+    /// 竖排窗口在光标上方时倒着排（`[general] vertical_reverse_above`）；只有青简渲染器画得了。
+    pub(super) reverse_above: bool,
 }
 
 impl Painter {
@@ -55,6 +58,7 @@ impl Painter {
             renderer: Renderer::new(library),
             font: font.to_owned(),
             theme: Theme::light(),
+            reverse_above: false,
         })
     }
 
@@ -77,7 +81,9 @@ impl Painter {
                             candidate: candidate.get(),
                             annotation: annotation.get(),
                         })
+                        .with_candidate_weight(settings.candidate_weight)
                         .with_animations(settings.animations);
+                    painter.reverse_above = settings.reverse_above;
                     painter
                         .renderer
                         .load_theme_fonts(&painter.theme, system_fonts::family_files);

@@ -101,6 +101,7 @@ pub fn init(mtm: MainThreadMarker, info: &BundleInfo) -> Result<(), HostError> {
         &user_dicts,
         &settings.config().dictionaries,
     ));
+    engine.set_blocked_words(settings.config().dictionaries.blocked.clone());
     // 英文候选的中文释义（英→中）可选：没有这张表英文候选右侧就留空
     if let Some(glossary) = load_english_glossary() {
         engine = engine.with_english_translator(Box::new(glossary));
@@ -201,6 +202,7 @@ pub fn init(mtm: MainThreadMarker, info: &BundleInfo) -> Result<(), HostError> {
             root_keyboard: None,
             preedit_mode: PreeditMode::default(),
             translation_pos: true,
+            show_english_pronunciation: false,
             layout: LayoutMode::default(),
             horizontal_grid: false,
             grid_page_keys: false,

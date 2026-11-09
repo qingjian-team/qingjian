@@ -105,11 +105,13 @@ pub fn import(source: &Path, dest_dir: &Path) -> Result<Imported, DictionaryErro
         }
         let text = String::from_utf8(bytes)
             .map_err(|_| DictionaryError::Corrupt("file is neither text nor .scel"))?;
-        let (tsv, name) = if rime::looks_like_rime(&text) {
-            let parsed = rime::to_tsv(&text);
+        // 带 BOM 的 Rime 词库认不出 YAML 头，整份按 TSV 读、报第 1 行缺拼音
+        let text = text.strip_prefix('\u{feff}').unwrap_or(&text);
+        let (tsv, name) = if rime::looks_like_rime(text) {
+            let parsed = rime::to_tsv(text);
             (parsed.tsv, parsed.name)
         } else {
-            (text, None)
+            (text.to_owned(), None)
         };
         if format::is_code_table(&tsv) {
             return Err(DictionaryError::CodeWords);

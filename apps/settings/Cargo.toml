@@ -1,7 +1,7 @@
 [package]
 name = "qingjian-settings"
 description = "三平台共用的设置程序：画在 bamboo-slip 上，读写输入法同一份 config.toml"
-version = "0.3.3-dev"
+version = "0.3.4-dev"
 edition.workspace = true
 license.workspace = true
 repository.workspace = true

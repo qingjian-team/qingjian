@@ -8,6 +8,7 @@ mod context;
 
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
+use std::mem::ManuallyDrop;
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::rc::Rc;
 
@@ -41,7 +42,9 @@ const MODE_SYNC_EVERY: u32 = 4;
 
 thread_local! {
     /// 本线程活着的定时器：消息窗口 → 回调上下文。查不到（已析构）就忽略这一拍。
-    static TIMERS: RefCell<HashMap<isize, Rc<PollContext>>> = RefCell::new(HashMap::new());
+    /// 上下文里有 TSF 对象，应用退出时不析构，理由同 `service` 的 `ACTIVE`。
+    static TIMERS: ManuallyDrop<RefCell<HashMap<isize, Rc<PollContext>>>> =
+        ManuallyDrop::new(RefCell::new(HashMap::new()));
 }
 
 /// 承载轮询定时器的隐藏消息窗口；`Drop` 里停表、销毁窗口、注销上下文。
@@ -188,6 +191,7 @@ fn follow_panel_preedit(context: &PollContext, frame: &Frame) {
         context.shared.clone(),
         None,
         preedit,
+        None,
     ) {
         log(&format!("panel preedit update rejected: {error}"));
     }
@@ -218,6 +222,7 @@ fn commit_clicked(context: &PollContext, frame: &Frame, commit: String) {
         context.shared.clone(),
         Some(commit),
         preedit,
+        None,
     ) {
         log(&format!("点击上屏的编辑会话没被受理: {error}"));
     }

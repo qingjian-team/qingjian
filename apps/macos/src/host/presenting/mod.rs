@@ -276,6 +276,7 @@ impl Host {
                     candidate,
                     self.translation_pos,
                     self.aux_code_show,
+                    self.show_english_pronunciation,
                 );
                 row.index = index;
                 row.cloud = candidate.kind == CandidateKind::Cloud;

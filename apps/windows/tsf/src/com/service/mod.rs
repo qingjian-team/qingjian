@@ -15,6 +15,7 @@ mod processor;
 mod punctuation;
 
 use std::cell::{Cell, RefCell};
+use std::mem::ManuallyDrop;
 use std::rc::Rc;
 use std::time::{Duration, Instant};
 
@@ -127,7 +128,10 @@ pub struct TextService {
 
 thread_local! {
     /// 本线程当前激活的文本服务，供 compartment 回调 / 轮询定时器切模式。`Activate` 设、`Deactivate` 清。
-    static ACTIVE: RefCell<Option<ComObject<TextService>>> = const { RefCell::new(None) };
+    /// 应用退出时 TSF 不调 `Deactivate`，留着的服务不能在线程局部析构里放：那时 TSF 自己正在拆，
+    /// 往它身上 `Release` 会让宿主 fail-fast（#593 的 Word 退出报错），所以 `ManuallyDrop` 不析构。
+    static ACTIVE: ManuallyDrop<RefCell<Option<ComObject<TextService>>>> =
+        const { ManuallyDrop::new(RefCell::new(None)) };
 }
 
 fn with_active(f: impl FnOnce(&TextService_Impl)) {

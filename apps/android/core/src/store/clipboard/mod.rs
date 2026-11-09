@@ -20,7 +20,17 @@ pub(crate) static LOCK: Mutex<()> = Mutex::new(());
 /// 跑一个请求，返回操作之后的整份列表（新的在前）。`limit` 是设置里的最大条数，每次都按它裁。
 pub fn clipboard(user_dir: &Path, request: ClipboardRequest, limit: usize) -> Vec<ClipboardItem> {
     let _guard = LOCK.lock().unwrap_or_else(PoisonError::into_inner);
-    if let ClipboardRequest::Remove { index } = request {
+    let request = match request {
+        ClipboardRequest::Edit { index, from, text } => match locate(user_dir, index, &from) {
+            Some(index) if text != from && !text.trim().is_empty() => {
+                ClipboardRequest::Edit { index, from, text }
+            }
+            _ => ClipboardRequest::List,
+        },
+        request => request,
+    };
+    // 改文字对别的设备是「旧的删掉、新的一条」，同桌面剪贴板
+    if let ClipboardRequest::Remove { index } | ClipboardRequest::Edit { index, .. } = request {
         replica::mark_deleted(user_dir, index);
     }
     let mut history = ClipboardHistory::open(user_dir);
@@ -28,6 +38,9 @@ pub fn clipboard(user_dir: &Path, request: ClipboardRequest, limit: usize) -> Ve
         ClipboardRequest::List => Ok(()),
         ClipboardRequest::Add { text } => history.add(&text).map(drop),
         ClipboardRequest::Remove { index } => history.remove(index),
+        ClipboardRequest::Edit { index, text, .. } => history
+            .remove(index)
+            .and_then(|()| history.add(&text).map(drop)),
         ClipboardRequest::Clear => history.clear(),
     });
     if let Err(error) = result {
@@ -52,6 +65,22 @@ pub fn clipboard_add_image(
         tracing::warn!(%error, "剪贴板图片存不进去");
     }
     items(&history)
+}
+
+/// 原文是 `from` 的文字条目现在排第几：先看 `index` 还是不是它，不是再从头找；已经没了为 `None`。
+fn locate(user_dir: &Path, index: usize, from: &str) -> Option<usize> {
+    let history = ClipboardHistory::open(user_dir);
+    let entries = history.entries();
+    let matches = |i: usize| {
+        entries
+            .get(i)
+            .is_some_and(|e| !e.is_image() && e.text == from)
+    };
+    if matches(index) {
+        Some(index)
+    } else {
+        (0..entries.len()).find(|&i| matches(i))
+    }
 }
 
 fn items(history: &ClipboardHistory) -> Vec<ClipboardItem> {
@@ -88,6 +117,31 @@ mod tests {
                 .as_deref()
                 .is_some_and(|p| p.ends_with(".png"))
         );
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn edit_replaces_the_text_and_moves_it_to_the_front() {
+        let dir = std::env::temp_dir().join(format!("qj-android-clip-edit-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        clipboard(&dir, ClipboardRequest::Add { text: "a".into() }, 1000);
+        clipboard(&dir, ClipboardRequest::Add { text: "b".into() }, 1000);
+        let edit = |index, from: &str, text: &str| ClipboardRequest::Edit {
+            index,
+            from: from.into(),
+            text: text.into(),
+        };
+        let items = clipboard(&dir, edit(1, "a", "a2"), 1000);
+        let texts: Vec<_> = items.iter().map(|item| item.text.as_str()).collect();
+        assert_eq!(texts, ["a2", "b"]);
+        // 编辑期间进来一条新的，原来那条被挤到后面：按原文找到它
+        clipboard(&dir, ClipboardRequest::Add { text: "c".into() }, 1000);
+        let items = clipboard(&dir, edit(1, "b", "b2"), 1000);
+        let texts: Vec<_> = items.iter().map(|item| item.text.as_str()).collect();
+        assert_eq!(texts, ["b2", "c", "a2"]);
+        // 空白不改
+        let items = clipboard(&dir, edit(0, "b2", "  "), 1000);
+        assert_eq!(items[0].text, "b2");
         std::fs::remove_dir_all(&dir).unwrap();
     }
 

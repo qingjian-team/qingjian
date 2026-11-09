@@ -287,12 +287,20 @@ impl Router {
         self.engine
             .set_english_in_chinese(config.general.english_in_chinese);
         self.engine
+            .set_show_english_pronunciation(config.general.show_english_pronunciation);
+        self.engine
             .set_english_max_in_chinese(config.general.english_max_in_chinese());
         self.engine
             .set_english_min_position(config.general.english_min_position());
         self.engine
             .set_shift_letter_compose(config.general.shift_letter.compose());
         self.engine.set_auto_space(config.general.auto_space);
+        self.engine
+            .set_half_width_symbols(&config.general.half_width_symbols);
+        self.engine.set_pair_punctuation(
+            config.general.pair_punctuation,
+            config.general.english_pair_punctuation,
+        );
         self.engine
             .set_shuangpin_raw_preedit(config.general.shuangpin_raw_preedit);
         self.engine
@@ -343,6 +351,8 @@ impl Router {
             reload.applied_dictionaries = config.dictionaries.clone();
             self.engine
                 .set_extra_dictionaries(reload.load_dictionaries());
+            self.engine
+                .set_blocked_words(config.dictionaries.blocked.clone());
         }
         if config.aux_code != reload.applied_aux_code {
             reload.applied_aux_code = config.aux_code.clone();

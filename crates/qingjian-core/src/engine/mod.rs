@@ -24,6 +24,7 @@ mod key_hint;
 mod learning;
 mod marked;
 mod mode_keys;
+mod pairing;
 mod panel;
 pub(crate) mod prediction;
 mod privacy;
@@ -133,8 +134,17 @@ pub struct Engine {
     /// 中文标点转换开关。
     full_width_punctuation: bool,
 
+    /// 中文标点开着也保持半角的符号（`[general] half_width_symbols`，#893）。
+    half_width_symbols: Vec<char>,
+
+    /// 成对符号开关：中文与日文模式一份、英文模式一份（见 [`Self::pair_punctuation`]）。
+    pair_punctuation: (bool, bool),
+
     /// 用户定义的短语，按输入码精确匹配、按权重排在最前。
     custom_phrases: Vec<crate::CustomPhrase>,
+
+    /// 屏蔽词：候选文本里含有其中任何一个就整条丢掉。自定义短语不过这一关。
+    blocked: Vec<String>,
 
     /// 通讯录（壳读系统通讯录交来，用户在设置里开了才有）：名字并进查词，见 [`Self::set_contacts`]。
     contacts: Option<crate::ContactBook>,
@@ -150,6 +160,13 @@ pub struct Engine {
 
     /// 中文模式下英文候选（精确词 + 补全）最多几个（配置 `[general] english_max_in_chinese`，缺省 4）。
     english_max_in_chinese: usize,
+
+    /// 英文候选旁显示音标（配置 `[general] show_english_pronunciation`，缺省关）。
+    /// 开着时把音标填进 `Candidate::reading`，平台层的 annotation 会画在候选词后面。
+    show_english_pronunciation: bool,
+
+    /// 英文音标表（`english-ipa.tsv`），键是小写词、值是 `/ˈkɑrɡoʊ/`。没有就一律不显示音标。
+    english_pronunciations: Option<WordList>,
 
     /// 有中文候选时英文最高排到第几位（配置 `[general] english_min_position`，缺省 1 即不限制）。
     english_min_position: usize,
@@ -454,9 +471,9 @@ const EMOJI_TOTAL: usize = 3;
 const KEYWORD_SCAN: usize = 5;
 
 /// 自动造词：用户连着选出的两个词，合起来不在词库里、且这条接续已记过这么多次，就记成用户词。
-/// 同一段拼音里连着选出来的（`qingjian` 选 青 再选 简）是「用户把它当一个词打」的强信号，两次就够；
-/// 第一次可能是误选或偶然。
-const AUTO_WORD_THRESHOLD_SAME_BUFFER: u32 = 2;
+/// 同一段拼音里连着选出来的（`qingjian` 选 青 再选 简）是「用户把它当一个词打」的强信号，一次就造：
+/// 下次整段与简拼都排在前面，不用逐字再选；选错造出的词只在敲同样的音时出现，可以删掉。
+const AUTO_WORD_THRESHOLD_SAME_BUFFER: u32 = 1;
 
 /// 分两段打的（`qing` 选 青、再打 `jian` 选 简）信号弱一些，要三次，免得 了我 这类虚词接续也成词。
 const AUTO_WORD_THRESHOLD: u32 = 3;
@@ -464,8 +481,20 @@ const AUTO_WORD_THRESHOLD: u32 = 3;
 /// 退格撤销最多回看几次上屏：删掉「沃德 书」两个词再重打时，要能找到两个词之前的那一次。
 const RECENT_COMMITS: usize = 4;
 
-/// 自动造出的词最多几个字：再长就不是词而是短语了。
+/// 全拼选过的词按简拼另记一份选择时键的前缀（`^ss`）：与真在那串键下的选择分开，排序时排在它们后面，
+/// 中英文谁在前也不看它。真的键只有小写字母，不会撞上。
+const ABBREVIATION_CHOICE_PREFIX: char = '^';
+
+/// 前后两个词自动合成的词最多几个字：再长就不是词而是短语了。
 const AUTO_WORD_MAX_CHARS: usize = 4;
+
+/// 一次选中的整句（几个多字词拼成，交易 + 中心）记成用户词的最多几个字：一次接受的长句多半是模型给的首选，
+/// 下次一字不差再打的机会也小（分几次选完的见 [`BUFFER_PHRASE_MAX_CHARS`]）。冻结回放里 4 字与 6 字逐条相同，取宽的。
+const SENTENCE_WORD_MAX_CHARS: usize = 6;
+
+/// 一段拼音分几次选完、合起来记成用户词的最多几个字（整句记忆）：用户逐字纠正过的整句，下次同样的全拼或简拼直接出。
+/// 再长的多半是一大段话，下次一字不差再打一遍的机会很小。
+const BUFFER_PHRASE_MAX_CHARS: usize = 20;
 
 /// 用户自己点选的词，转移记几份；整句路径里顺带的记一份。
 /// 整句是模型自己算出来的，按空格接受它会把这条路径喂回模型，形成自我强化；用户明确改选的词要能压过这种回声。
@@ -532,13 +561,18 @@ impl Engine {
             english_mode: false,
             punctuation: Punctuation::default(),
             full_width_punctuation: true,
+            half_width_symbols: Vec::new(),
+            pair_punctuation: (true, false),
             custom_phrases: Vec::new(),
+            blocked: Vec::new(),
             contacts: None,
             english_in_chinese: true,
             chinese_first: false,
             spelling_correction: true,
             english_max_in_chinese: ENGLISH_CANDIDATES_MAX,
             english_min_position: 1,
+            show_english_pronunciation: false,
+            english_pronunciations: None,
             auto_space: false,
             shift_letter_compose: false,
             predictor: Box::new(NoPredictor),

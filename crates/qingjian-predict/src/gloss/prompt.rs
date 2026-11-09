@@ -167,6 +167,9 @@ pub fn parse_reply(content: &str, language: Language, words: &[String]) -> Vec<F
                 part_of_speech,
                 text,
                 reading,
+                // 模型给的读音只可能是日语假名（上面按 kana 过滤）；英文音标由 Core 从随包音标表查，
+                // 不采信模型生成的 IPA——那很容易编得看着像但不对
+                pronunciation: None,
                 fresh: false,
             });
             if senses.len() == MAX_SENSES {

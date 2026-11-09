@@ -18,6 +18,9 @@ interface PanelActions {
     /** 候选展开里点了第 [index] 个候选。 */
     fun selectCandidate(index: Int)
 
+    /** 候选展开里点了「全部 / 单字」。 */
+    fun toggleSingleChars()
+
     /** 清空组句（候选展开里的「重输」）。 */
     fun clearComposition()
 
@@ -59,6 +62,9 @@ interface PanelActions {
 
     /** 编辑常用语：[phrase] 为 null 是新加一条，放进 [group]。 */
     fun editPhrase(phrase: PhraseItem?, group: String)
+
+    /** 剪贴板第 [index] 条（文字 [text]）的「编辑」：开编辑框，完成后改掉这条、挪到最前，回剪贴板页。 */
+    fun editClip(index: Int, text: String)
 
     /** 常用语改过：带输入码的重新挂进候选。 */
     fun phrasesChanged()

@@ -71,6 +71,12 @@ pub struct Frame {
     #[serde(default)]
     pub translation_pos: bool,
 
+    /// 英文候选的 `reading` 是音标（`[general] show_english_pronunciation`）：候选窗据此用淡色画它，
+    /// 与问字模式那种含义不同、同色的带调拼音区分开。
+    /// 音标本身由 Core 填进 `Candidate::reading`，这里只传「怎么画」。
+    #[serde(default)]
+    pub english_reading_ipa: bool,
+
     /// 整句补全（云联想给的整段拼音的整句结果）：画在 preedit 行右侧，按 Tab 上屏。无则 `None`。
     pub sentence: Option<String>,
 

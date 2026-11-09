@@ -28,6 +28,14 @@ impl Engine {
         self.full_width_punctuation = enabled;
     }
 
+    /// 中文标点开着也保持半角的符号（写代码常用的 `` ` `` 之类），只认会转全角的标点（[`crate::punctuation::converts`]）。
+    pub fn set_half_width_symbols(&mut self, symbols: &str) {
+        self.half_width_symbols = symbols
+            .chars()
+            .filter(|c| crate::punctuation::converts(*c))
+            .collect();
+    }
+
     /// 原子更新自定义短语，非法规则保持旧值。
     pub fn set_custom_phrases(&mut self, phrases: Vec<crate::CustomPhrase>) -> Result<(), String> {
         crate::custom_phrase::validate_phrases(&phrases)?;
@@ -593,6 +601,26 @@ impl Engine {
         self.chinese_first
     }
 
+    /// 英文候选旁显示音标（配置 `[general] show_english_pronunciation`，缺省关）。
+    /// 关着时英文候选不带音标，与加这个功能之前完全一样。
+    pub fn set_show_english_pronunciation(&mut self, on: bool) {
+        self.show_english_pronunciation = on;
+    }
+
+    pub fn show_english_pronunciation(&self) -> bool {
+        self.show_english_pronunciation
+    }
+
+    /// 英文音标表（`english-ipa.tsv`：`词\t/音标/`）。没设或设为空就不显示任何音标。
+    /// 重复设置会换掉旧表——热加载时改的是同一个文件。
+    pub fn set_english_pronunciations(&mut self, table: Option<WordList>) {
+        self.english_pronunciations = table;
+    }
+
+    pub fn english_pronunciations(&self) -> Option<&WordList> {
+        self.english_pronunciations.as_ref()
+    }
+
     /// 拼写纠错开关（配置 `[general] spelling_correction`，缺省开）。关掉后拼音只按敲的原样（与模糊音）读：
     /// 不做整段纠正，整句词图也不加敲错边，学来的敲错表不再起作用（表本身留着）。
     pub fn set_spelling_correction(&mut self, on: bool) {
@@ -687,6 +715,13 @@ impl Engine {
 
     pub fn dictionary(&self) -> &Dictionary {
         &self.dictionary
+    }
+
+    /// 设置屏蔽词：候选文本里含有其中任何一个就整条丢掉（搜狗 也挡掉 搜狗拼音）。
+    ///
+    /// 自定义短语不受影响——那是用户自己写下的原文，屏蔽词管的是词库带进来的东西。
+    pub fn set_blocked_words(&mut self, words: Vec<String>) {
+        self.blocked = words.into_iter().filter(|w| !w.is_empty()).collect();
     }
 
     /// 换掉全部附加词库（导入、移除、开关之后）。格子缓存随之作废。

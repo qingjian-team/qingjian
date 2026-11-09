@@ -38,6 +38,9 @@ pub struct Frame {
 
     /// 组句处在算式（`v1+2`）或码点（`u4e00`）里：壳应把数字与运算符交进缓冲区，换数字键盘也不顶首选。
     pub expression: bool,
+
+    /// 这段组句在单字模式（#848）：候选只有单字，展开面板的「单字」标签亮着。
+    pub single_chars: bool,
 }
 
 impl Frame {
@@ -48,7 +51,7 @@ impl Frame {
         serde_json::to_string(self).unwrap_or_else(|error| {
             tracing::error!(%error, "帧序列化失败");
             String::from(
-                r#"{"commit":"","replace":0,"preedit":"","preedit_cursor":0,"notice":"","pinyin_choices":[],"candidates":[],"expression":false}"#,
+                r#"{"commit":"","replace":0,"preedit":"","preedit_cursor":0,"notice":"","pinyin_choices":[],"candidates":[],"expression":false,"single_chars":false}"#,
             )
         })
     }

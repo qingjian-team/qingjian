@@ -153,7 +153,12 @@ impl Builder<'_> {
                 else {
                     return Ok(());
                 };
-                for (i, row) in rows.iter().enumerate() {
+                let mut order: Vec<usize> = (0..rows.len()).collect();
+                if ctx.frame.reversed {
+                    order.reverse();
+                }
+                for i in order {
+                    let row = &rows[i];
                     let row_ctx = ctx.with_row(row, i, rows.len());
                     let before = out.len();
                     self.node(component, row_ctx, &layout, out)?;

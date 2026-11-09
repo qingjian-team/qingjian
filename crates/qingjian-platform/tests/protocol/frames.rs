@@ -58,6 +58,7 @@ fn sample_bytes() -> Vec<u8> {
         commit: None,
         frame: Frame::default(),
         english: None,
+        caret: None,
     };
     let mut buf = Vec::new();
     write_message(&mut buf, &msg).expect("写样本帧");

@@ -108,6 +108,8 @@ pub struct Dictionary {
 
 impl Dictionary {
     pub fn parse(source: &str) -> Result<Self, DictionaryError> {
+        // 记事本存的「UTF-8 带 BOM」：`trim` 不去 U+FEFF，第一个词会带着它上屏
+        let source = source.strip_prefix('\u{feff}').unwrap_or(source);
         let mut texts = String::new();
         let mut keys = String::new();
         let mut tones: Vec<u8> = Vec::new();

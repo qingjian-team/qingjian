@@ -1,4 +1,4 @@
-//! 形码查询：编码按前缀查码表，没有切分、没有整句；以及与拼音的混输。
+//! 形码查询：编码按前缀查码表，没有切分、没有整句，快捷写法与 emoji 照配；以及与拼音的混输。
 
 use std::collections::HashSet;
 use std::time::Instant;
@@ -7,6 +7,7 @@ use crate::engine::{Learner, MAX_CANDIDATES, choice_key};
 use crate::ranking::Scored;
 use crate::{
     Candidate, CandidateKind, CandidateList, Engine, ParseError, Query, Timings, ranking, sentence,
+    shortcut,
 };
 
 impl Engine {
@@ -15,8 +16,18 @@ impl Engine {
     /// 拼音那一套在这里都不成立：编码不需要切分，没有简拼与模糊音，一处编辑的拼写纠错更不适用，
     /// 整句转换、中英混输与神经重排也没有可以展开的东西。反过来，译词标注、生词记录、输入日志、
     /// 用户选择学习与个人 n-gram 都按上屏的词工作，与拼音方案共用同一条路。
+    ///
+    /// 快捷写法（`rq` / `sj` / `xq`）排在编码打全的字词后面：这几个也是常用字的编码前缀（`rq` 是 的 的 `rqyy`），
+    /// 不抢首选；emoji 与「日期 / 时间 / 星期」的快捷写法按上屏的字词配，与拼音一样。
     pub(super) fn query_code(&self, keys: &str, rest: String, start: Instant) -> Query {
-        self.query_code_counted(keys, rest, start).0
+        let (mut query, exact) = self.query_code_counted(keys, rest, start);
+        let items = &mut query.candidates.items;
+        let shortcuts = shortcut::candidates(keys, '\0', &jiff::Zoned::now());
+        let position = exact.min(items.len());
+        items.splice(position..position, shortcuts);
+        self.insert_emoji(items);
+        self.insert_keyword_shortcuts(items);
+        query
     }
 
     /// 同 [`Self::query_code`]，另带回排在最前面的「编码打全」的候选有几条（混输按它分两段）。

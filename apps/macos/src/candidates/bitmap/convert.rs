@@ -17,6 +17,7 @@ pub(super) fn frame(frame: &Frame) -> qingjian_render::Frame {
         sentence: frame.sentence.clone(),
         status: frame.status.clone(),
         mode: frame.mode.clone(),
+        reversed: false,
     }
 }
 

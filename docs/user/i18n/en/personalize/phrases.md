@@ -33,6 +33,8 @@ The content can contain time variables, replaced with the current time when the 
 | `{minute}` `{second}` | Minute, second, two digits | 05, 07 |
 | `{weekday}` | Day of the week, 一 to 日 | 日 |
 
+Add `:02` after a number variable to pad it to two digits: `{year}-{month:02}-{day:02} {hour:02}:{minute}` gives 2026-03-08 09:05, which sorts neatly and works in file names; use the width you need (`:03` pads to three).
+
 For example, give `jt` the content 今天是{year}年{month}月{day}日，星期{weekday} and typing `jt` gives 今天是2026年3月8日，星期日; `{weekday}` is a single character, so you can put 星期 or 周 in front of it.
 To output braces as they are, double them: `{{year}}` gives `{year}`. Anything not recognized (such as `{abc}`) stays as written. These variables are also replaced in macOS system text replacements.
 
@@ -63,5 +65,6 @@ If a phrase is changed in another settings window while you're editing it, savin
 With 也用系统的文本替换 (Also use system text replacements) on (the default), entries in System Settings → Keyboard → Text Replacements also work while you type pinyin:
 once you've typed the whole shortcut, the phrase comes before the candidates (it counts as weight 10, and phrases from this page come first at equal weight), and `Space` or a number key commits it.
 Only entries whose shortcut is all lowercase English letters work; entries added or changed in System Settings take effect the next time you switch to Qingjian. They aren't listed on this page; change them in System Settings.
+If an unfamiliar phrase keeps coming first for some code and its right-click menu has no Delete, it's most likely an old entry in the system's text replacements: delete it in System Settings, or turn this switch off.
 
 Android's saved phrases are in the clipboard panel; see [Android: tools and AI](../platforms/android-tools.md#Clipboard-and-saved-phrases).

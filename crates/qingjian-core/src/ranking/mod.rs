@@ -20,11 +20,13 @@
 
 mod first_page;
 mod scored;
+mod single_chars;
 
 use std::collections::HashSet;
 
 pub use first_page::{FIRST_SINGLE_CHAR_BY, keep_single_char_on_first_page};
 pub use scored::{PreselectKey, Scored, SortKey};
+pub use single_chars::keep_only_single_chars;
 
 /// 用户选择次数的加分系数：加分 = 系数 × ln(1 + min(次数, [`WEIGHT_CAP`]))。
 /// 这个加分只负责「同音词里偏向用户常选的那个」，所以既取对数又封顶（最多约 1.5 分，e^1.5 ≈ 4.5 倍），
@@ -47,8 +49,27 @@ pub const COMPLETIONS_BEFORE_PREFIXES: usize = 3;
 /// 第一二页就能逐字选（#769、#812）；长句的前缀词绝大多数凑不成话（`niyouhualema` 的 你邮、泥涌、尼永）。
 pub const WORDS_BEFORE_SINGLE_CHARS: usize = 6;
 
+/// 多音节输入时首音节的单字单独留这么多个（不和词一起预选）：简拼 `ss` 读得出几万个两字词，
+/// 合在一起按覆盖字母数预选会把单字全砍掉；几页够逐字选了。
+pub const FIRST_SYLLABLE_CHARS_KEPT: usize = 100;
+
+/// 首音节其余单字之前至多排几个词（含单字前的 [`WORDS_BEFORE_SINGLE_CHARS`] 个），再多的排到全部单字之后。
+/// 简拼 `ss` 读得出几千个两字词，不封顶时单字要翻五十多页。按输入日志定：冻结日志与一份本机日志共一万四千条
+/// 多音节选词，没有一条选在第 30 位以后（最靠后第 29 位，99% 在前 4 位）。
+pub const WORDS_BEFORE_ALL_SINGLE_CHARS: usize = 30;
+
 /// 有整词时拆开音节的读法排在首音节的几个单字之后（一页）。
 pub const SINGLE_CHARS_BEFORE_SPLIT: usize = 9;
+
+/// 有整词时拆开音节的读法在首音节其余单字之前至多留几条，其余排到全部单字之后。拆开的音节按声母通配，
+/// `nihao` 读成 `ni h… ao` 能捞出 你会 你回 霓虹 几十条读音对不上的词，不限量就把单字挤到几页之后（#854）；
+/// 留下的只给读音与敲的只差一个字母的（`nishui` 想打 你说、`duizhao` 想打 对着），当敲错音的兜底。
+pub const SPLIT_READINGS_BEFORE_SINGLES: usize = 3;
+
+/// 一串键能整段读出的用户词（自造词、接受过的云端词）至多这么多个当作在这串键下选过，不占
+/// [`WORDS_BEFORE_SINGLE_CHARS`] 的名额、排在没选过的词前面（按用户选过的次数挑）；其余的照常排。
+/// 简拼（`ss`）能对上十几个自造词，全提上来又会把单字挤到几页之后。
+pub const USER_WORDS_BEFORE_SINGLES: usize = 5;
 
 /// 模糊音命中的单字排在原样读音的头几个单字之后（一页）。模糊音只扣 ln 2，单字之间词频差得远，
 /// 光靠扣分 `zi` 开 z-zh 首选会是 只 而不是 子；不排在这里则沉到原样读音的几百个生僻字之后。
@@ -126,9 +147,9 @@ fn defer_altered_chars(items: &mut Vec<Scored<'_>>, chosen: impl Fn(&Scored<'_>)
 ///    补全正是用户要往下打的，算作整词），最后是只盖住开头一段的主词库前缀词；
 /// 2. 首音节单字的头 [`SINGLE_CHARS_BEFORE_SPLIT`] 个；
 /// 3. 其余盖住整段的词（`xinjin` 的 新进 这类排在第 7 个以后的，不沉到几百个生僻单字后面）；
-/// 4. 拆开音节的读法——只在有词的读音正好是敲的音节时这样放；一个都没有时（`wodei` 的 我的、`cankai` 的 参考、`mingtia` 的 明天）
+/// 4. 拆开音节的读法里读音与敲的只差一个字母的（`near_typed`），至多 [`SPLIT_READINGS_BEFORE_SINGLES`] 条，其余排在第 5 类全部之后——只在有词的读音正好是敲的音节时这样放；一个都没有时（`wodei` 的 我的、`cankai` 的 参考、`mingtia` 的 明天）
 ///    它们多半是手误或没打完，正是用户要的，按词算；
-/// 5. 其余的词、其余首音节单字、其余猜测、补充词库的前缀词。
+/// 5. 其余的词（连同第 1 类至多 [`WORDS_BEFORE_ALL_SINGLE_CHARS`] 个）、其余首音节单字、再多的词、其余猜测、补充词库的前缀词。
 ///
 /// `whole` 是整段输入的字母数；`complete` 是其中完整音节的字母数（末尾没打完的音节不算：`woganj` 是 5），盖住它的词（我敢）
 /// 也算整词；`first` 是最好那种切法首音节的字母数（`daoshih` 是 `dao` 的 3，不是简拼 `d` 的 1）。
@@ -142,6 +163,7 @@ pub fn arrange(
     first: usize,
     clean: bool,
     chosen: impl Fn(&Scored<'_>) -> bool,
+    near_typed: impl Fn(&Scored<'_>) -> bool,
 ) {
     let worded = items
         .iter()
@@ -200,14 +222,25 @@ pub fn arrange(
         .into_iter()
         .partition(|(item, _)| item.coverage >= complete);
     let more_singles = singles.split_off(singles.len().min(SINGLE_CHARS_BEFORE_SPLIT));
+    let (mut split, far_split): (Vec<_>, Vec<_>) = split.into_iter().partition(&near_typed);
+    let more_split = split.split_off(split.len().min(SPLIT_READINGS_BEFORE_SINGLES));
+    let room = WORDS_BEFORE_ALL_SINGLE_CHARS.saturating_sub(front.len());
+    let mut later: Vec<Scored<'_>> = rest_whole
+        .into_iter()
+        .map(|(item, _)| item)
+        .chain(split)
+        .chain(rest.into_iter().map(|(item, _)| item))
+        .collect();
+    let overflow = later.split_off(later.len().min(room));
     items.extend(front.into_iter().map(|(item, _)| item));
     items.extend(singles);
-    items.extend(rest_whole.into_iter().map(|(item, _)| item));
-    items.extend(split);
-    items.extend(rest.into_iter().map(|(item, _)| item));
+    items.extend(later);
     items.extend(more_singles);
+    items.extend(overflow);
     items.extend(late.into_iter().map(|(item, _)| item));
     items.extend(secondary.into_iter().map(|(item, _)| item));
+    items.extend(more_split);
+    items.extend(far_split);
 }
 
 #[cfg(test)]

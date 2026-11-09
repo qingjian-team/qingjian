@@ -160,6 +160,10 @@ class Composer(private val engine: Engine, private val host: Host) {
     /** 组句处在算式（`v1+2`）或码点里，见 [Frame.expression]。 */
     private var expression = false
 
+    /** 这段组句在单字模式，见 [Frame.singleChars]。 */
+    var singleChars = false
+        private set
+
     /** 上一帧的候选。 */
     private var candidates: List<Candidate> = emptyList()
 
@@ -237,7 +241,7 @@ class Composer(private val engine: Engine, private val host: Host) {
                 }
                 // 中文标点键：Core 按设置转全角（引号成对、数字后的点保持半角）或原样
                 val punct = key.punct
-                commit(
+                commitSymbol(
                     when {
                         punct == null -> key.text
                         // 网址框里中文键盘的「。」「，」也落半角
@@ -245,6 +249,7 @@ class Composer(private val engine: Engine, private val host: Host) {
                         chinese && !directInput -> engine.punctuate(punct)
                         else -> key.text
                     },
+                    pairable = !plainPunctuation && !directInput,
                 )
             }
 
@@ -253,8 +258,7 @@ class Composer(private val engine: Engine, private val host: Host) {
             // 拼音、日语组句里的大写字母另有含义，组句中只有英文能换大小写
             Key.Shift -> if (!composing || english) toggleShift()
 
-            Key.Backspace ->
-                if (composing) apply(engine.backspace()) else host.sendKey(KeyEvent.KEYCODE_DEL)
+            Key.Backspace -> if (composing) apply(engine.backspace()) else deleteBackward()
 
             is Key.Space -> when {
                 !composing -> commit(" ")
@@ -359,6 +363,9 @@ class Composer(private val engine: Engine, private val host: Host) {
 
     fun select(index: Int) = apply(engine.select(index))
 
+    /** 展开面板里点了「全部 / 单字」。 */
+    fun toggleSingleChars() = apply(engine.toggleSingleChars())
+
     /** 点了拼音行第 [index] 个字之后：光标挪进拼音里，接着敲的字、退格都在那里。 */
     fun moveCaret(index: Int) {
         if (composing) apply(engine.moveCaret(index))
@@ -376,7 +383,8 @@ class Composer(private val engine: Engine, private val host: Host) {
 
     /**
      * 长按气泡里选的字符。全键盘选小写 = 照常敲这个字母；九宫格组句中选小写 = 这一位就是这个字母
-     * （进缓冲区，和拼音列定音节一个道理）。其余（数字、大写、符号）先顶首选再上屏。
+     * （进缓冲区，和拼音列定音节一个道理）。其余（数字、大写、符号）先顶首选再上屏；
+     * 角标里有全角写法的标点（`;` `?` 这些）同标点键一样交 Core 按设置转全角。
      */
     fun onKeyChoice(text: String) {
         val letter = text.singleOrNull()?.takeIf { it in 'a'..'z' }
@@ -384,7 +392,7 @@ class Composer(private val engine: Engine, private val host: Host) {
             // 全键盘长按选小写 = 照常敲这个字母
             letter != null && !nineKey -> onKey(Key.Letter(letter))
             composing && letter != null && engine.ready -> apply(engine.push(letter.code))
-            else -> onKey(Key.Text(text))
+            else -> onKey(Key.Text(text, punct = text.singleOrNull()?.takeIf { it in FULL_WIDTH_HINTS }))
         }
     }
 
@@ -588,6 +596,7 @@ class Composer(private val engine: Engine, private val host: Host) {
         }
         pinyinChoices = frame.pinyinChoices
         expression = frame.expression
+        singleChars = frame.singleChars
         candidates = frame.candidates
         // 不在组句却带着候选：上屏通讯录名字后接着给的电话、邮箱，光标再动时要问 Core 还留不留
         completing = frame.preedit.isEmpty() && frame.candidates.isNotEmpty()
@@ -614,6 +623,58 @@ class Composer(private val engine: Engine, private val host: Host) {
         host.connection?.commitText(text, 1)
     }
 
+    /**
+     * 键盘上的标点、符号上屏。成对符号（#928）由 Core 定：左半边连右半边一起上屏、光标停在中间；
+     * 补过的右半边在光标后面就跳过它，不在（挪过光标）就照常上屏。`pairable` 为假（网址框、直接输入）时照常上屏。
+     */
+    private fun commitSymbol(text: String, pairable: Boolean) {
+        val edit = if (pairable) engine.pairPunctuation(text, english) else null
+        val connection = host.connection
+        if (edit == null || connection == null) {
+            commit(text)
+            return
+        }
+        val parts = edit.split(':', limit = 3)
+        when (parts[0]) {
+            "insert" -> {
+                val pair = parts[2]
+                val back = parts[1].toInt().coerceIn(0, pair.length)
+                connection.beginBatchEdit()
+                connection.commitText(pair.dropLast(back), 1)
+                // 光标位置 0 落在这段的开头，也就是左右两半中间
+                connection.commitText(pair.takeLast(back), 0)
+                connection.endBatchEdit()
+            }
+            "skip" -> {
+                val closer = parts[1]
+                if (connection.getTextAfterCursor(closer.length, 0)?.toString() == closer) {
+                    // 换掉光标后的那个再上屏同一个字：光标落到它后面，不用算绝对位置
+                    connection.beginBatchEdit()
+                    connection.deleteSurroundingText(0, closer.length)
+                    connection.commitText(closer, 1)
+                    connection.endBatchEdit()
+                } else {
+                    commit(closer)
+                }
+            }
+            else -> commit(text)
+        }
+    }
+
+    /** 没在组句时的退格：刚补完一对、光标前后正是这一对就一起删，否则照常退格。 */
+    private fun deleteBackward() {
+        val pair = engine.pairBackspace()
+        val connection = host.connection
+        if (pair != null && pair.length == 2 && connection != null &&
+            connection.getTextBeforeCursor(1, 0)?.toString() == pair.substring(0, 1) &&
+            connection.getTextAfterCursor(1, 0)?.toString() == pair.substring(1)
+        ) {
+            connection.deleteSurroundingText(1, 1)
+        } else {
+            host.sendKey(KeyEvent.KEYCODE_DEL)
+        }
+    }
+
     private companion object {
         const val SEPARATOR_DIGIT = '1'
 
@@ -638,5 +699,11 @@ class Composer(private val engine: Engine, private val host: Host) {
 
         /** 日语里当长音敲的键。 */
         val LONG_VOWEL = setOf("-", "ー")
+
+        /**
+         * 字母键角标里转全角后还是同一个符号的标点：中文键盘上划、长按出它们时按「中文标点」设置转全角。
+         * `_` `^` 这类转出来是另一个符号（——、……），照键面原样上屏。
+         */
+        private const val FULL_WIDTH_HINTS = "!?:;()~,."
     }
 }

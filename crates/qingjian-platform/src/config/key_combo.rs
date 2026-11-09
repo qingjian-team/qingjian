@@ -40,6 +40,12 @@ impl KeyCombo {
         key: 'v',
     };
 
+    /// 单字模式：Ctrl + D，只在组句时拿走。
+    pub const SINGLE_CHARS_DEFAULT: Self = Self {
+        modifiers: Modifiers::CONTROL,
+        key: 'd',
+    };
+
     pub const PREDICT_DEFAULT: Self = Self {
         key: 'j',
         ..Self::TRANSLATE_DEFAULT

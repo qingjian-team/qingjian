@@ -295,10 +295,12 @@ class ClipboardPanel(
     } else if (clips.getOrNull(expanded)?.image != null) {
         listOf(Icon.TRASH to "删除")
     } else {
-        listOf(Icon.PLUS to "常用语", Icon.SPLIT to "拆词", Icon.TRASH to "删除")
+        listOf(Icon.PEN to "编辑", Icon.PLUS to "常用语", Icon.SPLIT to "拆词", Icon.TRASH to "删除")
     }
 
-    private fun actionWidth() = ink.dp(96f)
+    /** 每个操作的宽度：96dp，剪贴板文字的四个在窄屏上放不下时均分卡片宽度。 */
+    private fun actionWidth() =
+        minOf(ink.dp(96f), (width - ink.dp(2 * (CARD_MARGIN_DP + CARD_PADDING_DP))) / actionLabels().size)
 
     private fun drawActions(canvas: Canvas, top: Float, bottom: Float) {
         val cy = (top + bottom) / 2 - ink.dp(4f)
@@ -394,6 +396,7 @@ class ClipboardPanel(
             return
         }
         when (label) {
+            "编辑" -> actions.editClip(i, clips[i].text)
             "常用语" -> {
                 val group = lastGroup
                 reloadPhrases(ClipboardStore.addPhrase(context, clips[i].text, group, ""))

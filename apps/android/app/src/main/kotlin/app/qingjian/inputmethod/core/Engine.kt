@@ -90,6 +90,8 @@ class Engine(context: Context, private val onReady: () -> Unit) {
 
     fun select(index: Int): Frame = Frame.parse(Native.select(handle, index))
 
+    fun toggleSingleChars(): Frame = Frame.parse(Native.toggleSingleChars(handle))
+
     fun moveCaret(index: Int): Frame = Frame.parse(Native.moveCaret(handle, index))
 
     fun selectTranslation(index: Int, sense: Int): Frame =
@@ -121,6 +123,13 @@ class Engine(context: Context, private val onReady: () -> Unit) {
 
     /** 中文标点键：Core 按设置转全角或原样；引擎没装好原样。 */
     fun punctuate(c: Char): String = (if (ready) Native.punctuate(handle, c) else null) ?: c.toString()
+
+    /** 成对符号（#928）：见 [Native.pairPunctuation]；引擎没装好照常上屏。 */
+    fun pairPunctuation(text: String, english: Boolean): String? =
+        if (ready) Native.pairPunctuation(handle, text, english) else null
+
+    /** 没在组句时的退格：刚补完一对时回这一对，见 [Native.pairBackspace]。 */
+    fun pairBackspace(): String? = if (ready) Native.pairBackspace(handle) else null
 
     /** 拆词；引擎没装好时一字一块。 */
     fun textPieces(text: String): List<String> {

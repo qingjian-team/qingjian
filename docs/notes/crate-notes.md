@@ -9,6 +9,15 @@ CLAUDE.md 只保留目录地图与规则，每个 crate / app / tool 的实现�
 `lookup_pattern`（≥ 模式长度）与 `lookup_exact`（正好等长）同一套实现。词库键以 `v` 表示 ü，
 TSV 解析、查询与生成工具把 `lue` / `nue` 统一成 `lve` / `nve`。
 英文词表 `WordList`（`english.tsv`，9.5 万词）编码与原样词拼进一块缓冲、条目只记位置，按编码二分：每词三个 `String` 加 `HashMap` 时常驻 18 MB，现在约 4 MB（2026-10-28 探针）。
+英文音标复用同一结构（`assets/lexicon/english-ipa.tsv`，11.7 万条）：音标放「原样词」那列，由 `WordList::parse_pronunciations` 解析——**不能用 `parse`**，那个把第二列当编码，音标会被存成键；查询用 `pronunciation(code)`，键一律小写。
+数据由 `dict-convert ipa` 从 CMUdict 生成。ARPAbet → IPA 有两处不能机械查表：重音要**从元音挪到音节首**（`cargo` 是 `/ˈkɑrˌɡoʊ/` 不是 `/kˈɑrɡoʊ/`），先按「元音之间的辅音归后一音节、R 除外」划界再插标记；无重音的 `AH` 是 schwa `ə` 而不是 `ʌ`（CMUdict 同一个符号表示两个音，只能靠调号区分，混了就会得到 `/hʌˈloʊ/`）。
+只覆盖产品词表的约 57%：CMUdict 不收规则派生的复数 / 过去式 / 进行式（`abacuses`、`abstracting`），查不到就不显示，不做后缀反推。
+候选侧不新增字段：音标填进 `Candidate::reading`（问字模式的带调拼音本来就走它），平台层照旧画在最前面。
+中文候选的**英文译文**另走 `Sense::pronunciation`（与日语的 `Sense::reading` 分开：假名要按汉字段对位、`開発(かいはつ)する`；
+音标是整条译词的、`hello /həˈloʊ/`，不带括号）。由 `Engine::annotate` 在译文填好之后调 `annotate_pronunciation` 补，
+只认语言为英文且是单个词的译文——短语（`as if`）查不到就留 `None`，不按空格切词硬注。
+`[general] show_english_pronunciation`（缺省关）决定填不填；`Frame.english_reading_ipa` 决定候选自己的 reading 画成淡色还是译词色——DLL 读不到配置，开关必须经协议下发，纯加 `#[serde(default)]` 字段不 bump 协议版本。
+英文候选有三条生成路径（中英混输 `insert_english`、英文模式 `query_english`、英文直输段 `query_raw`），都走 `Engine::english_candidate`，漏一条那条就没有音标。
 旧 `.qj` 含这些键时，加载器建立规范化的内存词库。新 `.qj` 继续使用 mmap。
 TSV 的音节可带数字声调（`ni3`，轻声 5 或 0），键一律去调，声调只给显示（`Match::tones`，`tones.rs`）：五个音节以内压进 `Slot` 原来的 16 位填充（每音节 3 位，0 是不知道），
 多音字的读音占比：加载时走一遍单音节的键，记下有不止一个读音的字全部读音的词频之和（`dictionary/readings.rs`，不落盘），命中带上 `Match::reading_total`，`Match::reading_share` 是这个读音的词频占比（`区 ou` 约 0.05）；多音节的词不查表。
@@ -92,7 +101,7 @@ mac 存在 `Session::spelling`（`Host::follow_highlight`）、Windows / Linux �
 
 形码在 `engine::query::code`。`Engine` 上有两个开关：`set_code_scheme`（`CodeScheme` = 码表 + 按键规则 + 日志键）与 `set_phonetic`（拼音侧参不参与），
 在 `query_inner` 进切分之前按这两个分派——只有拼音 / 只有形码（`query_code`）/ **两边都开（`query_mixed`，混输）**。
-编码按前缀查表，`CandidateKind::Code` 的候选 `syllables` 为空、上屏吃掉整段作用域（`whole_scope`）。
+编码按前缀查表，`CandidateKind::Code` 的候选 `syllables` 为空、上屏吃掉整段作用域（`whole_scope`）。只用形码时 `query_code` 照拼音配 emoji（`insert_emoji` 也认 `Code`）与「日期 / 时间 / 星期」的快捷写法，`rq` / `sj` / `xq` 的快捷候选插在编码打全的词之后（这几个也是常用字的编码前缀）；混输的拼音那半自己配，形码这半不再配。
 混输是「拼音那条 Query 前面插上形码候选」：拼音读不出来时（`ggll`）整个按形码走，两边都空才算错；
 按文本去重，编码打全的形码词在前、拼音居中、只命中前缀的形码词垫后（一律形码在前的话 `kai` 的首选会变成编码 `kaik` 的词）；混输下模式键同双拼换成大写，满码长度（`CodeScheme::code_length`，缺省取 `CodeTable::full_code_len` 即最常见的编码长度，五笔是 4；极点码表里有条写错的 5 码 `TF卡 ttfhh`，取最长会把满码拖成 5）以内不做拼写纠错，超出码长自然只剩拼音。
 只用形码时还有两条按键规则（`engine/code_keys.rs`，混输下都不生效）：`code_tops(c)` 判断满码再敲字母要不要先顶字，由壳上屏**高亮**候选再收这个字母；
@@ -104,7 +113,11 @@ mac 存在 `Session::spelling`（`Host::follow_highlight`）、Windows / Linux �
 译词标注、生词记录、输入日志、用户选择学习与个人 n-gram 仍照常工作。
 `Engine` 是对外唯一门面，`Translator` / `Learner` trait 在 `engine` 模块；词库是「主词库 + 附加词库（`set_extra_dictionaries`）+ 用户词」的列表。
 补充词库（`Match::secondary`，通用大词库一百多万条、不少是语料片段）低主词库一档：词级只查音节数正好对上的（`lookup_all`，不当前缀补全）、精确命中不进排序第一档（`Scored::first_tier`，与主词库的前缀词、敲错纠正一起按打分比）、兜底与词图格子预选再扣 `SECONDARY_PENALTY`、不计入总词频；整句那边「整段就是一个词就不走敲错路径 / 不出整句」只认主词库的词（`in_primary_dictionary`），词图选中的补充词库整词或撞上补充词库词的整句照样插到最前。扣分 1–4 冻结回放只差两三条，取 2。繁体输出是 `Traditional`（`crate::traditional`）：`Engine::query` 出口把候选换成繁体并记下「繁体 → 简体」，云端联想词与整句在 `poll_prediction` 那条路上走 `convert_remember` 单独转，`commit` / `annotate` / `forget` / `accept_prediction` 按这张表还原成简体，表在组句边界 `forget` 清；所以词库、词频、用户词、输入日志一律是简体。`LastCommit::chars` 按上屏的繁体算。
-词级排完序后 `ranking::arrange` 按类别重排一次（各类内部不动；这个输入串下选过的不挪），输入不止一个音节时按「句子 > 词 > 单字」分段、不穿插：词至多 `WORDS_BEFORE_SINGLE_CHARS` = 6 个（盖住整段、读音就是敲的音节的词，主词库在前、补充词库的跟着 → 至多 `COMPLETIONS_BEFORE_PREFIXES` = 3 条猜测：多出音节的补全、把打完的末音节读成更长音节的词，只在输入有一种全是完整音节的切法时算猜测 → 只盖住开头一段的主词库前缀词）→ 首音节单字（头 `SINGLE_CHARS_BEFORE_SPLIT` = 9 个之后接拆开完整音节才读得出的 `Scored::split`：`shishan` 按 `shi s h an` 读的 事实；没有词读音正好是敲的音节时它们多半是手误或没打完，`wodei` 的 我的，按词算）→ 其余的词与猜测 → 补充词库的前缀词（你邮、泥涌 这类凑不成话的）。候选全部插完、选词模型重排并把整句截到 `SENTENCE_CANDIDATES` 条之后（截之前可能有 16 条整句，在那时数会把词全挪走），`ranking::keep_single_char_on_first_page` 再看一遍：第一个单字排在 `FIRST_SINGLE_CHAR_BY` = 9 位之后（长拼音时 3 条整句 + 词配的 emoji 不占词的名额，`shiyanshiqingfanghaoxiangbaozhuang` 的 是 原在第 12 位），就把单字前离它最近的词连同配给它的 emoji 挪到单字段后面，整句与英文不动。6 个是按冻结输入日志定的：多音节输入选多字词 99.8% 在前 6 位，选单字的却有 23% 在第 9 位以后；搜狗也是几个词之后全是单字（`ceshi` → 测试 侧石 侧视 策士 侧室，接着 测 侧 册）。末尾只敲了个没打完的音节（`woganj` 的 j，且没有全是完整音节的读法）时，盖住前面完整音节的词（我敢）也算整词。2026-10-28 冻结回放（无模型）：词首选 8202 → 8203、整句首选 2769 不变、整句平均名次 1.89 → 1.58；知意：词 8301 → 8300、整句 2662 → 2660；开发集、回归集（#769 的单字上限放宽到第 18 位）都不变。原来按「覆盖字母数」排最前，拆开 `shan` 读出的两百多个词与五十个 时尚X 补全把单字挤出前 500 条（`shishan` 一个单字都没有）。2026-10-26 冻结回放（知意均衡档 + zh.ngram）：词首选 8322 → 8319 条、前五 97.3% → 97.6%、平均名次 1.51 → 1.38，进第一页 51 个、掉出 12 个（多掉到第二页；我 105 → 5、个 85 → 4）；社区开发集不变。用户报过的例子在 eval-dev 的回归集 `sets/regression.tsv`。
+词级排完序后 `ranking::arrange` 按类别重排一次（各类内部不动；这个输入串下选过的不挪），输入不止一个音节时按「句子 > 词 > 单字」分段、不穿插：词至多 `WORDS_BEFORE_SINGLE_CHARS` = 6 个（盖住整段、读音就是敲的音节的词，主词库在前、补充词库的跟着 → 至多 `COMPLETIONS_BEFORE_PREFIXES` = 3 条猜测：多出音节的补全、把打完的末音节读成更长音节的词，只在输入有一种全是完整音节的切法时算猜测 → 只盖住开头一段的主词库前缀词）→ 首音节单字（头 `SINGLE_CHARS_BEFORE_SPLIT` = 9 个之后接拆开完整音节才读得出的 `Scored::split`：`shishan` 按 `shi s h an` 读的 事实；只留读音与敲的同样长的开头只差一个字母的、至多 `SPLIT_READINGS_BEFORE_SINGLES` = 3 条（`nishui` 的 你说），其余排到全部单字之后，否则 `nihao` 读成 `ni h… ao` 的 你会 霓虹 几十条夹在单字中间（#854）；没有词读音正好是敲的音节时它们多半是手误或没打完，`wodei` 的 我的，按词算）→ 其余的词与猜测 → 补充词库的前缀词（你邮、泥涌 这类凑不成话的）→ 其余拆开音节的读法。候选全部插完、选词模型重排并把整句截到 `SENTENCE_CANDIDATES` 条之后（截之前可能有 16 条整句，在那时数会把词全挪走），`ranking::keep_single_char_on_first_page` 再看一遍：第一个单字排在 `FIRST_SINGLE_CHAR_BY` = 9 位之后（长拼音时 3 条整句 + 词配的 emoji 不占词的名额，`shiyanshiqingfanghaoxiangbaozhuang` 的 是 原在第 12 位），就把单字前离它最近的词连同配给它的 emoji 挪到单字段后面，整句与英文不动。6 个是按冻结输入日志定的：多音节输入选多字词 99.8% 在前 6 位，选单字的却有 23% 在第 9 位以后；搜狗也是几个词之后全是单字（`ceshi` → 测试 侧石 侧视 策士 侧室，接着 测 侧 册）。末尾只敲了个没打完的音节（`woganj` 的 j，且没有全是完整音节的读法）时，盖住前面完整音节的词（我敢）也算整词。2026-10-28 冻结回放（无模型）：词首选 8202 → 8203、整句首选 2769 不变、整句平均名次 1.89 → 1.58；知意：词 8301 → 8300、整句 2662 → 2660；开发集、回归集（#769 的单字上限放宽到第 18 位）都不变。原来按「覆盖字母数」排最前，拆开 `shan` 读出的两百多个词与五十个 时尚X 补全把单字挤出前 500 条（`shishan` 一个单字都没有）。2026-10-26 冻结回放（知意均衡档 + zh.ngram）：词首选 8322 → 8319 条、前五 97.3% → 97.6%、平均名次 1.51 → 1.38，进第一页 51 个、掉出 12 个（多掉到第二页；我 105 → 5、个 85 → 4）；社区开发集不变。用户报过的例子在 eval-dev 的回归集 `sets/regression.tsv`。
+
+单字模式（#848）是组句级的状态，放在 `Composition::single_chars`：`Engine::toggle_single_chars` 只在缓冲区非空时切，`clear`、退格删空、上屏把缓冲区吃完都会复位，分几次选字时剩下的拼音还在同一段组句里、接着只出单字。`query` 在截完整句之后调 `ranking::keep_only_single_chars`，只留 `Chinese` / `Code` 里一个字的候选，一个都没有时（表达式、问字、英文直输段）不动。Windows 的键是 `[shortcut] single_chars`（缺省 `ctrl+d`，空串关）：Server 只在组句时认它，与翻译、AI、剪贴板、简繁、全半角或「译词修饰键 + 数字」撞了时不用；经 `InputSettings` 下发，DLL 组句时才吃，没在打字时 Ctrl + D 照常给应用。
+
+成对符号（#928）的规则在 `punctuation::Pairs`：全角一张表（（）【】「」『』《》〈〉〔〕“”‘’）、半角一张（() [] {} ""，不含 `'` 与 `<`），按要上屏的那个符号查，所以中文、日文都走全角表；开关按模式分（`Engine::set_pair_punctuation`，中文与日文一份缺省开、英文一份缺省关）。记着补过、还没跳过的右半边（最多 16 层），右半边先认：英文引号左右同形，补过的那个就是要跳的；`fresh` 只在刚补完、中间什么都没上屏时为真，`note_committed` / `note_passthrough` 清它，`break_chain` 清整份记录。光标后是什么只有壳读得到，所以 Core 给的是有条件的指令：Windows 经 `KeyResult.caret`（`protocol::CaretEdit`：`Back` 上屏后退回、`Skip` 光标后正是它才跳过否则照常插入），DLL 在上屏那次读写会话里核对文档再做（`com/composition/caret.rs`）；Windows 不做退格删一对：Win11 记事本在没组句时不把退格交给 TIP，`OnTestKeyDown` 收不到（2026-11 实测）。Android 经 JNI 回 `insert:<退几格>:<文本>` / `skip:<右半边>`，Kotlin 用 `InputConnection` 读光标前后再改。
 
 模糊音命中：末音节读成它的模糊音写法（`FuzzyRules::readings`，`zi` 开 z-zh 读成 zhi、`fan` 开 an-ang 读成 fang）也算「末音节完整」，扣 `FUZZY_PENALTY` = ln 2（`fan` 按前缀查到的 fang 本来不扣，当模糊音读法时补扣）。单靠扣分时单字间词频差得远，`zi` 首选会是 只，所以输入只有一个音节时 `arrange` 再把模糊音命中的单字排到原样读音的头 `SINGLE_CHARS_BEFORE_FUZZY` = 9 个单字之后（选过的不挪）；多音节输入的模糊音词照得分排（`lihao` 开 n-l 首选仍是 你好）。原来末音节只认敲的原文，模糊音命中的单字全排在原样读音的几百个生僻字之后（`zi` 的 知 第 220 位，`li` 的 你 被预选砍出前 500）；改后在第 10–19 位。模糊音默认全关，冻结回放、开发集与回归集都不开，2026-10-29 三组（无模型 / 知意 / 通变）前后一致。
 读音占比进打分：语言模型按字形计数，`区` 的 qu 撑起来的分会原样落到 `ou` 上（`ou` 首选 区、`ditu` 拼出 的图），所以词级排序（`Engine::word_log_prob`）与整句词图（`SpanWord::reading`）都扣 `sentence::reading_cost` = `-ln(读音占比)`；用户选过的仍按「同输入串选择次数」排在前面。整句按哪种切分转由 `Engine::sentence_segmentation` 定：切分器只按结构排（音节少、完整的在前，打平时贪心），音节数与不完整音节数都与第一种相同的几种（最多 `TIED_SEGMENTATIONS`）各转一遍取路径分最高的（`shangou` 由 shang ou 换成 shan gou → 山沟）。2026-10-22 冻结回放：词 8167 → 8226、整句 2827 → 2788（掉的多是用 `di` 打 的、`du` 打 都 的习惯，和日志里当时选了错句的统计假象）。
@@ -174,7 +187,9 @@ mac 存在 `Session::spelling`（`Host::follow_highlight`）、Windows / Linux �
   也不能读成「拼音头 + 英文尾」——打不出来时整串上屏的失败拼音学进去会反过来堵住混输那条路，越打不出来学得越多）、
   个人敲错表（`user-typos.tsv`，接受过的 (敲的, 要的) 音节对，词图敲错边与整段纠错的代价按它打折）与个人 n-gram（`user-ngram.tsv`，Core `sentence::UserNgram`，
   二元 + 三元在线计数，整句转换与词级排序里与静态模型插值；Tab 接受的云端整句按 `sentence::segment_text` 切词后也记；
-  连着选出的两个词记够次数自动造词进用户词，一段拼音分几次选完的合成词记两次也造）。
+  连着选出的两个词记够次数自动造词进用户词：同一段拼音里连着选出的 `AUTO_WORD_THRESHOLD_SAME_BUFFER` = 1 次就造、分两段打的 `AUTO_WORD_THRESHOLD` = 3 次，一段拼音分几次选完的合成词也是一次就造，不超过 `BUFFER_PHRASE_MAX_CHARS` = 20 字（整句记忆：长句也记成用户词，下次全拼与整句简拼按用户词排第一；前后两词自动合成的仍限 `AUTO_WORD_MAX_CHARS` = 4 字；一次选中的整句同样走 `finish_buffer`，但只限路径上的词都是多字词（交易 + 中心；带单字的 想 + 开发 多半是句子，冻结回放一周有约两千条这种短句，每条都造词会让用户词无限涨、每次造词都要重建用户词库），上限 `SENTENCE_WORD_MAX_CHARS` = 6 字（冻结回放与 4 字逐条相同）；这次新造的词在退格改选时整个 `forget` 掉）；造词同时记一次选择（`record`），整句词图里也认它）。
+  全拼选一个多音节词时选择按简拼另记一份，键是 `^` + 各音节首字母（`Engine::abbreviation_key`，`LastCommit` 的 `Choice::abbreviation` 撤销时一起退；双拼、注音、九宫格不记），`shishan` 选过的词 `ss` 也排前；和真在那串键下的选择分开：排序用的选择次数里真选过的一次顶 `CHOICE_TIERS` = 1024 次简拼另记的，中英文谁在前也不看它（混在一起时冻结回放 `cd` / `kl` / `qq` 的英文被全拼选过的 才对 / 看来 / 全球 挤到第二，`zj` 下选过的 自己 被 直接 盖过）；前后两个相同的词不自动合成（屎山 + 屎山）。多音节输入的首音节单字与其余候选分开排、单独留 `FIRST_SYLLABLE_CHARS_KEPT` = 100 个（`ss` 的两字词几万条，合在一起按覆盖字母数预选会把单字全砍掉）。这串键下选过的词不进预选、并按主词库的词排（`ss` 选过的 屎山 在知意词表里、低主词库一档，预选会被砍掉，排序先比是不是主词库也会排在几千个两字词后面被截掉），预选后并回来再排一次。`arrange` 里首音节其余单字之前的词封顶 `WORDS_BEFORE_ALL_SINGLE_CHARS` = 30 个（含单字前那 6 个），再多的排到全部单字之后：简拼 `ss` 不封顶时单字要翻五十多页；30 按输入日志定，冻结日志与一份本机日志共一万四千条多音节选词没有一条在第 30 位以后（最靠后第 29 位，99% 在前 4 位）。
+  用户词在词级排序里当作「这串键下选过一次」：盖住整段、不靠拆开音节读出的用户词 `weight` 至少 1（`query/phonetic.rs`），简拼 `ss` 几万条命中时预选不会把它砍掉；其中按选过次数取头 `USER_WORDS_BEFORE_SINGLES` = 5 个选择次数也至少 1，不占 `WORDS_BEFORE_SINGLE_CHARS` 的名额、排在没选过的词前面，其余的照常占名额（简拼对得上十几个自造词时单字不被挤后）；词级排第一、盖住整段的用户词排在整句与生成的整句前面（`insert_sentence`，`shishan` 的 屎山 不再排在 是山 后面，整句记忆的 `xmqlxx` 不排在通变生成的 下面请来学习 后面），除非排第一的整句在这串键下选得更多；词库里的词不这样，冻结回放里同一串键这次要词还是要整句常随上下文变（`shiyong` 选过 使用，这次要 是用），一律让词在前整句首选少十几条。
   候选右键菜单的降权记在 `user-demoted.tsv`（`frequency_learner/demotions.rs`，输入串 → 词 → 降了几次，封顶 99，不衰减），私密输入与关学习时照记。
   词频、个人英文词与敲错表三张表带**时间衰减**（`frequency_learner/decay.rs`，牛顿冷却）：最近使用日记在
   `user-days.tsv` 等 `*-days.tsv` 侧车文件里（主表保持旧格式两列 / 三列，旧版本读到新文件不丢数据；侧车丢了整份退回文件修改日），
@@ -412,6 +427,8 @@ id 不能撞拼音侧的写法与日志里的 `wubi`（`is_valid_id`），因为
 同一天又拆成两条轴（单选的 `scheme` 表达不了混输）。旧键（`shuangpin` / `zhuyin` / `scheme = "wubi86"`）
 都还在读、文件不自动改写。
 
+
+`[dictionaries] blocked` 是屏蔽词：`Engine::set_blocked_words` 收下这批词，`query` 在 `apply_demotions` 之前把文本里含有其中任何一个的候选整条丢掉（排在后面的重排、补单字、留联系人都不用管它们了）；自定义短语在过滤之后才插进来，不受影响。四个壳在装配与配置热重载两处各调一次。
 
 `Config`（TOML 配置文件，`[general]` / `[shortcut]` / `[fuzzy]` / `[dictionaries]` / `[apps]` / `[predict]` 分节，首次运行写模板，
 `set_value` 用 toml_edit 原地改键保留注释；`[model] enabled` 本地整句模型开关，`LocalModelConfig`；

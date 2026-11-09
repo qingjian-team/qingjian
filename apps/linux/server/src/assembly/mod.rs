@@ -64,6 +64,7 @@ pub fn assemble(spec: &AssemblySpec) -> Result<Engine, ServerError> {
         &user_dicts,
         &spec.dictionaries,
     ));
+    engine.set_blocked_words(spec.dictionaries.blocked.clone());
     if let Some(glossary) = spec
         .english_glossary
         .as_deref()

@@ -19,6 +19,9 @@ pub struct AssemblySpec {
     /// 英文词表。
     pub english: Option<PathBuf>,
 
+    /// 英文音标表（`english-ipa.tsv`：`词\t/音标/`）。可选，没有就只是不显示音标。
+    pub english_ipa: Option<PathBuf>,
+
     /// emoji 表（多张合成一张）。
     pub emoji: Vec<PathBuf>,
 
@@ -54,6 +57,7 @@ impl AssemblySpec {
             glossary: None,
             english_glossary: None,
             english: None,
+            english_ipa: None,
             emoji: Vec::new(),
             language_model: None,
             bundled_dicts_dir: None,

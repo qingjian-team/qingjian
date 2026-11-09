@@ -4,7 +4,7 @@ use crate::engine::choice::char_emission;
 use crate::engine::query::{EnglishTail, leading_english};
 use crate::engine::{
     ALTERNATE_MIN_SYLLABLES, CHOICE_SENTENCE_CANDIDATES, Learner, RESCORE_PATHS,
-    SENTENCE_CANDIDATES, TIED_SEGMENTATIONS, reads_as_typed,
+    SENTENCE_CANDIDATES, TIED_SEGMENTATIONS, choice_key, reads_as_typed,
 };
 use crate::sentence::Conversion;
 use crate::{Candidate, CandidateKind, Engine, Segmentation, parser, sentence};
@@ -91,6 +91,20 @@ impl Engine {
                         kept <= SENTENCE_CANDIDATES
                     });
                 }
+                // 词级排第一、盖住整段的用户词（逐字选出的自造词、整句记忆）排在整句与生成的整句前面，
+                // 除非排第一的整句在这串键下选得更多：简拼 `xmqlxx` 的 晓铭去了学校 没在这串键下选过，也不该排在 下面请来学习 后面。
+                // 词库里的词不这样，同一串键这次要词还是要整句由上下文定（`shiyong` 选过 使用，这次要 是用）
+                let letters = choice_key(keys, keys.len());
+                let lead_choice = ordered
+                    .first()
+                    .map_or(0, |s| self.learner.choice_weight(&letters, &s.text));
+                let user_word_first = items.get(position).is_some_and(|c| {
+                    c.kind == CandidateKind::Chinese
+                        && c.syllables.len() == best.syllables.len()
+                        && self.is_user_word(c)
+                        && self.learner.choice_weight(&letters, &c.text) >= lead_choice
+                });
+                let position = position + usize::from(user_word_first);
                 for (offset, candidate) in ordered.into_iter().enumerate() {
                     items.insert((position + offset).min(items.len()), candidate);
                 }

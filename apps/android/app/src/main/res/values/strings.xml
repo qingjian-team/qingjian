@@ -165,6 +165,10 @@
     <string name="fuzzy_note">z = zh 时打 zi 也出「知」；九宫格暂不支持</string>
     <string name="full_width_title">中文用全角标点</string>
     <string name="full_width_note">关掉中文键盘打半角标点</string>
+    <string name="pair_punctuation_title">成对符号自动补全</string>
+    <string name="pair_punctuation_note">敲（补上），光标停在中间；中文与日文键盘的括号、引号、书名号</string>
+    <string name="english_pair_punctuation_title">英文键盘也补全</string>
+    <string name="english_pair_punctuation_note">半角括号与双引号；写代码的应用自己会补时别开</string>
     <string name="english_in_chinese_title">打拼音时也给英文词</string>
     <string name="english_in_chinese_note">打 compa 也出 company</string>
     <string name="hold_selections_title">分次选词先不上屏</string>

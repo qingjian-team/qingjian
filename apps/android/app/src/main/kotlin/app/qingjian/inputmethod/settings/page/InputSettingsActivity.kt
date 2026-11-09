@@ -53,6 +53,16 @@ class InputSettingsActivity : PageActivity() {
                 ui.toggle(R.string.full_width_title, R.string.full_width_note, options.fullWidthPunctuation) {
                     prefs.edit().putBoolean(Settings.KEY_FULL_WIDTH, it).apply()
                 },
+                ui.toggle(R.string.pair_punctuation_title, R.string.pair_punctuation_note, options.pairPunctuation) {
+                    prefs.edit().putBoolean(Settings.KEY_PAIR_PUNCTUATION, it).apply()
+                },
+                ui.toggle(
+                    R.string.english_pair_punctuation_title,
+                    R.string.english_pair_punctuation_note,
+                    options.englishPairPunctuation,
+                ) {
+                    prefs.edit().putBoolean(Settings.KEY_ENGLISH_PAIR_PUNCTUATION, it).apply()
+                },
                 variantPicker(settings),
                 footer = R.string.traditional_variant_note,
             ),

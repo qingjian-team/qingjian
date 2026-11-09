@@ -342,16 +342,18 @@ class QingjianInputMethodService :
         shownCandidates = candidates
         panel?.bar?.show(preedit, candidates)
         if (panel?.openPanel == PanelKind.CANDIDATES) {
-            if (candidates.isEmpty()) closePanel() else panel?.showCandidates(preedit, candidates)
+            if (candidates.isEmpty()) closePanel() else panel?.showCandidates(preedit, candidates, composer.singleChars)
         }
     }
 
     override fun onExpand() {
         openPanel(PanelKind.CANDIDATES)
-        panel?.showCandidates(shownPreedit, shownCandidates)
+        panel?.showCandidates(shownPreedit, shownCandidates, composer.singleChars)
     }
 
     override fun selectCandidate(index: Int) = composer.select(index)
+
+    override fun toggleSingleChars() = composer.toggleSingleChars()
 
     override fun clearComposition() = composer.onKey(Key.Clear)
 
@@ -452,7 +454,14 @@ class QingjianInputMethodService :
 
     override fun closePanel() {
         // 返回键关的是语音面板：这一段不要了
-        if (voice.active) voice.cancel() else panel?.close()
+        if (voice.active) {
+            voice.cancel()
+            return
+        }
+        val candidates = panel?.openPanel == PanelKind.CANDIDATES
+        panel?.close()
+        // 单字是展开面板里的筛选：收起就回到全部候选
+        if (candidates && composer.singleChars) composer.toggleSingleChars()
     }
 
     override fun commitText(text: String) = composer.commitPanelText(text)
@@ -621,6 +630,30 @@ class QingjianInputMethodService :
                 composer.directInput = code || currentInputEditorInfo?.wantsDirectInput() == true
                 showKeyboard()
             },
+        )
+        engine.setMetered(false)
+        this.editor = editor
+        panel?.showEditor(editor)
+    }
+
+    override fun editClip(index: Int, text: String) {
+        closeEditor()
+        closePanel()
+        composer.abandon()
+        val editor = PhraseEditor(
+            this, Palette.of(this), emptyList(), null, "",
+            onDone = { edited, _, _ ->
+                ClipboardStore.edit(this, index, text, edited, clipboardLimit)
+                ClipboardSync.changed()
+                closeEditor()
+                openPanel(PanelKind.CLIPBOARD)
+            },
+            onCancel = {
+                closeEditor()
+                openPanel(PanelKind.CLIPBOARD)
+            },
+            onFocusCode = {},
+            clip = text,
         )
         engine.setMetered(false)
         this.editor = editor

@@ -78,6 +78,14 @@ pub struct Args {
     #[arg(long)]
     pub english: Option<PathBuf>,
 
+    /// 英文音标表（`english-ipa.tsv`）。缺省：assets/lexicon/english-ipa.tsv 存在就用它
+    #[arg(long)]
+    pub english_ipa: Option<PathBuf>,
+
+    /// 英文候选与英文译文旁显示音标（配置 `[general] show_english_pronunciation`，缺省关）
+    #[arg(long)]
+    pub show_english_pronunciation: bool,
+
     /// 用户词频文件；给了就在退出时写回，不给则只在本次会话内学习
     #[arg(long)]
     pub user_dict: Option<PathBuf>,

@@ -51,14 +51,8 @@ impl Engine {
     /// 英文直输段：首选就是原文（`no-way`），空格 / 回车都上屏它；preedit 原样显示。
     /// 原文是「用户名@」（`qingjian@`、`zhang.san@q`）时后面跟常见邮箱的整个地址，不记学习。
     pub(in crate::engine) fn query_raw(&self, scope: &str, rest: String, start: Instant) -> Query {
-        let mut items = vec![Candidate {
-            text: scope.to_owned(),
-            kind: CandidateKind::English,
-            syllables: Vec::new(),
-            reading: None,
-            translation: None,
-            aux_code: None,
-        }];
+        // 直输段的首选也是英文词（`hello` 打出来原样上屏），音标照给
+        let mut items = vec![self.english_candidate(scope)];
         items.extend(
             crate::email_completions(scope)
                 .into_iter()
@@ -111,14 +105,7 @@ impl Engine {
             ENGLISH_MODE_CANDIDATES,
         )
         .into_iter()
-        .map(|text| Candidate {
-            text,
-            kind: CandidateKind::English,
-            syllables: Vec::new(),
-            reading: None,
-            translation: None,
-            aux_code: None,
-        })
+        .map(|text| self.english_candidate(&text))
         .collect();
         self.insert_emoji(&mut items);
         items.sort_by_key(|c| c.kind.follows_word());
@@ -221,14 +208,50 @@ impl Engine {
             .english_lists()
             .iter()
             .find_map(|words| words.get(&code))?;
-        Some(Candidate {
+        Some(self.english_candidate(word))
+    }
+
+    /// 英文候选：词面 + 音标（`[general] show_english_pronunciation` 打开时才填）。
+    ///
+    /// 音标走 `reading` 字段——平台层的 annotation 渲染本来就把 `reading` 画在候选词后面
+    /// （问字模式的带调拼音走同一条路）。中文候选从不设 `reading`，所以这条只影响英文候选。
+    /// 查不到音标（CMUdict 没收的派生词形）就留 `None`，候选照常显示。
+    pub(in crate::engine) fn english_candidate(&self, word: &str) -> Candidate {
+        Candidate {
             text: word.to_owned(),
             kind: CandidateKind::English,
             syllables: Vec::new(),
-            reading: None,
+            reading: self.english_pronunciation(word),
             translation: None,
             aux_code: None,
-        })
+        }
+    }
+
+    /// 英文词的音标，`[general] show_english_pronunciation` 关着或查不到时为 `None`。
+    ///
+    /// 查询按小写码（`Company` / `company` 同一份数据），`reading` 里存的是 `/ˈkʌmpəni/` 原样。
+    fn english_pronunciation(&self, word: &str) -> Option<String> {
+        if !self.show_english_pronunciation {
+            return None;
+        }
+        self.english_pronunciations
+            .as_ref()
+            .and_then(|table| table.pronunciation(&word.to_ascii_lowercase()))
+            .map(str::to_owned)
+    }
+
+    /// 中文候选的译文如果是英文词（`你好` → `int. hello`），给它补上音标。
+    ///
+    /// 只认**单条英文词**：译文是短语（`look after`）、带标点的句子（`it's fine.`）都不注——
+    /// 音标表按单词收，整句查不到还容易在半截上乱标。日语译文走假名那条路（`Sense::reading`），
+    /// 别的语言直接跳过。
+    pub(in crate::engine) fn annotate_pronunciation(&self, translation: &mut crate::Translation) {
+        if !self.show_english_pronunciation || translation.language != crate::Language::English {
+            return;
+        }
+        for sense in translation.senses_mut() {
+            sense.pronunciation = self.english_pronunciation(sense.text.trim());
+        }
     }
 
     /// `keyword`（`uuid` / `ts`）的候选：这段组句第一次查时生成，之后反复查都是同一组，换了词才重新生成。

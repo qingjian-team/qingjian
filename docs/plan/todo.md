@@ -169,6 +169,10 @@
   - [ ] 青简剪贴板：Linux
   - [ ] 小键盘数字：macOS、Linux
   - [ ] 双拼候选窗显示按键：Linux
+  - [ ] 组句时切换单字模式：macOS、Linux
+  - [ ] 候选字粗细：macOS
+  - [ ] 成对符号自动补全：macOS、Linux
+  - [ ] 竖排在光标上方时倒着排：macOS
 - [ ] 剪贴板局域网同步：Linux；扫码配对、Android 全屏霓虹灯、蓝牙兜底
 
 ## 四、其他输入方案

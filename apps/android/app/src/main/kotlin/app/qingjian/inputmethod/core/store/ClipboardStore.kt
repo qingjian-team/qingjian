@@ -24,6 +24,10 @@ object ClipboardStore {
     fun remove(context: Context, index: Int, limit: Int) =
         clipboard(context, JSONObject().put("op", "remove").put("index", index), limit)
 
+    /** 把第 [index] 条（原文 [from]，编辑期间被挤开了就按原文找）改成 [text]。 */
+    fun edit(context: Context, index: Int, from: String, text: String, limit: Int) =
+        clipboard(context, JSONObject().put("op", "edit").put("index", index).put("from", from).put("text", text), limit)
+
     fun clear(context: Context, limit: Int) = clipboard(context, JSONObject().put("op", "clear"), limit)
 
     private fun clipboard(context: Context, request: JSONObject, limit: Int): List<ClipItem> =

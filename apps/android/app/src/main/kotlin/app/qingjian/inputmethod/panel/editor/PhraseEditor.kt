@@ -26,6 +26,7 @@ import app.qingjian.inputmethod.theme.Palette
  * 加 / 改常用语：浮在键盘上方，键盘照常打字，打的字进这里而不是外面的输入框——
  * 输入法服务编辑时把 [connection] 当输入连接交给 Composer。上面 ⌄ 收起 / 标题 / 完成，中间正文（带字数），
  * 下面「输入码」（只收字母，最多 32 个，跟桌面自定义短语一样；点它切过去打码）与「目录」（点名字换下一组，「＋新建」打新分组名，新建中再点名字取消）。完成或收起都回常用语页。
+ * 给了 [clip] 是改剪贴板里的一条：只有正文，没有输入码与目录，完成或收起回剪贴板页。
  */
 @SuppressLint("ViewConstructor")
 class PhraseEditor(
@@ -39,9 +40,17 @@ class PhraseEditor(
     private val onCancel: () -> Unit,
     /** 正文与输入码之间换了焦点（输入码要直通字母，不过拼音）。 */
     private val onFocusCode: (Boolean) -> Unit,
+    /** 要改的剪贴板文字；null 是常用语。 */
+    private val clip: String? = null,
 ) : View(context), FloatingEditor {
     private val ink = Ink(palette, resources.displayMetrics.density)
-    private val text = SpannableStringBuilder(phrase?.text.orEmpty()).also { Selection.setSelection(it, it.length) }
+    private val text = SpannableStringBuilder(clip ?: phrase?.text.orEmpty()).also { Selection.setSelection(it, it.length) }
+
+    /** 正文下面的输入码与目录那一行有多高；改剪贴板没有这一行。 */
+    private val fieldsDp = if (clip == null) FIELDS_DP else 0f
+
+    /** 正文最多多少字：剪贴板里原本就可能比常用语长，不比原文短。 */
+    private val maxText = maxOf(MAX_TEXT, clip?.length ?: 0)
     private val code = SpannableStringBuilder(phrase?.code.orEmpty()).also { Selection.setSelection(it, it.length) }
     private var groupIndex = groups.indexOf(group).coerceAtLeast(0)
 
@@ -78,7 +87,7 @@ class PhraseEditor(
 
         override fun commitText(value: CharSequence, newCursorPosition: Int): Boolean {
             val accepted = when (field) {
-                Field.TEXT -> value.take((MAX_TEXT - text.length).coerceAtLeast(0))
+                Field.TEXT -> value.take((maxText - text.length).coerceAtLeast(0))
                 Field.CODE -> filterCode(value)
                 Field.GROUP -> value.filter { it != '\n' }.take((MAX_GROUP - newGroup.length).coerceAtLeast(0))
             }
@@ -121,13 +130,18 @@ class PhraseEditor(
         canvas.drawColor(palette.board)
         val top = ink.dp(TITLE_DP) / 2
         ink.icon(canvas, Icon.EXPAND, ink.dp(28f), top, 22f, palette.text)
-        ink.text(canvas, if (phrase == null) "添加常用语" else "编辑常用语", 16.5f, palette.brand, width / 2f, top, bold = true)
+        val title = when {
+            clip != null -> "编辑剪贴板"
+            phrase == null -> "添加常用语"
+            else -> "编辑常用语"
+        }
+        ink.text(canvas, title, 16.5f, palette.brand, width / 2f, top, bold = true)
         ink.text(canvas, "完成", 15.5f, palette.text, width - ink.dp(34f), top, bold = true)
 
         box.set(ink.dp(10f), ink.dp(TITLE_DP), width - ink.dp(10f), height - ink.dp(6f))
         ink.round(canvas, box, 12f, palette.surface)
         val padding = ink.dp(14f)
-        val textBottom = box.bottom - ink.dp(FIELDS_DP)
+        val textBottom = box.bottom - ink.dp(fieldsDp)
         if (field == Field.TEXT) {
             rect.set(box.left + ink.dp(4f), box.top + ink.dp(4f), box.right - ink.dp(4f), textBottom)
             ink.round(canvas, rect, 9f, palette.board)
@@ -141,7 +155,7 @@ class PhraseEditor(
         val room = textBottom - ink.dp(18f) - box.top - padding
         canvas.translate(box.left + padding, box.top + padding - (layout.height - room).coerceAtLeast(0f))
         if (text.isEmpty()) {
-            ink.textStart(canvas, "在这里输入常用语", 15.5f, palette.faint, 0f, ink.dp(10f), box.width())
+            ink.textStart(canvas, if (clip == null) "在这里输入常用语" else "在这里输入", 15.5f, palette.faint, 0f, ink.dp(10f), box.width())
         } else {
             layout.draw(canvas)
         }
@@ -152,7 +166,8 @@ class PhraseEditor(
             canvas.drawRect(x, layout.getLineTop(line).toFloat(), x + ink.dp(1.5f), layout.getLineBottom(line).toFloat(), ink.fill)
         }
         canvas.restore()
-        ink.textStart(canvas, "${text.length}/$MAX_TEXT", 11.5f, palette.gloss, box.right - ink.dp(60f), textBottom - ink.dp(10f), box.right)
+        ink.textStart(canvas, "${text.length}/$maxText", 11.5f, palette.gloss, box.right - ink.dp(60f), textBottom - ink.dp(10f), box.right)
+        if (clip != null) return
 
         val fieldsY = box.bottom - ink.dp(FIELDS_DP) / 2
         if (codeFocused) {
@@ -210,6 +225,7 @@ class PhraseEditor(
                 connection.finishComposingText()
                 onDone(text.toString(), chosenGroup(), code.toString())
             }
+            clip != null -> if (y > ink.dp(TITLE_DP)) focus(Field.TEXT)
             y > height - ink.dp(FIELDS_DP + 6f) && x < width / 2f -> focus(Field.CODE)
             y > height - ink.dp(FIELDS_DP + 6f) && creatingGroup && field != Field.GROUP -> focus(Field.GROUP)
             y > height - ink.dp(FIELDS_DP + 6f) && !creatingGroup && x > width - ink.dp(NEW_GROUP_DP) -> {

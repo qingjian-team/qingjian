@@ -34,6 +34,9 @@ internal object Native {
 
     external fun select(handle: Long, index: Int): String?
 
+    /** 展开面板的「全部 / 单字」：切换这段组句的单字模式。 */
+    external fun toggleSingleChars(handle: Long): String?
+
     /** 点了拼音行第 [index] 个字之后：拼音里的光标挪过去。 */
     external fun moveCaret(handle: Long, index: Int): String?
 
@@ -68,6 +71,12 @@ internal object Native {
     external fun setOptions(handle: Long, options: String): String?
 
     external fun punctuate(handle: Long, c: Char): String?
+
+    /** 成对符号：符号要上屏前问一次；回 `insert:<退几格>:<文本>`、`skip:<右半边>`，照常上屏回 null。 */
+    external fun pairPunctuation(handle: Long, text: String, english: Boolean): String?
+
+    /** 没在组句时的退格：刚补完一对时回这一对（两个字），否则 null。 */
+    external fun pairBackspace(handle: Long): String?
 
     /** 日语罗马音模式开关：开着时敲键、选词走 Core 的罗马音缓冲区。 */
     external fun setJapanese(handle: Long, on: Boolean): String?

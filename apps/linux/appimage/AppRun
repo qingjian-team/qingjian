@@ -1,0 +1,193 @@
+#!/bin/sh
+# //! 青简 AppImage 的入口：install 把 Fcitx5 插件与登录自启装进用户目录，server / settings 跑包里的程序，uninstall 撤掉。
+# //! Fcitx5 进程只能加载磁盘上的插件，AppImage 每次挂载的位置都不同，所以插件拷到用户目录、自启项指向 AppImage 文件本身。
+set -eu
+here=$(dirname "$(readlink -f "$0")")
+usr="$here/usr"
+self=${APPIMAGE:-}
+data_home=${XDG_DATA_HOME:-$HOME/.local/share}
+config_home=${XDG_CONFIG_HOME:-$HOME/.config}
+# 拷出来的插件与安装记录；不放 $data_home/qingjian（那是用户的学习数据）
+state="$data_home/qingjian-appimage"
+plugin="$state/qingjian.so"
+record="$state/installed"
+addon="$data_home/fcitx5/addon/qingjian.conf"
+inputmethod="$data_home/fcitx5/inputmethod/qingjian.conf"
+desktop="$data_home/applications/qingjian-settings.desktop"
+autostart="$config_home/autostart/qingjian-server.desktop"
+marker='# 青简 AppImage 写入，AppImage 的 uninstall 会删掉'
+min_fcitx5=5.1.8
+
+say() { printf '%s\n' "$*"; }
+die() {
+  printf '%s\n' "$*" >&2
+  # 双击启动时没有终端，错误要弹出来才看得见
+  if [ ! -t 2 ] && command -v notify-send >/dev/null 2>&1; then
+    notify-send -i dialog-error '青简' "$*" || true
+  fi
+  exit 1
+}
+
+# 写进 .desktop 的 Exec：带空格的路径加双引号，引号里的 " ` $ \ 要转义（desktop entry 规范）
+desktop_quote() {
+  printf '"%s"' "$(printf '%s' "$1" | sed 's/[\\"`$]/\\&/g')"
+}
+
+# 本用户正在跑的、来自 AppImage 的 Server（exe 旁边有 AppRun 才算；源码安装与发行包的那份不碰）
+appimage_servers() {
+  for link in /proc/[0-9]*/exe; do
+    exe=$(readlink "$link" 2>/dev/null) || continue
+    case "$exe" in */usr/bin/qingjian-linux-server) ;; *) continue ;; esac
+    [ -f "${exe%/usr/bin/qingjian-linux-server}/AppRun" ] || continue
+    pid=${link#/proc/}
+    printf '%s\n' "${pid%/exe}"
+  done
+}
+
+stop_servers() {
+  pids=$(appimage_servers)
+  [ -n "$pids" ] || return 0
+  # shellcheck disable=SC2086
+  kill $pids 2>/dev/null || true
+  for _ in 1 2 3 4 5 6 7 8 9 10; do
+    [ -n "$(appimage_servers)" ] || return 0
+    sleep 0.2
+  done
+}
+
+start_server() {
+  stop_servers
+  # 脱离当前终端与会话：装完关掉终端 Server 也还在
+  if command -v setsid >/dev/null 2>&1; then
+    setsid "$self" server </dev/null >/dev/null 2>&1 &
+  else
+    nohup "$self" server </dev/null >/dev/null 2>&1 &
+  fi
+  # 等它真的起来再返回：AppImage 要先挂载，紧接着的 uninstall 要是还看不到它，就会漏停
+  for _ in $(seq 25); do
+    [ -n "$(appimage_servers)" ] && return 0
+    sleep 0.2
+  done
+  printf '%s\n' '青简输入服务没起来，可以手动运行一次看报错：AppImage 文件后面加 server' >&2
+}
+
+# 这份文件是不是我们写的（没有就当是）；别的装法（源码安装、发行包）写的同名文件不覆盖
+ours() {
+  [ ! -e "$1" ] || grep -qxF "$marker" "$1"
+}
+
+fcitx5_version() {
+  fcitx5 --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -n 1
+}
+
+installed_here() {
+  [ -n "$self" ] && [ -f "$autostart" ] && grep -qF "$(desktop_quote "$self")" "$autostart" && cmp -s "$usr/lib/fcitx5/qingjian.so" "$plugin"
+}
+
+install_integration() {
+  [ -n "$self" ] || die '要从 AppImage 文件运行（APPIMAGE 没有设置），不能从解开的目录装。'
+  # 程序跑不起来比 Fcitx5 版本更根本，先查
+  if ! error=$("$usr/bin/qingjian-linux-server" --version 2>&1 >/dev/null); then
+    case "$error" in
+      *GLIBC_*) die '青简的程序在这个系统上跑不起来：AppImage 要 glibc 2.41 及以上（Debian 13、Ubuntu 25.04、Fedora 42 或更新）。' ;;
+      *) die "青简的程序在这个系统上跑不起来：$error" ;;
+    esac
+  fi
+  command -v fcitx5 >/dev/null 2>&1 || die '没找到 Fcitx5。先用系统的包管理器装 fcitx5（以及 GTK / Qt 的输入模块），再运行一次。'
+  version=$(fcitx5_version)
+  if [ -n "$version" ] && [ "$(printf '%s\n%s\n' "$min_fcitx5" "$version" | sort -V | head -n 1)" != "$min_fcitx5" ]; then
+    die "系统的 Fcitx5 是 $version，青简要 $min_fcitx5 及以上（Ubuntu 24.04 自带 5.1.7，不够）。"
+  fi
+  for file in "$addon" "$inputmethod" "$desktop" "$autostart"; do
+    ours "$file" || die "$file 已经存在，是别的装法装的青简。先卸载那一份（源码安装用 apps/linux/scripts/uninstall.sh，发行包用包管理器）。"
+  done
+  mkdir -p "$state" "${addon%/*}" "${inputmethod%/*}" "${desktop%/*}" "${autostart%/*}"
+  cp "$usr/lib/fcitx5/qingjian.so" "$plugin.tmp" && mv -f "$plugin.tmp" "$plugin"
+  { say "$marker"; sed "s|^Library=.*|Library=${plugin%.so}|" "$usr/share/fcitx5/addon/qingjian.conf"; } > "$addon"
+  { say "$marker"; cat "$usr/share/fcitx5/inputmethod/qingjian.conf"; } > "$inputmethod"
+  exec_line=$(desktop_quote "$self")
+  cat > "$desktop" <<EOF
+$marker
+[Desktop Entry]
+Type=Application
+Name=Qingjian Settings
+Name[zh_CN]=青简设置
+Comment=Settings for the Qingjian input method
+Comment[zh_CN]=青简输入法的设置
+Exec=$exec_line settings
+Icon=qingjian
+Categories=Settings;
+Terminal=false
+EOF
+  cat > "$autostart" <<EOF
+$marker
+[Desktop Entry]
+Type=Application
+Name=Qingjian input service
+Name[zh_CN]=青简输入服务
+Exec=$exec_line server
+NoDisplay=true
+X-GNOME-Autostart-enabled=true
+EOF
+  # 重装（挪了文件、换了版本）时，上次记下的文件仍归我们：先留着旧记录，图标那里要靠它判断
+  previous=$(cat "$record" 2>/dev/null || true)
+  : > "$record"
+  for file in "$plugin" "$addon" "$inputmethod" "$desktop" "$autostart"; do say "$file" >> "$record"; done
+  # 图标：同名的已经在、又不是上次自己装的（别的装法装过）就不动，只记自己装的
+  for icon in "$usr"/share/icons/hicolor/*/apps/*.png; do
+    target="$data_home/icons/hicolor/${icon#"$usr"/share/icons/hicolor/}"
+    if [ -e "$target" ] && ! printf '%s\n' "$previous" | grep -qxF "$target"; then
+      continue
+    fi
+    mkdir -p "${target%/*}"
+    cp "$icon" "$target"
+    say "$target" >> "$record"
+  done
+  start_server
+  say "已装好：Fcitx5 插件、登录自启与「青简设置」菜单项都指向 $self（挪动这个文件后要再运行一次 install）。"
+  say '青简输入服务已经启动。重启 Fcitx5（fcitx5 -r），在 Fcitx5 配置工具里取消「仅显示当前语言」后添加「青简」。'
+}
+
+uninstall_integration() {
+  stop_servers
+  if [ -f "$record" ]; then
+    while IFS= read -r file; do
+      case "$file" in *.desktop|*.conf) ours "$file" || continue ;; esac
+      rm -f "$file"
+    done < "$record"
+  fi
+  rm -rf "$state"
+  say '已撤掉 AppImage 装的插件、自启与菜单项；用户数据（配置、学习记录）保留。重启 Fcitx5 后它就不再加载青简。'
+}
+
+# 换了新版本的 AppImage 文件（同一路径）之后，拷出去的插件也跟着换；Fcitx5 重启后才加载新的
+sync_plugin() {
+  [ -f "$plugin" ] && [ -f "$addon" ] && ours "$addon" || return 0
+  cmp -s "$usr/lib/fcitx5/qingjian.so" "$plugin" && return 0
+  cp "$usr/lib/fcitx5/qingjian.so" "$plugin.tmp" && mv -f "$plugin.tmp" "$plugin"
+  printf '%s\n' '插件已换成这个 AppImage 里的版本，重启 Fcitx5 后生效。' >&2
+}
+
+case "${1:-}" in
+  install) install_integration ;;
+  uninstall) uninstall_integration ;;
+  server) shift; sync_plugin; exec "$usr/bin/qingjian-linux-server" "$@" ;;
+  settings) shift; exec "$usr/bin/qingjian-settings" "$@" ;;
+  --version) cat "$usr/share/qingjian/appimage-version" ;;
+  --help|-h)
+    cat <<'EOF'
+用法：Qingjian-*.AppImage [命令]
+  （不带命令）  没装过就先 install，然后打开青简设置
+  install       把 Fcitx5 插件、登录自启与菜单项装进用户目录，并启动青简输入服务
+  uninstall     撤掉上面这些（用户数据保留）
+  server        启动青简输入服务（登录自启用的就是它）
+  settings      打开青简设置
+  --version     版本号
+EOF
+    ;;
+  '')
+    installed_here || install_integration
+    exec "$usr/bin/qingjian-settings"
+    ;;
+  *) die "不认识的命令：$1（--help 看用法）" ;;
+esac

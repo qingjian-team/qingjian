@@ -33,6 +33,34 @@ fn imports_tsv_and_rime_into_qj() {
 }
 
 #[test]
+fn imports_files_saved_with_a_bom() {
+    // 记事本、Excel 存的「UTF-8 带 BOM」：Rime 词库要认得出 YAML 头，TSV 的第一个词不能带上看不见的 U+FEFF
+    let dir = std::env::temp_dir().join(format!("qingjian-import-bom-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let tsv = dir.join("finance.tsv");
+    std::fs::write(&tsv, "\u{feff}账套\tzhang tao\t500\n").unwrap();
+    let imported = import(&tsv, &dir.join("dicts")).unwrap();
+    let dictionary = Dictionary::from_path(&imported.path).unwrap();
+    assert_eq!(dictionary.lookup(&["zhang", "tao"], false)[0].text, "账套");
+
+    let rime = dir.join("law.dict.yaml");
+    std::fs::write(
+        &rime,
+        "\u{feff}# Rime dictionary\n---\nname: law\n...\n民法典\tmin fa dian\n",
+    )
+    .unwrap();
+    let imported = import(&rime, &dir.join("dicts")).unwrap();
+    assert_eq!(imported.name, "law");
+    let dictionary = Dictionary::from_path(&imported.path).unwrap();
+    assert_eq!(
+        dictionary.lookup(&["min", "fa", "dian"], false)[0].text,
+        "民法典"
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
 fn imports_tone_numbered_pinyin() {
     let dir = std::env::temp_dir().join(format!("qingjian-import-tones-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);

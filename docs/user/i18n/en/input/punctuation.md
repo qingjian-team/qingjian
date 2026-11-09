@@ -6,14 +6,26 @@ description: "Chinese punctuation and switching between full-width and half-widt
 
 ## Chinese punctuation
 
-When you're not typing pinyin, typing `, . ? ! : ; ( ) [ ] { } < > \ ^ _ $ ~` in Chinese mode gives full-width punctuation; `{` `}` give the corner brackets 「」, and `"` `'` alternate between opening and closing quotes. A `.` after a digit stays half-width (`3.14`).
+When you're not typing pinyin, typing `, . ? ! : ; ( ) [ ] { } < > \ ^ _ $ ~` in Chinese mode gives full-width punctuation; `{` `}` give the corner brackets 「」, `` ` `` gives the interpunct ·, and `"` `'` alternate between opening and closing quotes. A `.` after a digit stays half-width (`3.14`).
 
 ### Full-width and half-width
 
 - 中文标点 (Chinese punctuation) in 设置 → 中英文 (Settings → Chinese/English) can be set to half-width; letters and digits aren't affected.
+- To keep only a few symbols half-width (say the backtick `` ` `` for code), write them together in 保持半角的符号 (Keep these half-width) on the same page; other punctuation still turns full-width. Available on Windows, macOS and Linux.
 - On Windows and Linux, English mode has its own 英文标点 (English punctuation), half-width by default; on macOS, English mode is always half-width.
 - On Windows, clicking the ，。 cell on the floating status bar switches full-width / half-width for the current mode at any time.
 - On macOS and Windows you can enable `Ctrl + .` (`⌃ + .` on macOS) under 设置 → 快捷键 (Settings → Shortcuts) to switch full-width / half-width for the current mode. It's off by default so it doesn't take over the app's own shortcut.
+
+### Paired punctuation
+
+Typing an opening bracket, quote or title mark also adds the closing one, with the cursor in between: `(` gives （|）, `<` gives 《|》, `"` gives “|”.
+
+- When you finish typing inside and type the closing mark right away, it steps over the one that was added instead of adding another.
+- On Android, pressing Backspace right after the pair is added, before typing anything inside, deletes both; on Windows Backspace only deletes the opening mark as usual (Windows doesn't pass Backspace to the input method when you're not typing pinyin).
+- Once you move the cursor yourself or click elsewhere, closing marks are inserted as usual.
+- This covers brackets （） 【】, corner quotes 「」 『』, title marks 《》 〈〉 and curly quotes “” ‘’; 「」 『』 in Japanese mode are closed too.
+- 成对符号自动补全 (Auto-close paired punctuation) in 设置 → 中英文 (Settings → Chinese/English) covers Chinese and Japanese modes and is on by default. 英文模式也补全 (Also in English mode) covers half-width ( ) [ ] { } and " in English mode and is off by default: code editors and browser address bars already do this, and doing it twice leaves an extra mark. The single quote ' and < aren't paired (apostrophes in don't, comparison signs).
+- Available on Windows and Android for now.
 
 ## Typing punctuation while typing pinyin
 

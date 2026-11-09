@@ -20,7 +20,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, OnceLock};
 
 use bamboo_slip::tiny_skia::Pixmap;
-use bamboo_slip::{Color, FamilyTable, FontSpec, SvgImage};
+use bamboo_slip::{Color, FamilyTable, FontSpec, FontWeight, SvgImage};
 
 pub use error::ThemeError;
 use font::FontFamilies;
@@ -327,6 +327,9 @@ pub struct Theme {
     /// 设置里的字号，盖过主题的。
     sizes: TextSizes,
 
+    /// 设置里的候选字字重，盖过主题 `candidate` 样式的；节点上自己写了字重的（键位提示的键帽字）不动。
+    candidate_weight: Option<FontWeight>,
+
     /// 设置里关了过渡动画时为 `false`：过渡直接跳到终点，循环动画停在第一帧。
     animations: bool,
 }
@@ -374,6 +377,7 @@ impl Theme {
         let theme = Self {
             families: Arc::new(FontFamilies::new(&file.text)),
             sizes: TextSizes::default(),
+            candidate_weight: None,
             animations: true,
             file: Arc::new(file),
             dark,
@@ -401,6 +405,7 @@ impl Theme {
             embedded: self.embedded,
             families: Arc::clone(&self.families),
             sizes: self.sizes,
+            candidate_weight: self.candidate_weight,
             animations: self.animations,
         }
     }
@@ -411,6 +416,19 @@ impl Theme {
             sizes,
             ..self.clone()
         }
+    }
+
+    /// 同一主题换上设置里的候选字字重（100–900）；`None` 用主题的。
+    pub fn with_candidate_weight(&self, weight: Option<u16>) -> Self {
+        Self {
+            candidate_weight: weight.map(FontWeight),
+            ..self.clone()
+        }
+    }
+
+    /// 主题自己写的字重（不算设置里的）：设置界面拿它当字重框的初始值。
+    pub fn theme_weight(&self, name: &str) -> Option<u16> {
+        self.families.style(name).map(|spec| spec.weight.0)
     }
 
     /// 同一主题换上设置里的动画开关。
@@ -523,8 +541,17 @@ impl Theme {
 
     /// 命名文字样式（点）。
     pub(crate) fn font(&self, name: &str) -> FontSpec {
-        let spec = self.families.style(name).unwrap_or(FALLBACK_FONT);
+        let spec = self.style(name).unwrap_or(FALLBACK_FONT);
         text_sizes::scaled(spec, self.sizes.ratio(name, |base| self.theme_size(base)))
+    }
+
+    /// 主题里的命名样式，候选字换上设置里的字重。
+    fn style(&self, name: &str) -> Option<FontSpec> {
+        let spec = self.families.style(name)?;
+        Some(match self.candidate_weight {
+            Some(weight) if name == "candidate" => FontSpec { weight, ..spec },
+            _ => spec,
+        })
     }
 
     /// 字族表，画笔按 [`bamboo_slip::FamilyId`] 查回退链；两份 `Theme` 共用同一张表时指针相同。
@@ -539,7 +566,7 @@ impl Theme {
             return font.apply(FALLBACK_FONT);
         };
         let ratio = self.sizes.ratio(name, |base| self.theme_size(base));
-        let base = self.families.style(name).unwrap_or(FALLBACK_FONT);
+        let base = self.style(name).unwrap_or(FALLBACK_FONT);
         text_sizes::scaled(font.apply(base), ratio)
     }
 
@@ -705,5 +732,32 @@ mod tests {
         assert_eq!(sized.font_ref(&inline).line_height, 23.0 * ratio);
         // 不是正数当没填
         assert_eq!(TextSizes::new(-1.0, f32::NAN), TextSizes::default());
+    }
+
+    #[test]
+    fn candidate_weight_overrides_the_candidate_style_only() {
+        let theme = Theme::light();
+        let bold = theme.with_candidate_weight(Some(700));
+        assert_eq!(bold.font("candidate").weight, FontWeight(700));
+        assert_eq!(bold.font("annotation"), theme.font("annotation"));
+        assert_eq!(
+            bold.with_dark(true).font("candidate").weight,
+            FontWeight(700)
+        );
+        assert_eq!(
+            bold.theme_weight("candidate"),
+            theme.theme_weight("candidate")
+        );
+        // 节点上自己写了字重的不动，只写字号的跟着设置
+        let semibold: FontRef =
+            serde_json::from_str(r#"{ "base": "candidate", "weight": "semibold" }"#).unwrap();
+        assert_eq!(bold.font_ref(&semibold).weight, FontWeight(600));
+        let sized: FontRef =
+            serde_json::from_str(r#"{ "base": "candidate", "size": 19 }"#).unwrap();
+        assert_eq!(bold.font_ref(&sized).weight, FontWeight(700));
+        assert_eq!(
+            theme.with_candidate_weight(None).font("candidate"),
+            theme.font("candidate")
+        );
     }
 }

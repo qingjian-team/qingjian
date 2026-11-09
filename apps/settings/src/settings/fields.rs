@@ -21,13 +21,14 @@ impl Settings {
             FieldId::BaseUrl => predict.base_url.clone(),
             FieldId::Model => predict.model.clone(),
             FieldId::ApiKey => String::new(),
+            FieldId::HalfWidthSymbols => self.config.general.half_width_symbols.clone(),
             FieldId::VocabularySearch => String::new(),
             FieldId::PhraseCode | FieldId::PhraseWeight | FieldId::PhraseText => return,
         };
         self.fields.insert(id, TextEdit::new(value));
     }
 
-    /// 存一个输入框：没改、清空了都不存（清空等于不改）。
+    /// 存一个输入框：没改的不存；清空等于不改，保持半角的符号除外（清空就是一个都不保持）。
     pub(super) fn commit(&mut self, id: FieldId) {
         let Some(text) = self
             .fields
@@ -44,6 +45,18 @@ impl Settings {
                 };
                 if !text.is_empty() && text != *current {
                     self.write("predict", id.key(), text);
+                }
+            }
+            // 只留会转全角的标点，存下来的就是生效的
+            FieldId::HalfWidthSymbols => {
+                let mut symbols = String::new();
+                for c in text.chars() {
+                    if qingjian_core::punctuation::converts(c) && !symbols.contains(c) {
+                        symbols.push(c);
+                    }
+                }
+                if symbols != self.config.general.half_width_symbols {
+                    self.write("general", id.key(), symbols);
                 }
             }
             FieldId::PhraseCode

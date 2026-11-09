@@ -70,6 +70,7 @@
   `candidate` 与 `annotation` 换成设置的字号，行高同比例；`index`、`preedit` 与表格 `row_height` 按候选字的比例缩放（`theme/text_sizes.rs`）。
   节点里在样式上写死的字号（`{ "base": "candidate", "size": 19 }`，手机候选条这样写）也按那个样式的比例缩放。
   表格行高是下限（`minmax(row_height, auto)`），内容更高时撑开。
+  `[general] candidate_font_weight`（100–900，0 用主题的）经 `Theme::with_candidate_weight` 只换 `candidate` 样式的字重；节点上自己写了 `weight` 的（键位提示的键帽字）不动，只写字号的跟着设置。
   状态条不跟设置的字号：`render_status` 去掉设置的字号按主题原样画，大小由壳按 `[status_bar] size` 乘进整条的倍数（文字、图标、边距、点击边界一起缩放）。
 - **状态条**：`status.root` 是一棵与候选窗口同写法的节点树，`repeat` 绑定 `cells` 展开格子（Windows 现在是模式、标点、齿轮三格）。
   格子里的条件 `emphasized`（当前模式、生效的全角标点）、`gear`、`first`、`last`，文字绑定 `text`；整条能用 `mode.*`（`Renderer::render_status` 收一份 `Mode`，Windows 的 `StatusView` 带着，与候选窗口同一个 `Router::input_mode`）。

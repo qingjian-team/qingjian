@@ -159,6 +159,19 @@ fn punctuation_mode_does_not_change_custom_text() {
     assert_eq!(e.punctuate(';'), Some("；"));
 }
 
+// #893：写代码要的 ` 可以指定在中文模式下保持半角，别的标点照转
+#[test]
+fn listed_symbols_stay_half_width() {
+    let mut e = engine();
+    assert_eq!(e.punctuate('`'), Some("·"));
+    e.set_half_width_symbols("`;a");
+    assert_eq!(e.punctuate('`'), None);
+    assert_eq!(e.punctuate(';'), None);
+    assert_eq!(e.punctuate(','), Some("，"));
+    e.set_half_width_symbols("");
+    assert_eq!(e.punctuate('`'), Some("·"));
+}
+
 #[test]
 fn custom_exact_codes_override_mode_prefixes_but_not_longer_input() {
     let mut e = engine();

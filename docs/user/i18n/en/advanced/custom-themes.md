@@ -99,7 +99,7 @@ Parts such as the window and the highlight can have drop shadows (`drop-shadow`)
 
 Weights are `light`, `regular`, `medium`, `semibold`, `bold`, or a number from 100 to 900. If the system font doesn't have a given weight, the nearest one is used.
 
-When 候选字号 (Candidate size) or 译文字号 (Gloss size) is changed in Settings, it overrides the theme's `candidate` and `annotation` sizes, and line heights scale in proportion; `index`, `preedit` and table row heights scale along with the candidate size so that rows line up. Cells in a table row are aligned automatically on the text baseline, so themes don't need to adjust margins for different sizes. The floating status bar scales as a whole in proportion to the candidate size, which themes don't need to handle. Other styles you name yourself in the theme aren't affected.
+When 候选字号 (Candidate size) or 译文字号 (Gloss size) is changed in Settings, it overrides the theme's `candidate` and `annotation` sizes, and line heights scale in proportion; `index`, `preedit` and table row heights scale along with the candidate size so that rows line up. Cells in a table row are aligned automatically on the text baseline, so themes don't need to adjust margins for different sizes. The floating status bar scales as a whole in proportion to the candidate size, which themes don't need to handle. Other styles you name yourself in the theme aren't affected. When 候选字粗细 (Candidate text weight) is set, only the `candidate` style's weight changes; nodes that set their own `weight` keep it.
 
 ## Fonts and italics
 

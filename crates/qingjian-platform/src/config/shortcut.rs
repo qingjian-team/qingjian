@@ -58,6 +58,11 @@ pub struct ShortcutConfig {
     #[serde(with = "super::optional_key_combo")]
     pub toggle_traditional: Option<KeyCombo>,
 
+    /// 组句中切换单字模式（Windows 用，#848）：候选只留单字，再按一次恢复，上屏完自动回到正常候选。
+    /// 空串禁用。只在组句时拿走这个组合，没在打字时应用照常收到（缺省 Ctrl + D 不影响书签、复制行）。
+    #[serde(with = "super::optional_key_combo")]
+    pub single_chars: Option<KeyCombo>,
+
     /// 组句时上屏高亮候选的键（Windows、Linux 用），缺省不带 Shift 的空格。详见 [`CommitKey`]。
     pub commit_candidate: CommitKey,
 
@@ -98,6 +103,7 @@ impl Default for ShortcutConfig {
             translate_panel: KeyCombo::TRANSLATE_PANEL_DEFAULT,
             clipboard: KeyCombo::CLIPBOARD_DEFAULT,
             toggle_traditional: None,
+            single_chars: Some(KeyCombo::SINGLE_CHARS_DEFAULT),
             commit_candidate: CommitKey::SPACE,
             commit_raw: CommitKey::ENTER,
         }
@@ -192,6 +198,20 @@ mod tests {
             assert_eq!(config.toggle_traditional.is_none(), text.is_empty());
         }
         assert!(toml::from_str::<ShortcutConfig>("toggle_traditional = \"f\"").is_err());
+    }
+
+    #[test]
+    fn single_chars_shortcut_defaults_on_and_can_be_disabled() {
+        let default: ShortcutConfig = toml::from_str("").unwrap();
+        assert_eq!(default.single_chars, Some(KeyCombo::SINGLE_CHARS_DEFAULT));
+        for text in ["", "ctrl+d", "ctrl+shift+d"] {
+            let config: ShortcutConfig =
+                toml::from_str(&format!("single_chars = {text:?}")).unwrap();
+            let restored: ShortcutConfig =
+                toml::from_str(&toml::to_string(&config).unwrap()).unwrap();
+            assert_eq!(restored.single_chars, config.single_chars);
+            assert_eq!(config.single_chars.is_none(), text.is_empty());
+        }
     }
 
     #[test]

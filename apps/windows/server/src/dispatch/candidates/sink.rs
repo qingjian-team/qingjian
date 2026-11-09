@@ -21,8 +21,14 @@ pub struct RenderSettings {
     /// 候选字、译文字号（`[general] candidate_font_size` / `annotation_font_size`），盖过主题。
     pub font_sizes: (FontSize, FontSize),
 
+    /// 候选字字重（`[general] candidate_font_weight`，已取整到 100–900），盖过主题；`None` 用主题的。
+    pub candidate_weight: Option<u16>,
+
     /// 过渡动画（`[general] animations`）。
     pub animations: bool,
+
+    /// 竖排窗口在光标上方时倒着排（`[general] vertical_reverse_above`）。
+    pub reverse_above: bool,
 
     /// 用户主题目录的戳（`ThemeLibrary::stamp`）：主题文件改了它就变，UI 线程据此重读主题。
     pub themes_stamp: u64,

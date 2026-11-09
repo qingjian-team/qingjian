@@ -8,6 +8,9 @@ pub struct Choice {
 
     /// 记录的文本。
     pub text: String,
+
+    /// 同时记了一份的简拼记录键（`shishan` 选的 屎山 记到 `^ss`，见 `Engine::abbreviation_key`）；没记时是空串。
+    pub abbreviation: String,
 }
 
 /// 最近一次上屏记了哪些学习：用户把它退格删掉、再打同一段拼音换选别的词时，把这些记录退回去。
@@ -45,8 +48,21 @@ pub struct LastCommit {
     /// 输入日志里这次上屏的序号，撤销时指回去。
     pub log_id: u64,
 
-    /// 整段拼音分几次选完时记的「整段 → 合成词」选择（学习键，选择记录），撤销时一并退回。
-    pub phrase: Option<(String, Choice)>,
+    /// 整段拼音上屏完时记的「整段 → 合成词」选择，撤销时一并退回。
+    pub phrase: Option<BufferPhrase>,
+}
+
+/// 一段拼音上屏完（分几次选完，或一次选中的短整句）时对整段记的学习，见 `Engine::finish_buffer`。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BufferPhrase {
+    /// 整段拼音的学习键。
+    pub key: String,
+
+    /// 这段拼音下记的选择。
+    pub choice: Choice,
+
+    /// 这次才把它记成用户词：撤销时连词一起删掉，选错的整句不留在用户词里。
+    pub created: bool,
 }
 
 impl LastCommit {

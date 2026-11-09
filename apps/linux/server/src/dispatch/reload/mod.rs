@@ -125,6 +125,8 @@ impl Router {
         self.engine
             .set_symbol_limit(usize::from(config.general.symbols.get()));
         self.engine.set_traditional(config.general.traditional());
+        self.engine
+            .set_half_width_symbols(&config.general.half_width_symbols);
         self.engine.set_mode_keys(config.shortcut.mode);
         if let Err(error) = self
             .engine
@@ -163,6 +165,8 @@ impl Router {
             reload.applied_dictionaries = config.dictionaries.clone();
             self.engine
                 .set_extra_dictionaries(reload.load_dictionaries());
+            self.engine
+                .set_blocked_words(config.dictionaries.blocked.clone());
         }
         self.reload = Some(reload);
     }

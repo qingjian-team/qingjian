@@ -185,8 +185,8 @@ impl TextService_Impl {
 
     /// 这个键吃不吃，与 Router 的分派对齐；`OnTestKeyDown` 用，无副作用。判定见 [`eats_key`]。
     ///
-    /// 带 Ctrl/Alt/Win 只有组句中的「修饰键 + 数字」送 Server（译词 / 删候选）、面板翻译框里的 Ctrl+A 送 Server（全选），
-    /// 其余归应用（翻译选中文字走保留键）；
+    /// 带 Ctrl/Alt/Win 只有组句中的「修饰键 + 数字」送 Server（译词 / 删候选）、组句中的 AI 与单字模式组合键、
+    /// 面板翻译框里的 Ctrl+A 送 Server（全选），其余归应用（翻译选中文字走保留键）；
     /// 字母只有「中文模式、没在组句、按住 Shift 的大写」归应用（`[general] shift_letter = "compose"` 时也吃，
     /// 让它起一段组句），其中 V / U / I 仍送 Server：双拼下是表达式 / 问字入口；
     /// 组句中功能键 / 方向键 / 可打印字符都吃；没在组句时数字 / 标点也先「测吃」送去转全角（中英各有一份开关），
@@ -204,11 +204,14 @@ impl TextService_Impl {
             input.shift_letter_compose,
             input.english_candidates,
         ) || (self.shared.composing()
-            && input.predict.is_some_and(|combo| {
-                event.virtual_key
-                    == preserved::key_event(combo, self.mode_state.english()).virtual_key
-                    && event.modifiers.chord() == combo.modifiers.into()
-            }))
+            && [input.predict, input.single_chars]
+                .into_iter()
+                .flatten()
+                .any(|combo| {
+                    event.virtual_key
+                        == preserved::key_event(combo, self.mode_state.english()).virtual_key
+                        && event.modifiers.chord() == combo.modifiers.into()
+                }))
     }
 
     /// 没在组句的数字：在 Test 里先问 Server。
@@ -327,6 +330,7 @@ impl TextService_Impl {
                     commit: response.commit,
                     preedit,
                     consumed,
+                    caret: response.caret,
                 }
             }
             Ok(KeyReply::NeedSelection { request }) => {
@@ -358,6 +362,7 @@ impl TextService_Impl {
                     consumed: false,
                     commit,
                     preedit,
+                    ..
                 },
                 Some(c),
             ) if insertable && preedit.is_empty() => {
@@ -366,7 +371,7 @@ impl TextService_Impl {
                 }
                 let mut text = commit.unwrap_or_default();
                 text.push(c);
-                self.update_document(pic, Some(text), String::new());
+                self.update_document(pic, Some(text), String::new(), None);
                 true
             }
             // 放行的功能键：Server 没动缓冲区，交还应用（应用处理这个键时光标可能会移）。
@@ -378,11 +383,14 @@ impl TextService_Impl {
             ) => false,
             (
                 Next::Document {
-                    commit, preedit, ..
+                    commit,
+                    preedit,
+                    caret,
+                    ..
                 },
                 _,
             ) => {
-                self.update_document(pic, commit, preedit);
+                self.update_document(pic, commit, preedit, caret);
                 true
             }
             // 读选区是异步的：先吃掉这个键，选区文本在回调里发给 Server。
@@ -403,6 +411,7 @@ fn digit_passthrough_native(next: &Next) -> bool {
             consumed: false,
             commit,
             preedit,
+            caret: None,
         } if preedit.is_empty() && commit.as_ref().is_none_or(|text| text.is_empty())
     ) || matches!(next, Next::Abort)
 }
@@ -651,6 +660,7 @@ mod tests {
             consumed: false,
             commit: None,
             preedit: String::new(),
+            caret: None,
         }));
         assert!(digit_passthrough_native(&Next::Abort));
         // `-` `=` 等非数字仍由壳插入；有前缀 / 已 Consumed 时不能 Test 放行
@@ -660,11 +670,13 @@ mod tests {
             consumed: true,
             commit: None,
             preedit: String::new(),
+            caret: None,
         }));
         assert!(!digit_passthrough_native(&Next::Document {
             consumed: false,
             commit: Some("hi".into()),
             preedit: String::new(),
+            caret: None,
         }));
     }
 }

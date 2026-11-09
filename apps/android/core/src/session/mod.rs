@@ -183,6 +183,7 @@ impl Session {
                 pinyin_choices: Vec::new(),
                 candidates,
                 expression: false,
+                single_chars: false,
             };
         }
         if self.engine.composition().is_empty() {
@@ -234,6 +235,7 @@ impl Session {
                 })
                 .collect(),
             expression: self.engine.expression_mode() || self.engine.unicode_entry(),
+            single_chars: self.engine.composition().single_chars(),
         }
     }
 }

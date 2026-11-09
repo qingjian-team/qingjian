@@ -12,6 +12,9 @@ import org.json.JSONObject
 data class InputOptions(
     val fuzzy: Set<String> = emptySet(),
     val fullWidthPunctuation: Boolean = true,
+    /** 成对符号（#928）：中文与日文键盘一份、英文键盘一份，同 PC 的 `pair_punctuation` / `english_pair_punctuation`。 */
+    val pairPunctuation: Boolean = true,
+    val englishPairPunctuation: Boolean = false,
     val englishInChinese: Boolean = true,
     val chineseFirst: Boolean = false,
     val learningLanguage: String = SettingChoices.defaultLearningLanguage,
@@ -39,6 +42,8 @@ data class InputOptions(
     fun toJson(): String = JSONObject()
         .put("fuzzy", JSONArray(SettingChoices.fuzzy.map { it.key }.filter { it in fuzzy }))
         .put("full_width_punctuation", fullWidthPunctuation)
+        .put("pair_punctuation", pairPunctuation)
+        .put("english_pair_punctuation", englishPairPunctuation)
         .put("english_in_chinese", englishInChinese)
         .put("chinese_first", chineseFirst)
         .put("learning_language", learningLanguage)

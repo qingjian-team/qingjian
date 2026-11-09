@@ -1,11 +1,11 @@
 //! 「中英文」页：英文模式（开关、切换键、默认英文与按应用记住、英文候选、Shift + 字母），标点与中西文空格，悬浮状态条。
 
 use bamboo_slip::taffy::{FlexDirection, NodeId, Style};
-use bamboo_slip::{Checkbox, RenderError, SettingRow, Ui, Visual, group, section_title};
+use bamboo_slip::{Checkbox, RenderError, SettingRow, TextField, Ui, Visual, group, section_title};
 use qingjian_platform::{DEFAULT_ENGLISH_CANDIDATES_ON, ShiftLetter, SwitchKey, ThirdInputMethod};
 
 use crate::i18n::tr;
-use crate::message::{Message, Popup};
+use crate::message::{FieldId, Message, Popup};
 use crate::support::Feature;
 use crate::view::Page;
 use crate::view::parts::actions::with_notice;
@@ -14,6 +14,9 @@ use crate::view::parts::menus::third_input_label;
 
 /// 全角 / 半角两档，配置里是布尔。
 const WIDTHS: [bool; 2] = [true, false];
+
+/// 「保持半角的符号」输入框的宽度（点）：放得下十来个符号。
+const SYMBOLS_WIDTH: f32 = 120.0;
 
 pub fn language(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderError> {
     let theme = &page.theme;
@@ -156,6 +159,7 @@ pub fn language(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Render
                 .build(ui, theme)?,
         );
     }
+    rows.push(half_width_symbols(ui, page)?);
     rows.push(toggle_info(
         ui,
         page,
@@ -165,6 +169,26 @@ pub fn language(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Render
         general.punct_commits,
         false,
     )?);
+    if Feature::PairPunctuation.here() {
+        rows.push(toggle_info(
+            ui,
+            page,
+            tr("language.pair_punctuation"),
+            Some(tr("language.pair_punctuation_info")),
+            ("general", "pair_punctuation"),
+            general.pair_punctuation,
+            false,
+        )?);
+        rows.push(toggle_info(
+            ui,
+            page,
+            tr("language.english_pair_punctuation"),
+            Some(tr("language.english_pair_punctuation_info")),
+            ("general", "english_pair_punctuation"),
+            general.english_pair_punctuation,
+            false,
+        )?);
+    }
     if Feature::AutoSpace.here() {
         rows.push(toggle_info(
             ui,
@@ -270,4 +294,26 @@ fn switch_keys(ui: &mut Ui<Message>, page: &Page) -> Result<NodeId, RenderError>
             .control(column),
         "switch-keys",
     )
+}
+
+/// 中文标点开着也保持半角的符号（#893）：几个符号连写，失焦或回车存。
+fn half_width_symbols(ui: &mut Ui<Message>, page: &Page) -> Result<NodeId, RenderError> {
+    let id = FieldId::HalfWidthSymbols;
+    let row = SettingRow::new(tr("language.half_width_symbols"))
+        .info(tr("language.half_width_symbols_info"));
+    let Some(edit) = page.settings.fields.get(&id) else {
+        return row.build(ui, &page.theme);
+    };
+    let input = TextField::new(edit)
+        .placeholder("`")
+        .width(SYMBOLS_WIDTH)
+        .build(
+            ui,
+            &page.theme,
+            ("field", id),
+            move |edit| Message::Edit(id, edit),
+            Some(Message::Commit(id)),
+            Some(Message::Cancel(id)),
+        )?;
+    row.control(input).build(ui, &page.theme)
 }
