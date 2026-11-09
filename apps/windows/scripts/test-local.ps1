@@ -1,4 +1,4 @@
-# 本地联调：拿刚编出来的 Server 与 TSF DLL，配一份装着真实数据的安装目录跑起来。
+﻿# 本地联调：拿刚编出来的 Server 与 TSF DLL，配一份装着真实数据的安装目录跑起来。
 #
 # 为什么不直接在仓库里跑：`bundled_root()` 按 exe 位置找数据，`target\debug\` 下会落到仓库根，
 # 而 `data\generated\`（词库 / LM / 释义表）是 gitignore 的、本机多半没有，于是退回 `assets\sample\`

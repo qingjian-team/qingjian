@@ -10,9 +10,9 @@ CLAUDE.md 只保留目录地图与规则，每个 crate / app / tool 的实现�
 TSV 解析、查询与生成工具把 `lue` / `nue` 统一成 `lve` / `nve`。
 英文词表 `WordList`（`english.tsv`，9.5 万词）编码与原样词拼进一块缓冲、条目只记位置，按编码二分：每词三个 `String` 加 `HashMap` 时常驻 18 MB，现在约 4 MB（2026-10-28 探针）。
 英文音标复用同一结构（随包 `english-ipa.qj`，11.7 万条，词库仓库 `official/lexicon/en/ipa/` 发版、dicts-fetch 取）：音标放「原样词」那列，TSV 由 `WordList::parse_pronunciations` 解析——**不能用 `parse`**，那个把第二列当编码，音标会被存成键；打包用 `dict-convert pack pronunciations`，各壳经 `qingjian_platform::pronunciations` 读 `.qj`；查询用 `pronunciation(code)`，键一律小写。
-数据由 `dict-convert ipa` 从 CMUdict 生成。ARPAbet → IPA 有两处不能机械查表：重音要**从元音挪到音节首**（`cargo` 是 `/ˈkɑrˌɡoʊ/` 不是 `/kˈɑrɡoʊ/`），先按「元音之间的辅音归后一音节、R 除外」划界再插标记；无重音的 `AH` 是 schwa `ə` 而不是 `ʌ`（CMUdict 同一个符号表示两个音，只能靠调号区分，混了就会得到 `/hʌˈloʊ/`）。
+数据由 `dict-convert ipa` 从 CMUdict 生成。ARPAbet → IPA 有两处不能机械查表：重音要**从元音挪到音节首**（`cargo` 是 `/ˈkɑrˌɡoʊ/` 不是 `/kˈɑrɡoʊ/`），先按最大起首音划界再插标记（元音之间的辅音从右往左取最长的合法首音串，`computer` 是 `/kəmˈpjutɚ/`，元音后的 R 留在左边）；无重音的 `AH` 是 schwa `ə` 而不是 `ʌ`（CMUdict 同一个符号表示两个音，只能靠调号区分，混了就会得到 `/hʌˈloʊ/`）。
 只覆盖产品词表的约 57%：CMUdict 不收规则派生的复数 / 过去式 / 进行式（`abacuses`、`abstracting`），查不到就不显示，不做后缀反推。
-候选侧不新增字段：音标填进 `Candidate::reading`（问字模式的带调拼音本来就走它），平台层照旧画在最前面。
+候选侧不新增字段：音标填进 `Candidate::reading`（问字模式的带调拼音本来就走它）。英文候选的音标是辅助信息，平台层画在译文之后、用淡色；问字模式的带调拼音仍画在最前面、用译词色。
 中文候选的**英文译文**另走 `Sense::pronunciation`（与日语的 `Sense::reading` 分开：假名要按汉字段对位、`開発(かいはつ)する`；
 音标是整条译词的、`hello /həˈloʊ/`，不带括号）。由 `Engine::annotate` 在译文填好之后调 `annotate_pronunciation` 补，
 只认语言为英文且是单个词的译文——短语（`as if`）查不到就留 `None`，不按空格切词硬注。
