@@ -1,11 +1,13 @@
 #!/bin/sh
-# 装完之后：杀掉旧进程，再以当前登录用户的身份把输入源注册并启用。
+# 装完之后：杀掉旧的输入法与剪贴板进程，再以当前登录用户的身份把输入源注册并启用。
 # 安装器以 root 运行，而输入源是每个用户自己的设置，所以要切到用户的会话里去调 `qingjian-macos --register`。
 set -u
 APP="/Library/Input Methods/Qingjian.app"
 BIN="$APP/Contents/MacOS/qingjian-macos"
 
 pkill -x qingjian-macos 2>/dev/null || true
+# 剪贴板由输入法拉起，旧版不杀会一直挂着，输入法起来后按配置拉起新的
+pkill -x qingjian-clipboard 2>/dev/null || true
 
 user="$(stat -f%Su /dev/console 2>/dev/null || true)"
 if [ -n "$user" ] && [ "$user" != "root" ]; then

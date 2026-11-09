@@ -108,8 +108,6 @@ if [[ "$SETTINGS_VERSION" == *-dev ]]; then SETTINGS_VERSION="${SETTINGS_VERSION
 cp apps/macos/scripts/uninstall.sh "$APP/Contents/Resources/uninstall.sh"
 # 输入源名字按系统语言本地化（中文系统显示「青简」，其他显示 Qingjian）
 cp -R apps/macos/resources/*.lproj "$APP/Contents/Resources/"
-# 词库与释义表打进 Resources：产品数据（自建词库 + 语言模型 + LLM 释义表）在下面拷，assets/sample/ 的样例一直带着
-cp assets/sample/*.tsv "$APP/Contents/Resources/"
 # emoji 表（Unicode CLDR，可发布）
 cp assets/emoji/*.tsv "$APP/Contents/Resources/"
 # 词汇等级表（CEFR-J / Octanove / JLPT，见 assets/levels/README.md），「统计」页按级数词汇
@@ -133,6 +131,8 @@ if [[ "$SAMPLE_DATA" == 0 ]]; then
   # 本地整句模型不随包：缺省不用模型，含章·通变与知意都在设置的「实验功能」里下载到用户目录 models/
   echo "使用 data/generated/ 的产品数据"
 else
+  # 样例只在这里带：和产品数据同放会被当成随包的表，不随包、该下载的释义表就会退到几行的样例上
+  cp assets/sample/*.tsv "$APP/Contents/Resources/"
   echo "只带样例词库（--sample-data），不是可分发的包"
 fi
 printf 'APPL????' > "$APP/Contents/PkgInfo"
