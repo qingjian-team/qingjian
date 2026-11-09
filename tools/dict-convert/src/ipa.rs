@@ -134,12 +134,11 @@ const ONSETS: &[&[&str]] = &[
     &["S", "T", "R"],
     &["S", "K", "R"],
     &["S", "K", "W"],
-    // 塞音 + W、K + 鼻音
+    // 塞音 + W
     &["T", "W"],
     &["D", "W"],
     &["K", "W"],
     &["G", "W"],
-    &["K", "S"],
     // 辅音 + Y（`computer` 的 `pj`、`pure`、`cute`、`music` 的 `mj`）
     &["P", "Y"],
     &["B", "Y"],
@@ -374,6 +373,11 @@ mod tests {
         assert_eq!(
             to_ipa(&["HH", "AH1", "Z", "B", "AH0", "N", "D"]),
             Some("ˈhʌzbənd".to_owned())
+        );
+        // accede  AE0 K S IY1 D → ks 不能起头，切 æk|sid
+        assert_eq!(
+            to_ipa(&["AE0", "K", "S", "IY1", "D"]),
+            Some("ækˈsid".to_owned())
         );
     }
 
