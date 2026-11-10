@@ -356,6 +356,44 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: tools/release/upload-build.sh linux-packages "deb：Debian 13 容器；rpm：Fedora 42 容器；Rust 部分：Ubuntu 22.04 容器" target/linux-pkg/out/*.deb target/linux-pkg/out/*.rpm
 
+  # AppImage：在 Debian 13 容器里编（Fcitx5 ≥ 5.1.8 里 glibc 最老的），见 docs/notes/linux-appimage.md。
+  # 进 releases.json，官网 Linux 的主按钮给它，tar.gz 作小字链接。
+  linux-appimage:
+    needs: prepare
+    if: needs.prepare.outputs.linux == 'true'
+    runs-on: ubuntu-26.04
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ needs.prepare.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # 只给 upload-build.sh 记工具链版本；编译用的是容器里的同一版
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
+        with:
+          toolchain: 1.96.0
+
+      - name: Fetch product data
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: tools/release/data-fetch.sh
+
+      - name: Build AppImage
+        run: apps/linux/appimage/build.sh
+
+      # Debian 13 容器里装、起 Fcitx5、Mousepad 里打字比对；Ubuntu 24.04（Fcitx5 5.1.7）应按预期拒装
+      - name: Smoke-test AppImage
+        timeout-minutes: 30
+        run: apps/linux/appimage/test/test.sh target/appimage/Qingjian-*-x86_64.AppImage debian13 ubuntu2404
+
+      - name: Upload to draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: tools/release/upload-build.sh linux-appimage "Debian 13 容器，Fcitx5 5.1.12" target/appimage/Qingjian-*-x86_64.AppImage
+
   android:
     needs: prepare
     if: needs.prepare.outputs.android == 'true'
@@ -430,7 +468,7 @@ jobs:
         run: tools/release/upload-build.sh android "$(. /etc/os-release && echo "$PRETTY_NAME"), NDK $NDK_VERSION" target/android-package/*.apk
 
   publish:
-    needs: [prepare, macos, windows, linux, linux-packages, android]
+    needs: [prepare, macos, windows, linux, linux-packages, linux-appimage, android]
     # 没选中的平台是 skipped，照样发；有平台失败就停在草稿
     if: ${{ !cancelled() && needs.prepare.result == 'success' && !contains(needs.*.result, 'failure') }}
     runs-on: ubuntu-26.04

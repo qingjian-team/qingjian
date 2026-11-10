@@ -22,8 +22,9 @@ in_container() {
   rm -rf "$appdir"
   scratch=$(mktemp -d)
   # 与源码安装共用 files.py 的清单与产品数据校验：装进 AppDir/usr，XDG 目录指到 usr/share 与临时目录
-  XDG_DATA_HOME="$appdir/usr/share" XDG_CONFIG_HOME="$scratch" python3 apps/linux/scripts/files.py install "$appdir/usr" "$root" \
-    "$target/release/qingjian-linux-server" "$target/release/qingjian-settings" "$out/fcitx5/qingjian.so" false fcitx5
+  XDG_DATA_HOME="$appdir/usr/share" XDG_CONFIG_HOME="$scratch" python3 apps/linux/scripts/files.py install "$appdir/usr" --root "$root" \
+    --server "$target/release/qingjian-linux-server" --settings "$target/release/qingjian-settings" \
+    --plugin "$out/fcitx5/qingjian.so" --flavor fcitx5
   rm -rf "$scratch" "$appdir/usr/share/qingjian/install-manifest.json" "$appdir/usr/share/applications"
   # files.py 按安装位置改写了 Library= / Exec=，AppImage 的位置要到用户机器上才知道：放回原样，由 AppRun install 再填
   install -m 644 apps/linux/fcitx5/data/addon/qingjian.conf "$appdir/usr/share/fcitx5/addon/qingjian.conf"

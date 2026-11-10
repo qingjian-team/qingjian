@@ -59,12 +59,15 @@ CHANNELS = ("alpha", "beta", "rc", "stable")
 SCHEMA_VERSION = 1
 
 # 安装包文件名 → 平台、架构说明（给人看）、CPU（给程序比对）；不匹配的附件不进列表。
-# 0.1.3 起文件名是 qingjian-<版本>-<平台>-<cpu>[-setup].<扩展名>，后三条认 0.1.2 及更早的旧名。
+# 同一平台的包按这里的先后排，官网主按钮给排在前面的那个（Linux 给 AppImage，tar.gz 作小字链接）。
+# 0.1.3 起文件名是 qingjian-<版本>-<平台>-<cpu>[-setup].<扩展名>，AppImage 照它的惯例是 Qingjian-<版本>-x86_64.AppImage；
+# 最后三条认 0.1.2 及更早的旧名。
 ASSET_KINDS = [
     (re.compile(r"^qingjian-.+-macos-arm64\.pkg$"), "macos", "Apple Silicon", "arm64"),
     (re.compile(r"^qingjian-.+-macos-x86_64\.pkg$"), "macos", "Intel", "x86_64"),
     (re.compile(r"^qingjian-.+-windows-x86_64-setup\.exe$"), "windows", "x64", "x86_64"),
-    (re.compile(r"^qingjian-.+-linux-x86_64\.tar\.gz$"), "linux", "x64", "x86_64"),
+    (re.compile(r"^Qingjian-.+-x86_64\.AppImage$"), "linux", "x64 AppImage", "x86_64"),
+    (re.compile(r"^qingjian-.+-linux-x86_64\.tar\.gz$"), "linux", "x64 tar.gz", "x86_64"),
     (re.compile(r"^qingjian-.+-android-arm64\.apk$"), "android", "arm64", "arm64"),
     (re.compile(r"^Qingjian-.+-arm64\.pkg$"), "macos", "Apple Silicon", "arm64"),
     (re.compile(r"^Qingjian-.+-x86_64\.pkg$"), "macos", "Intel", "x86_64"),
@@ -103,10 +106,11 @@ def semver_key(version: str) -> tuple:
     return (*nums, 0 if pre else 1, pre)
 
 
-def classify(name: str) -> tuple[str, str, str] | None:
-    for pattern, platform, arch, cpu in ASSET_KINDS:
+def classify(name: str) -> tuple[str, str, str, int] | None:
+    """平台、架构说明、CPU 与在 ASSET_KINDS 里的先后（同平台的包按它排）。"""
+    for rank, (pattern, platform, arch, cpu) in enumerate(ASSET_KINDS):
         if pattern.match(name):
-            return platform, arch, cpu
+            return platform, arch, cpu, rank
     return None
 
 
@@ -155,6 +159,7 @@ def build(changelog: dict[str, dict], api: list[dict], repo: str, meta_dir: Path
             log = {"date": item.get("published_at", "")[:10], "channel": "beta", "notes": [], "mirrors": []}
         sums, info = read_meta(meta_dir, item["tag_name"])
         assets = []
+        ranks: dict[str, int] = {}
         for asset in item.get("assets", []):
             kind = classify(asset["name"])
             if kind is None:
@@ -168,7 +173,8 @@ def build(changelog: dict[str, dict], api: list[dict], repo: str, meta_dir: Path
                 "size": asset.get("size", 0),
                 "sha256": sums.get(asset["name"], ""),
             })
-        assets.sort(key=lambda a: (a["platform"], a["arch"]))
+            ranks[asset["name"]] = kind[3]
+        assets.sort(key=lambda a: (a["platform"], ranks[a["file"]]))
         releases.append({
             "version": version,
             "date": log["date"],
