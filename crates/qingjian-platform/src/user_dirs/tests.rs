@@ -21,6 +21,8 @@ fn flat_layout_is_sorted_into_folders() {
         "config.toml",
         "user.tsv",
         "user-words.tsv",
+        "user-code-words.tsv",
+        "user-code-words.tsv.bak",
         "user-english.tsv.bak",
         "user-glossary-ja.tsv",
         "user-vocab.tsv",
@@ -49,6 +51,11 @@ fn flat_layout_is_sorted_into_folders() {
     for (old, new) in [
         ("user.tsv", "learning/user.tsv"),
         ("user-words.tsv", "learning/user-words.tsv"),
+        ("user-code-words.tsv", "learning/user-code-words.tsv"),
+        (
+            "user-code-words.tsv.bak",
+            "learning/user-code-words.tsv.bak",
+        ),
         ("user-english.tsv.bak", "learning/user-english.tsv.bak"),
         ("user-glossary-ja.tsv", "learning/user-glossary-ja.tsv"),
         ("user-vocab.tsv", "records/user-vocab.tsv"),

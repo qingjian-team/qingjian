@@ -42,3 +42,34 @@ fn retired_zhiwei_is_rewritten_on_start() {
     );
     std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
 }
+
+#[test]
+fn auto_phrase_controls_write_shared_settings_and_are_searchable() {
+    use crate::message::Message;
+    use bamboo_slip::App;
+
+    let path = temp_config("auto-phrase", "");
+    let mut settings = Settings::load(path.clone());
+    settings.update(Message::set("auto_phrase", "enabled", false));
+    settings.update(Message::set("auto_phrase", "max_chars", 10_i64));
+    assert!(!settings.config.auto_phrase.enabled);
+    assert_eq!(settings.config.auto_phrase.max_chars, 10);
+    assert_eq!(
+        Config::load(&path).unwrap().auto_phrase,
+        settings.config.auto_phrase
+    );
+    let index = crate::view::index(&settings);
+    assert_eq!(
+        index
+            .iter()
+            .any(|entry| entry.title == crate::i18n::tr("input.auto_phrase")),
+        crate::support::Feature::Schemes.here()
+    );
+    assert_eq!(
+        index
+            .iter()
+            .any(|entry| entry.title == crate::i18n::tr("input.auto_phrase_length")),
+        crate::support::Feature::Schemes.here()
+    );
+    std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
+}

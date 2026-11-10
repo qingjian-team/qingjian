@@ -19,6 +19,8 @@ pub struct CommitChain {
 
     /// 这段拼音整段的学习键（按输入串记选择用的全部字母），第一个词上屏前记下。
     buffer_key: String,
+    /// 连续上屏的完整五笔词，按汉字总数限长，供下一次组词使用。
+    code_words: Vec<String>,
 }
 
 impl CommitChain {
@@ -52,6 +54,9 @@ impl CommitChain {
 
     /// 记下刚上屏的词；`buffer_left` 是上屏后缓冲区里是否还有拼音。
     pub fn advance(&mut self, text: &str, syllables: &[String], buffer_left: bool) {
+        if !syllables.is_empty() {
+            self.code_words.clear();
+        }
         self.earlier = self.previous.take().map(|(text, _)| text);
         self.previous = Some((text.to_owned(), syllables.to_vec()));
         self.same_buffer = buffer_left;
@@ -77,6 +82,7 @@ impl CommitChain {
 
     /// 打断链。
     pub fn reset(&mut self) {
+        self.code_words.clear();
         self.previous = None;
         self.earlier = None;
         self.same_buffer = false;
@@ -87,6 +93,25 @@ impl CommitChain {
     pub fn leave_buffer(&mut self) {
         self.same_buffer = false;
         self.buffer_words.clear();
+    }
+
+    pub fn clear_code_words(&mut self) {
+        self.code_words.clear();
+    }
+
+    pub fn push_code_word(&mut self, text: &str, max_chars: usize) -> Vec<String> {
+        self.code_words.push(text.to_owned());
+        let mut chars = self
+            .code_words
+            .iter()
+            .map(|word| word.chars().count())
+            .sum::<usize>();
+        while chars > max_chars {
+            chars -= self.code_words.remove(0).chars().count();
+        }
+        (0..self.code_words.len().saturating_sub(1))
+            .map(|start| self.code_words[start..].concat())
+            .collect()
     }
 }
 

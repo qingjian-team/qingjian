@@ -13,6 +13,10 @@ Under 设置 → 输入 → 形码 (Settings → Input → Shape-based), choose 
 - **Wubi only**: set 拼音 (Pinyin) on the same page to 关 (Off).
 - **Wubi–pinyin mixed input**: leave the pinyin scheme on; see [Mixed input](#Mixed-input) below.
 
+## Automatic phrases
+
+Settings → Input → Automatic Wubi phrases controls Wubi learning and maximum length (2–10 Chinese characters, default: 4). Wubi learns a new combination on its first consecutive input, using full character codes regardless of shortcuts. For four or more characters it takes the first code letter of the first three and last characters. These settings do not affect Pinyin or Shuangpin learning; see [Automatic phrases](../personalize/dictionaries.md#Automatic-phrases).
+
 ## Typing
 
 You type codes, not pronunciations: `ggll` gives 一, `khlg` gives 中国, `gant` gives 开发. The top of the candidate window shows the code exactly as typed.

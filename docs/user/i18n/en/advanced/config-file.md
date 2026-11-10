@@ -29,6 +29,8 @@ All settings are kept in one TOML text file, `config.toml`, with a note for ever
 |---|---|---|
 | `[general] scheme` | 输入 → 拼音 (Input → Pinyin) | `pinyin` (full pinyin), `xiaohe`, `ziranma`, `microsoft`, `sogou`, `abc`, `xiaolang`, `shoudao`, `jiajia`, `ziguang`, `zhuyin`, or the folder name of a custom scheme |
 | `[general] hold_selections` | 输入 → 分次选词先不上屏 (Input → Keep partial picks until done) | `true` / `false` |
+| `[auto_phrase] enabled` | Input → Automatic Wubi phrases → Learn new Wubi phrases automatically | `true` (default) / `false`; only controls consecutive Wubi learning, without affecting Pinyin, Shuangpin, existing words or frequency learning |
+| `[auto_phrase] max_chars` | Input → Automatic Wubi phrases → Maximum phrase length | 2–10 Chinese characters for Wubi phrases, default 4; out-of-range values are clamped; code length is unchanged and Pinyin/Shuangpin phrase memory is unaffected |
 | `[aux_code] enabled`, `scheme` | 输入 → 辅码 (Input → Auxiliary code) | `scheme` is the code table's file name or the scheme's folder name; the bundled stroke code is `stroke` |
 | `[general] aux_code_keep_empty` | 输入 → 码删空后留在辅码 (Input → Stay in auxiliary code when empty) | `false` leaves as soon as the code is empty |
 | `[general] traditional_variant` | 候选 → 输出字形 (Candidates → Output characters) | `off`, `taiwan`, `hongkong`, `standard`; `traditional = true` from 0.2.1 and earlier is read as `taiwan` |

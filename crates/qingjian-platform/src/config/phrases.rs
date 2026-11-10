@@ -1,11 +1,110 @@
 //! `[[custom_phrases]]` 逐条读：写错的一条只丢它自己，其余短语与整份配置照常生效。
 //! 读配置与偏好设置保存走同一套判定，保存时写错的条目原样留在文件里。
 
+use std::path::Path;
+
 use qingjian_core::CustomPhrase;
 use qingjian_core::custom_phrase::{DEFAULT_WEIGHT, WEIGHTS, validate_phrases};
 use serde::Deserialize;
+use toml_edit::DocumentMut;
 
+use super::{Config, TEMPLATE, write_file};
 use crate::i18n::{tr, tr_args};
+
+impl Config {
+    /// 保存自定义短语列表，冲突时不修改文件。
+    pub fn set_custom_phrases(
+        path: &Path,
+        phrases: &[qingjian_core::CustomPhrase],
+    ) -> Result<(), String> {
+        qingjian_core::custom_phrase::validate_phrases(phrases)?;
+        let source = match std::fs::read_to_string(path) {
+            Ok(s) => s,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => TEMPLATE.to_owned(),
+            Err(e) => return Err(e.to_string()),
+        };
+        let mut document: DocumentMut = source.parse::<DocumentMut>().map_err(|e| e.to_string())?;
+        let existing = document
+            .get("custom_phrases")
+            .and_then(toml_edit::Item::as_array_of_tables)
+            .cloned()
+            .unwrap_or_default();
+        // 读配置时跳过的条目界面上看不到，保存时原样留在文件里，等用户自己改
+        let checked = check(existing.iter().map(|table| {
+            toml::from_str::<qingjian_core::CustomPhrase>(&table.to_string())
+                .map_err(|e| e.message().to_owned())
+        }));
+        let mut old = toml_edit::ArrayOfTables::new();
+        let mut skipped = Vec::new();
+        for (table, item) in existing.iter().zip(&checked) {
+            if item.is_ok() {
+                old.push(table.clone());
+            } else {
+                skipped.push(table.clone());
+            }
+        }
+        let mut used = std::collections::BTreeSet::new();
+        // 先按输入码和文本匹配，重排或删除时注释跟随原规则。
+        let mut matches: Vec<_> = phrases
+            .iter()
+            .map(|p| {
+                let found = old
+                    .iter()
+                    .enumerate()
+                    .find(|(_, t)| {
+                        t.get("code").and_then(toml_edit::Item::as_str) == Some(p.code.as_str())
+                            && t.get("text").and_then(toml_edit::Item::as_str)
+                                == Some(p.text.as_str())
+                    })
+                    .map(|(i, _)| i);
+                if let Some(i) = found {
+                    used.insert(i);
+                }
+                found
+            })
+            .collect();
+        // 等长列表中修改了输入码或文本的条目，沿用其未被占用的原表。
+        if old.len() == phrases.len() {
+            for (i, matched) in matches.iter_mut().enumerate() {
+                if matched.is_none() && used.insert(i) {
+                    *matched = Some(i);
+                }
+            }
+        }
+        let mut tables = toml_edit::ArrayOfTables::new();
+        for (p, matched) in phrases.iter().zip(matches) {
+            let mut t = matched
+                .and_then(|i| old.get(i))
+                .cloned()
+                .unwrap_or_default();
+            if t.contains_key("position") {
+                t = position_to_weight(&t);
+            }
+            for (key, mut value) in [
+                ("code", toml_edit::Value::from(p.code.as_str())),
+                ("text", toml_edit::Value::from(p.text.as_str())),
+                ("weight", toml_edit::Value::from(i64::from(p.weight))),
+                ("enabled", toml_edit::Value::from(p.enabled)),
+            ] {
+                if let Some(previous) = t.get(key).and_then(toml_edit::Item::as_value) {
+                    if previous.to_string() == value.to_string() {
+                        continue;
+                    }
+                    *value.decor_mut() = previous.decor().clone();
+                }
+                t[key] = toml_edit::Item::Value(value);
+            }
+            // 序列化按文档位置排序；统一锚点后，同组条目使用本次列表顺序。
+            t.set_position(old.iter().filter_map(toml_edit::Table::position).min());
+            tables.push(t);
+        }
+        for table in skipped {
+            tables.push(table);
+        }
+        document["custom_phrases"] = toml_edit::Item::ArrayOfTables(tables);
+        write_file(path, &document.to_string()).map_err(|e| e.to_string())
+    }
+}
 
 /// 按顺序判定每一条：读不成短语、输入码或权重不合法、与前面的条目同码同文本的，给出原因（界面语言写的）。
 pub(super) fn check(

@@ -30,6 +30,8 @@ pub(super) struct Descriptor {
 
     /// 满码几个字母；没写按码表里最常见的编码长度算。
     pub code_length: Option<usize>,
+    /// 方案声明的组词规则，目前只识别 `wubi86`；省略时不自动生成词码。
+    pub phrase_rule: String,
 }
 
 impl Default for Descriptor {
@@ -42,6 +44,7 @@ impl Default for Descriptor {
             auto_commit: true,
             top: true,
             code_length: None,
+            phrase_rule: String::new(),
         }
     }
 }

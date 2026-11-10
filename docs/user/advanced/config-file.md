@@ -30,6 +30,8 @@ description: 青简的全部设置保存在一个文本配置文件里：位置�
 | `[general] scheme` | 输入 → 拼音 | `pinyin`（全拼）、`xiaohe`、`ziranma`、`microsoft`、`sogou`、`abc`、`xiaolang`、`shoudao`、`jiajia`、`ziguang`、`zhuyin`，或自制方案的文件夹名 |
 | `[general] double_shift_input` | 输入法切换 → 连按两次 Shift 切换第三输入法 | `off`（缺省，不启用）或 `vietnamese`（越南语；输入法实现完成后生效） |
 | `[general] hold_selections` | 输入 → 分次选词先不上屏 | `true` / `false` |
+| `[auto_phrase] enabled` | 输入 → 五笔自动组词 → 自动学习五笔新词 | `true`（默认）/ `false`；只控制五笔连续组词，不影响拼音、双拼、已有词与词频学习 |
+| `[auto_phrase] max_chars` | 输入 → 五笔自动组词 → 最大词长 | 五笔组词最多 2～10 个汉字，默认 4；超出范围按边界值读取，不改变五笔码长，不限制拼音与双拼整段记忆 |
 | `[aux_code] enabled`、`scheme` | 输入 → 辅码 | `scheme` 写码表的文件名或方案的文件夹名，随包笔画码是 `stroke` |
 | `[general] aux_code_keep_empty` | 输入 → 码删空后留在辅码 | `false` 为删空即退出 |
 | `[general] traditional_variant` | 候选 → 输出字形 | `off`、`taiwan`、`hongkong`、`standard`；0.2.1 及以前的 `traditional = true` 按 `taiwan` 读 |

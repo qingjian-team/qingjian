@@ -22,6 +22,8 @@ data class InputOptions(
     val traditionalVariant: String = SettingChoices.defaultTraditionalVariant,
     /** 学习输入习惯：关了不再记新的，已学的照常参与排序。 */
     val learning: Boolean = true,
+    val autoPhrase: Boolean = true,
+    val autoPhraseMaxChars: Int = 4,
     /** 打开的随包领域词库（文件名不含扩展名）。 */
     val domains: Set<String> = SettingChoices.defaultDomains,
     /** 关掉的导入词库。 */
@@ -49,6 +51,8 @@ data class InputOptions(
         .put("learning_language", learningLanguage)
         .put("traditional_variant", traditionalVariant)
         .put("learning", learning)
+        .put("auto_phrase", autoPhrase)
+        .put("auto_phrase_max_chars", autoPhraseMaxChars.coerceIn(2, 10))
         .put("domains", JSONArray(domains.sorted()))
         .put("disabled_dictionaries", JSONArray(disabledDictionaries.sorted()))
         .put("hold_selections", holdSelections)

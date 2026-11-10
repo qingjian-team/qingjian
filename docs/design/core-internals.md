@@ -15,7 +15,7 @@
 |---|---|---|
 | **数据** | `dictionary`、`extra_dictionaries`、`companion_words`（编进 Core 的符号 / emoji 名字，词库里没有）、`english`、`emoji`、`kaomoji`、`symbols`、`custom_phrases`、`code`（五笔码表）、`aux_codes`（辅码表）、`opencc` | 装配时给，热加载时整张换 |
 | **注入口** | `translator`、`english_translator`、`learner`、`logger`、`predictor`、`language_model`、`sentence_scorer`、`rescorer`、`meter`、`vocabulary`、`gloss_filler` | trait 对象，全有 `No*` 空实现；`learner` / `logger` 外面各罩一层 `MutedLearner` / `MutedLogger`，私密输入时吞掉写入 |
-| **配置** | `modes`、`fuzzy`、`shuangpin`、`shuangpin_raw_preedit`、`zhuyin`、`phonetic`、`full_width_punctuation`、`chinese_first`、`spelling_correction`、`english_in_chinese`、`english_max_in_chinese` / `english_min_position`、`auto_space`、`emoji_limit` / `kaomoji_limit` / `symbol_limit`、`shift_letter_compose`、`interpolation`、`typo_costs`、`neural_weight` / `neural_margin` / `neural_context`、`aux_enabled` / `aux_show` / `aux_code_key` / `aux_keep_empty`、`traditional` | 壳用 `set_*`（`engine/setup.rs`）推进来；影响排序的顺手清缓存 |
+| **配置** | `modes`、`fuzzy`、`shuangpin`、`shuangpin_raw_preedit`、`zhuyin`、`phonetic`、`full_width_punctuation`、`chinese_first`、`spelling_correction`、`english_in_chinese`、`english_max_in_chinese` / `english_min_position`、`auto_space`、`emoji_limit` / `kaomoji_limit` / `symbol_limit`、`shift_letter_compose`、`interpolation`、`typo_costs`、`neural_weight` / `neural_margin` / `neural_context`、`aux_enabled` / `aux_show` / `aux_code_key` / `aux_keep_empty`、`traditional` | 壳用 `set_*`（`engine/setup/`）推进来；影响排序的顺手清缓存 |
 | **会话状态** | `composition`、`english_mode`、`punctuation`、`history`、`chain`、`recent_commits`、`recording`、`retype_snapshot`、`passthrough_pending`、`page_turns`、`composition_started`、`application`、`committed_since_break`、`displayed` | 每键变；正好是 `EngineSession` 的 14 个字段，可以整组换出（见下） |
 | **引擎级状态** | `private`、`aux_code`（码段）、`panel`（打开着的符号面板）、`rescoring_before`、`log_sequence`、`prediction_sequence`、`pending_predictions`（在飞的请求按序号记种类与作用域） | 每键变，但不随会话换 |
 | **内部可变** | `span_cache`、`correction_cache`、`neural_cache`、`last_rescored`、`last_query`、`traditional_map` | `RefCell` / `Cell`：`query(&self)` 只读借用也要能往里写 |
@@ -152,7 +152,7 @@ commit(candidate)
  ├─ vocabulary.record_commit   带译词的中文候选记「上屏过」──► user-vocab.tsv
  ├─ gloss_filler               词库有、释义表没有的词交给后台问云端，回来写进个人释义表
  ├─ record_word                个人 n-gram：用户点选的词记 2 份，整句路径顺带的记 1 份
- │    └─ try_auto_word         连选两词、合起来 ≤ 4 字且哪里都没有：同一段拼音里选出 2 次、分两段打 3 次就成用户词
+ │    └─ try_auto_word         连选两词、合起来 ≤ 4 字且哪里都没有：同一段拼音里选出 1 次、分两段打 3 次就成用户词
  └─ finish_buffer              一段拼音分几次才选完：整段合起来记一次选择，够次数也造词
 ```
 

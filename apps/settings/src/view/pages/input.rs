@@ -132,6 +132,38 @@ pub fn input(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderErr
     out.push(section_title(ui, theme, tr("input.section_scheme"))?);
     out.push(group(ui, theme, &rows)?);
 
+    if Feature::AutoPhrase.here() {
+        let auto_phrase = &config.auto_phrase;
+        let enabled = toggle_info(
+            ui,
+            page,
+            tr("input.auto_phrase"),
+            Some(tr("input.auto_phrase_info")),
+            ("auto_phrase", "enabled"),
+            auto_phrase.enabled,
+            false,
+        )?;
+        let labels: Vec<String> = (2..=10)
+            .map(|n| tr_args("input.phrase_chars", &[("n", &n)]))
+            .collect();
+        let names: Vec<&str> = labels.iter().map(String::as_str).collect();
+        let current = &labels[auto_phrase.max_chars.clamp(2, 10) - 2];
+        let control = select(
+            ui,
+            page,
+            Popup::AutoPhraseLength,
+            (current, &names),
+            120.0,
+            !auto_phrase.enabled,
+        )?;
+        let length = SettingRow::new(tr("input.auto_phrase_length"))
+            .info(tr("input.auto_phrase_length_info"))
+            .control(control)
+            .build(ui, theme)?;
+        out.push(section_title(ui, theme, tr("input.section_auto_phrase"))?);
+        out.push(group(ui, theme, &[enabled, length])?);
+    }
+
     // 拼音关着时模糊音没有意义
     let pinyin_off = scheme == Scheme::Off;
     let fuzzy = fuzzy(ui, page, pinyin_off)?;

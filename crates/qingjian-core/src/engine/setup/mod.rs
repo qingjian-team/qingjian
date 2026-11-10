@@ -1,15 +1,18 @@
 //! 注入与开关（词库的在 `dictionaries.rs`）：模糊音、双拼、翻译 / 学习 / 联想等 trait 实现的挂接，以及相应的只读访问。
 
+mod learning;
+
 use super::EMOJI_TOTAL;
 use super::aux_code::is_valid_aux_code_key;
 use super::{
-    DEFAULT_AUX_CODE_KEY, ENGLISH_CANDIDATES_MAX, Engine, GlossFiller, InputLogger, Learner,
-    ModeKeys, NEURAL_MARGIN, NEURAL_WEIGHT, Predictor, RESCORE_CONTEXT_CHARS, Translator,
-    UsageMeter, UsageSummary, VocabularyTracker, marked_rest,
+    DEFAULT_AUX_CODE_KEY, ENGLISH_CANDIDATES_MAX, Engine, GlossFiller, InputLogger, ModeKeys,
+    NEURAL_MARGIN, NEURAL_WEIGHT, Predictor, RESCORE_CONTEXT_CHARS, Translator, UsageMeter,
+    UsageSummary, VocabularyTracker, marked_rest,
 };
 use crate::candidate::Language;
 use crate::correction::TypoCosts;
 use crate::emoji::{EmojiTable, builtin, is_emoji};
+use crate::engine::Learner;
 use crate::engine::decoded::EngineDecoded;
 use crate::fuzzy::FuzzyRules;
 use crate::history::InputHistory;
@@ -50,6 +53,9 @@ impl Engine {
 
     /// 设双拼键位（内置或用户方案），`None` 回到全拼。纠错缓存按作用域记而作用域的含义变了，一并清掉。
     pub fn set_shuangpin_layout(&mut self, layout: Option<Arc<Layout>>) {
+        if self.shuangpin != layout {
+            self.chain.clear_code_words();
+        }
         self.shuangpin = layout;
         *self.correction_cache.borrow_mut() = None;
     }
@@ -139,13 +145,10 @@ impl Engine {
     }
 
     /// 設置是否啟用注音模式。開啟後鍵盤輸入按大千佈局解析。
-    /// 学习开关（`[general] learning`）：关掉后不再记词频、用户词、个人 n-gram 与敲错表，已学的照常参与排序；
-    /// 私密输入是另一个独立的开关（[`Self::set_private`]）。
-    pub fn set_learning(&mut self, enabled: bool) {
-        self.learner.set_disabled(!enabled);
-    }
-
     pub fn set_zhuyin_mode(&mut self, on: bool) {
+        if self.zhuyin != on {
+            self.chain.clear_code_words();
+        }
         self.zhuyin = on;
         self.forget_span_cache();
     }
@@ -157,6 +160,9 @@ impl Engine {
 
     /// 九宫格方案开关（手机 9 键）。与双拼、注音一样是输入方案，不是模式。
     pub fn set_nine_key(&mut self, on: bool) {
+        if self.nine_key != on {
+            self.chain.clear_code_words();
+        }
         self.nine_key = on;
         self.forget_span_cache();
     }
@@ -180,6 +186,7 @@ impl Engine {
 
     /// 换形码方案，`None` 回到拼音的诸方案。编码与拼音是两套键，纠错缓存一并清掉。
     pub fn set_code_scheme(&mut self, scheme: Option<CodeScheme>) {
+        self.chain.reset();
         self.code = scheme;
         *self.correction_cache.borrow_mut() = None;
         self.forget_span_cache();
@@ -211,6 +218,9 @@ impl Engine {
     /// 拼音侧参不参与查询。形码开着时把它关掉就是「只用形码」（`[general] scheme = "none"`）；
     /// 两边都开是混输，见 [`Self::set_code_scheme`] 与 `query_mixed`。
     pub fn set_phonetic(&mut self, on: bool) {
+        if self.phonetic != on {
+            self.chain.reset();
+        }
         self.phonetic = on;
         *self.correction_cache.borrow_mut() = None;
         self.forget_span_cache();
@@ -655,12 +665,6 @@ impl Engine {
         self.shift_letter_compose
     }
 
-    pub fn with_learner(mut self, learner: Box<dyn Learner>) -> Self {
-        self.learner.replace(learner);
-        self.forget_span_cache();
-        self
-    }
-
     pub fn with_input_logger(mut self, logger: Box<dyn InputLogger>) -> Self {
         self.logger.replace(logger);
         self
@@ -711,16 +715,6 @@ impl Engine {
     /// 运行时换释义兜底（随云联想开关）。
     pub fn set_gloss_filler(&mut self, filler: Box<dyn GlossFiller>) {
         self.gloss_filler = filler;
-    }
-
-    pub fn learner(&self) -> &dyn Learner {
-        self.learner.inner()
-    }
-
-    /// 拿到可变的 Learner 就当它要改：格子缓存一起作废。
-    pub fn learner_mut(&mut self) -> &mut dyn Learner {
-        self.forget_span_cache();
-        self.learner.inner_mut()
     }
 
     pub fn learning_language(&self) -> Language {

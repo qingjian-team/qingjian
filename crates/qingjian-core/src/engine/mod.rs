@@ -329,6 +329,10 @@ pub struct Engine {
 
     /// 连续上屏的链，个人 n-gram 与自动造词靠它。
     chain: CommitChain,
+    /// 是否学习连续上屏的五笔新词；不控制拼音、双拼学习或已有词的词频。
+    auto_phrase: bool,
+    /// 五笔连续组词窗口最多容纳的汉字数，范围为 2～10。
+    auto_phrase_max_chars: usize,
 
     /// 模糊音开关，缺省全关。
     fuzzy: FuzzyRules,
@@ -630,6 +634,8 @@ impl Engine {
             prediction_sequence: 0,
             pending_predictions: HashMap::new(),
             chain: CommitChain::default(),
+            auto_phrase: true,
+            auto_phrase_max_chars: 4,
             fuzzy: FuzzyRules::default(),
             shuangpin: None,
             shuangpin_raw_preedit: false,

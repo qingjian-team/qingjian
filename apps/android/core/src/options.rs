@@ -42,6 +42,12 @@ pub struct InputOptions {
     /// 学习输入习惯（PC 的 `[general] learning`）：关了不再记新的，已学的照常参与排序。
     #[serde(default = "default_true")]
     pub learning: bool,
+    /// 是否学习连续上屏的五笔新词，不改变拼音、双拼学习规则。
+    #[serde(default = "default_true")]
+    pub auto_phrase: bool,
+    /// 五笔连续组词的最大汉字数，默认 4，应用时限制在 2～10。
+    #[serde(default = "default_phrase_chars")]
+    pub auto_phrase_max_chars: usize,
 
     /// 打开的随包领域词库（文件名不含扩展名），同 PC 的 `[dictionaries] domains`；缺省只开成语。
     #[serde(default = "default_domains")]
@@ -115,6 +121,10 @@ fn default_traditional_variant() -> TraditionalVariant {
 
 fn default_true() -> bool {
     true
+}
+
+fn default_phrase_chars() -> usize {
+    4
 }
 
 fn default_domains() -> Vec<String> {

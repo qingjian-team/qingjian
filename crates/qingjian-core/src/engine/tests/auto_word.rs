@@ -207,3 +207,65 @@ fn erasing_the_sentence_and_picking_another_forgets_the_new_word() {
     select(&mut engine, "交易");
     assert_eq!(engine.learner().weight("交易中心"), 0);
 }
+
+#[test]
+fn wubi_options_keep_once_only_sentence_learning_and_the_six_character_limit() {
+    for (enabled, max_chars) in [(false, 2), (true, 2), (true, 4), (true, 10)] {
+        for (input, text, expected) in [
+            ("jiaoyizhongxin", "交易中心", 1),
+            ("jiaoyizhongxinzhongxin", "交易中心中心", 1),
+            ("jiaoyizhongxinjiaoyizhongxin", "交易中心交易中心", 0),
+        ] {
+            let mut engine = jiaoyi_engine();
+            engine.set_auto_phrase(enabled, max_chars);
+            assert_eq!(commit_sentence(&mut engine, input), text);
+            assert_eq!(
+                engine.learner().weight(text),
+                expected,
+                "enabled={enabled}, max_chars={max_chars}, text={text}"
+            );
+        }
+    }
+}
+
+#[test]
+fn wubi_options_keep_shuangpin_once_only_split_selection_learning() {
+    for (enabled, max_chars) in [(false, 2), (true, 2), (true, 4), (true, 10)] {
+        let mut engine = shishan_engine();
+        engine.set_auto_phrase(enabled, max_chars);
+        engine.set_shuangpin(Some(Scheme::Xiaohe));
+        engine.set_input("uiuj");
+        select(&mut engine, "屎");
+        select(&mut engine, "山");
+        assert_eq!(engine.learner().weight("屎山"), 1);
+        engine.note_passthrough('\n');
+        engine.set_input("uiuj");
+        assert_eq!(texts_of(&engine)[0], "屎山");
+        engine.clear();
+        engine.set_shuangpin(None);
+        engine.set_input("ss");
+        assert_eq!(texts_of(&engine)[0], "屎山");
+    }
+}
+
+#[test]
+fn pinyin_and_shuangpin_split_commits_keep_the_twenty_character_memory_limit() {
+    for scheme in [None, Some(Scheme::Xiaohe)] {
+        for length in [6, 20, 21] {
+            let mut engine = Engine::new(Dictionary::parse("甲\tjia\t10\n").unwrap())
+                .with_learner(Box::<WordLearner>::default());
+            engine.set_shuangpin(scheme);
+            let keys = if scheme.is_some() { "jx" } else { "jia" };
+            engine.set_input(&keys.repeat(length));
+            for _ in 0..length {
+                select(&mut engine, "甲");
+            }
+            assert!(engine.composition().is_empty());
+            assert_eq!(
+                engine.learner().weight(&"甲".repeat(length)),
+                u32::from(length <= 20),
+                "scheme={scheme:?}, length={length}"
+            );
+        }
+    }
+}

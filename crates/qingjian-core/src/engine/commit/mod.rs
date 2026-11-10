@@ -16,6 +16,8 @@ use qingjian_dictionary::Dictionary;
 use std::time::Instant;
 
 mod align;
+mod auto_phrase;
+mod buffer;
 mod chain;
 mod last;
 mod transition;
@@ -271,9 +273,25 @@ impl Engine {
         // 上屏即收尾：码段清空、回初始态（数字键与「标点先上屏」都走这里）
         self.aux_code = None;
         let buffer_left = !self.composition.is_empty();
+        if candidate.kind != CandidateKind::Code {
+            self.chain.clear_code_words();
+        }
         match candidate.kind {
-            CandidateKind::Chinese | CandidateKind::Cloud | CandidateKind::Code => {
-                // 形码没有音节，`record_word` 里按音节数做的整段造词自然不会触发
+            CandidateKind::Code => {
+                self.record_word(
+                    &candidate.text,
+                    &[],
+                    EXPLICIT_TRANSITION_WEIGHT,
+                    false,
+                    buffer_left,
+                );
+                if source == InputSource::Translation {
+                    self.chain.clear_code_words();
+                } else {
+                    self.learn_code_phrase(&candidate.text);
+                }
+            }
+            CandidateKind::Chinese | CandidateKind::Cloud => {
                 self.record_word(
                     &candidate.text,
                     &candidate.syllables,
@@ -389,58 +407,6 @@ impl Engine {
         };
         self.remember_commit(commit);
         text
-    }
-
-    /// 一段拼音上屏完了：分几次选完（`jidiaole` 先选 挤、剩下的走整句 掉了），或一次选中由几个词组成的整句
-    /// （`jiaoyizhongxin` 的 交易中心）。这几个词合起来就是用户对这段拼音的答案。
-    /// 记一次「整段拼音 → 合成词」的选择；选到 [`AUTO_WORD_THRESHOLD_SAME_BUFFER`] 次、词库里没有、
-    /// 不超过 `max_chars` 字就记成用户词，下次整段或它的简拼打出来直接排第一（整句也是：
-    /// `xiaomingqulexuexiao` 逐字选出 晓铭去了学校，之后 `xmqlxx` 也出它）。返回记下的选择，撤销时退回。
-    pub(super) fn finish_buffer(&mut self, max_chars: usize) -> Option<BufferPhrase> {
-        let words = self.chain.buffer_words();
-        if words.len() < 2 {
-            return None;
-        }
-        let text: String = words.iter().map(|(t, _)| t.as_str()).collect();
-        let syllables: Vec<String> = words.iter().flat_map(|(_, s)| s.iter().cloned()).collect();
-        let chars = text.chars().count();
-        let key = self.chain.buffer_key().to_owned();
-        if key.is_empty() || chars > max_chars || chars != syllables.len() {
-            return None;
-        }
-        let candidate = Candidate {
-            text,
-            kind: CandidateKind::Chinese,
-            syllables,
-            reading: None,
-            translation: None,
-            aux_code: None,
-        };
-        let reading = reading_key(candidate.syllables.iter().map(String::as_str));
-        self.learner.record_choice(&key, &reading, &candidate.text);
-        let abbreviation = self.abbreviation_key(&candidate.syllables, &key);
-        if !abbreviation.is_empty() {
-            self.learner
-                .record_choice(&abbreviation, "", &candidate.text);
-        }
-        let created = !self.knows_word(&candidate)
-            && self.learner.choice_weight(&key, &candidate.text) >= AUTO_WORD_THRESHOLD_SAME_BUFFER;
-        if created {
-            tracing::debug!(text = %candidate.text, "buffer phrase learned as a user word");
-            self.learner
-                .learn_word(&candidate.text, &candidate.syllables);
-            // 逐字选出来就是用户要的这个词：算选过一次，排序与整句词图里都有它的选择加分
-            self.learner.record(&candidate);
-        }
-        Some(BufferPhrase {
-            key,
-            choice: Choice {
-                reading,
-                text: candidate.text,
-                abbreviation,
-            },
-            created,
-        })
     }
 
     /// 最近删掉的上屏里有一次是同一段拼音（或它的前缀）、这次却选了别的词：把那次记的学习退回去。

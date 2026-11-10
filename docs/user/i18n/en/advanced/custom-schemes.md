@@ -1,7 +1,7 @@
 ---
 title: Custom schemes and code tables
 order: 4
-description: "Writing your own double pinyin, shape-based and auxiliary code schemes, and the file format of auxiliary code tables. Supported on macOS and Windows."
+description: "Custom double pinyin and shape-based schemes on macOS, Windows and Linux; auxiliary code schemes on macOS and Windows."
 ---
 
 Custom schemes go in the `schemes` folder of the [data folder](data-files.md#Data-files), one subfolder per scheme. The folder name is the scheme's identifier: only lowercase letters, digits, `-` and `_`, and it can't be the same as a built-in scheme name (such as `xiaohe` or `pinyin`).
@@ -15,7 +15,9 @@ description = "A sentence or two about what this scheme is"
 license = "CC-BY-4.0"
 ```
 
-Supported on macOS and Windows; not yet on Linux.
+Custom double pinyin and shape-based schemes work on macOS, Windows and Linux. Auxiliary codes below remain available only on macOS and Windows.
+
+Linux checks schemes and tables once a second. Personal schemes override bundled schemes with the same identifier. Effective scheme changes cancel uncommitted input; unrelated settings do not. Invalid configuration keeps the last valid settings; missing or unreadable code tables fall back to pinyin.
 
 ## Custom double pinyin schemes
 
@@ -62,7 +64,7 @@ The code table is plain text, each line "word, code, frequency", separated by ta
 ```
 
 - Codes can only be English letters and are case-insensitive; lines whose codes contain other symbols are skipped.
-- Codes for multi-character words have to be written out in full in the table; Qingjian doesn't derive word codes from character codes.
+- Word codes normally need explicit table entries. Schemes declaring compatible Wubi phrase rules can also learn consecutive input; this does not generate codes for the entire Pinyin dictionary.
 - The full code length is the most common code length in the table (4 for Wubi); a few longer codes don't affect it.
 
 Besides the common fields, `scheme.toml` can also contain:
@@ -72,12 +74,17 @@ table = "table.tsv"   # Code table file name; defaults to table.tsv
 auto_commit = true    # Default for auto-committing unique full codes; on if omitted
 top = true            # Default for commit on next code; on if omitted
 code_length = 4       # How many letters make a full code; defaults to the most common code length in the table
+phrase_rule = "wubi86" # Optional: only for schemes compatible with Wubi 86 phrase rules; omitted means no automatic phrases
 ```
 
 `auto_commit` and `top` are only defaults; whatever you've changed in Settings takes priority. An empty `scheme.toml` works too.
 
+Bundled Wubi 86 includes its phrase rules. Imported schemes must explicitly set `phrase_rule`, even when named `wubi86`, so incompatible tables do not inherit Wubi rules.
+
 Once it's in place, reopen Settings and choose it under 设置 → 输入 → 形码 (Settings → Input → Shape-based). A scheme whose folder is named `wubi86` replaces the bundled Wubi, which you can use to swap in a different Wubi code table.
 If you just want to add a few words of your own without replacing the code table, see [Importing Wubi dictionaries](../personalize/dictionaries.md#Importing-Wubi-dictionaries).
+
+With `phrase_rule = "wubi86"`, longest character codes supply the first 2+2 letters for two characters, 1+1+2 for three, and the first letter of the first three and last characters for four to ten. Missing character codes prevent learning. `[auto_phrase]` controls Wubi phrase learning and its length limit without affecting Pinyin or Shuangpin learning.
 
 ## Auxiliary code tables
 

@@ -1,5 +1,6 @@
 mod appearance;
 mod apps;
+mod auto_phrase;
 mod aux_code;
 mod candidate_renderer;
 mod clipboard;
@@ -47,6 +48,7 @@ pub use apps::{
     AppsConfig, DEFAULT_ENGLISH_CANDIDATES_ON, DEFAULT_ENGLISH_CANDIDATES_ON_LINUX,
     DEFAULT_ENGLISH_CANDIDATES_ON_MACOS, DEFAULT_ENGLISH_CANDIDATES_ON_WINDOWS,
 };
+pub use auto_phrase::AutoPhraseConfig;
 pub use aux_code::AuxCodeConfig;
 pub use candidate_renderer::CandidateRenderer;
 pub use clipboard::{
@@ -89,6 +91,8 @@ pub use update::{UpdateChannel, UpdateConfig};
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Config {
+    /// 五笔连续组词的开关与最大词长，不改变拼音、双拼的学习规则。
+    pub auto_phrase: AutoPhraseConfig,
     /// 常规：学习语言、每页候选数、翻页键、外观。
     pub general: GeneralConfig,
 
@@ -381,6 +385,12 @@ system_text_replacements = true
 # weight = 10       # 权重：1–999，可以相同，相同的按文件里的先后
 # enabled = true    # 是否启用
 
+[auto_phrase]
+# 五笔连续上屏首次即组词；不影响拼音和双拼的学习规则，关闭不删除已有词
+enabled = true
+# 五笔组词最大汉字数（2～10），不改变编码长度；学习总开关和私密输入优先
+max_chars = 4
+
 [shortcut]
 # 呼出剪贴板面板（实验功能，要开着 [clipboard] enabled）；至少两个修饰键加字母、数字或句号。
 # 缺省 Windows 是 "ctrl+alt+v"，macOS 是 "cmd+shift+v"
@@ -517,99 +527,6 @@ impl Config {
     /// 用户给形码方案 `id` 改的按键规则；没改过时全是 `None`。
     pub fn code_rules(&self, id: &str) -> CodeRules {
         self.code.get(id).copied().unwrap_or_default()
-    }
-
-    /// 保存自定义短语列表，冲突时不修改文件。
-    pub fn set_custom_phrases(
-        path: &Path,
-        phrases: &[qingjian_core::CustomPhrase],
-    ) -> Result<(), String> {
-        qingjian_core::custom_phrase::validate_phrases(phrases)?;
-        let source = match std::fs::read_to_string(path) {
-            Ok(s) => s,
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => TEMPLATE.to_owned(),
-            Err(e) => return Err(e.to_string()),
-        };
-        let mut document: DocumentMut = source.parse::<DocumentMut>().map_err(|e| e.to_string())?;
-        let existing = document
-            .get("custom_phrases")
-            .and_then(toml_edit::Item::as_array_of_tables)
-            .cloned()
-            .unwrap_or_default();
-        // 读配置时跳过的条目界面上看不到，保存时原样留在文件里，等用户自己改
-        let checked = phrases::check(existing.iter().map(|table| {
-            toml::from_str::<qingjian_core::CustomPhrase>(&table.to_string())
-                .map_err(|e| e.message().to_owned())
-        }));
-        let mut old = toml_edit::ArrayOfTables::new();
-        let mut skipped = Vec::new();
-        for (table, item) in existing.iter().zip(&checked) {
-            if item.is_ok() {
-                old.push(table.clone());
-            } else {
-                skipped.push(table.clone());
-            }
-        }
-        let mut used = std::collections::BTreeSet::new();
-        // 先按输入码和文本匹配，重排或删除时注释跟随原规则。
-        let mut matches: Vec<_> = phrases
-            .iter()
-            .map(|p| {
-                let found = old
-                    .iter()
-                    .enumerate()
-                    .find(|(_, t)| {
-                        t.get("code").and_then(toml_edit::Item::as_str) == Some(p.code.as_str())
-                            && t.get("text").and_then(toml_edit::Item::as_str)
-                                == Some(p.text.as_str())
-                    })
-                    .map(|(i, _)| i);
-                if let Some(i) = found {
-                    used.insert(i);
-                }
-                found
-            })
-            .collect();
-        // 等长列表中修改了输入码或文本的条目，沿用其未被占用的原表。
-        if old.len() == phrases.len() {
-            for (i, matched) in matches.iter_mut().enumerate() {
-                if matched.is_none() && used.insert(i) {
-                    *matched = Some(i);
-                }
-            }
-        }
-        let mut tables = toml_edit::ArrayOfTables::new();
-        for (p, matched) in phrases.iter().zip(matches) {
-            let mut t = matched
-                .and_then(|i| old.get(i))
-                .cloned()
-                .unwrap_or_default();
-            if t.contains_key("position") {
-                t = phrases::position_to_weight(&t);
-            }
-            for (key, mut value) in [
-                ("code", toml_edit::Value::from(p.code.as_str())),
-                ("text", toml_edit::Value::from(p.text.as_str())),
-                ("weight", toml_edit::Value::from(i64::from(p.weight))),
-                ("enabled", toml_edit::Value::from(p.enabled)),
-            ] {
-                if let Some(previous) = t.get(key).and_then(toml_edit::Item::as_value) {
-                    if previous.to_string() == value.to_string() {
-                        continue;
-                    }
-                    *value.decor_mut() = previous.decor().clone();
-                }
-                t[key] = toml_edit::Item::Value(value);
-            }
-            // 序列化按文档位置排序；统一锚点后，同组条目使用本次列表顺序。
-            t.set_position(old.iter().filter_map(toml_edit::Table::position).min());
-            tables.push(t);
-        }
-        for table in skipped {
-            tables.push(table);
-        }
-        document["custom_phrases"] = toml_edit::Item::ArrayOfTables(tables);
-        write_file(path, &document.to_string()).map_err(|e| e.to_string())
     }
 
     /// 读配置。文件不存在按默认值；存在但解析失败报错，不要静默吞掉用户的笔误。

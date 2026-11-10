@@ -30,6 +30,9 @@ pub struct CodeSchemeEntry {
     /// `scheme.toml` 写了满码长度就是它，没写为 `None`（读码表时按最常见的编码长度算）。
     pub code_length: Option<usize>,
 
+    /// 连续组词的取码规则；`wubi86` 启用 86 五笔规则，空串不生成词码。
+    pub phrase_rule: String,
+
     /// 是不是随包的那套（设置页不给删）。用户目录里的同名方案盖过它时为 `false`。
     pub bundled: bool,
 }
@@ -49,13 +52,14 @@ impl CodeSchemeEntry {
             match CodeTable::from_path(path) {
                 Ok(words) => table.merge(words),
                 Err(error) => {
-                    tracing::warn!(file = %path.display(), %error, "形码词库读不了，跳过");
+                    tracing::warn!(file = %path.display(), %error, "failed to read code words dictionary, skipped");
                 }
             }
         }
         let mut scheme = CodeScheme::new(self.log_key(), table);
         scheme.auto_commit = self.auto_commit;
         scheme.top = self.top;
+        scheme.wubi_phrases = self.phrase_rule == "wubi86";
         if let Some(length) = self.code_length.filter(|length| *length > 0) {
             scheme.code_length = length;
         }

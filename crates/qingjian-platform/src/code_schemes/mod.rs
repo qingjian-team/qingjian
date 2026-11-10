@@ -2,6 +2,7 @@
 //!
 //! 一套方案一个目录，目录名就是 id：`scheme.toml` 写名字、元信息与按键规则（见 `Descriptor`，必须有），码表是 `词\t编码\t词频` 的 TSV。
 //! 随包的方案也可以是单个 `<id>.qj`（词库仓库发的码表，`Kind::CodeTable`）：名字、作者、许可、版本、简介取文件头的元数据，按键规则用缺省。
+//! 其中随包 `wubi86.qj` 使用 86 五笔组词规则；用户方案仍须在描述中显式声明。
 //! 用户目录里与随包同 id 的方案盖过随包那套；老位置 `wubi/wubi86.tsv` 仍认，只换随包五笔的码表。
 //! 用户导入的形码词库在用户目录 `code_dicts/` 下（见 [`qingjian_dictionary::import::import_code_words`]），按文件头记的方案 id
 //! 跟那套方案的码表合在一起，不用整份换掉码表。
@@ -180,7 +181,7 @@ pub fn from_dir(dir: &Path) -> Option<CodeSchemeEntry> {
 fn read(dir: &Path, bundled: bool) -> Option<CodeSchemeEntry> {
     let id = dir.file_name()?.to_str()?.to_owned();
     if !is_valid_id(&id) {
-        tracing::warn!(dir = %dir.display(), "形码方案的目录名不能当 id，跳过");
+        tracing::warn!(dir = %dir.display(), "code scheme directory name is not a valid id, skipped");
         return None;
     }
     let path = dir.join(DESCRIPTOR);
@@ -188,16 +189,16 @@ fn read(dir: &Path, bundled: bool) -> Option<CodeSchemeEntry> {
         Ok(text) => match toml::from_str(&text) {
             Ok(descriptor) => descriptor,
             Err(error) => {
-                tracing::warn!(file = %path.display(), %error, "scheme.toml 解析失败，跳过");
+                tracing::warn!(file = %path.display(), %error, "failed to parse scheme.toml, skipped");
                 return None;
             }
         },
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-            tracing::warn!(dir = %dir.display(), "方案目录里没有 scheme.toml，跳过");
+            tracing::warn!(dir = %dir.display(), "scheme.toml missing from code scheme directory, skipped");
             return None;
         }
         Err(error) => {
-            tracing::warn!(file = %path.display(), %error, "scheme.toml 读不了，跳过");
+            tracing::warn!(file = %path.display(), %error, "failed to read scheme.toml, skipped");
             return None;
         }
     };
@@ -205,13 +206,13 @@ fn read(dir: &Path, bundled: bool) -> Option<CodeSchemeEntry> {
         "" | KIND => {}
         crate::shuangpin_schemes::KIND | crate::aux_schemes::KIND => return None,
         kind => {
-            tracing::warn!(file = %path.display(), kind, "不认识的方案种类，跳过");
+            tracing::warn!(file = %path.display(), kind, "unknown scheme kind, skipped");
             return None;
         }
     }
     let table = dir.join(&descriptor.table);
     if !table.is_file() {
-        tracing::warn!(file = %table.display(), "形码方案的码表不在，跳过");
+        tracing::warn!(file = %table.display(), "code scheme table missing, skipped");
         return None;
     }
     let label = match descriptor.name.trim() {
@@ -227,6 +228,7 @@ fn read(dir: &Path, bundled: bool) -> Option<CodeSchemeEntry> {
         auto_commit: descriptor.auto_commit,
         top: descriptor.top,
         code_length: descriptor.code_length,
+        phrase_rule: descriptor.phrase_rule,
         bundled,
     })
 }
@@ -247,6 +249,7 @@ fn read_packed(path: &Path) -> Option<CodeSchemeEntry> {
         }
     };
     let descriptor = Descriptor::default();
+    let phrase_rule = if id == WUBI86 { WUBI86 } else { "" }.to_owned();
     Some(CodeSchemeEntry {
         label: match metadata.name.trim() {
             "" => id.clone(),
@@ -264,6 +267,7 @@ fn read_packed(path: &Path) -> Option<CodeSchemeEntry> {
         auto_commit: descriptor.auto_commit,
         top: descriptor.top,
         code_length: descriptor.code_length,
+        phrase_rule,
         bundled: true,
     })
 }
