@@ -743,6 +743,7 @@ Windows 可选的 `[shortcut] toggle_punctuation` 经 `InputSettings` 下发，�
   二字 2 码、三字 3 码、四字以上 = 前三字首笔 + 末字首笔；词里有一个字不在笔画表里整词跳过）；
   `--stroke` / `--dict` / `--output` 改路径，元数据缺省「笔画」/ `OFL-1.1` / CNS11643 数位发展部署名（可覆盖），数据版本取笔画表日期。
   2026-09-20 实测：词库 92,821 词条 / 91,904 词，有码 91,773、无码跳过 131，码表 91,773 条 / 3.0 MB。
+  随包的那份在词库仓库发版（`official/codes/stroke`：笔画表 + 基础词库 `words.tsv` 由它的 pack.py 调 `pack codes`），`dicts-fetch.py` 取成 `data/generated/codes/stroke.qj`；笔画表改了要拷到那边、升版本重发。
 
 ## apps/linux
 
