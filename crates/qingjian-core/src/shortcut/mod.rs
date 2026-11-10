@@ -99,7 +99,7 @@ pub fn candidates(input: &str, expression: char, now: &Zoned) -> Vec<Candidate> 
         "sj" => time_forms(now),
         "xq" => weekday_forms(now),
         _ => match input.strip_prefix(expression) {
-            Some(body) => expression_forms(body),
+            Some(body) => expression_forms(body, now),
             None => Vec::new(),
         },
     };
@@ -136,11 +136,25 @@ const AMOUNT_FRACTION_DIGITS: usize = 2;
 
 /// 表达式键之后的部分：一个数出中文数字与金额，四位年份加月日的日期出日期写法，其余当四则运算出结果与「算式=结果」。
 /// 顺序是要紧的：`1998` 与 `1998.3` 是数字与小数，先于日期；四位年份的 `1998-3-8` 才当日期，落在算式之前。
-fn expression_forms(body: &str) -> Vec<String> {
-    if let Some(forms) = number_forms(body) {
-        return forms;
+fn expression_forms(body: &str, now: &Zoned) -> Vec<String> {
+    let mut forms = number_forms(body).unwrap_or_default();
+    // 日期与数字可以并存：`v1234.5` 既是一千二百三十四点五，也可以是 1234 年 5 月，
+    // 后者排在后面，不抢前面的常用读法
+    let mut dated = false;
+    if let Some(date_forms) = input_date_forms(body, now) {
+        forms.extend(date_forms);
+        dated = true;
     }
-    if let Some(forms) = input_date_forms(body) {
+    if !forms.is_empty() {
+        // 写法同时像日期又像算式时（`v1998-3-8`：1998 年 3 月 8 日 / 1987），两头都给：
+        // 日期在前，算式跟在后 —— 别因为多认了日期就把算式的老用法弄丢。
+        if dated
+            && let Some(result) = evaluate(body)
+            && result != body.trim()
+        {
+            forms.push(result.clone());
+            forms.push(format!("{body}={result}"));
+        }
         return forms;
     }
     match evaluate(body) {
@@ -216,12 +230,24 @@ mod tests {
 
     #[test]
     fn calendar_shortcuts() {
-        assert_eq!(texts("rq"), ["2026年9月3日", "2026-09-03", "2026/09/03"]);
-        assert_eq!(
-            texts("sj"),
-            ["19:06", "19:06:23", "19点06分", "20260903190623"]
+        // 前三条是原有顺序，不动；后面是补的各种写法
+        let rq = texts("rq");
+        assert_eq!(&rq[..3], ["2026年9月3日", "2026-09-03", "2026/09/03"]);
+        assert!(rq.contains(&"2026年9月3日 星期四".to_owned()), "{rq:?}");
+        assert!(rq.contains(&"20260903".to_owned()), "{rq:?}");
+        assert!(rq.contains(&"二〇二六年九月三日".to_owned()), "{rq:?}");
+        let sj = texts("sj");
+        assert_eq!(&sj[..3], ["19:06", "19:06:23", "19点06分"]);
+        assert!(sj.contains(&"19:06:23.000".to_owned()), "{sj:?}");
+        assert!(sj.contains(&"20260903190623".to_owned()), "{sj:?}");
+        // Unix 秒 / 毫秒不混在 `sj` 里，要时间戳敲 `vts`
+        assert!(
+            !sj.iter()
+                .any(|t| matches!(t.len(), 10 | 13) && t.bytes().all(|b| b.is_ascii_digit())),
+            "{sj:?}"
         );
-        assert_eq!(texts("xq"), ["星期四", "周四"]);
+        let xq = texts("xq");
+        assert_eq!(&xq[..2], ["星期四", "周四"]);
         assert!(texts("rqi").is_empty());
     }
 
@@ -231,14 +257,17 @@ mod tests {
             timestamp_forms(&now()),
             [
                 "1788462383",
-                "2026-09-03T19:06:23Z",
+                "2026-09-03T19:06:23.000Z",
                 "1788462383000",
-                "2026-09-03T19:06:23+00:00"
+                "2026-09-03T19:06:23.000+00:00"
             ]
         );
         let beijing = now().with_time_zone(TimeZone::fixed(jiff::tz::offset(8)));
-        assert_eq!(timestamp_forms(&beijing)[1], "2026-09-03T19:06:23Z");
-        assert_eq!(timestamp_forms(&beijing)[3], "2026-09-04T03:06:23+08:00");
+        assert_eq!(timestamp_forms(&beijing)[1], "2026-09-03T19:06:23.000Z");
+        assert_eq!(
+            timestamp_forms(&beijing)[3],
+            "2026-09-04T03:06:23.000+08:00"
+        );
         assert!(is_generated_keyword("ts") && is_generated_keyword("uuid"));
         assert!(!is_generated_keyword("t"));
     }
@@ -283,15 +312,23 @@ mod tests {
 
     #[test]
     fn date_inputs_in_expression_mode() {
-        assert_eq!(
-            texts("v1998-3-8"),
-            ["一九九八年三月八日", "1998年3月8日", "1998-03-08"]
-        );
-        // `-` / `/` / `.` 都当分隔符，补零也认
-        assert_eq!(texts("v1998/3/8")[0], "一九九八年三月八日");
-        assert_eq!(texts("v2006.12.25")[0], "二〇〇六年十二月二十五日");
-        assert_eq!(texts("v1998-03-08")[0], "一九九八年三月八日");
-        // 年份不是四位、段数不对、月日不合法 → 仍按算式
+        let date = texts("v1998.3.8");
+        assert_eq!(date[0], "一九九八年三月八日");
+        assert_eq!(date[1], "1998年3月8日");
+        assert_eq!(date[2], "1998-03-08");
+        // `-` 与 `/` 也是分隔符：日期在前，算式结果跟在后面，两者都保留
+        let dashed = texts("v1998-3-8");
+        assert_eq!(dashed[0], "一九九八年三月八日");
+        assert!(dashed.iter().any(|t| t == "1987"), "{dashed:?}");
+        let slashed = texts("v1998/3/8");
+        assert_eq!(slashed[0], "一九九八年三月八日");
+        assert!(slashed.iter().any(|t| t == "83.25"), "{slashed:?}");
+        // 补零也认
+        assert_eq!(texts("v1998.03.08")[0], "一九九八年三月八日");
+        assert_eq!(texts("v2006-12-25")[0], "二〇〇六年十二月二十五日");
+        // 混用分隔符不算日期（`1998-3.8` 切成什么说不清），只剩算式
+        assert_eq!(texts("v1998-3.8")[0], "1994.2");
+        // 年份不够、段数不对、月日不合法 → 仍按算式
         assert_eq!(texts("v1-2-3"), ["-4", "1-2-3=-4"]);
         assert_eq!(texts("v98-3-8"), ["87", "98-3-8=87"]);
         assert_eq!(texts("v1998-2-30"), ["1966", "1998-2-30=1966"]);
@@ -299,6 +336,67 @@ mod tests {
         // 数字与小数写法不受日期影响
         assert_eq!(texts("v1998")[0], "一千九百九十八");
         assert_eq!(texts("v1998.3")[0], "一千九百九十八点三");
+        // 数字之后还会跟一条日期读法，不抢第一位
+        assert!(texts("v1998.3").iter().any(|t| t.contains("年")));
+    }
+
+    #[test]
+    fn date_precision_follows_segment_count() {
+        // 一段＝年、两段＝年月、三段＝年月日，三种分隔符一致
+        for sep in ['.', '-', '/'] {
+            assert!(
+                texts("v1632").iter().any(|t| t.contains("年")),
+                "v1632 应给日期读法"
+            );
+            let year_month = format!("v1632{sep}5");
+            assert!(
+                texts(&year_month).iter().any(|t| t == "1632年5月"),
+                "{year_month} 应给年月"
+            );
+            let full = format!("v1632{sep}5{sep}20");
+            assert!(
+                texts(&full).iter().any(|t| t == "1632-05-20"),
+                "{full} 应给完整日期"
+            );
+        }
+    }
+
+    #[test]
+    fn date_shift_by_days() {
+        // 往前 7 天、往后 30 天
+        let back = texts("v1234.9.9-7");
+        assert!(back.iter().any(|t| t == "1234-09-02"), "{back:?}");
+        assert_eq!(back[0], "一二三四年九月二日", "{back:?}");
+        let forward = texts("v1234.9.9+30");
+        assert!(forward.iter().any(|t| t == "1234-10-09"), "{forward:?}");
+        // 跨月、跨年、闰年都按日历算
+        assert!(texts("v2024.2.28+1").iter().any(|t| t == "2024-02-29"));
+        assert!(texts("v2023.2.28+1").iter().any(|t| t == "2023-03-01"));
+        assert!(texts("v2023.12.31+1").iter().any(|t| t == "2024-01-01"));
+        assert!(texts("v2024.1.1-1").iter().any(|t| t == "2023-12-31"));
+        // 偏移的减号不能和日期的减号撞（那是四段日期）
+        assert!(texts("v1234/9/9+7").iter().any(|t| t == "1234-09-16"));
+        assert!(texts("v1234-9-9+7").iter().any(|t| t == "1234-09-16"));
+        assert_eq!(texts("v1998-3-8-1"), ["1986", "1998-3-8-1=1986"]);
+        assert_eq!(texts("v1-2-3"), ["-4", "1-2-3=-4"]);
+        assert_eq!(texts("v98-3-8")[0], "87");
+    }
+
+    #[test]
+    fn now_and_offsets() {
+        // 测试把「现在」固定在 2026-09-03（见 tests::now）
+        let today = texts("vnow");
+        assert_eq!(today[0], "二〇二六年九月三日", "{today:?}");
+        assert!(today.iter().any(|t| t == "2026-09-03"), "{today:?}");
+        assert!(texts("vnow+4").iter().any(|t| t == "2026-09-07"));
+        assert!(texts("vnow-4").iter().any(|t| t == "2026-08-30"));
+        // 分号 / 冒号分隔，符号可省
+        assert!(texts("vnow;-4").iter().any(|t| t == "2026-08-30"));
+        assert!(texts("vnow;4").iter().any(|t| t == "2026-09-07"));
+        assert!(texts("vnow：+10").iter().any(|t| t == "2026-09-13"));
+        // `now` 之外的写法不变
+        assert!(texts("v2026.9.3").iter().any(|t| t == "2026-09-03"));
+        assert_eq!(texts("v1+2")[0], "3");
     }
 
     #[test]

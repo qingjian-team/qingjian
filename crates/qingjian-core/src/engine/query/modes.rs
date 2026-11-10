@@ -168,10 +168,13 @@ impl Engine {
                     format!("{prefix}{}", self.marked_rest(body))
                 };
                 let mut items: Vec<Candidate> = english.into_iter().collect();
-                if !items.is_empty() && scope == shortcut::UUID_KEYWORD {
+                // 英文词归英文词，字照旧跟在后面：`uh` 既是英文的 uh，也是「一」——
+                // 那是笔画输入最基础的入口，不能因为撞上一个英文词就一条字都不给。
+                // `unchanged` 这类长词前面不相干，弱匹配由 `lookup` 的门槛挡着。
+                items.extend(chaizi_candidates(body));
+                if scope == shortcut::UUID_KEYWORD {
                     items.extend(self.generated_candidates(shortcut::UUID_KEYWORD));
                 }
-                items.extend(chaizi_candidates(body));
                 (CandidateList { items }, tail)
             }
         };
@@ -272,17 +275,17 @@ impl Engine {
 /// 问字模式里拆字最多出几个候选（短前缀能命中几千个字）。
 const CHAIZI_LIMIT: usize = 50;
 
-/// 按部件读音拆出的字，带上这个字最常见的读音（有声调的标上调号），生僻字也知道怎么念。
+/// 按部件读音、笔画或两者混着找出的字，带上这个字最常见的读音（有声调的标上调号），生僻字也知道怎么念。
 fn chaizi_candidates(keys: &str) -> Vec<Candidate> {
     crate::chaizi::lookup(keys, CHAIZI_LIMIT)
         .into_iter()
-        .map(|(ch, syllable)| Candidate {
-            text: ch.to_string(),
+        .map(|hit| Candidate {
+            text: hit.ch.to_string(),
             kind: CandidateKind::Shortcut,
             syllables: Vec::new(),
             reading: Some(qingjian_dictionary::marked(
-                syllable,
-                crate::zhuyin::tone::usual(ch, syllable),
+                hit.reading,
+                crate::zhuyin::tone::usual(hit.ch, hit.reading),
             )),
             translation: None,
             aux_code: None,

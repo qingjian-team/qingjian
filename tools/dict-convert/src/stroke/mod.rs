@@ -63,8 +63,13 @@ pub fn convert(options: &StrokeOptions, out_dir: &Path) -> Result<(), ConvertErr
         }
         None => HashMap::new(),
     };
-    let table = read_filter(&options.filter)?;
-    tracing::info!(chars = table.len(), path = %options.filter.display(), "已读字表白名单");
+    let simplified = read_fanjian(&options.fanjian)?;
+    let table = read_filter(&options.filter, &simplified)?;
+    tracing::info!(
+        chars = table.len(),
+        files = options.filter.len(),
+        "已读字表白名单"
+    );
 
     let out = options
         .output
@@ -99,6 +104,11 @@ pub fn convert(options: &StrokeOptions, out_dir: &Path) -> Result<(), ConvertErr
             },
         };
         let sequence = normalize(&sequence);
+        let sequence = if options.keys {
+            to_keys(&sequence)
+        } else {
+            sequence
+        };
         writeln!(writer, "{ch}\t{sequence}")?;
         written += 1;
         digits += sequence.len();
@@ -128,6 +138,20 @@ fn normalize(sequence: &str) -> String {
     sequence
         .chars()
         .map(|c| if c == '4' { 'n' } else { c })
+        .collect()
+}
+
+/// 转成键位形式：`1`→`h` `2`→`s` `3`→`p` `5`→`z`，点捺是 `n`。问字模式按笔画找字用这一份。
+fn to_keys(sequence: &str) -> String {
+    sequence
+        .chars()
+        .map(|c| match c {
+            '1' => 'h',
+            '2' => 's',
+            '3' => 'p',
+            '5' => 'z',
+            other => other,
+        })
         .collect()
 }
 
@@ -268,20 +292,49 @@ fn read_stroke_counts(
     Ok(counts)
 }
 
-/// 读字表白名单：一行一个字（第一列），别的列忽略；表序即输出序。
-fn read_filter(path: &Path) -> Result<Vec<char>, ConvertError> {
-    let mut chars = Vec::new();
-    let mut seen = HashSet::new();
+/// 读字表白名单：一行一个字（第一列），别的列忽略；表序即输出序。给多张表就按下标顺序拼接，
+/// 同一个字只留先出现的那次。
+fn read_fanjian(path: &Path) -> Result<HashMap<char, char>, ConvertError> {
+    let mut map = HashMap::new();
     for line in lines_of(path)? {
         let line = line?;
         if line.is_empty() || line.starts_with('#') {
             continue;
         }
-        let Some(ch) = single_char(line.split('\t').next().unwrap_or_default()) else {
+        let mut fields = line.split('\t');
+        let (Some(from), Some(to)) = (
+            fields.next().and_then(single_char),
+            fields.next().and_then(single_char),
+        ) else {
             continue;
         };
-        if seen.insert(ch) {
-            chars.push(ch);
+        if from != to {
+            map.insert(from, to);
+        }
+    }
+    Ok(map)
+}
+
+fn read_filter(
+    paths: &[PathBuf],
+    simplified: &HashMap<char, char>,
+) -> Result<Vec<char>, ConvertError> {
+    let mut chars = Vec::new();
+    let mut seen = HashSet::new();
+    for path in paths {
+        for line in lines_of(path)? {
+            let line = line?;
+            if line.is_empty() || line.starts_with('#') {
+                continue;
+            }
+            let Some(ch) = single_char(line.split('\t').next().unwrap_or_default()) else {
+                continue;
+            };
+            // 繁体字形并到简体主键：內 落到 内，円 落到 圆
+            let ch = simplified.get(&ch).copied().unwrap_or(ch);
+            if seen.insert(ch) {
+                chars.push(ch);
+            }
         }
     }
     Ok(chars)

@@ -1,0 +1,88 @@
+# 部件别名表：`部件<TAB>别名读音（空格分隔）<TAB>笔顺（空格分隔的 h/s/p/n/z）`
+# 只收三类部件：
+#   1. 俗名与字表读音不同的（囗 形同口，用户按 kou 打，字表里只有 wei）；
+#   2. 拆字表用到、但通用规范字表与繁体拆字表都没覆盖的字（馬 長 糹 这些，CNS 有笔顺，
+#      把本文件当 `stroke --filter` 的一张表传进去就能补上，笔顺列留空）；
+#   3. CNS 字库里也没有的笔画符号与部首变体（㇆ ㇉ 龹 这些，笔顺列手工写死）。
+# 本文件的读音是「额外」的：字表里本来就有的读音照旧可用，这里只是多认几种打得出名字的读法。
+部件	别名读音	笔顺
+
+# ── 1. 俗名 ──────────────────────────────────────────────
+囗	kou	
+□	kou	s z h
+⺆	jiong	s z
+
+# ── 2. 字表没覆盖、CNS 有笔顺的（笔顺列留空，由 stroke 子命令补）──
+丿	pie	
+丨	shu	
+丶	dian	
+乀	na	
+乁	yi	
+乚	yin	
+乛	zhe	
+亅	jue	
+丩	jiu	
+丱	kuang	
+丣	you	
+㐬	liu	
+㐆	yi	
+㓁	wang	
+㔾	jie	
+㝵	de	
+㠯	yi	
+㡀	bi	
+㥯	yin	
+㒼	man	
+䍃	yao	
+䜌	luan	
+忄	xin	
+彐	ji	
+彑	ji	
+巛	chuan	
+巜	kuai	
+幷	bing	
+廴	yin	
+戉	yue	
+癶	bo	
+禼	xie	
+臦	guang	
+夃	gu	
+夊	sui	
+冃	mao	
+冎	gua	
+囙	yin	
+巸	yi	
+辶	zou	
+迶	you	
+龴	yu	
+龷	gong	
+𠂔	zi	
+𠂢	pai	
+𠂤	dui	
+𠃊	yin	
+𠃋	gong	
+𠃑	yi	
+𠄌	jue	
+𠔉	jing	
+𠤏	bao	
+𡿺	nao	
+𢦏	zai	
+𤇾	ying	
+𦥯	xue	
+斲	zhuo	
+钅	jin	
+讠	yan	
+饣	shi	
+纟	si	
+糹	si	
+阝	fu	
+馬	ma	
+長	chang	
+
+# ── 3. CNS 也没有的笔画符号与部首变体 ────────────────────
+亠	tou	n h
+勹	bao	p z
+冫	bing	n n
+龹	juan	n p h h p n
+㇆	heng zhe gou	h z
+㇉	shu zhe zhe gou	s z z

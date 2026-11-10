@@ -11,6 +11,15 @@ description: "Typing dates, times and weekdays with rq / sj / xq; calculating, w
 | `rq` / `sj` / `xq` | Today's date (`2026年9月3日`, `2026-09-03`), the current time (`19:06`, `19点06分`, timestamp `20260903190623`), the day of the week, inserted after the first candidate |
 | `riqi` / `shijian` / `xingqi` | When 日期 (date), 时间 (time) or 星期 (weekday) appears among the candidates, the same forms follow right after it |
 
+There are many forms. The first three follow the leading candidate; the rest go to the end of the list, so the
+first page stays for words — typing `sj` for 时间 doesn't need paging.
+
+| Input | First three | The rest (examples) |
+|---|---|---|
+| `rq` | `2026年11月9日`, `2026-11-09`, `2026/11/09` | `2026.11.09`, `11月9日`, `20261109`, `26-11-09`, `09/11/2026` (European), `11/09/2026` (US), `2026-W45-1`, `二〇二六年十一月九日` |
+| `sj` | `19:06`, `19:06:23`, `19点06分` | with milliseconds, with the date, 12-hour (`下午7:06`, `7:06 PM`), bare digits (`190623`, `20261109190623`), filename-friendly (`20261109_190623`) |
+| `xq` | `星期一`, `周一`, `礼拜一` | — |
+
 ## Calculations, Chinese numerals and dates
 
 Start with `v`:
@@ -21,8 +30,12 @@ Start with `v`:
 | `v123` | Chinese numerals: 一百二十三 and 壹佰贰拾叁; amounts: 一百二十三元整 and 壹佰贰拾叁元整 |
 | `v123.5` | Decimal reading: 一百二十三点五 and 壹佰贰拾叁点伍; amounts: 一百二十三元五角 and 壹佰贰拾叁元伍角 (up to two decimal places, i.e. fen) |
 | `v1998-3-8` | Chinese date: 一九九八年三月八日; plus 1998年3月8日 and 1998-03-08. The separator can be `-`, `/` or `.` |
+| `vnow` | Today's date, in exactly the same forms as `v2026.11.5` |
+| `vnow+4` / `vnow-4` | Four days from now / four days ago. `vnow;4` works too (semicolon or colon; without a sign it counts forward) |
+| `v1234.9.9-7` / `v1234.9.9+30` | Seven days before / thirty days after a given date. Only complete dates, and the offset sign must differ from the date separator |
 
-- A date is recognized as **a four-digit year + month + day**; if the year isn't four digits (`v98-3-8`) or the month and day aren't valid (`v1998-2-30`), it's treated as a calculation.
+- A date is recognized as **a four-digit year + month + day**; if the year isn't four digits (`v98-3-8`) or the month and day aren't valid (`v1998-2-30`), it's treated as a calculation. A bare year and a year-month also need four digits (`v1632` looks up the fifth year of Chongzhen; `v123` stays a calculation), while a full three-part date drops to three (`v755.4.1` is the fourteenth year of Tianbao).
+- `-` and `/` can be either date separators or minus: `v1998-3-8` gives both the date forms and the calculation result, date first. Forms that can't be read (`v1-2-3`) are treated as a calculation.
 - After a `v`, digits and operators all go into the expression and are no longer used to pick or page; to pick the second item, use `↑` / `↓` and `Space`. `Enter` outputs what you typed as is.
 - English words starting with `v` (`very`) aren't affected and still get English candidates.
 
