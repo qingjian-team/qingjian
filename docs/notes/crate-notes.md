@@ -709,8 +709,8 @@ Windows 可选的 `[shortcut] toggle_punctuation` 经 `InputSettings` 下发，�
   该出专名写法的（I、China、VSCode）靠展示写法补充表 `07_display_forms.tsv` 后置读入；`cedict`：释义表备用来源。中英混杂词源在 `assets/lexicon/mixed_words.tsv`（`lexicon --extra-words`）。
 - `tones`：`assets/lexicon/02_common` 通用词表的数字声调逐字收成单字声调表（`字\t带调音节…`，轻声记 5，按词表排序号首次出现的顺序，第一个当首读音），
   `--out-dir crates/qingjian-core/data` 直接写到 Core 的 `data/tones.tsv`（`include_str!`，进 git，约 5 千字 50 KB）；通用词表没收的字没有声调，注音排序当查不到。
-- `chaizi`：開放詞典網拆字字典（`assets/chaizi/chaizi-jt.txt`，CC BY 3.0）的每种拆法按词库单字读音连成部件拼音串（林 → `mumu`；多音部件按词频取前 3 个读音交叉、一种拆法最多 16 串；有部件读不出的拆法跳过；原表同一个字分两行的合并），
-  行按字频排，写 Core 的 `data/chaizi.tsv`（约 1.4 万字 280 KB）。Core 的 `chaizi` 模块整串对上在前、前缀在后，问字模式出候选（`engine/query/modes.rs`），全是字母又拆得出字时数字键选字、不当码点。
+- `chaizi`：開放詞典網拆字字典（簡體 `chaizi-jt.txt` + 繁体 `chaizi-ft.txt`，CC BY 3.0）的每种拆法按词库单字读音写成部件串（林 → 部件 `木木`、读音 `mu'mu`；一个部件最多留 3 个读音，不再交叉展开），繁体表里「简体表没有的字」按 `fanjian_suoyin.txt` 落到简体主键（3012 字），`□` 占位退回原字；
+  行按字频排，写 Core 的 `data/chaizi.tsv`（1.7 万字 638 KB，`字\t读音\t拆法部件\t拆法读音`）。Core 的 `chaizi` 模块三张表编进二进制：`chaizi.tsv`（拆法）、`stroke.tsv`（键位形式的笔顺，`qingjian-dict-convert stroke --keys`）、`parts.tsv`（部件别名，俗名读音与 CNS 没有的笔画符号）。查询是「输入串 × 每种拆法」的对齐：每个部件要么吃掉它的一个读音，要么吃掉它笔顺的前几笔，于是纯读法、纯笔画、两者混着打都走同一条路；排序按「吃掉多少 → 是不是整字笔顺 → 走完没走完 → 还差几笔 → 档位 → 字频」，只吃掉不足四分之三的那种巧合匹配直接丢掉（`usangemu` 这类整句问题不该被「桑」拆出候选）。`has_match` 保留老的「部件读音连写」口径——笔画与混输不参与码点判定，否则 `uface` 就没法打码点了。
 - `wubi`：Rime 形码码表（`.dict.yaml`，极点 86 五笔）→ `词\t编码\t词频`（`wubi.rs`，`--name` 决定文件名，缺省 `table.tsv`，即形码方案目录里码表的缺省名）。单字母码保留源表顺序，其余编码按回填词频排序。
   **码表自带的权重不用**——那是码表顺序不是语料词频，用了同一个词在形码下和在拼音下会排得不一样；词频从青简词库按**词面**交叉回填，
   词库里没有的词给 `UNKNOWN_FREQUENCY = 1`。解析复用 `qingjian_dictionary::import::rime`（与用户导入 Rime 词库同一个解析器，

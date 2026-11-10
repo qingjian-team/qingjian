@@ -121,11 +121,13 @@ fn run() -> Result<(), ConvertError> {
             tracing::info!(characters, "单字声调表已写出");
             Ok(())
         }
-        Command::Chaizi { chaizi, dictionary } => {
-            let summary = chaizi::convert(&chaizi, &dictionary, &args.out_dir.join("chaizi.tsv"))?;
+        Command::Chaizi(options) => {
+            let summary = chaizi::convert(&options, &args.out_dir)?;
             tracing::info!(
                 characters = summary.characters,
+                splits = summary.splits,
                 unread = summary.unread,
+                merged_from_traditional = summary.merged,
                 "拆字表已写出"
             );
             Ok(())
