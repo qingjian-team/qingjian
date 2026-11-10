@@ -120,9 +120,9 @@ impl CodeTable {
             .max()
             .map_or(0, |order| order + 1);
         if untypable > 0 {
-            tracing::warn!(untypable, "码表里有编码不全是字母的行，已跳过");
+            tracing::warn!(untypable, "code table rows with non-letter codes skipped");
         }
-        tracing::debug!(entries = entries.len(), full_code_len, "码表加载完成");
+        tracing::debug!(entries = entries.len(), full_code_len, "code table loaded");
         Ok(Self {
             full_codes: full_codes(&entries),
             entries,

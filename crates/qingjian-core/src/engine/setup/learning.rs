@@ -1,3 +1,5 @@
+//! 学习与五笔组词的注入、开关和只读访问。
+
 use crate::engine::{Engine, Learner};
 
 impl Engine {

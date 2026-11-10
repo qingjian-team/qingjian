@@ -29,6 +29,7 @@ pub struct CodeSchemeEntry {
 
     /// `scheme.toml` 写了满码长度就是它，没写为 `None`（读码表时按最常见的编码长度算）。
     pub code_length: Option<usize>,
+
     /// 连续组词的取码规则；`wubi86` 启用 86 五笔规则，空串不生成词码。
     pub phrase_rule: String,
 
@@ -51,7 +52,7 @@ impl CodeSchemeEntry {
             match CodeTable::from_path(path) {
                 Ok(words) => table.merge(words),
                 Err(error) => {
-                    tracing::warn!(file = %path.display(), %error, "形码词库读不了，跳过");
+                    tracing::warn!(file = %path.display(), %error, "failed to read code words dictionary, skipped");
                 }
             }
         }

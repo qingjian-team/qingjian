@@ -2,16 +2,17 @@
 
 mod learning;
 
+use super::EMOJI_TOTAL;
 use super::aux_code::is_valid_aux_code_key;
 use super::{
     DEFAULT_AUX_CODE_KEY, ENGLISH_CANDIDATES_MAX, Engine, GlossFiller, InputLogger, ModeKeys,
     NEURAL_MARGIN, NEURAL_WEIGHT, Predictor, RESCORE_CONTEXT_CHARS, Translator, UsageMeter,
     UsageSummary, VocabularyTracker, marked_rest,
 };
-use super::EMOJI_TOTAL;
 use crate::candidate::Language;
 use crate::correction::TypoCosts;
 use crate::emoji::{EmojiTable, builtin, is_emoji};
+use crate::engine::Learner;
 use crate::engine::decoded::EngineDecoded;
 use crate::fuzzy::FuzzyRules;
 use crate::history::InputHistory;

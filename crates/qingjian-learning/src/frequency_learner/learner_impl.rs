@@ -302,9 +302,11 @@ impl Learner for FrequencyLearner {
         if self.dirty {
             match self.save_to(&path) {
                 Ok(()) => {
-                    tracing::info!(path = %path.display(), entries = self.counts.len(), "用户词频已保存")
+                    tracing::info!(path = %path.display(), entries = self.counts.len(), "user frequencies saved")
                 }
-                Err(error) => tracing::warn!(path = %path.display(), %error, "用户词频保存失败"),
+                Err(error) => {
+                    tracing::warn!(path = %path.display(), %error, "failed to save user frequencies")
+                }
             }
         }
         if self.code_words.dirty
@@ -318,10 +320,10 @@ impl Learner for FrequencyLearner {
             let words_path = Self::words_path(&path);
             match self.save_words_to(&words_path) {
                 Ok(()) => {
-                    tracing::info!(path = %words_path.display(), entries = self.words.len(), "用户词已保存")
+                    tracing::info!(path = %words_path.display(), entries = self.words.len(), "user words saved")
                 }
                 Err(error) => {
-                    tracing::warn!(path = %words_path.display(), %error, "用户词保存失败")
+                    tracing::warn!(path = %words_path.display(), %error, "failed to save user words")
                 }
             }
         }
@@ -329,10 +331,10 @@ impl Learner for FrequencyLearner {
             let english_path = Self::english_path(&path);
             match self.save_english_to(&english_path) {
                 Ok(()) => {
-                    tracing::info!(path = %english_path.display(), entries = self.english.len(), "个人英文词已保存")
+                    tracing::info!(path = %english_path.display(), entries = self.english.len(), "user English words saved")
                 }
                 Err(error) => {
-                    tracing::warn!(path = %english_path.display(), %error, "个人英文词保存失败")
+                    tracing::warn!(path = %english_path.display(), %error, "failed to save user English words")
                 }
             }
         }
@@ -340,10 +342,10 @@ impl Learner for FrequencyLearner {
             let ngram_path = Self::ngram_path(&path);
             match self.save_ngram_to(&ngram_path) {
                 Ok(()) => {
-                    tracing::info!(path = %ngram_path.display(), transitions = self.ngram.transition_count(), "个人 n-gram 已保存")
+                    tracing::info!(path = %ngram_path.display(), transitions = self.ngram.transition_count(), "user n-gram saved")
                 }
                 Err(error) => {
-                    tracing::warn!(path = %ngram_path.display(), %error, "个人 n-gram 保存失败")
+                    tracing::warn!(path = %ngram_path.display(), %error, "failed to save user n-gram")
                 }
             }
         }
@@ -351,10 +353,10 @@ impl Learner for FrequencyLearner {
             let choices_path = Self::choices_path(&path);
             match self.save_choices_to(&choices_path) {
                 Ok(()) => {
-                    tracing::info!(path = %choices_path.display(), entries = self.choice_count(), "输入串选择已保存")
+                    tracing::info!(path = %choices_path.display(), entries = self.choice_count(), "input choices saved")
                 }
                 Err(error) => {
-                    tracing::warn!(path = %choices_path.display(), %error, "输入串选择保存失败")
+                    tracing::warn!(path = %choices_path.display(), %error, "failed to save input choices")
                 }
             }
         }
@@ -362,10 +364,10 @@ impl Learner for FrequencyLearner {
             let demoted_path = Self::demoted_path(&path);
             match self.save_demoted_to(&demoted_path) {
                 Ok(()) => {
-                    tracing::info!(path = %demoted_path.display(), entries = self.demoted_count(), "降权表已保存")
+                    tracing::info!(path = %demoted_path.display(), entries = self.demoted_count(), "demoted words saved")
                 }
                 Err(error) => {
-                    tracing::warn!(path = %demoted_path.display(), %error, "降权表保存失败")
+                    tracing::warn!(path = %demoted_path.display(), %error, "failed to save demoted words")
                 }
             }
         }
@@ -373,10 +375,10 @@ impl Learner for FrequencyLearner {
             let typos_path = Self::typos_path(&path);
             match self.save_typos_to(&typos_path) {
                 Ok(()) => {
-                    tracing::info!(path = %typos_path.display(), entries = self.typo_count_total(), "个人敲错表已保存")
+                    tracing::info!(path = %typos_path.display(), entries = self.typo_count_total(), "user typos saved")
                 }
                 Err(error) => {
-                    tracing::warn!(path = %typos_path.display(), %error, "个人敲错表保存失败")
+                    tracing::warn!(path = %typos_path.display(), %error, "failed to save user typos")
                 }
             }
         }

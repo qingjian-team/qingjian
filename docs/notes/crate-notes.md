@@ -191,9 +191,10 @@ mac 存在 `Session::spelling`（`Host::follow_highlight`）、Windows / Linux �
   `[auto_phrase]`（默认开启、4 字，2～10 字）只控制五笔连续组词，`Engine::set_auto_phrase` 改值只清形码窗口，不打断拼音学习链。
   学习组件的注入、学习总开关与五笔组词设置集中在 `engine/setup/learning.rs`；设置页通过 `support::Feature::AutoPhrase` 登记平台支持，与形码一样，Linux 壳接入前标为待实现并隐藏整组控件及搜索项。
   拼音与双拼共用既有规则，不受五笔组词开关和词长限制；整段学习在 `engine/commit/buffer.rs`，配置中自定义短语的读写在 `config/phrases.rs`。
-  五笔方案显式声明 `phrase_rule = "wubi86"`；`CodeScheme::phrase_code` 从 `CodeTable` 缓存的最长单字码取 2+2 / 1+1+2 / 前三字与末字首码。
+  用户五笔方案显式声明 `phrase_rule = "wubi86"`；词库仓库的随包 `wubi86.qj` 由加载器登记此规则，其他随包形码不默认启用。
+  `CodeScheme::phrase_code` 从 `CodeTable` 缓存的最长单字码取 2+2 / 1+1+2 / 前三字与末字首码。
   `CommitChain` 的有界形码窗口只组合完整上屏词，首次连续输入即学，拼音与形码来源隔离；编辑、标点、焦点/会话与方案切换打断窗口。
-  `FrequencyLearner` 的 `code_words` 独立保存 `user-code-words.tsv`（方案键、词、编码），查询合并静态表与按方案用户表并去重，满码唯一判断也查用户表；一级简码顺序不变。
+  `FrequencyLearner` 的 `code_words` 独立保存 `learning/user-code-words.tsv`（方案键、词、编码），旧根目录文件及备份由 `UserDirs::prepare` 迁移；查询合并静态表与按方案用户表并去重，满码唯一判断也查用户表；一级简码顺序不变。
   新词增量插入有序码表，不在每次上屏重建全部用户表；删除走 `Learner::forget`，文件纳入 `FrequencyLearner::files` 导出/清空。隐私与学习总开关由 `MutedLearner` 拦截写入。
   整句一次上屏只接纳全部由多字词组成的路径，最多 6 字、一次即学（交易中心 → jyzx）；`BufferPhrase::created` 标记本次新造的词，退格改选时删除该词，已有词只回退选择记录。
   全拼选一个多音节词时选择按简拼另记一份，键是 `^` + 各音节首字母（`Engine::abbreviation_key`，`LastCommit` 的 `Choice::abbreviation` 撤销时一起退；双拼、注音、九宫格不记），`shishan` 选过的词 `ss` 也排前；和真在那串键下的选择分开：排序用的选择次数里真选过的一次顶 `CHOICE_TIERS` = 1024 次简拼另记的，中英文谁在前也不看它（混在一起时冻结回放 `cd` / `kl` / `qq` 的英文被全拼选过的 才对 / 看来 / 全球 挤到第二，`zj` 下选过的 自己 被 直接 盖过）；前后两个相同的词不自动合成（屎山 + 屎山）。多音节输入的首音节单字与其余候选分开排、单独留 `FIRST_SYLLABLE_CHARS_KEPT` = 100 个（`ss` 的两字词几万条，合在一起按覆盖字母数预选会把单字全砍掉）。这串键下选过的词不进预选、并按主词库的词排（`ss` 选过的 屎山 在知意词表里、低主词库一档，预选会被砍掉，排序先比是不是主词库也会排在几千个两字词后面被截掉），预选后并回来再排一次。`arrange` 里首音节其余单字之前的词封顶 `WORDS_BEFORE_ALL_SINGLE_CHARS` = 30 个（含单字前那 6 个），再多的排到全部单字之后：简拼 `ss` 不封顶时单字要翻五十多页；30 按输入日志定，冻结日志与一份本机日志共一万四千条多音节选词没有一条在第 30 位以后（最靠后第 29 位，99% 在前 4 位）。

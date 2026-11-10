@@ -79,6 +79,8 @@ phrase_rule = "wubi86" # Optional: only for schemes compatible with Wubi 86 phra
 
 `auto_commit` and `top` are only defaults; whatever you've changed in Settings takes priority. An empty `scheme.toml` works too.
 
+Bundled Wubi 86 includes its phrase rules. Imported schemes must explicitly set `phrase_rule`, even when named `wubi86`, so incompatible tables do not inherit Wubi rules.
+
 Once it's in place, reopen Settings and choose it under 设置 → 输入 → 形码 (Settings → Input → Shape-based). A scheme whose folder is named `wubi86` replaces the bundled Wubi, which you can use to swap in a different Wubi code table.
 If you just want to add a few words of your own without replacing the code table, see [Importing Wubi dictionaries](../personalize/dictionaries.md#Importing-Wubi-dictionaries).
 

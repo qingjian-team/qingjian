@@ -1,3 +1,5 @@
+//! 一段拼音选完后的整段记忆与撤销。
+
 use super::{BufferPhrase, Choice};
 use crate::engine::{AUTO_WORD_THRESHOLD_SAME_BUFFER, reading_key};
 use crate::{Candidate, CandidateKind, Engine, Learner};

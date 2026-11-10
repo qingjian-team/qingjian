@@ -73,9 +73,11 @@ mod tests {
     use qingjian_dictionary::CodeTable;
 
     #[test]
-    fn bundled_character_codes_generate_standard_wubi_phrase_codes() {
-        let table =
-            CodeTable::parse(include_str!("../../../assets/schemes/wubi86/table.tsv")).unwrap();
+    fn character_codes_generate_standard_wubi_phrase_codes() {
+        let table = CodeTable::parse(
+            "中\tkhk\t1\n国\tlgyi\t1\n青\tgef\t1\n简\ttujf\t1\n输\tlwgj\t1\n入\ttty\t1\n法\tifcy\t1\n华\twxfj\t1\n人\twwww\t1\n民\tnav\t1\n共\tawu\t1\n和\ttkg\t1\n",
+        )
+        .unwrap();
         let mut scheme = CodeScheme::new("wubi", table);
         scheme.wubi_phrases = true;
         assert_eq!(scheme.phrase_code("中国").as_deref(), Some("khlg"));
