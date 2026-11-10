@@ -11,8 +11,13 @@ use crate::LearningError;
 
 #[derive(Debug, Default)]
 pub(super) struct CodeWords {
+    /// （方案 id, 词）→ 编码，落盘的就是这张表。
     words: BTreeMap<(String, String), String>,
+
+    /// 按方案 id 由 `words` 建出来的码表，查询用。
     tables: BTreeMap<String, CodeTable>,
+
+    /// 有没落盘的改动。
     pub dirty: bool,
 }
 

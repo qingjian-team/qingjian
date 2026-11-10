@@ -64,7 +64,7 @@ Choose under 键位提示 (Key hints) in 设置 → 输入 (Settings → Input):
 - **卡住时显示 (When stuck)**: appears only when you pause partway through or type a key that can't form a syllable, so you won't see it while typing smoothly. Once it appears it stays for the rest of that input and closes after you commit.
 - **一直显示 (Always)**: shown the whole time you're typing.
 
-键位提示大小 (Key hint size) and 键位提示透明度 (Key hint opacity) set the keyboard's size and transparency. The keyboard is placed on the side of the candidate window facing away from the cursor so it doesn't cover the line you're typing; if it doesn't fit anywhere, it isn't shown that time.
+键位提示大小 (Key hint size) and 键位提示不透明度 (Key hint opacity) set the keyboard's size and opacity. The keyboard is placed on the side of the candidate window facing away from the cursor so it doesn't cover the line you're typing; if it doesn't fit anywhere, it isn't shown that time.
 Supported on macOS and Windows; on Windows, the candidate window must be drawn by Qingjian's renderer (the default). Wubi's radical chart uses the same settings; see [Wubi and mixed input](wubi.md#Radical-chart).
 
 ## Dachen Zhuyin
