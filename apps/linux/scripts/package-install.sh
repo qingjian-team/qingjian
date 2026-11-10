@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# //! 预编译包的安装脚本（package.sh 放到包根目录的 install.sh）：解开产品数据，装到用户目录；Server 由用户手动启动。
+# //! 预编译包的安装脚本（package.sh 放到包根目录的 install.sh）：解开随包模型与词库，装到用户目录；Server 由用户手动启动。
 set -euo pipefail
 here=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 install_prefix="$HOME/.local"
@@ -21,10 +21,8 @@ if ((${#missing[@]})); then
   exit 1
 fi
 install_prefix=$(python3 -c 'import os, sys; print(os.path.realpath(sys.argv[1]))' "$install_prefix")
-mkdir -p "$here/data"
-# 数据包在 macOS 上打，带 LIBARCHIVE.xattr 扩展头，GNU tar 会逐个警告
-tar --warning=no-unknown-keyword -xzf "$here/target/release-data/qingjian-data.tar.gz" -C "$here"
-# 随包词库带的是 .qjz 缓存，按 dicts.lock 核对后解开，不联网
+# 随包模型与词库带的是下载缓存，按 models.lock / dicts.lock 核对后解开，不联网
+python3 "$here/tools/release/models-fetch.py"
 python3 "$here/tools/release/dicts-fetch.py"
 python3 "$here/files.py" install "$install_prefix" --root "$here" --server "$here/bin/qingjian-linux-server" --settings "$here/bin/qingjian-settings" --plugin "$here/lib/qingjian.so"
 printf '已安装。手动启动：%s/bin/qingjian-linux-server\n重启 Fcitx5，在配置工具取消“仅显示当前语言”后添加“青简”。\n设置：应用菜单里的“青简设置”，或 %s/bin/qingjian-settings\n' "$install_prefix" "$install_prefix"

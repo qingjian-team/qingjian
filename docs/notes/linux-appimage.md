@@ -43,7 +43,7 @@ AppImage 的思路是程序留在包里、运行时挂载，什么都不装。�
 
 runtime 用 AppImage 官方的 type2 runtime（静态链接，宿主不用装 libfuse2），版本与 SHA256 钉在 `build.sh` 里；
 换版本时下载 `runtime-x86_64`、`.sig` 与 `signing-pubkey.asc`，`gpg --verify` 过了再改（主密钥指纹 `570C 77AC EA40 C0F1 B758 902C BF96 CCA5 6490 F695`）。
-squashfs 由 `mksquashfs`（zstd）直接打，再接在 runtime 后面，不依赖只有 continuous 版的 appimagetool。产品数据照源码安装那样经 `files.py` 按 `data.lock` 校验后放进包。
+squashfs 由 `mksquashfs`（zstd）直接打，再接在 runtime 后面，不依赖只有 continuous 版的 appimagetool。产品数据照源码安装那样经 `files.py` 按 `dicts.lock` / `models.lock` 校验后放进包。
 
 ## 实测
 

@@ -5,7 +5,7 @@
     tools/release/dicts-fetch.py --verify   # 不联网，只核对缓存的 .qjz 与 data/generated/ 里解开的 .qj
     tools/release/dicts-fetch.py --update   # 按词库仓库 index.json 的 bundled 重写 dicts.lock（换随包词库或版本时用）
 
-Gitee 与 GitHub 上的附件一模一样，两边同时请求，先回来的用；那边下坏了或核对不上再换另一边。
+Gitee 与 GitHub 两边同时请求，先回来的用（mirror.py）。
 锁文件一行一本：`<标签> = <.qjz 的 SHA-256> <装成的文件>`，文件相对 data/generated/，壳按这个名字找。
 data-fetch.sh 最后会调它，CI 与各平台打包脚本都不用另外跑。
 """
@@ -13,14 +13,12 @@ data-fetch.sh 最后会调它，CI 与各平台打包脚本都不用另外跑。
 from __future__ import annotations
 
 import gzip
-import hashlib
 import json
 import shutil
 import sys
-import urllib.parse
-import urllib.request
-from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
 from pathlib import Path
+
+from mirror import download, fetch_bytes, sha256
 
 ROOT = Path(__file__).resolve().parent.parent.parent
 LOCK = ROOT / "tools/release/dicts.lock"
@@ -38,77 +36,6 @@ RAW_HOSTS = (
 QJ_FORMAT = 1
 # 装成的文件名缺省是 `<id>.qj`，附加词库放 dicts/、形码方案放 schemes/（id 就是方案 id）、辅码码表放 codes/；基础词库沿用壳一直找的 dict.qj，成语词库沿用配置 `[dictionaries] domains` 里的 idioms
 NAMES = {"base": "dict.qj", "domain-idioms": "idioms.qj"}
-# 单次读写的超时：连不上的那边（GitHub 在大陆常这样）拖着线程，脚本退出前要等它超时
-TIMEOUT = 20
-
-
-def open_url(url: str):
-    request = urllib.request.Request(url, headers={"User-Agent": "qingjian-build"})
-    return urllib.request.urlopen(request, timeout=TIMEOUT)
-
-
-def host(response) -> str:
-    """跳转后的下载地址带一长串签名，日志里只写主机。"""
-    return urllib.parse.urlsplit(response.url).netloc
-
-
-def race(urls: list[str]):
-    """同时打开几个地址，按响应先后逐个交出；调用方用上一个就不再往下取，没用上的都关掉。"""
-    pool = ThreadPoolExecutor(len(urls))
-    pending: set[Future] = {pool.submit(open_url, url) for url in urls}
-    ready: list[Future] = []
-    try:
-        while pending or ready:
-            if not ready:
-                done, pending = wait(pending, return_when=FIRST_COMPLETED)
-                ready.extend(done)
-            future = ready.pop(0)
-            try:
-                yield future.result()
-            except OSError as error:
-                print(f"  {error}", file=sys.stderr)
-    finally:
-        for future in [*ready, *pending]:
-            future.add_done_callback(lambda f: f.exception() is None and f.result().close())
-        pool.shutdown(wait=False)
-
-
-def fetch_bytes(urls: list[str]) -> bytes:
-    for response in race(urls):
-        with response:
-            try:
-                return response.read()
-            except OSError as error:
-                print(f"  {host(response)}：{error}", file=sys.stderr)
-    sys.exit(f"都下不下来：{'、'.join(urls)}")
-
-
-def sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as file:
-        for block in iter(lambda: file.read(1 << 20), b""):
-            digest.update(block)
-    return digest.hexdigest()
-
-
-def download(tag: str, name: str, expected: str, target: Path) -> None:
-    """先回来的那边下；断了或核对不上换下一边，都不行就停。"""
-    partial = target.with_name(target.name + ".part")
-    for response in race([f"{host}/{tag}/{name}" for host in RELEASE_HOSTS]):
-        with response:
-            try:
-                with partial.open("wb") as file:
-                    shutil.copyfileobj(response, file, 1 << 20)
-            except OSError as error:
-                print(f"  {host(response)}：{error}", file=sys.stderr)
-                continue
-        if sha256(partial) == expected:
-            partial.replace(target)
-            print(f"  {host(response)}")
-            return
-        print(f"  {host(response)} 下的与 dicts.lock 对不上", file=sys.stderr)
-    partial.unlink(missing_ok=True)
-    sys.exit(f"{tag} 的 {name} 两边都没下到核对得上的")
 
 
 def read_lock() -> list[tuple[str, str, str]]:
@@ -146,20 +73,20 @@ def fetch(verify_only: bool) -> None:
         target = GENERATED / installed
         if not (packed.is_file() and sha256(packed) == sha):
             if verify_only:
-                sys.exit(f"{packed} 没有或与 dicts.lock 不符，先跑 tools/release/dicts-fetch.py")
-            print(f"下载 {tag}")
-            download(tag, name, sha, packed)
+                sys.exit(f"{packed} missing or differs from dicts.lock; run tools/release/dicts-fetch.py")
+            print(f"downloading {tag}")
+            download([f"{host}/{tag}/{name}" for host in RELEASE_HOSTS], sha, packed)
         if unpacked_matches(packed, target):
             print(f"{installed}  {tag}")
             continue
         if verify_only:
-            sys.exit(f"data/generated/{installed} 与 {tag} 不符，先跑 tools/release/dicts-fetch.py")
+            sys.exit(f"data/generated/{installed} differs from {tag}; run tools/release/dicts-fetch.py")
         target.parent.mkdir(parents=True, exist_ok=True)
         partial = target.with_name(target.name + ".part")
         with gzip.open(packed, "rb") as source, partial.open("wb") as file:
             shutil.copyfileobj(source, file, 1 << 20)
         partial.replace(target)
-        print(f"{installed}  {tag}（已解开）")
+        print(f"{installed}  {tag} (unpacked)")
     if not verify_only:
         locked = {f"{tag}.qjz" for tag, _, _ in read_lock()}
         for stale in CACHE.glob("*.qjz"):

@@ -25,7 +25,7 @@
 #
 # 门禁：版本号与标签一致且不带 -dev；标签指向的提交必须在 main 上（防止从没合并的分支或手滑的本地提交发版）。
 # Secrets 不放 workflow 顶层 env，只注入真正用它的那一步；有没有配由第一步算成输出（secrets 不能直接写在 if 里）。
-# actions 钉到 commit（注释是对应标签），Dependabot 每周更新；产品数据与本地整句模型按 tools/release/data.lock 钉住的 data-vN Release 下载、按锁文件里的哈希校验，标签与哈希记进 build-info.json。
+# actions 钉到 commit（注释是对应标签），Dependabot 每周更新；随包的语言模型与含章·通变按 tools/release/models.lock、词库按 dicts.lock 从模型仓库与词库仓库下载并核对哈希，模型摘要记进 build-info.json。
 name: release
 
 on:

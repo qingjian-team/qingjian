@@ -219,7 +219,7 @@ CSR 偏移与后继）原样落盘，打开时 mmap 整个文件、校验一遍�
   自己写风险最小。若以后碰撞或分布出问题，换成 xxh3 并把 `FORMAT_VERSION` 加一。
 - 写文件先写同目录 `.qj.tmp` 再改名；数据文件只整体替换，从不就地修改（mmap 的安全前提）。
 - 生成：`cargo run --release -p qingjian-dict-convert -- pack dict --name … --license … --source …` → `dict.qj`，
-  `pack lm --name … --license …` → `lm.qj`（`bundle.sh` 在 TSV 比 `.qj` 新时自动重打）。`Dictionary::from_path` 按魔数自动选
+  `pack lm --name … --license …` → `lm.qj`（发在模型仓库，打包时按 `tools/release/models.lock` 取）。`Dictionary::from_path` 按魔数自动选
   `.qj` / TSV 路径，`BigramModel::from_path`（`.qj`）与 `from_paths`（TSV）分开；输入法与 CLI 有 `.qj` 就用它。
   释义表、emoji 表、英文词表还是 TSV（加载各 20 ms 以内，等有需要再进容器）。
 - 格式版本不兼容时 `FORMAT_VERSION` 加一，读旧版的代码按需保留；`Kind` 编号只增不改。

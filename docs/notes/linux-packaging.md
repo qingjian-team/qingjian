@@ -20,7 +20,7 @@ QINGJIAN_SAMPLE=1 apps/linux/packaging/build.sh   # 没有产品数据时只带�
 | Rust 的 Server 与 IBus 前端 | Ubuntu 22.04 容器，编一次两种包共用 | 这两个只依赖 libc / libm / libgcc；在 glibc 2.35 上编，实际门槛是 `GLIBC_2.34`。工具链与 crate 缓存直接挂本机的 `~/.cargo` / `~/.rustup`；依赖树里有 `openssl-sys`，编译要 `libssl-dev`（最终二进制并不链 libssl） |
 | fcitx5 插件（deb） | Debian 13 容器 | 插件要对着目标发行版自己的 fcitx5 编；`CMakeLists.txt` 要 5.1.8+，Ubuntu 24.04 只有 5.1.7 |
 | fcitx5 插件（rpm） | Fedora 42 容器 | 同上 |
-| 随包资源 | 本机，`files.py resources` | 与 `install.sh` 同一套产品数据校验（`tools/release/data.lock`）与布局 |
+| 随包资源 | 本机，`files.py resources` | 与 `install.sh` 同一套产品数据校验（`tools/release/dicts.lock` / `models.lock`）与布局 |
 
 ## 两种包各装了什么
 

@@ -8,8 +8,8 @@
       3) 找 ISCC.exe（PATH 或常见安装位置）；
       4) iscc /DAppVersion=<版本> 编脚本，成品在 target\installer\qingjian-<版本>-windows-x86_64-setup.exe。
     随包数据（.qj / .tsv）直接由 .iss 从仓库 data\generated 与 assets 里取，不另建暂存目录；
-    随包词库每次按 tools\release\dicts.lock 从词库仓库取（已下过的只核对）；语言模型与码表编译前先查一遍，
-    缺了就停（tools\release\data-fetch.sh 按 data.lock 下载）。
+    语言模型每次按 tools\release\models.lock 从模型仓库取，随包词库与码表按 dicts.lock 从词库仓库取（已下过的只核对），
+    编译前再查一遍文件齐不齐，缺了就停。
     uiAccess 跟着 -Sign 走，不用手设 QINGJIAN_UIACCESS（见 -Sign）。
 .PARAMETER SkipBuild
     跳过 cargo build（数据或 .iss 改了、二进制没变时重编安装包用）。
@@ -35,8 +35,10 @@ if ($Sign) {
     Write-Host 'uiAccess=0（对外分发：Server 任何机器都能起；候选窗在商店 / 任务栏搜索里可能被盖）' -ForegroundColor Cyan
 }
 
-# 0) 产品数据缺一样就停：与 .iss 的 [Files] 和 data-bundle.sh 的数据包一致，免得编译几分钟后才在 iscc 那步报错，
+# 0) 产品数据缺一样就停：与 .iss 的 [Files] 一致，免得编译几分钟后才在 iscc 那步报错，
 #    更免得少了码表的包照样能装（以前它标了 skipifsourcedoesntexist，缺了也悄悄打包）。本地整句模型不随包。
+python (Join-Path $Repo 'tools\release\models-fetch.py')
+if ($LASTEXITCODE -ne 0) { throw "取随包模型失败（退出码 $LASTEXITCODE）" }
 python (Join-Path $Repo 'tools\release\dicts-fetch.py')
 if ($LASTEXITCODE -ne 0) { throw "取随包词库失败（退出码 $LASTEXITCODE）" }
 $data = @(
@@ -54,7 +56,7 @@ $data = @(
 )
 $absent = @($data | Where-Object { -not (Test-Path (Join-Path $Repo $_)) })
 if ($absent.Count -gt 0) {
-    throw "缺产品数据：$($absent -join ', ')。先跑 tools\release\data-fetch.sh 下载（或从别的机器拷 data\generated）"
+    throw "缺产品数据：$($absent -join ', ')"
 }
 
 # 1) 构建产物：Server、DLL（64 / 32 位）、设置程序、旧版设置程序。

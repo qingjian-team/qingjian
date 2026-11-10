@@ -89,25 +89,22 @@ cargo 命令全 `--locked`（含 `bundle.sh` 与 `build.ps1`）。普通 CI 只�
 
 ## 产品数据从哪来
 
-语言模型与含章·通变不在 git 里，由本机数据管道生成。
-它们发在仓库里一个个**不可变**的预发布 Release 上：`data-v1`、`data-v2`……每次数据重生成发一个新号、从不覆盖
-（预发布不会成为 GitHub 的 latest，官网取 latest 时不会拿到它）。仓库里 `tools/release/data.lock` 钉住当前要用的标签与资产的 SHA-256，
+语言模型、模型与词库都不在 git 里，发在两个数据仓库的 Release 上，主仓库用锁文件钉住标签与 SHA-256，
 跟用到新数据的代码同一个提交进去：checkout 哪个提交就拿到它对应的那版数据，离线自编译的人不会因为我们改了数据而编出坏包。
 
-- `tools/release/data-bundle.sh`：把 `data/generated/`、含章·知微 `hanzhang-zhiwei-small.qjm` 与含章·通变 `hanzhang-tongbian-small.qjm` 装进唯一附件 `qingjian-data.tar.gz`
-  （导出的三件套放各自模型目录，`tools/release/pack-model.sh` 打成 `.qjm` 容器）。训练中间产物不进入公开包；发到下一个 `data-vN`（`--tag` 可指定，已存在就拒绝），然后改写 `data.lock`。
-- `tools/release/data-fetch.sh`：按 `data.lock` 下载（有 gh 用 gh，没有就 curl 直连）、按锁文件里的哈希校验，
-  数据包解到 `data/generated/` 与两份模型各自的 `data/models/<标识>/`。旧锁仍可读取分离附件。`release.yml` 各平台的 job 和离线自编译走同一个脚本；
-  `bundle.sh`、`qingjian.iss` 与 Linux 打包脚本将两份模型分别装入对应目录，产品端优先使用通变。
-  标签与各资产哈希记进 `build-info.json`（`data_tag` / `data_sha256` / `model_sha256` / `p2c_model_sha256`）。
+- 随包模型（语言模型 `lm.qj`、Linux 版随包的含章·通变）在模型仓库 [qingjian-models](https://github.com/qingjian-team/qingjian-models) 发版（`lm-v1.0.0`、`hanzhang-tongbian-v1.0.0`，打包与标签约定见那边的 `docs/maintaining.md`），
+  `tools/release/models.lock` 钉住每个的标签与压缩包的 SHA-256。`tools/release/models-fetch.py` 按 `manifest.json` 逐块下载、拼回后按锁文件核对，
+  解出模型文件放到锁文件写的位置（`data/generated/lm.qj`、`data/models/hanzhang-tongbian/`；压缩包缓存在 `target/release-data/models/`）。
+  语言模型重生成（`dict-convert bigram` + `pack lm`）或模型重训（`tools/release/pack-model.sh` 打成 `.qjm`）之后，在模型仓库发新版本，再改 `models.lock` 提交。
 - 随包词库（基础词库、成语词库、英文词表、英语与中文释义表、越南语词表与越南语→中文对照）与码表（五笔、笔画）在词库仓库 [qingjian-dicts](https://github.com/qingjian-team/qingjian-dicts) 发版，
-  `tools/release/dicts.lock` 钉住每本的标签与 `.qjz` 的 SHA-256。`data-fetch.sh` 最后调 `tools/release/dicts-fetch.py`：Gitee 与 GitHub 同时请求、先回来的用，
-  核对后解成 `.qj` 放进 `data/generated/`（`.qjz` 缓存在 `target/release-data/dicts/`）；mac 的 `bundle.sh` 与 Windows 的 `build.ps1` 每次打包也调一遍，已下过的只核对。
+  `tools/release/dicts.lock` 钉住每本的标签与 `.qjz` 的 SHA-256。`tools/release/dicts-fetch.py` 核对后解成 `.qj` 放进 `data/generated/`（`.qjz` 缓存在 `target/release-data/dicts/`）。
   词库仓库发了新版或改了随包哪几本，跑 `dicts-fetch.py --update` 按它的 `index.json` 重写锁文件，提交（`chore(data): 随包词库 …`）；
   换了随包词库的文件名还要同步 `qingjian.iss`、`build.ps1`、安卓的 `build.gradle.kts` 和各壳加载的路径。别的词库与释义表不随包，在设置里下载。
+- 两个脚本都是 Gitee 与 GitHub 同时请求、先回来的用（共用 `tools/release/mirror.py`）。`tools/release/data-fetch.sh` 依次调它们，
+  `release.yml` 各平台的 job、mac 的 `bundle.sh` 与离线自编译都走它，Windows 的 `build.ps1` 直接调这两个脚本；已下过的只核对，`--verify` 不联网只核对。
+  随包语言模型与含章·通变的摘要记进 `build-info.json`（`lm_sha256` / `p2c_model_sha256`）。文件缺失或哈希不符时打包失败，不会静默地发出错数据的包。
 
-语言模型重生成之后、模型重训之后跑一次 `data-bundle.sh`（三件套比 `.qjm` 新会自动重打），
-把锁文件的改动提交（`chore(data): 数据 data-vN`），否则 CI 打的包还是锁文件指的旧数据。模型文件缺失或哈希不符时 CI 会失败，不会静默地发出错数据的包。
+2026-11-10 之前语言模型与含章·通变装在主仓库的 `data-vN` 预发布 Release 里（`data.lock` 钉住，最后一版 `data-v10`），已停用；
 2026-09-16 之前用的是滚动覆盖的 `data` Release，已冻结不再更新。
 
 ## 版本索引的签名

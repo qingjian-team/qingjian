@@ -42,8 +42,7 @@ def parse_args():
 
 
 def bundled_dicts(root, resources, files):
-    """随包词库按 tools/release/dicts.lock 校验后加入清单：缓存的 .qjz 对上锁文件，解开的 .qj 对上 .qjz 的内容。返回这几个文件。"""
-    owned = set()
+    """随包词库按 tools/release/dicts.lock 校验后加入清单：缓存的 .qjz 对上锁文件，解开的 .qj 对上 .qjz 的内容。"""
     for line in (root / 'tools/release/dicts.lock').read_text().splitlines():
         if not line.strip() or line.startswith('#'):
             continue
@@ -59,48 +58,32 @@ def bundled_dicts(root, resources, files):
             if digest_stream(stream) != digest(source):
                 raise SystemExit(f'随包词库校验失败：{installed}')
         files[resources / source.relative_to(root)] = source
-        owned.add(source.resolve())
-    return owned
+
+
+def bundled_models(root, resources, files):
+    """随包模型（语言模型、含章·通变）按 tools/release/models.lock 校验后加入清单：缓存的压缩包对上锁文件，解出的文件对上包里的同名文件。"""
+    for line in (root / 'tools/release/models.lock').read_text().splitlines():
+        if not line.strip() or line.startswith('#'):
+            continue
+        tag, rest = line.split(' = ', 1)
+        expected, installed = rest.split()
+        packed = root / 'target/release-data/models' / f'{tag}.tar.gz'
+        source = root / installed
+        if not packed.is_file() or not source.is_file():
+            raise SystemExit(f'缺少随包模型 {tag}，请先运行 tools/release/data-fetch.sh，或用 --sample 体验样例词库')
+        if digest(packed) != expected:
+            raise SystemExit(f'{packed.name} 与 tools/release/models.lock 校验值不符')
+        with tarfile.open(packed) as archive:
+            member = next((m for m in archive.getmembers() if m.isfile() and Path(m.name).name == source.name), None)
+            if member is None or digest_stream(archive.extractfile(member)) != digest(source):
+                raise SystemExit(f'随包模型校验失败：{installed}')
+        files[resources / source.relative_to(root)] = source
 
 
 def product_data(root, resources, files):
-    """产品数据按 tools/release/data.lock 与 dicts.lock 校验后加入清单。"""
-    generated = root / 'data/generated'
-    archive = root / 'target/release-data/qingjian-data.tar.gz'
-    lock = dict(line.strip().split(' = ', 1) for line in (root / 'tools/release/data.lock').read_text().splitlines() if ' = ' in line)
-    if not archive.is_file():
-        raise SystemExit('缺少产品数据，请先运行 tools/release/data-fetch.sh，或用 --sample 体验样例词库')
-    if digest(archive) != lock.get('qingjian-data.tar.gz'):
-        raise SystemExit('产品数据包与 tools/release/data.lock 校验值不符')
-    owned = bundled_dicts(root, resources, files)
-    verified = {}
-    with tarfile.open(archive) as bundle:
-        for member in bundle.getmembers():
-            if not member.isfile():
-                continue
-            source = (root / member.name).resolve()
-            # data-v9 的包里还带着旧词库，随包的那几本已被 dicts.lock 的版本盖掉
-            if source in owned:
-                continue
-            if not source.is_relative_to((root / 'data').resolve()):
-                raise SystemExit('数据包路径越界')
-            checksum = digest_stream(bundle.extractfile(member))
-            if not source.is_file() or digest(source) != checksum:
-                raise SystemExit(f'产品数据校验失败：{member.name}')
-            verified[source] = checksum
-    wanted = ('lm.qj', 'lm-unigram.tsv', 'lm-bigram.tsv')
-    for source in generated.rglob('*'):
-        # 点开头的是 macOS 打包混进来的 AppleDouble（`._dict.qj`），data-v1 发布包里有 19 个，不是产品数据
-        if source.name.startswith('.'):
-            continue
-        if source.is_file() and source.name in wanted:
-            if source.resolve() not in verified:
-                raise SystemExit(f'产品数据没有校验记录：{source}')
-            files[resources / source.relative_to(root)] = source
-    p2c_model = root / 'data/models/hanzhang-tongbian/hanzhang-tongbian-small.qjm'
-    if not p2c_model.is_file() or verified.get(p2c_model.resolve()) != digest(p2c_model):
-        raise SystemExit('含章·通变缺失或不在已校验的数据包中')
-    files[resources / p2c_model.relative_to(root)] = p2c_model
+    """产品数据：随包词库按 dicts.lock、模型按 models.lock 校验后加入清单。"""
+    bundled_dicts(root, resources, files)
+    bundled_models(root, resources, files)
 
 
 def resource_files(root, resources, sample):
