@@ -10,6 +10,9 @@
 
 #![cfg(target_os = "linux")]
 
+#[path = "ibus_engine/code.rs"]
+mod code;
+
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 

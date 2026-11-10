@@ -1,5 +1,7 @@
 # Linux Fcitx5 默认面板
 
+2026-11-05：五笔、自制方案与导入形码词库已接入共用 Server；纯五笔自动上屏、顶字与下一段预编辑共存由 `code-server` CTest 覆盖。方案切换清理、安装资源和隔离 GTK3 实测见 [linux-wubi.md](linux-wubi.md)，不包含辅码或字根图。
+
 Linux Server 在 `[predict] enabled = true` 且密钥可用时接入共享的 `CloudPredictor`，沿现有 Poll 帧返回异步云端候选和整句补全。云端词只补第一页末尾未被用户选中的格，默认面板用 ☁ 标记词并在辅助行显示整句；会话切换、失焦和隐私边界会作废旧结果。Fcitx5 插件从有效的 `surroundingText()` 读取应用光标前后文，跳过选区并各截取最多 80 字；Server 在敏感输入中忽略它。不做云端译词兜底；`[predict]` 配置热加载会重建客户端，撤销旧请求、翻译评审与所有会话中的旧云候选。Fcitx5 的 Sensitive、Password、Disable 能力由插件上报给 Server。
 
 第一阶段保留 Rust Server、薄插件和用户目录安装。输入模式、组句、选词、翻页、隐私和失焦提交均在 Server；

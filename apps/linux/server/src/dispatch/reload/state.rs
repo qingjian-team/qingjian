@@ -5,12 +5,21 @@ use std::time::{Instant, SystemTime};
 
 use qingjian_core::Language;
 use qingjian_dictionary::Dictionary;
-use qingjian_platform::{DictionariesConfig, LocalModelConfig, UserDirs, extra_dictionaries};
+use qingjian_platform::code_tables::AuxCodeSources;
+use qingjian_platform::{
+    Config, DictionariesConfig, LocalModelConfig, UserDirs, code_schemes, extra_dictionaries,
+};
 use qingjian_predict::PredictConfig;
 use qingjian_translate::DOWNLOADED_DIR;
 
 /// 热加载状态。
 pub(crate) struct ConfigReload {
+    /// 上次成功应用的配置；方案文件单独变化时沿用，不读取尚未写完的配置。
+    pub(super) applied_config: Config,
+
+    /// 方案描述、码表和导入形码词库的路径、修改时间与长度。
+    pub(super) scheme_files: Vec<(PathBuf, Option<SystemTime>, u64)>,
+
     /// `config.toml` 路径。
     pub(super) config_path: PathBuf,
 
@@ -53,6 +62,39 @@ impl ConfigReload {
             .iter()
             .flat_map(|dir| extra_dictionaries::snapshot(dir))
             .collect()
+    }
+
+    pub(super) fn scheme_snapshot(&self) -> Vec<(PathBuf, Option<SystemTime>, u64)> {
+        let mut files = Vec::new();
+        for directory in [self.user.custom(), self.root.join("data/generated")] {
+            files.extend(
+                AuxCodeSources {
+                    user_dir: Some(directory),
+                    ..Default::default()
+                }
+                .snapshot(),
+            );
+        }
+        files.extend(code_schemes::words_snapshot(&code_schemes::user_words_dir(
+            &self.user.custom(),
+        )));
+        let legacy = self.user.custom().join("wubi/wubi86.tsv");
+        if let Ok(metadata) = std::fs::metadata(&legacy) {
+            files.push((legacy, metadata.modified().ok(), metadata.len()));
+        }
+        if let Some(id) = self.applied_config.general.code()
+            && let Some(entry) = code_schemes::find(
+                &id,
+                Some(&self.user.custom()),
+                Some(&self.root.join("data/generated/schemes")),
+            )
+            && let Ok(metadata) = std::fs::metadata(&entry.table)
+        {
+            files.push((entry.table, metadata.modified().ok(), metadata.len()));
+        }
+        files.sort();
+        files.dedup();
+        files
     }
 
     /// `downloads/glossaries/` 的逐文件快照。

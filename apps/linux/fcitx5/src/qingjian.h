@@ -1,6 +1,7 @@
 //! Fcitx5 薄插件：框架事件转发、默认面板与上屏适配。
 #pragma once
 #include "session.h"
+#include "settings/config.h"
 #include <fcitx/addonfactory.h>
 #include <fcitx/inputcontext.h>
 #include <fcitx/inputmethodengine.h>
@@ -11,6 +12,7 @@ class QingjianEngine final : public InputMethodEngineV2 {
 public:
     explicit QingjianEngine(AddonManager *manager);
     ~QingjianEngine() override;
+    const Configuration *getConfig() const override { return &settings_; }
     void keyEvent(const InputMethodEntry &, KeyEvent &) override;
     void reset(const InputMethodEntry &, InputContextEvent &) override;
     void deactivate(const InputMethodEntry &, InputContextEvent &) override;
@@ -29,6 +31,8 @@ private:
     void poll();
 
     Instance *instance_;
+
+    qingjian::SettingsConfig settings_;
 
     std::shared_ptr<qingjian::SharedConnection> shared_;
 

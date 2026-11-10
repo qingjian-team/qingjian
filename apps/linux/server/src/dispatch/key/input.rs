@@ -211,8 +211,7 @@ impl Router {
             || is_zhuyin_key
             || (c.is_ascii_uppercase() && self.config.shift_letter_compose)
         {
-            self.engine.push(c);
-            return Effect::Changed(None);
+            return Effect::Changed(self.push_letter(c));
         }
         if c.is_ascii_uppercase() {
             let raw = self.composing().then(|| self.engine.take_raw());
@@ -223,6 +222,19 @@ impl Router {
             return self.apply_punctuation(c, event);
         }
         self.apply_printable(c, event)
+    }
+
+    fn push_letter(&mut self, character: char) -> Option<String> {
+        let topped = self
+            .engine
+            .code_tops(character)
+            .then(|| self.commit_highlighted());
+        self.engine.push(character);
+        let committed: String = topped
+            .into_iter()
+            .chain(self.engine.commit_unique_code())
+            .collect();
+        (!committed.is_empty()).then_some(committed)
     }
 
     /// 当前模式开着全角就让 Core 转（数字后的 `.` 与小键盘的键保持半角）；转不了的原样交给应用并告知 Core。
@@ -343,7 +355,8 @@ impl Router {
         if c != '\''
             && (expression
                 || self.engine.question_mode()
-                || (self.config.punct_commits && punctuation::converts(c)))
+                || ((self.config.punct_commits || self.engine.composing_code())
+                    && punctuation::converts(c)))
         {
             // 高亮候选没吃完拼音时它留在组句里：连同前面留着的先交给应用，标点才接得在后面
             let committed = self.commit_highlighted() + &self.engine.take_held();
@@ -362,8 +375,12 @@ impl Router {
         (digit <= page_size && index < self.candidate_count()).then_some(index)
     }
 
-    /// 上屏高亮候选；没有候选时缓冲原样上屏。
+    /// 上屏高亮候选；纯形码空码清除，其他无候选时缓冲原样上屏。
     fn commit_highlighted(&mut self) -> String {
+        if self.engine.composing_code() && self.candidate_count() == 0 {
+            self.engine.clear();
+            return String::new();
+        }
         match self.commit_index(self.highlight) {
             Some(text) => text,
             None => self.engine.take_raw(),

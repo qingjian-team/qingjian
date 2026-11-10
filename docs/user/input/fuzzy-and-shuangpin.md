@@ -53,7 +53,7 @@ description: 选择全拼、九套双拼或大千注音；九条模糊音的开�
 - **拼音加加**：翘舌声母以 `v` 为 zh、`u` 为 ch、`i` 为 sh（ch / sh 与小鹤、自然码相反）；主排高频韵母 ai→S、ao→D、an→F、ang→G、ei→W、en→R、eng→T，ing 在 `q`；ü 在 `v`（`nv` 女、`lv` 绿），üe 在 `x`（`jx` → jue、`nx` → nüe）；零声母以双写为主（`aa` `as` `af`、`ee` `er` `eq`、`oo` `op`，注意 en 是 `er`、er 是 `eq`），也兼容 o 前缀（`oa` `oe`）；不用 `;` 键。
 - **紫光**：翘舌声母以 `u` 为 zh、`a` 为 ch、`i` 为 sh（`ui` → zhi、`ai` → chi、`ii` → shi，`a` 与 `i` 兼作韵母）；`;` 为 ing；ü 在 `v`（`nv` 女、`lv` 绿），üe 与 ue、ui 同在 `n`（`jn` → jue、`yn` → yue、`gn` → gui）；零声母只写 `o` + 韵母键，不认双写元音（`aa` 是 cha）也不认双写韵母 `ii` `uu`（那是 shi、zhu）。
 
-键位不合手、或想用的方案不在上面，可以自己做一套，见 [自制方案与码表](../advanced/custom-schemes.md#自制双拼方案)（macOS、Windows）。
+键位不合手、或想用的方案不在上面，可以自己做一套，见 [自制方案与码表](../advanced/custom-schemes.md#自制双拼方案)（macOS、Windows、Linux）。
 
 ### 键位提示
 
