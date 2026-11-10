@@ -8,10 +8,10 @@
 //! ukoumu       困      囗 认 kou（部件的俗名，见 parts.tsv）
 //! ```
 //!
-//! 表都是生成物，编进 Core，不手动改：
+//! 拆字表与笔顺表是生成物，部件别名表手工维护，都编进 Core：
 //! - `data/chaizi.tsv`：`字\t读音\t拆法部件\t拆法读音`（`qingjian-dict-convert chaizi`）；
 //! - `data/stroke.tsv`：`字\t笔顺`，笔顺是 `[1235n]+`，`qingjian-dict-convert stroke` 出；
-//! - `data/parts.tsv`：部件别名（俗名读音、CNS 没有的笔画符号），手工维护在 `assets/chaizi/`。
+//! - `data/parts.tsv`：部件别名（俗名读音、CNS 没有的笔画符号），就在这里手工维护，格式见 `data/README.md`。
 //!
 //! 查询是「输入串 × 每种拆法」的对齐：每个部件要么吃掉它的一个读音，要么吃掉它笔顺的前几笔，
 //! 吃完的部分可以停在任意位置——敲到一半就出候选。笔画键只有 `h` 横 / `s` 竖 / `p` 撇 /

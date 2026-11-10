@@ -9,12 +9,12 @@
 //!    （同一个字落到两条不同序列上直接报错：那说明对照表或笔顺表读错了）；
 //! 3. `--cns-count`：官方筆畫數（`CNS_stroke.txt`，可选），序列长度与它自洽（差不超过 `--max-diff`）的字才留——
 //!    CNS 的序列与筆畫數在罕用字上互相打架（t07 实测 |d| > 1 约 0.5%），**以序列为准、以筆畫數过滤**；
-//! 4. `--prc-rules`：大陆序覆盖表（`assets/stroke/prc-rules.tsv`），台湾序按部件重写成大陆序；
+//! 4. `--prc-rules`：大陆序覆盖表（`../qingjian-dicts/official/upstream/stroke/prc-rules.tsv`），台湾序按部件重写成大陆序；
 //! 5. `--filter`：字表白名单（缺省通用规范字表 8,105 字），只出表里的字，按表序排列。
 //!
 //! `--verify` 再对照大陆规范：笔画数按抽样比对、首笔按字表全量比对，不符的字必须都在白名单里，
 //! 否则退出码非 0（对照表由 `mmh-reference` 生成到 `data/mmh/`，找不到哪张就跳过哪张）。
-//! 数据来源、许可与验收记录见 `assets/stroke/README.md`；随包前由 `pack codes`（见 `codes` 模块）按取码规则把它与词库算成码表。
+//! 数据来源、许可与验收记录见 `../qingjian-dicts/official/upstream/stroke/README.md`；随包前由 `pack codes`（见 `codes` 模块）按取码规则把它与词库算成码表。
 
 mod options;
 mod rules;

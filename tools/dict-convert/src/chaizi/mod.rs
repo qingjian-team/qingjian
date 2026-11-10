@@ -192,7 +192,7 @@ pub fn convert(options: &ChaiziOptions, out_dir: &Path) -> Result<Summary, Conve
     let mut out = BufWriter::new(std::fs::File::create(out_dir.join("chaizi.tsv"))?);
     writeln!(
         out,
-        "# 拆字表，由 qingjian-dict-convert chaizi 从 assets/chaizi（開放詞典網拆字字典，CC BY 3.0）\
+        "# 拆字表，由 qingjian-dict-convert chaizi 从 ../qingjian-dicts/official/upstream/chaizi（開放詞典網拆字字典，CC BY 3.0）\
          与青简词库生成。字\t读音\t拆法部件\t拆法读音\t拆法来源（部件间 '，同一部件多读音用 ,；\
          来源 jt 简体字典、ft 繁体字典，与拆法一一对应，简体设置下 ft 排在后面）"
     )?;

@@ -1,4 +1,4 @@
-# 拆字表，由 qingjian-dict-convert chaizi 从 assets/chaizi（開放詞典網拆字字典，CC BY 3.0）与青简词库生成。字	读音	拆法部件	拆法读音	拆法来源（部件间 '，同一部件多读音用 ,；来源 jt 简体字典、ft 繁体字典，与拆法一一对应，简体设置下 ft 排在后面）
+# 拆字表，由 qingjian-dict-convert chaizi 从 ../qingjian-dicts/official/upstream/chaizi（開放詞典網拆字字典，CC BY 3.0）与青简词库生成。字	读音	拆法部件	拆法读音	拆法来源（部件间 '，同一部件多读音用 ,；来源 jt 简体字典、ft 繁体字典，与拆法一一对应，简体设置下 ft 排在后面）
 的	de di	白勺	bai'shao	jt
 我	wo	手戈 扌戈 才戈	shou'ge shou'ge cai'ge	jt jt jt
 了	le liao	乛亅 目尞	ya'jue mu'liao	jt ft

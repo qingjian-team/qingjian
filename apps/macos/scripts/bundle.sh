@@ -11,7 +11,7 @@
 # 先 `rustup target add` 一次。CI 在 Apple Silicon runner 上两个都打（.github/workflows/release.yml）。
 # 产品数据缺省全带（随包词库、语言模型、笔画码表），缺哪样就报错停下，
 # 不悄悄退回样例：2026-09 在没有 data/ 的 worktree 里打出过只有 148 条样例词库的包。语言模型的 TSV 比 .qj 新会重打。
-# 随包词库每次按 tools/release/dicts.lock 从词库仓库取（已下过的只核对）；语言模型与码表没有就跑 tools/release/data-fetch.sh。
+# 随包词库与码表每次按 tools/release/dicts.lock 从词库仓库取（已下过的只核对）；语言模型没有就跑 tools/release/data-fetch.sh。
 #
 # 签名与公证都由环境变量决定，没设就 ad-hoc 签名、pkg 不签（本机自用够了，分发给别人会被 Gatekeeper 拦，
 # 对方要在「系统设置 → 隐私与安全性」里点「仍要打开」）：
@@ -58,7 +58,6 @@ if [[ "$SAMPLE_DATA" == 0 ]]; then
   python3 tools/release/dicts-fetch.py
   missing=()
   [[ -f data/generated/lm.qj || -f data/generated/lm-bigram.tsv ]] || missing+=("data/generated/lm.qj")
-  ls data/generated/codes/*.qj >/dev/null 2>&1 || missing+=("data/generated/codes/*.qj（笔画码表）")
   if [[ ${#missing[@]} -gt 0 ]]; then
     echo "缺产品数据：" >&2
     printf '  %s\n' "${missing[@]}" >&2
@@ -119,15 +118,14 @@ if [[ "$SAMPLE_DATA" == 0 ]]; then
       --license "CC-BY-SA-4.0 AND MIT" --attribution "中文维基百科（CC BY-SA 4.0）；LCCC（清华大学 CoAI，MIT）"
   fi
   cp data/generated/lm.qj "$APP/Contents/Resources/"
-  # 随包词库（基础词库、成语词库、英文词表与音标表、英语与中文释义表、越南语词表与对照、五笔码表）：dicts.lock 里列的逐本拷，附加词库放 Resources/dicts/、形码方案放 Resources/schemes/。
+  # 随包词库（基础词库、成语词库、英文词表与音标表、英语与中文释义表、越南语词表与对照、五笔与笔画码表）：dicts.lock 里列的逐本拷，附加词库放 Resources/dicts/、形码方案放 Resources/schemes/、辅码码表放 Resources/codes/。
   # 别的词库与释义表在设置里下载到用户目录，不随包
   while read -r _ _ _ installed; do
     mkdir -p "$(dirname "$APP/Contents/Resources/$installed")"
     cp "data/generated/$installed" "$APP/Contents/Resources/$installed"
   done < <(grep -v '^#' tools/release/dicts.lock)
-  # 随包辅码码表（笔画，CNS11643 筆順資料派生，需署名）放 Resources/codes/，与 Windows 的 data\generated\codes 同一份
-  mkdir -p "$APP/Contents/Resources/codes"
-  cp data/generated/codes/*.qj assets/stroke/LICENSE-CNS11643.txt "$APP/Contents/Resources/codes/"
+  # 笔画码表派生自 CNS11643 筆順資料，许可要求随数据带上原文
+  cp assets/stroke/LICENSE-CNS11643.txt "$APP/Contents/Resources/codes/"
   # 本地整句模型不随包：缺省不用模型，含章·通变与知意都在设置的「实验功能」里下载到用户目录 models/
   echo "使用 data/generated/ 的产品数据"
 else

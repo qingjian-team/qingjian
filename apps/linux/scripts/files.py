@@ -93,7 +93,7 @@ def product_data(root, resources, files):
         # 点开头的是 macOS 打包混进来的 AppleDouble（`._dict.qj`），data-v1 发布包里有 19 个，不是产品数据
         if source.name.startswith('.'):
             continue
-        if source.is_file() and (source.name in wanted or source.parent.name == 'codes'):
+        if source.is_file() and source.name in wanted:
             if source.resolve() not in verified:
                 raise SystemExit(f'产品数据没有校验记录：{source}')
             files[resources / source.relative_to(root)] = source
