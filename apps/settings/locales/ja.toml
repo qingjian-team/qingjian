@@ -161,6 +161,7 @@ connecting = "接続中…"
 
 [dictionaries]
 section_bundled = "同梱の辞書"
+base = "基本辞書"
 no_bundled = "同梱の分野別辞書が見つかりません"
 import = "辞書を読み込む"
 import_info = "TSV、Rime の .dict.yaml、単語だけのリスト、.qj、.qjz に対応し、複数選択できます。単語だけのリストの読みは同梱の辞書から補います"

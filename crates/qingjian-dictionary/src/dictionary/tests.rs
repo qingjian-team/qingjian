@@ -251,6 +251,7 @@ fn legacy_qj_umlaut_keys_remain_queryable() {
         total_frequency: 190,
         metadata: None,
         secondary: false,
+        chars_only: false,
         readings: Default::default(),
     };
     let dir = std::env::temp_dir().join("qingjian-dictionary-tests");
@@ -377,4 +378,14 @@ fn exported_tsv_reads_back_as_the_same_dictionary() {
         rows
     };
     assert_eq!(rows(&reread), rows(&dictionary));
+}
+
+#[test]
+fn chars_only_skips_multi_syllable_keys() {
+    let mut dictionary = Dictionary::parse(SAMPLE).unwrap();
+    dictionary.set_chars_only(true);
+    assert!(dictionary.lookup(&["kai", "fa"], false).is_empty());
+    assert_eq!(texts(&dictionary.lookup(&["kai"], false)), ["开"]);
+    // 反查用的全部词目不受影响
+    assert_eq!(dictionary.entries().count(), 6);
 }

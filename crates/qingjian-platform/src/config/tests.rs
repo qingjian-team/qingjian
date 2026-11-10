@@ -363,3 +363,13 @@ fn manual_prediction_shortcut_round_trips() {
         config
     );
 }
+
+/// 基础词库开关单独一项：旧配置没写 `base` 时开着，用户词库叫 base 也不影响它。
+#[test]
+fn base_dictionary_switch_is_separate_from_disabled_files() {
+    let config: Config = toml::from_str("[dictionaries]\ndisabled = [\"base\"]\n").unwrap();
+    assert!(config.dictionaries.base);
+    assert!(!config.dictionaries.is_enabled("base"));
+    let config: Config = toml::from_str("[dictionaries]\nbase = false\n").unwrap();
+    assert!(!config.dictionaries.base);
+}

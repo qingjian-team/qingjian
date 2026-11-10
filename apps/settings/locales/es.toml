@@ -161,6 +161,7 @@ connecting = "Conectando…"
 
 [dictionaries]
 section_bundled = "Diccionarios incluidos"
+base = "Diccionario base"
 no_bundled = "No se encontraron diccionarios temáticos incluidos"
 import = "Importar diccionario"
 import_info = "Admite TSV, .dict.yaml de Rime, listas solo de palabras, .qj y .qjz, varios a la vez; las lecturas de las listas solo de palabras salen del diccionario incluido"

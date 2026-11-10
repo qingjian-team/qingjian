@@ -67,6 +67,7 @@ pub fn assemble(spec: &AssemblySpec) -> Result<Engine, ServerError> {
         &spec.dictionaries,
     ));
     engine.set_blocked_words(spec.dictionaries.blocked.clone());
+    engine.set_base_words(spec.dictionaries.base);
     let aux_sources = AuxCodeSources {
         bundled_codes: spec.bundled_codes_dir.clone(),
         user_codes: spec.user.as_ref().map(UserDirs::code_tables),

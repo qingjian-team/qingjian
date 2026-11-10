@@ -167,6 +167,7 @@ impl Router {
                 .set_extra_dictionaries(reload.load_dictionaries());
             self.engine
                 .set_blocked_words(config.dictionaries.blocked.clone());
+            self.engine.set_base_words(config.dictionaries.base);
         }
         self.reload = Some(reload);
     }

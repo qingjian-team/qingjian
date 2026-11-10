@@ -428,11 +428,11 @@ in_ing = false
     template_apps!(),
     r#"
 [dictionaries]
-# 随包的领域词库（法律 / 医学 / 地名 / 成语 / 诗词 / IT / 财经 / 饮食 / 动物 / 汽车 / 历史人物），列在这里的才加载；
-# 名字是文件名：animals automotive finance food historical_figures idioms it_computing law medicine places poetry_lines。
-# 偏好设置「词库」页可以勾选
+# 随包的领域词库（现在只有成语 idioms），列在这里的才加载；别的领域词库在偏好设置「词库 → 下载」里装
 domains = ["idioms"]
-# 自己导入的词库：放在配置同目录 dicts/ 下的 .qj 文件都会加载，这里列出要关掉的（文件名，不含扩展名）
+# 随包基础词库：false 时只出单字，词全靠导入、下载的词库
+base = true
+# 要关掉的词库：自己导入、下载的，按文件名（不含扩展名）
 disabled = []
 
 [aux_code]

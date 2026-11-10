@@ -24,6 +24,9 @@ use crate::system::paths;
 
 #[derive(Debug, Clone, Default)]
 pub struct Library {
+    /// 随包基础词库：单字、读音与常用词都在里面；关掉（`[dictionaries] base`）只关词，单字照常出。
+    pub base: Option<Entry>,
+
     pub domains: Vec<Entry>,
 
     pub dictionaries: Vec<Entry>,
@@ -61,6 +64,7 @@ impl Library {
         };
         let code_schemes = scan_code_schemes();
         Self {
+            base: base_dictionary().map(|path| entry(Kind::Dictionary, "base".to_owned(), &path)),
             domains: scan(
                 Kind::Dictionary,
                 Kind::Dictionary.bundled_dir().into_iter().collect(),

@@ -430,6 +430,8 @@ id 不能撞拼音侧的写法与日志里的 `wubi`（`is_valid_id`），因为
 
 `[dictionaries] blocked` 是屏蔽词：`Engine::set_blocked_words` 收下这批词，`query` 在 `apply_demotions` 之前把文本里含有其中任何一个的候选整条丢掉（排在后面的重排、补单字、留联系人都不用管它们了）；自定义短语在过滤之后才插进来，不受影响。四个壳在装配与配置热重载两处各调一次。
 
+`[dictionaries] base = false` 时基础词库只出单字（单独一项，不放进按文件名关的 `disabled`：用户词库也可能叫 base，早期词库仓库就发过一本 `base`）：`Engine::set_base_words(false)` 给主词库与三元模型补出的词标 `Dictionary::set_chars_only`，`push_matches` 跳过多音节的键，`entries()`（反查、导入派生读音）不受影响。单字留着是因为字和读音只在基础词库里，整本摘掉就打不出字。mac、Linux、Windows 三个壳在装配与配置热重载处各调一次；Android 的词库设置不读这一项。
+
 `Config`（TOML 配置文件，`[general]` / `[shortcut]` / `[fuzzy]` / `[dictionaries]` / `[apps]` / `[predict]` 分节，首次运行写模板，
 `set_value` 用 toml_edit 原地改键保留注释；`[model] enabled` 本地整句模型开关，`LocalModelConfig`；
 中英模式两项：`[shortcut] switch_mode`（`SwitchKeys`：勾选 shift / control / ctrl+alt+space，可多选，老配置的单个字符串照读）与 `[general] english_mode`（内置英文模式总开关））；

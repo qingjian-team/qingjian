@@ -103,6 +103,9 @@ pub struct Dictionary {
     /// 补充词库（通用大词库）：命中带上 [`Match::secondary`]，排序与整句里低主词库一档。不落盘，由装配方标。
     secondary: bool,
 
+    /// 只出单字：多音节的键查词时跳过。用户在设置里关掉基础词库时由装配方标，单字仍要靠它出。不落盘。
+    chars_only: bool,
+
     /// 多音字全部读音的词频之和，加载时从单音节的键算出来，不落盘。
     readings: Readings,
 }
@@ -243,6 +246,7 @@ impl Dictionary {
             total_frequency,
             metadata: None,
             secondary: false,
+            chars_only: false,
             readings: Readings::default(),
         }
         .with_readings()
@@ -373,6 +377,7 @@ impl Dictionary {
             total_frequency,
             metadata: Some(container.metadata().clone()),
             secondary: false,
+            chars_only: false,
             readings: Readings::default(),
         }
         .with_readings())
@@ -410,6 +415,15 @@ impl Dictionary {
 
     pub fn is_secondary(&self) -> bool {
         self.secondary
+    }
+
+    /// 只出单字，见 `chars_only` 字段。
+    pub fn set_chars_only(&mut self, chars_only: bool) {
+        self.chars_only = chars_only;
+    }
+
+    pub fn is_chars_only(&self) -> bool {
+        self.chars_only
     }
 
     /// `.qj` 里的来历；TSV 解析的返回 `None`。
@@ -669,6 +683,9 @@ impl Dictionary {
     /// 把一个键下的全部词目追加为命中。
     fn push_matches<'a>(&'a self, entry: &KeyIndex, exact: bool, out: &mut Vec<Match<'a>>) {
         let key = self.key(entry);
+        if self.chars_only && key.contains(' ') {
+            return;
+        }
         let range =
             entry.first_slot as usize..entry.first_slot as usize + entry.slot_count as usize;
         for position in range {

@@ -2,6 +2,7 @@
 
 mod auto_word;
 mod aux_code;
+mod base_words;
 mod blocked;
 mod candidate_menu;
 mod caret;

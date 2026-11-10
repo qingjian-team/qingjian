@@ -35,7 +35,7 @@ pub fn dictionaries(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Re
         theme,
         tr("dictionaries.section_bundled"),
     )?);
-    let domains = if library.domains.is_empty() {
+    let domains = if library.base.is_none() && library.domains.is_empty() {
         paragraph(ui, theme, tr("dictionaries.no_bundled"), None)?
     } else {
         domain_grid(ui, page)?

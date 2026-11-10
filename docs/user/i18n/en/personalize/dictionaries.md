@@ -1,16 +1,17 @@
 ---
 title: Dictionaries
 order: 4
-description: "The bundled core dictionary, general dictionary and 11 topic dictionaries; importing your own pinyin and Wubi dictionaries, turning them on and off, and removing them."
+description: "The bundled core and idiom dictionaries; downloading the general dictionary, topic dictionaries and glossaries; importing your own pinyin and Wubi dictionaries, turning them on and off, and removing them."
 ---
 
 ## Bundled dictionaries
 
-The core dictionary has 130,000 entries, and a general dictionary and 11 topic dictionaries are bundled too. Turn each on or off under 设置 → 词库 (Settings → Dictionaries):
+The core dictionary and the idiom dictionary ship with Qingjian; both are listed under 设置 → 词库 → 随包词库 (Settings → Dictionaries → Bundled dictionaries). The core dictionary has about 340,000 entries (130,000 common words plus 210,000 supplementary ones); the idiom dictionary is on by default. Both can be turned on or off.
+With the core dictionary off, its words no longer appear but single characters can still be typed; words, including those in sentences, then come only from dictionaries you imported or downloaded. This is for when you want to switch entirely to your own dictionaries. Other dictionaries are installed from 下载 (Download) below:
 
-- **通用词库 (General dictionary)**: 1.5 million entries of 2 to 30 characters, compiled from public text and still being cleaned up as it's used. On by default.
+- **通用词库 (General dictionary)**: 1.5 million entries of 2 to 30 characters, compiled from public text and still being cleaned up as it's used.
   When readings are the same, words from the core dictionary come before it; its long words also don't show up before you've finished typing: `anzhao` doesn't give 按照规定, only the full input does.
-- **领域词库 (Topic dictionaries)**: law, medicine, place names, idioms, famous lines of poetry, IT, finance, food, animals, cars, historical figures. Only idioms are on by default.
+- **领域词库 (Topic dictionaries)**: law, medicine, place names, famous lines of poetry, IT, finance, food, animals, cars, historical figures.
   Topic dictionaries only decide whether a word exists; they don't change how sentences are built.
 
 The core dictionary includes 36,000 rare characters (extended characters outside the standard character table, plus characters rarely used in Taiwan). They can be typed in pinyin, come last among characters with the same sound, and aren't used in sentences:

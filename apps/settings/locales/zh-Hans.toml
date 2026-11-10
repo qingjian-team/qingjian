@@ -198,6 +198,7 @@ connecting = "正在连接…"
 
 [dictionaries]
 section_bundled = "随包词库"
+base = "基础词库"
 no_bundled = "没找到随包的领域词库"
 import = "导入词库"
 import_info = "支持 TSV、Rime .dict.yaml、只有词的表、.qj 和 .qjz，可以多选；只有词的读音按随包词库补"

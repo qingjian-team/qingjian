@@ -15,6 +15,7 @@ mod composing;
 mod contacts;
 mod correcting;
 mod decoded;
+mod dictionaries;
 mod extras;
 mod follow_up;
 mod gloss;

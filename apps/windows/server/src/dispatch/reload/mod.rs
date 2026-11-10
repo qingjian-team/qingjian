@@ -353,6 +353,7 @@ impl Router {
                 .set_extra_dictionaries(reload.load_dictionaries());
             self.engine
                 .set_blocked_words(config.dictionaries.blocked.clone());
+            self.engine.set_base_words(config.dictionaries.base);
         }
         if config.aux_code != reload.applied_aux_code {
             reload.applied_aux_code = config.aux_code.clone();

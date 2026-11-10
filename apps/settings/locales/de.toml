@@ -161,6 +161,7 @@ connecting = "Verbindung wird hergestellt …"
 
 [dictionaries]
 section_bundled = "Mitgelieferte Wörterbücher"
+base = "Grundwörterbuch"
 no_bundled = "Keine mitgelieferten Fachwörterbücher gefunden"
 import = "Wörterbuch importieren"
 import_info = "Unterstützt TSV, Rime-.dict.yaml, reine Wortlisten, .qj und .qjz, auch mehrere zugleich; Lesungen für reine Wortlisten kommen aus dem mitgelieferten Wörterbuch"

@@ -198,6 +198,7 @@ connecting = "Connecting…"
 
 [dictionaries]
 section_bundled = "Bundled dictionaries"
+base = "Base dictionary"
 no_bundled = "No bundled domain dictionaries found"
 import = "Import dictionary"
 import_info = "Supports TSV, Rime .dict.yaml, word-only lists, .qj and .qjz, multiple at once; readings for word-only lists come from the bundled dictionary"

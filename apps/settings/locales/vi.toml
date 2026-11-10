@@ -161,6 +161,7 @@ connecting = "Đang kết nối…"
 
 [dictionaries]
 section_bundled = "Từ điển đi kèm"
+base = "Từ điển cơ bản"
 no_bundled = "Không tìm thấy từ điển chuyên ngành đi kèm"
 import = "Nhập từ điển"
 import_info = "Hỗ trợ TSV, .dict.yaml của Rime, danh sách chỉ có từ, .qj và .qjz, chọn được nhiều tệp; cách đọc của danh sách chỉ có từ lấy từ từ điển đi kèm"

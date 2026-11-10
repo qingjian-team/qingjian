@@ -103,6 +103,7 @@ pub fn init(mtm: MainThreadMarker, info: &BundleInfo) -> Result<(), HostError> {
         &settings.config().dictionaries,
     ));
     engine.set_blocked_words(settings.config().dictionaries.blocked.clone());
+    engine.set_base_words(settings.config().dictionaries.base);
     // 英文候选的中文释义（英→中）可选：没有这张表英文候选右侧就留空
     if let Some(glossary) = load_english_glossary() {
         engine = engine.with_english_translator(Box::new(glossary));
