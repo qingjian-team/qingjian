@@ -306,15 +306,16 @@ mod tests {
 
     #[test]
     fn timestamp_accepts_a_full_moment() {
-        // 年月日时分秒
-        let full = timestamp_forms(&now(), "2024-03-04 12:09:38");
+        // 年月日时分秒（分隔符带冒号，输入法里敲得进去）
+        let full = timestamp_forms(&now(), "2024-03-04.12:09:38");
         assert!(full[3].contains("T12:09:38.000"), "{full:?}");
-        // 年月日时分秒毫秒
+        // 年月日时分秒毫秒：第七段才是毫秒
         let millis = timestamp_forms(&now(), "2024.3.4.12.9.38.383");
         assert!(millis[3].contains("T12:09:38.383"), "{millis:?}");
-        // 六段且末段 ≥60：只能是毫秒，秒补 0
-        let short = timestamp_forms(&now(), "2024.3.4.12.9.383");
-        assert!(short[3].contains("T12:09:00.383"), "{short:?}");
+        // 六段就是到秒，不按数值猜毫秒：60 秒越界，不出候选
+        let second = timestamp_forms(&now(), "2024.3.4.12.9.59");
+        assert!(second[3].contains("T12:09:59.000"), "{second:?}");
+        assert!(timestamp_forms(&now(), "2024.3.4.12.9.60").is_empty());
         // 时分
         let hour_minute = timestamp_forms(&now(), "2024.3.4.12.9");
         assert!(hour_minute[3].contains("T12:09:00.000"), "{hour_minute:?}");
@@ -322,10 +323,10 @@ mod tests {
         assert!(timestamp_forms(&now(), "2024.3.4.25.0").is_empty());
         assert!(timestamp_forms(&now(), "2024.3.4.12.60").is_empty());
         // 分号也能当参数内部的分隔符，几种符号可以混用
-        let semis = timestamp_forms(&now(), "2024;3;4;12;9;383");
-        assert!(semis[3].contains("T12:09:00.383"), "{semis:?}");
-        let hybrid = timestamp_forms(&now(), "2024.3.4-12:9.383");
-        assert!(hybrid[3].contains("T12:09:00.383"), "{hybrid:?}");
+        let semis = timestamp_forms(&now(), "2024;3;4;12;9;38;383");
+        assert!(semis[3].contains("T12:09:38.383"), "{semis:?}");
+        let hybrid = timestamp_forms(&now(), "2024.3.4-12:9.38.383");
+        assert!(hybrid[3].contains("T12:09:38.383"), "{hybrid:?}");
     }
 
     #[test]

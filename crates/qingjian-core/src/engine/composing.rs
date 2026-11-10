@@ -347,7 +347,8 @@ impl Engine {
             // 分号一律收；数字只有在分号之后才进缓冲区 —— 分号之前那是选词键（`vts` 有四条候选）
             let typing_arguments = body.contains([';', '；']);
             return if typing_arguments {
-                c.is_ascii_digit() || matches!(c, '-' | '.' | '/' | ';' | '；')
+                // 冒号也收：ts;2024-03-04.12:09:38 要能敲进去。空格不行，那是上屏键
+                c.is_ascii_digit() || matches!(c, '-' | '.' | '/' | ':' | ';' | '；')
             } else {
                 matches!(c, ';' | '；')
             };

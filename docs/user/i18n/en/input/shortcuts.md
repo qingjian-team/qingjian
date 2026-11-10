@@ -43,6 +43,18 @@ Start with `v`:
 
 `vts` gives four candidates: Unix seconds, UTC in RFC 3339 (`2026-09-03T11:06:23Z`), Unix milliseconds and ISO 8601 with your time zone (`2026-09-03T19:06:23+08:00`). Number keys select candidates as usual; the values are taken when you type `vts` and don't change before you pick one.
 
+Put a moment after the semicolon to compute that moment instead: `vts;2024-03-04` is local midnight that day, `vts;2024-03-04.12:09:38` is that instant. The separators `.` `-` `/` `:` are all accepted and can be mixed; **the number of parts sets the precision**:
+
+| Parts | Example | Meaning |
+|---|---|---|
+| 3 | `vts;2024.3.4` | date (local midnight) |
+| 4 | `vts;2024.3.4.12` | down to the hour |
+| 5 | `vts;2024.3.4.12.9` | down to the minute |
+| 6 | `vts;2024.3.4.12.9.59` | down to the second |
+| 7 | `vts;2024.3.4.12.9.59.383` | down to the millisecond |
+
+Only digits and `.` `-` `/` `:` `;` can be typed into the argument; space commits the candidate, so split the parts with one of those symbols. Out-of-range values (`2024.2.30`, `12.9.60`) produce no candidates.
+
 ## UUID
 
 `vuuid` gives four candidates: a random UUID v4, a time-ordered v7, and the same v4 in uppercase and without hyphens. Number keys select candidates as usual.

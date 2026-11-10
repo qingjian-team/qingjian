@@ -433,24 +433,24 @@ pub fn timestamp_forms(now: &Zoned, at: &str) -> Vec<String> {
 
 /// 时间戳要算的时刻：空参数是此刻，日期参数取那天本地零点。
 ///
-/// 段数决定精度，`.` `-` `/` 空格 `:` 都当分隔符：
+/// 段数决定精度，`.` `-` `/` `:` 都当分隔符：
 ///
 /// | 段数 | 含义 |
 /// |---|---|
 /// | 3 | 年月日 |
 /// | 4 | 年月日时 |
 /// | 5 | 年月日时分 |
-/// | 6 | 年月日时分秒；末段 ≥60 时当毫秒（`2024.3.4.12.9.383` 是 12:09:00.383） |
-/// | 7 | 年月日时分秒毫秒 |
+/// | 6 | 年月日时分秒 |
+/// | 7 | 年月日时分秒毫秒（`2024.3.4.12.9.59.383` 是 12:09:59.383） |
 fn moment_of(at: &str, now: &Zoned) -> Option<Zoned> {
     let at = at.trim();
     if at.is_empty() {
         return Some(now.clone());
     }
-    // 分号也算分隔符：`vts;2024;3;4;12;9;383` 与 `vts;2024.3.4-12:9.383` 一样认，
+    // 分号也算分隔符：`vts;2024;3;4;12;9;59` 与 `vts;2024.3.4-12:9:59` 一样认，
     // 几种符号可以混用（段数决定精度，见上面的表）
     let parts: Vec<&str> = at
-        .split(['.', '-', '/', ' ', ':', ';', '；'])
+        .split(['.', '-', '/', ':', ';', '；'])
         .map(str::trim)
         .filter(|part| !part.is_empty())
         .collect();
@@ -464,12 +464,10 @@ fn moment_of(at: &str, now: &Zoned) -> Option<Zoned> {
     let field = |index: usize| -> Option<i32> { parts.get(index)?.parse().ok() };
     let hour = field(3).unwrap_or(0);
     let minute = field(4).unwrap_or(0);
-    // 六段时末段可能是秒，也可能是毫秒：`12.9.38` 是 38 秒，`12.9.383` 只能是毫秒
+    // 段数决定精度，不靠数值猜：六段就是到秒，要毫秒写第七段。
+    // 早先六段按「末段 ≥60 当毫秒」判，`12.9.59` 是 59 秒、`12.9.60` 却成了 60 毫秒，差一个数意思全变。
     let (second, millis) = match parts.len() {
-        6 => match field(5)? {
-            sixth if sixth >= 60 => (0, sixth),
-            sixth => (sixth, 0),
-        },
+        6 => (field(5)?, 0),
         7 => (field(5)?, field(6)?),
         _ => (field(5).unwrap_or(0), 0),
     };
