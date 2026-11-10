@@ -412,8 +412,15 @@ fn full_pinyin_keyword_brings_its_shortcuts() {
         .collect();
     assert_eq!(all[0], "时间");
     assert!(all[1].contains(':'), "时间之后紧跟现在的时间：{all:?}");
-    // 一组写法只出一遍
-    assert_eq!(all.iter().filter(|t| t.contains(':')).count(), 2);
+    // 一组写法只出一遍；多出来的写法垫到末尾，不挤走第一页的词
+    assert_eq!(all.iter().take(4).filter(|t| t.contains(':')).count(), 2);
+    let unique: std::collections::HashSet<_> = all.iter().collect();
+    assert_eq!(unique.len(), all.len(), "候选不该重复：{all:?}");
+    // 多出来的写法垫在末尾，不占第一页：这条样本里 `shijian` 的整句之后还有别的词
+    assert!(
+        all.iter().skip(4).any(|t| t.contains(':')),
+        "第十条之后还该有写法：{all:?}"
+    );
 }
 
 #[test]
