@@ -32,11 +32,11 @@ P2C_MODEL_FILE=data/models/hanzhang-tongbian/hanzhang-tongbian-small.qjm
 for f in "${PRODUCT_FILES[@]}"; do
   [[ -f "data/generated/$f" ]] || { echo "缺少 data/generated/$f" >&2; exit 1; }
 done
-# 随包辅码码表（笔画，issue #8）：由 tools/dict-convert 的 stroke + pack codes 生成，来源与许可见 assets/stroke/README.md
+# 随包辅码码表（笔画，issue #8）：由 tools/dict-convert 的 stroke + pack codes 生成，来源与许可见 ../qingjian-dicts/official/upstream/stroke/README.md
 CODE_FILES=()
 for f in data/generated/codes/*.qj; do [[ -f "$f" ]] && CODE_FILES+=("codes/$(basename "$f")"); done
 if [ "$(ls -1 data/generated/codes/*.qj 2>/dev/null | wc -l)" -eq 0 ]; then
-  echo "缺少 data/generated/codes/*.qj（随包笔画码表）：先跑 data/cns 的 stroke 与 pack codes，见 assets/stroke/README.md" >&2
+  echo "缺少 data/generated/codes/*.qj（随包笔画码表）：先跑 data/cns 的 stroke 与 pack codes，见 ../qingjian-dicts/official/upstream/stroke/README.md" >&2
   exit 1
 fi
 # 三件套比 .qjm 新（重训了没重打）就重打；没有三件套也没有 .qjm 就停。含章·知微不进数据包：有通变时三个桌面平台都不加载它。

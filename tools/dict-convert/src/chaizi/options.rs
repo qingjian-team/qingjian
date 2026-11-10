@@ -13,7 +13,7 @@ pub struct ChaiziOptions {
         long,
         num_args = 1..,
         value_delimiter = ',',
-        default_value = "assets/chaizi/chaizi-jt.txt,assets/chaizi/chaizi-ft.txt"
+        default_value = "../qingjian-dicts/official/upstream/chaizi/chaizi-jt.txt,../qingjian-dicts/official/upstream/chaizi/chaizi-ft.txt"
     )]
     pub chaizi: Vec<PathBuf>,
 
@@ -25,6 +25,9 @@ pub struct ChaiziOptions {
     pub dictionary: PathBuf,
 
     /// 繁简索引（`繁体<TAB>简体`）：繁体字典里的字先落到简体主键
-    #[arg(long, default_value = "assets/chaizi/fanjian_suoyin.txt")]
+    #[arg(
+        long,
+        default_value = "../qingjian-dicts/official/upstream/chaizi/fanjian_suoyin.txt"
+    )]
     pub fanjian: PathBuf,
 }

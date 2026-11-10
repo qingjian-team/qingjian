@@ -273,7 +273,7 @@ pub enum Command {
     Stroke(StrokeOptions),
 
     /// 笔画对照表：从 hanzi-writer-data（Make Me a Hanzi；Arphic 许可，不进仓库）生成 `stroke --verify`
-    /// 用的两张开发期对照表到 `data/mmh/`（笔画数、首笔几何类别，见模块文档与 assets/stroke/README.md）
+    /// 用的两张开发期对照表到 `data/mmh/`（笔画数、首笔几何类别，见模块文档与 ../qingjian-dicts/official/upstream/stroke/README.md）
     MmhReference(MmhReferenceOptions),
 
     /// 把 `.qj` 压成分发用的 `.qjz`（词库仓库的 Release 附件、设置页导入与下载）：每个输入写 <输出目录>/<主干>.qjz

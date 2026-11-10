@@ -8,7 +8,7 @@
 //! - `prc-first-strokes-l1.tsv`：`字<TAB>`首笔几何类别，类别见 `first_class`。
 //!
 //! 首笔类别是首笔中点折线的几何近似，只用来**找**不一致：带尖角转折的记 z、竖撇的走向记 s 这类，
-//! 都以规范裁定量为准，不是规范口径本身；规范依据与白名单见 `assets/stroke/README.md`。
+//! 都以规范裁定量为准，不是规范口径本身；规范依据与白名单见 `../qingjian-dicts/official/upstream/stroke/README.md`。
 
 mod options;
 
@@ -50,7 +50,7 @@ pub fn generate(options: &MmhReferenceOptions) -> Result<(), ConvertError> {
     )?;
     writeln!(
         counts,
-        "# 不进仓库、不随包分发；再生成：cargo run -p qingjian-dict-convert -- mmh-reference（见 assets/stroke/README.md）。"
+        "# 不进仓库、不随包分发；再生成：cargo run -p qingjian-dict-convert -- mmh-reference（见 ../qingjian-dicts/official/upstream/stroke/README.md）。"
     )?;
     writeln!(
         firsts,

@@ -1,13 +1,13 @@
 //! 大陆序覆盖表：CNS（台湾标准）笔顺按部件重写成大陆规范。
 //!
-//! 表在 `assets/stroke/prc-rules.tsv`，三类行（`#` 开头是注释，TAB 分隔）：
+//! 表在 `../qingjian-dicts/official/upstream/stroke/prc-rules.tsv`，三类行（`#` 开头是注释，TAB 分隔）：
 //!
 //! - `rule\t部件\tCNS 模式\t大陆模式\t匹配位置`：部件重写，按行序逐字应用；
 //! - `skip\t部件\t字…`：例外字，这些字里命中的模式不是那个部件，规则不适用；
 //! - `char\t字\t序列`：整字覆盖（CNS 没有这个字时人工补录），优先于所有规则。
 //!
 //! 规则只做模式替换、不猜字形：改不动的整字形差异（台湾标准与大陆规范笔画数就不同的字）留给抽样对照的白名单，
-//! 见 `assets/stroke/README.md`。
+//! 见 `../qingjian-dicts/official/upstream/stroke/README.md`。
 
 mod anchor;
 mod rule;

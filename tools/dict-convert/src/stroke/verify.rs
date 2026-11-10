@@ -1,6 +1,6 @@
 //! 对照验收：产物逐字对大陆规范，白名单之外一处不符即失败。
 //!
-//! 两张对照表由 `mmh-reference` 生成、放在 `data/mmh/`（Arphic 派生，不进仓库，见 `assets/stroke/README.md`）；
+//! 两张对照表由 `mmh-reference` 生成、放在 `data/mmh/`（Arphic 派生，不进仓库，见 `../qingjian-dicts/official/upstream/stroke/README.md`）；
 //! 找不到哪张就跳过哪张对照并提示：
 //!
 //! - 笔画数：按 `--stride` 抽样，比对 `--reference`；
@@ -146,13 +146,13 @@ pub fn run(options: &StrokeOptions, table: &Path) -> Result<(), ConvertError> {
             reference_entries = expected.len(),
             whitelisted = used.len(),
             unmatched,
-            "笔画数对照完成"
+            "stroke count check done"
         );
         if used.len() < known.len() {
             tracing::warn!(
                 unused = known.len() - used.len(),
                 path = %options.whitelist.display(),
-                "白名单里有字这次没有不符，可以删掉"
+                "whitelisted characters matched this time and can be removed"
             );
         }
         if unmatched > 0 {
@@ -161,7 +161,7 @@ pub fn run(options: &StrokeOptions, table: &Path) -> Result<(), ConvertError> {
     } else {
         tracing::warn!(
             reference = %options.reference.display(),
-            "找不到笔画数对照表，跳过对照（mmh-reference 生成，见 assets/stroke/README.md）"
+            "stroke count reference missing, check skipped (generate it with mmh-reference)"
         );
     }
     if options.first_reference.exists() {
@@ -177,13 +177,13 @@ pub fn run(options: &StrokeOptions, table: &Path) -> Result<(), ConvertError> {
             incomparable = outcome.incomparable,
             whitelisted = outcome.used.len(),
             unmatched = outcome.unmatched,
-            "首笔对照完成"
+            "first stroke check done"
         );
         if outcome.used.len() < known.len() {
             tracing::warn!(
                 unused = known.len() - outcome.used.len(),
                 path = %options.first_whitelist.display(),
-                "白名单里有字这次没有不符，可以删掉"
+                "whitelisted characters matched this time and can be removed"
             );
         }
         if outcome.unmatched > 0 {
@@ -194,7 +194,7 @@ pub fn run(options: &StrokeOptions, table: &Path) -> Result<(), ConvertError> {
     } else {
         tracing::warn!(
             reference = %options.first_reference.display(),
-            "找不到首笔对照表，跳过首笔对照（mmh-reference 生成，见 assets/stroke/README.md）"
+            "first stroke reference missing, check skipped (generate it with mmh-reference)"
         );
     }
     Ok(())

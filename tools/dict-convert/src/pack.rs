@@ -20,7 +20,7 @@ const CODES_NAME: &str = "笔画";
 /// 许可：CNS11643 筆順資料开放数据「政府資料開放授權條款第 1 版 / OFL-1.1」二选一，取 OFL-1.1。
 const CODES_LICENSE: &str = "OFL-1.1";
 
-/// 署名：与 `assets/stroke/README.md` 的「随包时的许可合规」一致。
+/// 署名：与 `../qingjian-dicts/official/upstream/stroke/README.md` 的「随包时的许可合规」一致。
 const CODES_ATTRIBUTION: &str = "CNS11643 全字庫筆順資料（數位發展部）";
 
 /// 来源：全字庫开放数据的数据集页。

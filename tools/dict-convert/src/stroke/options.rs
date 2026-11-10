@@ -29,11 +29,17 @@ pub struct StrokeOptions {
     pub filter: Vec<PathBuf>,
 
     /// 繁简索引（每行「繁体、简体」，制表符分隔）：白名单里的繁体字形并到简体主键，內/円 这类不再单独成行
-    #[arg(long, default_value = "assets/chaizi/fanjian_suoyin.txt")]
+    #[arg(
+        long,
+        default_value = "../qingjian-dicts/official/upstream/chaizi/fanjian_suoyin.txt"
+    )]
     pub fanjian: PathBuf,
 
     /// 大陆序覆盖表：部件重写规则 + 例外字 + 整字补录
-    #[arg(long, default_value = "assets/stroke/prc-rules.tsv")]
+    #[arg(
+        long,
+        default_value = "../qingjian-dicts/official/upstream/stroke/prc-rules.tsv"
+    )]
     pub prc_rules: PathBuf,
 
     /// 产物路径；缺省写到 <输出目录>/codes/stroke.tsv
@@ -65,7 +71,10 @@ pub struct StrokeOptions {
     pub reference: PathBuf,
 
     /// 残留差异白名单（`字<TAB>本表笔画数<TAB>对照笔画数<TAB>说明`）
-    #[arg(long, default_value = "assets/stroke/residual-whitelist.tsv")]
+    #[arg(
+        long,
+        default_value = "../qingjian-dicts/official/upstream/stroke/residual-whitelist.tsv"
+    )]
     pub whitelist: PathBuf,
 
     /// 首笔对照表（`字<TAB>几何类别 h/s/p/n/z/?`）：字表全量比对；找不到就跳过首笔对照
@@ -73,6 +82,9 @@ pub struct StrokeOptions {
     pub first_reference: PathBuf,
 
     /// 首笔残留差异白名单（`字<TAB>本表首笔<TAB>对照类别<TAB>说明`）
-    #[arg(long, default_value = "assets/stroke/residual-first-strokes.tsv")]
+    #[arg(
+        long,
+        default_value = "../qingjian-dicts/official/upstream/stroke/residual-first-strokes.tsv"
+    )]
     pub first_whitelist: PathBuf,
 }
