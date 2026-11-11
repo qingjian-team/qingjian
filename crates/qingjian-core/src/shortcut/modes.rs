@@ -123,11 +123,33 @@ pub fn is_name_prefix(body: &str) -> bool {
     }
     SPECS.iter().any(|spec| {
         // 名字还没敲完：`t` 之于 `ts`
-        let typing_out = spec.name.len() > body.len() && spec.name.starts_with(body);
-        // 名字敲完了、还能接位宽：`bit` 之后的 `8`、`bit128` 之后的 `u`
-        let extending = spec.numbered && body.starts_with(spec.name);
-        typing_out || extending
+        if spec.name.len() > body.len() && spec.name.starts_with(body) {
+            return true;
+        }
+        // 名字敲完了、还能接位宽：`bit` 之后的 `8`、`bit128` 之后的 `u`。
+        // 只放行合法位宽的前缀，`bit7`、`bit256`、`bit8x` 这种敲错了的不进缓冲区
+        // —— 否则用户会看到一串空候选，不知道为什么。`strip_prefix` 不成立说明
+        // 这条名字根本不匹配（`ts` 之于 `bit`），不能当成「刚敲完」放行。
+        match spec
+            .numbered
+            .then(|| body.strip_prefix(spec.name))
+            .flatten()
+        {
+            Some(digits) => is_width_prefix(digits),
+            None => false,
+        }
     })
+}
+
+/// `bit` 后面的那段是不是合法位宽的开头：`8`、`1`（16 / 128 的前缀）、`12`、`128u`。
+///
+/// 空串算（刚敲完 `bit`）。`7`、`256`、`8x` 这些不是，按键层据此拦住。
+fn is_width_prefix(digits: &str) -> bool {
+    let digits = digits.strip_suffix('u').unwrap_or(digits);
+    digits.is_empty()
+        || ["8", "16", "32", "64", "128"]
+            .iter()
+            .any(|width| width.starts_with(digits))
 }
 
 /// 表达式模式下这个字符进不进缓冲区。`None` 表示与子模式无关，交给算式那边判断。
