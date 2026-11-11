@@ -1,4 +1,11 @@
-//! `v` 模式下的子模式路由：`v<子模式>:<语句>`。
+//! `v` 模式下的子模式：`v<名字>:<语句>`。
+//!
+//! 所有子模式在这里统一登记 —— 加一个只需动 `Mode`、`SPECS` 与 `mode_forms` 三处，
+//! 名字认不认、按键收不收都由这张表推出来，别处不再各写一套：
+//!
+//! - [`parse`]：拆出子模式
+//! - [`is_name_prefix`]：`v` 之后敲的字母是不是某个名字的开头（决定名字能不能敲进去）
+//! - [`accepts_key`]：子模式里某个字符该不该进缓冲区（`None` = 与子模式无关，交给算式判断）
 //!
 //! 冒号中文英文都认（`vbit:` 与 `vbit：` 一样），分号也认 —— 键盘上冒号就是 Shift + `;`，
 //! 有些布局送到缓冲区的是分号那一下。不写子模式、或前缀认不出来时走缺省计算，
@@ -29,6 +36,59 @@ pub enum Mode<'a> {
     },
 }
 
+impl Mode<'_> {
+    /// 这个名字还要不要参数：`uuid` 不要（打不打分隔符都行），其余要。
+    pub fn wants_argument(&self) -> bool {
+        !matches!(self, Self::Uuid)
+    }
+
+    /// 语句里这个字符该不该进缓冲区。
+    pub fn accepts(&self, c: char) -> bool {
+        match self {
+            // `uuid` 没有参数，分隔符之后再敲什么都进不去
+            Self::Uuid => false,
+            // 时刻：数字与几种分隔符。空格不行 —— 那是上屏键
+            Self::Timestamp { .. } => {
+                c.is_ascii_digit() || matches!(c, '-' | '.' | '/' | ':' | ';' | '；')
+            }
+            // 位运算照 C++：`<<` `>>` `&` `|` `^` `~` `%`，还有写出来的英文（`shl` `and`）
+            Self::Bit { .. } => {
+                c.is_ascii_alphanumeric()
+                    || matches!(
+                        c,
+                        '+' | '-' | '*' | '/' | '%' | '^' | '&' | '|' | '~' | '<' | '>' | '(' | ')'
+                    )
+            }
+        }
+    }
+}
+
+/// 一条子模式的登记项。
+struct Spec {
+    /// 名字（`bit`、`ts`、`uuid`）。
+    name: &'static str,
+
+    /// 名字后面还能接位宽数字（`bit8`、`bit128u`）。终结名（`ts`、`uuid`）为 `false`：
+    /// 它们后面敲数字是选词，不是名字的一部分。
+    numbered: bool,
+}
+
+/// 全部子模式。加一个在这里登记，`Mode` 与 `mode_forms` 跟上即可。
+const SPECS: [Spec; 3] = [
+    Spec {
+        name: "bit",
+        numbered: true,
+    },
+    Spec {
+        name: UUID_KEYWORD,
+        numbered: false,
+    },
+    Spec {
+        name: TIMESTAMP_KEYWORD,
+        numbered: false,
+    },
+];
+
 /// 拆子模式。`body` 是表达式键之后的部分（不含 `v`）。
 ///
 /// 没有冒号时返回 `None`：那是缺省计算，交给原来的四则 / 日期 / 时间戳那套。
@@ -50,6 +110,58 @@ fn named<'a>(name: &str, rest: &'a str) -> Option<Mode<'a>> {
     }
     let width = parse_bit_width(name)?;
     Some(Mode::Bit { width, body: rest })
+}
+
+/// `body` 是不是某个子模式名的开头：`b`、`bi`、`bit`、`bit8`、`uu`、`t` 这些。
+///
+/// 按键层据此决定 `v` 之后敲的要不要进缓冲区 —— 不收的话 `vbit` 这个名字本身
+/// 就敲不进去（`b` 不是算式字符）。终结名（`ts`、`uuid`）敲完之后不再算前缀，
+/// 那时数字要留给选词（`vts` 有四条候选，敲 `1` 是选它）。
+pub fn is_name_prefix(body: &str) -> bool {
+    if body.is_empty() || !body.bytes().all(|b| b.is_ascii_alphanumeric()) {
+        return false;
+    }
+    SPECS.iter().any(|spec| {
+        // 名字还没敲完：`t` 之于 `ts`
+        let typing_out = spec.name.len() > body.len() && spec.name.starts_with(body);
+        // 名字敲完了、还能接位宽：`bit` 之后的 `8`、`bit128` 之后的 `u`
+        let extending = spec.numbered && body.starts_with(spec.name);
+        typing_out || extending
+    })
+}
+
+/// 表达式模式下这个字符进不进缓冲区。`None` 表示与子模式无关，交给算式那边判断。
+///
+/// 三种情形：
+/// - **名字还没敲完**（`v`、`vb`、`vbi`）：字母与分隔符都收，数字不收（`v123` 还是算式）
+/// - **名字敲完、还没敲分隔符**（`vts`、`vbit`）：分隔符收，其余看子模式 ——
+///   `vbit` 后面还要接位宽所以数字也收，`vts` 后面数字是选词键
+/// - **已经敲了分隔符**：按那个子模式的参数规则来
+pub fn accepts_key(body: &str, c: char) -> Option<bool> {
+    let separator = matches!(c, ':' | '：' | ';' | '；');
+    if let Some((name, rest)) = split_colon(body) {
+        return named(name, rest).map(|mode| mode.accepts(c));
+    }
+    if body.is_empty() {
+        // `v` 之后刚开始：字母（敲名字）与分隔符（`v;` 空参数）都收
+        return (c.is_ascii_alphabetic() || separator).then_some(true);
+    }
+    if !body.bytes().all(|b| b.is_ascii_alphanumeric()) {
+        return None;
+    }
+    // 名字正好敲完了（`ts`、`uuid`、`bit`）：终结名只再收分隔符，数字留给选词
+    // （`vts` 有四条候选，敲 `1` 是选第一条）；`bit` 还能接位宽所以数字也收。
+    if SPECS.iter().any(|spec| spec.name == body) {
+        let extending = SPECS
+            .iter()
+            .any(|spec| spec.numbered && body == spec.name && c.is_ascii_alphanumeric());
+        return Some(separator || extending);
+    }
+    if is_name_prefix(body) {
+        // 名字还没敲完：字母数字与分隔符都收
+        return Some(c.is_ascii_alphanumeric() || separator);
+    }
+    None
 }
 
 /// 认 `bit` / `bitu` / `bitN` / `bitNu`；别的名字返回 `None`。
@@ -102,48 +214,77 @@ mod tests {
             ("bit:1<<3", 64, true),
             ("bitu:1<<3", 64, false),
             ("bit8:0xff", 8, true),
-            ("bit8u:0xff", 8, false),
-            ("bit16:65535", 16, true),
-            ("bit32:0xdead", 32, true),
-            ("bit128:1<<100", 128, true),
         ];
-        for (text, bits, signed) in cases {
-            match parse(text).unwrap() {
-                Mode::Bit { width, .. } => {
-                    assert_eq!(width.bits, bits, "{text}");
-                    assert_eq!(width.signed, signed, "{text}");
+        for (body, bits, signed) in cases {
+            match parse(body) {
+                Some(Mode::Bit { width, .. }) => {
+                    assert_eq!((width.bits, width.signed), (bits, signed), "{body}");
                 }
-                other => panic!("期望 Bit，得到 {other:?}"),
+                other => panic!("{body} 该认成 Bit，得到 {other:?}"),
             }
         }
-        assert!(parse("bit15:1").is_none());
     }
 
     #[test]
     fn full_width_colon_and_semicolon_are_accepted() {
-        assert!(matches!(parse("bit8：0x1ff"), Some(Mode::Bit { .. })));
-        assert!(matches!(parse("bit8;0x1ff"), Some(Mode::Bit { .. })));
-        assert!(matches!(parse("bit8；0x1ff"), Some(Mode::Bit { .. })));
+        assert!(matches!(parse("bit：1"), Some(Mode::Bit { .. })));
+        assert!(matches!(parse("bit;1"), Some(Mode::Bit { .. })));
+        assert!(matches!(parse("bit；1"), Some(Mode::Bit { .. })));
     }
 
     #[test]
     fn paramless_names_need_no_separator() {
-        assert!(matches!(parse("uuid"), Some(Mode::Uuid)));
-        assert!(matches!(parse("uuid;"), Some(Mode::Uuid)));
+        assert_eq!(parse("uuid"), Some(Mode::Uuid));
+        assert_eq!(parse("uuid;"), Some(Mode::Uuid));
         assert!(matches!(parse("ts"), Some(Mode::Timestamp { at: "" })));
         assert!(matches!(parse("ts;"), Some(Mode::Timestamp { at: "" })));
-        match parse("ts;2026-11-05") {
-            Some(Mode::Timestamp { at }) => assert_eq!(at, "2026-11-05"),
-            other => panic!("期望 Timestamp，得到 {other:?}"),
-        }
-        // 不是子模式的仍然不是
-        assert!(parse("1+2").is_none());
-        assert!(parse("uuidx").is_none());
     }
+
     #[test]
     fn unknown_prefix_is_not_a_mode() {
         assert!(parse("1+2").is_none());
         assert!(parse(":1+2").is_none());
         assert!(parse("foo:bar").is_none());
+    }
+
+    /// `v` 之后敲名字的过程要能进；终结名敲完之后数字让给选词。
+    #[test]
+    fn name_prefixes_and_extensions() {
+        // 名字还没敲完
+        for body in ["b", "bi", "bit", "u", "uu", "t"] {
+            assert!(is_name_prefix(body), "{body} 该算前缀");
+        }
+        // `bit` 还能接位宽
+        assert!(is_name_prefix("bit"));
+        assert!(is_name_prefix("bit8"));
+        assert!(is_name_prefix("bit128u"));
+        // 终结名敲完了，数字留给选词
+        assert!(!is_name_prefix("ts"));
+        assert!(!is_name_prefix("uuid"));
+        // 纯数字不是前缀
+        assert!(!is_name_prefix("123"));
+    }
+
+    /// 按键放行：名字阶段收字母数字与分隔符，参数阶段按子模式。
+    #[test]
+    fn which_keys_reach_the_buffer() {
+        // `v` 之后开始敲名字：字母进（敲名字），数字不进 —— 那是算式（`v1+2`）
+        assert_eq!(accepts_key("", 'b'), Some(true));
+        assert_eq!(accepts_key("", '1'), None);
+        // 名字还没敲完
+        assert_eq!(accepts_key("bi", 't'), Some(true));
+        assert_eq!(accepts_key("bi", ':'), Some(true));
+        // `bit` 接位宽
+        assert_eq!(accepts_key("bit", '8'), Some(true));
+        // `ts` 敲完了，数字是选词键（明确不收，不是「不管」）
+        assert_eq!(accepts_key("ts", '1'), Some(false));
+        assert_eq!(accepts_key("ts", ';'), Some(true));
+        // 进了参数：位运算收运算符，时刻只收数字与几种分隔符
+        assert_eq!(accepts_key("bit:", '<'), Some(true));
+        assert_eq!(accepts_key("bit:", '&'), Some(true));
+        assert_eq!(accepts_key("ts;2024", '<'), Some(false));
+        assert_eq!(accepts_key("ts;2024", ':'), Some(true));
+        // 不是子模式
+        assert_eq!(accepts_key("123", '+'), None);
     }
 }

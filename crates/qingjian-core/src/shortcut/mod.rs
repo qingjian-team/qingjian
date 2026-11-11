@@ -92,11 +92,9 @@ pub fn could_be_unicode(body: &str) -> bool {
 /// 表达式模式下允许敲进缓冲区的非字母字符：数字与四则运算符号。
 /// 字母（`x` 当乘号）本来就能进缓冲区，不在此列。
 pub fn is_expression_char(c: char) -> bool {
-    c.is_ascii_digit()
-        || matches!(
-            c,
-            '+' | '-' | '*' | '/' | '(' | ')' | '.' | '^' | ':' | ';' | '：' | '；'
-        )
+    // 分隔符不在这里：冒号分号只在子模式名之后才收（见 Engine::expression_input），
+    // 否则 123 后面敲 ； 会把分号收进缓冲区，候选也跟着没了
+    c.is_ascii_digit() || matches!(c, '+' | '-' | '*' | '/' | '(' | ')' | '.' | '^')
 }
 
 /// 屏幕键盘上的 `c` 在算式里当什么：乘除号（`×` `÷`）换成 `*` `/`，其余算式字符原样，不是算式字符为 `None`。
@@ -525,10 +523,12 @@ mod tests {
     fn expression_chars() {
         assert!(is_expression_char('7'));
         assert!(is_expression_char('('));
-        // 子模式的分隔符：冒号与分号（全角也认，键盘上冒号就是 Shift + 分号）
-        assert!(is_expression_char(':'));
-        assert!(is_expression_char(';'));
-        assert!(is_expression_char('：'));
+        // 分隔符**不是**算式字符：冒号分号只在子模式名之后由 `Engine::expression_input` 放行。
+        // 收在这里的话，`v123` 后面敲 `；` 会把分号收进缓冲区，候选也跟着没了。
+        assert!(!is_expression_char(':'));
+        assert!(!is_expression_char(';'));
+        assert!(!is_expression_char('：'));
+        assert!(!is_expression_char('；'));
         // 逗号、百分号**不是**算式的一部分：中文模式下它们是标点，
         // 敲下去要先上屏候选再补标点（`expression_mode_other_punctuation_commits_then_applies`）
         assert!(!is_expression_char(','));

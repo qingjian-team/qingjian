@@ -56,10 +56,15 @@ impl BitWidth {
 
     /// 十进制写法（有符号带负号）。
     pub fn decimal(self, value: u128) -> String {
+        let value = self.wrap(value);
+        // 无符号直接给原值：128 位的 `not0` 是 `u128::MAX`，走 `decode` 的 `as i128` 会变成 -1
+        if !self.signed {
+            return value.to_string();
+        }
         self.decode(value).to_string()
     }
 
-    /// `0x` 十六进制：按位宽补零到 4 / 8 / 16 / 32 位，一眼看得出这是几位宽的结果。
+    /// `0x` 十六进制：按位宽补零到 2 / 4 / 8 / 16 / 32 位（8 位宽两位、16 位宽四位，依此类推）。
     pub fn hex(self, value: u128) -> String {
         let digits = match self.bits {
             0..=8 => 2,
@@ -71,7 +76,7 @@ impl BitWidth {
         format!("0x{:0width$x}", self.wrap(value), width = digits)
     }
 
-    /// `0b` 二进制，按位宽补满。
+    /// `0b` 二进制，不补零：128 位补满要 128 个字符，候选里放不下。
     pub fn binary(self, value: u128) -> String {
         let text = format!("{:b}", self.wrap(value));
         format!("0b{}", text)

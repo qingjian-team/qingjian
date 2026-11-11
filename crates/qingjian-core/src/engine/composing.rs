@@ -349,20 +349,16 @@ impl Engine {
         if !self.expression_mode() {
             return false;
         }
-        let body = &self.composition.text()[self.modes().expression.len_utf8()..];
-        if shortcut::generated_call(body).is_some() {
-            // 分号一律收；数字只有在分号之后才进缓冲区 —— 分号之前那是选词键（`vts` 有四条候选）
-            let typing_arguments = body.contains([';', '；']);
-            return if typing_arguments {
-                // 冒号也收：ts;2024-03-04.12:09:38 要能敲进去。空格不行，那是上屏键
-                c.is_ascii_digit() || matches!(c, '-' | '.' | '/' | ':' | ';' | '；')
-            } else {
-                matches!(c, ';' | '；')
-            };
+        // 子模式（`vbit:`、`vts;`）的按键规则全在 `shortcut::modes` 里统一登记，
+        // 这里只问「这个名字收不收这个键」：`None` 表示不是子模式，往下走算式判断。
+        if self.expression_sub_modes() {
+            let body = &self.composition.text()[self.modes().expression.len_utf8()..];
+            if let Some(accepts) = crate::shortcut::modes::accepts_key(body, c) {
+                return accepts;
+            }
         }
         shortcut::is_expression_char(c)
     }
-
     /// 英文直输段：缓冲区里有拼音以外的字符（`no-way`），整段原样上屏、不解析拼音。
     /// 表达式模式与问字模式优先于它。
     pub fn raw_mode(&self) -> bool {
