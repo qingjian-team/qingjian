@@ -1,6 +1,8 @@
 //! 长度前缀显式使用小端；非阻塞 fd 内部同步 poll，共享 200ms 截止时间，耗时需与 UI 分开。
 #include "connection.h"
+#include <fcitx-utils/log.h>
 #include <array>
+#include <cerrno>
 #include <chrono>
 #include <cstdlib>
 #include <cstring>
@@ -11,18 +13,40 @@
 
 namespace {
 using Clock = std::chrono::steady_clock;
-bool transfer(int fd, void *buffer, size_t length, bool write, Clock::time_point deadline) {
+const char *operationName(const nlohmann::json &message) {
+    const auto *event = &message;
+    if (message.contains("LinuxEvent") && message.at("LinuxEvent").is_object()
+        && message.at("LinuxEvent").contains("event"))
+        event = &message.at("LinuxEvent").at("event");
+    if (*event == "Reset") return "Reset";
+    for (const auto *name : {"OpenSession", "CloseSession", "LinuxHello", "DisplayAcknowledged",
+                            "Privacy", "Key", "Poll", "Commit", "Capabilities", "Focus",
+                            "Candidate", "Selection", "Deactivate"})
+        if (event->contains(name)) return name;
+    return "unknown";
+}
+bool transfer(int fd, void *buffer, size_t length, bool write, Clock::time_point deadline,
+              const char *&reason, int &systemError) {
     auto *data = static_cast<char *>(buffer);
     while (length) {
         auto remaining = std::chrono::duration_cast<std::chrono::milliseconds>(deadline - Clock::now()).count();
-        if (remaining <= 0) return false;
+        if (remaining <= 0) { reason = "timeout"; return false; }
         pollfd pfd{fd, static_cast<short>(write ? POLLOUT : POLLIN), 0};
         int ready = poll(&pfd, 1, static_cast<int>(remaining));
         if (ready < 0 && errno == EINTR) continue;
-        if (ready <= 0 || (pfd.revents & (POLLERR | POLLNVAL))) return false;
+        if (ready == 0) { reason = "timeout"; return false; }
+        if (ready < 0 || (pfd.revents & (POLLERR | POLLNVAL))) {
+            reason = "poll-error";
+            systemError = ready < 0 ? errno : 0;
+            return false;
+        }
         auto size = write ? ::send(fd, data, length, MSG_NOSIGNAL) : ::recv(fd, data, length, 0);
         if (size < 0 && (errno == EINTR || errno == EAGAIN)) continue;
-        if (size <= 0) return false;
+        if (size <= 0) {
+            reason = size == 0 ? "peer-closed" : "socket-error";
+            systemError = size < 0 ? errno : 0;
+            return false;
+        }
         data += size;
         length -= static_cast<size_t>(size);
     }
@@ -43,7 +67,11 @@ bool Connection::open() {
     std::string path = custom ? custom : std::string(runtime && *runtime ? runtime : ("/tmp/qingjian-" + std::to_string(geteuid())).c_str()) + "/qingjian.sock";
     if (path.empty() || path[0] != '/' || path.size() >= sizeof(address.sun_path)) { close(); return false; }
     std::memcpy(address.sun_path, path.c_str(), path.size() + 1);
-    if (::connect(fd_, reinterpret_cast<sockaddr *>(&address), sizeof(address)) < 0) { close(); return false; }
+    if (::connect(fd_, reinterpret_cast<sockaddr *>(&address), sizeof(address)) < 0) {
+        const auto systemError = errno;
+        FCITX_WARN() << "Qingjian IPC connection failed: stage=connect errno=" << systemError;
+        close(); return false;
+    }
 #if defined(__linux__)
     ucred credentials{};
     socklen_t size = sizeof(credentials);
@@ -58,22 +86,46 @@ bool Connection::open() {
 }
 bool Connection::send(const nlohmann::json &message, nlohmann::json *response) {
     if (!connected()) return false;
-    auto deadline = Clock::now() + std::chrono::milliseconds(200);
+    const auto started = Clock::now();
+    const auto deadline = started + std::chrono::milliseconds(200);
+    const char *stage = "write-prefix";
+    const char *reason = "unknown";
+    int systemError = 0;
+    auto part = [&](void *buffer, size_t size, bool write, const char *name) {
+        stage = name;
+        return transfer(fd_, buffer, size, write, deadline, reason, systemError);
+    };
     std::string body = message.dump();
     uint32_t length = static_cast<uint32_t>(body.size());
     std::array<unsigned char, 4> prefix{static_cast<unsigned char>(length), static_cast<unsigned char>(length >> 8), static_cast<unsigned char>(length >> 16), static_cast<unsigned char>(length >> 24)};
-    bool ok = transfer(fd_, prefix.data(), 4, true, deadline) && transfer(fd_, body.data(), body.size(), true, deadline);
+    bool ok = part(prefix.data(), 4, true, "write-prefix") && part(body.data(), body.size(), true, "write-body");
     if (ok && response) {
-        ok = transfer(fd_, prefix.data(), 4, false, deadline);
+        ok = part(prefix.data(), 4, false, "read-prefix");
         length = uint32_t(prefix[0]) | (uint32_t(prefix[1]) << 8) | (uint32_t(prefix[2]) << 16) | (uint32_t(prefix[3]) << 24);
+        if (ok && (length == 0 || length > 16 * 1024 * 1024)) {
+            stage = "read-length";
+            reason = "invalid-length";
+        }
         ok = ok && length > 0 && length <= 16 * 1024 * 1024;
         if (ok) {
             body.resize(length);
-            ok = transfer(fd_, body.data(), length, false, deadline);
-            if (ok) { *response = nlohmann::json::parse(body, nullptr, false); ok = !response->is_discarded(); }
+            ok = part(body.data(), length, false, "read-body");
+            if (ok) {
+                *response = nlohmann::json::parse(body, nullptr, false);
+                ok = !response->is_discarded();
+                if (!ok) { stage = "parse-response"; reason = "invalid-json"; }
+            }
         }
     }
-    if (!ok) close();
+    const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now() - started).count();
+    if (!ok) {
+        FCITX_WARN() << "Qingjian IPC request failed: operation=" << operationName(message)
+                     << " stage=" << stage << " reason=" << reason << " elapsed_ms=" << elapsed
+                     << " errno=" << systemError;
+        close();
+    } else if (elapsed >= 100) {
+        FCITX_WARN() << "Qingjian IPC request slow: operation=" << operationName(message) << " elapsed_ms=" << elapsed;
+    }
     return ok;
 }
 }

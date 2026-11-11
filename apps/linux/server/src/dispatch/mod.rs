@@ -15,7 +15,7 @@ mod translate;
 
 use self::composed::Composed;
 pub use self::config::RouterConfig;
-use self::reload::ConfigReload;
+use self::reload::{ConfigReload, ReloadTask};
 pub use self::rescore::find_model;
 use self::rescore::{ModelLoader, RescoreState};
 use self::session::SessionInfo;
@@ -86,6 +86,9 @@ pub struct Router {
     /// 配置热加载；没开（测试）为 `None`。
     reload: Option<ConfigReload>,
 
+    /// 至多一个后台扫描与资源加载任务；输入线程只尝试领取结果。
+    reload_task: Option<ReloadTask>,
+
     scheme_slot: SchemeSlot,
 
     scheme: Scheme,
@@ -119,6 +122,7 @@ impl Router {
             model_loader: None,
             rescore: RescoreState::default(),
             reload: None,
+            reload_task: None,
             scheme_slot: SchemeSlot::default(),
             scheme: Scheme::Pinyin,
             trace: None,

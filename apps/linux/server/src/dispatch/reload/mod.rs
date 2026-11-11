@@ -1,35 +1,39 @@
-//! 配置热加载：空闲时看 `config.toml` 的 mtime，改了就重读并应用（与 Windows Server 的 `dispatch/reload` 对齐）。
-//! 只重设启动时会应用的那些项；便宜的无条件重设，本地模型 / 释义表 / 附加词库按配置变化重建，
-//! 用户 `dicts/` 目录的文件增删也跟着重装。拼音显示位置在会话握手时交给插件，改了要重启服务。
+//! 后台检查配置与资源变化；输入线程只领取已读好的结果并更新引擎。
 
+mod apply;
 mod cloud;
+mod prepared;
 mod state;
+mod task;
 
 #[cfg(test)]
 mod tests;
 
 use std::path::{Path, PathBuf};
+use std::sync::mpsc::TryRecvError;
 use std::time::{Duration, Instant, SystemTime};
 
-use qingjian_core::{Language, NoTranslator};
 use qingjian_platform::{Config, UserDirs};
-use qingjian_predict::API_USAGE_FILE;
 
 pub(crate) use self::state::ConfigReload;
-use super::{Router, RouterConfig};
+pub(crate) use self::task::ReloadTask;
 use crate::assembly;
+use crate::dispatch::Router;
 
-/// 看配置文件 mtime 的最短间隔。
+/// 完成一批扫描后，至少间隔一秒再启动下一批。
 const CONFIG_POLL_INTERVAL: Duration = Duration::from_secs(1);
+
+/// 正在加载时只轮询结果通道，避免空闲输入法多等一个一秒节拍。
+pub(super) const RESULT_POLL_INTERVAL: Duration = Duration::from_millis(20);
 
 fn mtime(path: &Path) -> Option<SystemTime> {
     std::fs::metadata(path)
-        .and_then(|meta| meta.modified())
+        .and_then(|metadata| metadata.modified())
         .ok()
 }
 
 impl Router {
-    /// 开启热加载：记下路径、数据目录与当前已应用的 dictionaries / model / 学习语言。
+    /// 启动时装配方案、记录初始文件状态；之后的检查和读取全部交给后台任务。
     pub fn watch_config(
         &mut self,
         config: &Config,
@@ -37,6 +41,7 @@ impl Router {
         root: PathBuf,
         user: UserDirs,
     ) {
+        self.reload_task = None;
         self.apply_schemes(config, &root, &user.custom());
         let mut reload = ConfigReload {
             applied_config: config.clone(),
@@ -59,8 +64,27 @@ impl Router {
         self.reload = Some(reload);
     }
 
-    /// `tick` 里调；一秒内只真正看一次。解析失败保持原配置，mtime 照记（不每秒重试同一个坏文件）。
+    /// 至多一批任务在执行；文件系统卡顿时保持旧配置并继续处理按键。
     pub(super) fn poll_config_reload(&mut self) {
+        if let Some(task) = &self.reload_task {
+            match task.poll() {
+                Ok(prepared) => {
+                    self.reload_task = None;
+                    self.apply_reload(prepared);
+                }
+                Err(TryRecvError::Empty) => {}
+                Err(TryRecvError::Disconnected) => {
+                    self.reload_task = None;
+                    if let Some(reload) = &mut self.reload {
+                        reload.last_check = Instant::now();
+                    }
+                    tracing::warn!(
+                        "configuration reload worker stopped, keeping previous configuration"
+                    );
+                }
+            }
+            return;
+        }
         let Some(reload) = &mut self.reload else {
             return;
         };
@@ -68,182 +92,13 @@ impl Router {
             return;
         }
         reload.last_check = Instant::now();
-        let files = reload.dict_snapshot();
-        if files != reload.dictionary_files {
-            self.engine
-                .set_extra_dictionaries(reload.load_dictionaries());
-            reload.dictionary_files = files;
-        }
-        // 设置页下载装上（或更新了）释义表：英→中表与配置里的学习语言都按新文件重装
-        let glossaries = reload.glossary_snapshot();
-        if glossaries != reload.glossary_files {
-            reload.glossary_files = glossaries;
-            self.reload_glossaries();
-        }
-        let Some(reload) = &mut self.reload else {
-            return;
-        };
-        let current = mtime(&reload.config_path);
-        let changed = current != reload.last_mtime;
-        reload.last_mtime = current;
-        let files = reload.scheme_snapshot();
-        let schemes_changed = files != reload.scheme_files;
-        reload.scheme_files = files;
-        if !changed && !schemes_changed {
-            return;
-        }
-        let path = reload.config_path.clone();
-        let applied = reload.applied_config.clone();
-        let root = reload.root.clone();
-        let user_dir = reload.user.custom();
-        if changed {
-            match Config::load(&path) {
-                Ok(config) => {
-                    self.apply_config(&config);
-                    tracing::info!("configuration reloaded");
-                    return;
-                }
-                Err(error) => {
-                    tracing::error!(%error, "failed to reload configuration, keeping previous configuration")
-                }
-            }
-        }
-        self.apply_schemes(&applied, &root, &user_dir);
-    }
-
-    /// 应用新配置，项目与 `main.rs` 启动时设的一致。
-    fn apply_config(&mut self, config: &Config) {
-        self.engine.set_fuzzy(config.fuzzy);
-        self.engine
-            .set_shuangpin_raw_preedit(config.general.shuangpin_raw_preedit);
-        self.engine
-            .set_shuangpin_full_pinyin(config.general.shuangpin_full_pinyin);
-        self.engine
-            .set_hold_selections(config.general.hold_selections);
-        self.engine
-            .set_context_memory(config.model.context_memory_seconds);
-        self.engine
-            .set_shift_letter_compose(config.general.shift_letter.compose());
-        self.engine.set_learning(config.general.learning);
-        self.engine
-            .set_auto_phrase(config.auto_phrase.enabled, config.auto_phrase.max_chars);
-        self.engine.set_chinese_first(config.general.chinese_first);
-        self.engine
-            .set_spelling_correction(config.general.spelling_correction);
-        self.engine
-            .set_english_in_chinese(config.general.english_in_chinese);
-        self.engine
-            .set_english_max_in_chinese(config.general.english_max_in_chinese());
-        self.engine
-            .set_english_min_position(config.general.english_min_position());
-        self.engine
-            .set_emoji_limit(usize::from(config.general.emoji.get()));
-        self.engine
-            .set_kaomoji_limit(usize::from(config.general.kaomoji.get()));
-        self.engine
-            .set_symbol_limit(usize::from(config.general.symbols.get()));
-        self.engine.set_traditional(config.general.traditional());
-        self.engine
-            .set_half_width_symbols(&config.general.half_width_symbols);
-        self.engine.set_mode_keys(config.shortcut.mode);
-        if let Err(error) = self
-            .engine
-            .set_custom_phrases(config.custom_phrases.clone())
-        {
-            tracing::warn!(%error, "invalid custom phrases, keeping previous phrases");
-        }
-        self.config = RouterConfig::from(config);
-        self.config.page_size = self.config.page_size.clamp(1, 9);
-        if !self.config.english_mode {
-            for info in self.sessions.values_mut() {
-                info.english = false;
-            }
-        }
-
-        let Some(mut reload) = self.reload.take() else {
-            return;
-        };
-        self.apply_schemes(config, &reload.root, &reload.user.custom());
-        reload.applied_config = config.clone();
-        if config.predict != reload.applied_predict {
-            let usage_path = Some(reload.user.records().join(API_USAGE_FILE));
-            self.reload_cloud(&config.predict, usage_path);
-            reload.applied_predict = config.predict.clone();
-        }
-        if !self.engine.prediction_enabled() {
-            self.config.cloud_slots = 0;
-        }
-        if config.model != reload.applied_model {
-            self.apply_model_config(&config.model);
-            reload.applied_model = config.model.clone();
-        }
-        let language = assembly::learning_language(config);
-        if language != reload.applied_language && self.swap_translator(language, &reload) {
-            reload.applied_language = language;
-        }
-        if config.dictionaries != reload.applied_dictionaries {
-            reload.applied_dictionaries = config.dictionaries.clone();
-            self.engine
-                .set_extra_dictionaries(reload.load_dictionaries());
-            self.engine
-                .set_blocked_words(config.dictionaries.blocked.clone());
-            self.engine.set_base_words(config.dictionaries.base);
-        }
-        self.reload = Some(reload);
-    }
-
-    /// 下载的释义表变了：英→中表重装；学习语言按当前配置重新换一次表（之前缺表没换成的这次能换上）。
-    fn reload_glossaries(&mut self) {
-        let Some(mut reload) = self.reload.take() else {
-            return;
-        };
-        // 下载的删了、又没随包的：英文候选右侧留空
-        let english = assembly::glossary_file(
-            &reload.root,
-            Some(&reload.user.downloads()),
-            Language::Chinese,
-        )
-        .and_then(|path| assembly::load_english_glossary(&path));
-        match english {
-            Some(glossary) => self.engine.set_english_translator(Box::new(glossary)),
-            None => self.engine.set_english_translator(Box::new(NoTranslator)),
-        }
-        let language = match Config::load(&reload.config_path) {
-            Ok(config) => assembly::learning_language(&config),
-            Err(_) => reload.applied_language,
-        };
-        if self.swap_translator(language, &reload) {
-            reload.applied_language = language;
-        }
-        self.reload = Some(reload);
-    }
-
-    /// 学习语言变了就换释义表：关是不翻译；没有这门语言的表或装不上就保持原样。换成功（或关掉）返回 true。
-    fn swap_translator(&mut self, language: Option<Language>, reload: &ConfigReload) -> bool {
-        let Some(language) = language else {
-            self.engine.set_translator(Box::new(NoTranslator));
-            tracing::info!("学习语言已关，不显示译文");
-            return true;
-        };
-        let Some(path) =
-            assembly::glossary_file(&reload.root, Some(&reload.user.downloads()), language)
-        else {
-            tracing::warn!(
-                language = language.code(),
-                "没有这门语言的释义表，学习语言不变"
-            );
-            return false;
-        };
-        match assembly::load_glossary(language, &path, Some(&reload.user.learning())) {
-            Ok(glossary) => {
-                tracing::info!(language = language.code(), "释义表已切换");
-                self.engine.set_translator(Box::new(glossary));
-                true
-            }
-            Err(error) => {
-                tracing::warn!(%error, "释义表加载失败，学习语言不变");
-                false
-            }
+        match ReloadTask::spawn(
+            reload.clone(),
+            self.scheme_slot.clone(),
+            self.engine.code_scheme().is_some(),
+        ) {
+            Ok(task) => self.reload_task = Some(task),
+            Err(error) => tracing::warn!(%error, "failed to start configuration reload worker"),
         }
     }
 }

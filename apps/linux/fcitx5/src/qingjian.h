@@ -20,7 +20,9 @@ public:
 private:
     void clear(InputContext *context);
     void disconnect(InputContext *context);
-    void disconnectAll();
+    void disconnectAll(const char *reason);
+    /// 仅在面板有未完成输入时记录生命周期原因，不记录输入内容。
+    void logLifecycle(InputContext *context, const char *reason);
     bool connect(InputContext *context);
     bool syncPrivacy(InputContext *context);
     bool exchange(InputContext *context, const nlohmann::json &event, bool display = true);

@@ -163,6 +163,20 @@ Older configuration tools, including `fcitx5-config-qt 5.1.4` shipped with Ubunt
 
 Unique full-code auto-commit, commit-on-next-code, imported Wubi dictionaries and custom double pinyin / shape-based schemes are supported. Effective scheme changes cancel uncommitted codes; root charts and auxiliary codes remain unsupported. See [Wubi and mixed input](../input/wubi.md). Older installations missing the bundled scheme need the updated installer to copy its resources.
 
+## Missing letters or a disappearing candidate window
+
+Changes to dictionaries and input schemes are checked and loaded without making you stop typing. If storage is busy, Qingjian keeps using the current settings and dictionaries until the update is ready. Checks do not clear an ongoing composition when the effective scheme has not changed.
+
+If letters go missing or the candidate window disappears while using Fcitx5, finish your current composition, then restart Fcitx5 with logging enabled:
+
+```sh
+log_dir="${XDG_STATE_HOME:-$HOME/.local/state}/qingjian/logs"
+mkdir -p "$log_dir"
+fcitx5 -r -d >> "$log_dir/fcitx5.log" 2>&1
+```
+
+Test again and note the approximate time of the problem. Qingjian's new diagnostic entries start with `Qingjian` and record only timing, connection state, and focus or reset reasons, not individual keys, codes, candidates, selected text, or committed text. These diagnostics are independent of the input-log setting. Include the diagnostic entries near that time when reporting the problem; there is no need to share personal dictionaries or input records.
+
 ## Updating and uninstalling
 
 To update: close the terminal running Qingjian, run the matching install command again (for the prebuilt package, download the new package and run `./install.sh`), then restart Fcitx and start Qingjian again.

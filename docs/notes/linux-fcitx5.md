@@ -9,6 +9,8 @@ Linux Server 在 `[predict] enabled = true` 且密钥可用时接入共享的 `C
 
 ## 构建与测试
 
+配置与资源热加载由 `qingjian-reload` 后台任务完成扫描、解析和加载，输入线程只轮询已就绪的结果。任务未完成时继续使用旧资源，最多一批在途；完成后至少间隔一秒启动下一批，等待结果时以 20 ms 节拍轮询。启动时的首次装配仍在监听 socket 前完成。后台任务耗时达到 100 ms 会记录 `configuration scan and loading slow`，不记录输入内容。IPC 仍使用 200 ms 截止时间，不以延长等待掩盖目录访问阻塞。
+
 需要 Rust 1.96、Python 3、pkg-config 与 OpenSSL（`libssl-dev`，云服务依赖的 TLS 绑定要它）；**fcitx5 那一支**另外要 CMake 3.16、C++20 编译器与 Fcitx5 Core/Config/Utils、nlohmann-json 的开发包（插件是 C++），**IBus 那一支**是纯 Rust，只要机器上有 ibus-daemon。`install.sh` 开头会检查并列出缺的，缺省 `--frontend auto` 是「能装的都装」，装不上的那一支会明说跳过。
 自绘界面另需三个字体包（`fonts-noto-core` / `fonts-noto-cjk` / `fonts-noto-color-emoji`）：没有 UI 字体时 `FontLibrary::system` 直接返回 `NoUiFont`、程序起不来，缺 CJK 或 emoji 则不崩但中文界面文字与表情画不出来。
 构建最低 API 为 Fcitx5 5.1.8，CI 使用 Ubuntu 26.04 的 Fcitx5 5.1.19；Ubuntu 24.04 自带的 5.1.7 不满足要求。
@@ -83,6 +85,16 @@ Server 启动时按 `[model] enabled`（缺省关）在后台线程加载模型�
 
 未出候选时先确认 Server 在运行（`systemctl --user status qingjian-server`，或手动起的那个进程还在），再查看 `$XDG_STATE_HOME/qingjian/logs/server.*.log`（缺省 `~/.local/state`）。
 输入日志由 `[general] input_log` 控制；用户配置和学习文件始终保存在 XDG 用户目录，卸载不删除。
+
+Fcitx5 插件的诊断走框架日志（stderr），不在 Server 日志中。排查漏字母或候选窗突然消失时，先结束当前输入，再保存启动日志：
+
+```sh
+log_dir="${XDG_STATE_HOME:-$HOME/.local/state}/qingjian/logs"
+mkdir -p "$log_dir"
+fcitx5 -r -d >> "$log_dir/fcitx5.log" 2>&1
+```
+
+`Qingjian IPC request failed` 带固定操作名、收发阶段、失败原因、耗时与 errno；`Qingjian IPC request slow` 表示成功但耗时至少 100 ms，200 ms 截止时间不变。`Qingjian connection lost` 区分握手、回包校验、轮询、显示或 socket 断开；`Qingjian lifecycle` 仅在面板有未完成输入时记失焦、重置、能力变化、停用与断连清理，附会话编号、连接代次、修订号及状态。诊断不记录消息或异常正文，也不记录具体按键、编码、候选、选区和上屏内容；现有输入日志的开关与存储不受影响。记录复现时间，再对照同一时段的 Server 日志判断是前端重置还是服务端响应变慢。
 
 ## 发行版打包
 

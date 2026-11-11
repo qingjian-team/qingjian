@@ -4,6 +4,8 @@
 #include "support/mock.h"
 #include <fcitx/inputcontextmanager.h>
 #include <fcitx/inputpanel.h>
+#include <fcitx-utils/log.h>
+#include <sstream>
 int main(int argc, char **argv) {
     assert(argc == 2);
     const std::string scenario = argv[1];
@@ -12,6 +14,9 @@ int main(int argc, char **argv) {
     char *arguments[] = {program, disable, nullptr};
     fcitx::Instance instance(2, arguments);
     instance.initialize();
+    std::ostringstream diagnostics;
+    auto &originalLog = fcitx::Log::logStream();
+    fcitx::Log::setLogStream(diagnostics);
     fcitx::QingjianEngine engine(&instance.addonManager());
     fcitx::InputMethodEntry entry("qingjian", "qingjian", "zh_CN", "qingjian");
     auto context = std::make_unique<Context>(instance.inputContextManager());
@@ -32,6 +37,10 @@ int main(int argc, char **argv) {
         fcitx::InputContextSwitchInputMethodEvent event(fcitx::InputMethodSwitchedReason::CapabilityChanged, "qingjian", context.get());
         engine.deactivate(entry, event);
         assert(context->committed.empty());
+    } else if (scenario == "reset") {
+        fcitx::InputContextEvent event(context.get(), fcitx::EventType::InputContextReset);
+        engine.reset(entry, event);
+        assert(context->committed.empty() && context->inputPanel().empty());
     } else {
         context->setCapabilityFlags(scenario == "password" ? fcitx::CapabilityFlags(Flag::Password) :
             scenario == "sensitive" ? fcitx::CapabilityFlags(Flag::Sensitive) :
@@ -49,6 +58,18 @@ int main(int argc, char **argv) {
         [&](fcitx::EventSourceTime *, uint64_t) { instance.eventLoop().exit(); return false; });
     instance.eventLoop().exec();
     mock.join();
+    fcitx::Log::setLogStream(originalLog);
+    const auto logs = diagnostics.str();
+    if (scenario.rfind("focusout-", 0) == 0)
+        assert(logs.find("Qingjian lifecycle: reason=focus-out") != std::string::npos);
+    else if (scenario == "capability-deactivate")
+        assert(logs.find("Qingjian lifecycle: reason=deactivate-capability") != std::string::npos);
+    else if (scenario == "reset")
+        assert(logs.find("Qingjian lifecycle: reason=reset") != std::string::npos);
+    else if (scenario == "sensitive" || scenario == "password" || scenario == "disabled")
+        assert(logs.find("Qingjian lifecycle: reason=capability-change") != std::string::npos);
+    assert(logs.find("preedit=ni") == std::string::npos);
+    assert(logs.find("virtual_key") == std::string::npos);
     bool sawShiftPress = false, sawShiftRelease = false, sawCapabilityReason = false;
     Json lastCaps;
     for (const auto &message : mock.messages) {

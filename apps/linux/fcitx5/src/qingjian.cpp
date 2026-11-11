@@ -9,6 +9,7 @@
 #include <fcitx/inputcontextmanager.h>
 #include <fcitx/inputpanel.h>
 #include <fcitx/userinterfacemanager.h>
+#include <fcitx-utils/log.h>
 #include <iomanip>
 #include <algorithm>
 #include <optional>
@@ -46,9 +47,10 @@ QingjianEngine::QingjianEngine(AddonManager *manager)
           shared_->contexts.emplace(id, context.watch());
           return new qingjian::Session(shared_, id);
       }) {
+    FCITX_INFO() << "Qingjian diagnostic logging enabled (input contents excluded)";
     shared_->deferred = instance_->eventLoop().addDeferEvent([this](EventSource *event) {
         event->setEnabled(false);
-        if (shared_->connection.connected() && !shared_->flush()) disconnectAll();
+        if (shared_->connection.connected() && !shared_->flush()) disconnectAll("deferred-close");
         return true;
     });
     shared_->deferred->setEnabled(false);
@@ -74,6 +76,7 @@ QingjianEngine::QingjianEngine(AddonManager *manager)
     focusWatcher_ = instance_->watchEvent(EventType::InputContextFocusOut, EventWatcherPhase::PreInputMethod, [this](Event &event) {
         auto *context = static_cast<InputContextEvent &>(event).inputContext();
         auto *session = context->propertyFor(&sessions_);
+        logLifecycle(context, "focus-out");
         ++session->lifecycle;
         session->focused = false;
         session->selectionText.clear();
@@ -88,7 +91,7 @@ QingjianEngine::QingjianEngine(AddonManager *manager)
             if (!context) continue;
             auto *session = context->propertyFor(&sessions_);
             if (session->opened && session->displayIdentity.is_object() && !shared_->connection.send({{"DisplayAcknowledged", {
-                {"session", session->id}, {"identity", session->displayIdentity}, {"senses", nlohmann::json::array()}}}})) disconnectAll();
+                {"session", session->id}, {"identity", session->displayIdentity}, {"senses", nlohmann::json::array()}}}})) disconnectAll("display-acknowledgment");
         }
     });
 }
@@ -121,8 +124,17 @@ void QingjianEngine::clear(InputContext *context) {
     if (watched.get() && session->revision == revision)
         context->updateUserInterface(UserInterfaceComponent::InputPanel);
 }
-void QingjianEngine::disconnectAll() {
+void QingjianEngine::logLifecycle(InputContext *context, const char *reason) {
+    const auto &panel = context->inputPanel();
+    if (panel.preedit().empty() && panel.clientPreedit().empty() && !panel.candidateList()) return;
+    const auto *session = context->propertyFor(&sessions_);
+    FCITX_INFO() << "Qingjian lifecycle: reason=" << reason << " session=" << session->id
+                 << " generation=" << session->generation << " revision=" << session->revision
+                 << " focused=" << context->hasFocus() << " opened=" << session->opened;
+}
+void QingjianEngine::disconnectAll(const char *reason) {
     if (shared_->clearing) return;
+    FCITX_WARN() << "Qingjian connection lost: reason=" << reason << " generation=" << shared_->generation;
     shared_->clearing = true;
     shared_->watcher.reset();
     shared_->connection.close();
@@ -134,6 +146,7 @@ void QingjianEngine::disconnectAll() {
         (void)id;
         if (auto *context = watched.get()) {
             auto *session = context->propertyFor(&sessions_);
+            logLifecycle(context, "disconnect");
             session->opened = false;
             session->focused = false;
             session->capabilities = nullptr;
@@ -167,6 +180,7 @@ bool QingjianEngine::connect(InputContext *context) {
         }
         return watched.get() && session->opened;
     }
+    const char *reason = "close-exchange";
     try {
         if (!shared_->connection.connected()) {
             if (!shared_->connection.open()) return false;
@@ -176,17 +190,20 @@ bool QingjianEngine::connect(InputContext *context) {
                 [this](EventSourceIO *, int fd, IOEventFlags) {
                     char byte;
                     auto count = recv(fd, &byte, 1, MSG_PEEK | MSG_DONTWAIT);
-                    if (count >= 0 || (errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR)) disconnectAll();
+                    if (count >= 0 || (errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR))
+                        disconnectAll(count == 0 ? "socket-closed" : count > 0 ? "unexpected-socket-data" : "socket-error");
                     return true;
                 });
         }
         if (!shared_->flush()) throw std::runtime_error("close exchange");
         session->generation = shared_->generation;
         nlohmann::json response;
+        reason = "handshake-response";
         if (!shared_->connection.send({{"OpenSession", {{"session", session->id}, {"app", context->program()}, {"protocol", 9}}}}, &response)
             || response.at("Update").at("session") != session->id
             || response.at("Update").at("linux_ui").at("version") != 3)
             throw std::runtime_error("protocol mismatch");
+        reason = "linux-handshake-response";
         if (!shared_->connection.send({{"LinuxHello", {{"version", 3}, {"session", session->id}, {"generation", session->generation}, {"context", contextIdentity(context)}}}}, &response)
             || response.at("LinuxHello").at("version") != 3 || response.at("LinuxHello").at("session") != session->id) throw std::runtime_error("linux handshake");
         session->preeditMode = response.at("LinuxHello").at("preedit").get<std::string>();
@@ -197,7 +214,7 @@ bool QingjianEngine::connect(InputContext *context) {
         session->focused = context->hasFocus();
         exchange(context, {{"Focus", {{"focused", session->focused}}}}, false);
         return watched.get() && session->opened;
-    } catch (const std::exception &) { disconnectAll(); return false; }
+    } catch (const std::exception &) { disconnectAll(reason); return false; }
 }
 bool QingjianEngine::syncPrivacy(InputContext *context) {
     auto *session = context->propertyFor(&sessions_);
@@ -205,6 +222,7 @@ bool QingjianEngine::syncPrivacy(InputContext *context) {
     nlohmann::json facts = {{"sensitive", caps.test(CapabilityFlag::Sensitive)},
         {"password", caps.test(CapabilityFlag::Password)}, {"disabled", caps.test(CapabilityFlag::Disable)}};
     if (session->capabilities != facts) {
+        logLifecycle(context, "capability-change");
         const auto watched = context->watch();
         const auto generation = session->generation;
         // 能力先由 Server 确认，再触发可能同步重入的 UI 清理。
@@ -233,10 +251,12 @@ bool QingjianEngine::exchange(InputContext *context, const nlohmann::json &event
     const auto capabilities = context->capabilityFlags();
     const bool focused = context->hasFocus();
     bool consumed = false;
+    const char *reason = "event-exchange";
     try {
         nlohmann::json response;
         if (!session->opened || !shared_->connection.send({{"LinuxEvent", {{"session", session->id}, {"event", event}}}}, &response))
             throw std::runtime_error("event exchange");
+        reason = "event-response";
         if (response.contains("Ignored") && response.at("Ignored").at("session") == session->id) return true;
         if (response.contains("RequestSelection")) {
             const auto &request = response.at("RequestSelection");
@@ -255,9 +275,11 @@ bool QingjianEngine::exchange(InputContext *context, const nlohmann::json &event
                 session->selectionAnchor = nearby.anchor();
             }
             session->selectionText = selected;
+            reason = "selection-exchange";
             if (!shared_->connection.send({{"LinuxEvent", {{"session", session->id}, {"event", {{"Selection", {
                 {"request", request.at("request")}, {"text", selected}}}}}}}}, &response))
                 throw std::runtime_error("selection exchange");
+            reason = "event-response";
         }
         const auto &result = response.at("KeyResult");
         const auto &identity = result.at("identity");
@@ -273,6 +295,7 @@ bool QingjianEngine::exchange(InputContext *context, const nlohmann::json &event
             || (!session->displayIdentity.is_null() && identity.at("revision").get<uint64_t>() <= session->displayIdentity.at("revision").get<uint64_t>()))
             throw std::runtime_error("response identity");
         consumed = outcome == "Consumed";
+        reason = "event-display";
         session->displayIdentity = identity;
         // 上屏先于清空预编辑，避免 Chromium 原生 Wayland 重复上屏（#213）。
         // 上屏回调也可重入；只允许仍属于本帧的上下文继续重画。
@@ -305,10 +328,11 @@ bool QingjianEngine::exchange(InputContext *context, const nlohmann::json &event
         }
 #endif
         return outcome == "Consumed";
-    } catch (const std::exception &) { disconnectAll(); return consumed; }
+    } catch (const std::exception &) { disconnectAll(reason); return consumed; }
 }
 void QingjianEngine::reset(const InputMethodEntry &, InputContextEvent &event) {
     auto *context = event.inputContext();
+    logLifecycle(context, "reset");
     const auto watched = context->watch();
     ++context->propertyFor(&sessions_)->lifecycle;
     if (context->propertyFor(&sessions_)->opened) exchange(context, "Reset", false);
@@ -322,6 +346,9 @@ void QingjianEngine::deactivate(const InputMethodEntry &, InputContextEvent &eve
     const auto watched = context->watch();
     ++session->lifecycle;
     auto *switched = dynamic_cast<InputContextSwitchInputMethodEvent *>(&event);
+    logLifecycle(context, event.type() == EventType::InputContextFocusOut ? "deactivate-focus-out"
+        : switched && switched->reason() == InputMethodSwitchedReason::CapabilityChanged
+            ? "deactivate-capability" : "deactivate-switch");
     // 转发框架提前发出的切换原因；能力此刻可能仍是旧值。
     if (session->opened) {
         bool clientPreedit = session->clientPreedit;
@@ -460,9 +487,11 @@ void QingjianEngine::poll() {
     auto *context = polled_.get();
     if (!context || shared_->clearing || !context->hasFocus() || !context->propertyFor(&sessions_)->opened) { stopPolling(); return; }
     auto *session = context->propertyFor(&sessions_);
+    const char *reason = "poll-exchange";
     try {
         nlohmann::json response;
         if (!shared_->connection.send({{"Poll", {{"session", session->id}}}}, &response)) throw std::runtime_error("poll exchange");
+        reason = "poll-response";
         const auto &update = response.at("Update");
         const auto &identity = update.at("identity");
         if (update.at("session") != session->id || identity.at("generation") != session->generation
@@ -475,7 +504,8 @@ void QingjianEngine::poll() {
         if (revision == shown) return;
         session->displayIdentity = identity;
         if (update.at("frame").at("candidates").at("items").empty()) session->selectionText.clear();
+        reason = "poll-display";
         render(context, update.at("frame"));
-    } catch (const std::exception &) { disconnectAll(); }
+    } catch (const std::exception &) { disconnectAll(reason); }
 }
 }

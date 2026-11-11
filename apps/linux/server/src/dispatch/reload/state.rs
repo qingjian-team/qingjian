@@ -13,6 +13,7 @@ use qingjian_predict::PredictConfig;
 use qingjian_translate::DOWNLOADED_DIR;
 
 /// 热加载状态。
+#[derive(Clone)]
 pub(crate) struct ConfigReload {
     /// 上次成功应用的配置；方案文件单独变化时沿用，不读取尚未写完的配置。
     pub(super) applied_config: Config,

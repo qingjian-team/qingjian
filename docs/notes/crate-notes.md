@@ -429,6 +429,7 @@ Common Crawl、CSL、SkyPile、C4 的统计），可按 GPL-3.0-or-later 使用�
 `SchemeSlot`（`scheme/slot.rs`）是壳持有的「装着哪套」，两侧一起装：每次配置热加载都按配置重新找方案，但形码方案（含规则）与码表文件的修改时间、长度都没变时不重读码表——
 热加载多半是改了别的设置，8.9 万条每次重读是白花的；只改了 `[code.<id>]` 的规则走 `Engine::set_code_rules`，也不重读。
 双拼键位表很小，每次重读、变了才换进引擎。`SchemeSlot::apply` 直接收 `&Config`，三条输入（拼音侧、形码 id、规则）都从配置取。
+`SchemeSlot::prepare` 可在后台完成查找与码表加载，返回 `PreparedScheme`；`apply_prepared` 只更新内存中的引擎与方案身份，不访问文件系统。准备时携带当前码表是否仍已装入的状态，保留未变码表及只改规则时的复用行为。
 id 不能撞拼音侧的写法与日志里的 `wubi`（`is_valid_id`），因为输入日志把两侧拼成 `<拼音>+<形码键>`，86 五笔的日志键沿用 `wubi`（`CodeSchemeEntry::log_key`）。
 目录坏了、码表不在的方案跳过并记日志；选了却找不到的方案壳里警告并按拼音跑。
 
@@ -758,19 +759,22 @@ Windows 可选的 `[shortcut] toggle_punctuation` 经 `InputSettings` 下发，�
 
 ## apps/linux
 
+`dispatch/reload` 的目录快照、配置解析及变化资源的读取在 `qingjian-reload` 后台任务中执行，包括词库、释义、输入方案和云服务用量初始化。输入线程以 `try_recv` 接收完整结果，最多一批在途；扫描卡住或失败时继续使用旧配置，任务失败后可重试，重新设置监视路径会丢弃旧任务的结果。每批完成后至少间隔一秒再检查，等待结果时 `next_tick` 缩短为 20 ms；输入线程不等待后台线程退出。初始化监听之前的首次装配仍为同步。文件系统偶发慢操作不得放回按键处理循环；200 ms IPC 截止时间与拼音、五笔学习规则不变。
+
 Fcitx5 的输入法与插件描述均启用配置入口，`settings/` 通过唯一的 `ExternalOption` 交给框架配置工具直接启动青简设置。按已加载插件的位置向上查找同前缀的 `bin/qingjian-settings`（兼容用户安装与系统多架构目录），找不到时按 PATH 启动；命令按 Qt 配置工具的参数解析规则处理空格与引号，不经过 shell。
 
 直接启动依赖配置工具支持跳过唯一 ExternalOption 的中间页（上游 fcitx5-configtool 提交 `8b853b11a32a`）。本机 Ubuntu 24.04 的 `fcitx5-config-qt 5.1.4` 仍显示中间页；D-Bus 配置描述与插件测试通过不代表该旧 GUI 会直接启动，验证时需实际点击配置工具。
 
-形码与自制双拼通过共用 `SchemeSlot` 装配（`dispatch/schemes/`），启动和配置热加载同路；纯形码字母键复用 Core 的 `code_tops` / `commit_unique_code`。配置、方案描述、码表与导入词库的逐文件快照每秒检查一次，坏配置使用最后有效配置。有效方案变化会静默取消所有上下文的未提交输入，停止翻译 / 重排，失效候选展示身份；无关设置不取消输入。随包方案读 `data/generated/schemes/`，个人方案与导入形码词库读 `UserDirs::custom()`。安装与发行资源共用 `files.py`，按 `dicts.lock` 携带 `wubi86.qj`（含许可证元数据），卸载保留个人方案。验证与限制见 [linux-wubi.md](linux-wubi.md)。
+形码与自制双拼通过共用 `SchemeSlot` 装配（`dispatch/schemes/`），启动和配置热加载同路；纯形码字母键复用 Core 的 `code_tops` / `commit_unique_code`。配置、方案描述、码表与导入词库的逐文件快照在后台分批检查，每批完成后至少间隔一秒再检查，坏配置使用最后有效配置。有效方案变化会静默取消所有上下文的未提交输入，停止翻译 / 重排，失效候选展示身份；无关设置不取消输入。随包方案读 `data/generated/schemes/`，个人方案与导入形码词库读 `UserDirs::custom()`。安装与发行资源共用 `files.py`，按 `dicts.lock` 携带 `wubi86.qj`（含许可证元数据），卸载保留个人方案。验证与限制见 [linux-wubi.md](linux-wubi.md)。
 
 `qingjian-linux-server` 为独立产品，装配本地 Engine、词库、释义、频率学习、个人 n-gram、词汇记录与可选输入日志，
-本地整句模型优先加载 `~/.local/share/qingjian/downloads/models/hanzhang-tongbian/` 或随包 `data/models/hanzhang-tongbian/`（Linux 继续随包，还没接下载）；含章·知微已下线，不再回退。按 `[model] enabled` 在后台加载、停键 80 ms 后重排、20 ms 轮询（Windows Server 的 `dispatch/rescore` 已改成 30 ms 防抖 + 后台叫醒，这里还没跟）；云联想按 `[predict]` 接入，用量累计到用户目录的 `api-usage.json`（设置统计页读同一份），释义兜底与生词本整句翻译随 `enabled` 一起接，结果由 `tick` 里的 `poll_glosses` 收。配置热加载在 `dispatch/reload`：`tick` 每秒看 `config.toml` mtime 与用户 `dicts/` 快照，`[predict]` / `[model]` / `[dictionaries]` / 学习语言按变化重建，其余无条件重设；`preedit`、`input_log` 仍要重启。`dispatch/session` 交换每个上下文的 EngineSession；真正的能力变化丢弃输入，普通焦点切换隔离保存。
+本地整句模型优先加载 `~/.local/share/qingjian/downloads/models/hanzhang-tongbian/` 或随包 `data/models/hanzhang-tongbian/`（Linux 继续随包，还没接下载）；含章·知微已下线，不再回退。按 `[model] enabled` 在后台加载、停键 80 ms 后重排、20 ms 轮询（Windows Server 的 `dispatch/rescore` 已改成 30 ms 防抖 + 后台叫醒，这里还没跟）；云联想按 `[predict]` 接入，用量累计到用户目录的 `api-usage.json`（设置统计页读同一份），释义兜底与生词本整句翻译随 `enabled` 一起接，结果由 `tick` 里的 `poll_glosses` 收。配置热加载在 `dispatch/reload`：后台读取 `config.toml` 与资源快照，`tick` 只非阻塞领取结果；`[predict]` / `[model]` / `[dictionaries]` / 学习语言按变化准备替换资源，其余内存配置在配置有效更新时重设；`preedit`、`input_log` 仍要重启。`dispatch/session` 交换每个上下文的 EngineSession；真正的能力变化丢弃输入，普通焦点切换隔离保存。
 默认面板插件仅转换事件（Shift / Ctrl 本身报成 VK `0x10` / `0x11`），中英切换、候选点击、分页和失焦提交都由 Server 决定：`[shortcut] switch_mode` 的单击 Shift / Ctrl 在按下时记进会话的 `switch_tap`、中间按了别的键或失焦就作废，松开时切换；`Ctrl + Alt + Space` 在按下时切换。`[general] default_english` 定新会话的初始模式，`english_mode` 关掉时切换键全不认、热加载时把所有会话拉回中文。
-启动与热加载共用 `assembly::attach_cloud`（签名与 Windows 的 `dispatch::attach_cloud` 对齐：`[predict]` 配置 + 用量文件路径）；切换服务先取消旧请求与选区翻译，重建所有会话的本地候选布局以清除旧云词，保留本地高亮，聚焦会话再发新请求。无密钥时退回本地，不预留云词槽。按需联想在 `LinuxEvent::Key` 里拦 `[shortcut] predict` 组合键（按字符匹配，`.` 的键码与 Delete 冲突），结果按模型顺序置顶；自动请求由 `RouterConfig::cloud_enabled` 门控，`automatic = false` 时只剩按需触发。插件把缺失的可选 `kind` / `sentence` 按本地候选 / 无整句处理。
+启动的 `assembly::attach_cloud` 与热加载共用 `CloudServices` 工厂（`[predict]` 配置 + 用量文件路径），热加载在后台构建，输入线程仅安装；切换服务先取消旧请求与选区翻译，重建所有会话的本地候选布局以清除旧云词，保留本地高亮，聚焦会话再发新请求。无密钥时退回本地，不预留云词槽。按需联想在 `LinuxEvent::Key` 里拦 `[shortcut] predict` 组合键（按字符匹配，`.` 的键码与 Delete 冲突），结果按模型顺序置顶；自动请求由 `RouterConfig::cloud_enabled` 门控，`automatic = false` 时只剩按需触发。插件把缺失的可选 `kind` / `sentence` 按本地候选 / 无整句处理。
 插件在清空预编辑之前上屏；上屏回调重入后核对生命周期和帧身份，跳过过期重画而不撤销或重复提交，见 [Linux 协议与状态](linux-fcitx5.md#协议与状态)。
 
 Unix socket 用共享长度前缀与 Frame（当前公共版本 9，与 `PROTOCOL_VERSION` 同步，Fcitx5 插件里写死在 `qingjian.cpp` 的 OpenSession）；插件复用一条连接，每个上下文独立会话。Linux v3 扩展逐会话握手、确认 Sensitive/Password/Disable 后接受按下/释放、焦点和点击事实。
+Fcitx5 的 `ipc/connection` 将慢请求（成功但耗时 ≥ 100 ms）和失败请求记到框架日志，记录固定白名单里的操作名、收发阶段、失败原因、耗时与 errno；200 ms 总截止时间和断连清空、不重放行为不变。`QingjianEngine` 补记断连原因，以及有未完成输入时的失焦、重置、能力变化与停用原因，只带会话编号、连接代次、修订号和状态。不输出消息正文、异常正文、按键、预编辑、候选、选区或上屏文本；与用户可选的输入日志独立。收集方式见 [Linux 排错](linux-fcitx5.md#路径和排错)。
 候选回报绑定连接代次、上下文和服务端帧序号，仅当前聚焦页的有效释义进入 `note_displayed`，不把生成帧算作已展示。
 Linux 回包由 `dispatch/display/annotation` 给释义添加可选 `annotation`（词性与汉字段假名，`[general] translation_pos` 关掉时不带词性），Fcitx5 面板优先显示它；原始译文和快捷键提交不变，旧 Server 缺该字段时插件回退到 `text`。
 `[general] preedit` 使用已有 `both` / `inline` / `window`；没有新增 Linux 自绘配置。详见 [linux-fcitx5.md](linux-fcitx5.md)。
