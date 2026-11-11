@@ -255,7 +255,7 @@ impl Router {
     /// 应用新配置。学习语言变了换释义表（词汇等级表启动时已全装，不用换）。
     fn apply_config(&mut self, config: &Config) {
         crate::clipboard_process::sync(config.clipboard.enabled);
-        self.engine.set_fuzzy(config.fuzzy);
+        self.engine.set_fuzzy(config.fuzzy.clone());
         // Windows 端此前漏装 custom_phrases（macOS 端 apply_config 有）；失败只记日志，保持原短语
         if let Err(error) = self
             .engine

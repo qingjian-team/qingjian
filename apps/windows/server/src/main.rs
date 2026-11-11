@@ -230,7 +230,7 @@ fn main() -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
-    engine.set_fuzzy(config.fuzzy);
+    engine.set_fuzzy(config.fuzzy.clone());
     // Windows 端此前漏装 custom_phrases（macOS 端 apply_config 有）；失败只记日志不阻塞启动
     if let Err(error) = engine.set_custom_phrases(config.custom_phrases.clone()) {
         tracing::warn!(%error, "custom phrase config not applied");

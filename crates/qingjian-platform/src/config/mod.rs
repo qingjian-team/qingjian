@@ -435,6 +435,11 @@ l_r = false
 an_ang = false
 en_eng = false
 in_ing = false
+eng_ong = false
+# 自己加的规则，每条「音=音」：两边都是声母（"zh=j"）、都是韵母（"ian=iang"）或都是完整音节（"fa=hua"）。
+custom = []
+# custom 里暂时关掉的那些，删掉就重新开。
+custom_off = []
 
 "#,
     template_apps!(),

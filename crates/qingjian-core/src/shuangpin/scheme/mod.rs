@@ -142,7 +142,7 @@ impl Scheme {
     }
 
     /// 见 [`Layout::decode_mixed`]。
-    pub fn decode_mixed(self, keys: &str, fuzzy: crate::fuzzy::FuzzyRules) -> Vec<Decoded> {
+    pub fn decode_mixed(self, keys: &str, fuzzy: &crate::fuzzy::FuzzyRules) -> Vec<Decoded> {
         self.layout().decode_mixed(keys, fuzzy)
     }
 }
