@@ -95,7 +95,7 @@ pub fn could_be_unicode(body: &str) -> bool {
 /// 字母（`x` 当乘号）本来就能进缓冲区，不在此列。
 pub fn is_expression_char(c: char) -> bool {
     // 分隔符不在这里：冒号分号只在子模式名之后才收（见 Engine::expression_input），
-    // 否则 123 后面敲 ； 会把分号收进缓冲区，候选也跟着没了
+    // 否则 `v123` 后面敲 `；` 会把分号收进缓冲区，候选也跟着没了
     c.is_ascii_digit() || matches!(c, '+' | '-' | '*' | '/' | '(' | ')' | '.' | '^')
 }
 
