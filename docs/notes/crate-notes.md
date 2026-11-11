@@ -80,6 +80,7 @@ Windows 的三态模式经 `ModeChanged` / `ModeSync` 同步 `english` 与可选
 每个位置最多留 `MAX_PATHS`（8）条部分读法；主读法管 preedit / 尾巴，候选覆盖长度换算成敲的键数再排序，整句候选取各读法路径分最高的一条。上屏与整句回灌按候选音节挑对得上的读法换算键数与学习键。
 `engine/commit/mod.rs` 只管上屏主流程；键串与候选音节的对齐（`align`、回溯与敲错变体）拆在 `engine/commit/align.rs`。
 
+按词跳 `Engine::hold_next_word`（`engine/held/next_word.rs`）：首选整句的第一个词按普通选词上屏、留在组句里（学习、退格撤回、整段记忆都同手动分几次选），词序列先用 `sentence_words` 重算，对不上（知意重排、学过的整句）时按词库从句首切最长的词（最多 8 字、至少留一个字）；不是整句的不动。Windows `[shortcut] next_word`（缺省 Ctrl + V，`Router::apply_key`）组句中跳不动也吃掉，免得粘到拼音后面。
 次选里和首选不一样的字在 `candidate/diff.rs` 的 `differs_from_lead`：只比拼音打出的中文候选（中文词、云端词、整句、模型生成的整句），两条字数相同、首选至少 `MIN_CHARS`（4）字就逐字比（不看候选带的音节：学过的整句、云端候选与本地整句的音节记法不一定一样），返回字节范围；一个字都对不上时不标。首选是整份候选的第一格（不是当前页的第一个），Windows Server 组帧时算好放进 `Frame::differs`，mac 壳 `host/presenting` 与 Android `Session::frame` 各自调它；Linux 用框架面板，不画。
 
 CandidateLayout 保持 `set_cloud` 的首页末尾布局与本地首项；`set_cloud_first` 为显式请求提供模型顺序置顶并合并同文普通候选。自定义短语按名次固定的格子保留；`cloud_first()` 供异步本地重排重建布局时沿用当前模式。自动入口及默认配置的 slots 仍指首页末尾。

@@ -204,7 +204,7 @@ impl TextService_Impl {
             input.shift_letter_compose,
             input.english_candidates,
         ) || (self.shared.composing()
-            && [input.predict, input.single_chars]
+            && [input.predict, input.single_chars, input.next_word]
                 .into_iter()
                 .flatten()
                 .any(|combo| {

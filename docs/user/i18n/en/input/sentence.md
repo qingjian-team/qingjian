@@ -13,6 +13,12 @@ When the top few candidates for a long sentence look alike, the characters in a 
 
 When you pick a stretch of pinyin in several steps, the words picked first stay in the input box and the whole stretch is committed together once it's done; see [Picked the wrong word](../getting-started/first-input.md#Picked-the-wrong-word).
 
+### Fixing one word in a long sentence
+
+When only one word in the middle of a long sentence is wrong, press `Ctrl + V` on Windows: the first word of the top sentence is kept in the input box and the candidates now start from the next word (the rest of the sentence and other ways to write the next word).
+Press again to keep the next word; when you reach the wrong one, pick the right form and the rest follows as usual. `Backspace` undoes the last kept word.
+`Ctrl + V` is only taken while you are typing and still pastes otherwise; you can change or turn it off in 设置 → 快捷键 (Settings → Shortcuts).
+
 ## Abbreviated pinyin
 
 Typing only each character's initial works too: `jttqhh` gives 今天天气很好.

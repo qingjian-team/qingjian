@@ -380,6 +380,9 @@ commit_raw_info = "打拼音时按它把敲的字母原样上屏"
 single_chars = "单字模式快捷键"
 single_chars_info = "打字时按下面的键，候选只列单字，再按一次恢复；上屏后自动回到正常候选"
 single_chars_key_info = "打字时按它切换单字模式"
+next_word = "按词跳快捷键"
+next_word_info = "打长句时按下面的键，首选整句的第一个词先定下来，候选换成下一个词的，改中间的词不用挪光标；退格撤回"
+next_word_key_info = "打字时按它定住一个词、跳到下一个词"
 
 [shortcut]
 clipboard = "呼出剪贴板"
@@ -410,6 +413,7 @@ need_commit_key = "要空格、回车或一个符号键"
 is_page_key = "「{key}」已经是翻页键"
 is_aux_key = "「{key}」已经是辅码触发键"
 single_chars = "单字模式"
+next_word = "按词跳"
 
 [phrases]
 add = "新增…"
