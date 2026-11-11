@@ -30,12 +30,16 @@ fn rows(
         .enumerate()
         .map(|(i, candidate)| {
             // emoji 由壳在词的位置上画，这里只占位：系统字体画得出彩色 emoji 时两份会叠成重影（#902）
-            let text = if has_emoji(&candidate.text) {
+            let emoji = has_emoji(&candidate.text);
+            let text = if emoji {
                 emoji_placeholder(&candidate.text)
             } else {
                 candidate.text.clone()
             };
             let mut row = Row::plain(i, text);
+            if !emoji {
+                row.diff = candidate.diff.clone();
+            }
             row.index.clear();
             row.cloud = candidate.cloud;
             if let Some(sense) = candidate.senses.first() {

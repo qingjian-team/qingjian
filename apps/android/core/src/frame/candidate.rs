@@ -1,4 +1,6 @@
 //! 帧里的一个候选。
+use std::ops::Range;
+
 use qingjian_core::{Candidate, CandidateKind};
 use serde::Serialize;
 
@@ -20,6 +22,10 @@ pub struct FrameCandidate {
 
     /// 是通讯录里的名字：候选条在词的右上角画一个人头。
     pub contact: bool,
+
+    /// 和首选不一样的字（`text` 的字节范围，Core 的 `differs_from_lead`）；只有 Rust 画候选条用，不过 JNI。
+    #[serde(skip)]
+    pub diff: Vec<Range<usize>>,
 }
 
 impl FrameCandidate {
@@ -31,7 +37,13 @@ impl FrameCandidate {
             forgettable: false,
             cloud: false,
             contact: false,
+            diff: Vec::new(),
         }
+    }
+
+    pub fn with_diff(mut self, diff: Vec<Range<usize>>) -> Self {
+        self.diff = diff;
+        self
     }
 
     pub fn with_contact(mut self, contact: bool) -> Self {
@@ -53,6 +65,7 @@ impl From<&Candidate> for FrameCandidate {
             forgettable: candidate.kind.forgettable(),
             cloud: candidate.kind == CandidateKind::Cloud,
             contact: false,
+            diff: Vec::new(),
         }
     }
 }

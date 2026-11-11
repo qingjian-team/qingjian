@@ -10,6 +10,7 @@
     "hl_gloss": "#ffffffd9",
     "hl_faint": "#ffffffa6",
     "hl_fresh": "#fff3b0",
-    "hl_cloud": "#ffffff"
+    "hl_cloud": "#ffffff",
+    "hl_diff": "#ffe08a"
   }
 }

@@ -4,6 +4,8 @@ pub mod preedit;
 
 pub use preedit::{PreeditKind, PreeditSegment};
 
+use std::ops::Range;
+
 use serde::{Deserialize, Serialize};
 
 use qingjian_core::CandidateList;
@@ -32,6 +34,11 @@ pub struct Frame {
 
     /// 当前页的候选（已排好序、不带译文由后续 [`super::ServerMessage::Update`] 补）。
     pub candidates: CandidateList,
+
+    /// `candidates` 各条里和整份候选的首选不一样的字（候选词的字节范围，见 [`qingjian_core::differs_from_lead`]），
+    /// 与 `candidates.items` 一一对应，短了的按没有算。由 Server 自绘候选窗消费；DLL 不读。
+    #[serde(default)]
+    pub differs: Vec<Vec<Range<usize>>>,
 
     /// 当前页里高亮的候选下标（页内，从 0 起）。
     pub highlight: usize,

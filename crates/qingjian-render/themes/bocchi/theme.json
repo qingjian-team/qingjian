@@ -10,6 +10,7 @@
     "fresh": "#d0607f",
     "faint": "#bfa6b0",
     "cloud": "#ef85a2",
+    "diff": "#c92a2a",
     "ink": "#302632",
     "rose": "#d98d9e",
     "accent": "#ef85a2",
@@ -82,8 +83,8 @@
     "bocchi-word": {
       "type": "frame", "children": [
         { "type": "icon", "icon": "cloud", "when": "cloud", "size": 14, "height": 23, "color": "@cloud", "margin": [0, 4, 0, 0] },
-        { "type": "text", "bind": "text", "when": "cloud", "font": "candidate", "color": "@cloud" },
-        { "type": "text", "bind": "text", "when": "!cloud", "font": "candidate", "color": "@text" },
+        { "type": "text", "bind": "text", "when": "cloud", "font": "candidate", "color": "@cloud", "diff": "@diff" },
+        { "type": "text", "bind": "text", "when": "!cloud", "font": "candidate", "color": "@text", "diff": "@diff" },
         { "type": "text", "bind": "code", "when": "code", "font": "annotation", "color": "@gloss", "margin": [7, 0, 0, 3] }
       ]
     },

@@ -9,6 +9,8 @@ description: 连续输入整句、只敲声母的简拼、输错字母时的纠�
 无需切换模式，连续输入整句后再上屏：`jintiantianqihenhao` 的首选即为「今天天气很好」。
 整句打到最后一个字时只敲声母也能提前出整句：`youdiandongx` 的首选就是「有点东西」，与补全成 `youdiandongxi` 一致。
 
+整句、长句的几个候选看着差不多时，次选里和首选不一样的字换一种颜色显示（`shixianyibianshuruzhongwenzhengju` 的次选「实现一边输入中文政局」里标出「政局」），一眼就能看出差在哪。首选四个字以上、两条字数相同时才标；macOS、Windows 与 Android 用青简渲染器时显示，颜色由主题决定，见 [自制主题](../advanced/custom-themes.md#和首选不一样的字)。
+
 一段拼音分几次选完时，先选的词留在输入框里，整段选完才一起上屏，见 [选错了词](../getting-started/first-input.md#选错了词)。
 
 ### 词库里没有的词

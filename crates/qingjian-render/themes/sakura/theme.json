@@ -14,6 +14,7 @@
     "fresh": "#d46fa8",
     "faint": "#c3a9cc",
     "cloud": "#8e7bd6",
+    "diff": "#e8590c",
     "ink": "#62486e",
     "ui": "#806289",
     "line": "#dab4db",
@@ -85,9 +86,9 @@
     "sakura-word": {
       "type": "frame", "children": [
         { "type": "icon", "icon": "cloud", "when": "cloud", "size": 13, "height": 22, "color": "@cloud", "margin": [0, 4, 0, 0] },
-        { "type": "text", "bind": "text", "when": "cloud", "font": "candidate", "color": "@cloud" },
+        { "type": "text", "bind": "text", "when": "cloud", "font": "candidate", "color": "@cloud", "diff": "@diff" },
         { "type": "text", "bind": "text", "when": "!cloud", "font": "candidate",
-          "color": { "if": "highlighted", "then": "@text_hl", "else": "@text" } },
+          "color": { "if": "highlighted", "then": "@text_hl", "else": "@text" }, "diff": "@diff" },
         { "type": "text", "bind": "code", "when": "code", "font": "annotation", "color": "@gloss", "margin": [6, 0, 0, 3] }
       ]
     },

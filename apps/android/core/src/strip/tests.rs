@@ -23,6 +23,7 @@ fn candidate(text: &str, senses: &[(Option<&'static str>, &str, bool)]) -> Frame
         forgettable: true,
         cloud: false,
         contact: false,
+        diff: Vec::new(),
     }
 }
 

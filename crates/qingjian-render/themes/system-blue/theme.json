@@ -9,6 +9,7 @@
     "hl_gloss": "#ffffffd9",
     "hl_faint": "#ffffffa6",
     "hl_fresh": "#ffe0b2",
-    "hl_cloud": "#ffffff"
+    "hl_cloud": "#ffffff",
+    "hl_diff": "#ffe08a"
   }
 }

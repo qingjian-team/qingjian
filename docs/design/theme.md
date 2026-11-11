@@ -44,7 +44,7 @@
 | `type` | 属性 |
 |---|---|
 | `frame` | `direction`（row / column）、`fill`、`border`、`radius`、`children`；带 `table: { row_height }` 时排成表格 |
-| `text` | `bind` 或 `text`（固定文字）、`font`、`color`、`stroke` |
+| `text` | `bind` 或 `text`（固定文字）、`font`、`color`、`stroke`；绑定候选词 `text` 时可写 `diff`（和首选不一样的字的颜色，不写就整条同色） |
 | `icon` | `icon`（cloud / gear / chevron-left / chevron-right）、`size`、`color`；盒子缺省与图标同大，图标垂直居中 |
 | `preedit` | `font`、`typed` / `rest` / `struck` 三种拼音颜色、`caret: { width, color }`、`stroke` |
 | `annotation` | `bind`、`font`、`gloss` / `fresh` / `faint` 三种颜色（`pos`、`separator` 可单独写，缺省同 `faint`）、`tones`（只画哪几种片段）、`senses`（只画前几个义项）、`stroke` |

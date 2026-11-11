@@ -11,6 +11,7 @@
     "fresh": "#1fa8b8",
     "faint": "#a9b6c2",
     "cloud": "#27c9da",
+    "diff": "#e64980",
     "ink": "#142c3b",
     "cyan": "#27c9da",
     "pink": "#f293c5",
@@ -76,8 +77,8 @@
     "miku-word": {
       "type": "frame", "children": [
         { "type": "icon", "icon": "cloud", "when": "cloud", "size": 14, "height": 24, "color": "@cloud", "margin": [0, 4, 0, 0] },
-        { "type": "text", "bind": "text", "when": "cloud", "font": "candidate", "color": "@cloud" },
-        { "type": "text", "bind": "text", "when": "!cloud", "font": "candidate", "color": "@text" },
+        { "type": "text", "bind": "text", "when": "cloud", "font": "candidate", "color": "@cloud", "diff": "@diff" },
+        { "type": "text", "bind": "text", "when": "!cloud", "font": "candidate", "color": "@text", "diff": "@diff" },
         { "type": "text", "bind": "code", "when": "code", "font": "annotation", "color": "@gloss", "margin": [7, 0, 0, 3] }
       ]
     },

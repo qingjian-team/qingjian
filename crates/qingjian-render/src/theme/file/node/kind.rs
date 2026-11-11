@@ -44,6 +44,9 @@ pub(crate) enum NodeKind {
 
         color: ColorSpec,
 
+        /// 绑定候选词（`text`）时，和首选不一样的字用这个颜色；不写就整条同色。
+        diff: Option<ColorSpec>,
+
         /// 描边。
         stroke: Option<BorderSpec>,
     },
