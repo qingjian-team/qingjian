@@ -88,3 +88,22 @@ fn holding_can_be_turned_off() {
     assert!(engine.backspace());
     assert_eq!(engine.composition().text(), "xia");
 }
+
+/// 前面有定住的词时，光标在末尾就等于拼音行的字数：定住的字只算一次。
+#[test]
+fn cursor_stays_at_the_end_after_a_held_word() {
+    let mut engine = engine();
+    engine.set_input("kaifaxiankaifa");
+    pick(&mut engine, "开发");
+    let query = engine.query().unwrap();
+    assert_eq!(query.marked_text(), "开发xian'kai'fa");
+    assert_eq!(query.segments_cursor(), "开发xian'kai'fa".chars().count());
+
+    // 双拼解码时也一样
+    let mut engine = xiaohe();
+    engine.set_input("kdfaxmkdfa");
+    pick(&mut engine, "开发");
+    let query = engine.query().unwrap();
+    let text = query.marked_text();
+    assert_eq!(query.segments_cursor(), text.chars().count(), "{text}");
+}

@@ -346,7 +346,7 @@ impl Query {
         // 辅码态光标也总在末尾：触发键与码段都拼在最后
         if self.correction.is_some() || self.decoded_keys || self.aux.is_some() {
             return self
-                .marked_segments()
+                .pinyin_segments(None)
                 .iter()
                 .filter(|s| s.kind != MarkedKind::Rest)
                 .map(|s| s.text.chars().count())
@@ -358,7 +358,7 @@ impl Query {
             .count();
         let after_apostrophe = self.text[..self.cursor.min(self.text.len())].ends_with('\'');
         let segments_text: String = self
-            .marked_segments()
+            .pinyin_segments(None)
             .iter()
             .map(|s| s.text.as_str())
             .collect();
