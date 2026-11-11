@@ -3,14 +3,19 @@ package app.qingjian.inputmethod.keyboard.layout
 import android.graphics.RectF
 
 /** 键盘的尺寸与排版：行高跟着用户设的高度百分比走，其余按屏幕密度定死。 */
-class KeyboardMetrics(val density: Float, heightPercent: Int) {
+class KeyboardMetrics(
+    val density: Float,
+    heightPercent: Int,
+    /** 键的圆角（点），来自主题：墨岩那种方角主题是 0。 */
+    keyRadius: Float = 7f,
+) {
     var rowHeight = rowHeightFor(heightPercent)
         private set
 
     val gapX = 2.5f * density
     val gapY = 4f * density
     val topPadding = 4f * density
-    val radius = 7f * density
+    val radius = keyRadius * density
     val shadowOffset = 1f * density
     private val edge = 2f * density
 
