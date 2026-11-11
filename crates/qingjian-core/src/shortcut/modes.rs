@@ -14,6 +14,15 @@
 use crate::shortcut::bitwise::BitWidth;
 use crate::shortcut::{TIMESTAMP_KEYWORD, UUID_KEYWORD};
 
+/// 位运算子模式的名字。`bit` 这一族（`bitu` / `bit8` / `bit128u`）都从它派生。
+pub const BIT_KEYWORD: &str = "bit";
+
+/// 进制转换子模式的名字。
+pub const BASE_KEYWORD: &str = "base";
+
+/// 统计子模式的名字。
+pub const STAT_KEYWORD: &str = "stat";
+
 /// 子模式。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Mode<'a> {
@@ -92,7 +101,7 @@ struct Spec {
 /// 全部子模式。加一个在这里登记，`Mode` 与 `mode_forms` 跟上即可。
 const SPECS: [Spec; 5] = [
     Spec {
-        name: "bit",
+        name: BIT_KEYWORD,
         numbered: true,
     },
     Spec {
@@ -104,11 +113,11 @@ const SPECS: [Spec; 5] = [
         numbered: false,
     },
     Spec {
-        name: "base",
+        name: BASE_KEYWORD,
         numbered: false,
     },
     Spec {
-        name: "stat",
+        name: STAT_KEYWORD,
         numbered: false,
     },
 ];
@@ -132,10 +141,10 @@ fn named<'a>(name: &str, rest: &'a str) -> Option<Mode<'a>> {
     if name == TIMESTAMP_KEYWORD {
         return Some(Mode::Timestamp { at: rest.trim() });
     }
-    if name == "base" {
+    if name == BASE_KEYWORD {
         return Some(Mode::Base { args: rest });
     }
-    if name == "stat" {
+    if name == STAT_KEYWORD {
         return Some(Mode::Stat { args: rest });
     }
     let width = parse_bit_width(name)?;
