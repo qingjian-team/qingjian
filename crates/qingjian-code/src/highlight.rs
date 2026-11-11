@@ -169,6 +169,9 @@ fn string_end(bytes: &[u8], start: usize, quote: u8) -> Option<usize> {
     let mut i = start + 1;
     while i < bytes.len() {
         match bytes[i] {
+            // 单双引号不跨行：反斜杠后面紧跟换行时也不能当成转义字符吞掉，
+            // 否则一个行尾反斜杠会把两行文本连成一个字符串。
+            b'\\' if quote != b'`' && bytes.get(i + 1) == Some(&b'\n') => return None,
             b'\\' => i += 2,
             b'\n' if quote != b'`' => return None,
             b if b == quote => return Some(i + 1),

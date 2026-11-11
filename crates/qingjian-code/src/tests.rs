@@ -51,3 +51,12 @@ fn block_comments_hash_comments_and_escapes() {
 fn lone_quotes_and_numbers_in_names_are_plain() {
     assert_eq!(kinds("fn f<'a>(utf8: x2)"), [("fn", CodeKind::Keyword)]);
 }
+
+
+#[test]
+fn escaped_newline_does_not_extend_a_string_across_lines() {
+    assert_eq!(
+        kinds("let a = \"x\\\ny\""),
+        [("let", CodeKind::Keyword)]
+    );
+}
