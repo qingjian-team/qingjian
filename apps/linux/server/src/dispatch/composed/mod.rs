@@ -253,6 +253,7 @@ impl Router {
                 notice: self.notice.clone(),
                 symbol_panel: false,
                 panel_text_box: false,
+                differs: Vec::new(),
             },
             Some(Composed::Candidates {
                 preedit,
@@ -310,6 +311,7 @@ impl Router {
                     notice: self.notice.clone(),
                     symbol_panel: false,
                     panel_text_box: false,
+                    differs: Vec::new(),
                 }
             }
         }

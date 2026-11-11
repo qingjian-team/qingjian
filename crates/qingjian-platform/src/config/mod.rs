@@ -401,6 +401,8 @@ toggle_punctuation = ""
 toggle_traditional = ""
 # Windows：组句中只看单字，再按一次恢复，上屏完自动回到正常候选；只在打字时拿走这个组合。空串禁用
 single_chars = "ctrl+d"
+# Windows：组句中按词跳，首选整句的第一个词先定下来、候选换成下一个词的；只在打字时拿走这个组合。空串禁用
+next_word = "ctrl+v"
 # Windows：主翻页键之外同时启用的键对，可多选，如 ["[]", ",.", "-="]
 extra_page_keys = []
 # 前缀模式键，只能是 v / u / i 之一且互不相同（这三个字母不是任何拼音音节的开头）

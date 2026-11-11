@@ -80,6 +80,9 @@ Windows 的三态模式经 `ModeChanged` / `ModeSync` 同步 `english` 与可选
 每个位置最多留 `MAX_PATHS`（8）条部分读法；主读法管 preedit / 尾巴，候选覆盖长度换算成敲的键数再排序，整句候选取各读法路径分最高的一条。上屏与整句回灌按候选音节挑对得上的读法换算键数与学习键。
 `engine/commit/mod.rs` 只管上屏主流程；键串与候选音节的对齐（`align`、回溯与敲错变体）拆在 `engine/commit/align.rs`。
 
+按词跳 `Engine::hold_next_word`（`engine/held/next_word.rs`）：首选整句的第一个词按普通选词上屏、留在组句里（学习、退格撤回、整段记忆都同手动分几次选），词序列先用 `sentence_words` 重算，对不上（知意重排、学过的整句）时按词库从句首切最长的词（最多 8 字、至少留一个字）；不是整句的不动。Windows `[shortcut] next_word`（缺省 Ctrl + V，`Router::apply_key`）组句中跳不动也吃掉，免得粘到拼音后面。
+次选里和首选不一样的字在 `candidate/diff.rs` 的 `differs_from_lead`：只比拼音打出的中文候选（中文词、云端词、整句、模型生成的整句），两条字数相同、首选至少 `MIN_CHARS`（4）字就逐字比（不看候选带的音节：学过的整句、云端候选与本地整句的音节记法不一定一样），返回字节范围；一个字都对不上时不标。首选是整份候选的第一格（不是当前页的第一个），Windows Server 组帧时算好放进 `Frame::differs`，mac 壳 `host/presenting` 与 Android `Session::frame` 各自调它；Linux 用框架面板，不画。
+
 CandidateLayout 保持 `set_cloud` 的首页末尾布局与本地首项；`set_cloud_first` 为显式请求提供模型顺序置顶并合并同文普通候选。自定义短语按名次固定的格子保留；`cloud_first()` 供异步本地重排重建布局时沿用当前模式。自动入口及默认配置的 slots 仍指首页末尾。
 
 候选右键菜单可修正学习语言译文：手工修改由 macOS / Windows 原生输入框收文字，`Engine::set_candidate_translation` 写入个人释义表并立即 flush；模型重生成使用 `PredictionKind::CandidateTranslation` 和 `Engine::request_candidate_translation`，目标语言取当前 `Translator::language`，专用词典提示请模型同时返回词性；解析层有可识别词性时规范成 `词性\t译词`，漏了或认不出词性时保留纯译词。`Engine::set_generated_candidate_translation` 只替换第一条译词：模型给了合法词性才更新原词性，原有读音和后续释义都保留；原来没有释义时才新建一条。个人释义优先于随包释义；私密输入、未选学习语言或 Predictor 未接入时不发。
@@ -471,6 +474,7 @@ id 不能撞拼音侧的写法与日志里的 `wubi`（`is_valid_id`），因为
 这里留下帧数据、主题格式、`renderer/build/` 建树、点击区域、状态条与云朵 / 齿轮图标（`icon/`，实现引擎的 `Icon` trait）。改了引擎回来跑本 crate 的快照测试。
 拼音行的段样式 `PreeditStyle`：`Typed` / `Rest`（淡）/ `Struck`（删除线）/ `AuxCode`（淡 + 下划线）/ `Pinned`（同 `Typed` + 下划线，九宫格定下的音节，现在只有 Android 用）。
 拼音行除了 `hits` 另出 `Rendered.preedit`（`PreeditHit`：行的上下沿与各字之间那道缝的 x，按敲的那段样式量，同光标的量法），壳点拼音行时按最近的缝定光标（Android 候选条，Core 的 `Engine::move_cursor_to_marked` 换回缓冲区位置：全拼按字母、双拼按音节、九宫格按键（读出的拼音一个字母对一个键；挪的时候 `keep_nine_key_reading` 把挪之前拼音行的读法记进 `nine_key_unpinned`（键没变只挪光标时留着最早那份，在中间退格时 `follow_nine_key_deletion` 跟着删、后面的前移；光标前是选定的音节时退格先退回成数字，同末尾），光标前的候选按它排、光标后的键由 `nine_key_rest` 按它读，没记到的取第一种写法；`pin_nine_key` 只看光标前的作用域），纠错 / 辅码 / 注音不挪）；按住拼音行拖动时壳按手指横坐标逐格调同一个接口。
+候选词的差异范围 `Row::diff`：主题的 `text` 节点绑定 `text` 且写了 `diff` 颜色时画成引擎的 `RichText`（`leaf.rs` 的 `spans` 铺满整段），没写就整条同色；截断改了显示文字时 `Row::show_text` 只留没被截掉的范围。Windows 的 GDI 退路不画。
 候选文字的显示截断在 `renderer/build/clip.rs`：建树前把带换行 / 制表符的画成一行（`↵` / `⇥`），超过 `MAX_TEXT_EMS` = 30 字宽的截尾加「…」（字宽估法与矩阵相同）；只改画出来的，壳按序号上屏不受影响。
 
 横排矩阵：视口与高亮移动在 Core `candidate::layout::Grid`（`GRID_ROWS` = 6，列宽 `Grid::column_ems` 按整份候选估、单格封顶 `MAX_CELL_EMS` = 4 字宽）。横排且高亮移动键选了 ← / → 时（`two_area_arrows`），方向键怎么走在 Core `candidate::arrows::route`：拼音行与候选两区，↑ / ↓ 换区与换行，← / → 只在当前区里移动；两个壳只记焦点（mac `Session::focus`、Windows `Router::focus`，缓冲清空才回到候选）并执行它给的动作，焦点在拼音时帧里不给高亮（`usize::MAX`），拼音区里再按 ↑ 才开符号面板。其余组合（竖排、或横排用 ↑ / ↓ 移高亮）仍是原来那套：拼音行 + 候选连成一条序列。

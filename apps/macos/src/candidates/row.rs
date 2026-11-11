@@ -1,5 +1,7 @@
 //! 候选窗口的一行：序号、候选词、annotation 片段。只是 Core 输出的展示形态，不含任何排序或查词。
 
+use std::ops::Range;
+
 use qingjian_core::Candidate;
 use qingjian_core::CandidateKind;
 
@@ -29,6 +31,9 @@ pub struct Row {
 
     /// 候选词。
     pub text: String,
+
+    /// 候选词里和首选不一样的字（`text` 的字节范围，Core 的 `differs_from_lead`），主题写了 `diff` 颜色时换色画。
+    pub diff: Vec<Range<usize>>,
 
     /// 紧跟在候选词后面的辅码（`[rbm]`），开关关着或词没有码时为 `None`。
     pub code: Option<String>,
@@ -104,6 +109,7 @@ impl Row {
             } else {
                 candidate.text.clone()
             },
+            diff: Vec::new(),
             code: candidate
                 .aux_code
                 .as_ref()

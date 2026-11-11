@@ -69,6 +69,8 @@ pub enum Feature {
 
     /// 组句时切换单字模式的快捷键（#848）。
     SingleChars,
+    /// 组句时按词跳的快捷键。
+    NextWord,
     /// 候选字字重。
     CandidateFontWeight,
     /// 成对符号（中文与英文两个开关）。
@@ -79,7 +81,7 @@ pub enum Feature {
 
 impl Feature {
     #[cfg(test)]
-    pub const ALL: [Self; 35] = [
+    pub const ALL: [Self; 36] = [
         Self::AuxCode,
         Self::Schemes,
         Self::AutoPhrase,
@@ -112,6 +114,7 @@ impl Feature {
         Self::ShuangpinRawWindow,
         Self::TranslatePanel,
         Self::SingleChars,
+        Self::NextWord,
         Self::CandidateFontWeight,
         Self::PairPunctuation,
         Self::VerticalReverseAbove,
@@ -177,6 +180,7 @@ impl Feature {
             // Fcitx 面板与应用里的行内拼音共用一串，还没分开
             Self::ShuangpinRawWindow => [Yes, Yes, Todo],
             Self::SingleChars => [Todo, Yes, Todo],
+            Self::NextWord => [Todo, Yes, Todo],
             // Linux 用 Fcitx 自己的候选面板
             Self::CandidateFontWeight => [Todo, Yes, No],
             Self::VerticalReverseAbove => [Todo, Yes, No],
@@ -220,6 +224,7 @@ impl Feature {
             Self::ShuangpinRawWindow => "双拼候选窗显示按键",
             Self::TranslatePanel => "打开符号面板的翻译组",
             Self::SingleChars => "组句时切换单字模式",
+            Self::NextWord => "组句时按词跳",
             Self::CandidateFontWeight => "候选字粗细",
             Self::VerticalReverseAbove => "竖排在光标上方时倒着排",
             Self::PairPunctuation => "成对符号自动补全",
@@ -272,6 +277,10 @@ impl Feature {
             Self::SingleChars => &[
                 (PageId::Shortcuts, "shortcuts.single_chars"),
                 (PageId::Shortcuts, "shortcut.single_chars"),
+            ],
+            Self::NextWord => &[
+                (PageId::Shortcuts, "shortcuts.next_word"),
+                (PageId::Shortcuts, "shortcut.next_word"),
             ],
             Self::CandidateFontWeight => &[(PageId::Appearance, "appearance.candidate_weight")],
             Self::VerticalReverseAbove => &[(PageId::Appearance, "appearance.reverse_above")],

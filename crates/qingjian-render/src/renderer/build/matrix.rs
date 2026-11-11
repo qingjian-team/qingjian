@@ -62,7 +62,7 @@ impl Builder<'_> {
                 }
                 let mut row = row.clone();
                 if let Some(text) = clipped(&row.text, limit) {
-                    row.text = text;
+                    row.show_text(text);
                 }
                 row
             })

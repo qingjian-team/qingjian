@@ -18,7 +18,8 @@
     "hl_gloss": "#ffffffd9",
     "hl_faint": "#ffffffcc",
     "hl_fresh": "#ffe0b2",
-    "hl_cloud": "#ffffff"
+    "hl_cloud": "#ffffff",
+    "hl_diff": "#ffe08a"
   },
 
   // 垫得了系统材质时（macOS）窗口底下是系统的玻璃，fill 只在垫不了时用（Windows）；

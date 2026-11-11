@@ -14,6 +14,7 @@
     "faint": { "light": "#1e3a4673", "dark": "#6f8d99" },
     "fresh": { "light": "#c1660a", "dark": "#f0a24a" },
     "cloud": { "light": "#1d7d8c", "dark": "#58c9d8" },
+    "diff":  { "light": "#c62f3a", "dark": "#ff8a80" },
 
     "surface": { "light": "#ffffff", "dark": "#16242b" },
     "accent":  { "light": "#1e3a46", "dark": "#2f5c6e" },
@@ -28,7 +29,8 @@
     "hl_gloss": "#cfe0e6",
     "hl_faint": "#a6bfc8",
     "hl_fresh": "#ffd08a",
-    "hl_cloud": "#8fe3ef"
+    "hl_cloud": "#8fe3ef",
+    "hl_diff":  "#ffb4a8"
   },
 
   "text": {
@@ -78,10 +80,10 @@
             "color": { "if": "highlighted", "then": "@hl_cloud", "else": "@cloud" }, "margin": [0, 4, 0, 0] },
           { "type": "text", "bind": "text", "when": "cloud",
             "font": { "base": "candidate", "size": 19, "line_height": 23 },
-            "color": { "if": "highlighted", "then": "@hl_cloud", "else": "@cloud" } },
+            "color": { "if": "highlighted", "then": "@hl_cloud", "else": "@cloud" }, "diff": { "if": "highlighted", "then": "@hl_diff", "else": "@diff" } },
           { "type": "text", "bind": "text", "when": "!cloud",
             "font": { "base": "candidate", "size": 19, "line_height": 23 },
-            "color": { "if": "highlighted", "then": "@hl_text", "else": "@text" } }
+            "color": { "if": "highlighted", "then": "@hl_text", "else": "@text" }, "diff": { "if": "highlighted", "then": "@hl_diff", "else": "@diff" } }
         ] },
         { "type": "annotation", "bind": "annotation", "when": "annotations", "align_self": "center",
           "font": { "base": "annotation", "size": 11.5, "line_height": 14 },

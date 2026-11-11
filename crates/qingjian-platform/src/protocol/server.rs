@@ -61,6 +61,9 @@ pub struct InputSettings {
     /// 组句中切换单字模式的快捷键（`[shortcut] single_chars`）；旧 Server 没有这项，DLL 就不吃它。
     #[serde(default)]
     pub single_chars: Option<KeyCombo>,
+    /// 组句中按词跳的快捷键（`[shortcut] next_word`）；旧 Server 没有这项，DLL 就不吃它。
+    #[serde(default)]
+    pub next_word: Option<KeyCombo>,
 }
 
 fn english_candidates_default() -> bool {
@@ -81,6 +84,7 @@ impl Default for InputSettings {
             predict: None,
             show_english_pronunciation: false,
             single_chars: None,
+            next_word: None,
         }
     }
 }
@@ -95,6 +99,7 @@ mod tests {
         let input = InputSettings {
             predict: Some(KeyCombo::PREDICT_DEFAULT),
             single_chars: Some(KeyCombo::SINGLE_CHARS_DEFAULT),
+            next_word: Some(KeyCombo::NEXT_WORD_DEFAULT),
             ..InputSettings::default()
         };
         let mut wire = serde_json::to_value(input).unwrap();
@@ -104,9 +109,11 @@ mod tests {
         );
         wire.as_object_mut().unwrap().remove("predict");
         wire.as_object_mut().unwrap().remove("single_chars");
+        wire.as_object_mut().unwrap().remove("next_word");
         let old = serde_json::from_value::<InputSettings>(wire).unwrap();
         assert_eq!(old.predict, None);
         assert_eq!(old.single_chars, None);
+        assert_eq!(old.next_word, None);
         assert_eq!(old.switch_mode, input.switch_mode);
         assert_eq!(old.english_mode, input.english_mode);
     }

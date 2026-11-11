@@ -380,6 +380,9 @@ commit_raw_info = "Press while typing pinyin to commit the typed letters as is"
 single_chars = "Single-character mode"
 single_chars_info = "While typing, press the key below to list only single characters; press again to go back. Normal candidates return after you commit"
 single_chars_key_info = "Press while typing to toggle single-character mode"
+next_word = "Next-word key"
+next_word_info = "While typing a long sentence, press the key below to keep the first word of the top sentence and list choices for the next word, so you can fix a word in the middle without moving the cursor; Backspace undoes it"
+next_word_key_info = "Press while typing to keep a word and move to the next one"
 
 [shortcut]
 clipboard = "Open clipboard"
@@ -410,6 +413,7 @@ need_commit_key = "Needs Space, Return or a symbol key"
 is_page_key = "“{key}” is already a page key"
 is_aux_key = "“{key}” is already the auxiliary code trigger"
 single_chars = "Single characters"
+next_word = "Next word"
 
 [phrases]
 add = "Add…"
