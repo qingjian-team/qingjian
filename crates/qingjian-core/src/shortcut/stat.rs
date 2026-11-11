@@ -10,10 +10,16 @@ const EPSILON: f64 = 1e-9;
 
 /// `stat;<数>;<数>;…`。
 pub fn forms(args: &str) -> Vec<String> {
-    let mut numbers: Vec<f64> = split_args(args)
-        .into_iter()
-        .filter_map(|text| text.parse().ok())
-        .collect();
+    // 有一个认不出来的就整条不出候选：`vstat;1;2;x` 悄悄按 1、2 算完、看着像是对的，
+    // 用户不会发现那个 `x` 被吃了。与 `vbase` 参数不对时的处理一致。
+    let texts = split_args(args);
+    let mut numbers: Vec<f64> = Vec::with_capacity(texts.len());
+    for text in &texts {
+        match text.parse() {
+            Ok(value) => numbers.push(value),
+            Err(_) => return Vec::new(),
+        }
+    }
     if numbers.is_empty() {
         return Vec::new();
     }
@@ -34,26 +40,23 @@ pub fn forms(args: &str) -> Vec<String> {
     let variance = squares / count as f64;
     let sample_variance = (count > 1).then(|| squares / (count - 1) as f64);
 
-    let mut forms = vec![
-        format!("平均 {}", fmt(mean)),
-        format!("中位数 {}", fmt(median)),
-    ];
+    let mut forms = vec![fmt(mean), fmt(median)];
     if let Some(modes) = modes(&numbers) {
         let joined: Vec<String> = modes.iter().map(|v| fmt(*v)).collect();
-        forms.push(format!("众数 {}", joined.join("、")));
+        forms.push(joined.join("、"));
     }
-    forms.push(format!("方差 {}", fmt(variance)));
+    forms.push(fmt(variance));
     if let Some(sample) = sample_variance {
-        forms.push(format!("样本方差 {}", fmt(sample)));
+        forms.push(fmt(sample));
     }
-    forms.push(format!("标准差 {}", fmt(variance.sqrt())));
+    forms.push(fmt(variance.sqrt()));
     let (low, high) = (numbers[0], numbers[count - 1]);
-    forms.push(format!("极差 {}", fmt(high - low)));
-    forms.push(format!("最小 {}　最大 {}", fmt(low), fmt(high)));
-    forms.push(format!("总和 {}", fmt(sum)));
-    forms.push(format!("个数 {count}"));
+    forms.push(fmt(high - low));
+    forms.push(format!("{}　{}", fmt(low), fmt(high)));
+    forms.push(fmt(sum));
+    forms.push(count.to_string());
     let ordered: Vec<String> = numbers.iter().map(|v| fmt(*v)).collect();
-    forms.push(format!("排序 {}", ordered.join(" ")));
+    forms.push(ordered.join(" "));
     forms
 }
 
@@ -100,47 +103,54 @@ fn fmt(value: f64) -> String {
 mod tests {
     use super::*;
 
+    /// 候选项是纯数字：选一条上屏的就是那个数，不带「平均」这类名字。
+    /// 顺序固定（平均、中位数、众数、方差、样本方差、标准差、极差、最小最大、总和、个数、排序），
+    /// 用户按位置挑。
     #[test]
     fn basic_measures() {
         let measured = forms("1;2;3;4");
-        assert!(measured.iter().any(|f| f == "平均 2.5"), "{measured:?}");
-        assert!(measured.iter().any(|f| f == "中位数 2.5"), "{measured:?}");
-        assert!(measured.iter().any(|f| f == "方差 1.25"), "{measured:?}");
-        assert!(measured.iter().any(|f| f == "极差 3"), "{measured:?}");
-        assert!(measured.iter().any(|f| f == "总和 10"), "{measured:?}");
-        assert!(measured.iter().any(|f| f == "排序 1 2 3 4"), "{measured:?}");
+        assert_eq!(measured[0], "2.5", "{measured:?}");
+        assert_eq!(measured[1], "2.5", "{measured:?}");
+        assert_eq!(measured[2], "1.25", "{measured:?}");
+        assert_eq!(measured.last().map(String::as_str), Some("1 2 3 4"));
+        assert!(measured.iter().any(|f| f == "10"), "总和：{measured:?}");
+        assert!(measured.iter().any(|f| f == "4"), "个数：{measured:?}");
     }
 
     #[test]
     fn odd_count_median_is_middle() {
-        assert!(forms("1;2;9").iter().any(|f| f == "中位数 2"));
+        assert_eq!(forms("1;2;9")[1], "2");
     }
 
     #[test]
     fn mode_reports_ties() {
         let tied = forms("1;1;2;2;3");
-        assert!(tied.iter().any(|f| f == "众数 1、2"), "{tied:?}");
-        // 每个数只出现一次时不给众数
-        assert!(!forms("1;2;3").iter().any(|f| f.starts_with("众数")));
+        assert!(tied.iter().any(|f| f == "1、2"), "{tied:?}");
+        // 每个数只出现一次时不给众数：第三条直接是方差
+        assert_eq!(forms("1;2;3")[2], "0.666667");
     }
 
     #[test]
     fn sample_variance_only_with_two_or_more() {
-        // 一个数没有样本方差（要除以 n−1，会除零）
-        assert!(!forms("5").iter().any(|f| f.starts_with("样本方差")));
-        // 两个数就有
-        assert!(forms("1;3").iter().any(|f| f.starts_with("样本方差")));
+        // 一个数没有样本方差（要除以 n−1，会除零）：平均、中位数、方差、标准差、极差…
+        let one = forms("5");
+        assert_eq!(one[0], "5");
+        // 两个数就有，第四条
+        let two = forms("1;3");
+        assert_eq!(two[3], "2", "{two:?}");
     }
 
     #[test]
-    fn accepts_commas_and_full_width() {
-        assert!(forms("1,2,3,4").iter().any(|f| f == "平均 2.5"));
-        assert!(forms("1；2；3；4").iter().any(|f| f == "平均 2.5"));
+    fn full_width_semicolon_is_accepted() {
+        assert_eq!(forms("1；2；3；4")[0], "2.5");
     }
 
+    /// 一个参数认不出来就整条不出候选，不悄悄按剩下的算。
     #[test]
-    fn bad_input_is_empty() {
+    fn one_bad_argument_kills_the_whole_set() {
         assert!(forms("").is_empty());
         assert!(forms("abc;def").is_empty());
+        assert!(forms("1;2;x").is_empty(), "`x` 不该被丢掉");
+        assert!(forms("1;2;3.5x").is_empty());
     }
 }

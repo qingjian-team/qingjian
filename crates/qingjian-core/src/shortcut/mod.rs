@@ -441,14 +441,14 @@ mod tests {
         assert_eq!(hex[0], "80", "{hex:?}");
         assert!(hex.iter().any(|t| t == "128(10) = 80(16)"), "{hex:?}");
         assert_eq!(texts("vbase;255;2")[0], "11111111");
-        // 统计：平均、中位数、排序这几条
+        // 统计：候选项是纯数字，按固定顺序（平均、中位数、众数、方差…）
         let stat = texts("vstat;1;2;3;4");
-        assert!(stat.iter().any(|t| t == "平均 2.5"), "{stat:?}");
-        assert!(stat.iter().any(|t| t == "中位数 2.5"), "{stat:?}");
-        assert!(stat.iter().any(|t| t == "排序 1 2 3 4"), "{stat:?}");
+        assert_eq!(stat[0], "2.5", "{stat:?}");
+        assert_eq!(stat[1], "2.5", "{stat:?}");
+        assert!(stat.iter().any(|t| t == "1 2 3 4"), "{stat:?}");
         // 参数分隔符全角半角都认
         assert_eq!(texts("vbase；128；16")[0], "80");
-        assert!(texts("vstat；1；2；3；4").iter().any(|t| t == "平均 2.5"));
+        assert_eq!(texts("vstat；1；2；3；4")[0], "2.5");
     }
 
     #[test]
