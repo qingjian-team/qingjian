@@ -81,16 +81,15 @@ An unrecognized name (`vfoo:bar`) falls back to the ordinary calculation instead
 
 `vbase` takes the number first and the target base second, bases 2–36. An argument it can't read produces no candidates.
 
-`vstat` gives **plain numbers**, in a fixed order:
+`vstat` gives **plain numbers**, in this order:
 
-| Position | Meaning |
-|---|---|
-| 1 | mean |
-| 2 | median |
-| 3 | mode (absent when every value appears once, so later positions shift up) |
-| 4 | variance (population) |
-| 5 | sample variance (absent with a single number) |
-| … | standard deviation, range, min and max, sum, count, sorted list |
+```
+mean → median → mode → variance → sample variance → standard deviation → range → min and max → sum → count → sorted list
+```
+
+The mode (absent when every value appears only once) and the sample variance (absent with a single number)
+**take no slot when missing** — later values shift up. So `vstat;1;2;3;4` yields `2.5`, `2.5`, `1.25`,
+`1.666667`… where the third is the variance, not the mode.
 
 **One unreadable argument kills the whole set** (`vstat;1;2;x` won't quietly compute over 1 and 2).
 
