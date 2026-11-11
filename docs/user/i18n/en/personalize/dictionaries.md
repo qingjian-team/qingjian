@@ -1,18 +1,19 @@
 ---
 title: Dictionaries
 order: 4
-description: "The bundled core and idiom dictionaries; downloading the general dictionary, topic dictionaries and glossaries; importing your own pinyin and Wubi dictionaries, turning them on and off, and removing them."
+description: "The bundled core, general and idiom dictionaries; downloading topic dictionaries and glossaries; importing your own pinyin and Wubi dictionaries, turning them on and off, and removing them."
 ---
 
 ## Bundled dictionaries
 
-The core dictionary and the idiom dictionary ship with Qingjian; both are listed under 设置 → 词库 → 随包词库 (Settings → Dictionaries → Bundled dictionaries). The core dictionary has about 340,000 entries (130,000 common words plus 210,000 supplementary ones); the idiom dictionary is on by default. Both can be turned on or off.
-With the core dictionary off, its words no longer appear but single characters can still be typed; words, including those in sentences, then come only from dictionaries you imported or downloaded. This is for when you want to switch entirely to your own dictionaries. Other dictionaries are installed from 下载 (Download) below:
+The core dictionary, the general dictionary and the idiom dictionary ship with Qingjian; all three are listed under 设置 → 词库 → 随包词库 (Settings → Dictionaries → Bundled dictionaries), are on by default, and can be turned on or off.
 
-- **通用词库 (General dictionary)**: 1.5 million entries of 2 to 30 characters, compiled from public text and still being cleaned up as it's used.
+- **基础词库 (Core dictionary)**: about 340,000 entries (130,000 common words plus 210,000 supplementary ones). With it off, its words no longer appear but single characters can still be typed; words, including those in sentences, then come only from dictionaries you imported or downloaded. This is for when you want to switch entirely to your own dictionaries.
+- **通用词库 (General dictionary)**: 1.27 million entries of 2 to 30 characters, compiled from public text and still being cleaned up as it's used.
   When readings are the same, words from the core dictionary come before it; its long words also don't show up before you've finished typing: `anzhao` doesn't give 按照规定, only the full input does.
-- **领域词库 (Topic dictionaries)**: law, medicine, place names, famous lines of poetry, IT, finance, food, animals, cars, historical figures.
-  Topic dictionaries only decide whether a word exists; they don't change how sentences are built.
+
+**领域词库 (Topic dictionaries)** are installed from 下载 (Download) below: law, medicine, place names, famous lines of poetry, IT, finance, food, animals, cars, historical figures.
+Topic dictionaries only decide whether a word exists; they don't change how sentences are built.
 
 The core dictionary includes 36,000 rare characters (extended characters outside the standard character table, plus characters rarely used in Taiwan). They can be typed in pinyin, come last among characters with the same sound, and aren't used in sentences:
 `fiao` gives 覅, `biangbiangmian` gives 𰻝𰻝面. Characters missing from the system fonts are shown as boxes.
@@ -23,7 +24,7 @@ The core dictionary includes 36,000 rare characters (extended characters outside
 The list is fetched once when Settings opens; when offline, the last list fetched is shown, with the time it was fetched above it. Click 刷新 (Refresh) to fetch it again. 下载 (Download) installs a dictionary into your data folder; it then appears under 我的词库 (My dictionaries) alongside imported ones, turned on by default; its checkbox turns it on or off, and it can be removed.
 When the repository has a newer version, the button changes to 更新 (Update). If you start several downloads, they run one after another; the ones waiting show 排队中 (Queued) and can be cancelled.
 
-When you upgrade from an older version, the domain dictionaries and the general dictionary that used to ship with Qingjian and that you had turned on, plus the glossary your learning language uses, are downloaded again one by one the next time you open Settings, so things work as they did before the upgrade.
+When you upgrade from an older version, the domain dictionaries that used to ship with Qingjian and that you had turned on, plus the glossary your learning language uses, are downloaded again one by one the next time you open Settings, so things work as they did before the upgrade.
 
 Entries under 释义表 (Glossaries) are the tables behind the glosses beside candidates (learning languages such as Japanese or Spanish, and the Chinese beside English candidates). Once downloaded, the input method switches to them without a restart. They don't appear under 我的词库 (My dictionaries), and a downloaded table takes precedence over the bundled one for the same language.
 ## Automatic phrases

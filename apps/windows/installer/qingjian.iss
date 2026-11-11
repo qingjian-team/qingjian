@@ -94,6 +94,7 @@ Source: "{#Repo}\data\generated\english-ipa.qj";        DestDir: "{app}\data\gen
 Source: "{#Repo}\data\generated\vietnamese.qj";         DestDir: "{app}\data\generated"; Flags: ignoreversion
 Source: "{#Repo}\data\generated\vietnamese-chinese.qj"; DestDir: "{app}\data\generated"; Flags: ignoreversion
 Source: "{#Repo}\data\generated\dicts\idioms.qj";        DestDir: "{app}\data\generated\dicts"; Flags: ignoreversion
+Source: "{#Repo}\data\generated\dicts\general.qj";       DestDir: "{app}\data\generated\dicts"; Flags: ignoreversion
 ; 随包形码方案（五笔），Server 的 `dispatch::find_bundled_schemes` 在 data\generated\schemes 找
 Source: "{#Repo}\data\generated\schemes\wubi86.qj";      DestDir: "{app}\data\generated\schemes"; Flags: ignoreversion
 ; —— 随包辅码码表（笔画，开箱可用）：Server 扫 data\generated\codes\；CNS11643 筆順資料派生，署名见「关于」页 ——
@@ -170,7 +171,7 @@ Type: filesandordirs; Name: "{app}\assets\schemes"
 ; 随包音标表的旧位置，现在是 data\generated\english-ipa.qj
 Type: filesandordirs; Name: "{app}\assets\lexicon"
 ; 旧版本随包的领域词库、其他语种释义表与 TSV 词表：现在只随包 dicts.lock 里那几本，别的在设置里下载到用户目录。
-; 先清掉再装，成语词库随后照样装回 dicts\
+; 先清掉再装，成语词库与通用扩展词库随后照样装回 dicts\
 Type: filesandordirs; Name: "{app}\data\generated\dicts"
 Type: files; Name: "{app}\data\generated\glossary-ja.qj"
 Type: files; Name: "{app}\data\generated\glossary-es.qj"

@@ -111,7 +111,8 @@ def update() -> None:
             installed = f"codes/{installed}"
         lines.append(f"{entry['tag']} = {part['sha256']} {installed}")
         print(lines[-1])
-    LOCK.write_text("\n".join(lines) + "\n", "utf-8")
+    # 按字节写：write_text 在 Windows 上会把换行写成 CRLF，整个锁文件都算改了
+    LOCK.write_bytes(("\n".join(lines) + "\n").encode("utf-8"))
     print("dicts.lock 已更新（记得提交）")
 
 
