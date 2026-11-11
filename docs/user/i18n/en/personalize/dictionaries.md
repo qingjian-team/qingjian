@@ -10,7 +10,7 @@ The core dictionary, the general dictionary and the idiom dictionary ship with Q
 
 - **基础词库 (Core dictionary)**: about 340,000 entries (130,000 common words plus 210,000 supplementary ones). With it off, its words no longer appear but single characters can still be typed; words, including those in sentences, then come only from dictionaries you imported or downloaded. This is for when you want to switch entirely to your own dictionaries.
 - **通用词库 (General dictionary)**: 1.27 million entries of 2 to 30 characters, compiled from public text and still being cleaned up as it's used.
-  When readings are the same, words from the core dictionary come before it; its long words also don't show up before you've finished typing: `anzhao` doesn't give 按照规定, only the full input does.
+  When readings are the same, words from the core dictionary come before it; its long words also don't show up before you've finished typing: `anzhao` doesn't give 按照相关, only the full input does.
 
 **领域词库 (Topic dictionaries)** are installed from 下载 (Download) below: law, medicine, place names, famous lines of poetry, IT, finance, food, animals, cars, historical figures.
 Topic dictionaries only decide whether a word exists; they don't change how sentences are built.
