@@ -55,6 +55,9 @@ pub(super) struct Builder<'a> {
     /// 壳在窗口底下垫了系统材质：根节点的底色换成这个着色（`None` 不着色）、不画投影。实例化根节点时取走。
     pub(super) material_root: Option<Option<ColorSpec>>,
 
+    /// 垫了材质时根节点改用的圆角（点）：壳的材质圆角由系统定死时给，`None` 照主题。
+    pub(super) material_corner: Option<f32>,
+
     /// 根节点的圆角（像素），壳按它裁材质。
     pub(super) root_radius: f32,
 }
