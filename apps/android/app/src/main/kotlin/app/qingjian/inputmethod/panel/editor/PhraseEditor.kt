@@ -134,15 +134,22 @@ class PhraseEditor(
         return value.filter { it in 'a'..'z' || it in 'A'..'Z' }.toString().lowercase().take(room)
     }
 
-    /** Composer 不在组句时发来的键：删除删光标前一个字，回车在正文里换行。 */
+    /**
+     * Composer 不在组句时发来的键：删除删光标前一个字，回车在正文里换行，左右方向键（按住空格左右滑）在正文里挪光标；
+     * 输入码与分组名的光标总画在末尾，不挪。
+     */
     override fun onKey(keyCode: Int) {
         val target = target()
+        val end = Selection.getSelectionEnd(target).coerceIn(0, target.length)
         when (keyCode) {
-            KeyEvent.KEYCODE_DEL -> {
-                val end = Selection.getSelectionEnd(target).coerceAtLeast(0)
-                if (end > 0) target.delete(Character.offsetByCodePoints(target, end, -1), end)
+            KeyEvent.KEYCODE_DEL -> if (end > 0) target.delete(Character.offsetByCodePoints(target, end, -1), end)
+            KeyEvent.KEYCODE_ENTER -> if (field == Field.TEXT) target.insert(end, "\n")
+            KeyEvent.KEYCODE_DPAD_LEFT -> if (field == Field.TEXT && end > 0) {
+                Selection.setSelection(target, Character.offsetByCodePoints(target, end, -1))
             }
-            KeyEvent.KEYCODE_ENTER -> if (field == Field.TEXT) target.insert(Selection.getSelectionEnd(target).coerceAtLeast(0), "\n")
+            KeyEvent.KEYCODE_DPAD_RIGHT -> if (field == Field.TEXT && end < target.length) {
+                Selection.setSelection(target, Character.offsetByCodePoints(target, end, 1))
+            }
         }
         invalidate()
     }
