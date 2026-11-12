@@ -686,6 +686,7 @@ class QingjianInputMethodService :
                 quickTranslate.discard()
                 closeEditor()
             },
+            onCursorMoved = composer::onCursorMovedAway,
         )
         quickTranslate.bar = bar
         engine.setMetered(false)
