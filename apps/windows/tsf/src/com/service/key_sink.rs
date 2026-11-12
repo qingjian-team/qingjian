@@ -126,9 +126,11 @@ impl TextService_Impl {
     }
 
     fn note_key_down(&self, vk: u32, lparam: LPARAM) {
-        let shift = [VK_SHIFT, VK_LSHIFT, VK_RSHIFT]
-            .iter()
-            .any(|code| vk == u32::from(code.0));
+        let shift = is_shift(vk);
+        // 给 Chromium 系应用挪光标时模拟的 Shift（见 `key::inject`）不是用户按的
+        if shift && self.shared.take_injected_shift() {
+            return;
+        }
         if !shift && self.key_tap.take_pending_shift() && self.mode_state.switch_keys().shift {
             self.commit_pending();
             self.mode_state.switch_chinese_foreign();
@@ -143,11 +145,11 @@ impl TextService_Impl {
         if vk == u32::from(VK_CAPITAL.0) {
             self.mode_state.notify();
         }
+        if is_shift(vk) && self.shared.take_injected_shift() {
+            return;
+        }
         if self.key_tap.key_up(vk, self.mode_state.tap_keys()) {
-            let shift = [VK_SHIFT, VK_LSHIFT, VK_RSHIFT]
-                .iter()
-                .any(|code| vk == u32::from(code.0));
-            if shift {
+            if is_shift(vk) {
                 if !self.mode_state.third_enabled() {
                     if self.mode_state.switch_keys().shift {
                         self.set_english_mode(!self.mode_state.english());
@@ -411,6 +413,12 @@ impl TextService_Impl {
             (Next::Abort, _) => false,
         }
     }
+}
+
+fn is_shift(vk: u32) -> bool {
+    [VK_SHIFT, VK_LSHIFT, VK_RSHIFT]
+        .iter()
+        .any(|code| vk == u32::from(code.0))
 }
 
 /// Server 回的数字结果能否在 Test 阶段直接放行（不吃、不 InsertText）。

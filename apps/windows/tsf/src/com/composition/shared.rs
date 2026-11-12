@@ -41,6 +41,9 @@ pub(crate) struct Shared {
     /// 本线程当前有键盘焦点（`OnSetFocus`）；轮询定时器只在前台时问状态条的切模式请求。
     foreground: Cell<bool>,
 
+    /// 给 Chromium 系应用挪光标时模拟的 Shift 事件还有几个没经过击键 sink；它们不算用户按的，单击 Shift 的判定要跳过。
+    injected_shift: Cell<u32>,
+
     /// 与 `TextService` 共用的引擎客户端；DLL 侧结束组句时要通知 Server 收候选窗口（它无从知晓）。
     client: SharedClient,
 
@@ -61,6 +64,7 @@ impl Shared {
             last_context: RefCell::new(None),
             server_stale: Cell::new(false),
             foreground: Cell::new(false),
+            injected_shift: Cell::new(0),
             client,
             candidate_list: CandidateList::default(),
         })
@@ -153,6 +157,17 @@ impl Shared {
         {
             let _ = client.hide_candidates();
         }
+    }
+
+    pub(super) fn ignore_shift_events(&self, count: u32) {
+        self.injected_shift.set(self.injected_shift.get() + count);
+    }
+
+    /// 这个 Shift 事件是模拟的：消耗一个计数并返回 `true`。
+    pub(crate) fn take_injected_shift(&self) -> bool {
+        let left = self.injected_shift.get();
+        self.injected_shift.set(left.saturating_sub(1));
+        left > 0
     }
 
     pub(crate) fn has_composition(&self) -> bool {
