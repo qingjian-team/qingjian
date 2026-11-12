@@ -69,7 +69,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             assembly::assemble(&spec)?
         }
     };
-    engine.set_fuzzy(config.fuzzy);
+    engine.set_fuzzy(config.fuzzy.clone());
     engine.set_shuangpin(config.general.shuangpin());
     engine.set_shuangpin_raw_preedit(config.general.shuangpin_raw_preedit);
     engine.set_shuangpin_full_pinyin(config.general.shuangpin_full_pinyin);
