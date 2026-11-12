@@ -187,7 +187,7 @@ class ClipboardPanel(
     private fun removeClip(i: Int) {
         clips = ClipboardStore.remove(context, i, actions.clipboardLimit)
         app.qingjian.inputmethod.clipboard.sync.ClipboardSync.changed()
-        collapse()
+        collapse(keepScroll = true)
     }
 
     /** 长按图片的大图：盖住整个面板，图按比例放到最大，底下 关闭 / 发送。 */
@@ -401,9 +401,10 @@ class ClipboardPanel(
         collapse()
     }
 
-    private fun collapse() {
+    /** 收起展开的卡片；[keepScroll] 留在原来的位置（删了一张，后面的补上来），否则回到顶部。 */
+    private fun collapse(keepScroll: Boolean = false) {
         expanded = -1
-        listScroll.reset()
+        if (keepScroll) listScroll.stop() else listScroll.reset()
         layouts.clear()
     }
 
@@ -446,7 +447,7 @@ class ClipboardPanel(
             when (label) {
                 "编辑" -> actions.editPhrase(phrase, phrase.group)
                 "移至首位" -> reloadPhrases(ClipboardStore.phraseToTop(context, phrase.index))
-                "删除" -> reloadPhrases(ClipboardStore.removePhrase(context, phrase.index))
+                "删除" -> reloadPhrases(ClipboardStore.removePhrase(context, phrase.index), keepScroll = true)
             }
             return
         }
@@ -462,12 +463,12 @@ class ClipboardPanel(
         }
     }
 
-    private fun reloadPhrases(page: PhrasePage) {
+    private fun reloadPhrases(page: PhrasePage, keepScroll: Boolean = false) {
         this.page = page
         groups.labels = page.groups
         groups.selected = page.groups.indexOf(lastGroup).coerceAtLeast(0)
         actions.phrasesChanged()
-        collapse()
+        collapse(keepScroll)
     }
 
     companion object {
