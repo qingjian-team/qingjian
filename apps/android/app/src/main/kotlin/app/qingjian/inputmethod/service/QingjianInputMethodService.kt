@@ -630,6 +630,7 @@ class QingjianInputMethodService :
                 composer.directInput = code || currentInputEditorInfo?.wantsDirectInput() == true
                 showKeyboard()
             },
+            onCursorMoved = composer::onCursorMovedAway,
         )
         engine.setMetered(false)
         this.editor = editor
@@ -654,6 +655,7 @@ class QingjianInputMethodService :
             },
             onFocusCode = {},
             clip = text,
+            onCursorMoved = composer::onCursorMovedAway,
         )
         engine.setMetered(false)
         this.editor = editor
