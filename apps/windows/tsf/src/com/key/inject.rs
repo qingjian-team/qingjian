@@ -42,10 +42,13 @@ pub(crate) fn press_arrow(right: bool, times: u32) -> u32 {
     }
     inputs.extend(held.iter().map(|key| input(*key, KEYBD_EVENT_FLAGS(0))));
     let sent = unsafe { SendInput(&inputs, size_of::<INPUT>() as i32) } as usize;
-    // 只数真发出去的 Shift 事件：Shift 在队列两头，发了一部分时前面的抬起可能已经出去了
-    let shifts = held.len();
-    let tail = sent.saturating_sub(inputs.len() - shifts);
-    (sent.min(shifts) + tail) as u32
+    shift_events_sent(sent, inputs.len(), held.len())
+}
+
+/// 一共 `total` 个事件、头尾各 `held` 个 Shift，发出去了前 `sent` 个（被拦下时 `SendInput` 只发一部分）：其中有几个 Shift。
+fn shift_events_sent(sent: usize, total: usize, held: usize) -> u32 {
+    let tail = sent.saturating_sub(total - held);
+    (sent.min(held) + tail) as u32
 }
 
 fn input(key: VIRTUAL_KEY, flags: KEYBD_EVENT_FLAGS) -> INPUT {
@@ -58,5 +61,21 @@ fn input(key: VIRTUAL_KEY, flags: KEYBD_EVENT_FLAGS) -> INPUT {
                 ..Default::default()
             },
         },
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::shift_events_sent;
+
+    #[test]
+    fn counts_only_the_shift_events_that_went_out() {
+        // 按着一个 Shift、退一格：抬起 Shift、方向键按下抬起、按回 Shift，共 4 个
+        assert_eq!(shift_events_sent(4, 4, 1), 2);
+        assert_eq!(shift_events_sent(0, 4, 1), 0);
+        assert_eq!(shift_events_sent(1, 4, 1), 1);
+        assert_eq!(shift_events_sent(3, 4, 1), 1);
+        // 没按 Shift
+        assert_eq!(shift_events_sent(2, 2, 0), 0);
     }
 }

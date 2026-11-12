@@ -163,6 +163,11 @@ impl Shared {
         self.injected_shift.set(self.injected_shift.get() + count);
     }
 
+    /// 失焦时清掉：模拟的 Shift 没回到本线程（焦点刚好切走），留着会吞掉用户之后真按的一次。
+    pub(crate) fn clear_injected_shift(&self) {
+        self.injected_shift.set(0);
+    }
+
     /// 这个 Shift 事件是模拟的：消耗一个计数并返回 `true`。
     pub(crate) fn take_injected_shift(&self) -> bool {
         let left = self.injected_shift.get();
