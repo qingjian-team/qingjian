@@ -35,6 +35,18 @@ pub(crate) fn log(message: &str) {
     let _ = writeln!(file, "{} [pid {}] {message}", now(&t), std::process::id());
 }
 
+/// 日志里怎么写一个键。可打印字符只记类别、不记是哪个，虚拟键码也不记（字母键的键码就是那个字母）：
+/// 一串收键日志连起来就是用户打的内容。功能键（回车、退格、方向键、带 Ctrl 的组合）记虚拟键码，排查要用。
+pub(crate) fn key_label(virtual_key: u32, character: Option<char>) -> String {
+    match character.filter(|c| !c.is_control()) {
+        Some(c) if c.is_alphabetic() => "letter".to_owned(),
+        Some(c) if c.is_numeric() => "digit".to_owned(),
+        Some(c) if c.is_whitespace() => "space".to_owned(),
+        Some(_) => "symbol".to_owned(),
+        None => format!("vk={virtual_key}"),
+    }
+}
+
 fn file_name(t: &SYSTEMTIME) -> String {
     daily::file_name(
         PREFIX,
@@ -58,4 +70,19 @@ fn dir() -> Option<PathBuf> {
 /// 自 1970-01-01 起的天数，日期比较用。
 fn day_number(t: &SYSTEMTIME) -> u32 {
     daily::days_from_civil(i64::from(t.wYear), u32::from(t.wMonth), u32::from(t.wDay))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::key_label;
+
+    #[test]
+    fn printable_keys_are_logged_by_kind_only() {
+        assert_eq!(key_label(0x41, Some('a')), "letter");
+        assert_eq!(key_label(0x31, Some('1')), "digit");
+        assert_eq!(key_label(0x39, Some('(')), "symbol");
+        assert_eq!(key_label(0x20, Some(' ')), "space");
+        assert_eq!(key_label(0x0D, Some('\r')), "vk=13");
+        assert_eq!(key_label(0x25, None), "vk=37");
+    }
 }
