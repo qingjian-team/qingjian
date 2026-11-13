@@ -43,7 +43,7 @@ impl Router {
     }
 
     fn apply_config(&mut self, config: &Config) {
-        self.engine.set_fuzzy(config.fuzzy);
+        self.engine.set_fuzzy(config.fuzzy.clone());
         self.engine
             .set_shuangpin_raw_preedit(config.general.shuangpin_raw_preedit);
         self.engine
