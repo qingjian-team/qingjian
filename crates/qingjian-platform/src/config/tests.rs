@@ -247,6 +247,7 @@ fn setters_keep_the_rest_of_an_inline_table_section() {
         CodeRules {
             auto_commit: Some(true),
             top: Some(true),
+            ..CodeRules::default()
         }
     );
     // 改过的分节照旧写成标准表。
