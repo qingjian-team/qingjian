@@ -146,21 +146,14 @@ fn pair_push_and_refuse_after_unpair() {
     assert_eq!(newest.unwrap().id, record.stamp.id);
     assert!(host.items.lock().unwrap().contains_key(&record.stamp.id));
 
-    // 电脑解除配对后，手机再推过不去
-    // 先等排队的那几轮跑完：已经握完手的一轮不会被解除配对打断
-    std::thread::sleep(Duration::from_millis(800));
-    let phone_id = phone.service.device_id();
-    // 只看解除之后的事件：前面几轮在机器忙时也可能有一次发送失败，与解除配对无关
+    // 电脑解除配对后再推一轮：手机被拒时知道是对方取消了配对，自己也删掉电脑，不当成发送失败亮红灯。
+    // 解除前已经握完手的那轮照常跑完，不算失败，所以这之后的事件里一条发送失败都不该有
     while phone.events.try_recv().is_ok() {}
-    host.service.unpair(&phone_id).unwrap();
-    add(&phone, Record::text("after unpair".to_owned(), 200));
-    std::thread::sleep(Duration::from_secs(2));
-    assert_eq!(host.items.lock().unwrap().len(), 1);
-
-    // 手机被拒时知道是对方取消了配对：自己也删掉电脑，不当成发送失败亮红灯
+    host.service.unpair(&phone.service.device_id()).unwrap();
+    phone.service.notify_changed();
     let deadline = std::time::Instant::now() + Duration::from_secs(15);
     while !phone.service.peers().is_empty() && std::time::Instant::now() < deadline {
-        std::thread::sleep(Duration::from_millis(100));
+        std::thread::sleep(Duration::from_millis(50));
     }
     assert!(phone.service.peers().is_empty());
     assert!(
@@ -169,6 +162,11 @@ fn pair_push_and_refuse_after_unpair() {
             .try_iter()
             .all(|event| !matches!(event, SyncEvent::SendFailed { .. }))
     );
+
+    // 手机删掉电脑之后复制的不再推过去
+    add(&phone, Record::text("after unpair".to_owned(), 200));
+    std::thread::sleep(Duration::from_millis(500));
+    assert_eq!(host.items.lock().unwrap().len(), 1);
 
     let directories = [host.directory.clone(), phone.directory.clone()];
     drop((host, phone));

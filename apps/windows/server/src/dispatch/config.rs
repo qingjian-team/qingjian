@@ -134,6 +134,9 @@ pub struct RouterConfig {
     /// 组句中切换单字模式的快捷键（`[shortcut] single_chars`）；与别的组合键撞了时不用（见本文件的 `single_chars_key`）。
     pub single_chars: Option<KeyCombo>,
 
+    /// 组句中按词跳的快捷键（`[shortcut] next_word`）；与别的组合键撞了时不用，同 `single_chars`。
+    pub next_word: Option<KeyCombo>,
+
     /// 悬浮状态条开关（`[status_bar] enabled`）。
     pub status_enabled: bool,
 
@@ -259,6 +262,7 @@ impl From<&Config> for RouterConfig {
                 .toggle_traditional
                 .filter(|key| *key != config.shortcut.translate_selection),
             single_chars: single_chars_key(&config.shortcut),
+            next_word: next_word_key(&config.shortcut),
             status_enabled: config.status_bar.enabled,
             status_pos: config.status_bar.x.zip(config.status_bar.y),
             status_size: config.status_bar.size.clamp(60, 150),
@@ -284,10 +288,10 @@ impl Default for RouterConfig {
     }
 }
 
-/// 单字模式的有效组合键：和别的组合键（翻译、AI、剪贴板、简繁、全半角）撞了，或是「译词修饰键 + 数字」时不用，
-/// 让那一项照旧——手改配置文件才会撞，设置程序录的时候就不让撞。
-fn single_chars_key(shortcut: &ShortcutConfig) -> Option<KeyCombo> {
-    let combo = shortcut.single_chars?;
+/// 组句里才拿走的组合键（单字模式、按词跳）的有效值：和别的组合键（翻译、AI、剪贴板、简繁、全半角）撞了，
+/// 或是「译词修饰键 + 数字」时不用，让那一项照旧——手改配置文件才会撞，设置程序录的时候就不让撞。
+fn composing_key(shortcut: &ShortcutConfig, combo: Option<KeyCombo>) -> Option<KeyCombo> {
+    let combo = combo?;
     let others = [
         Some(shortcut.translate_selection),
         Some(shortcut.translate_panel),
@@ -300,4 +304,15 @@ fn single_chars_key(shortcut: &ShortcutConfig) -> Option<KeyCombo> {
     let translation =
         combo.key.is_ascii_digit() && (combo.modifiers == first || combo.modifiers == second);
     (!translation && !others.contains(&Some(combo))).then_some(combo)
+}
+
+/// 单字模式的有效组合键，见 [`composing_key`]。
+fn single_chars_key(shortcut: &ShortcutConfig) -> Option<KeyCombo> {
+    composing_key(shortcut, shortcut.single_chars)
+}
+
+/// 按词跳的有效组合键，见 [`composing_key`]；和单字模式撞了时让给单字模式。
+fn next_word_key(shortcut: &ShortcutConfig) -> Option<KeyCombo> {
+    composing_key(shortcut, shortcut.next_word)
+        .filter(|combo| shortcut.single_chars != Some(*combo))
 }

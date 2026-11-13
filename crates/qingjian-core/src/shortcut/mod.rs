@@ -11,9 +11,13 @@
 //! - `vuuid`（全拼下问字键是 `u` 时直接 `uuid`）出 UUID，`vts` 出时间戳（[`generated_forms`]）；值随机或随时间变，
 //!   由 Engine 按组句缓存，不走 [`candidates`]。
 
+mod base;
+mod bitwise;
 mod calendar;
 mod evaluator;
+pub mod modes;
 mod numeral;
+mod stat;
 mod uuid_forms;
 
 use jiff::Zoned;
@@ -30,18 +34,29 @@ pub use numeral::{
 };
 pub use uuid_forms::{UUID_KEYWORD, uuid_forms};
 
-/// 表达式键之后整段是 `uuid` / `ts` 时生成的写法；别的词为 `None`。每次调用都重新生成，组句里的缓存在 Engine。
-pub fn generated_forms(keyword: &str, now: &Zoned) -> Option<Vec<String>> {
+/// 「生成型」候选的词与它的参数：`ts`、`ts;`、`ts;2026-11-05`。
+///
+/// 带参数的子模式一律用 `;` 隔开；分号后面没东西就算空参数（`vts;` 与 `vts` 等价）。
+pub fn generated_call(body: &str) -> Option<(&'static str, &str)> {
+    match modes::parse(body)? {
+        modes::Mode::Uuid => Some((UUID_KEYWORD, "")),
+        modes::Mode::Timestamp { at } => Some((TIMESTAMP_KEYWORD, at)),
+        _ => None,
+    }
+}
+
+/// 表达式键之后整段是 `uuid` / `ts` 时生成的写法；别的词为 `None`。
+pub fn generated_forms(keyword: &str, args: &str, now: &Zoned) -> Option<Vec<String>> {
     match keyword {
         UUID_KEYWORD => Some(uuid_forms()),
-        TIMESTAMP_KEYWORD => Some(timestamp_forms(now)),
+        TIMESTAMP_KEYWORD => Some(timestamp_forms(now, args)),
         _ => None,
     }
 }
 
 /// 是不是 [`generated_forms`] 认的词。
-pub fn is_generated_keyword(keyword: &str) -> bool {
-    matches!(keyword, UUID_KEYWORD | TIMESTAMP_KEYWORD)
+pub fn is_generated_keyword(body: &str) -> bool {
+    generated_call(body).is_some()
 }
 
 /// 表达式模式的缺省前缀。`v` 不是任何拼音音节的开头，用它不会和拼音冲突。
@@ -79,6 +94,8 @@ pub fn could_be_unicode(body: &str) -> bool {
 /// 表达式模式下允许敲进缓冲区的非字母字符：数字与四则运算符号。
 /// 字母（`x` 当乘号）本来就能进缓冲区，不在此列。
 pub fn is_expression_char(c: char) -> bool {
+    // 分隔符不在这里：冒号分号只在子模式名之后才收（见 Engine::expression_input），
+    // 否则 `v123` 后面敲 `；` 会把分号收进缓冲区，候选也跟着没了
     c.is_ascii_digit() || matches!(c, '+' | '-' | '*' | '/' | '(' | ')' | '.' | '^')
 }
 
@@ -94,12 +111,25 @@ pub fn expression_char(c: char) -> Option<char> {
 
 /// 按输入算快捷候选；不是快捷输入时为空。`expression` 是表达式键；`now` 由调用方给，测试可固定时间。
 pub fn candidates(input: &str, expression: char, now: &Zoned) -> Vec<Candidate> {
+    candidates_with_modes(input, expression, now, true)
+}
+
+/// 同 [`candidates`]，`sub_modes` 决定认不认 `vbit:` 这类子模式。
+///
+/// 子模式只在全拼下开着：双拼、注音、形码里缓冲区里的字母另有含义（`;` 是双拼的 ing 键、
+/// 是辅码触发键），把带冒号的串当子模式解析会把正常输入吃掉。
+pub fn candidates_with_modes(
+    input: &str,
+    expression: char,
+    now: &Zoned,
+    sub_modes: bool,
+) -> Vec<Candidate> {
     let texts: Vec<String> = match input {
         "rq" => date_forms(now),
         "sj" => time_forms(now),
         "xq" => weekday_forms(now),
         _ => match input.strip_prefix(expression) {
-            Some(body) => expression_forms(body, now),
+            Some(body) => expression_forms(body, now, sub_modes),
             None => Vec::new(),
         },
     };
@@ -136,7 +166,11 @@ const AMOUNT_FRACTION_DIGITS: usize = 2;
 
 /// 表达式键之后的部分：一个数出中文数字与金额，四位年份加月日的日期出日期写法，其余当四则运算出结果与「算式=结果」。
 /// 顺序是要紧的：`1998` 与 `1998.3` 是数字与小数，先于日期；四位年份的 `1998-3-8` 才当日期，落在算式之前。
-fn expression_forms(body: &str, now: &Zoned) -> Vec<String> {
+fn expression_forms(body: &str, now: &Zoned, sub_modes: bool) -> Vec<String> {
+    // 子模式优先：`bit:` 这些带冒号的，认出来就只走那一条，不再按四则去猜
+    if sub_modes && let Some(mode) = modes::parse(body) {
+        return mode_forms(mode);
+    }
     let mut forms = number_forms(body).unwrap_or_default();
     // 日期与数字可以并存：`v1234.5` 既是一千二百三十四点五，也可以是 1234 年 5 月，
     // 后者排在后面，不抢前面的常用读法
@@ -163,6 +197,31 @@ fn expression_forms(body: &str, now: &Zoned) -> Vec<String> {
     }
 }
 
+/// 子模式的候选。
+fn mode_forms(mode: modes::Mode<'_>) -> Vec<String> {
+    match mode {
+        // 生成型（`uuid` / `ts`）由 Engine 走 `generated_candidates`：随机值与时刻要按组句缓存，
+        // 不能每次查询都重算。走到这里说明是别处直接调 `shortcut::candidates`，给空即可
+        modes::Mode::Uuid | modes::Mode::Timestamp { .. } => Vec::new(),
+        modes::Mode::Bit { width, body } => {
+            let Some(result) = bitwise::evaluate(body, width) else {
+                return Vec::new();
+            };
+            let forms = result.forms();
+            // 与老四则的 `1+2=3` 同一套：第二条就是「敲的式子 = 结果」
+            match forms.first() {
+                Some(first) if !body.contains('=') && body.trim() != first.as_str() => {
+                    let mut out = vec![first.clone(), format!("{body}={first}")];
+                    out.extend(forms.into_iter().skip(1));
+                    out
+                }
+                _ => forms,
+            }
+        }
+        modes::Mode::Base { args } => base::forms(args),
+        modes::Mode::Stat { args } => stat::forms(args),
+    }
+}
 /// 单个非负数（`123`、`123.5`）：中文数字在前，金额在后；小数超过两位没有金额写法。
 /// 末尾刚敲了 `.`（`123.`）按整数给，候选不闪。
 fn number_forms(body: &str) -> Option<Vec<String>> {
@@ -254,7 +313,7 @@ mod tests {
     #[test]
     fn timestamp_forms_cover_unix_and_rfc3339() {
         assert_eq!(
-            timestamp_forms(&now()),
+            timestamp_forms(&now(), ""),
             [
                 "1788462383",
                 "2026-09-03T19:06:23.000Z",
@@ -263,15 +322,65 @@ mod tests {
             ]
         );
         let beijing = now().with_time_zone(TimeZone::fixed(jiff::tz::offset(8)));
-        assert_eq!(timestamp_forms(&beijing)[1], "2026-09-03T19:06:23.000Z");
+        assert_eq!(timestamp_forms(&beijing, "")[1], "2026-09-03T19:06:23.000Z");
         assert_eq!(
-            timestamp_forms(&beijing)[3],
+            timestamp_forms(&beijing, "")[3],
             "2026-09-04T03:06:23.000+08:00"
         );
         assert!(is_generated_keyword("ts") && is_generated_keyword("uuid"));
         assert!(!is_generated_keyword("t"));
     }
 
+    #[test]
+    fn timestamp_accepts_a_date_argument() {
+        // `vts;2026-11-05`：按那天本地零点算，三种分隔符等价
+        let dashed = timestamp_forms(&now(), "2026-11-05");
+        assert_eq!(dashed.len(), 4, "{dashed:?}");
+        assert!(dashed[1].starts_with("2026-11-05T") && dashed[1].ends_with(".000Z"));
+        assert!(dashed[3].starts_with("2026-11-05T00:00:00.000"));
+        assert_eq!(timestamp_forms(&now(), "2026.11.5"), dashed);
+        assert_eq!(timestamp_forms(&now(), "2026/11/5"), dashed);
+        // 空参数是此刻
+        assert_eq!(timestamp_forms(&now(), ""), timestamp_forms(&now(), " "));
+        // 日期不合法就不出候选
+        assert!(timestamp_forms(&now(), "2026-2-30").is_empty());
+        assert!(timestamp_forms(&now(), "2026-11").is_empty());
+    }
+
+    #[test]
+    fn timestamp_accepts_a_full_moment() {
+        // 年月日时分秒（分隔符带冒号，输入法里敲得进去）
+        let full = timestamp_forms(&now(), "2024-03-04.12:09:38");
+        assert!(full[3].contains("T12:09:38.000"), "{full:?}");
+        // 年月日时分秒毫秒：第七段才是毫秒
+        let millis = timestamp_forms(&now(), "2024.3.4.12.9.38.383");
+        assert!(millis[3].contains("T12:09:38.383"), "{millis:?}");
+        // 六段就是到秒，不按数值猜毫秒：60 秒越界，不出候选
+        let second = timestamp_forms(&now(), "2024.3.4.12.9.59");
+        assert!(second[3].contains("T12:09:59.000"), "{second:?}");
+        assert!(timestamp_forms(&now(), "2024.3.4.12.9.60").is_empty());
+        // 时分
+        let hour_minute = timestamp_forms(&now(), "2024.3.4.12.9");
+        assert!(hour_minute[3].contains("T12:09:00.000"), "{hour_minute:?}");
+        // 越界的不出候选
+        assert!(timestamp_forms(&now(), "2024.3.4.25.0").is_empty());
+        assert!(timestamp_forms(&now(), "2024.3.4.12.60").is_empty());
+        // 分号也能当参数内部的分隔符，几种符号可以混用
+        let semis = timestamp_forms(&now(), "2024;3;4;12;9;38;383");
+        assert!(semis[3].contains("T12:09:38.383"), "{semis:?}");
+        let hybrid = timestamp_forms(&now(), "2024.3.4-12:9.38.383");
+        assert!(hybrid[3].contains("T12:09:38.383"), "{hybrid:?}");
+    }
+
+    #[test]
+    fn generated_call_splits_the_argument() {
+        assert_eq!(generated_call("ts"), Some(("ts", "")));
+        assert_eq!(generated_call("ts;"), Some(("ts", "")));
+        assert_eq!(generated_call("ts;2026-11-05"), Some(("ts", "2026-11-05")));
+        assert_eq!(generated_call("ts；2026-11-05"), Some(("ts", "2026-11-05")));
+        assert_eq!(generated_call("uuid"), Some(("uuid", "")));
+        assert_eq!(generated_call("t"), None);
+    }
     #[test]
     fn keyword_shortcuts() {
         assert_eq!(keyword_forms("日期", &now()), texts("rq"));
@@ -308,6 +417,38 @@ mod tests {
         assert!(texts("v").is_empty());
         assert!(texts("v1+").is_empty());
         assert!(texts("very").is_empty());
+    }
+
+    #[test]
+    fn bit_submode() {
+        // 位运算：位宽与符号由子模式名给
+        let hex = texts("vbit8:0xff");
+        assert!(!hex.is_empty(), "{hex:?}");
+        assert!(hex.iter().any(|t| t == "-1"), "{hex:?}");
+        // 全角冒号、分号都当分隔符
+        assert_eq!(texts("vbit8：1<<3"), texts("vbit8:1<<3"));
+        assert_eq!(texts("vbit8;1<<3"), texts("vbit8:1<<3"));
+        // 认不出来的名字退回缺省计算（`foo:bar` 不是算式，也不出候选）
+        assert!(texts("vfoo:bar").is_empty());
+        // 不带冒号仍是缺省计算
+        assert_eq!(texts("v1+2"), ["3", "1+2=3"]);
+    }
+
+    #[test]
+    fn base_and_stat_submodes() {
+        // 进制转换
+        let hex = texts("vbase;128;16");
+        assert_eq!(hex[0], "80", "{hex:?}");
+        assert!(hex.iter().any(|t| t == "128(10) = 80(16)"), "{hex:?}");
+        assert_eq!(texts("vbase;255;2")[0], "11111111");
+        // 统计：候选项是纯数字，按固定顺序（平均、中位数、众数、方差…）
+        let stat = texts("vstat;1;2;3;4");
+        assert_eq!(stat[0], "2.5", "{stat:?}");
+        assert_eq!(stat[1], "2.5", "{stat:?}");
+        assert!(stat.iter().any(|t| t == "1 2 3 4"), "{stat:?}");
+        // 参数分隔符全角半角都认
+        assert_eq!(texts("vbase；128；16")[0], "80");
+        assert_eq!(texts("vstat；1；2；3；4")[0], "2.5");
     }
 
     #[test]
@@ -403,6 +544,16 @@ mod tests {
     fn expression_chars() {
         assert!(is_expression_char('7'));
         assert!(is_expression_char('('));
+        // 分隔符**不是**算式字符：冒号分号只在子模式名之后由 `Engine::expression_input` 放行。
+        // 收在这里的话，`v123` 后面敲 `；` 会把分号收进缓冲区，候选也跟着没了。
+        assert!(!is_expression_char(':'));
+        assert!(!is_expression_char(';'));
+        assert!(!is_expression_char('：'));
+        assert!(!is_expression_char('；'));
+        // 逗号、百分号**不是**算式的一部分：中文模式下它们是标点，
+        // 敲下去要先上屏候选再补标点（`expression_mode_other_punctuation_commits_then_applies`）
+        assert!(!is_expression_char(','));
+        assert!(!is_expression_char('%'));
         assert!(!is_expression_char('='));
         assert!(!is_expression_char('x'));
         assert_eq!(expression_char('×'), Some('*'));

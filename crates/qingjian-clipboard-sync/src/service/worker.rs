@@ -78,22 +78,25 @@ pub(super) fn apply_found(shared: &Shared, commands: &Sender<Command>, found: Fo
             model,
             address,
         } => {
-            let fresh = lock(&shared.nearby)
-                .insert(
-                    device_id.clone(),
-                    Nearby {
-                        device_id: device_id.clone(),
-                        name,
-                        model,
-                        address,
-                    },
-                )
-                .is_none();
-            // 发现了已配对设备的新地址就记下来，下次发现不了也连得上
-            if let Err(error) =
-                lock(&shared.book).touch(&device_id, now_millis(), Some(address.to_string()))
-            {
-                tracing::warn!(%error, "cannot save peer address");
+            let fresh = {
+                let mut nearby = lock(&shared.nearby);
+                match nearby.get_mut(&device_id) {
+                    Some(known) => {
+                        known.name = name;
+                        known.model = model;
+                        known.remember(address);
+                        false
+                    }
+                    None => {
+                        let found = Nearby::new(device_id.clone(), name, model, address);
+                        nearby.insert(device_id.clone(), found);
+                        true
+                    }
+                }
+            };
+            // 地址等真连上了再记（见 round::sync_peer）：通告里常有连不上的虚拟网卡地址
+            if let Err(error) = lock(&shared.book).touch(&device_id, now_millis(), None) {
+                tracing::warn!(%error, "cannot save peer last seen");
             }
             if fresh {
                 let _ = commands.send(Command::SyncPeer(device_id));

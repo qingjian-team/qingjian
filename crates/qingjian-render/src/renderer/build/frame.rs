@@ -39,6 +39,10 @@ impl Builder<'_> {
         };
         // 第一个实例化的框就是窗口根节点
         let material = self.material_root.take();
+        let radius = match (&material, self.material_corner) {
+            (Some(_), Some(corner)) => corner,
+            _ => *radius,
+        };
         if material.is_some() {
             self.root_radius = radius * self.scale;
         }

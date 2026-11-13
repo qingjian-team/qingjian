@@ -32,6 +32,8 @@ class TranslateBar(
     private val onSource: (String) -> Unit,
     private val onConfirm: () -> Unit,
     private val onCancel: () -> Unit,
+    /** 点框里挪了光标：Composer 收掉组句。 */
+    private val onCursorMoved: () -> Unit = {},
 ) : View(context), FloatingEditor {
     private val ink = Ink(palette, resources.displayMetrics.density)
     private val text = SpannableStringBuilder().also { Selection.setSelection(it, 0) }
@@ -51,6 +53,10 @@ class TranslateBar(
             field = value
             invalidate()
         }
+
+    /** 上次画出来的那段：从原文第几个字起、画在哪个横坐标，点框里时按它算光标落在哪。 */
+    private var drawnStart = 0
+    private var drawnLeft = 0f
 
     /** 上一次交出去的原文，没变就不再交（组句中的拼音变化不算）。 */
     private var lastSource = ""
@@ -72,16 +78,25 @@ class TranslateBar(
             super.deleteSurroundingText(beforeLength, afterLength).also { changed() }
     }
 
-    /** Composer 不在组句时的键：删除删光标前一个字，回车确定。 */
+    /** Composer 不在组句时的键：删除删光标前一个字，回车确定，左右方向键（按住空格左右滑）挪光标。 */
     override fun onKey(keyCode: Int) {
+        val end = caret()
         when (keyCode) {
             KeyEvent.KEYCODE_DEL -> {
-                val end = Selection.getSelectionEnd(text).coerceAtLeast(0)
                 if (end > 0) text.delete(Character.offsetByCodePoints(text, end, -1), end)
                 changed()
             }
             KeyEvent.KEYCODE_ENTER -> onConfirm()
+            KeyEvent.KEYCODE_DPAD_LEFT -> if (end > 0) moveTo(Character.offsetByCodePoints(text, end, -1))
+            KeyEvent.KEYCODE_DPAD_RIGHT -> if (end < text.length) moveTo(Character.offsetByCodePoints(text, end, 1))
         }
+    }
+
+    private fun caret() = Selection.getSelectionEnd(text).coerceIn(0, text.length)
+
+    private fun moveTo(index: Int) {
+        Selection.setSelection(text, index)
+        invalidate()
     }
 
     /** 原文：去掉还在组句的那段拼音。 */
@@ -124,19 +139,49 @@ class TranslateBar(
             ink.textStart(canvas, "输入要翻译的中/英文", 15.5f, palette.faint, textLeft + ink.dp(4f), cy, textRight)
             drawCursor(canvas, textLeft, cy)
         } else {
-            // 字多了留末尾（光标处）
-            var shown = text.toString()
-            val room = textRight - textLeft - statusWidth
-            if (ink.measure(shown, 15.5f) > room) {
-                while (shown.length > 1 && ink.measure("…$shown", 15.5f) > room) shown = shown.drop(1)
-                shown = "…$shown"
-            }
+            drawnLeft = textLeft
+            val (shown, beforeCaret) = visible(textRight - textLeft - statusWidth)
             ink.textStart(canvas, shown, 15.5f, palette.text, textLeft, cy, textRight)
-            drawCursor(canvas, textLeft + ink.measure(shown, 15.5f) + ink.dp(1f), cy)
+            drawCursor(canvas, textLeft + ink.measure(beforeCaret, 15.5f) + ink.dp(1f), cy)
             status?.let { ink.textStart(canvas, it, 12.5f, if (failed) FAILURE else palette.gloss, textRight - statusWidth + ink.dp(4f), cy, textRight) }
             ink.icon(canvas, PanelIcons.Icon.CLEAR, clearX, cy, 20f, palette.gloss)
         }
         ink.text(canvas, if (text.isEmpty()) "取消" else "确定", 16f, palette.text, buttonLeft + ink.dp(BUTTON_DP) / 2, cy, bold = true)
+    }
+
+    /**
+     * 放得下的那一段与其中光标前的部分：字多了先从开头省（光标在末尾时留末尾），光标挪到前面放不下了再从末尾省，
+     * 省掉的一头画「…」。
+     */
+    private fun visible(room: Float): Pair<String, String> {
+        val all = text.toString()
+        val caret = caret()
+        var start = 0
+        var end = all.length
+        fun label(from: Int, to: Int) = (if (from > 0) "…" else "") + all.substring(from, to) + (if (to < all.length) "…" else "")
+        while (start < caret && ink.measure(label(start, end), 15.5f) > room) start = all.offsetByCodePoints(start, 1)
+        while (end > caret && ink.measure(label(start, end), 15.5f) > room) end = all.offsetByCodePoints(end, -1)
+        val shown = label(start, end)
+        drawnStart = start
+        return shown to (if (start > 0) "…" else "") + all.substring(start, caret)
+    }
+
+    /** 光标挪到手指处：画出来那段里离手指最近的字缝。 */
+    private fun placeCursor(x: Float) {
+        onCursorMoved()
+        connection.finishComposingText()
+        val all = text.toString()
+        val lead = if (drawnStart > 0) "…" else ""
+        var best = drawnStart
+        var index = drawnStart
+        while (index < all.length) {
+            val next = all.offsetByCodePoints(index, 1)
+            val mid = (ink.measure(lead + all.substring(drawnStart, index), 15.5f) + ink.measure(lead + all.substring(drawnStart, next), 15.5f)) / 2
+            if (drawnLeft + mid > x) break
+            best = next
+            index = next
+        }
+        moveTo(best)
     }
 
     private fun drawCursor(canvas: Canvas, x: Float, cy: Float) {
@@ -155,6 +200,7 @@ class TranslateBar(
                 text.clear()
                 changed()
             }
+            text.isNotEmpty() && x > drawnLeft && box.contains(x, event.y) -> placeCursor(x)
         }
         return true
     }

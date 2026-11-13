@@ -64,7 +64,7 @@ mod tests {
     fn lists_match_what_the_keyboard_settings_showed() {
         bamboo_slip_i18n::pin_locale("zh-Hans");
         let choices = setting_choices();
-        assert_eq!(choices.fuzzy.len(), 9);
+        assert_eq!(choices.fuzzy.len(), FuzzyRules::NAMES.len());
         assert_eq!(choices.fuzzy[0].key, "z_zh");
         assert_eq!(choices.fuzzy[0].label, "z = zh");
         let languages: Vec<&str> = choices.learning_languages.iter().map(|c| c.key).collect();

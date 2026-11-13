@@ -18,7 +18,7 @@ mod worker;
 use std::sync::Arc;
 
 use super::input_log::ChoiceNote;
-use super::{Engine, take_last_chars};
+use super::{Engine, Learner, take_last_chars};
 use crate::sentence::{LanguageModel, segment_text};
 use crate::{Candidate, CandidateKind};
 
@@ -34,6 +34,9 @@ pub use tier::ChoiceTier;
 
 /// 最多看前这么多条候选（知意 `laya` 的 2 × 每页 9 条），各档在这以内取。
 const WINDOW: usize = 18;
+
+/// 用户选过的词至少这么多字，选择次数才压过模型（[`Engine::chosen_long_word`]）。
+const CHOSEN_WORD_MIN_CHARS: usize = 4;
 
 /// 至少这么多条可比的才重排。
 const MIN_CANDIDATES: usize = 2;
@@ -207,9 +210,12 @@ impl Engine {
             })
             .collect();
         let total = |s: &ChoiceScore| s.model + s.language_model + s.prior;
-        let best = (0..scores.len())
+        let mut best = (0..scores.len())
             .max_by(|&a, &b| total(&scores[a]).total_cmp(&total(&scores[b])))
             .unwrap_or(0);
+        if let Some(chosen) = self.chosen_long_word(items, &whole, &keys, best) {
+            best = chosen;
+        }
         *self.last_choice_scores.borrow_mut() = scores;
         self.last_rescored.set(true);
         self.last_choice.set(Some(ChoiceNote {
@@ -222,6 +228,27 @@ impl Engine {
             let candidate = items.remove(whole[best].0);
             items.insert(whole[0].0, candidate);
         }
+    }
+
+    /// 用户在这串键下选得比模型挑的 `best` 多的长词（在 `whole` 里的序号）：模型看不到个人学习，
+    /// 语言模型又不认识 多孩家庭 这种词库词，按分数它每次都输给拆开换字的 多还家庭。短词不这样，
+    /// 同一串键这次要词还是要整句由上下文定（`shiyong` 选过 使用，这次要 是用）。
+    fn chosen_long_word(
+        &self,
+        items: &[Candidate],
+        whole: &[(usize, Vec<u32>)],
+        keys: &str,
+        best: usize,
+    ) -> Option<usize> {
+        let weight = |k: usize| self.learner.choice_weight(keys, &items[whole[k].0].text);
+        (0..whole.len())
+            .filter(|&k| {
+                let candidate = &items[whole[k].0];
+                candidate.kind == CandidateKind::Chinese
+                    && candidate.text.chars().count() >= CHOSEN_WORD_MIN_CHARS
+            })
+            .max_by_key(|&k| weight(k))
+            .filter(|&k| weight(k) > weight(best))
     }
 
     /// 这段音节的字分布（选词模型按音节出的），整句词图给路径上的字打分用。算好了就给；没算过就记下来，

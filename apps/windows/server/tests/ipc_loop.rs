@@ -206,6 +206,152 @@ fn dropping_the_focused_connection_leaves_the_candidate_window_hidden() {
     );
 }
 
+/// 另一个应用正在组句的会话。Router 里的号由 Server 分配、从 1 往上数，取个分配不到的大数，
+/// 模拟攻击方从线程 id 猜到的号恰好就是它。
+const VICTIM: SessionId = SessionId(u64::MAX - 1);
+
+/// 让 `VICTIM` 在 Router 里聚焦并组着 `ni`（不经管道，攻击方看不到它的连接）。
+fn victim_composing(router: &mut Router) {
+    router.handle(ClientMessage::OpenSession {
+        session: VICTIM,
+        app: None,
+        protocol: PROTOCOL_VERSION,
+    });
+    for c in "ni".chars() {
+        router.handle(ClientMessage::Key {
+            session: VICTIM,
+            event: letter(c),
+        });
+    }
+    assert_eq!(router.engine_mut().composition().text(), "ni");
+}
+
+/// 把输入流喂给 `serve`，收回所有回包。
+fn serve_messages(router: &mut Router, messages: &[ClientMessage]) -> Vec<ServerMessage> {
+    let mut input = Vec::new();
+    for message in messages {
+        write_message(&mut input, message).unwrap();
+    }
+    let mut stream = Duplex {
+        inbound: Cursor::new(input),
+        outbound: Vec::new(),
+    };
+    serve(&mut stream, router).unwrap();
+    let mut out = Cursor::new(stream.outbound);
+    let mut responses = Vec::new();
+    while let Some(message) = read_message::<_, ServerMessage>(&mut out).unwrap() {
+        responses.push(message);
+    }
+    responses
+}
+
+/// #699：没开过会话的连接拿别人的会话号 `Poll` / `Commit` / 按键，读不到也动不了别人的组句，连接直接断开。
+#[test]
+fn a_connection_cannot_touch_a_session_it_never_opened() {
+    let mut router = router();
+    victim_composing(&mut router);
+
+    let responses = serve_messages(
+        &mut router,
+        &[
+            ClientMessage::Poll { session: VICTIM },
+            ClientMessage::Commit { session: VICTIM },
+            ClientMessage::Key {
+                session: VICTIM,
+                event: letter('a'),
+            },
+        ],
+    );
+
+    assert!(responses.is_empty(), "不该回任何东西：{responses:?}");
+    assert_eq!(
+        router.engine_mut().composition().text(),
+        "ni",
+        "别的应用的组句不能被读走或清掉"
+    );
+    assert_eq!(router.session_count(), 1);
+}
+
+/// #699：自己开一个和别人同号的会话，拿到的是自己那个新会话，看不到别人的组句。
+#[test]
+fn opening_a_colliding_session_number_gets_a_separate_session() {
+    let mut router = router();
+    victim_composing(&mut router);
+
+    let responses = serve_messages(
+        &mut router,
+        &[
+            ClientMessage::OpenSession {
+                session: VICTIM,
+                app: None,
+                protocol: PROTOCOL_VERSION,
+            },
+            ClientMessage::Poll { session: VICTIM },
+        ],
+    );
+
+    let [
+        ServerMessage::SessionOpened { session, .. },
+        ServerMessage::Update { frame, .. },
+    ] = responses.as_slice()
+    else {
+        panic!("应回 SessionOpened 与 Update：{responses:?}");
+    };
+    assert_eq!(*session, VICTIM, "回包里的会话号要换回 DLL 报的那个");
+    assert!(frame.preedit.is_empty(), "不能看到别人的组句：{frame:?}");
+    assert_eq!(router.engine_mut().composition().text(), "ni");
+    assert_eq!(
+        router.session_count(),
+        1,
+        "连接断开只关自己开的会话，别人的还在"
+    );
+}
+
+/// 同一条连接重复开同一个会话不是 DLL 会做的事：断开，之后的按键不处理。
+#[test]
+fn reopening_a_session_on_the_same_connection_disconnects() {
+    let mut router = router();
+    let open = ClientMessage::OpenSession {
+        session: SESSION,
+        app: None,
+        protocol: PROTOCOL_VERSION,
+    };
+    let responses = serve_messages(
+        &mut router,
+        &[
+            open.clone(),
+            open,
+            ClientMessage::Key {
+                session: SESSION,
+                event: letter('n'),
+            },
+        ],
+    );
+    assert_eq!(responses.len(), 1, "只回第一次开会话：{responses:?}");
+    assert_eq!(router.session_count(), 0);
+}
+
+/// DLL 被停用后用临时连接发 `ImeSwitched`，不开会话；这条要照常收，连接不断。
+#[test]
+fn ime_switched_on_a_temporary_connection_is_accepted() {
+    let mut router = router();
+    let responses = serve_messages(
+        &mut router,
+        &[
+            ClientMessage::ImeSwitched { session: SESSION },
+            ClientMessage::OpenSession {
+                session: SESSION,
+                app: None,
+                protocol: PROTOCOL_VERSION,
+            },
+        ],
+    );
+    assert!(
+        matches!(responses.as_slice(), [ServerMessage::SessionOpened { .. }]),
+        "ImeSwitched 之后连接还在、能开会话：{responses:?}"
+    );
+}
+
 /// 按顺序记候选窗口是显示还是收起。
 struct RecordingSink {
     events: Arc<Mutex<Vec<&'static str>>>,

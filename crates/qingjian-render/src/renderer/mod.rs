@@ -50,6 +50,9 @@ pub struct Renderer {
     /// 壳能在窗口底下垫系统材质（见 [`Self::set_material_support`]）。
     material_support: bool,
 
+    /// 壳的材质圆角是系统定死的（像 Windows 11 的窗口圆角）：点，见 [`Self::set_material_corner_radius`]。
+    material_corner: Option<f32>,
+
     /// 上一帧要垫的材质，动画帧照抄。
     material: Option<MaterialBacking>,
 }
@@ -63,6 +66,7 @@ impl Renderer {
             hits: Vec::new(),
             preedit: None,
             material_support: false,
+            material_corner: None,
             material: None,
         }
     }
@@ -71,6 +75,12 @@ impl Renderer {
     /// 由 [`Rendered::material`] 告诉壳垫哪种、圆角多大、文字深浅跟谁；不能的话照旧画主题的 `fill`。
     pub fn set_material_support(&mut self, supported: bool) {
         self.material_support = supported;
+    }
+
+    /// 壳垫的材质圆角由系统定死、不能按主题裁时（Windows 11 的 DWM 窗口圆角），告诉渲染器这个圆角（点）：
+    /// 垫了材质时根节点的圆角换成它，描边与系统裁出的形状对齐。`None`（缺省）照主题写的圆角。
+    pub fn set_material_corner_radius(&mut self, radius: Option<f32>) {
+        self.material_corner = radius;
     }
 
     fn text(&mut self) -> &mut TextPainter {
@@ -132,6 +142,7 @@ impl Renderer {
             action_nodes: Vec::new(),
             preedit_node: None,
             material_root: material.map(|spec| spec.tint.clone()),
+            material_corner: self.material_corner,
             root_radius: 0.0,
         };
         let root = builder.window(frame, layout)?;

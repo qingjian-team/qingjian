@@ -187,7 +187,7 @@ impl QingjianInputController {
         true
     }
 
-    /// 方向键分两区时（[`Host::two_area_arrows`]）照 Core 的 [`arrows::route`] 走，规则与 Windows 壳的 `two_area_key` 同一份。
+    /// 方向键分两区时（`host/presenting` 的 `Host::two_area_arrows`）照 Core 的 [`arrows::route`] 走，规则与 Windows 壳的 `two_area_key` 同一份。
     /// 返回是不是归了这套规则（不是的话调用方照旧走 [`Self::move_highlight`] / [`Self::move_cells`]）。
     pub(super) fn two_area_arrow(&self, arrow: Arrow, client: TextClient<'_>) -> bool {
         /// 拼音光标动了要重新查询；高亮或焦点动了只重画。

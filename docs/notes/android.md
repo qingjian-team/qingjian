@@ -92,6 +92,9 @@ PC 上只对实体键盘有意义的项（Shift + 字母、切换键、翻页键
 - 像代码的文字（Core `code::looks_like_code`）用等宽字体原样显示，「代码高亮」按 Core `code::highlight` 上色。
 - 图片走 `commitContent` 发出去（`ClipboardImageProvider` 只读临时授权，`query` 要给 `OpenableColumns`，否则有的应用把 content:// 地址当文字插进去）；输入框不收图片就放回系统剪贴板。
 - 拆词（Core `text_pieces` 切块）可点选或横滑连选，选着的实时放进输入框、处在编辑中，返回或完成确认上屏。
+- 剪贴板卡片左滑删除：面板底子 `PanelView` 在落指后第一下拖动时定方向，横向多于纵向且子类 `swipeable` 认下才算横滑，否则照常给滚动；滑过面板宽度四成或往左一甩（1000 dp/s）就删。
+  删除按列表下标；剪贴板一有新条目（系统复制、同步收完）面板整个重建，滑到一半被重建的那根手指收不到抬起，不会误删。
+- 编辑剪贴板或常用语的浮动编辑框（`PhraseEditor`）自己当输入连接，光标就是 `Editable` 的 selection：点或拖动按排版换算到字的位置，按住空格左右滑发来的方向键在正文里逐字挪，组句中挪光标先 `onCursorMovedAway` 落下拼音，跟外面的输入框一致。
 - 常用语（`PhraseBook`，`phrases.json`）按分组列，卡片带输入码；带输入码的挂成 Core 自定义短语，打码直接出。输入码最多 32 个字母，跟 Core 自定义短语的上限一致。
 
 ## 翻译选中的文字

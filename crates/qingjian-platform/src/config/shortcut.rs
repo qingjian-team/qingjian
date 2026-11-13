@@ -63,6 +63,11 @@ pub struct ShortcutConfig {
     #[serde(with = "super::optional_key_combo")]
     pub single_chars: Option<KeyCombo>,
 
+    /// 组句中按词跳（Windows 用）：首选整句的第一个词先定下来，候选换成从下一个词起的，改长句中间的词不用挪光标。
+    /// 空串禁用。只在组句时拿走这个组合（缺省 Ctrl + V，没在打字时照常粘贴）。
+    #[serde(with = "super::optional_key_combo")]
+    pub next_word: Option<KeyCombo>,
+
     /// 组句时上屏高亮候选的键（Windows、Linux 用），缺省不带 Shift 的空格。详见 [`CommitKey`]。
     pub commit_candidate: CommitKey,
 
@@ -104,6 +109,7 @@ impl Default for ShortcutConfig {
             clipboard: KeyCombo::CLIPBOARD_DEFAULT,
             toggle_traditional: None,
             single_chars: Some(KeyCombo::SINGLE_CHARS_DEFAULT),
+            next_word: Some(KeyCombo::NEXT_WORD_DEFAULT),
             commit_candidate: CommitKey::SPACE,
             commit_raw: CommitKey::ENTER,
         }
@@ -211,6 +217,19 @@ mod tests {
                 toml::from_str(&toml::to_string(&config).unwrap()).unwrap();
             assert_eq!(restored.single_chars, config.single_chars);
             assert_eq!(config.single_chars.is_none(), text.is_empty());
+        }
+    }
+
+    #[test]
+    fn next_word_shortcut_defaults_to_ctrl_v_and_can_be_disabled() {
+        let default: ShortcutConfig = toml::from_str("").unwrap();
+        assert_eq!(default.next_word, Some(KeyCombo::NEXT_WORD_DEFAULT));
+        for text in ["", "ctrl+v", "ctrl+shift+j"] {
+            let config: ShortcutConfig = toml::from_str(&format!("next_word = {text:?}")).unwrap();
+            let restored: ShortcutConfig =
+                toml::from_str(&toml::to_string(&config).unwrap()).unwrap();
+            assert_eq!(restored.next_word, config.next_word);
+            assert_eq!(config.next_word.is_none(), text.is_empty());
         }
     }
 

@@ -167,6 +167,38 @@ pub fn shortcuts(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Rende
             )?);
         }
     }
+    if Feature::NextWord.here() {
+        let enabled = config.shortcut.next_word.is_some();
+        let switch = bamboo_slip::Switch::new(enabled).build(
+            ui,
+            theme,
+            "next-word",
+            Message::set(
+                "shortcut",
+                "next_word",
+                if enabled {
+                    String::new()
+                } else {
+                    KeyCombo::NEXT_WORD_DEFAULT.key_string()
+                },
+            ),
+        )?;
+        rows.push(
+            SettingRow::new(tr("shortcuts.next_word"))
+                .info(tr("shortcuts.next_word_info"))
+                .control(switch)
+                .build(ui, theme)?,
+        );
+        if enabled {
+            rows.push(recorder(
+                ui,
+                page,
+                Shortcut::NextWord,
+                tr("shortcuts.next_word_key_info"),
+                false,
+            )?);
+        }
+    }
     out.push(section_title(
         ui,
         theme,

@@ -30,6 +30,7 @@ description: 青简的全部设置保存在一个文本配置文件里：位置�
 | `[general] scheme` | 输入 → 拼音 | `pinyin`（全拼）、`xiaohe`、`ziranma`、`microsoft`、`sogou`、`abc`、`xiaolang`、`shoudao`、`jiajia`、`ziguang`、`zhuyin`，或自制方案的文件夹名 |
 | `[general] double_shift_input` | 输入法切换 → 连按两次 Shift 切换第三输入法 | `off`（缺省，不启用）或 `vietnamese`（越南语；输入法实现完成后生效） |
 | `[general] hold_selections` | 输入 → 分次选词先不上屏 | `true` / `false` |
+| `[fuzzy]` 一节 | 输入 → 模糊音 | 十条内置规则 `z_zh` … `eng_ong` 各是 `true` / `false`；`custom` 是自定义规则的列表，如 `["ian=iang", "fa=hua"]`，`custom_off` 列其中暂时关掉的，见 [自定义规则](../input/fuzzy-and-shuangpin.md#自定义规则) |
 | `[auto_phrase] enabled` | 输入 → 五笔自动组词 → 自动学习五笔新词 | `true`（默认）/ `false`；只控制五笔连续组词，不影响拼音、双拼、已有词与词频学习 |
 | `[auto_phrase] max_chars` | 输入 → 五笔自动组词 → 最大词长 | 五笔组词最多 2～10 个汉字，默认 4；超出范围按边界值读取，不改变五笔码长，不限制拼音与双拼整段记忆 |
 | `[aux_code] enabled`、`scheme` | 输入 → 辅码 | `scheme` 写码表的文件名或方案的文件夹名，随包笔画码是 `stroke` |
@@ -56,6 +57,7 @@ description: 青简的全部设置保存在一个文本配置文件里：位置�
 | `[shortcut] extra_candidate_navigation` | 快捷键 → Emacs 风格候选键（macOS） | `false`（默认）或 `true` |
 | `[shortcut] highlight_keys` | 快捷键 → 高亮移动键 | 上下或左右 |
 | `[shortcut] toggle_punctuation` | 快捷键 → Ctrl + . 切换全半角标点 | 空串为关闭，`"ctrl+."` 为 Ctrl + 句号；也可写成修饰键加字母、数字或句号，如 `"ctrl+shift+."` |
+| `[shortcut] next_word` | 快捷键 → 按词跳快捷键 | 打长句时按它把首选整句的第一个词定下来，候选换成下一个词的，退格撤回；缺省 `"ctrl+v"`，空串为关闭，也可写成修饰键加字母或数字。只在打字时拿走这个组合，没在打字时 `Ctrl + V` 照常粘贴。只有 Windows 用 |
 | `[shortcut] single_chars` | 快捷键 → 单字模式快捷键 | 打拼音时按它候选只列单字，再按一次恢复，上屏后自动恢复；缺省 `"ctrl+d"`，空串为关闭，也可写成修饰键加字母或数字。只在打字时拿走这个组合。只有 Windows 用 |
 | `[shortcut] toggle_traditional` | 快捷键 → Ctrl + Shift + F 切换简繁输出 | 空串为关闭（缺省），`"ctrl+shift+f"` 为 Ctrl + Shift + F；也可写成修饰键加字母或数字。只有 Windows 用 |
 | `[clipboard] enabled`、`edge` | 实验功能 → 青简剪贴板 | `enabled` 缺省 `false`；`edge`：`top`、`bottom`（缺省）、`left`、`right` |

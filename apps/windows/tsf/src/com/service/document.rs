@@ -46,7 +46,9 @@ impl TextService_Impl {
             match client.commit() {
                 Ok(text) => text,
                 Err(error) => {
-                    log(&format!("失焦上屏失败，断开，下一键重连: {error}"));
+                    log(&format!(
+                        "commit on focus loss failed, reconnecting on the next key: {error}"
+                    ));
                     drop(guard);
                     self.disconnect();
                     return;
@@ -58,11 +60,17 @@ impl TextService_Impl {
         }
         self.shared.end_composing();
         let Some(context) = self.shared.last_context() else {
-            log(&format!("失焦上屏没有上下文，丢弃: {text:?}"));
+            log(&format!(
+                "commit on focus loss has no context, dropped {} chars",
+                text.as_deref().map_or(0, |text| text.chars().count())
+            ));
             self.shared.reset();
             return;
         };
-        log(&format!("失焦上屏: {text:?}"));
+        log(&format!(
+            "commit on focus loss: {} chars",
+            text.as_deref().map_or(0, |text| text.chars().count())
+        ));
         let requested = request_update(
             &context,
             self.client_id.get(),
@@ -73,7 +81,9 @@ impl TextService_Impl {
             None,
         );
         if let Err(error) = requested {
-            log(&format!("失焦上屏的编辑会话没被受理: {error}"));
+            log(&format!(
+                "edit session for the focus-loss commit was rejected: {error}"
+            ));
             self.shared.reset();
         }
     }
@@ -97,7 +107,9 @@ impl TextService_Impl {
         }
         let Ok(context) = pic.ok() else {
             log(&format!(
-                "无上下文，丢弃更新: commit={commit:?} preedit={preedit:?}"
+                "no context, update dropped: commit_len={} preedit_len={}",
+                commit.as_deref().map_or(0, |text| text.chars().count()),
+                preedit.chars().count()
             ));
             return;
         };
@@ -110,7 +122,9 @@ impl TextService_Impl {
             preedit,
             caret,
         ) {
-            log(&format!("请求组句更新失败: {error}"));
+            log(&format!(
+                "requesting the composition update failed: {error}"
+            ));
         }
     }
 }

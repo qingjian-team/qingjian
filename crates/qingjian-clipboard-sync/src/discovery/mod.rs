@@ -4,7 +4,7 @@
 mod found;
 
 use std::collections::HashMap;
-use std::net::{IpAddr, SocketAddr};
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::time::Duration;
 
 use mdns_sd::{Receiver, ServiceDaemon, ServiceEvent, ServiceInfo};
@@ -83,7 +83,7 @@ impl Discovery {
                     .into_iter()
                     .map(IpAddr::V4)
                     .collect();
-                addresses.sort_by_key(|address| !is_private(address));
+                addresses.sort_by_key(|address| reach_rank(*address));
                 let address = SocketAddr::new(*addresses.first()?, service.get_port());
                 self.known
                     .insert(service.get_fullname().to_owned(), device_id.clone());
@@ -115,8 +115,20 @@ fn mdns_error(error: mdns_sd::Error) -> SyncError {
     SyncError::Storage(format!("mdns: {error}"))
 }
 
-fn is_private(address: &IpAddr) -> bool {
-    matches!(address, IpAddr::V4(v4) if v4.is_private())
+/// 别的设备连这个地址的把握，越小越先试。一台电脑常同时报好几个地址：
+/// 链路本地（169.254）多是虚拟机或没接网线的网卡，198.18/15 是 Clash 这类代理的 TUN，回环只有同一台机器连得通。
+pub(crate) fn reach_rank(address: IpAddr) -> u8 {
+    match address {
+        IpAddr::V4(v4) if v4.is_private() => 0,
+        IpAddr::V4(v4) if v4.is_link_local() || is_proxy_tun(v4) => 2,
+        address if address.is_loopback() => 3,
+        _ => 1,
+    }
+}
+
+fn is_proxy_tun(address: Ipv4Addr) -> bool {
+    let [first, second, ..] = address.octets();
+    first == 198 && second & 0xfe == 18
 }
 
 /// 按字节截断，不切开一个字。

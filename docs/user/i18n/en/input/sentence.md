@@ -9,7 +9,15 @@ description: "Typing whole sentences, abbreviated pinyin with initials only, cor
 There's no mode to switch: type a whole sentence and then commit it. The first candidate for `jintiantianqihenhao` is 今天天气很好.
 When you reach the last character of a sentence, typing just its initial is enough to get the whole sentence early: the first candidate for `youdiandongx` is 有点东西, the same as for the full `youdiandongxi`.
 
+When the top few candidates for a long sentence look alike, the characters in a candidate that differ from the first one are shown in another color (for `shixianyibianshuruzhongwenzhengju`, 政局 is marked in the second candidate 实现一边输入中文政局), so you can see the difference at a glance. Only when the first candidate has four or more characters and the two have the same length; shown on macOS, Windows and Android with the Qingjian renderer, in the theme's color, see [Custom themes](../advanced/custom-themes.md).
+
 When you pick a stretch of pinyin in several steps, the words picked first stay in the input box and the whole stretch is committed together once it's done; see [Picked the wrong word](../getting-started/first-input.md#Picked-the-wrong-word).
+
+### Fixing one word in a long sentence
+
+When only one word in the middle of a long sentence is wrong, press `Ctrl + V` on Windows: the first word of the top sentence is kept in the input box and the candidates now start from the next word (the rest of the sentence and other ways to write the next word).
+Press again to keep the next word; when you reach the wrong one, pick the right form and the rest follows as usual. `Backspace` undoes the last kept word.
+`Ctrl + V` is only taken while you are typing and still pastes otherwise; you can change or turn it off in 设置 → 快捷键 (Settings → Shortcuts).
 
 ## Abbreviated pinyin
 
@@ -42,7 +50,7 @@ The local sentence model is off by default: sentences are built from the diction
 
 - Pause briefly after typing (about a fifth of a second for long sentences) and the sentence candidate is replaced with the one the model finds more natural; until you pause, the sentence built from the dictionary is shown.
 - For long input (from about six characters), the sentence Tongbian writes comes first. For short input, when the last syllable isn't finished yet, or when a typo was corrected, the dictionary's sentence comes first and Tongbian's follows. It also fills in a sentence when you mix Chinese and English or the dictionary can't build a full one.
-- The model only adjusts sentence candidates. Word candidates and words you've picked before aren't affected, and your own habits still come first.
+- The model only adjusts sentence candidates; it doesn't change the order of word candidates. Once you've picked a word of four or more characters for the same pinyin, it comes before the model's sentence next time (pick 多孩家庭 for `duohaijiating` once and 多还家庭 no longer comes first). Two- and three-character words have many homophones, so whether you get the word or the sentence still depends on the text before the cursor.
 - Once you've paged further or moved the highlight with the arrow keys, the model's result no longer replaces the page you're looking at.
 - For the first few seconds after the input method starts, the model is still loading and sentences come from the dictionary.
 - On older Macs (for example, macOS 14 without the required graphics features), the model runs on the processor instead and ranking may be a little slower.

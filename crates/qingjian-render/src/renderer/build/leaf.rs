@@ -1,5 +1,7 @@
 //! 叶子节点：文字、图标、拼音行、译文。绑定取不到数据时不产出节点。
 
+use std::ops::Range;
+
 use bamboo_slip::taffy::{Dimension, NodeId, Style};
 
 use super::layout_style;
@@ -7,7 +9,7 @@ use super::{Builder, Context};
 use crate::frame::{Preedit, PreeditStyle, Tone};
 use crate::theme::file::node::{BoxSpec, Direction, NodeKind, NodeSpec, ToneFilter};
 use bamboo_slip::RenderError;
-use bamboo_slip::{Decoration, Visual};
+use bamboo_slip::{Color, Decoration, Visual};
 
 impl Builder<'_> {
     pub(super) fn leaf(
@@ -23,6 +25,7 @@ impl Builder<'_> {
                 text,
                 font,
                 color,
+                diff,
                 stroke,
             } => {
                 let content = match (bind, text) {
@@ -33,11 +36,25 @@ impl Builder<'_> {
                 let Some(content) = content else {
                     return Ok(None);
                 };
-                let visual = Visual::Text {
-                    text: content.to_owned(),
-                    style: self
-                        .text_style(font, self.color(color, ctx))
-                        .stroked(self.stroke(stroke.as_ref(), ctx)),
+                let text_style = self
+                    .text_style(font, self.color(color, ctx))
+                    .stroked(self.stroke(stroke.as_ref(), ctx));
+                let ranges = match (bind.as_deref(), diff, ctx.row) {
+                    (Some("text"), Some(diff), Some(row)) if !row.row.diff.is_empty() => {
+                        Some((&row.row.diff, self.color(diff, ctx)))
+                    }
+                    _ => None,
+                };
+                let visual = match ranges {
+                    Some((ranges, diff)) => Visual::RichText {
+                        text: content.to_owned(),
+                        style: text_style,
+                        spans: spans(content.len(), ranges, text_style.color, diff),
+                    },
+                    None => Visual::Text {
+                        text: content.to_owned(),
+                        style: text_style,
+                    },
                 };
                 self.scene.node(style, visual, &[])?
             }
@@ -217,6 +234,28 @@ impl Builder<'_> {
     }
 }
 
+/// 把差异范围铺成首尾相接盖满整段的片段：范围里是 `diff` 色，其余是 `plain` 色。
+fn spans(
+    len: usize,
+    ranges: &[Range<usize>],
+    plain: Color,
+    diff: Color,
+) -> Vec<(Range<usize>, Color)> {
+    let mut spans = Vec::with_capacity(ranges.len() * 2 + 1);
+    let mut at = 0;
+    for range in ranges.iter().filter(|range| range.end <= len) {
+        if range.start > at {
+            spans.push((at..range.start, plain));
+        }
+        spans.push((range.clone(), diff));
+        at = range.end;
+    }
+    if at < len {
+        spans.push((at..len, plain));
+    }
+    spans
+}
+
 /// 按 `senses`（前几个义项，按分隔数）与 `tones`（只要哪几种片段）挑出要画的片段，各带它属于第几个义项（前面有几个分隔）。
 fn pick_segments<'a>(
     segments: &'a [(String, Tone)],
@@ -239,12 +278,30 @@ fn pick_segments<'a>(
 
 #[cfg(test)]
 mod tests {
-    use super::pick_segments;
+    use bamboo_slip::Color;
+
+    use super::{pick_segments, spans};
     use crate::frame::Tone;
     use crate::theme::file::node::ToneFilter;
 
     fn texts(picked: Vec<(&(String, Tone), usize)>) -> Vec<&str> {
         picked.iter().map(|((text, _), _)| text.as_str()).collect()
+    }
+
+    /// 「事先一边输入中文整句」（30 字节）：「事先」「整句」和首选不同，其余是原色，片段首尾相接。
+    #[test]
+    #[allow(clippy::single_range_in_vec_init)]
+    fn diff_spans_cover_the_whole_text() {
+        let plain = Color::rgb(0, 0, 0);
+        let diff = Color::rgb(255, 0, 0);
+        assert_eq!(
+            spans(30, &[0..6, 24..30], plain, diff),
+            [(0..6, diff), (6..24, plain), (24..30, diff)]
+        );
+        assert_eq!(
+            spans(30, &[24..30], plain, diff),
+            [(0..24, plain), (24..30, diff)]
+        );
     }
 
     #[test]

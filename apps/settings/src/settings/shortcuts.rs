@@ -67,6 +67,13 @@ impl Settings {
                 KeyCombo::SINGLE_CHARS_DEFAULT.key_string(),
             );
         }
+        if Feature::NextWord.here() {
+            self.write(
+                "shortcut",
+                "next_word",
+                KeyCombo::NEXT_WORD_DEFAULT.key_string(),
+            );
+        }
         if Feature::CommitKeys.here() {
             self.write(
                 "shortcut",

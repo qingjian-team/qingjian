@@ -106,6 +106,7 @@
 ## 三、其他平台
 
 - [~] Windows TSF（Phase 5）：真机自用中，候选窗已覆盖商店 / 任务栏搜索（`uiAccess` + 自签）。
+  - [ ] 去掉 Server 在旧管道名 `\\.\pipe\qingjian` 上的过渡服务（`serve_pipe` 的 `legacy`，#699）：留它只为升级后没重启的应用里的老 DLL，它对 AppContainer 放行建实例，老 DLL 的连接可能被抢；按用户命名的管道发出去一个版本后就删。
   与 mac 功能齐平尚缺（按价值排；工时=开发+真机验证合计，单人；真机来回是大头）：
   - [~] **① 翻译选中文字 `translate_selection`**（★★★ / 中高 / 1.5–2 天）：**代码完成，待真机测**（2026-09-10）。
     新增 `RequestSelection` / `Selection{text,rect}` 两协议消息；DLL 异步只读会话（`com/selection.rs`，`GetSelection`+`GetText`+`GetTextExt`）
@@ -169,6 +170,7 @@
   - [ ] 小键盘数字：macOS、Linux
   - [ ] 双拼候选窗显示按键：Linux
   - [ ] 组句时切换单字模式：macOS、Linux
+  - [ ] 组句时按词跳：macOS、Linux
   - [ ] 候选字粗细：macOS
   - [ ] 成对符号自动补全：macOS、Linux
   - [ ] 竖排在光标上方时倒着排：macOS

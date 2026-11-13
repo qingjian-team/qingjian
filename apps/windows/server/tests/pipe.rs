@@ -50,7 +50,7 @@ fn named_pipe_round_trips_the_open_type_loop() {
         .expect("assemble engine from sample data");
         let mut router = Router::new(engine, RouterConfig::default());
         let (work_tx, work_rx) = std::sync::mpsc::channel();
-        let _ = serve_pipe(&server_name, &mut router, work_tx, work_rx);
+        let _ = serve_pipe(&server_name, None, &mut router, work_tx, work_rx);
     });
 
     let mut client = connect(&name);

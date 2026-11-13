@@ -99,13 +99,27 @@ fn remember_new_ip(shared: &Shared, device_id: &str, source: SocketAddr) {
 pub(super) fn sync_peer(shared: &Shared, peer: &Peer) {
     let online = lock(&shared.nearby)
         .get(&peer.device_id)
-        .map(|nearby| nearby.address);
-    let Some(address) = online.or_else(|| peer.last_address.as_deref()?.parse().ok()) else {
+        .map(|nearby| nearby.addresses.clone());
+    // 上次连通的地址先试，再按发现到的顺序
+    let mut addresses: Vec<SocketAddr> = peer
+        .last_address
+        .as_deref()
+        .and_then(|last| last.parse().ok())
+        .into_iter()
+        .collect();
+    for address in online.iter().flatten() {
+        if !addresses.contains(address) {
+            addresses.push(*address);
+        }
+    }
+    if addresses.is_empty() {
         shared.record_link(&peer.device_id, false);
         return;
-    };
+    }
+    let mut reached = None;
     let result = (|| {
-        let stream = TcpStream::connect_timeout(&address, CONNECT_TIMEOUT)?;
+        let (stream, address) = connect_first(&addresses)?;
+        reached = Some(address);
         stream.set_read_timeout(Some(IO_TIMEOUT))?;
         stream.set_write_timeout(Some(IO_TIMEOUT))?;
         let expected = peer.device_id.clone();
@@ -131,15 +145,37 @@ pub(super) fn sync_peer(shared: &Shared, peer: &Peer) {
         return;
     }
     shared.record_link(&peer.device_id, result.is_ok());
+    if let (Ok(_), Some(address)) = (&result, reached) {
+        let saved =
+            lock(&shared.book).touch(&peer.device_id, now_millis(), Some(address.to_string()));
+        if let Err(error) = saved {
+            tracing::warn!(%error, "cannot save peer address");
+        }
+    }
     if let Err(error) = result {
         tracing::info!(%error, peer = %peer.name, "sync failed");
-        // 只有 mDNS 还看得见它才算失败；看不见就是离线，上线后补传
+        // 只有 mDNS 还看得见它、它报的地址又都连不上才算失败；看不见就是离线，上线后补传
         if online.is_some() {
             shared.emit(SyncEvent::SendFailed {
                 peer: peer.name.clone(),
             });
         }
     }
+}
+
+/// 挨个地址试，连上哪个用哪个：对方报的地址里常有本机到不了的虚拟网卡。
+fn connect_first(addresses: &[SocketAddr]) -> std::io::Result<(TcpStream, SocketAddr)> {
+    let mut failure = std::io::Error::from(std::io::ErrorKind::NotFound);
+    for address in addresses {
+        match TcpStream::connect_timeout(address, CONNECT_TIMEOUT) {
+            Ok(stream) => return Ok((stream, *address)),
+            Err(error) => {
+                tracing::debug!(%error, %address, "peer not reachable at this address");
+                failure = error;
+            }
+        }
+    }
+    Err(failure)
 }
 
 fn peer_name(shared: &Shared, device_id: &str) -> String {

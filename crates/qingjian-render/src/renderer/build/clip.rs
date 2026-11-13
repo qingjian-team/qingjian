@@ -3,7 +3,7 @@
 
 use std::borrow::Cow;
 
-use crate::frame::{Frame, Row};
+use crate::frame::Frame;
 
 /// 一条候选最多画几个字宽，超出截尾加「…」。很长的自定义短语（整段回复、模板）不截会把候选窗撑得比屏幕还宽、
 /// 一条占满；30 个字宽约是横排一页 5 条常见候选的总宽，整句候选要敲上百个字母才到这么长。
@@ -25,10 +25,7 @@ pub(super) fn shown(frame: &Frame) -> Cow<'_, Frame> {
     }
     let mut frame = frame.clone();
     for (i, text) in fixed {
-        frame.rows[i] = Row {
-            text,
-            ..frame.rows[i].clone()
-        };
+        frame.rows[i].show_text(text);
     }
     Cow::Owned(frame)
 }

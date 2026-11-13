@@ -14,7 +14,7 @@ Linux uses Fcitx's own candidate panel, whose look is set in Fcitx; for Android 
 | 青简绿 (Qingjian green, default) | Light green background, text colour unchanged |
 | 系统蓝 (System blue) | System blue background, white text |
 | 微信绿 (WeChat green) | WeChat green background, white text; AI candidates in blue |
-| 玻璃 (Glass) | Blue capsule, white text; the horizontal layout is a single capsule. On macOS the window is clear glass that shows what's behind it, and the text turns darker or lighter with the background; on Windows it has a near-white opaque background |
+| 玻璃 (Glass) | Blue capsule, white text; the horizontal layout is a single capsule. On macOS the window is clear glass that shows what's behind it, and the text turns darker or lighter with the background; on Windows 11 the window is translucent frosted glass, the text follows the system's light or dark mode, and the corners are a little less round than on macOS; on Windows 10, or with the system's Transparency effects turned off, it has a near-white opaque background |
 | 樱花 (Sakura) | Pink-purple glass background, pink highlight block, serif candidates, part of speech and gloss on two lines; a character lying on the top left, with a cherry-blossom charm and ribbons |
 | 大肥鱼 (Big fat fish) | Blue-edged glass background with ripples, light-blue highlight block, gloss on its own line below the word; a whale maid lying on the top edge of the window, clinging to the right side in vertical layout |
 | 初音未来 (Hatsune Miku) | Cyan chamfered border and equalizer bars, cyan highlight block, gloss on its own line below the word; Hatsune Miku lying on the top edge of the window, clinging to the right side in vertical layout |

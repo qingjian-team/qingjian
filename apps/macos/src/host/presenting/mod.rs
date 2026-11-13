@@ -266,6 +266,7 @@ impl Host {
                         // 矩阵里的空位什么都不画；单行里的空位留着序号
                         index: if columns == 0 { index } else { String::new() },
                         text: String::new(),
+                        diff: Vec::new(),
                         code: None,
                         annotation: Vec::new(),
                         cloud: false,
@@ -280,6 +281,9 @@ impl Host {
                 );
                 row.index = index;
                 row.cloud = candidate.kind == CandidateKind::Cloud;
+                if let Some(lead) = self.session.layout.candidate(0) {
+                    row.diff = qingjian_core::differs_from_lead(lead, candidate);
+                }
                 row
             })
             .collect();

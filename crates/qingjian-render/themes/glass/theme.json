@@ -18,11 +18,12 @@
     "hl_gloss": "#ffffffd9",
     "hl_faint": "#ffffffcc",
     "hl_fresh": "#ffe0b2",
-    "hl_cloud": "#ffffff"
+    "hl_cloud": "#ffffff",
+    "hl_diff": "#ffe08a"
   },
 
-  // 垫得了系统材质时（macOS）窗口底下是系统的玻璃，fill 只在垫不了时用（Windows）；
-  // 玻璃随背后内容变深变浅，文字跟着换浅色 / 深色那一套颜色
+  // 垫得了系统材质时（macOS、Windows 11）窗口底下是系统的玻璃 / 亚克力，fill 只在垫不了时用（Windows 10）；
+  // mac 的玻璃随背后内容变深变浅，文字跟着换浅色 / 深色那一套颜色
   "material": { "kind": "glass" },
 
   "text": {

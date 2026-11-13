@@ -27,6 +27,7 @@ import app.qingjian.inputmethod.theme.Palette
  * 输入法服务编辑时把 [connection] 当输入连接交给 Composer。上面 ⌄ 收起 / 标题 / 完成，中间正文（带字数），
  * 下面「输入码」（只收字母，最多 32 个，跟桌面自定义短语一样；点它切过去打码）与「目录」（点名字换下一组，「＋新建」打新分组名，新建中再点名字取消）。完成或收起都回常用语页。
  * 给了 [clip] 是改剪贴板里的一条：只有正文，没有输入码与目录，完成或收起回剪贴板页。
+ * 正文里点一下或按住拖动把光标挪到手指处，字多了框里跟着光标滚。
  */
 @SuppressLint("ViewConstructor")
 class PhraseEditor(
@@ -42,6 +43,8 @@ class PhraseEditor(
     private val onFocusCode: (Boolean) -> Unit,
     /** 要改的剪贴板文字；null 是常用语。 */
     private val clip: String? = null,
+    /** 正文里点了别处挪光标：正在组句的先按挪走光标处理，跟外面的输入框一样。 */
+    private val onCursorMoved: () -> Unit = {},
 ) : View(context), FloatingEditor {
     private val ink = Ink(palette, resources.displayMetrics.density)
     private val text = SpannableStringBuilder(clip ?: phrase?.text.orEmpty()).also { Selection.setSelection(it, it.length) }
@@ -81,6 +84,28 @@ class PhraseEditor(
     private val box = RectF()
     private val rect = RectF()
 
+    /** 正文排版后左上角在视图里的位置（不含滚动），点正文时换算光标用。 */
+    private var textLeft = 0f
+    private var textTop = 0f
+
+    /** 正文往上滚了多少：让光标那一行留在框里。 */
+    private var textScroll = 0f
+
+    /** 这根手指落在正文里，拖动时光标跟着走。 */
+    private var draggingCursor = false
+
+    private fun textWidth() = (box.width() - ink.dp(TEXT_PADDING_DP) * 2).toInt().coerceAtLeast(1)
+
+    private fun textLayout(): StaticLayout =
+        StaticLayout.Builder.obtain(text, 0, text.length, textPaint, textWidth())
+            .setAlignment(Layout.Alignment.ALIGN_NORMAL)
+            .build()
+
+    private fun cursor() = Selection.getSelectionEnd(text).coerceIn(0, text.length)
+
+    /** 正文框的下边：剪贴板到底，常用语下面还有输入码与目录一行。 */
+    private fun textBottom() = height - ink.dp(6f) - ink.dp(fieldsDp)
+
     /** 编辑时交给 Composer 的输入连接：上屏、组句、删字都落在正文或输入码里。 */
     override val connection: InputConnection = object : BaseInputConnection(this, true) {
         override fun getEditable(): Editable = target()
@@ -109,15 +134,22 @@ class PhraseEditor(
         return value.filter { it in 'a'..'z' || it in 'A'..'Z' }.toString().lowercase().take(room)
     }
 
-    /** Composer 不在组句时发来的键：删除删光标前一个字，回车在正文里换行。 */
+    /**
+     * Composer 不在组句时发来的键：删除删光标前一个字，回车在正文里换行，左右方向键（按住空格左右滑）在正文里挪光标；
+     * 输入码与分组名的光标总画在末尾，不挪。
+     */
     override fun onKey(keyCode: Int) {
         val target = target()
+        val end = Selection.getSelectionEnd(target).coerceIn(0, target.length)
         when (keyCode) {
-            KeyEvent.KEYCODE_DEL -> {
-                val end = Selection.getSelectionEnd(target).coerceAtLeast(0)
-                if (end > 0) target.delete(Character.offsetByCodePoints(target, end, -1), end)
+            KeyEvent.KEYCODE_DEL -> if (end > 0) target.delete(Character.offsetByCodePoints(target, end, -1), end)
+            KeyEvent.KEYCODE_ENTER -> if (field == Field.TEXT) target.insert(end, "\n")
+            KeyEvent.KEYCODE_DPAD_LEFT -> if (field == Field.TEXT && end > 0) {
+                Selection.setSelection(target, Character.offsetByCodePoints(target, end, -1))
             }
-            KeyEvent.KEYCODE_ENTER -> if (field == Field.TEXT) target.insert(Selection.getSelectionEnd(target).coerceAtLeast(0), "\n")
+            KeyEvent.KEYCODE_DPAD_RIGHT -> if (field == Field.TEXT && end < target.length) {
+                Selection.setSelection(target, Character.offsetByCodePoints(target, end, 1))
+            }
         }
         invalidate()
     }
@@ -140,7 +172,7 @@ class PhraseEditor(
 
         box.set(ink.dp(10f), ink.dp(TITLE_DP), width - ink.dp(10f), height - ink.dp(6f))
         ink.round(canvas, box, 12f, palette.surface)
-        val padding = ink.dp(14f)
+        val padding = ink.dp(TEXT_PADDING_DP)
         val textBottom = box.bottom - ink.dp(fieldsDp)
         if (field == Field.TEXT) {
             rect.set(box.left + ink.dp(4f), box.top + ink.dp(4f), box.right - ink.dp(4f), textBottom)
@@ -148,22 +180,26 @@ class PhraseEditor(
         }
         canvas.save()
         canvas.clipRect(box.left, box.top, box.right, textBottom - ink.dp(18f))
-        val layout = StaticLayout.Builder.obtain(text, 0, text.length, textPaint, (box.width() - padding * 2).toInt().coerceAtLeast(1))
-            .setAlignment(Layout.Alignment.ALIGN_NORMAL)
-            .build()
-        // 字多了让末尾（光标处）留在框里
+        val layout = textLayout()
+        val cursorLine = layout.getLineForOffset(cursor())
+        // 字多了让光标那一行留在框里
         val room = textBottom - ink.dp(18f) - box.top - padding
-        canvas.translate(box.left + padding, box.top + padding - (layout.height - room).coerceAtLeast(0f))
+        textScroll = textScroll
+            .coerceAtLeast(layout.getLineBottom(cursorLine) - room)
+            .coerceAtMost(layout.getLineTop(cursorLine).toFloat())
+            .coerceIn(0f, (layout.height - room).coerceAtLeast(0f))
+        textLeft = box.left + padding
+        textTop = box.top + padding
+        canvas.translate(textLeft, textTop - textScroll)
         if (text.isEmpty()) {
             ink.textStart(canvas, if (clip == null) "在这里输入常用语" else "在这里输入", 15.5f, palette.faint, 0f, ink.dp(10f), box.width())
         } else {
             layout.draw(canvas)
         }
         if (field == Field.TEXT) {
-            val line = layout.getLineForOffset(text.length)
-            val x = layout.getPrimaryHorizontal(text.length)
+            val x = layout.getPrimaryHorizontal(cursor())
             ink.fill.color = palette.brand
-            canvas.drawRect(x, layout.getLineTop(line).toFloat(), x + ink.dp(1.5f), layout.getLineBottom(line).toFloat(), ink.fill)
+            canvas.drawRect(x, layout.getLineTop(cursorLine).toFloat(), x + ink.dp(1.5f), layout.getLineBottom(cursorLine).toFloat(), ink.fill)
         }
         canvas.restore()
         ink.textStart(canvas, "${text.length}/$maxText", 11.5f, palette.gloss, box.right - ink.dp(60f), textBottom - ink.dp(10f), box.right)
@@ -216,16 +252,34 @@ class PhraseEditor(
 
     @SuppressLint("ClickableViewAccessibility")
     override fun onTouchEvent(event: MotionEvent): Boolean {
-        if (event.actionMasked != MotionEvent.ACTION_UP) return true
         val x = event.x
         val y = event.y
+        val inText = y > ink.dp(TITLE_DP) && y < textBottom()
+        when (event.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                draggingCursor = inText && field == Field.TEXT
+                return true
+            }
+            MotionEvent.ACTION_MOVE -> {
+                if (draggingCursor) placeCursor(x, y)
+                return true
+            }
+            MotionEvent.ACTION_UP -> draggingCursor = false
+            else -> {
+                draggingCursor = false
+                return true
+            }
+        }
         when {
             y < ink.dp(TITLE_DP) && x < ink.dp(64f) -> onCancel()
             y < ink.dp(TITLE_DP) && x > width - ink.dp(72f) -> {
                 connection.finishComposingText()
                 onDone(text.toString(), chosenGroup(), code.toString())
             }
-            clip != null -> if (y > ink.dp(TITLE_DP)) focus(Field.TEXT)
+            clip != null -> if (y > ink.dp(TITLE_DP)) {
+                focus(Field.TEXT)
+                placeCursor(x, y)
+            }
             y > height - ink.dp(FIELDS_DP + 6f) && x < width / 2f -> focus(Field.CODE)
             y > height - ink.dp(FIELDS_DP + 6f) && creatingGroup && field != Field.GROUP -> focus(Field.GROUP)
             y > height - ink.dp(FIELDS_DP + 6f) && !creatingGroup && x > width - ink.dp(NEW_GROUP_DP) -> {
@@ -242,10 +296,24 @@ class PhraseEditor(
                     groupIndex = (groupIndex + 1) % groups.size.coerceAtLeast(1)
                 }
             }
-            y > ink.dp(TITLE_DP) -> focus(Field.TEXT)
+            y > ink.dp(TITLE_DP) -> {
+                focus(Field.TEXT)
+                placeCursor(x, y)
+            }
         }
         invalidate()
         return true
+    }
+
+    /** 光标挪到手指处（视图坐标）：落在正文最后一行以下的算最后一行。 */
+    private fun placeCursor(x: Float, y: Float) {
+        if (text.isEmpty()) return
+        onCursorMoved()
+        connection.finishComposingText()
+        val layout = textLayout()
+        val line = layout.getLineForVertical((y - textTop + textScroll).toInt())
+        Selection.setSelection(text, layout.getOffsetForHorizontal(line, x - textLeft))
+        invalidate()
     }
 
     private fun focus(to: Field) {
@@ -260,6 +328,7 @@ class PhraseEditor(
         const val HEIGHT_DP = 190f
         const val TITLE_DP = 48f
         const val FIELDS_DP = 44f
+        const val TEXT_PADDING_DP = 14f
         const val NEW_GROUP_DP = 80f
         const val MAX_GROUP = 8
         const val MAX_TEXT = 500
