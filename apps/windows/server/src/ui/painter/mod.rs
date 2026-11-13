@@ -85,6 +85,7 @@ impl Painter {
                             annotation: annotation.get(),
                         })
                         .with_candidate_weight(settings.candidate_weight)
+                        .with_user_font(!settings.font.is_empty())
                         .with_animations(settings.animations);
                     painter.reverse_above = settings.reverse_above;
                     painter

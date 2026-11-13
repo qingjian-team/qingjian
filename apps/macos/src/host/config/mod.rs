@@ -303,6 +303,7 @@ impl Host {
         self.themes
             .resolve(general.theme_id(), false)
             .with_text_sizes(sizes)
+            .with_user_font(!general.font.trim().is_empty())
             .with_animations(general.animations)
     }
 

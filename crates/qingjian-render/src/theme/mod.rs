@@ -330,6 +330,9 @@ pub struct Theme {
     /// 设置里的候选字字重，盖过主题 `candidate` 样式的；节点上自己写了字重的（键位提示的键帽字）不动。
     candidate_weight: Option<FontWeight>,
 
+    /// 设置里选了字体：主题写死的正文字族让给它（见 [`Theme::with_user_font`]）。
+    user_font: bool,
+
     /// 设置里关了过渡动画时为 `false`：过渡直接跳到终点，循环动画停在第一帧。
     animations: bool,
 }
@@ -375,9 +378,10 @@ impl Theme {
             tracing::warn!(id = file.meta.id, "主题引用有误：{problem}");
         }
         let theme = Self {
-            families: Arc::new(FontFamilies::new(&file.text)),
+            families: Arc::new(FontFamilies::new(&file.text, false)),
             sizes: TextSizes::default(),
             candidate_weight: None,
+            user_font: false,
             animations: true,
             file: Arc::new(file),
             dark,
@@ -406,6 +410,7 @@ impl Theme {
             families: Arc::clone(&self.families),
             sizes: self.sizes,
             candidate_weight: self.candidate_weight,
+            user_font: self.user_font,
             animations: self.animations,
         }
     }
@@ -422,6 +427,19 @@ impl Theme {
     pub fn with_candidate_weight(&self, weight: Option<u16>) -> Self {
         Self {
             candidate_weight: weight.map(FontWeight),
+            ..self.clone()
+        }
+    }
+
+    /// 设置里选了字体时传 `true`（壳已把那个字体登记成 `system`）：主题的缺省字族与候选、注释、序号、拼音的字族都换成它，
+    /// 否则写死了字族的主题（樱花的宋体、大肥鱼的苹方 / 微软雅黑）里选字体没有效果（#957）。
+    pub fn with_user_font(&self, user_font: bool) -> Self {
+        if user_font == self.user_font {
+            return self.clone();
+        }
+        Self {
+            families: Arc::new(FontFamilies::new(&self.file.text, user_font)),
+            user_font,
             ..self.clone()
         }
     }

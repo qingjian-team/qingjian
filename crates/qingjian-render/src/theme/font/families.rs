@@ -8,6 +8,10 @@ use bamboo_slip::{FamilyList, FamilyTable, FontSpec};
 
 use crate::theme::file::{FontStyle, TextSettings};
 
+/// 设置里选了字体时改用它的样式：候选、注释、序号、拼音这些显示输入内容的字。
+/// 标语这类装饰字（樱花的 Georgia 斜体）仍按主题写的字族。
+const USER_FONT_STYLES: [&str; 4] = ["candidate", "annotation", "index", "preedit"];
+
 #[derive(Debug, Default)]
 pub(crate) struct FontFamilies {
     /// 回退链，交给画笔；同一主题的浅色 / 深色共用这一份。
@@ -18,8 +22,13 @@ pub(crate) struct FontFamilies {
 }
 
 impl FontFamilies {
-    pub(crate) fn new(text: &TextSettings) -> Self {
-        let mut table = FamilyTable::new(text.family.clone().unwrap_or_else(FamilyList::system));
+    /// `user_font`：设置里选了字体（壳已把它登记成 `system`），主题的缺省字族与 [`USER_FONT_STYLES`] 都换成它。
+    pub(crate) fn new(text: &TextSettings, user_font: bool) -> Self {
+        let default = match &text.family {
+            Some(family) if !user_font => family.clone(),
+            _ => FamilyList::system(),
+        };
+        let mut table = FamilyTable::new(default);
         // 按样式名排，字族表的顺序（也是壳查字体的顺序）每次加载都一样
         let mut named: Vec<_> = text.styles.iter().collect();
         named.sort_by(|a, b| a.0.cmp(b.0));
@@ -31,10 +40,12 @@ impl FontFamilies {
                     line_height: spec.line_height,
                     weight: spec.weight,
                     italic: spec.style == FontStyle::Italic,
-                    family: spec
-                        .family
-                        .as_ref()
-                        .map_or(bamboo_slip::FamilyId(0), |list| table.intern(list)),
+                    family: match &spec.family {
+                        Some(list) if !(user_font && USER_FONT_STYLES.contains(&name.as_str())) => {
+                            table.intern(list)
+                        }
+                        _ => bamboo_slip::FamilyId(0),
+                    },
                 };
                 (name.clone(), font)
             })
@@ -110,6 +121,33 @@ mod tests {
         assert_eq!(spec.family, theme.font("candidate").family);
         assert!(spec.italic);
         assert_eq!(spec.size, 20.0);
+    }
+
+    /// #957：设置里选了字体，写死字族的主题也换成它；装饰字照旧。
+    #[test]
+    fn user_font_replaces_theme_families_for_text_styles() {
+        let system = |theme: &Theme, name: &str| {
+            let id = theme.font(name).family.0;
+            theme.families().chains()[id as usize].0.clone()
+        };
+        let sakura = Theme::builtin("sakura", false).unwrap();
+        assert_eq!(system(&sakura, "candidate")[0], "Songti SC");
+        let sakura = sakura.with_user_font(true);
+        for name in ["candidate", "annotation", "index", "preedit"] {
+            assert_eq!(system(&sakura, name), ["system"], "{name}");
+        }
+        assert_eq!(system(&sakura, "tagline")[0], "Georgia");
+
+        let dafeiyu = Theme::builtin("dafeiyu", false)
+            .unwrap()
+            .with_user_font(true);
+        assert_eq!(system(&dafeiyu, "candidate"), ["system"]);
+        assert_eq!(system(&dafeiyu, "status"), ["system"]);
+        // 关掉（选回缺省字体）恢复主题的字族
+        assert_eq!(
+            system(&dafeiyu.with_user_font(false), "candidate")[0],
+            "PingFang SC"
+        );
     }
 
     #[test]

@@ -116,6 +116,7 @@ Each kind of text can use a different font, written as `family`; italics are `"s
 ```
 
 - `family` is one font name, or several in order, of which the first installed one is used. `system` means the font chosen under 设置 → 外观 → 字体 (Settings → Appearance → Font) (the system font if none is chosen); it's also used when none of the fonts are installed.
+- When the user picks a font in Settings, it replaces the `family` under `text` and the `family` on `candidate`, `annotation`, `index` and `preedit`; other styles (taglines, decorations) keep what the theme wrote.
 - Write the font family name, the English name shown in the system's font list, such as `Songti SC`, `Microsoft YaHei` or `Georgia`. macOS and Windows have different fonts, so list names for both if it should look good on both.
 - Characters a font doesn't have (such as Chinese characters in an English font) are filled in from the system font automatically.
 - If a font has no italic, the regular style is slanted instead; that's also how italics for Chinese characters are produced.
