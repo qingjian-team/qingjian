@@ -55,6 +55,22 @@ Put a moment after the semicolon to compute that moment instead: `vts;2024-03-04
 
 Only digits and `.` `-` `/` `:` `;` can be typed into the argument; space commits the candidate, so split the parts with one of those symbols. Out-of-range values (`2024.2.30`, `12.9.60`) produce no candidates.
 
+## Bit operations and sub-modes
+
+`v<name>:<statement>`: a name, a colon (half- or full-width; semicolon works too), then the statement.
+
+| Sub-mode | Example | Result |
+|---|---|---|
+| `vbit:` | `vbit:1<<3` | 64-bit signed; gives decimal, hex, binary and Chinese numerals |
+| `vbitu:` | `vbitu:1<<3` | 64-bit unsigned |
+| `vbit8:` `vbit16:` `vbit32:` `vbit64:` `vbit128:` | `vbit8:0xff` | A fixed width, read as two's complement (`vbit8:0xff` is -1) |
+| with a `u` suffix | `vbit8u:0xff`, `vbit128u:not0` | unsigned |
+
+Operators follow C++: `<<` `>>` `&` `|` `^` `~` `%` `+ - * /`, plus the spelled-out `shl` `shr` `and` `or` `xor` `not` (`1shl10`, `0xffand3`). Hex is `0x`, binary is `0b`.
+
+There is no space key in the middle of an input, so operators go right against the numbers.
+
+An unrecognized name (`vfoo:bar`) falls back to the ordinary calculation instead of raising an error.
 ## UUID
 
 `vuuid` gives four candidates: a random UUID v4, a time-ordered v7, and the same v4 in uppercase and without hyphens. Number keys select candidates as usual.
