@@ -8,6 +8,8 @@ pub mod instance;
 #[cfg(windows)]
 mod limit;
 #[cfg(windows)]
+mod listener;
+#[cfg(windows)]
 pub mod pipe;
 mod sessions;
 mod work;

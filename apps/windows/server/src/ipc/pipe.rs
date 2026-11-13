@@ -29,6 +29,7 @@ use qingjian_platform::pipe::{LEGACY_PIPE_SDDL, UserSid, client_is_same_user, pi
 use qingjian_platform::protocol::{ClientMessage, ServerMessage};
 
 use super::limit::ConnectionLimit;
+use super::listener::Listener;
 use super::sessions::ConnectionSessions;
 use super::{Handled, Work};
 use crate::dispatch::Router;
@@ -55,7 +56,7 @@ pub fn serve_pipe(
         Ok(first) => first,
         Err(error) if error.raw_os_error() == Some(ERROR_ACCESS_DENIED.0 as i32) => {
             return Err(io::Error::other(
-                "已有一个 qingjian-server 在运行（命名管道被占），本进程退出",
+                "named pipe already exists (another qingjian-server, or another process holding the name), exiting",
             ));
         }
         Err(error) => return Err(error),
@@ -132,20 +133,6 @@ pub fn serve_pipe(
     Ok(())
 }
 
-/// 一个管道名上的接受循环要用的东西。
-struct Listener {
-    name: String,
-
-    /// 后续实例的安全描述符（SDDL 文本，进了接受线程再转成描述符）。
-    sddl: String,
-
-    /// Server 自己的用户：客户端得是同一个人。
-    me: UserSid,
-
-    /// 新旧两个管道共用一份。
-    limit: Arc<ConnectionLimit>,
-}
-
 /// 先在建好的第一个实例上等客户端，之后每建一个实例、等一个客户端连上，就起一条线程服务它。建实例出错才停。
 /// 同一进程的连接数到了上限，接上就断开。
 fn accept_loop(listener: Listener, first: File, sender: Sender<Work>) {
@@ -201,7 +188,10 @@ fn security_descriptor(sddl: &str) -> PSECURITY_DESCRIPTOR {
         )
     };
     if let Err(error) = converted {
-        tracing::warn!(%error, "构建管道安全描述符失败，退回默认 DACL（UWP 应用可能连不上）");
+        tracing::warn!(
+            %error,
+            "Building the pipe security descriptor failed, falling back to the default DACL (AppContainer apps cannot connect)"
+        );
         return PSECURITY_DESCRIPTOR::default();
     }
     descriptor
@@ -287,7 +277,7 @@ fn serve_connection(mut stream: File, sender: Sender<Work>, me: &UserSid) {
         &mut sessions,
     );
     if let Err(error) = outcome {
-        tracing::warn!(%error, "客户端会话读出错");
+        tracing::warn!(%error, "Reading from the pipe client failed");
     }
     for session in sessions.drain() {
         // 工人线程已经不在了就没人收，丢掉即可
@@ -297,5 +287,5 @@ fn serve_connection(mut stream: File, sender: Sender<Work>, me: &UserSid) {
         ));
     }
     let _ = unsafe { DisconnectNamedPipe(HANDLE(stream.as_raw_handle())) };
-    tracing::debug!("客户端断开");
+    tracing::debug!("Pipe client disconnected");
 }

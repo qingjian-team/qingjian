@@ -1,6 +1,6 @@
 [package]
 name = "qingjian-platform"
-description = "平台相关但不依赖系统 API 的部分：配置文件读写"
+description = "平台层共用：配置文件读写、Server 与各壳之间的协议，Windows 上另有命名管道的名字与身份校验"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
