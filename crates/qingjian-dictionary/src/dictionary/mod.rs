@@ -179,8 +179,8 @@ impl Dictionary {
                 tones.push(tone);
                 first = false;
             }
-            let actual = keys.len() as u32 - rows.last().unwrap().key_start;
-            rows.last_mut().unwrap().key_len = actual as u16;
+            let last = rows.last_mut().unwrap();
+            last.key_len = (keys.len() as u32 - last.key_start) as u16;
         }
         Ok(Self::assemble(texts, keys, rows, &tones))
     }
