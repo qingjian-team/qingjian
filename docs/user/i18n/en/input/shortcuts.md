@@ -71,6 +71,29 @@ Operators follow C++: `<<` `>>` `&` `|` `^` `~` `%` `+ - * /`, plus the spelled-
 There is no space key in the middle of an input, so operators go right against the numbers.
 
 An unrecognized name (`vfoo:bar`) falls back to the ordinary calculation instead of raising an error.
+## Base conversion and statistics
+
+| Sub-mode | Example | Result |
+|---|---|---|
+| `vbase;` | `vbase;128;16` | Reads 128 as decimal, gives hex: `80`, `128(10) = 80(16)`, `0x80` |
+| `vbase;` | `vbase;255;2` | Binary: `11111111`, `0b11111111` |
+| `vstat;` | `vstat;1;2;3;4` | Statistics over a list of numbers |
+
+`vbase` takes the number first and the target base second, bases 2–36. An argument it can't read produces no candidates.
+
+`vstat` gives **plain numbers**, in this order:
+
+```
+mean → median → mode → variance → sample variance → standard deviation → range → min and max → sum → count → sorted list
+```
+
+The mode (absent when every value appears only once) and the sample variance (absent with a single number)
+**take no slot when missing** — later values shift up. So `vstat;1;2;3;4` yields `2.5`, `2.5`, `1.25`,
+`1.666667`… where the third is the variance, not the mode.
+
+**One unreadable argument kills the whole set** (`vstat;1;2;x` won't quietly compute over 1 and 2).
+
+Separate arguments with a semicolon (full-width works too). **Not a comma** — in Chinese mode a comma commits the candidate and never reaches the buffer.
 ## UUID
 
 `vuuid` gives four candidates: a random UUID v4, a time-ordered v7, and the same v4 in uppercase and without hyphens. Number keys select candidates as usual.

@@ -11,11 +11,13 @@
 //! - `vuuid`（全拼下问字键是 `u` 时直接 `uuid`）出 UUID，`vts` 出时间戳（[`generated_forms`]）；值随机或随时间变，
 //!   由 Engine 按组句缓存，不走 [`candidates`]。
 
+mod base;
 mod bitwise;
 mod calendar;
 mod evaluator;
 pub mod modes;
 mod numeral;
+mod stat;
 mod uuid_forms;
 
 use jiff::Zoned;
@@ -93,7 +95,7 @@ pub fn could_be_unicode(body: &str) -> bool {
 /// 字母（`x` 当乘号）本来就能进缓冲区，不在此列。
 pub fn is_expression_char(c: char) -> bool {
     // 分隔符不在这里：冒号分号只在子模式名之后才收（见 Engine::expression_input），
-    // 否则 123 后面敲 ； 会把分号收进缓冲区，候选也跟着没了
+    // 否则 `v123` 后面敲 `；` 会把分号收进缓冲区，候选也跟着没了
     c.is_ascii_digit() || matches!(c, '+' | '-' | '*' | '/' | '(' | ')' | '.' | '^')
 }
 
@@ -216,6 +218,8 @@ fn mode_forms(mode: modes::Mode<'_>) -> Vec<String> {
                 _ => forms,
             }
         }
+        modes::Mode::Base { args } => base::forms(args),
+        modes::Mode::Stat { args } => stat::forms(args),
     }
 }
 /// 单个非负数（`123`、`123.5`）：中文数字在前，金额在后；小数超过两位没有金额写法。
@@ -428,6 +432,23 @@ mod tests {
         assert!(texts("vfoo:bar").is_empty());
         // 不带冒号仍是缺省计算
         assert_eq!(texts("v1+2"), ["3", "1+2=3"]);
+    }
+
+    #[test]
+    fn base_and_stat_submodes() {
+        // 进制转换
+        let hex = texts("vbase;128;16");
+        assert_eq!(hex[0], "80", "{hex:?}");
+        assert!(hex.iter().any(|t| t == "128(10) = 80(16)"), "{hex:?}");
+        assert_eq!(texts("vbase;255;2")[0], "11111111");
+        // 统计：候选项是纯数字，按固定顺序（平均、中位数、众数、方差…）
+        let stat = texts("vstat;1;2;3;4");
+        assert_eq!(stat[0], "2.5", "{stat:?}");
+        assert_eq!(stat[1], "2.5", "{stat:?}");
+        assert!(stat.iter().any(|t| t == "1 2 3 4"), "{stat:?}");
+        // 参数分隔符全角半角都认
+        assert_eq!(texts("vbase；128；16")[0], "80");
+        assert_eq!(texts("vstat；1；2；3；4")[0], "2.5");
     }
 
     #[test]

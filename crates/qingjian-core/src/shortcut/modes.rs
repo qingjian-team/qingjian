@@ -14,6 +14,15 @@
 use crate::shortcut::bitwise::BitWidth;
 use crate::shortcut::{TIMESTAMP_KEYWORD, UUID_KEYWORD};
 
+/// 位运算子模式的名字。`bit` 这一族（`bitu` / `bit8` / `bit128u`）都从它派生。
+pub const BIT_KEYWORD: &str = "bit";
+
+/// 进制转换子模式的名字。
+pub const BASE_KEYWORD: &str = "base";
+
+/// 统计子模式的名字。
+pub const STAT_KEYWORD: &str = "stat";
+
 /// 子模式。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Mode<'a> {
@@ -34,6 +43,18 @@ pub enum Mode<'a> {
         /// 冒号之后的表达式原文。
         body: &'a str,
     },
+
+    /// 进制转换：`vbase;128;16` 把 128 从十进制换成十六进制。
+    Base {
+        /// 冒号之后的参数原文，按分号切开再各自校验。
+        args: &'a str,
+    },
+
+    /// 统计：`vstat;1;2;3` 给个数、和、平均、中位数这些。
+    Stat {
+        /// 冒号之后的参数原文。
+        args: &'a str,
+    },
 }
 
 impl Mode<'_> {
@@ -50,6 +71,10 @@ impl Mode<'_> {
             // 时刻：数字与几种分隔符。空格不行 —— 那是上屏键
             Self::Timestamp { .. } => {
                 c.is_ascii_digit() || matches!(c, '-' | '.' | '/' | ':' | ';' | '；')
+            }
+            // 进制与统计：数字、字母（进制名）、小数、负号与分号
+            Self::Base { .. } | Self::Stat { .. } => {
+                c.is_ascii_alphanumeric() || matches!(c, '.' | '-' | ';' | '；')
             }
             // 位运算照 C++：`<<` `>>` `&` `|` `^` `~` `%`，还有写出来的英文（`shl` `and`）
             Self::Bit { .. } => {
@@ -74,9 +99,9 @@ struct Spec {
 }
 
 /// 全部子模式。加一个在这里登记，`Mode` 与 `mode_forms` 跟上即可。
-const SPECS: [Spec; 3] = [
+const SPECS: [Spec; 5] = [
     Spec {
-        name: "bit",
+        name: BIT_KEYWORD,
         numbered: true,
     },
     Spec {
@@ -85,6 +110,14 @@ const SPECS: [Spec; 3] = [
     },
     Spec {
         name: TIMESTAMP_KEYWORD,
+        numbered: false,
+    },
+    Spec {
+        name: BASE_KEYWORD,
+        numbered: false,
+    },
+    Spec {
+        name: STAT_KEYWORD,
         numbered: false,
     },
 ];
@@ -108,8 +141,24 @@ fn named<'a>(name: &str, rest: &'a str) -> Option<Mode<'a>> {
     if name == TIMESTAMP_KEYWORD {
         return Some(Mode::Timestamp { at: rest.trim() });
     }
+    if name == BASE_KEYWORD {
+        return Some(Mode::Base { args: rest });
+    }
+    if name == STAT_KEYWORD {
+        return Some(Mode::Stat { args: rest });
+    }
     let width = parse_bit_width(name)?;
     Some(Mode::Bit { width, body: rest })
+}
+
+/// 带参数子模式的参数：按分号切，全角也认，空段丢掉。
+///
+/// `vbase;128;16` 与 `vstat;1;2;3` 都走这里，个数由各子模式自己校验。
+pub fn split_args(args: &str) -> Vec<&str> {
+    args.split([';', '；'])
+        .map(str::trim)
+        .filter(|part| !part.is_empty())
+        .collect()
 }
 
 /// `body` 是不是某个子模式名的开头：`b`、`bi`、`bit`、`bit8`、`uu`、`t` 这些。
