@@ -602,6 +602,12 @@ PKG_CONFIG_PATH="$onig" PKG_CONFIG_ALLOW_CROSS=1 RUSTONIG_SYSTEM_LIBONIG=1 \
 - 辅码：`host/aux_code.rs` 按 `AuxCodeSources` 装码表（随包 `Resources/codes/`，bundle.sh 从 `data/generated/codes/` 拷，连同 CNS 署名），`reload_config_if_changed` 顺带比文件快照；
   按键分流在 `imk/controller/text.rs`，规则与 Windows Server 一致（触发键、码段、筛空吞键、辅码态标点先上屏），Esc 在辅码态只清码段；`Row.code` 进渲染器，旧原生候选窗不画码。
 - 日志在 `~/Library/Logs/Qingjian/`（按天分文件留 7 天，删了会重建），用户数据与配置在 `~/Library/Application Support/Qingjian/`。
+  debug 级别的 `surrounding context probe` 记录应用、读取阶段、文档长度（含 `length_unknown`）、选区 / marked 范围、两侧请求范围、读取状态与返回的 UTF-16 长度、耗时，不新增正文记录。
+  `outcome` 区分 `selection_unavailable`、`zero_document_length`、`before_nil`、`after_nil` 与 `ok`；`not_attempted` 表示被早退 / 短路跳过，`empty_range` 表示请求范围为空且未调用子串接口，`value` 也可能是零长度字符串。
+  原有的本地前文读取记为 `before_marked_local`，云联想记为 `after_marked_prediction` / `prediction_manual`；debug 下，联想启用、无本地前文读取且非 Secure Input 时，首键额外读取一次 `before_marked_probe`，只用于比较时机，结果不送入引擎。
+  诊断保留现有范围计算和失败处理；`length_unknown=true` 不代表已修复该情形，`after_nil` 时前文即使成功也仍按原行为丢弃。复测文末 / 文中输入后按应用和阶段检查，恢复 info 即关闭额外探测。
+  旧读取失败时，debug 还会追加 `bounded surrounding context probe`：优先有效非空 marked，否则用有效 selected；不依赖文档总长度，前后分别最多请求 64 / 32 个 UTF-16 单元，通过 `stringFromRange:actualRange:` 独立读取后丢弃。零长度旧 marked 不覆盖当前选区；哨兵值和溢出范围不发请求。
+  新探针分别记录请求 / 实际范围、返回长度、范围合法性、长度是否一致、是否位于请求内和是否接触光标边界。`nil` 与 `empty_value` 分开；范围与长度一致仍不能独立证明正文正确。新探针不替换旧结果、不向模型 / 云请求提供文本、不记录正文；Secure Input 沿用调用处的拦截，info 下不执行探测。
 - 配置项：云联想 `[predict]`（偏好设置「云服务」页有「测试连接」按钮：`qingjian_predict::ConnectionTest` 起线程发一条最小请求，`Host` 用独立定时器 `CloudTestMonitor` 轮询结果显示到窗口底部；
   `reasoning_effort` 缺省 `none`，DeepSeek V4 默认思考，不关正文为空）；模糊音 `[fuzzy]` 默认都关；`[general]` 学习语言（`off` 不显示译文）/ 每页候选数 / 翻页键 / 外观 / 竖排横排 / 拼音显示位置 /
   英文模式候选开关 / 中文优先 `chinese_first` / 中文模式英文词 `english_in_chinese`（`Engine::set_english_in_chinese`）/ emoji 候选 `emoji`（`Engine::set_emoji_limit`）/ 中西文自动空格 `auto_space`（直通字符经 `text.rs` 的 `pass_through`，开着时首键也读光标前文）/ 双拼方案 `shuangpin`（小鹤 / 自然码 / 微软 / 搜狗 / 智能ABC / 小浪 / 首道 / 拼音加加，空为全拼）/ 日志级别 `log_level`（缺省 info 不含敲的内容，debug 逐键记，热切换）/ 输入日志 `input_log`；
