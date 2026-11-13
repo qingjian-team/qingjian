@@ -11,6 +11,10 @@
 #include <sys/un.h>
 #include <unistd.h>
 
+#ifndef FCITX_WARN
+#define FCITX_WARN() FCITX_WARNING()
+#endif
+
 namespace {
 using Clock = std::chrono::steady_clock;
 const char *operationName(const nlohmann::json &message) {
