@@ -102,7 +102,6 @@ fn write_padding(out: &mut impl Write, position: usize) -> Result<(), FormatErro
     Ok(())
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -134,9 +133,14 @@ mod tests {
             assert_eq!(offset % SECTION_ALIGN, 0, "section {k} offset");
             let end = offset + length;
             assert!(end <= buf.len(), "section {k} inside the written bytes");
-            assert!(buf[end..align_up(end)].iter().all(|b| *b == 0), "section {k} padding");
+            assert!(
+                buf[end..align_up(end)].iter().all(|b| *b == 0),
+                "section {k} padding"
+            );
             if k + 1 < count {
-                let next = u64_at(&buf[base + SectionEntry::SIZE + 8..base + SectionEntry::SIZE + 16]) as usize;
+                let next =
+                    u64_at(&buf[base + SectionEntry::SIZE + 8..base + SectionEntry::SIZE + 16])
+                        as usize;
                 assert_eq!(next, align_up(end), "section {} follows the padding", k + 1);
             }
         }
