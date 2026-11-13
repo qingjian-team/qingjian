@@ -51,6 +51,7 @@ $data = @(
     'data\generated\vietnamese.qj',
     'data\generated\vietnamese-chinese.qj',
     'data\generated\dicts\idioms.qj',
+    'data\generated\dicts\general.qj',
     'data\generated\schemes\wubi86.qj',
     'data\generated\codes\*.qj'
 )

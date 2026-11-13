@@ -95,7 +95,7 @@ impl Router {
 
     /// 应用新配置，项目与 `main.rs` 启动时设的一致。
     fn apply_config(&mut self, config: &Config) {
-        self.engine.set_fuzzy(config.fuzzy);
+        self.engine.set_fuzzy(config.fuzzy.clone());
         self.engine.set_shuangpin(config.general.shuangpin());
         self.engine
             .set_shuangpin_raw_preedit(config.general.shuangpin_raw_preedit);

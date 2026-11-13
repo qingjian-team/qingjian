@@ -94,6 +94,7 @@ Source: "{#Repo}\data\generated\english-ipa.qj";        DestDir: "{app}\data\gen
 Source: "{#Repo}\data\generated\vietnamese.qj";         DestDir: "{app}\data\generated"; Flags: ignoreversion
 Source: "{#Repo}\data\generated\vietnamese-chinese.qj"; DestDir: "{app}\data\generated"; Flags: ignoreversion
 Source: "{#Repo}\data\generated\dicts\idioms.qj";        DestDir: "{app}\data\generated\dicts"; Flags: ignoreversion
+Source: "{#Repo}\data\generated\dicts\general.qj";       DestDir: "{app}\data\generated\dicts"; Flags: ignoreversion
 ; 随包形码方案（五笔），Server 的 `dispatch::find_bundled_schemes` 在 data\generated\schemes 找
 Source: "{#Repo}\data\generated\schemes\wubi86.qj";      DestDir: "{app}\data\generated\schemes"; Flags: ignoreversion
 ; —— 随包辅码码表（笔画，开箱可用）：Server 扫 data\generated\codes\；CNS11643 筆順資料派生，署名见「关于」页 ——
@@ -170,7 +171,7 @@ Type: filesandordirs; Name: "{app}\assets\schemes"
 ; 随包音标表的旧位置，现在是 data\generated\english-ipa.qj
 Type: filesandordirs; Name: "{app}\assets\lexicon"
 ; 旧版本随包的领域词库、其他语种释义表与 TSV 词表：现在只随包 dicts.lock 里那几本，别的在设置里下载到用户目录。
-; 先清掉再装，成语词库随后照样装回 dicts\
+; 先清掉再装，成语词库与通用扩展词库随后照样装回 dicts\
 Type: filesandordirs; Name: "{app}\data\generated\dicts"
 Type: files; Name: "{app}\data\generated\glossary-ja.qj"
 Type: files; Name: "{app}\data\generated\glossary-es.qj"
@@ -179,11 +180,16 @@ Type: files; Name: "{app}\data\generated\glossary-de.qj"
 Type: files; Name: "{app}\data\generated\english.tsv"
 Type: files; Name: "{app}\data\generated\vietnamese.tsv"
 Type: files; Name: "{app}\data\generated\vietnamese-zh.tsv"
+; 0.3.3 及更早的 DLL 运行日志逐键记了打的字，新版不再记：升级时删掉旧的，不等它按天过期。
+; 以后的升级也照删，只是丢掉升级前几天的 DLL 排查记录。只清得到运行安装程序的这个用户；升级时还开着的应用里旧 DLL 没退出，当天可能再写一点，按天过期。
+Type: files; Name: "{localappdata}\Qingjian\logs\tsf.*.log"
 
 [UninstallDelete]
 ; 历次升级留下的旧版本 DLL（正常在升级时就删了；仍被占用的会留到这里）。
 Type: files; Name: "{app}\qingjian_tsf-*.dll"
 Type: files; Name: "{app}\qingjian-server.old-*.exe"
+; 运行日志只用来排查问题，卸载后没用了；学习数据与设置在别处，照旧保留。只清得到运行卸载程序的这个用户。
+Type: filesandordirs; Name: "{localappdata}\Qingjian\logs"
 
 [Code]
 function CreateMutex(Attributes: Longint; InitialOwner: BOOL; Name: String): THandle;

@@ -10,10 +10,12 @@ import android.view.View
 import app.qingjian.inputmethod.keyboard.Haptics
 import app.qingjian.inputmethod.panel.PanelActions
 import app.qingjian.inputmethod.theme.Palette
+import kotlin.math.abs
 
 /**
  * 面板的底子：盖住候选条与键盘那一整块。顶上一条与工具栏同高的表头（左边返回、中间页签、右边可选一个图标），
- * 下面由子类画。拖动交给手指落下处的那块 [ScrollState]（横或竖），没拖动就算点。
+ * 下面由子类画。拖动交给手指落下处的那块 [ScrollState]（横或竖），没拖动就算点；
+ * 子类在 [swipeable] 认下的地方，一开始就往横里拖的算横滑（如剪贴板左滑删除），交给 [onSwipe]。
  */
 @SuppressLint("ViewConstructor")
 abstract class PanelView(
@@ -33,6 +35,15 @@ abstract class PanelView(
     private val headerCard = RectF()
     private var dragging: Scrollable? = null
 
+    /** 这根手指拖动的方向还没定（第一下拖动时定）。 */
+    private var undecided = false
+
+    /** 这根手指在横滑。 */
+    private var swiping = false
+
+    /** 横滑松手前往左甩了一下。 */
+    private var flungLeft = false
+
     protected fun scrollable(horizontal: Boolean, contains: (Float, Float) -> Boolean): ScrollState {
         val state = ScrollState(context)
         scrollables += Scrollable(state, horizontal, contains)
@@ -43,10 +54,23 @@ abstract class PanelView(
         override fun onDown(e: MotionEvent): Boolean {
             scrollables.forEach { it.state.stop() }
             dragging = scrollables.firstOrNull { it.contains(e.x, e.y) }
+            undecided = true
+            swiping = false
+            flungLeft = false
             return true
         }
 
         override fun onScroll(e1: MotionEvent?, e2: MotionEvent, dx: Float, dy: Float): Boolean {
+            if (undecided && e1 != null) {
+                undecided = false
+                swiping = abs(e2.x - e1.x) > abs(e2.y - e1.y) && swipeable(e1.x, e1.y)
+                if (swiping) dragging = null
+            }
+            if (swiping && e1 != null) {
+                onSwipe(e2.x - e1.x)
+                invalidate()
+                return true
+            }
             val target = dragging ?: return false
             target.state.drag(if (target.horizontal) dx else dy)
             invalidate()
@@ -54,6 +78,10 @@ abstract class PanelView(
         }
 
         override fun onFling(e1: MotionEvent?, e2: MotionEvent, vx: Float, vy: Float): Boolean {
+            if (swiping) {
+                flungLeft = vx < -ink.dp(FLING_DP) && abs(vx) > abs(vy)
+                return true
+            }
             val target = dragging ?: return false
             target.state.fling(if (target.horizontal) vx else vy)
             postInvalidateOnAnimation()
@@ -82,6 +110,15 @@ abstract class PanelView(
     /** 点了表头的返回：缺省回键盘，从别的面板进来的可以回那个面板。 */
     protected open fun onBack() = actions.closePanel()
 
+    /** 落在 ([x], [y]) 的手指往横里拖时算不算横滑；缺省都不算，横拖照常给横向的 [ScrollState]。 */
+    protected open fun swipeable(x: Float, y: Float) = false
+
+    /** 横滑中：[dx] 是从落指处算起的横向位移（往左为负）。 */
+    protected open fun onSwipe(dx: Float) = Unit
+
+    /** 横滑松手（[flungLeft] 是松手前往左甩了一下）或被系统取消（[cancelled]）。 */
+    protected open fun onSwipeEnd(flungLeft: Boolean, cancelled: Boolean) = Unit
+
     /** 点在返回键以外的地方。 */
     protected abstract fun onTap(x: Float, y: Float)
 
@@ -96,7 +133,16 @@ abstract class PanelView(
     }
 
     @SuppressLint("ClickableViewAccessibility")
-    override fun onTouchEvent(event: MotionEvent): Boolean = gestures.onTouchEvent(event)
+    override fun onTouchEvent(event: MotionEvent): Boolean {
+        val handled = gestures.onTouchEvent(event)
+        val action = event.actionMasked
+        if (swiping && (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL)) {
+            swiping = false
+            onSwipeEnd(flungLeft, cancelled = action == MotionEvent.ACTION_CANCEL)
+            invalidate()
+        }
+        return handled
+    }
 
     /**
      * 表头：与工具栏同样浮起的圆角卡片，和下面的内容分出层次；左边返回（编辑类面板换成品牌色的 [leftIcon]，如完成的对勾），[rightIcon] 画在右边一格
@@ -127,5 +173,8 @@ abstract class PanelView(
 
     protected companion object {
         const val BACK_WIDTH_DP = 56f
+
+        /** 横滑松手时往左甩多快（dp/秒）算甩出去。 */
+        const val FLING_DP = 1000f
     }
 }

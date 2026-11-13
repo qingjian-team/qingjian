@@ -3,9 +3,12 @@
 //!
 //! 声母规则对完整音节和前缀 / 简拼都生效（前缀 `zh` 开了 z/zh 就换成 `z`，它本来就覆盖 `zh`）；
 //! 韵母规则只对完整音节生效：末尾未打完的音节按前缀查，`fen` 自然能出 `feng`。
+//! 用户还能自己加规则（[`CustomRule`]）：声母、韵母或整个音节互换，生效范围同上。
 
+mod custom;
 mod expanded;
 mod rules;
 
+pub use custom::CustomRule;
 pub use expanded::Expanded;
 pub use rules::FuzzyRules;

@@ -10,7 +10,7 @@ import app.qingjian.inputmethod.translate.TranslateBar
 interface FloatingEditor {
     val connection: InputConnection
 
-    /** Composer 不在组句时发来的键（删除、回车）。 */
+    /** Composer 不在组句时发来的键（删除、回车、左右方向键）。 */
     fun onKey(keyCode: Int)
 
     /** 只收字母：键盘换成英文全键盘（九宫格、注音打不出字母）。 */

@@ -21,7 +21,7 @@ use crate::com::key::event::{
     digit_key, is_edit, is_letter, is_mode_letter, is_nav, to_key_event_with_modes,
 };
 use crate::com::key::preserved;
-use crate::com::log::log;
+use crate::com::log::{key_label, log};
 
 impl ITfKeyEventSink_Impl for TextService_Impl {
     /// 失焦：把敲了一半的拼音原样落定（对应 macOS 的 `commitComposition`）。切窗口时这条回调不触发，
@@ -126,9 +126,11 @@ impl TextService_Impl {
     }
 
     fn note_key_down(&self, vk: u32, lparam: LPARAM) {
-        let shift = [VK_SHIFT, VK_LSHIFT, VK_RSHIFT]
-            .iter()
-            .any(|code| vk == u32::from(code.0));
+        let shift = is_shift(vk);
+        // 给 Chromium 系应用挪光标时模拟的 Shift（见 `key::inject`）不是用户按的
+        if shift && self.shared.take_injected_shift() {
+            return;
+        }
         if !shift && self.key_tap.take_pending_shift() && self.mode_state.switch_keys().shift {
             self.commit_pending();
             self.mode_state.switch_chinese_foreign();
@@ -143,11 +145,11 @@ impl TextService_Impl {
         if vk == u32::from(VK_CAPITAL.0) {
             self.mode_state.notify();
         }
+        if is_shift(vk) && self.shared.take_injected_shift() {
+            return;
+        }
         if self.key_tap.key_up(vk, self.mode_state.tap_keys()) {
-            let shift = [VK_SHIFT, VK_LSHIFT, VK_RSHIFT]
-                .iter()
-                .any(|code| vk == u32::from(code.0));
-            if shift {
+            if is_shift(vk) {
                 if !self.mode_state.third_enabled() {
                     if self.mode_state.switch_keys().shift {
                         self.set_english_mode(!self.mode_state.english());
@@ -204,7 +206,7 @@ impl TextService_Impl {
             input.shift_letter_compose,
             input.english_candidates,
         ) || (self.shared.composing()
-            && [input.predict, input.single_chars]
+            && [input.predict, input.single_chars, input.next_word]
                 .into_iter()
                 .flatten()
                 .any(|combo| {
@@ -265,7 +267,9 @@ impl TextService_Impl {
                 Some(_) => {
                     if !self.launch_grace_logged.get() {
                         self.launch_grace_logged.set(true);
-                        log("Server 迟迟未就绪：拉起宽限已过，字母放行（英文直通），连上后恢复");
+                        log(
+                            "server still not ready after the launch grace period: letters pass through until it connects",
+                        );
                     }
                     false
                 }
@@ -274,8 +278,8 @@ impl TextService_Impl {
             let eat = eats_without_server(&event, grace);
             if eat {
                 log(&format!(
-                    "没连上 Server，吃掉 vk={} char={:?}",
-                    event.virtual_key, event.character
+                    "server not connected, key swallowed: {}",
+                    key_label(event.virtual_key, event.character)
                 ));
             }
             return eat;
@@ -316,15 +320,19 @@ impl TextService_Impl {
                 let consumed = matches!(response.outcome, KeyOutcome::Consumed);
                 let m = event.modifiers;
                 log(&format!(
-                    "收键 vk={} ctrl={} alt={} shift={} caps={} en={} char={:?} candidates={} preedit={preedit:?} consumed={consumed}",
-                    event.virtual_key,
+                    "key {} ctrl={} alt={} shift={} caps={} en={} candidates={} preedit_len={} commit_len={} consumed={consumed}",
+                    key_label(event.virtual_key, event.character),
                     m.ctrl,
                     m.alt,
                     m.shift,
                     m.caps,
                     m.english_mode,
-                    event.character,
-                    response.frame.candidates.items.len()
+                    response.frame.candidates.items.len(),
+                    preedit.chars().count(),
+                    response
+                        .commit
+                        .as_deref()
+                        .map_or(0, |text| text.chars().count()),
                 ));
                 Next::Document {
                     commit: response.commit,
@@ -334,11 +342,15 @@ impl TextService_Impl {
                 }
             }
             Ok(KeyReply::NeedSelection { request }) => {
-                log(&format!("翻译选中文字：Server 请读选区 request={request}"));
+                log(&format!(
+                    "translate selection: server asks to read the selection, request={request}"
+                ));
                 Next::ReadSelection { request }
             }
             Err(error) => {
-                log(&format!("转发按键失败，放行并断开，下一键重连: {error}"));
+                log(&format!(
+                    "forwarding the key failed, passing it through and reconnecting on the next key: {error}"
+                ));
                 *guard = None;
                 self.last_connect_failure.set(None);
                 self.shared.end_composing();
@@ -401,6 +413,12 @@ impl TextService_Impl {
             (Next::Abort, _) => false,
         }
     }
+}
+
+fn is_shift(vk: u32) -> bool {
+    [VK_SHIFT, VK_LSHIFT, VK_RSHIFT]
+        .iter()
+        .any(|code| vk == u32::from(code.0))
 }
 
 /// Server 回的数字结果能否在 Test 阶段直接放行（不吃、不 InsertText）。

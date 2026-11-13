@@ -24,11 +24,13 @@ pub enum Shortcut {
     CommitRaw,
     /// 组句时切换单字模式（只在组句时拿走）。
     SingleChars,
+    /// 组句时按词跳（只在组句时拿走）。
+    NextWord,
 }
 
 impl Shortcut {
     #[cfg(test)]
-    pub const ALL: [Self; 10] = [
+    pub const ALL: [Self; 11] = [
         Self::Translation,
         Self::TranslationSecond,
         Self::TranslateSelection,
@@ -39,6 +41,7 @@ impl Shortcut {
         Self::CommitCandidate,
         Self::CommitRaw,
         Self::SingleChars,
+        Self::NextWord,
     ];
 
     pub fn title(self) -> &'static str {
@@ -53,6 +56,7 @@ impl Shortcut {
             Self::CommitCandidate => tr("shortcut.commit_candidate"),
             Self::CommitRaw => tr("shortcut.commit_raw"),
             Self::SingleChars => tr("shortcut.single_chars"),
+            Self::NextWord => tr("shortcut.next_word"),
         }
     }
 
@@ -69,6 +73,7 @@ impl Shortcut {
             Self::CommitCandidate => ("shortcut", "commit_candidate"),
             Self::CommitRaw => ("shortcut", "commit_raw"),
             Self::SingleChars => ("shortcut", "single_chars"),
+            Self::NextWord => ("shortcut", "next_word"),
         }
     }
 
@@ -80,7 +85,8 @@ impl Shortcut {
             | Self::Predict
             | Self::TranslatePanel
             | Self::Clipboard
-            | Self::SingleChars => tr("shortcut.prompt_combo"),
+            | Self::SingleChars
+            | Self::NextWord => tr("shortcut.prompt_combo"),
             Self::AuxCodeKey => tr("shortcut.prompt_symbol"),
             Self::CommitCandidate | Self::CommitRaw => tr("shortcut.prompt_commit"),
         }
@@ -105,6 +111,9 @@ impl Shortcut {
                     .single_chars
                     .unwrap_or(KeyCombo::SINGLE_CHARS_DEFAULT),
             ),
+            Self::NextWord => {
+                combo_label(shortcut.next_word.unwrap_or(KeyCombo::NEXT_WORD_DEFAULT))
+            }
         }
     }
 
@@ -132,6 +141,10 @@ impl Shortcut {
                 .shortcut
                 .single_chars
                 .unwrap_or(KeyCombo::SINGLE_CHARS_DEFAULT),
+            Self::NextWord => config
+                .shortcut
+                .next_word
+                .unwrap_or(KeyCombo::NEXT_WORD_DEFAULT),
             _ => config.shortcut.translate_selection,
         }
     }
@@ -237,7 +250,7 @@ impl Shortcut {
                 }
                 Ok(combo.key_string())
             }
-            Self::SingleChars => {
+            Self::SingleChars | Self::NextWord => {
                 let key = match &press.key {
                     KeyCode::Character(text) => {
                         single(text).filter(|key| key.is_ascii_alphanumeric())
@@ -259,6 +272,12 @@ impl Shortcut {
                     Self::Clipboard,
                 ] {
                     if other.combo(config) == combo {
+                        return Err(tr_args("shortcut.clash", &[("other", &other.title())]));
+                    }
+                }
+                // 两个都只在组句时拿走：单字模式与按词跳不能是同一个键
+                for other in [Self::SingleChars, Self::NextWord] {
+                    if other != self && other.combo(config) == combo {
                         return Err(tr_args("shortcut.clash", &[("other", &other.title())]));
                     }
                 }

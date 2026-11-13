@@ -67,6 +67,7 @@ pub(crate) fn from_candidate(
     Row {
         index: (position + 1).to_string(),
         text: candidate.text.clone(),
+        diff: Vec::new(),
         code,
         annotation,
         cloud: candidate.kind == CandidateKind::Cloud,

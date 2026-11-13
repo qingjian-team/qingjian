@@ -44,7 +44,7 @@
 | `type` | 属性 |
 |---|---|
 | `frame` | `direction`（row / column）、`fill`、`border`、`radius`、`children`；带 `table: { row_height }` 时排成表格 |
-| `text` | `bind` 或 `text`（固定文字）、`font`、`color`、`stroke` |
+| `text` | `bind` 或 `text`（固定文字）、`font`、`color`、`stroke`；绑定候选词 `text` 时可写 `diff`（和首选不一样的字的颜色，不写就整条同色） |
 | `icon` | `icon`（cloud / gear / chevron-left / chevron-right）、`size`、`color`；盒子缺省与图标同大，图标垂直居中 |
 | `preedit` | `font`、`typed` / `rest` / `struck` 三种拼音颜色、`caret: { width, color }`、`stroke` |
 | `annotation` | `bind`、`font`、`gloss` / `fresh` / `faint` 三种颜色（`pos`、`separator` 可单独写，缺省同 `faint`）、`tones`（只画哪几种片段）、`senses`（只画前几个义项）、`stroke` |
@@ -99,13 +99,17 @@
 - **伸出窗口的装饰**：负 `inset` 的绝对定位节点（`"inset": [-24, -24, "auto", "auto"]`）。布局后把所有自己画东西的节点（连同投影、描边）并成画出范围，位图按它开，
   根节点的盒子是内容区（`Rendered::content_*`）；壳照旧按内容区对齐光标、夹进屏幕，装饰可以伸到屏幕外。
   鼠标整个穿透：mac 面板本来就 `ignoresMouseEvents`，Windows 候选窗加 `WS_EX_TRANSPARENT`。
-- **系统材质**：顶层 `material` 写了、壳又声明垫得了（`Renderer::set_material_support`，现在只有 mac）时，窗口根节点的 `fill` 换成 `tint`（不写不着色）、
+- **系统材质**：顶层 `material` 写了、壳又声明垫得了（`Renderer::set_material_support`，mac 与 Windows 11）时，窗口根节点的 `fill` 换成 `tint`（不写不着色）、
   根节点不画 `effects`，位图不再为投影留边；`Rendered::material` 给出种类与根节点圆角（像素），壳在内容区底下垫系统视图、按圆角裁，阴影交给系统按窗口形状算。
   mac：面板的内容视图是个容器，材质视图在候选视图下面（`candidates/backdrop.rs`）；`glass` 用 macOS 26 的 `NSGlassEffectView`，没有这个类时与 `blur` 一样用
   `NSVisualEffectView`（弹出层材质、窗口后面混合、常亮，圆角靠九宫格遮罩图）；每帧 `invalidateShadow`。
   新玻璃会随背后内容变深变浅并改它里面视图的外观。`appearance` 为 `auto`（`glass` 的缺省；且主题没锁定外观）时玻璃里放一个不画东西的探针视图，候选视图按探针的深浅取主题、它一变就重画，文字因此跟着反色；
   否则文字照常跟系统，材质视图的外观钉在锁定的外观或系统外观上（`MaterialBacking::follows_backdrop` / `locked_dark`）；
   新玻璃不认设给它的外观（macOS 26.6 实测压在深色背景上照样变深），这时 `glass` 换成毛玻璃。垫不了的壳照旧画 `fill` 与投影，所以 `fill` 要写成不透明的兜底。
+  Windows（`ui/layered/backdrop/`）：分层窗口用 `SetWindowCompositionAttribute` 开亚克力，`glass` 与 `blur` 一样；模糊铺满整个窗口矩形、不认 `SetWindowRgn`，
+  只有 DWM 的窗口圆角（`DWMWCP_ROUND`，定死约 8 点）裁得动它并给出阴影，所以壳用 `Renderer::set_material_corner_radius` 让根节点改用这个圆角、描边与裁出的形状对齐，DWM 自己的边框关掉。
+  探测靠设 `DWMWA_WINDOW_CORNER_PREFERENCE` 成不成功：Windows 10 不认，垫上会是直角模糊块，所以不垫；用户关了「透明效果」（`EnableTransparency`）也不垫。
+  亚克力跟不了背后内容的深浅，文字跟系统外观（或主题锁定的外观），着色按深浅取壳里的近白 / 深灰。
 - **锁定外观**：`meta.appearance` 写了就不跟随外观设置切换；用浅色图片做底的主题要锁浅色。
 
 ### 文字
@@ -183,6 +187,6 @@ theme.json + Frame 数据
 - 状态条的节点树画法不播动画；mac 没有悬浮状态条（菜单栏图标），主题的状态条只在 Windows 上显示。
 - 图片是 PNG 与 SVG；SVG 里的文字、内嵌位图不画；没有 APNG 帧动画。
 - 没有窗口出现 / 消失动画、混合模式、图层模糊、渐变字、变体覆盖（用 `when` 分支与条件颜色代替）。
-- 背景毛玻璃只有 macOS 有（`material`，壳垫系统视图）；Windows 与预览图照旧画 `fill`。
+- 背景毛玻璃只有 macOS 与 Windows 11 有（`material`，壳垫系统材质）；Windows 10 与预览图照旧画 `fill`。
 - 主题只能以目录形式安装，`extends` 只能继承内置主题。
 - Linux 上候选窗由 Fcitx5 / IBus 画，主题不生效。

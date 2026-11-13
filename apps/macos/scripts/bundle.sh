@@ -106,7 +106,7 @@ cp assets/levels/levels-*.tsv "$APP/Contents/Resources/"
 if [[ "$SAMPLE_DATA" == 0 ]]; then
   # 语言模型按 models.lock 从模型仓库取（data-fetch.sh）
   cp data/generated/lm.qj "$APP/Contents/Resources/"
-  # 随包词库（基础词库、成语词库、英文词表与音标表、英语与中文释义表、越南语词表与对照、五笔与笔画码表）：dicts.lock 里列的逐本拷，附加词库放 Resources/dicts/、形码方案放 Resources/schemes/、辅码码表放 Resources/codes/。
+  # 随包词库（基础词库、通用扩展词库、成语词库、英文词表与音标表、英语与中文释义表、越南语词表与对照、五笔与笔画码表）：dicts.lock 里列的逐本拷，附加词库放 Resources/dicts/、形码方案放 Resources/schemes/、辅码码表放 Resources/codes/。
   # 别的词库与释义表在设置里下载到用户目录，不随包
   while read -r _ _ _ installed; do
     mkdir -p "$(dirname "$APP/Contents/Resources/$installed")"

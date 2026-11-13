@@ -46,6 +46,12 @@ impl KeyCombo {
         key: 'd',
     };
 
+    /// 按词跳：Ctrl + V，只在组句时拿走（组句中粘贴会粘到拼音后面，用不上）。
+    pub const NEXT_WORD_DEFAULT: Self = Self {
+        modifiers: Modifiers::CONTROL,
+        key: 'v',
+    };
+
     pub const PREDICT_DEFAULT: Self = Self {
         key: 'j',
         ..Self::TRANSLATE_DEFAULT

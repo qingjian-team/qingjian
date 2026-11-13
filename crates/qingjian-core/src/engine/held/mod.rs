@@ -1,6 +1,7 @@
 //! 分几次选完一段拼音时，前面选好的词先留在组句里不上屏：显示在拼音前面，整段选完或回车时一起交给应用；
 //! 退格先撤回最后一次选择，把那段拼音接回来重选，全部撤回后才删字母。
 
+mod next_word;
 mod selection;
 
 pub(super) use selection::HeldSelection;

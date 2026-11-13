@@ -171,6 +171,7 @@
   - [ ] 小键盘数字：macOS、Linux
   - [ ] 双拼候选窗显示按键：Linux
   - [ ] 组句时切换单字模式：macOS、Linux
+  - [ ] 组句时按词跳：macOS、Linux
   - [ ] 候选字粗细：macOS
   - [ ] 成对符号自动补全：macOS、Linux
   - [ ] 竖排在光标上方时倒着排：macOS

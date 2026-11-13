@@ -101,3 +101,57 @@ fn write_padding(out: &mut impl Write, position: usize) -> Result<(), FormatErro
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn align_up_rounds_to_section_align() {
+        assert_eq!(align_up(0), 0);
+        assert_eq!(align_up(1), SECTION_ALIGN);
+        assert_eq!(align_up(SECTION_ALIGN), SECTION_ALIGN);
+        assert_eq!(align_up(SECTION_ALIGN + 1), SECTION_ALIGN * 2);
+    }
+
+    #[test]
+    fn section_offsets_are_aligned_and_padding_is_zero() {
+        let mut buf = Vec::new();
+        Writer::new(Kind::Dictionary, &Metadata::default())
+            .unwrap()
+            .section(*b"ABCD", b"123")
+            .section(*b"EFGH", b"456789")
+            .write(&mut buf)
+            .unwrap();
+        let u64_at = |b: &[u8]| u64::from_le_bytes(b.try_into().unwrap());
+        let count = u32::from_le_bytes(buf[12..16].try_into().unwrap()) as usize;
+        assert_eq!(count, 3);
+        for k in 0..count {
+            let base = Header::SIZE + k * SectionEntry::SIZE;
+            let offset = u64_at(&buf[base + 8..base + 16]) as usize;
+            let length = u64_at(&buf[base + 16..base + 24]) as usize;
+            assert_eq!(offset % SECTION_ALIGN, 0, "section {k} offset");
+            let end = offset + length;
+            assert!(end <= buf.len(), "section {k} inside the written bytes");
+            assert!(
+                buf[end..align_up(end)].iter().all(|b| *b == 0),
+                "section {k} padding"
+            );
+            if k + 1 < count {
+                let next =
+                    u64_at(&buf[base + SectionEntry::SIZE + 8..base + SectionEntry::SIZE + 16])
+                        as usize;
+                assert_eq!(next, align_up(end), "section {} follows the padding", k + 1);
+            }
+        }
+    }
+
+    #[test]
+    #[should_panic(expected = "duplicate section tag")]
+    fn duplicate_tags_are_rejected() {
+        let _ = Writer::new(Kind::Dictionary, &Metadata::default())
+            .unwrap()
+            .section(*b"ABCD", b"1")
+            .section(*b"ABCD", b"2");
+    }
+}

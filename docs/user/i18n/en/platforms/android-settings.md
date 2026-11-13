@@ -39,7 +39,7 @@ The right side of each row shows the current setting, such as the input method o
 
 - **中文输入方案 (Chinese input method)**: pinyin 26-key, 9-key, double pinyin, Wubi or Zhuyin; tap a tile to switch. With double pinyin you can choose the scheme and turn off the small initials and finals on the keys; with Wubi you can mix in pinyin. English always uses the full keyboard.
 - **拼音 (Pinyin)**:
-  - Fuzzy pinyin: z = zh, c = ch, s = sh, n = l, f = h, l = r, an = ang, en = eng and in = ing are available; see [Pinyin schemes and fuzzy pinyin](../input/fuzzy-and-shuangpin.md#Fuzzy-pinyin). Not yet supported on the 9-key keypad.
+  - Fuzzy pinyin: z = zh, c = ch, s = sh, n = l, f = h, l = r, an = ang, en = eng, in = ing and eng = ong are available; see [Pinyin schemes and fuzzy pinyin](../input/fuzzy-and-shuangpin.md#Fuzzy-pinyin). Not yet supported on the 9-key keypad; custom rules are desktop-only for now.
   - Spelling correction: when you mistype pinyin, corrected candidates are offered; when what you typed still reads as valid pinyin, corrections only come later as alternatives. On by default; it's the same setting as 输入 → 纠错 (Input → Correction) on desktop.
   - Keep partial picks until done: on by default; when off, each pick is committed immediately.
   - 上屏后联想 (Suggest the next word): after you pick a word, the candidate bar offers words likely to follow it, committed with a tap; on by default.

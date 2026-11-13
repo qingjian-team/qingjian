@@ -103,7 +103,7 @@ val stageData by tasks.registering(Sync::class) {
     if (hasGenerated) {
         // 随包词库按 tools/release/dicts.lock 从词库仓库取（data-fetch.sh 解到 data/generated/）；安卓没有越南语输入，不带越南语两本。
         // 其他释义表与领域词库在设置里下载
-        from(generated) { include("dict.qj", "lm.qj", "glossary-en.qj", "glossary-zh.qj", "english.qj", "dicts/idioms.qj") }
+        from(generated) { include("dict.qj", "lm.qj", "glossary-en.qj", "glossary-zh.qj", "english.qj", "dicts/idioms.qj", "dicts/general.qj") }
         // 五笔码表（形码方案用，与 PC 随包的同一本），放在数据目录顶层
         from(generated.resolve("schemes")) { include("wubi86.qj") }
     } else {

@@ -223,6 +223,38 @@ fn per_scheme_code_rules_go_into_nested_sections() {
 }
 
 #[test]
+fn setters_keep_the_rest_of_an_inline_table_section() {
+    // 手写的配置可以把分节写成行内表，加载时照样认；改其中一个键不能把同节其余的键清掉。
+    let path = std::env::temp_dir().join("qingjian-config-inline-section-test.toml");
+    std::fs::write(
+        &path,
+        "general = { page_size = 7 }\nfuzzy = { z_zh = true, n_l = true }\ncode = { wubi86 = { auto_commit = true } }\n",
+    )
+    .unwrap();
+    Config::set_bool(&path, "fuzzy", "an_ang", true).unwrap();
+    Config::set_value(&path, "general", "appearance", "dark").unwrap();
+    Config::set_value(&path, "code.wubi86", "top", true).unwrap();
+    let config = Config::load(&path).unwrap();
+    assert_eq!(config.general.page_size, 7);
+    assert_eq!(config.general.appearance(), Appearance::Dark);
+    assert!(config.fuzzy.z_zh && config.fuzzy.n_l && config.fuzzy.an_ang);
+    assert_eq!(
+        config.code_rules("wubi86"),
+        CodeRules {
+            auto_commit: Some(true),
+            top: Some(true),
+        }
+    );
+    // 改过的分节照旧写成标准表。
+    let text = std::fs::read_to_string(&path).unwrap();
+    assert!(
+        text.contains("[fuzzy]") && text.contains("[code.wubi86]"),
+        "{text}"
+    );
+    let _ = std::fs::remove_file(&path);
+}
+
+#[test]
 fn set_bool_keeps_comments_and_flips_only_that_key() {
     let path = std::env::temp_dir().join("qingjian-config-set-bool-test.toml");
     std::fs::write(

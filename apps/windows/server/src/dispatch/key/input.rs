@@ -43,6 +43,21 @@ impl Router {
         {
             return Effect::Changed(None);
         }
+        if self.composing()
+            && self.config.next_word.is_some_and(|combo| {
+                event.virtual_key == combo.key.to_ascii_uppercase() as u32
+                    && event.modifiers.chord() == combo.modifiers.into()
+            })
+        {
+            // 跳不动（首选不是整句）也吃掉：组句中粘贴会粘到拼音后面
+            let Some(lead) = self.layout_candidate(0) else {
+                return Effect::Navigated;
+            };
+            return match self.engine.hold_next_word(&lead) {
+                Some(text) => Effect::Changed((!text.is_empty()).then_some(text)),
+                None => Effect::Navigated,
+            };
+        }
         if let Some(effect) = self.apply_commit_key(event) {
             return effect;
         }

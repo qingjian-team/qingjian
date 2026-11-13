@@ -2,20 +2,26 @@
 
 use bamboo_slip::taffy::LengthPercentage;
 use bamboo_slip::taffy::{Dimension, FlexDirection, FlexWrap, NodeId, Rect, Size, Style};
-use bamboo_slip::{Checkbox, RenderError, SettingRow, Switch, Ui, Visual, group, section_title};
+use bamboo_slip::{
+    Checkbox, RenderError, SettingRow, Switch, TextField, Ui, Visual, group, section_title,
+};
 use qingjian_core::FuzzyRules;
 use qingjian_platform::{KeyHintMode, Scheme, code_schemes, code_tables};
 
 use super::shortcuts;
 use crate::i18n::{tr, tr_args};
 use crate::library::Kind;
-use crate::message::{Message, Popup};
+use crate::message::{FieldId, Message, Popup};
 use crate::shortcut::Shortcut;
 use crate::support::Feature;
 use crate::view::Page;
+use crate::view::parts::actions::with_notice;
 use crate::view::parts::controls::{percent_slider, select, toggle_info, toggle_with};
 use crate::view::parts::lists::{entry_row, import_row};
 use crate::view::parts::menus::{code_options, scheme_options};
+
+/// 自定义模糊音输入框的宽：放得下三四条规则。
+const FUZZY_CUSTOM_WIDTH: f32 = 220.0;
 
 pub fn input(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderError> {
     let theme = &page.theme;
@@ -167,8 +173,9 @@ pub fn input(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderErr
     // 拼音关着时模糊音没有意义
     let pinyin_off = scheme == Scheme::Off;
     let fuzzy = fuzzy(ui, page, pinyin_off)?;
+    let custom = fuzzy_custom(ui, page)?;
     out.push(section_title(ui, theme, tr("input.section_fuzzy"))?);
-    out.push(group(ui, theme, &[fuzzy])?);
+    out.push(group(ui, theme, &[fuzzy, custom])?);
 
     let correction = toggle_info(
         ui,
@@ -332,29 +339,41 @@ fn aux_scheme(ui: &mut Ui<Message>, page: &Page) -> Result<NodeId, RenderError> 
         .build(ui, &page.theme)
 }
 
-/// 九个勾选排成三列。
+/// 内置规则与自定义规则的勾选排成三列；自定义的勾掉是记进 `custom_off`，规则本身还在。
 fn fuzzy(ui: &mut Ui<Message>, page: &Page, disabled: bool) -> Result<NodeId, RenderError> {
     let rules = &page.settings.config.fuzzy;
-    let on = [
-        rules.z_zh,
-        rules.c_ch,
-        rules.s_sh,
-        rules.n_l,
-        rules.f_h,
-        rules.l_r,
-        rules.an_ang,
-        rules.en_eng,
-        rules.in_ing,
-    ];
+    let mut boxes = Vec::new();
+    for key in FuzzyRules::NAMES {
+        let on = rules.is_on(key);
+        let checkbox = Checkbox::new(on, &FuzzyRules::label(key))
+            .disabled(disabled)
+            .build(
+                ui,
+                &page.theme,
+                ("fuzzy", key),
+                Message::set("fuzzy", key, !on),
+            )?;
+        boxes.push(checkbox);
+    }
+    for rule in &rules.custom {
+        let on = !rules.custom_off.contains(rule);
+        let off: Vec<&String> = if on {
+            rules.custom_off.iter().chain([rule]).collect()
+        } else {
+            rules.custom_off.iter().filter(|r| *r != rule).collect()
+        };
+        let checkbox = Checkbox::new(on, &FuzzyRules::label(rule))
+            .disabled(disabled)
+            .build(
+                ui,
+                &page.theme,
+                ("fuzzy-custom", rule.as_str()),
+                Message::set("fuzzy", "custom_off", toml_edit::Array::from_iter(off)),
+            )?;
+        boxes.push(checkbox);
+    }
     let mut cells = Vec::new();
-    for (key, on) in FuzzyRules::NAMES.into_iter().zip(on) {
-        let label = FuzzyRules::label(key);
-        let checkbox = Checkbox::new(on, &label).disabled(disabled).build(
-            ui,
-            &page.theme,
-            ("fuzzy", key),
-            Message::set("fuzzy", key, !on),
-        )?;
+    for checkbox in boxes {
         cells.push(ui.scene().node(
             Style {
                 size: Size {
@@ -386,6 +405,27 @@ fn fuzzy(ui: &mut Ui<Message>, page: &Page, disabled: bool) -> Result<NodeId, Re
         Visual::Group,
         &cells,
     )
+}
+
+/// 自定义模糊音：几条 `音=音` 空格隔开，回车或失焦存；认不出的在下面提示。
+fn fuzzy_custom(ui: &mut Ui<Message>, page: &Page) -> Result<NodeId, RenderError> {
+    let id = FieldId::FuzzyCustom;
+    let row = SettingRow::new(tr("input.fuzzy_custom")).info(tr("input.fuzzy_custom_info"));
+    let Some(edit) = page.settings.fields.get(&id) else {
+        return row.build(ui, &page.theme);
+    };
+    let input = TextField::new(edit)
+        .placeholder("ian=iang fa=hua")
+        .width(FUZZY_CUSTOM_WIDTH)
+        .build(
+            ui,
+            &page.theme,
+            ("field", id),
+            move |edit| Message::Edit(id, edit),
+            Some(Message::Commit(id)),
+            Some(Message::Cancel(id)),
+        )?;
+    with_notice(ui, page, row.control(input), "fuzzy-custom")
 }
 
 /// 当前形码方案的一条按键规则开关，写进 `[code.<id>]`。

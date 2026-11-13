@@ -18,7 +18,7 @@ const MAX_PATHS: usize = 8;
 impl Layout {
     /// 混输解码：纯双拼、整段全拼、以及两者在音节边界上交替的读法，按这个顺序返回（都解不动的尾巴留在各自结果里）。
     /// 纯双拼那条与 `decode_fuzzy` 完全相同，混输关掉时行为不变。
-    pub fn decode_mixed(&self, keys: &str, fuzzy: FuzzyRules) -> Vec<Decoded> {
+    pub fn decode_mixed(&self, keys: &str, fuzzy: &FuzzyRules) -> Vec<Decoded> {
         let mut readings = vec![self.decode_fuzzy(keys, fuzzy)];
         if let Some(full) = full_pinyin(keys) {
             push_reading(&mut readings, full);
@@ -30,7 +30,7 @@ impl Layout {
     }
 
     /// 在音节边界上交替的读法：每一位都可以按双拼两键切，也可以按全拼一到六个字母切。
-    fn hybrids(&self, keys: &str, fuzzy: FuzzyRules) -> Vec<Decoded> {
+    fn hybrids(&self, keys: &str, fuzzy: &FuzzyRules) -> Vec<Decoded> {
         let chars: Vec<char> = keys.chars().collect();
         let mut states: Vec<Vec<Vec<Unit>>> = vec![Vec::new(); chars.len() + 1];
         states[0].push(Vec::new());
@@ -179,7 +179,7 @@ mod tests {
 
     #[test]
     fn keeps_the_pure_shuangpin_reading_first() {
-        let readings = Scheme::Xiaohe.decode_mixed("nihc", FuzzyRules::default());
+        let readings = Scheme::Xiaohe.decode_mixed("nihc", &FuzzyRules::default());
         assert_eq!(pinyins(&readings)[0], "ni'hao");
         assert!(readings[0].is_complete());
     }
@@ -189,7 +189,7 @@ mod tests {
         // `nihc` 按全拼只能读成 ni'h'c 这种一串声母（简拼），不能算第二种读法，
         // 否则 你还吃 会把 你好 挤下去；`dajx` 同理（打鸡血 vs 大家）。
         for keys in ["nihc", "dajx", "womf"] {
-            let readings = Scheme::Xiaohe.decode_mixed(keys, FuzzyRules::default());
+            let readings = Scheme::Xiaohe.decode_mixed(keys, &FuzzyRules::default());
             assert_eq!(
                 pinyins(&readings).len(),
                 1,
@@ -201,21 +201,21 @@ mod tests {
 
     #[test]
     fn adds_the_full_pinyin_reading() {
-        let readings = Scheme::Xiaohe.decode_mixed("nihao", FuzzyRules::default());
+        let readings = Scheme::Xiaohe.decode_mixed("nihao", &FuzzyRules::default());
         assert!(pinyins(&readings).contains(&"ni'hao".to_owned()));
     }
 
     #[test]
     fn mixes_readings_inside_one_input() {
         // 前半双拼（wo、de 正好也像全拼）、后半只可能是全拼（ming zi）
-        let readings = Scheme::Xiaohe.decode_mixed("wodemingzi", FuzzyRules::default());
+        let readings = Scheme::Xiaohe.decode_mixed("wodemingzi", &FuzzyRules::default());
         assert!(pinyins(&readings).contains(&"wo'de'ming'zi".to_owned()));
     }
 
     #[test]
     fn readings_are_unique_and_bounded() {
         let readings =
-            Scheme::Xiaohe.decode_mixed("zhonghuarenmingongheguo", FuzzyRules::default());
+            Scheme::Xiaohe.decode_mixed("zhonghuarenmingongheguo", &FuzzyRules::default());
         let mut unique = pinyins(&readings);
         let count = unique.len();
         unique.sort();

@@ -200,7 +200,10 @@ fn follow_panel_preedit(context: &PollContext, frame: &Frame) {
 /// 鼠标点候选窗口上屏：与按键结果一样经异步编辑会话写进文档，剩下的拼音接着组句。
 fn commit_clicked(context: &PollContext, frame: &Frame, commit: String) {
     let Some(document) = context.shared.last_context() else {
-        log(&format!("点击上屏没有上下文，丢弃: {commit:?}"));
+        log(&format!(
+            "clicked commit has no context, dropped {} chars",
+            commit.chars().count()
+        ));
         return;
     };
     // 「只在候选窗口」模式应用里不放行内拼音，与按键路径一致
@@ -214,7 +217,11 @@ fn commit_clicked(context: &PollContext, frame: &Frame, commit: String) {
         .shared
         .candidate_list()
         .show(frame, context.shared.last_context().as_ref());
-    log(&format!("点击上屏: {commit:?} preedit={preedit:?}"));
+    log(&format!(
+        "clicked commit: {} chars, preedit_len={}",
+        commit.chars().count(),
+        preedit.chars().count()
+    ));
     if let Err(error) = request_update(
         &document,
         context.client_id,
@@ -224,7 +231,9 @@ fn commit_clicked(context: &PollContext, frame: &Frame, commit: String) {
         preedit,
         None,
     ) {
-        log(&format!("点击上屏的编辑会话没被受理: {error}"));
+        log(&format!(
+            "edit session for the clicked commit was rejected: {error}"
+        ));
     }
 }
 

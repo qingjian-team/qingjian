@@ -43,6 +43,57 @@ Start with `v`:
 
 `vts` gives four candidates: Unix seconds, UTC in RFC 3339 (`2026-09-03T11:06:23Z`), Unix milliseconds and ISO 8601 with your time zone (`2026-09-03T19:06:23+08:00`). Number keys select candidates as usual; the values are taken when you type `vts` and don't change before you pick one.
 
+Put a moment after the semicolon to compute that moment instead: `vts;2024-03-04` is local midnight that day, `vts;2024-03-04.12:09:38` is that instant. The separators `.` `-` `/` `:` are all accepted and can be mixed; **the number of parts sets the precision**:
+
+| Parts | Example | Meaning |
+|---|---|---|
+| 3 | `vts;2024.3.4` | date (local midnight) |
+| 4 | `vts;2024.3.4.12` | down to the hour |
+| 5 | `vts;2024.3.4.12.9` | down to the minute |
+| 6 | `vts;2024.3.4.12.9.59` | down to the second |
+| 7 | `vts;2024.3.4.12.9.59.383` | down to the millisecond |
+
+Only digits and `.` `-` `/` `:` `;` can be typed into the argument; space commits the candidate, so split the parts with one of those symbols. Out-of-range values (`2024.2.30`, `12.9.60`) produce no candidates.
+
+## Bit operations and sub-modes
+
+`v<name>:<statement>`: a name, a colon (half- or full-width; semicolon works too), then the statement.
+
+| Sub-mode | Example | Result |
+|---|---|---|
+| `vbit:` | `vbit:1<<3` | 64-bit signed; gives decimal, hex, binary and Chinese numerals |
+| `vbitu:` | `vbitu:1<<3` | 64-bit unsigned |
+| `vbit8:` `vbit16:` `vbit32:` `vbit64:` `vbit128:` | `vbit8:0xff` | A fixed width, read as two's complement (`vbit8:0xff` is -1) |
+| with a `u` suffix | `vbit8u:0xff`, `vbit128u:not0` | unsigned |
+
+Operators follow C++: `<<` `>>` `&` `|` `^` `~` `%` `+ - * /`, plus the spelled-out `shl` `shr` `and` `or` `xor` `not` (`1shl10`, `0xffand3`). Hex is `0x`, binary is `0b`.
+
+There is no space key in the middle of an input, so operators go right against the numbers.
+
+An unrecognized name (`vfoo:bar`) falls back to the ordinary calculation instead of raising an error.
+## Base conversion and statistics
+
+| Sub-mode | Example | Result |
+|---|---|---|
+| `vbase;` | `vbase;128;16` | Reads 128 as decimal, gives hex: `80`, `128(10) = 80(16)`, `0x80` |
+| `vbase;` | `vbase;255;2` | Binary: `11111111`, `0b11111111` |
+| `vstat;` | `vstat;1;2;3;4` | Statistics over a list of numbers |
+
+`vbase` takes the number first and the target base second, bases 2–36. An argument it can't read produces no candidates.
+
+`vstat` gives **plain numbers**, in this order:
+
+```
+mean → median → mode → variance → sample variance → standard deviation → range → min and max → sum → count → sorted list
+```
+
+The mode (absent when every value appears only once) and the sample variance (absent with a single number)
+**take no slot when missing** — later values shift up. So `vstat;1;2;3;4` yields `2.5`, `2.5`, `1.25`,
+`1.666667`… where the third is the variance, not the mode.
+
+**One unreadable argument kills the whole set** (`vstat;1;2;x` won't quietly compute over 1 and 2).
+
+Separate arguments with a semicolon (full-width works too). **Not a comma** — in Chinese mode a comma commits the candidate and never reaches the buffer.
 ## UUID
 
 `vuuid` gives four candidates: a random UUID v4, a time-ordered v7, and the same v4 in uppercase and without hyphens. Number keys select candidates as usual.

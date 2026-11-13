@@ -18,7 +18,7 @@ use std::sync::OnceLock;
 
 use qingjian_core::{
     CandidateList, Engine, NoTranscriber, RomajiComposer, ShapeDecoder, SurroundingText,
-    SwipeDecoder, SwipeLexicon, TraditionalVariant, Transcriber,
+    SwipeDecoder, SwipeLexicon, TraditionalVariant, Transcriber, differs_from_lead,
 };
 
 use crate::frame::{Frame, FrameCandidate};
@@ -230,8 +230,14 @@ impl Session {
                 .items
                 .iter()
                 .map(|candidate| {
+                    let diff = self
+                        .candidates
+                        .items
+                        .first()
+                        .map_or_else(Vec::new, |lead| differs_from_lead(lead, candidate));
                     FrameCandidate::from(candidate)
                         .with_contact(self.engine.is_contact(&candidate.text))
+                        .with_diff(diff)
                 })
                 .collect(),
             expression: self.engine.expression_mode() || self.engine.unicode_entry(),

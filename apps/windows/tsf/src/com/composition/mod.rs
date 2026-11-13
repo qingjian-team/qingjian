@@ -2,6 +2,7 @@
 //! 只放最朴素的一行拼音；富样式的拼音行在候选窗口里另画。所有写操作都在异步读写编辑会话里做（理由见 `edit_session`）。
 
 mod caret;
+mod control;
 mod shared;
 mod sink;
 
@@ -20,6 +21,7 @@ use qingjian_platform::protocol::{CaretEdit, Frame, PreeditKind};
 pub(crate) use self::shared::Shared;
 use self::sink::CompositionSink;
 use super::edit::{InputContext, caret_rect, input_context, measured_rect, mouse_screen_rect};
+use super::key::inject::{caret_by_keys, press_arrow, transitory};
 use super::service::SharedClient;
 
 /// 内联要显示的拼音行（跳过被纠错划掉的原字母）；空串表示没有组句内容。
@@ -51,8 +53,10 @@ pub(crate) fn apply(
             if !head.is_empty() || shared.has_composition() {
                 commit_text(shared, context, ec, head)?;
             }
-            if caret::next_is(context, ec, closer) {
-                caret::move_caret(context, ec, 1)?;
+            if caret::next_is(context, ec, closer)
+                || (transitory(context) && control::next_char() == Some(closer))
+            {
+                move_caret(shared, context, ec, 1)?;
             } else {
                 commit_text(shared, context, ec, closer.encode_utf8(&mut [0; 4]))?;
             }
@@ -60,7 +64,7 @@ pub(crate) fn apply(
         (Some(text), caret) => {
             commit_text(shared, context, ec, text)?;
             if let Some(CaretEdit::Back(back)) = caret {
-                caret::move_caret(context, ec, -(back as i32))?;
+                move_caret(shared, context, ec, -(back as i32))?;
             }
         }
         (None, _) => {}
@@ -85,6 +89,16 @@ pub(crate) fn apply(
         }
     }
     report_caret(shared, engine, context, ec);
+    Ok(())
+}
+
+/// 插入点挪 `delta` 个字（负数往回）。Chromium 系应用与系统代管的老控件不认输入法经 TSF 改的选区，改发方向键（见 [`caret_by_keys`]）；
+/// 方向键排在输入队列里，等这次会话结束、应用落下上屏文字之后才处理。
+fn move_caret(shared: &Shared, context: &ITfContext, ec: u32, delta: i32) -> Result<()> {
+    if !caret_by_keys(context) {
+        return caret::move_caret(context, ec, delta);
+    }
+    shared.ignore_shift_events(press_arrow(delta > 0, delta.unsigned_abs()));
     Ok(())
 }
 
