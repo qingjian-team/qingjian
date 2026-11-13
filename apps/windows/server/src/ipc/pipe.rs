@@ -25,6 +25,7 @@ use windows::core::{HRESULT, HSTRING};
 
 use qingjian_platform::protocol::{ClientMessage, ServerMessage};
 
+use super::sessions::ConnectionSessions;
 use super::{Handled, Work};
 use crate::dispatch::Router;
 
@@ -184,7 +185,7 @@ fn wait_client(stream: File) -> io::Result<File> {
 /// 会话留在 Router 里会让聚焦会话的组句与候选窗口一直挂着，直到别的应用来一个键把它挤掉。
 fn serve_connection(mut stream: File, sender: Sender<Work>) {
     let (reply_sender, reply_receiver) = mpsc::channel::<Option<ServerMessage>>();
-    let mut opened = Vec::new();
+    let mut sessions = ConnectionSessions::default();
     let outcome = super::pump(
         &mut stream,
         |message| {
@@ -199,12 +200,12 @@ fn serve_connection(mut stream: File, sender: Sender<Work>) {
                 Err(_) => Handled::Stop,
             }
         },
-        &mut opened,
+        &mut sessions,
     );
     if let Err(error) = outcome {
         tracing::warn!(%error, "客户端会话读出错");
     }
-    for session in opened {
+    for session in sessions.drain() {
         // 工人线程已经不在了就没人收，丢掉即可
         let _ = sender.send(Work::Client(
             ClientMessage::CloseSession { session },

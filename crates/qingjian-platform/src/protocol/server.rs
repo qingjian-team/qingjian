@@ -232,3 +232,17 @@ pub enum ServerMessage {
         request: u64,
     },
 }
+
+impl ServerMessage {
+    /// 回包所属的会话号；每种回包都带。
+    pub fn session_mut(&mut self) -> &mut SessionId {
+        match self {
+            Self::SessionOpened { session, .. }
+            | Self::KeyResult { session, .. }
+            | Self::Committed { session, .. }
+            | Self::Update { session, .. }
+            | Self::ModeSync { session, .. }
+            | Self::RequestSelection { session, .. } => session,
+        }
+    }
+}
