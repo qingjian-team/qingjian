@@ -4,7 +4,9 @@ order: 6
 description: "Typing with shape-based codes such as Wubi (86 edition): turning it on, short codes and automatic commit, commit-on-next-code, the radical chart, and mixed input with Wubi and pinyin on together."
 ---
 
-Shape-based input is supported on macOS and Windows (Android has its own Wubi keyboard); not yet on Linux.
+Shape-based input is supported on macOS, Windows and Linux (Android has its own Wubi keyboard). Fcitx5, Fcitx4 and IBus share the same schemes and key rules on Linux.
+
+Linux reloads schemes, code tables and enabled Wubi dictionaries within about a second. Effective scheme changes cancel uncommitted input in all contexts; unrelated settings do not. Missing or unreadable schemes fall back to pinyin. Root charts and key hints remain unavailable on Linux.
 
 ## Turning it on
 

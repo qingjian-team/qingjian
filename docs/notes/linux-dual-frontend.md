@@ -1,5 +1,7 @@
 # Linux 双前端怎么验（Fcitx5 与 IBus，2026-09-21）
 
+五笔与自制方案于 2026-11-05 接入共用 Server，另有 Fcitx4；隔离 GUI 测试入口及各环境结果见 [linux-wubi.md](linux-wubi.md)。
+
 Linux 上一个 Server、两个前端：`apps/linux/fcitx5`（C++ 插件）与 `apps/linux/ibus`（Rust，D-Bus）。
 两支说同一套协议、连同一个 Server，用户实际用哪个由会话的 `$XMODIFIERS` 决定。
 这一页只回答一件事：**怎么证明两支都真的能用**。

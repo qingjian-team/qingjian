@@ -1,5 +1,8 @@
 //! 改 `config.toml` / 用户 `custom/dicts/` 后，下一次 tick 就进入正在运行的 Router。
 
+mod auto_phrase;
+mod schemes;
+
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant, SystemTime};
 

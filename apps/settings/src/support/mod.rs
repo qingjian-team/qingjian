@@ -139,8 +139,8 @@ impl Feature {
         use Status::{NotApplicable as No, Planned as Todo, Supported as Yes};
         match self {
             Self::AuxCode => [Yes, Yes, Todo],
-            Self::Schemes => [Yes, Yes, Todo],
-            Self::AutoPhrase => [Yes, Yes, Todo],
+            Self::Schemes => [Yes, Yes, Yes],
+            Self::AutoPhrase => [Yes, Yes, Yes],
             Self::SwitchKeys => [Yes, Yes, Yes],
             // macOS 只做了单击 Shift，Caps Lock 仍是系统那一套
             Self::SwitchKeyCombos => [No, Yes, Yes],
@@ -315,13 +315,23 @@ mod tests {
 
     #[test]
     fn auto_phrase_support_follows_shape_schemes() {
-        assert_eq!(Feature::AutoPhrase.status(Platform::Linux), Status::Planned);
+        assert_eq!(
+            Feature::AutoPhrase.status(Platform::Linux),
+            Status::Supported
+        );
         for platform in Platform::ALL {
             assert_eq!(
                 Feature::AutoPhrase.status(platform),
                 Feature::Schemes.status(platform)
             );
         }
+    }
+
+    #[test]
+    fn linux_supports_schemes_without_enabling_aux_codes_or_key_hints() {
+        assert_eq!(Feature::Schemes.status(Platform::Linux), Status::Supported);
+        assert_eq!(Feature::AuxCode.status(Platform::Linux), Status::Planned);
+        assert_eq!(Feature::KeyHint.status(Platform::Linux), Status::Planned);
     }
 
     /// `docs/plan/todo.md` 里「设置项的平台缺口」下的条目与表里的「待实现」一一对应。

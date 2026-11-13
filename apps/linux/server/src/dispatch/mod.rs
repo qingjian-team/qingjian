@@ -8,6 +8,7 @@ mod linux;
 mod message;
 mod reload;
 mod rescore;
+mod schemes;
 mod session;
 mod trace;
 mod translate;
@@ -22,6 +23,7 @@ use self::translate::Translation;
 use qingjian_core::Engine;
 use qingjian_platform::logs::CompositionTrace;
 use qingjian_platform::protocol::{ClientMessage, ServerMessage, SessionId};
+use qingjian_platform::{Scheme, SchemeSlot};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
@@ -84,6 +86,10 @@ pub struct Router {
     /// 配置热加载；没开（测试）为 `None`。
     reload: Option<ConfigReload>,
 
+    scheme_slot: SchemeSlot,
+
+    scheme: Scheme,
+
     /// 正在进行的这段组句的按键账；没在组句为 `None`。
     trace: Option<CompositionTrace>,
 }
@@ -113,6 +119,8 @@ impl Router {
             model_loader: None,
             rescore: RescoreState::default(),
             reload: None,
+            scheme_slot: SchemeSlot::default(),
+            scheme: Scheme::Pinyin,
             trace: None,
         }
     }

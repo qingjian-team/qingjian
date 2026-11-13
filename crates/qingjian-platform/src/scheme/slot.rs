@@ -17,7 +17,7 @@ use crate::{Config, DictionariesConfig, Scheme, scheme_label, scheme_name};
 type Stamp = Vec<(Option<SystemTime>, u64)>;
 
 /// 当前装上的用户双拼方案与形码方案（含码表文件的指纹）；没选或没装上为 `None`。
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct SchemeSlot {
     shuangpin: Option<ShuangpinSchemeEntry>,
 
