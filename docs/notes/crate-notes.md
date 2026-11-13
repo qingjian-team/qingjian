@@ -845,6 +845,7 @@ Windows Server 受控退出使用 ExitCode 返回以刷新既有 tracing 队列�
 - 合并按内容算 id（`content_id`），比修改时刻（毫秒），同一时刻删除优先。`forgotten` 是本机裁掉或清空：不传给别的设备，本机也不再要回来。一轮一问一答，不保持长连接。
 - 回环靠两处：Windows 的 `SELF_WRITE`，Android 的 `ClipboardSync.lastReceived`。
 - 发现：桌面端 mdns-sd；Android 11 起应用读不到网卡状态标志，mdns-sd 会跳过所有网卡，所以走 `NsdDiscovery.kt`（服务类型与 TXT 键两边要一致）。有的路由器不转发组播和广播（2026-11 真机：只有单播能到），所以设备页开着时还逐个连同一 /24 的首选端口 53319（`service/scan.rs`），有设备连不上时也隔 5 分钟扫一次找新地址；端口被占用的设备扫不到，只能手填。
+- 地址：一台电脑常同时报好几张网卡的地址（虚拟机网卡的 169.254、Clash 这类代理 TUN 的 198.18），每次 mDNS / NSD 通告只带其中一部分。`Nearby` 攒下最多 4 个，按 `discovery::reach_rank` 排（私有地址最先、回环最后，同档新的在前）；同步时先试名单里上次连通的地址，再挨个试这几个，都连不上才发 `SendFailed`；名单里的地址只在真连通后才更新，发现到的地址不直接写进去。
 - 连接状态只看实际连接结果（`Link`），不看 mDNS：组播被拦时同步照样通。后台 2 分钟对账一次，设备页开着 10 秒一次。
 - 存储：Windows 的 `StoreReplica` 和面板各开一个连接，收到非 PNG 图片要留原始字节（`sync_original`），转过的 PNG 算不回原 id。Android 的 `HistoryReplica` 把 id、毫秒和删除状态记在 `clipboard-sync-state.json`，历史文件只有秒；面板和监听直接改历史，所以每次对账。
 - 霓虹灯：Windows 是每台显示器四条贴边的分层窗口（`system/neon/`，`--neon ok|fail` 可单独看效果），Android 是键盘内的 `NeonEdgeView`，要加在 `InputPanel` 的布局里：在输入法视图外再包一层，键盘会贴到屏幕顶上。节奏和颜色两边要一起改。
