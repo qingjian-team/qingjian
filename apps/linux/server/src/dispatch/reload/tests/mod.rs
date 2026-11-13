@@ -1,5 +1,9 @@
 //! 改 `config.toml` / 用户 `custom/dicts/` 后，下一次 tick 就进入正在运行的 Router。
 
+mod auto_phrase;
+mod nonblocking;
+mod schemes;
+
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant, SystemTime};
 
@@ -55,6 +59,15 @@ fn set_mtime(path: &Path, seconds: u64) {
 fn poll(router: &mut Router) {
     router.reload.as_mut().unwrap().last_check = Instant::now() - CONFIG_POLL_INTERVAL;
     router.tick();
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while router.reload_task.is_some() {
+        assert!(
+            Instant::now() < deadline,
+            "configuration reload did not finish"
+        );
+        std::thread::sleep(Duration::from_millis(1));
+        router.tick();
+    }
 }
 
 #[test]
@@ -175,7 +188,10 @@ fn cloud_disable_clears_suspended_candidates_and_translation_review() {
     router.translation = Some(Translation { result: None });
     router.pending_selection = Some((SessionId(1), 7));
     router.sentence = Some("旧服务补全".into());
-    router.reload_cloud(&PredictConfig::default(), None);
+    router.reload_cloud(crate::assembly::CloudServices::load(
+        &PredictConfig::default(),
+        None,
+    ));
     assert!(!router.engine.prediction_enabled());
     assert_eq!(router.config.cloud_slots, 0);
     assert!(router.translation.is_none());

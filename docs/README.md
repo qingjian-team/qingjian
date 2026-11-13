@@ -25,6 +25,9 @@ README.md 只介绍项目（各语言译本在 [i18n/](i18n/)），所有技术�
 | [plan/zh_tw_support_plan.md](plan/zh_tw_support_plan.md) | 繁体输出与台湾注音支持的分析与方案（贡献者 pinchiu，#22）：读音标准差异、台湾用语、简转繁一对多；两条路线 |
 | [plan/todo.md](plan/todo.md) | 待办清单，按「从自用到能给别人用」排 |
 | [plan/wubi.md](plan/wubi.md) | 五笔（形码）支持方案（2026-09-15）：为什么不能按双拼的方式接、两条平行管线、码表与词频、`[general] scheme` 收敛、分期 |
+| [design/linux-wubi.md](design/linux-wubi.md) | Linux 五笔、自制方案、热更新与会话清理设计 |
+| [plan/linux-wubi-implementation.md](plan/linux-wubi-implementation.md) | Linux 五笔接入的实现与验证清单 |
+| [notes/linux-wubi.md](notes/linux-wubi.md) | Linux 五笔验证命令、实际环境与未验证范围 |
 | [notes/crate-notes.md](notes/crate-notes.md) | 各 crate / app / tool 的实现要点：入口类型、数据文件、常数、生成命令 |
 | [notes/linux-fcitx5.md](notes/linux-fcitx5.md) | Linux 默认面板构建、协议、安装与排错 |
 | [notes/linux-packaging.md](notes/linux-packaging.md) | Linux 发行包（2026-09-23）：`build.sh` 在容器里打 deb / rpm，各包装了什么、能装哪些发行版、装法与限制，`smoke/run.sh` 在五个发行版的干净容器里装包自检 |

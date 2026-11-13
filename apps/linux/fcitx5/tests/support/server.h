@@ -30,7 +30,7 @@ public:
 
     pid_t pid = -1;
 
-    explicit Server(const std::string &general = "") {
+    explicit Server(const std::string &general = "", const std::string &codeTable = "") {
         char pattern[] = "/tmp/qingjian-real-XXXXXX";
         auto *created = mkdtemp(pattern); assert(created);
         directory = created;
@@ -47,6 +47,12 @@ public:
         std::filesystem::create_directories(directory / "data/generated");
         // Server 找的是 english.qj；词表按内容认格式，写 TSV 也读得了
         std::ofstream(directory / "data/generated/english.qj") << "hello\thello\t100\nhelp\thelp\t90\nheld\theld\t80\n";
+        if (!codeTable.empty()) {
+            const auto scheme = directory / "data/generated/schemes/wubi86";
+            std::filesystem::create_directories(scheme);
+            std::ofstream(scheme / "scheme.toml") << "name = \"测试五笔\"\n";
+            std::ofstream(scheme / "table.tsv") << codeTable;
+        }
         start();
     }
     ~Server() { stop(); std::filesystem::remove_all(directory); }

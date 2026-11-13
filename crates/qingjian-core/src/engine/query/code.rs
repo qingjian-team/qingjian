@@ -153,11 +153,12 @@ impl Engine {
         (query, exact)
     }
 
-    /// 混输：形码与拼音两边都出候选。**编码打全的形码词在最前，其次拼音，只命中前缀的形码词垫后。**
+    /// 混输：形码与拼音两边都出候选。缺省编码打全的形码词在最前，其次拼音，只命中前缀的形码词垫后。
     ///
     /// 打全的编码是精确的（`ga` 就是 开）；只敲了前缀的形码词一律放前面的话，`kai` 的首选会变成
     /// 编码 `kaik` 的 中共党员，拼音就没法用了。拼音那条路给不出解析时（`ggll` 切不成音节）不算失败，
     /// 整个查询按形码的结果走；五笔码最长 4 位，第 5 个字母起形码查不到东西，自然只剩拼音。
+    /// 显式开启 `mixed_top` 时，前缀形码也优先，满码续输由壳在下一字母进缓冲区前顶字。
     pub(super) fn query_mixed(
         &self,
         keys: &str,
@@ -176,8 +177,12 @@ impl Engine {
             }
         };
         let mut prefixed = code.candidates.items;
-        let exact = exact.min(prefixed.len());
-        let tail = prefixed.split_off(exact);
+        let priority = if self.code.as_ref().is_some_and(|scheme| scheme.mixed_top) {
+            prefixed.len()
+        } else {
+            exact.min(prefixed.len())
+        };
+        let tail = prefixed.split_off(priority);
         // 同一个词可能两边都命中，按文本去重，靠前的那条留着
         let mut seen: HashSet<String> = HashSet::new();
         let combined: Vec<Candidate> = prefixed

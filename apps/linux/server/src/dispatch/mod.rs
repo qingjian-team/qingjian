@@ -8,13 +8,14 @@ mod linux;
 mod message;
 mod reload;
 mod rescore;
+mod schemes;
 mod session;
 mod trace;
 mod translate;
 
 use self::composed::Composed;
 pub use self::config::RouterConfig;
-use self::reload::ConfigReload;
+use self::reload::{ConfigReload, ReloadTask};
 pub use self::rescore::find_model;
 use self::rescore::{ModelLoader, RescoreState};
 use self::session::SessionInfo;
@@ -22,6 +23,7 @@ use self::translate::Translation;
 use qingjian_core::Engine;
 use qingjian_platform::logs::CompositionTrace;
 use qingjian_platform::protocol::{ClientMessage, ServerMessage, SessionId};
+use qingjian_platform::{Scheme, SchemeSlot};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
@@ -84,6 +86,13 @@ pub struct Router {
     /// 配置热加载；没开（测试）为 `None`。
     reload: Option<ConfigReload>,
 
+    /// 至多一个后台扫描与资源加载任务；输入线程只尝试领取结果。
+    reload_task: Option<ReloadTask>,
+
+    scheme_slot: SchemeSlot,
+
+    scheme: Scheme,
+
     /// 正在进行的这段组句的按键账；没在组句为 `None`。
     trace: Option<CompositionTrace>,
 }
@@ -113,6 +122,9 @@ impl Router {
             model_loader: None,
             rescore: RescoreState::default(),
             reload: None,
+            reload_task: None,
+            scheme_slot: SchemeSlot::default(),
+            scheme: Scheme::Pinyin,
             trace: None,
         }
     }

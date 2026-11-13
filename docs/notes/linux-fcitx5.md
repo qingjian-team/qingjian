@@ -1,11 +1,15 @@
 # Linux Fcitx5 默认面板
 
+2026-11-05：五笔、自制方案与导入形码词库已接入共用 Server；纯五笔自动上屏、顶字与下一段预编辑共存由 `code-server` CTest 覆盖。方案切换清理、安装资源和隔离 GTK3 实测见 [linux-wubi.md](linux-wubi.md)，不包含辅码或字根图。
+
 Linux Server 在 `[predict] enabled = true` 且密钥可用时接入共享的 `CloudPredictor`，沿现有 Poll 帧返回异步云端候选和整句补全。云端词只补第一页末尾未被用户选中的格，默认面板用 ☁ 标记词并在辅助行显示整句；会话切换、失焦和隐私边界会作废旧结果。Fcitx5 插件从有效的 `surroundingText()` 读取应用光标前后文，跳过选区并各截取最多 80 字；Server 在敏感输入中忽略它。不做云端译词兜底；`[predict]` 配置热加载会重建客户端，撤销旧请求、翻译评审与所有会话中的旧云候选。Fcitx5 的 Sensitive、Password、Disable 能力由插件上报给 Server。
 
 第一阶段保留 Rust Server、薄插件和用户目录安装。输入模式、组句、选词、翻页、隐私和失焦提交均在 Server；
 插件负责 Fcitx 事件与默认预编辑 / 候选 API。长期自绘方向不变，后续由 Server 渲染并管理 X11 窗口，或向 GNOME 扩展发送位图；本阶段不带相关源码、补丁、渲染 FFI、服务管理或 Debian 包。
 
 ## 构建与测试
+
+配置与资源热加载由 `qingjian-reload` 后台任务完成扫描、解析和加载，输入线程只轮询已就绪的结果。任务未完成时继续使用旧资源，最多一批在途；完成后至少间隔一秒启动下一批，等待结果时以 20 ms 节拍轮询。启动时的首次装配仍在监听 socket 前完成。后台任务耗时达到 100 ms 会记录 `configuration scan and loading slow`，不记录输入内容。Fcitx5 的 IPC 另由插件后台线程收发，框架事件线程不等待 Server；Fcitx4 与 IBus 的传输方式不变。
 
 需要 Rust 1.96、Python 3、pkg-config 与 OpenSSL（`libssl-dev`，云服务依赖的 TLS 绑定要它）；**fcitx5 那一支**另外要 CMake 3.16、C++20 编译器与 Fcitx5 Core/Config/Utils、nlohmann-json 的开发包（插件是 C++），**IBus 那一支**是纯 Rust，只要机器上有 ibus-daemon。`install.sh` 开头会检查并列出缺的，缺省 `--frontend auto` 是「能装的都装」，装不上的那一支会明说跳过。
 自绘界面另需三个字体包（`fonts-noto-core` / `fonts-noto-cjk` / `fonts-noto-color-emoji`）：没有 UI 字体时 `FontLibrary::system` 直接返回 `NoUiFont`、程序起不来，缺 CJK 或 emoji 则不崩但中文界面文字与表情画不出来。
@@ -30,12 +34,12 @@ CTest 的 `real-server` 实际运行 Rust Server 并通过 InputContext 输入�
 
 ## 协议与状态
 
-同用户 Unix socket，长度前缀为 4 字节小端，单消息上限 16 MiB；每次插件收发共用 200 ms 截止时间。
-插件只持有一条连接和一个 I/O watcher，每个 InputContext 分配独立、递增的 session ID。
+同用户 Unix socket，长度前缀为 4 字节小端，单消息上限 16 MiB。Fcitx5 后台线程每次收发共用 5 s 截止时间，每 20 ms 检查退出取消；这不是 UI 等待时间。同步兼容接口保留 200 ms，实际框架按键从 `keyEvent` 进入异步路径。
+插件后台独占一条连接，每个 InputContext 分配独立、递增的 session ID。主线程保存最多 1024 项待发送事件，每次只有一个在途事务，通过 `EventDispatcher` 按顺序应用响应；后台不访问 InputContext。按下、抬起、候选点击、选区回答与显示确认使用同一队列，显示确认与选区回答先于后续按键，Poll 仅在空闲时发。焦点、重置、隐私或上下文销毁使旧按键、点击与响应失效；仍存活上下文的 Focus / Capabilities / Reset / Deactivate 边界事实继续按序送达，防止快速切回后残留旧组句，过期边界响应不展示。退出时取消等待再回收线程。
 每个会话先 `OpenSession` 校验共享协议版本（`PROTOCOL_VERSION`），再协商 `LinuxHello` v3，携带 session/generation/context，返回会话编号和既有预编辑设置。
 首次能力确认前不接受输入；握手与能力状态逐会话保存。同一连接支持超过 64 个上下文，64 条连接的资源保护不限制单连接会话数。
 Linux 的首个回包仍是含 `linux_ui` 的 `Update`，不额外发送 Windows DLL 使用的 `SessionOpened`；旧版插件的协议 7 / 8 连接会被拒绝，升级时需同时更新 Server 与插件。
-旧版本或损坏响应关闭连接、清空显示并放行当前输入；重连创建全新输入状态，旧提交不会重放。
+旧版本、损坏响应、后台收发超时或队列溢出使连接代次失效并清空显示与排队事件；下一次请求重新连接。只有 Server 明确回复 Passthrough 才转发原按键，未确认的请求不会重放或转成原始字母。故障发生时未确认输入可能丢弃，不能保证服务崩溃时无损；短暂卡顿则保留顺序等待处理。
 插件先交付有效上屏，再清空或更新预编辑，避免 Chromium 原生 Wayland 在这两步倒置时重复上屏（#213）。
 上屏与显示回调都可能同步重入；上屏前和重画前检查上下文存活、连接代次、生命周期、显示修订号与帧身份，以及焦点和能力。
 上屏回调内的新按键即使不改变生命周期，也会使旧帧失效，外层不得覆盖新组句。已交付的上屏不撤销、不重放；重入或显示失败后仍保留已接受按键的 Consumed 结果。
@@ -81,6 +85,22 @@ Server 启动时按 `[model] enabled`（缺省关）在后台线程加载模型�
 
 未出候选时先确认 Server 在运行（`systemctl --user status qingjian-server`，或手动起的那个进程还在），再查看 `$XDG_STATE_HOME/qingjian/logs/server.*.log`（缺省 `~/.local/state`）。
 输入日志由 `[general] input_log` 控制；用户配置和学习文件始终保存在 XDG 用户目录，卸载不删除。
+
+Fcitx5 插件的诊断走框架日志（stderr），不在 Server 日志中。排查漏字母或候选窗突然消失时，先结束当前输入，再保存启动日志：
+
+```sh
+log_dir="${XDG_STATE_HOME:-$HOME/.local/state}/qingjian/logs"
+mkdir -p "$log_dir"
+fcitx5 -r -d >> "$log_dir/fcitx5.log" 2>&1
+```
+
+`Qingjian IPC request failed` 带固定操作名、收发阶段、失败原因、耗时与 errno；`Qingjian IPC request slow` 表示成功但耗时至少 100 ms，后台收发不会阻塞框架事件线程。`Qingjian connection lost` 区分握手、回包校验、轮询、显示或 socket 断开；`Qingjian lifecycle` 仅在面板有未完成输入时记失焦、重置、能力变化、停用与断连清理，附会话编号、连接代次、修订号及状态。诊断不记录消息或异常正文，也不记录具体按键、编码、候选、选区和上屏内容；现有输入日志的开关与存储不受影响。记录复现时间，再对照同一时段的 Server 日志判断是前端重置还是服务端响应变慢。
+
+## 卡顿断码回归
+
+隔离回归命令：`QINGJIAN_WUBI_TIMEOUT_REPRO=1 KEEP_TEST_DATA=1 bash apps/linux/tests/wubi/session.sh fcitx5`。
+它先验证 `giqa` 正常上屏“不错”，再暂停私有测试 Server，输入 `gi` 并等待超过旧版 200 ms 截止时间，恢复后输入 `qa` 和空格。应得到“不错”及后续空格，而非“gi错”；返回成功表示回归通过。
+只操作测试目录、私有 D-Bus 与测试进程，不暂停桌面服务。旧版同步路径曾在此得到“gi错”；异步路径保序等待。CTest 的 `async-*` 另检查暂停期间事件循环心跳、抬键直通顺序、失焦、密码能力、重置、上下文销毁、提交重入、空闲线程反复退出和在途等待取消。
 
 ## 发行版打包
 

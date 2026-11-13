@@ -4,7 +4,9 @@ order: 6
 description: "Typing with shape-based codes such as Wubi (86 edition): turning it on, short codes and automatic commit, commit-on-next-code, the radical chart, and mixed input with Wubi and pinyin on together."
 ---
 
-Shape-based input is supported on macOS and Windows (Android has its own Wubi keyboard); not yet on Linux.
+Shape-based input is supported on macOS, Windows and Linux (Android has its own Wubi keyboard). Fcitx5, Fcitx4 and IBus share the same schemes and key rules on Linux.
+
+Linux reloads schemes, code tables and enabled Wubi dictionaries within about a second. Effective scheme changes cancel uncommitted input in all contexts; unrelated settings do not. Missing or unreadable schemes fall back to pinyin. Root charts and key hints remain unavailable on Linux.
 
 ## Turning it on
 
@@ -56,7 +58,14 @@ woxiangxuehao → 我想学好  (from the 5th letter Wubi finds nothing, pinyin 
 - A word matched by both appears only once.
 - English words at the end of a sentence only work on the pinyin side; input longer than 4 letters can only be pinyin, and spelling correction works as usual.
 - Calculations and asking about characters start with `Shift + V` and `Shift + U`; see [Dates, calculations and special characters](shortcuts.md#Changing-the-prefix-letters).
-- Auto-commit of full codes, commit on next code and clearing empty codes are all inactive in mixed input: letters after a full code may be the start of more pinyin.
+- Auto-commit and commit on next code are off by default in mixed input: letters after a full code may be more pinyin. Clearing unmatched codes remains exclusive to pure shape-based input.
+
+Mixed input has two separate switches under Settings → Input → Shape-based scheme, saved per scheme and off by default:
+
+- **Auto-commit a unique full code in mixed input**: Wubi commits only at exactly **4 keys** with one Wubi candidate. Unique 1–3-key codes never commit automatically; ambiguous 4-key codes wait for selection.
+- **Prefer shape codes and continue in mixed input**: shape-code candidates, including prefix matches, come before pinyin. After a matched 4-key code, the fifth letter commits the highlighted candidate and starts the next code instead of extending the input to 5 letters. Unmatched codes do not trigger this.
+
+These switches do not change pure-Wubi switches or pinyin learning rules. They can, however, commit or split pinyin that happens to match a Wubi code. Leave them off when typing continuous long pinyin.
 
 It also works the other way round, using mostly pinyin and Wubi only occasionally, except that level 1 / 2 short codes (`wo` is 伙 in Wubi) are ranked above the first pinyin candidate; if you don't want that, turn the shape-based scheme off.
 
