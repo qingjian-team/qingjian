@@ -466,6 +466,7 @@ id 不能撞拼音侧的写法与日志里的 `wubi`（`is_valid_id`），因为
 随包 `codes/stroke.qj`（`code_tables::STROKE`）装上时挂笔画的词码规则（与 `dict-convert` 打包同一条），表里只有基础词库的词，自造词与导入词库的词靠它现算；
 `load` 按 `AuxCodeConfig::pick`（`[aux_code] scheme`，没选或找不到时第一套不在老 `disabled` 里的）只装一套——设置程序的下拉框用同一个 `pick`，显示的就是输入法实际用的那套，
 `snapshot` 只 stat 用户 `codes/` 与 `schemes/*/` 下的文件、不解析 `scheme.toml`，两个壳轮询它发现导入与改方案；
+`pipe` 模块（只在 Windows 编）是那条命名管道的名字、安全描述符与两端身份校验（#699），Server 与 DLL 共用：`pipe_name` 带用户 SID 与登录会话号，`CLIENT_ACCESS` 只要读 + 写数据（`GENERIC_WRITE` 里的 `FILE_APPEND_DATA` 对管道是建实例，安全描述符不给 AppContainer），`CLIENT_QOS` 只给识别级模拟；`client_is_same_user` 要在收到第一帧之后调（文档要求先读过数据才能模拟客户端）。
 `protocol` 模块是 Windows Server ↔ TSF DLL 的 IPC 协议类型
 （`ClientMessage` / `ServerMessage` / `Frame` / `PreeditSegment`，全 serde，两端共用，见 `docs/design/architecture.md`「Windows：TSF」；
 协议版本见 `PROTOCOL_VERSION`，`PreeditKind::AuxCode` 对应 Core 的 `MarkedKind::AuxCode`，`Frame.aux_code_show` 随帧下发显示码开关，

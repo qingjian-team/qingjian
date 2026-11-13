@@ -14,6 +14,8 @@ pub mod extra_dictionaries;
 mod i18n;
 pub mod logs;
 pub mod model_words;
+#[cfg(windows)]
+pub mod pipe;
 pub mod pronunciations;
 pub mod protocol;
 pub mod resources;

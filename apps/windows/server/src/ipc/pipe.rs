@@ -1,4 +1,5 @@
-//! 命名管道传输：在 `\\.\pipe\qingjian` 上服务 DLL 客户端，字节模式，帧由协议 codec 切。
+//! 命名管道传输：在按用户与登录会话命名的管道上服务 DLL 客户端（名字与身份校验见 [`qingjian_platform::pipe`]），
+//! 字节模式，帧由协议 codec 切。
 //!
 //! 每个应用进程各开一条连接且失焦后连接仍在，所以不能串行服务（新聚焦的应用连不上会阻塞 UI 线程、
 //! 触发 TSF 看门狗）：后台接受循环每来一个客户端就新建实例、起一条线程；[`Router`] 不跨线程，
@@ -7,6 +8,7 @@
 use std::fs::File;
 use std::io;
 use std::os::windows::io::{AsRawHandle, FromRawHandle};
+use std::sync::Arc;
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
 use std::thread;
 use std::time::Instant;
@@ -18,37 +20,38 @@ use windows::Win32::Security::Authorization::{
 use windows::Win32::Security::{PSECURITY_DESCRIPTOR, SECURITY_ATTRIBUTES};
 use windows::Win32::Storage::FileSystem::{FILE_FLAG_FIRST_PIPE_INSTANCE, PIPE_ACCESS_DUPLEX};
 use windows::Win32::System::Pipes::{
-    ConnectNamedPipe, CreateNamedPipeW, DisconnectNamedPipe, PIPE_READMODE_BYTE, PIPE_TYPE_BYTE,
-    PIPE_UNLIMITED_INSTANCES, PIPE_WAIT,
+    ConnectNamedPipe, CreateNamedPipeW, DisconnectNamedPipe, GetNamedPipeClientProcessId,
+    PIPE_READMODE_BYTE, PIPE_TYPE_BYTE, PIPE_UNLIMITED_INSTANCES, PIPE_WAIT,
 };
 use windows::core::{HRESULT, HSTRING};
 
+use qingjian_platform::pipe::{LEGACY_PIPE_SDDL, UserSid, client_is_same_user, pipe_sddl};
 use qingjian_platform::protocol::{ClientMessage, ServerMessage};
 
+use super::limit::ConnectionLimit;
 use super::sessions::ConnectionSessions;
 use super::{Handled, Work};
 use crate::dispatch::Router;
 
-pub use qingjian_platform::protocol::DEFAULT_PIPE_NAME;
-
 const BUFFER_SIZE: u32 = 64 * 1024;
-
-/// 管道的 SDDL：放行 Everyone / ALL APPLICATION PACKAGES / ALL RESTRICTED APPLICATION PACKAGES，
-/// 完整性标 Low。任务栏搜索、设置这类 AppContainer 进程在默认 DACL 下连不上。
-const PIPE_SDDL: &str = "D:(A;;GA;;;WD)(A;;GA;;;AC)(A;;GA;;;S-1-15-2-2)S:(ML;;NW;;;LW)";
 
 /// 在命名管道上服务多个客户端。当前线程独占 [`Router`] 跑工人循环，正常不返回。
 /// `work` 通道由调用方建（UI 线程也往里投状态条事件），这里拿一份发送端给各连接。
 /// 第一个实例带 `FILE_FLAG_FIRST_PIPE_INSTANCE`：已有一个 Server 在跑就建不出来，直接报错退出（两个 Server
 /// 会各画一条状态条、各持一份状态）。
+///
+/// `legacy` 是老 DLL 连的旧管道名：升级后没重启的应用里还是老 DLL，同时在旧名字上服务；
+/// 建不出来（被占了）只记一笔，不影响新管道。
 pub fn serve_pipe(
     name: &str,
+    legacy: Option<&str>,
     router: &mut Router,
     sender: Sender<Work>,
     receiver: Receiver<Work>,
 ) -> io::Result<()> {
-    let pipe = HSTRING::from(name);
-    let first = match create_instance(&pipe, pipe_security_descriptor(), true) {
+    let me = UserSid::current()?;
+    let sddl = pipe_sddl(&me)?;
+    let first = match create_instance(&HSTRING::from(name), security_descriptor(&sddl), true) {
         Ok(first) => first,
         Err(error) if error.raw_os_error() == Some(ERROR_ACCESS_DENIED.0 as i32) => {
             return Err(io::Error::other(
@@ -57,12 +60,44 @@ pub fn serve_pipe(
         }
         Err(error) => return Err(error),
     };
+    let limit = Arc::new(ConnectionLimit::default());
+    if let Some(legacy) = legacy {
+        let legacy_first = create_instance(
+            &HSTRING::from(legacy),
+            security_descriptor(LEGACY_PIPE_SDDL),
+            true,
+        );
+        match legacy_first {
+            Ok(first) => {
+                let listener = Listener {
+                    name: legacy.to_owned(),
+                    sddl: LEGACY_PIPE_SDDL.to_owned(),
+                    me: me.clone(),
+                    limit: Arc::clone(&limit),
+                };
+                let sender = sender.clone();
+                thread::spawn(move || accept_loop(listener, first, sender));
+                tracing::info!(pipe = legacy, "Legacy named pipe listening");
+            }
+            Err(error) => tracing::warn!(
+                %error,
+                pipe = legacy,
+                "Legacy named pipe unavailable; apps still running an old DLL reconnect only after a restart"
+            ),
+        }
+    }
     let waker = sender.clone();
-    router.set_rescoring_wake(std::sync::Arc::new(move || {
+    router.set_rescoring_wake(Arc::new(move || {
         let _ = waker.send(Work::Wake);
     }));
-    thread::spawn(move || accept_loop(&pipe, first, sender));
-    tracing::info!(pipe = name, "命名管道监听中");
+    let listener = Listener {
+        name: name.to_owned(),
+        sddl,
+        me,
+        limit,
+    };
+    thread::spawn(move || accept_loop(listener, first, sender));
+    tracing::info!(pipe = name, "Named pipe listening");
     // 按 Router 的节拍来 tick：在等本地整句模型就几十毫秒一次，否则一秒看一次配置文件。
     // 到点时间是绝对的，不随消息重新计时——前台进程里的 DLL 隔几百毫秒就问一次切模式（SyncMode），
     // 若每收一条消息就重等一秒，tick 永远到不了，热加载与模型接入都会停摆。
@@ -97,30 +132,69 @@ pub fn serve_pipe(
     Ok(())
 }
 
+/// 一个管道名上的接受循环要用的东西。
+struct Listener {
+    name: String,
+
+    /// 后续实例的安全描述符（SDDL 文本，进了接受线程再转成描述符）。
+    sddl: String,
+
+    /// Server 自己的用户：客户端得是同一个人。
+    me: UserSid,
+
+    /// 新旧两个管道共用一份。
+    limit: Arc<ConnectionLimit>,
+}
+
 /// 先在建好的第一个实例上等客户端，之后每建一个实例、等一个客户端连上，就起一条线程服务它。建实例出错才停。
-fn accept_loop(name: &HSTRING, first: File, sender: Sender<Work>) {
-    let descriptor = pipe_security_descriptor();
+/// 同一进程的连接数到了上限，接上就断开。
+fn accept_loop(listener: Listener, first: File, sender: Sender<Work>) {
+    let pipe = HSTRING::from(listener.name.as_str());
+    let descriptor = security_descriptor(&listener.sddl);
     let mut instance = Ok(first);
     loop {
         let stream = match instance.and_then(wait_client) {
             Ok(stream) => stream,
             Err(error) => {
-                tracing::error!(%error, "建管道实例失败，停止接受");
+                tracing::error!(%error, pipe = listener.name, "Creating a pipe instance failed, no longer accepting");
                 break;
             }
         };
-        let sender = sender.clone();
-        thread::spawn(move || serve_connection(stream, sender));
-        instance = create_instance(name, descriptor, false);
+        let pid = client_process_id(&stream);
+        match listener.limit.admit(pid) {
+            Some(slot) => {
+                let sender = sender.clone();
+                let me = listener.me.clone();
+                thread::spawn(move || {
+                    serve_connection(stream, sender, &me);
+                    drop(slot);
+                });
+            }
+            None => {
+                tracing::warn!(
+                    pid,
+                    "Client process has too many pipe connections, refusing"
+                );
+                let _ = unsafe { DisconnectNamedPipe(HANDLE(stream.as_raw_handle())) };
+            }
+        }
+        instance = create_instance(&pipe, descriptor, false);
     }
 }
 
+/// 管道对面的进程号；查不到记成 0（这类连接共用一份名额）。
+fn client_process_id(stream: &File) -> u32 {
+    let mut pid = 0u32;
+    let _ = unsafe { GetNamedPipeClientProcessId(HANDLE(stream.as_raw_handle()), &mut pid) };
+    pid
+}
+
 /// 转换失败返回 null，退回默认 DACL。描述符建一次、随进程存活。
-fn pipe_security_descriptor() -> PSECURITY_DESCRIPTOR {
+fn security_descriptor(sddl: &str) -> PSECURITY_DESCRIPTOR {
     let mut descriptor = PSECURITY_DESCRIPTOR::default();
     let converted = unsafe {
         ConvertStringSecurityDescriptorToSecurityDescriptorW(
-            &HSTRING::from(PIPE_SDDL),
+            &HSTRING::from(sddl),
             SDDL_REVISION_1,
             &mut descriptor,
             None,
@@ -180,15 +254,25 @@ fn wait_client(stream: File) -> io::Result<File> {
 }
 
 /// 服务一条连接：读消息 → 转给工人线程 → 写回，直到对端在帧边界关闭或出错。
+/// 收到第一帧时先认人：客户端不是 `me` 这个用户就断开，那一帧也不处理。
 ///
 /// 断开后把本连接上开过的会话照单 `CloseSession`：DLL 来不及发（应用被关 / 崩了），
 /// 会话留在 Router 里会让聚焦会话的组句与候选窗口一直挂着，直到别的应用来一个键把它挤掉。
-fn serve_connection(mut stream: File, sender: Sender<Work>) {
+fn serve_connection(mut stream: File, sender: Sender<Work>, me: &UserSid) {
     let (reply_sender, reply_receiver) = mpsc::channel::<Option<ServerMessage>>();
     let mut sessions = ConnectionSessions::default();
+    let pipe = HANDLE(stream.as_raw_handle());
+    let mut verified = false;
     let outcome = super::pump(
         &mut stream,
         |message| {
+            if !verified {
+                if !client_is_same_user(pipe, me) {
+                    tracing::warn!("Pipe client is not the server's user, disconnecting");
+                    return Handled::Stop;
+                }
+                verified = true;
+            }
             if sender
                 .send(Work::Client(message, reply_sender.clone()))
                 .is_err()

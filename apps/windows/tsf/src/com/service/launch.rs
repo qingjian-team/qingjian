@@ -208,7 +208,8 @@ impl Drop for LaunchMutex {
     }
 }
 
-fn server_exe() -> Option<PathBuf> {
+/// 与 DLL 同目录的 `qingjian-server.exe`；拿不到 DLL 自己的路径时为 `None`。
+pub(crate) fn server_exe() -> Option<PathBuf> {
     let module = module_path().ok()?;
     Some(server_exe_path(Path::new(&module.to_string())))
 }

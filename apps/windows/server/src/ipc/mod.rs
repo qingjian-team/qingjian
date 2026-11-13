@@ -6,6 +6,8 @@ mod inbound;
 #[cfg(windows)]
 pub mod instance;
 #[cfg(windows)]
+mod limit;
+#[cfg(windows)]
 pub mod pipe;
 mod sessions;
 mod work;
