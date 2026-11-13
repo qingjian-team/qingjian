@@ -13,6 +13,8 @@ workspace = true
 [[bin]]
 name = "qingjian-clipboard"
 path = "src/main.rs"
+# 与 qingjian-clipboard lib 同名，一起出文档会撞文件名；bin 没有文档内容
+doc = false
 
 [dev-dependencies]
 resvg = { version = "0.49", default-features = false }
