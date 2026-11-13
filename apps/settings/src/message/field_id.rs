@@ -1,6 +1,6 @@
 //! 输入框的编号：编辑状态按它存在 `Settings::fields` 里。
 
-/// 输入框：云服务页的三个，中英文页的保持半角符号，短语编辑卡片里的三个，生词本页的搜索框。
+/// 输入框：云服务页的三个，中英文页的保持半角符号，输入页的自定义模糊音，短语编辑卡片里的三个，生词本页的搜索框。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum FieldId {
     BaseUrl,
@@ -9,6 +9,9 @@ pub enum FieldId {
 
     /// 中英文页「保持半角的符号」（`[general] half_width_symbols`）。
     HalfWidthSymbols,
+
+    /// 输入页「自定义规则」（`[fuzzy] custom`）：几条 `音=音` 空格隔开。
+    FuzzyCustom,
     PhraseCode,
     PhraseWeight,
     PhraseText,
@@ -18,20 +21,22 @@ pub enum FieldId {
 
 impl FieldId {
     /// 存进配置的那几个（短语的几个随卡片一起存）。
-    pub const ALL: [Self; 4] = [
+    pub const ALL: [Self; 5] = [
         Self::BaseUrl,
         Self::Model,
         Self::ApiKey,
         Self::HalfWidthSymbols,
+        Self::FuzzyCustom,
     ];
 
-    /// 配置文件里的键（[`Self::HalfWidthSymbols`] 在 `[general]`，其余在 `[predict]`）。
+    /// 配置文件里的键（[`Self::HalfWidthSymbols`] 在 `[general]`，[`Self::FuzzyCustom`] 在 `[fuzzy]`，其余在 `[predict]`）。
     pub fn key(self) -> &'static str {
         match self {
             Self::BaseUrl => "base_url",
             Self::Model => "model",
             Self::ApiKey => "api_key",
             Self::HalfWidthSymbols => "half_width_symbols",
+            Self::FuzzyCustom => "custom",
             Self::PhraseCode => "code",
             Self::PhraseWeight => "weight",
             Self::PhraseText => "text",

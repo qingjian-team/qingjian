@@ -96,3 +96,22 @@ fn only_auto_follows_the_backdrop_and_a_locked_theme_never_does() {
     assert!(!pinned.follows_backdrop);
     assert_eq!(pinned.locked_dark, Some(false));
 }
+
+/// 壳的材质圆角由系统定死时（Windows 11），根节点按它画、报给壳的也是它（不定死时是主题的 12 点，见第一个测试）。
+#[test]
+fn a_fixed_material_corner_replaces_the_theme_radius() {
+    let Ok(library) = FontLibrary::system("zh-CN") else {
+        eprintln!("没有系统字体，跳过");
+        return;
+    };
+    let theme = Theme::from_json(THEME, false).unwrap();
+    let frame = scenes::nihao();
+    let mut renderer = Renderer::new(library);
+    renderer.set_material_corner_radius(Some(8.0));
+
+    renderer.set_material_support(true);
+    let backed = renderer
+        .render(&frame, Layout::Vertical, &theme, 2.0)
+        .unwrap();
+    assert_eq!(backed.material.map(|backing| backing.radius), Some(16.0));
+}

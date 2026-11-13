@@ -122,9 +122,12 @@ mac 存在 `Session::spelling`（`Host::follow_highlight`）、Windows / Linux �
 
 单字模式（#848）是组句级的状态，放在 `Composition::single_chars`：`Engine::toggle_single_chars` 只在缓冲区非空时切，`clear`、退格删空、上屏把缓冲区吃完都会复位，分几次选字时剩下的拼音还在同一段组句里、接着只出单字。`query` 在截完整句之后调 `ranking::keep_only_single_chars`，只留 `Chinese` / `Code` 里一个字的候选，一个都没有时（表达式、问字、英文直输段）不动。Windows 的键是 `[shortcut] single_chars`（缺省 `ctrl+d`，空串关）：Server 只在组句时认它，与翻译、AI、剪贴板、简繁、全半角或「译词修饰键 + 数字」撞了时不用；经 `InputSettings` 下发，DLL 组句时才吃，没在打字时 Ctrl + D 照常给应用。
 
-成对符号（#928）的规则在 `punctuation::Pairs`：全角一张表（（）【】「」『』《》〈〉〔〕“”‘’）、半角一张（() [] {} ""，不含 `'` 与 `<`），按要上屏的那个符号查，所以中文、日文都走全角表；开关按模式分（`Engine::set_pair_punctuation`，中文与日文一份缺省开、英文一份缺省关）。记着补过、还没跳过的右半边（最多 16 层），右半边先认：英文引号左右同形，补过的那个就是要跳的；`fresh` 只在刚补完、中间什么都没上屏时为真，`note_committed` / `note_passthrough` 清它，`break_chain` 清整份记录。光标后是什么只有壳读得到，所以 Core 给的是有条件的指令：Windows 经 `KeyResult.caret`（`protocol::CaretEdit`：`Back` 上屏后退回、`Skip` 光标后正是它才跳过否则照常插入），DLL 在上屏那次读写会话里核对文档再做（`com/composition/caret.rs`）；Windows 不做退格删一对：Win11 记事本在没组句时不把退格交给 TIP，`OnTestKeyDown` 收不到（2026-11 实测）。Android 经 JNI 回 `insert:<退几格>:<文本>` / `skip:<右半边>`，Kotlin 用 `InputConnection` 读光标前后再改。
+成对符号（#928）的规则在 `punctuation::Pairs`：全角一张表（（）【】「」『』《》〈〉〔〕“”‘’）、半角一张（() [] {} ""，不含 `'` 与 `<`），按要上屏的那个符号查，所以中文、日文都走全角表；开关按模式分（`Engine::set_pair_punctuation`，中文与日文一份缺省开、英文一份缺省关）。记着补过、还没跳过的右半边（最多 16 层），右半边先认：英文引号左右同形，补过的那个就是要跳的；`fresh` 只在刚补完、中间什么都没上屏时为真，`note_committed` / `note_passthrough` 清它，`break_chain` 清整份记录。光标后是什么只有壳读得到，所以 Core 给的是有条件的指令：Windows 经 `KeyResult.caret`（`protocol::CaretEdit`：`Back` 上屏后退回、`Skip` 光标后正是它才跳过否则照常插入），DLL 在上屏那次读写会话里核对文档再做（`com/composition/caret.rs`）。Chromium 系应用（Chrome、Edge、VS Code、QQ、微信，认法是主程序导出 `GetHandleVerifier` 或加载了 `libcef.dll`）的文本存储在输入法是 IME 时不把它改的选区推给页面；系统代管的输入框（上下文带 `TS_SS_TRANSITORY`：Win32 Edit、RichEdit 2.0/3.0 这类不认 TSF 的老控件，系统经 IMM 接到 TSF）会话里改的选区会话结束就丢（#972）。这两类里退回与跳过改成往输入队列模拟方向键（`com/key/inject.rs`）；系统代管的输入框在 TSF 里也读不到光标后的字，跳过前的核对改问焦点上的 Edit / RichEdit 控件（`EM_GETSEL` 加 `WM_GETTEXT` / `EM_GETTEXTRANGE`，`com/composition/control.rs`），别的控件读不到就照常插入；Shift 还按着时先模拟抬起、发完再按回，击键 sink 跳过这两个模拟的 Shift，免得被当成单击 Shift 切中英。只限这两类，是因为方向键在别处不一定是挪光标（Excel 输入单元格时会跳到别的格子）；Windows 不做退格删一对：Win11 记事本在没组句时不把退格交给 TIP，`OnTestKeyDown` 收不到（2026-11 实测）。Android 经 JNI 回 `insert:<退几格>:<文本>` / `skip:<右半边>`，Kotlin 用 `InputConnection` 读光标前后再改。
 
 模糊音命中：末音节读成它的模糊音写法（`FuzzyRules::readings`，`zi` 开 z-zh 读成 zhi、`fan` 开 an-ang 读成 fang）也算「末音节完整」，扣 `FUZZY_PENALTY` = ln 2（`fan` 按前缀查到的 fang 本来不扣，当模糊音读法时补扣）。单靠扣分时单字间词频差得远，`zi` 首选会是 只，所以输入只有一个音节时 `arrange` 再把模糊音命中的单字排到原样读音的头 `SINGLE_CHARS_BEFORE_FUZZY` = 9 个单字之后（选过的不挪）；多音节输入的模糊音词照得分排（`lihao` 开 n-l 首选仍是 你好）。原来末音节只认敲的原文，模糊音命中的单字全排在原样读音的几百个生僻字之后（`zi` 的 知 第 220 位，`li` 的 你 被预选砍出前 500）；改后在第 10–19 位。模糊音默认全关，冻结回放、开发集与回归集都不开，2026-10-29 三组（无模型 / 知意 / 通变）前后一致。
+自定义模糊音（`fuzzy::CustomRule`）：配置 `[fuzzy] custom` 每条 `音=音`，两边都是声母、都是韵母或都是完整音节，`parse` 按这个顺序认（`an=ang` 两边也都是音节，按韵母算才覆盖带声母的音节）；
+声母按 `zh / ch / sh` 优先取（`z=j` 不碰 `zhi`），韵母换声母后的结尾，音节整个换；韵母与音节两类同内置韵母规则，只对完整音节生效。`custom_off` 列其中关着的，设置里勾掉写的就是它。
+规则在 `alternatives` 里与内置的一起反复套到不再增长，换出的写法照旧只留合法音节（或前缀），代价同内置的 `FUZZY_PENALTY`。`FuzzyRules` 因此不再 `Copy`，双拼解码收引用。
 读音占比进打分：语言模型按字形计数，`区` 的 qu 撑起来的分会原样落到 `ou` 上（`ou` 首选 区、`ditu` 拼出 的图），所以词级排序（`Engine::word_log_prob`）与整句词图（`SpanWord::reading`）都扣 `sentence::reading_cost` = `-ln(读音占比)`；用户选过的仍按「同输入串选择次数」排在前面。整句按哪种切分转由 `Engine::sentence_segmentation` 定：切分器只按结构排（音节少、完整的在前，打平时贪心），音节数与不完整音节数都与第一种相同的几种（最多 `TIED_SEGMENTATIONS`）各转一遍取路径分最高的（`shangou` 由 shang ou 换成 shan gou → 山沟）。2026-10-22 冻结回放：词 8167 → 8226、整句 2827 → 2788（掉的多是用 `di` 打 的、`du` 打 都 的习惯，和日志里当时选了错句的统计假象）。
 - 中英混输的英文词位置：`Engine::set_chinese_first`（配置 `[general] chinese_first`，缺省关）关着时拼音不像话的输入英文排第一（`extras::insert_english`，
   用户老选中文词时仍让中文在前），开着时整句先插、英文词紧随其后排第二（`query_inner` 里两步的先后按开关掉转）；句末英文词并入整句（`EnglishTail`）不受它影响。
@@ -384,6 +387,9 @@ P2C 自由生成实验：`--eval-text <集> --eval-generate data/models/hanzhang
 挑错的里三到四成是知意对、被这两项压下（维基 → 危机）。`Engine::last_choice_scores` 记这页每条候选的三项分，CLI `--eval-details` 写进 `choice` 字段，
 离线就能模拟不同权重；两项各 0.25～1 扫过，0.5 最好。开发集 devC 78.8% → 80.3%、devCnc 70.4% → 73.0%、项目文档 48.8% → 49.7%，
 冻结回放整句 78.4% → 79.4%、词 90.2% → 90.1%。剩下挑错的约 3/4 是知意自己偏向错句（事件 / 时间、试验 / 实验）。
+用户在这串键下选过的四字以上词（双拼、简拼的键串一样算）（`CHOSEN_WORD_MIN_CHARS`，`Engine::chosen_long_word`），选择次数比模型挑的那条多时直接排第一：
+模型看不到个人学习，语言模型又不认识 多孩家庭 这种通用词库的词，按分数每次都输给拆开换字的 多还家庭。短词不这样，`shiyong` 选过 使用、这次要 是用 由上下文定。
+只拿选择次数比、不按「词图自己选的长词」一律提前：那样回放整句首选 −8（都不现实 压过 都不显示、还有甚么 压过 还有什么）。
 
 冷启动字词实验：`--eval-cold <样本.jsonl> --cold-output <新结果.jsonl>` 强制用缺省配置与内存学习器，
 与 `--config` / `--user-dict` / `--predict` / `--replay` 等冲突，不加载或删除个人数据。
@@ -601,7 +607,7 @@ PKG_CONFIG_PATH="$onig" PKG_CONFIG_ALLOW_CROSS=1 RUSTONIG_SYSTEM_LIBONIG=1 \
 - 日志在 `~/Library/Logs/Qingjian/`（按天分文件留 7 天，删了会重建），用户数据与配置在 `~/Library/Application Support/Qingjian/`。
 - 配置项：云联想 `[predict]`（偏好设置「云服务」页有「测试连接」按钮：`qingjian_predict::ConnectionTest` 起线程发一条最小请求，`Host` 用独立定时器 `CloudTestMonitor` 轮询结果显示到窗口底部；
   `reasoning_effort` 缺省 `none`，DeepSeek V4 默认思考，不关正文为空）；模糊音 `[fuzzy]` 默认都关；`[general]` 学习语言（`off` 不显示译文）/ 每页候选数 / 翻页键 / 外观 / 竖排横排 / 拼音显示位置 /
-  英文模式候选开关 / 中文优先 `chinese_first` / 中文模式英文词 `english_in_chinese`（`Engine::set_english_in_chinese`）/ emoji 候选 `emoji`（`Engine::set_emoji_candidates`）/ 中西文自动空格 `auto_space`（直通字符经 `text.rs` 的 `pass_through`，开着时首键也读光标前文）/ 双拼方案 `shuangpin`（小鹤 / 自然码 / 微软 / 搜狗 / 智能ABC / 小浪 / 首道 / 拼音加加，空为全拼）/ 日志级别 `log_level`（缺省 info 不含敲的内容，debug 逐键记，热切换）/ 输入日志 `input_log`；
+  英文模式候选开关 / 中文优先 `chinese_first` / 中文模式英文词 `english_in_chinese`（`Engine::set_english_in_chinese`）/ emoji 候选 `emoji`（`Engine::set_emoji_limit`）/ 中西文自动空格 `auto_space`（直通字符经 `text.rs` 的 `pass_through`，开着时首键也读光标前文）/ 双拼方案 `shuangpin`（小鹤 / 自然码 / 微软 / 搜狗 / 智能ABC / 小浪 / 首道 / 拼音加加，空为全拼）/ 日志级别 `log_level`（缺省 info 不含敲的内容，debug 逐键记，热切换）/ 输入日志 `input_log`；
   `[shortcut]` 中英切换键 `switch_mode`（macOS 只认 `shift`：缺省 `[]` 用 Caps Lock 切；勾上后单击 Shift 切中英、Caps Lock 只管大小写，`control` / `ctrl+alt+space` 忽略；
   切换时右上角弹 `host/mode/osd.rs` 的提示，组句中切到英文还会把拼音原样上屏，见 `host/mode/switch.rs` 与 `imk/controller/click.rs::commit_raw_after_switch`；
   单击的边沿用修饰键事件（`IMKInputController` 的 `recognizedEvents:` 声明 `NSKeyDownMask | NSFlagsChangedMask`——缺省只回 `NSKeyDownMask`，
@@ -655,7 +661,7 @@ Windows 的 `dispatch/mode` 管理可选的初始英文与按应用模式记忆�
 `ctrl+alt+space` 走 TSF 保留键登记（`com/key/preserved.rs` 的 `GUID_SWITCH_MODE`）。系统的 Ctrl + Space（「输入法/非输入法切换」）由设置页单独列项，`settings/src/panel/system_hotkey.rs` 通过 `ImmGetHotKey` / `ImmSetHotKey` 读写 `IME_CHOTKEY_IME_NONIME_TOGGLE`，不写入 `switch_mode`、不重复注册 TSF 保留键；同一项也会影响其他简体中文输入法。TSF 适配它：
 它翻的「输入法开 / 关」compartment（`com/mode/sink.rs`）关 = 英文、开 = 中文，我们切模式时把开关写成一致；开关一变也作废被截走 Space 的那次「单击 Ctrl」。
 模式缺省全局共享，启用按应用记忆后由 Server 按宿主保存；当前激活值在 `Router.english`。DLL 激活 / 得到焦点 / 轮询时 `SyncMode` 取回，用户切了 `ModeChanged` 报上去。会话号用线程 id（`com::session_id`）——TSF 的 client id
-各进程都是同样那几个值，拿它当会话号会在 Server 那边撞号。四条切换入口都汇到
+各进程都是同样那几个值，拿它当会话号会在 Server 那边撞号；线程 id 别的进程也枚举得到，所以 Server 的管道层按连接把它换成自己分配的全局号（`ipc/sessions.rs`），Router 里看不到 DLL 报的号。四条切换入口都汇到
 `service/mode.rs::set_english_mode` 一处拦住；状态条点击在 Server 侧（`dispatch/status/mod.rs`）按同一项拦，
 设置界面在 `settings/src/panel/pages/general.rs`。
 

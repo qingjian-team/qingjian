@@ -265,6 +265,9 @@ impl TextService_Impl {
             return;
         }
         self.shared.set_foreground(foreground);
+        if !foreground {
+            self.shared.clear_injected_shift();
+        }
         // AdviseKeyEventSink 会在 Activate 尚未准备好 thread_mgr 时同步获焦；连接由 Activate 随后补上。
         if foreground && self.thread_mgr.borrow().is_some() {
             self.ensure_connected();

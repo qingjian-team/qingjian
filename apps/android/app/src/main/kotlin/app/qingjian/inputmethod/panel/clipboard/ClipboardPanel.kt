@@ -32,7 +32,7 @@ import app.qingjian.inputmethod.theme.Palette
 
 /**
  * 剪贴板与常用语：表头两个页签，下面一张张圆角卡片，点卡片上屏，点右边 ⌄ 展开。
- * - 剪贴板：展开后 + 常用语 / 拆词 / 删除；右上角清空（点两次）。文字原样显示，像代码的用等宽字体、不重排；图片显示缩略图，长按看大图。
+ * - 剪贴板：展开后 编辑 / 常用语 / 拆词 / 删除，往左滑过面板宽度的四成（或往左一甩）也删；右上角清空（点两次）。文字原样显示，像代码的用等宽字体、不重排；图片显示缩略图，长按看大图。
  * - 常用语：底下一排分组，展开后 编辑 / 移至首位 / 删除；右上角 + 新加一条。
  * 数据在 Rust 侧（[ClipboardStore]），这里每次改完拿回整份列表重画。
  */
@@ -63,6 +63,10 @@ class ClipboardPanel(
 
     /** 展开着的那一张（列表里的下标），-1 是都收着。 */
     private var expanded = -1
+
+    /** 正在往左滑的那张（剪贴板列表里的下标），-1 是没在滑；[swipeOffset] 是它往左挪了多少（负数）。 */
+    private var swipeIndex = -1
+    private var swipeOffset = 0f
 
     /** 剪贴板「清空」点了第一下，等第二下确认。 */
     private var clearArmed = false
@@ -125,7 +129,15 @@ class ClipboardPanel(
             val top = list.top + tops[i] - listScroll.offset
             val bottom = list.top + bottoms[i] - listScroll.offset
             if (bottom < list.top || top > list.bottom) continue
-            drawCard(canvas, i, top, bottom)
+            if (i == swipeIndex && swipeOffset < 0f) {
+                drawSwipeDelete(canvas, top, bottom)
+                canvas.save()
+                canvas.translate(swipeOffset, 0f)
+                drawCard(canvas, i, top, bottom)
+                canvas.restore()
+            } else {
+                drawCard(canvas, i, top, bottom)
+            }
         }
         canvas.restore()
         if (showingPhrases) {
@@ -133,6 +145,49 @@ class ClipboardPanel(
             groups.draw(canvas)
         }
         preview?.let { drawPreview(canvas, it) }
+    }
+
+    /** 左滑时卡片底下露出的红底「删除」，字贴着右边。 */
+    private fun drawSwipeDelete(canvas: Canvas, top: Float, bottom: Float) {
+        val margin = ink.dp(CARD_MARGIN_DP)
+        card.set(margin, top, width - margin, bottom)
+        ink.round(canvas, card, 12f, DELETE_RED)
+        val cy = minOf((top + bottom) / 2, top + ink.dp(CARD_PADDING_DP + 20f))
+        val right = width - margin - ink.dp(CARD_PADDING_DP)
+        val label = "删除"
+        val labelWidth = ink.measure(label, 15f)
+        ink.icon(canvas, Icon.TRASH, right - labelWidth - ink.dp(14f), cy, 18f, palette.onBrand)
+        ink.textStart(canvas, label, 15f, palette.onBrand, right - labelWidth, cy, right)
+    }
+
+    override fun swipeable(x: Float, y: Float): Boolean {
+        if (showingPhrases || preview != null || !list.contains(x, y)) return false
+        val contentY = y - list.top + listScroll.offset
+        swipeIndex = (0 until count).firstOrNull { contentY >= tops[it] && contentY < bottoms[it] } ?: return false
+        swipeOffset = 0f
+        clearArmed = false
+        return true
+    }
+
+    override fun onSwipe(dx: Float) {
+        swipeOffset = dx.coerceIn(-width.toFloat(), 0f)
+    }
+
+    override fun onSwipeEnd(flungLeft: Boolean, cancelled: Boolean) {
+        val index = swipeIndex
+        val delete = !cancelled && index in clips.indices && (flungLeft || swipeOffset < -width * SWIPE_DELETE_SHARE)
+        swipeIndex = -1
+        swipeOffset = 0f
+        if (delete) {
+            Haptics.tap(context)
+            removeClip(index)
+        }
+    }
+
+    private fun removeClip(i: Int) {
+        clips = ClipboardStore.remove(context, i, actions.clipboardLimit)
+        app.qingjian.inputmethod.clipboard.sync.ClipboardSync.changed()
+        collapse(keepScroll = true)
     }
 
     /** 长按图片的大图：盖住整个面板，图按比例放到最大，底下 关闭 / 发送。 */
@@ -346,9 +401,10 @@ class ClipboardPanel(
         collapse()
     }
 
-    private fun collapse() {
+    /** 收起展开的卡片；[keepScroll] 留在原来的位置（删了一张，后面的补上来），否则回到顶部。 */
+    private fun collapse(keepScroll: Boolean = false) {
         expanded = -1
-        listScroll.reset()
+        if (keepScroll) listScroll.stop() else listScroll.reset()
         layouts.clear()
     }
 
@@ -391,7 +447,7 @@ class ClipboardPanel(
             when (label) {
                 "编辑" -> actions.editPhrase(phrase, phrase.group)
                 "移至首位" -> reloadPhrases(ClipboardStore.phraseToTop(context, phrase.index))
-                "删除" -> reloadPhrases(ClipboardStore.removePhrase(context, phrase.index))
+                "删除" -> reloadPhrases(ClipboardStore.removePhrase(context, phrase.index), keepScroll = true)
             }
             return
         }
@@ -403,20 +459,16 @@ class ClipboardPanel(
                 actions.toast("已加入常用语「$group」")
             }
             "拆词" -> actions.openPieces(clips[i].text)
-            "删除" -> {
-                clips = ClipboardStore.remove(context, i, actions.clipboardLimit)
-                app.qingjian.inputmethod.clipboard.sync.ClipboardSync.changed()
-                collapse()
-            }
+            "删除" -> removeClip(i)
         }
     }
 
-    private fun reloadPhrases(page: PhrasePage) {
+    private fun reloadPhrases(page: PhrasePage, keepScroll: Boolean = false) {
         this.page = page
         groups.labels = page.groups
         groups.selected = page.groups.indexOf(lastGroup).coerceAtLeast(0)
         actions.phrasesChanged()
-        collapse()
+        collapse(keepScroll)
     }
 
     companion object {
@@ -433,6 +485,12 @@ class ClipboardPanel(
         private const val CODE_LINE_DP = 24f
         private const val PREVIEW_BAR_DP = 60f
         private val PREVIEW_BUTTONS = listOf("关闭", "发送")
+
+        /** 左滑松手时挪过面板宽度的这一成就删。 */
+        private const val SWIPE_DELETE_SHARE = 0.4f
+
+        /** 左滑删除的红底：调色板里没有危险色，与快捷翻译的失败红同一个。 */
+        private const val DELETE_RED = 0xFFD93B3B.toInt()
 
         /** 常用语停在哪一组：关了面板再开还在这组；加完常用语跳到它所在的组。 */
         var lastGroup = PhraseRules.defaultGroup

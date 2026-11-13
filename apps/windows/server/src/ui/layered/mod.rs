@@ -1,7 +1,8 @@
 //! 分层窗口合成：圆角背景 + 四周柔和阴影 + 一段 GDI 内容，合成进一张预乘 alpha 的 BGRA 位图，
 //! `UpdateLayeredWindow` 一次贴上。候选窗口与状态条共用。位图在 [`Canvas`]，内容圆角矩形在 [`RoundRect`]。
-//! 青简渲染器画好的整张位图（已含阴影）走 [`present`]，只做 RGBA → BGRA 再贴。
+//! 青简渲染器画好的整张位图（已含阴影）走 [`present`]，只做 RGBA → BGRA 再贴；主题要的系统材质在 [`backdrop`]。
 
+pub(super) mod backdrop;
 mod canvas;
 mod round_rect;
 

@@ -435,6 +435,11 @@ l_r = false
 an_ang = false
 en_eng = false
 in_ing = false
+eng_ong = false
+# 自己加的规则，每条「音=音」：两边都是声母（"zh=j"）、都是韵母（"ian=iang"）或都是完整音节（"fa=hua"）。
+custom = []
+# custom 里暂时关掉的那些，删掉就重新开。
+custom_off = []
 
 "#,
     template_apps!(),
@@ -682,10 +687,21 @@ fn migrate_legacy_theme(document: &mut DocumentMut, old: Appearance) {
 /// 取（没有就建）分节 `section`，`code.wubi86` 这样带点的是嵌套分节。
 /// 一律建成标准表：否则 toml_edit 会写成顶层的行内表 `predict = { enabled = true }`；
 /// 嵌套时外层是隐式的，文件里只出现 `[code.wubi86]`、不多出一个空的 `[code]`。
+/// 用户手写的行内表（`fuzzy = { z_zh = true }`）原样转成标准表，同节其余的键都留着。
 fn section_table<'a>(document: &'a mut DocumentMut, section: &str) -> &'a mut toml_edit::Table {
     let mut table = document.as_table_mut();
     let mut parts = section.split('.').peekable();
     while let Some(part) = parts.next() {
+        if let Some(item) = table.get_mut(part).filter(|item| item.is_inline_table()) {
+            if let Ok(mut child) = std::mem::take(item).into_table() {
+                child.set_implicit(parts.peek().is_some());
+                *item = toml_edit::Item::Table(child);
+            }
+            // `fuzzy = {` 里键后的空格属于行内写法，留着会写出 `[fuzzy ]`。
+            if let Some(mut key) = table.key_mut(part) {
+                key.leaf_decor_mut().clear();
+            }
+        }
         if !table.get(part).is_some_and(|item| item.is_table()) {
             let mut child = toml_edit::Table::new();
             child.set_implicit(parts.peek().is_some());

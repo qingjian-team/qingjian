@@ -1,12 +1,12 @@
 use qingjian_dictionary::{SyllablePattern, canonical_syllable};
 use serde::{Deserialize, Serialize};
 
-use super::Expanded;
+use super::{CustomRule, Expanded};
 use crate::parser;
 use crate::ranking::FUZZY_PENALTY;
 
 /// 模糊音开关，配置文件 `[fuzzy]` 分节；缺省全关。
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct FuzzyRules {
     /// z ↔ zh。
@@ -35,6 +35,15 @@ pub struct FuzzyRules {
 
     /// in ↔ ing。
     pub in_ing: bool,
+
+    /// eng ↔ ong（zheng / zhong、deng / dong）。
+    pub eng_ong: bool,
+
+    /// 用户自己加的规则，每条 `音=音`（[`CustomRule`]），开着的关着的都在这里，设置里按这个顺序列出。
+    pub custom: Vec<String>,
+
+    /// `custom` 里暂时关掉的那些。
+    pub custom_off: Vec<String>,
 }
 
 impl FuzzyRules {
@@ -49,20 +58,33 @@ impl FuzzyRules {
         an_ang: true,
         en_eng: true,
         in_ing: true,
+        eng_ong: true,
+        custom: Vec::new(),
+        custom_off: Vec::new(),
     };
 
+    /// 有没有开着的规则（内置的或自定义的）。
     pub fn any(&self) -> bool {
-        *self != Self::default()
+        Self::NAMES.iter().any(|name| self.is_on(name)) || !self.custom_rules().is_empty()
     }
 
-    /// 全部规则的配置键名，与 `[fuzzy]` 分节的字段名一致；菜单按这个顺序列出。
-    pub const NAMES: [&'static str; 9] = [
-        "z_zh", "c_ch", "s_sh", "n_l", "f_h", "l_r", "an_ang", "en_eng", "in_ing",
+    /// 开着的自定义规则（认不出的跳过）。
+    pub fn custom_rules(&self) -> Vec<CustomRule> {
+        self.custom
+            .iter()
+            .filter(|text| !self.custom_off.contains(text))
+            .filter_map(|text| CustomRule::parse(text))
+            .collect()
+    }
+
+    /// 内置规则的配置键名，与 `[fuzzy]` 分节的字段名一致；菜单按这个顺序列出。
+    pub const NAMES: [&'static str; 10] = [
+        "z_zh", "c_ch", "s_sh", "n_l", "f_h", "l_r", "an_ang", "en_eng", "in_ing", "eng_ong",
     ];
 
-    /// 设置里显示的规则名：键名 `z_zh` 写成 `z = zh`。
+    /// 设置里显示的规则名：键名 `z_zh`、自定义的 `ian=iang` 写成 `z = zh`、`ian = iang`。
     pub fn label(name: &str) -> String {
-        name.replace('_', " = ")
+        name.replace(['_', '='], " = ")
     }
 
     /// 按名字开一条规则（`z-zh` / `z_zh` / `zzh` 都认），CLI 参数用；不认识返回 `false`。
@@ -83,17 +105,27 @@ impl FuzzyRules {
 
     /// 按名字查一条规则是否开着；不认识返回 `false`。
     pub fn is_on(&self, name: &str) -> bool {
-        let mut copy = *self;
-        copy.flag_mut(name).is_some_and(|flag| *flag)
+        self.flag(name).unwrap_or(false)
+    }
+
+    fn flag(&self, name: &str) -> Option<bool> {
+        Some(match normalize(name).as_str() {
+            "zzh" => self.z_zh,
+            "cch" => self.c_ch,
+            "ssh" => self.s_sh,
+            "nl" => self.n_l,
+            "fh" => self.f_h,
+            "lr" => self.l_r,
+            "anang" => self.an_ang,
+            "eneng" => self.en_eng,
+            "ining" => self.in_ing,
+            "engong" => self.eng_ong,
+            _ => return None,
+        })
     }
 
     fn flag_mut(&mut self, name: &str) -> Option<&mut bool> {
-        let normalized: String = name
-            .chars()
-            .filter(|c| c.is_ascii_alphabetic())
-            .collect::<String>()
-            .to_ascii_lowercase();
-        Some(match normalized.as_str() {
+        Some(match normalize(name).as_str() {
             "zzh" => &mut self.z_zh,
             "cch" => &mut self.c_ch,
             "ssh" => &mut self.s_sh,
@@ -103,6 +135,7 @@ impl FuzzyRules {
             "anang" => &mut self.an_ang,
             "eneng" => &mut self.en_eng,
             "ining" => &mut self.in_ing,
+            "engong" => &mut self.eng_ong,
             _ => return None,
         })
     }
@@ -215,6 +248,12 @@ impl FuzzyRules {
             if self.in_ing {
                 swap_final("ing", "in");
             }
+            if self.eng_ong {
+                swap_final("eng", "ong");
+            }
+        }
+        for rule in self.custom_rules() {
+            rule.apply(form, complete, &mut out);
         }
         out.retain(|f| {
             !f.is_empty()
@@ -227,6 +266,14 @@ impl FuzzyRules {
         });
         out
     }
+}
+
+/// 规则名只留字母、转小写：`z-zh` / `z_zh` / `zzh` 是同一条。
+fn normalize(name: &str) -> String {
+    name.chars()
+        .filter(|c| c.is_ascii_alphabetic())
+        .collect::<String>()
+        .to_ascii_lowercase()
 }
 
 #[cfg(test)]
@@ -242,7 +289,7 @@ mod tests {
         let rules = FuzzyRules::ALL;
         let mut zhen = forms(&rules, SyllablePattern::complete("zhen"));
         zhen.sort();
-        assert_eq!(zhen, ["zen", "zeng", "zhen", "zheng"]);
+        assert_eq!(zhen, ["zen", "zeng", "zhen", "zheng", "zhong", "zong"]);
         assert_eq!(forms(&rules, SyllablePattern::complete("lan"))[0], "lan");
         let mut lan = forms(&rules, SyllablePattern::complete("lan"));
         lan.sort();
@@ -292,8 +339,45 @@ mod tests {
     }
 
     #[test]
+    fn eng_and_ong_swap() {
+        let mut rules = FuzzyRules::default();
+        assert!(rules.enable("eng-ong"));
+        assert_eq!(
+            forms(&rules, SyllablePattern::complete("zhong")),
+            ["zhong", "zheng"]
+        );
+        assert_eq!(
+            forms(&rules, SyllablePattern::complete("deng")),
+            ["deng", "dong"]
+        );
+        // beng 没有 bong
+        assert_eq!(forms(&rules, SyllablePattern::complete("beng")), ["beng"]);
+    }
+
+    #[test]
+    fn custom_rules_apply_until_switched_off() {
+        let mut rules = FuzzyRules {
+            custom: vec!["ian=iang".into(), "fa=hua".into(), "not a rule".into()],
+            ..FuzzyRules::default()
+        };
+        assert!(rules.any());
+        assert_eq!(
+            forms(&rules, SyllablePattern::complete("xian")),
+            ["xian", "xiang"]
+        );
+        assert_eq!(
+            forms(&rules, SyllablePattern::complete("hua")),
+            ["hua", "fa"]
+        );
+        rules.custom_off = vec!["ian=iang".into(), "fa=hua".into()];
+        assert!(!rules.any());
+        assert_eq!(forms(&rules, SyllablePattern::complete("xian")), ["xian"]);
+    }
+
+    #[test]
     fn labels_follow_names() {
         assert_eq!(FuzzyRules::label("z_zh"), "z = zh");
         assert_eq!(FuzzyRules::label("an_ang"), "an = ang");
+        assert_eq!(FuzzyRules::label("ian=iang"), "ian = iang");
     }
 }

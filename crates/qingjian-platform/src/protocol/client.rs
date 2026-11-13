@@ -146,3 +146,25 @@ pub enum ClientMessage {
         session: SessionId,
     },
 }
+
+impl ClientMessage {
+    /// 消息所属的会话号；每种消息都带。
+    pub fn session_mut(&mut self) -> &mut SessionId {
+        match self {
+            Self::OpenSession { session, .. }
+            | Self::Key { session, .. }
+            | Self::Commit { session }
+            | Self::Poll { session }
+            | Self::Surrounding { session, .. }
+            | Self::Privacy { session, .. }
+            | Self::Selection { session, .. }
+            | Self::PositionCandidates { session, .. }
+            | Self::HideCandidates { session }
+            | Self::ModeChanged { session, .. }
+            | Self::SyncMode { session }
+            | Self::ImeSwitched { session }
+            | Self::Indicator { session, .. }
+            | Self::CloseSession { session } => session,
+        }
+    }
+}

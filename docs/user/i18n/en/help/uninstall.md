@@ -25,7 +25,7 @@ This deletes everything in Qingjian's data folder, including imported dictionari
 Find 青简 (Qingjian) under Settings → Apps → Installed apps and uninstall it, or use 卸载青简 (Uninstall Qingjian) in the Start menu.
 Programs that are open need to be closed before everything can be removed; the uninstaller asks whether to restart.
 
-Learning data and settings are kept and can be used again after reinstalling; to delete the data too, delete Qingjian's data folder by hand after uninstalling. For its location, see [Data files and logs](../advanced/data-files.md#Data-files).
+Uninstalling deletes the runtime logs; learning data and settings are kept and can be used again after reinstalling; to delete the data too, delete Qingjian's data folder by hand after uninstalling. For its location, see [Data files and logs](../advanced/data-files.md#Data-files).
 
 ## Linux and Android
 

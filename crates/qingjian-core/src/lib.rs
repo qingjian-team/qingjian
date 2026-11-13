@@ -64,7 +64,7 @@ pub use engine::{
     SurroundingText, Timings, Translator, Usage, UsageMeter, UsageSummary, VocabularySummary,
     VocabularyTracker, Wake, book_scale, is_valid_aux_code_key,
 };
-pub use fuzzy::FuzzyRules;
+pub use fuzzy::{CustomRule, FuzzyRules};
 pub use history::{DEFAULT_FRESH_SECONDS, InputHistory};
 pub use japanese::RomajiComposer;
 pub use panel::{

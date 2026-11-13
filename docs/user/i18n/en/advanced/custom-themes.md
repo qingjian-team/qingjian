@@ -195,7 +195,8 @@ To let the window show what's behind it like the system's popovers, add `materia
 - `appearance`: for `glass` the default is `auto`: the glass turns darker or lighter with what's behind it and the text switches to the theme's light or dark colors to match, so write both `light` and `dark` in `variables`;
   with `system`, the text follows the system's light or dark mode and the glass becomes frosted glass, since the new glass changes color on its own. For `blur` the default is `system`. A theme that locks its appearance in `meta` always uses that appearance.
 - With it, the system draws the window's `fill` and shadow. To lay a color over the material, write a translucent color such as `"tint": "#ffffff33"`.
-- Only macOS supports it for now. Windows still draws the window's `fill`, so keep `fill` an opaque color.
+- On Windows 11 both `glass` and `blur` are the system's acrylic frosted glass: the text follows the system's light or dark mode rather than what's behind the window; the corner radius is fixed to the system's window corners instead of the theme's `radius`, and the system draws the shadow too. Decorations that stick out of the window also get the frosted glass under them, so don't combine them with `material`.
+- On Windows 10, with the system's Transparency effects turned off, and in generated previews, the window's `fill` and shadow are drawn as before, so keep `fill` an opaque color.
 
 ## Page arrows
 

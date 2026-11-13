@@ -1,7 +1,7 @@
 ---
 title: Pinyin schemes and fuzzy pinyin
 order: 5
-description: "Choosing full pinyin, one of nine double pinyin schemes or Dachen Zhuyin; turning on the nine fuzzy pinyin pairs and how they're ranked; how the double pinyin schemes differ, and key hints; keys for Dachen Zhuyin."
+description: "Choosing full pinyin, one of nine double pinyin schemes or Dachen Zhuyin; turning on the ten fuzzy pinyin pairs and your own rules, and how they're ranked; how the double pinyin schemes differ, and key hints; keys for Dachen Zhuyin."
 ---
 
 ## Choosing a scheme
@@ -25,10 +25,20 @@ Full pinyin, double pinyin and Zhuyin share the same dictionary, sentence conver
 
 ## Fuzzy pinyin
 
-Nine pairs: z/zh, c/ch, s/sh, n/l, f/h, l/r, an/ang, en/eng, in/ing. All are off by default.
+Ten pairs: z/zh, c/ch, s/sh, n/l, f/h, l/r, an/ang, en/eng, in/ing, eng/ong. All are off by default.
 
 Tick them under 设置 → 输入 → 模糊音 (Settings → Input → Fuzzy pinyin); on macOS you can also tick them in the 模糊音 (Fuzzy pinyin) submenu of the input method menu. With z/zh on, `zi` also gives 知 / 之; with f/h on, `kaiha` also gives 开发.
-Words matching what you actually typed still come first, followed by fuzzy matches. The three final pairs only apply to complete syllables. Not available when Pinyin is set to Off.
+Words matching what you actually typed still come first, followed by fuzzy matches. The four final pairs only apply to complete syllables. Not available when Pinyin is set to Off.
+
+### Custom rules
+
+You can add pairs beyond these ten: under 设置 → 输入 → 模糊音, write them in 自定义规则 (Custom rules) as sound=sound, separated by spaces, and press Enter.
+
+- Two initials: `zh=j`, so `ji` also gives 知.
+- Two finals: `ian=iang`, so `xian` also gives 想. Like the built-in final pairs, this only applies to complete syllables.
+- Two whole syllables: `fa=hua`, so `hua` also gives 发; other syllables aren't affected.
+
+Added rules appear after the ten above and can be ticked on or off at any time; delete one from the box to remove it. Anything that can't be read (an initial paired with a final, a misspelled syllable) isn't added, and a note says so. In the config file they're `custom` (all rules) and `custom_off` (the ones turned off) under `[fuzzy]`; see [Config file](../advanced/config-file.md).
 
 ## Double pinyin
 
