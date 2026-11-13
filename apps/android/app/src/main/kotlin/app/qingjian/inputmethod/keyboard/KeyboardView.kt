@@ -32,7 +32,9 @@ class KeyboardView(
     private val listener: Listener,
 ) : View(context) {
     interface Listener {
-        fun onKey(key: Key)
+        /// `repeat` 是这一记是不是长按之后由定时器重发的：退格靠它区分「手一直按着」
+    /// 和「手一下一下点」（见 issue #932），别的键暂时用不到。
+    fun onKey(key: Key, repeat: Boolean = false)
 
         /** 长按气泡里选了一项（字母、数字或符号）。 */
         fun onKeyChoice(text: String)
@@ -84,7 +86,7 @@ class KeyboardView(
                 flickBroken = true
                 flickArmed = false
             }
-            listener.onKey(Key.Backspace)
+            listener.onKey(Key.Backspace, repeat = true)
             timer.postDelayed(this, REPEAT_INTERVAL_MS)
         }
     }

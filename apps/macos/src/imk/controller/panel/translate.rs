@@ -45,7 +45,7 @@ impl QingjianInputController {
             }
             51 => {
                 if composing {
-                    host::with(|h| h.engine.backspace());
+                    host::with(|h| h.engine.backspace(false));
                     self.edited_box(client);
                 } else if host::with(|h| h.engine.panel_backspace()).unwrap_or(false) {
                     self.edited_box(client);

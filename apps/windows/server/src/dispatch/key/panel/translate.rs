@@ -35,7 +35,7 @@ impl Router {
             codes::ESCAPE => return Some(self.discard_box()),
             codes::BACK => {
                 if composing {
-                    self.engine.backspace();
+                    self.engine.backspace(false);
                 } else if !self.engine.panel_backspace() {
                     self.close_panel();
                 }

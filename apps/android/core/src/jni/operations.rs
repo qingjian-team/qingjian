@@ -25,8 +25,9 @@ pub extern "system" fn Java_app_qingjian_inputmethod_core_Native_backspace<'loca
     env: JNIEnv<'local>,
     _this: JObject<'local>,
     handle: jlong,
+    repeat: jboolean,
 ) -> jstring {
-    frame(env, handle, Session::backspace)
+    frame(env, handle, |session| session.backspace(repeat != 0))
 }
 
 #[unsafe(no_mangle)]

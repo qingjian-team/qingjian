@@ -470,7 +470,7 @@ impl QingjianInputController {
             _ => None,
         };
         if let Some(selector) = selector {
-            return self.handle_command(selector, client);
+            return self.handle_command(selector, event.isARepeat(), client);
         }
         if command || control {
             return false;

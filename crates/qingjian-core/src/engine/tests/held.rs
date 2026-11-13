@@ -35,14 +35,14 @@ fn backspace_undoes_selections_before_deleting_letters() {
     pick(&mut engine, "开");
     pick(&mut engine, "开");
     assert_eq!(engine.held_text(), "开开");
-    assert!(engine.backspace());
+    assert!(engine.backspace(false).consumed());
     assert_eq!(engine.held_text(), "开");
     assert_eq!(engine.composition().text(), "kaixian");
-    assert!(engine.backspace());
+    assert!(engine.backspace(false).consumed());
     assert_eq!(engine.held_text(), "");
     assert_eq!(engine.composition().text(), "kaikaixian");
     assert_eq!(engine.composition().cursor(), 10);
-    assert!(engine.backspace());
+    assert!(engine.backspace(false).consumed());
     assert_eq!(engine.composition().text(), "kaikaixia");
 }
 
@@ -52,7 +52,7 @@ fn undone_selection_retracts_its_learning_when_another_word_is_chosen() {
     engine.set_input("kaifangxian");
     pick(&mut engine, "开放");
     assert_eq!(engine.learner().weight("开放"), 1);
-    engine.backspace();
+    engine.backspace(false).consumed();
     pick(&mut engine, "开");
     assert_eq!(engine.learner().weight("开放"), 0);
     assert_eq!(engine.learner().weight("开"), 1);
@@ -85,7 +85,7 @@ fn holding_can_be_turned_off() {
     engine.set_hold_selections(false);
     engine.set_input("kaifaxian");
     assert_eq!(pick(&mut engine, "开发"), "开发");
-    assert!(engine.backspace());
+    assert!(engine.backspace(false).consumed());
     assert_eq!(engine.composition().text(), "xia");
 }
 
@@ -107,7 +107,7 @@ fn next_word_holds_the_first_word_of_the_sentence() {
     assert!(rest.iter().any(|c| c.text == "忠心"));
     // 剩下的只有一个词，不再跳
     assert_eq!(engine.hold_next_word(&rest[0]), None);
-    assert!(engine.backspace());
+    assert!(engine.backspace(false).consumed());
     assert_eq!(engine.held_text(), "");
     assert_eq!(engine.composition().text(), "jiaoyizhongxin");
 
@@ -155,4 +155,56 @@ fn cursor_stays_at_the_end_after_a_held_word() {
     let query = engine.query().unwrap();
     let text = query.marked_text();
     assert_eq!(query.segments_cursor(), text.chars().count(), "{text}");
+}
+
+/// 长按保护：组句被删空之后，接着来的自动重复要停在输入法里，别删到应用里的字。
+#[test]
+fn holding_stops_at_the_buffer() {
+    use crate::engine::Backspace;
+
+    let mut engine = engine();
+    engine.set_input("ni");
+    assert_eq!(engine.backspace(false), Backspace::Deleted);
+    assert_eq!(engine.backspace(false), Backspace::Deleted);
+    // 组句已经空了，接下来是按住不放的自动重复：一直吞
+    assert_eq!(engine.backspace(true), Backspace::Held);
+    assert_eq!(engine.backspace(true), Backspace::Held);
+    assert_eq!(engine.backspace(true), Backspace::Held);
+    assert!(engine.composition().is_empty());
+    // 松手再按（不是重复了）：交还给应用
+    assert_eq!(engine.backspace(false), Backspace::Released);
+}
+
+/// 手动连按不套用长按保护：手一下一下点，隔多近都照删。
+///
+/// 这是这一版和上一版的分别 —— 上一版按时间窗判断，连按得快了第二下会被吞；
+/// 现在只看按键事件自带的重复标志，手动按的一律放行。
+#[test]
+fn rapid_manual_presses_are_not_swallowed() {
+    use crate::engine::Backspace;
+
+    let mut engine = engine();
+    engine.set_input("ni");
+    assert_eq!(engine.backspace(false), Backspace::Deleted);
+    assert_eq!(engine.backspace(false), Backspace::Deleted);
+    // 组句空了，但这是手动的两下（不是自动重复）：都该交给应用
+    assert_eq!(engine.backspace(false), Backspace::Released);
+    assert_eq!(engine.backspace(false), Backspace::Released);
+}
+
+/// 自动重复中途松手再按：保护不延续到新手势。
+#[test]
+fn a_fresh_press_ends_the_hold() {
+    use crate::engine::Backspace;
+
+    let mut engine = engine();
+    engine.set_input("ni");
+    engine.backspace(false).consumed();
+    engine.backspace(false).consumed();
+    assert_eq!(engine.backspace(true), Backspace::Held);
+    // 新的一下（false）结束这次长按，交还给应用
+    assert_eq!(engine.backspace(false), Backspace::Released);
+    // 交还之后再来的自动重复不该又被吞掉 —— 组句早已为空，重复就是删应用里的字，
+    // 那是用户按住时的正常行为，交还是之后的事
+    assert_eq!(engine.backspace(true), Backspace::Released);
 }

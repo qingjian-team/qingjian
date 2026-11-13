@@ -7,7 +7,9 @@
 use std::time::Instant;
 
 use windows::Win32::Foundation::{FALSE, LPARAM, WPARAM};
-use windows::Win32::UI::Input::KeyboardAndMouse::{VK_CAPITAL, VK_LSHIFT, VK_RSHIFT, VK_SHIFT};
+use windows::Win32::UI::Input::KeyboardAndMouse::{
+    VK_BACK, VK_CAPITAL, VK_LSHIFT, VK_RSHIFT, VK_SHIFT,
+};
 use windows::Win32::UI::TextServices::{ITfContext, ITfKeyEventSink_Impl};
 use windows::core::{BOOL, GUID, Ref, Result};
 
@@ -205,15 +207,16 @@ impl TextService_Impl {
             self.shared.translating(),
             input.shift_letter_compose,
             input.english_candidates,
-        ) || (self.shared.composing()
-            && [input.predict, input.single_chars, input.next_word]
-                .into_iter()
-                .flatten()
-                .any(|combo| {
-                    event.virtual_key
-                        == preserved::key_event(combo, self.mode_state.english()).virtual_key
-                        && event.modifiers.chord() == combo.modifiers.into()
-                }))
+        ) || (event.virtual_key == VK_BACK.0 as u32 && event.repeat)
+            || (self.shared.composing()
+                && [input.predict, input.single_chars, input.next_word]
+                    .into_iter()
+                    .flatten()
+                    .any(|combo| {
+                        event.virtual_key
+                            == preserved::key_event(combo, self.mode_state.english()).virtual_key
+                            && event.modifiers.chord() == combo.modifiers.into()
+                    }))
     }
 
     /// 没在组句的数字：在 Test 里先问 Server。

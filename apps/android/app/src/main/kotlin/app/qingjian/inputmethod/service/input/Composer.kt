@@ -188,7 +188,7 @@ class Composer(private val engine: Engine, private val host: Host) {
         consumeShift()
     }
 
-    fun onKey(key: Key) {
+    fun onKey(key: Key, repeat: Boolean = false) {
         // 候选条上放着电话邮箱或「撤销」时，删除、重输先只收起它们，不动输入框里的字
         if ((key == Key.Backspace || key == Key.Clear) && !composing && completing && engine.hasOffer()) {
             apply(engine.clear())
@@ -258,7 +258,13 @@ class Composer(private val engine: Engine, private val host: Host) {
             // 拼音、日语组句里的大写字母另有含义，组句中只有英文能换大小写
             Key.Shift -> if (!composing || english) toggleShift()
 
-            Key.Backspace -> if (composing) apply(engine.backspace()) else deleteBackward()
+            Key.Backspace -> if (composing || repeat) {
+                // 组句还在，或者这一记是长按重发的：交给引擎判断（issue #932 ——
+                // 组句删空后的自动重复要停在输入法里，手一下一下点的照删）
+                apply(engine.backspace(repeat))
+            } else {
+                deleteBackward()
+            }
 
             is Key.Space -> when {
                 !composing -> commit(" ")
@@ -587,6 +593,7 @@ class Composer(private val engine: Engine, private val host: Host) {
             connection.finishComposingText()
         }
         connection.endBatchEdit()
+        val wasComposing = preedit.isNotEmpty()
         preedit = frame.preedit
         if (preedit.isEmpty()) {
             sentPreedits.clear()

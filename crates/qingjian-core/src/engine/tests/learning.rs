@@ -624,10 +624,10 @@ fn input_log_records_a_retype_when_keys_change_after_backspace_in_composition() 
     for c in "kaifs".chars() {
         engine.push(c);
     }
-    engine.backspace();
+    engine.backspace(false).consumed();
     engine.push('a');
     // 再删一次不换快照：记的是第一次退格前的串
-    engine.backspace();
+    engine.backspace(false).consumed();
     engine.push('a');
     assert_eq!(commit_first(&mut engine), "开发");
     let entries = entries.lock().unwrap();
@@ -650,7 +650,7 @@ fn backspace_that_restores_the_same_keys_is_not_a_retype() {
     for c in "kaifa".chars() {
         engine.push(c);
     }
-    engine.backspace();
+    engine.backspace(false).consumed();
     engine.push('a');
     commit_first(&mut engine);
     assert_eq!(entries.lock().unwrap().len(), 1);
