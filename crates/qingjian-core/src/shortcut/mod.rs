@@ -30,18 +30,34 @@ pub use numeral::{
 };
 pub use uuid_forms::{UUID_KEYWORD, uuid_forms};
 
-/// 表达式键之后整段是 `uuid` / `ts` 时生成的写法；别的词为 `None`。每次调用都重新生成，组句里的缓存在 Engine。
-pub fn generated_forms(keyword: &str, now: &Zoned) -> Option<Vec<String>> {
+/// 「生成型」候选的词与它的参数：`ts`、`ts;`、`ts;2026-11-05`。
+///
+/// 带参数的子模式一律用 `;` 隔开；分号后面没东西就算空参数（`vts;` 与 `vts` 等价）。
+pub fn generated_call(body: &str) -> Option<(&'static str, &str)> {
+    let (name, args) = match body.char_indices().find(|(_, c)| matches!(c, ';' | '；')) {
+        Some((at, separator)) => (&body[..at], &body[at + separator.len_utf8()..]),
+        None => (body, ""),
+    };
+    let keyword = match name {
+        UUID_KEYWORD => UUID_KEYWORD,
+        TIMESTAMP_KEYWORD => TIMESTAMP_KEYWORD,
+        _ => return None,
+    };
+    Some((keyword, args.trim()))
+}
+
+/// 表达式键之后整段是 `uuid` / `ts` 时生成的写法；别的词为 `None`。
+pub fn generated_forms(keyword: &str, args: &str, now: &Zoned) -> Option<Vec<String>> {
     match keyword {
         UUID_KEYWORD => Some(uuid_forms()),
-        TIMESTAMP_KEYWORD => Some(timestamp_forms(now)),
+        TIMESTAMP_KEYWORD => Some(timestamp_forms(now, args)),
         _ => None,
     }
 }
 
 /// 是不是 [`generated_forms`] 认的词。
-pub fn is_generated_keyword(keyword: &str) -> bool {
-    matches!(keyword, UUID_KEYWORD | TIMESTAMP_KEYWORD)
+pub fn is_generated_keyword(body: &str) -> bool {
+    generated_call(body).is_some()
 }
 
 /// 表达式模式的缺省前缀。`v` 不是任何拼音音节的开头，用它不会和拼音冲突。
@@ -254,7 +270,7 @@ mod tests {
     #[test]
     fn timestamp_forms_cover_unix_and_rfc3339() {
         assert_eq!(
-            timestamp_forms(&now()),
+            timestamp_forms(&now(), ""),
             [
                 "1788462383",
                 "2026-09-03T19:06:23.000Z",
@@ -263,15 +279,65 @@ mod tests {
             ]
         );
         let beijing = now().with_time_zone(TimeZone::fixed(jiff::tz::offset(8)));
-        assert_eq!(timestamp_forms(&beijing)[1], "2026-09-03T19:06:23.000Z");
+        assert_eq!(timestamp_forms(&beijing, "")[1], "2026-09-03T19:06:23.000Z");
         assert_eq!(
-            timestamp_forms(&beijing)[3],
+            timestamp_forms(&beijing, "")[3],
             "2026-09-04T03:06:23.000+08:00"
         );
         assert!(is_generated_keyword("ts") && is_generated_keyword("uuid"));
         assert!(!is_generated_keyword("t"));
     }
 
+    #[test]
+    fn timestamp_accepts_a_date_argument() {
+        // `vts;2026-11-05`：按那天本地零点算，三种分隔符等价
+        let dashed = timestamp_forms(&now(), "2026-11-05");
+        assert_eq!(dashed.len(), 4, "{dashed:?}");
+        assert!(dashed[1].starts_with("2026-11-05T") && dashed[1].ends_with(".000Z"));
+        assert!(dashed[3].starts_with("2026-11-05T00:00:00.000"));
+        assert_eq!(timestamp_forms(&now(), "2026.11.5"), dashed);
+        assert_eq!(timestamp_forms(&now(), "2026/11/5"), dashed);
+        // 空参数是此刻
+        assert_eq!(timestamp_forms(&now(), ""), timestamp_forms(&now(), " "));
+        // 日期不合法就不出候选
+        assert!(timestamp_forms(&now(), "2026-2-30").is_empty());
+        assert!(timestamp_forms(&now(), "2026-11").is_empty());
+    }
+
+    #[test]
+    fn timestamp_accepts_a_full_moment() {
+        // 年月日时分秒（分隔符带冒号，输入法里敲得进去）
+        let full = timestamp_forms(&now(), "2024-03-04.12:09:38");
+        assert!(full[3].contains("T12:09:38.000"), "{full:?}");
+        // 年月日时分秒毫秒：第七段才是毫秒
+        let millis = timestamp_forms(&now(), "2024.3.4.12.9.38.383");
+        assert!(millis[3].contains("T12:09:38.383"), "{millis:?}");
+        // 六段就是到秒，不按数值猜毫秒：60 秒越界，不出候选
+        let second = timestamp_forms(&now(), "2024.3.4.12.9.59");
+        assert!(second[3].contains("T12:09:59.000"), "{second:?}");
+        assert!(timestamp_forms(&now(), "2024.3.4.12.9.60").is_empty());
+        // 时分
+        let hour_minute = timestamp_forms(&now(), "2024.3.4.12.9");
+        assert!(hour_minute[3].contains("T12:09:00.000"), "{hour_minute:?}");
+        // 越界的不出候选
+        assert!(timestamp_forms(&now(), "2024.3.4.25.0").is_empty());
+        assert!(timestamp_forms(&now(), "2024.3.4.12.60").is_empty());
+        // 分号也能当参数内部的分隔符，几种符号可以混用
+        let semis = timestamp_forms(&now(), "2024;3;4;12;9;38;383");
+        assert!(semis[3].contains("T12:09:38.383"), "{semis:?}");
+        let hybrid = timestamp_forms(&now(), "2024.3.4-12:9.38.383");
+        assert!(hybrid[3].contains("T12:09:38.383"), "{hybrid:?}");
+    }
+
+    #[test]
+    fn generated_call_splits_the_argument() {
+        assert_eq!(generated_call("ts"), Some(("ts", "")));
+        assert_eq!(generated_call("ts;"), Some(("ts", "")));
+        assert_eq!(generated_call("ts;2026-11-05"), Some(("ts", "2026-11-05")));
+        assert_eq!(generated_call("ts；2026-11-05"), Some(("ts", "2026-11-05")));
+        assert_eq!(generated_call("uuid"), Some(("uuid", "")));
+        assert_eq!(generated_call("t"), None);
+    }
     #[test]
     fn keyword_shortcuts() {
         assert_eq!(keyword_forms("日期", &now()), texts("rq"));

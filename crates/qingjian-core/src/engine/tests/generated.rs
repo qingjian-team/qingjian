@@ -45,6 +45,23 @@ fn shuangpin_uses_shifted_expression_key() {
 }
 
 #[test]
+fn timestamp_takes_semicolon_and_its_argument() {
+    let mut engine = engine();
+    engine.set_input("vts");
+    // 分号之前，数字是选词键（`vts` 有四条候选），不进缓冲区
+    assert!(!engine.expression_input('1'));
+    // 分号必须进缓冲区，否则壳按标点处理，当场把候选上屏、参数也就敲不进去了
+    assert!(engine.expression_input(';'));
+    // 进了参数之后，日期要用的字符都放行
+    engine.set_input("vts;2026-11-05");
+    assert!(engine.expression_input('-'));
+    assert!(engine.expression_input('3'));
+    assert!(engine.expression_input('.'));
+    // 算式符号不该进：这是参数，不是算式
+    assert!(!engine.expression_input('+'));
+    assert!(!engine.expression_input('*'));
+}
+#[test]
 fn expression_timestamp_is_stable_within_a_composition() {
     let mut engine = engine();
     engine.set_input("vts");
