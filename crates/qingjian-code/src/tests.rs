@@ -61,3 +61,8 @@ fn dash_line_comments_and_unclosed_strings() {
     assert_eq!(kinds("let a = 'x\ny"), [("let", CodeKind::Keyword)]);
     assert_eq!(kinds("`跨\n行`"), [("`跨\n行`", CodeKind::String)]);
 }
+
+#[test]
+fn escaped_newline_does_not_extend_a_string_across_lines() {
+    assert_eq!(kinds("let a = \"x\\\ny\""), [("let", CodeKind::Keyword)]);
+}
