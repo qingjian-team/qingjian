@@ -52,7 +52,6 @@ fn lone_quotes_and_numbers_in_names_are_plain() {
     assert_eq!(kinds("fn f<'a>(utf8: x2)"), [("fn", CodeKind::Keyword)]);
 }
 
-
 #[test]
 fn dash_line_comments_and_unclosed_strings() {
     assert_eq!(
