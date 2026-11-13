@@ -105,8 +105,7 @@ pub fn input(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderErr
                 .control(control)
                 .build(ui, theme)?,
         );
-        // 两条规则只在单用形码时生效，混输下满码后的字母可能在接着打拼音
-        let entry = code.filter(|_| scheme == Scheme::Off).and_then(|id| {
+        let entry = code.and_then(|id| {
             let rules = config.code_rules(&id);
             schemes
                 .iter()
@@ -114,14 +113,19 @@ pub fn input(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderErr
                 .map(|entry| entry.clone().with_rules(rules))
         });
         if let Some(entry) = entry {
-            rows.push(code_rule(
-                ui,
-                page,
-                tr("input.auto_commit"),
-                "auto_commit",
-                entry.auto_commit,
-            )?);
-            rows.push(code_rule(ui, page, tr("input.top"), "top", entry.top)?);
+            let (auto_key, top_key, auto_on, top_on) = if scheme == Scheme::Off {
+                ("auto_commit", "top", entry.auto_commit, entry.top)
+            } else {
+                (
+                    "mixed_auto_commit",
+                    "mixed_top",
+                    entry.mixed_auto_commit,
+                    entry.mixed_top,
+                )
+            };
+            for (key, on) in [(auto_key, auto_on), (top_key, top_on)] {
+                rows.push(code_rule(ui, page, key, on)?);
+            }
         }
     }
     // 字根图只有 86 五笔有
@@ -392,7 +396,6 @@ fn fuzzy(ui: &mut Ui<Message>, page: &Page, disabled: bool) -> Result<NodeId, Re
 fn code_rule(
     ui: &mut Ui<Message>,
     page: &Page,
-    title: &str,
     key: &'static str,
     on: bool,
 ) -> Result<NodeId, RenderError> {
@@ -402,7 +405,18 @@ fn code_rule(
         ("code", key),
         Message::SetCodeRule(key, !on),
     )?;
-    SettingRow::new(title)
-        .control(switch)
-        .build(ui, &page.theme)
+    let (title, info) = match key {
+        "mixed_auto_commit" => (
+            "input.mixed_auto_commit",
+            Some("input.mixed_auto_commit_info"),
+        ),
+        "mixed_top" => ("input.mixed_top", Some("input.mixed_top_info")),
+        "auto_commit" => ("input.auto_commit", None),
+        _ => ("input.top", None),
+    };
+    let mut row = SettingRow::new(tr(title)).control(switch);
+    if let Some(info) = info {
+        row = row.info(tr(info));
+    }
+    row.build(ui, &page.theme)
 }

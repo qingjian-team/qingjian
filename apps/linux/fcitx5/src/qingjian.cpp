@@ -1,4 +1,4 @@
-//! 默认候选面板；连接失效时清除预编辑、放行输入，不重放提交。
+//! 默认候选面板；异步排队按键，连接失效时不重放未确认请求。
 #include "qingjian.h"
 #include "candidate/list.h"
 #include "candidate/word.h"
@@ -50,6 +50,7 @@ QingjianEngine::QingjianEngine(AddonManager *manager)
     FCITX_INFO() << "Qingjian diagnostic logging enabled (input contents excluded)";
     shared_->deferred = instance_->eventLoop().addDeferEvent([this](EventSource *event) {
         event->setEnabled(false);
+        if (async_) { pump(); return true; }
         if (shared_->connection.connected() && !shared_->flush()) disconnectAll("deferred-close");
         return true;
     });
@@ -71,7 +72,7 @@ QingjianEngine::QingjianEngine(AddonManager *manager)
     capabilityWatcher_ = instance_->watchEvent(EventType::InputContextCapabilityChanged, EventWatcherPhase::PreInputMethod, [this](Event &event) {
         auto *context = static_cast<InputContextEvent &>(event).inputContext();
         ++context->propertyFor(&sessions_)->lifecycle;
-        if (context->propertyFor(&sessions_)->opened) syncPrivacy(context);
+        if (context->propertyFor(&sessions_)->opened || async_) syncPrivacy(context);
     });
     focusWatcher_ = instance_->watchEvent(EventType::InputContextFocusOut, EventWatcherPhase::PreInputMethod, [this](Event &event) {
         auto *context = static_cast<InputContextEvent &>(event).inputContext();
@@ -80,7 +81,7 @@ QingjianEngine::QingjianEngine(AddonManager *manager)
         ++session->lifecycle;
         session->focused = false;
         session->selectionText.clear();
-        if (session->opened) exchange(context, {{"Focus", {{"focused", false}}}}, false);
+        if (session->opened || async_) exchange(context, {{"Focus", {{"focused", false}}}}, false);
     });
     keyboardWatcher_ = instance_->watchEvent(EventType::VirtualKeyboardVisibilityChanged, EventWatcherPhase::PostInputMethod, [this](Event &) {
         if (!instance_->userInterfaceManager().isVirtualKeyboardVisible()) return;
@@ -90,13 +91,15 @@ QingjianEngine::QingjianEngine(AddonManager *manager)
             auto *context = watched.get();
             if (!context) continue;
             auto *session = context->propertyFor(&sessions_);
-            if (session->opened && session->displayIdentity.is_object() && !shared_->connection.send({{"DisplayAcknowledged", {
+            if (session->opened && session->displayIdentity.is_object() && !notice(context, {{"DisplayAcknowledged", {
                 {"session", session->id}, {"identity", session->displayIdentity}, {"senses", nlohmann::json::array()}}}})) disconnectAll("display-acknowledgment");
         }
     });
 }
 QingjianEngine::~QingjianEngine() {
     *alive_ = false;
+    async_.reset();
+    pending_.clear();
     poller_.reset(); polled_.unwatch();
     capabilityWatcher_.reset(); focusWatcher_.reset(); keyboardWatcher_.reset();
     shared_->watcher.reset(); shared_->deferred.reset(); shared_->connection.close();
@@ -136,6 +139,11 @@ void QingjianEngine::disconnectAll(const char *reason) {
     if (shared_->clearing) return;
     FCITX_WARN() << "Qingjian connection lost: reason=" << reason << " generation=" << shared_->generation;
     shared_->clearing = true;
+    if (async_) {
+        ++shared_->generation;
+        pending_.clear();
+        reconnect_ = true;
+    }
     shared_->watcher.reset();
     shared_->connection.close();
     stopPolling();
@@ -148,6 +156,7 @@ void QingjianEngine::disconnectAll(const char *reason) {
             auto *session = context->propertyFor(&sessions_);
             logLifecycle(context, "disconnect");
             session->opened = false;
+            session->opening = false;
             session->focused = false;
             session->capabilities = nullptr;
             ++session->revision;
@@ -221,6 +230,13 @@ bool QingjianEngine::syncPrivacy(InputContext *context) {
     const auto caps = context->capabilityFlags();
     nlohmann::json facts = {{"sensitive", caps.test(CapabilityFlag::Sensitive)},
         {"password", caps.test(CapabilityFlag::Password)}, {"disabled", caps.test(CapabilityFlag::Disable)}};
+    if (async_) {
+        if (session->capabilities != facts) {
+            queueEvent(context, {{"Capabilities", facts}}, false);
+            clear(context);
+        }
+        return !caps.test(CapabilityFlag::Password) && !caps.test(CapabilityFlag::Disable);
+    }
     if (session->capabilities != facts) {
         logLifecycle(context, "capability-change");
         const auto watched = context->watch();
@@ -243,7 +259,9 @@ bool QingjianEngine::syncPrivacy(InputContext *context) {
     }
     return session->opened;
 }
-bool QingjianEngine::exchange(InputContext *context, const nlohmann::json &event, bool display) {
+bool QingjianEngine::exchange(InputContext *context, const nlohmann::json &event, bool display,
+                              const nlohmann::json *received) {
+    if (async_ && !received) { queueEvent(context, event, display); return true; }
     auto *session = context->propertyFor(&sessions_);
     const auto watched = context->watch();
     const auto generation = session->generation;
@@ -254,7 +272,8 @@ bool QingjianEngine::exchange(InputContext *context, const nlohmann::json &event
     const char *reason = "event-exchange";
     try {
         nlohmann::json response;
-        if (!session->opened || !shared_->connection.send({{"LinuxEvent", {{"session", session->id}, {"event", event}}}}, &response))
+        if (received) response = *received;
+        else if (!session->opened || !shared_->connection.send({{"LinuxEvent", {{"session", session->id}, {"event", event}}}}, &response))
             throw std::runtime_error("event exchange");
         reason = "event-response";
         if (response.contains("Ignored") && response.at("Ignored").at("session") == session->id) return true;
@@ -275,6 +294,10 @@ bool QingjianEngine::exchange(InputContext *context, const nlohmann::json &event
                 session->selectionAnchor = nearby.anchor();
             }
             session->selectionText = selected;
+            if (async_) {
+                queueEvent(context, {{"Selection", {{"request", request.at("request")}, {"text", selected}}}}, true, true);
+                return true;
+            }
             reason = "selection-exchange";
             if (!shared_->connection.send({{"LinuxEvent", {{"session", session->id}, {"event", {{"Selection", {
                 {"request", request.at("request")}, {"text", selected}}}}}}}}, &response))
@@ -335,7 +358,7 @@ void QingjianEngine::reset(const InputMethodEntry &, InputContextEvent &event) {
     logLifecycle(context, "reset");
     const auto watched = context->watch();
     ++context->propertyFor(&sessions_)->lifecycle;
-    if (context->propertyFor(&sessions_)->opened) exchange(context, "Reset", false);
+    if (context->propertyFor(&sessions_)->opened || async_) exchange(context, "Reset", false);
     if (!watched.get()) return;
     context->propertyFor(&sessions_)->clientPreedit = false;
     clear(context);
@@ -350,11 +373,11 @@ void QingjianEngine::deactivate(const InputMethodEntry &, InputContextEvent &eve
         : switched && switched->reason() == InputMethodSwitchedReason::CapabilityChanged
             ? "deactivate-capability" : "deactivate-switch");
     // 转发框架提前发出的切换原因；能力此刻可能仍是旧值。
-    if (session->opened) {
+    if (session->opened || async_) {
         bool clientPreedit = session->clientPreedit;
         syncPrivacy(context);
         if (!watched.get()) return;
-        if (session->opened) exchange(context, {{"Deactivate", {
+        if (session->opened || async_) exchange(context, {{"Deactivate", {
             {"focus_out", event.type() == EventType::InputContextFocusOut}, {"client_preedit", clientPreedit},
             {"capability_changed", switched && switched->reason() == InputMethodSwitchedReason::CapabilityChanged}}}}, false);
     }
@@ -364,7 +387,17 @@ void QingjianEngine::deactivate(const InputMethodEntry &, InputContextEvent &eve
     clear(context);
 }
 void QingjianEngine::keyEvent(const InputMethodEntry &, KeyEvent &event) {
-    if (event.inputContext() && process(event.inputContext(), event.rawKey(), event.isRelease())) event.filterAndAccept();
+    auto *context = event.inputContext();
+    if (!context) return;
+    const auto caps = context->capabilityFlags();
+    if (caps.test(CapabilityFlag::Password) || caps.test(CapabilityFlag::Disable)) return;
+    if (!async_) {
+        if (shared_->connection.connected()) disconnectAll("async-start");
+        ++shared_->generation;
+        async_ = std::make_unique<qingjian::AsyncConnection>(instance_->eventLoop());
+    }
+    queueKey(context, event.rawKey(), event.isRelease(), event.time());
+    event.filterAndAccept();
 }
 bool QingjianEngine::process(InputContext *context, const Key &key, bool release) {
     const auto watched = context->watch();
@@ -373,6 +406,7 @@ bool QingjianEngine::process(InputContext *context, const Key &key, bool release
         if (context->propertyFor(&sessions_)->opened) syncPrivacy(context);
         return false;
     }
+    if (async_) { queueKey(context, key, release, 0); return true; }
     if (!connect(context) || !watched.get() || !syncPrivacy(context) || !watched.get()) return false;
     nlohmann::json nearby = nullptr;
     if (!release && !context->capabilityFlags().test(CapabilityFlag::Sensitive)) {
@@ -455,7 +489,7 @@ void QingjianEngine::render(InputContext *context, const nlohmann::json &frame) 
     if (!session->opened || session->revision != revision || session->displayIdentity != identity || !context->hasFocus()
         || context->inputPanel().candidateList() == nullptr || instance_->userInterfaceManager().isVirtualKeyboardVisible())
         senses = nlohmann::json::array();
-    if (!shared_->connection.send({{"DisplayAcknowledged", {{"session", session->id}, {"identity", identity}, {"senses", senses}}}}))
+    if (!notice(context, {{"DisplayAcknowledged", {{"session", session->id}, {"identity", identity}, {"senses", senses}}}}))
         throw std::runtime_error("display acknowledgment");
     watch(context, !preedit.empty() || frame.value("translation_pending", false));
 }
@@ -483,14 +517,23 @@ void QingjianEngine::stopPolling() {
     polled_.unwatch();
     if (poller_) poller_->setEnabled(false);
 }
-void QingjianEngine::poll() {
+void QingjianEngine::poll(const nlohmann::json *received) {
     auto *context = polled_.get();
     if (!context || shared_->clearing || !context->hasFocus() || !context->propertyFor(&sessions_)->opened) { stopPolling(); return; }
     auto *session = context->propertyFor(&sessions_);
+    if (async_ && !received) {
+        if (busy_ || !pending_.empty()) return;
+        qingjian::PendingEvent job{context->watch(), session->lifecycle, shared_->generation,
+            nullptr, std::nullopt, false, 0, context->hasFocus()};
+        job.poll = true;
+        enqueue(std::move(job));
+        return;
+    }
     const char *reason = "poll-exchange";
     try {
         nlohmann::json response;
-        if (!shared_->connection.send({{"Poll", {{"session", session->id}}}}, &response)) throw std::runtime_error("poll exchange");
+        if (received) response = *received;
+        else if (!shared_->connection.send({{"Poll", {{"session", session->id}}}}, &response)) throw std::runtime_error("poll exchange");
         reason = "poll-response";
         const auto &update = response.at("Update");
         const auto &identity = update.at("identity");

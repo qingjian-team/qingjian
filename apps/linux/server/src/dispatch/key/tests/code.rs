@@ -6,7 +6,7 @@ use qingjian_core::CodeScheme;
 use qingjian_dictionary::CodeTable;
 use qingjian_platform::protocol::{KeyModifiers, KeyOutcome};
 
-fn code_router(mixed: bool) -> Router {
+pub(super) fn code_router(mixed: bool) -> Router {
     let mut router = router(5);
     let mut scheme = CodeScheme::new(
         "wubi86",

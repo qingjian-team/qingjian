@@ -44,12 +44,13 @@ int main() {
     type(a, "ni"); assert(engine.process(&a, fcitx::Key(FcitxKey_space))); assert(a.committed == "你你");
     // Shift 由 Server 判定；Shift+字母不切模式。
     a.committed.clear();
-    fcitx::KeyEvent press(&a, fcitx::Key(FcitxKey_Shift_L), false), release(&a, fcitx::Key(FcitxKey_Shift_L), true);
-    engine.keyEvent(entry, press); assert(engine.process(&a, fcitx::Key(FcitxKey_N, fcitx::KeyState::Shift))); engine.keyEvent(entry, release);
+    engine.process(&a, fcitx::Key(FcitxKey_Shift_L), false);
+    assert(engine.process(&a, fcitx::Key(FcitxKey_N, fcitx::KeyState::Shift)));
+    engine.process(&a, fcitx::Key(FcitxKey_Shift_L), true);
     assert(engine.process(&a, fcitx::Key(FcitxKey_Return))); assert(a.committed == "N");
     auto tapShift = [&] {
-        fcitx::KeyEvent down(&a, fcitx::Key(FcitxKey_Shift_L), false), up(&a, fcitx::Key(FcitxKey_Shift_L), true);
-        engine.keyEvent(entry, down); engine.keyEvent(entry, up);
+        engine.process(&a, fcitx::Key(FcitxKey_Shift_L), false);
+        engine.process(&a, fcitx::Key(FcitxKey_Shift_L), true);
     };
     a.committed.clear(); tapShift(); type(a, "ni"); assert(engine.process(&a, fcitx::Key(FcitxKey_space)));
     assert(a.committed != "你");

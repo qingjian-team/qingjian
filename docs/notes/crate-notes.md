@@ -107,8 +107,10 @@ mac 存在 `Session::spelling`（`Host::follow_highlight`）、Windows / Linux �
 编码按前缀查表，`CandidateKind::Code` 的候选 `syllables` 为空、上屏吃掉整段作用域（`whole_scope`）。只用形码时 `query_code` 照拼音配 emoji（`insert_emoji` 也认 `Code`）与「日期 / 时间 / 星期」的快捷写法，`rq` / `sj` / `xq` 的快捷候选插在编码打全的词之后（这几个也是常用字的编码前缀）；混输的拼音那半自己配，形码这半不再配。
 混输是「拼音那条 Query 前面插上形码候选」：拼音读不出来时（`ggll`）整个按形码走，两边都空才算错；
 按文本去重，编码打全的形码词在前、拼音居中、只命中前缀的形码词垫后（一律形码在前的话 `kai` 的首选会变成编码 `kaik` 的词）；混输下模式键同双拼换成大写，满码长度（`CodeScheme::code_length`，缺省取 `CodeTable::full_code_len` 即最常见的编码长度，五笔是 4；极点码表里有条写错的 5 码 `TF卡 ttfhh`，取最长会把满码拖成 5）以内不做拼写纠错，超出码长自然只剩拼音。
-只用形码时还有两条按键规则（`engine/code_keys.rs`，混输下都不生效）：`code_tops(c)` 判断满码再敲字母要不要先顶字，由壳上屏**高亮**候选再收这个字母；
+形码的两条按键规则在 `engine/code_keys.rs`：`code_tops(c)` 判断满码再敲字母要不要先顶字，由壳上屏**高亮**候选再收这个字母；
 `commit_unique_code()` 在壳每收一个字母后调，全码满码且码表里只有一个词时 Core 自己按首选上屏（走完整 `query` 拿出 Core 的那份候选，繁体输出照样对）。
+纯形码沿用 `auto_commit` / `top`；混输单独用 `mixed_auto_commit` / `mixed_top`，缺省都关。五笔恰好 4 码才判唯一，短码不上屏，静态表与学习词共同判重。
+混输开启 `mixed_top` 时前缀形码也排到拼音前，满码后的下一字母顶出高亮候选并起新码；不开启时候选顺序与连续拼音保持原样。`composing_code()` 仍只认纯形码，不改变混输的标点和空码处理。
 `composing_code()` 告诉壳「单用形码、缓冲区是一段编码」：壳据此让会转全角的标点总是先上屏高亮候选（不看 `punct_commits`），
 编码查不到词（空码）时 `commit_highlighted` 清掉编码而不是原样上屏字母（回车仍原样上屏）。
 码表里编码不全是字母的行在 `CodeTable::parse` 时跳过（形码查询只收小写字母）。
@@ -430,7 +432,7 @@ Common Crawl、CSL、SkyPile、C4 的统计），可按 GPL-3.0-or-later 使用�
 `shuangpin_schemes`：用户双拼方案的发现，与形码共用 `schemes/` 目录与 id 规则，`scheme.toml` 写 `type = "shuangpin"` 的才算（形码那边见到它跳过）；
 `base` 拿内置方案当底子，`[initials]` / `[finals]` / `[zero]` 按键（零声母按音节）整条替换。内置九套仍编在 Core 里：回放与 CLI 不依赖外部文件，日志里的 `xiaohe` 永远是同一套键位。
 `SchemeSlot`（`scheme/slot.rs`）是壳持有的「装着哪套」，两侧一起装：每次配置热加载都按配置重新找方案，但形码方案（含规则）与码表文件的修改时间、长度都没变时不重读码表——
-热加载多半是改了别的设置，8.9 万条每次重读是白花的；只改了 `[code.<id>]` 的规则走 `Engine::set_code_rules`，也不重读。
+热加载多半是改了别的设置，8.9 万条每次重读是白花的；只改了 `[code.<id>]` 的规则走 `Engine::set_code_rules` / `set_mixed_code_rules`，也不重读。混输两个开关只在用户配置中显式启用，不继承方案自带的纯形码开关。
 双拼键位表很小，每次重读、变了才换进引擎。`SchemeSlot::apply` 直接收 `&Config`，三条输入（拼音侧、形码 id、规则）都从配置取。
 `SchemeSlot::prepare` 可在后台完成查找与码表加载，返回 `PreparedScheme`；`apply_prepared` 只更新内存中的引擎与方案身份，不访问文件系统。准备时携带当前码表是否仍已装入的状态，保留未变码表及只改规则时的复用行为。
 id 不能撞拼音侧的写法与日志里的 `wubi`（`is_valid_id`），因为输入日志把两侧拼成 `<拼音>+<形码键>`，86 五笔的日志键沿用 `wubi`（`CodeSchemeEntry::log_key`）。
@@ -778,7 +780,8 @@ Fcitx5 的输入法与插件描述均启用配置入口，`settings/` 通过唯�
 插件在清空预编辑之前上屏；上屏回调重入后核对生命周期和帧身份，跳过过期重画而不撤销或重复提交，见 [Linux 协议与状态](linux-fcitx5.md#协议与状态)。
 
 Unix socket 用共享长度前缀与 Frame（当前公共版本 9，与 `PROTOCOL_VERSION` 同步，Fcitx5 插件里写死在 `qingjian.cpp` 的 OpenSession）；插件复用一条连接，每个上下文独立会话。Linux v3 扩展逐会话握手、确认 Sensitive/Password/Disable 后接受按下/释放、焦点和点击事实。
-Fcitx5 的 `ipc/connection` 将慢请求（成功但耗时 ≥ 100 ms）和失败请求记到框架日志，记录固定白名单里的操作名、收发阶段、失败原因、耗时与 errno；200 ms 总截止时间和断连清空、不重放行为不变。`QingjianEngine` 补记断连原因，以及有未完成输入时的失焦、重置、能力变化与停用原因，只带会话编号、连接代次、修订号和状态。不输出消息正文、异常正文、按键、预编辑、候选、选区或上屏文本；与用户可选的输入日志独立。收集方式见 [Linux 排错](linux-fcitx5.md#路径和排错)。
+Fcitx5 的 `ipc/async` 后台独占 socket，`key/queue` 在主线程保序排队，最多 1024 项待发送、一个事务在途；后台收发截止时间 5 s，每 20 ms 检查取消，通过 `EventDispatcher` 回投响应，不阻塞框架事件线程。焦点、能力、重置、销毁与连接代次隔离过期事件；显示确认和选区回答先于后续按键，Poll 只在空闲时发送。仅 Server 确认 Passthrough 后转发按下 / 抬起；故障清空待处理事件，不重放未确认请求。同步兼容接口仍使用 200 ms，Fcitx4 / IBus 不变。
+`ipc/connection` 将慢请求（成功但耗时 ≥ 100 ms）和失败请求记到框架日志，记录固定白名单里的操作名、收发阶段、失败原因、耗时与 errno。`QingjianEngine` 补记断连原因，以及有未完成输入时的失焦、重置、能力变化与停用原因，只带会话编号、连接代次、修订号和状态。不输出消息正文、异常正文、按键、预编辑、候选、选区或上屏文本；与用户可选的输入日志独立。收集方式见 [Linux 排错](linux-fcitx5.md#路径和排错)。
 候选回报绑定连接代次、上下文和服务端帧序号，仅当前聚焦页的有效释义进入 `note_displayed`，不把生成帧算作已展示。
 Linux 回包由 `dispatch/display/annotation` 给释义添加可选 `annotation`（词性与汉字段假名，`[general] translation_pos` 关掉时不带词性），Fcitx5 面板优先显示它；原始译文和快捷键提交不变，旧 Server 缺该字段时插件回退到 `text`。
 `[general] preedit` 使用已有 `both` / `inline` / `window`；没有新增 Linux 自绘配置。详见 [linux-fcitx5.md](linux-fcitx5.md)。

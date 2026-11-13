@@ -9,7 +9,7 @@ struct Session final : fcitx::InputContextProperty {
         : id(number), owner(shared) {}
     ~Session() override {
         if (auto shared = owner.lock()) {
-            if (opened) shared->retire(id);
+            if (opened || opening) shared->retire(id);
             else shared->contexts.erase(id);
         }
     }
@@ -21,6 +21,9 @@ struct Session final : fcitx::InputContextProperty {
     std::weak_ptr<SharedConnection> owner;
 
     bool opened = false;
+
+    /// 后台握手尚未回到事件线程；析构时仍需关闭 Server 上可能已创建的会话。
+    bool opening = false;
 
     bool focused = false;
 

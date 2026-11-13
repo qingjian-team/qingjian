@@ -26,7 +26,7 @@ int main(int argc, char **argv) {
     if (scenario == "focusout-client-owned") capabilities |= Flag::ClientUnfocusCommit;
     context->setCapabilityFlags(capabilities);
     context->focusIn();
-    assert(engine.process(context.get(), fcitx::Key(FcitxKey_n)));
+    if (scenario != "shift-empty") assert(engine.process(context.get(), fcitx::Key(FcitxKey_n)));
     if (scenario.rfind("focusout-", 0) == 0) {
         if (scenario == "focusout-client-owned") context->commitString(context->inputPanel().clientPreedit().toStringForCommit());
         context->focusOut();
@@ -53,8 +53,13 @@ int main(int argc, char **argv) {
             engine.keyEvent(entry, release);
         }
     }
-    context.reset();
-    auto timer = instance.eventLoop().addTimeEvent(CLOCK_MONOTONIC, fcitx::now(CLOCK_MONOTONIC) + 30000, 0,
+    std::unique_ptr<fcitx::EventSourceTime> delayedDestroy;
+    if (scenario == "shift-empty") {
+        delayedDestroy = instance.eventLoop().addTimeEvent(CLOCK_MONOTONIC,
+            fcitx::now(CLOCK_MONOTONIC) + 100000, 1000,
+            [&](fcitx::EventSourceTime *, uint64_t) { context.reset(); return false; });
+    } else context.reset();
+    auto timer = instance.eventLoop().addTimeEvent(CLOCK_MONOTONIC, fcitx::now(CLOCK_MONOTONIC) + 200000, 1000,
         [&](fcitx::EventSourceTime *, uint64_t) { instance.eventLoop().exit(); return false; });
     instance.eventLoop().exec();
     mock.join();

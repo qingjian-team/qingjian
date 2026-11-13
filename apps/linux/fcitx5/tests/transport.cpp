@@ -3,6 +3,7 @@
 #include "support/input.h"
 #include "support/wire.h"
 #include <fcitx/inputcontextmanager.h>
+#include <fcitx/inputmethodentry.h>
 #include <fcitx-utils/log.h>
 #include <chrono>
 #include <cstring>
@@ -12,7 +13,8 @@
 #include <sys/un.h>
 #include <unistd.h>
 int main(int argc, char **argv) {
-    assert(argc == 2);
+    assert(argc == 2 || argc == 3);
+    const bool asynchronous = argc == 3;
     const std::string failure = argv[1];
     char directory[] = "/tmp/qingjian-transport-XXXXXX"; assert(mkdtemp(directory));
     const std::string socketPath = std::string(directory) + "/server.sock";
@@ -41,7 +43,8 @@ int main(int argc, char **argv) {
                     {"frame", emptyFrame()}, {"commit", nullptr}, {"outcome", "Passthrough"}}}});
             }
             assert(readMessage(connection).at("LinuxEvent").at("event").contains("Key")); ++keys;
-            if (failure == "timeout") std::this_thread::sleep_for(std::chrono::milliseconds(350));
+            if (failure == "timeout") std::this_thread::sleep_for(std::chrono::milliseconds(asynchronous ? 5350 : 350));
+            else if (failure == "disconnect") { close(connection); return; }
             else if (failure == "malformed") {
                 const char bad[] = {1, 0, 0, 0, '{'};
                 assert(send(connection, bad, sizeof(bad), MSG_NOSIGNAL) == sizeof(bad));
@@ -64,8 +67,26 @@ int main(int argc, char **argv) {
         fcitx::QingjianEngine engine(&instance.addonManager());
         Input context(instance.inputContextManager());
         auto begin = std::chrono::steady_clock::now();
-        assert(engine.process(&context, fcitx::Key(FcitxKey_n)) == (failure == "slow"));
-        assert(std::chrono::steady_clock::now() - begin < std::chrono::seconds(1));
+        if (asynchronous) {
+            const fcitx::InputMethodEntry entry("qingjian", "Qingjian", "zh", "qingjian");
+            fcitx::KeyEvent event(&context, fcitx::Key(FcitxKey_n));
+            engine.keyEvent(entry, event);
+            assert(event.filtered());
+            if (failure != "slow") {
+                fcitx::KeyEvent queued(&context, fcitx::Key(FcitxKey_i));
+                engine.keyEvent(entry, queued);
+                assert(queued.filtered());
+            }
+            assert(std::chrono::steady_clock::now() - begin < std::chrono::milliseconds(100));
+            auto finish = instance.eventLoop().addTimeEvent(CLOCK_MONOTONIC,
+                fcitx::now(CLOCK_MONOTONIC) + (failure == "timeout" ? 5600000 : 800000), 1000,
+                [&](fcitx::EventSourceTime *, uint64_t) { instance.eventLoop().exit(); return false; });
+            instance.eventLoop().exec();
+            assert(context.forwarded.empty());
+        } else {
+            assert(engine.process(&context, fcitx::Key(FcitxKey_n)) == (failure == "slow"));
+            assert(std::chrono::steady_clock::now() - begin < std::chrono::seconds(1));
+        }
         assert(context.committed.empty() && context.inputPanel().empty());
     }
     mock.join();
@@ -85,7 +106,7 @@ int main(int argc, char **argv) {
             assert(logs.find("reason=invalid-json") != std::string::npos);
         } else if (failure == "session") {
             assert(logs.find("reason=event-response") != std::string::npos);
-        } else {
+        } else if (!asynchronous) {
             assert(logs.find("reason=handshake-response") != std::string::npos);
         }
     }

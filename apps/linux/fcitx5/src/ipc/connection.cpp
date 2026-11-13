@@ -1,4 +1,4 @@
-//! 长度前缀显式使用小端；非阻塞 fd 内部同步 poll，共享 200ms 截止时间，耗时需与 UI 分开。
+//! 小端长度前缀与可取消的限时传输；生产收发在后台线程执行。
 #include "connection.h"
 #include <fcitx-utils/log.h>
 #include <array>
@@ -26,15 +26,16 @@ const char *operationName(const nlohmann::json &message) {
     return "unknown";
 }
 bool transfer(int fd, void *buffer, size_t length, bool write, Clock::time_point deadline,
-              const char *&reason, int &systemError) {
+              const char *&reason, int &systemError, const std::atomic<bool> *cancelled) {
     auto *data = static_cast<char *>(buffer);
     while (length) {
+        if (cancelled && cancelled->load()) { reason = "cancelled"; return false; }
         auto remaining = std::chrono::duration_cast<std::chrono::milliseconds>(deadline - Clock::now()).count();
         if (remaining <= 0) { reason = "timeout"; return false; }
         pollfd pfd{fd, static_cast<short>(write ? POLLOUT : POLLIN), 0};
-        int ready = poll(&pfd, 1, static_cast<int>(remaining));
+        int ready = poll(&pfd, 1, static_cast<int>(cancelled ? std::min<int64_t>(remaining, 20) : remaining));
         if (ready < 0 && errno == EINTR) continue;
-        if (ready == 0) { reason = "timeout"; return false; }
+        if (ready == 0) continue;
         if (ready < 0 || (pfd.revents & (POLLERR | POLLNVAL))) {
             reason = "poll-error";
             systemError = ready < 0 ? errno : 0;
@@ -87,13 +88,13 @@ bool Connection::open() {
 bool Connection::send(const nlohmann::json &message, nlohmann::json *response) {
     if (!connected()) return false;
     const auto started = Clock::now();
-    const auto deadline = started + std::chrono::milliseconds(200);
+    const auto deadline = started + timeout_;
     const char *stage = "write-prefix";
     const char *reason = "unknown";
     int systemError = 0;
     auto part = [&](void *buffer, size_t size, bool write, const char *name) {
         stage = name;
-        return transfer(fd_, buffer, size, write, deadline, reason, systemError);
+        return transfer(fd_, buffer, size, write, deadline, reason, systemError, cancelled_);
     };
     std::string body = message.dump();
     uint32_t length = static_cast<uint32_t>(body.size());
