@@ -251,7 +251,7 @@ impl QingjianInputController {
         host::with(|h| h.engine.application() == Some(LOGIN_WINDOW)).unwrap_or(false)
     }
 
-    /// 修饰键事件：Shift 按下 / 抬起交给 [`Host::shift_event`] 判定单击；切到英文时把组句里的拼音原样上屏
+    /// 修饰键事件：Shift 按下 / 抬起交给 `host/mode/switch` 的 `Host::shift_event` 判定单击；切到英文时把组句里的拼音原样上屏
     /// （要借文本客户端，所以放在 Host 借用之外，同定时器那条路）。
     fn handle_shift_event(&self, event: &NSEvent, client: TextClient<'_>) {
         let key = event.keyCode();

@@ -43,7 +43,8 @@ pub struct ModeSwitch {
     /// Shift 按下之后还没有别的键插进来时，按下的时刻；抬起时没超过 [`TAP_WINDOW`] 就算一次单击。
     pending: Option<Instant>,
 
-    /// 上次切换的时刻，[`TOGGLE_COOLDOWN`] 内的 Shift 边沿当抖动丢掉。
+    /// 上次切换的时刻，防抖窗口内的 Shift 边沿当抖动丢掉：只开单击 Shift 时用
+    /// [`SINGLE_TAP_COOLDOWN`]，配置双击 Shift 时用更短的 [`DOUBLE_TAP_COOLDOWN`]。
     toggled_at: Option<Instant>,
 
     /// 单击 Shift 切出来的持久英文模式；`enabled` 为假时无意义（`set_enabled(false)` 会清零）。
