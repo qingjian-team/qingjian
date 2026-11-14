@@ -471,6 +471,17 @@ impl Theme {
         self.families.style(name).map(|spec| spec.size)
     }
 
+    /// 键的圆角（主题 `keyboard.key_radius`，点）。手机键盘按它画：墨岩那类方角主题是 0，
+    /// 缺省主题是 7。与候选窗的键位提示图同一个值，两处不该各写一套。
+    pub fn key_radius(&self) -> f32 {
+        self.file.keyboard.key_radius
+    }
+
+    /// 键盘整块的圆角（主题 `keyboard.radius`，点）。
+    pub fn keyboard_radius(&self) -> f32 {
+        self.file.keyboard.radius
+    }
+
     /// 主题 id。
     pub fn id(&self) -> &str {
         &self.file.meta.id
