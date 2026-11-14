@@ -31,6 +31,9 @@ pub fn to_key_event(keysym_value: u32, state: u32) -> KeyEvent {
         virtual_key: virtual_key(keysym_value, modifiers.shift),
         character: keysym::to_char(keysym_value),
         modifiers,
+        // IBus 的按键事件不带自动重复信息（X11 的重复由服务器合成，到这一层就是普通按下），
+        // 与 fcitx5 前端一样填 `false`：退格的长按保护在 Linux 上退化成改动前的行为。
+        repeat: false,
     }
 }
 

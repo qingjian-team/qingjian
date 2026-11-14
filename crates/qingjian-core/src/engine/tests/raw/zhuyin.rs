@@ -38,7 +38,7 @@ fn raw_preedit_zhuyin_middle_edit_and_english_fallback() {
     for _ in 0..3 {
         engine.move_cursor_left();
     }
-    engine.backspace();
+    engine.backspace(false).consumed();
     engine.push('6');
     assert_raw(&mut engine, "ㄅㄨˊㄅㄨˋ", 8);
     engine.set_english_mode(true);

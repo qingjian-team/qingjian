@@ -156,7 +156,7 @@ fn nine_key_backspace_after_the_cursor_unpins_first() {
     let (cursor, marked) = tap(&mut engine, 2);
     assert_eq!(cursor, 2);
     assert!(!marked.chars().any(|c| c.is_ascii_digit()), "{marked}");
-    engine.backspace();
+    engine.backspace(false).consumed();
     assert_eq!(engine.composition().text(), "64426");
     assert_eq!(engine.composition().cursor(), 2);
     assert_eq!(engine.nine_key_pinned(), 0);
@@ -168,7 +168,7 @@ fn nine_key_backspace_after_the_cursor_unpins_first() {
         "{after}"
     );
     // 再删光标前的键：剩下的 6 还偏向 n，光标后仍是原来的读法
-    engine.backspace();
+    engine.backspace(false).consumed();
     assert_eq!(engine.composition().text(), "6426");
     let query = engine.query().unwrap();
     assert!(

@@ -81,7 +81,7 @@ class Engine(context: Context, private val onReady: () -> Unit) {
 
     fun push(codePoint: Int): Frame = Frame.parse(Native.push(handle, codePoint))
 
-    fun backspace(): Frame = Frame.parse(Native.backspace(handle))
+    fun backspace(repeat: Boolean): Frame = Frame.parse(Native.backspace(handle, repeat))
 
     /** 滑完一笔：解出的字母进组句，同一个个点出来。 */
     fun swipe(input: String): Frame = Frame.parse(Native.swipe(handle, input))
