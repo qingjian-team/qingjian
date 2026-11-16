@@ -12,6 +12,13 @@ pub struct Syllable {
 
     /// 是完整音节；否则是声母（简拼 `k`）或未打完的前缀（`zho`）。
     pub complete: bool,
+
+    /// 零声母简拼：这个键**代表**的音节（敲 `a`，代表 `an`）。
+    ///
+    /// 标准简拼规则里零声母音节用韵头的单韵母代表 —— `a` 代表 `a` / `ai` / `an` / `ang` / `ao`。
+    /// `text` 保持敲的字母（`a`）不变，`implied` 只在查询时用，而且是完整音节：
+    /// `aquan` 才有机会切出 `a(an)` + `quan` → 安全。
+    pub implied: Option<String>,
 }
 
 impl Syllable {
@@ -19,6 +26,7 @@ impl Syllable {
         Self {
             text: text.to_owned(),
             complete: true,
+            implied: None,
         }
     }
 
@@ -26,13 +34,32 @@ impl Syllable {
         Self {
             text: text.to_owned(),
             complete: false,
+            implied: None,
+        }
+    }
+
+    /// 零声母简拼：敲的是 `typed`（`a`），代表的是 `syllable`（`an`）。
+    ///
+    /// 标成完整音节 —— 这个键就代表那个字，不是什么「打了一半的 an」。
+    pub fn implied(typed: &str, syllable: &str) -> Self {
+        Self {
+            text: typed.to_owned(),
+            complete: true,
+            implied: Some(syllable.to_owned()),
         }
     }
 
     pub fn pattern(&self) -> SyllablePattern<'_> {
-        SyllablePattern {
-            text: canonical_syllable(&self.text),
-            complete: self.complete,
+        // 有 `implied` 就按它查：`a` 这个键当 `an` 用
+        match &self.implied {
+            Some(syllable) => SyllablePattern {
+                text: canonical_syllable(syllable),
+                complete: true,
+            },
+            None => SyllablePattern {
+                text: canonical_syllable(&self.text),
+                complete: self.complete,
+            },
         }
     }
 }

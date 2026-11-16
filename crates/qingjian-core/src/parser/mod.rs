@@ -16,7 +16,7 @@ pub use error::ParseError;
 pub use segmentation::{Segmentation, Syllable};
 pub use syllable::{INITIALS, MAX_SYLLABLE_LEN, RARE_SYLLABLES, SYLLABLES};
 
-use syllable::initial_lengths;
+use syllable::{initial_lengths, zero_initial_syllables};
 use trie::SYLLABLE_TRIE;
 
 pub fn is_syllable(s: &str) -> bool {
@@ -165,6 +165,31 @@ fn segment_chunk(chunk: &str, allow_partial: bool) -> Vec<Segmentation> {
             if !tokens.contains(&(len, true)) {
                 tokens.push((len, false));
             }
+        }
+        // 零声母简拼：`a` / `e` / `o` 开头的音节可以用韵头的单韵母代表（标准简拼规则）。
+        //
+        // 两种情形由 `zero_initial_syllables` 分好：音节就在串里（`ao` → `ao`）时整段吃掉，
+        // 不在串里（`aquan` 的 `a` → `an`）时只吃一个字母。
+        //
+        // 词尾不展开：`xia` 的 `a` 就是「啊」，不额外产 `xi` + `a(an)` = `xian`，
+        // 否则会把「先 / 想」挤出首位。`ao` 整段在串里，属于音节本身，不是展开，照常处理。
+        //
+        // 单独处理而不是并进 `tokens`：它代表的音节与吃掉的字母数不一定相同，
+        // 得带进 `Syllable::implied`（`text` 记字母、`pattern()` 用音节）。
+        for (eaten, syllable) in zero_initial_syllables(rest) {
+            if eaten == 1 && rest.len() <= 1 {
+                continue;
+            }
+            let typed = &rest[..eaten];
+            let extended: Vec<Segmentation> = best[start]
+                .iter()
+                .map(|base| {
+                    let mut syllables = base.syllables.clone();
+                    syllables.push(Syllable::implied(typed, syllable));
+                    Segmentation { syllables }
+                })
+                .collect();
+            best[start + eaten].extend(extended);
         }
         // 整个剩余部分作为未打完的音节（`zho` → zhong / zhou …）。它本身是完整音节或纯声母时已经在上面了。
         let rest_is_complete = matches.lengths().next_back() == Some(rest.len());
