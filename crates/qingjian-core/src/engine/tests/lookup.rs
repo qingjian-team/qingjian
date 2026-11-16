@@ -749,3 +749,131 @@ fn abbreviation_reading_c_h_as_two_initials_commits_every_key() {
     assert_eq!(engine.commit(&idiom), "蜡炬成灰泪始干");
     assert!(engine.composition().is_empty());
 }
+
+/// 零声母简拼：`a` / `e` / `o` 开头的音节可以用韵头的单韵母代表一个键。
+///
+/// 标准简拼规则「零声母的用韵头的单韵母代表，`a` 代表 a、ai、an、ang、ao」。
+/// 少了这条，`aquan` 只能切出 `a` + `quan`（啊全），切不出 `an` + `quan`（安全）。
+#[test]
+fn zero_initial_single_key_stands_for_a_syllable() {
+    // 词频按真实相对关系写：「安全」远高于「啊全」，所以它该是首选
+    let dictionary = concat!(
+        "安全\tan quan\t9000\n",
+        "啊全\ta quan\t300\n",
+        "爱情\tai qing\t8000\n",
+        "安稳\tan wen\t6000\n",
+        "昂扬\tang yang\t5000\n",
+        "额外\te wai\t6000\n",
+        "恩爱\ten ai\t4000\n",
+        "偶尔\tou er\t5000\n",
+        "耳朵\ter duo\t6000\n",
+        "欧洲\tou zhou\t6000\n",
+        "偶然\tou ran\t6000\n",
+        "奥秘\tao mi\t5000\n",
+        "啊\ta\t2000\n",
+        "阿\ta\t1900\n",
+        "爱\tai\t3000\n",
+        "安\tan\t3000\n",
+        "昂\tang\t2000\n",
+        "奥\tao\t2500\n",
+        "哦\to\t2000\n",
+        "俄\te\t2000\n",
+    );
+
+    // `a` 当 `an`：`aquan` 该出「安全」，而且排在「啊全」前面
+    let aq = texts_in(dictionary, "aquan");
+    assert_eq!(aq[0], "安全", "aquan = {aq:?}");
+    assert!(
+        aq.iter().position(|w| w == "啊全") > Some(0),
+        "安全该排在啊全前面: {aq:?}"
+    );
+
+    // `aqvan`：v 当 ü，`qvan` 归一成 `quan`
+    assert_eq!(texts_in(dictionary, "aqvan")[0], "安全");
+
+    // 三族各来一个
+    assert!(texts_in(dictionary, "aq").contains(&"爱情".to_owned()));
+    assert!(texts_in(dictionary, "aw").contains(&"安稳".to_owned()));
+    assert!(texts_in(dictionary, "ay").contains(&"昂扬".to_owned()));
+    assert!(texts_in(dictionary, "ew").contains(&"额外".to_owned()));
+    assert!(texts_in(dictionary, "ea").contains(&"恩爱".to_owned()));
+    assert!(texts_in(dictionary, "ed").contains(&"耳朵".to_owned()));
+    assert!(texts_in(dictionary, "oz").contains(&"欧洲".to_owned()));
+    assert!(texts_in(dictionary, "or").contains(&"偶然".to_owned()));
+
+    // `ao` / `ou` 整段就是音节本身（`ao` + `m`、`ou` + `e`），不是切成两个单字母
+    assert!(texts_in(dictionary, "aom").contains(&"奥秘".to_owned()));
+    assert!(texts_in(dictionary, "oe").contains(&"偶尔".to_owned()));
+}
+
+/// 词尾的单字母不展开成零声母音节。
+///
+/// `xia` 的 `a` 就是「啊」，不该额外产 `xi` + `a(an)` = `xian` 把「先 / 想」挤出首位。
+#[test]
+fn trailing_single_letter_is_not_expanded() {
+    let dictionary = concat!(
+        "下\txia\t9000\n",
+        "先\txian\t8000\n",
+        "想\txiang\t7000\n",
+        "啊\ta\t2000\n",
+    );
+    // `xia` 只该按 `xia` 一个音节读：下 / 先 / 想 都在，且「下」在前
+    let all = texts_in(dictionary, "xia");
+    assert_eq!(all[0], "下", "{all:?}");
+    assert!(all.contains(&"先".to_owned()), "{all:?}");
+}
+
+/// 零声母简拼只作用于全拼。
+///
+/// 双拼下 `a` 是「啊」那个键、`q` 是 `iu` 之类的韵母键，小鹤的 `an` 是 `j`；
+/// 把 `a` 当成「an / ai / ang」的简拼会把正常的双拼串读错。
+/// 注音同理（键位完全另一套）。
+#[test]
+fn zero_initial_abbreviation_does_not_touch_shuangpin_or_zhuyin() {
+    // 小鹤双拼：`an` 的键是 `j`，`quan` 是 `qm`。`aj` 是 a + an 两键，合法。
+    // 全拼的零声母简拼会给 `a` 加上 implied（ai / an / ang / ao），双拼下不该有。
+    let mut xiaohe = xiaohe();
+    xiaohe.set_input("aj");
+    let shuangpin = xiaohe.query().unwrap();
+    // 双拼解出的音节不会出现 `an` / `ang` 这种由单键 `a` 代表的东西
+    for segmentation in &shuangpin.segmentations {
+        for syllable in &segmentation.syllables {
+            assert!(
+                syllable.implied.is_none(),
+                "双拼里不该出现零声母简拼的 implied：{:?}",
+                segmentation
+            );
+        }
+    }
+
+    // 注音：键位是 ㄅㄆㄇ 那一套，`a` 根本不是合法键位，同样不产生 implied
+    let mut zhuyin_mode = engine();
+    zhuyin_mode.set_zhuyin_mode(true);
+    zhuyin_mode.set_input("j4"); // ㄨˋ → wu
+    if let Ok(query) = zhuyin_mode.query() {
+        for segmentation in &query.segmentations {
+            for syllable in &segmentation.syllables {
+                assert!(
+                    syllable.implied.is_none(),
+                    "注音里不该出现零声母简拼的 implied：{:?}",
+                    segmentation
+                );
+            }
+        }
+    }
+}
+
+/// 全拼下才会产生 implied —— 与上一条对照。
+#[test]
+fn zero_initial_abbreviation_applies_to_full_pinyin_only() {
+    let mut engine = engine();
+    engine.set_input("aquan");
+    let query = engine.query().unwrap();
+    let has_implied = query.segmentations.iter().any(|segmentation| {
+        segmentation
+            .syllables
+            .iter()
+            .any(|syllable| syllable.implied.is_some())
+    });
+    assert!(has_implied, "全拼下 aquan 该有一条切分带 implied");
+}
