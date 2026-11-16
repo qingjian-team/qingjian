@@ -17,7 +17,21 @@ data class Frame(
     val expression: Boolean,
     /** 这段组句在单字模式：候选只有单字，展开面板的「单字」标签亮着。 */
     val singleChars: Boolean = false,
+    /** 这次「只上屏第几个字」上屏的那个字；没做这个动作时为空。 */
+    val pickChar: String = "",
+    /** 「只上屏第几个字」取不出单字，壳据此提示一句。 */
+    val pickFailed: Boolean = false,
 ) {
+    /**
+     * 「只上屏某个字」的结果：`null` 表示没做这个动作，否则是要上屏的那个字或空串（取不出）。
+     * 提示文案由壳按 `candidate_pick_done` / `candidate_pick_failed` 拼——`core` 不带资源。
+     */
+    fun pickResult(): String? = when {
+        pickChar.isNotEmpty() -> pickChar
+        pickFailed -> ""
+        else -> null
+    }
+
     companion object {
         val EMPTY = Frame("", 0, "", "", emptyList(), emptyList(), false)
 
@@ -38,13 +52,16 @@ data class Frame(
                     forgettable = item.optBoolean("forgettable"),
                     cloud = item.optBoolean("cloud"),
                     contact = item.optBoolean("contact"),
+                    chars = item.optInt("chars"),
+                    pickable = item.optBoolean("pickable"),
                 )
             }
             val choices = root.getJSONArray("pinyin_choices")
             return Frame(
                 root.getString("commit"), root.optInt("replace"), root.getString("preedit"), root.getString("notice"),
                 List(choices.length(), choices::getString), candidates, root.optBoolean("expression"),
-                root.optBoolean("single_chars"),
+                root.optBoolean("single_chars"), root.optString("pick_char"),
+                root.optBoolean("pick_failed"),
             )
         }
 

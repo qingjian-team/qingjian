@@ -134,6 +134,9 @@ impl Engine {
         source: InputSource,
         used_sense: Option<usize>,
     ) -> String {
+        // 「只上屏某个字」挑出来的这一次（见 `Engine::pick_char`）：取走就清，
+        // 免得下一次普通上屏也按挑字处理
+        let picked_char = std::mem::take(&mut self.picked_char);
         // 繁体输出开着时，壳送回来的是繁体候选：先换回简体，下面的学习、历史、日志一律看简体；
         // 交给应用的仍是 `output` 那份繁体
         let output = candidate.text.clone();
@@ -296,6 +299,7 @@ impl Engine {
                 }
             }
             CandidateKind::Chinese | CandidateKind::Cloud => {
+                let explicit = self.learner.weight(&candidate.text) > 0;
                 self.record_word(
                     &candidate.text,
                     &candidate.syllables,
@@ -303,6 +307,11 @@ impl Engine {
                     true,
                     buffer_left,
                 );
+                // 挑字挑出来的字：用户亲手点的，即使只有一个音节也当「选过一次」记进词频，
+                // 下次打这个音节它排前面。整段拼音选完时的合成词由 `finish_buffer` 照常记。
+                if picked_char && !explicit {
+                    self.learner.record(candidate);
+                }
             }
             CandidateKind::Sentence => match sentence_words {
                 Some(words) => {

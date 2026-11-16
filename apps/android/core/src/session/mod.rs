@@ -184,6 +184,8 @@ impl Session {
                 candidates,
                 expression: false,
                 single_chars: false,
+                pick_char: String::new(),
+                pick_failed: false,
             };
         }
         if self.engine.composition().is_empty() {
@@ -242,6 +244,8 @@ impl Session {
                 .collect(),
             expression: self.engine.expression_mode() || self.engine.unicode_entry(),
             single_chars: self.engine.composition().single_chars(),
+            pick_char: String::new(),
+            pick_failed: false,
         }
     }
 }

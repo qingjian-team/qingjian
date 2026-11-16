@@ -161,12 +161,16 @@ impl Engine {
 
     /// 候选里的第 `index` 个字单独上屏（从 0 起）。
     ///
-    /// 「只打这个词的第一个字 / 第二个字」是用户明确的意图声明，比让引擎去猜「这段拼音分几次选完
-    /// 是不是想要一个合成词」可靠（见 #1024）。上屏吃的拼音按那个字所在的音节算：取了第几个字就
-    /// 消耗到第几个音节，后面的拼音留在组句里，壳接着 [`Self::query`]。
+    /// 上屏的是第 `index` 个字，但拼音按**前缀**消耗到第 `index` 个音节：前 `index` 个字既不上屏、
+    /// 也不留在组句里，一并放弃（组句层不支持中间留个洞）。后面的拼音原样留着，壳接着
+    /// [`Self::query`]。所以取「第二个字」等于「只要第二个字、前一个字也不要了」——
+    /// 要单独打前一个字，得从头重打。
+    ///
+    /// 这个动作是给用户一个明确出口：与其让引擎去猜「这段拼音分几次选完是不是想要一个合成词」
+    /// （#1024 那类问题），不如让用户直接说「我就要这一个字」。
     ///
     /// 不是中文候选、字数与音节数对不上（云端词、中英混合词）、`index` 越界时返回 `None`。
-    pub fn pick_char(&self, candidate: &Candidate, index: usize) -> Option<Candidate> {
+    pub fn pick_char(&mut self, candidate: &Candidate, index: usize) -> Option<Candidate> {
         if candidate.kind != CandidateKind::Chinese {
             return None;
         }
@@ -177,9 +181,12 @@ impl Engine {
         }
         let text = chars.get(index)?.to_string();
         let syllables = candidate.syllables[..=index].to_vec();
+        self.picked_char = true;
         Some(Candidate {
             text,
             syllables,
+            // 挑出来的这个字不带原候选的译词：用户没选那个词，不替他把词汇记上
+            translation: None,
             ..candidate.clone()
         })
     }

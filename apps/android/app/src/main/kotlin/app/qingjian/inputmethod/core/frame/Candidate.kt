@@ -10,4 +10,8 @@ data class Candidate(
     val cloud: Boolean = false,
     /** 通讯录里的名字，候选条在词的右上角画一个人头。 */
     val contact: Boolean = false,
+    /** 几个字（Unicode 字符数，不是 `text.length` 的 UTF-16 码元数）。 */
+    val chars: Int = 0,
+    /** 能不能「只上屏第几个字」。 */
+    val pickable: Boolean = false,
 )

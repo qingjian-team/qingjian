@@ -260,3 +260,46 @@ fn clearing_offers_an_undo_until_text_comes_back() {
     session.cleared("abc");
     assert!(session.complete("x").candidates.is_empty());
 }
+
+/// 找到「你好」在候选条上的下标：`candidates` 是私有的，靠一次 `push` 拿到的帧来看。
+fn nihao_index(frame: &Frame) -> usize {
+    frame
+        .candidates
+        .iter()
+        .position(|c| c.text == "你好")
+        .expect("你好")
+}
+
+#[test]
+fn picking_a_char_commits_one_char_and_keeps_the_rest() {
+    // #1025：长按「你好」选「只上屏第一个字」——上屏「你」，剩下的 hao 还在组句里。
+    let mut first = session();
+    type_keys(&mut first, "niha");
+    let frame = first.push('o');
+    let index = nihao_index(&frame);
+    let frame = first.pick_char(index, 0);
+    assert_eq!(frame.pick_char, "你", "上屏的是第一个字");
+    assert!(!frame.pick_failed);
+    assert_eq!(frame.preedit, "你hao", "剩下的拼音还在组句里");
+
+    // `usize::MAX` 是 JNI 传 `-1` 的映射：取最后一个字，这一段拼音吃完了
+    let mut last = session();
+    type_keys(&mut last, "niha");
+    let frame = last.push('o');
+    let index = nihao_index(&frame);
+    let frame = last.pick_char(index, usize::MAX);
+    assert_eq!(frame.pick_char, "好");
+    assert_eq!(frame.commit, "好", "上屏的是挑出来的那个字");
+    assert!(frame.preedit.is_empty(), "最后一段拼音吃完了，组句清空");
+}
+
+#[test]
+fn picking_a_char_past_the_end_reports_failure_instead_of_panicking() {
+    let mut input = session();
+    type_keys(&mut input, "niha");
+    let frame = input.push('o');
+    let index = nihao_index(&frame);
+    let frame = input.pick_char(index, 9);
+    assert!(frame.pick_char.is_empty());
+    assert!(frame.pick_failed, "字序越界要标记失败，由壳提示");
+}

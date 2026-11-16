@@ -41,6 +41,13 @@ pub struct Frame {
 
     /// 这段组句在单字模式（#848）：候选只有单字，展开面板的「单字」标签亮着。
     pub single_chars: bool,
+
+    /// 这次「只上屏第几个字」上屏的那个字（见 #1025）；没做这个动作时为空。
+    /// 提示文字由 Kotlin 按 `candidate_pick_char` 拼——`core` 不依赖本地化。
+    pub pick_char: String,
+
+    /// 「只上屏第几个字」取不出单字：Kotlin 按 `candidate_pick_failed` 提示。
+    pub pick_failed: bool,
 }
 
 impl Frame {
@@ -51,7 +58,7 @@ impl Frame {
         serde_json::to_string(self).unwrap_or_else(|error| {
             tracing::error!(%error, "帧序列化失败");
             String::from(
-                r#"{"commit":"","replace":0,"preedit":"","preedit_cursor":0,"notice":"","pinyin_choices":[],"candidates":[],"expression":false,"single_chars":false}"#,
+                r#"{"commit":"","replace":0,"preedit":"","preedit_cursor":0,"notice":"","pinyin_choices":[],"candidates":[],"expression":false,"single_chars":false,"pick_char":"","pick_failed":false}"#,
             )
         })
     }

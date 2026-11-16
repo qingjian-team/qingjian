@@ -48,6 +48,12 @@ class Composer(private val engine: Engine, private val host: Host) {
 
         /** 一句话提示（删候选的结果）。 */
         fun showNotice(text: String)
+
+        /**
+         * 「只上屏某个字」的提示：`picked` 为 `null` 表示取不出单字，否则是要上屏的那个字。
+         * 文案在壳的资源里（`candidate_pick_done` / `candidate_pick_failed`），措辞与桌面端一致。
+         */
+        fun showPickCharNotice(source: String, picked: String?)
     }
 
     /** 上一帧的 preedit，非空即在组句。 */
@@ -390,7 +396,13 @@ class Composer(private val engine: Engine, private val host: Host) {
     fun forget(index: Int) = apply(engine.forget(index))
 
     /** 长按候选选了「只上屏第几个字」：那个字上屏，剩下的拼音接着组句。 */
-    fun pickChar(index: Int, position: Int) = apply(engine.pickChar(index, position))
+    fun pickChar(index: Int, position: Int) {
+        // 提示要带上原候选的文本，先记下来（apply 之后候选列表已经换了）
+        val source = candidates.getOrNull(index)?.text.orEmpty()
+        val frame = engine.pickChar(index, position)
+        apply(frame)
+        frame.pickResult()?.let { host.showPickCharNotice(source, it) }
+    }
 
     /**
      * 长按气泡里选的字符。全键盘选小写 = 照常敲这个字母；九宫格组句中选小写 = 这一位就是这个字母

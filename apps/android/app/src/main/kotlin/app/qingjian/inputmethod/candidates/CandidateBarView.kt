@@ -113,7 +113,7 @@ class CandidateBarView(
     /** 气泡里第几项是「只上屏第几个字」，以及它对应的字序。 */
     private var pickItems: Map<Int, Int> = emptyMap()
 
-    /** 气泡里只有「删除」（候选没有译文）。 */
+    /** 气泡里没有译词，不预选任何一项（只剩选字 / 删除，得滑上去才算）。 */
     private var forgetOnly = false
 
     private val scroller = OverScroller(context)
@@ -297,10 +297,12 @@ class CandidateBarView(
         val index = strip.indexAt(event.x + scrollX)
         val candidate = strip.candidates.getOrNull(index) ?: return
         val senses = candidate.senses
-        // 「只上屏第几个字」：多字中文候选才给，一个字一个音节（英文、形码候选不算，
-        // 云端词可能带英文也对不上，Core 那边取不出就返回空）
-        val pickPositions = when (candidate.text.length) {
-            1, 2 -> if (candidate.text.length == 2) listOf(0) else emptyList()
+        // 「只上屏第几个字」：能不能给由 Core 判（中文候选 + 字数与音节数对得上），
+        // 这里只按字数决定给哪几项。不能用 text.length 数——那是 UTF-16 码元数，
+        // 扩展 B 区汉字算两个，会取错字
+        val pickPositions = when {
+            !candidate.pickable -> emptyList()
+            candidate.chars == 2 -> listOf(0)
             else -> listOf(0, 1, -1)
         }
         if (senses.isEmpty() && !candidate.forgettable && pickPositions.isEmpty()) return

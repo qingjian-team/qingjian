@@ -230,6 +230,24 @@ pub struct ActionOutcome {
     pub picked: Option<Candidate>,
 }
 
+/// 「只上屏某个字」做完的那句话；`single` 是上屏的那个字，`None` 表示取不出单字。
+///
+/// Windows 与 macOS 共用（从 `ActionOutcome::notice` 拿）。安卓的 `core` 不依赖这个 crate，
+/// 那边由帧带标记、Kotlin 按同名文案键拼。
+pub fn pick_char_notice(single: Option<&str>, source: &str) -> String {
+    let source: &dyn std::fmt::Display = &source;
+    match single {
+        Some(single) => {
+            let char: &dyn std::fmt::Display = &single;
+            tr_args(
+                "candidate_menu.picked_char",
+                &[("text", source), ("char", char)],
+            )
+        }
+        None => tr_args("candidate_menu.cant_pick_char", &[("text", source)]),
+    }
+}
+
 /// 做菜单里的一项。置顶 / 取消置顶写配置文件 `config_path`，失败的原因放进提示。
 pub fn perform(
     action: CandidateAction,
@@ -295,14 +313,11 @@ pub fn perform(
             };
             match engine.pick_char(candidate, index) {
                 Some(single) => ActionOutcome {
-                    notice: tr_args(
-                        "candidate_menu.picked_char",
-                        &[("text", &text), ("char", &single.text)],
-                    ),
+                    notice: pick_char_notice(Some(&single.text), text),
                     phrases_changed: false,
                     picked: Some(single),
                 },
-                None => notice(tr_args("candidate_menu.cant_pick_char", &[("text", &text)])),
+                None => notice(pick_char_notice(None, text)),
             }
         }
     }
@@ -357,7 +372,7 @@ mod tests {
 
     #[test]
     fn picking_a_char_takes_the_syllables_up_to_it() {
-        let engine = test_engine();
+        let mut engine = test_engine();
         let phrase = chinese("开发中", &["kai", "fa", "zhong"]);
         let first = engine.pick_char(&phrase, 0).expect("第一个字");
         assert_eq!(first.text, "开");

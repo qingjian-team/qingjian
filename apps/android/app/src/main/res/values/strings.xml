@@ -204,6 +204,8 @@
     <string name="candidate_pick_char">只上屏「%1$s」</string>
     <string name="candidate_pick_nth">第 %1$d 个字</string>
     <string name="candidate_pick_last">最后一个字</string>
+    <string name="candidate_pick_done">「%1$s」只上屏「%2$s」</string>
+    <string name="candidate_pick_failed">「%1$s」取不出单个字</string>
     <string name="section_keys">按键</string>
     <string name="haptic_title">按键震动</string>
     <string name="haptic_light">轻</string>
