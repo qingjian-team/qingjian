@@ -3960,7 +3960,7 @@ dependencies = [
  "mdns-sd",
  "serde",
  "serde_json",
- "sha2 0.10.9",
+ "sha2 0.11.0",
  "snow",
  "spake2",
  "thiserror 2.0.21",
