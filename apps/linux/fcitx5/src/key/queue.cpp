@@ -23,7 +23,8 @@ nlohmann::json factsOf(const InputContext *context) {
         {"password", caps.test(CapabilityFlag::Password)}, {"disabled", caps.test(CapabilityFlag::Disable)}};
 }
 }
-void QingjianEngine::queueKey(InputContext *context, const Key &key, bool release, int time) {
+void QingjianEngine::queueKey(InputContext *context, const Key &key, bool release, int time,
+                              std::shared_ptr<std::optional<bool>> nativeResult) {
     nlohmann::json nearby = nullptr;
     if (!release && !context->capabilityFlags().test(CapabilityFlag::Sensitive)) {
         const auto &text = context->surroundingText();
@@ -33,7 +34,7 @@ void QingjianEngine::queueKey(InputContext *context, const Key &key, bool releas
     enqueue({context->watch(), session->lifecycle, shared_->generation,
         {{"Key", {{"event", qingjian::mapKey(key)}, {"release", release},
             {"surrounding", nearby}, {"selection_supported", true}}}}, key, release, time,
-        context->hasFocus()});
+        context->hasFocus(), true, false, false, std::move(nativeResult)});
 }
 void QingjianEngine::queueEvent(InputContext *context, const nlohmann::json &event,
                                 bool display, bool priority, bool wire) {
@@ -57,7 +58,7 @@ void QingjianEngine::enqueue(qingjian::PendingEvent event, bool priority) {
     pump();
 }
 void QingjianEngine::pump() {
-    if (!async_ || busy_ || shared_->clearing) return;
+    if (!async_ || busy_ || shared_->clearing || (applying_ && !nativeWaiting_)) return;
     auto retired = std::exchange(shared_->retired, {});
     for (auto iterator = retired.rbegin(); iterator != retired.rend(); ++iterator) {
         qingjian::PendingEvent close;
@@ -137,6 +138,9 @@ void QingjianEngine::pump() {
                 return nlohmann::json{{"response", std::move(response)}, {"preedit", preedit}};
             },
             [this, job, facts, generation, opening](qingjian::AsyncConnection::Reply reply) {
+                busy_ = false;
+                ++applying_;
+                if (job.nativeResult) *job.nativeResult = true;
                 auto *current = job.context.get();
                 if (generation == shared_->generation) {
                     if (!reply) disconnectAll("async-exchange");
@@ -155,15 +159,17 @@ void QingjianEngine::pump() {
                             } else {
                                 const bool consumed = exchange(current, job.event, job.display, &response);
                                 current = job.context.get();
-                                if (!consumed && job.key && current && generation == shared_->generation
+                                const bool valid = current && generation == shared_->generation
                                     && current->propertyFor(&sessions_)->lifecycle == job.lifecycle
-                                    && current->hasFocus() == job.focused)
+                                    && current->hasFocus() == job.focused;
+                                if (job.nativeResult) *job.nativeResult = consumed || !valid;
+                                else if (!consumed && job.key && valid)
                                     current->forwardKey(*job.key, job.release, job.time);
                             }
                         }
                     }
                 }
-                busy_ = false;
+                --applying_;
                 pump();
             });
         return;

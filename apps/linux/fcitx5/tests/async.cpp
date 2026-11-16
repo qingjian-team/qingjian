@@ -26,6 +26,11 @@ int main(int argc, char **argv) {
     instance.initialize();
     auto engine = std::make_unique<fcitx::QingjianEngine>(&instance.addonManager());
     auto input = std::make_unique<Input>(instance.inputContextManager());
+    if (mode == "dbus") {
+        input->backend = "dbus";
+        input->setCapabilityFlags(fcitx::CapabilityFlags(fcitx::CapabilityFlag::Preedit)
+                                  | fcitx::CapabilityFlag::KeyEventOrderFix);
+    }
     input->focusIn();
     const fcitx::InputMethodEntry entry("qingjian", "Qingjian", "zh", "qingjian");
     auto emit = [&](fcitx::Key key, bool release = false) {
@@ -97,8 +102,8 @@ int main(int argc, char **argv) {
     auto finish = instance.eventLoop().addTimeEvent(CLOCK_MONOTONIC, fcitx::now(CLOCK_MONOTONIC) + 1200000, 1000,
         [&](fcitx::EventSourceTime *, uint64_t) {
             assert(heartbeats > 20);
-            if (mode == "stall" || mode == "reentry") {
-                assert(input->committed == (mode == "stall" ? "不错" : "不错开"));
+            if (mode == "stall" || mode == "reentry" || mode == "dbus") {
+                assert(input->committed == (mode == "reentry" ? "不错开" : "不错"));
                 assert(input->forwarded.size() >= 2);
                 const auto &press = input->forwarded[input->forwarded.size() - 2];
                 const auto &release = input->forwarded.back();

@@ -396,8 +396,12 @@ void QingjianEngine::keyEvent(const InputMethodEntry &, KeyEvent &event) {
         ++shared_->generation;
         async_ = std::make_unique<qingjian::AsyncConnection>(instance_->eventLoop());
     }
-    queueKey(context, event.rawKey(), event.isRelease(), event.time());
-    event.filterAndAccept();
+    if (context->frontendName() == "dbus" && !caps.test(CapabilityFlag::KeyEventOrderFix)) {
+        if (nativeKey(context, event.rawKey(), event.isRelease(), event.time())) event.filterAndAccept();
+    } else {
+        queueKey(context, event.rawKey(), event.isRelease(), event.time());
+        event.filterAndAccept();
+    }
 }
 bool QingjianEngine::process(InputContext *context, const Key &key, bool release) {
     const auto watched = context->watch();

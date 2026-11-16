@@ -26,6 +26,23 @@ void AsyncConnection::submit(Work work, Done done) {
     }
     ready_.notify_one();
 }
+bool AsyncConnection::wait() {
+    {
+        std::unique_lock lock(mutex_);
+        ready_.wait(lock, [this] { return stopping_.load() || completed_.has_value(); });
+        if (stopping_.load()) return false;
+    }
+    dispatch();
+    return true;
+}
+void AsyncConnection::dispatch() {
+    std::optional<std::pair<Done, Reply>> completed;
+    {
+        std::lock_guard lock(mutex_);
+        completed.swap(completed_);
+    }
+    if (completed) completed->first(std::move(completed->second));
+}
 void AsyncConnection::run() {
     Connection connection(std::chrono::seconds(5), &stopping_);
     while (!stopping_.load()) {
@@ -38,8 +55,13 @@ void AsyncConnection::run() {
         Reply reply;
         try { reply = work(connection); }
         catch (const std::exception &) { connection.close(); }
-        dispatcher_.schedule([alive = alive_, done = std::move(done), reply = std::move(reply)]() mutable {
-            if (*alive) done(std::move(reply));
+        {
+            std::lock_guard lock(mutex_);
+            completed_.emplace(std::move(done), std::move(reply));
+        }
+        ready_.notify_all();
+        dispatcher_.schedule([this, alive = alive_] {
+            if (*alive) dispatch();
         });
     }
 }

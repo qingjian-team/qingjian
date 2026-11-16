@@ -7,6 +7,8 @@ description: "Qingjian's default keys on macOS, Windows and Linux: switching, pi
 This page only lists keys. In the tables, `⌥` is Option, `⌘` is Command, `⌃` is Control and `⇧` is Shift; "—" means the platform has no such key.
 For keys you can change, see [Changing keys](../personalize/keys-settings.md); Android uses an on-screen keyboard, see [Android](../platforms/android.md).
 
+With Fcitx5 on Linux, keys not used by Qingjian for candidate selection or other input operations remain available to the current application, including digits, navigation, deletion and copy, paste, undo and save shortcuts in GTK4 applications.
+
 ## Switching
 
 | Action | macOS | Windows | Linux |

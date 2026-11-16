@@ -9,7 +9,10 @@ class Input final : public fcitx::InputContext {
 public:
     explicit Input(fcitx::InputContextManager &manager) : InputContext(manager, "real-test") { created(); setCapabilityFlags(fcitx::CapabilityFlag::Preedit); }
     ~Input() override { destroy(); }
-    const char *frontend() const override { return "test"; }
+    const char *frontend() const override { return backend.c_str(); }
+    /// 模拟不同框架前端的按键回送能力。
+    std::string backend = "test";
+
     std::string committed;
 
     /// 异步直通只在收到 Server 确认后转发，保留按键与抬键顺序。

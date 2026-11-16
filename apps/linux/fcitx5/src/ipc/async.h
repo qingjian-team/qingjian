@@ -19,7 +19,10 @@ public:
     explicit AsyncConnection(fcitx::EventLoop &loop);
     ~AsyncConnection();
     void submit(Work work, Done done);
+    /// 在原始按键请求内等待一项 IPC 完成，不运行嵌套的框架事件循环。
+    bool wait();
 private:
+    void dispatch();
     void run();
 
     /// 工作线程只读取取消标记，不访问 Engine 或 InputContext。
@@ -33,6 +36,9 @@ private:
 
     /// 单个待执行事务；取出后只有事件线程收到完成通知才提交下一项。
     std::optional<std::pair<Work, Done>> job_;
+
+    /// 事件循环与同步兼容路径共同领取的单次完成结果。
+    std::optional<std::pair<Done, Reply>> completed_;
 
     std::thread worker_;
 

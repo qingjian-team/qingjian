@@ -8,6 +8,8 @@ The Linux version of Qingjian runs as an input method in Fcitx5 or Fcitx4, and c
 
 With Fcitx5, keys remain in order during brief stalls instead of the first part of a code becoming literal letters after 200 milliseconds. Pending input from an old window is not delivered to a new window or password field. If the background service crashes or remains unresponsive, unconfirmed input may be discarded and need to be typed again.
 
+In GTK4 applications such as GNOME Text Editor, digits, spaces, Enter, navigation keys and editing shortcuts not used by the input method are handled normally by the application. For compatibility, Qingjian waits for the result within the original key request, so a stalled background service can temporarily delay keyboard responses in these applications.
+
 - On Debian, Ubuntu and Fedora you can install the deb / rpm packages, which start automatically at login; see "deb / rpm packages" below.
 - Newer distributions (Debian 13, Ubuntu 25.04, Fedora 42, Arch and later) can also use the AppImage: a single file, no administrator rights, starts automatically at login; see "AppImage" below.
 - For Fcitx5 there's a prebuilt package for Ubuntu 26.04; other distributions install from source. Verified with GTK4 and Qt6 apps and Firefox on the GNOME desktop (Wayland) of Ubuntu 26.04.

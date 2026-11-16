@@ -35,7 +35,9 @@ private:
                     bool priority = false, bool wire = false);
     void pump();
     bool notice(InputContext *context, const nlohmann::json &message);
-    void queueKey(InputContext *context, const Key &key, bool release, int time);
+    void queueKey(InputContext *context, const Key &key, bool release, int time,
+                  std::shared_ptr<std::optional<bool>> nativeResult = nullptr);
+    bool nativeKey(InputContext *context, const Key &key, bool release, int time);
     void render(InputContext *context, const nlohmann::json &frame);
     /// 组句期间定时向 Server 发 Poll 取异步结果（本地整句模型重排）；帧为空就停。
     void watch(InputContext *context, bool composing);
@@ -48,8 +50,14 @@ private:
     /// 仅事件线程访问，最多保留 1024 项未发送的框架事实。
     std::deque<qingjian::PendingEvent> pending_;
 
-    /// 在途事务含主线程应用响应，避免回调重入时插队发送下一键。
+    /// 单个在途 IPC 事务，领取完成结果后释放。
     bool busy_ = false;
+
+    /// 应用响应期间通常暂停出队，只有原始按键请求的等待允许保序推进。
+    size_t applying_ = 0;
+
+    /// 原始按键请求的等待深度，兼容提交回调内的按键重入。
+    size_t nativeWaiting_ = 0;
 
     /// 下一次后台任务开始前关闭旧连接，禁止恢复旧会话或重放请求。
     bool reconnect_ = false;

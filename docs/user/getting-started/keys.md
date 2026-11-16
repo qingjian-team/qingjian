@@ -7,6 +7,8 @@ description: 青简在 macOS、Windows 与 Linux 上的缺省按键：切换、�
 本页只列按键。表中 `⌥` 为 Option，`⌘` 为 Command，`⌃` 为 Control，`⇧` 为 Shift；「—」表示该平台没有此键。
 可以改的键见 [改按键](../personalize/keys-settings.md)；Android 是屏幕键盘，见 [Android](../platforms/android.md)。
 
+Linux 的 Fcitx5 下，未被青简用于选词或其他输入操作的按键仍交给当前应用，包括 GTK4 应用中的数字、方向键、删除键和复制、粘贴、撤销、保存等快捷键。
+
 ## 切换
 
 | 操作 | macOS | Windows | Linux |

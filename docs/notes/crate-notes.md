@@ -787,7 +787,11 @@ Fcitx5 的输入法与插件描述均启用配置入口，`settings/` 通过唯�
 插件在清空预编辑之前上屏；上屏回调重入后核对生命周期和帧身份，跳过过期重画而不撤销或重复提交，见 [Linux 协议与状态](linux-fcitx5.md#协议与状态)。
 
 Unix socket 用共享长度前缀与 Frame（当前公共版本 9，与 `PROTOCOL_VERSION` 同步，Fcitx5 插件里写死在 `qingjian.cpp` 的 OpenSession）；插件复用一条连接，每个上下文独立会话。Linux v3 扩展逐会话握手、确认 Sensitive/Password/Disable 后接受按下/释放、焦点和点击事实。
-Fcitx5 的 `ipc/async` 后台独占 socket，`key/queue` 在主线程保序排队，最多 1024 项待发送、一个事务在途；后台收发截止时间 5 s，每 20 ms 检查取消，通过 `EventDispatcher` 回投响应，不阻塞框架事件线程。焦点、能力、重置、销毁与连接代次隔离过期事件；显示确认和选区回答先于后续按键，Poll 只在空闲时发送。仅 Server 确认 Passthrough 后转发按下 / 抬起；故障清空待处理事件，不重放未确认请求。同步兼容接口仍使用 200 ms，Fcitx4 / IBus 不变。
+Fcitx5 的 `ipc/async` 后台独占 socket，`key/queue` 在主线程保序排队，最多 1024 项待发送、一个 IPC 事务在途；后台收发截止时间 5 s，每 20 ms 检查取消，通过 `EventDispatcher` 回投响应。焦点、能力、重置、销毁与连接代次隔离过期事件；显示确认和选区回答先于后续按键，Poll 只在空闲时发送。故障清空待处理事件，不重放未确认请求。旧同步兼容接口仍使用 200 ms，Fcitx4 / IBus 不变。
+
+支持事后按键回送的客户端仅在 Server 确认 Passthrough 后转发按下 / 抬起，框架事件线程不等待 IPC。D-Bus 客户端未声明 `KeyEventOrderFix` 时保守走 `key/native`：GTK4 输入模块的 `ForwardKey` 回调不处理事件，不能先接受再回送。该路径复用同一后台连接和队列，在原始按键请求内等待消费结果；未消费的原事件交还框架，不以文字提交模拟数字、方向键或快捷键。只领取 IPC 完成回调，不运行嵌套框架事件循环；响应应用期间通常暂停出队，原请求等待时允许按顺序推进以兼容提交回调重入。GTK4 在服务卡顿时会等待，后台词库加载机制不变。
+
+`tests/native.cpp` 覆盖原始消费结果、数字选词、两类客户端交替、提交重入、焦点与密码框边界、短时卡顿与断线；`tests/async.cpp` 的 `dbus` 用例保证声明 `KeyEventOrderFix` 后仍不阻塞。真实 GTK3 / GTK4 回归用 `QINGJIAN_WUBI_KEYS_TEST=1 QINGJIAN_GTK_VERSION=4.0 apps/linux/tests/wubi/session.sh fcitx5`（GTK3 改成 `3.0`），需要对应的 GTK Python GI、Xvfb 和 xdotool；默认读取 `target/fcitx5-wubi`，可用 `QINGJIAN_FCITX5_BUILD` 指定构建目录，临时根目录遵循 `TMPDIR`。
 共用的 `ipc/connection.cpp` 按日志头文件提供的接口分流：Fcitx5 用 `FCITX_WARN()`，Fcitx4 用 `FcitxLog(WARNING, ...)`；`FCITX_WARNING` 是旧版枚举值，不能当函数或流式日志宏调用。
 `ipc/connection` 将慢请求（成功但耗时 ≥ 100 ms）和失败请求记到框架日志，记录固定白名单里的操作名、收发阶段、失败原因、耗时与 errno。`QingjianEngine` 补记断连原因，以及有未完成输入时的失焦、重置、能力变化与停用原因，只带会话编号、连接代次、修订号和状态。不输出消息正文、异常正文、按键、预编辑、候选、选区或上屏文本；与用户可选的输入日志独立。收集方式见 [Linux 排错](linux-fcitx5.md#路径和排错)。
 候选回报绑定连接代次、上下文和服务端帧序号，仅当前聚焦页的有效释义进入 `note_displayed`，不把生成帧算作已展示。

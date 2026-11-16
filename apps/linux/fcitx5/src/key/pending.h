@@ -2,6 +2,7 @@
 #pragma once
 #include <fcitx/inputcontext.h>
 #include <nlohmann/json.hpp>
+#include <memory>
 #include <optional>
 
 namespace qingjian {
@@ -31,5 +32,8 @@ struct PendingEvent {
 
     /// 空闲轮询使用顶层 Poll，不能被后续按键抢先应用。
     bool poll = false;
+
+    /// 原始框架请求仍在等待时，将消费结果返回给它而不是回送按键。
+    std::shared_ptr<std::optional<bool>> nativeResult;
 };
 }
