@@ -48,6 +48,12 @@ class Composer(private val engine: Engine, private val host: Host) {
 
         /** 一句话提示（删候选的结果）。 */
         fun showNotice(text: String)
+
+        /** 输入法自己的 Context：写设置用。 */
+        val context: android.content.Context
+
+        /** 写设置时不重建键盘。 */
+        fun writeSettings(block: () -> Unit)
     }
 
     /** 上一帧的 preedit，非空即在组句。 */

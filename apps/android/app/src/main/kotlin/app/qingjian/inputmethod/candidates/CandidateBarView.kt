@@ -301,11 +301,18 @@ class CandidateBarView(
         popupIndex = index
         repaint()
         Haptics.hold(context)
-        val items = senses.map { sense ->
-            ChoicePopup.Item(sense.text, listOfNotNull(sense.pos, sense.reading).joinToString(" "), sense.fresh)
-        } + if (candidate.forgettable) listOf(ChoicePopup.Item(context.getString(R.string.candidate_forget), context.getString(R.string.candidate_forget_note))) else emptyList() +
-            // 「屏蔽这个词」排在「删除」后面：两者都是整条候选上的操作
-            if (candidate.blockable) listOf(ChoicePopup.Item(context.getString(R.string.candidate_block), context.getString(R.string.candidate_block_note))) else emptyList()
+        val items = senses
+            .map { sense ->
+                ChoicePopup.Item(sense.text, listOfNotNull(sense.pos, sense.reading).joinToString(" "), sense.fresh)
+            }
+            .toMutableList()
+        // 「删除」与「屏蔽」都是整条候选上的操作，排在译文之后
+        if (candidate.forgettable) {
+            items.add(ChoicePopup.Item(context.getString(R.string.candidate_forget), context.getString(R.string.candidate_forget_note)))
+        }
+        if (candidate.blockable) {
+            items.add(ChoicePopup.Item(context.getString(R.string.candidate_block), context.getString(R.string.candidate_block_note)))
+        }
         forgetItem = if (candidate.forgettable) senses.size else -1
         blockItem = if (candidate.blockable) senses.size + (if (candidate.forgettable) 1 else 0) else -1
         forgetOnly = senses.isEmpty()
