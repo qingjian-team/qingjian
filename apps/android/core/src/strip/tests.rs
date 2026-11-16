@@ -21,6 +21,7 @@ fn candidate(text: &str, senses: &[(Option<&'static str>, &str, bool)]) -> Frame
             })
             .collect(),
         forgettable: true,
+        blockable: true,
         cloud: false,
         contact: false,
         diff: Vec::new(),

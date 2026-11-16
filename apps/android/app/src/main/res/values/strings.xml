@@ -201,6 +201,8 @@
     <string name="contacts_denied">没有读通讯录的权限，可以在系统设置的应用权限里打开</string>
     <string name="candidate_forget">删除</string>
     <string name="candidate_forget_note">不再优先</string>
+    <string name="candidate_block">屏蔽这个词</string>
+    <string name="candidate_block_note">含它的候选都不再出</string>
     <string name="section_keys">按键</string>
     <string name="haptic_title">按键震动</string>
     <string name="haptic_light">轻</string>

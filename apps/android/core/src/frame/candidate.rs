@@ -17,6 +17,10 @@ pub struct FrameCandidate {
     /// 长按能不能删（Core 的 `CandidateKind::forgettable`）。
     pub forgettable: bool,
 
+    /// 长按能不能「屏蔽这个词」：只对词库来的词给，用户词与自定义短语不给
+    /// （与 `qingjian_platform` 的 `CandidateAction::Block` 判断一致）。
+    pub blockable: bool,
+
     /// 来自云联想（云端词或整句补全）：候选条上画小云朵、用云端色。
     pub cloud: bool,
 
@@ -35,6 +39,7 @@ impl FrameCandidate {
             text: text.to_owned(),
             senses: Vec::new(),
             forgettable: false,
+            blockable: false,
             cloud: false,
             contact: false,
             diff: Vec::new(),
@@ -63,6 +68,7 @@ impl From<&Candidate> for FrameCandidate {
                 .map(FrameSense::from)
                 .collect(),
             forgettable: candidate.kind.forgettable(),
+            blockable: candidate.kind == CandidateKind::Chinese,
             cloud: candidate.kind == CandidateKind::Cloud,
             contact: false,
             diff: Vec::new(),

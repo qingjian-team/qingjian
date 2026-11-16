@@ -118,6 +118,8 @@ class QingjianInputMethodService :
     /** 自己写设置（拖完高度）时不重建键盘。 */
     private var writingSettings = false
 
+    override val context: android.content.Context get() = this
+
     override fun writeSettings(block: () -> Unit) {
         writingSettings = true
         try {
@@ -428,6 +430,8 @@ class QingjianInputMethodService :
     override fun onSelectTranslation(index: Int, sense: Int) = composer.selectTranslation(index, sense)
 
     override fun onForget(index: Int) = composer.forget(index)
+
+    override fun onBlock(index: Int) = composer.block(index)
 
     override fun showNotice(text: String) = toast(text)
 

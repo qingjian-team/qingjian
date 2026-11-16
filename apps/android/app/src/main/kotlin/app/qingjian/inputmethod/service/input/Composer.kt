@@ -390,6 +390,27 @@ class Composer(private val engine: Engine, private val host: Host) {
     fun forget(index: Int) = apply(engine.forget(index))
 
     /**
+     * 屏蔽第 [index] 个候选：引擎里立刻生效（返回的帧已经不含它），
+     * 同时把新词写进设置 —— 下次启动 `set_options` 会再下发回来。
+     */
+    fun block(index: Int) {
+        val word = candidates.getOrNull(index)?.text ?: return
+        engine.block(index).let { frame ->
+            host.writeSettings { rememberBlockedWord(word) }
+            apply(frame)
+        }
+    }
+
+    /** 把 [word] 加进屏蔽词（`[dictionaries] blocked`），写进 SharedPreferences。 */
+    private fun rememberBlockedWord(word: String) {
+        val prefs = Settings.preferences(host.context)
+        val words = prefs.getStringSet(Settings.KEY_BLOCKED_WORDS, null).orEmpty().toMutableSet()
+        if (words.add(word)) {
+            prefs.edit().putStringSet(Settings.KEY_BLOCKED_WORDS, words).apply()
+        }
+    }
+
+    /**
      * 长按气泡里选的字符。全键盘选小写 = 照常敲这个字母；九宫格组句中选小写 = 这一位就是这个字母
      * （进缓冲区，和拼音列定音节一个道理）。其余（数字、大写、符号）先顶首选再上屏；
      * 角标里有全角写法的标点（`;` `?` 这些）同标点键一样交 Core 按设置转全角。

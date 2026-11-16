@@ -70,6 +70,8 @@ pub enum Message {
     Import(Kind),
     /// 移除用户导入的一本（文件名不含扩展名）。
     Remove(Kind, String),
+    /// 词库页的屏蔽词：`add` 为真加进去，为假移出来（点条目上的移除）。
+    BlockWord(String, bool),
     /// 把「我的词库」里的一本导出成 TSV（文件名不含扩展名）。
     ExportDict(String),
     /// 勾掉或勾上 Windows 的系统 Ctrl + Space（改的是系统设置，不是配置文件）。
