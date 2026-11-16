@@ -12,8 +12,6 @@ use std::time::Instant;
 /// 直通字符攒到这么多就先写一条，免得长时间纯英文输入时一条攒得没边。
 const MAX_PENDING_PASSTHROUGH: usize = 200;
 
-/// 长按保护窗口：组句刚被删空之后这段时间里的退格都算自动重复，先吞掉。
-///
 /// 一次退格的处理结果：壳据此决定这个键是吞掉还是交给应用。
 ///
 /// 没有长按保护时，壳只看 `true` 就吞、`false` 就放行；有了三态，删空的那一记重复能停在
@@ -224,6 +222,9 @@ impl Engine {
             self.page_turns = 0;
             self.retype_snapshot = None;
             self.typing.restart();
+            // 新一段组句：「上一记退格把组句删空」属于上一段，到此作废（issue #932）。
+            // 不清的话，删空 → 打字 → 按住退格的自动重复会被当成「删空后的重复」全吞掉。
+            self.backspace_emptied = false;
             // 翻译框里选着字时开始打拼音：同记事本一样先删掉选中的字，拼音画在原处
             self.remove_panel_selection();
         }
@@ -316,6 +317,8 @@ impl Engine {
         self.typing.restart();
         self.page_turns = 0;
         self.traditional.forget();
+        // 组句结束了：「刚删空」属于刚才那段，下一记退格删的是应用里的字（issue #932）
+        self.backspace_emptied = false;
     }
 
     pub fn delete_forward(&mut self) -> bool {

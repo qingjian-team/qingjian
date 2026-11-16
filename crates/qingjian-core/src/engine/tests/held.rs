@@ -208,3 +208,73 @@ fn a_fresh_press_ends_the_hold() {
     // 那是用户按住时的正常行为，交还是之后的事
     assert_eq!(engine.backspace(true), Backspace::Released);
 }
+
+/// 删空之后又上屏了别的字：「刚删空」的状态要作废，长按退格不能只删一个字。
+///
+/// 维护者在 #933 指出的场景：没在组句时，Windows 与安卓的第一下退格不经过 Core
+/// （DLL 直接放给应用、安卓直接 `deleteBackward`），这个状态更清不掉 ——
+/// 只能在 Core 自己这边、组句重新有内容或结束时清。
+#[test]
+fn emptied_state_does_not_survive_a_commit() {
+    use crate::engine::Backspace;
+
+    let mut engine = engine();
+    // 打 ni 再手动按两下退格删空
+    engine.set_input("ni");
+    assert!(engine.backspace(false).consumed());
+    assert!(engine.backspace(false).consumed());
+    assert!(engine.composition().is_empty());
+
+    // 打别的字上屏（维护者原话：「接着打别的字上屏」）。样本词库里有 开（kai）
+    engine.set_input("kai");
+    let candidate = engine
+        .query()
+        .unwrap()
+        .candidates
+        .items
+        .into_iter()
+        .find(|c| !c.text.is_empty())
+        .expect("该有候选");
+    engine.commit(&candidate);
+    assert!(engine.composition().is_empty());
+
+    // 现在按住退格删应用里的字：第一下与之后的自动重复都该交给应用，
+    // 不能因为「刚才删空过」就吞掉
+    assert_eq!(engine.backspace(true), Backspace::Released);
+    assert_eq!(engine.backspace(true), Backspace::Released);
+    assert_eq!(engine.backspace(true), Backspace::Released);
+}
+
+/// 同样的场景，但中间是「打字」而不是「上屏」：新一段组句一开始状态也作废。
+#[test]
+fn emptied_state_does_not_survive_new_typing() {
+    use crate::engine::Backspace;
+
+    let mut engine = engine();
+    engine.set_input("ni");
+    assert!(engine.backspace(false).consumed());
+    assert!(engine.backspace(false).consumed());
+    assert!(engine.composition().is_empty());
+
+    // 新一段组句：打一个字母就够
+    engine.push('h');
+    assert!(!engine.composition().is_empty());
+    // 再删回去
+    assert!(engine.backspace(false).consumed());
+    // 组句空了，但这一记是这次的；后面的自动重复仍然该吞（同一轮长按）
+    assert_eq!(engine.backspace(true), Backspace::Held);
+}
+
+/// 同一轮长按里，删空之后紧接着的重复要继续吞 —— 这才是保护本身。
+#[test]
+fn emptied_state_holds_within_the_same_press() {
+    use crate::engine::Backspace;
+
+    let mut engine = engine();
+    engine.set_input("ni");
+    assert!(engine.backspace(false).consumed());
+    assert!(engine.backspace(false).consumed());
+    // 中间什么都没有：状态保留
+    assert_eq!(engine.backspace(true), Backspace::Held);
+    assert_eq!(engine.backspace(true), Backspace::Held);
+}

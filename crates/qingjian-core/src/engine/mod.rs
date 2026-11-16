@@ -795,6 +795,3 @@ fn reading_key<'a>(syllables: impl IntoIterator<Item = &'a str>) -> String {
 
 #[cfg(test)]
 mod tests;
-
-#[cfg(test)]
-impl Engine {}

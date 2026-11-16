@@ -593,7 +593,6 @@ class Composer(private val engine: Engine, private val host: Host) {
             connection.finishComposingText()
         }
         connection.endBatchEdit()
-        val wasComposing = preedit.isNotEmpty()
         preedit = frame.preedit
         if (preedit.isEmpty()) {
             sentPreedits.clear()
