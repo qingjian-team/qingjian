@@ -16,6 +16,7 @@ use qingjian_translate::{Glossary, LayeredTranslator, PersonalGlossary, download
 
 use crate::error::ServerError;
 
+pub(crate) use self::cloud::CloudServices;
 pub use self::cloud::attach_cloud;
 pub use self::language_model::LanguageModelFiles;
 pub use self::spec::AssemblySpec;

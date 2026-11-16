@@ -20,6 +20,7 @@ pub(crate) use self::loader::ModelLoader;
 pub(crate) use self::state::RescoreState;
 use super::Router;
 use super::composed::{Composed, marked_parts};
+use super::reload::RESULT_POLL_INTERVAL;
 
 /// 空闲时主循环多久醒一次：到点落盘学习数据。
 const IDLE_TICK: Duration = Duration::from_secs(1);
@@ -127,11 +128,16 @@ impl Router {
         }
     }
 
-    /// 主循环下次该多久后来一次 [`Router::tick`]：在等重排就按它的节拍，否则按落盘学习的一秒。
+    /// 等待重排或配置加载时按较短节拍轮询，空闲时一秒检查一次。
     pub fn next_tick(&self) -> Duration {
+        let idle = if self.reload_task.is_some() {
+            RESULT_POLL_INTERVAL
+        } else {
+            IDLE_TICK
+        };
         self.rescore
             .next_deadline()
-            .map_or(IDLE_TICK, |deadline| deadline.min(IDLE_TICK))
+            .map_or(idle, |deadline| deadline.min(idle))
     }
 
     /// 防抖到点就发请求；在等结果就收一次，收到了重查并重建当前布局。

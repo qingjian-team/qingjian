@@ -3,7 +3,9 @@ use std::path::{Path, PathBuf};
 use qingjian_core::{CodeScheme, Engine};
 use qingjian_dictionary::{CodeTable, Dictionary};
 
+mod mixed_keys;
 mod phrases;
+mod prepared;
 
 use super::*;
 use crate::{CodeRules, Config, SchemeSlot};
@@ -190,6 +192,7 @@ fn rules_changed_in_the_config_apply_without_rereading_the_table() {
         CodeRules {
             auto_commit: Some(false),
             top: Some(true),
+            ..CodeRules::default()
         },
     );
     slot.apply(&mut engine, &config, Some(&user), None);

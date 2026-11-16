@@ -38,5 +38,5 @@ pub use config::{
     scheme_label, scheme_name,
 };
 pub use error::ConfigError;
-pub use scheme::{SchemeMeta, SchemeSlot};
+pub use scheme::{PreparedScheme, SchemeMeta, SchemeSlot};
 pub use user_dirs::UserDirs;

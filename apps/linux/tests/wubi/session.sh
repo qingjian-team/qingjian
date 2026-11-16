@@ -21,6 +21,10 @@ if [[ ${1:-} != --private ]]; then
     exit
 fi
 FRONTEND=${2:?fcitx5, fcitx4 or ibus}
+if [[ ${QINGJIAN_WUBI_TIMEOUT_REPRO:-0} == 1 && $FRONTEND != fcitx5 ]]; then
+    printf 'Timeout reproduction requires fcitx5\n' >&2
+    exit 2
+fi
 TEST_ROOT=${QINGJIAN_WUBI_TEST_ROOT:?Run through the private session wrapper}
 PIDS=()
 cleanup() {
@@ -44,6 +48,9 @@ printf '[general]\nscheme = "none"\ncode = "wubi86"\npage_size = 2\n' > "$XDG_CO
 printf '你\tni\t100\n好\thao\t100\n' > "$QINGJIAN_DICT"
 printf 'name = "测试五笔"\ncode_length = 4\nphrase_rule = "wubi86"\n' > "$TEST_ROOT/data/generated/schemes/wubi86/scheme.toml"
 printf '一\tggll\t100\n开\tga\t10\n甲\taaaa\t10\n乙\taaaa\t5\n' > "$TEST_ROOT/data/generated/schemes/wubi86/table.tsv"
+if [[ ${QINGJIAN_WUBI_TIMEOUT_REPRO:-0} == 1 ]]; then
+    printf '不错\tgiqa\t100\n错\tqa\t100\n' >> "$TEST_ROOT/data/generated/schemes/wubi86/table.tsv"
+fi
 Xvfb -displayfd 3 -screen 0 1024x768x24 3>"$TEST_ROOT/display" >"$TEST_ROOT/xvfb.log" 2>&1 &
 PIDS+=("$!")
 for ((attempt = 0; attempt < 600; attempt++)); do
@@ -56,6 +63,7 @@ dbus-update-activation-environment DISPLAY HOME WAYLAND_DISPLAY XDG_SESSION_TYPE
     XDG_CONFIG_HOME XDG_DATA_HOME XDG_STATE_HOME XDG_CACHE_HOME XDG_RUNTIME_DIR GIO_USE_VFS
 "$ROOT/target/debug/qingjian-linux-server" >"$TEST_ROOT/server.log" 2>&1 &
 PIDS+=("$!")
+export QINGJIAN_WUBI_TEST_SERVER_PID=$!
 for ((attempt = 0; attempt < 600; attempt++)); do
     [[ -S "$QINGJIAN_SOCKET" ]] && break
     sleep 0.05
@@ -110,4 +118,8 @@ case "$FRONTEND" in
     *) printf 'Unknown frontend: %s\n' "$FRONTEND" >&2; exit 2 ;;
 esac
 sleep 2
-/usr/bin/python3 "$ROOT/apps/linux/tests/wubi/widget.py" "$FRONTEND"
+if [[ ${QINGJIAN_WUBI_TIMEOUT_REPRO:-0} == 1 ]]; then
+    /usr/bin/python3 "$ROOT/apps/linux/tests/wubi/timeout_repro.py" "$FRONTEND"
+else
+    /usr/bin/python3 "$ROOT/apps/linux/tests/wubi/widget.py" "$FRONTEND"
+fi
