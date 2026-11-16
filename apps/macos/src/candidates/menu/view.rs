@@ -8,7 +8,7 @@ use objc2_app_kit::{
     NSCompositingOperation, NSEvent, NSImage, NSTrackingArea, NSTrackingAreaOptions, NSView,
 };
 use objc2_foundation::{NSPoint, NSRect};
-use qingjian_render::{FontLibrary, HitTarget, Rendered, Renderer};
+use qingjian_render::{FontLibrary, HitTarget, MenuStyle, Rendered, Renderer};
 
 use super::MenuPick;
 use crate::candidates::bitmap::{bounds, to_image};
@@ -24,6 +24,9 @@ pub struct State {
     hovered: Option<usize>,
 
     dark: bool,
+
+    /// 按当前主题算好的画法（`Theme::menu_style`）。`open` 时给，画的时候直接用。
+    style: MenuStyle,
 
     scale: f32,
 
@@ -126,6 +129,7 @@ impl MenuView {
         &self,
         items: Vec<(u32, &'static str)>,
         dark: bool,
+        style: MenuStyle,
         scale: f32,
         pick: MenuPick,
     ) -> Option<ViewBounds> {
@@ -134,6 +138,7 @@ impl MenuView {
             state.items = items;
             state.hovered = None;
             state.dark = dark;
+            state.style = style;
             state.scale = scale;
             state.pick = Some(pick);
         }
@@ -197,7 +202,7 @@ impl MenuView {
             renderer,
             items,
             hovered,
-            dark,
+            style,
             scale,
             ..
         } = &mut *state;
@@ -212,7 +217,7 @@ impl MenuView {
             return;
         };
         let titles: Vec<&str> = items.iter().map(|(_, title)| *title).collect();
-        let rendered = match renderer.render_menu(&titles, *hovered, *dark, *scale) {
+        let rendered = match renderer.render_menu(&titles, *hovered, style, *scale) {
             Ok(rendered) => rendered,
             Err(error) => {
                 tracing::warn!(%error, "右键菜单渲染失败");

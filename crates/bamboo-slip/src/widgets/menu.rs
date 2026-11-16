@@ -192,7 +192,7 @@ impl<'a> Menu<'a> {
                 flex_direction: FlexDirection::Column,
                 ..Style::default()
             },
-            panel_visual(theme),
+            panel_visual(theme, theme.px(theme.popup_radius), theme.px(1.0)),
             &[scroll],
         )?;
         ui.scene().set_clip(panel, radius);
