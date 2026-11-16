@@ -389,6 +389,9 @@ class Composer(private val engine: Engine, private val host: Host) {
     /** 长按候选选了「删除」：用户词整删、词库词清学习记录，结果用一句话提示。 */
     fun forget(index: Int) = apply(engine.forget(index))
 
+    /** 长按候选选了「只上屏第几个字」：那个字上屏，剩下的拼音接着组句。 */
+    fun pickChar(index: Int, position: Int) = apply(engine.pickChar(index, position))
+
     /**
      * 长按气泡里选的字符。全键盘选小写 = 照常敲这个字母；九宫格组句中选小写 = 这一位就是这个字母
      * （进缓冲区，和拼音列定音节一个道理）。其余（数字、大写、符号）先顶首选再上屏；

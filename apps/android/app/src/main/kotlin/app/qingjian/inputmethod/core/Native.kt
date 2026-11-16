@@ -44,6 +44,9 @@ internal object Native {
 
     external fun forget(handle: Long, index: Int): String?
 
+    /** 只上屏第 [index] 个候选的第 [position] 个字；-1 表示最后一个字。 */
+    external fun pickChar(handle: Long, index: Int, position: Int): String?
+
     external fun commitRaw(handle: Long): String?
 
     external fun clear(handle: Long): String?

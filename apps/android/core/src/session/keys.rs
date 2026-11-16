@@ -125,6 +125,29 @@ impl Session {
         self.refresh(commit)
     }
 
+    /// 只上屏第 `index` 个候选的第 `char` 个字（见 #1025）。上屏吃的拼音按那个字所在的音节算，
+    /// 剩下的拼音留在组句里接着选。取不出这个字时不动，结果写进帧的 `notice`。
+    pub fn pick_char(&mut self, index: usize, char: usize) -> Frame {
+        let Some(candidate) = self.candidates.items.get(index).cloned() else {
+            return self.refresh(String::new());
+        };
+        let position = if char == usize::MAX {
+            candidate.text.chars().count().saturating_sub(1)
+        } else {
+            char
+        };
+        let Some(single) = self.engine.pick_char(&candidate, position) else {
+            let mut frame = self.refresh(String::new());
+            frame.notice = format!("「{}」取不出单个字", candidate.text);
+            return frame;
+        };
+        let notice = format!("「{}」只上屏「{}」", candidate.text, single.text);
+        let commit = self.engine.commit(&single);
+        let mut frame = self.refresh(commit);
+        frame.notice = notice;
+        frame
+    }
+
     /// 删掉第 `index` 个候选：用户词整删，词库词清学习记录；结果写进帧的 `notice`。
     pub fn forget(&mut self, index: usize) -> Frame {
         let Some(candidate) = self.candidates.items.get(index).cloned() else {

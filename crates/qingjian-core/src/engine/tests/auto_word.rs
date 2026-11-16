@@ -332,3 +332,56 @@ fn deleting_a_letter_with_the_forward_key_also_stops_the_whole_word() {
         1
     );
 }
+
+#[test]
+fn picking_a_char_commits_it_and_keeps_the_rest_of_the_pinyin() {
+    // #1025：`jiaoyizhongxin` 里只打「中」，第一个音节之外的拼音留在组句里接着选
+    let mut engine = jiaoyi_engine();
+    engine.set_input("jiaoyizhongxin");
+    let candidate = Candidate {
+        text: "交易中心".to_owned(),
+        kind: CandidateKind::Chinese,
+        syllables: vec!["jiao".into(), "yi".into(), "zhong".into(), "xin".into()],
+        reading: None,
+        translation: None,
+        aux_code: None,
+    };
+    let single = engine.pick_char(&candidate, 0).expect("第一个字");
+    assert_eq!(single.text, "交");
+    assert_eq!(single.syllables, ["jiao"]);
+    // 上屏只吃掉第一个音节，剩下的拼音还在；那段没选完，字先进 held，连同拼音一起显示
+    let text = engine.commit(&single);
+    assert_eq!(text, "");
+    assert_eq!(engine.held_text(), "交");
+    assert_eq!(engine.composition().text(), "yizhongxin");
+
+    // 第二个字：吃掉两个音节
+    let mut engine = jiaoyi_engine();
+    engine.set_input("jiaoyizhongxin");
+    let second = engine.pick_char(&candidate, 1).expect("第二个字");
+    assert_eq!(second.text, "易");
+    assert_eq!(second.syllables, ["jiao", "yi"]);
+    engine.commit(&second);
+    assert_eq!(engine.composition().text(), "zhongxin");
+}
+
+#[test]
+fn picking_a_char_needs_one_syllable_per_character() {
+    let engine = jiaoyi_engine();
+    let candidate = Candidate {
+        text: "交易中心".to_owned(),
+        kind: CandidateKind::Cloud,
+        syllables: vec!["jiao".into(), "yi".into()],
+        reading: None,
+        translation: None,
+        aux_code: None,
+    };
+    assert!(
+        engine.pick_char(&candidate, 0).is_none(),
+        "云端词音节对不上"
+    );
+    let mut engine = jiaoyi_engine();
+    engine.set_input("jiaoyi");
+    let candidate = engine.query().unwrap().candidates.items.remove(0);
+    assert!(engine.pick_char(&candidate, 5).is_none(), "字序越界");
+}

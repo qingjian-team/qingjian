@@ -19,6 +19,11 @@ pinned = "「{text}」已置頂，輸入 {code} 時排第一"
 unpinned = "已取消置頂「{text}」"
 demoted = "「{text}」已降權，往後挪了一位"
 undemoted = "已取消「{text}」的降權"
+first_char = "只上屏第一個字"
+second_char = "只上屏第二個字"
+last_char = "只上屏最後一個字"
+picked_char = "「{text}」只上屏「{char}」"
+cant_pick_char = "「{text}」取不出單個字"
 
 [appearance]
 system = "跟隨系統"

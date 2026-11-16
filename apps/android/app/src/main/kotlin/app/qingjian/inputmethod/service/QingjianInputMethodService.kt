@@ -429,6 +429,8 @@ class QingjianInputMethodService :
 
     override fun onForget(index: Int) = composer.forget(index)
 
+    override fun onPickChar(index: Int, position: Int) = composer.pickChar(index, position)
+
     override fun showNotice(text: String) = toast(text)
 
     override fun openSymbolPanel() = openPanel(PanelKind.SYMBOLS)
