@@ -14,7 +14,7 @@ use windows::Win32::UI::WindowsAndMessaging::{
 };
 use windows::core::{PCWSTR, Result, w};
 
-use qingjian_render::{FontLibrary, HitTarget, Rendered, Renderer};
+use qingjian_render::{FontLibrary, HitTarget, MenuStyle, Rendered, Renderer, ThemeLibrary};
 
 use super::click::{self, CandidateMouse};
 use crate::dispatch::CandidateMenu;
@@ -150,6 +150,7 @@ impl Menu {
     /// 按当前悬停项画一遍，留着结果给命中与贴图用。
     fn render(&mut self) -> Option<&Rendered> {
         let titles: Vec<&str> = self.open.as_ref()?.items.iter().map(|(_, t)| *t).collect();
+        let style = self.menu_style();
         let renderer = self
             .renderer
             .get_or_insert_with(|| match FontLibrary::system("zh-CN") {
@@ -161,7 +162,7 @@ impl Menu {
             })
             .as_mut()?;
         let scale = self.dpi.max(96) as f32 / 96.0;
-        match renderer.render_menu(&titles, self.hovered, self.dark, scale) {
+        match renderer.render_menu(&titles, self.hovered, &style, scale) {
             Ok(rendered) => self.rendered = Some(rendered),
             Err(error) => {
                 tracing::warn!(%error, "右键菜单渲染失败");
@@ -169,6 +170,18 @@ impl Menu {
             }
         }
         self.rendered.as_ref()
+    }
+
+    /// 菜单按当前主题怎么画：主题 id 从 `open` 里拿，主题读不进来就用控件的浅色 / 深色默认。
+    ///
+    /// 每次画都读一次主题文件：菜单是一次性的小窗口，弹一次读一次比缓存主题失效简单；
+    /// 主题文件在用户目录里，几十 KB 以内。
+    fn menu_style(&self) -> MenuStyle {
+        let Some(id) = self.open.as_ref().map(|menu| menu.theme.as_str()) else {
+            return MenuStyle::system(self.dark);
+        };
+        let library = ThemeLibrary::load(qingjian_platform::dirs::themes_dir().as_deref());
+        library.resolve(id, self.dark).menu_style(self.dark)
     }
 
     /// 屏幕上这一点落在第几项上。

@@ -2,7 +2,7 @@
 
 mod scenes;
 
-use qingjian_render::{FontLibrary, HitRegion, HitTarget, Layout, Renderer, Theme};
+use qingjian_render::{FontLibrary, HitRegion, HitTarget, Layout, MenuStyle, Renderer, Theme};
 
 fn region(hits: &[HitRegion], target: HitTarget) -> HitRegion {
     *hits
@@ -137,7 +137,9 @@ fn menu_items_stack_top_to_bottom_and_take_the_hover() {
     };
     let mut renderer = Renderer::new(library);
     let items = ["置顶", "降权", "删除"];
-    let rendered = renderer.render_menu(&items, Some(1), false, 2.0).unwrap();
+    let rendered = renderer
+        .render_menu(&items, Some(1), &MenuStyle::system(false), 2.0)
+        .unwrap();
     let rows: Vec<_> = (0..items.len())
         .map(|i| region(&rendered.hits, HitTarget::MenuItem(i)))
         .collect();
