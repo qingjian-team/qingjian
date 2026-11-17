@@ -22,15 +22,8 @@ data class Frame(
     /** 「只上屏第几个字」取不出单字，壳据此提示一句。 */
     val pickFailed: Boolean = false,
 ) {
-    /**
-     * 「只上屏某个字」的结果：`null` 表示没做这个动作，否则是要上屏的那个字或空串（取不出）。
-     * 提示文案由壳按 `candidate_pick_done` / `candidate_pick_failed` 拼——`core` 不带资源。
-     */
-    fun pickResult(): String? = when {
-        pickChar.isNotEmpty() -> pickChar
-        pickFailed -> ""
-        else -> null
-    }
+    /** 这次是不是「只上屏某个字」这个动作。 */
+    val isPickChar: Boolean get() = pickChar.isNotEmpty() || pickFailed
 
     companion object {
         val EMPTY = Frame("", 0, "", "", emptyList(), emptyList(), false)

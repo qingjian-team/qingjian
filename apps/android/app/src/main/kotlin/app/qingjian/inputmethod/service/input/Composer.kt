@@ -401,7 +401,9 @@ class Composer(private val engine: Engine, private val host: Host) {
         val source = candidates.getOrNull(index)?.text.orEmpty()
         val frame = engine.pickChar(index, position)
         apply(frame)
-        frame.pickResult()?.let { host.showPickCharNotice(source, it) }
+        if (frame.isPickChar) {
+            host.showPickCharNotice(source, frame.pickChar.takeIf { it.isNotEmpty() })
+        }
     }
 
     /**
