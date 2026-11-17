@@ -62,7 +62,7 @@ A few keys differ with Dachen Zhuyin and Wubi; see [Pinyin schemes and fuzzy pin
 | Type another letter after a full code | Commit the highlight and start the next code; commit-on-next-code can be disabled |
 | Clear an unmatched code / keep raw letters | `Space` or punctuation clears it; `Enter` commits raw letters |
 
-Automatic commits apply only to pure shape-based input, not mixed input. See [Wubi and mixed input](../input/wubi.md).
+These switches apply only to pure shape-based input. Mixed input keeps pinyin-style selection by default, with separate optional switches for committing a unique full code (Wubi requires exactly four keys and one candidate) and preferring shape codes with continuation (the next letter after a full code commits the highlight and starts a new code). Both options are off by default. See [Wubi and mixed input](../input/wubi.md).
 
 ## In the symbol panel
 
