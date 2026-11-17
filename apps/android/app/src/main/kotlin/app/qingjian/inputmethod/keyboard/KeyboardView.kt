@@ -47,6 +47,12 @@ class KeyboardView(
         /** 长按空格左右滑：光标挪 [steps] 格，负数往左。 */
         fun onCursorMove(steps: Int)
 
+        /**
+         * 长按空格左右滑时手指当前在视图里的横向位置：组句中没有真光标可挪，
+         * 交给壳按这个位置在拼音行的字缝之间挪（与按住拼音行拖同一套，见 `CandidateBarView.dragCaret`）。
+         */
+        fun onCursorDrag(x: Float)
+
         /** 九宫格拼音列里点了一项。 */
         fun onSideItem(item: String)
 
@@ -140,6 +146,9 @@ class KeyboardView(
     private var deleteAnchorX = 0f
     private var deleteAnchorY = 0f
     private var deleteWords = false
+
+    /** 进了删词模式又往右滑回来：这一笔余下不再删，抬手也不删。 */
+    private var deleteCancelled = false
 
     /**
      * 可能是划键的那根手指与它落下的键（[Key.flick]，开着「上滑输入」时）；-1 是没在看。
@@ -305,6 +314,7 @@ class KeyboardView(
                             deleteAnchorX = event.getX(index)
                             deleteAnchorY = event.getY(index)
                             deleteWords = false
+                            deleteCancelled = false
                         }
                     }
 
@@ -362,10 +372,11 @@ class KeyboardView(
                 val slot = pressed.remove(pointer)
                 val choosing = pointer == longPressPointer && choicePopup.showing
                 val movedCursor = pointer == spacePointer && cursorMode
-                val deletedWords = pointer == deletePointer && deleteWords
+                val deletedWords = pointer == deletePointer && (deleteWords || deleteCancelled)
                 if (pointer == deletePointer) {
                     deletePointer = -1
                     deleteWords = false
+                    deleteCancelled = false
                 }
                 val spoke = pointer == spacePointer && voiceMode
                 if (pointer == spacePointer) {
@@ -605,6 +616,8 @@ class KeyboardView(
         val dy = event.getY(at) - spaceAnchorY
         if (!cursorMode && settings.spaceCursor && abs(dx) > step && abs(dx) > abs(dy)) enterCursorMode()
         if (!cursorMode) return
+        // 组句中没有真光标：壳按手指的横向位置挪拼音行（空格与候选条都是整宽，x 对得上）
+        listener.onCursorDrag(event.getX(at))
         val steps = (dx / step).toInt()
         if (steps == 0) return
         spaceAnchorX += steps * step
@@ -616,9 +629,10 @@ class KeyboardView(
      *
      * 与空格横滑挪光标是同一套换算：滑过的距离换成步数，一步一下、一步一轻震；往回滑不补删。
      * 一进这个模式就把这一笔记成划键作废（[flickBroken]）、并撤掉连删 —— 抬手不再按点按或划键删一次。
+     * 进了模式再往右滑够一格就是**取消**：这一笔余下怎么划都不再删，抬手也不删（见 [deleteCancelled]）。
      */
     private fun trackDelete(event: MotionEvent) {
-        if (deletePointer < 0) return
+        if (deletePointer < 0 || deleteCancelled) return
         val at = event.findPointerIndex(deletePointer)
         if (at < 0) return
         val dx = event.getX(at) - deleteAnchorX
@@ -631,6 +645,12 @@ class KeyboardView(
             flickArmed = false
             timer.removeCallbacks(repeatBackspace)
             Haptics.hold(context)
+        } else if (dx > step) {
+            // 右滑取消：已经删掉的留着（要恢复用候选条上的「撤销」），这一步之后不再删
+            deleteCancelled = true
+            deleteWords = false
+            Haptics.tap(context)
+            return
         }
         val steps = (-dx / step).toInt()
         if (steps <= 0) return
@@ -652,6 +672,7 @@ class KeyboardView(
         voiceMode = false
         deletePointer = -1
         deleteWords = false
+        deleteCancelled = false
         longPressPointer = -1
         if (choicePopup.showing) choicePopup.finish()
     }

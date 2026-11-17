@@ -428,13 +428,16 @@ class Composer(private val engine: Engine, private val host: Host) {
         }
     }
 
-    /** 按住空格左右滑：不在组句时按方向键挪光标。 */
+    /** 按住空格左右滑：不在组句时按方向键挪光标；组句里交给壳按手指位置挪拼音行（见 [moveCaret]）。 */
     fun moveCursor(steps: Int) {
         // 组句中不响应：落下拼音再挪会把没选的字母上屏；拼音里的光标靠点拼音行挪（[moveCaret]）
         if (steps == 0 || composing) return
         val code = if (steps < 0) KeyEvent.KEYCODE_DPAD_LEFT else KeyEvent.KEYCODE_DPAD_RIGHT
         repeat(abs(steps)) { host.sendKey(code) }
     }
+
+    /** 组句中：空格横滑挪的是拼音行上的光标，跟着手指的横向位置走。 */
+    val composingNow: Boolean get() = composing
 
     /**
      * 光标停下（上屏、删字、挪光标之后）且不在组句：按光标前的文字问 Core 有没有补全（「用户名@」后的邮箱后缀），
@@ -500,14 +503,20 @@ class Composer(private val engine: Engine, private val host: Host) {
     }
 
     /**
-     * 删掉光标前的一个词：退格键从右往左划。
+     * 删掉光标前的一个词：退格键从右往左划，按住左拖时会连着调。
+     *
+     * 组句里（还没上屏的那段拼音）没有「词」可分，一格退一个键 —— 与按删除键一样，
+     * 不落定拼音、不上屏：拖过去就是在删拼音。
      *
      * 「一个词」在这里是可预期的两种：拉丁字母、数字、下划线连成的一串算一个词，其余（汉字、假名、
      * 标点）一个字符算一个；光标前紧挨着空白时先吃掉这一段空白。组句中先落定拼音再删，
      * 不在组句里才动正文。删掉的内容交给 Core 记一条 `cleared`，候选条上给「撤销」，与上划清空一致。
      */
     fun deleteWord() {
-        if (composing) settle()
+        if (composing) {
+            onKey(Key.Backspace)
+            return
+        }
         val connection = host.connection ?: return
         val remaining = connection.getTextBeforeCursor(MAX_WORD, 0)?.toString().orEmpty()
         // 按下删除键时已经先删掉一个字：那一下若删掉的正是「一段」（汉字、假名、标点各自算一段），

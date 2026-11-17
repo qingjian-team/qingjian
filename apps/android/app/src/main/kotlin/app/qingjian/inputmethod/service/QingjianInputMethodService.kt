@@ -419,6 +419,11 @@ class QingjianInputMethodService :
 
     override fun onCursorMove(steps: Int) = composer.moveCursor(steps)
 
+    // 组句里没有真光标可挪：空格横滑改成按手指位置挪拼音行（未上屏的那段也能挪）
+    override fun onCursorDrag(x: Float) {
+        if (composer.composingNow) bar.dragCaret(x)
+    }
+
     override fun onSideItem(item: String) = composer.onSideItem(item)
 
     override fun onSelect(index: Int) = composer.select(index)

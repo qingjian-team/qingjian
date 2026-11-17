@@ -6,14 +6,15 @@
 
 - 布局：拼音 26 键 / 九宫格 / 双拼 / 五笔 86 / 注音大千，加上英文 26 键与日语罗马音，在键盘选择面板里切。英文只切到英文（全键盘），中文布局不变。
 - 全键盘：字母键角标（首排数字、二三排符号，中文 H J 是中文引号），长按弹 大写 / 角标符号 / 小写；中文底排 符 / 123，英文底排 !?# / 123（常用符号页）。
-  按住空格左右滑挪光标（`space_cursor`，缺省开；横向挪过 14dp 且比竖向多才算，起手在空格上，与字母键起手的滑行、上滑分得开；组句中不响应：先 `commitRaw` 再挪会把没选的字母上屏；拼音里的光标靠点拼音行挪，见下条）、按住不动进语音（见下文「语音输入」）；回车键按输入框的动作写 发送 / 搜索 / 前往 / 下一项 / 完成（`EnterLabel`），多行框画回车图标。
+  按住空格左右滑挪光标（`space_cursor`，缺省开；横向挪过 14dp 且比竖向多才算，起手在空格上，与字母键起手的滑行、上滑分得开）。组句里也有动作，但挪的是**拼音行上的光标**：每次移动把手指的 x 交给 `CandidateBarView.dragCaret`（空格与候选条都是整宽，x 对得上），走的是点拼音行那套 `StripMeta.preedit_edges` + `Native.moveCaret`，所以未上屏那段也能挪；不在组句时才走 `Composer.moveCursor` 的方向键。按住不动进语音（见下文「语音输入」）；回车键按输入框的动作写 发送 / 搜索 / 前往 / 下一项 / 完成（`EnterLabel`），多行框画回车图标。
 - 点拼音行挪光标（#881）：渲染器给出拼音行各字之间的位置（`StripMeta.preedit_edges`），候选条点在拼音行里按最近的缝走 `Native.moveCaret`，
   Core `Engine::move_cursor_to_marked` 换回缓冲区光标（全拼按字母、双拼展开全拼时按最近的音节边界、显示敲的键时按键；纠错 / 辅码 / 注音 / 九宫格对不上，不挪）；`Frame.preedit_cursor` 让候选条把光标画在中间。光标在开头时 `Session::backspace` 先挪到末尾再删（没有方向键挪回去，不然退格就卡住了）。
 - 九宫格拼音行的下划线：`Frame.preedit_pinned` 是拼音行里定下的音节（字符起止，前面留着的词 + `Engine::nine_key_pinned`），`strip::preedit` 把它切成 `PreeditStyle::Pinned` 一段。
 - 删除键上划清空（`flick_clear`，缺省开）：删除键按下照旧先删一个字并起连删，同时 `onBackspaceDown` 记下按下那一刻光标前的文字（最多 `MAX_CLEAR` = 5000）；往上划够上滑距离就停掉连删，抬手 `Composer.clearBefore`；连删已经起来（`REPEAT_DELAY_MS` 之后）这一笔就作废，不当清空。
   按下时在组句只清拼音；否则 `deleteSurroundingText` 删光标前的文字，`Native.cleared` 让会话在补全里放「撤销」（光标前还是空的就一直留着），撤销放回按下那一刻的文字，所以按下时删的那个字（按键事件可能还没到应用）也回来。
 - 删除键的另外两个方向（`flick_delete_line` / `flick_delete_word`，都缺省关）：往下 `Key.Flick.DeleteLine` → `Composer.deleteLine` 删掉光标前最后一行（`\n` 断开，往回最多 `MAX_LINE`）；往左 `Key.Flick.DeleteWord` → `Composer.deleteWord` 删掉光标前一个词（`wordTailLength` 按字符类别找边界：拉丁字母 / 数字 / 下划线 / 连字符 / 撇号连成一串算一个词，汉字、假名、标点一个字符算一个，光标前紧挨着空白就先吃掉空白）。
-  往左还能**按住拖**（`trackDelete`）：滑过 `DELETE_STEP_DP` 就进「删词」，之后每滑过一格 `onDeleteWord` 一次，往回滑不补删 —— 与空格横滑挪光标同一套换算（`CURSOR_STEP_DP`），一步一轻震。一进这个模式就把这一笔记成划键作废并撤掉连删，抬手不再按点按删一个字。
+  往左还能**按住拖**（`trackDelete`）：滑过 `DELETE_STEP_DP` 就进「删词」，之后每滑过一格 `onDeleteWord` 一次，往回滑不补删；进了模式再**往右滑够一格就取消**（`deleteCancelled`），这一笔余下不再删、抬手也不按点按删字 —— 与空格横滑挪光标同一套换算（`CURSOR_STEP_DP`），一步一轻震。一进这个模式就把这一笔记成划键作废并撤掉连删。
+  组句里（还没上屏的那段）`Composer.deleteWord` 不落定拼音，一格退一个键，拖过去就是在删拼音。
   两者都在组句中先 `settle()`，删掉的内容同样交 `Native.cleared` 记「撤销」，与上划清空一致；缺省关是因为这两个方向以前什么都不做，新手势不小心碰到的代价大。
 - 划键（`flick_symbols` 管「划出字」、`flick_clear` 管上划清空、`flick_delete_line` / `flick_delete_word` 管删除键的另外两个方向，各管一类）：只看方向不看列。手指离开按下那一点 10dp 起就得一直在那个方向的扇形里（偏出去不超过主轴的 1.2 倍，约偏离 50°，含历史点），
   沿主轴过 18dp 抬手就做这个键在那个方向上声明的事（往上 `Key.flick`，往下 `Key.flickDown`，往左 `Key.flickLeft`；只有删除键声明后两个），出的总是按下的键；中途偏出扇形（横走、反方向、拐弯）这一笔就作废，交给滑行或点按。
