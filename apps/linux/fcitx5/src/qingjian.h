@@ -59,6 +59,9 @@ private:
     /// 原始按键请求的等待深度，兼容提交回调内的按键重入。
     size_t nativeWaiting_ = 0;
 
+    /// 最外层原始请求的截止时间；排队事务和提交重入共用，不按键续期。
+    std::chrono::steady_clock::time_point nativeDeadline_;
+
     /// 下一次后台任务开始前关闭旧连接，禁止恢复旧会话或重放请求。
     bool reconnect_ = false;
 

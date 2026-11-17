@@ -42,8 +42,6 @@ fn prepared_rules_preserve_the_loaded_table() {
         CodeRules {
             auto_commit: Some(false),
             top: Some(true),
-            mixed_auto_commit: Some(true),
-            mixed_top: Some(true),
         },
     );
     let prepared = slot.prepare(&config, Some(&user), None, true);
@@ -53,6 +51,4 @@ fn prepared_rules_preserve_the_loaded_table() {
     assert_eq!(scheme.key, "marker");
     assert!(!scheme.auto_commit);
     assert!(scheme.top);
-    assert!(scheme.mixed_auto_commit);
-    assert!(scheme.mixed_top);
 }

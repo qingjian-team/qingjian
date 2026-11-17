@@ -107,10 +107,8 @@ mac 存在 `Session::spelling`（`Host::follow_highlight`）、Windows / Linux �
 编码按前缀查表，`CandidateKind::Code` 的候选 `syllables` 为空、上屏吃掉整段作用域（`whole_scope`）。只用形码时 `query_code` 照拼音配 emoji（`insert_emoji` 也认 `Code`）与「日期 / 时间 / 星期」的快捷写法，`rq` / `sj` / `xq` 的快捷候选插在编码打全的词之后（这几个也是常用字的编码前缀）；混输的拼音那半自己配，形码这半不再配。
 混输是「拼音那条 Query 前面插上形码候选」：拼音读不出来时（`ggll`）整个按形码走，两边都空才算错；
 按文本去重，编码打全的形码词在前、拼音居中、只命中前缀的形码词垫后（一律形码在前的话 `kai` 的首选会变成编码 `kaik` 的词）；混输下模式键同双拼换成大写，满码长度（`CodeScheme::code_length`，缺省取 `CodeTable::full_code_len` 即最常见的编码长度，五笔是 4；极点码表里有条写错的 5 码 `TF卡 ttfhh`，取最长会把满码拖成 5）以内不做拼写纠错，超出码长自然只剩拼音。
-形码的两条按键规则在 `engine/code_keys.rs`：`code_tops(c)` 判断满码再敲字母要不要先顶字，由壳上屏**高亮**候选再收这个字母；
+只用形码时还有两条按键规则（`engine/code_keys.rs`，混输下都不生效）：`code_tops(c)` 判断满码再敲字母要不要先顶字，由壳上屏**高亮**候选再收这个字母；
 `commit_unique_code()` 在壳每收一个字母后调，全码满码且码表里只有一个词时 Core 自己按首选上屏（走完整 `query` 拿出 Core 的那份候选，繁体输出照样对）。
-纯形码沿用 `auto_commit` / `top`；混输单独用 `mixed_auto_commit` / `mixed_top`，缺省都关。五笔恰好 4 码才判唯一，短码不上屏，静态表与学习词共同判重。
-混输开启 `mixed_top` 时前缀形码也排到拼音前，满码后的下一字母顶出高亮候选并起新码；不开启时候选顺序与连续拼音保持原样。`composing_code()` 仍只认纯形码，不改变混输的标点和空码处理。
 `composing_code()` 告诉壳「单用形码、缓冲区是一段编码」：壳据此让会转全角的标点总是先上屏高亮候选（不看 `punct_commits`），
 编码查不到词（空码）时 `commit_highlighted` 清掉编码而不是原样上屏字母（回车仍原样上屏）。
 码表里编码不全是字母的行在 `CodeTable::parse` 时跳过（形码查询只收小写字母）。
@@ -438,7 +436,7 @@ Common Crawl、CSL、SkyPile、C4 的统计），可按 GPL-3.0-or-later 使用�
 `shuangpin_schemes`：用户双拼方案的发现，与形码共用 `schemes/` 目录与 id 规则，`scheme.toml` 写 `type = "shuangpin"` 的才算（形码那边见到它跳过）；
 `base` 拿内置方案当底子，`[initials]` / `[finals]` / `[zero]` 按键（零声母按音节）整条替换。内置九套仍编在 Core 里：回放与 CLI 不依赖外部文件，日志里的 `xiaohe` 永远是同一套键位。
 `SchemeSlot`（`scheme/slot.rs`）是壳持有的「装着哪套」，两侧一起装：每次配置热加载都按配置重新找方案，但形码方案（含规则）与码表文件的修改时间、长度都没变时不重读码表——
-热加载多半是改了别的设置，8.9 万条每次重读是白花的；只改了 `[code.<id>]` 的规则走 `Engine::set_code_rules` / `set_mixed_code_rules`，也不重读。混输两个开关只在用户配置中显式启用，不继承方案自带的纯形码开关。
+热加载多半是改了别的设置，8.9 万条每次重读是白花的；只改了 `[code.<id>]` 的规则走 `Engine::set_code_rules`，也不重读。
 双拼键位表很小，每次重读、变了才换进引擎。`SchemeSlot::apply` 直接收 `&Config`，三条输入（拼音侧、形码 id、规则）都从配置取。
 `SchemeSlot::prepare` 可在后台完成查找与码表加载，返回 `PreparedScheme`；`apply_prepared` 只更新内存中的引擎与方案身份，不访问文件系统。准备时携带当前码表是否仍已装入的状态，保留未变码表及只改规则时的复用行为。
 id 不能撞拼音侧的写法与日志里的 `wubi`（`is_valid_id`），因为输入日志把两侧拼成 `<拼音>+<形码键>`，86 五笔的日志键沿用 `wubi`（`CodeSchemeEntry::log_key`）。
@@ -789,9 +787,9 @@ Fcitx5 的输入法与插件描述均启用配置入口，`settings/` 通过唯�
 Unix socket 用共享长度前缀与 Frame（当前公共版本 9，与 `PROTOCOL_VERSION` 同步，Fcitx5 插件里写死在 `qingjian.cpp` 的 OpenSession）；插件复用一条连接，每个上下文独立会话。Linux v3 扩展逐会话握手、确认 Sensitive/Password/Disable 后接受按下/释放、焦点和点击事实。
 Fcitx5 的 `ipc/async` 后台独占 socket，`key/queue` 在主线程保序排队，最多 1024 项待发送、一个 IPC 事务在途；后台收发截止时间 5 s，每 20 ms 检查取消，通过 `EventDispatcher` 回投响应。焦点、能力、重置、销毁与连接代次隔离过期事件；显示确认和选区回答先于后续按键，Poll 只在空闲时发送。故障清空待处理事件，不重放未确认请求。旧同步兼容接口仍使用 200 ms，Fcitx4 / IBus 不变。
 
-支持事后按键回送的客户端仅在 Server 确认 Passthrough 后转发按下 / 抬起，框架事件线程不等待 IPC。D-Bus 客户端未声明 `KeyEventOrderFix` 时保守走 `key/native`：GTK4 输入模块的 `ForwardKey` 回调不处理事件，不能先接受再回送。该路径复用同一后台连接和队列，在原始按键请求内等待消费结果；未消费的原事件交还框架，不以文字提交模拟数字、方向键或快捷键。只领取 IPC 完成回调，不运行嵌套框架事件循环；响应应用期间通常暂停出队，原请求等待时允许按顺序推进以兼容提交回调重入。GTK4 在服务卡顿时会等待，后台词库加载机制不变。
+支持事后按键回送的客户端仅在 Server 确认 Passthrough 后转发按下 / 抬起，框架事件线程不等待 IPC。D-Bus 客户端未声明 `KeyEventOrderFix` 时保守走 `key/native`：GTK4 输入模块的 `ForwardKey` 回调不处理事件，不能先接受再回送。该路径复用同一后台连接和队列；最外层原始按键请求以单调时钟设置 200 ms 截止时间，排队事务与提交回调重入共用，不能逐项续期。超时调用 `disconnectAll` 清队列、失效会话并取消后台收发，消费丢弃未确认的原事件；在途回调返回后释放忙状态，晚到响应按连接代次丢弃，后续请求重新握手。未消费的原事件交还框架，不以文字提交模拟数字、方向键或快捷键。只领取 IPC 完成回调，不运行嵌套框架事件循环；响应应用期间通常暂停出队，原请求等待时允许保序推进。后台异步收发的 5 s 上限不作为主线程等待上限，后台词库加载机制不变。
 
-`tests/native.cpp` 覆盖原始消费结果、数字选词、两类客户端交替、提交重入、焦点与密码框边界、短时卡顿与断线；`tests/async.cpp` 的 `dbus` 用例保证声明 `KeyEventOrderFix` 后仍不阻塞。真实 GTK3 / GTK4 回归用 `QINGJIAN_WUBI_KEYS_TEST=1 QINGJIAN_GTK_VERSION=4.0 apps/linux/tests/wubi/session.sh fcitx5`（GTK3 改成 `3.0`），需要对应的 GTK Python GI、Xvfb 和 xdotool；默认读取 `target/fcitx5-wubi`，可用 `QINGJIAN_FCITX5_BUILD` 指定构建目录，临时根目录遵循 `TMPDIR`。
+`tests/native.cpp` 覆盖原始消费结果、数字选词、两类客户端交替、提交重入、焦点与密码框边界、短时卡顿与断线；`tests/deadline.cpp` 覆盖整次等待预算、排队与重入不续期、超时卸载、晚到响应隔离和恢复；`tests/async.cpp` 的 `dbus` 用例保证声明 `KeyEventOrderFix` 后仍不阻塞。真实 GTK3 / GTK4 回归用 `QINGJIAN_WUBI_KEYS_TEST=1 QINGJIAN_GTK_VERSION=4.0 apps/linux/tests/wubi/session.sh fcitx5`（GTK3 改成 `3.0`），需要对应的 GTK Python GI、Xvfb 和 xdotool；默认读取 `target/fcitx5-wubi`，可用 `QINGJIAN_FCITX5_BUILD` 指定构建目录，临时根目录遵循 `TMPDIR`。
 共用的 `ipc/connection.cpp` 按日志头文件提供的接口分流：Fcitx5 用 `FCITX_WARN()`，Fcitx4 用 `FcitxLog(WARNING, ...)`；`FCITX_WARNING` 是旧版枚举值，不能当函数或流式日志宏调用。
 `ipc/connection` 将慢请求（成功但耗时 ≥ 100 ms）和失败请求记到框架日志，记录固定白名单里的操作名、收发阶段、失败原因、耗时与 errno。`QingjianEngine` 补记断连原因，以及有未完成输入时的失焦、重置、能力变化与停用原因，只带会话编号、连接代次、修订号和状态。不输出消息正文、异常正文、按键、预编辑、候选、选区或上屏文本；与用户可选的输入日志独立。收集方式见 [Linux 排错](linux-fcitx5.md#路径和排错)。
 候选回报绑定连接代次、上下文和服务端帧序号，仅当前聚焦页的有效释义进入 `note_displayed`，不把生成帧算作已展示。

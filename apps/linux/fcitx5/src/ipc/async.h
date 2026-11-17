@@ -19,14 +19,18 @@ public:
     explicit AsyncConnection(fcitx::EventLoop &loop);
     ~AsyncConnection();
     void submit(Work work, Done done);
-    /// 在原始按键请求内等待一项 IPC 完成，不运行嵌套的框架事件循环。
-    bool wait();
+    /// 在原始请求的统一截止时间内领取完成结果，不运行嵌套事件循环。
+    bool wait(std::chrono::steady_clock::time_point deadline);
+    void cancel();
 private:
     void dispatch();
     void run();
 
     /// 工作线程只读取取消标记，不访问 Engine 或 InputContext。
     std::atomic<bool> stopping_{false};
+
+    /// 中断在途收发；只有领取完成结果并提交下一项事务时才复位。
+    std::atomic<bool> cancelled_{false};
 
     fcitx::EventDispatcher dispatcher_;
 

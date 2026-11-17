@@ -145,7 +145,7 @@ def test():
             on_ui(lambda: reset("", 0))
             time.sleep(0.1)
             server = int(os.environ["QINGJIAN_WUBI_TEST_SERVER_PID"])
-            resume = threading.Timer(0.6, os.kill, (server, signal.SIGCONT))
+            resume = threading.Timer(0.08, os.kill, (server, signal.SIGCONT))
             try:
                 if stalled:
                     os.kill(server, signal.SIGSTOP)
@@ -162,6 +162,26 @@ def test():
             if actual != "不错 ":
                 raise AssertionError(f"fast input stalled={stalled}: {actual!r}")
             print(f"PASS GTK{VERSION} fast input stalled={stalled}", flush=True)
+        if VERSION == "4.0":
+            on_ui(lambda: reset("", 0))
+            time.sleep(0.1)
+            os.kill(server, signal.SIGSTOP)
+            try:
+                run("xdotool", "keydown", "space")
+                time.sleep(0.35)
+                before = time.monotonic()
+                assert run("fcitx5-remote", "-n") == "qingjian"
+                assert time.monotonic() - before < 0.15
+                assert on_ui(snapshot)[0] == ""
+            finally:
+                os.kill(server, signal.SIGCONT)
+            time.sleep(0.2)
+            run("xdotool", "keyup", "space")
+            assert on_ui(snapshot)[0] == ""
+            run("xdotool", "type", "--clearmodifiers", "--delay", "1", "giqa ")
+            time.sleep(0.4)
+            assert on_ui(snapshot)[0] == "不错 "
+            print(f"PASS GTK{VERSION} timeout and recovery", flush=True)
     except Exception as error:
         errors.append(error)
     finally:

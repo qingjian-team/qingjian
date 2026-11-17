@@ -141,6 +141,7 @@ void QingjianEngine::disconnectAll(const char *reason) {
     shared_->clearing = true;
     if (async_) {
         ++shared_->generation;
+        async_->cancel();
         pending_.clear();
         reconnect_ = true;
     }

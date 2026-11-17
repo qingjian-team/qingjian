@@ -84,7 +84,7 @@ int main(int argc, char **argv) {
     } else if (mode == "stall") {
         assert(kill(server.pid, SIGSTOP) == 0);
         std::thread resume([&] {
-            std::this_thread::sleep_for(std::chrono::milliseconds(350));
+            std::this_thread::sleep_for(std::chrono::milliseconds(80));
             assert(kill(server.pid, SIGCONT) == 0);
         });
         type("giqa");

@@ -6,9 +6,9 @@ description: "Installing Qingjian on Linux (and FreeBSD): the Fcitx5 prebuilt pa
 
 The Linux version of Qingjian runs as an input method in Fcitx5 or Fcitx4, and candidates use Fcitx's own candidate panel. For now it's installed from a terminal, and the background service has to be started by hand after each login.
 
-With Fcitx5, keys remain in order during brief stalls instead of the first part of a code becoming literal letters after 200 milliseconds. Pending input from an old window is not delivered to a new window or password field. If the background service crashes or remains unresponsive, unconfirmed input may be discarded and need to be typed again.
+With Fcitx5, keys remain in order; unconfirmed codes are not emitted as literal letters on timeout. Pending input from an old window is not delivered to a new window or password field. If the background service crashes or becomes unresponsive, unconfirmed input may be discarded and need to be typed again.
 
-In GTK4 applications such as GNOME Text Editor, digits, spaces, Enter, navigation keys and editing shortcuts not used by the input method are handled normally by the application. For compatibility, Qingjian waits for the result within the original key request, so a stalled background service can temporarily delay keyboard responses in these applications.
+In GTK4 applications such as GNOME Text Editor, digits, spaces, Enter, navigation keys and editing shortcuts not used by the input method are handled normally by the application. For compatibility, Qingjian waits within the original key request, with a total waiting budget of 200 ms including any queued events. On timeout it disconnects and discards unconfirmed input instead of waiting for the background service's longer timeout. You can type again once the service recovers.
 
 - On Debian, Ubuntu and Fedora you can install the deb / rpm packages, which start automatically at login; see "deb / rpm packages" below.
 - Newer distributions (Debian 13, Ubuntu 25.04, Fedora 42, Arch and later) can also use the AppImage: a single file, no administrator rights, starts automatically at login; see "AppImage" below.
