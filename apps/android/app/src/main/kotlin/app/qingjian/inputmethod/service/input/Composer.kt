@@ -192,16 +192,16 @@ class Composer(private val engine: Engine, private val host: Host) {
     }
 
     /**
-     * 长按 Shift 到点：中文输入且正组句时插入分词 '（手机键盘上没有独立的单引号键，
-     * 分词现在只能靠拼音里点得很别扭）。返回 	rue 表示这一下已经用掉。
+     * 长按 Shift 到点：中文输入且正组句时插入分词 `'`（手机键盘上没有独立的单引号键，
+     * 分词现在只能靠拼音里点得很别扭）。返回 `true` 表示这一下已经用掉。
      *
-     * 英文或不在组句时返回 alse，抬手照常切大写 —— 那才是长按 Shift 的常规含义。
-     * 设置里关掉「长按 Shift 分词」后一律 alse。
+     * 英文或不在组句时返回 `false`，抬手照常切大写 —— 那才是长按 Shift 的常规含义。
+     * 设置里关掉「长按 Shift 分词」后一律 `false`。
      */
     fun onShiftHold(): Boolean {
         if (!shiftSegments || english || !composing) return false
         if (!engine.ready) return false
-        apply(engine.push('''.code))
+        apply(engine.push('\''.code))
         return true
     }
 
