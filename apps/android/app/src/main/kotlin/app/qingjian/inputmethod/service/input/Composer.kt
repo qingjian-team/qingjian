@@ -101,6 +101,9 @@ class Composer(private val engine: Engine, private val host: Host) {
 
     private val english: Boolean get() = language == Language.ENGLISH
 
+    /** 长按 Shift 出分词（设置「键盘 → 手势 → 长按 Shift 分词」，缺省开）。 */
+    var shiftSegments = true
+
     /** 上次点 Shift 的时刻，两次点得够近就锁定。 */
     private var lastShiftTap = 0L
 
@@ -186,6 +189,20 @@ class Composer(private val engine: Engine, private val host: Host) {
             },
         )
         consumeShift()
+    }
+
+    /**
+     * 长按 Shift 到点：中文输入且正组句时插入分词 '（手机键盘上没有独立的单引号键，
+     * 分词现在只能靠拼音里点得很别扭）。返回 	rue 表示这一下已经用掉。
+     *
+     * 英文或不在组句时返回 alse，抬手照常切大写 —— 那才是长按 Shift 的常规含义。
+     * 设置里关掉「长按 Shift 分词」后一律 alse。
+     */
+    fun onShiftHold(): Boolean {
+        if (!shiftSegments || english || !composing) return false
+        if (!engine.ready) return false
+        apply(engine.push('''.code))
+        return true
     }
 
     fun onKey(key: Key) {

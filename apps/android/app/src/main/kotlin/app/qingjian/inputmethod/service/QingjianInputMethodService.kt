@@ -188,6 +188,7 @@ class QingjianInputMethodService :
         composer.layout = settings.layout
         composer.traditional = settings.traditional
         composer.keepChinese = settings.keepChinese
+        composer.shiftSegments = settings.shiftSegments
         composer.shuangpinScheme = settings.shuangpinScheme
         composer.shuangpinRawPreedit = settings.shuangpinRawPreedit
         composer.wubiMixed = settings.wubiMixed
@@ -464,7 +465,17 @@ class QingjianInputMethodService :
         if (candidates && composer.singleChars) composer.toggleSingleChars()
     }
 
-    override fun commitText(text: String) = composer.commitPanelText(text)
+    /**
+     * 面板里点了一条上屏。剪贴板、常用语、候选展开选完就回主键盘 —— 这三处是「挑一条」，
+     * 挑完就该接着打字；符号与表情面板留着（那是连着选好几个的设计）。
+     */
+    override fun commitText(text: String) {
+        composer.commitPanelText(text)
+        when (panel?.openPanel) {
+            PanelKind.CLIPBOARD, PanelKind.PHRASES, PanelKind.CANDIDATES -> closePanel()
+            else -> Unit
+        }
+    }
 
     override fun deleteBackward() = composer.onKey(Key.Backspace)
 
@@ -724,6 +735,8 @@ class QingjianInputMethodService :
     override fun onBackspaceDown() = composer.onBackspaceDown()
 
     override fun onClearBefore() = composer.clearBefore()
+
+    override fun onShiftHold() = composer.onShiftHold()
 
     // 回车键写的字（发送、搜索…）照搬到面板右边的键上；多行框没有动作，写「完成」
     override fun openVoicePanel(actions: VoicePanel.Actions): VoicePanel? =
