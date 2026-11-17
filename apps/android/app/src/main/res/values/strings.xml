@@ -231,7 +231,8 @@
     <string name="arrangement_title">布局</string>
     <string name="arrangement_standard">默认</string>
     <string name="arrangement_left_thumb">左手便捷</string>
-    <string name="arrangement_note">左手便捷：符号面板的分类竖排在左边、返回在左下角，左手大拇指够得着</string>
+    <string name="arrangement_right_thumb">右手便捷</string>
+    <string name="arrangement_note">左手 / 右手便捷：符号面板的分类竖排挪到那一侧，返回挪到那一角，那侧的拇指够得着</string>
 
     <string name="tab_home">首页</string>
     <string name="tab_vocabulary">生词本</string>

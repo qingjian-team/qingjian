@@ -121,7 +121,11 @@ class KeyboardSettingsActivity : PageActivity() {
 
     /** 符号面板的排法：默认一套不动，另一套改了几个键的位置（见 [Settings.Arrangement]），键盘功能面板里也能切。 */
     private fun arrangementPicker(settings: Settings): View {
-        val names = listOf(R.string.arrangement_standard, R.string.arrangement_left_thumb).map(::getString)
+        val names = listOf(
+            R.string.arrangement_standard,
+            R.string.arrangement_left_thumb,
+            R.string.arrangement_right_thumb,
+        ).map(::getString)
         val selected = settings.arrangement.ordinal
         return ui.picker(R.string.arrangement_title, names[selected], names, selected) {
             prefs.edit().putString(Settings.KEY_ARRANGEMENT, Settings.Arrangement.entries[it].name).apply()

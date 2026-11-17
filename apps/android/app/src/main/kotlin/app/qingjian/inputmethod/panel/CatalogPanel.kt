@@ -22,7 +22,9 @@ import kotlin.math.hypot
 /**
  * 符号与表情面板，内容是 Core 的面板目录（[Catalog]），点一格上屏。
  * - 符号：不要表头，细线分格，偶数列（成对的括号引号在目录里从偶数位起，不会被拆到两行）；右边一列 返回 / 删除 / 锁定，
- *   没锁上屏一个就回键盘；底下横排分类。[leftThumb]（左手布局）时分类竖排在左边一列、左下角是返回，右边一列只剩删除 / 锁定。
+ *   没锁上屏一个就回键盘；底下横排分类。
+ *   [side] 是「常用手」：`LEFT` 把分类竖排在左列、返回在左下角；`RIGHT` 与它镜像（分类右列、返回右下角）；
+ *   `NONE` 是原来的排法。两种情况另一侧只剩删除 / 锁定。
  * - 表情：表头是 Emoji / 颜文字 两大类，底下横排小类，右下角删除；上屏后留在面板里接着选。
  */
 @SuppressLint("ViewConstructor")
@@ -32,12 +34,15 @@ class CatalogPanel(
     actions: PanelActions,
     headerHeight: Float,
     kind: PanelKind,
-    leftThumb: Boolean,
+    side: ThumbSide,
 ) : PanelView(context, palette, actions, headerHeight) {
     private val symbols = kind == PanelKind.SYMBOLS
 
-    /** 分类竖排在左边一列（左手布局的符号面板）。 */
-    private val leftColumn = symbols && leftThumb
+    /** 分类竖排在哪一侧（符号面板、且选了左 / 右手布局时）；`null` 是原来的横排分类。 */
+    private val columnSide: ThumbSide? = side.takeIf { symbols && it != ThumbSide.NONE }
+
+    /** 分类竖排在左边（左手布局）。 */
+    private val leftColumn = columnSide == ThumbSide.LEFT
 
     override val hasHeader get() = !symbols
 
@@ -55,7 +60,7 @@ class CatalogPanel(
     private val bottom = RectF()
     private val side = RectF()
 
-    /** 左手布局：左边一列的分类与左下角的返回。 */
+    /** 分类竖列那一块（含那一角的返回），左右两套布局共用同一个矩形。 */
     private val categoryColumn = RectF()
     private val back = RectF()
     private val keyPaint = Paint(Paint.ANTI_ALIAS_FLAG)
@@ -79,7 +84,7 @@ class CatalogPanel(
         selected = emojiTop
     }
 
-    private val categories = if (leftColumn) {
+    private val categories = if (columnSide != null) {
         Tabs(ink, scrollable(false) { x, y -> categoryColumn.contains(x, y) }, Tabs.Style.COLUMN)
     } else {
         Tabs(ink, scrollable(true) { x, y -> bottomTabsContain(x, y) }, Tabs.Style.PILL)
@@ -102,14 +107,22 @@ class CatalogPanel(
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         val bottomHeight = ink.dp(BOTTOM_DP)
         bottom.set(0f, h - bottomHeight, w.toFloat(), h.toFloat())
-        if (leftColumn) {
-            // 没有底排：左列分类 + 左下返回，中间网格，右列删除 / 锁定，都占满整高
+        if (columnSide != null) {
+            // 没有底排：一侧是分类竖列 + 那一角的返回，中间网格，另一侧是删除 / 锁定，都占满整高。
+            // 分类列与返回跟着常用手走（LEFT 在左、RIGHT 在右），功能列放对面。
             val sideWidth = w / SIDE_FRACTION
             bottom.set(0f, h.toFloat(), w.toFloat(), h.toFloat())
-            categoryColumn.set(0f, 0f, sideWidth, h - bottomHeight)
-            back.set(0f, h - bottomHeight, sideWidth, h.toFloat())
-            side.set(w - sideWidth, 0f, w.toFloat(), h.toFloat())
-            grid.set(sideWidth, 0f, side.left, h.toFloat())
+            if (leftColumn) {
+                categoryColumn.set(0f, 0f, sideWidth, h - bottomHeight)
+                back.set(0f, h - bottomHeight, sideWidth, h.toFloat())
+                side.set(w - sideWidth, 0f, w.toFloat(), h.toFloat())
+                grid.set(sideWidth, 0f, side.left, h.toFloat())
+            } else {
+                categoryColumn.set(w - sideWidth, 0f, w.toFloat(), h - bottomHeight)
+                back.set(w - sideWidth, h - bottomHeight, w.toFloat(), h.toFloat())
+                side.set(0f, 0f, sideWidth, h.toFloat())
+                grid.set(side.right, 0f, w - sideWidth, h.toFloat())
+            }
             categories.setBounds(categoryColumn.left, categoryColumn.top, categoryColumn.right, categoryColumn.bottom)
         } else if (symbols) {
             side.set(w - w / SIDE_FRACTION, 0f, w.toFloat(), h - bottomHeight)
@@ -186,9 +199,9 @@ class CatalogPanel(
         val cx = side.centerX()
         val slots = sideSlots()
         val slot = side.height() / slots
-        // 左手布局的返回在左下角，右列不再放
-        val first = if (leftColumn) 0 else 1
-        if (!leftColumn) ink.text(canvas, "返回", 16f, palette.text, cx, side.top + slot * 0.5f)
+        // 选了左 / 右手布局时，返回跟分类列一起挪到常用手那一侧，这一列不再放
+        val first = if (columnSide != null) 0 else 1
+        if (columnSide == null) ink.text(canvas, "返回", 16f, palette.text, cx, side.top + slot * 0.5f)
         keyPaint.color = palette.text
         KeyIcons.draw(canvas, Key.Backspace, cx, side.top + slot * (first + 0.5f), ink.dp(24f), keyPaint)
         ink.icon(
@@ -198,10 +211,10 @@ class CatalogPanel(
         for (i in 1 until slots) ink.line(canvas, side.left, side.top + slot * i, side.right, side.top + slot * i, palette.faint)
     }
 
-    /** 右列几格：返回 / 删除 / 锁定，左手布局去掉返回。 */
-    private fun sideSlots() = if (leftColumn) 2 else 3
+    /** 功能列几格：一般有 返回 / 删除 / 锁定；选了左 / 右手布局时返回迁走，只剩两格。 */
+    private fun sideSlots() = if (columnSide != null) 2 else 3
 
-    private fun drawLeftColumn(canvas: Canvas) {
+    private fun drawCategoryColumn(canvas: Canvas) {
         ink.fill.color = palette.functionalKey
         canvas.drawRect(categoryColumn, ink.fill)
         canvas.drawRect(back, ink.fill)
@@ -211,7 +224,7 @@ class CatalogPanel(
     }
 
     private fun drawBottom(canvas: Canvas) {
-        if (leftColumn) return drawLeftColumn(canvas)
+        if (columnSide != null) return drawCategoryColumn(canvas)
         ink.fill.color = palette.functionalKey
         canvas.drawRect(bottom, ink.fill)
         val keyLeft = bottom.right - ink.dp(BOTTOM_KEY_DP)

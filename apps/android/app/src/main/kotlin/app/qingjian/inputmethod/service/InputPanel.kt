@@ -26,6 +26,7 @@ import app.qingjian.inputmethod.panel.clipboard.PiecesPanel
 import app.qingjian.inputmethod.panel.editor.FloatingEditor
 import app.qingjian.inputmethod.settings.BottomAction
 import app.qingjian.inputmethod.settings.Settings
+import app.qingjian.inputmethod.settings.thumbSide
 import app.qingjian.inputmethod.theme.Palette
 
 /**
@@ -100,7 +101,7 @@ class InputPanel(
             PanelKind.TOOLBAR -> ToolbarPanel(context, palette, actions, header, settings.toolbar)
             PanelKind.SYMBOLS, PanelKind.EMOJI -> CatalogPanel(
                 context, palette, actions, header, kind,
-                leftThumb = settings.arrangement == Settings.Arrangement.LEFT_THUMB,
+                side = settings.thumbSide,
             )
             PanelKind.CANDIDATES -> CandidateGrid(context, palette, actions, header, settings.textSize.scale)
             PanelKind.CLIPBOARD, PanelKind.PHRASES -> ClipboardPanel(context, palette, actions, header, phrasesFirst = kind == PanelKind.PHRASES)

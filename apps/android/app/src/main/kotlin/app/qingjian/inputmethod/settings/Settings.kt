@@ -5,6 +5,7 @@ import android.content.SharedPreferences
 import app.qingjian.inputmethod.core.InputOptions
 import app.qingjian.inputmethod.core.store.SettingChoices
 import app.qingjian.inputmethod.keyboard.HapticStrength
+import app.qingjian.inputmethod.panel.ThumbSide
 import app.qingjian.inputmethod.theme.Appearance
 import app.qingjian.inputmethod.theme.TextSize
 
@@ -83,10 +84,12 @@ data class Settings(
     enum class Layout { QWERTY, NINE_KEY, ZHUYIN, SHUANGPIN, WUBI }
 
     /**
-     * 键位排法。改了按键位置的放进另一套，缺省那套一直不变（肌肉记忆）：
-     * [LEFT_THUMB] 让左手大拇指顺手：符号面板分类列放左边、「返回」在左下角。
+     * 键位排法。改了按键位置的放进另一套，缺省那套一直不变（肌肉记忆）。
+     *
+     * 后两套是同一个问题的两个方向 —— 「常用手是哪只」：符号面板把分类列与「返回」
+     * 挪到持机手那一边的拇指下。[LEFT_THUMB] 在左列与左下角，[RIGHT_THUMB] 与它镜像。
      */
-    enum class Arrangement { STANDARD, LEFT_THUMB }
+    enum class Arrangement { STANDARD, LEFT_THUMB, RIGHT_THUMB }
 
     companion object {
         const val KEY_LAYOUT = "layout"
@@ -229,3 +232,13 @@ data class Settings(
         }
     }
 }
+
+/** 这套排法下常用手是哪只：面板据此把分类列与返回摆到那一侧。 */
+fun Settings.Arrangement.thumbSide(): ThumbSide = when (this) {
+    Settings.Arrangement.STANDARD -> ThumbSide.NONE
+    Settings.Arrangement.LEFT_THUMB -> ThumbSide.LEFT
+    Settings.Arrangement.RIGHT_THUMB -> ThumbSide.RIGHT
+}
+
+/** [Settings] 上的便捷写法：`settings.arrangement.thumbSide()`。 */
+val Settings.thumbSide: ThumbSide get() = arrangement.thumbSide()

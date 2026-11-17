@@ -41,8 +41,26 @@ class FunctionPanel(
             setToggle(Settings.KEY_TRADITIONAL, !settings.traditional)
         },
         // 两套键位排法之间切，见 Settings.Arrangement
-        Feature(null, "左手布局", glyph = "左", on = settings.arrangement == Settings.Arrangement.LEFT_THUMB) {
-            val next = if (settings.arrangement == Settings.Arrangement.LEFT_THUMB) Settings.Arrangement.STANDARD else Settings.Arrangement.LEFT_THUMB
+        Feature(
+            null,
+            when (settings.arrangement) {
+                Settings.Arrangement.STANDARD -> "常用手"
+                Settings.Arrangement.LEFT_THUMB -> "左手"
+                Settings.Arrangement.RIGHT_THUMB -> "右手"
+            },
+            glyph = when (settings.arrangement) {
+                Settings.Arrangement.STANDARD -> null
+                Settings.Arrangement.LEFT_THUMB -> "左"
+                Settings.Arrangement.RIGHT_THUMB -> "右"
+            },
+            on = settings.arrangement != Settings.Arrangement.STANDARD,
+        ) {
+            // 标准 → 左手 → 右手 → 标准，点一下换一个
+            val next = when (settings.arrangement) {
+                Settings.Arrangement.STANDARD -> Settings.Arrangement.LEFT_THUMB
+                Settings.Arrangement.LEFT_THUMB -> Settings.Arrangement.RIGHT_THUMB
+                Settings.Arrangement.RIGHT_THUMB -> Settings.Arrangement.STANDARD
+            }
             setChoice(Settings.KEY_ARRANGEMENT, next.name)
         },
         Feature(Icon.RESIZE, "键盘高度") { startResize() },
