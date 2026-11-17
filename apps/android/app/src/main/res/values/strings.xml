@@ -223,7 +223,7 @@
     <string name="flick_clear_note">在删除键上往上一划，删掉光标前的全部文字，候选条上可以撤销；打拼音时只清空拼音</string>
     <string name="flick_clear_bubble">清空</string>
     <string name="shift_segments_title">Shift 键分词</string>
-    <string name="shift_segments_note">中文全拼下 Shift 键就是分词键，点一下插一个分词标记、不切大写；英文、双拼、九宫格照旧切大写</string>
+    <string name="shift_segments_note">中文的全拼、双拼、五笔下 Shift 键就是分词键，点一下插一个分词标记、不切大写；九宫格、注音、英文照旧切大写</string>
     <string name="space_cursor_title">空格滑动移动光标</string>
     <string name="space_cursor_note">按住空格左右滑，按滑过的距离逐字移动光标；打拼音时不响应</string>
     <string name="spelling_correction_title">拼写纠错</string>

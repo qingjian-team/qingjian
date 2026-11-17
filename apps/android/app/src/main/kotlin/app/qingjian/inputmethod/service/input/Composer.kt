@@ -191,15 +191,15 @@ class Composer(private val engine: Engine, private val host: Host) {
     /**
      * Shift 键当分词用（设置「Shift 键分词」，缺省开）。
      *
-     * 只对中文全拼这样：手机键盘上没有独立的单引号键，分词本来只能靠点拼音列，很别扭。
-     * 英文、双拼、九宫格、注音各按自己的规矩来，不受这个开关影响；输入框设为直通（密码、
-     * 网址这类）时也照旧切大写，不然没法敲大写字母。
+     * 中文的全拼、双拼、五笔都是字母键盘，手机上没有独立的单引号键，分词本来只能靠点拼音列，
+     * 很别扭。九宫格的分词在 `1` 上、注音有自己的键位、英文与日语各按自己的规矩，都不受这个
+     * 开关影响；输入框设为直通（密码、网址这类）时也照旧切大写，不然没法敲大写字母。
      */
     var shiftSegments = true
 
-    /** 现在这个 Shift 键是不是分词键：中文全拼、设置开着。 */
+    /** 现在这个 Shift 键是不是分词键：中文的字母键盘（全拼 / 双拼 / 五笔）、设置开着。 */
     private val segmentsWithShift: Boolean
-        get() = shiftSegments && chinese && layout == Settings.Layout.QWERTY
+        get() = shiftSegments && chinese && !nineKey && !zhuyin
 
     fun onKey(key: Key) {
         // 候选条上放着电话邮箱或「撤销」时，删除、重输先只收起它们，不动输入框里的字
@@ -270,8 +270,8 @@ class Composer(private val engine: Engine, private val host: Host) {
 
             // 拼音、日语组句里的大写字母另有含义，组句中只有英文能换大小写
             Key.Shift -> when {
-                // 中文全拼下 Shift 键就是分词键：点按、长按都一样（#990 第 1 条）。
-                // 别处照旧切大写：英文、双拼（Shift 位上是 `;` 那套有自己的上划）、九宫格与注音。
+                // 中文的字母键盘（全拼、双拼、五笔）上 Shift 就是分词键：点按、长按都一样（#990 第 1 条）。
+                // 别处照旧切大写：英文、九宫格（分词在 1 上）、注音，以及直通输入框。
                 segmentsWithShift && !directInput -> if (composing && engine.ready) apply(engine.push('\''.code))
                 !composing || english -> toggleShift()
                 else -> Unit
