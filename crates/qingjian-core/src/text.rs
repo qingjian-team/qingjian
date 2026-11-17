@@ -24,15 +24,25 @@ pub fn word_tail_length(before: &str) -> usize {
         return 0;
     };
     if last.is_whitespace() {
-        return before.chars().rev().take_while(|c| c.is_whitespace()).count();
+        return before
+            .chars()
+            .rev()
+            .take_while(|c| c.is_whitespace())
+            .count();
     }
     if !is_word_char(last) {
         return 1;
     }
-    before.chars().rev().take_while(|c| is_word_char(*c)).count()
+    before
+        .chars()
+        .rev()
+        .take_while(|c| is_word_char(*c))
+        .count()
 }
 
-/// 算不算「一个词里的字符」：拉丁字母、数字、下划线、连字符与撇号。壳里的删除手势据此判断\n/// 按下删除键那一下是不是已经删掉了一整个「一段」。
+/// 算不算「一个词里的字符」：拉丁字母、数字、下划线、连字符与撇号。
+///
+/// 壳里的删除手势据此判断「按下删除键那一下是不是已经删掉了一整个『一段』」。
 ///
 /// 汉字、假名、全角标点、空白都不算 —— 那些一个字符就是一段。
 pub fn is_word_char(c: char) -> bool {
