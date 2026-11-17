@@ -20,7 +20,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, OnceLock};
 
 use bamboo_slip::tiny_skia::Pixmap;
-use bamboo_slip::{Color, FamilyTable, FontSpec, FontWeight, SvgImage, WidgetColors};
+use bamboo_slip::{Color, FamilyTable, FontSpec, FontWeight, SvgImage};
 
 pub use error::ThemeError;
 use font::FontFamilies;
@@ -30,6 +30,8 @@ pub use text_sizes::TextSizes;
 
 use assets::Assets;
 use file::{ColorRef, FontRef, LockedAppearance, SCHEMA, ThemeFile};
+
+mod menu;
 
 /// 内置主题编进程序的图片：主题里写的路径与文件内容。
 type EmbeddedFiles = &'static [(&'static str, &'static [u8])];
@@ -554,42 +556,6 @@ impl Theme {
                 .variables
                 .get(name)
                 .map_or(Color::rgba(0, 0, 0, 0), |value| value.get(self.dark).0),
-        }
-    }
-
-    /// 候选右键菜单按这个主题画成什么样（配色 + 圆角），壳直接传给 [`crate::Renderer::render_menu`]。
-    ///
-    /// 主题没写 `menu` 一节时就是控件自己的浅色 / 深色，与设置页的下拉菜单一样。
-    pub fn menu_style(&self, dark: bool) -> crate::MenuStyle {
-        let fallback = if dark {
-            WidgetColors::DARK
-        } else {
-            WidgetColors::LIGHT
-        };
-        crate::MenuStyle {
-            colors: self.menu_colors(fallback),
-            radius: self.file.menu.radius,
-            border_width: self.file.menu.border_width,
-        }
-    }
-
-    /// 候选右键菜单的配色：主题写了 `menu` 就用主题的，没写的项退回控件的浅色 / 深色默认。
-    ///
-    /// 只覆盖菜单真正用到的几个色（底、行、悬停、字、线），其余沿用 `fallback`——
-    /// 弹出菜单控件还会用到强调色与槽色，那些在候选菜单里不出现，跟着默认走就行。
-    pub(crate) fn menu_colors(&self, fallback: WidgetColors) -> WidgetColors {
-        let spec = &self.file.menu;
-        let pick = |value: &Option<ColorRef>, default: Color| {
-            value.as_ref().map_or(default, |color| self.color(color))
-        };
-        WidgetColors {
-            text: pick(&spec.text, fallback.text),
-            popup: pick(&spec.background, fallback.popup),
-            surface: pick(&spec.background, fallback.surface),
-            hover: pick(&spec.hover, fallback.hover),
-            selected: pick(&spec.hover, fallback.selected),
-            line: pick(&spec.line, fallback.line),
-            ..fallback
         }
     }
 

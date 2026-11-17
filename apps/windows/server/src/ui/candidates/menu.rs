@@ -40,6 +40,10 @@ struct Menu {
 
     dark: bool,
 
+    /// 这次弹出时算好的菜单样式。主题在菜单开着的时候不会变，弹出时算一次就够 ——
+    /// 鼠标每划过一项都要重画，不能每次都去读主题目录（那是 UI 线程上的整轮扫盘 + 解析）。
+    style: MenuStyle,
+
     dpi: u32,
 
     /// 位图左上角的屏幕坐标。
@@ -84,6 +88,7 @@ pub(super) fn install() -> Result<()> {
             open: None,
             hovered: None,
             dark: false,
+            style: MenuStyle::system(false),
             dpi: 96,
             position: (0, 0),
             rendered: None,
@@ -105,6 +110,7 @@ pub(super) fn open(menu: CandidateMenu, dark: bool, dpi: u32) {
         state.hovered = None;
         state.dark = dark;
         state.dpi = dpi;
+        state.refresh_style();
         let rendered = state.render()?;
         let (width, height) = (
             rendered.content_width as i32,
@@ -150,7 +156,7 @@ impl Menu {
     /// 按当前悬停项画一遍，留着结果给命中与贴图用。
     fn render(&mut self) -> Option<&Rendered> {
         let titles: Vec<&str> = self.open.as_ref()?.items.iter().map(|(_, t)| *t).collect();
-        let style = self.menu_style();
+        let style = self.style;
         let renderer = self
             .renderer
             .get_or_insert_with(|| match FontLibrary::system("zh-CN") {
@@ -172,16 +178,16 @@ impl Menu {
         self.rendered.as_ref()
     }
 
-    /// 菜单按当前主题怎么画：主题 id 从 `open` 里拿，主题读不进来就用控件的浅色 / 深色默认。
+    /// 弹出时算一次菜单样式并存下来：主题 id 从 `open` 里拿，读不进来就用控件的浅色 / 深色默认。
     ///
-    /// 每次画都读一次主题文件：菜单是一次性的小窗口，弹一次读一次比缓存主题失效简单；
-    /// 主题文件在用户目录里，几十 KB 以内。
-    fn menu_style(&self) -> MenuStyle {
-        let Some(id) = self.open.as_ref().map(|menu| menu.theme.as_str()) else {
-            return MenuStyle::system(self.dark);
+    /// 只在这里读主题目录 —— [`Self::render`] 每次划过高亮项都要调，那里必须便宜。
+    fn refresh_style(&mut self) {
+        let Some(id) = self.open.as_ref().map(|menu| menu.theme.clone()) else {
+            self.style = MenuStyle::system(self.dark);
+            return;
         };
         let library = ThemeLibrary::load(qingjian_platform::dirs::themes_dir().as_deref());
-        library.resolve(id, self.dark).menu_style(self.dark)
+        self.style = library.resolve(&id, self.dark).menu_style(self.dark);
     }
 
     /// 屏幕上这一点落在第几项上。
