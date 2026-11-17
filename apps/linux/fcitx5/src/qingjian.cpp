@@ -395,7 +395,8 @@ void QingjianEngine::render(InputContext *context, const nlohmann::json &frame) 
             if (!annotation.empty()) senses.push_back({index, 0});
             if (sense.value("fresh", false)) annotation += " · 生";
         }
-        if (item.value("kind", "Local") == "Cloud") annotation = "☁ " + annotation;
+        // `kind` 可能是对象（自定义短语是 `{"Custom": n}`），`value()` 遇到类型不符会抛异常，只认字符串
+        if (auto kind = item.find("kind"); kind != item.end() && kind->is_string() && *kind == "Cloud") annotation = "☁ " + annotation;
         list->append(std::make_unique<qingjian::Word>(text, annotation, [this, alive = alive_, watched, index, revision, identity](InputContext *ic) {
             if (*alive && ic && ic == watched.get() && ic->hasFocus() && ic->propertyFor(&sessions_)->revision == revision)
                 exchange(ic, {{"Candidate", {{"identity", identity}, {"index", index}}}});
