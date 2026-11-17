@@ -270,7 +270,7 @@ impl Engine {
     }
 
     /// 这段拼音有没有在组句里被改过（退格删字母、删音节、删到光标后）。
-    /// 测试与诊断用；[`Self::finish_buffer`] 按它决定整段还合不合成。
+    /// 测试与诊断用；`finish_buffer` 按它决定整段还合不合成。
     pub fn chain_edited(&self) -> bool {
         self.chain.edited()
     }

@@ -23,7 +23,7 @@ pub struct CommitChain {
     /// 这段拼音里组句内改过几次输入（退格删字母、删音节、删到光标后）。
     ///
     /// 改过说明用户中途换了主意：前面的词与后面的词不再是「一次连续输入」选出来的，
-    /// [`crate::Engine`] 的整段合成词到此为止（issue #1024）。
+    /// [`Engine`](crate::engine::Engine) 的整段合成词到此为止（issue #1024）。
     buffer_edits: u32,
     /// 连续上屏的完整五笔词，按汉字总数限长，供下一次组词使用。
     code_words: Vec<String>,
