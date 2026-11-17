@@ -67,6 +67,9 @@ class KeyboardView(
 
         /** 在删除键上往上一划（开着「上划删除键清空」）：清掉光标前的全部文字，组句中只清拼音。 */
         fun onClearBefore()
+
+        /** 删除键上往下划：删掉光标前的整行。 */
+        fun onDeleteLine()
     }
 
     private val metrics = KeyboardMetrics(
@@ -136,6 +139,9 @@ class KeyboardView(
     private var flickY = 0f
     private var flickArmed = false
     private var flickBroken = false
+
+    /** 这一笔是往下划的（删除键的「删整行」）；向上划为 `false`。 */
+    private var flickDownward = false
 
     /** 这一套键位能不能滑行（全键盘拼音与英文键盘，服务按当前键盘设）；还要设置里开着「滑行输入」。 */
     var swipeLayout = false
@@ -232,7 +238,13 @@ class KeyboardView(
         if (flicking == null) trail.draw(canvas)
         if (flicking != null) {
             // 上滑出的是哪个字放在气泡里；`;` 兼大写那个键划出的是 Shift，键本身亮着就够了
-            val label = if (flicking.key == Key.Backspace) context.getString(R.string.flick_clear_bubble) else flicking.key.flick
+            val action = if (flickDownward) flicking.key.flickDown else flicking.key.flick
+            val label = when (val flick = action) {
+                Key.Flick.ClearBefore -> context.getString(R.string.flick_clear_bubble)
+                Key.Flick.DeleteLine -> context.getString(R.string.flick_delete_line_bubble)
+                is Key.Flick.Insert -> flick.text
+                is Key.Flick.Press, Key.Flick.None -> null
+            }
             label?.let { painter.drawBubble(canvas, flicking, width, it) }
         } else if (settings.keyPopup) {
             pressed.values.filter { it.key.poppable && !choicePopup.showing }.forEach { painter.drawBubble(canvas, it, width) }
@@ -365,15 +377,33 @@ class KeyboardView(
         }
     }
 
-    private fun flickable(key: Key) = (key as? Key.Letter)?.flickShift == true ||
-        (settings.flickSymbols && key.flick != null) ||
-        (settings.flickClear && key == Key.Backspace)
+    /**
+     * 这个键能不能划：由键自己声明的 [Key.flick]（往上）与 [Key.flickDown]（往下）决定，
+     * 再按设置过滤。两个方向任一可用就算能划。
+     *
+     * 各项设置各管一类：`flickSymbols` 管「划出字」，`flickClear` 管退格上划清空，
+     * `flickDeleteLine` 管退格下划删整行；占位键上划出 Shift 不受设置影响。
+     * 新键只要声明了 flick 就自动接上，不用再改这里。
+     */
+    private fun flickable(key: Key) = allowed(key.flick) || allowed(key.flickDown)
+
+    /** 某个方向的上滑按设置准不准。 */
+    private fun allowed(flick: Key.Flick) = when (flick) {
+        Key.Flick.None -> false
+        Key.Flick.ClearBefore -> settings.flickClear
+        Key.Flick.DeleteLine -> settings.flickDeleteLine
+        is Key.Flick.Press -> true
+        is Key.Flick.Insert -> settings.flickSymbols
+    }
 
     /**
-     * 上滑的那根手指挪动：只看方向不看落在哪一列，单手拇指划出的斜线也算（#882）。
-     * 一离开按下的那一点就得在往上的扇形里，往上划够 [FLICK_DP] 算上滑；中途偏出扇形（横着走、往下、拐弯）就作废，
-     * 交给滑行（[SwipeTrail]）或点按，所以跨键的滑行不会被当成上滑。
-     * 刚往上走就撤掉等着的长按：慢慢往斜上划时长按先到点弹出气泡，手指再一歪就选上了气泡左边的大写。
+     * 划动的那根手指挪动：只看方向不看落在哪一列，单手拇指划出的斜线也算（#882）。
+     *
+     * 方向由这个键**自己**声明：多数键往上划（[Key.Flick.Insert] / [Press] / [ClearBefore]），
+     * 删除键的「删整行」往下划（[Key.Flick.DeleteLine]），两者方向相反就不会打架。
+     * 一离开按下的那一点就得在对应方向的扇形里，划够 [FLICK_DP] 才算；中途偏出扇形（横着走、
+     * 反方向、拐弯）就作废，交给滑行（[SwipeTrail]）或点按，所以跨键的滑行不会被当成上滑。
+     * 刚划出去就撤掉等着的长按：慢慢往斜上划时长按先到点弹出气泡，手指再一歪就选上了气泡左边的大写。
      */
     private fun trackFlick(event: MotionEvent) {
         if (flickSlot == null || flickBroken) return
@@ -385,11 +415,14 @@ class KeyboardView(
 
     private fun followFlick(x: Float, y: Float) {
         if (flickBroken) return
-        val up = flickY - y
+        // 往下的动作只在键声明了 flickDown 时才认；否则这一笔往下一律作废
+        val down = y > flickY
+        val downward = down && allowed(flickSlot?.key?.flickDown ?: Key.Flick.None)
+        val along = if (down) y - flickY else flickY - y
         val side = abs(x - flickX)
         // 按下附近的抖动不算方向
-        if (hypot(x - flickX, up) < metrics.density * TRACK_SLOP_DP) return
-        if (up <= 0f || side > up * FLICK_SLOPE) {
+        if (hypot(x - flickX, along) < metrics.density * TRACK_SLOP_DP) return
+        if (along <= 0f || side > along * FLICK_SLOPE || (down && !downward)) {
             flickBroken = true
             flickArmed = false
             return
@@ -398,8 +431,9 @@ class KeyboardView(
             timer.removeCallbacks(longPress)
             longPressPointer = -1
         }
-        flickArmed = up > metrics.density * FLICK_DP
-        // 删除键往上划够了：不再连删，抬手清空
+        flickArmed = along > metrics.density * FLICK_DP
+        flickDownward = down
+        // 删除键划够了：不再连删，抬手做这个键上滑该做的事
         if (flickArmed && flickSlot?.key == Key.Backspace) timer.removeCallbacks(repeatBackspace)
     }
 
@@ -408,12 +442,19 @@ class KeyboardView(
         flickSlot = null
         flickArmed = false
         flickBroken = false
+        flickDownward = false
     }
 
-    private fun flick(key: Key) = when {
-        key == Key.Backspace -> listener.onClearBefore()
-        (key as? Key.Letter)?.flickShift == true -> listener.onKey(Key.Shift)
-        else -> key.flick?.let(listener::onKeyChoice)
+    /** 划出去抬手：照这个键自己声明的方向做（往下取 [Key.flickDown]，往上取 [Key.flick]）。 */
+    private fun flick(key: Key) {
+        val action = if (flickDownward) key.flickDown else key.flick
+        when (val flick = action) {
+            Key.Flick.None -> Unit
+            Key.Flick.ClearBefore -> listener.onClearBefore()
+            Key.Flick.DeleteLine -> listener.onDeleteLine()
+            is Key.Flick.Press -> listener.onKey(flick.key)
+            is Key.Flick.Insert -> listener.onKeyChoice(flick.text)
+        }
     }
 
     /** 长按气泡里的项：中英键是语言名，其余是键自己的。 */

@@ -472,6 +472,29 @@ class Composer(private val engine: Engine, private val host: Host) {
         if (removed.isNotEmpty()) apply(engine.cleared(removed))
     }
 
+    /**
+     * 删掉光标前的整行：退格键从上往下划。
+     *
+     * 「整行」指光标前那一段连续文字里的**最后一行**（`\n` 是边界）；光标恰在行首时删掉上一行
+     * （连同那个换行）。组句中先落定拼音再删，不在组句里才动正文。
+     * 删掉的内容交给 Core 记一条 `cleared`，候选条上给「撤销」，与上划清空一致。
+     */
+    fun deleteLine() {
+        if (composing) settle()
+        val connection = host.connection ?: return
+        // 光标前整段（最多 MAX_LINE 个），从末尾往回找换行
+        val before = connection.getTextBeforeCursor(MAX_LINE, 0)?.toString().orEmpty()
+        if (before.isEmpty()) return
+        // 结尾是换行时，删的是上一整行连同这个换行
+        val trimmed = before.trimEnd('\n')
+        val start = trimmed.lastIndexOf('\n') + 1
+        val length = before.length - start
+        if (length <= 0) return
+        val removed = before.substring(start)
+        connection.deleteSurroundingText(length, 0)
+        if (removed.isNotEmpty()) apply(engine.cleared(removed))
+    }
+
     /** 组句中光标被点到别处：敲的字母原样落下，不留带 ' 的显示形式。 */
     fun onCursorMovedAway() {
         if (composing) settle()
@@ -704,6 +727,9 @@ class Composer(private val engine: Engine, private val host: Host) {
 
         /** 上划清空最多删光标前几个字（UTF-16 单位）：再长的文档一次删不完，再划一次。 */
         const val MAX_CLEAR = 5000
+
+        /** 删整行时往回看多少字：够覆盖一行很长的正文，又不至于把整篇读进来。 */
+        private const val MAX_LINE = 4000
 
         /** 日语里当长音敲的键。 */
         val LONG_VOWEL = setOf("-", "ー")
