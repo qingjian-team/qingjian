@@ -77,6 +77,12 @@ class KeyboardView(
         /** 删除键上往下划：删掉光标前的整行。 */
         fun onDeleteLine()
 
+        /** 左拖删词：手势开始，清掉上一笔的账。 */
+        fun onBeginDeleteDrag()
+
+        /** 左拖删词时往回滑：把这一笔刚删掉的那一段放回光标前；没有可放回的了返回 false。 */
+        fun onRestoreWord(): Boolean
+
         /** 删除键上往左划：删掉光标前的一个词。 */
         fun onDeleteWord()
     }
@@ -146,9 +152,6 @@ class KeyboardView(
     private var deleteAnchorX = 0f
     private var deleteAnchorY = 0f
     private var deleteWords = false
-
-    /** 进了删词模式又往右滑回来：这一笔余下不再删，抬手也不删。 */
-    private var deleteCancelled = false
 
     /**
      * 可能是划键的那根手指与它落下的键（[Key.flick]，开着「上滑输入」时）；-1 是没在看。
@@ -314,7 +317,6 @@ class KeyboardView(
                             deleteAnchorX = event.getX(index)
                             deleteAnchorY = event.getY(index)
                             deleteWords = false
-                            deleteCancelled = false
                         }
                     }
 
@@ -372,11 +374,10 @@ class KeyboardView(
                 val slot = pressed.remove(pointer)
                 val choosing = pointer == longPressPointer && choicePopup.showing
                 val movedCursor = pointer == spacePointer && cursorMode
-                val deletedWords = pointer == deletePointer && (deleteWords || deleteCancelled)
+                val deletedWords = pointer == deletePointer && deleteWords
                 if (pointer == deletePointer) {
                     deletePointer = -1
                     deleteWords = false
-                    deleteCancelled = false
                 }
                 val spoke = pointer == spacePointer && voiceMode
                 if (pointer == spacePointer) {
@@ -627,12 +628,14 @@ class KeyboardView(
     /**
      * 按着删除键往左横拖：滑过一格就进「删词」，之后每滑过 [DELETE_STEP_DP] 删掉光标前一个词。
      *
-     * 与空格横滑挪光标是同一套换算：滑过的距离换成步数，一步一下、一步一轻震；往回滑不补删。
+     * 与空格横滑挪光标是同一套换算：滑过的距离换成步数，一步一下、一步一轻震。
      * 一进这个模式就把这一笔记成划键作废（[flickBroken]）、并撤掉连删 —— 抬手不再按点按或划键删一次。
-     * 进了模式再往右滑够一格就是**取消**：这一笔余下怎么划都不再删，抬手也不删（见 [deleteCancelled]）。
+     *
+     * 还在按着的时候往回（右）滑够一格就把刚删掉的那段**放回去**，一段一步；都放完了再往右滑
+     * 就什么也不做，抬手也不删。手指一松开，这一笔删掉的就定下了。
      */
     private fun trackDelete(event: MotionEvent) {
-        if (deletePointer < 0 || deleteCancelled) return
+        if (deletePointer < 0) return
         val at = event.findPointerIndex(deletePointer)
         if (at < 0) return
         val dx = event.getX(at) - deleteAnchorX
@@ -645,17 +648,20 @@ class KeyboardView(
             flickArmed = false
             timer.removeCallbacks(repeatBackspace)
             Haptics.hold(context)
-        } else if (dx > step) {
-            // 右滑取消：已经删掉的留着（要恢复用候选条上的「撤销」），这一步之后不再删
-            deleteCancelled = true
-            deleteWords = false
-            Haptics.tap(context)
-            return
+            listener.onBeginDeleteDrag()
         }
+        // 左移是删、右移是放回，两边都按滑过的距离折算步数（一格一步）
         val steps = (-dx / step).toInt()
-        if (steps <= 0) return
-        deleteAnchorX -= steps * step
-        repeat(steps) { listener.onDeleteWord() }
+        if (steps > 0) {
+            deleteAnchorX -= steps * step
+            repeat(steps) { listener.onDeleteWord() }
+        } else if (steps < 0) {
+            // 回滚量同样按距离算；已经放完的再往右滑不占格 —— 不然攒下一堆右移的账，
+            // 回头往左拖要先空走这段才重新开始删
+            var restored = 0
+            repeat(-steps) { if (listener.onRestoreWord()) restored++ }
+            if (restored > 0) deleteAnchorX += restored * step
+        }
     }
 
     private fun release() {
@@ -672,7 +678,6 @@ class KeyboardView(
         voiceMode = false
         deletePointer = -1
         deleteWords = false
-        deleteCancelled = false
         longPressPointer = -1
         if (choicePopup.showing) choicePopup.finish()
     }

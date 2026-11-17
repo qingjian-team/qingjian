@@ -182,7 +182,8 @@
     - [ ] 键位表与角标：`keyboard/layout/KeyboardLayout.kt`（全键盘、九宫格、注音大千、日语、数字键盘、符号页）
     - [ ] 尺寸与排版：`keyboard/layout/KeyboardMetrics.kt`（行高、按宽度分键、九宫格列宽）
     - [ ] 游戏键盘（横屏悬浮）的尺寸档与拖动：`settings/GameKeyboard.kt` 的 `Size`（占屏宽比例、行高）、`service/GameFrame.kt`（位置按可挪范围的比例记）
-    - [ ] 滑行起判阈值：`keyboard/SwipeTrail.kt` 的 `START_KEYS`；上滑判定：`keyboard/KeyboardView.kt` 的 `FLICK_DP`（往上多远、不偏出本列）；Shift 双击锁定的间隔：`service/input/Composer.kt` 的 `DOUBLE_TAP_MS`；面板左滑删除：`panel/base/PanelView.kt` 的 `FLING_DP`、`ClipboardPanel` 的 `SWIPE_DELETE_SHARE`
+    - [ ] 滑行起判阈值：`keyboard/SwipeTrail.kt` 的 `START_KEYS`；划键的三方向与扇形：`keyboard/KeyboardView.kt` 的 `FLICK_DP` / `FLICK_SLOPE` / `trackDelete`、`CURSOR_STEP_DP` 与 `DELETE_STEP_DP`（空格横滑挪光标与删除左拖删词用同一套 step）；Shift 双击锁定的间隔与「中文字母键盘下 Shift 当分词」的判据：`service/input/Composer.kt` 的 `DOUBLE_TAP_MS` / `segmentsWithShift`；面板左滑删除：`panel/base/PanelView.kt` 的 `FLING_DP`、`ClipboardPanel` 的 `SWIPE_DELETE_SHARE`
+       - 已经在 Core 里、各端直接调：`qingjian_core::text` 的 `word_tail_length` / `is_word_char`（删一词的边界规则），壳经 `Native.wordTailLength` / `Native.isWordChar` 取
     - [ ] 键位排法：`settings/Settings.kt` 的 `Arrangement`（左手便捷：符号面板分类列在左、返回在左下）
     - [ ] 写死的颜色并进主题推导：`ClipboardPanel` 代码高亮的数字色与左滑删除的红、`AppColors` 的生词标签色与危险操作红、`TranslateBar` / `ProcessTextActivity` 的失败红
   - 平板与 iPad 有两种形态：接实体键盘时只剩候选窗，按 PC 方式工作（翻页键、Shift 切换等手机上不搬的项要用上）；

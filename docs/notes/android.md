@@ -13,8 +13,9 @@
 - 删除键上划清空（`flick_clear`，缺省开）：删除键按下照旧先删一个字并起连删，同时 `onBackspaceDown` 记下按下那一刻光标前的文字（最多 `MAX_CLEAR` = 5000）；往上划够上滑距离就停掉连删，抬手 `Composer.clearBefore`；连删已经起来（`REPEAT_DELAY_MS` 之后）这一笔就作废，不当清空。
   按下时在组句只清拼音；否则 `deleteSurroundingText` 删光标前的文字，`Native.cleared` 让会话在补全里放「撤销」（光标前还是空的就一直留着），撤销放回按下那一刻的文字，所以按下时删的那个字（按键事件可能还没到应用）也回来。
 - 删除键的另外两个方向（`flick_delete_line` / `flick_delete_word`，都缺省关）：往下 `Key.Flick.DeleteLine` → `Composer.deleteLine` 删掉光标前最后一行（`\n` 断开，往回最多 `MAX_LINE`）；往左 `Key.Flick.DeleteWord` → `Composer.deleteWord` 删掉光标前一个词（`wordTailLength` 按字符类别找边界：拉丁字母 / 数字 / 下划线 / 连字符 / 撇号连成一串算一个词，汉字、假名、标点一个字符算一个，光标前紧挨着空白就先吃掉空白）。
-  往左还能**按住拖**（`trackDelete`）：滑过 `DELETE_STEP_DP` 就进「删词」，之后每滑过一格 `onDeleteWord` 一次，往回滑不补删；进了模式再**往右滑够一格就取消**（`deleteCancelled`），这一笔余下不再删、抬手也不按点按删字 —— 与空格横滑挪光标同一套换算（`CURSOR_STEP_DP`），一步一轻震。一进这个模式就把这一笔记成划键作废并撤掉连删。
+  往左还能**按住拖**（`trackDelete`）：滑过 `DELETE_STEP_DP` 就进「删词」，之后每滑过一格 `onDeleteWord` 一次；还在按着时**往回（右）滑够一格就放回一段**（`Composer.restoreWord`）—— 这一笔删掉的压在一个 `ArrayDeque` 里（`beginDeleteDrag` 清账），右滑逐段 `commitText` 放回光标前，组句里则是把那个拼音字母 `push` 回去，放完再往右滑什么也不做，抬手不按点按删字。与空格横滑挪光标同一套换算（`CURSOR_STEP_DP`），一步一轻震；一进这个模式就把这一笔记成划键作废并撤掉连删。
   组句里（还没上屏的那段）`Composer.deleteWord` 不落定拼音，一格退一个键，拖过去就是在删拼音。
+  「一个词有多长」与「这个字符算不算词里的字符」都在 `qingjian_core::text`（`word_tail_length` / `is_word_char`），壳经 `Native.wordTailLength` / `Native.isWordChar` 调 —— 手机端的删除手势共用这一份规则，做 iOS、鸿蒙时直接调同一个 crate，不必各写一套再对不齐。
   两者都在组句中先 `settle()`，删掉的内容同样交 `Native.cleared` 记「撤销」，与上划清空一致；缺省关是因为这两个方向以前什么都不做，新手势不小心碰到的代价大。
 - 划键（`flick_symbols` 管「划出字」、`flick_clear` 管上划清空、`flick_delete_line` / `flick_delete_word` 管删除键的另外两个方向，各管一类）：只看方向不看列。手指离开按下那一点 10dp 起就得一直在那个方向的扇形里（偏出去不超过主轴的 1.2 倍，约偏离 50°，含历史点），
   沿主轴过 18dp 抬手就做这个键在那个方向上声明的事（往上 `Key.flick`，往下 `Key.flickDown`，往左 `Key.flickLeft`；只有删除键声明后两个），出的总是按下的键；中途偏出扇形（横走、反方向、拐弯）这一笔就作废，交给滑行或点按。

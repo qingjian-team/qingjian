@@ -33,6 +33,7 @@ pub mod shortcut;
 pub mod shuangpin;
 pub mod spacing;
 pub mod storage;
+pub mod text;
 pub mod swipe;
 pub mod traditional;
 pub mod vietnamese;

@@ -227,6 +227,16 @@ internal object Native {
     /** 「符号」或「表情」组的「常用」该显示的条目（JSON 数组），用过的在前；出错返回 null。 */
     external fun panelCommon(userDir: String, group: String): String?
 
+    /**
+     * 光标前那个「词」有多长（按字符算），删一词手势按它定边界。
+     *
+     * 实现在 `qingjian_core::text::word_tail_length`，各平台共用一份，别在壳里再写一遍。
+     */
+    external fun wordTailLength(text: String): Int
+
+    /** 这个字符算不算「一个词里的字符」，与 [wordTailLength] 同一套规则。 */
+    external fun isWordChar(c: Char): Boolean
+
     /** 面板里点了一格，记一次使用（[userDir] 里的 panel-usage.tsv）。 */
     external fun recordPanelUse(userDir: String, item: String)
 

@@ -508,56 +508,55 @@ class Composer(private val engine: Engine, private val host: Host) {
      * 组句里（还没上屏的那段拼音）没有「词」可分，一格退一个键 —— 与按删除键一样，
      * 不落定拼音、不上屏：拖过去就是在删拼音。
      *
+     * 删掉的每一段都压进 [dragDeleted]：「左拖时往回滑」按它把字放回去，见 [restoreWord]。
+     *
      * 「一个词」在这里是可预期的两种：拉丁字母、数字、下划线连成的一串算一个词，其余（汉字、假名、
-     * 标点）一个字符算一个；光标前紧挨着空白时先吃掉这一段空白。组句中先落定拼音再删，
-     * 不在组句里才动正文。删掉的内容交给 Core 记一条 `cleared`，候选条上给「撤销」，与上划清空一致。
+     * 标点）一个字符算一个；光标前紧挨着空白时先吃掉这一段空白。删掉的内容交给 Core 记一条
+     * `cleared`，候选条上给「撤销」，与上划清空一致。
      */
     fun deleteWord() {
         if (composing) {
+            val before = preedit
             onKey(Key.Backspace)
+            // 组句里退一格：拼音行的末字少了才是真删掉了
+            if (preedit.length < before.length) dragDeleted.addLast(before.takeLast(1))
             return
         }
         val connection = host.connection ?: return
         val remaining = connection.getTextBeforeCursor(MAX_WORD, 0)?.toString().orEmpty()
         // 按下删除键时已经先删掉一个字：那一下若删掉的正是「一段」（汉字、假名、标点各自算一段），
         // 这个手势要做的事已经做完了，不再接着删；删掉的是词里或空白里的一个字，就接着删完这一整段
-        val swallowed = beforeBackspace?.lastOrNull()?.let { !wordChar(it) && !it.isWhitespace() } == true
+        val swallowed = beforeBackspace?.lastOrNull()?.let { !engine.isWordChar(it) && !it.isWhitespace() } == true
         beforeBackspace = null
         if (swallowed || remaining.isEmpty()) return
-        val length = wordTailLength(remaining)
+        val length = engine.wordTailLength(remaining)
         if (length <= 0) return
         val removed = remaining.substring(remaining.length - length)
         connection.deleteSurroundingText(length, 0)
+        dragDeleted.addLast(removed)
         if (removed.isNotEmpty()) apply(engine.cleared(removed))
     }
 
     /**
-     * [before] 末尾那「一个词」有多长，见 [deleteWord]。
-     * 逐个字符往回数，不看 Core 的词库 —— 正文已经上屏，这里只按字符类别找边界，结果不会因为
-     * 学了新词而变。
+     * 左拖删词时往回滑：把这一笔刚刚删掉的那一段放回光标前，一段一步。
+     *
+     * 组句里放回的是一个拼音字母（[deleteWord] 在同一处退掉的），其余情况放回的是刚删的整段文字。
+     * 用尽这一笔删掉的段数后返回 `false`，调用方就不再往回滑了。
      */
-    private fun wordTailLength(before: String): Int {
-        val last = before.last()
-        if (last.isWhitespace()) {
-            var start = before.length
-            while (start > 0 && before[start - 1].isWhitespace()) start--
-            return before.length - start
+    fun restoreWord(): Boolean {
+        val text = dragDeleted.removeLastOrNull() ?: return false
+        if (text.isEmpty()) return false
+        if (composing) {
+            text.forEach { apply(engine.push(it.code)) }
+            return true
         }
-        if (!wordChar(last)) return 1
-        var start = before.length
-        while (start > 0 && wordChar(before[start - 1])) start--
-        return before.length - start
+        host.connection?.commitText(text, 1)
+        return true
     }
 
-    /**
-     * 算不算「一个词里的字符」：拉丁字母、数字、下划线、连字符与撇号。
-     * 汉字、假名、全角标点、空白都不算 —— 那些一个字符就是一段。
-     */
-    private fun wordChar(char: Char): Boolean {
-        if (char in 'a'..'z' || char in 'A'..'Z' || char in '0'..'9') return true
-        if (char == '_' || char == '-' || char == '\'') return true
-        // 带音标的拉丁字母（café、naïve）：码位在拉丁扩展与拉丁扩展补充里，中间夹着的 × ÷ 不算
-        return char.code in 0xC0..0x24F && char != '×' && char != '÷'
+    /** 左拖删词的手势开始：清掉上一笔的账，往回滑只回滚这一笔删掉的。 */
+    fun beginDeleteDrag() {
+        dragDeleted.clear()
     }
 
     /** 组句中光标被点到别处：敲的字母原样落下，不留带 ' 的显示形式。 */
@@ -796,7 +795,10 @@ class Composer(private val engine: Engine, private val host: Host) {
         /** 删整行时往回看多少字：够覆盖一行很长的正文，又不至于把整篇读进来。 */
         private const val MAX_LINE = 4000
 
-        /** 删一词时往回看多少字：一个词不会有这么长，够用来找到边界就行。 */
+        /** 左拖删词这一笔已经删掉的段，往回滑时按它一段一段放回去（见 [restoreWord]）。 */
+    private val dragDeleted = ArrayDeque<String>()
+
+    /** 删一词时往回看多少字：一个词不会有这么长，够用来找到边界就行。 */
         private const val MAX_WORD = 200
 
         /** 日语里当长音敲的键。 */
