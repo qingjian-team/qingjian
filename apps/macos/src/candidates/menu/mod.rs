@@ -64,7 +64,7 @@ impl MenuPanel {
         })
         .flatten()
         .unwrap_or_else(|| qingjian_render::MenuStyle::system(dark));
-        let Some(bounds) = self.view.open(items, dark, style, scale, pick) else {
+        let Some(bounds) = self.view.open(items, style, scale, pick) else {
             return;
         };
         let content = bounds.content;

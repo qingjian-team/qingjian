@@ -23,9 +23,8 @@ pub struct State {
 
     hovered: Option<usize>,
 
-    dark: bool,
-
-    /// 按当前主题算好的画法（`Theme::menu_style`）。`open` 时给，画的时候直接用。
+    /// 按当前主题算好的画法（`Theme::menu_style`）。`open` 时给，画的时候直接用；
+    /// 深浅也在里面（配色是按当前外观解析过的），不用另外记。
     style: MenuStyle,
 
     scale: f32,
@@ -128,7 +127,6 @@ impl MenuView {
     pub(super) fn open(
         &self,
         items: Vec<(u32, &'static str)>,
-        dark: bool,
         style: MenuStyle,
         scale: f32,
         pick: MenuPick,
@@ -137,7 +135,6 @@ impl MenuView {
             let mut state = self.ivars().borrow_mut();
             state.items = items;
             state.hovered = None;
-            state.dark = dark;
             state.style = style;
             state.scale = scale;
             state.pick = Some(pick);
