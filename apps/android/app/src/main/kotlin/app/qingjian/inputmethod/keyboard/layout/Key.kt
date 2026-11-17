@@ -19,7 +19,7 @@ sealed class Key(val label: String, val weight: Float = 1f) {
     /**
      * 在键上往下划做什么，缺省没有。
      *
-     * 只有删除键用得上：往上划清空、往下划删整行、往左划删一个词，三个方向分开声明，互不覆盖。
+     * 现在只有删除键声明：往上划清空、往下划删整行、往左划删一个词，三个方向分开声明，互不覆盖。
      */
     open val flickDown: Flick get() = Flick.None
 
@@ -33,7 +33,7 @@ sealed class Key(val label: String, val weight: Float = 1f) {
 
     /** 划出来的几种结果。 */
     sealed class Flick {
-        /** 不能上滑：抬手出键本身。 */
+        /** 不能划：抬手出键本身。 */
         data object None : Flick()
 
         /** 上屏一段文字（字母键是角标，九宫格是数字，标点键是另一种宽度）。 */
