@@ -127,9 +127,16 @@ fn prune(segmentations: &mut Vec<Segmentation>) {
 
 /// 音节少的优先；同音节数时不完整音节少的优先；再同则不含生僻音节的优先（`biangeng` 是 bian geng，不是 biang eng），
 /// 最后前面的音节越长越优先（贪心的结果排最前）。
-fn sort_key(segmentation: &Segmentation) -> (usize, usize, usize, Vec<Reverse<usize>>) {
+fn sort_key(segmentation: &Segmentation) -> (usize, usize, usize, usize, Vec<Reverse<usize>>) {
     (
         segmentation.syllables.len(),
+        // 用零声母简写顶出来的切分（`aquan` 的 `a` 当 `an`）排在真正的全拼切分后面：
+        // 串里本来切得出完整音节时，不能因为多了一条一样长的简写切法就让词频把正常整句挤下去
+        segmentation
+            .syllables
+            .iter()
+            .filter(|s| s.implied.is_some())
+            .count(),
         segmentation.incomplete_count(),
         segmentation
             .syllables
@@ -176,11 +183,21 @@ fn segment_chunk(chunk: &str, allow_partial: bool) -> Vec<Segmentation> {
         //
         // 单独处理而不是并进 `tokens`：它代表的音节与吃掉的字母数不一定相同，
         // 得带进 `Syllable::implied`（`text` 记字母、`pattern()` 用音节）。
+        //
+        // 只在**切不出别的**时才用：`rest` 还能按完整音节往下走（`rengemianju` 的 `e`
+        // 是「额」、`e mian ju` 本来就切得通），就不产简写切分 —— 否则两条一样长的切分
+        // 一起进候选，词频会把正常整句挤下去（`人格面具` 变成 `仍恩面具`）。
+        // 真正的简写输入（`aquan`）里 `a` 后面接 `q`，完整音节那条走不通，才落到这里。
         for (eaten, syllable) in zero_initial_syllables(rest) {
             if eaten == 1 && rest.len() <= 1 {
                 continue;
             }
             let typed = &rest[..eaten];
+            // 敲的这段本来就是这个音节（`a` 之于 `a`）时不算简写：常规 tokens 已经产过，
+            // 再产一条会把「啊全」那样正常的两音节切分错标成简写，反而排到后面去
+            if typed == syllable {
+                continue;
+            }
             let extended: Vec<Segmentation> = best[start]
                 .iter()
                 .map(|base| {
