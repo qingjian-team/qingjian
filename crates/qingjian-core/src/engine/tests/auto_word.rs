@@ -269,3 +269,66 @@ fn pinyin_and_shuangpin_split_commits_keep_the_twenty_character_memory_limit() {
         }
     }
 }
+
+#[test]
+fn editing_the_buffer_mid_way_stops_the_whole_word_from_being_learned() {
+    // #1024：`jiaoyizhongxin` 先选 交易，组句里再敲一个字母、删掉它，接着选 中心。
+    // 用户中途动过输入，`交易中心` 不该被记成整段合成词。
+    //
+    // 用 `delete_syllable_backward`（壳里 ⌥⌫）而不是退格：退格在 held 非空时先撤回那次
+    // 选择、把整段拼音接回来，那是另一条路（`undo_selection` 已经 `reset()` 断开了）。
+    // 这里要测的是「拼音还在、只是被改过」。
+    let mut engine = jiaoyi_engine();
+    engine.set_input("jiaoyizhongxin");
+    select(&mut engine, "交易");
+    assert_eq!(engine.composition().text(), "zhongxin");
+
+    engine.push('n');
+    assert_eq!(engine.composition().text(), "zhongxinn");
+    engine.delete_syllable_backward();
+    assert_eq!(
+        engine.composition().text(),
+        "zhongxin",
+        "删掉的是刚敲的那个字母"
+    );
+    assert!(engine.chain_edited(), "组句里改过输入要记下来");
+
+    select(&mut engine, "中心");
+    assert!(engine.composition().is_empty());
+    assert_eq!(
+        engine.learner().choice_weight("jiaoyizhongxin", "交易中心"),
+        0,
+        "中途改过输入，不该记成整段合成词"
+    );
+}
+
+#[test]
+fn a_clean_split_selection_still_makes_the_whole_word() {
+    // 对照：不编辑的同一串照常记——#1024 的修不能误伤这里
+    let mut engine = jiaoyi_engine();
+    engine.set_input("jiaoyizhongxin");
+    select(&mut engine, "交易");
+    select(&mut engine, "中心");
+    assert!(engine.composition().is_empty());
+    assert_eq!(
+        engine.learner().choice_weight("jiaoyizhongxin", "交易中心"),
+        1
+    );
+}
+
+#[test]
+fn deleting_a_letter_with_the_forward_key_also_stops_the_whole_word() {
+    // 删到光标后（Delete）也算编辑过
+    let mut engine = jiaoyi_engine();
+    engine.set_input("jiaoyizhongxin");
+    select(&mut engine, "交易");
+    engine.push('n');
+    engine.move_cursor_syllable_left();
+    engine.delete_forward();
+    select(&mut engine, "中心");
+    assert!(engine.composition().is_empty());
+    assert_ne!(
+        engine.learner().choice_weight("jiaoyizhongxin", "交易中心"),
+        1
+    );
+}

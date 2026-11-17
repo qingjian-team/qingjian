@@ -19,6 +19,12 @@ pub struct CommitChain {
 
     /// 这段拼音整段的学习键（按输入串记选择用的全部字母），第一个词上屏前记下。
     buffer_key: String,
+
+    /// 这段拼音里组句内改过几次输入（退格删字母、删音节、删到光标后）。
+    ///
+    /// 改过说明用户中途换了主意：前面的词与后面的词不再是「一次连续输入」选出来的，
+    /// [`Engine`](crate::engine::Engine) 的整段合成词到此为止（issue #1024）。
+    buffer_edits: u32,
     /// 连续上屏的完整五笔词，按汉字总数限长，供下一次组词使用。
     code_words: Vec<String>,
 }
@@ -68,6 +74,18 @@ impl CommitChain {
     pub fn begin_buffer(&mut self, key: String) {
         self.buffer_words.clear();
         self.buffer_key = key;
+        self.buffer_edits = 0;
+    }
+
+    /// 组句里改了一个字符（退格、删到光标后、删音节）：这段拼音被编辑过。
+    /// 第一次改就把整段标记作废；同一段里改几次都算一次。
+    pub fn note_edit(&mut self) {
+        self.buffer_edits += 1;
+    }
+
+    /// 这段拼音自从最后一个词上屏以来有没有被编辑过。
+    pub fn edited(&self) -> bool {
+        self.buffer_edits > 0
     }
 
     /// 当前这段拼音里已上屏的词，按顺序。
@@ -87,6 +105,7 @@ impl CommitChain {
         self.earlier = None;
         self.same_buffer = false;
         self.buffer_words.clear();
+        self.buffer_edits = 0;
     }
 
     /// 缓冲区被清空或整段被别的东西吃掉：链不断，但下一个词不算同一段拼音。

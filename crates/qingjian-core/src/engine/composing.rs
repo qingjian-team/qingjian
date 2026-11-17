@@ -248,6 +248,8 @@ impl Engine {
                 self.follow_nine_key_deletion(&before);
             }
             self.drop_pin_separator();
+            // 组句里删了字母：这段拼音被编辑过，整段合成词到此为止（issue #1024）
+            self.chain.note_edit();
         }
         removed
     }
@@ -267,9 +269,19 @@ impl Engine {
         self.traditional.forget();
     }
 
+    /// 这段拼音有没有在组句里被改过（退格删字母、删音节、删到光标后）。
+    /// 测试与诊断用；`finish_buffer` 按它决定整段还合不合成。
+    pub fn chain_edited(&self) -> bool {
+        self.chain.edited()
+    }
+
     pub fn delete_forward(&mut self) -> bool {
         self.note_edit();
-        self.composition.delete_forward()
+        let removed = self.composition.delete_forward();
+        if removed {
+            self.chain.note_edit();
+        }
+        removed
     }
 
     /// 删掉光标前的一个音节（壳里 ⌥⌫）：全拼按最优切分的最后一个音节连同它后面的 `'`，切不动的尾巴整个删；
@@ -282,7 +294,11 @@ impl Engine {
         let plain =
             self.raw_mode() || self.expression_mode() || self.question_mode() || self.zhuyin;
         let len = unit_len_before(before, self.shuangpin.is_some(), plain);
-        self.composition.delete_before_cursor(len)
+        let removed = self.composition.delete_before_cursor(len);
+        if removed {
+            self.chain.note_edit();
+        }
+        removed
     }
 
     /// 光标向左跳过一个音节，遇 `'` 连它一起跳过。光标在开头时返回 `false`。
