@@ -119,12 +119,6 @@ class DictionariesActivity : PageActivity() {
         return rows
     }
 
-    /**
-     * 已屏蔽的词：候选菜单里点过一次「屏蔽」的都在这。
-     *
-     * 一定要有这个区块 —— 屏蔽是「候选里含它就整条不出」，点错一下连常用词和整句都会消失，
-     * 没有地方看、没有地方撤的话，用户只能清数据。
-     */
     /** 没有屏蔽词时整段不显示，免得页面上挂一个空区块。 */
     private fun blockedGroup(): View? {
         val rows = blockedRows()
@@ -135,9 +129,15 @@ class DictionariesActivity : PageActivity() {
         )
     }
 
+    /**
+     * 已屏蔽的词：候选菜单里点过一次「屏蔽」的都在这。
+     *
+     * 一定要有这个区块 —— 屏蔽是「候选里含它就整条不出」，点错一下连常用词和整句都会消失，
+     * 没有地方看、没有地方撤的话，用户只能清数据。
+     */
     private fun blockedRows(): List<View> {
         val rows = mutableListOf<View>()
-        val words = Settings.load(this).blockedWords.sorted()
+        val words = Settings.load(this).inputOptions.blockedWords.sorted()
         if (words.isEmpty()) return rows
         words.forEach { word ->
             val remove = ui.text(getString(R.string.blocked_remove), 14f, ui.colors.danger).apply {
