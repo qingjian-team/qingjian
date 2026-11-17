@@ -42,10 +42,11 @@ class DictionariesActivity : PageActivity() {
 
     override fun content(): List<View> {
         val options = Settings.load(this).inputOptions
-        return listOf(
+        return listOfNotNull(
             ui.group(getString(R.string.section_domains), domainRows(options), getString(R.string.domains_note)),
             ui.group(getString(R.string.section_imported), importedRows(options), getString(R.string.imported_note)),
             ui.group(getString(R.string.section_contacts), contactRows(), getString(R.string.contacts_footer)),
+            blockedGroup(),
         )
     }
 
@@ -116,6 +117,48 @@ class DictionariesActivity : PageActivity() {
             if (!importing) pickFiles()
         }
         return rows
+    }
+
+    /**
+     * 已屏蔽的词：候选菜单里点过一次「屏蔽」的都在这。
+     *
+     * 一定要有这个区块 —— 屏蔽是「候选里含它就整条不出」，点错一下连常用词和整句都会消失，
+     * 没有地方看、没有地方撤的话，用户只能清数据。
+     */
+    /** 没有屏蔽词时整段不显示，免得页面上挂一个空区块。 */
+    private fun blockedGroup(): View? {
+        val rows = blockedRows()
+        return if (rows.isEmpty()) null else ui.group(
+            getString(R.string.section_blocked),
+            rows,
+            getString(R.string.blocked_note),
+        )
+    }
+
+    private fun blockedRows(): List<View> {
+        val rows = mutableListOf<View>()
+        val words = Settings.load(this).blockedWords.sorted()
+        if (words.isEmpty()) return rows
+        words.forEach { word ->
+            val remove = ui.text(getString(R.string.blocked_remove), 14f, ui.colors.danger).apply {
+                gravity = Gravity.CENTER
+                setPadding(ui.dp(12), ui.dp(10), ui.dp(12), ui.dp(10))
+                setOnClickListener { forgetBlocked(word) }
+            }
+            rows += ui.row(word, remove)
+        }
+        return rows
+    }
+
+    /** 取消屏蔽：从设置里删掉，再让开着的键盘重挂词库。 */
+    private fun forgetBlocked(word: String) {
+        val prefs = Settings.preferences(this)
+        val words = prefs.getStringSet(Settings.KEY_BLOCKED_WORDS, null).orEmpty().toMutableSet()
+        if (words.remove(word)) {
+            prefs.edit().putStringSet(Settings.KEY_BLOCKED_WORDS, words).apply()
+        }
+        touchStamp()
+        rebuild()
     }
 
     private fun confirmDelete(entry: Entry) {
