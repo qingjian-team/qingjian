@@ -128,7 +128,7 @@ impl Session {
     /// 屏蔽这一条候选：把它的文本加进屏蔽词，之后含它的整条都不出。
     ///
     /// 只改引擎内存，落盘由 Kotlin 侧做（屏蔽词存在 SharedPreferences 里，
-    /// 下次 `set_options` 会经 [`Session::sync_dictionaries`] 再下发回来）。
+    /// 下次 `set_options` 会经 `sync_dictionaries` 再下发回来）。
     pub fn block(&mut self, index: usize) -> Frame {
         let Some(candidate) = self.candidates.items.get(index).cloned() else {
             return self.refresh(String::new());
