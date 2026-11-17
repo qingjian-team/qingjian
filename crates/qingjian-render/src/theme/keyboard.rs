@@ -10,7 +10,7 @@ use super::Theme;
 /// 回车键（品牌色）与白字至少要有的对比度（WCAG 相对亮度之比）；不够就把品牌色调暗。
 const BRAND_CONTRAST: f32 = 3.5;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct KeyboardColors {
     /// 键面是深色（按 `surface` 的亮度判断，不看外观设置：锁定外观的主题照样对）。
     pub dark: bool,
@@ -47,6 +47,12 @@ pub struct KeyboardColors {
 
     /// 云联想的词。
     pub cloud: Color,
+
+    /// 键的圆角（主题 `keyboard.key_radius`，点）。手机键盘照它画。
+    pub key_radius: f32,
+
+    /// 键盘整块的圆角（主题 `keyboard.radius`，点）。
+    pub radius: f32,
 }
 
 impl KeyboardColors {
@@ -132,6 +138,9 @@ impl KeyboardColors {
                 Color::rgb(0x00, 0xc3, 0xd0),
                 Color::rgb(0x00, 0xd2, 0xe0),
             ),
+            // 形状跟主题走：墨岩那种方角主题 `key_radius` 是 0，手机键盘照着画
+            key_radius: theme.key_radius(),
+            radius: theme.keyboard_radius(),
         }
     }
 }
@@ -260,6 +269,20 @@ mod tests {
         let dark = KeyboardColors::of(&Theme::dark());
         assert!(dark.dark);
         assert!(luminance(dark.board) < luminance(dark.key));
+    }
+
+    /// 墨岩是方角主题：键盘形状要跟着走，手机键盘照它画。
+    #[test]
+    fn slate_is_square_cornered() {
+        for dark in [false, true] {
+            let theme = Theme::builtin("slate", dark).unwrap();
+            let colors = KeyboardColors::of(&theme);
+            assert_eq!(colors.key_radius, 0.0, "墨岩的键不该有圆角");
+            assert_eq!(colors.radius, 0.0, "墨岩的键盘整块不该有圆角");
+        }
+        // 缺省主题仍是圆角，不是一刀切成 0
+        let plain = KeyboardColors::of(&Theme::light());
+        assert!(plain.key_radius > 0.0, "{plain:?}");
     }
 
     #[test]

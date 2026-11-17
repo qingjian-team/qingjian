@@ -34,6 +34,12 @@ pub struct KeyboardPalette {
     pub fresh: u32,
 
     pub cloud: u32,
+
+    /// 键的圆角（点）。墨岩那种方角主题是 0，缺省主题是 7。
+    pub key_radius: f32,
+
+    /// 键盘整块的圆角（点）。
+    pub radius: f32,
 }
 
 impl KeyboardPalette {
@@ -53,6 +59,8 @@ impl KeyboardPalette {
             faint: argb(colors.faint),
             fresh: argb(colors.fresh),
             cloud: argb(colors.cloud),
+            key_radius: colors.key_radius,
+            radius: colors.radius,
         }
     }
 }
