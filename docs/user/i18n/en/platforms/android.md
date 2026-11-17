@@ -34,7 +34,6 @@ The 试一试 (Try it) box on the home screen lets you try typing right away.
 - The small initials and finals on double pinyin keys can be turned off with 键上显示声韵母 (Show initials and finals on keys) under 设置 → 输入 (Settings → Input), shown when double pinyin is chosen.
 - Microsoft double pinyin's `;` (ing) sits at the bottom left where Shift was: tap it for `;`, swipe up for Shift (swipe twice quickly to lock capitals; the `;` key lights up like Shift and gets a small dot when locked), and the second row has 9 keys as in full pinyin. Other schemes that use `;` (Sogou, Ziguang) still have an extra `;` key at the end of the second row.
 - 设置 → 键盘 → 按键 → 布局 (Settings → Keyboard → Keys → Layout) picks the hand you hold the phone with: 默认 (Default), 左手便捷 (Left-hand) or 右手便捷 (Right-hand); the 常用手 (Handedness) tile in the keyboard function panel cycles through them too. With either hand picked, the symbol panel moves its category column and the 返回 (Back) key to that side, leaving only delete and lock on the other. Right-handed users want 右手便捷.
-
 - In password and email fields, keys go straight in without pinyin input, and nothing is learned.
 - URL fields such as a browser's address bar take Chinese as usual; punctuation stays half-width, and typing `.` or `/` while composing commits the letters as typed (`github.com`).
 - In input fields an app marks as private (such as a browser's incognito tab) you can type as usual, but typing habits aren't learned, new words aren't recorded, and translation, gloss filling and cloud suggestions send nothing.
