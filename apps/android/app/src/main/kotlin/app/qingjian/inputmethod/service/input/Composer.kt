@@ -101,9 +101,6 @@ class Composer(private val engine: Engine, private val host: Host) {
 
     private val english: Boolean get() = language == Language.ENGLISH
 
-    /** 长按 Shift 出分词（设置「键盘 → 手势 → 长按 Shift 分词」，缺省开）。 */
-    var shiftSegments = true
-
     /** 上次点 Shift 的时刻，两次点得够近就锁定。 */
     private var lastShiftTap = 0L
 
@@ -192,18 +189,17 @@ class Composer(private val engine: Engine, private val host: Host) {
     }
 
     /**
-     * 长按 Shift 到点：中文输入且正组句时插入分词 `'`（手机键盘上没有独立的单引号键，
-     * 分词现在只能靠拼音里点得很别扭）。返回 `true` 表示这一下已经用掉。
+     * Shift 键当分词用（设置「Shift 键分词」，缺省开）。
      *
-     * 英文或不在组句时返回 `false`，抬手照常切大写 —— 那才是长按 Shift 的常规含义。
-     * 设置里关掉「长按 Shift 分词」后一律 `false`。
+     * 只对中文全拼这样：手机键盘上没有独立的单引号键，分词本来只能靠点拼音列，很别扭。
+     * 英文、双拼、九宫格、注音各按自己的规矩来，不受这个开关影响；输入框设为直通（密码、
+     * 网址这类）时也照旧切大写，不然没法敲大写字母。
      */
-    fun onShiftHold(): Boolean {
-        if (!shiftSegments || english || !composing) return false
-        if (!engine.ready) return false
-        apply(engine.push('\''.code))
-        return true
-    }
+    var shiftSegments = true
+
+    /** 现在这个 Shift 键是不是分词键：中文全拼、设置开着。 */
+    private val segmentsWithShift: Boolean
+        get() = shiftSegments && chinese && layout == Settings.Layout.QWERTY
 
     fun onKey(key: Key) {
         // 候选条上放着电话邮箱或「撤销」时，删除、重输先只收起它们，不动输入框里的字
@@ -273,7 +269,13 @@ class Composer(private val engine: Engine, private val host: Host) {
             Key.Clear -> if (composing) apply(engine.clear())
 
             // 拼音、日语组句里的大写字母另有含义，组句中只有英文能换大小写
-            Key.Shift -> if (!composing || english) toggleShift()
+            Key.Shift -> when {
+                // 中文全拼下 Shift 键就是分词键：点按、长按都一样（#990 第 1 条）。
+                // 别处照旧切大写：英文、双拼（Shift 位上是 `;` 那套有自己的上划）、九宫格与注音。
+                segmentsWithShift && !directInput -> if (composing && engine.ready) apply(engine.push('\''.code))
+                !composing || english -> toggleShift()
+                else -> Unit
+            }
 
             Key.Backspace -> if (composing) apply(engine.backspace()) else deleteBackward()
 

@@ -40,7 +40,7 @@ data class Settings(
     val longPressUpper: Boolean,
     /** 在删除键上往上一划清掉光标前的全部文字（缺省开），候选条上给「撤销」。 */
     val flickClear: Boolean,
-    /** 中文输入组句时长按 Shift 出分词（'），而不是切大写（缺省开）。 */
+    /** 中文全拼下 Shift 键就是分词键（'），点按长按都插分词，不切大写（缺省开）。 */
     val shiftSegments: Boolean,
     /** 按住空格左右滑逐字挪光标（缺省开）；关了空格上横滑不响应。 */
     val spaceCursor: Boolean,

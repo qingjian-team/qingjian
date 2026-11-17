@@ -63,12 +63,6 @@ class KeyboardView(
 
         /** 在删除键上往上一划（开着「上划删除键清空」）：清掉光标前的全部文字，组句中只清拼音。 */
         fun onClearBefore()
-
-        /**
-         * 长按 Shift 到点：组句中且中文输入时插入分词（`'`），返回 `true` 表示这一下已经用掉，
-         * 抬手时不再当点按切大写。英文或不组句时返回 `false`，照常切大写。
-         */
-        fun onShiftHold(): Boolean
     }
 
     private val metrics = KeyboardMetrics(
@@ -115,15 +109,6 @@ class KeyboardView(
     private var choiceTracking = false
     private var longPressX = 0f
     private val longPress = Runnable { openChoices() }
-
-    /** 按着 Shift 的那根手指；长按到点若是组句中就出分词（`'`），见 [Listener.onShiftHold]。 */
-    private var shiftPointer = -1
-
-    /** 这一下长按已经出过分词：抬手时不再当点按去切大写。 */
-    private var shiftHeld = false
-    private val shiftHold = Runnable {
-        shiftHeld = listener.onShiftHold()
-    }
 
     /**
      * 按着空格的那根手指；横着滑开就进挪光标（「空格滑动移动光标」开着时），按住不动到点进语音（关着「长按空格说话」或语音开不起来时进挪光标），
@@ -290,12 +275,6 @@ class KeyboardView(
                         timer.postDelayed(spaceHold, if (settings.voiceHoldSpace) VOICE_HOLD_MS else LONG_PRESS_MS)
                     }
 
-                    slot.key == Key.Shift -> {
-                        shiftPointer = pointer
-                        shiftHeld = false
-                        timer.postDelayed(shiftHold, LONG_PRESS_MS)
-                    }
-
                     choicesOf(slot.key).isNotEmpty() && !choicePopup.showing -> {
                         timer.removeCallbacks(longPress)
                         longPressPointer = pointer
@@ -349,13 +328,6 @@ class KeyboardView(
                     timer.removeCallbacks(longPress)
                     longPressPointer = -1
                 }
-                // 长按 Shift 已经出过分词：这一下不算点按，别再切大写
-                val heldShift = pointer == shiftPointer && shiftHeld
-                if (pointer == shiftPointer) {
-                    timer.removeCallbacks(shiftHold)
-                    shiftPointer = -1
-                    shiftHeld = false
-                }
                 when {
                     choosing -> choicePopup.finish()?.let { chosen ->
                         if (choiceKey == Key.Language) listener.onLanguageChoice(chosen) else listener.onKeyChoice(choiceItems[chosen])
@@ -363,7 +335,6 @@ class KeyboardView(
                     slot?.key == Key.Backspace -> timer.removeCallbacks(repeatBackspace)
                     spoke -> listener.onVoiceRelease(cancel = false)
                     movedCursor -> Unit
-                    heldShift -> Unit
                     slot != null -> listener.onKey(slot.key)
                 }
             }
