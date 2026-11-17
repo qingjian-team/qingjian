@@ -128,6 +128,16 @@ class Engine(context: Context, private val onReady: () -> Unit) {
     fun pairPunctuation(text: String, english: Boolean): String? =
         if (ready) Native.pairPunctuation(handle, text, english) else null
 
+    /**
+     * 光标前那个「词」有多长（按字符算）：删一词手势按它定边界。
+     *
+     * 规则在 `qingjian_core::text::word_tail_length`，各平台共用一份；引擎没装好回 0（不删）。
+     */
+    fun wordTailLength(before: String): Int = if (ready) Native.wordTailLength(before) else 0
+
+    /** 这个字符算不算「一个词里的字符」，与 [wordTailLength] 同一套规则。 */
+    fun isWordChar(c: Char): Boolean = ready && Native.isWordChar(c)
+
     /** 没在组句时的退格：刚补完一对时回这一对，见 [Native.pairBackspace]。 */
     fun pairBackspace(): String? = if (ready) Native.pairBackspace(handle) else null
 
