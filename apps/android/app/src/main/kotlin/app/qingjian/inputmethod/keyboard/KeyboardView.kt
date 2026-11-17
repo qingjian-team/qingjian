@@ -619,9 +619,10 @@ class KeyboardView(
         if (!cursorMode) return
         // 组句中没有真光标：壳按手指的横向位置挪拼音行（空格与候选条都是整宽，x 对得上）
         listener.onCursorDrag(event.getX(at))
-        val steps = (dx / step).toInt()
+        val steps = horizontalSteps(dx, step)
         if (steps == 0) return
         spaceAnchorX += steps * step
+        Haptics.tap(context)
         listener.onCursorMove(steps)
     }
 
@@ -650,19 +651,31 @@ class KeyboardView(
             Haptics.hold(context)
             listener.onBeginDeleteDrag()
         }
-        // 左移是删、右移是放回，两边都按滑过的距离折算步数（一格一步）
-        val steps = (-dx / step).toInt()
+        // 左移是删、右移是放回，两边都按滑过的距离折算步数（与空格横滑同一份换算）
+        val steps = -horizontalSteps(dx, step)
         if (steps > 0) {
             deleteAnchorX -= steps * step
+            Haptics.tap(context)
             repeat(steps) { listener.onDeleteWord() }
         } else if (steps < 0) {
             // 回滚量同样按距离算；已经放完的再往右滑不占格 —— 不然攒下一堆右移的账，
             // 回头往左拖要先空走这段才重新开始删
             var restored = 0
             repeat(-steps) { if (listener.onRestoreWord()) restored++ }
-            if (restored > 0) deleteAnchorX += restored * step
+            if (restored > 0) {
+                deleteAnchorX += restored * step
+                Haptics.tap(context)
+            }
         }
     }
+
+    /**
+     * 横向拖动的步数：滑过一整格 [step] 算一步，往右为正。按整格截断，不足一格不动。
+     *
+     * 空格横滑挪光标与删除键左拖（删词 / 右滑放回）共用这一份换算，两处手感才一致：
+     * 同样的格宽、同样的整格截断、同样在调用方把锚点递进 `anchor += steps * step`。
+     */
+    private fun horizontalSteps(dx: Float, step: Float): Int = (dx / step).toInt()
 
     private fun release() {
         pressed.clear()
