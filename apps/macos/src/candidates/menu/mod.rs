@@ -62,7 +62,6 @@ impl MenuPanel {
             let id = h.settings.config().general.theme_id().to_owned();
             h.themes.resolve(&id, dark).menu_style(dark)
         })
-        .flatten()
         .unwrap_or_else(|| qingjian_render::MenuStyle::system(dark));
         let Some(bounds) = self.view.open(items, style, scale, pick) else {
             return;
