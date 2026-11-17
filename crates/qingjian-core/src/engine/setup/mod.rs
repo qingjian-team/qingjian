@@ -200,6 +200,14 @@ impl Engine {
         }
     }
 
+    /// 只改混输下的形码按键规则，缺省关闭，不影响纯拼音与纯形码。
+    pub fn set_mixed_code_rules(&mut self, auto_commit: bool, top: bool) {
+        if let Some(code) = &mut self.code {
+            code.mixed_auto_commit = auto_commit;
+            code.mixed_top = top;
+        }
+    }
+
     /// 当前的形码码表；`None` 表示走拼音（全拼 / 双拼 / 注音）。
     pub fn code_table(&self) -> Option<&CodeTable> {
         self.code.as_ref().map(|scheme| &scheme.table)
