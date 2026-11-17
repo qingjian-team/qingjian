@@ -77,6 +77,22 @@ impl CommitChain {
         self.buffer_edits = 0;
     }
 
+    /// 退格撤回最后一次选择：把刚上屏的那个词从这段拼音里退掉，**这段仍算同一段连续输入**。
+    ///
+    /// 撤回是「这一下选错了」，不是「这段拼音不打了」：接着在同一段拼音上重选、把它选完，
+    /// `finish_buffer` 仍要把整段合成一个词（打 `jiaoyizhongxin` 时先选 交易、第二下选错撤回、
+    /// 再重新选中心，整段仍要学成 交易中心）。所以这里只退掉那一个词，`buffer_key` 与已经选过的
+    /// 词都留着；退到一个不剩才断开这段。
+    ///
+    /// 与「组句里改过输入就不合成」是两件事：那是用户改了拼音（[`Self::note_edit`]），
+    /// 这是用户只改了这一下的选择，拼音没动。
+    pub fn retract_buffer_word(&mut self) {
+        self.buffer_words.pop();
+        if self.buffer_words.is_empty() {
+            self.reset();
+        }
+    }
+
     /// 组句里改了一个字符（退格、删到光标后、删音节）：这段拼音被编辑过。
     /// 第一次改就把整段标记作废；同一段里改几次都算一次。
     pub fn note_edit(&mut self) {
