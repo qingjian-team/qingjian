@@ -10,7 +10,7 @@ use bamboo_slip::{PopupMenu, RenderError, Scene, WidgetColors, WidgetTheme};
 
 use super::{HitRegion, HitTarget, Rendered, Renderer};
 
-/// 菜单画成什么样：配色与圆角。由题在主题里写，壳在弹菜单前解析好传进来。
+/// 菜单画成什么样：配色与圆角。由主题里写，壳在弹菜单前解析好传进来。
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct MenuStyle {
     pub colors: WidgetColors,
