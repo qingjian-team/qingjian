@@ -10,7 +10,7 @@ use super::Theme;
 /// 回车键（品牌色）与白字至少要有的对比度（WCAG 相对亮度之比）；不够就把品牌色调暗。
 const BRAND_CONTRAST: f32 = 3.5;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct KeyboardColors {
     /// 键面是深色（按 `surface` 的亮度判断，不看外观设置：锁定外观的主题照样对）。
     pub dark: bool,
@@ -47,6 +47,12 @@ pub struct KeyboardColors {
 
     /// 云联想的词。
     pub cloud: Color,
+
+    /// 手机键盘每个键的圆角（点）；`None` 时手机壳用自己的缺省。
+    pub touch_key_radius: Option<f32>,
+
+    /// 手机键盘整块（工具栏卡片、长按气泡）的圆角（点）；`None` 时手机壳用自己的缺省。
+    pub touch_radius: Option<f32>,
 }
 
 impl KeyboardColors {
@@ -132,6 +138,8 @@ impl KeyboardColors {
                 Color::rgb(0x00, 0xc3, 0xd0),
                 Color::rgb(0x00, 0xd2, 0xe0),
             ),
+            touch_key_radius: theme.touch_key_radius(),
+            touch_radius: theme.touch_radius(),
         }
     }
 }
@@ -260,6 +268,17 @@ mod tests {
         let dark = KeyboardColors::of(&Theme::dark());
         assert!(dark.dark);
         assert!(luminance(dark.board) < luminance(dark.key));
+    }
+
+    /// 手机键盘的圆角只由主题显式写的 `touch_*` 决定：只有墨岩写了方角，其余内置主题保持手机壳缺省。
+    #[test]
+    fn only_slate_sets_touch_radii() {
+        for theme in Theme::builtins() {
+            let colors = KeyboardColors::of(theme);
+            let expected = (theme.id() == "slate").then_some(0.0);
+            assert_eq!(colors.touch_key_radius, expected, "{}", theme.id());
+            assert_eq!(colors.touch_radius, expected, "{}", theme.id());
+        }
     }
 
     #[test]

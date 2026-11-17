@@ -471,6 +471,16 @@ impl Theme {
         self.families.style(name).map(|spec| spec.size)
     }
 
+    /// 手机键盘每个键的圆角（主题 `keyboard.touch_key_radius`，点）；主题没写是 `None`，手机壳用自己的缺省。
+    pub fn touch_key_radius(&self) -> Option<f32> {
+        self.file.keyboard.touch_key_radius
+    }
+
+    /// 手机键盘整块的圆角（主题 `keyboard.touch_radius`，点）；主题没写是 `None`。
+    pub fn touch_radius(&self) -> Option<f32> {
+        self.file.keyboard.touch_radius
+    }
+
     /// 主题 id。
     pub fn id(&self) -> &str {
         &self.file.meta.id

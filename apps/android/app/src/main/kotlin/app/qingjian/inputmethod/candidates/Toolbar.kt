@@ -58,7 +58,7 @@ class Toolbar(
 
     /** 浮在键盘上方的一块圆角卡片，底下一道与按键同样的底影，和键盘分出层次。 */
     private fun drawCard(canvas: Canvas, viewWidth: Int) {
-        val radius = 14 * density
+        val radius = (palette.boardRadius ?: 14f) * density
         cardRect.set(6 * density, 6 * density, viewWidth - 6 * density, barHeight - 4 * density)
         card.color = palette.keyShadow
         cardRect.offset(0f, density)

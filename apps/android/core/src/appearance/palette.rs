@@ -34,6 +34,12 @@ pub struct KeyboardPalette {
     pub fresh: u32,
 
     pub cloud: u32,
+
+    /// 键的圆角（点）；`null` 时 Kotlin 用自己的缺省。
+    pub key_radius: Option<f32>,
+
+    /// 工具栏卡片与长按气泡的圆角（点）；`null` 时 Kotlin 用自己的缺省。
+    pub radius: Option<f32>,
 }
 
 impl KeyboardPalette {
@@ -53,6 +59,8 @@ impl KeyboardPalette {
             faint: argb(colors.faint),
             fresh: argb(colors.fresh),
             cloud: argb(colors.cloud),
+            key_radius: colors.touch_key_radius,
+            radius: colors.touch_radius,
         }
     }
 }

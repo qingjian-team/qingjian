@@ -37,6 +37,7 @@ class ChoicePopup(
     private val rect = RectF()
 
     private val margin = 6f * density
+    private val highlightRadius = (palette.keyRadius ?: 8f) * density
     private val itemPadding = (if (titleSp > 20f) 6f else 16f) * density
     private val minItemWidth = maxOf(40f, titleSp * 1.8f) * density
 
@@ -165,7 +166,7 @@ class ChoicePopup(
     }
 
     private fun draw(canvas: Canvas, width: Float, height: Float) {
-        val radius = 12f * density
+        val radius = (palette.boardRadius ?: 12f) * density
         fill.color = palette.keyShadow
         canvas.drawRoundRect(0f, density, width, height, radius, radius, fill)
         fill.color = palette.surface
@@ -179,7 +180,7 @@ class ChoicePopup(
             if (index == highlighted) {
                 rect.set(slot.start, margin, slot.start + slot.size, height - margin - density)
                 fill.color = palette.accent
-                canvas.drawRoundRect(rect, 8 * density, 8 * density, fill)
+                canvas.drawRoundRect(rect, highlightRadius, highlightRadius, fill)
             }
             val centre = slot.start + slot.size / 2
             val item = slot.item
@@ -202,7 +203,7 @@ class ChoicePopup(
             if (index == highlighted) {
                 rect.set(margin, slot.start, width - margin, slot.start + slot.size)
                 fill.color = palette.accent
-                canvas.drawRoundRect(rect, 8 * density, 8 * density, fill)
+                canvas.drawRoundRect(rect, highlightRadius, highlightRadius, fill)
             }
             titlePaint.color = if (slot.item.fresh) palette.fresh else palette.text
             val baseline = slot.start + slot.size / 2 + titleSp * 0.35f * density

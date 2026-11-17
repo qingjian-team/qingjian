@@ -96,6 +96,7 @@ struct Mock {
                     frame["candidates"]["items"][2]["translation"]["senses"][0] = {
                         {"text", "開発する"}, {"annotation", "v. 開発(かいはつ)する"}, {"fresh", true}};
                 }
+                if (mode == "custom") frame["candidates"]["items"][2]["kind"] = {{"Custom", 1}};
                 if (mode == "cloud") {
                     frame["candidates"]["items"][2]["kind"] = "Cloud";
                     frame["sentence"] = "你好世界";
