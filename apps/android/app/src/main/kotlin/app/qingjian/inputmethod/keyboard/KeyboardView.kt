@@ -39,7 +39,7 @@ class KeyboardView(
         fun onKey(key: Key, repeat: Boolean = false)
 
         /** 长按气泡里选了一项（字母、数字或符号）。 */
-        fun onKeyChoice(text: String)
+        fun onKeyChoice(text: String, verbatim: Boolean = false)
 
         /** 长按中英键选了第 [index] 种语言（[languageChoices] 的下标）。 */
         fun onLanguageChoice(index: Int)
@@ -453,7 +453,7 @@ class KeyboardView(
             Key.Flick.ClearBefore -> listener.onClearBefore()
             Key.Flick.DeleteLine -> listener.onDeleteLine()
             is Key.Flick.Press -> listener.onKey(flick.key)
-            is Key.Flick.Insert -> listener.onKeyChoice(flick.text)
+            is Key.Flick.Insert -> listener.onKeyChoice(flick.text, verbatim = true)
         }
     }
 

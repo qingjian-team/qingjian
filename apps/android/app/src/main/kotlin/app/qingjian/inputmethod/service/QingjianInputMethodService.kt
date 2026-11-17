@@ -402,7 +402,7 @@ class QingjianInputMethodService :
 
     override fun onKey(key: Key, repeat: Boolean) = composer.onKey(key, repeat)
 
-    override fun onKeyChoice(text: String) = composer.onKeyChoice(text)
+    override fun onKeyChoice(text: String, verbatim: Boolean) = composer.onKeyChoice(text, verbatim)
 
     override fun onLanguageChoice(index: Int) = composer.chooseLanguage(Language.entries[index])
 

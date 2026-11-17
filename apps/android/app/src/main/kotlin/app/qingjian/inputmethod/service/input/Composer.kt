@@ -393,13 +393,17 @@ class Composer(private val engine: Engine, private val host: Host) {
      * 长按气泡里选的字符。全键盘选小写 = 照常敲这个字母；九宫格组句中选小写 = 这一位就是这个字母
      * （进缓冲区，和拼音列定音节一个道理）。其余（数字、大写、符号）先顶首选再上屏；
      * 角标里有全角写法的标点（`;` `?` 这些）同标点键一样交 Core 按设置转全角。
+     *
+     * [verbatim] 是上滑出来的字：那是**这个键的另一种写法**，要原样上屏，不能再交给 Core
+     * 按「中文标点」转一遍 —— 中文键盘上 `，` 划出 `,`，转一次又变回 `，`，划与点就一样了。
      */
-    fun onKeyChoice(text: String) {
+    fun onKeyChoice(text: String, verbatim: Boolean = false) {
         val letter = text.singleOrNull()?.takeIf { it in 'a'..'z' }
         when {
             // 全键盘长按选小写 = 照常敲这个字母
             letter != null && !nineKey -> onKey(Key.Letter(letter))
             composing && letter != null && engine.ready -> apply(engine.push(letter.code))
+            verbatim -> onKey(Key.Text(text))
             else -> onKey(Key.Text(text, punct = text.singleOrNull()?.takeIf { it in FULL_WIDTH_HINTS }))
         }
     }
