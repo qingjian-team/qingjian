@@ -42,7 +42,6 @@ data class Settings(
     val flickClear: Boolean,
     /** 中文输入组句时长按 Shift 出分词（'），而不是切大写（缺省开）。 */
     val shiftSegments: Boolean,
-
     /** 按住空格左右滑逐字挪光标（缺省开）；关了空格上横滑不响应。 */
     val spaceCursor: Boolean,
     /** 键位排法：缺省是 [Arrangement.STANDARD]，另一套挪动了几个键的位置，见 [Arrangement]。 */
