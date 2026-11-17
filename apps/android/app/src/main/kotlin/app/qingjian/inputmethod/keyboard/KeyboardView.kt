@@ -132,6 +132,16 @@ class KeyboardView(
     private val spaceHold = Runnable { onSpaceHold() }
 
     /**
+     * 按着删除键的那根手指与落点：往左横拖够一格就进「删词」，之后每滑过 [DELETE_STEP_DP]
+     * 删掉光标前一个词 —— 与空格横滑挪光标是同一套手感（滑过的距离换成步数，一步一下、一步一轻震）。
+     * [deleteWords] 为真时这一笔不再当划键，抬手也不按点按处理。
+     */
+    private var deletePointer = -1
+    private var deleteAnchorX = 0f
+    private var deleteAnchorY = 0f
+    private var deleteWords = false
+
+    /**
      * 可能是划键的那根手指与它落下的键（[Key.flick]，开着「上滑输入」时）；-1 是没在看。
      * 往某个方向划够 [FLICK_DP] 且一路都在那个方向的扇形里（[FLICK_SLOPE]）就 [flickArmed]，
      * 抬手做这个键在那个方向上声明的事，不出键本身、也不算滑行；中途偏出扇形就 [flickBroken]，
@@ -289,6 +299,13 @@ class KeyboardView(
                         if (flickable(Key.Backspace)) listener.onBackspaceDown()
                         listener.onKey(Key.Backspace)
                         timer.postDelayed(repeatBackspace, REPEAT_DELAY_MS)
+                        // 左拖删词：要设置开着才记落点，否则这一笔与原来一样
+                        if (settings.flickDeleteWord) {
+                            deletePointer = pointer
+                            deleteAnchorX = event.getX(index)
+                            deleteAnchorY = event.getY(index)
+                            deleteWords = false
+                        }
                     }
 
                     slot.key is Key.Space -> {
@@ -314,6 +331,7 @@ class KeyboardView(
                 trackSwipe(event)
                 trackChoices(event)
                 trackCursor(event)
+                trackDelete(event)
             }
 
             MotionEvent.ACTION_UP, MotionEvent.ACTION_POINTER_UP -> {
@@ -344,6 +362,11 @@ class KeyboardView(
                 val slot = pressed.remove(pointer)
                 val choosing = pointer == longPressPointer && choicePopup.showing
                 val movedCursor = pointer == spacePointer && cursorMode
+                val deletedWords = pointer == deletePointer && deleteWords
+                if (pointer == deletePointer) {
+                    deletePointer = -1
+                    deleteWords = false
+                }
                 val spoke = pointer == spacePointer && voiceMode
                 if (pointer == spacePointer) {
                     timer.removeCallbacks(spaceHold)
@@ -362,6 +385,8 @@ class KeyboardView(
                     slot?.key == Key.Backspace -> timer.removeCallbacks(repeatBackspace)
                     spoke -> listener.onVoiceRelease(cancel = false)
                     movedCursor -> Unit
+                    // 左拖已经边滑边删过了，抬手不再按点按删一个字
+                    deletedWords -> Unit
                     slot != null -> listener.onKey(slot.key)
                 }
             }
@@ -586,6 +611,33 @@ class KeyboardView(
         listener.onCursorMove(steps)
     }
 
+    /**
+     * 按着删除键往左横拖：滑过一格就进「删词」，之后每滑过 [DELETE_STEP_DP] 删掉光标前一个词。
+     *
+     * 与空格横滑挪光标是同一套换算：滑过的距离换成步数，一步一下、一步一轻震；往回滑不补删。
+     * 一进这个模式就把这一笔记成划键作废（[flickBroken]）、并撤掉连删 —— 抬手不再按点按或划键删一次。
+     */
+    private fun trackDelete(event: MotionEvent) {
+        if (deletePointer < 0) return
+        val at = event.findPointerIndex(deletePointer)
+        if (at < 0) return
+        val dx = event.getX(at) - deleteAnchorX
+        val dy = event.getY(at) - deleteAnchorY
+        val step = metrics.density * DELETE_STEP_DP
+        if (!deleteWords) {
+            if (dx > -step || abs(dx) <= abs(dy)) return
+            deleteWords = true
+            flickBroken = true
+            flickArmed = false
+            timer.removeCallbacks(repeatBackspace)
+            Haptics.hold(context)
+        }
+        val steps = (-dx / step).toInt()
+        if (steps <= 0) return
+        deleteAnchorX -= steps * step
+        repeat(steps) { listener.onDeleteWord() }
+    }
+
     private fun release() {
         pressed.clear()
         trail.clear()
@@ -598,6 +650,8 @@ class KeyboardView(
         spacePointer = -1
         cursorMode = false
         voiceMode = false
+        deletePointer = -1
+        deleteWords = false
         longPressPointer = -1
         if (choicePopup.showing) choicePopup.finish()
     }
@@ -636,5 +690,8 @@ class KeyboardView(
          */
         const val FLICK_SLOPE = 1.2f
         const val CURSOR_STEP_DP = 14f
+
+        /** 删除键上左拖时，滑过这么多 dp 删掉光标前一个字词（与 [CURSOR_STEP_DP] 同一套手感）。 */
+        const val DELETE_STEP_DP = 14f
     }
 }

@@ -224,7 +224,7 @@
     <string name="flick_delete_line_title">下滑删除整行</string>
     <string name="flick_delete_line_note">在删除键上往下划，删掉光标前的整行</string>
     <string name="flick_delete_word_title">左划删除一个词</string>
-    <string name="flick_delete_word_note">在删除键上往左划，删掉光标前的一个词：英文和数字按整词，汉字按一个字</string>
+    <string name="flick_delete_word_note">在删除键上往左划，删掉光标前的一个词；按住往左拖，每拖过一格再删一个（和空格横滑挪光标一个手感）</string>
     <string name="flick_clear_bubble">清空</string>
     <string name="flick_delete_line_bubble">删除整行</string>
     <string name="flick_delete_word_bubble">删除一词</string>
