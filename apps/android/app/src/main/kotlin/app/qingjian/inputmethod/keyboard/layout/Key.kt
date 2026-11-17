@@ -19,11 +19,19 @@ sealed class Key(val label: String, val weight: Float = 1f) {
     /**
      * 在键上往下划做什么，缺省没有。
      *
-     * 只有删除键用得上：往上划清空、往下划删整行，两个方向分开声明，互不覆盖。
+     * 只有删除键用得上：往上划清空、往下划删整行、往左划删一个词，三个方向分开声明，互不覆盖。
      */
     open val flickDown: Flick get() = Flick.None
 
-    /** 上滑的几种结果。 */
+    /**
+     * 在键上往左划做什么，缺省没有。
+     *
+     * 现在只有删除键声明：往左划删掉光标前的一个词（英文、数字按整词，汉字按一个字）。
+     * 删除键往左划是不少手机输入法的习惯（#990 第 3 条）。
+     */
+    open val flickLeft: Flick get() = Flick.None
+
+    /** 划出来的几种结果。 */
     sealed class Flick {
         /** 不能上滑：抬手出键本身。 */
         data object None : Flick()
@@ -39,6 +47,9 @@ sealed class Key(val label: String, val weight: Float = 1f) {
 
         /** 删掉光标前的整行。 */
         data object DeleteLine : Flick()
+
+        /** 删掉光标前的一个词（英文、数字按整词，汉字按一个字）。 */
+        data object DeleteWord : Flick()
     }
 
     /**
@@ -110,6 +121,9 @@ sealed class Key(val label: String, val weight: Float = 1f) {
 
         /** 下滑：删掉光标前的整行（设置 `flickDeleteLine` 管着要不要这一步）。 */
         override val flickDown: Flick get() = Flick.DeleteLine
+
+        /** 左滑：删掉光标前的一个词（设置 `flickDeleteWord` 管着要不要这一步）。 */
+        override val flickLeft: Flick get() = Flick.DeleteWord
     }
 
     /** 空格；数字键盘上的窄一些。 */

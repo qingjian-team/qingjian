@@ -499,6 +499,58 @@ class Composer(private val engine: Engine, private val host: Host) {
         if (removed.isNotEmpty()) apply(engine.cleared(removed))
     }
 
+    /**
+     * 删掉光标前的一个词：退格键从右往左划。
+     *
+     * 「一个词」在这里是可预期的两种：拉丁字母、数字、下划线连成的一串算一个词，其余（汉字、假名、
+     * 标点）一个字符算一个；光标前紧挨着空白时先吃掉这一段空白。组句中先落定拼音再删，
+     * 不在组句里才动正文。删掉的内容交给 Core 记一条 `cleared`，候选条上给「撤销」，与上划清空一致。
+     */
+    fun deleteWord() {
+        if (composing) settle()
+        val connection = host.connection ?: return
+        val remaining = connection.getTextBeforeCursor(MAX_WORD, 0)?.toString().orEmpty()
+        // 按下删除键时已经先删掉一个字：那一下若删掉的正是「一段」（汉字、假名、标点各自算一段），
+        // 这个手势要做的事已经做完了，不再接着删；删掉的是词里或空白里的一个字，就接着删完这一整段
+        val swallowed = beforeBackspace?.lastOrNull()?.let { !wordChar(it) && !it.isWhitespace() } == true
+        beforeBackspace = null
+        if (swallowed || remaining.isEmpty()) return
+        val length = wordTailLength(remaining)
+        if (length <= 0) return
+        val removed = remaining.substring(remaining.length - length)
+        connection.deleteSurroundingText(length, 0)
+        if (removed.isNotEmpty()) apply(engine.cleared(removed))
+    }
+
+    /**
+     * [before] 末尾那「一个词」有多长，见 [deleteWord]。
+     * 逐个字符往回数，不看 Core 的词库 —— 正文已经上屏，这里只按字符类别找边界，结果不会因为
+     * 学了新词而变。
+     */
+    private fun wordTailLength(before: String): Int {
+        val last = before.last()
+        if (last.isWhitespace()) {
+            var start = before.length
+            while (start > 0 && before[start - 1].isWhitespace()) start--
+            return before.length - start
+        }
+        if (!wordChar(last)) return 1
+        var start = before.length
+        while (start > 0 && wordChar(before[start - 1])) start--
+        return before.length - start
+    }
+
+    /**
+     * 算不算「一个词里的字符」：拉丁字母、数字、下划线、连字符与撇号。
+     * 汉字、假名、全角标点、空白都不算 —— 那些一个字符就是一段。
+     */
+    private fun wordChar(char: Char): Boolean {
+        if (char in 'a'..'z' || char in 'A'..'Z' || char in '0'..'9') return true
+        if (char == '_' || char == '-' || char == '\'') return true
+        // 带音标的拉丁字母（café、naïve）：码位在拉丁扩展与拉丁扩展补充里，中间夹着的 × ÷ 不算
+        return char.code in 0xC0..0x24F && char != '×' && char != '÷'
+    }
+
     /** 组句中光标被点到别处：敲的字母原样落下，不留带 ' 的显示形式。 */
     fun onCursorMovedAway() {
         if (composing) settle()
@@ -734,6 +786,9 @@ class Composer(private val engine: Engine, private val host: Host) {
 
         /** 删整行时往回看多少字：够覆盖一行很长的正文，又不至于把整篇读进来。 */
         private const val MAX_LINE = 4000
+
+        /** 删一词时往回看多少字：一个词不会有这么长，够用来找到边界就行。 */
+        private const val MAX_WORD = 200
 
         /** 日语里当长音敲的键。 */
         val LONG_VOWEL = setOf("-", "ー")

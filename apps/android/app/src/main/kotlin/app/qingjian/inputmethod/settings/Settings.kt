@@ -40,8 +40,10 @@ data class Settings(
     val longPressUpper: Boolean,
     /** 在删除键上往上一划清掉光标前的全部文字（缺省开），候选条上给「撤销」。 */
     val flickClear: Boolean,
-    /** 在删除键上往下划删掉光标前的整行（缺省开）；与上划清空并存，方向不同。 */
+    /** 在删除键上往下划删掉光标前的整行（缺省关）；与上划清空并存，方向不同。 */
     val flickDeleteLine: Boolean,
+    /** 在删除键上往左划删掉光标前的一个词（缺省关）；英文数字按整词，汉字按一个字。 */
+    val flickDeleteWord: Boolean,
     /** 按住空格左右滑逐字挪光标（缺省开）；关了空格上横滑不响应。 */
     val spaceCursor: Boolean,
     /** 键位排法：缺省是 [Arrangement.STANDARD]，另一套挪动了几个键的位置，见 [Arrangement]。 */
@@ -111,6 +113,7 @@ data class Settings(
         const val KEY_SPACE_CURSOR = "space_cursor"
         const val KEY_FLICK_CLEAR = "flick_clear"
         const val KEY_FLICK_DELETE_LINE = "flick_delete_line"
+        const val KEY_FLICK_DELETE_WORD = "flick_delete_word"
         const val KEY_ARRANGEMENT = "arrangement"
         const val KEY_SHUANGPIN = "shuangpin_scheme"
         const val KEY_SHUANGPIN_RAW = "shuangpin_raw_preedit"
@@ -188,7 +191,8 @@ data class Settings(
                 flickSymbols = prefs.getBoolean(KEY_FLICK_SYMBOLS, true),
                 longPressUpper = prefs.getBoolean(KEY_LONG_PRESS_UPPER, false),
                 flickClear = prefs.getBoolean(KEY_FLICK_CLEAR, true),
-                flickDeleteLine = prefs.getBoolean(KEY_FLICK_DELETE_LINE, true),
+                flickDeleteLine = prefs.getBoolean(KEY_FLICK_DELETE_LINE, false),
+                flickDeleteWord = prefs.getBoolean(KEY_FLICK_DELETE_WORD, false),
                 spaceCursor = prefs.getBoolean(KEY_SPACE_CURSOR, true),
                 arrangement = Arrangement.entries.firstOrNull { it.name == prefs.getString(KEY_ARRANGEMENT, null) }
                     ?: Arrangement.STANDARD,
