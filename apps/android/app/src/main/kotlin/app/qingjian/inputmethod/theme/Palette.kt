@@ -30,11 +30,11 @@ class Palette(
     /** 云联想的词与整句（主题的 `cloud`）。 */
     val cloud: Int,
 
-    /** 键的圆角（点）。墨岩那种方角主题是 0，缺省主题是 7。 */
-    val keyRadius: Float,
+    /** 键的圆角（点）；主题没写是 null，各处用自己的缺省。 */
+    val keyRadius: Float?,
 
-    /** 键盘整块的圆角（点）。 */
-    val boardRadius: Float,
+    /** 工具栏卡片与长按气泡的圆角（点）；主题没写是 null，各处用自己的缺省。 */
+    val boardRadius: Float?,
 ) {
     companion object {
         /** 推过的配色，按（主题, 深浅）记着：键盘每次重建都要取，不必每次过 JNI。 */
@@ -53,6 +53,7 @@ class Palette(
 
         private fun parse(json: JSONObject): Palette {
             fun color(name: String) = json.getLong(name).toInt()
+            fun radius(name: String) = if (json.isNull(name)) null else json.getDouble(name).toFloat()
             return Palette(
                 dark = json.getBoolean("dark"),
                 board = color("board"),
@@ -67,8 +68,8 @@ class Palette(
                 faint = color("faint"),
                 fresh = color("fresh"),
                 cloud = color("cloud"),
-                keyRadius = json.getDouble("key_radius").toFloat(),
-                boardRadius = json.getDouble("radius").toFloat(),
+                keyRadius = radius("key_radius"),
+                boardRadius = radius("radius"),
             )
         }
     }

@@ -37,6 +37,14 @@ pub(crate) struct KeyboardSpec {
 
     pub(crate) key_radius: f32,
 
+    /// 手机键盘整块（工具栏卡片、长按气泡）的圆角；不写就用手机壳自己的缺省。
+    #[serde(default)]
+    pub(crate) touch_radius: Option<f32>,
+
+    /// 手机键盘每个键的圆角；不写就用手机壳自己的缺省。
+    #[serde(default)]
+    pub(crate) touch_key_radius: Option<f32>,
+
     pub(crate) background: ColorRef,
 
     pub(crate) key_fill: ColorRef,

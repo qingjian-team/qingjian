@@ -6,8 +6,8 @@ import android.graphics.RectF
 class KeyboardMetrics(
     val density: Float,
     heightPercent: Int,
-    /** 键的圆角（点），来自主题：墨岩那种方角主题是 0。 */
-    keyRadius: Float = 7f,
+    /** 键的圆角（点），来自主题；主题没写是 null。 */
+    keyRadius: Float? = null,
 ) {
     var rowHeight = rowHeightFor(heightPercent)
         private set
@@ -15,7 +15,7 @@ class KeyboardMetrics(
     val gapX = 2.5f * density
     val gapY = 4f * density
     val topPadding = 4f * density
-    val radius = keyRadius * density
+    val radius = (keyRadius ?: 7f) * density
     val shadowOffset = 1f * density
     private val edge = 2f * density
 

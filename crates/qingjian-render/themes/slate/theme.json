@@ -119,6 +119,8 @@
   "keyboard": {
     "radius": 0,
     "key_radius": 0,
+    "touch_radius": 0,
+    "touch_key_radius": 0,
     "next_fill": "@kb_next",
     "next_text": "@kb_next_text",
     "label": "@gloss",

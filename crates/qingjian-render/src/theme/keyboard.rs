@@ -48,11 +48,11 @@ pub struct KeyboardColors {
     /// 云联想的词。
     pub cloud: Color,
 
-    /// 键的圆角（主题 `keyboard.key_radius`，点）。手机键盘照它画。
-    pub key_radius: f32,
+    /// 手机键盘每个键的圆角（点）；`None` 时手机壳用自己的缺省。
+    pub touch_key_radius: Option<f32>,
 
-    /// 键盘整块的圆角（主题 `keyboard.radius`，点）。
-    pub radius: f32,
+    /// 手机键盘整块（工具栏卡片、长按气泡）的圆角（点）；`None` 时手机壳用自己的缺省。
+    pub touch_radius: Option<f32>,
 }
 
 impl KeyboardColors {
@@ -138,9 +138,8 @@ impl KeyboardColors {
                 Color::rgb(0x00, 0xc3, 0xd0),
                 Color::rgb(0x00, 0xd2, 0xe0),
             ),
-            // 形状跟主题走：墨岩那种方角主题 `key_radius` 是 0，手机键盘照着画
-            key_radius: theme.key_radius(),
-            radius: theme.keyboard_radius(),
+            touch_key_radius: theme.touch_key_radius(),
+            touch_radius: theme.touch_radius(),
         }
     }
 }
@@ -271,18 +270,15 @@ mod tests {
         assert!(luminance(dark.board) < luminance(dark.key));
     }
 
-    /// 墨岩是方角主题：键盘形状要跟着走，手机键盘照它画。
+    /// 手机键盘的圆角只由主题显式写的 `touch_*` 决定：只有墨岩写了方角，其余内置主题保持手机壳缺省。
     #[test]
-    fn slate_is_square_cornered() {
-        for dark in [false, true] {
-            let theme = Theme::builtin("slate", dark).unwrap();
-            let colors = KeyboardColors::of(&theme);
-            assert_eq!(colors.key_radius, 0.0, "墨岩的键不该有圆角");
-            assert_eq!(colors.radius, 0.0, "墨岩的键盘整块不该有圆角");
+    fn only_slate_sets_touch_radii() {
+        for theme in Theme::builtins() {
+            let colors = KeyboardColors::of(theme);
+            let expected = (theme.id() == "slate").then_some(0.0);
+            assert_eq!(colors.touch_key_radius, expected, "{}", theme.id());
+            assert_eq!(colors.touch_radius, expected, "{}", theme.id());
         }
-        // 缺省主题仍是圆角，不是一刀切成 0
-        let plain = KeyboardColors::of(&Theme::light());
-        assert!(plain.key_radius > 0.0, "{plain:?}");
     }
 
     #[test]
