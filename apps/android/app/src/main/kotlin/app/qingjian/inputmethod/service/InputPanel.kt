@@ -21,6 +21,7 @@ import app.qingjian.inputmethod.panel.PanelActions
 import app.qingjian.inputmethod.panel.PanelKind
 import app.qingjian.inputmethod.panel.ToolbarPanel
 import app.qingjian.inputmethod.panel.VoicePanel
+import app.qingjian.inputmethod.panel.base.PanelView
 import app.qingjian.inputmethod.panel.clipboard.ClipboardPanel
 import app.qingjian.inputmethod.panel.clipboard.PiecesPanel
 import app.qingjian.inputmethod.panel.editor.FloatingEditor
@@ -119,6 +120,8 @@ class InputPanel(
     }
 
     private fun cover(kind: PanelKind, panel: View) {
+        // 表头的返回也跟着常用手走：右手持机时挪到右边
+        if (panel is PanelView) panel.thumbSide = settings.thumbSide
         stack.addView(panel, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
         main.visibility = View.INVISIBLE
         panelView = panel

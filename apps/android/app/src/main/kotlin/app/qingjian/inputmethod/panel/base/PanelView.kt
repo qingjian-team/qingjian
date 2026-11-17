@@ -9,6 +9,7 @@ import android.view.MotionEvent
 import android.view.View
 import app.qingjian.inputmethod.keyboard.Haptics
 import app.qingjian.inputmethod.panel.PanelActions
+import app.qingjian.inputmethod.panel.ThumbSide
 import app.qingjian.inputmethod.theme.Palette
 import kotlin.math.abs
 
@@ -95,14 +96,35 @@ abstract class PanelView(
 
         override fun onSingleTapUp(e: MotionEvent): Boolean {
             Haptics.tap(context)
-            if (hasHeader && e.y < headerHeight && e.x < ink.dp(BACK_WIDTH_DP)) onBack() else onTap(e.x, e.y)
+            if (inBack(e.x, e.y)) onBack() else onTap(e.x, e.y)
             invalidate()
             return true
         }
     })
 
+    /** 表头那一格（左边，右手持机时右边）是不是返回：编辑类面板那格画的是「完成」，一样算。 */
+    private fun inBack(x: Float, y: Float): Boolean {
+        if (!hasHeader || y >= headerHeight) return false
+        val edge = ink.dp(BACK_WIDTH_DP)
+        return if (backOnRight) x > width - edge else x < edge
+    }
+
     /** 有没有表头；没有的（符号面板）左上角不当返回键。 */
     protected open val hasHeader = true
+
+    /**
+     * 常用手是哪只：右手持机时表头的返回挪到右边，编辑类面板的「完成」那一格跟着换到左边，
+     * 子类的 [rightIcon] 也换边 —— 都是拇指够得着的那一角。面板内容怎么摆由子类自己决定
+     * （如 [app.qingjian.inputmethod.panel.CatalogPanel] 的分类列）。
+     */
+    var thumbSide: ThumbSide = ThumbSide.NONE
+        set(value) {
+            field = value
+            invalidate()
+        }
+
+    /** 返回在右边（右手持机），与子类的右边图标互换位置；子类按它给自己的表头热区让位。 */
+    protected val backOnRight: Boolean get() = thumbSide == ThumbSide.RIGHT
 
     /** 长按（没拖动）；之后这根手指的移动与抬起由子类在 [onTouchEvent] 里接着收。 */
     protected open fun onHold(x: Float, y: Float, rawX: Float) = Unit
@@ -145,8 +167,9 @@ abstract class PanelView(
     }
 
     /**
-     * 表头：与工具栏同样浮起的圆角卡片，和下面的内容分出层次；左边返回（编辑类面板换成品牌色的 [leftIcon]，如完成的对勾），[rightIcon] 画在右边一格
-     * （点它由子类在 [onTap] 里认 [isRightIcon]）。
+     * 表头：与工具栏同样浮起的圆角卡片，和下面的内容分出层次；一端返回（编辑类面板换成品牌色的
+     * [leftIcon]，如完成的对勾），[rightIcon] 画在另一端那一格（点它由子类在 [onTap] 里认
+     * [isRightIcon]）。哪一端由 [thumbSide] 定：缺省返回在左，右手持机时换到右边。
      */
     protected fun drawHeader(
         canvas: Canvas,
@@ -161,15 +184,23 @@ abstract class PanelView(
         headerCard.offset(0f, -ink.density)
         ink.round(canvas, headerCard, 14f, palette.surface)
         val cy = headerCard.centerY()
-        ink.icon(canvas, leftIcon, ink.dp(BACK_WIDTH_DP) / 2, cy, 24f, if (leftIcon == PanelIcons.Icon.BACK) palette.text else palette.brand)
+        val edge = ink.dp(BACK_WIDTH_DP)
+        val keyX = if (backOnRight) width - edge / 2 else edge / 2
+        val otherX = if (backOnRight) edge / 2 else width - edge / 2
+        ink.icon(canvas, leftIcon, keyX, cy, 24f, if (leftIcon == PanelIcons.Icon.BACK) palette.text else palette.brand)
         tabs?.let {
-            it.setBounds(ink.dp(BACK_WIDTH_DP), headerCard.top, width - ink.dp(BACK_WIDTH_DP), headerCard.bottom)
+            it.setBounds(edge, headerCard.top, width - edge, headerCard.bottom)
             it.draw(canvas)
         }
-        rightIcon?.let { ink.icon(canvas, it, width - ink.dp(BACK_WIDTH_DP) / 2, cy, 24f, palette.gloss) }
+        rightIcon?.let { ink.icon(canvas, it, otherX, cy, 24f, palette.gloss) }
     }
 
-    protected fun isRightIcon(x: Float, y: Float) = y < headerHeight && x > width - ink.dp(BACK_WIDTH_DP)
+    /** 右边那一格（点了由子类在 [onTap] 里接）：右手持机时返回占着右边，这格换到左边。 */
+    protected fun isRightIcon(x: Float, y: Float): Boolean {
+        if (y >= headerHeight) return false
+        val edge = ink.dp(BACK_WIDTH_DP)
+        return if (backOnRight) x < edge else x > width - edge
+    }
 
     protected companion object {
         const val BACK_WIDTH_DP = 56f

@@ -79,7 +79,14 @@ class FunctionPanel(
             Toggle(Settings.KEY_KEEP_CHINESE, "换语言时保留中文", "开着时总在中文和选的语言之间切", settings.keepChinese),
         )
 
-    private val tabs = Tabs(ink, scrollable(true) { x, y -> y < headerHeight && x > ink.dp(BACK_WIDTH_DP) }, Tabs.Style.UNDERLINE)
+    // 页签那一块要避开返回键那一格；返回在哪一端由常用手定（见 PanelView.thumbSide）
+    private val tabs = Tabs(
+        ink,
+        scrollable(true) { x, y ->
+            y < headerHeight && if (backOnRight) x < width - ink.dp(BACK_WIDTH_DP) else x > ink.dp(BACK_WIDTH_DP)
+        },
+        Tabs.Style.UNDERLINE,
+    )
         .apply {
             labels = listOf("常用功能", "键盘设置")
             selected = lastTab

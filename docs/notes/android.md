@@ -18,7 +18,10 @@
 - 长按出大写（`long_press_upper`，缺省关）：字母键长按不滑直接抬手出气泡第 0 项（大写）而不是角标；上滑仍是角标，两条手势各管各的，不随状态换含义。
 - Shift 是三态 `ShiftState`：点一下单次，350 ms 内再点锁定（单次键亮着，锁定再加右上角一个品牌色小点；微软双拼的 `;` 同样显示），锁定时再点解锁；单次的出过一个字母就熄。拼音、日语组句中 Shift 不响应（大写字母在 Core 另有含义），英文组句中可以。
 - 英文键盘组句时字母按 Shift 带大小写进引擎（Core 的英文模式保留大小写，`Compa` 出 Company）；空格、数字、标点前 `commitRaw` 落下敲的字母，不顶首选——首选可能是补全或纠错出的词，验证码、型号会被换掉。要词点候选。
-- 键位排法 `Settings.Arrangement`：缺省 `STANDARD` 一直不动（肌肉记忆），改了键位置的进 `LEFT_THUMB`（「左手便捷」）：符号面板分类竖排在左（`Tabs.Style.COLUMN`）、左下返回、右列只剩删除 / 锁定。
+- 键位排法 `Settings.Arrangement`：缺省 `STANDARD` 一直不动（肌肉记忆）。另外两套是同一个问题的两个方向 —— 「常用手是哪只」，`LEFT_THUMB` / `RIGHT_THUMB` 由 `Arrangement.thumbSide()` 折成 `panel.ThumbSide` 往下传：
+  - 符号面板（`CatalogPanel`）：分类竖排在那一侧（`Tabs.Style.COLUMN`）、那一角是返回，对面一列只剩删除 / 锁定。
+  - 其余面板的表头（`PanelView`）：`thumbSide` 设成右手时返回挪到右边，编辑面板的「完成」换到左边，子类的 `rightIcon` 让位到对面；`InputPanel.cover` 建面板时统一赋值，子类不用各自再判断。
+  - `FunctionPanel` 的页签热区跟着 `backOnRight` 让开返回那一格，否则右手布局下点页签会顺手点到返回。
 - 「123」进数字键盘：左列可拖的符号，中间 3×3 数字，右列 删除 / . / @。输入框是电话、数字、日期时间类（`EditorInfo.wantsNumbers`）时 `onStartInput` 直接换到这一页；`abandon` 每次换输入框都回字母页，离开时不用另记原来的键盘。
 - 九宫格是 Core 的 `nine_key` 方案（[design/nine-key.md](../design/nine-key.md)）：左列是同码的拼音，点一下定下音节，不在组句时放标点。
   数字键长按弹 `abc2ABC`（`1` 键是 `1@-_/`），组句中选小写字母就把这一位定成这个字母。九宫格的查询不走模糊音。
