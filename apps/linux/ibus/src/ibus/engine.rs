@@ -9,8 +9,8 @@
 
 use qingjian_platform::protocol::linux::Capabilities;
 use qingjian_platform::protocol::{KeyOutcome, SessionId};
+use zbus::Variant;
 use zbus::object_server::SignalEmitter;
-use zbus::zvariant::Value;
 
 use super::poller::Poller;
 use super::variant;
@@ -283,7 +283,7 @@ impl IBusEngine {
     }
 
     #[zbus(signal)]
-    async fn commit_text(emitter: &SignalEmitter<'_>, text: Value<'_>) -> zbus::Result<()>;
+    async fn commit_text(emitter: &SignalEmitter<'_>, text: Variant<'_>) -> zbus::Result<()>;
 
     /// 参数是 `(vubu)`，**最后那个 `mode` 不能省**：ibus-daemon 按 `(vubu)` 解这条信号，
     /// 少一个参数它解不出来，只在自己的日志里留一条 `arg0 != NULL` 的 CRITICAL，
@@ -291,7 +291,7 @@ impl IBusEngine {
     #[zbus(signal)]
     async fn update_preedit_text(
         emitter: &SignalEmitter<'_>,
-        text: Value<'_>,
+        text: Variant<'_>,
         cursor_pos: u32,
         visible: bool,
         mode: u32,
@@ -306,7 +306,7 @@ impl IBusEngine {
     #[zbus(signal)]
     async fn update_lookup_table(
         emitter: &SignalEmitter<'_>,
-        table: Value<'_>,
+        table: Variant<'_>,
         visible: bool,
     ) -> zbus::Result<()>;
 
@@ -319,7 +319,7 @@ impl IBusEngine {
     #[zbus(signal)]
     async fn update_auxiliary_text(
         emitter: &SignalEmitter<'_>,
-        text: Value<'_>,
+        text: Variant<'_>,
         visible: bool,
     ) -> zbus::Result<()>;
 

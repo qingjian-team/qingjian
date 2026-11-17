@@ -17,11 +17,7 @@ async fn wubi_commits_and_keeps_next_preedit() {
 
 async fn exercise_wubi() {
     let address = std::env::var("IBUS_ADDRESS").expect("必须提供隔离 IBus 总线");
-    let connection = Builder::address(address.as_str())
-        .unwrap()
-        .build()
-        .await
-        .unwrap();
+    let connection = Builder::address(address.as_str()).build().await.unwrap();
     let bus = IBusProxy::new(&connection).await.unwrap();
     let (context, signals) = open_context(&connection, &bus, "qingjian-wubi").await;
     if context.set_engine("qingjian").await.is_err() {
