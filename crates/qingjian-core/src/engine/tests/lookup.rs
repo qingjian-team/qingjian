@@ -877,3 +877,42 @@ fn zero_initial_abbreviation_applies_to_full_pinyin_only() {
     });
     assert!(has_implied, "全拼下 aquan 该有一条切分带 implied");
 }
+
+/// 整段全拼切得通时，简写切分不带头的词不能把它挤下去。
+///
+/// 评审给的那几条里最典型的是 `rengemianju`：`e` 本来就切得通（`e mian ju`），
+/// 又额外产一条 `e` 当 `eng` 的简写切分，两条一样长一起进候选，词频就把「人格面具」
+/// 挤成了「仍恩面具」。现在简写切分排在同长度的完整切分后面。
+#[test]
+fn a_full_pinyin_segmentation_outranks_an_equal_length_abbreviation() {
+    let dictionary = concat!(
+        "人格面具\treng e mian ju\t9000\n",
+        "仍恩面具\treng en mian ju\t1000\n",
+    );
+    let words = texts_in(dictionary, "rengemianju");
+    assert_eq!(words[0], "人格面具", "rengemianju = {words:?}");
+}
+
+/// `a` 后面接不上完整音节时才当成零声母简写（`aquan`），接得上就照全拼读。
+///
+/// `xia` 的 `a` 是「啊」本身，不该再产一条 `a` 当 `an` 的切分把「先 / 想」挤上去；
+/// `aquan` 里 `a` 后面是 `q`，完整音节走不通，才落到简写那条路。
+#[test]
+fn a_letter_that_is_already_that_syllable_is_not_treated_as_an_abbreviation() {
+    let dictionary = concat!("啊\ta\t2000\n", "安\tan\t6000\n", "全\tquan\t5000\n",);
+    // `a` 就是 `a` 这个音节，不该被标成 implied
+    let mut engine = Engine::new(Dictionary::parse(dictionary).unwrap());
+    engine.set_input("aquan");
+    let query = engine.query().unwrap();
+    let plain_a = query.segmentations.iter().any(|segmentation| {
+        segmentation
+            .syllables
+            .first()
+            .is_some_and(|first| first.text == "a" && first.implied.is_none())
+    });
+    assert!(
+        plain_a,
+        "aquan 该有一条把 a 当 a 本身的切分：{:?}",
+        query.segmentations
+    );
+}
