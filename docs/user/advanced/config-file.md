@@ -68,7 +68,7 @@ description: 青简的全部设置保存在一个文本配置文件里：位置�
 | `[shortcut] clipboard` | 实验功能 → 呼出剪贴板 | 缺省 Windows 是 `"ctrl+alt+v"`，macOS 是 `"cmd+shift+v"`；至少两个修饰键（macOS、Windows） |
 | `[shortcut] translate_selection` | 快捷键 → 翻译选中文字 | 如 `"alt+shift+t"` |
 | `[shortcut] predict` | 快捷键 → 按需 AI 联想 | 完整的组合键，设置界面只改修饰键 |
-| `[shortcut] pronounce` | 快捷键 → 发音（朗读高亮的候选） | 缺省不绑定（关闭），如 `"ctrl+alt+p"`；空串也关闭。只有 Windows 发声 |
+| `[shortcut] pronounce` | 快捷键 → 发音（朗读高亮的候选） | 缺省不绑定（关闭），建议 `"shift+p"`；空串也关闭。只有 Windows 发声 |
 | `[predict]` 一节 | 云服务 | 见下文 |
 | `[general] input_log` | 高级 → 记录输入日志 | `true` / `false` |
 

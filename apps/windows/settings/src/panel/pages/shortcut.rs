@@ -31,12 +31,7 @@ pub(crate) const MODIFIERS: [(&str, &str); 6] = [
 ];
 
 /// 发音快捷键预设；任意字母数字组合仍可在配置文件中指定。
-pub(crate) const PRONOUNCE_KEYS: [(&str, &str); 4] = [
-    ("Ctrl + Alt + P", "ctrl+alt+p"),
-    ("Ctrl + Shift + P", "ctrl+shift+p"),
-    ("Ctrl + Alt + 1", "ctrl+alt+1"),
-    ("关闭", ""),
-];
+pub(crate) const PRONOUNCE_KEYS: [(&str, &str); 2] = [("Shift + P", "shift+p"), ("关闭", "")];
 
 /// 简繁键预设；任意字母数字组合仍可在配置文件中指定。
 pub(crate) const TRADITIONAL_KEYS: [(&str, &str); 4] = [
