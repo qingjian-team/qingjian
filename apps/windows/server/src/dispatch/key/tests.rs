@@ -129,6 +129,7 @@ pub(super) fn compose(router: &mut Router, text: &str, modifiers: KeyModifiers) 
         key(router, c as u32, Some(c), modifiers);
     }
 }
+
 #[test]
 fn tab_and_backtab_page_boundaries_and_current_page_selection() {
     for size in [1, 4, 5, 9] {
@@ -708,5 +709,42 @@ fn rebound_commit_keys_commit_and_free_space_does_nothing() {
     assert_eq!(
         key(&mut r, 0xBA, Some(';'), normal).1.as_deref(),
         Some("第1项")
+    );
+}
+
+#[test]
+fn configured_pronounce_shortcut_reads_the_highlighted_candidate_without_touching_the_composition()
+{
+    let english = KeyModifiers {
+        english_mode: true,
+        ..KeyModifiers::default()
+    };
+    let more = KeyModifiers {
+        ctrl: true,
+        alt: true,
+        win: true,
+        ..KeyModifiers::default()
+    };
+    let ctrl_alt = KeyModifiers {
+        ctrl: true,
+        alt: true,
+        ..KeyModifiers::default()
+    };
+    let mut r = router(4);
+    // 缺省不绑定，测试里显式绑上 Ctrl + Alt + P
+    r.config.pronounce = Some("ctrl+alt+p".parse().unwrap());
+    compose(&mut r, "hello", english);
+    let candidate = r.current_frame().candidates.items[0].text.clone();
+    assert_eq!(candidate, "hello");
+    let (outcome, commit, frame) = key(&mut r, 0x50, Some('p'), ctrl_alt);
+    assert_eq!((outcome, commit), (KeyOutcome::Consumed, None));
+    assert_eq!(r.engine.composition().text(), "hello");
+    // 候选窗口不受影响，高亮仍在第一个
+    assert_eq!(r.highlight, 0);
+    assert_eq!(frame.candidates.items[0].text, "hello");
+    // 多按了 Win 不算这个快捷键，仍归应用
+    assert_eq!(
+        key(&mut r, 0x50, Some('p'), more).0,
+        KeyOutcome::Passthrough
     );
 }

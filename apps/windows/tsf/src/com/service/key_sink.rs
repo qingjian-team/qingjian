@@ -187,8 +187,9 @@ impl TextService_Impl {
 
     /// 这个键吃不吃，与 Router 的分派对齐；`OnTestKeyDown` 用，无副作用。判定见 [`eats_key`]。
     ///
-    /// 带 Ctrl/Alt/Win 只有组句中的「修饰键 + 数字」送 Server（译词 / 删候选）、组句中的 AI 与单字模式组合键、
-    /// 面板翻译框里的 Ctrl+A 送 Server（全选），其余归应用（翻译选中文字走保留键）；
+    /// 带 Ctrl/Alt/Win 只有组句中的「修饰键 + 数字」送 Server（译词 / 删候选）、组句中的 AI / 单字 / 按词跳组合键、
+    /// 面板翻译框里的 Ctrl+A 送 Server（全选）、配置的发音快捷键（`[shortcut] pronounce`）送 Server，
+    /// 其余归应用（翻译选中文字走保留键）；
     /// 字母只有「中文模式、没在组句、按住 Shift 的大写」归应用（`[general] shift_letter = "compose"` 时也吃，
     /// 让它起一段组句），其中 V / U / I 仍送 Server：双拼下是表达式 / 问字入口；
     /// 组句中功能键 / 方向键 / 可打印字符都吃；没在组句时数字 / 标点也先「测吃」送去转全角（中英各有一份开关），
@@ -205,15 +206,12 @@ impl TextService_Impl {
             self.shared.translating(),
             input.shift_letter_compose,
             input.english_candidates,
-        ) || (self.shared.composing()
-            && [input.predict, input.single_chars, input.next_word]
-                .into_iter()
-                .flatten()
-                .any(|combo| {
-                    event.virtual_key
-                        == preserved::key_event(combo, self.mode_state.english()).virtual_key
-                        && event.modifiers.chord() == combo.modifiers.into()
-                }))
+        ) || input.pronounce.is_some_and(|combo| combo.matches(event))
+            || (self.shared.composing()
+                && [input.predict, input.single_chars, input.next_word]
+                    .into_iter()
+                    .flatten()
+                    .any(|combo| combo.matches(event)))
     }
 
     /// 没在组句的数字：在 Test 里先问 Server。
@@ -511,6 +509,7 @@ fn eats_key(
 
 #[cfg(test)]
 mod tests {
+    use qingjian_platform::KeyCombo;
     use qingjian_platform::protocol::{KeyEvent, KeyModifiers};
 
     use super::{
@@ -696,5 +695,43 @@ mod tests {
             preedit: String::new(),
             caret: None,
         }));
+    }
+
+    #[test]
+    fn configured_pronounce_shortcut_is_forwarded_to_the_server() {
+        let ctrl_alt = KeyModifiers {
+            ctrl: true,
+            alt: true,
+            ..KeyModifiers::default()
+        };
+        let combo: KeyCombo = "control+option+p".parse().unwrap();
+        assert!(combo.matches(&with_modifiers(0x50, 'p', ctrl_alt)));
+        // 单按 `p`、Ctrl+P、Ctrl+Alt+Win+P 都不算
+        assert!(!combo.matches(&with_modifiers(0x50, 'p', KeyModifiers::default())));
+        for extra in [
+            KeyModifiers {
+                ctrl: true,
+                ..KeyModifiers::default()
+            },
+            KeyModifiers {
+                ctrl: true,
+                alt: true,
+                win: true,
+                ..KeyModifiers::default()
+            },
+        ] {
+            assert!(!combo.matches(&with_modifiers(0x50, 'p', extra)));
+        }
+        // 设置里换成字母组合后按新组合匹配
+        let combo: KeyCombo = "ctrl+j".parse().unwrap();
+        assert!(combo.matches(&with_modifiers(
+            0x4A,
+            'j',
+            KeyModifiers {
+                ctrl: true,
+                ..KeyModifiers::default()
+            }
+        )));
+        assert!(!combo.matches(&with_modifiers(0x50, 'p', ctrl_alt)));
     }
 }

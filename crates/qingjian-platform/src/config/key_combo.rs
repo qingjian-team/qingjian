@@ -3,6 +3,9 @@ use std::str::FromStr;
 
 use serde::{Deserialize, Serialize};
 
+#[cfg(windows)]
+use crate::protocol::{KeyEvent, KeyModifiers};
+
 use super::modifiers::Modifiers;
 
 /// 修饰键 + 一个字母键的组合，配置里写成 `control+option+t`。
@@ -14,6 +17,25 @@ pub struct KeyCombo {
 
     /// 字母、数字或句号键（小写）。
     pub key: char,
+}
+
+/// Windows 上按虚拟键判断快捷键：Server 与 TSF 都用这一份，别各写一套。
+#[cfg(windows)]
+impl KeyCombo {
+    /// 配置里的键字符对应的虚拟键：字母 / 数字就是大写 ASCII，`.` 是 `VK_OEM_PERIOD`。
+    /// Ctrl 组合下 `character` 不一定是原字符，所以按虚拟键比。
+    pub fn virtual_key(self) -> u32 {
+        match self.key {
+            '.' => 0xBE,
+            key => key.to_ascii_uppercase() as u32,
+        }
+    }
+
+    /// 按键是否命中这个组合：虚拟键 + 物理修饰键（不含 Caps / 中英模式两个状态位）。
+    pub fn matches(self, event: &KeyEvent) -> bool {
+        event.virtual_key == self.virtual_key()
+            && event.modifiers.chord() == KeyModifiers::from(self.modifiers)
+    }
 }
 
 impl KeyCombo {

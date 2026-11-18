@@ -88,6 +88,8 @@ pub(crate) enum Message {
     TranslateSelection(Option<usize>),
     PredictShortcut(Option<usize>),
     ToggleTraditional(Option<usize>),
+    /// 朗读当前高亮候选的快捷键（预设组合含「关闭」）。
+    Pronounce(Option<usize>),
 
     // 模糊音页
     /// 配置键 + 新值。
