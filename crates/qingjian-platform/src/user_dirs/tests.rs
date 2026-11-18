@@ -134,3 +134,82 @@ fn only_fresh_installs_get_an_empty_restore_list() {
     let _ = std::fs::remove_dir_all(&fresh);
     let _ = std::fs::remove_dir_all(&upgraded);
 }
+
+/// 第一次搬之前把用户自己产生的旧文件按原来的平铺结构备份一份；下载的、缓存不备份；备份只做一次。
+#[test]
+fn user_data_is_backed_up_once_before_moving() {
+    let root = temp("backup");
+    let local = temp("backup-local");
+    for name in [
+        "config.toml",
+        "user.tsv",
+        "user-vocab.tsv",
+        "update.json",
+        "themes/fluent/theme.json",
+        "models/zhiyi/model.bin",
+        "glossaries/glossary-ja.qj",
+        "clipboard/history.db",
+    ] {
+        write(&root.join(name), name);
+    }
+    write(
+        &root.join("dict-index.json"),
+        r#"{"format":1,"dicts":[{"id":"domain-law"}]}"#,
+    );
+    write(&root.join("dicts/domain-law.qj"), "downloaded");
+    write(&root.join("dicts/my-words.qj"), "imported");
+    write(&root.join("dicts/removed/old.qj"), "removed");
+
+    let dirs = UserDirs::new(root.clone(), local.clone());
+    dirs.prepare();
+
+    let backup = root.join("backup-before-0.3.4");
+    for (kept, text) in [
+        ("user.tsv", "user.tsv"),
+        ("user-vocab.tsv", "user-vocab.tsv"),
+        ("themes/fluent/theme.json", "themes/fluent/theme.json"),
+        ("dicts/my-words.qj", "imported"),
+        ("dicts/removed/old.qj", "removed"),
+    ] {
+        assert_eq!(
+            std::fs::read_to_string(backup.join(kept)).ok().as_deref(),
+            Some(text),
+            "{kept} 没备份"
+        );
+    }
+    assert!(root.join("learning/user.tsv").is_file());
+    for skipped in [
+        "config.toml",
+        "update.json",
+        "dict-index.json",
+        "models",
+        "glossaries",
+        "clipboard",
+        "dicts/domain-law.qj",
+    ] {
+        assert!(!backup.join(skipped).exists(), "{skipped} 不该备份");
+    }
+    let leftovers = std::fs::read_dir(&root)
+        .unwrap()
+        .filter_map(Result::ok)
+        .filter(|entry| entry.file_name().to_string_lossy().ends_with(".partial"))
+        .count();
+    assert_eq!(leftovers, 0, "临时文件夹没清掉");
+
+    write(&root.join("user-words.tsv"), "later");
+    dirs.prepare();
+    assert!(!backup.join("user-words.tsv").exists(), "备份只做一次");
+    let _ = std::fs::remove_dir_all(&root);
+    let _ = std::fs::remove_dir_all(&local);
+}
+
+/// 新装的、或早已搬好的没有要搬的旧文件，不建备份文件夹。
+#[test]
+fn nothing_to_move_means_no_backup() {
+    let root = temp("no-backup");
+    write(&root.join("config.toml"), "");
+    write(&root.join("learning/user.tsv"), "words");
+    UserDirs::at(root.clone()).prepare();
+    assert!(!root.join("backup-before-0.3.4").exists());
+    let _ = std::fs::remove_dir_all(&root);
+}
