@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 并排装的调试版（-PsideBySide）换个名字，和正式版分得清 -->
+<resources>
+    <string name="app_name">青简测试</string>
+</resources>
