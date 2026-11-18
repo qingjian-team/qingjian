@@ -87,7 +87,7 @@ pub fn about(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderErr
             .notes
             .iter()
             .take(6)
-            .cloned()
+            .map(|line| plain_note(line))
             .collect::<Vec<_>>()
             .join("\n");
         if !notes.is_empty() {
@@ -257,4 +257,60 @@ fn note(
         Visual::Group,
         &children,
     )
+}
+
+/// 更新日志的一条是官网与 GitHub 用的行内 Markdown，这里只能画纯文字：去掉加粗和反引号，链接只留文字。
+fn plain_note(markdown: &str) -> String {
+    let mut text = String::with_capacity(markdown.len());
+    let mut rest = markdown;
+    while let Some(c) = rest.chars().next() {
+        if let Some(after) = rest.strip_prefix("**") {
+            rest = after;
+            continue;
+        }
+        if c == '`' {
+            rest = &rest[1..];
+            continue;
+        }
+        if c == '['
+            && let Some(close) = rest.find(']')
+            && rest[close..].starts_with("](")
+            && let Some(end) = rest[close..].find(')')
+        {
+            text.push_str(&rest[1..close]);
+            rest = &rest[close + end + 1..];
+            continue;
+        }
+        text.push(c);
+        rest = &rest[c.len_utf8()..];
+    }
+    text
+}
+
+#[cfg(test)]
+mod tests {
+    use super::plain_note;
+
+    /// 加粗、反引号、链接的记号去掉，文字与 `#123` 这类编号原样留下；反引号里的 `*` 不当加粗。
+    #[test]
+    fn notes_are_shown_without_markdown_marks() {
+        assert_eq!(
+            plain_note("**安全更新**：输入法只认自己这一端（#699）"),
+            "安全更新：输入法只认自己这一端（#699）"
+        );
+        assert_eq!(
+            plain_note("`[apps] english_candidates_off` 里 `*` 结尾的条目"),
+            "[apps] english_candidates_off 里 * 结尾的条目"
+        );
+        assert_eq!(
+            plain_note(
+                "投稿到 [qingjian-themes](https://github.com/qingjian-team/qingjian-themes) 仓库"
+            ),
+            "投稿到 qingjian-themes 仓库"
+        );
+        assert_eq!(
+            plain_note("`[apps]` 和 [说明](https://example.com)"),
+            "[apps] 和 说明"
+        );
+    }
 }
