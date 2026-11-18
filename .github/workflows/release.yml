@@ -387,12 +387,12 @@ jobs:
       # Debian 13 容器里装、起 Fcitx5、Mousepad 里打字比对；Ubuntu 24.04（Fcitx5 5.1.7）应按预期拒装
       - name: Smoke-test AppImage
         timeout-minutes: 30
-        run: apps/linux/appimage/test/test.sh target/appimage/Qingjian-*-x86_64.AppImage debian13 ubuntu2404
+        run: apps/linux/appimage/test/test.sh target/appimage/qingjian-*-linux-x86_64.AppImage debian13 ubuntu2404
 
       - name: Upload to draft release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: tools/release/upload-build.sh linux-appimage "Debian 13 容器，Fcitx5 5.1.12" target/appimage/Qingjian-*-x86_64.AppImage
+        run: tools/release/upload-build.sh linux-appimage "Debian 13 容器，Fcitx5 5.1.12" target/appimage/qingjian-*-linux-x86_64.AppImage
 
   android:
     needs: prepare

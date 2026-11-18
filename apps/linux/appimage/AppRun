@@ -176,7 +176,7 @@ case "${1:-}" in
   --version) cat "$usr/share/qingjian/appimage-version" ;;
   --help|-h)
     cat <<'EOF'
-用法：Qingjian-*.AppImage [命令]
+用法：qingjian-*-linux-x86_64.AppImage [命令]
   （不带命令）  没装过就先 install，然后打开青简设置
   install       把 Fcitx5 插件、登录自启与菜单项装进用户目录，并启动青简输入服务
   uninstall     撤掉上面这些（用户数据保留）

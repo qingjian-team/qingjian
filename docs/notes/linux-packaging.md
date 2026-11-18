@@ -41,8 +41,8 @@ IBus 要重新登录一次（或 `ibus restart`）才看得到新引擎。
 ### Debian / Ubuntu（deb）
 
 ```bash
-sudo apt install ./qingjian_<版本>_amd64.deb                 # IBus 用户
-sudo apt install ./qingjian_<版本>_amd64.deb ./qingjian-fcitx5_<版本>_amd64.deb   # fcitx5 用户
+sudo apt install ./qingjian-<版本>-linux-x86_64.deb                 # IBus 用户
+sudo apt install ./qingjian-<版本>-linux-x86_64.deb ./qingjian-fcitx5-<版本>-linux-x86_64.deb   # fcitx5 用户
 ```
 
 `qingjian` 只要 `libc6 (>= 2.34)`，Debian 12、Ubuntu 22.04 / 24.04 也装得上（IBus）；
@@ -51,8 +51,8 @@ sudo apt install ./qingjian_<版本>_amd64.deb ./qingjian-fcitx5_<版本>_amd64.
 ### Fedora 42 及以后（rpm）
 
 ```bash
-sudo dnf install ./qingjian-<版本>-1.fc42.x86_64.rpm
-sudo dnf install ./qingjian-<版本>-1.fc42.x86_64.rpm ./qingjian-fcitx5-<版本>-1.fc42.x86_64.rpm
+sudo dnf install ./qingjian-<版本>-linux-x86_64.rpm
+sudo dnf install ./qingjian-<版本>-linux-x86_64.rpm ./qingjian-fcitx5-<版本>-linux-x86_64.rpm
 ```
 
 KDE Plasma（Wayland）上输入法由 KWin 拉起，默认是 fcitx5：「系统设置 → 键盘 → 虚拟键盘」里选 IBus Wayland
