@@ -273,7 +273,8 @@ fn pinyin_and_shuangpin_split_commits_keep_the_twenty_character_memory_limit() {
 /// 词库里有 交易、中心，另有一个只吃掉 `zhong` 的单字 中，用来在段中间选错。
 fn jiaoyi_with_zhong_engine() -> Engine {
     let dictionary = "交易\tjiao yi\t5000\n中心\tzhong xin\t5000\n中\tzhong\t900\n";
-    Engine::new(Dictionary::parse(dictionary).unwrap()).with_learner(Box::new(WordLearner::default()))
+    Engine::new(Dictionary::parse(dictionary).unwrap())
+        .with_learner(Box::new(WordLearner::default()))
 }
 
 #[test]
