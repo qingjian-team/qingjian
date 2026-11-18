@@ -258,9 +258,11 @@ class Composer(private val engine: Engine, private val host: Host) {
             // 拼音、日语组句里的大写字母另有含义，组句中只有英文能换大小写
             Key.Shift -> if (!composing || english) toggleShift()
 
-            Key.Backspace -> if (composing || repeat) {
-                // 组句还在，或者这一记是长按重发的：交给引擎判断（issue #932 ——
-                // 组句删空后的自动重复要停在输入法里，手一下一下点的照删）
+            Key.Backspace -> if (composing || (repeat && backspaceComposing)) {
+                // 组句还在，或者按住的那一笔是从组句里开始的：交给引擎判断（issue #932 ——
+                // 组句删空后的自动重复要停在输入法里，手一下一下点的照删）。
+                // 组句外起手的长按不走这里：引擎那边组句本来就是空的，交过去只回一帧空的，
+                // 后面自动重复的那几下就白删了，按住只删得掉第一个字（#933 评审）。
                 apply(engine.backspace(repeat))
             } else {
                 deleteBackward()
