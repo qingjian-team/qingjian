@@ -377,6 +377,8 @@ input_log = true
 learning = true
 # 把系统设置「键盘 → 文本替换」里的条目当自定义短语：输入码（小写字母）敲全后出现，排在同权重的自定义短语之后；只有 macOS 用
 system_text_replacements = true
+# 在菜单栏显示「中 / 英」状态项；false 时隐藏，仍可从系统输入源菜单打开设置；只有 macOS 用
+menubar_indicator = true
 
 # 自定义短语示例：取消下面各行注释后启用；同一个输入码下按权重从高到低排在普通候选前面。
 # [[custom_phrases]]

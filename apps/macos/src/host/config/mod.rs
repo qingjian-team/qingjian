@@ -173,6 +173,7 @@ impl Host {
             .set_choice_tier(config.model.zhiyi_tier.choice_tier());
         self.applied_model = Some(config.model.clone());
         let cloud_active = self.engine.prediction_enabled();
+        self.indicator.set_enabled(config.general.menubar_indicator);
         self.indicator.set_cloud(cloud_active);
         self.refresh_mode_ui();
         self.menu.sync(&config, cloud_active, self.settings.error());
