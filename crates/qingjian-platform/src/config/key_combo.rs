@@ -3,7 +3,6 @@ use std::str::FromStr;
 
 use serde::{Deserialize, Serialize};
 
-#[cfg(windows)]
 use crate::protocol::{KeyEvent, KeyModifiers};
 
 use super::modifiers::Modifiers;
@@ -19,8 +18,8 @@ pub struct KeyCombo {
     pub key: char,
 }
 
-/// Windows 上按虚拟键判断快捷键：Server 与 TSF 都用这一份，别各写一套。
-#[cfg(windows)]
+/// 按虚拟键判断快捷键：Server 与 TSF 都用这一份，别各写一套。
+/// 不按平台裁掉：协议类型跨平台编译（见 `protocol` 模块注释），Linux / macOS 上也要编得过。
 impl KeyCombo {
     /// 配置里的键字符对应的虚拟键：字母 / 数字就是大写 ASCII，`.` 是 `VK_OEM_PERIOD`。
     /// Ctrl 组合下 `character` 不一定是原字符，所以按虚拟键比。
