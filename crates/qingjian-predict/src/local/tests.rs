@@ -1,3 +1,5 @@
+//! 本机服务的测试：启动参数、找程序、端口探测、退出原因、状态通知与租约共用；端口上用假服务答话，不起真的 llama-server。
+
 use std::io::{BufRead, BufReader, Write};
 use std::net::TcpListener;
 use std::path::PathBuf;
