@@ -1,4 +1,4 @@
-//! 「高级」页的设置导入导出：只搬设置，短语、云服务密钥与状态条位置留在这台电脑（规则在
+//! 「高级」页的设置导入导出：只搬设置，短语、云服务密钥、本机模型路径与状态条位置留在这台电脑（规则在
 //! `qingjian_platform::export_settings` / `import_settings`）。导入前把现在的配置另存一份。
 
 use qingjian_platform::{export_settings, import_settings};

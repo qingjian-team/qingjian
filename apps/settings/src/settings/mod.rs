@@ -6,6 +6,7 @@ mod clipboard;
 mod config;
 mod fields;
 mod library;
+mod local_model;
 mod phrases;
 mod search;
 mod shortcuts;

@@ -3,4 +3,5 @@
 mod cache;
 mod failures;
 mod helpers;
+mod keys;
 mod parameters;

@@ -1,5 +1,5 @@
-//! 设置的导出与导入（换电脑、备份用）：只搬设置，不带自定义短语（短语另有自己的导入导出）、云服务密钥
-//! 与悬浮状态条在这台屏幕上的位置。导入前先当配置读一遍，读不通就不动现有文件。
+//! 设置的导出与导入（换电脑、备份用）：只搬设置，不带自定义短语（短语另有自己的导入导出）、云服务密钥、
+//! 本机模型的文件路径与悬浮状态条在这台屏幕上的位置。导入前先当配置读一遍，读不通就不动现有文件。
 
 use toml_edit::{DocumentMut, Item};
 
@@ -10,6 +10,8 @@ use crate::i18n::tr_args;
 /// 只属于这台电脑、导出时去掉、导入时保留本机原值的项（分节，键）；`custom_phrases` 是整张表。
 const LOCAL: &[(&str, &str)] = &[
     ("predict", "api_key"),
+    ("predict", "local_model"),
+    ("predict", "local_server"),
     ("status_bar", "x"),
     ("status_bar", "y"),
 ];
@@ -17,7 +19,7 @@ const LOCAL: &[(&str, &str)] = &[
 /// 自定义短语的表名。
 const PHRASES: &str = "custom_phrases";
 
-/// 把配置文件的内容变成导出文件：注释与写法照旧，去掉短语、密钥与状态条位置。
+/// 把配置文件的内容变成导出文件：注释与写法照旧，去掉短语、密钥、本机模型路径与状态条位置。
 pub fn export_settings(source: &str) -> Result<String, String> {
     let mut document = parse(source)?;
     document.remove(PHRASES);
@@ -27,11 +29,11 @@ pub fn export_settings(source: &str) -> Result<String, String> {
         }
     }
     Ok(format!(
-        "# 青简设置，在设置程序「高级」页导入；不含自定义短语、云服务密钥与状态条位置\n\n{document}"
+        "# 青简设置，在设置程序「高级」页导入；不含自定义短语、云服务密钥、本机模型路径与状态条位置\n\n{document}"
     ))
 }
 
-/// 用导入的设置换掉现有配置：`current` 里的短语、密钥与状态条位置留着，其余照 `imported`。
+/// 用导入的设置换掉现有配置：`current` 里的短语、密钥、本机模型路径与状态条位置留着，其余照 `imported`。
 /// 导入的内容读不成配置时报错，返回的新内容保证能读。
 pub fn import_settings(current: &str, imported: &str) -> Result<String, String> {
     let mut document = parse(imported)?;
@@ -76,25 +78,32 @@ fn parse(source: &str) -> Result<DocumentMut, String> {
 mod tests {
     use super::{export_settings, import_settings};
 
-    const HERE: &str = "# 我的注释\n[general]\npage_size = 5\n\n[predict]\napi_key = \"sk-here\"\n\n[status_bar]\nx = 10\ny = 20\n\n[[custom_phrases]]\ncode = \"dz\"\ntext = \"地址\"\n";
+    const HERE: &str = "# 我的注释\n[general]\npage_size = 5\n\n[predict]\napi_key = \"sk-here\"\nlocal_model = \"/here/model.gguf\"\n\n[status_bar]\nx = 10\ny = 20\n\n[[custom_phrases]]\ncode = \"dz\"\ntext = \"地址\"\n";
 
     #[test]
     fn export_drops_phrases_secrets_and_screen_positions() {
         let exported = export_settings(HERE).unwrap();
         assert!(exported.contains("# 我的注释"));
         assert!(exported.contains("page_size = 5"));
-        for gone in ["sk-here", "x = 10", "custom_phrases", "地址"] {
+        for gone in [
+            "sk-here",
+            "/here/model.gguf",
+            "x = 10",
+            "custom_phrases",
+            "地址",
+        ] {
             assert!(!exported.contains(gone), "{gone}");
         }
     }
 
     #[test]
     fn import_keeps_local_phrases_secrets_and_positions() {
-        let other = "[general]\npage_size = 7\n\n[predict]\napi_key = \"sk-other\"\n\n[[custom_phrases]]\ncode = \"ee\"\ntext = \"：\"\n";
+        let other = "[general]\npage_size = 7\n\n[predict]\napi_key = \"sk-other\"\nlocal_model = \"/other/model.gguf\"\n\n[[custom_phrases]]\ncode = \"ee\"\ntext = \"：\"\n";
         let merged = import_settings(HERE, other).unwrap();
         let config: crate::Config = toml::from_str(&merged).unwrap();
         assert_eq!(config.general.page_size(), 7);
         assert_eq!(config.predict.api_key.as_deref(), Some("sk-here"));
+        assert_eq!(config.predict.local_model, "/here/model.gguf");
         assert_eq!(
             (config.status_bar.x, config.status_bar.y),
             (Some(10), Some(20))

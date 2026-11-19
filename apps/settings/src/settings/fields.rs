@@ -22,6 +22,8 @@ impl Settings {
             FieldId::BaseUrl => predict.base_url.clone(),
             FieldId::Model => predict.model.clone(),
             FieldId::ApiKey => String::new(),
+            FieldId::LocalModel => predict.local_model.clone(),
+            FieldId::LocalServer => predict.local_server.clone(),
             FieldId::HalfWidthSymbols => self.config.general.half_width_symbols.clone(),
             FieldId::FuzzyCustom => self.config.fuzzy.custom.join(" "),
             FieldId::VocabularySearch => String::new(),
@@ -30,7 +32,8 @@ impl Settings {
         self.fields.insert(id, TextEdit::new(value));
     }
 
-    /// 存一个输入框：没改的不存；清空等于不改，保持半角的符号与自定义模糊音除外（清空就是一个都不要）。
+    /// 存一个输入框：没改的不存；清空等于不改，保持半角的符号、自定义模糊音（清空就是一个都不要）
+    /// 与本机模型的两个路径（清空就是不用本机模型、自动找程序）除外。
     pub(super) fn commit(&mut self, id: FieldId) {
         let Some(text) = self
             .fields
@@ -62,6 +65,7 @@ impl Settings {
                 }
             }
             FieldId::FuzzyCustom => self.commit_fuzzy_custom(&text),
+            FieldId::LocalModel | FieldId::LocalServer => self.commit_local_path(id, &text),
             FieldId::PhraseCode
             | FieldId::PhraseWeight
             | FieldId::PhraseText

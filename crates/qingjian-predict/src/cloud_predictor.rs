@@ -22,7 +22,8 @@ pub struct CloudPredictor {
 }
 
 impl CloudPredictor {
-    /// 没有密钥直接报错，让壳退回 [`qingjian_core::NoPredictor`] 并记日志。
+    /// 要密钥却没有时直接报错，让壳退回 [`qingjian_core::NoPredictor`] 并记日志。
+    /// 用本机模型时顺带起本机服务，联想器放下时服务跟着停。
     pub fn new(config: &PredictConfig) -> Result<Self, PredictError> {
         Self::new_with_usage(config, None)
     }
@@ -32,10 +33,7 @@ impl CloudPredictor {
         config: &PredictConfig,
         usage_path: Option<PathBuf>,
     ) -> Result<Self, PredictError> {
-        let api_key = config
-            .resolve_api_key()
-            .ok_or_else(|| PredictError::MissingApiKey(config.api_key_env.clone()))?;
-        let client = ChatClient::new(config, api_key).with_usage(usage_path);
+        let client = ChatClient::connect(config)?.with_usage(usage_path);
         let (requests, request_rx) = mpsc::channel();
         let (response_tx, responses) = mpsc::channel();
         let worker = Worker::new(
@@ -53,8 +51,8 @@ impl CloudPredictor {
                 }
             })?;
         tracing::info!(
-            base_url = %config.base_url,
-            model = %config.model,
+            base_url = %config.endpoint(),
+            model = %config.model_name(),
             lookback = config.lookback,
             lookahead = config.lookahead,
             "云联想已启用"

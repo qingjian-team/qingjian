@@ -76,5 +76,6 @@ The macOS and Windows versions are in beta with nearly the same features; keys f
 | Sentence translation for the vocabulary book | ✓ | ✓ | ✓ | — |
 | Translating in the symbol panel | ✓ | ✓ | — | — |
 | AI usage statistics | ✓ | ✓ | ✓ | — |
+| Local model (llama.cpp) | ✓ | ✓ | ✓ | — |
 
 Installation and platform-specific features: [Installation](../getting-started/install.md) (macOS, Windows), [Linux](linux.md), [Android](android.md).

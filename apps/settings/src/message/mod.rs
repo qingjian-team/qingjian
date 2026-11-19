@@ -42,6 +42,10 @@ pub enum Message {
     /// Esc：扔掉没存的改动。
     Cancel(FieldId),
     TestCloud,
+    /// 云服务页「本机模型」的「选择…」：选 GGUF 模型文件。
+    PickLocalModel,
+    /// 云服务页「llama-server」的「选择…」：选程序。
+    PickLocalServer,
     /// 开始录这个快捷键。
     Record(Shortcut),
     /// 录制中按下的键。
@@ -62,9 +66,9 @@ pub enum Message {
     ImportPhrases,
     /// 把短语存成一个文件。
     ExportPhrases,
-    /// 选文件导入设置（短语、密钥、状态条位置不动）。
+    /// 选文件导入设置（短语、密钥、本机模型路径、状态条位置不动）。
     ImportConfig,
-    /// 把设置存成一个文件（不含短语、密钥与状态条位置）。
+    /// 把设置存成一个文件（不含短语、密钥、本机模型路径与状态条位置）。
     ExportConfig,
     /// 选文件导入词库或码表。
     Import(Kind),

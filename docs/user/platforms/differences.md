@@ -77,5 +77,6 @@ macOS 与 Windows 版是测试版，功能基本相同，按键按各自系统�
 | 生词本整句翻译 | ✓ | ✓ | ✓ | — |
 | 符号面板里翻译 | ✓ | ✓ | — | — |
 | AI 用量统计 | ✓ | ✓ | ✓ | — |
+| 本机模型（llama.cpp） | ✓ | ✓ | ✓ | — |
 
 各平台的安装与独有功能：[安装](../getting-started/install.md)（macOS、Windows）、[Linux](linux.md)、[Android](android.md)。

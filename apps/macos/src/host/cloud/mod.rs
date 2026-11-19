@@ -8,6 +8,8 @@ pub(super) use test_monitor::CloudTestMonitor;
 
 use std::time::Instant;
 
+use qingjian_predict::LocalServerError;
+
 use super::*;
 
 impl Host {
@@ -54,7 +56,8 @@ impl Host {
                 self.cloud_test_monitor.start();
                 self.preferences.set_status(&format!(
                     "正在测试云服务连接：{} · {} …",
-                    config.base_url, config.model
+                    config.endpoint(),
+                    config.model_name()
                 ));
             }
             Err(error) => {
@@ -287,6 +290,24 @@ pub(super) fn describe_predict_error(error: &PredictError) -> String {
         PredictError::Encode(error) => format!("请求编码失败：{error}"),
         PredictError::Runtime(error) => format!("起不了后台线程：{error}"),
         PredictError::Api(error) => format!("请求失败：{error}"),
+        PredictError::LocalServer(error) => describe_local_error(error),
+    }
+}
+
+/// 本机模型服务用不了的原因。
+fn describe_local_error(error: &LocalServerError) -> String {
+    match error {
+        LocalServerError::ServerNotFound => {
+            "找不到 llama-server：先安装 llama.cpp（brew install llama.cpp），或在设置里选择程序"
+                .to_owned()
+        }
+        LocalServerError::ModelNotFound(path) => format!("找不到模型文件 {path}"),
+        LocalServerError::PortTaken(port) => {
+            format!("端口 {port} 被别的程序占着：在配置文件里把 local_port 改成别的")
+        }
+        LocalServerError::Spawn(error) => format!("llama-server 起不来：{error}"),
+        LocalServerError::Exited(error) => format!("llama-server 退出了：{error}"),
+        LocalServerError::Loading => "模型还没加载完，稍后再试".to_owned(),
     }
 }
 

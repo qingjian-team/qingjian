@@ -7,6 +7,7 @@ use qingjian_predict::{CloudGlossFiller, CloudPredictor, PredictConfig};
 
 /// 按 `[predict]` 接云联想、释义兜底与生词本整句翻译；关着或缺密钥就退回本地实现。
 /// 用量累计到 `usage_path`（用户目录的 `api-usage.json`），设置统计页读同一份。启动与热加载共用。
+/// 填了本机模型时由这里建的客户端起 llama-server，换掉或关掉时随旧客户端一起停。
 pub fn attach_cloud(engine: &mut Engine, predict: &PredictConfig, usage_path: Option<PathBuf>) {
     if !predict.enabled {
         engine.set_predictor(Box::new(NoPredictor));
@@ -16,7 +17,11 @@ pub fn attach_cloud(engine: &mut Engine, predict: &PredictConfig, usage_path: Op
     match CloudPredictor::new_with_usage(predict, usage_path.clone()) {
         Ok(predictor) => {
             engine.set_predictor(Box::new(predictor));
-            tracing::info!(model = %predict.model, "云联想已启用");
+            tracing::info!(
+                base_url = %predict.endpoint(),
+                model = %predict.model_name(),
+                "云联想已启用"
+            );
         }
         Err(error) => {
             engine.set_predictor(Box::new(NoPredictor));

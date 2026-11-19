@@ -307,6 +307,18 @@ const LINKS: &[(PageId, &str, &str, &str)] = &[
         "AI 候选词",
     ),
     (PageId::Cloud, "cloud.sentence", "cloud/predict", "整句补全"),
+    (
+        PageId::Cloud,
+        "cloud.local_model",
+        "cloud/local-model",
+        "开启",
+    ),
+    (
+        PageId::Cloud,
+        "cloud.local_server",
+        "cloud/local-model",
+        "安装 llama.cpp",
+    ),
     (PageId::Cloud, "cloud.api_key", "cloud/index", "会发送什么"),
     (PageId::Cloud, "cloud.connection", "cloud/index", "开启"),
     (

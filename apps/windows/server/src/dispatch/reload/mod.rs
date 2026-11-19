@@ -32,6 +32,7 @@ fn mtime(path: &Path) -> Option<SystemTime> {
 }
 
 /// 按 `[predict]` 接云联想与释义兜底；关着或缺密钥就退回本地实现。启动与热加载共用。
+/// 填了本机模型时由这里建的客户端起 llama-server，换掉或关掉时随旧客户端一起停。
 pub fn attach_cloud(engine: &mut Engine, predict: &PredictConfig, usage_path: Option<PathBuf>) {
     if !predict.enabled {
         tracing::info!("云联想未开启（[predict] enabled = false）");
@@ -42,7 +43,11 @@ pub fn attach_cloud(engine: &mut Engine, predict: &PredictConfig, usage_path: Op
     match CloudPredictor::new_with_usage(predict, usage_path.clone()) {
         Ok(predictor) => {
             engine.set_predictor(Box::new(predictor));
-            tracing::info!(model = %predict.model, "云联想已接入");
+            tracing::info!(
+                base_url = %predict.endpoint(),
+                model = %predict.model_name(),
+                "云联想已接入"
+            );
         }
         Err(error) => {
             tracing::warn!(%error, "云联想接入失败（缺 API key？），退回本地候选");

@@ -85,7 +85,7 @@ To start your typing habits over, delete the tables in `learning/` whose names s
 
 导入、导出设置 (Import, export settings) under 设置 → 高级 (Settings → Advanced) saves your settings as a `.toml` file to import on the other computer:
 
-- The exported file leaves out custom phrases (imported and exported separately on the 自定义短语 page), the AI service key and the floating status bar's position on screen; importing keeps this computer's own values for those.
+- The exported file leaves out custom phrases (imported and exported separately on the 自定义短语 page), the AI service key, the locations of the local model and llama-server, and the floating status bar's position on screen; importing keeps this computer's own values for those.
 - Importing replaces the rest of the settings, and first saves the old configuration as `config.before-import.toml` in the same folder so you can copy it back. If the file's settings can't be read, nothing changes.
 - Typing habits, your own words, imported dictionaries and other data files aren't included; to move them too, fully quit Qingjian on both computers and copy the whole data folder (between the same version).
 

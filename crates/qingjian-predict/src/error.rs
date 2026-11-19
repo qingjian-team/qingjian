@@ -1,5 +1,7 @@
 use thiserror::Error;
 
+use crate::local::LocalServerError;
+
 #[derive(Debug, Error)]
 pub enum PredictError {
     #[error("no API key: set `api_key` in config or the `{0}` environment variable")]
@@ -23,6 +25,10 @@ pub enum PredictError {
 
     #[error("failed to encode request: {0}")]
     Encode(#[from] serde_json::Error),
+
+    /// 本机模型服务起不来，或者还在加载。
+    #[error("local model server unavailable: {0}")]
+    LocalServer(#[from] LocalServerError),
 }
 
 impl PredictError {

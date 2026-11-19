@@ -1,11 +1,17 @@
 //! 输入框的编号：编辑状态按它存在 `Settings::fields` 里。
 
-/// 输入框：云服务页的三个，中英文页的保持半角符号，输入页的自定义模糊音，短语编辑卡片里的三个，生词本页的搜索框。
+/// 输入框：云服务页的五个，中英文页的保持半角符号，输入页的自定义模糊音，短语编辑卡片里的三个，生词本页的搜索框。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum FieldId {
     BaseUrl,
     Model,
     ApiKey,
+
+    /// 本机模型的 GGUF 文件（`[predict] local_model`），清空就是不用本机模型。
+    LocalModel,
+
+    /// llama-server 程序（`[predict] local_server`），清空就是自动找。
+    LocalServer,
 
     /// 中英文页「保持半角的符号」（`[general] half_width_symbols`）。
     HalfWidthSymbols,
@@ -21,10 +27,12 @@ pub enum FieldId {
 
 impl FieldId {
     /// 存进配置的那几个（短语的几个随卡片一起存）。
-    pub const ALL: [Self; 5] = [
+    pub const ALL: [Self; 7] = [
         Self::BaseUrl,
         Self::Model,
         Self::ApiKey,
+        Self::LocalModel,
+        Self::LocalServer,
         Self::HalfWidthSymbols,
         Self::FuzzyCustom,
     ];
@@ -35,6 +43,8 @@ impl FieldId {
             Self::BaseUrl => "base_url",
             Self::Model => "model",
             Self::ApiKey => "api_key",
+            Self::LocalModel => "local_model",
+            Self::LocalServer => "local_server",
             Self::HalfWidthSymbols => "half_width_symbols",
             Self::FuzzyCustom => "custom",
             Self::PhraseCode => "code",
