@@ -1,5 +1,6 @@
 //! 按键分派用的虚拟键码与字符解析。
 
+use qingjian_platform::MAX_PAGE_SIZE;
 use qingjian_platform::protocol::KeyEvent;
 
 use crate::dispatch::Router;
@@ -38,19 +39,31 @@ pub(crate) fn page_key(event: &KeyEvent, page_keys: (char, char)) -> Option<isiz
     }
 }
 
-/// 敲出来是数字 1–9 的键（选候选用）：按 `character` 认，Shift 出的 `!@#` 不算。
+/// 敲出来是数字的键（选候选用）：按 `character` 认，Shift 出的 `!@#` 不算。
+/// `1`–`9` 对 1–9，`0` 对第 10 个。
 pub(crate) fn digit(event: &KeyEvent) -> Option<usize> {
     match event.character {
-        Some(c) => ('1'..='9').contains(&c).then(|| c as usize - '0' as usize),
+        Some(c) => digit_of(c),
         None => digit_key(event.virtual_key),
     }
 }
 
-/// 主键盘区数字键 1–9 的键码，不管修饰键（修饰键 + 数字的快捷键按键位认）。
+/// 数字字符对应的候选位次：`0` 是第 10 个，与 [`MAX_PAGE_SIZE`] 对齐。
+fn digit_of(c: char) -> Option<usize> {
+    match c {
+        '1'..='9' => Some(c as usize - '0' as usize),
+        '0' => Some(MAX_PAGE_SIZE),
+        _ => None,
+    }
+}
+
+/// 主键盘区数字键的键码，不管修饰键（修饰键 + 数字的快捷键按键位认）。
 pub(crate) fn digit_key(virtual_key: u32) -> Option<usize> {
-    (0x31..=0x39)
-        .contains(&virtual_key)
-        .then(|| (virtual_key - 0x30) as usize)
+    match virtual_key {
+        0x31..=0x39 => Some((virtual_key - 0x30) as usize),
+        0x30 => Some(MAX_PAGE_SIZE),
+        _ => None,
+    }
 }
 
 /// 小键盘区的键（数字与 `* + - . /`）：敲出来的标点一律半角。

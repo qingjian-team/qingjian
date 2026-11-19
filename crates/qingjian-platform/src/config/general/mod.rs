@@ -8,8 +8,8 @@ use super::{
 };
 use crate::code_schemes::{self, WUBI86};
 
-/// 每页最多几个候选：数字键只有 1–9。
-pub const MAX_PAGE_SIZE: usize = 9;
+/// 每页最多几个候选：数字键 1–9 之外，`0` 代表第 10 个。
+pub const MAX_PAGE_SIZE: usize = 10;
 
 /// 翻页键对的可选值，第一项是缺省：第一个键向前、第二个向后。
 /// 缺省不用 `,` `.`：组句中敲逗号句号应该把首选上屏再补一个全角标点（`nihao,zaima` 一气打完），
@@ -522,7 +522,7 @@ impl GeneralConfig {
             .clamp(1, qingjian_core::ENGLISH_CANDIDATES_MAX)
     }
 
-    /// 夹到 1–9 的英文最高位次；1 即不限制。
+    /// 夹到 1–[`MAX_PAGE_SIZE`] 的英文最高位次；1 即不限制。
     pub fn english_min_position(&self) -> usize {
         self.english_min_position.clamp(1, MAX_PAGE_SIZE)
     }

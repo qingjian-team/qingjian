@@ -36,7 +36,7 @@ fn english_candidate_limits_are_sanitized() {
 #[test]
 fn page_size_and_keys_are_sanitized() {
     let mut general = GeneralConfig::default();
-    assert_eq!(general.page_size(), 9);
+    assert_eq!(general.page_size(), MAX_PAGE_SIZE);
     assert_eq!(general.page_keys(), ('[', ']'));
     general.page_size = 0;
     general.page_keys = ",.".to_owned();
@@ -44,7 +44,7 @@ fn page_size_and_keys_are_sanitized() {
     assert_eq!(general.page_keys(), (',', '.'));
     general.page_size = 42;
     general.page_keys = "ab".to_owned();
-    assert_eq!(general.page_size(), 9);
+    assert_eq!(general.page_size(), MAX_PAGE_SIZE);
     assert_eq!(general.page_keys(), ('[', ']'));
     general.page_keys = ",,".to_owned();
     assert_eq!(general.page_keys(), ('[', ']'));
