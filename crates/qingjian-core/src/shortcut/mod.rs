@@ -289,10 +289,12 @@ mod tests {
 
     #[test]
     fn calendar_shortcuts() {
-        // 前三条是原有顺序，不动；后面是补的各种写法
+        // 头三个会紧跟本地首选，放的是日常最常用的三种写法
         let rq = texts("rq");
-        assert_eq!(&rq[..3], ["2026年9月3日", "2026-09-03", "2026/09/03"]);
+        assert_eq!(&rq[..3], ["2026年9月3日", "2026-09-03", "9月3日"]);
+        assert!(rq.contains(&"2026/09/03".to_owned()), "{rq:?}");
         assert!(rq.contains(&"2026年9月3日 星期四".to_owned()), "{rq:?}");
+        assert!(rq.contains(&"2026年9月3号".to_owned()), "{rq:?}");
         assert!(rq.contains(&"20260903".to_owned()), "{rq:?}");
         assert!(rq.contains(&"二〇二六年九月三日".to_owned()), "{rq:?}");
         let sj = texts("sj");

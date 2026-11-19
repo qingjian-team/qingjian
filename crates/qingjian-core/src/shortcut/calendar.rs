@@ -324,29 +324,35 @@ fn chinese_year(year: i16) -> String {
         .collect()
 }
 
-/// `rq`：今天。中文与数字两套、带星期、月日、纯数字串、两位年、欧式与美式、ISO 周。
+/// `rq`：今天。按日常出现频次排：中文年月日、连字符、只到月日、斜杠、带星期、纯数字、
+/// 点分、口语「号」、公文补零、欧式与美式、两位年、ISO 周、中文逐位。
+///
+/// 头三个会紧跟本地首选（见 `INLINE_SHORTCUTS`），所以只放最常用的三种；
+/// 「只到月日」排第三是因为聊天里几乎都这么写，带年份反而正式。
 pub fn date_forms(now: &Zoned) -> Vec<String> {
     let (year, month, day) = (now.year(), now.month(), now.day());
     let weekday = weekday_name(now.weekday());
     let weekday_long = weekday_long_name(now.weekday());
     // ISO 8601 的周号：`2026-W44-7`
     let iso = now.date().iso_week_date();
-    let mut forms = vec![
+    vec![
         format!("{year}年{month}月{day}日"),
         format!("{year}-{month:02}-{day:02}"),
+        format!("{month}月{day}日"),
         format!("{year}/{month:02}/{day:02}"),
-    ];
-    forms.extend([
         format!("{year}年{month}月{day}日 {weekday_long}"),
+        format!("{year:04}{month:02}{day:02}"),
         format!("{year}-{month:02}-{day:02} {weekday}"),
         format!("{year}.{month:02}.{day:02}"),
-        format!("{month}月{day}日"),
-        format!("{year:04}{month:02}{day:02}"),
-        // 两位年：文件名、表头里常见
-        format!("{:02}-{month:02}-{day:02}", year % 100),
+        // 口语里的「号」，与上面「日」并列
+        format!("{year}年{month}月{day}号"),
+        // 公文、合同里的补零写法
+        format!("{year}年{month:02}月{day:02}日"),
         // 欧式 日/月/年 与美式 月/日/年，两份都给，看清楚再选
         format!("{day:02}/{month:02}/{year}"),
         format!("{month:02}/{day:02}/{year}"),
+        // 两位年：文件名、表头里常见
+        format!("{:02}-{month:02}-{day:02}", year % 100),
         format!(
             "{}-W{:02}-{}",
             iso.year(),
@@ -360,11 +366,13 @@ pub fn date_forms(now: &Zoned) -> Vec<String> {
             chinese_lower(&month.to_string()),
             chinese_lower(&day.to_string())
         ),
-    ]);
-    forms
+    ]
 }
 
-/// `sj`：现在。24 / 12 小时制、带秒、带毫秒、中文读法、纯数字、完整日期时间、文件名友好格式。
+/// `sj`：现在。按日常出现频次排：时分、时分秒、中文读法、口语 12 小时制、
+/// 中文带秒、毫秒、英文 12 小时制、完整日期时间、纯数字串、文件时间戳。
+///
+/// 毫秒排在「中文带秒」之后：打点记时间的人不少，但大多数人只看时分。
 pub fn time_forms(now: &Zoned) -> Vec<String> {
     let (year, month, day) = (now.year(), now.month(), now.day());
     let (hour, minute, second) = (now.hour(), now.minute(), now.second());
@@ -376,22 +384,22 @@ pub fn time_forms(now: &Zoned) -> Vec<String> {
         _ => (hour - 12, "下午", "PM"),
     };
     vec![
-        // 前三条是原有顺序，不动它：常用写法始终排在最前
+        // 前三：时分、时分秒、中文读法——覆盖绝大多数场合
         format!("{hour:02}:{minute:02}"),
         format!("{hour:02}:{minute:02}:{second:02}"),
         format!("{hour}点{minute:02}分"),
-        // 以下是补的写法，毫秒放补的第一条：打点记时间的人不用翻页
-        format!("{hour:02}:{minute:02}:{second:02}.{millis:03}"),
-        format!("{year}-{month:02}-{day:02} {hour:02}:{minute:02}:{second:02}.{millis:03}"),
-        format!("{year}-{month:02}-{day:02} {hour:02}:{minute:02}:{second:02}"),
-        format!("{hour}点{minute:02}分{second:02}秒"),
-        // 12 小时制：中文口语与英文惯例各一份
+        // 口语里说钟点多半用 12 小时制
         format!("{meridiem_cn}{hour12}:{minute:02}"),
+        format!("{hour}点{minute:02}分{second:02}秒"),
+        // 毫秒：打点、记日志的人不用翻页
+        format!("{hour:02}:{minute:02}:{second:02}.{millis:03}"),
         format!("{hour12}:{minute:02} {meridiem_en}"),
-        // 纯数字：`170725123` 带毫秒、`170725`、`1707`、14 位时间戳
-        format!("{hour:02}{minute:02}{second:02}{millis:03}"),
+        format!("{year}-{month:02}-{day:02} {hour:02}:{minute:02}:{second:02}"),
+        // 纯数字：`190623`、`1906`、带毫秒的 9 位
         format!("{hour:02}{minute:02}{second:02}"),
         format!("{hour:02}{minute:02}"),
+        format!("{hour:02}{minute:02}{second:02}{millis:03}"),
+        format!("{year}-{month:02}-{day:02} {hour:02}:{minute:02}:{second:02}.{millis:03}"),
         format!("{year:04}{month:02}{day:02}{hour:02}{minute:02}{second:02}"),
         // 文件名 / 日志时间戳友好
         format!("{year:04}{month:02}{day:02}_{hour:02}{minute:02}{second:02}"),
@@ -540,7 +548,10 @@ mod tests {
         let forms = date_forms(&fixed());
         assert_eq!(forms[0], "2026年11月1日");
         assert_eq!(forms[1], "2026-11-01");
-        assert_eq!(forms[2], "2026/11/01");
+        assert_eq!(forms[2], "11月1日");
+        assert!(forms.iter().any(|f| f == "2026/11/01"));
+        assert!(forms.iter().any(|f| f == "2026年11月1号"));
+        assert!(forms.iter().any(|f| f == "2026年11月01日"));
         assert!(forms.iter().any(|f| f == "2026年11月1日 星期日"));
         assert!(forms.iter().any(|f| f == "20261101"));
         assert!(forms.iter().any(|f| f == "26-11-01"));
@@ -554,7 +565,8 @@ mod tests {
         assert_eq!(forms[0], "17:07");
         assert_eq!(forms[1], "17:07:25");
         assert_eq!(forms[2], "17点07分");
-        assert_eq!(forms[3], "17:07:25.123");
+        assert_eq!(forms[3], "下午5:07");
+        assert!(forms.iter().any(|f| f == "17:07:25.123"));
         assert!(forms.iter().any(|f| f == "2026-11-01 17:07:25"));
         assert!(forms.iter().any(|f| f == "下午5:07"));
         assert!(forms.iter().any(|f| f == "5:07 PM"));
