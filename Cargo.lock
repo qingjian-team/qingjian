@@ -4226,7 +4226,7 @@ dependencies = [
 
 [[package]]
 name = "qingjian-windows-server"
-version = "0.3.5-dev"
+version = "0.3.5"
 dependencies = [
  "bamboo-slip-i18n",
  "dotenvy",
@@ -4255,7 +4255,7 @@ dependencies = [
 
 [[package]]
 name = "qingjian-windows-settings"
-version = "0.3.5-dev"
+version = "0.3.5"
 dependencies = [
  "jiff",
  "qingjian-core",
@@ -4276,7 +4276,7 @@ dependencies = [
 
 [[package]]
 name = "qingjian-windows-tsf"
-version = "0.3.5-dev"
+version = "0.3.5"
 dependencies = [
  "qingjian-core",
  "qingjian-platform",
