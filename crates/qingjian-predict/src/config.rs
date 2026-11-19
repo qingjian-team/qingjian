@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::net::IpAddr;
 use std::path::Path;
 
@@ -70,6 +71,10 @@ pub struct PredictConfig {
 
     /// 追加给 llama-server 的参数，排在青简给的参数后面，同一参数以这里的为准。
     pub local_args: Vec<String>,
+
+    /// 给 llama-server 设的环境变量，加在输入法自己的环境上：有几块显卡时用 `CUDA_VISIBLE_DEVICES` 指定用哪块，
+    /// 自己编译的版本要的开关也写这里。让服务要密钥的两个变量照样去掉。
+    pub local_env: BTreeMap<String, String>,
 }
 
 impl Default for PredictConfig {
@@ -94,6 +99,7 @@ impl Default for PredictConfig {
             local_server: String::new(),
             local_port: DEFAULT_LOCAL_PORT,
             local_args: Vec::new(),
+            local_env: BTreeMap::new(),
         }
     }
 }

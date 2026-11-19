@@ -106,6 +106,7 @@ local_model = "/Users/me/models/Qwen3.5-2B-Q6_K.gguf"
 - `local_server`：llama-server 程序的完整路径，对应「llama-server」一项；空串时在 PATH 与 Homebrew、winget 的安装位置里找。
 - `local_port`：llama-server 监听的端口，缺省 18686，只监听 127.0.0.1。被别的程序占用时换一个。
 - `local_args`：追加给 llama-server 的参数，字符串列表，排在青简给的参数后面，同一参数以这里的为准。如 `["-ngl", "0"]` 只用 CPU，`["-t", "4"]` 只用 4 个线程，`["-c", "4096"]` 缩小上下文以节省内存。不要改监听地址与端口，不要加 `--api-key`（青简的请求不带密钥）与 `-v`（会把请求内容写进日志）。
+- `local_env`：给 llama-server 设的环境变量，写成表，加在输入法自己的环境上。有几块显卡时 llama.cpp 缺省全都用上，只让它用第一块写 `local_env = { CUDA_VISIBLE_DEVICES = "0" }`（数字是显卡序号）；自己编译的 llama.cpp 需要的开关也写在这里。`LLAMA_API_KEY` 与 `LLAMA_ARG_API_KEY_FILE` 写了也不传。
 - 只用 CPU 时第一次请求可能需要十几秒，若一直提示超时，增大同一分节的 `timeout_ms`（如 `15000`）。
 - 这几项改了会重启 llama-server；本机模型的路径不随导出的设置带走。
 

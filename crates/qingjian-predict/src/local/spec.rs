@@ -1,5 +1,6 @@
 //! llama-server 的启动参数：来自 `[predict]` 的 `local_*` 几项；参数相同的客户端共用一个服务。
 
+use std::collections::BTreeMap;
 use std::ffi::OsString;
 use std::path::PathBuf;
 
@@ -43,6 +44,9 @@ pub(crate) struct LaunchSpec {
 
     /// 用户追加的参数。
     pub extra: Vec<String>,
+
+    /// 用户给的环境变量；变量名为空或带 `=` 的已去掉（系统不认这样的名字）。
+    pub env: BTreeMap<String, String>,
 }
 
 impl LaunchSpec {
@@ -54,6 +58,12 @@ impl LaunchSpec {
             server: (!server.is_empty()).then(|| PathBuf::from(server)),
             port: config.served_port(),
             extra: config.local_args.clone(),
+            env: config
+                .local_env
+                .iter()
+                .map(|(name, value)| (name.trim().to_owned(), value.clone()))
+                .filter(|(name, _)| !name.is_empty() && !name.contains('='))
+                .collect(),
         })
     }
 

@@ -1,5 +1,6 @@
 //! 本机服务的测试：启动参数、找程序、端口探测、退出原因、状态通知与租约共用；端口上用假服务答话，不起真的 llama-server。
 
+use std::collections::BTreeMap;
 use std::io::{BufRead, BufReader, Write};
 use std::net::TcpListener;
 use std::path::PathBuf;
@@ -13,6 +14,7 @@ use super::probe::{Probe, parse_response, probe, serving};
 use super::server::LocalServer;
 use super::spec::{ALIAS, LaunchSpec};
 use super::status::{State, Status};
+use super::tail::strip_colors;
 use crate::config::PredictConfig;
 
 /// 等服务就绪或报错的上限：Windows 上探一个空端口要两秒左右。
@@ -24,6 +26,7 @@ fn spec(model: &str, port: u16) -> LaunchSpec {
         server: None,
         port,
         extra: Vec::new(),
+        env: BTreeMap::new(),
     }
 }
 
@@ -105,12 +108,26 @@ fn spec_comes_from_the_local_keys_and_user_arguments_go_last() {
         local_model: " /models/Qwen3.5-2B-Q6_K.gguf ".to_owned(),
         local_server: " ".to_owned(),
         local_args: vec!["-ngl".to_owned(), "0".to_owned()],
+        local_env: BTreeMap::from([
+            ("CUDA_VISIBLE_DEVICES".to_owned(), "0".to_owned()),
+            (" GGML_FLAG ".to_owned(), "1".to_owned()),
+            (String::new(), "x".to_owned()),
+            ("A=B".to_owned(), "x".to_owned()),
+        ]),
         ..PredictConfig::default()
     };
     let spec = LaunchSpec::from_config(&config).unwrap();
     assert_eq!(spec.model, "/models/Qwen3.5-2B-Q6_K.gguf");
     assert_eq!(spec.server, None);
     assert_eq!(spec.port, 18686);
+    // 变量名去掉首尾空白；系统不认的名字（空的、带 = 的）不要
+    assert_eq!(
+        spec.env,
+        BTreeMap::from([
+            ("CUDA_VISIBLE_DEVICES".to_owned(), "0".to_owned()),
+            ("GGML_FLAG".to_owned(), "1".to_owned()),
+        ])
+    );
     let arguments: Vec<String> = spec
         .arguments()
         .into_iter()
@@ -189,7 +206,7 @@ fn props_name_the_alias_and_model() {
 }
 
 #[test]
-fn probe_tells_free_loading_serving_and_other_apart() {
+fn probe_tells_free_loading_serving_silent_and_other_apart() {
     assert_eq!(probe(free_port()), Probe::Free);
     let loading = FakeServer::start(503, r#"{"error":{"message":"Loading model"}}"#.to_owned());
     assert_eq!(probe(loading.port), Probe::Loading);
@@ -203,6 +220,12 @@ fn probe_tells_free_loading_serving_and_other_apart() {
     );
     let other = FakeServer::start(404, "not found".to_owned());
     assert_eq!(probe(other.port), Probe::Other);
+    // 连上就断：加载失败、正在退出的服务就是这样，不当成别的程序
+    let closing = TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = closing.local_addr().unwrap().port();
+    let closer = std::thread::spawn(move || drop(closing.accept()));
+    assert_eq!(probe(port), Probe::Silent);
+    closer.join().unwrap();
 }
 
 /// 输出都照 llama-server 出错时的原样。
@@ -237,6 +260,25 @@ fn exit_reason_is_the_last_error_without_the_log_prefix() {
     assert_eq!(
         reason(&["error: invalid argument: --no-such-flag"]),
         "error: invalid argument: --no-such-flag"
+    );
+    // 显卡用不了（llama-server 往管道里也输出了颜色）：原因是缩进的说明行前面那条
+    let colored = [
+        "\u{1b}[34m0.03.113.583\u{1b}[0m \u{1b}[32mI \u{1b}[0mcmn          init: llama threadpool init, n_threads = 18",
+        "F:\\tools\\llama.cpp\\ggml\\src\\ggml-cuda\\ggml-cuda.cu:108: CUDA error",
+        "\u{1b}[34m0.03.178.226\u{1b}[0m \u{1b}[31mE CUDA error: no kernel image is available for execution on the device",
+        "\u{1b}[0m\u{1b}[34m0.03.178.233\u{1b}[0m \u{1b}[31mE   current device: 1, in function ggml_cuda_kernel_can_use_pdl at F:\\tools\\llama.cpp\\ggml\\src\\ggml-cuda\\common.cuh:1754",
+        "\u{1b}[0m\u{1b}[34m0.03.178.234\u{1b}[0m \u{1b}[31mE   cudaFuncGetAttributes(&attr, kernel)",
+        "\u{1b}[0m",
+    ];
+    let plain: Vec<String> = colored.iter().map(|line| strip_colors(line)).collect();
+    assert_eq!(
+        plain[0],
+        "0.03.113.583 I cmn          init: llama threadpool init, n_threads = 18"
+    );
+    assert_eq!(plain[5], "");
+    assert_eq!(
+        reason(&plain.iter().map(String::as_str).collect::<Vec<_>>()),
+        "CUDA error: no kernel image is available for execution on the device"
     );
     // 没有报错就取最后一行，再没有就是退出码
     assert_eq!(
@@ -326,4 +368,55 @@ fn clients_with_the_same_spec_share_one_server() {
     assert!(Arc::ptr_eq(&first, &second));
     let other = LocalServer::lease(spec("/no/such/other.gguf", port));
     assert!(!Arc::ptr_eq(&first, &other));
+}
+
+/// 配置里的环境变量加在输入法自己的环境上带给服务；让服务要密钥的变量写了也去掉。
+#[cfg(unix)]
+#[test]
+fn the_server_gets_the_configured_environment_without_key_variables() {
+    use std::os::unix::fs::PermissionsExt;
+    use std::time::Instant;
+
+    let dir = temp_dir("env");
+    let model = dir.join("model.gguf");
+    std::fs::write(&model, b"GGUF").unwrap();
+    // 假的 llama-server：记下看到的环境变量，报错退出
+    let record = dir.join("env.txt");
+    let program = dir.join("llama-server");
+    std::fs::write(
+        &program,
+        format!(
+            "#!/bin/sh\necho \"$CUDA_VISIBLE_DEVICES ${{LLAMA_API_KEY-none}} ${{HOME:+inherited}}\" > '{}'\necho 'error: fake server' >&2\nexit 1\n",
+            record.display()
+        ),
+    )
+    .unwrap();
+    std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let mut spec = spec(model.to_str().unwrap(), free_port());
+    spec.server = Some(program);
+    spec.env = BTreeMap::from([
+        ("CUDA_VISIBLE_DEVICES".to_owned(), "0".to_owned()),
+        ("LLAMA_API_KEY".to_owned(), "secret".to_owned()),
+    ]);
+    let server = LocalServer::lease(spec);
+    let deadline = Instant::now() + WAIT;
+    let outcome = loop {
+        match server.wait_ready(WAIT) {
+            // 刚写好的脚本偶尔还被别的测试刚起的子进程占着（Text file busy），后台线程两秒后会再起
+            Err(LocalServerError::Spawn(_)) if Instant::now() < deadline => {
+                std::thread::sleep(Duration::from_millis(100));
+            }
+            outcome => break outcome,
+        }
+    };
+    assert_eq!(
+        outcome,
+        Err(LocalServerError::Exited("error: fake server".to_owned()))
+    );
+    assert_eq!(
+        std::fs::read_to_string(&record).unwrap(),
+        "0 none inherited\n"
+    );
+    drop(server);
+    let _ = std::fs::remove_dir_all(&dir);
 }

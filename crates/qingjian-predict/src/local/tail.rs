@@ -1,5 +1,5 @@
 //! llama-server 的输出（全在 stderr）：逐行转进调试日志，留最后几十行，服务意外退出时拿来说明原因。
-//! 缺省的输出只有加载过程与每次请求的耗时，不含请求的原文。
+//! 缺省的输出只有加载过程与每次请求的耗时，不含请求的原文。有的版本往管道里也输出颜色，读进来就去掉。
 
 use std::collections::VecDeque;
 use std::io::{BufRead, BufReader};
@@ -55,7 +55,9 @@ fn read(stderr: ChildStderr, lines: &Mutex<VecDeque<String>>) {
             Ok(0) | Err(_) => break,
             Ok(_) => {}
         }
-        let line = String::from_utf8_lossy(&buffer).trim_end().to_owned();
+        let line = strip_colors(&String::from_utf8_lossy(&buffer))
+            .trim_end()
+            .to_owned();
         if line.is_empty() {
             continue;
         }
@@ -66,4 +68,22 @@ fn read(stderr: ChildStderr, lines: &Mutex<VecDeque<String>>) {
         }
         lines.push_back(line);
     }
+}
+
+/// 去掉终端控制序列：颜色这类 `ESC [ 参数 结尾字母`，其余 `ESC` 连同紧跟的一个字符。
+pub(crate) fn strip_colors(text: &str) -> String {
+    let mut plain = String::with_capacity(text.len());
+    let mut chars = text.chars();
+    while let Some(c) = chars.next() {
+        if c != '\u{1b}' {
+            plain.push(c);
+        } else if chars.next() == Some('[') {
+            for c in chars.by_ref() {
+                if ('\u{40}'..='\u{7e}').contains(&c) {
+                    break;
+                }
+            }
+        }
+    }
+    plain
 }

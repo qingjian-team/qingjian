@@ -28,6 +28,9 @@ const ADOPTED_POLL: Duration = Duration::from_secs(2);
 /// 换模型时端口上还是青简起的旧模型，最多等它这么久让出端口。
 const HANDOFF: Duration = Duration::from_secs(15);
 
+/// 端口上的程序不答话（多半是别的青简进程起的、正在起或正在退出的服务），最多等它这么久再算端口被占。
+const SILENT: Duration = Duration::from_secs(10);
+
 /// 失败后第一次重试的间隔；之后每次翻倍，最长 [`RETRY_MAX`]。
 const RETRY_FIRST: Duration = Duration::from_secs(2);
 
@@ -36,7 +39,8 @@ const RETRY_MAX: Duration = Duration::from_secs(60);
 /// 服务稳稳跑过这么久再退出，重试间隔从头算。
 const STABLE: Duration = Duration::from_secs(60);
 
-/// 设成服务的环境变量就会要密钥；青简的请求不带密钥，会被当成密钥无效暂停 10 分钟，所以起服务时去掉。
+/// 设成服务的环境变量就会要密钥；青简的请求不带密钥，会被当成密钥无效暂停 10 分钟，所以起服务时去掉
+/// （`local_env` 里写了也去掉）。
 const KEY_VARIABLES: [&str; 2] = ["LLAMA_API_KEY", "LLAMA_ARG_API_KEY_FILE"];
 
 pub(crate) struct Supervisor {
@@ -122,6 +126,7 @@ impl Supervisor {
                     Round::Again
                 }
             }
+            Probe::Silent => self.settle(),
             Probe::Serving { .. } | Probe::Other => {
                 Round::failed(LocalServerError::PortTaken(self.spec.port))
             }
@@ -223,6 +228,22 @@ impl Supervisor {
         Round::failed(LocalServerError::PortTaken(self.spec.port))
     }
 
+    /// 端口上有程序却不答话：别的青简进程起的服务加载失败、正在退出时就是这样，等它有个结果；
+    /// 一直不答话才算端口被别的程序占着。
+    fn settle(&mut self) -> Round {
+        self.status.set(State::Starting);
+        let deadline = Instant::now() + SILENT;
+        while Instant::now() < deadline {
+            if self.pause(STARTING_POLL) {
+                return Round::Stopped;
+            }
+            if probe(self.spec.port) != Probe::Silent {
+                return Round::Again;
+            }
+        }
+        Round::failed(LocalServerError::PortTaken(self.spec.port))
+    }
+
     /// 起看门进程；起不来只记一笔，服务照起。
     fn guard(&self, pid: u32) -> Option<Watchdog> {
         if !self.watchdog {
@@ -245,10 +266,12 @@ impl Supervisor {
 }
 
 /// 起 llama-server：输出全在 stderr，接管道；工作目录设在程序旁边（Windows 版的 DLL 在那里）。
+/// 环境变量在输入法自己的环境上加用户给的那些。
 fn spawn(program: &Path, spec: &LaunchSpec) -> io::Result<Child> {
     let mut command = Command::new(program);
     command
         .args(spec.arguments())
+        .envs(&spec.env)
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::piped());
@@ -267,38 +290,58 @@ fn spawn(program: &Path, spec: &LaunchSpec) -> io::Result<Child> {
     command.spawn()
 }
 
-/// 退出原因：输出里最后一条报错（收尾的「exiting due to …」不算，它不说原因），没有就最后一行，再没有就是退出码。
+/// 退出原因：输出里最后一条报错，没有就最后一行，再没有就是退出码。不算的报错：收尾的「exiting due to …」
+/// （不说原因）与缩进的说明行（CUDA 报错后面的「current device: 1, …」与出错的调用，原因在它们前面那条）。
 pub(crate) fn reason(lines: &[String], exit: ExitStatus) -> String {
-    let lines: Vec<(bool, String)> = lines
+    let lines: Vec<Line> = lines
         .iter()
         .map(|line| parse_line(line))
-        .filter(|(_, text)| !text.is_empty())
+        .filter(|line| !line.text.is_empty())
         .collect();
     lines
         .iter()
         .rev()
-        .find(|(error, text)| *error && !text.contains("exiting due to"))
+        .find(|line| line.error && !line.detail && !line.text.contains("exiting due to"))
         .or(lines.last())
-        .map_or_else(|| exit.to_string(), |(_, text)| text.clone())
+        .map_or_else(|| exit.to_string(), |line| line.text.clone())
 }
 
-/// 一行输出 → （是不是报错，正文）。llama.cpp 的日志行是 `0.00.002.611 E srv  start: …`，级别 E 是报错，
-/// 正文去掉行首的时间与级别；参数错这类不走日志的输出没有行首，含 error 或 failed 算报错。连续空白并成一个。
-fn parse_line(line: &str) -> (bool, String) {
+/// 拆开的一行输出。
+struct Line {
+    /// 级别 E 的日志行，或不走日志、含 error / failed 的行。
+    error: bool,
+
+    /// 正文缩进的日志行：接在上一条后面的说明。
+    detail: bool,
+
+    /// 去掉行首的时间与级别、连续空白并成一个的正文。
+    text: String,
+}
+
+/// llama.cpp 的日志行是 `0.00.002.611 E srv  start: …`，级别 E 是报错；参数错这类不走日志的输出没有行首。
+fn parse_line(line: &str) -> Line {
     let line = line.trim();
     let mut parts = line.splitn(3, ' ');
-    let (error, text) = match (parts.next(), parts.next(), parts.next()) {
+    let (error, detail, text) = match (parts.next(), parts.next(), parts.next()) {
         (Some(time), Some(level), Some(rest))
             if !time.is_empty()
                 && time.chars().all(|c| c.is_ascii_digit() || c == '.')
                 && level.len() == 1 =>
         {
-            (level == "E", rest)
+            (level == "E", rest.starts_with(char::is_whitespace), rest)
         }
         _ => {
             let lower = line.to_ascii_lowercase();
-            (lower.contains("error") || lower.contains("failed"), line)
+            (
+                lower.contains("error") || lower.contains("failed"),
+                false,
+                line,
+            )
         }
     };
-    (error, text.split_whitespace().collect::<Vec<_>>().join(" "))
+    Line {
+        error,
+        detail,
+        text: text.split_whitespace().collect::<Vec<_>>().join(" "),
+    }
 }

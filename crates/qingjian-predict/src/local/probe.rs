@@ -25,6 +25,9 @@ pub(crate) enum Probe {
     /// 加载好了的 llama-server：模型名（`--alias`）与模型路径（`-m` 原样）。
     Serving { alias: String, model: String },
 
+    /// 有程序在听却没答上话（超时、连上就断、回的不是 HTTP）：多半是正在起或正在退出的 llama-server。
+    Silent,
+
     /// 别的程序，或要密钥的 llama-server。
     Other,
 }
@@ -37,7 +40,8 @@ pub(crate) fn probe(port: u16) -> Probe {
     match get(stream, port, "/props") {
         Ok((503, _)) => Probe::Loading,
         Ok((200, body)) => serving(&body).unwrap_or(Probe::Other),
-        Ok(_) | Err(_) => Probe::Other,
+        Ok(_) => Probe::Other,
+        Err(_) => Probe::Silent,
     }
 }
 
