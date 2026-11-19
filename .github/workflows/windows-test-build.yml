@@ -1,0 +1,72 @@
+# 临时：从本分支打一个 Windows 测试安装包，传成这次运行的构建产物（artifact）供下载试用；打完就删掉这个文件。
+# 步骤照搬 release.yml 的 windows job，只是不经 prepare 门禁（不要索引签名、不要求去掉 -dev、不要求已合并到 main）、
+# 不传 Release：版本号是开发版加提交哈希（build.ps1 自己接），没有代码签名，uiAccess 关着。
+name: windows-test-build
+
+on:
+  push:
+    branches: ['arena/41af9690-qingjian-local2bai']
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 90
+    defaults:
+      run:
+        shell: bash
+    env:
+      QINGJIAN_UIACCESS: '0'
+      PYTHON: python
+      # Windows 上 Python 的标准输出缺省 cp1252，中文输出会编码失败。
+      PYTHONUTF8: '1'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
+        with:
+          toolchain: 1.96.0
+          # 安装包另带一份 32 位 TSF DLL（build.ps1 编）
+          targets: i686-pc-windows-msvc
+
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+
+      - name: Fetch product data
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tools/release/data-fetch.sh
+          ls -la data/generated data/models/hanzhang-tongbian
+
+      # 与 release.yml 同一个文件、同一个 SHA-256。
+      - name: Install Inno Setup 7.1.0
+        shell: pwsh
+        run: |
+          $url = 'https://github.com/jrsoftware/issrc/releases/download/is-7_1_0/innosetup-7.1.0-x64.exe'
+          $expected = '0362a383ed217d4c4239b5933866dd96d3eb2102737da92f80f6057a4b40df2f'
+          $exe = Join-Path $env:RUNNER_TEMP 'innosetup.exe'
+          Invoke-WebRequest -Uri $url -OutFile $exe
+          $actual = (Get-FileHash -Path $exe -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($actual -ne $expected) { throw "Inno Setup 安装程序 SHA-256 不符：$actual" }
+          Start-Process -FilePath $exe -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/SP-' -Wait
+          & "${env:ProgramFiles}\Inno Setup 7\ISCC.exe" --version
+
+      - name: Build installer
+        shell: pwsh
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File apps\windows\installer\build.ps1
+
+      - name: Upload installer
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: qingjian-windows-setup
+          path: target/installer/*.exe
+          if-no-files-found: error
+          retention-days: 14
