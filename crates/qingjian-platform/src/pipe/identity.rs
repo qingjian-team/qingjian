@@ -55,7 +55,7 @@ pub fn server_is_trusted(pipe: HANDLE, expected_exe: &Path, me: &UserSid) -> boo
 }
 
 /// 管道对象的所有者。
-fn pipe_owner(pipe: HANDLE) -> Option<UserSid> {
+pub(super) fn pipe_owner(pipe: HANDLE) -> Option<UserSid> {
     let mut owner = PSID::default();
     let mut descriptor = PSECURITY_DESCRIPTOR::default();
     let status = unsafe {
