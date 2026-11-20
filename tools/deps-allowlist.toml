@@ -1,0 +1,26 @@
+# 架构依赖存量豁免（与 tools/quality/allowlist.toml 同一风格）。
+# 只有登记过的违规才放行；新增违规、登记边变大（多出一种 kind）、豁免到期，CI 都会失败。
+# 重构消除违规后，直接删掉对应条目即可；脚本不会自动删除已登记项。
+#
+# 每条豁免必须带：
+#   reason  —— 为什么暂时不能改（写明现状与去向）；
+#   expires —— 到期日期 YYYY-MM-DD，或 permanent（需在 reason 里说明为何长期保留）；
+#   kinds   —— 登记时覆盖的依赖种类（normal / dev / build）；实际出现清单外的 kind 视为违规变大。
+
+[meta]
+baseline = "7de460d5"
+baseline_date = "2026-11-20"
+note = "基线在 origin/main 7de460d5 上用 cargo metadata 实测冻结，共 2 条分层违规；无成环违规。"
+
+[allow]
+# core 在 lib.rs 把 qingjian-code 作为公共模块再导出（`pub use qingjian_code as code`），
+# 剪贴板等下游经 core 取用代码识别/高亮能力。待该识别能力下沉为独立底层工具 crate，
+# 或改为下游直接依赖 qingjian-code、core 不再转发后，移除本条目。
+"core-forbidden|qingjian-core|qingjian-code" = { reason = "core 再导出 qingjian-code 作为公共 code 模块，下游经 core 取用；待下沉为独立底层工具或改为下游直连后移除", expires = "2027-06-30", kinds = ["normal"] }
+
+# 仅 dev-dependency：TSF 文本服务 DLL 的端到端协议测试把 windows-server 当作宿主链接，
+# 不进发布产物。待测试抽出独立 test-support crate 或改用 IPC mock 后移除本条目。
+"shell-to-shell|qingjian-windows-tsf|qingjian-windows-server" = { reason = "dev 依赖，仅 TSF 端到端协议测试链接 server 作宿主，非发布产物；待抽出 test-support 或改 IPC mock 后移除", expires = "2027-06-30", kinds = ["dev"] }
+
+# dev 依赖图成环登记处。基线 dev 图无环；出现 dev 环时在此按 "a|b|c" 登记并填 reason / expires。
+[dev-cycles]

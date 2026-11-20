@@ -13,6 +13,7 @@ README.md 只介绍项目（各语言译本在 [i18n/](i18n/)），所有技术�
 | 文件 | 内容 |
 |---|---|
 | [contributing.md](contributing.md) | 开发约定：架构约束短版、代码组织、版本号、提交信息、文档同步、提交前检查、发版与外部 PR 流程（CLAUDE.md 直接载入它） |
+| [dependency-rules.md](dependency-rules.md) | 架构依赖方向规则：分层模型、6 类禁止边与 feature 组合提示、豁免口径与新增 crate 清单；CI 的 `architecture` job 按同一份规则机检 |
 | [design/architecture.md](design/architecture.md) | Core 与平台层的划分、crate 结构、必须遵守的架构约束、`.qj` 数据容器 |
 | [design/candidate-ui.md](design/candidate-ui.md) | 候选窗口、按键约定与翻译 annotation 的设计 |
 | [design/landscape.md](design/landscape.md) | 同类项目（水杉、Rime）、可用数据源及其许可 |
