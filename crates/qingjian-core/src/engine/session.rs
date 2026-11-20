@@ -69,7 +69,7 @@ impl Engine {
         self.set_rescoring_context(None);
         std::mem::swap(&mut self.composition, &mut session.composition);
         std::mem::swap(&mut self.english_mode, &mut session.english_mode);
-        std::mem::swap(&mut self.punctuation, &mut session.punctuation);
+        std::mem::swap(&mut self.punct.punctuation, &mut session.punctuation);
         std::mem::swap(
             &mut self.journal.recent_commits,
             &mut session.recent_commits,
@@ -134,7 +134,7 @@ impl Engine {
         self.cancel_prediction();
         self.composition.clear();
         self.english_mode = false;
-        self.punctuation = Punctuation::default();
+        self.punct.punctuation = Punctuation::default();
         self.journal.recent_commits.clear();
         self.journal.recording.clear();
         self.input.retype_snapshot = None;
@@ -147,7 +147,7 @@ impl Engine {
         self.history.clear();
         self.examples.clear();
         self.chain = CommitChain::default();
-        self.rescoring_before = None;
+        self.tuning.rescoring_before = None;
         *self.caches.neural.borrow_mut() = super::rescoring::NeuralCache::default();
         *self.caches.correction.borrow_mut() = None;
         *self.caches.last_query.borrow_mut() = None;

@@ -17,7 +17,7 @@ impl Engine {
     /// 中文模式下把半角字符转成全角标点；不需要转换返回 `None`。
     pub fn punctuate(&mut self, c: char) -> Option<&'static str> {
         // 组句外敲的标点：辅码态到此结束（壳已经把高亮候选上屏了）
-        self.aux_code = None;
+        self.aux.aux_code = None;
         let converted = self.full_width_punctuation_of(c);
         if let Some(text) = converted {
             self.note_text(text);
@@ -33,8 +33,8 @@ impl Engine {
 
     /// 中文标点开着、`c` 又没被指定保持半角时转成的全角标点。
     pub(super) fn full_width_punctuation_of(&mut self, c: char) -> Option<&'static str> {
-        if self.full_width_punctuation && !self.half_width_symbols.contains(&c) {
-            self.punctuation.convert(c)
+        if self.punct.full_width_punctuation && !self.punct.half_width_symbols.contains(&c) {
+            self.punct.punctuation.convert(c)
         } else {
             None
         }
@@ -42,7 +42,7 @@ impl Engine {
 
     /// 壳把字符原样透传给应用后告知，用于「数字后的点保持半角」，也记入输入历史与输入日志（攒成一条 `passthrough`）。
     pub fn note_passthrough(&mut self, c: char) {
-        self.punctuation.note_passthrough(c);
+        self.punct.punctuation.note_passthrough(c);
         let text = c.encode_utf8(&mut [0; 4]).to_owned();
         self.note_text(&text);
         self.chain.reset();
@@ -68,7 +68,7 @@ impl Engine {
     /// 上次断开之后有过上屏才往输入日志记一条 `break`，连着失焦几次只记一次。
     pub fn break_chain(&mut self) {
         self.chain.reset();
-        self.punctuation.pairs().clear();
+        self.punct.punctuation.pairs().clear();
         self.journal.recent_commits.clear();
         self.flush_passthrough();
         self.finish_examples();
@@ -213,7 +213,7 @@ impl Engine {
         self.journal.typing.key(Instant::now());
         // 进缓冲区的字符也更新「上一个字符是不是数字」：直通了 `3` 再接着打拼音，
         // 后面的 `.` 不该仍按小数点保持半角（组句中标点会先把候选上屏，见壳的 apply_printable）
-        self.punctuation.note_passthrough(c);
+        self.punct.punctuation.note_passthrough(c);
         // 中文模式下 Shift+字母（配置 `shift_letter = "compose"` 时才收）：按小写进缓冲区参与匹配
         // （`Cpan` 与 `cpan` 一样出 C盘），原样上屏（回车 / 无候选）时再还原大写。
         // 缺省关：壳把大写字母直接交给应用，根本进不到这里；英文模式与英文直输段（`no-Way`）始终保留原样。
@@ -259,11 +259,11 @@ impl Engine {
 
     /// 退格真正删东西的那部分，与长按保护无关。
     fn backspace_inner(&mut self) -> bool {
-        if let Some(code) = self.aux_code.take() {
+        if let Some(code) = self.aux.aux_code.take() {
             if code.len() > 1 {
-                self.aux_code = Some(code[..code.len() - 1].to_owned());
+                self.aux.aux_code = Some(code[..code.len() - 1].to_owned());
             } else if code.len() == 1 && self.settings.aux_keep_empty {
-                self.aux_code = Some(String::new());
+                self.aux.aux_code = Some(String::new());
             }
             return true;
         }
@@ -295,10 +295,10 @@ impl Engine {
         self.composition.clear();
         self.input.held.clear();
         self.take_panel();
-        self.aux_code = None;
+        self.aux.aux_code = None;
         self.chain.leave_buffer();
         // 壳给的光标前文只对这段组句有效，下一段第一键再读
-        self.rescoring_before = None;
+        self.tuning.rescoring_before = None;
         self.input.retype_snapshot = None;
         self.input.composition_started = None;
         self.journal.typing.restart();
@@ -476,7 +476,7 @@ impl Engine {
     /// 放弃当前拼音，原样返回给壳（通常是用户按回车要上屏字母本身）。
     pub fn take_raw(&mut self) -> String {
         // 回车原样上屏拼音段：码段（没上屏的码）到此结束
-        self.aux_code = None;
+        self.aux.aux_code = None;
         // 纠错生效时用户仍按了回车：这个串就是要原样打的，记下来以后不再纠它
         let scope = self.composition.scope().to_owned();
         if !self.english_mode && self.active_correction(&scope).is_some() {
@@ -509,7 +509,7 @@ impl Engine {
         self.composition.clear();
         self.traditional.forget();
         self.remember_commit(LastCommit::plain(&raw));
-        self.punctuation.note_committed(&raw);
+        self.punct.punctuation.note_committed(&raw);
         self.note_text(&raw);
         self.chain.reset();
         if lead {

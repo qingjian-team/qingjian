@@ -56,18 +56,18 @@ impl Engine {
     /// 给模型看的前文：壳给了应用里的光标前文就用它（[`Self::set_rescoring_context`]），
     /// 否则用当前应用最近上屏的字符（太久没打的不算）；长度按 `neural_context` 截。
     pub(super) fn rescoring_context(&self) -> String {
-        if self.neural_context == 0 {
+        if self.tuning.neural_context == 0 {
             return String::new();
         }
-        match &self.rescoring_before {
-            Some(before) => take_last_chars(before, self.neural_context),
-            None => self.history.recent(self.neural_context).to_owned(),
+        match &self.tuning.rescoring_before {
+            Some(before) => take_last_chars(before, self.tuning.neural_context),
+            None => self.history.recent(self.tuning.neural_context).to_owned(),
         }
     }
 
     /// 壳告知应用里光标前的文本（每次查询前给；应用给不出就 `None`，退回本会话历史）。
     pub fn set_rescoring_context(&mut self, before: Option<String>) {
-        self.rescoring_before = before;
+        self.tuning.rescoring_before = before;
     }
 
     /// 把几条整句路径按「路径分 + λ·(神经分 − 静态分)」重排。缓存里缺分的：同步打分器当场补，异步的先记下等壳来取；
@@ -111,7 +111,7 @@ impl Engine {
         // 比静态分高十几二十 nat，抬升还随句子长短与静态模型的偏好变化。写回去会污染跨读法的比较
         // （拼写纠错的原样 vs 纠正、混输的头段 vs 整段），那两处的门槛都是按静态尺度定的：
         // `woxiangxuexirust` 就是这么被「纠正」成 我想学习如斯 的。
-        let lambda = self.neural_weight;
+        let lambda = self.tuning.neural_weight;
         let rescored = |path: &Conversion| {
             let neural = cache.get(&path.text).expect("filled above");
             path.score + lambda * (neural - path.static_score)

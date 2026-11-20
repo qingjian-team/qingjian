@@ -101,7 +101,7 @@ impl Engine {
     pub fn commit(&mut self, candidate: &Candidate) -> String {
         if self.take_panel().is_some() && !self.journal.private && !self.is_contact(&candidate.text)
         {
-            self.panel_history.record(&candidate.text);
+            self.decors.panel_history.record(&candidate.text);
         }
         let lead = self.auto_space_before(&candidate.text);
         let before = self
@@ -245,7 +245,7 @@ impl Engine {
             self.composition.scope()[..consumed.min(self.composition.scope().len())].to_owned();
         // 输入日志按实际敲键原样记：辅码态把触发键与码段接在拼音后面（"kaifa;kf"），
         // replay 逐键重喂时不需要任何特殊逻辑
-        if let Some(code) = &self.aux_code {
+        if let Some(code) = &self.aux.aux_code {
             keys.push(self.settings.aux_code_key);
             keys.push_str(code);
         }
@@ -286,7 +286,7 @@ impl Engine {
         }
         self.composition.drain_prefix(consumed);
         // 上屏即收尾：码段清空、回初始态（数字键与「标点先上屏」都走这里）
-        self.aux_code = None;
+        self.aux.aux_code = None;
         let buffer_left = !self.composition.is_empty();
         if candidate.kind != CandidateKind::Code {
             self.chain.clear_code_words();
@@ -368,7 +368,7 @@ impl Engine {
         } else {
             None
         };
-        self.punctuation.note_committed(&candidate.text);
+        self.punct.punctuation.note_committed(&candidate.text);
         self.note_text(&candidate.text);
         let learned = matches!(
             candidate.kind,

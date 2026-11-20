@@ -149,13 +149,13 @@ impl Engine {
             return;
         }
         let limit = self.models.choice_tier.context_chars(english);
-        let context = match &self.rescoring_before {
+        let context = match &self.tuning.rescoring_before {
             Some(before) => take_last_chars(before, limit),
             None => self.history.recent(limit).to_owned(),
         };
         let request = ChoiceRequest {
             context,
-            from_app: self.rescoring_before.is_some(),
+            from_app: self.tuning.rescoring_before.is_some(),
             typed: whole[0].1.clone(),
             texts: whole.iter().map(|(i, _)| items[*i].text.clone()).collect(),
         };
@@ -263,7 +263,7 @@ impl Engine {
     ) -> Option<Arc<CharTable>> {
         let choice = self.models.choice.as_ref()?;
         let limit = self.models.choice_tier.context_chars(false);
-        let context = match &self.rescoring_before {
+        let context = match &self.tuning.rescoring_before {
             Some(before) => take_last_chars(before, limit),
             None => self.history.recent(limit).to_owned(),
         };

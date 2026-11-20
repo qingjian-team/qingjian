@@ -35,6 +35,6 @@ impl Engine {
             || self.expression_mode()
             || self.question_mode()
             || self.in_aux()
-            || self.panel.is_some())
+            || self.decors.panel.is_some())
     }
 }

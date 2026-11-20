@@ -268,7 +268,7 @@ impl Engine {
     /// emoji、颜文字、符号候选：前几个中文候选里有配的，紧跟在那个词后面，右侧标注它对应的词。
     /// 同一个词后面按 emoji、颜文字、符号的顺序排，三样各有各的名额；前面已经有的（CLDR 也配了的符号）不重复出。
     pub(super) fn insert_emoji(&self, items: &mut Vec<Candidate>) {
-        if let Some(table) = self.emoji.as_ref() {
+        if let Some(table) = self.decors.emoji.as_ref() {
             insert_following(
                 items,
                 table,
@@ -277,7 +277,7 @@ impl Engine {
                 self.settings.emoji_limit,
             );
         }
-        if let Some(table) = self.kaomoji {
+        if let Some(table) = self.decors.kaomoji {
             insert_following(
                 items,
                 table,
@@ -286,7 +286,7 @@ impl Engine {
                 self.settings.kaomoji_limit,
             );
         }
-        if let Some(table) = self.symbols {
+        if let Some(table) = self.decors.symbols {
             insert_following(
                 items,
                 table,

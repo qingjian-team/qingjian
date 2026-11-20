@@ -26,9 +26,13 @@ impl Engine {
                 .map(|query| query.candidates.items)
                 .unwrap_or_default();
             let results = self.search_panel(&items);
-            SymbolPanel::new(self.composition.text(), results, self.panel_history.uses())
+            SymbolPanel::new(
+                self.composition.text(),
+                results,
+                self.decors.panel_history.uses(),
+            )
         } else {
-            SymbolPanel::new("", Vec::new(), self.panel_history.uses())
+            SymbolPanel::new("", Vec::new(), self.decors.panel_history.uses())
         };
         if self.panel_translate_available() {
             panel = panel.with_translate(self.panel_language());
@@ -36,21 +40,21 @@ impl Engine {
         let landing = if composing {
             Some(PanelGroup::Translate)
         } else {
-            self.panel_group
+            self.decors.panel_group
         };
         if let Some(group) = landing {
             panel.open_on(group);
         }
-        self.panel = Some(panel);
+        self.decors.panel = Some(panel);
         true
     }
 
     pub fn symbol_panel(&self) -> Option<&SymbolPanel> {
-        self.panel.as_ref()
+        self.decors.panel.as_ref()
     }
 
     pub fn symbol_panel_mut(&mut self) -> Option<&mut SymbolPanel> {
-        self.panel.as_mut()
+        self.decors.panel.as_mut()
     }
 
     pub fn close_symbol_panel(&mut self) {
@@ -59,10 +63,10 @@ impl Engine {
 
     /// 收起面板：记下停在哪组、翻译选的语言，作废翻译框在飞的请求（免得译文回来被当成别的结果）。
     pub(in crate::engine) fn take_panel(&mut self) -> Option<SymbolPanel> {
-        let panel = self.panel.take()?;
-        self.panel_group = Some(panel.group());
+        let panel = self.decors.panel.take()?;
+        self.decors.panel_group = Some(panel.group());
         if let Some(language) = panel.target_language() {
-            self.panel_language = Some(language);
+            self.decors.panel_language = Some(language);
         }
         if let Some(sequence) = panel.draft().in_flight() {
             self.pending_predictions.remove(&sequence);
@@ -107,7 +111,7 @@ impl Engine {
             };
             let catalogued = KEYWORDS
                 .lookup(&key)
-                .chain(self.emoji.iter().flat_map(|t| t.lookup(&key)));
+                .chain(self.decors.emoji.iter().flat_map(|t| t.lookup(&key)));
             for text in catalogued {
                 if let Some(item) = CATALOG.item(text) {
                     push(item.clone());

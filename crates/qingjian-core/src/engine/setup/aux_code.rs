@@ -8,18 +8,18 @@ use std::sync::Arc;
 impl Engine {
     /// 挂上辅码码表（用户导入的与随包的笔画表）。照 [`Self::set_extra_dictionaries`] 的模式：壳按目录与配置装配。
     pub fn with_aux_codes(mut self, tables: Vec<Arc<dyn AuxCodeLookup>>) -> Self {
-        self.aux_codes = tables;
+        self.aux.aux_codes = tables;
         self
     }
 
     /// 运行时换码表（导入 / 移除 / 开关之后）；顺带退出辅码态，免得筛的是一张已经不在的表。
     pub fn set_aux_codes(&mut self, tables: Vec<Arc<dyn AuxCodeLookup>>) {
-        self.aux_codes = tables;
-        self.aux_code = None;
+        self.aux.aux_codes = tables;
+        self.aux.aux_code = None;
     }
 
     pub fn aux_codes(&self) -> &[Arc<dyn AuxCodeLookup>] {
-        &self.aux_codes
+        &self.aux.aux_codes
     }
 
     /// 换辅码触发键（配置项 `[general] aux_code_key`）。非法的键（含当前翻页键 `page_keys`，

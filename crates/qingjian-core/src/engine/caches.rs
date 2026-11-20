@@ -2,11 +2,12 @@
 
 use std::cell::{Cell, RefCell};
 
+use crate::sentence;
+
 use super::choice;
 use super::input_log;
 use super::query;
 use super::rescoring;
-use super::sentence;
 
 /// Engine 里所有「跨按键留着」的格子：查询结果的缓存、上一次查询的摘要与痕迹。
 ///

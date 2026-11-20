@@ -12,7 +12,7 @@ impl Engine {
     /// 设置显式选区翻译的提供方，独立于自动联想；取消后旧结果不会上屏。
     pub fn set_translation_predictor(&mut self, predictor: Option<Box<dyn Predictor>>) {
         self.cancel_prediction();
-        self.panel_translations.clear();
+        self.decors.panel_translations.clear();
         self.models.translation_predictor = predictor;
     }
 
@@ -24,7 +24,7 @@ impl Engine {
     /// 运行时换掉 Predictor（菜单开关云联想 / 配置热加载）；正在等的联想一并作废。
     pub fn set_predictor(&mut self, predictor: Box<dyn Predictor>) {
         self.cancel_prediction();
-        self.panel_translations.clear();
+        self.decors.panel_translations.clear();
         self.models.predictor = predictor;
     }
 
@@ -78,46 +78,46 @@ impl Engine {
 
     /// 换一组个人 n-gram 插值参数（回放调参用）；整句格子缓存作废。
     pub fn set_interpolation(&mut self, interpolation: Interpolation) {
-        self.interpolation = interpolation;
+        self.tuning.interpolation = interpolation;
         self.forget_span_cache();
     }
 
     pub fn interpolation(&self) -> Interpolation {
-        self.interpolation
+        self.tuning.interpolation
     }
 
     /// 换一组整句搜索规模（回放调参用）；格子候选留几条由它决定，缓存作废。
     pub fn set_search_limits(&mut self, limits: SearchLimits) {
-        self.search_limits = limits;
+        self.tuning.search_limits = limits;
         self.forget_span_cache();
     }
 
     pub fn search_limits(&self) -> SearchLimits {
-        self.search_limits
+        self.tuning.search_limits
     }
 
     /// 换一组敲错纠正代价（回放调参用）；整句格子缓存与纠错缓存作废。
     pub fn set_typo_costs(&mut self, costs: TypoCosts) {
-        self.typo_costs = costs;
+        self.tuning.typo_costs = costs;
         *self.caches.correction.borrow_mut() = None;
         self.forget_span_cache();
     }
 
     pub fn typo_costs(&self) -> TypoCosts {
-        self.typo_costs
+        self.tuning.typo_costs
     }
 
     /// 整句转换与词级排序用的个人部分：学习器的个人 n-gram 配上当前插值参数。
     pub(in crate::engine) fn personal(&self) -> Personal<'_> {
         Personal {
             ngram: self.learner.user_ngram(),
-            interpolation: self.interpolation,
+            interpolation: self.tuning.interpolation,
         }
     }
 
     /// 神经分的权重 λ（0 到 1）。
     pub fn set_neural_weight(&mut self, weight: f64) {
-        self.neural_weight = weight.clamp(0.0, 1.0);
+        self.tuning.neural_weight = weight.clamp(0.0, 1.0);
         self.forget_span_cache();
     }
 
@@ -127,9 +127,9 @@ impl Engine {
         margin: Option<f64>,
         context: Option<usize>,
     ) {
-        self.neural_weight = weight.unwrap_or(NEURAL_WEIGHT).clamp(0.0, 1.0);
-        self.neural_margin = margin.unwrap_or(NEURAL_MARGIN).max(0.0);
-        self.neural_context = context.unwrap_or(RESCORE_CONTEXT_CHARS);
+        self.tuning.neural_weight = weight.unwrap_or(NEURAL_WEIGHT).clamp(0.0, 1.0);
+        self.tuning.neural_margin = margin.unwrap_or(NEURAL_MARGIN).max(0.0);
+        self.tuning.neural_context = context.unwrap_or(RESCORE_CONTEXT_CHARS);
         self.forget_span_cache();
     }
 

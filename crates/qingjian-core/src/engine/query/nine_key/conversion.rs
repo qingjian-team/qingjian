@@ -50,7 +50,7 @@ impl Engine {
                     |text| self.learner.weight(text),
                     |_, _| 0.0,
                 )
-                .with_limits(self.search_limits);
+                .with_limits(self.tuning.search_limits);
                 sentence::convert(
                     &input,
                     &shape.patterns(shape.positions.len()),

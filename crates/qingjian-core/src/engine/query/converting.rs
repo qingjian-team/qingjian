@@ -438,7 +438,7 @@ impl Engine {
         )
         .with_tones(&tones)
         .with_emission(&emission)
-        .with_limits(self.search_limits);
+        .with_limits(self.tuning.search_limits);
         let mut paths = sentence::convert_paths(
             &input,
             &expanded.positions(),
@@ -448,7 +448,7 @@ impl Engine {
         );
         // 与最优路径差得太远的不参与：那种差距多半是个人 n-gram 拉开的
         if paths.len() > 1 {
-            let floor = paths[0].score - self.neural_margin;
+            let floor = paths[0].score - self.tuning.neural_margin;
             paths.retain(|p| p.score >= floor);
             // 条件是这批路径共同解释的那段按键，不是整个作用域：英文尾巴那条只转换了 head，
             // 拿整段当条件会让它凭空背上没覆盖的字母

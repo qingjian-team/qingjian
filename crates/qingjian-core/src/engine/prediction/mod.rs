@@ -493,7 +493,7 @@ impl Engine {
         self.meter_commit(text, InputSource::CloudSentence, false);
         self.translate_for_encounter(text);
         self.composition.drain_scope();
-        self.punctuation.note_committed(text);
+        self.punct.punctuation.note_committed(text);
         self.note_text(text);
         match sentence::segment_text(text, &*self.models.language_model) {
             Some(clauses) => {

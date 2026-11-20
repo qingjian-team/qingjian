@@ -51,6 +51,6 @@ impl Engine {
         if self.composition.is_empty() {
             return None;
         }
-        self.rescoring_before.as_deref()?.chars().last()
+        self.tuning.rescoring_before.as_deref()?.chars().last()
     }
 }

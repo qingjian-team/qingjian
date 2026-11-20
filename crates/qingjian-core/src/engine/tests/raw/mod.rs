@@ -17,7 +17,7 @@ fn assert_raw(engine: &mut Engine, text: &str, cursor_bytes: usize) {
     engine.journal.logger = MutedLogger::new(Box::new(MemoryLogger(logged.clone())));
     engine.journal.meter = Box::new(MemoryMeter(metered.clone()));
     let composition = engine.composition().clone();
-    let aux = engine.aux_code.clone();
+    let aux = engine.aux_code().to_owned();
     let history = engine.history.text().to_owned();
     let last_query = engine.caches.last_query.borrow().clone();
     let last_rescored = engine.caches.last_rescored.get();
@@ -31,7 +31,7 @@ fn assert_raw(engine: &mut Engine, text: &str, cursor_bytes: usize) {
         assert_eq!(raw.cursor_bytes, cursor_bytes);
         assert!(raw.text.is_char_boundary(raw.cursor_bytes));
         assert_eq!(engine.composition(), &composition);
-        assert_eq!(engine.aux_code, aux);
+        assert_eq!(engine.aux_code(), aux);
         assert_eq!(engine.history.text(), history);
         assert_eq!(*engine.caches.last_query.borrow(), last_query);
         assert_eq!(engine.caches.last_rescored.get(), last_rescored);

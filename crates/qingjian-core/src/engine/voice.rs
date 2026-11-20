@@ -18,7 +18,7 @@ impl Engine {
         self.log_commit("", text, InputSource::Voice);
         self.meter_commit(text, InputSource::Voice, false);
         self.remember_commit(LastCommit::plain(text));
-        self.punctuation.note_committed(text);
+        self.punct.punctuation.note_committed(text);
         self.note_text(text);
         self.chain.reset();
         self.traditional.convert(text)

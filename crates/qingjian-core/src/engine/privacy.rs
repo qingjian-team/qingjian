@@ -19,7 +19,7 @@ impl Engine {
         if private {
             // 在飞的云结果不能再显示，前文也不能留
             self.cancel_prediction();
-            self.rescoring_before = None;
+            self.tuning.rescoring_before = None;
             self.examples.clear();
         }
     }

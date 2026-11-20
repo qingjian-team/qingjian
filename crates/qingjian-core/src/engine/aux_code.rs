@@ -25,9 +25,9 @@ impl Engine {
     /// - 作用域能完整切分成音节（简拼、残缺音节、英文直输段、表达式 / 问字模式都不触发）。
     pub fn aux_trigger(&self, key: char) -> bool {
         self.settings.aux_enabled
-            && !self.aux_codes.is_empty()
+            && !self.aux.aux_codes.is_empty()
             && key == self.settings.aux_code_key
-            && self.aux_code.is_none()
+            && self.aux.aux_code.is_none()
             && !self.english_mode
             && !(key == ';' && self.takes_semicolon())
             && self.composition.cursor() >= self.composition.text().len()
@@ -38,19 +38,19 @@ impl Engine {
     /// 触发键不进缓冲区，壳在 `;` 特判旁调这里。
     pub fn enter_aux(&mut self) {
         // 已经在辅码态里再调一次没有效果：码段原样留着
-        if self.aux_code.is_none() {
-            self.aux_code = Some(String::new());
+        if self.aux.aux_code.is_none() {
+            self.aux.aux_code = Some(String::new());
         }
     }
 
     /// 码段当前内容；不在辅码态时是空串。
     pub fn aux_code(&self) -> &str {
-        self.aux_code.as_deref().unwrap_or_default()
+        self.aux.aux_code.as_deref().unwrap_or_default()
     }
 
     /// 是否在辅码态。码段为空也算：刚敲下触发键、候选还没开始筛，或删空码段停在辅码态（开关开着）。
     pub fn in_aux(&self) -> bool {
-        self.aux_code.is_some()
+        self.aux.aux_code.is_some()
     }
 
     /// 当前的触发键。
@@ -63,7 +63,7 @@ impl Engine {
         if !c.is_ascii_lowercase() {
             return false;
         }
-        match &mut self.aux_code {
+        match &mut self.aux.aux_code {
             Some(code) => {
                 code.push(c);
                 true
@@ -74,24 +74,26 @@ impl Engine {
 
     /// Esc：清码段回拼音态，拼音与候选保持。
     pub fn clear_aux(&mut self) {
-        self.aux_code = None;
+        self.aux.aux_code = None;
     }
 
     /// 正在筛的码段：辅码态且码段非空时才有。码段空（刚触发或删空停住）不过滤，候选不变。
     pub(super) fn aux_filter(&self) -> Option<&str> {
-        self.aux_code.as_deref().filter(|code| !code.is_empty())
+        self.aux.aux_code.as_deref().filter(|code| !code.is_empty())
     }
 
     /// 码表插桩：`word` 有没有以 `prefix` 开头的码，有就返回命中的那条（多张表按注入顺序取第一条）。
     pub(super) fn matching_code<'a>(&'a self, word: &str, prefix: &str) -> Option<Cow<'a, str>> {
-        self.aux_codes
+        self.aux
+            .aux_codes
             .iter()
             .find_map(|table| table.code_with_prefix(word, prefix))
     }
 
     /// preedit 里的辅码两段；不在辅码态时为 `None`。
     pub(super) fn aux_segment(&self) -> Option<AuxSegment> {
-        self.aux_code
+        self.aux
+            .aux_code
             .as_ref()
             .map(|code| AuxSegment::new(self.settings.aux_code_key, code.clone()))
     }

@@ -11,9 +11,9 @@ impl Engine {
     pub fn with_emoji(mut self, mut table: EmojiTable) -> Self {
         table.retain(is_emoji);
         table.merge(builtin::emoji_supplement());
-        self.emoji = Some(table);
-        self.kaomoji = Some(&builtin::KAOMOJI);
-        self.symbols = Some(&builtin::SYMBOLS);
+        self.decors.emoji = Some(table);
+        self.decors.kaomoji = Some(&builtin::KAOMOJI);
+        self.decors.symbols = Some(&builtin::SYMBOLS);
         self.lexicon.companion_words = Some(&builtin::WORDS);
         self.forget_span_cache();
         self
@@ -86,7 +86,7 @@ impl Engine {
 
     /// 符号面板「常用」按这份记录排，从面板上屏的条目记进去（见 [`Self::commit`]）。
     pub fn with_panel_history(mut self, history: Box<dyn PanelHistory>) -> Self {
-        self.panel_history = history;
+        self.decors.panel_history = history;
         self
     }
 

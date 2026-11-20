@@ -76,7 +76,7 @@ impl Engine {
             |index, syllable| expanded.cost(index, syllable),
         )
         .with_emission(&emission)
-        .with_limits(self.search_limits);
+        .with_limits(self.tuning.search_limits);
         sentence::diagnose(&input, &expanded.positions(), gold, best)
     }
 }

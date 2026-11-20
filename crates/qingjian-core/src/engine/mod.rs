@@ -6,6 +6,7 @@
 mod alignment;
 mod annotation;
 mod aux_code;
+mod aux_codes;
 mod backspace;
 mod caches;
 mod candidate_menu;
@@ -17,6 +18,7 @@ mod composing;
 mod contacts;
 mod correcting;
 mod decoded;
+mod decors;
 mod dictionaries;
 mod extras;
 mod follow_up;
@@ -35,6 +37,7 @@ mod pairing;
 mod panel;
 pub(crate) mod prediction;
 mod privacy;
+mod punct;
 mod query;
 mod raw;
 mod reading;
@@ -48,13 +51,13 @@ mod spacing;
 mod statistics;
 mod timings;
 mod translator;
+mod tuning;
 mod vocabulary;
 mod voice;
 
 use std::collections::HashMap;
-use std::sync::Arc;
 
-use qingjian_dictionary::{AuxCodeLookup, Dictionary, WordList};
+use qingjian_dictionary::{Dictionary, WordList};
 
 pub use alignment::Alignment;
 pub use annotation::AnnotationReport;
@@ -86,17 +89,30 @@ pub use vocabulary::{
     Encounter, FRESH_UNTIL, LevelCount, NoVocabularyTracker, VocabularySummary, VocabularyTracker,
 };
 
-use crate::candidate::Language;
+#[allow(unused_imports)]
+pub(crate) use crate::candidate::Language;
+#[allow(unused_imports)]
+pub(crate) use crate::correction::TypoCosts;
+#[allow(unused_imports)]
+pub(crate) use crate::emoji::EmojiTable;
+#[allow(unused_imports)]
+pub(crate) use crate::panel::{
+    NoPanelHistory, PanelGroup, PanelHistory, SymbolPanel, TranslationCache,
+};
+#[allow(unused_imports)]
+pub(crate) use crate::punctuation::Punctuation;
+#[allow(unused_imports)]
+pub(crate) use crate::sentence;
+#[allow(unused_imports)]
+pub(crate) use crate::shuangpin::Layout;
+#[allow(unused_imports)]
+pub(crate) use crate::traditional::Traditional;
+#[allow(unused_imports)]
+pub(crate) use qingjian_dictionary::AuxCodeLookup;
+
 use crate::composition::Composition;
-use crate::correction::TypoCosts;
-use crate::emoji::EmojiTable;
 use crate::history::InputHistory;
-use crate::panel::{NoPanelHistory, PanelGroup, PanelHistory, SymbolPanel, TranslationCache};
 use crate::parser::{self, ParseError, Segmentation};
-use crate::punctuation::Punctuation;
-use crate::sentence::{self, Interpolation};
-use crate::shuangpin::Layout;
-use crate::traditional::Traditional;
 
 use commit::CommitChain;
 
@@ -116,18 +132,6 @@ pub struct Engine {
     /// 英文模式（壳里 Caps Lock 亮着）：缓冲区里的字母不当拼音，候选来自英文词表的补全与纠正。
     english_mode: bool,
 
-    /// 全角标点与引号配对状态。
-    punctuation: Punctuation,
-
-    /// 中文标点转换开关。
-    full_width_punctuation: bool,
-
-    /// 中文标点开着也保持半角的符号（`[general] half_width_symbols`，#893）。
-    half_width_symbols: Vec<char>,
-
-    /// 成对符号开关：中文与日文模式一份、英文模式一份（见 [`Self::pair_punctuation`]）。
-    pair_punctuation: (bool, bool),
-
     /// 用户定义的短语，按输入码精确匹配、按权重排在最前。
     custom_phrases: Vec<crate::CustomPhrase>,
 
@@ -143,27 +147,10 @@ pub struct Engine {
     journal: journal::EngineJournal,
     input: input::EngineInput,
     scheme: scheme::EngineScheme,
-
-    /// 壳给的应用里光标前的文本；`None` 时前文用本会话历史。
-    rescoring_before: Option<String>,
-
-    /// 重打分时神经得分的权重 λ：最终分 = 路径分 + λ·(神经分 − 静态分)。
-    neural_weight: f64,
-
-    /// 只有路径分与最优路径差距在这么多 nat 以内的路径才参与重排：差距大的多半是个人 n-gram 拉开的，通用模型不该翻盘。
-    neural_margin: f64,
-
-    /// 重打分给模型看的前文长度（本会话最近上屏的字符数），0 为不给前文。
-    neural_context: usize,
-
-    /// 个人 n-gram 与静态模型插值的参数；只有回放调参会改（`set_interpolation`），壳用缺省值。
-    interpolation: Interpolation,
-
-    /// 整句转换的搜索规模；同上，只有回放调参会改（`set_search_limits`）。见 [`sentence::SearchLimits`]。
-    search_limits: sentence::SearchLimits,
-
-    /// 敲错纠正的代价；同上，只有回放调参会改（`set_typo_costs`）。
-    typo_costs: TypoCosts,
+    punct: punct::EnginePunctuation,
+    decors: decors::EngineDecors,
+    aux: aux_codes::EngineAux,
+    tuning: tuning::EngineTuning,
 
     /// 最近几次上屏各记了哪些学习、之后退格了几个字；用户把它们删掉重选时把学习退回去（见 [`Self::note_backspace`]）。
 
@@ -187,37 +174,6 @@ pub struct Engine {
 
     /// 连续上屏的链，个人 n-gram 与自动造词靠它。
     chain: CommitChain,
-
-    /// emoji 表，没有就不出 emoji 候选。
-    emoji: Option<EmojiTable>,
-
-    /// 内置的颜文字表，带上 emoji 表时一起启用。
-    kaomoji: Option<&'static EmojiTable>,
-
-    /// 内置的符号表，带上 emoji 表时一起启用。
-    symbols: Option<&'static EmojiTable>,
-
-    /// 打开着的符号面板；`None` 是没开。上屏与清空时关掉。
-    panel: Option<SymbolPanel>,
-
-    /// 面板条目的使用记录：打开面板时排「常用」，从面板上屏时记一次；缺省不记。
-    panel_history: Box<dyn PanelHistory>,
-
-    /// 面板上次关掉时停在哪组：没在组句时打开就回到那组。
-    panel_group: Option<PanelGroup>,
-
-    /// 翻译组上次选的目标语言；没选过跟学习语言走。
-    panel_language: Option<Language>,
-
-    /// 翻译组的译文缓存，换联想提供方时清空。
-    panel_translations: TranslationCache,
-
-    /// 辅码态：`None` 是拼音态，`Some` 是辅码态（空串 = 刚敲下触发键、码段还没开始）。
-    /// 码段不进 `composition`：它与拼音分段记账、分段画（见 [`AuxSegment`]）。
-    aux_code: Option<String>,
-
-    /// 辅码码表，壳按用户目录 `codes/` 与配置装配；空表示没装码表（辅码态筛不出任何词）。
-    aux_codes: Vec<Arc<dyn AuxCodeLookup>>,
 
     /// 繁体输出：候选出 Core 时换成繁体、上屏时换回简体，缺省不转（见 [`crate::traditional`]）。
     traditional: Traditional,
@@ -355,10 +311,6 @@ impl Engine {
             composition: Composition::default(),
             english: None,
             english_mode: false,
-            punctuation: Punctuation::default(),
-            full_width_punctuation: true,
-            half_width_symbols: Vec::new(),
-            pair_punctuation: (true, false),
             custom_phrases: Vec::new(),
             blocked: Vec::new(),
             contacts: None,
@@ -369,13 +321,10 @@ impl Engine {
             journal: journal::EngineJournal::default(),
             input: input::EngineInput::default(),
             scheme: scheme::EngineScheme::default(),
-            rescoring_before: None,
-            neural_weight: NEURAL_WEIGHT,
-            neural_margin: NEURAL_MARGIN,
-            interpolation: Interpolation::DEFAULT,
-            typo_costs: TypoCosts::DEFAULT,
-            search_limits: sentence::SearchLimits::DEFAULT,
-            neural_context: RESCORE_CONTEXT_CHARS,
+            punct: punct::EnginePunctuation::default(),
+            decors: decors::EngineDecors::default(),
+            aux: aux_codes::EngineAux::default(),
+            tuning: tuning::EngineTuning::default(),
             vocabulary: Box::new(NoVocabularyTracker),
             gloss_filler: Box::new(NoGlossFiller),
             examples: vocabulary::ExampleCollector::default(),
@@ -383,16 +332,6 @@ impl Engine {
             prediction_sequence: 0,
             pending_predictions: HashMap::new(),
             chain: CommitChain::default(),
-            emoji: None,
-            kaomoji: None,
-            symbols: None,
-            panel: None,
-            panel_history: Box::new(NoPanelHistory),
-            panel_group: None,
-            panel_language: None,
-            panel_translations: TranslationCache::default(),
-            aux_code: None,
-            aux_codes: Vec::new(),
             traditional: Traditional::default(),
         }
     }

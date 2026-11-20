@@ -479,7 +479,7 @@ impl Engine {
         match aux_code {
             // 没在筛码：首条码只在显示开关开着或已在辅码态时挂，否则不逐候选查码
             None => items.extend(scored.into_iter().map(|item| {
-                let first = if self.settings.aux_show || self.aux_code.is_some() {
+                let first = if self.settings.aux_show || self.aux.aux_code.is_some() {
                     self.matching_code(item.hit.text, "")
                 } else {
                     None

@@ -77,7 +77,7 @@ impl Engine {
         self.log_commit("", &word, InputSource::FollowUp);
         self.meter_commit(&word, InputSource::FollowUp, false);
         self.remember_commit(LastCommit::plain(&word));
-        self.punctuation.note_committed(&word);
+        self.punct.punctuation.note_committed(&word);
         self.note_text(&word);
         self.traditional.convert(&word)
     }

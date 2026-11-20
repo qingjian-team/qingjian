@@ -62,7 +62,7 @@ impl Engine {
             .filter(|_| !self.scheme.phonetic)?;
         let text = self.composition.text();
         let plain = !self.english_mode
-            && self.aux_code.is_none()
+            && self.aux.aux_code.is_none()
             && self.composition.cursor() == text.len()
             && !text.is_empty()
             && text.chars().all(|c| c.is_ascii_lowercase());

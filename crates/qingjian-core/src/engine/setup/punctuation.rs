@@ -5,12 +5,12 @@ use crate::engine::Engine;
 impl Engine {
     /// 设置中文模式的标点转换。
     pub fn set_full_width_punctuation(&mut self, enabled: bool) {
-        self.full_width_punctuation = enabled;
+        self.punct.full_width_punctuation = enabled;
     }
 
     /// 中文标点开着也保持半角的符号（写代码常用的 `` ` `` 之类），只认会转全角的标点（[`crate::punctuation::converts`]）。
     pub fn set_half_width_symbols(&mut self, symbols: &str) {
-        self.half_width_symbols = symbols
+        self.punct.half_width_symbols = symbols
             .chars()
             .filter(|c| crate::punctuation::converts(*c))
             .collect();
