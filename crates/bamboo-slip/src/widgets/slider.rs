@@ -4,13 +4,13 @@
 use std::hash::Hash;
 use std::rc::Rc;
 
-use taffy::{AlignItems, LengthPercentageAuto, NodeId, Position, Rect, Style};
+use taffy::{AlignItems, LengthPercentageAuto, NodeId, Position, Rect, Size, Style};
 
 use super::WidgetTheme;
 use super::parts::{DISABLED_OPACITY, focus_ring, label, lift, row, size};
 use crate::error::RenderError;
 use crate::scene::Visual;
-use crate::ui::{Interact, KeyCode, Ui};
+use crate::ui::{ElementState, Interact, KeyCode, Ui};
 
 /// 轨道的宽、高（点）。
 const TRACK: (f32, f32) = (140.0, 4.0);
@@ -80,53 +80,7 @@ impl<'a> Slider<'a> {
     ) -> Result<NodeId, RenderError> {
         let key = ui.key(local);
         let state = ui.state(key);
-        let colors = &theme.colors;
-        let (width, track_height, knob) = (theme.px(TRACK.0), theme.px(TRACK.1), theme.px(KNOB));
-        let travel = width - knob;
-        let knob_left = travel * self.fraction();
-        let track_top = (knob - track_height) / 2.0;
-        let filled = knob_left + knob / 2.0;
-        let absolute = |left: f32, top: f32, w: f32, h: f32| Style {
-            position: Position::Absolute,
-            size: size(Some(w), Some(h)),
-            inset: Rect {
-                left: LengthPercentageAuto::length(left),
-                right: LengthPercentageAuto::auto(),
-                top: LengthPercentageAuto::length(top),
-                bottom: LengthPercentageAuto::auto(),
-            },
-            ..Style::default()
-        };
-        let radius = track_height / 2.0;
-        let track = ui.scene().node(
-            absolute(0.0, track_top, width, track_height),
-            Visual::solid(colors.well, radius),
-            &[],
-        )?;
-        let fill = ui.scene().node(
-            absolute(0.0, track_top, filled, track_height),
-            Visual::solid(colors.accent, radius),
-            &[],
-        )?;
-        let knob_node = ui.scene().node(
-            absolute(knob_left, 0.0, knob, knob),
-            Visual::solid(colors.knob, knob / 2.0),
-            &[],
-        )?;
-        ui.scene().set_effects(knob_node, vec![lift(theme)]);
-        let mut children = vec![track, fill, knob_node];
-        if state.focus_ring {
-            children.push(focus_ring(ui, theme, knob / 2.0)?);
-        }
-        let bar = ui.scene().node(
-            Style {
-                size: size(Some(width), Some(knob)),
-                flex_shrink: 0.0,
-                ..Style::default()
-            },
-            Visual::Group,
-            &children,
-        )?;
+        let bar = self.bar(ui, theme, state)?;
 
         // 闭包要 'static，不能带着 `label` 的借用，只拿数值
         let on_change = Rc::new(on_change);
@@ -162,26 +116,7 @@ impl<'a> Slider<'a> {
         );
 
         let mut parts = vec![bar];
-        if !self.label.is_empty() {
-            let text = label(
-                ui,
-                theme,
-                self.label,
-                theme.font.size - 1.0,
-                500,
-                colors.text,
-            )?;
-            let value = ui.scene().node(
-                Style {
-                    min_size: taffy::Size {
-                        width: LengthPercentageAuto::length(theme.px(VALUE_WIDTH)),
-                        height: LengthPercentageAuto::auto(),
-                    },
-                    ..Style::default()
-                },
-                Visual::Group,
-                &[text],
-            )?;
+        if let Some(value) = self.value_label(ui, theme)? {
             parts.push(value);
         }
         let node = ui.scene().node(
@@ -196,6 +131,98 @@ impl<'a> Slider<'a> {
             ui.scene().set_opacity(node, DISABLED_OPACITY);
         }
         Ok(node)
+    }
+
+    /// 轨道、已填段、旋钮与焦点环；旋钮带浮起投影。
+    fn bar<M>(
+        &self,
+        ui: &mut Ui<M>,
+        theme: &WidgetTheme,
+        state: ElementState,
+    ) -> Result<NodeId, RenderError> {
+        let colors = &theme.colors;
+        let (width, track_height, knob) = (theme.px(TRACK.0), theme.px(TRACK.1), theme.px(KNOB));
+        let travel = width - knob;
+        let knob_left = travel * self.fraction();
+        let track_top = (knob - track_height) / 2.0;
+        let filled = knob_left + knob / 2.0;
+        let radius = track_height / 2.0;
+        let track = ui.scene().node(
+            absolute(0.0, track_top, width, track_height),
+            Visual::solid(colors.well, radius),
+            &[],
+        )?;
+        let fill = ui.scene().node(
+            absolute(0.0, track_top, filled, track_height),
+            Visual::solid(colors.accent, radius),
+            &[],
+        )?;
+        let knob_node = ui.scene().node(
+            absolute(knob_left, 0.0, knob, knob),
+            Visual::solid(colors.knob, knob / 2.0),
+            &[],
+        )?;
+        ui.scene().set_effects(knob_node, vec![lift(theme)]);
+        let mut children = vec![track, fill, knob_node];
+        if state.focus_ring {
+            children.push(focus_ring(ui, theme, knob / 2.0)?);
+        }
+        ui.scene().node(
+            Style {
+                size: size(Some(width), Some(knob)),
+                flex_shrink: 0.0,
+                ..Style::default()
+            },
+            Visual::Group,
+            &children,
+        )
+    }
+
+    /// 右边的数值文字；没给标签就不建。
+    fn value_label<M>(
+        &self,
+        ui: &mut Ui<M>,
+        theme: &WidgetTheme,
+    ) -> Result<Option<NodeId>, RenderError> {
+        if self.label.is_empty() {
+            return Ok(None);
+        }
+        let colors = &theme.colors;
+        let text = label(
+            ui,
+            theme,
+            self.label,
+            theme.font.size - 1.0,
+            500,
+            colors.text,
+        )?;
+        let value = ui.scene().node(
+            Style {
+                min_size: Size {
+                    width: LengthPercentageAuto::length(theme.px(VALUE_WIDTH)),
+                    height: LengthPercentageAuto::auto(),
+                },
+                ..Style::default()
+            },
+            Visual::Group,
+            &[text],
+        )?;
+        Ok(Some(value))
+    }
+}
+
+/// 轨道/填段/旋钮共用的绝对定位样式。
+fn absolute(left: f32, top: f32, w: f32, h: f32) -> Style {
+    Style {
+        position: Position::Absolute,
+        size: size(Some(w), Some(h)),
+        inset: Rect {
+            left: LengthPercentageAuto::length(left),
+            right: LengthPercentageAuto::auto(),
+            top: LengthPercentageAuto::length(top),
+            bottom: LengthPercentageAuto::auto(),
+        },
+        ..Style::default()
     }
 }
 

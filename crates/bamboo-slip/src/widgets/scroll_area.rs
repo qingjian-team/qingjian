@@ -10,7 +10,7 @@ use super::parts::{size, solid};
 use crate::animation::Easing;
 use crate::error::RenderError;
 use crate::scene::Visual;
-use crate::ui::{Interact, ScrollbarTrack, Ui};
+use crate::ui::{ElementState, Interact, ScrollExtent, ScrollbarTrack, Ui};
 
 /// 滚动条的粗细、离视口边的距离与最短长度（点）。
 const BAR: f32 = 6.0;
@@ -53,116 +53,9 @@ impl ScrollArea {
         let key = ui.key(local);
         let state = ui.state(key);
         let ((offset_x, offset_y), extent) = ui.scroll(key);
-        let moved = ui.scene().node(
-            Style {
-                position: Position::Relative,
-                inset: Rect {
-                    left: LengthPercentageAuto::length(-offset_x),
-                    top: LengthPercentageAuto::length(-offset_y),
-                    right: LengthPercentageAuto::auto(),
-                    bottom: LengthPercentageAuto::auto(),
-                },
-                flex_shrink: 0.0,
-                flex_direction: FlexDirection::Column,
-                ..Style::default()
-            },
-            Visual::Group,
-            &[content],
-        )?;
+        let moved = moved_content(ui, offset_x, offset_y, content)?;
         let mut children = vec![moved];
-        let along = |pair: (f32, f32)| if self.horizontal { pair.0 } else { pair.1 };
-        if let Some(extent) = extent.filter(|extent| along(extent.max()) > 0.0) {
-            let (viewport, total) = (along(extent.viewport), along(extent.content));
-            let inset = theme.px(BAR_INSET);
-            let track = viewport - inset * 2.0;
-            let length = (track * viewport / total).max(theme.px(BAR_MIN)).min(track);
-            let start = inset
-                + (track - length)
-                    * (along((offset_x, offset_y)) / along(extent.max())).clamp(0.0, 1.0);
-            let track_key = key.child("track");
-            let track_state = ui.state(track_key);
-            let dragging = ui.captured(track_key);
-            let thick = if track_state.hovered || dragging {
-                BAR
-            } else {
-                theme.scrollbar_idle.min(BAR)
-            };
-            let color = theme.colors.secondary;
-            let shown = if state.hovered || dragging {
-                color
-            } else {
-                color.transparent()
-            };
-            let thumb = ui.scene().node(
-                Style {
-                    position: Position::Absolute,
-                    size: if self.horizontal {
-                        size(Some(length), Some(theme.px(thick)))
-                    } else {
-                        size(Some(theme.px(thick)), Some(length))
-                    },
-                    inset: if self.horizontal {
-                        Rect {
-                            left: LengthPercentageAuto::length(start),
-                            bottom: LengthPercentageAuto::length(inset),
-                            right: LengthPercentageAuto::auto(),
-                            top: LengthPercentageAuto::auto(),
-                        }
-                    } else {
-                        Rect {
-                            right: LengthPercentageAuto::length(inset),
-                            top: LengthPercentageAuto::length(start),
-                            left: LengthPercentageAuto::auto(),
-                            bottom: LengthPercentageAuto::auto(),
-                        }
-                    },
-                    ..Style::default()
-                },
-                solid(Some(shown), None, theme.px(thick / 2.0)),
-                &[],
-            )?;
-            ui.fade(thumb, key.child("bar"), theme.flip, Easing::Ease);
-            // 轨道比滑块宽，好点中；平时看不见，指针放上去滑块才变粗
-            let reach = theme.px(BAR) + inset * 2.0;
-            let edge = LengthPercentageAuto::length(0.0);
-            let track = ui.scene().node(
-                Style {
-                    position: Position::Absolute,
-                    inset: if self.horizontal {
-                        Rect {
-                            left: edge,
-                            right: edge,
-                            bottom: edge,
-                            top: LengthPercentageAuto::auto(),
-                        }
-                    } else {
-                        Rect {
-                            top: edge,
-                            bottom: edge,
-                            right: edge,
-                            left: LengthPercentageAuto::auto(),
-                        }
-                    },
-                    size: if self.horizontal {
-                        size(None, Some(reach))
-                    } else {
-                        size(Some(reach), None)
-                    },
-                    ..Style::default()
-                },
-                Visual::Group,
-                &[thumb],
-            )?;
-            ui.interact(
-                track,
-                track_key,
-                Interact::new().scrollbar(ScrollbarTrack {
-                    scroller: key,
-                    horizontal: self.horizontal,
-                    inset,
-                    thumb: length,
-                }),
-            );
+        if let Some(track) = self.scrollbar(ui, theme, state, key, extent, (offset_x, offset_y))? {
             children.push(track);
         }
         let viewport = ui.scene().node(
@@ -189,4 +82,136 @@ impl ScrollArea {
         ui.interact(viewport, key, Interact::new().scrolls(moved));
         Ok(viewport)
     }
+
+    /// 滚动条：内容确实溢出时才建；返回接拖动的轨道节点，不溢出时给 `None`。
+    fn scrollbar<M: Clone + 'static>(
+        &self,
+        ui: &mut Ui<M>,
+        theme: &WidgetTheme,
+        state: ElementState,
+        key: crate::ui::Key,
+        extent: Option<ScrollExtent>,
+        offset: (f32, f32),
+    ) -> Result<Option<NodeId>, RenderError> {
+        let along = |pair: (f32, f32)| if self.horizontal { pair.0 } else { pair.1 };
+        let Some(extent) = extent.filter(|extent| along(extent.max()) > 0.0) else {
+            return Ok(None);
+        };
+        let (viewport, total) = (along(extent.viewport), along(extent.content));
+        let inset = theme.px(BAR_INSET);
+        let track = viewport - inset * 2.0;
+        let length = (track * viewport / total).max(theme.px(BAR_MIN)).min(track);
+        let start =
+            inset + (track - length) * (along(offset) / along(extent.max())).clamp(0.0, 1.0);
+        let track_key = key.child("track");
+        let track_state = ui.state(track_key);
+        let dragging = ui.captured(track_key);
+        let thick = if track_state.hovered || dragging {
+            BAR
+        } else {
+            theme.scrollbar_idle.min(BAR)
+        };
+        let color = theme.colors.secondary;
+        let shown = if state.hovered || dragging {
+            color
+        } else {
+            color.transparent()
+        };
+        let thumb = ui.scene().node(
+            Style {
+                position: Position::Absolute,
+                size: if self.horizontal {
+                    size(Some(length), Some(theme.px(thick)))
+                } else {
+                    size(Some(theme.px(thick)), Some(length))
+                },
+                inset: if self.horizontal {
+                    Rect {
+                        left: LengthPercentageAuto::length(start),
+                        bottom: LengthPercentageAuto::length(inset),
+                        right: LengthPercentageAuto::auto(),
+                        top: LengthPercentageAuto::auto(),
+                    }
+                } else {
+                    Rect {
+                        right: LengthPercentageAuto::length(inset),
+                        top: LengthPercentageAuto::length(start),
+                        left: LengthPercentageAuto::auto(),
+                        bottom: LengthPercentageAuto::auto(),
+                    }
+                },
+                ..Style::default()
+            },
+            solid(Some(shown), None, theme.px(thick / 2.0)),
+            &[],
+        )?;
+        ui.fade(thumb, key.child("bar"), theme.flip, Easing::Ease);
+        // 轨道比滑块宽，好点中；平时看不见，指针放上去滑块才变粗
+        let reach = theme.px(BAR) + inset * 2.0;
+        let edge = LengthPercentageAuto::length(0.0);
+        let track_node = ui.scene().node(
+            Style {
+                position: Position::Absolute,
+                inset: if self.horizontal {
+                    Rect {
+                        left: edge,
+                        right: edge,
+                        bottom: edge,
+                        top: LengthPercentageAuto::auto(),
+                    }
+                } else {
+                    Rect {
+                        top: edge,
+                        bottom: edge,
+                        right: edge,
+                        left: LengthPercentageAuto::auto(),
+                    }
+                },
+                size: if self.horizontal {
+                    size(None, Some(reach))
+                } else {
+                    size(Some(reach), None)
+                },
+                ..Style::default()
+            },
+            Visual::Group,
+            &[thumb],
+        )?;
+        ui.interact(
+            track_node,
+            track_key,
+            Interact::new().scrollbar(ScrollbarTrack {
+                scroller: key,
+                horizontal: self.horizontal,
+                inset,
+                thumb: length,
+            }),
+        );
+        Ok(Some(track_node))
+    }
+}
+
+/// 内容层：按滚动偏移往反方向挪，超出视口的部分由视口裁掉。
+fn moved_content<M>(
+    ui: &mut Ui<M>,
+    offset_x: f32,
+    offset_y: f32,
+    content: NodeId,
+) -> Result<NodeId, RenderError> {
+    ui.scene().node(
+        Style {
+            position: Position::Relative,
+            inset: Rect {
+                left: LengthPercentageAuto::length(-offset_x),
+                top: LengthPercentageAuto::length(-offset_y),
+                right: LengthPercentageAuto::auto(),
+                bottom: LengthPercentageAuto::auto(),
+            },
+            flex_shrink: 0.0,
+            flex_direction: FlexDirection::Column,
+            ..Style::default()
+        },
+        Visual::Group,
+        &[content],
+    )
 }

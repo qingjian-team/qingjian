@@ -15,7 +15,7 @@ use super::popup_menu::{item_style, item_visual, panel_shadow, panel_visual};
 use crate::animation::Easing;
 use crate::error::RenderError;
 use crate::scene::{Icon, Visual};
-use crate::ui::{Interact, Ui};
+use crate::ui::{Interact, Key, Ui};
 
 /// 菜单最宽、最高（点），离窗口底边与触发控件的距离（点）。
 const MIN_WIDTH: f32 = 200.0;
@@ -41,6 +41,16 @@ pub struct Menu<'a> {
     anchor: (f32, f32, f32, f32),
 
     window: (f32, f32),
+}
+
+/// 菜单贴在哪、多宽多高：向上开还是向下开，贴边用的定位量。
+struct Placement {
+    upward: bool,
+    max_height: f32,
+    top: LengthPercentageAuto,
+    bottom: LengthPercentageAuto,
+    width: f32,
+    left: f32,
 }
 
 impl<'a> Menu<'a> {
@@ -79,11 +89,80 @@ impl<'a> Menu<'a> {
         on_dismiss: M,
     ) -> Result<NodeId, RenderError> {
         let key = ui.key(local);
-        let colors = &theme.colors;
         let radius = theme.px(theme.popup_radius);
+        let placement = self.placement(theme);
+
+        let mut rows = Vec::with_capacity(self.items.len());
+        for (index, item) in self.items.iter().enumerate() {
+            rows.push(self.item(ui, theme, key, index, item, &on_pick)?);
+        }
+        let list = ui.scene().node(
+            Style {
+                flex_direction: FlexDirection::Column,
+                padding: padding(theme, 4.0, 4.0),
+                ..Style::default()
+            },
+            Visual::Group,
+            &rows,
+        )?;
+        let scroll = ui.scope(key, |ui| {
+            ScrollArea::new(Style {
+                max_size: Size {
+                    width: LengthPercentageAuto::auto(),
+                    height: LengthPercentageAuto::length(placement.max_height),
+                },
+                ..Style::default()
+            })
+            .build(ui, theme, "scroll", list)
+        })?;
+        let panel = ui.scene().node(
+            Style {
+                position: Position::Absolute,
+                size: Size {
+                    width: Dimension::length(placement.width),
+                    height: Dimension::auto(),
+                },
+                inset: Rect {
+                    left: LengthPercentageAuto::length(placement.left),
+                    top: placement.top,
+                    right: LengthPercentageAuto::auto(),
+                    bottom: placement.bottom,
+                },
+                flex_direction: FlexDirection::Column,
+                ..Style::default()
+            },
+            panel_visual(theme),
+            &[scroll],
+        )?;
+        ui.scene().set_clip(panel, radius);
+        ui.scene().set_effects(panel, vec![panel_shadow(theme)]);
+        if !theme.popup_motion.is_zero() {
+            let offset = theme.px(if placement.upward {
+                GAP * 2.0
+            } else {
+                -GAP * 2.0
+            });
+            ui.enter(
+                panel,
+                key.child("panel"),
+                theme.popup_motion,
+                Easing::Bezier([0.0, 0.0, 0.0, 1.0]),
+                offset,
+            );
+        }
+        let scrim = ui.scene().node(overlay(), Visual::Group, &[])?;
+        ui.interact(
+            scrim,
+            key.child("outside"),
+            Interact::new().on_click(on_dismiss),
+        );
+        ui.scene().node(overlay(), Visual::Group, &[scrim, panel])
+    }
+
+    /// 下面放不下（连一半的最大高度都不够）而上面更宽敞时往上开，同原生菜单。
+    fn placement(&self, theme: &WidgetTheme) -> Placement {
         let (x, y, width, height) = self.anchor;
         let (gap, margin) = (theme.px(GAP), theme.px(MARGIN));
-        // 下面放不下（连一半的最大高度都不够）而上面更宽敞时往上开，同原生菜单
         let below = self.window.1 - (y + height + gap) - margin;
         let above = y - gap - margin;
         let upward = below < theme.px(MAX_HEIGHT) / 2.0 && above > below;
@@ -104,115 +183,74 @@ impl<'a> Menu<'a> {
         };
         let width = width.max(theme.px(MIN_WIDTH));
         let left = x.min(self.window.0 - width - margin).max(0.0);
+        Placement {
+            upward,
+            max_height,
+            top,
+            bottom,
+            width,
+            left,
+        }
+    }
 
-        let mut rows = Vec::with_capacity(self.items.len());
-        for (index, item) in self.items.iter().enumerate() {
-            let item_key = key.child(index);
-            let state = ui.state(item_key);
-            let side = theme.px(14.0);
-            let mut mark = Vec::new();
-            if let Some(icon) = self.icons.get(index) {
-                mark.push(ui.scene().node(
-                    centered(side, side),
-                    Visual::Icon {
-                        icon: icon.clone(),
-                        size: side,
-                        color: colors.text,
-                    },
-                    &[],
-                )?);
-            } else if self.selected == Some(index) {
-                mark.push(ui.scene().node(
-                    centered(side, side),
-                    Visual::Icon {
-                        icon: Arc::new(CheckMark),
-                        size: side,
-                        color: colors.accent,
-                    },
-                    &[],
-                )?);
-            }
-            let check = ui
-                .scene()
-                .node(centered(side, side), Visual::Group, &mark)?;
-            let text = label(ui, theme, item, theme.font.size, 400, colors.text)?;
-            let disabled = self.disabled.contains(&index);
-            let fill =
-                (!disabled && (state.hovered || state.pressed)).then_some(if state.pressed {
-                    colors.pressed
-                } else {
-                    colors.hover
-                });
-            let node =
-                ui.scene()
-                    .node(item_style(theme), item_visual(theme, fill), &[check, text])?;
-            if disabled {
-                ui.scene().set_opacity(node, DISABLED_OPACITY);
-            }
-            ui.fade(node, item_key, theme.hover, Easing::Ease);
-            ui.interact(
-                node,
-                item_key,
-                Interact::new().on_click(on_pick(index)).disabled(disabled),
-            );
-            rows.push(node);
+    /// 一行选项：前面打勾或图标、文字、悬停垫色；禁用项淡化且不接点击。
+    fn item<M: Clone + 'static>(
+        &self,
+        ui: &mut Ui<M>,
+        theme: &WidgetTheme,
+        key: Key,
+        index: usize,
+        label_text: &str,
+        on_pick: &impl Fn(usize) -> M,
+    ) -> Result<NodeId, RenderError> {
+        let colors = &theme.colors;
+        let item_key = key.child(index);
+        let state = ui.state(item_key);
+        let side = theme.px(14.0);
+        let mut mark = Vec::new();
+        if let Some(icon) = self.icons.get(index) {
+            mark.push(ui.scene().node(
+                centered(side, side),
+                Visual::Icon {
+                    icon: icon.clone(),
+                    size: side,
+                    color: colors.text,
+                },
+                &[],
+            )?);
+        } else if self.selected == Some(index) {
+            mark.push(ui.scene().node(
+                centered(side, side),
+                Visual::Icon {
+                    icon: Arc::new(CheckMark),
+                    size: side,
+                    color: colors.accent,
+                },
+                &[],
+            )?);
         }
-        let list = ui.scene().node(
-            Style {
-                flex_direction: FlexDirection::Column,
-                padding: padding(theme, 4.0, 4.0),
-                ..Style::default()
-            },
-            Visual::Group,
-            &rows,
-        )?;
-        let scroll = ui.scope(key, |ui| {
-            ScrollArea::new(Style {
-                max_size: Size {
-                    width: LengthPercentageAuto::auto(),
-                    height: LengthPercentageAuto::length(max_height),
-                },
-                ..Style::default()
-            })
-            .build(ui, theme, "scroll", list)
-        })?;
-        let panel = ui.scene().node(
-            Style {
-                position: Position::Absolute,
-                size: Size {
-                    width: Dimension::length(width),
-                    height: Dimension::auto(),
-                },
-                inset: Rect {
-                    left: LengthPercentageAuto::length(left),
-                    top,
-                    right: LengthPercentageAuto::auto(),
-                    bottom,
-                },
-                flex_direction: FlexDirection::Column,
-                ..Style::default()
-            },
-            panel_visual(theme),
-            &[scroll],
-        )?;
-        ui.scene().set_clip(panel, radius);
-        ui.scene().set_effects(panel, vec![panel_shadow(theme)]);
-        if !theme.popup_motion.is_zero() {
-            let offset = theme.px(if upward { GAP * 2.0 } else { -GAP * 2.0 });
-            ui.enter(
-                panel,
-                key.child("panel"),
-                theme.popup_motion,
-                Easing::Bezier([0.0, 0.0, 0.0, 1.0]),
-                offset,
-            );
+        let check = ui
+            .scene()
+            .node(centered(side, side), Visual::Group, &mark)?;
+        let text = label(ui, theme, label_text, theme.font.size, 400, colors.text)?;
+        let disabled = self.disabled.contains(&index);
+        let fill = (!disabled && (state.hovered || state.pressed)).then_some(if state.pressed {
+            colors.pressed
+        } else {
+            colors.hover
+        });
+        let node = ui
+            .scene()
+            .node(item_style(theme), item_visual(theme, fill), &[check, text])?;
+        if disabled {
+            ui.scene().set_opacity(node, DISABLED_OPACITY);
         }
-        let scrim = ui.scene().node(overlay(), Visual::Group, &[])?;
+        ui.fade(node, item_key, theme.hover, Easing::Ease);
         ui.interact(
-            scrim,
-            key.child("outside"),
-            Interact::new().on_click(on_dismiss),
+            node,
+            item_key,
+            Interact::new().on_click(on_pick(index)).disabled(disabled),
         );
-        ui.scene().node(overlay(), Visual::Group, &[scrim, panel])
+        Ok(node)
     }
 }

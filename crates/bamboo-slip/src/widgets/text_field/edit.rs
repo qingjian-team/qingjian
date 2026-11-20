@@ -325,4 +325,104 @@ mod tests {
         insert(&mut edit, "你");
         assert_eq!((edit.text(), edit.preedit()), ("你", ""));
     }
+
+    #[test]
+    fn empty_edit_caret_stays_at_zero_and_backspace_is_harmless() {
+        let mut edit = TextEdit::new("");
+        assert_eq!((edit.text(), edit.caret()), ("", 0));
+        assert_eq!(edit.selection(), 0..0);
+        edit.apply(&Edit::Caret(usize::MAX));
+        assert_eq!(edit.caret(), 0);
+        for _ in 0..3 {
+            key(&mut edit, KeyCode::Backspace, Modifiers::default());
+        }
+        assert_eq!(edit.text(), "");
+        assert_eq!(edit.caret(), 0);
+    }
+
+    #[test]
+    fn very_long_text_inserts_steps_and_deletes_on_char_boundary() {
+        let mut edit = TextEdit::new("");
+        let long = "字".repeat(600);
+        insert(&mut edit, &long);
+        assert!(edit.text().len() > 1000);
+        assert_eq!(edit.caret(), edit.text().len());
+        key(&mut edit, KeyCode::ArrowLeft, Modifiers::default());
+        assert!(edit.text().is_char_boundary(edit.caret()));
+        key(&mut edit, KeyCode::Backspace, Modifiers::default());
+        assert_eq!(edit.text().chars().count(), 599);
+        assert!(edit.text().is_char_boundary(edit.caret()));
+    }
+
+    #[test]
+    fn single_line_strips_newlines_and_tabs_on_paste() {
+        let mut edit = TextEdit::new("");
+        insert(&mut edit, "a\nb\tc\r\nd");
+        assert_eq!(edit.text(), "abcd");
+    }
+
+    #[test]
+    fn caret_past_end_clamps_and_char_interior_retreats_to_boundary() {
+        let mut edit = TextEdit::new("青简");
+        edit.apply(&Edit::Caret(usize::MAX));
+        assert_eq!(edit.caret(), edit.text().len());
+        // 「青」占字节 0..3，落在字节 1 要退到字符边界 0
+        edit.apply(&Edit::Caret(1));
+        assert_eq!(edit.caret(), 0);
+    }
+
+    #[test]
+    fn reversed_selection_normalizes_to_min_max() {
+        let shift = Modifiers {
+            shift: true,
+            ..Modifiers::default()
+        };
+        let mut edit = TextEdit::new("hello");
+        key(&mut edit, KeyCode::ArrowLeft, shift);
+        key(&mut edit, KeyCode::ArrowLeft, shift);
+        assert_eq!(edit.selection(), 3..5);
+    }
+
+    #[test]
+    fn paste_replaces_the_current_selection() {
+        let shift = Modifiers {
+            shift: true,
+            ..Modifiers::default()
+        };
+        let mut edit = TextEdit::new("hello world");
+        for _ in 0..5 {
+            key(&mut edit, KeyCode::ArrowLeft, shift);
+        }
+        insert(&mut edit, "q");
+        assert_eq!(edit.text(), "hello q");
+        assert_eq!(edit.selection(), 7..7);
+    }
+
+    #[test]
+    fn backspace_to_empty_stays_empty_without_panic() {
+        let mut edit = TextEdit::new("abc");
+        for _ in 0..10 {
+            key(&mut edit, KeyCode::Backspace, Modifiers::default());
+        }
+        assert_eq!(edit.text(), "");
+        assert_eq!(edit.caret(), 0);
+    }
+
+    #[test]
+    fn emoji_combine_sequence_moves_stay_on_boundaries() {
+        let family = "\u{1F468}\u{200D}\u{1F469}\u{200D}\u{1F466}";
+        let mut edit = TextEdit::new(family);
+        key(&mut edit, KeyCode::ArrowLeft, Modifiers::default());
+        assert!(edit.text().is_char_boundary(edit.caret()));
+        key(&mut edit, KeyCode::Home, Modifiers::default());
+        assert_eq!(edit.caret(), 0);
+        key(&mut edit, KeyCode::End, Modifiers::default());
+        assert_eq!(edit.caret(), family.len());
+    }
+
+    #[test]
+    fn text_edit_is_send_and_sync() {
+        fn assert_send_sync<T: Send + Sync>() {}
+        assert_send_sync::<TextEdit>();
+    }
 }
