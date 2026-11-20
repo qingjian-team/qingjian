@@ -62,8 +62,8 @@ pub(super) fn draw(
     info_top: f32,
 ) -> Result<TextBox, RenderError> {
     let spec = &m.theme.file().panel;
-    let item = m.style(m.theme.font_ref(&spec.wide_item_font), &spec.text);
-    let row_height = m.px(spec.cell);
+    let item = m.style(m.theme.font_ref(&spec.fonts.wide_item_font), &spec.paint.text);
+    let row_height = m.px(spec.metrics.cell);
     let row_top = area.y + area.height - row_height;
 
     // 原文
@@ -97,7 +97,7 @@ pub(super) fn draw(
         style: item,
         placeholder_style: styles.hint,
         caret_bar: (m.px(CARET_WIDTH), item.line_height, item.color),
-        selection_paint: m.fill(&spec.highlight, m.px(SELECTION_RADIUS)),
+        selection_paint: m.fill(&spec.paint.highlight, m.px(SELECTION_RADIUS)),
     }
     .build(&mut canvas.scene)?;
     let content = canvas.scene.node(
@@ -120,7 +120,7 @@ pub(super) fn draw(
     // 候选
     let padding = m.px(CANDIDATE_PADDING);
     let gap = m.px(CANDIDATE_GAP);
-    let radius = m.px(spec.cell_radius);
+    let radius = m.px(spec.metrics.cell_radius);
     let label_line = text.measure("国", &styles.label).height;
     let index_width = text.measure("9", &styles.label).width;
     let mut x = area.x;
@@ -132,7 +132,7 @@ pub(super) fn draw(
         }
         let cell = Area::new(x, row_top, width, row_height);
         if i == frame.highlight {
-            canvas.add(cell, m.fill(&spec.highlight, radius))?;
+            canvas.add(cell, m.fill(&spec.paint.highlight, radius))?;
         }
         let number = (i + 1).to_string();
         let number_top = row_top + (row_height - label_line) / 2.0;

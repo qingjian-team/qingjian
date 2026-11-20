@@ -53,7 +53,7 @@ pub(super) fn key(
     let style = absolute((Some(left), None), Some(top), Some((width, height)));
     scene.node(
         style,
-        Visual::solid(paint.fill, m.px(spec.key_radius)),
+        Visual::solid(paint.fill, m.px(spec.metrics.key_radius)),
         &children,
     )
 }

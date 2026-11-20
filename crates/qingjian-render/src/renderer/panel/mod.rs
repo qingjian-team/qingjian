@@ -181,30 +181,30 @@ impl Renderer {
         self.stage.text().use_families(theme.families());
         let spec = &theme.file().panel;
         let m = Metrics { theme, scale };
-        let label_font = theme.font_ref(&spec.label_font);
-        let hint_font = theme.font_ref(&spec.hint_font);
-        let label = m.style(label_font, &spec.label);
-        let hint = m.style(hint_font, &spec.hint);
+        let label_font = theme.font_ref(&spec.fonts.label_font);
+        let hint_font = theme.font_ref(&spec.fonts.hint_font);
+        let label = m.style(label_font, &spec.paint.label);
+        let hint = m.style(hint_font, &spec.paint.hint);
         let text = self.stage.text();
         let line = text.measure("国", &label).height;
         let hint_line = text.measure("国", &hint).height;
 
-        let padding = m.px(spec.padding);
-        let cell = m.px(spec.cell);
-        let cell_gap = m.px(spec.cell_gap);
+        let padding = m.px(spec.metrics.padding);
+        let cell = m.px(spec.metrics.cell);
+        let cell_gap = m.px(spec.metrics.cell_gap);
         let grid_width = cell * FULL_COLUMNS as f32 + cell_gap * (FULL_COLUMNS - 1) as f32;
         let (left, right) = (padding, padding + grid_width);
 
         // 先排好竖直方向，内容区尺寸与内容无关
-        let pill_height = line + m.px(spec.pill_padding_y) * 2.0;
+        let pill_height = line + m.px(spec.metrics.pill_padding_y) * 2.0;
         let pills_top = padding;
-        let tabs_top = pills_top + pill_height + m.px(spec.section_gap) / 2.0;
-        let tab_height = line + m.px(UNDERLINE_OFFSET + spec.underline + 2.0);
+        let tabs_top = pills_top + pill_height + m.px(spec.metrics.section_gap) / 2.0;
+        let tab_height = line + m.px(UNDERLINE_OFFSET + spec.metrics.underline + 2.0);
         let divider_top = tabs_top + tab_height;
         let divider_height = m.px(1.0).max(1.0);
-        let grid_top = divider_top + divider_height + m.px(spec.section_gap);
+        let grid_top = divider_top + divider_height + m.px(spec.metrics.section_gap);
         let rows = frame.rows.max(1);
-        let info_top = grid_top + cell * rows as f32 + m.px(spec.section_gap) / 2.0;
+        let info_top = grid_top + cell * rows as f32 + m.px(spec.metrics.section_gap) / 2.0;
         let content = ((right + padding).ceil(), (info_top + line + padding).ceil());
 
         let mut canvas = Canvas {
@@ -221,30 +221,30 @@ impl Renderer {
             let area = Area::new(
                 x,
                 pills_top,
-                width + m.px(spec.pill_padding_x) * 2.0,
+                width + m.px(spec.metrics.pill_padding_x) * 2.0,
                 pill_height,
             );
             if active {
-                canvas.add(area, m.fill(&spec.pill_fill, pill_height / 2.0))?;
+                canvas.add(area, m.fill(&spec.paint.pill_fill, pill_height / 2.0))?;
             }
             let style = if active {
-                m.style(label_font, &spec.pill_text)
+                m.style(label_font, &spec.paint.pill_text)
             } else {
                 label
             };
             let at = (
-                area.x + m.px(spec.pill_padding_x),
-                area.y + m.px(spec.pill_padding_y),
+                area.x + m.px(spec.metrics.pill_padding_x),
+                area.y + m.px(spec.metrics.pill_padding_y),
             );
             canvas.text(group, &style, at, (width + 1.0, line))?;
             canvas
                 .hits
                 .push(area.hit(HitTarget::Panel(PanelHit::Group(i))));
-            x = area.x + area.width + m.px(spec.pill_gap);
+            x = area.x + area.width + m.px(spec.metrics.pill_gap);
         }
 
         // 关闭按钮与它左边的按键提示（贴右，放不下截尾）
-        let close_size = m.px(spec.close_size);
+        let close_size = m.px(spec.metrics.close_size);
         let close = Area::new(
             right - close_size,
             pills_top + (pill_height - close_size) / 2.0,
@@ -254,7 +254,7 @@ impl Renderer {
         canvas.add(
             close,
             Visual::Box(BoxPaint {
-                fill: Some(bamboo_slip::Fill::Solid(theme.color(&spec.close_fill))),
+                fill: Some(bamboo_slip::Fill::Solid(theme.color(&spec.paint.close_fill))),
                 border: None,
                 radius: close_size / 2.0,
             }),
@@ -264,7 +264,7 @@ impl Renderer {
             Visual::Icon {
                 icon: Icon::Close.painter(),
                 size: close_size,
-                color: theme.color(&spec.close_icon),
+                color: theme.color(&spec.paint.close_icon),
             },
         )?;
         let slop = m.px(CLOSE_SLOP);
@@ -277,7 +277,7 @@ impl Renderer {
             )
             .hit(HitTarget::Panel(PanelHit::Close)),
         );
-        let hint_start = x - m.px(spec.pill_gap) + m.px(GAP);
+        let hint_start = x - m.px(spec.metrics.pill_gap) + m.px(GAP);
         let hint_end = close.x - m.px(GAP);
         if hint_end > hint_start && !frame.hint.is_empty() {
             let width = text
@@ -299,7 +299,7 @@ impl Renderer {
             .iter()
             .map(|section| text.measure(section, &label).width)
             .collect();
-        let tab_gap = m.px(spec.tab_gap);
+        let tab_gap = m.px(spec.metrics.tab_gap);
         let marker_width = text.measure("‹", &label).width;
         let marker = marker_width + tab_gap / 2.0;
         let fits = widths.iter().sum::<f32>() + tab_gap * widths.len().saturating_sub(1) as f32
@@ -312,7 +312,7 @@ impl Renderer {
         let more_left = first > 0;
         let more_right = last + 1 < widths.len();
         let mut x = left + if fits { 0.0 } else { marker };
-        let current = m.style(label_font, &spec.text);
+        let current = m.style(label_font, &spec.paint.text);
         for i in (first..=last).filter(|&i| i < widths.len()) {
             let active = i == frame.section;
             let style = if active { &current } else { &label };
@@ -327,11 +327,11 @@ impl Renderer {
                     x,
                     tabs_top + line + m.px(UNDERLINE_OFFSET),
                     widths[i],
-                    m.px(spec.underline),
+                    m.px(spec.metrics.underline),
                 );
                 canvas.add(
                     underline,
-                    Visual::solid(theme.color(&spec.underline_color), underline.height / 2.0),
+                    Visual::solid(theme.color(&spec.paint.underline_color), underline.height / 2.0),
                 )?;
             }
             canvas.hits.push(
@@ -340,7 +340,7 @@ impl Renderer {
             );
             x += widths[i] + tab_gap;
         }
-        let markers = m.style(label_font, &spec.hint);
+        let markers = m.style(label_font, &spec.paint.hint);
         if more_left {
             canvas.text("‹", &markers, (left, tabs_top), (marker_width + 1.0, line))?;
         }
@@ -350,7 +350,7 @@ impl Renderer {
         }
         canvas.add(
             Area::new(left, divider_top, right - left, divider_height),
-            Visual::solid(theme.color(&spec.divider), 0.0),
+            Visual::solid(theme.color(&spec.paint.divider), 0.0),
         )?;
 
         let mut text_box = None;
@@ -375,13 +375,13 @@ impl Renderer {
             let columns = frame.columns.clamp(1, FULL_COLUMNS);
             let cell_width = (grid_width - cell_gap * (columns - 1) as f32) / columns as f32;
             let item_font = if columns >= FULL_COLUMNS {
-                &spec.item_font
+                &spec.fonts.item_font
             } else {
-                &spec.wide_item_font
+                &spec.fonts.wide_item_font
             };
-            let item = m.style(theme.font_ref(item_font), &spec.text);
+            let item = m.style(theme.font_ref(item_font), &spec.paint.text);
             let inset = m.px(CELL_INSET);
-            let cell_radius = m.px(spec.cell_radius);
+            let cell_radius = m.px(spec.metrics.cell_radius);
             for (offset, entry) in frame.cells.iter().enumerate() {
                 let Some(entry) = entry else {
                     continue;
@@ -398,7 +398,7 @@ impl Renderer {
                     cell,
                 );
                 if offset == frame.highlight {
-                    canvas.add(area, m.fill(&spec.highlight, cell_radius))?;
+                    canvas.add(area, m.fill(&spec.paint.highlight, cell_radius))?;
                 }
                 let size = text.measure(&entry.text, &item);
                 let width = size.width.min(area.width - inset * 2.0);
@@ -458,7 +458,7 @@ impl Renderer {
         };
         let root = scene.node(
             root_style,
-            m.fill(&spec.background, m.px(spec.radius)),
+            m.fill(&spec.paint.background, m.px(spec.metrics.radius)),
             &nodes,
         )?;
         let effects = spec

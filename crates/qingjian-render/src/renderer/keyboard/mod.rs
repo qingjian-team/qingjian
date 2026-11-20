@@ -81,9 +81,9 @@ impl Renderer {
         let m = Metrics {
             theme,
             scale,
-            key_font: theme.font_ref(&spec.key_font),
-            label_font: theme.font_ref(&spec.label_font),
-            root_font: theme.font_ref(&spec.root_font),
+            key_font: theme.font_ref(&spec.fonts.key_font),
+            label_font: theme.font_ref(&spec.fonts.label_font),
+            root_font: theme.font_ref(&spec.fonts.root_font),
         };
         // 五笔键要放下一格格字根，比双拼键大
         let roots = keyboard
@@ -92,15 +92,15 @@ impl Renderer {
             .flatten()
             .any(|cap| !cap.roots.is_empty());
         let (key_width, key_height) = if roots {
-            (spec.root_key_width, spec.root_key_height)
+            (spec.metrics.root_key_width, spec.metrics.root_key_height)
         } else {
-            (spec.key_width, spec.key_height)
+            (spec.metrics.key_width, spec.metrics.key_height)
         };
         let (key_w, key_h, gap, padding) = (
             m.px(key_width),
             m.px(key_height),
-            m.px(spec.gap),
-            m.px(spec.padding),
+            m.px(spec.metrics.gap),
+            m.px(spec.metrics.padding),
         );
 
         let mut scene = Scene::new();
@@ -132,7 +132,7 @@ impl Renderer {
                 },
                 ..Style::default()
             },
-            Visual::solid(theme.color(&spec.background), m.px(spec.radius)),
+            Visual::solid(theme.color(&spec.paint.background), m.px(spec.metrics.radius)),
             &keys,
         )?;
         let effects = spec
@@ -166,30 +166,30 @@ pub(super) fn paint(state: &KeycapState, m: &Metrics) -> Paint {
     let color = |c| m.theme.color(c);
     match state {
         KeycapState::Normal => Paint {
-            fill: color(&spec.key_fill),
-            key: color(&spec.key_text),
-            corner: color(&spec.initial),
-            lines: color(&spec.label),
+            fill: color(&spec.paint.key_fill),
+            key: color(&spec.paint.key_text),
+            corner: color(&spec.paint.initial),
+            lines: color(&spec.paint.label),
         },
         KeycapState::Pressed => {
-            let text = color(&spec.pressed_text);
+            let text = color(&spec.paint.pressed_text);
             Paint {
-                fill: color(&spec.pressed_fill),
+                fill: color(&spec.paint.pressed_fill),
                 key: text,
                 corner: text,
                 lines: text,
             }
         }
         KeycapState::Next(_) => Paint {
-            fill: color(&spec.next_fill),
-            key: color(&spec.key_text),
-            corner: color(&spec.initial),
-            lines: color(&spec.next_text),
+            fill: color(&spec.paint.next_fill),
+            key: color(&spec.paint.key_text),
+            corner: color(&spec.paint.initial),
+            lines: color(&spec.paint.next_text),
         },
         KeycapState::Dimmed => {
-            let text = color(&spec.dimmed_text);
+            let text = color(&spec.paint.dimmed_text);
             Paint {
-                fill: color(&spec.key_fill),
+                fill: color(&spec.paint.key_fill),
                 key: text,
                 corner: text,
                 lines: text,
