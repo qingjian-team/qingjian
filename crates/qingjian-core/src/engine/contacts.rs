@@ -24,7 +24,8 @@ impl Engine {
         let book = ContactBook::build(
             contacts,
             |name, syllables| {
-                self.dictionary
+                self.lexicon
+                    .dictionary
                     .lookup(syllables, false)
                     .iter()
                     .any(|m| m.text == name)
@@ -92,7 +93,7 @@ impl Engine {
             return HashMap::new();
         }
         let mut found: HashMap<char, (u32, String)> = HashMap::new();
-        for entry in self.dictionary.entries() {
+        for entry in self.lexicon.dictionary.entries() {
             let mut chars = entry.text.chars();
             let (Some(ch), None) = (chars.next(), chars.next()) else {
                 continue;

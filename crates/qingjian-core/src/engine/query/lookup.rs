@@ -69,7 +69,7 @@ impl Engine {
         &self,
         positions: &[Vec<qingjian_dictionary::SyllablePattern<'_>>],
     ) -> Vec<Match<'_>> {
-        let mut hits = self.dictionary.lookup_pattern_alt(positions);
+        let mut hits = self.lexicon.dictionary.lookup_pattern_alt(positions);
         for dictionary in self.all_dictionaries().into_iter().skip(1) {
             if dictionary.is_secondary() {
                 hits.extend(dictionary.lookup_exact_alt(positions));
@@ -101,7 +101,7 @@ impl Engine {
         &self,
         positions: &[Vec<qingjian_dictionary::SyllablePattern<'_>>],
     ) -> Vec<Match<'_>> {
-        let mut hits = self.dictionary.lookup_exact_alt(positions);
+        let mut hits = self.lexicon.dictionary.lookup_exact_alt(positions);
         for dictionary in self.all_dictionaries().into_iter().skip(1) {
             hits.extend(dictionary.lookup_exact_alt(positions));
         }

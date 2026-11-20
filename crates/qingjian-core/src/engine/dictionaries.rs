@@ -5,7 +5,7 @@ use qingjian_dictionary::Dictionary;
 
 impl Engine {
     pub fn dictionary(&self) -> &Dictionary {
-        &self.dictionary
+        &self.lexicon.dictionary
     }
 
     /// 设置屏蔽词：候选文本里含有其中任何一个就整条丢掉（搜狗 也挡掉 搜狗拼音）。
@@ -17,48 +17,48 @@ impl Engine {
 
     /// 换掉全部附加词库（导入、移除、开关之后）。格子缓存随之作废。
     pub fn set_extra_dictionaries(&mut self, dictionaries: Vec<Dictionary>) {
-        self.extra_dictionaries = dictionaries;
+        self.lexicon.extra_dictionaries = dictionaries;
         self.forget_span_cache();
     }
 
     pub fn extra_dictionaries(&self) -> &[Dictionary] {
-        &self.extra_dictionaries
+        &self.lexicon.extra_dictionaries
     }
 
     /// 挂上从三元模型词表补出的词（`qingjian_dictionary::supplement`），`None` 摘掉。格子缓存随之作废。
     /// 基础词库关着（[`Self::set_base_words`]）时它也只出单字。
     pub fn set_model_words(&mut self, mut words: Option<Dictionary>) {
         if let Some(words) = &mut words {
-            words.set_chars_only(self.dictionary.is_chars_only());
+            words.set_chars_only(self.lexicon.dictionary.is_chars_only());
         }
-        self.model_words = words;
+        self.lexicon.model_words = words;
         self.forget_span_cache();
     }
 
     /// 开关基础词库里的词：关掉时主词库与三元模型补出的词只出单字，词与整句里的词全靠附加词库（用户导入、下载的）。
     /// 单字照常出，关掉也打得出字。格子缓存随之作废。
     pub fn set_base_words(&mut self, on: bool) {
-        if self.dictionary.is_chars_only() != on {
+        if self.lexicon.dictionary.is_chars_only() != on {
             return;
         }
-        self.dictionary.set_chars_only(!on);
-        if let Some(words) = &mut self.model_words {
+        self.lexicon.dictionary.set_chars_only(!on);
+        if let Some(words) = &mut self.lexicon.model_words {
             words.set_chars_only(!on);
         }
         self.forget_span_cache();
     }
 
     pub fn model_words(&self) -> Option<&Dictionary> {
-        self.model_words.as_ref()
+        self.lexicon.model_words.as_ref()
     }
 
     /// 查词用的全部词库：主词库、附加词库、内置的符号与 emoji 名字、通讯录、用户词。
     pub(super) fn all_dictionaries(&self) -> Vec<&Dictionary> {
-        let mut all = Vec::with_capacity(self.extra_dictionaries.len() + 2);
-        all.push(&self.dictionary);
-        all.extend(self.extra_dictionaries.iter());
-        all.extend(self.model_words.as_ref());
-        all.extend(self.companion_words);
+        let mut all = Vec::with_capacity(self.lexicon.extra_dictionaries.len() + 2);
+        all.push(&self.lexicon.dictionary);
+        all.extend(self.lexicon.extra_dictionaries.iter());
+        all.extend(self.lexicon.model_words.as_ref());
+        all.extend(self.lexicon.companion_words);
         all.extend(self.contact_book().map(crate::ContactBook::dictionary));
         if let Some(user) = self.learner.user_words() {
             all.push(user);

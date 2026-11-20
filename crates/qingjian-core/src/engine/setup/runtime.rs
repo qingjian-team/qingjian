@@ -14,7 +14,7 @@ impl Engine {
         self.emoji = Some(table);
         self.kaomoji = Some(&builtin::KAOMOJI);
         self.symbols = Some(&builtin::SYMBOLS);
-        self.companion_words = Some(&builtin::WORDS);
+        self.lexicon.companion_words = Some(&builtin::WORDS);
         self.forget_span_cache();
         self
     }

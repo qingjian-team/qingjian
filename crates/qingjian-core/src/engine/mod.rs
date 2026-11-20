@@ -27,6 +27,7 @@ mod input_log;
 mod journal;
 mod key_hint;
 mod learning;
+mod lexicon;
 mod marked;
 mod mode_keys;
 mod pairing;
@@ -99,24 +100,11 @@ use crate::traditional::Traditional;
 use commit::CommitChain;
 
 pub struct Engine {
-    /// 静态词库。
-    dictionary: Dictionary,
-
     /// 译文提供方，缺省为 [`NoTranslator`]。
     translator: Box<dyn Translator>,
 
     /// 前缀模式键（表达式 / 问字）。
     modes: ModeKeys,
-
-    /// 附加词库（领域词库、用户导入的），与主词库一起查词、一起进整句词图；不参与语言模型（它们没有 bigram，
-    /// 走词频兜底）。壳按用户目录 `dicts/` 与配置 `[dictionaries]` 装配。
-    extra_dictionaries: Vec<Dictionary>,
-
-    /// 从三元模型词表补出的词（补充词库），壳在接上三元模型时装配。单放一格：附加词库随导入 / 开关整个换掉，它不跟着换。
-    model_words: Option<Dictionary>,
-
-    /// 内置的符号、emoji 名字（尖括号、笑死），带上 emoji 表时启用：词库里没有它们，不收就打不出这个词、也就配不上符号。
-    companion_words: Option<&'static Dictionary>,
 
     /// 英文候选的释义（英→中），缺省为 [`NoTranslator`]。英文候选的辅助语言是主语言中文，
     /// 与中文候选查学习语言的表分开，仍是「一个候选只显示一种辅助语言」。
@@ -155,6 +143,7 @@ pub struct Engine {
     /// 通讯录（壳读系统通讯录交来，用户在设置里开了才有）：名字并进查词，见 [`Self::set_contacts`]。
     contacts: Option<crate::ContactBook>,
     settings: settings::EngineSettings,
+    lexicon: lexicon::EngineLexicon,
     caches: caches::EngineCaches,
     journal: journal::EngineJournal,
     input: input::EngineInput,
@@ -396,10 +385,6 @@ pub const RESCORE_CONTEXT_CHARS: usize = 64;
 impl Engine {
     pub fn new(dictionary: Dictionary) -> Self {
         Self {
-            dictionary,
-            extra_dictionaries: Vec::new(),
-            model_words: None,
-            companion_words: None,
             translator: Box::new(NoTranslator),
             english_translator: Box::new(NoTranslator),
             modes: ModeKeys::default(),
@@ -415,6 +400,7 @@ impl Engine {
             blocked: Vec::new(),
             contacts: None,
             settings: settings::EngineSettings::default(),
+            lexicon: lexicon::EngineLexicon::new(dictionary),
             caches: caches::EngineCaches::default(),
             journal: journal::EngineJournal::default(),
             input: input::EngineInput::default(),
