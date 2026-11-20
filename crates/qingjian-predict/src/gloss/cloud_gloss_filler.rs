@@ -25,7 +25,8 @@ pub struct CloudGlossFiller {
 }
 
 impl CloudGlossFiller {
-    /// 与云联想共用一份配置（接口、模型、密钥、超时）；没有密钥直接报错，壳退回 [`qingjian_core::NoGlossFiller`]。
+    /// 与云联想共用一份配置（接口、模型、密钥、超时，用本机模型时共用同一个本机服务）；
+    /// 要密钥却没有时直接报错，壳退回 [`qingjian_core::NoGlossFiller`]。
     pub fn new(config: &PredictConfig) -> Result<Self, PredictError> {
         Self::new_with_usage(config, None)
     }
@@ -35,10 +36,7 @@ impl CloudGlossFiller {
         config: &PredictConfig,
         usage_path: Option<PathBuf>,
     ) -> Result<Self, PredictError> {
-        let api_key = config
-            .resolve_api_key()
-            .ok_or_else(|| PredictError::MissingApiKey(config.api_key_env.clone()))?;
-        let client = ChatClient::new(config, api_key).with_usage(usage_path);
+        let client = ChatClient::connect(config)?.with_usage(usage_path);
         let (requests, request_rx) = mpsc::channel();
         let (response_tx, responses) = mpsc::channel();
         let (translation_tx, translations) = mpsc::channel();

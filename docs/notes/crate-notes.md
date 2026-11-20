@@ -261,6 +261,15 @@ Windows 的 `Router::recompose` 在输入清空时调用 `Engine::cancel_predict
   云释义的系统 prompt 在 `gloss/prompt.rs` 按学习语言分派：德语臂 `GERMAN_SYSTEM_PROMPT` 要求名词带冠词 der/die/das 且首字母大写、动词用不定式；
   返回译文经 `clean_text` 按语言设限，德语臂上限 40 字符（`MAX_GERMAN_CHARS`，西语臂 32），字符白名单 `is_latin_ext_char` 为西 / 德共用
   （拉丁扩展区间 0x00C0–0x024F，汉字与西里尔字母不收）。
+- 本机模型（`local/`，2026-11）：`[predict] local_model` 填了 GGUF 文件时，`ChatClient::connect` 按 `LaunchSpec::from_config`（`local_*` 几项）租一个 `LocalServer`，请求发往 `http://127.0.0.1:{local_port}/v1`、模型名取文件名，不要密钥（`needs_api_key`：本机模型或 `base_url` 是回环地址时为假，空密钥发 `Bearer `，llama-server 不开 `--api-key` 时不认这个头）、回环地址 `no_proxy`。
+  同一进程里参数相同的客户端共用一个服务（`server.rs` 的 `Weak` 名单），最后一个放手时 `stop` 通道断开，后台线程（`supervisor.rs`）结束看门进程再杀 llama-server。
+  后台线程每轮先用直连 TCP 的 `GET /props`（`probe.rs`，不经 reqwest，免得被系统代理拦）看端口：空着就找程序（`locate.rs`：配置的路径，否则 PATH、Homebrew、MacPorts、`~/.local/bin`、winget 的 `Links` 与 `Packages\ggml.llamacpp*`）起一个；
+  `model_path` 与配置一致（设置程序测试连接时输入法已起好）就直接用、每 2 秒看一眼；`model_alias` 是 `qingjian-local` 的旧模型等它 15 秒让出端口；别的程序报 `PortTaken`；连上却不答话（超时、连上就断，多是别的青简进程起的服务正在起或退出）等 10 秒再算 `PortTaken`。退出后 2 秒起翻倍、最长 60 秒重起，稳跑 60 秒后从头算；退出原因取 stderr 尾部最后一条 E 级日志（跳过收尾的 `exiting due to` 与正文缩进的说明行，如 CUDA 报错后的 `current device`），读进来先去掉颜色（有的版本往管道里也输出颜色）。
+  启动参数（`spec.rs`，需 b10141 起）：`--host 127.0.0.1 --alias qingjian-local -c 8192 -np 2 --reasoning off --cors-origins localhost --no-slots --no-webui --ctx-checkpoints 4 --cache-ram 256`，再接用户的 `local_args`；环境变量加上用户的 `local_env`（多显卡时的 `CUDA_VISIBLE_DEVICES`、自编译版本的开关），再去掉 `LLAMA_API_KEY` / `LLAMA_ARG_API_KEY_FILE`，Windows 加 `CREATE_NO_WINDOW`，工作目录设在程序旁边。
+  `--reasoning off` 与请求里的 `reasoning_effort: "none"` 双保险：Qwen3.5 的模板缺省思考，开着时正文为空（`EmptyReply` / `BudgetExhausted`）。`/slots` 能读到请求原文、网页能跨站读本机端口，所以关 `/slots`、限同源。
+  青简被强杀时由看门进程（`watchdog.rs`）收掉 llama-server：unix 是 `/bin/sh -c 'read line; kill "$1"'`，Windows 是 `cmd /c "set /p line= & taskkill /f /pid N"`，读的是青简这头开着不写的管道，进程一没系统关管道它就动手；
+  不用 Job Object（predict 不依赖 `windows` crate，加依赖要动 `Cargo.lock`），也不用 llama.cpp 的路由子进程模式（它占用 stdout 走路由协议）。看门进程在管道开着时就自己结束的，这个后台线程以后不再用它。
+  `ChatClient::send` 先等服务就绪（每 50 ms 看一次状态，最多一个 `timeout`，到时报 `LocalServer(Loading)`），就绪后才记用量；`ConnectionTest` 先 `wait_local` 最多 20 秒。`LocalServerError` 不算账户失败，不触发 10 分钟暂停。
 - 问字键（缺省 `u`）开头是问字模式（`PredictionKind::Question`，答案带读音、不校验拼音），`?` 开头要 `ModeKeys::question_mark` 开着才算（配置 `[shortcut] question_mark`，缺省关，壳用 `Engine::takes_question_mark` 决定空缓冲区的 `?` 是入口还是标点）；问字 / 表达式两种前缀模式共用 `Engine::english_word_candidate`：整段命中英文词表（用户表优先）时本地给英文词候选、不发云请求，于是 u 开头英文词（`unchanged`）不被问字吞掉；`PredictionKind::Translate` 是壳里快捷键触发的「翻译选中文字」
   （双向：汉字为主译成学习语言，外文译回中文，`prediction::translation_target`），译文走结果的 `sentence`。
 

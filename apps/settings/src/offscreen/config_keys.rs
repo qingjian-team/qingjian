@@ -204,11 +204,17 @@ fn every_key_the_settings_app_writes_is_read_by_the_ime() {
             harness.sweep_page(page);
         }
     }
-    // 输入框与录键不是点出来的：直接发编辑与按键
+    // 输入框与录键不是点出来的：直接发编辑与按键。本机模型的两个路径要指向真有的文件才存
+    let (model, server) = (dir.join("Qwen3.5-2B-Q6_K.gguf"), dir.join("llama-server"));
+    std::fs::write(&model, b"GGUF").unwrap();
+    std::fs::write(&server, b"").unwrap();
+    let (model, server) = (model.to_string_lossy(), server.to_string_lossy());
     for (id, text) in [
         (FieldId::BaseUrl, "https://example.com/v1"),
         (FieldId::Model, "test-model"),
         (FieldId::ApiKey, "sk-test"),
+        (FieldId::LocalModel, &*model),
+        (FieldId::LocalServer, &*server),
         (FieldId::HalfWidthSymbols, "`;"),
         (FieldId::FuzzyCustom, "ian=iang"),
     ] {

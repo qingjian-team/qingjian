@@ -19,6 +19,31 @@ fn partial_file_keeps_other_defaults() {
     assert!(config.predict.automatic);
     assert_eq!(config.predict.debounce_ms, 300);
     assert_eq!(config.predict.min_interval_ms, 3000);
+    assert!(!config.predict.uses_local_model());
+    assert_eq!(config.predict.local_port, 18686);
+}
+
+/// 本机模型的几项：路径原样读，追加参数是字符串数组，环境变量是表；填了模型文件请求就改发本机服务。
+#[test]
+fn local_model_keys_parse() {
+    let config: Config = toml::from_str(
+        "[predict]\nlocal_model = 'D:/模型/Qwen3.5-2B-Q6_K.gguf'\nlocal_port = 9000\nlocal_args = [\"-ngl\", \"0\"]\nlocal_env = { CUDA_VISIBLE_DEVICES = \"0\" }\n",
+    )
+    .unwrap();
+    assert!(config.predict.uses_local_model());
+    assert_eq!(config.predict.local_model, "D:/模型/Qwen3.5-2B-Q6_K.gguf");
+    assert_eq!(config.predict.local_server, "");
+    assert_eq!(config.predict.local_args, ["-ngl", "0"]);
+    assert_eq!(
+        config
+            .predict
+            .local_env
+            .get("CUDA_VISIBLE_DEVICES")
+            .map(String::as_str),
+        Some("0")
+    );
+    assert_eq!(config.predict.endpoint(), "http://127.0.0.1:9000/v1");
+    assert_eq!(config.predict.model_name(), "Qwen3.5-2B-Q6_K");
 }
 
 /// 含章·知微下线后，老配置里的 `name = "zhiwei"` 按通变读，不让整个配置读失败。

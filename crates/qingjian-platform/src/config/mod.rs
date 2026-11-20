@@ -498,6 +498,20 @@ slots = 2
 sentence = true
 # 上屏的整句（含分几次打完的一句）翻成学习语言，记进生词本的时间线；只发那一句，不发光标前后的文字
 vocabulary_translation = true
+# 本机模型：填 .gguf 模型文件的完整路径后，青简用 llama.cpp 的 llama-server 在本机运行它（需 b10141 起），
+# 上面这些请求都发给它，只监听 127.0.0.1，不联网、不用密钥，base_url、model 与密钥这时不用；留空则用上面的接口。
+# 开着云联想时青简自己起停 llama-server，关掉云联想、清空这一项或退出输入法时它随之停止
+local_model = ""
+# llama-server 程序的完整路径；留空则在 PATH 与常见安装位置（Homebrew、winget）里找
+local_server = ""
+# 本机服务的端口
+local_port = 18686
+# 追加给 llama-server 的参数，排在青简给的参数后面，同一参数以这里的为准；
+# 例如 ["-ngl", "0"] 只用 CPU，["-t", "4"] 只用 4 个线程，["-c", "4096"] 省内存。不要改地址、端口与密钥
+local_args = []
+# 给 llama-server 设的环境变量，加在输入法自己的环境上。有几块显卡时 llama.cpp 缺省全都用上，
+# 只让它用第一块写 { CUDA_VISIBLE_DEVICES = "0" }；自己编译的版本要的开关也写在这里
+local_env = {}
 
 [status_bar]
 # 桌面上常驻、可拖动的悬浮状态条（Windows）：「中 / 英」格点一下切换模式（开着双拼时还显示方案名）、「，。」格切全角 / 半角标点、齿轮打开设置。

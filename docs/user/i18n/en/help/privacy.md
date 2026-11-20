@@ -11,7 +11,7 @@ Qingjian doesn't upload what you type. Pinyin conversion, dictionaries, learning
 Only in these cases:
 
 - **Checking for updates**: once a day, see below.
-- **AI services**: off by default; when on, data goes straight from your device to the provider you entered, never through Qingjian. For what's sent, see [AI services](../cloud/index.md#What-gets-sent).
+- **AI services**: off by default; when on, data goes straight from your device to the provider you entered, never through Qingjian. For what's sent, see [AI services](../cloud/index.md#What-gets-sent). With a [local model](../cloud/local-model.md) nothing goes online.
 - **Voice input on Android**: while you speak, the audio is sent to the speech recognition service you entered; see [Android](../platforms/android.md#Voice-input).
 
 ### Checking for updates

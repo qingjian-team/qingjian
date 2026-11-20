@@ -1,7 +1,9 @@
-//! 「云服务」页：云联想（开关、云端词格数、整句补全、生词本整句翻译），服务（接口地址、模型、密钥、测试连接）。
+//! 「云服务」页：云联想（开关、云端词格数、整句补全、生词本整句翻译），服务（本机模型、接口地址、模型、密钥、测试连接）。
 
-use bamboo_slip::taffy::NodeId;
-use bamboo_slip::{Button, RenderError, SettingRow, Stepper, TextField, Ui, group, section_title};
+use bamboo_slip::taffy::{AlignItems, FlexDirection, NodeId, Style};
+use bamboo_slip::{
+    Button, RenderError, SettingRow, Stepper, TextField, Ui, Visual, group, section_title,
+};
 
 use crate::i18n::{tr, tr_args};
 use crate::message::{FieldId, Message};
@@ -15,6 +17,9 @@ const MAX_SLOTS: usize = 4;
 
 /// 输入框的宽度（点）。
 const FIELD_WIDTH: f32 = 260.0;
+
+/// 路径输入框的宽度（点）：右边还有「选择…」按钮，与上面的输入框大致对齐。
+const PATH_FIELD_WIDTH: f32 = 180.0;
 
 pub fn cloud(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderError> {
     let theme = &page.theme;
@@ -102,34 +107,52 @@ pub fn cloud(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderErr
     out.push(group(ui, theme, &rows)?);
 
     let key_set = predict.resolve_api_key().is_some();
+    // 用着本机模型时接口那三项不起作用，灰掉
+    let local = predict.uses_local_model();
     let rows = vec![
+        path_field(
+            ui,
+            page,
+            FieldId::LocalModel,
+            (tr("cloud.local_model"), tr("cloud.local_model_info")),
+            tr("cloud.local_model_none"),
+            Message::PickLocalModel,
+        )?,
+        path_field(
+            ui,
+            page,
+            FieldId::LocalServer,
+            (tr("cloud.local_server"), tr("cloud.local_server_info")),
+            tr("cloud.local_server_auto"),
+            Message::PickLocalServer,
+        )?,
         field(
             ui,
             page,
             FieldId::BaseUrl,
-            tr("cloud.base_url"),
-            None,
+            (tr("cloud.base_url"), None),
             "https://api.deepseek.com",
+            local,
         )?,
         field(
             ui,
             page,
             FieldId::Model,
-            tr("cloud.model"),
-            None,
+            (tr("cloud.model"), None),
             "deepseek-v4-flash",
+            local,
         )?,
         field(
             ui,
             page,
             FieldId::ApiKey,
-            tr("cloud.api_key"),
-            Some(tr("cloud.api_key_info")),
+            (tr("cloud.api_key"), Some(tr("cloud.api_key_info"))),
             if key_set {
                 tr("cloud.api_key_set")
             } else {
                 tr("cloud.api_key_unset")
             },
+            local,
         )?,
         {
             let running = page.settings.cloud_test.running();
@@ -205,13 +228,14 @@ fn timing(
         .build(ui, &page.theme)
 }
 
+/// 一行输入框：（标题，ⓘ 说明）。
 fn field(
     ui: &mut Ui<Message>,
     page: &Page,
     id: FieldId,
-    title: &str,
-    info: Option<&str>,
+    (title, info): (&str, Option<&str>),
     placeholder: &str,
+    disabled: bool,
 ) -> Result<NodeId, RenderError> {
     let Some(edit) = page.settings.fields.get(&id) else {
         return SettingRow::new(title).build(ui, &page.theme);
@@ -220,6 +244,7 @@ fn field(
         .placeholder(placeholder)
         .secret(id == FieldId::ApiKey)
         .width(FIELD_WIDTH)
+        .disabled(disabled)
         .build(
             ui,
             &page.theme,
@@ -233,4 +258,42 @@ fn field(
         row = row.info(info);
     }
     row.build(ui, &page.theme)
+}
+
+/// 一行路径：输入框（能直接填、粘贴）加「选择…」按钮；存不了的原因挂在这一行下面。
+fn path_field(
+    ui: &mut Ui<Message>,
+    page: &Page,
+    id: FieldId,
+    (title, info): (&str, &str),
+    placeholder: &str,
+    pick: Message,
+) -> Result<NodeId, RenderError> {
+    let row = SettingRow::new(title).info(info);
+    let Some(edit) = page.settings.fields.get(&id) else {
+        return row.build(ui, &page.theme);
+    };
+    let input = TextField::new(edit)
+        .placeholder(placeholder)
+        .width(PATH_FIELD_WIDTH)
+        .build(
+            ui,
+            &page.theme,
+            ("field", id),
+            move |edit| Message::Edit(id, edit),
+            Some(Message::Commit(id)),
+            Some(Message::Cancel(id)),
+        )?;
+    let button = Button::new(tr("cloud.pick")).build(ui, &page.theme, ("pick", id), pick)?;
+    let control = ui.scene().node(
+        Style {
+            flex_direction: FlexDirection::Row,
+            align_items: AlignItems::CENTER,
+            gap: page.gap(8.0),
+            ..Style::default()
+        },
+        Visual::Group,
+        &[input, button],
+    )?;
+    with_notice(ui, page, row.control(control), id.key())
 }

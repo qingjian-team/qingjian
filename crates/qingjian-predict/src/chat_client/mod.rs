@@ -5,7 +5,7 @@ mod parameters;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU8, Ordering};
 use std::sync::{Arc, LazyLock};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use async_openai::Client;
 use async_openai::config::OpenAIConfig;
@@ -18,8 +18,9 @@ use async_openai::types::chat::{
 use qingjian_core::PredictionRequest;
 use reqwest::header::{HeaderMap, HeaderValue};
 
-use crate::config::PredictConfig;
+use crate::config::{PredictConfig, is_loopback};
 use crate::error::PredictError;
+use crate::local::{LaunchSpec, LocalServer, LocalServerError};
 use crate::prompt::{self, Reply};
 use crate::reply::{self, ReplyFormat, ReplySchema};
 use crate::usage::ApiUsageStats;
@@ -37,6 +38,9 @@ const OPENCODE_SESSION_HEADER: &str = "x-opencode-session";
 
 /// 本进程的会话 ID：输入法没有「会话」概念，一个进程算一个，进程内所有客户端共用。
 static SESSION_ID: LazyLock<String> = LazyLock::new(|| uuid::Uuid::new_v4().to_string());
+
+/// 本机模型还在加载时，请求隔多久看一次它好了没有。
+const LOCAL_POLL: Duration = Duration::from_millis(50);
 
 /// OpenAI 兼容聊天接口的封装：一个请求进、若干联想条目出。
 #[derive(Clone)]
@@ -64,30 +68,59 @@ pub struct ChatClient {
 
     /// 壳选择累计用量的本机文件；None 时保持原有无统计行为。
     usage_path: Option<PathBuf>,
+
+    /// 用本机模型时租着的本机服务：客户端（及其克隆）都放下了，服务才停。
+    local: Option<Arc<LocalServer>>,
 }
 
 impl ChatClient {
+    /// 按配置建客户端：用本机模型时先租用本机服务（没起就起）；本机模型与本机地址不要密钥，
+    /// 其余地址没有密钥报 [`PredictError::MissingApiKey`]。
+    pub fn connect(config: &PredictConfig) -> Result<Self, PredictError> {
+        let local = LaunchSpec::from_config(config).map(LocalServer::lease);
+        // 本机服务不认密钥：接口的密钥不发给它
+        let api_key = match config.resolve_api_key() {
+            Some(key) if local.is_none() => key,
+            _ if !config.needs_api_key() => String::new(),
+            _ => return Err(PredictError::MissingApiKey(config.api_key_env.clone())),
+        };
+        let mut client = Self::new(config, api_key);
+        client.local = local;
+        Ok(client)
+    }
+
+    /// 地址、模型按配置实际生效的那套（用本机模型时是本机服务），不碰本机服务的起停；测试直接用它。
     pub fn new(config: &PredictConfig, api_key: String) -> Self {
         install_crypto_provider();
+        let endpoint = config.endpoint();
         let openai = OpenAIConfig::new()
-            .with_api_base(config.base_url.trim_end_matches('/'))
+            .with_api_base(endpoint.trim_end_matches('/'))
             .with_api_key(api_key);
         Self {
             client: Client::with_config(openai)
-                .with_http_service(ReqwestService::new(http_client(&config.base_url))),
-            model: config.model.clone(),
+                .with_http_service(ReqwestService::new(http_client(&endpoint))),
+            model: config.model_name(),
             timeout: Duration::from_millis(config.timeout_ms),
             reasoning_effort: parse_reasoning_effort(&config.reasoning_effort),
-            thinking_switch: ThinkingSwitch::for_url(&config.base_url),
+            thinking_switch: ThinkingSwitch::for_url(&endpoint),
             reply_format: Arc::new(AtomicU8::new(ReplyFormat::JsonObject.index())),
             parameters: Arc::default(),
             usage_path: None,
+            local: None,
         }
     }
 
     pub fn with_usage(mut self, path: Option<PathBuf>) -> Self {
         self.usage_path = path;
         self
+    }
+
+    /// 用本机模型时等它加载好，最多等 `timeout`（测试连接用：头一次加载要几秒）；没用本机模型立即返回。
+    pub fn wait_local(&self, timeout: Duration) -> Result<(), PredictError> {
+        match &self.local {
+            Some(local) => local.wait_ready(timeout).map_err(PredictError::from),
+            None => Ok(()),
+        }
     }
 
     pub async fn complete(&self, request: &PredictionRequest) -> Result<Reply, PredictError> {
@@ -175,6 +208,7 @@ impl ChatClient {
 
     /// 发一次请求，返回原始 JSON。
     async fn send(&self, body: &serde_json::Value) -> Result<serde_json::Value, PredictError> {
+        self.local_ready().await?;
         if let Some(path) = &self.usage_path {
             ApiUsageStats::record_request(path);
         }
@@ -187,6 +221,22 @@ impl ChatClient {
             ApiUsageStats::record_response(path, response.as_ref().ok());
         }
         response
+    }
+
+    /// 本机模型还在加载就等着（最多一个请求超时），起不来直接报错，都不发请求、不计用量。
+    async fn local_ready(&self) -> Result<(), PredictError> {
+        let Some(local) = &self.local else {
+            return Ok(());
+        };
+        let deadline = Instant::now() + self.timeout;
+        loop {
+            match local.check() {
+                Ok(true) => return Ok(()),
+                Ok(false) if Instant::now() < deadline => tokio::time::sleep(LOCAL_POLL).await,
+                Ok(false) => return Err(LocalServerError::Loading.into()),
+                Err(error) => return Err(error.into()),
+            }
+        }
     }
 
     /// 从原始响应里取正文；空正文时把原始响应记进日志，方便排查思考占满预算、模型名不对这类问题。
@@ -337,10 +387,16 @@ fn thinking_error(message: &str) -> async_openai::error::OpenAIError {
     })
 }
 
-/// 按接口地址决定 HTTP 客户端：OpenCode 带上它要求的会话头，其他服务用默认客户端。
+/// 按接口地址决定 HTTP 客户端：OpenCode 带上它要求的会话头，其他服务用默认客户端；本机地址不走代理
+/// （系统代理的例外名单 macOS 上不生效，本机服务经代理一转就连不上）。
 /// 头装不上（理论上不会）就退回默认客户端，请求照发，让服务端的报错说明问题。
 fn http_client(base_url: &str) -> reqwest::Client {
     let builder = client_builder();
+    let builder = if is_loopback(base_url) {
+        builder.no_proxy()
+    } else {
+        builder
+    };
     let builder = match HeaderValue::from_str(&SESSION_ID) {
         Ok(value) if is_opencode(base_url) => {
             let mut headers = HeaderMap::new();
@@ -509,6 +565,25 @@ mod tests {
         assert!(!is_opencode("https://api.deepseek.com"));
         assert!(!is_opencode("https://example.com/opencode.ai"));
         assert!(!is_opencode("not a url"));
+    }
+
+    /// 本机地址上的服务（LM Studio、自己起的 llama-server）不要密钥；别的地址没有密钥当场报错。
+    #[test]
+    fn only_remote_services_require_a_key() {
+        let env = "QINGJIAN_TEST_KEY_THAT_IS_NEVER_SET";
+        let remote = PredictConfig {
+            api_key_env: env.to_owned(),
+            ..PredictConfig::default()
+        };
+        assert!(matches!(
+            ChatClient::connect(&remote),
+            Err(PredictError::MissingApiKey(name)) if name == env
+        ));
+        let own_server = PredictConfig {
+            base_url: "http://localhost:1234/v1".to_owned(),
+            ..remote
+        };
+        assert!(ChatClient::connect(&own_server).is_ok());
     }
 
     #[test]

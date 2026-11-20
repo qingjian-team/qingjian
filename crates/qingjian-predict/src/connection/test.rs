@@ -3,7 +3,7 @@
 
 use std::path::PathBuf;
 use std::sync::mpsc;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use super::report::ConnectionReport;
 use crate::chat_client::ChatClient;
@@ -20,6 +20,9 @@ const USER_PROMPT: &str = "回复 JSON 对象 {\"ok\": true}，不要别的内�
 /// 回复 token 上限：只要几个字。
 const MAX_TOKENS: u32 = 32;
 
+/// 本机模型最多等它加载这么久再发请求：加上请求超时，不超过 macOS 偏好设置等结果的 30 秒。
+const LOCAL_READY_TIMEOUT: Duration = Duration::from_secs(20);
+
 /// 一次进行中的连通性测试。
 pub struct ConnectionTest {
     /// 测试线程送回的结果；线程只发一次。
@@ -28,6 +31,7 @@ pub struct ConnectionTest {
 
 impl ConnectionTest {
     /// 按配置发起测试。密钥缺失、线程起不来这两种情况当场报错，其余错误从 [`poll`](Self::poll) 回来。
+    /// 用本机模型时先等本机服务加载好（端口上已有同一模型的服务就直接用），测试完放下租约。
     pub fn start(config: &PredictConfig) -> Result<Self, PredictError> {
         Self::start_with_usage(config, None)
     }
@@ -37,11 +41,8 @@ impl ConnectionTest {
         config: &PredictConfig,
         usage_path: Option<PathBuf>,
     ) -> Result<Self, PredictError> {
-        let api_key = config
-            .resolve_api_key()
-            .ok_or_else(|| PredictError::MissingApiKey(config.api_key_env.clone()))?;
-        let client = ChatClient::new(config, api_key).with_usage(usage_path);
-        let model = config.model.clone();
+        let client = ChatClient::connect(config)?.with_usage(usage_path);
+        let model = config.model_name();
         let (sender, result) = mpsc::channel();
         std::thread::Builder::new()
             .name("qingjian-connection-test".to_owned())
@@ -85,8 +86,9 @@ fn reply_schema() -> ReplySchema {
     )
 }
 
-/// 在测试线程里跑：建一个单线程运行时，发一条请求，计时。
+/// 在测试线程里跑：本机模型先等它加载好，再建一个单线程运行时，发一条请求，计时。
 fn run(client: &ChatClient, model: String) -> Result<ConnectionReport, PredictError> {
+    client.wait_local(LOCAL_READY_TIMEOUT)?;
     let runtime = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()?;

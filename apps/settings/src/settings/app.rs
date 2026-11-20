@@ -239,6 +239,8 @@ impl App for Settings {
             }
             Message::Commit(id) => self.commit(id),
             Message::Cancel(id) => self.reset_field(id),
+            Message::PickLocalModel => self.pick_local_model(),
+            Message::PickLocalServer => self.pick_local_server(),
             Message::TestCloud => {
                 if !self.cloud_test.running() {
                     let text = match self
