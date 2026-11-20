@@ -172,7 +172,7 @@ fn explicit_discard_removes_private_history_and_saved_input_state() {
     assert!(engine.recent_commits.is_empty());
     assert!(engine.chain.previous().is_none());
     assert!(engine.chain.buffer_key().is_empty());
-    assert!(engine.last_query.borrow().is_none());
+    assert!(engine.caches.last_query.borrow().is_none());
 
     engine.set_input("private");
     engine.history_mut().record("secret");

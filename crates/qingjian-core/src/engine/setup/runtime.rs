@@ -40,7 +40,7 @@ impl Engine {
     pub fn set_spelling_correction(&mut self, on: bool) {
         if self.settings.spelling_correction != on {
             self.settings.spelling_correction = on;
-            *self.correction_cache.borrow_mut() = None;
+            *self.caches.correction.borrow_mut() = None;
             self.forget_span_cache();
         }
     }

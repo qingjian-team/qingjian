@@ -270,7 +270,7 @@ impl Engine {
     /// 缓存键带上参数：`vts` 与 `vts;2026-11-05` 是两组不同的值，不能互相命中。
     fn generated_candidates(&self, keyword: &'static str, args: &str) -> Vec<Candidate> {
         let key = format!("{keyword};{args}");
-        let mut cache = self.generated_forms.borrow_mut();
+        let mut cache = self.caches.generated_forms.borrow_mut();
         if cache.as_ref().is_none_or(|(cached, _)| cached != &key) {
             let forms =
                 shortcut::generated_forms(keyword, args, &jiff::Zoned::now()).unwrap_or_default();

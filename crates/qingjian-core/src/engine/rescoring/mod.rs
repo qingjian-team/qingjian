@@ -75,7 +75,7 @@ impl Engine {
             return;
         }
         let context = self.rescoring_context();
-        let mut cache = self.neural_cache.borrow_mut();
+        let mut cache = self.caches.neural.borrow_mut();
         cache.ensure_condition(&context, keys);
         let mut missing: Vec<String> = Vec::new();
         for path in paths.iter() {
@@ -117,7 +117,7 @@ impl Engine {
                 .partial_cmp(&rescored(a))
                 .unwrap_or(std::cmp::Ordering::Equal)
         });
-        self.last_rescored.set(true);
+        self.caches.last_rescored.set(true);
     }
 
     /// 不经词图，让模型直接按整段按键生成整句，最好的在前。
@@ -129,7 +129,7 @@ impl Engine {
         if keys.is_empty() || !self.has_sentence_scorer() {
             return Vec::new();
         }
-        let mut cache = self.neural_cache.borrow_mut();
+        let mut cache = self.caches.neural.borrow_mut();
         if let Some(texts) = cache.generated(keys) {
             return texts.iter().take(GENERATED_CANDIDATES).cloned().collect();
         }
@@ -147,7 +147,7 @@ impl Engine {
     pub fn rescoring_pending(&self) -> bool {
         self.choice_pending()
             || self.rescorer.is_some() && {
-                let cache = self.neural_cache.borrow();
+                let cache = self.caches.neural.borrow();
                 cache.has_wanted() || cache.wanted_generation().is_some()
             }
     }
@@ -158,7 +158,7 @@ impl Engine {
         let Some(worker) = &self.rescorer else {
             return chose;
         };
-        let mut cache = self.neural_cache.borrow_mut();
+        let mut cache = self.caches.neural.borrow_mut();
         let wanted = cache.take_wanted();
         let generate = cache.take_wanted_generation();
         if wanted.is_empty() && generate.is_none() {
@@ -190,7 +190,7 @@ impl Engine {
         let latest = worker.latest();
         while let Some(scored) = worker.poll() {
             updated |= scored.serial == latest;
-            let mut cache = self.neural_cache.borrow_mut();
+            let mut cache = self.caches.neural.borrow_mut();
             // 生成的结果自带按键、与前文无关，不跟着打分那边的条件一起作废
             if let Some((keys, texts)) = scored.generated {
                 cache.insert_generated(&keys, texts);

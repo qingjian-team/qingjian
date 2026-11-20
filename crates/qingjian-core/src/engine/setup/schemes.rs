@@ -60,7 +60,7 @@ impl Engine {
     pub fn set_code_scheme(&mut self, scheme: Option<CodeScheme>) {
         self.chain.reset();
         self.code = scheme;
-        *self.correction_cache.borrow_mut() = None;
+        *self.caches.correction.borrow_mut() = None;
         self.forget_span_cache();
     }
 
@@ -94,7 +94,7 @@ impl Engine {
             self.chain.reset();
         }
         self.phonetic = on;
-        *self.correction_cache.borrow_mut() = None;
+        *self.caches.correction.borrow_mut() = None;
         self.forget_span_cache();
     }
 

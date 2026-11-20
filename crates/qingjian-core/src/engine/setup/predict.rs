@@ -72,7 +72,7 @@ impl Engine {
         let wake = self.wake.clone();
         self.rescorer =
             scorer.map(|scorer| super::super::rescoring::RescoreWorker::spawn(scorer, wake));
-        *self.neural_cache.borrow_mut() = super::super::rescoring::NeuralCache::default();
+        *self.caches.neural.borrow_mut() = super::super::rescoring::NeuralCache::default();
         self.forget_span_cache();
     }
 
@@ -99,7 +99,7 @@ impl Engine {
     /// 换一组敲错纠正代价（回放调参用）；整句格子缓存与纠错缓存作废。
     pub fn set_typo_costs(&mut self, costs: TypoCosts) {
         self.typo_costs = costs;
-        *self.correction_cache.borrow_mut() = None;
+        *self.caches.correction.borrow_mut() = None;
         self.forget_span_cache();
     }
 

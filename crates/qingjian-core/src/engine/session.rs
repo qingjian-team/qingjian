@@ -95,8 +95,8 @@ impl Engine {
         std::mem::swap(&mut self.examples, &mut session.examples);
         std::mem::swap(&mut self.chain, &mut session.chain);
         self.forget_span_cache();
-        *self.correction_cache.borrow_mut() = None;
-        *self.last_query.borrow_mut() = None;
+        *self.caches.correction.borrow_mut() = None;
+        *self.caches.last_query.borrow_mut() = None;
     }
 }
 
@@ -142,9 +142,9 @@ impl Engine {
         self.examples.clear();
         self.chain = CommitChain::default();
         self.rescoring_before = None;
-        *self.neural_cache.borrow_mut() = super::rescoring::NeuralCache::default();
-        *self.correction_cache.borrow_mut() = None;
-        *self.last_query.borrow_mut() = None;
+        *self.caches.neural.borrow_mut() = super::rescoring::NeuralCache::default();
+        *self.caches.correction.borrow_mut() = None;
+        *self.caches.last_query.borrow_mut() = None;
         self.forget_span_cache();
         self.traditional.forget();
     }

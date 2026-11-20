@@ -196,7 +196,7 @@ impl Engine {
         if self.composition.is_empty() {
             // 新一段组句：从这一键起算耗时、翻页与重打
             self.composition_started = Some(Instant::now());
-            *self.generated_forms.borrow_mut() = None;
+            *self.caches.generated_forms.borrow_mut() = None;
             self.page_turns = 0;
             self.retype_snapshot = None;
             self.typing.restart();
@@ -475,7 +475,7 @@ impl Engine {
         if !self.english_mode && self.active_correction(&scope).is_some() {
             self.learner.record_raw(&scope);
             // 缓存里还是「要纠」，清掉让下次重算
-            *self.correction_cache.borrow_mut() = None;
+            *self.caches.correction.borrow_mut() = None;
         }
         let raw = self.raw_preedit().text;
         let held = self.take_held();

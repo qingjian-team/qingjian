@@ -17,13 +17,13 @@ impl Engine {
         {
             return None;
         }
-        if let Some((cached_scope, cached)) = self.correction_cache.borrow().as_ref()
+        if let Some((cached_scope, cached)) = self.caches.correction.borrow().as_ref()
             && cached_scope == scope
         {
             return cached.clone();
         }
         let found = self.find_correction(scope);
-        *self.correction_cache.borrow_mut() = Some((scope.to_owned(), found.clone()));
+        *self.caches.correction.borrow_mut() = Some((scope.to_owned(), found.clone()));
         found
     }
 

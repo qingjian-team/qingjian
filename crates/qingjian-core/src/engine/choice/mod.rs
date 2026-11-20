@@ -98,7 +98,7 @@ impl Engine {
 
     /// 最近一次查询里选词模型给这页各候选的分（没排过为空）：评测归因用。
     pub fn last_choice_scores(&self) -> Vec<ChoiceScore> {
-        self.last_choice_scores.borrow().clone()
+        self.caches.last_choice_scores.borrow().clone()
     }
 
     pub fn has_choice_model(&self) -> bool {
@@ -121,7 +121,7 @@ impl Engine {
         let mut whole: Vec<(usize, Vec<u32>)> = Vec::new();
         // 敲错边读出的备选不比：知意把 `suran` 的 虽然 当成 `su` 是 `sui` 的简拼对齐上，重排里的语言模型分与位置先验
         // 只看词常不常用，会把它顶到用户敲对的 肃然 前面（上屏 → 商品、这俩 → 这里 都是这么丢的）
-        let corrected = self.corrected_alternates.borrow();
+        let corrected = self.caches.corrected_alternates.borrow();
         for (index, candidate) in items.iter().enumerate().take(self.choice_tier.window()) {
             if corrected.contains(&candidate.text) {
                 continue;
@@ -216,9 +216,9 @@ impl Engine {
         if let Some(chosen) = self.chosen_long_word(items, &whole, &keys, best) {
             best = chosen;
         }
-        *self.last_choice_scores.borrow_mut() = scores;
-        self.last_rescored.set(true);
-        self.last_choice.set(Some(ChoiceNote {
+        *self.caches.last_choice_scores.borrow_mut() = scores;
+        self.caches.last_rescored.set(true);
+        self.caches.last_choice.set(Some(ChoiceNote {
             from: whole[best].0 - whole[0].0,
             ctx: request.context.chars().count(),
             app: request.from_app,

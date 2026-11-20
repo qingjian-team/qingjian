@@ -54,7 +54,7 @@ impl Engine {
                 sentence::convert(
                     &input,
                     &shape.patterns(shape.positions.len()),
-                    &mut self.span_cache.borrow_mut(),
+                    &mut self.caches.span.borrow_mut(),
                 )
             })
             .max_by(|a, b| a.score.total_cmp(&b.score))

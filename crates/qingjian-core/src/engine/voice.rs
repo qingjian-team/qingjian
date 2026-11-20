@@ -14,7 +14,7 @@ impl Engine {
             return String::new();
         }
         // 上一段组句的查询快照与这段话无关，别让输入日志把它记成这条的作用域
-        *self.last_query.borrow_mut() = None;
+        *self.caches.last_query.borrow_mut() = None;
         self.log_commit("", text, InputSource::Voice);
         self.meter_commit(text, InputSource::Voice, false);
         self.remember_commit(LastCommit::plain(text));

@@ -62,7 +62,7 @@ impl Engine {
             .traditional
             .restore(text)
             .unwrap_or_else(|| text.to_owned());
-        *self.last_query.borrow_mut() = None;
+        *self.caches.last_query.borrow_mut() = None;
         self.learner.record(&Candidate {
             text: word.clone(),
             kind: CandidateKind::Chinese,

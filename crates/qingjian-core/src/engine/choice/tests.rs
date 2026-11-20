@@ -51,7 +51,7 @@ fn choice_waits_for_the_shell_then_moves_the_pick_up() {
     settle(&mut engine);
     assert_eq!(first_texts(&engine), ["开罚", "开发"]);
     assert!(!engine.rescoring_pending());
-    let note = engine.last_choice.get().expect("排过这页");
+    let note = engine.caches.last_choice.get().expect("排过这页");
     assert_eq!((note.from, note.ctx, note.app), (1, 0, false));
 }
 

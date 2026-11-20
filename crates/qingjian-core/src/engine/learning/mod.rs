@@ -177,6 +177,7 @@ impl Engine {
             InputSource::Raw | InputSource::Voice | InputSource::FollowUp
         ) {
             let first = self
+                .caches
                 .last_query
                 .borrow()
                 .as_ref()
@@ -201,7 +202,7 @@ impl Engine {
         self.record_exposures();
         self.flush_passthrough();
         self.log_sequence += 1;
-        let snapshot = self.last_query.borrow().clone().unwrap_or_default();
+        let snapshot = self.caches.last_query.borrow().clone().unwrap_or_default();
         let index = snapshot.candidates.iter().position(|c| c == text);
         let ms = self
             .composition_started
@@ -273,7 +274,7 @@ impl Engine {
         };
         if !forgotten.is_nothing() {
             self.forget_span_cache();
-            *self.correction_cache.borrow_mut() = None;
+            *self.caches.correction.borrow_mut() = None;
             if self.chain.mentions(&candidate.text) {
                 self.chain.reset();
             }
@@ -295,7 +296,7 @@ impl Engine {
 
     /// 词库 / 用户词 / 学习数据变了，整句格子候选全部作废。
     pub(super) fn forget_span_cache(&self) {
-        self.span_cache.borrow_mut().clear();
+        self.caches.span.borrow_mut().clear();
     }
 }
 

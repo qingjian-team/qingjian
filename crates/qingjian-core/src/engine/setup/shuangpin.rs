@@ -16,7 +16,7 @@ impl Engine {
             self.chain.clear_code_words();
         }
         self.shuangpin = layout;
-        *self.correction_cache.borrow_mut() = None;
+        *self.caches.correction.borrow_mut() = None;
     }
 
     pub fn shuangpin(&self) -> Option<&Layout> {
@@ -44,7 +44,7 @@ impl Engine {
     /// 一边双拼一边全拼的两个人共用一份设置；关着（缺省）只有双拼一种读法。
     pub fn set_shuangpin_full_pinyin(&mut self, enabled: bool) {
         self.settings.shuangpin_full_pinyin = enabled;
-        *self.correction_cache.borrow_mut() = None;
+        *self.caches.correction.borrow_mut() = None;
     }
 
     pub fn shuangpin_full_pinyin(&self) -> bool {

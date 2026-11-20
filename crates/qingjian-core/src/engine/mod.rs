@@ -7,6 +7,7 @@ mod alignment;
 mod annotation;
 mod aux_code;
 mod backspace;
+mod caches;
 mod candidate_menu;
 mod caret;
 mod choice;
@@ -84,7 +85,7 @@ pub use vocabulary::{
 use crate::candidate::Language;
 use crate::code_scheme::CodeScheme;
 use crate::composition::Composition;
-use crate::correction::{Correction, TypoCosts};
+use crate::correction::TypoCosts;
 use crate::emoji::EmojiTable;
 use crate::fuzzy::FuzzyRules;
 use crate::history::InputHistory;
@@ -154,6 +155,7 @@ pub struct Engine {
     /// 通讯录（壳读系统通讯录交来，用户在设置里开了才有）：名字并进查词，见 [`Self::set_contacts`]。
     contacts: Option<crate::ContactBook>,
     settings: settings::EngineSettings,
+    caches: caches::EngineCaches,
 
     /// 联想提供方，缺省为 [`NoPredictor`]。
     predictor: Box<dyn Predictor>,
@@ -172,9 +174,6 @@ pub struct Engine {
 
     /// 接的打分器是生成器（[`SentenceScorer::generates`]，含章·通变）：整句以生成为主、不重排词图路径。
     generative: bool,
-
-    /// 「前文 + 整句文本 → 神经分」缓存，同步与异步打分共用。
-    neural_cache: std::cell::RefCell<rescoring::NeuralCache>,
 
     /// 后台模型交结果时叫醒壳（[`Engine::set_rescoring_wake`]），两个后台线程共用。
     wake: rescoring::WakeSlot,
@@ -222,18 +221,6 @@ pub struct Engine {
     /// 输入日志条目的序号。
     log_sequence: u64,
 
-    /// 最近一次查询的候选顺序是否经过神经重排（`rescore_paths` 置位，`query` 开头清零），写进输入日志。
-    last_rescored: std::cell::Cell<bool>,
-
-    /// 最近一次查询里选词模型排过这页的记录（`rerank_choices` 写，`query` 开头清零），写进输入日志。
-    last_choice: std::cell::Cell<Option<input_log::ChoiceNote>>,
-
-    /// 最近一次查询里选词模型给各候选的分（`rerank_choices` 写，`query` 开头清空），给评测看。
-    last_choice_scores: std::cell::RefCell<Vec<choice::ChoiceScore>>,
-
-    /// 这次查询里敲错边读出、当备选插进来的整句（[`Engine::plain_sentence`]）：选词重排不拿它们比。
-    corrected_alternates: std::cell::RefCell<Vec<String>>,
-
     /// 这段组句里第一次退格前的缓冲区：上屏时与最终键串不同就记一条 `retype`。
     retype_snapshot: Option<String>,
 
@@ -276,18 +263,6 @@ pub struct Engine {
 
     /// 上屏过带译词的词、等那句话写完当例句。
     examples: vocabulary::ExampleCollector,
-
-    /// 上一次查询的摘要，上屏时写进输入日志。
-    last_query: std::cell::RefCell<Option<query::QuerySnapshot>>,
-
-    /// 这段组句生成过的 UUID / 时间戳：(关键字, 各写法)。壳每次刷新都重查候选，同一段组句里得是同一组值；新一段组句的第一键清掉。
-    generated_forms: std::cell::RefCell<Option<(String, Vec<String>)>>,
-
-    /// 上一次算过的拼写纠正：(作用域, 结果)。query 算一次，commit / take_raw 复用，别再跑一遍变体枚举。
-    correction_cache: std::cell::RefCell<Option<(String, Option<Correction>)>>,
-
-    /// 整句转换的格子候选缓存：跨按键复用，学习数据一变就清（见 [`Self::forget_span_cache`]）。
-    span_cache: std::cell::RefCell<sentence::SpanCache>,
 
     /// 短语级语言模型（知意的三元 n-gram）：选词重排里给整段候选打 ln P，没接时用二元模型逐词累加。
     phrase_model: Option<std::sync::Arc<dyn sentence::PhraseModel>>,
@@ -511,6 +486,7 @@ impl Engine {
             blocked: Vec::new(),
             contacts: None,
             settings: settings::EngineSettings::default(),
+            caches: caches::EngineCaches::default(),
             predictor: Box::new(NoPredictor),
             translation_predictor: None,
             language_model: Box::new(NoLanguageModel),
@@ -518,7 +494,6 @@ impl Engine {
             rescorer: None,
             generative: false,
             wake: rescoring::WakeSlot::default(),
-            neural_cache: std::cell::RefCell::new(rescoring::NeuralCache::default()),
             choice: None,
             choice_tier: choice::ChoiceTier::default(),
             rescoring_before: None,
@@ -528,17 +503,11 @@ impl Engine {
             typo_costs: TypoCosts::DEFAULT,
             search_limits: sentence::SearchLimits::DEFAULT,
             neural_context: RESCORE_CONTEXT_CHARS,
-            correction_cache: std::cell::RefCell::new(None),
-            span_cache: std::cell::RefCell::new(sentence::SpanCache::default()),
             phrase_model: None,
             recent_commits: Vec::new(),
             logger: input_log::MutedLogger::new(Box::new(NoInputLogger)),
             private: false,
             log_sequence: 0,
-            last_rescored: std::cell::Cell::new(false),
-            last_choice: std::cell::Cell::new(None),
-            last_choice_scores: std::cell::RefCell::default(),
-            corrected_alternates: std::cell::RefCell::default(),
             retype_snapshot: None,
             held: Vec::new(),
             passthrough_pending: String::new(),
@@ -553,8 +522,6 @@ impl Engine {
             gloss_filler: Box::new(NoGlossFiller),
             displayed: Vec::new(),
             examples: vocabulary::ExampleCollector::default(),
-            last_query: std::cell::RefCell::new(None),
-            generated_forms: std::cell::RefCell::new(None),
             recording: Vec::new(),
             history: InputHistory::default(),
             prediction_sequence: 0,

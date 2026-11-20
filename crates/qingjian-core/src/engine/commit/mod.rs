@@ -476,7 +476,7 @@ impl Engine {
             let choice = &phrase.choice;
             if phrase.created {
                 self.learner.forget(&choice.text);
-                *self.correction_cache.borrow_mut() = None;
+                *self.caches.correction.borrow_mut() = None;
             } else {
                 self.learner
                     .unrecord_choice(&phrase.key, &choice.reading, &choice.text);

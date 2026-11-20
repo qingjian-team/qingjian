@@ -133,7 +133,8 @@ fn custom_long_text_and_exact_keys() {
     assert_eq!(layout.candidate(0).unwrap().text, "目标");
     assert!(layout.local().iter().all(|c| !c.text.is_empty()));
     assert!(
-        e.last_query
+        e.caches
+            .last_query
             .borrow()
             .as_ref()
             .unwrap()

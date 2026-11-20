@@ -31,10 +31,10 @@ impl Engine {
     /// 光标停在拼音中间时只按光标前的那段算候选（`ni|hao` 出 你），光标后的拼音留着，
     /// 上屏之后接着组句；见 [`crate::Composition::scope`]。
     pub fn query(&self) -> Result<Query, ParseError> {
-        self.last_rescored.set(false);
-        self.last_choice.set(None);
-        self.last_choice_scores.borrow_mut().clear();
-        self.corrected_alternates.borrow_mut().clear();
+        self.caches.last_rescored.set(false);
+        self.caches.last_choice.set(None);
+        self.caches.last_choice_scores.borrow_mut().clear();
+        self.caches.corrected_alternates.borrow_mut().clear();
         self.forget_stale_compose();
         let mut query = match self.query_inner() {
             Ok(query) => query,
@@ -107,7 +107,7 @@ impl Engine {
             (None, Some(display)) if self.nine_key => display.clone(),
             (None, _) => join_marked(&query.segmentations, &query.tail),
         };
-        *self.last_query.borrow_mut() = Some(QuerySnapshot {
+        *self.caches.last_query.borrow_mut() = Some(QuerySnapshot {
             scope: self.composition.scope().to_owned(),
             pinyin,
             corrected: query.correction.is_some(),
@@ -120,8 +120,8 @@ impl Engine {
                 .take(QuerySnapshot::MAX_CANDIDATES)
                 .map(|c| c.text.clone())
                 .collect(),
-            rescored: self.last_rescored.get(),
-            choice: self.last_choice.get(),
+            rescored: self.caches.last_rescored.get(),
+            choice: self.caches.last_choice.get(),
         });
         // 繁体输出：出 Core 的最后一步才换，并记下「繁体 → 简体」给上屏还原用。
         // 放在输入日志摘要之后，日志与学习数据一律记简体

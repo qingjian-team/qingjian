@@ -214,7 +214,8 @@ impl Engine {
         {
             return out;
         }
-        self.corrected_alternates
+        self.caches
+            .corrected_alternates
             .borrow_mut()
             .push(corrected.text.clone());
         let candidate = Candidate {
@@ -440,7 +441,7 @@ impl Engine {
             &expanded.positions(),
             whole,
             k,
-            &mut self.span_cache.borrow_mut(),
+            &mut self.caches.span.borrow_mut(),
         );
         // 与最优路径差得太远的不参与：那种差距多半是个人 n-gram 拉开的
         if paths.len() > 1 {
