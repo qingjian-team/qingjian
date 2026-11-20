@@ -19,6 +19,19 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  # 代码规模门禁：单文件 / 单结构体 / 单 impl / 单函数的体量上限。纯 Python、秒级，
+  # 放在最前面，让「又写了个上帝对象」在 PR 里第一眼就红，不用等 20 分钟的 core job。
+  quality:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Code size limits
+        run: python3 tools/quality/check_code_quality.py
+
   core:
     runs-on: ubuntu-26.04
     timeout-minutes: 20
