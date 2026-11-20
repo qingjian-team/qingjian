@@ -18,7 +18,7 @@
 - [ ] `cargo fmt --all --check`、`cargo clippy --workspace --all-targets -- -D warnings`、`cargo test --workspace` 本机全过
 - [ ] **用户能感知的行为变了（按键、候选、菜单、设置项、配置文件、数据文件），`docs/user/` 对应页面已同步改**，按键改动同时更新 `docs/user/getting-started/keys.md`
 - [ ] 一个功能只在一个平台实现时，已在文档里标明平台，并在 PR 里说明另一平台的差距
-- [ ] 代码标识符英文、注释与文档中文；新文件有 `//!` 文件头；单文件不超过 800 行
+- [ ] 代码标识符英文、注释与文档中文；新文件有 `//!` 文件头；单文件不超过 800 行、单结构体不超过 40 字段、单 `impl` 不超过 40 个方法、单函数不超过 150 行（本地跑 `python3 tools/quality/check_code_quality.py`）
 - [ ] 提交信息用 Conventional Commits（`fix(core): ……` / `feat(windows): ……`，说明写中文）；其余约定见 [docs/contributing.md](../docs/contributing.md)
 - [ ] 不改 `CHANGELOG.md`（发版时由维护者统一写）
 - [ ] 改到 `crates/qingjian-render` 的：同意以 MIT-0 许可这部分贡献（见 [docs/contributing.md](../docs/contributing.md) 的「外部 PR」）
