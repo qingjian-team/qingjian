@@ -45,13 +45,13 @@ mod tests {
     #[test]
     fn legacy_config_keeps_selection_and_both_values_round_trip() {
         let legacy: Config = toml::from_str("[general]\npage_size = 5\n").unwrap();
-        assert_eq!(legacy.general.numpad_digit, NumpadDigit::Select);
+        assert_eq!(legacy.general.input.numpad_digit, NumpadDigit::Select);
         for mode in NumpadDigit::ALL {
             let text = format!("[general]\nnumpad_digit = \"{}\"\n", mode.key());
             let config: Config = toml::from_str(&text).unwrap();
-            assert_eq!(config.general.numpad_digit, mode);
+            assert_eq!(config.general.input.numpad_digit, mode);
             let restored: Config = toml::from_str(&toml::to_string(&config).unwrap()).unwrap();
-            assert_eq!(restored.general.numpad_digit, mode);
+            assert_eq!(restored.general.input.numpad_digit, mode);
         }
         assert!(toml::from_str::<Config>("[general]\nnumpad_digit = \"invalid\"").is_err());
     }

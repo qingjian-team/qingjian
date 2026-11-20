@@ -104,17 +104,17 @@ fn the_slot_loads_a_custom_layout_and_falls_back_to_full_pinyin() {
     let mut slot = SchemeSlot::default();
 
     let mut config = Config::default();
-    config.general.scheme = "mine".to_owned();
+    config.general.schemes.scheme = "mine".to_owned();
     slot.apply(&mut engine, &config, Some(&user), None);
     assert_eq!(engine.shuangpin().unwrap().key(), "mine");
     assert_eq!(slot.scheme_label(Scheme::Custom), "我的小鹤");
 
-    config.general.scheme = "xiaohe".to_owned();
+    config.general.schemes.scheme = "xiaohe".to_owned();
     slot.apply(&mut engine, &config, Some(&user), None);
     assert_eq!(engine.shuangpin().unwrap().key(), "xiaohe");
     assert_eq!(slot.shuangpin_label(), None);
 
-    config.general.scheme = "gone".to_owned();
+    config.general.schemes.scheme = "gone".to_owned();
     slot.apply(&mut engine, &config, Some(&user), None);
     assert!(engine.shuangpin().is_none());
     assert_eq!(slot.scheme_name(Scheme::Custom), "全拼");

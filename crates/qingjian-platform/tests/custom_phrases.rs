@@ -31,7 +31,7 @@ fn save_roundtrip_preserves_text_and_rejects_duplicate_phrases() {
     Config::set_custom_phrases(&path, &phrases).unwrap();
     let parsed = Config::load(&path).unwrap();
     assert_eq!(parsed.custom_phrases, phrases);
-    assert!(!parsed.general.full_width_punctuation);
+    assert!(!parsed.general.input.full_width_punctuation);
     assert_eq!(parsed.general.page_size(), 5);
     let before = std::fs::read_to_string(&path).unwrap();
     assert!(before.contains("# existing comment"));
@@ -74,7 +74,7 @@ fn bad_phrases_are_skipped_on_load_and_kept_on_save() {
     )
     .unwrap();
     let loaded = Config::load(&path).unwrap();
-    assert_eq!(loaded.general.scheme, "xiaohe");
+    assert_eq!(loaded.general.schemes.scheme, "xiaohe");
     let codes: Vec<_> = loaded
         .custom_phrases
         .iter()

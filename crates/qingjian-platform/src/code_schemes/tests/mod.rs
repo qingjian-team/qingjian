@@ -131,8 +131,8 @@ fn loading_carries_the_rules_and_the_log_key() {
 /// 两条轴的配置：拼音侧写法与形码方案 id。
 fn config(pinyin: &str, code: &str) -> Config {
     let mut config = Config::default();
-    config.general.scheme = pinyin.to_owned();
-    config.general.code = code.to_owned();
+    config.general.schemes.scheme = pinyin.to_owned();
+    config.general.schemes.code = code.to_owned();
     config
 }
 

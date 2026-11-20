@@ -1,6 +1,7 @@
 //! 配置的读写测试：模板、分节解析、旧写法兼容、原地改键。
 
 use super::*;
+use crate::error::ConfigError;
 
 #[test]
 fn template_parses_to_defaults() {
@@ -56,6 +57,7 @@ fn emoji_reads_counts_and_old_switch() {
         toml::from_str::<Config>(&format!("[general]\nemoji = {value}\n"))
             .unwrap()
             .general
+            .candidates
             .emoji
             .get()
     };
@@ -87,14 +89,14 @@ fn general_and_shortcut_sections_parse() {
     // 旧写法：外观写在 theme 里
     assert_eq!(config.general.appearance(), Appearance::Dark);
     assert_eq!(config.general.theme_id(), DEFAULT_THEME);
-    assert_eq!(config.general.layout, LayoutMode::Horizontal);
-    assert_eq!(config.general.preedit, PreeditMode::Window);
-    assert_eq!(config.general.learning_language, "en");
-    assert!(config.general.english_candidates);
-    assert_eq!(config.general.emoji, EmojiCount::new(3));
-    assert_eq!(config.general.kaomoji, EmojiCount::new(1));
-    assert_eq!(config.general.symbols, EmojiCount::new(1));
-    assert!(config.general.english_in_chinese);
+    assert_eq!(config.general.display.layout, LayoutMode::Horizontal);
+    assert_eq!(config.general.candidates.preedit, PreeditMode::Window);
+    assert_eq!(config.general.candidates.learning_language, "en");
+    assert!(config.general.candidates.english_candidates);
+    assert_eq!(config.general.candidates.emoji, EmojiCount::new(3));
+    assert_eq!(config.general.candidates.kaomoji, EmojiCount::new(1));
+    assert_eq!(config.general.candidates.symbols, EmojiCount::new(1));
+    assert!(config.general.candidates.english_in_chinese);
     assert_eq!(
         config.general.english_max_in_chinese(),
         qingjian_core::ENGLISH_CANDIDATES_MAX
@@ -105,7 +107,7 @@ fn general_and_shortcut_sections_parse() {
         qingjian_core::TraditionalVariant::Off
     );
     assert_eq!(config.general.shuangpin(), None);
-    assert_eq!(config.general.log_level, LogLevel::Info);
+    assert_eq!(config.general.advanced.log_level, LogLevel::Info);
     assert_eq!(config.shortcut.mode.expression, 'i');
     assert_eq!(config.shortcut.mode.question, 'u');
     // 译词修饰键缺省分平台（Windows 是 Ctrl 系，其余 Option 系，见 shortcut.rs），断言跟着 Default 走
@@ -114,7 +116,7 @@ fn general_and_shortcut_sections_parse() {
         Config::default().shortcut.translation
     );
     assert_eq!(config.shortcut.switch_mode, SwitchKeys::default());
-    assert!(config.general.english_mode);
+    assert!(config.general.input.english_mode);
 }
 
 #[test]
@@ -194,7 +196,7 @@ fn set_value_writes_strings_and_integers() {
     Config::set_value(&path, "general", "appearance", "dark").unwrap();
     Config::set_value(&path, "shortcut", "question", "i").unwrap();
     let config = Config::load(&path).unwrap();
-    assert_eq!(config.general.page_size, 5);
+    assert_eq!(config.general.candidates.page_size, 5);
     assert_eq!(config.general.appearance(), Appearance::Dark);
     assert_eq!(config.shortcut.mode.question, 'i');
     let _ = std::fs::remove_file(&path);
@@ -235,7 +237,7 @@ fn setters_keep_the_rest_of_an_inline_table_section() {
     Config::set_value(&path, "general", "appearance", "dark").unwrap();
     Config::set_value(&path, "code.wubi86", "top", true).unwrap();
     let config = Config::load(&path).unwrap();
-    assert_eq!(config.general.page_size, 7);
+    assert_eq!(config.general.candidates.page_size, 7);
     assert_eq!(config.general.appearance(), Appearance::Dark);
     assert!(config.fuzzy.z_zh && config.fuzzy.n_l && config.fuzzy.an_ang);
     assert_eq!(
@@ -328,12 +330,12 @@ fn font_sizes_and_animations_parse_and_default() {
         "[general]\ncandidate_font_size = 20\nannotation_font_size = 13.5\nanimations = false\n",
     )
     .unwrap();
-    assert_eq!(config.general.candidate_font_size.get(), Some(20.0));
-    assert_eq!(config.general.annotation_font_size.get(), Some(13.5));
-    assert!(!config.general.animations);
+    assert_eq!(config.general.display.candidate_font_size.get(), Some(20.0));
+    assert_eq!(config.general.display.annotation_font_size.get(), Some(13.5));
+    assert!(!config.general.display.animations);
     let default = Config::default();
-    assert_eq!(default.general.candidate_font_size.get(), None);
-    assert!(default.general.animations);
+    assert_eq!(default.general.display.candidate_font_size.get(), None);
+    assert!(default.general.display.animations);
     assert_eq!(FontSize(-3.0).get(), None);
 }
 
@@ -341,7 +343,7 @@ fn font_sizes_and_animations_parse_and_default() {
 fn candidate_font_weight_rounds_to_hundreds_and_zero_follows_the_theme() {
     let weight = |value: u16| {
         let mut general = Config::default().general;
-        general.candidate_font_weight = value;
+        general.display.candidate_font_weight = value;
         general.candidate_font_weight()
     };
     assert_eq!(weight(0), None);

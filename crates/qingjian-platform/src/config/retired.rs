@@ -4,7 +4,8 @@ use std::path::Path;
 
 use toml_edit::DocumentMut;
 
-use super::{Config, ConfigError, LocalModel};
+use super::{Config, LocalModel};
+use crate::error::ConfigError;
 
 impl Config {
     /// 配置文件里写着已下线的取值就原地改成现在的，返回改没改；没有文件或没有这类取值什么都不做。
