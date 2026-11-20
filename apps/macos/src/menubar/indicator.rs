@@ -7,6 +7,7 @@
 //! （固定 autosave 名也保不住），而焦点每进出一次输入框 IMK 就 deactivate / activate 一轮。
 //! 停用时改成收成零宽、清空标题，并且延迟 [`COLLAPSE_DELAY`] 再收：焦点只是在输入框之间挪的话，半秒内就会再次激活，根本收不下去；
 //! 真换到别的输入法才收起来，切回来再展开，位置一直在。
+//! 设置里关掉 `[general] menubar_indicator` 时例外：直接 `removeStatusItem` 彻底移除，避免菜单栏留空占位；重新打开后在下次刷新或激活时重建。
 //!
 //! 状态项等第一次激活才建：启动时 NSApplication 还没建、进程没连上 WindowServer，macOS 13 上这时建状态项直接 NSCGSPanic。
 //! 也不能为此把 NSApplication 提前到 IMKServer 之前建：那样装好后，系统弹窗抢走焦点再还回来时会把输入源切回 ABC。
@@ -40,8 +41,14 @@ pub struct ModeIndicator {
     /// 停用后延迟收起的一次性定时器；再次激活时取消。
     collapse_timer: Option<Retained<NSTimer>>,
 
-    /// 正展开着（输入法激活中）。收起时不刷新标题。
-    shown: bool,
+    /// 菜单栏状态项开着（`[general] menubar_indicator`，缺省开；只有 macOS 用）。
+    enabled: bool,
+
+    /// 输入法激活中：决定 Caps Lock / 双击 Shift 轮询定时器开不开。
+    active: bool,
+
+    /// 状态项正展开着。
+    expanded: bool,
 
     /// 上次显示的（英文、越南语）模式，避免每次轮询都重设标题。
     mode: Option<(bool, bool)>,
@@ -60,7 +67,9 @@ impl ModeIndicator {
             timer: None,
             fast_poll: false,
             collapse_timer: None,
-            shown: false,
+            enabled: true,
+            active: false,
+            expanded: false,
             mode: None,
             cloud: false,
             mtm,
@@ -77,17 +86,43 @@ impl ModeIndicator {
         })
     }
 
+    /// 按配置显示或移除菜单栏状态项；轮询定时器不受影响。
+    /// 激活状态下重新打开时会清空 `mode`，由调用方紧接着 `update` / `refresh_mode_ui` 刷新标题。
+    pub fn set_enabled(&mut self, enabled: bool) {
+        if self.enabled == enabled {
+            return;
+        }
+        self.enabled = enabled;
+        if !enabled {
+            if let Some(timer) = self.collapse_timer.take() {
+                timer.invalidate();
+            }
+            self.expanded = false;
+            self.mode = None;
+            if let Some(item) = self.item.take() {
+                NSStatusBar::systemStatusBar().removeStatusItem(&item);
+            }
+        } else if self.active {
+            self.expanded = true;
+            self.mode = None;
+            self.item().setLength(NSVariableStatusItemLength);
+        }
+    }
+
     /// 输入法激活：展开状态项并开始轮询；停用时安排的收起取消。
     pub fn activate(&mut self, english: bool, vietnamese: bool) {
         if let Some(timer) = self.collapse_timer.take() {
             timer.invalidate();
         }
-        if !self.shown {
-            self.shown = true;
-            self.item().setLength(NSVariableStatusItemLength);
+        self.active = true;
+        if self.enabled {
+            if !self.expanded {
+                self.expanded = true;
+                self.item().setLength(NSVariableStatusItemLength);
+            }
+            self.mode = None;
+            self.update(english, vietnamese);
         }
-        self.mode = None;
-        self.update(english, vietnamese);
         self.start_poll_timer();
     }
 
@@ -96,8 +131,9 @@ impl ModeIndicator {
         if let Some(timer) = self.timer.take() {
             timer.invalidate();
         }
+        self.active = false;
         self.fast_poll = false;
-        if self.collapse_timer.is_some() {
+        if !self.enabled || !self.expanded || self.collapse_timer.is_some() {
             return;
         }
         let target = ModeMonitor::new(self.mtm);
@@ -116,10 +152,10 @@ impl ModeIndicator {
     /// 收成零宽、清空标题；位置保留。
     pub fn collapse(&mut self) {
         self.collapse_timer = None;
-        if !self.shown {
+        if !self.expanded {
             return;
         }
-        self.shown = false;
+        self.expanded = false;
         self.mode = None;
         let Some(item) = &self.item else {
             return;
@@ -155,7 +191,7 @@ impl ModeIndicator {
     }
 
     fn start_poll_timer(&mut self) {
-        if self.timer.is_some() || !self.shown {
+        if self.timer.is_some() || !self.active {
             return;
         }
         let interval = if self.fast_poll {
@@ -183,9 +219,9 @@ impl ModeIndicator {
         self.start_poll_timer();
     }
 
-    /// 按当前中 / 英 / 越模式刷新标题；收起时不动。
+    /// 按当前中 / 英 / 越模式刷新标题；收起或禁用时不动。
     pub fn update(&mut self, english: bool, vietnamese: bool) {
-        if !self.shown {
+        if !self.enabled || !self.expanded {
             return;
         }
         if self.mode == Some((english, vietnamese)) {
