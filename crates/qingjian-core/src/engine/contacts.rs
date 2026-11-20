@@ -17,7 +17,7 @@ impl Engine {
     pub fn set_contacts(&mut self, contacts: &[Contact]) -> usize {
         self.forget_span_cache();
         if contacts.is_empty() {
-            self.contacts = None;
+            self.lexicon.contacts = None;
             return 0;
         }
         let fallback = self.char_readings(contacts);
@@ -33,41 +33,44 @@ impl Engine {
             |ch| fallback.get(&ch).cloned(),
         );
         let count = book.len();
-        self.contacts = (!book.is_empty()).then_some(book);
+        self.lexicon.contacts = (!book.is_empty()).then_some(book);
         count
     }
 
     /// `text` 是不是通讯录里的名字。
     pub fn is_contact(&self, text: &str) -> bool {
-        self.contacts
+        self.lexicon
+            .contacts
             .as_ref()
             .is_some_and(|book| book.contains(text))
     }
 
     /// 名字上屏后接着给的内容（电话、邮箱）；不是名字时为空。
     pub fn contact_details(&self, name: &str) -> &[String] {
-        self.contacts
+        self.lexicon
+            .contacts
             .as_ref()
             .map_or(&[], |book| book.details(name))
     }
 
     pub(super) fn contact_book(&self) -> Option<&ContactBook> {
-        self.contacts.as_ref()
+        self.lexicon.contacts.as_ref()
     }
 
     /// `text` 里有没有通讯录里的名字（发云端前查）。
     pub(super) fn mentions_contact(&self, text: &str) -> bool {
-        self.contacts
+        self.lexicon
+            .contacts
             .as_ref()
             .is_some_and(|book| book.mentioned_in(text))
     }
 
     /// 整段输入对得上的第一个名字排在后面时挪到第 [`CONTACT_SLOT`] 位。
     pub(super) fn lift_contact(&self, items: &mut Vec<Candidate>) {
-        if self.contacts.is_none() {
+        if self.lexicon.contacts.is_none() {
             return;
         }
-        let scope = self.composition.scope().len();
+        let scope = self.input.composition.scope().len();
         let found = items.iter().position(|candidate| {
             candidate.kind == CandidateKind::Chinese
                 && self.is_contact(&candidate.text)

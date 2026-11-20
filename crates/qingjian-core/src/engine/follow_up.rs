@@ -16,10 +16,10 @@ impl Engine {
     /// 接在刚上屏的中文词后面的联想，最多 `limit` 个；上文断了（句首、标点、英文、回车上屏拼音之后）或还在组句时为空。
     /// 繁体输出开着时给繁体。
     pub fn follow_ups(&self, limit: usize) -> Vec<String> {
-        if limit == 0 || !self.composition.is_empty() {
+        if limit == 0 || !self.input.composition.is_empty() {
             return Vec::new();
         }
-        let Some(previous) = self.chain.previous() else {
+        let Some(previous) = self.flow.chain.previous() else {
             return Vec::new();
         };
         let fits = |word: &str| {
@@ -27,7 +27,7 @@ impl Engine {
             (1..=MAX_FOLLOW_UP_CHARS).contains(&chars) && word.chars().all(crate::sentence::is_han)
         };
         let mut words: Vec<String> = Vec::new();
-        if let Some(ngram) = self.learner.user_ngram() {
+        if let Some(ngram) = self.models.learner.user_ngram() {
             for (word, _) in ngram.successors(previous) {
                 if words.len() >= limit {
                     break;
@@ -48,7 +48,7 @@ impl Engine {
         }
         words
             .into_iter()
-            .map(|word| self.traditional.convert(&word))
+            .map(|word| self.scheme.traditional.convert(&word))
             .collect()
     }
 
@@ -59,11 +59,12 @@ impl Engine {
             return String::new();
         }
         let word = self
+            .scheme
             .traditional
             .restore(text)
             .unwrap_or_else(|| text.to_owned());
         *self.caches.last_query.borrow_mut() = None;
-        self.learner.record(&Candidate {
+        self.models.learner.record(&Candidate {
             text: word.clone(),
             kind: CandidateKind::Chinese,
             syllables: Vec::new(),
@@ -79,6 +80,6 @@ impl Engine {
         self.remember_commit(LastCommit::plain(&word));
         self.punct.punctuation.note_committed(&word);
         self.note_text(&word);
-        self.traditional.convert(&word)
+        self.scheme.traditional.convert(&word)
     }
 }

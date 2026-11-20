@@ -14,7 +14,7 @@ impl Engine {
         if !self.hint_applies() {
             return None;
         }
-        Some(KeyHint::for_keys(layout, self.composition.scope()))
+        Some(KeyHint::for_keys(layout, self.input.composition.scope()))
     }
 
     /// 五笔字根图：挂着 86 五笔（只用五笔或混输）时才有，别的形码方案没有字根图；混输时壳优先画它，双拼的键位不画。

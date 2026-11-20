@@ -27,7 +27,7 @@ impl Engine {
         } else {
             self.journal.recent_commits.clear();
         }
-        self.chain.reset();
+        self.flow.chain.reset();
         converted
     }
 
@@ -45,7 +45,7 @@ impl Engine {
         self.punct.punctuation.note_passthrough(c);
         let text = c.encode_utf8(&mut [0; 4]).to_owned();
         self.note_text(&text);
-        self.chain.reset();
+        self.flow.chain.reset();
         self.remember_commit(LastCommit::plain(&text));
         self.input.passthrough_pending.push(c);
         if self.input.passthrough_pending.chars().count() >= MAX_PENDING_PASSTHROUGH {
@@ -67,7 +67,7 @@ impl Engine {
     /// 壳告知光标离开了刚才上屏的位置（切换应用、点了别处、停用输入法）：之后上屏的词按句首记。
     /// 上次断开之后有过上屏才往输入日志记一条 `break`，连着失焦几次只记一次。
     pub fn break_chain(&mut self) {
-        self.chain.reset();
+        self.flow.chain.reset();
         self.punct.punctuation.pairs().clear();
         self.journal.recent_commits.clear();
         self.flush_passthrough();
@@ -82,13 +82,13 @@ impl Engine {
 
     /// 壳告知正在输入的应用（macOS bundle identifier / Windows exe 名），写进输入日志；不知道就给 `None`。
     pub fn set_application(&mut self, app: Option<String>) {
-        self.history.set_application(app.as_deref());
+        self.flow.history.set_application(app.as_deref());
         self.journal.application = app;
     }
 
     /// 焦点进了一个输入框（壳在 IMK `activateServer`、Fcitx focus in 时调）：之前在这个应用里打的字不再当前文。
     pub fn enter_input_box(&mut self) {
-        self.history.forget_current();
+        self.flow.history.forget_current();
     }
 
     pub fn application(&self) -> Option<&str> {
@@ -143,10 +143,10 @@ impl Engine {
 
     /// 组句里要删东西了：第一次删之前把缓冲区留个快照，上屏时对比最终键串，不同就是一次重打（`retype`）。
     fn note_edit(&mut self) {
-        self.chain.clear_code_words();
+        self.flow.chain.clear_code_words();
         self.journal.typing.edit(Instant::now());
-        if self.input.retype_snapshot.is_none() && !self.composition.is_empty() {
-            self.input.retype_snapshot = Some(self.composition.text().to_owned());
+        if self.input.retype_snapshot.is_none() && !self.input.composition.is_empty() {
+            self.input.retype_snapshot = Some(self.input.composition.text().to_owned());
         }
     }
 
@@ -154,7 +154,7 @@ impl Engine {
     /// 接着重打那段拼音选了别的词，那次记的学习就退回去（见 `apply_retraction`）。
     /// 删得比记着的几次上屏加起来还多说明在改别处，全忘掉。
     pub fn note_backspace(&mut self) {
-        self.chain.clear_code_words();
+        self.flow.chain.clear_code_words();
         let Some(commit) = self
             .journal
             .recent_commits
@@ -163,13 +163,13 @@ impl Engine {
             .find(|c| !c.is_erased())
         else {
             self.journal.recent_commits.clear();
-            self.chain.reset();
+            self.flow.chain.reset();
             return;
         };
         commit.erased += 1;
         if commit.is_erased() {
             // 刚上屏的词没了，它不再是下一个词的上文
-            self.chain.reset();
+            self.flow.chain.reset();
         }
     }
 
@@ -185,19 +185,19 @@ impl Engine {
     }
 
     pub fn composition(&self) -> &Composition {
-        &self.composition
+        &self.input.composition
     }
 
     /// 单字模式开关（#848）：组句中候选只留单字，再切一次恢复；只管这一段组句，上屏完或清空就回到正常候选。
     /// 没在组句时不起作用，返回 `false`，壳把按键交还应用。切完要重新 [`Self::query`]。
     pub fn toggle_single_chars(&mut self) -> bool {
-        self.composition.toggle_single_chars()
+        self.input.composition.toggle_single_chars()
     }
 
     pub fn push(&mut self, c: char) {
         // 打了新键：退回成数字的音节不再偏向用户之前选的写法
         self.scheme.nine_key_unpinned = None;
-        if self.composition.is_empty() {
+        if self.input.composition.is_empty() {
             // 新一段组句：从这一键起算耗时、翻页与重打
             self.input.composition_started = Some(Instant::now());
             *self.caches.generated_forms.borrow_mut() = None;
@@ -219,12 +219,12 @@ impl Engine {
         // 缺省关：壳把大写字母直接交给应用，根本进不到这里；英文模式与英文直输段（`no-Way`）始终保留原样。
         if self.settings.shift_letter_compose
             && c.is_ascii_uppercase()
-            && !self.english_mode
+            && !self.input.english_mode
             && !self.raw_mode()
         {
-            self.composition.push_shifted(c);
+            self.input.composition.push_shifted(c);
         } else {
-            self.composition.push(c);
+            self.input.composition.push(c);
         }
     }
 
@@ -247,7 +247,7 @@ impl Engine {
         // 手动按的一记（或者重复已经断了）：保护到此为止，重新开始算
         self.input.backspace_emptied = false;
         let removed = self.backspace_inner();
-        if removed && self.composition.is_empty() {
+        if removed && self.input.composition.is_empty() {
             self.input.backspace_emptied = true;
         }
         if removed {
@@ -278,32 +278,32 @@ impl Engine {
         let before = self
             .scheme
             .nine_key
-            .then(|| self.composition.text().to_owned());
-        let removed = self.composition.backspace();
+            .then(|| self.input.composition.text().to_owned());
+        let removed = self.input.composition.backspace();
         if removed {
             if let Some(before) = before {
                 self.follow_nine_key_deletion(&before);
             }
             self.drop_pin_separator();
             // 组句里删了字母：这段拼音被编辑过，整段合成词到此为止（issue #1024）
-            self.chain.note_edit();
+            self.flow.chain.note_edit();
         }
         removed
     }
 
     pub fn clear(&mut self) {
-        self.composition.clear();
+        self.input.composition.clear();
         self.input.held.clear();
         self.take_panel();
         self.aux.aux_code = None;
-        self.chain.leave_buffer();
+        self.flow.chain.leave_buffer();
         // 壳给的光标前文只对这段组句有效，下一段第一键再读
         self.tuning.rescoring_before = None;
         self.input.retype_snapshot = None;
         self.input.composition_started = None;
         self.journal.typing.restart();
         self.input.page_turns = 0;
-        self.traditional.forget();
+        self.scheme.traditional.forget();
         // 组句结束了：「刚删空」属于刚才那段，下一记退格删的是应用里的字（issue #932）
         self.input.backspace_emptied = false;
     }
@@ -311,14 +311,14 @@ impl Engine {
     /// 这段拼音有没有在组句里被改过（退格删字母、删音节、删到光标后）。
     /// 测试与诊断用；`finish_buffer` 按它决定整段还合不合成。
     pub fn chain_edited(&self) -> bool {
-        self.chain.edited()
+        self.flow.chain.edited()
     }
 
     pub fn delete_forward(&mut self) -> bool {
         self.note_edit();
-        let removed = self.composition.delete_forward();
+        let removed = self.input.composition.delete_forward();
         if removed {
-            self.chain.note_edit();
+            self.flow.chain.note_edit();
         }
         removed
     }
@@ -328,59 +328,59 @@ impl Engine {
     /// 光标在开头时返回 `false`。
     pub fn delete_syllable_backward(&mut self) -> bool {
         self.note_edit();
-        let cursor = self.composition.cursor();
-        let before = &self.composition.text()[..cursor];
+        let cursor = self.input.composition.cursor();
+        let before = &self.input.composition.text()[..cursor];
         let plain =
             self.raw_mode() || self.expression_mode() || self.question_mode() || self.scheme.zhuyin;
         let len = unit_len_before(before, self.scheme.shuangpin.is_some(), plain);
-        let removed = self.composition.delete_before_cursor(len);
+        let removed = self.input.composition.delete_before_cursor(len);
         if removed {
-            self.chain.note_edit();
+            self.flow.chain.note_edit();
         }
         removed
     }
 
     /// 光标向左跳过一个音节，遇 `'` 连它一起跳过。光标在开头时返回 `false`。
     pub fn move_cursor_syllable_left(&mut self) -> bool {
-        let cursor = self.composition.cursor();
-        let before = &self.composition.text()[..cursor];
+        let cursor = self.input.composition.cursor();
+        let before = &self.input.composition.text()[..cursor];
         let plain =
             self.raw_mode() || self.expression_mode() || self.question_mode() || self.scheme.zhuyin;
         let len = unit_len_before(before, self.scheme.shuangpin.is_some(), plain);
-        len > 0 && (0..len).all(|_| self.composition.move_left())
+        len > 0 && (0..len).all(|_| self.input.composition.move_left())
     }
 
     /// 光标向右跳过一个音节，遇 `'` 连它一起跳过。光标在末尾时返回 `false`。
     pub fn move_cursor_syllable_right(&mut self) -> bool {
-        let cursor = self.composition.cursor();
-        let after = &self.composition.text()[cursor..];
+        let cursor = self.input.composition.cursor();
+        let after = &self.input.composition.text()[cursor..];
         let plain =
             self.raw_mode() || self.expression_mode() || self.question_mode() || self.scheme.zhuyin;
         let len = unit_len_after(after, self.scheme.shuangpin.is_some(), plain);
-        len > 0 && (0..len).all(|_| self.composition.move_right())
+        len > 0 && (0..len).all(|_| self.input.composition.move_right())
     }
 
     /// 删掉光标前的全部拼音（壳里 ⌘⌫），光标后的留着。光标在开头时返回 `false`。
     pub fn delete_to_start(&mut self) -> bool {
         self.note_edit();
-        let cursor = self.composition.cursor();
-        self.composition.delete_before_cursor(cursor)
+        let cursor = self.input.composition.cursor();
+        self.input.composition.delete_before_cursor(cursor)
     }
 
     pub fn move_cursor_left(&mut self) -> bool {
-        self.composition.move_left()
+        self.input.composition.move_left()
     }
 
     pub fn move_cursor_right(&mut self) -> bool {
-        self.composition.move_right()
+        self.input.composition.move_right()
     }
 
     pub fn move_cursor_home(&mut self) {
-        self.composition.move_home();
+        self.input.composition.move_home();
     }
 
     pub fn move_cursor_end(&mut self) {
-        self.composition.move_end();
+        self.input.composition.move_end();
     }
 
     /// 是否处在表达式模式（缓冲区以表达式键、缺省 `v` 开头）。此时壳应把数字和运算符也交给 [`Self::push`]，而不是当选词键。
@@ -388,7 +388,7 @@ impl Engine {
         !self.has_custom_phrase()
             && self
                 .modes()
-                .is_expression(self.composition.text(), self.scheme.zhuyin)
+                .is_expression(self.input.composition.text(), self.scheme.zhuyin)
     }
 
     /// `vbit:` 这类子模式只在全拼下认。
@@ -407,7 +407,7 @@ impl Engine {
         // 子模式（`vbit:`、`vts;`）的按键规则全在 `shortcut::modes` 里统一登记，
         // 这里只问「这个名字收不收这个键」：`None` 表示不是子模式，往下走算式判断。
         if self.expression_sub_modes() {
-            let body = &self.composition.text()[self.modes().expression.len_utf8()..];
+            let body = &self.input.composition.text()[self.modes().expression.len_utf8()..];
             if let Some(accepts) = crate::shortcut::modes::accepts_key(body, c) {
                 return accepts;
             }
@@ -418,7 +418,7 @@ impl Engine {
     /// 表达式模式与问字模式优先于它。
     pub fn raw_mode(&self) -> bool {
         is_raw(
-            self.composition.text(),
+            self.input.composition.text(),
             self.modes(),
             self.scheme.shuangpin.as_deref(),
             self.scheme.zhuyin,
@@ -430,13 +430,13 @@ impl Engine {
         !self.has_custom_phrase()
             && self
                 .modes()
-                .is_question(self.composition.text(), self.scheme.zhuyin)
+                .is_question(self.input.composition.text(), self.scheme.zhuyin)
     }
 
     /// 问字模式下正在敲的还可能是 Unicode 码点（前缀后为空，或到目前为止全是十六进制 / 开头 `+`）：
     /// 此时壳应把数字交给 [`Self::push`] 而不是当选词键。全是字母又拆得出字（`udada`）时数字留给选字。
     pub fn unicode_entry(&self) -> bool {
-        let text = self.composition.text();
+        let text = self.input.composition.text();
         if !self.modes().is_question(text, self.scheme.zhuyin) {
             return false;
         }
@@ -447,7 +447,7 @@ impl Engine {
 
     /// 缓冲区里只有一个 `?`：还没决定是问字还是标点。壳在确认标点时调用 [`Self::restore_bare_question`]。
     pub fn bare_question(&self) -> bool {
-        self.composition.text() == QUESTION_PREFIX.to_string()
+        self.input.composition.text() == QUESTION_PREFIX.to_string()
     }
 
     /// 确认单独的问号并清空缓冲区；中文遵循标点设置，英文原样输出。
@@ -466,7 +466,7 @@ impl Engine {
 
     /// 用一段完整拼音替换当前缓冲区，供 CLI 和测试一次性喂入。
     pub fn set_input(&mut self, input: &str) {
-        self.composition.clear();
+        self.input.composition.clear();
         self.input.held.clear();
         for c in input.chars() {
             self.push(c);
@@ -478,9 +478,9 @@ impl Engine {
         // 回车原样上屏拼音段：码段（没上屏的码）到此结束
         self.aux.aux_code = None;
         // 纠错生效时用户仍按了回车：这个串就是要原样打的，记下来以后不再纠它
-        let scope = self.composition.scope().to_owned();
-        if !self.english_mode && self.active_correction(&scope).is_some() {
-            self.learner.record_raw(&scope);
+        let scope = self.input.composition.scope().to_owned();
+        if !self.input.english_mode && self.active_correction(&scope).is_some() {
+            self.models.learner.record_raw(&scope);
             // 缓存里还是「要纠」，清掉让下次重算
             *self.caches.correction.borrow_mut() = None;
         }
@@ -489,7 +489,7 @@ impl Engine {
         if raw.is_empty() {
             // 壳在回车 / 失焦时不管有没有在组句都会来一趟：空的不记日志、不计统计
             self.clear();
-            self.chain.reset();
+            self.flow.chain.reset();
             return held;
         }
         self.log_commit(&raw, &raw, InputSource::Raw);
@@ -497,21 +497,21 @@ impl Engine {
         // 双拼下全部键都能解成完整音节的（`nihc`）不是英文，是用户要原样打出双拼键。
         // 整段能读成「拼音头 + 英文尾」的（`woxiangxuexirust`）不学：那是我们没给对候选、用户放弃了，
         // 把整串学成英文词会反过来堵掉混输那条路
-        let english_word = looks_like_english_word(&raw, self.english_mode)
-            && (self.english_mode || self.decode(&raw).is_none_or(|d| !d.is_complete()))
-            && (self.english_mode || self.split_english_tail(&raw).is_none());
+        let english_word = looks_like_english_word(&raw, self.input.english_mode)
+            && (self.input.english_mode || self.decode(&raw).is_none_or(|d| !d.is_complete()))
+            && (self.input.english_mode || self.split_english_tail(&raw).is_none());
         if english_word {
-            self.learner.learn_english(&raw);
+            self.models.learner.learn_english(&raw);
         }
         self.meter_commit(&raw, InputSource::Raw, english_word);
         // 补的空格要在组句清空前判（还没上屏过时靠组句开始时的应用前文），并先于这次上屏记下
         let lead = self.auto_space_before(&raw);
-        self.composition.clear();
-        self.traditional.forget();
+        self.input.composition.clear();
+        self.scheme.traditional.forget();
         self.remember_commit(LastCommit::plain(&raw));
         self.punct.punctuation.note_committed(&raw);
         self.note_text(&raw);
-        self.chain.reset();
+        self.flow.chain.reset();
         if lead {
             format!("{held} {raw}")
         } else {

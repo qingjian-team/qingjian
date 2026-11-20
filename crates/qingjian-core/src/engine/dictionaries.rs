@@ -12,7 +12,7 @@ impl Engine {
     ///
     /// 自定义短语不受影响——那是用户自己写下的原文，屏蔽词管的是词库带进来的东西。
     pub fn set_blocked_words(&mut self, words: Vec<String>) {
-        self.blocked = words.into_iter().filter(|w| !w.is_empty()).collect();
+        self.lexicon.blocked = words.into_iter().filter(|w| !w.is_empty()).collect();
     }
 
     /// 换掉全部附加词库（导入、移除、开关之后）。格子缓存随之作废。
@@ -60,7 +60,7 @@ impl Engine {
         all.extend(self.lexicon.model_words.as_ref());
         all.extend(self.lexicon.companion_words);
         all.extend(self.contact_book().map(crate::ContactBook::dictionary));
-        if let Some(user) = self.learner.user_words() {
+        if let Some(user) = self.models.learner.user_words() {
             all.push(user);
         }
         all

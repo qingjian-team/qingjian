@@ -28,9 +28,9 @@ impl Engine {
             && !self.aux.aux_codes.is_empty()
             && key == self.settings.aux_code_key
             && self.aux.aux_code.is_none()
-            && !self.english_mode
+            && !self.input.english_mode
             && !(key == ';' && self.takes_semicolon())
-            && self.composition.cursor() >= self.composition.text().len()
+            && self.input.composition.cursor() >= self.input.composition.text().len()
             && self.aux_scope_ready()
     }
 
@@ -100,7 +100,7 @@ impl Engine {
 
     /// 作用域能不能完整切分成音节：双拼 / 注音按解码结果，全拼按 [`parser::is_fully_segmentable`]。
     fn aux_scope_ready(&self) -> bool {
-        let scope = self.composition.scope();
+        let scope = self.input.composition.scope();
         if scope.is_empty() || self.expression_mode() || self.question_mode() || self.raw_mode() {
             return false;
         }

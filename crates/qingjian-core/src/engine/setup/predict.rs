@@ -110,7 +110,7 @@ impl Engine {
     /// 整句转换与词级排序用的个人部分：学习器的个人 n-gram 配上当前插值参数。
     pub(in crate::engine) fn personal(&self) -> Personal<'_> {
         Personal {
-            ngram: self.learner.user_ngram(),
+            ngram: self.models.learner.user_ngram(),
             interpolation: self.tuning.interpolation,
         }
     }

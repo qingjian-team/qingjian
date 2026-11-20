@@ -6,8 +6,8 @@ impl Engine {
     /// 学习开关（`[general] learning`）：关掉后不再记词频、用户词、个人 n-gram 与敲错表，已学的照常参与排序；
     /// 私密输入是另一个独立的开关（[`Self::set_private`]）。
     pub fn set_learning(&mut self, enabled: bool) {
-        if self.learner.set_disabled(!enabled) {
-            self.chain.clear_code_words();
+        if self.models.learner.set_disabled(!enabled) {
+            self.flow.chain.clear_code_words();
         }
     }
 
@@ -16,25 +16,25 @@ impl Engine {
         let max_chars = max_chars.clamp(2, 10);
         if self.settings.auto_phrase != enabled || self.settings.auto_phrase_max_chars != max_chars
         {
-            self.chain.clear_code_words();
+            self.flow.chain.clear_code_words();
         }
         self.settings.auto_phrase = enabled;
         self.settings.auto_phrase_max_chars = max_chars;
     }
 
     pub fn with_learner(mut self, learner: Box<dyn Learner>) -> Self {
-        self.learner.replace(learner);
+        self.models.learner.replace(learner);
         self.forget_span_cache();
         self
     }
 
     pub fn learner(&self) -> &dyn Learner {
-        self.learner.inner()
+        self.models.learner.inner()
     }
 
     /// 拿到可变的 Learner 就当它要改：格子缓存一起作废。
     pub fn learner_mut(&mut self) -> &mut dyn Learner {
         self.forget_span_cache();
-        self.learner.inner_mut()
+        self.models.learner.inner_mut()
     }
 }

@@ -21,7 +21,7 @@ impl Engine {
     /// 取回释义兜底写好的释义，记进译者（个人释义表）；返回学了几条。壳定时调，不阻塞。
     /// 结果的语言与当前学习语言对不上（中途切过语言）就丢。
     pub fn poll_glosses(&mut self) -> usize {
-        let filled = self.gloss_filler.poll();
+        let filled = self.models.gloss_filler.poll();
         let mut learned = 0;
         for gloss in filled {
             if gloss.translation.language == self.models.translator.language() {
@@ -32,9 +32,9 @@ impl Engine {
                 learned += 1;
             }
         }
-        for encounter in self.gloss_filler.poll_translations() {
+        for encounter in self.models.gloss_filler.poll_translations() {
             if encounter.language == self.models.translator.language() {
-                self.vocabulary.record_encounter(&encounter);
+                self.models.vocabulary.record_encounter(&encounter);
             }
         }
         learned
@@ -49,7 +49,7 @@ impl Engine {
         let Some(sense) = senses.get(sense).or_else(|| senses.first()) else {
             return;
         };
-        self.vocabulary.record_encounter(&Encounter {
+        self.models.vocabulary.record_encounter(&Encounter {
             language: translation.language,
             text: text.to_owned(),
             translation: sense.text.clone(),
@@ -62,17 +62,19 @@ impl Engine {
         let language = self.models.translator.language();
         if self.journal.private
             || language == Language::Chinese
-            || !self.gloss_filler.is_enabled()
+            || !self.models.gloss_filler.is_enabled()
             || !worth_encounter(text)
         {
             return;
         }
-        self.gloss_filler.translate(language, text);
+        self.models.gloss_filler.translate(language, text);
     }
 
     /// 当前学习语言的词汇汇总（偏好设置「统计」页）。
     pub fn vocabulary_summary(&self) -> VocabularySummary {
-        self.vocabulary.summary(self.models.translator.language())
+        self.models
+            .vocabulary
+            .summary(self.models.translator.language())
     }
 
     /// 壳画完候选窗口后告知当前页上的候选：页上的译词在用户上屏那一刻记成「看到过」（[`super::vocabulary::VocabularyTracker`]）。
@@ -103,18 +105,19 @@ impl Engine {
             return;
         }
         for (language, word) in std::mem::take(&mut self.input.displayed) {
-            self.vocabulary.record_exposure(language, &word);
+            self.models.vocabulary.record_exposure(language, &word);
         }
     }
 
     /// 上屏文字进本会话历史，也接到等着当例句的那句话后面。私密输入中的文字不进例句。
     pub(super) fn note_text(&mut self, text: &str) {
-        self.history.record(text);
+        self.flow.history.record(text);
         if self.journal.private {
             return;
         }
-        let vocabulary = &mut self.vocabulary;
+        let vocabulary = &mut self.models.vocabulary;
         let finished = self
+            .models
             .examples
             .push_text(text, |language, word, source, example| {
                 vocabulary.record_example(language, word, source, example);
@@ -126,10 +129,13 @@ impl Engine {
 
     /// 上文断开：手上那句话就算写完了。
     pub(super) fn finish_examples(&mut self) {
-        let vocabulary = &mut self.vocabulary;
-        let finished = self.examples.break_off(|language, word, source, example| {
-            vocabulary.record_example(language, word, source, example);
-        });
+        let vocabulary = &mut self.models.vocabulary;
+        let finished = self
+            .models
+            .examples
+            .break_off(|language, word, source, example| {
+                vocabulary.record_example(language, word, source, example);
+            });
         if let Some(sentence) = finished {
             self.translate_for_encounter(&sentence);
         }
@@ -139,7 +145,7 @@ impl Engine {
     pub(super) fn mark_fresh(&self, translation: &mut Translation) {
         let language = translation.language;
         for sense in translation.senses_mut() {
-            sense.fresh = self.vocabulary.exposures(language, &sense.text) < FRESH_UNTIL;
+            sense.fresh = self.models.vocabulary.exposures(language, &sense.text) < FRESH_UNTIL;
         }
     }
 
@@ -226,7 +232,7 @@ impl Engine {
                     .take(LOGGED_CANDIDATES)
                     .collect(),
                 scheme: self.scheme_key(),
-                english: self.english_mode,
+                english: self.input.english_mode,
                 rescored: snapshot.rescored,
                 choice: snapshot.choice,
                 app: self.journal.application.clone(),
@@ -236,7 +242,7 @@ impl Engine {
         self.journal.committed_since_break = true;
         self.input.page_turns = 0;
         if let Some(before) = self.input.retype_snapshot.take() {
-            let after = self.composition.scope();
+            let after = self.input.composition.scope();
             if before != after {
                 self.journal.logger.record(InputLogEntry::Retype {
                     before,
@@ -253,6 +259,7 @@ impl Engine {
     pub fn forget(&mut self, candidate: &Candidate) -> Forgotten {
         // 繁体输出开着时删的是简体那条：用户词与学习记录里存的都是简体
         let restored = self
+            .scheme
             .traditional
             .restore(&candidate.text)
             .map(|text| Candidate {
@@ -262,10 +269,10 @@ impl Engine {
         let candidate = restored.as_ref().unwrap_or(candidate);
         let forgotten = match candidate.kind {
             CandidateKind::Chinese | CandidateKind::Code | CandidateKind::Cloud => {
-                self.learner.forget(&candidate.text)
+                self.models.learner.forget(&candidate.text)
             }
             CandidateKind::English => Forgotten {
-                user_word: self.learner.forget_english(&candidate.text),
+                user_word: self.models.learner.forget_english(&candidate.text),
                 learning: false,
             },
             CandidateKind::Sentence
@@ -279,8 +286,8 @@ impl Engine {
         if !forgotten.is_nothing() {
             self.forget_span_cache();
             *self.caches.correction.borrow_mut() = None;
-            if self.chain.mentions(&candidate.text) {
-                self.chain.reset();
+            if self.flow.chain.mentions(&candidate.text) {
+                self.flow.chain.reset();
             }
             self.journal
                 .recent_commits
@@ -293,10 +300,10 @@ impl Engine {
     /// 把学习数据与输入日志落盘。壳在停用输入法时调，激活期间也可以定时调（进程被杀时少丢）：
     /// 落盘不改学习状态，所以不像 [`Self::learner_mut`] 那样作废格子缓存。
     pub fn flush_learning(&mut self) {
-        self.learner.flush();
+        self.models.learner.flush();
         self.journal.logger.flush();
         self.journal.meter.flush();
-        self.vocabulary.flush();
+        self.models.vocabulary.flush();
         self.models.translator.flush();
     }
 

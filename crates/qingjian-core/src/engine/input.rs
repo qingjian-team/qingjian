@@ -4,12 +4,19 @@ use std::time::Instant;
 
 use super::held::HeldSelection;
 use crate::candidate::Language;
+use crate::composition::Composition;
 
 /// 一次组句内的输入状态：待上屏的选词、直通字符、翻页计数、起始时刻、退格痕迹与候选窗译词。
 ///
 /// 这些字段都跟着「当前这一段输入」走，换上下文时与 `EngineSession` 里的同名字段交换。
 #[derive(Default)]
 pub(crate) struct EngineInput {
+    /// 当前拼音缓冲区。
+    pub(crate) composition: Composition,
+
+    /// 英文模式（壳里 Caps Lock 亮着）：缓冲区里的字母不当拼音，候选来自英文词表的补全与纠正。
+    pub(crate) english_mode: bool,
+
     /// 前面选好、还没交给应用的词（见 `held` 模块）。
     pub(crate) held: Vec<HeldSelection>,
 

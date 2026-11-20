@@ -107,17 +107,17 @@ impl Engine {
     }
 
     pub fn with_vocabulary_tracker(mut self, tracker: Box<dyn VocabularyTracker>) -> Self {
-        self.vocabulary = tracker;
+        self.models.vocabulary = tracker;
         self
     }
 
     pub fn with_gloss_filler(mut self, filler: Box<dyn GlossFiller>) -> Self {
-        self.gloss_filler = filler;
+        self.models.gloss_filler = filler;
         self
     }
 
     /// 运行时换释义兜底（随云联想开关）。
     pub fn set_gloss_filler(&mut self, filler: Box<dyn GlossFiller>) {
-        self.gloss_filler = filler;
+        self.models.gloss_filler = filler;
     }
 }

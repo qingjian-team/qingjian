@@ -111,12 +111,13 @@ impl Engine {
             return;
         };
         let keys: String = self
+            .input
             .composition
             .scope()
             .chars()
             .filter(|c| *c != '\'')
             .collect();
-        let english = self.english_mode;
+        let english = self.input.english_mode;
         // 英文模式只比英文补全，和敲的一样的那个词留在原位；中文模式只比中文，夹在里面的英文词、emoji 不动
         let mut whole: Vec<(usize, Vec<u32>)> = Vec::new();
         // 敲错边读出的备选不比：知意把 `suran` 的 虽然 当成 `su` 是 `sui` 的简拼对齐上，重排里的语言模型分与位置先验
@@ -151,7 +152,7 @@ impl Engine {
         let limit = self.models.choice_tier.context_chars(english);
         let context = match &self.tuning.rescoring_before {
             Some(before) => take_last_chars(before, limit),
-            None => self.history.recent(limit).to_owned(),
+            None => self.flow.history.recent(limit).to_owned(),
         };
         let request = ChoiceRequest {
             context,
@@ -244,7 +245,11 @@ impl Engine {
         keys: &str,
         best: usize,
     ) -> Option<usize> {
-        let weight = |k: usize| self.learner.choice_weight(keys, &items[whole[k].0].text);
+        let weight = |k: usize| {
+            self.models
+                .learner
+                .choice_weight(keys, &items[whole[k].0].text)
+        };
         (0..whole.len())
             .filter(|&k| {
                 let candidate = &items[whole[k].0];
@@ -265,7 +270,7 @@ impl Engine {
         let limit = self.models.choice_tier.context_chars(false);
         let context = match &self.tuning.rescoring_before {
             Some(before) => take_last_chars(before, limit),
-            None => self.history.recent(limit).to_owned(),
+            None => self.flow.history.recent(limit).to_owned(),
         };
         let key = compose_key(&context, patterns);
         if let Some(table) = choice.table(&key) {

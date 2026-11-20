@@ -48,7 +48,7 @@ impl Engine {
                 _ => return None,
             }
         }
-        if self.composition.is_empty() {
+        if self.input.composition.is_empty() {
             return None;
         }
         self.tuning.rescoring_before.as_deref()?.chars().last()

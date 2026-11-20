@@ -14,7 +14,7 @@ impl Engine {
         let Some(scheme) = self.plain_code() else {
             return false;
         };
-        let scope = self.composition.scope();
+        let scope = self.input.composition.scope();
         scheme.top
             && c.is_ascii_lowercase()
             && scope.len() >= scheme.code_length
@@ -25,7 +25,7 @@ impl Engine {
     /// 壳在每次把字母收进缓冲区之后调。同码的自定义短语排在它前面时不自动上屏，留给用户选。
     pub fn commit_unique_code(&mut self) -> Option<String> {
         let scheme = self.plain_code()?;
-        let scope = self.composition.scope();
+        let scope = self.input.composition.scope();
         if !scheme.auto_commit || scope.len() != scheme.code_length {
             return None;
         }
@@ -60,10 +60,10 @@ impl Engine {
             .code
             .as_ref()
             .filter(|_| !self.scheme.phonetic)?;
-        let text = self.composition.text();
-        let plain = !self.english_mode
+        let text = self.input.composition.text();
+        let plain = !self.input.english_mode
             && self.aux.aux_code.is_none()
-            && self.composition.cursor() == text.len()
+            && self.input.composition.cursor() == text.len()
             && !text.is_empty()
             && text.chars().all(|c| c.is_ascii_lowercase());
         plain.then_some(scheme)

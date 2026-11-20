@@ -329,7 +329,7 @@ fn accepted_sentence_completion_feeds_the_personal_ngram_and_can_be_retracted() 
         assert_eq!(ngram.pair(Some("很"), "好用"), 1);
     }
     // 句尾是句号：下一个词按句首记
-    assert_eq!(engine.chain.previous(), None);
+    assert_eq!(engine.flow.chain.previous(), None);
 
     // 整句退格删光、同一段拼音重新选词：撤销这句记的转移
     for _ in 0.."开发输入法很好用。".chars().count() {

@@ -19,7 +19,7 @@ impl Engine {
     /// 没在组句（从菜单打开）就没有搜索组，停在上次关掉时那组。翻译不可用时没有翻译组。
     /// 返回开没开（目前总是开）。
     pub fn open_symbol_panel(&mut self) -> bool {
-        let composing = !self.composition.is_empty();
+        let composing = !self.input.composition.is_empty();
         let mut panel = if composing {
             let items = self
                 .query()
@@ -27,7 +27,7 @@ impl Engine {
                 .unwrap_or_default();
             let results = self.search_panel(&items);
             SymbolPanel::new(
-                self.composition.text(),
+                self.input.composition.text(),
                 results,
                 self.decors.panel_history.uses(),
             )
@@ -69,7 +69,7 @@ impl Engine {
             self.decors.panel_language = Some(language);
         }
         if let Some(sequence) = panel.draft().in_flight() {
-            self.pending_predictions.remove(&sequence);
+            self.flow.pending_predictions.remove(&sequence);
         }
         Some(panel)
     }

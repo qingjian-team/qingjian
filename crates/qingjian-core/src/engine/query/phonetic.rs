@@ -105,8 +105,8 @@ impl Engine {
                     spelled: 0,
                     candidates: CandidateList { items },
                     tail: keys.to_owned(),
-                    text: self.composition.text().to_owned(),
-                    cursor: self.composition.cursor(),
+                    text: self.input.composition.text().to_owned(),
+                    cursor: self.input.composition.cursor(),
                     rest,
                     decoded_keys: self.scheme.shuangpin.is_some() || self.scheme.zhuyin,
                     shuangpin_raw_preedit: self.scheme.shuangpin.is_some()
@@ -243,7 +243,7 @@ impl Engine {
             // 没有替代写法时每条命中都是敲的原音节，`penalty` 直接给 0（单字母简拼能命中几万条）
             let hits = self.lookup_all(&positions);
             let whole_split = clean && segmentation.syllables.iter().any(|x| !x.complete);
-            if !whole_split && let Some(words) = self.learner.user_words() {
+            if !whole_split && let Some(words) = self.models.learner.user_words() {
                 user_words.extend(
                     words
                         .lookup_pattern_alt(&positions)
@@ -283,7 +283,11 @@ impl Engine {
                     full_last: typed_last || fuzzy_last,
                     coverage: covered_keys(count, segmentation.letters()),
                     abbreviated,
-                    weight: self.learner.weight(hit.text).max(u32::from(user_word)),
+                    weight: self
+                        .models
+                        .learner
+                        .weight(hit.text)
+                        .max(u32::from(user_word)),
                     penalty,
                     tone_cost: crate::zhuyin::tone::cost(hit.text, hit.syllables(), &tones),
                     split: whole_split,
@@ -312,7 +316,7 @@ impl Engine {
                             full_last: true,
                             coverage: covered_keys(prefix_len, prefix_letters),
                             abbreviated,
-                            weight: self.learner.weight(hit.text),
+                            weight: self.models.learner.weight(hit.text),
                             penalty: expanded.penalty(hit.syllables()),
                             tone_cost: crate::zhuyin::tone::cost(hit.text, hit.syllables(), &tones),
                             // 拆开的读法的前缀也算拆开的（`shi sha n` 的 是啥）；同一个词从全是完整音节的切法也命中时那条排在前面
@@ -327,7 +331,9 @@ impl Engine {
         // 盖住整段的用户词当作在这串键下选过一次（自造词选一次之后用简拼 `ss` 的 屎山 也排在前面），
         // 只取用得最多的几个：简拼能对上十几个自造词，全提上来又会把单字挤到几页之后
         let mut lifted: Vec<(&str, &str)> = user_words.into_iter().collect();
-        lifted.sort_by_key(|&(text, pinyin)| (Reverse(self.learner.weight(text)), text, pinyin));
+        lifted.sort_by_key(|&(text, pinyin)| {
+            (Reverse(self.models.learner.weight(text)), text, pinyin)
+        });
         lifted.truncate(ranking::USER_WORDS_BEFORE_SINGLES);
 
         let start = Instant::now();
@@ -375,12 +381,14 @@ impl Engine {
             };
             let user_word =
                 item.hit.exact && !item.split && lifted.contains(&(item.hit.text, item.hit.pinyin));
-            let chosen = letters
-                .get(..covered)
-                .map_or(0, |input| self.learner.choice_weight(input, item.hit.text));
+            let chosen = letters.get(..covered).map_or(0, |input| {
+                self.models.learner.choice_weight(input, item.hit.text)
+            });
             let by_full_pinyin = abbreviation_keys
                 .get(covered)
-                .map_or(0, |key| self.learner.choice_weight(key, item.hit.text))
+                .map_or(0, |key| {
+                    self.models.learner.choice_weight(key, item.hit.text)
+                })
                 .max(u32::from(user_word));
             chosen.saturating_mul(CHOICE_TIERS) + by_full_pinyin.min(CHOICE_TIERS - 1)
         };
@@ -561,15 +569,15 @@ impl Engine {
             .map_or(tail, |t| &keys[t.head_len..]);
         let typed_display = decoded.as_ref().map(|d| d.marked());
         let typed_case =
-            (decoded.is_none() && correction.is_none() && self.composition.has_shifted())
-                .then(|| self.composition.typed_scope());
+            (decoded.is_none() && correction.is_none() && self.input.composition.has_shifted())
+                .then(|| self.input.composition.typed_scope());
         Ok(Query {
             segmentations,
             spelled: 0,
             candidates: CandidateList { items },
             tail: tail.to_owned(),
-            text: self.composition.text().to_owned(),
-            cursor: self.composition.cursor(),
+            text: self.input.composition.text().to_owned(),
+            cursor: self.input.composition.cursor(),
             rest,
             decoded_keys: self.scheme.shuangpin.is_some() || self.scheme.zhuyin,
             shuangpin_raw_preedit: self.scheme.shuangpin.is_some()

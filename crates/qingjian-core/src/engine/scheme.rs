@@ -5,11 +5,20 @@ use std::sync::Arc;
 use crate::code_scheme::CodeScheme;
 use crate::fuzzy::FuzzyRules;
 use crate::shuangpin::Layout;
+use crate::traditional::Traditional;
+
+use super::ModeKeys;
 
 /// Engine 当前的输入方案与编码开关。
 ///
 /// 换方案只动这一块，查询侧从 `self.scheme` 统一读。
 pub(crate) struct EngineScheme {
+    /// 前缀模式键（表达式 / 问字）。
+    pub(crate) modes: ModeKeys,
+
+    /// 简繁转换开关与对照表。
+    pub(crate) traditional: Traditional,
+
     /// 模糊音开关，缺省全关。
     pub(crate) fuzzy: FuzzyRules,
 
@@ -40,6 +49,8 @@ pub(crate) struct EngineScheme {
 impl Default for EngineScheme {
     fn default() -> Self {
         Self {
+            modes: ModeKeys::default(),
+            traditional: Traditional::default(),
             fuzzy: FuzzyRules::default(),
             shuangpin: None,
             zhuyin: false,

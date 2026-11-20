@@ -44,11 +44,12 @@ impl Engine {
 
     /// 精确匹配自定义输入码时，数字键应选择候选。
     pub(super) fn has_custom_phrase(&self) -> bool {
-        !self.english_mode
+        !self.input.english_mode
             && self
+                .lexicon
                 .custom_phrases
                 .iter()
-                .any(|p| p.enabled && p.code == self.composition.scope())
+                .any(|p| p.enabled && p.code == self.input.composition.scope())
     }
 
     /// 所有普通候选完成排序后，这个输入码的短语按权重从高到低占最前面几位（权重相同的按列表顺序），
@@ -81,12 +82,13 @@ impl Engine {
     /// 当前输入码下出候选的短语，按出现的先后：权重从高到低，相同的按列表顺序。第 i 个就是 `CandidateKind::Custom(i + 1)`。
     pub(super) fn scope_phrases(&self) -> Vec<&CustomPhrase> {
         let mut phrases: Vec<_> = self
+            .lexicon
             .custom_phrases
             .iter()
             .filter(|p| {
                 p.enabled
-                    && p.code == self.composition.scope()
-                    && (!self.english_mode || !p.text.chars().any(crate::sentence::is_han))
+                    && p.code == self.input.composition.scope()
+                    && (!self.input.english_mode || !p.text.chars().any(crate::sentence::is_han))
             })
             .collect();
         phrases.sort_by_key(|p| std::cmp::Reverse(p.weight));
@@ -162,7 +164,7 @@ impl Engine {
         if lists.is_empty() {
             return;
         }
-        let text = self.composition.scope();
+        let text = self.input.composition.scope();
         if text.contains('\'') {
             return;
         }
@@ -174,8 +176,8 @@ impl Engine {
         let chosen = items
             .first()
             .filter(|c| c.kind == CandidateKind::Chinese)
-            .map_or(0, |c| self.learner.choice_weight(text, &c.text));
-        let english_weight = word.map_or(0, |w| self.learner.weight(w));
+            .map_or(0, |c| self.models.learner.choice_weight(text, &c.text));
+        let english_weight = word.map_or(0, |w| self.models.learner.weight(w));
         // 两字母全大写缩写（mp → MP、bm → BM）让中文先：整段太短，几乎总是在打中文。
         // 但**不压过学习记录**：`ok` / `pc` / `ll` 同样满足「两个字母的全大写缩写」，一刀切会把它们一起
         // 翻成中文；而且选过 OK 的用户下次敲 `ok` 本该还是它排第一。所以这条只对用户**没选过**的英文词生效
@@ -248,7 +250,7 @@ impl Engine {
     /// 给英文候选用的词表，个人的在前、随包的在后；一张都没有就是空。
     /// 整段作用域本身就是个英文词（`database`、`agent`）：用户多半在打那个词。
     pub(in crate::engine) fn scope_is_english_word(&self) -> bool {
-        let scope = self.composition.scope();
+        let scope = self.input.composition.scope();
         self.settings.english_in_chinese
             && !scope.is_empty()
             && self
@@ -258,10 +260,11 @@ impl Engine {
     }
 
     pub(super) fn english_lists(&self) -> Vec<&WordList> {
-        self.learner
+        self.models
+            .learner
             .user_english()
             .into_iter()
-            .chain(self.english.as_ref())
+            .chain(self.lexicon.english.as_ref())
             .collect()
     }
 

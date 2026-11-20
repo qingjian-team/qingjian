@@ -13,12 +13,12 @@ fn assert_raw(engine: &mut Engine, text: &str, cursor_bytes: usize) {
     let learned = Arc::new(Mutex::new(Vec::new()));
     let logged = Arc::new(Mutex::new(Vec::new()));
     let metered = Arc::new(Mutex::new(Vec::new()));
-    engine.learner = MutedLearner::new(Box::new(ObservedLearner(learned.clone())));
+    engine.models.learner = MutedLearner::new(Box::new(ObservedLearner(learned.clone())));
     engine.journal.logger = MutedLogger::new(Box::new(MemoryLogger(logged.clone())));
     engine.journal.meter = Box::new(MemoryMeter(metered.clone()));
     let composition = engine.composition().clone();
     let aux = engine.aux_code().to_owned();
-    let history = engine.history.text().to_owned();
+    let history = engine.flow.history.text().to_owned();
     let last_query = engine.caches.last_query.borrow().clone();
     let last_rescored = engine.caches.last_rescored.get();
     let displayed = engine.input.displayed.clone();
@@ -32,7 +32,7 @@ fn assert_raw(engine: &mut Engine, text: &str, cursor_bytes: usize) {
         assert!(raw.text.is_char_boundary(raw.cursor_bytes));
         assert_eq!(engine.composition(), &composition);
         assert_eq!(engine.aux_code(), aux);
-        assert_eq!(engine.history.text(), history);
+        assert_eq!(engine.flow.history.text(), history);
         assert_eq!(*engine.caches.last_query.borrow(), last_query);
         assert_eq!(engine.caches.last_rescored.get(), last_rescored);
         assert_eq!(engine.input.displayed, displayed);

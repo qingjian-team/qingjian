@@ -25,6 +25,7 @@ impl Engine {
         }
         // 繁体输出开着时按简体原文查：词库是简体
         let text = self
+            .scheme
             .traditional
             .restore(&candidate.text)
             .unwrap_or_else(|| candidate.text.clone());

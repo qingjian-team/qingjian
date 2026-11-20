@@ -19,7 +19,7 @@ impl Engine {
     /// 原子更新自定义短语，非法规则保持旧值。
     pub fn set_custom_phrases(&mut self, phrases: Vec<crate::CustomPhrase>) -> Result<(), String> {
         crate::custom_phrase::validate_phrases(&phrases)?;
-        self.custom_phrases = phrases;
+        self.lexicon.custom_phrases = phrases;
         Ok(())
     }
 }

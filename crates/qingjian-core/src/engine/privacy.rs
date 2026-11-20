@@ -13,14 +13,14 @@ impl Engine {
             return;
         }
         self.journal.private = private;
-        self.chain.reset();
-        self.learner.set_private(private);
+        self.flow.chain.reset();
+        self.models.learner.set_private(private);
         self.journal.logger.set_muted(private);
         if private {
             // 在飞的云结果不能再显示，前文也不能留
             self.cancel_prediction();
             self.tuning.rescoring_before = None;
-            self.examples.clear();
+            self.models.examples.clear();
         }
     }
 

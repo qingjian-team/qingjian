@@ -40,29 +40,31 @@ impl Engine {
             Ok(query) => query,
             Err(error) => {
                 if !self
+                    .lexicon
                     .custom_phrases
                     .iter()
-                    .any(|p| p.enabled && p.code == self.composition.scope())
+                    .any(|p| p.enabled && p.code == self.input.composition.scope())
                 {
                     return Err(error);
                 }
                 Query::custom_only(
-                    &self.composition.typed_text(),
-                    self.composition.cursor(),
+                    &self.input.composition.typed_text(),
+                    self.input.composition.cursor(),
                     self.scheme.shuangpin.is_some() || self.scheme.zhuyin,
                     self.scheme.shuangpin.is_some() && self.settings.shuangpin_raw_preedit,
                     self.scheme.shuangpin.is_some() && self.settings.shuangpin_raw_window,
-                    self.composition.scope(),
-                    self.marked_rest(self.composition.rest()),
+                    self.input.composition.scope(),
+                    self.marked_rest(self.input.composition.rest()),
                 )
             }
         };
         query.aux = self.aux_segment();
         query.held = self.held_text();
         // 屏蔽词先过一遍：排在后面几步（重排、补单字、留联系人）之前，省得给不出的词排序
-        if !self.blocked.is_empty() {
+        if !self.lexicon.blocked.is_empty() {
             query.candidates.items.retain(|item| {
                 !self
+                    .lexicon
                     .blocked
                     .iter()
                     .any(|word| item.text.contains(word.as_str()))
@@ -76,7 +78,7 @@ impl Engine {
         self.rerank_choices(&mut query.candidates.items);
         self.lift_contact(&mut query.candidates.items);
         trim_sentence_alternates(&mut query.candidates.items);
-        if self.composition.single_chars() {
+        if self.input.composition.single_chars() {
             ranking::keep_only_single_chars(&mut query.candidates.items);
         }
         // 整句截完、重排完才数得准第一页上排了什么（截之前可能还有十几条整句）；只有拼音输入有切分。
@@ -88,6 +90,7 @@ impl Engine {
                 .is_some_and(|best| best.syllables.len() > 1);
         // 选过的词不挪：盖住的是输入的哪一段这里不知道，开头每一段都问一遍（只问单字前面那几个词）
         let letters: String = self
+            .input
             .composition
             .scope()
             .chars()
@@ -97,7 +100,7 @@ impl Engine {
             letters
                 .char_indices()
                 .map(|(at, ch)| at + ch.len_utf8())
-                .any(|end| self.learner.choice_weight(&letters[..end], &c.text) > 0)
+                .any(|end| self.models.learner.choice_weight(&letters[..end], &c.text) > 0)
         });
         query.spelled = result::spelling_for(&query.segmentations, query.candidates.items.first());
         // 给输入日志留个摘要：上屏时才知道选了什么，这里才知道看到了什么
@@ -108,7 +111,7 @@ impl Engine {
             (None, _) => join_marked(&query.segmentations, &query.tail),
         };
         *self.caches.last_query.borrow_mut() = Some(QuerySnapshot {
-            scope: self.composition.scope().to_owned(),
+            scope: self.input.composition.scope().to_owned(),
             pinyin,
             corrected: query.correction.is_some(),
             candidates: query
@@ -125,15 +128,15 @@ impl Engine {
         });
         // 繁体输出：出 Core 的最后一步才换，并记下「繁体 → 简体」给上屏还原用。
         // 放在输入日志摘要之后，日志与学习数据一律记简体
-        self.traditional.apply(&mut query.candidates);
+        self.scheme.traditional.apply(&mut query.candidates);
         Ok(query)
     }
 
     pub(super) fn query_inner(&self) -> Result<Query, ParseError> {
         let start = Instant::now();
-        let keys = self.composition.scope();
-        let rest = self.marked_rest(self.composition.rest());
-        if self.english_mode {
+        let keys = self.input.composition.scope();
+        let rest = self.marked_rest(self.input.composition.rest());
+        if self.input.english_mode {
             return Ok(self.query_english(keys, rest, start));
         }
         // 九宫格的数字不是英文直输段，要赶在原样上屏那条路之前分岔

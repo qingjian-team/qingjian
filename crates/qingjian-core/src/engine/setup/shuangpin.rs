@@ -13,7 +13,7 @@ impl Engine {
     /// 设双拼键位（内置或用户方案），`None` 回到全拼。纠错缓存按作用域记而作用域的含义变了，一并清掉。
     pub fn set_shuangpin_layout(&mut self, layout: Option<Arc<Layout>>) {
         if self.scheme.shuangpin != layout {
-            self.chain.clear_code_words();
+            self.flow.chain.clear_code_words();
         }
         self.scheme.shuangpin = layout;
         *self.caches.correction.borrow_mut() = None;

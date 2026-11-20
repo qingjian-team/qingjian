@@ -21,6 +21,7 @@ mod decoded;
 mod decors;
 mod dictionaries;
 mod extras;
+mod flow;
 mod follow_up;
 mod gloss;
 mod held;
@@ -55,9 +56,7 @@ mod tuning;
 mod vocabulary;
 mod voice;
 
-use std::collections::HashMap;
-
-use qingjian_dictionary::{Dictionary, WordList};
+use qingjian_dictionary::Dictionary;
 
 pub use alignment::Alignment;
 pub use annotation::AnnotationReport;
@@ -110,36 +109,9 @@ pub(crate) use crate::traditional::Traditional;
 #[allow(unused_imports)]
 pub(crate) use qingjian_dictionary::AuxCodeLookup;
 
-use crate::composition::Composition;
-use crate::history::InputHistory;
 use crate::parser::{self, ParseError, Segmentation};
 
-use commit::CommitChain;
-
 pub struct Engine {
-    /// 前缀模式键（表达式 / 问字）。
-    modes: ModeKeys,
-
-    /// 用户词频，缺省为 [`NoLearner`]；私密输入期间只读不写（[`learning::MutedLearner`]）。
-    learner: learning::MutedLearner,
-
-    /// 当前拼音缓冲区。
-    composition: Composition,
-
-    /// 英文词表，中英混输用；没有就不出英文候选。
-    english: Option<WordList>,
-
-    /// 英文模式（壳里 Caps Lock 亮着）：缓冲区里的字母不当拼音，候选来自英文词表的补全与纠正。
-    english_mode: bool,
-
-    /// 用户定义的短语，按输入码精确匹配、按权重排在最前。
-    custom_phrases: Vec<crate::CustomPhrase>,
-
-    /// 屏蔽词：候选文本里含有其中任何一个就整条丢掉。自定义短语不过这一关。
-    blocked: Vec<String>,
-
-    /// 通讯录（壳读系统通讯录交来，用户在设置里开了才有）：名字并进查词，见 [`Self::set_contacts`]。
-    contacts: Option<crate::ContactBook>,
     settings: settings::EngineSettings,
     lexicon: lexicon::EngineLexicon,
     models: models::EngineModels,
@@ -151,32 +123,7 @@ pub struct Engine {
     decors: decors::EngineDecors,
     aux: aux_codes::EngineAux,
     tuning: tuning::EngineTuning,
-
-    /// 最近几次上屏各记了哪些学习、之后退格了几个字；用户把它们删掉重选时把学习退回去（见 [`Self::note_backspace`]）。
-
-    /// 学习语言的词汇记录（见过 / 上屏过哪些译词）；缺省不记也不标生词。
-    vocabulary: Box<dyn VocabularyTracker>,
-
-    /// 释义兜底：释义表里没有的词上屏后问云端；缺省不问。
-    gloss_filler: Box<dyn GlossFiller>,
-
-    /// 上屏过带译词的词、等那句话写完当例句。
-    examples: vocabulary::ExampleCollector,
-
-    /// 本次会话经我们上屏的文本，按应用分开记；应用不给光标前文时给模型当前文。
-    history: InputHistory,
-
-    /// 最近一次联想请求的序号，0 表示还没发过。
-    prediction_sequence: u64,
-
-    /// 尚未返回的请求。组句联想与整句候选翻译可同时在飞，不能只记最后一条。
-    pending_predictions: HashMap<u64, prediction::PendingPrediction>,
-
-    /// 连续上屏的链，个人 n-gram 与自动造词靠它。
-    chain: CommitChain,
-
-    /// 繁体输出：候选出 Core 时换成繁体、上屏时换回简体，缺省不转（见 [`crate::traditional`]）。
-    traditional: Traditional,
+    flow: flow::EngineFlow,
 }
 
 /// 英文补全最多几条（`compa` → company / compare / …）。
@@ -306,14 +253,6 @@ pub const RESCORE_CONTEXT_CHARS: usize = 64;
 impl Engine {
     pub fn new(dictionary: Dictionary) -> Self {
         Self {
-            modes: ModeKeys::default(),
-            learner: learning::MutedLearner::new(Box::new(NoLearner)),
-            composition: Composition::default(),
-            english: None,
-            english_mode: false,
-            custom_phrases: Vec::new(),
-            blocked: Vec::new(),
-            contacts: None,
             settings: settings::EngineSettings::default(),
             lexicon: lexicon::EngineLexicon::new(dictionary),
             models: models::EngineModels::default(),
@@ -325,14 +264,7 @@ impl Engine {
             decors: decors::EngineDecors::default(),
             aux: aux_codes::EngineAux::default(),
             tuning: tuning::EngineTuning::default(),
-            vocabulary: Box::new(NoVocabularyTracker),
-            gloss_filler: Box::new(NoGlossFiller),
-            examples: vocabulary::ExampleCollector::default(),
-            history: InputHistory::default(),
-            prediction_sequence: 0,
-            pending_predictions: HashMap::new(),
-            chain: CommitChain::default(),
-            traditional: Traditional::default(),
+            flow: flow::EngineFlow::default(),
         }
     }
 }

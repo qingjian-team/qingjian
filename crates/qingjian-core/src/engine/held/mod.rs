@@ -14,8 +14,8 @@ impl Engine {
     /// `before` 是选词前的缓冲区，`None` 表示这次不留（直接交给应用）。
     pub(super) fn hold_or_release(&mut self, before: Option<Composition>, text: String) -> String {
         match before {
-            Some(before) if !self.composition.is_empty() => {
-                let consumed = before.text().len() - self.composition.text().len();
+            Some(before) if !self.input.composition.is_empty() => {
+                let consumed = before.text().len() - self.input.composition.text().len();
                 self.input.held.push(HeldSelection {
                     text,
                     keys: before.prefix(consumed),
@@ -47,7 +47,7 @@ impl Engine {
         let Some(held) = self.input.held.pop() else {
             return false;
         };
-        self.composition.prepend(&held.keys);
+        self.input.composition.prepend(&held.keys);
         if let Some(commit) = self
             .journal
             .recent_commits
@@ -57,7 +57,7 @@ impl Engine {
         {
             commit.erased = commit.chars;
         }
-        self.chain.reset();
+        self.flow.chain.reset();
         true
     }
 

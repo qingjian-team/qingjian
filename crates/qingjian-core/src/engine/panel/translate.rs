@@ -138,7 +138,7 @@ impl Engine {
         self.journal.recent_commits.clear();
         let text = self.commit(candidate);
         self.journal.recent_commits.clear();
-        self.chain.reset();
+        self.flow.chain.reset();
         panel.draft_mut().push(&text, Instant::now());
         self.decors.panel = Some(panel);
         true
@@ -161,7 +161,7 @@ impl Engine {
         let text = panel.draft().ready(panel.target_language()?)?.to_owned();
         self.clear();
         self.journal.recent_commits.clear();
-        self.chain.reset();
+        self.flow.chain.reset();
         Some(text)
     }
 
@@ -195,7 +195,7 @@ impl Engine {
         };
         // 上层清过全部联想（拼音删光时会）：在飞的请求没了，重发
         if let Some(sequence) = panel.draft().in_flight()
-            && !self.pending_predictions.contains_key(&sequence)
+            && !self.flow.pending_predictions.contains_key(&sequence)
         {
             panel.draft_mut().forget_request();
         }

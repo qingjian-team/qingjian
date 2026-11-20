@@ -35,7 +35,7 @@ impl Engine {
                 continue;
             }
             for (text, kind) in typo::variants(pattern.text) {
-                let accepted = self.learner.typo_count(pattern.text, text);
+                let accepted = self.models.learner.typo_count(pattern.text, text);
                 expanded.push_alternative(
                     index,
                     text,
@@ -61,7 +61,7 @@ impl Engine {
         sentence::transition_log_prob(
             &*self.models.language_model,
             self.personal(),
-            self.chain.context(),
+            self.flow.chain.context(),
             hit.text,
             sentence::fallback_log_prob(hit.frequency, hit.secondary, log_total),
         ) - sentence::reading_cost(hit)

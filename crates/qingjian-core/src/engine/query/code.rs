@@ -20,7 +20,7 @@ impl Engine {
             return Vec::new();
         };
         let mut hits = scheme.table.lookup(keys, limit);
-        if let Some(words) = self.learner.user_code_words(&scheme.key) {
+        if let Some(words) = self.models.learner.user_code_words(&scheme.key) {
             hits.extend(words.lookup(keys, limit));
         }
         let mut seen = HashSet::new();
@@ -73,7 +73,7 @@ impl Engine {
                 full_last: true,
                 coverage: keys.len(),
                 abbreviated: 0,
-                weight: self.learner.weight(hit.text),
+                weight: self.models.learner.weight(hit.text),
                 penalty: 0.0,
                 tone_cost: 0,
                 split: false,
@@ -85,13 +85,13 @@ impl Engine {
         let start = Instant::now();
         let letters = choice_key(keys, keys.len());
         ranking::rank(&mut scored, MAX_CANDIDATES, |item| {
-            let choice = letters
-                .get(..item.coverage)
-                .map_or(0, |input| self.learner.choice_weight(input, item.hit.text));
+            let choice = letters.get(..item.coverage).map_or(0, |input| {
+                self.models.learner.choice_weight(input, item.hit.text)
+            });
             let log_prob = sentence::transition_log_prob(
                 &*self.models.language_model,
                 self.personal(),
-                self.chain.context(),
+                self.flow.chain.context(),
                 item.hit.text,
                 sentence::fallback_log_prob(item.hit.frequency, item.hit.secondary, log_total),
             );
@@ -132,8 +132,8 @@ impl Engine {
             spelled: 0,
             candidates: CandidateList { items },
             tail: keys.to_owned(),
-            text: self.composition.text().to_owned(),
-            cursor: self.composition.cursor(),
+            text: self.input.composition.text().to_owned(),
+            cursor: self.input.composition.cursor(),
             rest,
             decoded_keys: false,
             shuangpin_raw_preedit: false,

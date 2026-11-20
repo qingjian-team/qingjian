@@ -10,8 +10,8 @@ impl Engine {
     /// 光标挪进中间时只看光标前的键，光标后的原样接上、光标停在选定的音节后。
     /// 写法对不上这里就不动，返回 `false`。
     pub fn pin_nine_key(&mut self, alternative: &str) -> bool {
-        let text = self.composition.scope().to_owned();
-        let rest = self.composition.rest().to_owned();
+        let text = self.input.composition.scope().to_owned();
+        let rest = self.input.composition.rest().to_owned();
         let (shapes, _) = nine_key::segment(&text);
         let Some((_, position)) = shapes.first().and_then(|shape| shape.first_open()) else {
             return false;
@@ -40,7 +40,7 @@ impl Engine {
         self.scheme.nine_key_unpinned = None;
         self.replace_nine_key_input(&pinned);
         if !rest.is_empty() {
-            self.composition.move_to(cursor);
+            self.input.composition.move_to(cursor);
         }
         true
     }
@@ -51,8 +51,8 @@ impl Engine {
     /// 选定时自动接的 `'` 后面是数字就一起去掉（`ni|'426` → `64|426`）。
     /// 光标在开头或选定的音节中间、光标前是数字或不在九宫格时不动，返回 `false`。
     pub(in crate::engine) fn unpin_nine_key(&mut self) -> bool {
-        let text = self.composition.text();
-        let cursor = self.composition.cursor();
+        let text = self.input.composition.text();
+        let cursor = self.input.composition.cursor();
         if !self.scheme.nine_key || cursor == 0 {
             return false;
         }
@@ -89,7 +89,7 @@ impl Engine {
         let has_after = !after.is_empty();
         self.replace_nine_key_input(&input);
         if has_after {
-            self.composition.move_to(cursor);
+            self.input.composition.move_to(cursor);
         }
         self.scheme.nine_key_unpinned = Some((input, kept));
         true
@@ -98,8 +98,8 @@ impl Engine {
     /// 退格删掉了 `before` 里光标前的一个键：记着的读法跟着删（删在音节里就去掉那个字母，后面的前移），
     /// 在中间删键时前后两段仍按原来的读法（`64|426` 删成 `6|426` 还是 n 与 hao）。
     pub(in crate::engine) fn follow_nine_key_deletion(&mut self, before: &str) {
-        let text = self.composition.text();
-        let at = self.composition.cursor();
+        let text = self.input.composition.text();
+        let at = self.input.composition.cursor();
         let removed = before.len() - text.len();
         let Some((buffer, syllables)) = &mut self.scheme.nine_key_unpinned else {
             return;
@@ -133,7 +133,7 @@ impl Engine {
     /// 键没变时（只挪过光标、或刚退回一个选定的音节）已经记着的音节不换，只补上没记的：
     /// 挪到半个音节里时拼音行已经换过读法，再记会越挪越偏。
     pub(in crate::engine) fn keep_nine_key_reading(&mut self, marked: &str) {
-        let text = self.composition.text();
+        let text = self.input.composition.text();
         let keys: Vec<usize> = text
             .char_indices()
             .filter(|(_, c)| *c != '\'')
@@ -173,7 +173,7 @@ impl Engine {
         let Some((buffer, syllables)) = &self.scheme.nine_key_unpinned else {
             return;
         };
-        let keys = self.composition.text();
+        let keys = self.input.composition.text();
         let Some(shape) = shape.filter(|_| buffer.starts_with(keys)) else {
             return;
         };
@@ -204,8 +204,8 @@ impl Engine {
 
     /// 选定音节后面的键删完了：选定时自动接的那个 `'` 一起去掉（`ni'` → `ni`），不留一个看不见的分隔要多按一下。
     pub(in crate::engine) fn drop_pin_separator(&mut self) {
-        let text = self.composition.text();
-        if self.composition.cursor() < text.len() {
+        let text = self.input.composition.text();
+        if self.input.composition.cursor() < text.len() {
             return;
         }
         let Some(before) = text.strip_suffix('\'') else {
@@ -229,7 +229,7 @@ impl Engine {
             return 0;
         }
         let mut pinned = 0;
-        for (i, part) in self.composition.text().split('\'').enumerate() {
+        for (i, part) in self.input.composition.text().split('\'').enumerate() {
             if part.is_empty() || !part.bytes().all(|b| b.is_ascii_lowercase()) {
                 break;
             }

@@ -13,13 +13,13 @@ impl Engine {
 
     /// 应用读不到光标前文时，本应用多少秒内上屏的字还当前文（配置项 `[model] context_memory_seconds`，0 表示一直算）。
     pub fn set_context_memory(&mut self, seconds: u64) {
-        self.history.set_fresh_for(seconds);
+        self.flow.history.set_fresh_for(seconds);
     }
 
     /// 設置是否啟用注音模式。開啟後鍵盤輸入按大千佈局解析。
     pub fn set_zhuyin_mode(&mut self, on: bool) {
         if self.scheme.zhuyin != on {
-            self.chain.clear_code_words();
+            self.flow.chain.clear_code_words();
         }
         self.scheme.zhuyin = on;
         self.forget_span_cache();
@@ -33,7 +33,7 @@ impl Engine {
     /// 九宫格方案开关（手机 9 键）。与双拼、注音一样是输入方案，不是模式。
     pub fn set_nine_key(&mut self, on: bool) {
         if self.scheme.nine_key != on {
-            self.chain.clear_code_words();
+            self.flow.chain.clear_code_words();
         }
         self.scheme.nine_key = on;
         self.forget_span_cache();
@@ -46,19 +46,19 @@ impl Engine {
     /// 设繁体输出：候选与上屏文本在出 Core 时换成繁体，词库与学习数据仍是简体（见 [`crate::traditional`]）。
     /// 变体没变就不重建，建一次要把 OpenCC 的字典装起来。
     pub fn set_traditional(&mut self, variant: TraditionalVariant) {
-        if variant != self.traditional.variant() {
-            self.traditional = Traditional::new(variant);
+        if variant != self.scheme.traditional.variant() {
+            self.scheme.traditional = Traditional::new(variant);
         }
     }
 
     /// 当前的繁体输出变体。
     pub fn traditional(&self) -> TraditionalVariant {
-        self.traditional.variant()
+        self.scheme.traditional.variant()
     }
 
     /// 换形码方案，`None` 回到拼音的诸方案。编码与拼音是两套键，纠错缓存一并清掉。
     pub fn set_code_scheme(&mut self, scheme: Option<CodeScheme>) {
-        self.chain.reset();
+        self.flow.chain.reset();
         self.scheme.code = scheme;
         *self.caches.correction.borrow_mut() = None;
         self.forget_span_cache();
@@ -91,7 +91,7 @@ impl Engine {
     /// 两边都开是混输，见 [`Self::set_code_scheme`] 与 `query_mixed`。
     pub fn set_phonetic(&mut self, on: bool) {
         if self.scheme.phonetic != on {
-            self.chain.reset();
+            self.flow.chain.reset();
         }
         self.scheme.phonetic = on;
         *self.caches.correction.borrow_mut() = None;
@@ -108,7 +108,7 @@ impl Engine {
         if !self.scheme.zhuyin {
             return false;
         }
-        let raw = self.composition.text();
+        let raw = self.input.composition.text();
         if raw.is_empty() {
             return false;
         }
@@ -125,7 +125,7 @@ impl Engine {
     pub fn takes_semicolon(&self) -> bool {
         let body = self
             .modes()
-            .question_body(self.composition.scope(), self.scheme.zhuyin);
+            .question_body(self.input.composition.scope(), self.scheme.zhuyin);
         self.scheme
             .shuangpin
             .as_deref()
@@ -151,11 +151,11 @@ impl Engine {
     /// 双拼与混输下小写字母各有用处，换成大写字母。
     pub(in crate::engine) fn modes(&self) -> ModeKeys {
         if self.code_only() {
-            self.modes.letterless()
+            self.scheme.modes.letterless()
         } else if self.scheme.shuangpin.is_some() || self.mixed() {
-            self.modes.shifted()
+            self.scheme.modes.shifted()
         } else {
-            self.modes
+            self.scheme.modes
         }
     }
 

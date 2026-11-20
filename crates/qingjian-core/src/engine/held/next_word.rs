@@ -19,10 +19,14 @@ impl Engine {
             return None;
         }
         // 繁体输出开着时候选是繁体，整句的词序列按简体对
-        let simplified = self.traditional.restore(&lead.text).map(|text| Candidate {
-            text,
-            ..lead.clone()
-        });
+        let simplified = self
+            .scheme
+            .traditional
+            .restore(&lead.text)
+            .map(|text| Candidate {
+                text,
+                ..lead.clone()
+            });
         // 知意重排、学过的整句与本地重算的整句不一定是同一句，对不上时按词库从句首切最长的词
         let lead = simplified.as_ref().unwrap_or(lead);
         let first = match self.sentence_words(lead) {
@@ -34,7 +38,7 @@ impl Engine {
             return None;
         }
         let word = Candidate {
-            text: self.traditional.convert_remember(&first.text),
+            text: self.scheme.traditional.convert_remember(&first.text),
             kind: CandidateKind::Chinese,
             syllables: first.syllables.clone(),
             reading: None,

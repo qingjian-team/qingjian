@@ -47,7 +47,7 @@ impl Engine {
                     &dictionaries,
                     &*self.models.language_model,
                     self.personal(),
-                    |text| self.learner.weight(text),
+                    |text| self.models.learner.weight(text),
                     |_, _| 0.0,
                 )
                 .with_limits(self.tuning.search_limits);
@@ -65,7 +65,7 @@ impl Engine {
         &self,
         candidate: &Candidate,
     ) -> Option<Vec<SentenceWord>> {
-        let (shapes, _) = nine_key::segment(self.composition.scope());
+        let (shapes, _) = nine_key::segment(self.input.composition.scope());
         let conversion = self.convert_nine_key(&shapes)?;
         (conversion.text == candidate.text).then_some(conversion.words)
     }

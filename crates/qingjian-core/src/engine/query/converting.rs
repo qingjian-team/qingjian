@@ -26,7 +26,7 @@ impl Engine {
         let Some(best) = self.sentence_segmentation(segmentations, typos) else {
             return;
         };
-        let keys = self.composition.scope();
+        let keys = self.input.composition.scope();
         match english_tail {
             Some(tail) if head_wins => {
                 if let Some(mixed) = self.mixed_sentence(best, tail, typos) {
@@ -97,12 +97,12 @@ impl Engine {
                 let letters = choice_key(keys, keys.len());
                 let lead_choice = ordered
                     .first()
-                    .map_or(0, |s| self.learner.choice_weight(&letters, &s.text));
+                    .map_or(0, |s| self.models.learner.choice_weight(&letters, &s.text));
                 let user_word_first = items.get(position).is_some_and(|c| {
                     c.kind == CandidateKind::Chinese
                         && c.syllables.len() == best.syllables.len()
                         && self.is_user_word(c)
-                        && self.learner.choice_weight(&letters, &c.text) >= lead_choice
+                        && self.models.learner.choice_weight(&letters, &c.text) >= lead_choice
                 });
                 let position = position + usize::from(user_word_first);
                 for (offset, candidate) in ordered.into_iter().enumerate() {
@@ -392,7 +392,7 @@ impl Engine {
         &self,
         patterns: &[qingjian_dictionary::SyllablePattern<'_>],
     ) -> Vec<Option<u8>> {
-        let Some(decoded) = self.decode(self.composition.scope()) else {
+        let Some(decoded) = self.decode(self.input.composition.scope()) else {
             return Vec::new();
         };
         let Some(segmentation) = decoded.segmentation() else {
@@ -433,7 +433,7 @@ impl Engine {
             &dictionaries,
             &*self.models.language_model,
             self.personal(),
-            |text| self.learner.weight(text),
+            |text| self.models.learner.weight(text),
             |index, syllable| expanded.cost(index, syllable),
         )
         .with_tones(&tones)

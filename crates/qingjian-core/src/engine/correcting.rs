@@ -30,12 +30,13 @@ impl Engine {
     pub(super) fn find_correction(&self, scope: &str) -> Option<Correction> {
         if !self.settings.spelling_correction
             || !correction::eligible(scope)
-            || self.learner.raw_count(scope) > 0
+            || self.models.learner.raw_count(scope) > 0
         {
             return None;
         }
         // 整段就是个英文词（hello）：用户多半在打英文，别把它「纠」成 喝了哦
         if self
+            .lexicon
             .english
             .as_ref()
             .is_some_and(|english| english.get(scope).is_some())
@@ -105,7 +106,7 @@ impl Engine {
             let accepted = candidate
                 .typo_pair(candidate.corrected.len())
                 .map_or(0, |(typed, intended)| {
-                    self.learner.typo_count(&typed, &intended)
+                    self.models.learner.typo_count(&typed, &intended)
                 });
             let transpose = matches!(candidate.edit, correction::Edit::Transpose { .. });
             let score =

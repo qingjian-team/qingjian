@@ -6,30 +6,30 @@ use qingjian_dictionary::WordList;
 
 impl Engine {
     pub fn history(&self) -> &InputHistory {
-        &self.history
+        &self.flow.history
     }
 
     pub fn history_mut(&mut self) -> &mut InputHistory {
-        &mut self.history
+        &mut self.flow.history
     }
 
     /// 进入 / 离开英文模式。英文模式下 [`Self::query`] 只给英文词表的候选，回车与空格仍由壳原样上屏敲的字母，
     /// 不发云联想，也不把原样上屏记成「不纠这个串」。
     pub fn set_english_mode(&mut self, on: bool) {
-        self.english_mode = on;
+        self.input.english_mode = on;
     }
 
     pub fn english_mode(&self) -> bool {
-        self.english_mode
+        self.input.english_mode
     }
 
     /// 随包英文词表（不含用户打过的词）；没装是 `None`。
     pub fn english_words(&self) -> Option<&WordList> {
-        self.english.as_ref()
+        self.lexicon.english.as_ref()
     }
 
     pub fn with_english(mut self, words: WordList) -> Self {
-        self.english = Some(words);
+        self.lexicon.english = Some(words);
         self
     }
 
@@ -45,17 +45,17 @@ impl Engine {
     }
 
     pub fn with_mode_keys(mut self, keys: ModeKeys) -> Self {
-        self.modes = keys.sanitized();
+        self.scheme.modes = keys.sanitized();
         self
     }
 
     /// 非法组合（相同、或不是 v / u / i）整个退回缺省。
     pub fn set_mode_keys(&mut self, keys: ModeKeys) {
-        self.modes = keys.sanitized();
+        self.scheme.modes = keys.sanitized();
     }
 
     pub fn mode_keys(&self) -> ModeKeys {
-        self.modes
+        self.scheme.modes
     }
 
     /// 中文模式下给不给英文词与补全（配置 `[general] english_in_chinese`，缺省开）；英文模式不受影响。

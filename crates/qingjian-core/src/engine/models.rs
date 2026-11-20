@@ -5,9 +5,12 @@ use std::sync::Arc;
 use crate::sentence::{LanguageModel, NoLanguageModel, PhraseModel, SentenceScorer};
 
 use super::choice::{ChoiceRanker, ChoiceTier};
+use super::learning;
 use super::prediction::{NoPredictor, Predictor};
 use super::rescoring::{RescoreWorker, WakeSlot};
 use super::translator::{NoTranslator, Translator};
+use super::vocabulary::{self, VocabularyTracker};
+use super::{GlossFiller, NoGlossFiller, NoLearner, NoVocabularyTracker};
 
 /// Engine 注入的全部模型与提供方。
 ///
@@ -49,6 +52,18 @@ pub(crate) struct EngineModels {
 
     /// 短语级语言模型（知意的三元 n-gram）：选词重排里给整段候选打 ln P，没接时用二元模型逐词累加。
     pub(crate) phrase_model: Option<Arc<dyn PhraseModel>>,
+
+    /// 用户词频，缺省为 [`NoLearner`]；私密输入期间只读不写（[`learning::MutedLearner`]）。
+    pub(crate) learner: learning::MutedLearner,
+
+    /// 学习语言的词汇记录（见过 / 上屏过哪些译词）；缺省不记也不标生词。
+    pub(crate) vocabulary: Box<dyn VocabularyTracker>,
+
+    /// 释义兜底：释义表里没有的词上屏后问云端；缺省不问。
+    pub(crate) gloss_filler: Box<dyn GlossFiller>,
+
+    /// 上屏过带译词的词、等那句话写完当例句。
+    pub(crate) examples: vocabulary::ExampleCollector,
 }
 
 impl Default for EngineModels {
@@ -66,6 +81,10 @@ impl Default for EngineModels {
             choice: None,
             choice_tier: ChoiceTier::default(),
             phrase_model: None,
+            learner: learning::MutedLearner::new(Box::new(NoLearner)),
+            vocabulary: Box::new(NoVocabularyTracker),
+            gloss_filler: Box::new(NoGlossFiller),
+            examples: vocabulary::ExampleCollector::default(),
         }
     }
 }

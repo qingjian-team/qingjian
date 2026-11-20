@@ -61,7 +61,11 @@ impl Engine {
         }
         match &self.tuning.rescoring_before {
             Some(before) => take_last_chars(before, self.tuning.neural_context),
-            None => self.history.recent(self.tuning.neural_context).to_owned(),
+            None => self
+                .flow
+                .history
+                .recent(self.tuning.neural_context)
+                .to_owned(),
         }
     }
 

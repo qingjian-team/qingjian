@@ -20,7 +20,7 @@ impl Engine {
         self.remember_commit(LastCommit::plain(text));
         self.punct.punctuation.note_committed(text);
         self.note_text(text);
-        self.chain.reset();
-        self.traditional.convert(text)
+        self.flow.chain.reset();
+        self.scheme.traditional.convert(text)
     }
 }
