@@ -30,6 +30,9 @@ pub(crate) const MODIFIERS: [(&str, &str); 6] = [
     ("Alt + Shift", "shift+alt"),
 ];
 
+/// 发音快捷键预设；任意字母数字组合仍可在配置文件中指定。
+pub(crate) const PRONOUNCE_KEYS: [(&str, &str); 2] = [("Shift + P", "shift+p"), ("关闭", "")];
+
 /// 简繁键预设；任意字母数字组合仍可在配置文件中指定。
 pub(crate) const TRADITIONAL_KEYS: [(&str, &str); 4] = [
     ("关闭", ""),
@@ -175,6 +178,33 @@ pub(crate) fn view(settings: &Settings, context: &mut ViewContext<Settings>) -> 
                 s.translate_selection.modifiers,
                 context.callback(Message::TranslateSelection),
             ),
+        ),
+        field(
+            "发音（朗读高亮的候选）",
+            "组句时按这组键，朗读当前高亮的候选：英文候选直接读；中文候选先取学习语言的译文，译文是英文词且能查到音标时按译文读。音标表查不到时只记日志、不发声。自定义组合可修改配置文件 [shortcut] pronounce。",
+            ComboBox::new()
+                .items_source(
+                    PRONOUNCE_KEYS
+                        .iter()
+                        .map(|(label, _)| (*label).to_owned())
+                        .chain(
+                            s.pronounce
+                                .filter(|key| {
+                                    !PRONOUNCE_KEYS
+                                        .iter()
+                                        .any(|(_, value)| value.parse().ok() == Some(*key))
+                                })
+                                .map(|key| key.key_string()),
+                        ),
+                )
+                .selected_index(match s.pronounce {
+                    None => PRONOUNCE_KEYS.len() - 1,
+                    Some(key) => PRONOUNCE_KEYS
+                        .iter()
+                        .position(|(_, value)| value.parse().ok() == Some(key))
+                        .unwrap_or(PRONOUNCE_KEYS.len()),
+                })
+                .on_selection_changed(context.callback(Message::Pronounce)),
         ),
     ];
     page("快捷键", StackPanel::new().spacing(16.0).children(rows))

@@ -4,7 +4,7 @@
 //! `[shortcut] translate_selection`，激活时读一次配置（AppContainer 读不到用户目录时用缺省 Ctrl+Alt+T）；
 //! 切换键来自 `[shortcut] switch_mode`，那个值由 Server 经协议下发（DLL 不读配置文件），变了就地重登记。
 
-use windows::Win32::UI::Input::KeyboardAndMouse::{VK_OEM_PERIOD, VK_SPACE};
+use windows::Win32::UI::Input::KeyboardAndMouse::VK_SPACE;
 use windows::Win32::UI::TextServices::{
     ITfKeystrokeMgr, TF_MOD_ALT, TF_MOD_CONTROL, TF_MOD_SHIFT, TF_PRESERVEDKEY,
 };
@@ -159,11 +159,7 @@ pub(crate) fn unregister_punctuation(keystroke: &ITfKeystrokeMgr, combo: KeyComb
 }
 
 fn virtual_key(combo: KeyCombo) -> u32 {
-    if combo.key == '.' {
-        u32::from(VK_OEM_PERIOD.0)
-    } else {
-        combo.key.to_ascii_uppercase() as u32
-    }
+    combo.virtual_key()
 }
 
 #[cfg(test)]
