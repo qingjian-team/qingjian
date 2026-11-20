@@ -6,6 +6,10 @@ description: "Installing Qingjian on Linux (and FreeBSD): the Fcitx5 prebuilt pa
 
 The Linux version of Qingjian runs as an input method in Fcitx5 or Fcitx4, and candidates use Fcitx's own candidate panel. For now it's installed from a terminal, and the background service has to be started by hand after each login.
 
+With Fcitx5, keys remain in order; unconfirmed codes are not emitted as literal letters on timeout. Pending input from an old window is not delivered to a new window or password field. If the background service crashes or becomes unresponsive, unconfirmed input may be discarded and need to be typed again.
+
+In GTK4 applications such as GNOME Text Editor, digits, spaces, Enter, navigation keys and editing shortcuts not used by the input method are handled normally by the application. For compatibility, Qingjian waits within the original key request, with a total waiting budget of 200 ms including any queued events. On timeout it disconnects and discards unconfirmed input instead of waiting for the background service's longer timeout. You can type again once the service recovers.
+
 - On Debian, Ubuntu and Fedora you can install the deb / rpm packages, which start automatically at login; see "deb / rpm packages" below.
 - Newer distributions (Debian 13, Ubuntu 25.04, Fedora 42, Arch and later) can also use the AppImage: a single file, no administrator rights, starts automatically at login; see "AppImage" below.
 - For Fcitx5 there's a prebuilt package for Ubuntu 26.04; other distributions install from source. Verified with GTK4 and Qt6 apps and Firefox on the GNOME desktop (Wayland) of Ubuntu 26.04.
@@ -162,6 +166,20 @@ Open Qingjian Settings from the application menu or run `~/.local/bin/qingjian-s
 Older configuration tools, including `fcitx5-config-qt 5.1.4` shipped with Ubuntu 24.04, show an intermediate window with another configure button. Click that button to open Qingjian Settings. Skipping this window requires a newer configuration tool with direct external-settings launch support; restarting Fcitx5 alone does not change this behavior.
 
 Unique full-code auto-commit, commit-on-next-code, imported Wubi dictionaries and custom double pinyin / shape-based schemes are supported. Effective scheme changes cancel uncommitted codes; root charts and auxiliary codes remain unsupported. See [Wubi and mixed input](../input/wubi.md). Older installations missing the bundled scheme need the updated installer to copy its resources.
+
+## Missing letters or a disappearing candidate window
+
+Changes to dictionaries and input schemes are checked and loaded without making you stop typing. If storage is busy, Qingjian keeps using the current settings and dictionaries until the update is ready. Checks do not clear an ongoing composition when the effective scheme has not changed.
+
+If letters go missing or the candidate window disappears while using Fcitx5, finish your current composition, then restart Fcitx5 with logging enabled:
+
+```sh
+log_dir="${XDG_STATE_HOME:-$HOME/.local/state}/qingjian/logs"
+mkdir -p "$log_dir"
+fcitx5 -r -d >> "$log_dir/fcitx5.log" 2>&1
+```
+
+Test again and note the approximate time of the problem. Qingjian's new diagnostic entries start with `Qingjian` and record only timing, connection state, and focus or reset reasons, not individual keys, codes, candidates, selected text, or committed text. These diagnostics are independent of the input-log setting. Include the diagnostic entries near that time when reporting the problem; there is no need to share personal dictionaries or input records.
 
 ## Updating and uninstalling
 

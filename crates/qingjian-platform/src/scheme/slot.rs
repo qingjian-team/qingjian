@@ -9,6 +9,7 @@ use std::time::SystemTime;
 
 use qingjian_core::Engine;
 
+use super::PreparedScheme;
 use crate::code_schemes::{self, CodeSchemeEntry};
 use crate::shuangpin_schemes::{self, ShuangpinSchemeEntry};
 use crate::{Config, DictionariesConfig, Scheme, scheme_label, scheme_name};
@@ -19,8 +20,10 @@ type Stamp = Vec<(Option<SystemTime>, u64)>;
 /// 当前装上的用户双拼方案与形码方案（含码表文件的指纹）；没选或没装上为 `None`。
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct SchemeSlot {
+    /// 已装入的用户双拼布局。
     shuangpin: Option<ShuangpinSchemeEntry>,
 
+    /// 已装入的形码方案与码表指纹。
     code: Option<(CodeSchemeEntry, Stamp)>,
 }
 
@@ -38,57 +41,37 @@ impl SchemeSlot {
         user_dir: Option<&Path>,
         bundled: Option<&Path>,
     ) {
-        let pinyin = config.general.scheme();
-        let shuangpin = config.general.custom_shuangpin();
-        self.apply_shuangpin(engine, pinyin, shuangpin.as_deref(), user_dir, bundled);
-        engine.set_zhuyin_mode(pinyin == Scheme::Zhuyin);
-        self.apply_code(engine, config, user_dir, bundled);
-        // 拼音侧关掉且形码装上了才是「只用形码」；两边都没有时留拼音兜底（否则一个候选都没有）
-        engine.set_phonetic(pinyin.is_on() || self.code.is_none());
+        let prepared = self.prepare(config, user_dir, bundled, engine.code_scheme().is_some());
+        self.apply_prepared(engine, prepared);
     }
 
-    fn apply_shuangpin(
-        &mut self,
-        engine: &mut Engine,
-        pinyin: Scheme,
-        id: Option<&str>,
+    /// 读取方案与变化的码表，供后台线程使用；`code_loaded` 表示引擎仍持有当前码表。
+    pub fn prepare(
+        &self,
+        config: &Config,
         user_dir: Option<&Path>,
         bundled: Option<&Path>,
-    ) {
-        let wanted = match (pinyin, id) {
+        code_loaded: bool,
+    ) -> PreparedScheme {
+        let pinyin = config.general.scheme();
+        let id = config.general.custom_shuangpin();
+        let shuangpin = match (pinyin, id.as_deref()) {
             (Scheme::Custom, Some(id)) => {
                 let found = shuangpin_schemes::find(id, user_dir, bundled);
                 if found.is_none() {
-                    tracing::warn!(id, "选了双拼方案但找不到，按全拼输入");
+                    tracing::warn!(
+                        id,
+                        "custom shuangpin scheme unavailable, falling back to pinyin"
+                    );
                 }
                 found
             }
             _ => None,
         };
-        if wanted.is_some() && wanted == self.shuangpin {
-            return;
-        }
-        match &wanted {
-            Some(entry) => {
-                tracing::info!(id = %entry.id, "双拼方案已载入");
-                engine.set_shuangpin_layout(Some(Arc::clone(&entry.layout)));
-            }
-            None => engine.set_shuangpin(pinyin.shuangpin()),
-        }
-        self.shuangpin = wanted;
-    }
-
-    fn apply_code(
-        &mut self,
-        engine: &mut Engine,
-        config: &Config,
-        user_dir: Option<&Path>,
-        bundled: Option<&Path>,
-    ) {
         let entry = config.general.code().and_then(|id| {
             let found = code_schemes::find(&id, user_dir, bundled);
             if found.is_none() {
-                tracing::warn!(id, "选了形码方案但找不到，仍按拼音输入");
+                tracing::warn!(id, "code scheme unavailable, falling back to pinyin");
             }
             found.map(|mut entry| {
                 entry
@@ -104,32 +87,63 @@ impl SchemeSlot {
         if let (Some((entry, stamp)), Some((loaded, loaded_stamp))) = (&wanted, &self.code)
             && same_table(entry, loaded)
             && stamp == loaded_stamp
-            && engine.code_scheme().is_some()
+            && code_loaded
         {
-            engine.set_code_rules(entry.auto_commit, entry.top);
-            self.code = wanted;
-            return;
+            return PreparedScheme {
+                slot: Self {
+                    shuangpin,
+                    code: wanted,
+                },
+                pinyin,
+                code: None,
+            };
         }
-        self.code = wanted.and_then(|(entry, stamp)| match entry.load() {
+        let mut code = None;
+        let loaded = wanted.and_then(|(entry, stamp)| match entry.load() {
             Ok(scheme) => {
                 tracing::info!(
                     id = %entry.id,
                     table = %entry.table.display(),
                     words = entry.words.len(),
                     entries = scheme.table.len(),
-                    "形码方案已载入"
+                    "code scheme loaded"
                 );
-                engine.set_code_scheme(Some(scheme));
+                code = Some(scheme);
                 Some((entry, stamp))
             }
             Err(error) => {
-                tracing::error!(%error, table = %entry.table.display(), "形码码表读不了，仍按拼音输入");
+                tracing::error!(%error, table = %entry.table.display(), "failed to load code table, falling back to pinyin");
                 None
             }
         });
-        if self.code.is_none() {
+        PreparedScheme {
+            slot: Self {
+                shuangpin,
+                code: loaded,
+            },
+            pinyin,
+            code,
+        }
+    }
+
+    /// 应用已经读好的方案，不扫描目录或读取码表；与准备时的引擎、方案状态配对使用。
+    pub fn apply_prepared(&mut self, engine: &mut Engine, prepared: PreparedScheme) {
+        if prepared.slot.shuangpin.is_none() || prepared.slot.shuangpin != self.shuangpin {
+            match &prepared.slot.shuangpin {
+                Some(entry) => engine.set_shuangpin_layout(Some(Arc::clone(&entry.layout))),
+                None => engine.set_shuangpin(prepared.pinyin.shuangpin()),
+            }
+        }
+        engine.set_zhuyin_mode(prepared.pinyin == Scheme::Zhuyin);
+        if let Some(scheme) = prepared.code {
+            engine.set_code_scheme(Some(scheme));
+        } else if let Some((entry, _)) = &prepared.slot.code {
+            engine.set_code_rules(entry.auto_commit, entry.top);
+        } else {
             engine.set_code_scheme(None);
         }
+        engine.set_phonetic(prepared.pinyin.is_on() || prepared.slot.code.is_none());
+        *self = prepared.slot;
     }
 
     /// 装上的用户双拼方案的名字。

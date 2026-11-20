@@ -7,6 +7,8 @@ description: "Qingjian's default keys on macOS, Windows and Linux: switching, pi
 This page only lists keys. In the tables, `⌥` is Option, `⌘` is Command, `⌃` is Control and `⇧` is Shift; "—" means the platform has no such key.
 For keys you can change, see [Changing keys](../personalize/keys-settings.md); Android uses an on-screen keyboard, see [Android](../platforms/android.md).
 
+With Fcitx5 on Linux, keys not used by Qingjian for candidate selection or other input operations remain available to the current application, including digits, navigation, deletion and copy, paste, undo and save shortcuts in GTK4 applications.
+
 ## Switching
 
 | Action | macOS | Windows | Linux |
@@ -62,7 +64,7 @@ A few keys differ with Dachen Zhuyin and Wubi; see [Pinyin schemes and fuzzy pin
 | Type another letter after a full code | Commit the highlight and start the next code; commit-on-next-code can be disabled |
 | Clear an unmatched code / keep raw letters | `Space` or punctuation clears it; `Enter` commits raw letters |
 
-Automatic commits apply only to pure shape-based input, not mixed input. See [Wubi and mixed input](../input/wubi.md).
+Mixed input keeps pinyin-style selection by default. Separate switches enable unique-full-code auto-commit and shape-code-first continuation in mixed input. Wubi auto-commit requires exactly 4 keys, never 1–3. See [Wubi and mixed input](../input/wubi.md).
 
 ## In the symbol panel
 

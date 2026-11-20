@@ -2,20 +2,25 @@
 
 use std::path::Path;
 
-use qingjian_platform::Config;
+use qingjian_platform::{Config, PreparedScheme};
 
 use super::Router;
 
 impl Router {
     pub(super) fn apply_schemes(&mut self, config: &Config, root: &Path, user_dir: &Path) {
-        let previous = self.scheme_slot.clone();
-        let pinyin = config.general.scheme();
-        self.scheme_slot.apply(
-            &mut self.engine,
+        let prepared = self.scheme_slot.prepare(
             config,
             Some(user_dir),
             Some(&root.join("data/generated/schemes")),
+            self.engine.code_scheme().is_some(),
         );
+        self.apply_prepared_schemes(prepared);
+    }
+
+    pub(super) fn apply_prepared_schemes(&mut self, prepared: PreparedScheme) {
+        let previous = self.scheme_slot.clone();
+        let pinyin = prepared.pinyin();
+        self.scheme_slot.apply_prepared(&mut self.engine, prepared);
         if previous == self.scheme_slot && self.scheme == pinyin {
             return;
         }

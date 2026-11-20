@@ -25,7 +25,6 @@ public:
     std::vector<uint64_t> retired;
 
     void closeLater(uint64_t id) {
-        if (!connection.connected()) return;
         retired.push_back(id);
         if (deferred) deferred->setEnabled(true);
     }
