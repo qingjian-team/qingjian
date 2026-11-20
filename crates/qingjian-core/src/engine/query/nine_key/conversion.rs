@@ -45,7 +45,7 @@ impl Engine {
             .filter_map(|shape| {
                 let input = SearchInput::new(
                     &dictionaries,
-                    &*self.language_model,
+                    &*self.models.language_model,
                     self.personal(),
                     |text| self.learner.weight(text),
                     |_, _| 0.0,

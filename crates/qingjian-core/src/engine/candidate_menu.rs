@@ -58,7 +58,7 @@ impl Engine {
 
     /// 候选译文可编辑时所用的词与学习语言。没有学习语言时返回 `None`。
     pub fn translation_target(&self, candidate: &Candidate) -> Option<(String, Language)> {
-        let language = self.translator.language();
+        let language = self.models.translator.language();
         (language != Language::Chinese && candidate.kind != CandidateKind::English)
             .then(|| (self.stored_text(candidate), language))
     }
@@ -92,6 +92,7 @@ impl Engine {
             return false;
         }
         let mut senses = self
+            .models
             .translator
             .translate(&word)
             .map(|translation| translation.senses().to_vec())
@@ -112,16 +113,17 @@ impl Engine {
                 fresh: false,
             }),
         }
-        self.translator
+        self.models
+            .translator
             .learn(&word, Translation::new(language, senses));
-        self.translator.flush();
+        self.models.translator.flush();
         true
     }
 
     /// 按已经还原成存储字形的词覆盖个人译文。弹出编辑框前先保存 `word`，即使 IMK 在弹窗期间重建会话也能写入。
     pub fn set_translation(&mut self, word: &str, text: &str) -> bool {
         let text = text.trim();
-        let language = self.translator.language();
+        let language = self.models.translator.language();
         if language == Language::Chinese || word.is_empty() {
             return false;
         }
@@ -129,6 +131,7 @@ impl Engine {
             return false;
         }
         let mut senses = self
+            .models
             .translator
             .translate(word)
             .map(|translation| translation.senses().to_vec())
@@ -146,16 +149,18 @@ impl Engine {
                 fresh: false,
             }),
         }
-        self.translator
+        self.models
+            .translator
             .learn(word, Translation::new(language, senses));
-        self.translator.flush();
+        self.models.translator.flush();
         true
     }
 
     /// 查询当前学习语言下最终生效的译文（个人释义优先）。
     pub fn candidate_translation(&self, text: &str) -> Option<Translation> {
         let restored = self.traditional.restore(text);
-        self.translator
+        self.models
+            .translator
             .translate(restored.as_deref().unwrap_or(text))
     }
 

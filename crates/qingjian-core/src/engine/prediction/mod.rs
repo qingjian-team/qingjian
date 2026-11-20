@@ -44,19 +44,19 @@ pub(crate) use pending::PendingPrediction;
 impl Engine {
     /// 是否接了会联想的 Predictor；壳据此决定要不要起轮询定时器、画云朵标识。
     pub fn prediction_enabled(&self) -> bool {
-        self.predictor.is_enabled()
+        self.models.predictor.is_enabled()
     }
 
     /// 显式选区翻译是否可用；单独接入本地翻译不会打开云联想。
     pub fn translation_enabled(&self) -> bool {
-        self.translation_predictor.as_ref().map_or_else(
-            || self.predictor.is_enabled(),
+        self.models.translation_predictor.as_ref().map_or_else(
+            || self.models.predictor.is_enabled(),
             |provider| provider.is_enabled(),
         )
     }
 
     pub fn prediction_policy(&self) -> PredictionPolicy {
-        self.predictor.policy()
+        self.models.predictor.policy()
     }
 
     /// 发一次联想请求，返回序号；没接 Predictor、私密输入中或拼音太短时不发，返回 `None`。
@@ -69,7 +69,7 @@ impl Engine {
         surrounding: Option<SurroundingText>,
         candidates: &[Candidate],
     ) -> Option<u64> {
-        if !self.predictor.policy().automatic {
+        if !self.models.predictor.policy().automatic {
             self.cancel_prediction();
             return None;
         }
@@ -91,7 +91,7 @@ impl Engine {
         candidates: &[Candidate],
         manual: bool,
     ) -> Option<u64> {
-        if !self.predictor.is_enabled() || self.journal.private {
+        if !self.models.predictor.is_enabled() || self.journal.private {
             return None;
         }
         // 不发也要换序号：正在飞的旧结果对应的是上一个输入状态，回来了也不能显示
@@ -103,7 +103,7 @@ impl Engine {
         if self.aux_filter().is_some() {
             return None;
         }
-        let policy = self.predictor.policy();
+        let policy = self.models.predictor.policy();
         let (before, after) = match surrounding {
             Some(text) => (
                 take_last_chars(&text.before, policy.before),
@@ -222,7 +222,7 @@ impl Engine {
                 question_guess: if question { guess } else { String::new() },
             },
         );
-        self.predictor.submit(request);
+        self.models.predictor.submit(request);
         Some(self.prediction_sequence)
     }
 
@@ -251,7 +251,7 @@ impl Engine {
         language: crate::Language,
     ) -> Option<u64> {
         let text = text.trim();
-        if !self.predictor.is_enabled() || self.journal.private || text.is_empty() {
+        if !self.models.predictor.is_enabled() || self.journal.private || text.is_empty() {
             return None;
         }
         self.prediction_sequence += 1;
@@ -266,7 +266,7 @@ impl Engine {
                 question_guess: String::new(),
             },
         );
-        self.predictor.submit(PredictionRequest {
+        self.models.predictor.submit(PredictionRequest {
             sequence,
             manual: true,
             kind: PredictionKind::CandidateTranslation,
@@ -308,12 +308,12 @@ impl Engine {
         } else {
             text.trim()
         };
-        let learning = self.translator.language();
-        let native = manual && !candidate && self.translation_predictor.is_some();
+        let learning = self.models.translator.language();
+        let native = manual && !candidate && self.models.translation_predictor.is_some();
         let enabled = if native {
             self.translation_enabled()
         } else {
-            self.predictor.is_enabled()
+            self.models.predictor.is_enabled()
         };
         if !enabled
             || self.journal.private
@@ -361,11 +361,11 @@ impl Engine {
             },
         );
         if native {
-            if let Some(provider) = self.translation_predictor.as_mut() {
+            if let Some(provider) = self.models.translation_predictor.as_mut() {
                 provider.submit(request);
             }
         } else {
-            self.predictor.submit(request);
+            self.models.predictor.submit(request);
         }
         Some(self.prediction_sequence)
     }
@@ -373,8 +373,8 @@ impl Engine {
     /// 作废正在飞的联想（用户清空了拼音、关掉了联想框）。
     pub fn cancel_prediction(&mut self) {
         self.prediction_sequence += 1;
-        self.predictor.cancel();
-        if let Some(provider) = self.translation_predictor.as_mut() {
+        self.models.predictor.cancel();
+        if let Some(provider) = self.models.translation_predictor.as_mut() {
             provider.cancel();
         }
         self.pending_predictions.clear();
@@ -402,10 +402,11 @@ impl Engine {
     /// 结果可能是空的（模型没给出可用条目），壳据此停止等待。
     pub fn poll_prediction(&mut self) -> Option<Prediction> {
         while let Some(mut prediction) = self
+            .models
             .translation_predictor
             .as_mut()
             .and_then(|provider| provider.poll())
-            .or_else(|| self.predictor.poll())
+            .or_else(|| self.models.predictor.poll())
         {
             if let Some(pending) = self.pending_predictions.remove(&prediction.sequence) {
                 if self.answer_panel_translation(prediction.sequence, &prediction.sentence) {
@@ -418,7 +419,7 @@ impl Engine {
                         .words
                         .retain(|word| !restates_question(&word.text, guess));
                 } else if pending.kind == PredictionKind::Compose && !self.question_mode() {
-                    if self.predictor.policy().slots == 0 {
+                    if self.models.predictor.policy().slots == 0 {
                         // 用户不要云端词，只留整句补全
                         prediction.words.clear();
                     } else {
@@ -494,7 +495,7 @@ impl Engine {
         self.composition.drain_scope();
         self.punctuation.note_committed(text);
         self.note_text(text);
-        match sentence::segment_text(text, &*self.language_model) {
+        match sentence::segment_text(text, &*self.models.language_model) {
             Some(clauses) => {
                 let buffer_left = !self.composition.is_empty();
                 let count = clauses.len();

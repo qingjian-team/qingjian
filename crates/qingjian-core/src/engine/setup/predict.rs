@@ -13,11 +13,11 @@ impl Engine {
     pub fn set_translation_predictor(&mut self, predictor: Option<Box<dyn Predictor>>) {
         self.cancel_prediction();
         self.panel_translations.clear();
-        self.translation_predictor = predictor;
+        self.models.translation_predictor = predictor;
     }
 
     pub fn with_predictor(mut self, predictor: Box<dyn Predictor>) -> Self {
-        self.predictor = predictor;
+        self.models.predictor = predictor;
         self
     }
 
@@ -25,7 +25,7 @@ impl Engine {
     pub fn set_predictor(&mut self, predictor: Box<dyn Predictor>) {
         self.cancel_prediction();
         self.panel_translations.clear();
-        self.predictor = predictor;
+        self.models.predictor = predictor;
     }
 
     /// 挂上同步的整句重打分器（字级 Transformer，查询里当场打分，评测用）。`weight` 是神经分的权重 λ，
@@ -38,9 +38,9 @@ impl Engine {
         margin: Option<f64>,
         context: Option<usize>,
     ) -> Self {
-        self.generative = scorer.generates();
-        self.sentence_scorer = Some(scorer);
-        self.rescorer = None;
+        self.models.generative = scorer.generates();
+        self.models.sentence_scorer = Some(scorer);
+        self.models.rescorer = None;
         self.set_neural_parameters(weight, margin, context);
         self
     }
@@ -62,15 +62,15 @@ impl Engine {
     /// 后台模型（异步重打分、选词模型）每交一次结果就调一下 `wake`：壳拿它叫醒自己的消息循环，不用等下一次轮询。
     /// 模型先接上、后给回调也行。
     pub fn set_rescoring_wake(&self, wake: Option<crate::engine::Wake>) {
-        self.wake.set(wake);
+        self.models.wake.set(wake);
     }
 
     /// 运行时换 / 卸异步重打分器（壳里模型在后台加载完才接上，配置关掉就卸）。
     pub fn set_async_sentence_scorer(&mut self, scorer: Option<Box<dyn SentenceScorer>>) {
-        self.sentence_scorer = None;
-        self.generative = scorer.as_ref().is_some_and(|s| s.generates());
-        let wake = self.wake.clone();
-        self.rescorer =
+        self.models.sentence_scorer = None;
+        self.models.generative = scorer.as_ref().is_some_and(|s| s.generates());
+        let wake = self.models.wake.clone();
+        self.models.rescorer =
             scorer.map(|scorer| super::super::rescoring::RescoreWorker::spawn(scorer, wake));
         *self.caches.neural.borrow_mut() = super::super::rescoring::NeuralCache::default();
         self.forget_span_cache();
@@ -134,13 +134,13 @@ impl Engine {
     }
 
     pub fn with_language_model(mut self, model: Box<dyn LanguageModel>) -> Self {
-        self.language_model = model;
+        self.models.language_model = model;
         self
     }
 
     /// 静态语言模型（没接就是 [`crate::sentence::NoLanguageModel`]）：评测工具拿它按 [`crate::sentence::segment_text`] 切汉字文本。
     pub fn language_model(&self) -> &dyn LanguageModel {
-        &*self.language_model
+        &*self.models.language_model
     }
 
     pub fn with_fuzzy(mut self, rules: FuzzyRules) -> Self {
@@ -161,16 +161,16 @@ impl Engine {
     }
 
     pub fn with_translator(mut self, translator: Box<dyn Translator>) -> Self {
-        self.translator = translator;
+        self.models.translator = translator;
         self
     }
 
     /// 运行时换学习语言的释义表。
     pub fn set_translator(&mut self, translator: Box<dyn Translator>) {
-        self.translator = translator;
+        self.models.translator = translator;
     }
 
     pub fn learning_language(&self) -> crate::candidate::Language {
-        self.translator.language()
+        self.models.translator.language()
     }
 }

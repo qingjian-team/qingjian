@@ -133,7 +133,7 @@ fn typing_key_by_key_only_keeps_the_latest_compose_requests() {
         engine.push(c);
         engine.query().unwrap();
     }
-    let choice = engine.choice.as_ref().unwrap();
+    let choice = engine.models.choice.as_ref().unwrap();
     let wanted = choice.compose_wanted.borrow();
     assert!(!wanted.is_empty());
     assert!(

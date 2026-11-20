@@ -3,6 +3,7 @@
 use super::*;
 use crate::fuzzy::FuzzyRules;
 use crate::ranking::FIRST_SINGLE_CHAR_BY;
+use crate::sentence::LanguageModel;
 
 #[test]
 fn exact_word_first_then_longer_then_prefix_expansions_then_prefix_words() {

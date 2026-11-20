@@ -17,7 +17,7 @@ impl Engine {
     /// 翻译组缺省的目标语言：上次选的，没选过跟学习语言走（学习语言是中文或关掉时用英语）。
     pub(super) fn panel_language(&self) -> Language {
         self.panel_language
-            .unwrap_or(match self.translator.language() {
+            .unwrap_or(match self.models.translator.language() {
                 Language::Chinese => Language::English,
                 language => language,
             })

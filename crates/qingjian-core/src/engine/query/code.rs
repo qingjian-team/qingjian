@@ -89,7 +89,7 @@ impl Engine {
                 .get(..item.coverage)
                 .map_or(0, |input| self.learner.choice_weight(input, item.hit.text));
             let log_prob = sentence::transition_log_prob(
-                &*self.language_model,
+                &*self.models.language_model,
                 self.personal(),
                 self.chain.context(),
                 item.hit.text,

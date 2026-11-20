@@ -30,6 +30,7 @@ mod learning;
 mod lexicon;
 mod marked;
 mod mode_keys;
+mod models;
 mod pairing;
 mod panel;
 pub(crate) mod prediction;
@@ -93,22 +94,15 @@ use crate::history::InputHistory;
 use crate::panel::{NoPanelHistory, PanelGroup, PanelHistory, SymbolPanel, TranslationCache};
 use crate::parser::{self, ParseError, Segmentation};
 use crate::punctuation::Punctuation;
-use crate::sentence::{self, Interpolation, LanguageModel, NoLanguageModel, SentenceScorer};
+use crate::sentence::{self, Interpolation};
 use crate::shuangpin::Layout;
 use crate::traditional::Traditional;
 
 use commit::CommitChain;
 
 pub struct Engine {
-    /// 译文提供方，缺省为 [`NoTranslator`]。
-    translator: Box<dyn Translator>,
-
     /// 前缀模式键（表达式 / 问字）。
     modes: ModeKeys,
-
-    /// 英文候选的释义（英→中），缺省为 [`NoTranslator`]。英文候选的辅助语言是主语言中文，
-    /// 与中文候选查学习语言的表分开，仍是「一个候选只显示一种辅助语言」。
-    english_translator: Box<dyn Translator>,
 
     /// 用户词频，缺省为 [`NoLearner`]；私密输入期间只读不写（[`learning::MutedLearner`]）。
     learner: learning::MutedLearner,
@@ -144,37 +138,11 @@ pub struct Engine {
     contacts: Option<crate::ContactBook>,
     settings: settings::EngineSettings,
     lexicon: lexicon::EngineLexicon,
+    models: models::EngineModels,
     caches: caches::EngineCaches,
     journal: journal::EngineJournal,
     input: input::EngineInput,
     scheme: scheme::EngineScheme,
-
-    /// 联想提供方，缺省为 [`NoPredictor`]。
-    predictor: Box<dyn Predictor>,
-
-    /// 显式选区翻译的独立提供方；未设置时沿用联想服务。
-    translation_predictor: Option<Box<dyn Predictor>>,
-
-    /// 整句转换的语言模型，缺省为 [`NoLanguageModel`]（退化成一元词频）。
-    language_model: Box<dyn LanguageModel>,
-
-    /// 整句路径的同步神经重打分器（字级 Transformer，查询里当场打分；CLI 评测用）。
-    sentence_scorer: Option<Box<dyn SentenceScorer>>,
-
-    /// 异步重打分：后台线程里的打分器，壳在停顿后送任务、轮询结果（见 [`rescoring`]）。
-    rescorer: Option<rescoring::RescoreWorker>,
-
-    /// 接的打分器是生成器（[`SentenceScorer::generates`]，含章·通变）：整句以生成为主、不重排词图路径。
-    generative: bool,
-
-    /// 后台模型交结果时叫醒壳（[`Engine::set_rescoring_wake`]），两个后台线程共用。
-    wake: rescoring::WakeSlot,
-
-    /// 选词模型（试验）：候选窗前几条交给它重排一次，见 [`choice`]。
-    choice: Option<choice::ChoiceRanker>,
-
-    /// 选词模型比几条、看多长前文。
-    choice_tier: choice::ChoiceTier,
 
     /// 壳给的应用里光标前的文本；`None` 时前文用本会话历史。
     rescoring_before: Option<String>,
@@ -207,9 +175,6 @@ pub struct Engine {
 
     /// 上屏过带译词的词、等那句话写完当例句。
     examples: vocabulary::ExampleCollector,
-
-    /// 短语级语言模型（知意的三元 n-gram）：选词重排里给整段候选打 ln P，没接时用二元模型逐词累加。
-    phrase_model: Option<std::sync::Arc<dyn sentence::PhraseModel>>,
 
     /// 本次会话经我们上屏的文本，按应用分开记；应用不给光标前文时给模型当前文。
     history: InputHistory,
@@ -385,8 +350,6 @@ pub const RESCORE_CONTEXT_CHARS: usize = 64;
 impl Engine {
     pub fn new(dictionary: Dictionary) -> Self {
         Self {
-            translator: Box::new(NoTranslator),
-            english_translator: Box::new(NoTranslator),
             modes: ModeKeys::default(),
             learner: learning::MutedLearner::new(Box::new(NoLearner)),
             composition: Composition::default(),
@@ -401,19 +364,11 @@ impl Engine {
             contacts: None,
             settings: settings::EngineSettings::default(),
             lexicon: lexicon::EngineLexicon::new(dictionary),
+            models: models::EngineModels::default(),
             caches: caches::EngineCaches::default(),
             journal: journal::EngineJournal::default(),
             input: input::EngineInput::default(),
             scheme: scheme::EngineScheme::default(),
-            predictor: Box::new(NoPredictor),
-            translation_predictor: None,
-            language_model: Box::new(NoLanguageModel),
-            sentence_scorer: None,
-            rescorer: None,
-            generative: false,
-            wake: rescoring::WakeSlot::default(),
-            choice: None,
-            choice_tier: choice::ChoiceTier::default(),
             rescoring_before: None,
             neural_weight: NEURAL_WEIGHT,
             neural_margin: NEURAL_MARGIN,
@@ -421,7 +376,6 @@ impl Engine {
             typo_costs: TypoCosts::DEFAULT,
             search_limits: sentence::SearchLimits::DEFAULT,
             neural_context: RESCORE_CONTEXT_CHARS,
-            phrase_model: None,
             vocabulary: Box::new(NoVocabularyTracker),
             gloss_filler: Box::new(NoGlossFiller),
             examples: vocabulary::ExampleCollector::default(),

@@ -82,18 +82,18 @@ const UNKNOWN_LOG_PROB: f64 = -18.5;
 impl Engine {
     /// 接上或卸掉选词模型（后台线程随之起停）。
     pub fn set_choice_model(&mut self, model: Option<Arc<dyn ChoiceModel>>) {
-        let wake = self.wake.clone();
-        self.choice = model.map(|model| ChoiceRanker::new(model, wake));
+        let wake = self.models.wake.clone();
+        self.models.choice = model.map(|model| ChoiceRanker::new(model, wake));
     }
 
     /// 接上或卸掉短语级语言模型：选词重排里整段候选的语言模型分改由它给（按 `PHRASE_WEIGHT` 加权）。
     pub fn set_phrase_model(&mut self, model: Option<Arc<dyn crate::sentence::PhraseModel>>) {
-        self.phrase_model = model;
+        self.models.phrase_model = model;
     }
 
     /// 换档，下一次查询就按新档比。
     pub fn set_choice_tier(&mut self, tier: ChoiceTier) {
-        self.choice_tier = tier;
+        self.models.choice_tier = tier;
     }
 
     /// 最近一次查询里选词模型给这页各候选的分（没排过为空）：评测归因用。
@@ -102,12 +102,12 @@ impl Engine {
     }
 
     pub fn has_choice_model(&self) -> bool {
-        self.choice.is_some()
+        self.models.choice.is_some()
     }
 
     /// 查询的最后一步：这页有分就按模型重排，没分记下等壳来取。
     pub(super) fn rerank_choices(&self, items: &mut Vec<Candidate>) {
-        let Some(choice) = &self.choice else {
+        let Some(choice) = &self.models.choice else {
             return;
         };
         let keys: String = self
@@ -122,7 +122,11 @@ impl Engine {
         // 敲错边读出的备选不比：知意把 `suran` 的 虽然 当成 `su` 是 `sui` 的简拼对齐上，重排里的语言模型分与位置先验
         // 只看词常不常用，会把它顶到用户敲对的 肃然 前面（上屏 → 商品、这俩 → 这里 都是这么丢的）
         let corrected = self.caches.corrected_alternates.borrow();
-        for (index, candidate) in items.iter().enumerate().take(self.choice_tier.window()) {
+        for (index, candidate) in items
+            .iter()
+            .enumerate()
+            .take(self.models.choice_tier.window())
+        {
             if corrected.contains(&candidate.text) {
                 continue;
             }
@@ -144,7 +148,7 @@ impl Engine {
         if whole.len() < MIN_CANDIDATES {
             return;
         }
-        let limit = self.choice_tier.context_chars(english);
+        let limit = self.models.choice_tier.context_chars(english);
         let context = match &self.rescoring_before {
             Some(before) => take_last_chars(before, limit),
             None => self.history.recent(limit).to_owned(),
@@ -165,7 +169,7 @@ impl Engine {
         let log_probs = log_softmax(&logits);
         let model = self.language_model();
         let phrase = (!english)
-            .then_some(self.phrase_model.as_ref())
+            .then_some(self.models.phrase_model.as_ref())
             .flatten()
             .map(|phrase| {
                 let texts: Vec<&str> = request.texts.iter().map(String::as_str).collect();
@@ -257,8 +261,8 @@ impl Engine {
         &self,
         patterns: &[qingjian_dictionary::SyllablePattern<'_>],
     ) -> Option<Arc<CharTable>> {
-        let choice = self.choice.as_ref()?;
-        let limit = self.choice_tier.context_chars(false);
+        let choice = self.models.choice.as_ref()?;
+        let limit = self.models.choice_tier.context_chars(false);
         let context = match &self.rescoring_before {
             Some(before) => take_last_chars(before, limit),
             None => self.history.recent(limit).to_owned(),
@@ -284,14 +288,14 @@ impl Engine {
     /// 查询开头：上一次查询记下、还没送出的出字请求作废，只留这次要的。逐键打字时每个前缀都会记一条，
     /// 不清的话停键后几十个过时前缀排队先算，整句那张表要等好几百毫秒（空格早就上屏了）。
     pub(super) fn forget_stale_compose(&self) {
-        if let Some(choice) = &self.choice {
+        if let Some(choice) = &self.models.choice {
             choice.compose_wanted.borrow_mut().clear();
         }
     }
 
     /// 有一页等着选词模型打分，或有输入等着出字。
     pub(super) fn choice_pending(&self) -> bool {
-        self.choice.as_ref().is_some_and(|choice| {
+        self.models.choice.as_ref().is_some_and(|choice| {
             choice.wanted.borrow().is_some() || !choice.compose_wanted.borrow().is_empty()
         })
     }
@@ -299,7 +303,7 @@ impl Engine {
     /// 把等着出字的输入、或等着的那页送去后台；都没有返回 `false`。有字要出时只送出字：它回来后词图会变、
     /// 这一页也跟着变，先给旧页打分是白算，还让出字晚几十毫秒；壳重查后新的一页再来一轮。
     pub(super) fn request_choice(&self) -> bool {
-        let Some(choice) = &self.choice else {
+        let Some(choice) = &self.models.choice else {
             return false;
         };
         let compose: Vec<ComposeRequest> = choice.compose_wanted.borrow_mut().drain(..).collect();
@@ -317,7 +321,7 @@ impl Engine {
 
     /// 收后台打好的分与字分布；最近一次请求的到了返回 `true`。
     pub(super) fn poll_choice(&self) -> bool {
-        let Some(choice) = &self.choice else {
+        let Some(choice) = &self.models.choice else {
             return false;
         };
         let latest = choice.worker.latest();

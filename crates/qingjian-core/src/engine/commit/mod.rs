@@ -41,14 +41,21 @@ impl Engine {
             candidate.translation = match candidate.kind {
                 CandidateKind::Custom(_) => None,
                 // 英文候选按敲的大小写显示（Company / COMPANY），释义表键是小写
-                CandidateKind::English => self.english_translator.translate(&text).or_else(|| {
-                    self.english_translator
-                        .translate(&text.to_ascii_lowercase())
-                }),
-                _ => self.translator.translate(&text).map(|mut translation| {
-                    self.mark_fresh(&mut translation);
-                    translation
-                }),
+                CandidateKind::English => {
+                    self.models.english_translator.translate(&text).or_else(|| {
+                        self.models
+                            .english_translator
+                            .translate(&text.to_ascii_lowercase())
+                    })
+                }
+                _ => self
+                    .models
+                    .translator
+                    .translate(&text)
+                    .map(|mut translation| {
+                        self.mark_fresh(&mut translation);
+                        translation
+                    }),
             };
             // 中文释义（英文候选的中文译词）也跟着转：候选文本已经是繁体了，释义不能还是简体
             if let Some(translation) = &mut candidate.translation {
@@ -271,11 +278,11 @@ impl Engine {
             CandidateKind::Chinese | CandidateKind::Cloud | CandidateKind::Code
         ) && self.gloss_filler.is_enabled()
             && !self.journal.private
-            && self.translator.language() != Language::Chinese
-            && self.translator.translate(&candidate.text).is_none()
+            && self.models.translator.language() != Language::Chinese
+            && self.models.translator.translate(&candidate.text).is_none()
         {
             self.gloss_filler
-                .request(self.translator.language(), &candidate.text);
+                .request(self.models.translator.language(), &candidate.text);
         }
         self.composition.drain_prefix(consumed);
         // 上屏即收尾：码段清空、回初始态（数字键与「标点先上屏」都走这里）

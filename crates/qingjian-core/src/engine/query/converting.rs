@@ -255,10 +255,13 @@ impl Engine {
                 .iter()
                 .filter(|word| !shared(&word.text))
                 .all(|word| {
-                    if self.language_model.is_empty() {
+                    if self.models.language_model.is_empty() {
                         self.in_primary_dictionary(&word.text, &word.syllables)
                     } else {
-                        self.language_model.log_prob(None, &word.text).is_some()
+                        self.models
+                            .language_model
+                            .log_prob(None, &word.text)
+                            .is_some()
                     }
                 })
     }
@@ -285,8 +288,8 @@ impl Engine {
                 c.kind == CandidateKind::Chinese
                     && c.syllables.concat() == letters
                     && self.in_primary_dictionary(&c.text, &c.syllables)
-                    && (self.language_model.is_empty()
-                        || self.language_model.log_prob(None, &c.text).is_some())
+                    && (self.models.language_model.is_empty()
+                        || self.models.language_model.log_prob(None, &c.text).is_some())
             });
             if spelled_exactly {
                 paths = self.sentence_paths(&best.patterns(), false, false, wanted);
@@ -428,7 +431,7 @@ impl Engine {
         let tones = self.sentence_tones(patterns);
         let input = sentence::SearchInput::new(
             &dictionaries,
-            &*self.language_model,
+            &*self.models.language_model,
             self.personal(),
             |text| self.learner.weight(text),
             |index, syllable| expanded.cost(index, syllable),

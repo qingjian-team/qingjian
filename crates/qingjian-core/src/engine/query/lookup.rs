@@ -55,7 +55,7 @@ impl Engine {
     /// 词级排序里一个候选的上下文得分：语言模型（不认识就按词频兜底）与个人 n-gram 插值，再乘读音占比。
     pub(in crate::engine) fn word_log_prob(&self, hit: &Match<'_>, log_total: f64) -> f64 {
         sentence::transition_log_prob(
-            &*self.language_model,
+            &*self.models.language_model,
             self.personal(),
             self.chain.context(),
             hit.text,

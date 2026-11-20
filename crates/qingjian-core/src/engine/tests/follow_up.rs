@@ -1,6 +1,7 @@
 //! 上屏后的联想：先个人接续再语言模型、只给短的汉字词、上屏联想词推进上文。
 
 use super::*;
+use crate::sentence::LanguageModel;
 
 use crate::traditional::TraditionalVariant;
 

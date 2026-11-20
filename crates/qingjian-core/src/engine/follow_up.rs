@@ -38,7 +38,7 @@ impl Engine {
             }
         }
         // 多取一些：过滤掉的（标点、英文、长片段）不占名额
-        for word in self.language_model.successors(previous, limit * 4) {
+        for word in self.models.language_model.successors(previous, limit * 4) {
             if words.len() >= limit {
                 break;
             }

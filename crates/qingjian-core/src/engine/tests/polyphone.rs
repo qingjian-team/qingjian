@@ -1,6 +1,7 @@
 //! 多音字的少见读音按读音占比扣分，结构上打平的切分按整句得分挑。
 
 use super::*;
+use crate::sentence::LanguageModel;
 
 /// 按字形给分的假模型：区 比 偶 常见得多（它的 qu 读音撑起来的），上 偶 连着读不如整词 山沟。
 struct GlyphModel;

@@ -1,6 +1,7 @@
 //! 补充词库（通用大词库）：排序低主词库一档。
 
 use super::*;
+use crate::sentence::LanguageModel;
 
 fn with_general(base: &str, general: &str, secondary: bool) -> Engine {
     let mut general = Dictionary::parse(general).unwrap();

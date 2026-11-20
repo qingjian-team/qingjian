@@ -24,16 +24,16 @@ impl Engine {
         let filled = self.gloss_filler.poll();
         let mut learned = 0;
         for gloss in filled {
-            if gloss.translation.language == self.translator.language() {
+            if gloss.translation.language == self.models.translator.language() {
                 tracing::debug!(word = %gloss.word, "释义兜底写入个人释义表");
                 // 兜底只为刚上屏的词问：它也算一次相遇
                 self.record_encounter(&gloss.word, &gloss.translation, 0);
-                self.translator.learn(&gloss.word, gloss.translation);
+                self.models.translator.learn(&gloss.word, gloss.translation);
                 learned += 1;
             }
         }
         for encounter in self.gloss_filler.poll_translations() {
-            if encounter.language == self.translator.language() {
+            if encounter.language == self.models.translator.language() {
                 self.vocabulary.record_encounter(&encounter);
             }
         }
@@ -59,7 +59,7 @@ impl Engine {
 
     /// 上屏了一段没有现成译词的中文（整句、云端整句、分几次上屏拼成的一句）：释义兜底开着时交给它整段翻译，翻好了进相遇。
     pub(super) fn translate_for_encounter(&mut self, text: &str) {
-        let language = self.translator.language();
+        let language = self.models.translator.language();
         if self.journal.private
             || language == Language::Chinese
             || !self.gloss_filler.is_enabled()
@@ -72,7 +72,7 @@ impl Engine {
 
     /// 当前学习语言的词汇汇总（偏好设置「统计」页）。
     pub fn vocabulary_summary(&self) -> VocabularySummary {
-        self.vocabulary.summary(self.translator.language())
+        self.vocabulary.summary(self.models.translator.language())
     }
 
     /// 壳画完候选窗口后告知当前页上的候选：页上的译词在用户上屏那一刻记成「看到过」（[`super::vocabulary::VocabularyTracker`]）。
@@ -156,9 +156,10 @@ impl Engine {
         usage.words = match source {
             InputSource::Word | InputSource::Cloud | InputSource::FollowUp => 1,
             InputSource::Sentence | InputSource::CloudSentence | InputSource::Voice => {
-                sentence::segment_text(text, &*self.language_model).map_or(usage.hanzi, |clauses| {
-                    clauses.iter().map(|words| words.len() as u64).sum()
-                })
+                sentence::segment_text(text, &*self.models.language_model)
+                    .map_or(usage.hanzi, |clauses| {
+                        clauses.iter().map(|words| words.len() as u64).sum()
+                    })
             }
             InputSource::English
             | InputSource::Custom
@@ -296,7 +297,7 @@ impl Engine {
         self.journal.logger.flush();
         self.journal.meter.flush();
         self.vocabulary.flush();
-        self.translator.flush();
+        self.models.translator.flush();
     }
 
     /// 词库 / 用户词 / 学习数据变了，整句格子候选全部作废。

@@ -2,6 +2,7 @@
 
 use super::*;
 use crate::fuzzy::FuzzyRules;
+use crate::sentence::LanguageModel;
 
 /// 每个音节都合法的输入（`meiganxi`）：原样读得通（美感 + 洗）就按原样排第一，词图里敲错边读出的 没关系 当第二条；
 /// 选了它上屏按敲的字母消耗、记个人敲错表，退格重选时退回。原样读不通时（只有 干 没有 感）敲错边照旧排第一。

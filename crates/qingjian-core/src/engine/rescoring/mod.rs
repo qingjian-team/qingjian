@@ -35,18 +35,22 @@ const GENERATED_CANDIDATES: usize = 2;
 impl Engine {
     /// 接了重打分器（同步或异步）。
     pub fn has_sentence_scorer(&self) -> bool {
-        self.sentence_scorer.is_some()
-            || self.rescorer.as_ref().is_some_and(RescoreWorker::is_alive)
+        self.models.sentence_scorer.is_some()
+            || self
+                .models
+                .rescorer
+                .as_ref()
+                .is_some_and(RescoreWorker::is_alive)
     }
 
     /// 接了打分器、且它是拿来重排词图路径的（不是生成器）。
     pub(super) fn reranks_paths(&self) -> bool {
-        self.has_sentence_scorer() && !self.generative
+        self.has_sentence_scorer() && !self.models.generative
     }
 
     /// 接了生成器（含章·通变）：整句以它生成的为主。
     pub(in crate::engine) fn generates_sentences(&self) -> bool {
-        self.has_sentence_scorer() && self.generative
+        self.has_sentence_scorer() && self.models.generative
     }
 
     /// 给模型看的前文：壳给了应用里的光标前文就用它（[`Self::set_rescoring_context`]），
@@ -84,7 +88,7 @@ impl Engine {
             }
         }
         if !missing.is_empty() {
-            match &self.sentence_scorer {
+            match &self.models.sentence_scorer {
                 Some(scorer) => {
                     let texts: Vec<&str> = missing.iter().map(String::as_str).collect();
                     let scores = scorer.score(&context, keys, &texts);
@@ -133,7 +137,7 @@ impl Engine {
         if let Some(texts) = cache.generated(keys) {
             return texts.iter().take(GENERATED_CANDIDATES).cloned().collect();
         }
-        let Some(scorer) = &self.sentence_scorer else {
+        let Some(scorer) = &self.models.sentence_scorer else {
             cache.want_generation(keys);
             return Vec::new();
         };
@@ -146,7 +150,7 @@ impl Engine {
     /// 最近一次查询里有整句路径还没拿到神经分、或有整段还没生成：壳该在用户停顿后调 [`Self::request_rescoring`]。
     pub fn rescoring_pending(&self) -> bool {
         self.choice_pending()
-            || self.rescorer.is_some() && {
+            || self.models.rescorer.is_some() && {
                 let cache = self.caches.neural.borrow();
                 cache.has_wanted() || cache.wanted_generation().is_some()
             }
@@ -155,7 +159,7 @@ impl Engine {
     /// 把攒着的文本送去后台打分。没接异步打分器或没什么要打的返回 `false`。
     pub fn request_rescoring(&mut self) -> bool {
         let chose = self.request_choice();
-        let Some(worker) = &self.rescorer else {
+        let Some(worker) = &self.models.rescorer else {
             return chose;
         };
         let mut cache = self.caches.neural.borrow_mut();
@@ -184,7 +188,7 @@ impl Engine {
     /// 壳要是把它当成这一轮的、停了轮询，晚几十毫秒到的这次整句就没人取了（macOS 上 `firefoxliulanqi` 上屏成「覅」）。
     pub fn poll_rescoring(&mut self) -> bool {
         let mut updated = self.poll_choice();
-        let Some(worker) = &self.rescorer else {
+        let Some(worker) = &self.models.rescorer else {
             return updated;
         };
         let latest = worker.latest();

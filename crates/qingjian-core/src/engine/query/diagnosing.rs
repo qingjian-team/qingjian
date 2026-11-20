@@ -70,7 +70,7 @@ impl Engine {
         // 格子名额与真搜索一致（回放调参改了 `search_limits` 时诊断也跟着）
         let input = sentence::SearchInput::new(
             &dictionaries,
-            &*self.language_model,
+            &*self.models.language_model,
             self.personal(),
             |text| self.learner.weight(text),
             |index, syllable| expanded.cost(index, syllable),
