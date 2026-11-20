@@ -14,10 +14,14 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 qingjian-core.workspace = true
 qingjian-platform.workspace = true
+# 系统界面宿主里的进程内候选窗：与 Server 用同一个渲染器出位图。
+qingjian-render.workspace = true
 thiserror.workspace = true
 
 [dev-dependencies]
 qingjian-windows-server = { path = "../server" }
+# `window_renders_a_candidate_frame` 把窗口截图存成 PNG，人工看一眼画出来的候选长什么样。
+png = "0.18"
 
 [lints]
 workspace = true

@@ -8,6 +8,9 @@ repository.workspace = true
 
 [dependencies]
 bamboo-slip.workspace = true
+# 展示数据由协议帧换算（`candidate_view`）：各平台壳共用同一份帧。
+qingjian-core.workspace = true
+qingjian-platform.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
 serde.workspace = true

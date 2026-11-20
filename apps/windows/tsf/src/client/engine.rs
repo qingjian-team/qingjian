@@ -167,6 +167,17 @@ impl<S: Read + Write> EngineClient<S> {
         })
     }
 
+    /// 系统界面宿主里那扇进程内候选窗被点了：把目标报回 Server，选词 / 翻页仍走它那条链路。不回话。
+    pub fn candidate_hit(
+        &mut self,
+        hit: qingjian_platform::protocol::CandidateHit,
+    ) -> Result<(), ClientError> {
+        self.send(&ClientMessage::CandidateHit {
+            session: self.session,
+            hit,
+        })
+    }
+
     /// 问 Server 有没有待处理的目标模式，顺路取回最新的按键行为设置（每一拍都带）。
     pub fn sync_mode(&mut self) -> Result<ModeSyncReply, ClientError> {
         match self.call(&ClientMessage::SyncMode {

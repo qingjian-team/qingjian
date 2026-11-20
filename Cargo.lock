@@ -4138,6 +4138,8 @@ dependencies = [
  "bamboo-slip",
  "clap",
  "cosmic-text",
+ "qingjian-core",
+ "qingjian-platform",
  "serde",
  "serde_json",
  "thiserror 2.0.21",
@@ -4278,8 +4280,10 @@ dependencies = [
 name = "qingjian-windows-tsf"
 version = "0.3.6-dev"
 dependencies = [
+ "png",
  "qingjian-core",
  "qingjian-platform",
+ "qingjian-render",
  "qingjian-windows-server",
  "thiserror 2.0.21",
  "windows",
