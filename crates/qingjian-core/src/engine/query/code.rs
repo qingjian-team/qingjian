@@ -16,11 +16,11 @@ impl Engine {
         keys: &str,
         limit: usize,
     ) -> Vec<qingjian_dictionary::Match<'_>> {
-        let Some(scheme) = &self.code else {
+        let Some(scheme) = &self.scheme.code else {
             return Vec::new();
         };
         let mut hits = scheme.table.lookup(keys, limit);
-        if let Some(words) = self.learner.user_code_words(&scheme.key) {
+        if let Some(words) = self.models.learner.user_code_words(&scheme.key) {
             hits.extend(words.lookup(keys, limit));
         }
         let mut seen = HashSet::new();
@@ -49,7 +49,7 @@ impl Engine {
 
     /// 同 [`Self::query_code`]，另带回排在最前面的「编码打全」的候选有几条（混输按它分两段）。
     fn query_code_counted(&self, keys: &str, rest: String, start: Instant) -> (Query, usize) {
-        let table = &self.code.as_ref().expect("只在形码方案下调用").table;
+        let table = &self.scheme.code.as_ref().expect("只在形码方案下调用").table;
         // 编码以外的字符（`no-way` 的 `-`）不是编码，交给原样上屏那条路
         if !keys.chars().all(|c| c.is_ascii_lowercase()) {
             return (self.query_raw(keys, rest, start), 0);
@@ -73,7 +73,7 @@ impl Engine {
                 full_last: true,
                 coverage: keys.len(),
                 abbreviated: 0,
-                weight: self.learner.weight(hit.text),
+                weight: self.models.learner.weight(hit.text),
                 penalty: 0.0,
                 tone_cost: 0,
                 split: false,
@@ -85,13 +85,13 @@ impl Engine {
         let start = Instant::now();
         let letters = choice_key(keys, keys.len());
         ranking::rank(&mut scored, MAX_CANDIDATES, |item| {
-            let choice = letters
-                .get(..item.coverage)
-                .map_or(0, |input| self.learner.choice_weight(input, item.hit.text));
+            let choice = letters.get(..item.coverage).map_or(0, |input| {
+                self.models.learner.choice_weight(input, item.hit.text)
+            });
             let log_prob = sentence::transition_log_prob(
-                &*self.language_model,
+                &*self.models.language_model,
                 self.personal(),
-                self.chain.context(),
+                self.flow.chain.context(),
                 item.hit.text,
                 sentence::fallback_log_prob(item.hit.frequency, item.hit.secondary, log_total),
             );
@@ -132,8 +132,8 @@ impl Engine {
             spelled: 0,
             candidates: CandidateList { items },
             tail: keys.to_owned(),
-            text: self.composition.text().to_owned(),
-            cursor: self.composition.cursor(),
+            text: self.input.composition.text().to_owned(),
+            cursor: self.input.composition.cursor(),
             rest,
             decoded_keys: false,
             shuangpin_raw_preedit: false,

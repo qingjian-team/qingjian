@@ -33,10 +33,10 @@ impl Engine {
             spelled: 0,
             candidates: CandidateList { items },
             tail: scope.to_owned(),
-            text: self.composition.text().to_owned(),
-            cursor: self.composition.cursor(),
+            text: self.input.composition.text().to_owned(),
+            cursor: self.input.composition.cursor(),
             rest,
-            decoded_keys: self.shuangpin.is_some() || self.zhuyin,
+            decoded_keys: self.scheme.shuangpin.is_some() || self.scheme.zhuyin,
             shuangpin_raw_preedit: false,
             shuangpin_raw_window: false,
             typed_display: None,
@@ -75,10 +75,10 @@ impl Engine {
             spelled: 0,
             candidates: CandidateList { items },
             tail: scope.to_owned(),
-            text: self.composition.text().to_owned(),
-            cursor: self.composition.cursor(),
+            text: self.input.composition.text().to_owned(),
+            cursor: self.input.composition.cursor(),
             rest,
-            decoded_keys: self.shuangpin.is_some() || self.zhuyin,
+            decoded_keys: self.scheme.shuangpin.is_some() || self.scheme.zhuyin,
             shuangpin_raw_preedit: false,
             shuangpin_raw_window: false,
             typed_display: None,
@@ -106,7 +106,7 @@ impl Engine {
         let mut items: Vec<Candidate> = english::suggest(
             &self.english_lists(),
             scope,
-            |text| self.learner.weight(text),
+            |text| self.models.learner.weight(text),
             ENGLISH_MODE_CANDIDATES,
         )
         .into_iter()
@@ -119,10 +119,10 @@ impl Engine {
             spelled: 0,
             candidates: CandidateList { items },
             tail: scope.to_owned(),
-            text: self.composition.text().to_owned(),
-            cursor: self.composition.cursor(),
+            text: self.input.composition.text().to_owned(),
+            cursor: self.input.composition.cursor(),
             rest,
-            decoded_keys: self.shuangpin.is_some() || self.zhuyin,
+            decoded_keys: self.scheme.shuangpin.is_some() || self.scheme.zhuyin,
             shuangpin_raw_preedit: false,
             shuangpin_raw_window: false,
             typed_display: None,
@@ -148,7 +148,7 @@ impl Engine {
         rest: String,
         start: Instant,
     ) -> Query {
-        let body = self.modes().question_body(scope, self.zhuyin);
+        let body = self.modes().question_body(scope, self.scheme.zhuyin);
         let prefix = &scope[..scope.len() - body.len()];
         let (candidates, tail) = match shortcut::unicode_form(body) {
             Some(text) => (
@@ -188,10 +188,10 @@ impl Engine {
             spelled: 0,
             candidates,
             tail,
-            text: self.composition.text().to_owned(),
-            cursor: self.composition.cursor(),
+            text: self.input.composition.text().to_owned(),
+            cursor: self.input.composition.cursor(),
             rest,
-            decoded_keys: self.shuangpin.is_some() || self.zhuyin,
+            decoded_keys: self.scheme.shuangpin.is_some() || self.scheme.zhuyin,
             shuangpin_raw_preedit: false,
             shuangpin_raw_window: false,
             typed_display: None,
@@ -239,10 +239,11 @@ impl Engine {
     ///
     /// 查询按小写码（`Company` / `company` 同一份数据），`reading` 里存的是 `/ˈkʌmpəni/` 原样。
     fn english_pronunciation(&self, word: &str) -> Option<String> {
-        if !self.show_english_pronunciation {
+        if !self.settings.show_english_pronunciation {
             return None;
         }
-        self.english_pronunciations
+        self.settings
+            .english_pronunciations
             .as_ref()
             .and_then(|table| table.pronunciation(&word.to_ascii_lowercase()))
             .map(str::to_owned)
@@ -254,7 +255,9 @@ impl Engine {
     /// 音标表按单词收，整句查不到还容易在半截上乱标。日语译文走假名那条路（`Sense::reading`），
     /// 别的语言直接跳过。
     pub(in crate::engine) fn annotate_pronunciation(&self, translation: &mut crate::Translation) {
-        if !self.show_english_pronunciation || translation.language != crate::Language::English {
+        if !self.settings.show_english_pronunciation
+            || translation.language != crate::Language::English
+        {
             return;
         }
         for sense in translation.senses_mut() {
@@ -267,7 +270,7 @@ impl Engine {
     /// 缓存键带上参数：`vts` 与 `vts;2026-11-05` 是两组不同的值，不能互相命中。
     fn generated_candidates(&self, keyword: &'static str, args: &str) -> Vec<Candidate> {
         let key = format!("{keyword};{args}");
-        let mut cache = self.generated_forms.borrow_mut();
+        let mut cache = self.caches.generated_forms.borrow_mut();
         if cache.as_ref().is_none_or(|(cached, _)| cached != &key) {
             let forms =
                 shortcut::generated_forms(keyword, args, &jiff::Zoned::now()).unwrap_or_default();

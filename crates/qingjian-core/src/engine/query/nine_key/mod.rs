@@ -40,7 +40,7 @@ impl Engine {
             let hit = &item.hit;
             // 按输入串记的选择用候选自己的拼音当键，与全拼共用一份学习数据
             let input: String = hit.syllables().collect();
-            let choice = self.learner.choice_weight(&input, hit.text);
+            let choice = self.models.learner.choice_weight(&input, hit.text);
             (choice, self.word_log_prob(hit, log_total))
         });
         let mut items: Vec<Candidate> = Vec::with_capacity(scored.len());
@@ -83,8 +83,8 @@ impl Engine {
             spelled: 0,
             candidates: CandidateList { items },
             tail: tail.to_owned(),
-            text: self.composition.text().to_owned(),
-            cursor: self.composition.cursor(),
+            text: self.input.composition.text().to_owned(),
+            cursor: self.input.composition.cursor(),
             rest,
             decoded_keys: true,
             shuangpin_raw_preedit: false,
@@ -121,7 +121,7 @@ impl Engine {
                 full_last,
                 coverage: covered(count),
                 abbreviated: shape.abbreviated(count),
-                weight: self.learner.weight(hit.text),
+                weight: self.models.learner.weight(hit.text),
                 penalty: 0.0,
                 tone_cost: 0,
                 split: false,
@@ -144,7 +144,7 @@ impl Engine {
                     full_last: true,
                     coverage: covered(prefix_len),
                     abbreviated: shape.abbreviated(prefix_len),
-                    weight: self.learner.weight(hit.text),
+                    weight: self.models.learner.weight(hit.text),
                     penalty: 0.0,
                     tone_cost: 0,
                     split: false,
@@ -165,11 +165,12 @@ impl Engine {
         let Some(shape) = shapes.first() else {
             return rest.to_owned();
         };
-        let offset = self.composition.scope().len() + (rest.len() - keys.len());
+        let offset = self.input.composition.scope().len() + (rest.len() - keys.len());
         let kept = self
+            .scheme
             .nine_key_unpinned
             .as_ref()
-            .filter(|(buffer, _)| buffer == self.composition.text())
+            .filter(|(buffer, _)| buffer == self.input.composition.text())
             .map(|(_, syllables)| syllables.as_slice())
             .unwrap_or_default();
         let mut parts: Vec<&str> = shape

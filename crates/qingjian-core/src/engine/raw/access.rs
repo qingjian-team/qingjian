@@ -11,16 +11,18 @@ impl Engine {
     /// 未知键沿用解码器聚到末尾的行为，光标跟随其输出位置，可能不单调。
     /// 首位始终为 0，末位始终为完整文本末尾。
     pub fn raw_preedit(&self) -> RawPreedit {
-        if self.is_zhuyin_mode() && !self.english_mode {
-            let (decoded, cursor_bytes) =
-                zhuyin::decode_at(self.composition.text(), self.composition.cursor());
+        if self.is_zhuyin_mode() && !self.input.english_mode {
+            let (decoded, cursor_bytes) = zhuyin::decode_at(
+                self.input.composition.text(),
+                self.input.composition.cursor(),
+            );
             RawPreedit {
                 text: decoded.marked(),
                 cursor_bytes,
             }
         } else {
-            let text = self.composition.typed_text();
-            let mut cursor_bytes = self.composition.cursor().min(text.len());
+            let text = self.input.composition.typed_text();
+            let mut cursor_bytes = self.input.composition.cursor().min(text.len());
             while !text.is_char_boundary(cursor_bytes) {
                 cursor_bytes -= 1;
             }

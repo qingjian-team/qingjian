@@ -51,7 +51,7 @@ fn choice_waits_for_the_shell_then_moves_the_pick_up() {
     settle(&mut engine);
     assert_eq!(first_texts(&engine), ["开罚", "开发"]);
     assert!(!engine.rescoring_pending());
-    let note = engine.last_choice.get().expect("排过这页");
+    let note = engine.caches.last_choice.get().expect("排过这页");
     assert_eq!((note.from, note.ctx, note.app), (1, 0, false));
 }
 
@@ -133,7 +133,7 @@ fn typing_key_by_key_only_keeps_the_latest_compose_requests() {
         engine.push(c);
         engine.query().unwrap();
     }
-    let choice = engine.choice.as_ref().unwrap();
+    let choice = engine.models.choice.as_ref().unwrap();
     let wanted = choice.compose_wanted.borrow();
     assert!(!wanted.is_empty());
     assert!(

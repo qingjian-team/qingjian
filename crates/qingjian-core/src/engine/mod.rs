@@ -6,7 +6,9 @@
 mod alignment;
 mod annotation;
 mod aux_code;
+mod aux_codes;
 mod backspace;
+mod caches;
 mod candidate_menu;
 mod caret;
 mod choice;
@@ -16,38 +18,45 @@ mod composing;
 mod contacts;
 mod correcting;
 mod decoded;
+mod decors;
 mod dictionaries;
 mod extras;
+mod flow;
 mod follow_up;
 mod gloss;
 mod held;
+mod input;
 mod input_log;
+mod journal;
 mod key_hint;
 mod learning;
+mod lexicon;
 mod marked;
 mod mode_keys;
+mod models;
 mod pairing;
 mod panel;
 pub(crate) mod prediction;
 mod privacy;
+mod punct;
 mod query;
 mod raw;
 mod reading;
 mod rescoring;
+mod scheme;
 mod session;
+
+mod settings;
 mod setup;
 mod spacing;
 mod statistics;
 mod timings;
 mod translator;
+mod tuning;
 mod vocabulary;
 mod voice;
 
-use std::collections::HashMap;
-use std::sync::Arc;
-use std::time::Instant;
-
-use qingjian_dictionary::{AuxCodeLookup, Dictionary, WordList};
+use qingjian_dictionary::Dictionary;
 
 pub use alignment::Alignment;
 pub use annotation::AnnotationReport;
@@ -79,361 +88,42 @@ pub use vocabulary::{
     Encounter, FRESH_UNTIL, LevelCount, NoVocabularyTracker, VocabularySummary, VocabularyTracker,
 };
 
-use crate::candidate::Language;
-use crate::code_scheme::CodeScheme;
-use crate::composition::Composition;
-use crate::correction::{Correction, TypoCosts};
-use crate::emoji::EmojiTable;
-use crate::fuzzy::FuzzyRules;
-use crate::history::InputHistory;
-use crate::panel::{NoPanelHistory, PanelGroup, PanelHistory, SymbolPanel, TranslationCache};
-use crate::parser::{self, ParseError, Segmentation};
-use crate::punctuation::Punctuation;
-use crate::sentence::{self, Interpolation, LanguageModel, NoLanguageModel, SentenceScorer};
-use crate::shuangpin::Layout;
-use crate::traditional::Traditional;
+#[allow(unused_imports)]
+pub(crate) use crate::candidate::Language;
+#[allow(unused_imports)]
+pub(crate) use crate::correction::TypoCosts;
+#[allow(unused_imports)]
+pub(crate) use crate::emoji::EmojiTable;
+#[allow(unused_imports)]
+pub(crate) use crate::panel::{
+    NoPanelHistory, PanelGroup, PanelHistory, SymbolPanel, TranslationCache,
+};
+#[allow(unused_imports)]
+pub(crate) use crate::punctuation::Punctuation;
+#[allow(unused_imports)]
+pub(crate) use crate::sentence;
+#[allow(unused_imports)]
+pub(crate) use crate::shuangpin::Layout;
+#[allow(unused_imports)]
+pub(crate) use crate::traditional::Traditional;
+#[allow(unused_imports)]
+pub(crate) use qingjian_dictionary::AuxCodeLookup;
 
-use commit::CommitChain;
+use crate::parser::{self, ParseError, Segmentation};
 
 pub struct Engine {
-    /// 静态词库。
-    dictionary: Dictionary,
-
-    /// 译文提供方，缺省为 [`NoTranslator`]。
-    translator: Box<dyn Translator>,
-
-    /// 前缀模式键（表达式 / 问字）。
-    modes: ModeKeys,
-
-    /// 附加词库（领域词库、用户导入的），与主词库一起查词、一起进整句词图；不参与语言模型（它们没有 bigram，
-    /// 走词频兜底）。壳按用户目录 `dicts/` 与配置 `[dictionaries]` 装配。
-    extra_dictionaries: Vec<Dictionary>,
-
-    /// 从三元模型词表补出的词（补充词库），壳在接上三元模型时装配。单放一格：附加词库随导入 / 开关整个换掉，它不跟着换。
-    model_words: Option<Dictionary>,
-
-    /// 内置的符号、emoji 名字（尖括号、笑死），带上 emoji 表时启用：词库里没有它们，不收就打不出这个词、也就配不上符号。
-    companion_words: Option<&'static Dictionary>,
-
-    /// 英文候选的释义（英→中），缺省为 [`NoTranslator`]。英文候选的辅助语言是主语言中文，
-    /// 与中文候选查学习语言的表分开，仍是「一个候选只显示一种辅助语言」。
-    english_translator: Box<dyn Translator>,
-
-    /// 用户词频，缺省为 [`NoLearner`]；私密输入期间只读不写（[`learning::MutedLearner`]）。
-    learner: learning::MutedLearner,
-
-    /// 当前拼音缓冲区。
-    composition: Composition,
-
-    /// 英文词表，中英混输用；没有就不出英文候选。
-    english: Option<WordList>,
-
-    /// 英文模式（壳里 Caps Lock 亮着）：缓冲区里的字母不当拼音，候选来自英文词表的补全与纠正。
-    english_mode: bool,
-
-    /// 全角标点与引号配对状态。
-    punctuation: Punctuation,
-
-    /// 中文标点转换开关。
-    full_width_punctuation: bool,
-
-    /// 中文标点开着也保持半角的符号（`[general] half_width_symbols`，#893）。
-    half_width_symbols: Vec<char>,
-
-    /// 成对符号开关：中文与日文模式一份、英文模式一份（见 [`Self::pair_punctuation`]）。
-    pair_punctuation: (bool, bool),
-
-    /// 用户定义的短语，按输入码精确匹配、按权重排在最前。
-    custom_phrases: Vec<crate::CustomPhrase>,
-
-    /// 屏蔽词：候选文本里含有其中任何一个就整条丢掉。自定义短语不过这一关。
-    blocked: Vec<String>,
-
-    /// 通讯录（壳读系统通讯录交来，用户在设置里开了才有）：名字并进查词，见 [`Self::set_contacts`]。
-    contacts: Option<crate::ContactBook>,
-
-    /// 中文模式下整段是英文词（或像英文词的开头）时给不给英文候选与补全（配置 `[general] english_in_chinese`，缺省开）。
-    english_in_chinese: bool,
-
-    /// 中英混输时中文候选总在英文词前面（缺省关：拼音不像话的输入英文词排第一，常在中文模式里打英文词的人靠它）。
-    chinese_first: bool,
-
-    /// 拼写纠错（整段一处编辑的纠正与整句里的敲错边，含个人敲错表）开不开，配置 `[general] spelling_correction`，缺省开。
-    spelling_correction: bool,
-
-    /// 中文模式下英文候选（精确词 + 补全）最多几个（配置 `[general] english_max_in_chinese`，缺省 4）。
-    english_max_in_chinese: usize,
-
-    /// 英文候选旁显示音标（配置 `[general] show_english_pronunciation`，缺省关）。
-    /// 开着时把音标填进 `Candidate::reading`，平台层的 annotation 会画在候选词后面。
-    show_english_pronunciation: bool,
-
-    /// 英文音标表（随包 `english-ipa.qj`），键是小写词、值是 `/ˈkɑrɡoʊ/`。没有就一律不显示音标。
-    english_pronunciations: Option<WordList>,
-
-    /// 有中文候选时英文最高排到第几位（配置 `[general] english_min_position`，缺省 1 即不限制）。
-    english_min_position: usize,
-
-    /// 中西文混排自动补空格（配置 `[general] auto_space`，缺省关）。见 [`crate::spacing`]。
-    auto_space: bool,
-
-    /// 中文模式下 Shift+字母进组句缓冲区（配置 `[general] shift_letter = "compose"`，缺省关）。
-    /// 关着由壳直接把大写字母交给应用，Core 这一路就不该收——否则 `Cpan` 这种会被当成拼音。
-    shift_letter_compose: bool,
-
-    /// 联想提供方，缺省为 [`NoPredictor`]。
-    predictor: Box<dyn Predictor>,
-
-    /// 显式选区翻译的独立提供方；未设置时沿用联想服务。
-    translation_predictor: Option<Box<dyn Predictor>>,
-
-    /// 整句转换的语言模型，缺省为 [`NoLanguageModel`]（退化成一元词频）。
-    language_model: Box<dyn LanguageModel>,
-
-    /// 整句路径的同步神经重打分器（字级 Transformer，查询里当场打分；CLI 评测用）。
-    sentence_scorer: Option<Box<dyn SentenceScorer>>,
-
-    /// 异步重打分：后台线程里的打分器，壳在停顿后送任务、轮询结果（见 [`rescoring`]）。
-    rescorer: Option<rescoring::RescoreWorker>,
-
-    /// 接的打分器是生成器（[`SentenceScorer::generates`]，含章·通变）：整句以生成为主、不重排词图路径。
-    generative: bool,
-
-    /// 「前文 + 整句文本 → 神经分」缓存，同步与异步打分共用。
-    neural_cache: std::cell::RefCell<rescoring::NeuralCache>,
-
-    /// 后台模型交结果时叫醒壳（[`Engine::set_rescoring_wake`]），两个后台线程共用。
-    wake: rescoring::WakeSlot,
-
-    /// 选词模型（试验）：候选窗前几条交给它重排一次，见 [`choice`]。
-    choice: Option<choice::ChoiceRanker>,
-
-    /// 选词模型比几条、看多长前文。
-    choice_tier: choice::ChoiceTier,
-
-    /// 壳给的应用里光标前的文本；`None` 时前文用本会话历史。
-    rescoring_before: Option<String>,
-
-    /// 重打分时神经得分的权重 λ：最终分 = 路径分 + λ·(神经分 − 静态分)。
-    neural_weight: f64,
-
-    /// 只有路径分与最优路径差距在这么多 nat 以内的路径才参与重排：差距大的多半是个人 n-gram 拉开的，通用模型不该翻盘。
-    neural_margin: f64,
-
-    /// 重打分给模型看的前文长度（本会话最近上屏的字符数），0 为不给前文。
-    neural_context: usize,
-
-    /// 个人 n-gram 与静态模型插值的参数；只有回放调参会改（`set_interpolation`），壳用缺省值。
-    interpolation: Interpolation,
-
-    /// 整句转换的搜索规模；同上，只有回放调参会改（`set_search_limits`）。见 [`sentence::SearchLimits`]。
-    search_limits: sentence::SearchLimits,
-
-    /// 敲错纠正的代价；同上，只有回放调参会改（`set_typo_costs`）。
-    typo_costs: TypoCosts,
-
-    /// 最近几次上屏各记了哪些学习、之后退格了几个字；用户把它们删掉重选时把学习退回去（见 [`Self::note_backspace`]）。
-    /// 最新的在末尾，最多留 [`RECENT_COMMITS`] 条。
-    recent_commits: Vec<LastCommit>,
-
-    /// 本次 commit 里记下的词转移，commit 结束时搬进 `last_commit`。
-    recording: Vec<Transition>,
-
-    /// 输入日志的落盘方；缺省不记，私密输入期间一律不记（[`input_log::MutedLogger`]）。
-    logger: input_log::MutedLogger,
-
-    /// 私密输入中（见 [`Self::set_private`]）：不学、不记、不发云端。
-    private: bool,
-
-    /// 输入日志条目的序号。
-    log_sequence: u64,
-
-    /// 最近一次查询的候选顺序是否经过神经重排（`rescore_paths` 置位，`query` 开头清零），写进输入日志。
-    last_rescored: std::cell::Cell<bool>,
-
-    /// 最近一次查询里选词模型排过这页的记录（`rerank_choices` 写，`query` 开头清零），写进输入日志。
-    last_choice: std::cell::Cell<Option<input_log::ChoiceNote>>,
-
-    /// 最近一次查询里选词模型给各候选的分（`rerank_choices` 写，`query` 开头清空），给评测看。
-    last_choice_scores: std::cell::RefCell<Vec<choice::ChoiceScore>>,
-
-    /// 这次查询里敲错边读出、当备选插进来的整句（[`Engine::plain_sentence`]）：选词重排不拿它们比。
-    corrected_alternates: std::cell::RefCell<Vec<String>>,
-
-    /// 这段组句里第一次退格前的缓冲区：上屏时与最终键串不同就记一条 `retype`。
-    retype_snapshot: Option<String>,
-
-    /// 前面选好、还没交给应用的词（见 `held` 模块）。
-    held: Vec<held::HeldSelection>,
-
-    /// 选词后剩下拼音时先不上屏（[`Self::set_hold_selections`]，缺省开）。
-    hold_selections: bool,
-
-    /// 组句外直通给应用的字符，攒到下一次上屏或上文断开时写成一条 `passthrough`。
-    passthrough_pending: String,
-
-    /// 这段组句翻了几页候选。
-    page_turns: u32,
-
-    /// 这段组句第一键的时刻（算首键到上屏的毫秒）。
-    composition_started: Option<Instant>,
-
-    /// 上一记退格是不是正好把组句删空了：下一记如果是自动重复就吞掉，
-    /// 别让它接着删应用里已经上屏的字。
-    backspace_emptied: bool,
-
-    /// 输入统计用的键数与打字时长。
-    typing: statistics::Typing,
-
-    /// 正在输入的应用标识，壳在焦点变化时给；写进输入日志。
-    application: Option<String>,
-
-    /// 上次记 `break` 之后有没有上屏过：没有就不再记，免得失焦一次记一条。
-    committed_since_break: bool,
-
-    /// 输入统计的累计方（打了多少字）；缺省不记。
-    meter: Box<dyn UsageMeter>,
-
-    /// 上屏记不记进输入统计（见 [`Self::set_metered`]）；壳的工具框（快捷翻译的原文、常用语编辑）里关掉。
-    metered: bool,
-
-    /// 学习语言的词汇记录（见过 / 上屏过哪些译词）；缺省不记也不标生词。
-    vocabulary: Box<dyn VocabularyTracker>,
-
-    /// 释义兜底：释义表里没有的词上屏后问云端；缺省不问。
-    gloss_filler: Box<dyn GlossFiller>,
-
-    /// 候选窗口当前页上的译词（壳每次画完告知），上屏时记成「看到过」。
-    displayed: Vec<(Language, String)>,
-
-    /// 上屏过带译词的词、等那句话写完当例句。
-    examples: vocabulary::ExampleCollector,
-
-    /// 上一次查询的摘要，上屏时写进输入日志。
-    last_query: std::cell::RefCell<Option<query::QuerySnapshot>>,
-
-    /// 这段组句生成过的 UUID / 时间戳：(关键字, 各写法)。壳每次刷新都重查候选，同一段组句里得是同一组值；新一段组句的第一键清掉。
-    generated_forms: std::cell::RefCell<Option<(String, Vec<String>)>>,
-
-    /// 上一次算过的拼写纠正：(作用域, 结果)。query 算一次，commit / take_raw 复用，别再跑一遍变体枚举。
-    correction_cache: std::cell::RefCell<Option<(String, Option<Correction>)>>,
-
-    /// 整句转换的格子候选缓存：跨按键复用，学习数据一变就清（见 [`Self::forget_span_cache`]）。
-    span_cache: std::cell::RefCell<sentence::SpanCache>,
-
-    /// 短语级语言模型（知意的三元 n-gram）：选词重排里给整段候选打 ln P，没接时用二元模型逐词累加。
-    phrase_model: Option<std::sync::Arc<dyn sentence::PhraseModel>>,
-
-    /// 本次会话经我们上屏的文本，按应用分开记；应用不给光标前文时给模型当前文。
-    history: InputHistory,
-
-    /// 最近一次联想请求的序号，0 表示还没发过。
-    prediction_sequence: u64,
-
-    /// 尚未返回的请求。组句联想与整句候选翻译可同时在飞，不能只记最后一条。
-    pending_predictions: HashMap<u64, prediction::PendingPrediction>,
-
-    /// 连续上屏的链，个人 n-gram 与自动造词靠它。
-    chain: CommitChain,
-    /// 是否学习连续上屏的五笔新词；不控制拼音、双拼学习或已有词的词频。
-    auto_phrase: bool,
-    /// 五笔连续组词窗口最多容纳的汉字数，范围为 2～10。
-    auto_phrase_max_chars: usize,
-
-    /// 模糊音开关，缺省全关。
-    fuzzy: FuzzyRules,
-
-    /// 双拼方案，`None` 为全拼。开着时缓冲区里是双拼键，查词前先解成全拼（见 [`crate::shuangpin`]）。
-    shuangpin: Option<Arc<Layout>>,
-
-    /// 双拼方案下 preedit 显示原始按键（如 `ljse`）还是展开成全拼（`lan'se`）。
-    shuangpin_raw_preedit: bool,
-
-    /// 双拼方案下候选窗口的拼音行显示原始按键还是全拼，与 [`Self::shuangpin_raw_preedit`] 各管各的。
-    shuangpin_raw_window: bool,
-
-    /// 双拼方案下同时接受全拼（以及同一输入里两种打法的混用），见 [`crate::shuangpin`] 的混输一节。
-    shuangpin_full_pinyin: bool,
-
-    /// 注音模式开关，開著時緩衝區裡是注音大千鍵位，查詞前先解成拼音（見 [`crate::zhuyin`]）。
-    zhuyin: bool,
-
-    /// 九宫格方案：缓冲区里是数字键（可混着已选定的字母），见 [`crate::nine_key`]。
-    nine_key: bool,
-
-    /// 九宫格要保住的读法：(当时的缓冲区, 各音节在缓冲区里的起点与写法)。退格把选定的音节退回成数字、
-    /// 点拼音行把光标挪进中间时记下；之后只删键或挪光标时候选与拼音行仍按这些写法排
-    /// （`ni` 退回成 `64` 还读 ni，不换成默认的 mi），见 `unpin_nine_key`、`keep_nine_key_reading`。
-    nine_key_unpinned: Option<(String, Vec<(usize, String)>)>,
-
-    /// 形码方案（五笔或用户导入的）。`Some` 时编码参与查询，按前缀查表（见 [`Engine::query_code`]）。
-    code: Option<CodeScheme>,
-
-    /// 拼音侧（全拼 / 双拼 / 注音）参不参与查询，缺省参与。
-    ///
-    /// 与 `code` 组合出三种情形：只有拼音（形码关）、只有形码（拼音关，`[general] scheme = "none"`）、
-    /// **两边都开 = 混输**（编码打全的形码候选在前，见 [`Engine::query_mixed`]）。两个都关着时按拼音走。
-    phonetic: bool,
-
-    /// emoji 表，没有就不出 emoji 候选。
-    emoji: Option<EmojiTable>,
-
-    /// 每次查询最多插几个 emoji（配置 `[general] emoji`，缺省 3）；0 不出 emoji，表照样加载。
-    emoji_limit: usize,
-
-    /// 内置的颜文字表，带上 emoji 表时一起启用。
-    kaomoji: Option<&'static EmojiTable>,
-
-    /// 每次查询最多插几个颜文字（配置 `[general] kaomoji`，缺省 1）。
-    kaomoji_limit: usize,
-
-    /// 内置的符号表，带上 emoji 表时一起启用。
-    symbols: Option<&'static EmojiTable>,
-
-    /// 每次查询最多插几个符号（配置 `[general] symbols`，缺省 1）。
-    symbol_limit: usize,
-
-    /// 打开着的符号面板；`None` 是没开。上屏与清空时关掉。
-    panel: Option<SymbolPanel>,
-
-    /// 面板条目的使用记录：打开面板时排「常用」，从面板上屏时记一次；缺省不记。
-    panel_history: Box<dyn PanelHistory>,
-
-    /// 面板上次关掉时停在哪组：没在组句时打开就回到那组。
-    panel_group: Option<PanelGroup>,
-
-    /// 翻译组上次选的目标语言；没选过跟学习语言走。
-    panel_language: Option<Language>,
-
-    /// 翻译组的译文缓存，换联想提供方时清空。
-    panel_translations: TranslationCache,
-
-    /// 辅码态：`None` 是拼音态，`Some` 是辅码态（空串 = 刚敲下触发键、码段还没开始）。
-    /// 码段不进 `composition`：它与拼音分段记账、分段画（见 [`AuxSegment`]）。
-    aux_code: Option<String>,
-
-    /// 辅码总开关（配置项 `[aux_code] enabled`，缺省关）：关着时触发键不进辅码态、纯拼音态也不挂码。
-    aux_enabled: bool,
-
-    /// 候选上是否显示码（配置项 `[general] aux_code_show`，缺省关）：纯拼音态逐候查首条码的短路开关，
-    /// 由壳装配时告知（辅码态不受它管，看码有引导意义）。
-    aux_show: bool,
-
-    /// 拼音行按高亮候选显示带调拼音（配置项 `[general] show_tones`，缺省关），见 [`Self::toned_syllables`]。
-    show_tones: bool,
-
-    /// 进辅码态的触发键，配置项 `[general] aux_code_key`，缺省 [`DEFAULT_AUX_CODE_KEY`]。
-    aux_code_key: char,
-
-    /// 码段删空后是否留在辅码态（配置项 `[general] aux_code_keep_empty`，缺省开）：开 = 删空停在
-    /// 辅码态（`;` 仍在、候选全回），空码段再按一次退格才退出；关 = 删空即回拼音态。
-    aux_keep_empty: bool,
-
-    /// 辅码码表，壳按用户目录 `codes/` 与配置装配；空表示没装码表（辅码态筛不出任何词）。
-    aux_codes: Vec<Arc<dyn AuxCodeLookup>>,
-
-    /// 繁体输出：候选出 Core 时换成繁体、上屏时换回简体，缺省不转（见 [`crate::traditional`]）。
-    traditional: Traditional,
+    settings: settings::EngineSettings,
+    lexicon: lexicon::EngineLexicon,
+    models: models::EngineModels,
+    caches: caches::EngineCaches,
+    journal: journal::EngineJournal,
+    input: input::EngineInput,
+    scheme: scheme::EngineScheme,
+    punct: punct::EnginePunctuation,
+    decors: decors::EngineDecors,
+    aux: aux_codes::EngineAux,
+    tuning: tuning::EngineTuning,
+    flow: flow::EngineFlow,
 }
 
 /// 英文补全最多几条（`compa` → company / compare / …）。
@@ -563,115 +253,18 @@ pub const RESCORE_CONTEXT_CHARS: usize = 64;
 impl Engine {
     pub fn new(dictionary: Dictionary) -> Self {
         Self {
-            dictionary,
-            extra_dictionaries: Vec::new(),
-            model_words: None,
-            companion_words: None,
-            translator: Box::new(NoTranslator),
-            english_translator: Box::new(NoTranslator),
-            modes: ModeKeys::default(),
-            learner: learning::MutedLearner::new(Box::new(NoLearner)),
-            composition: Composition::default(),
-            english: None,
-            english_mode: false,
-            punctuation: Punctuation::default(),
-            full_width_punctuation: true,
-            half_width_symbols: Vec::new(),
-            pair_punctuation: (true, false),
-            custom_phrases: Vec::new(),
-            blocked: Vec::new(),
-            contacts: None,
-            english_in_chinese: true,
-            chinese_first: false,
-            spelling_correction: true,
-            english_max_in_chinese: ENGLISH_CANDIDATES_MAX,
-            english_min_position: 1,
-            show_english_pronunciation: false,
-            english_pronunciations: None,
-            auto_space: false,
-            shift_letter_compose: false,
-            predictor: Box::new(NoPredictor),
-            translation_predictor: None,
-            language_model: Box::new(NoLanguageModel),
-            sentence_scorer: None,
-            rescorer: None,
-            generative: false,
-            wake: rescoring::WakeSlot::default(),
-            neural_cache: std::cell::RefCell::new(rescoring::NeuralCache::default()),
-            choice: None,
-            choice_tier: choice::ChoiceTier::default(),
-            rescoring_before: None,
-            neural_weight: NEURAL_WEIGHT,
-            neural_margin: NEURAL_MARGIN,
-            interpolation: Interpolation::DEFAULT,
-            typo_costs: TypoCosts::DEFAULT,
-            search_limits: sentence::SearchLimits::DEFAULT,
-            neural_context: RESCORE_CONTEXT_CHARS,
-            correction_cache: std::cell::RefCell::new(None),
-            span_cache: std::cell::RefCell::new(sentence::SpanCache::default()),
-            phrase_model: None,
-            recent_commits: Vec::new(),
-            logger: input_log::MutedLogger::new(Box::new(NoInputLogger)),
-            private: false,
-            log_sequence: 0,
-            last_rescored: std::cell::Cell::new(false),
-            last_choice: std::cell::Cell::new(None),
-            last_choice_scores: std::cell::RefCell::default(),
-            corrected_alternates: std::cell::RefCell::default(),
-            retype_snapshot: None,
-            held: Vec::new(),
-            hold_selections: true,
-            passthrough_pending: String::new(),
-            page_turns: 0,
-            composition_started: None,
-            backspace_emptied: false,
-            typing: statistics::Typing::default(),
-            application: None,
-            committed_since_break: false,
-            meter: Box::new(NoUsageMeter),
-            metered: true,
-            vocabulary: Box::new(NoVocabularyTracker),
-            gloss_filler: Box::new(NoGlossFiller),
-            displayed: Vec::new(),
-            examples: vocabulary::ExampleCollector::default(),
-            last_query: std::cell::RefCell::new(None),
-            generated_forms: std::cell::RefCell::new(None),
-            recording: Vec::new(),
-            history: InputHistory::default(),
-            prediction_sequence: 0,
-            pending_predictions: HashMap::new(),
-            chain: CommitChain::default(),
-            auto_phrase: true,
-            auto_phrase_max_chars: 4,
-            fuzzy: FuzzyRules::default(),
-            shuangpin: None,
-            shuangpin_raw_preedit: false,
-            shuangpin_raw_window: false,
-            shuangpin_full_pinyin: false,
-            zhuyin: false,
-            nine_key: false,
-            nine_key_unpinned: None,
-            code: None,
-            phonetic: true,
-            emoji: None,
-            emoji_limit: EMOJI_TOTAL,
-            kaomoji: None,
-            kaomoji_limit: 1,
-            symbols: None,
-            symbol_limit: 1,
-            panel: None,
-            panel_history: Box::new(NoPanelHistory),
-            panel_group: None,
-            panel_language: None,
-            panel_translations: TranslationCache::default(),
-            aux_code: None,
-            aux_enabled: false,
-            aux_show: false,
-            show_tones: false,
-            aux_code_key: DEFAULT_AUX_CODE_KEY,
-            aux_keep_empty: true,
-            aux_codes: Vec::new(),
-            traditional: Traditional::default(),
+            settings: settings::EngineSettings::default(),
+            lexicon: lexicon::EngineLexicon::new(dictionary),
+            models: models::EngineModels::default(),
+            caches: caches::EngineCaches::default(),
+            journal: journal::EngineJournal::default(),
+            input: input::EngineInput::default(),
+            scheme: scheme::EngineScheme::default(),
+            punct: punct::EnginePunctuation::default(),
+            decors: decors::EngineDecors::default(),
+            aux: aux_codes::EngineAux::default(),
+            tuning: tuning::EngineTuning::default(),
+            flow: flow::EngineFlow::default(),
         }
     }
 }

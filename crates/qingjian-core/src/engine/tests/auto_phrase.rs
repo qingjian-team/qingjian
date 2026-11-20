@@ -14,18 +14,18 @@ fn wubi_options_preserve_pinyin_pair_thresholds_and_four_character_limit() {
         let mut engine = engine().with_learner(Box::<WordLearner>::default());
         engine.set_auto_phrase(enabled, max_chars);
         pair(&mut engine, "开发", "先", true);
-        assert_eq!(engine.learner.user_words().unwrap().len(), 1);
+        assert_eq!(engine.models.learner.user_words().unwrap().len(), 1);
         for round in 1..=3 {
             pair(&mut engine, "甲乙", "丙丁", false);
             assert_eq!(
-                engine.learner.user_words().unwrap().len(),
+                engine.models.learner.user_words().unwrap().len(),
                 1 + usize::from(round == 3)
             );
         }
         for _ in 0..3 {
             pair(&mut engine, "甲乙丙", "丁戊己", true);
         }
-        assert_eq!(engine.learner.user_words().unwrap().len(), 2);
+        assert_eq!(engine.models.learner.user_words().unwrap().len(), 2);
     }
 }
 
@@ -35,15 +35,16 @@ fn wubi_options_preserve_once_only_whole_buffer_learning_up_to_twenty_characters
         for length in [4, 6, 10, 11, 20, 21] {
             let mut engine = engine().with_learner(Box::<WordLearner>::default());
             engine.set_auto_phrase(enabled, max_chars);
-            engine.chain.begin_buffer("kai".repeat(length));
+            engine.flow.chain.begin_buffer("kai".repeat(length));
             for index in 0..length {
                 engine
+                    .flow
                     .chain
                     .advance("甲", &["kai".into()], index + 1 < length);
             }
             engine.finish_buffer(20);
             assert_eq!(
-                engine.learner.user_words().is_some(),
+                engine.models.learner.user_words().is_some(),
                 length <= 20,
                 "enabled={enabled}, max_chars={max_chars}, length={length}"
             );
@@ -54,10 +55,10 @@ fn wubi_options_preserve_once_only_whole_buffer_learning_up_to_twenty_characters
 #[test]
 fn changing_wubi_options_keeps_the_pinyin_commit_chain() {
     let mut engine = engine().with_learner(Box::<WordLearner>::default());
-    engine.chain.begin_buffer("kaikai".into());
-    engine.chain.advance("甲", &["kai".into()], true);
+    engine.flow.chain.begin_buffer("kaikai".into());
+    engine.flow.chain.advance("甲", &["kai".into()], true);
     engine.set_auto_phrase(false, 2);
-    engine.chain.advance("乙", &["kai".into()], false);
+    engine.flow.chain.advance("乙", &["kai".into()], false);
     assert!(engine.finish_buffer(20).is_some());
-    assert_eq!(engine.learner.user_words().unwrap().len(), 1);
+    assert_eq!(engine.models.learner.user_words().unwrap().len(), 1);
 }

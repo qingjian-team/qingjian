@@ -48,8 +48,8 @@ impl Engine {
     /// 关掉「打拼音时也给英文词」（`english_in_chinese = false`）时整条路都停：英文词不再作为句尾参与分词，
     /// `nanine` 回到 `na ni ne` 的拼音读法，`kaifarust` 不再出 开发rust（#766）。
     pub(crate) fn split_english_tail(&self, scope: &str) -> Option<EnglishTail> {
-        if !self.english_in_chinese
-            || self.shuangpin.is_some()
+        if !self.settings.english_in_chinese
+            || self.scheme.shuangpin.is_some()
             || scope.len() < MIN_ENGLISH_TAIL_HEAD_LETTERS + MIN_ENGLISH_TAIL_LETTERS
             || !scope.bytes().all(|b| b.is_ascii_lowercase())
         {
@@ -63,6 +63,7 @@ impl Engine {
         // 个人表不算：打不出来时原样上屏会把整串失败的拼音（`woxiangxuexirust`）学成「英文词」，
         // 再拿它把混输这条路堵掉就是死循环——越打不出来学得越多，越学越打不出来
         if self
+            .lexicon
             .english
             .as_ref()
             .is_some_and(|words| words.get(scope).is_some())
@@ -85,7 +86,7 @@ impl Engine {
                 return None;
             }
         }
-        let personal = self.learner.user_english();
+        let personal = self.models.learner.user_english();
         let longest = scope.len() - MIN_ENGLISH_TAIL_HEAD_LETTERS;
         (MIN_ENGLISH_TAIL_LETTERS..=longest).rev().find_map(|len| {
             let head_len = scope.len() - len;
@@ -111,7 +112,8 @@ impl Engine {
                 //（`English` 用过 2 次 → Zipf 0.002 → 兜底 3.0，真实 5.19，白丢 5 nat），
                 // 等于一个英文词用过一次就更难打出来。个人表里独有的词（`kubectl`）本来就走兜底
                 log_prob: english_log_prob(
-                    self.english
+                    self.lexicon
+                        .english
                         .as_ref()
                         .and_then(|words| words.frequency(tail)),
                 ),
@@ -170,7 +172,7 @@ impl Engine {
         if conversion.has_placeholder() {
             return None;
         }
-        let typed = &self.composition.scope()[tail.head_len..];
+        let typed = &self.input.composition.scope()[tail.head_len..];
         let mut syllables = conversion.syllables;
         syllables.push(typed.to_owned());
         Some(Candidate {

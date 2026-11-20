@@ -26,7 +26,7 @@ impl Engine {
         let Some(best) = self.sentence_segmentation(segmentations, typos) else {
             return;
         };
-        let keys = self.composition.scope();
+        let keys = self.input.composition.scope();
         match english_tail {
             Some(tail) if head_wins => {
                 if let Some(mixed) = self.mixed_sentence(best, tail, typos) {
@@ -97,12 +97,12 @@ impl Engine {
                 let letters = choice_key(keys, keys.len());
                 let lead_choice = ordered
                     .first()
-                    .map_or(0, |s| self.learner.choice_weight(&letters, &s.text));
+                    .map_or(0, |s| self.models.learner.choice_weight(&letters, &s.text));
                 let user_word_first = items.get(position).is_some_and(|c| {
                     c.kind == CandidateKind::Chinese
                         && c.syllables.len() == best.syllables.len()
                         && self.is_user_word(c)
-                        && self.learner.choice_weight(&letters, &c.text) >= lead_choice
+                        && self.models.learner.choice_weight(&letters, &c.text) >= lead_choice
                 });
                 let position = position + usize::from(user_word_first);
                 for (offset, candidate) in ordered.into_iter().enumerate() {
@@ -214,7 +214,8 @@ impl Engine {
         {
             return out;
         }
-        self.corrected_alternates
+        self.caches
+            .corrected_alternates
             .borrow_mut()
             .push(corrected.text.clone());
         let candidate = Candidate {
@@ -254,10 +255,13 @@ impl Engine {
                 .iter()
                 .filter(|word| !shared(&word.text))
                 .all(|word| {
-                    if self.language_model.is_empty() {
+                    if self.models.language_model.is_empty() {
                         self.in_primary_dictionary(&word.text, &word.syllables)
                     } else {
-                        self.language_model.log_prob(None, &word.text).is_some()
+                        self.models
+                            .language_model
+                            .log_prob(None, &word.text)
+                            .is_some()
                     }
                 })
     }
@@ -284,8 +288,8 @@ impl Engine {
                 c.kind == CandidateKind::Chinese
                     && c.syllables.concat() == letters
                     && self.in_primary_dictionary(&c.text, &c.syllables)
-                    && (self.language_model.is_empty()
-                        || self.language_model.log_prob(None, &c.text).is_some())
+                    && (self.models.language_model.is_empty()
+                        || self.models.language_model.log_prob(None, &c.text).is_some())
             });
             if spelled_exactly {
                 paths = self.sentence_paths(&best.patterns(), false, false, wanted);
@@ -388,7 +392,7 @@ impl Engine {
         &self,
         patterns: &[qingjian_dictionary::SyllablePattern<'_>],
     ) -> Vec<Option<u8>> {
-        let Some(decoded) = self.decode(self.composition.scope()) else {
+        let Some(decoded) = self.decode(self.input.composition.scope()) else {
             return Vec::new();
         };
         let Some(segmentation) = decoded.segmentation() else {
@@ -427,24 +431,24 @@ impl Engine {
         let tones = self.sentence_tones(patterns);
         let input = sentence::SearchInput::new(
             &dictionaries,
-            &*self.language_model,
+            &*self.models.language_model,
             self.personal(),
-            |text| self.learner.weight(text),
+            |text| self.models.learner.weight(text),
             |index, syllable| expanded.cost(index, syllable),
         )
         .with_tones(&tones)
         .with_emission(&emission)
-        .with_limits(self.search_limits);
+        .with_limits(self.tuning.search_limits);
         let mut paths = sentence::convert_paths(
             &input,
             &expanded.positions(),
             whole,
             k,
-            &mut self.span_cache.borrow_mut(),
+            &mut self.caches.span.borrow_mut(),
         );
         // 与最优路径差得太远的不参与：那种差距多半是个人 n-gram 拉开的
         if paths.len() > 1 {
-            let floor = paths[0].score - self.neural_margin;
+            let floor = paths[0].score - self.tuning.neural_margin;
             paths.retain(|p| p.score >= floor);
             // 条件是这批路径共同解释的那段按键，不是整个作用域：英文尾巴那条只转换了 head，
             // 拿整段当条件会让它凭空背上没覆盖的字母

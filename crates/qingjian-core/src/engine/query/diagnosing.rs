@@ -11,7 +11,7 @@ impl Engine {
     /// 当前输入（全拼，查过一次之后）的整句为什么不是 `gold`；整句就是 `gold` 或拼音切不动时为 `None`。
     /// 只看不带拼写纠错的整段拼音，与评测集的输入一致。
     pub fn diagnose_sentence(&self, gold: &str, top: Option<&str>) -> Option<sentence::Loss> {
-        let keys = self.composition.scope();
+        let keys = self.input.composition.scope();
         let (segmentations, _) = segment_longest_prefix(keys).ok()?;
         let best = self.sentence_segmentation(&segmentations, true)?;
         let patterns = best.patterns();
@@ -70,13 +70,13 @@ impl Engine {
         // 格子名额与真搜索一致（回放调参改了 `search_limits` 时诊断也跟着）
         let input = sentence::SearchInput::new(
             &dictionaries,
-            &*self.language_model,
+            &*self.models.language_model,
             self.personal(),
-            |text| self.learner.weight(text),
+            |text| self.models.learner.weight(text),
             |index, syllable| expanded.cost(index, syllable),
         )
         .with_emission(&emission)
-        .with_limits(self.search_limits);
+        .with_limits(self.tuning.search_limits);
         sentence::diagnose(&input, &expanded.positions(), gold, best)
     }
 }
@@ -84,7 +84,7 @@ impl Engine {
 impl Engine {
     /// `gold` 在词图前 `k` 条整句路径里排第几（从 0 起；不在为 `None`）：量词图多交出几条整句给选词模型值不值。
     pub fn sentence_path_rank(&self, gold: &str, k: usize) -> Option<usize> {
-        let keys = self.composition.scope();
+        let keys = self.input.composition.scope();
         let (segmentations, _) = segment_longest_prefix(keys).ok()?;
         let best = self.sentence_segmentation(&segmentations, true)?;
         self.sentence_paths(&best.patterns(), !reads_as_typed(best), false, k)

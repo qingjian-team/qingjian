@@ -329,7 +329,7 @@ fn accepted_sentence_completion_feeds_the_personal_ngram_and_can_be_retracted() 
         assert_eq!(ngram.pair(Some("很"), "好用"), 1);
     }
     // 句尾是句号：下一个词按句首记
-    assert_eq!(engine.chain.previous(), None);
+    assert_eq!(engine.flow.chain.previous(), None);
 
     // 整句退格删光、同一段拼音重新选词：撤销这句记的转移
     for _ in 0.."开发输入法很好用。".chars().count() {
@@ -654,10 +654,10 @@ fn bare_question_restores_punctuation_once_in_each_mode() {
         );
         assert!(engine.composition().is_empty());
         assert_eq!(engine.history().text(), expected);
-        assert_eq!(engine.passthrough_pending, expected);
+        assert_eq!(engine.input.passthrough_pending, expected);
         assert_eq!(engine.restore_bare_question(english), None);
         assert_eq!(engine.history().text(), expected);
-        assert_eq!(engine.passthrough_pending, expected);
+        assert_eq!(engine.input.passthrough_pending, expected);
     }
 }
 
@@ -669,6 +669,6 @@ fn restoring_question_preserves_other_compositions() {
         assert_eq!(engine.restore_bare_question(false), None);
         assert_eq!(engine.composition().text(), input);
         assert!(engine.history().text().is_empty());
-        assert!(engine.passthrough_pending.is_empty());
+        assert!(engine.input.passthrough_pending.is_empty());
     }
 }

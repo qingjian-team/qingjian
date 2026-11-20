@@ -9,22 +9,22 @@ impl Engine {
     /// 此方法只设置写入开关，不清组句；已确认的隐私能力边界应先调用 [`Self::discard_input`]，
     /// 避免私密缓存被普通输入继续使用。恢复另一个独立会话时不需要丢弃该会话的输入。
     pub fn set_private(&mut self, private: bool) {
-        if self.private == private {
+        if self.journal.private == private {
             return;
         }
-        self.private = private;
-        self.chain.reset();
-        self.learner.set_private(private);
-        self.logger.set_muted(private);
+        self.journal.private = private;
+        self.flow.chain.reset();
+        self.models.learner.set_private(private);
+        self.journal.logger.set_muted(private);
         if private {
             // 在飞的云结果不能再显示，前文也不能留
             self.cancel_prediction();
-            self.rescoring_before = None;
-            self.examples.clear();
+            self.tuning.rescoring_before = None;
+            self.models.examples.clear();
         }
     }
 
     pub fn is_private(&self) -> bool {
-        self.private
+        self.journal.private
     }
 }

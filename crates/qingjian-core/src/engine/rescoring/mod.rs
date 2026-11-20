@@ -35,35 +35,43 @@ const GENERATED_CANDIDATES: usize = 2;
 impl Engine {
     /// 接了重打分器（同步或异步）。
     pub fn has_sentence_scorer(&self) -> bool {
-        self.sentence_scorer.is_some()
-            || self.rescorer.as_ref().is_some_and(RescoreWorker::is_alive)
+        self.models.sentence_scorer.is_some()
+            || self
+                .models
+                .rescorer
+                .as_ref()
+                .is_some_and(RescoreWorker::is_alive)
     }
 
     /// 接了打分器、且它是拿来重排词图路径的（不是生成器）。
     pub(super) fn reranks_paths(&self) -> bool {
-        self.has_sentence_scorer() && !self.generative
+        self.has_sentence_scorer() && !self.models.generative
     }
 
     /// 接了生成器（含章·通变）：整句以它生成的为主。
     pub(in crate::engine) fn generates_sentences(&self) -> bool {
-        self.has_sentence_scorer() && self.generative
+        self.has_sentence_scorer() && self.models.generative
     }
 
     /// 给模型看的前文：壳给了应用里的光标前文就用它（[`Self::set_rescoring_context`]），
     /// 否则用当前应用最近上屏的字符（太久没打的不算）；长度按 `neural_context` 截。
     pub(super) fn rescoring_context(&self) -> String {
-        if self.neural_context == 0 {
+        if self.tuning.neural_context == 0 {
             return String::new();
         }
-        match &self.rescoring_before {
-            Some(before) => take_last_chars(before, self.neural_context),
-            None => self.history.recent(self.neural_context).to_owned(),
+        match &self.tuning.rescoring_before {
+            Some(before) => take_last_chars(before, self.tuning.neural_context),
+            None => self
+                .flow
+                .history
+                .recent(self.tuning.neural_context)
+                .to_owned(),
         }
     }
 
     /// 壳告知应用里光标前的文本（每次查询前给；应用给不出就 `None`，退回本会话历史）。
     pub fn set_rescoring_context(&mut self, before: Option<String>) {
-        self.rescoring_before = before;
+        self.tuning.rescoring_before = before;
     }
 
     /// 把几条整句路径按「路径分 + λ·(神经分 − 静态分)」重排。缓存里缺分的：同步打分器当场补，异步的先记下等壳来取；
@@ -75,7 +83,7 @@ impl Engine {
             return;
         }
         let context = self.rescoring_context();
-        let mut cache = self.neural_cache.borrow_mut();
+        let mut cache = self.caches.neural.borrow_mut();
         cache.ensure_condition(&context, keys);
         let mut missing: Vec<String> = Vec::new();
         for path in paths.iter() {
@@ -84,7 +92,7 @@ impl Engine {
             }
         }
         if !missing.is_empty() {
-            match &self.sentence_scorer {
+            match &self.models.sentence_scorer {
                 Some(scorer) => {
                     let texts: Vec<&str> = missing.iter().map(String::as_str).collect();
                     let scores = scorer.score(&context, keys, &texts);
@@ -107,7 +115,7 @@ impl Engine {
         // 比静态分高十几二十 nat，抬升还随句子长短与静态模型的偏好变化。写回去会污染跨读法的比较
         // （拼写纠错的原样 vs 纠正、混输的头段 vs 整段），那两处的门槛都是按静态尺度定的：
         // `woxiangxuexirust` 就是这么被「纠正」成 我想学习如斯 的。
-        let lambda = self.neural_weight;
+        let lambda = self.tuning.neural_weight;
         let rescored = |path: &Conversion| {
             let neural = cache.get(&path.text).expect("filled above");
             path.score + lambda * (neural - path.static_score)
@@ -117,7 +125,7 @@ impl Engine {
                 .partial_cmp(&rescored(a))
                 .unwrap_or(std::cmp::Ordering::Equal)
         });
-        self.last_rescored.set(true);
+        self.caches.last_rescored.set(true);
     }
 
     /// 不经词图，让模型直接按整段按键生成整句，最好的在前。
@@ -129,11 +137,11 @@ impl Engine {
         if keys.is_empty() || !self.has_sentence_scorer() {
             return Vec::new();
         }
-        let mut cache = self.neural_cache.borrow_mut();
+        let mut cache = self.caches.neural.borrow_mut();
         if let Some(texts) = cache.generated(keys) {
             return texts.iter().take(GENERATED_CANDIDATES).cloned().collect();
         }
-        let Some(scorer) = &self.sentence_scorer else {
+        let Some(scorer) = &self.models.sentence_scorer else {
             cache.want_generation(keys);
             return Vec::new();
         };
@@ -146,8 +154,8 @@ impl Engine {
     /// 最近一次查询里有整句路径还没拿到神经分、或有整段还没生成：壳该在用户停顿后调 [`Self::request_rescoring`]。
     pub fn rescoring_pending(&self) -> bool {
         self.choice_pending()
-            || self.rescorer.is_some() && {
-                let cache = self.neural_cache.borrow();
+            || self.models.rescorer.is_some() && {
+                let cache = self.caches.neural.borrow();
                 cache.has_wanted() || cache.wanted_generation().is_some()
             }
     }
@@ -155,10 +163,10 @@ impl Engine {
     /// 把攒着的文本送去后台打分。没接异步打分器或没什么要打的返回 `false`。
     pub fn request_rescoring(&mut self) -> bool {
         let chose = self.request_choice();
-        let Some(worker) = &self.rescorer else {
+        let Some(worker) = &self.models.rescorer else {
             return chose;
         };
-        let mut cache = self.neural_cache.borrow_mut();
+        let mut cache = self.caches.neural.borrow_mut();
         let wanted = cache.take_wanted();
         let generate = cache.take_wanted_generation();
         if wanted.is_empty() && generate.is_none() {
@@ -184,13 +192,13 @@ impl Engine {
     /// 壳要是把它当成这一轮的、停了轮询，晚几十毫秒到的这次整句就没人取了（macOS 上 `firefoxliulanqi` 上屏成「覅」）。
     pub fn poll_rescoring(&mut self) -> bool {
         let mut updated = self.poll_choice();
-        let Some(worker) = &self.rescorer else {
+        let Some(worker) = &self.models.rescorer else {
             return updated;
         };
         let latest = worker.latest();
         while let Some(scored) = worker.poll() {
             updated |= scored.serial == latest;
-            let mut cache = self.neural_cache.borrow_mut();
+            let mut cache = self.caches.neural.borrow_mut();
             // 生成的结果自带按键、与前文无关，不跟着打分那边的条件一起作废
             if let Some((keys, texts)) = scored.generated {
                 cache.insert_generated(&keys, texts);

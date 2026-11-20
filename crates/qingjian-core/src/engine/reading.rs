@@ -13,9 +13,9 @@ impl Engine {
     /// 候选逐音节的带调拼音（`["gān", "gà"]`），给拼音行用（[`crate::Query::window_segments`]）。
     /// 开关关着、注音与九宫格（拼音行不是拼音）、不是中文 / 整句 / 云端词、字数与音节数对不上的不给。
     pub fn toned_syllables(&self, candidate: &Candidate) -> Option<Vec<String>> {
-        if !self.show_tones
-            || self.zhuyin
-            || self.nine_key
+        if !self.settings.show_tones
+            || self.scheme.zhuyin
+            || self.scheme.nine_key
             || !matches!(
                 candidate.kind,
                 CandidateKind::Chinese | CandidateKind::Sentence | CandidateKind::Cloud
@@ -25,6 +25,7 @@ impl Engine {
         }
         // 繁体输出开着时按简体原文查：词库是简体
         let text = self
+            .scheme
             .traditional
             .restore(&candidate.text)
             .unwrap_or_else(|| candidate.text.clone());

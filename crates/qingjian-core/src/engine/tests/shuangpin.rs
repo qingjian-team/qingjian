@@ -1,6 +1,7 @@
 //! 双拼。
 
 use super::*;
+use crate::fuzzy::FuzzyRules;
 
 #[test]
 fn shuangpin_decodes_keys_before_lookup_and_shows_full_pinyin() {
@@ -321,7 +322,14 @@ fn full_pinyin_option_commits_consuming_the_typed_keys() {
     engine.commit(&kaifa);
     assert!(engine.composition().is_empty());
     // 学习键是全拼，与双拼打法共用一份
-    assert!(engine.recent_commits.last().unwrap().same_input("kaifa"));
+    assert!(
+        engine
+            .journal
+            .recent_commits
+            .last()
+            .unwrap()
+            .same_input("kaifa")
+    );
     // 混输下打双拼也照旧吃掉两键一音节
     engine.set_input("kdfa");
     let kaifa = engine.query().unwrap().candidates.items[0].clone();
@@ -340,7 +348,14 @@ fn shuangpin_records_choices_by_full_pinyin() {
     assert_eq!(kaifa.text, "开发");
     engine.commit(&kaifa);
     // 学习记的是全拼 kaifa：切回全拼、同样的拼音也受益
-    assert!(engine.recent_commits.last().unwrap().same_input("kaifa"));
+    assert!(
+        engine
+            .journal
+            .recent_commits
+            .last()
+            .unwrap()
+            .same_input("kaifa")
+    );
 }
 
 #[test]

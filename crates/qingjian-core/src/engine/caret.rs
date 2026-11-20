@@ -11,15 +11,19 @@ impl Engine {
     /// 光标挪到拼音行（[`Query::marked_text`]）第 `index` 个字之后对应的位置；`query` 是这一帧的查询。
     /// 对不上的写法（见文件头）返回 `false`，光标不动。
     pub fn move_cursor_to_marked(&mut self, query: &Query, index: usize) -> bool {
-        if query.text != self.composition.text() {
+        if query.text != self.input.composition.text() {
             return false;
         }
-        let Some(cursor) = text_cursor(query, index, self.shuangpin.is_some(), self.nine_key)
-        else {
+        let Some(cursor) = text_cursor(
+            query,
+            index,
+            self.scheme.shuangpin.is_some(),
+            self.scheme.nine_key,
+        ) else {
             return false;
         };
-        self.composition.move_to(cursor);
-        if self.nine_key {
+        self.input.composition.move_to(cursor);
+        if self.scheme.nine_key {
             // 拼音行按显示写法（`lü`），记成词库写法
             let typed: String = query
                 .marked_text()

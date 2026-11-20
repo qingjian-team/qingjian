@@ -63,40 +63,46 @@ impl Engine {
     /// 切换保存的输入上下文。调用方还应恢复该上下文的私密状态。
     /// 异步结果与查询缓存不跨上下文复用，用户词频和词库仍是进程内唯一实例。
     pub fn swap_session(&mut self, session: &mut EngineSession) {
-        self.chain.clear_code_words();
+        self.flow.chain.clear_code_words();
         session.chain.clear_code_words();
         self.cancel_prediction();
         self.set_rescoring_context(None);
-        std::mem::swap(&mut self.composition, &mut session.composition);
-        std::mem::swap(&mut self.english_mode, &mut session.english_mode);
-        std::mem::swap(&mut self.punctuation, &mut session.punctuation);
-        std::mem::swap(&mut self.recent_commits, &mut session.recent_commits);
-        std::mem::swap(&mut self.recording, &mut session.recording);
-        std::mem::swap(&mut self.retype_snapshot, &mut session.retype_snapshot);
+        std::mem::swap(&mut self.input.composition, &mut session.composition);
+        std::mem::swap(&mut self.input.english_mode, &mut session.english_mode);
+        std::mem::swap(&mut self.punct.punctuation, &mut session.punctuation);
         std::mem::swap(
-            &mut self.passthrough_pending,
+            &mut self.journal.recent_commits,
+            &mut session.recent_commits,
+        );
+        std::mem::swap(&mut self.journal.recording, &mut session.recording);
+        std::mem::swap(
+            &mut self.input.retype_snapshot,
+            &mut session.retype_snapshot,
+        );
+        std::mem::swap(
+            &mut self.input.passthrough_pending,
             &mut session.passthrough_pending,
         );
-        std::mem::swap(&mut self.page_turns, &mut session.page_turns);
+        std::mem::swap(&mut self.input.page_turns, &mut session.page_turns);
         std::mem::swap(
-            &mut self.composition_started,
+            &mut self.input.composition_started,
             &mut session.composition_started,
         );
-        std::mem::swap(&mut self.typing, &mut session.typing);
-        std::mem::swap(&mut self.application, &mut session.application);
+        std::mem::swap(&mut self.journal.typing, &mut session.typing);
+        std::mem::swap(&mut self.journal.application, &mut session.application);
         std::mem::swap(
-            &mut self.committed_since_break,
+            &mut self.journal.committed_since_break,
             &mut session.committed_since_break,
         );
-        std::mem::swap(&mut self.displayed, &mut session.displayed);
-        std::mem::swap(&mut self.history, &mut session.history);
+        std::mem::swap(&mut self.input.displayed, &mut session.displayed);
+        std::mem::swap(&mut self.flow.history, &mut session.history);
         // 过期时长是配置，跟着 Engine 走，不跟着上下文
-        self.history.fresh_like(&session.history);
-        std::mem::swap(&mut self.examples, &mut session.examples);
-        std::mem::swap(&mut self.chain, &mut session.chain);
+        self.flow.history.fresh_like(&session.history);
+        std::mem::swap(&mut self.models.examples, &mut session.examples);
+        std::mem::swap(&mut self.flow.chain, &mut session.chain);
         self.forget_span_cache();
-        *self.correction_cache.borrow_mut() = None;
-        *self.last_query.borrow_mut() = None;
+        *self.caches.correction.borrow_mut() = None;
+        *self.caches.last_query.borrow_mut() = None;
     }
 }
 
@@ -126,26 +132,26 @@ impl Engine {
     /// 在组句第一帧后报告隐私状态时意外清掉新输入。
     pub fn discard_input(&mut self) {
         self.cancel_prediction();
-        self.composition.clear();
-        self.english_mode = false;
-        self.punctuation = Punctuation::default();
-        self.recent_commits.clear();
-        self.recording.clear();
-        self.retype_snapshot = None;
-        self.passthrough_pending.clear();
-        self.page_turns = 0;
-        self.composition_started = None;
-        self.typing.reset();
-        self.committed_since_break = false;
-        self.displayed.clear();
-        self.history.clear();
-        self.examples.clear();
-        self.chain = CommitChain::default();
-        self.rescoring_before = None;
-        *self.neural_cache.borrow_mut() = super::rescoring::NeuralCache::default();
-        *self.correction_cache.borrow_mut() = None;
-        *self.last_query.borrow_mut() = None;
+        self.input.composition.clear();
+        self.input.english_mode = false;
+        self.punct.punctuation = Punctuation::default();
+        self.journal.recent_commits.clear();
+        self.journal.recording.clear();
+        self.input.retype_snapshot = None;
+        self.input.passthrough_pending.clear();
+        self.input.page_turns = 0;
+        self.input.composition_started = None;
+        self.journal.typing.reset();
+        self.journal.committed_since_break = false;
+        self.input.displayed.clear();
+        self.flow.history.clear();
+        self.models.examples.clear();
+        self.flow.chain = CommitChain::default();
+        self.tuning.rescoring_before = None;
+        *self.caches.neural.borrow_mut() = super::rescoring::NeuralCache::default();
+        *self.caches.correction.borrow_mut() = None;
+        *self.caches.last_query.borrow_mut() = None;
         self.forget_span_cache();
-        self.traditional.forget();
+        self.scheme.traditional.forget();
     }
 }

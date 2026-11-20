@@ -31,38 +31,40 @@ impl Engine {
     /// 光标停在拼音中间时只按光标前的那段算候选（`ni|hao` 出 你），光标后的拼音留着，
     /// 上屏之后接着组句；见 [`crate::Composition::scope`]。
     pub fn query(&self) -> Result<Query, ParseError> {
-        self.last_rescored.set(false);
-        self.last_choice.set(None);
-        self.last_choice_scores.borrow_mut().clear();
-        self.corrected_alternates.borrow_mut().clear();
+        self.caches.last_rescored.set(false);
+        self.caches.last_choice.set(None);
+        self.caches.last_choice_scores.borrow_mut().clear();
+        self.caches.corrected_alternates.borrow_mut().clear();
         self.forget_stale_compose();
         let mut query = match self.query_inner() {
             Ok(query) => query,
             Err(error) => {
                 if !self
+                    .lexicon
                     .custom_phrases
                     .iter()
-                    .any(|p| p.enabled && p.code == self.composition.scope())
+                    .any(|p| p.enabled && p.code == self.input.composition.scope())
                 {
                     return Err(error);
                 }
                 Query::custom_only(
-                    &self.composition.typed_text(),
-                    self.composition.cursor(),
-                    self.shuangpin.is_some() || self.zhuyin,
-                    self.shuangpin.is_some() && self.shuangpin_raw_preedit,
-                    self.shuangpin.is_some() && self.shuangpin_raw_window,
-                    self.composition.scope(),
-                    self.marked_rest(self.composition.rest()),
+                    &self.input.composition.typed_text(),
+                    self.input.composition.cursor(),
+                    self.scheme.shuangpin.is_some() || self.scheme.zhuyin,
+                    self.scheme.shuangpin.is_some() && self.settings.shuangpin_raw_preedit,
+                    self.scheme.shuangpin.is_some() && self.settings.shuangpin_raw_window,
+                    self.input.composition.scope(),
+                    self.marked_rest(self.input.composition.rest()),
                 )
             }
         };
         query.aux = self.aux_segment();
         query.held = self.held_text();
         // 屏蔽词先过一遍：排在后面几步（重排、补单字、留联系人）之前，省得给不出的词排序
-        if !self.blocked.is_empty() {
+        if !self.lexicon.blocked.is_empty() {
             query.candidates.items.retain(|item| {
                 !self
+                    .lexicon
                     .blocked
                     .iter()
                     .any(|word| item.text.contains(word.as_str()))
@@ -76,7 +78,7 @@ impl Engine {
         self.rerank_choices(&mut query.candidates.items);
         self.lift_contact(&mut query.candidates.items);
         trim_sentence_alternates(&mut query.candidates.items);
-        if self.composition.single_chars() {
+        if self.input.composition.single_chars() {
             ranking::keep_only_single_chars(&mut query.candidates.items);
         }
         // 整句截完、重排完才数得准第一页上排了什么（截之前可能还有十几条整句）；只有拼音输入有切分。
@@ -88,6 +90,7 @@ impl Engine {
                 .is_some_and(|best| best.syllables.len() > 1);
         // 选过的词不挪：盖住的是输入的哪一段这里不知道，开头每一段都问一遍（只问单字前面那几个词）
         let letters: String = self
+            .input
             .composition
             .scope()
             .chars()
@@ -97,18 +100,18 @@ impl Engine {
             letters
                 .char_indices()
                 .map(|(at, ch)| at + ch.len_utf8())
-                .any(|end| self.learner.choice_weight(&letters[..end], &c.text) > 0)
+                .any(|end| self.models.learner.choice_weight(&letters[..end], &c.text) > 0)
         });
         query.spelled = result::spelling_for(&query.segmentations, query.candidates.items.first());
         // 给输入日志留个摘要：上屏时才知道选了什么，这里才知道看到了什么
         // 九宫格没有切分，拼音取拼音行（首选读到的写法），云联想也用它问
         let pinyin = match (&query.correction, &query.typed_display) {
             (Some(correction), _) => correction.segmentation.joined("'"),
-            (None, Some(display)) if self.nine_key => display.clone(),
+            (None, Some(display)) if self.scheme.nine_key => display.clone(),
             (None, _) => join_marked(&query.segmentations, &query.tail),
         };
-        *self.last_query.borrow_mut() = Some(QuerySnapshot {
-            scope: self.composition.scope().to_owned(),
+        *self.caches.last_query.borrow_mut() = Some(QuerySnapshot {
+            scope: self.input.composition.scope().to_owned(),
             pinyin,
             corrected: query.correction.is_some(),
             candidates: query
@@ -120,40 +123,45 @@ impl Engine {
                 .take(QuerySnapshot::MAX_CANDIDATES)
                 .map(|c| c.text.clone())
                 .collect(),
-            rescored: self.last_rescored.get(),
-            choice: self.last_choice.get(),
+            rescored: self.caches.last_rescored.get(),
+            choice: self.caches.last_choice.get(),
         });
         // 繁体输出：出 Core 的最后一步才换，并记下「繁体 → 简体」给上屏还原用。
         // 放在输入日志摘要之后，日志与学习数据一律记简体
-        self.traditional.apply(&mut query.candidates);
+        self.scheme.traditional.apply(&mut query.candidates);
         Ok(query)
     }
 
     pub(super) fn query_inner(&self) -> Result<Query, ParseError> {
         let start = Instant::now();
-        let keys = self.composition.scope();
-        let rest = self.marked_rest(self.composition.rest());
-        if self.english_mode {
+        let keys = self.input.composition.scope();
+        let rest = self.marked_rest(self.input.composition.rest());
+        if self.input.english_mode {
             return Ok(self.query_english(keys, rest, start));
         }
         // 九宫格的数字不是英文直输段，要赶在原样上屏那条路之前分岔
-        if self.nine_key {
+        if self.scheme.nine_key {
             return Ok(self.query_nine_key(keys, rest, start));
         }
-        if self.modes().is_expression(keys, self.zhuyin) {
+        if self.modes().is_expression(keys, self.scheme.zhuyin) {
             return Ok(self.query_expression(keys, rest, start));
         }
-        if self.modes().is_question(keys, self.zhuyin) {
+        if self.modes().is_question(keys, self.scheme.zhuyin) {
             return Ok(self.query_question(keys, rest, start));
         }
-        if is_raw(keys, self.modes(), self.shuangpin.as_deref(), self.zhuyin) {
+        if is_raw(
+            keys,
+            self.modes(),
+            self.scheme.shuangpin.as_deref(),
+            self.scheme.zhuyin,
+        ) {
             return Ok(self.query_raw(keys, rest, start));
         }
         // 形码与拼音是两条平行的管线，在进切分之前分岔。放在这里是为了让 `?` 问字与
         // `-` 直输段仍然先分派出去：形码下 `v` / `u` / `i` 是字根键，模式键已由 `modes()` 让位。
-        match self.code.is_some() {
+        match self.scheme.code.is_some() {
             // 只用形码：拼音侧整个不走（`[general] scheme = "none"`）
-            true if !self.phonetic => Ok(self.query_code(keys, rest, start)),
+            true if !self.scheme.phonetic => Ok(self.query_code(keys, rest, start)),
             // 混输：两边都出候选
             true => self.query_mixed(keys, rest, start),
             false => self.query_phonetic(keys, rest, start),

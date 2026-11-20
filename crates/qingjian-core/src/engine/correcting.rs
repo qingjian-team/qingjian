@@ -8,34 +8,35 @@ impl Engine {
     /// 且一处编辑后能凑出至少一个两音节词时，取整句转换得分最高的那个纠正。
     pub(super) fn active_correction(&self, scope: &str) -> Option<Correction> {
         // 双拼敲错一个键换掉的是整个声母 / 韵母，全拼那套「一处编辑」的纠错模型不适用
-        if self.shuangpin.is_some() {
+        if self.scheme.shuangpin.is_some() {
             return None;
         }
         // 形码敲的是字根编码，不是拼音；混输下码长以内可能是编码，超过码长才只剩拼音
-        if let Some(code) = &self.code
-            && (!self.phonetic || scope.len() <= code.code_length)
+        if let Some(code) = &self.scheme.code
+            && (!self.scheme.phonetic || scope.len() <= code.code_length)
         {
             return None;
         }
-        if let Some((cached_scope, cached)) = self.correction_cache.borrow().as_ref()
+        if let Some((cached_scope, cached)) = self.caches.correction.borrow().as_ref()
             && cached_scope == scope
         {
             return cached.clone();
         }
         let found = self.find_correction(scope);
-        *self.correction_cache.borrow_mut() = Some((scope.to_owned(), found.clone()));
+        *self.caches.correction.borrow_mut() = Some((scope.to_owned(), found.clone()));
         found
     }
 
     pub(super) fn find_correction(&self, scope: &str) -> Option<Correction> {
-        if !self.spelling_correction
+        if !self.settings.spelling_correction
             || !correction::eligible(scope)
-            || self.learner.raw_count(scope) > 0
+            || self.models.learner.raw_count(scope) > 0
         {
             return None;
         }
         // 整段就是个英文词（hello）：用户多半在打英文，别把它「纠」成 喝了哦
         if self
+            .lexicon
             .english
             .as_ref()
             .is_some_and(|english| english.get(scope).is_some())
@@ -105,11 +106,13 @@ impl Engine {
             let accepted = candidate
                 .typo_pair(candidate.corrected.len())
                 .map_or(0, |(typed, intended)| {
-                    self.learner.typo_count(&typed, &intended)
+                    self.models.learner.typo_count(&typed, &intended)
                 });
             let transpose = matches!(candidate.edit, correction::Edit::Transpose { .. });
-            let score = conversion.score - self.typo_costs.correction_cost(transpose, accepted);
-            let undiscounted = conversion.score - self.typo_costs.correction_cost(false, accepted);
+            let score =
+                conversion.score - self.tuning.typo_costs.correction_cost(transpose, accepted);
+            let undiscounted =
+                conversion.score - self.tuning.typo_costs.correction_cost(false, accepted);
             if best.as_ref().is_none_or(|(best, _, _)| score > *best) {
                 best = Some((score, undiscounted, candidate));
             }

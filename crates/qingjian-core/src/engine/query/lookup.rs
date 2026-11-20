@@ -16,8 +16,8 @@ impl Engine {
         patterns: &[qingjian_dictionary::SyllablePattern<'_>],
         typos: bool,
     ) -> Expanded {
-        let mut expanded = self.fuzzy.expand(patterns);
-        if !typos || !self.spelling_correction {
+        let mut expanded = self.scheme.fuzzy.expand(patterns);
+        if !typos || !self.settings.spelling_correction {
             return expanded;
         }
         let letters: usize = patterns.iter().map(|p| p.text.len()).sum();
@@ -26,7 +26,8 @@ impl Engine {
             .iter()
             .take(patterns.len().saturating_sub(1))
             .any(|p| !p.complete);
-        if self.shuangpin.is_some() || letters < correction::MIN_LETTERS || inner_abbreviated {
+        if self.scheme.shuangpin.is_some() || letters < correction::MIN_LETTERS || inner_abbreviated
+        {
             return expanded;
         }
         for (index, pattern) in patterns.iter().enumerate() {
@@ -34,8 +35,12 @@ impl Engine {
                 continue;
             }
             for (text, kind) in typo::variants(pattern.text) {
-                let accepted = self.learner.typo_count(pattern.text, text);
-                expanded.push_alternative(index, text, self.typo_costs.typo_cost(*kind, accepted));
+                let accepted = self.models.learner.typo_count(pattern.text, text);
+                expanded.push_alternative(
+                    index,
+                    text,
+                    self.tuning.typo_costs.typo_cost(*kind, accepted),
+                );
             }
         }
         expanded
@@ -54,9 +59,9 @@ impl Engine {
     /// 词级排序里一个候选的上下文得分：语言模型（不认识就按词频兜底）与个人 n-gram 插值，再乘读音占比。
     pub(in crate::engine) fn word_log_prob(&self, hit: &Match<'_>, log_total: f64) -> f64 {
         sentence::transition_log_prob(
-            &*self.language_model,
+            &*self.models.language_model,
             self.personal(),
-            self.chain.context(),
+            self.flow.chain.context(),
             hit.text,
             sentence::fallback_log_prob(hit.frequency, hit.secondary, log_total),
         ) - sentence::reading_cost(hit)
@@ -68,7 +73,7 @@ impl Engine {
         &self,
         positions: &[Vec<qingjian_dictionary::SyllablePattern<'_>>],
     ) -> Vec<Match<'_>> {
-        let mut hits = self.dictionary.lookup_pattern_alt(positions);
+        let mut hits = self.lexicon.dictionary.lookup_pattern_alt(positions);
         for dictionary in self.all_dictionaries().into_iter().skip(1) {
             if dictionary.is_secondary() {
                 hits.extend(dictionary.lookup_exact_alt(positions));
@@ -100,7 +105,7 @@ impl Engine {
         &self,
         positions: &[Vec<qingjian_dictionary::SyllablePattern<'_>>],
     ) -> Vec<Match<'_>> {
-        let mut hits = self.dictionary.lookup_exact_alt(positions);
+        let mut hits = self.lexicon.dictionary.lookup_exact_alt(positions);
         for dictionary in self.all_dictionaries().into_iter().skip(1) {
             hits.extend(dictionary.lookup_exact_alt(positions));
         }

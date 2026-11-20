@@ -45,16 +45,16 @@ impl Engine {
             .filter_map(|shape| {
                 let input = SearchInput::new(
                     &dictionaries,
-                    &*self.language_model,
+                    &*self.models.language_model,
                     self.personal(),
-                    |text| self.learner.weight(text),
+                    |text| self.models.learner.weight(text),
                     |_, _| 0.0,
                 )
-                .with_limits(self.search_limits);
+                .with_limits(self.tuning.search_limits);
                 sentence::convert(
                     &input,
                     &shape.patterns(shape.positions.len()),
-                    &mut self.span_cache.borrow_mut(),
+                    &mut self.caches.span.borrow_mut(),
                 )
             })
             .max_by(|a, b| a.score.total_cmp(&b.score))
@@ -65,7 +65,7 @@ impl Engine {
         &self,
         candidate: &Candidate,
     ) -> Option<Vec<SentenceWord>> {
-        let (shapes, _) = nine_key::segment(self.composition.scope());
+        let (shapes, _) = nine_key::segment(self.input.composition.scope());
         let conversion = self.convert_nine_key(&shapes)?;
         (conversion.text == candidate.text).then_some(conversion.words)
     }
