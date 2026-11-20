@@ -16,7 +16,7 @@ impl Engine {
         match before {
             Some(before) if !self.composition.is_empty() => {
                 let consumed = before.text().len() - self.composition.text().len();
-                self.held.push(HeldSelection {
+                self.input.held.push(HeldSelection {
                     text,
                     keys: before.prefix(consumed),
                 });
@@ -29,18 +29,22 @@ impl Engine {
     /// 取走留着的全部文本（按选的先后连起来），组句里的拼音不动。
     /// 壳在「上屏候选后紧接着插入别的东西」（组句中敲标点）时先把它交给应用，免得标点插到前面。
     pub fn take_held(&mut self) -> String {
-        self.held.drain(..).map(|held| held.text).collect()
+        self.input.held.drain(..).map(|held| held.text).collect()
     }
 
     /// 前面选好、还没交给应用的文本；组句显示时接在拼音前面。
     pub fn held_text(&self) -> String {
-        self.held.iter().map(|held| held.text.as_str()).collect()
+        self.input
+            .held
+            .iter()
+            .map(|held| held.text.as_str())
+            .collect()
     }
 
     /// 退格撤回最后一次选择：那段拼音接回缓冲区开头，那次上屏记的学习按「整个删掉了」处理，
     /// 接着重选别的词时退回（与应用里退格删掉刚上屏的词一样，见 [`Self::note_backspace`]）。没有可撤的返回 `false`。
     pub(super) fn undo_selection(&mut self) -> bool {
-        let Some(held) = self.held.pop() else {
+        let Some(held) = self.input.held.pop() else {
             return false;
         };
         self.composition.prepend(&held.keys);
@@ -61,7 +65,7 @@ impl Engine {
     pub fn set_hold_selections(&mut self, on: bool) {
         self.settings.hold_selections = on;
         if !on {
-            self.held.clear();
+            self.input.held.clear();
         }
     }
 }

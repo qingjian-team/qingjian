@@ -75,14 +75,17 @@ impl Engine {
             &mut session.recent_commits,
         );
         std::mem::swap(&mut self.journal.recording, &mut session.recording);
-        std::mem::swap(&mut self.retype_snapshot, &mut session.retype_snapshot);
         std::mem::swap(
-            &mut self.passthrough_pending,
+            &mut self.input.retype_snapshot,
+            &mut session.retype_snapshot,
+        );
+        std::mem::swap(
+            &mut self.input.passthrough_pending,
             &mut session.passthrough_pending,
         );
-        std::mem::swap(&mut self.page_turns, &mut session.page_turns);
+        std::mem::swap(&mut self.input.page_turns, &mut session.page_turns);
         std::mem::swap(
-            &mut self.composition_started,
+            &mut self.input.composition_started,
             &mut session.composition_started,
         );
         std::mem::swap(&mut self.journal.typing, &mut session.typing);
@@ -91,7 +94,7 @@ impl Engine {
             &mut self.journal.committed_since_break,
             &mut session.committed_since_break,
         );
-        std::mem::swap(&mut self.displayed, &mut session.displayed);
+        std::mem::swap(&mut self.input.displayed, &mut session.displayed);
         std::mem::swap(&mut self.history, &mut session.history);
         // 过期时长是配置，跟着 Engine 走，不跟着上下文
         self.history.fresh_like(&session.history);
@@ -134,13 +137,13 @@ impl Engine {
         self.punctuation = Punctuation::default();
         self.journal.recent_commits.clear();
         self.journal.recording.clear();
-        self.retype_snapshot = None;
-        self.passthrough_pending.clear();
-        self.page_turns = 0;
-        self.composition_started = None;
+        self.input.retype_snapshot = None;
+        self.input.passthrough_pending.clear();
+        self.input.page_turns = 0;
+        self.input.composition_started = None;
         self.journal.typing.reset();
         self.journal.committed_since_break = false;
-        self.displayed.clear();
+        self.input.displayed.clear();
         self.history.clear();
         self.examples.clear();
         self.chain = CommitChain::default();

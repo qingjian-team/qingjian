@@ -23,7 +23,7 @@ impl Engine {
             self.note_text(text);
             self.remember_commit(LastCommit::plain(text));
             // 全角标点也是文本流的一部分，与直通字符攒在一起
-            self.passthrough_pending.push_str(text);
+            self.input.passthrough_pending.push_str(text);
         } else {
             self.journal.recent_commits.clear();
         }
@@ -47,18 +47,18 @@ impl Engine {
         self.note_text(&text);
         self.chain.reset();
         self.remember_commit(LastCommit::plain(&text));
-        self.passthrough_pending.push(c);
-        if self.passthrough_pending.chars().count() >= MAX_PENDING_PASSTHROUGH {
+        self.input.passthrough_pending.push(c);
+        if self.input.passthrough_pending.chars().count() >= MAX_PENDING_PASSTHROUGH {
             self.flush_passthrough();
         }
     }
 
     /// 把攒着的直通字符写成一条输入日志。上屏、上文断开、会话记录前都调，保证日志里的顺序与真实顺序一致。
     pub(super) fn flush_passthrough(&mut self) {
-        if self.passthrough_pending.is_empty() {
+        if self.input.passthrough_pending.is_empty() {
             return;
         }
-        let text = std::mem::take(&mut self.passthrough_pending);
+        let text = std::mem::take(&mut self.input.passthrough_pending);
         self.journal
             .logger
             .record(InputLogEntry::Passthrough { text });
@@ -97,7 +97,7 @@ impl Engine {
 
     /// 壳翻了一页候选：记进这段组句的翻页数（写进输入日志，候选质量的隐式信号）。
     pub fn note_page_turn(&mut self) {
-        self.page_turns = self.page_turns.saturating_add(1);
+        self.input.page_turns = self.input.page_turns.saturating_add(1);
     }
 
     /// 往输入日志记一条会话信息（版本、平台、本地模型开没开）。壳在启动和打开日志时调。
@@ -144,8 +144,8 @@ impl Engine {
     fn note_edit(&mut self) {
         self.chain.clear_code_words();
         self.journal.typing.edit(Instant::now());
-        if self.retype_snapshot.is_none() && !self.composition.is_empty() {
-            self.retype_snapshot = Some(self.composition.text().to_owned());
+        if self.input.retype_snapshot.is_none() && !self.composition.is_empty() {
+            self.input.retype_snapshot = Some(self.composition.text().to_owned());
         }
     }
 
@@ -198,14 +198,14 @@ impl Engine {
         self.nine_key_unpinned = None;
         if self.composition.is_empty() {
             // 新一段组句：从这一键起算耗时、翻页与重打
-            self.composition_started = Some(Instant::now());
+            self.input.composition_started = Some(Instant::now());
             *self.caches.generated_forms.borrow_mut() = None;
-            self.page_turns = 0;
-            self.retype_snapshot = None;
+            self.input.page_turns = 0;
+            self.input.retype_snapshot = None;
             self.journal.typing.restart();
             // 新一段组句：「上一记退格把组句删空」属于上一段，到此作废（issue #932）。
             // 不清的话，删空 → 打字 → 按住退格的自动重复会被当成「删空后的重复」全吞掉。
-            self.backspace_emptied = false;
+            self.input.backspace_emptied = false;
             // 翻译框里选着字时开始打拼音：同记事本一样先删掉选中的字，拼音画在原处
             self.remove_panel_selection();
         }
@@ -240,14 +240,14 @@ impl Engine {
     /// 别让它接着删掉应用里已经上屏的字（见 issue #932）。
     pub fn backspace(&mut self, repeat: bool) -> Backspace {
         // 上一记刚把组句删空，这一记又是自动重复：继续吞，手不松就一直吞
-        if repeat && self.backspace_emptied {
+        if repeat && self.input.backspace_emptied {
             return Backspace::Held;
         }
         // 手动按的一记（或者重复已经断了）：保护到此为止，重新开始算
-        self.backspace_emptied = false;
+        self.input.backspace_emptied = false;
         let removed = self.backspace_inner();
         if removed && self.composition.is_empty() {
-            self.backspace_emptied = true;
+            self.input.backspace_emptied = true;
         }
         if removed {
             Backspace::Deleted
@@ -289,19 +289,19 @@ impl Engine {
 
     pub fn clear(&mut self) {
         self.composition.clear();
-        self.held.clear();
+        self.input.held.clear();
         self.take_panel();
         self.aux_code = None;
         self.chain.leave_buffer();
         // 壳给的光标前文只对这段组句有效，下一段第一键再读
         self.rescoring_before = None;
-        self.retype_snapshot = None;
-        self.composition_started = None;
+        self.input.retype_snapshot = None;
+        self.input.composition_started = None;
         self.journal.typing.restart();
-        self.page_turns = 0;
+        self.input.page_turns = 0;
         self.traditional.forget();
         // 组句结束了：「刚删空」属于刚才那段，下一记退格删的是应用里的字（issue #932）
-        self.backspace_emptied = false;
+        self.input.backspace_emptied = false;
     }
 
     /// 这段拼音有没有在组句里被改过（退格删字母、删音节、删到光标后）。
@@ -463,7 +463,7 @@ impl Engine {
     /// 用一段完整拼音替换当前缓冲区，供 CLI 和测试一次性喂入。
     pub fn set_input(&mut self, input: &str) {
         self.composition.clear();
-        self.held.clear();
+        self.input.held.clear();
         for c in input.chars() {
             self.push(c);
         }

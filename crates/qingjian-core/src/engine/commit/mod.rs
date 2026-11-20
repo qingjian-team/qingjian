@@ -117,7 +117,7 @@ impl Engine {
         // 上屏了：「上一记退格把组句删空」属于上一段组句，到此作废（issue #932）。
         // 不清的话，删空 → 上屏 → 按住退格，自动重复全被当成「删空后的重复」吞掉，
         // 按住只删得掉一个字（Windows 与安卓上第一下不经过 Core，这个状态更清不掉）。
-        self.backspace_emptied = false;
+        self.input.backspace_emptied = false;
         // 通讯录里的名字只在本机用：上屏照常吃拼音，学习与输入日志这一次都不记
         let mute = !self.journal.private && self.is_contact(&candidate.text);
         if mute {

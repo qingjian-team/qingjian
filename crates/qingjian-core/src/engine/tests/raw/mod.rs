@@ -21,7 +21,7 @@ fn assert_raw(engine: &mut Engine, text: &str, cursor_bytes: usize) {
     let history = engine.history.text().to_owned();
     let last_query = engine.caches.last_query.borrow().clone();
     let last_rescored = engine.caches.last_rescored.get();
-    let displayed = engine.displayed.clone();
+    let displayed = engine.input.displayed.clone();
     let correction = engine.caches.correction.borrow().clone();
     let recent = engine.journal.recent_commits.len();
     let log_sequence = engine.journal.log_sequence;
@@ -35,7 +35,7 @@ fn assert_raw(engine: &mut Engine, text: &str, cursor_bytes: usize) {
         assert_eq!(engine.history.text(), history);
         assert_eq!(*engine.caches.last_query.borrow(), last_query);
         assert_eq!(engine.caches.last_rescored.get(), last_rescored);
-        assert_eq!(engine.displayed, displayed);
+        assert_eq!(engine.input.displayed, displayed);
         assert_eq!(*engine.caches.correction.borrow(), correction);
         assert_eq!(engine.journal.recent_commits.len(), recent);
         assert_eq!(engine.journal.log_sequence, log_sequence);

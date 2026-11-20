@@ -239,9 +239,9 @@ impl Engine {
 
     /// 换掉缓冲区、光标放到末尾，前面选好还没上屏的词留着（[`Self::set_input`] 会把它们清掉）。
     fn replace_nine_key_input(&mut self, input: &str) {
-        let held = std::mem::take(&mut self.held);
+        let held = std::mem::take(&mut self.input.held);
         self.set_input(input);
-        self.held = held;
+        self.input.held = held;
     }
 }
 

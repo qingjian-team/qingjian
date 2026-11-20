@@ -22,6 +22,7 @@ mod extras;
 mod follow_up;
 mod gloss;
 mod held;
+mod input;
 mod input_log;
 mod journal;
 mod key_hint;
@@ -49,7 +50,6 @@ mod voice;
 
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::time::Instant;
 
 use qingjian_dictionary::{AuxCodeLookup, Dictionary, WordList};
 
@@ -158,6 +158,7 @@ pub struct Engine {
     settings: settings::EngineSettings,
     caches: caches::EngineCaches,
     journal: journal::EngineJournal,
+    input: input::EngineInput,
 
     /// 联想提供方，缺省为 [`NoPredictor`]。
     predictor: Box<dyn Predictor>,
@@ -209,33 +210,11 @@ pub struct Engine {
 
     /// 最近几次上屏各记了哪些学习、之后退格了几个字；用户把它们删掉重选时把学习退回去（见 [`Self::note_backspace`]）。
 
-    /// 这段组句里第一次退格前的缓冲区：上屏时与最终键串不同就记一条 `retype`。
-    retype_snapshot: Option<String>,
-
-    /// 前面选好、还没交给应用的词（见 `held` 模块）。
-    held: Vec<held::HeldSelection>,
-
-    /// 组句外直通给应用的字符，攒到下一次上屏或上文断开时写成一条 `passthrough`。
-    passthrough_pending: String,
-
-    /// 这段组句翻了几页候选。
-    page_turns: u32,
-
-    /// 这段组句第一键的时刻（算首键到上屏的毫秒）。
-    composition_started: Option<Instant>,
-
-    /// 上一记退格是不是正好把组句删空了：下一记如果是自动重复就吞掉，
-    /// 别让它接着删应用里已经上屏的字。
-    backspace_emptied: bool,
-
     /// 学习语言的词汇记录（见过 / 上屏过哪些译词）；缺省不记也不标生词。
     vocabulary: Box<dyn VocabularyTracker>,
 
     /// 释义兜底：释义表里没有的词上屏后问云端；缺省不问。
     gloss_filler: Box<dyn GlossFiller>,
-
-    /// 候选窗口当前页上的译词（壳每次画完告知），上屏时记成「看到过」。
-    displayed: Vec<(Language, String)>,
 
     /// 上屏过带译词的词、等那句话写完当例句。
     examples: vocabulary::ExampleCollector,
@@ -464,6 +443,7 @@ impl Engine {
             settings: settings::EngineSettings::default(),
             caches: caches::EngineCaches::default(),
             journal: journal::EngineJournal::default(),
+            input: input::EngineInput::default(),
             predictor: Box::new(NoPredictor),
             translation_predictor: None,
             language_model: Box::new(NoLanguageModel),
@@ -481,15 +461,8 @@ impl Engine {
             search_limits: sentence::SearchLimits::DEFAULT,
             neural_context: RESCORE_CONTEXT_CHARS,
             phrase_model: None,
-            retype_snapshot: None,
-            held: Vec::new(),
-            passthrough_pending: String::new(),
-            page_turns: 0,
-            composition_started: None,
-            backspace_emptied: false,
             vocabulary: Box::new(NoVocabularyTracker),
             gloss_filler: Box::new(NoGlossFiller),
-            displayed: Vec::new(),
             examples: vocabulary::ExampleCollector::default(),
             history: InputHistory::default(),
             prediction_sequence: 0,

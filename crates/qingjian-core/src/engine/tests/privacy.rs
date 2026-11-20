@@ -168,7 +168,7 @@ fn explicit_discard_removes_private_history_and_saved_input_state() {
     engine.set_private(false);
     assert!(engine.history().is_empty());
     assert!(engine.composition().is_empty());
-    assert!(engine.passthrough_pending.is_empty());
+    assert!(engine.input.passthrough_pending.is_empty());
     assert!(engine.journal.recent_commits.is_empty());
     assert!(engine.chain.previous().is_none());
     assert!(engine.chain.buffer_key().is_empty());

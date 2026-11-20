@@ -78,7 +78,7 @@ impl Engine {
     /// 壳画完候选窗口后告知当前页上的候选：页上的译词在用户上屏那一刻记成「看到过」（[`super::vocabulary::VocabularyTracker`]）。
     /// 每次重画都换掉上一页，逐键刷新时一闪而过的候选不算；窗口收起时传空。
     pub fn note_displayed<'a>(&mut self, candidates: impl IntoIterator<Item = &'a Candidate>) {
-        self.displayed.clear();
+        self.input.displayed.clear();
         for candidate in candidates {
             if candidate.kind == CandidateKind::English {
                 continue;
@@ -88,8 +88,8 @@ impl Engine {
             };
             for sense in translation.senses() {
                 let key = (translation.language, sense.text.clone());
-                if !self.displayed.contains(&key) {
-                    self.displayed.push(key);
+                if !self.input.displayed.contains(&key) {
+                    self.input.displayed.push(key);
                 }
             }
         }
@@ -99,10 +99,10 @@ impl Engine {
     pub(super) fn record_exposures(&mut self) {
         if self.journal.private {
             // 私密输入中的候选页不能污染词汇记录；同时丢掉暂存页，避免之后恢复普通输入时补记。
-            self.displayed.clear();
+            self.input.displayed.clear();
             return;
         }
-        for (language, word) in std::mem::take(&mut self.displayed) {
+        for (language, word) in std::mem::take(&mut self.input.displayed) {
             self.vocabulary.record_exposure(language, &word);
         }
     }
@@ -205,6 +205,7 @@ impl Engine {
         let snapshot = self.caches.last_query.borrow().clone().unwrap_or_default();
         let index = snapshot.candidates.iter().position(|c| c == text);
         let ms = self
+            .input
             .composition_started
             .map_or(0, |started| started.elapsed().as_millis() as u64);
         self.journal
@@ -228,12 +229,12 @@ impl Engine {
                 rescored: snapshot.rescored,
                 choice: snapshot.choice,
                 app: self.journal.application.clone(),
-                pages: self.page_turns,
+                pages: self.input.page_turns,
                 ms,
             }));
         self.journal.committed_since_break = true;
-        self.page_turns = 0;
-        if let Some(before) = self.retype_snapshot.take() {
+        self.input.page_turns = 0;
+        if let Some(before) = self.input.retype_snapshot.take() {
             let after = self.composition.scope();
             if before != after {
                 self.journal.logger.record(InputLogEntry::Retype {
