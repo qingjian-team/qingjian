@@ -368,7 +368,7 @@ jobs:
         with:
           toolchain: 1.96.0
           components: clippy
-          targets: i686-pc-windows-msvc
+          targets: i686-pc-windows-msvc, aarch64-pc-windows-msvc
 
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
 
@@ -391,3 +391,8 @@ jobs:
       # examples 是按 64 位宿主写的，不在这条分发路径上）。
       - name: Clippy (TSF DLL, 32-bit)
         run: cargo clippy -p qingjian-windows-tsf --target i686-pc-windows-msvc --locked -- -D warnings
+
+      # 骁龙本（Windows on ARM）上 x64 程序可以模拟跑，但 TSF DLL 必须原生 ARM64 才能被输入法框架加载。
+      # release 目前只带 x64 + x86 的 DLL；这一步先把「ARM64 也能编、lint 干净」守住，产物另议。
+      - name: Clippy (Server / TSF DLL / platform, ARM64)
+        run: cargo clippy -p qingjian-windows-server -p qingjian-windows-tsf -p qingjian-platform --target aarch64-pc-windows-msvc --locked -- -D warnings
