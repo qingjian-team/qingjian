@@ -1,55 +1,15 @@
-//! 码表本体：词 → 码的映射、`.qj` 读写与查询。
+//! 辅码码表的构造、解析、打开与落盘。
 
-use std::borrow::Cow;
-use std::ops::Range;
 use std::path::Path;
 
 use qingjian_format::{Container, Kind, Metadata, Table, Text, Writer, hash};
 
-use super::entry::CodeEntry;
-use super::lookup::AuxCodeLookup;
-use super::parsed::ParsedTable;
-use super::word_rules::WordRules;
+use crate::aux_code_table::entry::CodeEntry;
+use crate::aux_code_table::parsed::ParsedTable;
+use crate::aux_code_table::word_rules::WordRules;
 use crate::error::DictionaryError;
 
-/// `.qj` 里的分节：词文本 arena、码键 arena、条目表、词 → 条目区间的哈希索引。
-const TEXT_TAG: [u8; 4] = *b"TEXT";
-const CODE_TAG: [u8; 4] = *b"CODE";
-const ENTR_TAG: [u8; 4] = *b"ENTR";
-const HASH_TAG: [u8; 4] = *b"HASH";
-
-/// 码的最长字节数（`a-z`，1–8）。
-pub const MAX_CODE_LEN: usize = 8;
-
-/// 码是否合法：全是 `a-z`（大小写不敏感）、长度 1–`MAX_CODE_LEN`。
-pub fn is_valid_code(code: &str) -> bool {
-    !code.is_empty() && code.len() <= MAX_CODE_LEN && code.bytes().all(|b| b.is_ascii_lowercase())
-}
-
-/// 码表：词 → 码的映射。从 `.qj` 打开时四段数据都是映射文件里的一段，查询代码不区分。
-#[derive(Debug, Default)]
-pub struct AuxCodeTable {
-    /// 所有词文本首尾相接。
-    words: Text,
-
-    /// 所有码首尾相接。
-    codes: Text,
-
-    /// 按词文本的字节序升序；同一个词的条目相邻。
-    entries: Table<CodeEntry>,
-
-    /// 词 → 条目区间起点的哈希索引（`hash::build` 的开放寻址表）。
-    index: Table<u32>,
-
-    /// 去重后的词数。
-    word_count: usize,
-
-    /// `.qj` 里的来历（名称、许可证、署名）；内存里造的没有。
-    metadata: Option<Metadata>,
-
-    /// 表里没有的词按它从单字的码推导；不落盘，由方案的 `scheme.toml` 给。
-    word_rules: WordRules,
-}
+use super::{AuxCodeTable, CODE_TAG, ENTR_TAG, HASH_TAG, TEXT_TAG, is_valid_code};
 
 impl AuxCodeTable {
     /// 用 `(词, 码)` 对造一张表。
@@ -239,60 +199,6 @@ impl AuxCodeTable {
         self.word_rules = rules;
         self
     }
-
-    /// `.qj` 里的来历；内存里造的返回 `None`。
-    pub fn metadata(&self) -> Option<&Metadata> {
-        self.metadata.as_ref()
-    }
-
-    /// 词条数（词 → 码 的条目数，一词多码算多条）。
-    pub fn len(&self) -> usize {
-        self.entries.len()
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.entries.is_empty()
-    }
-
-    /// 去重后的词数。
-    pub fn word_count(&self) -> usize {
-        self.word_count
-    }
-
-    /// `word` 的全部码，按文件里的顺序。没有这个词时是空迭代器。
-    pub fn codes_of<'a>(&'a self, word: &str) -> impl Iterator<Item = &'a str> + 'a {
-        let range = self.range_of(word);
-        self.entries[range].iter().map(|entry| self.code(entry))
-    }
-
-    /// 全部条目，按词文本的字节序升序。
-    pub fn entries(&self) -> impl Iterator<Item = (&str, &str)> + '_ {
-        self.entries
-            .iter()
-            .map(|entry| (self.word(entry), self.code(entry)))
-    }
-
-    /// 词 → 条目区间。没有这个词时是空区间。
-    fn range_of(&self, word: &str) -> Range<usize> {
-        let Some(first) = hash::find(&self.index, word, |id| {
-            self.word(&self.entries[id as usize])
-        }) else {
-            return 0..0;
-        };
-        let start = first as usize;
-        let length = self.entries[start..].partition_point(|entry| self.word(entry) == word);
-        start..start + length
-    }
-
-    fn word(&self, entry: &CodeEntry) -> &str {
-        let start = entry.word_start as usize;
-        &self.words[start..start + usize::from(entry.word_len)]
-    }
-
-    fn code(&self, entry: &CodeEntry) -> &str {
-        let start = entry.code_start as usize;
-        &self.codes[start..start + usize::from(entry.code_len)]
-    }
 }
 
 /// 文本像不像 Rime 词库 / 码表：第一条非注释非空行是 `---` 或以 `name:` 打头。
@@ -301,41 +207,4 @@ fn looks_like_rime(text: &str) -> bool {
         .map(str::trim)
         .find(|line| !line.is_empty() && !line.starts_with('#'))
         .is_some_and(|line| line == "---" || line.starts_with("name:"))
-}
-
-impl AuxCodeTable {
-    /// 表里没有 `word` 时按词码规则推导；只有一个字或没写规则时为空。
-    fn derived(&self, word: &str) -> Vec<String> {
-        if self.word_rules.is_empty() || word.chars().nth(1).is_none() {
-            return Vec::new();
-        }
-        self.word_rules
-            .derive(word, |c| AuxCodeTable::codes_of(self, c).collect())
-    }
-}
-
-impl AuxCodeLookup for AuxCodeTable {
-    fn code_with_prefix<'a>(&'a self, word: &str, prefix: &str) -> Option<Cow<'a, str>> {
-        // inherent 的 codes_of 是迭代器版本，这里要用它（别递归回 trait）
-        let mut listed = AuxCodeTable::codes_of(self, word).peekable();
-        if listed.peek().is_some() {
-            return listed
-                .find(|code| code.starts_with(prefix))
-                .map(Cow::Borrowed);
-        }
-        self.derived(word)
-            .into_iter()
-            .find(|code| code.starts_with(prefix))
-            .map(Cow::Owned)
-    }
-
-    fn codes_of<'a>(&'a self, word: &str) -> Vec<Cow<'a, str>> {
-        let listed: Vec<Cow<'a, str>> = AuxCodeTable::codes_of(self, word)
-            .map(Cow::Borrowed)
-            .collect();
-        if !listed.is_empty() {
-            return listed;
-        }
-        self.derived(word).into_iter().map(Cow::Owned).collect()
-    }
 }

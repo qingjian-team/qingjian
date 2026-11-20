@@ -1,10 +1,99 @@
+//! 词库测试：基线用例在本文件，查询契约、随机对拍、错误路径与并发见各子模块。
+
 use super::*;
+
+use std::path::PathBuf;
+
+use qingjian_format::{Metadata, Table, Text};
+
+use crate::error::DictionaryError;
+use crate::pattern::SyllablePattern;
+
+mod concurrency;
+mod contract;
+mod errors;
+mod roundtrip;
 
 const SAMPLE: &str = "# 测试词库\n开发\tkai fa\t9000\n开发者\tkai fa zhe\t3000\n开饭\tkai fan\t800\n开放\tkai fang\t2000\n咖啡\tka fei\t5000\n开\tkai\t20000\n";
 
-fn texts<'a>(matches: &'a [Match<'a>]) -> Vec<&'a str> {
+/// golden 契约词库，查询契约与并发用例共用。
+const GOLDEN: &str = "\
+开发\tkai fa\t9000\n\
+开发者\tkai fa zhe\t3000\n\
+开饭\tkai fan\t800\n\
+开放\tkai fang\t2000\n\
+咖啡\tka fei\t5000\n\
+开\tkai\t20000\n\
+手机\tshou ji\t100\n\
+计算\tji suan\t200\n";
+
+pub(super) fn texts<'a>(matches: &'a [Match<'a>]) -> Vec<&'a str> {
     matches.iter().map(|m| m.text).collect()
 }
+
+/// 线性扫描版，只做测试基准：与 [`Dictionary::lookup_pattern_alt`] 结果必须一致。
+pub(super) fn lookup_scan<'a, 'p>(
+    dictionary: &'a Dictionary,
+    positions: &[Vec<SyllablePattern<'p>>],
+) -> Vec<Match<'a>> {
+    let mut matches = Vec::new();
+    for entry in dictionary.index.iter() {
+        let mut syllables = dictionary.key(entry).split(' ');
+        let accepted = positions.iter().all(|position| {
+            syllables
+                .next()
+                .is_some_and(|s| position.iter().any(|p| p.accepts(s)))
+        });
+        if accepted {
+            let exact = syllables.next().is_none();
+            dictionary.push_matches(entry, exact, &mut matches);
+        }
+    }
+    matches
+}
+
+/// 测试专用临时文件路径，用例末尾统一清理。
+pub(super) fn temp_path(name: &str) -> PathBuf {
+    let dir = std::env::temp_dir().join("qingjian-dictionary-tests");
+    std::fs::create_dir_all(&dir).unwrap();
+    dir.join(format!("{name}-{}.qj", std::process::id()))
+}
+
+/// 词目快照：词、拼音、词频与逐音节声调，用于落盘前后对拍。
+pub(super) fn snapshot(dictionary: &Dictionary) -> Vec<(String, String, u32, Vec<u8>)> {
+    dictionary
+        .entries()
+        .map(|m| {
+            let syllables = m.syllable_count();
+            (
+                m.text.to_owned(),
+                m.pinyin.to_owned(),
+                m.frequency,
+                m.tones.to_vec(syllables),
+            )
+        })
+        .collect()
+}
+
+/// 固定种子的线性同余随机数，测试可复现。
+pub(super) fn lcg(mut state: u64) -> impl FnMut(usize) -> usize {
+    move |bound| {
+        state = state
+            .wrapping_mul(6_364_136_223_846_793_005)
+            .wrapping_add(1_442_695_040_888_963_407);
+        ((state >> 33) as usize) % bound
+    }
+}
+
+/// 命中快照转成拥有的数据，便于跨线程比较。
+pub(super) fn owned_matches(matches: &[Match<'_>]) -> Vec<(String, String, u32, bool)> {
+    matches
+        .iter()
+        .map(|m| (m.text.to_owned(), m.pinyin.to_owned(), m.frequency, m.exact))
+        .collect()
+}
+
+pub(super) fn assert_send_sync<T: Send + Sync>() {}
 
 #[test]
 fn full_syllables_match_exact_and_longer_words() {
@@ -153,7 +242,7 @@ fn narrowing_agrees_with_linear_scan() {
                 position
             })
             .collect();
-        let mut slow = dictionary.lookup_scan(&positions);
+        let mut slow = lookup_scan(&dictionary, &positions);
         slow.sort_by(by_key);
         let mut fast = if round < 300 {
             let single: Vec<SyllablePattern<'_>> = positions.iter().map(|p| p[0]).collect();

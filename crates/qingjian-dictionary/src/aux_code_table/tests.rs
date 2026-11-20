@@ -1,6 +1,7 @@
 //! 码表的解析、落盘与查询。
 
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use qingjian_format::{Container, Kind, Metadata};
 
@@ -286,4 +287,77 @@ fn reads_rime_dict_yaml_and_tsv_from_the_same_entry_point() {
         AuxCodeTable::from_text("---\nname: 纯词表\ncolumns: [text, weight]\n...\n开发\t100\n"),
         Err(DictionaryError::NoCodeEntries)
     ));
+}
+
+/// 随机 `(词, 码)` 对落盘再打开：条目数、去重词数与各词的码一致。
+#[test]
+fn qj_round_trip_preserves_random_pairs() {
+    let mut state = 0x71C2_4E9B_8A13_D056u64;
+    let mut next = |bound: usize| {
+        state = state
+            .wrapping_mul(6_364_136_223_846_793_005)
+            .wrapping_add(1_442_695_040_888_963_407);
+        ((state >> 33) as usize) % bound
+    };
+    let words = [
+        "开发",
+        "开放",
+        "手机",
+        "电脑",
+        "café",
+        "tiếng Việt",
+        "上海",
+        "鹤",
+    ];
+    let letters = ['a', 'b', 'f', 'g', 'h', 'k', 'n'];
+    let mut pairs = Vec::new();
+    for _ in 0..50 {
+        let code_len = 1 + next(8);
+        let code: String = (0..code_len)
+            .map(|_| letters[next(letters.len())])
+            .collect();
+        pairs.push((words[next(words.len())].to_owned(), code));
+    }
+    let original = AuxCodeTable::from_pairs(pairs).unwrap();
+
+    let dir = TempDir::new("random-roundtrip");
+    let path = dir.path().join("random.qj");
+    original.write_qj(&path, &Metadata::default()).unwrap();
+    let reopened = AuxCodeTable::open(&path).unwrap();
+
+    assert_eq!(reopened.len(), original.len());
+    assert_eq!(reopened.word_count(), original.word_count());
+    for word in words {
+        let before: Vec<String> = original.codes_of(word).map(str::to_owned).collect();
+        let after: Vec<String> = reopened.codes_of(word).map(str::to_owned).collect();
+        assert_eq!(before, after, "{word}");
+    }
+}
+
+fn assert_send_sync<T: Send + Sync>() {}
+
+#[test]
+fn aux_code_table_is_send_sync_and_concurrent_reads_are_stable() {
+    assert_send_sync::<AuxCodeTable>();
+    let table = Arc::new(sample());
+    let words = ["开发", "开放", "鹤", "没有这个词"];
+    let snapshot = move |table: &AuxCodeTable| {
+        words
+            .iter()
+            .map(|word| table.codes_of(word).map(str::to_owned).collect::<Vec<_>>())
+            .collect::<Vec<_>>()
+    };
+    let baseline = snapshot(&table);
+    let mut handles = Vec::new();
+    for _ in 0..8 {
+        let table = Arc::clone(&table);
+        handles.push(std::thread::spawn(move || {
+            (0..50).map(|_| snapshot(&table)).collect::<Vec<_>>()
+        }));
+    }
+    for handle in handles {
+        for snapshot in handle.join().unwrap() {
+            assert_eq!(snapshot, baseline);
+        }
+    }
 }
