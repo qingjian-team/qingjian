@@ -450,7 +450,6 @@ fn is_shift(vk: u32) -> bool {
         .any(|code| vk == u32::from(code.0))
 }
 
-/// Server 回的数字结果能否在 Test 阶段直接放行（不吃、不 InsertText）。
 /// 这一记退格要不要为了「删空保护」吃下来交给 Server 判。
 ///
 /// 只在**上一记刚把组句删空**（`emptied`）时才吃：那之后的自动重复删的是应用里已上屏的字，
@@ -465,11 +464,12 @@ fn guard_backspace(event: &KeyEvent, emptied: bool) -> bool {
 /// 这一记是不是按住不放的自动重复：`lParam` 的 bit 30 表示「消息发出前这个键已经按着了」。
 ///
 /// `tap.rs` 判 Shift 双击时用的是同一个位。退格靠它区分「手一直按着」和「手一下一下点」，
-/// 见 issue #932 —— 按时间窗判会把快速手动连按也吞掉。
+/// 见 issue #932。手动连按每一记都不带这个位，隔多近都照删。
 fn is_repeat(lparam: LPARAM) -> bool {
     (lparam.0 >> 30) & 1 != 0
 }
 
+/// Server 回的数字结果能否在 Test 阶段直接放行（不吃、不 InsertText）。
 fn digit_passthrough_native(next: &Next) -> bool {
     matches!(
         next,

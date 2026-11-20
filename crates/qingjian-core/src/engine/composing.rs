@@ -1,5 +1,6 @@
 //! 缓冲区与模式：按键进出、光标移动、表达式 / 英文直输 / 问字等模式判断、标点与上屏链。
 
+use super::backspace::Backspace;
 use super::commit::LastCommit;
 use super::input_log::{INPUT_LOG_VERSION, InputLogEntry, InputLogger, InputSource};
 use super::learning::Learner;
@@ -11,29 +12,6 @@ use std::time::Instant;
 
 /// 直通字符攒到这么多就先写一条，免得长时间纯英文输入时一条攒得没边。
 const MAX_PENDING_PASSTHROUGH: usize = 200;
-
-/// 一次退格的处理结果：壳据此决定这个键是吞掉还是交给应用。
-///
-/// 没有长按保护时，壳只看 `true` 就吞、`false` 就放行；有了三态，删空的那一记重复能停在
-/// 输入法里，不会接着删掉应用里已经上屏的字（微软拼音至今做不到这件事，见 issue #932）。
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Backspace {
-    /// 删掉了组句里的东西（拼音 / 选好的词 / 码段），这个键吞掉。
-    Deleted,
-
-    /// 组句已经空着，交给应用删字。
-    Released,
-
-    /// 刚把组句删空，这一记自动重复先吞掉——手一直按就一直不往下传，松手再按才删。
-    Held,
-}
-
-impl Backspace {
-    /// 组句里删掉东西没有（`Held` 也算，这个键终究没交给应用）。
-    pub fn consumed(self) -> bool {
-        !matches!(self, Self::Released)
-    }
-}
 
 impl Engine {
     /// 中文模式下把半角字符转成全角标点；不需要转换返回 `None`。

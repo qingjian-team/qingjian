@@ -52,7 +52,7 @@ fn undone_selection_retracts_its_learning_when_another_word_is_chosen() {
     engine.set_input("kaifangxian");
     pick(&mut engine, "开放");
     assert_eq!(engine.learner().weight("开放"), 1);
-    engine.backspace(false).consumed();
+    engine.backspace(false);
     pick(&mut engine, "开");
     assert_eq!(engine.learner().weight("开放"), 0);
     assert_eq!(engine.learner().weight("开"), 1);
@@ -176,9 +176,7 @@ fn holding_stops_at_the_buffer() {
 }
 
 /// 手动连按不套用长按保护：手一下一下点，隔多近都照删。
-///
-/// 这是这一版和上一版的分别 —— 上一版按时间窗判断，连按得快了第二下会被吞；
-/// 现在只看按键事件自带的重复标志，手动按的一律放行。
+/// 只看按键事件自带的重复标志，手动按的一律放行。
 #[test]
 fn rapid_manual_presses_are_not_swallowed() {
     use crate::engine::Backspace;
@@ -199,8 +197,8 @@ fn a_fresh_press_ends_the_hold() {
 
     let mut engine = engine();
     engine.set_input("ni");
-    engine.backspace(false).consumed();
-    engine.backspace(false).consumed();
+    engine.backspace(false);
+    engine.backspace(false);
     assert_eq!(engine.backspace(true), Backspace::Held);
     // 新的一下（false）结束这次长按，交还给应用
     assert_eq!(engine.backspace(false), Backspace::Released);
@@ -211,7 +209,7 @@ fn a_fresh_press_ends_the_hold() {
 
 /// 删空之后又上屏了别的字：「刚删空」的状态要作废，长按退格不能只删一个字。
 ///
-/// 维护者在 #933 指出的场景：没在组句时，Windows 与安卓的第一下退格不经过 Core
+/// 没在组句时，Windows 与安卓的第一下退格不经过 Core
 /// （DLL 直接放给应用、安卓直接 `deleteBackward`），这个状态更清不掉 ——
 /// 只能在 Core 自己这边、组句重新有内容或结束时清。
 #[test]
@@ -225,7 +223,7 @@ fn emptied_state_does_not_survive_a_commit() {
     assert!(engine.backspace(false).consumed());
     assert!(engine.composition().is_empty());
 
-    // 打别的字上屏（维护者原话：「接着打别的字上屏」）。样本词库里有 开（kai）
+    // 打别的字上屏。样本词库里有 开（kai）
     engine.set_input("kai");
     let candidate = engine
         .query()
