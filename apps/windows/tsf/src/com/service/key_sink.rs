@@ -220,7 +220,7 @@ impl TextService_Impl {
             input.shift_letter_compose,
             input.english_candidates,
         ) || input.pronounce.is_some_and(|combo| combo.matches(event))
-        ) || guard_backspace(event, self.shared.emptied_backspace())
+            || guard_backspace(event, self.shared.emptied_backspace())
             || (self.shared.composing()
                 && [input.predict, input.single_chars, input.next_word]
                     .into_iter()
@@ -782,8 +782,9 @@ mod tests {
                 ..KeyModifiers::default()
             }
         )));
-    }
         assert!(!combo.matches(&with_modifiers(0x50, 'p', ctrl_alt)));
+    }
+
     /// 退格的「删空保护」：只有刚删空之后的自动重复才吃。
     ///
     /// 没在组句时长按退格（打一串数字那种）不能被吃 —— 吃了就打断系统的自动重复，
