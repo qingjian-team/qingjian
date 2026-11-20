@@ -147,7 +147,7 @@ impl Engine {
     /// 切不了就按字数）。`english_word` 是原样上屏的字母串算不算一个英文词（拼音回车不算）。
     /// 从候选里选的再记是不是首选、这段敲了几键、打了多久、删过没有；部分上屏后下一段从这一刻接着数。
     pub(super) fn meter_commit(&mut self, text: &str, source: InputSource, english_word: bool) {
-        if !self.metered {
+        if !self.settings.metered {
             // 键数与时长也清掉，免得算到下一次记的上屏头上
             self.typing.take(Instant::now());
             return;

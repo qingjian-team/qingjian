@@ -24,30 +24,30 @@ impl Engine {
     }
     /// 换双拼 preedit 显示形式：开着时显示原始按键（如 `ljse`），关着（缺省）展开成全拼（`lan'se`）。
     pub fn set_shuangpin_raw_preedit(&mut self, enabled: bool) {
-        self.shuangpin_raw_preedit = enabled;
+        self.settings.shuangpin_raw_preedit = enabled;
     }
 
     pub fn shuangpin_raw_preedit(&self) -> bool {
-        self.shuangpin_raw_preedit
+        self.settings.shuangpin_raw_preedit
     }
 
     /// 换双拼候选窗口拼音行的显示形式：开着时显示原始按键，关着（缺省）展开成全拼。
     pub fn set_shuangpin_raw_window(&mut self, enabled: bool) {
-        self.shuangpin_raw_window = enabled;
+        self.settings.shuangpin_raw_window = enabled;
     }
 
     pub fn shuangpin_raw_window(&self) -> bool {
-        self.shuangpin_raw_window
+        self.settings.shuangpin_raw_window
     }
 
     /// 双拼方案下是否同时接受全拼。开着时同一段输入里的音节可以两种打法混用（`wodemingzi`），
     /// 一边双拼一边全拼的两个人共用一份设置；关着（缺省）只有双拼一种读法。
     pub fn set_shuangpin_full_pinyin(&mut self, enabled: bool) {
-        self.shuangpin_full_pinyin = enabled;
+        self.settings.shuangpin_full_pinyin = enabled;
         *self.correction_cache.borrow_mut() = None;
     }
 
     pub fn shuangpin_full_pinyin(&self) -> bool {
-        self.shuangpin_full_pinyin
+        self.settings.shuangpin_full_pinyin
     }
 }

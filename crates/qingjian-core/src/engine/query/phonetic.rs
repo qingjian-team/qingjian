@@ -109,8 +109,10 @@ impl Engine {
                     cursor: self.composition.cursor(),
                     rest,
                     decoded_keys: self.shuangpin.is_some() || self.zhuyin,
-                    shuangpin_raw_preedit: self.shuangpin.is_some() && self.shuangpin_raw_preedit,
-                    shuangpin_raw_window: self.shuangpin.is_some() && self.shuangpin_raw_window,
+                    shuangpin_raw_preedit: self.shuangpin.is_some()
+                        && self.settings.shuangpin_raw_preedit,
+                    shuangpin_raw_window: self.shuangpin.is_some()
+                        && self.settings.shuangpin_raw_window,
                     typed_display: decoded.as_ref().map(|d| d.marked()),
                     typed_case: None,
                     pinyin_choices: Vec::new(),
@@ -477,7 +479,7 @@ impl Engine {
         match aux_code {
             // 没在筛码：首条码只在显示开关开着或已在辅码态时挂，否则不逐候选查码
             None => items.extend(scored.into_iter().map(|item| {
-                let first = if self.aux_show || self.aux_code.is_some() {
+                let first = if self.settings.aux_show || self.aux_code.is_some() {
                     self.matching_code(item.hit.text, "")
                 } else {
                     None
@@ -524,7 +526,7 @@ impl Engine {
                 });
             let english_unlikely = unlikely && !covered_by_word;
             // 中文优先：整句先进去占第一，英文词紧跟其后（第二）；关掉时英文词先进、整句排在开头的英文后面
-            if self.chinese_first {
+            if self.settings.chinese_first {
                 self.insert_sentence(
                     &mut items,
                     &segmentations,
@@ -570,8 +572,8 @@ impl Engine {
             cursor: self.composition.cursor(),
             rest,
             decoded_keys: self.shuangpin.is_some() || self.zhuyin,
-            shuangpin_raw_preedit: self.shuangpin.is_some() && self.shuangpin_raw_preedit,
-            shuangpin_raw_window: self.shuangpin.is_some() && self.shuangpin_raw_window,
+            shuangpin_raw_preedit: self.shuangpin.is_some() && self.settings.shuangpin_raw_preedit,
+            shuangpin_raw_window: self.shuangpin.is_some() && self.settings.shuangpin_raw_window,
             typed_display,
             typed_case,
             pinyin_choices: Vec::new(),

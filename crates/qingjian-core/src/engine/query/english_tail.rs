@@ -48,7 +48,7 @@ impl Engine {
     /// 关掉「打拼音时也给英文词」（`english_in_chinese = false`）时整条路都停：英文词不再作为句尾参与分词，
     /// `nanine` 回到 `na ni ne` 的拼音读法，`kaifarust` 不再出 开发rust（#766）。
     pub(crate) fn split_english_tail(&self, scope: &str) -> Option<EnglishTail> {
-        if !self.english_in_chinese
+        if !self.settings.english_in_chinese
             || self.shuangpin.is_some()
             || scope.len() < MIN_ENGLISH_TAIL_HEAD_LETTERS + MIN_ENGLISH_TAIL_LETTERS
             || !scope.bytes().all(|b| b.is_ascii_lowercase())

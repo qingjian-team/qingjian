@@ -60,52 +60,52 @@ impl Engine {
 
     /// 中文模式下给不给英文词与补全（配置 `[general] english_in_chinese`，缺省开）；英文模式不受影响。
     pub fn set_english_in_chinese(&mut self, on: bool) {
-        self.english_in_chinese = on;
+        self.settings.english_in_chinese = on;
     }
 
     pub fn english_in_chinese(&self) -> bool {
-        self.english_in_chinese
+        self.settings.english_in_chinese
     }
 
     /// 中文模式下英文候选（精确词 + 补全）最多几个（配置 `[general] english_max_in_chinese`，缺省
     /// [`ENGLISH_CANDIDATES_MAX`]）。1 只留最靠前的一条，越界按 1 与上限收拢。
     pub fn set_english_max_in_chinese(&mut self, max: usize) {
-        self.english_max_in_chinese = max.clamp(1, ENGLISH_CANDIDATES_MAX);
+        self.settings.english_max_in_chinese = max.clamp(1, ENGLISH_CANDIDATES_MAX);
     }
 
     /// 有中文候选时英文最高排到第几位（配置 `[general] english_min_position`，缺省 1 即不限制）。
     /// 没有中文候选时英文照旧排第一；范围 1–9，越界收拢。
     pub fn set_english_min_position(&mut self, position: usize) {
-        self.english_min_position = position.clamp(1, 9);
+        self.settings.english_min_position = position.clamp(1, 9);
     }
 
     /// 中英混输里中文候选是否总排在英文词前面（配置 `[general] chinese_first`，缺省关）。
     /// 关着时拼音「不像话」的输入英文词排第一（`hello` 先英文再 荷兰咯）；开了英文词固定第二。
     pub fn set_chinese_first(&mut self, on: bool) {
-        self.chinese_first = on;
+        self.settings.chinese_first = on;
     }
 
     pub fn chinese_first(&self) -> bool {
-        self.chinese_first
+        self.settings.chinese_first
     }
 
     /// 英文候选旁显示音标（配置 `[general] show_english_pronunciation`，缺省关）。
     /// 关着时英文候选不带音标，与加这个功能之前完全一样。
     pub fn set_show_english_pronunciation(&mut self, on: bool) {
-        self.show_english_pronunciation = on;
+        self.settings.show_english_pronunciation = on;
     }
 
     pub fn show_english_pronunciation(&self) -> bool {
-        self.show_english_pronunciation
+        self.settings.show_english_pronunciation
     }
 
     /// 英文音标表（随包 `english-ipa.qj`，`WordList::pronunciations_from_path` 读）。没设或设为空就不显示任何音标。
     /// 重复设置会换掉旧表——热加载时改的是同一个文件。
     pub fn set_english_pronunciations(&mut self, table: Option<WordList>) {
-        self.english_pronunciations = table;
+        self.settings.english_pronunciations = table;
     }
 
     pub fn english_pronunciations(&self) -> Option<&WordList> {
-        self.english_pronunciations.as_ref()
+        self.settings.english_pronunciations.as_ref()
     }
 }

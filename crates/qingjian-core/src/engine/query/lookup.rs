@@ -17,7 +17,7 @@ impl Engine {
         typos: bool,
     ) -> Expanded {
         let mut expanded = self.fuzzy.expand(patterns);
-        if !typos || !self.spelling_correction {
+        if !typos || !self.settings.spelling_correction {
             return expanded;
         }
         let letters: usize = patterns.iter().map(|p| p.text.len()).sum();

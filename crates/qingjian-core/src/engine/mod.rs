@@ -35,6 +35,8 @@ mod raw;
 mod reading;
 mod rescoring;
 mod session;
+
+mod settings;
 mod setup;
 mod spacing;
 mod statistics;
@@ -151,35 +153,7 @@ pub struct Engine {
 
     /// 通讯录（壳读系统通讯录交来，用户在设置里开了才有）：名字并进查词，见 [`Self::set_contacts`]。
     contacts: Option<crate::ContactBook>,
-
-    /// 中文模式下整段是英文词（或像英文词的开头）时给不给英文候选与补全（配置 `[general] english_in_chinese`，缺省开）。
-    english_in_chinese: bool,
-
-    /// 中英混输时中文候选总在英文词前面（缺省关：拼音不像话的输入英文词排第一，常在中文模式里打英文词的人靠它）。
-    chinese_first: bool,
-
-    /// 拼写纠错（整段一处编辑的纠正与整句里的敲错边，含个人敲错表）开不开，配置 `[general] spelling_correction`，缺省开。
-    spelling_correction: bool,
-
-    /// 中文模式下英文候选（精确词 + 补全）最多几个（配置 `[general] english_max_in_chinese`，缺省 4）。
-    english_max_in_chinese: usize,
-
-    /// 英文候选旁显示音标（配置 `[general] show_english_pronunciation`，缺省关）。
-    /// 开着时把音标填进 `Candidate::reading`，平台层的 annotation 会画在候选词后面。
-    show_english_pronunciation: bool,
-
-    /// 英文音标表（随包 `english-ipa.qj`），键是小写词、值是 `/ˈkɑrɡoʊ/`。没有就一律不显示音标。
-    english_pronunciations: Option<WordList>,
-
-    /// 有中文候选时英文最高排到第几位（配置 `[general] english_min_position`，缺省 1 即不限制）。
-    english_min_position: usize,
-
-    /// 中西文混排自动补空格（配置 `[general] auto_space`，缺省关）。见 [`crate::spacing`]。
-    auto_space: bool,
-
-    /// 中文模式下 Shift+字母进组句缓冲区（配置 `[general] shift_letter = "compose"`，缺省关）。
-    /// 关着由壳直接把大写字母交给应用，Core 这一路就不该收——否则 `Cpan` 这种会被当成拼音。
-    shift_letter_compose: bool,
+    settings: settings::EngineSettings,
 
     /// 联想提供方，缺省为 [`NoPredictor`]。
     predictor: Box<dyn Predictor>,
@@ -266,9 +240,6 @@ pub struct Engine {
     /// 前面选好、还没交给应用的词（见 `held` 模块）。
     held: Vec<held::HeldSelection>,
 
-    /// 选词后剩下拼音时先不上屏（[`Self::set_hold_selections`]，缺省开）。
-    hold_selections: bool,
-
     /// 组句外直通给应用的字符，攒到下一次上屏或上文断开时写成一条 `passthrough`。
     passthrough_pending: String,
 
@@ -293,9 +264,6 @@ pub struct Engine {
 
     /// 输入统计的累计方（打了多少字）；缺省不记。
     meter: Box<dyn UsageMeter>,
-
-    /// 上屏记不记进输入统计（见 [`Self::set_metered`]）；壳的工具框（快捷翻译的原文、常用语编辑）里关掉。
-    metered: bool,
 
     /// 学习语言的词汇记录（见过 / 上屏过哪些译词）；缺省不记也不标生词。
     vocabulary: Box<dyn VocabularyTracker>,
@@ -335,25 +303,12 @@ pub struct Engine {
 
     /// 连续上屏的链，个人 n-gram 与自动造词靠它。
     chain: CommitChain,
-    /// 是否学习连续上屏的五笔新词；不控制拼音、双拼学习或已有词的词频。
-    auto_phrase: bool,
-    /// 五笔连续组词窗口最多容纳的汉字数，范围为 2～10。
-    auto_phrase_max_chars: usize,
 
     /// 模糊音开关，缺省全关。
     fuzzy: FuzzyRules,
 
     /// 双拼方案，`None` 为全拼。开着时缓冲区里是双拼键，查词前先解成全拼（见 [`crate::shuangpin`]）。
     shuangpin: Option<Arc<Layout>>,
-
-    /// 双拼方案下 preedit 显示原始按键（如 `ljse`）还是展开成全拼（`lan'se`）。
-    shuangpin_raw_preedit: bool,
-
-    /// 双拼方案下候选窗口的拼音行显示原始按键还是全拼，与 [`Self::shuangpin_raw_preedit`] 各管各的。
-    shuangpin_raw_window: bool,
-
-    /// 双拼方案下同时接受全拼（以及同一输入里两种打法的混用），见 [`crate::shuangpin`] 的混输一节。
-    shuangpin_full_pinyin: bool,
 
     /// 注音模式开关，開著時緩衝區裡是注音大千鍵位，查詞前先解成拼音（見 [`crate::zhuyin`]）。
     zhuyin: bool,
@@ -378,20 +333,11 @@ pub struct Engine {
     /// emoji 表，没有就不出 emoji 候选。
     emoji: Option<EmojiTable>,
 
-    /// 每次查询最多插几个 emoji（配置 `[general] emoji`，缺省 3）；0 不出 emoji，表照样加载。
-    emoji_limit: usize,
-
     /// 内置的颜文字表，带上 emoji 表时一起启用。
     kaomoji: Option<&'static EmojiTable>,
 
-    /// 每次查询最多插几个颜文字（配置 `[general] kaomoji`，缺省 1）。
-    kaomoji_limit: usize,
-
     /// 内置的符号表，带上 emoji 表时一起启用。
     symbols: Option<&'static EmojiTable>,
-
-    /// 每次查询最多插几个符号（配置 `[general] symbols`，缺省 1）。
-    symbol_limit: usize,
 
     /// 打开着的符号面板；`None` 是没开。上屏与清空时关掉。
     panel: Option<SymbolPanel>,
@@ -411,23 +357,6 @@ pub struct Engine {
     /// 辅码态：`None` 是拼音态，`Some` 是辅码态（空串 = 刚敲下触发键、码段还没开始）。
     /// 码段不进 `composition`：它与拼音分段记账、分段画（见 [`AuxSegment`]）。
     aux_code: Option<String>,
-
-    /// 辅码总开关（配置项 `[aux_code] enabled`，缺省关）：关着时触发键不进辅码态、纯拼音态也不挂码。
-    aux_enabled: bool,
-
-    /// 候选上是否显示码（配置项 `[general] aux_code_show`，缺省关）：纯拼音态逐候查首条码的短路开关，
-    /// 由壳装配时告知（辅码态不受它管，看码有引导意义）。
-    aux_show: bool,
-
-    /// 拼音行按高亮候选显示带调拼音（配置项 `[general] show_tones`，缺省关），见 [`Self::toned_syllables`]。
-    show_tones: bool,
-
-    /// 进辅码态的触发键，配置项 `[general] aux_code_key`，缺省 [`DEFAULT_AUX_CODE_KEY`]。
-    aux_code_key: char,
-
-    /// 码段删空后是否留在辅码态（配置项 `[general] aux_code_keep_empty`，缺省开）：开 = 删空停在
-    /// 辅码态（`;` 仍在、候选全回），空码段再按一次退格才退出；关 = 删空即回拼音态。
-    aux_keep_empty: bool,
 
     /// 辅码码表，壳按用户目录 `codes/` 与配置装配；空表示没装码表（辅码态筛不出任何词）。
     aux_codes: Vec<Arc<dyn AuxCodeLookup>>,
@@ -581,15 +510,7 @@ impl Engine {
             custom_phrases: Vec::new(),
             blocked: Vec::new(),
             contacts: None,
-            english_in_chinese: true,
-            chinese_first: false,
-            spelling_correction: true,
-            english_max_in_chinese: ENGLISH_CANDIDATES_MAX,
-            english_min_position: 1,
-            show_english_pronunciation: false,
-            english_pronunciations: None,
-            auto_space: false,
-            shift_letter_compose: false,
+            settings: settings::EngineSettings::default(),
             predictor: Box::new(NoPredictor),
             translation_predictor: None,
             language_model: Box::new(NoLanguageModel),
@@ -620,7 +541,6 @@ impl Engine {
             corrected_alternates: std::cell::RefCell::default(),
             retype_snapshot: None,
             held: Vec::new(),
-            hold_selections: true,
             passthrough_pending: String::new(),
             page_turns: 0,
             composition_started: None,
@@ -629,7 +549,6 @@ impl Engine {
             application: None,
             committed_since_break: false,
             meter: Box::new(NoUsageMeter),
-            metered: true,
             vocabulary: Box::new(NoVocabularyTracker),
             gloss_filler: Box::new(NoGlossFiller),
             displayed: Vec::new(),
@@ -641,35 +560,22 @@ impl Engine {
             prediction_sequence: 0,
             pending_predictions: HashMap::new(),
             chain: CommitChain::default(),
-            auto_phrase: true,
-            auto_phrase_max_chars: 4,
             fuzzy: FuzzyRules::default(),
             shuangpin: None,
-            shuangpin_raw_preedit: false,
-            shuangpin_raw_window: false,
-            shuangpin_full_pinyin: false,
             zhuyin: false,
             nine_key: false,
             nine_key_unpinned: None,
             code: None,
             phonetic: true,
             emoji: None,
-            emoji_limit: EMOJI_TOTAL,
             kaomoji: None,
-            kaomoji_limit: 1,
             symbols: None,
-            symbol_limit: 1,
             panel: None,
             panel_history: Box::new(NoPanelHistory),
             panel_group: None,
             panel_language: None,
             panel_translations: TranslationCache::default(),
             aux_code: None,
-            aux_enabled: false,
-            aux_show: false,
-            show_tones: false,
-            aux_code_key: DEFAULT_AUX_CODE_KEY,
-            aux_keep_empty: true,
             aux_codes: Vec::new(),
             traditional: Traditional::default(),
         }

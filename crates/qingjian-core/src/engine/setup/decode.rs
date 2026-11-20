@@ -22,7 +22,7 @@ impl Engine {
         match (
             self.zhuyin,
             self.shuangpin.as_deref(),
-            self.shuangpin_full_pinyin,
+            self.settings.shuangpin_full_pinyin,
         ) {
             (false, Some(layout), true) => layout
                 .decode_mixed(keys, &self.fuzzy)
@@ -36,7 +36,7 @@ impl Engine {
     /// 光标后剩余拼音的显示形式：双拼先解码；能切就按音节用 `'` 连上，切不动就原样。
     /// 只用形码时剩余段是编码，原样显示。
     pub(in crate::engine) fn marked_rest(&self, rest: &str) -> String {
-        if self.code_only() || (self.shuangpin.is_some() && self.shuangpin_raw_preedit) {
+        if self.code_only() || (self.shuangpin.is_some() && self.settings.shuangpin_raw_preedit) {
             return rest.to_owned();
         }
         if self.nine_key {

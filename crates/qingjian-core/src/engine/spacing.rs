@@ -11,7 +11,7 @@ impl Engine {
         let Some(first) = next.chars().next() else {
             return false;
         };
-        if !self.auto_space
+        if !self.settings.auto_space
             || !self
                 .previous_char()
                 .is_some_and(|prev| needs_space(prev, first))

@@ -239,10 +239,11 @@ impl Engine {
     ///
     /// 查询按小写码（`Company` / `company` 同一份数据），`reading` 里存的是 `/ˈkʌmpəni/` 原样。
     fn english_pronunciation(&self, word: &str) -> Option<String> {
-        if !self.show_english_pronunciation {
+        if !self.settings.show_english_pronunciation {
             return None;
         }
-        self.english_pronunciations
+        self.settings
+            .english_pronunciations
             .as_ref()
             .and_then(|table| table.pronunciation(&word.to_ascii_lowercase()))
             .map(str::to_owned)
@@ -254,7 +255,9 @@ impl Engine {
     /// 音标表按单词收，整句查不到还容易在半截上乱标。日语译文走假名那条路（`Sense::reading`），
     /// 别的语言直接跳过。
     pub(in crate::engine) fn annotate_pronunciation(&self, translation: &mut crate::Translation) {
-        if !self.show_english_pronunciation || translation.language != crate::Language::English {
+        if !self.settings.show_english_pronunciation
+            || translation.language != crate::Language::English
+        {
             return;
         }
         for sense in translation.senses_mut() {

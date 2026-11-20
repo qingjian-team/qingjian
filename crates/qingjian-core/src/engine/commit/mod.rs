@@ -96,7 +96,10 @@ impl Engine {
             self.panel_history.record(&candidate.text);
         }
         let lead = self.auto_space_before(&candidate.text);
-        let before = self.hold_selections.then(|| self.composition.clone());
+        let before = self
+            .settings
+            .hold_selections
+            .then(|| self.composition.clone());
         let text = self.commit_with(candidate, InputSource::from(candidate.kind), None);
         let text = if lead { format!(" {text}") } else { text };
         self.hold_or_release(before, text)
@@ -235,7 +238,7 @@ impl Engine {
         // 输入日志按实际敲键原样记：辅码态把触发键与码段接在拼音后面（"kaifa;kf"），
         // replay 逐键重喂时不需要任何特殊逻辑
         if let Some(code) = &self.aux_code {
-            keys.push(self.aux_code_key);
+            keys.push(self.settings.aux_code_key);
             keys.push_str(code);
         }
         let log_id = self.log_commit(&keys, &candidate.text, source);
@@ -371,7 +374,7 @@ impl Engine {
             candidate.kind,
             CandidateKind::Custom(_) | CandidateKind::Shortcut
         );
-        let text = if self.auto_space && !verbatim {
+        let text = if self.settings.auto_space && !verbatim {
             crate::spacing::space_inner(&output)
         } else {
             output

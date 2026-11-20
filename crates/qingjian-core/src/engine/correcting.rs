@@ -28,7 +28,7 @@ impl Engine {
     }
 
     pub(super) fn find_correction(&self, scope: &str) -> Option<Correction> {
-        if !self.spelling_correction
+        if !self.settings.spelling_correction
             || !correction::eligible(scope)
             || self.learner.raw_count(scope) > 0
         {

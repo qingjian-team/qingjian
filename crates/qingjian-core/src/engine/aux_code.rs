@@ -24,9 +24,9 @@ impl Engine {
     /// - 光标在拼音段末尾（光标停在中间时只按光标前那段算候选，不是完整的输入）；
     /// - 作用域能完整切分成音节（简拼、残缺音节、英文直输段、表达式 / 问字模式都不触发）。
     pub fn aux_trigger(&self, key: char) -> bool {
-        self.aux_enabled
+        self.settings.aux_enabled
             && !self.aux_codes.is_empty()
-            && key == self.aux_code_key
+            && key == self.settings.aux_code_key
             && self.aux_code.is_none()
             && !self.english_mode
             && !(key == ';' && self.takes_semicolon())
@@ -55,7 +55,7 @@ impl Engine {
 
     /// 当前的触发键。
     pub fn aux_code_key(&self) -> char {
-        self.aux_code_key
+        self.settings.aux_code_key
     }
 
     /// 码段追加一个字母。非 `a-z` 返回 `false`，壳按原语义处理这个键（翻页键、标点）。
@@ -93,7 +93,7 @@ impl Engine {
     pub(super) fn aux_segment(&self) -> Option<AuxSegment> {
         self.aux_code
             .as_ref()
-            .map(|code| AuxSegment::new(self.aux_code_key, code.clone()))
+            .map(|code| AuxSegment::new(self.settings.aux_code_key, code.clone()))
     }
 
     /// 作用域能不能完整切分成音节：双拼 / 注音按解码结果，全拼按 [`parser::is_fully_segmentable`]。

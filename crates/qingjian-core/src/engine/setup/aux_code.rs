@@ -25,7 +25,7 @@ impl Engine {
     /// 换辅码触发键（配置项 `[general] aux_code_key`）。非法的键（含当前翻页键 `page_keys`，
     /// 配置项 `[general] page_keys`）退回缺省 `;`。
     pub fn set_aux_code_key(&mut self, key: char, page_keys: (char, char)) {
-        self.aux_code_key = if is_valid_aux_code_key(key, page_keys) {
+        self.settings.aux_code_key = if is_valid_aux_code_key(key, page_keys) {
             key
         } else {
             DEFAULT_AUX_CODE_KEY
@@ -34,17 +34,17 @@ impl Engine {
 
     /// 换「码删空后留在辅码态」开关（配置项 `[general] aux_code_keep_empty`，缺省开）。
     pub fn set_aux_keep_empty(&mut self, keep: bool) {
-        self.aux_keep_empty = keep;
+        self.settings.aux_keep_empty = keep;
     }
 
     /// 换辅码总开关（配置项 `[aux_code] enabled`，缺省关）。关掉时辅码整线关：触发键不进辅码态，
     /// 纯拼音态也不逐候查首条码；开着但没有码表（`aux_codes` 为空）同样不进辅码态。
     pub fn set_aux_enabled(&mut self, enabled: bool) {
-        self.aux_enabled = enabled;
+        self.settings.aux_enabled = enabled;
     }
 
     /// 换「候选上显示码」开关（配置项 `[general] aux_code_show`，缺省关）：纯拼音态挂不挂首条码。
     pub fn set_aux_show(&mut self, show: bool) {
-        self.aux_show = show;
+        self.settings.aux_show = show;
     }
 }

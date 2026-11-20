@@ -58,7 +58,7 @@ impl Engine {
 
     /// 选词后剩下拼音时先不上屏（缺省开）。回放输入日志时关掉：日志里选词后的退格删的是字母。
     pub fn set_hold_selections(&mut self, on: bool) {
-        self.hold_selections = on;
+        self.settings.hold_selections = on;
         if !on {
             self.held.clear();
         }

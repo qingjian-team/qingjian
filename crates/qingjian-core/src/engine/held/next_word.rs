@@ -15,7 +15,7 @@ impl Engine {
     /// 或关了选词后留在组句里（[`Self::set_hold_selections`]）时不动，返回 `None`。
     /// 动了返回要交给应用的文本，同 [`Self::commit`]（通常是空串：词留在组句里），之后要重新 [`Self::query`]。
     pub fn hold_next_word(&mut self, lead: &Candidate) -> Option<String> {
-        if !self.hold_selections || lead.kind != CandidateKind::Sentence {
+        if !self.settings.hold_selections || lead.kind != CandidateKind::Sentence {
             return None;
         }
         // 繁体输出开着时候选是繁体，整句的词序列按简体对

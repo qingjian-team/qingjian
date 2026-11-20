@@ -154,7 +154,7 @@ impl Engine {
     /// 这种让中文先；超过两个字母的正文英文（cargo / rust）照旧——按词频一刀切会把它们一起挤掉。
     /// 例外只管**没选过**的英文词：用户选过的照旧排第一（选过 OK，下次敲 `ok` 还是 OK 在前）。
     pub(super) fn insert_english(&self, items: &mut Vec<Candidate>, unlikely_pinyin: bool) {
-        if !self.english_in_chinese {
+        if !self.settings.english_in_chinese {
             return;
         }
         let lists = self.english_lists();
@@ -182,14 +182,16 @@ impl Engine {
         let short_acronym = english_weight == 0
             && text.len() <= 2
             && word.is_some_and(|word| word.chars().all(|c| c.is_ascii_uppercase()));
-        let english_first =
-            !self.chinese_first && unlikely_pinyin && chosen <= english_weight && !short_acronym;
+        let english_first = !self.settings.chinese_first
+            && unlikely_pinyin
+            && chosen <= english_weight
+            && !short_acronym;
         let mut position = if items.is_empty() || english_first {
             0
         } else {
             1
         };
-        let mut budget = self.english_max_in_chinese;
+        let mut budget = self.settings.english_max_in_chinese;
         if let Some(word) = word {
             items.insert(position, self.english_candidate(word));
             position += 1;
@@ -222,7 +224,8 @@ impl Engine {
     /// 缺省 1 即不限制）。等整句也插进来之后再调：整句本身是中文，`cargo` 这类只有整句能读通时也得让位。
     /// 没有中文候选（`github`）时英文照旧在最前。
     pub(super) fn place_english(&self, items: &mut Vec<Candidate>) {
-        if self.english_min_position <= 1 || !items.iter().any(|c| c.kind == CandidateKind::Chinese)
+        if self.settings.english_min_position <= 1
+            || !items.iter().any(|c| c.kind == CandidateKind::Chinese)
         {
             return;
         }
@@ -237,7 +240,7 @@ impl Engine {
         if english.is_empty() {
             return;
         }
-        let position = (self.english_min_position - 1).min(items.len());
+        let position = (self.settings.english_min_position - 1).min(items.len());
         items.splice(position..position, english);
     }
 
@@ -245,7 +248,7 @@ impl Engine {
     /// 整段作用域本身就是个英文词（`database`、`agent`）：用户多半在打那个词。
     pub(in crate::engine) fn scope_is_english_word(&self) -> bool {
         let scope = self.composition.scope();
-        self.english_in_chinese
+        self.settings.english_in_chinese
             && !scope.is_empty()
             && self
                 .english_lists()
@@ -270,7 +273,7 @@ impl Engine {
                 table,
                 CandidateKind::Emoji,
                 EMOJI_PER_WORD,
-                self.emoji_limit,
+                self.settings.emoji_limit,
             );
         }
         if let Some(table) = self.kaomoji {
@@ -279,7 +282,7 @@ impl Engine {
                 table,
                 CandidateKind::Kaomoji,
                 KAOMOJI_PER_WORD,
-                self.kaomoji_limit,
+                self.settings.kaomoji_limit,
             );
         }
         if let Some(table) = self.symbols {
@@ -288,7 +291,7 @@ impl Engine {
                 table,
                 CandidateKind::Symbol,
                 EMOJI_PER_WORD,
-                self.symbol_limit,
+                self.settings.symbol_limit,
             );
         }
     }

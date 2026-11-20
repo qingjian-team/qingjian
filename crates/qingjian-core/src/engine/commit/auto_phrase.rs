@@ -4,7 +4,7 @@ use crate::{Engine, Learner};
 
 impl Engine {
     pub(super) fn learn_code_phrase(&mut self, text: &str) {
-        if !self.auto_phrase
+        if !self.settings.auto_phrase
             || self.is_contact(text)
             || !self.code.as_ref().is_some_and(|scheme| scheme.wubi_phrases)
         {
@@ -18,7 +18,9 @@ impl Engine {
             self.chain.clear_code_words();
             return;
         }
-        let words = self.chain.push_code_word(text, self.auto_phrase_max_chars);
+        let words = self
+            .chain
+            .push_code_word(text, self.settings.auto_phrase_max_chars);
         let scheme = self.code.as_ref().expect("已检查形码方案");
         for word in words {
             let Some(code) = scheme.phrase_code(&word) else {

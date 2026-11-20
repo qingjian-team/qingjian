@@ -14,11 +14,12 @@ impl Engine {
     /// 五笔连续上屏组词；不改变拼音学习规则、已有词与词频学习。
     pub fn set_auto_phrase(&mut self, enabled: bool, max_chars: usize) {
         let max_chars = max_chars.clamp(2, 10);
-        if self.auto_phrase != enabled || self.auto_phrase_max_chars != max_chars {
+        if self.settings.auto_phrase != enabled || self.settings.auto_phrase_max_chars != max_chars
+        {
             self.chain.clear_code_words();
         }
-        self.auto_phrase = enabled;
-        self.auto_phrase_max_chars = max_chars;
+        self.settings.auto_phrase = enabled;
+        self.settings.auto_phrase_max_chars = max_chars;
     }
 
     pub fn with_learner(mut self, learner: Box<dyn Learner>) -> Self {

@@ -8,7 +8,7 @@ use qingjian_dictionary::CodeTable;
 impl Engine {
     /// 换「候选上显示声调」开关（配置项 `[general] show_tones`，缺省关）。
     pub fn set_show_tones(&mut self, show: bool) {
-        self.show_tones = show;
+        self.settings.show_tones = show;
     }
 
     /// 应用读不到光标前文时，本应用多少秒内上屏的字还当前文（配置项 `[model] context_memory_seconds`，0 表示一直算）。
