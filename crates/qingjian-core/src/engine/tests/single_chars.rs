@@ -48,7 +48,7 @@ fn toggling_again_or_clearing_restores_the_words() {
 
     // 退格删空也算这段组句结束
     engine.toggle_single_chars();
-    while engine.backspace() {}
+    while engine.backspace(false).consumed() {}
     for c in "nihao".chars() {
         engine.push(c);
     }

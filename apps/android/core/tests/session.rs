@@ -55,7 +55,7 @@ fn commit_raw_returns_typed_letters() {
 fn backspace_to_empty_gives_empty_frame() {
     let mut session = session();
     session.push('n');
-    let frame = session.backspace();
+    let frame = session.backspace(false);
     assert!(frame.preedit.is_empty());
     assert!(frame.candidates.is_empty());
     assert!(frame.commit.is_empty());
@@ -222,7 +222,7 @@ fn backspace_undoes_and_enter_keeps_held_words() {
     let frame = session.push('a');
     let frame = select_text(&mut session, &frame, "你好");
     assert!(frame.preedit.starts_with("你好"));
-    let frame = session.backspace();
+    let frame = session.backspace(false);
     assert!(!frame.preedit.contains("你好"));
     assert!(frame.candidates.iter().any(|c| c.text == "你好"));
 

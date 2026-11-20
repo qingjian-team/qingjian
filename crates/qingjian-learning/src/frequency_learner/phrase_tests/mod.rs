@@ -139,7 +139,7 @@ fn wubi_edit_and_privacy_exit_do_not_reuse_earlier_input() {
             "backspace" => engine.note_backspace(),
             "edit" => {
                 engine.push('x');
-                engine.backspace();
+                engine.backspace(false);
             }
             "private-exit" => {
                 engine.set_private(true);
