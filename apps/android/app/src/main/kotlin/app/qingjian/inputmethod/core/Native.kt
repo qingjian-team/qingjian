@@ -24,7 +24,7 @@ internal object Native {
 
     external fun push(handle: Long, codePoint: Int): String?
 
-    external fun backspace(handle: Long): String?
+    external fun backspace(handle: Long, repeat: Boolean): String?
 
     /** 滑完一笔（`{points, keys}` 的 JSON，像素）：解出的字母进组句，回一帧。 */
     external fun swipe(handle: Long, input: String): String?

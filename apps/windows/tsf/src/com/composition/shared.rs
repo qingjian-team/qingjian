@@ -19,6 +19,12 @@ pub(crate) struct Shared {
     /// Server 上次回的帧非空；决定 `OnTestKeyDown` 要不要吃功能键。
     composing: Cell<bool>,
 
+    /// 上一记退格刚把组句删空（Server 回 `Deleted`、`composing` 随之变 false）。
+    ///
+    /// 只有这个状态为真时，自动重复的退格才该被吃下来交给 Server 判 ——
+    /// 否则会把系统自己的自动重复打断，没在组句时长按退格就只删得掉一个字（issue #932）。
+    emptied_backspace: Cell<bool>,
+
     /// 这一段最近报给 Server 的候选窗锚点：之后量不到光标时沿用它，不追着鼠标走。组句结束时清掉。
     anchor: Cell<Option<ScreenRect>>,
 
@@ -57,6 +63,7 @@ impl Shared {
             composition: RefCell::new(None),
             preedit: RefCell::new(String::new()),
             composing: Cell::new(false),
+            emptied_backspace: Cell::new(false),
             anchor: Cell::new(None),
             context_reported: Cell::new(false),
             text_box: Cell::new(false),
@@ -106,8 +113,22 @@ impl Shared {
         self.composing.get()
     }
 
+    /// 上一记退格把组句删空了：下一记自动重复要吞掉交给 Server 判（issue #932）。
+    pub(crate) fn emptied_backspace(&self) -> bool {
+        self.emptied_backspace.get()
+    }
+
+    /// 记下这一记退格有没有把组句删空。
+    pub(crate) fn set_emptied_backspace(&self, value: bool) {
+        self.emptied_backspace.set(value);
+    }
+
     pub(crate) fn set_composing(&self, value: bool) {
         self.composing.set(value);
+        // 新一段组句开始：「刚删空」属于上一段，到此作废
+        if value {
+            self.emptied_backspace.set(false);
+        }
         // 组句结束：下一段重新报输入框状态、重新定锚点。
         if !value {
             self.text_box.set(false);

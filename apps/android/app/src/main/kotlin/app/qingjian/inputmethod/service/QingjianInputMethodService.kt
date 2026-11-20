@@ -400,7 +400,7 @@ class QingjianInputMethodService :
         )
     }
 
-    override fun onKey(key: Key) = composer.onKey(key)
+    override fun onKey(key: Key, repeat: Boolean) = composer.onKey(key, repeat)
 
     override fun onKeyChoice(text: String) = composer.onKeyChoice(text)
 

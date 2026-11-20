@@ -21,9 +21,12 @@ body:
     id: platform
     attributes:
       label: 平台
+      multiple: true
       options:
         - macOS
         - Windows
+        - Linux
+        - Android
         - 与平台无关
     validations:
       required: true

@@ -1,19 +1,38 @@
 //! 命令键（回车、退格、方向键、Tab、Esc 等）的处理。
 
 use super::*;
+use qingjian_core::Backspace;
 use qingjian_core::candidate::arrows::Arrow;
 
 impl QingjianInputController {
     /// 组句期间所有编辑动作都由我们接管；不认识的一律吞掉，否则应用会动光标、丢 marked text。
-    pub(super) fn handle_command(&self, selector: Sel, client: TextClient<'_>) -> bool {
+    /// `repeat` 是这一记是不是按住不放的自动重复（`NSEvent.isARepeat()`）。
+    /// 退格用它区分「手一直按着」和「手一下一下点」，见 issue #932。
+    pub(super) fn handle_command(
+        &self,
+        selector: Sel,
+        repeat: bool,
+        client: TextClient<'_>,
+    ) -> bool {
         tracing::debug!(selector = %selector, "didCommandBySelector");
         self.note_application(&client);
         let composing = host::with(|h| !h.engine.composition().is_empty()).unwrap_or(false);
         if !composing {
             // 删的是应用里的文字：刚上屏的词被整个删掉是「选错了」的信号，Engine 记着；
-            // 按词 / 按行删的数不清删了几个字，撤销的账就不记了
+            // 按词 / 按行删的数不清删了几个字，撤销的账就不记了。
+            //
+            // 退格要先问 Core：组句刚被删空之后，那一记自动重复该吞在输入法里（issue #932），
+            // 别让它接着删掉应用里已经上屏的字。只有 Core 说 `Released` 才真的放给应用。
             if selector == sel!(deleteBackward:) {
-                host::with(|h| h.engine.note_backspace());
+                let verdict =
+                    host::with(|h| h.engine.backspace(repeat)).unwrap_or(Backspace::Released);
+                return match verdict {
+                    Backspace::Released => {
+                        host::with(|h| h.engine.note_backspace());
+                        false
+                    }
+                    Backspace::Deleted | Backspace::Held => true,
+                };
             } else if selector == sel!(deleteWordBackward:)
                 || selector == sel!(deleteToBeginningOfLine:)
             {
@@ -25,7 +44,7 @@ impl QingjianInputController {
             return false;
         }
         if selector == sel!(deleteBackward:) {
-            host::with(|h| h.engine.backspace());
+            host::with(|h| h.engine.backspace(repeat));
             self.refresh(client);
         } else if selector == sel!(deleteWordBackward:) {
             // ⌥⌫：删光标前一个音节

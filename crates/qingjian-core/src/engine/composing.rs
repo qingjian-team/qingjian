@@ -1,5 +1,6 @@
 //! 缓冲区与模式：按键进出、光标移动、表达式 / 英文直输 / 问字等模式判断、标点与上屏链。
 
+use super::backspace::Backspace;
 use super::commit::LastCommit;
 use super::input_log::{INPUT_LOG_VERSION, InputLogEntry, InputLogger, InputSource};
 use super::learning::Learner;
@@ -199,6 +200,9 @@ impl Engine {
             self.page_turns = 0;
             self.retype_snapshot = None;
             self.typing.restart();
+            // 新一段组句：「上一记退格把组句删空」属于上一段，到此作废（issue #932）。
+            // 不清的话，删空 → 打字 → 按住退格的自动重复会被当成「删空后的重复」全吞掉。
+            self.backspace_emptied = false;
             // 翻译框里选着字时开始打拼音：同记事本一样先删掉选中的字，拼音画在原处
             self.remove_panel_selection();
         }
@@ -224,7 +228,33 @@ impl Engine {
     /// 开（缺省）停在辅码态（`;` 仍在、无码词也回来），关则回拼音态。码段本来就空（刚触发，或删空停住）
     /// 时按退格 = 退出辅码态、拼音一个字符都不动。每次退格候选都当场重筛。
     /// 前面有选好还没上屏的词时，退格先撤回最后一次选择（那段拼音接回来），都撤完了才删字母。
-    pub fn backspace(&mut self) -> bool {
+    ///
+    /// `repeat` 是这一记按键**是不是按住不放的自动重复**：各平台的按键事件本身都能分出来
+    /// （Windows 是 `lParam` 的 bit 30、macOS 是 `NSEvent.isARepeat`、安卓是 `KeyEvent.repeatCount`），
+    /// 拿它判断就不会误伤手动连按 —— 手一下一下点，隔多近都照删。
+    ///
+    /// 返回三态而不是 `bool`：把组句删空的那一下之后，自动重复由 [`Backspace::Held`] 拦在输入法里，
+    /// 别让它接着删掉应用里已经上屏的字（见 issue #932）。
+    pub fn backspace(&mut self, repeat: bool) -> Backspace {
+        // 上一记刚把组句删空，这一记又是自动重复：继续吞，手不松就一直吞
+        if repeat && self.backspace_emptied {
+            return Backspace::Held;
+        }
+        // 手动按的一记（或者重复已经断了）：保护到此为止，重新开始算
+        self.backspace_emptied = false;
+        let removed = self.backspace_inner();
+        if removed && self.composition.is_empty() {
+            self.backspace_emptied = true;
+        }
+        if removed {
+            Backspace::Deleted
+        } else {
+            Backspace::Released
+        }
+    }
+
+    /// 退格真正删东西的那部分，与长按保护无关。
+    fn backspace_inner(&mut self) -> bool {
         if let Some(code) = self.aux_code.take() {
             if code.len() > 1 {
                 self.aux_code = Some(code[..code.len() - 1].to_owned());
@@ -267,6 +297,8 @@ impl Engine {
         self.typing.restart();
         self.page_turns = 0;
         self.traditional.forget();
+        // 组句结束了：「刚删空」属于刚才那段，下一记退格删的是应用里的字（issue #932）
+        self.backspace_emptied = false;
     }
 
     /// 这段拼音有没有在组句里被改过（退格删字母、删音节、删到光标后）。
