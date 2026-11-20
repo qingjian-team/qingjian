@@ -55,7 +55,11 @@ impl Engine {
     /// 这些规则生效的前提：只用形码（混输下满码之后的字母还要给拼音）、不在英文 / 辅码态、
     /// 光标在末尾、缓冲区全是字母（问字的 `?`、直输段的 `-` 都不算编码）。
     fn plain_code(&self) -> Option<&CodeScheme> {
-        let scheme = self.code.as_ref().filter(|_| !self.phonetic)?;
+        let scheme = self
+            .scheme
+            .code
+            .as_ref()
+            .filter(|_| !self.scheme.phonetic)?;
         let text = self.composition.text();
         let plain = !self.english_mode
             && self.aux_code.is_none()

@@ -16,7 +16,7 @@ impl Engine {
         patterns: &[qingjian_dictionary::SyllablePattern<'_>],
         typos: bool,
     ) -> Expanded {
-        let mut expanded = self.fuzzy.expand(patterns);
+        let mut expanded = self.scheme.fuzzy.expand(patterns);
         if !typos || !self.settings.spelling_correction {
             return expanded;
         }
@@ -26,7 +26,8 @@ impl Engine {
             .iter()
             .take(patterns.len().saturating_sub(1))
             .any(|p| !p.complete);
-        if self.shuangpin.is_some() || letters < correction::MIN_LETTERS || inner_abbreviated {
+        if self.scheme.shuangpin.is_some() || letters < correction::MIN_LETTERS || inner_abbreviated
+        {
             return expanded;
         }
         for (index, pattern) in patterns.iter().enumerate() {

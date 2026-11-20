@@ -36,7 +36,7 @@ impl Engine {
             text: self.composition.text().to_owned(),
             cursor: self.composition.cursor(),
             rest,
-            decoded_keys: self.shuangpin.is_some() || self.zhuyin,
+            decoded_keys: self.scheme.shuangpin.is_some() || self.scheme.zhuyin,
             shuangpin_raw_preedit: false,
             shuangpin_raw_window: false,
             typed_display: None,
@@ -78,7 +78,7 @@ impl Engine {
             text: self.composition.text().to_owned(),
             cursor: self.composition.cursor(),
             rest,
-            decoded_keys: self.shuangpin.is_some() || self.zhuyin,
+            decoded_keys: self.scheme.shuangpin.is_some() || self.scheme.zhuyin,
             shuangpin_raw_preedit: false,
             shuangpin_raw_window: false,
             typed_display: None,
@@ -122,7 +122,7 @@ impl Engine {
             text: self.composition.text().to_owned(),
             cursor: self.composition.cursor(),
             rest,
-            decoded_keys: self.shuangpin.is_some() || self.zhuyin,
+            decoded_keys: self.scheme.shuangpin.is_some() || self.scheme.zhuyin,
             shuangpin_raw_preedit: false,
             shuangpin_raw_window: false,
             typed_display: None,
@@ -148,7 +148,7 @@ impl Engine {
         rest: String,
         start: Instant,
     ) -> Query {
-        let body = self.modes().question_body(scope, self.zhuyin);
+        let body = self.modes().question_body(scope, self.scheme.zhuyin);
         let prefix = &scope[..scope.len() - body.len()];
         let (candidates, tail) = match shortcut::unicode_form(body) {
             Some(text) => (
@@ -191,7 +191,7 @@ impl Engine {
             text: self.composition.text().to_owned(),
             cursor: self.composition.cursor(),
             rest,
-            decoded_keys: self.shuangpin.is_some() || self.zhuyin,
+            decoded_keys: self.scheme.shuangpin.is_some() || self.scheme.zhuyin,
             shuangpin_raw_preedit: false,
             shuangpin_raw_window: false,
             typed_display: None,

@@ -8,12 +8,12 @@ impl Engine {
     /// 且一处编辑后能凑出至少一个两音节词时，取整句转换得分最高的那个纠正。
     pub(super) fn active_correction(&self, scope: &str) -> Option<Correction> {
         // 双拼敲错一个键换掉的是整个声母 / 韵母，全拼那套「一处编辑」的纠错模型不适用
-        if self.shuangpin.is_some() {
+        if self.scheme.shuangpin.is_some() {
             return None;
         }
         // 形码敲的是字根编码，不是拼音；混输下码长以内可能是编码，超过码长才只剩拼音
-        if let Some(code) = &self.code
-            && (!self.phonetic || scope.len() <= code.code_length)
+        if let Some(code) = &self.scheme.code
+            && (!self.scheme.phonetic || scope.len() <= code.code_length)
         {
             return None;
         }

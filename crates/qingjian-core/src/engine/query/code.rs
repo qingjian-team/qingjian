@@ -16,7 +16,7 @@ impl Engine {
         keys: &str,
         limit: usize,
     ) -> Vec<qingjian_dictionary::Match<'_>> {
-        let Some(scheme) = &self.code else {
+        let Some(scheme) = &self.scheme.code else {
             return Vec::new();
         };
         let mut hits = scheme.table.lookup(keys, limit);
@@ -49,7 +49,7 @@ impl Engine {
 
     /// 同 [`Self::query_code`]，另带回排在最前面的「编码打全」的候选有几条（混输按它分两段）。
     fn query_code_counted(&self, keys: &str, rest: String, start: Instant) -> (Query, usize) {
-        let table = &self.code.as_ref().expect("只在形码方案下调用").table;
+        let table = &self.scheme.code.as_ref().expect("只在形码方案下调用").table;
         // 编码以外的字符（`no-way` 的 `-`）不是编码，交给原样上屏那条路
         if !keys.chars().all(|c| c.is_ascii_lowercase()) {
             return (self.query_raw(keys, rest, start), 0);

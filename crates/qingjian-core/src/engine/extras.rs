@@ -15,10 +15,10 @@ impl Engine {
     /// 整段正好是这几个键时按快捷候选给（#880）。双拼里 `ng` 是 neng，能 留在第一、嗯 排第二；
     /// hm / hng 在双拼里是别的音、注音里不是这些键，都不给。
     fn insert_interjection(&self, items: &mut Vec<Candidate>, scope: &str) {
-        if self.zhuyin {
+        if self.scheme.zhuyin {
             return;
         }
-        let shuangpin = self.shuangpin.is_some();
+        let shuangpin = self.scheme.shuangpin.is_some();
         let (text, at) = match scope {
             "ng" => ("嗯", usize::from(shuangpin)),
             "hng" if !shuangpin => ("哼", 0),
@@ -95,12 +95,13 @@ impl Engine {
 
     /// 日期 / 时间 / 星期这类快捷候选插在本地首选之后：`rq` 首选仍是词库里的词，快捷写法紧随其后。
     pub(super) fn insert_shortcuts(&self, items: &mut Vec<Candidate>, scope: &str) {
-        let expression_char =
-            if self.zhuyin && crate::zhuyin::layout::map_key(self.modes().expression).is_some() {
-                '\0'
-            } else {
-                self.modes().expression
-            };
+        let expression_char = if self.scheme.zhuyin
+            && crate::zhuyin::layout::map_key(self.modes().expression).is_some()
+        {
+            '\0'
+        } else {
+            self.modes().expression
+        };
         self.insert_interjection(items, scope);
         let shortcuts = shortcut::candidates(scope, expression_char, &jiff::Zoned::now());
         if shortcuts.is_empty() {

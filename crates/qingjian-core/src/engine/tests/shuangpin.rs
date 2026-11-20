@@ -1,6 +1,7 @@
 //! 双拼。
 
 use super::*;
+use crate::fuzzy::FuzzyRules;
 
 #[test]
 fn shuangpin_decodes_keys_before_lookup_and_shows_full_pinyin() {

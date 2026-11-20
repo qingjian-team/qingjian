@@ -1,6 +1,7 @@
 //! 查词、切分、光标与上屏消耗。
 
 use super::*;
+use crate::fuzzy::FuzzyRules;
 use crate::ranking::FIRST_SINGLE_CHAR_BY;
 
 #[test]

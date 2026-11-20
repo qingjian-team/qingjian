@@ -37,6 +37,7 @@ mod query;
 mod raw;
 mod reading;
 mod rescoring;
+mod scheme;
 mod session;
 
 mod settings;
@@ -84,11 +85,9 @@ pub use vocabulary::{
 };
 
 use crate::candidate::Language;
-use crate::code_scheme::CodeScheme;
 use crate::composition::Composition;
 use crate::correction::TypoCosts;
 use crate::emoji::EmojiTable;
-use crate::fuzzy::FuzzyRules;
 use crate::history::InputHistory;
 use crate::panel::{NoPanelHistory, PanelGroup, PanelHistory, SymbolPanel, TranslationCache};
 use crate::parser::{self, ParseError, Segmentation};
@@ -159,6 +158,7 @@ pub struct Engine {
     caches: caches::EngineCaches,
     journal: journal::EngineJournal,
     input: input::EngineInput,
+    scheme: scheme::EngineScheme,
 
     /// 联想提供方，缺省为 [`NoPredictor`]。
     predictor: Box<dyn Predictor>,
@@ -233,32 +233,6 @@ pub struct Engine {
 
     /// 连续上屏的链，个人 n-gram 与自动造词靠它。
     chain: CommitChain,
-
-    /// 模糊音开关，缺省全关。
-    fuzzy: FuzzyRules,
-
-    /// 双拼方案，`None` 为全拼。开着时缓冲区里是双拼键，查词前先解成全拼（见 [`crate::shuangpin`]）。
-    shuangpin: Option<Arc<Layout>>,
-
-    /// 注音模式开关，開著時緩衝區裡是注音大千鍵位，查詞前先解成拼音（見 [`crate::zhuyin`]）。
-    zhuyin: bool,
-
-    /// 九宫格方案：缓冲区里是数字键（可混着已选定的字母），见 [`crate::nine_key`]。
-    nine_key: bool,
-
-    /// 九宫格要保住的读法：(当时的缓冲区, 各音节在缓冲区里的起点与写法)。退格把选定的音节退回成数字、
-    /// 点拼音行把光标挪进中间时记下；之后只删键或挪光标时候选与拼音行仍按这些写法排
-    /// （`ni` 退回成 `64` 还读 ni，不换成默认的 mi），见 `unpin_nine_key`、`keep_nine_key_reading`。
-    nine_key_unpinned: Option<(String, Vec<(usize, String)>)>,
-
-    /// 形码方案（五笔或用户导入的）。`Some` 时编码参与查询，按前缀查表（见 [`Engine::query_code`]）。
-    code: Option<CodeScheme>,
-
-    /// 拼音侧（全拼 / 双拼 / 注音）参不参与查询，缺省参与。
-    ///
-    /// 与 `code` 组合出三种情形：只有拼音（形码关）、只有形码（拼音关，`[general] scheme = "none"`）、
-    /// **两边都开 = 混输**（编码打全的形码候选在前，见 [`Engine::query_mixed`]）。两个都关着时按拼音走。
-    phonetic: bool,
 
     /// emoji 表，没有就不出 emoji 候选。
     emoji: Option<EmojiTable>,
@@ -444,6 +418,7 @@ impl Engine {
             caches: caches::EngineCaches::default(),
             journal: journal::EngineJournal::default(),
             input: input::EngineInput::default(),
+            scheme: scheme::EngineScheme::default(),
             predictor: Box::new(NoPredictor),
             translation_predictor: None,
             language_model: Box::new(NoLanguageModel),
@@ -468,13 +443,6 @@ impl Engine {
             prediction_sequence: 0,
             pending_predictions: HashMap::new(),
             chain: CommitChain::default(),
-            fuzzy: FuzzyRules::default(),
-            shuangpin: None,
-            zhuyin: false,
-            nine_key: false,
-            nine_key_unpinned: None,
-            code: None,
-            phonetic: true,
             emoji: None,
             kaomoji: None,
             symbols: None,

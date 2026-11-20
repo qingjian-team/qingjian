@@ -3,6 +3,8 @@
 mod extras;
 mod keys;
 
+use crate::code_scheme::CodeScheme;
+use crate::fuzzy::FuzzyRules;
 use qingjian_dictionary::CodeTable;
 
 use super::*;

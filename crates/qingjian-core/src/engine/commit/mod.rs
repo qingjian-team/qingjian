@@ -495,7 +495,7 @@ impl Engine {
     /// 双拼不记（键与全拼对不上）。
     pub(super) fn accepted_typos(&self, candidate: &Candidate) -> Vec<(String, String)> {
         let keys = self.composition.scope();
-        if self.nine_key || self.decode(keys).is_some() {
+        if self.scheme.nine_key || self.decode(keys).is_some() {
             return Vec::new();
         }
         match self.active_correction(keys) {
@@ -516,7 +516,7 @@ impl Engine {
         candidate: &Candidate,
     ) -> Option<Vec<sentence::SentenceWord>> {
         let scope = self.composition.scope();
-        if self.nine_key {
+        if self.scheme.nine_key {
             return self.nine_key_sentence_words(candidate);
         }
         if self.decode(scope).is_none()
@@ -576,7 +576,7 @@ impl Engine {
     pub(super) fn consumed_by(&self, candidate: &Candidate) -> (usize, String) {
         let keys = self.composition.scope();
         // 九宫格：按音节长度消耗，学习键用候选自己的拼音（与全拼共用）
-        if self.nine_key {
+        if self.scheme.nine_key {
             return (
                 self.nine_key_consumed(candidate),
                 candidate.syllables.concat(),
@@ -695,7 +695,11 @@ impl Engine {
     /// 在 `zj` 下选过 自己 的不被全拼选的 直接 盖过，`cd` 原样上屏的英文也不被全拼选的 才对 挤到后面。
     /// 只有全拼这样记：双拼、注音、九宫格的同一串键是别的意思；不足两个音节或就是敲的那串键时为空串。
     pub(super) fn abbreviation_key(&self, syllables: &[String], input: &str) -> String {
-        if syllables.len() < 2 || self.shuangpin.is_some() || self.zhuyin || self.nine_key {
+        if syllables.len() < 2
+            || self.scheme.shuangpin.is_some()
+            || self.scheme.zhuyin
+            || self.scheme.nine_key
+        {
             return String::new();
         }
         let key: String = syllables.iter().filter_map(|s| s.chars().next()).collect();

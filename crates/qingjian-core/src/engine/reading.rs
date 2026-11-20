@@ -14,8 +14,8 @@ impl Engine {
     /// 开关关着、注音与九宫格（拼音行不是拼音）、不是中文 / 整句 / 云端词、字数与音节数对不上的不给。
     pub fn toned_syllables(&self, candidate: &Candidate) -> Option<Vec<String>> {
         if !self.settings.show_tones
-            || self.zhuyin
-            || self.nine_key
+            || self.scheme.zhuyin
+            || self.scheme.nine_key
             || !matches!(
                 candidate.kind,
                 CandidateKind::Chinese | CandidateKind::Sentence | CandidateKind::Cloud

@@ -1,5 +1,6 @@
 //! 形码的按键规则：满码唯一自动上屏与顶字。
 
+use crate::code_scheme::CodeScheme;
 use qingjian_dictionary::CodeTable;
 
 use super::*;

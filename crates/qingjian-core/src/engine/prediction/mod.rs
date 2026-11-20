@@ -113,7 +113,7 @@ impl Engine {
         };
         let scope = self.composition.scope();
         // 九宫格敲的是数字：问云端用这次查询的拼音行，没查过这段就不发
-        let nine_key_pinyin = if self.nine_key {
+        let nine_key_pinyin = if self.scheme.nine_key {
             let snapshot = self.caches.last_query.borrow();
             match snapshot.as_ref().filter(|s| s.scope == scope) {
                 Some(snapshot) => Some(snapshot.pinyin.clone()),
@@ -123,20 +123,26 @@ impl Engine {
             None
         };
         if self.english_mode
-            || self.modes().is_expression(scope, self.zhuyin)
+            || self.modes().is_expression(scope, self.scheme.zhuyin)
             || (nine_key_pinyin.is_none()
-                && is_raw(scope, self.modes(), self.shuangpin.as_deref(), self.zhuyin))
+                && is_raw(
+                    scope,
+                    self.modes(),
+                    self.scheme.shuangpin.as_deref(),
+                    self.scheme.zhuyin,
+                ))
         {
             return None;
         }
         // 问字模式：问题本身就是全部上下文，不带应用文本、不要整句、本地没有候选可提示
-        let question = self.modes().is_question(scope, self.zhuyin);
+        let question = self.modes().is_question(scope, self.scheme.zhuyin);
         // 不需要云端词或整句补全时不发空的组句请求；候选翻译单独请求。
         if !question && policy.slots == 0 && !policy.sentence {
             return None;
         }
         if question
-            && (shortcut::unicode_form(self.modes().question_body(scope, self.zhuyin)).is_some()
+            && (shortcut::unicode_form(self.modes().question_body(scope, self.scheme.zhuyin))
+                .is_some()
                 || self.english_word_candidate(scope).is_some())
         {
             // 码点输入本地出字符、整段是英文词本地出词，都不问云端
@@ -145,7 +151,7 @@ impl Engine {
         let (kind, pinyin_source, before, after) = if question {
             (
                 PredictionKind::Question,
-                self.modes().question_body(scope, self.zhuyin),
+                self.modes().question_body(scope, self.scheme.zhuyin),
                 String::new(),
                 String::new(),
             )

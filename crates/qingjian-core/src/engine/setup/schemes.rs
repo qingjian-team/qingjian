@@ -18,29 +18,29 @@ impl Engine {
 
     /// 設置是否啟用注音模式。開啟後鍵盤輸入按大千佈局解析。
     pub fn set_zhuyin_mode(&mut self, on: bool) {
-        if self.zhuyin != on {
+        if self.scheme.zhuyin != on {
             self.chain.clear_code_words();
         }
-        self.zhuyin = on;
+        self.scheme.zhuyin = on;
         self.forget_span_cache();
     }
 
     /// 目前是否處於注音模式。
     pub fn is_zhuyin_mode(&self) -> bool {
-        self.zhuyin
+        self.scheme.zhuyin
     }
 
     /// 九宫格方案开关（手机 9 键）。与双拼、注音一样是输入方案，不是模式。
     pub fn set_nine_key(&mut self, on: bool) {
-        if self.nine_key != on {
+        if self.scheme.nine_key != on {
             self.chain.clear_code_words();
         }
-        self.nine_key = on;
+        self.scheme.nine_key = on;
         self.forget_span_cache();
     }
 
     pub fn is_nine_key(&self) -> bool {
-        self.nine_key
+        self.scheme.nine_key
     }
 
     /// 设繁体输出：候选与上屏文本在出 Core 时换成繁体，词库与学习数据仍是简体（见 [`crate::traditional`]）。
@@ -59,14 +59,14 @@ impl Engine {
     /// 换形码方案，`None` 回到拼音的诸方案。编码与拼音是两套键，纠错缓存一并清掉。
     pub fn set_code_scheme(&mut self, scheme: Option<CodeScheme>) {
         self.chain.reset();
-        self.code = scheme;
+        self.scheme.code = scheme;
         *self.caches.correction.borrow_mut() = None;
         self.forget_span_cache();
     }
 
     /// 只改当前形码方案的按键规则，不换码表；没装形码时什么也不做。
     pub fn set_code_rules(&mut self, auto_commit: bool, top: bool) {
-        if let Some(code) = &mut self.code {
+        if let Some(code) = &mut self.scheme.code {
             code.auto_commit = auto_commit;
             code.top = top;
         }
@@ -74,38 +74,38 @@ impl Engine {
 
     /// 当前的形码码表；`None` 表示走拼音（全拼 / 双拼 / 注音）。
     pub fn code_table(&self) -> Option<&CodeTable> {
-        self.code.as_ref().map(|scheme| &scheme.table)
+        self.scheme.code.as_ref().map(|scheme| &scheme.table)
     }
 
     /// 当前的形码方案。
     pub fn code_scheme(&self) -> Option<&CodeScheme> {
-        self.code.as_ref()
+        self.scheme.code.as_ref()
     }
 
     /// 是否处在形码方案下。
     pub fn is_code_mode(&self) -> bool {
-        self.code.is_some()
+        self.scheme.code.is_some()
     }
 
     /// 拼音侧参不参与查询。形码开着时把它关掉就是「只用形码」（`[general] scheme = "none"`）；
     /// 两边都开是混输，见 [`Self::set_code_scheme`] 与 `query_mixed`。
     pub fn set_phonetic(&mut self, on: bool) {
-        if self.phonetic != on {
+        if self.scheme.phonetic != on {
             self.chain.reset();
         }
-        self.phonetic = on;
+        self.scheme.phonetic = on;
         *self.caches.correction.borrow_mut() = None;
         self.forget_span_cache();
     }
 
     pub fn is_phonetic(&self) -> bool {
-        self.phonetic
+        self.scheme.phonetic
     }
 
     /// 判斷注音模式下目前是否還需要輸入聲調。
     /// 供殼（平台層）用來判斷空白鍵是應該進緩衝區作為聲調，還是直接用來選詞。
     pub fn zhuyin_needs_tone(&self) -> bool {
-        if !self.zhuyin {
+        if !self.scheme.zhuyin {
             return false;
         }
         let raw = self.composition.text();
@@ -125,21 +125,26 @@ impl Engine {
     pub fn takes_semicolon(&self) -> bool {
         let body = self
             .modes()
-            .question_body(self.composition.scope(), self.zhuyin);
-        self.shuangpin
+            .question_body(self.composition.scope(), self.scheme.zhuyin);
+        self.scheme
+            .shuangpin
             .as_deref()
             .filter(|layout| layout.uses_semicolon())
-            .is_some_and(|layout| layout.decode_fuzzy(body, &self.fuzzy).pending_initial())
+            .is_some_and(|layout| {
+                layout
+                    .decode_fuzzy(body, &self.scheme.fuzzy)
+                    .pending_initial()
+            })
     }
 
     /// 只用形码：码表挂着、拼音侧关着。
     pub(in crate::engine) fn code_only(&self) -> bool {
-        self.code.is_some() && !self.phonetic
+        self.scheme.code.is_some() && !self.scheme.phonetic
     }
 
     /// 混输：码表挂着、拼音侧也开着。
     pub(in crate::engine) fn mixed(&self) -> bool {
-        self.code.is_some() && self.phonetic
+        self.scheme.code.is_some() && self.scheme.phonetic
     }
 
     /// 有效的模式键：只用形码时所有字母都是字根键，只剩 `?` 开头的问字；
@@ -147,7 +152,7 @@ impl Engine {
     pub(in crate::engine) fn modes(&self) -> ModeKeys {
         if self.code_only() {
             self.modes.letterless()
-        } else if self.shuangpin.is_some() || self.mixed() {
+        } else if self.scheme.shuangpin.is_some() || self.mixed() {
             self.modes.shifted()
         } else {
             self.modes
@@ -158,8 +163,8 @@ impl Engine {
     /// 壳只在中文模式、Caps 灭时问。
     pub fn takes_mode_letter(&self, c: char) -> bool {
         let modes = self.modes();
-        (self.shuangpin.is_some() || self.mixed())
-            && !self.zhuyin
+        (self.scheme.shuangpin.is_some() || self.mixed())
+            && !self.scheme.zhuyin
             && (c == modes.expression || c == modes.question)
     }
 

@@ -1,5 +1,6 @@
 //! 形码方案下的附加候选：emoji 按上屏的字词配，`rq` / `sj` / `xq` 的快捷写法排在打全编码的字词后面。
 
+use crate::code_scheme::CodeScheme;
 use qingjian_dictionary::CodeTable;
 
 use super::super::*;

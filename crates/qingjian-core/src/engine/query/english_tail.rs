@@ -49,7 +49,7 @@ impl Engine {
     /// `nanine` 回到 `na ni ne` 的拼音读法，`kaifarust` 不再出 开发rust（#766）。
     pub(crate) fn split_english_tail(&self, scope: &str) -> Option<EnglishTail> {
         if !self.settings.english_in_chinese
-            || self.shuangpin.is_some()
+            || self.scheme.shuangpin.is_some()
             || scope.len() < MIN_ENGLISH_TAIL_HEAD_LETTERS + MIN_ENGLISH_TAIL_LETTERS
             || !scope.bytes().all(|b| b.is_ascii_lowercase())
         {

@@ -144,20 +144,20 @@ impl Engine {
     }
 
     pub fn with_fuzzy(mut self, rules: FuzzyRules) -> Self {
-        self.fuzzy = rules;
+        self.scheme.fuzzy = rules;
         self
     }
 
     /// 换模糊音规则：格子缓存里的代价随写法变，一起作废。
     pub fn set_fuzzy(&mut self, rules: FuzzyRules) {
-        if self.fuzzy != rules {
+        if self.scheme.fuzzy != rules {
             self.forget_span_cache();
         }
-        self.fuzzy = rules;
+        self.scheme.fuzzy = rules;
     }
 
     pub fn fuzzy(&self) -> &FuzzyRules {
-        &self.fuzzy
+        &self.scheme.fuzzy
     }
 
     pub fn with_translator(mut self, translator: Box<dyn Translator>) -> Self {

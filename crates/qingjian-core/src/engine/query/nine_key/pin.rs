@@ -37,7 +37,7 @@ impl Engine {
             pinned.push('\'');
         }
         pinned.push_str(&rest);
-        self.nine_key_unpinned = None;
+        self.scheme.nine_key_unpinned = None;
         self.replace_nine_key_input(&pinned);
         if !rest.is_empty() {
             self.composition.move_to(cursor);
@@ -53,7 +53,7 @@ impl Engine {
     pub(in crate::engine) fn unpin_nine_key(&mut self) -> bool {
         let text = self.composition.text();
         let cursor = self.composition.cursor();
-        if !self.nine_key || cursor == 0 {
+        if !self.scheme.nine_key || cursor == 0 {
             return false;
         }
         let (before, after) = text.split_at(cursor);
@@ -75,7 +75,7 @@ impl Engine {
         // 光标后记着的读法跟着挪：去掉的 `'` 让它们前移
         let shift = text.len() - before.len() - after.len();
         let mut kept = vec![(start, spelling)];
-        if let Some((buffer, syllables)) = &self.nine_key_unpinned
+        if let Some((buffer, syllables)) = &self.scheme.nine_key_unpinned
             && buffer == text
         {
             kept.extend(
@@ -91,7 +91,7 @@ impl Engine {
         if has_after {
             self.composition.move_to(cursor);
         }
-        self.nine_key_unpinned = Some((input, kept));
+        self.scheme.nine_key_unpinned = Some((input, kept));
         true
     }
 
@@ -101,7 +101,7 @@ impl Engine {
         let text = self.composition.text();
         let at = self.composition.cursor();
         let removed = before.len() - text.len();
-        let Some((buffer, syllables)) = &mut self.nine_key_unpinned else {
+        let Some((buffer, syllables)) = &mut self.scheme.nine_key_unpinned else {
             return;
         };
         if buffer != before || removed == 0 {
@@ -148,7 +148,7 @@ impl Engine {
             syllables.push((start, syllable.to_owned()));
             letters += syllable.chars().count();
         }
-        if let Some((buffer, kept)) = &mut self.nine_key_unpinned
+        if let Some((buffer, kept)) = &mut self.scheme.nine_key_unpinned
             && buffer == text
         {
             let overlaps = |kept: &[(usize, String)], start: usize, len: usize| {
@@ -162,14 +162,15 @@ impl Engine {
             }
             return;
         }
-        self.nine_key_unpinned = (!syllables.is_empty()).then(|| (text.to_owned(), syllables));
+        self.scheme.nine_key_unpinned =
+            (!syllables.is_empty()).then(|| (text.to_owned(), syllables));
     }
 
     /// 要保住的读法（[`Self::unpin_nine_key`]、[`Self::keep_nine_key_reading`]）还在、之后只删过键或挪过光标：
     /// 读得上越多这些写法的候选越靠前（同样多的保持原来的相对顺序），拼音行跟着首选读。
     /// 删到某个位置只剩前几个键时按写法同样长的开头比（`64` 删成 `6` 还偏向 n）。
     pub(super) fn prefer_unpinned(&self, items: &mut [Candidate], shape: Option<&Shape>) {
-        let Some((buffer, syllables)) = &self.nine_key_unpinned else {
+        let Some((buffer, syllables)) = &self.scheme.nine_key_unpinned else {
             return;
         };
         let keys = self.composition.text();
@@ -211,7 +212,7 @@ impl Engine {
             return;
         };
         let start = before.rfind('\'').map_or(0, |i| i + 1);
-        if !self.nine_key
+        if !self.scheme.nine_key
             || before.len() == start
             || !before[start..].bytes().all(|b| b.is_ascii_lowercase())
         {
@@ -224,7 +225,7 @@ impl Engine {
     /// 拼音行上从头起几个字是选定的音节（含它们之间的 `'`，不含前面留着的词）：缓冲区开头连着的全字母段。
     /// 选定只发生在第一个没定下来的位置，所以选定的总在前面。不在九宫格时为 0。
     pub fn nine_key_pinned(&self) -> usize {
-        if !self.nine_key {
+        if !self.scheme.nine_key {
             return 0;
         }
         let mut pinned = 0;

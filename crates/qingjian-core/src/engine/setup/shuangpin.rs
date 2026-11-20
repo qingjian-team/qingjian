@@ -12,15 +12,15 @@ impl Engine {
 
     /// 设双拼键位（内置或用户方案），`None` 回到全拼。纠错缓存按作用域记而作用域的含义变了，一并清掉。
     pub fn set_shuangpin_layout(&mut self, layout: Option<Arc<Layout>>) {
-        if self.shuangpin != layout {
+        if self.scheme.shuangpin != layout {
             self.chain.clear_code_words();
         }
-        self.shuangpin = layout;
+        self.scheme.shuangpin = layout;
         *self.caches.correction.borrow_mut() = None;
     }
 
     pub fn shuangpin(&self) -> Option<&Layout> {
-        self.shuangpin.as_deref()
+        self.scheme.shuangpin.as_deref()
     }
     /// 换双拼 preedit 显示形式：开着时显示原始按键（如 `ljse`），关着（缺省）展开成全拼（`lan'se`）。
     pub fn set_shuangpin_raw_preedit(&mut self, enabled: bool) {

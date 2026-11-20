@@ -49,9 +49,9 @@ impl Engine {
                 Query::custom_only(
                     &self.composition.typed_text(),
                     self.composition.cursor(),
-                    self.shuangpin.is_some() || self.zhuyin,
-                    self.shuangpin.is_some() && self.settings.shuangpin_raw_preedit,
-                    self.shuangpin.is_some() && self.settings.shuangpin_raw_window,
+                    self.scheme.shuangpin.is_some() || self.scheme.zhuyin,
+                    self.scheme.shuangpin.is_some() && self.settings.shuangpin_raw_preedit,
+                    self.scheme.shuangpin.is_some() && self.settings.shuangpin_raw_window,
                     self.composition.scope(),
                     self.marked_rest(self.composition.rest()),
                 )
@@ -104,7 +104,7 @@ impl Engine {
         // 九宫格没有切分，拼音取拼音行（首选读到的写法），云联想也用它问
         let pinyin = match (&query.correction, &query.typed_display) {
             (Some(correction), _) => correction.segmentation.joined("'"),
-            (None, Some(display)) if self.nine_key => display.clone(),
+            (None, Some(display)) if self.scheme.nine_key => display.clone(),
             (None, _) => join_marked(&query.segmentations, &query.tail),
         };
         *self.caches.last_query.borrow_mut() = Some(QuerySnapshot {
@@ -137,23 +137,28 @@ impl Engine {
             return Ok(self.query_english(keys, rest, start));
         }
         // 九宫格的数字不是英文直输段，要赶在原样上屏那条路之前分岔
-        if self.nine_key {
+        if self.scheme.nine_key {
             return Ok(self.query_nine_key(keys, rest, start));
         }
-        if self.modes().is_expression(keys, self.zhuyin) {
+        if self.modes().is_expression(keys, self.scheme.zhuyin) {
             return Ok(self.query_expression(keys, rest, start));
         }
-        if self.modes().is_question(keys, self.zhuyin) {
+        if self.modes().is_question(keys, self.scheme.zhuyin) {
             return Ok(self.query_question(keys, rest, start));
         }
-        if is_raw(keys, self.modes(), self.shuangpin.as_deref(), self.zhuyin) {
+        if is_raw(
+            keys,
+            self.modes(),
+            self.scheme.shuangpin.as_deref(),
+            self.scheme.zhuyin,
+        ) {
             return Ok(self.query_raw(keys, rest, start));
         }
         // 形码与拼音是两条平行的管线，在进切分之前分岔。放在这里是为了让 `?` 问字与
         // `-` 直输段仍然先分派出去：形码下 `v` / `u` / `i` 是字根键，模式键已由 `modes()` 让位。
-        match self.code.is_some() {
+        match self.scheme.code.is_some() {
             // 只用形码：拼音侧整个不走（`[general] scheme = "none"`）
-            true if !self.phonetic => Ok(self.query_code(keys, rest, start)),
+            true if !self.scheme.phonetic => Ok(self.query_code(keys, rest, start)),
             // 混输：两边都出候选
             true => self.query_mixed(keys, rest, start),
             false => self.query_phonetic(keys, rest, start),

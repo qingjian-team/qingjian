@@ -119,17 +119,18 @@ impl Engine {
     /// 日志里必须能分辨这几种：形码那些行的「拼音」列其实是编码，回放要照着它装配引擎，
     /// 混输的行两边都要装配。形码键单独出现是「只用形码」，不是「全拼 + 形码」。
     pub(super) fn scheme_key(&self) -> String {
-        let phonetic = if self.zhuyin {
+        let phonetic = if self.scheme.zhuyin {
             "zhuyin".to_owned()
         } else {
-            self.shuangpin
+            self.scheme
+                .shuangpin
                 .as_deref()
                 .map_or_else(String::new, |layout| layout.key().to_owned())
         };
-        let Some(code) = &self.code else {
+        let Some(code) = &self.scheme.code else {
             return phonetic;
         };
-        if !self.phonetic {
+        if !self.scheme.phonetic {
             return code.key.clone();
         }
         let base = if phonetic.is_empty() {
@@ -195,7 +196,7 @@ impl Engine {
 
     pub fn push(&mut self, c: char) {
         // 打了新键：退回成数字的音节不再偏向用户之前选的写法
-        self.nine_key_unpinned = None;
+        self.scheme.nine_key_unpinned = None;
         if self.composition.is_empty() {
             // 新一段组句：从这一键起算耗时、翻页与重打
             self.input.composition_started = Some(Instant::now());
@@ -274,7 +275,10 @@ impl Engine {
         if self.unpin_nine_key() {
             return true;
         }
-        let before = self.nine_key.then(|| self.composition.text().to_owned());
+        let before = self
+            .scheme
+            .nine_key
+            .then(|| self.composition.text().to_owned());
         let removed = self.composition.backspace();
         if removed {
             if let Some(before) = before {
@@ -327,8 +331,8 @@ impl Engine {
         let cursor = self.composition.cursor();
         let before = &self.composition.text()[..cursor];
         let plain =
-            self.raw_mode() || self.expression_mode() || self.question_mode() || self.zhuyin;
-        let len = unit_len_before(before, self.shuangpin.is_some(), plain);
+            self.raw_mode() || self.expression_mode() || self.question_mode() || self.scheme.zhuyin;
+        let len = unit_len_before(before, self.scheme.shuangpin.is_some(), plain);
         let removed = self.composition.delete_before_cursor(len);
         if removed {
             self.chain.note_edit();
@@ -341,8 +345,8 @@ impl Engine {
         let cursor = self.composition.cursor();
         let before = &self.composition.text()[..cursor];
         let plain =
-            self.raw_mode() || self.expression_mode() || self.question_mode() || self.zhuyin;
-        let len = unit_len_before(before, self.shuangpin.is_some(), plain);
+            self.raw_mode() || self.expression_mode() || self.question_mode() || self.scheme.zhuyin;
+        let len = unit_len_before(before, self.scheme.shuangpin.is_some(), plain);
         len > 0 && (0..len).all(|_| self.composition.move_left())
     }
 
@@ -351,8 +355,8 @@ impl Engine {
         let cursor = self.composition.cursor();
         let after = &self.composition.text()[cursor..];
         let plain =
-            self.raw_mode() || self.expression_mode() || self.question_mode() || self.zhuyin;
-        let len = unit_len_after(after, self.shuangpin.is_some(), plain);
+            self.raw_mode() || self.expression_mode() || self.question_mode() || self.scheme.zhuyin;
+        let len = unit_len_after(after, self.scheme.shuangpin.is_some(), plain);
         len > 0 && (0..len).all(|_| self.composition.move_right())
     }
 
@@ -384,7 +388,7 @@ impl Engine {
         !self.has_custom_phrase()
             && self
                 .modes()
-                .is_expression(self.composition.text(), self.zhuyin)
+                .is_expression(self.composition.text(), self.scheme.zhuyin)
     }
 
     /// `vbit:` 这类子模式只在全拼下认。
@@ -392,7 +396,7 @@ impl Engine {
     /// 双拼的 `;` 是 ing 键、注音里字母是另一个键位、形码里字母都是字根 —— 那些方案把带
     /// 冒号的串当子模式解析，会把正常输入吃掉。
     pub(in crate::engine) fn expression_sub_modes(&self) -> bool {
-        self.shuangpin.is_none() && !self.zhuyin && self.code.is_none()
+        self.scheme.shuangpin.is_none() && !self.scheme.zhuyin && self.scheme.code.is_none()
     }
     /// 表达式模式下这个字符进算式（数字与运算符），壳据此决定交给 [`Self::push`] 还是当选词键。
     /// `vuuid`、`vts` 不是算式：数字留给选词；但分号要收，`vts;2026-11-05` 得能接着敲参数。
@@ -416,8 +420,8 @@ impl Engine {
         is_raw(
             self.composition.text(),
             self.modes(),
-            self.shuangpin.as_deref(),
-            self.zhuyin,
+            self.scheme.shuangpin.as_deref(),
+            self.scheme.zhuyin,
         )
     }
 
@@ -426,17 +430,17 @@ impl Engine {
         !self.has_custom_phrase()
             && self
                 .modes()
-                .is_question(self.composition.text(), self.zhuyin)
+                .is_question(self.composition.text(), self.scheme.zhuyin)
     }
 
     /// 问字模式下正在敲的还可能是 Unicode 码点（前缀后为空，或到目前为止全是十六进制 / 开头 `+`）：
     /// 此时壳应把数字交给 [`Self::push`] 而不是当选词键。全是字母又拆得出字（`udada`）时数字留给选字。
     pub fn unicode_entry(&self) -> bool {
         let text = self.composition.text();
-        if !self.modes().is_question(text, self.zhuyin) {
+        if !self.modes().is_question(text, self.scheme.zhuyin) {
             return false;
         }
-        let body = self.modes().question_body(text, self.zhuyin);
+        let body = self.modes().question_body(text, self.scheme.zhuyin);
         shortcut::could_be_unicode(body)
             && !(body.bytes().all(|b| b.is_ascii_alphabetic()) && crate::chaizi::has_match(body))
     }

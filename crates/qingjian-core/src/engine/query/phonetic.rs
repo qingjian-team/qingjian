@@ -108,10 +108,10 @@ impl Engine {
                     text: self.composition.text().to_owned(),
                     cursor: self.composition.cursor(),
                     rest,
-                    decoded_keys: self.shuangpin.is_some() || self.zhuyin,
-                    shuangpin_raw_preedit: self.shuangpin.is_some()
+                    decoded_keys: self.scheme.shuangpin.is_some() || self.scheme.zhuyin,
+                    shuangpin_raw_preedit: self.scheme.shuangpin.is_some()
                         && self.settings.shuangpin_raw_preedit,
-                    shuangpin_raw_window: self.shuangpin.is_some()
+                    shuangpin_raw_window: self.scheme.shuangpin.is_some()
                         && self.settings.shuangpin_raw_window,
                     typed_display: decoded.as_ref().map(|d| d.marked()),
                     typed_case: None,
@@ -237,7 +237,7 @@ impl Engine {
             }
             // 词级候选只按敲的原样与模糊音查，敲错变体只进整句词图（它的候选从那边插进来）：
             // 词级排序把音节数对得上的排最前，敲错命中的词（`kaif` → 咖啡）会把更长的原样词挤到后面
-            let expanded = self.fuzzy.expand(&patterns);
+            let expanded = self.scheme.fuzzy.expand(&patterns);
             let positions = expanded.positions();
             let abbreviated = abbreviated_count(&patterns);
             // 没有替代写法时每条命中都是敲的原音节，`penalty` 直接给 0（单字母简拼能命中几万条）
@@ -255,7 +255,7 @@ impl Engine {
             // 末音节读成它的模糊音写法（`zi` 开 z-zh 读成 zhi）也算打完的末音节：否则模糊音命中的常用字
             // 全排在原样读音的几百个生僻字之后，预选还会把它们砍掉（`li` 开 n-l 的 你 进不了前 500）
             let last_readings = if last.complete {
-                self.fuzzy.readings(&last.text)
+                self.scheme.fuzzy.readings(&last.text)
             } else {
                 Vec::new()
             };
@@ -571,9 +571,11 @@ impl Engine {
             text: self.composition.text().to_owned(),
             cursor: self.composition.cursor(),
             rest,
-            decoded_keys: self.shuangpin.is_some() || self.zhuyin,
-            shuangpin_raw_preedit: self.shuangpin.is_some() && self.settings.shuangpin_raw_preedit,
-            shuangpin_raw_window: self.shuangpin.is_some() && self.settings.shuangpin_raw_window,
+            decoded_keys: self.scheme.shuangpin.is_some() || self.scheme.zhuyin,
+            shuangpin_raw_preedit: self.scheme.shuangpin.is_some()
+                && self.settings.shuangpin_raw_preedit,
+            shuangpin_raw_window: self.scheme.shuangpin.is_some()
+                && self.settings.shuangpin_raw_window,
             typed_display,
             typed_case,
             pinyin_choices: Vec::new(),

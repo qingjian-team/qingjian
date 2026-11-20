@@ -14,12 +14,16 @@ impl Engine {
         if query.text != self.composition.text() {
             return false;
         }
-        let Some(cursor) = text_cursor(query, index, self.shuangpin.is_some(), self.nine_key)
-        else {
+        let Some(cursor) = text_cursor(
+            query,
+            index,
+            self.scheme.shuangpin.is_some(),
+            self.scheme.nine_key,
+        ) else {
             return false;
         };
         self.composition.move_to(cursor);
-        if self.nine_key {
+        if self.scheme.nine_key {
             // 拼音行按显示写法（`lü`），记成词库写法
             let typed: String = query
                 .marked_text()

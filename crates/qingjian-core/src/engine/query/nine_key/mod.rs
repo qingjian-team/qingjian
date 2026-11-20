@@ -167,6 +167,7 @@ impl Engine {
         };
         let offset = self.composition.scope().len() + (rest.len() - keys.len());
         let kept = self
+            .scheme
             .nine_key_unpinned
             .as_ref()
             .filter(|(buffer, _)| buffer == self.composition.text())

@@ -107,7 +107,7 @@ impl Engine {
     fn syllable_steps(&self, rest: &str, syllable: &str) -> Vec<(usize, bool)> {
         let mut steps = Vec::new();
         // 整段就是这个音节的模糊音变体时先吃满：`qing` 选 勤（qin）不能只吃 `qin` 把 `g` 留下
-        if self.fuzzy.is_variant(rest, syllable) {
+        if self.scheme.fuzzy.is_variant(rest, syllable) {
             steps.push((rest.len(), false));
         }
         let exact = rest.get(..syllable.len()).is_some_and(|typed| {
@@ -127,7 +127,7 @@ impl Engine {
                 continue;
             }
             let typed = &rest[..len];
-            if self.fuzzy.is_variant(typed, syllable) {
+            if self.scheme.fuzzy.is_variant(typed, syllable) {
                 steps.push((len, false));
             } else if typo::is_variant(typed, syllable) {
                 steps.push((len, true));
