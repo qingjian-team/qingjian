@@ -226,6 +226,25 @@ jobs:
       - name: Shellcheck
         run: shellcheck -S warning $(git ls-files "*.sh")
 
+  # 架构依赖方向静态校验：只跑 cargo metadata 解析依赖图，不编译，不需要 apt 依赖或构建缓存。
+  # 规则清单与豁免口径见 docs/dependency-rules.md，存量豁免在 tools/deps-allowlist.toml；
+  # 新增未登记的分层违规或依赖环，这一步当场红。脚本不硬编码 --offline：runner 正常拉取
+  # crates.io 解析 metadata，与本地离线跑（--offline）是同一份规则。
+  architecture:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
+        with:
+          toolchain: 1.96.0
+
+      - name: Architecture dependency rules
+        run: python3 tools/check_deps.py
+
   macos:
     # 与 release.yml 的发版 job 用同一个 label（那边是 macos-26）。同一个仓库里 macOS 侧
     # 只应有一个版本：`macos-latest` 会随 GitHub 的 runner 策略漂移，CI 跑在一个版本、
