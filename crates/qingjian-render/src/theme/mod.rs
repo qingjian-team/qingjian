@@ -6,309 +6,43 @@
 //! 渲染时引用不到的颜色、样式退回缺省值，加载时 [`validate`] 先把这类问题记成警告。
 
 mod assets;
+mod builtins;
+mod colors;
 mod error;
 mod extends;
 pub(crate) mod file;
 mod font;
+mod fonts;
 mod jsonc;
 mod keyboard;
 mod library;
+mod meta;
 mod text_sizes;
 mod validate;
 
-use std::path::{Path, PathBuf};
+#[cfg(test)]
+mod characterize;
+#[cfg(test)]
+mod tests;
+
+use std::path::Path;
 use std::sync::{Arc, OnceLock};
 
-use bamboo_slip::tiny_skia::Pixmap;
-use bamboo_slip::{Color, FamilyTable, FontSpec, FontWeight, SvgImage};
+use bamboo_slip::FontWeight;
+use font::FontFamilies;
 
 pub use error::ThemeError;
-use font::FontFamilies;
 pub use keyboard::KeyboardColors;
 pub use library::ThemeLibrary;
 pub use text_sizes::TextSizes;
 
 use assets::Assets;
-use file::{ColorRef, FontRef, LockedAppearance, SCHEMA, ThemeFile};
+use builtins::{ROOT_THEME, builtin_files, builtin_source, builtins};
+use file::{SCHEMA, ThemeFile};
 
-/// 内置主题编进程序的图片：主题里写的路径与文件内容。
-type EmbeddedFiles = &'static [(&'static str, &'static [u8])];
-
-/// 内置主题：id、源文件与图片，按设置界面列出的顺序；第一个是缺省主题。
-const BUILTINS: [(&str, &str, EmbeddedFiles); 10] = [
-    (
-        "qingjian",
-        include_str!("../../themes/qingjian/theme.json"),
-        &[],
-    ),
-    (
-        "system-blue",
-        include_str!("../../themes/system-blue/theme.json"),
-        &[],
-    ),
-    (
-        "wechat",
-        include_str!("../../themes/wechat/theme.json"),
-        &[],
-    ),
-    (
-        "sujian",
-        include_str!("../../themes/sujian/theme.json"),
-        &[],
-    ),
-    ("glass", include_str!("../../themes/glass/theme.json"), &[]),
-    ("slate", include_str!("../../themes/slate/theme.json"), &[]),
-    (
-        "sakura",
-        include_str!("../../themes/sakura/theme.json"),
-        &[
-            (
-                "images/character.png",
-                include_bytes!("../../themes/sakura/images/character.png"),
-            ),
-            (
-                "images/charm.png",
-                include_bytes!("../../themes/sakura/images/charm.png"),
-            ),
-            (
-                "images/cat.png",
-                include_bytes!("../../themes/sakura/images/cat.png"),
-            ),
-            (
-                "images/blossom.png",
-                include_bytes!("../../themes/sakura/images/blossom.png"),
-            ),
-            (
-                "images/bow.svg",
-                include_bytes!("../../themes/sakura/images/bow.svg"),
-            ),
-            (
-                "images/crown.svg",
-                include_bytes!("../../themes/sakura/images/crown.svg"),
-            ),
-            (
-                "images/heart.svg",
-                include_bytes!("../../themes/sakura/images/heart.svg"),
-            ),
-            (
-                "images/sparkle.svg",
-                include_bytes!("../../themes/sakura/images/sparkle.svg"),
-            ),
-            (
-                "images/petal.svg",
-                include_bytes!("../../themes/sakura/images/petal.svg"),
-            ),
-            (
-                "images/moon.svg",
-                include_bytes!("../../themes/sakura/images/moon.svg"),
-            ),
-            (
-                "images/chevron-left.svg",
-                include_bytes!("../../themes/sakura/images/chevron-left.svg"),
-            ),
-            (
-                "images/chevron-right.svg",
-                include_bytes!("../../themes/sakura/images/chevron-right.svg"),
-            ),
-        ],
-    ),
-    (
-        "dafeiyu",
-        include_str!("../../themes/dafeiyu/theme.json"),
-        &[
-            (
-                "images/girl-side.png",
-                include_bytes!("../../themes/dafeiyu/images/girl-side.png"),
-            ),
-            (
-                "images/girl-sleep.png",
-                include_bytes!("../../themes/dafeiyu/images/girl-sleep.png"),
-            ),
-            (
-                "images/girl-top.png",
-                include_bytes!("../../themes/dafeiyu/images/girl-top.png"),
-            ),
-            (
-                "images/bubble.svg",
-                include_bytes!("../../themes/dafeiyu/images/bubble.svg"),
-            ),
-            (
-                "images/chevron-down.svg",
-                include_bytes!("../../themes/dafeiyu/images/chevron-down.svg"),
-            ),
-            (
-                "images/chevron-left.svg",
-                include_bytes!("../../themes/dafeiyu/images/chevron-left.svg"),
-            ),
-            (
-                "images/chevron-right.svg",
-                include_bytes!("../../themes/dafeiyu/images/chevron-right.svg"),
-            ),
-            (
-                "images/heart.svg",
-                include_bytes!("../../themes/dafeiyu/images/heart.svg"),
-            ),
-            (
-                "images/keyboard.svg",
-                include_bytes!("../../themes/dafeiyu/images/keyboard.svg"),
-            ),
-            (
-                "images/moon.svg",
-                include_bytes!("../../themes/dafeiyu/images/moon.svg"),
-            ),
-            (
-                "images/settings.svg",
-                include_bytes!("../../themes/dafeiyu/images/settings.svg"),
-            ),
-            (
-                "images/speech-bubble.svg",
-                include_bytes!("../../themes/dafeiyu/images/speech-bubble.svg"),
-            ),
-            (
-                "images/waves.svg",
-                include_bytes!("../../themes/dafeiyu/images/waves.svg"),
-            ),
-            (
-                "images/whale.svg",
-                include_bytes!("../../themes/dafeiyu/images/whale.svg"),
-            ),
-        ],
-    ),
-    (
-        "miku",
-        include_str!("../../themes/miku/theme.json"),
-        &[
-            (
-                "images/miku-side.png",
-                include_bytes!("../../themes/miku/images/miku-side.png"),
-            ),
-            (
-                "images/miku-sleep.png",
-                include_bytes!("../../themes/miku/images/miku-sleep.png"),
-            ),
-            (
-                "images/miku-top.png",
-                include_bytes!("../../themes/miku/images/miku-top.png"),
-            ),
-            (
-                "images/chevron-left.svg",
-                include_bytes!("../../themes/miku/images/chevron-left.svg"),
-            ),
-            (
-                "images/chevron-right.svg",
-                include_bytes!("../../themes/miku/images/chevron-right.svg"),
-            ),
-            (
-                "images/corner-accent.svg",
-                include_bytes!("../../themes/miku/images/corner-accent.svg"),
-            ),
-            (
-                "images/equalizer.svg",
-                include_bytes!("../../themes/miku/images/equalizer.svg"),
-            ),
-            (
-                "images/keyboard.svg",
-                include_bytes!("../../themes/miku/images/keyboard.svg"),
-            ),
-            (
-                "images/moon.svg",
-                include_bytes!("../../themes/miku/images/moon.svg"),
-            ),
-            (
-                "images/music-note.svg",
-                include_bytes!("../../themes/miku/images/music-note.svg"),
-            ),
-            (
-                "images/panel-horizontal.svg",
-                include_bytes!("../../themes/miku/images/panel-horizontal.svg"),
-            ),
-            (
-                "images/panel-status.svg",
-                include_bytes!("../../themes/miku/images/panel-status.svg"),
-            ),
-            (
-                "images/panel-vertical.svg",
-                include_bytes!("../../themes/miku/images/panel-vertical.svg"),
-            ),
-            (
-                "images/settings.svg",
-                include_bytes!("../../themes/miku/images/settings.svg"),
-            ),
-        ],
-    ),
-    (
-        "bocchi",
-        include_str!("../../themes/bocchi/theme.json"),
-        &[
-            (
-                "images/amp.png",
-                include_bytes!("../../themes/bocchi/images/amp.png"),
-            ),
-            (
-                "images/girl-box.png",
-                include_bytes!("../../themes/bocchi/images/girl-box.png"),
-            ),
-            (
-                "images/girl-side.png",
-                include_bytes!("../../themes/bocchi/images/girl-side.png"),
-            ),
-            (
-                "images/girl-top.png",
-                include_bytes!("../../themes/bocchi/images/girl-top.png"),
-            ),
-            (
-                "images/audio-cable.svg",
-                include_bytes!("../../themes/bocchi/images/audio-cable.svg"),
-            ),
-            (
-                "images/chevron-left.svg",
-                include_bytes!("../../themes/bocchi/images/chevron-left.svg"),
-            ),
-            (
-                "images/chevron-right.svg",
-                include_bytes!("../../themes/bocchi/images/chevron-right.svg"),
-            ),
-            (
-                "images/keyboard.svg",
-                include_bytes!("../../themes/bocchi/images/keyboard.svg"),
-            ),
-            (
-                "images/note-gold.svg",
-                include_bytes!("../../themes/bocchi/images/note-gold.svg"),
-            ),
-            (
-                "images/note.svg",
-                include_bytes!("../../themes/bocchi/images/note.svg"),
-            ),
-            (
-                "images/pick.svg",
-                include_bytes!("../../themes/bocchi/images/pick.svg"),
-            ),
-            (
-                "images/settings.svg",
-                include_bytes!("../../themes/bocchi/images/settings.svg"),
-            ),
-            (
-                "images/star-pink.svg",
-                include_bytes!("../../themes/bocchi/images/star-pink.svg"),
-            ),
-            (
-                "images/star.svg",
-                include_bytes!("../../themes/bocchi/images/star.svg"),
-            ),
-        ],
-    ),
-];
-
-/// 最底层的主题：没写 `extends` 的主题都以它为底，它自己不再往下找。
-const ROOT_THEME: &str = "qingjian";
-
-/// 引用不到的文字样式退回这个（点）。
-const FALLBACK_FONT: FontSpec = FontSpec::new(16.0, 19.0);
-
+/// 解析后的主题文件，同一主题的浅色 / 深色共用。
 #[derive(Debug, Clone)]
 pub struct Theme {
-    /// 解析后的主题文件，同一主题的浅色 / 深色共用。
     file: Arc<ThemeFile>,
 
     /// 用深色那一套值。
@@ -319,7 +53,7 @@ pub struct Theme {
     assets: Arc<OnceLock<Assets>>,
 
     /// 内置主题编进程序的图片；别的主题为空。
-    embedded: EmbeddedFiles,
+    embedded: builtins::EmbeddedFiles,
 
     /// 字族表与命名样式，同一主题的浅色 / 深色共用。
     families: Arc<FontFamilies>,
@@ -417,10 +151,7 @@ impl Theme {
 
     /// 同一主题换上设置里的字号。
     pub fn with_text_sizes(&self, sizes: TextSizes) -> Self {
-        Self {
-            sizes,
-            ..self.clone()
-        }
+        Self { sizes, ..self.clone() }
     }
 
     /// 同一主题换上设置里的候选字字重（100–900）；`None` 用主题的。
@@ -444,11 +175,6 @@ impl Theme {
         }
     }
 
-    /// 主题自己写的字重（不算设置里的）：设置界面拿它当字重框的初始值。
-    pub fn theme_weight(&self, name: &str) -> Option<u16> {
-        self.families.style(name).map(|spec| spec.weight.0)
-    }
-
     /// 同一主题换上设置里的动画开关。
     pub fn with_animations(&self, animations: bool) -> Self {
         Self {
@@ -457,335 +183,7 @@ impl Theme {
         }
     }
 
-    pub(crate) fn animations(&self) -> bool {
-        self.animations
-    }
-
-    /// 设置里的候选字号相对主题的比例：表格行高与键位提示键盘跟着它缩放。
-    pub(crate) fn candidate_scale(&self) -> f32 {
-        self.sizes.ratio("candidate", |name| self.theme_size(name))
-    }
-
-    /// 主题自己写的字号（不算设置里的）：设置界面拿它当字号框的初始值。
-    pub fn theme_size(&self, name: &str) -> Option<f32> {
-        self.families.style(name).map(|spec| spec.size)
-    }
-
-    /// 手机键盘每个键的圆角（主题 `keyboard.touch_key_radius`，点）；主题没写是 `None`，手机壳用自己的缺省。
-    pub fn touch_key_radius(&self) -> Option<f32> {
-        self.file.keyboard.touch_key_radius
-    }
-
-    /// 手机键盘整块的圆角（主题 `keyboard.touch_radius`，点）；主题没写是 `None`。
-    pub fn touch_radius(&self) -> Option<f32> {
-        self.file.keyboard.touch_radius
-    }
-
-    /// 主题 id。
-    pub fn id(&self) -> &str {
-        &self.file.meta.id
-    }
-
-    /// 显示名。
-    pub fn name(&self) -> &str {
-        &self.file.meta.name
-    }
-
-    pub fn author(&self) -> &str {
-        &self.file.meta.author
-    }
-
-    /// SPDX 许可证标识。
-    pub fn license(&self) -> &str {
-        &self.file.meta.license
-    }
-
-    /// 样式里写到的系统字族名（不含 `system`）。壳按名字查出字体文件，交给 [`crate::Renderer::load_theme_fonts`]。
-    /// 主题变量按当前外观取的颜色（`surface`、`accent`…）；没有这个变量时为 `None`。
-    /// 渲染器之外还要配色的地方用（手机壳的候选条底色、键盘）。
-    pub fn variable(&self, name: &str) -> Option<Color> {
-        self.file
-            .variables
-            .get(name)
-            .map(|value| value.get(self.dark).0)
-    }
-
-    pub fn font_families(&self) -> Vec<String> {
-        self.families.table().names()
-    }
-
-    /// 随主题带的字体文件（已检查在主题目录里）。
-    pub fn font_files(&self) -> &[PathBuf] {
-        self.assets().fonts()
-    }
-
-    fn assets(&self) -> &Assets {
-        self.assets.get_or_init(|| {
-            if self.embedded.is_empty() {
-                Assets::default()
-            } else {
-                Assets::embedded(&self.file, self.embedded)
-            }
-        })
-    }
-
     fn default_builtin() -> &'static Theme {
         &builtins()[0]
-    }
-
-    /// 锁定的外观：`Some(true)` 只有深色，`Some(false)` 只有浅色。
-    pub(crate) fn locked_dark(&self) -> Option<bool> {
-        self.file
-            .meta
-            .appearance
-            .map(|appearance| appearance == LockedAppearance::Dark)
-    }
-
-    pub(crate) fn file(&self) -> &ThemeFile {
-        &self.file
-    }
-
-    /// 颜色引用按当前外观取值；变量不存在时透明。
-    pub(crate) fn color(&self, color: &ColorRef) -> Color {
-        match color {
-            ColorRef::Literal(color) => *color,
-            ColorRef::Variable(name) => self
-                .file
-                .variables
-                .get(name)
-                .map_or(Color::rgba(0, 0, 0, 0), |value| value.get(self.dark).0),
-        }
-    }
-
-    /// 主题里写的图片路径对应的位图；没有、没读进来或是 SVG 时为 `None`。
-    pub(crate) fn image(&self, path: &str) -> Option<Arc<Pixmap>> {
-        self.assets().image(path)
-    }
-
-    /// 主题里写的 SVG 图片；没有、没读进来或不是 SVG 时为 `None`。
-    pub(crate) fn svg(&self, path: &str) -> Option<Arc<SvgImage>> {
-        self.assets().svg(path)
-    }
-
-    /// 命名文字样式（点）。
-    pub(crate) fn font(&self, name: &str) -> FontSpec {
-        let spec = self.style(name).unwrap_or(FALLBACK_FONT);
-        text_sizes::scaled(spec, self.sizes.ratio(name, |base| self.theme_size(base)))
-    }
-
-    /// 主题里的命名样式，候选字换上设置里的字重。
-    fn style(&self, name: &str) -> Option<FontSpec> {
-        let spec = self.families.style(name)?;
-        Some(match self.candidate_weight {
-            Some(weight) if name == "candidate" => FontSpec { weight, ..spec },
-            _ => spec,
-        })
-    }
-
-    /// 字族表，画笔按 [`bamboo_slip::FamilyId`] 查回退链；两份 `Theme` 共用同一张表时指针相同。
-    pub(crate) fn families(&self) -> &Arc<FamilyTable> {
-        self.families.table()
-    }
-
-    /// 节点里的 `font`：样式名，或在样式上改字号 / 字重。
-    /// 在样式上写死的字号也按设置里那个样式的比例缩放（手机候选条在 `candidate` 上写 19 点，用户调大候选字号时它跟着大）。
-    pub(crate) fn font_ref(&self, font: &FontRef) -> FontSpec {
-        let Some(name) = font.base() else {
-            return font.apply(FALLBACK_FONT);
-        };
-        let ratio = self.sizes.ratio(name, |base| self.theme_size(base));
-        let base = self.style(name).unwrap_or(FALLBACK_FONT);
-        text_sizes::scaled(font.apply(base), ratio)
-    }
-
-    /// 当前外观下的文字覆盖率 gamma。
-    pub(crate) fn text_gamma(&self) -> f32 {
-        self.file.text.gamma.get(self.dark)
-    }
-}
-
-/// 解析好的内置主题，第一次用到时解析。内置主题是随包的，解析失败是 bug。
-fn builtins() -> &'static [Theme] {
-    static THEMES: OnceLock<Vec<Theme>> = OnceLock::new();
-    THEMES.get_or_init(|| {
-        BUILTINS
-            .iter()
-            .map(|(id, source, files)| {
-                let mut theme = Theme::from_json(source, false)
-                    .unwrap_or_else(|error| panic!("内置主题 {id} 解析失败：{error}"));
-                debug_assert_eq!(theme.id(), *id, "内置主题 id 与目录名不一致");
-                theme.embedded = files;
-                theme
-            })
-            .collect()
-    })
-}
-
-/// 内置主题编进程序的图片；不是内置主题为空。
-fn builtin_files(id: &str) -> EmbeddedFiles {
-    BUILTINS
-        .iter()
-        .find(|(builtin, ..)| *builtin == id)
-        .map_or(&[], |(.., files)| *files)
-}
-
-/// `extends` 按 id 找内置主题的源文件。
-fn builtin_source(id: &str) -> Option<&'static str> {
-    BUILTINS
-        .iter()
-        .find(|(builtin, ..)| *builtin == id)
-        .map(|(_, source, _)| *source)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn builtin_themes_parse_without_problems() {
-        for theme in Theme::builtins() {
-            assert!(
-                validate::problems(theme.file()).is_empty(),
-                "{}: {:?}",
-                theme.id(),
-                validate::problems(theme.file())
-            );
-        }
-        assert_eq!(Theme::builtins().len(), BUILTINS.len());
-        let theme = Theme::light();
-        assert_eq!(theme.id(), "qingjian");
-        assert!(Theme::builtin("wechat", true).is_some());
-        assert!(Theme::builtin("nope", false).is_none());
-        assert_eq!(
-            theme.color(&ColorRef::Variable("accent".to_owned())),
-            Color::rgba(148, 190, 82, 127)
-        );
-        assert_eq!(
-            Theme::dark().color(&ColorRef::Variable("accent".to_owned())),
-            Color::rgb(51, 111, 51)
-        );
-    }
-
-    #[test]
-    fn theme_file_accepts_comments_trailing_commas_and_schema_key() {
-        let theme = Theme::from_json(
-            r##"{
-                "$schema": "https://qingjian.app/schema/theme-1.json",
-                "extends": "qingjian", // 以青简绿为底
-                "schema": 1,
-                "meta": { "id": "jsonc", "name": "注释", },
-                /* 只改高亮色 */
-                "variables": { "accent": "#ffb7d5", },
-            }"##,
-            false,
-        )
-        .unwrap();
-        assert_eq!(theme.id(), "jsonc");
-        assert_eq!(
-            theme.color(&ColorRef::Variable("accent".to_owned())),
-            Color::rgb(0xff, 0xb7, 0xd5)
-        );
-    }
-
-    #[test]
-    fn builtin_images_are_all_embedded() {
-        for theme in Theme::builtins() {
-            for path in assets::image_paths(theme.file()) {
-                assert!(
-                    theme.image(&path).is_some() || theme.svg(&path).is_some(),
-                    "内置主题 {} 用到的 {path} 没有编进程序",
-                    theme.id()
-                );
-            }
-        }
-    }
-
-    #[test]
-    fn user_theme_inherits_builtin_images() {
-        let dir = std::env::temp_dir().join("qingjian-theme-inherits-sakura");
-        let _ = std::fs::remove_dir_all(&dir);
-        std::fs::create_dir_all(&dir).unwrap();
-        std::fs::write(
-            dir.join("theme.json"),
-            r##"{ "extends": "sakura", "schema": 1, "meta": { "id": "my-sakura", "name": "我的樱花" },
-                 "variables": { "text": "#000000" } }"##,
-        )
-        .unwrap();
-        let theme = Theme::from_dir(&dir, false).unwrap();
-        assert!(theme.image("images/character.png").is_some());
-        assert!(theme.svg("images/heart.svg").is_some());
-        let _ = std::fs::remove_dir_all(&dir);
-    }
-
-    #[test]
-    fn user_theme_without_extends_builds_on_qingjian() {
-        let theme = Theme::from_json(
-            r##"{ "schema": 1, "meta": { "id": "red", "name": "红" }, "variables": { "accent": "#ff0000" } }"##,
-            false,
-        )
-        .unwrap();
-        assert_eq!(
-            theme.color(&ColorRef::Variable("accent".to_owned())),
-            Color::rgb(255, 0, 0)
-        );
-        assert_eq!(theme.font("candidate"), Theme::light().font("candidate"));
-    }
-
-    #[test]
-    fn text_sizes_scale_styles_and_rows() {
-        let theme = Theme::light();
-        let (candidate, index, annotation) = (
-            theme.font("candidate"),
-            theme.font("index"),
-            theme.font("annotation"),
-        );
-        let ratio = 26.0 / candidate.size;
-        let sized = theme.with_text_sizes(TextSizes::new(26.0, 0.0));
-        assert_eq!(sized.font("candidate").size, 26.0);
-        assert_eq!(
-            sized.font("candidate").line_height,
-            candidate.line_height * ratio
-        );
-        assert_eq!(sized.font("index").size, index.size * ratio);
-        assert_eq!(sized.font("annotation"), annotation);
-        assert_eq!(sized.candidate_scale(), ratio);
-        // 换外观不丢设置里的字号
-        assert_eq!(sized.with_dark(true).font("candidate").size, 26.0);
-        // 在样式上写死的字号（手机候选条）按同一比例缩放
-        let inline: FontRef =
-            serde_json::from_str(r#"{ "base": "candidate", "size": 19, "line_height": 23 }"#)
-                .unwrap();
-        assert_eq!(theme.font_ref(&inline).size, 19.0);
-        assert_eq!(sized.font_ref(&inline).size, 19.0 * ratio);
-        assert_eq!(sized.font_ref(&inline).line_height, 23.0 * ratio);
-        // 不是正数当没填
-        assert_eq!(TextSizes::new(-1.0, f32::NAN), TextSizes::default());
-    }
-
-    #[test]
-    fn candidate_weight_overrides_the_candidate_style_only() {
-        let theme = Theme::light();
-        let bold = theme.with_candidate_weight(Some(700));
-        assert_eq!(bold.font("candidate").weight, FontWeight(700));
-        assert_eq!(bold.font("annotation"), theme.font("annotation"));
-        assert_eq!(
-            bold.with_dark(true).font("candidate").weight,
-            FontWeight(700)
-        );
-        assert_eq!(
-            bold.theme_weight("candidate"),
-            theme.theme_weight("candidate")
-        );
-        // 节点上自己写了字重的不动，只写字号的跟着设置
-        let semibold: FontRef =
-            serde_json::from_str(r#"{ "base": "candidate", "weight": "semibold" }"#).unwrap();
-        assert_eq!(bold.font_ref(&semibold).weight, FontWeight(600));
-        let sized: FontRef =
-            serde_json::from_str(r#"{ "base": "candidate", "size": 19 }"#).unwrap();
-        assert_eq!(bold.font_ref(&sized).weight, FontWeight(700));
-        assert_eq!(
-            theme.with_candidate_weight(None).font("candidate"),
-            theme.font("candidate")
-        );
     }
 }

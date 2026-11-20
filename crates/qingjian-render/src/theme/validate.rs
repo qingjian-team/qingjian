@@ -31,27 +31,27 @@ pub(super) fn problems(file: &ThemeFile) -> Vec<String> {
     }
     let panel = &file.panel;
     for font in [
-        &panel.label_font,
-        &panel.hint_font,
-        &panel.item_font,
-        &panel.wide_item_font,
+        &panel.fonts.label_font,
+        &panel.fonts.hint_font,
+        &panel.fonts.item_font,
+        &panel.fonts.wide_item_font,
     ] {
         check.font(font, "panel");
     }
-    for fill in [&panel.background, &panel.pill_fill, &panel.highlight] {
+    for fill in [&panel.paint.background, &panel.paint.pill_fill, &panel.paint.highlight] {
         for color in fill.colors() {
             check.spec(color, "panel");
         }
     }
     for color in [
-        &panel.text,
-        &panel.label,
-        &panel.hint,
-        &panel.pill_text,
-        &panel.underline_color,
-        &panel.divider,
-        &panel.close_fill,
-        &panel.close_icon,
+        &panel.paint.text,
+        &panel.paint.label,
+        &panel.paint.hint,
+        &panel.paint.pill_text,
+        &panel.paint.underline_color,
+        &panel.paint.divider,
+        &panel.paint.close_fill,
+        &panel.paint.close_icon,
     ] {
         check.color(color, "panel");
     }

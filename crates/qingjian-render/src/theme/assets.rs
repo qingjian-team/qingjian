@@ -193,7 +193,11 @@ pub(super) fn image_paths(file: &ThemeFile) -> Vec<String> {
         collect(root, &mut paths);
     }
     let panel = &file.panel;
-    for fill in [&panel.background, &panel.pill_fill, &panel.highlight] {
+    for fill in [
+        &panel.paint.background,
+        &panel.paint.pill_fill,
+        &panel.paint.highlight,
+    ] {
         if let FillSpec::Image { image, .. } = fill {
             paths.push(image.clone());
         }
