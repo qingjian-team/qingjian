@@ -1,12 +1,12 @@
 //! 候选窗口：不抢焦点、置顶的分层窗口，跟随光标，画拼音行与候选列表，四周柔和阴影。
 //! 缺省交给青简渲染器出位图再贴（[`super::painter`]），配置 `renderer = "system"` 时走 GDI：绘制在 [`view`]，
-//! 配色 / 字体在 [`theme`]。绘制内容在 [`RenderData`]，一行的展示形态在 [`row`]。设计语言对齐 macOS 端。
+//! 配色 / 字体在 [`theme`]。绘制内容在 [`RenderData`]，展示形态（序号、译词、矩阵标号）由
+//! `qingjian_render::CandidateView` 从帧换算，与 TSF 进程内候选窗共用。设计语言对齐 macOS 端。
 
 pub(super) mod click;
 mod key_hint;
 mod menu;
 mod render_data;
-pub(crate) mod row;
 pub(crate) mod theme;
 pub(crate) mod view;
 

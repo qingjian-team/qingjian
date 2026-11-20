@@ -7,6 +7,7 @@
 
 #![forbid(unsafe_code)]
 
+mod candidate_view;
 mod frame;
 mod icon;
 mod keyboard;
@@ -22,6 +23,7 @@ mod theme;
 #[cfg(target_os = "windows")]
 pub use bamboo_slip::system_fonts;
 pub use bamboo_slip::{Color, FontLibrary, FontSpec, Pixmap, RenderError, UiFont};
+pub use candidate_view::{CandidateView, row_from_candidate};
 pub use frame::{Frame, Mode, Preedit, PreeditSegment, PreeditStyle, Row, Tone};
 pub use keyboard::{Keyboard, Keycap, KeycapState, Root};
 pub use layout::Layout;

@@ -1,12 +1,14 @@
-//! 候选窗口一次绘制要用的全部内容，由帧换算而来；渲染器要的帧由 [`RenderData::render_frame`] 再换一次。
+//! 候选窗口一次绘制要用的内容：配色与字体（GDI 画法用）＋展示数据。
+//!
+//! 展示数据（拼音行、候选行、页码、整句补全）由 `qingjian_render::CandidateView` 从协议帧换算，
+//! 与 TSF 进程内候选窗共用同一份换算，免得两处各写一遍「序号 / 译词 / 矩阵标号」。
 
+use std::ops::Deref;
 use std::rc::Rc;
 
-use qingjian_platform::protocol::{Frame, PreeditKind};
-use qingjian_platform::{Appearance, LayoutMode};
-use qingjian_render::{Mode, Preedit, PreeditSegment, PreeditStyle, Row};
+use qingjian_platform::protocol::Frame;
+use qingjian_render::{CandidateView, Mode};
 
-use super::row;
 use super::theme::Theme;
 
 /// 一次绘制要用的全部内容。
@@ -14,202 +16,33 @@ pub(crate) struct RenderData {
     /// 配色与字体（随 DPI / 深浅重建）。
     pub(super) theme: Rc<Theme>,
 
-    /// 顶部拼音行的各段。
-    pub(super) preedit: Vec<(String, PreeditKind)>,
-
-    /// 光标在拼音行里的字符位置。
-    pub(super) cursor: usize,
-
-    /// 候选行。
-    pub(super) rows: Vec<Row>,
-
-    /// 高亮行下标（页内）。
-    pub(super) highlight: usize,
-
-    /// 页码，只有多页时有。
-    pub(super) footer: Option<String>,
-
-    /// 往前 / 往后还有页：主题把翻不动的箭头画淡。
-    pub(super) pages_around: (bool, bool),
-
-    /// 整句补全，画在拼音行右侧。
-    pub(super) sentence: Option<String>,
-
-    /// 屏幕提示（删候选后的「已删除…」），画在拼音行下方。
-    pub(super) notice: Option<String>,
-
-    /// 候选排布。
-    pub(super) layout: LayoutMode,
-
-    /// 矩阵每行几格（`> 0` 是横排展开成矩阵）；单行为 0。
-    pub(super) columns: usize,
-
-    /// 矩阵各列留几个候选字宽（整份候选估的，移动高亮时不变，窗口才不跳）。
-    pub(super) column_ems: Vec<f32>,
-
-    /// 外观；`System` 由窗口按系统深浅色解析。
-    pub(super) appearance: Appearance,
-
-    /// 候选上是否显示辅码（随帧下发的 `[general] aux_code_show`）。
-    pub(super) show_code: bool,
-
-    /// 译词旁是否显示词性标注（随帧下发的 `[general] translation_pos`）。
-    pub(super) show_pos: bool,
-
-    /// 英文候选的 `reading` 是音标、用淡色画（随帧下发的 `[general] show_english_pronunciation`）。
-    pub(super) english_reading_ipa: bool,
-
-    /// 输入状态，给主题显示中 / 英、简 / 繁等。
-    pub(super) mode: Mode,
+    /// 帧换算出来的展示数据。
+    view: CandidateView,
 }
 
 impl RenderData {
     pub(super) fn empty(theme: Rc<Theme>) -> Self {
         Self {
             theme,
-            preedit: Vec::new(),
-            cursor: 0,
-            rows: Vec::new(),
-            highlight: usize::MAX,
-            footer: None,
-            pages_around: (false, false),
-            sentence: None,
-            notice: None,
-            layout: LayoutMode::default(),
-            columns: 0,
-            column_ems: Vec::new(),
-            appearance: Appearance::default(),
-            show_code: false,
-            show_pos: true,
-            english_reading_ipa: false,
-            mode: Mode::default(),
+            view: CandidateView::default(),
         }
     }
 
     pub(super) fn set(&mut self, frame: &Frame, mode: Mode) {
-        self.mode = mode;
-        self.layout = frame.layout;
-        self.appearance = frame.appearance;
-        self.show_code = frame.aux_code_show;
-        self.show_pos = frame.translation_pos;
-        self.english_reading_ipa = frame.english_reading_ipa;
-        self.preedit = window_preedit(frame);
-        self.cursor = frame
-            .window_preedit
-            .as_ref()
-            .map_or(frame.cursor, |window| window.1);
-        self.columns = frame.columns;
-        self.column_ems = frame.column_ems.clone();
-        let grid = frame.columns > 0;
-        // 矩阵里序号只标在高亮所在那一行（数字键选的就是它），空位什么都不画；单行照旧全标
-        let highlight_row = grid.then(|| frame.highlight / frame.columns);
-        self.rows = frame
-            .candidates
-            .items
-            .iter()
-            .enumerate()
-            .map(|(i, candidate)| {
-                let mut row = row::from_candidate(
-                    if grid { i % frame.columns } else { i },
-                    candidate,
-                    self.show_code,
-                    self.show_pos,
-                    self.english_reading_ipa,
-                );
-                row.diff = frame.differs.get(i).cloned().unwrap_or_default();
-                if grid {
-                    let labelled =
-                        Some(i / frame.columns) == highlight_row && !candidate.text.is_empty();
-                    if !labelled {
-                        row.index = String::new();
-                    }
-                }
-                row
-            })
-            .collect();
-        self.highlight = frame.highlight;
-        self.footer =
-            (frame.page_count > 1).then(|| format!("{}/{}", frame.page + 1, frame.page_count));
-        self.pages_around = (frame.page > 0, frame.page + 1 < frame.page_count);
-        self.sentence = frame.sentence.clone();
-        self.notice = frame.notice.clone();
+        self.view.set(frame, mode);
     }
 
-    /// 渲染器要的帧。提示（删了什么词）在渲染器里画在拼音行右侧，与 macOS 一致。
+    /// 渲染器要的帧。
     pub(super) fn render_frame(&self) -> qingjian_render::Frame {
-        let preedit = (!self.preedit.is_empty()).then(|| Preedit {
-            segments: self
-                .preedit
-                .iter()
-                .map(|(text, kind)| PreeditSegment {
-                    text: text.clone(),
-                    style: match kind {
-                        PreeditKind::Typed => PreeditStyle::Typed,
-                        PreeditKind::Rest => PreeditStyle::Rest,
-                        PreeditKind::Corrected => PreeditStyle::Struck,
-                        PreeditKind::AuxCode => PreeditStyle::AuxCode,
-                    },
-                })
-                .collect(),
-            cursor: self.cursor,
-        });
-        qingjian_render::Frame {
-            preedit,
-            rows: self.rows.clone(),
-            // 协议里 usize::MAX 表示不高亮。
-            highlighted: (self.highlight != usize::MAX).then_some(self.highlight),
-            columns: self.columns,
-            column_ems: self.column_ems.clone(),
-            footer: self.footer.clone(),
-            previous_page: self.pages_around.0,
-            next_page: self.pages_around.1,
-            sentence: self.sentence.clone(),
-            status: self.notice.clone(),
-            mode: self.mode.clone(),
-            reversed: false,
-        }
+        self.view.render_frame()
     }
 }
 
-/// 窗口顶部要画的拼音行：`[general] preedit` 配成「只在行内」时为空（拼音已经在应用里）；
-/// 整句补全仍画在这一行上，所以空行时窗口仍可能留出这条线。
-fn window_preedit(frame: &Frame) -> Vec<(String, PreeditKind)> {
-    if !frame.preedit_mode.in_window() {
-        return Vec::new();
-    }
-    // 带调拼音时窗口里画另一串，应用里的行内拼音仍是 `preedit`
-    frame
-        .window_preedit
-        .as_ref()
-        .map_or(&frame.preedit, |window| &window.0)
-        .iter()
-        .map(|segment| (segment.text.clone(), segment.kind))
-        .collect()
-}
+/// 绘制代码按展示数据的字段读（`data.rows`、`data.preedit`……），与搬去共享层之前一样。
+impl Deref for RenderData {
+    type Target = CandidateView;
 
-#[cfg(test)]
-mod tests {
-    use qingjian_platform::PreeditMode;
-    use qingjian_platform::protocol::{Frame, PreeditKind, PreeditSegment};
-
-    use super::window_preedit;
-
-    fn frame(mode: PreeditMode) -> Frame {
-        Frame {
-            preedit: vec![PreeditSegment {
-                text: "ni'hao".to_owned(),
-                kind: PreeditKind::Typed,
-            }],
-            preedit_mode: mode,
-            ..Frame::default()
-        }
-    }
-
-    /// 只有「只在行内」不给窗口拼音行；另两档窗口都得画。
-    #[test]
-    fn window_keeps_the_pinyin_row_unless_inline_only() {
-        assert_eq!(window_preedit(&frame(PreeditMode::Both)).len(), 1);
-        assert_eq!(window_preedit(&frame(PreeditMode::Window)).len(), 1);
-        assert!(window_preedit(&frame(PreeditMode::Inline)).is_empty());
+    fn deref(&self) -> &Self::Target {
+        &self.view
     }
 }
