@@ -14,8 +14,8 @@ fn assert_raw(engine: &mut Engine, text: &str, cursor_bytes: usize) {
     let logged = Arc::new(Mutex::new(Vec::new()));
     let metered = Arc::new(Mutex::new(Vec::new()));
     engine.learner = MutedLearner::new(Box::new(ObservedLearner(learned.clone())));
-    engine.logger = MutedLogger::new(Box::new(MemoryLogger(logged.clone())));
-    engine.meter = Box::new(MemoryMeter(metered.clone()));
+    engine.journal.logger = MutedLogger::new(Box::new(MemoryLogger(logged.clone())));
+    engine.journal.meter = Box::new(MemoryMeter(metered.clone()));
     let composition = engine.composition().clone();
     let aux = engine.aux_code.clone();
     let history = engine.history.text().to_owned();
@@ -23,8 +23,8 @@ fn assert_raw(engine: &mut Engine, text: &str, cursor_bytes: usize) {
     let last_rescored = engine.caches.last_rescored.get();
     let displayed = engine.displayed.clone();
     let correction = engine.caches.correction.borrow().clone();
-    let recent = engine.recent_commits.len();
-    let log_sequence = engine.log_sequence;
+    let recent = engine.journal.recent_commits.len();
+    let log_sequence = engine.journal.log_sequence;
     for _ in 0..3 {
         let raw = engine.raw_preedit();
         assert_eq!(raw.text, text);
@@ -37,8 +37,8 @@ fn assert_raw(engine: &mut Engine, text: &str, cursor_bytes: usize) {
         assert_eq!(engine.caches.last_rescored.get(), last_rescored);
         assert_eq!(engine.displayed, displayed);
         assert_eq!(*engine.caches.correction.borrow(), correction);
-        assert_eq!(engine.recent_commits.len(), recent);
-        assert_eq!(engine.log_sequence, log_sequence);
+        assert_eq!(engine.journal.recent_commits.len(), recent);
+        assert_eq!(engine.journal.log_sequence, log_sequence);
         assert!(learned.lock().unwrap().is_empty());
         assert!(logged.lock().unwrap().is_empty());
         assert!(metered.lock().unwrap().is_empty());

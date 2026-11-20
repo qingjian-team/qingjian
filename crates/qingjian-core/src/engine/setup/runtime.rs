@@ -70,18 +70,18 @@ impl Engine {
     }
 
     pub fn with_input_logger(mut self, logger: Box<dyn InputLogger>) -> Self {
-        self.logger.replace(logger);
+        self.journal.logger.replace(logger);
         self
     }
 
     /// 运行时换输入日志的落盘方（开关、清空之后）。旧的先 flush。
     pub fn set_input_logger(&mut self, logger: Box<dyn InputLogger>) {
-        self.logger.flush();
-        self.logger.replace(logger);
+        self.journal.logger.flush();
+        self.journal.logger.replace(logger);
     }
 
     pub fn input_logger_mut(&mut self) -> &mut dyn InputLogger {
-        self.logger.inner_mut()
+        self.journal.logger.inner_mut()
     }
 
     /// 符号面板「常用」按这份记录排，从面板上屏的条目记进去（见 [`Self::commit`]）。
@@ -91,7 +91,7 @@ impl Engine {
     }
 
     pub fn with_usage_meter(mut self, meter: Box<dyn UsageMeter>) -> Self {
-        self.meter = meter;
+        self.journal.meter = meter;
         self
     }
 
@@ -103,7 +103,7 @@ impl Engine {
 
     /// 输入统计的汇总（偏好设置「统计」页）。
     pub fn usage_summary(&self) -> UsageSummary {
-        self.meter.summary()
+        self.journal.meter.summary()
     }
 
     pub fn with_vocabulary_tracker(mut self, tracker: Box<dyn VocabularyTracker>) -> Self {

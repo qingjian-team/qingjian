@@ -23,6 +23,7 @@ mod follow_up;
 mod gloss;
 mod held;
 mod input_log;
+mod journal;
 mod key_hint;
 mod learning;
 mod marked;
@@ -156,6 +157,7 @@ pub struct Engine {
     contacts: Option<crate::ContactBook>,
     settings: settings::EngineSettings,
     caches: caches::EngineCaches,
+    journal: journal::EngineJournal,
 
     /// 联想提供方，缺省为 [`NoPredictor`]。
     predictor: Box<dyn Predictor>,
@@ -206,20 +208,6 @@ pub struct Engine {
     typo_costs: TypoCosts,
 
     /// 最近几次上屏各记了哪些学习、之后退格了几个字；用户把它们删掉重选时把学习退回去（见 [`Self::note_backspace`]）。
-    /// 最新的在末尾，最多留 [`RECENT_COMMITS`] 条。
-    recent_commits: Vec<LastCommit>,
-
-    /// 本次 commit 里记下的词转移，commit 结束时搬进 `last_commit`。
-    recording: Vec<Transition>,
-
-    /// 输入日志的落盘方；缺省不记，私密输入期间一律不记（[`input_log::MutedLogger`]）。
-    logger: input_log::MutedLogger,
-
-    /// 私密输入中（见 [`Self::set_private`]）：不学、不记、不发云端。
-    private: bool,
-
-    /// 输入日志条目的序号。
-    log_sequence: u64,
 
     /// 这段组句里第一次退格前的缓冲区：上屏时与最终键串不同就记一条 `retype`。
     retype_snapshot: Option<String>,
@@ -239,18 +227,6 @@ pub struct Engine {
     /// 上一记退格是不是正好把组句删空了：下一记如果是自动重复就吞掉，
     /// 别让它接着删应用里已经上屏的字。
     backspace_emptied: bool,
-
-    /// 输入统计用的键数与打字时长。
-    typing: statistics::Typing,
-
-    /// 正在输入的应用标识，壳在焦点变化时给；写进输入日志。
-    application: Option<String>,
-
-    /// 上次记 `break` 之后有没有上屏过：没有就不再记，免得失焦一次记一条。
-    committed_since_break: bool,
-
-    /// 输入统计的累计方（打了多少字）；缺省不记。
-    meter: Box<dyn UsageMeter>,
 
     /// 学习语言的词汇记录（见过 / 上屏过哪些译词）；缺省不记也不标生词。
     vocabulary: Box<dyn VocabularyTracker>,
@@ -487,6 +463,7 @@ impl Engine {
             contacts: None,
             settings: settings::EngineSettings::default(),
             caches: caches::EngineCaches::default(),
+            journal: journal::EngineJournal::default(),
             predictor: Box::new(NoPredictor),
             translation_predictor: None,
             language_model: Box::new(NoLanguageModel),
@@ -504,25 +481,16 @@ impl Engine {
             search_limits: sentence::SearchLimits::DEFAULT,
             neural_context: RESCORE_CONTEXT_CHARS,
             phrase_model: None,
-            recent_commits: Vec::new(),
-            logger: input_log::MutedLogger::new(Box::new(NoInputLogger)),
-            private: false,
-            log_sequence: 0,
             retype_snapshot: None,
             held: Vec::new(),
             passthrough_pending: String::new(),
             page_turns: 0,
             composition_started: None,
             backspace_emptied: false,
-            typing: statistics::Typing::default(),
-            application: None,
-            committed_since_break: false,
-            meter: Box::new(NoUsageMeter),
             vocabulary: Box::new(NoVocabularyTracker),
             gloss_filler: Box::new(NoGlossFiller),
             displayed: Vec::new(),
             examples: vocabulary::ExampleCollector::default(),
-            recording: Vec::new(),
             history: InputHistory::default(),
             prediction_sequence: 0,
             pending_predictions: HashMap::new(),

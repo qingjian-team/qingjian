@@ -25,7 +25,7 @@ impl Engine {
             // 全角标点也是文本流的一部分，与直通字符攒在一起
             self.passthrough_pending.push_str(text);
         } else {
-            self.recent_commits.clear();
+            self.journal.recent_commits.clear();
         }
         self.chain.reset();
         converted
@@ -59,7 +59,9 @@ impl Engine {
             return;
         }
         let text = std::mem::take(&mut self.passthrough_pending);
-        self.logger.record(InputLogEntry::Passthrough { text });
+        self.journal
+            .logger
+            .record(InputLogEntry::Passthrough { text });
     }
 
     /// 壳告知光标离开了刚才上屏的位置（切换应用、点了别处、停用输入法）：之后上屏的词按句首记。
@@ -67,13 +69,13 @@ impl Engine {
     pub fn break_chain(&mut self) {
         self.chain.reset();
         self.punctuation.pairs().clear();
-        self.recent_commits.clear();
+        self.journal.recent_commits.clear();
         self.flush_passthrough();
         self.finish_examples();
-        if self.committed_since_break {
-            self.committed_since_break = false;
-            self.logger.record(InputLogEntry::Break {
-                app: self.application.clone(),
+        if self.journal.committed_since_break {
+            self.journal.committed_since_break = false;
+            self.journal.logger.record(InputLogEntry::Break {
+                app: self.journal.application.clone(),
             });
         }
     }
@@ -81,7 +83,7 @@ impl Engine {
     /// 壳告知正在输入的应用（macOS bundle identifier / Windows exe 名），写进输入日志；不知道就给 `None`。
     pub fn set_application(&mut self, app: Option<String>) {
         self.history.set_application(app.as_deref());
-        self.application = app;
+        self.journal.application = app;
     }
 
     /// 焦点进了一个输入框（壳在 IMK `activateServer`、Fcitx focus in 时调）：之前在这个应用里打的字不再当前文。
@@ -90,7 +92,7 @@ impl Engine {
     }
 
     pub fn application(&self) -> Option<&str> {
-        self.application.as_deref()
+        self.journal.application.as_deref()
     }
 
     /// 壳翻了一页候选：记进这段组句的翻页数（写进输入日志，候选质量的隐式信号）。
@@ -101,7 +103,7 @@ impl Engine {
     /// 往输入日志记一条会话信息（版本、平台、本地模型开没开）。壳在启动和打开日志时调。
     pub fn log_session(&mut self, version: &str, platform: &str) {
         self.flush_passthrough();
-        self.logger.record(InputLogEntry::Session {
+        self.journal.logger.record(InputLogEntry::Session {
             v: INPUT_LOG_VERSION,
             version: version.to_owned(),
             platform: platform.to_owned(),
@@ -141,7 +143,7 @@ impl Engine {
     /// 组句里要删东西了：第一次删之前把缓冲区留个快照，上屏时对比最终键串，不同就是一次重打（`retype`）。
     fn note_edit(&mut self) {
         self.chain.clear_code_words();
-        self.typing.edit(Instant::now());
+        self.journal.typing.edit(Instant::now());
         if self.retype_snapshot.is_none() && !self.composition.is_empty() {
             self.retype_snapshot = Some(self.composition.text().to_owned());
         }
@@ -153,12 +155,13 @@ impl Engine {
     pub fn note_backspace(&mut self) {
         self.chain.clear_code_words();
         let Some(commit) = self
+            .journal
             .recent_commits
             .iter_mut()
             .rev()
             .find(|c| !c.is_erased())
         else {
-            self.recent_commits.clear();
+            self.journal.recent_commits.clear();
             self.chain.reset();
             return;
         };
@@ -174,10 +177,10 @@ impl Engine {
         if commit.chars == 0 {
             return;
         }
-        if self.recent_commits.len() >= RECENT_COMMITS {
-            self.recent_commits.remove(0);
+        if self.journal.recent_commits.len() >= RECENT_COMMITS {
+            self.journal.recent_commits.remove(0);
         }
-        self.recent_commits.push(commit);
+        self.journal.recent_commits.push(commit);
     }
 
     pub fn composition(&self) -> &Composition {
@@ -199,14 +202,14 @@ impl Engine {
             *self.caches.generated_forms.borrow_mut() = None;
             self.page_turns = 0;
             self.retype_snapshot = None;
-            self.typing.restart();
+            self.journal.typing.restart();
             // 新一段组句：「上一记退格把组句删空」属于上一段，到此作废（issue #932）。
             // 不清的话，删空 → 打字 → 按住退格的自动重复会被当成「删空后的重复」全吞掉。
             self.backspace_emptied = false;
             // 翻译框里选着字时开始打拼音：同记事本一样先删掉选中的字，拼音画在原处
             self.remove_panel_selection();
         }
-        self.typing.key(Instant::now());
+        self.journal.typing.key(Instant::now());
         // 进缓冲区的字符也更新「上一个字符是不是数字」：直通了 `3` 再接着打拼音，
         // 后面的 `.` 不该仍按小数点保持半角（组句中标点会先把候选上屏，见壳的 apply_printable）
         self.punctuation.note_passthrough(c);
@@ -294,7 +297,7 @@ impl Engine {
         self.rescoring_before = None;
         self.retype_snapshot = None;
         self.composition_started = None;
-        self.typing.restart();
+        self.journal.typing.restart();
         self.page_turns = 0;
         self.traditional.forget();
         // 组句结束了：「刚删空」属于刚才那段，下一记退格删的是应用里的字（issue #932）

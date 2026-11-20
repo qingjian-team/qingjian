@@ -78,7 +78,7 @@ impl Engine {
         let lead = self.word_space_before(&text) || self.auto_space_before(&text);
         self.commit_with(candidate, InputSource::Translation, Some(sense));
         // 应用里收到的是译文：退格计数与自动空格的上文都按译文算；补的空格已单独记成一次直通，这里不再算进去
-        if let Some(last) = self.recent_commits.last_mut() {
+        if let Some(last) = self.journal.recent_commits.last_mut() {
             last.chars = text.chars().count();
             last.tail = text.chars().last();
         }
@@ -92,7 +92,8 @@ impl Engine {
     /// 开了自动空格（[`Self::set_auto_space`]）时与上文、候选内部的中西文交界都补好空格。
     /// 面板开着时上屏的是面板里的条目：记一次使用（私密输入不记），下次打开排进「常用」。
     pub fn commit(&mut self, candidate: &Candidate) -> String {
-        if self.take_panel().is_some() && !self.private && !self.is_contact(&candidate.text) {
+        if self.take_panel().is_some() && !self.journal.private && !self.is_contact(&candidate.text)
+        {
             self.panel_history.record(&candidate.text);
         }
         let lead = self.auto_space_before(&candidate.text);
@@ -118,15 +119,15 @@ impl Engine {
         // 按住只删得掉一个字（Windows 与安卓上第一下不经过 Core，这个状态更清不掉）。
         self.backspace_emptied = false;
         // 通讯录里的名字只在本机用：上屏照常吃拼音，学习与输入日志这一次都不记
-        let mute = !self.private && self.is_contact(&candidate.text);
+        let mute = !self.journal.private && self.is_contact(&candidate.text);
         if mute {
             self.learner.set_private(true);
-            self.logger.set_muted(true);
+            self.journal.logger.set_muted(true);
         }
         let text = self.commit_recorded(candidate, source, used_sense);
         if mute {
             self.learner.set_private(false);
-            self.logger.set_muted(false);
+            self.journal.logger.set_muted(false);
         }
         text
     }
@@ -228,7 +229,7 @@ impl Engine {
             }
         };
         self.apply_retraction(&input, &candidate.text);
-        self.recording.clear();
+        self.journal.recording.clear();
         for (typed, intended) in &typos {
             tracing::debug!(typed, intended, "记录敲错");
             self.learner.record_typo(typed, intended);
@@ -244,7 +245,7 @@ impl Engine {
         let log_id = self.log_commit(&keys, &candidate.text, source);
         self.meter_commit(&candidate.text, source, false);
         // 上屏带译词的中文候选：那一刻用户看着这条译词，记进词汇（英文候选的中文释义不是学习语言，不记）
-        if !self.private
+        if !self.journal.private
             && candidate.kind != CandidateKind::English
             && let Some(translation) = &candidate.translation
         {
@@ -269,7 +270,7 @@ impl Engine {
             candidate.kind,
             CandidateKind::Chinese | CandidateKind::Cloud | CandidateKind::Code
         ) && self.gloss_filler.is_enabled()
-            && !self.private
+            && !self.journal.private
             && self.translator.language() != Language::Chinese
             && self.translator.translate(&candidate.text).is_none()
         {
@@ -400,7 +401,7 @@ impl Engine {
                     text: candidate.text.clone(),
                     abbreviation,
                 }),
-                transitions: std::mem::take(&mut self.recording),
+                transitions: std::mem::take(&mut self.journal.recording),
                 typos,
                 erased: 0,
                 log_id,
@@ -421,32 +422,34 @@ impl Engine {
     /// 重打后选的还是同一个词就不算选错，只把那条记录丢掉。这次的拼音与删掉的哪次都对不上时，删掉的那些当作在改别处，全忘掉。
     pub(super) fn apply_retraction(&mut self, input: &str, text: &str) {
         let Some(index) = self
+            .journal
             .recent_commits
             .iter()
             .rposition(|c| c.is_erased() && c.same_input(input))
         else {
             // 删掉的那次拼音与这次相近但不同（wode 删了重打 wodi）：重打了键，记进输入日志给敲错纠正当样本；学习不动
             if let Some(erased) = self
+                .journal
                 .recent_commits
                 .iter()
                 .rev()
                 .find(|c| c.is_erased() && is_retyped(&c.input, input))
             {
-                self.logger.record(InputLogEntry::Retype {
+                self.journal.logger.record(InputLogEntry::Retype {
                     before: erased.input.clone(),
                     after: input.to_owned(),
                     of: erased.log_id,
                 });
             }
-            self.recent_commits.retain(|c| !c.is_erased());
+            self.journal.recent_commits.retain(|c| !c.is_erased());
             return;
         };
-        let last = self.recent_commits.remove(index);
+        let last = self.journal.recent_commits.remove(index);
         if last.text == text {
             return;
         }
         tracing::debug!(retracted = %last.text, chosen = %text, "上次选错了，撤销它的学习");
-        self.logger.record(InputLogEntry::Retract {
+        self.journal.logger.record(InputLogEntry::Retract {
             of: last.log_id,
             text: last.text.clone(),
             chosen: text.to_owned(),
@@ -632,7 +635,8 @@ impl Engine {
     ) {
         self.learner
             .record_transition(self.chain.context(), text, times);
-        self.recording
+        self.journal
+            .recording
             .push(Transition::new(self.chain.context(), text, times));
         if auto_word {
             let threshold = if self.chain.same_buffer() {

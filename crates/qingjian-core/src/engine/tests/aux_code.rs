@@ -304,7 +304,7 @@ fn committing_from_aux_records_the_choice_under_the_pinyin() {
     engine.commit(&candidate);
     assert!(!engine.in_aux());
     assert!(engine.composition().is_empty());
-    let last = engine.recent_commits.last().unwrap();
+    let last = engine.journal.recent_commits.last().unwrap();
     assert!(last.same_input("kaifa"));
     assert_eq!(last.text, "开发");
 }

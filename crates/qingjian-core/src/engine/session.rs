@@ -70,8 +70,11 @@ impl Engine {
         std::mem::swap(&mut self.composition, &mut session.composition);
         std::mem::swap(&mut self.english_mode, &mut session.english_mode);
         std::mem::swap(&mut self.punctuation, &mut session.punctuation);
-        std::mem::swap(&mut self.recent_commits, &mut session.recent_commits);
-        std::mem::swap(&mut self.recording, &mut session.recording);
+        std::mem::swap(
+            &mut self.journal.recent_commits,
+            &mut session.recent_commits,
+        );
+        std::mem::swap(&mut self.journal.recording, &mut session.recording);
         std::mem::swap(&mut self.retype_snapshot, &mut session.retype_snapshot);
         std::mem::swap(
             &mut self.passthrough_pending,
@@ -82,10 +85,10 @@ impl Engine {
             &mut self.composition_started,
             &mut session.composition_started,
         );
-        std::mem::swap(&mut self.typing, &mut session.typing);
-        std::mem::swap(&mut self.application, &mut session.application);
+        std::mem::swap(&mut self.journal.typing, &mut session.typing);
+        std::mem::swap(&mut self.journal.application, &mut session.application);
         std::mem::swap(
-            &mut self.committed_since_break,
+            &mut self.journal.committed_since_break,
             &mut session.committed_since_break,
         );
         std::mem::swap(&mut self.displayed, &mut session.displayed);
@@ -129,14 +132,14 @@ impl Engine {
         self.composition.clear();
         self.english_mode = false;
         self.punctuation = Punctuation::default();
-        self.recent_commits.clear();
-        self.recording.clear();
+        self.journal.recent_commits.clear();
+        self.journal.recording.clear();
         self.retype_snapshot = None;
         self.passthrough_pending.clear();
         self.page_turns = 0;
         self.composition_started = None;
-        self.typing.reset();
-        self.committed_since_break = false;
+        self.journal.typing.reset();
+        self.journal.committed_since_break = false;
         self.displayed.clear();
         self.history.clear();
         self.examples.clear();

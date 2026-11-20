@@ -73,7 +73,7 @@ impl Engine {
         });
         // 没有音节：联想词不参与两词自动造词（`try_auto_word` 要字数与音节数对上）
         self.record_word(&word, &[], EXPLICIT_TRANSITION_WEIGHT, false, false);
-        self.recording.clear();
+        self.journal.recording.clear();
         self.log_commit("", &word, InputSource::FollowUp);
         self.meter_commit(&word, InputSource::FollowUp, false);
         self.remember_commit(LastCommit::plain(&word));

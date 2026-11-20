@@ -41,7 +41,7 @@ impl Engine {
     /// 最近一条没被退格删掉的上屏的末字；还没上屏过时用组句开始时壳读到的应用前文。
     /// 删了一半的上屏、焦点离开后（记录已清空）又不在组句时都不知道光标前是什么，返回 `None`。
     fn previous_char(&self) -> Option<char> {
-        for commit in self.recent_commits.iter().rev() {
+        for commit in self.journal.recent_commits.iter().rev() {
             match commit.erased {
                 0 => return commit.tail,
                 erased if erased >= commit.chars => continue,

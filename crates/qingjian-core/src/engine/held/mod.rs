@@ -45,6 +45,7 @@ impl Engine {
         };
         self.composition.prepend(&held.keys);
         if let Some(commit) = self
+            .journal
             .recent_commits
             .iter_mut()
             .rev()

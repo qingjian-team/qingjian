@@ -91,7 +91,7 @@ impl Engine {
         candidates: &[Candidate],
         manual: bool,
     ) -> Option<u64> {
-        if !self.predictor.is_enabled() || self.private {
+        if !self.predictor.is_enabled() || self.journal.private {
             return None;
         }
         // 不发也要换序号：正在飞的旧结果对应的是上一个输入状态，回来了也不能显示
@@ -245,7 +245,7 @@ impl Engine {
         language: crate::Language,
     ) -> Option<u64> {
         let text = text.trim();
-        if !self.predictor.is_enabled() || self.private || text.is_empty() {
+        if !self.predictor.is_enabled() || self.journal.private || text.is_empty() {
             return None;
         }
         self.prediction_sequence += 1;
@@ -310,7 +310,7 @@ impl Engine {
             self.predictor.is_enabled()
         };
         if !enabled
-            || self.private
+            || self.journal.private
             || text.trim().is_empty()
             || (candidate && learning == crate::Language::Chinese)
         {
@@ -420,7 +420,7 @@ impl Engine {
                     }
                     if !prediction.is_empty() {
                         // 给过用户什么：紧接着的上屏说明接没接受（本地联想能不能替代云端的尺子）
-                        self.logger.record(InputLogEntry::Prediction {
+                        self.journal.logger.record(InputLogEntry::Prediction {
                             scope: pending.scope,
                             words: prediction.words.iter().map(|w| w.text.clone()).collect(),
                             sentence: prediction.sentence.clone(),
@@ -480,7 +480,7 @@ impl Engine {
         let text = restored.as_deref().unwrap_or(text);
         let (_, input) = self.whole_scope();
         self.apply_retraction(&input, text);
-        self.recording.clear();
+        self.journal.recording.clear();
         let keys = self.composition.scope().to_owned();
         let log_id = self.log_commit(&keys, text, InputSource::CloudSentence);
         self.meter_commit(text, InputSource::CloudSentence, false);
@@ -515,7 +515,7 @@ impl Engine {
             input,
             chosen: None,
             choice: None,
-            transitions: std::mem::take(&mut self.recording),
+            transitions: std::mem::take(&mut self.journal.recording),
             typos: Vec::new(),
             erased: 0,
             log_id,

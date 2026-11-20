@@ -11,7 +11,7 @@ use crate::panel::{PanelGroup, TranslateStatus};
 impl Engine {
     /// 翻译组能不能用：接了翻译提供方、没在私密输入。
     pub(super) fn panel_translate_available(&self) -> bool {
-        self.translation_enabled() && !self.private
+        self.translation_enabled() && !self.journal.private
     }
 
     /// 翻译组缺省的目标语言：上次选的，没选过跟学习语言走（学习语言是中文或关掉时用英语）。
@@ -128,9 +128,9 @@ impl Engine {
         }
         let mut panel = self.panel.take().expect("刚看过面板开着");
         // 框里的字不在应用里：自动空格与退格撤销都不能拿它当上文
-        self.recent_commits.clear();
+        self.journal.recent_commits.clear();
         let text = self.commit(candidate);
-        self.recent_commits.clear();
+        self.journal.recent_commits.clear();
         self.chain.reset();
         panel.draft_mut().push(&text, Instant::now());
         self.panel = Some(panel);
@@ -152,7 +152,7 @@ impl Engine {
             .filter(|p| p.group() == PanelGroup::Translate)?;
         let text = panel.draft().ready(panel.target_language()?)?.to_owned();
         self.clear();
-        self.recent_commits.clear();
+        self.journal.recent_commits.clear();
         self.chain.reset();
         Some(text)
     }

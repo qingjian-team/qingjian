@@ -42,7 +42,7 @@ impl Engine {
 
     /// 上屏了带译词的中文：记一次相遇，说法取直接打出的那条（没有就第一条）。单字不记，满屏的 的 了 是 没有复习价值。
     pub(super) fn record_encounter(&mut self, text: &str, translation: &Translation, sense: usize) {
-        if self.private || !worth_encounter(text) {
+        if self.journal.private || !worth_encounter(text) {
             return;
         }
         let senses = translation.senses();
@@ -60,7 +60,7 @@ impl Engine {
     /// 上屏了一段没有现成译词的中文（整句、云端整句、分几次上屏拼成的一句）：释义兜底开着时交给它整段翻译，翻好了进相遇。
     pub(super) fn translate_for_encounter(&mut self, text: &str) {
         let language = self.translator.language();
-        if self.private
+        if self.journal.private
             || language == Language::Chinese
             || !self.gloss_filler.is_enabled()
             || !worth_encounter(text)
@@ -97,7 +97,7 @@ impl Engine {
 
     /// 上屏了：当前页上的译词都算看到过一轮。
     pub(super) fn record_exposures(&mut self) {
-        if self.private {
+        if self.journal.private {
             // 私密输入中的候选页不能污染词汇记录；同时丢掉暂存页，避免之后恢复普通输入时补记。
             self.displayed.clear();
             return;
@@ -110,7 +110,7 @@ impl Engine {
     /// 上屏文字进本会话历史，也接到等着当例句的那句话后面。私密输入中的文字不进例句。
     pub(super) fn note_text(&mut self, text: &str) {
         self.history.record(text);
-        if self.private {
+        if self.journal.private {
             return;
         }
         let vocabulary = &mut self.vocabulary;
@@ -149,7 +149,7 @@ impl Engine {
     pub(super) fn meter_commit(&mut self, text: &str, source: InputSource, english_word: bool) {
         if !self.settings.metered {
             // 键数与时长也清掉，免得算到下一次记的上屏头上
-            self.typing.take(Instant::now());
+            self.journal.typing.take(Instant::now());
             return;
         }
         let mut usage = Usage::of_text(text);
@@ -170,7 +170,7 @@ impl Engine {
         if source == InputSource::Raw && !english_word {
             usage.english_words = 0;
         }
-        let (keys, typing_ms, edited) = self.typing.take(Instant::now());
+        let (keys, typing_ms, edited) = self.journal.typing.take(Instant::now());
         // 原样上屏、语音与联想词没有对应的敲键：不算选词，也不计键数与时长
         if !matches!(
             source,
@@ -193,7 +193,7 @@ impl Engine {
                 usage.typing_ms = typing_ms;
             }
         }
-        self.meter.record(usage);
+        self.journal.meter.record(usage);
     }
 
     /// 往输入日志记一次上屏。`keys` 是这次消耗掉的原始键，`index` 从上一次查询的候选里找。
@@ -201,47 +201,49 @@ impl Engine {
     pub(super) fn log_commit(&mut self, keys: &str, text: &str, source: InputSource) -> u64 {
         self.record_exposures();
         self.flush_passthrough();
-        self.log_sequence += 1;
+        self.journal.log_sequence += 1;
         let snapshot = self.caches.last_query.borrow().clone().unwrap_or_default();
         let index = snapshot.candidates.iter().position(|c| c == text);
         let ms = self
             .composition_started
             .map_or(0, |started| started.elapsed().as_millis() as u64);
-        self.logger.record(InputLogEntry::Commit(CommitEntry {
-            id: self.log_sequence,
-            scope: snapshot.scope,
-            keys: keys.to_owned(),
-            pinyin: snapshot.pinyin,
-            corrected: snapshot.corrected,
-            text: text.to_owned(),
-            source,
-            index,
-            top: snapshot
-                .candidates
-                .into_iter()
-                .take(LOGGED_CANDIDATES)
-                .collect(),
-            scheme: self.scheme_key(),
-            english: self.english_mode,
-            rescored: snapshot.rescored,
-            choice: snapshot.choice,
-            app: self.application.clone(),
-            pages: self.page_turns,
-            ms,
-        }));
-        self.committed_since_break = true;
+        self.journal
+            .logger
+            .record(InputLogEntry::Commit(CommitEntry {
+                id: self.journal.log_sequence,
+                scope: snapshot.scope,
+                keys: keys.to_owned(),
+                pinyin: snapshot.pinyin,
+                corrected: snapshot.corrected,
+                text: text.to_owned(),
+                source,
+                index,
+                top: snapshot
+                    .candidates
+                    .into_iter()
+                    .take(LOGGED_CANDIDATES)
+                    .collect(),
+                scheme: self.scheme_key(),
+                english: self.english_mode,
+                rescored: snapshot.rescored,
+                choice: snapshot.choice,
+                app: self.journal.application.clone(),
+                pages: self.page_turns,
+                ms,
+            }));
+        self.journal.committed_since_break = true;
         self.page_turns = 0;
         if let Some(before) = self.retype_snapshot.take() {
             let after = self.composition.scope();
             if before != after {
-                self.logger.record(InputLogEntry::Retype {
+                self.journal.logger.record(InputLogEntry::Retype {
                     before,
                     after: after.to_owned(),
-                    of: self.log_sequence,
+                    of: self.journal.log_sequence,
                 });
             }
         }
-        self.log_sequence
+        self.journal.log_sequence
     }
 
     /// 用户要求删掉一个候选（修饰键 + 数字）：中文词与云端词交给 Learner 删用户词、清学习；英文词删个人英文词；
@@ -278,7 +280,9 @@ impl Engine {
             if self.chain.mentions(&candidate.text) {
                 self.chain.reset();
             }
-            self.recent_commits.retain(|c| c.text != candidate.text);
+            self.journal
+                .recent_commits
+                .retain(|c| c.text != candidate.text);
             tracing::debug!(text = %candidate.text, ?forgotten, "删除候选");
         }
         forgotten
@@ -288,8 +292,8 @@ impl Engine {
     /// 落盘不改学习状态，所以不像 [`Self::learner_mut`] 那样作废格子缓存。
     pub fn flush_learning(&mut self) {
         self.learner.flush();
-        self.logger.flush();
-        self.meter.flush();
+        self.journal.logger.flush();
+        self.journal.meter.flush();
         self.vocabulary.flush();
         self.translator.flush();
     }
