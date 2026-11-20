@@ -1,8 +1,8 @@
 //! 一段按键的读法解码：双拼 / 注音 / 九键，以及剩余拼音的显示形式。
 
+use crate::engine::Engine;
 use crate::engine::decoded::EngineDecoded;
 use crate::engine::marked_rest;
-use crate::engine::Engine;
 
 impl Engine {
     /// 双拼开着时把一段键解成全拼；全拼下为 `None`，调用方原样用键。

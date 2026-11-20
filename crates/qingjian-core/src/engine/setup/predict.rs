@@ -3,7 +3,7 @@
 use crate::correction::TypoCosts;
 use crate::engine::Learner;
 use crate::engine::{
-    Engine, Predictor, Translator, NEURAL_MARGIN, NEURAL_WEIGHT, RESCORE_CONTEXT_CHARS,
+    Engine, NEURAL_MARGIN, NEURAL_WEIGHT, Predictor, RESCORE_CONTEXT_CHARS, Translator,
 };
 use crate::fuzzy::FuzzyRules;
 use crate::sentence::{Interpolation, LanguageModel, Personal, SearchLimits, SentenceScorer};
@@ -70,7 +70,8 @@ impl Engine {
         self.sentence_scorer = None;
         self.generative = scorer.as_ref().is_some_and(|s| s.generates());
         let wake = self.wake.clone();
-        self.rescorer = scorer.map(|scorer| super::super::rescoring::RescoreWorker::spawn(scorer, wake));
+        self.rescorer =
+            scorer.map(|scorer| super::super::rescoring::RescoreWorker::spawn(scorer, wake));
         *self.neural_cache.borrow_mut() = super::super::rescoring::NeuralCache::default();
         self.forget_span_cache();
     }
