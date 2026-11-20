@@ -8,6 +8,7 @@ pub use qingjian_code as code;
 
 pub mod calculation;
 pub mod candidate;
+pub mod capability;
 pub mod chaizi;
 pub mod code_scheme;
 pub mod composition;
@@ -18,6 +19,7 @@ pub mod email;
 pub mod emoji;
 pub mod engine;
 pub mod english;
+pub mod error;
 pub mod fuzzy;
 pub mod history;
 mod i18n;
@@ -47,6 +49,7 @@ pub use candidate::{
     LEARNING_LANGUAGE_OFF, Language, MAX_CELL_EMS, PartOfSpeech, Sense, Translation,
     differs_from_lead, learning_languages,
 };
+pub use capability::{Capabilities, CapabilityKind};
 pub use code_scheme::CodeScheme;
 pub use composition::Composition;
 pub use contacts::{Contact, ContactBook};
@@ -64,6 +67,7 @@ pub use engine::{
     RawPreedit, SurroundingText, Timings, Translator, Usage, UsageMeter, UsageSummary,
     VocabularySummary, VocabularyTracker, Wake, book_scale, is_valid_aux_code_key,
 };
+pub use error::{CoreError, ErrorKind};
 pub use fuzzy::{CustomRule, FuzzyRules};
 pub use history::{DEFAULT_FRESH_SECONDS, InputHistory};
 pub use japanese::RomajiComposer;
