@@ -83,46 +83,28 @@ impl Engine {
             .collect();
         // 二、词图里没有就退回已有候选：词首是提示字的排前面，含提示字的跟后面
         if pinned.is_empty() {
-            let mut order: Vec<(usize, bool)> = scored
+            // 权分三档：本身就是那个单字 > 词首是它 > 只是含它，各档内保持原序
+            let rank = |text: &str| -> Option<u8> {
+                let mut chars = text.chars();
+                let Some(first) = chars.next() else {
+                    return None;
+                };
+                if !hints.contains(&first) {
+                    return text.chars().any(|ch| hints.contains(&ch)).then_some(2);
+                }
+                // 单字（只剩它自己）给的权最高：用户要的多半就是这个字
+                Some(if chars.next().is_none() { 0 } else { 1 })
+            };
+            let mut order: Vec<(usize, u8)> = scored
                 .iter()
                 .enumerate()
-                .filter_map(|(index, item)| {
-                    let text = item.hit.text;
-                    let leads = text.chars().next().is_some_and(|ch| hints.contains(&ch));
-                    if leads {
-                        Some((index, true))
-                    } else if text.chars().any(|ch| hints.contains(&ch)) {
-                        Some((index, false))
-                    } else {
-                        None
-                    }
-                })
+                .filter_map(|(index, item)| rank(item.hit.text).map(|tier| (index, tier)))
                 .collect();
-            order.sort_by_key(|(index, leads)| (!*leads, *index));
+            order.sort_by_key(|(index, tier)| (*tier, *index));
             pinned = order
                 .into_iter()
                 .map(|(index, _)| super::chinese_candidate(&scored[index], None))
                 .collect();
-        }
-        // 三、词图与已有候选都没有：把提示字本身当单字候选放最前，敲下去就能用
-        for ch in &hints {
-            if pinned
-                .iter()
-                .any(|candidate| candidate.text == ch.to_string())
-            {
-                continue;
-            }
-            pinned.insert(
-                0,
-                Candidate {
-                    text: ch.to_string(),
-                    kind: crate::CandidateKind::Shortcut,
-                    syllables: Vec::new(),
-                    reading: None,
-                    translation: None,
-                    aux_code: None,
-                },
-            );
         }
         pinned
     }
