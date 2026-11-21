@@ -429,6 +429,16 @@ class QingjianInputMethodService :
 
     override fun onForget(index: Int) = composer.forget(index)
 
+    override fun onPickChar(index: Int, position: Int) = composer.pickChar(index, position)
+
+    override fun showPickCharNotice(source: String, picked: String?) = toast(
+        if (picked == null) {
+            getString(R.string.candidate_pick_failed, source)
+        } else {
+            getString(R.string.candidate_pick_done, source, picked)
+        },
+    )
+
     override fun showNotice(text: String) = toast(text)
 
     override fun openSymbolPanel() = openPanel(PanelKind.SYMBOLS)

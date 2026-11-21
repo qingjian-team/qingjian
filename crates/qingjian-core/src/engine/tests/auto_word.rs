@@ -332,3 +332,157 @@ fn deleting_a_letter_with_the_forward_key_also_stops_the_whole_word() {
         1
     );
 }
+
+#[test]
+fn picking_a_char_commits_it_and_keeps_the_rest_of_the_pinyin() {
+    // #1025：`jiaoyizhongxin` 里只打「中」，第一个音节之外的拼音留在组句里接着选
+    let mut engine = jiaoyi_engine();
+    engine.set_input("jiaoyizhongxin");
+    let candidate = Candidate {
+        text: "交易中心".to_owned(),
+        kind: CandidateKind::Chinese,
+        syllables: vec!["jiao".into(), "yi".into(), "zhong".into(), "xin".into()],
+        reading: None,
+        translation: None,
+        aux_code: None,
+    };
+    let single = engine.pick_char(&candidate, 0).expect("第一个字");
+    assert_eq!(single.text, "交");
+    assert_eq!(single.syllables, ["jiao"]);
+    // 上屏只吃掉第一个音节，剩下的拼音还在；那段没选完，字先进 held，连同拼音一起显示
+    let text = engine.commit(&single);
+    assert_eq!(text, "");
+    assert_eq!(engine.held_text(), "交");
+    assert_eq!(engine.composition().text(), "yizhongxin");
+
+    // 第二个字：吃掉两个音节
+    let mut engine = jiaoyi_engine();
+    engine.set_input("jiaoyizhongxin");
+    let second = engine.pick_char(&candidate, 1).expect("第二个字");
+    assert_eq!(second.text, "易");
+    assert_eq!(second.syllables, ["jiao", "yi"]);
+    engine.commit(&second);
+    assert_eq!(engine.composition().text(), "zhongxin");
+}
+
+#[test]
+fn picking_a_char_needs_one_syllable_per_character() {
+    let mut engine = jiaoyi_engine();
+    let candidate = Candidate {
+        text: "交易中心".to_owned(),
+        kind: CandidateKind::Cloud,
+        syllables: vec!["jiao".into(), "yi".into()],
+        reading: None,
+        translation: None,
+        aux_code: None,
+    };
+    assert!(
+        engine.pick_char(&candidate, 0).is_none(),
+        "云端词音节对不上"
+    );
+    let mut engine = jiaoyi_engine();
+    engine.set_input("jiaoyi");
+    let candidate = engine.query().unwrap().candidates.items.remove(0);
+    assert!(engine.pick_char(&candidate, 5).is_none(), "字序越界");
+}
+
+#[test]
+fn picking_a_char_consumes_the_right_keys_under_every_scheme() {
+    // 上屏吃掉的是「那个字所在的音节」，换算回敲的键数：全拼剩 shan、双拼剩 uj、九宫格剩 726。
+    // 三种方案走的是三条不同的 `consumed_by` 分支，任何一条算错都会把剩下的拼音吃多或吃少。
+    for (label, keys, scheme, word, first, rest) in [
+        ("全拼", "shishan", None, "石山", "石", "shan"),
+        ("双拼", "uiuj", Some(Scheme::Xiaohe), "石山", "石", "uj"),
+        // 九宫格下 `744726` 的首选多字词是 事实，不是 石山
+        ("九宫格", "744726", None, "事实", "事", "726"),
+    ] {
+        let mut engine = shishan_engine();
+        if label == "双拼" {
+            engine.set_shuangpin(scheme);
+        } else if label == "九宫格" {
+            engine.set_nine_key(true);
+        }
+        engine.set_input(keys);
+        let candidate = engine
+            .query()
+            .unwrap()
+            .candidates
+            .items
+            .into_iter()
+            .find(|c| c.text == word)
+            .unwrap_or_else(|| panic!("{label} 没有 {word}"));
+        let single = engine
+            .pick_char(&candidate, 0)
+            .unwrap_or_else(|| panic!("{label} 取不出第一个字"));
+        assert_eq!(single.text, first, "{label}");
+        engine.commit(&single);
+        assert_eq!(engine.composition().text(), rest, "{label}");
+        assert_eq!(engine.held_text(), first, "{label}");
+    }
+}
+
+#[test]
+fn picking_a_char_counts_as_choosing_it_and_still_learns_the_whole_word() {
+    // 挑字是用户亲手点的：那个字算「选过一次」（下次打这个音节它排前面），
+    // 挑完接着把剩下的拼音选完，整段合成词也照常记——这正是用户要的那个词。
+    let mut engine = shishan_engine();
+    engine.set_input("shishan");
+    let candidate = engine
+        .query()
+        .unwrap()
+        .candidates
+        .items
+        .into_iter()
+        .find(|c| c.text == "石山")
+        .expect("石山");
+    assert_eq!(engine.learner().choice_weight("shi", "石"), 0);
+
+    let first = engine.pick_char(&candidate, 0).expect("石");
+    engine.commit(&first);
+    assert_eq!(
+        engine.learner().choice_weight("shi", "石"),
+        1,
+        "挑出来的字要算选过一次"
+    );
+    assert_eq!(engine.composition().text(), "shan");
+
+    let items = engine.query().unwrap().candidates.items;
+    let shan = items.iter().find(|c| c.text == "山").cloned().expect("山");
+    engine.commit(&shan);
+    assert_eq!(
+        engine.learner().choice_weight("shishan", "石山"),
+        1,
+        "挑完接着选完，整段要记成一次选择"
+    );
+    assert_eq!(
+        engine.learner().choice_weight("shishan", "石山山"),
+        0,
+        "不该多记一个不存在的合成词"
+    );
+}
+
+#[test]
+fn picking_a_char_does_not_carry_the_word_translation() {
+    // 挑的是「交」，不该把「交易中心」的译词记进词汇：用户没选那个词
+    let mut engine = jiaoyi_engine();
+    let candidate = Candidate {
+        text: "交易中心".to_owned(),
+        kind: CandidateKind::Chinese,
+        syllables: vec!["jiao".into(), "yi".into(), "zhong".into(), "xin".into()],
+        reading: None,
+        translation: Some(Translation::new(
+            Language::English,
+            vec![Sense {
+                part_of_speech: None,
+                text: "transaction center".into(),
+                reading: None,
+                pronunciation: None,
+                fresh: false,
+            }],
+        )),
+        aux_code: None,
+    };
+    let single = engine.pick_char(&candidate, 0).expect("交");
+    assert_eq!(single.text, "交");
+    assert!(single.translation.is_none(), "挑出来的字不带原词的译词");
+}

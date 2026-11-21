@@ -159,6 +159,40 @@ impl Engine {
             .translate(restored.as_deref().unwrap_or(text))
     }
 
+    /// 候选里的第 `index` 个字单独上屏（从 0 起）。
+    ///
+    /// 上屏的是第 `index` 个字，但拼音按**前缀**消耗到第 `index` 个音节：前 `index` 个字既不上屏、
+    /// 也不留在组句里，一并放弃（组句层不支持中间留个洞）。后面的拼音原样留着，壳接着
+    /// [`Self::query`]。所以取「第二个字」等于「只要第二个字、前一个字也不要了」——
+    /// 要单独打前一个字，得从头重打。
+    ///
+    /// 这个动作是给用户一个明确出口：与其让引擎去猜「这段拼音分几次选完是不是想要一个合成词」
+    /// （#1024 那类问题），不如让用户直接说「我就要这一个字」。
+    ///
+    /// 不是中文候选、字数与音节数对不上（云端词、中英混合词）、`index` 越界时返回 `None`。
+    pub fn pick_char(&mut self, candidate: &Candidate, index: usize) -> Option<Candidate> {
+        if candidate.kind != CandidateKind::Chinese {
+            return None;
+        }
+        let chars: Vec<char> = candidate.text.chars().collect();
+        // 一个汉字一个音节才谈得上「第几个字」；对不上就不猜，让用户自己在候选里挑单字
+        if chars.len() != candidate.syllables.len() {
+            return None;
+        }
+        let text = chars.get(index)?.to_string();
+        let syllables = candidate.syllables[..=index].to_vec();
+        // 学习按这个字自己的读音记；`syllables` 那些前缀只管吃掉多少拼音，见 `commit_recorded`
+        self.picked_syllable = candidate.syllables.get(index).cloned();
+        self.picked_char = true;
+        Some(Candidate {
+            text,
+            syllables,
+            // 挑出来的这个字不带原候选的译词：用户没选那个词，不替他把词汇记上
+            translation: None,
+            ..candidate.clone()
+        })
+    }
+
     /// 降得了权的：自定义短语按权重排，不走降权。
     pub fn demotable(&self, candidate: &Candidate) -> bool {
         !matches!(candidate.kind, CandidateKind::Custom(_)) && !self.composition.scope().is_empty()

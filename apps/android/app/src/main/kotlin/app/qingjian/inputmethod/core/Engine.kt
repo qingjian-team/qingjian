@@ -99,6 +99,9 @@ class Engine(context: Context, private val onReady: () -> Unit) {
 
     fun forget(index: Int): Frame = Frame.parse(Native.forget(handle, index))
 
+    /** 只上屏第 [index] 个候选的第 [position] 个字（-1 = 最后一个）。 */
+    fun pickChar(index: Int, position: Int): Frame = Frame.parse(Native.pickChar(handle, index, position))
+
     fun commitRaw(): Frame = Frame.parse(Native.commitRaw(handle))
 
     fun clear(): Frame = Frame.parse(Native.clear(handle))
