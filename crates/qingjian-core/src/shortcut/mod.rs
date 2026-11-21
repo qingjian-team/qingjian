@@ -40,17 +40,19 @@ pub use uuid_forms::{UUID_KEYWORD, uuid_forms};
 ///
 /// 带参数的子模式一律用 `;` 隔开；分号后面没东西就算空参数（`vts;` 与 `vts` 等价）。
 pub fn generated_call(body: &str) -> Option<(&'static str, &str)> {
-    match modes::parse(body)? {
-        modes::Mode::Uuid => Some((UUID_KEYWORD, "")),
-        modes::Mode::Timestamp { at } => Some((TIMESTAMP_KEYWORD, at)),
+    let mode = modes::parse(body)?;
+    match mode.kind {
+        modes::Kind::Uuid => Some((UUID_KEYWORD, "")),
+        modes::Kind::Timestamp => Some((TIMESTAMP_KEYWORD, mode.args)),
         // 打乱是随机的：每敲一个键都重排会让候选乱跳，走这条按组句缓存的路
-        modes::Mode::Trans { args }
-            if args
+        modes::Kind::Trans
+            if mode
+                .args
                 .split([';', '；'])
                 .next()
                 .is_some_and(|op| transform::canonical(op) == Some(transform::SHUFFLE)) =>
         {
-            Some((modes::TRANS_KEYWORD, args))
+            Some((modes::TRANS_KEYWORD, mode.args))
         }
         _ => None,
     }
@@ -155,14 +157,12 @@ pub fn candidates_with_modes(
                 }
                 _ => mode,
             });
-            match mode {
-                Some(modes::Mode::Stat { args }) => {
-                    return labeled_candidates(stat::measures(args));
-                }
-                Some(modes::Mode::Trans { args }) => {
+            match mode.map(|mode| (mode.kind, mode.args)) {
+                Some((modes::Kind::Stat, args)) => return labeled_candidates(stat::measures(args)),
+                Some((modes::Kind::Trans, args)) => {
                     return labeled_candidates(transform::forms(args));
                 }
-                Some(modes::Mode::Color { args }) => return labeled_candidates(color::forms(args)),
+                Some((modes::Kind::Color, args)) => return labeled_candidates(color::forms(args)),
                 _ => {}
             }
             as_candidates(expression_forms(body, now, sub_modes, clipboard))
@@ -263,12 +263,12 @@ fn expression_forms(
 
 /// 子模式的候选。
 fn mode_forms(mode: modes::Mode<'_>) -> Vec<String> {
-    match mode {
+    match mode.kind {
         // 生成型（`uuid` / `ts`）由 Engine 走 `generated_candidates`：随机值与时刻要按组句缓存，
         // 不能每次查询都重算。走到这里说明是别处直接调 `shortcut::candidates`，给空即可
-        modes::Mode::Uuid | modes::Mode::Timestamp { .. } => Vec::new(),
-        modes::Mode::Bit { body } => {
-            let (width, body) = modes::bit_args(body);
+        modes::Kind::Uuid | modes::Kind::Timestamp => Vec::new(),
+        modes::Kind::Bit => {
+            let (width, body) = modes::bit_args(mode.args);
             let Some(result) = bitwise::evaluate(body, width) else {
                 return Vec::new();
             };
@@ -283,16 +283,16 @@ fn mode_forms(mode: modes::Mode<'_>) -> Vec<String> {
                 _ => forms,
             }
         }
-        modes::Mode::Base { args } => base::forms(args),
-        modes::Mode::Stat { args } => stat::measures(args)
+        modes::Kind::Base => base::forms(mode.args),
+        modes::Kind::Stat => stat::measures(mode.args)
             .into_iter()
             .map(|(value, _)| value)
             .collect(),
-        modes::Mode::Trans { args } => transform::forms(args)
+        modes::Kind::Trans => transform::forms(mode.args)
             .into_iter()
             .map(|(value, _)| value)
             .collect(),
-        modes::Mode::Color { args } => color::forms(args)
+        modes::Kind::Color => color::forms(mode.args)
             .into_iter()
             .map(|(value, _)| value)
             .collect(),
