@@ -39,13 +39,19 @@ class KeyboardView(
         fun onKey(key: Key, repeat: Boolean = false)
 
         /** 长按气泡里选了一项（字母、数字或符号）。 */
-        fun onKeyChoice(text: String)
+        fun onKeyChoice(text: String, verbatim: Boolean = false)
 
         /** 长按中英键选了第 [index] 种语言（[languageChoices] 的下标）。 */
         fun onLanguageChoice(index: Int)
 
         /** 长按空格左右滑：光标挪 [steps] 格，负数往左。 */
         fun onCursorMove(steps: Int)
+
+        /**
+         * 长按空格左右滑时手指当前在视图里的横向位置：组句中没有真光标可挪，
+         * 交给壳按这个位置在拼音行的字缝之间挪（与按住拼音行拖同一套，见 `CandidateBarView.dragCaret`）。
+         */
+        fun onCursorDrag(x: Float)
 
         /** 九宫格拼音列里点了一项。 */
         fun onSideItem(item: String)
@@ -67,6 +73,18 @@ class KeyboardView(
 
         /** 在删除键上往上一划（开着「上划删除键清空」）：清掉光标前的全部文字，组句中只清拼音。 */
         fun onClearBefore()
+
+        /** 删除键上往下划：删掉光标前的整行。 */
+        fun onDeleteLine()
+
+        /** 左拖删词：手势开始，清掉上一笔的账。 */
+        fun onBeginDeleteDrag()
+
+        /** 左拖删词时往回滑：把这一笔刚删掉的那一段放回光标前；没有可放回的了返回 false。 */
+        fun onRestoreWord(): Boolean
+
+        /** 删除键上往左划：删掉光标前的一个词。 */
+        fun onDeleteWord()
     }
 
     private val metrics = KeyboardMetrics(
@@ -126,9 +144,20 @@ class KeyboardView(
     private val spaceHold = Runnable { onSpaceHold() }
 
     /**
-     * 可能是上滑的那根手指与它落下的键（[Key.flick]，开着「上滑输入」时）；-1 是没在看。
-     * 往上划过 [FLICK_DP] 且一路都在往上的扇形里（[FLICK_SLOPE]）就 [flickArmed]，抬手出上滑的字，不出键本身、也不算滑行；
-     * 中途偏出扇形就 [flickBroken]，这一笔不再当上滑。
+     * 按着删除键的那根手指与落点：往左横拖够一格就进「删词」，之后每滑过 [DELETE_STEP_DP]
+     * 删掉光标前一个词 —— 与空格横滑挪光标是同一套手感（滑过的距离换成步数，一步一下、一步一轻震）。
+     * [deleteWords] 为真时这一笔不再当划键，抬手也不按点按处理。
+     */
+    private var deletePointer = -1
+    private var deleteAnchorX = 0f
+    private var deleteAnchorY = 0f
+    private var deleteWords = false
+
+    /**
+     * 可能是划键的那根手指与它落下的键（[Key.flick]，开着「上滑输入」时）；-1 是没在看。
+     * 往某个方向划够 [FLICK_DP] 且一路都在那个方向的扇形里（[FLICK_SLOPE]）就 [flickArmed]，
+     * 抬手做这个键在那个方向上声明的事，不出键本身、也不算滑行；中途偏出扇形就 [flickBroken]，
+     * 这一笔不再当划键。
      */
     private var flickPointer = -1
     private var flickSlot: KeySlot? = null
@@ -136,6 +165,12 @@ class KeyboardView(
     private var flickY = 0f
     private var flickArmed = false
     private var flickBroken = false
+
+    /** 这一笔往哪个方向划；[FlickDir.NONE] 是还没划出主方向。 */
+    private var flickDir = FlickDir.NONE
+
+    /** 划键的三个方向；每个键在自己声明了的方向上才认。 */
+    private enum class FlickDir { NONE, UP, DOWN, LEFT }
 
     /** 这一套键位能不能滑行（全键盘拼音与英文键盘，服务按当前键盘设）；还要设置里开着「滑行输入」。 */
     var swipeLayout = false
@@ -231,8 +266,14 @@ class KeyboardView(
         val flicking = flickSlot?.takeIf { flickArmed }
         if (flicking == null) trail.draw(canvas)
         if (flicking != null) {
-            // 上滑出的是哪个字放在气泡里；`;` 兼大写那个键划出的是 Shift，键本身亮着就够了
-            val label = if (flicking.key == Key.Backspace) context.getString(R.string.flick_clear_bubble) else flicking.key.flick
+            // 划出来的是哪个字放在气泡里；`;` 兼大写那个键划出的是 Shift，键本身亮着就够了
+            val label = when (val flick = actionOf(flicking.key)) {
+                Key.Flick.ClearBefore -> context.getString(R.string.flick_clear_bubble)
+                Key.Flick.DeleteLine -> context.getString(R.string.flick_delete_line_bubble)
+                Key.Flick.DeleteWord -> context.getString(R.string.flick_delete_word_bubble)
+                is Key.Flick.Insert -> flick.text
+                is Key.Flick.Press, Key.Flick.None -> null
+            }
             label?.let { painter.drawBubble(canvas, flicking, width, it) }
         } else if (settings.keyPopup) {
             pressed.values.filter { it.key.poppable && !choicePopup.showing }.forEach { painter.drawBubble(canvas, it, width) }
@@ -265,9 +306,18 @@ class KeyboardView(
                 tapFeedback()
                 when {
                     slot.key == Key.Backspace -> {
-                        if (settings.flickClear) listener.onBackspaceDown()
+                        // 这一下会先删一个字：三个删除手势里有一个能用就得记下按下那一刻的文字，
+                        // 上划清空要它撤销，左划删一词要按那一刻的边界算这个词有多长
+                        if (flickable(Key.Backspace)) listener.onBackspaceDown()
                         listener.onKey(Key.Backspace)
                         timer.postDelayed(repeatBackspace, REPEAT_DELAY_MS)
+                        // 左拖删词：要设置开着才记落点，否则这一笔与原来一样
+                        if (settings.flickDeleteWord) {
+                            deletePointer = pointer
+                            deleteAnchorX = event.getX(index)
+                            deleteAnchorY = event.getY(index)
+                            deleteWords = false
+                        }
                     }
 
                     slot.key is Key.Space -> {
@@ -293,17 +343,20 @@ class KeyboardView(
                 trackSwipe(event)
                 trackChoices(event)
                 trackCursor(event)
+                trackDelete(event)
             }
 
             MotionEvent.ACTION_UP, MotionEvent.ACTION_POINTER_UP -> {
                 if (pointer == flickPointer) {
                     val flicked = flickSlot?.takeIf { flickArmed }
+                    // 方向要赶在 endFlick 之前留下：抬手做哪个方向的事由它定
+                    val dir = flickDir
                     endFlick()
                     if (flicked != null) {
                         if (pointer == trail.pointer) trail.clear()
                         if (flicked.key == Key.Backspace) timer.removeCallbacks(repeatBackspace)
                         pressed.remove(pointer)
-                        flick(flicked.key)
+                        flick(flicked.key, dir)
                         invalidate()
                         return true
                     }
@@ -321,6 +374,11 @@ class KeyboardView(
                 val slot = pressed.remove(pointer)
                 val choosing = pointer == longPressPointer && choicePopup.showing
                 val movedCursor = pointer == spacePointer && cursorMode
+                val deletedWords = pointer == deletePointer && deleteWords
+                if (pointer == deletePointer) {
+                    deletePointer = -1
+                    deleteWords = false
+                }
                 val spoke = pointer == spacePointer && voiceMode
                 if (pointer == spacePointer) {
                     timer.removeCallbacks(spaceHold)
@@ -339,6 +397,8 @@ class KeyboardView(
                     slot?.key == Key.Backspace -> timer.removeCallbacks(repeatBackspace)
                     spoke -> listener.onVoiceRelease(cancel = false)
                     movedCursor -> Unit
+                    // 左拖已经边滑边删过了，抬手不再按点按删一个字
+                    deletedWords -> Unit
                     slot != null -> listener.onKey(slot.key)
                 }
             }
@@ -365,15 +425,43 @@ class KeyboardView(
         }
     }
 
-    private fun flickable(key: Key) = (key as? Key.Letter)?.flickShift == true ||
-        (settings.flickSymbols && key.flick != null) ||
-        (settings.flickClear && key == Key.Backspace)
+    /**
+     * 这个键能不能划：由键自己声明的 [Key.flick]（往上）、[Key.flickDown]（往下）与
+     * [Key.flickLeft]（往左）决定，再按设置过滤。任一方向可用就算能划。
+     *
+     * 各项设置各管一类：`flickSymbols` 管「划出字」，`flickClear` 管退格上划清空，
+     * `flickDeleteLine` 管退格下划删整行，`flickDeleteWord` 管退格左划删一词；
+     * 占位键上划出 Shift 不受设置影响。新键只要声明了某个方向就自动接上，不用再改这里。
+     */
+    private fun flickable(key: Key) = allowed(key.flick) || allowed(key.flickDown) || allowed(key.flickLeft)
+
+    /** 某个方向的划键按设置准不准。 */
+    private fun allowed(flick: Key.Flick) = when (flick) {
+        Key.Flick.None -> false
+        Key.Flick.ClearBefore -> settings.flickClear
+        Key.Flick.DeleteLine -> settings.flickDeleteLine
+        Key.Flick.DeleteWord -> settings.flickDeleteWord
+        is Key.Flick.Press -> true
+        is Key.Flick.Insert -> settings.flickSymbols
+    }
+
+    /** 这个键在 [dir] 这个方向上要做的事；不传就是这一笔当前的方向。 */
+    private fun actionOf(key: Key, dir: FlickDir = flickDir) = when (dir) {
+        FlickDir.LEFT -> key.flickLeft
+        FlickDir.DOWN -> key.flickDown
+        FlickDir.UP -> key.flick
+        FlickDir.NONE -> Key.Flick.None
+    }
 
     /**
-     * 上滑的那根手指挪动：只看方向不看落在哪一列，单手拇指划出的斜线也算（#882）。
-     * 一离开按下的那一点就得在往上的扇形里，往上划够 [FLICK_DP] 算上滑；中途偏出扇形（横着走、往下、拐弯）就作废，
-     * 交给滑行（[SwipeTrail]）或点按，所以跨键的滑行不会被当成上滑。
-     * 刚往上走就撤掉等着的长按：慢慢往斜上划时长按先到点弹出气泡，手指再一歪就选上了气泡左边的大写。
+     * 划动的那根手指挪动：只看方向不看落在哪一列，单手拇指划出的斜线也算（#882）。
+     *
+     * 方向由这个键**自己**声明：多数键往上划（[Key.Flick.Insert] / [Press] / [ClearBefore]），
+     * 删除键的「删整行」往下划、「删一词」往左划（[Key.Flick.DeleteLine] / [DeleteWord]），
+     * 各占一个方向就不会打架。一离开按下的那一点就得在主方向的扇形里，划够 [FLICK_DP] 才算；
+     * 中途偏出扇形（横着走、反方向、拐弯）就作废，交给滑行（[SwipeTrail]）或点按，
+     * 所以跨键的滑行不会被当成划键。
+     * 刚划出去就撤掉等着的长按：慢慢往斜上划时长按先到点弹出气泡，手指再一歪就选上了气泡左边的大写。
      */
     private fun trackFlick(event: MotionEvent) {
         if (flickSlot == null || flickBroken) return
@@ -385,11 +473,29 @@ class KeyboardView(
 
     private fun followFlick(x: Float, y: Float) {
         if (flickBroken) return
-        val up = flickY - y
-        val side = abs(x - flickX)
+        val key = flickSlot?.key ?: return
+        val dx = x - flickX
+        val dy = y - flickY
         // 按下附近的抖动不算方向
-        if (hypot(x - flickX, up) < metrics.density * TRACK_SLOP_DP) return
-        if (up <= 0f || side > up * FLICK_SLOPE) {
+        if (hypot(dx, dy) < metrics.density * TRACK_SLOP_DP) return
+        // 主方向取位移大的那条轴；往左、往下的方向键没声明（或设置关着）就作废，不会误触
+        val dir = when {
+            abs(dx) > abs(dy) -> if (dx < 0f && allowed(key.flickLeft)) FlickDir.LEFT else FlickDir.NONE
+            dy > 0f -> if (allowed(key.flickDown)) FlickDir.DOWN else FlickDir.NONE
+            else -> if (allowed(key.flick)) FlickDir.UP else FlickDir.NONE
+        }
+        if (dir == FlickDir.NONE) {
+            flickBroken = true
+            flickArmed = false
+            return
+        }
+        val along = when (dir) {
+            FlickDir.LEFT -> -dx
+            FlickDir.DOWN -> dy
+            else -> -dy
+        }
+        val side = if (dir == FlickDir.LEFT) abs(dy) else abs(dx)
+        if (along <= 0f || side > along * FLICK_SLOPE) {
             flickBroken = true
             flickArmed = false
             return
@@ -398,9 +504,10 @@ class KeyboardView(
             timer.removeCallbacks(longPress)
             longPressPointer = -1
         }
-        flickArmed = up > metrics.density * FLICK_DP
-        // 删除键往上划够了：不再连删，抬手清空
-        if (flickArmed && flickSlot?.key == Key.Backspace) timer.removeCallbacks(repeatBackspace)
+        flickArmed = along > metrics.density * FLICK_DP
+        flickDir = dir
+        // 删除键划够了：不再连删，抬手做这个键划出去该做的事
+        if (flickArmed && key == Key.Backspace) timer.removeCallbacks(repeatBackspace)
     }
 
     private fun endFlick() {
@@ -408,12 +515,19 @@ class KeyboardView(
         flickSlot = null
         flickArmed = false
         flickBroken = false
+        flickDir = FlickDir.NONE
     }
 
-    private fun flick(key: Key) = when {
-        key == Key.Backspace -> listener.onClearBefore()
-        (key as? Key.Letter)?.flickShift == true -> listener.onKey(Key.Shift)
-        else -> key.flick?.let(listener::onKeyChoice)
+    /** 划出去抬手：照这个键自己声明的方向做（见 [actionOf]）。 */
+    private fun flick(key: Key, dir: FlickDir) {
+        when (val flick = actionOf(key, dir)) {
+            Key.Flick.None -> Unit
+            Key.Flick.ClearBefore -> listener.onClearBefore()
+            Key.Flick.DeleteLine -> listener.onDeleteLine()
+            Key.Flick.DeleteWord -> listener.onDeleteWord()
+            is Key.Flick.Press -> listener.onKey(flick.key)
+            is Key.Flick.Insert -> listener.onKeyChoice(flick.text, verbatim = true)
+        }
     }
 
     /** 长按气泡里的项：中英键是语言名，其余是键自己的。 */
@@ -503,11 +617,71 @@ class KeyboardView(
         val dy = event.getY(at) - spaceAnchorY
         if (!cursorMode && settings.spaceCursor && abs(dx) > step && abs(dx) > abs(dy)) enterCursorMode()
         if (!cursorMode) return
-        val steps = (dx / step).toInt()
+        // 组句中没有真光标：壳按手指的横向位置挪拼音行（空格与候选条都是整宽，x 对得上）
+        listener.onCursorDrag(event.getX(at))
+        val steps = horizontalSteps(dx, step)
         if (steps == 0) return
         spaceAnchorX += steps * step
+        Haptics.tap(context)
         listener.onCursorMove(steps)
     }
+
+    /**
+     * 按着删除键往左横拖：滑过一格就进「删词」，之后每滑过 [DELETE_STEP_DP] 删掉光标前一个词。
+     *
+     * 与空格横滑挪光标是同一套换算：滑过的距离换成步数，一步一下、一步一轻震。
+     * 一进这个模式就把这一笔记成划键作废（[flickBroken]）、并撤掉连删 —— 抬手不再按点按或划键删一次。
+     *
+     * 还在按着的时候往回（右）滑够一格就把刚删掉的那段**放回去**，一段一步；都放完了再往右滑
+     * 就什么也不做，抬手也不删。手指一松开，这一笔删掉的就定下了。
+     */
+    private fun trackDelete(event: MotionEvent) {
+        if (deletePointer < 0) return
+        val at = event.findPointerIndex(deletePointer)
+        if (at < 0) return
+        val dx = event.getX(at) - deleteAnchorX
+        val dy = event.getY(at) - deleteAnchorY
+        val step = metrics.density * DELETE_STEP_DP
+        if (!deleteWords) {
+            if (dx > -step || abs(dx) <= abs(dy)) return
+            deleteWords = true
+            flickBroken = true
+            flickArmed = false
+            timer.removeCallbacks(repeatBackspace)
+            Haptics.hold(context)
+            listener.onBeginDeleteDrag()
+            // 进「删词」这一下只删一个词：锚点挪到当前手指位置，已经滑过的这段距离
+            // 不再折算成好几步 —— 否则快速左划一下，第一个够格的 MOVE 事件里 dx 已有两三格，
+            // 一下子删掉两三个词（设置里写的是删一个）
+            deleteAnchorX = event.getX(at)
+            listener.onDeleteWord()
+            return
+        }
+        // 左移是删、右移是放回，两边都按滑过的距离折算步数（与空格横滑同一份换算）
+        val steps = -horizontalSteps(dx, step)
+        if (steps > 0) {
+            deleteAnchorX -= steps * step
+            Haptics.tap(context)
+            repeat(steps) { listener.onDeleteWord() }
+        } else if (steps < 0) {
+            // 回滚量同样按距离算；已经放完的再往右滑不占格 —— 不然攒下一堆右移的账，
+            // 回头往左拖要先空走这段才重新开始删
+            var restored = 0
+            repeat(-steps) { if (listener.onRestoreWord()) restored++ }
+            if (restored > 0) {
+                deleteAnchorX += restored * step
+                Haptics.tap(context)
+            }
+        }
+    }
+
+    /**
+     * 横向拖动的步数：滑过一整格 [step] 算一步，往右为正。按整格截断，不足一格不动。
+     *
+     * 空格横滑挪光标与删除键左拖（删词 / 右滑放回）共用这一份换算，两处手感才一致：
+     * 同样的格宽、同样的整格截断、同样在调用方把锚点递进 `anchor += steps * step`。
+     */
+    private fun horizontalSteps(dx: Float, step: Float): Int = (dx / step).toInt()
 
     private fun release() {
         pressed.clear()
@@ -521,6 +695,8 @@ class KeyboardView(
         spacePointer = -1
         cursorMode = false
         voiceMode = false
+        deletePointer = -1
+        deleteWords = false
         longPressPointer = -1
         if (choicePopup.showing) choicePopup.finish()
     }
@@ -559,5 +735,8 @@ class KeyboardView(
          */
         const val FLICK_SLOPE = 1.2f
         const val CURSOR_STEP_DP = 14f
+
+        /** 删除键上左拖时，滑过这么多 dp 删掉光标前一个字词（与 [CURSOR_STEP_DP] 同一套手感）。 */
+        const val DELETE_STEP_DP = 14f
     }
 }

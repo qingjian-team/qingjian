@@ -393,13 +393,17 @@ class Composer(private val engine: Engine, private val host: Host) {
      * 长按气泡里选的字符。全键盘选小写 = 照常敲这个字母；九宫格组句中选小写 = 这一位就是这个字母
      * （进缓冲区，和拼音列定音节一个道理）。其余（数字、大写、符号）先顶首选再上屏；
      * 角标里有全角写法的标点（`;` `?` 这些）同标点键一样交 Core 按设置转全角。
+     *
+     * [verbatim] 是上滑出来的字：那是**这个键的另一种写法**，要原样上屏，不能再交给 Core
+     * 按「中文标点」转一遍 —— 中文键盘上 `，` 划出 `,`，转一次又变回 `，`，划与点就一样了。
      */
-    fun onKeyChoice(text: String) {
+    fun onKeyChoice(text: String, verbatim: Boolean = false) {
         val letter = text.singleOrNull()?.takeIf { it in 'a'..'z' }
         when {
             // 全键盘长按选小写 = 照常敲这个字母
             letter != null && !nineKey -> onKey(Key.Letter(letter))
             composing && letter != null && engine.ready -> apply(engine.push(letter.code))
+            verbatim -> onKey(Key.Text(text))
             else -> onKey(Key.Text(text, punct = text.singleOrNull()?.takeIf { it in FULL_WIDTH_HINTS }))
         }
     }
@@ -424,13 +428,16 @@ class Composer(private val engine: Engine, private val host: Host) {
         }
     }
 
-    /** 按住空格左右滑：不在组句时按方向键挪光标。 */
+    /** 按住空格左右滑：不在组句时按方向键挪光标；组句里交给壳按手指位置挪拼音行（见 [moveCaret]）。 */
     fun moveCursor(steps: Int) {
         // 组句中不响应：落下拼音再挪会把没选的字母上屏；拼音里的光标靠点拼音行挪（[moveCaret]）
         if (steps == 0 || composing) return
         val code = if (steps < 0) KeyEvent.KEYCODE_DPAD_LEFT else KeyEvent.KEYCODE_DPAD_RIGHT
         repeat(abs(steps)) { host.sendKey(code) }
     }
+
+    /** 组句中：空格横滑挪的是拼音行上的光标，跟着手指的横向位置走。 */
+    val composingNow: Boolean get() = composing
 
     /**
      * 光标停下（上屏、删字、挪光标之后）且不在组句：按光标前的文字问 Core 有没有补全（「用户名@」后的邮箱后缀），
@@ -470,6 +477,90 @@ class Composer(private val engine: Engine, private val host: Host) {
         beforeBackspace = null
         if (remaining.isNotEmpty()) connection.deleteSurroundingText(remaining.length, 0)
         if (removed.isNotEmpty()) apply(engine.cleared(removed))
+    }
+
+    /**
+     * 删掉光标前的整行：退格键从上往下划。
+     *
+     * 「整行」指光标前那一段连续文字里的**最后一行**（`\n` 是边界）；光标恰在行首时删掉上一行
+     * （连同那个换行）。组句中先落定拼音再删，不在组句里才动正文。
+     * 删掉的内容交给 Core 记一条 `cleared`，候选条上给「撤销」，与上划清空一致。
+     */
+    fun deleteLine() {
+        if (composing) settle()
+        val connection = host.connection ?: return
+        // 光标前整段（最多 MAX_LINE 个），从末尾往回找换行
+        val before = connection.getTextBeforeCursor(MAX_LINE, 0)?.toString().orEmpty()
+        if (before.isEmpty()) return
+        // 结尾是换行时，删的是上一整行连同这个换行
+        val trimmed = before.trimEnd('\n')
+        val start = trimmed.lastIndexOf('\n') + 1
+        val length = before.length - start
+        if (length <= 0) return
+        val removed = before.substring(start)
+        connection.deleteSurroundingText(length, 0)
+        if (removed.isNotEmpty()) apply(engine.cleared(removed))
+    }
+
+    /**
+     * 删掉光标前的一个词：退格键从右往左划，按住左拖时会连着调。
+     *
+     * 组句里（还没上屏的那段拼音）没有「词」可分，一格退一个键 —— 与按删除键一样，
+     * 不落定拼音、不上屏：拖过去就是在删拼音。
+     *
+     * 删掉的每一段都压进 [dragDeleted]：「左拖时往回滑」按它把字放回去，见 [restoreWord]。
+     *
+     * 「一个词」在这里是可预期的两种：拉丁字母、数字、下划线连成的一串算一个词，其余（汉字、假名、
+     * 标点）一个字符算一个；光标前紧挨着空白时先吃掉这一段空白。删掉的内容交给 Core 记一条
+     * `cleared`，候选条上给「撤销」，与上划清空一致。
+     */
+    fun deleteWord() {
+        if (composing) {
+            val before = preedit
+            onKey(Key.Backspace)
+            // 组句里退一格：拼音行的末字少了才是真删掉了
+            if (preedit.length < before.length) dragDeleted.addLast(before.takeLast(1))
+            return
+        }
+        val connection = host.connection ?: return
+        val remaining = connection.getTextBeforeCursor(MAX_WORD, 0)?.toString().orEmpty()
+        // 按下删除键时已经先删掉一个字：那一下若删掉的正是「一段」（汉字、假名、标点各自算一段），
+        // 这个手势要做的事已经做完了，不再接着删；删掉的是词里或空白里的一个字，就接着删完这一整段
+        val first = beforeBackspace?.lastOrNull()
+        val swallowed = first?.let { !engine.isWordChar(it) && !it.isWhitespace() } == true
+        beforeBackspace = null
+        if (swallowed || remaining.isEmpty()) return
+        val length = engine.wordTailLength(remaining)
+        if (length <= 0) return
+        val removed = remaining.substring(remaining.length - length)
+        connection.deleteSurroundingText(length, 0)
+        // 按下的那一下已经删掉的字也算进这一笔：它就是这一段的最后一个字，
+        // 不记的话往回滑只放得回剩下的部分（`four` 删成 `fou`）
+        val head = first?.takeIf { engine.isWordChar(it) }?.toString().orEmpty()
+        dragDeleted.addLast(head + removed)
+        if (removed.isNotEmpty()) apply(engine.cleared(removed))
+    }
+
+    /**
+     * 左拖删词时往回滑：把这一笔刚刚删掉的那一段放回光标前，一段一步。
+     *
+     * 组句里放回的是一个拼音字母（[deleteWord] 在同一处退掉的），其余情况放回的是刚删的整段文字。
+     * 用尽这一笔删掉的段数后返回 `false`，调用方就不再往回滑了。
+     */
+    fun restoreWord(): Boolean {
+        val text = dragDeleted.removeLastOrNull() ?: return false
+        if (text.isEmpty()) return false
+        if (composing) {
+            text.forEach { apply(engine.push(it.code)) }
+            return true
+        }
+        host.connection?.commitText(text, 1)
+        return true
+    }
+
+    /** 左拖删词的手势开始：清掉上一笔的账，往回滑只回滚这一笔删掉的。 */
+    fun beginDeleteDrag() {
+        dragDeleted.clear()
     }
 
     /** 组句中光标被点到别处：敲的字母原样落下，不留带 ' 的显示形式。 */
@@ -704,6 +795,15 @@ class Composer(private val engine: Engine, private val host: Host) {
 
         /** 上划清空最多删光标前几个字（UTF-16 单位）：再长的文档一次删不完，再划一次。 */
         const val MAX_CLEAR = 5000
+
+        /** 删整行时往回看多少字：够覆盖一行很长的正文，又不至于把整篇读进来。 */
+        private const val MAX_LINE = 4000
+
+        /** 左拖删词这一笔已经删掉的段，往回滑时按它一段一段放回去（见 [restoreWord]）。 */
+    private val dragDeleted = ArrayDeque<String>()
+
+    /** 删一词时往回看多少字：一个词不会有这么长，够用来找到边界就行。 */
+        private const val MAX_WORD = 200
 
         /** 日语里当长音敲的键。 */
         val LONG_VOWEL = setOf("-", "ー")

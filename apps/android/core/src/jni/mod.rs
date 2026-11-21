@@ -15,6 +15,7 @@ mod shuangpin;
 mod stats;
 mod strip;
 mod swipe;
+mod text;
 mod theme;
 mod voice;
 

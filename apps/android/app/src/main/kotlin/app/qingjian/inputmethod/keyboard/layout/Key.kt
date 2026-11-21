@@ -8,8 +8,49 @@ sealed class Key(val label: String, val weight: Float = 1f) {
     /** 长按不滑直接抬手选哪一项。 */
     open val initialChoice: Int get() = 0
 
-    /** 在键上往上一划上屏的字：同长按不滑直接抬手那一项（字母键是角标，九宫格是数字）；null 是不能上滑。 */
-    val flick: String? get() = choices.getOrNull(initialChoice)
+    /**
+     * 在键上往上划做什么。
+     *
+     * 这是每个键**自己声明**的：判定（`KeyboardView.flickable`）与执行（`flick`）都只读它，
+     * 不再按「是哪种键」四处分支。加一个新键、给某个键换一种上滑，只改这里一处。
+     */
+    open val flick: Flick get() = choices.getOrNull(initialChoice)?.let(Flick::Insert) ?: Flick.None
+
+    /**
+     * 在键上往下划做什么，缺省没有。
+     *
+     * 现在只有删除键声明：往上划清空、往下划删整行、往左划删一个词，三个方向分开声明，互不覆盖。
+     */
+    open val flickDown: Flick get() = Flick.None
+
+    /**
+     * 在键上往左划做什么，缺省没有。
+     *
+     * 现在只有删除键声明：往左划删掉光标前的一个词（英文、数字按整词，汉字按一个字）。
+     * 删除键往左划是不少手机输入法的习惯（#990 第 3 条）。
+     */
+    open val flickLeft: Flick get() = Flick.None
+
+    /** 划出来的几种结果。 */
+    sealed class Flick {
+        /** 不能划：抬手出键本身。 */
+        data object None : Flick()
+
+        /** 上屏一段文字（字母键是角标，九宫格是数字，标点键是另一种宽度）。 */
+        data class Insert(val text: String) : Flick()
+
+        /** 当成按了另一个键（双拼占位键上滑出 Shift）。 */
+        data class Press(val key: Key) : Flick()
+
+        /** 清掉光标前的全部文字。 */
+        data object ClearBefore : Flick()
+
+        /** 删掉光标前的整行。 */
+        data object DeleteLine : Flick()
+
+        /** 删掉光标前的一个词（英文、数字按整词，汉字按一个字）。 */
+        data object DeleteWord : Flick()
+    }
 
     /**
      * 全键盘的字母键；[hint] 是键面角上的符号（首排数字、二三排常用符号）。
@@ -29,6 +70,14 @@ sealed class Key(val label: String, val weight: Float = 1f) {
             get() = if (hint.isEmpty()) emptyList() else listOf(char.uppercase(), hint, char.toString())
 
         override val initialChoice: Int get() = 1
+
+        /** 上滑：占位键出 Shift，其余出角标符号（与长按不滑抬手那一项一致）。 */
+        override val flick: Flick
+            get() = when {
+                flickShift -> Flick.Press(Shift)
+                hint.isNotEmpty() -> Flick.Insert(hint)
+                else -> Flick.None
+            }
     }
 
     /** 九宫格的数字键：[digit] 进引擎，键面画 [letters]；`1` 是分词键。 */
@@ -55,11 +104,27 @@ sealed class Key(val label: String, val weight: Float = 1f) {
      * 直接上屏的标点、数字、符号。[punct] 不为空的是中文键盘的标点键：上屏前交 Core 按设置转全角或保持半角
      * （键上印的 [text] 只是样子，见 [KeyboardLayout.punct]）。
      */
-    class Text(val text: String, weight: Float = 1f, val punct: Char? = null) : Key(text, weight)
+    class Text(val text: String, weight: Float = 1f, val punct: Char? = null) : Key(text, weight) {
+        /**
+         * 标点键上滑出它**另一种宽度**的写法：中文标点键上滑出半角 `,`，英文键盘上滑出全角 `，`。
+         * 和字母键上滑出角标是同一套规则，逗号句号不必长按也能打另一半。
+         */
+        override val flick: Flick
+            get() = KeyboardLayout.otherWidth(text)?.let(Flick::Insert) ?: Flick.None
+    }
 
     data object Shift : Key("", 1.5f)
 
-    data object Backspace : Key("", 1.5f)
+    data object Backspace : Key("", 1.5f) {
+        /** 上滑：清掉光标前的全部文字（设置 `flickClear` 管着要不要这一步）。 */
+        override val flick: Flick get() = Flick.ClearBefore
+
+        /** 下滑：删掉光标前的整行（设置 `flickDeleteLine` 管着要不要这一步）。 */
+        override val flickDown: Flick get() = Flick.DeleteLine
+
+        /** 左滑：删掉光标前的一个词（设置 `flickDeleteWord` 管着要不要这一步）。 */
+        override val flickLeft: Flick get() = Flick.DeleteWord
+    }
 
     /** 空格；数字键盘上的窄一些。 */
     class Space(weight: Float = 3f) : Key("青简", weight)

@@ -22,6 +22,14 @@ object KeyboardLayout {
         return Key.Text(if (fullWidth) full.toString() else half.toString(), weight, punct = half)
     }
 
+    /** 同一个标点的另一种宽度写法（全角 → 半角、半角 → 全角）；不是标点时 `null`。 */
+    fun otherWidth(text: String): String? {
+        val char = text.singleOrNull() ?: return null
+        PUNCTUATION[char]?.let { return it.toString() }
+        PUNCTUATION.entries.firstOrNull { it.value == char }?.let { return it.key.toString() }
+        return null
+    }
+
     /** 不在组句时拼音列里放的标点；、和 … 没有对应的半角键，总是全角。 */
     fun sidePunctuation(fullWidth: Boolean): List<String> =
         listOf('，', '。', '？', '！').map { punct(it, fullWidth).text } + listOf("、", punct('：', fullWidth).text, "…")

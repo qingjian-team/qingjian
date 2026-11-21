@@ -402,7 +402,7 @@ class QingjianInputMethodService :
 
     override fun onKey(key: Key, repeat: Boolean) = composer.onKey(key, repeat)
 
-    override fun onKeyChoice(text: String) = composer.onKeyChoice(text)
+    override fun onKeyChoice(text: String, verbatim: Boolean) = composer.onKeyChoice(text, verbatim)
 
     override fun onLanguageChoice(index: Int) = composer.chooseLanguage(Language.entries[index])
 
@@ -418,6 +418,11 @@ class QingjianInputMethodService :
     }
 
     override fun onCursorMove(steps: Int) = composer.moveCursor(steps)
+
+    // 组句里没有真光标可挪：空格横滑改成按手指位置挪拼音行（未上屏的那段也能挪）
+    override fun onCursorDrag(x: Float) {
+        if (composer.composingNow) panel?.bar?.dragCaret(x)
+    }
 
     override fun onSideItem(item: String) = composer.onSideItem(item)
 
@@ -724,6 +729,14 @@ class QingjianInputMethodService :
     override fun onBackspaceDown() = composer.onBackspaceDown()
 
     override fun onClearBefore() = composer.clearBefore()
+
+    override fun onDeleteLine() = composer.deleteLine()
+
+    override fun onDeleteWord() = composer.deleteWord()
+
+    override fun onBeginDeleteDrag() = composer.beginDeleteDrag()
+
+    override fun onRestoreWord() = composer.restoreWord()
 
     // 回车键写的字（发送、搜索…）照搬到面板右边的键上；多行框没有动作，写「完成」
     override fun openVoicePanel(actions: VoicePanel.Actions): VoicePanel? =

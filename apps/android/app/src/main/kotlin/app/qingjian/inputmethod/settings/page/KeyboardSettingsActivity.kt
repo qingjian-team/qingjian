@@ -61,6 +61,20 @@ class KeyboardSettingsActivity : PageActivity() {
                 ui.toggle(R.string.flick_clear_title, R.string.flick_clear_note, settings.flickClear) {
                     prefs.edit().putBoolean(Settings.KEY_FLICK_CLEAR, it).apply()
                 },
+                ui.toggle(
+                    R.string.flick_delete_line_title,
+                    R.string.flick_delete_line_note,
+                    settings.flickDeleteLine,
+                ) {
+                    prefs.edit().putBoolean(Settings.KEY_FLICK_DELETE_LINE, it).apply()
+                },
+                ui.toggle(
+                    R.string.flick_delete_word_title,
+                    R.string.flick_delete_word_note,
+                    settings.flickDeleteWord,
+                ) {
+                    prefs.edit().putBoolean(Settings.KEY_FLICK_DELETE_WORD, it).apply()
+                },
                 ui.toggle(R.string.space_cursor_title, R.string.space_cursor_note, settings.spaceCursor) {
                     prefs.edit().putBoolean(Settings.KEY_SPACE_CURSOR, it).apply()
                 },

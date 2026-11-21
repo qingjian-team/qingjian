@@ -34,6 +34,7 @@ pub mod shuangpin;
 pub mod spacing;
 pub mod storage;
 pub mod swipe;
+pub mod text;
 pub mod traditional;
 pub mod vietnamese;
 pub mod voice;

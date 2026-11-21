@@ -221,7 +221,13 @@
     <string name="long_press_upper_note">长按字母不滑直接松手，上屏大写字母；关着时上屏键上角的符号</string>
     <string name="flick_clear_title">上划删除键清空</string>
     <string name="flick_clear_note">在删除键上往上一划，删掉光标前的全部文字，候选条上可以撤销；打拼音时只清空拼音</string>
+    <string name="flick_delete_line_title">下滑删除整行</string>
+    <string name="flick_delete_line_note">在删除键上往下划，删掉光标前的整行</string>
+    <string name="flick_delete_word_title">左划删除一个词</string>
+    <string name="flick_delete_word_note">在删除键上往左划，删掉光标前的一个词；按住往左拖，每拖过一格再删一个（和空格横滑挪光标一个手感）</string>
     <string name="flick_clear_bubble">清空</string>
+    <string name="flick_delete_line_bubble">删除整行</string>
+    <string name="flick_delete_word_bubble">删除一词</string>
     <string name="space_cursor_title">空格滑动移动光标</string>
     <string name="space_cursor_note">按住空格左右滑，按滑过的距离逐字移动光标；打拼音时不响应</string>
     <string name="spelling_correction_title">拼写纠错</string>

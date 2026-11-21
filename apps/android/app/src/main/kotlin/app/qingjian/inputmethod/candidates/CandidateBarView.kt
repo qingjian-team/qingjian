@@ -240,10 +240,13 @@ class CandidateBarView(
     }
 
     /**
-     * 沿拼音行拖：光标跟着手指落到最近的字缝，每过一格轻震一下（#881）。
+     * 拼音行光标跟着横向位置 [x] 走：落到最近的字缝，每过一格轻震一下（#881）。
      * 拼音行按视图坐标画、不随候选滚动；新的一帧到了缝的位置会变，所以每次按手指重新找。
+     *
+     * 按住空格横滑时也走这里：空格与候选条都是整宽，手指的 x 与拼音行的 x 对得上，
+     * 组句中横滑就是在拼音的字缝之间挪（见 `QingjianInputMethodService.onCursorDrag`）。
      */
-    private fun dragCaret(x: Float) {
+    fun dragCaret(x: Float) {
         val caret = strip.caretNear(x)
         if (caret < 0 || caret == dragCaret) return
         dragCaret = caret
