@@ -86,9 +86,7 @@ impl Engine {
             // 权分三档：本身就是那个单字 > 词首是它 > 只是含它，各档内保持原序
             let rank = |text: &str| -> Option<u8> {
                 let mut chars = text.chars();
-                let Some(first) = chars.next() else {
-                    return None;
-                };
+                let first = chars.next()?;
                 if !hints.contains(&first) {
                     return text.chars().any(|ch| hints.contains(&ch)).then_some(2);
                 }
