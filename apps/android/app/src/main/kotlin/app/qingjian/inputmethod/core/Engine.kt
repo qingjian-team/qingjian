@@ -220,6 +220,12 @@ class Engine(context: Context, private val onReady: () -> Unit) {
     /** 算式里按了 [c]：要交给 [push] 的字符（× ÷ 换成 Core 认的 * /）；不是算式字符为 null。按 Core 的规则，不要句柄。 */
     fun expressionChar(c: Char): Char? = Native.expressionChar(c).takeIf { it != '\u0000' }
 
+    /**
+     * 算式里按的 [c] 要不要进缓冲区。子模式的 `;` `:` 走这一条：[expressionChar] 不认它们，
+     * 只问它就会先选首选再把分号上屏。
+     */
+    fun expressionAccepts(c: Char): Boolean = Native.expressionAccepts(handle, c)
+
     /** 光标前最后一个字是 [c] 时可能是一道算式的结尾（数字、右括号、等号），才值得 [complete]。 */
     fun mayEndCalculation(c: Char): Boolean = Native.mayEndCalculation(c)
 

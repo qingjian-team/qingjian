@@ -2,14 +2,20 @@
 //!
 //! 给平均、中位数、众数、方差（总体与样本各一档）、标准差、极差、总和与排序结果。
 //! 参数用分号隔开（全角也认）。逗号不行 —— 中文模式下它是标点、会直接上屏。
+//!
+//! 每条候选是「值 + 名字」：上屏的只有值，名字由壳画在候选旁边（`Candidate::reading`），
+//! 光一串数字分不出哪个是哪个。常用的几种排前面，纯值的那一份垫在后面。
 
 use super::modes::split_args;
 
 /// 判定两个浮点是不是「同一个数」（众数计数用）。
 const EPSILON: f64 = 1e-9;
 
+/// 一条候选：上屏的值，与只在界面上显示的名字（空串表示不带名字）。
+pub type Measure = (String, String);
+
 /// `stat;<数>;<数>;…`。
-pub fn forms(args: &str) -> Vec<String> {
+pub fn measures(args: &str) -> Vec<Measure> {
     // 有一个认不出来的就整条不出候选：`vstat;1;2;x` 悄悄按 1、2 算完、看着像是对的，
     // 用户不会发现那个 `x` 被吃了。与 `vbase` 参数不对时的处理一致。
     let texts = split_args(args);
@@ -29,35 +35,82 @@ pub fn forms(args: &str) -> Vec<String> {
     let mean = sum / count as f64;
 
     numbers.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
-    let median = if count % 2 == 1 {
-        numbers[count / 2]
-    } else {
-        (numbers[count / 2 - 1] + numbers[count / 2]) / 2.0
-    };
+    let median = median_of(&numbers);
+    let quartiles = quartiles_of(&numbers);
 
     // 总体方差（除 n）与样本方差（除 n−1）都给：前者是这套数据的离散度，后者是估计量
     let squares: f64 = numbers.iter().map(|x| (x - mean).powi(2)).sum();
     let variance = squares / count as f64;
     let sample_variance = (count > 1).then(|| squares / (count - 1) as f64);
-
-    let mut forms = vec![fmt(mean), fmt(median)];
-    if let Some(modes) = modes(&numbers) {
-        let joined: Vec<String> = modes.iter().map(|v| fmt(*v)).collect();
-        forms.push(joined.join("、"));
-    }
-    forms.push(fmt(variance));
-    if let Some(sample) = sample_variance {
-        forms.push(fmt(sample));
-    }
-    forms.push(fmt(variance.sqrt()));
+    let deviation = variance.sqrt();
     let (low, high) = (numbers[0], numbers[count - 1]);
-    forms.push(fmt(high - low));
-    forms.push(format!("{}　{}", fmt(low), fmt(high)));
-    forms.push(fmt(sum));
-    forms.push(count.to_string());
     let ordered: Vec<String> = numbers.iter().map(|v| fmt(*v)).collect();
-    forms.push(ordered.join(" "));
+    let modes_text = modes(&numbers).map(|modes| {
+        let joined: Vec<String> = modes.iter().map(|v| fmt(*v)).collect();
+        joined.join("、")
+    });
+
+    // 常用的几种排前面，按「先看什么」的顺序：平均、中位、众数、个数、总和。
+    let mut forms: Vec<Measure> = vec![
+        (fmt(mean), "平均数".to_owned()),
+        (fmt(median), "中位数".to_owned()),
+    ];
+    if let Some(modes) = &modes_text {
+        forms.push((modes.clone(), "众数".to_owned()));
+    }
+    if let Some((q1, q3)) = quartiles {
+        forms.push((fmt(q1), "第一四分位数".to_owned()));
+        forms.push((fmt(q3), "第三四分位数".to_owned()));
+        forms.push((fmt(q3 - q1), "四分位距".to_owned()));
+    }
+    forms.extend([
+        (count.to_string(), "个数".to_owned()),
+        (fmt(sum), "总和".to_owned()),
+        (fmt(high - low), "极差".to_owned()),
+        (fmt(low), "最小".to_owned()),
+        (fmt(high), "最大".to_owned()),
+        (fmt(variance), "总体方差".to_owned()),
+    ]);
+    if let Some(sample) = sample_variance {
+        forms.push((fmt(sample), "样本方差".to_owned()));
+    }
+    forms.push((fmt(deviation), "标准差".to_owned()));
+    if let Some(sample) = sample_variance {
+        forms.push((fmt(sample.sqrt()), "标准差（样本）".to_owned()));
+    }
+    // 全是正数才有几何平均（要取对数）
+    if numbers.iter().all(|x| *x > 0.0) {
+        let geometric = (numbers.iter().map(|x| x.ln()).sum::<f64>() / count as f64).exp();
+        forms.push((fmt(geometric), "几何平均".to_owned()));
+    }
+    forms.push((ordered.join("　"), "排序".to_owned()));
+
     forms
+}
+
+/// 已经排好序的一串数的中位数。
+fn median_of(sorted: &[f64]) -> f64 {
+    let count = sorted.len();
+    if count % 2 == 1 {
+        sorted[count / 2]
+    } else {
+        (sorted[count / 2 - 1] + sorted[count / 2]) / 2.0
+    }
+}
+
+/// 第一、第三四分位数：下半个与上半个各自的中位数（奇数个时不含正中那个）。
+///
+/// 四个数以下不给：那时下半个只剩一个数，算出来就是最小值，没什么可看的。
+fn quartiles_of(sorted: &[f64]) -> Option<(f64, f64)> {
+    let count = sorted.len();
+    if count < 4 {
+        return None;
+    }
+    let half = count / 2;
+    Some((
+        median_of(&sorted[..half]),
+        median_of(&sorted[count - half..]),
+    ))
 }
 
 /// 出现次数最多的值（并列时都给）；每个数只出现一次时没有众数。
@@ -86,7 +139,7 @@ fn modes(numbers: &[f64]) -> Option<Vec<f64>> {
 }
 
 /// 浮点写成给人看的短串：整数不带小数点，小数最多留 6 位且不留尾随零。
-fn fmt(value: f64) -> String {
+pub(super) fn fmt(value: f64) -> String {
     if value.is_finite() && value.fract() == 0.0 && value.abs() < 1e15 {
         return format!("{}", value as i64);
     }
@@ -103,54 +156,96 @@ fn fmt(value: f64) -> String {
 mod tests {
     use super::*;
 
-    /// 候选项是纯数字：选一条上屏的就是那个数，不带「平均」这类名字。
-    /// 顺序固定（平均、中位数、众数、方差、样本方差、标准差、极差、最小最大、总和、个数、排序），
-    /// 用户按位置挑。
+    fn values(args: &str) -> Vec<String> {
+        measures(args).into_iter().map(|(value, _)| value).collect()
+    }
+
+    fn labels(args: &str) -> Vec<String> {
+        measures(args)
+            .into_iter()
+            .map(|(_, label)| label)
+            .filter(|label| !label.is_empty())
+            .collect()
+    }
+
+    fn named(args: &str, name: &str) -> Option<String> {
+        measures(args)
+            .into_iter()
+            .find(|(_, label)| label == name)
+            .map(|(value, _)| value)
+    }
+
+    /// 常用的几种排在前面，名字都在；上屏的值只是那个数。
     #[test]
-    fn basic_measures() {
-        let measured = forms("1;2;3;4");
-        assert_eq!(measured[0], "2.5", "{measured:?}");
-        assert_eq!(measured[1], "2.5", "{measured:?}");
-        assert_eq!(measured[2], "1.25", "{measured:?}");
-        assert_eq!(measured.last().map(String::as_str), Some("1 2 3 4"));
-        assert!(measured.iter().any(|f| f == "10"), "总和：{measured:?}");
-        assert!(measured.iter().any(|f| f == "4"), "个数：{measured:?}");
+    fn useful_measures_come_first_with_their_names() {
+        let measured = measures("1;2;3;4");
+        assert_eq!(measured[0], ("2.5".to_owned(), "平均数".to_owned()));
+        assert_eq!(measured[1], ("2.5".to_owned(), "中位数".to_owned()));
+        assert_eq!(named("1;2;3;4", "个数").as_deref(), Some("4"));
+        assert_eq!(named("1;2;3;4", "总和").as_deref(), Some("10"));
+        assert_eq!(named("1;2;3;4", "极差").as_deref(), Some("3"));
+        assert_eq!(named("1;2;3;4", "最小").as_deref(), Some("1"));
+        assert_eq!(named("1;2;3;4", "最大").as_deref(), Some("4"));
+        assert!(named("1;2;3;4", "总体方差").is_some());
+        assert!(named("1;2;3;4", "标准差").is_some());
+        assert!(named("1;2;3;4", "排序").is_some());
+    }
+
+    /// 四个数以上才给四分位数：1 2 3 4 的下半个是 1 2（中位 1.5）、上半个是 3 4（中位 3.5）。
+    #[test]
+    fn quartiles_need_four_numbers() {
+        assert_eq!(named("1;2;3;4", "第一四分位数").as_deref(), Some("1.5"));
+        assert_eq!(named("1;2;3;4", "第三四分位数").as_deref(), Some("3.5"));
+        assert_eq!(named("1;2;3;4", "四分位距").as_deref(), Some("2"));
+        // 五个数：不含正中的 3，下半个 1 2、上半个 4 5
+        assert_eq!(named("1;2;3;4;5", "第一四分位数").as_deref(), Some("1.5"));
+        assert_eq!(named("1;2;3;4;5", "第三四分位数").as_deref(), Some("4.5"));
+        assert!(named("1;2;3", "第一四分位数").is_none(), "三个数不给");
     }
 
     #[test]
     fn odd_count_median_is_middle() {
-        assert_eq!(forms("1;2;9")[1], "2");
+        assert_eq!(measures("1;2;9")[1], ("2".to_owned(), "中位数".to_owned()));
     }
 
     #[test]
     fn mode_reports_ties() {
-        let tied = forms("1;1;2;2;3");
-        assert!(tied.iter().any(|f| f == "1、2"), "{tied:?}");
-        // 每个数只出现一次时不给众数：第三条直接是方差
-        assert_eq!(forms("1;2;3")[2], "0.666667");
+        let tied = measures("1;1;2;2;3");
+        assert!(
+            tied.iter().any(|(v, l)| v == "1、2" && l == "众数"),
+            "{tied:?}"
+        );
+        // 每个数只出现一次时不给众数
+        let distinct = measures("1;2;3");
+        assert!(!distinct.iter().any(|(_, l)| l == "众数"), "{distinct:?}");
     }
 
     #[test]
     fn sample_variance_only_with_two_or_more() {
-        // 一个数没有样本方差（要除以 n−1，会除零）：平均、中位数、方差、标准差、极差…
-        let one = forms("5");
-        assert_eq!(one[0], "5");
-        // 两个数就有，第四条
-        let two = forms("1;3");
-        assert_eq!(two[3], "2", "{two:?}");
+        let one = labels("5");
+        assert!(!one.contains(&"样本方差".to_owned()), "{one:?}");
+        let two = values("1;3");
+        assert!(two.contains(&"2".to_owned()), "{two:?}");
+    }
+
+    /// 全是正数才给几何平均。
+    #[test]
+    fn geometric_mean_needs_positive_numbers() {
+        assert!(labels("1;4").contains(&"几何平均".to_owned()));
+        assert!(!labels("-1;4").contains(&"几何平均".to_owned()));
     }
 
     #[test]
     fn full_width_semicolon_is_accepted() {
-        assert_eq!(forms("1；2；3；4")[0], "2.5");
+        assert_eq!(values("1；2；3；4")[0], "2.5");
     }
 
     /// 一个参数认不出来就整条不出候选，不悄悄按剩下的算。
     #[test]
     fn one_bad_argument_kills_the_whole_set() {
-        assert!(forms("").is_empty());
-        assert!(forms("abc;def").is_empty());
-        assert!(forms("1;2;x").is_empty(), "`x` 不该被丢掉");
-        assert!(forms("1;2;3.5x").is_empty());
+        assert!(measures("").is_empty());
+        assert!(measures("abc;def").is_empty());
+        assert!(measures("1;2;x").is_empty(), "`x` 不该被丢掉");
+        assert!(measures("1;2;3.5x").is_empty());
     }
 }

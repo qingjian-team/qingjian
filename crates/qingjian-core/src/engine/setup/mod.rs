@@ -134,6 +134,26 @@ impl Engine {
         self.aux_show = show;
     }
 
+    /// 告诉 Engine 剪切板里最近一次复制的一段文本：`vstat` / `vcol` 这些子模式的参数空着时拿它顶上，
+    /// 用户不用先敲分号再粘一遍。壳在缓冲区进子模式时调一次即可，拿不到就给 `None`。
+    pub fn set_clipboard_text(&mut self, text: Option<String>) {
+        self.clipboard_text = text;
+    }
+
+    /// 现在该不该去剪切板取参数：缓冲区是个要参数的子模式，后面还空着。
+    ///
+    /// 壳据此决定要不要读一次剪切板 —— 只在切进这个状态时读一次，不要每次按键都读盘。
+    pub fn wants_clipboard(&self) -> bool {
+        if !self.expression_sub_modes() {
+            return false;
+        }
+        let scope = self.composition.scope();
+        let Some(body) = scope.strip_prefix(self.modes().expression) else {
+            return false;
+        };
+        crate::shortcut::modes::parse(body).is_some_and(|mode| mode.args().trim().is_empty())
+    }
+
     /// 换「候选上显示声调」开关（配置项 `[general] show_tones`，缺省关）。
     pub fn set_show_tones(&mut self, show: bool) {
         self.show_tones = show;
@@ -294,6 +314,26 @@ impl Engine {
     /// 缓冲区为空时敲 `?` 该不该进问字模式（配置 `[shortcut] question_mark`）：壳据此决定问号是入口还是标点。
     pub fn takes_question_mark(&self) -> bool {
         self.modes().question_mark
+    }
+
+    /// 模式里的用法提示，壳画在拼音行下方；别的输入为 `None`。
+    ///
+    /// 两种时候给：只敲了一个模式键（只有 `v` 或只有 `u`），以及子模式名敲全、还没填参数
+    /// （`vtrans`、`vstat`）——那几处候选是空的，不给句话就是一片空白。
+    /// 参数一开始写就不给了，再敲一个键就进了具体内容，提示反而挡路。
+    pub fn mode_hint(&self) -> Option<&'static str> {
+        let scope = self.composition.scope();
+        let expression = self.modes().expression;
+        if let Some(body) = scope.strip_prefix(expression) {
+            if body.is_empty() {
+                return Some("v：算式、中文数字与金额、日期、进制、位运算、统计");
+            }
+            return crate::shortcut::modes::hint(body);
+        }
+        if scope == self.modes().question.to_string() {
+            return Some("u：码点查字、笔画与部件拆字");
+        }
+        None
     }
 
     /// 双拼开着时把一段键解成全拼；全拼下为 `None`，调用方原样用键。

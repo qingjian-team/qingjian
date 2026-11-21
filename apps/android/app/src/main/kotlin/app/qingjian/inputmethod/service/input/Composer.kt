@@ -410,7 +410,11 @@ class Composer(private val engine: Engine, private val host: Host) {
      */
     private fun onExpressionText(text: String) {
         val c = text.singleOrNull()?.let(engine::expressionChar)
+        // 子模式的分隔符（`vstat;`、`vbase;`）：`;` `:` 不是算式字符，得按 Engine 的子模式规则问一次，
+        // 不然会先选首选再把分号上屏，`vstat` / `vbase` 在手机上永远打不出来
+        val separator = text.singleOrNull()?.takeIf(engine::expressionAccepts)
         when {
+            separator != null -> apply(engine.push(separator.code))
             c != null -> apply(engine.push(c.code))
             c == '=' -> {
                 val index = candidates.indexOfFirst { '=' in it.text }

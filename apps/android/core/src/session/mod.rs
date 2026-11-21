@@ -134,6 +134,13 @@ impl Session {
         }
     }
 
+    /// 算式里按的 `c` 要不要进缓冲区。与 `expression_char` 的区别是子模式：`;` `:` 不是算式字符，
+    /// 但 `vstat` 后面那个分隔符要收（`shortcut::modes::accepts_key`），壳不认这一条就永远打不出
+    /// `vstat` / `vbase`。
+    pub fn expression_accepts(&self, c: char) -> bool {
+        self.engine.expression_input(c)
+    }
+
     /// 输入框换了或键盘收起：丢掉组句、断开上文、学习数据落盘。
     pub fn reset(&mut self) {
         self.engine.clear();

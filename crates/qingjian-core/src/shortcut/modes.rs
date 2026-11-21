@@ -23,6 +23,12 @@ pub const BASE_KEYWORD: &str = "base";
 /// 统计子模式的名字。
 pub const STAT_KEYWORD: &str = "stat";
 
+/// 颜色子模式的名字（`vcol` 与 `vcolor` 都认）。
+pub const COLOR_KEYWORD: &str = "col";
+
+/// 变换子模式的名字（归一化、对数、差分、平滑、分箱…）。
+pub const TRANS_KEYWORD: &str = "trans";
+
 /// 子模式。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Mode<'a> {
@@ -55,9 +61,47 @@ pub enum Mode<'a> {
         /// 冒号之后的参数原文。
         args: &'a str,
     },
+
+    /// 变换：`vtrans;log;1;2;4` 对一串数做归一化、取对数、差分、平滑、分箱这些。
+    Trans {
+        /// 冒号之后的参数原文（算子名在前，其余是数）。
+        args: &'a str,
+    },
+
+    /// 颜色：`vcol;#ff8800` 给各种颜色写法。
+    Color {
+        /// 冒号之后的参数原文。
+        args: &'a str,
+    },
 }
 
-impl Mode<'_> {
+impl<'a> Mode<'a> {
+    /// 这条子模式带的参数原文（`uuid` 没有，给空串）。
+    pub fn args(&self) -> &'a str {
+        match self {
+            Self::Uuid => "",
+            Self::Timestamp { at } => at,
+            Self::Bit { body, .. } => body,
+            Self::Base { args }
+            | Self::Stat { args }
+            | Self::Trans { args }
+            | Self::Color { args } => args,
+        }
+    }
+
+    /// 换一份参数（剪切板里的内容顶上来时用），名字与位宽都不动。
+    pub fn with_args(self, args: &'a str) -> Self {
+        match self {
+            Self::Uuid => self,
+            Self::Timestamp { .. } => Self::Timestamp { at: args },
+            Self::Bit { width, .. } => Self::Bit { width, body: args },
+            Self::Base { .. } => Self::Base { args },
+            Self::Stat { .. } => Self::Stat { args },
+            Self::Trans { .. } => Self::Trans { args },
+            Self::Color { .. } => Self::Color { args },
+        }
+    }
+
     /// 这个名字还要不要参数：`uuid` 不要（打不打分隔符都行），其余要。
     pub fn wants_argument(&self) -> bool {
         !matches!(self, Self::Uuid)
@@ -72,8 +116,8 @@ impl Mode<'_> {
             Self::Timestamp { .. } => {
                 c.is_ascii_digit() || matches!(c, '-' | '.' | '/' | ':' | ';' | '；')
             }
-            // 进制与统计：数字、字母（进制名）、小数、负号与分号
-            Self::Base { .. } | Self::Stat { .. } => {
+            // 进制、统计与变换：数字、字母（进制名 / 算子名）、小数、负号与分号
+            Self::Base { .. } | Self::Stat { .. } | Self::Trans { .. } => {
                 c.is_ascii_alphanumeric() || matches!(c, '.' | '-' | ';' | '；')
             }
             // 位运算照 C++：`<<` `>>` `&` `|` `^` `~` `%`，还有写出来的英文（`shl` `and`）
@@ -82,6 +126,14 @@ impl Mode<'_> {
                     || matches!(
                         c,
                         '+' | '-' | '*' | '/' | '%' | '^' | '&' | '|' | '~' | '<' | '>' | '(' | ')'
+                    )
+            }
+            // 颜色：hex 的 `#`、函数式的 `rgb(…)`、逗号与百分号都要进得来
+            Self::Color { .. } => {
+                c.is_ascii_alphanumeric()
+                    || matches!(
+                        c,
+                        '#' | '(' | ')' | ',' | '.' | '%' | '-' | '/' | ';' | '；' | '：' | ':'
                     )
             }
         }
@@ -99,7 +151,7 @@ struct Spec {
 }
 
 /// 全部子模式。加一个在这里登记，`Mode` 与 `mode_forms` 跟上即可。
-const SPECS: [Spec; 5] = [
+const SPECS: [Spec; 6] = [
     Spec {
         name: BIT_KEYWORD,
         numbered: true,
@@ -120,6 +172,10 @@ const SPECS: [Spec; 5] = [
         name: STAT_KEYWORD,
         numbered: false,
     },
+    Spec {
+        name: TRANS_KEYWORD,
+        numbered: false,
+    },
 ];
 
 /// 拆子模式。`body` 是表达式键之后的部分（不含 `v`）。
@@ -130,6 +186,27 @@ pub fn parse(body: &str) -> Option<Mode<'_>> {
         Some((name, rest)) => named(name, rest),
         // 无参子模式不用打分隔符：`vuuid` 与 `vuuid;` 等价，`vts` 与 `vts;` 等价
         None => named(body.trim_end_matches([';', '；']), ""),
+    }
+}
+
+/// 子模式名敲全、还没填参数时的一句用法；别的输入为 `None`。
+///
+/// `vtrans`、`vstat` 这类要参数，光敲名字时候选是空的，不说一句就是一片空白。
+/// 参数一开头就不给了：再敲一个键就有内容，提示反而挡路。
+pub fn hint(body: &str) -> Option<&'static str> {
+    // 名字敲全、参数还空着：末尾的分隔符不算参数，名字里再出现分隔符就是已经在填了
+    let name = body.trim_end_matches([';', '；']);
+    if name.contains([';', '；', ':']) {
+        return None;
+    }
+    match name {
+        "bit" => Some("vbit：算式　位宽写 bit8 / bit16 / bit32，加 u 按无符号算（vbit8u;1-2）"),
+        "base" => Some("vbase：数;进制　十进制换成 2–36 进制"),
+        "stat" => Some("vstat：数;数;…　给平均数、中位数、四分位数、方差、极差"),
+        "trans" => Some(
+            "vtrans：算子;数;数;…　minmax z log log10 sqrt diff smooth median low high bin uniq shuffle",
+        ),
+        _ => None,
     }
 }
 
@@ -147,15 +224,25 @@ fn named<'a>(name: &str, rest: &'a str) -> Option<Mode<'a>> {
     if name == STAT_KEYWORD {
         return Some(Mode::Stat { args: rest });
     }
+    if name == COLOR_KEYWORD || name == "color" {
+        return Some(Mode::Color { args: rest });
+    }
+    if name == TRANS_KEYWORD {
+        return Some(Mode::Trans { args: rest });
+    }
     let width = parse_bit_width(name)?;
     Some(Mode::Bit { width, body: rest })
 }
 
-/// 带参数子模式的参数：按分号切，全角也认，空段丢掉。
+/// 带参数子模式的参数：按分隔符切开，空段丢掉。
 ///
 /// `vbase;128;16` 与 `vstat;1;2;3` 都走这里，个数由各子模式自己校验。
+///
+/// 分隔符比键盘上敲得出来的宽：空格、制表、换行、半角与全角逗号也算。键盘上敲不进这些
+/// （空格是上屏键、逗号是标点），所以对打字没有影响；从剪切板粘进来的一列数常是
+/// 空格或换行分隔的，多认几种才用得起来。
 pub fn split_args(args: &str) -> Vec<&str> {
-    args.split([';', '；'])
+    args.split([';', '；', ',', '，', ' ', '\t', '\n', '\r', '\u{3000}'])
         .map(str::trim)
         .filter(|part| !part.is_empty())
         .collect()
@@ -334,6 +421,23 @@ mod tests {
         assert!(!is_name_prefix("uuid"));
         // 纯数字不是前缀
         assert!(!is_name_prefix("123"));
+    }
+
+    /// 名字敲全、还没填参数时给一句用法；一填参数就不再提示。
+    #[test]
+    fn hint_only_while_the_name_stands_alone() {
+        assert!(hint("trans").is_some_and(|text| text.contains("minmax")));
+        // 末尾的分隔符不算参数
+        assert!(hint("trans;").is_some_and(|text| text.contains("minmax")));
+        assert!(hint("stat").is_some());
+        assert!(hint("base").is_some());
+        assert!(hint("bit").is_some());
+        // 一填参数、或名字带宽度，就不再给
+        assert!(hint("trans;lo").is_none());
+        assert!(hint("bit8").is_none());
+        // 别的词不是子模式
+        assert!(hint("").is_none());
+        assert!(hint("datetime").is_none());
     }
 
     /// 按键放行：名字阶段收字母数字与分隔符，参数阶段按子模式。
