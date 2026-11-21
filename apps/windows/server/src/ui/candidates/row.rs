@@ -65,7 +65,12 @@ pub(crate) fn from_candidate(
         annotation.push((reading, Tone::Faint));
     }
     Row {
-        index: (position + 1).to_string(),
+        // 第 10 个候选（位次 9）的角标写 `0`，与数字键一致
+        index: if position + 1 == qingjian_platform::MAX_PAGE_SIZE {
+            "0".to_owned()
+        } else {
+            (position + 1).to_string()
+        },
         text: candidate.text.clone(),
         diff: Vec::new(),
         code,
