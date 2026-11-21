@@ -68,7 +68,7 @@ impl From<&Candidate> for FrameCandidate {
                 .map(FrameSense::from)
                 .collect(),
             forgettable: candidate.kind.forgettable(),
-            blockable: candidate.kind == CandidateKind::Chinese,
+            blockable: qingjian_core::blockable(candidate),
             cloud: candidate.kind == CandidateKind::Cloud,
             contact: false,
             diff: Vec::new(),

@@ -146,8 +146,11 @@ pub fn actions(
 /// 条件是：中文候选、**三个字以上**。单字与两字词都太常用，右键点错一下就会连带挡掉
 /// 一大片（屏蔽是按「含这个词」匹配的）；三个字以上多半是导入词库带进来的品牌名之类，
 /// 正是这个功能面向的对象。自定义短语本来就不在屏蔽范围里。
+///
+/// 判据本身在 Core（[`qingjian_core::blockable`]），各平台的菜单与气泡共用同一份，
+/// 别在这里另写一条。
 fn blocks(candidate: &Candidate) -> bool {
-    candidate.kind == CandidateKind::Chinese && candidate.text.chars().count() >= 3
+    qingjian_core::blockable(candidate)
 }
 
 /// 独立输入法候选的公共菜单项。它不依赖中文拼音 Composition，也不提供中文自定义短语和删除用户词。
