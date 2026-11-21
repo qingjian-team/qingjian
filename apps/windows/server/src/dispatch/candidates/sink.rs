@@ -89,9 +89,6 @@ pub struct CandidateMenu {
 
     /// 各项的编号与标题（[`qingjian_platform::candidate_menu::CandidateAction`]）。
     pub items: Vec<(u32, &'static str)>,
-
-    /// 当前主题 id（`[general] theme`）：UI 线程按它取主题的 `menu` 一节画菜单。
-    pub theme: String,
 }
 
 /// 不画候选窗口的空实现。

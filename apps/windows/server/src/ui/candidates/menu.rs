@@ -14,7 +14,7 @@ use windows::Win32::UI::WindowsAndMessaging::{
 };
 use windows::core::{PCWSTR, Result, w};
 
-use qingjian_render::{FontLibrary, HitTarget, MenuStyle, Rendered, Renderer, ThemeLibrary};
+use qingjian_render::{FontLibrary, HitTarget, MenuStyle, Rendered, Renderer, Theme};
 
 use super::click::{self, CandidateMouse};
 use crate::dispatch::CandidateMenu;
@@ -35,6 +35,10 @@ struct Menu {
 
     /// 弹着的那份；`None` 是收着。
     open: Option<CandidateMenu>,
+
+    /// 弹出时从候选窗手里接过来的当前主题（候选窗的渲染器早就解析好了）。
+    /// 菜单不去读主题目录：用户主题多、带图时那是一次 UI 线程上的整轮扫盘与解析。
+    theme: Option<Theme>,
 
     hovered: Option<usize>,
 
@@ -86,6 +90,7 @@ pub(super) fn install() -> Result<()> {
             hwnd,
             renderer: None,
             open: None,
+            theme: None,
             hovered: None,
             dark: false,
             style: MenuStyle::system(false),
@@ -97,8 +102,8 @@ pub(super) fn install() -> Result<()> {
     Ok(())
 }
 
-/// 在 `menu.point` 弹出菜单。
-pub(super) fn open(menu: CandidateMenu, dark: bool, dpi: u32) {
+/// 在 `menu.point` 弹出菜单；`theme` 是候选窗渲染器那份已解析的主题（系统绘制时为 `None`）。
+pub(super) fn open(menu: CandidateMenu, dark: bool, dpi: u32, theme: Option<Theme>) {
     let point = POINT {
         x: menu.point.0,
         y: menu.point.1,
@@ -107,6 +112,7 @@ pub(super) fn open(menu: CandidateMenu, dark: bool, dpi: u32) {
         let mut cell = cell.borrow_mut();
         let state = cell.as_mut()?;
         state.open = Some(menu);
+        state.theme = theme;
         state.hovered = None;
         state.dark = dark;
         state.dpi = dpi;
@@ -178,16 +184,18 @@ impl Menu {
         self.rendered.as_ref()
     }
 
-    /// 弹出时算一次菜单样式并存下来：主题 id 从 `open` 里拿，读不进来就用控件的浅色 / 深色默认。
+    /// 弹出时算一次菜单样式并存下来：用候选窗渲染器手里那份已解析的主题，读不进来就用控件的浅色 / 深色默认。
     ///
-    /// 只在这里读主题目录 —— [`Self::render`] 每次划过高亮项都要调，那里必须便宜。
+    /// 只在这里算样式 —— [`Self::render`] 每次划过高亮项都要调，那里必须便宜；主题目录一次也不碰。
     fn refresh_style(&mut self) {
-        let Some(id) = self.open.as_ref().map(|menu| menu.theme.clone()) else {
+        if self.open.is_none() {
             self.style = MenuStyle::system(self.dark);
             return;
+        }
+        self.style = match self.theme.as_ref() {
+            Some(theme) => theme.menu_style(self.dark),
+            None => MenuStyle::system(self.dark),
         };
-        let library = ThemeLibrary::load(qingjian_platform::dirs::themes_dir().as_deref());
-        self.style = library.resolve(&id, self.dark).menu_style(self.dark);
     }
 
     /// 屏幕上这一点落在第几项上。
