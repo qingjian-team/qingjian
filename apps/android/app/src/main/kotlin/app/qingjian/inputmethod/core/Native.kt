@@ -44,6 +44,9 @@ internal object Native {
 
     external fun forget(handle: Long, index: Int): String?
 
+    /** 屏蔽第 [index] 个候选：把它的文本加进屏蔽词。 */
+    external fun block(handle: Long, index: Int): String?
+
     external fun commitRaw(handle: Long): String?
 
     external fun clear(handle: Long): String?

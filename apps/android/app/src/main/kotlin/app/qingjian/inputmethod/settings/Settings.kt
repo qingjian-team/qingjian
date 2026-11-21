@@ -134,6 +134,9 @@ data class Settings(
         const val KEY_SYMBOLS = "symbols"
         const val KEY_DOMAINS = "domains"
         const val KEY_DISABLED_DICTIONARIES = "disabled_dictionaries"
+
+        /** 屏蔽词：候选里含有其中任何一个就整条不出（`搜狗` 也挡掉 `搜狗拼音`）。 */
+        const val KEY_BLOCKED_WORDS = "blocked_words"
         const val KEY_GLOSS_FILL = "gloss_fill"
         const val KEY_CLOUD_PREDICT = "cloud_predict"
         const val KEY_CLOUD_WIFI_ONLY = "cloud_wifi_only"
@@ -213,6 +216,7 @@ data class Settings(
                     symbols = prefs.getInt(KEY_SYMBOLS, SettingChoices.defaultSymbols),
                     domains = prefs.getStringSet(KEY_DOMAINS, null)?.toSet() ?: SettingChoices.defaultDomains,
                     disabledDictionaries = prefs.getStringSet(KEY_DISABLED_DICTIONARIES, null).orEmpty().toSet(),
+                    blockedWords = prefs.getStringSet(KEY_BLOCKED_WORDS, null).orEmpty().toSet(),
                     dictionariesStamp = prefs.getLong(KEY_DICTIONARIES_STAMP, 0),
                 ),
                 englishCandidates = prefs.getBoolean(KEY_ENGLISH_CANDIDATES, true),

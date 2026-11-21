@@ -99,6 +99,8 @@ class Engine(context: Context, private val onReady: () -> Unit) {
 
     fun forget(index: Int): Frame = Frame.parse(Native.forget(handle, index))
 
+    fun block(index: Int): Frame = Frame.parse(Native.block(handle, index))
+
     fun commitRaw(): Frame = Frame.parse(Native.commitRaw(handle))
 
     fun clear(): Frame = Frame.parse(Native.clear(handle))

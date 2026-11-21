@@ -43,6 +43,9 @@ class CandidateBarView(
         /** 长按气泡里选了「删除」：删第 [index] 个候选（用户词、学习记录）。 */
         fun onForget(index: Int)
 
+        /** 长按气泡里选了「屏蔽」：把第 [index] 个候选的文本加进屏蔽词，之后含它的整条都不出。 */
+        fun onBlock(index: Int)
+
         /** 工具栏中间那排点了一个工具；调高度在这里自己处理，不会传出去。 */
         fun onToolbar(tool: ToolbarTool)
 
@@ -107,6 +110,9 @@ class CandidateBarView(
 
     /** 气泡里「删除」那一项的下标；这个候选删不了时为 -1。 */
     private var forgetItem = -1
+
+    /** 「屏蔽这个词」在气泡里的下标；不给这一项时为 -1。 */
+    private var blockItem = -1
 
     /** 气泡里只有「删除」（候选没有译文）。 */
     private var forgetOnly = false
@@ -291,16 +297,26 @@ class CandidateBarView(
         val index = strip.indexAt(event.x + scrollX)
         val candidate = strip.candidates.getOrNull(index) ?: return
         val senses = candidate.senses
-        if (senses.isEmpty() && !candidate.forgettable) return
+        if (senses.isEmpty() && !candidate.forgettable && !candidate.blockable) return
         popupIndex = index
         repaint()
         Haptics.hold(context)
-        val items = senses.map { sense ->
-            ChoicePopup.Item(sense.text, listOfNotNull(sense.pos, sense.reading).joinToString(" "), sense.fresh)
-        } + if (candidate.forgettable) listOf(ChoicePopup.Item(context.getString(R.string.candidate_forget), context.getString(R.string.candidate_forget_note))) else emptyList()
+        val items = senses
+            .map { sense ->
+                ChoicePopup.Item(sense.text, listOfNotNull(sense.pos, sense.reading).joinToString(" "), sense.fresh)
+            }
+            .toMutableList()
+        // 「删除」与「屏蔽」都是整条候选上的操作，排在译文之后
+        if (candidate.forgettable) {
+            items.add(ChoicePopup.Item(context.getString(R.string.candidate_forget), context.getString(R.string.candidate_forget_note)))
+        }
+        if (candidate.blockable) {
+            items.add(ChoicePopup.Item(context.getString(R.string.candidate_block), context.getString(R.string.candidate_block_note)))
+        }
         forgetItem = if (candidate.forgettable) senses.size else -1
+        blockItem = if (candidate.blockable) senses.size + (if (candidate.forgettable) 1 else 0) else -1
         forgetOnly = senses.isEmpty()
-        // 只有「删除」时不预选，得滑上去才算，免得长按一松手就删了
+        // 只有整条候选上的操作（删除 / 屏蔽）时不预选，得滑上去才算，免得长按一松手就执行了
         popup.show(items, initial = if (senses.isEmpty()) -1 else 0, fingerScreenX = event.rawX, bottom = 0f)
     }
 
@@ -314,8 +330,13 @@ class CandidateBarView(
             MotionEvent.ACTION_UP -> {
                 val index = popupIndex
                 val forget = forgetItem
+                val block = blockItem
                 closePopup()?.let { item ->
-                    if (item == forget) listener.onForget(index) else listener.onSelectTranslation(index, item)
+                    when (item) {
+                        forget -> listener.onForget(index)
+                        block -> listener.onBlock(index)
+                        else -> listener.onSelectTranslation(index, item)
+                    }
                 }
             }
 

@@ -16,6 +16,9 @@ import app.qingjian.inputmethod.theme.Palette
  */
 class GameMode(private val context: Context, private val host: Host) : GameFrame.Listener {
     interface Host {
+        /** 输入法自己的 Context：写设置、取资源用。 */
+        val context: android.content.Context
+
         /** 当前输入框所在应用的包名，没有输入框时是 null。 */
         val editorPackage: String?
 

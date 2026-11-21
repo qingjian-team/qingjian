@@ -125,6 +125,24 @@ impl Session {
         self.refresh(commit)
     }
 
+    /// 屏蔽这一条候选：把它的文本加进屏蔽词，之后含它的整条都不出。
+    ///
+    /// 只改引擎内存，落盘由 Kotlin 侧做（屏蔽词存在 SharedPreferences 里，
+    /// 下次 `set_options` 会经 `sync_dictionaries` 再下发回来）。
+    pub fn block(&mut self, index: usize) -> Frame {
+        let Some(candidate) = self.candidates.items.get(index).cloned() else {
+            return self.refresh(String::new());
+        };
+        let text = candidate.text.clone();
+        let mut frame = self.refresh(String::new());
+        frame.notice = if self.engine.add_blocked_word(&text) {
+            format!("已屏蔽「{text}」")
+        } else {
+            format!("「{text}」已经在屏蔽词里了")
+        };
+        frame
+    }
+
     /// 删掉第 `index` 个候选：用户词整删，词库词清学习记录；结果写进帧的 `notice`。
     pub fn forget(&mut self, index: usize) -> Frame {
         let Some(candidate) = self.candidates.items.get(index).cloned() else {

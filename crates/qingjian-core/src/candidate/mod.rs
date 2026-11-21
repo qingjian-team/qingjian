@@ -17,7 +17,7 @@ use serde::{Deserialize, Serialize};
 
 pub use diff::differs_from_lead;
 pub use furigana::{FuriganaSegment, furigana};
-pub use kind::CandidateKind;
+pub use kind::{CandidateKind, blockable};
 pub use language::{LEARNING_LANGUAGE_OFF, Language, UnknownLanguage, learning_languages};
 pub use layout::{CandidateLayout, Cell, GRID_ROWS, Grid, MAX_CELL_EMS, arrows};
 pub use list::CandidateList;

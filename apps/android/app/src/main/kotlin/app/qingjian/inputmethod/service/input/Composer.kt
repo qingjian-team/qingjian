@@ -48,6 +48,12 @@ class Composer(private val engine: Engine, private val host: Host) {
 
         /** 一句话提示（删候选的结果）。 */
         fun showNotice(text: String)
+
+        /** 输入法自己的 Context：写设置用。 */
+        val context: android.content.Context
+
+        /** 写设置时不重建键盘。 */
+        fun writeSettings(block: () -> Unit)
     }
 
     /** 上一帧的 preedit，非空即在组句。 */
@@ -388,6 +394,27 @@ class Composer(private val engine: Engine, private val host: Host) {
 
     /** 长按候选选了「删除」：用户词整删、词库词清学习记录，结果用一句话提示。 */
     fun forget(index: Int) = apply(engine.forget(index))
+
+    /**
+     * 屏蔽第 [index] 个候选：引擎里立刻生效（返回的帧已经不含它），
+     * 同时把新词写进设置 —— 下次启动 `set_options` 会再下发回来。
+     */
+    fun block(index: Int) {
+        val word = candidates.getOrNull(index)?.text ?: return
+        engine.block(index).let { frame ->
+            host.writeSettings { rememberBlockedWord(word) }
+            apply(frame)
+        }
+    }
+
+    /** 把 [word] 加进屏蔽词（`[dictionaries] blocked`），写进 SharedPreferences。 */
+    private fun rememberBlockedWord(word: String) {
+        val prefs = Settings.preferences(host.context)
+        val words = prefs.getStringSet(Settings.KEY_BLOCKED_WORDS, null).orEmpty().toMutableSet()
+        if (words.add(word)) {
+            prefs.edit().putStringSet(Settings.KEY_BLOCKED_WORDS, words).apply()
+        }
+    }
 
     /**
      * 长按气泡里选的字符。全键盘选小写 = 照常敲这个字母；九宫格组句中选小写 = 这一位就是这个字母

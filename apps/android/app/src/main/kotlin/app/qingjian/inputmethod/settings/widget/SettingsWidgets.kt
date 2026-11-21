@@ -190,6 +190,16 @@ class SettingsWidgets(private val context: Context, val colors: AppColors) {
         note?.let { addView(text(it, 13f, colors.secondary).apply { setPadding(0, dp(4), 0, 0); setLineSpacing(0f, 1.2f) }) }
     }
 
+    /** 一行文字，右边跟一个控件（列表项的「恢复」「删除」这类）。 */
+    fun row(title: String, trailing: View) = LinearLayout(context).apply {
+        orientation = LinearLayout.HORIZONTAL
+        gravity = Gravity.CENTER_VERTICAL
+        minimumHeight = dp(ROW_HEIGHT_DP)
+        setPadding(dp(16), dp(12), dp(16), dp(12))
+        addView(text(title, 16f, colors.text), LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
+        addView(trailing)
+    }
+
     fun toggle(title: Int, note: Int?, checked: Boolean, onChange: (Boolean) -> Unit) =
         toggle(context.getString(title), note?.let(context::getString), checked, null, onChange)
 

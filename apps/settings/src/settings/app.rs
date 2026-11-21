@@ -134,6 +134,7 @@ impl App for Settings {
                 self.library = Library::scan();
             }
             Message::ExportDict(stem) => self.export_dict(&stem),
+            Message::BlockWord(word, add) => self.change_blocked_word(&word, add),
             Message::ModeKey(key, letter) => {
                 let mode = self.config.shortcut.mode.sanitized();
                 let (current, other, other_key) = if key == "expression" {

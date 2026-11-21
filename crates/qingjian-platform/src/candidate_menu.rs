@@ -34,6 +34,12 @@ pub enum CandidateAction {
 
     /// 提高平台自有候选的选择权重；普通中文候选不展示，由平台候选上下文使用。
     Promote,
+
+    /// 屏蔽这个词：写进 `[dictionaries] blocked`，之后候选里含它的整条都不出。
+    ///
+    /// 用在导入的词库带进来一堆用不上的品牌词时（`搜狗` 也挡掉 `搜狗拼音`）。
+    /// 自定义短语不受影响 —— 那是用户自己写下的原文。
+    Block,
 }
 
 /// 不经过中文 `Composition` 的输入法候选上下文。
@@ -54,7 +60,7 @@ impl IndependentInputContext<'_> {
 }
 
 impl CandidateAction {
-    const ALL: [Self; 8] = [
+    const ALL: [Self; 9] = [
         Self::EditTranslation,
         Self::RegenerateTranslation,
         Self::Pin,
@@ -63,6 +69,7 @@ impl CandidateAction {
         Self::Undemote,
         Self::Delete,
         Self::Promote,
+        Self::Block,
     ];
 
     pub fn label(self) -> &'static str {
@@ -75,6 +82,7 @@ impl CandidateAction {
             Self::Undemote => tr("candidate_menu.undemote"),
             Self::Delete => tr("candidate_menu.delete"),
             Self::Promote => tr("candidate_menu.promote"),
+            Self::Block => tr("candidate_menu.block"),
         }
     }
 
@@ -121,7 +129,28 @@ pub fn actions(
     if candidate.kind.forgettable() {
         actions.push(CandidateAction::Delete);
     }
+    // 只给词库里的词：屏蔽词是按文本整条挡，词库词的文本是固定的。
+    // 整句（多个词拼的）与云联想的词每次现算，挡一次下次还是那条；用户词与自定义短语
+    // 是用户自己写下的原文，屏蔽词本来就管不到。
+    // 屏蔽是「候选里含有它就整条不出」，误点的代价大：单字与很短的常用词不给这个入口
+    // （在「的」「我们」上点一下，所有带这些字的词和整句就都没了，用户还不知道发生了什么）。
+    // 要挡这类词，到设置里手动加 —— 那里看得见、也删得掉。
+    if blocks(candidate) {
+        actions.push(CandidateAction::Block);
+    }
     actions
+}
+
+/// 这个候选能不能走「屏蔽」这个入口。
+///
+/// 条件是：中文候选、**三个字以上**。单字与两字词都太常用，右键点错一下就会连带挡掉
+/// 一大片（屏蔽是按「含这个词」匹配的）；三个字以上多半是导入词库带进来的品牌名之类，
+/// 正是这个功能面向的对象。自定义短语本来就不在屏蔽范围里。
+///
+/// 判据本身在 Core（[`qingjian_core::blockable`]），各平台的菜单与气泡共用同一份，
+/// 别在这里另写一条。
+fn blocks(candidate: &Candidate) -> bool {
+    qingjian_core::blockable(candidate)
 }
 
 /// 独立输入法候选的公共菜单项。它不依赖中文拼音 Composition，也不提供中文自定义短语和删除用户词。
@@ -245,6 +274,23 @@ pub fn perform(
             notice(tr_args("candidate_menu.undemoted", &[("text", &text)]))
         }
         CandidateAction::Delete => notice(engine.forget(candidate).describe(text)),
+        CandidateAction::Block => {
+            if !engine.add_blocked_word(text) {
+                return notice(tr_args(
+                    "candidate_menu.block_unchanged",
+                    &[("text", &text)],
+                ));
+            }
+            let Some(path) = config_path else {
+                return notice(tr("candidate_menu.no_config").to_owned());
+            };
+            let words = engine.blocked_words().to_vec();
+            if let Err(error) = Config::set_array(path, "dictionaries", "blocked", &words) {
+                tracing::warn!(%error, "屏蔽词写配置失败");
+                return notice(tr_args("candidate_menu.not_saved", &[("error", &error)]));
+            }
+            notice(tr_args("candidate_menu.blocked", &[("text", &text)]))
+        }
     }
 }
 
@@ -258,7 +304,8 @@ mod tests {
             assert_eq!(CandidateAction::from_id(action.id()), Some(action));
         }
         assert_eq!(CandidateAction::from_id(0), None);
-        assert_eq!(CandidateAction::from_id(9), None);
+        // 现在有 9 项，id 1..=9；10 才越界
+        assert_eq!(CandidateAction::from_id(10), None);
     }
 
     #[test]

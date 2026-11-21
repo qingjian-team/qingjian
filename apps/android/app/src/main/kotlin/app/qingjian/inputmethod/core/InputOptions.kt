@@ -38,6 +38,8 @@ data class InputOptions(
     val emoji: Int = SettingChoices.defaultEmoji,
     val kaomoji: Int = SettingChoices.defaultKaomoji,
     val symbols: Int = SettingChoices.defaultSymbols,
+    /** 屏蔽词：候选里含有其中任何一个就整条不出（`搜狗` 也挡掉 `搜狗拼音`）。 */
+    val blockedWords: Set<String> = emptySet(),
     /** 词库文件变了（导入、删除）就换一个值，好让选项不相等、重新交给会话；不进 JSON。 */
     val dictionariesStamp: Long = 0,
 ) {
@@ -55,6 +57,7 @@ data class InputOptions(
         .put("auto_phrase_max_chars", autoPhraseMaxChars.coerceIn(2, 10))
         .put("domains", JSONArray(domains.sorted()))
         .put("disabled_dictionaries", JSONArray(disabledDictionaries.sorted()))
+        .put("blocked", JSONArray(blockedWords.sorted()))
         .put("hold_selections", holdSelections)
         .put("spelling_correction", spellingCorrection)
         .put("follow_ups", followUps)

@@ -17,16 +17,20 @@ pub enum FieldId {
     PhraseText,
     /// 生词本页的搜索框，不存进配置。
     VocabularySearch,
+
+    /// 词库页「加一条屏蔽词」的输入框：回车加进去、顺手清空，不直接对应某个配置键。
+    BlockedWord,
 }
 
 impl FieldId {
     /// 存进配置的那几个（短语的几个随卡片一起存）。
-    pub const ALL: [Self; 5] = [
+    pub const ALL: [Self; 6] = [
         Self::BaseUrl,
         Self::Model,
         Self::ApiKey,
         Self::HalfWidthSymbols,
         Self::FuzzyCustom,
+        Self::BlockedWord,
     ];
 
     /// 配置文件里的键（[`Self::HalfWidthSymbols`] 在 `[general]`，[`Self::FuzzyCustom`] 在 `[fuzzy]`，其余在 `[predict]`）。
@@ -41,6 +45,8 @@ impl FieldId {
             Self::PhraseWeight => "weight",
             Self::PhraseText => "text",
             Self::VocabularySearch => "vocabulary-search",
+            // 屏蔽词输入框不直接对应某个键（提交时整张表一起写）
+            Self::BlockedWord => "blocked",
         }
     }
 }

@@ -193,6 +193,9 @@
     <string name="dictionary_none">还没有导入词库。</string>
     <string name="imported_note">可以一次选好几个文件</string>
     <string name="section_contacts">通讯录</string>
+    <string name="section_blocked">已屏蔽的词</string>
+    <string name="blocked_note">候选菜单里点过「屏蔽」的词。含这些词的候选与整句都不再出现，删掉这一项就恢复。</string>
+    <string name="blocked_remove">恢复</string>
     <string name="contacts_title">通讯录里的名字</string>
     <string name="contacts_note">打名字的拼音或简拼，通讯录里的人排在第一页，右上角带人头</string>
     <string name="contact_details_title">上屏名字后给出电话、邮箱</string>
@@ -201,6 +204,8 @@
     <string name="contacts_denied">没有读通讯录的权限，可以在系统设置的应用权限里打开</string>
     <string name="candidate_forget">删除</string>
     <string name="candidate_forget_note">不再优先</string>
+    <string name="candidate_block">屏蔽这个词</string>
+    <string name="candidate_block_note">含它的候选都不再出</string>
     <string name="section_keys">按键</string>
     <string name="haptic_title">按键震动</string>
     <string name="haptic_light">轻</string>
