@@ -140,6 +140,20 @@ impl Engine {
         self.clipboard_text = text;
     }
 
+    /// 现在该不该去剪切板取参数：缓冲区是个要参数的子模式，后面还空着。
+    ///
+    /// 壳据此决定要不要读一次剪切板 —— 只在切进这个状态时读一次，不要每次按键都读盘。
+    pub fn wants_clipboard(&self) -> bool {
+        if !self.expression_sub_modes() {
+            return false;
+        }
+        let scope = self.composition.scope();
+        let Some(body) = scope.strip_prefix(self.modes().expression) else {
+            return false;
+        };
+        crate::shortcut::modes::parse(body).is_some_and(|mode| mode.args().trim().is_empty())
+    }
+
     /// 换「候选上显示声调」开关（配置项 `[general] show_tones`，缺省关）。
     pub fn set_show_tones(&mut self, show: bool) {
         self.show_tones = show;
