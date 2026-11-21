@@ -526,14 +526,18 @@ class Composer(private val engine: Engine, private val host: Host) {
         val remaining = connection.getTextBeforeCursor(MAX_WORD, 0)?.toString().orEmpty()
         // 按下删除键时已经先删掉一个字：那一下若删掉的正是「一段」（汉字、假名、标点各自算一段），
         // 这个手势要做的事已经做完了，不再接着删；删掉的是词里或空白里的一个字，就接着删完这一整段
-        val swallowed = beforeBackspace?.lastOrNull()?.let { !engine.isWordChar(it) && !it.isWhitespace() } == true
+        val first = beforeBackspace?.lastOrNull()
+        val swallowed = first?.let { !engine.isWordChar(it) && !it.isWhitespace() } == true
         beforeBackspace = null
         if (swallowed || remaining.isEmpty()) return
         val length = engine.wordTailLength(remaining)
         if (length <= 0) return
         val removed = remaining.substring(remaining.length - length)
         connection.deleteSurroundingText(length, 0)
-        dragDeleted.addLast(removed)
+        // 按下的那一下已经删掉的字也算进这一笔：它就是这一段的最后一个字，
+        // 不记的话往回滑只放得回剩下的部分（`four` 删成 `fou`）
+        val head = first?.takeIf { engine.isWordChar(it) }?.toString().orEmpty()
+        dragDeleted.addLast(head + removed)
         if (removed.isNotEmpty()) apply(engine.cleared(removed))
     }
 

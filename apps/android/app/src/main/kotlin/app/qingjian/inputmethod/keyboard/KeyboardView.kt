@@ -650,6 +650,12 @@ class KeyboardView(
             timer.removeCallbacks(repeatBackspace)
             Haptics.hold(context)
             listener.onBeginDeleteDrag()
+            // 进「删词」这一下只删一个词：锚点挪到当前手指位置，已经滑过的这段距离
+            // 不再折算成好几步 —— 否则快速左划一下，第一个够格的 MOVE 事件里 dx 已有两三格，
+            // 一下子删掉两三个词（设置里写的是删一个）
+            deleteAnchorX = event.getX(at)
+            listener.onDeleteWord()
+            return
         }
         // 左移是删、右移是放回，两边都按滑过的距离折算步数（与空格横滑同一份换算）
         val steps = -horizontalSteps(dx, step)
