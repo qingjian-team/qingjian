@@ -70,7 +70,20 @@ impl Engine {
         best: &crate::parser::Segmentation,
         code: &str,
     ) -> Vec<Candidate> {
-        let hints = self.hint_chars(code);
+        // 有组词结果就只认它给出的字：拆字对 zhenge 会凑出 政 这类不相干的字，
+        // 它们要是进了提示，政 这种单字就会被顶到最前面。
+        let pairs_for_hint = self.hint_pairs(code);
+        let hints: Vec<char> = if pairs_for_hint.is_empty() {
+            self.hint_chars(code)
+        } else {
+            let mut unique: Vec<char> = Vec::new();
+            for (_, ch) in &pairs_for_hint {
+                if !unique.contains(ch) {
+                    unique.push(*ch);
+                }
+            }
+            unique
+        };
         if hints.is_empty() {
             return Vec::new();
         }
@@ -93,8 +106,10 @@ impl Engine {
             let rank = |text: &str| -> Option<u8> {
                 let mut chars = text.chars();
                 let first = chars.next()?;
+                // 只认「这个词以提示字开头」：再退一步的「只是含它」会把 政治 这种
+                // 只因含了个拆字凑出来的 政 就顶上去，用户看着莫名其妙。
                 if !hints.contains(&first) {
-                    return text.chars().any(|ch| hints.contains(&ch)).then_some(2);
+                    return None;
                 }
                 // 单字（只剩它自己）给的权最高：用户要的多半就是这个字
                 Some(if chars.next().is_none() { 0 } else { 1 })
@@ -126,24 +141,65 @@ impl Engine {
     /// 音节 —— 只看「词首是提示字」会把 `开粗` 漏掉。
     pub(crate) fn hint_pairs(&self, code: &str) -> Vec<(String, char)> {
         let mut pairs: Vec<(String, char)> = Vec::new();
-        for (at, _) in code.char_indices().skip(1) {
-            let (head, tail) = code.split_at(at);
-            if head.chars().count() < 2 || tail.is_empty() {
+        // 切成 2 段、3 段、4 段都试：`jiaru` 是 2 段（加入），`chengge` 也可能该切 2 段，
+        // 但用户敲的组词常常是三个字以上，只切两刀会漏掉大半。
+        let boundaries: Vec<usize> = code
+            .char_indices()
+            .map(|(at, _)| at)
+            .filter(|at| *at > 0)
+            .collect();
+        let mut parts: Vec<Vec<&str>> = Vec::new();
+        for (index, first) in boundaries.iter().enumerate() {
+            if *first >= code.len() {
                 continue;
             }
-            let words = self.dictionary.lookup(&[head, tail], false);
-            if words.is_empty() {
+            // 两段
+            parts.push(vec![&code[..*first], &code[*first..]]);
+            // 三段、四段：在后半段里再切一刀 / 两刀
+            for (offset, second) in boundaries.iter().enumerate().skip(index + 1) {
+                if *second <= *first || *second >= code.len() {
+                    continue;
+                }
+                parts.push(vec![
+                    &code[..*first],
+                    &code[*first..*second],
+                    &code[*second..],
+                ]);
+                for third in boundaries.iter().skip(offset + 1) {
+                    if *third <= *second || *third >= code.len() {
+                        continue;
+                    }
+                    parts.push(vec![
+                        &code[..*first],
+                        &code[*first..*second],
+                        &code[*second..*third],
+                        &code[*third..],
+                    ]);
+                }
+            }
+        }
+        for split in parts {
+            if split.iter().any(|part| part.chars().count() < 2) {
                 continue;
             }
-            for word in words.iter().take(3) {
-                let mut chars = word.text.chars();
-                if let Some(first) = chars.next() {
-                    pairs.push((head.to_owned(), first));
-                }
-                if let Some(second) = chars.next() {
-                    pairs.push((tail.to_owned(), second));
-                }
+            let words = self.dictionary.lookup(&split, false);
+            let Some(word) = words.first() else {
+                continue;
+            };
+            let chars: Vec<char> = word.text.chars().collect();
+            if chars.len() != split.len() {
+                continue;
             }
+            for (syllable, ch) in split.iter().zip(chars) {
+                if pairs
+                    .iter()
+                    .any(|(known, known_ch)| known == syllable && *known_ch == ch)
+                {
+                    continue;
+                }
+                pairs.push(((*syllable).to_owned(), ch));
+            }
+            // 第一个能查出词的切法就够
             break;
         }
         pairs
