@@ -357,8 +357,6 @@ mod tests {
         assert!(!is_name_prefix("123"));
     }
 
-    /// 按键放行：名字阶段收字母数字与分隔符，参数阶段按子模式。
-    #[test]
     /// 名字敲全、还没填参数时给一句用法；一填参数就不再提示。
     #[test]
     fn hint_only_while_the_name_stands_alone() {
@@ -376,6 +374,8 @@ mod tests {
         assert!(hint("datetime").is_none());
     }
 
+    /// 按键放行：名字阶段收字母数字与分隔符，参数阶段按子模式。
+    #[test]
     fn which_keys_reach_the_buffer() {
         // `v` 之后开始敲名字：字母进（敲名字），数字不进 —— 那是算式（`v1+2`）
         assert_eq!(accepts_key("", 'b'), Some(true));
