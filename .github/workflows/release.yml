@@ -462,6 +462,22 @@ jobs:
           apksigner="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)/apksigner"
           "$apksigner" verify --print-certs target/android-package/*.apk
 
+      # 签名过了不代表包里有 native 库：cargoNdk 输出目录 / jniLibs / abiFilters
+      # 任一处错，用户装上就崩。发版 APK 没有第二次机会，这里按内容再验一遍。
+      - name: Verify APK contents
+        run: |
+          apk=$(ls target/android-package/*.apk)
+          if ! unzip -l "$apk" | grep -q 'lib/arm64-v8a/libqingjian_android.so'; then
+            echo "APK 里没有 lib/arm64-v8a/libqingjian_android.so" >&2
+            unzip -l "$apk" | grep 'lib/' >&2 || true
+            exit 1
+          fi
+          if unzip -l "$apk" | grep -Eq 'lib/(armeabi|armeabi-v7a|x86|x86_64)/'; then
+            echo "APK 里混进了别的 ABI" >&2
+            exit 1
+          fi
+          echo "APK 内容校验通过：arm64-v8a 的 libqingjian_android.so"
+
       - name: Upload to draft release
         env:
           GH_TOKEN: ${{ github.token }}
