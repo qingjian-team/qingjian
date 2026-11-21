@@ -108,10 +108,16 @@ fn each_code_letter_narrows_the_candidates() {
     engine.enter_aux();
     assert!(engine.push_aux_code('k'));
     // 都不是完全匹配，按码长降序：kfz(3) 的 开发者 最先，剩下两条同长保持原序
-    assert_eq!(candidates(&engine), ["开发者", "开发", "开"]);
+    assert_eq!(
+        candidates(&engine),
+        ["开发者", "开发", "开", "开放", "开饭"]
+    );
     assert!(engine.push_aux_code('f'));
     assert_eq!(engine.aux_code(), "kf");
-    assert_eq!(candidates(&engine), ["开发", "开发者"]);
+    assert_eq!(
+        candidates(&engine),
+        ["开发", "开发者", "开放", "开饭", "开"]
+    );
     let query = engine.query().unwrap();
     assert_eq!(query.marked_text(), "kai'fa;kf");
     assert_eq!(
@@ -139,10 +145,13 @@ fn candidates_without_a_code_are_hidden() {
     engine.enter_aux();
     engine.push_aux_code('k');
     engine.push_aux_code('h');
-    assert_eq!(candidates(&engine), ["开"]);
+    assert_eq!(
+        candidates(&engine),
+        ["开", "开发", "开放", "开饭", "开发者"]
+    );
     engine.push_aux_code('z');
     let query = engine.query().unwrap();
-    assert!(query.candidates.items.is_empty());
+    assert!(!query.candidates.items.is_empty(), "码段对不上也不该空");
     assert_eq!(query.marked_text(), "kai'fa;khz");
 }
 
@@ -207,13 +216,19 @@ fn backspace_widens_then_stays_in_aux_mode() {
     engine.push_aux_code('k');
     engine.push_aux_code('f');
     engine.push_aux_code('h');
-    assert!(candidates(&engine).is_empty());
+    assert!(!candidates(&engine).is_empty(), "码段对不上也不该空");
     assert!(engine.backspace(false).consumed());
     assert_eq!(engine.aux_code(), "kf");
-    assert_eq!(candidates(&engine), ["开发", "开发者"]);
+    assert_eq!(
+        candidates(&engine),
+        ["开发", "开发者", "开放", "开饭", "开"]
+    );
     assert!(engine.backspace(false).consumed());
     assert_eq!(engine.aux_code(), "k");
-    assert_eq!(candidates(&engine), ["开发者", "开发", "开"]);
+    assert_eq!(
+        candidates(&engine),
+        ["开发者", "开发", "开", "开放", "开饭"]
+    );
     // 删到空：停在辅码态，`;` 仍在 preedit，候选全回来
     assert!(engine.backspace(false).consumed());
     assert!(engine.in_aux());
@@ -222,7 +237,10 @@ fn backspace_widens_then_stays_in_aux_mode() {
     assert_eq!(candidates(&engine), full);
     // 再敲字母重新筛——辅码态还活着
     assert!(engine.push_aux_code('k'));
-    assert_eq!(candidates(&engine), ["开发者", "开发", "开"]);
+    assert_eq!(
+        candidates(&engine),
+        ["开发者", "开发", "开", "开放", "开饭"]
+    );
     assert!(engine.backspace(false).consumed());
     assert!(engine.in_aux());
     // 空码段再按退格：退出辅码态，拼音一字不动
@@ -385,10 +403,13 @@ fn exact_code_matches_come_first_and_longer_codes_before_shorter_ones() {
     assert!(texts.contains(&"开发") && texts.contains(&"开放"));
     assert_eq!(query.candidates.items[0].aux_code.as_deref(), Some("kf"));
     // 完全匹配的那条码最前，其余按码长降序（这里都是 3，保持原序）
-    assert_eq!(query.candidates.items.len(), 3);
+    assert_eq!(query.candidates.items.len(), 5);
     engine.push_aux_code('a');
     assert_eq!(engine.aux_code(), "kfa");
-    assert_eq!(candidates(&engine), ["开发"]);
+    assert_eq!(
+        candidates(&engine),
+        ["开发", "开", "开放", "开发者", "开饭"]
+    );
 }
 
 /// 开关三态之一：开着但没挂码表也不触发（坏文件全被装配层跳过后同样归并到这里），
@@ -461,4 +482,32 @@ fn the_input_log_records_the_trigger_and_the_code() {
     assert_eq!(commit.keys, "kaifa;kf");
     assert_eq!(commit.scope, "kaifa");
     assert_eq!(commit.pinyin, "kai'fa");
+}
+
+/// 码段一个码都对不上时，把它当成「要哪个字」的提示：拆字能指到那个字的候选排前面。
+///
+/// `chefu` 拆成 车 + 甫 得到「辅」。样例词库里没有含「辅」的词，所以这里验的是两件事：
+/// 码段确实进了辅码态（没有整串上屏），以及提示字确实算出来了。
+#[test]
+fn a_code_that_matches_nothing_is_read_as_a_hint() {
+    let mut engine = aux_engine();
+    assert!(engine.hint_chars("chefu").contains(&'辅'), "拆字该指到 辅");
+
+    engine.set_input("kaifa");
+    engine.enter_aux();
+    for ch in "chefu".chars() {
+        assert!(engine.push_aux_code(ch), "码段该能敲进去：{ch}");
+    }
+    let query = engine.query().unwrap();
+    let texts: Vec<String> = query
+        .candidates
+        .items
+        .iter()
+        .map(|c| c.text.clone())
+        .collect();
+    assert!(
+        texts.iter().all(|text| !text.contains(';')),
+        "码段该进辅码态，不该整串上屏：{texts:?}"
+    );
+    // 样例词库里没有含「辅」的词，这一列本来就是空的；这里只验码段进了辅码态
 }

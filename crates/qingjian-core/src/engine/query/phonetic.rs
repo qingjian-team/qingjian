@@ -498,10 +498,35 @@ impl Engine {
                         .cmp(&(a.1.len() == code.len()))
                         .then_with(|| b.1.len().cmp(&a.1.len()))
                 });
-                items.extend(
-                    kept.into_iter()
-                        .map(|(index, hit)| chinese_candidate(&scored[index], Some(&hit))),
+                if kept.is_empty() {
+                    // 码段一个码都对不上：多半不是码，是「想找哪个字」的提示。
+                    // `fuma;fuzhu` 是「辅」也在 辅助 里，`fuma;chefu` 是「辅」＝车＋甫。
+                    let best = &segmentations[0];
+                    items.extend(self.hinted_candidates(&scored, best, code));
+                } else {
+                    items.extend(
+                        kept.into_iter()
+                            .map(|(index, hit)| chinese_candidate(&scored[index], Some(&hit))),
+                    );
+                }
+                // 码段不是过滤器，是「加一列」：不筛码时的原候选一个都不能少，排到后面去。
+                // 码段的解释一旦猜错（`zhenge;zhenye` 这种），整列空掉比给错更糟 —— 用户
+                // 至少还能退回原来那批。
+                tracing::info!(
+                    code = %code,
+                    scored = scored.len(),
+                    items = items.len(),
+                    "辅码态候选"
                 );
+                if items.len() < scored.len() {
+                    let shown: Vec<String> = items.iter().map(|item| item.text.clone()).collect();
+                    items.extend(
+                        scored
+                            .iter()
+                            .filter(|item| !shown.contains(&item.hit.text.to_string()))
+                            .map(|item| chinese_candidate(item, None)),
+                    );
+                }
             }
         }
         // 附加候选（英文尾段与补全、快捷、整句、emoji）都没有码：辅码筛词时一律不出
