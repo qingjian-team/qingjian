@@ -86,6 +86,9 @@ pub struct Router {
     /// 这一键要 DLL 对文档做的成对符号编辑（#928），随这次 `KeyResult` 带走。
     pending_caret: Option<CaretEdit>,
 
+    /// 上一次查过之后，Engine 是不是处在「要剪切板参数」的状态：只在切进去的那一次读盘。
+    clipboard_wanted: bool,
+
     /// 整句补全（preedit 右侧、Tab 上屏）；缓冲变化时清空。
     sentence: Option<String>,
 
@@ -207,6 +210,7 @@ impl Router {
             clicked: None,
             selection_seq: 0,
             pending_caret: None,
+            clipboard_wanted: false,
             sentence: None,
             notice: None,
             candidate_translation: None,

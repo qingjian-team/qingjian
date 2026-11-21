@@ -30,6 +30,8 @@ impl Router {
         }
         self.engine.cancel_composition_prediction();
         self.attach_loaded_model();
+        // 进入 `vstat` / `vcol` 这类子模式、参数还空着时，把剪切板最近一条给它顶上
+        self.refresh_clipboard_hint();
         let built = self.engine.query().ok().map(|mut query| {
             let (preedit, cursor, typed_keys) = marked_parts(&query);
             let items = std::mem::take(&mut query.candidates.items);
@@ -112,3 +114,44 @@ pub(super) fn marked_parts(query: &Query) -> (Vec<PreeditSegment>, usize, Option
 
 #[cfg(test)]
 mod tests;
+
+/// 剪切板历史里最近一条的文本。
+///
+/// 用青简自己的剪切板（`<LOCALAPPDATA>\Qingjian\clipboard\history.db`），不去碰系统剪切板：
+/// 这样与剪切板面板里看到的顺序一致，也省得各平台各写一套系统 API。
+/// 文件不在（没开过剪切板）、打不开或被占用都当作没有，功能自然退化。
+pub(super) fn recent_clipboard_text() -> Option<String> {
+    let base = std::env::var_os("LOCALAPPDATA").map(std::path::PathBuf::from)?;
+    let path = base.join("Qingjian").join("clipboard").join("history.db");
+    if !path.is_file() {
+        return None;
+    }
+    // 只读一条：`open` 的 limit 只在写入时用来裁剪，这里给个大值不会动用户的历史
+    let store = qingjian_clipboard::ClipStore::open(&path, 1000).ok()?;
+    let items = store
+        .search("", qingjian_clipboard::ClipFilter::All, 1)
+        .ok()?;
+    items
+        .into_iter()
+        .next()
+        .map(|item| item.text)
+        .filter(|text| !text.trim().is_empty())
+}
+
+impl Router {
+    /// 缓冲区是「要参数但还空着」的子模式时，把剪切板最近一条交给 Engine；
+    /// 离开这个状态时收回。只在切换的那一刻读一次盘，不是每次按键都读。
+    fn refresh_clipboard_hint(&mut self) {
+        let wanted = self.engine.wants_clipboard();
+        if wanted == self.clipboard_wanted {
+            return;
+        }
+        self.clipboard_wanted = wanted;
+        let text = if wanted {
+            recent_clipboard_text()
+        } else {
+            None
+        };
+        self.engine.set_clipboard_text(text);
+    }
+}
