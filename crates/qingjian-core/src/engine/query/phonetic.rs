@@ -498,10 +498,16 @@ impl Engine {
                         .cmp(&(a.1.len() == code.len()))
                         .then_with(|| b.1.len().cmp(&a.1.len()))
                 });
-                items.extend(
-                    kept.into_iter()
-                        .map(|(index, hit)| chinese_candidate(&scored[index], Some(&hit))),
-                );
+                if kept.is_empty() {
+                    // 码段一个码都对不上：多半不是码，是「想找哪个字」的提示。
+                    // `fuma;fuzhu` 是「辅」也在 辅助 里，`fuma;chefu` 是「辅」＝车＋甫。
+                    items.extend(self.hinted_candidates(&scored, code));
+                } else {
+                    items.extend(
+                        kept.into_iter()
+                            .map(|(index, hit)| chinese_candidate(&scored[index], Some(&hit))),
+                    );
+                }
             }
         }
         // 附加候选（英文尾段与补全、快捷、整句、emoji）都没有码：辅码筛词时一律不出
