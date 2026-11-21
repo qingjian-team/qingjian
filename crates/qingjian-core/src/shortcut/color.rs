@@ -133,7 +133,13 @@ pub fn swatch(text: &str) -> Option<(u8, u8, u8, u8)> {
 
 /// 百分比与 0–1 两种都认：`hsl;32;1;0.5` 与 `hsl;32;100;50` 是同一个颜色。
 fn parse(args: &str) -> Option<Rgba> {
-    let text = args.trim();
+    // `0x3f3f3f` 与 `#3f3f3f` 是同一个意思：写代码的人习惯前者
+    let trimmed = args.trim();
+    let prefixed = trimmed
+        .strip_prefix("0x")
+        .or_else(|| trimmed.strip_prefix("0X"))
+        .map(|rest| format!("#{rest}"));
+    let text = prefixed.as_deref().unwrap_or(trimmed);
     if text.is_empty() {
         return None;
     }
