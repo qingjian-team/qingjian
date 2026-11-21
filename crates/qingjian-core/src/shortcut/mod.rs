@@ -111,7 +111,7 @@ pub fn expression_char(c: char) -> Option<char> {
 
 /// 按输入算快捷候选；不是快捷输入时为空。`expression` 是表达式键；`now` 由调用方给，测试可固定时间。
 pub fn candidates(input: &str, expression: char, now: &Zoned) -> Vec<Candidate> {
-    candidates_with_modes(input, expression, now, true)
+    candidates_with_modes(input, expression, now, true, None)
 }
 
 /// 同 [`candidates`]，`sub_modes` 决定认不认 `vbit:` 这类子模式。
@@ -123,13 +123,14 @@ pub fn candidates_with_modes(
     expression: char,
     now: &Zoned,
     sub_modes: bool,
+    clipboard: Option<&str>,
 ) -> Vec<Candidate> {
     let texts: Vec<String> = match input {
         "rq" => date_forms(now),
         "sj" => time_forms(now),
         "xq" => weekday_forms(now),
         _ => match input.strip_prefix(expression) {
-            Some(body) => expression_forms(body, now, sub_modes),
+            Some(body) => expression_forms(body, now, sub_modes, clipboard),
             None => Vec::new(),
         },
     };
@@ -166,9 +167,22 @@ const AMOUNT_FRACTION_DIGITS: usize = 2;
 
 /// 表达式键之后的部分：一个数出中文数字与金额，四位年份加月日的日期出日期写法，其余当四则运算出结果与「算式=结果」。
 /// 顺序是要紧的：`1998` 与 `1998.3` 是数字与小数，先于日期；四位年份的 `1998-3-8` 才当日期，落在算式之前。
-fn expression_forms(body: &str, now: &Zoned, sub_modes: bool) -> Vec<String> {
-    // 子模式优先：`bit:` 这些带冒号的，认出来就只走那一条，不再按四则去猜
+fn expression_forms(
+    body: &str,
+    now: &Zoned,
+    sub_modes: bool,
+    clipboard: Option<&str>,
+) -> Vec<String> {
+    // 子模式优先：`bit:` 这些带冒号的，认出来就只走那一条，不再按四则去猜。
+    // 参数空着而剪切板里有东西时，拿剪切板的内容当参数：`vstat` 后面粘一列数就能算，
+    // 不用先敲分号再粘。剪切板里的分隔符不讲究，见 `modes::split_args`。
     if sub_modes && let Some(mode) = modes::parse(body) {
+        let mode = match clipboard {
+            Some(text) if mode.args().trim().is_empty() && !text.trim().is_empty() => {
+                mode.with_args(text)
+            }
+            _ => mode,
+        };
         return mode_forms(mode);
     }
     let mut forms = number_forms(body).unwrap_or_default();
@@ -285,6 +299,37 @@ mod tests {
             .into_iter()
             .map(|c| c.text)
             .collect()
+    }
+
+    /// 子模式的参数空着时拿剪切板的内容顶上；剪切板里的分隔符不讲究（空格、换行、逗号都行）。
+    #[test]
+    fn clipboard_text_fills_empty_sub_mode_arguments() {
+        let measured = |clip: Option<&str>| {
+            candidates_with_modes("vstat", EXPRESSION_PREFIX, &now(), true, clip)
+                .into_iter()
+                .map(|c| c.text)
+                .collect::<Vec<_>>()
+        };
+        // 没给剪切板：参数空着，没有候选
+        assert!(measured(None).is_empty());
+        // 空格与换行分隔的一列数
+        let from_clipboard = measured(Some("1 2 3 4\n"));
+        assert!(
+            from_clipboard.iter().any(|f| f == "2.5"),
+            "{from_clipboard:?}"
+        );
+        // 逗号分隔的也认
+        let commas = measured(Some("1,2,3,4"));
+        assert!(commas.iter().any(|f| f == "2.5"), "{commas:?}");
+        // 自己打了参数时剪切板不参与
+        let typed = candidates_with_modes(
+            "vstat;1;2;5",
+            EXPRESSION_PREFIX,
+            &now(),
+            true,
+            Some("9 9 9"),
+        );
+        assert!(typed.iter().any(|c| c.text == "2.666667"), "按自己打的算");
     }
 
     #[test]
