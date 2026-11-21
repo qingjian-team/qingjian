@@ -307,7 +307,7 @@ mod tests {
         assert!(rq.contains(&"20260903".to_owned()), "{rq:?}");
         assert!(rq.contains(&"二〇二六年九月三日".to_owned()), "{rq:?}");
         let sj = texts("sj");
-        assert_eq!(&sj[..3], ["19:06", "19:06:23", "19点06分"]);
+        assert_eq!(&sj[..3], ["19:06", "19点06分", "19:06:23"]);
         assert!(sj.contains(&"19:06:23.000".to_owned()), "{sj:?}");
         assert!(sj.contains(&"20260903190623".to_owned()), "{sj:?}");
         // Unix 秒 / 毫秒不混在 `sj` 里，要时间戳敲 `vts`

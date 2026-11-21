@@ -377,10 +377,19 @@ fn date_forms_for(date: Date) -> Vec<String> {
     forms
 }
 
-/// `sj`：现在。按日常出现频次排：时分、时分秒、中文读法、口语 12 小时制、
-/// 中文带秒、毫秒、英文 12 小时制、完整日期时间、纯数字串、文件时间戳。
+/// `sj`：现在。按「一眼过去最可能要哪个」排，不按类别分组 —— 整齐的排法会把常用的
+/// 挤到后面去（比如把「带日期的」全归到一堆，头几条就全是长串）。
 ///
-/// 毫秒排在「中文带秒」之后：打点记时间的人不少，但大多数人只看时分。
+/// 顺序分四段：
+///
+/// 1. **只说钟点**：`19:33` 聊天里最常用 → `19点33分` 中文口语 → `19:33:25` 要精确到秒
+/// 2. **带日期**：时间其实是一个精确的日期，先给最顺眼的 `2026-11-21 19:33`、
+///    中文的 `2026年11月21日 19时33分`，再给只到月日的
+/// 3. **机器用**：毫秒、纯数字串、文件名时间戳 —— 复制去当参数、文件名的
+/// 4. **少见的**：英文 12 小时制、逐位中文读法
+///
+/// 前三段内部也不再讲究对齐：`19时33分` 紧跟在 `19点33分` 后面，比把它挪到「中文区」
+/// 更省事 —— 看到中文的就在附近，不用翻。
 pub fn time_forms(now: &Zoned) -> Vec<String> {
     let (year, month, day) = (now.year(), now.month(), now.day());
     let (hour, minute, second) = (now.hour(), now.minute(), now.second());
@@ -392,41 +401,36 @@ pub fn time_forms(now: &Zoned) -> Vec<String> {
         _ => (hour - 12, "下午", "PM"),
     };
     vec![
-        // 前三：时分、时分秒、中文读法——覆盖绝大多数场合
+        // 一、只说钟点
         format!("{hour:02}:{minute:02}"),
-        format!("{hour:02}:{minute:02}:{second:02}"),
         format!("{hour}点{minute:02}分"),
-        // 口语里说钟点多半用 12 小时制
+        format!("{hour:02}:{minute:02}:{second:02}"),
+        format!("{hour}时{minute:02}分"),
         format!("{meridiem_cn}{hour12}:{minute:02}"),
+        format!("{meridiem_cn}{hour12}点{minute:02}分"),
         format!("{hour}点{minute:02}分{second:02}秒"),
-        // 毫秒：打点、记日志的人不用翻页
-        format!("{hour:02}:{minute:02}:{second:02}.{millis:03}"),
-        format!("{hour12}:{minute:02} {meridiem_en}"),
+        format!("{hour:02}时{minute:02}分{second:02}秒"),
+        // 二、带日期
+        format!("{year}-{month:02}-{day:02} {hour:02}:{minute:02}"),
+        format!("{year}年{month}月{day}日 {hour}时{minute:02}分"),
         format!("{year}-{month:02}-{day:02} {hour:02}:{minute:02}:{second:02}"),
-        // 纯数字：`190623`、`1906`、带毫秒的 9 位
+        format!("{year}年{month}月{day}日 {hour}时{minute:02}分{second:02}秒"),
+        format!("{year}年{month}月{day}日{hour:02}:{minute:02}"),
+        format!("{year}年{month}月{day}日{hour:02}:{minute:02}:{second:02}"),
+        format!("{year}年{month}月{day}日 {meridiem_cn}{hour12}点{minute:02}分"),
+        format!("{month}月{day}日 {hour:02}:{minute:02}"),
+        format!("{month}月{day}日 {hour}时{minute:02}分"),
+        // 三、机器用
+        format!("{hour:02}:{minute:02}:{second:02}.{millis:03}"),
+        format!("{year}-{month:02}-{day:02} {hour:02}:{minute:02}:{second:02}.{millis:03}"),
         format!("{hour:02}{minute:02}{second:02}"),
         format!("{hour:02}{minute:02}"),
         format!("{hour:02}{minute:02}{second:02}{millis:03}"),
-        // 24 小时制的中文书面写法（公文、会议纪要）
-        format!("{hour:02}时{minute:02}分"),
-        format!("{hour:02}时{minute:02}分{second:02}秒"),
-        // 12 小时制的「点」写法，口语里最自然
-        format!("{meridiem_cn}{hour12}点{minute:02}分"),
-        format!("{year}-{month:02}-{day:02} {hour:02}:{minute:02}:{second:02}.{millis:03}"),
         format!("{year:04}{month:02}{day:02}{hour:02}{minute:02}{second:02}"),
-        format!("{year}-{month:02}-{day:02} {hour:02}时{minute:02}分"),
-        // 文件名 / 日志时间戳友好
         format!("{year:04}{month:02}{day:02}_{hour:02}{minute:02}{second:02}"),
-        // 时间其实是一个精确的日期：带上日期的那几种写法里，中文一处也不能少
-        format!("{year}年{month}月{day}日 {hour}时{minute:02}分"),
-        format!("{year}年{month}月{day}日 {hour}时{minute:02}分{second:02}秒"),
-        format!("{year}年{month}月{day}日 {meridiem_cn}{hour12}点{minute:02}分"),
-        format!("{year}年{month}月{day}日{hour:02}:{minute:02}"),
-        format!("{year}年{month}月{day}日{hour:02}:{minute:02}:{second:02}"),
-        format!("{year}-{month:02}-{day:02} {hour:02}:{minute:02}"),
-        format!("{month}月{day}日 {hour:02}:{minute:02}"),
-        format!("{month}月{day}日 {hour}时{minute:02}分"),
-        // 中文逐位读法的完整时刻（公文、碑刻里常见）
+        // 四、少见的
+        format!("{hour12}:{minute:02} {meridiem_en}"),
+        format!("{year}-{month:02}-{day:02} {hour:02}时{minute:02}分"),
         format!(
             "{}年{}月{}日{}时{}分",
             chinese_year(year),
@@ -440,7 +444,6 @@ pub fn time_forms(now: &Zoned) -> Vec<String> {
     ]
 }
 
-/// 表达式键之后是这个词时出时间戳（`vts`）。
 pub const TIMESTAMP_KEYWORD: &str = "ts";
 
 /// `vts`：Unix 秒、UTC（RFC 3339，`2026-09-03T11:06:23Z`）、Unix 毫秒、带时区的 ISO 8601（`2026-09-03T19:06:23+08:00`）。
@@ -594,10 +597,11 @@ mod tests {
     #[test]
     fn time_covers_common_layouts() {
         let forms = time_forms(&fixed());
+        // 头几条是「只说钟点」：时分 → 中文点分 → 时分秒 → 中文时分
         assert_eq!(forms[0], "17:07");
-        assert_eq!(forms[1], "17:07:25");
-        assert_eq!(forms[2], "17点07分");
-        assert_eq!(forms[3], "下午5:07");
+        assert_eq!(forms[1], "17点07分");
+        assert_eq!(forms[2], "17:07:25");
+        assert_eq!(forms[3], "17时07分");
         assert!(forms.iter().any(|f| f == "17:07:25.123"));
         assert!(forms.iter().any(|f| f == "2026-11-01 17:07:25"));
         assert!(forms.iter().any(|f| f == "下午5:07"));
