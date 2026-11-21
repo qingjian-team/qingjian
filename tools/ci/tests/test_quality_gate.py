@@ -38,6 +38,20 @@ fn g() {}
         self.assertEqual(counts["todo"], 1)
         self.assertEqual(counts["allow"], 1)
 
+    def test_counts_unchecked_entries(self) -> None:
+        path = write_temp(
+            """
+fn f() {
+    let a: u32 = unsafe { std::mem::transmute(0u8) };
+    let b = unsafe { std::str::from_utf8_unchecked(&[]) };
+    let c = unsafe { v.get_unchecked(0) };
+    std::mem::forget(String::new());
+}
+"""
+        )
+        counts = gate.count_file(path)
+        self.assertEqual(counts["unchecked"], 4)
+
     def test_ignores_unwrap_or_and_test_modules(self) -> None:
         path = write_temp(
             """
@@ -50,6 +64,7 @@ mod tests {
     fn t() {
         let b = y.unwrap();
         unsafe { std::ptr::null::<u8>(); }
+        let c: u32 = unsafe { std::mem::transmute(0u8) };
     }
 }
 """
@@ -57,6 +72,7 @@ mod tests {
         counts = gate.count_file(path)
         self.assertNotIn("unwrap", counts)
         self.assertNotIn("unsafe", counts)
+        self.assertNotIn("unchecked", counts)
 
 
 class CompareTests(unittest.TestCase):
@@ -75,6 +91,13 @@ class CompareTests(unittest.TestCase):
         baseline = ({"unwrap": 0}, {})
         failures = gate.compare({"unwrap": 1}, {"new.rs": {"unwrap": 1}}, baseline)
         self.assertTrue(any("new.rs" in item for item in failures))
+
+    def test_file_growth_fails_even_if_total_matches(self) -> None:
+        # 一处降、一处涨：总数持平，但涨的那个文件必须被点到。
+        baseline = ({"unsafe": 2}, {"a.rs": {"unsafe": 2}, "b.rs": {"unsafe": 0}})
+        failures = gate.compare({"unsafe": 2}, {"a.rs": {"unsafe": 1}, "b.rs": {"unsafe": 1}}, baseline)
+        self.assertTrue(any("b.rs" in item for item in failures))
+        self.assertFalse(any("a.rs" in item for item in failures))
 
 
 class ReportTests(unittest.TestCase):

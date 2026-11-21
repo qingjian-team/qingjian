@@ -8,6 +8,7 @@
 - `.unwrap()` / `.expect()`（panic 风险）
 - `panic!` / `todo!` / `unimplemented!` / `dbg!`
 - `#[allow(...)]`（绕过 lint 的入口）
+- `transmute` / `from_utf8_unchecked` / `get_unchecked` / `mem::forget`（关掉具体检查的入口）
 
 存量冻结在 `tools/ci/quality-baseline.toml`：已有文件涨数、或新增文件里出现这些写法，
 都会失败。重构让它降下来后跑 `--update` 收紧基线。
