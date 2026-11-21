@@ -267,7 +267,8 @@ fn mode_forms(mode: modes::Mode<'_>) -> Vec<String> {
         // 生成型（`uuid` / `ts`）由 Engine 走 `generated_candidates`：随机值与时刻要按组句缓存，
         // 不能每次查询都重算。走到这里说明是别处直接调 `shortcut::candidates`，给空即可
         modes::Mode::Uuid | modes::Mode::Timestamp { .. } => Vec::new(),
-        modes::Mode::Bit { width, body } => {
+        modes::Mode::Bit { body } => {
+            let (width, body) = modes::bit_args(body);
             let Some(result) = bitwise::evaluate(body, width) else {
                 return Vec::new();
             };
@@ -527,13 +528,22 @@ mod tests {
 
     #[test]
     fn bit_submode() {
-        // 位运算：位宽与符号由子模式名给
-        let hex = texts("vbit8:0xff");
+        // 位运算：位宽写在参数里（`vbit;8u;1-2`），缺省 64 位有符号
+        let hex = texts("vbit;8;0xff");
         assert!(!hex.is_empty(), "{hex:?}");
         assert!(hex.iter().any(|t| t == "-1"), "{hex:?}");
         // 全角冒号、分号都当分隔符
-        assert_eq!(texts("vbit8：1<<3"), texts("vbit8:1<<3"));
-        assert_eq!(texts("vbit8;1<<3"), texts("vbit8:1<<3"));
+        assert_eq!(texts("vbit；8；1<<3"), texts("vbit;8;1<<3"));
+        // 不写位宽照旧按 64 位算
+        assert_eq!(texts("vbit;1<<3")[0], "8");
+        // 无符号
+        assert_eq!(texts("vbit;8u;0-1")[0], "255");
+        // 八进制也在候选里
+        assert!(
+            texts("vbit;8;8").iter().any(|t| t == "0o10"),
+            "{}",
+            texts("vbit;8;8")[0]
+        );
         // 认不出来的名字退回缺省计算（`foo:bar` 不是算式，也不出候选）
         assert!(texts("vfoo:bar").is_empty());
         // 不带冒号仍是缺省计算

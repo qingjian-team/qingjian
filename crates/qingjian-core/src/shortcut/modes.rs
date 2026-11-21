@@ -41,12 +41,9 @@ pub enum Mode<'a> {
         at: &'a str,
     },
 
-    /// 位运算，位宽与符号由子模式名给。
+    /// 位运算：`vbit;8u;1-2`。位宽写在参数开头，没写按缺省 64 位有符号算。
     Bit {
-        /// 位宽与符号。
-        width: BitWidth,
-
-        /// 冒号之后的表达式原文。
+        /// 冒号之后的参数原文（可能以位宽开头）。
         body: &'a str,
     },
 
@@ -94,7 +91,7 @@ impl<'a> Mode<'a> {
         match self {
             Self::Uuid => self,
             Self::Timestamp { .. } => Self::Timestamp { at: args },
-            Self::Bit { width, .. } => Self::Bit { width, body: args },
+            Self::Bit { .. } => Self::Bit { body: args },
             Self::Base { .. } => Self::Base { args },
             Self::Stat { .. } => Self::Stat { args },
             Self::Trans { .. } => Self::Trans { args },
@@ -154,7 +151,7 @@ struct Spec {
 const SPECS: [Spec; 6] = [
     Spec {
         name: BIT_KEYWORD,
-        numbered: true,
+        numbered: false,
     },
     Spec {
         name: UUID_KEYWORD,
@@ -230,8 +227,43 @@ fn named<'a>(name: &str, rest: &'a str) -> Option<Mode<'a>> {
     if name == TRANS_KEYWORD {
         return Some(Mode::Trans { args: rest });
     }
-    let width = parse_bit_width(name)?;
-    Some(Mode::Bit { width, body: rest })
+    if name == BIT_KEYWORD {
+        return Some(Mode::Bit { body: rest });
+    }
+    None
+}
+
+/// `vbit` 的参数：开头一段可能是位宽（`8` / `16` / `32` / `64` / `128`，后缀 `u` 表示无符号），
+/// 后面才是算式。没写位宽时按缺省 64 位有符号算 —— `vbit;1+1` 的老写法照旧。
+///
+/// `vbit;8` 这种只有一段的按算式算（求值就是 8），当位宽要写成 `vbit;8;7`。
+pub fn bit_args(args: &str) -> (BitWidth, &str) {
+    let Some((head, rest)) = args.split_once([';', '；']) else {
+        return (BitWidth::DEFAULT, args);
+    };
+    if rest.trim().is_empty() {
+        return (BitWidth::DEFAULT, args);
+    }
+    match width_of_arg(head.trim()) {
+        Some(width) => (width, rest),
+        None => (BitWidth::DEFAULT, args),
+    }
+}
+
+/// 位宽那一段：`8`、`16u`、`128`、`u`（64 位无符号）。
+fn width_of_arg(text: &str) -> Option<BitWidth> {
+    let (digits, signed) = match text.strip_suffix(['u', 'U']) {
+        Some(rest) => (rest, false),
+        None => (text, true),
+    };
+    if digits.is_empty() {
+        return (!signed).then_some(BitWidth {
+            bits: 64,
+            signed: false,
+        });
+    }
+    let bits: u32 = digits.parse().ok()?;
+    matches!(bits, 8 | 16 | 32 | 64 | 128).then_some(BitWidth { bits, signed })
 }
 
 /// 带参数子模式的参数：按分隔符切开，空段丢掉。
@@ -262,30 +294,8 @@ pub fn is_name_prefix(body: &str) -> bool {
         if spec.name.len() > body.len() && spec.name.starts_with(body) {
             return true;
         }
-        // 名字敲完了、还能接位宽：`bit` 之后的 `8`、`bit128` 之后的 `u`。
-        // 只放行合法位宽的前缀，`bit7`、`bit256`、`bit8x` 这种敲错了的不进缓冲区
-        // —— 否则用户会看到一串空候选，不知道为什么。`strip_prefix` 不成立说明
-        // 这条名字根本不匹配（`ts` 之于 `bit`），不能当成「刚敲完」放行。
-        match spec
-            .numbered
-            .then(|| body.strip_prefix(spec.name))
-            .flatten()
-        {
-            Some(digits) => is_width_prefix(digits),
-            None => false,
-        }
+        false
     })
-}
-
-/// `bit` 后面的那段是不是合法位宽的开头：`8`、`1`（16 / 128 的前缀）、`12`、`128u`。
-///
-/// 空串算（刚敲完 `bit`）。`7`、`256`、`8x` 这些不是，按键层据此拦住。
-fn is_width_prefix(digits: &str) -> bool {
-    let digits = digits.strip_suffix('u').unwrap_or(digits);
-    digits.is_empty()
-        || ["8", "16", "32", "64", "128"]
-            .iter()
-            .any(|width| width.starts_with(digits))
 }
 
 /// 表达式模式下这个字符进不进缓冲区。`None` 表示与子模式无关，交给算式那边判断。
@@ -322,27 +332,6 @@ pub fn accepts_key(body: &str, c: char) -> Option<bool> {
     None
 }
 
-/// 认 `bit` / `bitu` / `bitN` / `bitNu`；别的名字返回 `None`。
-fn parse_bit_width(name: &str) -> Option<BitWidth> {
-    let digits = name.strip_prefix("bit")?;
-    // `bitu`：64 位无符号
-    if digits == "u" {
-        return Some(BitWidth {
-            bits: 64,
-            signed: false,
-        });
-    }
-    let (number, signed) = match digits.strip_suffix('u') {
-        Some(number) => (number, false),
-        None => (digits, true),
-    };
-    if number.is_empty() {
-        return Some(BitWidth { bits: 64, signed });
-    }
-    let bits: u32 = number.parse().ok()?;
-    matches!(bits, 8 | 16 | 32 | 64 | 128).then_some(BitWidth { bits, signed })
-}
-
 /// 在第一个冒号处切开。半角冒号、全角冒号、半角分号、全角分号都算 ——
 /// 键盘上冒号就是 Shift + `;`，不少布局 / 输入框里送到缓冲区的是分号那一下。
 fn split_colon(body: &str) -> Option<(&str, &str)> {
@@ -366,20 +355,23 @@ fn split_colon(body: &str) -> Option<(&str, &str)> {
 mod tests {
     use super::*;
 
+    /// 位宽写在参数里：`vbit;8u;1-2`。缺省 64 位有符号，`u` 后缀是无符号。
     #[test]
     fn bit_widths() {
         let cases = [
-            ("bit:1<<3", 64, true),
-            ("bitu:1<<3", 64, false),
-            ("bit8:0xff", 8, true),
+            ("", 64, true),
+            ("1<<3", 64, true),
+            ("8u;1-2", 8, false),
+            ("8;0xff", 8, true),
+            ("128u;1", 128, false),
+            // `vbit;8` 只有一段，按算式算（求值就是 8），不当位宽
+            ("8", 64, true),
+            // 认不出来的位宽当算式，缺省位宽
+            ("7;1", 64, true),
         ];
-        for (body, bits, signed) in cases {
-            match parse(body) {
-                Some(Mode::Bit { width, .. }) => {
-                    assert_eq!((width.bits, width.signed), (bits, signed), "{body}");
-                }
-                other => panic!("{body} 该认成 Bit，得到 {other:?}"),
-            }
+        for (args, bits, signed) in cases {
+            let (width, _) = bit_args(args);
+            assert_eq!((width.bits, width.signed), (bits, signed), "{args}");
         }
     }
 
@@ -409,13 +401,12 @@ mod tests {
     #[test]
     fn name_prefixes_and_extensions() {
         // 名字还没敲完
-        for body in ["b", "bi", "bit", "u", "uu", "t"] {
+        for body in ["b", "bi", "u", "uu", "t"] {
             assert!(is_name_prefix(body), "{body} 该算前缀");
         }
-        // `bit` 还能接位宽
-        assert!(is_name_prefix("bit"));
-        assert!(is_name_prefix("bit8"));
-        assert!(is_name_prefix("bit128u"));
+        // 位宽改成写在参数里，名字后面不再接数字
+        assert!(!is_name_prefix("bit8"));
+        assert!(!is_name_prefix("bit128u"));
         // 终结名敲完了，数字留给选词
         assert!(!is_name_prefix("ts"));
         assert!(!is_name_prefix("uuid"));
@@ -449,8 +440,9 @@ mod tests {
         // 名字还没敲完
         assert_eq!(accepts_key("bi", 't'), Some(true));
         assert_eq!(accepts_key("bi", ':'), Some(true));
-        // `bit` 接位宽
-        assert_eq!(accepts_key("bit", '8'), Some(true));
+        // `bit` 敲完了：位宽也写在参数里，数字不进缓冲区（那是算式或选词）
+        assert_eq!(accepts_key("bit", '8'), Some(false));
+        assert_eq!(accepts_key("bit", ';'), Some(true));
         // `ts` 敲完了，数字是选词键（明确不收，不是「不管」）
         assert_eq!(accepts_key("ts", '1'), Some(false));
         assert_eq!(accepts_key("ts", ';'), Some(true));
