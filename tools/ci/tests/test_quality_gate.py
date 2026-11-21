@@ -52,6 +52,17 @@ fn f() {
         counts = gate.count_file(path)
         self.assertEqual(counts["unchecked"], 4)
 
+    def test_counts_crate_level_allow(self) -> None:
+        # crate 级 #![allow(...)] 同样是绕过 lint 的入口，不能漏。
+        path = write_temp(
+            """
+#![allow(dead_code)]
+fn f() {}
+"""
+        )
+        counts = gate.count_file(path)
+        self.assertEqual(counts["allow"], 1)
+
     def test_ignores_unwrap_or_and_test_modules(self) -> None:
         path = write_temp(
             """

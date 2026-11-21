@@ -7,7 +7,7 @@ unwrap = 56
 expect = 72
 panic = 10
 todo = 0
-allow = 7
+allow = 8
 unchecked = 3
 
 [files."apps/android/core/src/jni/catalog.rs"]
@@ -494,6 +494,7 @@ unsafe = 1
 
 [files."apps/windows/tsf/src/com/mod.rs"]
 unsafe = 9
+allow = 1
 
 [files."apps/windows/tsf/src/com/mode/button.rs"]
 unsafe = 2
