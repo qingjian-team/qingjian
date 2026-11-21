@@ -340,6 +340,50 @@ jobs:
         working-directory: apps/android
         run: ./gradlew assembleDebug --no-daemon --console=plain
 
+      # assembleDebug 成功不代表能装：cargoNdk 的输出目录、jniLibs 源目录、
+      # abiFilters 任一处错，包里就没有 so，装上去一调用就崩；版本号又是从
+      # core/Cargo.toml 现算的，算错会让用户装成“同一个 versionCode”覆盖不上。
+      # 这里按 aapt2 badging 交叉验证包名、SDK 区间、版本号与 native-code。
+      - name: Verify debug APK
+        working-directory: apps/android
+        run: |
+          apk=app/build/outputs/apk/debug/app-debug.apk
+          test -f "$apk"
+
+          if ! unzip -l "$apk" | grep -q 'lib/arm64-v8a/libqingjian_android.so'; then
+            echo "APK 里没有 lib/arm64-v8a/libqingjian_android.so" >&2
+            unzip -l "$apk" | grep 'lib/' >&2 || true
+            exit 1
+          fi
+          if unzip -l "$apk" | grep -Eq 'lib/(armeabi|armeabi-v7a|x86|x86_64)/'; then
+            echo "APK 里混进了别的 ABI：$ANDROID_HOME 只该打 arm64-v8a" >&2
+            exit 1
+          fi
+
+          aapt2=$(find "$ANDROID_HOME/build-tools" -name aapt2 | sort -V | tail -1)
+          test -x "$aapt2"
+          badging=$("$aapt2" dump badging "$apk")
+          echo "$badging" | grep -E "^(package|sdkVersion|targetSdkVersion|native-code):"
+
+          version=$(grep -m1 '^version = ' core/Cargo.toml | cut -d'"' -f2)
+          base=${version%%-*}
+          IFS=. read -r major minor patch <<< "$base"
+          code=$((major * 10000 + minor * 100 + patch))
+
+          echo "$badging" | grep -q "package: name='app.qingjian.inputmethod'"
+          echo "$badging" | grep -q "versionName='$version'"
+          echo "$badging" | grep -q "versionCode='$code'"
+          echo "$badging" | grep -q "native-code: 'arm64-v8a'"
+
+          # 新版 aapt2 的 badging 不一定给 minSdk 行；apkanalyzer 直接读 manifest，稳一些。
+          analyzer="$ANDROID_HOME/cmdline-tools/latest/bin/apkanalyzer"
+          test -x "$analyzer"
+          min_sdk=$("$analyzer" manifest min-sdk "$apk" | tr -d '[:space:]')
+          target_sdk=$("$analyzer" manifest target-sdk "$apk" | tr -d '[:space:]')
+          test "$min_sdk" = "26"
+          test "$target_sdk" = "36"
+          echo "APK 校验通过：$version（versionCode $code），arm64-v8a，minSdk $min_sdk / targetSdk $target_sdk"
+
   windows:
     runs-on: windows-latest
     timeout-minutes: 15

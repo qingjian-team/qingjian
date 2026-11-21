@@ -1,0 +1,670 @@
+# 由 tools/ci/quality_gate.py --update 生成。
+# 这些数字只许降，不许涨；新增文件带这些写法也必须先登记（即先 review 这份基线）。
+
+[total]
+unsafe = 788
+unwrap = 56
+expect = 72
+panic = 10
+todo = 0
+allow = 8
+unchecked = 3
+
+[files."apps/android/core/src/jni/catalog.rs"]
+unsafe = 4
+expect = 2
+
+[files."apps/android/core/src/jni/clipboard/mod.rs"]
+unsafe = 7
+expect = 1
+
+[files."apps/android/core/src/jni/clipboard/sync.rs"]
+unsafe = 14
+
+[files."apps/android/core/src/jni/cloud.rs"]
+unsafe = 10
+expect = 1
+
+[files."apps/android/core/src/jni/contacts.rs"]
+unsafe = 2
+
+[files."apps/android/core/src/jni/expression.rs"]
+unsafe = 2
+
+[files."apps/android/core/src/jni/logging.rs"]
+unsafe = 3
+
+[files."apps/android/core/src/jni/mod.rs"]
+unsafe = 8
+
+[files."apps/android/core/src/jni/operations.rs"]
+unsafe = 20
+
+[files."apps/android/core/src/jni/options.rs"]
+unsafe = 6
+expect = 1
+
+[files."apps/android/core/src/jni/shuangpin.rs"]
+unsafe = 2
+expect = 2
+
+[files."apps/android/core/src/jni/stats.rs"]
+unsafe = 6
+
+[files."apps/android/core/src/jni/strip.rs"]
+unsafe = 5
+
+[files."apps/android/core/src/jni/swipe.rs"]
+unsafe = 2
+
+[files."apps/android/core/src/jni/theme.rs"]
+unsafe = 5
+
+[files."apps/android/core/src/jni/voice.rs"]
+unsafe = 9
+
+[files."apps/android/core/src/store/catalog/mod.rs"]
+expect = 1
+
+[files."apps/android/core/src/store/stats/mod.rs"]
+expect = 2
+
+[files."apps/android/core/src/store/vocabulary/mod.rs"]
+expect = 1
+
+[files."apps/cli/src/eval/generate.rs"]
+expect = 2
+
+[files."apps/cli/src/eval/mod.rs"]
+expect = 2
+
+[files."apps/cli/src/eval/p2c.rs"]
+expect = 1
+
+[files."apps/cli/src/main.rs"]
+expect = 1
+
+[files."apps/cli/src/replay/line.rs"]
+allow = 1
+
+[files."apps/clipboard/src/system/macos/autostart.rs"]
+unsafe = 4
+
+[files."apps/clipboard/src/system/macos/ffi.rs"]
+unsafe = 5
+
+[files."apps/clipboard/src/system/macos/hotkey.rs"]
+unsafe = 3
+
+[files."apps/clipboard/src/system/macos/listener.rs"]
+unsafe = 1
+
+[files."apps/clipboard/src/system/macos/main_queue.rs"]
+unsafe = 4
+expect = 1
+
+[files."apps/clipboard/src/system/macos/mod.rs"]
+unsafe = 3
+unchecked = 1
+
+[files."apps/clipboard/src/system/macos/neon_strips.rs"]
+unsafe = 4
+
+[files."apps/clipboard/src/system/macos/paste.rs"]
+unsafe = 3
+allow = 1
+
+[files."apps/clipboard/src/system/macos/pasteboard.rs"]
+unsafe = 3
+
+[files."apps/clipboard/src/system/macos/screen.rs"]
+unsafe = 3
+
+[files."apps/clipboard/src/system/macos/source.rs"]
+unsafe = 2
+
+[files."apps/clipboard/src/system/macos/status_item.rs"]
+unsafe = 12
+
+[files."apps/clipboard/src/system/windows/clipboard/mod.rs"]
+unsafe = 9
+
+[files."apps/clipboard/src/system/windows/listener.rs"]
+unsafe = 13
+
+[files."apps/clipboard/src/system/windows/mod.rs"]
+unsafe = 3
+
+[files."apps/clipboard/src/system/windows/neon_strip.rs"]
+unsafe = 12
+
+[files."apps/clipboard/src/system/windows/neon_strips.rs"]
+unsafe = 5
+
+[files."apps/clipboard/src/system/windows/paste.rs"]
+unsafe = 3
+
+[files."apps/clipboard/src/system/windows/source.rs"]
+unsafe = 7
+
+[files."apps/clipboard/src/system/windows/tray/mod.rs"]
+unsafe = 12
+
+[files."apps/linux/ibus/src/client/connection.rs"]
+unsafe = 1
+
+[files."apps/linux/ibus/src/client/shared.rs"]
+expect = 2
+
+[files."apps/linux/ibus/src/ibus/variant.rs"]
+expect = 4
+
+[files."apps/linux/server/src/dispatch/linux.rs"]
+expect = 2
+
+[files."apps/linux/server/src/dispatch/rescore/loader.rs"]
+expect = 1
+
+[files."apps/linux/server/src/dispatch/session/mod.rs"]
+expect = 1
+
+[files."apps/linux/server/src/ipc/connection.rs"]
+unsafe = 2
+
+[files."apps/linux/server/src/ipc/mod.rs"]
+unsafe = 2
+
+[files."apps/linux/server/src/main.rs"]
+unsafe = 1
+
+[files."apps/macos/src/app/input_source.rs"]
+unsafe = 9
+
+[files."apps/macos/src/app/logging/log_file.rs"]
+expect = 1
+
+[files."apps/macos/src/candidates/animation.rs"]
+unsafe = 5
+
+[files."apps/macos/src/candidates/backdrop.rs"]
+unsafe = 7
+
+[files."apps/macos/src/candidates/bitmap/font_files.rs"]
+unsafe = 3
+
+[files."apps/macos/src/candidates/bitmap/mod.rs"]
+unsafe = 2
+
+[files."apps/macos/src/candidates/bitmap/panel.rs"]
+unsafe = 1
+
+[files."apps/macos/src/candidates/cloud_icon.rs"]
+unsafe = 1
+
+[files."apps/macos/src/candidates/key_hint/mod.rs"]
+unsafe = 2
+
+[files."apps/macos/src/candidates/menu/view.rs"]
+unsafe = 11
+
+[files."apps/macos/src/candidates/view/mod.rs"]
+unsafe = 14
+
+[files."apps/macos/src/candidates/window.rs"]
+unsafe = 1
+
+[files."apps/macos/src/host/cloud/mod.rs"]
+expect = 1
+
+[files."apps/macos/src/host/cloud/predict_monitor.rs"]
+unsafe = 5
+
+[files."apps/macos/src/host/cloud/test_monitor.rs"]
+unsafe = 5
+
+[files."apps/macos/src/host/config/watch.rs"]
+unsafe = 5
+
+[files."apps/macos/src/host/diagnostics.rs"]
+unsafe = 1
+
+[files."apps/macos/src/host/mode/osd.rs"]
+unsafe = 10
+
+[files."apps/macos/src/host/model/rescore_monitor.rs"]
+unsafe = 9
+
+[files."apps/macos/src/host/presenting/key_hint/mod.rs"]
+expect = 1
+
+[files."apps/macos/src/host/presenting/key_hint/timer.rs"]
+unsafe = 5
+
+[files."apps/macos/src/host/presenting/mod.rs"]
+expect = 1
+
+[files."apps/macos/src/host/presenting/notice.rs"]
+unsafe = 5
+
+[files."apps/macos/src/imk/client.rs"]
+unsafe = 9
+
+[files."apps/macos/src/imk/controller/candidate_editor.rs"]
+allow = 1
+
+[files."apps/macos/src/imk/controller/click.rs"]
+unsafe = 4
+
+[files."apps/macos/src/imk/controller/mod.rs"]
+unsafe = 12
+
+[files."apps/macos/src/imk/controller/panel/mod.rs"]
+unsafe = 1
+
+[files."apps/macos/src/imk/secure_input.rs"]
+unsafe = 2
+
+[files."apps/macos/src/launch.rs"]
+unsafe = 2
+expect = 1
+
+[files."apps/macos/src/menubar/indicator.rs"]
+unsafe = 7
+
+[files."apps/macos/src/menubar/menu.rs"]
+unsafe = 2
+
+[files."apps/macos/src/menubar/mod.rs"]
+unsafe = 1
+
+[files."apps/macos/src/menubar/target.rs"]
+unsafe = 4
+
+[files."apps/macos/src/preferences/controls.rs"]
+unsafe = 3
+
+[files."apps/macos/src/preferences/edit_menu.rs"]
+unsafe = 1
+
+[files."apps/macos/src/preferences/font_picker/button.rs"]
+unsafe = 4
+
+[files."apps/macos/src/preferences/font_picker/mod.rs"]
+unsafe = 2
+
+[files."apps/macos/src/preferences/font_picker/source.rs"]
+unsafe = 10
+
+[files."apps/macos/src/preferences/key_recorder.rs"]
+unsafe = 10
+
+[files."apps/macos/src/preferences/pages/phrases/mod.rs"]
+unsafe = 4
+
+[files."apps/macos/src/preferences/pages/phrases/table.rs"]
+unsafe = 11
+
+[files."apps/macos/src/preferences/pages/usage.rs"]
+unsafe = 1
+
+[files."apps/macos/src/preferences/panel.rs"]
+unsafe = 11
+allow = 1
+
+[files."apps/macos/src/preferences/target.rs"]
+unsafe = 5
+
+[files."apps/macos/src/preferences/window.rs"]
+unsafe = 1
+
+[files."apps/settings/src/offscreen/config_keys.rs"]
+unwrap = 10
+panic = 1
+
+[files."apps/settings/src/system/hotkey.rs"]
+unsafe = 4
+
+[files."apps/settings/src/system/single_instance.rs"]
+unsafe = 4
+
+[files."apps/settings/src/view/previews.rs"]
+allow = 1
+
+[files."apps/windows/server/build.rs"]
+expect = 1
+
+[files."apps/windows/server/src/dispatch/composed/prediction.rs"]
+expect = 2
+
+[files."apps/windows/server/src/dispatch/key/next_word_tests.rs"]
+unwrap = 1
+
+[files."apps/windows/server/src/dispatch/key/pairing_tests.rs"]
+unwrap = 1
+panic = 1
+
+[files."apps/windows/server/src/dispatch/key/single_chars_tests.rs"]
+unwrap = 1
+
+[files."apps/windows/server/src/dispatch/key/traditional_tests.rs"]
+unwrap = 2
+
+[files."apps/windows/server/src/dispatch/reload/traditional_tests.rs"]
+unwrap = 13
+
+[files."apps/windows/server/src/dispatch/rescore/loader.rs"]
+expect = 1
+
+[files."apps/windows/server/src/ipc/instance.rs"]
+unsafe = 4
+
+[files."apps/windows/server/src/ipc/pipe.rs"]
+unsafe = 7
+
+[files."apps/windows/server/src/main.rs"]
+unsafe = 1
+expect = 1
+
+[files."apps/windows/server/src/ui/candidate_editor.rs"]
+unsafe = 15
+
+[files."apps/windows/server/src/ui/candidates/click.rs"]
+unsafe = 2
+
+[files."apps/windows/server/src/ui/candidates/key_hint/mod.rs"]
+unsafe = 6
+
+[files."apps/windows/server/src/ui/candidates/menu.rs"]
+unsafe = 8
+
+[files."apps/windows/server/src/ui/candidates/mod.rs"]
+unsafe = 15
+
+[files."apps/windows/server/src/ui/candidates/theme/mod.rs"]
+unsafe = 2
+
+[files."apps/windows/server/src/ui/candidates/view.rs"]
+unsafe = 5
+
+[files."apps/windows/server/src/ui/layered/backdrop/accent/mod.rs"]
+unsafe = 4
+unchecked = 1
+
+[files."apps/windows/server/src/ui/layered/backdrop/window.rs"]
+unsafe = 2
+
+[files."apps/windows/server/src/ui/layered/canvas.rs"]
+unsafe = 5
+
+[files."apps/windows/server/src/ui/layered/mod.rs"]
+unsafe = 3
+
+[files."apps/windows/server/src/ui/mod.rs"]
+unsafe = 8
+
+[files."apps/windows/server/src/ui/monitor.rs"]
+unsafe = 2
+
+[files."apps/windows/server/src/ui/painter/mod.rs"]
+unsafe = 1
+
+[files."apps/windows/server/src/ui/panel/mod.rs"]
+unsafe = 13
+
+[files."apps/windows/server/src/ui/status/fullscreen.rs"]
+unsafe = 10
+
+[files."apps/windows/server/src/ui/status/mod.rs"]
+unsafe = 15
+
+[files."apps/windows/server/src/ui/status/placement/mod.rs"]
+unsafe = 1
+
+[files."apps/windows/server/src/ui/window_class.rs"]
+unsafe = 2
+
+[files."apps/windows/settings/src/panel/system_hotkey.rs"]
+unsafe = 2
+
+[files."apps/windows/settings/src/single_instance.rs"]
+unsafe = 4
+
+[files."apps/windows/tsf/examples/host.rs"]
+unsafe = 10
+unwrap = 1
+expect = 1
+panic = 2
+
+[files."apps/windows/tsf/src/client/pipe.rs"]
+unsafe = 1
+
+[files."apps/windows/tsf/src/com/candidate_list/element.rs"]
+unsafe = 1
+
+[files."apps/windows/tsf/src/com/candidate_list/list.rs"]
+unsafe = 4
+
+[files."apps/windows/tsf/src/com/composition/caret.rs"]
+unsafe = 8
+
+[files."apps/windows/tsf/src/com/composition/control.rs"]
+unsafe = 6
+
+[files."apps/windows/tsf/src/com/composition/mod.rs"]
+unsafe = 15
+
+[files."apps/windows/tsf/src/com/context.rs"]
+unsafe = 2
+
+[files."apps/windows/tsf/src/com/display_attribute/enumerator.rs"]
+unsafe = 2
+
+[files."apps/windows/tsf/src/com/display_attribute/info.rs"]
+unsafe = 1
+
+[files."apps/windows/tsf/src/com/edit/anchor.rs"]
+unsafe = 7
+
+[files."apps/windows/tsf/src/com/edit/selection.rs"]
+unsafe = 1
+
+[files."apps/windows/tsf/src/com/edit/surrounding.rs"]
+unsafe = 10
+
+[files."apps/windows/tsf/src/com/edit/update.rs"]
+unsafe = 1
+
+[files."apps/windows/tsf/src/com/factory.rs"]
+unsafe = 1
+
+[files."apps/windows/tsf/src/com/focus.rs"]
+unsafe = 2
+
+[files."apps/windows/tsf/src/com/key/inject.rs"]
+unsafe = 4
+
+[files."apps/windows/tsf/src/com/key/layout.rs"]
+unsafe = 4
+
+[files."apps/windows/tsf/src/com/key/preserved.rs"]
+unsafe = 8
+
+[files."apps/windows/tsf/src/com/log.rs"]
+unsafe = 1
+
+[files."apps/windows/tsf/src/com/mod.rs"]
+unsafe = 9
+allow = 1
+
+[files."apps/windows/tsf/src/com/mode/button.rs"]
+unsafe = 2
+
+[files."apps/windows/tsf/src/com/mode/icon.rs"]
+unsafe = 2
+
+[files."apps/windows/tsf/src/com/mode/menu.rs"]
+unsafe = 5
+
+[files."apps/windows/tsf/src/com/mode/mod.rs"]
+unsafe = 5
+
+[files."apps/windows/tsf/src/com/mode/sink.rs"]
+unsafe = 3
+
+[files."apps/windows/tsf/src/com/mode/state.rs"]
+unsafe = 1
+
+[files."apps/windows/tsf/src/com/poll/mod.rs"]
+unsafe = 9
+
+[files."apps/windows/tsf/src/com/profile.rs"]
+unsafe = 2
+
+[files."apps/windows/tsf/src/com/registry/mod.rs"]
+unsafe = 10
+
+[files."apps/windows/tsf/src/com/service/display.rs"]
+unsafe = 1
+
+[files."apps/windows/tsf/src/com/service/key_sink.rs"]
+unsafe = 1
+
+[files."apps/windows/tsf/src/com/service/launch.rs"]
+unsafe = 16
+
+[files."apps/windows/tsf/src/com/service/menu.rs"]
+unsafe = 5
+
+[files."apps/windows/tsf/src/com/service/mod.rs"]
+allow = 1
+
+[files."apps/windows/tsf/src/com/service/mode.rs"]
+unsafe = 2
+
+[files."apps/windows/tsf/src/com/service/panel.rs"]
+unsafe = 1
+
+[files."apps/windows/tsf/src/com/service/processor.rs"]
+unsafe = 3
+
+[files."apps/windows/tsf/src/com/window_class.rs"]
+unsafe = 2
+
+[files."crates/bamboo-slip/src/appearance.rs"]
+unsafe = 3
+
+[files."crates/bamboo-slip/src/fonts/directwrite.rs"]
+unsafe = 5
+
+[files."crates/qingjian-clipboard-sync/examples/peer.rs"]
+expect = 5
+
+[files."crates/qingjian-core/src/contacts/book.rs"]
+expect = 1
+
+[files."crates/qingjian-core/src/correction/edit.rs"]
+expect = 4
+
+[files."crates/qingjian-core/src/correction/typo/mod.rs"]
+expect = 4
+
+[files."crates/qingjian-core/src/emoji/builtin.rs"]
+panic = 2
+
+[files."crates/qingjian-core/src/engine/commit/auto_phrase.rs"]
+expect = 1
+
+[files."crates/qingjian-core/src/engine/panel/translate.rs"]
+expect = 2
+
+[files."crates/qingjian-core/src/engine/query/code.rs"]
+expect = 1
+
+[files."crates/qingjian-core/src/panel/catalog.rs"]
+panic = 3
+
+[files."crates/qingjian-core/src/panel/state.rs"]
+expect = 1
+
+[files."crates/qingjian-core/src/parser/trie.rs"]
+expect = 3
+
+[files."crates/qingjian-core/src/shuangpin/mixed.rs"]
+expect = 1
+
+[files."crates/qingjian-core/src/swipe/fixtures.rs"]
+unwrap = 1
+
+[files."crates/qingjian-dictionary/src/dictionary/mod.rs"]
+unwrap = 1
+
+[files."crates/qingjian-format/src/file/container.rs"]
+unsafe = 1
+
+[files."crates/qingjian-format/src/hash.rs"]
+expect = 1
+
+[files."crates/qingjian-format/src/view/table.rs"]
+expect = 1
+
+[files."crates/qingjian-format/src/view/text.rs"]
+unsafe = 1
+unchecked = 1
+
+[files."crates/qingjian-learning/src/clipboard/history.rs"]
+expect = 1
+
+[files."crates/qingjian-learning/src/frequency_learner/phrase_tests/boundaries.rs"]
+unwrap = 6
+
+[files."crates/qingjian-learning/src/frequency_learner/phrase_tests/mod.rs"]
+unwrap = 6
+
+[files."crates/qingjian-learning/src/frequency_learner/phrase_tests/storage.rs"]
+unwrap = 8
+
+[files."crates/qingjian-learning/src/phrase_book/book.rs"]
+expect = 1
+
+[files."crates/qingjian-lm/src/trigram/model.rs"]
+unsafe = 1
+
+[files."crates/qingjian-neural/examples/p2c_bench.rs"]
+unwrap = 4
+
+[files."crates/qingjian-neural/examples/p2c_try.rs"]
+unwrap = 1
+
+[files."crates/qingjian-neural/src/hanzhang/char_lm/mod.rs"]
+expect = 2
+
+[files."crates/qingjian-neural/src/hanzhang/char_lm/q8_matrix.rs"]
+unsafe = 6
+
+[files."crates/qingjian-neural/src/hanzhang/scorer.rs"]
+unsafe = 1
+expect = 3
+
+[files."crates/qingjian-neural/src/zhiyi/weights.rs"]
+unsafe = 1
+
+[files."crates/qingjian-platform/src/config/mod.rs"]
+expect = 1
+
+[files."crates/qingjian-platform/src/pipe/identity.rs"]
+unsafe = 13
+
+[files."crates/qingjian-platform/src/pipe/mod.rs"]
+unsafe = 1
+
+[files."crates/qingjian-platform/src/pipe/user_sid.rs"]
+unsafe = 11
+
+[files."crates/qingjian-platform/src/protocol/linux/socket.rs"]
+unsafe = 1
+
+[files."crates/qingjian-render/src/theme/mod.rs"]
+panic = 1
+
+[files."tools/dict-convert/src/lexicon/mod.rs"]
+allow = 1

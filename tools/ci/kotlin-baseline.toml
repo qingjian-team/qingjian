@@ -1,0 +1,68 @@
+# 由 tools/ci/kotlin_gate.py --update 生成。
+# 这些数字只许降，不许涨；新增文件带这些写法也必须先登记（即先 review 这份基线）。
+
+[total]
+notnull = 1
+suppress = 32
+todo = 0
+
+[files."apps/android/app/src/main/kotlin/app/qingjian/inputmethod/candidates/CandidateBarView.kt"]
+notnull = 1
+suppress = 2
+
+[files."apps/android/app/src/main/kotlin/app/qingjian/inputmethod/candidates/CandidateGrid.kt"]
+suppress = 1
+
+[files."apps/android/app/src/main/kotlin/app/qingjian/inputmethod/clipboard/sync/NsdDiscovery.kt"]
+suppress = 2
+
+[files."apps/android/app/src/main/kotlin/app/qingjian/inputmethod/keyboard/BottomActionsView.kt"]
+suppress = 2
+
+[files."apps/android/app/src/main/kotlin/app/qingjian/inputmethod/keyboard/Haptics.kt"]
+suppress = 1
+
+[files."apps/android/app/src/main/kotlin/app/qingjian/inputmethod/keyboard/KeyboardView.kt"]
+suppress = 2
+
+[files."apps/android/app/src/main/kotlin/app/qingjian/inputmethod/panel/CatalogPanel.kt"]
+suppress = 2
+
+[files."apps/android/app/src/main/kotlin/app/qingjian/inputmethod/panel/FunctionPanel.kt"]
+suppress = 1
+
+[files."apps/android/app/src/main/kotlin/app/qingjian/inputmethod/panel/KeyboardPickerPanel.kt"]
+suppress = 1
+
+[files."apps/android/app/src/main/kotlin/app/qingjian/inputmethod/panel/ToolbarPanel.kt"]
+suppress = 1
+
+[files."apps/android/app/src/main/kotlin/app/qingjian/inputmethod/panel/VoicePanel.kt"]
+suppress = 2
+
+[files."apps/android/app/src/main/kotlin/app/qingjian/inputmethod/panel/base/PanelView.kt"]
+suppress = 2
+
+[files."apps/android/app/src/main/kotlin/app/qingjian/inputmethod/panel/clipboard/ClipboardPanel.kt"]
+suppress = 1
+
+[files."apps/android/app/src/main/kotlin/app/qingjian/inputmethod/panel/clipboard/PiecesPanel.kt"]
+suppress = 2
+
+[files."apps/android/app/src/main/kotlin/app/qingjian/inputmethod/panel/editor/PhraseEditor.kt"]
+suppress = 2
+
+[files."apps/android/app/src/main/kotlin/app/qingjian/inputmethod/service/GameFrame.kt"]
+suppress = 3
+
+[files."apps/android/app/src/main/kotlin/app/qingjian/inputmethod/settings/page/LogPack.kt"]
+suppress = 1
+
+[files."apps/android/app/src/main/kotlin/app/qingjian/inputmethod/settings/widget/ThemePreview.kt"]
+suppress = 1
+
+[files."apps/android/app/src/main/kotlin/app/qingjian/inputmethod/translate/TranslateBar.kt"]
+suppress = 2
+
+[files."apps/android/app/src/main/kotlin/app/qingjian/inputmethod/voice/EngineRecognizer.kt"]
+suppress = 1

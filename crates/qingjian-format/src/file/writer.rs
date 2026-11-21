@@ -28,7 +28,9 @@ impl Writer {
 
     /// 加一节。标签在同一文件里不能重复。
     pub fn section(mut self, tag: [u8; 4], bytes: &[u8]) -> Self {
-        debug_assert!(
+        // 不能用 debug_assert!：release 下它整个消失，重复标签会静默写出两个同 tag 的节，
+        // 读回来时后一个覆盖前一个。标签重复是调用方的编程错误，两种 profile 都该当场炸。
+        assert!(
             !self.sections.iter().any(|(t, _)| *t == tag),
             "duplicate section tag"
         );
@@ -153,5 +155,30 @@ mod tests {
             .unwrap()
             .section(*b"ABCD", b"1")
             .section(*b"ABCD", b"2");
+    }
+
+    #[test]
+    fn written_file_reads_back_the_same_sections() {
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let dir =
+            std::env::temp_dir().join(format!("qingjian-writer-{}-{nanos}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("roundtrip.qj");
+        Writer::new(Kind::Dictionary, &Metadata::default())
+            .unwrap()
+            .section(*b"LEXI", b"a\tb\n")
+            .section(*b"GRMR", &[1, 2, 3])
+            .write_to(&path)
+            .unwrap();
+        let container = crate::Container::open(&path, Kind::Dictionary).unwrap();
+        assert_eq!(container.bytes(*b"LEXI").unwrap(), &b"a\tb\n"[..]);
+        assert_eq!(container.bytes(*b"GRMR").unwrap(), &[1, 2, 3][..]);
+        assert!(container.bytes(*b"META").is_ok(), "metadata section");
+        drop(container);
+        let _ = std::fs::remove_file(&path);
+        let _ = std::fs::remove_dir(&dir);
     }
 }

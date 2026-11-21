@@ -1,0 +1,27 @@
+# 新增的质量 job
+
+`ci.yml` 负责“能不能编、测试过不过、依赖许不许”；这里补的是它没覆盖的四个维度：
+
+- **code-quality**（`tools/ci/quality_gate.py` + `tools/ci/kotlin_gate.py`）：把 Rust 侧的 `unsafe`、`unwrap/expect`、
+  `panic!/todo!/dbg!`、`#[allow]`、`unchecked`，以及 Android 壳 Kotlin 侧的 `!!`、`@Suppress`/`@SuppressLint`、`TODO/FIXME`
+  钉在 `quality-baseline.toml` / `kotlin-baseline.toml` 上。只许降不许涨；确实合理的新增，改基线并在 PR 里说明理由。
+- **docs-links**（`tools/ci/check_docs_links.py`）：仓库内 Markdown 的相对链接必须指向真实文件。
+  外链不查（网络抖动会让 CI 假红）。
+- **features**：`qingjian-predict` 的 `--all-features` 组合（native-tls + rustls 同时打开），
+  防止“单开都能编、一起开就炸”。
+- **release-tests**：`qingjian-core` / `qingjian-format` / `qingjian-dictionary` / `qingjian-learning`
+  在 release profile 下跑测试。`debug_assert!`、`#[cfg(debug_assertions)]` 两侧的代码在 release 下是另一份，
+  只跑 debug 测试发现不了。
+- **tools-tests**：上面三个脚本自身的 Python 单测，防止改门禁时把“该报的没报、不该报的报了”带进 CI。
+- **summary**：把五个 job 的结果收成一个 check，分支保护挂它就不会漏挂。
+
+维护：
+
+```sh
+python3 tools/ci/quality_gate.py            # 本地跑门禁
+python3 tools/ci/quality_gate.py --update   # 重构后收紧基线，跟代码一起提交
+python3 tools/ci/kotlin_gate.py             # Android 壳的 Kotlin 门禁
+python3 tools/ci/kotlin_gate.py --update
+python3 tools/ci/check_docs_links.py
+python3 -m unittest discover -s tools/ci/tests -v
+```
