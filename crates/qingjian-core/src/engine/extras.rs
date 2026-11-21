@@ -94,12 +94,17 @@ impl Engine {
     }
 
     /// 独立的日历缩写优先展示整组格式，其余快捷候选跟在本地首选之后。
+    ///
+    /// 整组前置只管全拼：双拼、注音、形码里 `sj` 这类是两个键的编码（自然码的 `sj` 出「三」），
+    /// 把日期时间整组压在前面会把这些词挤走，那几种方案仍旧只垫三条。
     pub(super) fn insert_shortcuts(&self, items: &mut Vec<Candidate>, scope: &str) {
         let now = jiff::Zoned::now();
-        if let Some(forms) = shortcut::calendar_forms(scope, &now) {
-            if self.composition.rest().is_empty() {
-                items.splice(..0, shortcut::as_candidates(forms));
-            }
+        let phonetic_only = self.shuangpin.is_none() && !self.zhuyin && self.code.is_none();
+        if phonetic_only
+            && self.composition.rest().is_empty()
+            && let Some(forms) = shortcut::calendar_forms(scope, &now)
+        {
+            items.splice(..0, shortcut::as_candidates(forms));
             return;
         }
         let expression_char =
