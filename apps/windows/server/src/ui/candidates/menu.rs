@@ -192,8 +192,10 @@ impl Menu {
             self.style = MenuStyle::system(self.dark);
             return;
         }
+        // 主题对象是从一份浅色的解析结果克隆过来的（候选窗按外观现取深浅），
+        // 这里按当前深浅再取一次，否则深色下菜单会是白底
         self.style = match self.theme.as_ref() {
-            Some(theme) => theme.menu_style(self.dark),
+            Some(theme) => theme.with_dark(self.dark).menu_style(self.dark),
             None => MenuStyle::system(self.dark),
         };
     }
