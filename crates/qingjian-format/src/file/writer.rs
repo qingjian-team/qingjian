@@ -28,7 +28,9 @@ impl Writer {
 
     /// 加一节。标签在同一文件里不能重复。
     pub fn section(mut self, tag: [u8; 4], bytes: &[u8]) -> Self {
-        debug_assert!(
+        // 不能用 debug_assert!：release 下它整个消失，重复标签会静默写出两个同 tag 的节，
+        // 读回来时后一个覆盖前一个。标签重复是调用方的编程错误，两种 profile 都该当场炸。
+        assert!(
             !self.sections.iter().any(|(t, _)| *t == tag),
             "duplicate section tag"
         );
