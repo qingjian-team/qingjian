@@ -129,6 +129,24 @@ pub fn candidates_with_modes(
         "sj" => time_forms(now),
         "xq" => weekday_forms(now),
         _ => match input.strip_prefix(expression) {
+            // `vstat` 每条候选带一句名字（「平均数」），只画在候选旁边、不进上屏文本，
+            // 光一串数字分不出哪个是哪个
+            Some(body) if sub_modes => {
+                if let Some(modes::Mode::Stat { args }) = modes::parse(body) {
+                    return stat::measures(args)
+                        .into_iter()
+                        .map(|(text, label)| Candidate {
+                            text,
+                            kind: CandidateKind::Shortcut,
+                            syllables: Vec::new(),
+                            reading: (!label.is_empty()).then_some(label),
+                            translation: None,
+                            aux_code: None,
+                        })
+                        .collect();
+                }
+                expression_forms(body, now, sub_modes)
+            }
             Some(body) => expression_forms(body, now, sub_modes),
             None => Vec::new(),
         },
@@ -219,7 +237,10 @@ fn mode_forms(mode: modes::Mode<'_>) -> Vec<String> {
             }
         }
         modes::Mode::Base { args } => base::forms(args),
-        modes::Mode::Stat { args } => stat::forms(args),
+        modes::Mode::Stat { args } => stat::measures(args)
+            .into_iter()
+            .map(|(value, _)| value)
+            .collect(),
     }
 }
 /// 单个非负数（`123`、`123.5`）：中文数字在前，金额在后；小数超过两位没有金额写法。
