@@ -23,6 +23,9 @@ pub const BASE_KEYWORD: &str = "base";
 /// 统计子模式的名字。
 pub const STAT_KEYWORD: &str = "stat";
 
+/// 变换子模式的名字（归一化、对数、差分、平滑、分箱…）。
+pub const TRANS_KEYWORD: &str = "trans";
+
 /// 子模式。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Mode<'a> {
@@ -55,6 +58,12 @@ pub enum Mode<'a> {
         /// 冒号之后的参数原文。
         args: &'a str,
     },
+
+    /// 变换：`vtrans;log;1;2;4` 对一串数做归一化、取对数、差分、平滑、分箱这些。
+    Trans {
+        /// 冒号之后的参数原文（算子名在前，其余是数）。
+        args: &'a str,
+    },
 }
 
 impl Mode<'_> {
@@ -72,8 +81,8 @@ impl Mode<'_> {
             Self::Timestamp { .. } => {
                 c.is_ascii_digit() || matches!(c, '-' | '.' | '/' | ':' | ';' | '；')
             }
-            // 进制与统计：数字、字母（进制名）、小数、负号与分号
-            Self::Base { .. } | Self::Stat { .. } => {
+            // 进制、统计与变换：数字、字母（进制名 / 算子名）、小数、负号与分号
+            Self::Base { .. } | Self::Stat { .. } | Self::Trans { .. } => {
                 c.is_ascii_alphanumeric() || matches!(c, '.' | '-' | ';' | '；')
             }
             // 位运算照 C++：`<<` `>>` `&` `|` `^` `~` `%`，还有写出来的英文（`shl` `and`）
@@ -99,7 +108,7 @@ struct Spec {
 }
 
 /// 全部子模式。加一个在这里登记，`Mode` 与 `mode_forms` 跟上即可。
-const SPECS: [Spec; 5] = [
+const SPECS: [Spec; 6] = [
     Spec {
         name: BIT_KEYWORD,
         numbered: true,
@@ -118,6 +127,10 @@ const SPECS: [Spec; 5] = [
     },
     Spec {
         name: STAT_KEYWORD,
+        numbered: false,
+    },
+    Spec {
+        name: TRANS_KEYWORD,
         numbered: false,
     },
 ];
@@ -146,6 +159,9 @@ fn named<'a>(name: &str, rest: &'a str) -> Option<Mode<'a>> {
     }
     if name == STAT_KEYWORD {
         return Some(Mode::Stat { args: rest });
+    }
+    if name == TRANS_KEYWORD {
+        return Some(Mode::Trans { args: rest });
     }
     let width = parse_bit_width(name)?;
     Some(Mode::Bit { width, body: rest })

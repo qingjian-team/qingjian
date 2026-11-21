@@ -18,6 +18,7 @@ mod evaluator;
 pub mod modes;
 mod numeral;
 mod stat;
+mod transform;
 mod uuid_forms;
 
 use jiff::Zoned;
@@ -41,15 +42,25 @@ pub fn generated_call(body: &str) -> Option<(&'static str, &str)> {
     match modes::parse(body)? {
         modes::Mode::Uuid => Some((UUID_KEYWORD, "")),
         modes::Mode::Timestamp { at } => Some((TIMESTAMP_KEYWORD, at)),
+        // 打乱是随机的：每敲一个键都重排会让候选乱跳，走这条按组句缓存的路
+        modes::Mode::Trans { args }
+            if args
+                .split([';', '；'])
+                .next()
+                .is_some_and(|op| transform::canonical(op) == Some(transform::SHUFFLE)) =>
+        {
+            Some((modes::TRANS_KEYWORD, args))
+        }
         _ => None,
     }
 }
 
-/// 表达式键之后整段是 `uuid` / `ts` 时生成的写法；别的词为 `None`。
+/// 表达式键之后整段是 `uuid` / `ts` / 打乱时生成的写法；别的词为 `None`。
 pub fn generated_forms(keyword: &str, args: &str, now: &Zoned) -> Option<Vec<String>> {
     match keyword {
         UUID_KEYWORD => Some(uuid_forms()),
         TIMESTAMP_KEYWORD => Some(timestamp_forms(now, args)),
+        modes::TRANS_KEYWORD => Some(transform::shuffle_forms(args)),
         _ => None,
     }
 }
@@ -129,11 +140,16 @@ pub fn candidates_with_modes(
         "sj" => time_forms(now),
         "xq" => weekday_forms(now),
         _ => match input.strip_prefix(expression) {
-            // `vstat` 每条候选带一句名字（「平均数」），只画在候选旁边、不进上屏文本，
-            // 光一串数字分不出哪个是哪个
+            // `vstat` / `vtrans` 每条候选带一句名字（「平均数」「自然对数」），只画在候选旁边、
+            // 不进上屏文本：光一串数字分不出哪个是哪个
             Some(body) if sub_modes => {
-                if let Some(modes::Mode::Stat { args }) = modes::parse(body) {
-                    return stat::measures(args)
+                let labeled = match modes::parse(body) {
+                    Some(modes::Mode::Stat { args }) => Some(stat::measures(args)),
+                    Some(modes::Mode::Trans { args }) => Some(transform::forms(args)),
+                    _ => None,
+                };
+                if let Some(measures) = labeled {
+                    return measures
                         .into_iter()
                         .map(|(text, label)| Candidate {
                             text,
@@ -238,6 +254,10 @@ fn mode_forms(mode: modes::Mode<'_>) -> Vec<String> {
         }
         modes::Mode::Base { args } => base::forms(args),
         modes::Mode::Stat { args } => stat::measures(args)
+            .into_iter()
+            .map(|(value, _)| value)
+            .collect(),
+        modes::Mode::Trans { args } => transform::forms(args)
             .into_iter()
             .map(|(value, _)| value)
             .collect(),

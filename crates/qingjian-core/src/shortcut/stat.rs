@@ -164,7 +164,7 @@ fn modes(numbers: &[f64]) -> Option<Vec<f64>> {
 }
 
 /// 浮点写成给人看的短串：整数不带小数点，小数最多留 6 位且不留尾随零。
-fn fmt(value: f64) -> String {
+pub(super) fn fmt(value: f64) -> String {
     if value.is_finite() && value.fract() == 0.0 && value.abs() < 1e15 {
         return format!("{}", value as i64);
     }
