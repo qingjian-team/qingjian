@@ -128,14 +128,21 @@ fn sized(bytes: &[u8]) -> Result<&[u8], VoiceError> {
         .ok_or(VoiceError::Protocol("truncated payload"))
 }
 
+/// 解压后上限：识别结果 JSON 正常远小于 1 MB，8 MB 足够；防压缩炸弹把内存撑爆。
+const MAX_UNPACKED: usize = 8 * 1024 * 1024;
+
 fn unpack(payload: &[u8], compressed: bool) -> Result<Vec<u8>, VoiceError> {
     if !compressed {
         return Ok(payload.to_vec());
     }
     let mut out = Vec::new();
     GzDecoder::new(payload)
+        .take((MAX_UNPACKED as u64) + 1)
         .read_to_end(&mut out)
         .map_err(|_| VoiceError::Protocol("bad gzip"))?;
+    if out.len() > MAX_UNPACKED {
+        return Err(VoiceError::Protocol("unpacked payload too large"));
+    }
     Ok(out)
 }
 
@@ -223,5 +230,20 @@ mod tests {
         let mut frame = server_frame(FULL_SERVER_RESPONSE, 0, b"{}");
         frame.truncate(frame.len() - 1);
         assert!(parse(&frame).is_err());
+    }
+
+    #[test]
+    fn rejects_gzip_bomb() {
+        // 9 MB 零字节压成很小一包：解压必须在上限处停住，而不是把整个膨胀结果读进内存。
+        let bomb = gzip(&vec![0_u8; MAX_UNPACKED + 1024]);
+        let mut frame = vec![
+            VERSION_AND_HEADER_SIZE,
+            FULL_SERVER_RESPONSE << 4,
+            (JSON << 4) | GZIP,
+            0,
+        ];
+        frame.extend_from_slice(&(bomb.len() as u32).to_be_bytes());
+        frame.extend_from_slice(&bomb);
+        assert!(matches!(parse(&frame), Err(VoiceError::Protocol(_))));
     }
 }

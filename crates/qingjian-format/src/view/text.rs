@@ -32,7 +32,8 @@ impl Default for Text {
 impl Text {
     /// 从映射里取一段并校验 UTF-8。
     pub(crate) fn mapped(map: Arc<Mmap>, offset: usize, len: usize) -> Option<Self> {
-        let bytes = map.get(offset..offset + len)?;
+        let end = offset.checked_add(len)?;
+        let bytes = map.get(offset..end)?;
         std::str::from_utf8(bytes).ok()?;
         Some(Self::Mapped { map, offset, len })
     }
@@ -45,11 +46,41 @@ impl Deref for Text {
         match self {
             Self::Owned(text) => text,
             Self::Mapped { map, offset, len } => {
-                let bytes = &map[*offset..*offset + *len];
-                // SAFETY: `Text::mapped` 构造时对这段字节做过 UTF-8 校验；数据文件只整体替换（写临时文件再改名）、
-                // 从不就地修改，映射内容在生命周期内不变。这里不能再用带校验的版本：每次取 `&str` 都扫一遍几十 MB 的 arena。
-                unsafe { std::str::from_utf8_unchecked(bytes) }
+                // 映射文件可能被别的进程改写（O_TRUNC 还会让访问直接触发 SIGBUS），
+                // 构造时校验过的结论不能一直当真；这里重新校验，坏字节就退化成空串。
+                // 代价是 O(len)，但 Text 目前只用于整段小文本，不在热路径的逐词取值上。
+                std::str::from_utf8(&map[*offset..*offset + *len]).unwrap_or_default()
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Write;
+
+    /// 打开时校验过 UTF-8，不代表之后映射内容不会变：别的进程就地改写后，
+    /// `deref` 不能再凭旧结论返回一个非法的 `&str`。
+    #[test]
+    fn mutated_mapping_is_revalidated() {
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let path =
+            std::env::temp_dir().join(format!("qingjian-text-{}-{nanos}.bin", std::process::id()));
+        std::fs::write(&path, "hello").unwrap();
+        let file = std::fs::File::open(&path).unwrap();
+        let map = Arc::new(unsafe { Mmap::map(&file).unwrap() });
+        let text = Text::mapped(Arc::clone(&map), 0, 5).unwrap();
+        assert_eq!(&*text, "hello");
+        let mut writer = std::fs::OpenOptions::new().write(true).open(&path).unwrap();
+        writer.write_all(&[0xff, 0xfe, 0xfd, 0xfc, 0xfb]).unwrap();
+        writer.flush().unwrap();
+        assert_eq!(&*text, "");
+        drop(map);
+        drop(text);
+        let _ = std::fs::remove_file(path);
     }
 }

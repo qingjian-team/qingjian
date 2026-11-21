@@ -32,9 +32,15 @@ pub(crate) fn fetch_index(current_version: &str) -> Result<Index, UpdateError> {
 
 async fn download(client: &reqwest::Client, url: &str) -> Result<Vec<u8>, UpdateError> {
     let response = client.get(url).send().await?.error_for_status()?;
-    let bytes = response.bytes().await?;
-    if bytes.len() > MAX_INDEX_BYTES {
-        return Err(UpdateError::TooLarge(MAX_INDEX_BYTES));
+    // 流式读：服务端给多大就收多大，超限立刻断，别先把整个响应读进内存再检查。
+    let mut stream = response.bytes_stream();
+    let mut out = Vec::new();
+    while let Some(chunk) = futures_util::StreamExt::next(&mut stream).await {
+        let chunk = chunk?;
+        if out.len().saturating_add(chunk.len()) > MAX_INDEX_BYTES {
+            return Err(UpdateError::TooLarge(MAX_INDEX_BYTES));
+        }
+        out.extend_from_slice(&chunk);
     }
-    Ok(bytes.to_vec())
+    Ok(out)
 }

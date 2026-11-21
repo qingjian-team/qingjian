@@ -4199,6 +4199,7 @@ version = "0.1.1"
 dependencies = [
  "base64 0.23.1",
  "ed25519-dalek",
+ "futures-util",
  "qingjian-platform",
  "reqwest",
  "serde",

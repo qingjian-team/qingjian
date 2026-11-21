@@ -6,14 +6,18 @@
 use std::fs::{self, File};
 use std::io::{self, BufWriter, Write};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 
-/// 临时文件的后缀：与目标同目录（改名不能跨文件系统），带进程号避免两个进程互相覆盖。
+/// 临时文件的后缀：与目标同目录（改名不能跨文件系统），带进程号与进程内序号，
+/// 避免同进程两个线程同时写同一个文件时互相截断。
 fn temporary_path(path: &Path) -> PathBuf {
+    static SEQUENCE: AtomicU64 = AtomicU64::new(0);
+    let sequence = SEQUENCE.fetch_add(1, Ordering::Relaxed);
     let name = path
         .file_name()
         .map(|name| name.to_string_lossy().into_owned())
         .unwrap_or_default();
-    path.with_file_name(format!(".{name}.tmp-{}", std::process::id()))
+    path.with_file_name(format!(".{name}.tmp-{}-{sequence}", std::process::id()))
 }
 
 /// 原子地写 `path`：`write` 往缓冲写入端里写内容，写完 flush + fsync，再改名覆盖目标。
@@ -58,9 +62,10 @@ fn write_atomic_with(
 }
 
 /// 建临时文件；`private` 时权限 0600（非 Unix 平台没有这个概念，照常建）。
+/// `create_new`：路径已存在（多进程残留或有人预先放了符号链接）就失败，绝不跟随链接写别人的文件。
 fn create(path: &Path, private: bool) -> io::Result<File> {
     let mut options = fs::OpenOptions::new();
-    options.write(true).create(true).truncate(true);
+    options.write(true).create_new(true);
     #[cfg(unix)]
     if private {
         use std::os::unix::fs::OpenOptionsExt;
@@ -127,7 +132,44 @@ mod tests {
         });
         assert!(result.is_err());
         assert_eq!(fs::read_to_string(&path).unwrap(), "old\n");
-        assert!(!temporary_path(&path).exists());
+        // 临时文件名带自增序号，不能再用 `temporary_path` 反查，直接扫目录。
+        let leftovers: Vec<_> = fs::read_dir(path.parent().unwrap())
+            .unwrap()
+            .filter_map(Result::ok)
+            .filter(|entry| entry.file_name().to_string_lossy().contains(".tmp-"))
+            .collect();
+        assert!(leftovers.is_empty(), "临时文件没清：{leftovers:?}");
+    }
+
+    /// 同进程多线程写同一个目标文件：临时名字不能只靠 pid，否则互相截断后 rename，
+    /// 落盘内容会是几份数据的混合体。
+    #[test]
+    fn concurrent_writes_leave_one_whole_version() {
+        let path = scratch("concurrent", "concurrent.tsv");
+        let bodies: Vec<String> = (0..8)
+            .map(|index| format!("thread-{index}-{}", "payload".repeat(512)))
+            .collect();
+        let handles: Vec<_> = bodies
+            .iter()
+            .cloned()
+            .map(|body| {
+                let path = path.clone();
+                std::thread::spawn(move || {
+                    write_atomic(&path, |writer| writer.write_all(body.as_bytes())).unwrap();
+                    body
+                })
+            })
+            .collect();
+        let written: Vec<String> = handles
+            .into_iter()
+            .map(|handle| handle.join().unwrap())
+            .collect();
+        let actual = fs::read_to_string(&path).unwrap();
+        assert!(
+            written.contains(&actual),
+            "落盘内容是混合体：{} 字节",
+            actual.len()
+        );
     }
 
     #[cfg(unix)]

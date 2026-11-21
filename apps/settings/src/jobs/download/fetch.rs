@@ -26,6 +26,11 @@ const REPORT_EVERY: Duration = Duration::from_millis(100);
 /// 清单与 `index.json` 最多这么大；词库清单一条几百字节，留得下几百本。
 const MAX_SMALL_BYTES: usize = 512 * 1024;
 
+/// 单个分块与整个包的上限。清单来自网络，`fetch_part` 不能按清单写的 `bytes` 直接分配内存；
+/// 正常模型包几百 MB、词库几 MB，2 GiB 已经留得很宽。
+const MAX_PART_BYTES: u64 = 1024 * 1024 * 1024;
+const MAX_ARCHIVE_BYTES: u64 = 2 * 1024 * 1024 * 1024;
+
 pub(super) const CANCELLED: &str = "已取消";
 
 pub(super) fn run(target: &Target, downloads: &Path, shared: &Shared) -> Result<(), String> {
@@ -132,8 +137,16 @@ fn check_manifest(bytes: &[u8], tag: &str) -> Result<Manifest, String> {
             Err(tr("download.wrong_manifest").to_owned())
         }
         Ok(manifest) => {
-            let sum: u64 = manifest.parts.iter().map(|part| part.bytes).sum();
-            if sum == manifest.archive.bytes {
+            let sum = manifest
+                .parts
+                .iter()
+                .try_fold(0_u64, |total, part| total.checked_add(part.bytes));
+            let sane = manifest.archive.bytes <= MAX_ARCHIVE_BYTES
+                && manifest
+                    .parts
+                    .iter()
+                    .all(|part| part.bytes > 0 && part.bytes <= MAX_PART_BYTES);
+            if sum == Some(manifest.archive.bytes) && sane {
                 Ok(manifest)
             } else {
                 Err(tr("download.manifest_size").to_owned())
@@ -171,17 +184,21 @@ async fn first_ok<T>(
 }
 
 async fn get_small(client: &reqwest::Client, url: &str) -> Result<Vec<u8>, String> {
-    let response = client
+    let mut response = client
         .get(url)
         .send()
         .await
         .and_then(reqwest::Response::error_for_status)
         .map_err(describe)?;
-    let bytes = response.bytes().await.map_err(describe)?;
-    if bytes.len() > MAX_SMALL_BYTES {
-        return Err(tr("download.manifest_too_large").to_owned());
+    // 流式累加：对端不按清单给大小、直接灌一个大响应时，不能先整段读进内存再检查。
+    let mut bytes = Vec::with_capacity(64 * 1024);
+    while let Some(chunk) = response.chunk().await.map_err(describe)? {
+        if bytes.len() + chunk.len() > MAX_SMALL_BYTES {
+            return Err(tr("download.manifest_too_large").to_owned());
+        }
+        bytes.extend_from_slice(&chunk);
     }
-    Ok(bytes.to_vec())
+    Ok(bytes)
 }
 
 /// 下一块，边下边报进度（`before` 是这块之前已下好的字节数）；超过清单写的大小就停。
@@ -199,14 +216,15 @@ async fn fetch_part(
         .await
         .and_then(reqwest::Response::error_for_status)
         .map_err(describe)?;
-    let mut bytes = Vec::with_capacity(expected as usize);
+    let limit = usize::try_from(expected).map_err(|_| tr("download.too_large").to_owned())?;
+    let mut bytes = Vec::with_capacity(limit.min(8 * 1024 * 1024));
     let mut reported = Instant::now();
     while let Some(chunk) = response.chunk().await.map_err(describe)? {
         if shared.cancelled() {
             return Err(CANCELLED.to_owned());
         }
         bytes.extend_from_slice(&chunk);
-        if bytes.len() as u64 > expected {
+        if bytes.len() > limit {
             return Err(tr("download.too_large").to_owned());
         }
         if reported.elapsed() >= REPORT_EVERY {
@@ -289,5 +307,26 @@ mod tests {
         assert_eq!(manifest.archive.bytes, 3);
         assert_eq!(manifest.parts[1].name, "zhiyi-v1.0.0.tar.gz.part2");
         assert!(check_manifest(text.as_bytes(), "zhiyi-v2.0.0").is_err());
+    }
+
+    /// 清单里的 `bytes` 直接进 `Vec::with_capacity`：超大值必须在下载前就被拒掉。
+    #[test]
+    fn rejects_oversized_manifest_sizes() {
+        let huge = r#"{
+  "model": "zhiyi",
+  "version": "1.0.0",
+  "tag": "zhiyi-v1.0.0",
+  "archive": {"bytes": 18446744073709551615, "sha256": "aa"},
+  "parts": [{"name": "p", "bytes": 18446744073709551615, "sha256": "bb"}]
+}"#;
+        assert!(check_manifest(huge.as_bytes(), "zhiyi-v1.0.0").is_err());
+        let zero = r#"{
+  "model": "zhiyi",
+  "version": "1.0.0",
+  "tag": "zhiyi-v1.0.0",
+  "archive": {"bytes": 0, "sha256": "aa"},
+  "parts": [{"name": "p", "bytes": 0, "sha256": "bb"}]
+}"#;
+        assert!(check_manifest(zero.as_bytes(), "zhiyi-v1.0.0").is_err());
     }
 }

@@ -1,6 +1,7 @@
-use std::fs::File;
+use std::fs::OpenOptions;
 use std::io::{BufWriter, Write};
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use zerocopy::IntoBytes;
 
@@ -37,17 +38,27 @@ impl Writer {
     }
 
     /// 写到 `path`：先写同目录临时文件再改名，读的一方永远看不到半个文件。
+    ///
+    /// 临时名带进程号与进程内序号：两个线程同时写同一个目标时不会互相截断；
+    /// `create_new` 保证预先放好的同名符号链接不会被跟进去写别人的文件。
     pub fn write_to(self, path: &Path) -> Result<(), FormatError> {
-        let temp = path.with_extension("qj.tmp");
-        {
-            let file = File::create(&temp)?;
+        let temp = temporary_path(path);
+        let outcome = (|| {
+            let file = OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .open(&temp)?;
             let mut out = BufWriter::new(file);
             self.write(&mut out)?;
             out.flush()?;
             out.get_ref().sync_all()?;
+            std::fs::rename(&temp, path)?;
+            Ok::<(), FormatError>(())
+        })();
+        if outcome.is_err() {
+            let _ = std::fs::remove_file(&temp);
         }
-        std::fs::rename(&temp, path)?;
-        Ok(())
+        outcome
     }
 
     /// 写到任意输出。
@@ -94,6 +105,12 @@ pub(crate) fn align_up(offset: usize) -> usize {
     offset.div_ceil(SECTION_ALIGN) * SECTION_ALIGN
 }
 
+fn temporary_path(path: &Path) -> PathBuf {
+    static SEQUENCE: AtomicU64 = AtomicU64::new(0);
+    let sequence = SEQUENCE.fetch_add(1, Ordering::Relaxed);
+    path.with_extension(format!("qj.tmp-{}-{sequence}", std::process::id()))
+}
+
 fn write_padding(out: &mut impl Write, position: usize) -> Result<(), FormatError> {
     let padding = align_up(position) - position;
     if padding > 0 {
@@ -105,6 +122,48 @@ fn write_padding(out: &mut impl Write, position: usize) -> Result<(), FormatErro
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn concurrent_writes_leave_one_whole_file() {
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let dir =
+            std::env::temp_dir().join(format!("qingjian-writer-{}-{nanos}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("concurrent.qj");
+        let handles: Vec<_> = (0..8)
+            .map(|index| {
+                let path = path.clone();
+                std::thread::spawn(move || {
+                    let marker = format!("version-{index}-{}", "x".repeat(256));
+                    Writer::new(Kind::Dictionary, &Metadata::default())
+                        .unwrap()
+                        .section(*b"MARK", marker.as_bytes())
+                        .write_to(&path)
+                        .unwrap();
+                })
+            })
+            .collect();
+        for handle in handles {
+            handle.join().unwrap();
+        }
+        let container = crate::Container::open(&path, Kind::Dictionary).unwrap();
+        let marker = container.bytes(*b"MARK").unwrap();
+        let marker = std::str::from_utf8(marker).unwrap();
+        assert!(marker.starts_with("version-"), "混合内容：{marker}");
+        assert_eq!(marker.len(), "version-0-".len() + 256, "被截断：{marker}");
+        assert!(marker.ends_with("xxxx"), "混合内容：{marker}");
+        let leftovers: Vec<_> = std::fs::read_dir(&dir)
+            .unwrap()
+            .filter_map(Result::ok)
+            .filter(|entry| entry.file_name().to_string_lossy().contains(".qj.tmp-"))
+            .collect();
+        assert!(leftovers.is_empty(), "临时文件没清：{leftovers:?}");
+        let _ = std::fs::remove_file(&path);
+        let _ = std::fs::remove_dir(&dir);
+    }
 
     #[test]
     fn align_up_rounds_to_section_align() {

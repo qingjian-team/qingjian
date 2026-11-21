@@ -33,7 +33,8 @@ impl<T> Default for Table<T> {
 impl<T: FromBytes + Immutable + KnownLayout> Table<T> {
     /// 从映射里取一段，校验对齐与整除。
     pub(crate) fn mapped(map: Arc<Mmap>, offset: usize, len: usize) -> Option<Self> {
-        let bytes = map.get(offset..offset + len)?;
+        let end = offset.checked_add(len)?;
+        let bytes = map.get(offset..end)?;
         <[T]>::ref_from_bytes(bytes).ok()?;
         Some(Self::Mapped { map, offset, len })
     }
