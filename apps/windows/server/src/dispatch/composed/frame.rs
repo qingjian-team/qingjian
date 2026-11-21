@@ -151,7 +151,10 @@ impl Router {
                 translation_pos: self.config.translation_pos,
                 english_reading_ipa: self.config.show_english_pronunciation,
                 sentence: None,
-                notice: self.notice.clone().or_else(|| self.engine.mode_hint().map(str::to_owned)),
+                notice: self
+                    .notice
+                    .clone()
+                    .or_else(|| self.engine.mode_hint().map(str::to_owned)),
                 symbol_panel: false,
                 panel_text_box: false,
                 differs: Vec::new(),
@@ -247,7 +250,10 @@ impl Router {
                     translation_pos: self.config.translation_pos,
                     english_reading_ipa: self.config.show_english_pronunciation,
                     sentence: self.sentence.clone(),
-                    notice: self.notice.clone().or_else(|| self.engine.mode_hint().map(str::to_owned)),
+                    notice: self
+                        .notice
+                        .clone()
+                        .or_else(|| self.engine.mode_hint().map(str::to_owned)),
                     symbol_panel: false,
                     panel_text_box: false,
                     differs,
