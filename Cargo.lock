@@ -4231,6 +4231,7 @@ dependencies = [
  "bamboo-slip-i18n",
  "dotenvy",
  "embed-manifest",
+ "qingjian-clipboard",
  "qingjian-core",
  "qingjian-dictionary",
  "qingjian-learning",

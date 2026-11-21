@@ -15,6 +15,7 @@ path = "src/main.rs"
 embed-manifest.workspace = true
 
 [dependencies]
+qingjian-clipboard.workspace = true
 qingjian-core.workspace = true
 qingjian-dictionary.workspace = true
 qingjian-learning.workspace = true
