@@ -16,6 +16,8 @@ pub type Measure = (String, String);
 
 /// `stat;<数>;<数>;…`。
 pub fn measures(args: &str) -> Vec<Measure> {
+    // 开头可以点名要哪一项：`vstat;avg;3;4;2;2` 只给平均数。不点就全给。
+    let (wanted, args) = pick_named(args);
     // 有一个认不出来的就整条不出候选：`vstat;1;2;x` 悄悄按 1、2 算完、看着像是对的，
     // 用户不会发现那个 `x` 被吃了。与 `vbase` 参数不对时的处理一致。
     let texts = split_args(args);
@@ -85,7 +87,47 @@ pub fn measures(args: &str) -> Vec<Measure> {
     }
     forms.push((ordered.join("　"), "排序".to_owned()));
 
+    if let Some(wanted) = wanted {
+        forms.retain(|(_, label)| label.starts_with(wanted));
+    }
     forms
+}
+
+/// 开头那个词是不是统计项的名字；是就返回它对应的标签，并把这段从参数里摘掉。
+///
+/// 别名按习惯多收几个：`q1` / `m25` / `p25` / `lower` 都是第一四分位，`m50` 是中位数。
+fn pick_named(args: &str) -> (Option<&'static str>, &str) {
+    let text = args.trim_start();
+    let Some((head, rest)) = text.split_once([';', '；', ',', '，', ' ']) else {
+        return (None, args);
+    };
+    match label_of(head.trim()) {
+        Some(label) => (Some(label), rest),
+        None => (None, args),
+    }
+}
+
+/// 统计项的名字与别名，全小写比。
+fn label_of(name: &str) -> Option<&'static str> {
+    Some(match name.to_ascii_lowercase().as_str() {
+        "avg" | "mean" | "average" | "平均" | "平均数" => "平均数",
+        "median" | "mid" | "m50" | "p50" | "中位数" => "中位数",
+        "mode" | "众数" => "众数",
+        "q1" | "m25" | "p25" | "lower" | "第一四分位" => "第一四分位数",
+        "q3" | "m75" | "p75" | "upper" | "第三四分位" => "第三四分位数",
+        "iqr" | "四分位距" => "四分位距",
+        "count" | "n" | "个数" => "个数",
+        "sum" | "total" | "总和" => "总和",
+        "range" | "极差" => "极差",
+        "min" | "最小" => "最小",
+        "max" | "最大" => "最大",
+        "var" | "variance" | "总体方差" => "总体方差",
+        "svar" | "样本方差" => "样本方差",
+        "sd" | "std" | "stddev" | "标准差" => "标准差",
+        "geo" | "geomean" | "几何平均" => "几何平均",
+        "sort" | "sorted" | "排序" => "排序",
+        _ => return None,
+    })
 }
 
 /// 已经排好序的一串数的中位数。

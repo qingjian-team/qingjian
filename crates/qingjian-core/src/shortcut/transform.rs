@@ -44,8 +44,31 @@ pub fn forms(args: &str) -> Vec<Measure> {
     let Some((op, rest)) = texts.split_first() else {
         return Vec::new();
     };
+    // 不写算子（`vtrans;2;3;4;5;3`）就全给：把能算的都算一遍，与 `vstat;` 一个意思
     let Some(op) = canonical(op) else {
-        return Vec::new();
+        let mut numbers = Vec::with_capacity(texts.len());
+        for text in &texts {
+            match text.parse() {
+                Ok(value) => numbers.push(value),
+                Err(_) => return Vec::new(),
+            }
+        }
+        if numbers.is_empty() {
+            return Vec::new();
+        }
+        let mut forms: Vec<Measure> = Vec::new();
+        for op in ["minmax", "z", "diff", "smooth", "median", "bin"] {
+            if let Some((values, label)) = apply(op, &numbers) {
+                forms.push((join(&values), label.to_owned()));
+            }
+        }
+        // 对数与开方只在取值范围内有意义：负数、零不上，别给 NaN
+        for op in ["log", "log10", "sqrt"] {
+            if let Some((values, label)) = apply(op, &numbers) {
+                forms.push((join(&values), label.to_owned()));
+            }
+        }
+        return forms;
     };
     // 打乱走生成型那条路，不走这里
     if op == SHUFFLE {
