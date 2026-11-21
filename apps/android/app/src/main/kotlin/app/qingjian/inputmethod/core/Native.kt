@@ -212,6 +212,12 @@ internal object Native {
     /** 算式里按了 [c]：回要交给 [push] 的字符（× ÷ 换成 * /），不是算式字符回 0。 */
     external fun expressionChar(c: Char): Char
 
+    /**
+     * 算式里按的 [c] 要不要进缓冲区。与 [expressionChar] 的区别是子模式：`;` `:` 不是算式字符，
+     * 但 `vstat` 后面那个分隔符要收，不然子模式在手机上永远打不出来。
+     */
+    external fun expressionAccepts(handle: Long, c: Char): Boolean
+
     /** 光标前最后一个字是 [c] 时可能是一道算式的结尾，才去问补全。 */
     external fun mayEndCalculation(c: Char): Boolean
 
