@@ -148,6 +148,15 @@ pub struct Query {
 }
 
 impl Query {
+    /// `vcol` 的色块：首选候选是 `#rrggbb` / `#rrggbbaa` 时给出它的颜色，别的查询给 `None`。
+    ///
+    /// 不新增字段是因为 [`Query`] 有八处字面量；从首选候选反推既不用改结构，
+    /// 也不会在别处忘了填。
+    pub fn swatch(&self) -> Option<(u8, u8, u8, u8)> {
+        let text = self.candidates.items.first()?.text.trim();
+        crate::shortcut::color::swatch(text)
+    }
+
     /// 无法解析为拼音但精确匹配自定义短语时，保留原始输入和光标。
     pub(super) fn custom_only(
         text: &str,

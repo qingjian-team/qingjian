@@ -14,7 +14,7 @@
 mod base;
 mod bitwise;
 mod calendar;
-mod color;
+pub(crate) mod color;
 mod evaluator;
 pub mod modes;
 mod numeral;

@@ -109,6 +109,7 @@ impl Painter {
         layout: LayoutMode,
         dark: bool,
         dpi: u32,
+        swatch: Option<[u8; 4]>,
     ) -> Option<Rendered> {
         let layout = match layout {
             LayoutMode::Vertical => Layout::Vertical,
@@ -127,6 +128,10 @@ impl Painter {
             height = rendered.content_height,
             "候选窗位图已画"
         );
+        let mut rendered = rendered;
+        if let Some(color) = swatch {
+            stamp_swatch(&mut rendered, color);
+        }
         Some(rendered)
     }
 
@@ -189,4 +194,39 @@ fn reduce_motion() -> bool {
 /// 点 → 像素的倍数。
 fn scale(dpi: u32) -> f32 {
     dpi.max(96) as f32 / 96.0
+}
+
+/// 在内容区右上角盖一块方色（`vcol` 的预览）。
+///
+/// 画在位图上而不是交给渲染器：色块是「这一帧的附加信息」，进不了主题模板，也不该为它改
+/// 帧数据的结构（那张结构有一百多处字面量）。位图是预乘 RGBA，这里按不透明度预乘后写进去。
+fn stamp_swatch(rendered: &mut Rendered, color: [u8; 4]) {
+    let scale = rendered.scale.max(0.5);
+    let side = (12.0 * scale).round().max(6.0) as u32;
+    let margin = (7.0 * scale).round().max(3.0) as u32;
+    let [r, g, b, a] = color;
+    let alpha = f32::from(a) / 255.0;
+    let premultiplied = [
+        (f32::from(r) * alpha).round() as u8,
+        (f32::from(g) * alpha).round() as u8,
+        (f32::from(b) * alpha).round() as u8,
+        a,
+    ];
+    let width = rendered.pixmap.width();
+    let height = rendered.pixmap.height();
+    let stride = width as usize * 4;
+    let left = rendered
+        .content_x
+        .saturating_add(rendered.content_width)
+        .saturating_sub(side + margin);
+    let top = rendered.content_y.saturating_add(margin);
+    let data = rendered.pixmap.data_mut();
+    for y in top..(top + side).min(height) {
+        for x in left..(left + side).min(width) {
+            let offset = y as usize * stride + x as usize * 4;
+            if let Some(pixel) = data.get_mut(offset..offset + 4) {
+                pixel.copy_from_slice(&premultiplied);
+            }
+        }
+    }
 }

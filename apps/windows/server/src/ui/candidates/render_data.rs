@@ -14,6 +14,9 @@ pub(crate) struct RenderData {
     /// 配色与字体（随 DPI / 深浅重建）。
     pub(super) theme: Rc<Theme>,
 
+    /// `vcol` 的色块（sRGB 0–255），画在候选窗右上角；别的查询为 `None`。
+    pub(super) swatch: Option<[u8; 4]>,
+
     /// 顶部拼音行的各段。
     pub(super) preedit: Vec<(String, PreeditKind)>,
 
@@ -67,6 +70,7 @@ impl RenderData {
     pub(super) fn empty(theme: Rc<Theme>) -> Self {
         Self {
             theme,
+            swatch: None,
             preedit: Vec::new(),
             cursor: 0,
             rows: Vec::new(),
@@ -93,6 +97,7 @@ impl RenderData {
         self.show_code = frame.aux_code_show;
         self.show_pos = frame.translation_pos;
         self.english_reading_ipa = frame.english_reading_ipa;
+        self.swatch = frame.swatch;
         self.preedit = window_preedit(frame);
         self.cursor = frame
             .window_preedit

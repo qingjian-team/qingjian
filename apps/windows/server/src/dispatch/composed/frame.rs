@@ -130,6 +130,7 @@ impl Router {
                 symbol_panel: false,
                 panel_text_box: false,
                 differs: Vec::new(),
+                swatch: None,
             },
             Some(Composed::Raw { text, cursor }) => Frame {
                 preedit: vec![PreeditSegment {
@@ -158,6 +159,7 @@ impl Router {
                 symbol_panel: false,
                 panel_text_box: false,
                 differs: Vec::new(),
+                swatch: None,
             },
             Some(Composed::Candidates {
                 preedit,
@@ -184,6 +186,8 @@ impl Router {
                     None => (preedit.clone(), *cursor),
                 };
                 let window_preedit = window_parts(&self.engine, query, candidate, &preedit);
+                // `vcol` 这类颜色查询在候选窗角上画一块，别的查询没有
+                let swatch = query.swatch().map(|(r, g, b, a)| [r, g, b, a]);
                 let page = highlight / page_size;
                 // 横排展开成矩阵时画视口里的几行（空位是占位候选），序号只标在高亮所在那一行；
                 // 单行时只画当前页。高亮下标跟着换成视口内的。
@@ -257,6 +261,7 @@ impl Router {
                     symbol_panel: false,
                     panel_text_box: false,
                     differs,
+                    swatch,
                 }
             }
         }

@@ -111,6 +111,26 @@ pub fn forms(args: &str) -> Vec<Measure> {
 /// - 光写数：3 个是 RGB（0–255，或都 ≤1 时按 0–1）、第 4 个是透明度
 /// - 色温：`5000k`
 ///
+/// 一个颜色的 sRGB 分量与不透明度（各 0–255），给壳在候选窗角上画色块用。
+///
+/// 只认 `#rrggbb` / `#rrggbbaa` 这种字面量：`red` 这类颜色名也是合法输入，但候选里
+/// 出现「red」多半是英文词，画成色块反而莫名其妙。
+pub fn swatch(text: &str) -> Option<(u8, u8, u8, u8)> {
+    let text = text.trim();
+    let digits = text.strip_prefix('#')?;
+    if !matches!(digits.len(), 3 | 6 | 8) || !digits.chars().all(|c| c.is_ascii_hexdigit()) {
+        return None;
+    }
+    let color = parse(text)?;
+    let to_byte = |value: f32| (value.clamp(0.0, 1.0) * 255.0).round() as u8;
+    Some((
+        to_byte(color.r),
+        to_byte(color.g),
+        to_byte(color.b),
+        to_byte(color.a),
+    ))
+}
+
 /// 百分比与 0–1 两种都认：`hsl;32;1;0.5` 与 `hsl;32;100;50` 是同一个颜色。
 fn parse(args: &str) -> Option<Rgba> {
     let text = args.trim();
