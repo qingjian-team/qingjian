@@ -296,6 +296,25 @@ impl Engine {
         self.modes().question_mark
     }
 
+    /// 缓冲区只有一个模式键（只有 `v` 或只有 `u`）时的提示，壳画在拼音行下方；别的输入为 `None`。
+    ///
+    /// 只在这种情况下给：再敲一个键就进了具体子模式，提示反而挡路。
+    pub fn mode_hint(&self) -> Option<&'static str> {
+        let scope = self.composition.scope();
+        let mut chars = scope.chars();
+        let (Some(first), None) = (chars.next(), chars.next()) else {
+            return None;
+        };
+        let modes = self.modes();
+        if first == modes.expression {
+            Some("v：算式、中文数字与金额、日期、进制、位运算、统计")
+        } else if first == modes.question {
+            Some("u：码点查字、笔画与部件拆字")
+        } else {
+            None
+        }
+    }
+
     /// 双拼开着时把一段键解成全拼；全拼下为 `None`，调用方原样用键。
     pub(super) fn decode(&self, keys: &str) -> Option<EngineDecoded> {
         if self.zhuyin {
