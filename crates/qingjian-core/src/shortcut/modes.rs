@@ -148,7 +148,7 @@ struct Spec {
 }
 
 /// 全部子模式。加一个在这里登记，`Mode` 与 `mode_forms` 跟上即可。
-const SPECS: [Spec; 6] = [
+const SPECS: [Spec; 8] = [
     Spec {
         name: BIT_KEYWORD,
         numbered: false,
@@ -171,6 +171,14 @@ const SPECS: [Spec; 6] = [
     },
     Spec {
         name: TRANS_KEYWORD,
+        numbered: false,
+    },
+    Spec {
+        name: COLOR_KEYWORD,
+        numbered: false,
+    },
+    Spec {
+        name: "color",
         numbered: false,
     },
 ];
@@ -453,5 +461,30 @@ mod tests {
         assert_eq!(accepts_key("ts;2024", ':'), Some(true));
         // 不是子模式
         assert_eq!(accepts_key("123", '+'), None);
+    }
+
+    /// 每个登记项都得能敲出分隔符、都得认得出名字。
+    ///
+    /// 这条盯的是「登记漏了」这类错：少了 SPECS 里那一行，`vcol;` 的分号会被当标点上屏，
+    /// 看着像输入法坏了。新加子模式时它自己就会催你补上。
+    #[test]
+    fn every_registered_name_takes_a_separator() {
+        // 别名单独一行登记（`vcolor` 与 `vcol` 各占一行），这里遍历所有登记名
+        for spec in SPECS.iter() {
+            for name in std::iter::once(spec.name) {
+                assert!(
+                    matches!(parse(name), Some(_)),
+                    "`{name}` 认不出来（SPECS 那一行写错了？）"
+                );
+                if name == UUID_KEYWORD {
+                    continue; // 无参子模式，分隔符之后不再收东西
+                }
+                assert_eq!(
+                    accepts_key(name, ';'),
+                    Some(true),
+                    "`v{name};` 的分号进不了缓冲区"
+                );
+            }
+        }
     }
 }
