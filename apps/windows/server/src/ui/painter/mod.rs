@@ -138,7 +138,7 @@ impl Painter {
         self.swatch = swatch;
         let mut rendered = rendered;
         if let Some(color) = self.swatch {
-            tracing::info!(
+            tracing::debug!(
                 ?color,
                 content_x = rendered.content_x,
                 content_y = rendered.content_y,
