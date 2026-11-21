@@ -48,7 +48,7 @@ pub fn strokes_of(ch: char) -> Option<&'static str> {
     TABLE.strokes_of(ch)
 }
 
-/// 笔画打错位时旁边那句提示：正确笔顺，错的那一位前面插 [`WRONG_STROKE_MARK`]。
+/// 笔画打错位时旁边那句提示：正确笔顺，错的那一位用 [`crate::annotation`] 的强调段标出来。
 ///
 /// 用 [`crate::annotation`] 的分段编码：打对的那几位是普通段，打错的那位是强调段。
 /// 壳解码后把强调段画成强调色，标记本身不上屏也不显示。
