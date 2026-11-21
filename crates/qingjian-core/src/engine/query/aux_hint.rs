@@ -27,7 +27,8 @@ impl Engine {
                 chars.push(hit.ch);
             }
         }
-        if chars.len() < HINT_LIMIT {
+        // 组词那条总要试：拆字对 `zhenge` 这种会捞一堆不相干的字（可/顶/政…），先撞满上限就再也轮不到它
+        if true {
             for (at, _) in code.char_indices().skip(1) {
                 let (head, tail) = code.split_at(at);
                 if head.chars().count() < 2 || tail.is_empty() {

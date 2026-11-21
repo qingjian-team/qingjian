@@ -512,6 +512,12 @@ impl Engine {
                 // 码段不是过滤器，是「加一列」：不筛码时的原候选一个都不能少，排到后面去。
                 // 码段的解释一旦猜错（`zhenge;zhenye` 这种），整列空掉比给错更糟 —— 用户
                 // 至少还能退回原来那批。
+                tracing::info!(
+                    code = %code,
+                    scored = scored.len(),
+                    items = items.len(),
+                    "辅码态候选"
+                );
                 if items.len() < scored.len() {
                     let shown: Vec<String> = items.iter().map(|item| item.text.clone()).collect();
                     items.extend(
