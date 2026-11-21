@@ -134,6 +134,12 @@ impl Engine {
         self.aux_show = show;
     }
 
+    /// 告诉 Engine 剪切板里最近一次复制的一段文本：`vstat` / `vcol` 这些子模式的参数空着时拿它顶上，
+    /// 用户不用先敲分号再粘一遍。壳在缓冲区进子模式时调一次即可，拿不到就给 `None`。
+    pub fn set_clipboard_text(&mut self, text: Option<String>) {
+        self.clipboard_text = text;
+    }
+
     /// 换「候选上显示声调」开关（配置项 `[general] show_tones`，缺省关）。
     pub fn set_show_tones(&mut self, show: bool) {
         self.show_tones = show;

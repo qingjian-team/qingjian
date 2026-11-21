@@ -57,7 +57,28 @@ pub enum Mode<'a> {
     },
 }
 
-impl Mode<'_> {
+impl<'a> Mode<'a> {
+    /// 这条子模式带的参数原文（`uuid` 没有，给空串）。
+    pub fn args(&self) -> &'a str {
+        match self {
+            Self::Uuid => "",
+            Self::Timestamp { at } => at,
+            Self::Bit { body, .. } => body,
+            Self::Base { args } | Self::Stat { args } => args,
+        }
+    }
+
+    /// 换一份参数（剪切板里的内容顶上来时用），名字与位宽都不动。
+    pub fn with_args(self, args: &'a str) -> Self {
+        match self {
+            Self::Uuid => self,
+            Self::Timestamp { .. } => Self::Timestamp { at: args },
+            Self::Bit { width, .. } => Self::Bit { width, body: args },
+            Self::Base { .. } => Self::Base { args },
+            Self::Stat { .. } => Self::Stat { args },
+        }
+    }
+
     /// 这个名字还要不要参数：`uuid` 不要（打不打分隔符都行），其余要。
     pub fn wants_argument(&self) -> bool {
         !matches!(self, Self::Uuid)
@@ -151,11 +172,15 @@ fn named<'a>(name: &str, rest: &'a str) -> Option<Mode<'a>> {
     Some(Mode::Bit { width, body: rest })
 }
 
-/// 带参数子模式的参数：按分号切，全角也认，空段丢掉。
+/// 带参数子模式的参数：按分隔符切开，空段丢掉。
 ///
 /// `vbase;128;16` 与 `vstat;1;2;3` 都走这里，个数由各子模式自己校验。
+///
+/// 分隔符比键盘上敲得出来的宽：空格、制表、换行、半角与全角逗号也算。键盘上敲不进这些
+/// （空格是上屏键、逗号是标点），所以对打字没有影响；从剪切板粘进来的一列数常是
+/// 空格或换行分隔的，多认几种才用得起来。
 pub fn split_args(args: &str) -> Vec<&str> {
-    args.split([';', '；'])
+    args.split([';', '；', ',', '，', ' ', '\t', '\n', '\r', '\u{3000}'])
         .map(str::trim)
         .filter(|part| !part.is_empty())
         .collect()
