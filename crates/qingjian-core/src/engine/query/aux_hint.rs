@@ -110,6 +110,91 @@ impl Engine {
                 .map(|(index, _)| super::chinese_candidate(&scored[index], None))
                 .collect();
         }
+        // 三、都没有就按音节拼一个：每个音节取最常见单字，提示字那位换成提示字。
+        //     `kaicu;cuxi` 的 cu 用 粗、kai 用 开，拼出「开粗」。
+        if pinned.is_empty()
+            && let Some(built) = self.build_from_hints(code, best)
+        {
+            pinned.push(built);
+        }
         pinned
+    }
+
+    /// 提示字与它对应的音节：`cuxi` → (cu, 粗)、(xi, 细)。
+    ///
+    /// 带音节是因为 `kaicu;cuxi` 里要的是「cu 这个音节写粗」，而 粗 在 `kaicu` 里是第二个
+    /// 音节 —— 只看「词首是提示字」会把 `开粗` 漏掉。
+    pub(crate) fn hint_pairs(&self, code: &str) -> Vec<(String, char)> {
+        let mut pairs: Vec<(String, char)> = Vec::new();
+        for (at, _) in code.char_indices().skip(1) {
+            let (head, tail) = code.split_at(at);
+            if head.chars().count() < 2 || tail.is_empty() {
+                continue;
+            }
+            let words = self.dictionary.lookup(&[head, tail], false);
+            if words.is_empty() {
+                continue;
+            }
+            for word in words.iter().take(3) {
+                let mut chars = word.text.chars();
+                if let Some(first) = chars.next() {
+                    pairs.push((head.to_owned(), first));
+                }
+                if let Some(second) = chars.next() {
+                    pairs.push((tail.to_owned(), second));
+                }
+            }
+            break;
+        }
+        pairs
+    }
+
+    /// 按音节拼一个词：能拿到提示字的音节用提示字，其余用该音节最常见的单字。
+    fn build_from_hints(
+        &self,
+        code: &str,
+        best: &crate::parser::Segmentation,
+    ) -> Option<Candidate> {
+        let pairs = self.hint_pairs(code);
+        if pairs.is_empty() {
+            return None;
+        }
+        let syllables: Vec<&str> = best
+            .syllables
+            .iter()
+            .map(|syllable| syllable.text.as_str())
+            .collect();
+        if syllables.len() < 2 {
+            return None;
+        }
+        let mut built = String::new();
+        for syllable in &syllables {
+            let hinted = pairs
+                .iter()
+                .find(|(hinted, _)| hinted == syllable)
+                .map(|(_, ch)| *ch);
+            let picked = hinted.or_else(|| self.top_char(syllable))?;
+            built.push(picked);
+        }
+        Some(Candidate {
+            text: built,
+            kind: crate::CandidateKind::Shortcut,
+            syllables: Vec::new(),
+            reading: None,
+            translation: None,
+            aux_code: None,
+        })
+    }
+
+    /// 这个音节最常见的单字。
+    fn top_char(&self, syllable: &str) -> Option<char> {
+        self.dictionary
+            .lookup(&[syllable], false)
+            .into_iter()
+            .find_map(|found| {
+                let mut chars = found.text.chars();
+                let first = chars.next()?;
+                chars.next().is_none().then_some(first)
+            })
     }
 }
