@@ -16,37 +16,42 @@ use crate::candidate::Candidate;
 const HINT_LIMIT: usize = 8;
 
 impl Engine {
-    /// 码段指向的字：先按拆字找，再按「组词」找。
+    /// 码段指向的字：先按「组词」找，再按拆字找。
+    ///
+    /// 顺序有讲究：拆字对 `zhenge` 这种会捞一堆不相干的字（可 / 顶 / 政 / 承…），
+    /// 而组词给的是「整个 → 整」这种真正想要的字。组词那条排前面，拆字只作补充。
     pub(crate) fn hint_chars(&self, code: &str) -> Vec<char> {
         let mut chars: Vec<char> = Vec::new();
         if code.chars().count() < 2 {
             return chars;
         }
-        for hit in crate::chaizi::lookup(code, HINT_LIMIT) {
-            if !chars.contains(&hit.ch) {
-                chars.push(hit.ch);
+        // 一、组词：码段在任意位置切两段，第一个查得到词的切法就用它
+        for (at, _) in code.char_indices().skip(1) {
+            let (head, tail) = code.split_at(at);
+            if head.chars().count() < 2 || tail.is_empty() {
+                continue;
             }
-        }
-        // 组词那条总要试：拆字对 `zhenge` 这种会捞一堆不相干的字（可/顶/政…），先撞满上限就再也轮不到它
-        if true {
-            for (at, _) in code.char_indices().skip(1) {
-                let (head, tail) = code.split_at(at);
-                if head.chars().count() < 2 || tail.is_empty() {
-                    continue;
-                }
-                let words = self.dictionary.lookup(&[head, tail], false);
-                if words.is_empty() {
-                    continue;
-                }
-                for word in words.iter().take(3) {
-                    for ch in word.text.chars() {
-                        if chars.len() < HINT_LIMIT && !chars.contains(&ch) {
-                            chars.push(ch);
-                        }
+            let words = self.dictionary.lookup(&[head, tail], false);
+            if words.is_empty() {
+                continue;
+            }
+            for word in words.iter().take(3) {
+                for ch in word.text.chars() {
+                    if chars.len() < HINT_LIMIT && !chars.contains(&ch) {
+                        chars.push(ch);
                     }
                 }
-                // 第一个查得到词的切法就够：再切下去只是同一批字的另一种读法
+            }
+            // 第一个查得到词的切法就够：再切下去只是同一批字的另一种读法
+            break;
+        }
+        // 二、拆字：`chefu` → 车 + 甫 → 辅
+        for hit in crate::chaizi::lookup(code, HINT_LIMIT) {
+            if chars.len() >= HINT_LIMIT {
                 break;
+            }
+            if !chars.contains(&hit.ch) {
+                chars.push(hit.ch);
             }
         }
         chars
