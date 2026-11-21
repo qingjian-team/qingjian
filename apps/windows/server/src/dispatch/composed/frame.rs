@@ -187,7 +187,15 @@ impl Router {
                 };
                 let window_preedit = window_parts(&self.engine, query, candidate, &preedit);
                 // `vcol` 这类颜色查询在候选窗角上画一块，别的查询没有
-                let swatch = query.swatch().map(|(r, g, b, a)| [r, g, b, a]);
+                let swatch = query
+                    .swatch()
+                    .or_else(|| {
+                        // 候选已经从 Query 拆进 layout 了，这里补一条从 layout 取的退路
+                        layout
+                            .candidate(0)
+                            .and_then(|first| qingjian_core::shortcut::swatch(&first.text))
+                    })
+                    .map(|(r, g, b, a)| [r, g, b, a]);
                 let page = highlight / page_size;
                 // 横排展开成矩阵时画视口里的几行（空位是占位候选），序号只标在高亮所在那一行；
                 // 单行时只画当前页。高亮下标跟着换成视口内的。

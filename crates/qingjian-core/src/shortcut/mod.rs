@@ -15,6 +15,9 @@ mod base;
 mod bitwise;
 mod calendar;
 pub(crate) mod color;
+
+/// 一个颜色字面量（`#rrggbb` / `0xrrggbb`）的 sRGB 分量，给壳画色块用。
+pub use self::color::swatch;
 mod evaluator;
 pub mod modes;
 mod numeral;
