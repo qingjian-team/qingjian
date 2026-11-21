@@ -263,7 +263,9 @@ impl Engine {
             }
             return true;
         }
-        if self.undo_selection() {
+        // 还有没上屏的字母就先删字母：你 + hao'a 这种，退格删的是 ，
+        // 不是把刚选的「你」撤掉。组句空了才轮到撤选词。
+        if self.composition.is_empty() && self.undo_selection() {
             return true;
         }
         self.note_edit();

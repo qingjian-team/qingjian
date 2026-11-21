@@ -29,21 +29,23 @@ fn partial_selection_is_held_until_the_buffer_is_used_up() {
 }
 
 #[test]
-fn backspace_undoes_selections_before_deleting_letters() {
+fn backspace_deletes_letters_before_undoing_selections() {
     let mut engine = engine();
     engine.set_input("kaikaixian");
     pick(&mut engine, "开");
     pick(&mut engine, "开");
     assert_eq!(engine.held_text(), "开开");
+    // 还有没上屏的字母：先删字母，别把刚选的词撤掉
+    assert!(engine.backspace(false).consumed());
+    assert_eq!(engine.held_text(), "开开");
+    assert_eq!(engine.composition().text(), "xia");
+    // 一路删空之后，才轮到撤选词
+    while !engine.composition().is_empty() {
+        assert!(engine.backspace(false).consumed());
+    }
+    assert_eq!(engine.held_text(), "开开");
     assert!(engine.backspace(false).consumed());
     assert_eq!(engine.held_text(), "开");
-    assert_eq!(engine.composition().text(), "kaixian");
-    assert!(engine.backspace(false).consumed());
-    assert_eq!(engine.held_text(), "");
-    assert_eq!(engine.composition().text(), "kaikaixian");
-    assert_eq!(engine.composition().cursor(), 10);
-    assert!(engine.backspace(false).consumed());
-    assert_eq!(engine.composition().text(), "kaikaixia");
 }
 
 #[test]
@@ -52,7 +54,12 @@ fn undone_selection_retracts_its_learning_when_another_word_is_chosen() {
     engine.set_input("kaifangxian");
     pick(&mut engine, "开放");
     assert_eq!(engine.learner().weight("开放"), 1);
-    engine.backspace(false);
+    // 先把剩下的字母删空，再撤这一次选择：撤词要等组成空了才发生
+    while !engine.composition().is_empty() {
+        engine.backspace(false);
+    }
+    assert!(engine.backspace(false).consumed());
+    assert_eq!(engine.held_text(), "");
     pick(&mut engine, "开");
     assert_eq!(engine.learner().weight("开放"), 0);
     assert_eq!(engine.learner().weight("开"), 1);
@@ -107,9 +114,13 @@ fn next_word_holds_the_first_word_of_the_sentence() {
     assert!(rest.iter().any(|c| c.text == "忠心"));
     // 剩下的只有一个词，不再跳
     assert_eq!(engine.hold_next_word(&rest[0]), None);
+    // 删空剩下的字母之后，再一记退格才撤回留着的「交易」
+    while !engine.composition().is_empty() {
+        assert!(engine.backspace(false).consumed());
+    }
     assert!(engine.backspace(false).consumed());
-    assert_eq!(engine.held_text(), "");
-    assert_eq!(engine.composition().text(), "jiaoyizhongxin");
+    // 撤回留着的「交易」：它的拼音回到组成里
+    assert_eq!(engine.composition().text(), "jiaoyi");
 
     // 首选不是本地重算出的那句（知意重排、学过的整句）：按词库从句首切
     engine.set_input("jiaoyizhongxin");
