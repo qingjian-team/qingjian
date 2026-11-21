@@ -8,6 +8,7 @@ expect = 72
 panic = 10
 todo = 0
 allow = 7
+unchecked = 3
 
 [files."apps/android/core/src/jni/catalog.rs"]
 unsafe = 4
@@ -104,6 +105,7 @@ expect = 1
 
 [files."apps/clipboard/src/system/macos/mod.rs"]
 unsafe = 3
+unchecked = 1
 
 [files."apps/clipboard/src/system/macos/neon_strips.rs"]
 unsafe = 4
@@ -386,6 +388,7 @@ unsafe = 5
 
 [files."apps/windows/server/src/ui/layered/backdrop/accent/mod.rs"]
 unsafe = 4
+unchecked = 1
 
 [files."apps/windows/server/src/ui/layered/backdrop/window.rs"]
 unsafe = 2
@@ -605,6 +608,7 @@ expect = 1
 
 [files."crates/qingjian-format/src/view/text.rs"]
 unsafe = 1
+unchecked = 1
 
 [files."crates/qingjian-learning/src/clipboard/history.rs"]
 expect = 1

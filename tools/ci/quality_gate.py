@@ -39,6 +39,8 @@ PATTERNS = {
     "panic": re.compile(r"\bpanic!"),
     "todo": re.compile(r"\b(?:todo|unimplemented|dbg)!"),
     "allow": re.compile(r"#\[allow\("),
+    # 比 unsafe 更具体的入口：这几个一旦出现，基本等于“把安全检查关掉了”。
+    "unchecked": re.compile(r"\b(?:transmute|from_utf8_unchecked|get_unchecked|mem::forget)\b"),
 }
 
 
