@@ -25,16 +25,11 @@ pub fn input_date_forms(body: &str, now: &Zoned) -> Option<Vec<String>> {
 
 /// `vnow`：今天；`vnow+4` / `vnow-4` / `vnow;-4` 是相对今天加减天数。
 ///
-/// 输出走与 `v2026.11.5` 同一套日期格式化，所以候选条与打一个具体日期完全一样。
+/// 候选格式与 `rq` 一致。
 fn now_forms(body: &str, now: &Zoned) -> Option<Vec<String>> {
     let days = parse_now_offset(body.strip_prefix("now")?)?;
     let moved = now.date().checked_add(jiff::Span::new().days(days)).ok()?;
-    date_forms_of(&format!(
-        "{}.{}.{}",
-        moved.year(),
-        moved.month(),
-        moved.day()
-    ))
+    Some(date_forms_for(moved))
 }
 
 /// `now` 后面的偏移：空（今天）、`+4`、`-4`，前面可以隔一个分号或冒号（`;4`、`;-4`、`：-4`）。
@@ -327,15 +322,17 @@ fn chinese_year(year: i16) -> String {
 /// `rq`：今天。按日常出现频次排：中文年月日、连字符、只到月日、斜杠、带星期、纯数字、
 /// 点分、口语「号」、公文补零、欧式与美式、两位年、ISO 周、中文逐位。
 ///
-/// 头三个会紧跟本地首选（见 `INLINE_SHORTCUTS`），所以只放最常用的三种；
-/// 「只到月日」排第三是因为聊天里几乎都这么写，带年份反而正式。
+/// 打出「日期」时只有前三种跟在词后，独立输入 `rq` 时整组排在词库候选前面。
 pub fn date_forms(now: &Zoned) -> Vec<String> {
-    let (year, month, day) = (now.year(), now.month(), now.day());
-    let weekday = weekday_name(now.weekday());
-    let weekday_long = weekday_long_name(now.weekday());
-    // ISO 8601 的周号：`2026-W44-7`
-    let iso = now.date().iso_week_date();
-    vec![
+    date_forms_for(now.date())
+}
+
+fn date_forms_for(date: Date) -> Vec<String> {
+    let (year, month, day) = (date.year(), date.month(), date.day());
+    let weekday = weekday_name(date.weekday());
+    let weekday_long = weekday_long_name(date.weekday());
+    let iso = date.iso_week_date();
+    let mut forms = vec![
         format!("{year}年{month}月{day}日"),
         format!("{year}-{month:02}-{day:02}"),
         format!("{month}月{day}日"),
@@ -348,6 +345,14 @@ pub fn date_forms(now: &Zoned) -> Vec<String> {
         format!("{year}年{month}月{day}号"),
         // 公文、合同里的补零写法
         format!("{year}年{month:02}月{day:02}日"),
+        // 不补零的连字符 / 点分：手写、随手记里常见
+        format!("{year}-{month}-{day}"),
+        format!("{year}.{month}.{day}"),
+        // 只到年月、只到月日（月日在前面已经给过中文，这里是数字）
+        format!("{year}年{month}月"),
+        format!("{year}-{month:02}"),
+        format!("{month}-{day:02}"),
+        format!("{month:02}{day:02}"),
         // 欧式 日/月/年 与美式 月/日/年，两份都给，看清楚再选
         format!("{day:02}/{month:02}/{year}"),
         format!("{month:02}/{day:02}/{year}"),
@@ -366,7 +371,10 @@ pub fn date_forms(now: &Zoned) -> Vec<String> {
             chinese_lower(&month.to_string()),
             chinese_lower(&day.to_string())
         ),
-    ]
+    ];
+    let mut seen = std::collections::HashSet::new();
+    forms.retain(|form| seen.insert(form.clone()));
+    forms
 }
 
 /// `sj`：现在。按日常出现频次排：时分、时分秒、中文读法、口语 12 小时制、
@@ -399,8 +407,14 @@ pub fn time_forms(now: &Zoned) -> Vec<String> {
         format!("{hour:02}{minute:02}{second:02}"),
         format!("{hour:02}{minute:02}"),
         format!("{hour:02}{minute:02}{second:02}{millis:03}"),
+        // 24 小时制的中文书面写法（公文、会议纪要）
+        format!("{hour:02}时{minute:02}分"),
+        format!("{hour:02}时{minute:02}分{second:02}秒"),
+        // 12 小时制的「点」写法，口语里最自然
+        format!("{meridiem_cn}{hour12}点{minute:02}分"),
         format!("{year}-{month:02}-{day:02} {hour:02}:{minute:02}:{second:02}.{millis:03}"),
         format!("{year:04}{month:02}{day:02}{hour:02}{minute:02}{second:02}"),
+        format!("{year}-{month:02}-{day:02} {hour:02}时{minute:02}分"),
         // 文件名 / 日志时间戳友好
         format!("{year:04}{month:02}{day:02}_{hour:02}{minute:02}{second:02}"),
         // Unix 秒 / 毫秒不在这里给：要时间戳就敲 `vts`（见 [`timestamp_forms`]）。
