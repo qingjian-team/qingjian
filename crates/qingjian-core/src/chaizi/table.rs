@@ -17,6 +17,28 @@ pub enum Tier {
     Stroke,
     /// 反过来打的笔画（倒笔画）。
     Reversed,
+
+    /// 笔画打错了位（差一两笔）：仍给出来，排在打得对的之后。
+    Fuzzy,
+}
+
+/// 两段短串的编辑距离（插入 / 删除 / 替换各算一步）。
+fn edit_distance(left: &str, right: &str) -> usize {
+    let left: Vec<char> = left.chars().collect();
+    let right: Vec<char> = right.chars().collect();
+    let mut previous: Vec<usize> = (0..=right.len()).collect();
+    let mut current = vec![0; right.len() + 1];
+    for (i, a) in left.iter().enumerate() {
+        current[0] = i + 1;
+        for (j, b) in right.iter().enumerate() {
+            let cost = usize::from(a != b);
+            current[j + 1] = (previous[j] + cost)
+                .min(previous[j + 1] + 1)
+                .min(current[j] + 1);
+        }
+        std::mem::swap(&mut previous, &mut current);
+    }
+    previous[right.len()]
 }
 
 /// 问字模式的一个命中。
@@ -247,10 +269,16 @@ impl ChaiziTable {
         }
         // 整串全是笔画键：再按整字笔顺找一遍，正序在前、倒序在后
         if body.chars().all(is_stroke) {
+            // 只看「整字笔顺」这一轮有没有对上：scored 里可能已经有部件读音的命中
+            let exact = scored.len();
             self.collect_strokes(body, Tier::Stroke, &mut scored);
             let reversed: String = body.chars().rev().collect();
             if reversed != body {
                 self.collect_strokes(&reversed, Tier::Reversed, &mut scored);
+            }
+            // 一笔没错的都没有时，才去找「错了一两笔」的字：有对的就不拿错的挤在前面
+            if scored.len() == exact {
+                self.collect_fuzzy_strokes(body, &mut scored);
             }
         }
         scored.sort_by_key(sort_key);
@@ -269,6 +297,8 @@ impl ChaiziTable {
             let (needed, total) = match hit.tier {
                 Tier::Reading => (3, 5),
                 Tier::Mixed | Tier::Stroke | Tier::Reversed => (3, 4),
+                // 打错了位的本来就没「吃掉多少」这回事，整段都算数
+                Tier::Fuzzy => (1, 1),
             };
             if hit.consumed < body.len() && hit.consumed * total <= body.len() * needed {
                 continue;
@@ -303,6 +333,37 @@ impl ChaiziTable {
         }
     }
 
+    /// 笔画打错了位的字：整段长度对得上、差一两笔的字仍给出来，档位排在打得对的之后。
+    ///
+    /// 认笔画打错比认读音打错保守：只比「长度相同或差一笔」的，且最多容两处，
+    /// 免得短输入把大半个字库都捞进来。`whole` 为假，调用方据此把正确笔顺写在候选旁边。
+    fn collect_fuzzy_strokes(&self, body: &str, out: &mut Vec<(Hit, u32)>) {
+        let typed = body.chars().count();
+        for (ch, reading, sequence, rank) in &self.stroke_order {
+            let length = sequence.chars().count();
+            if length.abs_diff(typed) > 1 {
+                continue;
+            }
+            let distance = edit_distance(body, sequence);
+            if distance == 0 || distance > 2 {
+                continue;
+            }
+            out.push((
+                Hit {
+                    ch: *ch,
+                    reading,
+                    tier: Tier::Fuzzy,
+                    consumed: body.len(),
+                    remaining: 0,
+                    complete: false,
+                    whole: false,
+                    traditional: false,
+                },
+                *rank,
+            ));
+        }
+    }
+
     /// 老的「整串读音」口径：`umumu` → 部件读音连写 `mumu` 的整串或前缀。
     pub fn has_reading_match(&self, keys: &str) -> bool {
         if keys.is_empty() {
@@ -328,7 +389,7 @@ impl ChaiziTable {
     }
 
     /// 一个部件的笔顺：先查笔顺表，再查部件别名的补录。
-    pub(super) fn strokes_of(&self, ch: char) -> Option<&'static str> {
+    pub fn strokes_of(&self, ch: char) -> Option<&'static str> {
         self.strokes
             .get(&ch)
             .copied()

@@ -41,6 +41,35 @@ pub fn lookup(body: &str, limit: usize) -> Vec<Hit> {
     TABLE.lookup(body, limit)
 }
 
+/// 这个字的标准笔顺（`hpzhhsn` 这种键位写法）；表里没有为 `None`。
+///
+/// 笔画打错位时，壳拿它画在候选旁边，错的那一位用强调色标出来。
+pub fn strokes_of(ch: char) -> Option<&'static str> {
+    TABLE.strokes_of(ch)
+}
+
+/// 笔画打错位时旁边那句提示：正确笔顺，错的那一位前面插 [`WRONG_STROKE_MARK`]。
+///
+/// 用 [`crate::annotation`] 的分段编码：打对的那几位是普通段，打错的那位是强调段。
+/// 壳解码后把强调段画成强调色，标记本身不上屏也不显示。
+pub fn mark_wrong_strokes(typed: &str, correct: &str) -> String {
+    use crate::annotation::{Note, encode};
+    let notes: Vec<Note> = correct
+        .chars()
+        .enumerate()
+        .map(|(index, ch)| {
+            let same = typed.chars().nth(index) == Some(ch);
+            let text = ch.to_string();
+            if same {
+                Note::plain(text)
+            } else {
+                Note::emphasis(text)
+            }
+        })
+        .collect();
+    encode(&notes)
+}
+
 /// 有没有字能被 `body` 对上：问字模式据此判断数字键是选字还是码点的一部分。
 ///
 /// **只问「部件读音连写」这一条老口径**（`umumu`），不含笔画与混输——`uface` 这类十六进制串

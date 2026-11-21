@@ -42,6 +42,8 @@ pub mod zhuyin;
 pub use custom_phrase::CustomPhrase;
 
 pub use calculation::{CalculationCompletion, calculation_completions, may_end_calculation};
+pub mod annotation;
+
 pub use candidate::{
     Candidate, CandidateKind, CandidateLayout, CandidateList, Cell, GRID_ROWS, Grid,
     LEARNING_LANGUAGE_OFF, Language, MAX_CELL_EMS, PartOfSpeech, Sense, Translation,

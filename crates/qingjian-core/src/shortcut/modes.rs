@@ -473,7 +473,7 @@ mod tests {
         for spec in SPECS.iter() {
             for name in std::iter::once(spec.name) {
                 assert!(
-                    matches!(parse(name), Some(_)),
+                    parse(name).is_some(),
                     "`{name}` 认不出来（SPECS 那一行写错了？）"
                 );
                 if name == UUID_KEYWORD {

@@ -249,3 +249,26 @@ fn a_long_english_string_stays_clean() {
         );
     }
 }
+
+/// 笔画打错了一笔也要出字：排在打得对的之后，旁边给标准笔顺、错的那一位带标记。
+#[test]
+fn a_slightly_wrong_stroke_order_still_finds_the_character() {
+    let mut engine = engine();
+    // 甫 的标准笔顺是 hpzhhsn（横撇折横横竖捺）；这里第二笔敲成竖
+    engine.set_input("uhszhhsn");
+    let query = engine.query().unwrap();
+    let fu = query
+        .candidates
+        .items
+        .iter()
+        .find(|candidate| candidate.text == "甫")
+        .expect("错一笔也要找得到 甫");
+    let hint = fu.reading.clone().unwrap_or_default();
+    assert!(
+        hint.contains(crate::annotation::EMPHASIS),
+        "旁边该给标准笔顺并标出错的那一位：{hint:?}"
+    );
+    // 打对的还是排在打错的前面
+    engine.set_input("uhpzhhsn");
+    assert_eq!(first_texts(&engine, 1), ["甫"]);
+}
