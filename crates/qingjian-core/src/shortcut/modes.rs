@@ -133,6 +133,27 @@ pub fn parse(body: &str) -> Option<Mode<'_>> {
     }
 }
 
+/// 子模式名敲全、还没填参数时的一句用法；别的输入为 `None`。
+///
+/// `vtrans`、`vstat` 这类要参数，光敲名字时候选是空的，不说一句就是一片空白。
+/// 参数一开头就不给了：再敲一个键就有内容，提示反而挡路。
+pub fn hint(body: &str) -> Option<&'static str> {
+    // 名字敲全、参数还空着：末尾的分隔符不算参数，名字里再出现分隔符就是已经在填了
+    let name = body.trim_end_matches([';', '；']);
+    if name.contains([';', '；', ':']) {
+        return None;
+    }
+    match name {
+        "bit" => Some("vbit：算式　位宽写 bit8 / bit16 / bit32，加 u 按无符号算（vbit8u;1-2）"),
+        "base" => Some("vbase：数;进制　十进制换成 2–36 进制"),
+        "stat" => Some("vstat：数;数;…　给平均数、中位数、四分位数、方差、极差"),
+        "trans" => Some(
+            "vtrans：算子;数;数;…　minmax z log log10 sqrt diff smooth median low high bin uniq shuffle",
+        ),
+        _ => None,
+    }
+}
+
 /// 按名字认子模式。`uuid` 与 `ts` 无参（`ts` 的参数是可选时刻），其余要参数。
 fn named<'a>(name: &str, rest: &'a str) -> Option<Mode<'a>> {
     if name == UUID_KEYWORD {
@@ -338,6 +359,23 @@ mod tests {
 
     /// 按键放行：名字阶段收字母数字与分隔符，参数阶段按子模式。
     #[test]
+    /// 名字敲全、还没填参数时给一句用法；一填参数就不再提示。
+    #[test]
+    fn hint_only_while_the_name_stands_alone() {
+        assert!(hint("trans").is_some_and(|text| text.contains("minmax")));
+        // 末尾的分隔符不算参数
+        assert!(hint("trans;").is_some_and(|text| text.contains("minmax")));
+        assert!(hint("stat").is_some());
+        assert!(hint("base").is_some());
+        assert!(hint("bit").is_some());
+        // 一填参数、或名字带宽度，就不再给
+        assert!(hint("trans;lo").is_none());
+        assert!(hint("bit8").is_none());
+        // 别的词不是子模式
+        assert!(hint("").is_none());
+        assert!(hint("datetime").is_none());
+    }
+
     fn which_keys_reach_the_buffer() {
         // `v` 之后开始敲名字：字母进（敲名字），数字不进 —— 那是算式（`v1+2`）
         assert_eq!(accepts_key("", 'b'), Some(true));
