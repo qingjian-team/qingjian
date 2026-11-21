@@ -148,10 +148,10 @@ pub fn actions(
     if candidate.kind == CandidateKind::Chinese && chars == candidate.syllables.len() {
         if chars >= 2 {
             actions.push(CandidateAction::FirstChar);
-        }
-        // 两个字的时候「第二个字」就是最后一个字，只给一项
-        if chars >= 3 {
             actions.push(CandidateAction::SecondChar);
+        }
+        // 两个字时「第二个字」就是最后一个字，不再单给一项；三个字以上才多一个「最后一个字」
+        if chars >= 3 {
             actions.push(CandidateAction::LastChar);
         }
     }
@@ -344,8 +344,8 @@ mod tests {
         let phrase = chinese("开发", &["kai", "fa"]);
         let listed = actions(&engine, &phrase, &[]);
         assert!(listed.contains(&CandidateAction::FirstChar));
-        // 两个字时「第二个字」就是最后一个字，只给一项
-        assert!(!listed.contains(&CandidateAction::SecondChar));
+        // 两个字也要能取第二个字（「交易」的「易」）；它就是最后一个字，不再另给一项
+        assert!(listed.contains(&CandidateAction::SecondChar));
         assert!(!listed.contains(&CandidateAction::LastChar));
 
         let three = chinese("开发中", &["kai", "fa", "zhong"]);

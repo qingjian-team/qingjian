@@ -181,6 +181,8 @@ impl Engine {
         }
         let text = chars.get(index)?.to_string();
         let syllables = candidate.syllables[..=index].to_vec();
+        // 学习按这个字自己的读音记；`syllables` 那些前缀只管吃掉多少拼音，见 `commit_recorded`
+        self.picked_syllable = candidate.syllables.get(index).cloned();
         self.picked_char = true;
         Some(Candidate {
             text,

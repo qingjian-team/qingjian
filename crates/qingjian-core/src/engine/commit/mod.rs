@@ -137,6 +137,7 @@ impl Engine {
         // 「只上屏某个字」挑出来的这一次（见 `Engine::pick_char`）：取走就清，
         // 免得下一次普通上屏也按挑字处理
         let picked_char = std::mem::take(&mut self.picked_char);
+        let picked_syllable = std::mem::take(&mut self.picked_syllable);
         // 繁体输出开着时，壳送回来的是繁体候选：先换回简体，下面的学习、历史、日志一律看简体；
         // 交给应用的仍是 `output` 那份繁体
         let output = candidate.text.clone();
@@ -164,12 +165,18 @@ impl Engine {
         let mut typos = Vec::new();
         // 候选的读音键：按输入串记选择时与字面键各记一份（[`Learner::record_choice`]）。
         // 形码 / 英文 / emoji 候选没有音节，自然得到空串。
-        let reading = reading_key(candidate.syllables.iter().map(String::as_str));
+        // 挑字挑出来的按**它自己的读音**记（取「交易中心」的「易」记成 `yi`），不吃整段前缀；
+        // 吃掉多少拼音仍旧按 `syllables`（`pick_char` 里带的是前缀），两件事分开。
+        let reading = match &picked_syllable {
+            Some(syllable) => reading_key(std::iter::once(syllable.as_str())),
+            None => reading_key(candidate.syllables.iter().map(String::as_str)),
+        };
         let mut abbreviation = String::new();
         let (consumed, input) = match candidate.kind {
             CandidateKind::Chinese => {
                 self.learner.record(candidate);
                 let (consumed, input) = self.consumed_by(candidate);
+                let input = picked_syllable.unwrap_or(input);
                 self.learner
                     .record_choice(&input, &reading, &candidate.text);
                 abbreviation = self.abbreviation_key(&candidate.syllables, &input);

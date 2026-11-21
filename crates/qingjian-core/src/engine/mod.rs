@@ -287,6 +287,10 @@ pub struct Engine {
     /// 但**不从原候选继承译词**——用户没选那个词，不该顺带记它的词汇。
     picked_char: bool,
 
+    /// 这一笔挑的那个字的**自己的**音节（「交易中心」挑「易」是 `yi`）：学习按它记，
+    /// 不吃整段前缀。吃掉多少拼音另按候选带的前缀算，见 `Engine::pick_char`。
+    picked_syllable: Option<String>,
+
     /// 输入统计用的键数与打字时长。
     typing: statistics::Typing,
 
@@ -631,6 +635,7 @@ impl Engine {
             composition_started: None,
             backspace_emptied: false,
             picked_char: false,
+            picked_syllable: None,
             typing: statistics::Typing::default(),
             application: None,
             committed_since_break: false,
