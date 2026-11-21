@@ -257,10 +257,10 @@ fn ratio(value: f32) -> f32 {
 
 fn from_css(color: Color) -> Rgba {
     Rgba {
-        r: color.r as f32,
-        g: color.g as f32,
-        b: color.b as f32,
-        a: color.a as f32,
+        r: color.r,
+        g: color.g,
+        b: color.b,
+        a: color.a,
     }
 }
 
