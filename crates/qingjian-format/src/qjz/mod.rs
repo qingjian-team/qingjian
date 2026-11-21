@@ -15,8 +15,9 @@ use flate2::write::GzEncoder;
 
 const GZIP_MAGIC: [u8; 2] = [0x1f, 0x8b];
 
-/// 解压后最多这么大：随包最大的 `.qj`（语言模型）不到 50 MB，留足余量，挡住压缩炸弹。
-const MAX_UNPACKED: u64 = 1 << 30;
+/// 解压后最多这么大：随包最大的 `.qj`（语言模型）不到 50 MB，5 倍余量足够；
+/// 下载来的 `.qjz` 会在临时目录解开，上限太大时压缩炸弹能写满磁盘。
+const MAX_UNPACKED: u64 = 256 << 20;
 
 /// 文件开头是不是认得的压缩格式。
 pub fn is_qjz(path: &Path) -> bool {
