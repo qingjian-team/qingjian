@@ -5,18 +5,46 @@ mod peer;
 
 use std::io;
 use std::path::Path;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 pub use book::PeerBook;
 pub use peer::Peer;
 
-/// 先写临时文件再替换。文件放在应用私有目录，靠目录权限保护。
+/// 先写临时文件再替换。文件放在应用私有目录，同时把文件本身收紧到 0600：
+/// 目录权限配错（或从别处搬来一个 0755 的目录）时，私钥也不会被同机其他用户读走。
 pub(crate) fn write_private(path: &Path, bytes: &[u8]) -> io::Result<()> {
+    use std::io::Write;
+
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)?;
     }
-    let temporary = path.with_extension("tmp");
-    std::fs::write(&temporary, bytes)?;
-    std::fs::rename(&temporary, path)
+    static SEQUENCE: AtomicU64 = AtomicU64::new(0);
+    let sequence = SEQUENCE.fetch_add(1, Ordering::Relaxed);
+    let temporary = path.with_extension(format!("tmp-{}-{sequence}", std::process::id()));
+    let mut options = std::fs::OpenOptions::new();
+    options.write(true).create_new(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.mode(0o600);
+    }
+    let outcome = (|| {
+        let mut file = options.open(&temporary)?;
+        file.write_all(bytes)?;
+        file.sync_all()?;
+        drop(file);
+        std::fs::rename(&temporary, path)?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600))?;
+        }
+        Ok(())
+    })();
+    if outcome.is_err() {
+        let _ = std::fs::remove_file(&temporary);
+    }
+    outcome
 }
 
 pub(crate) fn hex(bytes: &[u8]) -> String {
@@ -63,6 +91,20 @@ mod tests {
         let identity = dir.join("identity");
         std::fs::write(&identity, b"short").unwrap();
         assert!(Identity::load_or_create(&identity).is_err());
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// 私钥文件不能只靠目录权限：目录配成 0755 时，文件本身也要是 0600。
+    #[cfg(unix)]
+    #[test]
+    fn private_files_are_owner_only() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = folder("private");
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("identity");
+        write_private(&path, b"secret").unwrap();
+        let mode = std::fs::metadata(&path).unwrap().permissions().mode() & 0o777;
+        assert_eq!(mode, 0o600);
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
