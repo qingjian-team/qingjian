@@ -156,4 +156,31 @@ mod tests {
             .section(*b"ABCD", b"1")
             .section(*b"ABCD", b"2");
     }
+
+    #[test]
+    fn written_file_reads_back_the_same_sections() {
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let dir = std::env::temp_dir().join(format!(
+            "qingjian-writer-{}-{nanos}",
+            std::process::id()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("roundtrip.qj");
+        Writer::new(Kind::Dictionary, &Metadata::default())
+            .unwrap()
+            .section(*b"LEXI", b"a\tb\n")
+            .section(*b"GRMR", &[1, 2, 3])
+            .write_to(&path)
+            .unwrap();
+        let container = crate::Container::open(&path, Kind::Dictionary).unwrap();
+        assert_eq!(container.bytes(*b"LEXI").unwrap(), &b"a\tb\n"[..]);
+        assert_eq!(container.bytes(*b"GRMR").unwrap(), &[1, 2, 3][..]);
+        assert!(container.bytes(*b"META").is_ok(), "metadata section");
+        drop(container);
+        let _ = std::fs::remove_file(&path);
+        let _ = std::fs::remove_dir(&dir);
+    }
 }
