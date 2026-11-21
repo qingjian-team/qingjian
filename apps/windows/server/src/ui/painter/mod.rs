@@ -28,6 +28,12 @@ pub(super) struct Painter {
 
     /// 竖排窗口在光标上方时倒着排（`[general] vertical_reverse_above`）；只有青简渲染器画得了。
     pub(super) reverse_above: bool,
+
+    /// 这一帧要盖在右上角的色块（`vcol` 的预览）；`None` 不盖。
+    ///
+    /// 存在画家上而不是只用一次：候选窗有入场动画，第一帧画完还要靠 [`Self::tick`] 一帧帧重画，
+    /// 那几帧也得盖上，否则色块一闪就没。
+    swatch: Option<[u8; 4]>,
 }
 
 impl Painter {
@@ -62,6 +68,7 @@ impl Painter {
             font: font.to_owned(),
             theme: Theme::light(),
             reverse_above: false,
+            swatch: None,
         })
     }
 
@@ -128,8 +135,20 @@ impl Painter {
             height = rendered.content_height,
             "候选窗位图已画"
         );
+        self.swatch = swatch;
         let mut rendered = rendered;
-        if let Some(color) = swatch {
+        if let Some(color) = self.swatch {
+            tracing::info!(
+                ?color,
+                content_x = rendered.content_x,
+                content_y = rendered.content_y,
+                content_width = rendered.content_width,
+                content_height = rendered.content_height,
+                pixmap_width = rendered.pixmap.width(),
+                pixmap_height = rendered.pixmap.height(),
+                scale = rendered.scale,
+                "候选窗色块"
+            );
             stamp_swatch(&mut rendered, color);
         }
         Some(rendered)
@@ -142,11 +161,16 @@ impl Painter {
 
     /// 动画的下一帧；没有在播的返回 `None`。
     pub(super) fn tick(&mut self) -> Option<Rendered> {
-        self.renderer
+        let mut rendered = self
+            .renderer
             .tick()
             .inspect_err(|error| tracing::warn!(%error, "候选窗动画帧渲染失败"))
             .ok()
-            .flatten()
+            .flatten()?;
+        if let Some(color) = self.swatch {
+            stamp_swatch(&mut rendered, color);
+        }
+        Some(rendered)
     }
 
     /// 当前主题（浅色那一份），键位提示窗口按它画键盘。
@@ -202,16 +226,24 @@ fn scale(dpi: u32) -> f32 {
 /// 帧数据的结构（那张结构有一百多处字面量）。位图是预乘 RGBA，这里按不透明度预乘后写进去。
 fn stamp_swatch(rendered: &mut Rendered, color: [u8; 4]) {
     let scale = rendered.scale.max(0.5);
-    let side = (12.0 * scale).round().max(6.0) as u32;
+    let side = (14.0 * scale).round().max(8.0) as u32;
     let margin = (7.0 * scale).round().max(3.0) as u32;
     let [r, g, b, a] = color;
     let alpha = f32::from(a) / 255.0;
-    let premultiplied = [
+    let fill = [
         (f32::from(r) * alpha).round() as u8,
         (f32::from(g) * alpha).round() as u8,
         (f32::from(b) * alpha).round() as u8,
         a,
     ];
+    // 方块的边：颜色亮就描深边、深就描亮边。深色主题下的深色块（`#123654`）
+    // 少了这一圈就跟背景糊在一起，用户会以为没画。
+    let luminance = 0.2126 * f32::from(r) + 0.7152 * f32::from(g) + 0.0722 * f32::from(b);
+    let edge = if luminance > 140.0 {
+        [0, 0, 0, 96]
+    } else {
+        [255, 255, 255, 120]
+    };
     let width = rendered.pixmap.width();
     let height = rendered.pixmap.height();
     let stride = width as usize * 4;
@@ -223,9 +255,11 @@ fn stamp_swatch(rendered: &mut Rendered, color: [u8; 4]) {
     let data = rendered.pixmap.data_mut();
     for y in top..(top + side).min(height) {
         for x in left..(left + side).min(width) {
+            let on_edge = y == top || y + 1 == top + side || x == left || x + 1 == left + side;
+            let pixel = if on_edge { edge } else { fill };
             let offset = y as usize * stride + x as usize * 4;
-            if let Some(pixel) = data.get_mut(offset..offset + 4) {
-                pixel.copy_from_slice(&premultiplied);
+            if let Some(slot) = data.get_mut(offset..offset + 4) {
+                slot.copy_from_slice(&pixel);
             }
         }
     }
