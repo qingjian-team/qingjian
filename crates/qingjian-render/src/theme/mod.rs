@@ -472,6 +472,13 @@ impl Theme {
     }
 
     /// 手机键盘每个键的圆角（主题 `keyboard.touch_key_radius`，点）；主题没写是 `None`，手机壳用自己的缺省。
+    /// 候选面板的圆角半径（点）。墨岩是 0（方角），青简是 10。
+    ///
+    /// 壳的小装饰（`vcol` 的色块）跟着它走：主题方角，装饰也是方角。
+    pub fn panel_radius(&self) -> f32 {
+        self.file.panel.radius
+    }
+
     pub fn touch_key_radius(&self) -> Option<f32> {
         self.file.keyboard.touch_key_radius
     }

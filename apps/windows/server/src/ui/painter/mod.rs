@@ -28,6 +28,12 @@ pub(super) struct Painter {
 
     /// 竖排窗口在光标上方时倒着排（`[general] vertical_reverse_above`）；只有青简渲染器画得了。
     pub(super) reverse_above: bool,
+
+    /// 这一帧要盖在右上角的色块（`vcol` 的预览）；`None` 不盖。
+    ///
+    /// 存在画家上而不是只用一次：候选窗有入场动画，第一帧画完还要靠 [`Self::tick`] 一帧帧重画，
+    /// 那几帧也得盖上，否则色块一闪就没。
+    swatch: Option<[u8; 4]>,
 }
 
 impl Painter {
@@ -62,6 +68,7 @@ impl Painter {
             font: font.to_owned(),
             theme: Theme::light(),
             reverse_above: false,
+            swatch: None,
         })
     }
 
@@ -109,6 +116,7 @@ impl Painter {
         layout: LayoutMode,
         dark: bool,
         dpi: u32,
+        swatch: Option<[u8; 4]>,
     ) -> Option<Rendered> {
         let layout = match layout {
             LayoutMode::Vertical => Layout::Vertical,
@@ -127,6 +135,22 @@ impl Painter {
             height = rendered.content_height,
             "候选窗位图已画"
         );
+        self.swatch = swatch;
+        let mut rendered = rendered;
+        if let Some(color) = self.swatch {
+            tracing::debug!(
+                ?color,
+                content_x = rendered.content_x,
+                content_y = rendered.content_y,
+                content_width = rendered.content_width,
+                content_height = rendered.content_height,
+                pixmap_width = rendered.pixmap.width(),
+                pixmap_height = rendered.pixmap.height(),
+                scale = rendered.scale,
+                "候选窗色块"
+            );
+            stamp_swatch(&mut rendered, color, self.theme.panel_radius());
+        }
         Some(rendered)
     }
 
@@ -137,11 +161,16 @@ impl Painter {
 
     /// 动画的下一帧；没有在播的返回 `None`。
     pub(super) fn tick(&mut self) -> Option<Rendered> {
-        self.renderer
+        let mut rendered = self
+            .renderer
             .tick()
             .inspect_err(|error| tracing::warn!(%error, "候选窗动画帧渲染失败"))
             .ok()
-            .flatten()
+            .flatten()?;
+        if let Some(color) = self.swatch {
+            stamp_swatch(&mut rendered, color, self.theme.panel_radius());
+        }
+        Some(rendered)
     }
 
     /// 当前主题（浅色那一份），键位提示窗口按它画键盘。
@@ -189,4 +218,76 @@ fn reduce_motion() -> bool {
 /// 点 → 像素的倍数。
 fn scale(dpi: u32) -> f32 {
     dpi.max(96) as f32 / 96.0
+}
+
+/// 在内容区右上角盖一块方色（`vcol` 的预览）。
+///
+/// 画在位图上而不是交给渲染器：色块是「这一帧的附加信息」，进不了主题模板，也不该为它改
+/// 帧数据的结构（那张结构有一百多处字面量）。位图是预乘 RGBA，这里按不透明度预乘后写进去。
+fn stamp_swatch(rendered: &mut Rendered, color: [u8; 4], corner: f32) {
+    let scale = rendered.scale.max(0.5);
+    let diameter = (14.0 * scale).round().max(8.0) as u32;
+    let margin = (7.0 * scale).round().max(3.0) as u32;
+    // 形状跟随主题：墨岩的 `panel.radius` 是 0，画方块；圆角够大就是圆点
+    let radius = (corner * scale).clamp(0.0, diameter as f32 / 2.0);
+    let [r, g, b, a] = color;
+    let alpha = f32::from(a) / 255.0;
+    let fill = [
+        (f32::from(r) * alpha).round() as u8,
+        (f32::from(g) * alpha).round() as u8,
+        (f32::from(b) * alpha).round() as u8,
+        a,
+    ];
+    // 边：颜色亮就描深边、深就描亮边。深色主题下的深色块（`#123654`）少了这一圈
+    // 就跟背景糊在一起，用户会以为没画。
+    let luminance = 0.2126 * f32::from(r) + 0.7152 * f32::from(g) + 0.0722 * f32::from(b);
+    let edge = if luminance > 140.0 {
+        [0, 0, 0, 96]
+    } else {
+        [255, 255, 255, 120]
+    };
+    let width = rendered.pixmap.width();
+    let height = rendered.pixmap.height();
+    let stride = width as usize * 4;
+    let left = rendered
+        .content_x
+        .saturating_add(rendered.content_width)
+        .saturating_sub(diameter + margin);
+    let top = rendered.content_y.saturating_add(margin);
+    let size = diameter as f32;
+    let data = rendered.pixmap.data_mut();
+    for y in top..(top + diameter).min(height) {
+        for x in left..(left + diameter).min(width) {
+            let px = (x - left) as f32 + 0.5;
+            let py = (y - top) as f32 + 0.5;
+            if !covered(px, py, size, radius) {
+                continue;
+            }
+            // 往里缩一个像素还在形状里，就是内部；否则是描边那一圈
+            let pixel = if covered(px - 1.0, py - 1.0, size - 2.0, (radius - 1.0).max(0.0)) {
+                fill
+            } else {
+                edge
+            };
+            let offset = y as usize * stride + x as usize * 4;
+            if let Some(slot) = data.get_mut(offset..offset + 4) {
+                slot.copy_from_slice(&pixel);
+            }
+        }
+    }
+}
+
+/// 圆角矩形：点落在 `size × size`、四角半径 `radius` 的范围内。
+fn covered(x: f32, y: f32, size: f32, radius: f32) -> bool {
+    if size <= 0.0 || x < 0.0 || y < 0.0 || x > size || y > size {
+        return false;
+    }
+    if radius <= 0.0 {
+        return true;
+    }
+    let cx = x.clamp(radius, size - radius);
+    let cy = y.clamp(radius, size - radius);
+    let dx = x - cx;
+    let dy = y - cy;
+    dx * dx + dy * dy <= radius * radius
 }

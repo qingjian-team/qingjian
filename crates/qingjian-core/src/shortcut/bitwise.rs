@@ -76,24 +76,29 @@ impl BitWidth {
         format!("0x{:0width$x}", self.wrap(value), width = digits)
     }
 
+    /// `0o` 八进制，不补零。
+    pub fn octal(self, value: u128) -> String {
+        format!("0o{:o}", self.wrap(value))
+    }
+
     /// `0b` 二进制，不补零：128 位补满要 128 个字符，候选里放不下。
     pub fn binary(self, value: u128) -> String {
         let text = format!("{:b}", self.wrap(value));
         format!("0b{}", text)
     }
 
-    /// 名字反过来拼回子模式（`bit8u` / `bit128`），给候选上的说明用。
-    pub fn label(self) -> String {
+    /// 位宽的参数写法（`8u`、`16`、空串表示缺省 64 位有符号），给候选上的说明用。
+    pub fn width_arg(self) -> String {
         if self.bits == 64 {
             if self.signed {
-                "bit".to_owned()
+                String::new()
             } else {
-                "bitu".to_owned()
+                "u".to_owned()
             }
         } else if self.signed {
-            format!("bit{}", self.bits)
+            self.bits.to_string()
         } else {
-            format!("bit{}u", self.bits)
+            format!("{}u", self.bits)
         }
     }
 }
@@ -109,12 +114,13 @@ pub struct BitResult {
 }
 
 impl BitResult {
-    /// 候选里给的几种写法，顺序：十进制、十六进制、二进制、中文小写、中文大写。
+    /// 候选里给的几种写法，顺序：十进制、十六进制、八进制、二进制、中文小写、中文大写。
     pub fn forms(&self) -> Vec<String> {
         let decimal = self.width.decimal(self.raw);
         let mut forms = vec![
             decimal.clone(),
             self.width.hex(self.raw),
+            self.width.octal(self.raw),
             self.width.binary(self.raw),
         ];
         // 中文数字只对非负值有意义（负数读法各家不一，不硬凑）

@@ -23,6 +23,7 @@ impl Engine {
                 self.modes().expression,
                 &jiff::Zoned::now(),
                 self.expression_sub_modes(),
+                self.clipboard_text.as_deref(),
             ),
         };
         if let Some(candidate) = self.english_word_candidate(scope) {
@@ -285,6 +286,9 @@ impl Engine {
 const CHAIZI_LIMIT: usize = 50;
 
 /// 按部件读音、笔画或两者混着找出的字，带上这个字最常见的读音（有声调的标上调号），生僻字也知道怎么念。
+///
+/// 笔画打错位的那一批（[`crate::chaizi::Tier::Fuzzy`]）没有「读音」以外的信息可给，
+/// 就把**标准笔顺**放进 `reading`（错的那一位带标记），壳见了画成强调色的小字。
 fn chaizi_candidates(keys: &str) -> Vec<Candidate> {
     crate::chaizi::lookup(keys, CHAIZI_LIMIT)
         .into_iter()
@@ -292,10 +296,22 @@ fn chaizi_candidates(keys: &str) -> Vec<Candidate> {
             text: hit.ch.to_string(),
             kind: CandidateKind::Shortcut,
             syllables: Vec::new(),
-            reading: Some(qingjian_dictionary::marked(
-                hit.reading,
-                crate::zhuyin::tone::usual(hit.ch, hit.reading),
-            )),
+            reading: Some(match hit.tier {
+                // 笔画打错了位：旁边那句提示换成标准笔顺，错的那一位前面插标记
+                crate::chaizi::Tier::Fuzzy => crate::chaizi::strokes_of(hit.ch).map_or_else(
+                    || {
+                        qingjian_dictionary::marked(
+                            hit.reading,
+                            crate::zhuyin::tone::usual(hit.ch, hit.reading),
+                        )
+                    },
+                    |correct| crate::chaizi::mark_wrong_strokes(keys, correct),
+                ),
+                _ => qingjian_dictionary::marked(
+                    hit.reading,
+                    crate::zhuyin::tone::usual(hit.ch, hit.reading),
+                ),
+            }),
             translation: None,
             aux_code: None,
         })

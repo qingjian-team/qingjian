@@ -40,6 +40,11 @@ pub struct Frame {
     #[serde(default)]
     pub differs: Vec<Vec<Range<usize>>>,
 
+    /// `vcol` 的色块：首选候选是十六进制颜色时给出 sRGB 分量（0–255），候选窗右上角画一块。
+    /// 纯加 `#[serde(default)]` 字段，不 bump 协议版本。
+    #[serde(default)]
+    pub swatch: Option<[u8; 4]>,
+
     /// 当前页里高亮的候选下标（页内，从 0 起）。
     pub highlight: usize,
 

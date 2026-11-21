@@ -130,6 +130,7 @@ impl Router {
                 symbol_panel: false,
                 panel_text_box: false,
                 differs: Vec::new(),
+                swatch: None,
             },
             Some(Composed::Raw { text, cursor }) => Frame {
                 preedit: vec![PreeditSegment {
@@ -151,10 +152,14 @@ impl Router {
                 translation_pos: self.config.translation_pos,
                 english_reading_ipa: self.config.show_english_pronunciation,
                 sentence: None,
-                notice: self.notice.clone(),
+                notice: self
+                    .notice
+                    .clone()
+                    .or_else(|| self.engine.mode_hint().map(str::to_owned)),
                 symbol_panel: false,
                 panel_text_box: false,
                 differs: Vec::new(),
+                swatch: None,
             },
             Some(Composed::Candidates {
                 preedit,
@@ -181,6 +186,16 @@ impl Router {
                     None => (preedit.clone(), *cursor),
                 };
                 let window_preedit = window_parts(&self.engine, query, candidate, &preedit);
+                // `vcol` 这类颜色查询在候选窗角上画一块，别的查询没有
+                let swatch = query
+                    .swatch()
+                    .or_else(|| {
+                        // 候选已经从 Query 拆进 layout 了，这里补一条从 layout 取的退路
+                        layout
+                            .candidate(0)
+                            .and_then(|first| qingjian_core::shortcut::swatch(&first.text))
+                    })
+                    .map(|(r, g, b, a)| [r, g, b, a]);
                 let page = highlight / page_size;
                 // 横排展开成矩阵时画视口里的几行（空位是占位候选），序号只标在高亮所在那一行；
                 // 单行时只画当前页。高亮下标跟着换成视口内的。
@@ -247,10 +262,14 @@ impl Router {
                     translation_pos: self.config.translation_pos,
                     english_reading_ipa: self.config.show_english_pronunciation,
                     sentence: self.sentence.clone(),
-                    notice: self.notice.clone(),
+                    notice: self
+                        .notice
+                        .clone()
+                        .or_else(|| self.engine.mode_hint().map(str::to_owned)),
                     symbol_panel: false,
                     panel_text_box: false,
                     differs,
+                    swatch,
                 }
             }
         }

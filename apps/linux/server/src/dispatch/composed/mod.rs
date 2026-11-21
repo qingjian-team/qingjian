@@ -254,6 +254,7 @@ impl Router {
                 symbol_panel: false,
                 panel_text_box: false,
                 differs: Vec::new(),
+                swatch: None,
             },
             Some(Composed::Candidates {
                 preedit,
@@ -312,6 +313,7 @@ impl Router {
                     symbol_panel: false,
                     panel_text_box: false,
                     differs: Vec::new(),
+                    swatch: None,
                 }
             }
         }

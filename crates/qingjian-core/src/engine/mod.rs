@@ -288,6 +288,10 @@ pub struct Engine {
     /// 正在输入的应用标识，壳在焦点变化时给；写进输入日志。
     application: Option<String>,
 
+    /// 剪切板里最近一次复制的一段文本（壳在缓冲区进子模式时给）。子模式的参数空着时拿它顶上：
+    /// `vstat` 后面不用再粘，直接算。拿不到就是 `None`，一切照旧。
+    clipboard_text: Option<String>,
+
     /// 上次记 `break` 之后有没有上屏过：没有就不再记，免得失焦一次记一条。
     committed_since_break: bool,
 
@@ -627,6 +631,7 @@ impl Engine {
             backspace_emptied: false,
             typing: statistics::Typing::default(),
             application: None,
+            clipboard_text: None,
             committed_since_break: false,
             meter: Box::new(NoUsageMeter),
             metered: true,

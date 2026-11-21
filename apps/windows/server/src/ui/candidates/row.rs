@@ -30,7 +30,16 @@ pub(crate) fn from_candidate(
         .filter(|_| english_reading_ipa && candidate.kind == CandidateKind::English)
         .cloned();
     if let Some(reading) = candidate.reading.as_ref().filter(|_| english_ipa.is_none()) {
-        annotation.push((reading.clone(), Tone::Gloss));
+        // 问字模式里笔画打错了位的那几个字：旁边给标准笔顺，错的那一位用强调色
+        // 注记可能带分段标记（Core 的 `annotation`）：强调段用强调色，其余照旧
+        for (text, kind) in qingjian_core::annotation::decode(reading) {
+            let tone = match kind {
+                qingjian_core::annotation::NoteKind::Plain => Tone::Gloss,
+                qingjian_core::annotation::NoteKind::Emphasis => Tone::Fresh,
+                qingjian_core::annotation::NoteKind::Muted => Tone::Faint,
+            };
+            annotation.push((text, tone));
+        }
     }
     if let Some(translation) = &candidate.translation {
         for (i, sense) in translation.senses().iter().enumerate() {

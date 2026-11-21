@@ -11,14 +11,17 @@ workspace = true
 
 [dependencies]
 bamboo-slip-i18n.workspace = true
+csscolorparser = { version = "0.9.2", features = ["named-colors"] }
 ferrous-opencc.workspace = true
 foldhash.workspace = true
 jiff.workspace = true
+palette = { version = "0.7.7", default-features = false, features = ["std"] }
 qingjian-code.workspace = true
 qingjian-dictionary.workspace = true
 serde.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
+tyme4rs = "=1.5.0"
 uuid.workspace = true
 vi.workspace = true
 
