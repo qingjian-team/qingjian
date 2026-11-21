@@ -75,6 +75,18 @@ jobs:
       - name: Check all features
         run: cargo check -p qingjian-predict --all-features --locked
 
+  # 门禁脚本本身也要有测试：改脚本时不能把“该报的没报、不该报的报了”带进 CI。
+  tools-tests:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Test CI tools
+        run: python3 -m unittest discover -s tools/ci/tests -v
+
   # debug_assert! 在 release 下消失，它引用的变量会变成未使用；#[cfg(debug_assertions)]
   # 两侧的模块更是两份代码。现有的 release job 只跑 clippy，不跑测试。
   release-tests:
@@ -96,5 +108,28 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq pkg-config libssl-dev
 
-      - name: Test core (release profile)
-        run: cargo test --release -p qingjian-core --locked
+      - name: Test core crates (release profile)
+        run: cargo test --release -p qingjian-core -p qingjian-format -p qingjian-dictionary -p qingjian-learning --locked
+
+  # 五个质量 job 的聚合状态：分支保护只需要挂这一个 check，不会漏挂。
+  summary:
+    needs: [code-quality, docs-links, features, tools-tests, release-tests]
+    if: always()
+    runs-on: ubuntu-26.04
+    timeout-minutes: 5
+    steps:
+      - name: All quality jobs passed
+        run: |
+          for result in \
+            "${{ needs.code-quality.result }}" \
+            "${{ needs.docs-links.result }}" \
+            "${{ needs.features.result }}" \
+            "${{ needs.tools-tests.result }}" \
+            "${{ needs.release-tests.result }}"
+          do
+            if [ "$result" != "success" ]; then
+              echo "quality job result: $result" >&2
+              exit 1
+            fi
+          done
+          echo "quality jobs 全部成功"

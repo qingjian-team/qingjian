@@ -39,9 +39,11 @@ def iter_links(text: str):
             yield number, match.group(1).strip()
 
 
-def check() -> list[str]:
+def check(files: list[Path] | None = None) -> list[str]:
+    if files is None:
+        files = markdown_files()
     missing: list[str] = []
-    for path in markdown_files():
+    for path in files:
         text = path.read_text(encoding="utf-8", errors="replace")
         for number, target in iter_links(text):
             if not target or target.startswith(SKIP_PREFIXES):
@@ -51,24 +53,28 @@ def check() -> list[str]:
             local = target.split("#", 1)[0].split("?", 1)[0].strip()
             if not local:
                 continue
-            # `[名称](链接)` 这类占位没有扩展名也没有路径分隔符，不当文件链接。
-            if "." not in local and "/" not in local:
+            # `[名称](链接)` 这类中文占位不是文件链接；ASCII 的裸名字仍按文件/目录查。
+            if "." not in local and "/" not in local and not local.isascii():
                 continue
             resolved = (path.parent / unquote(local)).resolve()
             if not resolved.exists():
-                rel = path.relative_to(ROOT).as_posix()
+                try:
+                    rel = path.relative_to(ROOT).as_posix()
+                except ValueError:
+                    rel = str(path)
                 missing.append(f"{rel}:{number} -> {target}")
     return missing
 
 
 def main() -> int:
-    missing = check()
+    files = markdown_files()
+    missing = check(files)
     if missing:
         print("文档里有指向不存在文件的链接：", file=sys.stderr)
         for item in missing:
             print(f"  - {item}", file=sys.stderr)
         return 1
-    print(f"文档链接检查通过：{len(markdown_files())} 个 Markdown 文件")
+    print(f"文档链接检查通过：{len(files)} 个 Markdown 文件")
     return 0
 
 

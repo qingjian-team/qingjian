@@ -9,8 +9,11 @@
   外链不查（网络抖动会让 CI 假红）。
 - **features**：`qingjian-predict` 的 `--all-features` 组合（native-tls + rustls 同时打开），
   防止“单开都能编、一起开就炸”。
-- **release-tests**：`qingjian-core` 在 release profile 下跑一遍测试。`debug_assert!`、
-  `#[cfg(debug_assertions)]` 两侧的代码在 release 下是另一份，只跑 debug 测试发现不了。
+- **release-tests**：`qingjian-core` / `qingjian-format` / `qingjian-dictionary` / `qingjian-learning`
+  在 release profile 下跑测试。`debug_assert!`、`#[cfg(debug_assertions)]` 两侧的代码在 release 下是另一份，
+  只跑 debug 测试发现不了。
+- **tools-tests**：上面两个脚本自身的 Python 单测，防止改门禁时把“该报的没报、不该报的报了”带进 CI。
+- **summary**：把五个 job 的结果收成一个 check，分支保护挂它就不会漏挂。
 
 维护：
 
@@ -18,4 +21,5 @@
 python3 tools/ci/quality_gate.py            # 本地跑门禁
 python3 tools/ci/quality_gate.py --update   # 重构后收紧基线，跟代码一起提交
 python3 tools/ci/check_docs_links.py
+python3 -m unittest discover -s tools/ci/tests -v
 ```

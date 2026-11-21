@@ -130,6 +130,27 @@ def write_report(total: dict[str, int], files: dict[str, dict[str, int]], failur
     REPORT.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
+def compare(
+    total: dict[str, int],
+    files: dict[str, dict[str, int]],
+    baseline: tuple[dict[str, int], dict[str, dict[str, int]]],
+) -> list[str]:
+    """返回所有越过基线的项；空列表表示通过。"""
+    base_total, base_files = baseline
+    failures: list[str] = []
+    for key, value in total.items():
+        limit = base_total.get(key, 0)
+        if value > limit:
+            failures.append(f"总数 `{key}`：{value} > 基线 {limit}")
+    for name, counts in files.items():
+        limits = base_files.get(name, {})
+        for key, value in counts.items():
+            limit = limits.get(key, 0)
+            if value > limit:
+                failures.append(f"`{name}` 的 `{key}`：{value} > 基线 {limit}")
+    return failures
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--update", action="store_true", help="把当前值写入基线（只应在收紧后使用）")
@@ -147,18 +168,7 @@ def main() -> int:
         print(f"缺少基线 {BASELINE.relative_to(ROOT)}；先跑 --update 并提交。", file=sys.stderr)
         return 1
 
-    base_total, base_files = baseline
-    failures: list[str] = []
-    for key, value in total.items():
-        limit = base_total.get(key, 0)
-        if value > limit:
-            failures.append(f"总数 `{key}`：{value} > 基线 {limit}")
-    for name, counts in files.items():
-        limits = base_files.get(name, {})
-        for key, value in counts.items():
-            limit = limits.get(key, 0)
-            if value > limit:
-                failures.append(f"`{name}` 的 `{key}`：{value} > 基线 {limit}")
+    failures = compare(total, files, baseline)
 
     write_report(total, files, failures)
     if failures:
