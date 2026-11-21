@@ -501,7 +501,8 @@ impl Engine {
                 if kept.is_empty() {
                     // 码段一个码都对不上：多半不是码，是「想找哪个字」的提示。
                     // `fuma;fuzhu` 是「辅」也在 辅助 里，`fuma;chefu` 是「辅」＝车＋甫。
-                    items.extend(self.hinted_candidates(&scored, code));
+                    let best = &segmentations[0];
+                    items.extend(self.hinted_candidates(&scored, &best, code));
                 } else {
                     items.extend(
                         kept.into_iter()
