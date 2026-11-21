@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import os
 import re
 import sys
 from pathlib import Path
@@ -16,12 +17,16 @@ ROOT = Path(__file__).resolve().parents[2]
 LINK_RE = re.compile(r"\[[^\]]*\]\(([^)]+)\)")
 INLINE_CODE_RE = re.compile(r"`[^`]*`")
 SKIP_PREFIXES = ("http://", "https://", "mailto:", "tel:", "data:", "#")
+SKIP_DIRS = {"target", ".git", "node_modules", ".cargo", ".venv"}
 
 
 def markdown_files() -> list[Path]:
-    files = [ROOT / "README.md", ROOT / "CONTRIBUTING.md", ROOT / "CHANGELOG.md"]
-    files += sorted((ROOT / "docs").rglob("*.md"))
-    return [path for path in files if path.exists()]
+    """全仓库的 Markdown：子目录的 README 与笔记同样会断链，不能只查 docs/。"""
+    files: list[Path] = []
+    for root, dirs, names in os.walk(ROOT):
+        dirs[:] = [name for name in dirs if name not in SKIP_DIRS]
+        files.extend(Path(root) / name for name in names if name.endswith(".md"))
+    return sorted(files)
 
 
 def iter_links(text: str):

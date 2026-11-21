@@ -21,6 +21,14 @@ class IterLinksTests(unittest.TestCase):
         self.assertEqual(found, [(5, "exists.md")])
 
 
+class MarkdownFilesTests(unittest.TestCase):
+    def test_scans_subproject_readmes_and_skips_build_dirs(self) -> None:
+        files = links.markdown_files()
+        rel = {p.relative_to(links.ROOT).as_posix() for p in files}
+        self.assertIn("apps/android/README.md", rel)
+        self.assertFalse(any(path.startswith("target/") for path in rel))
+
+
 class CheckTests(unittest.TestCase):
     def test_reports_missing_and_ignores_external_and_placeholder(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
