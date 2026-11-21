@@ -417,6 +417,24 @@ pub fn time_forms(now: &Zoned) -> Vec<String> {
         format!("{year}-{month:02}-{day:02} {hour:02}时{minute:02}分"),
         // 文件名 / 日志时间戳友好
         format!("{year:04}{month:02}{day:02}_{hour:02}{minute:02}{second:02}"),
+        // 时间其实是一个精确的日期：带上日期的那几种写法里，中文一处也不能少
+        format!("{year}年{month}月{day}日 {hour}时{minute:02}分"),
+        format!("{year}年{month}月{day}日 {hour}时{minute:02}分{second:02}秒"),
+        format!("{year}年{month}月{day}日 {meridiem_cn}{hour12}点{minute:02}分"),
+        format!("{year}年{month}月{day}日{hour:02}:{minute:02}"),
+        format!("{year}年{month}月{day}日{hour:02}:{minute:02}:{second:02}"),
+        format!("{year}-{month:02}-{day:02} {hour:02}:{minute:02}"),
+        format!("{month}月{day}日 {hour:02}:{minute:02}"),
+        format!("{month}月{day}日 {hour}时{minute:02}分"),
+        // 中文逐位读法的完整时刻（公文、碑刻里常见）
+        format!(
+            "{}年{}月{}日{}时{}分",
+            chinese_year(year),
+            chinese_lower(&month.to_string()),
+            chinese_lower(&day.to_string()),
+            chinese_lower(&hour.to_string()),
+            chinese_lower(&minute.to_string())
+        ),
         // Unix 秒 / 毫秒不在这里给：要时间戳就敲 `vts`（见 [`timestamp_forms`]）。
         // 混在钟点候选里既挡路，又会让 `looks_like_timestamp` 把整组当成时间型反复重算。
     ]
