@@ -51,35 +51,79 @@ impl Engine {
         chars
     }
 
-    /// 码段对不上任何码时，按提示把候选挪到前面：词首就是那个字的排最前，其余保持原序。
+    /// 码段对不上任何码时，把它当成「首字要用哪个字」的提示。
+    ///
+    /// 先让词图把这段拼音读成整句/整词，再从里面挑首字正好是提示字的路径 —— `yanzhi;haiyan`
+    /// 的 `haiyan` → 海盐 → 「盐」，词图里有 `盐值` 这条路径就挑出来；`kaicu;cuxi` 的
+    /// `cuxi` → 粗细 → 「粗」，挑出 `开粗`。这些词词库里不一定有，只能靠词图拼。
+    ///
+    /// 词图里也没有时退回「含提示字的已有候选」，再没有就是空。
     pub(super) fn hinted_candidates(
         &self,
         scored: &[crate::ranking::Scored<'_>],
+        best: &crate::parser::Segmentation,
         code: &str,
     ) -> Vec<Candidate> {
         let hints = self.hint_chars(code);
         if hints.is_empty() {
             return Vec::new();
         }
-        let mut order: Vec<(usize, bool)> = scored
-            .iter()
-            .enumerate()
-            .filter_map(|(index, item)| {
-                let text = item.hit.text;
-                let leads = text.chars().next().is_some_and(|ch| hints.contains(&ch));
-                if leads {
-                    Some((index, true))
-                } else if text.chars().any(|ch| hints.contains(&ch)) {
-                    Some((index, false))
-                } else {
-                    None
-                }
+        // 一、词图：首字是提示字的路径排最前
+        let mut items = Vec::new();
+        let sentences = self.sentence_candidates(&mut items, best, false, 8);
+        let mut pinned: Vec<Candidate> = sentences
+            .into_iter()
+            .filter(|candidate| {
+                candidate
+                    .text
+                    .chars()
+                    .next()
+                    .is_some_and(|ch| hints.contains(&ch))
             })
             .collect();
-        order.sort_by_key(|(index, leads)| (!*leads, *index));
-        order
-            .into_iter()
-            .map(|(index, _)| super::chinese_candidate(&scored[index], None))
-            .collect()
+        // 二、词图里没有就退回已有候选：词首是提示字的排前面，含提示字的跟后面
+        if pinned.is_empty() {
+            let mut order: Vec<(usize, bool)> = scored
+                .iter()
+                .enumerate()
+                .filter_map(|(index, item)| {
+                    let text = item.hit.text;
+                    let leads = text.chars().next().is_some_and(|ch| hints.contains(&ch));
+                    if leads {
+                        Some((index, true))
+                    } else if text.chars().any(|ch| hints.contains(&ch)) {
+                        Some((index, false))
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+            order.sort_by_key(|(index, leads)| (!*leads, *index));
+            pinned = order
+                .into_iter()
+                .map(|(index, _)| super::chinese_candidate(&scored[index], None))
+                .collect();
+        }
+        // 三、词图与已有候选都没有：把提示字本身当单字候选放最前，敲下去就能用
+        for ch in &hints {
+            if pinned
+                .iter()
+                .any(|candidate| candidate.text == ch.to_string())
+            {
+                continue;
+            }
+            pinned.insert(
+                0,
+                Candidate {
+                    text: ch.to_string(),
+                    kind: crate::CandidateKind::Shortcut,
+                    syllables: Vec::new(),
+                    reading: None,
+                    translation: None,
+                    aux_code: None,
+                },
+            );
+        }
+        pinned
     }
 }
