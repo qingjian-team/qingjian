@@ -4,8 +4,6 @@ use ::jni::JNIEnv;
 use ::jni::objects::JObject;
 use ::jni::sys::{JNI_FALSE, JNI_TRUE, jboolean, jchar, jlong};
 
-use super::operations::session;
-
 /// 算式里按了 `c`：回要交给 `push` 的字符（`×` `÷` 换成 `*` `/`），不是算式字符回 0。
 #[unsafe(no_mangle)]
 pub extern "system" fn Java_app_qingjian_inputmethod_core_Native_expressionChar<'local>(
