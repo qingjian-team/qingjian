@@ -8,7 +8,6 @@ use crate::engine::{Learner, is_raw};
 use crate::ranking::{self, Scored};
 use crate::{Candidate, CandidateKind, Engine, ParseError};
 
-mod aux_hint;
 mod code;
 mod converting;
 mod diagnosing;

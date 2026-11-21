@@ -462,36 +462,3 @@ fn the_input_log_records_the_trigger_and_the_code() {
     assert_eq!(commit.scope, "kaifa");
     assert_eq!(commit.pinyin, "kai'fa");
 }
-
-/// 码段一个码都对不上时，把它当成「要哪个字」的提示：拆字能指到那个字的候选排前面。
-///
-/// `chefu` 拆成 车 + 甫 得到「辅」。样例词库里没有含「辅」的词，所以这里验的是两件事：
-/// 码段确实进了辅码态（没有整串上屏），以及提示字确实算出来了。
-#[test]
-fn a_code_that_matches_nothing_is_read_as_a_hint() {
-    let mut engine = aux_engine();
-    assert!(engine.hint_chars("chefu").contains(&'辅'), "拆字该指到 辅");
-
-    engine.set_input("kaifa");
-    engine.enter_aux();
-    for ch in "chefu".chars() {
-        assert!(engine.push_aux_code(ch), "码段该能敲进去：{ch}");
-    }
-    let query = engine.query().unwrap();
-    let texts: Vec<String> = query
-        .candidates
-        .items
-        .iter()
-        .map(|c| c.text.clone())
-        .collect();
-    assert!(
-        texts.iter().all(|text| !text.contains(';')),
-        "码段该进辅码态，不该整串上屏：{texts:?}"
-    );
-    if let Some(first) = texts.first() {
-        assert!(
-            first.contains('辅') || !texts.iter().any(|text| text.contains('辅')),
-            "含提示字的候选该排前面：{texts:?}"
-        );
-    }
-}
