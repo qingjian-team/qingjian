@@ -285,6 +285,7 @@ impl Engine {
     }
 
     pub fn clear(&mut self) {
+        self.retract_held_learning();
         self.composition.clear();
         self.held.clear();
         self.take_panel();
