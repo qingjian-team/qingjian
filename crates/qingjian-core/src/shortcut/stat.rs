@@ -240,7 +240,7 @@ mod tests {
         assert!(plain.contains(&"2.5"), "{plain:?}");
         assert!(plain.contains(&"10"), "{plain:?}");
         assert!(plain.contains(&"4"), "{plain:?}");
-        assert!(plain.iter().any(|v| *v == "1 2 3 4"), "{plain:?}");
+        assert!(plain.contains(&"1 2 3 4"), "{plain:?}");
     }
 
     #[test]
