@@ -42,12 +42,10 @@ impl Router {
             return;
         }
         tracing::debug!(offset, ?items, "候选右键菜单");
-        let theme = self.config.theme.clone();
         self.candidates.show_menu(CandidateMenu {
             offset,
             point,
             items,
-            theme,
         });
     }
 
