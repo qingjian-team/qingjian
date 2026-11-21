@@ -34,19 +34,6 @@ impl Engine {
             && self.aux_scope_ready()
     }
 
-    /// 按住 Ctrl 敲触发键：双拼 / 注音里 `;` 是韵母键（`x;` 就是 xing），不按住 Ctrl 进不了辅码态。
-    ///
-    /// 与 [`aux_trigger`](Self::aux_trigger) 只差一条：不看这个键有没有被键盘方案吃掉。
-    pub fn aux_trigger_with_ctrl(&self, key: char) -> bool {
-        self.aux_enabled
-            && !self.aux_codes.is_empty()
-            && key == self.aux_code_key
-            && self.aux_code.is_none()
-            && !self.english_mode
-            && self.composition.cursor() >= self.composition.text().len()
-            && self.aux_scope_ready()
-    }
-
     /// 进辅码态：码段清空（候选先不过滤），preedit 多出触发键那一段。
     /// 触发键不进缓冲区，壳在 `;` 特判旁调这里。
     pub fn enter_aux(&mut self) {
