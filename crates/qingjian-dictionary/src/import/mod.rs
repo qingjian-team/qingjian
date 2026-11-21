@@ -130,8 +130,14 @@ pub fn import(source: &Path, dest_dir: &Path) -> Result<Imported, DictionaryErro
 /// `.qjz` 先解到系统临时目录，再按 `.qj` 导入；解出来不是拼音词库（释义表等）就拒绝。
 /// 不直接解进词库目录：输入法会扫那里的 `.qj`，半成品不能让它看见。
 fn import_qjz(source: &Path, stem: &str, target: PathBuf) -> Result<Imported, DictionaryError> {
-    let unpacked =
-        std::env::temp_dir().join(format!("qingjian-import-{}-{stem}.qj", std::process::id()));
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|duration| duration.as_nanos())
+        .unwrap_or_default();
+    let unpacked = std::env::temp_dir().join(format!(
+        "qingjian-import-{}-{nanos}-{stem}.qj",
+        std::process::id()
+    ));
     let result = qjz::unpack(source, &unpacked, Kind::Dictionary)
         .map_err(DictionaryError::from)
         .and_then(|_| {

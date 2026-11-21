@@ -4,7 +4,7 @@
 //! 白占几十 MB 常驻内存，mmap 按需换页的好处也没了。
 //! 压缩算法按文件开头的魔数认，现在只有 gzip；以后换 zstd / xz 时扩展名不变，旧文件照样能装。
 
-use std::fs::File;
+use std::fs::{File, OpenOptions};
 use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::Path;
 
@@ -60,7 +60,10 @@ pub fn unpack(source: &Path, target: &Path, expected: Kind) -> Result<Metadata, 
 
 fn unpack_to(source: &Path, part: &Path, expected: Kind) -> Result<Metadata, FormatError> {
     let decoder = GzDecoder::new(BufReader::new(File::open(source)?));
-    let mut output = BufWriter::new(File::create(part)?);
+    // 先清掉上次崩溃留下的 `.part`，再 `create_new`：路径被换成符号链接时不会跟进去写别人的文件。
+    let _ = std::fs::remove_file(part);
+    let output = OpenOptions::new().write(true).create_new(true).open(part)?;
+    let mut output = BufWriter::new(output);
     let written = std::io::copy(&mut decoder.take(MAX_UNPACKED + 1), &mut output)?;
     output.flush()?;
     drop(output);

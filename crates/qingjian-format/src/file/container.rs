@@ -70,8 +70,14 @@ impl Container {
             });
         }
         let count = header.section_count as usize;
+        let table_len = count
+            .checked_mul(SectionEntry::SIZE)
+            .ok_or(FormatError::Truncated)?;
+        let table_end = Header::SIZE
+            .checked_add(table_len)
+            .ok_or(FormatError::Truncated)?;
         let table_bytes = map
-            .get(Header::SIZE..Header::SIZE + count * SectionEntry::SIZE)
+            .get(Header::SIZE..table_end)
             .ok_or(FormatError::Truncated)?;
         let entries =
             <[SectionEntry]>::ref_from_bytes(table_bytes).map_err(|_| FormatError::Truncated)?;
@@ -209,6 +215,23 @@ mod tests {
         assert!(matches!(
             Container::open(&garbage.0, Kind::Dictionary),
             Err(FormatError::BadMagic)
+        ));
+    }
+
+    #[test]
+    fn rejects_huge_section_count_without_overflow() {
+        // section_count = u32::MAX：32 位目标上 `count * 24` 会溢出，必须按 Truncated 拒绝而不是 panic。
+        let path = tempfile_path::TempPath::new("huge-count");
+        let mut header = Vec::new();
+        header.extend_from_slice(&MAGIC);
+        header.extend_from_slice(&FORMAT_VERSION.to_ne_bytes());
+        header.extend_from_slice(&Kind::Dictionary.code().to_ne_bytes());
+        header.extend_from_slice(&u32::MAX.to_ne_bytes());
+        header.extend_from_slice(&[0_u8; 16]);
+        std::fs::write(&path.0, &header).unwrap();
+        assert!(matches!(
+            Container::open(&path.0, Kind::Dictionary),
+            Err(FormatError::Truncated)
         ));
     }
 

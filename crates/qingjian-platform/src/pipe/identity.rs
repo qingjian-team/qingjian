@@ -100,11 +100,12 @@ fn server_image(pipe: HANDLE) -> Option<PathBuf> {
     )))
 }
 
-/// 同一个文件：能解析就比解析后的路径，否则不分大小写比字面。
+/// 同一个文件：两边都解析得出真实路径才比较；解析不出就不认。
+/// 以前解析失败时按字面小写比较，`C:\a\qingjian-server.exe` 与 `C:\b\qingjian-server.exe` 会被当成同一个。
 fn same_file(a: &Path, b: &Path) -> bool {
     match (std::fs::canonicalize(a), std::fs::canonicalize(b)) {
         (Ok(a), Ok(b)) => a == b,
-        _ => a.to_string_lossy().to_lowercase() == b.to_string_lossy().to_lowercase(),
+        _ => false,
     }
 }
 
@@ -127,4 +128,37 @@ fn current_is_app_container() -> bool {
     };
     let _ = unsafe { CloseHandle(token) };
     queried.is_ok() && value != 0
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn temp_dir(name: &str) -> PathBuf {
+        let dir = std::env::temp_dir()
+            .join("qingjian-pipe-identity-tests")
+            .join(name);
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    #[test]
+    fn same_file_requires_both_paths_to_resolve() {
+        let dir = temp_dir("same-file");
+        let a = dir.join("qingjian-server.exe");
+        let b = dir.join("qingjian-server.exe");
+        std::fs::write(&a, b"").unwrap();
+        assert!(same_file(&a, &b));
+
+        let other = temp_dir("same-file-other").join("qingjian-server.exe");
+        std::fs::write(&other, b"").unwrap();
+        // 同名但不同路径：不能因为字面（小写）相同就认。
+        assert!(!same_file(&a, &other));
+
+        // 不存在的路径不认。
+        assert!(!same_file(&a, &dir.join("missing.exe")));
+        let _ = std::fs::remove_dir_all(dir);
+        let _ = std::fs::remove_dir_all(other.parent().unwrap());
+    }
 }
