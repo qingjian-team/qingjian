@@ -116,6 +116,11 @@
     "effects": [{ "type": "drop-shadow", "y": 2, "blur": 0, "color": "@shadow" }]
   },
 
+  "panel": {
+    "radius": 0,
+    "cell_radius": 0
+  },
+
   "keyboard": {
     "radius": 0,
     "key_radius": 0,

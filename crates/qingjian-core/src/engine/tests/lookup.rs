@@ -377,13 +377,29 @@ fn trailing_initial_sentence_yields_to_a_word_covering_the_whole_input() {
 }
 
 #[test]
-fn shortcuts_follow_the_first_local_candidate() {
-    let all = texts("rq");
-    let shortcut = all.iter().position(|t| t.ends_with('日')).unwrap();
-    assert!(shortcut <= 1);
-    assert!(all.iter().any(|t| t.contains('-')));
+fn standalone_calendar_shortcuts_precede_dictionary_words() {
+    let mut engine =
+        Engine::new(Dictionary::parse("世纪\tshi ji\t1000\n日期\tri qi\t1000\n").unwrap());
+    for (input, minimum) in [("rq", 17), ("sj", 18), ("jq", 24), ("xq", 3), ("jr", 23)] {
+        engine.set_input(input);
+        let items = engine.query().unwrap().candidates.items;
+        assert!(
+            items
+                .iter()
+                .take_while(|c| c.kind == CandidateKind::Shortcut)
+                .count()
+                >= minimum,
+            "{input}"
+        );
+    }
+    engine.set_input("sji");
+    assert_eq!(engine.query().unwrap().candidates.items[0].text, "世纪");
+    engine.set_input("sj'");
+    assert_eq!(
+        engine.query().unwrap().candidates.items[0].kind,
+        CandidateKind::Shortcut
+    );
 
-    let mut engine = engine();
     engine.set_input("xq");
     let query = engine.query().unwrap();
     let weekday = query

@@ -117,7 +117,7 @@ All of these require AI services to be turned on first; see [AI services](../clo
 
 | Input | Result |
 |---|---|
-| `rq` / `sj` / `xq` | Date / time / day of the week |
+| `rq` / `sj` / `xq` / `jq` / `jr` | Date / time / weekday / solar terms / festivals |
 | `v` + expression, number or date | Calculation result, Chinese numerals and amounts, Chinese date |
 | `u` + hexadecimal | The character with that code point |
 | `u` + pinyin | Ask about a character (requires AI services) |

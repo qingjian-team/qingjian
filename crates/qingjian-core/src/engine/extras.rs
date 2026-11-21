@@ -93,8 +93,20 @@ impl Engine {
         phrases
     }
 
-    /// 日期 / 时间 / 星期这类快捷候选插在本地首选之后：`rq` 首选仍是词库里的词，快捷写法紧随其后。
+    /// 独立的日历缩写优先展示整组格式，其余快捷候选跟在本地首选之后。
+    ///
+    /// 整组前置只管全拼：双拼、注音、形码里 `sj` 这类是两个键的编码（自然码的 `sj` 出「三」），
+    /// 把日期时间整组压在前面会把这些词挤走，那几种方案仍旧只垫三条。
     pub(super) fn insert_shortcuts(&self, items: &mut Vec<Candidate>, scope: &str) {
+        let now = jiff::Zoned::now();
+        let phonetic_only = self.shuangpin.is_none() && !self.zhuyin && self.code.is_none();
+        if phonetic_only
+            && self.composition.rest().is_empty()
+            && let Some(forms) = shortcut::calendar_forms(scope, &now)
+        {
+            items.splice(..0, shortcut::as_candidates(forms));
+            return;
+        }
         let expression_char =
             if self.zhuyin && crate::zhuyin::layout::map_key(self.modes().expression).is_some() {
                 '\0'
@@ -102,12 +114,10 @@ impl Engine {
                 self.modes().expression
             };
         self.insert_interjection(items, scope);
-        let shortcuts = shortcut::candidates(scope, expression_char, &jiff::Zoned::now());
+        let shortcuts = shortcut::candidates(scope, expression_char, &now);
         if shortcuts.is_empty() {
             return;
         }
-        // 前几条紧跟第一个词，其余垫到最后：写法一多（`sj` 有十五条）会把简拼原来
-        // 第一页的词整片推走——`sj` 打的是 世纪，不该翻到第二页才找得到。
         let inline = shortcuts.len().min(INLINE_SHORTCUTS);
         let (head, tail) = shortcuts.split_at(inline);
         let position = items.len().min(1);
