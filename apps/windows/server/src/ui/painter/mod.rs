@@ -149,7 +149,7 @@ impl Painter {
                 scale = rendered.scale,
                 "候选窗色块"
             );
-            stamp_swatch(&mut rendered, color);
+            stamp_swatch(&mut rendered, color, self.theme.panel_radius());
         }
         Some(rendered)
     }
@@ -168,7 +168,7 @@ impl Painter {
             .ok()
             .flatten()?;
         if let Some(color) = self.swatch {
-            stamp_swatch(&mut rendered, color);
+            stamp_swatch(&mut rendered, color, self.theme.panel_radius());
         }
         Some(rendered)
     }
@@ -224,12 +224,12 @@ fn scale(dpi: u32) -> f32 {
 ///
 /// 画在位图上而不是交给渲染器：色块是「这一帧的附加信息」，进不了主题模板，也不该为它改
 /// 帧数据的结构（那张结构有一百多处字面量）。位图是预乘 RGBA，这里按不透明度预乘后写进去。
-fn stamp_swatch(rendered: &mut Rendered, color: [u8; 4]) {
+fn stamp_swatch(rendered: &mut Rendered, color: [u8; 4], corner: f32) {
     let scale = rendered.scale.max(0.5);
-    // 圆点：半径拉满，直径 14 点
     let diameter = (14.0 * scale).round().max(8.0) as u32;
     let margin = (7.0 * scale).round().max(3.0) as u32;
-    let radius = diameter as f32 / 2.0;
+    // 形状跟随主题：墨岩的 `panel.radius` 是 0，画方块；圆角够大就是圆点
+    let radius = (corner * scale).clamp(0.0, diameter as f32 / 2.0);
     let [r, g, b, a] = color;
     let alpha = f32::from(a) / 255.0;
     let fill = [
@@ -254,22 +254,40 @@ fn stamp_swatch(rendered: &mut Rendered, color: [u8; 4]) {
         .saturating_add(rendered.content_width)
         .saturating_sub(diameter + margin);
     let top = rendered.content_y.saturating_add(margin);
-    let center = radius - 0.5;
+    let size = diameter as f32;
     let data = rendered.pixmap.data_mut();
     for y in top..(top + diameter).min(height) {
         for x in left..(left + diameter).min(width) {
-            let dx = (x - left) as f32 - center;
-            let dy = (y - top) as f32 - center;
-            let distance = (dx * dx + dy * dy).sqrt();
-            if distance > radius {
+            let px = (x - left) as f32 + 0.5;
+            let py = (y - top) as f32 + 0.5;
+            if !covered(px, py, size, radius) {
                 continue;
             }
-            // 最外一圈描边，里面填色
-            let pixel = if distance > radius - 1.0 { edge } else { fill };
+            // 往里缩一个像素还在形状里，就是内部；否则是描边那一圈
+            let pixel = if covered(px - 1.0, py - 1.0, size - 2.0, (radius - 1.0).max(0.0)) {
+                fill
+            } else {
+                edge
+            };
             let offset = y as usize * stride + x as usize * 4;
             if let Some(slot) = data.get_mut(offset..offset + 4) {
                 slot.copy_from_slice(&pixel);
             }
         }
     }
+}
+
+/// 圆角矩形：点落在 `size × size`、四角半径 `radius` 的范围内。
+fn covered(x: f32, y: f32, size: f32, radius: f32) -> bool {
+    if size <= 0.0 || x < 0.0 || y < 0.0 || x > size || y > size {
+        return false;
+    }
+    if radius <= 0.0 {
+        return true;
+    }
+    let cx = x.clamp(radius, size - radius);
+    let cy = y.clamp(radius, size - radius);
+    let dx = x - cx;
+    let dy = y - cy;
+    dx * dx + dy * dy <= radius * radius
 }
