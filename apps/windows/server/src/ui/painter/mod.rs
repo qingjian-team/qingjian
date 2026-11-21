@@ -226,8 +226,10 @@ fn scale(dpi: u32) -> f32 {
 /// 帧数据的结构（那张结构有一百多处字面量）。位图是预乘 RGBA，这里按不透明度预乘后写进去。
 fn stamp_swatch(rendered: &mut Rendered, color: [u8; 4]) {
     let scale = rendered.scale.max(0.5);
-    let side = (14.0 * scale).round().max(8.0) as u32;
+    // 圆点：半径拉满，直径 14 点
+    let diameter = (14.0 * scale).round().max(8.0) as u32;
     let margin = (7.0 * scale).round().max(3.0) as u32;
+    let radius = diameter as f32 / 2.0;
     let [r, g, b, a] = color;
     let alpha = f32::from(a) / 255.0;
     let fill = [
@@ -236,8 +238,8 @@ fn stamp_swatch(rendered: &mut Rendered, color: [u8; 4]) {
         (f32::from(b) * alpha).round() as u8,
         a,
     ];
-    // 方块的边：颜色亮就描深边、深就描亮边。深色主题下的深色块（`#123654`）
-    // 少了这一圈就跟背景糊在一起，用户会以为没画。
+    // 边：颜色亮就描深边、深就描亮边。深色主题下的深色块（`#123654`）少了这一圈
+    // 就跟背景糊在一起，用户会以为没画。
     let luminance = 0.2126 * f32::from(r) + 0.7152 * f32::from(g) + 0.0722 * f32::from(b);
     let edge = if luminance > 140.0 {
         [0, 0, 0, 96]
@@ -250,13 +252,20 @@ fn stamp_swatch(rendered: &mut Rendered, color: [u8; 4]) {
     let left = rendered
         .content_x
         .saturating_add(rendered.content_width)
-        .saturating_sub(side + margin);
+        .saturating_sub(diameter + margin);
     let top = rendered.content_y.saturating_add(margin);
+    let center = radius - 0.5;
     let data = rendered.pixmap.data_mut();
-    for y in top..(top + side).min(height) {
-        for x in left..(left + side).min(width) {
-            let on_edge = y == top || y + 1 == top + side || x == left || x + 1 == left + side;
-            let pixel = if on_edge { edge } else { fill };
+    for y in top..(top + diameter).min(height) {
+        for x in left..(left + diameter).min(width) {
+            let dx = (x - left) as f32 - center;
+            let dy = (y - top) as f32 - center;
+            let distance = (dx * dx + dy * dy).sqrt();
+            if distance > radius {
+                continue;
+            }
+            // 最外一圈描边，里面填色
+            let pixel = if distance > radius - 1.0 { edge } else { fill };
             let offset = y as usize * stride + x as usize * 4;
             if let Some(slot) = data.get_mut(offset..offset + 4) {
                 slot.copy_from_slice(&pixel);
