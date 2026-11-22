@@ -266,12 +266,7 @@ fn held_words_go_back_before_pinned_syllables() {
     // 选定音节不把留着的词清掉
     assert!(engine.pin_nine_key("fa"));
     assert_eq!(engine.held_text(), "开");
-    // 退格先退选定的音节与键，组成空了才撤回留着的词
-    engine.backspace(false);
-    assert_eq!(engine.held_text(), "开");
-    while !engine.composition().is_empty() {
-        engine.backspace(false);
-    }
+    // 光标在末尾：退格撤回留着的词，它的拼音接回组句
     assert!(engine.backspace(false).consumed());
     assert!(engine.held_text().is_empty());
 }

@@ -216,47 +216,17 @@ fn partial_selection_stays_in_the_composition() {
 }
 
 #[test]
-fn backspace_deletes_letters_before_undoing_the_selection() {
+fn backspace_undoes_the_selection_at_the_end_of_the_pinyin() {
     let mut session = session();
     type_keys(&mut session, "nihaokaif");
     let frame = session.push('a');
     let frame = select_text(&mut session, &frame, "你好");
     assert!(frame.preedit.starts_with("你好"));
-    let before = frame.preedit.chars().count();
-    // 还有没上屏的字母：退格先删字母，刚选的「你好」留着
-    let mut frame = session.backspace(false);
-    assert!(
-        frame.preedit.contains("你好"),
-        "先删字母才对：{}",
-        frame.preedit
-    );
-    assert!(
-        frame.preedit.chars().count() < before,
-        "字母该少一个：{}",
-        frame.preedit
-    );
-    // 字母删空了，再一记退格才撤回刚选的词（字母整段回到组句里）
-    for _ in 0..12 {
-        if frame.preedit.is_empty() {
-            break;
-        }
-        frame = session.backspace(false);
-    }
-    assert!(
-        frame.preedit.is_empty(),
-        "字母一路删空，preedit 就空了：{:?}",
-        frame.preedit
-    );
-    // 再一记退格才撤回刚选的词：那次选择的拼音回到组句里
+    // 光标在末尾：退格撤回这次选择，拼音接回开头（`你hao|` → `nihao|`）
     let frame = session.backspace(false);
-    assert!(!frame.preedit.contains("你好"));
-    assert!(frame.preedit.starts_with("ni"), "{}", frame.preedit);
-    assert!(
-        frame.candidates.iter().any(|c| c.text == "你好"),
-        "撤回后候选回到那次选择之前：{:?}",
-        frame.candidates.iter().map(|c| &c.text).collect::<Vec<_>>()
-    );
-    assert_eq!(session.commit_raw().commit, "nihao");
+    assert!(frame.preedit.starts_with("ni"), "{:?}", frame.preedit);
+    assert!(!frame.preedit.contains("你好"), "{:?}", frame.preedit);
+    assert_eq!(frame.commit, "", "撤回不上屏");
 }
 
 #[test]
