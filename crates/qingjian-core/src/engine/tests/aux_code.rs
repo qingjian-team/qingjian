@@ -511,3 +511,34 @@ fn a_code_that_matches_nothing_is_read_as_a_hint() {
     );
     // 样例词库里没有含「辅」的词，这一列本来就是空的；这里只验码段进了辅码态
 }
+
+/// 辅码态里把光标挪到拼音中间再退格：删的是光标前那个字母，码段原样留着。
+///
+/// 敲错的是前面某个字母时，谁也不想为了改它先退出辅码态、重打一遍码。
+#[test]
+fn backspace_at_the_caret_edits_the_letter_not_the_code() {
+    let mut engine = aux_engine();
+    engine.set_input("kaifa");
+    engine.enter_aux();
+    engine.push_aux_code('k');
+    engine.push_aux_code('f');
+    // 方向键把光标挪到 f 之前（辅码态里点拼音行不挪光标，见 `caret.rs`）
+    assert!(engine.move_cursor_left());
+    assert!(engine.move_cursor_left());
+    assert!(engine.backspace(false).consumed());
+    // 码段一个字都没少，删的是光标前那个 i
+    assert!(engine.in_aux());
+    assert_eq!(engine.aux_code(), "kf");
+    assert_eq!(engine.composition().text(), "kafa");
+    // 光标前还有字母就继续删字母（a、k），删光了停在行首
+    assert!(engine.backspace(false).consumed());
+    assert!(engine.backspace(false).consumed());
+    assert_eq!(engine.composition().text(), "fa");
+    // 光标在行首、前面没有字母：这一记退格不吃键，码段也不动
+    assert!(!engine.backspace(false).consumed());
+    assert_eq!(engine.aux_code(), "kf");
+    // 光标回到末尾，退格才开始删码段
+    engine.move_cursor_end();
+    assert!(engine.backspace(false).consumed());
+    assert_eq!(engine.aux_code(), "k");
+}
