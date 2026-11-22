@@ -11,6 +11,9 @@ pub enum GlossError {
     #[error("api error: {0}")]
     Api(#[from] async_openai::error::OpenAIError),
 
+    #[error("dictionary error: {0}")]
+    Dictionary(#[from] qingjian_dictionary::DictionaryError),
+
     #[error("request timed out after {0} s")]
     Timeout(u64),
 

@@ -10,7 +10,7 @@ use std::sync::Mutex;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 
-use crate::entry::{EnglishGlossEntry, GlossEntry, PinyinEntry};
+use crate::entry::{EnglishGlossEntry, GlossEntry, PinyinEntry, TopicVocab};
 use crate::error::GlossError;
 
 /// JSONL 里的一行：按词去重续跑。
@@ -34,6 +34,12 @@ impl Keyed for PinyinEntry {
 impl Keyed for EnglishGlossEntry {
     fn key(&self) -> &str {
         &self.word
+    }
+}
+
+impl Keyed for TopicVocab {
+    fn key(&self) -> &str {
+        &self.topic
     }
 }
 
@@ -231,6 +237,88 @@ fn write_if_non_empty(
     out.write_all(body)?;
     out.flush()?;
     Ok(())
+}
+
+/// 词表 JSONL 展开成词库 TSV（`词\t拼音\t词频`）：同词取最大词频，按词频降序；
+/// `existing` 里已有的词不要（补词库缺的词才是目的）。
+pub fn export_vocab(
+    inputs: &[std::path::PathBuf],
+    out_dir: &Path,
+    name: &str,
+    existing: &[std::path::PathBuf],
+    min_count: u32,
+) -> Result<(), GlossError> {
+    let known = existing_words(existing)?;
+    let mut best: BTreeMap<String, crate::entry::VocabWord> = BTreeMap::new();
+    for input in inputs {
+        for entry in read_entries::<TopicVocab>(input)? {
+            for word in entry.words {
+                if word.count < min_count || known.contains(&word.word) {
+                    continue;
+                }
+                match best.get_mut(&word.word) {
+                    Some(kept) if kept.count >= word.count => {}
+                    Some(kept) => *kept = word,
+                    None => {
+                        best.insert(word.word.clone(), word);
+                    }
+                }
+            }
+        }
+    }
+    std::fs::create_dir_all(out_dir)?;
+    let path = out_dir.join(format!("{name}.tsv"));
+    let mut rows: Vec<(String, String, u32)> = best
+        .into_iter()
+        .map(|(word, entry)| (word, entry.key(), entry.count))
+        .collect();
+    rows.sort_by(|a, b| b.2.cmp(&a.2).then_with(|| a.0.cmp(&b.0)));
+    let mut out = BufWriter::new(File::create(&path)?);
+    writeln!(
+        out,
+        "# 由 qingjian-gloss-gen vocab 生成（LLM 按主题找的词）：词\t拼音（音节空格分隔、不带声调）\t词频"
+    )?;
+    for (word, key, count) in &rows {
+        writeln!(out, "{word}\t{key}\t{count}")?;
+    }
+    out.flush()?;
+    tracing::info!(
+        words = rows.len(),
+        filtered = known.len(),
+        out = %path.display(),
+        "词表导出完成（再用 dict-convert pack dict 打成 .qj）"
+    );
+    Ok(())
+}
+
+/// 已有词库里的词：`.qj` 直接读容器，TSV 取第一列（`#` 开头的注释行跳过）。
+///
+/// 认 `.qj` 是为了对着装机的那份词库去重 —— 补缺词正是这个子命令的用处。
+fn existing_words(paths: &[std::path::PathBuf]) -> Result<HashSet<String>, GlossError> {
+    let mut words = HashSet::new();
+    for path in paths {
+        if path
+            .extension()
+            .is_some_and(|ext| ext.eq_ignore_ascii_case("qj"))
+        {
+            let dictionary = qingjian_dictionary::Dictionary::from_path(path)?;
+            words.extend(dictionary.entries().map(|entry| entry.text.to_owned()));
+            continue;
+        }
+        let source = std::fs::read_to_string(path)?;
+        for line in source.lines() {
+            let line = line.trim_start_matches('\u{feff}');
+            if line.is_empty() || line.starts_with('#') {
+                continue;
+            }
+            if let Some(word) = line.split('\t').next()
+                && !word.is_empty()
+            {
+                words.insert(word.to_owned());
+            }
+        }
+    }
+    Ok(words)
 }
 
 /// 英→中释义导出成 `glossary-zh.tsv`：`词\t词性. 释义\t…`，键是小写（英文候选按敲的大小写显示，查表时统一小写）。

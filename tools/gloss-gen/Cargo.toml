@@ -12,6 +12,7 @@ async-openai = { workspace = true, features = ["native-tls"] }
 clap.workspace = true
 dotenvy.workspace = true
 qingjian-core.workspace = true
+qingjian-dictionary.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true

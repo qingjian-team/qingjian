@@ -25,6 +25,9 @@ pub enum Command {
 
     /// 把英→中 JSONL 导出成 glossary-zh.tsv
     ExportEnglish(ExportEnglishArgs),
+
+    /// 把词表 JSONL 展开成词库 TSV（`词\t拼音\t词频`）并按已有词库去重，再 `dict-convert pack dict` 打成 `.qj`
+    ExportVocab(ExportVocabArgs),
 }
 
 #[derive(Debug, clap::Args)]
@@ -125,6 +128,31 @@ pub struct PinyinArgs {
     /// 单个请求的超时秒数
     #[arg(long, default_value_t = 180)]
     pub timeout_secs: u64,
+}
+
+#[derive(Debug, clap::Args)]
+pub struct ExportVocabArgs {
+    /// 词表 JSONL（`{"topic":…,"words":[{"word","pinyin","count"}]}`，可给几个，一起并进一份词表）；
+    /// `tools/corpus/` 下那两个取数脚本就是这么写的
+    #[arg(long, num_args = 1.., default_value = "data/generated/vocab-llm.jsonl")]
+    pub input: Vec<PathBuf>,
+
+    /// 输出目录，写 `<name>.tsv`
+    #[arg(long, default_value = "data/generated")]
+    pub out_dir: PathBuf,
+
+    /// 输出文件名主干（`<name>.tsv`）
+    #[arg(long, default_value = "vocab")]
+    pub name: String,
+
+    /// 已经有这些词的词库（`.qj` 或 TSV，取词）：词库里有的不再收。装机那份在
+    /// `C:\Program Files\Qingjian\data\generated\dict.qj`
+    #[arg(long, num_args = 0..)]
+    pub existing: Vec<PathBuf>,
+
+    /// 词频低于这个值的词不收
+    #[arg(long, default_value_t = 1)]
+    pub min_count: u32,
 }
 
 #[derive(Debug, clap::Args)]

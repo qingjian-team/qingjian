@@ -3961,6 +3961,7 @@ dependencies = [
  "clap",
  "dotenvy",
  "qingjian-core",
+ "qingjian-dictionary",
  "serde",
  "serde_json",
  "thiserror 2.0.21",

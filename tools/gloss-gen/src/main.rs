@@ -3,7 +3,9 @@
 //! `generate` 从一元词频表挑词、分批问模型，结果逐行追加到 JSONL（中断了再跑会跳过已完成的词）；
 //! `export` 把 JSONL 转成输入法加载的 `glossary-en.tsv` / `glossary-ja.tsv` / `glossary-vi.tsv`；
 //! `pinyin` 给词表里的词标拼音（建词库时含多音字的词靠它定读音），结果 `pinyin-llm.jsonl`；
-//! `english` / `export-english` 给英文词写中文释义，导出 `glossary-zh.tsv`（英文候选右侧显示）。
+//! `english` / `export-english` 给英文词写中文释义，导出 `glossary-zh.tsv`（英文候选右侧显示）；
+//! `export-vocab` 把词表 JSONL 展开成词库 TSV（`词\t拼音\t词频`）并按已有 `.qj` / TSV 词库去重，
+//! 供 `dict-convert pack dict` 打 `.qj`；词表本身由 `tools/corpus/` 下那两个取数脚本从开源数据整理。
 //! 密钥来自 `--api-key` 或环境变量 `QINGJIAN_API_KEY`（也读当前目录的 `.env`）。
 
 mod args;
@@ -62,5 +64,12 @@ fn run() -> Result<(), GlossError> {
                 .build()?;
             runtime.block_on(pinyin::run(pinyin))
         }
+        Command::ExportVocab(export) => store::export_vocab(
+            &export.input,
+            &export.out_dir,
+            &export.name,
+            &export.existing,
+            export.min_count,
+        ),
     }
 }
