@@ -1,10 +1,10 @@
 """从四家开源模型的 tokenizer 词表里取出中文词，合并成青简词库 TSV。
 
-四家（都开源、都不需要 API key）：
-- DeepSeek-V3  `tokenizer.json`（HF `deepseek-ai/DeepSeek-V3`）
-- GLM-4.5      `tokenizer.json`（HF `zai-org/GLM-4.5`）
-- Kimi-K2      `tiktoken.model`（HF `moonshotai/Kimi-K2-Instruct`，每行一个 token 的 base64）
-- Qwen2.5      `tokenizer.json`（HF `Qwen/Qwen2.5-7B-Instruct`）
+四家当前的最新型号（都开源、都不需要 API key）：
+- DeepSeek-V4.1-Flash-1017  `tokenizer.json`（HF `deepseek-ai/DeepSeek-V4.1-Flash-1017`，MIT）
+- GLM-5.3                  `tokenizer.json`（HF `zai-org/GLM-5.3`）
+- Kimi-K3                  `tiktoken.model`（HF `moonshotai/Kimi-K3`，每行一个 token 的 base64）
+- Qwen3.8-Flash-Next       `vocab.json`（HF `Qwen/Qwen3.8-Flash-Next`；这份是原文词表，不是 byte-level）
 
 这些词表是 BPE：中文 token 在 `tokenizer.json` 里是 **byte-level 编码**（`你好` 显示成 `ä½ å¥½`），
 要按 GPT-2 那份 bytes↔unicode 映射反解回字节再按 UTF-8 解码，才拿得到汉字。
@@ -35,11 +35,14 @@ HAN = re.compile(r"^[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff]+$")
 
 # 四家的来源文件（顺序决定 `--sources` 省略时的缺省）
 SOURCES = {
-    "deepseek": "deepseek.json",
-    "glm": "glm.json",
-    "kimi": "kimi-tiktoken.model",
-    "qwen": "qwen.json",
+    "deepseek": "deepseek-v4.1-flash.json",
+    "glm": "glm-5.3.json",
+    "kimi": "kimi-k3.model",
+    "qwen": "qwen3.8.json",
 }
+
+# `tokenizer.json` 里的 token 是 GPT-2 byte-level 编码；直接给的 `vocab.json` 是原文（Qwen 那份）。
+BYTE_LEVEL = {"deepseek", "glm", "qwen"}
 
 TONE_MARKS = {
     "ā": "a", "á": "a", "ǎ": "a", "à": "a",
@@ -91,16 +94,27 @@ def decode_byte_level(token: str, decoder: dict[str, int]) -> bytes | None:
     return bytes(out)
 
 
-def tokens_of_json(path: Path, decoder: dict[str, int]) -> set[str]:
-    """`tokenizer.json`：`model.vocab` 的键是 byte-level 编码的 token。"""
+def tokens_of_json(path: Path, decoder: dict[str, int], byte_level: bool) -> set[str]:
+    """词表的键：`tokenizer.json` 里是 byte-level 编码的 token，`vocab.json` 里是原文。"""
     data = json.loads(path.read_text(encoding="utf-8"))
-    vocab = data.get("model", {}).get("vocab") or {}
+    # tokenizer.json 在 model.vocab 下；vocab.json 本身就是 {token: id}（里面也可能有条目叫 "model"，
+    # 所以得看值是不是 dict，不能只看键在不在）
+    inner = data.get("model")
+    vocab = inner.get("vocab") if isinstance(inner, dict) else None
+    if not isinstance(vocab, dict):
+        vocab = data
+    if not isinstance(vocab, dict):
+        return set()
     words: set[str] = set()
     for token in vocab:
-        raw = decode_byte_level(token, decoder)
-        if raw is None:
-            continue
-        text = raw.decode("utf-8", errors="ignore")
+        if byte_level:
+            raw = decode_byte_level(token, decoder)
+            if raw is None:
+                continue
+            text = raw.decode("utf-8", errors="ignore")
+        else:
+            # 原文里的空格标记与换行标记去掉（`Ġ你`、`Ċ`），只留汉字
+            text = token.replace("Ġ", " ").replace("Ċ", "\n").strip()
         if HAN.match(text):
             words.add(text)
     return words
@@ -191,7 +205,7 @@ def main() -> None:
         if filename.endswith(".model"):
             words = tokens_of_tiktoken(path)
         else:
-            words = tokens_of_json(path, decoder)
+            words = tokens_of_json(path, decoder, name in BYTE_LEVEL)
         per_family[name] = {w for w in words if 1 <= len(w) <= args.max_chars}
         print(f"{name:9} 中文 token {len(per_family[name]):6}")
 
