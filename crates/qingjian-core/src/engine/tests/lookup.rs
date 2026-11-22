@@ -756,6 +756,7 @@ fn abbreviation_reading_c_h_as_two_initials_commits_every_key() {
 /// 少了这条，`aquan` 只能切出 `a` + `quan`（啊全），切不出 `an` + `quan`（安全）。
 #[test]
 fn zero_initial_single_key_stands_for_a_syllable() {
+    let _abbreviation = Abbreviation::on();
     // 词频按真实相对关系写：「安全」远高于「啊全」，所以它该是首选
     let dictionary = concat!(
         "安全\tan quan\t9000\n",
@@ -811,6 +812,7 @@ fn zero_initial_single_key_stands_for_a_syllable() {
 /// `xia` 的 `a` 就是「啊」，不该额外产 `xi` + `a(an)` = `xian` 把「先 / 想」挤出首位。
 #[test]
 fn trailing_single_letter_is_not_expanded() {
+    let _abbreviation = Abbreviation::on();
     let dictionary = concat!(
         "下\txia\t9000\n",
         "先\txian\t8000\n",
@@ -830,6 +832,7 @@ fn trailing_single_letter_is_not_expanded() {
 /// 注音同理（键位完全另一套）。
 #[test]
 fn zero_initial_abbreviation_does_not_touch_shuangpin_or_zhuyin() {
+    let _abbreviation = Abbreviation::on();
     // 小鹤双拼：`an` 的键是 `j`，`quan` 是 `qm`。`aj` 是 a + an 两键，合法。
     // 全拼的零声母简拼会给 `a` 加上 implied（ai / an / ang / ao），双拼下不该有。
     let mut xiaohe = xiaohe();
@@ -866,6 +869,7 @@ fn zero_initial_abbreviation_does_not_touch_shuangpin_or_zhuyin() {
 /// 全拼下才会产生 implied —— 与上一条对照。
 #[test]
 fn zero_initial_abbreviation_applies_to_full_pinyin_only() {
+    let _abbreviation = Abbreviation::on();
     let mut engine = engine();
     engine.set_input("aquan");
     let query = engine.query().unwrap();
@@ -885,6 +889,7 @@ fn zero_initial_abbreviation_applies_to_full_pinyin_only() {
 /// 挤成了「仍恩面具」。现在简写切分排在同长度的完整切分后面。
 #[test]
 fn a_full_pinyin_segmentation_outranks_an_equal_length_abbreviation() {
+    let _abbreviation = Abbreviation::on();
     let dictionary = concat!(
         "人格面具\treng e mian ju\t9000\n",
         "仍恩面具\treng en mian ju\t1000\n",
@@ -899,6 +904,7 @@ fn a_full_pinyin_segmentation_outranks_an_equal_length_abbreviation() {
 /// `aquan` 里 `a` 后面是 `q`，完整音节走不通，才落到简写那条路。
 #[test]
 fn a_letter_that_is_already_that_syllable_is_not_treated_as_an_abbreviation() {
+    let _abbreviation = Abbreviation::on();
     let dictionary = concat!("啊\ta\t2000\n", "安\tan\t6000\n", "全\tquan\t5000\n",);
     // `a` 就是 `a` 这个音节，不该被标成 implied
     let mut engine = Engine::new(Dictionary::parse(dictionary).unwrap());
@@ -914,5 +920,47 @@ fn a_letter_that_is_already_that_syllable_is_not_treated_as_an_abbreviation() {
         plain_a,
         "aquan 该有一条把 a 当 a 本身的切分：{:?}",
         query.segmentations
+    );
+}
+
+/// 开关缺省关：没打开时 `aquan` 与不带这个功能时完全一样（啊全，不是安全）。
+#[test]
+fn zero_initial_abbreviation_is_off_by_default() {
+    let dictionary = concat!("安全\tan quan\t9000\n", "啊全\ta quan\t300\n");
+    let words = texts_in(dictionary, "aquan");
+    assert_eq!(words[0], "啊全", "缺省关时按原样切：{words:?}");
+    assert!(!words.contains(&"安全".to_owned()), "{words:?}");
+}
+
+/// 用户自己用隔音符封出来的那一段也能当零声母简写：`e'liao` 的 `e` 是 `er`（饵料）。
+///
+/// 这时不给整句候选 —— 简写本来就是「要一个词」，用 `e` 拼整句净出「嗯聊」这类东西，
+/// 还会把 饵料 挤到第二。
+#[test]
+fn a_separated_single_letter_is_read_as_its_zero_initial_syllable() {
+    let _abbreviation = Abbreviation::on();
+    let dictionary = concat!(
+        "饵料\ter liao\t6000\n",
+        "饿殍\te piao\t500\n",
+        "嗯\ten\t8000\n",
+        "聊\tliao\t9000\n",
+        "而\ter\t7000\n",
+    );
+    let words = texts_in(dictionary, "e'liao");
+    assert_eq!(words[0], "饵料", "e'liao = {words:?}");
+    // 整句「嗯聊」不该出现
+    let mut engine = Engine::new(Dictionary::parse(dictionary).unwrap());
+    engine.set_input("e'liao");
+    let all: Vec<String> = engine
+        .query()
+        .unwrap()
+        .candidates
+        .items
+        .into_iter()
+        .map(|c| c.text)
+        .collect();
+    assert!(
+        !all.contains(&"嗯聊".to_owned()),
+        "简写输入不给整句：{all:?}"
     );
 }
