@@ -133,16 +133,35 @@ pub fn candidates_with_modes(
     as_candidates(texts)
 }
 
+/// 一条日历快捷：写的键（缩写在全拼下也当拼音用，所以靠 `calendar_forms` 先拦）与生成函数。
+type CalendarForm = (&'static str, fn(&Zoned) -> Vec<String>);
+
+/// 独立的日历缩写 → 各自的生成函数。加一条缩写只改这张表，不再往 `match` 里塞分支。
+const CALENDAR_FORMS: &[CalendarForm] = &[
+    ("rq", date_forms),
+    ("sj", time_forms),
+    ("xq", weekday_forms),
+    ("jq", solar_term_forms),
+    ("jr", festival_forms),
+];
+
+/// 节气：从今天起接下来 24 个，按距今天数排。
+fn solar_term_forms(now: &Zoned) -> Vec<String> {
+    occasions::solar_terms(now.date())
+}
+
+/// 节日：公历固定日、按第几个星期几算的、农历的（春节端午中秋这些）以及清明，按距今天数排。
+fn festival_forms(now: &Zoned) -> Vec<String> {
+    occasions::festivals(now.date())
+}
+
 /// 独立的日历缩写。末尾的分隔符不影响快捷候选，允许重查此刻时间。
 pub(crate) fn calendar_forms(input: &str, now: &Zoned) -> Option<Vec<String>> {
-    Some(match input.trim_end_matches('\'') {
-        "rq" => date_forms(now),
-        "sj" => time_forms(now),
-        "xq" => weekday_forms(now),
-        "jq" => occasions::solar_terms(now.date()),
-        "jr" => occasions::festivals(now.date()),
-        _ => return None,
-    })
+    let key = input.trim_end_matches('\'');
+    CALENDAR_FORMS
+        .iter()
+        .find(|(name, _)| *name == key)
+        .map(|(_, forms)| forms(now))
 }
 
 /// 快捷写法包成候选。
@@ -160,14 +179,20 @@ pub(crate) fn as_candidates(texts: Vec<String>) -> Vec<Candidate> {
         .collect()
 }
 
+/// 打全拼打出来的词 → 对应的快捷写法（`日期` 出 `rq` 那一串）。同样是查表，加一条只改表。
+const KEYWORD_FORMS: &[CalendarForm] = &[
+    ("日期", date_forms),
+    ("时间", time_forms),
+    ("星期", weekday_forms),
+];
+
 /// 打全拼出的词是「日期 / 时间 / 星期」时对应的快捷写法，同 `rq` / `sj` / `xq`；别的词为空。
 pub fn keyword_forms(word: &str, now: &Zoned) -> Vec<String> {
-    match word {
-        "日期" => date_forms(now),
-        "时间" => time_forms(now),
-        "星期" => weekday_forms(now),
-        _ => Vec::new(),
-    }
+    KEYWORD_FORMS
+        .iter()
+        .find(|(name, _)| *name == word)
+        .map(|(_, forms)| forms(now))
+        .unwrap_or_default()
 }
 
 /// 金额最多几位小数（角、分）。
