@@ -161,10 +161,9 @@ impl Engine {
 
     /// 候选里的第 `index` 个字单独上屏（从 0 起）。
     ///
-    /// 上屏的是第 `index` 个字，但拼音按**前缀**消耗到第 `index` 个音节：前 `index` 个字既不上屏、
-    /// 也不留在组句里，一并放弃（组句层不支持中间留个洞）。后面的拼音原样留着，壳接着
-    /// [`Self::query`]。所以取「第二个字」等于「只要第二个字、前一个字也不要了」——
-    /// 要单独打前一个字，得从头重打。
+    /// 上屏的是第 `index` 个字，这个**词**的整段拼音一并消耗掉：取字用的是这个词的读音，
+    /// 取完不留尾巴（评审 #1026：打 `jiaoyi` 取「交」以后 `yi` 还留在拼音里，得自己再删）。
+    /// 学习按这个字**自己**的音节记，不按整词的前缀 —— 见 [`Self::picked_syllable`]。
     ///
     /// 这个动作是给用户一个明确出口：与其让引擎去猜「这段拼音分几次选完是不是想要一个合成词」
     /// （#1024 那类问题），不如让用户直接说「我就要这一个字」。
@@ -180,7 +179,7 @@ impl Engine {
             return None;
         }
         let text = chars.get(index)?.to_string();
-        let syllables = candidate.syllables[..=index].to_vec();
+        let syllables = candidate.syllables.clone();
         // 学习按这个字自己的读音记；`syllables` 那些前缀只管吃掉多少拼音，见 `commit_recorded`
         self.picked_syllable = candidate.syllables.get(index).cloned();
         self.picked_char = true;

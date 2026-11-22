@@ -68,6 +68,11 @@ pub struct ShortcutConfig {
     #[serde(with = "super::optional_key_combo")]
     pub next_word: Option<KeyCombo>,
 
+    /// 以词定字（Windows 用）：组句中按下取高亮候选的第一个字，带 Shift 取最后一个字。
+    /// 缺省关（空串）：这是要额外记的组合键，不给用户硬塞。不能与翻页键撞。
+    #[serde(with = "super::optional_key_combo")]
+    pub pick_char: Option<KeyCombo>,
+
     /// 组句时上屏高亮候选的键（Windows、Linux 用），缺省不带 Shift 的空格。详见 [`CommitKey`]。
     pub commit_candidate: CommitKey,
 
@@ -110,6 +115,7 @@ impl Default for ShortcutConfig {
             toggle_traditional: None,
             single_chars: Some(KeyCombo::SINGLE_CHARS_DEFAULT),
             next_word: Some(KeyCombo::NEXT_WORD_DEFAULT),
+            pick_char: None,
             commit_candidate: CommitKey::SPACE,
             commit_raw: CommitKey::ENTER,
         }
