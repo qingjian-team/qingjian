@@ -9,7 +9,7 @@
 ## 〇、上线前必须做（不做就不能给别人）
 
 - [ ] 词库质量（产品词库已自建，见 roadmap）：常用词表只有 5.6 万，语料挖出的 1.57 万高频词已并入（蚌埠 / 台州 / 高铁 / 吐槽 这类补上了），
-  网络用语目录还空着（词库仓库 `official/upstream/04_internet_slang`）；LLM 标注的多音字读音抽查；挖词过滤已进 `dict-convert mine`（2026-09-07，`oov_filter.rs`，与原脚本输出逐行一致）；
+  网络用语目录还空着（词库仓库 `official/upstream/04_internet_slang`），补缺词现在走开源数据：`tools/corpus/opensource_vocab.py`（jieba 词表 + mozillazg 拼音，2026-11-22 滤后 23.3 万条 → `dicts/vocab-opensource.qj`）与 `tools/corpus/llm_tokenizer_vocab.py`（DeepSeek / GLM / Kimi / Qwen 的 tokenizer 词表合成一份，滤后 11250 条 → `dicts/vocab-llm4.qj`），都还没并进词库仓库；LLM 标注的多音字读音抽查；挖词过滤已进 `dict-convert mine`（2026-09-07，`oov_filter.rs`，与原脚本输出逐行一致）；
   LM 表（TSV 48 MB / `lm.qj` 29 MB）不进 git，先按发布附件对待
 - [ ] ★ 首次运行体验：没有 `data/generated/` 时打进包里的样例词库只有几十条，等于不能用；随包数据（词库、LM 表、释义表、emoji）
   要有一套发布版并定好体积（现在 `dict.qj` 3 MB + 领域词库 7 MB + `lm.qj` 29 MB + 释义表 `.qj` 39 MB + 英文词表 2 MB，pkg 34 MB；可再考虑变长编码）；

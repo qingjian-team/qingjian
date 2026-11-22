@@ -729,6 +729,24 @@ Windows 可选的 `[shortcut] toggle_punctuation` 经 `InputSettings` 下发，�
 用 LLM 批量生成释义表：`cargo run --release -p qingjian-gloss-gen -- generate`（密钥读 `QINGJIAN_API_KEY`，结果 JSONL 在 `data/generated/`，不进 git、可续跑，`--limit 80` 试跑）
 再 `... export`（写 `glossary-{en,ja,vi}.tsv`，产品数据在 `../qingjian-dicts/official/glossary/`，见那里的 README；格式 `词\t词性. 译词[|假名]`）。只补越南语时 `generate --languages vi --out data/generated/gloss-vi-llm.jsonl`，再对这个 JSONL `export`。CLI 与 bundle.sh 用的是这些文件；打包时 `dict-convert pack glossary --language vi` 会写 `glossary-vi.qj`。
 
+补缺词有两条路，产物都是「不分主题的一份词表」，都要先对装机词库去重（`gloss-gen export-vocab --existing <装机 dict.qj>`），
+再 `dict-convert --out-dir <临时目录> pack dict --input <tsv> --name …` 打成 `.qj`，放 `data/generated/dicts/` 或用户目录 `custom/dicts/`。
+
+- **开源词表（缺省走这条，不需要任何 API key）**：`tools/corpus/opensource_vocab.py` 把 jieba `dict.txt`（34.9 万词，`词 频次 词性`，MIT）
+  与 mozillazg `phrase-pinyin-data`（4.7 万条词级拼音）、`pinyin-data`（单字读音）拼成词库 TSV：只收纯汉字 1–8 字词，
+  词级拼音查不到就逐字兜底，词频**原样搬 jieba 的次数**（换算是另一套标定，数据源没给的量不编），`--min-count` 缺省 3 放宽着收。
+  2026-11-22 跑出来 30.8 万条，对着装机词库（12.9 万条）滤掉已有的剩 23.3 万条 → `dicts/vocab-opensource.qj`（10.7 MB）。
+- **四家开源模型 tokenizer 词表**：`tools/corpus/llm_tokenizer_vocab.py` 取 DeepSeek-V3、GLM-4.5、Kimi-K2、Qwen2.5 的
+  `tokenizer.json`（Kimi 是 `tiktoken.model`），把 BPE 的中文 token 反解成汉字。两处格式要记：
+  `tokenizer.json` 里的 token 是 **GPT-2 byte-level 编码**（`你好` 存成 `ä½ å¥½`），得按那份 bytes↔unicode 映射还原字节再 UTF-8 解码；
+  `tiktoken.model` 每行是一个 token 的 **base64**。四家的中文 token 数：DeepSeek 35179、GLM 27220、Qwen 25179、Kimi 396
+  （Kimi 是英文/代码为主的词表，中文本来就少）。BPE 的中文 token 有一大类是跨词边界碎片（`是我`、`这一`、`的在`），
+  只丢**首字**是虚词的（尾字是虚词的不动：`目的`、`记得`、`高兴地` 都是真词），词频记「几家词表里有它」（1–4，tokenizer 本身没有词频）。
+  2026-11-22 跑出来 37738 条，滤掉碎片 4002、没读音 204，再对装机词库去重，剩 11250 条 → `dicts/vocab-llm4.qj`（508 KB）。
+  `--extra-dict` 挂上之后 `wanrenci` → 万人次（不带时是「玩人次 [句]」）、`lunyeng` → 鲁能、`jianghui` → 将会（不带时是整句）。
+两条都不碰任何在线接口：数据从开源仓库与 HuggingFace 直接下（tokenizer 文件本来就在模型仓库里，与 API key 无关）。
+
+
 ## tools/dict-convert
 
 产品数据的生成工具，输出到 `data/generated/`（gitignore）。
