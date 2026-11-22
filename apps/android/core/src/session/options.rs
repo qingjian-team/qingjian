@@ -28,6 +28,8 @@ impl Session {
         self.engine.set_symbol_limit(usize::from(options.symbols));
         self.engine
             .set_spelling_correction(options.spelling_correction);
+        self.engine
+            .set_zero_initial_abbreviation(options.zero_initial_abbreviation);
         self.follow_ups = options.follow_ups;
         self.traditional_variant = options.traditional_variant();
         if self.engine.traditional() != TraditionalVariant::Off {

@@ -65,6 +65,11 @@ pub struct InputOptions {
     #[serde(default = "default_true")]
     pub spelling_correction: bool,
 
+    /// 零声母简写（PC 的 `[general] zero_initial_abbreviation`）：全拼下 `aquan` 出「安全」、`e'liao` 出「饵料」。
+    /// 缺省关，关着时切分与不带这项完全一致。
+    #[serde(default)]
+    pub zero_initial_abbreviation: bool,
+
     /// 中文词上屏后候选条接着给可能跟在后面的词（#861），点了直接上屏。
     #[serde(default = "default_true")]
     pub follow_ups: bool,

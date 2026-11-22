@@ -28,6 +28,36 @@ fn type_keys(session: &mut Session, keys: &str) {
     }
 }
 
+/// 零声母简写是选项（PC 的 `[general] zero_initial_abbreviation`，缺省关）：样例句库里 `aquan`
+/// 关着切不出「安」（`a` 只当 a），打开后 `a` 能当 `an`，才出「安」。
+#[test]
+fn zero_initial_abbreviation_follows_the_option() {
+    // 缺省关：按原样切，`a` 就是 a
+    let mut session = session();
+    type_keys(&mut session, "aquan");
+    let frame = session.push('n');
+    assert!(
+        !frame.candidates.iter().any(|c| c.text == "安"),
+        "缺省关时不该出安：{:?}",
+        frame.candidates.iter().map(|c| &c.text).collect::<Vec<_>>()
+    );
+
+    // 打开：同一串键的 `a` 能当 an，出「安」
+    let mut second = self::session();
+    let options: InputOptions = serde_json::from_str(
+        r#"{"full_width_punctuation":true,"english_in_chinese":true,"chinese_first":false,"zero_initial_abbreviation":true}"#,
+    )
+    .unwrap();
+    second.set_options(&options);
+    type_keys(&mut second, "aqua");
+    let frame = second.push('n');
+    assert!(
+        frame.candidates.iter().any(|c| c.text == "安"),
+        "打开后该出安：{:?}",
+        frame.candidates.iter().map(|c| &c.text).collect::<Vec<_>>()
+    );
+}
+
 #[test]
 fn selecting_first_candidate_commits_and_clears() {
     let mut session = session();
