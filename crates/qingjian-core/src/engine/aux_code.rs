@@ -96,15 +96,18 @@ impl Engine {
             .map(|code| AuxSegment::new(self.aux_code_key, code.clone()))
     }
 
-    /// 作用域能不能完整切分成音节：双拼 / 注音按解码结果，全拼按 [`parser::is_fully_segmentable`]。
+    /// 作用域能不能按原样拆开：双拼 / 注音只要能解码，全拼能切成音节（允许声母、前缀这类不完整的）。
     fn aux_scope_ready(&self) -> bool {
         let scope = self.composition.scope();
         if scope.is_empty() || self.expression_mode() || self.question_mode() || self.raw_mode() {
             return false;
         }
+        // 只要能「按原样拆开」就允许进辅码态：简拼（`nh` = n + h）、落单声母、没打完的前缀
+        // 都算 —— 码段只加权、不筛候选（见 `query/phonetic.rs`），进不去比进去更糟。
+        // 表达式、问字、英文直输段上面已经挡掉了，那里拆开也没有「字」可言。
         match self.decode(scope) {
-            Some(decoded) => decoded.is_complete(),
-            None => parser::is_fully_segmentable(scope),
+            Some(_) => true,
+            None => parser::segment(scope).is_ok(),
         }
     }
 }

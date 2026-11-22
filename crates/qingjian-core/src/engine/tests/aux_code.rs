@@ -82,13 +82,14 @@ fn semicolon_as_a_final_beats_the_trigger() {
     assert!(engine.aux_trigger(';'));
 }
 
-/// 简拼、残缺音节、光标停在拼音段中间都不触发。
+/// 简拼、没打完的音节也能进辅码（`nh;ni` 这种）：码段只加权、不筛候选，进不去比进去更糟。
+/// 光标停在拼音段中间时不触发 —— 作用域不完整，壳只按光标前那段算候选。
 #[test]
-fn incomplete_or_mid_cursor_pinyin_does_not_trigger() {
+fn abbreviations_and_partial_syllables_still_trigger() {
     let mut engine = aux_engine();
-    for text in ["kf", "kaif", "kai f"] {
+    for text in ["kf", "kaif", "nh"] {
         engine.set_input(text);
-        assert!(!engine.aux_trigger(';'), "{text}");
+        assert!(engine.aux_trigger(';'), "{text} 应该能进辅码");
     }
     engine.set_input("kaifa");
     engine.move_cursor_left();
@@ -97,6 +98,22 @@ fn incomplete_or_mid_cursor_pinyin_does_not_trigger() {
     assert!(engine.aux_trigger(';'));
     // 触发键之外的键不触发
     assert!(!engine.aux_trigger(','));
+}
+
+/// 没打完的音节进去以后码段照常收，候选一条不少（`kaif;ni` 还是原来那批，对不上码只往后挪）。
+#[test]
+fn a_code_after_a_partial_syllable_keeps_every_candidate() {
+    let mut engine = aux_engine();
+    engine.set_input("kaif");
+    let before = candidates(&engine);
+    assert!(!before.is_empty());
+    assert!(engine.aux_trigger(';'));
+    engine.enter_aux();
+    assert!(engine.push_aux_code('n'));
+    assert!(engine.push_aux_code('i'));
+    assert_eq!(engine.aux_code(), "ni");
+    assert!(engine.query().unwrap().marked_text().ends_with(";ni"));
+    assert_eq!(candidates(&engine).len(), before.len(), "码段不筛候选");
 }
 
 /// 码段每多一个字母就重筛一次（无码词直接隐藏，不是降权）。
