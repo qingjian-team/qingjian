@@ -182,6 +182,54 @@ fn an_empty_candidate_list_swallows_space_and_punctuation() {
     assert!(frame.preedit.iter().all(|s| s.kind != PreeditKind::AuxCode));
 }
 
+/// 组句中按住 Ctrl 敲触发键也进辅码态（有些布局里 `;` 只能带着 Ctrl 送到，也有人习惯按住）。
+/// 判定走 `KeyModifiers`，引擎那边还是同一个 `enter_aux`，没有为 Ctrl 单开入口。
+#[test]
+fn ctrl_with_the_trigger_key_enters_aux_mode() {
+    let mut router = aux_router();
+    let (_, _, frame) = type_letters(&mut router, "kaifa");
+    let before = candidate_texts(&frame).len();
+    let (outcome, committed, frame) = press(
+        &mut router,
+        letter_with(
+            ';',
+            KeyModifiers {
+                ctrl: true,
+                ..KeyModifiers::default()
+            },
+        ),
+    );
+    assert_eq!(outcome, KeyOutcome::Consumed);
+    assert!(committed.is_none());
+    assert_eq!(preedit(&frame), "kai'fa;");
+    assert_eq!(candidate_texts(&frame).len(), before);
+    // 之后照常逐键加权
+    let (_, _, frame) = press(&mut router, letter('f'));
+    assert_eq!(preedit(&frame), "kai'fa;f");
+}
+
+/// 辅码态里按住 Ctrl 敲触发键同样是幂等的：既不退出也不当标点。
+#[test]
+fn ctrl_with_the_trigger_key_stays_put_in_aux_mode() {
+    let mut router = aux_router();
+    type_letters(&mut router, "kaifa");
+    press(&mut router, letter(';'));
+    press(&mut router, letter('k'));
+    let (outcome, committed, frame) = press(
+        &mut router,
+        letter_with(
+            ';',
+            KeyModifiers {
+                ctrl: true,
+                ..KeyModifiers::default()
+            },
+        ),
+    );
+    assert_eq!(outcome, KeyOutcome::Consumed);
+    assert!(committed.is_none());
+    assert_eq!(preedit(&frame), "kai'fa;k");
+}
+
 /// Esc 在辅码态只清码段、拼音留着（不整段清掉）。
 #[test]
 fn escape_in_aux_only_clears_the_code() {

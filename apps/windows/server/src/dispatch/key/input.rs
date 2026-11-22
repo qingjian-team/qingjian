@@ -2,7 +2,7 @@
 
 use qingjian_core::candidate::arrows::{self, Arrow, ArrowAction, Focus};
 use qingjian_core::{Backspace, CandidateKind, PairEdit, QUESTION_PREFIX, punctuation};
-use qingjian_platform::protocol::{CaretEdit, KeyEvent};
+use qingjian_platform::protocol::{CaretEdit, KeyEvent, KeyModifiers};
 use qingjian_platform::{CommitRoute, HighlightKeys, NumpadDigit};
 
 use super::{Effect, codes, with_prefix};
@@ -87,6 +87,21 @@ impl Router {
             && let Some(effect) = self.apply_digit_shortcut(digit, event.modifiers.chord())
         {
             return effect;
+        }
+        // 组句中按住 Ctrl 敲辅码触发键，与直接敲它同义：有些键盘布局里 `;` 只有带着 Ctrl 才送得到，
+        // 也有人本来就习惯按住。判定用 `KeyModifiers` 与别的快捷键一致，引擎那边仍只有
+        // 「一个字符进辅码态」这一个入口（`enter_aux`），不再为 Ctrl 另开一条路。
+        if self.composing()
+            && let Some(c) = event.character
+            && c == self.config.aux_code_key
+            && ctrl_without_alt_win(event.modifiers)
+            && (self.engine.in_aux() || self.engine.aux_trigger(c))
+        {
+            // 已经在辅码态时与直接敲触发键一样幂等：什么都不做，也不交给应用
+            if !self.engine.in_aux() {
+                self.engine.enter_aux();
+            }
+            return Effect::Changed(None);
         }
         if event.modifiers.has_command_key() {
             return Effect::Passthrough;
@@ -655,4 +670,10 @@ impl Router {
             self.move_highlight(delta);
         }
     }
+}
+
+/// Ctrl 按着、Alt 与 Win 没按（Shift 随它 —— `;` 加 Shift 敲出来是 `:`，字符对不上就不会走到这里）。
+fn ctrl_without_alt_win(modifiers: KeyModifiers) -> bool {
+    let chord = modifiers.chord();
+    chord.ctrl && !chord.alt && !chord.win
 }
