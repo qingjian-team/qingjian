@@ -79,6 +79,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     engine.set_auto_phrase(config.auto_phrase.enabled, config.auto_phrase.max_chars);
     engine.set_chinese_first(config.general.chinese_first);
     engine.set_spelling_correction(config.general.spelling_correction);
+    engine.set_zero_initial_abbreviation(config.general.zero_initial_abbreviation);
     engine.set_emoji_limit(usize::from(config.general.emoji.get()));
     engine.set_kaomoji_limit(usize::from(config.general.kaomoji.get()));
     engine.set_symbol_limit(usize::from(config.general.symbols.get()));

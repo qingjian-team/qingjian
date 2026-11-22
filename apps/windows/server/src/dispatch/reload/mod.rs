@@ -281,6 +281,8 @@ impl Router {
         self.engine
             .set_spelling_correction(config.general.spelling_correction);
         self.engine
+            .set_zero_initial_abbreviation(config.general.zero_initial_abbreviation);
+        self.engine
             .set_emoji_limit(usize::from(config.general.emoji.get()));
         self.engine
             .set_kaomoji_limit(usize::from(config.general.kaomoji.get()));

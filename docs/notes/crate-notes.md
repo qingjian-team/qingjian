@@ -158,6 +158,16 @@ mac 存在 `Session::spelling`（`Host::follow_highlight`）、Windows / Linux �
   冻结回放里 上屏（shangping）被 商品、这俩（zhelia）被 这里、肃然 被 虽然 顶掉，词首选 −15、整句 −22。
   读不通时照旧噪声信道比。开关 `[general] spelling_correction`（`Engine::set_spelling_correction`，CLI `--no-spelling-correction`，缺省开）：
   关掉后 `find_correction` 直接返回、`expand_positions` 不加敲错边，个人敲错表留着不用。
+- 零声母简写（`parser`、`Syllable::implied`）：标准简拼「零声母音节用韵头的单韵母代表」——`a` 代表 a / ai / an / ang / ao，
+  `e` 代表 e / ei / en / eng / er，`o` 代表 o / ou，按「音节在不在串里」决定吃掉几个字母（`ao` 整段吃掉 = 奥秘的简拼，
+  `aquan` 的 `a` 只吃一个字母，代表 `an`）。`Syllable.text` 仍是敲的字母（拼音行、覆盖长度、学习记录都用它），
+  `implied` 只在 `pattern()` 里生效且是完整音节。三条边界：末段只剩一个字母时不展开（`xia` 的 `a` 是「啊」，
+  再产 `xi` + `a(an)` 会把「先 / 想」挤出首位）；从长串里猜出来的简写排在同样长的全拼切分后面（否则 `rengemianju`
+  会变成「仍恩面具」）；用户自己用 `'` 封出来的单字母段（`e'liao` 的 `e`）不降权，而且这种输入不给整句候选
+  （`converting::insert_sentence` 直接返回 —— 用它拼整句净出「嗯聊」这类东西，还会把 饵料 挤到第二）。
+  开关 `[general] zero_initial_abbreviation`（`Engine::set_zero_initial_abbreviation`，CLI `--zero-initial-abbreviation`，
+  缺省关）：关着时切分与不带这个功能完全一致，只作用于全拼（双拼 / 注音不进 `parser::segment`）。下发用线程本地而不是全局静态，
+  测试并行时一条用例打开不影响别的用例（`engine/tests` 的 `Abbreviation` 守卫负责开关回来）。
 
 通讯录（`contacts/`、`engine/contacts.rs`，设计见 `docs/design/contacts.md`）：`ContactBook::build` 把壳交来的 `Contact` 收成名字词库（TSV 拼出来再 `Dictionary::parse`，词频 `NAME_FREQUENCY` = 1000，只够进整句词图）与名字 → 内容表。
 读音先看多音字姓（`contacts/surname.rs`），再试整词在主词库里的读音（各字读音组合最多 32 种），否则逐字取 `zhuyin::tone::readings` 的第一个；单字表没有的字由 `Engine::set_contacts` 扫一遍主词库的单字词条补。

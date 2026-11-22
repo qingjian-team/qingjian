@@ -49,6 +49,7 @@ All settings are kept in one TOML text file, `config.toml`, with a note for ever
 | `[general] default_english`, `remember_mode_per_app` | 中英文 → 默认英文模式, 按应用记住中英模式 (Chinese/English → Start in English mode, Remember mode per app) | `true` / `false` |
 | `[general] shift_letter` | 中英文 → Shift + 字母 (Chinese/English → Shift + letter) | `passthrough` (to the app, default) or `compose` (join the input) |
 | `[general] punct_commits` | 中英文 → 标点先上屏候选 (Chinese/English → Punctuation commits the candidate first) | `true` / `false` |
+| `[general] zero_initial_abbreviation` | 只在配置文件里 (config file only) | `true` / `false` (default off). 全拼下零声母音节用一个字母代表 (In full pinyin a zero-initial syllable may be typed with one letter): `aquan` 出「安全」、`e'liao` 出「饵料」. Off, segmentation is exactly as without this option |
 | `[general] preedit` | 外观 → 拼音显示位置 (Appearance → Pinyin position) | `both`, `inline`, `window` |
 | `[general] page_keys` | 快捷键 → 翻页键 (Shortcuts → Paging keys) | `"[]"`, `",."`, `"-="` |
 | `[shortcut] extra_page_keys` | 快捷键 → 额外翻页键 (Shortcuts → Extra paging keys) | A list, such as `["[]", ",.", "-="]`; empty by default |
