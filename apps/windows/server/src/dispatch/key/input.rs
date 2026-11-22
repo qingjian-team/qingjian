@@ -383,7 +383,7 @@ impl Router {
             || is_zhuyin_key
             || (c.is_ascii_uppercase() && self.config.shift_letter_compose)
         {
-            // 辅码态：字母进码段（逐键即筛），不进拼音缓冲区
+            // 辅码态：字母进码段（逐键加权），不进拼音缓冲区
             if c.is_ascii_lowercase() && self.engine.push_aux_code(c) {
                 return Effect::Changed(None);
             }
@@ -571,7 +571,8 @@ impl Router {
         if self.engine.in_aux() && c == self.config.aux_code_key {
             return Effect::Changed(None);
         }
-        // 码段筛空（例如码敲错一个字母）：空格 / 标点 / 数字都不上屏原始拼音，吞掉停在辅码态等退格
+        // 一条候选都没有（拼音切得动、词库没词）时，辅码态里空格 / 标点 / 数字都不上屏原始拼音，
+        // 吞掉停在辅码态等退格。码段本身只改次序、不筛候选，所以这不再是「码敲错一个字母」的后果。
         if self.engine.in_aux() && !self.engine.aux_code().is_empty() && self.candidate_count() == 0
         {
             return Effect::Changed(None);
