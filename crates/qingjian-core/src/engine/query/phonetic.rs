@@ -513,21 +513,13 @@ impl Engine {
                 // 码段不是过滤器，是「加一列」：不筛码时的原候选一个都不能少，排到后面去。
                 // 码段的解释一旦猜错（`zhenge;zhenye` 这种），整列空掉比给错更糟 —— 用户
                 // 至少还能退回原来那批。
-                tracing::info!(
-                    code = %code,
-                    scored = scored.len(),
-                    items = items.len(),
-                    "辅码态候选"
-                );
-                if items.len() < scored.len() {
-                    let shown: Vec<String> = items.iter().map(|item| item.text.clone()).collect();
-                    items.extend(
-                        scored
-                            .iter()
-                            .filter(|item| !shown.contains(&item.hit.text.to_string()))
-                            .map(|item| chinese_candidate(item, None)),
-                    );
-                }
+                tracing::debug!(code = %code, scored = scored.len(), items = items.len(), "辅码态候选");
+                let rest: Vec<Candidate> = scored
+                    .iter()
+                    .filter(|item| !items.iter().any(|shown| shown.text == item.hit.text))
+                    .map(|item| chinese_candidate(item, None))
+                    .collect();
+                items.extend(rest);
             }
         }
         // 附加候选（英文尾段与补全、快捷、整句、emoji）都没有码：码段非空时排不进码那一列，一律不出
