@@ -5,6 +5,27 @@
 //! 查词时完整音节精确匹配、不完整音节按前缀匹配。双拼、模糊音后续在这里扩展，接口保持不变。
 
 mod error;
+
+use std::cell::Cell;
+
+thread_local! {
+    /// 零声母简写开关（`aquan` 的 `a` 当 `an`、`e'liao` 的 `e` 当 `er`），缺省关。
+    ///
+    /// 放线程本地而不是全局静态：测试并行跑，一条用例打开它不该影响别的用例；
+    /// 引擎在哪个线程上跑就用哪个线程的设定。
+    static ZERO_INITIAL: Cell<bool> = const { Cell::new(false) };
+}
+
+/// 打开 / 关闭零声母简写。缺省关，关着时切分与不带这个功能完全一致。
+pub fn set_zero_initial_abbreviation(on: bool) {
+    ZERO_INITIAL.with(|flag| flag.set(on));
+}
+
+/// 当前线程上零声母简写开没开。
+fn zero_initial_enabled() -> bool {
+    ZERO_INITIAL.with(Cell::get)
+}
+
 mod segmentation;
 mod syllable;
 mod trie;
@@ -188,7 +209,10 @@ fn segment_chunk(chunk: &str, allow_partial: bool) -> Vec<Segmentation> {
         // 是「额」、`e mian ju` 本来就切得通），就不产简写切分 —— 否则两条一样长的切分
         // 一起进候选，词频会把正常整句挤下去（`人格面具` 变成 `仍恩面具`）。
         // 真正的简写输入（`aquan`）里 `a` 后面接 `q`，完整音节那条走不通，才落到这里。
-        for (eaten, syllable) in zero_initial_syllables(rest) {
+        for (eaten, syllable) in zero_initial_syllables(rest)
+            .into_iter()
+            .filter(|_| zero_initial_enabled())
+        {
             if eaten == 1 && rest.len() <= 1 {
                 continue;
             }

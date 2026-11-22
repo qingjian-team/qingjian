@@ -561,6 +561,13 @@ pub const NEURAL_MARGIN: f64 = f64::INFINITY;
 pub const RESCORE_CONTEXT_CHARS: usize = 64;
 
 impl Engine {
+    /// 零声母简写开关（`[general] zero_initial_abbreviation`，缺省关）。
+    ///
+    /// 关着时切分与不带这个功能完全一致；打开后 `aquan` 才出「安全」、`e'liao` 才出「饵料」。
+    pub fn set_zero_initial_abbreviation(&mut self, on: bool) {
+        crate::parser::set_zero_initial_abbreviation(on);
+    }
+
     pub fn new(dictionary: Dictionary) -> Self {
         Self {
             dictionary,
