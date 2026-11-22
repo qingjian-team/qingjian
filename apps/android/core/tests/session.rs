@@ -271,8 +271,8 @@ fn nihao_index(frame: &Frame) -> usize {
 }
 
 #[test]
-fn picking_a_char_commits_one_char_and_keeps_the_rest() {
-    // #1025：长按「你好」选「只上屏第一个字」——上屏「你」，剩下的 hao 还在组句里。
+fn picking_a_char_commits_one_char_and_ends_the_pinyin() {
+    // 长按「你好」选「只上屏第一个字」：上屏「你」，这个词的整段拼音一并结束（#1026 评审第 3 条）。
     let mut first = session();
     type_keys(&mut first, "niha");
     let frame = first.push('o');
@@ -280,9 +280,9 @@ fn picking_a_char_commits_one_char_and_keeps_the_rest() {
     let frame = first.pick_char(index, 0);
     assert_eq!(frame.pick_char, "你", "上屏的是第一个字");
     assert!(!frame.pick_failed);
-    assert_eq!(frame.preedit, "你hao", "剩下的拼音还在组句里");
+    assert!(frame.preedit.is_empty(), "取字后整段拼音结束");
 
-    // `usize::MAX` 是 JNI 传 `-1` 的映射：取最后一个字，这一段拼音吃完了
+    // `usize::MAX` 是 JNI 传 `-1` 的映射：取最后一个字，同样吃完整段
     let mut last = session();
     type_keys(&mut last, "niha");
     let frame = last.push('o');
@@ -290,7 +290,7 @@ fn picking_a_char_commits_one_char_and_keeps_the_rest() {
     let frame = last.pick_char(index, usize::MAX);
     assert_eq!(frame.pick_char, "好");
     assert_eq!(frame.commit, "好", "上屏的是挑出来的那个字");
-    assert!(frame.preedit.is_empty(), "最后一段拼音吃完了，组句清空");
+    assert!(frame.preedit.is_empty(), "整段拼音吃完了，组句清空");
 }
 
 #[test]

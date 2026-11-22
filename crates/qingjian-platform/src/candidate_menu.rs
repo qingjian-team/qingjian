@@ -371,15 +371,16 @@ mod tests {
     }
 
     #[test]
-    fn picking_a_char_takes_the_syllables_up_to_it() {
+    fn picking_a_char_takes_the_whole_word() {
+        // 取哪个字都把整词的音节带上：上屏时整段拼音一起消耗（#1026 评审第 3 条）
         let mut engine = test_engine();
         let phrase = chinese("开发中", &["kai", "fa", "zhong"]);
         let first = engine.pick_char(&phrase, 0).expect("第一个字");
         assert_eq!(first.text, "开");
-        assert_eq!(first.syllables, ["kai"]);
+        assert_eq!(first.syllables, ["kai", "fa", "zhong"]);
         let second = engine.pick_char(&phrase, 1).expect("第二个字");
         assert_eq!(second.text, "发");
-        assert_eq!(second.syllables, ["kai", "fa"]);
+        assert_eq!(second.syllables, ["kai", "fa", "zhong"]);
         assert!(engine.pick_char(&phrase, 3).is_none());
     }
 
