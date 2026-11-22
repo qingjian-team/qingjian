@@ -746,6 +746,13 @@ Windows 可选的 `[shortcut] toggle_punctuation` 经 `InputSettings` 下发，�
   `--extra-dict` 挂上之后 `wanrenci` → 万人次（不带时是「玩人次 [句]」）、`lunyeng` → 鲁能、`jianghui` → 将会（不带时是整句）。
 两条都不碰任何在线接口：数据从开源仓库与 HuggingFace 直接下（tokenizer 文件本来就在模型仓库里，与 API key 无关）。
 
+**协议与版权**：七份许可原文与来源表在 `assets/vocab-llm/`（`README.md` + `licenses/`）。四家的许可不一样，
+SPDX 别只写 MIT/Apache：DeepSeek-V3 是 DeepSeek License Agreement 1.0（自定义，含使用限制，原文要随分发带上）、
+Kimi-K2 是 Modified MIT（Moonshot，月活超 1 亿时界面要显示 “Kimi K2”）、GLM-4.5 的 HuggingFace 卡片标的是 mit
+但仓库 `LICENSE` 文件是 Apache-2.0（按文件算）、Qwen2.5 也是 Apache-2.0；jieba 与 mozillazg 两份数据是 MIT。
+`pack dict --license` 就照这个写：`Apache-2.0 AND MIT AND LicenseRef-DeepSeek-License-1.0 AND LicenseRef-Kimi-K2-Modified-MIT`。
+随包或单独分发这两份 `.qj` 时把 `assets/vocab-llm/licenses/` 一起带上，第三方声明里列来源与版权行。
+
 
 ## tools/dict-convert
 
