@@ -49,6 +49,8 @@ cargo test                                    # 全部测试；-p <crate> 单个
 cargo clippy --all-targets -- -D warnings
 cargo fmt --all
 cargo run -p qingjian-cli -- <拼音>...          # Core 的主要验证方式；--replay / --eval-text 见 crate-notes
+cargo xtask doctor                            # 环境体检：工具链、target 盘、产品数据、ISCC / signtool、可选工具
+cargo xtask test                              # 已带 --locked、非 Apple 平台排除 qingjian-macos，装了 nextest 自动用
 apps/macos/scripts/bundle.sh --install        # mac 壳装到 ~/Library/Input Methods/（IMK 不能 cargo run 验证）
 ```
 

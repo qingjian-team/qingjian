@@ -7,4 +7,6 @@
 /data
 .playwright-mcp/
 __pycache__/
-.vscode/
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json

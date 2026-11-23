@@ -51,6 +51,17 @@
 - 快捷键一律进 `[shortcut]` 可配置，不写死键码。
 - 设置项只有部分平台的输入法读时，在设置程序的 `apps/settings/src/support/` 表里登记三个平台各是「支持 / 不适用 / 待实现」，页面按表显示，不直接写 `cfg!`；「待实现」的同步列进 `docs/plan/todo.md` 的「设置项的平台缺口」。
 
+## 开发者工具
+
+- `cargo xtask doctor`：一次体检——工具链与 `rust-toolchain.toml` 是否一致、target 是否落在系统盘、`data/generated` 有没有拉、
+  ISCC / signtool 在不在，以及 nextest / deny / bloat / machete / udeps 这些可选工具装没装。
+- `cargo xtask check|test|clippy|fmt`：与对应 cargo 命令一致，`--locked`、非 Apple 平台排除 `qingjian-macos` 都带好了；
+  装了 `cargo-nextest` 时 `test` 自动走 nextest（doctest 要 `cargo test --doc` 单跑）。
+- `cargo xtask run <拼音>`：跑 `qingjian-cli` 试候选，不用记包名。
+- 编辑器：仓库带 `.vscode/settings.json`（rust-analyzer 用 clippy 检查、保存时格式化、排除 target）与 `.editorconfig`
+  （UTF-8 / LF / 4 空格；`*.ps1`、`.iss` 保持 CRLF），推荐扩展见 `.vscode/extensions.json`（rust-analyzer、Even Better TOML、CodeLLDB）。
+  IDE 的检查会触发 `build.rs`，仓库在 C 盘时 `.vscode` 里用 `QINGJIAN_ALLOW_C_TARGET=1` 放行分析；真要编包还是把 target 放数据盘。
+
 ## 版本号
 
 - `crates/*` 用 `version.workspace = true`；**`apps/*` 各壳是独立发布的产品，写死自己的 `version`**（Windows 读 `server/Cargo.toml`）。

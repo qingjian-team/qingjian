@@ -6,3 +6,7 @@ rustflags = ["-C", "target-feature=+crt-static"]
 
 [target.i686-pc-windows-msvc]
 rustflags = ["-C", "target-feature=+crt-static"]
+
+# `cargo xtask doctor` 这类开发者命令（实现在 tools/xtask）。
+[alias]
+xtask = "run --package xtask --"
