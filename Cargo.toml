@@ -131,3 +131,9 @@ windows-registry = "0.6.1"
 # 上游收了就删掉这段回 crates.io。见 docs/design/rendering.md
 [patch.crates-io]
 cosmic-text = { git = "https://github.com/qingjian-team/cosmic-text", rev = "9cf0d65a5e4db381e34907103326673386096be3" }
+
+# 发布包：去掉调试符号，thin LTO 让热路径跨 crate 内联。codegen-units 保持默认，
+# 免得 release 构建时间翻倍；主要收益是二进制与安装包体积。
+[profile.release]
+strip = "symbols"
+lto = "thin"
