@@ -18,6 +18,9 @@ mod layout;
 pub mod qjz;
 mod view;
 
+#[cfg(test)]
+mod tests;
+
 pub use error::FormatError;
 pub use file::{Container, Writer};
 pub use layout::{FORMAT_VERSION, Header, Kind, MAGIC, Metadata, SectionEntry};

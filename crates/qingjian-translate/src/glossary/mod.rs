@@ -391,4 +391,54 @@ mod tests {
         assert_eq!(senses.senses()[0].reading.as_deref(), Some("かいはつ"));
         assert_eq!(senses.senses()[0].part_of_speech, Some(PartOfSpeech::Noun));
     }
+
+    #[test]
+    fn parse_sense_keeps_part_of_speech_text_and_reading() {
+        let sense = parse_sense("n. 開発|かいはつ");
+        assert_eq!(sense.part_of_speech, Some(PartOfSpeech::Noun));
+        assert_eq!(sense.text, "開発");
+        assert_eq!(sense.reading.as_deref(), Some("かいはつ"));
+    }
+
+    #[test]
+    fn parse_sense_without_part_of_speech_keeps_the_field() {
+        let sense = parse_sense("Chinese language");
+        assert_eq!(sense.part_of_speech, None);
+        assert_eq!(sense.text, "Chinese language");
+        assert_eq!(sense.reading, None);
+    }
+
+    #[test]
+    fn parse_sense_ignores_unknown_part_of_speech() {
+        let sense = parse_sense("x. foo");
+        assert_eq!(sense.part_of_speech, None);
+        assert_eq!(sense.text, "x. foo");
+    }
+
+    #[test]
+    fn parse_sense_with_empty_reading_stays_whole() {
+        let sense = parse_sense("词|");
+        assert_eq!(sense.reading, None);
+        assert_eq!(sense.text, "词|");
+    }
+
+    #[test]
+    fn parse_sense_without_a_space_has_no_part_of_speech() {
+        let sense = parse_sense("v.develop");
+        assert_eq!(sense.part_of_speech, None);
+        assert_eq!(sense.text, "v.develop");
+    }
+
+    #[test]
+    fn parse_sense_accepts_a_reading_without_text() {
+        let sense = parse_sense("|読み");
+        assert_eq!(sense.text, "");
+        assert_eq!(sense.reading.as_deref(), Some("読み"));
+    }
+
+    #[test]
+    fn record_layouts_stay_twelve_and_twenty_bytes() {
+        assert_eq!(std::mem::size_of::<EntryRecord>(), 12);
+        assert_eq!(std::mem::size_of::<SenseRecord>(), 20);
+    }
 }
