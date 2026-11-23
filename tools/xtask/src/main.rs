@@ -13,6 +13,7 @@ const USAGE: &str = "\
   test     跑测试（非 Apple 平台排除 macOS crate；装了 nextest 就走 nextest）
   clippy   全 workspace clippy（-D warnings）
   fmt      rustfmt 全 workspace
+  ci       本地跑一遍 CI 的 Rust 门禁（fmt --check、clippy、check、deny、test）
   run      跑 CLI：cargo xtask run <拼音>
 ";
 
@@ -42,6 +43,7 @@ fn main() -> ExitCode {
             "warnings",
         ]),
         "fmt" => cargo(&["fmt", "--all"]),
+        "ci" => ci(),
         "test" => test(&rest),
         "run" => run_cli(&rest),
         other => {
@@ -52,15 +54,58 @@ fn main() -> ExitCode {
 }
 
 fn cargo(args: &[&str]) -> ExitCode {
-    let status = Command::new("cargo").args(args).status();
-    match status {
-        Ok(status) if status.success() => ExitCode::SUCCESS,
-        Ok(_) => ExitCode::FAILURE,
-        Err(error) => {
-            eprintln!("跑 cargo {} 失败：{error}", args.join(" "));
-            ExitCode::FAILURE
+    if cargo_ok(args) {
+        ExitCode::SUCCESS
+    } else {
+        ExitCode::FAILURE
+    }
+}
+
+fn cargo_ok(args: &[&str]) -> bool {
+    Command::new("cargo")
+        .args(args)
+        .status()
+        .map(|status| status.success())
+        .unwrap_or(false)
+}
+
+fn ci() -> ExitCode {
+    let checks: &[(&str, &[&str])] = &[
+        ("rustfmt", &["fmt", "--all", "--check"]),
+        (
+            "clippy",
+            &[
+                "clippy",
+                "--locked",
+                "--workspace",
+                "--all-targets",
+                "--",
+                "-D",
+                "warnings",
+            ],
+        ),
+        (
+            "check",
+            &["check", "--locked", "--workspace", "--all-targets"],
+        ),
+    ];
+    for (name, args) in checks {
+        println!("== {name}");
+        if !cargo_ok(args) {
+            eprintln!("{name} 失败（与 CI 的 Rust 门禁同一道门）");
+            return ExitCode::FAILURE;
         }
     }
+    if tool_ok("cargo", &["deny", "--version"]) {
+        println!("== deny");
+        if !cargo_ok(&["deny", "check"]) {
+            return ExitCode::FAILURE;
+        }
+    } else {
+        println!("== deny（跳过：cargo-deny 未装，cargo install cargo-deny --locked）");
+    }
+    println!("== test");
+    test(&[])
 }
 
 fn test(extra: &[String]) -> ExitCode {

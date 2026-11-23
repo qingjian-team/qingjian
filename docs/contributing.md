@@ -58,6 +58,8 @@
 - `cargo xtask check|test|clippy|fmt`：与对应 cargo 命令一致，`--locked`、非 Apple 平台排除 `qingjian-macos` 都带好了；
   装了 `cargo-nextest` 时 `test` 自动走 nextest（doctest 要 `cargo test --doc` 单跑）。
 - `cargo xtask run <拼音>`：跑 `qingjian-cli` 试候选，不用记包名。
+- `cargo xtask ci`：本地把 CI 的 Rust 门禁跑一遍（`fmt --check`、`clippy -D warnings`、`check`、`cargo-deny`、`test`），
+  推之前先过一道，省得等 CI 红。
 - 编辑器：仓库带 `.vscode/settings.json`（rust-analyzer 用 clippy 检查、保存时格式化、排除 target）与 `.editorconfig`
   （UTF-8 / LF / 4 空格；`*.ps1`、`.iss` 保持 CRLF），推荐扩展见 `.vscode/extensions.json`（rust-analyzer、Even Better TOML、CodeLLDB）。
   IDE 的检查会触发 `build.rs`，仓库在 C 盘时 `.vscode` 里用 `QINGJIAN_ALLOW_C_TARGET=1` 放行分析；真要编包还是把 target 放数据盘。
