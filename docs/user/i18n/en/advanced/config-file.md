@@ -70,7 +70,7 @@ All settings are kept in one TOML text file, `config.toml`, with a note for ever
 
 ### The app list for English candidates
 
-Which apps get candidates in English mode is decided by the list in the `apps` part of the configuration file (when 设置 → 中英文 → 只在写字的应用里给 (Settings → Chinese/English → Only in writing apps) is on). Each entry in the list has a note; add or remove apps as described.
+Which apps get candidates in English mode is decided by the list in the `apps` part of the configuration file (when 设置 → 输入法切换 → 只在写字的应用里给 (Settings → Input Method Switching → Only in writing apps) is on). Each entry in the list has a note; add or remove apps as described.
 
 ## AI services
 
