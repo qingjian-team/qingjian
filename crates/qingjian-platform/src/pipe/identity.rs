@@ -42,16 +42,63 @@ pub fn client_is_same_user(pipe: HANDLE, me: &UserSid) -> bool {
 
 /// DLL 侧：管道对面是不是我们的 Server。
 ///
-/// 管道的所有者必须是 `me`，且对面进程的映像必须是 `expected_exe`（DLL 同目录的 `qingjian-server.exe`）。
+/// 管道的所有者必须是 `me`，对面进程的映像必须是 `expected_exe`（DLL 同目录的 `qingjian-server.exe`），
+/// 且这个 exe 要有受信任的 Authenticode 签名：安装目录可写时（开发安装、被改过的安装），光比路径
+/// 挡不住别人把同目录的 exe 换掉、冒充 Server 收走击键。debug 构建与本机调试用
+/// `QINGJIAN_ALLOW_UNSIGNED_SERVER` 放行。
 /// AppContainer 宿主（商店应用、任务栏搜索）打不开桌面进程、查不了映像，只验所有者。
 pub fn server_is_trusted(pipe: HANDLE, expected_exe: &Path, me: &UserSid) -> bool {
     if pipe_owner(pipe).as_ref() != Some(me) {
         return false;
     }
     match server_image(pipe) {
-        Some(image) => same_file(&image, expected_exe),
+        Some(image) => same_file(&image, expected_exe) && server_exe_trusted(expected_exe),
         None => current_is_app_container(),
     }
+}
+
+/// 同目录的 `qingjian-server.exe` 是否过 Authenticode。debug 构建是开发用，不签；
+/// 发布版（release）必须由受信任证书签名，否则不认。
+fn server_exe_trusted(path: &Path) -> bool {
+    if cfg!(debug_assertions) || std::env::var_os("QINGJIAN_ALLOW_UNSIGNED_SERVER").is_some() {
+        return true;
+    }
+    verify_authenticode(path)
+}
+
+#[cfg(windows)]
+fn verify_authenticode(path: &Path) -> bool {
+    use std::mem::size_of;
+    use std::os::windows::ffi::OsStrExt;
+
+    use windows::Win32::Foundation::{HANDLE, HWND};
+    use windows::Win32::Security::WinTrust::{
+        WTD_CHOICE_FILE, WTD_REVOKE_NONE, WTD_STATEACTION_CLOSE, WTD_STATEACTION_VERIFY, WTD_UI_NONE,
+        WINTRUST_ACTION_GENERIC_VERIFY_V2, WINTRUST_DATA, WINTRUST_FILE_INFO, WinVerifyTrust,
+    };
+    use windows::core::PCWSTR;
+
+    let wide: Vec<u16> = path.as_os_str().encode_wide().chain([0]).collect();
+    let mut file = WINTRUST_FILE_INFO {
+        cbStruct: size_of::<WINTRUST_FILE_INFO>() as u32,
+        pcwszFilePath: PCWSTR(wide.as_ptr()),
+        hFile: HANDLE::default(),
+        pgKnownSubject: std::ptr::null_mut(),
+    };
+    let mut data: WINTRUST_DATA = unsafe { std::mem::zeroed() };
+    data.cbStruct = size_of::<WINTRUST_DATA>() as u32;
+    data.dwUIChoice = WTD_UI_NONE;
+    data.fdwRevocationChecks = WTD_REVOKE_NONE;
+    data.dwUnionChoice = WTD_CHOICE_FILE;
+    data.dwStateAction = WTD_STATEACTION_VERIFY;
+    // SAFETY: union 里只有 pFile 会被读，指向上面这个仍然活着的结构。
+    data.Anonymous.pFile = &raw mut file;
+    let hwnd = HWND::default();
+    let mut action = WINTRUST_ACTION_GENERIC_VERIFY_V2;
+    let status = unsafe { WinVerifyTrust(hwnd, &raw mut action, (&raw mut data).cast()) };
+    data.dwStateAction = WTD_STATEACTION_CLOSE;
+    unsafe { WinVerifyTrust(hwnd, &raw mut action, (&raw mut data).cast()) };
+    status == 0
 }
 
 /// 管道对象的所有者。
