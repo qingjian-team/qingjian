@@ -7,6 +7,7 @@ mod canvas;
 mod round_rect;
 
 use qingjian_render::Pixmap;
+use std::cell::RefCell;
 use windows::Win32::Foundation::{COLORREF, E_INVALIDARG, HWND, POINT, RECT, SIZE};
 use windows::Win32::Graphics::Gdi::{
     AC_SRC_ALPHA, AC_SRC_OVER, BLENDFUNCTION, HDC, SetViewportOrgEx,
@@ -16,6 +17,37 @@ use windows::core::{Error, Result};
 
 use self::canvas::Canvas;
 use self::round_rect::RoundRect;
+
+// 最近一帧用的合成位图：候选窗每按一个键重画一次，尺寸只在翻页、换主题时变，
+// 复用同一张 DIB 不必每次都建、删一个 1–2 MB 的位图（也少一轮堆的涨落）。
+thread_local! {
+    static SCRATCH: RefCell<Option<Scratch>> = const { RefCell::new(None) };
+}
+
+struct Scratch {
+    width: i32,
+    height: i32,
+    canvas: Canvas,
+}
+
+/// 拿一张 `w × h` 的合成位图给 `paint` 用；尺寸没变就复用上次那张。
+fn with_canvas<R>(w: i32, h: i32, paint: impl FnOnce(&mut Canvas) -> Result<R>) -> Result<R> {
+    SCRATCH.with(|slot| {
+        let mut slot = slot.borrow_mut();
+        if !slot
+            .as_ref()
+            .is_some_and(|scratch| scratch.width == w && scratch.height == h)
+        {
+            *slot = Some(Scratch {
+                width: w,
+                height: h,
+                canvas: Canvas::new(w, h)?,
+            });
+        }
+        let scratch = slot.as_mut().expect("刚填过");
+        paint(&mut scratch.canvas)
+    })
+}
 
 /// 内容四周留给阴影的宽度（逻辑像素）。
 const SHADOW_MARGIN: i32 = 16;
@@ -61,35 +93,36 @@ pub(super) fn composite(hwnd: HWND, layered: &Layered) -> Result<()> {
     if w <= 0 || h <= 0 {
         return Err(Error::from(E_INVALIDARG));
     }
-    let mut canvas = Canvas::new(w, h)?;
-    let round = RoundRect::content(layered.content, layered.margin, layered.corner_radius);
-    fill_shadow_and_background(
-        canvas.pixels(),
-        w,
-        h,
-        &round,
-        layered.background,
-        layered.margin,
-    );
+    with_canvas(w, h, |canvas| {
+        let round = RoundRect::content(layered.content, layered.margin, layered.corner_radius);
+        fill_shadow_and_background(
+            canvas.pixels(),
+            w,
+            h,
+            &round,
+            layered.background,
+            layered.margin,
+        );
 
-    // 视口原点挪到内容左上，内容闭包按自己的坐标画。
-    let hdc = canvas.dc();
-    unsafe {
-        let _ = SetViewportOrgEx(hdc, layered.margin, layered.margin, None);
-    }
-    let client = RECT {
-        left: 0,
-        top: 0,
-        right: layered.content.0,
-        bottom: layered.content.1,
-    };
-    (layered.paint)(hdc, client);
-    unsafe {
-        let _ = SetViewportOrgEx(hdc, 0, 0, None);
-    }
-    // GDI 只写 RGB、把碰到的像素 alpha 留成 0（分层窗口里会全透明），画完把内容区补回 255。
-    restore_content_alpha(canvas.pixels(), w, h, &round);
-    update(hwnd, canvas.dc(), layered.win_pos, (w, h), 255)
+        // 视口原点挪到内容左上，内容闭包按自己的坐标画。
+        let hdc = canvas.dc();
+        unsafe {
+            let _ = SetViewportOrgEx(hdc, layered.margin, layered.margin, None);
+        }
+        let client = RECT {
+            left: 0,
+            top: 0,
+            right: layered.content.0,
+            bottom: layered.content.1,
+        };
+        (layered.paint)(hdc, client);
+        unsafe {
+            let _ = SetViewportOrgEx(hdc, 0, 0, None);
+        }
+        // GDI 只写 RGB、把碰到的像素 alpha 留成 0（分层窗口里会全透明），画完把内容区补回 255。
+        restore_content_alpha(canvas.pixels(), w, h, &round);
+        update(hwnd, hdc, layered.win_pos, (w, h), 255)
+    })
 }
 
 /// 把渲染器出的预乘 RGBA 位图（已含阴影边）贴到分层窗口上，`win_pos` 是位图左上角的屏幕坐标。
@@ -108,15 +141,16 @@ pub(super) fn present_with_alpha(
     if w <= 0 || h <= 0 {
         return Err(Error::from(E_INVALIDARG));
     }
-    let mut canvas = Canvas::new(w, h)?;
-    // tiny-skia 是 RGBA，DIB 是 BGRA；都是预乘，只换通道顺序。
-    for (dst, src) in canvas.pixels().chunks_exact_mut(4).zip(pixmap.pixels()) {
-        dst[0] = src.blue();
-        dst[1] = src.green();
-        dst[2] = src.red();
-        dst[3] = src.alpha();
-    }
-    update(hwnd, canvas.dc(), win_pos, (w, h), alpha)
+    with_canvas(w, h, |canvas| {
+        // tiny-skia 是 RGBA，DIB 是 BGRA；都是预乘，只换通道顺序。
+        for (dst, src) in canvas.pixels().chunks_exact_mut(4).zip(pixmap.pixels()) {
+            dst[0] = src.blue();
+            dst[1] = src.green();
+            dst[2] = src.red();
+            dst[3] = src.alpha();
+        }
+        update(hwnd, canvas.dc(), win_pos, (w, h), alpha)
+    })
 }
 
 /// `UpdateLayeredWindow`：整张位图按预乘 alpha 贴上并挪到 `win_pos`，`alpha` 是整窗不透明度。
