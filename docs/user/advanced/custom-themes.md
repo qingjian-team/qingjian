@@ -278,7 +278,7 @@ Windows 屏幕右下角的悬浮状态条也可以按主题画，写法与候选
 
 ## 过渡动画
 
-高亮换到另一个候选时，高亮条可以滑过去，而不是直接跳（三个内置主题都是这样）。给高亮条起个名字（`id`）并加上 `transition`：
+高亮换到另一个候选时，高亮条可以滑过去，而不是直接跳（内置主题都是这样）。给高亮条起个名字（`id`）并加上 `transition`：
 
 ```json
 { "type": "frame", "id": "highlight", "transition": { "duration": 120, "easing": "ease-out" },

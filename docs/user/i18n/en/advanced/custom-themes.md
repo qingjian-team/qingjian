@@ -244,7 +244,7 @@ The floating status bar at the bottom right of the screen on Windows can also be
 
 ## Transition animation
 
-When the highlight moves to another candidate, the highlight bar can slide over instead of jumping (all three built-in themes do this). Give the highlight bar a name (`id`) and add `transition`:
+When the highlight moves to another candidate, the highlight bar can slide over instead of jumping (the built-in themes all do this). Give the highlight bar a name (`id`) and add `transition`:
 
 ```json
 { "type": "frame", "id": "highlight", "transition": { "duration": 120, "easing": "ease-out" },

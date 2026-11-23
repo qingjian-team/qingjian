@@ -48,7 +48,7 @@ The macOS and Windows versions are in beta with nearly the same features; keys f
 
 | Feature | macOS | Windows | Linux | Android |
 |---|---|---|---|---|
-| Seven built-in themes, light and dark | ✓ | ✓ | — (Fcitx panel) | ✓ |
+| Ten built-in themes, light and dark | ✓ | ✓ | — (Fcitx panel) | ✓ |
 | Custom themes | ✓ | ✓ | — | — |
 | Expanding horizontal layout into rows | ✓ | ✓ | — | — |
 | Paging keys expand horizontal layout | ✓ | ✓ | — | — |

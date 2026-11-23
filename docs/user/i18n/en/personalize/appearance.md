@@ -1,7 +1,7 @@
 ---
 title: Appearance and themes
 order: 1
-description: "The candidate window's seven built-in themes and light/dark modes, vertical and horizontal layouts, expanding horizontal layout into several rows (with arrow or paging keys), pinyin position and tones, fonts and sizes, transition animations, and the interface language of Settings."
+description: "The candidate window's ten built-in themes and light/dark modes, vertical and horizontal layouts, expanding horizontal layout into several rows (with arrow or paging keys), pinyin position and tones, fonts and sizes, transition animations, and the interface language of Settings."
 ---
 
 Change how the candidate window looks under 设置 → 外观 (Settings → Appearance); the top of the page shows a preview drawn with your current settings. A theme looks the same on macOS and Windows.
@@ -14,13 +14,15 @@ Linux uses Fcitx's own candidate panel, whose look is set in Fcitx; for Android 
 | 青简绿 (Qingjian green, default) | Light green background, text colour unchanged |
 | 系统蓝 (System blue) | System blue background, white text |
 | 微信绿 (WeChat green) | WeChat green background, white text; AI candidates in blue |
+| 素笺 (Sujian) | White paper background with a dark-green highlight; same frame and shadows as Qingjian green |
 | 玻璃 (Glass) | Blue capsule, white text; the horizontal layout is a single capsule. On macOS the window is clear glass that shows what's behind it, and the text turns darker or lighter with the background; on Windows 11 the window is translucent frosted glass, the text follows the system's light or dark mode, and the corners are a little less round than on macOS; on Windows 10, or with the system's Transparency effects turned off, it has a near-white opaque background |
+| 墨岩 (Slate) | Slate-blue-grey background with a blue-grey highlight; square corners and shadows, and a different palette throughout |
 | 樱花 (Sakura) | Pink-purple glass background, pink highlight block, serif candidates, part of speech and gloss on two lines; a character lying on the top left, with a cherry-blossom charm and ribbons |
 | 大肥鱼 (Big fat fish) | Blue-edged glass background with ripples, light-blue highlight block, gloss on its own line below the word; a whale maid lying on the top edge of the window, clinging to the right side in vertical layout |
 | 初音未来 (Hatsune Miku) | Cyan chamfered border and equalizer bars, cyan highlight block, gloss on its own line below the word; Hatsune Miku lying on the top edge of the window, clinging to the right side in vertical layout |
 | 波奇酱 (Bocchi) | Pink double border, cream background, an audio cable looped around the window, pink highlight block; Bocchi with her guitar lying on the top edge of the window, hiding on the left in vertical layout |
 
-Click a theme card to switch. 青简绿, 系统蓝, 微信绿 and 玻璃 each have a light and a dark version; choose follow system, light or dark under 外观 (Appearance) on the same page. 樱花, 大肥鱼, 初音未来 and 波奇酱 are light only.
+Click a theme card to switch. 青简绿, 系统蓝, 微信绿, 素笺, 玻璃 and 墨岩 each have a light and a dark version; choose follow system, light or dark under 外观 (Appearance) on the same page. 樱花, 大肥鱼, 初音未来 and 波奇酱 are light only.
 Themes only apply when 渲染引擎 (Rendering engine) is set to 青简渲染器 (Qingjian renderer, the default).
 
 To make a theme of your own, see [Custom themes](../advanced/custom-themes.md); once you've added a finished theme, reopen Settings and it appears among the theme cards.

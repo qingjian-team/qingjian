@@ -20,7 +20,7 @@
 - `qingjian-platform::scheme::SchemeSlot` 已负责加载方案、应用规则与纯形码时的拼音开关，Windows 已接入。
 - Linux 启动与配置热加载目前分别设置内置双拼、注音，没有接入形码方案和 `set_phonetic`。
 - Linux 字母路径直接调用 `Engine::push`，没有返回顶字与满码自动上屏产生的提交。
-- Linux 安装资源清单只复制 sample、glossary、levels、emoji 与产品数据，没有复制 `assets/schemes`；当前锁定的产品数据包也没有该目录。
+- Linux 安装资源清单只复制 sample、glossary、levels、emoji 与产品数据，没有复制方案目录（`schemes/`）；当前锁定的产品数据包也没有该目录。
 - 设置程序已有方案选择与资源查找逻辑，但 `Feature::Schemes` 的 Linux 支持状态是待实现。
 
 ## 方案选择

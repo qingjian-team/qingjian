@@ -204,7 +204,7 @@ Engine::raw_preedit() -> RawPreedit{text, cursor_bytes}   不查询、不学习�
 连「云端词补进第一页末尾几格、前面的本地候选一格不挪」这种排布规则都在 Core 的 `CandidateLayout` 里。
 Windows 与 Linux 的 Engine 在 Server 进程里，与画面之间隔着一层协议。Windows 是 `qingjian_platform::protocol` 的 `Frame`
 （拼音行分段、光标、当前页候选、高亮、页码、排布与主题），释义晚到的用后续的 `Update` 补；
-Linux 在 `apps/linux/server/src/protocol/` 另有一套 JSON 消息，候选连译文一起发给 fcitx5 插件。
+Linux 在 `crates/qingjian-platform/src/protocol/` 另有一套 JSON 消息，候选连译文一起发给 fcitx5 插件。
 两边开会话时带的是**同一个** `PROTOCOL_VERSION`，Linux Server 版本不等就断开：Windows 那边加消息升版本，Linux 插件也得跟着变
 （插件在 C++ 里写死这个数，`apps/linux/server/tests/protocol.rs` 读插件源码核对，忘了改 `cargo test` 就过不了）。
 
