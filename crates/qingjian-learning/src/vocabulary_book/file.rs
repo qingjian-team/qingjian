@@ -96,3 +96,83 @@ pub(super) fn one_line(text: &str) -> String {
         .trim()
         .to_owned()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{HEADER, one_line, parse, render, stamp};
+    use crate::vocabulary_book::VocabularyEntry;
+    use std::collections::BTreeMap;
+
+    fn date(text: &str) -> jiff::civil::Date {
+        text.parse().unwrap()
+    }
+
+    #[test]
+    fn the_old_seven_column_file_still_reads() {
+        let text = format!("{HEADER}ja\tこんにちは\t3\t1\t1\t2026-11-01\t2026-11-20\n");
+        let entries = parse(&text);
+        let entry = &entries[&("ja".to_owned(), "こんにちは".to_owned())];
+        assert_eq!((entry.seen, entry.committed, entry.used), (3, 1, 1));
+        assert!(!entry.known);
+        assert_eq!((entry.source.as_str(), entry.example.as_str()), ("", ""));
+        assert_eq!(
+            (entry.first, entry.last),
+            (date("2026-11-01"), date("2026-11-20"))
+        );
+    }
+
+    #[test]
+    fn render_round_trips_the_last_three_columns() {
+        let mut entries = BTreeMap::new();
+        let mut entry = VocabularyEntry::new(date("2026-11-01"));
+        entry.seen = 5;
+        entry.committed = 2;
+        entry.used = 1;
+        entry.last = date("2026-11-20");
+        entry.known = true;
+        entry.source = "你好".into();
+        entry.example = "你好，世界".into();
+        entries.insert(("ja".to_owned(), "こんにちは".to_owned()), entry);
+        let text = render(&entries);
+        assert!(text.starts_with(HEADER));
+        let parsed = parse(&text);
+        let got = &parsed[&("ja".to_owned(), "こんにちは".to_owned())];
+        assert_eq!((got.seen, got.committed, got.used), (5, 2, 1));
+        assert!(got.known);
+        assert_eq!(
+            (got.source.as_str(), got.example.as_str()),
+            ("你好", "你好，世界")
+        );
+        assert_eq!(
+            (got.first, got.last),
+            (date("2026-11-01"), date("2026-11-20"))
+        );
+    }
+
+    #[test]
+    fn bad_lines_are_skipped_and_later_duplicates_win() {
+        let text = format!(
+            "{HEADER}ja\tこんにちは\t1\t0\t0\t2026-11-01\t2026-11-01\n\
+             ja\tこんにちは\t9\t0\t0\t2026-11-01\t2026-11-01\n\
+             zh\t\n\
+             x\tx\t1\t0\t0\t坏日期\t2026-11-01\n"
+        );
+        let entries = parse(&text);
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[&("ja".to_owned(), "こんにちは".to_owned())].seen, 9);
+    }
+
+    #[test]
+    fn one_line_blanks_control_characters_and_trims() {
+        assert_eq!(one_line(" 你好\t世界\n"), "你好 世界");
+        assert_eq!(one_line("a\u{0}b"), "a b");
+        assert_eq!(one_line(""), "");
+    }
+
+    #[test]
+    fn stamp_of_a_missing_file_is_none() {
+        let path = std::env::temp_dir().join("qj-vocab-file-never.tsv");
+        let _ = std::fs::remove_file(&path);
+        assert!(stamp(&path).is_none());
+    }
+}

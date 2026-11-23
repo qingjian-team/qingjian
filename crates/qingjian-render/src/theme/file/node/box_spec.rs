@@ -59,3 +59,33 @@ impl BoxSpec {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::BoxSpec;
+
+    #[test]
+    fn the_use_site_only_replaces_what_it_writes() {
+        let component: BoxSpec =
+            serde_json::from_str(r#"{ "padding": 8, "width": 100, "opacity": 0.5 }"#).unwrap();
+        let use_site: BoxSpec = serde_json::from_str(r#"{ "padding": 12, "gap": 4 }"#).unwrap();
+        let merged = component.overridden_by(&use_site);
+        assert_eq!(merged.padding, use_site.padding);
+        assert_eq!(merged.width, Some(100.0));
+        assert_eq!(merged.gap, Some(4.0));
+        assert_eq!(merged.opacity, Some(0.5));
+    }
+
+    #[test]
+    fn an_empty_spec_is_all_defaults_and_overrides_nothing() {
+        let empty: BoxSpec = serde_json::from_str("{}").unwrap();
+        assert_eq!(empty, BoxSpec::default());
+        assert_eq!(BoxSpec::default().overridden_by(&empty), BoxSpec::default());
+        let full: BoxSpec = serde_json::from_str(
+            r#"{ "margin": 1, "padding": [1, 2, 3, 4], "gap": 2, "width": 3,
+                "height": 4, "min_width": 5, "inset": 6, "align_self": "center", "opacity": 0.8 }"#,
+        )
+        .unwrap();
+        assert_eq!(full.overridden_by(&BoxSpec::default()), full);
+    }
+}
