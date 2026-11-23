@@ -342,6 +342,7 @@ fn main() -> ExitCode {
         "Qingjian Windows Server ready"
     );
 
+    #[cfg(windows)]
     if let Some(mb) = working_set_mb() {
         tracing::info!(mb, "进程常驻内存");
     }
