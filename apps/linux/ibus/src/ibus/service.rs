@@ -123,8 +123,7 @@ fn display_id() -> Option<(String, String)> {
 
 /// 按 `WAYLAND_DISPLAY` 与 `DISPLAY` 两个值算 `(主机名, 显示标识)`。
 ///
-/// 拆成纯函数是为了测试：原来两条测试一个 `set_var("WAYLAND_DISPLAY")`、一个 `remove_var` 它，
-/// 并行跑时互相踩，pre-push 全量测试时撞上过一次（单独跑怎么都复现不出来）。
+/// 拆成纯函数是为了测试：环境变量是进程全局的，测试并行跑会互相踩。
 fn display_id_from(wayland: Option<&str>, display: Option<&str>) -> Option<(String, String)> {
     if let Some(wayland) = wayland.filter(|w| !w.is_empty()) {
         return Some(("unix".to_owned(), wayland.to_owned()));

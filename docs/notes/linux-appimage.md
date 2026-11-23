@@ -56,7 +56,7 @@ squashfs 由 `mksquashfs`（zstd）直接打，再接在 runtime 后面，不依
 5. 设置程序 `--png` 截图（只验能从 AppImage 起来、画得出页面）；
 6. 重装一次再 `uninstall`，确认文件（含图标）删了、Server 停了、用户数据还在。
 
-真桌面的整套场景（重启后靠登录自启打字、插件同步、卸载后再重启）由 `tools/verify/linux/appimage.sh` 在 Linux 虚拟机里跑，见 [testing.md](testing.md)。
+真桌面的整套场景（重启后靠登录自启打字、插件同步、卸载后再重启）由 `tools/verify/linux/appimage.sh` 在 Linux 虚拟机里跑，见 [开发约定](../contributing.md) 的「提交前检查」。
 
 拒装的两组（Ubuntu 24.04、22.04）只验提示对不对。
 

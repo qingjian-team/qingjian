@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 仓库现状
 
-跨平台输入法，Core 平台无关，各平台只做壳。已发版 0.1.3（macOS 与 Windows 共用版本号，2026-09-17）；Linux 提供 Rust Server + Fcitx5 默认候选面板（源码安装，0.1.4 起另有 Ubuntu 26.04 预编译包），另有 Ubuntu 22.04 的 Fcitx4 源码适配。
+跨平台输入法，Core 平台无关，各平台只做壳。最近发版 0.3.5（2026-11-19）；当前开发版 0.3.6-dev，macOS / Windows / Linux / Android 四个壳共用版本号与一个 GitHub Release（0.3.0 起 Android 也在里面）。Linux 提供 Rust Server + Fcitx5 默认候选面板（源码安装，0.1.4 起另有预编译包），另有 Ubuntu 22.04 的 Fcitx4 源码适配。
 阶段与已完成项见 `docs/plan/roadmap.md`，待办见 `docs/plan/todo.md`。
 
 ## 目录地图

@@ -45,7 +45,7 @@ https://github.com/user-attachments/assets/d145fde9-a641-4543-8b15-dd7a2685de3d
 
 青简目前没有上架任何包管理器。
 
-macOS 与 Windows 版本仍处于测试阶段。安装后先选中青简，在「偏好设置 / 设置 → 通用」选择想学习的语言，就可以开始输入。第一次使用可从[第一次输入](https://qingjian.app/docs/getting-started/first-input)读起。
+macOS 与 Windows 版本仍处于测试阶段。安装后先选中青简，在「偏好设置 / 设置 → 输入法切换」选择想学习的语言，就可以开始输入。第一次使用可从[第一次输入](https://qingjian.app/docs/getting-started/first-input)读起。
 
 ## 输入时，你会看到什么
 

@@ -1,10 +1,8 @@
 # TODO
 
 按「从自用到能给别人用」排。勾掉的移到 [roadmap.md](roadmap.md) 对应阶段。`★` 是当前建议的优先项。
-2026-09-06 状态：核心输入、翻译（中→英 / 日 24.9 万词、英→中 4.5 万词、注假名、修饰键上屏译词、翻译选中文字）、英文模式候选、
-自建词库（基础 8.7 万条 + 随包领域词库 11 本 13 万条，含语料挖出的高频词）、多词库与导入 / 移除 / 开关、偏好设置、`.qj` 容器（启动 50 ms）、
-个人 n-gram（二元 + 三元）、词图内敲错边、崩溃不丢、pkg 安装器、README 安装 / 隐私 / 许可都已完成并在自用。
-给测试者打包只剩：特殊应用验证（用户自己在各应用里试）；签名等 Developer ID 证书。
+2026-11-23 状态：0.3.5 已发（四平台共用版本号与 Release），当前开发版 0.3.6-dev。下面条目跨 2026-09 至 2026-11，
+正文里的日期是当时的记录；已完成的保留 `[x]` 作追溯，细节不再更新。
 
 ## 〇、上线前必须做（不做就不能给别人）
 
@@ -21,7 +19,7 @@
   词库与释义表已拆到词库仓库 qingjian-dicts，语言模型与含章·通变在模型仓库 qingjian-models（2026-11）
 - [ ] ★ 签名与公证：pkg 安装器、自动注册输入源、版本号 / 构建号已做（2026-09-06，`bundle.sh --pkg`）；
   CI 已搭（2026-09-07，`docs/notes/release.md`）：推标签在 macOS runner 打 arm64 + x86_64 两个 pkg、建 Release、生成 `releases.json`，产品数据从 `data` 预发布 Release 下载。
-  还差：Apple Developer 账号的 Developer ID 证书（配齐 `release.yml` 头部的七个 Secrets 就自动签名公证）、仓库推上 GitHub 后第一次真跑验证（本机没跑过 workflow）、
+  还差：Apple Developer 账号的 Developer ID 证书（配齐 `release.yml` 头部的七个 Secrets 就自动签名公证）、首次发版真跑一遍验证、
   官网改成读 `releases.json`（含 sha256 / 提交 / 构建时间的展示）并配 `QINGJIAN_WEB_TOKEN` 让发版与文档改动自动触发官网构建、更新检查
 - [ ] ★ 特殊应用逐个验证（2026-09-07 用户已验：Zed、Terminal 正常；JetBrains 系没装没验）：Secure Input（已有检测，验证密码框不组句、不发云端）、iTerm / Warp、VS Code / Electron、
   浏览器地址栏、沙盒应用（App Store 版备忘录 / 微信）、全屏游戏；每个记录 preedit 模式建议（按应用的开关已有 `[apps]` 分节，
