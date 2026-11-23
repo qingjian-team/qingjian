@@ -354,9 +354,7 @@ fn main() -> ExitCode {
 /// 当前进程的工作集（MB），启动后记一条，方便对内存账。
 #[cfg(windows)]
 fn working_set_mb() -> Option<u64> {
-    use windows::Win32::System::ProcessStatus::{
-        K32GetProcessMemoryInfo, PROCESS_MEMORY_COUNTERS,
-    };
+    use windows::Win32::System::ProcessStatus::{K32GetProcessMemoryInfo, PROCESS_MEMORY_COUNTERS};
     use windows::Win32::System::Threading::GetCurrentProcess;
     let mut counters = PROCESS_MEMORY_COUNTERS {
         cb: std::mem::size_of::<PROCESS_MEMORY_COUNTERS>() as u32,
@@ -365,7 +363,7 @@ fn working_set_mb() -> Option<u64> {
     unsafe {
         K32GetProcessMemoryInfo(GetCurrentProcess(), &mut counters, counters.cb)
             .as_bool()
-            .then(|| (counters.WorkingSetSize / (1024 * 1024)) as u64)
+            .then_some((counters.WorkingSetSize / (1024 * 1024)) as u64)
     }
 }
 
