@@ -175,6 +175,12 @@ pub struct Router {
     /// 上次套用的 `[model]`，变了才重载 / 卸载。
     applied_model: LocalModelConfig,
 
+    /// 最后一次按键；闲置到 `[model]` 的 `idle_unload_seconds` 就把模型卸掉。
+    last_input: Instant,
+
+    /// 模型是闲置卸掉的那一份，下次按键再重新加载。
+    model_idle_unloaded: bool,
+
     /// DLL 报来的聚焦会话光标前文：云联想按它带 `before` 上下文。TSF 只读光标前文，
     /// `after` 恒为空；组句结束 / 焦点切换即作废（新的组句 DLL 会再送）。
     surrounding_before: String,
@@ -235,6 +241,8 @@ impl Router {
             scheme_slot: SchemeSlot::default(),
             model_loader: None,
             applied_model: LocalModelConfig::default(),
+            last_input: Instant::now(),
+            model_idle_unloaded: false,
             surrounding_before: String::new(),
             rescore: RescoreState::default(),
             key_hint: KeyHintState::default(),
@@ -303,6 +311,10 @@ impl Router {
 
     /// 处理一条消息；`None` 表示不用回话。到点顺带把学习数据落盘。
     pub fn handle(&mut self, message: ClientMessage) -> Option<ServerMessage> {
+        if matches!(&message, ClientMessage::Key { .. }) {
+            self.last_input = Instant::now();
+            self.resume_model_after_idle();
+        }
         let response = self.traced(message);
         if self.last_flush.elapsed() >= LEARNING_FLUSH_INTERVAL {
             self.flush_learning();

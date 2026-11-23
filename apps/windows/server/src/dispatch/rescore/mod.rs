@@ -55,6 +55,7 @@ impl Router {
 
     /// 在后台线程加载选的模型；没有模型文件就什么都不做。
     fn load_local_model(&mut self) {
+        self.model_idle_unloaded = false;
         if self.model_loader.is_some()
             || self.engine.has_sentence_scorer()
             || self.engine.has_choice_model()
@@ -111,6 +112,34 @@ impl Router {
         self.engine.set_rescoring_wake(Some(wake));
     }
 
+    /// 长时间没按键就把模型卸掉，内存回到只有词库的水平；下次按键再加载。
+    fn unload_idle_model(&mut self) {
+        let seconds = self.applied_model.idle_unload_seconds;
+        if seconds == 0 || self.model_idle_unloaded || self.model_loader.is_some() {
+            return;
+        }
+        if !(self.engine.has_sentence_scorer() || self.engine.has_choice_model()) {
+            return;
+        }
+        if self.last_input.elapsed() < Duration::from_secs(seconds) {
+            return;
+        }
+        self.unload_local_model();
+        self.model_idle_unloaded = true;
+        tracing::info!(seconds, "本地模型闲置，已卸载");
+    }
+
+    /// 闲置卸掉过模型、又有键进来：清标记并在后台重新加载。
+    pub(super) fn resume_model_after_idle(&mut self) {
+        if !self.model_idle_unloaded {
+            return;
+        }
+        self.model_idle_unloaded = false;
+        if self.applied_model.enabled {
+            self.load_local_model();
+        }
+    }
+
     /// 组句结束：什么都不等了；应用前文也作废（下一段组句 DLL 会再送）。
     pub(super) fn stop_rescoring(&mut self) {
         self.rescore.stop();
@@ -155,6 +184,7 @@ impl Router {
 
     /// 到点了：接上加载好的模型、推进重排、键位提示停顿到点就弹出、看一眼配置文件。工人循环超时与 DLL 的 `Poll` 都会调。
     pub fn tick(&mut self) {
+        self.unload_idle_model();
         self.attach_loaded_model();
         self.advance_rescoring();
         self.advance_key_hint();

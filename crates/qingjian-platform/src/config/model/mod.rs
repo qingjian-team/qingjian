@@ -24,6 +24,9 @@ pub struct LocalModelConfig {
 
     /// 应用读不到光标前文时，这个应用里多少秒内上屏的字还给模型当前文；0 表示一直算。
     pub context_memory_seconds: u64,
+
+    /// 多少秒没有按键就卸载模型，释放它占的内存；下次按键在后台重新加载。0 表示一直常驻。
+    pub idle_unload_seconds: u64,
 }
 
 impl Default for LocalModelConfig {
@@ -33,6 +36,7 @@ impl Default for LocalModelConfig {
             name: LocalModel::default(),
             zhiyi_tier: ZhiyiTier::default(),
             context_memory_seconds: qingjian_core::DEFAULT_FRESH_SECONDS,
+            idle_unload_seconds: 300,
         }
     }
 }
