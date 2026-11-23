@@ -126,27 +126,33 @@ mod tests {
 
     #[test]
     fn resolve_api_key_trims_the_configured_value() {
-        let mut config = PredictConfig::default();
-        config.api_key = Some("  key  ".to_owned());
+        let config = PredictConfig {
+            api_key: Some("  key  ".to_owned()),
+            ..Default::default()
+        };
         assert_eq!(config.resolve_api_key().as_deref(), Some("key"));
     }
 
     #[test]
     fn a_blank_key_falls_through_to_a_missing_variable() {
-        let mut config = PredictConfig::default();
-        config.api_key = Some("   ".to_owned());
-        config.api_key_env = "QINGJIAN_TEST_ENV_THAT_DOES_NOT_EXIST".to_owned();
+        let config = PredictConfig {
+            api_key: Some("   ".to_owned()),
+            api_key_env: "QINGJIAN_TEST_ENV_THAT_DOES_NOT_EXIST".to_owned(),
+            ..Default::default()
+        };
         assert_eq!(config.resolve_api_key(), None);
     }
 
     #[test]
     fn policy_maps_the_config_fields() {
-        let mut config = PredictConfig::default();
-        config.automatic = false;
-        config.lookback = 10;
-        config.lookahead = 5;
-        config.slots = 3;
-        config.sentence = false;
+        let config = PredictConfig {
+            automatic: false,
+            lookback: 10,
+            lookahead: 5,
+            slots: 3,
+            sentence: false,
+            ..Default::default()
+        };
         let policy = config.policy();
         assert!(!policy.automatic);
         assert_eq!(policy.before, 10);
@@ -158,8 +164,10 @@ mod tests {
 
     #[test]
     fn zero_slots_still_ask_for_three_items() {
-        let mut config = PredictConfig::default();
-        config.slots = 0;
+        let config = PredictConfig {
+            slots: 0,
+            ..Default::default()
+        };
         let policy = config.policy();
         assert_eq!(policy.slots, 0);
         assert_eq!(policy.max_items, 3);
