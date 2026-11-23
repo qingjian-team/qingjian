@@ -30,6 +30,8 @@ README.md 只介绍项目（各语言译本在 [i18n/](i18n/)），所有技术�
 | [plan/german_support_plan.md](plan/german_support_plan.md) | 德语支持方案（2026-10-08，**已废弃**）：原文本地三层管线未实施，只存档；实际走 `tools/gloss-gen` 的 LLM 多语言管线 |
 | [plan/zh_tw_support_plan.md](plan/zh_tw_support_plan.md) | 繁体输出与台湾注音支持的分析与方案（贡献者 pinchiu，#22）：读音标准差异、台湾用语、简转繁一对多；两条路线 |
 | [plan/todo.md](plan/todo.md) | 待办清单，按「从自用到能给别人用」排 |
+| [plan/backlog.md](plan/backlog.md) | 任务池（2026-11-23）：按输入能力、词库、模型、性能、构建、平台、体验、隐私、文档九类编号，90+ 条 |
+| [plan/input-methods.md](plan/input-methods.md) | 输入法横评（2026-11-23）：搜狗、微信、微软拼音、Rime、Fcitx5、Gboard、SwiftKey 的特点与青简的差距 |
 | [plan/wubi.md](plan/wubi.md) | 五笔（形码）支持方案（2026-09-15）：为什么不能按双拼的方式接、两条平行管线、码表与词频、`[general] scheme` 收敛、分期 |
 | [design/linux-wubi.md](design/linux-wubi.md) | Linux 五笔、自制方案、热更新与会话清理设计 |
 | [plan/linux-wubi-implementation.md](plan/linux-wubi-implementation.md) | Linux 五笔接入的实现与验证清单 |
