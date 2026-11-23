@@ -123,4 +123,55 @@ mod tests {
         assert!(matches!(error, NeuralError::Io { .. }), "{error}");
         let _ = std::fs::remove_dir_all(&dir);
     }
+
+    /// 一个只有一个 f32 的 safetensors：8 字节头长度 + JSON 头 + 数据。
+    fn tiny_safetensors() -> Vec<u8> {
+        let header = r#"{"w":{"dtype":"F32","shape":[1],"data_offsets":[0,4]}}"#;
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(&(header.len() as u64).to_le_bytes());
+        bytes.extend_from_slice(header.as_bytes());
+        bytes.extend_from_slice(&1.0f32.to_le_bytes());
+        bytes
+    }
+
+    fn write_bundle(dir: &Path, config: &str, vocab: &str) {
+        std::fs::write(dir.join(CONFIG_FILE), config).unwrap();
+        std::fs::write(dir.join(VOCAB_FILE), vocab).unwrap();
+        std::fs::write(dir.join(WEIGHTS_FILE), tiny_safetensors()).unwrap();
+    }
+
+    const CONFIG: &str =
+        r#"{"vocab_size": 1, "n_layer": 1, "n_embd": 1, "n_head": 1, "context": 1}"#;
+
+    #[test]
+    fn packs_a_directory_into_one_container() {
+        let dir = scratch("pack");
+        write_bundle(&dir, CONFIG, r#"{"tokens": ["<pad>"]}"#);
+        let out = dir.join("packed.qjm");
+        let parameters = pack(&dir, &out, &Metadata::default()).unwrap();
+        assert_eq!(parameters, 1);
+        let bytes = std::fs::read(&out).unwrap();
+        assert_eq!(&bytes[..8], &qingjian_format::MAGIC);
+        assert!(bytes.len() > 8);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_vocab_that_disagrees_with_the_config_is_corrupt() {
+        let dir = scratch("mismatch");
+        let config = r#"{"vocab_size": 2, "n_layer": 1, "n_embd": 1, "n_head": 1, "context": 1}"#;
+        write_bundle(&dir, config, r#"{"tokens": ["<pad>"]}"#);
+        let error = pack(&dir, &dir.join("out.qjm"), &Metadata::default()).unwrap_err();
+        assert!(matches!(error, NeuralError::Corrupt(_)), "{error}");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_broken_config_is_a_json_error() {
+        let dir = scratch("broken-config");
+        write_bundle(&dir, "{", r#"{"tokens": ["<pad>"]}"#);
+        let error = pack(&dir, &dir.join("out.qjm"), &Metadata::default()).unwrap_err();
+        assert!(matches!(error, NeuralError::Json { .. }), "{error}");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 }
