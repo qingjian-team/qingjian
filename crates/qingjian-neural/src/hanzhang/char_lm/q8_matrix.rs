@@ -69,6 +69,18 @@ impl Q8Matrix {
         self.cols
     }
 
+    /// 把 `row` 这一行的权重还原成 f32 写进 `out`（长度 = [`Self::cols`]）。查词嵌入表用，
+    /// 每次只还原要查的那几行，不必把整张表展开。
+    pub fn row_into(&self, row: usize, out: &mut [f32]) {
+        let blocks = self.cols / BLOCK;
+        let (dequantize, _) = kernels();
+        dequantize(
+            &self.weights[row * self.cols..(row + 1) * self.cols],
+            &self.scales[row * blocks..(row + 1) * blocks],
+            out,
+        );
+    }
+
     /// `x`（行优先 `m × cols`）乘权重的转置，返回行优先的 `m × rows`。
     /// 每行权重先还原成 f32 放进一行的缓冲，`m` 行输入共用它；再按输出列分块并行，算成 `rows × m` 后转回来。
     pub fn matmul(&self, x: &[f32], m: usize) -> Vec<f32> {
