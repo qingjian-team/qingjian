@@ -18,7 +18,7 @@ pub enum ThemeError {
     #[error("theme inheritance too deep at {id:?}")]
     TooDeep { id: String },
 
-    /// 主题描述文件超过 [`MAX_THEME_JSON_BYTES`](super::MAX_THEME_JSON_BYTES)。
+    /// 主题描述文件超过 4 MB 上限。
     #[error("theme file too large: {bytes} bytes")]
     TooLarge { bytes: u64 },
 }
