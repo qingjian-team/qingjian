@@ -1,6 +1,21 @@
 use super::*;
 
 #[test]
+fn an_oversized_source_is_refused_before_it_is_read() {
+    // 下载来的词库可能是任意大小：先按文件长度挡掉，不把它整份读进内存
+    let dir = std::env::temp_dir().join(format!("qingjian-import-large-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let source = dir.join("huge.txt");
+    let file = std::fs::File::create(&source).unwrap();
+    file.set_len(MAX_SOURCE_BYTES + 1).unwrap();
+    drop(file);
+    let error = import(&source, &dir.join("dicts")).unwrap_err();
+    assert!(matches!(error, DictionaryError::TooLarge(_)), "{error}");
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
 fn imports_tsv_and_rime_into_qj() {
     let dir = std::env::temp_dir().join(format!("qingjian-import-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);

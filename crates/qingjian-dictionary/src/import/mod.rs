@@ -37,6 +37,23 @@ pub struct ImportedWordList {
     pub report: Report,
 }
 
+/// 导入源文件的字节上限：主流搜狗细胞词库不到 40 MB，大型 Rime 词库一百来 MB；
+/// 导入要把源文件整份读进内存再转成 TSV，不设限时一个下载来的巨型文件就能吃光内存。
+pub const MAX_SOURCE_BYTES: u64 = 128 << 20;
+
+/// 读文本源文件：先按文件长度挡一次，读完按实际长度再确认。
+pub(super) fn read_source_text(source: &Path) -> Result<String, DictionaryError> {
+    let size = std::fs::metadata(source)?.len();
+    if size > MAX_SOURCE_BYTES {
+        return Err(DictionaryError::TooLarge(size));
+    }
+    let text = std::fs::read_to_string(source)?;
+    if text.len() as u64 > MAX_SOURCE_BYTES {
+        return Err(DictionaryError::TooLarge(text.len() as u64));
+    }
+    Ok(text)
+}
+
 /// 导入一本词库的结果：写出的文件；无读音词表另带派生统计（普通词库为 `None`）。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ImportedDictionary {
@@ -57,7 +74,7 @@ pub fn import_dictionary(
 ) -> Result<ImportedDictionary, DictionaryError> {
     let needs_readings = !Container::is_qj(source)
         && !qjz::is_qjz(source)
-        && std::fs::read_to_string(source).is_ok_and(|text| has_words_without_reading(&text));
+        && read_source_text(source).is_ok_and(|text| has_words_without_reading(&text));
     if needs_readings {
         let done = import_word_list(source, dest_dir, references)?;
         Ok(ImportedDictionary {
@@ -90,7 +107,16 @@ pub fn import(source: &Path, dest_dir: &Path) -> Result<Imported, DictionaryErro
         let metadata = dictionary.metadata().cloned().unwrap_or_default();
         (dictionary, metadata)
     } else {
+        let size = std::fs::metadata(source)?.len();
+        if size > MAX_SOURCE_BYTES {
+            return Err(DictionaryError::TooLarge(size));
+        }
         let bytes = std::fs::read(source)?;
+        let bytes = if bytes.len() as u64 > MAX_SOURCE_BYTES {
+            return Err(DictionaryError::TooLarge(bytes.len() as u64));
+        } else {
+            bytes
+        };
         // 搜狗细胞词库是二进制：先按魔数 / 扩展名认出来，转成 TSV 再走同一条解析
         if scel::is_scel(&source.to_string_lossy(), &bytes) {
             let tsv =
@@ -160,7 +186,7 @@ pub fn import_word_list(
     let stem = stem_of(source)?;
     std::fs::create_dir_all(dest_dir)?;
     let target = dest_dir.join(format!("{stem}.qj"));
-    let words = parse_words(&std::fs::read_to_string(source)?);
+    let words = parse_words(&read_source_text(source)?);
     let derived = derive(&words, references);
     if derived.report.words == 0 {
         return Err(DictionaryError::NoWordEntries);

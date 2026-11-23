@@ -121,7 +121,7 @@ impl WordList {
         if Container::is_qj(path) {
             Self::open_qj(path)
         } else {
-            Self::parse(&std::fs::read_to_string(path)?)
+            Self::parse(&crate::import::read_source_text(path)?)
         }
     }
 
@@ -131,7 +131,7 @@ impl WordList {
         if Container::is_qj(path) {
             Self::open_qj(path)
         } else {
-            Self::parse_pronunciations(&std::fs::read_to_string(path)?)
+            Self::parse_pronunciations(&crate::import::read_source_text(path)?)
         }
     }
 

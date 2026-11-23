@@ -14,6 +14,10 @@ pub enum DictionaryError {
         reason: &'static str,
     },
 
+    /// 源文件超过导入上限（128 MB）。
+    #[error("dictionary source too large: {0} bytes")]
+    TooLarge(u64),
+
     /// `.qj` 容器层的错误（魔数、版本、分节缺失）。
     #[error("dictionary file: {0}")]
     Format(#[from] qingjian_format::FormatError),
