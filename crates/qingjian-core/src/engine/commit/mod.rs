@@ -240,11 +240,20 @@ impl Engine {
         }
         let log_id = self.log_commit(&keys, &candidate.text, source);
         self.meter_commit(&candidate.text, source, false);
-        // 上屏带译词的中文候选：那一刻用户看着这条译词，记进词汇（英文候选的中文释义不是学习语言，不记）
-        if !self.private
-            && candidate.kind != CandidateKind::English
-            && let Some(translation) = &candidate.translation
-        {
+        // 上屏带译词的中文候选：那一刻用户看着这条译词，记进词汇（英文候选的中文释义不是学习语言，不记）；
+        // 壳按布局下标上屏时传入的候选可能尚未经 `annotate` 标译文，这里按需补查。
+        let can_record_vocab = !self.private
+            && !matches!(
+                candidate.kind,
+                CandidateKind::English | CandidateKind::Custom(_)
+            );
+        let fallback = (can_record_vocab && candidate.translation.is_none())
+            .then(|| self.translator.translate(&candidate.text))
+            .flatten();
+        let translation = can_record_vocab
+            .then(|| candidate.translation.as_ref().or(fallback.as_ref()))
+            .flatten();
+        if let Some(translation) = translation {
             for (index, sense) in translation.senses().iter().enumerate() {
                 self.vocabulary.record_commit(
                     translation.language,

@@ -171,3 +171,119 @@ fn commits_with_a_translation_become_encounters_and_sentences_go_to_the_cloud() 
     assert_eq!(encounters.lock().unwrap().len(), 2);
     assert_eq!(asked.lock().unwrap().len(), 1);
 }
+
+type Commits = Arc<Mutex<Vec<(Language, String, bool)>>>;
+
+/// 同时记录上屏、例句与相遇，用于验证未调用 `annotate` 的候选上屏路径。
+#[derive(Default)]
+struct FullBook {
+    commits: Commits,
+    examples: Examples,
+    encounters: Encounters,
+}
+
+impl VocabularyTracker for FullBook {
+    fn exposures(&self, _language: Language, _word: &str) -> u32 {
+        0
+    }
+
+    fn record_exposure(&mut self, _language: Language, _word: &str) {}
+
+    fn record_commit(&mut self, language: Language, word: &str, used: bool) {
+        self.commits
+            .lock()
+            .unwrap()
+            .push((language, word.to_owned(), used));
+    }
+
+    fn record_encounter(&mut self, encounter: &Encounter) {
+        self.encounters.lock().unwrap().push(encounter.clone());
+    }
+
+    fn record_example(&mut self, _language: Language, word: &str, source: &str, example: &str) {
+        self.examples.lock().unwrap().push((
+            word.to_owned(),
+            source.to_owned(),
+            example.to_owned(),
+        ));
+    }
+}
+
+#[test]
+fn unannotated_commit_records_vocab_example_and_encounter() {
+    let commits = Commits::default();
+    let examples = Examples::default();
+    let encounters = Encounters::default();
+    let mut engine = engine()
+        .with_translator(Box::new(FixedTranslator))
+        .with_vocabulary_tracker(Box::new(FullBook {
+            commits: commits.clone(),
+            examples: examples.clone(),
+            encounters: encounters.clone(),
+        }));
+
+    // 模拟各平台壳直接从 `query()` 布局取出未标注译文的候选并上屏
+    engine.set_input("xian");
+    let first = engine
+        .query()
+        .unwrap()
+        .candidates
+        .items
+        .into_iter()
+        .find(|c| c.text == "先")
+        .unwrap();
+    assert!(first.translation.is_none());
+    engine.commit(&first);
+
+    engine.set_input("kaifa");
+    let word = engine
+        .query()
+        .unwrap()
+        .candidates
+        .items
+        .into_iter()
+        .find(|c| c.text == "开发")
+        .unwrap();
+    assert!(word.translation.is_none());
+    engine.commit(&word);
+    assert_eq!(engine.punctuate('.'), Some("。"));
+
+    assert_eq!(
+        *commits.lock().unwrap(),
+        [(Language::English, "develop".to_owned(), false)]
+    );
+    assert_eq!(
+        *encounters.lock().unwrap(),
+        [Encounter {
+            language: Language::English,
+            text: "开发".to_owned(),
+            translation: "develop".to_owned(),
+            reading: None,
+        }]
+    );
+    assert_eq!(
+        *examples.lock().unwrap(),
+        [(
+            "develop".to_owned(),
+            "开发".to_owned(),
+            "先开发。".to_owned()
+        )]
+    );
+
+    // 自定义短语与私密输入不应补查并记录
+    let custom = Candidate {
+        text: "开发".to_owned(),
+        kind: CandidateKind::Custom(1),
+        syllables: Vec::new(),
+        reading: None,
+        translation: None,
+        aux_code: None,
+    };
+    engine.set_input("kf");
+    engine.commit(&custom);
+    engine.set_private(true);
+    engine.set_input("kaifa");
+    engine.commit(&word);
+    assert_eq!(commits.lock().unwrap().len(), 1);
+    assert_eq!(encounters.lock().unwrap().len(), 1);
+}
