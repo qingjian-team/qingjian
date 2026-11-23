@@ -31,10 +31,7 @@ pub struct Vocab {
 
 impl Vocab {
     pub fn load(path: &Path) -> Result<Self, NeuralError> {
-        let text = std::fs::read_to_string(path).map_err(|source| NeuralError::Io {
-            path: path.to_owned(),
-            source,
-        })?;
+        let text = crate::read_text_limited(path)?;
         Self::from_json(&text, path)
     }
 

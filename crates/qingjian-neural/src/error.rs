@@ -13,6 +13,15 @@ pub enum NeuralError {
         source: std::io::Error,
     },
 
+    #[error("model file too large: {path} ({bytes} bytes)")]
+    TooLarge {
+        /// 文件。
+        path: PathBuf,
+
+        /// 实际大小。
+        bytes: u64,
+    },
+
     #[error("bad json in {path}: {source}")]
     Json {
         /// 出错的文件。

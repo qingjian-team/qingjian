@@ -53,10 +53,7 @@ impl CharScorer {
     /// 三件套目录：权重 mmap 给 candle。
     fn load_directory(dir: &Path, dtype: DType, device: Device) -> Result<Self, NeuralError> {
         let config_path = dir.join(qjm::CONFIG_FILE);
-        let text = std::fs::read_to_string(&config_path).map_err(|source| NeuralError::Io {
-            path: config_path.clone(),
-            source,
-        })?;
+        let text = crate::read_text_limited(&config_path)?;
         let cfg = ModelConfig::from_json(&text, &config_path)?;
         let vocab = Vocab::load(&dir.join(qjm::VOCAB_FILE))?;
         // SAFETY：mmap 的权重文件在模型存活期间不改动

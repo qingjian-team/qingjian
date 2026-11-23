@@ -163,10 +163,7 @@ fn log_softmax(logits: &[f32]) -> Vec<f32> {
 }
 
 fn read_json<T: for<'de> Deserialize<'de>>(path: &Path) -> Result<T, NeuralError> {
-    let text = std::fs::read_to_string(path).map_err(|source| NeuralError::Io {
-        path: path.to_owned(),
-        source,
-    })?;
+    let text = crate::read_text_limited(path)?;
     serde_json::from_str(&text).map_err(|source| NeuralError::Json {
         path: path.to_owned(),
         source,

@@ -73,10 +73,7 @@ struct Piece<'a>(#[serde(borrow)] Cow<'a, str>);
 
 impl Bpe {
     pub fn load(path: &Path) -> Result<Self, NeuralError> {
-        let text = std::fs::read_to_string(path).map_err(|source| NeuralError::Io {
-            path: path.to_owned(),
-            source,
-        })?;
+        let text = crate::read_text_limited(path)?;
         let file: File = serde_json::from_str(&text).map_err(|source| NeuralError::Json {
             path: path.to_owned(),
             source,
