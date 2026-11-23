@@ -479,7 +479,7 @@ base_url = "https://api.deepseek.com"
 model = "deepseek-flash"
 # 推理强度（reasoning_effort）：none 关掉模型的思考，联想要快；留空则不发这个参数
 reasoning_effort = "none"
-# 密钥：填在这里，或留空并设置 api_key_env 指定的环境变量（偏好设置里填的密钥写进配置同目录的 .env）
+# 密钥：填在这里，或留空并设置 api_key_env 指定的环境变量；设置窗口填的也写在这里
 # api_key = ""
 api_key_env = "QINGJIAN_API_KEY"
 # 单次请求超时（毫秒）、停止敲键多久后才发请求（毫秒）

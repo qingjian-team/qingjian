@@ -28,7 +28,7 @@ description: 青简的全部设置保存在一个文本配置文件里：位置�
 | 配置项 | 设置界面 | 说明 |
 |---|---|---|
 | `[general] scheme` | 输入 → 拼音 | `pinyin`（全拼）、`xiaohe`、`ziranma`、`microsoft`、`sogou`、`abc`、`xiaolang`、`shoudao`、`jiajia`、`ziguang`、`zhuyin`，或自制方案的文件夹名 |
-| `[general] double_shift_input` | 输入法切换 → 连按两次 Shift 切换第三输入法 | `off`（缺省，不启用）或 `vietnamese`（越南语；输入法实现完成后生效） |
+| `[general] double_shift_input` | 输入法切换 → 连按两次 Shift 切换第三输入法 | `off`（缺省，不启用）或 `vietnamese`（越南语） |
 | `[general] hold_selections` | 输入 → 分次选词先不上屏 | `true` / `false` |
 | `[fuzzy]` 一节 | 输入 → 模糊音 | 十条内置规则 `z_zh` … `eng_ong` 各是 `true` / `false`；`custom` 是自定义规则的列表，如 `["ian=iang", "fa=hua"]`，`custom_off` 列其中暂时关掉的，见 [自定义规则](../input/fuzzy-and-shuangpin.md#自定义规则) |
 | `[auto_phrase] enabled` | 输入 → 五笔自动组词 → 自动学习五笔新词 | `true`（默认）/ `false`；只控制五笔连续组词，不影响拼音、双拼、已有词与词频学习 |
@@ -90,7 +90,7 @@ api_key = "你的 API 密钥"
 - `automatic`：自动联想，`false` 时只在按手动联想的组合键时请求。
 - `debounce_ms`：停键等待，缺省 300。`min_interval_ms`：最短请求间隔，缺省 3000。
 - `slots`：AI 候选占第一页末尾几格，0 至 4。
-- 在设置窗口里填的密钥另存在数据文件夹的 `.env` 里，不写进 `config.toml`。Linux 上也可以在启动青简之前设置 `QINGJIAN_API_KEY` 环境变量。
+- 在设置窗口里填的密钥写进这一节的 `api_key`；留空时读 `api_key_env` 指定的环境变量（缺省 `QINGJIAN_API_KEY`，可在启动青简前设置）。旧版 macOS 偏好设置留下的 `.env` 仍会读进环境变量，`api_key` 里写了就以它为准。
 - 改开关、地址、模型或密钥会自动切换并撤销旧请求。
 
 `reasoning_effort` 留空时不发送推理强度。若接口明确拒绝温度或思考参数，青简会省略被拒的参数重试，并在同一客户端的后续请求中沿用兼容写法，无需按模型名配置。

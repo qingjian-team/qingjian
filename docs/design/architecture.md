@@ -42,12 +42,17 @@ qingjian/
 │   ├── qingjian-translate/     # 候选翻译 annotation
 │   ├── qingjian-learning/      # 用户词频、用户词、个人英文词、个人 n-gram、个人敲错表、候选降权（user.tsv / user-words.tsv / user-english.tsv / user-ngram.tsv / user-typos.tsv / user-demoted.tsv）、输入日志（input-log.jsonl）、输入统计（usage-hourly.tsv）、词汇记录（user-vocab.tsv）
 │   ├── qingjian-predict/       # 云联想：Predictor 的网络实现（OpenAI 兼容接口）
+│   ├── qingjian-voice/         # 云端语音识别：VolcengineTranscriber（WebSocket + rustls），实现 Core 的 Transcriber
 │   ├── qingjian-lm/            # 整句转换的 bigram 语言模型：LanguageModel 的实现
 │   ├── qingjian-neural/        # 字级 Transformer 的本地推理（candle）：SentenceScorer 的实现，给整句前几条路径重打分
+│   ├── qingjian-code/          # 认出像代码的文字并切高亮片段，输入法与剪贴板共用
 │   ├── qingjian-format/        # .qj 数据容器：mmap 打开、零拷贝视图、写入器、可落盘的哈希索引（dictionary / lm 依赖它）
 │   ├── qingjian-render/        # 自绘渲染器：候选窗一帧 + 主题 → 位图，各平台贴图
 │   ├── bamboo-slip/            # 自绘 UI 引擎：场景树、布局、文字、动画、控件 → 位图；候选窗与设置程序共用
+│   ├── bamboo-slip-i18n/       # 界面文案多语言：各 crate 的 locales/*.toml 编入，按进程级界面语言查
 │   ├── qingjian-update/        # 检查更新：读 releases.json、验 ed25519 签名、按平台与渠道挑新版本
+│   ├── qingjian-clipboard/     # 剪贴板历史（SQLite）与面板位置，平台无关，不放窗口与界面
+│   ├── qingjian-clipboard-sync/# 剪贴板设备间同步：配对、加密通道、合并、发现与扫描
 │   └── qingjian-platform/      # 平台层共用的部分：配置文件、协议类型
 │
 ├── apps/
@@ -57,14 +62,19 @@ qingjian/
 │   ├── windows/                # 同一个产品的四个 package：server（IPC 分派 + Engine + 命名管道 + 自绘候选窗）、
 │   │                           #   tsf（TSF 文本服务 DLL：COM 链路 + 连 Server 的管道客户端）、settings（旧版设置，WinUI 3）、installer
 │   ├── linux/                  # server（Engine + Unix socket）+ fcitx5（C++ 插件）+ scripts
+│   ├── clipboard/              # 青简剪贴板（独立进程，Windows 与 macOS）：监听复制、快捷键呼出卡片面板、粘贴回原窗口
 │   └── android/                # core（Rust：Engine 装配 + JNI，cdylib）+ app（Kotlin InputMethodService 壳）；Engine 在输入法进程内
 │
 ├── tools/
 │   ├── dict-convert/           # 产品数据生成：lexicon / bigram / mine / english / emoji / pack
 │   ├── gloss-gen/              # LLM 批量生成释义表与多音字标注
-│   └── corpus/                 # 语料预处理脚本（uv）
+│   ├── corpus/                 # 语料预处理脚本（uv）
+│   ├── eval/                   # 参数扫描与回放评测（sweep.sh）
+│   ├── release/                # 发版：取产品数据、打包、上传 Release、生成 releases.json
+│   ├── release-sign/           # 发版侧签名工具（ed25519）
+│   └── docs/                   # 文档检查（i18n 锚点）
 │
-├── assets/                     # 随仓库的产品数据源：词库源、释义表、emoji 表、词汇等级表（levels/，CEFR-J / Octanove / JLPT）、图标、样例
+├── assets/                     # 随仓库的数据：emoji 表、词汇等级表（levels/）、图标、样例、笔画表；词库源与释义表在 qingjian-dicts，模型在 qingjian-models
 ├── data/                       # gitignore：语料、Unihan、生成物 data/generated/
 ├── docs/
 └── README.md
@@ -150,10 +160,12 @@ qingjian-core              （定义 Translator / Learner / Predictor trait，�
         ▲           ▲            ▲
 qingjian-translate  qingjian-learning  qingjian-predict  qingjian-lm  qingjian-neural   （实现 core 的 trait，依赖 core；learning 另依赖 translate 的 LevelTable 做词汇按级汇总）
         ▲           ▲            ▲
-qingjian-platform          （配置文件 Config：general / shortcut / fuzzy / predict 分节，toml_edit 原地改键保留注释；协议类型，可序列化；依赖 core、predict）
+qingjian-platform          （配置文件 Config：general / shortcut / fuzzy / predict 分节，toml_edit 原地改键保留注释；协议类型，可序列化；依赖 core、dictionary、format、predict）
         ▲
 apps/*                     （组装：Engine::new(dict).with_translator(..).with_learner(..).with_predictor(..)）
 ```
+
+不经过 core 的 crate 单独看：`qingjian-render`（候选窗一帧 + 主题 → 位图）、`bamboo-slip`（UI 引擎，render 依赖它）与 `bamboo-slip-i18n`（界面文案）、`qingjian-update`（检查更新）、`qingjian-voice`（语音识别）、`qingjian-code`（代码识别）、`qingjian-clipboard` / `qingjian-clipboard-sync`（剪贴板历史与设备同步）；依赖见各自 `Cargo.toml`。
 
 `apps/cli` 是 Phase 1 的测试壳：`cargo run -p qingjian-cli -- kaifa` 直接查询，
 不带参数进入交互模式（拼音查询、序号上屏、`:q` 退出），`--user-dict` 指定用户词频文件，
@@ -525,11 +537,11 @@ CC-CEDICT 表（`dict-convert cedict`）保留为备用来源，覆盖面广但�
   Server 按会话记 `private`、焦点切换时重设，Core `Engine::set_private`：学习器与输入日志外面各套一层 `Muted*`（写吞掉、读照常，排序不变），联想 / 翻译 / 释义兜底不发。协议版本见 `qingjian-platform::protocol::PROTOCOL_VERSION`。
 - **版本与发布**：四个壳各在自己的 `Cargo.toml` 写版本，但同号发布（当前 `0.3.6-dev`）；发布标签见 `docs/notes/release.md`（0.1.4 起各平台共用 `v<版本>`，0.3.0 起 Android 加入）。`qingjian-windows-tsf` 是同一 Windows 产品的另一半（各自 `Cargo.toml` 记版本；两个 package 同放 `apps/windows/` 下，是一个产品的两个产物——不合成一个 crate，因为 DLL 不能带 Engine 的依赖树）。
 
-### Linux：Fcitx5 / IBus（2026-09-15 定，PR #90 在做）
+### Linux：Fcitx5 / IBus（2026-09-15 定）
 
 - 与 Windows 同构：Core 跑在独立的 Rust Server 进程（Unix socket，复用 `qingjian-platform` 的协议），壳只转发按键、上屏与光标位置。
   词库、语言模型、神经模型、渲染器和字体都在 Server 里，不进 Fcitx5 这个所有输入法共用的进程；Server 崩了不带倒 Fcitx5。
 - Fcitx5 壳是一层薄 C++ 插件（addon ABI 是 C++ 虚类，纯 Rust 做不了），只做转发，判断都在 Server。
 - 候选窗自绘：Server 出位图并自己开窗（X11 / XWayland 先行），插件只报光标矩形与焦点。
-- IBus 壳以后用 zbus 写成纯 Rust，共用同一个 Server；排在 Fcitx5 真机验收之后。
-- 三个平台的按键分流（macOS host / Windows Server / Linux Server）要抽成公共 crate，等 Linux 最小输入链路合入后做。
+- IBus 壳用 zbus 写成纯 Rust（`apps/linux/ibus`），共用同一个 Server；已验证按键、候选与上屏，各类应用里的表现尚未逐个验证。
+- 三个平台的按键分流（macOS host / Windows Server / Linux Server）还没抽成公共 crate。

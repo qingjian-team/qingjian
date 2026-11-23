@@ -4,7 +4,7 @@ order: 2
 description: 在 Linux（以及 FreeBSD）上安装青简：Fcitx5 预编译包、Fcitx5 / IBus 与 Fcitx4 源码安装、首次输入、更新与卸载，以及与电脑版的不同之处。
 ---
 
-青简 Linux 版作为 Fcitx5、IBus 或 Fcitx4 的一个输入法运行，候选使用输入法框架自己的候选面板。目前需要在终端中安装；源码安装可以让青简的后台服务随登录自动启动，预编译包要每次登录后手动启动。
+青简 Linux 版作为 Fcitx5、IBus 或 Fcitx4 的一个输入法运行，候选使用输入法框架自己的候选面板。deb / rpm 与 AppImage 装完随登录自动启动，源码安装加 `--enable-service` 也一样；tar.gz 预编译包与手动启动的源码安装要每次登录后手动启动。
 
 - Debian、Ubuntu、Fedora 可以装 deb / rpm 包，随登录自动启动，见下文「deb / rpm 包」一节。
 - 较新的发行版（Debian 13、Ubuntu 25.04、Fedora 42、Arch 及以后）也可以用 AppImage：一个文件、不用管理员权限，随登录自动启动，见下文「AppImage」一节。

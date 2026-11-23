@@ -245,13 +245,13 @@ Linux 在 `crates/qingjian-platform/src/protocol/` 另有一套 JSON 消息，�
    | | macOS | Windows | Linux Server |
    |---|---|---|---|
    | 神经重排（`set_async_sentence_scorer`） | ✓ | ✓ | ✓ |
-   | 云联想 / 释义兜底 | ✓ | ✓ | — |
-   | 形码（`set_code_scheme`） | ✓ | ✓ | — |
+   | 云联想 / 释义兜底 | ✓ | ✓ | ✓ |
+   | 形码（`set_code_scheme`） | ✓ | ✓ | ✓ |
    | 辅码（`set_aux_codes`） | — | ✓ | — |
-   | 繁体（`set_traditional_mode`） | ✓ | ✓ | — |
+   | 繁体（`set_traditional_mode`） | ✓ | ✓ | ✓ |
    | 退格撤销（`note_backspace`） | ✓ | ✓ | ✓ |
    | 符号面板（`open_symbol_panel`） | ✓ | ✓ | — |
-   | 中西文自动空格（`set_auto_space`） | ✓ | — | — |
+   | 中西文自动空格（`set_auto_space`） | ✓ | ✓ | — |
    | 多会话（`swap_session`） | — | — | ✓ |
 
    这里只是记下现状，不是说每个壳都该补齐；但新加一项 Core 能力时，要在这张表里写清楚哪些壳接了。
