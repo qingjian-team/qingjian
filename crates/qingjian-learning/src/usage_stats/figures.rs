@@ -196,4 +196,43 @@ mod tests {
         assert_eq!(clean_rate(&old), None);
         assert_eq!(keys_per_hanzi(&old), None);
     }
+
+    #[test]
+    fn empty_or_idle_records_have_no_best_or_fastest_day() {
+        assert!(best_day(&BTreeMap::new()).is_none());
+        assert!(fastest_day(&BTreeMap::new()).is_none());
+        let days: BTreeMap<Date, Usage> = [(date("2026-10-01"), Usage::default())]
+            .into_iter()
+            .collect();
+        assert!(best_day(&days).is_none());
+        assert!(fastest_day(&days).is_none());
+        assert_eq!(daily_average(&days), None);
+        assert_eq!(active_days(&days), 0);
+    }
+
+    #[test]
+    fn the_recent_window_crosses_the_new_year() {
+        assert_eq!(recent_start(date("2026-01-03")), date("2025-12-28"));
+    }
+
+    #[test]
+    fn speed_needs_a_positive_duration() {
+        let short = Usage {
+            typing_ms: 1,
+            typed_hanzi: 1,
+            ..Usage::default()
+        };
+        assert_eq!(speed(&short, TODAY_MIN_MS), None);
+        assert_eq!(speed(&short, 0), Some(60_000.0));
+    }
+
+    #[test]
+    fn keys_per_hanzi_needs_both_counts() {
+        let mut no_keys = day(10, 1_000);
+        no_keys.keys = 0;
+        assert_eq!(keys_per_hanzi(&no_keys), None);
+        let mut no_hanzi = day(0, 1_000);
+        no_hanzi.keys = 5;
+        assert_eq!(keys_per_hanzi(&no_hanzi), None);
+    }
 }

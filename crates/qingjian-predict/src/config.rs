@@ -99,3 +99,78 @@ impl PredictConfig {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::PredictConfig;
+
+    #[test]
+    fn defaults_describe_a_disabled_deepseek_client() {
+        let config = PredictConfig::default();
+        assert!(!config.enabled);
+        assert!(config.automatic);
+        assert_eq!(config.base_url, "https://api.deepseek.com");
+        assert_eq!(config.model, "deepseek-flash");
+        assert!(config.api_key.is_none());
+        assert_eq!(config.api_key_env, "QINGJIAN_API_KEY");
+        assert_eq!(config.timeout_ms, 5000);
+        assert_eq!(config.debounce_ms, 300);
+        assert_eq!(config.min_interval_ms, 3000);
+        assert_eq!(config.lookback, 64);
+        assert_eq!(config.lookahead, 32);
+        assert_eq!(config.slots, 2);
+        assert!(config.sentence);
+        assert!(config.vocabulary_translation);
+        assert_eq!(config.reasoning_effort, "none");
+    }
+
+    #[test]
+    fn resolve_api_key_trims_the_configured_value() {
+        let mut config = PredictConfig::default();
+        config.api_key = Some("  key  ".to_owned());
+        assert_eq!(config.resolve_api_key().as_deref(), Some("key"));
+    }
+
+    #[test]
+    fn a_blank_key_falls_through_to_a_missing_variable() {
+        let mut config = PredictConfig::default();
+        config.api_key = Some("   ".to_owned());
+        config.api_key_env = "QINGJIAN_TEST_ENV_THAT_DOES_NOT_EXIST".to_owned();
+        assert_eq!(config.resolve_api_key(), None);
+    }
+
+    #[test]
+    fn policy_maps_the_config_fields() {
+        let mut config = PredictConfig::default();
+        config.automatic = false;
+        config.lookback = 10;
+        config.lookahead = 5;
+        config.slots = 3;
+        config.sentence = false;
+        let policy = config.policy();
+        assert!(!policy.automatic);
+        assert_eq!(policy.before, 10);
+        assert_eq!(policy.after, 5);
+        assert_eq!(policy.slots, 3);
+        assert_eq!(policy.max_items, 5);
+        assert!(!policy.sentence);
+    }
+
+    #[test]
+    fn zero_slots_still_ask_for_three_items() {
+        let mut config = PredictConfig::default();
+        config.slots = 0;
+        let policy = config.policy();
+        assert_eq!(policy.slots, 0);
+        assert_eq!(policy.max_items, 3);
+    }
+
+    #[test]
+    fn serde_fills_every_missing_field_from_the_defaults() {
+        let config: PredictConfig = serde_json::from_str(r#"{"model": "my-model"}"#).unwrap();
+        assert_eq!(config.model, "my-model");
+        assert_eq!(config.base_url, PredictConfig::default().base_url);
+        assert_eq!(config.slots, 2);
+        assert_eq!(config.timeout_ms, 5000);
+    }
+}
