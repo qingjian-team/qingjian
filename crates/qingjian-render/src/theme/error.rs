@@ -17,4 +17,8 @@ pub enum ThemeError {
     /// `extends` 链太长（多半是互相继承）。
     #[error("theme inheritance too deep at {id:?}")]
     TooDeep { id: String },
+
+    /// 主题描述文件超过 [`MAX_THEME_JSON_BYTES`](super::MAX_THEME_JSON_BYTES)。
+    #[error("theme file too large: {bytes} bytes")]
+    TooLarge { bytes: u64 },
 }

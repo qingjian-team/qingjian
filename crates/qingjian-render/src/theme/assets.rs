@@ -22,6 +22,18 @@ const MAX_SIDE: u32 = 4096;
 /// 单个 SVG 文件上限（字节）。
 const MAX_SVG_BYTES: u64 = 4 * 1024 * 1024;
 
+/// 单个 PNG 文件上限（字节）：没压缩的 4096 × 4096 × 4 也就 64 MB，压缩后只会更小。
+const MAX_PNG_BYTES: u64 = (MAX_SIDE as u64) * (MAX_SIDE as u64) * 4;
+
+/// PNG 的签名。
+const PNG_SIGNATURE: [u8; 8] = *b"\x89PNG\r\n\x1a\n";
+
+/// 单个主题最多加载多少张图片：正常主题十几张，多到这个数就是在凑数。
+const MAX_IMAGES: usize = 64;
+
+/// 单个主题最多带多少份字体。
+const MAX_FONTS: usize = 16;
+
 /// 随主题带的单个字体文件上限（字节）：裁过字的中文字体在 10 MB 以内，整个主题包上限 32 MB。
 const MAX_FONT_BYTES: u64 = 32 * 1024 * 1024;
 
@@ -46,6 +58,10 @@ impl Assets {
             read => read,
         });
         for font in &file.fonts {
+            if assets.fonts.len() >= MAX_FONTS {
+                tracing::warn!(id = file.meta.id, "主题字体太多，后面的不用");
+                break;
+            }
             match font_path(dir, &font.file) {
                 Ok(path) if !assets.fonts.contains(&path) => assets.fonts.push(path),
                 Ok(_) => {}
@@ -77,6 +93,10 @@ impl Assets {
             if images.contains_key(&path) || svgs.contains_key(&path) {
                 continue;
             }
+            if images.len() + svgs.len() >= MAX_IMAGES {
+                tracing::warn!(id = file.meta.id, path, "主题图片太多，后面的不读");
+                break;
+            }
             let loaded = if is_svg(&path) {
                 read(&path, MAX_SVG_BYTES)
                     .and_then(|data| decode_svg(&data))
@@ -84,7 +104,7 @@ impl Assets {
                         svgs.insert(path.clone(), Arc::new(svg));
                     })
             } else {
-                read(&path, u64::MAX)
+                read(&path, MAX_PNG_BYTES)
                     .and_then(|data| decode_png(&data))
                     .map(|image| {
                         images.insert(path.clone(), Arc::new(image));
@@ -158,10 +178,16 @@ fn find_embedded(
 /// 主题目录里的文件，超过 `limit` 字节的不读。
 fn read_file(dir: &Path, path: &str, limit: u64) -> Result<Cow<'static, [u8]>, &'static str> {
     let path = inside(dir, path)?;
-    if std::fs::metadata(&path).map_err(|_| MISSING)?.len() > limit {
+    let size = std::fs::metadata(&path).map_err(|_| MISSING)?.len();
+    if size > limit {
         return Err("太大");
     }
-    std::fs::read(&path).map(Cow::Owned).map_err(|_| "读不进来")
+    let data = std::fs::read(&path).map_err(|_| "读不进来")?;
+    // stat 与读之间文件可能被换掉，按实际读到的长度再确认
+    if data.len() as u64 > limit {
+        return Err("太大");
+    }
+    Ok(Cow::Owned(data))
 }
 
 fn decode_svg(data: &[u8]) -> Result<SvgImage, &'static str> {
@@ -173,12 +199,29 @@ fn decode_svg(data: &[u8]) -> Result<SvgImage, &'static str> {
     Ok(svg)
 }
 
-fn decode_png(data: &[u8]) -> Result<Pixmap, &'static str> {
-    let image = Pixmap::decode_png(data).map_err(|_| "读不进来（只认 PNG）")?;
-    if image.width() > MAX_SIDE || image.height() > MAX_SIDE {
-        return Err("太大");
+/// PNG 的 IHDR 里声明的宽高；签名或 IHDR 读不出来为 `None`。
+fn png_size(data: &[u8]) -> Option<(u32, u32)> {
+    let ihdr = data.get(12..24)?;
+    if !ihdr.starts_with(b"IHDR") {
+        return None;
     }
-    Ok(image)
+    Some((
+        u32::from_be_bytes([ihdr[4], ihdr[5], ihdr[6], ihdr[7]]),
+        u32::from_be_bytes([ihdr[8], ihdr[9], ihdr[10], ihdr[11]]),
+    ))
+}
+
+fn decode_png(data: &[u8]) -> Result<Pixmap, &'static str> {
+    if !data.starts_with(&PNG_SIGNATURE) {
+        return Err("读不进来（只认 PNG）");
+    }
+    // 解码器按 IHDR 声明的尺寸先分配再解压：一个二十来字节、声称 100000 × 100000 的文件
+    // 会让它直接要四十 GB。尺寸必须在交出去之前查。
+    match png_size(data) {
+        Some((width, height)) if width > 0 && height > 0 && width <= MAX_SIDE && height <= MAX_SIDE => {}
+        _ => return Err("太大"),
+    }
+    Pixmap::decode_png(data).map_err(|_| "读不进来（只认 PNG）")
 }
 
 /// 主题里写到的全部图片路径（可能重复）。
@@ -215,10 +258,31 @@ fn collect(node: &NodeSpec, out: &mut Vec<String>) {
 
 #[cfg(test)]
 mod tests {
-    use super::Assets;
+    use super::{Assets, decode_png};
     use crate::theme::Theme;
 
     const SVG: &[u8] = br#"<svg xmlns="http://www.w3.org/2000/svg" width="4" height="4"/>"#;
+
+    /// 二十来个字节就声称 100000 × 100000 的 PNG 开头。
+    fn oversized_png_header() -> Vec<u8> {
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(b"\x89PNG\r\n\x1a\n");
+        bytes.extend_from_slice(&13u32.to_be_bytes());
+        bytes.extend_from_slice(b"IHDR");
+        bytes.extend_from_slice(&100_000u32.to_be_bytes());
+        bytes.extend_from_slice(&100_000u32.to_be_bytes());
+        bytes
+    }
+
+    #[test]
+    fn a_png_that_claims_a_huge_size_is_rejected_before_decoding() {
+        // 解码器会按声明先分配：这里必须连解码都不进
+        assert_eq!(decode_png(&oversized_png_header()).unwrap_err(), "太大");
+        let mut broken = oversized_png_header();
+        broken[12..16].copy_from_slice(b"XXXX");
+        assert_eq!(decode_png(&broken).unwrap_err(), "太大");
+        assert_eq!(decode_png(b"hello").unwrap_err(), "读不进来（只认 PNG）");
+    }
 
     #[test]
     fn embedded_files_are_found_by_theme_path() {

@@ -34,6 +34,10 @@ use file::{ColorRef, FontRef, LockedAppearance, SCHEMA, ThemeFile};
 /// 内置主题编进程序的图片：主题里写的路径与文件内容。
 type EmbeddedFiles = &'static [(&'static str, &'static [u8])];
 
+/// `theme.json` 的字节上限：内置的十套都在几十 KB，4 MB 够写任何真主题。
+/// 主题包（`.qjz` 解压上限 256 MB）与用户目录里都可能出现巨型文件，读之前先挡一次。
+pub(super) const MAX_THEME_JSON_BYTES: u64 = 4 * 1024 * 1024;
+
 /// 内置主题：id、源文件与图片，按设置界面列出的顺序；第一个是缺省主题。
 const BUILTINS: [(&str, &str, EmbeddedFiles); 10] = [
     (
@@ -393,7 +397,18 @@ impl Theme {
 
     /// 读主题目录：`dir/theme.json` 加它用到的图片与字体（路径相对 `dir`）。
     pub fn from_dir(dir: &Path, dark: bool) -> Result<Self, ThemeError> {
-        let json = std::fs::read_to_string(dir.join("theme.json"))?;
+        let path = dir.join("theme.json");
+        // 先按大小挡一次（主题包里可以有任意文件），读完再按实际长度确认，不依赖 stat 与读之间文件不变
+        let size = std::fs::metadata(&path)?.len();
+        if size > MAX_THEME_JSON_BYTES {
+            return Err(ThemeError::TooLarge { bytes: size });
+        }
+        let json = std::fs::read_to_string(&path)?;
+        if json.len() as u64 > MAX_THEME_JSON_BYTES {
+            return Err(ThemeError::TooLarge {
+                bytes: json.len() as u64,
+            });
+        }
         let mut theme = Self::from_json(&json, dark)?;
         let inherited = extends::base_id(&json).map_or(&[][..], |id| builtin_files(&id));
         theme.assets = Arc::new(OnceLock::from(Assets::load(&theme.file, dir, inherited)));
@@ -640,6 +655,21 @@ fn builtin_source(id: &str) -> Option<&'static str> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_theme_json_over_the_limit_is_refused_before_parsing() {
+        let dir = std::env::temp_dir().join(format!(
+            "qingjian-theme-too-large-{}",
+            std::process::id()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        let mut json = String::new();
+        json.push_str(&" ".repeat(MAX_THEME_JSON_BYTES as usize + 1));
+        std::fs::write(dir.join("theme.json"), &json).unwrap();
+        let error = Theme::from_dir(&dir, false).unwrap_err();
+        assert!(matches!(error, ThemeError::TooLarge { .. }), "{error}");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 
     #[test]
     fn builtin_themes_parse_without_problems() {
