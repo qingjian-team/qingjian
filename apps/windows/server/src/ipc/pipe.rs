@@ -25,9 +25,7 @@ use windows::Win32::System::Pipes::{
 };
 use windows::core::{HRESULT, HSTRING};
 
-use qingjian_platform::pipe::{
-    UserSid, client_is_same_user, legacy_pipe_sddl, pipe_sddl,
-};
+use qingjian_platform::pipe::{UserSid, client_is_same_user, legacy_pipe_sddl, pipe_sddl};
 use qingjian_platform::protocol::{ClientMessage, ServerMessage};
 
 use super::limit::ConnectionLimit;

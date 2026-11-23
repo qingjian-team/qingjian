@@ -55,6 +55,9 @@ apps/macos/scripts/bundle.sh --install        # mac 壳装到 ~/Library/Input Me
 Windows 本机只 `cargo check --target x86_64-pc-windows-gnu`，真编译与真机测试在 Windows 机器上做（部署方式见 `apps/windows/README.md`）；
 端到端验证 mac 可用 `osascript` 往 TextEdit 发按键再读回文本。
 
+**不要往系统盘写 target**：`CARGO_TARGET_DIR` 指向数据盘（如 `D:\qingjian-target`），`apps/windows/server/build.rs` 会拦 C 盘
+（逃生门 `QINGJIAN_ALLOW_C_TARGET=1`）；编译前确认剩余空间 ≥ 5GB。其余见 `docs/contributing.md` 的「构建环境」与「AI 助手约定」。
+
 ## 约定
 
 架构约束、代码组织、版本号、提交信息、文档同步、提交前检查与发版都在 `docs/contributing.md`，随本文件一起载入：

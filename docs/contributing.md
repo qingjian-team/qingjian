@@ -75,6 +75,15 @@
 - **用户能感知的行为改了（按键、菜单、设置程序、配置文件、数据文件），同一个提交里改 `docs/user/` 对应的页**，按键改动同时改 `keys.md`。
 - 改了某个 crate 的实现要点（数据文件、常数、生成命令），同步 `docs/notes/crate-notes.md`。
 
+## 构建环境
+
+- **不要往系统盘写 target。** Windows 上 `apps/windows/server/build.rs` 检查 `OUT_DIR`，落在 C 盘直接 panic；
+  把 `CARGO_TARGET_DIR` 指到数据盘（如 `D:\qingjian-target`）即可，确实要在 C 盘编一次设 `QINGJIAN_ALLOW_C_TARGET=1` 放行。
+  CI 的 Windows runner 本来就在 D 盘，不受影响。
+- 编译前确认数据盘剩余空间 ≥ 5GB（全量 release 约 3–4GB，加安装包与产品数据要 8GB）；空间不够先删自己建的 target，别删别人的目录。
+- 工具链按 `rust-toolchain.toml` 走，不为了一次编译 `rustup update` 到别的版本；构建与 CI 一律 `--locked`。
+- 本地只验证改到的 crate（`cargo check -p <crate>` / `cargo test -p <crate>`）；不为一个小改动跑全 workspace release。
+
 ## 提交前检查
 
 - 钩子：`.githooks/pre-commit`（禁装饰性分隔注释 + fmt + clippy）、`.githooks/commit-msg`（提交信息格式）、`.githooks/pre-push`（全 workspace 测试）；`git config core.hooksPath .githooks` 启用一次。
@@ -97,6 +106,20 @@
   `audit.yml` 的 `audit-check` 每周一次定时查漏洞并开 issue（没人提 PR 时也能发现新披露的）。两处的 `RUSTSEC-*` 清单由 CI 机械校验必须一致。
 - 发版：推 `<平台>-v<版本>` 标签触发 `release.yml`，门禁是版本号 = 标签且不带 -dev、标签在 main 上、产品数据按 SHA256SUMS 校验。
 - CHANGELOG 手写、发版时由维护者统一改（PR 不动它）。流程与 Secrets 见 [notes/release.md](notes/release.md)。
+
+## AI 助手约定
+
+这一页与 `CLAUDE.md` 是同一个入口，AI 编码助手按下面执行；与代码冲突时以代码为准。
+
+- 动手前读 `CLAUDE.md` 与本页；不凭印象改代码，不确定的实现先读源码与 `docs/notes/`。
+- 一次只做一件事：一个分支、一个 PR、一个平台（Core 改动单独一个），不把顺手重构混进来。
+- 不直推 main，不代替维护者合并 PR；不擅自改版本号、`CHANGELOG.md` 与 `docs/user/` 的措辞。
+- 每个改动都要有可复现的验证（`cargo check` / `cargo test` / 真机步骤），PR 里写清命令与结果；没跑过的不要写「已修复」「已通过」。
+- 新增依赖先问维护者；走 `cargo add`，共用包放 `[workspace.dependencies]`；不引入 GPL 素材（雾凇已移除）。
+- 日志不打印用户输入、词库内容、密钥与令牌；`api_key` 类字段一律脱敏。
+- 不删除、移动用户文件与别人的 `target`；只在仓库内改自己创建的文件。
+- 提交信息按「提交信息」一节：类型与范围英文小写，说明用中文。
+- 安全相关改动（IPC / 路径 / 下载 / 解析 / 签名）先看 `SECURITY.md` 与 `docs/notes/release.md` 的边界说明。
 
 ## 外部 PR
 

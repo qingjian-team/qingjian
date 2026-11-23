@@ -15,11 +15,23 @@
     跳过 cargo build（数据或 .iss 改了、二进制没变时重编安装包用）。
 .PARAMETER Sign
     自签产物（sign-local.ps1）并开 uiAccess（候选窗才能盖过商店 / 任务栏搜索）。uiAccess=true 的 exe 要本机受信任的签名
-    才准启动，自签证书只有编译机信任——所以 -Sign 只用于本机真机测，对外分发的包不加此开关：不签名、关 uiAccess，
-    候选窗在那几个系统界面里会被盖住，但任何机器都能起。
+    才准启动，自签证书只有编译机信任——所以 -Sign 只用于本机真机测，对外分发的包不加此开关。
+.PARAMETER Certificate
+    对外分发用真证书签名：.pfx 路径。开了就开 uiAccess（系统只对签名且装在 Program Files 的 exe 授予），
+    iscc 之前签二进制、之后签安装包，最后 signtool verify。与 -Sign 互斥。
+.PARAMETER CertificatePassword
+    .pfx 的密码；CI 从 Secrets 注入，本机可用环境变量传。
+.PARAMETER TimestampUrl
+    签名时间戳服务，缺省 DigiCert 的公共时间戳。
 #>
 [CmdletBinding()]
-param([switch]$SkipBuild, [switch]$Sign)
+param(
+    [switch]$SkipBuild,
+    [switch]$Sign,
+    [string]$Certificate,
+    [string]$CertificatePassword,
+    [string]$TimestampUrl = 'http://timestamp.digicert.com'
+)
 
 $ErrorActionPreference = 'Stop'
 
@@ -27,12 +39,15 @@ $ErrorActionPreference = 'Stop'
 $Repo = (Resolve-Path (Join-Path $PSScriptRoot '..\..\..')).Path
 $Iss  = Join-Path $PSScriptRoot 'qingjian.iss'
 
-# uiAccess 跟着 -Sign 走（server\build.rs 读这个变量，改了会自动重编 Server）；理由见 -Sign 的说明。
-$env:QINGJIAN_UIACCESS = if ($Sign) { '1' } else { '0' }
-if ($Sign) {
+# uiAccess 跟着签名走（server\build.rs 读这个变量，改了会自动重编 Server）；理由见 -Sign / -Certificate 的说明。
+if ($Sign -and $Certificate) { throw '-Sign（本机自签）与 -Certificate（生产证书）只能二选一' }
+$env:QINGJIAN_UIACCESS = if ($Sign -or $Certificate) { '1' } else { '0' }
+if ($Certificate) {
+    Write-Host 'uiAccess=1（生产证书签名，对外分发）' -ForegroundColor Green
+} elseif ($Sign) {
     Write-Host 'uiAccess=1（-Sign：仅本机真机测，别用于对外分发）' -ForegroundColor Yellow
 } else {
-    Write-Host 'uiAccess=0（对外分发：Server 任何机器都能起；候选窗在商店 / 任务栏搜索里可能被盖）' -ForegroundColor Cyan
+    Write-Host 'uiAccess=0（未签名：Server 任何机器都能起；候选窗在商店 / 任务栏搜索里可能被盖）' -ForegroundColor Cyan
 }
 
 # 0) 产品数据缺一样就停：与 .iss 的 [Files] 一致，免得编译几分钟后才在 iscc 那步报错，
@@ -112,9 +127,19 @@ Write-Host "自包含运行时 $($wanted.Count) 项 → target\installer\setting
 & (Join-Path $PSScriptRoot 'fetch-onnxruntime.ps1')
 
 # 1.5) 签名（必须在 iscc 打包前：Inno 把已签的文件原样拷进安装包）。
-if ($Sign) {
+$binaries = $targets | ForEach-Object { Join-Path $Repo "target\$_" }
+$signtool = $null
+if ($Certificate) {
+    if (-not (Test-Path -LiteralPath $Certificate)) { throw "证书文件不存在：$Certificate" }
+    $signtool = (Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\signtool.exe" -ErrorAction SilentlyContinue |
+        Sort-Object FullName -Descending | Select-Object -First 1).FullName
+    if (-not $signtool) { $signtool = (Get-Command signtool.exe -ErrorAction SilentlyContinue).Source }
+    if (-not $signtool) { throw '找不到 signtool.exe（Windows SDK）' }
+    Write-Host '生产证书签名（uiAccess 要求 Server 代码签名）…' -ForegroundColor Cyan
+    & $signtool sign /f $Certificate /p $CertificatePassword /fd sha256 /tr $TimestampUrl /td sha256 /v $binaries
+    if ($LASTEXITCODE -ne 0) { throw "signtool 签名失败（退出码 $LASTEXITCODE）" }
+} elseif ($Sign) {
     Write-Host '自签产物（uiAccess 要求 Server 代码签名）…' -ForegroundColor Cyan
-    $binaries = $targets | ForEach-Object { Join-Path $Repo "target\$_" }
     & (Join-Path $PSScriptRoot 'sign-local.ps1') -Path $binaries
 }
 
@@ -164,4 +189,13 @@ Write-Host "用 $iscc" -ForegroundColor Cyan
 if ($LASTEXITCODE -ne 0) { throw "iscc 失败（退出码 $LASTEXITCODE）" }
 
 $out = Join-Path $Repo "target\installer\qingjian-$Version-windows-x86_64-setup.exe"
+if ($Certificate) {
+    Write-Host '签名安装包并校验…' -ForegroundColor Cyan
+    & $signtool sign /f $Certificate /p $CertificatePassword /fd sha256 /tr $TimestampUrl /td sha256 /v $out
+    if ($LASTEXITCODE -ne 0) { throw "signtool 签名安装包失败（退出码 $LASTEXITCODE）" }
+    foreach ($file in ($binaries + $out)) {
+        & $signtool verify /pa /v $file
+        if ($LASTEXITCODE -ne 0) { throw "签名校验失败：$file" }
+    }
+}
 Write-Host "完成：$out" -ForegroundColor Green

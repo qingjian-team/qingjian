@@ -9,6 +9,9 @@ use embed_manifest::manifest::ExecutionLevel;
 use embed_manifest::{embed_manifest, new_manifest};
 
 fn main() {
+    // 默认禁止在 C 盘编译：target 常把系统盘写满，构建中途失败还会连累系统。CI 的 Windows runner
+    // 在 D 盘，本机把 CARGO_TARGET_DIR 指到非系统盘即可；QINGJIAN_ALLOW_C_TARGET=1 是逃生门。
+    refuse_system_drive();
     // build.rs 跑在宿主机上，只有目标是 Windows 时才嵌。
     println!("cargo:rerun-if-env-changed=QINGJIAN_UIACCESS");
     if std::env::var_os("CARGO_CFG_WINDOWS").is_some() {
@@ -25,6 +28,35 @@ fn main() {
     embed_icon();
     println!("cargo:rerun-if-changed=build.rs");
 }
+
+/// 构建输出落在 C 盘就停。`OUT_DIR` 在 `<target>/<profile>/build/<pkg>-<hash>/out` 下，
+/// 第一个路径组件的盘符就是 target 的盘符。
+#[cfg(windows)]
+fn refuse_system_drive() {
+    if std::env::var_os("QINGJIAN_ALLOW_C_TARGET").is_some() {
+        return;
+    }
+    let Some(out) = std::env::var_os("OUT_DIR") else {
+        return;
+    };
+    let path = std::path::Path::new(&out);
+    let Some(std::path::Component::Prefix(prefix)) = path.components().next() else {
+        return;
+    };
+    if prefix
+        .as_os_str()
+        .to_string_lossy()
+        .eq_ignore_ascii_case("C:")
+    {
+        panic!(
+            "禁止在 C 盘编译：把 CARGO_TARGET_DIR 指到非系统盘（如 D:\\qingjian-target），\
+             或设 QINGJIAN_ALLOW_C_TARGET=1 放行（见 docs/contributing.md）"
+        );
+    }
+}
+
+#[cfg(not(windows))]
+fn refuse_system_drive() {}
 
 /// 图标资源要 `rc.exe`（MSVC）编，只在 Windows 宿主上做；失败只警告，别让编译挂掉。
 /// winresource 缺省不带 manifest，与上面链接器嵌的那份不冲突。

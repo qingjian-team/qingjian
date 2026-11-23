@@ -56,9 +56,11 @@ Rust 工具链由 `rust-toolchain.toml` 钉版本（现在 1.96.0），各 workf
 
 ## 各平台的特别之处
 
-- **Windows**：没有代码签名证书时 workflow 设 `QINGJIAN_UIACCESS=0`：没签名的 exe 带 uiAccess=true 起不来。
+- **Windows**：签名由 `build.ps1 -Certificate <pfx>` 负责（uiAccess 只授给已签名、装在 Program Files 的 exe）。
+  二进制在 iscc 之前签（Inno 把文件原样拷进安装包），安装包出来再签一次，最后 `signtool verify /pa` 逐个验。
+  证书走 Secrets：`QINGJIAN_WINDOWS_CERT_PFX`（PFX 的 base64）+ `QINGJIAN_WINDOWS_CERT_PASSWORD`；没配就不签、关 uiAccess，
   代价是候选窗在任务栏搜索 / 设置这类 UWP 宿主里可能被盖住，用户文档与 CHANGELOG 已列为已知问题。
-  Certum 开源证书办下来后：在 `build.ps1` 加 signtool 一步（`sign-local.ps1` 是本机自签的参考），workflow 去掉那个环境变量；SmartScreen 对无签名安装包的拦截也一并消失。
+  `-Sign` 仍只是本机自签（`sign-local.ps1`），给编译机自己测 uiAccess 用，别发给别人。
   Inno Setup 钉 7.1.0（与开发机同版本、钉死 GitHub Release 上的安装程序与哈希）。
 - **Linux**：`apps/linux/scripts/package.sh` 打的包里是编好的 Server、设置程序与 Fcitx5 插件、产品数据压缩包、`install.sh` / `uninstall.sh` / `files.py`，按仓库相对路径放，
   安装与源码安装走同一份清单与校验；打完先装进临时目录冒烟测试（文件齐、校验过、`ldd` 无缺库）再上传。
@@ -123,6 +125,11 @@ cargo 命令全 `--locked`（含 `bundle.sh` 与 `build.ps1`）。普通 CI 只�
 Apple Developer 账号有了以后，在仓库 Secrets 里配齐 `release.yml` 头部注释列的七个值（.p12 与 .p8 都 base64），
 下一次发版就是签名 + 公证 + 钉票据的包，用户下载双击即装。`bundle.sh` 本身通过 `QINGJIAN_SIGN_IDENTITY` /
 `QINGJIAN_INSTALLER_IDENTITY` / `QINGJIAN_NOTARY_PROFILE` 三个环境变量工作，本机有证书也能这样打。
+
+**Windows**：`build.ps1 -Certificate <pfx> -CertificatePassword <密码>` 签二进制与安装包，最后 `signtool verify /pa` 逐个验；
+uiAccess 只授给签名且装在 Program Files 的 exe。CI 用 Secrets `QINGJIAN_WINDOWS_CERT_PFX`（PFX 的 base64）+
+`QINGJIAN_WINDOWS_CERT_PASSWORD`，没配就退回不签名（关 uiAccess，候选窗在系统界面可能被盖）。
+证书就是代码签名证书（Certum 开源证书或商业证书都行，要带私钥的 .pfx）。本机自签走 `-Sign`（`sign-local.ps1`），只给编译机测 uiAccess，别分发。
 
 **Android**：APK 必须签名才装得上，`release.yml` 的 android job 没配密钥库就失败。密钥库只生成一次，**丢了或换了，已装的用户就不能覆盖升级**（只能卸载重装、丢掉学习数据），
 本机与密码管理器各留一份备份。生成与配置：

@@ -46,6 +46,7 @@ jobs:
       windows: ${{ steps.gate.outputs.windows }}
       linux: ${{ steps.gate.outputs.linux }}
       android: ${{ steps.gate.outputs.android }}
+      windows_signed: ${{ steps.gate.outputs.windows_signed }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -56,6 +57,7 @@ jobs:
         id: gate
         env:
           INDEX_KEY_SET: ${{ secrets.QINGJIAN_INDEX_SIGNING_KEY != '' }}
+          WINDOWS_CERT_SET: ${{ secrets.QINGJIAN_WINDOWS_CERT_PFX != '' }}
         run: |
           if [[ "$INDEX_KEY_SET" != "true" ]]; then
             echo "没配 QINGJIAN_INDEX_SIGNING_KEY：releases.json 签不了名，已装的青简都不认这份索引、收不到更新提示（docs/notes/release.md）" >&2
@@ -87,6 +89,7 @@ jobs:
             [[ " $PLATFORMS " == *" $platform "* ]] && on=true || on=false
             echo "$platform=$on" >> "$GITHUB_OUTPUT"
           done
+          echo "windows_signed=$WINDOWS_CERT_SET" >> "$GITHUB_OUTPUT"
 
       - name: Create draft release
         env:
@@ -97,13 +100,14 @@ jobs:
           LINUX: ${{ steps.gate.outputs.linux }}
           ANDROID: ${{ steps.gate.outputs.android }}
           MAC_SIGNED: ${{ secrets.QINGJIAN_CERT_P12 != '' }}
+          WINDOWS_SIGNED: ${{ steps.gate.outputs.windows_signed }}
         run: |
           NOTES="$RUNNER_TEMP/notes.md"
           python3 tools/release/releases_json.py --notes-for "$VERSION" > "$NOTES"
           if [[ "$MACOS" == "true" && "$MAC_SIGNED" != "true" ]]; then
             printf '\n> macOS：这一版没有 Apple 开发者签名，首次打开系统会拦一下：到「系统设置 → 隐私与安全性」底部点「仍要打开」再装一次。\n' >> "$NOTES"
           fi
-          if [[ "$WINDOWS" == "true" ]]; then
+          if [[ "$WINDOWS" == "true" && "$WINDOWS_SIGNED" != "true" ]]; then
             printf '\n> Windows：这一版没有代码签名：安装时 SmartScreen 拦截请点「更多信息 → 仍要运行」；任务栏搜索、「设置」等系统应用里候选窗口可能被遮挡。\n' >> "$NOTES"
           fi
           if [[ "$LINUX" == "true" ]]; then
@@ -215,8 +219,8 @@ jobs:
         shell: bash
     env:
       VERSION: ${{ needs.prepare.outputs.version }}
-      # 没有代码签名证书：Server 不带 uiAccess（没签名的 exe 带 uiAccess=true 起不来；build.rs 缺省也不带，build.ps1 还会按 -Sign 重设）。证书办下来后在 build.ps1 加 signtool、走 -Sign。
-      QINGJIAN_UIACCESS: '0'
+      # 签名状态由 build.ps1 决定：配了 QINGJIAN_WINDOWS_CERT_PFX 就签二进制与安装包、开 uiAccess；
+      # 没配就不签、关 uiAccess（没签名的 exe 带 uiAccess=true 起不来）。
       PYTHON: python
       # Windows 上 Python 的标准输出缺省 cp1252，中文更新日志会编码失败。
       PYTHONUTF8: '1'
@@ -257,7 +261,17 @@ jobs:
 
       - name: Build installer
         shell: pwsh
-        run: powershell -NoProfile -ExecutionPolicy Bypass -File apps\windows\installer\build.ps1
+        env:
+          CERT_PFX: ${{ secrets.QINGJIAN_WINDOWS_CERT_PFX }}
+          CERT_PASSWORD: ${{ secrets.QINGJIAN_WINDOWS_CERT_PASSWORD }}
+        run: |
+          $args = @()
+          if ($env:CERT_PFX) {
+            $pfx = Join-Path $env:RUNNER_TEMP 'qingjian.pfx'
+            [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String(($env:CERT_PFX -replace '\s', '')))
+            $args = @('-Certificate', $pfx, '-CertificatePassword', $env:CERT_PASSWORD)
+          }
+          powershell -NoProfile -ExecutionPolicy Bypass -File apps\windows\installer\build.ps1 @args
 
       - name: Upload to draft release
         env:
