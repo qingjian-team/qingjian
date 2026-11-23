@@ -125,6 +125,8 @@ pub(crate) enum Message {
     InputLog(bool),
     /// 学习输入习惯开关。
     Learning(bool),
+    /// 闲置多久释放本地模型（0 = 不释放）。
+    IdleUnload(Option<usize>),
     OpenConfigFile,
     OpenDataDir,
     OpenLogDir,

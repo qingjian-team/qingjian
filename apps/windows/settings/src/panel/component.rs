@@ -350,6 +350,10 @@ impl Component for Settings {
             }
             Message::InputLog(on) => self.save("general", "input_log", on),
             Message::Learning(on) => self.save("general", "learning", on),
+            Message::IdleUnload(index) => {
+                let seconds = [0_i64, 300, 900, 3600][index.unwrap_or(1).min(3)];
+                self.save("model", "idle_unload_seconds", seconds);
+            }
             Message::OpenConfigFile => {
                 Self::ensure_config_file(&self.path);
                 open_in_editor(&self.path);
