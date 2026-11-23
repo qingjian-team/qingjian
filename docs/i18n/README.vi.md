@@ -45,7 +45,7 @@ Video minh họa trên macOS cách nhập cả câu, sắp xếp lại từ gợ
 
 Qingjian hiện chưa được đưa lên trình quản lý gói nào.
 
-Bản macOS và Windows vẫn đang ở giai đoạn thử nghiệm (beta). Sau khi cài, hãy chọn Qingjian, vào «Tùy chọn / Cài đặt → Chung» để chọn ngôn ngữ muốn học, rồi bắt đầu gõ. Lần đầu sử dụng, bạn có thể đọc [Lần nhập đầu tiên](https://qingjian.app/docs/getting-started/first-input).
+Bản macOS và Windows vẫn đang ở giai đoạn thử nghiệm (beta). Sau khi cài, hãy chọn Qingjian, vào «Tùy chọn / Cài đặt → Chuyển bộ gõ» để chọn ngôn ngữ muốn học, rồi bắt đầu gõ. Lần đầu sử dụng, bạn có thể đọc [Lần nhập đầu tiên](https://qingjian.app/docs/getting-started/first-input).
 
 ## Những gì bạn thấy khi gõ
 

@@ -45,7 +45,7 @@ https://github.com/user-attachments/assets/d145fde9-a641-4543-8b15-dd7a2685de3d
 
 青簡目前沒有上架任何套件管理器。
 
-macOS 與 Windows 版本仍在測試階段。安裝後先選取青簡，在「偏好設置 / 設置 → 通用」選擇想學習的語言，就可以開始打字。第一次使用可以從[第一次輸入](https://qingjian.app/docs/getting-started/first-input)讀起。
+macOS 與 Windows 版本仍在測試階段。安裝後先選取青簡，在「偏好設置 / 設置 → 輸入法切換」選擇想學習的語言，就可以開始打字。第一次使用可以從[第一次輸入](https://qingjian.app/docs/getting-started/first-input)讀起。
 
 ## 打字時，你會看到什麼
 

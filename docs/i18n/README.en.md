@@ -45,7 +45,7 @@ The video shows sentence input, candidate reordering and candidate glosses on ma
 
 Qingjian isn't published in any package manager yet.
 
-The macOS and Windows builds are still in beta. After installing, select Qingjian, choose the language you want to learn under "Preferences / Settings → General", and start typing. For a first run, read [First input](https://qingjian.app/docs/getting-started/first-input).
+The macOS and Windows builds are still in beta. After installing, select Qingjian, choose the language you want to learn under "Preferences / Settings → Input Method Switching", and start typing. For a first run, read [First input](https://qingjian.app/docs/getting-started/first-input).
 
 ## What you see while typing
 

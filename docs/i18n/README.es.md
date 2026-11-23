@@ -45,7 +45,7 @@ El vídeo muestra en macOS la entrada de frases completas, la reordenación de c
 
 Qingjian todavía no está publicado en ningún gestor de paquetes.
 
-Las versiones de macOS y Windows siguen en fase beta. Tras instalarlo, selecciona Qingjian, elige el idioma que quieres aprender en «Preferencias / Ajustes → General» y empieza a escribir. Si es la primera vez, empieza por [Primera entrada](https://qingjian.app/docs/getting-started/first-input).
+Las versiones de macOS y Windows siguen en fase beta. Tras instalarlo, selecciona Qingjian, elige el idioma que quieres aprender en «Preferencias / Ajustes → Cambio de método de entrada» y empieza a escribir. Si es la primera vez, empieza por [Primera entrada](https://qingjian.app/docs/getting-started/first-input).
 
 ## Lo que ves al escribir
 

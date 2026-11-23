@@ -45,7 +45,7 @@ Das Video zeigt unter macOS die Satzeingabe, das Umsortieren der Kandidaten und 
 
 Qingjian ist bisher in keinem Paketmanager veröffentlicht.
 
-Die Versionen für macOS und Windows befinden sich noch in der Beta-Phase. Wähle nach der Installation Qingjian aus, lege unter „Einstellungen → Allgemein“ die Sprache fest, die du lernen möchtest, und fang an zu tippen. Für den Einstieg lies [Die erste Eingabe](https://qingjian.app/docs/getting-started/first-input).
+Die Versionen für macOS und Windows befinden sich noch in der Beta-Phase. Wähle nach der Installation Qingjian aus, lege unter „Einstellungen → Eingabemethode wechseln“ die Sprache fest, die du lernen möchtest, und fang an zu tippen. Für den Einstieg lies [Die erste Eingabe](https://qingjian.app/docs/getting-started/first-input).
 
 ## Was du beim Tippen siehst
 

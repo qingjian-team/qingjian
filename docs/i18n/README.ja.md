@@ -45,7 +45,7 @@ https://github.com/user-attachments/assets/d145fde9-a641-4543-8b15-dd7a2685de3d
 
 青簡はまだどのパッケージマネージャーにも公開していません。
 
-macOS 版と Windows 版はまだベータ版です。インストール後に青簡を選択し、「環境設定 / 設定 → 一般」で学びたい言語を選べば、すぐに入力を始められます。初めての方は[はじめての入力](https://qingjian.app/docs/getting-started/first-input)からどうぞ。
+macOS 版と Windows 版はまだベータ版です。インストール後に青簡を選択し、「環境設定 / 設定 → 入力方式の切り替え」で学びたい言語を選べば、すぐに入力を始められます。初めての方は[はじめての入力](https://qingjian.app/docs/getting-started/first-input)からどうぞ。
 
 ## 入力中に表示されるもの
 
