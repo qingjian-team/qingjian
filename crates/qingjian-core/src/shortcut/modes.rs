@@ -252,6 +252,26 @@ pub fn split_args(args: &str) -> Vec<&str> {
         .collect()
 }
 
+/// 剪切板原文用的分隔符：输出时照原样连回去（一列数是从表格粘来的，就还是换行/制表符/逗号）。
+///
+/// 只认 `split_args` 也在切的那几个；一个都没有就按半角空格 —— 手敲的参数默认就是它。
+pub fn separator_of(text: &str) -> &'static str {
+    for (mark, separator) in [
+        ('\t', "\t"),
+        ('\n', "\n"),
+        ('，', "，"),
+        (',', ","),
+        ('；', "；"),
+        ('、', "、"),
+        (' ', " "),
+    ] {
+        if text.contains(mark) {
+            return separator;
+        }
+    }
+    " "
+}
+
 /// `body` 是不是某个子模式名的开头：`b`、`bi`、`c`、`colo` 这些。
 ///
 /// 按键层据此决定 `v` 之后敲的要不要进缓冲区 —— 不收的话 `vbit` 这个名字本身

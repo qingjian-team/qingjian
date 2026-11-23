@@ -154,16 +154,24 @@ pub fn candidates_with_modes(
         // `vstat` / `vtrans` / `vcol` 每条候选带一句名字，只画在候选旁边、不进上屏文本：
         // 光一串数字分不出哪个是哪个。参数空着时剪切板的内容顶上来（与 `expression_forms` 一致）
         Some(body) if sub_modes => {
-            let mode = modes::parse(body).map(|mode| match clipboard {
-                Some(text) if mode.args().trim().is_empty() && !text.trim().is_empty() => {
-                    mode.with_args(text)
+            // 参数空着而剪切板里有东西：拿剪切板的内容当参数，输出按它原来的分隔符连回去
+            // （从表格粘来的一列数，别被改成空格）
+            let mode = modes::parse(body);
+            let (mode, separator) = match mode {
+                Some(mode) if mode.args().trim().is_empty() => {
+                    match clipboard.map(str::trim).filter(|text| !text.is_empty()) {
+                        Some(text) => (Some(mode.with_args(text)), modes::separator_of(text)),
+                        None => (Some(mode), " "),
+                    }
                 }
-                _ => mode,
-            });
+                other => (other, " "),
+            };
             match mode.map(|mode| (mode.kind, mode.args)) {
-                Some((modes::Kind::Stat, args)) => return labeled_candidates(stat::measures(args)),
+                Some((modes::Kind::Stat, args)) => {
+                    return labeled_candidates(stat::measures_with(args, separator));
+                }
                 Some((modes::Kind::Trans, args)) => {
-                    return labeled_candidates(transform::forms(args));
+                    return labeled_candidates(transform::forms_with(args, separator));
                 }
                 Some((modes::Kind::Color, args)) => return labeled_candidates(color::forms(args)),
                 _ => {}
@@ -554,6 +562,29 @@ mod tests {
     }
 
     #[test]
+    fn clipboard_parameters_keep_their_own_separator() {
+        // 参数空着、剪切板里是一列数：输出按剪切板原来的分隔符连回去，不被改成空格
+        let labelled = |input: &str, clip: &str| {
+            candidates_with_modes(input, EXPRESSION_PREFIX, &now(), true, Some(clip))
+                .into_iter()
+                .map(|c| (c.text, c.reading.unwrap_or_default()))
+                .collect::<Vec<_>>()
+        };
+        // 逗号：`vtrans` 第一条就是升序，`vstat` 的「排序」那条也一样
+        let sorted = labelled("vtrans", "1,2,3");
+        assert_eq!(sorted[0].0, "1,2,3", "{sorted:?}");
+        let stat = labelled("vstat", "1,2,3");
+        assert!(stat.iter().any(|(value, _)| value == "1,2,3"), "{stat:?}");
+        // 换行（表格里粘来的一列）
+        assert_eq!(labelled("vtrans", "1\n2\n3")[0].0, "1\n2\n3");
+        // 手敲参数时没有「原分隔符」，一律半角空格
+        let typed = labelled("vstat;3;1;2", "9,9");
+        assert!(typed.iter().any(|(value, _)| value == "1 2 3"), "{typed:?}");
+        let typed_trans = labelled("vtrans;sort;3;1;2", "9,9");
+        assert_eq!(typed_trans[0].0, "1 2 3", "{typed_trans:?}");
+    }
+
+    #[test]
     fn base_and_stat_submodes() {
         // 进制转换
         let hex = texts("vbase;128;16");
@@ -564,7 +595,7 @@ mod tests {
         let stat = texts("vstat;1;2;3;4");
         assert_eq!(stat[0], "2.5", "{stat:?}");
         assert_eq!(stat[1], "2.5", "{stat:?}");
-        assert!(stat.iter().any(|t| t == "1　2　3　4"), "排序：{stat:?}");
+        assert!(stat.iter().any(|t| t == "1 2 3 4"), "排序：{stat:?}");
         // `vtrans` 的排序与 `vstat` 末条那个「排序」同一件事，另给降序
         assert_eq!(texts("vtrans;sort;3;1;2")[0], "1 2 3");
         assert_eq!(texts("vtrans;desc;3;1;2")[0], "3 2 1");

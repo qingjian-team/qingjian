@@ -43,6 +43,11 @@ pub fn canonical(op: &str) -> Option<&'static str> {
 
 /// `算子名;数;数;…`。算子认不出来、或有一个数认不出来时整条不出候选。
 pub fn forms(args: &str) -> Vec<Measure> {
+    forms_with(args, " ")
+}
+
+/// 同 [`forms`]，`separator` 用来连输出的那串数（剪切板里粘来的数按原分隔符连着）。
+pub fn forms_with(args: &str, separator: &str) -> Vec<Measure> {
     let texts = split_args(args);
     let Some((op, rest)) = texts.split_first() else {
         return Vec::new();
@@ -62,13 +67,13 @@ pub fn forms(args: &str) -> Vec<Measure> {
         let mut forms: Vec<Measure> = Vec::new();
         for op in ["sort", "minmax", "z", "diff", "smooth", "median", "bin"] {
             if let Some((values, label)) = apply(op, &numbers) {
-                forms.push((join(&values), label.to_owned()));
+                forms.push((join(&values, separator), label.to_owned()));
             }
         }
         // 对数与开方只在取值范围内有意义：负数、零不上，别给 NaN
         for op in ["log", "log10", "sqrt"] {
             if let Some((values, label)) = apply(op, &numbers) {
-                forms.push((join(&values), label.to_owned()));
+                forms.push((join(&values, separator), label.to_owned()));
             }
         }
         return forms;
@@ -88,13 +93,18 @@ pub fn forms(args: &str) -> Vec<Measure> {
         return Vec::new();
     }
     match apply(op, &numbers) {
-        Some((values, label)) => vec![(join(&values), label.to_owned())],
+        Some((values, label)) => vec![(join(&values, separator), label.to_owned())],
         None => Vec::new(),
     }
 }
 
 /// 打乱：同一段输入只算一次（由 Engine 缓存），换一组输入才重排。
 pub fn shuffle_forms(args: &str) -> Vec<String> {
+    shuffle_forms_with(args, " ")
+}
+
+/// 同 [`shuffle_forms`]，输出按 `separator` 连。
+pub fn shuffle_forms_with(args: &str, separator: &str) -> Vec<String> {
     let texts = split_args(args);
     let Some((op, rest)) = texts.split_first() else {
         return Vec::new();
@@ -113,7 +123,7 @@ pub fn shuffle_forms(args: &str) -> Vec<String> {
         return Vec::new();
     }
     shuffle(&mut numbers);
-    vec![join(&numbers)]
+    vec![join(&numbers, separator)]
 }
 
 /// 算一个算子；算不出来（有负数取对数、样本太少）时 `None`。
@@ -204,8 +214,12 @@ fn ordered(numbers: &[f64], descending: bool) -> Vec<f64> {
 }
 
 /// 让 `fmt` 能把一串数拼成候选文本。
-fn join(values: &[f64]) -> String {
-    values.iter().map(|v| fmt(*v)).collect::<Vec<_>>().join(" ")
+fn join(values: &[f64], separator: &str) -> String {
+    values
+        .iter()
+        .map(|v| fmt(*v))
+        .collect::<Vec<_>>()
+        .join(separator)
 }
 
 /// 窗口滑动：边缘处窗口缩小到还在范围内的那几个。

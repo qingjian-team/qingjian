@@ -16,6 +16,11 @@ pub type Measure = (String, String);
 
 /// `stat;<数>;<数>;…`。
 pub fn measures(args: &str) -> Vec<Measure> {
+    measures_with(args, " ")
+}
+
+/// 同 [`measures`]，`separator` 用来连「排序」那条（剪切板里粘来的数按原分隔符连着）。
+pub fn measures_with(args: &str, separator: &str) -> Vec<Measure> {
     // 开头可以点名要哪一项：`vstat;avg;3;4;2;2` 只给平均数。不点就全给。
     let (wanted, args) = pick_named(args);
     // 有一个认不出来的就整条不出候选：`vstat;1;2;x` 悄悄按 1、2 算完、看着像是对的，
@@ -85,7 +90,7 @@ pub fn measures(args: &str) -> Vec<Measure> {
         let geometric = (numbers.iter().map(|x| x.ln()).sum::<f64>() / count as f64).exp();
         forms.push((fmt(geometric), "几何平均".to_owned()));
     }
-    forms.push((ordered.join("　"), "排序".to_owned()));
+    forms.push((ordered.join(separator), "排序".to_owned()));
 
     if let Some(wanted) = wanted {
         forms.retain(|(_, label)| label.starts_with(wanted));
