@@ -71,6 +71,7 @@ Operators follow C++: `<<` `>>` `&` `|` `^` `~` `%` `+ - * /`, plus the spelled-
 There is no space key in the middle of an input, so operators go right against the numbers.
 
 An unrecognized name (`vfoo:bar`) falls back to the ordinary calculation instead of raising an error.
+
 ## Base conversion and statistics
 
 | Sub-mode | Example | Result |
@@ -94,6 +95,7 @@ The mode (absent when every value appears only once) and the sample variance (ab
 **One unreadable argument kills the whole set** (`vstat;1;2;x` won't quietly compute over 1 and 2).
 
 Separate arguments with a semicolon (full-width works too). **Not a comma** — in Chinese mode a comma commits the candidate and never reaches the buffer.
+
 ## UUID
 
 `vuuid` gives four candidates: a random UUID v4, a time-ordered v7, and the same v4 in uppercase and without hyphens. Number keys select candidates as usual.

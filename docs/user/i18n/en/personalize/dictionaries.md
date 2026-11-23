@@ -27,6 +27,7 @@ When the repository has a newer version, the button changes to 更新 (Update). 
 When you upgrade from an older version, the domain dictionaries that used to ship with Qingjian and that you had turned on, plus the glossary your learning language uses, are downloaded again one by one the next time you open Settings, so things work as they did before the upgrade.
 
 Entries under 释义表 (Glossaries) are the tables behind the glosses beside candidates (learning languages such as Japanese or Spanish, and the Chinese beside English candidates). Once downloaded, the input method switches to them without a restart. They don't appear under 我的词库 (My dictionaries), and a downloaded table takes precedence over the bundled one for the same language.
+
 ## Automatic phrases
 
 Settings → Input → Automatic Wubi phrases provides a learning switch and a maximum length of 2–10 Chinese characters (default: 4). These settings only control consecutive Wubi phrases, including consecutive Wubi picks in mixed input. They do not change Pinyin or Shuangpin learning rules.

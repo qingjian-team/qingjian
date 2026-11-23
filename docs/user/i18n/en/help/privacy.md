@@ -25,7 +25,7 @@ Turn off 自动检查更新 (Check for updates automatically) under 设置 → �
 
 Everything is kept in Qingjian's data folder on your own computer, as text files you can open and read:
 
-- **Settings**. The AI service key is stored separately and is readable only by your user account.
+- **Settings**. The AI service key is written to `api_key` in the `[predict]` section of the settings file (leave it empty to read an environment variable instead), readable only by your account.
 - **Typing habits**: words you've picked, words you've created, which words go together, remembered English words and accepted corrections; see [Typing habits](../personalize/habits.md).
 - **Vocabulary book**: glosses you've seen, with the matching Chinese and example sentences; see [Vocabulary book](../learning/vocabulary.md).
 - **Statistics**: hourly character counts, keystrokes and so on — numbers only; see [Statistics](../learning/statistics.md).
