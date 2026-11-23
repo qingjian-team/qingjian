@@ -22,3 +22,39 @@ impl Stamp {
         (self.at, self.deleted) > (other.at, other.deleted)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::Stamp;
+
+    fn stamp(id: &str, at: i64, deleted: bool) -> Stamp {
+        Stamp {
+            id: id.to_owned(),
+            at,
+            deleted,
+            forgotten: false,
+        }
+    }
+
+    #[test]
+    fn later_stamps_are_newer() {
+        assert!(stamp("a", 2, false).newer_than(&stamp("a", 1, false)));
+        assert!(!stamp("a", 1, false).newer_than(&stamp("a", 2, false)));
+        assert!(!stamp("a", 1, false).newer_than(&stamp("a", 1, false)));
+    }
+
+    #[test]
+    fn a_delete_beats_the_same_instant() {
+        assert!(stamp("a", 1, true).newer_than(&stamp("a", 1, false)));
+        assert!(!stamp("a", 1, false).newer_than(&stamp("a", 1, true)));
+    }
+
+    #[test]
+    fn forgotten_is_optional_on_the_wire() {
+        let parsed: Stamp = serde_json::from_str(r#"{"id":"a","at":1,"deleted":false}"#).unwrap();
+        assert!(!parsed.forgotten);
+        let parsed: Stamp =
+            serde_json::from_str(r#"{"id":"a","at":1,"deleted":false,"forgotten":true}"#).unwrap();
+        assert!(parsed.forgotten);
+    }
+}

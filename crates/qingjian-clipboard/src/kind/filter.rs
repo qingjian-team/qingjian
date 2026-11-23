@@ -27,3 +27,32 @@ impl ClipFilter {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::ClipFilter;
+
+    #[test]
+    fn all_lists_every_filter() {
+        assert_eq!(ClipFilter::ALL.len(), 5);
+        assert_eq!(
+            ClipFilter::ALL,
+            [
+                ClipFilter::All,
+                ClipFilter::Text,
+                ClipFilter::Code,
+                ClipFilter::Image,
+                ClipFilter::Files,
+            ]
+        );
+    }
+
+    #[test]
+    fn keys_are_unique_and_lowercase() {
+        let keys: Vec<&str> = ClipFilter::ALL.iter().map(|filter| filter.key()).collect();
+        assert_eq!(keys, ["all", "text", "code", "image", "files"]);
+        for key in keys {
+            assert_eq!(key, key.to_ascii_lowercase());
+        }
+    }
+}

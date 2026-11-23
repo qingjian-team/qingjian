@@ -88,4 +88,34 @@ mod tests {
     fn panel_never_exceeds_the_work_area() {
         assert_eq!(Edge::Bottom.rect(AREA, 4.0), (100, 0, 1920, 1040));
     }
+
+    #[test]
+    fn parse_reads_the_four_edges() {
+        assert_eq!(Edge::parse("top"), Some(Edge::Top));
+        assert_eq!(Edge::parse("bottom"), Some(Edge::Bottom));
+        assert_eq!(Edge::parse("left"), Some(Edge::Left));
+        assert_eq!(Edge::parse("right"), Some(Edge::Right));
+        assert_eq!(Edge::parse("Top"), None);
+        assert_eq!(Edge::parse(""), None);
+    }
+
+    #[test]
+    fn top_and_bottom_are_horizontal() {
+        assert!(Edge::Top.horizontal());
+        assert!(Edge::Bottom.horizontal());
+        assert!(!Edge::Left.horizontal());
+        assert!(!Edge::Right.horizontal());
+    }
+
+    #[test]
+    fn a_zero_area_still_gets_a_one_pixel_panel() {
+        let empty = WorkArea {
+            left: 0,
+            top: 0,
+            right: 0,
+            bottom: 0,
+        };
+        assert_eq!(Edge::Top.rect(empty, 1.0), (0, 0, 1, 1));
+        assert_eq!(Edge::Right.rect(empty, 1.0), (0, 0, 1, 1));
+    }
 }

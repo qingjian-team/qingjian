@@ -94,3 +94,76 @@ pub fn content_id(kind: RecordKind, content: &[u8]) -> String {
     hasher.update(content);
     hex(&hasher.finalize()[..16])
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn ids_are_stable_and_grow_with_the_content() {
+        assert_eq!(
+            content_id(RecordKind::Text, "你好".as_bytes()),
+            content_id(RecordKind::Text, "你好".as_bytes())
+        );
+        assert_ne!(
+            content_id(RecordKind::Text, "你好".as_bytes()),
+            content_id(RecordKind::Text, "你好！".as_bytes())
+        );
+        assert_eq!(content_id(RecordKind::Text, b"x").len(), 32);
+    }
+
+    #[test]
+    fn the_kind_is_part_of_the_id() {
+        assert_ne!(
+            content_id(RecordKind::Text, b"same"),
+            content_id(RecordKind::Image, b"same")
+        );
+    }
+
+    #[test]
+    fn a_text_record_is_consistent_with_itself() {
+        let record = Record::text("一段文字".to_owned(), 7);
+        assert!(record.is_consistent());
+        assert_eq!(record.kind, RecordKind::Text);
+        assert!(record.image.is_empty());
+        assert!(record.extension.is_empty());
+        assert_eq!(record.stamp.at, 7);
+        assert!(!record.stamp.deleted);
+    }
+
+    #[test]
+    fn edited_text_breaks_the_consistency_check() {
+        let mut record = Record::text("原文".to_owned(), 1);
+        record.text = "改过".to_owned();
+        assert!(!record.is_consistent());
+    }
+
+    #[test]
+    fn images_are_checked_by_their_bytes() {
+        let record = Record::image(vec![1, 2, 3], "png".to_owned(), 2);
+        assert!(record.is_consistent());
+        assert_eq!(record.kind, RecordKind::Image);
+        assert!(record.text.is_empty());
+        assert_eq!(record.extension, "png");
+    }
+
+    #[test]
+    fn a_tombstone_carries_only_the_stamp() {
+        let stamp = Record::text("要删的".to_owned(), 3).stamp;
+        let id = stamp.id.clone();
+        let tombstone = Record::tombstone(stamp, RecordKind::Text);
+        assert!(tombstone.stamp.deleted);
+        assert_eq!(tombstone.stamp.id, id);
+        assert!(tombstone.text.is_empty());
+        assert!(tombstone.image.is_empty());
+        assert!(tombstone.is_consistent());
+    }
+
+    #[test]
+    fn a_tombstone_with_content_is_inconsistent() {
+        let mut tombstone =
+            Record::tombstone(Record::text("x".to_owned(), 1).stamp, RecordKind::Text);
+        tombstone.text = "x".to_owned();
+        assert!(!tombstone.is_consistent());
+    }
+}
