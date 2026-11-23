@@ -173,3 +173,138 @@ fn placeholders(text: &str) -> Vec<&str> {
     names.dedup();
     names
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const SOURCE: &str =
+        "meta.name = \"简体中文\"\napp.title = \"青简\"\ngreet = \"你好，{name}\"\n";
+    const ENGLISH: &str =
+        "meta.name = \"English\"\napp.title = \"Qingjian\"\ngreet = \"Hello, {name}\"\n";
+
+    static FILES: &[(&str, &str)] = &[("zh-Hans", SOURCE), ("en", ENGLISH)];
+    static CATALOG: Catalog = Catalog::new(FILES);
+
+    #[test]
+    fn index_matches_the_whole_tag_ignoring_case() {
+        assert_eq!(CATALOG.index("zh-Hans"), Some(0));
+        assert_eq!(CATALOG.index("EN"), Some(1));
+        assert_eq!(CATALOG.index("fr"), None);
+    }
+
+    #[test]
+    fn index_falls_back_to_the_language_part() {
+        assert_eq!(CATALOG.index("en-US"), Some(1));
+        assert_eq!(CATALOG.index("vi-VN"), None);
+        assert_eq!(CATALOG.index("zh-Hans-CN"), None);
+    }
+
+    #[test]
+    fn parse_flattens_nested_tables() {
+        let table = parse("[window]\ntitle = \"青简\"\n[window.menu]\nfile = \"文件\"\n").unwrap();
+        assert_eq!(table.get("window.title").map(String::as_str), Some("青简"));
+        assert_eq!(
+            table.get("window.menu.file").map(String::as_str),
+            Some("文件")
+        );
+    }
+
+    #[test]
+    fn parse_stores_non_string_values_as_text() {
+        let table = parse("count = 3\nsize = 1.5\nflag = true\n").unwrap();
+        assert_eq!(table.get("count").map(String::as_str), Some("3"));
+        assert_eq!(table.get("size").map(String::as_str), Some("1.5"));
+        assert_eq!(table.get("flag").map(String::as_str), Some("true"));
+    }
+
+    #[test]
+    fn parse_reports_broken_toml() {
+        assert!(parse("= 1").is_err());
+        assert!(parse("a = \"未闭合").is_err());
+    }
+
+    #[test]
+    fn variants_dedupe_across_languages() {
+        static DUP: &[(&str, &str)] = &[
+            ("zh-Hans", "a = \"同一个\"\nb = \"源\""),
+            ("en", "a = \"同一个\"\nb = \"other\""),
+        ];
+        static DUP_CATALOG: Catalog = Catalog::new(DUP);
+        assert_eq!(DUP_CATALOG.variants("a"), vec!["同一个"]);
+        assert_eq!(DUP_CATALOG.variants("b"), vec!["源", "other"]);
+        assert!(DUP_CATALOG.variants("missing").is_empty());
+    }
+
+    #[test]
+    fn languages_use_their_own_names() {
+        assert_eq!(
+            CATALOG.languages(),
+            vec![("zh-Hans", "简体中文"), ("en", "English")]
+        );
+    }
+
+    #[test]
+    fn languages_fall_back_to_the_tag() {
+        static BARE: &[(&str, &str)] = &[("zh-Hans", "a = \"x\"")];
+        static BARE_CATALOG: Catalog = Catalog::new(BARE);
+        assert_eq!(BARE_CATALOG.languages(), vec![("zh-Hans", "zh-Hans")]);
+    }
+
+    #[test]
+    fn format_replaces_every_placeholder() {
+        let text = CATALOG.format("greet", &[("name", &"小明")]);
+        assert!(!text.contains("{name}"));
+        assert!(text.contains("小明"));
+    }
+
+    #[test]
+    fn problems_accepts_consistent_catalogs() {
+        assert!(CATALOG.problems().is_empty(), "{:?}", CATALOG.problems());
+    }
+
+    #[test]
+    fn problems_flags_an_unknown_key() {
+        static BAD: &[(&str, &str)] = &[("zh-Hans", "a = \"x\""), ("en", "a = \"x\"\nb = \"y\"")];
+        static BAD_CATALOG: Catalog = Catalog::new(BAD);
+        assert_eq!(BAD_CATALOG.problems(), vec!["en: unknown key b"]);
+    }
+
+    #[test]
+    fn problems_flags_an_unknown_placeholder() {
+        static BAD: &[(&str, &str)] = &[("zh-Hans", "a = \"x\""), ("en", "a = \"x {who}\"")];
+        static BAD_CATALOG: Catalog = Catalog::new(BAD);
+        assert_eq!(BAD_CATALOG.problems(), vec!["en: unknown placeholder in a"]);
+    }
+
+    #[test]
+    fn problems_flags_english_missing_a_key() {
+        static BAD: &[(&str, &str)] = &[("zh-Hans", "a = \"x\"\nb = \"y\""), ("en", "a = \"x\"")];
+        static BAD_CATALOG: Catalog = Catalog::new(BAD);
+        assert_eq!(BAD_CATALOG.problems(), vec!["en: missing key b"]);
+    }
+
+    #[test]
+    fn problems_allow_other_languages_to_skip_a_key() {
+        static FINE: &[(&str, &str)] = &[
+            ("zh-Hans", "a = \"x\"\nb = \"y\""),
+            ("en", "a = \"x\"\nb = \"y\""),
+            ("ja", "a = \"x\""),
+        ];
+        static FINE_CATALOG: Catalog = Catalog::new(FINE);
+        assert!(
+            FINE_CATALOG.problems().is_empty(),
+            "{:?}",
+            FINE_CATALOG.problems()
+        );
+    }
+
+    #[test]
+    fn problems_report_a_broken_source() {
+        static BAD: &[(&str, &str)] = &[("zh-Hans", "= 1")];
+        static BAD_CATALOG: Catalog = Catalog::new(BAD);
+        let problems = BAD_CATALOG.problems();
+        assert_eq!(problems.len(), 1);
+        assert!(problems[0].starts_with("zh-Hans: "), "{problems:?}");
+    }
+}
