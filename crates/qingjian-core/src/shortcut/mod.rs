@@ -569,6 +569,9 @@ mod tests {
         assert_eq!(texts("vtrans;sort;3;1;2")[0], "1 2 3");
         assert_eq!(texts("vtrans;desc;3;1;2")[0], "3 2 1");
         assert_eq!(texts("vtrans;asc;3;1;2")[0], "1 2 3", "别名");
+        // 反转原序不是降序：`3 1 2` 反转是 `2 1 3`，按值降序才是 `3 2 1`
+        assert_eq!(texts("vtrans;reverse;3;1;2")[0], "2 1 3");
+        assert_eq!(texts("vtrans;rev;3;1;2")[0], "2 1 3", "别名");
         // 不写算子时也带上排序，且排在最前（与 vstat 一样：看一眼就有用）
         let all = texts("vtrans;3;1;2");
         assert_eq!(all[0], "1 2 3", "缺省第一条是升序：{all:?}");

@@ -22,7 +22,8 @@ const BINS: usize = 5;
 pub fn canonical(op: &str) -> Option<&'static str> {
     match op.to_ascii_lowercase().as_str() {
         "sort" | "asc" | "ordered" => Some("sort"),
-        "desc" | "rsort" | "reverse" => Some("desc"),
+        "desc" | "rsort" => Some("desc"),
+        "reverse" | "rev" => Some("reverse"),
         "minmax" | "norm" | "mm" => Some("minmax"),
         "z" | "std" | "zscore" => Some("z"),
         "log" | "ln" => Some("log"),
@@ -122,6 +123,8 @@ fn apply(op: &str, numbers: &[f64]) -> Option<(Vec<f64>, &'static str)> {
         // 排序：`vstat` 末条那个「排序」搬到这儿，配个降序
         "sort" => Some((ordered(numbers, false), "升序")),
         "desc" => Some((ordered(numbers, true), "降序")),
+        // 反转原序：不比较大小，只是把顺序倒过来（`3 1 2` → `2 1 3`）
+        "reverse" => Some((numbers.iter().rev().cloned().collect(), "反转")),
         "minmax" => {
             let low = numbers.iter().cloned().fold(f64::INFINITY, f64::min);
             let high = numbers.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
