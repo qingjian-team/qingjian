@@ -5,7 +5,7 @@ description: macOS 与 Windows 的安装步骤：系统要求、安装包、首�
 ---
 
 macOS 与 Windows 版是测试版，从[下载页](https://qingjian.app/download)取得安装包。
-Linux 版需在终端中安装，见 [Linux](../platforms/linux.md)；Android 版下载 APK 安装，见 [Android](../platforms/android.md)。
+Linux 版有 deb / rpm 包、AppImage 与源码安装几种方式，见 [Linux](../platforms/linux.md)；Android 版下载 APK 安装，见 [Android](../platforms/android.md)。
 
 官方发布渠道目前只有官网下载页、[GitHub Releases](https://github.com/qingjian-team/qingjian/releases)，以及每版更新日志里给出的夸克网盘链接，其他地方的「青简」都不是官方发布的；青简目前没有上架任何包管理器。
 
