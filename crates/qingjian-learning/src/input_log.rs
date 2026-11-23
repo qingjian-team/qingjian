@@ -158,4 +158,35 @@ mod tests {
         assert_eq!(InputLog::line_count(&path), 0);
         std::fs::remove_dir_all(&dir).unwrap();
     }
+
+    #[test]
+    fn counting_and_clearing_tolerate_missing_files() {
+        let dir =
+            std::env::temp_dir().join(format!("qingjian-input-log-clear-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("not-yet.jsonl");
+        assert_eq!(InputLog::line_count(&path), 0);
+        InputLog::clear(&path).unwrap();
+        assert!(path.exists());
+        assert_eq!(InputLog::line_count(&path), 0);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn an_unopenable_path_disables_the_log_without_breaking_input() {
+        let dir =
+            std::env::temp_dir().join(format!("qingjian-input-log-dir-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        // 目录不能当文件打开，退化成不记
+        let mut log = InputLog::open(&dir);
+        assert!(!log.is_enabled());
+        log.record(InputLogEntry::Retract {
+            of: 7,
+            text: "你好".into(),
+            chosen: "拟好".into(),
+        });
+        log.flush();
+        assert_eq!(log.path(), dir.as_path());
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
 }

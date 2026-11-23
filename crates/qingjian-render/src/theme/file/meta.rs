@@ -29,3 +29,32 @@ pub(crate) enum LockedAppearance {
 
     Dark,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{LockedAppearance, Meta};
+
+    #[test]
+    fn optional_fields_default_to_empty() {
+        let meta: Meta = serde_json::from_str(r#"{"id":"a","name":"A"}"#).unwrap();
+        assert_eq!((meta.id.as_str(), meta.name.as_str()), ("a", "A"));
+        assert_eq!(meta.author, "");
+        assert_eq!(meta.license, "");
+        assert_eq!(meta.appearance, None);
+    }
+
+    #[test]
+    fn a_locked_appearance_is_lowercase_only() {
+        let meta: Meta =
+            serde_json::from_str(r#"{"id":"a","name":"A","appearance":"dark"}"#).unwrap();
+        assert_eq!(meta.appearance, Some(LockedAppearance::Dark));
+        let light: Meta =
+            serde_json::from_str(r#"{"id":"a","name":"A","appearance":"light"}"#).unwrap();
+        assert_eq!(light.appearance, Some(LockedAppearance::Light));
+        assert!(
+            serde_json::from_str::<Meta>(r#"{"id":"a","name":"A","appearance":"Dark"}"#).is_err()
+        );
+        assert!(serde_json::from_str::<Meta>(r#"{"name":"A"}"#).is_err());
+        assert!(serde_json::from_str::<Meta>(r#"{"id":"a"}"#).is_err());
+    }
+}
