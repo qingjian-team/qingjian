@@ -173,22 +173,22 @@ fn doctor() -> io::Result<()> {
         rustc.as_deref().unwrap_or("缺失"),
         pinned.as_deref().unwrap_or("缺失")
     );
-    if let (Some(pinned), Some(rustc)) = (&pinned, &rustc) {
-        if !rustc.contains(pinned) {
-            println!("  ! rustc 与 rust-toolchain.toml 不一致，进仓库目录后 rustup 会按它切换");
-        }
+    if let (Some(pinned), Some(rustc)) = (&pinned, &rustc)
+        && !rustc.contains(pinned.as_str())
+    {
+        println!("  ! rustc 与 rust-toolchain.toml 不一致，进仓库目录后 rustup 会按它切换");
     }
 
     let target = env::var_os("CARGO_TARGET_DIR")
         .map(PathBuf::from)
         .unwrap_or_else(|| root.join("target"));
     println!("target：{}", clean_display(&target));
-    if let Some(drive) = windows_drive(&target) {
-        if drive.eq_ignore_ascii_case("C:") {
-            println!(
-                "  ! target 落在系统盘 C:，构建会把它写满；见 docs/contributing.md 的「构建环境」"
-            );
-        }
+    if let Some(drive) = windows_drive(&target)
+        && drive.eq_ignore_ascii_case("C:")
+    {
+        println!(
+            "  ! target 落在系统盘 C:，构建会把它写满；见 docs/contributing.md 的「构建环境」"
+        );
     }
 
     let generated = root.join("data/generated");
@@ -312,7 +312,7 @@ fn windows_drive(_path: &Path) -> Option<String> {
 fn find_in_program_files(sub: &str, name: &str) -> Option<PathBuf> {
     let mut roots: Vec<PathBuf> = ["ProgramFiles", "ProgramFiles(x86)"]
         .iter()
-        .filter_map(|var| env::var_os(var))
+        .filter_map(env::var_os)
         .map(PathBuf::from)
         .collect();
     roots.push(PathBuf::from(r"C:\Program Files"));
