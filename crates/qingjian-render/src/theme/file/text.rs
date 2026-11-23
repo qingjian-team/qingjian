@@ -39,3 +39,42 @@ pub(crate) struct StyleSpec {
     #[serde(default)]
     pub(crate) style: FontStyle,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{StyleSpec, TextSettings};
+    use crate::theme::file::FontStyle;
+
+    #[test]
+    fn a_style_falls_back_to_the_text_family_and_upright() {
+        let text: TextSettings = serde_json::from_str(
+            r#"{"gamma": 1.4, "styles": {"body": {"size": 16, "line_height": 20}}}"#,
+        )
+        .unwrap();
+        assert_eq!(text.gamma.get(false), 1.4);
+        assert!(text.family.is_none());
+        let body = &text.styles["body"];
+        assert_eq!((body.size, body.line_height), (16.0, 20.0));
+        assert!(body.family.is_none());
+        assert_eq!(body.style, FontStyle::Normal);
+    }
+
+    #[test]
+    fn a_style_can_slant_and_carry_its_own_family() {
+        let text: TextSettings = serde_json::from_str(
+            r#"{"gamma": {"light": 1.0, "dark": 1.6},
+                "styles": {"cap": {"size": 20, "line_height": 24, "style": "italic"}}}"#,
+        )
+        .unwrap();
+        assert_eq!(text.gamma.get(false), 1.0);
+        assert_eq!(text.gamma.get(true), 1.6);
+        assert_eq!(text.styles["cap"].style, FontStyle::Italic);
+    }
+
+    #[test]
+    fn gamma_and_styles_are_required() {
+        assert!(serde_json::from_str::<TextSettings>(r#"{"styles": {}}"#).is_err());
+        assert!(serde_json::from_str::<TextSettings>(r#"{"gamma": 1.0}"#).is_err());
+        assert!(serde_json::from_str::<StyleSpec>(r#"{"size": 16}"#).is_err());
+    }
+}

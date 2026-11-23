@@ -227,4 +227,50 @@ mod tests {
         assert_eq!(custom.len(), 2);
         assert!(qingjian_core::custom_phrase::validate_phrases(&custom).is_ok());
     }
+
+    #[test]
+    fn a_corrupt_file_falls_back_to_memory_without_overwriting_it() {
+        let dir = temp_dir("phrases-corrupt");
+        let path = dir.join(PHRASE_BOOK_FILE);
+        std::fs::write(&path, "{ 这不是 json").unwrap();
+        let book = PhraseBook::open(&dir);
+        assert!(book.phrases().is_empty());
+        assert_eq!(book.groups(), [DEFAULT_GROUP]);
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), "{ 这不是 json");
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn out_of_range_operations_change_nothing() {
+        let mut book = PhraseBook::default();
+        assert!(book.add("一", "", "a").unwrap());
+        assert!(!book.update(9, "二", "", "").unwrap());
+        assert!(!book.update(0, "  ", "", "").unwrap());
+        book.remove(9).unwrap();
+        book.move_to_top(0).unwrap();
+        book.move_to_top(9).unwrap();
+        assert_eq!(book.phrases().len(), 1);
+        assert_eq!(book.custom_phrases()[0].text, "一");
+    }
+
+    #[test]
+    fn groups_keep_the_first_appearance_with_the_default_leading() {
+        let mut book = PhraseBook::default();
+        book.add("一", "工作", "").unwrap();
+        book.add("二", "", "").unwrap();
+        book.add("三", "生活", "").unwrap();
+        book.add("四", "工作", "").unwrap();
+        assert_eq!(book.groups(), [DEFAULT_GROUP, "工作", "生活"]);
+    }
+
+    #[test]
+    fn the_same_code_and_text_only_count_once() {
+        let mut book = PhraseBook::default();
+        book.add("一", "", "ab").unwrap();
+        book.add("一", "", "AB").unwrap();
+        book.add("二", "", "ab").unwrap();
+        let custom = book.custom_phrases();
+        assert_eq!(custom.len(), 2);
+        assert_eq!(custom.iter().filter(|p| p.text == "一").count(), 1);
+    }
 }
