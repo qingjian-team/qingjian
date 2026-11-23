@@ -54,7 +54,7 @@ fn scan(dir: &Path, bundled: bool) -> Vec<AuxSchemeEntry> {
 /// 读一个方案目录；不是辅码方案时静默跳过，是但写错了记日志跳过。
 fn read(dir: &Path, bundled: bool) -> Option<AuxSchemeEntry> {
     let path = dir.join(DESCRIPTOR);
-    let text = std::fs::read_to_string(&path).ok()?;
+    let text = crate::code_schemes::read_descriptor(&path).ok()?;
     let Ok(descriptor) = toml::from_str::<Descriptor>(&text) else {
         // 别的方案的 scheme.toml 也会走到这里，解析不了的交给形码那边报
         return None;

@@ -66,7 +66,7 @@ fn scan(dir: &Path) -> Vec<ShuangpinSchemeEntry> {
 /// 读一个方案目录；不是双拼方案时静默跳过，是但写错了记日志跳过（一套坏了不能拖垮别的）。
 fn read(dir: &Path) -> Option<ShuangpinSchemeEntry> {
     let path = dir.join(DESCRIPTOR);
-    let text = std::fs::read_to_string(&path).ok()?;
+    let text = crate::code_schemes::read_descriptor(&path).ok()?;
     let descriptor: Descriptor = match toml::from_str(&text) {
         Ok(descriptor) => descriptor,
         // 形码方案的 scheme.toml 也会走到这里，解析不了的交给形码那边报

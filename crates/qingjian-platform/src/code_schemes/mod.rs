@@ -32,6 +32,22 @@ pub const DIR: &str = "schemes";
 
 pub(crate) const DESCRIPTOR: &str = "scheme.toml";
 
+/// 方案描述文件的字节上限：正常的几 KB，用户目录里的方案可能是从外面下的整包，先挡一道。
+pub(crate) const MAX_DESCRIPTOR_BYTES: u64 = 256 * 1024;
+
+/// 读方案描述文件；超过上限按读不到处理（这套方案跳过，不影响别的方案）。
+pub(crate) fn read_descriptor(path: &Path) -> std::io::Result<String> {
+    let size = std::fs::metadata(path)?.len();
+    if size > MAX_DESCRIPTOR_BYTES {
+        return Err(std::io::Error::other("scheme descriptor too large"));
+    }
+    let text = std::fs::read_to_string(path)?;
+    if text.len() as u64 > MAX_DESCRIPTOR_BYTES {
+        return Err(std::io::Error::other("scheme descriptor too large"));
+    }
+    Ok(text)
+}
+
 /// 导入的形码词库的目录名，在用户数据目录下。
 const WORDS_DIR: &str = "code_dicts";
 
@@ -185,7 +201,7 @@ fn read(dir: &Path, bundled: bool) -> Option<CodeSchemeEntry> {
         return None;
     }
     let path = dir.join(DESCRIPTOR);
-    let descriptor: Descriptor = match std::fs::read_to_string(&path) {
+    let descriptor: Descriptor = match read_descriptor(&path) {
         Ok(text) => match toml::from_str(&text) {
             Ok(descriptor) => descriptor,
             Err(error) => {
