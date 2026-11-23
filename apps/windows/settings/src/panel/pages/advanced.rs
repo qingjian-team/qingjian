@@ -7,8 +7,12 @@ use crate::panel::controls::{field, note, page};
 use crate::panel::{Message, Settings};
 
 /// 闲置卸载的时长选项（秒）；0 = 不释放。
-const IDLE_UNLOAD_CHOICES: [(&str, u64); 4] =
-    [("不释放", 0), ("5 分钟", 300), ("15 分钟", 900), ("1 小时", 3600)];
+const IDLE_UNLOAD_CHOICES: [(&str, u64); 4] = [
+    ("不释放", 0),
+    ("5 分钟", 300),
+    ("15 分钟", 900),
+    ("1 小时", 3600),
+];
 
 pub(crate) fn view(settings: &Settings, context: &mut ViewContext<Settings>) -> View {
     let g = &settings.config.general;
