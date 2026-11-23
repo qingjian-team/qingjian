@@ -226,10 +226,7 @@ impl CharLm {
         let offset = past.map_or(0, PrefixCache::len);
         let mask = self.causal_mask(t, offset)?;
         let pos = self.pos_emb.narrow(0, offset, t)?;
-        let mut x = self
-            .tok_emb
-            .forward(idx, self.dtype)?
-            .broadcast_add(&pos)?;
+        let mut x = self.tok_emb.forward(idx, self.dtype)?.broadcast_add(&pos)?;
         let mut keys = Vec::new();
         let mut values = Vec::new();
         for (i, block) in self.blocks.iter().enumerate() {
