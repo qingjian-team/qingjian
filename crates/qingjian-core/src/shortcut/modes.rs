@@ -111,7 +111,7 @@ const SPECS: [Spec; 8] = [
         kind: Kind::Trans,
         name: TRANS_KEYWORD,
         keys: &['.', '-'],
-        hint: "vtrans：算子;数;数;…　minmax z log log10 sqrt diff smooth median low high bin uniq shuffle",
+        hint: "vtrans：算子;数;数;…　sort desc minmax z log log10 sqrt diff smooth median low high bin uniq shuffle",
     },
     Spec {
         kind: Kind::Color,

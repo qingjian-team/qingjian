@@ -21,6 +21,8 @@ const BINS: usize = 5;
 /// 算子名归一：认几个别名，返回规范名。
 pub fn canonical(op: &str) -> Option<&'static str> {
     match op.to_ascii_lowercase().as_str() {
+        "sort" | "asc" | "ordered" => Some("sort"),
+        "desc" | "rsort" | "reverse" => Some("desc"),
         "minmax" | "norm" | "mm" => Some("minmax"),
         "z" | "std" | "zscore" => Some("z"),
         "log" | "ln" => Some("log"),
@@ -57,7 +59,7 @@ pub fn forms(args: &str) -> Vec<Measure> {
             return Vec::new();
         }
         let mut forms: Vec<Measure> = Vec::new();
-        for op in ["minmax", "z", "diff", "smooth", "median", "bin"] {
+        for op in ["sort", "minmax", "z", "diff", "smooth", "median", "bin"] {
             if let Some((values, label)) = apply(op, &numbers) {
                 forms.push((join(&values), label.to_owned()));
             }
@@ -117,6 +119,9 @@ pub fn shuffle_forms(args: &str) -> Vec<String> {
 fn apply(op: &str, numbers: &[f64]) -> Option<(Vec<f64>, &'static str)> {
     let count = numbers.len();
     match op {
+        // 排序：`vstat` 末条那个「排序」搬到这儿，配个降序
+        "sort" => Some((ordered(numbers, false), "升序")),
+        "desc" => Some((ordered(numbers, true), "降序")),
         "minmax" => {
             let low = numbers.iter().cloned().fold(f64::INFINITY, f64::min);
             let high = numbers.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
@@ -183,6 +188,16 @@ fn apply(op: &str, numbers: &[f64]) -> Option<(Vec<f64>, &'static str)> {
         "uniq" => Some((unique(numbers), "去重")),
         _ => None,
     }
+}
+
+/// 排序后的副本：`descending` 为真时降序。NaN 不参与比较，原样留在末尾。
+fn ordered(numbers: &[f64], descending: bool) -> Vec<f64> {
+    let mut values = numbers.to_vec();
+    values.sort_by(|a, b| {
+        let order = a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal);
+        if descending { order.reverse() } else { order }
+    });
+    values
 }
 
 /// 让 `fmt` 能把一串数拼成候选文本。

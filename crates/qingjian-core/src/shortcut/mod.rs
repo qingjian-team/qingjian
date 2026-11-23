@@ -565,6 +565,13 @@ mod tests {
         assert_eq!(stat[0], "2.5", "{stat:?}");
         assert_eq!(stat[1], "2.5", "{stat:?}");
         assert!(stat.iter().any(|t| t == "1　2　3　4"), "排序：{stat:?}");
+        // `vtrans` 的排序与 `vstat` 末条那个「排序」同一件事，另给降序
+        assert_eq!(texts("vtrans;sort;3;1;2")[0], "1 2 3");
+        assert_eq!(texts("vtrans;desc;3;1;2")[0], "3 2 1");
+        assert_eq!(texts("vtrans;asc;3;1;2")[0], "1 2 3", "别名");
+        // 不写算子时也带上排序，且排在最前（与 vstat 一样：看一眼就有用）
+        let all = texts("vtrans;3;1;2");
+        assert_eq!(all[0], "1 2 3", "缺省第一条是升序：{all:?}");
         // 参数分隔符全角半角都认
         assert_eq!(texts("vbase；128；16")[0], "80");
         assert_eq!(texts("vstat；1；2；3；4")[0], "2.5");
