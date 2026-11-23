@@ -218,7 +218,8 @@ fn decode_png(data: &[u8]) -> Result<Pixmap, &'static str> {
     // 解码器按 IHDR 声明的尺寸先分配再解压：一个二十来字节、声称 100000 × 100000 的文件
     // 会让它直接要四十 GB。尺寸必须在交出去之前查。
     match png_size(data) {
-        Some((width, height)) if width > 0 && height > 0 && width <= MAX_SIDE && height <= MAX_SIDE => {}
+        Some((width, height))
+            if width > 0 && height > 0 && width <= MAX_SIDE && height <= MAX_SIDE => {}
         _ => return Err("太大"),
     }
     Pixmap::decode_png(data).map_err(|_| "读不进来（只认 PNG）")

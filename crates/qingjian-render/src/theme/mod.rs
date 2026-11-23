@@ -658,10 +658,8 @@ mod tests {
 
     #[test]
     fn a_theme_json_over_the_limit_is_refused_before_parsing() {
-        let dir = std::env::temp_dir().join(format!(
-            "qingjian-theme-too-large-{}",
-            std::process::id()
-        ));
+        let dir =
+            std::env::temp_dir().join(format!("qingjian-theme-too-large-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let mut json = String::new();
         json.push_str(&" ".repeat(MAX_THEME_JSON_BYTES as usize + 1));
