@@ -226,6 +226,19 @@ pub fn language(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Render
         out.push(section_title(ui, theme, tr("language.section_status_bar"))?);
         out.push(group(ui, theme, &[status, size])?);
     }
+    if Feature::MenubarIndicator.here() {
+        let indicator = toggle_info(
+            ui,
+            page,
+            tr("language.menubar_indicator"),
+            Some(tr("language.menubar_indicator_info")),
+            ("general", "menubar_indicator"),
+            general.menubar_indicator,
+            false,
+        )?;
+        out.push(section_title(ui, theme, tr("language.section_menubar"))?);
+        out.push(group(ui, theme, &[indicator])?);
+    }
     Ok(out)
 }
 

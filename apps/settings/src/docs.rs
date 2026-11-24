@@ -180,6 +180,12 @@ const LINKS: &[(PageId, &str, &str, &str)] = &[
         "打拼音时敲标点",
     ),
     (
+        PageId::Language,
+        "language.menubar_indicator",
+        "getting-started/settings",
+        "输入法菜单（macOS）",
+    ),
+    (
         PageId::Appearance,
         "appearance.preedit",
         "personalize/appearance",

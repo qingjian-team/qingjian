@@ -251,6 +251,9 @@ pub struct GeneralConfig {
 
     /// 把系统的文本替换（macOS「键盘 → 文本替换」）并进自定义短语：输入码敲全后短语排在候选前面，同权重时排在用户自己的短语之后。只有 macOS 用。
     pub system_text_replacements: bool,
+
+    /// 是否在菜单栏显示「中 / 英」状态项（`NSStatusItem`）。缺省开；只有 macOS 用。
+    pub menubar_indicator: bool,
 }
 
 /// 界面语言跟随系统的配置写法。
@@ -326,6 +329,7 @@ impl Default for GeneralConfig {
             input_log: true,
             learning: true,
             system_text_replacements: true,
+            menubar_indicator: true,
         }
     }
 }
