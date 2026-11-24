@@ -319,9 +319,14 @@ impl CandidateWindow {
         )
     }
 
-    /// 在鼠标处弹右键菜单（深浅与 DPI 跟候选窗）。
+    /// 在鼠标处弹右键菜单（深浅与 DPI 跟候选窗）；主题用渲染器手里那份，不再读主题目录。
     pub(crate) fn show_menu(&self, menu: CandidateMenu) {
-        menu::open(menu, self.dark.get(), self.dpi.get());
+        let theme = self
+            .painter
+            .borrow()
+            .as_ref()
+            .map(|painter| painter.theme().clone());
+        menu::open(menu, self.dark.get(), self.dpi.get(), theme);
     }
 
     pub(crate) fn close_menu(&self) {
