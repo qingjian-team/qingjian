@@ -1,7 +1,7 @@
 # 开发约定
 
 改代码前先看这一页：架构上不能越的线、代码怎么组织、版本号与提交信息怎么写、改了行为要同步哪些文档。
-设计的来龙去脉在 [design/architecture.md](design/architecture.md)，各 crate 的实现要点在 [notes/crate-notes.md](notes/crate-notes.md)。
+设计的来龙去脉在 [design/architecture.md](design/architecture.md)，已定型的架构决策在 [adr/](adr/)，各 crate 的实现要点在 [notes/crate-notes.md](notes/crate-notes.md)。
 
 ## 架构约束（不要违反）
 

@@ -14,6 +14,7 @@ README.md 只介绍项目（各语言译本在 [i18n/](i18n/)），所有技术�
 |---|---|
 | [contributing.md](contributing.md) | 开发约定：架构约束短版、代码组织、版本号、提交信息、文档同步、提交前检查、发版与外部 PR 流程（CLAUDE.md 直接载入它） |
 | [design/architecture.md](design/architecture.md) | Core 与平台层的划分、crate 结构、必须遵守的架构约束、`.qj` 数据容器 |
+| [adr/](adr/) | 架构决策记录：依赖方向（17 个 crate 的分层与允许 / 禁止边）、配置模型、错误模型三篇（2026-11-20） |
 | [design/candidate-ui.md](design/candidate-ui.md) | 候选窗口、按键约定与翻译 annotation 的设计 |
 | [design/landscape.md](design/landscape.md) | 同类项目（水杉、Rime）、可用数据源及其许可 |
 | [design/rendering.md](design/rendering.md) | 跨平台 UI 与自绘渲染器（2026-09-13）：显示面与控件面的区分、Flutter / Avalonia / WebView 的调研结论、主题的两条路、tiny-skia + cosmic-text 的 spike 结果与两平台接入 |
@@ -29,6 +30,7 @@ README.md 只介绍项目（各语言译本在 [i18n/](i18n/)），所有技术�
 | [plan/linux-wubi-implementation.md](plan/linux-wubi-implementation.md) | Linux 五笔接入的实现与验证清单 |
 | [notes/linux-wubi.md](notes/linux-wubi.md) | Linux 五笔验证命令、实际环境与未验证范围 |
 | [notes/crate-notes.md](notes/crate-notes.md) | 各 crate / app / tool 的实现要点：入口类型、数据文件、常数、生成命令 |
+| [notes/architecture-assessment.md](notes/architecture-assessment.md) | 架构现状评估（2026-11-20，基线 `7de460d5`）：17 个 crate 的依赖图与分层判定、规模与测试统计、Top10 结构性问题 |
 | [notes/linux-fcitx5.md](notes/linux-fcitx5.md) | Linux 默认面板构建、协议、安装与排错 |
 | [notes/linux-packaging.md](notes/linux-packaging.md) | Linux 发行包（2026-09-23）：`build.sh` 在容器里打 deb / rpm，各包装了什么、能装哪些发行版、装法与限制，`smoke/run.sh` 在五个发行版的干净容器里装包自检 |
 | [notes/linux-dual-frontend.md](notes/linux-dual-frontend.md) | Linux 双前端（Fcitx5 / IBus）怎么验（2026-09-21）：能自动跑的三套、只能真会话手测的六条及其判据、现在验不了的两件事、踩过的四个坑 |
