@@ -19,8 +19,8 @@ use super::file::node::{FillSpec, NodeKind, NodeSpec};
 /// 图片边长上限（像素）。
 const MAX_SIDE: u32 = 4096;
 
-/// 单个 PNG 文件上限（字节）：整个主题包上限 32 MB，单张图不可能超过它。
-/// 要在解码前就挡：`decode_png` 会先把整张图铺进内存，只靠 [`MAX_SIDE`] 拦不住几 GB 的压缩包。
+/// 单个 PNG 文件上限（字节），与字体一样。读文件时按它挡，超大的文件不整份读进内存；
+/// [`MAX_SIDE`] 要等解码后才查得到。
 const MAX_PNG_BYTES: u64 = 32 * 1024 * 1024;
 
 /// 单个 SVG 文件上限（字节）。
@@ -239,7 +239,7 @@ mod tests {
         assert!(assets.fonts().is_empty());
     }
 
-    /// PNG 也要在解码前限量：`decode_png` 先把整张图铺进内存，只靠解码后的边长检查挡不住超大压缩包。
+    /// PNG 与 SVG 一样按文件大小限量读入。
     #[test]
     fn png_is_read_with_a_byte_limit() {
         let theme = Theme::from_json(
