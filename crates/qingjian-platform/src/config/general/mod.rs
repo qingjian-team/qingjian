@@ -55,6 +55,10 @@ pub struct GeneralConfig {
     /// 候选窗口主题 id（主题目录名），读用 [`Self::theme_id`]。旧写法里这一项是外观，见上。
     pub theme: String,
 
+    /// `vstat` / `vtrans` / `vcol` 这类子模式的参数空着时，用剪切板最近复制的一条顶上。
+    /// 缺省关：用户不知道输入法拿了他复制的东西，剪切板里也可能是密码。
+    pub v_mode_clipboard_args: bool,
+
     /// 候选窗口竖排 / 横排。
     pub layout: LayoutMode,
 
@@ -272,6 +276,7 @@ impl Default for GeneralConfig {
             page_keys: PAGE_KEY_OPTIONS[0].to_owned(),
             appearance: Some(Appearance::default()),
             theme: DEFAULT_THEME.to_owned(),
+            v_mode_clipboard_args: false,
             layout: LayoutMode::default(),
             horizontal_grid: false,
             grid_page_keys: false,

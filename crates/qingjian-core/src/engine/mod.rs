@@ -292,6 +292,9 @@ pub struct Engine {
     /// `vstat` 后面不用再粘，直接算。拿不到就是 `None`，一切照旧。
     clipboard_text: Option<String>,
 
+    /// 子模式参数空着时用不用 `clipboard_text`（配置 `[general] v_mode_clipboard_args`，缺省关）。
+    clipboard_args: bool,
+
     /// 上次记 `break` 之后有没有上屏过：没有就不再记，免得失焦一次记一条。
     committed_since_break: bool,
 
@@ -632,6 +635,7 @@ impl Engine {
             typing: statistics::Typing::default(),
             application: None,
             clipboard_text: None,
+            clipboard_args: false,
             committed_since_break: false,
             meter: Box::new(NoUsageMeter),
             metered: true,

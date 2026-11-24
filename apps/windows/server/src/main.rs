@@ -244,6 +244,7 @@ fn main() -> ExitCode {
     engine.set_aux_keep_empty(config.general.aux_code_keep_empty);
     engine.set_aux_enabled(config.aux_code.enabled);
     engine.set_aux_show(config.general.aux_code_show);
+    engine.set_v_mode_clipboard_args(config.general.v_mode_clipboard_args);
     engine.set_show_tones(config.general.show_tones);
     engine.set_chinese_first(config.general.chinese_first);
     engine.set_spelling_correction(config.general.spelling_correction);

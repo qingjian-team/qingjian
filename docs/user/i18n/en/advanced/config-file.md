@@ -48,6 +48,7 @@ All settings are kept in one TOML text file, `config.toml`, with a note for ever
 | `[shortcut] switch_mode` | 中英文 → 切换键 (Chinese/English → Switch key) | A list, such as `["shift", "control"]` |
 | `[general] default_english`, `remember_mode_per_app` | 中英文 → 默认英文模式, 按应用记住中英模式 (Chinese/English → Start in English mode, Remember mode per app) | `true` / `false` |
 | `[general] shift_letter` | 中英文 → Shift + 字母 (Chinese/English → Shift + letter) | `passthrough` (to the app, default) or `compose` (join the input) |
+| `[general] v_mode_clipboard_args` | v modes → fill an empty argument from the clipboard | `true` / `false`, default `false`: when `vstat` and friends have no argument yet, take the most recently copied text. Off by default — the user does not know the IME read what he copied, and the clipboard may hold a password |
 | `[general] punct_commits` | 中英文 → 标点先上屏候选 (Chinese/English → Punctuation commits the candidate first) | `true` / `false` |
 | `[general] preedit` | 外观 → 拼音显示位置 (Appearance → Pinyin position) | `both`, `inline`, `window` |
 | `[general] page_keys` | 快捷键 → 翻页键 (Shortcuts → Paging keys) | `"[]"`, `",."`, `"-="` |

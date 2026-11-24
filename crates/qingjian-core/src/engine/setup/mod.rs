@@ -134,6 +134,14 @@ impl Engine {
         self.aux_show = show;
     }
 
+    /// 子模式参数空着时要不要用剪切板（配置 `[general] v_mode_clipboard_args`，缺省关）。
+    pub fn set_v_mode_clipboard_args(&mut self, on: bool) {
+        self.clipboard_args = on;
+        if !on {
+            self.clipboard_text = None;
+        }
+    }
+
     /// 告诉 Engine 剪切板里最近一次复制的一段文本：`vstat` / `vcol` 这些子模式的参数空着时拿它顶上，
     /// 用户不用先敲分号再粘一遍。壳在缓冲区进子模式时调一次即可，拿不到就给 `None`。
     pub fn set_clipboard_text(&mut self, text: Option<String>) {
@@ -144,7 +152,7 @@ impl Engine {
     ///
     /// 壳据此决定要不要读一次剪切板 —— 只在切进这个状态时读一次，不要每次按键都读盘。
     pub fn wants_clipboard(&self) -> bool {
-        if !self.expression_sub_modes() {
+        if !self.clipboard_args || !self.expression_sub_modes() {
             return false;
         }
         let scope = self.composition.scope();

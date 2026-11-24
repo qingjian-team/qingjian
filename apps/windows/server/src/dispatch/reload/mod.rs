@@ -276,6 +276,8 @@ impl Router {
             .set_aux_keep_empty(config.general.aux_code_keep_empty);
         self.engine.set_aux_enabled(config.aux_code.enabled);
         self.engine.set_aux_show(config.general.aux_code_show);
+        self.engine
+            .set_v_mode_clipboard_args(config.general.v_mode_clipboard_args);
         self.engine.set_show_tones(config.general.show_tones);
         self.engine.set_chinese_first(config.general.chinese_first);
         self.engine

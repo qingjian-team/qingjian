@@ -23,7 +23,11 @@ impl Engine {
                 self.modes().expression,
                 &jiff::Zoned::now(),
                 self.expression_sub_modes(),
-                self.clipboard_text.as_deref(),
+                if self.clipboard_args {
+                    self.clipboard_text.as_deref()
+                } else {
+                    None
+                },
             ),
         };
         if let Some(candidate) = self.english_word_candidate(scope) {

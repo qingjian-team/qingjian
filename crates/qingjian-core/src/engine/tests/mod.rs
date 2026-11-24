@@ -37,6 +37,7 @@ mod spacing;
 mod spelling;
 mod traditional;
 mod umlaut;
+mod v_clipboard;
 mod vocabulary;
 mod voice;
 mod zhuyin;
