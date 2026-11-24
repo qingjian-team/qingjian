@@ -315,7 +315,7 @@ fn unannotated_traditional_commit_looks_up_the_simplified_word() {
     assert!(word.translation.is_none());
     // 交给应用的仍是繁体，补查与记录按简体
     assert_eq!(engine.commit(&word), "開發");
-    engine.punctuate('.');
+    assert_eq!(engine.punctuate('.'), Some("。"));
 
     assert_eq!(
         *commits.lock().unwrap(),
@@ -330,8 +330,8 @@ fn unannotated_traditional_commit_looks_up_the_simplified_word() {
             reading: None,
         }]
     );
-    let examples = examples.lock().unwrap();
-    assert_eq!(examples.len(), 1);
-    assert_eq!(examples[0].0, "develop");
-    assert_eq!(examples[0].1, "开发");
+    assert_eq!(
+        *examples.lock().unwrap(),
+        [("develop".to_owned(), "开发".to_owned(), "开发。".to_owned())]
+    );
 }

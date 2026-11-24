@@ -260,15 +260,13 @@ impl Engine {
                 candidate.kind,
                 CandidateKind::English | CandidateKind::Custom(_)
             );
-        let translation = can_record_vocab
-            .then(|| {
-                candidate
-                    .translation
-                    .clone()
-                    .or_else(|| self.displayed_translation(candidate.kind, &candidate.text))
-            })
+        let fallback = (can_record_vocab && candidate.translation.is_none())
+            .then(|| self.displayed_translation(candidate.kind, &candidate.text))
             .flatten();
-        if let Some(translation) = &translation {
+        let translation = can_record_vocab
+            .then(|| candidate.translation.as_ref().or(fallback.as_ref()))
+            .flatten();
+        if let Some(translation) = translation {
             for (index, sense) in translation.senses().iter().enumerate() {
                 self.vocabulary.record_commit(
                     translation.language,
