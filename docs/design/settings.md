@@ -60,6 +60,7 @@
 | 启用 | 开关 | `aux_code.enabled` | 拼音打完敲触发键，再敲码筛选候选 |
 | 触发键 | 录键（单个不带修饰键的符号，按 `is_valid_aux_code_key` 校验） | `general.aux_code_key` | 微软、搜狗、紫光双拼里分号先当韵母 |
 | 候选上显示码 | 开关 | `general.aux_code_show` | |
+| 码段只调顺序，不筛候选 | 开关 | `general.aux_code_weighting` | 关着时码段是过滤器 |
 | 码删空后留在辅码 | 开关 | `general.aux_code_keep_empty` | |
 | 码表 | 列表：每行勾选 + 名称 + 条数 + 移除；底下「导入码表…」 | `aux_code.disabled` | |
 
