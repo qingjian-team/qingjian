@@ -1,5 +1,6 @@
 //! 按键分派用的虚拟键码与字符解析。
 
+use qingjian_platform::MAX_PAGE_SIZE;
 use qingjian_platform::SwitchKeys;
 use qingjian_platform::protocol::KeyEvent;
 
@@ -32,19 +33,25 @@ pub(crate) fn page_key(event: &KeyEvent, page_keys: (char, char)) -> Option<isiz
     }
 }
 
-/// 敲出来是数字 1–9 的键（选候选用）：按 `character` 认，Shift 出的 `!@#` 不算。
+/// 敲出来是数字的键（选候选用）：按 `character` 认，Shift 出的 `!@#` 不算。
+///
+/// `0` 是第 10 个：每页调到 10 时才用得上，与 Windows 那边一致。
 pub(crate) fn digit(event: &KeyEvent) -> Option<usize> {
     match event.character {
-        Some(c) => ('1'..='9').contains(&c).then(|| c as usize - '0' as usize),
+        Some('0') => Some(MAX_PAGE_SIZE),
+        Some(c @ '1'..='9') => Some(c as usize - '0' as usize),
+        Some(_) => None,
         None => digit_key(event.virtual_key),
     }
 }
 
-/// 主键盘区数字键 1–9 的键码，不管修饰键（修饰键 + 数字的快捷键按键位认）。
+/// 主键盘区数字键的键码，不管修饰键（修饰键 + 数字的快捷键按键位认）。
 pub(crate) fn digit_key(virtual_key: u32) -> Option<usize> {
-    (0x31..=0x39)
-        .contains(&virtual_key)
-        .then(|| (virtual_key - 0x30) as usize)
+    match virtual_key {
+        0x31..=0x39 => Some((virtual_key - 0x30) as usize),
+        0x30 => Some(MAX_PAGE_SIZE),
+        _ => None,
+    }
 }
 
 /// 协议保留小键盘来源，运算符保持半角。
