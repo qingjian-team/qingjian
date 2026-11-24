@@ -287,3 +287,51 @@ fn unannotated_commit_records_vocab_example_and_encounter() {
     assert_eq!(commits.lock().unwrap().len(), 1);
     assert_eq!(encounters.lock().unwrap().len(), 1);
 }
+
+#[test]
+fn unannotated_traditional_commit_looks_up_the_simplified_word() {
+    let commits = Commits::default();
+    let examples = Examples::default();
+    let encounters = Encounters::default();
+    let mut engine = engine()
+        .with_translator(Box::new(FixedTranslator))
+        .with_vocabulary_tracker(Box::new(FullBook {
+            commits: commits.clone(),
+            examples: examples.clone(),
+            encounters: encounters.clone(),
+        }));
+    engine.set_traditional(crate::TraditionalVariant::Taiwan);
+
+    // 繁体输出开着：壳从 `query()` 拿到的是没标译文的繁体候选，释义表里只有简体「开发」
+    engine.set_input("kaifa");
+    let word = engine
+        .query()
+        .unwrap()
+        .candidates
+        .items
+        .into_iter()
+        .find(|c| c.text == "開發")
+        .unwrap();
+    assert!(word.translation.is_none());
+    // 交给应用的仍是繁体，补查与记录按简体
+    assert_eq!(engine.commit(&word), "開發");
+    engine.punctuate('.');
+
+    assert_eq!(
+        *commits.lock().unwrap(),
+        [(Language::English, "develop".to_owned(), false)]
+    );
+    assert_eq!(
+        *encounters.lock().unwrap(),
+        [Encounter {
+            language: Language::English,
+            text: "开发".to_owned(),
+            translation: "develop".to_owned(),
+            reading: None,
+        }]
+    );
+    let examples = examples.lock().unwrap();
+    assert_eq!(examples.len(), 1);
+    assert_eq!(examples[0].0, "develop");
+    assert_eq!(examples[0].1, "开发");
+}

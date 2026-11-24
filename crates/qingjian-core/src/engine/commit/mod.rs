@@ -9,7 +9,7 @@ use super::{
     AUTO_WORD_THRESHOLD_SAME_BUFFER, BUFFER_PHRASE_MAX_CHARS, EXPLICIT_TRANSITION_WEIGHT, Engine,
     SENTENCE_WORD_MAX_CHARS, choice_key, reading_key, segment_longest_prefix,
 };
-use crate::candidate::{Candidate, CandidateKind, CandidateList, Language};
+use crate::candidate::{Candidate, CandidateKind, CandidateList, Language, Translation};
 use crate::correction::edit_distance;
 use crate::{parser, sentence};
 use qingjian_dictionary::Dictionary;
@@ -34,27 +34,11 @@ impl Engine {
         let mut hits = 0;
         for candidate in &mut list.items {
             // 繁体输出开着时按简体原文查：释义表的键是简体
-            let text = self
-                .traditional
-                .restore(&candidate.text)
-                .unwrap_or_else(|| candidate.text.clone());
-            candidate.translation = match candidate.kind {
-                CandidateKind::Custom(_) => None,
-                // 英文候选按敲的大小写显示（Company / COMPANY），释义表键是小写
-                CandidateKind::English => self.english_translator.translate(&text).or_else(|| {
-                    self.english_translator
-                        .translate(&text.to_ascii_lowercase())
-                }),
-                _ => self.translator.translate(&text).map(|mut translation| {
-                    self.mark_fresh(&mut translation);
-                    translation
-                }),
-            };
-            // 中文释义（英文候选的中文译词）也跟着转：候选文本已经是繁体了，释义不能还是简体
-            if let Some(translation) = &mut candidate.translation {
-                self.traditional.apply_translation(translation);
-                self.annotate_pronunciation(translation);
-            }
+            let simplified = self.traditional.restore(&candidate.text);
+            candidate.translation = self.displayed_translation(
+                candidate.kind,
+                simplified.as_deref().unwrap_or(&candidate.text),
+            );
             hits += usize::from(candidate.translation.is_some());
         }
         AnnotationReport {
@@ -62,6 +46,33 @@ impl Engine {
             hits,
             elapsed: start.elapsed(),
         }
+    }
+
+    /// 一条候选在候选窗里显示的那份译文。[`Self::annotate`] 逐条标注、[`Self::commit_recorded`]
+    /// 给壳没标过译文的候选补查都走这里，两边查法与后处理完全一样。
+    ///
+    /// `simplified` 是候选的简体原文：释义表的键是简体，繁体输出开着时调用方先用
+    /// `self.traditional.restore` 换回简体再传进来。查到的中文释义（英文候选的中文译词）
+    /// 再跟着转成繁体——候选文本已经是繁体了，释义不能还是简体——并补上音标。自定义短语不标译文。
+    fn displayed_translation(&self, kind: CandidateKind, simplified: &str) -> Option<Translation> {
+        let mut translation = match kind {
+            CandidateKind::Custom(_) => None,
+            // 英文候选按敲的大小写显示（Company / COMPANY），释义表键是小写
+            CandidateKind::English => self.english_translator.translate(simplified).or_else(|| {
+                self.english_translator
+                    .translate(&simplified.to_ascii_lowercase())
+            }),
+            _ => self
+                .translator
+                .translate(simplified)
+                .map(|mut translation| {
+                    self.mark_fresh(&mut translation);
+                    translation
+                }),
+        }?;
+        self.traditional.apply_translation(&mut translation);
+        self.annotate_pronunciation(&mut translation);
+        Some(translation)
     }
 
     /// 上屏：记入学习，从缓冲区消耗掉该候选对应的拼音，返回要提交给应用的文本。
@@ -240,20 +251,24 @@ impl Engine {
         }
         let log_id = self.log_commit(&keys, &candidate.text, source);
         self.meter_commit(&candidate.text, source, false);
-        // 上屏带译词的中文候选：那一刻用户看着这条译词，记进词汇（英文候选的中文释义不是学习语言，不记）；
-        // 壳按布局下标上屏时传入的候选可能尚未经 `annotate` 标译文，这里按需补查。
+        // 上屏带译词的中文候选：那一刻用户看着这条译词，记进词汇（英文候选的中文释义不是学习语言，不记；
+        // 自定义短语不标译文）。壳按布局下标上屏时，候选可能是从 `query()` 直接拿的、没经过 `annotate`：
+        // 这时照候选窗的查法补一份（[`Self::displayed_translation`]）。`candidate` 在开头已换回简体，
+        // 繁体输出开着时也是按简体查释义表，与 `annotate` 一致。
         let can_record_vocab = !self.private
             && !matches!(
                 candidate.kind,
                 CandidateKind::English | CandidateKind::Custom(_)
             );
-        let fallback = (can_record_vocab && candidate.translation.is_none())
-            .then(|| self.translator.translate(&candidate.text))
-            .flatten();
         let translation = can_record_vocab
-            .then(|| candidate.translation.as_ref().or(fallback.as_ref()))
+            .then(|| {
+                candidate
+                    .translation
+                    .clone()
+                    .or_else(|| self.displayed_translation(candidate.kind, &candidate.text))
+            })
             .flatten();
-        if let Some(translation) = translation {
+        if let Some(translation) = &translation {
             for (index, sense) in translation.senses().iter().enumerate() {
                 self.vocabulary.record_commit(
                     translation.language,
