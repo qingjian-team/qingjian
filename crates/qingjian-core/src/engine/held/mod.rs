@@ -45,6 +45,9 @@ impl Engine {
 
     /// 退格撤回最后一次选择：那段拼音接回缓冲区开头，那次上屏记的学习按「整个删掉了」处理，
     /// 接着重选别的词时退回（与应用里退格删掉刚上屏的词一样，见 [`Self::note_backspace`]）。没有可撤的返回 `false`。
+    ///
+    /// 这段拼音本身不算被动过（不是「不打了」而是「这一下选错了」），所以只把这个词从整段合成词的
+    /// 账上退掉，重新选完仍要合成整段词，见 `CommitChain::retract_buffer_word`。
     pub(super) fn undo_selection(&mut self) -> bool {
         let Some(held) = self.held.pop() else {
             return false;
@@ -58,7 +61,7 @@ impl Engine {
         {
             commit.erased = commit.chars;
         }
-        self.chain.reset();
+        self.chain.retract_buffer_word();
         true
     }
 
