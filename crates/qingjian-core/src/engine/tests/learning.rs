@@ -407,9 +407,8 @@ fn erasing_a_committed_sentence_retracts_its_transitions() {
 
 /// 撤回一次选择之后，上文与记下的转移都要接在撤掉那个词的前面，不能挂在它身上。
 ///
-/// 评审 #1049 给的那一串：`jiaoyizhongxin` 选「交易」、再选单字「中」、退格撤回、
-/// 接着选「中心」。原先记下的是「中 → 中心」，每打一次多两份，而「交易 → 中心」
-/// 一份都没有，排「中心」时用的上文也还是「中」。撤回要跟没选过一样。
+/// `jiaoyizhongxin` 选「交易」、再选单字「中」、退格撤回、接着选「中心」：
+/// 记下的是「交易 → 中心」，没有「中 → 中心」，排「中心」时的上文也是「交易」。
 #[test]
 fn undoing_a_pick_attaches_the_next_word_to_the_word_before_it() {
     let shared = Arc::new(Mutex::new((Vec::new(), sentence::UserNgram::default())));
