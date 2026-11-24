@@ -59,3 +59,43 @@ impl CandidateKind {
         }
     }
 }
+
+/// 候选能不能「屏蔽这个词」（`Engine::set_blocked_words` 那种整条不出的屏蔽）。
+///
+/// 只管三字以上的中文词：两字词与单字挡掉的是一大片常用词，用户多半不知道发生了什么，
+/// 入口不该摆在那里。各平台的右键菜单、长按气泡都按这一条判断，别各写一份。
+pub fn blockable(candidate: &crate::Candidate) -> bool {
+    candidate.kind == CandidateKind::Chinese && candidate.text.chars().count() >= 3
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{CandidateKind, blockable};
+    use crate::Candidate;
+
+    fn candidate(text: &str, kind: CandidateKind) -> Candidate {
+        Candidate {
+            text: text.to_owned(),
+            kind,
+            syllables: Vec::new(),
+            reading: None,
+            translation: None,
+            aux_code: None,
+        }
+    }
+
+    #[test]
+    fn only_chinese_words_of_three_or_more_can_be_blocked() {
+        assert!(blockable(&candidate("工作日", CandidateKind::Chinese)));
+        assert!(blockable(&candidate("交易中心", CandidateKind::Chinese)));
+        // 单字与两字词太常用，挡掉一大片
+        assert!(!blockable(&candidate("的", CandidateKind::Chinese)));
+        assert!(!blockable(&candidate("我们", CandidateKind::Chinese)));
+        // 别的种类本来就不在屏蔽范围里
+        assert!(!blockable(&candidate("hello", CandidateKind::English)));
+        assert!(!blockable(&candidate(
+            "2026-11-21",
+            CandidateKind::Shortcut
+        )));
+    }
+}

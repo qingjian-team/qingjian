@@ -6,8 +6,8 @@ use std::time::SystemTime;
 
 use bamboo_slip::taffy::NodeId;
 use bamboo_slip::{
-    Button, DownloadRow, FieldValue, Link, RenderError, Segmented, Ui, field_points, fields, group,
-    paragraph, section_title, toolbar,
+    Button, DownloadRow, FieldValue, Link, RenderError, Segmented, SettingRow, TextField, Ui,
+    field_points, fields, group, paragraph, section_title, toolbar,
 };
 
 use qingjian_core::Language;
@@ -16,7 +16,7 @@ use crate::i18n::{tr, tr_args};
 use crate::jobs::dict_index::{DictEntry, Shelf, Status};
 use crate::jobs::download::Item;
 use crate::library::Kind;
-use crate::message::Message;
+use crate::message::{FieldId, Message};
 use crate::stats::language_name;
 use crate::view::Page;
 use crate::view::parts::download::{DownloadStatus, labels, megabytes};
@@ -78,6 +78,14 @@ pub fn dictionaries(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Re
         tr("dictionaries.section_imported"),
     )?);
     out.push(group(ui, theme, &rows)?);
+
+    // 屏蔽词：导入的词库带进来一堆用不上的品牌词时，把词挡掉（含它的整条都不出）
+    out.push(section_title(
+        ui,
+        theme,
+        tr("dictionaries.section_blocked"),
+    )?);
+    out.push(blocked(ui, page)?);
 
     out.push(section_title(
         ui,
@@ -258,4 +266,47 @@ fn caption(ui: &mut Ui<Message>, page: &Page, entry: &DictEntry) -> Result<NodeI
     items.push((tr("dictionaries.size"), FieldValue::Text(&size)));
     items.push((tr("dictionaries.license"), FieldValue::Text(&license)));
     fields(ui, theme, &items)
+}
+
+/// 「屏蔽词」区：已挡掉的词逐条（右侧「移除」），末尾一个输入框回车加进去。
+///
+/// 判定：候选文本里含有其中任何一个就整条不出 —— 挡 `搜狗` 也就挡掉了 `搜狗拼音`。
+/// 自定义短语不受影响（那是用户自己写下的原文）。
+fn blocked(ui: &mut Ui<Message>, page: &Page) -> Result<NodeId, RenderError> {
+    let theme = &page.theme;
+    let words = &page.settings.config.dictionaries.blocked;
+    let mut rows = Vec::new();
+    for word in words {
+        let remove = Button::new(tr("dictionaries.blocked_remove")).build(
+            ui,
+            theme,
+            ("unblock", word.as_str()),
+            Message::BlockWord(word.clone(), false),
+        )?;
+        rows.push(
+            SettingRow::new(word.as_str())
+                .control(remove)
+                .build(ui, theme)?,
+        );
+    }
+    // 输入框：回车把这一条加进去。用短语那套编辑字段（不存配置，提交时读文本清空）
+    if let Some(edit) = page.settings.fields.get(&FieldId::BlockedWord) {
+        let input = TextField::new(edit)
+            .placeholder(tr("dictionaries.blocked_placeholder"))
+            .build(
+                ui,
+                theme,
+                ("field", FieldId::BlockedWord),
+                |edit| Message::Edit(FieldId::BlockedWord, edit),
+                Some(Message::Commit(FieldId::BlockedWord)),
+                Some(Message::Cancel(FieldId::BlockedWord)),
+            )?;
+        rows.push(
+            SettingRow::new(tr("dictionaries.blocked_new"))
+                .info(tr("dictionaries.blocked_info"))
+                .control(input)
+                .build(ui, theme)?,
+        );
+    }
+    group(ui, theme, &rows)
 }
