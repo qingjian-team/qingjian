@@ -55,6 +55,32 @@ apps/macos/scripts/bundle.sh --install        # mac 壳装到 ~/Library/Input Me
 Windows 本机只 `cargo check --target x86_64-pc-windows-gnu`，真编译与真机测试在 Windows 机器上做（部署方式见 `apps/windows/README.md`）；
 端到端验证 mac 可用 `osascript` 往 TextEdit 发按键再读回文本。
 
+## 构建产物盘符（Windows 禁止 C 盘）
+
+Windows 本机禁止把 Cargo 的 `target` 写进 C 盘：C 盘只剩几 GB 时一次全量构建就会写满，
+cargo 报 `system_error=28`，还可能把生成文件写坏。仓库里有三层拦：
+
+- `tools/check_build_drive.py`：检查 `CARGO_TARGET_DIR`、`.cargo/config.toml` 的 `target-dir`
+  和默认 `target`，落在 C 盘直接退出 1。
+- `crates/qingjian-format/build.rs`、`crates/qingjian-core/build.rs`、`crates/bamboo-slip/build.rs`：
+  编译时检查 `OUT_DIR`，C 盘直接 panic。产品构建至少经过其中一条。
+- `.githooks/pre-commit` 在 Windows 上调上面的检查脚本（没有 Python 时跳过，编译时仍拦）。
+
+本机设置（PowerShell）：
+
+```powershell
+$env:CARGO_TARGET_DIR = 'E:/cargo-target/qingjian'
+cargo build
+```
+
+也可以写在用户级 cargo 配置里，不要改仓库里的 `.cargo/config.toml`：
+
+```toml
+# %USERPROFILE%\.cargo\config.toml
+[build]
+target-dir = "E:/cargo-target/qingjian"
+```
+
 ## 约定
 
 架构约束、代码组织、版本号、提交信息、文档同步、提交前检查与发版都在 `docs/contributing.md`，随本文件一起载入：

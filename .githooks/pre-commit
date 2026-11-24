@@ -3,6 +3,19 @@
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
 
+# Windows 上提交前先拦 C 盘 target；没有 Python 就交给编译期 build.rs。
+case "$(uname -s)" in
+  MINGW*|MSYS*|CYGWIN*)
+    if command -v python >/dev/null 2>&1; then
+      python tools/check_build_drive.py
+    elif command -v python3 >/dev/null 2>&1; then
+      python3 tools/check_build_drive.py
+    else
+      echo "pre-commit: 没找到 python，跳过盘符检查（编译时 build.rs 仍会拦）" >&2
+    fi
+    ;;
+esac
+
 # 装饰性分隔注释（`// ====` / `// ────`）不要：只做视觉分组、不带任何「为什么」，用空行加语义排序分组
 staged_rs="$(git diff --cached --name-only --diff-filter=ACM -- '*.rs')"
 if [[ -n "$staged_rs" ]]; then

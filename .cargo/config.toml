@@ -1,3 +1,6 @@
+# Windows 本机禁止把 target 写进 C 盘；本文件随仓库走，不放绝对 target-dir。
+# 本机用 CARGO_TARGET_DIR 或用户级 cargo config 覆盖，见 CLAUDE.md「构建产物盘符」。
+#
 # Windows 静态链接 CRT：Rust 缺省动态链 vcruntime140.dll，它不随 Windows 自带，
 # 且 AppContainer 进程（任务栏搜索等）能否读到 System32 里那份取决于别的安装程序留下的 ACL，
 # 读不到时 TSF DLL 整个加载失败、系统切回上一个输入法。静态链接后只依赖系统自带的 DLL。

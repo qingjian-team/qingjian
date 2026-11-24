@@ -81,6 +81,9 @@
   两个跑编译的钩子按 `uname` 划平台范围：**非 Apple 平台排除 `qingjian-macos`**（IMK 壳依赖 objc2，在别的平台上是硬 `compile_error!`，
   排除不掉就整条命令失败），与 [ci.yml](../.github/workflows/ci.yml) 里 core / macos / windows 三个 Rust job 的划分一致；Server 的 uiAccess 缺省不带
   （没签名的 exe 带 uiAccess=true 起不来，os error 740），只有 `build.ps1 -Sign` 设 `QINGJIAN_UIACCESS=1` 打开。
+- Windows 本机禁止 C 盘构建：pre-commit 先跑 `python tools/check_build_drive.py`（没有 Python 时跳过），
+  但 `qingjian-format` / `qingjian-core` / `bamboo-slip` 的 `build.rs` 会在编译时直接拒绝 C 盘 `OUT_DIR`。
+  设置见 [CLAUDE.md](../CLAUDE.md)「构建产物盘符」。
 - **在 Linux / Windows 上改 macOS 壳**：排除之后等于盲改，编译错误要到 CI 才看得到。
   `rustup target add aarch64-apple-darwin` 一次，之后 pre-commit 在「这次提交碰了 `apps/macos/`、`crates/` 或依赖」时
   会对 darwin 目标跑一遍 clippy（只做类型检查、不链接，与 CI 的 macOS job 同一道门；第一次约半分钟，之后一两秒）；
