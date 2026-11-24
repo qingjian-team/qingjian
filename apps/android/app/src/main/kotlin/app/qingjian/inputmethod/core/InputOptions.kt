@@ -32,8 +32,6 @@ data class InputOptions(
     val holdSelections: Boolean = true,
     /** 拼写纠错（PC 的 `[general] spelling_correction`）：关了拼音只按敲的原样与模糊音读。 */
     val spellingCorrection: Boolean = true,
-    /** 零声母简写（PC 的 `[general] zero_initial_abbreviation`）：`aquan` 出「安全」、`e'liao` 出「饵料」。缺省关。 */
-    val zeroInitialAbbreviation: Boolean = false,
     /** 中文词上屏后候选条接着给可能跟在后面的词，点了直接上屏。 */
     val followUps: Boolean = true,
     /** 候选后面一次最多配几个 emoji（0 不配），PC 的 `[general] emoji`；颜文字、符号同理。 */
@@ -59,7 +57,6 @@ data class InputOptions(
         .put("disabled_dictionaries", JSONArray(disabledDictionaries.sorted()))
         .put("hold_selections", holdSelections)
         .put("spelling_correction", spellingCorrection)
-        .put("zero_initial_abbreviation", zeroInitialAbbreviation)
         .put("follow_ups", followUps)
         .put("emoji", emoji)
         .put("kaomoji", kaomoji)
