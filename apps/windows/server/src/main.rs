@@ -344,7 +344,7 @@ fn main() -> ExitCode {
 
     #[cfg(windows)]
     if let Some(mb) = working_set_mb() {
-        tracing::info!(mb, "进程常驻内存");
+        tracing::info!(mb, "process working set");
     }
 
     let code = serve(router);
