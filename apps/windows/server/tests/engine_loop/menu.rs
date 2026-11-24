@@ -45,7 +45,7 @@ fn right_click_offers_actions_and_a_pick_shows_a_notice_until_next_key() {
 
 #[test]
 fn picking_a_single_char_commits_it_and_ends_the_pinyin() {
-    // 右键「你好」选「只上屏第一个字」：上屏「你」，这个词的整段拼音一并结束（#1026 评审第 3 条）
+    // 右键「你好」选「只上屏第一个字」：上屏「你」，这个词的整段拼音一并结束
     bamboo_slip_i18n::pin_locale("zh-Hans");
     let mut router = router();
     let sink = RecordingCandidates::default();
@@ -133,7 +133,7 @@ fn pick_char_shortcut_takes_the_first_or_last_char() {
     assert_eq!(preedit(&frame), "");
 }
 
-/// 快捷键配成翻页键时不生效（评审要求：用户换了哪组翻页键，这个键也不能再用那一组）。
+/// 快捷键配成翻页键时不生效：用户换了哪组翻页键，这个键也不能再用那一组。
 ///
 /// 这条挡在 `RouterConfig::from(&Config)` 那一步：手改配置文件把 `pick_char` 写成 `control+[`
 /// 时，有效值直接是 `None`，于是 Ctrl+[ 照旧是翻页。

@@ -23,13 +23,6 @@ pub struct FrameCandidate {
     /// 是通讯录里的名字：候选条在词的右上角画一个人头。
     pub contact: bool,
 
-    /// 几个字（Unicode 字符数）。Kotlin 的 `String.length` 是 UTF-16 码元数，
-    /// 扩展 B 区汉字（𠮷 这类）算两个，拿它数「第几个字」会错位。
-    pub chars: usize,
-
-    /// 能不能「只上屏第几个字」：中文候选、且字数与音节数对得上（见 #1025）。
-    pub pickable: bool,
-
     /// 和首选不一样的字（`text` 的字节范围，Core 的 `differs_from_lead`）；只有 Rust 画候选条用，不过 JNI。
     #[serde(skip)]
     pub diff: Vec<Range<usize>>,
@@ -44,8 +37,6 @@ impl FrameCandidate {
             forgettable: false,
             cloud: false,
             contact: false,
-            chars: text.chars().count(),
-            pickable: false,
             diff: Vec::new(),
         }
     }
@@ -74,10 +65,6 @@ impl From<&Candidate> for FrameCandidate {
             forgettable: candidate.kind.forgettable(),
             cloud: candidate.kind == CandidateKind::Cloud,
             contact: false,
-            chars: candidate.text.chars().count(),
-            pickable: candidate.kind == CandidateKind::Chinese
-                && candidate.text.chars().count() == candidate.syllables.len()
-                && candidate.text.chars().count() >= 2,
             diff: Vec::new(),
         }
     }

@@ -95,26 +95,6 @@ pub extern "system" fn Java_app_qingjian_inputmethod_core_Native_forget<'local>(
 }
 
 #[unsafe(no_mangle)]
-pub extern "system" fn Java_app_qingjian_inputmethod_core_Native_pickChar<'local>(
-    env: JNIEnv<'local>,
-    _this: JObject<'local>,
-    handle: jlong,
-    index: jint,
-    position: jint,
-) -> jstring {
-    // -1 表示「最后一个字」，与 Kotlin 侧的 LastChar 对上
-    let Ok(index) = usize::try_from(index) else {
-        return std::ptr::null_mut();
-    };
-    let position = if position < 0 {
-        usize::MAX
-    } else {
-        usize::try_from(position).unwrap_or(usize::MAX)
-    };
-    frame(env, handle, |session| session.pick_char(index, position))
-}
-
-#[unsafe(no_mangle)]
 pub extern "system" fn Java_app_qingjian_inputmethod_core_Native_commitRaw<'local>(
     env: JNIEnv<'local>,
     _this: JObject<'local>,

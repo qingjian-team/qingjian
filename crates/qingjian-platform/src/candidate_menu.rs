@@ -372,7 +372,7 @@ mod tests {
 
     #[test]
     fn picking_a_char_takes_the_whole_word() {
-        // 取哪个字都把整词的音节带上：上屏时整段拼音一起消耗（#1026 评审第 3 条）
+        // 取哪个字都把整词的音节带上：上屏时整段拼音一起消耗
         let mut engine = test_engine();
         let phrase = chinese("开发中", &["kai", "fa", "zhong"]);
         let first = engine.pick_char(&phrase, 0).expect("第一个字");

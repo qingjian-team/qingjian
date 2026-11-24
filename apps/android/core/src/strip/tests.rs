@@ -23,8 +23,6 @@ fn candidate(text: &str, senses: &[(Option<&'static str>, &str, bool)]) -> Frame
         forgettable: true,
         cloud: false,
         contact: false,
-        chars: text.chars().count(),
-        pickable: false,
         diff: Vec::new(),
     }
 }
@@ -114,8 +112,6 @@ fn pinned_syllables_are_their_own_underlined_segment() {
         candidates: Vec::new(),
         expression: false,
         single_chars: false,
-        pick_char: String::new(),
-        pick_failed: false,
     };
     let preedit = preedit(&frame);
     let parts: Vec<(&str, PreeditStyle)> = preedit

@@ -324,7 +324,7 @@ fn next_word_key(shortcut: &ShortcutConfig) -> Option<KeyCombo> {
 
 /// 以词定字的有效组合键：在 [`composing_key`] 之上再让开单字模式、按词跳与**所有翻页键**。
 ///
-/// 翻页键那一条是评审要的：缺省 `[` `]`，用户自己换了哪一组（`extra_page_keys` 里开了哪些），
+/// 缺省翻页键是 `[` `]`；用户自己换了哪一组（`extra_page_keys` 里开了哪些），
 /// 这个快捷键就都不能再用那一组里的字符。
 fn pick_char_key(config: &Config) -> Option<KeyCombo> {
     let shortcut = &config.shortcut;

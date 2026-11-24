@@ -333,7 +333,7 @@ fn deleting_a_letter_with_the_forward_key_also_stops_the_whole_word() {
     );
 }
 
-/// 取字用的是**这个词**的读音：取哪个字都把整段拼音吃掉，不留尾巴（评审 #1026 第 3 条）。
+/// 取字用的是**这个词**的读音：取哪个字都把整段拼音吃掉，不留尾巴。
 #[test]
 fn picking_a_char_consumes_the_whole_word() {
     let candidate = || Candidate {

@@ -125,33 +125,6 @@ impl Session {
         self.refresh(commit)
     }
 
-    /// 只上屏第 `index` 个候选的第 `char` 个字（见 #1025）。上屏吃的拼音按那个字所在的音节算，
-    /// 剩下的拼音留在组句里接着选。`char` 是 `usize::MAX` 时取最后一个字。
-    ///
-    /// 提示文字不在这里拼：安卓的 `core` 不依赖 `qingjian-platform`（也没有本地化），
-    /// 写死中文会绕开文案表。帧里带 `pick_char`（上屏的那个字）或 `pick_failed`，
-    /// 由 Kotlin 按 `candidate_pick_char` / `candidate_pick_failed` 拼，文案键与桌面端一致。
-    pub fn pick_char(&mut self, index: usize, char: usize) -> Frame {
-        let Some(candidate) = self.candidates.items.get(index).cloned() else {
-            return self.refresh(String::new());
-        };
-        let position = if char == usize::MAX {
-            candidate.text.chars().count().saturating_sub(1)
-        } else {
-            char
-        };
-        let Some(single) = self.engine.pick_char(&candidate, position) else {
-            let mut frame = self.refresh(String::new());
-            frame.pick_failed = true;
-            return frame;
-        };
-        let picked = single.text.clone();
-        let commit = self.engine.commit(&single);
-        let mut frame = self.refresh(commit);
-        frame.pick_char = picked;
-        frame
-    }
-
     /// 删掉第 `index` 个候选：用户词整删，词库词清学习记录；结果写进帧的 `notice`。
     pub fn forget(&mut self, index: usize) -> Frame {
         let Some(candidate) = self.candidates.items.get(index).cloned() else {
