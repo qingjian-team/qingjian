@@ -1,0 +1,18 @@
+# 上帝对象存量豁免。只允许维持登记时的数值；变大（或新增超 800 行的类型）CI 会失败。
+# 重构让某个类型降到 800 行以内后，跑 `python3 tools/quality/check_god_objects.py --update` 清理。
+
+[limits]
+god_object_lines = 800
+
+[allow]
+"apps/android::Session" = 830
+"apps/linux::Router" = 1857
+"apps/macos::CandidateView" = 1009
+"apps/macos::Host" = 2063
+"apps/macos::QingjianInputController" = 2019
+"apps/settings::Settings" = 1090
+"apps/windows::Router" = 3255
+"apps/windows::TextService_Impl" = 1068
+"crates/bamboo-slip::Scene" = 932
+"crates/qingjian-core::Engine" = 6685
+"crates/qingjian-learning::FrequencyLearner" = 876

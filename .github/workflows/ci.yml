@@ -226,6 +226,27 @@ jobs:
       - name: Shellcheck
         run: shellcheck -S warning $(git ls-files "*.sh")
 
+  # 上帝对象门禁：按「类型」而不是按文件统计代码量——`struct` / `enum` / `union` / `trait`
+  # 的定义，加上它在同一 crate 里全部 impl 块（跨文件、跨模块、含 #[cfg(test)] 与 tests/），
+  # 代码行数不得超过 800。字段留一个文件、方法摊到五个文件里的写法，按文件查行数看不出来，
+  # 这条才看得见。存量超限的 11 个类型冻结在 tools/quality/god_object_allowlist.toml，
+  # 只允许维持或变小；新增超限、或已登记类型变大，当场红。纯 Python，不编译，不需要构建缓存。
+  god-objects:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # 先跑脚本自己的单元测试：统计口径（跨文件聚合、注释 / 字符串不参与配对、
+      # allowlist 冻结与 --update）错了，门禁就没有意义。
+      - name: Unit tests (god-object checker)
+        run: python3 -m unittest discover -s tools/quality -p "test_*.py"
+
+      - name: God object gate
+        run: python3 tools/quality/check_god_objects.py
+
   macos:
     # 与 release.yml 的发版 job 用同一个 label（那边是 macos-26）。同一个仓库里 macOS 侧
     # 只应有一个版本：`macos-latest` 会随 GitHub 的 runner 策略漂移，CI 跑在一个版本、
