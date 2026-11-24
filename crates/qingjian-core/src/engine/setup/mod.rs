@@ -134,6 +134,12 @@ impl Engine {
         self.aux_show = show;
     }
 
+    /// 辅码态是否「只调顺序、不筛候选」（配置 `[general] aux_code_weighting`，缺省关）。
+    /// 关着时与原来的筛选一致：码段对不上的词不出。
+    pub fn set_aux_weighting(&mut self, on: bool) {
+        self.aux_weighting = on;
+    }
+
     /// 换「候选上显示声调」开关（配置项 `[general] show_tones`，缺省关）。
     pub fn set_show_tones(&mut self, show: bool) {
         self.show_tones = show;

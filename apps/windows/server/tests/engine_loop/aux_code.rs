@@ -13,6 +13,12 @@ use super::support::*;
 /// 装了辅码码表的 Router：`kaifa` 之后敲触发键进辅码态、`kf` 把 开发 排到第一。
 /// 码表由 Core 的 [`AuxCodeLookup`] 注入；辅码总闸缺省关，这里显式打开。
 fn router_with_aux(config: RouterConfig) -> Router {
+    // 这些用例写的是「码段只调顺序、不筛候选」的语义，`[general] aux_code_weighting` 缺省是关的
+    router_with_aux_weighting(config, true)
+}
+
+/// 码表 + 辅码总闸开着，加权开关由调用方决定（缺省关闭的路径见 `aux_code_weighting_flips_with_config`）。
+fn router_with_aux_weighting(config: RouterConfig, weighting: bool) -> Router {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../..");
     let dict = root.join("assets/sample/dict.tsv");
     let glossary = root.join("assets/sample/glossary-en.tsv");
@@ -32,6 +38,7 @@ fn router_with_aux(config: RouterConfig) -> Router {
     );
     engine.set_aux_codes(vec![table]);
     engine.set_aux_enabled(true);
+    engine.set_aux_weighting(weighting);
     engine.set_aux_code_key(config.aux_code_key, config.page_keys);
     // 生产接线里 Engine 侧的同名开关与 RouterConfig 同源设置（main.rs），这里对齐
     engine.set_shift_letter_compose(config.shift_letter_compose);
@@ -126,6 +133,64 @@ fn aux_trigger_key_follows_config() {
     assert_eq!(candidate_texts(&frame)[0], "开");
     assert_eq!(candidate_texts(&frame).len(), before);
     assert!(candidate_texts(&frame).contains(&"开放"));
+}
+
+/// `[general] aux_code_weighting` 从配置文件接到引擎：缺省关着时码段是过滤器（对不上码的词不出），
+/// 写进配置文件并热加载后变成只调顺序、一条都不筛。
+#[test]
+fn aux_code_weighting_flips_with_config() {
+    let dir = std::env::temp_dir().join(format!("qingjian-aux-weight-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let config_path = dir.join("config.toml");
+
+    let mut router = router_with_aux_weighting(RouterConfig::default(), false);
+    router.watch_config(
+        &Config::default(),
+        config_path.clone(),
+        dir.clone(),
+        DataDirs {
+            user: Some(UserDirs::at(dir.clone())),
+            ..DataDirs::default()
+        },
+    );
+    // 缺省：码段是过滤器，`kf` 之外的候选不出
+    type_letters(&mut router, "kaifa");
+    press(&mut router, letter(';'));
+    let (_, _, frame) = press(&mut router, letter('k'));
+    let filtered = candidate_texts(&frame);
+    assert!(
+        !filtered.contains(&"开放"),
+        "缺省码段是过滤器：{filtered:?}"
+    );
+    // Esc 一下清码段、再一下清拼音，下一段输入从干净的组句开始
+    press(&mut router, function_key(0x1B));
+    let (_, _, frame) = press(&mut router, function_key(0x1B));
+    assert!(
+        preedit(&frame).is_empty(),
+        "组句该清空：{:?}",
+        preedit(&frame)
+    );
+
+    // 配置文件里打开加权：热加载后同一串键不再筛候选。热加载会按配置文件重设辅码总闸
+    // （`[aux_code] enabled` 缺省 false），这条用例只看加权开关，重装码表后把总闸再打开一次。
+    std::fs::write(&config_path, "[general]\naux_code_weighting = true\n").unwrap();
+    std::thread::sleep(std::time::Duration::from_millis(1200));
+    router.poll_config_reload();
+    router.engine_mut().set_aux_enabled(true);
+
+    let (_, _, frame) = type_letters(&mut router, "kaifa");
+    let before = candidate_texts(&frame).len();
+    press(&mut router, letter(';'));
+    let (_, _, frame) = press(&mut router, letter('k'));
+    assert_eq!(
+        candidate_texts(&frame).len(),
+        before,
+        "加权打开后码段不该筛掉候选：{:?}",
+        candidate_texts(&frame)
+    );
+    assert!(candidate_texts(&frame).contains(&"开放"));
+    let _ = std::fs::remove_dir_all(&dir);
 }
 
 /// 辅码态里敲标点：先把高亮候选上屏，再按组句外标点语义转全角。

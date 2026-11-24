@@ -21,6 +21,15 @@ fn aux_engine() -> Engine {
     let mut engine = engine().with_aux_codes(vec![codes()]);
     // 测试都按「辅码开着且有码表」的常规路径来；开关本身的边界见下面的专项测试
     engine.set_aux_enabled(true);
+    // 这些用例写的是「码段只加权、不筛候选」的语义，开关缺省是关的，这里显式打开
+    engine.set_aux_weighting(true);
+    engine
+}
+
+/// 缺省配置（`[general] aux_code_weighting` 关着）：码段是过滤器，对不上的词不出。
+fn filtering_aux_engine() -> Engine {
+    let mut engine = engine().with_aux_codes(vec![codes()]);
+    engine.set_aux_enabled(true);
     engine
 }
 
@@ -419,14 +428,8 @@ fn exact_code_matches_come_first_and_longer_codes_before_shorter_ones() {
     assert_eq!(texts.first(), Some(&"开"));
     assert!(texts.contains(&"开发") && texts.contains(&"开放"));
     assert_eq!(query.candidates.items[0].aux_code.as_deref(), Some("kf"));
-    // 完全匹配的那条码最前，其余按码长降序（这里都是 3，保持原序）
-    assert_eq!(query.candidates.items.len(), 5);
-    engine.push_aux_code('a');
-    assert_eq!(engine.aux_code(), "kfa");
-    assert_eq!(
-        candidates(&engine),
-        ["开发", "开", "开放", "开发者", "开饭"]
-    );
+    // 码段只调顺序：`kai` 这套切分本来就只有这三个词，一条都不少
+    assert_eq!(query.candidates.items.len(), 3);
 }
 
 /// 开关三态之一：开着但没挂码表也不触发（坏文件全被装配层跳过后同样归并到这里），
@@ -558,4 +561,33 @@ fn backspace_at_the_caret_edits_the_letter_not_the_code() {
     engine.move_cursor_end();
     assert!(engine.backspace(false).consumed());
     assert_eq!(engine.aux_code(), "k");
+}
+
+/// 缺省（开关关着）码段仍然是过滤器：对不上码的词一条都不出，与辅码一直以来的行为一致。
+#[test]
+fn without_the_switch_the_code_still_filters() {
+    let mut engine = filtering_aux_engine();
+    engine.set_input("kaifa");
+    engine.enter_aux();
+    for key in "kf".chars() {
+        engine.push_aux_code(key);
+    }
+    let texts = candidates(&engine);
+    assert!(!texts.is_empty(), "码段对得上的时候照常出");
+    assert!(
+        texts.iter().all(|text| text != "开放" && text != "开"),
+        "对不上 `kf` 的词不该出现：{texts:?}"
+    );
+}
+
+/// 开关关着时，码段一个都对不上就是没有候选（不会凭空拼出「开粗」这种词）。
+#[test]
+fn without_the_switch_nothing_is_synthesised() {
+    let mut engine = filtering_aux_engine();
+    engine.set_input("kaifa");
+    engine.enter_aux();
+    for key in "zz".chars() {
+        engine.push_aux_code(key);
+    }
+    assert!(candidates(&engine).is_empty(), "码段对不上时不该有候选");
 }

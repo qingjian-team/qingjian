@@ -500,26 +500,31 @@ impl Engine {
                         .then_with(|| b.1.len().cmp(&a.1.len()))
                 });
                 if kept.is_empty() {
-                    // 码段一个码都对不上：多半不是码，是「想找哪个字」的提示。
-                    // `fuma;fuzhu` 是「辅」也在 辅助 里，`fuma;chefu` 是「辅」＝车＋甫。
-                    let best = &segmentations[0];
-                    items.extend(self.hinted_candidates(&scored, best, code));
+                    // 码段一个码都对不上。缺省到此为止（码段是过滤器）；打开
+                    // `[general] aux_code_weighting` 才按音节拼提示 —— `fuma;fuzhu` 是「辅」
+                    // 也在 辅助 里，`fuma;chefu` 是「辅」＝车＋甫。
+                    if self.aux_weighting {
+                        let best = &segmentations[0];
+                        items.extend(self.hinted_candidates(&scored, best, code));
+                    }
                 } else {
                     items.extend(
                         kept.into_iter()
                             .map(|(index, hit)| chinese_candidate(&scored[index], Some(&hit))),
                     );
                 }
-                // 码段不是过滤器，是「加一列」：不筛码时的原候选一个都不能少，排到后面去。
-                // 码段的解释一旦猜错（`zhenge;zhenye` 这种），整列空掉比给错更糟 —— 用户
-                // 至少还能退回原来那批。
-                tracing::debug!(code = %code, scored = scored.len(), items = items.len(), "辅码态候选");
-                let rest: Vec<Candidate> = scored
-                    .iter()
-                    .filter(|item| !items.iter().any(|shown| shown.text == item.hit.text))
-                    .map(|item| chinese_candidate(item, None))
-                    .collect();
-                items.extend(rest);
+                // 打开 `[general] aux_code_weighting` 时码段只「加一列」，不筛候选：
+                // 对不上码的原候选一个都不少，排到后面去 —— 码段的解释猜错（`zhenge;zhenye`）
+                // 时整列空掉比给错更糟。缺省不补尾，与筛选一致。
+                if self.aux_weighting {
+                    tracing::debug!(code = %code, scored = scored.len(), items = items.len(), "辅码态候选");
+                    let rest: Vec<Candidate> = scored
+                        .iter()
+                        .filter(|item| !items.iter().any(|shown| shown.text == item.hit.text))
+                        .map(|item| chinese_candidate(item, None))
+                        .collect();
+                    items.extend(rest);
+                }
             }
         }
         // 附加候选（英文尾段与补全、快捷、整句、emoji）都没有码：码段非空时排不进码那一列，一律不出
