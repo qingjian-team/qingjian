@@ -66,7 +66,7 @@ pub fn forms(args: &str) -> Vec<Measure> {
             "CMYK".to_owned(),
         ),
         (
-            format!("lab({:.1}, {:.1}, {:.1})", lab.l * 100.0, lab.a, lab.b),
+            format!("lab({:.1}, {:.1}, {:.1})", lab.l, lab.a, lab.b),
             "Lab".to_owned(),
         ),
         (
