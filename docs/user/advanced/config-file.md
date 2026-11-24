@@ -50,6 +50,7 @@ description: 青简的全部设置保存在一个文本配置文件里：位置�
 | `[shortcut] switch_mode` | 中英文 → 切换键 | 列表，如 `["shift", "control"]` |
 | `[general] default_english`、`remember_mode_per_app` | 中英文 → 默认英文模式、按应用记住中英模式 | `true` / `false` |
 | `[general] shift_letter` | 中英文 → Shift + 字母 | `passthrough`（交给应用，缺省）或 `compose`（进组句） |
+| `[general] calendar_shortcuts_first` | 快捷 → 单打 `rq` / `sj` / `xq` / `jq` / `jr` | `true` / `false`，缺省 `false`：打开后整组日期 / 时间 / 星期 / 节气 / 节日排到词的前面；关着时词在前、只跟三条（习惯用简拼打「手机」的别打开） |
 | `[general] punct_commits` | 中英文 → 标点先上屏候选 | `true` / `false` |
 | `[general] preedit` | 外观 → 拼音显示位置 | `both`、`inline`、`window` |
 | `[general] page_keys` | 快捷键 → 翻页键 | `"[]"`、`",."`、`"-="` |

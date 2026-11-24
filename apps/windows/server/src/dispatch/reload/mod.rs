@@ -277,6 +277,8 @@ impl Router {
         self.engine.set_aux_enabled(config.aux_code.enabled);
         self.engine.set_aux_show(config.general.aux_code_show);
         self.engine.set_show_tones(config.general.show_tones);
+        self.engine
+            .set_calendar_shortcuts_first(config.general.calendar_shortcuts_first);
         self.engine.set_chinese_first(config.general.chinese_first);
         self.engine
             .set_spelling_correction(config.general.spelling_correction);

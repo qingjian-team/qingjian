@@ -134,6 +134,11 @@ impl Engine {
         self.aux_show = show;
     }
 
+    /// 单打日历缩写时整组是否压到词前面（配置 `[general] calendar_shortcuts_first`，缺省不压）。
+    pub fn set_calendar_shortcuts_first(&mut self, on: bool) {
+        self.calendar_group_first = on;
+    }
+
     /// 换「候选上显示声调」开关（配置项 `[general] show_tones`，缺省关）。
     pub fn set_show_tones(&mut self, show: bool) {
         self.show_tones = show;

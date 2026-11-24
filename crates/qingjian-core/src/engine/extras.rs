@@ -100,7 +100,8 @@ impl Engine {
     pub(super) fn insert_shortcuts(&self, items: &mut Vec<Candidate>, scope: &str) {
         let now = jiff::Zoned::now();
         let phonetic_only = self.shuangpin.is_none() && !self.zhuyin && self.code.is_none();
-        if phonetic_only
+        if self.calendar_group_first
+            && phonetic_only
             && self.composition.rest().is_empty()
             && let Some(forms) = shortcut::calendar_forms(scope, &now)
         {
