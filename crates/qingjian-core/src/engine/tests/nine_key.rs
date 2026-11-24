@@ -269,6 +269,14 @@ fn held_words_go_back_before_pinned_syllables() {
     // 光标在末尾：退格撤回留着的词，它的拼音接回组句
     assert!(engine.backspace(false).consumed());
     assert!(engine.held_text().is_empty());
+    assert_eq!(
+        engine.composition().text(),
+        "kai'fa",
+        "撤回来的拼音要接着给候选"
+    );
+    // 再退一格：末尾那个选定的音节退回成数字
+    assert!(engine.backspace(false).consumed());
+    assert_eq!(engine.composition().text(), "kai'32");
 }
 
 #[test]
