@@ -332,7 +332,7 @@ fn aux_code(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderErro
         tr("input.import_code_table"),
         tr("input.import_code_table_info"),
     )?;
-    let rows = with_actions(page, rows, vec![import]);
+    let rows = with_actions(rows, vec![import]);
     out.push(section_title(ui, theme, tr("input.section_code_tables"))?);
     out.push(group(ui, theme, &rows)?);
     Ok(out)

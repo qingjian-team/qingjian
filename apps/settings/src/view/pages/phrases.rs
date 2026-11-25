@@ -1,4 +1,4 @@
-//! 「自定义短语」页：每条一行（开关、输入码、权重、内容的开头、编辑），末尾新增与导入导出；macOS 另有「也用系统的文本替换」。
+//! 「自定义短语」页：每条一行（开关、输入码、权重、内容的开头、编辑），列表上面是新增与导入导出；macOS 另有「也用系统的文本替换」。
 //! 新增、编辑在对话框里改，保存时整张表校验。
 
 use bamboo_slip::taffy::{
@@ -72,7 +72,7 @@ pub fn phrases(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderE
             .control(buttons),
         "phrases-transfer",
     )?);
-    let rows = with_actions(page, rows, actions);
+    let rows = with_actions(rows, actions);
     out.push(section_title(ui, theme, tr("phrases.section_phrases"))?);
     out.push(group(ui, theme, &rows)?);
 

@@ -179,7 +179,7 @@ fn clipboard(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderErr
 }
 
 /// 不记录的程序：自成一节，标题下一行说明，再是加过的程序，一个一行带「移除」。
-/// 竹青把「添加程序」放在说明右边；照系统设置画时它是列表里的一行，Windows 在最上、macOS 在最下（[`with_actions`]）。
+/// 竹青把「添加程序」放在说明右边；照系统设置画时它是列表最上面的一行（[`with_actions`]）。
 fn excluded_apps(ui: &mut Ui<Message>, page: &Page, on: bool) -> Result<Vec<NodeId>, RenderError> {
     let theme = &page.theme;
     let config = &page.settings.config.clipboard;
@@ -221,7 +221,7 @@ fn excluded_apps(ui: &mut Ui<Message>, page: &Page, on: bool) -> Result<Vec<Node
     let action = SettingRow::new(tr("experimental.clipboard_apps"))
         .control(add)
         .build(ui, theme)?;
-    let rows = with_actions(page, rows, vec![action]);
+    let rows = with_actions(rows, vec![action]);
     out.push(group(ui, theme, &rows)?);
     Ok(out)
 }

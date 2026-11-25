@@ -72,7 +72,7 @@ pub fn dictionaries(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Re
         tr("dictionaries.import"),
         tr("dictionaries.import_info"),
     )?;
-    let rows = with_actions(page, rows, vec![import]);
+    let rows = with_actions(rows, vec![import]);
     out.push(section_title(
         ui,
         theme,

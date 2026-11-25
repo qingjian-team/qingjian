@@ -1,4 +1,4 @@
-//! 词库、码表的清单：每本一行（勾选开关、条数与许可证、移除），随包领域词库排成两列，再一行导入按钮（Windows 在清单上面，见 [`with_actions`]）。
+//! 词库、码表的清单：每本一行（勾选开关、条数与许可证、移除），随包领域词库排成两列，清单上面一行导入按钮（见 [`with_actions`]）。
 //! 照系统设置画时一本一行设置：名字下面一行灰字写「条数 · 许可」，右边只放开关与「…」，导出、移除收进「…」的菜单。
 
 use bamboo_slip::taffy::{
@@ -294,14 +294,9 @@ fn grid_cell(
     )
 }
 
-/// 列表接上它的操作行（新增、导入、添加）：Windows 照系统设置放在列表上面，macOS 与竹青放在下面。
-pub fn with_actions(page: &Page, items: Vec<NodeId>, actions: Vec<NodeId>) -> Vec<NodeId> {
-    let (first, then) = if page.theme.look == Look::Fluent {
-        (actions, items)
-    } else {
-        (items, actions)
-    };
-    first.into_iter().chain(then).collect()
+/// 列表接上它的操作行（新增、导入、添加）：三套外观都放在列表上面，列表再长也不用滚到底才点得到。
+pub fn with_actions(items: Vec<NodeId>, actions: Vec<NodeId>) -> Vec<NodeId> {
+    actions.into_iter().chain(items).collect()
 }
 
 /// 末尾的导入行：按钮，导入中变灰，结果显示在下面。
