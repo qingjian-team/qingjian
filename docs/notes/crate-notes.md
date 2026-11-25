@@ -509,6 +509,8 @@ Windows Server 自绘候选窗（GDI）按 `Frame.columns` / `column_ems` 画矩
 界面文案：每个有界面文字的 crate（设置程序、core、platform）各有 `locales/<语言>.toml`，在自己的 `i18n.rs` 里用 `catalog!` 声明、编译时嵌入，
 代码里写 `tr("节.键")` / `tr_args("节.键", &[("名", &值)])`。简体中文是源语言，所有键都要有；英文是回退链的一环，也要全；其余语言缺的键退到英文再退到中文。
 每个 crate 的 `i18n.rs` 有一条测试核对各语言没有废键、占位参数与源语言一致、英文不缺键。
+改文案或审译文时用 `tools/i18n/review.py` 出一张多语言对照网页（一个键一行、每种语言一列；缺省列工作区比 HEAD 改过的键，`--all` 列全部并标出未译的）。
+繁体中文用台湾用语（視窗、檔案、設定、匯入、預設…），示例里输入法打出来的简体字照原样留着。
 
 界面语言是进程级的：`Config::load` 读到 `[general] ui_language` 就 `set_locale`（`GeneralConfig::ui_locale`）。没写时是简体中文：不少中文用户的系统首选语言是英文，跟随系统会让他们一升级就看到英文；写 `system` 才跟随系统（`sys-locale`，中文按简繁归成 `zh-Hans` / `zh-Hant`）。
 比对中文文案的测试先 `pin_locale("zh-Hans")`：测试并行跑，固定之后读配置处的 `set_locale` 不再改它。
