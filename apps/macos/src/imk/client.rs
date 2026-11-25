@@ -7,7 +7,10 @@ use std::cell::Cell;
 use objc2::msg_send;
 use objc2::rc::Retained;
 use objc2::runtime::AnyObject;
-use objc2_foundation::{NSAttributedString, NSDictionary, NSNotFound, NSRange, NSRect, NSString};
+use objc2_app_kit::{NSColor, NSUnderlineColorAttributeName, NSUnderlineStyleAttributeName};
+use objc2_foundation::{
+    NSAttributedString, NSDictionary, NSNotFound, NSNumber, NSRange, NSRect, NSString,
+};
 use qingjian_core::SurroundingText;
 
 /// `{NSNotFound, 0}`：不替换任何已有文本，插到当前位置。
@@ -34,14 +37,22 @@ impl<'a> TextClient<'a> {
         Self { object }
     }
 
-    /// 设置 marked text（带下划线的未上屏文本），光标放在第 `cursor` 个字符处。空串等于清除。
+    /// 设置 marked text（未上屏文本），光标放在第 `cursor` 个字符处。空串等于清除。
     pub fn set_marked_text(&self, text: &str, cursor: usize) {
         let string = NSString::from_str(text);
         let cursor = NSRange::new(cursor.min(text.chars().count()), 0);
         unsafe {
+            let style = NSNumber::new_i32(0);
+            // 显式提供预编辑样式；宿主仍可能绘制自己的组句下划线。
+            let color = NSColor::colorWithDeviceRed_green_blue_alpha(0.0, 0.0, 0.0, 0.0);
+            let attributes = NSDictionary::from_slices(
+                &[NSUnderlineStyleAttributeName, NSUnderlineColorAttributeName],
+                &[&*style as &AnyObject, &*color],
+            );
+            let marked = NSAttributedString::new_with_attributes(&string, &attributes);
             let _: () = msg_send![
                 self.object,
-                setMarkedText: &*string,
+                setMarkedText: &*marked,
                 selectionRange: cursor,
                 replacementRange: NO_REPLACEMENT
             ];
