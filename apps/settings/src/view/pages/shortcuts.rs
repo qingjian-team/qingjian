@@ -120,7 +120,7 @@ pub fn shortcuts(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Rende
             ui,
             page,
             Shortcut::Pronounce,
-            tr("shortcuts.pronounce_info"),
+            Some(tr("shortcuts.pronounce_info")),
             false,
         )?);
     }
