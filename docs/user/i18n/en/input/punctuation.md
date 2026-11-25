@@ -10,7 +10,7 @@ When you're not typing pinyin, typing `, . ? ! : ; ( ) [ ] { } < > \ ^ _ $ ~` in
 
 ### Full-width and half-width
 
-- 中文标点 (Chinese punctuation) in 设置 → 中英文 (Settings → Chinese/English) can be set to half-width; letters and digits aren't affected.
+- 中文标点 (Chinese punctuation) in 设置 → 输入法切换 (Settings → Input Method Switching) can be set to half-width; letters and digits aren't affected.
 - To keep only a few symbols half-width (say the backtick `` ` `` for code), write them together in 保持半角的符号 (Keep these half-width) on the same page; other punctuation still turns full-width. Available on Windows, macOS and Linux.
 - On Windows and Linux, English mode has its own 英文标点 (English punctuation), half-width by default; on macOS, English mode is always half-width.
 - On Windows, clicking the ，。 cell on the floating status bar switches full-width / half-width for the current mode at any time.
@@ -24,12 +24,12 @@ Typing an opening bracket, quote or title mark also adds the closing one, with t
 - On Android, pressing Backspace right after the pair is added, before typing anything inside, deletes both; on Windows Backspace only deletes the opening mark as usual (Windows doesn't pass Backspace to the input method when you're not typing pinyin).
 - Once you move the cursor yourself or click elsewhere, closing marks are inserted as usual.
 - This covers brackets （） 【】, corner quotes 「」 『』, title marks 《》 〈〉 and curly quotes “” ‘’; 「」 『』 in Japanese mode are closed too.
-- 成对符号自动补全 (Auto-close paired punctuation) in 设置 → 中英文 (Settings → Chinese/English) covers Chinese and Japanese modes and is on by default. 英文模式也补全 (Also in English mode) covers half-width ( ) [ ] { } and " in English mode and is off by default: code editors and browser address bars already do this, and doing it twice leaves an extra mark. The single quote ' and < aren't paired (apostrophes in don't, comparison signs).
+- 成对符号自动补全 (Auto-close paired punctuation) in 设置 → 输入法切换 (Settings → Input Method Switching) covers Chinese and Japanese modes and is on by default. 英文模式也补全 (Also in English mode) covers half-width ( ) [ ] { } and " in English mode and is off by default: code editors and browser address bars already do this, and doing it twice leaves an extra mark. The single quote ' and < aren't paired (apostrophes in don't, comparison signs).
 - Available on Windows and Android for now.
 
 ## Typing punctuation while typing pinyin
 
-Typing punctuation halfway through some pinyin has one of two effects, set by 标点先上屏候选 (Punctuation commits the candidate first) in 设置 → 中英文 (Settings → Chinese/English):
+Typing punctuation halfway through some pinyin has one of two effects, set by 标点先上屏候选 (Punctuation commits the candidate first) in 设置 → 输入法切换 (Settings → Input Method Switching):
 
 - **Off (default)**: you enter **direct English input**: the pinyin and everything typed after it are shown as typed, and `Space` / `Enter` commit them as typed. In Chinese mode you can type strings with symbols such as `no-way` or `gpt-6` directly.
 - **On**: punctuation that turns full-width (`,` `.` `?` `!` and so on, except paging keys) first commits the highlighted candidate and then adds the full-width punctuation: type `nihao,` in one go to get 你好，.

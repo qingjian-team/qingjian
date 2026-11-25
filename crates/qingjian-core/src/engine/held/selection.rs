@@ -8,4 +8,7 @@ pub(in crate::engine) struct HeldSelection {
 
     /// 这次选择吃掉的那段拼音，撤回时原样接回缓冲区开头。
     pub keys: Composition,
+
+    /// 这次选择是否写入了学习记录，取消时据此精确退回。
+    pub learned: bool,
 }

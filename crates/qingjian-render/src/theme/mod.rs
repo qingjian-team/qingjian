@@ -31,6 +31,8 @@ pub use text_sizes::TextSizes;
 use assets::Assets;
 use file::{ColorRef, FontRef, LockedAppearance, SCHEMA, ThemeFile};
 
+mod menu;
+
 /// 内置主题编进程序的图片：主题里写的路径与文件内容。
 type EmbeddedFiles = &'static [(&'static str, &'static [u8])];
 

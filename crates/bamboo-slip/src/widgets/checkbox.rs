@@ -1,4 +1,5 @@
 //! 勾选框：方框加右边的文字，整块都能点；勾上时方框填强调色、画对勾。
+//! 方框大小随外观：引擎缺省与 macOS 14 点，Fluent 20 点（WinUI CheckBox）。
 
 use std::hash::Hash;
 use std::sync::Arc;
@@ -9,13 +10,20 @@ use super::WidgetTheme;
 use super::check_mark::CheckMark;
 use super::parts::{DISABLED_OPACITY, centered, focus_ring, label, over, row, solid};
 use super::setting_row::spotlight;
+use super::theme::Look;
 use crate::animation::Easing;
 use crate::error::RenderError;
 use crate::scene::Visual;
 use crate::ui::{Interact, Ui};
 
-/// 方框边长（点）。
-const SIDE: f32 = 14.0;
+/// 方框边长、圆角、没勾时的边框粗细（点）。
+fn metrics(look: Look) -> (f32, f32, f32) {
+    match look {
+        Look::Plain => (14.0, 4.0, 1.0),
+        Look::Mac => (14.0, 3.5, 0.5),
+        Look::Fluent => (20.0, 4.0, 1.0),
+    }
+}
 
 #[derive(Debug, Clone, Copy)]
 pub struct Checkbox<'a> {
@@ -51,8 +59,8 @@ impl<'a> Checkbox<'a> {
         let spot = spotlight(ui, theme, key, (4.0, 6.0))?;
         let state = ui.state(key);
         let colors = &theme.colors;
-        let side = theme.px(SIDE);
-        let radius = theme.px(4.0);
+        let (side, radius, edge) = metrics(theme.look);
+        let (side, radius, edge) = (theme.px(side), theme.px(radius), theme.px(edge).max(1.0));
         let mut marks = Vec::new();
         if self.on {
             marks.push(ui.scene().node(
@@ -82,7 +90,7 @@ impl<'a> Checkbox<'a> {
             } else {
                 colors.surface
             };
-            (fill, Some((theme.px(1.0), colors.secondary)))
+            (fill, Some((edge, colors.secondary)))
         };
         let square = ui.scene().node(
             centered(side, side),

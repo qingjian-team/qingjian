@@ -405,6 +405,57 @@ fn erasing_a_committed_sentence_retracts_its_transitions() {
     assert_eq!(ngram.pair(None, "想"), EXPLICIT_TRANSITION_WEIGHT);
 }
 
+/// 撤回一次选择之后，上文与记下的转移都要接在撤掉那个词的前面，不能挂在它身上。
+///
+/// `jiaoyizhongxin` 选「交易」、再选单字「中」、退格撤回、接着选「中心」：
+/// 记下的是「交易 → 中心」，没有「中 → 中心」，排「中心」时的上文也是「交易」。
+#[test]
+fn undoing_a_pick_attaches_the_next_word_to_the_word_before_it() {
+    let shared = Arc::new(Mutex::new((Vec::new(), sentence::UserNgram::default())));
+    let learner = WordLearner {
+        shared: Arc::clone(&shared),
+        ..WordLearner::default()
+    };
+    let dictionary = "交易\tjiao yi\t5000\n中心\tzhong xin\t5000\n中\tzhong\t900\n";
+    let mut engine =
+        Engine::new(Dictionary::parse(dictionary).unwrap()).with_learner(Box::new(learner));
+
+    let select = |engine: &mut Engine, text: &str| {
+        let candidate = engine
+            .query()
+            .unwrap()
+            .candidates
+            .items
+            .into_iter()
+            .find(|c| c.text == text && c.kind == CandidateKind::Chinese)
+            .unwrap();
+        engine.commit(&candidate);
+    };
+
+    engine.set_input("jiaoyizhongxin");
+    select(&mut engine, "交易");
+    select(&mut engine, "中");
+    assert_eq!(engine.composition().text(), "xin");
+
+    assert!(engine.undo_selection(), "刚选过，撤得回来");
+    assert_eq!(engine.chain.previous(), Some("交易"), "上文该退回交易");
+
+    select(&mut engine, "中心");
+    assert!(engine.composition().is_empty());
+
+    let ngram = &shared.lock().unwrap().1;
+    assert_eq!(
+        ngram.pair(Some("中"), "中心"),
+        0,
+        "撤掉的那个字不该留下转移"
+    );
+    assert!(
+        ngram.pair(Some("交易"), "中心") > 0,
+        "该记成 交易 → 中心，实际 {:?}",
+        ngram.pair(Some("交易"), "中心")
+    );
+}
+
 #[test]
 fn commits_feed_the_personal_bigram_and_form_words() {
     let shared = Arc::new(Mutex::new((Vec::new(), sentence::UserNgram::default())));

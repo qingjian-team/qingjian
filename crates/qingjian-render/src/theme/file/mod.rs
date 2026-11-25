@@ -5,6 +5,7 @@ mod color;
 mod font;
 mod keyboard;
 mod material;
+mod menu;
 mod meta;
 pub(crate) mod node;
 mod panel;
@@ -21,6 +22,7 @@ pub(crate) use color::{ColorRef, ColorSpec, ColorValue};
 pub(crate) use font::{BundledFont, FontRef, FontStyle};
 pub(crate) use keyboard::KeyboardSpec;
 pub(crate) use material::{MaterialAppearance, MaterialSpec};
+pub(crate) use menu::MenuSpec;
 pub(crate) use meta::{LockedAppearance, Meta};
 pub(crate) use panel::PanelSpec;
 pub(crate) use status::StatusSpec;
@@ -63,4 +65,8 @@ pub(crate) struct ThemeFile {
     pub(crate) keyboard: KeyboardSpec,
 
     pub(crate) panel: PanelSpec,
+
+    /// 候选右键菜单的样式；不写就用控件自己的浅色 / 深色配色。
+    #[serde(default)]
+    pub(crate) menu: MenuSpec,
 }

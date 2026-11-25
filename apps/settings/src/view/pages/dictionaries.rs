@@ -6,14 +6,14 @@ use std::time::SystemTime;
 
 use bamboo_slip::taffy::NodeId;
 use bamboo_slip::{
-    Button, DownloadRow, FieldValue, Link, RenderError, Segmented, Ui, field_points, fields, group,
-    paragraph, section_title, toolbar,
+    Button, DownloadRow, FieldValue, Link, Look, RenderError, Segmented, Ui, field_points, fields,
+    group, paragraph, section_title, toolbar,
 };
 
 use qingjian_core::Language;
 
 use crate::i18n::{tr, tr_args};
-use crate::jobs::dict_index::{DictEntry, Shelf, Status};
+use crate::jobs::dict_index::{DictEntry, IndexState, Shelf, Status};
 use crate::jobs::download::Item;
 use crate::library::Kind;
 use crate::message::Message;
@@ -21,7 +21,7 @@ use crate::stats::language_name;
 use crate::view::Page;
 use crate::view::parts::download::{DownloadStatus, labels, megabytes};
 use crate::view::parts::lists::{
-    domain_grid, entry_row, import_row, license_label, toggle_disabled,
+    domain_grid, entry_row, import_row, license_label, toggle_disabled, with_actions,
 };
 
 pub fn dictionaries(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderError> {
@@ -65,13 +65,14 @@ pub fn dictionaries(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Re
             None,
         )?);
     }
-    rows.push(import_row(
+    let import = import_row(
         ui,
         page,
         Kind::Dictionary,
         tr("dictionaries.import"),
         tr("dictionaries.import_info"),
-    )?);
+    )?;
+    let rows = with_actions(rows, vec![import]);
     out.push(section_title(
         ui,
         theme,
@@ -79,38 +80,78 @@ pub fn dictionaries(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Re
     )?);
     out.push(group(ui, theme, &rows)?);
 
-    out.push(section_title(
-        ui,
-        theme,
-        tr("dictionaries.section_download"),
-    )?);
-    if let Some(("dicts_download", error)) = &page.settings.notice {
-        out.push(paragraph(ui, theme, error, None)?);
+    if theme.look == Look::Plain {
+        out.push(section_title(
+            ui,
+            theme,
+            tr("dictionaries.section_download"),
+        )?);
+        out.extend(notice(ui, page)?);
+        out.extend(downloads(ui, page)?);
+    } else {
+        out.extend(both_shelves(ui, page)?);
     }
-    out.extend(downloads(ui, page)?);
     Ok(out)
 }
 
-/// 可下载的：分组标题下先一行「词库 ｜ 释义表」与「刷新」，再一行小字写列表是什么时候取的、这次取得怎么样；
-/// 再是选着那一类的卡片，一本一行。
-fn downloads(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderError> {
+/// 下载、删除出错时的一句。
+fn notice(ui: &mut Ui<Message>, page: &Page) -> Result<Option<NodeId>, RenderError> {
+    match &page.settings.notice {
+        Some(("dicts_download", error)) => Ok(Some(paragraph(ui, &page.theme, error, None)?)),
+        _ => Ok(None),
+    }
+}
+
+/// 两种原生外观：「可下载的词库」「可下载的释义表」各一节，不用分段切换。
+/// 词库一节先一行小字写列表的来历、右边「刷新」；释义表一节标出当前译文语言那一张。
+fn both_shelves(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderError> {
     let theme = &page.theme;
-    let settings = page.settings;
-    let index = settings.dict_index.state();
-    let shelf = settings.dict_shelf;
-    let mut out = Vec::new();
-    let time = index.fetched_at.map(fetched_time);
-    let loading = index.status == Status::Loading;
-    let shown: Vec<&DictEntry> = index
+    let index = page.settings.dict_index.state();
+    let mut out = vec![section_title(
+        ui,
+        theme,
+        tr("dictionaries.section_download_dicts"),
+    )?];
+    out.extend(notice(ui, page)?);
+    let dicts = shelf_entries(&index, Shelf::Dictionaries);
+    let text = status_text(&index, dicts.is_empty(), tr("dictionaries.no_downloads"));
+    let note = paragraph(ui, theme, &text, None)?;
+    let refresh = Button::new(tr("dictionaries.refresh"))
+        .disabled(index.status == Status::Loading)
+        .build(ui, theme, "dict-index", Message::FetchDictIndex)?;
+    out.push(toolbar(ui, theme, &[note, refresh])?);
+    out.extend(shelf_groups(ui, page, Shelf::Dictionaries, dicts)?);
+
+    out.push(section_title(
+        ui,
+        theme,
+        tr("dictionaries.section_download_glossaries"),
+    )?);
+    let glossaries = shelf_entries(&index, Shelf::Glossaries);
+    if glossaries.is_empty() {
+        if index.status == Status::Fetched {
+            let empty = paragraph(ui, theme, tr("dictionaries.no_glossaries"), None)?;
+            out.push(toolbar(ui, theme, &[empty])?);
+        }
+    } else {
+        out.extend(shelf_groups(ui, page, Shelf::Glossaries, glossaries)?);
+    }
+    Ok(out)
+}
+
+/// 清单里属于这一类的。
+fn shelf_entries(index: &IndexState, shelf: Shelf) -> Vec<&DictEntry> {
+    index
         .dicts
         .iter()
         .filter(|entry| shelf.holds(entry))
-        .collect();
-    let empty = match shelf {
-        Shelf::Dictionaries => tr("dictionaries.no_downloads"),
-        Shelf::Glossaries => tr("dictionaries.no_glossaries"),
-    };
-    let text = match (&index.status, &time) {
+        .collect()
+}
+
+/// 列表是什么时候取的、这次取得怎么样；取到了但一本也没有时写 `empty`。
+fn status_text(index: &IndexState, none: bool, empty: &str) -> String {
+    let time = index.fetched_at.map(fetched_time);
+    match (&index.status, &time) {
         (Status::Loading, Some(_)) => tr("dictionaries.list_refreshing").to_owned(),
         (Status::Loading | Status::Idle, None) => tr("dictionaries.list_loading").to_owned(),
         (Status::Failed(error), Some(time)) => tr_args(
@@ -118,12 +159,56 @@ fn downloads(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderErr
             &[("error", error), ("time", time)],
         ),
         (Status::Failed(error), None) => tr_args("dictionaries.index_failed", &[("error", error)]),
-        (Status::Fetched, _) if shown.is_empty() => empty.to_owned(),
+        (Status::Fetched, _) if none => empty.to_owned(),
         (Status::Fetched | Status::Idle, Some(time)) => {
             tr_args("dictionaries.list_source", &[("time", time)])
         }
         (Status::Fetched, None) => empty.to_owned(),
+    }
+}
+
+/// 一类的卡片：词库按语言分组（不止一种语言时每组上面写语言名），释义表一张一门语言、名字里就有，不分组。
+fn shelf_groups(
+    ui: &mut Ui<Message>,
+    page: &Page,
+    shelf: Shelf,
+    shown: Vec<&DictEntry>,
+) -> Result<Vec<NodeId>, RenderError> {
+    let theme = &page.theme;
+    let shelves = match shelf {
+        Shelf::Dictionaries => by_language(&shown),
+        Shelf::Glossaries if shown.is_empty() => Vec::new(),
+        Shelf::Glossaries => vec![(String::new(), shown)],
     };
+    let titled = shelves.len() > 1;
+    let mut out = Vec::new();
+    for (language, entries) in shelves {
+        if titled {
+            let title = paragraph(ui, theme, &language_label(&language), None)?;
+            out.push(toolbar(ui, theme, &[title])?);
+        }
+        let mut rows = Vec::new();
+        for entry in entries {
+            rows.push(dict_row(ui, page, entry)?);
+        }
+        out.push(group(ui, theme, &rows)?);
+    }
+    Ok(out)
+}
+
+/// 竹青：分组标题下先一行「词库 ｜ 释义表」与「刷新」，再一行小字写列表是什么时候取的、这次取得怎么样；
+/// 再是选着那一类的卡片，一本一行。
+fn downloads(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderError> {
+    let theme = &page.theme;
+    let settings = page.settings;
+    let index = settings.dict_index.state();
+    let shelf = settings.dict_shelf;
+    let shown = shelf_entries(&index, shelf);
+    let empty = match shelf {
+        Shelf::Dictionaries => tr("dictionaries.no_downloads"),
+        Shelf::Glossaries => tr("dictionaries.no_glossaries"),
+    };
+    let text = status_text(&index, shown.is_empty(), empty);
     let labels = [
         tr("dictionaries.shelf_dicts"),
         tr("dictionaries.shelf_glossaries"),
@@ -136,33 +221,12 @@ fn downloads(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderErr
         Message::DictShelf(Shelf::ALL[index])
     })?;
     let refresh = Button::new(tr("dictionaries.refresh"))
-        .disabled(loading)
+        .disabled(index.status == Status::Loading)
         .build(ui, theme, "dict-index", Message::FetchDictIndex)?;
-    out.push(toolbar(ui, theme, &[tabs, refresh])?);
+    let mut out = vec![toolbar(ui, theme, &[tabs, refresh])?];
     let note = paragraph(ui, theme, &text, None)?;
     out.push(toolbar(ui, theme, &[note])?);
-    if shelf == Shelf::Dictionaries {
-        let hint = paragraph(ui, theme, tr("dictionaries.downloaded_hint"), None)?;
-        out.push(toolbar(ui, theme, &[hint])?);
-    }
-    // 释义表一张一门语言，名字里就有，不分组
-    let shelves = match shelf {
-        Shelf::Dictionaries => by_language(&shown),
-        Shelf::Glossaries if shown.is_empty() => Vec::new(),
-        Shelf::Glossaries => vec![(String::new(), shown)],
-    };
-    let titled = shelves.len() > 1;
-    for (language, entries) in shelves {
-        if titled {
-            let title = paragraph(ui, theme, &language_label(&language), None)?;
-            out.push(toolbar(ui, theme, &[title])?);
-        }
-        let mut rows = Vec::new();
-        for entry in entries {
-            rows.push(dict_row(ui, page, entry)?);
-        }
-        out.push(group(ui, theme, &rows)?);
-    }
+    out.extend(shelf_groups(ui, page, shelf, shown)?);
     Ok(out)
 }
 
@@ -215,9 +279,15 @@ fn dict_row(ui: &mut Ui<Message>, page: &Page, entry: &DictEntry) -> Result<Node
     .find(|installed| installed.stem == stem)
     .map(|installed| installed.version != entry.version);
     let status = DownloadStatus::of(page, &Item::Dict(entry.id.clone()));
+    let native = theme.look != Look::Plain;
+    let current = entry.glossary_language().is_some_and(|language| {
+        native && language.code() == settings.config.general.learning_language
+    });
     DownloadRow::new(&entry.name, status.state(outdated), labels())
         .detail(entry.description.trim_end_matches(['。', '.']))
         .badge((!entry.official).then(|| tr("dictionaries.third_party")))
+        .highlight(current.then(|| tr("dictionaries.current_language")))
+        .mark_installed(native)
         .caption(|ui| caption(ui, page, entry))
         .blocked(entry.needs_newer_app())
         .armed(settings.dict_remove_armed.as_deref() == Some(id))

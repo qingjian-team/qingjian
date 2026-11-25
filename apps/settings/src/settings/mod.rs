@@ -6,6 +6,7 @@ mod clipboard;
 mod config;
 mod fields;
 mod library;
+mod navigation;
 mod phrases;
 mod search;
 mod shortcuts;
@@ -20,7 +21,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use bamboo_slip::{FamilyId, SvgImage, TextEdit, Waker};
+use bamboo_slip::{FamilyId, Key, SvgImage, TextEdit, Waker};
 use qingjian_platform::{Appearance, Config};
 use qingjian_render::{TextSizes, Theme, ThemeLibrary};
 
@@ -54,8 +55,16 @@ pub struct Settings {
 
     pub page: PageId,
 
+    /// 看过的页，工具栏的后退箭头按它倒回去；前进箭头走 `forward`。
+    pub back: Vec<PageId>,
+
+    pub forward: Vec<PageId>,
+
     /// 系统是深色：设置窗口自己跟它走，候选窗「跟随系统」时也按它。
     pub system_dark: bool,
+
+    /// 窗口背后垫了系统材质（macOS 毛玻璃、Windows Mica），配色要在该透的地方留半透明。
+    pub backdrop: bool,
 
     pub previews: RefCell<Previews>,
 
@@ -129,6 +138,9 @@ pub struct Settings {
     /// 「关于」页的数据来源展开着。
     pub sources_open: bool,
 
+    /// Windows 展开着的卡片（`view/parts/branch.rs` 里 `branch` 的 key）；不记进配置，下次打开都收着。
+    pub expanded: Vec<Key>,
+
     pub search: Search,
 
     /// Windows 的系统 Ctrl + Space 开着；别的平台总是 `false`。打开窗口时读一次，改了再读。
@@ -185,7 +197,10 @@ impl Settings {
             config_error,
             themes,
             page: PageId::Input,
+            back: Vec::new(),
+            forward: Vec::new(),
             system_dark: false,
+            backdrop: false,
             previews: RefCell::new(Previews::new()),
             logo,
             serif: FamilyId::default(),
@@ -194,6 +209,7 @@ impl Settings {
             armed: None,
             notice: None,
             sources_open: false,
+            expanded: Vec::new(),
             fields: HashMap::new(),
             cloud_test: CloudTest::default(),
             update: UpdateCheck::load(),
