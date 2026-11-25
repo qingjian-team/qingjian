@@ -1,11 +1,14 @@
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
+use windows::Win32::Foundation::HWND;
 use windows::Win32::UI::TextServices::{ITfComposition, ITfContext};
 
 use qingjian_platform::protocol::{Frame, ScreenRect};
 
 use crate::com::candidate_list::CandidateList;
+use crate::com::candidates::{CandidateWindow, Style};
+use crate::com::log::log;
 use crate::com::service::SharedClient;
 
 /// `TextService`、编辑会话、组句 sink、轮询定时器之间共享的组句状态（STA 单线程，`Rc` 传递）。
@@ -55,6 +58,21 @@ pub(crate) struct Shared {
 
     /// 给自己画候选的应用（全屏游戏）的候选列表；应用自己画时不报光标位置，Server 就不画候选窗。
     candidate_list: CandidateList,
+
+    /// 系统界面宿主里的进程内候选窗；只在 `immersive` 为真时建、显示。
+    candidate_window: RefCell<Option<CandidateWindow>>,
+
+    /// 最近一帧：轮询送来新帧时进程内候选窗按它原地重画（那时没有按键、也没有编辑会话）。
+    last_frame: RefCell<Frame>,
+
+    /// 进程内候选窗这一段的锚点（组句范围的屏幕矩形）。
+    candidate_anchor: Cell<Option<ScreenRect>>,
+
+    /// Server 下发的候选窗画法（字号 / 字重 / 倒排）。
+    candidate_style: Cell<Style>,
+
+    /// 当前这一段是不是系统界面宿主（Server 自绘窗会被盖住）。
+    immersive: Cell<bool>,
 }
 
 impl Shared {
@@ -74,6 +92,11 @@ impl Shared {
             injected_shift: Cell::new(0),
             client,
             candidate_list: CandidateList::default(),
+            candidate_window: RefCell::new(None),
+            last_frame: RefCell::new(Frame::default()),
+            candidate_anchor: Cell::new(None),
+            candidate_style: Cell::new(Style::default()),
+            immersive: Cell::new(false),
         })
     }
 
@@ -129,11 +152,12 @@ impl Shared {
         if value {
             self.emptied_backspace.set(false);
         }
-        // 组句结束：下一段重新报输入框状态、重新定锚点。
+        // 组句结束：下一段重新报输入框状态、重新定锚点；进程内候选窗一并收起。
         if !value {
             self.text_box.set(false);
             self.context_reported.set(false);
             self.anchor.set(None);
+            self.hide_remote_candidates();
         }
     }
 
@@ -153,10 +177,88 @@ impl Shared {
         self.context_reported.set(value);
     }
 
-    /// 按 Server 回的帧记下在不在组句、面板是不是停在翻译框。
+    /// 按 Server 回的帧记下在不在组句、面板是不是停在翻译框，并留下最近一帧给进程内候选窗重画。
     pub(crate) fn follow_frame(&self, frame: &Frame) {
+        self.set_last_frame(frame);
         self.set_composing(!frame.is_empty());
         self.text_box.set(frame.panel_text_box);
+    }
+
+    /// Server 下发了新的画法（字号 / 字重 / 倒排）：登记下来，进程内候选窗下次显示按新值重建字体。
+    pub(crate) fn set_candidate_style(&self, style: Style) {
+        if self.candidate_style.get() == style {
+            return;
+        }
+        self.candidate_style.set(style);
+        if let Some(window) = self.candidate_window.borrow().as_ref() {
+            window.set_style(style);
+        }
+    }
+
+    /// 最近一帧：轮询送来新帧时进程内候选窗按它原地重画。
+    pub(crate) fn set_last_frame(&self, frame: &Frame) {
+        *self.last_frame.borrow_mut() = frame.clone();
+    }
+
+    /// 这一段落在系统界面宿主里：候选窗改由本进程画，不把光标位置报给 Server（它那扇会被盖住）。
+    pub(crate) fn show_remote_candidates(&self, anchor: ScreenRect, host: u64) {
+        // 换宿主（开始屏幕 → 任务栏搜索等）：旧窗的 owner 是旧宿主，z-band 跟着旧的走，重建。
+        let same_host = self
+            .candidate_window
+            .borrow()
+            .as_ref()
+            .is_some_and(|window| window.host().0 as u64 == host);
+        if !same_host {
+            self.hide_remote_candidates();
+            // 先放掉旧窗：它的 `Drop` 会清掉点击状态，不能让它清到新窗头上。
+            *self.candidate_window.borrow_mut() = None;
+            match CandidateWindow::new(HWND(host as _), self.client.clone()) {
+                Ok(window) => {
+                    window.set_style(self.candidate_style.get());
+                    *self.candidate_window.borrow_mut() = Some(window);
+                    log(&format!("tsf candidate window created host={host:#x}"));
+                }
+                Err(error) => log(&format!(
+                    "failed to create tsf candidate window, keeping server drawing: {error}"
+                )),
+            }
+        }
+        self.immersive.set(self.candidate_window.borrow().is_some());
+        self.candidate_anchor.set(Some(anchor));
+        self.refresh_remote();
+    }
+
+    /// 按最近一帧与锚点重画进程内候选窗；没在组句 / 没有锚点时收起。
+    pub(crate) fn refresh_remote(&self) {
+        if !self.immersive.get() {
+            return;
+        }
+        let anchor = self.candidate_anchor.get();
+        let window = self.candidate_window.borrow();
+        let Some(window) = window.as_ref() else {
+            return;
+        };
+        let frame = self.last_frame.borrow();
+        // 符号面板由 Server 画（这一帧的候选是空壳），本进程这扇窗让位。
+        match anchor {
+            Some(anchor) if !frame.is_empty() && !frame.symbol_panel => {
+                window.show(&frame, rect(anchor));
+            }
+            _ => window.hide(),
+        }
+    }
+
+    /// 候选是不是正由本进程这扇窗画。
+    pub(crate) fn remote_active(&self) -> bool {
+        self.immersive.get() && self.candidate_window.borrow().is_some()
+    }
+
+    /// 收起进程内候选窗（组句结束 / 换回普通宿主）。
+    pub(crate) fn hide_remote_candidates(&self) {
+        self.immersive.set(false);
+        if let Some(window) = self.candidate_window.borrow().as_ref() {
+            window.hide();
+        }
     }
 
     pub(crate) fn text_box(&self) -> bool {
@@ -219,6 +321,7 @@ impl Shared {
         self.text_box.set(false);
         self.translating.set(false);
         self.candidate_list.end();
+        self.hide_remote_candidates();
         self.hide_candidates();
     }
 
@@ -234,5 +337,15 @@ impl Shared {
     pub(super) fn terminated(&self) {
         self.reset();
         self.server_stale.set(true);
+    }
+}
+
+/// 协议里的屏幕矩形换成 Win32 矩形（进程内候选窗摆位用）。
+fn rect(anchor: ScreenRect) -> windows::Win32::Foundation::RECT {
+    windows::Win32::Foundation::RECT {
+        left: anchor.left,
+        top: anchor.top,
+        right: anchor.right,
+        bottom: anchor.bottom,
     }
 }

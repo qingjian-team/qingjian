@@ -672,6 +672,8 @@ TSF 原有数字 / OEM 标点 / 空格键码按当前布局用 `ToUnicodeEx` 解
 时把结果缓进 `pending_digit`，`OnKeyDown` 再应用。拼音显示位置（`[general] preedit`）在 Windows 上分两处落地：
 Server 把它读进 `RouterConfig.preedit` 并随 `Frame.preedit_mode` 下发给 DLL，DLL（`com/service/key_sink.rs`）按
 `inline()` 决定要不要放行内拼音，Server（`ui/candidates/render_data.rs::window_preedit`）按 `in_window()` 决定候选窗口顶部画不画拼音行；`window` 模式没有组句范围，光标矩形改从 `com/edit/anchor.rs::caret_rect`（当前选区）量。
+系统界面宿主（开始屏幕 / 任务栏搜索 / 商店应用）里的候选窗：`tsf/src/com/candidates/` 在 DLL 进程内建分层窗，owner 是宿主窗口（同进程，z-band 跟着宿主走）；`compose::report_caret` 先用 `immersive_host(host)` 判宿主进程（AppContainer SID 或 `startmenuexperiencehost.exe` / `searchhost.exe` 等白名单，按 hwnd 缓存），是就不发 `PositionCandidates`，改交 `Shared::show_remote_candidates`。画法是自己一套轻量 GDI（`com/candidates/paint/`：`view.rs` 把协议帧换成展示数据，`draw.rs` 量尺寸、落笔并记下命中区，`canvas.rs` 铺底、补 alpha 后 `UpdateLayeredWindow`），不依赖 `qingjian-render`：DLL 被加载进每个应用进程，多链一个渲染库体积翻倍；TSF 进程里读不到用户主题目录，皮肤本来就画不出来，所以只用系统字族与内置浅深配色，字号 / 字重 / 倒排仍按 `InputSettings`。窗口 `WS_EX_LAYERED | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE`、不加 TOPMOST。命中区在落笔时记下（候选整行 + 每条译词，译词优先），经 `CandidateHit` 报回 Server（`handle_candidate_mouse`），滚轮照旧翻页。轮询送来的新帧调 `refresh_remote` 原地重画。符号面板 / 右键菜单 / 键位提示仍由 Server 画，系统界面里可能被压住。
+
 自己画候选的应用（全屏游戏，TSF 的 UI-less）：DLL 把按键、轮询、点击上屏回的每一帧交给 `com/candidate_list`，组句开始时经 `ITfUIElementMgr::BeginUIElement`
 起一个 `ITfCandidateListUIElement`，帧变了才 `UpdateUIElement`，组句结束 / 断线 / 停用时 `EndUIElement`。应用回 `bShow = FALSE` 时
 `composition::report_caret` 不报光标位置，Server 没有 `last_rect` 就不画候选窗（不能改发 `HideCandidates`：它会顺带取消云联想）。
