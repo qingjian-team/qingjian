@@ -21,6 +21,9 @@ use crate::vocabulary::{Filter, Format, Sort, View};
 #[derive(Debug, Clone)]
 pub enum Message {
     Page(PageId),
+    /// 工具栏的前后箭头：回到上一个看过的页、再走回来。
+    Back,
+    Forward,
     /// 原地改配置文件里的 `[分节] 键 = 值`。
     Set(&'static str, &'static str, toml_edit::Value),
     /// 同上，值是字符串数组。
@@ -95,6 +98,8 @@ pub enum Message {
     RemoveModel(qingjian_platform::LocalModel),
     /// 实验功能里开一个模型（`None` 是关掉，不用模型）。
     UseModel(Option<qingjian_platform::LocalModel>),
+    /// 展开 / 收起 Windows 的一张展开卡片（从属项收在里面）。
+    Expand(bamboo_slip::Key),
     /// 展开 / 收起「关于」页的数据来源。
     ToggleSources,
     /// 选一个程序，从它复制的内容不进剪贴板历史。
@@ -103,8 +108,10 @@ pub enum Message {
     StatsCloud(bool),
     /// 搜索框里打字。
     Search(Edit),
-    /// 搜索框里回车：跳到第一条结果。
-    SearchFirst,
+    /// 搜索框里回车：跳到 ↑ ↓ 选到的那条，没选过跳第一条。
+    SearchCommit,
+    /// 搜索框里按 ↑ ↓（`true` 是往下）。
+    SearchStep(bool),
     /// 搜索框里 Esc：清空，回到导航。
     ClearSearch,
     /// 点了第几条搜索结果。
@@ -125,7 +132,7 @@ pub enum Message {
     /// 清空生词本（第一下只是确认）。
     VocabularyClear,
     VocabularyExport(Format),
-    /// 点了 ⓘ：打开这个网址（官网文档的一段）。
+    /// 点了 ⓘ、「了解更多」或页面的帮助：打开这个网址（官网文档的一段）。
     OpenDoc(String),
     Quit,
 }

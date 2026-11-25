@@ -1,5 +1,7 @@
 //! 开窗口的参数。
 
+use crate::backdrop::Backdrop;
+
 #[derive(Debug, Clone)]
 pub struct WindowOptions {
     pub title: String,
@@ -15,8 +17,8 @@ pub struct WindowOptions {
     /// 面板：开出来先藏着、无边框、总在最前、不进任务栏，由 [`crate::App::take_window_command`] 摆放与显隐。
     pub panel: bool,
 
-    /// 面板背后用系统的亚克力材质（Windows 11）：根节点的底色要半透明才透得出来。
-    pub acrylic: bool,
+    /// 窗口背后的系统材质：根节点的底色要半透明才透得出来。系统不支持（[`Backdrop::available`]）时不要设。
+    pub backdrop: Option<Backdrop>,
 }
 
 impl WindowOptions {
@@ -27,13 +29,13 @@ impl WindowOptions {
             min_size: (size.0 * 0.6, size.1 * 0.5),
             locale: "zh-CN".to_owned(),
             panel: false,
-            acrylic: false,
+            backdrop: None,
         }
     }
 
-    /// 见 [`Self::acrylic`]；系统支持与否由 [`crate::Accent`] 旁的 [`crate::system_acrylic`] 判断。
-    pub fn acrylic(self, acrylic: bool) -> Self {
-        Self { acrylic, ..self }
+    /// 见 [`Self::backdrop`]。
+    pub fn backdrop(self, backdrop: Option<Backdrop>) -> Self {
+        Self { backdrop, ..self }
     }
 
     /// 改成面板窗口，见 [`Self::panel`]。

@@ -6,10 +6,10 @@ mod cloud;
 mod input;
 
 use bamboo_slip::taffy::{
-    AlignItems, Dimension, FlexDirection, FlexWrap, JustifyContent, LengthPercentage, NodeId, Rect,
-    Size, Style,
+    AlignItems, Dimension, FlexDirection, FlexWrap, JustifyContent, LengthPercentage,
+    LengthPercentageAuto, NodeId, Rect, Size, Style,
 };
-use bamboo_slip::{BoxPaint, Fill, RenderError, Segmented, SettingRow, Ui, Visual, paragraph};
+use bamboo_slip::{BoxPaint, Fill, Look, RenderError, SettingRow, Ui, Visual, group, paragraph};
 use qingjian_core::VocabularySummary;
 use qingjian_predict::ApiUsageStats;
 
@@ -18,6 +18,7 @@ use crate::message::Message;
 use crate::stats::group_digits;
 use crate::support::Feature;
 use crate::view::Page;
+use crate::view::parts::views::view_switch;
 
 /// 等级表的四列（文案键）。
 const LEVEL_COLUMNS: [&str; 4] = [
@@ -34,20 +35,16 @@ pub fn stats(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderErr
     let mut out = Vec::new();
     let cloud = Feature::ApiUsage.here() && page.settings.stats_cloud;
     if Feature::ApiUsage.here() {
-        let tabs = Segmented::new(
-            &[tr("stats.tab_input"), tr("stats.tab_cloud")],
-            usize::from(cloud),
-        )
-        .build(ui, &page.theme, "stats-tab", |index| {
-            Message::StatsCloud(index == 1)
-        })?;
-        out.push(ui.scene().node(
-            Style {
-                flex_direction: FlexDirection::Row,
-                ..Style::default()
-            },
-            Visual::Group,
-            &[tabs],
+        out.push(view_switch(
+            ui,
+            page,
+            "stats-tab",
+            (
+                &[tr("stats.tab_input"), tr("stats.tab_cloud")],
+                usize::from(cloud),
+            ),
+            None,
+            |index| Message::StatsCloud(index == 1),
         )?);
     }
     if cloud {
@@ -63,8 +60,11 @@ pub fn stats(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderErr
     Ok(out)
 }
 
-/// 四张数字卡排成一行。
+/// 四张数字卡排成一行；macOS 是一个分组框分四栏、细竖线隔开（「屏幕使用时间」那样）。
 fn cards(ui: &mut Ui<Message>, page: &Page, cards: &[NodeId]) -> Result<NodeId, RenderError> {
+    if page.theme.look == Look::Mac {
+        return columns(ui, page, cards);
+    }
     // 两张一组再换行：放得下一排四张，放不下（越南语、德语的数长）变成两排两张，不出现三张加一张
     let mut pairs = Vec::new();
     for pair in cards.chunks(2) {
@@ -92,6 +92,63 @@ fn cards(ui: &mut Ui<Message>, page: &Page, cards: &[NodeId]) -> Result<NodeId, 
     )
 }
 
+/// macOS 的四栏：栏与栏之间留白各半、正中一条细竖线（上下缩进，不碰框边），两头的栏贴着分组框的左右留白。
+fn columns(ui: &mut Ui<Message>, page: &Page, cards: &[NodeId]) -> Result<NodeId, RenderError> {
+    let theme = &page.theme;
+    let half = page.px(14.0);
+    let mut children = Vec::with_capacity(cards.len() * 2);
+    for (index, &card) in cards.iter().enumerate() {
+        if index > 0 {
+            children.push(ui.scene().node(
+                Style {
+                    size: Size {
+                        width: Dimension::length(page.px(0.5).max(1.0)),
+                        height: Dimension::auto(),
+                    },
+                    flex_shrink: 0.0,
+                    ..Style::default()
+                },
+                Visual::solid(theme.colors.line, 0.0),
+                &[],
+            )?);
+        }
+        let side = |edge: bool| LengthPercentage::length(if edge { 0.0 } else { half });
+        children.push(ui.scene().node(
+            Style {
+                flex_direction: FlexDirection::Column,
+                flex_grow: 1.0,
+                flex_basis: Dimension::length(0.0),
+                min_size: Size {
+                    width: LengthPercentageAuto::length(0.0),
+                    height: LengthPercentageAuto::auto(),
+                },
+                padding: Rect {
+                    left: side(index == 0),
+                    right: side(index + 1 == cards.len()),
+                    ..Rect::zero()
+                },
+                ..Style::default()
+            },
+            Visual::Group,
+            &[card],
+        )?);
+    }
+    let row = ui.scene().node(
+        Style {
+            flex_direction: FlexDirection::Row,
+            padding: Rect {
+                top: LengthPercentage::length(page.px(12.0)),
+                bottom: LengthPercentage::length(page.px(12.0)),
+                ..Rect::zero()
+            },
+            ..Style::default()
+        },
+        Visual::Group,
+        &children,
+    )?;
+    group(ui, theme, &[row])
+}
+
 /// 一张数字卡：标题、大字的数，下面几行小字。
 fn card(
     ui: &mut Ui<Message>,
@@ -108,6 +165,17 @@ fn card(
     ];
     for line in lines {
         children.push(text(ui, page, line, theme.small, 400, colors.secondary)?);
+    }
+    if theme.look == Look::Mac {
+        return ui.scene().node(
+            Style {
+                flex_direction: FlexDirection::Column,
+                gap: page.gap(4.0),
+                ..Style::default()
+            },
+            Visual::Group,
+            &children,
+        );
     }
     let space = LengthPercentage::length(page.px(14.0));
     ui.scene().node(

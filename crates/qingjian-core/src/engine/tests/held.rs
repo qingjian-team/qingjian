@@ -111,6 +111,18 @@ fn raw_commit_and_clear_include_or_drop_held_words() {
 }
 
 #[test]
+fn clearing_partial_selection_retracts_its_learning() {
+    let mut engine = engine().with_learner(Box::new(CountingLearner(HashMap::new())));
+    engine.set_input("kaifaxian");
+    assert_eq!(pick(&mut engine, "开发"), "");
+    assert_eq!(engine.learner().weight("开发"), 1);
+
+    engine.clear();
+
+    assert_eq!(engine.learner().weight("开发"), 0);
+}
+
+#[test]
 fn holding_can_be_turned_off() {
     let mut engine = engine();
     engine.set_hold_selections(false);

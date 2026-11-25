@@ -44,13 +44,14 @@ description: 青简的全部设置保存在一个文本配置文件里：位置�
 | `[general] english_min_position` | 候选 → 英文词最高排到第几位 | `1`–`9`，缺省 `1`（不限） |
 | `[general] show_english_pronunciation` | 候选 → 英文候选旁显示音标 | `true` / `false`（缺省） |
 | `[model] enabled` | 候选 → 本地整句模型 | `true` / `false`（缺省） |
-| `[model] name`、`zhiyi_tier` | 实验功能 → 用哪个模型、知意的档位 | `name`：`tongbian`（缺省）、`zhiyi`，选了没下载的不用模型（旧的 `zhiwei` 按 `tongbian` 读）；`zhiyi_tier`：`saver`、`balanced`（缺省）、`accurate` |
+| `[model] name`、`zhiyi_tier` | 实验功能 → 用哪个模型、知意的性能模式 | `name`：`tongbian`（缺省）、`zhiyi`，选了没下载的不用模型（旧的 `zhiwei` 按 `tongbian` 读）；`zhiyi_tier`：`saver`、`balanced`（缺省）、`accurate` |
 | `[model] context_memory_seconds` | 只在配置文件里 | 应用不给光标前文时，刚打的字算作前文的时长，缺省 60，0 为一直算 |
-| `[general] english_mode` | 中英文 → 英文模式 | `false` 为固定中文 |
-| `[shortcut] switch_mode` | 中英文 → 切换键 | 列表，如 `["shift", "control"]` |
-| `[general] default_english`、`remember_mode_per_app` | 中英文 → 默认英文模式、按应用记住中英模式 | `true` / `false` |
-| `[general] shift_letter` | 中英文 → Shift + 字母 | `passthrough`（交给应用，缺省）或 `compose`（进组句） |
-| `[general] punct_commits` | 中英文 → 标点先上屏候选 | `true` / `false` |
+| `[general] english_mode` | 输入法切换 → 英文模式 | `false` 为固定中文 |
+| `[shortcut] switch_mode` | 输入法切换 → 切换键 | 列表，如 `["shift", "control"]` |
+| `[general] default_english`、`remember_mode_per_app` | 输入法切换 → 默认英文模式、按应用记住中英模式 | `true` / `false` |
+| `[general] shift_letter` | 输入法切换 → Shift + 字母 | `passthrough`（交给应用，缺省）或 `compose`（进组句） |
+| `[general] punct_commits` | 输入法切换 → 标点先上屏候选 | `true` / `false` |
+| `[general] menubar_indicator` | 输入法切换 → 菜单栏 → 显示中 / 英状态项 | `true`（缺省）/ `false`，隐藏菜单栏的「中 / 英」状态项（仅 macOS） |
 | `[general] preedit` | 外观 → 拼音显示位置 | `both`、`inline`、`window` |
 | `[general] page_keys` | 快捷键 → 翻页键 | `"[]"`、`",."`、`"-="` |
 | `[shortcut] extra_page_keys` | 快捷键 → 额外翻页键 | 列表，如 `["[]", ",.", "-="]`，缺省为空 |
@@ -73,7 +74,7 @@ description: 青简的全部设置保存在一个文本配置文件里：位置�
 
 ### 英文候选的应用名单
 
-英文模式只在哪些应用里给候选，由配置文件里 `apps` 一段的名单决定（「设置 → 中英文 → 只在写字的应用里给」打开时）。名单里每一项附有说明，按说明增减应用即可。
+英文模式只在哪些应用里给候选，由配置文件里 `apps` 一段的名单决定（「设置 → 输入法切换 → 只在写字的应用里给」打开时）。名单里每一项附有说明，按说明增减应用即可。
 
 ## AI 服务
 

@@ -1,13 +1,14 @@
 //! 一帧的建树入口：包着场景树，管 key 的作用域，收集可交互元素。
 
 use std::hash::Hash;
+use std::sync::Arc;
 use std::time::Duration;
 
 use taffy::NodeId;
 
 use super::{ElementState, Elements, Interact, Interaction, Key, ScrollExtent, Searchable};
 use crate::animation::Easing;
-use crate::scene::Scene;
+use crate::scene::{Icon, Scene};
 
 pub struct Ui<'a, M> {
     scene: Scene,
@@ -25,14 +26,25 @@ pub struct Ui<'a, M> {
     /// 这一帧登记的可搜索项，见 [`Self::searchable`]。
     searchables: Vec<Searchable>,
 
+    /// 这一帧要滚进视野的元素，见 [`Self::reveal`]。
+    reveals: Vec<Key>,
+
+    /// 正在建的可收起区域，里层在后，见 [`Self::region`]。
+    regions: Vec<Key>,
+
     /// 控件登记、还没被设置行收走的关键词与登记它的节点，见 [`Self::keyword`]。
     keywords: Vec<(NodeId, String)>,
 
     /// ⓘ 的链接：说明末尾那行提示，与按行标题给出点击消息的函数，见 [`Self::info_links`]。
     info_links: Option<(&'a str, InfoLinks<'a, M>)>,
+
+    /// 按行标题给出行首图标的函数，见 [`Self::row_icons`]。
+    row_icons: Option<RowIcons<'a>>,
 }
 
 type InfoLinks<'a, M> = Box<dyn Fn(&str) -> Option<M> + 'a>;
+
+type RowIcons<'a> = Box<dyn Fn(&str) -> Option<Arc<dyn Icon>> + 'a>;
 
 impl<'a, M> Ui<'a, M> {
     pub fn new(interaction: &'a Interaction<M>) -> Self {
@@ -43,8 +55,11 @@ impl<'a, M> Ui<'a, M> {
             elements: Vec::new(),
             overlays: Vec::new(),
             searchables: Vec::new(),
+            reveals: Vec::new(),
+            regions: Vec::new(),
             keywords: Vec::new(),
             info_links: None,
+            row_icons: None,
         }
     }
 
@@ -63,6 +78,14 @@ impl<'a, M> Ui<'a, M> {
         self.scope = outer.child(local);
         let result = build(self);
         self.scope = outer;
+        result
+    }
+
+    /// 在可收起的区域（展开卡片这类）里建：这期间登记的可搜索项记下 `key`，搜到它时使用方先展开这块再跳。
+    pub fn region<R>(&mut self, key: Key, build: impl FnOnce(&mut Self) -> R) -> R {
+        self.regions.push(key);
+        let result = build(self);
+        self.regions.pop();
         result
     }
 
@@ -104,6 +127,7 @@ impl<'a, M> Ui<'a, M> {
             title: title.to_owned(),
             detail: detail.map(str::to_owned),
             keywords: claimed,
+            region: self.regions.last().copied(),
         });
     }
 
@@ -118,6 +142,16 @@ impl<'a, M> Ui<'a, M> {
         resolve(title).map(|message| (message, *hint))
     }
 
+    /// 设置行的行首图标：按行标题给出图标，这一帧之后建的设置行照外观决定画不画（只有 [`crate::Look::Fluent`] 画）。
+    pub fn row_icons(&mut self, resolve: impl Fn(&str) -> Option<Arc<dyn Icon>> + 'a) {
+        self.row_icons = Some(Box::new(resolve));
+    }
+
+    /// 标题为 `title` 的行的行首图标。
+    pub fn row_icon(&self, title: &str) -> Option<Arc<dyn Icon>> {
+        self.row_icons.as_ref()?(title)
+    }
+
     /// 控件上显示的字（`node` 是控件的根节点），装着它的设置行建好时收作搜索关键词。
     pub fn keyword(&mut self, node: NodeId, text: &str) {
         if !text.is_empty() {
@@ -128,6 +162,17 @@ impl<'a, M> Ui<'a, M> {
     /// 取走这一帧登记的可搜索项：使用方离屏建一遍各页，收集成搜索索引。
     pub fn take_searchables(&mut self) -> Vec<Searchable> {
         std::mem::take(&mut self.searchables)
+    }
+
+    /// 布局完把 `key` 那个元素滚进它所在滚动区的视野（弹出菜单刚打开时滚到选中项）。
+    /// 每帧都要的话每帧都调；只想滚一次的在第一帧调（[`Self::rect`] 还拿不到自己的位置时）。
+    pub fn reveal(&mut self, key: Key) {
+        self.reveals.push(key);
+    }
+
+    /// 取走这一帧要滚进视野的元素，交给 [`crate::Runner`] 在布局后滚。
+    pub(crate) fn take_reveals(&mut self) -> Vec<Key> {
+        std::mem::take(&mut self.reveals)
     }
 
     /// `key` 是应用要醒目标出的那一项（[`crate::App::spotlight`]）。

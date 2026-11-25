@@ -5,9 +5,9 @@ mod parts;
 mod timeline;
 mod words;
 
-use bamboo_slip::taffy::{FlexDirection, FlexWrap, NodeId, Style};
+use bamboo_slip::taffy::NodeId;
 use bamboo_slip::{
-    Button, RenderError, Segmented, SettingRow, Ui, Visual, group, paragraph, section_title,
+    Button, Look, RenderError, Segmented, SettingRow, Ui, group, paragraph, section_title,
 };
 
 use crate::i18n::tr;
@@ -15,6 +15,8 @@ use crate::message::Message;
 use crate::stats::language_name;
 use crate::view::Page;
 use crate::view::parts::actions::with_notice;
+use crate::view::parts::controls::dropdown;
+use crate::view::parts::views::view_switch;
 use crate::vocabulary::{Format, View, Vocabulary};
 use parts::row;
 
@@ -43,41 +45,46 @@ pub fn vocabulary(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Rend
     Ok(out)
 }
 
-/// 顶上一行：视图，记过几门语言时再加语言。
+/// 顶上一行：视图，记过几门语言时再加语言（竹青是分段控件，另两种外观是下拉框）。
 fn switches(ui: &mut Ui<Message>, page: &Page, book: &Vocabulary) -> Result<NodeId, RenderError> {
-    let theme = &page.theme;
-    let mut children = vec![
-        Segmented::new(
-            &View::ALL.map(View::label),
-            View::ALL.iter().position(|v| *v == book.view).unwrap_or(0),
-        )
-        .build(ui, theme, "vocabulary-view", |index| {
-            Message::VocabularyView(View::ALL[index])
-        })?,
-    ];
-    if book.languages.len() > 1 {
+    let language = if book.languages.len() > 1 {
         let names: Vec<&str> = book.languages.iter().map(|l| language_name(*l)).collect();
         let languages = book.languages.clone();
         let current = languages
             .iter()
             .position(|l| *l == book.language)
             .unwrap_or(0);
-        children.push(Segmented::new(&names, current).build(
-            ui,
-            theme,
-            "vocabulary-language",
-            move |index| Message::VocabularyLanguage(languages[index]),
-        )?);
-    }
-    ui.scene().node(
-        Style {
-            flex_direction: FlexDirection::Row,
-            flex_wrap: FlexWrap::Wrap,
-            gap: page.gap(12.0),
-            ..Style::default()
-        },
-        Visual::Group,
-        &children,
+        let on_pick = move |index: usize| Message::VocabularyLanguage(languages[index]);
+        Some(if page.theme.look == Look::Plain {
+            Segmented::new(&names, current).build(
+                ui,
+                &page.theme,
+                "vocabulary-language",
+                on_pick,
+            )?
+        } else {
+            dropdown(
+                ui,
+                page,
+                "vocabulary-language",
+                (&names, current),
+                false,
+                on_pick,
+            )?
+        })
+    } else {
+        None
+    };
+    view_switch(
+        ui,
+        page,
+        "vocabulary-view",
+        (
+            &View::ALL.map(View::label),
+            View::ALL.iter().position(|v| *v == book.view).unwrap_or(0),
+        ),
+        language,
+        |index| Message::VocabularyView(View::ALL[index]),
     )
 }
 
@@ -112,9 +119,7 @@ fn manage(
         with_notice(
             ui,
             page,
-            SettingRow::new(tr("vocabulary.export"))
-                .info(tr("vocabulary.export_info"))
-                .control(buttons),
+            SettingRow::new(tr("vocabulary.export")).control(buttons),
             "vocabulary-export",
         )?,
         with_notice(

@@ -9,15 +9,25 @@ use qingjian_platform::{
 };
 
 use crate::i18n::{CATALOG, tr, tr_args};
+use crate::library::Kind;
 use crate::message::{Message, Popup};
 use crate::support::Feature;
 use crate::view::Page;
 
 const CODE_OFF_KEY: &str = "off";
 
-/// 下拉框的本地名，菜单靠它找位置。
-pub fn anchor(popup: Popup) -> &'static str {
-    match popup {
+/// 下拉框（或「…」按钮）的本地名，菜单靠它找位置。
+pub fn anchor(popup: Popup) -> (&'static str, usize) {
+    let name = match popup {
+        Popup::Entry(kind, index) => {
+            let name = match kind {
+                Kind::Dictionary => "more-dictionary",
+                Kind::CodeWords => "more-code-words",
+                Kind::CodeTable => "more-code-table",
+            };
+            return (name, index);
+        }
+        Popup::Choice(local) => return (local, 0),
         Popup::Font => "font",
         Popup::Scheme => "scheme",
         Popup::Code => "code",
@@ -31,7 +41,8 @@ pub fn anchor(popup: Popup) -> &'static str {
         Popup::AuxScheme => "aux-scheme",
         Popup::UiLanguage => "ui-language",
         Popup::ThirdInput => "third-input",
-    }
+    };
+    (name, 0)
 }
 
 /// 下拉框还没画过（拿不到位置）时不出。
@@ -108,6 +119,9 @@ pub fn menu(
     let Some(rect) = ui.rect(ui.key(anchor(popup))) else {
         return Ok(None);
     };
+    if let Popup::Entry(kind, index) = popup {
+        return entry_menu(ui, page, (kind, index), rect, window);
+    }
     let general = &page.settings.config.general;
     let strings = |values: Vec<String>| -> Vec<toml_edit::Value> {
         values.into_iter().map(toml_edit::Value::from).collect()
@@ -245,6 +259,8 @@ pub fn menu(
                     .iter()
                     .position(|method| *method == general.double_shift_input),
             ),
+            // 上面已经交给 entry_menu；Choice 的菜单在建那一行时建
+            Popup::Entry(..) | Popup::Choice(_) => return Ok(None),
             Popup::Emoji | Popup::Kaomoji | Popup::Symbols => {
                 let (key, count) = match popup {
                     Popup::Emoji => ("emoji", general.emoji),
@@ -284,6 +300,36 @@ pub fn menu(
             &page.theme,
             "menu",
             move |index| Message::set(section, key, values[index].clone()),
+            Message::CloseMenu,
+        )
+        .map(Some)
+}
+
+/// 导入的词库、码表那一行「…」的菜单：词库能导出，都能移除。从按钮下面往下开（没有选中项）。
+fn entry_menu(
+    ui: &mut Ui<Message>,
+    page: &Page,
+    (kind, index): (Kind, usize),
+    rect: (f32, f32, f32, f32),
+    window: (f32, f32),
+) -> Result<Option<NodeId>, RenderError> {
+    let Some(entry) = page.settings.library.imported(kind).get(index) else {
+        return Ok(None);
+    };
+    let mut items = Vec::new();
+    let mut messages = Vec::new();
+    if kind == Kind::Dictionary {
+        items.push(tr("lists.export"));
+        messages.push(Message::ExportDict(entry.stem.clone()));
+    }
+    items.push(tr("lists.remove"));
+    messages.push(Message::Remove(kind, entry.stem.clone()));
+    Menu::new(&items, None, rect, window)
+        .build(
+            ui,
+            &page.theme,
+            "menu",
+            move |index| messages[index].clone(),
             Message::CloseMenu,
         )
         .map(Some)
