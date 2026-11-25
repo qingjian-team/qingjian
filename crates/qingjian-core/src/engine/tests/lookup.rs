@@ -35,6 +35,38 @@ fn initials_match_abbreviated_words_and_commit_consumes_letters() {
 }
 
 #[test]
+fn zero_initial_abbreviations_match_their_syllable_families() {
+    // #1015 的验收词：a / e / o 单字母简拼各自命中本族零声母音节
+    let dict = "安全\tan quan\t30000\n啊全\ta quan\t100\n啊\ta\t7000\n阿\ta\t6000\n全\tquan\t8000\n安\tan\t9000\n爱情\tai qing\t20000\n安稳\tan wen\t15000\n昂扬\tang yang\t12000\n额外\te wai\t18000\n恩爱\ten ai\t11000\n耳朵\ter duo\t16000\n欧洲\tou zhou\t19000\n偶然\tou ran\t14000\n奥秘\tao mi\t13000\n偶尔\tou er\t17000\n";
+    let texts = |input: &str| {
+        let mut engine = Engine::new(Dictionary::parse(dict).unwrap());
+        engine.set_input(input);
+        engine
+            .query()
+            .unwrap()
+            .candidates
+            .items
+            .into_iter()
+            .map(|c| c.text)
+            .collect::<Vec<_>>()
+    };
+    // aquan：安全（an+quan）与啊全（a+quan）同为两音节，按词频安全在前
+    assert_eq!(texts("aquan")[0], "安全");
+    assert!(texts("aqvan").contains(&"安全".to_owned()));
+    assert!(texts("aq").contains(&"爱情".to_owned()));
+    assert!(texts("aw").contains(&"安稳".to_owned()));
+    assert!(texts("ay").contains(&"昂扬".to_owned()));
+    assert!(texts("ew").contains(&"额外".to_owned()));
+    assert!(texts("ea").contains(&"恩爱".to_owned()));
+    assert!(texts("ed").contains(&"耳朵".to_owned()));
+    assert!(texts("oz").contains(&"欧洲".to_owned()));
+    assert!(texts("or").contains(&"偶然".to_owned()));
+    // 敲的本身就是完整音节：奥秘、偶尔照旧出
+    assert!(texts("ao").contains(&"奥秘".to_owned()));
+    assert!(texts("ou").contains(&"偶尔".to_owned()));
+}
+
+#[test]
 fn unparsable_tail_is_kept_aside() {
     let mut engine = engine();
     // kaiv 唯一的纠法是删掉刚敲的 v，那不算纠错：v 留作尾巴等下一键（kaifv 会被纠成 kaifa）

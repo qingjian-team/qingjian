@@ -166,6 +166,12 @@ fn segment_chunk(chunk: &str, allow_partial: bool) -> Vec<Segmentation> {
                 tokens.push((len, false));
             }
         }
+        // 零声母简拼（issue #1015）：a / e / o 单字母也能当没打完的音节，按前缀正好只命中
+        // 各自那族零声母音节（a → a/ai/an/ang/ao，e → e/ei/en/eng/er，o → o/ou），
+        // 与声母简拼同一条路；完整的 a / e / o 已在上面作为完整音节，两条都留。
+        if matches!(rest.as_bytes()[0], b'a' | b'e' | b'o') && !tokens.contains(&(1, false)) {
+            tokens.push((1, false));
+        }
         // 整个剩余部分作为未打完的音节（`zho` → zhong / zhou …）。它本身是完整音节或纯声母时已经在上面了。
         let rest_is_complete = matches.lengths().next_back() == Some(rest.len());
         if allow_partial
@@ -245,6 +251,23 @@ mod tests {
         assert_eq!(joined("jvede")[0], "jve de");
         // 整串可完整切分（无残片）
         assert!(is_fully_segmentable("jvexvejvan"));
+    }
+
+    #[test]
+    fn zero_initial_syllables_have_a_single_letter_abbreviation() {
+        // #1015：a 单字母当前缀用，aquan 才能切出 a…(an) + quan → 安全
+        let all = joined("aquan");
+        assert_eq!(all[0], "a quan");
+        assert!(all.contains(&"a… quan".to_owned()));
+        assert!(joined("aqvan").contains(&"a… qvan".to_owned()));
+        // e / o 两族同样
+        assert!(joined("ewai").contains(&"e… wai".to_owned()));
+        assert!(joined("oran").contains(&"o… ran".to_owned()));
+        assert_eq!(joined("ouran")[0], "ou ran");
+        // 敲的本身就是完整音节时不拆成单字母：ao 仍是一个音节、排在最前
+        assert_eq!(joined("ao")[0], "ao");
+        assert_eq!(joined("ou")[0], "ou");
+        assert_eq!(joined("oo")[0], "o o");
     }
 
     #[test]

@@ -784,7 +784,10 @@ fn abbreviated_count(patterns: &[qingjian_dictionary::SyllablePattern<'_>]) -> u
         .iter()
         .rev()
         .skip(1)
-        .filter(|p| !p.complete)
+        // 零声母单字母简拼不算简拼（issue #1015）：`a` 本身就是完整音节、又是 an/ang/ai/ao 的简拼，
+        // 安全与啊全同为两音节时按词频分高低；声母简拼（k → kai）照旧算，
+        // 否则 kaifa 按 kai f… 读出的词会压过原样读法
+        .filter(|p| !p.complete && !matches!(p.text, "a" | "e" | "o"))
         .count()
 }
 

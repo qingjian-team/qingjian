@@ -240,7 +240,13 @@ impl Engine {
             let abbreviated = abbreviated_count(&patterns);
             // 没有替代写法时每条命中都是敲的原音节，`penalty` 直接给 0（单字母简拼能命中几万条）
             let hits = self.lookup_all(&positions);
-            let whole_split = clean && segmentation.syllables.iter().any(|x| !x.complete);
+            // 拆开的音节指把音节拆成声母 + 韵母那种读法；零声母单字母简拼不算拆（issue #1015）：
+            // `a…` 就是 an 的简拼、不是把谁拆开，安全不该被当作拆开的读法压到单字后面
+            let whole_split = clean
+                && segmentation
+                    .syllables
+                    .iter()
+                    .any(|x| !x.complete && !matches!(x.text.as_str(), "a" | "e" | "o"));
             if !whole_split && let Some(words) = self.learner.user_words() {
                 user_words.extend(
                     words
