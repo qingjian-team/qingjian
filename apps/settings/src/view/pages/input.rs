@@ -271,7 +271,7 @@ fn aux_code(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderErro
             ui,
             page,
             Shortcut::AuxCodeKey,
-            tr("input.aux_key_info"),
+            Some(tr("input.aux_key_info")),
             !aux.enabled,
         )?,
     ];
@@ -332,7 +332,6 @@ fn aux_scheme(ui: &mut Ui<Message>, page: &Page) -> Result<NodeId, RenderError> 
         !aux.enabled || options.is_empty(),
     )?;
     SettingRow::new(tr("input.aux_scheme"))
-        .info(tr("input.aux_scheme_info"))
         .control(control)
         .build(ui, &page.theme)
 }

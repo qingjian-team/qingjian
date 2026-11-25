@@ -141,10 +141,6 @@ fn downloads(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderErr
     out.push(toolbar(ui, theme, &[tabs, refresh])?);
     let note = paragraph(ui, theme, &text, None)?;
     out.push(toolbar(ui, theme, &[note])?);
-    if shelf == Shelf::Dictionaries {
-        let hint = paragraph(ui, theme, tr("dictionaries.downloaded_hint"), None)?;
-        out.push(toolbar(ui, theme, &[hint])?);
-    }
     // 释义表一张一门语言，名字里就有，不分组
     let shelves = match shelf {
         Shelf::Dictionaries => by_language(&shown),

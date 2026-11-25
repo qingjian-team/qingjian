@@ -112,9 +112,7 @@ fn manage(
         with_notice(
             ui,
             page,
-            SettingRow::new(tr("vocabulary.export"))
-                .info(tr("vocabulary.export_info"))
-                .control(buttons),
+            SettingRow::new(tr("vocabulary.export")).control(buttons),
             "vocabulary-export",
         )?,
         with_notice(

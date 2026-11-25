@@ -51,7 +51,6 @@ pub fn language(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Render
     )?;
     rows.push(
         SettingRow::new(tr("language.double_shift_input"))
-            .info(tr("language.double_shift_input_info"))
             .control(third_input)
             .build(ui, theme)?,
     );
@@ -298,13 +297,13 @@ fn switch_keys(ui: &mut Ui<Message>, page: &Page) -> Result<NodeId, RenderError>
     with_notice(
         ui,
         page,
-        SettingRow::new(tr("language.switch_keys"))
-            .info(if combos {
-                tr("language.switch_keys_multi")
-            } else {
-                tr("language.switch_keys_caps")
-            })
-            .control(column),
+        // 能多选时不写说明（自明）；只有 Caps Lock 一项时说清它管什么
+        if combos {
+            SettingRow::new(tr("language.switch_keys"))
+        } else {
+            SettingRow::new(tr("language.switch_keys")).info(tr("language.switch_keys_caps"))
+        }
+        .control(column),
         "switch-keys",
     )
 }

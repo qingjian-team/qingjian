@@ -109,12 +109,6 @@ const LINKS: &[(PageId, &str, &str, &str)] = &[
     ),
     (
         PageId::Vocabulary,
-        "vocabulary.export",
-        "learning/vocabulary",
-        "两个视图共用",
-    ),
-    (
-        PageId::Vocabulary,
         "vocabulary.clear_book",
         "learning/vocabulary",
         "两个视图共用",
@@ -148,12 +142,6 @@ const LINKS: &[(PageId, &str, &str, &str)] = &[
         "language.shift_letter",
         "input/english-mode",
         "在中文模式里打英文",
-    ),
-    (
-        PageId::Language,
-        "language.switch_keys",
-        "input/english-mode",
-        "改掉或关掉中 / 英切换",
     ),
     (
         PageId::Language,
@@ -235,12 +223,6 @@ const LINKS: &[(PageId, &str, &str, &str)] = &[
     ),
     (
         PageId::Shortcuts,
-        "shortcuts.punctuation_width",
-        "personalize/keys-settings",
-        "全半角标点快捷键（macOS、Windows）",
-    ),
-    (
-        PageId::Shortcuts,
         "shortcuts.traditional",
         "personalize/keys-settings",
         "简繁切换快捷键（Windows）",
@@ -256,12 +238,6 @@ const LINKS: &[(PageId, &str, &str, &str)] = &[
         "shortcuts.lookup",
         "cloud/question-and-translate",
         "问字",
-    ),
-    (
-        PageId::Shortcuts,
-        "shortcuts.question_lookup",
-        "cloud/question-and-translate",
-        "用问号进入问字",
     ),
     (
         PageId::Shortcuts,
@@ -314,7 +290,6 @@ const LINKS: &[(PageId, &str, &str, &str)] = &[
     ),
     (PageId::Cloud, "cloud.sentence", "cloud/predict", "整句补全"),
     (PageId::Cloud, "cloud.api_key", "cloud/index", "会发送什么"),
-    (PageId::Cloud, "cloud.connection", "cloud/index", "开启"),
     (
         PageId::Advanced,
         "advanced.transfer",

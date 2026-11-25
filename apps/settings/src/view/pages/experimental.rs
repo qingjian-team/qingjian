@@ -69,7 +69,7 @@ fn clipboard(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderErr
         ui,
         page,
         Shortcut::Clipboard,
-        tr("experimental.clipboard_hotkey_info"),
+        Some(tr("experimental.clipboard_hotkey_info")),
         !on,
     )?;
     let labels = ClipboardEdge::ALL.map(edge_label);
@@ -268,6 +268,7 @@ fn card(ui: &mut Ui<Message>, page: &Page, pack: Pack) -> Result<Vec<NodeId>, Re
         )?;
         rows.push(
             SettingRow::new(tr("experimental.tier"))
+                .info(tr("experimental.tier_info"))
                 .control(tiers)
                 .build(ui, theme)?,
         );
