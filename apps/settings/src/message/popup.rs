@@ -1,4 +1,6 @@
-//! 下拉框弹出的菜单。
+//! 下拉框与「…」按钮弹出的菜单。
+
+use crate::library::Kind;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Popup {
@@ -22,4 +24,8 @@ pub enum Popup {
     UiLanguage,
     /// 连按两次 Shift 切换到的第三输入法。
     ThirdInput,
+    /// 导入的词库、码表那一行的「…」：第几本（[`crate::library::Library::imported`] 里的序号）的导出、移除。
+    Entry(Kind, usize),
+    /// 照 Windows 设置画时几选一的设置行用下拉框（不用分段），按它的本地名区分；菜单建行时当场建。
+    Choice(&'static str),
 }

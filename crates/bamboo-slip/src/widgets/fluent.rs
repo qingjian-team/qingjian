@@ -2,6 +2,7 @@
 
 use std::time::Duration;
 
+use super::theme::Look;
 use super::{WidgetColors, WidgetTheme};
 use crate::animation::Easing;
 use crate::appearance::Accent;
@@ -71,6 +72,7 @@ impl WidgetColors {
 impl WidgetTheme {
     pub fn fluent(colors: WidgetColors, scale: f32) -> Self {
         Self {
+            look: Look::Fluent,
             font: FontSpec::new(14.0, 20.0),
             small: 12.0,
             radius: 4.0,

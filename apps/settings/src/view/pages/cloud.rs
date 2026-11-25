@@ -143,9 +143,7 @@ pub fn cloud(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderErr
             with_notice(
                 ui,
                 page,
-                SettingRow::new(tr("cloud.connection"))
-                    .info(tr("cloud.connection_info"))
-                    .control(button),
+                SettingRow::new(tr("cloud.connection")).control(button),
                 "cloud",
             )?
         },

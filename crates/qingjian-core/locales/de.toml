@@ -29,3 +29,12 @@ duplicate = "Unter dem Code {code} gibt es diese Phrase schon"
 user_word = "Benutzerwort „{text}“ gelöscht"
 learning = "Gelerntes zu „{text}“ vergessen"
 nothing = "„{text}“ ist ein Wörterbuchwort ohne Lerndaten; es gibt nichts zu löschen"
+
+[panel]
+translate_to = "Ins {language}"
+chinese = "Chinesisch"
+translate_idle = "Kurz innehalten, dann wird übersetzt"
+translate_waiting = "Wird übersetzt…"
+translate_ready = "Eingabetaste übernimmt"
+translate_failed = "Nicht übersetzt; Eingabetaste versucht es erneut"
+translate_placeholder = "Hier eingeben, was übersetzt werden soll"

@@ -118,6 +118,8 @@ impl<M> Interaction<M> {
             };
             let scroller = element.key;
             let (view_left, view_top, view_width, view_height) = element.rect();
+            let obscured = element.interact.scroll_obscured.min(view_height);
+            let (view_top, view_height) = (view_top + obscured, view_height - obscured);
             let old = self.scroll_offset(scroller);
             let (max_x, max_y) = extent.max();
             let new = (

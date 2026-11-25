@@ -7,7 +7,7 @@
 //! | 下载中 | 「取消」；行下面横跨整行一块进度 | 使用方给的 |
 //! | 正在安装 | 灰的「正在安装」 | 使用方给的 |
 //! | 下载失败 | 「重试」，下面写原因 | 使用方给的 |
-//! | 装好了 | 「删除」（点两下，第一下由使用方记成 [`DownloadRow::armed`]）、有新版再加「更新」，再加使用方的控件（开关） | 使用方给的 |
+//! | 装好了 | 「删除」（点两下，第一下由使用方记成 [`DownloadRow::armed`]）、有新版再加「更新」，再加使用方的控件（开关）；[`DownloadRow::mark_installed`] 时按钮前再写灰字「✓ 已安装」 | 使用方给的 |
 //! | 用不了（[`DownloadRow::blocked`]） | 灰着的按钮写为什么 | 使用方给的 |
 
 mod labels;
@@ -19,10 +19,12 @@ pub use labels::DownloadLabels;
 pub use state::DownloadState;
 
 use std::hash::Hash;
+use std::sync::Arc;
 
 use taffy::{NodeId, Style};
 
-use super::parts::{column, row};
+use super::check_mark::CheckMark;
+use super::parts::{column, label, row, size};
 use super::{Button, ProgressBar, SettingRow, WidgetTheme, paragraph};
 use crate::error::RenderError;
 use crate::scene::Visual;
@@ -42,6 +44,8 @@ pub struct DownloadRow<'a, M> {
 
     badge: Option<&'a str>,
 
+    highlight: Option<&'a str>,
+
     caption: Option<Caption<'a, M>>,
 
     /// 别的正在下：「下载」「更新」「重试」「删除」都灰掉（一次只下一个）。
@@ -50,6 +54,9 @@ pub struct DownloadRow<'a, M> {
     blocked: bool,
 
     armed: bool,
+
+    /// 装好了在按钮前写灰字「✓ 已安装」。
+    mark_installed: bool,
 
     /// 装好后排在按钮最右边的控件。
     extra: Option<NodeId>,
@@ -63,10 +70,12 @@ impl<'a, M: Clone + 'static> DownloadRow<'a, M> {
             labels,
             detail: None,
             badge: None,
+            highlight: None,
             caption: None,
             busy: false,
             blocked: false,
             armed: false,
+            mark_installed: false,
             extra: None,
         }
     }
@@ -82,6 +91,19 @@ impl<'a, M: Clone + 'static> DownloadRow<'a, M> {
     /// 标题旁的小标签（「第三方」）。
     pub fn badge(self, badge: Option<&'a str>) -> Self {
         Self { badge, ..self }
+    }
+
+    /// 标题旁强调色的小标签（「当前译文语言」）。
+    pub fn highlight(self, highlight: Option<&'a str>) -> Self {
+        Self { highlight, ..self }
+    }
+
+    /// 见 [`Self::mark_installed`] 字段；缺省不写。
+    pub fn mark_installed(self, mark_installed: bool) -> Self {
+        Self {
+            mark_installed,
+            ..self
+        }
     }
 
     /// 说明下面那层（一般是 [`super::fields`]）。
@@ -129,6 +151,9 @@ impl<'a, M: Clone + 'static> DownloadRow<'a, M> {
         if let Some(badge) = self.badge {
             line = line.badge(badge);
         }
+        if let Some(highlight) = self.highlight {
+            line = line.highlight(highlight);
+        }
         if let Some(caption) = self.caption {
             line = line.caption(caption(ui)?);
         }
@@ -152,6 +177,10 @@ impl<'a, M: Clone + 'static> DownloadRow<'a, M> {
                 on_cancel,
             )?,
             DownloadState::Installed { outdated } => {
+                let mut controls = Vec::new();
+                if self.mark_installed {
+                    controls.push(installed(ui, theme, labels.installed)?);
+                }
                 let mut remove = Button::new(if self.armed {
                     labels.delete_confirm
                 } else {
@@ -160,12 +189,12 @@ impl<'a, M: Clone + 'static> DownloadRow<'a, M> {
                 if self.armed {
                     remove = remove.primary();
                 }
-                let mut controls =
-                    vec![
-                        remove
-                            .disabled(busy)
-                            .build(ui, theme, ("remove", local), on_remove)?,
-                    ];
+                controls.push(remove.disabled(busy).build(
+                    ui,
+                    theme,
+                    ("remove", local),
+                    on_remove,
+                )?);
                 if outdated {
                     controls.push(start(labels.update).build(
                         ui,
@@ -188,6 +217,28 @@ impl<'a, M: Clone + 'static> DownloadRow<'a, M> {
         };
         line.control(control).build(ui, theme)
     }
+}
+
+/// 灰字「✓ 已安装」。
+fn installed<M>(ui: &mut Ui<M>, theme: &WidgetTheme, text: &str) -> Result<NodeId, RenderError> {
+    let color = theme.colors.secondary;
+    let side = theme.px(theme.small + 2.0);
+    let check = ui.scene().node(
+        Style {
+            size: size(Some(side), Some(side)),
+            flex_shrink: 0.0,
+            ..Style::default()
+        },
+        Visual::Icon {
+            icon: Arc::new(CheckMark),
+            size: side,
+            color,
+        },
+        &[],
+    )?;
+    let text = label(ui, theme, text, theme.small, 400, color)?;
+    ui.scene()
+        .node(row(theme, 2.0), Visual::Group, &[check, text])
 }
 
 /// 行下面横跨整行的进度：上面一行写下了多少，下面一条进度条。

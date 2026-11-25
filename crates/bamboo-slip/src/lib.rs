@@ -7,6 +7,7 @@
 mod animation;
 mod app;
 mod appearance;
+mod backdrop;
 mod canvas;
 mod color;
 mod error;
@@ -23,7 +24,8 @@ mod widgets;
 
 pub use animation::{Easing, Keyframe, Keyframes};
 pub use app::{App, Runner, Waker, WindowCommand};
-pub use appearance::{Accent, system_acrylic};
+pub use appearance::Accent;
+pub use backdrop::Backdrop;
 pub use canvas::Canvas;
 pub use color::Color;
 pub use error::RenderError;
@@ -43,11 +45,12 @@ pub use ui::{
     Modifiers, Response, ScrollExtent, Searchable, TextInput, Ui,
 };
 pub use widgets::{
-    BarChart, Button, Checkbox, Datum, DownloadLabels, DownloadRow, DownloadState, Edit,
-    FieldValue, Flow, FlowTarget, Heatmap, KeyRecorder, Link, Menu, NavItem, PopupMenu,
-    ProgressBar, ScrollArea, SearchField, Segmented, Select, SettingRow, Slider, Stepper, Switch,
-    TextEdit, TextField, TextFlow, WidgetColors, WidgetTheme, dialog, field_points, fields, group,
-    info, info_with_link, paragraph, section_title, toolbar, tooltip,
+    BarChart, Branch, Button, Checkbox, Datum, DownloadLabels, DownloadRow, DownloadState, Edit,
+    FieldValue, Flow, FlowTarget, Heatmap, KeyRecorder, Link, Look, Menu, NavItem, PopupMenu,
+    ProgressBar, ScrollArea, SearchField, Segmented, Select, SelectorBar, SettingRow, Slider,
+    Stepper, Suggestion, Suggestions, Switch, TextEdit, TextField, TextFlow, WidgetColors,
+    WidgetTheme, dialog, field_points, fields, group, group_branches, info, info_with_link,
+    paragraph, section_title, toolbar, tooltip,
 };
 
 /// 使用方建树用的布局类型、自己画图标用的路径与混合模式，与这里是同一个 taffy、tiny-skia。
