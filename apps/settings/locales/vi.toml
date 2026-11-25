@@ -60,7 +60,7 @@ list_separator = ", "
 importing = "Đang nhập…"
 
 [language]
-english_mode = "Chuyển Trung/Anh"
+english_mode = "Chế độ tiếng Anh"
 english_mode_info = "Khi tắt chỉ gõ được tiếng Trung"
 default_english = "Bắt đầu ở chế độ tiếng Anh"
 default_english_info = "Ứng dụng mới mở bắt đầu bằng tiếng Anh"

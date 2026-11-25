@@ -192,7 +192,7 @@ pub fn language(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Render
     Ok(out)
 }
 
-/// 中英文切换下面的细项：切换键、默认英文与按应用记、英文模式也给候选（下面挂「只在写字的应用里给」）。
+/// 「英文模式」开关下面的细项：切换键、默认英文与按应用记、英文模式也给候选（下面挂「只在写字的应用里给」）。
 fn english_mode_children(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderError> {
     let theme = &page.theme;
     let config = &page.settings.config;

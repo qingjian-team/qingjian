@@ -60,7 +60,7 @@ list_separator = "、"
 importing = "正在导入…"
 
 [language]
-english_mode = "中英文切换"
+english_mode = "英文模式"
 english_mode_info = "关掉后只打中文"
 default_english = "默认英文模式"
 default_english_info = "新打开的应用先用英文"

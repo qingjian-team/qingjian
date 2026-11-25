@@ -60,7 +60,7 @@ list_separator = ", "
 importing = "Wird importiert …"
 
 [language]
-english_mode = "Chinesisch/Englisch wechseln"
+english_mode = "Englischmodus"
 english_mode_info = "Wenn aus, lässt sich nur Chinesisch tippen"
 default_english = "Im Englischmodus starten"
 default_english_info = "Neu geöffnete Apps beginnen auf Englisch"
