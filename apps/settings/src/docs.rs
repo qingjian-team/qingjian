@@ -193,18 +193,6 @@ const LINKS: &[(PageId, &str, &str, &str)] = &[
     ),
     (
         PageId::Shortcuts,
-        "shortcut.commit_candidate",
-        "personalize/keys-settings",
-        "上屏键（Windows、Linux）",
-    ),
-    (
-        PageId::Shortcuts,
-        "shortcut.commit_raw",
-        "personalize/keys-settings",
-        "上屏键（Windows、Linux）",
-    ),
-    (
-        PageId::Shortcuts,
         "shortcuts.enter_translation",
         "personalize/keys-settings",
         "回车优先上屏译词（macOS）",

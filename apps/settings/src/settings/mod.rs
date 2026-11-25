@@ -138,7 +138,7 @@ pub struct Settings {
     /// 「关于」页的数据来源展开着。
     pub sources_open: bool,
 
-    /// Windows 展开着的卡片（[`crate::view::parts::branch`] 的 key）；不记进配置，下次打开都收着。
+    /// Windows 展开着的卡片（`view/parts/branch.rs` 里 `branch` 的 key）；不记进配置，下次打开都收着。
     pub expanded: Vec<Key>,
 
     pub search: Search,
