@@ -178,10 +178,14 @@ impl<A: App> Runner<A> {
             let mut ui = Ui::new(&self.interaction);
             let root = self.app.view(&mut ui, scale, size)?;
             ui.attach_overlays(root)?;
+            let reveals = ui.take_reveals();
             let (mut scene, elements) = ui.finish();
             let content = scene.layout(root, self.stage.text())?;
             attempts += 1;
             let mut again = self.interaction.attach(&scene, root, elements)?;
+            for key in reveals {
+                again |= self.interaction.reveal(key, 0.0);
+            }
             if spotlight != self.revealed {
                 self.revealed = spotlight;
                 // 滚动区的大小这一帧才量出来，滚了要按新位置再建一次

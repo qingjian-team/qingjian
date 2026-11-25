@@ -4,7 +4,7 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use bamboo_slip::taffy::NodeId;
-use bamboo_slip::{App, FamilyList, FamilyTable, Key, RenderError, TextPainter, Ui, Waker};
+use bamboo_slip::{App, FamilyList, FamilyTable, Key, Look, RenderError, TextPainter, Ui, Waker};
 
 use super::{SIZES, Settings};
 
@@ -13,8 +13,6 @@ use crate::jobs::dict_index::is_safe_link;
 use crate::jobs::download::{Item, Pack};
 use crate::library::{self, Library};
 use crate::message::{FieldId, Message, Popup, SizeKind};
-use crate::page_id::PageId;
-use crate::stats::Stats;
 use crate::system::action::{self, Action};
 use crate::system::fonts;
 use crate::view;
@@ -51,26 +49,28 @@ impl App for Settings {
         ) {
             self.notice = None;
         }
+        // 几选一的下拉菜单点了一项发的是那一项自己的消息，这里统一收起
+        if matches!(self.menu, Some(Popup::Choice(_))) && !matches!(message, Message::OpenMenu(_)) {
+            self.menu = None;
+        }
         match message {
             Message::Page(page) => {
-                // 输入框在别的页上会直接消失、收不到失焦，这里补存
-                for id in FieldId::ALL {
-                    self.commit(id);
+                if page != self.page {
+                    self.back.push(self.page);
+                    self.forward.clear();
                 }
-                self.page = page;
-                self.recording = None;
-                self.close_phrase();
-                if page == PageId::Dictionaries {
-                    self.library = Library::scan();
+                self.open_page(page);
+            }
+            Message::Back => {
+                if let Some(page) = self.back.pop() {
+                    self.forward.push(self.page);
+                    self.open_page(page);
                 }
-                if page == PageId::Input {
-                    self.library.rescan_schemes();
-                }
-                if page == PageId::Stats {
-                    self.stats = Some(Stats::load(&self.config.general));
-                }
-                if page == PageId::Vocabulary {
-                    self.open_vocabulary();
+            }
+            Message::Forward => {
+                if let Some(page) = self.forward.pop() {
+                    self.back.push(self.page);
+                    self.open_page(page);
                 }
             }
             Message::SystemCtrlSpace(on) => self.set_ctrl_space(on),
@@ -128,12 +128,16 @@ impl App for Settings {
                 }
             }
             Message::Remove(kind, stem) => {
+                self.menu = None;
                 if let Err(error) = library::remove(kind, &stem) {
                     self.notice = Some((kind.slot(), error));
                 }
                 self.library = Library::scan();
             }
-            Message::ExportDict(stem) => self.export_dict(&stem),
+            Message::ExportDict(stem) => {
+                self.menu = None;
+                self.export_dict(&stem);
+            }
             Message::ModeKey(key, letter) => {
                 let mode = self.config.shortcut.mode.sanitized();
                 let (current, other, other_key) = if key == "expression" {
@@ -298,6 +302,13 @@ impl App for Settings {
             }
             Message::ExcludeClipboardApp => self.exclude_clipboard_app(),
             Message::ToggleSources => self.sources_open = !self.sources_open,
+            Message::Expand(key) => {
+                if let Some(at) = self.expanded.iter().position(|open| *open == key) {
+                    self.expanded.remove(at);
+                } else {
+                    self.expanded.push(key);
+                }
+            }
             Message::StatsCloud(cloud) => self.stats_cloud = cloud,
             Message::Search(edit) => {
                 self.search.edit.apply(&edit);
@@ -308,11 +319,12 @@ impl App for Settings {
                 }
                 self.search.refresh();
             }
-            Message::SearchFirst => {
+            Message::SearchCommit => {
                 if !self.search.hits.is_empty() {
-                    return self.update(Message::Jump(0));
+                    return self.update(Message::Jump(self.search.hot.unwrap_or(0)));
                 }
             }
+            Message::SearchStep(down) => self.search.step(down),
             Message::ClearSearch => self.search.clear(),
             Message::OpenDoc(url) => {
                 if let Err(error) = action::open(&url) {
@@ -321,8 +333,18 @@ impl App for Settings {
             }
             Message::Jump(index) => {
                 if let Some(hit) = self.search.hits.get(index).cloned() {
+                    // 收在展开卡片里的一项先把卡片打开，跳过去才看得见
+                    if let Some(region) = hit.region
+                        && !self.expanded.contains(&region)
+                    {
+                        self.expanded.push(region);
+                    }
                     self.update(Message::Page(hit.page));
                     self.spotlight(hit.key);
+                    // Windows 的结果是搜索框下的浮层，跳过去就收起；侧栏里的结果留着接着点
+                    if view::look::current() == Look::Fluent {
+                        self.search.clear();
+                    }
                 }
             }
             Message::Quit => return false,

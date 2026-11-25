@@ -115,10 +115,8 @@ impl Engine {
         // 九宫格敲的是数字：问云端用这次查询的拼音行，没查过这段就不发
         let nine_key_pinyin = if self.nine_key {
             let snapshot = self.last_query.borrow();
-            match snapshot.as_ref().filter(|s| s.scope == scope) {
-                Some(snapshot) => Some(snapshot.pinyin.clone()),
-                None => return None,
-            }
+            let snapshot = snapshot.as_ref().filter(|s| s.scope == scope)?;
+            Some(snapshot.pinyin.clone())
         } else {
             None
         };

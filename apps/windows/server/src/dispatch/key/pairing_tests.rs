@@ -3,6 +3,7 @@
 use crate::dispatch::{Router, RouterConfig};
 use qingjian_core::Engine;
 use qingjian_dictionary::Dictionary;
+use qingjian_platform::Config;
 use qingjian_platform::protocol::{
     CaretEdit, ClientMessage, KeyEvent, KeyModifiers, KeyOutcome, PROTOCOL_VERSION, ServerMessage,
     SessionId,
@@ -78,6 +79,39 @@ fn english_mode_pairs_half_width_only_when_switched_on() {
         (KeyOutcome::Passthrough, None, None)
     );
     router.engine.set_pair_punctuation(true, true);
+    assert_eq!(
+        press(&mut router, typed('(', english)),
+        (
+            KeyOutcome::Consumed,
+            Some("()".to_owned()),
+            Some(CaretEdit::Back(1))
+        )
+    );
+}
+
+#[test]
+fn startup_config_applies_both_pair_switches() {
+    let mut config = Config::default();
+    config.general.pair_punctuation = false;
+    config.general.english_pair_punctuation = true;
+    let mut router = Router::new(
+        Engine::new(Dictionary::parse("你\tni\t9000\n").unwrap()),
+        RouterConfig::from(&config),
+    );
+    router.handle(ClientMessage::OpenSession {
+        session: SessionId(1),
+        app: None,
+        protocol: PROTOCOL_VERSION,
+    });
+
+    assert_eq!(
+        press(&mut router, typed('(', KeyModifiers::default())),
+        (KeyOutcome::Consumed, Some("（".to_owned()), None)
+    );
+    let english = KeyModifiers {
+        english_mode: true,
+        ..KeyModifiers::default()
+    };
     assert_eq!(
         press(&mut router, typed('(', english)),
         (
