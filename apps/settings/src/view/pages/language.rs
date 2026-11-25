@@ -9,7 +9,7 @@ use crate::message::{FieldId, Message, Popup};
 use crate::support::Feature;
 use crate::view::Page;
 use crate::view::parts::actions::with_notice;
-use crate::view::parts::controls::{choice, percent_slider, select, toggle, toggle_info};
+use crate::view::parts::controls::{choice, percent_slider, select, switch, toggle, toggle_info};
 use crate::view::parts::menus::third_input_label;
 
 /// 全角 / 半角两档，配置里是布尔。
@@ -98,7 +98,7 @@ pub fn language(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Render
             "english-only-in-apps",
             Message::SetList("apps", "english_candidates_on", apps),
         )?;
-    let switch = bamboo_slip::Switch::new(general.english_candidates).build(
+    let switch = switch(page, general.english_candidates).build(
         ui,
         theme,
         "english-candidates",

@@ -25,6 +25,9 @@ pub struct Ui<'a, M> {
     /// 这一帧登记的可搜索项，见 [`Self::searchable`]。
     searchables: Vec<Searchable>,
 
+    /// 这一帧要滚进视野的元素，见 [`Self::reveal`]。
+    reveals: Vec<Key>,
+
     /// 控件登记、还没被设置行收走的关键词与登记它的节点，见 [`Self::keyword`]。
     keywords: Vec<(NodeId, String)>,
 
@@ -43,6 +46,7 @@ impl<'a, M> Ui<'a, M> {
             elements: Vec::new(),
             overlays: Vec::new(),
             searchables: Vec::new(),
+            reveals: Vec::new(),
             keywords: Vec::new(),
             info_links: None,
         }
@@ -128,6 +132,17 @@ impl<'a, M> Ui<'a, M> {
     /// 取走这一帧登记的可搜索项：使用方离屏建一遍各页，收集成搜索索引。
     pub fn take_searchables(&mut self) -> Vec<Searchable> {
         std::mem::take(&mut self.searchables)
+    }
+
+    /// 布局完把 `key` 那个元素滚进它所在滚动区的视野（弹出菜单刚打开时滚到选中项）。
+    /// 每帧都要的话每帧都调；只想滚一次的在第一帧调（[`Self::rect`] 还拿不到自己的位置时）。
+    pub fn reveal(&mut self, key: Key) {
+        self.reveals.push(key);
+    }
+
+    /// 取走这一帧要滚进视野的元素，交给 [`crate::Runner`] 在布局后滚。
+    pub(crate) fn take_reveals(&mut self) -> Vec<Key> {
+        std::mem::take(&mut self.reveals)
     }
 
     /// `key` 是应用要醒目标出的那一项（[`crate::App::spotlight`]）。

@@ -13,8 +13,6 @@ use crate::jobs::dict_index::is_safe_link;
 use crate::jobs::download::{Item, Pack};
 use crate::library::{self, Library};
 use crate::message::{FieldId, Message, Popup, SizeKind};
-use crate::page_id::PageId;
-use crate::stats::Stats;
 use crate::system::action::{self, Action};
 use crate::system::fonts;
 use crate::view;
@@ -53,24 +51,22 @@ impl App for Settings {
         }
         match message {
             Message::Page(page) => {
-                // 输入框在别的页上会直接消失、收不到失焦，这里补存
-                for id in FieldId::ALL {
-                    self.commit(id);
+                if page != self.page {
+                    self.back.push(self.page);
+                    self.forward.clear();
                 }
-                self.page = page;
-                self.recording = None;
-                self.close_phrase();
-                if page == PageId::Dictionaries {
-                    self.library = Library::scan();
+                self.open_page(page);
+            }
+            Message::Back => {
+                if let Some(page) = self.back.pop() {
+                    self.forward.push(self.page);
+                    self.open_page(page);
                 }
-                if page == PageId::Input {
-                    self.library.rescan_schemes();
-                }
-                if page == PageId::Stats {
-                    self.stats = Some(Stats::load(&self.config.general));
-                }
-                if page == PageId::Vocabulary {
-                    self.open_vocabulary();
+            }
+            Message::Forward => {
+                if let Some(page) = self.forward.pop() {
+                    self.back.push(self.page);
+                    self.open_page(page);
                 }
             }
             Message::SystemCtrlSpace(on) => self.set_ctrl_space(on),

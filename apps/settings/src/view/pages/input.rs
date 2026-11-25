@@ -2,9 +2,7 @@
 
 use bamboo_slip::taffy::LengthPercentage;
 use bamboo_slip::taffy::{Dimension, FlexDirection, FlexWrap, NodeId, Rect, Size, Style};
-use bamboo_slip::{
-    Checkbox, RenderError, SettingRow, Switch, TextField, Ui, Visual, group, section_title,
-};
+use bamboo_slip::{Checkbox, RenderError, SettingRow, TextField, Ui, Visual, group, section_title};
 use qingjian_core::FuzzyRules;
 use qingjian_platform::{KeyHintMode, Scheme, code_schemes, code_tables};
 
@@ -16,7 +14,7 @@ use crate::shortcut::Shortcut;
 use crate::support::Feature;
 use crate::view::Page;
 use crate::view::parts::actions::with_notice;
-use crate::view::parts::controls::{percent_slider, select, toggle_info, toggle_with};
+use crate::view::parts::controls::{percent_slider, select, switch, toggle_info, toggle_with};
 use crate::view::parts::lists::{entry_row, import_row};
 use crate::view::parts::menus::{code_options, scheme_options};
 
@@ -436,7 +434,7 @@ fn code_rule(
     key: &'static str,
     on: bool,
 ) -> Result<NodeId, RenderError> {
-    let switch = Switch::new(on).build(
+    let switch = switch(page, on).build(
         ui,
         &page.theme,
         ("code", key),

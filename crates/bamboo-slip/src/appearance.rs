@@ -1,4 +1,4 @@
-//! 系统的外观设置：强调色与透明材质。读不到（别的平台、老系统）时使用方退回 [`Accent::FLUENT_BLUE`] 或自己的品牌色。
+//! 系统的外观设置：强调色（Windows、macOS）与透明材质（Windows）。读不到（别的平台、老系统）时使用方退回 [`Accent::FLUENT_BLUE`] 或自己的品牌色。
 
 use crate::color::Color;
 
@@ -23,7 +23,14 @@ impl Accent {
         {
             read_palette().and_then(|palette| Self::from_palette(&palette))
         }
-        #[cfg(not(target_os = "windows"))]
+        #[cfg(target_os = "macos")]
+        {
+            read_control_accent().map(|color| Self {
+                on_light: color,
+                on_dark: color,
+            })
+        }
+        #[cfg(not(any(target_os = "windows", target_os = "macos")))]
         {
             None
         }
@@ -53,6 +60,21 @@ pub fn system_acrylic() -> bool {
     {
         false
     }
+}
+
+/// `controlAccentColor` 换到 sRGB：它是随外观变的动态色，按调用时的外观取值，两种外观用同一个。
+#[cfg(target_os = "macos")]
+fn read_control_accent() -> Option<Color> {
+    use objc2_app_kit::{NSColor, NSColorSpace};
+
+    let color = NSColor::controlAccentColor();
+    let srgb = color.colorUsingColorSpace(&NSColorSpace::sRGBColorSpace())?;
+    let channel = |value: f64| (value.clamp(0.0, 1.0) * 255.0).round() as u8;
+    Some(Color::rgb(
+        channel(srgb.redComponent()),
+        channel(srgb.greenComponent()),
+        channel(srgb.blueComponent()),
+    ))
 }
 
 #[cfg(target_os = "windows")]

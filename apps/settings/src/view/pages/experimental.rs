@@ -4,8 +4,8 @@
 
 use bamboo_slip::taffy::NodeId;
 use bamboo_slip::{
-    Button, DownloadRow, DownloadState, FieldValue, RenderError, Segmented, SettingRow, Switch, Ui,
-    fields, group, paragraph, section_title, toolbar,
+    Button, DownloadRow, DownloadState, FieldValue, RenderError, Segmented, SettingRow, Ui, fields,
+    group, paragraph, section_title, toolbar,
 };
 use qingjian_platform::{CLIPBOARD_HISTORY_LIMITS, ClipboardEdge, LocalModel, ZhiyiTier};
 
@@ -18,7 +18,7 @@ use crate::system::action::Action;
 use crate::view::Page;
 use crate::view::pages::shortcuts::recorder;
 use crate::view::parts::actions::with_notice;
-use crate::view::parts::controls::{choice, toggle_info};
+use crate::view::parts::controls::{choice, switch, toggle_info};
 use crate::view::parts::download::{DownloadStatus, labels};
 
 pub fn experimental(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderError> {
@@ -55,7 +55,7 @@ fn clipboard(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderErr
     let theme = &page.theme;
     let config = &page.settings.config.clipboard;
     let on = config.enabled;
-    let switch = Switch::new(on).build(
+    let switch = switch(page, on).build(
         ui,
         theme,
         "clipboard-enabled",
@@ -224,7 +224,7 @@ fn card(ui: &mut Ui<Message>, page: &Page, pack: Pack) -> Result<Vec<NodeId>, Re
     let item = Item::Model(pack.model);
     let status = DownloadStatus::of(page, &item);
     let switch = if pack.installed() {
-        Some(Switch::new(on).build(
+        Some(switch(page, on).build(
             ui,
             theme,
             ("use", pack.tag),

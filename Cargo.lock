@@ -288,6 +288,7 @@ version = "0.1.1"
 dependencies = [
  "arboard",
  "cosmic-text",
+ "objc2-app-kit 0.3.2",
  "resvg",
  "serde",
  "serde_json",

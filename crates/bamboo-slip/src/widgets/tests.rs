@@ -651,3 +651,55 @@ fn scrollbar_drags_and_jumps() {
     interaction.handle(&Event::PointerMoved { x: 100.0, y: 50.0 });
     near(offset(&interaction), before);
 }
+
+/// 选中第 50 项的 60 项菜单，开在 400 见方的窗口里；返回这一帧要滚进视野的元素。
+fn long_menu(interaction: &mut Interaction<Message>, text: &mut TextPainter) -> Vec<Key> {
+    let items: Vec<String> = (0..60).map(|index| format!("item {index}")).collect();
+    let items: Vec<&str> = items.iter().map(String::as_str).collect();
+    let theme = WidgetTheme::fluent(WidgetColors::LIGHT, 1.0);
+    let mut ui = Ui::new(interaction);
+    let menu = Menu::new(
+        &items,
+        Some(50),
+        (100.0, 100.0, 160.0, 32.0),
+        (400.0, 400.0),
+    )
+    .build(&mut ui, &theme, "menu", Message::Pick, Message::Up)
+    .unwrap();
+    let root = ui
+        .scene()
+        .node(
+            Style {
+                size: taffy::Size {
+                    width: taffy::Dimension::length(400.0),
+                    height: taffy::Dimension::length(400.0),
+                },
+                ..Style::default()
+            },
+            Visual::Group,
+            &[menu],
+        )
+        .unwrap();
+    let reveals = ui.take_reveals();
+    let (mut scene, elements) = ui.finish();
+    layout(&mut scene, root, text);
+    interaction.attach(&scene, root, elements).unwrap();
+    reveals
+}
+
+#[test]
+fn a_long_menu_opens_scrolled_to_its_selected_item_once() {
+    let mut text = TextPainter::new(FontLibrary::system("en").unwrap());
+    let mut interaction = Interaction::new();
+    let selected = Key::ROOT.child("menu").child(50_usize);
+    let reveals = long_menu(&mut interaction, &mut text);
+    assert_eq!(reveals, vec![selected]);
+    assert!(interaction.reveal(selected, 0.0));
+    // 打开之后的帧不再要求滚动，用户自己滚到哪就留在哪
+    assert!(long_menu(&mut interaction, &mut text).is_empty());
+    let (_, top, _, height) = interaction.rect(selected).unwrap();
+    assert!(
+        top >= 0.0 && top + height <= 400.0,
+        "selected item at {top}"
+    );
+}

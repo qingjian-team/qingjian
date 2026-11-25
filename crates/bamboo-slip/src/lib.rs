@@ -44,7 +44,7 @@ pub use ui::{
 };
 pub use widgets::{
     BarChart, Button, Checkbox, Datum, DownloadLabels, DownloadRow, DownloadState, Edit,
-    FieldValue, Flow, FlowTarget, Heatmap, KeyRecorder, Link, Menu, NavItem, PopupMenu,
+    FieldValue, Flow, FlowTarget, Heatmap, KeyRecorder, Link, Look, Menu, NavItem, PopupMenu,
     ProgressBar, ScrollArea, SearchField, Segmented, Select, SettingRow, Slider, Stepper, Switch,
     TextEdit, TextField, TextFlow, WidgetColors, WidgetTheme, dialog, field_points, fields, group,
     info, info_with_link, paragraph, section_title, toolbar, tooltip,

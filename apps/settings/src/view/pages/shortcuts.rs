@@ -15,7 +15,7 @@ use crate::shortcut::Shortcut;
 use crate::support::Feature;
 use crate::view::Page;
 use crate::view::parts::actions::with_notice;
-use crate::view::parts::controls::{choice, toggle_info};
+use crate::view::parts::controls::{choice, switch, toggle_info};
 
 pub fn shortcuts(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderError> {
     let theme = &page.theme;
@@ -137,7 +137,7 @@ pub fn shortcuts(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Rende
     }
     if Feature::SingleChars.here() {
         let enabled = config.shortcut.single_chars.is_some();
-        let switch = bamboo_slip::Switch::new(enabled).build(
+        let switch = switch(page, enabled).build(
             ui,
             theme,
             "single-chars",
@@ -169,7 +169,7 @@ pub fn shortcuts(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Rende
     }
     if Feature::NextWord.here() {
         let enabled = config.shortcut.next_word.is_some();
-        let switch = bamboo_slip::Switch::new(enabled).build(
+        let switch = switch(page, enabled).build(
             ui,
             theme,
             "next-word",
@@ -294,7 +294,7 @@ fn extra_keys(
     }
     if Feature::TogglePunctuation.here() {
         let punctuation = shortcut.toggle_punctuation.is_some();
-        let switch = bamboo_slip::Switch::new(punctuation).build(
+        let switch = switch(page, punctuation).build(
             ui,
             theme,
             "toggle-punctuation",
@@ -313,7 +313,7 @@ fn extra_keys(
     }
     if Feature::ToggleTraditional.here() {
         let traditional = shortcut.toggle_traditional.is_some();
-        let switch = bamboo_slip::Switch::new(traditional).build(
+        let switch = switch(page, traditional).build(
             ui,
             theme,
             "toggle-traditional",

@@ -1,9 +1,10 @@
 //! 各页共用的几种设置行：开关、分段选择、下拉框、百分比滑块。
 
 use bamboo_slip::taffy::NodeId;
-use bamboo_slip::{RenderError, Segmented, Select, SettingRow, Slider, Switch, Ui};
+use bamboo_slip::{Look, RenderError, Segmented, Select, SettingRow, Slider, Switch, Ui};
 
 use super::menus::anchor;
+use crate::i18n::tr;
 use crate::message::{Message, Popup};
 use crate::view::Page;
 
@@ -39,7 +40,7 @@ pub fn toggle_info(
     on: bool,
     disabled: bool,
 ) -> Result<NodeId, RenderError> {
-    let switch = Switch::new(on).disabled(disabled).build(
+    let switch = switch(page, on).disabled(disabled).build(
         ui,
         &page.theme,
         (section, key),
@@ -50,6 +51,16 @@ pub fn toggle_info(
         row = row.info(info);
     }
     row.build(ui, &page.theme)
+}
+
+/// 开关：照 Windows 设置画时左边写「开 / 关」。
+pub fn switch(page: &Page, on: bool) -> Switch<'static> {
+    let switch = Switch::new(on);
+    if page.theme.look == Look::Fluent {
+        switch.labels(tr("common.on"), tr("common.off"))
+    } else {
+        switch
+    }
 }
 
 /// 一组互斥取值的分段选择：`all` 按设置界面的顺序，`label` 取界面上的名字。

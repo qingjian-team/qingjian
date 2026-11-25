@@ -8,6 +8,7 @@ use taffy::{AlignItems, JustifyContent, LengthPercentageAuto, NodeId, Position, 
 use super::WidgetTheme;
 use super::info::info_with_link;
 use super::parts::{column, label, padding, row, solid};
+use super::theme::Look;
 use crate::animation::Easing;
 use crate::error::RenderError;
 use crate::scene::Visual;
@@ -88,7 +89,7 @@ impl<'a> SettingRow<'a> {
         }
     }
 
-    /// 标题右边的 ⓘ，悬停时浮出这段说明。
+    /// 这一行的说明：[`Look::Plain`] 收进标题右边的 ⓘ（悬停浮出），别的外观照系统设置写在标题下面一行。
     pub fn info(self, text: &'a str) -> Self {
         Self {
             info: Some(text),
@@ -136,8 +137,13 @@ impl<'a> SettingRow<'a> {
         ui.searchable(key, (self.title, self.info), &owned, self.keywords);
         let spot = spotlight(ui, theme, key, (-2.0, 8.0))?;
         let colors = &theme.colors;
-        let mut title = label(ui, theme, self.title, theme.font.size, 500, colors.text)?;
-        if let Some(text) = self.info {
+        let weight = if theme.look == Look::Plain { 500 } else { 400 };
+        let mut title = label(ui, theme, self.title, theme.font.size, weight, colors.text)?;
+        let (info, detail) = match theme.look {
+            Look::Plain => (self.info, self.detail),
+            Look::Mac | Look::Fluent => (None, self.detail.or(self.info)),
+        };
+        if let Some(text) = info {
             let link = ui.info_link(self.title);
             let mark = info_with_link(ui, theme, ("info", self.title), text, link)?;
             title = ui.scene().node(
@@ -161,7 +167,7 @@ impl<'a> SettingRow<'a> {
             )?;
         }
         let mut texts = vec![title];
-        if let Some(detail) = self.detail {
+        if let Some(detail) = detail {
             // 说明长了折行，不把右边的控件挤出去
             texts.push(ui.scene().node(
                 Style::default(),
@@ -182,7 +188,7 @@ impl<'a> SettingRow<'a> {
                     width: LengthPercentageAuto::length(0.0),
                     height: LengthPercentageAuto::auto(),
                 },
-                ..column(theme, 2.0)
+                ..column(theme, if theme.look == Look::Plain { 2.0 } else { 1.0 })
             },
             Visual::Group,
             &texts,
@@ -200,7 +206,8 @@ impl<'a> SettingRow<'a> {
                 &children,
             )?
         } else {
-            self.inline(ui, theme, spot, heading)?
+            let described = detail.is_some();
+            self.inline(ui, theme, spot, heading, described)?
         };
         ui.interact(node, key, Interact::new());
         Ok(node)
@@ -213,8 +220,10 @@ impl<'a> SettingRow<'a> {
         theme: &WidgetTheme,
         spot: NodeId,
         heading: NodeId,
+        described: bool,
     ) -> Result<NodeId, RenderError> {
         let footer = self.footer;
+        let (vertical, height) = inline_metrics(theme, described);
         let mut trailing: Vec<NodeId> = self.control.into_iter().collect();
         trailing.extend(self.below);
         let trailing = ui.scene().node(
@@ -242,7 +251,7 @@ impl<'a> SettingRow<'a> {
             )?;
             return ui.scene().node(
                 Style {
-                    padding: padding(theme, 10.0, 0.0),
+                    padding: padding(theme, vertical, 0.0),
                     ..column(theme, 10.0)
                 },
                 Visual::Group,
@@ -251,19 +260,27 @@ impl<'a> SettingRow<'a> {
         }
         ui.scene().node(
             Style {
-                padding: padding(theme, 10.0, 0.0),
+                padding: padding(theme, vertical, 0.0),
                 justify_content: JustifyContent::SPACE_BETWEEN,
                 min_size: taffy::Size {
                     width: taffy::LengthPercentageAuto::auto(),
-                    height: taffy::LengthPercentageAuto::length(
-                        theme.px(theme.control_height + 20.0),
-                    ),
+                    height: taffy::LengthPercentageAuto::length(theme.px(height)),
                 },
                 ..row(theme, 16.0)
             },
             Visual::Group,
             &[spot, heading, trailing],
         )
+    }
+}
+
+/// 标题在左、控件在右的一行上下留白与最低高度（点）：照各系统设置里一行的高度。
+fn inline_metrics(theme: &WidgetTheme, described: bool) -> (f32, f32) {
+    match theme.look {
+        Look::Plain => (10.0, theme.control_height + 20.0),
+        Look::Mac => (7.0, 38.0),
+        Look::Fluent if described => (11.0, 68.0),
+        Look::Fluent => (10.0, 52.0),
     }
 }
 

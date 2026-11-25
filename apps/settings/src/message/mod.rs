@@ -21,6 +21,9 @@ use crate::vocabulary::{Filter, Format, Sort, View};
 #[derive(Debug, Clone)]
 pub enum Message {
     Page(PageId),
+    /// 工具栏的前后箭头：回到上一个看过的页、再走回来。
+    Back,
+    Forward,
     /// 原地改配置文件里的 `[分节] 键 = 值`。
     Set(&'static str, &'static str, toml_edit::Value),
     /// 同上，值是字符串数组。

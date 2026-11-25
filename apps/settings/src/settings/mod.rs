@@ -6,6 +6,7 @@ mod clipboard;
 mod config;
 mod fields;
 mod library;
+mod navigation;
 mod phrases;
 mod search;
 mod shortcuts;
@@ -53,6 +54,11 @@ pub struct Settings {
     pub themes: ThemeLibrary,
 
     pub page: PageId,
+
+    /// 看过的页，工具栏的后退箭头按它倒回去；前进箭头走 `forward`。
+    pub back: Vec<PageId>,
+
+    pub forward: Vec<PageId>,
 
     /// 系统是深色：设置窗口自己跟它走，候选窗「跟随系统」时也按它。
     pub system_dark: bool,
@@ -185,6 +191,8 @@ impl Settings {
             config_error,
             themes,
             page: PageId::Input,
+            back: Vec::new(),
+            forward: Vec::new(),
             system_dark: false,
             previews: RefCell::new(Previews::new()),
             logo,
