@@ -44,6 +44,9 @@ pub struct Interact<M> {
     /// 滚动区：被滚动的内容节点（元素自己是视口）。
     pub(super) scroll_content: Option<NodeId>,
 
+    /// 滚动区视口顶上被盖住的高度（像素）：滚进视野时让开这段。
+    pub(super) scroll_obscured: f32,
+
     /// 滚动条的轨道：按下与拖动由交互层直接改滚动位置。
     pub(super) scrollbar: Option<ScrollbarTrack>,
 
@@ -71,6 +74,7 @@ impl<M> Interact<M> {
             disabled: false,
             secret: false,
             scroll_content: None,
+            scroll_obscured: 0.0,
             scrollbar: None,
             cursor: None,
         }
@@ -162,6 +166,14 @@ impl<M> Interact<M> {
     pub fn scrolls(self, content: NodeId) -> Self {
         Self {
             scroll_content: Some(content),
+            ..self
+        }
+    }
+
+    /// 滚动区视口顶上 `top` 像素被别的东西（半透明的工具栏）盖住：滚进视野时让开这段。跟着 [`Self::scrolls`] 一起设。
+    pub fn obscured_top(self, top: f32) -> Self {
+        Self {
+            scroll_obscured: top,
             ..self
         }
     }

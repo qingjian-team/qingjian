@@ -1,11 +1,11 @@
-//! 右边的内容区，按外观排：竹青整页可滚；macOS 顶上一条工具栏（前后箭头加页名），下面居中一栏；
+//! 右边的内容区，按外观排：竹青整页可滚；macOS 顶上浮着一条工具栏（前后箭头加页名），下面居中一栏从它底下滚过；
 //! Windows 内容区顶上是 28 点的页标题，跟着整页一起滚。
 
 use std::sync::Arc;
 
 use bamboo_slip::taffy::{
-    AlignItems, Dimension, FlexDirection, LengthPercentage, LengthPercentageAuto, NodeId, Rect,
-    Size, Style,
+    AlignItems, Dimension, FlexDirection, LengthPercentage, LengthPercentageAuto, NodeId, Position,
+    Rect, Size, Style,
 };
 use bamboo_slip::{
     BoxPaint, Fill, Interact, Look, RenderError, ScrollArea, TITLEBAR, Ui, Visual, paragraph,
@@ -15,6 +15,11 @@ use super::Page;
 use super::icons::Glyph;
 use crate::i18n::tr_args;
 use crate::message::Message;
+
+/// macOS 工具栏的高度与下沿渐隐的高度（点）。
+const TOOLBAR: f32 = 52.0;
+
+const TOOLBAR_FADE: f32 = 14.0;
 
 /// 内容区左右的边距（点）。
 pub fn padding(look: Look) -> f32 {
@@ -50,7 +55,7 @@ pub fn content(ui: &mut Ui<Message>, page: &Page) -> Result<NodeId, RenderError>
     let side = LengthPercentage::length(page.px(padding(look)));
     let top = match look {
         Look::Plain => TITLEBAR + 12.0,
-        Look::Mac => 4.0,
+        Look::Mac => TOOLBAR + 4.0,
         Look::Fluent => 4.0,
     };
     let column = ui.scene().node(
@@ -92,14 +97,18 @@ pub fn content(ui: &mut Ui<Message>, page: &Page) -> Result<NodeId, RenderError>
         column
     };
     // 每页各记各的滚动位置
-    let scroll = ScrollArea::new(Style {
+    let mut scroll = ScrollArea::new(Style {
         flex_grow: 1.0,
         ..Style::default()
-    })
-    .build(ui, &page.theme, ("content", page.settings.page), column)?;
+    });
+    if look == Look::Mac {
+        scroll = scroll.obscured_top(TOOLBAR);
+    }
+    let scroll = scroll.build(ui, &page.theme, ("content", page.settings.page), column)?;
     if look != Look::Mac {
         return Ok(scroll);
     }
+    // 系统设置的工具栏浮在内容上：往下滚时内容从它底下穿过，下沿渐隐，不是一刀切齐
     let toolbar = toolbar(ui, page)?;
     ui.scene().node(
         Style {
@@ -112,7 +121,7 @@ pub fn content(ui: &mut Ui<Message>, page: &Page) -> Result<NodeId, RenderError>
             ..Style::default()
         },
         Visual::Group,
-        &[toolbar, scroll],
+        &[scroll, toolbar],
     )
 }
 
@@ -146,25 +155,44 @@ fn toolbar(ui: &mut Ui<Message>, page: &Page) -> Result<NodeId, RenderError> {
         &[back, forward],
     )?;
     let title = text(ui, page, settings.page.label(), 15.0, 700)?;
+    let window = page.palette.window;
+    let (height, fade) = (page.px(TOOLBAR), page.px(TOOLBAR + TOOLBAR_FADE));
     ui.scene().node(
         Style {
+            position: Position::Absolute,
+            inset: Rect {
+                left: LengthPercentageAuto::length(0.0),
+                right: LengthPercentageAuto::length(0.0),
+                top: LengthPercentageAuto::length(0.0),
+                bottom: LengthPercentageAuto::auto(),
+            },
             flex_direction: FlexDirection::Row,
             align_items: AlignItems::CENTER,
             gap: page.gap(10.0),
-            flex_shrink: 0.0,
             size: Size {
                 width: Dimension::auto(),
-                height: Dimension::length(page.px(52.0)),
+                height: Dimension::length(fade),
             },
             padding: Rect {
                 left: LengthPercentage::length(page.px(16.0)),
                 right: LengthPercentage::length(page.px(16.0)),
                 top: LengthPercentage::length(0.0),
-                bottom: LengthPercentage::length(0.0),
+                bottom: LengthPercentage::length(fade - height),
             },
             ..Style::default()
         },
-        Visual::Group,
+        Visual::Box(BoxPaint {
+            fill: Some(Fill::Linear {
+                angle: 180.0,
+                stops: vec![
+                    (window, 0.0),
+                    (window, height / fade),
+                    (window.transparent(), 1.0),
+                ],
+            }),
+            border: None,
+            radius: 0.0,
+        }),
         &[capsule, title],
     )
 }
