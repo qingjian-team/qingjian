@@ -63,7 +63,7 @@ impl Router {
 }
 
 /// 数字键在这一页里对应的下标（0 起）；不在本页（0 或者超过每页个数）就是 `None`。
-fn page_slot(digit: usize, page_size: usize) -> Option<usize> {
+pub(super) fn page_slot(digit: usize, page_size: usize) -> Option<usize> {
     (digit >= 1 && digit <= page_size).then(|| digit - 1)
 }
 
