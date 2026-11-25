@@ -165,6 +165,8 @@ transfer_info = "設定を 1 つのファイルに保存します。ユーザー
 
 [experimental]
 zhiyi_recommended = "知意（おすすめ）"
+section_models = "文変換モデル"
+recommended = "おすすめ"
 zhiyi_description = "前の文脈から第一候補を選びます"
 tongbian_description = "ピンインから文を作ります"
 cancel = "キャンセル"

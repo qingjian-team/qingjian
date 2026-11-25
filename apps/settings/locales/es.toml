@@ -165,6 +165,8 @@ transfer_info = "Guarda los ajustes en un archivo; sin frases personalizadas, cl
 
 [experimental]
 zhiyi_recommended = "Zhiyi (recomendado)"
+section_models = "Modelos de frases"
+recommended = "Recomendado"
 zhiyi_description = "Elige el primer candidato según el contexto"
 tongbian_description = "Construye frases a partir del pinyin"
 cancel = "Cancelar"

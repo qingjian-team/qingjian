@@ -165,6 +165,8 @@ transfer_info = "Speichert die Einstellungen in einer Datei; ohne eigene Phrasen
 
 [experimental]
 zhiyi_recommended = "Zhiyi (empfohlen)"
+section_models = "Satzmodelle"
+recommended = "Empfohlen"
 zhiyi_description = "Wählt den ersten Kandidaten nach dem Kontext"
 tongbian_description = "Bildet Sätze aus Pinyin"
 cancel = "Abbrechen"

@@ -1,5 +1,5 @@
 //! 「实验功能」页：可以下载的本地模型，以及青简剪贴板（总开关没开时下面几项灰掉）。
-//! 本地模型一个一张卡片。没下载给「下载」，下着给进度条与「取消」，下好了才有开关与「删除」；
+//! 本地模型一个一张卡片（竹青一个一节，两种原生外观共一节「整句模型」）。没下载给「下载」，下着给进度条与「取消」，下好了才有开关与「删除」；
 //! 知意、通变两个只开一个，开了这个就关掉另一个，都关着就是不用模型（只按词库）。知意开着时下面出三档。
 
 use bamboo_slip::taffy::NodeId;
@@ -29,8 +29,15 @@ pub fn experimental(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Re
         out.push(paragraph(ui, theme, error, None)?);
     }
     if Feature::ExperimentalModels.here() {
+        // 竹青一个模型一节、标题写「知意（推荐）」；两种原生外观共一节「整句模型」，「推荐」是知意名字旁的小标签
+        let native = theme.look != Look::Plain;
+        if native {
+            out.push(section_title(ui, theme, tr("experimental.section_models"))?);
+        }
         for pack in Pack::ALL {
-            out.push(section_title(ui, theme, title(pack.model))?);
+            if !native {
+                out.push(section_title(ui, theme, title(pack.model))?);
+            }
             let rows = card(ui, page, pack)?;
             out.push(group(ui, theme, &rows)?);
         }
@@ -252,8 +259,10 @@ fn card(ui: &mut Ui<Message>, page: &Page, pack: Pack) -> Result<Vec<NodeId>, Re
         None
     };
     let state = status.state(pack.installed().then_some(false));
+    let recommended = theme.look != Look::Plain && pack.model == LocalModel::Zhiyi;
     let row = DownloadRow::new(pack.model.label(), state, labels())
         .detail(description(pack.model))
+        .highlight(recommended.then(|| tr("experimental.recommended")))
         .caption(|ui| {
             fields(
                 ui,

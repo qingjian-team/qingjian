@@ -165,6 +165,8 @@ transfer_info = "設定存成一個檔案；不含自訂短語、雲服務金鑰
 
 [experimental]
 zhiyi_recommended = "知意（推薦）"
+section_models = "整句模型"
+recommended = "推薦"
 zhiyi_description = "按前文挑首選"
 tongbian_description = "按拼音造句"
 cancel = "取消"

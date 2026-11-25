@@ -165,6 +165,8 @@ transfer_info = "Lưu cài đặt thành một tệp; không gồm cụm từ t�
 
 [experimental]
 zhiyi_recommended = "Zhiyi (khuyên dùng)"
+section_models = "Mô hình câu"
+recommended = "Khuyên dùng"
 zhiyi_description = "Chọn gợi ý đầu tiên theo ngữ cảnh phía trước"
 tongbian_description = "Ghép câu từ pinyin"
 cancel = "Hủy"
