@@ -1,4 +1,4 @@
-//! ⓘ 的文档链接：哪一页哪一行的 ⓘ 点了打开官网文档的哪一段。文档源是仓库的 `docs/user/`，官网按目录渲染，
+//! 官网文档的链接：哪一页哪一行的 ⓘ（系统设置外观里是说明末尾的「了解更多」）打开哪一段，各页的帮助入口打开哪一页。文档源是仓库的 `docs/user/`，官网按目录渲染，
 //! 锚点照官网的 `headingId`（`web/src/lib/docs/render.ts`）生成；测试核对每一段在文档里真有这个标题，文档改标题时这里跟着改。
 
 use crate::i18n::tr;
@@ -109,12 +109,6 @@ const LINKS: &[(PageId, &str, &str, &str)] = &[
     ),
     (
         PageId::Vocabulary,
-        "vocabulary.export",
-        "learning/vocabulary",
-        "两个视图共用",
-    ),
-    (
-        PageId::Vocabulary,
         "vocabulary.clear_book",
         "learning/vocabulary",
         "两个视图共用",
@@ -151,12 +145,6 @@ const LINKS: &[(PageId, &str, &str, &str)] = &[
     ),
     (
         PageId::Language,
-        "language.switch_keys",
-        "input/english-mode",
-        "改掉或关掉中 / 英切换",
-    ),
-    (
-        PageId::Language,
         "language.default_english",
         "input/english-mode",
         "默认模式与按应用记忆",
@@ -180,6 +168,12 @@ const LINKS: &[(PageId, &str, &str, &str)] = &[
         "打拼音时敲标点",
     ),
     (
+        PageId::Language,
+        "language.menubar_indicator",
+        "getting-started/settings",
+        "输入法菜单（macOS）",
+    ),
+    (
         PageId::Appearance,
         "appearance.preedit",
         "personalize/appearance",
@@ -196,18 +190,6 @@ const LINKS: &[(PageId, &str, &str, &str)] = &[
         "shortcuts.extra_page_keys",
         "personalize/keys-settings",
         "翻页键",
-    ),
-    (
-        PageId::Shortcuts,
-        "shortcut.commit_candidate",
-        "personalize/keys-settings",
-        "上屏键（Windows、Linux）",
-    ),
-    (
-        PageId::Shortcuts,
-        "shortcut.commit_raw",
-        "personalize/keys-settings",
-        "上屏键（Windows、Linux）",
     ),
     (
         PageId::Shortcuts,
@@ -229,12 +211,6 @@ const LINKS: &[(PageId, &str, &str, &str)] = &[
     ),
     (
         PageId::Shortcuts,
-        "shortcuts.punctuation_width",
-        "personalize/keys-settings",
-        "全半角标点快捷键（macOS、Windows）",
-    ),
-    (
-        PageId::Shortcuts,
         "shortcuts.traditional",
         "personalize/keys-settings",
         "简繁切换快捷键（Windows）",
@@ -250,12 +226,6 @@ const LINKS: &[(PageId, &str, &str, &str)] = &[
         "shortcuts.lookup",
         "cloud/question-and-translate",
         "问字",
-    ),
-    (
-        PageId::Shortcuts,
-        "shortcuts.question_lookup",
-        "cloud/question-and-translate",
-        "用问号进入问字",
     ),
     (
         PageId::Shortcuts,
@@ -308,7 +278,6 @@ const LINKS: &[(PageId, &str, &str, &str)] = &[
     ),
     (PageId::Cloud, "cloud.sentence", "cloud/predict", "整句补全"),
     (PageId::Cloud, "cloud.api_key", "cloud/index", "会发送什么"),
-    (PageId::Cloud, "cloud.connection", "cloud/index", "开启"),
     (
         PageId::Advanced,
         "advanced.transfer",
@@ -336,12 +305,63 @@ const LINKS: &[(PageId, &str, &str, &str)] = &[
     (PageId::About, "about.channel", "help/privacy", "检查更新"),
 ];
 
+/// 系统设置外观（macOS、Windows）里说明末尾带「了解更多」的行：说明删得最狠、细节确实要紧的几行，不是每行都挂；
+/// 都得在 [`LINKS`] 里。竹青外观照旧每个有链接的 ⓘ 都能点。
+const INLINE: &[(PageId, &str)] = &[
+    (PageId::Input, "input.auto_phrase"),
+    (PageId::Input, "input.aux_enabled"),
+    (PageId::Language, "language.english_candidates"),
+    (PageId::Shortcuts, "shortcuts.highlight_keys"),
+    (PageId::Shortcuts, "shortcuts.extra_candidate_navigation"),
+    (PageId::Shortcuts, "shortcuts.enter_translation"),
+    (PageId::Phrases, "phrases.new_phrase"),
+    (PageId::Phrases, "phrases.transfer"),
+    (PageId::Cloud, "cloud.api_key"),
+    (PageId::Advanced, "advanced.transfer"),
+    (PageId::Advanced, "advanced.verbose_log"),
+    (PageId::Advanced, "advanced.input_log"),
+];
+
+/// 各页的帮助入口（macOS 右下角的「?」、Windows 页底的「获取帮助」）打开的文档：（页、文档、标题（空着是整页））。
+const PAGES: &[(PageId, &str, &str)] = &[
+    (PageId::Input, "input/index", ""),
+    (PageId::Candidates, "getting-started/settings", "各页管什么"),
+    (PageId::Language, "input/english-mode", ""),
+    (PageId::Appearance, "personalize/appearance", ""),
+    (PageId::Shortcuts, "personalize/keys-settings", ""),
+    (PageId::Phrases, "personalize/phrases", ""),
+    (PageId::Dictionaries, "personalize/dictionaries", ""),
+    (PageId::Cloud, "cloud/index", ""),
+    (PageId::Stats, "learning/statistics", ""),
+    (PageId::Vocabulary, "learning/vocabulary", ""),
+    (PageId::Advanced, "advanced/index", ""),
+    (PageId::Experimental, "input/sentence", ""),
+    (PageId::About, "help/index", ""),
+];
+
 /// `page` 页上标题为 `title` 那一行的 ⓘ 链接。
 pub fn link(page: PageId, title: &str) -> Option<String> {
     LINKS
         .iter()
         .find(|(on, row, ..)| *on == page && tr(row) == title)
         .map(|(_, _, doc, heading)| url(doc, heading))
+}
+
+/// `page` 页上标题为 `title` 那一行说明末尾的「了解更多」链接（只有 [`INLINE`] 里的行有）。
+pub fn inline_link(page: PageId, title: &str) -> Option<String> {
+    INLINE
+        .iter()
+        .any(|(on, row)| *on == page && tr(row) == title)
+        .then(|| link(page, title))
+        .flatten()
+}
+
+/// `page` 页的帮助入口打开的文档。
+pub fn page_link(page: PageId) -> Option<String> {
+    PAGES
+        .iter()
+        .find(|(on, ..)| *on == page)
+        .map(|(_, doc, heading)| url(doc, heading))
 }
 
 fn url(doc: &str, heading: &str) -> String {
@@ -414,6 +434,35 @@ mod tests {
                         .iter()
                         .any(|text| heading_id(text) == heading_id(heading)),
                 "{} 页「{row}」的 ⓘ 指向 {doc}.md 的「{heading}」，文档里没有这个标题",
+                page.label()
+            );
+        }
+    }
+
+    #[test]
+    fn every_page_has_help_that_points_at_a_heading_that_exists() {
+        for page in PageId::ALL {
+            let (_, doc, heading) = PAGES
+                .iter()
+                .find(|(on, ..)| *on == page)
+                .unwrap_or_else(|| panic!("{} 页没有帮助文档", page.label()));
+            assert!(
+                heading.is_empty()
+                    || headings(doc)
+                        .iter()
+                        .any(|text| heading_id(text) == heading_id(heading)),
+                "{} 页的帮助指向 {doc}.md 的「{heading}」，文档里没有这个标题",
+                page.label()
+            );
+        }
+    }
+
+    #[test]
+    fn every_inline_link_is_a_row_link() {
+        for (page, row) in INLINE {
+            assert!(
+                LINKS.iter().any(|(on, link, ..)| on == page && link == row),
+                "{} 页「{row}」要带「了解更多」，LINKS 里却没有它",
                 page.label()
             );
         }

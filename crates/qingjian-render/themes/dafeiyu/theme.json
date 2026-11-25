@@ -1,7 +1,7 @@
 {
   "extends": "qingjian",
   "schema": 1,
-  "meta": { "id": "dafeiyu", "name": "大肥鱼", "author": "青简", "license": "GPL-3.0-or-later AND LicenseRef-Character", "appearance": "light" },
+  "meta": { "id": "dafeiyu", "name": "大肥鱼", "author": "青简", "license": "GPL-3.0-or-later AND CC-BY-NC-SA-4.0", "appearance": "light" },
 
   "variables": {
     "text": "#11275e",

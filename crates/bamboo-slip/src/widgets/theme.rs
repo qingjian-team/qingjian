@@ -8,10 +8,26 @@ use crate::color::Color;
 use crate::text::TextStyle;
 use crate::text::font::{FontSpec, FontWeight};
 
+/// 照哪套系统的设置画：分组的画法、行的高度、说明放在哪。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Look {
+    /// 引擎自己的画法：分组是一张描边卡片，说明收进标题旁的 ⓘ。
+    #[default]
+    Plain,
+
+    /// macOS「系统设置」：圆角分组框、行间细线，说明写在标题下面。
+    Mac,
+
+    /// Windows 11「设置」：一行一张卡片，说明写在标题下面。
+    Fluent,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct WidgetTheme {
     /// 点 → 像素。
     pub scale: f32,
+
+    pub look: Look,
 
     pub colors: WidgetColors,
 
@@ -55,6 +71,7 @@ impl WidgetTheme {
     pub fn new(colors: WidgetColors, scale: f32) -> Self {
         Self {
             scale,
+            look: Look::Plain,
             colors,
             font: FontSpec::new(13.0, 18.0),
             small: 11.0,

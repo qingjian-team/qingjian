@@ -57,7 +57,13 @@ impl MenuPanel {
         pick: MenuPick,
     ) {
         let scale = self.panel.backingScaleFactor() as f32;
-        let Some(bounds) = self.view.open(items, dark, scale, pick) else {
+        // 菜单按当前主题画：主题在 Host 里（热加载过的那份），拿不到就用控件的浅色 / 深色默认
+        let style = crate::host::with(|h| {
+            let id = h.settings.config().general.theme_id().to_owned();
+            h.themes.resolve(&id, dark).menu_style(dark)
+        })
+        .unwrap_or_else(|| qingjian_render::MenuStyle::system(dark));
+        let Some(bounds) = self.view.open(items, style, scale, pick) else {
             return;
         };
         let content = bounds.content;

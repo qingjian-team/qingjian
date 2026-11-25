@@ -1,11 +1,11 @@
 //! 「实验功能」页：可以下载的本地模型，以及青简剪贴板（总开关没开时下面几项灰掉）。
-//! 本地模型一个一张卡片。没下载给「下载」，下着给进度条与「取消」，下好了才有开关与「删除」；
+//! 本地模型一个一张卡片（竹青一个一节，两种原生外观共一节「整句模型」）。没下载给「下载」，下着给进度条与「取消」，下好了才有开关与「删除」；
 //! 知意、通变两个只开一个，开了这个就关掉另一个，都关着就是不用模型（只按词库）。知意开着时下面出三档。
 
 use bamboo_slip::taffy::NodeId;
 use bamboo_slip::{
-    Button, DownloadRow, DownloadState, FieldValue, RenderError, Segmented, SettingRow, Switch, Ui,
-    fields, group, paragraph, section_title, toolbar,
+    Button, DownloadRow, DownloadState, FieldValue, Look, RenderError, SettingRow, Ui, fields,
+    group, paragraph, section_title, toolbar,
 };
 use qingjian_platform::{CLIPBOARD_HISTORY_LIMITS, ClipboardEdge, LocalModel, ZhiyiTier};
 
@@ -18,8 +18,9 @@ use crate::system::action::Action;
 use crate::view::Page;
 use crate::view::pages::shortcuts::recorder;
 use crate::view::parts::actions::with_notice;
-use crate::view::parts::controls::{choice, toggle_info};
+use crate::view::parts::controls::{choice, pick, switch, toggle_info};
 use crate::view::parts::download::{DownloadStatus, labels};
+use crate::view::parts::lists::with_actions;
 
 pub fn experimental(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderError> {
     let theme = &page.theme;
@@ -28,8 +29,15 @@ pub fn experimental(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Re
         out.push(paragraph(ui, theme, error, None)?);
     }
     if Feature::ExperimentalModels.here() {
+        // 竹青一个模型一节、标题写「知意（推荐）」；两种原生外观共一节「整句模型」，「推荐」是知意名字旁的小标签
+        let native = theme.look != Look::Plain;
+        if native {
+            out.push(section_title(ui, theme, tr("experimental.section_models"))?);
+        }
         for pack in Pack::ALL {
-            out.push(section_title(ui, theme, title(pack.model))?);
+            if !native {
+                out.push(section_title(ui, theme, title(pack.model))?);
+            }
             let rows = card(ui, page, pack)?;
             out.push(group(ui, theme, &rows)?);
         }
@@ -55,7 +63,7 @@ fn clipboard(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderErr
     let theme = &page.theme;
     let config = &page.settings.config.clipboard;
     let on = config.enabled;
-    let switch = Switch::new(on).build(
+    let switch = switch(page, on).build(
         ui,
         theme,
         "clipboard-enabled",
@@ -69,7 +77,7 @@ fn clipboard(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderErr
         ui,
         page,
         Shortcut::Clipboard,
-        tr("experimental.clipboard_hotkey_info"),
+        Some(tr("experimental.clipboard_hotkey_info")),
         !on,
     )?;
     let labels = ClipboardEdge::ALL.map(edge_label);
@@ -77,10 +85,12 @@ fn clipboard(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderErr
         .iter()
         .position(|edge| *edge == config.edge)
         .unwrap_or(0);
-    let edges = Segmented::new(&labels, selected).disabled(!on).build(
+    let edges = pick(
         ui,
-        theme,
+        page,
         "clipboard-edge",
+        (&labels, selected),
+        !on,
         |index| Message::set("clipboard", "edge", ClipboardEdge::ALL[index].key()),
     )?;
     let edge = SettingRow::new(tr("experimental.clipboard_edge"))
@@ -95,15 +105,20 @@ fn clipboard(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderErr
         .iter()
         .position(|limit| *limit == config.history_limit)
         .unwrap_or(2);
-    let limit = Segmented::new(&limit_labels, limit_index)
-        .disabled(!on)
-        .build(ui, theme, "clipboard-limit", |index| {
+    let limit = pick(
+        ui,
+        page,
+        "clipboard-limit",
+        (&limit_labels, limit_index),
+        !on,
+        |index| {
             Message::set(
                 "clipboard",
                 "history_limit",
                 i64::from(CLIPBOARD_HISTORY_LIMITS[index]),
             )
-        })?;
+        },
+    )?;
     let limit = SettingRow::new(tr("experimental.clipboard_limit"))
         .info(tr("experimental.clipboard_limit_info"))
         .control(limit)
@@ -163,7 +178,8 @@ fn clipboard(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderErr
     Ok(out)
 }
 
-/// 不记录的程序：自成一节，标题下一行说明与「添加程序」，再是加过的程序，一个一行带「移除」。
+/// 不记录的程序：自成一节，标题下一行说明，再是加过的程序，一个一行带「移除」。
+/// 竹青把「添加程序」放在说明右边；照系统设置画时它是列表最上面的一行（[`with_actions`]）。
 fn excluded_apps(ui: &mut Ui<Message>, page: &Page, on: bool) -> Result<Vec<NodeId>, RenderError> {
     let theme = &page.theme;
     let config = &page.settings.config.clipboard;
@@ -176,7 +192,6 @@ fn excluded_apps(ui: &mut Ui<Message>, page: &Page, on: bool) -> Result<Vec<Node
     let add = Button::new(tr("experimental.clipboard_add_app"))
         .disabled(!on)
         .build(ui, theme, "clipboard-add-app", Message::ExcludeClipboardApp)?;
-    out.push(toolbar(ui, theme, &[note, add])?);
     let mut rows = Vec::new();
     for app in &config.excluded_apps {
         let kept: Vec<String> = config
@@ -195,9 +210,19 @@ fn excluded_apps(ui: &mut Ui<Message>, page: &Page, on: bool) -> Result<Vec<Node
             )?;
         rows.push(SettingRow::new(app).control(remove).build(ui, theme)?);
     }
-    if !rows.is_empty() {
-        out.push(group(ui, theme, &rows)?);
+    if theme.look == Look::Plain {
+        out.push(toolbar(ui, theme, &[note, add])?);
+        if !rows.is_empty() {
+            out.push(group(ui, theme, &rows)?);
+        }
+        return Ok(out);
     }
+    out.push(note);
+    let action = SettingRow::new(tr("experimental.clipboard_apps"))
+        .control(add)
+        .build(ui, theme)?;
+    let rows = with_actions(rows, vec![action]);
+    out.push(group(ui, theme, &rows)?);
     Ok(out)
 }
 
@@ -224,7 +249,7 @@ fn card(ui: &mut Ui<Message>, page: &Page, pack: Pack) -> Result<Vec<NodeId>, Re
     let item = Item::Model(pack.model);
     let status = DownloadStatus::of(page, &item);
     let switch = if pack.installed() {
-        Some(Switch::new(on).build(
+        Some(switch(page, on).build(
             ui,
             theme,
             ("use", pack.tag),
@@ -234,8 +259,10 @@ fn card(ui: &mut Ui<Message>, page: &Page, pack: Pack) -> Result<Vec<NodeId>, Re
         None
     };
     let state = status.state(pack.installed().then_some(false));
+    let recommended = theme.look != Look::Plain && pack.model == LocalModel::Zhiyi;
     let row = DownloadRow::new(pack.model.label(), state, labels())
         .detail(description(pack.model))
+        .highlight(recommended.then(|| tr("experimental.recommended")))
         .caption(|ui| {
             fields(
                 ui,
@@ -268,6 +295,7 @@ fn card(ui: &mut Ui<Message>, page: &Page, pack: Pack) -> Result<Vec<NodeId>, Re
         )?;
         rows.push(
             SettingRow::new(tr("experimental.tier"))
+                .info(tr("experimental.tier_info"))
                 .control(tiers)
                 .build(ui, theme)?,
         );

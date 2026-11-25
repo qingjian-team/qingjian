@@ -8,7 +8,7 @@ The top of 设置 → 统计 (Settings → Statistics) has two tabs, 输入 (Typ
 
 ## Amount typed
 
-- Four number cards: Chinese characters, Chinese words and English words typed today, in the last 7 days, this month and in total. The last 7 days include today and roll by day; they don't reset on Monday or Sunday.
+- Four numbers: Chinese characters, Chinese words and English words typed today, in the last 7 days, this month and in total. The last 7 days include today and roll by day; they don't reset on Monday or Sunday.
 - The past year: one square per day, one column per week (Sunday on top); the darker the square, the more you typed that day. Hover over a square to see the date and character count.
 - The past 24 hours: one bar per hour, with the current hour on the far right; hover over a bar to see how many characters you typed in that hour.
 - Typing details:
@@ -34,7 +34,7 @@ Levels are shown only on the statistics page, never in the candidate window. The
 
 ## AI service usage
 
-The 云服务 (Cloud services) tab works like the typing tab: four number cards for today, the last 7 days, this month and in total (tokens and requests), plus tokens per day over the past year and per hour over the past 24 hours.
+The 云服务 (Cloud services) tab works like the typing tab: four numbers for today, the last 7 days, this month and in total (tokens and requests), plus tokens per day over the past year and per hour over the past 24 hours.
 Tokens are the unit AI providers charge by, roughly proportional to the amount of text sent and received.
 The details show your busiest day, the total number of requests, responses received, failures and requests still waiting for a result, as well as input, output and total tokens and how many of the input tokens hit the cache. The latest records are read each time you open the statistics page, and totals are kept across restarts.
 

@@ -16,6 +16,12 @@ pub struct PopupMenu<'a> {
     items: &'a [&'a str],
 
     hovered: Option<usize>,
+
+    /// 卡片与行的圆角（点）；`None` 用主题的控件圆角。
+    radius: Option<f32>,
+
+    /// 卡片边框宽度（点）；`None` 用 1 点。写 0 就是没有边框。
+    border_width: Option<f32>,
 }
 
 impl<'a> PopupMenu<'a> {
@@ -23,11 +29,35 @@ impl<'a> PopupMenu<'a> {
         Self {
             items,
             hovered: None,
+            radius: None,
+            border_width: None,
         }
     }
 
     pub fn hovered(self, hovered: Option<usize>) -> Self {
         Self { hovered, ..self }
+    }
+
+    /// 卡片与行的圆角。用方角外观的使用方传 `Some(0.0)`；不写跟主题的控件圆角。
+    pub fn radius(self, radius: f32) -> Self {
+        Self {
+            radius: Some(radius),
+            ..self
+        }
+    }
+
+    /// 卡片边框宽度。`0` 是不要边框（方角主题常这么配）。
+    pub fn border_width(self, width: f32) -> Self {
+        Self {
+            border_width: Some(width),
+            ..self
+        }
+    }
+
+    /// 卡片圆角（点）：给了就用给的，`t` 是点 → 像素的倍数。
+    fn corner(&self, theme: &WidgetTheme) -> f32 {
+        self.radius
+            .map_or(theme.px(theme.popup_radius), |radius| theme.px(radius))
     }
 
     /// 建卡片，返回根节点（放在窗口根上，大小由内容撑开）与各项的节点（按 `items` 的顺序）。
@@ -48,7 +78,9 @@ impl<'a> PopupMenu<'a> {
                 &[],
             )?;
             let fill = (self.hovered == Some(index)).then_some(colors.hover);
-            rows.push(scene.node(item_style(theme), item_visual(theme, fill), &[text])?);
+            // 行比卡片小一圈，方角时两边都是 0，不会出现负数
+            let corner = (self.corner(theme) - theme.px(2.0)).max(0.0);
+            rows.push(scene.node(item_style(theme), solid(fill, None, corner), &[text])?);
         }
         let root = scene.node(
             Style {
@@ -60,7 +92,11 @@ impl<'a> PopupMenu<'a> {
                 },
                 ..Style::default()
             },
-            panel_visual(theme),
+            panel_visual(
+                theme,
+                self.corner(theme).max(0.0),
+                self.border_width.map_or(theme.px(1.0), |w| theme.px(w)),
+            ),
             &rows,
         )?;
         scene.set_effects(root, vec![panel_shadow(theme)]);
@@ -82,13 +118,11 @@ pub(super) fn item_visual(theme: &WidgetTheme, fill: Option<crate::color::Color>
     solid(fill, None, theme.px(theme.popup_radius) - theme.px(2.0))
 }
 
-/// 卡片：弹出层底色、细边、控件圆角。
-pub(super) fn panel_visual(theme: &WidgetTheme) -> Visual {
-    solid(
-        Some(theme.colors.popup),
-        Some((theme.px(1.0), theme.colors.line)),
-        theme.px(theme.popup_radius),
-    )
+/// 卡片：弹出层底色、细边；`radius` 与 `border` 是调用方定的圆角与边框宽度（像素）。
+pub(super) fn panel_visual(theme: &WidgetTheme, radius: f32, border: f32) -> Visual {
+    // 宽度为 0 时不画边框（画上去会盖住一个像素的底）
+    let edge = (border > 0.0).then_some((border, theme.colors.line));
+    solid(Some(theme.colors.popup), edge, radius)
 }
 
 /// 卡片下的投影。

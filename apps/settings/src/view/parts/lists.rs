@@ -1,18 +1,21 @@
-//! 词库、码表的清单：每本一行（勾选开关、条数与许可证、移除），随包领域词库排成两列，末尾一行导入按钮。
+//! 词库、码表的清单：每本一行（勾选开关、条数与许可证、移除），随包领域词库排成两列，清单上面一行导入按钮（见 [`with_actions`]）。
+//! 照系统设置画时一本一行设置：名字下面一行灰字写「条数 · 许可」，右边只放开关与「…」，导出、移除收进「…」的菜单。
 
 use bamboo_slip::taffy::{
     AlignItems, Dimension, FlexDirection, FlexWrap, JustifyContent, LengthPercentage,
     LengthPercentageAuto, NodeId, Rect, Size, Style,
 };
-use bamboo_slip::{Button, Checkbox, RenderError, SettingRow, Ui, Visual, info_with_link};
+use bamboo_slip::{Button, Checkbox, Look, RenderError, SettingRow, Ui, Visual, info_with_link};
 use qingjian_dictionary::GENERAL_DICTIONARY;
 
 use crate::i18n::{tr, tr_args};
 use crate::library::{Entry, Kind};
-use crate::message::Message;
+use crate::message::{Message, Popup};
 use crate::stats::compact;
 use crate::view::Page;
 use crate::view::parts::actions::with_notice;
+use crate::view::parts::controls::switch;
+use crate::view::parts::menus::anchor;
 
 /// 随包领域词库名字的统一前缀。
 const DOMAIN_PREFIX: &str = "青简领域词库：";
@@ -29,6 +32,9 @@ pub fn entry_row(
     info: Option<&str>,
 ) -> Result<NodeId, RenderError> {
     let theme = &page.theme;
+    if theme.look != Look::Plain {
+        return native_row(ui, page, kind, entry, (toggle, removable, info));
+    }
     let checkbox = match toggle {
         Some((on, toggle)) => Checkbox::new(on && !entry.broken, &entry.name)
             .disabled(entry.broken)
@@ -122,6 +128,72 @@ pub fn entry_row(
         Visual::Group,
         &[checkbox, trailing],
     )
+}
+
+/// 照系统设置画的一本：见文件头。
+fn native_row(
+    ui: &mut Ui<Message>,
+    page: &Page,
+    kind: Kind,
+    entry: &Entry,
+    (toggle, removable, info): (Option<(bool, Message)>, bool, Option<&str>),
+) -> Result<NodeId, RenderError> {
+    let theme = &page.theme;
+    let detail = if entry.broken {
+        tr("lists.broken").to_owned()
+    } else {
+        let license = if entry.license.is_empty() {
+            tr("lists.license_unknown").to_owned()
+        } else {
+            license_label(&entry.license)
+        };
+        format!("{} · {}", count(entry.entries), license)
+    };
+    let mut controls = Vec::new();
+    if let Some((on, message)) = toggle {
+        controls.push(
+            switch(page, on && !entry.broken)
+                .disabled(entry.broken)
+                .build(ui, theme, ("entry", kind, entry.stem.as_str()), message)?,
+        );
+    }
+    let index = page
+        .settings
+        .library
+        .imported(kind)
+        .iter()
+        .position(|imported| imported.stem == entry.stem);
+    if let Some(index) = index.filter(|_| removable) {
+        let popup = Popup::Entry(kind, index);
+        controls.push(Button::new("⋯").build(
+            ui,
+            theme,
+            anchor(popup),
+            Message::OpenMenu(popup),
+        )?);
+    }
+    let control = ui.scene().node(
+        Style {
+            flex_direction: FlexDirection::Row,
+            align_items: AlignItems::CENTER,
+            gap: page.gap(10.0),
+            ..Style::default()
+        },
+        Visual::Group,
+        &controls,
+    )?;
+    // 装好的下载词库在「可下载的词库」里也有同名的一行
+    let row = SettingRow::new(&entry.name)
+        .id(&entry.stem)
+        .control(control);
+    // 有说明的（笔画码表的笔顺写法）说明在上、条数许可在下
+    match info {
+        Some(info) => {
+            let caption = text(ui, page, &detail)?;
+            row.info(info).caption(caption).build(ui, theme)
+        }
+        None => row.detail(&detail).build(ui, theme),
+    }
 }
 
 /// 随包词库（通用词库与领域词库）：两列勾选，名字后面跟条数。
@@ -220,6 +292,11 @@ fn grid_cell(
         Visual::Group,
         children,
     )
+}
+
+/// 列表接上它的操作行（新增、导入、添加）：三套外观都放在列表上面，列表再长也不用滚到底才点得到。
+pub fn with_actions(items: Vec<NodeId>, actions: Vec<NodeId>) -> Vec<NodeId> {
+    actions.into_iter().chain(items).collect()
 }
 
 /// 末尾的导入行：按钮，导入中变灰，结果显示在下面。

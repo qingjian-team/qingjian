@@ -1,9 +1,9 @@
 //! 主题的图片与字体素材：加载主题时读进来，图片解码一次、渲染时按路径取；字体只核对路径，由渲染器加载。
 //! 用户主题从主题目录读；内置主题的图片编进程序（`include_bytes!`），按同样的路径查表，不带字体（只用系统字体）。
 //!
-//! 路径相对 `theme.json`，不能是绝对路径、不能含 `..`（主题不能读主题目录以外的文件）；图片认 PNG（边长上限 [`MAX_SIDE`]）
-//! 与 SVG（`.svg` 结尾，文件上限 [`MAX_SVG_BYTES`]、原始尺寸不超过 [`MAX_SIDE`]）；
-//! 字体单个文件上限 [`MAX_FONT_BYTES`]。读不进来的记警告，用到图片的填充不画，用到字体的样式按回退链往后找。
+//! 路径相对 `theme.json`，不能是绝对路径、不能含 `..`（主题不能读主题目录以外的文件）；图片认 PNG（文件上限
+//! [`MAX_PNG_BYTES`]、边长上限 [`MAX_SIDE`]）与 SVG（`.svg` 结尾，文件上限 [`MAX_SVG_BYTES`]、原始尺寸不超过
+//! [`MAX_SIDE`]）；字体单个文件上限 [`MAX_FONT_BYTES`]。读不进来的记警告，用到图片的填充不画，用到字体的样式按回退链往后找。
 
 use std::borrow::Cow;
 use std::collections::HashMap;
@@ -18,6 +18,10 @@ use super::file::node::{FillSpec, NodeKind, NodeSpec};
 
 /// 图片边长上限（像素）。
 const MAX_SIDE: u32 = 4096;
+
+/// 单个 PNG 文件上限（字节），与字体一样。读文件时按它挡，超大的文件不整份读进内存；
+/// [`MAX_SIDE`] 要等解码后才查得到。
+const MAX_PNG_BYTES: u64 = 32 * 1024 * 1024;
 
 /// 单个 SVG 文件上限（字节）。
 const MAX_SVG_BYTES: u64 = 4 * 1024 * 1024;
@@ -84,7 +88,7 @@ impl Assets {
                         svgs.insert(path.clone(), Arc::new(svg));
                     })
             } else {
-                read(&path, u64::MAX)
+                read(&path, MAX_PNG_BYTES)
                     .and_then(|data| decode_png(&data))
                     .map(|image| {
                         images.insert(path.clone(), Arc::new(image));
@@ -215,7 +219,7 @@ fn collect(node: &NodeSpec, out: &mut Vec<String>) {
 
 #[cfg(test)]
 mod tests {
-    use super::Assets;
+    use super::{Assets, MAX_PNG_BYTES, MAX_SVG_BYTES, read_file};
     use crate::theme::Theme;
 
     const SVG: &[u8] = br#"<svg xmlns="http://www.w3.org/2000/svg" width="4" height="4"/>"#;
@@ -233,5 +237,57 @@ mod tests {
         assert!(assets.svg("images/a.svg").is_some());
         assert!(assets.image("images/missing.png").is_none());
         assert!(assets.fonts().is_empty());
+    }
+
+    /// PNG 与 SVG 一样按文件大小限量读入。
+    #[test]
+    fn png_is_read_with_a_byte_limit() {
+        let theme = Theme::from_json(
+            r#"{ "extends": "qingjian", "schema": 1, "meta": { "id": "l", "name": "l" },
+                 "windows": { "vertical": { "fill": { "image": "images/a.png" } },
+                              "horizontal": { "fill": { "image": "images/b.svg" } } } }"#,
+            false,
+        )
+        .unwrap();
+        let limits = std::cell::RefCell::new(Vec::new());
+        let assets = Assets::decode(theme.file(), |path, limit| {
+            limits.borrow_mut().push((path.to_owned(), limit));
+            Err("不存在")
+        });
+        let limits = limits.into_inner();
+        let png = limits
+            .iter()
+            .find(|(path, _)| path == "images/a.png")
+            .map(|(_, limit)| *limit);
+        assert_eq!(
+            png,
+            Some(MAX_PNG_BYTES),
+            "PNG 要按 {MAX_PNG_BYTES} 字节限量"
+        );
+        let svg = limits
+            .iter()
+            .find(|(path, _)| path == "images/b.svg")
+            .map(|(_, limit)| *limit);
+        assert_eq!(svg, Some(MAX_SVG_BYTES));
+        assert!(assets.image("images/a.png").is_none());
+    }
+
+    /// 超过上限的 PNG 连读都不读，直接记「太大」。
+    #[test]
+    fn an_oversized_png_file_is_refused_before_being_read() {
+        let dir = std::env::temp_dir().join(format!(
+            "qingjian-theme-limit-{}-{:?}",
+            std::process::id(),
+            std::thread::current().id()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        let file = std::fs::File::create(dir.join("big.png")).unwrap();
+        file.set_len(MAX_PNG_BYTES + 1).unwrap();
+        drop(file);
+        assert!(matches!(
+            read_file(&dir, "big.png", MAX_PNG_BYTES),
+            Err("太大")
+        ));
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

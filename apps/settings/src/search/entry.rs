@@ -17,4 +17,7 @@ pub struct Entry {
 
     /// 行里控件上的字与同义词。
     pub keywords: Vec<String>,
+
+    /// 收在哪张展开卡片里（[`bamboo_slip::Searchable::region`]）。
+    pub region: Option<Key>,
 }

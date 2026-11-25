@@ -28,6 +28,7 @@ use crate::theme::file::MaterialAppearance;
 use build::Builder;
 
 pub use hit::{HitRegion, HitTarget, PanelHit, PreeditHit};
+pub use menu::MenuStyle;
 pub use rendered::Rendered;
 pub use status::{RenderedStatus, StatusCell};
 

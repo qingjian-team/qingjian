@@ -30,6 +30,8 @@ pub enum Feature {
     EnglishPunctuation,
     AutoSpace,
     StatusBar,
+    /// macOS 菜单栏的「中 / 英」状态项。
+    MenubarIndicator,
     /// 横排时 ↑ / ↓ 展开成多行。
     HorizontalGrid,
     /// 横排时翻页键也展开成多行。
@@ -95,6 +97,7 @@ impl Feature {
         Self::EnglishPunctuation,
         Self::AutoSpace,
         Self::StatusBar,
+        Self::MenubarIndicator,
         Self::HorizontalGrid,
         Self::GridPageKeys,
         Self::CommitKeys,
@@ -156,6 +159,8 @@ impl Feature {
             Self::AutoSpace => [Yes, Yes, Todo],
             // macOS 看菜单栏图标，Linux 看 Fcitx5 的托盘
             Self::StatusBar => [No, Yes, No],
+            // 只有 macOS 自己放了一个菜单栏状态项
+            Self::MenubarIndicator => [Yes, No, No],
             Self::HorizontalGrid => [Yes, Yes, Todo],
             Self::GridPageKeys => [Yes, Yes, Todo],
             // macOS 的空格走 insertText、回车走 insertNewline:，要另接
@@ -208,6 +213,7 @@ impl Feature {
             Self::EnglishPunctuation => "英文标点全半角",
             Self::AutoSpace => "中文与英文、数字之间自动加空格",
             Self::StatusBar => "悬浮状态条",
+            Self::MenubarIndicator => "菜单栏中 / 英状态项",
             Self::HorizontalGrid => "横排时 ↑ / ↓ 展开成多行",
             Self::GridPageKeys => "横排时翻页键展开成多行",
             Self::CommitKeys => "上屏键自定义",
@@ -255,6 +261,7 @@ impl Feature {
             Self::DefaultEnglish => &[(PageId::Language, "language.default_english")],
             Self::RememberModePerApp => &[(PageId::Language, "language.remember_per_app")],
             Self::AutoSpace => &[(PageId::Language, "language.auto_space")],
+            Self::MenubarIndicator => &[(PageId::Language, "language.menubar_indicator")],
             Self::ExtraPageKeys => &[(PageId::Shortcuts, "shortcuts.extra_page_keys")],
             Self::EnterTranslation => &[(PageId::Shortcuts, "shortcuts.enter_translation")],
             Self::CommitKeys => &[

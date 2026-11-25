@@ -23,11 +23,21 @@ const LABELS: DownloadLabels<'static> = DownloadLabels {
     delete: "Delete",
     delete_confirm: "Click again",
     update: "Update",
+    installed: "Installed",
     blocked: "Update the app first",
 };
 
 /// 建一行、布局、交给交互层；返回说明下面那层有没有被建。
 fn frame(interaction: &mut Interaction<Message>, state: DownloadState, busy: bool) -> bool {
+    frame_with(interaction, state, busy, false)
+}
+
+fn frame_with(
+    interaction: &mut Interaction<Message>,
+    state: DownloadState,
+    busy: bool,
+    mark_installed: bool,
+) -> bool {
     let theme = WidgetTheme::new(WidgetColors::LIGHT, 1.0);
     let built = Cell::new(false);
     let mut ui = Ui::new(interaction);
@@ -37,6 +47,7 @@ fn frame(interaction: &mut Interaction<Message>, state: DownloadState, busy: boo
             fields(ui, &theme, &[("Size", FieldValue::Text("0.3 MB"))])
         })
         .busy(busy)
+        .mark_installed(mark_installed)
         .build(
             &mut ui,
             &theme,
@@ -71,6 +82,19 @@ fn installed_with_update_offers_delete_and_update() {
         DownloadState::Installed { outdated: true },
         false
     ));
+    assert_eq!(click(&mut interaction, "remove"), vec![Message::Remove]);
+    assert_eq!(click(&mut interaction, "start"), vec![Message::Download]);
+}
+
+#[test]
+fn marked_installed_still_offers_delete_and_update() {
+    let mut interaction = Interaction::new();
+    frame_with(
+        &mut interaction,
+        DownloadState::Installed { outdated: true },
+        false,
+        true,
+    );
     assert_eq!(click(&mut interaction, "remove"), vec![Message::Remove]);
     assert_eq!(click(&mut interaction, "start"), vec![Message::Download]);
 }

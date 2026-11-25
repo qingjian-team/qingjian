@@ -28,6 +28,7 @@ pub use layout::Layout;
 pub use material::{Material, MaterialBacking};
 pub use panel::{PanelCell, PanelFrame, PanelTranslate};
 pub use renderer::{
-    HitRegion, HitTarget, PanelHit, PreeditHit, Rendered, RenderedStatus, Renderer, StatusCell,
+    HitRegion, HitTarget, MenuStyle, PanelHit, PreeditHit, Rendered, RenderedStatus, Renderer,
+    StatusCell,
 };
 pub use theme::{KeyboardColors, TextSizes, Theme, ThemeError, ThemeLibrary};
