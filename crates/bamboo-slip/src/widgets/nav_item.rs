@@ -1,5 +1,6 @@
 //! 导航项：侧栏里的一页，图标加名字。选中项垫一块底，换页时这块底滑到新的一项上（同一作用域里的导航项共用它的 key）。
 //! [`Look::Mac`] 的选中项是强调色底白字；[`Look::Fluent`] 是浅灰底，左边一段强调色竖条。
+//! 名字下面可以再挂几行小字（[`NavItem::line`]，搜索结果的摘录与所在位置），放不下的截短。
 
 use std::hash::Hash;
 use std::sync::Arc;
@@ -7,7 +8,7 @@ use std::sync::Arc;
 use taffy::{NodeId, Style};
 
 use super::WidgetTheme;
-use super::parts::{centered, focus_ring, label, overlay, padding, row, solid};
+use super::parts::{centered, column, focus_ring, label, overlay, padding, row, solid, truncated};
 use super::theme::Look;
 use crate::animation::Easing;
 use crate::error::RenderError;
@@ -29,6 +30,9 @@ pub struct NavItem<'a> {
 
     /// 选中时额外叠上的装饰（使用方建好的节点，如品牌的选中标记），绝对定位相对这一项。
     accessory: Option<NodeId>,
+
+    /// 名字下面的小字，一项一行。
+    lines: Vec<&'a str>,
 }
 
 impl<'a> NavItem<'a> {
@@ -39,7 +43,14 @@ impl<'a> NavItem<'a> {
             leading: None,
             selected: false,
             accessory: None,
+            lines: Vec::new(),
         }
+    }
+
+    /// 名字下面加一行次要色的小字；有小字时名字与小字放不下都截短。
+    pub fn line(mut self, text: &'a str) -> Self {
+        self.lines.push(text);
+        self
     }
 
     pub fn icon(self, icon: Arc<dyn Icon>) -> Self {
@@ -118,14 +129,47 @@ impl<'a> NavItem<'a> {
         } else {
             400
         };
-        children.push(label(
-            ui,
-            theme,
-            self.label,
-            theme.font.size,
-            weight,
-            color,
-        )?);
+        if self.lines.is_empty() {
+            children.push(label(
+                ui,
+                theme,
+                self.label,
+                theme.font.size,
+                weight,
+                color,
+            )?);
+        } else {
+            let secondary = if self.selected && theme.look == Look::Mac {
+                colors.on_accent
+            } else {
+                colors.secondary
+            };
+            let mut texts = vec![truncated(
+                ui,
+                theme.text(theme.font.size, weight, color).truncated(),
+                self.label,
+            )?];
+            for line in &self.lines {
+                texts.push(truncated(
+                    ui,
+                    theme.text(theme.small, 400, secondary).truncated(),
+                    line,
+                )?);
+            }
+            children.push(ui.scene().node(
+                Style {
+                    flex_shrink: 1.0,
+                    flex_grow: 1.0,
+                    min_size: taffy::Size {
+                        width: taffy::LengthPercentageAuto::length(0.0),
+                        height: taffy::LengthPercentageAuto::auto(),
+                    },
+                    ..column(theme, 0.0)
+                },
+                Visual::Group,
+                &texts,
+            )?);
+        }
         if self.selected
             && let Some(accessory) = self.accessory
         {

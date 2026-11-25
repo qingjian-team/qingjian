@@ -39,6 +39,7 @@ about = "关于"
 
 [sidebar]
 search = "搜索"
+find_setting = "查找设置"
 no_results = "没有找到"
 
 [common]
@@ -48,6 +49,11 @@ window_title = "青简设置"
 system_font = "系统字体"
 on = "开"
 off = "关"
+learn_more = "了解更多…"
+learn_more_details = "了解详细信息"
+related_support = "相关支持"
+get_help = "获取帮助"
+page_docs = "在官网查看「{page}」的说明"
 app_name = "青简"
 no_data_dir = "找不到数据目录"
 list_separator = "、"

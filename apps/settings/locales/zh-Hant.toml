@@ -39,6 +39,7 @@ about = "關於"
 
 [sidebar]
 search = "搜尋"
+find_setting = "尋找設定"
 no_results = "沒有找到"
 
 [common]
@@ -48,6 +49,11 @@ window_title = "青簡設定"
 system_font = "系統字型"
 on = "開"
 off = "關"
+learn_more = "瞭解更多⋯"
+learn_more_details = "深入了解"
+related_support = "相關支援"
+get_help = "取得協助"
+page_docs = "在官網查看「{page}」的說明"
 app_name = "青簡"
 no_data_dir = "找不到資料目錄"
 list_separator = "、"

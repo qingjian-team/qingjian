@@ -4,7 +4,7 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use bamboo_slip::taffy::NodeId;
-use bamboo_slip::{App, FamilyList, FamilyTable, Key, RenderError, TextPainter, Ui, Waker};
+use bamboo_slip::{App, FamilyList, FamilyTable, Key, Look, RenderError, TextPainter, Ui, Waker};
 
 use super::{SIZES, Settings};
 
@@ -312,11 +312,12 @@ impl App for Settings {
                 }
                 self.search.refresh();
             }
-            Message::SearchFirst => {
+            Message::SearchCommit => {
                 if !self.search.hits.is_empty() {
-                    return self.update(Message::Jump(0));
+                    return self.update(Message::Jump(self.search.hot.unwrap_or(0)));
                 }
             }
+            Message::SearchStep(down) => self.search.step(down),
             Message::ClearSearch => self.search.clear(),
             Message::OpenDoc(url) => {
                 if let Err(error) = action::open(&url) {
@@ -327,6 +328,10 @@ impl App for Settings {
                 if let Some(hit) = self.search.hits.get(index).cloned() {
                     self.update(Message::Page(hit.page));
                     self.spotlight(hit.key);
+                    // Windows 的结果是搜索框下的浮层，跳过去就收起；侧栏里的结果留着接着点
+                    if view::look::current() == Look::Fluent {
+                        self.search.clear();
+                    }
                 }
             }
             Message::Quit => return false,

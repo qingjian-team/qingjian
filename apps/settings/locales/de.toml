@@ -39,6 +39,7 @@ about = "Über"
 
 [sidebar]
 search = "Suchen"
+find_setting = "Einstellung suchen"
 no_results = "Keine Treffer"
 
 [common]
@@ -48,6 +49,11 @@ window_title = "Qingjian-Einstellungen"
 system_font = "Systemschrift"
 on = "Ein"
 off = "Aus"
+learn_more = "Weitere Infos …"
+learn_more_details = "Weitere Informationen"
+related_support = "Zugehöriger Support"
+get_help = "Hilfe erhalten"
+page_docs = "„{page}“ auf der Website ansehen"
 app_name = "Qingjian"
 no_data_dir = "Der Datenordner wurde nicht gefunden"
 list_separator = ", "

@@ -6,7 +6,9 @@ use std::sync::Arc;
 use bamboo_slip::taffy::{
     Dimension, FlexDirection, LengthPercentage, LengthPercentageAuto, NodeId, Rect, Size, Style,
 };
-use bamboo_slip::{BoxPaint, Color, Fill, RenderError, TITLEBAR, Ui, Visual, WidgetColors};
+use bamboo_slip::{
+    BoxPaint, Color, Fill, RenderError, ScrollArea, TITLEBAR, Ui, Visual, WidgetColors,
+};
 
 use super::{language, navigation, results, search_field};
 use crate::message::Message;
@@ -60,14 +62,17 @@ pub fn sidebar(ui: &mut Ui<Message>, page: &Page) -> Result<NodeId, RenderError>
         Visual::Group,
         &items,
     )?;
-    let spacer = ui.scene().node(
-        Style {
-            flex_grow: 1.0,
-            ..Style::default()
+    // 搜索结果一条两三行，多了要滚；导航放得下，滚不动
+    let list = ScrollArea::new(Style {
+        flex_grow: 1.0,
+        flex_basis: Dimension::length(0.0),
+        min_size: Size {
+            width: LengthPercentageAuto::auto(),
+            height: LengthPercentageAuto::length(0.0),
         },
-        Visual::Group,
-        &[],
-    )?;
+        ..Style::default()
+    })
+    .build(ui, &page.theme, "sidebar", list)?;
     let language = language(ui, page)?;
     let side = LengthPercentage::length(page.px(10.0));
     let margin = LengthPercentageAuto::length(page.px(MARGIN));
@@ -101,7 +106,7 @@ pub fn sidebar(ui: &mut Ui<Message>, page: &Page) -> Result<NodeId, RenderError>
             border: Some((page.px(0.5).max(1.0), page.theme.colors.line)),
             radius: page.px(18.0),
         }),
-        &[search, list, spacer, language],
+        &[search, list, language],
     )
 }
 

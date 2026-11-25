@@ -119,6 +119,19 @@ pub fn run(config: Option<&Path>, directory: &Path) -> Result<(), Box<dyn std::e
     )));
     runner.handle(&Event::Text(TextInput::Insert("英语".to_owned())));
     shot(&mut runner, "搜索「英语」：控件上的字也搜得到")?;
+    for _ in 0..2 {
+        runner.handle(&Event::Key(KeyPress::new(
+            KeyCode::ArrowDown,
+            Modifiers::default(),
+        )));
+    }
+    shot(&mut runner, "按两下 ↓：选到第二条")?;
+    runner.handle(&Event::Key(KeyPress::new(
+        KeyCode::Escape,
+        Modifiers::default(),
+    )));
+    runner.handle(&Event::Text(TextInput::Insert("重选".to_owned())));
+    shot(&mut runner, "搜索「重选」：说明里命中的摘一段")?;
     runner.handle(&Event::Key(KeyPress::new(
         KeyCode::Escape,
         Modifiers::default(),

@@ -2,6 +2,7 @@
 //! 哪页放哪些项见 docs/design/settings.md。
 
 mod content;
+mod help;
 pub mod icons;
 pub mod look;
 mod page;
@@ -57,9 +58,21 @@ pub fn view(
         window: (width as f32, height as f32),
     };
     let current = settings.page;
-    ui.info_links(tr("common.info_hint"), move |title| {
-        crate::docs::link(current, title).map(Message::OpenDoc)
-    });
+    match look {
+        Look::Plain => ui.info_links(tr("common.info_hint"), move |title| {
+            crate::docs::link(current, title).map(Message::OpenDoc)
+        }),
+        Look::Mac | Look::Fluent => {
+            let hint = if look == Look::Mac {
+                tr("common.learn_more")
+            } else {
+                tr("common.learn_more_details")
+            };
+            ui.info_links(hint, move |title| {
+                crate::docs::inline_link(current, title).map(Message::OpenDoc)
+            });
+        }
+    }
     let sidebar = sidebar::sidebar(ui, &page)?;
     let content = content::content(ui, &page)?;
     let mut children = vec![sidebar, content];

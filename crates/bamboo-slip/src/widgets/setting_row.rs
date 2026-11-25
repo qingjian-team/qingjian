@@ -3,10 +3,14 @@
 
 use std::time::Duration;
 
-use taffy::{AlignItems, JustifyContent, LengthPercentageAuto, NodeId, Position, Rect, Style};
+use taffy::{
+    AlignItems, FlexWrap, JustifyContent, LengthPercentage, LengthPercentageAuto, NodeId, Position,
+    Rect, Style,
+};
 
 use super::WidgetTheme;
 use super::info::info_with_link;
+use super::link::Link;
 use super::parts::{column, label, padding, row, solid};
 use super::theme::Look;
 use crate::animation::Easing;
@@ -90,6 +94,7 @@ impl<'a> SettingRow<'a> {
     }
 
     /// 这一行的说明：[`Look::Plain`] 收进标题右边的 ⓘ（悬停浮出），别的外观照系统设置写在标题下面一行。
+    /// [`Ui::info_links`] 给了这一行的链接时，前者点 ⓘ 打开，后者在说明末尾跟一个链接。
     pub fn info(self, text: &'a str) -> Self {
         Self {
             info: Some(text),
@@ -124,7 +129,11 @@ impl<'a> SettingRow<'a> {
     }
 
     /// 行登记成可搜索项（标题与 ⓘ 全文），key 由标题派生；应用醒目标出它时铺一层底色。
-    pub fn build<M>(self, ui: &mut Ui<M>, theme: &WidgetTheme) -> Result<NodeId, RenderError> {
+    pub fn build<M: Clone + 'static>(
+        self,
+        ui: &mut Ui<M>,
+        theme: &WidgetTheme,
+    ) -> Result<NodeId, RenderError> {
         let key = ui.key(("row", self.title));
         let owned: Vec<NodeId> = self
             .control
@@ -167,15 +176,45 @@ impl<'a> SettingRow<'a> {
             )?;
         }
         let mut texts = vec![title];
+        let mut line = Vec::new();
         if let Some(detail) = detail {
             // 说明长了折行，不把右边的控件挤出去
-            texts.push(ui.scene().node(
-                Style::default(),
+            line.push(ui.scene().node(
+                Style {
+                    flex_shrink: 1.0,
+                    ..Style::default()
+                },
                 Visual::Text {
                     text: detail.to_owned(),
                     style: theme.text(theme.small, 400, colors.secondary).wrapped(),
                 },
                 &[],
+            )?);
+        }
+        // 系统设置的写法：链接跟在说明后面，放不下时折到下一行
+        if theme.look != Look::Plain
+            && let Some((message, hint)) = ui.info_link(self.title)
+        {
+            line.push(Link::new(hint).points(theme.small).build(
+                ui,
+                theme,
+                ("info", self.title),
+                message,
+            )?);
+        }
+        if !line.is_empty() {
+            texts.push(ui.scene().node(
+                Style {
+                    flex_wrap: FlexWrap::Wrap,
+                    align_items: AlignItems::BASELINE,
+                    gap: taffy::Size {
+                        width: LengthPercentage::length(theme.px(4.0)),
+                        height: LengthPercentage::length(0.0),
+                    },
+                    ..row(theme, 0.0)
+                },
+                Visual::Group,
+                &line,
             )?);
         }
         if let Some(caption) = self.caption {

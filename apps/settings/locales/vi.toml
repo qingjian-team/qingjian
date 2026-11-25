@@ -39,6 +39,7 @@ about = "Giới thiệu"
 
 [sidebar]
 search = "Tìm kiếm"
+find_setting = "Tìm một thiết đặt"
 no_results = "Không tìm thấy"
 
 [common]
@@ -48,6 +49,11 @@ window_title = "Cài đặt Qingjian"
 system_font = "Phông chữ hệ thống"
 on = "Bật"
 off = "Tắt"
+learn_more = "Tìm hiểu thêm…"
+learn_more_details = "Tìm hiểu thêm"
+related_support = "Hỗ trợ liên quan"
+get_help = "Nhận trợ giúp"
+page_docs = "Xem “{page}” trên trang web"
 app_name = "Qingjian"
 no_data_dir = "Không tìm thấy thư mục dữ liệu"
 list_separator = ", "

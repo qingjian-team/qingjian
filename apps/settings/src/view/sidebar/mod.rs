@@ -7,8 +7,13 @@ mod plain;
 
 use std::sync::Arc;
 
-use bamboo_slip::taffy::{AlignItems, Dimension, JustifyContent, NodeId, Size, Style};
-use bamboo_slip::{Look, NavItem, RenderError, SearchField, Ui, Visual, paragraph};
+use bamboo_slip::taffy::{
+    AlignItems, Dimension, FlexDirection, JustifyContent, NodeId, Size, Style,
+};
+use bamboo_slip::{
+    Interact, KeyCode, Look, NavItem, RenderError, SearchField, Suggestion, Suggestions, Ui,
+    Visual, paragraph,
+};
 
 use super::Page;
 use crate::i18n::tr;
@@ -16,6 +21,9 @@ use crate::message::{Message, Popup};
 use crate::page_id::PageId;
 use crate::view::icons::Glyph;
 use crate::view::parts::menus::{anchor, ui_language, ui_language_options};
+
+/// 搜索框的 key：Windows 的建议列表按它的位置摆。
+const SEARCH: &str = "search";
 
 pub fn sidebar(ui: &mut Ui<Message>, page: &Page) -> Result<NodeId, RenderError> {
     match page.theme.look {
@@ -34,18 +42,43 @@ pub fn width(look: Look) -> f32 {
     }
 }
 
+/// 搜索框：回车跳到结果里选到的那条（没选过是第一条），Esc 清空；↑ ↓ 在结果里移（Windows 的建议列表才画出选到的那条）。
 pub(super) fn search_field(ui: &mut Ui<Message>, page: &Page) -> Result<NodeId, RenderError> {
-    SearchField::new(&page.settings.search.edit)
-        .placeholder(tr("sidebar.search"))
+    let field = SearchField::new(&page.settings.search.edit)
+        .placeholder(if page.theme.look == Look::Fluent {
+            tr("sidebar.find_setting")
+        } else {
+            tr("sidebar.search")
+        })
         .icon(Arc::new(Glyph::Search))
         .build(
             ui,
             &page.theme,
-            "search",
+            SEARCH,
             Message::Search,
-            Some(Message::SearchFirst),
+            Some(Message::SearchCommit),
             Some(Message::ClearSearch),
-        )
+        )?;
+    // 单行输入框不接 ↑ ↓，按键冒到这一层
+    let node = ui.scene().node(
+        Style {
+            flex_direction: FlexDirection::Column,
+            ..Style::default()
+        },
+        Visual::Group,
+        &[field],
+    )?;
+    let key = ui.key("search-keys");
+    ui.interact(
+        node,
+        key,
+        Interact::new().on_key(|press| match press.key {
+            KeyCode::ArrowDown => Some(Message::SearchStep(true)),
+            KeyCode::ArrowUp => Some(Message::SearchStep(false)),
+            _ => None,
+        }),
+    );
+    Ok(node)
 }
 
 /// 一页的导航项配上这页的图标：竹青是线条图标，macOS 是彩色圆角方块，Windows 是 Fluent 彩色图标。
@@ -115,14 +148,52 @@ pub(super) fn results(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, 
             Some(theme.colors.secondary),
         )?]);
     }
+    let mac = theme.look == Look::Mac;
     ui.scope("hits", |ui| -> Result<Vec<NodeId>, RenderError> {
         let mut items = Vec::new();
         for (index, hit) in hits.iter().enumerate() {
-            let item = decorate(ui, page, NavItem::new(&hit.title), hit.page)?;
+            let mut item = NavItem::new(&hit.title);
+            // 系统设置的写法：说明里命中的摘一段，下面再写在哪一页
+            if mac {
+                if let Some(snippet) = &hit.snippet {
+                    item = item.line(snippet);
+                }
+                if hit.key.is_some() {
+                    item = item.line(hit.page.label());
+                }
+            }
+            let item = decorate(ui, page, item, hit.page)?;
             items.push(item.build(ui, theme, index, Message::Jump(index))?);
         }
         Ok(items)
     })
+}
+
+/// Windows 的搜索结果：搜索框下面弹出的建议列表，一条是标题、命中的那段说明与所在页；挂在根上盖住导航。
+/// 位置按上一帧量出的搜索框摆，刚开始搜的第一帧还量不到时下一帧再出。
+pub(super) fn suggestions(ui: &mut Ui<Message>, page: &Page) -> Result<(), RenderError> {
+    let search = &page.settings.search;
+    if !search.active() {
+        return Ok(());
+    }
+    let Some(anchor) = ui.rect(ui.key(SEARCH)) else {
+        return Ok(());
+    };
+    let items: Vec<Suggestion> = search
+        .hits
+        .iter()
+        .map(|hit| Suggestion {
+            title: &hit.title,
+            detail: hit.snippet.as_deref(),
+            trailing: hit.key.is_some().then(|| hit.page.label()),
+        })
+        .collect();
+    let list = Suggestions::new(&items, anchor, page.window)
+        .hot(search.hot)
+        .empty(tr("sidebar.no_results"))
+        .build(ui, &page.theme, "suggestions", Message::Jump)?;
+    ui.overlay(list);
+    Ok(())
 }
 
 /// 「文A」图标放在 `side` 点见方的格子正中。

@@ -33,6 +33,7 @@ mod select;
 mod setting_row;
 mod slider;
 mod stepper;
+mod suggestions;
 mod switch;
 #[cfg(test)]
 mod tests;
@@ -64,6 +65,7 @@ pub use select::Select;
 pub use setting_row::SettingRow;
 pub use slider::Slider;
 pub use stepper::Stepper;
+pub use suggestions::{Suggestion, Suggestions};
 pub use switch::Switch;
 pub use text_field::{Edit, Flow, FlowTarget, TextEdit, TextField, TextFlow};
 pub use theme::{Look, WidgetTheme};

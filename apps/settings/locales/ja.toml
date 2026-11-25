@@ -39,6 +39,7 @@ about = "情報"
 
 [sidebar]
 search = "検索"
+find_setting = "設定の検索"
 no_results = "見つかりません"
 
 [common]
@@ -48,6 +49,11 @@ window_title = "青簡 設定"
 system_font = "システムフォント"
 on = "オン"
 off = "オフ"
+learn_more = "詳しい情報…"
+learn_more_details = "詳細情報"
+related_support = "関連サポート"
+get_help = "ヘルプを表示"
+page_docs = "「{page}」の説明を Web サイトで見る"
 app_name = "青簡"
 no_data_dir = "データフォルダが見つかりません"
 list_separator = "、"

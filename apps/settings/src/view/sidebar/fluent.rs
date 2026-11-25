@@ -1,5 +1,5 @@
 //! Windows 11 设置的左侧导航：搜索框在最上，各页一行（Fluent 彩色图标），选中项左边一段强调色竖条；
-//! 底部分隔线下是界面语言与「关于」。标题栏用系统的（图标加窗口标题），这里不画。
+//! 底部分隔线下是界面语言与「关于」。搜索结果弹在搜索框下面（[`suggestions`]）。标题栏用系统的（图标加窗口标题），这里不画。
 
 use std::sync::{Arc, OnceLock};
 
@@ -8,7 +8,7 @@ use bamboo_slip::taffy::{
 };
 use bamboo_slip::{BoxPaint, Fill, RenderError, SvgImage, Ui, Visual};
 
-use super::{language, navigation, results, search_field};
+use super::{language, navigation, search_field, suggestions};
 use crate::message::Message;
 use crate::page_id::PageId;
 use crate::view::Page;
@@ -22,15 +22,13 @@ const ICON: f32 = 20.0;
 pub fn sidebar(ui: &mut Ui<Message>, page: &Page) -> Result<NodeId, RenderError> {
     let search = search_field(ui, page)?;
     let search = inset(ui, page, search, (4.0, 12.0, 12.0))?;
-    let items = if page.settings.search.active() {
-        results(ui, page)?
-    } else {
-        let pages: Vec<PageId> = PageId::ALL
-            .into_iter()
-            .filter(|id| *id != PageId::About)
-            .collect();
-        navigation(ui, page, &pages)?
-    };
+    // 搜索结果是搜索框下的浮层，导航本身不变
+    suggestions(ui, page)?;
+    let pages: Vec<PageId> = PageId::ALL
+        .into_iter()
+        .filter(|id| *id != PageId::About)
+        .collect();
+    let items = navigation(ui, page, &pages)?;
     let list = ui.scene().node(
         Style {
             flex_direction: FlexDirection::Column,

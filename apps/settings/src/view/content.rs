@@ -46,6 +46,7 @@ pub fn content(ui: &mut Ui<Message>, page: &Page) -> Result<NodeId, RenderError>
         children.push(paragraph(ui, &page.theme, &text, None)?);
     }
     children.extend(super::page_children(ui, page, page.settings.page)?);
+    children.extend(super::help::help(ui, page)?);
     let side = LengthPercentage::length(page.px(padding(look)));
     let top = match look {
         Look::Plain => TITLEBAR + 12.0,
