@@ -509,6 +509,8 @@ Windows Server 自绘候选窗（GDI）按 `Frame.columns` / `column_ems` 画矩
 界面文案：每个有界面文字的 crate（设置程序、core、platform）各有 `locales/<语言>.toml`，在自己的 `i18n.rs` 里用 `catalog!` 声明、编译时嵌入，
 代码里写 `tr("节.键")` / `tr_args("节.键", &[("名", &值)])`。简体中文是源语言，所有键都要有；英文是回退链的一环，也要全；其余语言缺的键退到英文再退到中文。
 每个 crate 的 `i18n.rs` 有一条测试核对各语言没有废键、占位参数与源语言一致、英文不缺键。
+改文案或审译文时用 `tools/i18n/review.py` 出一张多语言对照网页（一个键一行、每种语言一列；缺省列工作区比 HEAD 改过的键，`--all` 列全部并标出未译的）。
+繁体中文用台湾用语（視窗、檔案、設定、匯入、預設…；量詞與地名寫「台」不寫「臺」，同系統介面），示例里输入法打出来的简体字照原样留着。
 
 界面语言是进程级的：`Config::load` 读到 `[general] ui_language` 就 `set_locale`（`GeneralConfig::ui_locale`）。没写时是简体中文：不少中文用户的系统首选语言是英文，跟随系统会让他们一升级就看到英文；写 `system` 才跟随系统（`sys-locale`，中文按简繁归成 `zh-Hans` / `zh-Hant`）。
 比对中文文案的测试先 `pin_locale("zh-Hans")`：测试并行跑，固定之后读配置处的 `set_locale` 不再改它。
@@ -836,7 +838,7 @@ Windows Server 受控退出使用 ExitCode 返回以刷新既有 tracing 队列�
 - 粘贴：写剪贴板 → 等 80 ms 面板藏好 → 切回呼出前的前台窗口 → 等 40 ms → 模拟 Ctrl+V。目标窗口是管理员权限时模拟按键会被系统拦下，内容留在剪贴板上。
 - 代码卡片一行是一个 `Visual::RichText`，分片段上色、照常折行，不要拆成横排的多个节点（折不了行）。
 - 进程启动后第一次打开面板约 0.7 秒：第一次开输入法（`set_ime_allowed`）要阻塞约 500 ms 等文字服务加载，启动时藏着窗口预先开没有用。所以面板的输入法开了就不再关（秘密输入除外），之后打开约 0.26 秒；整窗重画只要约 37 ms（2880 宽），不是瓶颈。
-- 外观用 bamboo-slip 的 Fluent 预设（`WidgetColors::fluent`、`WidgetTheme::fluent`）与系统强调色（`Accent::system`）；Windows 11 22H2 起且没关透明效果时开亚克力（`WindowOptions::acrylic`，走 winit 的接口，不要自己延伸窗口框架：系统会把标题栏按钮画进内容区）。类型色、代码高亮色留在 `palette.rs`。
+- 外观用 bamboo-slip 的 Fluent 预设（`WidgetColors::fluent`、`WidgetTheme::fluent`）与系统强调色（`Accent::system`）；Windows 11 22H2 起且没关透明效果时开亚克力（`WindowOptions::backdrop` 给 `Backdrop::Transient`，走 winit 的接口，不要自己延伸窗口框架：系统会把标题栏按钮画进内容区）。类型色、代码高亮色留在 `palette.rs`。
 - 配置在输入法的 `config.toml`：`[clipboard] enabled`、`edge` 与 `[shortcut] clipboard`。剪贴板进程不依赖 `qingjian-platform`（`ClipSettings` 自己读这几个键），两边写法要一起改。监听线程每秒看一次文件修改时间，快捷键与方向不用重启。
 - 托盘（`system/tray.rs`，原生菜单）：打开面板、暂停记录、设置（同目录有设置程序才有）、开机启动（只有单独运行时有，写 HKCU Run；由输入法拉起时归输入法）、退出。由输入法拉起时退出等于关掉总开关。纯消息窗口弹不了菜单，托盘单独一个不显示的窗口。
 - 同时有文件列表和位图（有的程序复制图片时给一个临时文件加几种图片格式）按图片记，文件列表也留着；粘贴时写回图片，文件还在才加文件列表。图太大退回只记路径。去重只看图片内容，同一张图每次的临时路径不同。

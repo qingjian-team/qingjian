@@ -15,12 +15,15 @@ pub struct ScrollbarTrack {
 
     /// 滑块的长度（像素）。
     pub thumb: f32,
+
+    /// 起头那端再让出的距离（视口顶上被盖住的高度，像素），见 [`crate::ScrollArea::obscured_top`]。
+    pub lead: f32,
 }
 
 impl ScrollbarTrack {
     /// 滑块能走的距离（像素）。
     fn travel(&self, viewport: f32) -> f32 {
-        (viewport - self.inset * 2.0 - self.thumb).max(0.0)
+        (viewport - self.lead - self.inset * 2.0 - self.thumb).max(0.0)
     }
 
     /// 滚动位置为 `offset`（最远 `max`）时，滑块起点离视口起点多远（像素）。
@@ -30,7 +33,7 @@ impl ScrollbarTrack {
         } else {
             0.0
         };
-        self.inset + self.travel(viewport) * fraction
+        self.lead + self.inset + self.travel(viewport) * fraction
     }
 
     /// 指针离视口起点 `along`、抓在滑块的 `grab` 处时，该滚到哪。
@@ -39,6 +42,6 @@ impl ScrollbarTrack {
         if travel <= 0.0 {
             return 0.0;
         }
-        ((along - grab - self.inset) / travel).clamp(0.0, 1.0) * max
+        ((along - grab - self.lead - self.inset) / travel).clamp(0.0, 1.0) * max
     }
 }

@@ -4,7 +4,6 @@ use std::num::NonZeroU32;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use softbuffer::{Context, Surface};
 use winit::application::ApplicationHandler;
 use winit::dpi::LogicalSize;
 use winit::dpi::{PhysicalPosition, PhysicalSize};
@@ -14,11 +13,13 @@ use winit::event_loop::{ActiveEventLoop, ControlFlow};
 use winit::platform::modifier_supplement::KeyEventExtModifierSupplement;
 use winit::window::{CursorIcon, Theme, Window, WindowId, WindowLevel};
 
-use super::blit::blit;
 use super::clipboard::clipboard_text;
 use super::input::{key_code, modifiers, scroll};
+use super::present::Presenter;
 use super::{HostError, WindowOptions};
 use crate::app::{App, Runner, WindowCommand};
+#[cfg(target_os = "windows")]
+use crate::backdrop::Backdrop;
 use crate::stage::Painted;
 use crate::ui::{Cursor, Event, KeyCode, KeyPress, Modifiers, TextInput};
 
@@ -87,7 +88,7 @@ impl Slide {
 struct Host {
     window: Arc<Window>,
 
-    surface: Surface<Arc<Window>, Arc<Window>>,
+    presenter: Presenter,
 }
 
 impl<A: App> Handler<A> {
@@ -113,26 +114,27 @@ impl<A: App> Handler<A> {
             .with_title(self.options.title.clone())
             .with_inner_size(LogicalSize::new(width, height))
             .with_min_inner_size(LogicalSize::new(min_width, min_height));
+        let backdrop = self.options.backdrop;
         let attributes = if self.options.panel {
-            let attributes = attributes
+            attributes
                 .with_visible(false)
                 .with_decorations(false)
-                .with_window_level(WindowLevel::AlwaysOnTop);
-            #[cfg(target_os = "windows")]
-            let attributes = {
-                use winit::platform::windows::{BackdropType, WindowAttributesExtWindows};
-                let attributes = attributes.with_skip_taskbar(true);
-                if self.options.acrylic {
-                    attributes
-                        .with_transparent(true)
-                        .with_system_backdrop(BackdropType::TransientWindow)
-                } else {
-                    attributes
-                }
-            };
-            attributes
+                .with_window_level(WindowLevel::AlwaysOnTop)
         } else {
             attributes
+        };
+        let attributes = attributes.with_transparent(backdrop.is_some());
+        #[cfg(target_os = "windows")]
+        let attributes = {
+            use winit::platform::windows::{BackdropType, WindowAttributesExtWindows};
+            let attributes = attributes.with_skip_taskbar(self.options.panel);
+            match backdrop {
+                Some(Backdrop::Window) => attributes.with_system_backdrop(BackdropType::MainWindow),
+                Some(Backdrop::Transient) => {
+                    attributes.with_system_backdrop(BackdropType::TransientWindow)
+                }
+                None => attributes,
+            }
         };
         #[cfg(target_os = "macos")]
         let attributes = {
@@ -143,12 +145,11 @@ impl<A: App> Handler<A> {
                 .with_fullsize_content_view(true)
         };
         let window = Arc::new(event_loop.create_window(attributes)?);
-        let context = Context::new(window.clone())?;
-        let surface = Surface::new(&context, window.clone())?;
+        let presenter = Presenter::new(&window, self.options.backdrop)?;
         self.runner
             .app_mut()
             .set_system_dark(window.theme() == Some(Theme::Dark));
-        self.window = Some(Host { window, surface });
+        self.window = Some(Host { window, presenter });
         Ok(())
     }
 
@@ -172,16 +173,7 @@ impl<A: App> Handler<A> {
             return Ok(false);
         };
         let painted_at = Instant::now();
-        host.surface.resize(width, height)?;
-        let mut buffer = host.surface.buffer_mut()?;
-        blit(
-            &painted.pixmap,
-            (painted.content_x, painted.content_y),
-            &mut buffer,
-            width.get(),
-            height.get(),
-        );
-        buffer.present()?;
+        host.presenter.present(&host.window, &painted)?;
         tracing::debug!(
             width = width.get(),
             height = height.get(),
@@ -202,22 +194,7 @@ impl<A: App> Handler<A> {
         let (Some(host), Some(painted)) = (self.window.as_mut(), self.last_frame.as_ref()) else {
             return Ok(());
         };
-        let size = host.window.inner_size();
-        let (Some(width), Some(height)) =
-            (NonZeroU32::new(size.width), NonZeroU32::new(size.height))
-        else {
-            return Ok(());
-        };
-        host.surface.resize(width, height)?;
-        let mut buffer = host.surface.buffer_mut()?;
-        blit(
-            &painted.pixmap,
-            (painted.content_x, painted.content_y),
-            &mut buffer,
-            width.get(),
-            height.get(),
-        );
-        buffer.present()?;
+        host.presenter.present(&host.window, painted)?;
         Ok(())
     }
 

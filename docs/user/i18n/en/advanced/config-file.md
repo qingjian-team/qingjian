@@ -44,6 +44,11 @@ All settings are kept in one TOML text file, `config.toml`, with a note for ever
 | `[model] enabled` | 候选 → 本地整句模型 (Candidates → Local sentence model) | `true` / `false` (default) |
 | `[model] name`, `zhiyi_tier` | 实验功能 (Experimental features) → which model, Zhiyi's level | `name`: `tongbian` (default), `zhiyi`; if the chosen model isn't downloaded, no model is used (an old `zhiwei` reads as `tongbian`). `zhiyi_tier`: `saver`, `balanced` (default), `accurate` |
 | `[model] context_memory_seconds` | Configuration file only | When an app doesn't share the text before the cursor, how long what you just typed counts as context; default 60, 0 means always |
+| `[general] english_mode` | 输入法切换 → 英文模式 (Input Method Switching → English mode) | `false` keeps it in Chinese |
+| `[shortcut] switch_mode` | 输入法切换 → 切换键 (Input Method Switching → Switch key) | A list, such as `["shift", "control"]` |
+| `[general] default_english`, `remember_mode_per_app` | 输入法切换 → 默认英文模式, 按应用记住中英模式 (Input Method Switching → Start in English mode, Remember mode per app) | `true` / `false` |
+| `[general] shift_letter` | 输入法切换 → Shift + 字母 (Input Method Switching → Shift + letter) | `passthrough` (to the app, default) or `compose` (join the input) |
+| `[general] punct_commits` | 输入法切换 → 标点先上屏候选 (Input Method Switching → Punctuation commits the candidate first) | `true` / `false` |
 | `[general] english_mode` | 中英文 → 英文模式 (Chinese/English → English mode) | `false` keeps it in Chinese |
 | `[shortcut] switch_mode` | 中英文 → 切换键 (Chinese/English → Switch key) | A list, such as `["shift", "control"]` |
 | `[general] default_english`, `remember_mode_per_app` | 中英文 → 默认英文模式, 按应用记住中英模式 (Chinese/English → Start in English mode, Remember mode per app) | `true` / `false` |
@@ -71,7 +76,7 @@ All settings are kept in one TOML text file, `config.toml`, with a note for ever
 
 ### The app list for English candidates
 
-Which apps get candidates in English mode is decided by the list in the `apps` part of the configuration file (when 设置 → 中英文 → 只在写字的应用里给 (Settings → Chinese/English → Only in writing apps) is on). Each entry in the list has a note; add or remove apps as described.
+Which apps get candidates in English mode is decided by the list in the `apps` part of the configuration file (when 设置 → 输入法切换 → 只在写字的应用里给 (Settings → Input Method Switching → Only in writing apps) is on). Each entry in the list has a note; add or remove apps as described.
 
 ## AI services
 

@@ -3,13 +3,16 @@
 mod themes;
 
 use bamboo_slip::taffy::NodeId;
-use bamboo_slip::{Button, Checkbox, RenderError, SettingRow, Stepper, Ui, group, section_title};
+use bamboo_slip::{
+    Branch, Button, Checkbox, Look, RenderError, SettingRow, Stepper, Ui, group, section_title,
+};
 use qingjian_platform::{Appearance, CandidateRenderer, LayoutMode, PreeditMode};
 
 use crate::i18n::tr;
 use crate::message::{Message, Popup, SizeKind};
 use crate::support::Feature;
 use crate::view::Page;
+use crate::view::parts::branch::{branch, check_row, nested};
 use crate::view::parts::controls::{choice, select, toggle};
 
 pub fn appearance(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderError> {
@@ -46,48 +49,25 @@ pub fn appearance(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Rend
         LayoutMode::label,
         |value| Message::set("general", "layout", value.key()),
     )?;
-    let mut layout = SettingRow::new(tr("appearance.layout")).control(layout);
-    if Feature::HorizontalGrid.here() {
-        let grid = Checkbox::new(general.horizontal_grid, tr("appearance.horizontal_grid"))
-            .disabled(general.layout != LayoutMode::Horizontal)
-            .build(
-                ui,
-                theme,
-                "grid",
-                Message::set("general", "horizontal_grid", !general.horizontal_grid),
-            )?;
-        layout = layout.below(grid);
-    }
-    if Feature::VerticalReverseAbove.here() {
-        let reverse = Checkbox::new(
-            general.vertical_reverse_above,
-            tr("appearance.reverse_above"),
-        )
-        .disabled(general.layout != LayoutMode::Vertical)
-        .build(
-            ui,
-            theme,
-            "reverse-above",
-            Message::set(
-                "general",
-                "vertical_reverse_above",
-                !general.vertical_reverse_above,
-            ),
-        )?;
-        layout = layout.below(reverse);
-    }
-    if Feature::GridPageKeys.here() {
-        let paging = Checkbox::new(general.grid_page_keys, tr("appearance.grid_page_keys"))
-            .disabled(general.layout != LayoutMode::Horizontal)
-            .build(
-                ui,
-                theme,
-                "grid-page-keys",
-                Message::set("general", "grid_page_keys", !general.grid_page_keys),
-            )?;
-        layout = layout.below(paging);
-    }
-    let layout = layout.build(ui, theme)?;
+    // 竹青照旧把勾选挂在控件下面；系统设置外观是这一行的从属项，一项一行
+    let layout_row = SettingRow::new(tr("appearance.layout")).control(layout);
+    let any = Feature::HorizontalGrid.here()
+        || Feature::VerticalReverseAbove.here()
+        || Feature::GridPageKeys.here();
+    let layout = if theme.look == Look::Plain || !any {
+        let row = layout_checks(ui, page)?
+            .into_iter()
+            .fold(layout_row, |row, check| row.below(check));
+        Branch::leaf(row.build(ui, theme)?)
+    } else {
+        let head = layout_row.build(ui, theme)?;
+        branch(ui, page, "layout", head, |ui| {
+            layout_checks(ui, page)?
+                .into_iter()
+                .map(|check| check_row(ui, page, check))
+                .collect()
+        })?
+    };
     let preedit = choice(
         ui,
         page,
@@ -102,7 +82,7 @@ pub fn appearance(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Rend
         .control(preedit)
         .build(ui, theme)?;
     out.push(section_title(ui, theme, tr("appearance.layout"))?);
-    out.push(group(ui, theme, &[layout, preedit])?);
+    out.push(nested(ui, page, vec![layout, Branch::leaf(preedit)])?);
 
     let renderer = choice(
         ui,
@@ -209,4 +189,52 @@ fn trim(value: f32) -> String {
     } else {
         format!("{value:.1}")
     }
+}
+
+/// 排布的几个勾选：横排展开成多行、竖排倒着排、翻页键也展开，按平台有哪几个。
+fn layout_checks(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderError> {
+    let theme = &page.theme;
+    let general = &page.settings.config.general;
+    let mut checks = Vec::new();
+    if Feature::HorizontalGrid.here() {
+        let grid = Checkbox::new(general.horizontal_grid, tr("appearance.horizontal_grid"))
+            .disabled(general.layout != LayoutMode::Horizontal)
+            .build(
+                ui,
+                theme,
+                "grid",
+                Message::set("general", "horizontal_grid", !general.horizontal_grid),
+            )?;
+        checks.push(grid);
+    }
+    if Feature::VerticalReverseAbove.here() {
+        let reverse = Checkbox::new(
+            general.vertical_reverse_above,
+            tr("appearance.reverse_above"),
+        )
+        .disabled(general.layout != LayoutMode::Vertical)
+        .build(
+            ui,
+            theme,
+            "reverse-above",
+            Message::set(
+                "general",
+                "vertical_reverse_above",
+                !general.vertical_reverse_above,
+            ),
+        )?;
+        checks.push(reverse);
+    }
+    if Feature::GridPageKeys.here() {
+        let paging = Checkbox::new(general.grid_page_keys, tr("appearance.grid_page_keys"))
+            .disabled(general.layout != LayoutMode::Horizontal)
+            .build(
+                ui,
+                theme,
+                "grid-page-keys",
+                Message::set("general", "grid_page_keys", !general.grid_page_keys),
+            )?;
+        checks.push(paging);
+    }
+    Ok(checks)
 }
