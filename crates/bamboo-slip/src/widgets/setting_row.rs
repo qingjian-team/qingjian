@@ -14,6 +14,7 @@ use super::link::Link;
 use super::parts::{column, label, padding, row, solid};
 use super::theme::Look;
 use crate::animation::Easing;
+use crate::color::Color;
 use crate::error::RenderError;
 use crate::scene::Visual;
 use crate::ui::{Interact, Key, Ui};
@@ -29,6 +30,8 @@ pub struct SettingRow<'a> {
     caption: Option<NodeId>,
 
     badge: Option<&'a str>,
+
+    highlight: Option<&'a str>,
 
     info: Option<&'a str>,
 
@@ -55,6 +58,7 @@ impl<'a> SettingRow<'a> {
             detail: None,
             caption: None,
             badge: None,
+            highlight: None,
             info: None,
             control: None,
             below: Vec::new(),
@@ -101,6 +105,14 @@ impl<'a> SettingRow<'a> {
     pub fn badge(self, text: &'a str) -> Self {
         Self {
             badge: Some(text),
+            ..self
+        }
+    }
+
+    /// 标题右边强调色的小标签（「当前」这类），排在 [`Self::badge`] 后面。
+    pub fn highlight(self, text: &'a str) -> Self {
+        Self {
+            highlight: Some(text),
             ..self
         }
     }
@@ -182,15 +194,21 @@ impl<'a> SettingRow<'a> {
                 &[title, mark],
             )?;
         }
-        if let Some(text) = self.badge {
-            let badge = badge(ui, theme, text)?;
+        if self.badge.is_some() || self.highlight.is_some() {
+            let mut children = vec![title];
+            if let Some(text) = self.badge {
+                children.push(badge(ui, theme, text, false)?);
+            }
+            if let Some(text) = self.highlight {
+                children.push(badge(ui, theme, text, true)?);
+            }
             title = ui.scene().node(
                 Style {
                     align_items: AlignItems::CENTER,
                     ..row(theme, 8.0)
                 },
                 Visual::Group,
-                &[title, badge],
+                &children,
             )?;
         }
         let mut texts = vec![title];
@@ -376,16 +394,33 @@ pub(super) fn spotlight<M>(
 }
 
 /// 标题旁的小标签：小一号的次要色字，垫一块控件槽色的圆角底。
-fn badge<M>(ui: &mut Ui<M>, theme: &WidgetTheme, text: &str) -> Result<NodeId, RenderError> {
+/// `accent` 是强调色的字垫一层淡淡的强调色，不然是次要色的字垫凹槽色。
+fn badge<M>(
+    ui: &mut Ui<M>,
+    theme: &WidgetTheme,
+    text: &str,
+    accent: bool,
+) -> Result<NodeId, RenderError> {
     let colors = &theme.colors;
-    let text = label(ui, theme, text, theme.small - 1.0, 500, colors.secondary)?;
+    let (ink, fill) = if accent {
+        (
+            colors.accent,
+            Color {
+                a: 40,
+                ..colors.accent
+            },
+        )
+    } else {
+        (colors.secondary, colors.well)
+    };
+    let text = label(ui, theme, text, theme.small - 1.0, 500, ink)?;
     ui.scene().node(
         Style {
             padding: padding(theme, 1.0, 6.0),
             flex_shrink: 0.0,
             ..row(theme, 0.0)
         },
-        solid(Some(colors.well), None, theme.px(theme.radius) / 2.0),
+        solid(Some(fill), None, theme.px(theme.radius) / 2.0),
         &[text],
     )
 }
