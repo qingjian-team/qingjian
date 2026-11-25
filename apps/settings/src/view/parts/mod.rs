@@ -6,3 +6,4 @@ pub mod controls;
 pub mod download;
 pub mod lists;
 pub mod menus;
+pub mod views;

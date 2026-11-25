@@ -98,6 +98,18 @@ pub fn pick(
             on_pick,
         );
     }
+    dropdown(ui, page, local, (labels, selected), disabled, on_pick)
+}
+
+/// 不分外观的下拉框，点开的菜单当场建在浮层里；`local` 同时是菜单的名字。
+pub fn dropdown(
+    ui: &mut Ui<Message>,
+    page: &Page,
+    local: &'static str,
+    (labels, selected): (&[&str], usize),
+    disabled: bool,
+    on_pick: impl Fn(usize) -> Message,
+) -> Result<NodeId, RenderError> {
     let popup = Popup::Choice(local);
     let node = Select::new(labels[selected])
         .options(labels)

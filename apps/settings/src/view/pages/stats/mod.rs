@@ -9,7 +9,7 @@ use bamboo_slip::taffy::{
     AlignItems, Dimension, FlexDirection, FlexWrap, JustifyContent, LengthPercentage, NodeId, Rect,
     Size, Style,
 };
-use bamboo_slip::{BoxPaint, Fill, RenderError, Segmented, SettingRow, Ui, Visual, paragraph};
+use bamboo_slip::{BoxPaint, Fill, RenderError, SettingRow, Ui, Visual, paragraph};
 use qingjian_core::VocabularySummary;
 use qingjian_predict::ApiUsageStats;
 
@@ -18,6 +18,7 @@ use crate::message::Message;
 use crate::stats::group_digits;
 use crate::support::Feature;
 use crate::view::Page;
+use crate::view::parts::views::view_switch;
 
 /// 等级表的四列（文案键）。
 const LEVEL_COLUMNS: [&str; 4] = [
@@ -34,20 +35,16 @@ pub fn stats(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderErr
     let mut out = Vec::new();
     let cloud = Feature::ApiUsage.here() && page.settings.stats_cloud;
     if Feature::ApiUsage.here() {
-        let tabs = Segmented::new(
-            &[tr("stats.tab_input"), tr("stats.tab_cloud")],
-            usize::from(cloud),
-        )
-        .build(ui, &page.theme, "stats-tab", |index| {
-            Message::StatsCloud(index == 1)
-        })?;
-        out.push(ui.scene().node(
-            Style {
-                flex_direction: FlexDirection::Row,
-                ..Style::default()
-            },
-            Visual::Group,
-            &[tabs],
+        out.push(view_switch(
+            ui,
+            page,
+            "stats-tab",
+            (
+                &[tr("stats.tab_input"), tr("stats.tab_cloud")],
+                usize::from(cloud),
+            ),
+            None,
+            |index| Message::StatsCloud(index == 1),
         )?);
     }
     if cloud {
