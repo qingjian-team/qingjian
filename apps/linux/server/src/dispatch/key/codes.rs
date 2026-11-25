@@ -85,3 +85,33 @@ pub(crate) fn is_ctrl_alt_space(event: &KeyEvent) -> bool {
         && !modifiers.shift
         && !modifiers.win
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{digit, digit_key};
+    use qingjian_platform::MAX_PAGE_SIZE;
+    use qingjian_platform::protocol::KeyEvent;
+
+    /// 每页 10 个时 `0` 是第 10 个；1–9 照旧是自己的位次；别的字符不是数字键。
+    #[test]
+    fn zero_is_the_tenth_slot_and_letters_are_not_digits() {
+        assert_eq!(MAX_PAGE_SIZE, 10);
+        for (c, slot) in [('1', 1), ('5', 5), ('9', 9), ('0', 10)] {
+            let event = KeyEvent::new(c as u32, Some(c), Default::default());
+            assert_eq!(digit(&event), Some(slot), "{c}");
+        }
+        for c in ['a', '!', ' ', '中'] {
+            let event = KeyEvent::new(c as u32, Some(c), Default::default());
+            assert_eq!(digit(&event), None, "{c}");
+        }
+    }
+
+    /// 没有字符（功能键）时按键码认：主键盘 `0` 的键码是 `0x30`，与 `1`–`9` 同一套。
+    #[test]
+    fn the_zero_key_code_maps_to_the_tenth_slot() {
+        assert_eq!(digit_key(0x30), Some(MAX_PAGE_SIZE));
+        assert_eq!(digit_key(0x31), Some(1));
+        assert_eq!(digit_key(0x39), Some(9));
+        assert_eq!(digit_key(0x60), None, "小键盘走另一套");
+    }
+}
