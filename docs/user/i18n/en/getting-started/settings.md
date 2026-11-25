@@ -1,7 +1,7 @@
 ---
 title: The settings window
 order: 4
-description: "How to open Settings, search and the ⓘ notes, what each of the 12 pages controls, plus the macOS input menu and the legacy settings."
+description: "How to open Settings, search and the notes under settings, what each of the 13 pages controls, plus the macOS input menu and the legacy settings."
 ---
 
 The settings window is currently in Chinese only. On this site, its labels are written in Chinese with an English translation in parentheses, so you can match them to what you see.
@@ -15,7 +15,7 @@ The settings window is currently in Chinese only. On this site, its labels are w
 Changes take effect immediately: there's no Save button and no need to switch input methods again.
 
 The search box at the top left finds settings by name, option text or words in their descriptions; for example, searching 英语 (English) finds 译文 (Gloss). Clicking a result (or pressing `Enter` for the first one) jumps to its page and marks the setting; `Esc` clears the search.
-The ⓘ next to a heading shows a short note when you hover over it and opens the matching section of this documentation when you click it.
+Settings that need explaining have a short note. On macOS and Windows it sits on the line below the heading, and the 了解更多… (Learn More…) link at its end (了解详细信息, Learn more, on Windows) opens the matching section of this documentation; on Linux the note is behind the ⓘ next to the heading, shown when you hover over it, and clicking the ⓘ opens the matching section.
 
 Settings that exist only on some platforms are hidden on the others; settings that depend on another setting (for example, fonts only apply to Qingjian's own renderer) are greyed out.
 
