@@ -63,6 +63,15 @@ pub fn shortcuts(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Rende
             mode.question_mark,
             false,
         )?,
+        toggle_info(
+            ui,
+            page,
+            tr("shortcuts.calendar_first"),
+            Some(tr("shortcuts.calendar_first_info")),
+            ("general", "calendar_shortcuts_first"),
+            config.general.calendar_shortcuts_first,
+            false,
+        )?,
     ]);
     out.push(section_title(ui, theme, tr("shortcuts.section_paging"))?);
     out.push(group(ui, theme, &rows)?);
