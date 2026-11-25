@@ -97,6 +97,10 @@ impl Host {
         self.punct_commits = config.general.punct_commits;
         self.preedit_mode = config.general.preedit;
         self.translation_pos = config.general.translation_pos;
+        // 音标既要壳知道（画的时候用淡色），也要引擎知道（候选的 reading 才有内容）；
+        // 只设壳这边的话，开关打开后候选上什么都不会出现
+        self.engine
+            .set_show_english_pronunciation(config.general.show_english_pronunciation);
         self.show_english_pronunciation = config.general.show_english_pronunciation;
         self.english_candidates = config.general.english_candidates;
         self.apps = config.apps.clone();
