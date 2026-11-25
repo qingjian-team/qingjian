@@ -54,6 +54,7 @@ pub fn view(
         palette: &palette,
         scale,
         content_width: content_width(look, width as f32 / scale) * scale,
+        window: (width as f32, height as f32),
     };
     let current = settings.page;
     ui.info_links(tr("common.info_hint"), move |title| {
@@ -110,7 +111,8 @@ pub fn index(settings: &Settings) -> Vec<Entry> {
         theme: widget_theme(look, palette.widgets, 1.0),
         palette: &palette,
         scale: 1.0,
-        content_width: content_width(look, 900.0),
+        content_width: content_width(look, look::window_size(look).0),
+        window: look::window_size(look),
     };
     let mut entries = Vec::new();
     for id in PageId::ALL.into_iter().filter(|id| id.shown()) {

@@ -18,3 +18,11 @@ pub fn current() -> Look {
         },
     )
 }
+
+/// 窗口初始的内容区大小（点）：Windows 照「设置」开得宽一些，左侧导航约占三成。
+pub fn window_size(look: Look) -> (f32, f32) {
+    match look {
+        Look::Fluent => (1040.0, 680.0),
+        Look::Mac | Look::Plain => (900.0, 680.0),
+    }
+}

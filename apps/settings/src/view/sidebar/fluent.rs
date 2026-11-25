@@ -13,8 +13,8 @@ use crate::message::Message;
 use crate::page_id::PageId;
 use crate::view::Page;
 
-/// 导航宽度（点）。
-pub const WIDTH: f32 = 280.0;
+/// 导航宽度（点）：WinUI 的 NavigationView 展开时是固定宽，不随窗口变；配 [`super::super::look::window_size`] 的缺省窗口约占三成。
+pub const WIDTH: f32 = 300.0;
 
 /// 图标边长（点），SVG 画在 20 × 20 的网格上。
 const ICON: f32 = 20.0;

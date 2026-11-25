@@ -49,6 +49,10 @@ impl App for Settings {
         ) {
             self.notice = None;
         }
+        // 几选一的下拉菜单点了一项发的是那一项自己的消息，这里统一收起
+        if matches!(self.menu, Some(Popup::Choice(_))) && !matches!(message, Message::OpenMenu(_)) {
+            self.menu = None;
+        }
         match message {
             Message::Page(page) => {
                 if page != self.page {
@@ -124,12 +128,16 @@ impl App for Settings {
                 }
             }
             Message::Remove(kind, stem) => {
+                self.menu = None;
                 if let Err(error) = library::remove(kind, &stem) {
                     self.notice = Some((kind.slot(), error));
                 }
                 self.library = Library::scan();
             }
-            Message::ExportDict(stem) => self.export_dict(&stem),
+            Message::ExportDict(stem) => {
+                self.menu = None;
+                self.export_dict(&stem);
+            }
             Message::ModeKey(key, letter) => {
                 let mode = self.config.shortcut.mode.sanitized();
                 let (current, other, other_key) = if key == "expression" {

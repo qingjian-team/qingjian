@@ -1,7 +1,7 @@
 //! 各页共用的几种设置行：开关、分段选择、下拉框、百分比滑块。
 
 use bamboo_slip::taffy::NodeId;
-use bamboo_slip::{Look, RenderError, Segmented, Select, SettingRow, Slider, Switch, Ui};
+use bamboo_slip::{Look, Menu, RenderError, Segmented, Select, SettingRow, Slider, Switch, Ui};
 
 use super::menus::anchor;
 use crate::i18n::tr;
@@ -63,11 +63,12 @@ pub fn switch(page: &Page, on: bool) -> Switch<'static> {
     }
 }
 
-/// 一组互斥取值的分段选择：`all` 按设置界面的顺序，`label` 取界面上的名字。
+/// 一组互斥取值：`all` 按设置界面的顺序，`label` 取界面上的名字。照 Windows 设置画时是下拉框（设置行里不用分段），
+/// 点开的菜单在这里当场建、挂到根上；别的外观是分段选择。
 pub fn choice<T: Copy + PartialEq + 'static>(
     ui: &mut Ui<Message>,
     page: &Page,
-    local: &str,
+    local: &'static str,
     all: &[T],
     current: T,
     label: fn(T) -> &'static str,
@@ -76,8 +77,28 @@ pub fn choice<T: Copy + PartialEq + 'static>(
     let labels: Vec<&str> = all.iter().map(|value| label(*value)).collect();
     let selected = all.iter().position(|value| *value == current).unwrap_or(0);
     let values = all.to_vec();
-    Segmented::new(&labels, selected)
-        .build(ui, &page.theme, local, move |index| message(values[index]))
+    if page.theme.look != Look::Fluent {
+        return Segmented::new(&labels, selected)
+            .build(ui, &page.theme, local, move |index| message(values[index]));
+    }
+    let popup = Popup::Choice(local);
+    let node = Select::new(labels[selected])
+        .options(&labels)
+        .width(160.0)
+        .build(ui, &page.theme, anchor(popup), Message::OpenMenu(popup))?;
+    if page.settings.menu == Some(popup)
+        && let Some(rect) = ui.rect(ui.key(anchor(popup)))
+    {
+        let menu = Menu::new(&labels, Some(selected), rect, page.window).build(
+            ui,
+            &page.theme,
+            ("menu", local),
+            move |index| message(values[index]),
+            Message::CloseMenu,
+        )?;
+        ui.overlay(menu);
+    }
+    Ok(node)
 }
 
 /// 下拉框最宽多少点：值再长（用户方案起的名字）就截短补「…」，点开的菜单里仍是全名。
