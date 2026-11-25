@@ -3,19 +3,20 @@
 
 use bamboo_slip::taffy::{FlexDirection, LengthPercentage, NodeId, Rect, Style};
 use bamboo_slip::{
-    Button, Checkbox, KeyRecorder, RenderError, Segmented, SettingRow, Ui, Visual, group,
-    paragraph, section_title,
+    Branch, Button, Checkbox, KeyRecorder, RenderError, SettingRow, Ui, Visual, group, paragraph,
+    section_title,
 };
 use qingjian_core::ModeKeys;
 use qingjian_platform::{HighlightKeys, KeyCombo, PAGE_KEY_OPTIONS};
 
-use crate::i18n::tr;
+use crate::i18n::{tr, tr_args};
 use crate::message::Message;
 use crate::shortcut::Shortcut;
 use crate::support::Feature;
 use crate::view::Page;
 use crate::view::parts::actions::with_notice;
-use crate::view::parts::controls::{choice, toggle_info};
+use crate::view::parts::branch::{branch, nested};
+use crate::view::parts::controls::{choice, pick, switch, toggle_info};
 
 pub fn shortcuts(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderError> {
     let theme = &page.theme;
@@ -33,7 +34,7 @@ pub fn shortcuts(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Rende
         .iter()
         .position(|keys| *keys == pair)
         .unwrap_or(0);
-    let page_keys = Segmented::new(&labels, selected).build(ui, theme, "page-keys", |index| {
+    let page_keys = pick(ui, page, "page-keys", (&labels, selected), false, |index| {
         Message::set("general", "page_keys", PAGE_KEY_OPTIONS[index])
     })?;
     let mode = config.shortcut.mode.sanitized();
@@ -57,7 +58,7 @@ pub fn shortcuts(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Rende
             ui,
             page,
             tr("shortcuts.question_lookup"),
-            Some(tr("shortcuts.question_lookup_info")),
+            None,
             ("shortcut", "question_mark"),
             mode.question_mark,
             false,
@@ -79,41 +80,29 @@ pub fn shortcuts(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Rende
         )?);
     }
     if Feature::CommitKeys.here() {
-        rows.push(recorder(
-            ui,
-            page,
-            Shortcut::CommitCandidate,
-            tr("shortcuts.commit_candidate_info"),
-            false,
-        )?);
-        rows.push(recorder(
-            ui,
-            page,
-            Shortcut::CommitRaw,
-            tr("shortcuts.commit_raw_info"),
-            false,
-        )?);
+        rows.push(recorder(ui, page, Shortcut::CommitCandidate, None, false)?);
+        rows.push(recorder(ui, page, Shortcut::CommitRaw, None, false)?);
     }
     rows.extend([
         recorder(
             ui,
             page,
             Shortcut::Translation,
-            tr("shortcuts.translation_info"),
+            Some(tr("shortcuts.translation_info")),
             false,
         )?,
         recorder(
             ui,
             page,
             Shortcut::TranslationSecond,
-            tr("shortcuts.translation_second_info"),
+            Some(tr("shortcuts.translation_second_info")),
             false,
         )?,
         recorder(
             ui,
             page,
             Shortcut::TranslateSelection,
-            tr("shortcuts.translate_selection_info"),
+            Some(tr("shortcuts.translate_selection_info")),
             false,
         )?,
     ]);
@@ -122,7 +111,7 @@ pub fn shortcuts(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Rende
             ui,
             page,
             Shortcut::Predict,
-            tr("shortcuts.predict_info"),
+            Some(tr("shortcuts.predict_info")),
             false,
         )?);
     }
@@ -131,13 +120,14 @@ pub fn shortcuts(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Rende
             ui,
             page,
             Shortcut::TranslatePanel,
-            tr("shortcuts.translate_panel_info"),
+            Some(tr("shortcuts.translate_panel_info")),
             false,
         )?);
     }
+    let mut rows: Vec<Branch> = rows.into_iter().map(Branch::leaf).collect();
     if Feature::SingleChars.here() {
         let enabled = config.shortcut.single_chars.is_some();
-        let switch = bamboo_slip::Switch::new(enabled).build(
+        let switch = switch(page, enabled).build(
             ui,
             theme,
             "single-chars",
@@ -151,25 +141,27 @@ pub fn shortcuts(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Rende
                 },
             ),
         )?;
-        rows.push(
-            SettingRow::new(tr("shortcuts.single_chars"))
-                .info(tr("shortcuts.single_chars_info"))
-                .control(switch)
-                .build(ui, theme)?,
-        );
-        if enabled {
-            rows.push(recorder(
-                ui,
-                page,
-                Shortcut::SingleChars,
-                tr("shortcuts.single_chars_key_info"),
-                false,
-            )?);
-        }
+        let head = SettingRow::new(tr("shortcuts.single_chars"))
+            .info(tr("shortcuts.single_chars_info"))
+            .control(switch)
+            .build(ui, theme)?;
+        rows.push(if enabled {
+            branch(ui, page, "single-chars", head, |ui| {
+                Ok(vec![recorder(
+                    ui,
+                    page,
+                    Shortcut::SingleChars,
+                    None,
+                    false,
+                )?])
+            })?
+        } else {
+            Branch::leaf(head)
+        });
     }
     if Feature::NextWord.here() {
         let enabled = config.shortcut.next_word.is_some();
-        let switch = bamboo_slip::Switch::new(enabled).build(
+        let switch = switch(page, enabled).build(
             ui,
             theme,
             "next-word",
@@ -183,28 +175,24 @@ pub fn shortcuts(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Rende
                 },
             ),
         )?;
-        rows.push(
-            SettingRow::new(tr("shortcuts.next_word"))
-                .info(tr("shortcuts.next_word_info"))
-                .control(switch)
-                .build(ui, theme)?,
-        );
-        if enabled {
-            rows.push(recorder(
-                ui,
-                page,
-                Shortcut::NextWord,
-                tr("shortcuts.next_word_key_info"),
-                false,
-            )?);
-        }
+        let head = SettingRow::new(tr("shortcuts.next_word"))
+            .info(tr("shortcuts.next_word_info"))
+            .control(switch)
+            .build(ui, theme)?;
+        rows.push(if enabled {
+            branch(ui, page, "next-word", head, |ui| {
+                Ok(vec![recorder(ui, page, Shortcut::NextWord, None, false)?])
+            })?
+        } else {
+            Branch::leaf(head)
+        });
     }
     out.push(section_title(
         ui,
         theme,
         tr("shortcuts.section_candidates"),
     )?);
-    out.push(group(ui, theme, &rows)?);
+    out.push(nested(ui, page, rows)?);
 
     let reset = Button::new(tr("shortcuts.reset")).build(
         ui,
@@ -279,7 +267,13 @@ fn extra_keys(
     }
     if Feature::ExtraCandidateNavigation.here() {
         let enabled = shortcut.extra_candidate_navigation;
-        let checkbox = Checkbox::new(enabled, "Ctrl + F/B/N/P/A/E").build(
+        let ctrl = control_key();
+        let keys = format!("{}F/B/N/P/A/E", key_prefix(&ctrl));
+        let info = tr_args(
+            "shortcuts.extra_candidate_navigation_info",
+            &[("ctrl", &ctrl)],
+        );
+        let checkbox = Checkbox::new(enabled, &keys).build(
             ui,
             theme,
             "extra-candidate-navigation",
@@ -287,14 +281,18 @@ fn extra_keys(
         )?;
         rows.push(
             SettingRow::new(tr("shortcuts.extra_candidate_navigation"))
-                .info(tr("shortcuts.extra_candidate_navigation_info"))
+                .info(&info)
                 .control(checkbox)
                 .build(ui, theme)?,
         );
     }
     if Feature::TogglePunctuation.here() {
+        let punctuation_title = tr_args(
+            "shortcuts.punctuation_width",
+            &[("key", &format!("{}.", key_prefix(&control_key())))],
+        );
         let punctuation = shortcut.toggle_punctuation.is_some();
-        let switch = bamboo_slip::Switch::new(punctuation).build(
+        let switch = switch(page, punctuation).build(
             ui,
             theme,
             "toggle-punctuation",
@@ -305,15 +303,14 @@ fn extra_keys(
             ),
         )?;
         rows.push(
-            SettingRow::new(tr("shortcuts.punctuation_width"))
-                .info(tr("shortcuts.punctuation_width_info"))
+            SettingRow::new(&punctuation_title)
                 .control(switch)
                 .build(ui, theme)?,
         );
     }
     if Feature::ToggleTraditional.here() {
         let traditional = shortcut.toggle_traditional.is_some();
-        let switch = bamboo_slip::Switch::new(traditional).build(
+        let switch = switch(page, traditional).build(
             ui,
             theme,
             "toggle-traditional",
@@ -373,7 +370,11 @@ fn mode_key(
         .iter()
         .position(|letter| *letter == current)
         .unwrap_or(0);
-    Segmented::new(&labels, selected).build(ui, &page.theme, ("mode-key", key), move |index| {
+    let local = match key {
+        "expression" => "mode-key-expression",
+        _ => "mode-key-lookup",
+    };
+    pick(ui, page, local, (&labels, selected), false, move |index| {
         Message::ModeKey(key, ModeKeys::CANDIDATES[index])
     })
 }
@@ -383,7 +384,7 @@ pub fn recorder(
     ui: &mut Ui<Message>,
     page: &Page,
     shortcut: Shortcut,
-    info: &str,
+    info: Option<&str>,
     disabled: bool,
 ) -> Result<NodeId, RenderError> {
     let current = shortcut.current(&page.settings.config);
@@ -402,9 +403,29 @@ pub fn recorder(
     with_notice(
         ui,
         page,
-        SettingRow::new(shortcut.title())
-            .info(info)
-            .control(control),
+        match info {
+            Some(info) => SettingRow::new(shortcut.title()).info(info),
+            None => SettingRow::new(shortcut.title()),
+        }
+        .control(control),
         shortcut.title(),
     )
+}
+
+/// 修饰键接在按键前的写法：macOS 直接连写（⌃.），别的平台加「 + 」（Ctrl + .）。
+fn key_prefix(modifier: &str) -> String {
+    if cfg!(target_os = "macos") {
+        modifier.to_owned()
+    } else {
+        format!("{modifier} + ")
+    }
+}
+
+/// 按键名里的 Control：macOS 写 ⌃，别的平台按界面语言写键帽上的名字（德语是 Strg）。
+fn control_key() -> String {
+    if cfg!(target_os = "macos") {
+        "⌃".to_owned()
+    } else {
+        tr("shortcuts.ctrl_key").to_owned()
+    }
 }

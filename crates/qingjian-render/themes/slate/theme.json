@@ -125,5 +125,14 @@
     "next_text": "@kb_next_text",
     "label": "@gloss",
     "effects": [{ "type": "drop-shadow", "y": 2, "blur": 0, "color": "@shadow" }]
+  },
+
+  "menu": {
+    "background": "@surface",
+    "text": "@text",
+    "line": "@edge",
+    "hover": "@dim",
+    "radius": 0,
+    "border_width": 1
   }
 }

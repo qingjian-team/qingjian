@@ -29,3 +29,12 @@ duplicate = "El código {code} ya tiene esta frase"
 user_word = "Se eliminó la palabra de usuario «{text}»"
 learning = "Se olvidó lo aprendido sobre «{text}»"
 nothing = "«{text}» es una palabra del diccionario sin registros de aprendizaje; no hay nada que eliminar"
+
+[panel]
+translate_to = "Al {language}"
+chinese = "Chino"
+translate_idle = "Haz una pausa al escribir para traducir"
+translate_waiting = "Traduciendo…"
+translate_ready = "Intro para insertar"
+translate_failed = "No se tradujo; pulsa Intro para reintentar"
+translate_placeholder = "Escribe aquí lo que quieres traducir"

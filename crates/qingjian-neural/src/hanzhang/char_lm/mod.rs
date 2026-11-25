@@ -7,6 +7,8 @@ mod threads;
 
 pub use prefix_cache::PrefixCache;
 
+use std::sync::Arc;
+
 use candle_core::{D, DType, Device, Module, Result, Tensor};
 use candle_nn::{Embedding, LayerNorm, VarBuilder, layer_norm, ops};
 
@@ -33,10 +35,38 @@ struct Block {
     mlp_proj: Projection,
 }
 
+/// 词嵌入表：不量化时是 f16/f32 的整张表；量化时与输出层共享同一份 Q8 矩阵，
+/// 查表只把要用的那几行还原成浮点，不再留一份 f16 原表。
+enum TokenEmbedding {
+    Dense(Embedding),
+
+    Quantized(Arc<Q8Matrix>),
+}
+
+impl TokenEmbedding {
+    fn forward(&self, idx: &Tensor, dtype: DType) -> Result<Tensor> {
+        match self {
+            Self::Dense(embedding) => embedding.forward(idx),
+            Self::Quantized(matrix) => {
+                let (b, t) = idx.dims2()?;
+                let ids = idx.flatten_all()?.to_vec1::<u32>()?;
+                let cols = matrix.cols();
+                let mut values = vec![0f32; ids.len() * cols];
+                for (i, &id) in ids.iter().enumerate() {
+                    if (id as usize) < matrix.rows() {
+                        matrix.row_into(id as usize, &mut values[i * cols..(i + 1) * cols]);
+                    }
+                }
+                Tensor::from_vec(values, (b, t, cols), idx.device())?.to_dtype(dtype)
+            }
+        }
+    }
+}
+
 /// 字级 decoder-only Transformer。张量名见 `tools/lm-train/model.py`。
 pub struct CharLm {
-    /// 量化时留文件里的 f16（每次只查几十行），查完转成 `dtype`。
-    tok_emb: Embedding,
+    /// 词嵌入表；量化时整表是 int8（与输出层共享同一份 [`Q8Matrix`]），查表按行还原。
+    tok_emb: TokenEmbedding,
 
     pos_emb: Tensor,
 
@@ -66,7 +96,34 @@ impl CharLm {
             vb.clone()
         };
         let tok_weight = embedding.get((cfg.vocab_size, cfg.n_embd), "tok_emb.weight")?;
-        let tok_emb = Embedding::new(tok_weight.clone(), cfg.n_embd);
+        let (tok_emb, head) = if quantize {
+            let (rows, cols) = tok_weight.dims2()?;
+            let values = tok_weight
+                .to_dtype(DType::F32)?
+                .flatten_all()?
+                .to_vec1::<f32>()?;
+            match Q8Matrix::quantize(&values, rows, cols) {
+                Some(matrix) => {
+                    let matrix = Arc::new(matrix);
+                    // 整张表只留 int8，与输出层共用；原来那份 f16 不再需要。
+                    drop(values);
+                    drop(tok_weight);
+                    (
+                        TokenEmbedding::Quantized(matrix.clone()),
+                        Projection::from_matrix(matrix),
+                    )
+                }
+                None => (
+                    TokenEmbedding::Dense(Embedding::new(tok_weight.clone(), cfg.n_embd)),
+                    Projection::tied(tok_weight, false)?,
+                ),
+            }
+        } else {
+            (
+                TokenEmbedding::Dense(Embedding::new(tok_weight.clone(), cfg.n_embd)),
+                Projection::tied(tok_weight, false)?,
+            )
+        };
         let pos_emb = vb.get((cfg.context, cfg.n_embd), "pos_emb.weight")?;
         let c = cfg.n_embd;
         let mut blocks = Vec::with_capacity(cfg.n_layer);
@@ -82,7 +139,6 @@ impl CharLm {
             });
         }
         let ln_f = layer_norm(c, 1e-5, vb.pp("ln_f"))?;
-        let head = Projection::tied(tok_weight, quantize)?;
         Ok(Self {
             tok_emb,
             pos_emb,
@@ -170,11 +226,7 @@ impl CharLm {
         let offset = past.map_or(0, PrefixCache::len);
         let mask = self.causal_mask(t, offset)?;
         let pos = self.pos_emb.narrow(0, offset, t)?;
-        let mut x = self
-            .tok_emb
-            .forward(idx)?
-            .to_dtype(self.dtype)?
-            .broadcast_add(&pos)?;
+        let mut x = self.tok_emb.forward(idx, self.dtype)?.broadcast_add(&pos)?;
         let mut keys = Vec::new();
         let mut values = Vec::new();
         for (i, block) in self.blocks.iter().enumerate() {

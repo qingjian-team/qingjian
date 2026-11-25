@@ -8,7 +8,7 @@ In 设置 → 自定义短语 (Settings → Custom phrases), give a piece of tex
 
 ## Adding and editing
 
-Each phrase is a row on the page: an on/off switch (labelled with the input code), its weight, the first line of its content, and 编辑 (Edit); the last two rows are 新增… (Add…) and 导入、导出 (Import, export).
+Each phrase is a row on the page: an on/off switch (labelled with the input code), its weight, the first line of its content, and 编辑 (Edit); above the list are two rows, 新增… (Add…) and 导入、导出 (Import, export).
 
 Adding and editing happen in a card that pops up:
 

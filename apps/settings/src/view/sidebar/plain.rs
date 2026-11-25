@@ -1,4 +1,4 @@
-//! 侧栏：logo 与「青简」、搜索框、各页的导航项（当前页左边叠一段竹节），最下面是界面语言。
+//! 竹青外观的侧栏：logo 与「青简」、搜索框、各页的导航项（当前页左边叠一段竹节），最下面是界面语言。
 
 use std::sync::Arc;
 
@@ -7,34 +7,21 @@ use bamboo_slip::taffy::{
     Position, Rect, Size, Style,
 };
 use bamboo_slip::{
-    BoxPaint, Fill, FontSpec, FontWeight, NavItem, RenderError, SearchField, TITLEBAR, TextStyle,
-    Ui, Visual, paragraph,
+    BoxPaint, Fill, FontSpec, FontWeight, NavItem, RenderError, TITLEBAR, TextStyle, Ui, Visual,
 };
 
-use super::Page;
+use super::{language, results, search_field};
 use crate::i18n::tr;
-use crate::message::{Message, Popup};
+use crate::message::Message;
 use crate::page_id::PageId;
-use crate::view::icons::Glyph;
-use crate::view::parts::menus::{anchor, ui_language, ui_language_options};
+use crate::view::Page;
 
 /// 侧栏宽度（点）。
 pub const WIDTH: f32 = 216.0;
 
 pub fn sidebar(ui: &mut Ui<Message>, page: &Page) -> Result<NodeId, RenderError> {
-    let theme = &page.theme;
     let brand = brand(ui, page)?;
-    let search = SearchField::new(&page.settings.search.edit)
-        .placeholder(tr("sidebar.search"))
-        .icon(Arc::new(Glyph::Search))
-        .build(
-            ui,
-            theme,
-            "search",
-            Message::Search,
-            Some(Message::SearchFirst),
-            Some(Message::ClearSearch),
-        )?;
+    let search = search_field(ui, page)?;
     let items = if page.settings.search.active() {
         results(ui, page)?
     } else {
@@ -85,23 +72,6 @@ pub fn sidebar(ui: &mut Ui<Message>, page: &Page) -> Result<NodeId, RenderError>
     )
 }
 
-/// 界面语言：「文A」图标加当前语言自己的叫法，看不懂当前界面的人也认得出；点开是语言菜单。
-fn language(ui: &mut Ui<Message>, page: &Page) -> Result<NodeId, RenderError> {
-    let general = &page.settings.config.general;
-    let current = ui_language(general);
-    let options = ui_language_options();
-    let label = options
-        .iter()
-        .find(|(_, tag)| *tag == current)
-        .map_or(current, |(label, _)| label);
-    NavItem::new(label).icon(Arc::new(Glyph::Translate)).build(
-        ui,
-        &page.theme,
-        anchor(Popup::UiLanguage),
-        Message::OpenMenu(Popup::UiLanguage),
-    )
-}
-
 /// 各页的导航项，当前页左边叠竹节。
 fn navigation(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderError> {
     let theme = &page.theme;
@@ -116,31 +86,6 @@ fn navigation(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderEr
                 item = item.accessory(joint(ui, page)?);
             }
             items.push(item.build(ui, theme, id, Message::Page(id))?);
-        }
-        Ok(items)
-    })
-}
-
-/// 搜索结果：图标是所在页的，点了跳过去；一条都没有时说一声。
-fn results(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderError> {
-    let theme = &page.theme;
-    let hits = &page.settings.search.hits;
-    if hits.is_empty() {
-        return Ok(vec![paragraph(
-            ui,
-            theme,
-            tr("sidebar.no_results"),
-            Some(theme.colors.secondary),
-        )?]);
-    }
-    ui.scope("hits", |ui| -> Result<Vec<NodeId>, RenderError> {
-        let mut items = Vec::new();
-        for (index, hit) in hits.iter().enumerate() {
-            items.push(
-                NavItem::new(&hit.title)
-                    .icon(Arc::new(hit.page.glyph()))
-                    .build(ui, theme, index, Message::Jump(index))?,
-            );
         }
         Ok(items)
     })

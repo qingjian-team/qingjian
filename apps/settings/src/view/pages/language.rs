@@ -1,7 +1,9 @@
 //! 「中英文」页：英文模式（开关、切换键、默认英文与按应用记住、英文候选、Shift + 字母），标点与中西文空格，悬浮状态条。
 
 use bamboo_slip::taffy::{FlexDirection, NodeId, Style};
-use bamboo_slip::{Checkbox, RenderError, SettingRow, TextField, Ui, Visual, group, section_title};
+use bamboo_slip::{
+    Branch, Checkbox, RenderError, SettingRow, TextField, Ui, Visual, group, section_title,
+};
 use qingjian_platform::{DEFAULT_ENGLISH_CANDIDATES_ON, ShiftLetter, SwitchKey, ThirdInputMethod};
 
 use crate::i18n::tr;
@@ -9,7 +11,8 @@ use crate::message::{FieldId, Message, Popup};
 use crate::support::Feature;
 use crate::view::Page;
 use crate::view::parts::actions::with_notice;
-use crate::view::parts::controls::{choice, percent_slider, select, toggle, toggle_info};
+use crate::view::parts::branch::{branch, nested};
+use crate::view::parts::controls::{choice, percent_slider, select, switch, toggle, toggle_info};
 use crate::view::parts::menus::third_input_label;
 
 /// 全角 / 半角两档，配置里是布尔。
@@ -24,7 +27,7 @@ pub fn language(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Render
     let general = &config.general;
     let mut out = Vec::new();
 
-    let mut rows = vec![toggle_info(
+    let english_mode = toggle_info(
         ui,
         page,
         tr("language.english_mode"),
@@ -32,10 +35,10 @@ pub fn language(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Render
         ("general", "english_mode"),
         general.english_mode,
         false,
-    )?];
-    if Feature::SwitchKeys.here() {
-        rows.push(switch_keys(ui, page)?);
-    }
+    )?;
+    let mut rows = vec![branch(ui, page, "english-mode", english_mode, |ui| {
+        english_mode_children(ui, page)
+    })?];
     let third = general.double_shift_input;
     let third_names: Vec<&str> = ThirdInputMethod::ALL
         .iter()
@@ -49,12 +52,155 @@ pub fn language(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Render
         140.0,
         false,
     )?;
-    rows.push(
+    rows.push(Branch::leaf(
         SettingRow::new(tr("language.double_shift_input"))
-            .info(tr("language.double_shift_input_info"))
             .control(third_input)
             .build(ui, theme)?,
-    );
+    ));
+    let shift = choice(
+        ui,
+        page,
+        "shift-letter",
+        &ShiftLetter::ALL,
+        general.shift_letter,
+        ShiftLetter::label,
+        |value| Message::set("general", "shift_letter", value.key()),
+    )?;
+    rows.push(Branch::leaf(
+        SettingRow::new(tr("language.shift_letter"))
+            .info(tr("language.shift_letter_info"))
+            .control(shift)
+            .build(ui, theme)?,
+    ));
+    out.push(section_title(ui, theme, tr("language.section_english"))?);
+    out.push(nested(ui, page, rows)?);
+
+    let chinese = choice(
+        ui,
+        page,
+        "full-width",
+        &WIDTHS,
+        general.full_width_punctuation,
+        width_label,
+        |value| Message::set("general", "full_width_punctuation", value),
+    )?;
+    let mut rows = vec![Branch::leaf(
+        SettingRow::new(tr("language.chinese_punctuation"))
+            .control(chinese)
+            .build(ui, theme)?,
+    )];
+    if Feature::EnglishPunctuation.here() {
+        let english = choice(
+            ui,
+            page,
+            "english-full-width",
+            &[false, true],
+            general.english_full_width_punctuation,
+            width_label,
+            |value| Message::set("general", "english_full_width_punctuation", value),
+        )?;
+        rows.push(Branch::leaf(
+            SettingRow::new(tr("language.english_punctuation"))
+                .control(english)
+                .build(ui, theme)?,
+        ));
+    }
+    rows.push(Branch::leaf(half_width_symbols(ui, page)?));
+    rows.push(Branch::leaf(toggle_info(
+        ui,
+        page,
+        tr("language.punct_commits"),
+        Some(tr("language.punct_commits_info")),
+        ("general", "punct_commits"),
+        general.punct_commits,
+        false,
+    )?));
+    if Feature::PairPunctuation.here() {
+        let pair = toggle_info(
+            ui,
+            page,
+            tr("language.pair_punctuation"),
+            Some(tr("language.pair_punctuation_info")),
+            ("general", "pair_punctuation"),
+            general.pair_punctuation,
+            false,
+        )?;
+        rows.push(branch(ui, page, "pair", pair, |ui| {
+            Ok(vec![toggle_info(
+                ui,
+                page,
+                tr("language.english_pair_punctuation"),
+                Some(tr("language.english_pair_punctuation_info")),
+                ("general", "english_pair_punctuation"),
+                general.english_pair_punctuation,
+                false,
+            )?])
+        })?);
+    }
+    if Feature::AutoSpace.here() {
+        rows.push(Branch::leaf(toggle_info(
+            ui,
+            page,
+            tr("language.auto_space"),
+            Some(tr("language.auto_space_info")),
+            ("general", "auto_space"),
+            general.auto_space,
+            false,
+        )?));
+    }
+    out.push(section_title(
+        ui,
+        theme,
+        tr("language.section_punctuation"),
+    )?);
+    out.push(nested(ui, page, rows)?);
+
+    if Feature::StatusBar.here() {
+        let status = toggle(
+            ui,
+            page,
+            tr("language.status_bar"),
+            ("status_bar", "enabled"),
+            config.status_bar.enabled,
+        )?;
+        let rows = vec![branch(ui, page, "status-bar", status, |ui| {
+            Ok(vec![percent_slider(
+                ui,
+                page,
+                (tr("language.status_bar_size"), ("status_bar", "size")),
+                config.status_bar.size(),
+                (60.0, 150.0),
+                !config.status_bar.enabled,
+            )?])
+        })?];
+        out.push(section_title(ui, theme, tr("language.section_status_bar"))?);
+        out.push(nested(ui, page, rows)?);
+    }
+    if Feature::MenubarIndicator.here() {
+        let indicator = toggle_info(
+            ui,
+            page,
+            tr("language.menubar_indicator"),
+            Some(tr("language.menubar_indicator_info")),
+            ("general", "menubar_indicator"),
+            general.menubar_indicator,
+            false,
+        )?;
+        out.push(section_title(ui, theme, tr("language.section_menubar"))?);
+        out.push(group(ui, theme, &[indicator])?);
+    }
+    Ok(out)
+}
+
+/// 「英文模式」开关下面的细项：切换键、默认英文与按应用记、英文模式也给候选（下面挂「只在写字的应用里给」）。
+fn english_mode_children(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderError> {
+    let theme = &page.theme;
+    let config = &page.settings.config;
+    let general = &config.general;
+    let mut rows = Vec::new();
+    if Feature::SwitchKeys.here() {
+        rows.push(switch_keys(ui, page)?);
+    }
     if Feature::DefaultEnglish.here() {
         rows.push(toggle_info(
             ui,
@@ -98,7 +244,7 @@ pub fn language(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Render
             "english-only-in-apps",
             Message::SetList("apps", "english_candidates_on", apps),
         )?;
-    let switch = bamboo_slip::Switch::new(general.english_candidates).build(
+    let switch = switch(page, general.english_candidates).build(
         ui,
         theme,
         "english-candidates",
@@ -111,122 +257,7 @@ pub fn language(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Render
             .below(only)
             .build(ui, theme)?,
     );
-    let shift = choice(
-        ui,
-        page,
-        "shift-letter",
-        &ShiftLetter::ALL,
-        general.shift_letter,
-        ShiftLetter::label,
-        |value| Message::set("general", "shift_letter", value.key()),
-    )?;
-    rows.push(
-        SettingRow::new(tr("language.shift_letter"))
-            .info(tr("language.shift_letter_info"))
-            .control(shift)
-            .build(ui, theme)?,
-    );
-    out.push(section_title(ui, theme, tr("language.section_english"))?);
-    out.push(group(ui, theme, &rows)?);
-
-    let chinese = choice(
-        ui,
-        page,
-        "full-width",
-        &WIDTHS,
-        general.full_width_punctuation,
-        width_label,
-        |value| Message::set("general", "full_width_punctuation", value),
-    )?;
-    let mut rows = vec![
-        SettingRow::new(tr("language.chinese_punctuation"))
-            .control(chinese)
-            .build(ui, theme)?,
-    ];
-    if Feature::EnglishPunctuation.here() {
-        let english = choice(
-            ui,
-            page,
-            "english-full-width",
-            &[false, true],
-            general.english_full_width_punctuation,
-            width_label,
-            |value| Message::set("general", "english_full_width_punctuation", value),
-        )?;
-        rows.push(
-            SettingRow::new(tr("language.english_punctuation"))
-                .control(english)
-                .build(ui, theme)?,
-        );
-    }
-    rows.push(half_width_symbols(ui, page)?);
-    rows.push(toggle_info(
-        ui,
-        page,
-        tr("language.punct_commits"),
-        Some(tr("language.punct_commits_info")),
-        ("general", "punct_commits"),
-        general.punct_commits,
-        false,
-    )?);
-    if Feature::PairPunctuation.here() {
-        rows.push(toggle_info(
-            ui,
-            page,
-            tr("language.pair_punctuation"),
-            Some(tr("language.pair_punctuation_info")),
-            ("general", "pair_punctuation"),
-            general.pair_punctuation,
-            false,
-        )?);
-        rows.push(toggle_info(
-            ui,
-            page,
-            tr("language.english_pair_punctuation"),
-            Some(tr("language.english_pair_punctuation_info")),
-            ("general", "english_pair_punctuation"),
-            general.english_pair_punctuation,
-            false,
-        )?);
-    }
-    if Feature::AutoSpace.here() {
-        rows.push(toggle_info(
-            ui,
-            page,
-            tr("language.auto_space"),
-            Some(tr("language.auto_space_info")),
-            ("general", "auto_space"),
-            general.auto_space,
-            false,
-        )?);
-    }
-    out.push(section_title(
-        ui,
-        theme,
-        tr("language.section_punctuation"),
-    )?);
-    out.push(group(ui, theme, &rows)?);
-
-    if Feature::StatusBar.here() {
-        let status = toggle(
-            ui,
-            page,
-            tr("language.status_bar"),
-            ("status_bar", "enabled"),
-            config.status_bar.enabled,
-        )?;
-        let size = percent_slider(
-            ui,
-            page,
-            (tr("language.status_bar_size"), ("status_bar", "size")),
-            config.status_bar.size(),
-            (60.0, 150.0),
-            !config.status_bar.enabled,
-        )?;
-        out.push(section_title(ui, theme, tr("language.section_status_bar"))?);
-        out.push(group(ui, theme, &[status, size])?);
-    }
-    Ok(out)
+    Ok(rows)
 }
 
 fn width_label(full: bool) -> &'static str {
@@ -285,13 +316,13 @@ fn switch_keys(ui: &mut Ui<Message>, page: &Page) -> Result<NodeId, RenderError>
     with_notice(
         ui,
         page,
-        SettingRow::new(tr("language.switch_keys"))
-            .info(if combos {
-                tr("language.switch_keys_multi")
-            } else {
-                tr("language.switch_keys_caps")
-            })
-            .control(column),
+        // 能多选时不写说明（自明）；只有 Caps Lock 一项时说清它管什么
+        if combos {
+            SettingRow::new(tr("language.switch_keys"))
+        } else {
+            SettingRow::new(tr("language.switch_keys")).info(tr("language.switch_keys_caps"))
+        }
+        .control(column),
         "switch-keys",
     )
 }

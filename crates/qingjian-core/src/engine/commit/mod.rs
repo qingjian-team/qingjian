@@ -97,9 +97,11 @@ impl Engine {
         }
         let lead = self.auto_space_before(&candidate.text);
         let before = self.hold_selections.then(|| self.composition.clone());
+        let previous_log_id = self.recent_commits.last().map(|commit| commit.log_id);
         let text = self.commit_with(candidate, InputSource::from(candidate.kind), None);
+        let learned = self.recent_commits.last().map(|commit| commit.log_id) != previous_log_id;
         let text = if lead { format!(" {text}") } else { text };
-        self.hold_or_release(before, text)
+        self.hold_or_release(before, text, learned)
     }
 
     /// [`Self::commit`] 的内部形式：`source` 写进输入日志（上屏译词时不是候选本身），

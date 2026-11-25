@@ -190,8 +190,9 @@ pub struct Router {
 }
 
 impl Router {
-    pub fn new(engine: Engine, config: RouterConfig) -> Self {
+    pub fn new(mut engine: Engine, config: RouterConfig) -> Self {
         let english = config.english_mode && config.default_english;
+        engine.set_pair_punctuation(config.pair_punctuation, config.english_pair_punctuation);
         Self {
             engine,
             config: RouterConfig {

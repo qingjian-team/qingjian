@@ -9,6 +9,7 @@ use super::WidgetTheme;
 use crate::color::Color;
 use crate::error::RenderError;
 use crate::scene::{BoxPaint, Effect, EffectKind, Fill, Visual};
+use crate::text::TextStyle;
 use crate::ui::Ui;
 
 /// 焦点环离控件外沿的距离（点）。
@@ -27,6 +28,28 @@ pub(super) fn label<M>(
         Visual::Text {
             text: text.to_owned(),
             style: theme.text(points, weight, color),
+        },
+        &[],
+    )
+}
+
+/// 一行放不下就截短补「…」的字：节点能被布局压窄（最小宽度 0）。
+pub(super) fn truncated<M>(
+    ui: &mut Ui<M>,
+    style: TextStyle,
+    text: &str,
+) -> Result<NodeId, RenderError> {
+    ui.scene().node(
+        Style {
+            min_size: Size {
+                width: LengthPercentageAuto::length(0.0),
+                height: LengthPercentageAuto::auto(),
+            },
+            ..Style::default()
+        },
+        Visual::Text {
+            text: text.to_owned(),
+            style,
         },
         &[],
     )

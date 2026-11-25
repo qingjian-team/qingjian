@@ -12,6 +12,7 @@ use crate::message::{Message, Popup};
 use crate::page_id::PageId;
 use crate::support::Feature;
 use crate::view::Page;
+use crate::view::parts::branch::{branch, nested};
 use crate::view::parts::controls::{choice, select, toggle_info, toggle_with};
 
 pub fn candidates(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderError> {
@@ -167,45 +168,47 @@ pub fn candidates(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Rend
     out.push(section_title(ui, theme, tr("candidates.section_ranking"))?);
     out.push(group(ui, theme, &rows)?);
 
-    let rows = vec![
-        toggle_info(
-            ui,
-            page,
-            tr("candidates.english_in_chinese"),
-            Some("hello、compa → company"),
-            ("general", "english_in_chinese"),
-            general.english_in_chinese,
-            false,
-        )?,
-        SettingRow::new(tr("candidates.english_max"))
-            .info(tr("candidates.english_max_info"))
-            .control(english_max_stepper(
+    let english = toggle_info(
+        ui,
+        page,
+        tr("candidates.english_in_chinese"),
+        Some("hello、compa → company"),
+        ("general", "english_in_chinese"),
+        general.english_in_chinese,
+        false,
+    )?;
+    let rows = vec![branch(ui, page, "english", english, |ui| {
+        Ok(vec![
+            SettingRow::new(tr("candidates.english_max"))
+                .info(tr("candidates.english_max_info"))
+                .control(english_max_stepper(
+                    ui,
+                    page,
+                    general.english_max_in_chinese(),
+                    !general.english_in_chinese,
+                )?)
+                .build(ui, theme)?,
+            SettingRow::new(tr("candidates.english_position"))
+                .info(tr("candidates.english_position_info"))
+                .control(english_min_stepper(
+                    ui,
+                    page,
+                    general.english_min_position(),
+                    !general.english_in_chinese,
+                )?)
+                .build(ui, theme)?,
+            toggle_with(
                 ui,
                 page,
-                general.english_max_in_chinese(),
+                tr("candidates.chinese_first"),
+                ("general", "chinese_first"),
+                general.chinese_first,
                 !general.english_in_chinese,
-            )?)
-            .build(ui, theme)?,
-        SettingRow::new(tr("candidates.english_position"))
-            .info(tr("candidates.english_position_info"))
-            .control(english_min_stepper(
-                ui,
-                page,
-                general.english_min_position(),
-                !general.english_in_chinese,
-            )?)
-            .build(ui, theme)?,
-        toggle_with(
-            ui,
-            page,
-            tr("candidates.chinese_first"),
-            ("general", "chinese_first"),
-            general.chinese_first,
-            !general.english_in_chinese,
-        )?,
-    ];
+            )?,
+        ])
+    })?];
     out.push(section_title(ui, theme, tr("candidates.section_english"))?);
-    out.push(group(ui, theme, &rows)?);
+    out.push(nested(ui, page, rows)?);
     Ok(out)
 }
 

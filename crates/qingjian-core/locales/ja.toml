@@ -29,3 +29,12 @@ duplicate = "入力コード {code} にはこのフレーズがすでにあり�
 user_word = "ユーザー単語「{text}」を削除しました"
 learning = "「{text}」の学習記録を消去しました"
 nothing = "「{text}」は辞書の語で学習記録もないため、削除するものはありません"
+
+[panel]
+translate_to = "{language}に翻訳"
+chinese = "中国語"
+translate_idle = "打ち終えて少し止まると翻訳します"
+translate_waiting = "翻訳中…"
+translate_ready = "Enter で確定"
+translate_failed = "翻訳できませんでした。Enter で再試行"
+translate_placeholder = "翻訳したい文をここに入力"

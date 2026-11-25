@@ -88,7 +88,7 @@ fn show_neon(success: bool) {
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     use std::path::PathBuf;
 
-    use bamboo_slip::{WindowOptions, run_window, system_acrylic};
+    use bamboo_slip::{Backdrop, WindowOptions, run_window};
     use qingjian_clipboard::{ClipSettings, ClipStore, Edge};
 
     let mut forced_edge = None;
@@ -154,7 +154,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     bamboo_slip_i18n::set_locale(settings.locale());
     let store = ClipStore::open(&path, settings.history_limit)?;
-    let acrylic = system_acrylic();
+    let acrylic = Backdrop::Transient.available();
     run_window(
         app::ClipboardApp::new(
             store,
@@ -170,7 +170,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         ),
         WindowOptions::new("Qingjian Clipboard", (420.0, 360.0))
             .panel()
-            .acrylic(acrylic),
+            .backdrop(acrylic.then_some(Backdrop::Transient)),
     )?;
     Ok(())
 }

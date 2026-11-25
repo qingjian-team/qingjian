@@ -1,5 +1,7 @@
 //! 线性层 `x · wᵀ (+ b)`：权重 f32（或 Metal 上 f16）原样乘，或量化成 [`Q8Matrix`]。
 
+use std::sync::Arc;
+
 use candle_core::{DType, Module, Result, Tensor};
 use candle_nn::{Linear, VarBuilder};
 
@@ -9,7 +11,7 @@ pub(super) enum Projection {
     Dense(Linear),
 
     Quantized {
-        matrix: Q8Matrix,
+        matrix: Arc<Q8Matrix>,
 
         bias: Option<Tensor>,
     },
@@ -28,6 +30,11 @@ impl Projection {
         Self::new(weight, None, quantize)
     }
 
+    /// 已经量好的矩阵直接当线性层用（与词嵌入表共享同一份权重）。
+    pub fn from_matrix(matrix: Arc<Q8Matrix>) -> Self {
+        Self::Quantized { matrix, bias: None }
+    }
+
     fn new(weight: Tensor, bias: Option<Tensor>, quantize: bool) -> Result<Self> {
         if quantize {
             let (rows, cols) = weight.dims2()?;
@@ -36,7 +43,10 @@ impl Projection {
                 .flatten_all()?
                 .to_vec1::<f32>()?;
             if let Some(matrix) = Q8Matrix::quantize(&values, rows, cols) {
-                return Ok(Self::Quantized { matrix, bias });
+                return Ok(Self::Quantized {
+                    matrix: Arc::new(matrix),
+                    bias,
+                });
             }
         }
         Ok(Self::Dense(Linear::new(weight, bias)))
