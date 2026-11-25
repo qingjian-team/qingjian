@@ -11,10 +11,10 @@ off = "不顯示"
 
 [traditional]
 off = "簡體"
-taiwan = "繁體（臺灣）"
+taiwan = "繁體（台灣）"
 hongkong = "繁體（香港）"
 standard = "繁體（通用字形）"
-taiwan_short = "臺灣"
+taiwan_short = "台灣"
 hongkong_short = "香港"
 standard_short = "通用"
 

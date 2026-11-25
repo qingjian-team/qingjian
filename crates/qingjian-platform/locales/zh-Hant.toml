@@ -90,7 +90,7 @@ enter = "回車"
 
 [phrase_file]
 empty = "檔案裡沒有自訂短語"
-is_config = "這是設定檔，不是短語檔案；設定在「進階」頁匯入，短語請先在另一臺電腦上匯出"
+is_config = "這是設定檔，不是短語檔案；設定在「進階」頁匯入，短語請先在另一台電腦上匯出"
 no_tab = "文字與輸入碼之間要用 Tab 隔開"
 skipped_entry = "第 {entry} 條：{reason}"
 skipped_line = "第 {line} 行「{text}」：{reason}"
