@@ -103,7 +103,7 @@
 
 | 标题 | 控件 | 配置 | 说明 |
 |---|---|---|---|
-| 每页候选数 | 步进 1–9 | `general.page_size` | |
+| 每页候选数 | 步进 1–10 | `general.page_size` | 10 时数字键 `0` 选第 10 个 |
 | 译文 | 下拉：英语 / 日语 / 西班牙语 / 越南语 / 不显示 | `general.learning_language` | 不显示时生词标记也关掉 |
 | 繁体 | 开关 | `general.traditional` | 只换字形，不换用语 |
 | emoji | 开关 | `general.emoji` | |
