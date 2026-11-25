@@ -43,6 +43,9 @@ pub struct SettingRow<'a> {
 
     /// 使用方补的搜索同义词。
     keywords: &'a [&'a str],
+
+    /// 区分同名的行（同一帧里两处都有同一个名字时）；不给时 key 只由标题派生。
+    id: Option<&'a str>,
 }
 
 impl<'a> SettingRow<'a> {
@@ -58,6 +61,15 @@ impl<'a> SettingRow<'a> {
             footer: None,
             stacked: false,
             keywords: &[],
+            id: None,
+        }
+    }
+
+    /// 见 [`Self::id`] 字段。
+    pub fn id(self, id: &'a str) -> Self {
+        Self {
+            id: Some(id),
+            ..self
         }
     }
 
@@ -134,7 +146,10 @@ impl<'a> SettingRow<'a> {
         ui: &mut Ui<M>,
         theme: &WidgetTheme,
     ) -> Result<NodeId, RenderError> {
-        let key = ui.key(("row", self.title));
+        let key = match self.id {
+            Some(id) => ui.key(("row", self.title, id)),
+            None => ui.key(("row", self.title)),
+        };
         let owned: Vec<NodeId> = self
             .control
             .iter()
@@ -154,7 +169,10 @@ impl<'a> SettingRow<'a> {
         };
         if let Some(text) = info {
             let link = ui.info_link(self.title);
-            let mark = info_with_link(ui, theme, ("info", self.title), text, link)?;
+            let mark = match self.id {
+                Some(id) => info_with_link(ui, theme, ("info", self.title, id), text, link)?,
+                None => info_with_link(ui, theme, ("info", self.title), text, link)?,
+            };
             title = ui.scene().node(
                 Style {
                     align_items: AlignItems::CENTER,
@@ -195,12 +213,11 @@ impl<'a> SettingRow<'a> {
         if theme.look != Look::Plain
             && let Some((message, hint)) = ui.info_link(self.title)
         {
-            line.push(Link::new(hint).points(theme.small).build(
-                ui,
-                theme,
-                ("info", self.title),
-                message,
-            )?);
+            let link = Link::new(hint).points(theme.small);
+            line.push(match self.id {
+                Some(id) => link.build(ui, theme, ("info", self.title, id), message)?,
+                None => link.build(ui, theme, ("info", self.title), message)?,
+            });
         }
         if !line.is_empty() {
             texts.push(ui.scene().node(

@@ -3,8 +3,8 @@
 
 use bamboo_slip::taffy::{FlexDirection, LengthPercentage, NodeId, Rect, Style};
 use bamboo_slip::{
-    Button, Checkbox, KeyRecorder, RenderError, Segmented, SettingRow, Ui, Visual, group,
-    paragraph, section_title,
+    Button, Checkbox, KeyRecorder, RenderError, SettingRow, Ui, Visual, group, paragraph,
+    section_title,
 };
 use qingjian_core::ModeKeys;
 use qingjian_platform::{HighlightKeys, KeyCombo, PAGE_KEY_OPTIONS};
@@ -15,7 +15,7 @@ use crate::shortcut::Shortcut;
 use crate::support::Feature;
 use crate::view::Page;
 use crate::view::parts::actions::with_notice;
-use crate::view::parts::controls::{choice, switch, toggle_info};
+use crate::view::parts::controls::{choice, pick, switch, toggle_info};
 
 pub fn shortcuts(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderError> {
     let theme = &page.theme;
@@ -33,7 +33,7 @@ pub fn shortcuts(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Rende
         .iter()
         .position(|keys| *keys == pair)
         .unwrap_or(0);
-    let page_keys = Segmented::new(&labels, selected).build(ui, theme, "page-keys", |index| {
+    let page_keys = pick(ui, page, "page-keys", (&labels, selected), false, |index| {
         Message::set("general", "page_keys", PAGE_KEY_OPTIONS[index])
     })?;
     let mode = config.shortcut.mode.sanitized();
@@ -358,7 +358,11 @@ fn mode_key(
         .iter()
         .position(|letter| *letter == current)
         .unwrap_or(0);
-    Segmented::new(&labels, selected).build(ui, &page.theme, ("mode-key", key), move |index| {
+    let local = match key {
+        "expression" => "mode-key-expression",
+        _ => "mode-key-lookup",
+    };
+    pick(ui, page, local, (&labels, selected), false, move |index| {
         Message::ModeKey(key, ModeKeys::CANDIDATES[index])
     })
 }

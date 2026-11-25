@@ -4,7 +4,7 @@
 
 use bamboo_slip::taffy::NodeId;
 use bamboo_slip::{
-    Button, DownloadRow, DownloadState, FieldValue, RenderError, Segmented, SettingRow, Ui, fields,
+    Button, DownloadRow, DownloadState, FieldValue, Look, RenderError, SettingRow, Ui, fields,
     group, paragraph, section_title, toolbar,
 };
 use qingjian_platform::{CLIPBOARD_HISTORY_LIMITS, ClipboardEdge, LocalModel, ZhiyiTier};
@@ -18,8 +18,9 @@ use crate::system::action::Action;
 use crate::view::Page;
 use crate::view::pages::shortcuts::recorder;
 use crate::view::parts::actions::with_notice;
-use crate::view::parts::controls::{choice, switch, toggle_info};
+use crate::view::parts::controls::{choice, pick, switch, toggle_info};
 use crate::view::parts::download::{DownloadStatus, labels};
+use crate::view::parts::lists::with_actions;
 
 pub fn experimental(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderError> {
     let theme = &page.theme;
@@ -77,10 +78,12 @@ fn clipboard(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderErr
         .iter()
         .position(|edge| *edge == config.edge)
         .unwrap_or(0);
-    let edges = Segmented::new(&labels, selected).disabled(!on).build(
+    let edges = pick(
         ui,
-        theme,
+        page,
         "clipboard-edge",
+        (&labels, selected),
+        !on,
         |index| Message::set("clipboard", "edge", ClipboardEdge::ALL[index].key()),
     )?;
     let edge = SettingRow::new(tr("experimental.clipboard_edge"))
@@ -95,15 +98,20 @@ fn clipboard(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderErr
         .iter()
         .position(|limit| *limit == config.history_limit)
         .unwrap_or(2);
-    let limit = Segmented::new(&limit_labels, limit_index)
-        .disabled(!on)
-        .build(ui, theme, "clipboard-limit", |index| {
+    let limit = pick(
+        ui,
+        page,
+        "clipboard-limit",
+        (&limit_labels, limit_index),
+        !on,
+        |index| {
             Message::set(
                 "clipboard",
                 "history_limit",
                 i64::from(CLIPBOARD_HISTORY_LIMITS[index]),
             )
-        })?;
+        },
+    )?;
     let limit = SettingRow::new(tr("experimental.clipboard_limit"))
         .info(tr("experimental.clipboard_limit_info"))
         .control(limit)
@@ -163,7 +171,8 @@ fn clipboard(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderErr
     Ok(out)
 }
 
-/// 不记录的程序：自成一节，标题下一行说明与「添加程序」，再是加过的程序，一个一行带「移除」。
+/// 不记录的程序：自成一节，标题下一行说明，再是加过的程序，一个一行带「移除」。
+/// 竹青把「添加程序」放在说明右边；照系统设置画时它是列表里的一行，Windows 在最上、macOS 在最下（[`with_actions`]）。
 fn excluded_apps(ui: &mut Ui<Message>, page: &Page, on: bool) -> Result<Vec<NodeId>, RenderError> {
     let theme = &page.theme;
     let config = &page.settings.config.clipboard;
@@ -176,7 +185,6 @@ fn excluded_apps(ui: &mut Ui<Message>, page: &Page, on: bool) -> Result<Vec<Node
     let add = Button::new(tr("experimental.clipboard_add_app"))
         .disabled(!on)
         .build(ui, theme, "clipboard-add-app", Message::ExcludeClipboardApp)?;
-    out.push(toolbar(ui, theme, &[note, add])?);
     let mut rows = Vec::new();
     for app in &config.excluded_apps {
         let kept: Vec<String> = config
@@ -195,9 +203,19 @@ fn excluded_apps(ui: &mut Ui<Message>, page: &Page, on: bool) -> Result<Vec<Node
             )?;
         rows.push(SettingRow::new(app).control(remove).build(ui, theme)?);
     }
-    if !rows.is_empty() {
-        out.push(group(ui, theme, &rows)?);
+    if theme.look == Look::Plain {
+        out.push(toolbar(ui, theme, &[note, add])?);
+        if !rows.is_empty() {
+            out.push(group(ui, theme, &rows)?);
+        }
+        return Ok(out);
     }
+    out.push(note);
+    let action = SettingRow::new(tr("experimental.clipboard_apps"))
+        .control(add)
+        .build(ui, theme)?;
+    let rows = with_actions(page, rows, vec![action]);
+    out.push(group(ui, theme, &rows)?);
     Ok(out)
 }
 

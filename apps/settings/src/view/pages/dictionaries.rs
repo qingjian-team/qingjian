@@ -21,7 +21,7 @@ use crate::stats::language_name;
 use crate::view::Page;
 use crate::view::parts::download::{DownloadStatus, labels, megabytes};
 use crate::view::parts::lists::{
-    domain_grid, entry_row, import_row, license_label, toggle_disabled,
+    domain_grid, entry_row, import_row, license_label, toggle_disabled, with_actions,
 };
 
 pub fn dictionaries(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderError> {
@@ -65,13 +65,14 @@ pub fn dictionaries(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Re
             None,
         )?);
     }
-    rows.push(import_row(
+    let import = import_row(
         ui,
         page,
         Kind::Dictionary,
         tr("dictionaries.import"),
         tr("dictionaries.import_info"),
-    )?);
+    )?;
+    let rows = with_actions(page, rows, vec![import]);
     out.push(section_title(
         ui,
         theme,

@@ -15,7 +15,7 @@ use crate::support::Feature;
 use crate::view::Page;
 use crate::view::parts::actions::with_notice;
 use crate::view::parts::controls::{percent_slider, select, switch, toggle_info, toggle_with};
-use crate::view::parts::lists::{entry_row, import_row};
+use crate::view::parts::lists::{entry_row, import_row, with_actions};
 use crate::view::parts::menus::{code_options, scheme_options};
 
 /// 自定义模糊音输入框的宽：放得下三四条规则。
@@ -299,13 +299,14 @@ fn aux_code(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderErro
             info,
         )?);
     }
-    rows.push(import_row(
+    let import = import_row(
         ui,
         page,
         Kind::CodeTable,
         tr("input.import_code_table"),
         tr("input.import_code_table_info"),
-    )?);
+    )?;
+    let rows = with_actions(page, rows, vec![import]);
     out.push(section_title(ui, theme, tr("input.section_code_tables"))?);
     out.push(group(ui, theme, &rows)?);
     Ok(out)

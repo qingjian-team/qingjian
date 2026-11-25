@@ -63,8 +63,7 @@ pub fn switch(page: &Page, on: bool) -> Switch<'static> {
     }
 }
 
-/// 一组互斥取值：`all` 按设置界面的顺序，`label` 取界面上的名字。照 Windows 设置画时是下拉框（设置行里不用分段），
-/// 点开的菜单在这里当场建、挂到根上；别的外观是分段选择。
+/// 几选一的设置行：竹青与 macOS 是分段控件，Windows 照系统设置一律用下拉框（ComboBox），点开的菜单当场建在浮层里。
 pub fn choice<T: Copy + PartialEq + 'static>(
     ui: &mut Ui<Message>,
     page: &Page,
@@ -77,23 +76,42 @@ pub fn choice<T: Copy + PartialEq + 'static>(
     let labels: Vec<&str> = all.iter().map(|value| label(*value)).collect();
     let selected = all.iter().position(|value| *value == current).unwrap_or(0);
     let values = all.to_vec();
+    pick(ui, page, local, (&labels, selected), false, move |index| {
+        message(values[index])
+    })
+}
+
+/// 同 [`choice`]，选项是现成的字：`on_pick` 按选了第几项给消息。
+pub fn pick(
+    ui: &mut Ui<Message>,
+    page: &Page,
+    local: &'static str,
+    (labels, selected): (&[&str], usize),
+    disabled: bool,
+    on_pick: impl Fn(usize) -> Message,
+) -> Result<NodeId, RenderError> {
     if page.theme.look != Look::Fluent {
-        return Segmented::new(&labels, selected)
-            .build(ui, &page.theme, local, move |index| message(values[index]));
+        return Segmented::new(labels, selected).disabled(disabled).build(
+            ui,
+            &page.theme,
+            local,
+            on_pick,
+        );
     }
     let popup = Popup::Choice(local);
     let node = Select::new(labels[selected])
-        .options(&labels)
+        .options(labels)
         .width(160.0)
+        .disabled(disabled)
         .build(ui, &page.theme, anchor(popup), Message::OpenMenu(popup))?;
     if page.settings.menu == Some(popup)
         && let Some(rect) = ui.rect(ui.key(anchor(popup)))
     {
-        let menu = Menu::new(&labels, Some(selected), rect, page.window).build(
+        let menu = Menu::new(labels, Some(selected), rect, page.window).build(
             ui,
             &page.theme,
             ("menu", local),
-            move |index| message(values[index]),
+            on_pick,
             Message::CloseMenu,
         )?;
         ui.overlay(menu);

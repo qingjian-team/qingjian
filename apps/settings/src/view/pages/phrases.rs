@@ -16,6 +16,7 @@ use crate::support::Feature;
 use crate::view::Page;
 use crate::view::parts::actions::with_notice;
 use crate::view::parts::controls::toggle_info;
+use crate::view::parts::lists::with_actions;
 
 /// 内容在列表里最多显示几个字。
 const PREVIEW: usize = 24;
@@ -34,14 +35,14 @@ pub fn phrases(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderE
     }
     let add =
         Button::new(tr("phrases.add")).build(ui, theme, "add-phrase", Message::OpenPhrase(None))?;
-    rows.push(with_notice(
+    let mut actions = vec![with_notice(
         ui,
         page,
         SettingRow::new(tr("phrases.new_phrase"))
             .info(tr("phrases.new_phrase_info"))
             .control(add),
         "phrases",
-    )?);
+    )?];
     let import = Button::new(tr("phrases.import")).build(
         ui,
         theme,
@@ -63,7 +64,7 @@ pub fn phrases(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderE
         Visual::Group,
         &[import, export],
     )?;
-    rows.push(with_notice(
+    actions.push(with_notice(
         ui,
         page,
         SettingRow::new(tr("phrases.transfer"))
@@ -71,6 +72,7 @@ pub fn phrases(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderE
             .control(buttons),
         "phrases-transfer",
     )?);
+    let rows = with_actions(page, rows, actions);
     out.push(section_title(ui, theme, tr("phrases.section_phrases"))?);
     out.push(group(ui, theme, &rows)?);
 
