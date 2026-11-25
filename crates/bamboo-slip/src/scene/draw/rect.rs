@@ -1,8 +1,8 @@
 //! 画一个盒子：填充（纯色 / 渐变 / 图片 / SVG）再画内侧边框。
 
 use tiny_skia::{
-    FilterQuality, GradientStop, LinearGradient, Mask, Pattern, Point, RadialGradient, Rect,
-    Shader, SpreadMode, Transform,
+    BlendMode, FilterQuality, GradientStop, LinearGradient, Mask, Pattern, Point, RadialGradient,
+    Rect, Shader, SpreadMode, Transform,
 };
 
 use crate::canvas::{Canvas, round_rect};
@@ -22,6 +22,11 @@ pub(in crate::scene) fn draw_box(
             canvas.fill_round_rect(x, y, width, height, radius, *color);
         }
         Some(Fill::Solid(color)) => canvas.fill_rect(x, y, width, height, *color),
+        Some(Fill::Cutout(color)) => {
+            if let Some(path) = round_rect(x, y, width, height, radius) {
+                canvas.fill_path(&path, *color, BlendMode::Source);
+            }
+        }
         Some(Fill::Linear { angle, stops }) => {
             if let (Some(path), Some(shader)) = (
                 round_rect(x, y, width, height, radius),
@@ -295,4 +300,24 @@ fn fill_cell(
         transform,
     );
     canvas.fill_path_with(&tiny_skia::PathBuilder::from_rect(rect), shader, mask);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn cutout_replaces_what_is_below_instead_of_blending() {
+        let mut canvas = Canvas::new(2, 1).unwrap();
+        canvas.fill_rect(0.0, 0.0, 2.0, 1.0, Color::rgb(255, 255, 255));
+        let paint = BoxPaint {
+            fill: Some(Fill::Cutout(Color::gray(0, 0))),
+            border: None,
+            radius: 0.0,
+        };
+        draw_box(&mut canvas, (0.0, 0.0, 1.0, 1.0), &paint);
+        let pixmap = canvas.into_pixmap();
+        assert_eq!(pixmap.pixel(0, 0).unwrap().alpha(), 0);
+        assert_eq!(pixmap.pixel(1, 0).unwrap().alpha(), 255);
+    }
 }

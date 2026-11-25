@@ -48,7 +48,7 @@ pub fn view(
     (width, height): (u32, u32),
 ) -> Result<NodeId, RenderError> {
     let look = look::current();
-    let palette = palette(look, settings.system_dark);
+    let palette = palette(look, settings.system_dark, settings.backdrop);
     let page = Page {
         settings,
         theme: widget_theme(look, palette.widgets, scale),
@@ -120,7 +120,7 @@ pub fn view(
 pub fn index(settings: &Settings) -> Vec<Entry> {
     let interaction = Interaction::new();
     let look = look::current();
-    let palette = palette(look, false);
+    let palette = palette(look, false, false);
     let page = Page {
         settings,
         theme: widget_theme(look, palette.widgets, 1.0),

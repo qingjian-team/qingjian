@@ -1,4 +1,4 @@
-//! 系统的外观设置：强调色（Windows、macOS）与透明材质（Windows）。读不到（别的平台、老系统）时使用方退回 [`Accent::FLUENT_BLUE`] 或自己的品牌色。
+//! 系统的外观设置：强调色（Windows、macOS）与「透明效果」开关、系统版本（Windows，[`crate::Backdrop`] 用）。读不到（别的平台、老系统）时使用方退回 [`Accent::FLUENT_BLUE`] 或自己的品牌色。
 
 use crate::color::Color;
 
@@ -50,18 +50,6 @@ impl Accent {
     }
 }
 
-/// 系统支持亚克力，用户也没关「透明效果」。第一个支持的版本是 Windows 11 22H2（22621）。
-pub fn system_acrylic() -> bool {
-    #[cfg(target_os = "windows")]
-    {
-        read_build() >= Some(22621) && read_transparency() != Some(0)
-    }
-    #[cfg(not(target_os = "windows"))]
-    {
-        false
-    }
-}
-
 /// `controlAccentColor` 换到 sRGB：它是随外观变的动态色，按调用时的外观取值，两种外观用同一个。
 #[cfg(target_os = "macos")]
 fn read_control_accent() -> Option<Color> {
@@ -78,7 +66,7 @@ fn read_control_accent() -> Option<Color> {
 }
 
 #[cfg(target_os = "windows")]
-fn read_transparency() -> Option<u32> {
+pub(crate) fn read_transparency() -> Option<u32> {
     use windows::Win32::System::Registry::{HKEY_CURRENT_USER, RRF_RT_REG_DWORD, RegGetValueW};
     use windows::core::w;
 
@@ -100,7 +88,7 @@ fn read_transparency() -> Option<u32> {
 }
 
 #[cfg(target_os = "windows")]
-fn read_build() -> Option<u32> {
+pub(crate) fn read_build() -> Option<u32> {
     use windows::Win32::System::Registry::{HKEY_LOCAL_MACHINE, RRF_RT_REG_SZ, RegGetValueW};
     use windows::core::w;
 

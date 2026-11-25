@@ -83,9 +83,15 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     if let Some(dirs) = paths::user_dirs() {
         dirs.prepare();
     }
-    let settings = Settings::load(config);
-    let size = view::look::window_size(view::look::current());
-    let mut options = WindowOptions::new(i18n::tr("common.window_title"), size);
+    let mut settings = Settings::load(config);
+    let look = view::look::current();
+    let backdrop = view::look::backdrop(look);
+    settings.backdrop = backdrop.is_some();
+    let mut options = WindowOptions::new(
+        i18n::tr("common.window_title"),
+        view::look::window_size(look),
+    )
+    .backdrop(backdrop);
     options.min_size = (640.0, 420.0);
     run_window(settings, options)?;
     Ok(())

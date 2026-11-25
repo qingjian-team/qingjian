@@ -63,6 +63,9 @@ pub struct Settings {
     /// 系统是深色：设置窗口自己跟它走，候选窗「跟随系统」时也按它。
     pub system_dark: bool,
 
+    /// 窗口背后垫了系统材质（macOS 毛玻璃、Windows Mica），配色要在该透的地方留半透明。
+    pub backdrop: bool,
+
     pub previews: RefCell<Previews>,
 
     pub logo: Option<Arc<SvgImage>>,
@@ -197,6 +200,7 @@ impl Settings {
             back: Vec::new(),
             forward: Vec::new(),
             system_dark: false,
+            backdrop: false,
             previews: RefCell::new(Previews::new()),
             logo,
             serif: FamilyId::default(),

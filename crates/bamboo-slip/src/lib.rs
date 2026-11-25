@@ -7,6 +7,7 @@
 mod animation;
 mod app;
 mod appearance;
+mod backdrop;
 mod canvas;
 mod color;
 mod error;
@@ -23,7 +24,8 @@ mod widgets;
 
 pub use animation::{Easing, Keyframe, Keyframes};
 pub use app::{App, Runner, Waker, WindowCommand};
-pub use appearance::{Accent, system_acrylic};
+pub use appearance::Accent;
+pub use backdrop::Backdrop;
 pub use canvas::Canvas;
 pub use color::Color;
 pub use error::RenderError;

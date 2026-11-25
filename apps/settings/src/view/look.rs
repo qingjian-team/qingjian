@@ -3,7 +3,7 @@
 
 use std::sync::OnceLock;
 
-use bamboo_slip::Look;
+use bamboo_slip::{Backdrop, Look};
 
 pub fn current() -> Look {
     static LOOK: OnceLock<Look> = OnceLock::new();
@@ -17,6 +17,16 @@ pub fn current() -> Look {
             _ => Look::Plain,
         },
     )
+}
+
+/// 窗口背后垫不垫系统材质：只在本平台自己那套外观上垫（macOS 毛玻璃、Windows Mica），系统不支持或用户关了透明效果时不垫。
+pub fn backdrop(look: Look) -> Option<Backdrop> {
+    let native = match look {
+        Look::Mac => cfg!(target_os = "macos"),
+        Look::Fluent => cfg!(windows),
+        Look::Plain => false,
+    };
+    (native && Backdrop::Window.available()).then_some(Backdrop::Window)
 }
 
 /// 窗口初始的内容区大小（点）：Windows 照「设置」开得宽一些，左侧导航约占三成。

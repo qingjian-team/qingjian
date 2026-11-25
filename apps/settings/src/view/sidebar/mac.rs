@@ -6,9 +6,7 @@ use std::sync::Arc;
 use bamboo_slip::taffy::{
     Dimension, FlexDirection, LengthPercentage, LengthPercentageAuto, NodeId, Rect, Size, Style,
 };
-use bamboo_slip::{
-    BoxPaint, Color, Fill, RenderError, ScrollArea, TITLEBAR, Ui, Visual, WidgetColors,
-};
+use bamboo_slip::{BoxPaint, Color, Fill, RenderError, ScrollArea, TITLEBAR, Ui, Visual};
 
 use super::{language, logo, navigation, results, search_field};
 use crate::message::Message;
@@ -76,7 +74,6 @@ pub fn sidebar(ui: &mut Ui<Message>, page: &Page) -> Result<NodeId, RenderError>
     let language = language(ui, page)?;
     let side = LengthPercentage::length(page.px(10.0));
     let margin = LengthPercentageAuto::length(page.px(MARGIN));
-    let dark = page.settings.system_dark;
     ui.scene().node(
         Style {
             size: Size {
@@ -102,7 +99,11 @@ pub fn sidebar(ui: &mut Ui<Message>, page: &Page) -> Result<NodeId, RenderError>
             ..Style::default()
         },
         Visual::Box(BoxPaint {
-            fill: Some(Fill::Solid(WidgetColors::mac_sidebar(dark))),
+            fill: Some(if page.palette.backdrop {
+                Fill::Cutout(page.palette.sidebar)
+            } else {
+                Fill::Solid(page.palette.sidebar)
+            }),
             border: Some((page.px(0.5).max(1.0), page.theme.colors.line)),
             radius: page.px(18.0),
         }),

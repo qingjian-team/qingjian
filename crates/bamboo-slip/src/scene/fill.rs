@@ -11,6 +11,10 @@ use crate::svg_image::SvgImage;
 pub enum Fill {
     Solid(Color),
 
+    /// 不叠在已经画了的东西上，直接把这块换成这个颜色：在不透明的底上开一块半透明的窗，
+    /// 透出窗口背后的系统材质（[`crate::Backdrop`]）。
+    Cutout(Color),
+
     /// 角度同 CSS（度），色标（颜色、0–1 位置）。
     Linear {
         angle: f32,

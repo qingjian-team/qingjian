@@ -10,6 +10,10 @@ pub struct Palette {
 
     pub sidebar: Color,
 
+    /// 窗口背后垫了系统材质：macOS 的侧栏面板挖掉底色透出毛玻璃（[`Self::sidebar`] 是盖在上面的一层薄色），
+    /// Windows 的窗口底全透明、卡片半透明，透出 Mica。
+    pub backdrop: bool,
+
     /// 预览卡的渐变底（左上 → 右下）。
     pub hero: [Color; 2],
 
@@ -41,6 +45,7 @@ pub const LIGHT: Palette = Palette {
     },
     window: Color::rgb(0xF7, 0xFA, 0xF7),
     sidebar: Color::rgb(0xED, 0xF3, 0xEB),
+    backdrop: false,
     hero: [Color::rgb(0xE8, 0xF2, 0xE1), Color::rgb(0xFF, 0xFF, 0xFF)],
     tile: Color::rgb(0xF4, 0xF8, 0xF3),
 };
@@ -69,6 +74,7 @@ pub const DARK: Palette = Palette {
     },
     window: Color::rgb(0x15, 0x1A, 0x16),
     sidebar: Color::rgb(0x1B, 0x22, 0x1C),
+    backdrop: false,
     hero: [Color::rgb(0x22, 0x30, 0x22), Color::rgb(0x1C, 0x22, 0x1D)],
     tile: Color::rgba(255, 255, 255, 10),
 };
@@ -76,8 +82,8 @@ pub const DARK: Palette = Palette {
 /// 系统读不到强调色时：macOS 的 systemBlue。
 const MAC_BLUE: Color = Color::rgb(0x00, 0x7A, 0xFF);
 
-/// 这一帧的配色：`look` 是外观，`dark` 是系统当前是不是深色。
-pub fn palette(look: Look, dark: bool) -> Palette {
+/// 这一帧的配色：`look` 是外观，`dark` 是系统当前是不是深色，`backdrop` 见 [`Palette::backdrop`]（竹青外观不看它）。
+pub fn palette(look: Look, dark: bool, backdrop: bool) -> Palette {
     match look {
         Look::Plain if dark => DARK,
         Look::Plain => LIGHT,
@@ -92,7 +98,12 @@ pub fn palette(look: Look, dark: bool) -> Palette {
             Palette {
                 widgets: WidgetColors::mac(dark, accent),
                 window: WidgetColors::mac_backdrop(dark),
-                sidebar: WidgetColors::mac_sidebar(dark),
+                sidebar: match (backdrop, dark) {
+                    (true, true) => Color::gray(255, 8),
+                    (true, false) => Color::gray(255, 64),
+                    (false, _) => WidgetColors::mac_sidebar(dark),
+                },
+                backdrop,
                 hero: if dark {
                     [Color::rgb(0x2C, 0x2C, 0x30), Color::rgb(0x24, 0x24, 0x26)]
                 } else {
@@ -107,11 +118,19 @@ pub fn palette(look: Look, dark: bool) -> Palette {
         }
         Look::Fluent => {
             let accent = Accent::system().unwrap_or(Accent::FLUENT_BLUE);
-            let window = WidgetColors::fluent_backdrop(dark);
+            let mut widgets = WidgetColors::fluent(dark, accent);
+            let window = if backdrop {
+                // 卡片照 WinUI 的 CardBackgroundFillColorDefault
+                widgets.surface = Color::gray(255, if dark { 0x0D } else { 0xB3 });
+                Color::gray(0, 0)
+            } else {
+                WidgetColors::fluent_backdrop(dark)
+            };
             Palette {
-                widgets: WidgetColors::fluent(dark, accent),
+                widgets,
                 window,
                 sidebar: window,
+                backdrop,
                 hero: if dark {
                     [Color::rgb(0x2C, 0x2C, 0x2C), Color::rgb(0x25, 0x25, 0x25)]
                 } else {
