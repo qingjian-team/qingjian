@@ -11,7 +11,11 @@ use crate::settings::Settings;
 
 const SCALE: f32 = 2.0;
 
-const SIZE: (u32, u32) = (1640, 1240);
+/// 截图大小（像素）：宽照真窗口的缺省宽，高一些好多截几行。
+fn size() -> (u32, u32) {
+    let (width, _) = crate::view::look::window_size(crate::view::look::current());
+    ((width * SCALE) as u32, 1240)
+}
 
 pub fn run(config: Option<&Path>, directory: &Path) -> Result<(), Box<dyn std::error::Error>> {
     std::fs::create_dir_all(directory)?;
@@ -33,12 +37,12 @@ pub fn run(config: Option<&Path>, directory: &Path) -> Result<(), Box<dyn std::e
         .collect();
     let mut runner = Runner::new(settings, FontLibrary::system("zh-CN")?);
     runner.stage().set_animations(false);
-    runner.rebuild(SCALE, SIZE, Instant::now())?;
+    runner.rebuild(SCALE, size(), Instant::now())?;
 
     let mut index = 0;
     let mut shot =
         |runner: &mut Runner<Settings>, caption: &str| -> Result<(), Box<dyn std::error::Error>> {
-            let painted = runner.rebuild(SCALE, SIZE, Instant::now())?;
+            let painted = runner.rebuild(SCALE, size(), Instant::now())?;
             let rect = IntRect::from_xywh(
                 painted.content_x as i32,
                 painted.content_y as i32,
@@ -60,7 +64,7 @@ pub fn run(config: Option<&Path>, directory: &Path) -> Result<(), Box<dyn std::e
         if page == PageId::About {
             click(&mut runner, Key::ROOT.child("sources"))?;
         }
-        if matches!(page, PageId::About | PageId::Input) {
+        if matches!(page, PageId::About | PageId::Input | PageId::Dictionaries) {
             let area = content(&runner);
             hover(&mut runner, area)?;
             runner.handle(&Event::Scroll {
@@ -78,10 +82,15 @@ pub fn run(config: Option<&Path>, directory: &Path) -> Result<(), Box<dyn std::e
         dx: 0.0,
         dy: -5000.0,
     });
-    click(&mut runner, Key::ROOT.child("scheme"))?;
+    click(&mut runner, Key::ROOT.child(("scheme", 0_usize)))?;
     shot(&mut runner, "输入：点拼音下拉框")?;
     click(&mut runner, Key::ROOT.child("menu").child(1_usize))?;
     shot(&mut runner, "选小鹤双拼：多出「输入框显示按键」")?;
+    // Windows 的双拼细项收在拼音那张卡片里
+    if crate::view::look::current() == bamboo_slip::Look::Fluent {
+        click(&mut runner, Key::ROOT.child(("branch", "shuangpin")))?;
+        shot(&mut runner, "点拼音卡片的箭头：展开双拼的细项")?;
+    }
 
     click(&mut runner, Key::ROOT.child("nav").child(PageId::Phrases))?;
     click(&mut runner, Key::ROOT.child("add-phrase"))?;
@@ -115,11 +124,24 @@ pub fn run(config: Option<&Path>, directory: &Path) -> Result<(), Box<dyn std::e
     )));
     runner.handle(&Event::Text(TextInput::Insert("英语".to_owned())));
     shot(&mut runner, "搜索「英语」：控件上的字也搜得到")?;
+    for _ in 0..2 {
+        runner.handle(&Event::Key(KeyPress::new(
+            KeyCode::ArrowDown,
+            Modifiers::default(),
+        )));
+    }
+    shot(&mut runner, "按两下 ↓：选到第二条")?;
     runner.handle(&Event::Key(KeyPress::new(
         KeyCode::Escape,
         Modifiers::default(),
     )));
-    runner.rebuild(SCALE, SIZE, Instant::now())?;
+    runner.handle(&Event::Text(TextInput::Insert("重选".to_owned())));
+    shot(&mut runner, "搜索「重选」：说明里命中的摘一段")?;
+    runner.handle(&Event::Key(KeyPress::new(
+        KeyCode::Escape,
+        Modifiers::default(),
+    )));
+    runner.rebuild(SCALE, size(), Instant::now())?;
 
     click(
         &mut runner,
@@ -128,7 +150,16 @@ pub fn run(config: Option<&Path>, directory: &Path) -> Result<(), Box<dyn std::e
     if let Some(id) = themes.last() {
         click(&mut runner, Key::ROOT.child("themes").child(id))?;
     }
-    click(&mut runner, Key::ROOT.child("appearance").child(2_usize))?;
+    // 照 Windows 设置画时几选一是下拉框：先点开，再点菜单里的第三项
+    if crate::view::look::current() == bamboo_slip::Look::Fluent {
+        click(&mut runner, Key::ROOT.child(("appearance", 0_usize)))?;
+        click(
+            &mut runner,
+            Key::ROOT.child(("menu", "appearance")).child(2_usize),
+        )?;
+    } else {
+        click(&mut runner, Key::ROOT.child("appearance").child(2_usize))?;
+    }
     shot(&mut runner, "外观：最后一个主题、深色")?;
     runner.app_mut().set_system_dark(true);
     shot(&mut runner, "系统深色：设置窗口自己也换深色")?;
@@ -151,7 +182,7 @@ fn stats(
         stats.input = input;
         stats.cloud = cloud;
     }
-    runner.rebuild(SCALE, SIZE, Instant::now())?;
+    runner.rebuild(SCALE, size(), Instant::now())?;
     let cell = |local: &str, column: usize, row: usize| {
         Key::ROOT.child((Key::ROOT.child(local), column, row))
     };
@@ -161,13 +192,13 @@ fn stats(
         ("云服务", "cloud-days", "cloud-hours"),
     ] {
         runner.app_mut().stats_cloud = tab == "云服务";
-        runner.rebuild(SCALE, SIZE, Instant::now())?;
+        runner.rebuild(SCALE, size(), Instant::now())?;
         hover(runner, cell(days, 50, 2))?;
-        runner.rebuild(SCALE, SIZE, Instant::now())?;
+        runner.rebuild(SCALE, size(), Instant::now())?;
         shot(runner, &format!("统计·{tab}（样例数据）：悬停一格"))?;
         reveal(runner, bar(hours, 10))?;
         hover(runner, bar(hours, 10))?;
-        runner.rebuild(SCALE, SIZE, Instant::now())?;
+        runner.rebuild(SCALE, size(), Instant::now())?;
         shot(runner, &format!("统计·{tab}：过去 24 小时，悬停第 11 根"))?;
         let area = content(runner);
         hover(runner, area)?;
@@ -224,7 +255,7 @@ fn reveal(runner: &mut Runner<Settings>, key: Key) -> Result<(), Box<dyn std::er
     };
     hover(runner, content)?;
     runner.handle(&Event::Scroll { dx: 0.0, dy });
-    runner.rebuild(SCALE, SIZE, Instant::now())?;
+    runner.rebuild(SCALE, size(), Instant::now())?;
     Ok(())
 }
 
@@ -233,6 +264,6 @@ fn click(runner: &mut Runner<Settings>, key: Key) -> Result<(), Box<dyn std::err
     hover(runner, key)?;
     runner.handle(&Event::PointerDown);
     runner.handle(&Event::PointerUp);
-    runner.rebuild(SCALE, SIZE, Instant::now())?;
+    runner.rebuild(SCALE, size(), Instant::now())?;
     Ok(())
 }

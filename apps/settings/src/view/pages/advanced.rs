@@ -1,7 +1,7 @@
 //! 「高级」页：配置文件与数据目录、设置的导入导出，日志，输入日志。
 
 use bamboo_slip::taffy::{FlexDirection, NodeId, Style};
-use bamboo_slip::{Button, RenderError, SettingRow, Switch, Ui, Visual, group, section_title};
+use bamboo_slip::{Button, RenderError, SettingRow, Ui, Visual, group, section_title};
 use qingjian_platform::LogLevel;
 
 use crate::i18n::tr;
@@ -9,7 +9,7 @@ use crate::message::Message;
 use crate::system::action::Action;
 use crate::view::Page;
 use crate::view::parts::actions::{actions, with_notice};
-use crate::view::parts::controls::toggle_info;
+use crate::view::parts::controls::{switch, toggle_info};
 
 pub fn advanced(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderError> {
     let theme = &page.theme;
@@ -65,7 +65,7 @@ pub fn advanced(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Render
     } else {
         LogLevel::Debug
     };
-    let switch = Switch::new(verbose).build(
+    let switch = switch(page, verbose).build(
         ui,
         theme,
         "verbose-log",

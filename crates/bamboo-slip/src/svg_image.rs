@@ -1,12 +1,16 @@
 //! SVG 图片：加载时解析一次，画的时候按要的像素尺寸栅格成位图（缓存几种尺寸），之后与 PNG 走同一条贴图路径。
 //!
 //! SVG 的单位当作点。不读任何外部文件（`<image href="…">` 的路径一律不解析），内嵌位图不解码，`<text>` 不画：
-//! 位图另用 PNG，文字导出前转成轮廓。
+//! 位图另用 PNG，文字导出前转成轮廓。也能当 [`Icon`] 画成单色图标（只取形状、按给的颜色上色）。
 
 use std::sync::{Arc, Mutex};
 
 use resvg::usvg;
 use tiny_skia::{Pixmap, Transform};
+
+use crate::canvas::Canvas;
+use crate::color::Color;
+use crate::scene::Icon;
 
 /// 栅格结果最多留几种尺寸：动画中途尺寸会变，旧的按先进先出丢掉。
 const RASTER_CACHE: usize = 8;
@@ -63,6 +67,25 @@ impl SvgImage {
     }
 }
 
+/// 当单色图标画：只取形状（透明度），按给的颜色上色，深浅色外观共用一份 SVG。
+impl Icon for SvgImage {
+    fn draw(&self, canvas: &mut Canvas, x: f32, y: f32, size: f32, color: Color) {
+        let side = size.round() as u32;
+        let Some(pixmap) = self.raster(side, side) else {
+            return;
+        };
+        let coverage: Vec<u8> = pixmap.pixels().iter().map(|pixel| pixel.alpha()).collect();
+        canvas.blend_mask(
+            x.round() as i32,
+            y.round() as i32,
+            side,
+            side,
+            &coverage,
+            color,
+        );
+    }
+}
+
 impl std::fmt::Debug for SvgImage {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("SvgImage")
@@ -105,6 +128,21 @@ mod tests {
         let svg = SvgImage::parse(source.as_bytes()).unwrap();
         let pixmap = svg.raster(10, 10).unwrap();
         assert!(pixmap.pixels().iter().all(|pixel| pixel.alpha() == 0));
+    }
+
+    #[test]
+    fn as_icon_keeps_the_shape_and_takes_the_given_color() {
+        use crate::canvas::Canvas;
+        use crate::color::Color;
+        use crate::scene::Icon;
+
+        let svg = SvgImage::parse(SQUARE.as_bytes()).unwrap();
+        let mut canvas = Canvas::new(40, 40).unwrap();
+        svg.draw(&mut canvas, 5.0, 5.0, 20.0, Color::rgb(0, 0, 255));
+        let pixmap = canvas.into_pixmap();
+        let inside = pixmap.pixel(10, 15).unwrap();
+        assert_eq!((inside.red(), inside.blue(), inside.alpha()), (0, 255, 255));
+        assert_eq!(pixmap.pixel(30, 30).unwrap().alpha(), 0);
     }
 
     #[test]

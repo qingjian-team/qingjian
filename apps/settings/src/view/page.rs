@@ -18,6 +18,12 @@ pub struct Page<'a> {
 
     /// 右边内容区扣掉左右边距后的宽度（像素）。
     pub content_width: f32,
+
+    /// 窗口大小（像素）：弹出菜单收在它里面。
+    pub window: (f32, f32),
+
+    /// 展开卡片一律当展开着建：建搜索索引时，收着的从属项也要搜得到。
+    pub expand_all: bool,
 }
 
 impl Page<'_> {

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20">
+  <defs>
+  <linearGradient id="fc-ap" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FF8CC6" /><stop offset="1" stop-color="#B33FD9" /></linearGradient>
+  </defs>
+  <path d="M10 1.8a8.2 8.2 0 1 0 0 16.4c1.3 0 1.9-.9 1.5-2-.5-1.3.3-2.5 1.7-2.5h1.8a3.2 3.2 0 0 0 3.2-3.2C18.2 5.3 14.5 1.8 10 1.8z" fill="url(#fc-ap)" />
+  <circle cx="5.6" cy="9.4" r="1.6" fill="#FFE066" /><circle cx="7.8" cy="5.6" r="1.6" fill="#6FE3C7" /><circle cx="12.4" cy="5.2" r="1.6" fill="#7CC4FF" /><circle cx="15.2" cy="8.6" r="1.4" fill="#fff" opacity=".9" />
+</svg>

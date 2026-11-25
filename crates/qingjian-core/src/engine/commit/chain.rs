@@ -1,15 +1,19 @@
 use crate::sentence::Context;
 
-/// 连续上屏的链：记住最近上屏的两个中文词，下一个词上屏时就能记一条带前二词的转移（个人 n-gram 的三元）。
+/// 链里留几个词：记三元转移只用最后两个，多留几个是为了撤回时把上文一起退回去。
+const CHAIN_HISTORY: usize = 4;
+
+/// 连续上屏的链：记住最近上屏的几个中文词，下一个词上屏时就能记一条带前二词的转移（个人 n-gram 的三元）。
 ///
 /// 标点、透传、回车上屏拼音、英文词等都打断链（下一个词按句首记）。
 #[derive(Debug, Default, Clone)]
 pub struct CommitChain {
-    /// 上一个上屏的中文词及其音节；`None` 表示下一个词在句首。
-    previous: Option<(String, Vec<String>)>,
-
-    /// 上一个词之前的那个词；`None` 表示上一个词在句首。
-    earlier: Option<String>,
+    /// 最近上屏的中文词及其音节，最新的在末尾。
+    ///
+    /// 不只存两个：退格撤回一次选择要把刚上屏的那个词退掉，退掉之后「前一个词」「再前一个词」
+    /// 都得接在它前面那个词上——只存两个的话，退掉就不知道该谁补位，下一个词记的转移会
+    /// 挂在撤掉的那个字上。
+    history: Vec<(String, Vec<String>)>,
 
     /// 上一个词上屏后缓冲区里还留着拼音：下一个词若紧接着从同一段拼音里选出，两个词本来是一起打的。
     same_buffer: bool,
@@ -30,27 +34,37 @@ pub struct CommitChain {
 }
 
 impl CommitChain {
+    /// 从链尾往前数第 `back` 个词（0 是上一个词）。
+    fn word(&self, back: usize) -> Option<&(String, Vec<String>)> {
+        self.history.iter().rev().nth(back)
+    }
+
     /// 上一个词（若有）。
     pub fn previous(&self) -> Option<&str> {
-        self.previous.as_ref().map(|(text, _)| text.as_str())
+        self.word(0).map(|(text, _)| text.as_str())
+    }
+
+    /// 再前一个词（若有）。
+    fn earlier(&self) -> Option<&str> {
+        self.word(1).map(|(text, _)| text.as_str())
     }
 
     /// 上一个词的音节。
     pub fn previous_syllables(&self) -> &[String] {
-        self.previous.as_ref().map_or(&[], |(_, s)| s.as_slice())
+        self.word(0).map_or(&[], |(_, s)| s.as_slice())
     }
 
     /// 下一个词的上文：前一个词与再前一个词。
     pub fn context(&self) -> Context<'_> {
         Context {
             previous: self.previous(),
-            earlier: self.earlier.as_deref(),
+            earlier: self.earlier(),
         }
     }
 
     /// 链上是否有这个词（作为前一个或再前一个）。
     pub fn mentions(&self, text: &str) -> bool {
-        self.previous() == Some(text) || self.earlier.as_deref() == Some(text)
+        self.previous() == Some(text) || self.earlier() == Some(text)
     }
 
     /// 下一个词是否与上一个词出自同一段拼音。
@@ -63,8 +77,10 @@ impl CommitChain {
         if !syllables.is_empty() {
             self.code_words.clear();
         }
-        self.earlier = self.previous.take().map(|(text, _)| text);
-        self.previous = Some((text.to_owned(), syllables.to_vec()));
+        self.history.push((text.to_owned(), syllables.to_vec()));
+        if self.history.len() > CHAIN_HISTORY {
+            self.history.remove(0);
+        }
         self.same_buffer = buffer_left;
         self.buffer_words
             .push((text.to_owned(), syllables.to_vec()));
@@ -75,6 +91,29 @@ impl CommitChain {
         self.buffer_words.clear();
         self.buffer_key = key;
         self.buffer_edits = 0;
+    }
+
+    /// 退格撤回最后一次选择：把刚上屏的那个词从这段拼音里退掉，**这段仍算同一段连续输入**。
+    ///
+    /// 撤回是「这一下选错了」，不是「这段拼音不打了」：接着在同一段拼音上重选、把它选完，
+    /// `finish_buffer` 仍要把整段合成一个词（打 `jiaoyizhongxin` 时先选 交易、第二下选错撤回、
+    /// 再重新选中心，整段仍要学成 交易中心）。所以这里只退掉那一个词，`buffer_key` 与已经选过的
+    /// 词都留着；退到一个不剩才断开这段。
+    ///
+    /// 与「组句里改过输入就不合成」是两件事：那是用户改了拼音（[`Self::note_edit`]），
+    /// 这是用户只改了这一下的选择，拼音没动。
+    pub fn retract_buffer_word(&mut self) {
+        let Some((retracted, _)) = self.buffer_words.pop() else {
+            return;
+        };
+        // 撤回的那一下要跟没选过一样：链尾如果就是它，一并退掉，
+        // 这样接着重选时的上文、以及下一个词记下的转移，都接在它前面那个词后面。
+        if self.word(0).is_some_and(|(text, _)| *text == retracted) {
+            self.history.pop();
+        }
+        if self.buffer_words.is_empty() {
+            self.reset();
+        }
     }
 
     /// 组句里改了一个字符（退格、删到光标后、删音节）：这段拼音被编辑过。
@@ -101,8 +140,7 @@ impl CommitChain {
     /// 打断链。
     pub fn reset(&mut self) {
         self.code_words.clear();
-        self.previous = None;
-        self.earlier = None;
+        self.history.clear();
         self.same_buffer = false;
         self.buffer_words.clear();
         self.buffer_edits = 0;
