@@ -74,6 +74,7 @@ pub fn view(
             });
         }
     }
+    ui.row_icons(move |title| icons::row_icon(current, title));
     let sidebar = sidebar::sidebar(ui, &page)?;
     let content = content::content(ui, &page)?;
     let mut children = vec![sidebar, content];

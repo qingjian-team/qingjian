@@ -1,13 +1,14 @@
 //! 一帧的建树入口：包着场景树，管 key 的作用域，收集可交互元素。
 
 use std::hash::Hash;
+use std::sync::Arc;
 use std::time::Duration;
 
 use taffy::NodeId;
 
 use super::{ElementState, Elements, Interact, Interaction, Key, ScrollExtent, Searchable};
 use crate::animation::Easing;
-use crate::scene::Scene;
+use crate::scene::{Icon, Scene};
 
 pub struct Ui<'a, M> {
     scene: Scene,
@@ -36,9 +37,14 @@ pub struct Ui<'a, M> {
 
     /// ⓘ 的链接：说明末尾那行提示，与按行标题给出点击消息的函数，见 [`Self::info_links`]。
     info_links: Option<(&'a str, InfoLinks<'a, M>)>,
+
+    /// 按行标题给出行首图标的函数，见 [`Self::row_icons`]。
+    row_icons: Option<RowIcons<'a>>,
 }
 
 type InfoLinks<'a, M> = Box<dyn Fn(&str) -> Option<M> + 'a>;
+
+type RowIcons<'a> = Box<dyn Fn(&str) -> Option<Arc<dyn Icon>> + 'a>;
 
 impl<'a, M> Ui<'a, M> {
     pub fn new(interaction: &'a Interaction<M>) -> Self {
@@ -53,6 +59,7 @@ impl<'a, M> Ui<'a, M> {
             regions: Vec::new(),
             keywords: Vec::new(),
             info_links: None,
+            row_icons: None,
         }
     }
 
@@ -133,6 +140,16 @@ impl<'a, M> Ui<'a, M> {
     pub fn info_link(&self, title: &str) -> Option<(M, &'a str)> {
         let (hint, resolve) = self.info_links.as_ref()?;
         resolve(title).map(|message| (message, *hint))
+    }
+
+    /// 设置行的行首图标：按行标题给出图标，这一帧之后建的设置行照外观决定画不画（只有 [`crate::Look::Fluent`] 画）。
+    pub fn row_icons(&mut self, resolve: impl Fn(&str) -> Option<Arc<dyn Icon>> + 'a) {
+        self.row_icons = Some(Box::new(resolve));
+    }
+
+    /// 标题为 `title` 的行的行首图标。
+    pub fn row_icon(&self, title: &str) -> Option<Arc<dyn Icon>> {
+        self.row_icons.as_ref()?(title)
     }
 
     /// 控件上显示的字（`node` 是控件的根节点），装着它的设置行建好时收作搜索关键词。

@@ -1,11 +1,13 @@
 //! 一行设置：左边标题（可带小标签、一行说明、再一层小字、一个悬停说明的 ⓘ），右边控件，控件下面还能挂附加项（勾选框、链接）。
 //! 控件很宽的（主题卡片）用 [`SettingRow::stacked`] 放到标题下面。
+//! [`Look::Fluent`] 下使用方用 [`Ui::row_icons`] 给了图标的行，标题左边再画一个。
 
+use std::sync::Arc;
 use std::time::Duration;
 
 use taffy::{
-    AlignItems, FlexWrap, JustifyContent, LengthPercentage, LengthPercentageAuto, NodeId, Position,
-    Rect, Style,
+    AlignItems, Dimension, FlexWrap, JustifyContent, LengthPercentage, LengthPercentageAuto,
+    NodeId, Position, Rect, Style,
 };
 
 use super::WidgetTheme;
@@ -16,8 +18,11 @@ use super::theme::Look;
 use crate::animation::Easing;
 use crate::color::Color;
 use crate::error::RenderError;
-use crate::scene::Visual;
+use crate::scene::{Icon, Visual};
 use crate::ui::{Interact, Key, Ui};
+
+/// 行首图标的边长（点）。
+const ICON: f32 = 20.0;
 
 /// 醒目标出（[`Ui::spotlighted`]）撤掉后底色淡出的时长。
 const SPOTLIGHT_FADE: Duration = Duration::from_millis(700);
@@ -255,7 +260,7 @@ impl<'a> SettingRow<'a> {
         if let Some(caption) = self.caption {
             texts.push(caption);
         }
-        let heading = ui.scene().node(
+        let mut heading = ui.scene().node(
             Style {
                 flex_shrink: 1.0,
                 min_size: taffy::Size {
@@ -267,6 +272,12 @@ impl<'a> SettingRow<'a> {
             Visual::Group,
             &texts,
         )?;
+        // Windows 设置的卡片：标题左边一个单色线条图标
+        if theme.look == Look::Fluent
+            && let Some(icon) = ui.row_icon(self.title)
+        {
+            heading = leading_icon(ui, theme, icon, heading)?;
+        }
         let node = if self.stacked {
             let mut children = vec![spot, heading];
             children.extend(self.control);
@@ -346,6 +357,45 @@ impl<'a> SettingRow<'a> {
             &[spot, heading, trailing],
         )
     }
+}
+
+/// 行首图标（20 点，与标题隔 16 点）跟标题那一栏排成一行。
+fn leading_icon<M>(
+    ui: &mut Ui<M>,
+    theme: &WidgetTheme,
+    icon: Arc<dyn Icon>,
+    heading: NodeId,
+) -> Result<NodeId, RenderError> {
+    let side = theme.px(ICON);
+    let icon = ui.scene().node(
+        Style {
+            size: taffy::Size {
+                width: Dimension::length(side),
+                height: Dimension::length(side),
+            },
+            flex_shrink: 0.0,
+            ..Style::default()
+        },
+        Visual::Icon {
+            icon,
+            size: side,
+            color: theme.colors.text,
+        },
+        &[],
+    )?;
+    ui.scene().node(
+        Style {
+            align_items: AlignItems::CENTER,
+            flex_shrink: 1.0,
+            min_size: taffy::Size {
+                width: LengthPercentageAuto::length(0.0),
+                height: LengthPercentageAuto::auto(),
+            },
+            ..row(theme, 16.0)
+        },
+        Visual::Group,
+        &[icon, heading],
+    )
 }
 
 /// 标题在左、控件在右的一行上下留白与最低高度（点）：照各系统设置里一行的高度。

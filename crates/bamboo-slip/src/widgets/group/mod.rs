@@ -22,8 +22,9 @@ use crate::ui::{Cursor, Interact, Key, Ui};
 /// macOS 从属项往里缩多少（点）。
 const MAC_INDENT: f32 = 14.0;
 
-/// Windows 展开卡片里从属项左边、右边的留白（点）：右边让出箭头，控件与卡片头一行的控件对齐。
-const FLUENT_CHILD_INSET: (f32, f32) = (40.0, 48.0);
+/// Windows 展开卡片里从属项左边、右边的留白（点）：左边与带行首图标的标题对齐（16 留白 + 20 图标 + 16 间隔），
+/// 右边让出箭头，控件与卡片头一行的控件对齐。
+const FLUENT_CHILD_INSET: (f32, f32) = (52.0, 48.0);
 
 /// Windows 展开卡片右边箭头按钮的边长（点）。
 const EXPANDER_BUTTON: f32 = 32.0;
