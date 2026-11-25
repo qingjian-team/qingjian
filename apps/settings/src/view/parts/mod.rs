@@ -1,6 +1,7 @@
 //! 几页共用的界面零件。
 
 pub mod actions;
+pub mod branch;
 pub mod controls;
 pub mod download;
 pub mod lists;

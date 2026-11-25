@@ -49,7 +49,7 @@ pub use colors::WidgetColors;
 pub use dialog::dialog;
 pub use download_row::{DownloadLabels, DownloadRow, DownloadState};
 pub use fields::{FieldValue, field_points, fields};
-pub use group::{group, section_title};
+pub use group::{Branch, group, group_branches, section_title};
 pub use info::{info, info_with_link};
 pub use key_recorder::KeyRecorder;
 pub use link::Link;

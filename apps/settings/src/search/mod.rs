@@ -93,6 +93,7 @@ impl Search {
                     key: entry.key,
                     title: entry.title.clone(),
                     snippet,
+                    region: entry.region,
                 });
             }
             if hits.len() == LIMIT {
@@ -167,6 +168,7 @@ mod tests {
             title: title.to_owned(),
             detail: detail.map(str::to_owned),
             keywords: Vec::new(),
+            region: None,
         }
     }
 
@@ -231,6 +233,7 @@ mod tests {
                     key: None,
                     title: "甲".to_owned(),
                     snippet: None,
+                    region: None,
                 };
                 2
             ],

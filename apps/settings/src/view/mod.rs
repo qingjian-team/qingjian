@@ -56,6 +56,7 @@ pub fn view(
         scale,
         content_width: content_width(look, width as f32 / scale) * scale,
         window: (width as f32, height as f32),
+        expand_all: false,
     };
     let current = settings.page;
     match look {
@@ -126,6 +127,7 @@ pub fn index(settings: &Settings) -> Vec<Entry> {
         scale: 1.0,
         content_width: content_width(look, look::window_size(look).0),
         window: look::window_size(look),
+        expand_all: true,
     };
     let mut entries = Vec::new();
     for id in PageId::ALL.into_iter().filter(|id| id.shown()) {
@@ -135,6 +137,7 @@ pub fn index(settings: &Settings) -> Vec<Entry> {
             title: id.label().to_owned(),
             detail: None,
             keywords: Vec::new(),
+            region: None,
         });
         let mut ui = Ui::new(&interaction);
         if let Err(error) = page_children(&mut ui, &page, id) {
@@ -146,6 +149,7 @@ pub fn index(settings: &Settings) -> Vec<Entry> {
             title: item.title,
             detail: item.detail,
             keywords: item.keywords,
+            region: item.region,
         }));
     }
     entries

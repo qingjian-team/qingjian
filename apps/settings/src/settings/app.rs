@@ -302,6 +302,13 @@ impl App for Settings {
             }
             Message::ExcludeClipboardApp => self.exclude_clipboard_app(),
             Message::ToggleSources => self.sources_open = !self.sources_open,
+            Message::Expand(key) => {
+                if let Some(at) = self.expanded.iter().position(|open| *open == key) {
+                    self.expanded.remove(at);
+                } else {
+                    self.expanded.push(key);
+                }
+            }
             Message::StatsCloud(cloud) => self.stats_cloud = cloud,
             Message::Search(edit) => {
                 self.search.edit.apply(&edit);
@@ -326,6 +333,12 @@ impl App for Settings {
             }
             Message::Jump(index) => {
                 if let Some(hit) = self.search.hits.get(index).cloned() {
+                    // 收在展开卡片里的一项先把卡片打开，跳过去才看得见
+                    if let Some(region) = hit.region
+                        && !self.expanded.contains(&region)
+                    {
+                        self.expanded.push(region);
+                    }
                     self.update(Message::Page(hit.page));
                     self.spotlight(hit.key);
                     // Windows 的结果是搜索框下的浮层，跳过去就收起；侧栏里的结果留着接着点

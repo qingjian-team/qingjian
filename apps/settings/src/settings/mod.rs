@@ -21,7 +21,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use bamboo_slip::{FamilyId, SvgImage, TextEdit, Waker};
+use bamboo_slip::{FamilyId, Key, SvgImage, TextEdit, Waker};
 use qingjian_platform::{Appearance, Config};
 use qingjian_render::{TextSizes, Theme, ThemeLibrary};
 
@@ -135,6 +135,9 @@ pub struct Settings {
     /// 「关于」页的数据来源展开着。
     pub sources_open: bool,
 
+    /// Windows 展开着的卡片（[`crate::view::parts::branch`] 的 key）；不记进配置，下次打开都收着。
+    pub expanded: Vec<Key>,
+
     pub search: Search,
 
     /// Windows 的系统 Ctrl + Space 开着；别的平台总是 `false`。打开窗口时读一次，改了再读。
@@ -202,6 +205,7 @@ impl Settings {
             armed: None,
             notice: None,
             sources_open: false,
+            expanded: Vec::new(),
             fields: HashMap::new(),
             cloud_test: CloudTest::default(),
             update: UpdateCheck::load(),

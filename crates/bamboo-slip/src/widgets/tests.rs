@@ -446,6 +446,20 @@ fn rows_claim_the_words_on_their_own_controls() {
 }
 
 #[test]
+fn rows_built_in_a_region_remember_it_and_others_do_not() {
+    let interaction = Interaction::<Message>::new();
+    let theme = WidgetTheme::new(WidgetColors::LIGHT, 1.0);
+    let mut ui = Ui::new(&interaction);
+    let card = Key::ROOT.child("card");
+    SettingRow::new("开关").build(&mut ui, &theme).unwrap();
+    ui.region(card, |ui| SettingRow::new("细项").build(ui, &theme))
+        .unwrap();
+    let found = ui.take_searchables();
+    assert_eq!(found[0].region, None);
+    assert_eq!(found[1].region, Some(card));
+}
+
+#[test]
 fn info_marks_with_a_link_send_it_when_clicked() {
     let mut text = TextPainter::new(FontLibrary::system("en").unwrap());
     let mut interaction = Interaction::<Message>::new();

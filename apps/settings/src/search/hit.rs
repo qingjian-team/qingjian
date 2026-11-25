@@ -15,4 +15,7 @@ pub struct Hit {
 
     /// 说明里命中时，命中处前后几个字。
     pub snippet: Option<String>,
+
+    /// 收在哪张展开卡片里，跳过去前先展开。
+    pub region: Option<Key>,
 }

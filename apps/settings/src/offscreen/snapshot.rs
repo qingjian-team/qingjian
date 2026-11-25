@@ -86,6 +86,11 @@ pub fn run(config: Option<&Path>, directory: &Path) -> Result<(), Box<dyn std::e
     shot(&mut runner, "输入：点拼音下拉框")?;
     click(&mut runner, Key::ROOT.child("menu").child(1_usize))?;
     shot(&mut runner, "选小鹤双拼：多出「输入框显示按键」")?;
+    // Windows 的双拼细项收在拼音那张卡片里
+    if crate::view::look::current() == bamboo_slip::Look::Fluent {
+        click(&mut runner, Key::ROOT.child(("branch", "shuangpin")))?;
+        shot(&mut runner, "点拼音卡片的箭头：展开双拼的细项")?;
+    }
 
     click(&mut runner, Key::ROOT.child("nav").child(PageId::Phrases))?;
     click(&mut runner, Key::ROOT.child("add-phrase"))?;

@@ -98,6 +98,8 @@ pub enum Message {
     RemoveModel(qingjian_platform::LocalModel),
     /// 实验功能里开一个模型（`None` 是关掉，不用模型）。
     UseModel(Option<qingjian_platform::LocalModel>),
+    /// 展开 / 收起 Windows 的一张展开卡片（从属项收在里面）。
+    Expand(bamboo_slip::Key),
     /// 展开 / 收起「关于」页的数据来源。
     ToggleSources,
     /// 选一个程序，从它复制的内容不进剪贴板历史。

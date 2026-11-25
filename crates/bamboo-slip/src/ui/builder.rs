@@ -28,6 +28,9 @@ pub struct Ui<'a, M> {
     /// 这一帧要滚进视野的元素，见 [`Self::reveal`]。
     reveals: Vec<Key>,
 
+    /// 正在建的可收起区域，里层在后，见 [`Self::region`]。
+    regions: Vec<Key>,
+
     /// 控件登记、还没被设置行收走的关键词与登记它的节点，见 [`Self::keyword`]。
     keywords: Vec<(NodeId, String)>,
 
@@ -47,6 +50,7 @@ impl<'a, M> Ui<'a, M> {
             overlays: Vec::new(),
             searchables: Vec::new(),
             reveals: Vec::new(),
+            regions: Vec::new(),
             keywords: Vec::new(),
             info_links: None,
         }
@@ -67,6 +71,14 @@ impl<'a, M> Ui<'a, M> {
         self.scope = outer.child(local);
         let result = build(self);
         self.scope = outer;
+        result
+    }
+
+    /// 在可收起的区域（展开卡片这类）里建：这期间登记的可搜索项记下 `key`，搜到它时使用方先展开这块再跳。
+    pub fn region<R>(&mut self, key: Key, build: impl FnOnce(&mut Self) -> R) -> R {
+        self.regions.push(key);
+        let result = build(self);
+        self.regions.pop();
         result
     }
 
@@ -108,6 +120,7 @@ impl<'a, M> Ui<'a, M> {
             title: title.to_owned(),
             detail: detail.map(str::to_owned),
             keywords: claimed,
+            region: self.regions.last().copied(),
         });
     }
 
