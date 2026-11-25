@@ -8,7 +8,7 @@ use bamboo_slip::taffy::{
 };
 use bamboo_slip::{BoxPaint, Fill, RenderError, SvgImage, Ui, Visual};
 
-use super::{language, navigation, search_field, suggestions};
+use super::{language, logo, navigation, search_field, suggestions};
 use crate::message::Message;
 use crate::page_id::PageId;
 use crate::view::Page;
@@ -90,8 +90,11 @@ pub fn sidebar(ui: &mut Ui<Message>, page: &Page) -> Result<NodeId, RenderError>
     )
 }
 
-/// 这页的 Fluent 彩色图标。
+/// 这页的 Fluent 彩色图标；「关于」用青简的 logo。
 pub fn icon(ui: &mut Ui<Message>, page: &Page, id: PageId) -> Result<NodeId, RenderError> {
+    if id == PageId::About {
+        return logo(ui, page, ICON, ICON);
+    }
     let side = page.px(ICON);
     let image = Arc::clone(&icons()[index(id)]);
     let natural = image.size().0;
@@ -124,11 +127,11 @@ fn index(id: PageId) -> usize {
         .unwrap_or_default()
 }
 
-/// 各页图标按 [`PageId::ALL`] 的顺序，第一次用时解析一次。
+/// 各页图标按 [`PageId::ALL`] 的顺序（「关于」除外，它在最后），第一次用时解析一次。
 fn icons() -> &'static [Arc<SvgImage>] {
     static ICONS: OnceLock<Vec<Arc<SvgImage>>> = OnceLock::new();
     ICONS.get_or_init(|| {
-        let sources: [&[u8]; 13] = [
+        let sources: [&[u8]; 12] = [
             include_bytes!("../../../assets/nav/input.svg"),
             include_bytes!("../../../assets/nav/candidates.svg"),
             include_bytes!("../../../assets/nav/language.svg"),
@@ -141,7 +144,6 @@ fn icons() -> &'static [Arc<SvgImage>] {
             include_bytes!("../../../assets/nav/vocabulary.svg"),
             include_bytes!("../../../assets/nav/advanced.svg"),
             include_bytes!("../../../assets/nav/experimental.svg"),
-            include_bytes!("../../../assets/nav/about.svg"),
         ];
         sources
             .iter()

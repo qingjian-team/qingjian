@@ -11,8 +11,8 @@ use bamboo_slip::taffy::{
     AlignItems, Dimension, FlexDirection, JustifyContent, NodeId, Size, Style,
 };
 use bamboo_slip::{
-    Interact, KeyCode, Look, NavItem, RenderError, SearchField, Suggestion, Suggestions, Ui,
-    Visual, paragraph,
+    BoxPaint, Fill, Interact, KeyCode, Look, NavItem, RenderError, SearchField, Suggestion,
+    Suggestions, Ui, Visual, paragraph,
 };
 
 use super::Page;
@@ -194,6 +194,54 @@ pub(super) fn suggestions(ui: &mut Ui<Message>, page: &Page) -> Result<(), Rende
         .build(ui, &page.theme, "suggestions", Message::Jump)?;
     ui.overlay(list);
     Ok(())
+}
+
+/// 青简的 logo，高 `height` 点、宽按原图比例，放在 `side` 点见方的格子正中；logo 没解析出来时格子空着。
+pub(super) fn logo(
+    ui: &mut Ui<Message>,
+    page: &Page,
+    height: f32,
+    side: f32,
+) -> Result<NodeId, RenderError> {
+    let mut children = Vec::new();
+    if let Some(logo) = &page.settings.logo {
+        let height = page.px(height);
+        let (width, natural) = logo.size();
+        children.push(ui.scene().node(
+            Style {
+                size: Size {
+                    width: Dimension::length(height * width / natural),
+                    height: Dimension::length(height),
+                },
+                ..Style::default()
+            },
+            Visual::Box(BoxPaint {
+                fill: Some(Fill::Svg {
+                    image: Arc::clone(logo),
+                    slice: None,
+                    px_per_unit: height / natural,
+                }),
+                border: None,
+                radius: 0.0,
+            }),
+            &[],
+        )?);
+    }
+    let side = page.px(side);
+    ui.scene().node(
+        Style {
+            size: Size {
+                width: Dimension::length(side),
+                height: Dimension::length(side),
+            },
+            flex_shrink: 0.0,
+            justify_content: JustifyContent::CENTER,
+            align_items: AlignItems::CENTER,
+            ..Style::default()
+        },
+        Visual::Group,
+        &children,
+    )
 }
 
 /// 「文A」图标放在 `side` 点见方的格子正中。

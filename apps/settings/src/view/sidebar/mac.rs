@@ -10,7 +10,7 @@ use bamboo_slip::{
     BoxPaint, Color, Fill, RenderError, ScrollArea, TITLEBAR, Ui, Visual, WidgetColors,
 };
 
-use super::{language, navigation, results, search_field};
+use super::{language, logo, navigation, results, search_field};
 use crate::message::Message;
 use crate::page_id::PageId;
 use crate::view::Page;
@@ -110,8 +110,28 @@ pub fn sidebar(ui: &mut Ui<Message>, page: &Page) -> Result<NodeId, RenderError>
     )
 }
 
-/// 22 点的彩色圆角方块，上浅下深，中间白色的线条图标。
+/// 22 点的彩色圆角方块，上浅下深，中间白色的线条图标；「关于」是白底方块上的青简 logo，像应用图标。
 pub fn tile(ui: &mut Ui<Message>, page: &Page, id: PageId) -> Result<NodeId, RenderError> {
+    if id == PageId::About {
+        let mark = logo(ui, page, 17.0, 22.0)?;
+        let side = page.px(22.0);
+        return ui.scene().node(
+            Style {
+                size: Size {
+                    width: Dimension::length(side),
+                    height: Dimension::length(side),
+                },
+                flex_shrink: 0.0,
+                ..Style::default()
+            },
+            Visual::Box(BoxPaint {
+                fill: Some(Fill::Solid(Color::rgb(0xFF, 0xFF, 0xFF))),
+                border: Some((page.px(0.5).max(1.0), page.theme.colors.line)),
+                radius: page.px(6.0),
+            }),
+            &[mark],
+        );
+    }
     let base = tint(id);
     let (side, glyph) = (page.px(22.0), page.px(14.0));
     let inset = (side - glyph) / 2.0;

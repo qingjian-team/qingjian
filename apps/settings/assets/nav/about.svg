@@ -1,9 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20">
-  <defs>
-  <linearGradient id="fc-ab" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4E9A44" /><stop offset="1" stop-color="#2A5E2A" /></linearGradient>
-  </defs>
-  <rect x="1.5" y="1.5" width="17" height="17" rx="3.6" fill="url(#fc-ab)" />
-  <rect x="4.6" y="4.4" width="2.4" height="11.2" rx=".7" fill="#A8D163" />
-  <rect x="8.8" y="4.4" width="2.4" height="11.2" rx=".7" fill="#fff" />
-  <rect x="13" y="4.4" width="2.4" height="11.2" rx=".7" fill="#A8D163" />
-</svg>
