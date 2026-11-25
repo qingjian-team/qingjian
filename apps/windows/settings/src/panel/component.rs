@@ -272,9 +272,6 @@ impl Component for Settings {
                     shortcut::TRADITIONAL_KEYS[i].1,
                 );
             }
-            Message::Pronounce(Some(i)) if i < shortcut::PRONOUNCE_KEYS.len() => {
-                self.save("shortcut", "pronounce", shortcut::PRONOUNCE_KEYS[i].1);
-            }
             Message::TranslateSelection(Some(i)) if i < shortcut::MODIFIERS.len() => {
                 let key = self.config.shortcut.translate_selection.key;
                 let combo = format!("{}+{key}", shortcut::MODIFIERS[i].1);

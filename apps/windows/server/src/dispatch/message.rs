@@ -153,36 +153,36 @@ impl Router {
         if self.translation.is_some() {
             return self.handle_translation_review(session, &event);
         }
-        // 发音快捷键（`[shortcut] pronounce`，缺省不绑定）取当前高亮的候选词。译文是英文词且能查
-        // 到音标就按译文发音，否则按候选自己的音标发音；都没有只记日志，不改组句。
-        if let Some(combo) = self.config.pronounce.filter(|combo| combo.matches(&event)) {
+        // 发音快捷键（`[shortcut] pronounce`，缺省不绑定）取当前高亮的候选词。只在组句且有候选时
+        // 接管，其余时候照常往下分派（没在组句的键归应用）。译文是英文词且能查到音标就按译文发音，
+        // 否则按候选自己的音标发音；都没有只记日志，不改组句。
+        if let Some(combo) = self.config.pronounce.filter(|combo| combo.matches(&event))
+            && self.composing()
+            && let Some(candidate) = self.layout_candidate(self.highlight)
+        {
             let name = combo.label();
-            if let Some(candidate) = self.layout_candidate(self.highlight) {
-                let translation = self.engine.candidate_translation(&candidate.text);
-                let translated = translation
-                    .as_ref()
-                    .and_then(|translation| translation.senses().first())
-                    .map(|sense| sense.text.trim());
-                let translated_ipa = translated.and_then(|word| self.pronunciation(word));
-                let own_ipa = self.pronunciation(&candidate.text);
-                tracing::info!(
-                    word = candidate.text,
-                    ?translated,
-                    ?translated_ipa,
-                    ?own_ipa,
-                    "按下快捷键 {name}：候选译词与音标"
-                );
-                // 有音标的优先：译文是英文词就读译文，否则读候选自己（英文候选）
-                let word = translated
-                    .filter(|_| translated_ipa.is_some())
-                    .or_else(|| own_ipa.is_some().then_some(candidate.text.as_str()));
-                if let Some(word) = word {
-                    crate::speech::speak(word);
-                } else {
-                    tracing::info!("按下快捷键 {name}：没有音标，不发音");
-                }
+            let translation = self.engine.candidate_translation(&candidate.text);
+            let translated = translation
+                .as_ref()
+                .and_then(|translation| translation.senses().first())
+                .map(|sense| sense.text.trim());
+            let translated_ipa = translated.and_then(|word| self.pronunciation(word));
+            let own_ipa = self.pronunciation(&candidate.text);
+            tracing::info!(
+                word = candidate.text,
+                ?translated,
+                ?translated_ipa,
+                ?own_ipa,
+                "pronounce shortcut {name}: candidate translation and IPA"
+            );
+            // 有音标的优先：译文是英文词就读译文，否则读候选自己（英文候选）
+            let word = translated
+                .filter(|_| translated_ipa.is_some())
+                .or_else(|| own_ipa.is_some().then_some(candidate.text.as_str()));
+            if let Some(word) = word {
+                crate::speech::speak(word);
             } else {
-                tracing::info!("按下快捷键 {name}：当前没有候选");
+                tracing::info!("pronounce shortcut {name}: no IPA, not speaking");
             }
             return ServerMessage::KeyResult {
                 session,

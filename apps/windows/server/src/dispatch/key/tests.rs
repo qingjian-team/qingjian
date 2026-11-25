@@ -748,3 +748,27 @@ fn configured_pronounce_shortcut_reads_the_highlighted_candidate_without_touchin
         KeyOutcome::Passthrough
     );
 }
+
+#[test]
+fn pronounce_shortcut_passes_through_without_a_composition_or_candidates() {
+    let ctrl_alt = KeyModifiers {
+        ctrl: true,
+        alt: true,
+        ..KeyModifiers::default()
+    };
+    let mut r = router(4);
+    r.config.pronounce = Some("ctrl+alt+p".parse().unwrap());
+    // 没在组句：不接管，按键照常归应用
+    assert_eq!(
+        key(&mut r, 0x50, Some('p'), ctrl_alt).0,
+        KeyOutcome::Passthrough
+    );
+    // 组句里还没有候选：也不接管
+    compose(&mut r, "z", KeyModifiers::default());
+    assert_eq!(r.engine.composition().text(), "z");
+    assert!(r.current_frame().candidates.items.is_empty());
+    assert_eq!(
+        key(&mut r, 0x50, Some('p'), ctrl_alt).0,
+        KeyOutcome::Passthrough
+    );
+}

@@ -38,12 +38,12 @@ fn speak_windows(word: &str) {
         std::thread::Builder::new()
             .name("speak".to_owned())
             .spawn(move || worker(receiver))
-            .expect("朗读线程");
+            .expect("failed to spawn the speech thread");
         sender
     });
     // 线程已经退出（例如 SAPI 不可用）就不再排队
     if sender.send(word.to_owned()).is_err() {
-        tracing::warn!("朗读线程已退出，本次不发声");
+        tracing::warn!("speech thread has exited, not speaking this time");
     }
 }
 
@@ -51,11 +51,11 @@ fn speak_windows(word: &str) {
 fn worker(receiver: mpsc::Receiver<String>) {
     unsafe {
         let initialized = CoInitializeEx(None, COINIT_MULTITHREADED);
-        tracing::info!(?initialized, "朗读线程启动");
+        tracing::info!(?initialized, "speech thread started");
         let voice: ISpVoice = match CoCreateInstance(&SpVoice, None, CLSCTX_ALL) {
             Ok(voice) => voice,
             Err(error) => {
-                tracing::warn!(%error, "SAPI 语音不可用，朗读关闭");
+                tracing::warn!(%error, "SAPI voice unavailable, pronunciation disabled");
                 return;
             }
         };
@@ -64,8 +64,8 @@ fn worker(receiver: mpsc::Receiver<String>) {
         while let Ok(word) = receiver.recv() {
             let wide: Vec<u16> = word.encode_utf16().chain(std::iter::once(0)).collect();
             match voice.Speak(PCWSTR(wide.as_ptr()), flags, None) {
-                Ok(()) => tracing::info!(word, "朗读完成"),
-                Err(error) => tracing::warn!(%error, word, "朗读失败"),
+                Ok(()) => tracing::info!(word, "finished speaking"),
+                Err(error) => tracing::warn!(%error, word, "speaking failed"),
             }
         }
     }

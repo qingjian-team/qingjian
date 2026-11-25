@@ -24,6 +24,9 @@ pub(crate) const GUID_TRANSLATE_PANEL: GUID =
 
 pub(crate) const GUID_PREDICT: GUID = GUID::from_u128(0xe7c13625_b92a_48f0_9e64_673c0a581bd2);
 
+/// 组句中朗读高亮候选的保留键标识。带 Alt 的组合不经普通击键 sink。
+pub(crate) const GUID_PRONOUNCE: GUID = GUID::from_u128(0x6b2f9c41_8d7e_4a35_9c61_2f8a5d0e7b93);
+
 /// Ctrl + Alt + Space 中英切换键的保留键标识。
 pub(crate) const GUID_SWITCH_MODE: GUID = GUID::from_u128(0x2f6b8c51_9a34_4e7d_b2c8_5d1e0f3a7b64);
 

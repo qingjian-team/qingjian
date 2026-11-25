@@ -52,7 +52,7 @@ pub struct InputSettings {
     pub predict: Option<KeyCombo>,
 
     /// 朗读当前高亮候选的快捷键（`[shortcut] pronounce`，缺省不绑定）。
-    /// 带 Ctrl 的组合按 `eats_key` 原本归应用，DLL 要按这项把它转给 Server；旧 Server 不带时按关处理。
+    /// DLL 只在组句时转发；带 Alt 的组合另走 TSF 保留键。旧 Server 不带时按关处理。
     #[serde(default)]
     pub pronounce: Option<KeyCombo>,
 
