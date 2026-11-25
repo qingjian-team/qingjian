@@ -3,7 +3,7 @@
 
 use bamboo_slip::taffy::{FlexDirection, LengthPercentage, NodeId, Rect, Style};
 use bamboo_slip::{
-    Button, Checkbox, KeyRecorder, RenderError, SettingRow, Ui, Visual, group, paragraph,
+    Branch, Button, Checkbox, KeyRecorder, RenderError, SettingRow, Ui, Visual, group, paragraph,
     section_title,
 };
 use qingjian_core::ModeKeys;
@@ -15,6 +15,7 @@ use crate::shortcut::Shortcut;
 use crate::support::Feature;
 use crate::view::Page;
 use crate::view::parts::actions::with_notice;
+use crate::view::parts::branch::{branch, nested};
 use crate::view::parts::controls::{choice, pick, switch, toggle_info};
 
 pub fn shortcuts(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderError> {
@@ -123,6 +124,7 @@ pub fn shortcuts(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Rende
             false,
         )?);
     }
+    let mut rows: Vec<Branch> = rows.into_iter().map(Branch::leaf).collect();
     if Feature::SingleChars.here() {
         let enabled = config.shortcut.single_chars.is_some();
         let switch = switch(page, enabled).build(
@@ -139,15 +141,23 @@ pub fn shortcuts(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Rende
                 },
             ),
         )?;
-        rows.push(
-            SettingRow::new(tr("shortcuts.single_chars"))
-                .info(tr("shortcuts.single_chars_info"))
-                .control(switch)
-                .build(ui, theme)?,
-        );
-        if enabled {
-            rows.push(recorder(ui, page, Shortcut::SingleChars, None, false)?);
-        }
+        let head = SettingRow::new(tr("shortcuts.single_chars"))
+            .info(tr("shortcuts.single_chars_info"))
+            .control(switch)
+            .build(ui, theme)?;
+        rows.push(if enabled {
+            branch(ui, page, "single-chars", head, |ui| {
+                Ok(vec![recorder(
+                    ui,
+                    page,
+                    Shortcut::SingleChars,
+                    None,
+                    false,
+                )?])
+            })?
+        } else {
+            Branch::leaf(head)
+        });
     }
     if Feature::NextWord.here() {
         let enabled = config.shortcut.next_word.is_some();
@@ -165,22 +175,24 @@ pub fn shortcuts(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Rende
                 },
             ),
         )?;
-        rows.push(
-            SettingRow::new(tr("shortcuts.next_word"))
-                .info(tr("shortcuts.next_word_info"))
-                .control(switch)
-                .build(ui, theme)?,
-        );
-        if enabled {
-            rows.push(recorder(ui, page, Shortcut::NextWord, None, false)?);
-        }
+        let head = SettingRow::new(tr("shortcuts.next_word"))
+            .info(tr("shortcuts.next_word_info"))
+            .control(switch)
+            .build(ui, theme)?;
+        rows.push(if enabled {
+            branch(ui, page, "next-word", head, |ui| {
+                Ok(vec![recorder(ui, page, Shortcut::NextWord, None, false)?])
+            })?
+        } else {
+            Branch::leaf(head)
+        });
     }
     out.push(section_title(
         ui,
         theme,
         tr("shortcuts.section_candidates"),
     )?);
-    out.push(group(ui, theme, &rows)?);
+    out.push(nested(ui, page, rows)?);
 
     let reset = Button::new(tr("shortcuts.reset")).build(
         ui,
