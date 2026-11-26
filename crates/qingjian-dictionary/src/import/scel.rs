@@ -136,8 +136,10 @@ fn read_u16(bytes: &[u8], at: usize) -> Option<u16> {
 /// 小端 UTF-16 解码；落单的半个代理项丢掉。
 fn decode_utf16(bytes: &[u8]) -> String {
     let units: Vec<u16> = bytes
-        .chunks_exact(2)
-        .map(|pair| u16::from_le_bytes([pair[0], pair[1]]))
+        .as_chunks::<2>()
+        .0
+        .iter()
+        .map(|pair| u16::from_le_bytes(*pair))
         .collect();
     let mut out = String::with_capacity(units.len());
     for item in char::decode_utf16(units) {

@@ -25,7 +25,7 @@ use windows::Win32::System::Pipes::{
 };
 use windows::core::{HRESULT, HSTRING};
 
-use qingjian_platform::pipe::{LEGACY_PIPE_SDDL, UserSid, client_is_same_user, pipe_sddl};
+use qingjian_platform::pipe::{UserSid, client_is_same_user, legacy_pipe_sddl, pipe_sddl};
 use qingjian_platform::protocol::{ClientMessage, ServerMessage};
 
 use super::limit::ConnectionLimit;
@@ -63,16 +63,17 @@ pub fn serve_pipe(
     };
     let limit = Arc::new(ConnectionLimit::default());
     if let Some(legacy) = legacy {
+        let legacy_sddl = legacy_pipe_sddl(&me)?;
         let legacy_first = create_instance(
             &HSTRING::from(legacy),
-            security_descriptor(LEGACY_PIPE_SDDL),
+            security_descriptor(&legacy_sddl),
             true,
         );
         match legacy_first {
             Ok(first) => {
                 let listener = Listener {
                     name: legacy.to_owned(),
-                    sddl: LEGACY_PIPE_SDDL.to_owned(),
+                    sddl: legacy_sddl,
                     me: me.clone(),
                     limit: Arc::clone(&limit),
                 };

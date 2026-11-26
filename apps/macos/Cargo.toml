@@ -1,8 +1,9 @@
 [package]
 name = "qingjian-macos"
 description = "macOS 输入法：Input Method Kit 外壳、候选窗口、菜单与偏好设置"
-version = "0.3.4-dev"
+version = "0.3.6-dev"
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 

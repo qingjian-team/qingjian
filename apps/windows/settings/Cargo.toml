@@ -1,8 +1,9 @@
 [package]
 name = "qingjian-windows-settings"
 description = "Windows 输入法的设置界面：左侧导航栏 + 各分节表单，读写 %APPDATA%\\Qingjian\\config.toml，对齐 macOS 偏好设置"
-version = "0.3.4-dev"
+version = "0.3.6-dev"
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 
@@ -10,13 +11,11 @@ repository.workspace = true
 name = "qingjian-settings-legacy"
 path = "src/main.rs"
 
-[dependencies]
-qingjian-platform.workspace = true
+# 设置本体只在 Windows 编，别的平台只有空的 main
+[target."cfg(windows)".dependencies]
 qingjian-predict.workspace = true
 toml_edit.workspace = true
-
-# UI 本体只在 Windows 编
-[target."cfg(windows)".dependencies]
+qingjian-platform.workspace = true
 windows-reactor = "0.100"
 windows = { version = "0.62.2", features = [
     "Win32_Foundation",
@@ -34,7 +33,7 @@ qingjian-dictionary.workspace = true
 qingjian-translate.workspace = true
 qingjian-update.workspace = true
 jiff.workspace = true
-rfd = "0.17"
+rfd = "0.18"
 
 [target."cfg(windows)".build-dependencies]
 winresource = "0.1.31"

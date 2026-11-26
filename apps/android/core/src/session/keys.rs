@@ -54,7 +54,9 @@ impl Session {
         self.refresh(String::new())
     }
 
-    pub fn backspace(&mut self) -> Frame {
+    /// `repeat` 是这一记是不是长按重发的：组句删空之后，重发的那几记要停在输入法里
+    /// （issue #932），手一下一下点的照删。
+    pub fn backspace(&mut self, repeat: bool) -> Frame {
         if let Some(kana) = &mut self.kana {
             kana.backspace();
             return self.refresh(String::new());
@@ -63,7 +65,7 @@ impl Session {
         if self.engine.composition().cursor() == 0 {
             self.engine.move_cursor_end();
         }
-        self.engine.backspace();
+        self.engine.backspace(repeat);
         self.refresh(String::new())
     }
 

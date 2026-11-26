@@ -50,6 +50,10 @@ pub struct ShortcutConfig {
     /// 没在打字时打开符号面板的翻译组（缺省 Ctrl+Alt+Y，macOS 是 ⌃⌥Y；需要云服务开着）。
     pub translate_panel: KeyCombo,
 
+    /// 组句中按这个键，朗读当前高亮的候选；缺省不绑定，要在设置里或配置里显式指定才生效，空串关闭。
+    #[serde(with = "super::optional_key_combo")]
+    pub pronounce: Option<KeyCombo>,
+
     /// 呼出剪贴板面板（实验功能，Windows 用），见 [`super::ClipboardConfig`]。
     pub clipboard: KeyCombo,
 
@@ -106,6 +110,7 @@ impl Default for ShortcutConfig {
             translate_selection,
             predict: KeyCombo::PREDICT_DEFAULT,
             translate_panel: KeyCombo::TRANSLATE_PANEL_DEFAULT,
+            pronounce: None,
             clipboard: KeyCombo::CLIPBOARD_DEFAULT,
             toggle_traditional: None,
             single_chars: Some(KeyCombo::SINGLE_CHARS_DEFAULT),

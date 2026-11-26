@@ -115,6 +115,13 @@ fn general_and_shortcut_sections_parse() {
     );
     assert_eq!(config.shortcut.switch_mode, SwitchKeys::default());
     assert!(config.general.english_mode);
+    assert!(config.general.menubar_indicator);
+}
+
+#[test]
+fn menubar_indicator_can_be_disabled() {
+    let config: Config = toml::from_str("[general]\nmenubar_indicator = false\n").unwrap();
+    assert!(!config.general.menubar_indicator);
 }
 
 #[test]

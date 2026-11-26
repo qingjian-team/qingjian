@@ -3,6 +3,7 @@ name = "bamboo-slip"
 description = "自绘 UI 引擎：场景树 + 布局 + 文字 + 动画 → 位图，各平台只负责贴图"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 # 双许可，见本目录的 LICENSE.md
 license = "GPL-3.0-or-later OR LicenseRef-Qingjian-Commercial"
 repository.workspace = true
@@ -26,11 +27,30 @@ softbuffer = { workspace = true, optional = true }
 arboard = { workspace = true, optional = true }
 
 [features]
-host = ["dep:winit", "dep:softbuffer", "dep:arboard"]
+host = [
+    "dep:winit",
+    "dep:softbuffer",
+    "dep:arboard",
+    "dep:objc2",
+    "dep:objc2-foundation",
+    "dep:objc2-quartz-core",
+    "dep:objc2-core-graphics",
+    "dep:objc2-core-foundation",
+]
 
 [target.'cfg(windows)'.dependencies]
 # 字体登记走 DirectWrite（按字族名找文件、列字族）；系统强调色在注册表里
 windows = { version = "0.62.2", features = ["Win32_Graphics_DirectWrite", "Win32_System_Registry"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+# 系统强调色（`controlAccentColor`）
+objc2-app-kit = { workspace = true, features = ["NSColor", "NSColorSpace", "NSWorkspace", "NSAccessibility", "NSView", "NSVisualEffectView", "NSWindow", "NSResponder", "NSGraphics", "objc2-quartz-core"] }
+# 窗口背后的毛玻璃（`host` 特性）：softbuffer 在 macOS 上丢掉 alpha，带系统材质的窗口自己往 CALayer 贴预乘位图
+objc2 = { workspace = true, optional = true }
+objc2-foundation = { workspace = true, optional = true }
+objc2-quartz-core = { workspace = true, optional = true, features = ["CALayer", "CATransaction", "objc2-core-foundation"] }
+objc2-core-graphics = { workspace = true, optional = true, features = ["CGImage", "CGDataProvider", "CGColorSpace"] }
+objc2-core-foundation = { workspace = true, optional = true, features = ["CFData", "CFCGTypes"] }
 
 [dev-dependencies]
 serde_json.workspace = true

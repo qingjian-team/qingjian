@@ -60,13 +60,13 @@ SCHEMA_VERSION = 1
 
 # 安装包文件名 → 平台、架构说明（给人看）、CPU（给程序比对）；不匹配的附件不进列表。
 # 同一平台的包按这里的先后排，官网主按钮给排在前面的那个（Linux 给 AppImage，tar.gz 作小字链接）。
-# 0.1.3 起文件名是 qingjian-<版本>-<平台>-<cpu>[-setup].<扩展名>，AppImage 照它的惯例是 Qingjian-<版本>-x86_64.AppImage；
+# 0.1.3 起文件名是 qingjian-<版本>-<平台>-<cpu>[-setup].<扩展名>，AppImage、deb、rpm 也一样（deb、rpm 不进列表）；
 # 最后三条认 0.1.2 及更早的旧名。
 ASSET_KINDS = [
     (re.compile(r"^qingjian-.+-macos-arm64\.pkg$"), "macos", "Apple Silicon", "arm64"),
     (re.compile(r"^qingjian-.+-macos-x86_64\.pkg$"), "macos", "Intel", "x86_64"),
     (re.compile(r"^qingjian-.+-windows-x86_64-setup\.exe$"), "windows", "x64", "x86_64"),
-    (re.compile(r"^Qingjian-.+-x86_64\.AppImage$"), "linux", "x64 AppImage", "x86_64"),
+    (re.compile(r"^qingjian-.+-linux-x86_64\.AppImage$"), "linux", "x64 AppImage", "x86_64"),
     (re.compile(r"^qingjian-.+-linux-x86_64\.tar\.gz$"), "linux", "x64 tar.gz", "x86_64"),
     (re.compile(r"^qingjian-.+-android-arm64\.apk$"), "android", "arm64", "arm64"),
     (re.compile(r"^Qingjian-.+-arm64\.pkg$"), "macos", "Apple Silicon", "arm64"),

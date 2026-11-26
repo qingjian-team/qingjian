@@ -1,8 +1,9 @@
 [package]
 name = "qingjian-android"
 description = "Android 输入法的 Rust 侧：Engine 装配 + JNI 接口，编成 libqingjian_android.so"
-version = "0.3.4-dev"
+version = "0.3.6-dev"
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 

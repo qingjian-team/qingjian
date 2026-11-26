@@ -116,6 +116,20 @@ class Tabs(private val ink: Ink, private val scroll: ScrollState, private val st
         }
     }
 
+    /** 把第 [index] 个页签滚进可见范围（换了选中页签又不是点出来的时候，比如在网格上横滑）。 */
+    fun reveal(index: Int) {
+        arrange()
+        if (index !in labels.indices) return
+        val margin = ink.dp(6f)
+        val (low, high) = if (style == Style.COLUMN) bounds.top to bounds.bottom else bounds.left to bounds.right
+        val start = starts[index] - scroll.offset
+        val end = start + sizes[index]
+        when {
+            start < low -> scroll.drag(start - low - margin)
+            end > high -> scroll.drag(end - high + margin)
+        }
+    }
+
     fun contains(event: MotionEvent) = bounds.contains(event.x, event.y)
 
     /** 横排按 [x]、竖排按 [y] 找落在哪个页签上。 */

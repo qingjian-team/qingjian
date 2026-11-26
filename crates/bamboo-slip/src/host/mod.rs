@@ -2,12 +2,12 @@
 //! 系统事件翻成 [`crate::Event`] 交给 [`crate::Runner`]；有动画在播时按显示器的刷新节奏接着要帧，播完就停。
 //! macOS 上标题栏透明、内容铺到窗口顶上（保留系统的红绿灯与拖动、缩放），应用自己在顶上留出 [`TITLEBAR`] 的空。
 
-mod blit;
 mod clipboard;
 mod error;
 mod handler;
 mod input;
 mod options;
+mod present;
 
 use winit::event_loop::EventLoop;
 

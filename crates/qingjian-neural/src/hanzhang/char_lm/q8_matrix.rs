@@ -46,7 +46,7 @@ impl Q8Matrix {
         }
         let mut weights = Vec::with_capacity(weight.len());
         let mut scales = Vec::with_capacity(weight.len() / BLOCK);
-        for block in weight.chunks_exact(BLOCK) {
+        for block in weight.as_chunks::<BLOCK>().0 {
             let max = block.iter().fold(0f32, |m, v| m.max(v.abs()));
             let scale = max / 127.0;
             let inverse = if scale > 0.0 { 1.0 / scale } else { 0.0 };
@@ -67,6 +67,18 @@ impl Q8Matrix {
 
     pub fn cols(&self) -> usize {
         self.cols
+    }
+
+    /// 把 `row` 这一行的权重还原成 f32 写进 `out`（长度 = [`Self::cols`]）。查词嵌入表用，
+    /// 每次只还原要查的那几行，不必把整张表展开。
+    pub fn row_into(&self, row: usize, out: &mut [f32]) {
+        let blocks = self.cols / BLOCK;
+        let (dequantize, _) = kernels();
+        dequantize(
+            &self.weights[row * self.cols..(row + 1) * self.cols],
+            &self.scales[row * blocks..(row + 1) * blocks],
+            out,
+        );
     }
 
     /// `x`（行优先 `m × cols`）乘权重的转置，返回行优先的 `m × rows`。
@@ -118,8 +130,10 @@ fn kernels() -> (Dequantize, Dot) {
 
 fn scalar_dequantize(w: &[i8], scales: &[f32], out: &mut [f32]) {
     for ((w, out), &scale) in w
-        .chunks_exact(BLOCK)
-        .zip(out.chunks_exact_mut(BLOCK))
+        .as_chunks::<BLOCK>()
+        .0
+        .iter()
+        .zip(out.as_chunks_mut::<BLOCK>().0)
         .zip(scales)
     {
         for (&w, out) in w.iter().zip(out) {

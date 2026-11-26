@@ -24,6 +24,9 @@ pub struct ScrollArea {
     style: Style,
 
     horizontal: bool,
+
+    /// 视口顶上被盖住的高度（点），见 [`Self::obscured_top`]。
+    obscured: f32,
 }
 
 impl ScrollArea {
@@ -31,6 +34,16 @@ impl ScrollArea {
         Self {
             style,
             horizontal: false,
+            obscured: 0.0,
+        }
+    }
+
+    /// 视口顶上 `points` 点被浮在上面的东西（半透明的工具栏）盖住：内容照样从视口顶上排（使用方自己留出这段），
+    /// 竖滚动条从它下面起，滚进视野（[`Ui::reveal`]、焦点移动）时让开这段。
+    pub fn obscured_top(self, points: f32) -> Self {
+        Self {
+            obscured: points,
+            ..self
         }
     }
 
@@ -74,9 +87,15 @@ impl ScrollArea {
         if let Some(extent) = extent.filter(|extent| along(extent.max()) > 0.0) {
             let (viewport, total) = (along(extent.viewport), along(extent.content));
             let inset = theme.px(BAR_INSET);
-            let track = viewport - inset * 2.0;
+            let lead = if self.horizontal {
+                0.0
+            } else {
+                theme.px(self.obscured).min(viewport)
+            };
+            let track = (viewport - lead - inset * 2.0).max(0.0);
             let length = (track * viewport / total).max(theme.px(BAR_MIN)).min(track);
-            let start = inset
+            let start = lead
+                + inset
                 + (track - length)
                     * (along((offset_x, offset_y)) / along(extent.max())).clamp(0.0, 1.0);
             let track_key = key.child("track");
@@ -161,6 +180,7 @@ impl ScrollArea {
                     horizontal: self.horizontal,
                     inset,
                     thumb: length,
+                    lead,
                 }),
             );
             children.push(track);
@@ -186,7 +206,13 @@ impl ScrollArea {
             &children,
         )?;
         ui.scene().set_clip(viewport, 0.0);
-        ui.interact(viewport, key, Interact::new().scrolls(moved));
+        ui.interact(
+            viewport,
+            key,
+            Interact::new()
+                .scrolls(moved)
+                .obscured_top(theme.px(self.obscured)),
+        );
         Ok(viewport)
     }
 }

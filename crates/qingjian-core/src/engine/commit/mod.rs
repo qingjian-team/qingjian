@@ -97,9 +97,11 @@ impl Engine {
         }
         let lead = self.auto_space_before(&candidate.text);
         let before = self.hold_selections.then(|| self.composition.clone());
+        let previous_log_id = self.recent_commits.last().map(|commit| commit.log_id);
         let text = self.commit_with(candidate, InputSource::from(candidate.kind), None);
+        let learned = self.recent_commits.last().map(|commit| commit.log_id) != previous_log_id;
         let text = if lead { format!(" {text}") } else { text };
-        self.hold_or_release(before, text)
+        self.hold_or_release(before, text, learned)
     }
 
     /// [`Self::commit`] 的内部形式：`source` 写进输入日志（上屏译词时不是候选本身），
@@ -110,6 +112,10 @@ impl Engine {
         source: InputSource,
         used_sense: Option<usize>,
     ) -> String {
+        // 上屏了：「上一记退格把组句删空」属于上一段组句，到此作废（issue #932）。
+        // 不清的话，删空 → 上屏 → 按住退格，自动重复全被当成「删空后的重复」吞掉，
+        // 按住只删得掉一个字（Windows 与安卓上第一下不经过 Core，这个状态更清不掉）。
+        self.backspace_emptied = false;
         // 通讯录里的名字只在本机用：上屏照常吃拼音，学习与输入日志这一次都不记
         let mute = !self.private && self.is_contact(&candidate.text);
         if mute {

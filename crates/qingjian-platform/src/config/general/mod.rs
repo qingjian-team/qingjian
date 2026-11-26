@@ -55,6 +55,10 @@ pub struct GeneralConfig {
     /// 候选窗口主题 id（主题目录名），读用 [`Self::theme_id`]。旧写法里这一项是外观，见上。
     pub theme: String,
 
+    /// 单打 `rq` / `sj` / `xq` / `jq` / `jr` 时，把整组写法排到词的前面。
+    /// 缺省关：只用简拼的人（`sj` 想打「手机」）会整页看不到词。
+    pub calendar_shortcuts_first: bool,
+
     /// 候选窗口竖排 / 横排。
     pub layout: LayoutMode,
 
@@ -251,6 +255,9 @@ pub struct GeneralConfig {
 
     /// 把系统的文本替换（macOS「键盘 → 文本替换」）并进自定义短语：输入码敲全后短语排在候选前面，同权重时排在用户自己的短语之后。只有 macOS 用。
     pub system_text_replacements: bool,
+
+    /// 是否在菜单栏显示「中 / 英」状态项（`NSStatusItem`）。缺省开；只有 macOS 用。
+    pub menubar_indicator: bool,
 }
 
 /// 界面语言跟随系统的配置写法。
@@ -269,6 +276,7 @@ impl Default for GeneralConfig {
             page_keys: PAGE_KEY_OPTIONS[0].to_owned(),
             appearance: Some(Appearance::default()),
             theme: DEFAULT_THEME.to_owned(),
+            calendar_shortcuts_first: false,
             layout: LayoutMode::default(),
             horizontal_grid: false,
             grid_page_keys: false,
@@ -326,6 +334,7 @@ impl Default for GeneralConfig {
             input_log: true,
             learning: true,
             system_text_replacements: true,
+            menubar_indicator: true,
         }
     }
 }

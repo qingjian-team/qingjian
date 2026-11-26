@@ -1,4 +1,4 @@
-//! 侧栏的线性图标：16 单位见方的网格上画，1.5 单位线宽、圆头圆角，按 `size` 缩放。
+//! 侧栏与工具栏的线性图标：16 单位见方的网格上画，1.5 单位线宽、圆头圆角，按 `size` 缩放。
 
 use bamboo_slip::{Canvas, Color, Icon};
 
@@ -21,6 +21,8 @@ pub enum Glyph {
     About,
     Search,
     Translate,
+    Back,
+    Forward,
 }
 
 impl Icon for Glyph {
@@ -33,6 +35,9 @@ impl Icon for Glyph {
             fills: Vec::new(),
         };
         match self {
+            // 工具栏的前后箭头
+            Glyph::Back => pen.line(&[(10.0, 3.0), (5.0, 8.0), (10.0, 13.0)]),
+            Glyph::Forward => pen.line(&[(6.0, 3.0), (11.0, 8.0), (6.0, 13.0)]),
             // 候选窗：窗框里一条高亮行
             Glyph::Candidates => {
                 pen.round_rect(1.75, 2.75, 12.5, 10.5, 2.0, false);

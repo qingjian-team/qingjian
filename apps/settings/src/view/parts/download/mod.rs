@@ -18,6 +18,7 @@ pub fn labels() -> DownloadLabels<'static> {
         delete: tr("experimental.delete"),
         delete_confirm: tr("experimental.delete_confirm"),
         update: tr("dictionaries.update"),
+        installed: tr("dictionaries.installed"),
         blocked: tr("dictionaries.needs_newer_app"),
     }
 }

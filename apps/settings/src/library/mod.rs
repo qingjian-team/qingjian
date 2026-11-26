@@ -87,6 +87,15 @@ impl Library {
         }
     }
 
+    /// 用户导入的那几本：词库、形码词库或码表（不含随包的）。
+    pub fn imported(&self, kind: Kind) -> &[Entry] {
+        match kind {
+            Kind::Dictionary => &self.dictionaries,
+            Kind::CodeWords => &self.code_words,
+            Kind::CodeTable => &self.codes,
+        }
+    }
+
     /// 形码方案的名字；没装着这套方案时用 id。
     pub fn code_scheme_label(&self, id: &str) -> String {
         self.code_schemes

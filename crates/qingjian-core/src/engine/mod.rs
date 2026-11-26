@@ -6,6 +6,7 @@
 mod alignment;
 mod annotation;
 mod aux_code;
+mod backspace;
 mod candidate_menu;
 mod caret;
 mod choice;
@@ -51,6 +52,7 @@ use qingjian_dictionary::{AuxCodeLookup, Dictionary, WordList};
 pub use alignment::Alignment;
 pub use annotation::AnnotationReport;
 pub use aux_code::is_valid_aux_code_key;
+pub use backspace::Backspace;
 pub use choice::{CharTable, ChoiceModel, ChoiceScore, ChoiceTier};
 pub use commit::{LastCommit, Transition};
 pub use gloss::{FilledGloss, GlossFiller, NoGlossFiller};
@@ -102,6 +104,9 @@ pub struct Engine {
 
     /// 前缀模式键（表达式 / 问字）。
     modes: ModeKeys,
+
+    /// 单打日历缩写时整组是否压到词前面（配置 `[general] calendar_shortcuts_first`，缺省不压）。
+    calendar_group_first: bool,
 
     /// 附加词库（领域词库、用户导入的），与主词库一起查词、一起进整句词图；不参与语言模型（它们没有 bigram，
     /// 走词频兜底）。壳按用户目录 `dicts/` 与配置 `[dictionaries]` 装配。
@@ -275,6 +280,10 @@ pub struct Engine {
 
     /// 这段组句第一键的时刻（算首键到上屏的毫秒）。
     composition_started: Option<Instant>,
+
+    /// 上一记退格是不是正好把组句删空了：下一记如果是自动重复就吞掉，
+    /// 别让它接着删应用里已经上屏的字。
+    backspace_emptied: bool,
 
     /// 输入统计用的键数与打字时长。
     typing: statistics::Typing,
@@ -564,6 +573,7 @@ impl Engine {
             translator: Box::new(NoTranslator),
             english_translator: Box::new(NoTranslator),
             modes: ModeKeys::default(),
+            calendar_group_first: false,
             learner: learning::MutedLearner::new(Box::new(NoLearner)),
             composition: Composition::default(),
             english: None,
@@ -618,6 +628,7 @@ impl Engine {
             passthrough_pending: String::new(),
             page_turns: 0,
             composition_started: None,
+            backspace_emptied: false,
             typing: statistics::Typing::default(),
             application: None,
             committed_since_break: false,

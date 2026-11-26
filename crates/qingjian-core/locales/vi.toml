@@ -29,3 +29,12 @@ duplicate = "Mã {code} đã có cụm từ này"
 user_word = "Đã xóa từ của người dùng “{text}”"
 learning = "Đã quên những gì đã học về “{text}”"
 nothing = "“{text}” là từ trong từ điển và không có dữ liệu học, không có gì để xóa"
+
+[panel]
+translate_to = "Dịch sang {language}"
+chinese = "Tiếng Trung"
+translate_idle = "Gõ xong dừng một chút là dịch"
+translate_waiting = "Đang dịch…"
+translate_ready = "Enter để đưa lên"
+translate_failed = "Chưa dịch được; nhấn Enter để thử lại"
+translate_placeholder = "Gõ câu cần dịch vào đây"

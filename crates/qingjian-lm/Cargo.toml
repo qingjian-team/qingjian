@@ -3,6 +3,7 @@ name = "qingjian-lm"
 description = "词级语言模型：二元（.qj 或 TSV，整句转换打分）与知意的三元 .ngram（选词重排）"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 

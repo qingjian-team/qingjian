@@ -120,9 +120,9 @@ unsafe fn color_bitmap(icon: &ICONINFO) -> Option<Pixmap> {
             return None;
         }
         // 老式图标没有 alpha 通道，全是 0：当作不透明
-        let opaque = bgra.chunks_exact(4).all(|pixel| pixel[3] == 0);
+        let opaque = bgra.as_chunks::<4>().0.iter().all(|pixel| pixel[3] == 0);
         let mut pixmap = Pixmap::new(width, height)?;
-        for (out, pixel) in pixmap.pixels_mut().iter_mut().zip(bgra.chunks_exact(4)) {
+        for (out, pixel) in pixmap.pixels_mut().iter_mut().zip(bgra.as_chunks::<4>().0) {
             let alpha = if opaque { 255 } else { pixel[3] };
             *out = ColorU8::from_rgba(pixel[2], pixel[1], pixel[0], alpha).premultiply();
         }

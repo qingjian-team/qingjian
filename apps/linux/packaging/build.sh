@@ -32,6 +32,13 @@ else
   deb_version="$upstream"
   rpm_release=1
 fi
+# 发版附件的文件名照全平台的 qingjian-<版本>-<平台>-<cpu>.<扩展名>（docs/notes/release.md），
+# 包里的包名与版本仍照各发行格式；开发版的版本接 7 位短哈希，与 tar.gz、AppImage 一致
+file_version=$cargo_version
+if [[ "$cargo_version" == *-dev ]]; then
+  file_version+="-$(git -C "$root" rev-parse --short=7 HEAD)"
+  git -C "$root" diff --quiet HEAD || file_version+='+'
+fi
 echo "==> 版本 $cargo_version（$git_rev）"
 mkdir -p "$out"
 
@@ -88,6 +95,13 @@ stage_core() {
   done
 }
 
+# 发行格式文件名里的包名：deb 是「包名_版本_架构」，rpm 是「包名-版本-发布.发行版.架构」
+package_of() {
+  local base
+  base=$(basename "$1")
+  printf '%s' "${base%%"$2"*}"
+}
+
 build_deb() {
   echo '==> deb（Debian 13）'
   local tag stage="$work/deb" core
@@ -99,7 +113,10 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-ins
   install -Dm644 "$root/LICENSE" "$core/usr/share/doc/qingjian/copyright"
   in_container "$tag" DEB_VERSION="$deb_version" bash /src/apps/linux/packaging/deb/assemble.sh
   rm -f "$out"/*.deb
-  cp "$stage"/*.deb "$out/"
+  local deb
+  for deb in "$stage"/*.deb; do
+    cp "$deb" "$out/$(package_of "$deb" _)-$file_version-linux-x86_64.deb"
+  done
 }
 
 build_rpm() {
@@ -112,7 +129,10 @@ RUN dnf install -y --setopt=install_weak_deps=False rpm-build cmake gcc-c++ make
   install -Dm644 "$root/LICENSE" "$stage/root/usr/share/licenses/qingjian/LICENSE"
   in_container "$tag" RPM_VERSION="$upstream" RPM_RELEASE="$rpm_release" bash /src/apps/linux/packaging/rpm/assemble.sh
   rm -f "$out"/*.rpm
-  cp "$stage"/rpms/x86_64/*.rpm "$out/"
+  local rpm
+  for rpm in "$stage"/rpms/x86_64/*.rpm; do
+    cp "$rpm" "$out/$(package_of "$rpm" "-$upstream-")-$file_version-linux-x86_64.rpm"
+  done
 }
 
 for format in "${formats[@]}"; do "build_$format"; done

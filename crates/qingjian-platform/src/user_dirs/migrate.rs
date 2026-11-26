@@ -1,5 +1,6 @@
 //! 把旧版本平铺在用户目录根下的文件搬进分类文件夹。目标已经有同名的就不动旧的、只记日志，不覆盖用户数据；
 //! 改名失败（Windows 上 `%APPDATA%` 与 `%LOCALAPPDATA%` 不在同一个盘）就复制后删掉旧的。
+//! 第一次搬之前先把用户自己产生的旧文件原样复制一份进 `backup-before-0.3.4/`。
 
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
@@ -27,6 +28,9 @@ const CUSTOM_DIRS: [&str; 4] = ["code_dicts", "codes", "schemes", "themes"];
 /// 原来就是文件夹、整个挪到 `downloads/` 下的。
 const DOWNLOAD_DIRS: [&str; 2] = ["glossaries", "models"];
 
+/// 搬之前的备份：保持旧版本的平铺结构，退回旧版本时把里面的东西拷回根目录就能用。不自动删，留给用户确认没问题后自己删。
+const BACKUP_DIR: &str = "backup-before-0.3.4";
+
 pub(super) fn run(dirs: &UserDirs) {
     let root = dirs.root();
     let Ok(entries) = std::fs::read_dir(root) else {
@@ -37,6 +41,8 @@ pub(super) fn run(dirs: &UserDirs) {
         .filter_map(|entry| entry.file_name().into_string().ok())
         .collect();
     names.sort();
+    let downloaded = downloaded_ids(dirs);
+    backup(dirs, &names, &downloaded);
     for name in names {
         let source = root.join(&name);
         if let Some(target) = target_of(dirs, &name, source.is_dir()) {
@@ -46,7 +52,6 @@ pub(super) fn run(dirs: &UserDirs) {
     // 下载的与导入的附加词库原来都在 `dicts/`：词库列表里有的 id 是下载的，其余是导入的
     let legacy_dicts = root.join("dicts");
     if legacy_dicts.is_dir() {
-        let downloaded = downloaded_ids(dirs);
         split_dicts(&legacy_dicts, dirs, &downloaded);
     }
 }
@@ -76,6 +81,72 @@ fn target_of(dirs: &UserDirs, name: &str, is_dir: bool) -> Option<PathBuf> {
     (name.starts_with("user") && name.contains(".tsv")).then(|| dirs.learning().join(name))
 }
 
+/// 把要搬的、用户自己产生的旧文件复制进 [`BACKUP_DIR`]：模型、下载的词库与缓存能重新下载，不备份。
+/// 备份文件夹已经在、或没有要搬的就不做；先复制到本进程自己的临时名，完整了再改名，
+/// 输入法与设置程序同时启动时只留一份。复制失败只记日志、照样搬：搬本身不覆盖也不删用户数据。
+fn backup(dirs: &UserDirs, names: &[String], downloaded: &HashSet<String>) {
+    let root = dirs.root();
+    let backup = root.join(BACKUP_DIR);
+    if backup.exists() {
+        return;
+    }
+    let mut items: Vec<PathBuf> = names
+        .iter()
+        .filter(|name| {
+            target_of(dirs, name, root.join(name).is_dir()).is_some_and(|target| {
+                !target.starts_with(dirs.downloads()) && !target.starts_with(dirs.cache())
+            })
+        })
+        .map(PathBuf::from)
+        .collect();
+    if let Ok(entries) = std::fs::read_dir(root.join("dicts")) {
+        items.extend(
+            entries
+                .filter_map(Result::ok)
+                .filter(|entry| !is_downloaded_dict(&entry.path(), downloaded))
+                .map(|entry| Path::new("dicts").join(entry.file_name())),
+        );
+    }
+    if items.is_empty() {
+        return;
+    }
+    let staging = root.join(format!(".{BACKUP_DIR}.{}.partial", std::process::id()));
+    let _ = remove_all(&staging);
+    let copied = items
+        .iter()
+        .try_for_each(|item| {
+            let target = staging.join(item);
+            if let Some(parent) = target.parent() {
+                std::fs::create_dir_all(parent)?;
+            }
+            copy_all(&root.join(item), &target)
+        })
+        .and_then(|()| std::fs::rename(&staging, &backup));
+    match copied {
+        Ok(()) => tracing::info!(
+            dir = %backup.display(),
+            items = items.len(),
+            "user data backed up before moving"
+        ),
+        Err(error) => {
+            let _ = remove_all(&staging);
+            // 另一个进程先备份完、已经开始搬了
+            if !backup.exists() {
+                tracing::warn!(%error, "user data not backed up");
+            }
+        }
+    }
+}
+
+/// 旧 `dicts/` 里的一项是不是从词库仓库下载的：文件名（不带扩展名）在词库列表里。
+fn is_downloaded_dict(path: &Path, downloaded: &HashSet<String>) -> bool {
+    path.is_file()
+        && path
+            .file_stem()
+            .and_then(|stem| stem.to_str())
+            .is_some_and(|stem| downloaded.contains(stem))
+}
+
 /// 词库列表缓存里的 id：旧位置在根下，已经搬过就在 `cache/` 里。
 fn downloaded_ids(dirs: &UserDirs) -> HashSet<String> {
     [
@@ -103,12 +174,7 @@ fn split_dicts(legacy: &Path, dirs: &UserDirs, downloaded: &HashSet<String>) {
     for entry in entries.filter_map(Result::ok) {
         let source = entry.path();
         let name = entry.file_name();
-        let is_download = source.is_file()
-            && source
-                .file_stem()
-                .and_then(|stem| stem.to_str())
-                .is_some_and(|stem| downloaded.contains(stem));
-        let target = if is_download {
+        let target = if is_downloaded_dict(&source, downloaded) {
             dirs.downloaded_dicts().join(&name)
         } else {
             dirs.custom_dicts().join(&name)

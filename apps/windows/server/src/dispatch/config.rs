@@ -103,6 +103,12 @@ pub struct RouterConfig {
     /// 英文模式的那一份（`[general] english_full_width_punctuation`）。
     pub english_full_width: bool,
 
+    /// 中文与日文模式的成对符号自动补全（`[general] pair_punctuation`）。
+    pub pair_punctuation: bool,
+
+    /// 英文模式的成对符号自动补全（`[general] english_pair_punctuation`）。
+    pub english_pair_punctuation: bool,
+
     /// 组句中可转全角的标点先把高亮候选上屏再补标点（`[general] punct_commits`）；
     /// 关掉恢复老行为：标点进英文直输段。缺省开。
     pub punct_commits: bool,
@@ -124,6 +130,9 @@ pub struct RouterConfig {
 
     /// 组句中按需调用 AI 的快捷键（`[shortcut] predict`）。
     pub predict: KeyCombo,
+
+    /// 朗读当前高亮候选的快捷键（`[shortcut] pronounce`），空串表示关闭。
+    pub pronounce: Option<KeyCombo>,
 
     /// 组句时上屏高亮候选与原样上屏字母的键（`[shortcut] commit_candidate` / `commit_raw`）。
     pub commit_keys: CommitKeys,
@@ -246,6 +255,8 @@ impl From<&Config> for RouterConfig {
             toggle_punctuation: config.shortcut.toggle_punctuation,
             full_width: config.general.full_width_punctuation,
             english_full_width: config.general.english_full_width_punctuation,
+            pair_punctuation: config.general.pair_punctuation,
+            english_pair_punctuation: config.general.english_pair_punctuation,
             punct_commits: config.general.punct_commits,
             zhuyin: config.general.is_zhuyin(),
             apps: config.apps.clone(),
@@ -256,6 +267,7 @@ impl From<&Config> for RouterConfig {
             translate_selection: config.shortcut.translate_selection,
             translate_panel: config.shortcut.translate_panel,
             predict: config.shortcut.predict,
+            pronounce: config.shortcut.pronounce,
             commit_keys: config.shortcut.commit_keys(),
             toggle_traditional: config
                 .shortcut

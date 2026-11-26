@@ -4,7 +4,7 @@
 //! `[shortcut] translate_selection`，激活时读一次配置（AppContainer 读不到用户目录时用缺省 Ctrl+Alt+T）；
 //! 切换键来自 `[shortcut] switch_mode`，那个值由 Server 经协议下发（DLL 不读配置文件），变了就地重登记。
 
-use windows::Win32::UI::Input::KeyboardAndMouse::{VK_OEM_PERIOD, VK_SPACE};
+use windows::Win32::UI::Input::KeyboardAndMouse::VK_SPACE;
 use windows::Win32::UI::TextServices::{
     ITfKeystrokeMgr, TF_MOD_ALT, TF_MOD_CONTROL, TF_MOD_SHIFT, TF_PRESERVEDKEY,
 };
@@ -23,6 +23,9 @@ pub(crate) const GUID_TRANSLATE_PANEL: GUID =
     GUID::from_u128(0x8d3f2a64_71c5_4b9e_a0d2_6e4b1c9f3a85);
 
 pub(crate) const GUID_PREDICT: GUID = GUID::from_u128(0xe7c13625_b92a_48f0_9e64_673c0a581bd2);
+
+/// 组句中朗读高亮候选的保留键标识。带 Alt 的组合不经普通击键 sink。
+pub(crate) const GUID_PRONOUNCE: GUID = GUID::from_u128(0x6b2f9c41_8d7e_4a35_9c61_2f8a5d0e7b93);
 
 /// Ctrl + Alt + Space 中英切换键的保留键标识。
 pub(crate) const GUID_SWITCH_MODE: GUID = GUID::from_u128(0x2f6b8c51_9a34_4e7d_b2c8_5d1e0f3a7b64);
@@ -159,11 +162,7 @@ pub(crate) fn unregister_punctuation(keystroke: &ITfKeystrokeMgr, combo: KeyComb
 }
 
 fn virtual_key(combo: KeyCombo) -> u32 {
-    if combo.key == '.' {
-        u32::from(VK_OEM_PERIOD.0)
-    } else {
-        combo.key.to_ascii_uppercase() as u32
-    }
+    combo.virtual_key()
 }
 
 #[cfg(test)]

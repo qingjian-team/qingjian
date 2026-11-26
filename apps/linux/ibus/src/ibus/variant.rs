@@ -15,7 +15,7 @@
 
 use std::collections::HashMap;
 
-use zbus::zvariant::{StructureBuilder, Value};
+use zbus::{Structure, Variant};
 
 /// 属性种类：下划线。
 const ATTR_UNDERLINE: u32 = 1;
@@ -33,13 +33,13 @@ const ORIENTATION_SYSTEM: i32 = 2;
 const BUILD_FAILED: &str = "IBus 对象的字段类型是固定的，构造不该失败";
 
 /// 空附件字典：三种对象都不用附件。
-fn attachments<'a>() -> HashMap<String, Value<'a>> {
+fn attachments<'a>() -> HashMap<String, Variant<'a>> {
     HashMap::new()
 }
 
 /// 一条 `IBusAttribute`：`(sa{sv}uuuu)`。范围按**字符**下标，不是字节。
-fn attribute<'a>(kind: u32, value: u32, start: u32, end: u32) -> Value<'a> {
-    let structure = StructureBuilder::new()
+fn attribute<'a>(kind: u32, value: u32, start: u32, end: u32) -> Variant<'a> {
+    let structure = Structure::builder()
         .add_field("IBusAttribute".to_owned())
         .add_field(attachments())
         .add_field(kind)
@@ -48,18 +48,18 @@ fn attribute<'a>(kind: u32, value: u32, start: u32, end: u32) -> Value<'a> {
         .add_field(end)
         .build()
         .expect(BUILD_FAILED);
-    Value::from(structure)
+    Variant::from(structure)
 }
 
 /// `IBusAttrList`：`(sa{sv}av)`。
-fn attr_list(attributes: Vec<Value<'static>>) -> Value<'static> {
-    let structure = StructureBuilder::new()
+fn attr_list(attributes: Vec<Variant<'static>>) -> Variant<'static> {
+    let structure = Structure::builder()
         .add_field("IBusAttrList".to_owned())
         .add_field(attachments())
         .add_field(attributes)
         .build()
         .expect(BUILD_FAILED);
-    Value::from(structure)
+    Variant::from(structure)
 }
 
 /// 一段 preedit 要画的样式。
@@ -81,12 +81,12 @@ pub struct Segment {
 }
 
 /// 不带属性的 `IBusText`：上屏文本、候选、辅助文本都用它。
-pub fn text(content: &str) -> Value<'static> {
+pub fn text(content: &str) -> Variant<'static> {
     styled_text(content, Vec::new())
 }
 
 /// 分段带样式的 `IBusText`：preedit 用它。属性范围按字符下标算。
-pub fn segmented_text(segments: &[Segment]) -> Value<'static> {
+pub fn segmented_text(segments: &[Segment]) -> Variant<'static> {
     let mut content = String::new();
     let mut attributes = Vec::new();
     let mut start = 0u32;
@@ -109,29 +109,29 @@ pub fn segmented_text(segments: &[Segment]) -> Value<'static> {
     styled_text(&content, attributes)
 }
 
-fn styled_text(content: &str, attributes: Vec<Value<'static>>) -> Value<'static> {
-    let structure = StructureBuilder::new()
+fn styled_text(content: &str, attributes: Vec<Variant<'static>>) -> Variant<'static> {
+    let structure = Structure::builder()
         .add_field("IBusText".to_owned())
         .add_field(attachments())
         .add_field(content.to_owned())
         // 第四项签名是 `v`：要把属性表**包成变体**，直接塞结构体会内联成 `(sa{sv}av)`，签名就错了
-        .append_field(Value::new(attr_list(attributes)))
+        .append_field(Variant::new(attr_list(attributes)))
         .build()
         .expect(BUILD_FAILED);
-    Value::from(structure)
+    Variant::from(structure)
 }
 
 /// `IBusLookupTable`：一页候选。
 ///
 /// **只放当前页**并把 `round` 设成 false：翻页由我们自己算（页大小、云端槽位、跨页高亮都在 Core 的
 /// `CandidateLayout` 里），面板只负责把这一页画出来。让面板自己翻页会和 Core 的布局打架。
-pub fn lookup_table(candidates: &[String], cursor: u32, visible: bool) -> Value<'static> {
+pub fn lookup_table(candidates: &[String], cursor: u32, visible: bool) -> Variant<'static> {
     // `av` 的元素同样要各自包成变体
-    let items: Vec<Value<'static>> = candidates.iter().map(|c| Value::new(text(c))).collect();
-    let labels: Vec<Value<'static>> = (1..=candidates.len())
-        .map(|i| Value::new(text(&i.to_string())))
+    let items: Vec<Variant<'static>> = candidates.iter().map(|c| Variant::new(text(c))).collect();
+    let labels: Vec<Variant<'static>> = (1..=candidates.len())
+        .map(|i| Variant::new(text(&i.to_string())))
         .collect();
-    let structure = StructureBuilder::new()
+    let structure = Structure::builder()
         .add_field("IBusLookupTable".to_owned())
         .add_field(attachments())
         .add_field(candidates.len().max(1) as u32)
@@ -143,21 +143,21 @@ pub fn lookup_table(candidates: &[String], cursor: u32, visible: bool) -> Value<
         .add_field(labels)
         .build()
         .expect(BUILD_FAILED);
-    Value::from(structure)
+    Variant::from(structure)
 }
 
 /// 取出结构体的签名字符串，测试用。
 #[cfg(test)]
-fn signature_of(value: &Value<'_>) -> String {
+fn signature_of(value: &Variant<'_>) -> String {
     value.value_signature().to_string()
 }
 
 /// 取出结构体，顺手剥掉外面的变体包装（`av` 的元素与 `v` 的字段都是包着的）。测试用。
 #[cfg(test)]
-fn as_structure<'a>(value: &'a Value<'a>) -> &'a zbus::zvariant::Structure<'a> {
+fn as_structure<'a>(value: &'a Variant<'a>) -> &'a Structure<'a> {
     match value {
-        Value::Structure(structure) => structure,
-        Value::Value(inner) => as_structure(inner),
+        Variant::Structure(structure) => structure,
+        Variant::Variant(inner) => as_structure(inner),
         other => panic!("不是结构体：{other:?}"),
     }
 }
@@ -198,7 +198,7 @@ mod tests {
             let fields = as_structure(&value).fields();
             assert_eq!(
                 fields[0],
-                Value::from(name.to_owned()),
+                Variant::from(name.to_owned()),
                 "第一项该是类型名 {name}"
             );
         }
@@ -218,17 +218,17 @@ mod tests {
             },
         ]);
         let fields = as_structure(&value).fields();
-        assert_eq!(fields[2], Value::from("你好ma".to_owned()));
+        assert_eq!(fields[2], Variant::from("你好ma".to_owned()));
         let attrs = as_structure(&fields[3]).fields();
-        let Value::Array(list) = &attrs[2] else {
+        let Variant::Array(list) = &attrs[2] else {
             panic!("属性表该是数组");
         };
         assert_eq!(list.len(), 2);
         // 第二段从第 2 个字符起、到第 4 个字符止
-        let second: &Value<'_> = list.get(1).unwrap().unwrap();
+        let second: &Variant<'_> = list.get(1).unwrap().unwrap();
         let range = as_structure(second).fields();
-        assert_eq!(range[4], Value::U32(2), "起点按字符");
-        assert_eq!(range[5], Value::U32(4), "终点按字符");
+        assert_eq!(range[4], Variant::U32(2), "起点按字符");
+        assert_eq!(range[5], Variant::U32(4), "终点按字符");
     }
 
     /// 每页几个跟着实际候选数走；一个候选都没有时也不能报 0（IBus 会除零）。
@@ -236,7 +236,7 @@ mod tests {
     fn empty_lookup_table_still_has_a_page_size() {
         let value = lookup_table(&[], 0, false);
         let fields = as_structure(&value).fields();
-        assert_eq!(fields[2], Value::U32(1));
+        assert_eq!(fields[2], Variant::U32(1));
     }
 
     /// 纠错段多一条前景色属性。
@@ -248,7 +248,7 @@ mod tests {
         }]);
         let fields = as_structure(&value).fields();
         let attrs = as_structure(&fields[3]).fields();
-        let Value::Array(list) = &attrs[2] else {
+        let Variant::Array(list) = &attrs[2] else {
             panic!("属性表该是数组");
         };
         assert_eq!(list.len(), 2, "下划线加前景色");

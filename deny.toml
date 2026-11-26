@@ -29,11 +29,6 @@ ignore = [
     # ttf-parser 停止维护。bamboo-slip 直接用它查字体轮廓表，fontdb / cosmic-text
     # 也依赖它；上游换成别的库之后再跟。
     "RUSTSEC-2026-0192",
-    # zbus 5.19 的内部依赖（zbus_names / zvariant / zvariant_derive）不再单独维护，
-    # 已并入 zbus 6。等 linux-ibus 升到 zbus 6 后删掉这三条。
-    "RUSTSEC-2026-0370",
-    "RUSTSEC-2026-0371",
-    "RUSTSEC-2026-0372",
 ]
 # yanked 版本意味着作者主动撤回（通常是严重缺陷或误发）。默认只是 warn，
 # 而 warn 不会让这一步失败，等于没查：这里设成 deny。
