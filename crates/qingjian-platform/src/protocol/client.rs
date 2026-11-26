@@ -185,7 +185,7 @@ impl ClientMessage {
 
 /// TSF 进程内候选窗上报的点击目标（[`ClientMessage::CandidateHit`]）。
 ///
-/// 是 [`qingjian_render::HitTarget`] 的可序列化镜像：协议层不能依赖渲染器，但两边的值一一对应，
+/// 是 `qingjian_render::HitTarget` 的可序列化镜像：协议层不能依赖渲染器，但两边的值一一对应，
 /// Server 收到后原样换成 `HitTarget` 走它自绘窗那条点击链路。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum CandidateHit {
