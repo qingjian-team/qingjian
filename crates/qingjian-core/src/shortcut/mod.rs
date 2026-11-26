@@ -124,7 +124,26 @@ pub fn candidates_with_clipboard(
     now: &Zoned,
     clipboard: &dyn clipboard::Source,
 ) -> Vec<Candidate> {
-    candidates_with_modes_and_clipboard(input, expression, now, true, Some(clipboard))
+    let rules = clipboard::Rules::default();
+    candidates_with_modes_and_clipboard(input, expression, now, true, Some((clipboard, &rules)))
+}
+
+/// 同 [`candidates_with_clipboard`]，另外给一份 [`clipboard::Rules`]：大小写与分隔符都按它来。
+pub fn candidates_with_clipboard_rules(
+    input: &str,
+    expression: char,
+    now: &Zoned,
+    clipboard: &dyn clipboard::Source,
+    rules: &clipboard::Rules,
+) -> Vec<Candidate> {
+    let texts = calendar_forms(input, now).unwrap_or_else(|| {
+        input
+            .strip_prefix(expression)
+            .map_or_else(Vec::new, |body| {
+                expression_forms(body, now, true, Some((clipboard, rules)))
+            })
+    });
+    as_candidates(texts)
 }
 
 /// 同 [`candidates`]，`sub_modes` 决定认不认 `vbit:` 这类子模式。
@@ -146,7 +165,7 @@ pub fn candidates_with_modes_and_clipboard(
     expression: char,
     now: &Zoned,
     sub_modes: bool,
-    clipboard: Option<&dyn clipboard::Source>,
+    clipboard: Option<(&dyn clipboard::Source, &clipboard::Rules)>,
 ) -> Vec<Candidate> {
     let texts = calendar_forms(input, now).unwrap_or_else(|| {
         input
@@ -229,11 +248,12 @@ fn expression_forms(
     body: &str,
     now: &Zoned,
     sub_modes: bool,
-    clipboard: Option<&dyn clipboard::Source>,
+    clipboard: Option<(&dyn clipboard::Source, &clipboard::Rules)>,
 ) -> Vec<String> {
     // 参数位置上打了 `cb`：先换成剪贴板内容，再按原来的路子解析。
-    // 判定收在 `clipboard::substitute` 一处，各子模式的解析不用各改一遍。
-    let resolved = clipboard.and_then(|source| clipboard::substitute(body, source));
+    // 判定收在 `clipboard::substitute_with` 一处，各子模式的解析不用各改一遍。
+    let resolved =
+        clipboard.and_then(|(source, rules)| clipboard::substitute_with(body, source, rules));
     let body = resolved.as_deref().unwrap_or(body);
     // 子模式优先：`bit:` 这些带冒号的，认出来就只走那一条，不再按四则去猜
     if sub_modes && let Some(mode) = modes::parse(body) {

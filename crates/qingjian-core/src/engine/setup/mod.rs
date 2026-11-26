@@ -139,6 +139,11 @@ impl Engine {
         self.v_clipboard_cb = on;
     }
 
+    /// 换 `cb` 的判定口径与剪贴板文本的分隔符（配置 `[general] v_mode_clipboard_*`）。
+    pub fn set_clipboard_rules(&mut self, rules: crate::shortcut::clipboard::Rules) {
+        self.clipboard_rules = rules;
+    }
+
     /// 换剪贴板来源。壳在自己那边实现 [`crate::shortcut::clipboard::Source`]。
     pub fn set_clipboard_source(
         &mut self,

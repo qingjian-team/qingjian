@@ -113,6 +113,9 @@ pub struct Engine {
 
     /// 剪贴板文本的来源；壳注入，Core 不碰系统接口。缺省什么也读不到。
     clipboard: std::sync::Arc<dyn crate::shortcut::clipboard::Source>,
+
+    /// `cb` 怎么认、剪贴板文本按哪些字符拆（配置 `[general] v_mode_clipboard_*`）。
+    clipboard_rules: crate::shortcut::clipboard::Rules,
     /// 单打日历缩写时整组是否压到词前面（配置 `[general] calendar_shortcuts_first`，缺省不压）。
     calendar_group_first: bool,
 
@@ -600,6 +603,7 @@ impl Engine {
             aux_weighting: false,
             v_clipboard_cb: false,
             clipboard: std::sync::Arc::new(crate::shortcut::clipboard::NoClipboard),
+            clipboard_rules: crate::shortcut::clipboard::Rules::default(),
             calendar_group_first: false,
             learner: learning::MutedLearner::new(Box::new(NoLearner)),
             composition: Composition::default(),

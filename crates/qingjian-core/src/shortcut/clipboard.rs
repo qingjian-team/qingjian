@@ -7,9 +7,9 @@
 //! 一个关键字管所有子模式：`vstat;cb`、`vcol;cb`、`vbit;cb`、`vtrans;sort;cb`、`vbase;16;cb`
 //! 都走这里——判定在 [`substitute`]，各子模式自己的解析一行都不用改。
 //!
-//! 剪贴板里有分隔符（换行、分号、逗号、制表符）时拆成多个参数：`1\n2\n3` 与 `1;2;3` 等价，
-//! 这样从表格、日志里复制一列数就能直接用。拆出来的个数与每条长度都有上限，见 [`Limits`]；
-//! 剪贴板内容不进日志。
+//! 「关键字怎么认」「剪贴板里哪些字符算参数分隔」都收在 [`Rules`] 里，由调用方给：缺省是
+//! 大小写不敏感 + 换行 / 分号 / 逗号 / 制表符，需要别的写法（只认小写、只按换行拆）时换一份
+//! `Rules` 即可，不用改这里的代码。剪贴板内容不进日志。
 
 /// 用户打的字：参数位置上出现它，换成剪贴板内容。
 pub const KEYWORD: &str = "cb";
@@ -29,6 +29,43 @@ impl Source for NoClipboard {
     }
 }
 
+/// 缺省把哪些字符当成参数分隔：从表格、日志、代码里复制过来的东西基本是换行或这几个符号。
+pub const DEFAULT_SEPARATORS: &[char] = &['\n', '\r', ';', '；', ',', '，', '\t'];
+
+/// 关键字的判定口径与剪贴板文本的切分口径。
+///
+/// 两件事都做成参数而不是写死：有人习惯只打小写（`CB` 当普通参数），有人从 CSV 里复制的
+/// 东西只想按换行拆（逗号是数据的一部分，不能拆）。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Rules {
+    /// 关键字是否区分大小写。缺省 `false`：`cb`、`CB` 都算。
+    pub case_sensitive: bool,
+
+    /// 剪贴板文本里哪些字符算参数分隔，按字符比对（全角半角各写各的）。
+    /// 缺省 [`DEFAULT_SEPARATORS`]；设成空切片就是不拆，整段当一个参数。
+    pub separators: Vec<char>,
+}
+
+impl Default for Rules {
+    fn default() -> Self {
+        Self {
+            case_sensitive: false,
+            separators: DEFAULT_SEPARATORS.to_vec(),
+        }
+    }
+}
+
+impl Rules {
+    /// 这一段参数是不是关键字本身。
+    fn is_keyword(&self, part: &str) -> bool {
+        if self.case_sensitive {
+            part == KEYWORD
+        } else {
+            part.eq_ignore_ascii_case(KEYWORD)
+        }
+    }
+}
+
 /// 取值上限。剪贴板里常常是整篇文章，全拉进参数会把一次查询拖成几十毫秒。
 pub struct Limits;
 
@@ -40,14 +77,19 @@ impl Limits {
     pub const MAX_ARGS: usize = 256;
 }
 
+/// 用缺省 [`Rules`] 调 [`substitute_with`]。
+pub fn substitute(args: &str, source: &dyn Source) -> Option<String> {
+    substitute_with(args, source, &Rules::default())
+}
+
 /// 参数里出现 `cb` 时，把整串参数改写成「剪贴板内容铺开」的样子；没有 `cb` 就返回 `None`。
 ///
 /// `args` 是子模式名之后的那一段（`cb`、`cb;16`、`sort;cb`）。判定按参数逐个来，只有整段
-/// 等于 [`KEYWORD`]（大小写不敏感）才算，`cba`、`cb1` 这类普通参数不受影响。
-pub fn substitute(args: &str, source: &dyn Source) -> Option<String> {
+/// 等于 [`KEYWORD`] 才算，`cba`、`cb1` 这类普通参数不受影响；大小写与分隔符看 `rules`。
+pub fn substitute_with(args: &str, source: &dyn Source, rules: &Rules) -> Option<String> {
     if !args
         .split([';', '；'])
-        .any(|part| part.trim().eq_ignore_ascii_case(KEYWORD))
+        .any(|part| rules.is_keyword(part.trim()))
     {
         return None;
     }
@@ -55,8 +97,8 @@ pub fn substitute(args: &str, source: &dyn Source) -> Option<String> {
     let mut tokens: Vec<String> = Vec::new();
     for part in args.split([';', '；']) {
         let part = part.trim();
-        if part.eq_ignore_ascii_case(KEYWORD) {
-            tokens.extend(clipboard_tokens(&text));
+        if rules.is_keyword(part) {
+            tokens.extend(clipboard_tokens(&text, rules));
         } else if !part.is_empty() {
             tokens.push(part.to_owned());
         }
@@ -65,10 +107,15 @@ pub fn substitute(args: &str, source: &dyn Source) -> Option<String> {
     (!tokens.is_empty()).then(|| tokens.join(";"))
 }
 
-/// 剪贴板文本 → 参数列表：按换行、分号、逗号、制表符拆，去掉空项与首尾空白，逐条截断。
-fn clipboard_tokens(text: &str) -> Vec<String> {
+/// 剪贴板文本 → 参数列表：按 `rules.separators` 拆，去掉空项与首尾空白，逐条截断。
+fn clipboard_tokens(text: &str, rules: &Rules) -> Vec<String> {
     let mut tokens = Vec::new();
-    for piece in text.split(['\n', '\r', ';', '；', ',', '，', '\t']) {
+    let pieces: Vec<&str> = if rules.separators.is_empty() {
+        vec![text]
+    } else {
+        text.split(|c| rules.separators.contains(&c)).collect()
+    };
+    for piece in pieces {
         let piece = piece.trim();
         if piece.is_empty() {
             continue;
@@ -105,6 +152,45 @@ mod tests {
         assert_eq!(substitute("cb1;2", &source), None);
         // 没有 cb 时不碰剪贴板
         assert_eq!(substitute("1;2;3", &source), None);
+    }
+
+    #[test]
+    fn case_sensitivity_is_part_of_the_rules() {
+        let strict = Rules {
+            case_sensitive: true,
+            ..Rules::default()
+        };
+        let source = Fixed(Some("42"));
+        assert_eq!(
+            substitute_with("cb", &source, &strict).as_deref(),
+            Some("42")
+        );
+        assert_eq!(substitute_with("CB", &source, &strict), None);
+    }
+
+    #[test]
+    fn separators_are_part_of_the_rules() {
+        let source = Fixed(Some("1,2\n3"));
+        // 缺省：逗号与换行都拆
+        assert_eq!(substitute("cb", &source).as_deref(), Some("1;2;3"));
+        // 只按换行拆：逗号留在数据里
+        let newline_only = Rules {
+            separators: vec!['\n'],
+            ..Rules::default()
+        };
+        assert_eq!(
+            substitute_with("cb", &source, &newline_only).as_deref(),
+            Some("1,2;3")
+        );
+        // 不拆：整段一个参数
+        let whole = Rules {
+            separators: Vec::new(),
+            ..Rules::default()
+        };
+        assert_eq!(
+            substitute_with("cb", &source, &whole).as_deref(),
+            Some("1,2\n3")
+        );
     }
 
     #[test]
