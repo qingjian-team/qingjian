@@ -32,7 +32,13 @@ impl HistorySource {
     fn with_store<T>(&self, action: impl FnOnce(&ClipStore) -> T) -> Option<T> {
         let mut guard = self.store.lock().ok()?;
         if guard.is_none() {
-            *guard = ClipStore::open(&self.path, 1).ok();
+            match ClipStore::open(&self.path, 1) {
+                Ok(store) => *guard = Some(store),
+                Err(error) => {
+                    tracing::debug!(path = %self.path.display(), %error, "剪贴板历史打不开");
+                    return None;
+                }
+            }
         }
         let store = guard.as_ref()?;
         Some(action(store))
@@ -56,11 +62,14 @@ impl Source for HistorySource {
 }
 
 impl HistorySource {
-    /// 有数据目录就用它那份历史；没有（比如 Portable 跑法）就给个读不到东西的空实现。
-    pub fn history_or_empty(user: Option<qingjian_platform::UserDirs>) -> Self {
-        match user {
-            Some(dirs) => Self::new(dirs.clipboard().join("history.db")),
-            None => Self::new(PathBuf::new()),
-        }
+    /// 青简剪贴板的历史库在 `%LOCALAPPDATA%\Qingjian\clipboard\history.db`——
+    /// **不是**配置目录（`%APPDATA%`）那棵树下：那条路只有配置，剪贴板的数据在 Local。
+    /// 取不到时给个读不到东西的空实现，`cb` 就退化成普通参数。
+    pub fn system() -> Self {
+        let path = std::env::var_os("LOCALAPPDATA")
+            .map(PathBuf::from)
+            .map(|base| base.join("Qingjian").join("clipboard").join("history.db"))
+            .unwrap_or_default();
+        Self::new(path)
     }
 }

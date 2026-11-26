@@ -249,7 +249,7 @@ fn main() -> ExitCode {
     // v 模式的 `cb` 从青简剪贴板那份历史里取；没装剪贴板时给个读不到东西的空实现，
     // 开关打开也只是让 `cb` 原样当普通参数
     engine.set_clipboard_source(std::sync::Arc::new(
-        crate::dispatch::clipboard_source::HistorySource::history_or_empty(user.clone()),
+        crate::dispatch::clipboard_source::HistorySource::system(),
     ));
     engine.set_v_mode_clipboard_cb(config.general.v_mode_clipboard_cb);
     engine.set_calendar_shortcuts_first(config.general.calendar_shortcuts_first);

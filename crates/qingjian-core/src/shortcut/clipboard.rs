@@ -30,7 +30,7 @@ impl Source for NoClipboard {
 }
 
 /// 缺省把哪些字符当成参数分隔：从表格、日志、代码里复制过来的东西基本是换行或这几个符号。
-pub const DEFAULT_SEPARATORS: &[char] = &['\n', '\r', ';', '；', ',', '，', '\t'];
+pub const DEFAULT_SEPARATORS: &[char] = &['\n', '\r', ';', '；', ',', '，', '\t', ' ', '\u{3000}'];
 
 /// 关键字的判定口径与剪贴板文本的切分口径。
 ///
@@ -211,6 +211,11 @@ mod tests {
         assert_eq!(substitute("1;2", &NoClipboard), None);
     }
 
+    #[test]
+    fn spaces_split_too() {
+        let source = Fixed(Some("1 2 3"));
+        assert_eq!(substitute("cb", &source).as_deref(), Some("1;2;3"));
+    }
     #[test]
     fn oversized_clipboard_is_cut_down() {
         let long = "x".repeat(Limits::MAX_CHARS + 10);
