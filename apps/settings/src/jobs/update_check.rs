@@ -13,6 +13,15 @@ use crate::i18n::{tr, tr_args};
 /// 本程序与输入法同一个版本号，按它判断有没有新版。
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
+/// 关于页与诊断信息里写的版本：开发版接上打包脚本编译时塞进来的构建标识（`QINGJIAN_BUILD`，git 短哈希与日期），
+/// 与安装包文件名一样是 `0.3.6-dev-1a2b3c4`，看得出装的是哪个提交；正式版只写版本号。
+pub fn version_label() -> String {
+    match option_env!("QINGJIAN_BUILD") {
+        Some(build) if VERSION.ends_with("-dev") => format!("{VERSION}-{build}"),
+        _ => VERSION.to_owned(),
+    }
+}
+
 /// `None` 是本地开发版，不查。
 type Outcome = Option<Result<UpdateState, UpdateError>>;
 

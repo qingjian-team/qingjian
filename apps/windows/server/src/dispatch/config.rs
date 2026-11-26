@@ -131,6 +131,9 @@ pub struct RouterConfig {
     /// 组句中按需调用 AI 的快捷键（`[shortcut] predict`）。
     pub predict: KeyCombo,
 
+    /// 朗读当前高亮候选的快捷键（`[shortcut] pronounce`），空串表示关闭。
+    pub pronounce: Option<KeyCombo>,
+
     /// 组句时上屏高亮候选与原样上屏字母的键（`[shortcut] commit_candidate` / `commit_raw`）。
     pub commit_keys: CommitKeys,
 
@@ -268,6 +271,7 @@ impl From<&Config> for RouterConfig {
             translate_selection: config.shortcut.translate_selection,
             translate_panel: config.shortcut.translate_panel,
             predict: config.shortcut.predict,
+            pronounce: config.shortcut.pronounce,
             commit_keys: config.shortcut.commit_keys(),
             toggle_traditional: config
                 .shortcut

@@ -3,6 +3,7 @@ name = "qingjian-neural"
 description = "本地神经模型的推理：含章（tools/lm-train 训的字级 Transformer，整句打分与按拼音生成）与知意选词模型"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 

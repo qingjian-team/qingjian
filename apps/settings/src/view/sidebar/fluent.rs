@@ -14,14 +14,18 @@ use crate::page_id::PageId;
 use crate::view::Page;
 
 /// 导航宽度（点）：WinUI 的 NavigationView 展开时是固定宽，不随窗口变；配 [`super::super::look::window_size`] 的缺省窗口约占三成。
-pub const WIDTH: f32 = 300.0;
+pub const WIDTH: f32 = 288.0;
+
+/// 导航左右的内边距（点）：照 Win11 设置，选中块离窗口左边 12 点，右边留 4 点，再加内容区的边距到正文卡片约 28 点。
+const SIDE: (f32, f32) = (12.0, 4.0);
 
 /// 图标边长（点），SVG 画在 20 × 20 的网格上。
 const ICON: f32 = 20.0;
 
 pub fn sidebar(ui: &mut Ui<Message>, page: &Page) -> Result<NodeId, RenderError> {
     let search = search_field(ui, page)?;
-    let search = inset(ui, page, search, (4.0, 12.0, 12.0))?;
+    // 搜索框与导航项同宽，左右边对齐
+    let search = inset(ui, page, search, (4.0, 0.0, 12.0))?;
     // 搜索结果是搜索框下的浮层，导航本身不变
     suggestions(ui, page)?;
     let pages: Vec<PageId> = PageId::ALL
@@ -68,7 +72,6 @@ pub fn sidebar(ui: &mut Ui<Message>, page: &Page) -> Result<NodeId, RenderError>
         Visual::Group,
         &bottom,
     )?;
-    let side = LengthPercentage::length(page.px(4.0));
     ui.scene().node(
         Style {
             size: Size {
@@ -78,8 +81,8 @@ pub fn sidebar(ui: &mut Ui<Message>, page: &Page) -> Result<NodeId, RenderError>
             flex_shrink: 0.0,
             flex_direction: FlexDirection::Column,
             padding: Rect {
-                left: side,
-                right: side,
+                left: LengthPercentage::length(page.px(SIDE.0)),
+                right: LengthPercentage::length(page.px(SIDE.1)),
                 top: LengthPercentage::length(0.0),
                 bottom: LengthPercentage::length(page.px(12.0)),
             },

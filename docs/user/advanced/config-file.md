@@ -50,6 +50,7 @@ description: 青简的全部设置保存在一个文本配置文件里：位置�
 | `[shortcut] switch_mode` | 输入法切换 → 切换键 | 列表，如 `["shift", "control"]` |
 | `[general] default_english`、`remember_mode_per_app` | 输入法切换 → 默认英文模式、按应用记住中英模式 | `true` / `false` |
 | `[general] shift_letter` | 输入法切换 → Shift + 字母 | `passthrough`（交给应用，缺省）或 `compose`（进组句） |
+| `[general] calendar_shortcuts_first` | 快捷键 → 单打 `rq` / `sj` / `xq` / `jq` / `jr` | `true` / `false`，缺省 `false`：打开后整组日期 / 时间 / 星期 / 节气 / 节日排到词的前面；关着时词在前、只跟三条（习惯用简拼打「手机」的别打开） |
 | `[general] punct_commits` | 输入法切换 → 标点先上屏候选 | `true` / `false` |
 | `[general] menubar_indicator` | 输入法切换 → 菜单栏 → 显示中 / 英状态项 | `true`（缺省）/ `false`，隐藏菜单栏的「中 / 英」状态项（仅 macOS） |
 | `[general] preedit` | 外观 → 拼音显示位置 | `both`、`inline`、`window` |
@@ -70,6 +71,7 @@ description: 青简的全部设置保存在一个文本配置文件里：位置�
 | `[shortcut] clipboard` | 实验功能 → 呼出剪贴板 | 缺省 Windows 是 `"ctrl+alt+v"`，macOS 是 `"cmd+shift+v"`；至少两个修饰键（macOS、Windows） |
 | `[shortcut] translate_selection` | 快捷键 → 翻译选中文字 | 如 `"alt+shift+t"` |
 | `[shortcut] predict` | 快捷键 → 按需 AI 联想 | 完整的组合键，设置界面只改修饰键 |
+| `[shortcut] pronounce` | 快捷键 → 发音（朗读高亮的候选） | 缺省不绑定（关闭），建议 `"ctrl+alt+p"`；空串也关闭。只在组句且有候选时接管，其余时候这个组合照常交给应用。只有 Windows 发声 |
 | `[predict]` 一节 | 云服务 | 见下文 |
 | `[general] input_log` | 高级 → 记录输入日志 | `true` / `false` |
 
