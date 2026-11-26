@@ -12,6 +12,7 @@ use bamboo_slip::{
 use qingjian_platform::UpdateChannel;
 
 use crate::i18n::{tr, tr_args};
+use crate::jobs::update_check::version_label;
 use crate::message::Message;
 use crate::system::action::Action;
 use crate::view::Page;
@@ -182,7 +183,7 @@ fn header(ui: &mut Ui<Message>, page: &Page) -> Result<NodeId, RenderError> {
     let version = ui.scene().node(
         Style::default(),
         Visual::Text {
-            text: tr_args("about.version", &[("version", &env!("CARGO_PKG_VERSION"))]),
+            text: tr_args("about.version", &[("version", &version_label())]),
             style: theme.text(theme.small, 400, theme.colors.secondary),
         },
         &[],

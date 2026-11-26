@@ -4,10 +4,12 @@
 
 use std::process::Command;
 
+use crate::jobs::update_check::version_label;
+
 /// 整份报告，一行一项。
 pub fn report() -> String {
     let mut lines = vec![
-        format!("qingjian {}", env!("CARGO_PKG_VERSION")),
+        format!("qingjian {}", version_label()),
         format!("os {} {}", std::env::consts::OS, std::env::consts::ARCH),
     ];
     lines.extend(platform());
