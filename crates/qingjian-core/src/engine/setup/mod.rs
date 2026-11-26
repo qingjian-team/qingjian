@@ -134,6 +134,19 @@ impl Engine {
         self.aux_show = show;
     }
 
+    /// v 模式参数位置上打 `cb` 时是否换成剪贴板内容（配置 `[general] v_mode_clipboard_cb`，缺省关）。
+    pub fn set_v_mode_clipboard_cb(&mut self, on: bool) {
+        self.v_clipboard_cb = on;
+    }
+
+    /// 换剪贴板来源。壳在自己那边实现 [`crate::shortcut::clipboard::Source`]。
+    pub fn set_clipboard_source(
+        &mut self,
+        source: std::sync::Arc<dyn crate::shortcut::clipboard::Source>,
+    ) {
+        self.clipboard = source;
+    }
+
     /// 辅码态是否「只调顺序、不筛候选」（配置 `[general] aux_code_weighting`，缺省关）。
     /// 关着时与原来的筛选一致：码段对不上的词不出。
     pub fn set_aux_weighting(&mut self, on: bool) {
