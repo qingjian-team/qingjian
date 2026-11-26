@@ -4,7 +4,7 @@
 use std::cell::RefCell;
 use std::path::PathBuf;
 use std::sync::OnceLock;
-use std::sync::atomic::{AtomicIsize, AtomicU32, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicIsize, AtomicU32, Ordering};
 use std::sync::mpsc::Sender;
 use std::time::{Duration, SystemTime};
 
@@ -44,6 +44,9 @@ const WATCH_TIMER: usize = 1;
 
 /// 托盘图标挂的窗口。
 static TRAY_WINDOW: AtomicIsize = AtomicIsize::new(0);
+
+/// 配置要求隐藏托盘图标；资源管理器重启时据此决定要不要重新加。
+static TRAY_HIDDEN: AtomicBool = AtomicBool::new(false);
 
 /// 资源管理器重启时广播的消息，托盘图标要重新加。
 static TASKBAR_CREATED: AtomicU32 = AtomicU32::new(0);
@@ -150,7 +153,29 @@ fn check_config(window: HWND) {
         let _ = unsafe { UnregisterHotKey(Some(window), HOTKEY_ID) };
         register(window, next.hotkey);
     }
+    if previous.hide_tray != next.hide_tray {
+        TRAY_HIDDEN.store(next.hide_tray, Ordering::Relaxed);
+        set_tray_visible(!next.hide_tray);
+    }
     send(Signal::Settings(next));
+}
+
+/// 按配置加上或收起托盘图标；收起后托盘菜单进不去，呼出快捷键照常。
+fn set_tray_visible(visible: bool) {
+    let icon = HWND(TRAY_WINDOW.load(Ordering::Relaxed) as *mut _);
+    if icon.is_invalid() {
+        return;
+    }
+    if visible {
+        tray::add(icon);
+    } else {
+        tray::remove(icon);
+    }
+}
+
+/// 配置里是否要隐藏托盘图标。窗口过程里用，单独存一份，不碰 `WATCH` 的 RefCell。
+fn tray_hidden() -> bool {
+    TRAY_HIDDEN.load(Ordering::Relaxed)
 }
 
 /// 收掉托盘图标再退出，不然图标要等鼠标划过才消失。
@@ -297,7 +322,10 @@ fn run(watch: Watch) -> windows::core::Result<()> {
             RegisterWindowMessageW(w!("TaskbarCreated")),
             Ordering::Relaxed,
         );
-        tray::add(icon_window);
+        TRAY_HIDDEN.store(watch.settings.hide_tray, Ordering::Relaxed);
+        if !watch.settings.hide_tray {
+            tray::add(icon_window);
+        }
         set_owner(window);
         AddClipboardFormatListener(window)?;
         register(window, watch.settings.hotkey);
@@ -327,7 +355,9 @@ unsafe extern "system" fn procedure(
     lparam: LPARAM,
 ) -> LRESULT {
     if message != 0 && message == TASKBAR_CREATED.load(Ordering::Relaxed) {
-        tray::add(window);
+        if !tray_hidden() {
+            tray::add(window);
+        }
         return LRESULT(0);
     }
     match message {

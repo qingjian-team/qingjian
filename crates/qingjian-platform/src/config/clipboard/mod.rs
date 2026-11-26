@@ -39,6 +39,9 @@ pub struct ClipboardConfig {
 
     /// 给别的设备看的名字；空着用默认名。
     pub device_name: String,
+
+    /// 不显示系统托盘图标；快捷键与复制监听照常，设置里仍能开关。
+    pub hide_tray: bool,
 }
 
 impl Default for ClipboardConfig {
@@ -51,6 +54,7 @@ impl Default for ClipboardConfig {
             sync_enabled: false,
             sync_neon: true,
             device_name: String::new(),
+            hide_tray: false,
             excluded_apps: DEFAULT_CLIPBOARD_EXCLUDED_APPS
                 .iter()
                 .map(|app| (*app).to_owned())

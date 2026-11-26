@@ -66,6 +66,7 @@ description: 青简的全部设置保存在一个文本配置文件里：位置�
 | `[shortcut] single_chars` | 快捷键 → 单字模式快捷键 | 打拼音时按它候选只列单字，再按一次恢复，上屏后自动恢复；缺省 `"ctrl+d"`，空串为关闭，也可写成修饰键加字母或数字。只在打字时拿走这个组合。只有 Windows 用 |
 | `[shortcut] toggle_traditional` | 快捷键 → Ctrl + Shift + F 切换简繁输出 | 空串为关闭（缺省），`"ctrl+shift+f"` 为 Ctrl + Shift + F；也可写成修饰键加字母或数字。只有 Windows 用 |
 | `[clipboard] enabled`、`edge` | 实验功能 → 青简剪贴板 | `enabled` 缺省 `false`；`edge`：`top`、`bottom`（缺省）、`left`、`right` |
+| `[clipboard] hide_tray` | 实验功能 → 隐藏托盘图标 | 缺省 `false`；`true` 时托盘里不显示剪贴板图标，快捷键照常呼出面板 |
 | `[clipboard] history_limit` | 实验功能 → 最多保留 | 缺省 `1000`，超了删最旧的；改小会立刻删 |
 | `[clipboard] paused`、`excluded_apps` | 实验功能 → 暂停记录、不记录这些程序 | `paused` 缺省 `false`；`excluded_apps` 写程序名，不分大小写，缺省是常见的密码管理器 |
 | `[clipboard] sync_enabled`、`sync_neon` | 实验功能 → 局域网同步、同步时显示霓虹灯 | `sync_enabled` 缺省 `false`，`sync_neon` 缺省 `true` |
