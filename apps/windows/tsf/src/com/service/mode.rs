@@ -93,6 +93,35 @@ impl TextService_Impl {
                 }
             }
         }
+        // 带 Alt 的组合不会进入普通击键 sink，必须登记成保留键；命中后仍只在组句时接管。
+        let pronounce = input.pronounce.filter(|combo| combo.modifiers.option);
+        if self.pronounce_combo.get() != pronounce
+            && let Some(thread_mgr) = self.thread_mgr.borrow().clone()
+            && let Ok(keystroke) = thread_mgr.cast::<ITfKeystrokeMgr>()
+        {
+            if let Some(combo) = self.pronounce_combo.take() {
+                preserved::unregister(&keystroke, &preserved::GUID_PRONOUNCE, combo);
+            }
+            if let Some(combo) = pronounce {
+                match preserved::register(
+                    &keystroke,
+                    self.client_id.get(),
+                    &preserved::GUID_PRONOUNCE,
+                    combo,
+                    "朗读当前候选（青简）",
+                ) {
+                    Ok(()) => {
+                        self.pronounce_combo.set(Some(combo));
+                        log(&format!("pronounce preserved key registered: {combo}"));
+                    }
+                    Err(error) => {
+                        log(&format!(
+                            "pronounce preserved key registration failed: {error}"
+                        ));
+                    }
+                }
+            }
+        }
         if self.input_settings.replace(Some(input)) == Some(input) {
             return;
         }

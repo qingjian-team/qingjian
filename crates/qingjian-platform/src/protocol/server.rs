@@ -51,6 +51,11 @@ pub struct InputSettings {
     #[serde(default)]
     pub predict: Option<KeyCombo>,
 
+    /// 朗读当前高亮候选的快捷键（`[shortcut] pronounce`，缺省不绑定）。
+    /// DLL 只在组句时转发；带 Alt 的组合另走 TSF 保留键。旧 Server 不带时按关处理。
+    #[serde(default)]
+    pub pronounce: Option<KeyCombo>,
+
     /// 英文候选旁显示音标（`[general] show_english_pronunciation`）。
     ///
     /// 音标本身由 Core 填进 `Candidate::reading`，DLL 只是按这个开关决定画不画：
@@ -58,6 +63,7 @@ pub struct InputSettings {
     /// 「这次的 reading 是不是英文音标、该不该用淡色」。旧 Server 不带时按关处理。
     #[serde(default)]
     pub show_english_pronunciation: bool,
+
     /// 组句中切换单字模式的快捷键（`[shortcut] single_chars`）；旧 Server 没有这项，DLL 就不吃它。
     #[serde(default)]
     pub single_chars: Option<KeyCombo>,
@@ -99,6 +105,7 @@ impl Default for InputSettings {
             toggle_traditional: None,
             english_candidates: true,
             predict: None,
+            pronounce: None,
             show_english_pronunciation: false,
             single_chars: None,
             next_word: None,

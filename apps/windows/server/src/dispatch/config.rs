@@ -2,8 +2,8 @@ use qingjian_core::TraditionalVariant;
 use qingjian_platform::protocol::KeyModifiers;
 use qingjian_platform::{
     Appearance, AppsConfig, CandidateRenderer, CommitKeys, Config, FontSize, HighlightKeys,
-    KeyCombo, KeyHintMode, LayoutMode, NumpadDigit, PageKeys, PreeditMode, Scheme, ShortcutConfig,
-    SwitchKeys, ThirdInputMethod,
+    KeyCombo, KeyHintMode, LayoutMode, NumpadDigit, PAGE_KEY_OPTIONS, PageKeys, PreeditMode,
+    Scheme, ShortcutConfig, SwitchKeys, ThirdInputMethod,
 };
 
 use super::RenderSettings;
@@ -131,6 +131,9 @@ pub struct RouterConfig {
     /// 组句中按需调用 AI 的快捷键（`[shortcut] predict`）。
     pub predict: KeyCombo,
 
+    /// 朗读当前高亮候选的快捷键（`[shortcut] pronounce`），空串表示关闭。
+    pub pronounce: Option<KeyCombo>,
+
     /// 组句时上屏高亮候选与原样上屏字母的键（`[shortcut] commit_candidate` / `commit_raw`）。
     pub commit_keys: CommitKeys,
 
@@ -142,6 +145,10 @@ pub struct RouterConfig {
 
     /// 组句中按词跳的快捷键（`[shortcut] next_word`）；与别的组合键撞了时不用，同 `single_chars`。
     pub next_word: Option<KeyCombo>,
+
+    /// 以词定字的快捷键（`[shortcut] pick_char`）：取高亮候选的第一个字，带 Shift 取最后一个字。
+    /// 缺省关；撞了组合键、或那个键是翻页键时不用。
+    pub pick_char: Option<KeyCombo>,
 
     /// 悬浮状态条开关（`[status_bar] enabled`）。
     pub status_enabled: bool,
@@ -264,6 +271,7 @@ impl From<&Config> for RouterConfig {
             translate_selection: config.shortcut.translate_selection,
             translate_panel: config.shortcut.translate_panel,
             predict: config.shortcut.predict,
+            pronounce: config.shortcut.pronounce,
             commit_keys: config.shortcut.commit_keys(),
             toggle_traditional: config
                 .shortcut
@@ -271,6 +279,7 @@ impl From<&Config> for RouterConfig {
                 .filter(|key| *key != config.shortcut.translate_selection),
             single_chars: single_chars_key(&config.shortcut),
             next_word: next_word_key(&config.shortcut),
+            pick_char: pick_char_key(config),
             status_enabled: config.status_bar.enabled,
             status_pos: config.status_bar.x.zip(config.status_bar.y),
             status_size: config.status_bar.size.clamp(60, 150),
@@ -323,4 +332,24 @@ fn single_chars_key(shortcut: &ShortcutConfig) -> Option<KeyCombo> {
 fn next_word_key(shortcut: &ShortcutConfig) -> Option<KeyCombo> {
     composing_key(shortcut, shortcut.next_word)
         .filter(|combo| shortcut.single_chars != Some(*combo))
+}
+
+/// 以词定字的有效组合键：在 [`composing_key`] 之上再让开单字模式、按词跳与**所有翻页键**。
+///
+/// 缺省翻页键是 `[` `]`；用户自己换了哪一组（`extra_page_keys` 里开了哪些），
+/// 这个快捷键就都不能再用那一组里的字符。
+fn pick_char_key(config: &Config) -> Option<KeyCombo> {
+    let shortcut = &config.shortcut;
+    let (previous, next) = config.general.page_keys();
+    let extra_page_chars: Vec<char> = PAGE_KEY_OPTIONS
+        .iter()
+        .filter(|pair| shortcut.extra_page_keys.contains(pair))
+        .flat_map(|pair| pair.chars())
+        .collect();
+    composing_key(shortcut, shortcut.pick_char)
+        .filter(|combo| shortcut.single_chars != Some(*combo))
+        .filter(|combo| shortcut.next_word != Some(*combo))
+        .filter(|combo| {
+            combo.key != previous && combo.key != next && !extra_page_chars.contains(&combo.key)
+        })
 }

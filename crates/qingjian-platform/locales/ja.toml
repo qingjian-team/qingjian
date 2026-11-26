@@ -19,6 +19,11 @@ pinned = "「{text}」を固定しました。{code} を入力すると先頭に
 unpinned = "「{text}」の固定を解除しました"
 demoted = "「{text}」の順位を 1 つ下げました"
 undemoted = "「{text}」の順位下げを取り消しました"
+first_char = "1 文字目だけ入力"
+second_char = "2 文字目だけ入力"
+last_char = "最後の 1 文字だけ入力"
+picked_char = "「{text}」から「{char}」だけを入力しました"
+cant_pick_char = "「{text}」から 1 文字を取り出せません"
 
 [appearance]
 system = "システムに合わせる"

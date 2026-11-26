@@ -21,6 +21,15 @@ fn aux_engine() -> Engine {
     let mut engine = engine().with_aux_codes(vec![codes()]);
     // 测试都按「辅码开着且有码表」的常规路径来；开关本身的边界见下面的专项测试
     engine.set_aux_enabled(true);
+    // 这些用例写的是「码段只加权、不筛候选」的语义，开关缺省是关的，这里显式打开
+    engine.set_aux_weighting(true);
+    engine
+}
+
+/// 缺省配置（`[general] aux_code_weighting` 关着）：码段是过滤器，对不上的词不出。
+fn filtering_aux_engine() -> Engine {
+    let mut engine = engine().with_aux_codes(vec![codes()]);
+    engine.set_aux_enabled(true);
     engine
 }
 
@@ -82,13 +91,14 @@ fn semicolon_as_a_final_beats_the_trigger() {
     assert!(engine.aux_trigger(';'));
 }
 
-/// 简拼、残缺音节、光标停在拼音段中间都不触发。
+/// 简拼、没打完的音节也能进辅码（`nh;ni` 这种）：码段只加权、不筛候选，进不去比进去更糟。
+/// 光标停在拼音段中间时不触发 —— 作用域不完整，壳只按光标前那段算候选。
 #[test]
-fn incomplete_or_mid_cursor_pinyin_does_not_trigger() {
+fn abbreviations_and_partial_syllables_still_trigger() {
     let mut engine = aux_engine();
-    for text in ["kf", "kaif", "kai f"] {
+    for text in ["kf", "kaif", "nh"] {
         engine.set_input(text);
-        assert!(!engine.aux_trigger(';'), "{text}");
+        assert!(engine.aux_trigger(';'), "{text} 应该能进辅码");
     }
     engine.set_input("kaifa");
     engine.move_cursor_left();
@@ -97,6 +107,22 @@ fn incomplete_or_mid_cursor_pinyin_does_not_trigger() {
     assert!(engine.aux_trigger(';'));
     // 触发键之外的键不触发
     assert!(!engine.aux_trigger(','));
+}
+
+/// 没打完的音节进去以后码段照常收，候选一条不少（`kaif;ni` 还是原来那批，对不上码只往后挪）。
+#[test]
+fn a_code_after_a_partial_syllable_keeps_every_candidate() {
+    let mut engine = aux_engine();
+    engine.set_input("kaif");
+    let before = candidates(&engine);
+    assert!(!before.is_empty());
+    assert!(engine.aux_trigger(';'));
+    engine.enter_aux();
+    assert!(engine.push_aux_code('n'));
+    assert!(engine.push_aux_code('i'));
+    assert_eq!(engine.aux_code(), "ni");
+    assert!(engine.query().unwrap().marked_text().ends_with(";ni"));
+    assert_eq!(candidates(&engine).len(), before.len(), "码段不筛候选");
 }
 
 /// 码段每多一个字母就重筛一次（无码词直接隐藏，不是降权）。
@@ -108,10 +134,16 @@ fn each_code_letter_narrows_the_candidates() {
     engine.enter_aux();
     assert!(engine.push_aux_code('k'));
     // 都不是完全匹配，按码长降序：kfz(3) 的 开发者 最先，剩下两条同长保持原序
-    assert_eq!(candidates(&engine), ["开发者", "开发", "开"]);
+    assert_eq!(
+        candidates(&engine),
+        ["开发者", "开发", "开", "开放", "开饭"]
+    );
     assert!(engine.push_aux_code('f'));
     assert_eq!(engine.aux_code(), "kf");
-    assert_eq!(candidates(&engine), ["开发", "开发者"]);
+    assert_eq!(
+        candidates(&engine),
+        ["开发", "开发者", "开放", "开饭", "开"]
+    );
     let query = engine.query().unwrap();
     assert_eq!(query.marked_text(), "kai'fa;kf");
     assert_eq!(
@@ -139,10 +171,13 @@ fn candidates_without_a_code_are_hidden() {
     engine.enter_aux();
     engine.push_aux_code('k');
     engine.push_aux_code('h');
-    assert_eq!(candidates(&engine), ["开"]);
+    assert_eq!(
+        candidates(&engine),
+        ["开", "开发", "开放", "开饭", "开发者"]
+    );
     engine.push_aux_code('z');
     let query = engine.query().unwrap();
-    assert!(query.candidates.items.is_empty());
+    assert!(!query.candidates.items.is_empty(), "码段对不上也不该空");
     assert_eq!(query.marked_text(), "kai'fa;khz");
 }
 
@@ -207,13 +242,19 @@ fn backspace_widens_then_stays_in_aux_mode() {
     engine.push_aux_code('k');
     engine.push_aux_code('f');
     engine.push_aux_code('h');
-    assert!(candidates(&engine).is_empty());
+    assert!(!candidates(&engine).is_empty(), "码段对不上也不该空");
     assert!(engine.backspace(false).consumed());
     assert_eq!(engine.aux_code(), "kf");
-    assert_eq!(candidates(&engine), ["开发", "开发者"]);
+    assert_eq!(
+        candidates(&engine),
+        ["开发", "开发者", "开放", "开饭", "开"]
+    );
     assert!(engine.backspace(false).consumed());
     assert_eq!(engine.aux_code(), "k");
-    assert_eq!(candidates(&engine), ["开发者", "开发", "开"]);
+    assert_eq!(
+        candidates(&engine),
+        ["开发者", "开发", "开", "开放", "开饭"]
+    );
     // 删到空：停在辅码态，`;` 仍在 preedit，候选全回来
     assert!(engine.backspace(false).consumed());
     assert!(engine.in_aux());
@@ -222,7 +263,10 @@ fn backspace_widens_then_stays_in_aux_mode() {
     assert_eq!(candidates(&engine), full);
     // 再敲字母重新筛——辅码态还活着
     assert!(engine.push_aux_code('k'));
-    assert_eq!(candidates(&engine), ["开发者", "开发", "开"]);
+    assert_eq!(
+        candidates(&engine),
+        ["开发者", "开发", "开", "开放", "开饭"]
+    );
     assert!(engine.backspace(false).consumed());
     assert!(engine.in_aux());
     // 空码段再按退格：退出辅码态，拼音一字不动
@@ -384,11 +428,8 @@ fn exact_code_matches_come_first_and_longer_codes_before_shorter_ones() {
     assert_eq!(texts.first(), Some(&"开"));
     assert!(texts.contains(&"开发") && texts.contains(&"开放"));
     assert_eq!(query.candidates.items[0].aux_code.as_deref(), Some("kf"));
-    // 完全匹配的那条码最前，其余按码长降序（这里都是 3，保持原序）
+    // 码段只调顺序：`kai` 这套切分本来就只有这三个词，一条都不少
     assert_eq!(query.candidates.items.len(), 3);
-    engine.push_aux_code('a');
-    assert_eq!(engine.aux_code(), "kfa");
-    assert_eq!(candidates(&engine), ["开发"]);
 }
 
 /// 开关三态之一：开着但没挂码表也不触发（坏文件全被装配层跳过后同样归并到这里），
@@ -461,4 +502,92 @@ fn the_input_log_records_the_trigger_and_the_code() {
     assert_eq!(commit.keys, "kaifa;kf");
     assert_eq!(commit.scope, "kaifa");
     assert_eq!(commit.pinyin, "kai'fa");
+}
+
+/// 码段一个码都对不上时，把它当成「要哪个字」的提示：拆字能指到那个字的候选排前面。
+///
+/// `chefu` 拆成 车 + 甫 得到「辅」。样例词库里没有含「辅」的词，所以这里验的是两件事：
+/// 码段确实进了辅码态（没有整串上屏），以及提示字确实算出来了。
+#[test]
+fn a_code_that_matches_nothing_is_read_as_a_hint() {
+    let mut engine = aux_engine();
+    assert!(engine.hint_chars("chefu").contains(&'辅'), "拆字该指到 辅");
+
+    engine.set_input("kaifa");
+    engine.enter_aux();
+    for ch in "chefu".chars() {
+        assert!(engine.push_aux_code(ch), "码段该能敲进去：{ch}");
+    }
+    let query = engine.query().unwrap();
+    let texts: Vec<String> = query
+        .candidates
+        .items
+        .iter()
+        .map(|c| c.text.clone())
+        .collect();
+    assert!(
+        texts.iter().all(|text| !text.contains(';')),
+        "码段该进辅码态，不该整串上屏：{texts:?}"
+    );
+    // 样例词库里没有含「辅」的词，这一列本来就是空的；这里只验码段进了辅码态
+}
+
+/// 辅码态里把光标挪到拼音中间再退格：删的是光标前那个字母，码段原样留着。
+///
+/// 敲错的是前面某个字母时，谁也不想为了改它先退出辅码态、重打一遍码。
+#[test]
+fn backspace_at_the_caret_edits_the_letter_not_the_code() {
+    let mut engine = aux_engine();
+    engine.set_input("kaifa");
+    engine.enter_aux();
+    engine.push_aux_code('k');
+    engine.push_aux_code('f');
+    // 方向键把光标挪到 f 之前（辅码态里点拼音行不挪光标，见 `caret.rs`）
+    assert!(engine.move_cursor_left());
+    assert!(engine.move_cursor_left());
+    assert!(engine.backspace(false).consumed());
+    // 码段一个字都没少，删的是光标前那个 i
+    assert!(engine.in_aux());
+    assert_eq!(engine.aux_code(), "kf");
+    assert_eq!(engine.composition().text(), "kafa");
+    // 光标前还有字母就继续删字母（a、k），删光了停在行首
+    assert!(engine.backspace(false).consumed());
+    assert!(engine.backspace(false).consumed());
+    assert_eq!(engine.composition().text(), "fa");
+    // 光标在行首、前面没有字母：这一记退格不吃键，码段也不动
+    assert!(!engine.backspace(false).consumed());
+    assert_eq!(engine.aux_code(), "kf");
+    // 光标回到末尾，退格才开始删码段
+    engine.move_cursor_end();
+    assert!(engine.backspace(false).consumed());
+    assert_eq!(engine.aux_code(), "k");
+}
+
+/// 缺省（开关关着）码段仍然是过滤器：对不上码的词一条都不出，与辅码一直以来的行为一致。
+#[test]
+fn without_the_switch_the_code_still_filters() {
+    let mut engine = filtering_aux_engine();
+    engine.set_input("kaifa");
+    engine.enter_aux();
+    for key in "kf".chars() {
+        engine.push_aux_code(key);
+    }
+    let texts = candidates(&engine);
+    assert!(!texts.is_empty(), "码段对得上的时候照常出");
+    assert!(
+        texts.iter().all(|text| text != "开放" && text != "开"),
+        "对不上 `kf` 的词不该出现：{texts:?}"
+    );
+}
+
+/// 开关关着时，码段一个都对不上就是没有候选（不会凭空拼出「开粗」这种词）。
+#[test]
+fn without_the_switch_nothing_is_synthesised() {
+    let mut engine = filtering_aux_engine();
+    engine.set_input("kaifa");
+    engine.enter_aux();
+    for key in "zz".chars() {
+        engine.push_aux_code(key);
+    }
+    assert!(candidates(&engine).is_empty(), "码段对不上时不该有候选");
 }

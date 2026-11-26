@@ -3,6 +3,7 @@ name = "qingjian-release-sign"
 description = "发版用：给 releases.json 生成 ed25519 分离签名，客户端（qingjian-update）按内置公钥验"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 publish = false

@@ -133,6 +133,27 @@ pub fn parse(body: &str) -> Option<Mode<'_>> {
     }
 }
 
+/// 子模式名敲全、还没填参数时的一句用法；别的输入为 `None`。
+///
+/// `vtrans`、`vstat` 这类要参数，光敲名字时候选是空的，不说一句就是一片空白。
+/// 参数一开头就不给了：再敲一个键就有内容，提示反而挡路。
+pub fn hint(body: &str) -> Option<&'static str> {
+    // 名字敲全、参数还空着：末尾的分隔符不算参数，名字里再出现分隔符就是已经在填了
+    let name = body.trim_end_matches([';', '；']);
+    if name.contains([';', '；', ':']) {
+        return None;
+    }
+    match name {
+        "bit" => Some("vbit：算式　位宽写 bit8 / bit16 / bit32，加 u 按无符号算（vbit8u;1-2）"),
+        "base" => Some("vbase：数;进制　十进制换成 2–36 进制"),
+        "stat" => Some("vstat：数;数;…　给平均数、中位数、四分位数、方差、极差"),
+        "trans" => Some(
+            "vtrans：算子;数;数;…　minmax z log log10 sqrt diff smooth median low high bin uniq shuffle",
+        ),
+        _ => None,
+    }
+}
+
 /// 按名字认子模式。`uuid` 与 `ts` 无参（`ts` 的参数是可选时刻），其余要参数。
 fn named<'a>(name: &str, rest: &'a str) -> Option<Mode<'a>> {
     if name == UUID_KEYWORD {
@@ -147,8 +168,23 @@ fn named<'a>(name: &str, rest: &'a str) -> Option<Mode<'a>> {
     if name == STAT_KEYWORD {
         return Some(Mode::Stat { args: rest });
     }
+    // 位宽可以写在参数里：`vbit;8u;1+2` 与 `vbit8u;1+2` 等价。名字上那些（`bit8`、`bitu`）照旧
+    if name == BIT_KEYWORD
+        && let Some((width, body)) = width_argument(rest)
+    {
+        return Some(Mode::Bit { width, body });
+    }
     let width = parse_bit_width(name)?;
     Some(Mode::Bit { width, body: rest })
+}
+
+/// 参数开头的位宽写法：`8u` / `16` / `u`（64 位无符号），后面接表达式。
+///
+/// 认不出就把整段当表达式 —— `vbit;1+2` 里那个 `1` 是数，不是位宽。
+fn width_argument(rest: &str) -> Option<(BitWidth, &str)> {
+    let (head, body) = rest.split_once([';', '；'])?;
+    let width = parse_bit_width(&format!("bit{}", head.trim()))?;
+    Some((width, body.trim_start()))
 }
 
 /// 带参数子模式的参数：按分号切，全角也认，空段丢掉。
@@ -280,6 +316,23 @@ mod tests {
     use super::*;
 
     #[test]
+    fn bit_width_can_come_as_an_argument() {
+        let argument = parse("bit;8u;255+1").expect("子模式");
+        let by_name = parse("bit8u;255+1").expect("子模式");
+        assert_eq!(argument, by_name);
+        // 不写位宽时照旧把整段当表达式：`vbit;1+2` 里那个 1 是数
+        match parse("bit;1+2").expect("子模式") {
+            Mode::Bit { body, .. } => assert_eq!(body, "1+2"),
+            other => panic!("{other:?}"),
+        }
+        // 认不出的位宽也当表达式（`7` 不是合法位宽）
+        match parse("bit;7;1+2").expect("子模式") {
+            Mode::Bit { body, .. } => assert_eq!(body, "7;1+2"),
+            other => panic!("{other:?}"),
+        }
+    }
+
+    #[test]
     fn bit_widths() {
         let cases = [
             ("bit:1<<3", 64, true),
@@ -334,6 +387,23 @@ mod tests {
         assert!(!is_name_prefix("uuid"));
         // 纯数字不是前缀
         assert!(!is_name_prefix("123"));
+    }
+
+    /// 名字敲全、还没填参数时给一句用法；一填参数就不再提示。
+    #[test]
+    fn hint_only_while_the_name_stands_alone() {
+        assert!(hint("trans").is_some_and(|text| text.contains("minmax")));
+        // 末尾的分隔符不算参数
+        assert!(hint("trans;").is_some_and(|text| text.contains("minmax")));
+        assert!(hint("stat").is_some());
+        assert!(hint("base").is_some());
+        assert!(hint("bit").is_some());
+        // 一填参数、或名字带宽度，就不再给
+        assert!(hint("trans;lo").is_none());
+        assert!(hint("bit8").is_none());
+        // 别的词不是子模式
+        assert!(hint("").is_none());
+        assert!(hint("datetime").is_none());
     }
 
     /// 按键放行：名字阶段收字母数字与分隔符，参数阶段按子模式。

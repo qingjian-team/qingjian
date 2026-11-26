@@ -77,7 +77,7 @@ Then restart Fcitx5 (`fcitx5 -r`), untick "Only Show Current Language" in the Fc
 
 ## Fcitx5 source install
 
-First install Rust 1.96 or later and the packages needed to build. On Debian / Ubuntu:
+First install Rust 1.100 or later and the packages needed to build. On Debian / Ubuntu:
 
 ```sh
 sudo apt install cmake g++ pkg-config python3 libssl-dev \
@@ -115,7 +115,7 @@ apps/linux/scripts/install.sh
 
 ## Fcitx4 source install (Ubuntu 22.04)
 
-If you already use Fcitx4, `fcitx-frontend-qt5` is enough for Qt5 apps. First install Rust 1.96 or later, plus:
+If you already use Fcitx4, `fcitx-frontend-qt5` is enough for Qt5 apps. First install Rust 1.100 or later, plus:
 
 ```sh
 sudo apt install cmake g++ pkg-config python3 libssl-dev fcitx-libs-dev libx11-dev libxres-dev nlohmann-json3-dev \

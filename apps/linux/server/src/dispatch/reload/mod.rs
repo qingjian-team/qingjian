@@ -131,6 +131,8 @@ impl Router {
         self.engine
             .set_spelling_correction(config.general.spelling_correction);
         self.engine
+            .set_zero_initial_abbreviation(config.general.zero_initial_abbreviation);
+        self.engine
             .set_english_in_chinese(config.general.english_in_chinese);
         self.engine
             .set_english_max_in_chinese(config.general.english_max_in_chinese());

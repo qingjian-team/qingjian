@@ -29,21 +29,50 @@ fn partial_selection_is_held_until_the_buffer_is_used_up() {
 }
 
 #[test]
-fn backspace_undoes_selections_before_deleting_letters() {
+fn backspace_at_the_edge_undoes_the_last_selection() {
+    // 光标在剩余拼音末尾（`你hao|`）：撤回最后一次选择，拼音接回开头、光标跟在它后面
     let mut engine = engine();
     engine.set_input("kaikaixian");
     pick(&mut engine, "开");
     pick(&mut engine, "开");
     assert_eq!(engine.held_text(), "开开");
+    assert_eq!(engine.composition().text(), "xian");
     assert!(engine.backspace(false).consumed());
     assert_eq!(engine.held_text(), "开");
     assert_eq!(engine.composition().text(), "kaixian");
+    // 再来一下：光标仍在末尾，撤回到第一次选择之前
     assert!(engine.backspace(false).consumed());
     assert_eq!(engine.held_text(), "");
     assert_eq!(engine.composition().text(), "kaikaixian");
-    assert_eq!(engine.composition().cursor(), 10);
+}
+
+#[test]
+fn backspace_right_after_the_held_word_undoes_it_and_leaves_the_cursor_behind_the_pinyin() {
+    // 光标贴在已选词后面（`你|hao`）：撤回选择，光标停在接回来的拼音后面
+    let mut engine = engine();
+    engine.set_input("kaikaixian");
+    pick(&mut engine, "开");
+    assert_eq!(engine.held_text(), "开");
+    engine.move_cursor_home();
     assert!(engine.backspace(false).consumed());
-    assert_eq!(engine.composition().text(), "kaikaixia");
+    assert_eq!(engine.held_text(), "");
+    assert_eq!(engine.composition().text(), "kaikaixian");
+    assert_eq!(engine.composition().cursor(), 3, "`kai` 之后");
+}
+
+#[test]
+fn backspace_inside_the_remaining_pinyin_deletes_a_letter() {
+    // 光标在剩余拼音中间（`你h|ao`）：删光标前那个字母，选过的词留着
+    let mut engine = engine();
+    engine.set_input("kaikaixian");
+    pick(&mut engine, "开");
+    assert_eq!(engine.held_text(), "开");
+    engine.move_cursor_home();
+    engine.move_cursor_right();
+    engine.move_cursor_right();
+    assert!(engine.backspace(false).consumed());
+    assert_eq!(engine.held_text(), "开");
+    assert_eq!(engine.composition().text(), "kixian", "删掉光标前那个 a");
 }
 
 #[test]
@@ -52,7 +81,9 @@ fn undone_selection_retracts_its_learning_when_another_word_is_chosen() {
     engine.set_input("kaifangxian");
     pick(&mut engine, "开放");
     assert_eq!(engine.learner().weight("开放"), 1);
-    engine.backspace(false);
+    // 光标在末尾：退格撤回这次选择，它的学习也跟着回退
+    assert!(engine.backspace(false).consumed());
+    assert_eq!(engine.held_text(), "");
     pick(&mut engine, "开");
     assert_eq!(engine.learner().weight("开放"), 0);
     assert_eq!(engine.learner().weight("开"), 1);
@@ -119,6 +150,7 @@ fn next_word_holds_the_first_word_of_the_sentence() {
     assert!(rest.iter().any(|c| c.text == "忠心"));
     // 剩下的只有一个词，不再跳
     assert_eq!(engine.hold_next_word(&rest[0]), None);
+    // 光标在末尾：一记退格撤回留着的「交易」，它的拼音接回组句
     assert!(engine.backspace(false).consumed());
     assert_eq!(engine.held_text(), "");
     assert_eq!(engine.composition().text(), "jiaoyizhongxin");

@@ -140,7 +140,7 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
         with:
-          toolchain: 1.96.0
+          toolchain: 1.100.0
           targets: aarch64-apple-darwin, x86_64-apple-darwin
 
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
@@ -228,7 +228,7 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
         with:
-          toolchain: 1.96.0
+          toolchain: 1.100.0
           # 安装包另带一份 32 位 TSF DLL（build.ps1 编）
           targets: i686-pc-windows-msvc
 
@@ -280,7 +280,7 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
         with:
-          toolchain: 1.96.0
+          toolchain: 1.100.0
 
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
 
@@ -337,7 +337,7 @@ jobs:
       # build.sh 把本机的 ~/.cargo 与 ~/.rustup 挂进 Ubuntu 22.04 容器编 Rust 部分
       - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
         with:
-          toolchain: 1.96.0
+          toolchain: 1.100.0
 
       - name: Fetch product data
         env:
@@ -374,7 +374,7 @@ jobs:
       # 只给 upload-build.sh 记工具链版本；编译用的是容器里的同一版
       - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
         with:
-          toolchain: 1.96.0
+          toolchain: 1.100.0
 
       - name: Fetch product data
         env:
@@ -410,7 +410,7 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
         with:
-          toolchain: 1.96.0
+          toolchain: 1.100.0
           targets: aarch64-linux-android
 
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
@@ -481,7 +481,7 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
         with:
-          toolchain: 1.96.0
+          toolchain: 1.100.0
 
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
 

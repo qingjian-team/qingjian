@@ -23,6 +23,14 @@ impl Engine {
         english_tail: Option<&EnglishTail>,
         head_wins: bool,
     ) {
+        // 用户用隔音符封出来的零声母简写（`e'liao` 的 `e`）不出整句：这种打法就是「我要一个词」，
+        // 用它拼整句净是「嗯聊」这类东西，还会把 饵料 那样的词挤到第二。
+        if segmentations
+            .iter()
+            .any(|s| s.syllables.iter().any(|x| x.implied_separate))
+        {
+            return;
+        }
         let Some(best) = self.sentence_segmentation(segmentations, typos) else {
             return;
         };
@@ -263,7 +271,7 @@ impl Engine {
     }
 
     /// [`Self::plain_sentence`] 里按一种读法（`typos` 决定加不加敲错边）出的整句候选。
-    fn sentence_candidates(
+    pub(super) fn sentence_candidates(
         &self,
         items: &mut Vec<Candidate>,
         best: &Segmentation,

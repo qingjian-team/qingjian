@@ -5,6 +5,8 @@ pub mod clipboard_process;
 pub mod dispatch;
 pub mod error;
 pub mod ipc;
+/// 英文候选朗读（Windows SAPI）；其他平台是空实现。
+pub mod speech;
 /// 候选窗口 / 状态条的自绘线程；仅 Windows。
 #[cfg(windows)]
 pub mod ui;

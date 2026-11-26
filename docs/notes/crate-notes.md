@@ -92,10 +92,14 @@ CandidateLayout 保持 `set_cloud` 的首页末尾布局与本地首项；`set_c
 `english`（英文模式候选）/ `traditional`（繁体输出：`[general] traditional_variant` 四选一，`off` / `taiwan` / `hongkong` / `standard` 对应 OpenCC 的 s2tw / s2hk / s2t，都只换字形；旧键 `traditional = true` 读成 taiwan，开发版在旧键里写过的字符串（`traditional = "off"`）按同一套写法读。新写法换键名是为了退回旧版本时旧版只认布尔、不会整个配置解析失败，字典由 `ferrous-opencc` 在编译期编进产物、运行时不读外部文件）/ `engine`（`query::EnglishTail`：句末英文词并入整句，`woxiangxuehaorust` → 我想学好rust，尾段也像拼音时按分数与拼音读法比；比分与第二条整句里的拼音读法都按整句的切分规则挑——`sentence_segmentation`，不是切分器打平时贪心的那种，否则 `zhengcenanti` 拿 zheng cen an ti 的 政策安提 去比，政策anti 赢、政策难题 连候选都没有）。
 辅码（`engine/aux_code.rs`）：`Engine.aux_code: Option<String>` 是码段（`None` 拼音态，`Some("")` 刚触发或删空停在辅码态——`Engine.aux_keep_empty`，配置 `[general] aux_code_keep_empty` 缺省开），
 不进 `Composition`；`aux_trigger`（配的触发键 + 光标在段尾 + 作用域能完整切分 + 双拼韵母键优先）、`enter_aux`、
-`push_aux_code`（只收 a-z）、`clear_aux`；退格在辅码态内部分派（删码；删空按 `aux_keep_empty` 停在辅码态或回拼音态，空码段再退格退出），`commit_with` / `take_raw` /
-`punctuate` / `clear` 都收尾清码。查询在 `rank` 之后**反向过滤**：候选词逐个 `AuxCodeLookup::code_with_prefix`
-（码表在 `Engine.aux_codes`，`set_aux_codes` 注入），不命中的隐藏，命中的按「完全匹配码 > 码长降序 > 原词频序」
-重排（stable sort 保住原序），命中码（没在筛码时是词的首条码）写进 `Candidate.aux_code`；码段非空时跳过整句 / 英文 / 快捷 / emoji / 自定义短语
+`push_aux_code`（只收 a-z）、`clear_aux`；退格在辅码态内部分派，而且只在光标停在拼音段末尾时删码段
+（光标挪到中间时删的是光标前那个字母，码段留着，删到行首就停住，回末尾再接着删码）；删空按 `aux_keep_empty` 停在辅码态或回拼音态，空码段再退格退出，`commit_with` / `take_raw` /
+`punctuate` / `clear` 都收尾清码。查询在 `rank` 之后按码段处理，两种模式看 `Engine.aux_weighting`（配置
+`[general] aux_code_weighting`，缺省关）：关着是**过滤**，候选词逐个 `AuxCodeLookup::code_with_prefix`（码表在
+`Engine.aux_codes`，`set_aux_codes` 注入），对不上码的一条不出；开着是**加权**，命中的按「完全匹配码 > 码长降序 >
+原词频序」排到前面（stable sort 保住原序），不命中的一条不少地接在后面（码猜错时用户还能退回原来那批），一个都
+没命中时先走「组词 / 拆字」的提示候选（见 `query/aux_hint.rs`）——提示候选与补尾都只在加权模式下走。命中码（没在
+筛码时是词的首条码）写进 `Candidate.aux_code`；码段非空时跳过整句 / 英文 / 快捷 / emoji / 自定义短语
 与云联想。preedit 分段多出 [触发键 `Typed`][码段 `MarkedKind::AuxCode`]，见 `Query::marked_segments`。
 拼音行按哪种切分画是 `Query::spelled`：缺省对着首选候选挑（与候选音节逐个相同的最多，其次是候选音节以敲的开头），壳换了高亮调 `Query::follow`（`ganga` 高亮 尴尬 是 `gan'ga`、刚啊 是 `gang'a`）；
 mac 存在 `Session::spelling`（`Host::follow_highlight`）、Windows / Linux 存在 `Composed::Candidates.spelling`，出帧时比一下高亮候选的切法，不同才重拼。Android 没有高亮移动，只跟首选。
@@ -107,8 +111,10 @@ mac 存在 `Session::spelling`（`Host::follow_highlight`）、Windows / Linux �
 编码按前缀查表，`CandidateKind::Code` 的候选 `syllables` 为空、上屏吃掉整段作用域（`whole_scope`）。只用形码时 `query_code` 照拼音配 emoji（`insert_emoji` 也认 `Code`）与「日期 / 时间 / 星期」的快捷写法，`rq` / `sj` / `xq` 的快捷候选插在编码打全的词之后（这几个也是常用字的编码前缀）；混输的拼音那半自己配，形码这半不再配。
 混输是「拼音那条 Query 前面插上形码候选」：拼音读不出来时（`ggll`）整个按形码走，两边都空才算错；
 按文本去重，编码打全的形码词在前、拼音居中、只命中前缀的形码词垫后（一律形码在前的话 `kai` 的首选会变成编码 `kaik` 的词）；混输下模式键同双拼换成大写，满码长度（`CodeScheme::code_length`，缺省取 `CodeTable::full_code_len` 即最常见的编码长度，五笔是 4；极点码表里有条写错的 5 码 `TF卡 ttfhh`，取最长会把满码拖成 5）以内不做拼写纠错，超出码长自然只剩拼音。
-只用形码时还有两条按键规则（`engine/code_keys.rs`，混输下都不生效）：`code_tops(c)` 判断满码再敲字母要不要先顶字，由壳上屏**高亮**候选再收这个字母；
+形码的两条按键规则在 `engine/code_keys.rs`：`code_tops(c)` 判断满码再敲字母要不要先顶字，由壳上屏**高亮**候选再收这个字母；
 `commit_unique_code()` 在壳每收一个字母后调，全码满码且码表里只有一个词时 Core 自己按首选上屏（走完整 `query` 拿出 Core 的那份候选，繁体输出照样对）。
+纯形码沿用 `auto_commit` / `top`；混输单独用 `mixed_auto_commit` / `mixed_top`，缺省都关。五笔恰好 4 码才判唯一，短码不上屏，静态表与学习词共同判重。
+混输开启 `mixed_top` 时前缀形码也排到拼音前，满码后的下一字母顶出高亮候选并起新码；不开启时候选顺序与连续拼音保持原样。`composing_code()` 仍只认纯形码，不改变混输的标点和空码处理。
 `composing_code()` 告诉壳「单用形码、缓冲区是一段编码」：壳据此让会转全角的标点总是先上屏高亮候选（不看 `punct_commits`），
 编码查不到词（空码）时 `commit_highlighted` 清掉编码而不是原样上屏字母（回车仍原样上屏）。
 码表里编码不全是字母的行在 `CodeTable::parse` 时跳过（形码查询只收小写字母）。
@@ -158,6 +164,16 @@ mac 存在 `Session::spelling`（`Host::follow_highlight`）、Windows / Linux �
   冻结回放里 上屏（shangping）被 商品、这俩（zhelia）被 这里、肃然 被 虽然 顶掉，词首选 −15、整句 −22。
   读不通时照旧噪声信道比。开关 `[general] spelling_correction`（`Engine::set_spelling_correction`，CLI `--no-spelling-correction`，缺省开）：
   关掉后 `find_correction` 直接返回、`expand_positions` 不加敲错边，个人敲错表留着不用。
+- 零声母简写（`parser`、`Syllable::implied`）：标准简拼「零声母音节用韵头的单韵母代表」——`a` 代表 a / ai / an / ang / ao，
+  `e` 代表 e / ei / en / eng / er，`o` 代表 o / ou，按「音节在不在串里」决定吃掉几个字母（`ao` 整段吃掉 = 奥秘的简拼，
+  `aquan` 的 `a` 只吃一个字母，代表 `an`）。`Syllable.text` 仍是敲的字母（拼音行、覆盖长度、学习记录都用它），
+  `implied` 只在 `pattern()` 里生效且是完整音节。三条边界：末段只剩一个字母时不展开（`xia` 的 `a` 是「啊」，
+  再产 `xi` + `a(an)` 会把「先 / 想」挤出首位）；从长串里猜出来的简写排在同样长的全拼切分后面（否则 `rengemianju`
+  会变成「仍恩面具」）；用户自己用 `'` 封出来的单字母段（`e'liao` 的 `e`）不降权，而且这种输入不给整句候选
+  （`converting::insert_sentence` 直接返回 —— 用它拼整句净出「嗯聊」这类东西，还会把 饵料 挤到第二）。
+  开关 `[general] zero_initial_abbreviation`（`Engine::set_zero_initial_abbreviation`，CLI `--zero-initial-abbreviation`，
+  缺省关）：关着时切分与不带这个功能完全一致，只作用于全拼（双拼 / 注音不进 `parser::segment`）。下发用线程本地而不是全局静态，
+  测试并行时一条用例打开不影响别的用例（`engine/tests` 的 `Abbreviation` 守卫负责开关回来）。
 
 通讯录（`contacts/`、`engine/contacts.rs`，设计见 `docs/design/contacts.md`）：`ContactBook::build` 把壳交来的 `Contact` 收成名字词库（TSV 拼出来再 `Dictionary::parse`，词频 `NAME_FREQUENCY` = 1000，只够进整句词图）与名字 → 内容表。
 读音先看多音字姓（`contacts/surname.rs`），再试整词在主词库里的读音（各字读音组合最多 32 种），否则逐字取 `zhuyin::tone::readings` 的第一个；单字表没有的字由 `Engine::set_contacts` 扫一遍主词库的单字词条补。
@@ -436,7 +452,7 @@ Common Crawl、CSL、SkyPile、C4 的统计），可按 GPL-3.0-or-later 使用�
 `shuangpin_schemes`：用户双拼方案的发现，与形码共用 `schemes/` 目录与 id 规则，`scheme.toml` 写 `type = "shuangpin"` 的才算（形码那边见到它跳过）；
 `base` 拿内置方案当底子，`[initials]` / `[finals]` / `[zero]` 按键（零声母按音节）整条替换。内置九套仍编在 Core 里：回放与 CLI 不依赖外部文件，日志里的 `xiaohe` 永远是同一套键位。
 `SchemeSlot`（`scheme/slot.rs`）是壳持有的「装着哪套」，两侧一起装：每次配置热加载都按配置重新找方案，但形码方案（含规则）与码表文件的修改时间、长度都没变时不重读码表——
-热加载多半是改了别的设置，8.9 万条每次重读是白花的；只改了 `[code.<id>]` 的规则走 `Engine::set_code_rules`，也不重读。
+热加载多半是改了别的设置，8.9 万条每次重读是白花的；只改了 `[code.<id>]` 的规则走 `Engine::set_code_rules` / `set_mixed_code_rules`，也不重读。混输两个开关只在用户配置中显式启用，不继承方案自带的纯形码开关。
 双拼键位表很小，每次重读、变了才换进引擎。`SchemeSlot::apply` 直接收 `&Config`，三条输入（拼音侧、形码 id、规则）都从配置取。
 id 不能撞拼音侧的写法与日志里的 `wubi`（`is_valid_id`），因为输入日志把两侧拼成 `<拼音>+<形码键>`，86 五笔的日志键沿用 `wubi`（`CodeSchemeEntry::log_key`）。
 目录坏了、码表不在的方案跳过并记日志；选了却找不到的方案壳里警告并按拼音跑。

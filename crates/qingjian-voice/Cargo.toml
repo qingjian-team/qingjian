@@ -3,6 +3,7 @@ name = "qingjian-voice"
 description = "云端语音识别：实现 Core 的 Transcriber，现在接的是火山引擎豆包流式语音识别"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 

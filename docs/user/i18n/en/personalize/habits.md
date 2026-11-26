@@ -32,6 +32,7 @@ While typing pinyin, right-click a candidate (on macOS you can also Control-clic
 - **取消置顶 (Unpin)**: deletes that custom phrase.
 - **降权 (Demote)**: moves the word back one place; click again to move it further. Dictionary words can be demoted too.
 - **取消降权 (Undo demote)**: puts it back where it was.
+- **只上屏第一个字 / 第二个字 / 最后一个字 (Commit first / second / last character only)**: you want one character of a word rather than the whole word (`jiaoyizhongxin` but only 「易」). That character is committed, the pinyin is consumed up to its syllable, and the rest stays in the composition for the next pick. Only candidates of two or more characters offer these; a two-character candidate shows only "first character", which is then also the last.
 - **删除 (Delete)**: words you've created and AI candidates you've picked are deleted entirely; dictionary words aren't deleted, but all records about them are cleared and their original ranking is restored.
 
 The result is shown briefly beside the pinyin line (such as 已删除用户词「…」 "user word deleted") and disappears with the next key. While the menu is open, `Esc` only closes the menu.
