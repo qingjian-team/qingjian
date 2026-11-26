@@ -92,10 +92,14 @@ CandidateLayout 保持 `set_cloud` 的首页末尾布局与本地首项；`set_c
 `english`（英文模式候选）/ `traditional`（繁体输出：`[general] traditional_variant` 四选一，`off` / `taiwan` / `hongkong` / `standard` 对应 OpenCC 的 s2tw / s2hk / s2t，都只换字形；旧键 `traditional = true` 读成 taiwan，开发版在旧键里写过的字符串（`traditional = "off"`）按同一套写法读。新写法换键名是为了退回旧版本时旧版只认布尔、不会整个配置解析失败，字典由 `ferrous-opencc` 在编译期编进产物、运行时不读外部文件）/ `engine`（`query::EnglishTail`：句末英文词并入整句，`woxiangxuehaorust` → 我想学好rust，尾段也像拼音时按分数与拼音读法比；比分与第二条整句里的拼音读法都按整句的切分规则挑——`sentence_segmentation`，不是切分器打平时贪心的那种，否则 `zhengcenanti` 拿 zheng cen an ti 的 政策安提 去比，政策anti 赢、政策难题 连候选都没有）。
 辅码（`engine/aux_code.rs`）：`Engine.aux_code: Option<String>` 是码段（`None` 拼音态，`Some("")` 刚触发或删空停在辅码态——`Engine.aux_keep_empty`，配置 `[general] aux_code_keep_empty` 缺省开），
 不进 `Composition`；`aux_trigger`（配的触发键 + 光标在段尾 + 作用域能完整切分 + 双拼韵母键优先）、`enter_aux`、
-`push_aux_code`（只收 a-z）、`clear_aux`；退格在辅码态内部分派（删码；删空按 `aux_keep_empty` 停在辅码态或回拼音态，空码段再退格退出），`commit_with` / `take_raw` /
-`punctuate` / `clear` 都收尾清码。查询在 `rank` 之后**反向过滤**：候选词逐个 `AuxCodeLookup::code_with_prefix`
-（码表在 `Engine.aux_codes`，`set_aux_codes` 注入），不命中的隐藏，命中的按「完全匹配码 > 码长降序 > 原词频序」
-重排（stable sort 保住原序），命中码（没在筛码时是词的首条码）写进 `Candidate.aux_code`；码段非空时跳过整句 / 英文 / 快捷 / emoji / 自定义短语
+`push_aux_code`（只收 a-z）、`clear_aux`；退格在辅码态内部分派，而且只在光标停在拼音段末尾时删码段
+（光标挪到中间时删的是光标前那个字母，码段留着，删到行首就停住，回末尾再接着删码）；删空按 `aux_keep_empty` 停在辅码态或回拼音态，空码段再退格退出，`commit_with` / `take_raw` /
+`punctuate` / `clear` 都收尾清码。查询在 `rank` 之后按码段处理，两种模式看 `Engine.aux_weighting`（配置
+`[general] aux_code_weighting`，缺省关）：关着是**过滤**，候选词逐个 `AuxCodeLookup::code_with_prefix`（码表在
+`Engine.aux_codes`，`set_aux_codes` 注入），对不上码的一条不出；开着是**加权**，命中的按「完全匹配码 > 码长降序 >
+原词频序」排到前面（stable sort 保住原序），不命中的一条不少地接在后面（码猜错时用户还能退回原来那批），一个都
+没命中时先走「组词 / 拆字」的提示候选（见 `query/aux_hint.rs`）——提示候选与补尾都只在加权模式下走。命中码（没在
+筛码时是词的首条码）写进 `Candidate.aux_code`；码段非空时跳过整句 / 英文 / 快捷 / emoji / 自定义短语
 与云联想。preedit 分段多出 [触发键 `Typed`][码段 `MarkedKind::AuxCode`]，见 `Query::marked_segments`。
 拼音行按哪种切分画是 `Query::spelled`：缺省对着首选候选挑（与候选音节逐个相同的最多，其次是候选音节以敲的开头），壳换了高亮调 `Query::follow`（`ganga` 高亮 尴尬 是 `gan'ga`、刚啊 是 `gang'a`）；
 mac 存在 `Session::spelling`（`Host::follow_highlight`）、Windows / Linux 存在 `Composed::Candidates.spelling`，出帧时比一下高亮候选的切法，不同才重拼。Android 没有高亮移动，只跟首选。

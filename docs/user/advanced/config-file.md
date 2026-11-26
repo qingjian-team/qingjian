@@ -36,6 +36,7 @@ description: 青简的全部设置保存在一个文本配置文件里：位置�
 | `[auto_phrase] max_chars` | 输入 → 五笔自动组词 → 最大词长 | 五笔组词最多 2～10 个汉字，默认 4；超出范围按边界值读取，不改变五笔码长，不限制拼音与双拼整段记忆 |
 | `[aux_code] enabled`、`scheme` | 输入 → 辅码 | `scheme` 写码表的文件名或方案的文件夹名，随包笔画码是 `stroke` |
 | `[general] aux_code_keep_empty` | 输入 → 码删空后留在辅码 | `false` 为删空即退出 |
+| `[general] aux_code_weighting` | 输入 → 码段只调顺序，不筛候选 | `false`（缺省）：码段是过滤器，对不上码的词不出；`true`：码段只调顺序，对不上的词排到后面，一个都对不上时按音节拼出提示词 |
 | `[general] traditional_variant` | 候选 → 输出字形 | `off`、`taiwan`、`hongkong`、`standard`；0.2.1 及以前的 `traditional = true` 按 `taiwan` 读 |
 | `[general] emoji`、`kaomoji`、`symbols` | 候选 → emoji / 颜文字 / 符号 | `0`–`3`，缺省 3 / 1 / 1；以前写的 `emoji = true / false` 相当于 3 / 0 |
 | `[general] learning` | 候选 → 学习输入习惯 | `true` / `false` |

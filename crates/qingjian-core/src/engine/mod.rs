@@ -105,6 +105,8 @@ pub struct Engine {
     /// 前缀模式键（表达式 / 问字）。
     modes: ModeKeys,
 
+    /// 辅码态是否「只调顺序、不筛候选」（配置 `[general] aux_code_weighting`，缺省关）。
+    aux_weighting: bool,
     /// 单打日历缩写时整组是否压到词前面（配置 `[general] calendar_shortcuts_first`，缺省不压）。
     calendar_group_first: bool,
 
@@ -589,6 +591,7 @@ impl Engine {
             translator: Box::new(NoTranslator),
             english_translator: Box::new(NoTranslator),
             modes: ModeKeys::default(),
+            aux_weighting: false,
             calendar_group_first: false,
             learner: learning::MutedLearner::new(Box::new(NoLearner)),
             composition: Composition::default(),
