@@ -82,6 +82,15 @@ fn unknown_context_adds_nothing() {
     assert_eq!(engine.take_raw(), "go");
 }
 
+/// 插入符被方向键挪走后，上文不再是刚上屏的字，不补空格（#1007）。
+#[test]
+fn caret_move_forgets_the_previous_char() {
+    let mut engine = spaced_engine();
+    commit_kaifa(&mut engine);
+    engine.caret_moved();
+    assert!(!engine.auto_space_before("3"));
+}
+
 #[test]
 fn partly_erased_commit_is_unknown() {
     let mut engine = spaced_engine();

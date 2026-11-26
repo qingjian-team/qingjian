@@ -34,6 +34,15 @@ impl Router {
         if let Some(effect) = self.apply_panel_key(event) {
             return effect;
         }
+        // 没组句时方向键 / Home / End 交给应用挪插入符，上文随之失效（自动空格不能再拿刚上屏的字当上文）
+        if !self.composing()
+            && matches!(
+                event.virtual_key,
+                codes::LEFT | codes::RIGHT | codes::UP | codes::DOWN | codes::HOME | codes::END
+            )
+        {
+            self.engine.caret_moved();
+        }
         if self.composing()
             && self.config.single_chars.is_some_and(|combo| {
                 event.virtual_key == combo.key.to_ascii_uppercase() as u32
