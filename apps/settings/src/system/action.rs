@@ -143,7 +143,16 @@ fn export_logs(config: &Path) -> Result<PathBuf, String> {
     if files.is_empty() {
         return Err(tr("action.no_logs").to_owned());
     }
-    let staging = std::env::temp_dir().join("qingjian-export");
+    // 共享临时目录里的固定名会被别人抢先建成目录或符号链接，把我们写的东西导到他那儿去；
+    // 每次换一个唯一名字，用完就删。
+    let staging = std::env::temp_dir().join(format!(
+        "qingjian-export-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|elapsed| elapsed.as_nanos())
+            .unwrap_or_default()
+    ));
     std::fs::create_dir_all(&staging)
         .map_err(|error| tr_args("action.cant_copy_config", &[("error", &error)]))?;
     if let Ok(text) = std::fs::read_to_string(config) {
