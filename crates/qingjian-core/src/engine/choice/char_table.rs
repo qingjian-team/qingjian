@@ -14,7 +14,13 @@ pub struct CharTable {
 
     /// 每行的最大值：词图按「比这个位置最好的字差多少」打分，各位置一样公平。
     best: Vec<f32>,
+
+    /// 字分布得分在整句词图里的权重，模型不给就是 [`DEFAULT_EMISSION_WEIGHT`]。
+    weight: f64,
 }
+
+/// 字分布得分的缺省权重：知意 1.4V2-Long-L12 上定的。
+pub(super) const DEFAULT_EMISSION_WEIGHT: f64 = 0.5;
 
 impl CharTable {
     pub fn new(index: Arc<HashMap<char, u32>>, rows: Vec<Vec<f32>>) -> Self {
@@ -22,7 +28,21 @@ impl CharTable {
             .iter()
             .map(|row| row.iter().copied().fold(f32::NEG_INFINITY, f32::max))
             .collect();
-        Self { index, rows, best }
+        Self {
+            index,
+            rows,
+            best,
+            weight: DEFAULT_EMISSION_WEIGHT,
+        }
+    }
+
+    /// 这个模型的字分布在整句词图里占多重：同一套打分规则下，各版模型的字分布准头不一样，权重按模型在开发集上扫出来。
+    pub fn with_weight(self, weight: f64) -> Self {
+        Self { weight, ..self }
+    }
+
+    pub fn weight(&self) -> f64 {
+        self.weight
     }
 
     /// 第 `slot` 个音节读成 `ch` 比这个位置最好的字差多少（≤ 0）。

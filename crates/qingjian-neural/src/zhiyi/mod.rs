@@ -67,6 +67,14 @@ struct Format {
     compose_context_tokens: usize,
 }
 
+impl Format {
+    /// 整句字分布在 Core 词图里的权重，`None` 用 Core 的缺省（1.4V2-Long-L12 上定的 0.5）。
+    /// zhen-feather 在开发集上扫过：0.4 时不带上文首选 +0.5（显著）、回归集全过；0.3 以下回归集掉「哭嘻嘻」。
+    fn emission_weight(&self) -> Option<f64> {
+        self.compact.then_some(0.4)
+    }
+}
+
 /// 加载好的选词模型。
 pub struct ChoiceScorer {
     forward: Box<dyn Forward>,
@@ -167,6 +175,11 @@ impl ChoiceScorer {
     }
 
     /// composition 头的字表：字 → [`Self::compose`] 每行里的列号。
+    /// 整句字分布在 Core 词图里的权重：zhen-feather 是 0.4，1.4V2-Long-L12 用 Core 的缺省（`None`）。
+    pub fn emission_weight(&self) -> Option<f64> {
+        self.format.emission_weight()
+    }
+
     pub fn char_index(&self) -> Arc<HashMap<char, u32>> {
         Arc::clone(&self.chars)
     }
