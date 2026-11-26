@@ -137,6 +137,7 @@ transfer = "导入、导出设置"
 transfer_info = "换电脑或备份时把设置存成一个文件；不含自定义短语（在「自定义短语」页另行导入导出）、云服务密钥与状态条位置"
 
 [experimental]
+offline_translation_info = "只在主动触发选区翻译时运行。断网可用，无需 API 账号。译文出现后按 Enter 确认。"
 clipboard_limit = "最多保留"
 clipboard_limit_info = "历史超过这么多条时删掉最旧的；改小会立刻删。不管设多少，整个历史最多占 512 MB。"
 clipboard_sync = "局域网同步"

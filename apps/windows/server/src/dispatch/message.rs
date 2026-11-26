@@ -73,20 +73,6 @@ impl Router {
                 text,
                 rect,
             } => Some(self.handle_selection(session, request, text, rect)),
-            ClientMessage::SelectionFallback {
-                session,
-                request,
-                process,
-                window,
-                text,
-                rect,
-            } => Some(self.handle_selection_fallback(
-                session,
-                request,
-                (process, window),
-                text,
-                rect,
-            )),
             ClientMessage::PositionCandidates { session, rect } => {
                 self.position_candidates(session, rect);
                 None

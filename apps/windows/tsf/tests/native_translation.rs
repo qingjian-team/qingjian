@@ -6,7 +6,7 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use qingjian_core::Language;
-use qingjian_platform::protocol::{KeyEvent, KeyModifiers, ScreenRect, SessionId};
+use qingjian_platform::protocol::{KeyEvent, KeyModifiers, KeyOutcome, ScreenRect, SessionId};
 use qingjian_tsf::client::{EngineClient, KeyReply, KeyResponse, pipe::PipeStream};
 use qingjian_windows_server::{
     AssemblySpec, LanguageModelFiles, Router, RouterConfig, assembly, dispatch, ipc,
@@ -23,7 +23,7 @@ fn result(reply: KeyReply) -> KeyResponse {
     }
 }
 
-fn select(client: &mut EngineClient<PipeStream>, text: &str) {
+fn request_selection(client: &mut EngineClient<PipeStream>) -> u64 {
     let reply = client
         .key(KeyEvent::new(
             84,
@@ -38,6 +38,10 @@ fn select(client: &mut EngineClient<PipeStream>, text: &str) {
     let KeyReply::NeedSelection { request } = reply else {
         panic!("native translation must work with cloud disabled")
     };
+    request
+}
+
+fn reply_selection(client: &mut EngineClient<PipeStream>, request: u64, text: &str) -> KeyResponse {
     let reply = client
         .selection(
             request,
@@ -54,6 +58,15 @@ fn select(client: &mut EngineClient<PipeStream>, text: &str) {
         reply.commit.is_none(),
         "selection must not be replaced before confirmation"
     );
+    reply
+}
+
+fn select(client: &mut EngineClient<PipeStream>, text: &str) {
+    let request = request_selection(client);
+    let reply = reply_selection(client, request, text);
+    if !text.trim().is_empty() {
+        assert_eq!(reply.outcome, KeyOutcome::Consumed);
+    }
 }
 
 fn wait_translation(client: &mut EngineClient<PipeStream>) -> String {
@@ -140,6 +153,18 @@ fn native_model_round_trips_through_the_real_tsf_client_and_pipe() {
             .as_deref(),
         Some("你好")
     );
+
+    let stale = request_selection(&mut client);
+    for empty in ["", " \t　"] {
+        select(&mut client, empty);
+        let (frame, commit) = client.poll().unwrap();
+        assert!(frame.is_empty());
+        assert!(commit.is_none());
+    }
+
+    let late = reply_selection(&mut client, stale, "这次请求已经作废。");
+    assert_eq!(late.outcome, KeyOutcome::Passthrough);
+    assert!(client.poll().unwrap().0.is_empty());
 
     select(&mut client, "你好，今天下午我们一起去公园散步。");
     let waiting = result(client.key(key(13, None)).unwrap());

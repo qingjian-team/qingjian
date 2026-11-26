@@ -100,7 +100,6 @@ impl Router {
 
     /// 拉一次云联想结果：云端词并进候选布局，整句补全记下；翻译评审时结果是译文。
     pub(super) fn poll_prediction(&mut self) {
-        self.poll_selection_reading();
         if !self.engine.prediction_enabled() && !self.engine.translation_enabled() {
             return;
         }

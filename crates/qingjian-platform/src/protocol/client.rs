@@ -69,7 +69,7 @@ pub enum ClientMessage {
     },
 
     /// 回应 [`super::ServerMessage::RequestSelection`]：应用当前选中的文字（供「翻译选中文字」）。
-    /// DLL 在读编辑会话里用 `GetSelection` + `GetText` 取；没有选区 / 读不到时 `text` 为空串。
+    /// DLL 在 TSF 只读编辑会话里取合法选区；选区不可用时 `text` 为空串，结束本次请求。
     Selection {
         /// 会话标识。
         session: SessionId,
@@ -77,27 +77,10 @@ pub enum ClientMessage {
         /// 请求标识，对上是哪一次 [`super::ServerMessage::RequestSelection`]。
         request: u64,
 
-        /// 选中的文字；没有选区时为空串。
+        /// 选中的文字；空白、不可读、私密或过长时为空串。
         text: String,
 
         /// 选区的屏幕矩形（拿翻译候选窗口摆在它下方，与组句候选窗一致）；取不到是鼠标处近似。
-        rect: ScreenRect,
-    },
-
-    /// TSF 无法提供选区时请求备用读取；译文仅供复制，不作为 TSF 上屏文本返回。
-    SelectionFallback {
-        session: SessionId,
-
-        request: u64,
-
-        /// 快捷键所属进程，及触发时同一进程的前台窗口。
-        process: u32,
-
-        window: u64,
-
-        /// Scintilla 原生读取成功时带文字；为空时由 Server 在 MTA 线程查询 UIA。
-        text: String,
-
         rect: ScreenRect,
     },
 

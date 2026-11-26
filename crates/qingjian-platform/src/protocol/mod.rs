@@ -29,6 +29,10 @@ pub const PROTOCOL_VERSION: u32 = 10;
 /// 不回它们会卡在 `open()` 里（宿主 UI 线程）。
 pub const SESSION_OPENED_SINCE: u32 = 6;
 
+/// 从哪个协议版本起 DLL 能解析 [`ServerMessage::SelectionReview`]。
+/// 此前的 DLL 在等待译文时仍需收到 [`ServerMessage::KeyResult`]。
+pub const SELECTION_REVIEW_SINCE: u32 = 10;
+
 pub mod frame;
 pub mod key;
 

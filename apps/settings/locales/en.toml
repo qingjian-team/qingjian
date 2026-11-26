@@ -137,6 +137,7 @@ transfer = "Import and export settings"
 transfer_info = "Saves the settings to a file for a new computer or a backup; custom phrases (imported and exported on the Custom Phrases page), cloud keys and the status bar position are not included"
 
 [experimental]
+offline_translation_info = "Runs only when you use the shortcut to translate selected text. Works offline without an API account. Press Enter when the translation appears."
 clipboard_limit = "Keep up to"
 clipboard_limit_info = "The oldest items go when history passes this many. Lowering it deletes them right away. History never takes more than 512 MB, whatever you pick."
 clipboard_sync = "Local network sync"

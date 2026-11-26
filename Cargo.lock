@@ -4530,7 +4530,6 @@ dependencies = [
 name = "qingjian-windows-server"
 version = "0.3.3-dev"
 dependencies = [
- "arboard",
  "bamboo-slip-i18n",
  "dotenvy",
  "embed-manifest",

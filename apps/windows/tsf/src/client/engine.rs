@@ -92,7 +92,8 @@ impl<S: Read + Write> EngineClient<S> {
         }
     }
 
-    /// 把读到的选区发给 Server，等它回翻译候选帧。空选区时 Server 不进入翻译、回空帧。
+    /// 把读到的选区发给 Server；选区不可用时发空串，结束这次读取请求。
+    /// 有效选区回 `KeyOutcome::Consumed` 才开始评审；过期请求回 `Passthrough`。
     pub fn selection(
         &mut self,
         request: u64,
@@ -118,28 +119,6 @@ impl<S: Read + Write> EngineClient<S> {
                 frame,
             }),
             _ => Err(ClientError::Unexpected("expected key result for selection")),
-        }
-    }
-
-    /// 请求备用选区；回包只包含评审状态，不能携带要写入文档的文本。
-    pub fn fallback_selection(
-        &mut self,
-        request: u64,
-        process: u32,
-        window: u64,
-        text: String,
-        rect: ScreenRect,
-    ) -> Result<bool, ClientError> {
-        match self.call(&ClientMessage::SelectionFallback {
-            session: self.session,
-            request,
-            process,
-            window,
-            text,
-            rect,
-        })? {
-            ServerMessage::SelectionReview { active, .. } => Ok(active),
-            _ => Err(ClientError::Unexpected("expected selection review")),
         }
     }
 

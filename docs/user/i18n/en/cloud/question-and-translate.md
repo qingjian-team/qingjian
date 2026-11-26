@@ -1,10 +1,10 @@
 ---
 title: Asking and translating
 order: 2
-description: "Asking a question in pinyin, such as which character is made of three 木, and translating text selected in an app into your learning language or back into Chinese. Both require AI services."
+description: "Ask a question in pinyin or translate text selected in an app. Questions use AI services. Windows also supports offline translation of selected text."
 ---
 
-AI services must be turned on first; see [AI services](index.md).
+Online features require [AI services](index.md). Windows offline translation is covered below.
 
 ## Asking about a character
 
@@ -34,7 +34,8 @@ Select some text in an app (up to 500 characters) and press `⌃⌥T` (Windows: 
 - The candidate window shows 翻译中… (Translating…) first, then the translation as the only candidate.
 - `Enter` / `Space` / `1` replace the selected text with the translation; `Esc` keeps the original; any other key abandons the translation and the key goes to the app as usual.
 
-When AI services are off, in a password field, or when the app doesn't provide the selected text (some apps), the shortcut is passed to the app unchanged.
+When translation is disabled, the shortcut is passed to the app unchanged. Translation requires a selection the app makes available. Qingjian skips empty selections and fields marked private, such as password fields.
+Windows reads up to 500 UTF-16 code units. A common Chinese character takes one unit and some emoji take two.
 The shortcut can be changed under 设置 → 快捷键 (Settings → Shortcuts); on Windows, after changing it, switch to another input method and back to Qingjian (or reopen the app) for it to take effect.
 
 Limitations on Linux:
@@ -43,3 +44,17 @@ Limitations on Linux:
 - If you upgraded from an earlier version and your configuration file still has the old translation shortcut, installing the update doesn't change it; change it to `Alt + Shift + T` yourself, see [Editing the configuration file](../advanced/config-file.md#AI-services).
 
 On Android, tap 青简翻译 (Qingjian Translate) in the system's text selection menu; see [Android: tools and AI](../platforms/android-tools.md#Translating-selected-text).
+
+## Offline translation on Windows (experimental)
+
+Windows translates locally between Chinese and English. In 设置 → 实验功能 → 离线句子翻译 (Settings → Experimental features → Offline sentence translation), download the models. Offline translation turns on after the download is verified. After the initial download, you can translate without a network connection, an API account or a separate translation program.
+
+Select the text and press `Ctrl + Alt + T`. When the translation appears, press `Enter`, `Space` or `1` to replace the selection, or press `Esc` to keep the original. With matching Windows components, pressing a confirmation key while the translation is pending keeps it waiting. Press the key again when the translation appears.
+
+With English set as your learning language, Chinese selections translate into English and English selections translate into Chinese. For longer text, select one part at a time. Qingjian translates only the text you select and keeps your current pinyin unchanged.
+
+Before replacing text, Qingjian checks the document, focus, selection position and original text. If any change, or if a model fails to load or translate, Qingjian keeps the original. It does not send the selection to online services automatically. You can turn offline translation off in 实验功能.
+
+The models come from [Helsinki-NLP OPUS-MT](https://github.com/Helsinki-NLP/Opus-MT), with ONNX exports by [Xenova](https://huggingface.co/Xenova). The Chinese-to-English model uses CC-BY-4.0 and the English-to-Chinese model uses Apache-2.0. Check the translation before replacing the original, especially for technical terms, names and tone.
+
+If Windows temporarily cannot read the configuration, Qingjian keeps the last valid settings and tries again when the file reappears or is saved again. If only the permissions change, save the configuration again or restart Qingjian. When reporting a translation problem, include the time it occurred and the Qingjian log. The log distinguishes configuration read failures, disabled offline translation and translation resources that are still unavailable.

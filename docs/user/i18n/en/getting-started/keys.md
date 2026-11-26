@@ -85,7 +85,7 @@ These only work while typing pinyin. See [Glosses beside candidates](../learning
 
 ## AI services
 
-All of these require AI services to be turned on first; see [AI services](../cloud/index.md).
+Online features require [AI services](../cloud/index.md). Windows also supports [offline translation of selected text](../cloud/question-and-translate.md).
 
 | Action | macOS | Windows | Linux |
 |---|---|---|---|
@@ -94,6 +94,8 @@ All of these require AI services to be turned on first; see [AI services](../clo
 | Translation result: keep the original | `Esc` | `Esc` | `Esc` |
 | Ask for AI candidates manually while typing pinyin | `⌃⌥J` | `Ctrl + Alt + J` | `Ctrl + Alt + J` |
 | Ask about a character | `u`, then type pinyin | Same | Same |
+
+With matching Windows components, pressing `Enter`, `Space` or `1` while the translation is pending keeps it waiting. Press the key again when the translation appears.
 
 ## Prefixes
 

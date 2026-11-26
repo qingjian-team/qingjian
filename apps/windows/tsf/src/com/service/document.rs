@@ -10,20 +10,13 @@ use crate::com::log::log;
 
 impl TextService_Impl {
     pub(super) fn read_selection(&self, pic: Ref<ITfContext>, request: u64) {
-        let Ok(context) = pic.ok() else {
-            log("翻译选中文字：无上下文，取消读选区");
-            return;
-        };
-        if let Err(error) = request_selection(
-            context,
+        request_selection(
+            pic.ok().ok(),
             self.client_id.get(),
             self.engine.clone(),
             self.shared.clone(),
             request,
-        ) {
-            crate::com::log::log(&format!("翻译选区：请求读选区会话失败: {error}"));
-            log(&format!("请求读选区会话失败: {error}"));
-        }
+        );
     }
 
     /// 失焦 / 停用 / 切模式：让 Server 交出缓冲区，原样落进最近收键的文档并收掉组句。

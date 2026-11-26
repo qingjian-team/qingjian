@@ -75,9 +75,6 @@ pub struct Router {
     /// 「翻译选中文字」进行态；与 `composed` 互斥。
     translation: Option<Translation>,
 
-    /// 备用来源的译文确认后复制；测试注入替身，不读写真实剪贴板。
-    selection_copy: fn(&str) -> Result<(), &'static str>,
-
     /// 已发出、等 DLL 回选区的请求号；对不上的 `Selection` 丢弃。
     pending_selection: Option<u64>,
 
@@ -187,7 +184,6 @@ impl Router {
             focused: None,
             composed: None,
             translation: None,
-            selection_copy: translate::copy_text,
             pending_selection: None,
             clicked: None,
             selection_seq: 0,

@@ -84,11 +84,9 @@ fn client_messages() -> Vec<ClientMessage> {
             text: "选中的文字".to_owned(),
             rect: screen_rect(),
         },
-        ClientMessage::SelectionFallback {
+        ClientMessage::Selection {
             session,
             request: 8,
-            process: 42,
-            window: 0x1234,
             text: String::new(),
             rect: screen_rect(),
         },

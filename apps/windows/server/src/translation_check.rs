@@ -1,4 +1,4 @@
-//! 只读检查 Server 实际使用的配置与翻译装配；不启动 IPC、窗口、UIA 或剪贴板访问。
+//! 只读检查 Server 实际使用的配置与翻译装配；验证模式使用进程内 Router 和固定选区样例。
 
 use std::path::PathBuf;
 use std::thread;

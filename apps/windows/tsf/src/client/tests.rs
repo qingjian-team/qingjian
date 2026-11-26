@@ -1,9 +1,9 @@
-//! 确认备用选区的专用回包不会被客户端变成文档上屏或结束等待。
+//! 检查选区翻译提前确认时，回包只更新评审状态。
 
 use std::io::{Cursor, Read, Write};
 
 use qingjian_platform::protocol::{
-    InputSettings, KeyEvent, KeyModifiers, ScreenRect, ServerMessage, SessionId, write_message,
+    InputSettings, KeyEvent, KeyModifiers, KeyOutcome, ServerMessage, SessionId, write_message,
 };
 
 use super::{EngineClient, KeyReply};
@@ -40,32 +40,12 @@ fn dedicated_review_reply_keeps_confirmation_out_of_the_document() {
         },
         ServerMessage::SelectionReview {
             session,
-            active: true,
-        },
-        ServerMessage::SelectionReview {
-            session,
             active: false,
         },
     ] {
         write_message(&mut bytes, &message).unwrap();
     }
     let (mut client, _) = EngineClient::open(Responses(Cursor::new(bytes)), session, None).unwrap();
-    assert!(
-        client
-            .fallback_selection(
-                3,
-                42,
-                99,
-                String::new(),
-                ScreenRect {
-                    left: 0,
-                    top: 0,
-                    right: 1,
-                    bottom: 1
-                }
-            )
-            .unwrap()
-    );
     for active in [true, false] {
         let KeyReply::Result(reply) = client
             .key(KeyEvent::new(13, None, KeyModifiers::default()))
@@ -74,7 +54,8 @@ fn dedicated_review_reply_keeps_confirmation_out_of_the_document() {
             panic!("review reply")
         };
         assert_eq!(reply.reviewing_selection, active);
+        assert_eq!(reply.outcome, KeyOutcome::Consumed);
         assert!(reply.commit.is_none());
-        assert!(reply.frame.preedit.is_empty());
+        assert!(reply.frame.is_empty());
     }
 }

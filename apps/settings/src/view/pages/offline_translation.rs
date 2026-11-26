@@ -5,6 +5,7 @@ use bamboo_slip::{
     Button, ProgressBar, RenderError, SettingRow, Ui, group, paragraph, section_title,
 };
 
+use crate::i18n::tr;
 use crate::jobs::model_download::Stage;
 use crate::message::Message;
 use crate::view::Page;
@@ -14,7 +15,12 @@ pub(super) fn card(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Ren
     let theme = &page.theme;
     let download = &page.settings.translation_download;
     let mut out = vec![section_title(ui, theme, "离线句子翻译（中英双向）")?];
-    out.push(paragraph(ui, theme, "只在主动触发选区翻译时运行；断网可用，无需 API 账号。译文出现后按 Enter 确认；兼容模式下按提示复制并自行粘贴。", None)?);
+    out.push(paragraph(
+        ui,
+        theme,
+        tr("experimental.offline_translation_info"),
+        None,
+    )?);
     if !matches!(
         page.settings.config.general.learning_language.as_str(),
         "en" | "off"
