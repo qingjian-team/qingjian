@@ -35,14 +35,8 @@ pub fn canonical(op: &str) -> Option<&'static str> {
     }
 }
 
-/// 同 [`forms`]，`separator` 用来连输出的那串数（剪切板里粘来的数按原分隔符连着）。
-/// 手敲参数时用的那种：只给 `forms_with` 一个半角空格。只给用例用，所以 `cfg(test)`。
-#[cfg(test)]
-fn forms(args: &str) -> Vec<Measure> {
-    forms_with(args, " ")
-}
-
-pub fn forms_with(args: &str, separator: &str) -> Vec<Measure> {
+/// 一串数做变换：`trans;sort;3;1;2`。输出用半角空格连（`1 2 3`），与 `vstat` 的排序一项一致。
+pub fn forms(args: &str) -> Vec<Measure> {
     let texts = split_args(args);
     let Some((op, rest)) = texts.split_first() else {
         return Vec::new();
@@ -62,13 +56,13 @@ pub fn forms_with(args: &str, separator: &str) -> Vec<Measure> {
         let mut forms: Vec<Measure> = Vec::new();
         for op in ["sort", "minmax", "z", "diff", "smooth", "median", "bin"] {
             if let Some((values, label)) = apply(op, &numbers) {
-                forms.push((join(&values, separator), label.to_owned()));
+                forms.push((join(&values), label.to_owned()));
             }
         }
         // 对数与开方只在取值范围内有意义：负数、零不上，别给 NaN
         for op in ["log", "log10", "sqrt"] {
             if let Some((values, label)) = apply(op, &numbers) {
-                forms.push((join(&values, separator), label.to_owned()));
+                forms.push((join(&values), label.to_owned()));
             }
         }
         return forms;
@@ -84,7 +78,7 @@ pub fn forms_with(args: &str, separator: &str) -> Vec<Measure> {
         return Vec::new();
     }
     match apply(op, &numbers) {
-        Some((values, label)) => vec![(join(&values, separator), label.to_owned())],
+        Some((values, label)) => vec![(join(&values), label.to_owned())],
         None => Vec::new(),
     }
 }
@@ -177,12 +171,12 @@ fn ordered(numbers: &[f64], descending: bool) -> Vec<f64> {
 }
 
 /// 让 `fmt` 能把一串数拼成候选文本。
-fn join(values: &[f64], separator: &str) -> String {
+fn join(values: &[f64]) -> String {
     values
         .iter()
         .map(|v| fmt(*v))
         .collect::<Vec<_>>()
-        .join(separator)
+        .join(" ")
 }
 
 /// 窗口滑动：边缘处窗口缩小到还在范围内的那几个。

@@ -218,7 +218,7 @@ const AMOUNT_FRACTION_DIGITS: usize = 2;
 fn expression_forms(body: &str, now: &Zoned, sub_modes: bool) -> Vec<(String, Option<String>)> {
     // 子模式优先：`bit:` 这些带冒号的，认出来就只走那一条，不再按四则去猜
     if sub_modes && let Some(mode) = modes::parse(body) {
-        return mode_forms(mode, " ");
+        return mode_forms(mode);
     }
     let mut forms: Vec<(String, Option<String>)> = number_forms(body)
         .unwrap_or_default()
@@ -251,7 +251,7 @@ fn expression_forms(body: &str, now: &Zoned, sub_modes: bool) -> Vec<(String, Op
 }
 
 /// 子模式的候选。
-fn mode_forms(mode: modes::Mode<'_>, separator: &str) -> Vec<(String, Option<String>)> {
+fn mode_forms(mode: modes::Mode<'_>) -> Vec<(String, Option<String>)> {
     match mode {
         // 生成型（`uuid` / `ts`）由 Engine 走 `generated_candidates`：随机值与时刻要按组句缓存，
         // 不能每次查询都重算。走到这里说明是别处直接调 `shortcut::candidates`，给空即可
@@ -278,7 +278,7 @@ fn mode_forms(mode: modes::Mode<'_>, separator: &str) -> Vec<(String, Option<Str
             .collect(),
         modes::Mode::Stat { args } => labeled(stat::forms(args)),
         modes::Mode::Color { args } => labeled(color::forms(args)),
-        modes::Mode::Trans { args } => labeled(transform::forms_with(args, separator)),
+        modes::Mode::Trans { args } => labeled(transform::forms(args)),
     }
 }
 
