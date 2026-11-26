@@ -172,11 +172,7 @@ fn ordered(numbers: &[f64], descending: bool) -> Vec<f64> {
 
 /// 让 `fmt` 能把一串数拼成候选文本。
 fn join(values: &[f64]) -> String {
-    values
-        .iter()
-        .map(|v| fmt(*v))
-        .collect::<Vec<_>>()
-        .join(" ")
+    values.iter().map(|v| fmt(*v)).collect::<Vec<_>>().join(" ")
 }
 
 /// 窗口滑动：边缘处窗口缩小到还在范围内的那几个。
