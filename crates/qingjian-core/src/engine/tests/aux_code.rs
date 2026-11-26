@@ -582,8 +582,6 @@ fn a_code_one_key_off_still_matches() {
 
 /// 精确码段在前：`kf` 命中时 开发 仍排第一，不会被差一位的那批挤下去。
 #[test]
-/// 精确码段在前：`kf` 命中时 开发 仍排第一，不会被差一位的那批挤下去。
-#[test]
 fn exact_codes_stay_in_front_of_the_near_misses() {
     let mut engine = aux_engine();
     engine.set_input("kaifa");
@@ -594,4 +592,33 @@ fn exact_codes_stay_in_front_of_the_near_misses() {
 
     let texts = candidates(&engine);
     assert_eq!(texts.first().map(String::as_str), Some("开发"), "{texts:?}");
+}
+
+/// 缺省（开关关着）码段仍然是过滤器：对不上码的词一条都不出，与辅码一直以来的行为一致。
+#[test]
+fn without_the_switch_the_code_still_filters() {
+    let mut engine = filtering_aux_engine();
+    engine.set_input("kaifa");
+    engine.enter_aux();
+    for key in "kf".chars() {
+        engine.push_aux_code(key);
+    }
+    let texts = candidates(&engine);
+    assert!(!texts.is_empty(), "码段对得上的时候照常出");
+    assert!(
+        texts.iter().all(|text| text != "开放" && text != "开"),
+        "对不上 `kf` 的词不该出现：{texts:?}"
+    );
+}
+
+/// 开关关着时，码段一个都对不上就是没有候选（不会凭空拼出「开粗」这种词）。
+#[test]
+fn without_the_switch_nothing_is_synthesised() {
+    let mut engine = filtering_aux_engine();
+    engine.set_input("kaifa");
+    engine.enter_aux();
+    for key in "zz".chars() {
+        engine.push_aux_code(key);
+    }
+    assert!(candidates(&engine).is_empty(), "码段对不上时不该有候选");
 }
