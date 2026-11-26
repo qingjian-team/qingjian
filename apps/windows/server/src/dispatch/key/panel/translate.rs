@@ -6,6 +6,7 @@
 use qingjian_platform::protocol::KeyEvent;
 
 use crate::dispatch::Router;
+use crate::dispatch::key::shortcut::page_slot;
 use crate::dispatch::key::{Effect, codes};
 
 impl Router {
@@ -113,9 +114,11 @@ impl Router {
                 self.pick_highlighted_into_box();
                 return Some(Effect::Changed(None));
             }
-            if let Some(digit) = codes::digit(event) {
+            if let Some(digit) = codes::digit(event)
+                && let Some(slot) = page_slot(digit, self.config.page_size)
+            {
                 let first = self.highlight / self.config.page_size * self.config.page_size;
-                self.pick_into_box(first + digit - 1);
+                self.pick_into_box(first + slot);
                 return Some(Effect::Changed(None));
             }
             if let Some(step) = self.page_step(event) {
