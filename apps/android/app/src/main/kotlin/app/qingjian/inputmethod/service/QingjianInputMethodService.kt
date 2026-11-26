@@ -7,6 +7,10 @@ import android.content.Intent
 import android.content.SharedPreferences
 import android.content.res.Configuration
 import android.inputmethodservice.InputMethodService
+import android.os.Bundle
+import android.view.inputmethod.InlineSuggestionsRequest
+import android.view.inputmethod.InlineSuggestionsResponse
+import app.qingjian.inputmethod.verification.Presenter
 import android.view.KeyEvent
 import android.view.View
 import android.view.inputmethod.EditorInfo
@@ -66,6 +70,7 @@ class QingjianInputMethodService :
     private lateinit var engine: Engine
     private lateinit var composer: Composer
     private var panel: InputPanel? = null
+    private val verification = Presenter(this, { panel }, { editor != null })
 
     private val game = GameMode(this, this)
 
@@ -159,6 +164,7 @@ class QingjianInputMethodService :
         Settings.preferences(this).registerOnSharedPreferenceChangeListener(settingsListener)
         cloud.start()
         clipboardWatcher.onChanged = { panel?.refreshClipboard() }
+        verification.start()
         clipboardWatcher.start()
         ClipboardSync.addListener(syncListener)
         ClipboardSync.apply(this)
@@ -167,6 +173,7 @@ class QingjianInputMethodService :
     override fun onDestroy() {
         AppLog.info("ime destroy")
         clipboardWatcher.stop()
+        verification.stop()
         contacts.stop()
         ClipboardSync.removeListener(syncListener)
         Settings.preferences(this).unregisterOnSharedPreferenceChangeListener(settingsListener)
@@ -178,6 +185,7 @@ class QingjianInputMethodService :
     override fun onCreateInputView(): View {
         // 键盘重建，开着的语音面板跟着没了
         voice.cancel()
+        panel?.clearInlineSuggestions()
         val target = game.target()
         AppLog.info("create input view${if (target != null) " (game keyboard)" else ""}")
         val gameSettings = target?.let { GameKeyboard.load(this) }
@@ -208,6 +216,7 @@ class QingjianInputMethodService :
             floating = target != null,
         )
         this.panel = panel
+        panel.view.post { if (this.panel === panel) verification.refresh() }
         showKeyboard()
         showSideItems(emptyList())
         reopenPanel?.let(panel::open)
@@ -252,6 +261,8 @@ class QingjianInputMethodService :
 
     override fun onStartInput(attribute: EditorInfo, restarting: Boolean) {
         super.onStartInput(attribute, restarting)
+        verification.hide()
+        panel?.clearInlineSuggestions()
         composer.directInput = attribute.wantsDirectInput()
         composer.plainPunctuation = attribute.wantsPlainPunctuation()
         composer.privateInput = attribute.wantsPrivacy()
@@ -277,6 +288,7 @@ class QingjianInputMethodService :
         // 上次读通讯录时系统给了空结果（「仅在使用中允许」时后台读不到），键盘弹出时再读
         contacts.retryIfEmpty()
         clipboardWatcher.capture()
+        verification.refresh()
         // 进程可能刚被系统杀过又拉起，或开关刚改过；顺便补一轮
         ClipboardSync.apply(this)
         ClipboardSync.changed()
@@ -307,7 +319,23 @@ class QingjianInputMethodService :
         voice.cancel()
         closeEditor()
         panel?.close()
+        verification.hide()
         composer.abandon()
+    }
+
+    override fun onFinishInput() {
+        verification.hide()
+        panel?.clearInlineSuggestions()
+        super.onFinishInput()
+    }
+
+    override fun onCreateInlineSuggestionsRequest(uiExtras: Bundle): InlineSuggestionsRequest? =
+        if (android.os.Build.VERSION.SDK_INT >= 30) InlineSuggestionsHost.request(this, uiExtras) else null
+
+    override fun onInlineSuggestionsResponse(response: InlineSuggestionsResponse): Boolean {
+        val target = panel ?: return false
+        target.showInlineSuggestions(response)
+        return true
     }
 
     override fun onUpdateSelection(

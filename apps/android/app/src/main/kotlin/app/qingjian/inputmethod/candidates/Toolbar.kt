@@ -24,8 +24,9 @@ class Toolbar(
     private val tools: List<ToolbarTool>,
 ) {
     private val logo = context.getDrawable(R.drawable.ic_brand)
-    private val logoSlot = 62f * density
-    private val hideSlot = 62f * density
+    val edgeWidth = 62f * density
+    private val logoSlot = edgeWidth
+    private val hideSlot = edgeWidth
     private val stroke = Paint(Paint.ANTI_ALIAS_FLAG)
     private val line = Paint().apply { color = palette.faint }
     private val card = Paint(Paint.ANTI_ALIAS_FLAG)
@@ -84,7 +85,7 @@ class Toolbar(
         PanelIcons.draw(canvas, Icon.CHEVRON, viewWidth - 26 * density, cy, 20 * density, stroke)
     }
 
-    fun draw(canvas: Canvas, viewWidth: Int) {
+    fun draw(canvas: Canvas, viewWidth: Int, showTools: Boolean = true) {
         val cy = barHeight / 2
         drawCard(canvas, viewWidth)
         // 与 Windows 托盘同一张品牌标
@@ -101,7 +102,7 @@ class Toolbar(
         val divider = viewWidth - hideSlot
         canvas.save()
         canvas.clipRect(logoSlot, 0f, divider, barHeight)
-        tools.forEachIndexed { i, tool ->
+        if (showTools) tools.forEachIndexed { i, tool ->
             PanelIcons.draw(canvas, tool.icon, logoSlot + slot * (i + 0.5f) - offset, cy, 26 * density, stroke)
         }
         canvas.restore()

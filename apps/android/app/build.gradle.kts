@@ -7,6 +7,11 @@ plugins {
 val repoRoot = rootDir.resolve("../..").canonicalFile
 val nativeLibs = layout.buildDirectory.dir("native/jniLibs")
 val bundledAssets = layout.buildDirectory.dir("bundled/assets")
+val androidAbis = providers.gradleProperty("androidAbis").orElse("arm64-v8a").get()
+    .split(",").map(String::trim).filter(String::isNotEmpty)
+require(androidAbis.isNotEmpty() && androidAbis.all { it in setOf("arm64-v8a", "x86_64") }) {
+    "androidAbis must contain arm64-v8a or x86_64"
+}
 
 // 版本号取 core/Cargo.toml；versionCode = 主*10000 + 次*100 + 修订，-dev 与正式版同号
 val appVersion = rootDir.resolve("core/Cargo.toml").readLines()
@@ -29,7 +34,7 @@ android {
         targetSdk = 36
         versionCode = appVersionCode
         versionName = appVersion
-        ndk { abiFilters += "arm64-v8a" }
+        ndk { abiFilters += androidAbis }
     }
 
     if (releaseKeystore != null) {
@@ -82,13 +87,13 @@ kotlin {
 // Rust 侧：cargo ndk 编出 libqingjian_android.so，放进 jniLibs 源目录。要先 `cargo install cargo-ndk`。
 val cargoNdk by tasks.registering(Exec::class) {
     group = "qingjian"
-    description = "cargo ndk 编译 qingjian-android（arm64-v8a，release）"
+    description = "cargo ndk 编译 qingjian-android（${androidAbis.joinToString()}，release）"
     workingDir = repoRoot
     val ndkDir = android.sdkDirectory.resolve("ndk/${android.ndkVersion}")
     environment("ANDROID_NDK_HOME", ndkDir.absolutePath)
     commandLine(
         "cargo", "ndk",
-        "-t", "arm64-v8a",
+        *androidAbis.flatMap { listOf("-t", it) }.toTypedArray(),
         "--platform", "26",
         "-o", nativeLibs.get().asFile.absolutePath,
         "build", "-p", "qingjian-android", "--release", "--locked",
@@ -120,4 +125,9 @@ val stageData by tasks.registering(Sync::class) {
 
 tasks.named("preBuild") {
     dependsOn(cargoNdk, stageData)
+}
+
+dependencies {
+    implementation("androidx.autofill:autofill:1.3.0")
+    testImplementation("junit:junit:4.13.2")
 }

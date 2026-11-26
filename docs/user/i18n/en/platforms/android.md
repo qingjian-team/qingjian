@@ -94,3 +94,13 @@ When you play a game in landscape, the normal keyboard covers almost the whole s
 ## Not yet supported
 
 Offline on-device speech recognition, custom themes.
+
+## Autofill and verification codes
+
+On Android 11 and later, compatible password managers show autofill suggestions as capsules in the middle of the toolbar. They temporarily replace the tool buttons; swipe left or right to see more. The Qingjian menu and hide-keyboard button remain available at the ends. Tap a suggestion to let Android fill the fields. The app and password manager must also support inline autofill.
+
+Copied verification codes and TOTP codes appear in the toolbar for ordinary text and numeric fields, independently of clipboard history recording. Sensitive copies show only “Paste verification code” until tapped. A consumed copy is not offered again; replacing the clipboard or two minutes passing clears it. Password, private, email and URL fields are excluded.
+
+Under Settings → Clipboard → Verification codes, you can separately enable copied-code suggestions, incoming SMS codes and notification codes. SMS and notification access are off by default and require system permission. Only new SMS messages or readable notifications are processed locally, including phone notifications forwarded to this device. No SMS history is read. Codes remain temporarily in memory and are not added to clipboard history, learning data or device sync.
+
+SMS suggestions expire after at most five minutes; clipboard and notification suggestions after two. Android may redact OTP notifications or restrict OTP SMS access, especially in newer Android 16 updates. Qingjian cannot recover content hidden by the system; copying the code remains an alternative. These settings do not replace your selected autofill service.
