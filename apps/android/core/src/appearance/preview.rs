@@ -1,4 +1,4 @@
-//! 设置页的主题预览：用样例帧（敲 nihao 的第一页）按候选条的排法画一张，壳把它贴在主题卡片上、下面自己画几排键。
+//! 设置页的主题预览：同一份样例帧按触屏候选条或桌面候选窗布局渲染，壳只负责贴图。
 
 use std::cell::RefCell;
 
@@ -18,9 +18,15 @@ thread_local! {
     static RENDERER: RefCell<Option<Renderer>> = const { RefCell::new(None) };
 }
 
-/// 主题 `id` 在 `dark` 外观、`text_scale` 字号档下的候选条样子；`scale` 是 dp → 像素的倍数。字体加载失败或画不出时为 `None`。
-pub fn preview(id: &str, dark: bool, scale: f32, text_scale: f32) -> Option<Pixmap> {
-    RENDERER.with_borrow_mut(|slot| render(slot, id, dark, scale, text_scale))
+/// 主题 `id` 在 `dark` 外观、`text_scale` 字号档下的候选样子；`physical` 选择桌面布局，`scale` 是 dp → 像素的倍数。
+pub fn preview(
+    id: &str,
+    dark: bool,
+    scale: f32,
+    text_scale: f32,
+    physical: bool,
+) -> Option<Pixmap> {
+    RENDERER.with_borrow_mut(|slot| render(slot, id, dark, scale, text_scale, physical))
 }
 
 fn render(
@@ -29,12 +35,13 @@ fn render(
     dark: bool,
     scale: f32,
     text_scale: f32,
+    physical: bool,
 ) -> Option<Pixmap> {
     if guard.is_none() {
         match FontLibrary::system(LOCALE) {
             Ok(library) => *guard = Some(Renderer::new(library)),
             Err(error) => {
-                tracing::error!(%error, "预览用的字体加载失败");
+                tracing::error!(%error, "Failed to load theme preview fonts");
                 return None;
             }
         }
@@ -44,23 +51,33 @@ fn render(
     let theme = theme
         .with_text_sizes(text_sizes(&theme, text_scale))
         .with_animations(false);
-    match renderer.render(&sample(), Layout::Strip, &theme, scale) {
+    let layout = if physical {
+        Layout::Vertical
+    } else {
+        Layout::Strip
+    };
+    match renderer.render(&sample(physical), layout, &theme, scale) {
         Ok(rendered) => Some(rendered.pixmap),
         Err(error) => {
-            tracing::warn!(%error, id, "主题预览画不出来");
+            tracing::warn!(%error, id, "Failed to render theme preview");
             None
         }
     }
 }
 
-fn sample() -> Frame {
+fn sample(physical: bool) -> Frame {
     let mut frame = nihao();
     let rows = std::mem::take(&mut frame.rows);
     frame.rows = SAMPLE_ROWS
         .iter()
-        .map(|&from| {
+        .enumerate()
+        .map(|(index, &from)| {
             let mut row = rows[from].clone();
-            row.index.clear();
+            row.index = if physical {
+                (index + 1).to_string()
+            } else {
+                String::new()
+            };
             // 候选条每个词下面只放第一条译文，同 `strip::rows`
             if let Some(cut) = row
                 .annotation
@@ -73,7 +90,8 @@ fn sample() -> Frame {
         })
         .collect();
     frame.highlighted = Some(0);
-    frame.footer = None;
+    frame.footer = physical.then(|| "1/2".to_owned());
+    frame.next_page = physical;
     frame
 }
 
@@ -83,7 +101,7 @@ mod tests {
 
     #[test]
     fn sample_keeps_one_gloss_per_word() {
-        let frame = sample();
+        let frame = sample(false);
         assert_eq!(frame.rows.len(), SAMPLE_ROWS.len());
         assert_eq!(frame.rows[0].text, "你好");
         assert!(
@@ -93,5 +111,19 @@ mod tests {
                 .all(|(text, _)| text != "hi")
         );
         assert!(frame.rows.iter().all(|row| row.index.is_empty()));
+    }
+    #[test]
+    fn physical_sample_has_desktop_numbers_and_paging() {
+        let frame = sample(true);
+        assert_eq!(
+            frame
+                .rows
+                .iter()
+                .map(|r| r.index.as_str())
+                .collect::<Vec<_>>(),
+            ["1", "2", "3", "4", "5"]
+        );
+        assert_eq!(frame.footer.as_deref(), Some("1/2"));
+        assert!(frame.next_page);
     }
 }

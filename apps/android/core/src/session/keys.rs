@@ -14,6 +14,9 @@ impl Session {
         {
             return self.refresh(String::new());
         }
+        if self.physical_input {
+            return self.refresh(String::new());
+        }
         // 刚上屏的名字还在光标前：接着给它的电话、邮箱；刚上屏的词还在光标前：接着给联想词；
         // 刚清空、光标前还是空的：留着「撤销」（`refresh` 会清掉，先拿出来）
         let after_contact = self.after_contact.take();

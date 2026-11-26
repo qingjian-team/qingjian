@@ -128,3 +128,18 @@ Windows 上小键盘数字缺省也是选候选；在「设置 → 候选」把�
 | `u` + 拼音 | 问字（需开启 AI 服务） |
 
 三个平台相同，详见 [日期、算式与特殊字符](../input/shortcuts.md)。双拼与混输下 `v`、`u` 改为 `Shift + V`、`Shift + U`。
+
+## Android 物理键盘
+
+| 操作 | 默认按键 |
+|---|---|
+| 切换当前语言与搭档 | 单击 `Shift`（可改为单击 `Ctrl`、`Ctrl + Alt + Space`） |
+| 上屏高亮候选 / 原样上屏 | `Space` / `Enter`（可交换） |
+| 选择当前页候选 | `1`–`5` |
+| 移动高亮 | `↑` `↓` |
+| 翻页 | `PageUp` / `PageDown` |
+| 编辑拼音光标 | `←` `→`、`Home` / `End` |
+| 删除拼音 | `Backspace` / `Delete` |
+| 清除组字 | `Esc` |
+
+无组字时编辑键交给应用。详见 [Android 物理键盘](../platforms/android.md#物理键盘)。

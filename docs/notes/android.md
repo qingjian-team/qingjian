@@ -190,3 +190,11 @@ PC 设置程序的「高级」页（配置文件、日志、输入日志）在�
 ## 还没做
 
 本机离线语音识别、神经重排、用户主题（PC 主题目录里自己写的主题）。
+
+## 物理键盘
+
+`service/input/physical/Keyboard` 负责 Android down/up、单击修饰键与组合透传，`Composer.onPhysical` 交给 Rust `session/physical`。每页 5 项与高亮在 `PhysicalPage`；输入、方案字符判定、光标编辑、选词调用既有 Engine。快捷键是 `PhysicalShortcuts`，配置语义与桌面 shortcut 一致，不能为它引入 qingjian-platform 的 TLS 依赖。
+
+候选由透明 input view 承载，订阅 CursorAnchorInfo 跟随应用光标，按渲染内容矩形定位、下方不足上翻，窗口外触摸透传且不挤压应用；`StripPainter::paint_physical` 用桌面 `Layout::Vertical`、当前主题和字号，序号、页码与箭头均由渲染器输出。`PhysicalCandidatesView` 只贴位图与转发点击。`onStartInput` 加载输入设置，`onFinishInput` 清理；隐藏软键盘时保留物理组字。输入方案有相同配置缓存，避免重建视图时无条件调用会落下组字的 setter。
+
+设计见 [Android 物理键盘](../design/android-physical-keyboard.md)，运行验收见 [测试步骤](android-physical-keyboard-testing.md)。模拟器构建可传 `-PandroidAbis=x86_64`，默认 arm64-v8a 保持不变。

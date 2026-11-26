@@ -1,10 +1,15 @@
 package app.qingjian.inputmethod.service.input
 
+import app.qingjian.inputmethod.service.input.physical.Caret as PhysicalCaret
+import app.qingjian.inputmethod.service.input.physical.Action as PhysicalAction
+import app.qingjian.inputmethod.service.input.physical.PreeditSnapshot
+
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
 import android.view.KeyEvent
 import android.view.inputmethod.InputConnection
+import android.view.inputmethod.ExtractedTextRequest
 import app.qingjian.inputmethod.core.Engine
 import app.qingjian.inputmethod.core.InputOptions
 import app.qingjian.inputmethod.core.frame.Candidate
@@ -126,7 +131,15 @@ class Composer(private val engine: Engine, private val host: Host) {
         }
 
     /** 九宫格只管中文；英文模式退回全键盘。 */
-    val nineKey: Boolean get() = layout == Settings.Layout.NINE_KEY && chinese
+    var physicalInput = false
+        set(value) {
+            if (field == value) return
+            field = value
+            if (engine.ready) apply(engine.setPhysicalInput(value))
+            applyScheme()
+        }
+
+    val nineKey: Boolean get() = layout == Settings.Layout.NINE_KEY && chinese && !physicalInput
 
     /** 注音（大千）同样只管中文，英文退回全键盘。 */
     val zhuyin: Boolean get() = layout == Settings.Layout.ZHUYIN && chinese
@@ -156,6 +169,38 @@ class Composer(private val engine: Engine, private val host: Host) {
     private val composesLetters: Boolean get() = !directInput && (chinese || japanese || englishCandidates)
 
     private val composing: Boolean get() = preedit.isNotEmpty()
+
+    val hasComposition: Boolean get() = composing
+    private val physicalCaret = PhysicalCaret()
+
+    fun synchronizePhysicalCaret(start: Int, end: Int, composingStart: Int, composingEnd: Int) {
+        if (!physicalInput || !composing) return
+        val cursor = physicalCaret.changed(preedit, start, end, composingStart, composingEnd) ?: return
+        moveCaret(cursor)
+    }
+
+    fun restoreTouchInput() {
+        physicalInput = false
+        host.showKeyboard()
+    }
+
+    /** 物理输入由 Rust 分派；直接字段与未装好的引擎始终透传。 */
+    fun onPhysical(action: Int, codePoint: Int, repeat: Boolean): Boolean {
+        if (directInput || !engine.ready || action == PhysicalAction.CHARACTER && !composesLetters) return false
+        val frame = engine.physicalKey(action, codePoint, repeat) ?: return false
+        apply(frame)
+        return true
+    }
+
+    fun onPhysicalPunctuation(char: Char): Boolean {
+        if (directInput || !engine.ready) return false
+        if (!composing && (!chinese || plainPunctuation || char.isLetterOrDigit())) return false
+        if (char.isLetterOrDigit()) return false
+        onKey(Key.Text(char.toString(), punct = char))
+        return true
+    }
+
+    fun preparePhysicalPassthrough() { if (composing) settle() }
 
     /** 组句处在算式（`v1+2`）或码点里，见 [Frame.expression]。 */
     private var expression = false
@@ -437,7 +482,7 @@ class Composer(private val engine: Engine, private val host: Host) {
      * 有就放在候选条上，选中走 [select]。只显示、不写输入框，所以不会再触发光标变化。
      */
     fun refreshCompletions() {
-        if (composing || !engine.ready) return
+        if (physicalInput || composing || !engine.ready) return
         val before = host.connection?.getTextBeforeCursor(COMPLETION_CONTEXT, 0)?.toString().orEmpty()
         if (!completing && '@' !in before && before.lastOrNull()?.let(engine::mayEndCalculation) != true) return
         val frame = engine.complete(before)
@@ -486,6 +531,14 @@ class Composer(private val engine: Engine, private val host: Host) {
      */
     fun resume(): Boolean {
         if (!composing) return completing
+        if (physicalInput) {
+            val snapshot = host.connection?.getExtractedText(ExtractedTextRequest(), 0)
+            if (snapshot != null && snapshot.selectionStart == snapshot.selectionEnd) {
+                val text = snapshot.text?.toString().orEmpty()
+                val cursor = snapshot.selectionEnd
+                if (cursor in 0..text.length && PreeditSnapshot.split(text.substring(0, cursor), text.substring(cursor), sentPreedits + preedit) == null) return false
+            }
+        }
         composingLost = true
         return true
     }
@@ -498,13 +551,22 @@ class Composer(private val engine: Engine, private val host: Host) {
         if (!composingLost) return
         composingLost = false
         val versions = sentPreedits + preedit
-        val before = connection.getTextBeforeCursor(versions.maxOf { it.length }, 0)?.toString() ?: return
+        val limit = versions.maxOf { it.length }
+        val before = connection.getTextBeforeCursor(limit, 0)?.toString() ?: return
+        if (physicalInput) {
+            val after = connection.getTextAfterCursor(limit, 0)?.toString().orEmpty()
+            PreeditSnapshot.split(before, after, versions)?.let { (beforeCount, afterCount) ->
+                connection.deleteSurroundingText(beforeCount, afterCount)
+                return
+            }
+        }
         val stale = versions.filter { before.endsWith(it) }.maxByOrNull { it.length } ?: return
         connection.deleteSurroundingText(stale.length, 0)
     }
 
     /** 输入框换了或键盘收起：组句不带走。 */
     fun abandon() {
+        handler.removeCallbacks(pollPrediction)
         preedit = ""
         sentPreedits.clear()
         composingLost = false
@@ -531,6 +593,8 @@ class Composer(private val engine: Engine, private val host: Host) {
 
     /** 引擎刚装好：补上输入方案与繁体开关。 */
     fun onEngineReady() {
+        appliedScheme = null
+        apply(engine.setPhysicalInput(physicalInput))
         engine.setPrivate(privateInput)
         applyScheme()
         if (!chinese) applyLanguage()
@@ -539,8 +603,13 @@ class Composer(private val engine: Engine, private val host: Host) {
     }
 
     /** 引擎的输入方案跟着键盘走；引擎装好、换布局、切中英时调。 */
+    private var appliedScheme: List<Any>? = null
+
     fun applyScheme() {
         if (!engine.ready) return
+        val scheme = listOf(language, nineKey, zhuyin, shuangpin, shuangpinScheme, shuangpinRawPreedit, wubi, wubiMixed)
+        if (appliedScheme == scheme) return
+        appliedScheme = scheme
         apply(engine.setNineKey(nineKey))
         apply(engine.setZhuyin(zhuyin))
         apply(engine.setShuangpin(if (shuangpin) shuangpinScheme else "", shuangpinRawPreedit))
@@ -584,12 +653,21 @@ class Composer(private val engine: Engine, private val host: Host) {
         } else {
             null
         }
+        if (physicalInput) physicalCaret.expect(frame.preedit, frame.preeditCursor)
         connection.beginBatchEdit()
         dropStalePreedit(connection)
         if (frame.replace > 0) connection.deleteSurroundingText(frame.replace, 0)
         if (frame.commit.isNotEmpty()) connection.commitText(frame.commit, 1)
         if (frame.preedit.isNotEmpty()) {
             connection.setComposingText(frame.preedit, 1)
+            if (physicalInput && frame.preeditCursor < frame.preedit.codePointCount(0, frame.preedit.length)) {
+                val cursor = frame.preedit.offsetByCodePoints(0, frame.preeditCursor.coerceAtLeast(0))
+                val extracted = connection.getExtractedText(ExtractedTextRequest(), 0)
+                extracted?.let {
+                    val target = it.startOffset + it.selectionEnd - frame.preedit.length + cursor
+                    if (target >= 0) connection.setSelection(target, target)
+                }
+            }
         } else if (frame.commit.isEmpty()) {
             connection.setComposingText("", 1)
             connection.finishComposingText()

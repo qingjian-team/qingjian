@@ -8,7 +8,9 @@ mod display;
 mod follow_up;
 mod keys;
 mod options;
+mod physical;
 mod prediction;
+pub use physical::PhysicalPage;
 mod scheme;
 mod swipe;
 mod voice;
@@ -27,6 +29,11 @@ use dictionaries::Mounted;
 /// 软键盘的操作翻成 Engine 调用；每个操作返回操作之后的一帧。
 pub struct Session {
     engine: Engine,
+
+    pub(crate) physical: PhysicalPage,
+
+    /// 物理输入不保留触屏专用的上屏联想与补全条。
+    physical_input: bool,
 
     /// 上一帧的候选，各个按下标选的操作从这里取。
     candidates: CandidateList,
@@ -109,6 +116,8 @@ impl Session {
             data_dir,
             user_dir,
             engine,
+            physical: PhysicalPage::default(),
+            physical_input: false,
             candidates: CandidateList::default(),
             preedit: String::new(),
             preedit_cursor: 0,
@@ -136,6 +145,7 @@ impl Session {
 
     /// 输入框换了或键盘收起：丢掉组句、断开上文、学习数据落盘。
     pub fn reset(&mut self) {
+        self.physical = PhysicalPage::default();
         self.engine.clear();
         self.engine.break_chain();
         self.engine.note_displayed(std::iter::empty());

@@ -83,3 +83,16 @@ fn the_setting_turns_follow_ups_off() {
     session.set_options(&options);
     assert!(commit_women(&mut session).candidates.is_empty());
 }
+
+#[test]
+fn physical_commit_clears_default_follow_ups_and_touch_restores_them() {
+    let mut s = session();
+    s.set_physical_input(true);
+    let frame = commit_women(&mut s);
+    assert!(frame.preedit.is_empty() && frame.candidates.is_empty());
+    assert!(s.complete("我们").candidates.is_empty());
+    assert!(s.physical_key(3, None, false).is_none());
+    assert!(s.physical_key(1, None, false).is_none());
+    s.set_physical_input(false);
+    assert_eq!(texts(&commit_women(&mut s)), ["一起", "去"]);
+}

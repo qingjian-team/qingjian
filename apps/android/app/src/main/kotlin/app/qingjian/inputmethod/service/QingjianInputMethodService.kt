@@ -1,3 +1,5 @@
+//! Android 输入法服务：生命周期与各显示、输入组件的连接。
+
 package app.qingjian.inputmethod.service
 
 import android.content.ClipData
@@ -9,12 +11,18 @@ import android.content.res.Configuration
 import android.inputmethodservice.InputMethodService
 import android.view.KeyEvent
 import android.view.View
+import android.view.Window
+import app.qingjian.inputmethod.service.candidates.WindowHost
+import android.view.inputmethod.CursorAnchorInfo
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputConnection
 import android.view.inputmethod.InputContentInfo
 import android.view.inputmethod.InputMethodManager
 import android.widget.Toast
 import app.qingjian.inputmethod.R
+import app.qingjian.inputmethod.service.input.physical.Keyboard as PhysicalKeyboard
+import app.qingjian.inputmethod.service.input.configure
+import app.qingjian.inputmethod.service.input.configureAppearance
 import app.qingjian.inputmethod.candidates.CandidateBarView
 import app.qingjian.inputmethod.clipboard.ClipboardImageProvider
 import app.qingjian.inputmethod.clipboard.sync.ClipboardSync
@@ -24,22 +32,20 @@ import org.json.JSONObject
 import app.qingjian.inputmethod.contacts.ContactsSync
 import app.qingjian.inputmethod.core.AppLog
 import app.qingjian.inputmethod.core.Engine
-import app.qingjian.inputmethod.core.InputOptions
 import app.qingjian.inputmethod.core.frame.Candidate
 import app.qingjian.inputmethod.core.store.ClipboardStore
 import app.qingjian.inputmethod.core.store.PhraseItem
 import app.qingjian.inputmethod.core.store.PhraseRules
-import app.qingjian.inputmethod.core.store.Shuangpin
 import app.qingjian.inputmethod.keyboard.KeyboardView
 import app.qingjian.inputmethod.keyboard.ShiftState
 import app.qingjian.inputmethod.keyboard.layout.Key
-import app.qingjian.inputmethod.keyboard.layout.KeyboardLayout
 import app.qingjian.inputmethod.panel.PanelActions
 import app.qingjian.inputmethod.panel.PanelKind
 import app.qingjian.inputmethod.panel.VoicePanel
 import app.qingjian.inputmethod.panel.clipboard.ClipboardPanel
 import app.qingjian.inputmethod.panel.editor.FloatingEditor
 import app.qingjian.inputmethod.panel.editor.PhraseEditor
+import app.qingjian.inputmethod.service.input.CompositionSelection
 import app.qingjian.inputmethod.service.input.Composer
 import app.qingjian.inputmethod.service.input.Language
 import app.qingjian.inputmethod.service.input.enterLabel
@@ -66,6 +72,16 @@ class QingjianInputMethodService :
     private lateinit var engine: Engine
     private lateinit var composer: Composer
     private var panel: InputPanel? = null
+    private lateinit var physical: PhysicalKeyboard
+    private val physicalWindow by lazy {
+        WindowHost(this, engine, composer, { physical.active }) { preedit, candidates -> panel?.bar?.show(preedit, candidates) }
+    }
+    private val physicalDisplay get() = physicalWindow.display
+
+    private fun refreshPhysical() = physicalWindow.refresh(shownPreedit, shownCandidates)
+
+    // 候选由 input view 承载；默认 INVISIBLE 的 candidatesArea 仍会占据布局高度。
+    override fun onCreateCandidatesView(): View? = null
 
     private val game = GameMode(this, this)
 
@@ -130,7 +146,12 @@ class QingjianInputMethodService :
     /** 设置页改了就重建键盘，开着键盘能马上看到。 */
     private val settingsListener = SharedPreferences.OnSharedPreferenceChangeListener { _, _ ->
         contacts.sync()
-        if (!writingSettings) setInputView(onCreateInputView())
+        if (!writingSettings) {
+            physical.reload()
+            Settings.load(this).let { composer.configure(it); engine.configureAppearance(it) }
+            if (panel != null) setInputView(onCreateInputView())
+            refreshPhysical()
+        }
     }
 
     /** 通讯录里的名字（设置里开了才读）。 */
@@ -148,6 +169,8 @@ class QingjianInputMethodService :
         contacts = ContactsSync(this, engine)
         cloud = CloudServices(this, engine)
         composer = Composer(engine, this)
+        physical = PhysicalKeyboard(this, composer) { updateInputViewShown(); refreshPhysical() }
+        physical.start()
         quickTranslate = QuickTranslate(engine) { currentInputConnection }
         voice = VoiceInput(this, engine, this)
         Settings.load(this).let { settings ->
@@ -171,11 +194,15 @@ class QingjianInputMethodService :
         ClipboardSync.removeListener(syncListener)
         Settings.preferences(this).unregisterOnSharedPreferenceChangeListener(settingsListener)
         cloud.stop()
+        physical.stop()
+        physicalDisplay.cancelMode()
         engine.close()
         super.onDestroy()
     }
 
     override fun onCreateInputView(): View {
+        if (physicalWindow.shown) return physicalWindow.createView(shownCandidates)
+        physicalWindow.restoreSoftView()
         // 键盘重建，开着的语音面板跟着没了
         voice.cancel()
         val target = game.target()
@@ -185,20 +212,9 @@ class QingjianInputMethodService :
             gameSettings ?: return@let settings
             settings.copy(heightPercent = gameSettings.size.heightPercent, fullscreenAdapt = false)
         }
-        composer.layout = settings.layout
-        composer.traditional = settings.traditional
-        composer.keepChinese = settings.keepChinese
-        composer.shuangpinScheme = settings.shuangpinScheme
-        composer.shuangpinRawPreedit = settings.shuangpinRawPreedit
-        composer.wubiMixed = settings.wubiMixed
-        composer.options = settings.inputOptions.let { options ->
-            if (gameSettings?.glosses == false) options.copy(learningLanguage = InputOptions.LEARNING_OFF) else options
-        }
-        composer.englishCandidates = settings.englishCandidates
+        composer.configure(settings, gameSettings?.glosses != false)
         engine.setAppearance(settings.theme, settings.textSize.scale)
         cloud.sync(settings)
-        // 布局没变时 layout 的 setter 不会重设方案，双拼方案、混输这些改了也得补上
-        composer.applyScheme()
         val panel = InputPanel(
             this, settings, this,
             stripSource = { highlighted, dark, visibleWidth -> engine.renderStrip(highlighted, dark, visibleWidth) },
@@ -219,15 +235,29 @@ class QingjianInputMethodService :
         val glow = NeonEdgeView(this)
         neon = glow
         panel.addOverlay(glow)
+        panel.bar.show(shownPreedit, shownCandidates)
         return panel.view
     }
 
     /** 游戏键盘不进横屏的全屏编辑（那会盖住游戏），其余照系统的判断。 */
-    override fun onEvaluateFullscreenMode(): Boolean = game.target() == null && super.onEvaluateFullscreenMode()
+    override fun onEvaluateFullscreenMode(): Boolean = !(::physical.isInitialized && physical.active) &&
+        resources.configuration.keyboard != Configuration.KEYBOARD_QWERTY && game.target() == null && super.onEvaluateFullscreenMode()
+
+    override fun onConfigureWindow(win: Window, isFullscreen: Boolean, isCandidatesOnly: Boolean) {
+        super.onConfigureWindow(win, isFullscreen, isCandidatesOnly)
+        physicalWindow.configure(win)
+    }
+
+    override fun onUpdateCursorAnchorInfo(info: CursorAnchorInfo) {
+        super.onUpdateCursorAnchorInfo(info)
+        physicalDisplay.updateAnchor(info)
+    }
 
     override fun onComputeInsets(outInsets: Insets) {
         super.onComputeInsets(outInsets)
-        game.computeInsets(outInsets, window.window?.decorView?.height)
+        val height = window.window?.decorView?.height ?: return
+        if (physicalWindow.installed) physicalDisplay.computeInsets(outInsets, height)
+        else game.computeInsets(outInsets, height)
     }
 
     override val editorPackage: String? get() = currentInputEditorInfo?.packageName
@@ -247,18 +277,31 @@ class QingjianInputMethodService :
     /** 深浅色跟着系统变。 */
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
-        setInputView(onCreateInputView())
+        if (physicalWindow.shown || panel != null) setInputView(onCreateInputView())
+        updateInputViewShown()
+        refreshPhysical()
     }
 
     override fun onStartInput(attribute: EditorInfo, restarting: Boolean) {
         super.onStartInput(attribute, restarting)
+        if (!restarting) physicalDisplay.cancelMode()
+        physicalDisplay.startInput(currentInputConnection)
+        val resumed = restarting && composer.resume()
+        if (!resumed) {
+            composer.abandon()
+            // 重启失败时可能仍保留上一个输入框的物理输入标记，连同旧会话一起清掉。
+            physical.reset()
+        }
         composer.directInput = attribute.wantsDirectInput()
+        if (composer.directInput && physical.active) physical.reset()
         composer.plainPunctuation = attribute.wantsPlainPunctuation()
         composer.privateInput = attribute.wantsPrivacy()
+        Settings.load(this).let { composer.configure(it); engine.configureAppearance(it) }
+        cloud.sync()
         enterLabel = attribute.enterLabel()
         panel?.keyboard?.enterLabel = enterLabel
-        if (!(restarting && composer.resume())) composer.abandon()
         if (attribute.wantsNumbers()) composer.showNumbers()
+        refreshPhysical()
     }
 
     override fun onStartInputView(info: EditorInfo, restarting: Boolean) {
@@ -267,6 +310,9 @@ class QingjianInputMethodService :
             "start input view: ${info.packageName}, inputType 0x${Integer.toHexString(info.inputType)}, " +
                 "imeOptions 0x${Integer.toHexString(info.imeOptions)}, restarting $restarting",
         )
+        if (physicalWindow.shown) return
+        if (physicalWindow.rejectStaleShow()) return
+        if (physicalWindow.installed) setInputView(onCreateInputView())
         game.rememberLandscapeApp(info.packageName)
         if (panel?.stale() == true || game.target() != game.packageName) {
             setInputView(onCreateInputView())
@@ -282,15 +328,11 @@ class QingjianInputMethodService :
         ClipboardSync.changed()
     }
 
-    /** 系统问「该不该显示键盘」：接着实体键盘时缺省不显示，有时候弹不出来先看这一条。 */
-    override fun onEvaluateInputViewShown(): Boolean {
-        val shown = super.onEvaluateInputViewShown()
-        if (!shown) {
-            val config = resources.configuration
-            AppLog.warn("input view not shown: keyboard ${config.keyboard}, hardKeyboardHidden ${config.hardKeyboardHidden}")
-        }
-        return shown
-    }
+    override fun onEvaluateInputViewShown(): Boolean =
+        super.onEvaluateInputViewShown() || physicalWindow.shown
+
+    override fun onShowInputRequested(flags: Int, configChange: Boolean): Boolean =
+        physicalWindow.shown || super.onShowInputRequested(flags, configChange)
 
     override fun onWindowShown() {
         super.onWindowShown()
@@ -303,11 +345,23 @@ class QingjianInputMethodService :
     }
 
     override fun onFinishInputView(finishingInput: Boolean) {
-        super.onFinishInputView(finishingInput)
+        // 默认实现会 finishComposingText；只隐藏软键盘时物理组字需继续。
+        if (!physical.active || finishingInput) super.onFinishInputView(finishingInput)
         voice.cancel()
         closeEditor()
         panel?.close()
+        if (!physical.active) composer.abandon()
+    }
+
+    override fun onFinishInput() {
+        physicalDisplay.cancelMode()
+        currentInputConnection?.requestCursorUpdates(0)
+        physicalDisplay.startInput(null)
         composer.abandon()
+        physical.reset()
+        setCandidatesViewShown(false)
+        physicalWindow.finish()
+        super.onFinishInput()
     }
 
     override fun onUpdateSelection(
@@ -319,8 +373,10 @@ class QingjianInputMethodService :
             oldSelStart, oldSelEnd, newSelStart, newSelEnd, candidatesStart, candidatesEnd,
         )
         if (editor != null) return
-        val moved = newSelStart != candidatesEnd || newSelEnd != candidatesEnd
-        if (candidatesEnd != -1 && moved) composer.onCursorMovedAway()
+        composer.synchronizePhysicalCaret(newSelStart, newSelEnd, candidatesStart, candidatesEnd)
+        if (CompositionSelection.movedAway(physical.active, newSelStart, newSelEnd, candidatesStart, candidatesEnd)) {
+            composer.onCursorMovedAway()
+        }
         if (candidatesEnd == -1 && newSelStart == newSelEnd) composer.refreshCompletions()
     }
 
@@ -338,9 +394,10 @@ class QingjianInputMethodService :
     override fun performEditorAction(): Boolean = editor == null && sendDefaultEditorAction(true)
 
     override fun showComposition(preedit: String, candidates: List<Candidate>) {
+        if (preedit.isNotEmpty() || candidates.isNotEmpty()) physicalDisplay.cancelMode()
         shownPreedit = preedit
         shownCandidates = candidates
-        panel?.bar?.show(preedit, candidates)
+        if (physical.active) refreshPhysical() else panel?.bar?.show(preedit, candidates)
         if (panel?.openPanel == PanelKind.CANDIDATES) {
             if (candidates.isEmpty()) closePanel() else panel?.showCandidates(preedit, candidates, composer.singleChars)
         }
@@ -358,53 +415,20 @@ class QingjianInputMethodService :
     override fun clearComposition() = composer.onKey(Key.Clear)
 
     override fun showKeyboard() {
-        val panel = panel ?: return
-        val keyboard = panel.keyboard
-        val settings = panel.settings
-        keyboard.chinese = composer.chinese
-        keyboard.languageLabel = composer.language.key
-        keyboard.languageHint = composer.partner.key
-        keyboard.languageChoices = Language.entries.map { it.title }
-        keyboard.languageChoice = composer.language.ordinal
-        keyboard.enterLabel = editor?.enterLabel ?: enterLabel
-        val fullWidth = composer.options.fullWidthPunctuation
-        // 滑行只给拼音全键盘与英文键盘（常用语编辑条的英文键盘也算）：双拼、五笔、日语的字母不是这样拼词的
-        keyboard.swipeLayout = composer.page == Composer.Page.LETTERS && (
-            editor?.lettersOnly == true || (!composer.nineKey && !composer.zhuyin && !composer.shuangpin && !composer.wubi && !composer.japanese)
-        )
-        when {
-            composer.page == Composer.Page.NUMBERS -> keyboard.setRows(KeyboardLayout.numbers(), side = true)
-            composer.page == Composer.Page.SYMBOLS -> keyboard.setRows(KeyboardLayout.symbols(composer.chinese, fullWidth))
-            // 常用语的输入码只收字母，九宫格、注音打不出来，换成英文全键盘
-            editor?.lettersOnly == true -> keyboard.setRows(KeyboardLayout.qwerty(chinese = false))
-            composer.nineKey -> keyboard.setRows(KeyboardLayout.nineKey(), side = true)
-            composer.zhuyin -> keyboard.setRows(KeyboardLayout.zhuyin(fullWidth))
-            composer.shuangpin -> keyboard.setRows(
-                KeyboardLayout.shuangpin(
-                    Shuangpin.keycaps(composer.shuangpinScheme), composer.shuangpinScheme, fullWidth,
-                    hints = settings.shuangpinHints,
-                ),
-            )
-            else -> keyboard.setRows(KeyboardLayout.qwerty(composer.chinese, composer.japanese, fullWidth))
-        }
+        panel?.presentKeyboard(composer, editor?.lettersOnly == true, editor?.enterLabel ?: enterLabel)
         showSideItems(emptyList())
     }
 
-    /** 左列：数字键盘上是符号，九宫格组句中是同码拼音，平时是标点。 */
-    override fun showSideItems(pinyinChoices: List<String>) {
-        panel?.keyboard?.setSideItems(
-            when {
-                composer.page == Composer.Page.NUMBERS -> KeyboardLayout.NUMBER_SIDE
-                else -> pinyinChoices.ifEmpty { KeyboardLayout.sidePunctuation(composer.options.fullWidthPunctuation) }
-            },
-        )
+    override fun showSideItems(pinyinChoices: List<String>) = panel?.presentSideItems(composer, pinyinChoices) ?: Unit
+
+    override fun onKey(key: Key, repeat: Boolean) {
+        physical.touch()
+        composer.onKey(key, repeat)
     }
 
-    override fun onKey(key: Key, repeat: Boolean) = composer.onKey(key, repeat)
+    override fun onKeyChoice(text: String) { physical.touch(); composer.onKeyChoice(text) }
 
-    override fun onKeyChoice(text: String) = composer.onKeyChoice(text)
-
-    override fun onLanguageChoice(index: Int) = composer.chooseLanguage(Language.entries[index])
+    override fun onLanguageChoice(index: Int) { physical.touch(); composer.chooseLanguage(Language.entries[index]) }
 
     /** 语言换了：记进设置（自己写的不重建键盘），中英键跟着重画。 */
     override fun onLanguageChanged() {
@@ -415,11 +439,15 @@ class QingjianInputMethodService :
                 .commit()
         }
         showKeyboard()
+        if (physical.active && !composer.directInput) {
+            physicalDisplay.showMode(composer.language.key, composer.language == Language.ENGLISH, ::refreshPhysical)
+            refreshPhysical()
+        }
     }
 
     override fun onCursorMove(steps: Int) = composer.moveCursor(steps)
 
-    override fun onSideItem(item: String) = composer.onSideItem(item)
+    override fun onSideItem(item: String) { physical.touch(); composer.onSideItem(item) }
 
     override fun onSelect(index: Int) = composer.select(index)
 
@@ -509,12 +537,16 @@ class QingjianInputMethodService :
 
     /** 面板开着时系统返回键先关面板。 */
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
+        if (physicalDisplay.modeVisible) {
+            physicalDisplay.cancelMode()
+            refreshPhysical()
+        }
         if (keyCode == KeyEvent.KEYCODE_BACK && event.repeatCount == 0 && panel?.openPanel != null) {
             closePanel()
             backConsumed = true
             return true
         }
-        return super.onKeyDown(keyCode, event)
+        return physical.down(event) || super.onKeyDown(keyCode, event)
     }
 
     override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean {
@@ -522,7 +554,7 @@ class QingjianInputMethodService :
             backConsumed = false
             return true
         }
-        return super.onKeyUp(keyCode, event)
+        return physical.up(event) || super.onKeyUp(keyCode, event)
     }
 
     override fun openSettings() {
@@ -719,7 +751,7 @@ class QingjianInputMethodService :
 
     override fun onVoiceRelease(cancel: Boolean) = voice.release(cancel)
 
-    override fun onSwipe(input: String) = composer.onSwipe(input)
+    override fun onSwipe(input: String) { physical.touch(); composer.onSwipe(input) }
 
     override fun onBackspaceDown() = composer.onBackspaceDown()
 

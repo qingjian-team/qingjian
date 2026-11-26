@@ -11,8 +11,7 @@ import android.view.View
 import app.qingjian.inputmethod.theme.Palette
 
 /**
- * 主题的样子：上面贴渲染器画的候选条（超出的截掉），下面按键盘配色画几排没有字的键，回车键是品牌色。
- * 外观页的大预览与主题卡片共用；高按宽的比例 [aspect] 定。
+ * 外观页的大预览与主题卡片：触屏模式显示候选条与按键，物理键盘模式只贴桌面候选窗位图。
  */
 @SuppressLint("ViewConstructor")
 class ThemePreview(
@@ -23,20 +22,36 @@ class ThemePreview(
     private val aspect: Float,
     /** 键的圆角（dp）。 */
     private val keyRadiusDp: Float,
+    private val physical: Boolean = false,
 ) : View(context) {
     private val density = resources.displayMetrics.density
     private val fill = Paint(Paint.ANTI_ALIAS_FLAG)
     private val src = Rect()
     private val dst = Rect()
     private val key = RectF()
+    private val candidate = RectF()
+    private val bitmapPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         val width = MeasureSpec.getSize(widthMeasureSpec)
+        if (physical) {
+            val inset = 12f * density
+            val scale = strip?.let { minOf(1f, (width - 2f * inset).coerceAtLeast(0f) / it.width) } ?: 1f
+            val bitmapWidth = (strip?.width ?: 0) * scale
+            val bitmapHeight = (strip?.height ?: 0) * scale
+            candidate.set((width - bitmapWidth) / 2f, inset, (width + bitmapWidth) / 2f, inset + bitmapHeight)
+            setMeasuredDimension(width, (bitmapHeight + 2f * inset).toInt())
+            return
+        }
         val stripHeight = strip?.height ?: 0
         setMeasuredDimension(width, stripHeight + (width * aspect).toInt())
     }
 
     override fun onDraw(canvas: Canvas) {
+        if (physical) {
+            strip?.let { canvas.drawBitmap(it, null, candidate, bitmapPaint) }
+            return
+        }
         canvas.drawColor(palette.board)
         val stripHeight = strip?.height ?: 0
         strip?.let { bitmap ->

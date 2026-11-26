@@ -38,6 +38,8 @@ class Engine(context: Context, private val onReady: () -> Unit) {
     /** 候选条的像素中转与位图，只增不减地复用：每次敲键都画一帧，不能每次新开几 MB。 */
     private var stripBuffer: ByteBuffer? = null
     private var stripBitmap: Bitmap? = null
+    private var physicalBuffer: ByteBuffer? = null
+    private var physicalBitmap: Bitmap? = null
 
     /** 候选条的主题与字号档；引擎（重新）装好时照这份交过去。 */
     private var appearance: Pair<String, Float>? = null
@@ -80,6 +82,11 @@ class Engine(context: Context, private val onReady: () -> Unit) {
     }
 
     fun push(codePoint: Int): Frame = Frame.parse(Native.push(handle, codePoint))
+
+    fun setPhysicalInput(active: Boolean): Frame = Frame.parse(Native.setPhysicalInput(handle, active))
+
+    fun physicalKey(action: Int, codePoint: Int, repeat: Boolean): Frame? =
+        if (ready) Native.physicalKey(handle, action, codePoint, repeat)?.let(Frame::parse) else null
 
     fun backspace(repeat: Boolean): Frame = Frame.parse(Native.backspace(handle, repeat))
 
@@ -226,20 +233,31 @@ class Engine(context: Context, private val onReady: () -> Unit) {
     /**
      * 画最新一帧的候选条。返回的位图下次调用时会被改写（复用），只在这一帧里用；没装好或画不出来为 null。
      */
-    fun renderStrip(highlighted: Int, dark: Boolean, visibleWidth: Int): StripImage? {
+    fun renderStrip(highlighted: Int, dark: Boolean, visibleWidth: Int): StripImage? =
+        renderCandidates(false, highlighted, dark, visibleWidth)
+
+    fun renderPhysical(dark: Boolean): StripImage? = renderCandidates(true, -1, dark, 0)
+
+    fun renderPhysicalMode(label: String, english: Boolean, dark: Boolean): StripImage? =
+        renderCandidates(true, -1, dark, 0, label, english)
+
+    private fun renderCandidates(physical: Boolean, highlighted: Int, dark: Boolean, visibleWidth: Int, modeLabel: String? = null, english: Boolean = false): StripImage? {
         if (!ready) return null
-        val meta = Native.renderStrip(handle, highlighted, density, dark, visibleWidth)?.let(::JSONObject) ?: return null
+        val json = if (modeLabel != null) Native.renderPhysicalMode(handle, modeLabel, english, density, dark)
+            else if (physical) Native.renderPhysical(handle, density, dark)
+            else Native.renderStrip(handle, highlighted, density, dark, visibleWidth)
+        val meta = json?.let(::JSONObject) ?: return null
         val width = meta.getInt("width")
         val height = meta.getInt("height")
         if (width <= 0 || height <= 0) return null
         val bytes = width * height * 4
-        val buffer = stripBuffer?.takeIf { it.capacity() >= bytes }
-            ?: ByteBuffer.allocateDirect(bytes).also { stripBuffer = it }
+        val buffer = (if (physical) physicalBuffer else stripBuffer)?.takeIf { it.capacity() >= bytes }
+            ?: ByteBuffer.allocateDirect(bytes).also { if (physical) physicalBuffer = it else stripBuffer = it }
         if (!Native.copyStrip(handle, buffer)) return null
         buffer.position(0).limit(bytes)
-        val bitmap = stripBitmap?.takeIf { it.allocationByteCount >= bytes }
+        val bitmap = (if (physical) physicalBitmap else stripBitmap)?.takeIf { it.allocationByteCount >= bytes }
             ?.apply { if (this.width != width || this.height != height) reconfigure(width, height, Bitmap.Config.ARGB_8888) }
-            ?: Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888).also { stripBitmap = it }
+            ?: Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888).also { if (physical) physicalBitmap = it else stripBitmap = it }
         bitmap.copyPixelsFromBuffer(buffer)
         buffer.clear()
         return StripImage.parse(meta, bitmap)

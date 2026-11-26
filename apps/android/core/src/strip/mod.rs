@@ -2,7 +2,9 @@
 
 mod hit;
 mod meta;
+mod page;
 mod painter;
+pub use page::StripPage;
 
 use qingjian_render::{Preedit, PreeditSegment, PreeditStyle, Row, Tone};
 

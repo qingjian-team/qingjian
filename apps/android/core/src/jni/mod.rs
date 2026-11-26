@@ -11,6 +11,7 @@ mod expression;
 mod logging;
 mod operations;
 mod options;
+mod physical;
 mod shuangpin;
 mod stats;
 mod strip;

@@ -102,7 +102,7 @@ CandidateLayout 保持 `set_cloud` 的首页末尾布局与本地首项；`set_c
 筛码时是词的首条码）写进 `Candidate.aux_code`；码段非空时跳过整句 / 英文 / 快捷 / emoji / 自定义短语
 与云联想。preedit 分段多出 [触发键 `Typed`][码段 `MarkedKind::AuxCode`]，见 `Query::marked_segments`。
 拼音行按哪种切分画是 `Query::spelled`：缺省对着首选候选挑（与候选音节逐个相同的最多，其次是候选音节以敲的开头），壳换了高亮调 `Query::follow`（`ganga` 高亮 尴尬 是 `gan'ga`、刚啊 是 `gang'a`）；
-mac 存在 `Session::spelling`（`Host::follow_highlight`）、Windows / Linux 存在 `Composed::Candidates.spelling`，出帧时比一下高亮候选的切法，不同才重拼。Android 没有高亮移动，只跟首选。
+mac 存在 `Session::spelling`（`Host::follow_highlight`）、Windows / Linux 存在 `Composed::Candidates.spelling`，出帧时比一下高亮候选的切法，不同才重拼。Android 触屏只跟首选，物理键盘可移动候选高亮。
 
 双拼 `Scheme::syllable` 优先解出键位表里的合法音节；解不出且该韵母键含 `v` 时，j / q / x / y + ü 规范化为 ju / qu / xu / yu。只补此前无效的组合，不覆盖微软 `jv` → jue 等既有解码。
 
@@ -876,3 +876,9 @@ Windows Server 受控退出使用 ExitCode 返回以刷新既有 tracing 队列�
 - 存储：Windows 的 `StoreReplica` 和面板各开一个连接，收到非 PNG 图片要留原始字节（`sync_original`），转过的 PNG 算不回原 id。Android 的 `HistoryReplica` 把 id、毫秒和删除状态记在 `clipboard-sync-state.json`，历史文件只有秒；面板和监听直接改历史，所以每次对账。
 - 霓虹灯：Windows 是每台显示器四条贴边的分层窗口（`system/neon/`，`--neon ok|fail` 可单独看效果），Android 是键盘内的 `NeonEdgeView`，要加在 `InputPanel` 的布局里：在输入法视图外再包一层，键盘会贴到屏幕顶上。节奏和颜色两边要一起改。
 - 真机对测用 `cargo run -p qingjian-clipboard-sync --example peer`，内容只在内存，不碰系统剪贴板。
+
+## apps/android 物理键盘
+
+`Session.physical_input` 隔离触屏上屏联想/补全；物理选词结束不留候选，`set_physical_input` 在切换时同步。`StripPainter::paint_mode` 复用桌面状态渲染单格提示（900 ms 生命周期在 `service/candidates/Display`），不会覆盖 Session 候选帧。皮肤预览 API 带 `physical` 参数，硬件连接时用 `Vertical` 样例与数字页码，断开时恢复触屏键位预览。
+
+`Session::physical_key` 把 Android 操作转换为 Engine 调用，`PhysicalPage::SIZE = 5` 决定当前页数字候选与分页。`StripPainter::paint_physical` 复用桌面竖排布局，命中区域换回全列表下标，主题翻页箭头另外放在 `StripMeta::pages`。同内容重画保留导航，内容更新复位；软键盘的 strip 布局保持不变。`service/candidates/Display` 订阅 CursorAnchorInfo，以屏幕矩阵定位光标，`AnchoredFrame` 复用桌面渲染内容矩形而非阴影位图边界，贴近输入行、自动上翻及边缘内收；透明 input view 的 Insets 不占应用内容高度且只让小候选框收触摸；`onShowInputRequested` 接受物理候选显示，旋转与提交清空不创建软键盘。详见 [Android 实现](android.md#物理键盘)。

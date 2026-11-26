@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 物理键盘设置文案。 -->
+<resources>
+    <string name="section_physical_keyboard">Physical keyboard</string>
+    <string name="physical_shift">Tap Shift to switch languages</string>
+    <string name="physical_control">Tap Ctrl to switch languages</string>
+    <string name="physical_ctrl_alt_space">Ctrl + Alt + Space switches languages</string>
+    <string name="physical_enter_candidate">Enter commits the candidate</string>
+    <string name="physical_enter_note">Off: Space commits the candidate and Enter commits the typed text. On: swap these keys.</string>
+    <string name="physical_keyboard_note">Switches between the current language and its paired language. The system physical keyboard setting controls the on-screen keyboard; candidates remain available when it is hidden.</string>
+    <string name="physical_previous_page">Previous page</string>
+    <string name="physical_next_page">Next page</string>
+</resources>

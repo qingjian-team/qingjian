@@ -2,7 +2,7 @@
 
 use serde::Serialize;
 
-use super::StripHit;
+use super::{StripHit, StripPage};
 
 #[derive(Debug, Serialize)]
 pub struct StripMeta {
@@ -10,6 +10,15 @@ pub struct StripMeta {
     pub width: u32,
 
     pub height: u32,
+
+    /// 桌面候选卡片的内容矩形，不含透明阴影留白。
+    pub content_x: u32,
+
+    pub content_y: u32,
+
+    pub content_width: u32,
+
+    pub content_height: u32,
 
     /// 这一行以上是拼音行，壳钉在视口上；以下的候选随横向滚动。
     pub candidates_top: u32,
@@ -19,6 +28,9 @@ pub struct StripMeta {
 
     /// 可点区域，译文在前（先命中）。
     pub hits: Vec<StripHit>,
+
+    /// 桌面主题画出的翻页箭头；软键盘候选条为空。
+    pub pages: Vec<StripPage>,
 
     /// 拼音行上各字之间那道缝的 x（位图像素），第 `i` 个是第 `i` 个字之前；没有拼音行时为空。
     pub preedit_edges: Vec<f32>,
