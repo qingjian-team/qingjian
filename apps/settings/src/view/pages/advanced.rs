@@ -113,6 +113,15 @@ pub fn advanced(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Render
         toggle_info(
             ui,
             page,
+            tr("v_clipboard_cb"),
+            Some(tr("v_clipboard_cb_info")),
+            ("general", "v_mode_clipboard_cb"),
+            page.settings.config.general.v_mode_clipboard_cb,
+            false,
+        )?,
+        toggle_info(
+            ui,
+            page,
             tr("advanced.input_log"),
             Some(tr("advanced.input_log_info")),
             ("general", "input_log"),
