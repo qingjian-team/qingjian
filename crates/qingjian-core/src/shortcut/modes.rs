@@ -147,8 +147,23 @@ fn named<'a>(name: &str, rest: &'a str) -> Option<Mode<'a>> {
     if name == STAT_KEYWORD {
         return Some(Mode::Stat { args: rest });
     }
+    // 位宽可以写在参数里：`vbit;8u;1+2` 与 `vbit8u;1+2` 等价。名字上那些（`bit8`、`bitu`）照旧
+    if name == BIT_KEYWORD
+        && let Some((width, body)) = width_argument(rest)
+    {
+        return Some(Mode::Bit { width, body });
+    }
     let width = parse_bit_width(name)?;
     Some(Mode::Bit { width, body: rest })
+}
+
+/// 参数开头的位宽写法：`8u` / `16` / `u`（64 位无符号），后面接表达式。
+///
+/// 认不出就把整段当表达式 —— `vbit;1+2` 里那个 `1` 是数，不是位宽。
+fn width_argument(rest: &str) -> Option<(BitWidth, &str)> {
+    let (head, body) = rest.split_once([';', '；'])?;
+    let width = parse_bit_width(&format!("bit{}", head.trim()))?;
+    Some((width, body.trim_start()))
 }
 
 /// 带参数子模式的参数：按分号切，全角也认，空段丢掉。
@@ -278,6 +293,23 @@ fn split_colon(body: &str) -> Option<(&str, &str)> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn bit_width_can_come_as_an_argument() {
+        let argument = parse("bit;8u;255+1").expect("子模式");
+        let by_name = parse("bit8u;255+1").expect("子模式");
+        assert_eq!(argument, by_name);
+        // 不写位宽时照旧把整段当表达式：`vbit;1+2` 里那个 1 是数
+        match parse("bit;1+2").expect("子模式") {
+            Mode::Bit { body, .. } => assert_eq!(body, "1+2"),
+            other => panic!("{other:?}"),
+        }
+        // 认不出的位宽也当表达式（`7` 不是合法位宽）
+        match parse("bit;7;1+2").expect("子模式") {
+            Mode::Bit { body, .. } => assert_eq!(body, "7;1+2"),
+            other => panic!("{other:?}"),
+        }
+    }
 
     #[test]
     fn bit_widths() {
