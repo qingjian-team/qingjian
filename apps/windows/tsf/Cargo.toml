@@ -15,10 +15,14 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 qingjian-core.workspace = true
 qingjian-platform.workspace = true
+# 系统界面宿主里的进程内候选窗自己用 GDI 画（`com::candidates::paint`），不链渲染库：
+# 这个 DLL 会被加载进每个应用进程，带上整套渲染库不划算。
 thiserror.workspace = true
 
 [dev-dependencies]
 qingjian-windows-server = { path = "../server" }
+# `window_renders_a_candidate_frame` 把窗口截图存成 PNG，人工看一眼画出来的候选长什么样。
+png = "0.18"
 
 [lints]
 workspace = true
@@ -46,4 +50,7 @@ windows = { version = "0.62.2", features = [
     "Win32_UI_Shell",
     "Win32_UI_TextServices",
     "Win32_UI_WindowsAndMessaging",
+    # 冒烟测试用 PrintWindow 给候选窗截个图（这个绑定在 windows crate 里归在 Storage::Xps 下）；
+    # 只有 `#[cfg(test)]` 的代码用，不进 DLL。
+    "Win32_Storage_Xps",
 ] }

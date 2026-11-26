@@ -4295,6 +4295,7 @@ dependencies = [
 name = "qingjian-windows-tsf"
 version = "0.3.6-dev"
 dependencies = [
+ "png",
  "qingjian-core",
  "qingjian-platform",
  "qingjian-windows-server",
