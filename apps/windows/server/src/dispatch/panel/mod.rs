@@ -120,12 +120,12 @@ impl Router {
                 if !self.pick_into_box(first + offset) {
                     return;
                 }
-                self.recompose();
+                self.recompose(None);
                 true
             }
             PanelMouse::Close => {
                 self.close_panel();
-                self.recompose();
+                self.recompose(None);
                 true
             }
         };

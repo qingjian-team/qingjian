@@ -19,6 +19,9 @@ pub(crate) struct Shared {
     /// Server 上次回的帧非空；决定 `OnTestKeyDown` 要不要吃功能键。
     composing: Cell<bool>,
 
+    /// 联想帧仍需轮询鼠标选词，但没有待编辑的组句文字。
+    following_up: Cell<bool>,
+
     /// 上一记退格刚把组句删空（Server 回 `Deleted`、`composing` 随之变 false）。
     ///
     /// 只有这个状态为真时，自动重复的退格才该被吃下来交给 Server 判 ——
@@ -63,6 +66,7 @@ impl Shared {
             composition: RefCell::new(None),
             preedit: RefCell::new(String::new()),
             composing: Cell::new(false),
+            following_up: Cell::new(false),
             emptied_backspace: Cell::new(false),
             anchor: Cell::new(None),
             context_reported: Cell::new(false),
@@ -113,6 +117,10 @@ impl Shared {
         self.composing.get()
     }
 
+    pub(crate) fn following_up(&self) -> bool {
+        self.following_up.get()
+    }
+
     /// 上一记退格把组句删空了：下一记自动重复要吞掉交给 Server 判（issue #932）。
     pub(crate) fn emptied_backspace(&self) -> bool {
         self.emptied_backspace.get()
@@ -131,6 +139,7 @@ impl Shared {
         }
         // 组句结束：下一段重新报输入框状态、重新定锚点。
         if !value {
+            self.following_up.set(false);
             self.text_box.set(false);
             self.context_reported.set(false);
             self.anchor.set(None);
@@ -156,6 +165,7 @@ impl Shared {
     /// 按 Server 回的帧记下在不在组句、面板是不是停在翻译框。
     pub(crate) fn follow_frame(&self, frame: &Frame) {
         self.set_composing(!frame.is_empty());
+        self.following_up.set(frame.is_code_follow_up());
         self.text_box.set(frame.panel_text_box);
     }
 
@@ -215,8 +225,7 @@ impl Shared {
 
     /// 组句结束（应用终止组句 / 断线 / 失焦上屏）：不再当作在组句，收起应用的候选列表，并让 Server 收候选窗口。
     pub(crate) fn end_composing(&self) {
-        self.composing.set(false);
-        self.text_box.set(false);
+        self.set_composing(false);
         self.translating.set(false);
         self.candidate_list.end();
         self.hide_candidates();

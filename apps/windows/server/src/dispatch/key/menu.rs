@@ -122,7 +122,7 @@ impl Router {
         }
         tracing::info!(?action, notice = %outcome.notice, "候选右键菜单");
         self.notice = Some(outcome.notice);
-        self.recompose();
+        self.recompose(None);
         let shown = self.self_drawn_frame();
         self.reconcile_candidates(&shown);
     }

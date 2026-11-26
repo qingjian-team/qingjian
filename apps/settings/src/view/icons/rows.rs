@@ -10,11 +10,13 @@ use crate::i18n::tr;
 use crate::page_id::PageId;
 
 /// （页，行标题的文案键，图标名）。文案带参数（`{key}`）的按参数前后的字比。
-const ROWS: [(PageId, &str, &str); 80] = [
+const ROWS: [(PageId, &str, &str); 82] = [
     (PageId::Input, "input.pinyin", "keyboard"),
     (PageId::Input, "input.hold_selections", "pages"),
     (PageId::Input, "input.code", "text"),
     (PageId::Input, "input.key_hint", "grid"),
+    (PageId::Input, "input.wubi_candidate_keys", "keyboard"),
+    (PageId::Input, "input.wubi_follow_ups", "sparkle"),
     (PageId::Input, "input.auto_phrase", "sparkle"),
     (PageId::Input, "input.spelling_correction", "spell"),
     (PageId::Input, "input.aux_enabled", "filter"),

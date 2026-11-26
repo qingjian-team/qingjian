@@ -49,6 +49,9 @@ impl Router {
     }
 
     pub(super) fn hide_candidate_window(&mut self) {
+        if self.has_follow_ups() {
+            self.composed = None;
+        }
         self.last_rect = None;
         self.last_shown = None;
         self.candidates.hide();

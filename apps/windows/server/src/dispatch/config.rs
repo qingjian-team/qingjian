@@ -134,6 +134,10 @@ pub struct RouterConfig {
     /// 组句时上屏高亮候选与原样上屏字母的键（`[shortcut] commit_candidate` / `commit_raw`）。
     pub commit_keys: CommitKeys,
 
+    pub wubi_candidate_keys: bool,
+
+    pub wubi_follow_ups: bool,
+
     /// 简繁切换快捷键；与选区翻译相同时不登记，保留翻译行为。
     pub toggle_traditional: Option<KeyCombo>,
 
@@ -222,6 +226,8 @@ impl From<&Config> for RouterConfig {
             page_size: config.general.page_size(),
             cloud_slots: config.predict.slots,
             cloud_enabled: config.predict.enabled,
+            wubi_candidate_keys: config.shortcut.wubi_candidate_keys,
+            wubi_follow_ups: config.general.wubi_follow_ups,
             shift_letter_compose: config.general.shift_letter.compose(),
             numpad_digit: config.general.numpad_digit,
             layout: config.general.layout,

@@ -18,6 +18,8 @@ pub enum Feature {
     Schemes,
     /// 五笔连续上屏的自动组词开关与最大词长。
     AutoPhrase,
+    /// Windows 纯五笔的次选键与上屏后联想。
+    WubiSelection,
     /// 中英文切换键。
     SwitchKeys,
     /// 切换键里的单击 Ctrl 与 Ctrl + Alt + Space：macOS 只认单击 Shift。
@@ -83,10 +85,11 @@ pub enum Feature {
 
 impl Feature {
     #[cfg(test)]
-    pub const ALL: [Self; 37] = [
+    pub const ALL: [Self; 38] = [
         Self::AuxCode,
         Self::Schemes,
         Self::AutoPhrase,
+        Self::WubiSelection,
         Self::SwitchKeys,
         Self::SwitchKeyCombos,
         Self::SystemCtrlSpace,
@@ -144,6 +147,7 @@ impl Feature {
             Self::AuxCode => [Yes, Yes, Todo],
             Self::Schemes => [Yes, Yes, Yes],
             Self::AutoPhrase => [Yes, Yes, Yes],
+            Self::WubiSelection => [No, Yes, No],
             Self::SwitchKeys => [Yes, Yes, Yes],
             // macOS 只做了单击 Shift，Caps Lock 仍是系统那一套
             Self::SwitchKeyCombos => [No, Yes, Yes],
@@ -200,6 +204,7 @@ impl Feature {
             Self::AuxCode => "辅码",
             Self::Schemes => "形码与自定义方案",
             Self::AutoPhrase => "五笔自动组词",
+            Self::WubiSelection => "五笔次选键与上屏后联想",
             Self::SwitchKeys => "中英文切换键",
             Self::SwitchKeyCombos => "单击 Ctrl 与 Ctrl + Alt + Space 切换",
             Self::SystemCtrlSpace => "系统的 Ctrl + Space",
@@ -296,6 +301,7 @@ impl Feature {
                 (PageId::Language, "language.english_pair_punctuation"),
             ],
             Self::SwitchKeyCombos
+            | Self::WubiSelection
             | Self::SystemCtrlSpace
             | Self::EnglishPunctuation
             | Self::StatusBar

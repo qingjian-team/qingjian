@@ -17,7 +17,9 @@ use crate::support::Feature;
 use crate::view::Page;
 use crate::view::parts::actions::with_notice;
 use crate::view::parts::branch::{branch, nested};
-use crate::view::parts::controls::{percent_slider, select, switch, toggle_info, toggle_with};
+use crate::view::parts::controls::{
+    percent_slider, select, switch, toggle, toggle_info, toggle_with,
+};
 use crate::view::parts::lists::{entry_row, import_row, with_actions};
 use crate::view::parts::menus::{code_options, scheme_options};
 
@@ -67,13 +69,37 @@ pub fn input(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderErr
     if Feature::Schemes.here() {
         rows.push(code(ui, page)?);
     }
-    // 字根图只有 86 五笔有
     let roots = general.code().as_deref() == Some(code_schemes::WUBI86);
     if (scheme.is_shuangpin() || roots) && Feature::KeyHint.here() {
         rows.push(key_hint(ui, page)?);
     }
     out.push(section_title(ui, theme, tr("input.section_scheme"))?);
     out.push(nested(ui, page, rows)?);
+
+    if roots && Feature::WubiSelection.here() {
+        let title = if scheme == Scheme::Off {
+            tr("input.section_wubi_selection")
+        } else {
+            tr("input.section_wubi_selection_mixed")
+        };
+        let selection = toggle(
+            ui,
+            page,
+            tr("input.wubi_candidate_keys"),
+            ("shortcut", "wubi_candidate_keys"),
+            config.shortcut.wubi_candidate_keys,
+        )?;
+        let follow_ups = toggle(
+            ui,
+            page,
+            tr("input.wubi_follow_ups"),
+            ("general", "wubi_follow_ups"),
+            general.wubi_follow_ups,
+        )?;
+        out.push(section_title(ui, theme, title)?);
+        out.push(group(ui, theme, &[selection, follow_ups])?);
+    }
+
     if Feature::AutoPhrase.here() {
         let auto_phrase = &config.auto_phrase;
         let enabled = toggle_info(

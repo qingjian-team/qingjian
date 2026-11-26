@@ -44,6 +44,9 @@ impl Router {
     }
 
     pub(super) fn handle_ime_switched(&mut self) {
+        if self.has_follow_ups() {
+            self.hide_candidate_window();
+        }
         self.ime_active = false;
         self.reconcile_status();
     }
@@ -59,6 +62,9 @@ impl Router {
                 }
                 self.english = !self.english;
                 self.vietnamese_mode = false;
+                if self.has_follow_ups() {
+                    self.hide_candidate_window();
+                }
                 self.remember_mode();
                 tracing::debug!(english = self.english, "状态条：切换中英模式");
             }

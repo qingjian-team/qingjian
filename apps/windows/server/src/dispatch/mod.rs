@@ -30,7 +30,7 @@ use qingjian_platform::protocol::{
     CaretEdit, ClientMessage, Frame, IndicatorState, InputSettings, ScreenRect, ServerMessage,
     SessionId,
 };
-use qingjian_platform::{LocalModelConfig, SchemeSlot};
+use qingjian_platform::{CommitKey, LocalModelConfig, SchemeSlot};
 use qingjian_render::Mode;
 
 pub use self::candidates::{
@@ -263,6 +263,8 @@ impl Router {
             show_english_pronunciation: self.config.show_english_pronunciation,
             single_chars: self.config.single_chars,
             next_word: self.config.next_word,
+            wubi_follow_up_space: self.config.wubi_follow_ups
+                && self.config.commit_keys.candidate == CommitKey::SPACE,
         }
     }
 
