@@ -26,7 +26,7 @@ pub fn padding(look: Look) -> f32 {
     match look {
         Look::Plain => 36.0,
         Look::Mac => 24.0,
-        Look::Fluent => 40.0,
+        Look::Fluent => 24.0,
     }
 }
 
