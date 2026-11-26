@@ -37,6 +37,7 @@ On Windows and Linux, the Chinese / English switch can also be a tap of `Ctrl` o
 | Clear | `Esc` | `Esc` | `Esc` |
 | List only single characters (press again to go back; normal candidates return after you commit; can be changed or turned off in Settings) | — | `Ctrl + D` | — |
 | Next word: keep the first word of the top sentence and list choices for the next word (can be changed or turned off in Settings) | — | `Ctrl + V` | — |
+| Pick one character: commit the first character of the highlighted candidate (`Shift` for the last one); the whole word's pinyin ends there (off by default, set the combo in Settings) | — | the combo set in Settings | — |
 | Move the highlight (pages automatically at the edge) | `↑` / `↓` | `↑` / `↓` | `↑` / `↓` |
 | Page | `[` `]`, `PageUp` / `PageDown`, `⇧ + Tab` (previous page); click the arrows beside the page number | `[` `]`, `PageUp` / `PageDown`, `Shift + Tab` (previous page); click the arrows beside the page number, or scroll the mouse wheel over the candidates | `[` `]`, `PageUp` / `PageDown`, `Shift + Tab` (previous page) |
 | Accept the AI sentence completion (next page if there is none) | `Tab` | `Tab` | `Tab` |

@@ -401,6 +401,11 @@ single_chars_info = "While composing, press the shortcut to list only single cha
 next_word = "Next-word key"
 next_word_info = "While composing, press the shortcut to keep the first word and pick the next; Backspace undoes it"
 ctrl_key = "Ctrl"
+pick_char = "Pick one character from the word"
+pick_char_info = "While composing, press this to commit the first character of the highlighted candidate; hold Shift for the last one. The whole word's pinyin is consumed. Off by default"
+pick_char_key_info = "While composing, take the first character of the highlighted candidate (Shift for the last)"
+unset = "Not set"
+next_word_key_info = "Press while typing to keep a word and move to the next one"
 
 [shortcut]
 clipboard = "Open clipboard"

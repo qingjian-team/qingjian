@@ -28,11 +28,13 @@ pub enum Shortcut {
     SingleChars,
     /// 组句时按词跳（只在组句时拿走）。
     NextWord,
+    /// 组句时以词定字：按一下取高亮候选的第一个字，带 Shift 取最后一个字。
+    PickChar,
 }
 
 impl Shortcut {
     #[cfg(test)]
-    pub const ALL: [Self; 12] = [
+    pub const ALL: [Self; 13] = [
         Self::Translation,
         Self::TranslationSecond,
         Self::TranslateSelection,
@@ -45,6 +47,7 @@ impl Shortcut {
         Self::CommitRaw,
         Self::SingleChars,
         Self::NextWord,
+        Self::PickChar,
     ];
 
     pub fn title(self) -> &'static str {
@@ -61,6 +64,7 @@ impl Shortcut {
             Self::CommitRaw => tr("shortcut.commit_raw"),
             Self::SingleChars => tr("shortcut.single_chars"),
             Self::NextWord => tr("shortcut.next_word"),
+            Self::PickChar => tr("shortcut.pick_char"),
         }
     }
 
@@ -79,6 +83,7 @@ impl Shortcut {
             Self::CommitRaw => ("shortcut", "commit_raw"),
             Self::SingleChars => ("shortcut", "single_chars"),
             Self::NextWord => ("shortcut", "next_word"),
+            Self::PickChar => ("shortcut", "pick_char"),
         }
     }
 
@@ -92,7 +97,8 @@ impl Shortcut {
             | Self::TranslatePanel
             | Self::Clipboard
             | Self::SingleChars
-            | Self::NextWord => tr("shortcut.prompt_combo"),
+            | Self::NextWord
+            | Self::PickChar => tr("shortcut.prompt_combo"),
             Self::AuxCodeKey => tr("shortcut.prompt_symbol"),
             Self::CommitCandidate | Self::CommitRaw => tr("shortcut.prompt_commit"),
         }
@@ -121,6 +127,11 @@ impl Shortcut {
             Self::NextWord => {
                 combo_label(shortcut.next_word.unwrap_or(KeyCombo::NEXT_WORD_DEFAULT))
             }
+            // 以词定字缺省关着：没配就显示「未设置」（`shortcut.unset`）
+            Self::PickChar => shortcut
+                .pick_char
+                .map(combo_label)
+                .unwrap_or_else(|| tr("shortcut.unset").to_owned()),
         }
     }
 
@@ -158,6 +169,7 @@ impl Shortcut {
                     .next_word
                     .unwrap_or(KeyCombo::NEXT_WORD_DEFAULT),
             ),
+            Self::PickChar => config.shortcut.pick_char,
             _ => None,
         }
     }
@@ -264,7 +276,7 @@ impl Shortcut {
                 }
                 Ok(combo.key_string())
             }
-            Self::SingleChars | Self::NextWord => {
+            Self::SingleChars | Self::NextWord | Self::PickChar => {
                 let key = match &press.key {
                     KeyCode::Character(text) => {
                         single(text).filter(|key| key.is_ascii_alphanumeric())
@@ -290,10 +302,25 @@ impl Shortcut {
                         return Err(tr_args("shortcut.clash", &[("other", &other.title())]));
                     }
                 }
-                // 两个都只在组句时拿走：单字模式与按词跳不能是同一个键
-                for other in [Self::SingleChars, Self::NextWord] {
+                // 这几项都只在组句时拿走，彼此不能是同一个键
+                for other in [Self::SingleChars, Self::NextWord, Self::PickChar] {
                     if other != self && other.combo(config) == Some(combo) {
                         return Err(tr_args("shortcut.clash", &[("other", &other.title())]));
+                    }
+                }
+                // 以词定字不能与翻页键撞（缺省是 `[` `]`，用户换了哪组就避开哪组）
+                if self == Self::PickChar {
+                    let (previous, next) = config.general.page_keys();
+                    let extra: Vec<char> = qingjian_platform::PAGE_KEY_OPTIONS
+                        .iter()
+                        .filter(|pair| config.shortcut.extra_page_keys.contains(pair))
+                        .flat_map(|pair| pair.chars())
+                        .collect();
+                    if key == previous || key == next || extra.contains(&key) {
+                        return Err(tr_args(
+                            "shortcut.is_page_key",
+                            &[("key", &key.to_string())],
+                        ));
                     }
                 }
                 // 组句中「译词修饰键 + 数字」上屏译词

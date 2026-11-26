@@ -401,6 +401,11 @@ next_word_info = "組句時按快捷鍵先定下第一個詞，再選下一個�
 enter_translation_info = "回車上屏高亮候選的譯詞，沒有譯詞時照舊上屏拼音"
 ctrl_key = "Ctrl"
 enter_translation = "回車優先上屏譯詞"
+pick_char = "以詞定字快捷鍵"
+pick_char_info = "打字時按下面的鍵取高亮候選的第一個字，按住 Shift 再按取最後一個字；取完這段拼音就結束。預設關閉"
+pick_char_key_info = "打字時按它取高亮候選的第一個字（Shift 取最後一個）"
+unset = "未設定"
+next_word_key_info = "打字時按它定住一個詞、跳到下一個詞"
 
 [shortcut]
 translation = "上屏第一個譯詞"

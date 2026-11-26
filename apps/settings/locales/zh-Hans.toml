@@ -401,6 +401,11 @@ single_chars_info = "组句时按快捷键只列单字，再按一次恢复"
 next_word = "按词跳快捷键"
 next_word_info = "组句时按快捷键先定下第一个词，再选下一个；退格撤回"
 ctrl_key = "Ctrl"
+pick_char = "以词定字快捷键"
+pick_char_info = "打字时按下面的键取高亮候选的第一个字，按住 Shift 再按取最后一个字；取完这段拼音就结束。缺省关着"
+pick_char_key_info = "打字时按它取高亮候选的第一个字（Shift 取最后一个）"
+unset = "未设置"
+next_word_key_info = "打字时按它定住一个词、跳到下一个词"
 
 [shortcut]
 clipboard = "呼出剪贴板"
