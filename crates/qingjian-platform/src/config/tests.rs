@@ -115,6 +115,13 @@ fn general_and_shortcut_sections_parse() {
     );
     assert_eq!(config.shortcut.switch_mode, SwitchKeys::default());
     assert!(config.general.english_mode);
+    assert!(config.general.menubar_indicator);
+}
+
+#[test]
+fn menubar_indicator_can_be_disabled() {
+    let config: Config = toml::from_str("[general]\nmenubar_indicator = false\n").unwrap();
+    assert!(!config.general.menubar_indicator);
 }
 
 #[test]
@@ -206,6 +213,8 @@ fn per_scheme_code_rules_go_into_nested_sections() {
     std::fs::write(&path, "[general]\ncode = \"wubi86\"\n").unwrap();
     Config::set_value(&path, "code.wubi86", "top", false).unwrap();
     Config::set_value(&path, "code.wubi86", "auto_commit", true).unwrap();
+    Config::set_value(&path, "code.wubi86", "mixed_auto_commit", true).unwrap();
+    Config::set_value(&path, "code.wubi86", "mixed_top", false).unwrap();
     Config::set_value(&path, "code.huma", "top", true).unwrap();
     let text = std::fs::read_to_string(&path).unwrap();
     assert!(text.contains("[code.wubi86]") && !text.contains("[code]\n"));
@@ -215,6 +224,8 @@ fn per_scheme_code_rules_go_into_nested_sections() {
         CodeRules {
             auto_commit: Some(true),
             top: Some(false),
+            mixed_auto_commit: Some(true),
+            mixed_top: Some(false),
         }
     );
     assert_eq!(config.code_rules("huma").top, Some(true));
@@ -243,6 +254,7 @@ fn setters_keep_the_rest_of_an_inline_table_section() {
         CodeRules {
             auto_commit: Some(true),
             top: Some(true),
+            ..CodeRules::default()
         }
     );
     // 改过的分节照旧写成标准表。

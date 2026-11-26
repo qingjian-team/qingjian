@@ -30,6 +30,8 @@ pub enum Feature {
     EnglishPunctuation,
     AutoSpace,
     StatusBar,
+    /// macOS 菜单栏的「中 / 英」状态项。
+    MenubarIndicator,
     /// 横排时 ↑ / ↓ 展开成多行。
     HorizontalGrid,
     /// 横排时翻页键也展开成多行。
@@ -77,11 +79,13 @@ pub enum Feature {
     PairPunctuation,
     /// 竖排窗口在光标上方时倒着排。
     VerticalReverseAbove,
+    /// 组句时朗读当前高亮候选的快捷键（Windows 用系统语音）。
+    Pronounce,
 }
 
 impl Feature {
     #[cfg(test)]
-    pub const ALL: [Self; 36] = [
+    pub const ALL: [Self; 38] = [
         Self::AuxCode,
         Self::Schemes,
         Self::AutoPhrase,
@@ -93,6 +97,7 @@ impl Feature {
         Self::EnglishPunctuation,
         Self::AutoSpace,
         Self::StatusBar,
+        Self::MenubarIndicator,
         Self::HorizontalGrid,
         Self::GridPageKeys,
         Self::CommitKeys,
@@ -118,6 +123,7 @@ impl Feature {
         Self::CandidateFontWeight,
         Self::PairPunctuation,
         Self::VerticalReverseAbove,
+        Self::Pronounce,
     ];
 
     /// 当前平台显示这一项。
@@ -153,6 +159,8 @@ impl Feature {
             Self::AutoSpace => [Yes, Yes, Todo],
             // macOS 看菜单栏图标，Linux 看 Fcitx5 的托盘
             Self::StatusBar => [No, Yes, No],
+            // 只有 macOS 自己放了一个菜单栏状态项
+            Self::MenubarIndicator => [Yes, No, No],
             Self::HorizontalGrid => [Yes, Yes, Todo],
             Self::GridPageKeys => [Yes, Yes, Todo],
             // macOS 的空格走 insertText、回车走 insertNewline:，要另接
@@ -176,6 +184,8 @@ impl Feature {
             // Windows、Linux 的服务进程还没接知意；没有 GPU 时 CPU 上打分要发烫，先只开 macOS（Metal）
             Self::ExperimentalModels => [Yes, Yes, Todo],
             Self::Clipboard => [Yes, Yes, Todo],
+            // 朗读接的是 Windows 的 SAPI
+            Self::Pronounce => [Todo, Yes, Todo],
             Self::NumpadDigit => [Todo, Yes, Todo],
             // Fcitx 面板与应用里的行内拼音共用一串，还没分开
             Self::ShuangpinRawWindow => [Yes, Yes, Todo],
@@ -203,6 +213,7 @@ impl Feature {
             Self::EnglishPunctuation => "英文标点全半角",
             Self::AutoSpace => "中文与英文、数字之间自动加空格",
             Self::StatusBar => "悬浮状态条",
+            Self::MenubarIndicator => "菜单栏中 / 英状态项",
             Self::HorizontalGrid => "横排时 ↑ / ↓ 展开成多行",
             Self::GridPageKeys => "横排时翻页键展开成多行",
             Self::CommitKeys => "上屏键自定义",
@@ -228,6 +239,7 @@ impl Feature {
             Self::CandidateFontWeight => "候选字粗细",
             Self::VerticalReverseAbove => "竖排在光标上方时倒着排",
             Self::PairPunctuation => "成对符号自动补全",
+            Self::Pronounce => "发音（朗读高亮的候选）",
         }
     }
 
@@ -249,6 +261,7 @@ impl Feature {
             Self::DefaultEnglish => &[(PageId::Language, "language.default_english")],
             Self::RememberModePerApp => &[(PageId::Language, "language.remember_per_app")],
             Self::AutoSpace => &[(PageId::Language, "language.auto_space")],
+            Self::MenubarIndicator => &[(PageId::Language, "language.menubar_indicator")],
             Self::ExtraPageKeys => &[(PageId::Shortcuts, "shortcuts.extra_page_keys")],
             Self::EnterTranslation => &[(PageId::Shortcuts, "shortcuts.enter_translation")],
             Self::CommitKeys => &[
@@ -270,6 +283,7 @@ impl Feature {
             ],
             Self::VocabularyTranslation => &[(PageId::Cloud, "cloud.vocabulary_translation")],
             Self::TranslatePanel => &[(PageId::Shortcuts, "shortcut.translate_panel")],
+            Self::Pronounce => &[(PageId::Shortcuts, "shortcut.pronounce")],
             Self::KeyHint => &[(PageId::Input, "input.key_hint")],
             Self::ShowTones => &[(PageId::Candidates, "candidates.show_tones")],
             Self::NumpadDigit => &[(PageId::Candidates, "candidates.numpad_digit")],

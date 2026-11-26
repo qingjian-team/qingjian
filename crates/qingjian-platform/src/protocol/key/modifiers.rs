@@ -10,15 +10,19 @@ use crate::config::Modifiers;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct KeyModifiers {
     /// Ctrl
+    #[serde(default)]
     pub ctrl: bool,
 
     /// Shift
+    #[serde(default)]
     pub shift: bool,
 
     /// Alt
+    #[serde(default)]
     pub alt: bool,
 
     /// Win（⊞）
+    #[serde(default)]
     pub win: bool,
 
     /// Caps Lock 亮着（锁定状态，不是按着）。管字母大小写；亮着时无论中英文模式都直接出大写英文（微软拼音式）。

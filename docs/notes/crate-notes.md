@@ -107,8 +107,10 @@ mac 存在 `Session::spelling`（`Host::follow_highlight`）、Windows / Linux �
 编码按前缀查表，`CandidateKind::Code` 的候选 `syllables` 为空、上屏吃掉整段作用域（`whole_scope`）。只用形码时 `query_code` 照拼音配 emoji（`insert_emoji` 也认 `Code`）与「日期 / 时间 / 星期」的快捷写法，`rq` / `sj` / `xq` 的快捷候选插在编码打全的词之后（这几个也是常用字的编码前缀）；混输的拼音那半自己配，形码这半不再配。
 混输是「拼音那条 Query 前面插上形码候选」：拼音读不出来时（`ggll`）整个按形码走，两边都空才算错；
 按文本去重，编码打全的形码词在前、拼音居中、只命中前缀的形码词垫后（一律形码在前的话 `kai` 的首选会变成编码 `kaik` 的词）；混输下模式键同双拼换成大写，满码长度（`CodeScheme::code_length`，缺省取 `CodeTable::full_code_len` 即最常见的编码长度，五笔是 4；极点码表里有条写错的 5 码 `TF卡 ttfhh`，取最长会把满码拖成 5）以内不做拼写纠错，超出码长自然只剩拼音。
-只用形码时还有两条按键规则（`engine/code_keys.rs`，混输下都不生效）：`code_tops(c)` 判断满码再敲字母要不要先顶字，由壳上屏**高亮**候选再收这个字母；
+形码的两条按键规则在 `engine/code_keys.rs`：`code_tops(c)` 判断满码再敲字母要不要先顶字，由壳上屏**高亮**候选再收这个字母；
 `commit_unique_code()` 在壳每收一个字母后调，全码满码且码表里只有一个词时 Core 自己按首选上屏（走完整 `query` 拿出 Core 的那份候选，繁体输出照样对）。
+纯形码沿用 `auto_commit` / `top`；混输单独用 `mixed_auto_commit` / `mixed_top`，缺省都关。五笔恰好 4 码才判唯一，短码不上屏，静态表与学习词共同判重。
+混输开启 `mixed_top` 时前缀形码也排到拼音前，满码后的下一字母顶出高亮候选并起新码；不开启时候选顺序与连续拼音保持原样。`composing_code()` 仍只认纯形码，不改变混输的标点和空码处理。
 `composing_code()` 告诉壳「单用形码、缓冲区是一段编码」：壳据此让会转全角的标点总是先上屏高亮候选（不看 `punct_commits`），
 编码查不到词（空码）时 `commit_highlighted` 清掉编码而不是原样上屏字母（回车仍原样上屏）。
 码表里编码不全是字母的行在 `CodeTable::parse` 时跳过（形码查询只收小写字母）。
@@ -158,6 +160,16 @@ mac 存在 `Session::spelling`（`Host::follow_highlight`）、Windows / Linux �
   冻结回放里 上屏（shangping）被 商品、这俩（zhelia）被 这里、肃然 被 虽然 顶掉，词首选 −15、整句 −22。
   读不通时照旧噪声信道比。开关 `[general] spelling_correction`（`Engine::set_spelling_correction`，CLI `--no-spelling-correction`，缺省开）：
   关掉后 `find_correction` 直接返回、`expand_positions` 不加敲错边，个人敲错表留着不用。
+- 零声母简写（`parser`、`Syllable::implied`）：标准简拼「零声母音节用韵头的单韵母代表」——`a` 代表 a / ai / an / ang / ao，
+  `e` 代表 e / ei / en / eng / er，`o` 代表 o / ou，按「音节在不在串里」决定吃掉几个字母（`ao` 整段吃掉 = 奥秘的简拼，
+  `aquan` 的 `a` 只吃一个字母，代表 `an`）。`Syllable.text` 仍是敲的字母（拼音行、覆盖长度、学习记录都用它），
+  `implied` 只在 `pattern()` 里生效且是完整音节。三条边界：末段只剩一个字母时不展开（`xia` 的 `a` 是「啊」，
+  再产 `xi` + `a(an)` 会把「先 / 想」挤出首位）；从长串里猜出来的简写排在同样长的全拼切分后面（否则 `rengemianju`
+  会变成「仍恩面具」）；用户自己用 `'` 封出来的单字母段（`e'liao` 的 `e`）不降权，而且这种输入不给整句候选
+  （`converting::insert_sentence` 直接返回 —— 用它拼整句净出「嗯聊」这类东西，还会把 饵料 挤到第二）。
+  开关 `[general] zero_initial_abbreviation`（`Engine::set_zero_initial_abbreviation`，CLI `--zero-initial-abbreviation`，
+  缺省关）：关着时切分与不带这个功能完全一致，只作用于全拼（双拼 / 注音不进 `parser::segment`）。下发用线程本地而不是全局静态，
+  测试并行时一条用例打开不影响别的用例（`engine/tests` 的 `Abbreviation` 守卫负责开关回来）。
 
 通讯录（`contacts/`、`engine/contacts.rs`，设计见 `docs/design/contacts.md`）：`ContactBook::build` 把壳交来的 `Contact` 收成名字词库（TSV 拼出来再 `Dictionary::parse`，词频 `NAME_FREQUENCY` = 1000，只够进整句词图）与名字 → 内容表。
 读音先看多音字姓（`contacts/surname.rs`），再试整词在主词库里的读音（各字读音组合最多 32 种），否则逐字取 `zhuyin::tone::readings` 的第一个；单字表没有的字由 `Engine::set_contacts` 扫一遍主词库的单字词条补。
@@ -436,7 +448,7 @@ Common Crawl、CSL、SkyPile、C4 的统计），可按 GPL-3.0-or-later 使用�
 `shuangpin_schemes`：用户双拼方案的发现，与形码共用 `schemes/` 目录与 id 规则，`scheme.toml` 写 `type = "shuangpin"` 的才算（形码那边见到它跳过）；
 `base` 拿内置方案当底子，`[initials]` / `[finals]` / `[zero]` 按键（零声母按音节）整条替换。内置九套仍编在 Core 里：回放与 CLI 不依赖外部文件，日志里的 `xiaohe` 永远是同一套键位。
 `SchemeSlot`（`scheme/slot.rs`）是壳持有的「装着哪套」，两侧一起装：每次配置热加载都按配置重新找方案，但形码方案（含规则）与码表文件的修改时间、长度都没变时不重读码表——
-热加载多半是改了别的设置，8.9 万条每次重读是白花的；只改了 `[code.<id>]` 的规则走 `Engine::set_code_rules`，也不重读。
+热加载多半是改了别的设置，8.9 万条每次重读是白花的；只改了 `[code.<id>]` 的规则走 `Engine::set_code_rules` / `set_mixed_code_rules`，也不重读。混输两个开关只在用户配置中显式启用，不继承方案自带的纯形码开关。
 双拼键位表很小，每次重读、变了才换进引擎。`SchemeSlot::apply` 直接收 `&Config`，三条输入（拼音侧、形码 id、规则）都从配置取。
 `SchemeSlot::prepare` 可在后台完成查找与码表加载，返回 `PreparedScheme`；`apply_prepared` 只更新内存中的引擎与方案身份，不访问文件系统。准备时携带当前码表是否仍已装入的状态，保留未变码表及只改规则时的复用行为。
 id 不能撞拼音侧的写法与日志里的 `wubi`（`is_valid_id`），因为输入日志把两侧拼成 `<拼音>+<形码键>`，86 五笔的日志键沿用 `wubi`（`CodeSchemeEntry::log_key`）。
@@ -510,6 +522,8 @@ Windows Server 自绘候选窗（GDI）按 `Frame.columns` / `column_ems` 画矩
 界面文案：每个有界面文字的 crate（设置程序、core、platform）各有 `locales/<语言>.toml`，在自己的 `i18n.rs` 里用 `catalog!` 声明、编译时嵌入，
 代码里写 `tr("节.键")` / `tr_args("节.键", &[("名", &值)])`。简体中文是源语言，所有键都要有；英文是回退链的一环，也要全；其余语言缺的键退到英文再退到中文。
 每个 crate 的 `i18n.rs` 有一条测试核对各语言没有废键、占位参数与源语言一致、英文不缺键。
+改文案或审译文时用 `tools/i18n/review.py` 出一张多语言对照网页（一个键一行、每种语言一列；缺省列工作区比 HEAD 改过的键，`--all` 列全部并标出未译的）。
+繁体中文用台湾用语（視窗、檔案、設定、匯入、預設…；量詞與地名寫「台」不寫「臺」，同系統介面），示例里输入法打出来的简体字照原样留着。
 
 界面语言是进程级的：`Config::load` 读到 `[general] ui_language` 就 `set_locale`（`GeneralConfig::ui_locale`）。没写时是简体中文：不少中文用户的系统首选语言是英文，跟随系统会让他们一升级就看到英文；写 `system` 才跟随系统（`sys-locale`，中文按简繁归成 `zh-Hans` / `zh-Hant`）。
 比对中文文案的测试先 `pin_locale("zh-Hans")`：测试并行跑，固定之后读配置处的 `set_locale` 不再改它。
@@ -846,7 +860,7 @@ Windows Server 受控退出使用 ExitCode 返回以刷新既有 tracing 队列�
 - 粘贴：写剪贴板 → 等 80 ms 面板藏好 → 切回呼出前的前台窗口 → 等 40 ms → 模拟 Ctrl+V。目标窗口是管理员权限时模拟按键会被系统拦下，内容留在剪贴板上。
 - 代码卡片一行是一个 `Visual::RichText`，分片段上色、照常折行，不要拆成横排的多个节点（折不了行）。
 - 进程启动后第一次打开面板约 0.7 秒：第一次开输入法（`set_ime_allowed`）要阻塞约 500 ms 等文字服务加载，启动时藏着窗口预先开没有用。所以面板的输入法开了就不再关（秘密输入除外），之后打开约 0.26 秒；整窗重画只要约 37 ms（2880 宽），不是瓶颈。
-- 外观用 bamboo-slip 的 Fluent 预设（`WidgetColors::fluent`、`WidgetTheme::fluent`）与系统强调色（`Accent::system`）；Windows 11 22H2 起且没关透明效果时开亚克力（`WindowOptions::acrylic`，走 winit 的接口，不要自己延伸窗口框架：系统会把标题栏按钮画进内容区）。类型色、代码高亮色留在 `palette.rs`。
+- 外观用 bamboo-slip 的 Fluent 预设（`WidgetColors::fluent`、`WidgetTheme::fluent`）与系统强调色（`Accent::system`）；Windows 11 22H2 起且没关透明效果时开亚克力（`WindowOptions::backdrop` 给 `Backdrop::Transient`，走 winit 的接口，不要自己延伸窗口框架：系统会把标题栏按钮画进内容区）。类型色、代码高亮色留在 `palette.rs`。
 - 配置在输入法的 `config.toml`：`[clipboard] enabled`、`edge` 与 `[shortcut] clipboard`。剪贴板进程不依赖 `qingjian-platform`（`ClipSettings` 自己读这几个键），两边写法要一起改。监听线程每秒看一次文件修改时间，快捷键与方向不用重启。
 - 托盘（`system/tray.rs`，原生菜单）：打开面板、暂停记录、设置（同目录有设置程序才有）、开机启动（只有单独运行时有，写 HKCU Run；由输入法拉起时归输入法）、退出。由输入法拉起时退出等于关掉总开关。纯消息窗口弹不了菜单，托盘单独一个不显示的窗口。
 - 同时有文件列表和位图（有的程序复制图片时给一个临时文件加几种图片格式）按图片记，文件列表也留着；粘贴时写回图片，文件还在才加文件列表。图太大退回只记路径。去重只看图片内容，同一张图每次的临时路径不同。

@@ -1,8 +1,8 @@
 //! 按键怎么作用到 Engine / 高亮上。分流规则与 macOS 壳的 `handle_text` / `handle_command` 对齐。
 
 use qingjian_core::candidate::arrows::{self, Arrow, ArrowAction, Focus};
-use qingjian_core::{CandidateKind, PairEdit, QUESTION_PREFIX, punctuation};
-use qingjian_platform::protocol::{CaretEdit, KeyEvent};
+use qingjian_core::{Backspace, CandidateKind, PairEdit, QUESTION_PREFIX, punctuation};
+use qingjian_platform::protocol::{CaretEdit, KeyEvent, KeyModifiers};
 use qingjian_platform::{CommitRoute, HighlightKeys, NumpadDigit};
 
 use super::{Effect, codes, with_prefix};
@@ -57,6 +57,33 @@ impl Router {
                 Some(text) => Effect::Changed((!text.is_empty()).then_some(text)),
                 None => Effect::Navigated,
             };
+        }
+        // 以词定字：组句中按快捷键取高亮候选的第一个字，带 Shift 取最后一个字。
+        // 这一下把整段拼音吃掉（取字用的是这个词的读音），所以不必再问剩下的拼音怎么处理。
+        if self.composing()
+            && self.config.pick_char.is_some_and(|combo| {
+                let plain: KeyModifiers = combo.modifiers.into();
+                let shifted = KeyModifiers {
+                    shift: true,
+                    ..plain
+                };
+                event.virtual_key == combo.key.to_ascii_uppercase() as u32
+                    && (event.modifiers.chord() == plain || event.modifiers.chord() == shifted)
+            })
+        {
+            let Some(candidate) = self.layout_candidate(self.highlight) else {
+                return Effect::Navigated;
+            };
+            let index = if event.modifiers.shift {
+                candidate.text.chars().count().saturating_sub(1)
+            } else {
+                0
+            };
+            // 取不出字（云端词、字数与音节数对不上）就吃掉这一下，别把组合键漏给应用
+            let Some(single) = self.engine.pick_char(&candidate, index) else {
+                return Effect::Changed(None);
+            };
+            return Effect::Changed(Some(self.engine.commit(&single)));
         }
         if let Some(effect) = self.apply_commit_key(event) {
             return effect;
@@ -177,13 +204,22 @@ impl Router {
 
     /// 退格 / Esc / 回车 / Tab / 方向键；没在组句时都交还应用。
     fn apply_function_key(&mut self, event: &KeyEvent) -> Effect {
+        // 退格先问 Core：组句刚被删空之后那一记重复要吞在输入法里（issue #932），
+        // 别让它接着删掉应用里已经上屏的字；Core 说 `Released` 才真的交给应用。
+        if event.virtual_key == codes::BACK {
+            return match self.engine.backspace(event.repeat) {
+                Backspace::Released => {
+                    // 删的是应用里刚上屏的字：自动空格据此知道光标前还是不是那个字
+                    self.engine.note_backspace();
+                    Effect::Passthrough
+                }
+                Backspace::Deleted | Backspace::Held => Effect::Changed(None),
+            };
+        }
         if !self.composing() {
-            match event.virtual_key {
+            if event.virtual_key == codes::RETURN {
                 // 回车交给应用：文本流里是一个段落边界（macOS 壳同样记）
-                codes::RETURN => self.engine.note_passthrough('\n'),
-                // 删的是应用里刚上屏的字：自动空格据此知道光标前还是不是那个字
-                codes::BACK => self.engine.note_backspace(),
-                _ => {}
+                self.engine.note_passthrough('\n');
             }
             return Effect::Passthrough;
         }
@@ -196,10 +232,6 @@ impl Router {
             return Effect::Changed(Some(self.restore_bare_question(english)));
         }
         match event.virtual_key {
-            codes::BACK => {
-                self.engine.backspace();
-                Effect::Changed(None)
-            }
             codes::ESCAPE => {
                 // 横排矩阵展开着时第一下 Esc 只收回单行（高亮留在原处）
                 if self.collapse_grid() {

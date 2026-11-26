@@ -19,6 +19,11 @@ pinned = "«{text}» está fijado y aparece primero al escribir {code}"
 unpinned = "«{text}» ya no está fijado"
 demoted = "«{text}» bajó un puesto"
 undemoted = "«{text}» ya no está bajado"
+first_char = "Insertar solo el primer carácter"
+second_char = "Insertar solo el segundo carácter"
+last_char = "Insertar solo el último carácter"
+picked_char = "De «{text}» se insertó solo «{char}»"
+cant_pick_char = "No se puede extraer un solo carácter de «{text}»"
 
 [appearance]
 system = "Según el sistema"

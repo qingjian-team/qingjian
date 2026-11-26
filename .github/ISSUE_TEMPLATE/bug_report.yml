@@ -22,17 +22,20 @@ body:
     id: platform
     attributes:
       label: 平台
+      description: 几个平台都出现就都选上
+      multiple: true
       options:
         - macOS
         - Windows
         - Linux
+        - Android
     validations:
       required: true
   - type: input
     id: os_version
     attributes:
       label: 系统版本
-      description: 例如 macOS 26.1、Windows 11 24H2、Windows 10 22H2
+      description: 例如 macOS 26.1、Windows 11 24H2、Windows 10 22H2；Linux 写发行版与输入法框架（Ubuntu 26.04 + Fcitx5）；Android 写系统与机型（HyperOS 2 / Android 15，小米 14）
       placeholder: Windows 11 24H2
     validations:
       required: true
@@ -40,8 +43,8 @@ body:
     id: qingjian_version
     attributes:
       label: 青简版本
-      description: 「设置 → 关于」页里的版本号，或下载的安装包文件名
-      placeholder: 0.1.3
+      description: 「设置 → 关于」页里的版本号，或下载的安装包文件名；几个平台版本不同时分别写
+      placeholder: 0.3.5
     validations:
       required: true
   - type: input
@@ -54,9 +57,15 @@ body:
     id: schema
     attributes:
       label: 输入方案
+      multiple: true
       options:
         - 全拼
         - 双拼
+        - 九宫格
+        - 五笔
+        - 注音
+        - 日语
+        - 英文
         - 不确定
     validations:
       required: true
@@ -88,7 +97,7 @@ body:
     attributes:
       label: 运行日志
       description: |
-        先贴「设置 → 关于 → 复制诊断信息」的内容（版本、系统、配置，密钥会被抹去）。
-        日志文件：macOS 在「关于 → 打开日志目录」里取当天的；Windows 点「关于 → 打包日志到桌面」，把 zip 拖进来作为附件。
-        目录位置见 https://qingjian.app/docs/advanced/data-files#运行日志 。缺省级别不含输入内容。
+        电脑上点「设置 → 高级 → 日志文件 → 打包到桌面」，把桌面上的 zip 拖进来作为附件；Android 上是青简 App 的「数据 → 日志 → 打包日志」，选「存到手机」再传上来。
+        包里带了版本、系统与设置，密钥会被抹去；缺省不含打的字。详见 https://qingjian.app/docs/help/feedback 。
+        贴不了附件时，可以把当天日志里出问题那段贴在这里。
       render: text

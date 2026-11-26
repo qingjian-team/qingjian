@@ -3,6 +3,7 @@ name = "qingjian-translate"
 description = "释义表与词汇等级表：候选旁的词性 + 译词，个人释义表"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 

@@ -55,6 +55,10 @@ pub struct GeneralConfig {
     /// 候选窗口主题 id（主题目录名），读用 [`Self::theme_id`]。旧写法里这一项是外观，见上。
     pub theme: String,
 
+    /// 单打 `rq` / `sj` / `xq` / `jq` / `jr` 时，把整组写法排到词的前面。
+    /// 缺省关：只用简拼的人（`sj` 想打「手机」）会整页看不到词。
+    pub calendar_shortcuts_first: bool,
+
     /// 候选窗口竖排 / 横排。
     pub layout: LayoutMode,
 
@@ -100,6 +104,10 @@ pub struct GeneralConfig {
     /// 拼写纠错：拼音敲错时（切不动、多敲少敲、敲到旁边的键）给纠正后的候选。缺省开；
     /// 敲的拼音照原样读得通时纠正只当备选，不排第一。关掉后只按敲的原样（与模糊音）读，学过的敲错也不再用。
     pub spelling_correction: bool,
+
+    /// 零声母简写：全拼下零声母音节可以用韵头的单韵母代表（`aquan` → 安全、`e'liao` → 饵料）。
+    /// 缺省关，关着时切分与不带这个功能完全一致 —— 简拼本来就有歧义，要不要多这一条让用户自己定。
+    pub zero_initial_abbreviation: bool,
 
     /// 中文模式下整段是英文词或英文词的开头时给英文候选与补全（`hello`、`compa` → company）。关掉中文模式只出中文，英文模式照旧。
     pub english_in_chinese: bool,
@@ -251,6 +259,9 @@ pub struct GeneralConfig {
 
     /// 把系统的文本替换（macOS「键盘 → 文本替换」）并进自定义短语：输入码敲全后短语排在候选前面，同权重时排在用户自己的短语之后。只有 macOS 用。
     pub system_text_replacements: bool,
+
+    /// 是否在菜单栏显示「中 / 英」状态项（`NSStatusItem`）。缺省开；只有 macOS 用。
+    pub menubar_indicator: bool,
 }
 
 /// 界面语言跟随系统的配置写法。
@@ -269,6 +280,7 @@ impl Default for GeneralConfig {
             page_keys: PAGE_KEY_OPTIONS[0].to_owned(),
             appearance: Some(Appearance::default()),
             theme: DEFAULT_THEME.to_owned(),
+            calendar_shortcuts_first: false,
             layout: LayoutMode::default(),
             horizontal_grid: false,
             grid_page_keys: false,
@@ -283,6 +295,7 @@ impl Default for GeneralConfig {
             english_candidates: true,
             chinese_first: false,
             spelling_correction: true,
+            zero_initial_abbreviation: false,
             english_in_chinese: true,
             english_max_in_chinese: qingjian_core::ENGLISH_CANDIDATES_MAX,
             english_min_position: 1,
@@ -326,6 +339,7 @@ impl Default for GeneralConfig {
             input_log: true,
             learning: true,
             system_text_replacements: true,
+            menubar_indicator: true,
         }
     }
 }

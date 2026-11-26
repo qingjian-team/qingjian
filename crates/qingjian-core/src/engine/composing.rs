@@ -1,5 +1,6 @@
 //! 缓冲区与模式：按键进出、光标移动、表达式 / 英文直输 / 问字等模式判断、标点与上屏链。
 
+use super::backspace::Backspace;
 use super::commit::LastCommit;
 use super::input_log::{INPUT_LOG_VERSION, InputLogEntry, InputLogger, InputSource};
 use super::learning::Learner;
@@ -199,6 +200,9 @@ impl Engine {
             self.page_turns = 0;
             self.retype_snapshot = None;
             self.typing.restart();
+            // 新一段组句：「上一记退格把组句删空」属于上一段，到此作废（issue #932）。
+            // 不清的话，删空 → 打字 → 按住退格的自动重复会被当成「删空后的重复」全吞掉。
+            self.backspace_emptied = false;
             // 翻译框里选着字时开始打拼音：同记事本一样先删掉选中的字，拼音画在原处
             self.remove_panel_selection();
         }
@@ -224,7 +228,33 @@ impl Engine {
     /// 开（缺省）停在辅码态（`;` 仍在、无码词也回来），关则回拼音态。码段本来就空（刚触发，或删空停住）
     /// 时按退格 = 退出辅码态、拼音一个字符都不动。每次退格候选都当场重筛。
     /// 前面有选好还没上屏的词时，退格先撤回最后一次选择（那段拼音接回来），都撤完了才删字母。
-    pub fn backspace(&mut self) -> bool {
+    ///
+    /// `repeat` 是这一记按键**是不是按住不放的自动重复**：各平台的按键事件本身都能分出来
+    /// （Windows 是 `lParam` 的 bit 30、macOS 是 `NSEvent.isARepeat`、安卓是 `KeyEvent.repeatCount`），
+    /// 拿它判断就不会误伤手动连按 —— 手一下一下点，隔多近都照删。
+    ///
+    /// 返回三态而不是 `bool`：把组句删空的那一下之后，自动重复由 [`Backspace::Held`] 拦在输入法里，
+    /// 别让它接着删掉应用里已经上屏的字（见 issue #932）。
+    pub fn backspace(&mut self, repeat: bool) -> Backspace {
+        // 上一记刚把组句删空，这一记又是自动重复：继续吞，手不松就一直吞
+        if repeat && self.backspace_emptied {
+            return Backspace::Held;
+        }
+        // 手动按的一记（或者重复已经断了）：保护到此为止，重新开始算
+        self.backspace_emptied = false;
+        let removed = self.backspace_inner();
+        if removed && self.composition.is_empty() {
+            self.backspace_emptied = true;
+        }
+        if removed {
+            Backspace::Deleted
+        } else {
+            Backspace::Released
+        }
+    }
+
+    /// 退格真正删东西的那部分，与长按保护无关。
+    fn backspace_inner(&mut self) -> bool {
         if let Some(code) = self.aux_code.take() {
             if code.len() > 1 {
                 self.aux_code = Some(code[..code.len() - 1].to_owned());
@@ -233,7 +263,10 @@ impl Engine {
             }
             return true;
         }
-        if self.undo_selection() {
+        // 选过词的时候（`你hao` 在界面上是「已选的词 + 剩下的拼音」）按光标位置分派：
+        // 两头（贴着已选词、或停在剩余拼音末尾）撤选词 —— `你hao|` → `nihao|`、`你|hao` → `ni|hao`；
+        // 中间删光标前那个字母、选过的词留着 —— `你h|ao` → `你|ao`。
+        if self.cursor_at_pinyin_edge() && self.undo_selection() {
             return true;
         }
         self.note_edit();
@@ -248,11 +281,19 @@ impl Engine {
                 self.follow_nine_key_deletion(&before);
             }
             self.drop_pin_separator();
+            // 组句里删了字母：这段拼音被编辑过，整段合成词到此为止（issue #1024）
+            self.chain.note_edit();
         }
         removed
     }
 
+    /// 光标是不是贴在拼音段两头（开头或末尾）。退格在这两处撤选词、中间才删字母。
+    fn cursor_at_pinyin_edge(&self) -> bool {
+        self.composition.cursor() == 0 || self.composition.cursor() >= self.composition.text().len()
+    }
+
     pub fn clear(&mut self) {
+        self.retract_held_learning();
         self.composition.clear();
         self.held.clear();
         self.take_panel();
@@ -265,11 +306,23 @@ impl Engine {
         self.typing.restart();
         self.page_turns = 0;
         self.traditional.forget();
+        // 组句结束了：「刚删空」属于刚才那段，下一记退格删的是应用里的字（issue #932）
+        self.backspace_emptied = false;
+    }
+
+    /// 这段拼音有没有在组句里被改过（退格删字母、删音节、删到光标后）。
+    /// 测试与诊断用；`finish_buffer` 按它决定整段还合不合成。
+    pub fn chain_edited(&self) -> bool {
+        self.chain.edited()
     }
 
     pub fn delete_forward(&mut self) -> bool {
         self.note_edit();
-        self.composition.delete_forward()
+        let removed = self.composition.delete_forward();
+        if removed {
+            self.chain.note_edit();
+        }
+        removed
     }
 
     /// 删掉光标前的一个音节（壳里 ⌥⌫）：全拼按最优切分的最后一个音节连同它后面的 `'`，切不动的尾巴整个删；
@@ -282,7 +335,11 @@ impl Engine {
         let plain =
             self.raw_mode() || self.expression_mode() || self.question_mode() || self.zhuyin;
         let len = unit_len_before(before, self.shuangpin.is_some(), plain);
-        self.composition.delete_before_cursor(len)
+        let removed = self.composition.delete_before_cursor(len);
+        if removed {
+            self.chain.note_edit();
+        }
+        removed
     }
 
     /// 光标向左跳过一个音节，遇 `'` 连它一起跳过。光标在开头时返回 `false`。

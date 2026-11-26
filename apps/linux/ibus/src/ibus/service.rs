@@ -21,9 +21,9 @@ pub async fn serve(client: Shared) -> Result<zbus::Connection, zbus::Error> {
         zbus::Error::Address("找不到 IBus 总线地址（IBUS_ADDRESS 没设，地址文件也没有）".to_owned())
     })?;
     tracing::info!(%address, "连 IBus 总线");
-    let connection = Builder::address(address.as_str())?
-        .serve_at(FACTORY_PATH, IBusFactory::new(client))?
-        .name(COMPONENT_NAME)?
+    let connection = Builder::address(address.as_str())
+        .serve_at(FACTORY_PATH, IBusFactory::new(client))
+        .name(COMPONENT_NAME)
         .build()
         .await?;
     tracing::info!(name = COMPONENT_NAME, path = FACTORY_PATH, "工厂已就绪");

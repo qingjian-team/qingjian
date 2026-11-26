@@ -6,7 +6,7 @@ set -e
 fail() { echo "失败：$*"; exit 1; }
 case $1 in
   apt) export DEBIAN_FRONTEND=noninteractive; apt-get update -qq; apt-get install -y -qq systemd >/dev/null 2>&1
-       apt-get install -y -qq /pkgs/qingjian_*.deb /pkgs/qingjian-fcitx5_*.deb >/dev/null 2>&1 || { apt-get install -y /pkgs/*.deb 2>&1 | tail -6; exit 1; }
+       apt-get install -y -qq /pkgs/*.deb >/dev/null 2>&1 || { apt-get install -y /pkgs/*.deb 2>&1 | tail -6; exit 1; }
        echo "装上：$(dpkg-query -W -f='${Package} ${Version}  ' qingjian qingjian-fcitx5)" ;;
   dnf) dnf install -y -q systemd >/dev/null 2>&1; dnf install -y -q /pkgs/*.rpm >/dev/null 2>&1 || { dnf install -y /pkgs/*.rpm 2>&1 | tail -6; exit 1; }
        echo "装上：$(rpm -q qingjian qingjian-fcitx5 | tr '\n' ' ')" ;;

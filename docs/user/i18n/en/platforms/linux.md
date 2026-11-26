@@ -43,10 +43,10 @@ The [GitHub Release](https://github.com/qingjian-team/qingjian/releases/latest) 
 
 ```sh
 # Debian / Ubuntu
-sudo apt install ./qingjian_<version>_amd64.deb ./qingjian-fcitx5_<version>_amd64.deb
+sudo apt install ./qingjian-<version>-linux-x86_64.deb ./qingjian-fcitx5-<version>-linux-x86_64.deb
 
 # Fedora 42 and later
-sudo dnf install ./qingjian-<version>-1.fc42.x86_64.rpm ./qingjian-fcitx5-<version>-1.fc42.x86_64.rpm
+sudo dnf install ./qingjian-<version>-linux-x86_64.rpm ./qingjian-fcitx5-<version>-linux-x86_64.rpm
 ```
 
 - `qingjian` installs on Debian 12 and Ubuntu 22.04 or later; `qingjian-fcitx5` needs a recent Fcitx5 and only installs on Debian 13, Ubuntu 25.04, Fedora 42 or later. On older systems use IBus or the source install.
@@ -62,11 +62,11 @@ Your system's Fcitx5 has to be 5.1.8 or newer (the 5.1.7 shipped with Ubuntu 24.
 sudo apt install fcitx5 fcitx5-frontend-gtk3 fcitx5-frontend-gtk4 fcitx5-frontend-qt6 fcitx5-config-qt
 ```
 
-Download `Qingjian-<version>-x86_64.AppImage` from the [download page](https://qingjian.app/download), put it somewhere permanent (such as `~/Applications`), then:
+Download `qingjian-<version>-linux-x86_64.AppImage` from the [download page](https://qingjian.app/download), put it somewhere permanent (such as `~/Applications`), then:
 
 ```sh
-chmod +x ~/Applications/Qingjian-*.AppImage
-~/Applications/Qingjian-*.AppImage install
+chmod +x ~/Applications/qingjian-*-linux-x86_64.AppImage
+~/Applications/qingjian-*-linux-x86_64.AppImage install
 ```
 
 You can also make it executable in your file manager and double-click it; the first run installs it and opens Qingjian Settings.
@@ -75,13 +75,13 @@ Then restart Fcitx5 (`fcitx5 -r`), untick "Only Show Current Language" in the Fc
 
 - **After moving or renaming the AppImage file**, run `install` again: autostart and the menu entry remember where it used to be.
 - **Updating**: replace the old file with the new one (keeping the same path and file name is easiest), log out and back in or run `install` once, then restart Fcitx5.
-- **Uninstalling**: run `Qingjian-*.AppImage uninstall`, then restart Fcitx5; after that you can delete the file. Your configuration, personal dictionaries and learning data are kept.
+- **Uninstalling**: run `qingjian-*-linux-x86_64.AppImage uninstall`, then restart Fcitx5; after that you can delete the file. Your configuration, personal dictionaries and learning data are kept.
 - If you already installed Qingjian from source or from a package, uninstall that copy before installing the AppImage; two copies would replace each other, and the installer will tell you.
 - If the system lacks FUSE and says it can't mount, run `export APPIMAGE_EXTRACT_AND_RUN=1` first, then the commands above.
 
 ## Fcitx5 source install
 
-First install Rust 1.96 or later and the packages needed to build. On Debian / Ubuntu:
+First install Rust 1.100 or later and the packages needed to build. On Debian / Ubuntu:
 
 ```sh
 sudo apt install cmake g++ pkg-config python3 libssl-dev \
@@ -119,7 +119,7 @@ apps/linux/scripts/install.sh
 
 ## Fcitx4 source install (Ubuntu 22.04)
 
-If you already use Fcitx4, `fcitx-frontend-qt5` is enough for Qt5 apps. First install Rust 1.96 or later, plus:
+If you already use Fcitx4, `fcitx-frontend-qt5` is enough for Qt5 apps. First install Rust 1.100 or later, plus:
 
 ```sh
 sudo apt install cmake g++ pkg-config python3 libssl-dev fcitx-libs-dev libx11-dev libxres-dev nlohmann-json3-dev \

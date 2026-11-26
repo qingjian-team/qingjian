@@ -245,8 +245,10 @@ fn main() -> ExitCode {
     engine.set_aux_enabled(config.aux_code.enabled);
     engine.set_aux_show(config.general.aux_code_show);
     engine.set_show_tones(config.general.show_tones);
+    engine.set_calendar_shortcuts_first(config.general.calendar_shortcuts_first);
     engine.set_chinese_first(config.general.chinese_first);
     engine.set_spelling_correction(config.general.spelling_correction);
+    engine.set_zero_initial_abbreviation(config.general.zero_initial_abbreviation);
     engine.set_emoji_limit(usize::from(config.general.emoji.get()));
     engine.set_kaomoji_limit(usize::from(config.general.kaomoji.get()));
     engine.set_symbol_limit(usize::from(config.general.symbols.get()));
@@ -342,9 +344,30 @@ fn main() -> ExitCode {
         "Qingjian Windows Server ready"
     );
 
+    #[cfg(windows)]
+    if let Some(mb) = working_set_mb() {
+        tracing::info!(mb, "process working set");
+    }
+
     let code = serve(router);
     tracing::info!(pid = std::process::id(), ?code, "Server process stopped");
     code
+}
+
+/// 当前进程的工作集（MB），启动后记一条，方便对内存账。
+#[cfg(windows)]
+fn working_set_mb() -> Option<u64> {
+    use windows::Win32::System::ProcessStatus::{K32GetProcessMemoryInfo, PROCESS_MEMORY_COUNTERS};
+    use windows::Win32::System::Threading::GetCurrentProcess;
+    let mut counters = PROCESS_MEMORY_COUNTERS {
+        cb: std::mem::size_of::<PROCESS_MEMORY_COUNTERS>() as u32,
+        ..Default::default()
+    };
+    unsafe {
+        K32GetProcessMemoryInfo(GetCurrentProcess(), &mut counters, counters.cb)
+            .as_bool()
+            .then_some((counters.WorkingSetSize / (1024 * 1024)) as u64)
+    }
 }
 
 /// 日志目录 `%LOCALAPPDATA%\Qingjian\logs` 给 AppContainer 应用（任务栏搜索 / 设置）写权限：

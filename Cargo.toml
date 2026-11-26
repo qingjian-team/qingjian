@@ -24,6 +24,7 @@ members = [
 [workspace.package]
 version = "0.1.1"
 edition = "2024"
+rust-version = "1.100"
 license = "GPL-3.0-or-later"
 repository = "https://github.com/qingjian-team/qingjian"
 
@@ -90,7 +91,7 @@ webpki-roots = "1"
 tokio = { version = "1.53.1", features = ["rt", "time"] }
 
 # Linux IBus 前端：IBus 走 D-Bus，纯 Rust
-zbus = { version = "5.19.0", default-features = false, features = ["tokio"] }
+zbus = { version = "6.3.0", default-features = false, features = ["tokio", "proxy", "service"] }
 
 # 检查更新：releases.json 的 ed25519 签名（发版时 tools/release-sign 签，客户端验）
 ed25519-dalek = "3.0.0"
@@ -111,7 +112,6 @@ softbuffer = "0.4.8"
 # wayland-data-control：Linux 上只编 X11 后端时走 XWayland 桥，niri 这类会话里桥是空的，
 # 设置程序粘贴拿到空串（2026-10-23 实测）；开 Wayland 协议直读，失败 arboard 自己回退 X11。
 arboard = { version = "3.6.1", default-features = false, features = ["wayland-data-control"] }
-png = "0.18.1"
 
 # macOS 平台层
 objc2 = "0.6.4"
@@ -122,6 +122,7 @@ objc2-input-method-kit = "0.3.2"
 objc2-core-text = { version = "0.3.2", features = ["CTFont", "CTFontDescriptor"] }
 objc2-core-foundation = { version = "0.3.2", features = ["CFArray", "CFBase", "CFDictionary", "CFNumber", "CFSet", "CFString", "CFURL"] }
 objc2-core-graphics = { version = "0.3.2", default-features = false, features = ["std", "CGWindow", "CGGeometry"] }
+objc2-quartz-core = { version = "0.3.2", default-features = false, features = ["std"] }
 
 # Windows 平台层
 embed-manifest = "1.4.0"

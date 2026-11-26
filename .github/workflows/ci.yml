@@ -29,7 +29,7 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
         with:
-          toolchain: 1.96.0
+          toolchain: 1.100.0
           components: rustfmt, clippy
 
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
@@ -195,7 +195,7 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
         with:
-          toolchain: 1.96.0
+          toolchain: 1.100.0
           components: clippy
 
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
@@ -240,7 +240,7 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
         with:
-          toolchain: 1.96.0
+          toolchain: 1.100.0
           components: clippy
 
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
@@ -290,7 +290,7 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
         with:
-          toolchain: 1.96.0
+          toolchain: 1.100.0
 
       # install.sh 在 22.04 上装的就是这两个包（见它的 cargo_args），所以先按原样编一遍：
       # 这是「用户装得上」那道关，比跑测试更接近发版路径。
@@ -314,7 +314,7 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
         with:
-          toolchain: 1.96.0
+          toolchain: 1.100.0
           targets: aarch64-linux-android
 
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
@@ -353,14 +353,14 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
         with:
-          toolchain: 1.96.0
+          toolchain: 1.100.0
           components: clippy
           targets: i686-pc-windows-msvc
 
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
 
-      - name: Clippy (Server, TSF DLL, Settings)
-        run: cargo clippy -p qingjian-windows-server -p qingjian-windows-tsf -p qingjian-windows-settings -p qingjian-settings -p qingjian-clipboard-app --all-targets --locked -- -D warnings
+      - name: Clippy (Server, TSF DLL, Settings, platform)
+        run: cargo clippy -p qingjian-platform -p qingjian-windows-server -p qingjian-windows-tsf -p qingjian-windows-settings -p qingjian-settings -p qingjian-clipboard-app --all-targets --locked -- -D warnings
 
       # core job 在 Linux 上文档化不到 #[cfg(windows)] 的模块，那一半的文档错误只有这里看得见。
       - name: Rustdoc (Server, TSF DLL, Settings)
@@ -368,8 +368,8 @@ jobs:
           RUSTDOCFLAGS: -D warnings
         run: cargo doc -p qingjian-windows-server -p qingjian-windows-tsf -p qingjian-windows-settings -p qingjian-settings -p qingjian-clipboard-app --no-deps --locked
 
-      - name: Test (Server, TSF DLL, Settings)
-        run: cargo test -p qingjian-windows-server -p qingjian-windows-tsf -p qingjian-windows-settings -p qingjian-settings -p qingjian-clipboard-app --locked
+      - name: Test (Server, TSF DLL, Settings, platform)
+        run: cargo test -p qingjian-platform -p qingjian-windows-server -p qingjian-windows-tsf -p qingjian-windows-settings -p qingjian-settings -p qingjian-clipboard-app --locked
 
       # 安装包另带一份 32 位 DLL（企业微信 / WPS 这类 32 位应用只能加载它）。
       # 这里原来只跑 `cargo check`：能编就算过，一条 lint 都不看。而 32 位恰恰是

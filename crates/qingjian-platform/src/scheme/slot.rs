@@ -139,6 +139,7 @@ impl SchemeSlot {
             engine.set_code_scheme(Some(scheme));
         } else if let Some((entry, _)) = &prepared.slot.code {
             engine.set_code_rules(entry.auto_commit, entry.top);
+            engine.set_mixed_code_rules(entry.mixed_auto_commit, entry.mixed_top);
         } else {
             engine.set_code_scheme(None);
         }

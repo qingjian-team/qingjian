@@ -14,7 +14,7 @@ use windows::Win32::System::Pipes::{CreateNamedPipeW, PIPE_TYPE_BYTE, PIPE_WAIT}
 use windows::core::HSTRING;
 
 use super::{
-    CLIENT_ACCESS, CLIENT_QOS, UserSid, client_is_same_user, pipe_name, pipe_sddl,
+    CLIENT_ACCESS, CLIENT_QOS, UserSid, client_is_same_user, identity, pipe_name, pipe_sddl,
     server_is_trusted,
 };
 
@@ -89,6 +89,15 @@ fn server_recognizes_the_same_user() {
     server.read_exact(&mut byte).unwrap();
     assert!(client_is_same_user(handle(&server), &me));
     assert!(!client_is_same_user(handle(&server), &sid("S-1-5-18")));
+}
+
+/// 管理员的完整令牌（CI 的 runner 就是）缺省所有者是 Administrators 组，管道也必须归本用户。
+#[test]
+fn pipe_is_owned_by_the_user_whatever_the_token_default_owner() {
+    let me = UserSid::current().unwrap();
+    let (server, client) = connected_pair("owner");
+    assert_eq!(identity::pipe_owner(handle(&server)), Some(me.clone()));
+    assert_eq!(identity::pipe_owner(handle(&client)), Some(me));
 }
 
 #[test]

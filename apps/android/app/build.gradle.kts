@@ -49,8 +49,11 @@ android {
 
     buildTypes {
         debug {
-            // 手机上装着发版签名的包时并排装调试版（-PsideBySide），不用卸载、不丢数据
-            if (project.hasProperty("sideBySide")) applicationIdSuffix = ".dev"
+            // 手机上装着发版签名的包时并排装调试版（-PsideBySide），不用卸载、不丢数据；改叫「青简测试」，桌面与输入法列表里分得清
+            if (project.hasProperty("sideBySide")) {
+                applicationIdSuffix = ".dev"
+                versionNameSuffix = "-test"
+            }
         }
         release {
             isMinifyEnabled = false
@@ -67,6 +70,7 @@ android {
         jniLibs.srcDir(nativeLibs)
         assets.srcDir(bundledAssets)
     }
+    if (project.hasProperty("sideBySide")) sourceSets["debug"].res.srcDir("src/sideBySide/res")
 }
 
 kotlin {

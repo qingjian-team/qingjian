@@ -6,12 +6,13 @@ use bamboo_slip::taffy::{
     AlignItems, Dimension, FlexDirection, LengthPercentage, NodeId, Rect, Size, Style,
 };
 use bamboo_slip::{
-    BoxPaint, Button, Fill, FontSpec, FontWeight, RenderError, SettingRow, TextStyle, Ui, Visual,
-    group, paragraph, section_title,
+    BoxPaint, Button, Fill, FontSpec, FontWeight, Look, RenderError, SettingRow, TextStyle, Ui,
+    Visual, group, paragraph, section_title,
 };
 use qingjian_platform::UpdateChannel;
 
 use crate::i18n::{tr, tr_args};
+use crate::jobs::update_check::version_label;
 use crate::message::Message;
 use crate::system::action::Action;
 use crate::view::Page;
@@ -82,16 +83,28 @@ pub fn about(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderErr
             "download",
             Message::Run(Action::OpenDownload),
         )?;
-        rows.push(SettingRow::new(&title).control(download).build(ui, theme)?);
+        // 竹青把更新日志前几条另起一行；两种原生外观照系统设置，前三条写在这一行标题下面当说明
+        let native = theme.look != Look::Plain;
         let notes = found
             .notes
             .iter()
-            .take(6)
-            .cloned()
+            .take(if native { 3 } else { 6 })
+            .map(|line| plain_note(line))
             .collect::<Vec<_>>()
             .join("\n");
-        if !notes.is_empty() {
-            rows.push(note(ui, page, None, &notes)?);
+        let row = SettingRow::new(&title).control(download);
+        if native {
+            let row = if notes.is_empty() {
+                row
+            } else {
+                row.detail(&notes)
+            };
+            rows.push(row.build(ui, theme)?);
+        } else {
+            rows.push(row.build(ui, theme)?);
+            if !notes.is_empty() {
+                rows.push(note(ui, page, None, &notes)?);
+            }
         }
     }
     out.push(section_title(ui, theme, tr("about.section_update"))?);
@@ -170,7 +183,7 @@ fn header(ui: &mut Ui<Message>, page: &Page) -> Result<NodeId, RenderError> {
     let version = ui.scene().node(
         Style::default(),
         Visual::Text {
-            text: tr_args("about.version", &[("version", &env!("CARGO_PKG_VERSION"))]),
+            text: tr_args("about.version", &[("version", &version_label())]),
             style: theme.text(theme.small, 400, theme.colors.secondary),
         },
         &[],
@@ -257,4 +270,60 @@ fn note(
         Visual::Group,
         &children,
     )
+}
+
+/// 更新日志的一条是官网与 GitHub 用的行内 Markdown，这里只能画纯文字：去掉加粗和反引号，链接只留文字。
+fn plain_note(markdown: &str) -> String {
+    let mut text = String::with_capacity(markdown.len());
+    let mut rest = markdown;
+    while let Some(c) = rest.chars().next() {
+        if let Some(after) = rest.strip_prefix("**") {
+            rest = after;
+            continue;
+        }
+        if c == '`' {
+            rest = &rest[1..];
+            continue;
+        }
+        if c == '['
+            && let Some(close) = rest.find(']')
+            && rest[close..].starts_with("](")
+            && let Some(end) = rest[close..].find(')')
+        {
+            text.push_str(&rest[1..close]);
+            rest = &rest[close + end + 1..];
+            continue;
+        }
+        text.push(c);
+        rest = &rest[c.len_utf8()..];
+    }
+    text
+}
+
+#[cfg(test)]
+mod tests {
+    use super::plain_note;
+
+    /// 加粗、反引号、链接的记号去掉，文字与 `#123` 这类编号原样留下；反引号里的 `*` 不当加粗。
+    #[test]
+    fn notes_are_shown_without_markdown_marks() {
+        assert_eq!(
+            plain_note("**安全更新**：输入法只认自己这一端（#699）"),
+            "安全更新：输入法只认自己这一端（#699）"
+        );
+        assert_eq!(
+            plain_note("`[apps] english_candidates_off` 里 `*` 结尾的条目"),
+            "[apps] english_candidates_off 里 * 结尾的条目"
+        );
+        assert_eq!(
+            plain_note(
+                "投稿到 [qingjian-themes](https://github.com/qingjian-team/qingjian-themes) 仓库"
+            ),
+            "投稿到 qingjian-themes 仓库"
+        );
+        assert_eq!(
+            plain_note("`[apps]` 和 [说明](https://example.com)"),
+            "[apps] 和 说明"
+        );
+    }
 }

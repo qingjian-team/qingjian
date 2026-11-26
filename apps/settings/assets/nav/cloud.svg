@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20">
+  <defs>
+  <linearGradient id="fc-cl" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7DD3FF" /><stop offset="1" stop-color="#1E7FE6" /></linearGradient>
+  <linearGradient id="fc-cl-hi" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".7" /><stop offset="1" stop-color="#fff" stop-opacity="0" /></linearGradient>
+  </defs>
+  <path d="M5.6 16.5h9.2a3.7 3.7 0 0 0 .5-7.4 5.2 5.2 0 0 0-10 1.2 3.1 3.1 0 0 0 .3 6.2z" fill="url(#fc-cl)" />
+  <path d="M5.6 16.5h9.2a3.7 3.7 0 0 0 .5-7.4 5.2 5.2 0 0 0-10 1.2 3.1 3.1 0 0 0 .3 6.2z" fill="none" stroke="#0F5FC4" stroke-opacity=".3" stroke-width=".6" />
+  <path d="M6.2 10.2a4.1 4.1 0 0 1 7.9-1" fill="none" stroke="url(#fc-cl-hi)" stroke-width="1.3" stroke-linecap="round" />
+</svg>

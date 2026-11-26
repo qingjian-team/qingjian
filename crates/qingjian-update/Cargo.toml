@@ -3,6 +3,7 @@ name = "qingjian-update"
 description = "检查更新：读官网的 releases.json、验 ed25519 签名、按平台与渠道挑出比当前新的版本"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 

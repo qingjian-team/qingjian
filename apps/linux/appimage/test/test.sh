@@ -6,7 +6,7 @@
 set -uo pipefail
 here=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 root=$(cd -- "$here/../../../.." && pwd)
-appimage=${1:-$(ls -t "$root"/target/appimage/Qingjian-*.AppImage 2>/dev/null | head -1)}
+appimage=${1:-$(ls -t "$root"/target/appimage/qingjian-*-linux-x86_64.AppImage 2>/dev/null | head -1)}
 [[ -f "$appimage" ]] || { echo '没有 AppImage，先跑 apps/linux/appimage/build.sh' >&2; exit 1; }
 # docker -v 只认绝对路径，相对路径会被当成卷名
 appimage=$(realpath -- "$appimage")

@@ -27,6 +27,8 @@ impl Host {
         self.engine
             .set_spelling_correction(config.general.spelling_correction);
         self.engine
+            .set_zero_initial_abbreviation(config.general.zero_initial_abbreviation);
+        self.engine
             .set_emoji_limit(usize::from(config.general.emoji.get()));
         self.engine
             .set_kaomoji_limit(usize::from(config.general.kaomoji.get()));
@@ -51,6 +53,8 @@ impl Host {
         self.engine.set_aux_enabled(config.aux_code.enabled);
         self.engine.set_aux_show(config.general.aux_code_show);
         self.engine.set_show_tones(config.general.show_tones);
+        self.engine
+            .set_calendar_shortcuts_first(config.general.calendar_shortcuts_first);
         self.aux_code_show = config.general.aux_code_show;
         if force || self.applied_aux_code.as_ref() != Some(&config.aux_code) {
             self.reload_aux_codes();
@@ -173,6 +177,7 @@ impl Host {
             .set_choice_tier(config.model.zhiyi_tier.choice_tier());
         self.applied_model = Some(config.model.clone());
         let cloud_active = self.engine.prediction_enabled();
+        self.indicator.set_enabled(config.general.menubar_indicator);
         self.indicator.set_cloud(cloud_active);
         self.refresh_mode_ui();
         self.menu.sync(&config, cloud_active, self.settings.error());

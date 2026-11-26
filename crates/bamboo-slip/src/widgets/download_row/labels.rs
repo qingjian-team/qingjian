@@ -17,6 +17,9 @@ pub struct DownloadLabels<'a> {
 
     pub update: &'a str,
 
+    /// [`super::DownloadRow::mark_installed`] 时装好了按钮前那段灰字（「已安装」，前面画一个对勾）。
+    pub installed: &'a str,
+
     /// 这一版程序用不了它时灰着的按钮上的字（「要先更新」）。
     pub blocked: &'a str,
 }

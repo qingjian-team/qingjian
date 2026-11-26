@@ -11,7 +11,7 @@ Linux Server 在 `[predict] enabled = true` 且密钥可用时接入共享的 `C
 
 配置与资源热加载由 `qingjian-reload` 后台任务完成扫描、解析和加载，输入线程只轮询已就绪的结果。任务未完成时继续使用旧资源，最多一批在途；完成后至少间隔一秒启动下一批，等待结果时以 20 ms 节拍轮询。启动时的首次装配仍在监听 socket 前完成。后台任务耗时达到 100 ms 会记录 `configuration scan and loading slow`，不记录输入内容。Fcitx5 的 IPC 另由插件后台线程收发，框架事件线程不等待 Server；Fcitx4 与 IBus 的传输方式不变。
 
-需要 Rust 1.96、Python 3、pkg-config 与 OpenSSL（`libssl-dev`，云服务依赖的 TLS 绑定要它）；**fcitx5 那一支**另外要 CMake 3.16、C++20 编译器与 Fcitx5 Core/Config/Utils、nlohmann-json 的开发包（插件是 C++），**IBus 那一支**是纯 Rust，只要机器上有 ibus-daemon。`install.sh` 开头会检查并列出缺的，缺省 `--frontend auto` 是「能装的都装」，装不上的那一支会明说跳过。
+需要 Rust 1.100、Python 3、pkg-config 与 OpenSSL（`libssl-dev`，云服务依赖的 TLS 绑定要它）；**fcitx5 那一支**另外要 CMake 3.16、C++20 编译器与 Fcitx5 Core/Config/Utils、nlohmann-json 的开发包（插件是 C++），**IBus 那一支**是纯 Rust，只要机器上有 ibus-daemon。`install.sh` 开头会检查并列出缺的，缺省 `--frontend auto` 是「能装的都装」，装不上的那一支会明说跳过。
 自绘界面另需三个字体包（`fonts-noto-core` / `fonts-noto-cjk` / `fonts-noto-color-emoji`）：没有 UI 字体时 `FontLibrary::system` 直接返回 `NoUiFont`、程序起不来，缺 CJK 或 emoji 则不崩但中文界面文字与表情画不出来。
 构建最低 API 为 Fcitx5 5.1.8，CI 使用 Ubuntu 26.04 的 Fcitx5 5.1.19；Ubuntu 24.04 自带的 5.1.7 不满足要求。
 桌面运行已验证的范围见下文，构建版本门槛不代表全部桌面已验收。

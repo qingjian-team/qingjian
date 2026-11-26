@@ -1,9 +1,10 @@
 //! 各页共用的几种设置行：开关、分段选择、下拉框、百分比滑块。
 
 use bamboo_slip::taffy::NodeId;
-use bamboo_slip::{RenderError, Segmented, Select, SettingRow, Slider, Switch, Ui};
+use bamboo_slip::{Look, Menu, RenderError, Segmented, Select, SettingRow, Slider, Switch, Ui};
 
 use super::menus::anchor;
+use crate::i18n::tr;
 use crate::message::{Message, Popup};
 use crate::view::Page;
 
@@ -39,7 +40,7 @@ pub fn toggle_info(
     on: bool,
     disabled: bool,
 ) -> Result<NodeId, RenderError> {
-    let switch = Switch::new(on).disabled(disabled).build(
+    let switch = switch(page, on).disabled(disabled).build(
         ui,
         &page.theme,
         (section, key),
@@ -52,11 +53,21 @@ pub fn toggle_info(
     row.build(ui, &page.theme)
 }
 
-/// 一组互斥取值的分段选择：`all` 按设置界面的顺序，`label` 取界面上的名字。
+/// 开关：照 Windows 设置画时左边写「开 / 关」。
+pub fn switch(page: &Page, on: bool) -> Switch<'static> {
+    let switch = Switch::new(on);
+    if page.theme.look == Look::Fluent {
+        switch.labels(tr("common.on"), tr("common.off"))
+    } else {
+        switch
+    }
+}
+
+/// 几选一的设置行：竹青与 macOS 是分段控件，Windows 照系统设置一律用下拉框（ComboBox），点开的菜单当场建在浮层里。
 pub fn choice<T: Copy + PartialEq + 'static>(
     ui: &mut Ui<Message>,
     page: &Page,
-    local: &str,
+    local: &'static str,
     all: &[T],
     current: T,
     label: fn(T) -> &'static str,
@@ -65,8 +76,59 @@ pub fn choice<T: Copy + PartialEq + 'static>(
     let labels: Vec<&str> = all.iter().map(|value| label(*value)).collect();
     let selected = all.iter().position(|value| *value == current).unwrap_or(0);
     let values = all.to_vec();
-    Segmented::new(&labels, selected)
-        .build(ui, &page.theme, local, move |index| message(values[index]))
+    pick(ui, page, local, (&labels, selected), false, move |index| {
+        message(values[index])
+    })
+}
+
+/// 同 [`choice`]，选项是现成的字：`on_pick` 按选了第几项给消息。
+pub fn pick(
+    ui: &mut Ui<Message>,
+    page: &Page,
+    local: &'static str,
+    (labels, selected): (&[&str], usize),
+    disabled: bool,
+    on_pick: impl Fn(usize) -> Message,
+) -> Result<NodeId, RenderError> {
+    if page.theme.look != Look::Fluent {
+        return Segmented::new(labels, selected).disabled(disabled).build(
+            ui,
+            &page.theme,
+            local,
+            on_pick,
+        );
+    }
+    dropdown(ui, page, local, (labels, selected), disabled, on_pick)
+}
+
+/// 不分外观的下拉框，点开的菜单当场建在浮层里；`local` 同时是菜单的名字。
+pub fn dropdown(
+    ui: &mut Ui<Message>,
+    page: &Page,
+    local: &'static str,
+    (labels, selected): (&[&str], usize),
+    disabled: bool,
+    on_pick: impl Fn(usize) -> Message,
+) -> Result<NodeId, RenderError> {
+    let popup = Popup::Choice(local);
+    let node = Select::new(labels[selected])
+        .options(labels)
+        .width(160.0)
+        .disabled(disabled)
+        .build(ui, &page.theme, anchor(popup), Message::OpenMenu(popup))?;
+    if page.settings.menu == Some(popup)
+        && let Some(rect) = ui.rect(ui.key(anchor(popup)))
+    {
+        let menu = Menu::new(labels, Some(selected), rect, page.window).build(
+            ui,
+            &page.theme,
+            ("menu", local),
+            on_pick,
+            Message::CloseMenu,
+        )?;
+        ui.overlay(menu);
+    }
+    Ok(node)
 }
 
 /// 下拉框最宽多少点：值再长（用户方案起的名字）就截短补「…」，点开的菜单里仍是全名。

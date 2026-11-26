@@ -13,15 +13,18 @@
 #[path = "ibus_engine/code.rs"]
 mod code;
 
+use std::num::NonZeroUsize;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use futures_util::StreamExt;
-use zbus::zvariant::{OwnedObjectPath, Value};
-use zbus::{MatchRule, MessageStream, connection::Builder, proxy};
+use zbus::{MatchRule, MessageStream, OwnedObjectPath, Variant, connection::Builder, proxy};
 
 /// 等一条信号最多多久。引擎进程是 daemon 现拉起来的，第一次要等它加载词库。
 const SIGNAL_TIMEOUT: Duration = Duration::from_secs(20);
+
+/// 订阅信号流的队列长度：连发几次按键期间信号会攒起来，太短会丢最旧的消息。
+const SIGNAL_QUEUE: NonZeroUsize = NonZeroUsize::new(4096).unwrap();
 
 #[proxy(
     interface = "org.freedesktop.IBus",
@@ -87,7 +90,6 @@ async fn typing_pinyin_reaches_the_panel_and_commits() {
         return;
     };
     let connection = Builder::address(address.as_str())
-        .expect("IBus 地址")
         .build()
         .await
         .expect("连上 IBus");
@@ -102,9 +104,9 @@ async fn typing_pinyin_reaches_the_panel_and_commits() {
     let rule = MatchRule::builder()
         .msg_type(zbus::message::Type::Signal)
         .path(context_path.as_ref())
-        .expect("按上下文路径过滤")
-        .build();
-    let signals = MessageStream::for_match_rule(rule, &connection, Some(4096))
+        .build()
+        .expect("按上下文路径过滤");
+    let signals = MessageStream::for_match_rule(rule, &connection, Some(SIGNAL_QUEUE))
         .await
         .expect("订阅信号");
     // 必须订阅后立刻开始收：zbus 的信号流是有界广播，连发几次按键期间不消费就会丢最旧的消息
@@ -112,7 +114,6 @@ async fn typing_pinyin_reaches_the_panel_and_commits() {
 
     let context = InputContextProxy::builder(&connection)
         .path(context_path.as_ref())
-        .expect("上下文路径")
         .build()
         .await
         .expect("上下文代理");
@@ -197,7 +198,6 @@ async fn pinyin_stays_in_the_old_box_when_focus_moves() {
         return;
     };
     let connection = Builder::address(address.as_str())
-        .expect("IBus 地址")
         .build()
         .await
         .expect("连上 IBus");
@@ -272,7 +272,6 @@ async fn shortcut_commits_pinyin_before_reaching_the_app() {
         return;
     };
     let connection = Builder::address(address.as_str())
-        .expect("IBus 地址")
         .build()
         .await
         .expect("连上 IBus");
@@ -333,15 +332,14 @@ async fn open_context<'a>(
     let rule = MatchRule::builder()
         .msg_type(zbus::message::Type::Signal)
         .path(path.as_ref())
-        .expect("按上下文路径过滤")
-        .build();
-    let signals = MessageStream::for_match_rule(rule, connection, Some(4096))
+        .build()
+        .expect("按上下文路径过滤");
+    let signals = MessageStream::for_match_rule(rule, connection, Some(SIGNAL_QUEUE))
         .await
         .expect("订阅信号");
     let collected = Collected::spawn(signals);
     let context = InputContextProxy::builder(connection)
         .path(path)
-        .expect("上下文路径")
         .build()
         .await
         .expect("上下文代理");
@@ -431,16 +429,17 @@ impl Collected {
 /// 三种信号的参数个数不一样，逐个试。
 fn payload(message: &zbus::Message) -> String {
     let body = message.body();
-    if let Ok((value, cursor, visible, mode)) = body.deserialize::<(Value<'_>, u32, bool, u32)>() {
+    if let Ok((value, cursor, visible, mode)) = body.deserialize::<(Variant<'_>, u32, bool, u32)>()
+    {
         return format!("{value:?} cursor={cursor} visible={visible} mode={mode}");
     }
-    if let Ok(value) = body.deserialize::<Value<'_>>() {
+    if let Ok(value) = body.deserialize::<Variant<'_>>() {
         return format!("{value:?}");
     }
-    if let Ok((value, cursor, visible)) = body.deserialize::<(Value<'_>, u32, bool)>() {
+    if let Ok((value, cursor, visible)) = body.deserialize::<(Variant<'_>, u32, bool)>() {
         return format!("{value:?} cursor={cursor} visible={visible}");
     }
-    if let Ok((value, visible)) = body.deserialize::<(Value<'_>, bool)>() {
+    if let Ok((value, visible)) = body.deserialize::<(Variant<'_>, bool)>() {
         return format!("{value:?} visible={visible}");
     }
     String::new()

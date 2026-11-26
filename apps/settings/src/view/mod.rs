@@ -1,7 +1,10 @@
 //! 视图：竹青侧栏（logo、搜索、线性图标的导航、竹节标记）+ 右边当前页的设置项，整页可滚。
 //! 哪页放哪些项见 docs/design/settings.md。
 
+mod content;
+mod help;
 pub mod icons;
+pub mod look;
 mod page;
 mod pages;
 pub mod palette;
@@ -12,29 +15,29 @@ mod sidebar;
 pub use page::Page;
 
 use bamboo_slip::FontSpec;
-use bamboo_slip::taffy::{Dimension, FlexDirection, LengthPercentage, NodeId, Rect, Size, Style};
+use bamboo_slip::taffy::{Dimension, FlexDirection, NodeId, Size, Style};
 use bamboo_slip::{
-    Interact, Interaction, KeyCode, RenderError, ScrollArea, TITLEBAR, Ui, Visual, WidgetColors,
-    WidgetTheme, paragraph,
+    Interact, Interaction, KeyCode, Look, RenderError, Ui, Visual, WidgetColors, WidgetTheme,
 };
 
-use crate::i18n::{tr, tr_args};
+use crate::i18n::tr;
 use crate::message::Message;
 use crate::page_id::PageId;
 use crate::search::Entry;
 use crate::settings::Settings;
-use palette::{DARK, LIGHT};
+use palette::palette;
 
-/// 右边内容区左右的边距（点）。
-const CONTENT_PADDING: f32 = 36.0;
-
-/// 设置程序的字号比引擎缺省大一档：13 点的正文在设置里读着吃力。
-fn widget_theme(colors: WidgetColors, scale: f32) -> WidgetTheme {
-    WidgetTheme {
-        font: FontSpec::new(15.0, 21.0),
-        small: 12.5,
-        control_height: 28.0,
-        ..WidgetTheme::new(colors, scale)
+/// 照系统设置的两套用系统的字号；竹青那套比引擎缺省大一档：13 点的正文在设置里读着吃力。
+fn widget_theme(look: Look, colors: WidgetColors, scale: f32) -> WidgetTheme {
+    match look {
+        Look::Mac => WidgetTheme::mac(colors, scale),
+        Look::Fluent => WidgetTheme::fluent(colors, scale),
+        Look::Plain => WidgetTheme {
+            font: FontSpec::new(15.0, 21.0),
+            small: 12.5,
+            control_height: 28.0,
+            ..WidgetTheme::new(colors, scale)
+        },
     }
 }
 
@@ -44,20 +47,36 @@ pub fn view(
     scale: f32,
     (width, height): (u32, u32),
 ) -> Result<NodeId, RenderError> {
-    let palette = if settings.system_dark { &DARK } else { &LIGHT };
+    let look = look::current();
+    let palette = palette(look, settings.system_dark, settings.backdrop);
     let page = Page {
         settings,
-        theme: widget_theme(palette.widgets, scale),
-        palette,
+        theme: widget_theme(look, palette.widgets, scale),
+        palette: &palette,
         scale,
-        content_width: width as f32 - (sidebar::WIDTH + CONTENT_PADDING * 2.0) * scale,
+        content_width: content_width(look, width as f32 / scale) * scale,
+        window: (width as f32, height as f32),
+        expand_all: false,
     };
     let current = settings.page;
-    ui.info_links(tr("common.info_hint"), move |title| {
-        crate::docs::link(current, title).map(Message::OpenDoc)
-    });
+    match look {
+        Look::Plain => ui.info_links(tr("common.info_hint"), move |title| {
+            crate::docs::link(current, title).map(Message::OpenDoc)
+        }),
+        Look::Mac | Look::Fluent => {
+            let hint = if look == Look::Mac {
+                tr("common.learn_more")
+            } else {
+                tr("common.learn_more_details")
+            };
+            ui.info_links(hint, move |title| {
+                crate::docs::inline_link(current, title).map(Message::OpenDoc)
+            });
+        }
+    }
+    ui.row_icons(move |title| icons::row_icon(current, title));
     let sidebar = sidebar::sidebar(ui, &page)?;
-    let content = content(ui, &page)?;
+    let content = content::content(ui, &page)?;
     let mut children = vec![sidebar, content];
     if let Some(popup) = settings.menu
         && let Some(menu) = parts::menus::menu(ui, &page, popup, (width as f32, height as f32))?
@@ -100,12 +119,16 @@ pub fn view(
 /// 搜索索引：离屏把每页建一遍，收各页登记的可搜索项（key 与真建时一致），再加上页名本身。
 pub fn index(settings: &Settings) -> Vec<Entry> {
     let interaction = Interaction::new();
+    let look = look::current();
+    let palette = palette(look, false, false);
     let page = Page {
         settings,
-        theme: widget_theme(LIGHT.widgets, 1.0),
-        palette: &LIGHT,
+        theme: widget_theme(look, palette.widgets, 1.0),
+        palette: &palette,
         scale: 1.0,
-        content_width: 600.0,
+        content_width: content_width(look, look::window_size(look).0),
+        window: look::window_size(look),
+        expand_all: true,
     };
     let mut entries = Vec::new();
     for id in PageId::ALL.into_iter().filter(|id| id.shown()) {
@@ -115,6 +138,7 @@ pub fn index(settings: &Settings) -> Vec<Entry> {
             title: id.label().to_owned(),
             detail: None,
             keywords: Vec::new(),
+            region: None,
         });
         let mut ui = Ui::new(&interaction);
         if let Err(error) = page_children(&mut ui, &page, id) {
@@ -126,6 +150,7 @@ pub fn index(settings: &Settings) -> Vec<Entry> {
             title: item.title,
             detail: item.detail,
             keywords: item.keywords,
+            region: item.region,
         }));
     }
     entries
@@ -153,33 +178,8 @@ fn page_children(
     })
 }
 
-fn content(ui: &mut Ui<Message>, page: &Page) -> Result<NodeId, RenderError> {
-    let mut children = Vec::new();
-    // 配置文件读不了时每页顶上都说一声：界面这时是缺省值，不是文件里写的
-    if let Some(error) = &page.settings.config_error {
-        let text = tr_args("common.config_error", &[("error", error)]);
-        children.push(paragraph(ui, &page.theme, &text, None)?);
-    }
-    children.extend(page_children(ui, page, page.settings.page)?);
-    let column = ui.scene().node(
-        Style {
-            flex_direction: FlexDirection::Column,
-            gap: page.gap(10.0),
-            padding: Rect {
-                left: LengthPercentage::length(page.px(CONTENT_PADDING)),
-                right: LengthPercentage::length(page.px(CONTENT_PADDING)),
-                top: LengthPercentage::length(page.px(TITLEBAR + 12.0)),
-                bottom: LengthPercentage::length(page.px(28.0)),
-            },
-            ..Style::default()
-        },
-        Visual::Group,
-        &children,
-    )?;
-    // 每页各记各的滚动位置
-    ScrollArea::new(Style {
-        flex_grow: 1.0,
-        ..Style::default()
-    })
-    .build(ui, &page.theme, ("content", page.settings.page), column)
+/// 右边内容一栏扣掉左右边距后的宽度（点），`window` 是窗口宽（点）。
+fn content_width(look: Look, window: f32) -> f32 {
+    let width = window - sidebar::width(look) - content::padding(look) * 2.0;
+    content::max_width(look).map_or(width, |max| width.min(max))
 }

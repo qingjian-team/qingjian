@@ -44,10 +44,10 @@ sudo apt install python3 fcitx5 fcitx5-frontend-gtk3 fcitx5-frontend-gtk4 fcitx5
 
 ```sh
 # Debian / Ubuntu
-sudo apt install ./qingjian_<版本>_amd64.deb ./qingjian-fcitx5_<版本>_amd64.deb
+sudo apt install ./qingjian-<版本>-linux-x86_64.deb ./qingjian-fcitx5-<版本>-linux-x86_64.deb
 
 # Fedora 42 及以后
-sudo dnf install ./qingjian-<版本>-1.fc42.x86_64.rpm ./qingjian-fcitx5-<版本>-1.fc42.x86_64.rpm
+sudo dnf install ./qingjian-<版本>-linux-x86_64.rpm ./qingjian-fcitx5-<版本>-linux-x86_64.rpm
 ```
 
 - `qingjian` 在 Debian 12、Ubuntu 22.04 及以后都能装；`qingjian-fcitx5` 要较新的 Fcitx5，只有 Debian 13、Ubuntu 25.04、Fedora 42 及以后装得上，更早的系统请用 IBus 或源码安装。
@@ -63,11 +63,11 @@ sudo dnf install ./qingjian-<版本>-1.fc42.x86_64.rpm ./qingjian-fcitx5-<版本
 sudo apt install fcitx5 fcitx5-frontend-gtk3 fcitx5-frontend-gtk4 fcitx5-frontend-qt6 fcitx5-config-qt
 ```
 
-从[下载页](https://qingjian.app/download)下载 `Qingjian-<版本>-x86_64.AppImage`，放到一个固定的位置（比如 `~/Applications`），然后：
+从[下载页](https://qingjian.app/download)下载 `qingjian-<版本>-linux-x86_64.AppImage`，放到一个固定的位置（比如 `~/Applications`），然后：
 
 ```sh
-chmod +x ~/Applications/Qingjian-*.AppImage
-~/Applications/Qingjian-*.AppImage install
+chmod +x ~/Applications/qingjian-*-linux-x86_64.AppImage
+~/Applications/qingjian-*-linux-x86_64.AppImage install
 ```
 
 也可以在文件管理器里给它加上执行权限后双击，第一次会自动完成安装并打开青简设置。
@@ -76,13 +76,13 @@ chmod +x ~/Applications/Qingjian-*.AppImage
 
 - **挪动或改名 AppImage 文件后**，再运行一次 `install`：自动启动与菜单项记的是它原来的位置。
 - **更新**：用新版本的文件替换旧文件（保持同一个路径和文件名最省事），注销重新登录或运行一次 `install`，然后重启 Fcitx5。
-- **卸载**：运行 `Qingjian-*.AppImage uninstall`，再重启 Fcitx5；之后可以删掉这个文件。配置、个人词库和学习数据会保留。
+- **卸载**：运行 `qingjian-*-linux-x86_64.AppImage uninstall`，再重启 Fcitx5；之后可以删掉这个文件。配置、个人词库和学习数据会保留。
 - 已经用源码安装或预编译包装过青简的，先卸载那一份再装 AppImage；两份同时装会互相顶替，安装时会提示。
 - 系统缺少 FUSE、提示无法挂载时，先运行 `export APPIMAGE_EXTRACT_AND_RUN=1` 再执行上面的命令。
 
 ## Fcitx5 与 IBus 源码安装
 
-先安装 Rust 1.96 或更新版本，再按你用的框架装编译所需的软件包。用 **Fcitx5** 时，Debian / Ubuntu 上是：
+先安装 Rust 1.100 或更新版本，再按你用的框架装编译所需的软件包。用 **Fcitx5** 时，Debian / Ubuntu 上是：
 
 ```sh
 sudo apt install cmake g++ pkg-config python3 libssl-dev \
@@ -126,7 +126,7 @@ apps/linux/scripts/install.sh --enable-service
 
 ## Fcitx4 源码安装（Ubuntu 22.04）
 
-已在使用 Fcitx4 时，Qt5 应用用 `fcitx-frontend-qt5` 即可。先安装 Rust 1.96 或更新版本，以及：
+已在使用 Fcitx4 时，Qt5 应用用 `fcitx-frontend-qt5` 即可。先安装 Rust 1.100 或更新版本，以及：
 
 ```sh
 sudo apt install cmake g++ pkg-config python3 libssl-dev fcitx-libs-dev libx11-dev libxres-dev nlohmann-json3-dev \

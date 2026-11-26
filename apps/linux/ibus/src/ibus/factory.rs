@@ -2,8 +2,8 @@
 
 use std::sync::atomic::{AtomicU64, Ordering};
 
+use zbus::OwnedObjectPath;
 use zbus::object_server::ObjectServer;
-use zbus::zvariant::OwnedObjectPath;
 
 use super::engine::IBusEngine;
 use crate::client::Shared;

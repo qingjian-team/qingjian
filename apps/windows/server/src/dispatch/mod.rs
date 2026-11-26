@@ -190,8 +190,9 @@ pub struct Router {
 }
 
 impl Router {
-    pub fn new(engine: Engine, config: RouterConfig) -> Self {
+    pub fn new(mut engine: Engine, config: RouterConfig) -> Self {
         let english = config.english_mode && config.default_english;
+        engine.set_pair_punctuation(config.pair_punctuation, config.english_pair_punctuation);
         Self {
             engine,
             config: RouterConfig {
@@ -259,6 +260,7 @@ impl Router {
             english_candidates: self.config.english_candidates_in(app),
             predict: (self.config.cloud_enabled && self.engine.prediction_enabled())
                 .then_some(self.config.predict),
+            pronounce: self.config.pronounce,
             show_english_pronunciation: self.config.show_english_pronunciation,
             single_chars: self.config.single_chars,
             next_word: self.config.next_word,

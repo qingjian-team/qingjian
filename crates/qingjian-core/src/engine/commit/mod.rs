@@ -9,7 +9,7 @@ use super::{
     AUTO_WORD_THRESHOLD_SAME_BUFFER, BUFFER_PHRASE_MAX_CHARS, EXPLICIT_TRANSITION_WEIGHT, Engine,
     SENTENCE_WORD_MAX_CHARS, choice_key, reading_key, segment_longest_prefix,
 };
-use crate::candidate::{Candidate, CandidateKind, CandidateList, Language};
+use crate::candidate::{Candidate, CandidateKind, CandidateList, Language, Translation};
 use crate::correction::edit_distance;
 use crate::{parser, sentence};
 use qingjian_dictionary::Dictionary;
@@ -34,27 +34,11 @@ impl Engine {
         let mut hits = 0;
         for candidate in &mut list.items {
             // 繁体输出开着时按简体原文查：释义表的键是简体
-            let text = self
-                .traditional
-                .restore(&candidate.text)
-                .unwrap_or_else(|| candidate.text.clone());
-            candidate.translation = match candidate.kind {
-                CandidateKind::Custom(_) => None,
-                // 英文候选按敲的大小写显示（Company / COMPANY），释义表键是小写
-                CandidateKind::English => self.english_translator.translate(&text).or_else(|| {
-                    self.english_translator
-                        .translate(&text.to_ascii_lowercase())
-                }),
-                _ => self.translator.translate(&text).map(|mut translation| {
-                    self.mark_fresh(&mut translation);
-                    translation
-                }),
-            };
-            // 中文释义（英文候选的中文译词）也跟着转：候选文本已经是繁体了，释义不能还是简体
-            if let Some(translation) = &mut candidate.translation {
-                self.traditional.apply_translation(translation);
-                self.annotate_pronunciation(translation);
-            }
+            let simplified = self.traditional.restore(&candidate.text);
+            candidate.translation = self.displayed_translation(
+                candidate.kind,
+                simplified.as_deref().unwrap_or(&candidate.text),
+            );
             hits += usize::from(candidate.translation.is_some());
         }
         AnnotationReport {
@@ -62,6 +46,33 @@ impl Engine {
             hits,
             elapsed: start.elapsed(),
         }
+    }
+
+    /// 一条候选在候选窗里显示的那份译文。[`Self::annotate`] 逐条标注、[`Self::commit_recorded`]
+    /// 给壳没标过译文的候选补查都走这里，两边查法与后处理完全一样。
+    ///
+    /// `simplified` 是候选的简体原文：释义表的键是简体，繁体输出开着时调用方先用
+    /// `self.traditional.restore` 换回简体再传进来。查到的中文释义（英文候选的中文译词）
+    /// 再跟着转成繁体——候选文本已经是繁体了，释义不能还是简体——并补上音标。自定义短语不标译文。
+    fn displayed_translation(&self, kind: CandidateKind, simplified: &str) -> Option<Translation> {
+        let mut translation = match kind {
+            CandidateKind::Custom(_) => None,
+            // 英文候选按敲的大小写显示（Company / COMPANY），释义表键是小写
+            CandidateKind::English => self.english_translator.translate(simplified).or_else(|| {
+                self.english_translator
+                    .translate(&simplified.to_ascii_lowercase())
+            }),
+            _ => self
+                .translator
+                .translate(simplified)
+                .map(|mut translation| {
+                    self.mark_fresh(&mut translation);
+                    translation
+                }),
+        }?;
+        self.traditional.apply_translation(&mut translation);
+        self.annotate_pronunciation(&mut translation);
+        Some(translation)
     }
 
     /// 上屏：记入学习，从缓冲区消耗掉该候选对应的拼音，返回要提交给应用的文本。
@@ -97,9 +108,11 @@ impl Engine {
         }
         let lead = self.auto_space_before(&candidate.text);
         let before = self.hold_selections.then(|| self.composition.clone());
+        let previous_log_id = self.recent_commits.last().map(|commit| commit.log_id);
         let text = self.commit_with(candidate, InputSource::from(candidate.kind), None);
+        let learned = self.recent_commits.last().map(|commit| commit.log_id) != previous_log_id;
         let text = if lead { format!(" {text}") } else { text };
-        self.hold_or_release(before, text)
+        self.hold_or_release(before, text, learned)
     }
 
     /// [`Self::commit`] 的内部形式：`source` 写进输入日志（上屏译词时不是候选本身），
@@ -110,6 +123,10 @@ impl Engine {
         source: InputSource,
         used_sense: Option<usize>,
     ) -> String {
+        // 上屏了：「上一记退格把组句删空」属于上一段组句，到此作废（issue #932）。
+        // 不清的话，删空 → 上屏 → 按住退格，自动重复全被当成「删空后的重复」吞掉，
+        // 按住只删得掉一个字（Windows 与安卓上第一下不经过 Core，这个状态更清不掉）。
+        self.backspace_emptied = false;
         // 通讯录里的名字只在本机用：上屏照常吃拼音，学习与输入日志这一次都不记
         let mute = !self.private && self.is_contact(&candidate.text);
         if mute {
@@ -130,6 +147,10 @@ impl Engine {
         source: InputSource,
         used_sense: Option<usize>,
     ) -> String {
+        // 「只上屏某个字」挑出来的这一次（见 `Engine::pick_char`）：取走就清，
+        // 免得下一次普通上屏也按挑字处理
+        let picked_char = std::mem::take(&mut self.picked_char);
+        let picked_syllable = std::mem::take(&mut self.picked_syllable);
         // 繁体输出开着时，壳送回来的是繁体候选：先换回简体，下面的学习、历史、日志一律看简体；
         // 交给应用的仍是 `output` 那份繁体
         let output = candidate.text.clone();
@@ -157,12 +178,18 @@ impl Engine {
         let mut typos = Vec::new();
         // 候选的读音键：按输入串记选择时与字面键各记一份（[`Learner::record_choice`]）。
         // 形码 / 英文 / emoji 候选没有音节，自然得到空串。
-        let reading = reading_key(candidate.syllables.iter().map(String::as_str));
+        // 挑字挑出来的按**它自己的读音**记（取「交易中心」的「易」记成 `yi`），不吃整段前缀；
+        // 吃掉多少拼音仍旧按 `syllables`（`pick_char` 里带的是前缀），两件事分开。
+        let reading = match &picked_syllable {
+            Some(syllable) => reading_key(std::iter::once(syllable.as_str())),
+            None => reading_key(candidate.syllables.iter().map(String::as_str)),
+        };
         let mut abbreviation = String::new();
         let (consumed, input) = match candidate.kind {
             CandidateKind::Chinese => {
                 self.learner.record(candidate);
                 let (consumed, input) = self.consumed_by(candidate);
+                let input = picked_syllable.unwrap_or(input);
                 self.learner
                     .record_choice(&input, &reading, &candidate.text);
                 abbreviation = self.abbreviation_key(&candidate.syllables, &input);
@@ -236,11 +263,22 @@ impl Engine {
         }
         let log_id = self.log_commit(&keys, &candidate.text, source);
         self.meter_commit(&candidate.text, source, false);
-        // 上屏带译词的中文候选：那一刻用户看着这条译词，记进词汇（英文候选的中文释义不是学习语言，不记）
-        if !self.private
-            && candidate.kind != CandidateKind::English
-            && let Some(translation) = &candidate.translation
-        {
+        // 上屏带译词的中文候选：那一刻用户看着这条译词，记进词汇（英文候选的中文释义不是学习语言，不记；
+        // 自定义短语不标译文）。壳按布局下标上屏时，候选可能是从 `query()` 直接拿的、没经过 `annotate`：
+        // 这时照候选窗的查法补一份（[`Self::displayed_translation`]）。`candidate` 在开头已换回简体，
+        // 繁体输出开着时也是按简体查释义表，与 `annotate` 一致。
+        let can_record_vocab = !self.private
+            && !matches!(
+                candidate.kind,
+                CandidateKind::English | CandidateKind::Custom(_)
+            );
+        let fallback = (can_record_vocab && candidate.translation.is_none())
+            .then(|| self.displayed_translation(candidate.kind, &candidate.text))
+            .flatten();
+        let translation = can_record_vocab
+            .then(|| candidate.translation.as_ref().or(fallback.as_ref()))
+            .flatten();
+        if let Some(translation) = translation {
             for (index, sense) in translation.senses().iter().enumerate() {
                 self.vocabulary.record_commit(
                     translation.language,
@@ -292,6 +330,7 @@ impl Engine {
                 }
             }
             CandidateKind::Chinese | CandidateKind::Cloud => {
+                let explicit = self.learner.weight(&candidate.text) > 0;
                 self.record_word(
                     &candidate.text,
                     &candidate.syllables,
@@ -299,6 +338,11 @@ impl Engine {
                     true,
                     buffer_left,
                 );
+                // 挑字挑出来的字：用户亲手点的，即使只有一个音节也当「选过一次」记进词频，
+                // 下次打这个音节它排前面。整段拼音选完时的合成词由 `finish_buffer` 照常记。
+                if picked_char && !explicit {
+                    self.learner.record(candidate);
+                }
             }
             CandidateKind::Sentence => match sentence_words {
                 Some(words) => {

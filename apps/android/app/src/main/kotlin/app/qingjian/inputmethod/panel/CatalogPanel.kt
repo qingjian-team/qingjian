@@ -24,6 +24,7 @@ import kotlin.math.hypot
  * - 符号：不要表头，细线分格，偶数列（成对的括号引号在目录里从偶数位起，不会被拆到两行）；右边一列 返回 / 删除 / 锁定，
  *   没锁上屏一个就回键盘；底下横排分类。[leftThumb]（左手布局）时分类竖排在左边一列、左下角是返回，右边一列只剩删除 / 锁定。
  * - 表情：表头是 Emoji / 颜文字 两大类，底下横排小类，右下角删除；上屏后留在面板里接着选。
+ * - 在网格上左右滑换到相邻的分类，网格跟着手指走；表情滑过最后一个小类接到颜文字。
  */
 @SuppressLint("ViewConstructor")
 class CatalogPanel(
@@ -70,6 +71,9 @@ class CatalogPanel(
     private var downY = 0f
     private var holdRawX = 0f
     private var tracking = false
+
+    /** 网格横滑中跟着手指的位移，往左为负。 */
+    private var swipeDx = 0f
     private val location = IntArray(2)
 
     private val gridScroll = scrollable(false) { x, y -> grid.contains(x, y) }
@@ -160,6 +164,7 @@ class CatalogPanel(
         }
         canvas.save()
         canvas.clipRect(grid)
+        canvas.translate(swipeDx, 0f)
         val first = (gridScroll.offset / rowHeight).toInt()
         val last = ((gridScroll.offset + grid.height()) / rowHeight).toInt()
         for (row in first..minOf(last, rows - 1)) {
@@ -234,11 +239,7 @@ class CatalogPanel(
             y > bottom.top && x > bottom.right - ink.dp(BOTTOM_KEY_DP) ->
                 if (symbols) actions.closePanel() else actions.deleteBackward()
 
-            y > bottom.top || categoryColumn.contains(x, y) -> categories.indexAt(x, y)?.let {
-                categories.selected = it
-                if (symbols) symbolSection = it else emojiSection = it
-                gridScroll.reset()
-            }
+            y > bottom.top || categoryColumn.contains(x, y) -> categories.indexAt(x, y)?.let(::chooseCategory)
 
             back.contains(x, y) -> actions.closePanel()
 
@@ -252,6 +253,55 @@ class CatalogPanel(
             }
 
             grid.contains(x, y) -> tapGrid(x, y)
+        }
+    }
+
+    private fun chooseCategory(index: Int) {
+        categories.selected = index
+        if (symbols) symbolSection = index else emojiSection = index
+        gridScroll.reset()
+    }
+
+    /** 往后（[step] 为 1）或往前（-1）还有没有分类：表情的小类到头了可以跨到另一个大类。 */
+    private fun hasNeighbour(step: Int): Boolean = when {
+        categories.selected + step in categories.labels.indices -> true
+        symbols -> false
+        step > 0 -> top.selected == 0 && kaomoji.isNotEmpty()
+        else -> top.selected == 1 && emoji.isNotEmpty()
+    }
+
+    /** 往后或往前换一个分类，并把它的页签滚进来。 */
+    private fun stepCategory(step: Int) {
+        if (!hasNeighbour(step)) return
+        val next = categories.selected + step
+        when {
+            next in categories.labels.indices -> chooseCategory(next)
+            step > 0 -> chooseTop(1)
+            else -> {
+                chooseTop(0)
+                chooseCategory(categories.labels.lastIndex)
+            }
+        }
+        categories.reveal(categories.selected)
+    }
+
+    override fun swipeable(x: Float, y: Float) = grid.contains(x, y)
+
+    /** 往没有分类的那头拖只走三分之一，提示到头了。 */
+    override fun onSwipe(dx: Float) {
+        release()
+        swipeDx = if (hasNeighbour(if (dx < 0) 1 else -1)) dx else dx / 3
+    }
+
+    /** 拖过网格宽度的五分之一，或往左甩了一下，就换到相邻的分类。 */
+    override fun onSwipeEnd(flungLeft: Boolean, cancelled: Boolean) {
+        val dx = swipeDx
+        swipeDx = 0f
+        if (cancelled) return
+        val far = abs(dx) > grid.width() / SWIPE_FRACTION
+        when {
+            dx < 0 && (far || flungLeft) -> stepCategory(1)
+            dx > 0 && far -> stepCategory(-1)
         }
     }
 
@@ -392,6 +442,9 @@ class CatalogPanel(
 
         /** 符号一格至少这么宽，六格放不下就排四格。 */
         const val MIN_CELL_DP = 40f
+
+        /** 横滑超过网格宽度的几分之一就换分类。 */
+        const val SWIPE_FRACTION = 5f
 
         // 面板每次打开都新建，停在哪一类、锁没锁记在这里
         var symbolSection = 0

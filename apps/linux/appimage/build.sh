@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# //! 打 Linux AppImage：target/appimage/Qingjian-<版本>-x86_64.AppImage（Server、设置程序、Fcitx5 插件、产品数据）。
+# //! 打 Linux AppImage：target/appimage/qingjian-<版本>-linux-x86_64.AppImage（Server、设置程序、Fcitx5 插件、产品数据）。
 # //! 在 Debian 13 容器里编（见同目录 Dockerfile），先跑 tools/release/data-fetch.sh；要 docker。装法与限制见 docs/notes/linux-appimage.md。
 set -euo pipefail
 here=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
@@ -34,7 +34,7 @@ in_container() {
   cp "$appdir/usr/share/icons/hicolor/256x256/apps/qingjian.png" "$appdir/qingjian.png"
   ln -s qingjian.png "$appdir/.DirIcon"
   printf '%s\n' "$version" > "$appdir/usr/share/qingjian/appimage-version"
-  local name="Qingjian-$version-x86_64.AppImage"
+  local name="qingjian-$version-linux-x86_64.AppImage"
   rm -f "$out/AppDir.squashfs" "$out/$name"
   mksquashfs "$appdir" "$out/AppDir.squashfs" -root-owned -noappend -comp zstd -Xcompression-level 19 -b 1M -quiet
   cat "$out/cache/runtime-$runtime_tag" "$out/AppDir.squashfs" > "$out/$name"
