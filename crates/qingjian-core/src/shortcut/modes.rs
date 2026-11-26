@@ -23,6 +23,9 @@ pub const BASE_KEYWORD: &str = "base";
 /// 统计子模式的名字。
 pub const STAT_KEYWORD: &str = "stat";
 
+/// 颜色子模式的名字（`vcol` 与 `vcolor` 都认）。
+pub const COLOR_KEYWORD: &str = "col";
+
 /// 子模式。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Mode<'a> {
@@ -55,6 +58,12 @@ pub enum Mode<'a> {
         /// 冒号之后的参数原文。
         args: &'a str,
     },
+
+    /// 颜色：`vcol;#ff8800` 给各种颜色写法。
+    Color {
+        /// 冒号之后的参数原文。
+        args: &'a str,
+    },
 }
 
 impl Mode<'_> {
@@ -75,6 +84,14 @@ impl Mode<'_> {
             // 进制与统计：数字、字母（进制名）、小数、负号与分号
             Self::Base { .. } | Self::Stat { .. } => {
                 c.is_ascii_alphanumeric() || matches!(c, '.' | '-' | ';' | '；')
+            }
+            // 颜色：hex 的 `#`、函数式的 `rgb(…)`、逗号与百分号都要进得来
+            Self::Color { .. } => {
+                c.is_ascii_alphanumeric()
+                    || matches!(
+                        c,
+                        '#' | '(' | ')' | ',' | '.' | '%' | '-' | '/' | ';' | '；' | '：' | ':'
+                    )
             }
             // 位运算照 C++：`<<` `>>` `&` `|` `^` `~` `%`，还有写出来的英文（`shl` `and`）
             Self::Bit { .. } => {
@@ -99,7 +116,7 @@ struct Spec {
 }
 
 /// 全部子模式。加一个在这里登记，`Mode` 与 `mode_forms` 跟上即可。
-const SPECS: [Spec; 5] = [
+const SPECS: [Spec; 7] = [
     Spec {
         name: BIT_KEYWORD,
         numbered: true,
@@ -118,6 +135,14 @@ const SPECS: [Spec; 5] = [
     },
     Spec {
         name: STAT_KEYWORD,
+        numbered: false,
+    },
+    Spec {
+        name: COLOR_KEYWORD,
+        numbered: false,
+    },
+    Spec {
+        name: "color",
         numbered: false,
     },
 ];
@@ -167,6 +192,9 @@ fn named<'a>(name: &str, rest: &'a str) -> Option<Mode<'a>> {
     }
     if name == STAT_KEYWORD {
         return Some(Mode::Stat { args: rest });
+    }
+    if name == COLOR_KEYWORD || name == "color" {
+        return Some(Mode::Color { args: rest });
     }
     // 位宽可以写在参数里：`vbit;8u;1+2` 与 `vbit8u;1+2` 等价。名字上那些（`bit8`、`bitu`）照旧
     if name == BIT_KEYWORD

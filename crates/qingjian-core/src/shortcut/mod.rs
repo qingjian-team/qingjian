@@ -14,6 +14,7 @@
 mod base;
 mod bitwise;
 mod calendar;
+mod color;
 mod evaluator;
 pub mod modes;
 mod numeral;
@@ -254,6 +255,10 @@ fn mode_forms(mode: modes::Mode<'_>) -> Vec<String> {
         }
         modes::Mode::Base { args } => base::forms(args),
         modes::Mode::Stat { args } => stat::forms(args),
+        modes::Mode::Color { args } => color::forms(args)
+            .into_iter()
+            .map(|(value, _)| value)
+            .collect(),
     }
 }
 /// 单个非负数（`123`、`123.5`）：中文数字在前，金额在后；小数超过两位没有金额写法。
