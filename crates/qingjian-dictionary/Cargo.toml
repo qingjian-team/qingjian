@@ -3,6 +3,7 @@ name = "qingjian-dictionary"
 description = "词库：TSV 解析与 .qj mmap 加载，按拼音音节位置二分查询"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 

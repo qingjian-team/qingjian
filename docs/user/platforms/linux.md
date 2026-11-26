@@ -78,7 +78,7 @@ chmod +x ~/Applications/qingjian-*-linux-x86_64.AppImage
 
 ## Fcitx5 与 IBus 源码安装
 
-先安装 Rust 1.96 或更新版本，再按你用的框架装编译所需的软件包。用 **Fcitx5** 时，Debian / Ubuntu 上是：
+先安装 Rust 1.100 或更新版本，再按你用的框架装编译所需的软件包。用 **Fcitx5** 时，Debian / Ubuntu 上是：
 
 ```sh
 sudo apt install cmake g++ pkg-config python3 libssl-dev \
@@ -122,7 +122,7 @@ apps/linux/scripts/install.sh --enable-service
 
 ## Fcitx4 源码安装（Ubuntu 22.04）
 
-已在使用 Fcitx4 时，Qt5 应用用 `fcitx-frontend-qt5` 即可。先安装 Rust 1.96 或更新版本，以及：
+已在使用 Fcitx4 时，Qt5 应用用 `fcitx-frontend-qt5` 即可。先安装 Rust 1.100 或更新版本，以及：
 
 ```sh
 sudo apt install cmake g++ pkg-config python3 libssl-dev fcitx-libs-dev libx11-dev libxres-dev nlohmann-json3-dev \

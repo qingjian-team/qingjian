@@ -3,6 +3,7 @@ name = "qingjian-clipboard"
 description = "青简剪贴板的平台无关部分：历史存储、面板位置与配置"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 

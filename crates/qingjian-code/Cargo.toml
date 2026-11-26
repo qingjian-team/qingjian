@@ -3,6 +3,7 @@ name = "qingjian-code"
 description = "认出一段文字像不像代码，并切出高亮片段；输入法与剪贴板共用"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 

@@ -3,6 +3,7 @@ name = "qingjian-predict"
 description = "云联想：OpenAI 兼容接口的候选词、整句补全、问字、翻译与释义兜底"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 

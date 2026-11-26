@@ -3,6 +3,7 @@ name = "qingjian-core"
 description = "拼音输入法核心引擎：拼音解析、候选生成、整句转换、排序与学习接口，平台无关"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 

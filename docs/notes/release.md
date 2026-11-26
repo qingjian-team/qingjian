@@ -54,7 +54,7 @@
 官网文档只随发版更新（`docs/user/` 平时改动不推官网，免得文档领先于用户装到的版本）。没配就在官网仓库随便提交一次（或本地跑这个脚本）。
 官网构建时才拉最新 Release 的 `releases.json` 与主仓库 `docs/user`，所以提交内容本身不重要，`upstream.json` 只是留个记录、顺便让文档按记下的提交号拉（版本对得上）。
 
-Rust 工具链由 `rust-toolchain.toml` 钉版本（现在 1.96.0），各 workflow 里 `dtolnay/rust-toolchain` 的 `toolchain:` 输入写同一个号；升级 Rust 时一起改。
+Rust 工具链由 `rust-toolchain.toml` 钉版本（现在 1.100.0），各 workflow 里 `dtolnay/rust-toolchain` 的 `toolchain:` 输入写同一个号；升级 Rust 时一起改。
 
 ## 各平台的特别之处
 
@@ -162,7 +162,7 @@ gh secret set QINGJIAN_ANDROID_KEY_PASSWORD
       "mirrors": [{ "name": "夸克网盘", "url": "https://pan.quark.cn/s/…" }],
       "commit": "869ad00…（40 位）",
       "built_at": "2026-09-07T08:38:12Z",
-      "toolchain": "rustc 1.96.0 (ac68faa20 2026-05-25)",
+      "toolchain": "rustc 1.100.0 (0ef1bc386 2026-11-09)",
       "assets": [
         { "platform": "macos", "arch": "Apple Silicon", "cpu": "arm64", "file": "qingjian-0.1.3-macos-arm64.pkg",
           "url": "https://github.com/owner/qingjian/releases/download/macos-v0.1.3/qingjian-0.1.3-macos-arm64.pkg",
