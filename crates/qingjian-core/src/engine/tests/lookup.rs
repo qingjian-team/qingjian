@@ -377,25 +377,30 @@ fn trailing_initial_sentence_yields_to_a_word_covering_the_whole_input() {
 }
 
 #[test]
-fn shortcuts_follow_the_first_local_candidate() {
-    let all = texts("rq");
-    let shortcut = all.iter().position(|t| t.ends_with('日')).unwrap();
-    assert!(shortcut <= 1);
-    assert!(all.iter().any(|t| t.contains('-')));
-
-    let mut engine = engine();
-    engine.set_input("xq");
-    let query = engine.query().unwrap();
-    let weekday = query
-        .candidates
-        .items
-        .iter()
-        .find(|c| c.kind == CandidateKind::Shortcut)
-        .unwrap()
-        .clone();
-    assert!(weekday.text.starts_with("星期"));
-    engine.commit(&weekday);
-    assert!(engine.composition().is_empty());
+fn standalone_calendar_shortcuts_precede_dictionary_words_when_switched_on() {
+    let mut engine =
+        Engine::new(Dictionary::parse("世纪\tshi ji\t1000\n日期\tri qi\t1000\n").unwrap());
+    engine.set_calendar_shortcuts_first(true);
+    for (input, minimum) in [("rq", 17), ("sj", 18), ("jq", 24), ("xq", 3), ("jr", 23)] {
+        engine.set_input(input);
+        let items = engine.query().unwrap().candidates.items;
+        assert!(
+            items
+                .iter()
+                .take_while(|c| c.kind == CandidateKind::Shortcut)
+                .count()
+                >= minimum,
+            "{input}"
+        );
+    }
+    // 输入没打完（`sji`）、末尾带分隔符（`sj'`）这两种边界不受开关影响
+    engine.set_input("sji");
+    assert_eq!(engine.query().unwrap().candidates.items[0].text, "世纪");
+    engine.set_input("sj'");
+    assert_eq!(
+        engine.query().unwrap().candidates.items[0].kind,
+        CandidateKind::Shortcut
+    );
 }
 
 #[test]
@@ -748,4 +753,40 @@ fn abbreviation_reading_c_h_as_two_initials_commits_every_key() {
         .unwrap();
     assert_eq!(engine.commit(&idiom), "蜡炬成灰泪始干");
     assert!(engine.composition().is_empty());
+}
+
+/// 单打 `sj` 时缺省词在前；打开 `[general] calendar_shortcuts_first` 之后整组时间写法才压到前面。
+#[test]
+fn calendar_group_goes_first_only_when_the_option_is_on() {
+    // 自带几个 `sj` 能打出来的词：样例词库里没有它们，整组写法会把整页占满
+    let words = "手机\tshou ji\t9000\n时间\tshi jian\t8000\n世界\tshi jie\t7000\n";
+    let mut engine = Engine::new(Dictionary::parse(words).unwrap());
+    let texts = |engine: &Engine| {
+        engine
+            .query()
+            .unwrap()
+            .candidates
+            .items
+            .into_iter()
+            .map(|candidate| candidate.text)
+            .collect::<Vec<_>>()
+    };
+
+    engine.set_input("sj");
+    let default_order = texts(&engine);
+    assert!(
+        default_order.iter().take(3).any(|text| text == "手机"),
+        "缺省词在前，整组不抢位置：{default_order:?}"
+    );
+
+    engine.set_calendar_shortcuts_first(true);
+    engine.set_input("sj");
+    let grouped = texts(&engine);
+    assert!(
+        grouped
+            .iter()
+            .take(3)
+            .any(|text| text.contains('-') || text.contains(':')),
+        "打开之后整组排在最前：{grouped:?}"
+    );
 }

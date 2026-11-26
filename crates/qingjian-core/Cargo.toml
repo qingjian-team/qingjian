@@ -20,6 +20,7 @@ qingjian-dictionary.workspace = true
 serde.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
+tyme4rs = "=1.5.0"
 uuid.workspace = true
 vi.workspace = true
 
