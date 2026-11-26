@@ -10,7 +10,7 @@ use super::Composed;
 use crate::dispatch::Router;
 use crate::dispatch::key::{self, ESCAPE, Effect};
 
-const FOLLOW_UP_TIMEOUT: Duration = Duration::from_secs(2);
+const FOLLOW_UP_TIMEOUT: Duration = Duration::from_secs(5);
 
 impl Router {
     fn pure_wubi(&self) -> bool {

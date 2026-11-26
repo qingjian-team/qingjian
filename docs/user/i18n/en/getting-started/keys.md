@@ -59,7 +59,7 @@ A few keys differ with Dachen Zhuyin and Wubi; see [Pinyin schemes and fuzzy pin
 |---|---|
 | Commit highlighted candidate / candidate N | `Space` / `1` to `9` |
 | Select the second / third candidate on the current page | Pure Wubi 86 on Windows with `;` / `'` |
-| Select / dismiss a next-word suggestion | Pure Wubi 86 on Windows. By default, `Space` selects the first suggestion. You can also select with a number, the second or third candidate key, or the mouse. Press `Esc` to dismiss, or wait two seconds. |
+| Select / dismiss a next-word suggestion | Pure Wubi 86 on Windows. By default, `Space` selects the first suggestion. You can also select with a number, the second or third candidate key, or the mouse. Press `Esc` to dismiss, or wait five seconds. |
 | Auto-commit a unique full code | On by default; can be disabled in Settings |
 | Type another letter after a full code | Commit the highlight and start the next code; commit-on-next-code can be disabled |
 | Clear an unmatched code / keep raw letters | `Space` or punctuation clears it; `Enter` commits raw letters |

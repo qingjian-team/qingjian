@@ -191,6 +191,15 @@ fn expired_wubi_follow_ups_close_and_cannot_be_selected() {
     assert_eq!(candidate_texts(&frame), ["设计"]);
 
     std::thread::sleep(Duration::from_secs(2));
+    let Some(ServerMessage::Update { frame, commit, .. }) =
+        idle.handle(ClientMessage::Poll { session: SESSION })
+    else {
+        panic!("expected Update");
+    };
+    assert_eq!(candidate_texts(&frame), ["设计"]);
+    assert!(commit.is_none());
+
+    std::thread::sleep(Duration::from_secs(3));
     idle.tick();
     let (outcome, text, frame) = press(&mut keyboard, space);
     assert_eq!(outcome, KeyOutcome::Passthrough);
