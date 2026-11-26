@@ -246,6 +246,12 @@ fn main() -> ExitCode {
     engine.set_aux_show(config.general.aux_code_show);
     engine.set_aux_weighting(config.general.aux_code_weighting);
     engine.set_show_tones(config.general.show_tones);
+    // v 模式的 `cb` 从青简剪贴板那份历史里取；没装剪贴板时给个读不到东西的空实现，
+    // 开关打开也只是让 `cb` 原样当普通参数
+    engine.set_clipboard_source(std::sync::Arc::new(
+        crate::dispatch::clipboard_source::HistorySource::history_or_empty(user.clone()),
+    ));
+    engine.set_v_mode_clipboard_cb(config.general.v_mode_clipboard_cb);
     engine.set_calendar_shortcuts_first(config.general.calendar_shortcuts_first);
     engine.set_chinese_first(config.general.chinese_first);
     engine.set_spelling_correction(config.general.spelling_correction);

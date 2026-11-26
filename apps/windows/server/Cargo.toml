@@ -17,6 +17,7 @@ embed-manifest.workspace = true
 
 [dependencies]
 qingjian-core.workspace = true
+qingjian-clipboard.workspace = true
 qingjian-dictionary.workspace = true
 qingjian-learning.workspace = true
 qingjian-lm.workspace = true
