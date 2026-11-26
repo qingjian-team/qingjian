@@ -10,8 +10,7 @@ use qingjian_dictionary::Match;
 use crate::correction::edit_distance;
 use crate::engine::query::chinese_candidate;
 use crate::engine::{
-    ABBREVIATION_CHOICE_PREFIX, Learner, MAX_CANDIDATES, abbreviated_count, choice_key,
-    pattern_key, segment_longest_prefix,
+    ABBREVIATION_CHOICE_PREFIX, Learner, MAX_CANDIDATES, abbreviated_count, choice_key, pattern_key,
 };
 use crate::ranking::{FUZZY_PENALTY, Scored};
 use crate::{
@@ -82,10 +81,10 @@ impl Engine {
                     Ok((segs, tail, sources))
                 }
             }
-            (None, Some(tail)) if head_wins => {
-                parser::segment(&keys[..tail.head_len]).map(|s| (s, "", vec![]))
-            }
-            _ => segment_longest_prefix(keys).map(|(s, tail)| {
+            (None, Some(tail)) if head_wins => self
+                .fuzzy_segment(&keys[..tail.head_len])
+                .map(|s| (s, "", vec![])),
+            _ => self.segment_longest_prefix(keys).map(|(s, tail)| {
                 let sources = vec![0; s.len()];
                 (s, tail, sources)
             }),

@@ -98,6 +98,21 @@ const MAX_SEGMENTATIONS: usize = 8;
 
 /// 切分。返回按「音节少、不完整音节少、前面的音节长」排序的切分，最多 `MAX_SEGMENTATIONS` 种。
 pub fn segment(input: &str) -> Result<Vec<Segmentation>, ParseError> {
+    segment_with(input, |_| false)
+}
+
+/// 切分，并把 `extra_complete` 认可的输入片段也当作完整音节。
+///
+/// 模糊音下 `zuang` 本身不是音节，但开启 z/zh 后可以读成 `zhuang`；切分器要在
+/// `zuang tai` 与 `zu ang tai` 之间保留前者，后续的 `FuzzyRules::expand` 才能查到
+/// 「状态」。音节文本仍保留用户敲的字母，上屏对齐继续按原串消耗。
+pub(crate) fn segment_with<F>(
+    input: &str,
+    extra_complete: F,
+) -> Result<Vec<Segmentation>, ParseError>
+where
+    F: Fn(&str) -> bool,
+{
     let input = input.trim();
     if input.is_empty() {
         return Err(ParseError::Empty);
@@ -121,7 +136,7 @@ pub fn segment(input: &str) -> Result<Vec<Segmentation>, ParseError> {
     }];
     for (index, chunk) in chunks.iter().enumerate() {
         let is_last = index + 1 == chunks.len();
-        let options = segment_chunk(chunk, is_last);
+        let options = segment_chunk(chunk, is_last, &extra_complete);
         if options.is_empty() {
             return Err(ParseError::NoSegmentation);
         }
@@ -174,7 +189,10 @@ fn sort_key(segmentation: &Segmentation) -> (usize, usize, usize, usize, Vec<Rev
 
 /// 切分不含 `'` 的一段：按位置做动态规划，每个位置只保留最优的几种前缀切分。
 /// `is_last` 是这一段是不是整串的最后一段：只有最后一段允许留一个残缺音节（`zho` → zhong / zhou）。
-fn segment_chunk(chunk: &str, is_last: bool) -> Vec<Segmentation> {
+fn segment_chunk<F>(chunk: &str, is_last: bool, extra_complete: &F) -> Vec<Segmentation>
+where
+    F: Fn(&str) -> bool,
+{
     let allow_partial = is_last;
     let n = chunk.len();
     let mut best: Vec<Vec<Segmentation>> = vec![Vec::new(); n + 1];
@@ -190,6 +208,11 @@ fn segment_chunk(chunk: &str, is_last: bool) -> Vec<Segmentation> {
         let matches = SYLLABLE_TRIE.matches(rest);
         // (长度, 是否完整音节)
         let mut tokens: Vec<(usize, bool)> = matches.lengths().map(|len| (len, true)).collect();
+        for len in 1..=rest.len().min(MAX_SYLLABLE_LEN) {
+            if !tokens.contains(&(len, true)) && extra_complete(&rest[..len]) {
+                tokens.push((len, true));
+            }
+        }
         for len in initial_lengths(rest) {
             if !tokens.contains(&(len, true)) {
                 tokens.push((len, false));
@@ -236,7 +259,8 @@ fn segment_chunk(chunk: &str, is_last: bool) -> Vec<Segmentation> {
             best[start + eaten].extend(extended);
         }
         // 整个剩余部分作为未打完的音节（`zho` → zhong / zhou …）。它本身是完整音节或纯声母时已经在上面了。
-        let rest_is_complete = matches.lengths().next_back() == Some(rest.len());
+        let rest_is_complete =
+            matches.lengths().next_back() == Some(rest.len()) || extra_complete(rest);
         if allow_partial
             && matches.whole_is_prefix
             && !rest_is_complete
