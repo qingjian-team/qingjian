@@ -216,16 +216,24 @@ fn partial_selection_stays_in_the_composition() {
 }
 
 #[test]
-fn backspace_undoes_and_enter_keeps_held_words() {
+fn backspace_undoes_the_selection_at_the_end_of_the_pinyin() {
     let mut session = session();
     type_keys(&mut session, "nihaokaif");
     let frame = session.push('a');
     let frame = select_text(&mut session, &frame, "你好");
     assert!(frame.preedit.starts_with("你好"));
+    // 光标在末尾：退格撤回这次选择，拼音接回开头（`你hao|` → `nihao|`）
     let frame = session.backspace(false);
-    assert!(!frame.preedit.contains("你好"));
-    assert!(frame.candidates.iter().any(|c| c.text == "你好"));
+    assert!(frame.preedit.starts_with("ni"), "{:?}", frame.preedit);
+    assert!(!frame.preedit.contains("你好"), "{:?}", frame.preedit);
+    assert_eq!(frame.commit, "", "撤回不上屏");
+}
 
+#[test]
+fn enter_keeps_held_words() {
+    let mut session = session();
+    type_keys(&mut session, "nihaokaif");
+    let frame = session.push('a');
     let frame = select_text(&mut session, &frame, "你好");
     assert_eq!(frame.commit, "");
     assert_eq!(session.commit_raw().commit, "你好kaifa");
