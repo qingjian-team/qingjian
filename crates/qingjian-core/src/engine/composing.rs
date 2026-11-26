@@ -266,7 +266,10 @@ impl Engine {
             }
             return true;
         }
-        if self.undo_selection() {
+        // 选过词的时候（`你hao` 在界面上是「已选的词 + 剩下的拼音」）按光标位置分派：
+        // 两头（贴着已选词、或停在剩余拼音末尾）撤选词 —— `你hao|` → `nihao|`、`你|hao` → `ni|hao`；
+        // 中间删光标前那个字母、选过的词留着 —— `你h|ao` → `你|ao`。
+        if self.cursor_at_pinyin_edge() && self.undo_selection() {
             return true;
         }
         self.note_edit();
@@ -285,6 +288,11 @@ impl Engine {
             self.chain.note_edit();
         }
         removed
+    }
+
+    /// 光标是不是贴在拼音段两头（开头或末尾）。退格在这两处撤选词、中间才删字母。
+    fn cursor_at_pinyin_edge(&self) -> bool {
+        self.composition.cursor() == 0 || self.composition.cursor() >= self.composition.text().len()
     }
 
     pub fn clear(&mut self) {

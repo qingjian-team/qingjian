@@ -4,7 +4,7 @@
 
 use serde::{Deserialize, Serialize};
 
-/// 没写的项为 `None`，按方案自己的。
+/// 没写的项为 `None`：纯形码按方案默认，混输规则关闭。
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct CodeRules {
@@ -15,4 +15,12 @@ pub struct CodeRules {
     /// 顶字。
     #[serde(skip_serializing_if = "Option::is_none")]
     pub top: Option<bool>,
+
+    /// 混输时满码唯一自动上屏，未配置时关闭。
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mixed_auto_commit: Option<bool>,
+
+    /// 混输时优先形码候选并在满码后顶字续输，未配置时关闭。
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mixed_top: Option<bool>,
 }

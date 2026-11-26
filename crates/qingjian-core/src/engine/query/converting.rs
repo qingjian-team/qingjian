@@ -23,6 +23,14 @@ impl Engine {
         english_tail: Option<&EnglishTail>,
         head_wins: bool,
     ) {
+        // 用户用隔音符封出来的零声母简写（`e'liao` 的 `e`）不出整句：这种打法就是「我要一个词」，
+        // 用它拼整句净是「嗯聊」这类东西，还会把 饵料 那样的词挤到第二。
+        if segmentations
+            .iter()
+            .any(|s| s.syllables.iter().any(|x| x.implied_separate))
+        {
+            return;
+        }
         let Some(best) = self.sentence_segmentation(segmentations, typos) else {
             return;
         };

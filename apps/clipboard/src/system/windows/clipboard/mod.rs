@@ -270,8 +270,10 @@ fn write_image(payload: &Payload) {
 
 fn decode_text(bytes: &[u8]) -> String {
     let units: Vec<u16> = bytes
-        .chunks_exact(2)
-        .map(|pair| u16::from_le_bytes([pair[0], pair[1]]))
+        .as_chunks::<2>()
+        .0
+        .iter()
+        .map(|&pair| u16::from_le_bytes(pair))
         .take_while(|&unit| unit != 0)
         .collect();
     String::from_utf16_lossy(&units)
@@ -293,8 +295,10 @@ fn parse_file_list(raw: &[u8]) -> Option<Vec<String>> {
     }
     let units: Vec<u16> = raw
         .get(offset..)?
-        .chunks_exact(2)
-        .map(|pair| u16::from_le_bytes([pair[0], pair[1]]))
+        .as_chunks::<2>()
+        .0
+        .iter()
+        .map(|&pair| u16::from_le_bytes(pair))
         .collect();
     let paths: Vec<String> = units
         .split(|&unit| unit == 0)

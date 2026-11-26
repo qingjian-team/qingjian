@@ -104,6 +104,9 @@ pub struct TextService {
     /// 已成功登记的手动 AI 保留键；设置未变时也可补登记。
     predict_combo: Cell<Option<KeyCombo>>,
 
+    /// 已登记的带 Alt 发音保留键；只在组句时接管。
+    pronounce_combo: Cell<Option<KeyCombo>>,
+
     /// 上一次应用过的按键行为设置；与 Server 下发的一致时就不重复应用
     /// （每一拍 `SyncMode` 都带着它，见 [`TextService_Impl::apply_input_settings`]）。
     input_settings: Cell<Option<InputSettings>>,
@@ -218,6 +221,7 @@ impl TextService {
             switch_preserved: Cell::new(false),
             punctuation_combo: Cell::new(None),
             predict_combo: Cell::new(None),
+            pronounce_combo: Cell::new(None),
             input_settings: Cell::new(None),
             indicator_state: Cell::new(IndicatorState::default()),
             conversion_guard_until: Cell::new(None),

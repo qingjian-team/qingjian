@@ -63,6 +63,15 @@ pub fn shortcuts(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Rende
             mode.question_mark,
             false,
         )?,
+        toggle_info(
+            ui,
+            page,
+            tr("shortcuts.calendar_first"),
+            Some(tr("shortcuts.calendar_first_info")),
+            ("general", "calendar_shortcuts_first"),
+            config.general.calendar_shortcuts_first,
+            false,
+        )?,
     ]);
     out.push(section_title(ui, theme, tr("shortcuts.section_paging"))?);
     out.push(group(ui, theme, &rows)?);
@@ -112,6 +121,15 @@ pub fn shortcuts(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Rende
             page,
             Shortcut::Predict,
             Some(tr("shortcuts.predict_info")),
+            false,
+        )?);
+    }
+    if Feature::Pronounce.here() {
+        rows.push(recorder(
+            ui,
+            page,
+            Shortcut::Pronounce,
+            Some(tr("shortcuts.pronounce_info")),
             false,
         )?);
     }

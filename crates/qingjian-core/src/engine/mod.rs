@@ -107,6 +107,8 @@ pub struct Engine {
 
     /// 辅码态是否「只调顺序、不筛候选」（配置 `[general] aux_code_weighting`，缺省关）。
     aux_weighting: bool,
+    /// 单打日历缩写时整组是否压到词前面（配置 `[general] calendar_shortcuts_first`，缺省不压）。
+    calendar_group_first: bool,
 
     /// 附加词库（领域词库、用户导入的），与主词库一起查词、一起进整句词图；不参与语言模型（它们没有 bigram，
     /// 走词频兜底）。壳按用户目录 `dicts/` 与配置 `[dictionaries]` 装配。
@@ -284,6 +286,15 @@ pub struct Engine {
     /// 上一记退格是不是正好把组句删空了：下一记如果是自动重复就吞掉，
     /// 别让它接着删应用里已经上屏的字。
     backspace_emptied: bool,
+
+    /// 紧跟着的这一次 `commit` 是「只上屏第几个字」挑出来的（见 [`Self::pick_char`]）。
+    /// 挑字是用户明确的意图声明：上屏的那个字要算选过一次，整段拼音选完时合成词也算数，
+    /// 但**不从原候选继承译词**——用户没选那个词，不该顺带记它的词汇。
+    picked_char: bool,
+
+    /// 这一笔挑的那个字的**自己的**音节（「交易中心」挑「易」是 `yi`）：学习按它记，
+    /// 不吃整段前缀。吃掉多少拼音另按候选带的前缀算，见 `Engine::pick_char`。
+    picked_syllable: Option<String>,
 
     /// 输入统计用的键数与打字时长。
     typing: statistics::Typing,
@@ -564,6 +575,13 @@ pub const NEURAL_MARGIN: f64 = f64::INFINITY;
 pub const RESCORE_CONTEXT_CHARS: usize = 64;
 
 impl Engine {
+    /// 零声母简写开关（`[general] zero_initial_abbreviation`，缺省关）。
+    ///
+    /// 关着时切分与不带这个功能完全一致；打开后 `aquan` 才出「安全」、`e'liao` 才出「饵料」。
+    pub fn set_zero_initial_abbreviation(&mut self, on: bool) {
+        crate::parser::set_zero_initial_abbreviation(on);
+    }
+
     pub fn new(dictionary: Dictionary) -> Self {
         Self {
             dictionary,
@@ -574,6 +592,7 @@ impl Engine {
             english_translator: Box::new(NoTranslator),
             modes: ModeKeys::default(),
             aux_weighting: false,
+            calendar_group_first: false,
             learner: learning::MutedLearner::new(Box::new(NoLearner)),
             composition: Composition::default(),
             english: None,
@@ -629,6 +648,8 @@ impl Engine {
             page_turns: 0,
             composition_started: None,
             backspace_emptied: false,
+            picked_char: false,
+            picked_syllable: None,
             typing: statistics::Typing::default(),
             application: None,
             committed_since_break: false,

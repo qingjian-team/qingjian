@@ -58,6 +58,33 @@ impl Router {
                 None => Effect::Navigated,
             };
         }
+        // 以词定字：组句中按快捷键取高亮候选的第一个字，带 Shift 取最后一个字。
+        // 这一下把整段拼音吃掉（取字用的是这个词的读音），所以不必再问剩下的拼音怎么处理。
+        if self.composing()
+            && self.config.pick_char.is_some_and(|combo| {
+                let plain: KeyModifiers = combo.modifiers.into();
+                let shifted = KeyModifiers {
+                    shift: true,
+                    ..plain
+                };
+                event.virtual_key == combo.key.to_ascii_uppercase() as u32
+                    && (event.modifiers.chord() == plain || event.modifiers.chord() == shifted)
+            })
+        {
+            let Some(candidate) = self.layout_candidate(self.highlight) else {
+                return Effect::Navigated;
+            };
+            let index = if event.modifiers.shift {
+                candidate.text.chars().count().saturating_sub(1)
+            } else {
+                0
+            };
+            // 取不出字（云端词、字数与音节数对不上）就吃掉这一下，别把组合键漏给应用
+            let Some(single) = self.engine.pick_char(&candidate, index) else {
+                return Effect::Changed(None);
+            };
+            return Effect::Changed(Some(self.engine.commit(&single)));
+        }
         if let Some(effect) = self.apply_commit_key(event) {
             return effect;
         }

@@ -37,6 +37,7 @@ On Windows and Linux, the Chinese / English switch can also be a tap of `Ctrl` o
 | Clear | `Esc` | `Esc` | `Esc` |
 | List only single characters (press again to go back; normal candidates return after you commit; can be changed or turned off in Settings) | — | `Ctrl + D` | — |
 | Next word: keep the first word of the top sentence and list choices for the next word (can be changed or turned off in Settings) | — | `Ctrl + V` | — |
+| Pick one character: commit the first character of the highlighted candidate (`Shift` for the last one); the whole word's pinyin ends there (off by default, set the combo in Settings) | — | the combo set in Settings | — |
 | Move the highlight (pages automatically at the edge) | `↑` / `↓` | `↑` / `↓` | `↑` / `↓` |
 | Page | `[` `]`, `PageUp` / `PageDown`, `⇧ + Tab` (previous page); click the arrows beside the page number | `[` `]`, `PageUp` / `PageDown`, `Shift + Tab` (previous page); click the arrows beside the page number, or scroll the mouse wheel over the candidates | `[` `]`, `PageUp` / `PageDown`, `Shift + Tab` (previous page) |
 | Accept the AI sentence completion (next page if there is none) | `Tab` | `Tab` | `Tab` |
@@ -62,7 +63,7 @@ A few keys differ with Dachen Zhuyin and Wubi; see [Pinyin schemes and fuzzy pin
 | Type another letter after a full code | Commit the highlight and start the next code; commit-on-next-code can be disabled |
 | Clear an unmatched code / keep raw letters | `Space` or punctuation clears it; `Enter` commits raw letters |
 
-Automatic commits apply only to pure shape-based input, not mixed input. See [Wubi and mixed input](../input/wubi.md).
+These switches apply only to pure shape-based input. Mixed input keeps pinyin-style selection by default, with separate optional switches for committing a unique full code (Wubi requires exactly four keys and one candidate) and preferring shape codes with continuation (the next letter after a full code commits the highlight and starts a new code). Both options are off by default. See [Wubi and mixed input](../input/wubi.md).
 
 ## In the symbol panel
 
@@ -117,7 +118,7 @@ All of these require AI services to be turned on first; see [AI services](../clo
 
 | Input | Result |
 |---|---|
-| `rq` / `sj` / `xq` | Date / time / day of the week |
+| `rq` / `sj` / `xq` / `jq` / `jr` | Date / time / weekday / solar terms / festivals |
 | `v` + expression, number or date | Calculation result, Chinese numerals and amounts, Chinese date |
 | `u` + hexadecimal | The character with that code point |
 | `u` + pinyin | Ask about a character (requires AI services) |

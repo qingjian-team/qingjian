@@ -12,6 +12,8 @@ pub enum Shortcut {
     TranslationSecond,
     TranslateSelection,
     Predict,
+    /// 组句时朗读当前高亮的候选（Windows 用系统语音）。
+    Pronounce,
     /// 没在打字时打开符号面板的翻译组。
     TranslatePanel,
     /// 呼出剪贴板面板（全局快捷键）。
@@ -26,15 +28,18 @@ pub enum Shortcut {
     SingleChars,
     /// 组句时按词跳（只在组句时拿走）。
     NextWord,
+    /// 组句时以词定字：按一下取高亮候选的第一个字，带 Shift 取最后一个字。
+    PickChar,
 }
 
 impl Shortcut {
     #[cfg(test)]
-    pub const ALL: [Self; 11] = [
+    pub const ALL: [Self; 13] = [
         Self::Translation,
         Self::TranslationSecond,
         Self::TranslateSelection,
         Self::Predict,
+        Self::Pronounce,
         Self::TranslatePanel,
         Self::Clipboard,
         Self::AuxCodeKey,
@@ -42,6 +47,7 @@ impl Shortcut {
         Self::CommitRaw,
         Self::SingleChars,
         Self::NextWord,
+        Self::PickChar,
     ];
 
     pub fn title(self) -> &'static str {
@@ -50,6 +56,7 @@ impl Shortcut {
             Self::TranslationSecond => tr("shortcut.translation_second"),
             Self::TranslateSelection => tr("shortcut.translate_selection"),
             Self::Predict => tr("shortcut.predict"),
+            Self::Pronounce => tr("shortcut.pronounce"),
             Self::TranslatePanel => tr("shortcut.translate_panel"),
             Self::Clipboard => tr("shortcut.clipboard"),
             Self::AuxCodeKey => tr("shortcut.aux_code_key"),
@@ -57,6 +64,7 @@ impl Shortcut {
             Self::CommitRaw => tr("shortcut.commit_raw"),
             Self::SingleChars => tr("shortcut.single_chars"),
             Self::NextWord => tr("shortcut.next_word"),
+            Self::PickChar => tr("shortcut.pick_char"),
         }
     }
 
@@ -67,6 +75,7 @@ impl Shortcut {
             Self::TranslationSecond => ("shortcut", "translation_second"),
             Self::TranslateSelection => ("shortcut", "translate_selection"),
             Self::Predict => ("shortcut", "predict"),
+            Self::Pronounce => ("shortcut", "pronounce"),
             Self::TranslatePanel => ("shortcut", "translate_panel"),
             Self::Clipboard => ("shortcut", "clipboard"),
             Self::AuxCodeKey => ("general", "aux_code_key"),
@@ -74,6 +83,7 @@ impl Shortcut {
             Self::CommitRaw => ("shortcut", "commit_raw"),
             Self::SingleChars => ("shortcut", "single_chars"),
             Self::NextWord => ("shortcut", "next_word"),
+            Self::PickChar => ("shortcut", "pick_char"),
         }
     }
 
@@ -83,10 +93,12 @@ impl Shortcut {
             Self::Translation | Self::TranslationSecond => tr("shortcut.prompt_digit"),
             Self::TranslateSelection
             | Self::Predict
+            | Self::Pronounce
             | Self::TranslatePanel
             | Self::Clipboard
             | Self::SingleChars
-            | Self::NextWord => tr("shortcut.prompt_combo"),
+            | Self::NextWord
+            | Self::PickChar => tr("shortcut.prompt_combo"),
             Self::AuxCodeKey => tr("shortcut.prompt_symbol"),
             Self::CommitCandidate | Self::CommitRaw => tr("shortcut.prompt_commit"),
         }
@@ -101,6 +113,7 @@ impl Shortcut {
             Self::TranslationSecond => digits(second),
             Self::TranslateSelection => combo_label(shortcut.translate_selection),
             Self::Predict => combo_label(shortcut.predict),
+            Self::Pronounce => shortcut.pronounce.map_or_else(String::new, combo_label),
             Self::TranslatePanel => combo_label(shortcut.translate_panel),
             Self::Clipboard => combo_label(shortcut.clipboard),
             Self::AuxCodeKey => config.general.aux_code_key().to_string(),
@@ -114,6 +127,11 @@ impl Shortcut {
             Self::NextWord => {
                 combo_label(shortcut.next_word.unwrap_or(KeyCombo::NEXT_WORD_DEFAULT))
             }
+            // 以词定字缺省关着：没配就显示「未设置」（`shortcut.unset`）
+            Self::PickChar => shortcut
+                .pick_char
+                .map(combo_label)
+                .unwrap_or_else(|| tr("shortcut.unset").to_owned()),
         }
     }
 
@@ -131,21 +149,28 @@ impl Shortcut {
         false
     }
 
-    /// 组合键那几项现在的值；别的项取不到，给剪贴板比较用的只有前两个。
-    fn combo(self, config: &Config) -> KeyCombo {
+    /// 组合键那几项现在的值；不用组合键的项取不到。发音可以关掉，所以这里也是 `Option`。
+    fn combo(self, config: &Config) -> Option<KeyCombo> {
         match self {
-            Self::Predict => config.shortcut.predict,
-            Self::TranslatePanel => config.shortcut.translate_panel,
-            Self::Clipboard => config.shortcut.clipboard,
-            Self::SingleChars => config
-                .shortcut
-                .single_chars
-                .unwrap_or(KeyCombo::SINGLE_CHARS_DEFAULT),
-            Self::NextWord => config
-                .shortcut
-                .next_word
-                .unwrap_or(KeyCombo::NEXT_WORD_DEFAULT),
-            _ => config.shortcut.translate_selection,
+            Self::TranslateSelection => Some(config.shortcut.translate_selection),
+            Self::Predict => Some(config.shortcut.predict),
+            Self::Pronounce => config.shortcut.pronounce,
+            Self::TranslatePanel => Some(config.shortcut.translate_panel),
+            Self::Clipboard => Some(config.shortcut.clipboard),
+            Self::SingleChars => Some(
+                config
+                    .shortcut
+                    .single_chars
+                    .unwrap_or(KeyCombo::SINGLE_CHARS_DEFAULT),
+            ),
+            Self::NextWord => Some(
+                config
+                    .shortcut
+                    .next_word
+                    .unwrap_or(KeyCombo::NEXT_WORD_DEFAULT),
+            ),
+            Self::PickChar => config.shortcut.pick_char,
+            _ => None,
         }
     }
 
@@ -242,15 +267,16 @@ impl Shortcut {
                 for other in [
                     Self::TranslateSelection,
                     Self::Predict,
+                    Self::Pronounce,
                     Self::TranslatePanel,
                 ] {
-                    if other.combo(config) == combo {
+                    if other.combo(config) == Some(combo) {
                         return Err(tr_args("shortcut.clash", &[("other", &other.title())]));
                     }
                 }
                 Ok(combo.key_string())
             }
-            Self::SingleChars | Self::NextWord => {
+            Self::SingleChars | Self::NextWord | Self::PickChar => {
                 let key = match &press.key {
                     KeyCode::Character(text) => {
                         single(text).filter(|key| key.is_ascii_alphanumeric())
@@ -268,17 +294,33 @@ impl Shortcut {
                 for other in [
                     Self::TranslateSelection,
                     Self::Predict,
+                    Self::Pronounce,
                     Self::TranslatePanel,
                     Self::Clipboard,
                 ] {
-                    if other.combo(config) == combo {
+                    if other.combo(config) == Some(combo) {
                         return Err(tr_args("shortcut.clash", &[("other", &other.title())]));
                     }
                 }
-                // 两个都只在组句时拿走：单字模式与按词跳不能是同一个键
-                for other in [Self::SingleChars, Self::NextWord] {
-                    if other != self && other.combo(config) == combo {
+                // 这几项都只在组句时拿走，彼此不能是同一个键
+                for other in [Self::SingleChars, Self::NextWord, Self::PickChar] {
+                    if other != self && other.combo(config) == Some(combo) {
                         return Err(tr_args("shortcut.clash", &[("other", &other.title())]));
+                    }
+                }
+                // 以词定字不能与翻页键撞（缺省是 `[` `]`，用户换了哪组就避开哪组）
+                if self == Self::PickChar {
+                    let (previous, next) = config.general.page_keys();
+                    let extra: Vec<char> = qingjian_platform::PAGE_KEY_OPTIONS
+                        .iter()
+                        .filter(|pair| config.shortcut.extra_page_keys.contains(pair))
+                        .flat_map(|pair| pair.chars())
+                        .collect();
+                    if key == previous || key == next || extra.contains(&key) {
+                        return Err(tr_args(
+                            "shortcut.is_page_key",
+                            &[("key", &key.to_string())],
+                        ));
                     }
                 }
                 // 组句中「译词修饰键 + 数字」上屏译词
@@ -293,7 +335,7 @@ impl Shortcut {
                 }
                 Ok(combo.key_string())
             }
-            Self::TranslateSelection | Self::Predict | Self::TranslatePanel => {
+            Self::TranslateSelection | Self::Predict | Self::Pronounce | Self::TranslatePanel => {
                 let key = match &press.key {
                     KeyCode::Character(text) => single(text).filter(|key| {
                         key.is_ascii_alphanumeric() || (self == Self::Predict && *key == '.')
@@ -311,6 +353,19 @@ impl Shortcut {
                 if Feature::Clipboard.here() && config.shortcut.clipboard == combo {
                     let other = Self::Clipboard.title();
                     return Err(tr_args("shortcut.clash", &[("other", &other)]));
+                }
+                if let Some(other) = [
+                    Self::TranslateSelection,
+                    Self::Predict,
+                    Self::Pronounce,
+                    Self::TranslatePanel,
+                    Self::SingleChars,
+                    Self::NextWord,
+                ]
+                .into_iter()
+                .find(|other| *other != self && other.combo(config) == Some(combo))
+                {
+                    return Err(tr_args("shortcut.clash", &[("other", &other.title())]));
                 }
                 Ok(combo.key_string())
             }
@@ -510,6 +565,26 @@ mod tests {
         assert!(
             Shortcut::AuxCodeKey
                 .accept(&press("/", Held::default()), &moved)
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn pronounce_recorder_takes_modified_letters() {
+        let config = Config::default();
+        let ctrl_alt = Held {
+            control: true,
+            alt: true,
+            ..Held::default()
+        };
+        assert_eq!(
+            Shortcut::Pronounce.accept(&press("p", ctrl_alt), &config),
+            Ok("control+option+p".to_owned())
+        );
+        // 缺省预测键是 Ctrl+Alt+J，不能重
+        assert!(
+            Shortcut::Pronounce
+                .accept(&press("j", ctrl_alt), &config)
                 .is_err()
         );
     }

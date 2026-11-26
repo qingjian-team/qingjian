@@ -65,6 +65,12 @@ if (-not $SkipBuild) {
     Write-Host '构建 release 产物…' -ForegroundColor Cyan
     Push-Location $Repo
     try {
+        # 构建标识进设置程序的「关于」页与诊断信息：git 短哈希（工作区有改动加 +）与日期，与 macOS 的 bundle.sh 一致
+        $build = (git rev-parse --short HEAD 2>$null)
+        if ($LASTEXITCODE -eq 0 -and $build) {
+            if (git status --porcelain 2>$null) { $build = "$build+" }
+            $env:QINGJIAN_BUILD = "$build · $(Get-Date -Format yyyy-MM-dd)"
+        }
         cargo build --release --locked -p qingjian-windows-server -p qingjian-windows-tsf -p qingjian-settings -p qingjian-clipboard-app -p qingjian-windows-settings
         if ($LASTEXITCODE -ne 0) { throw "cargo build 失败（退出码 $LASTEXITCODE）" }
         cargo build --release --locked -p qingjian-windows-tsf --target i686-pc-windows-msvc

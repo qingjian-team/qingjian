@@ -8,15 +8,15 @@ description: "Typing dates, times and weekdays with rq / sj / xq; calculating, w
 
 | Input | Result |
 |---|---|
-| `rq` / `sj` / `xq` | Today's date (`2026年9月3日`, `2026-09-03`), the current time (`19:06`, `19点06分`, timestamp `20260903190623`), the day of the week, inserted after the first candidate |
-| `riqi` / `shijian` / `xingqi` | When 日期 (date), 时间 (time) or 星期 (weekday) appears among the candidates, the same forms follow right after it |
+| `rq` / `sj` / `xq` | Today's date, current time and weekday. When typed on their own, the full set appears before ordinary pinyin candidates. |
+| `jq` / `jr` | Upcoming solar terms or common festivals, including today, in date order (1901–2099). |
+| `riqi` / `shijian` / `xingqi` | When 日期 (date), 时间 (time) or 星期 (weekday) appears, the first three forms follow that candidate. The rest go to the end of the list. |
 
-There are many forms. The first three follow the leading candidate; the rest go to the end of the list, so the
-first page stays for words — typing `sj` for 时间 doesn't need paging.
+Use `sji` for 世纪 (century). `vnow` and its day offsets use the same date formats as `rq`. Common formats come first.
 
 | Input | First three | The rest (examples) |
 |---|---|---|
-| `rq` | `2026年11月9日`, `2026-11-09`, `2026/11/09` | `2026.11.09`, `11月9日`, `20261109`, `26-11-09`, `09/11/2026` (European), `11/09/2026` (US), `2026-W45-1`, `二〇二六年十一月九日` |
+| `rq` | `2026年11月9日`, `2026-11-09`, `11月9日` | `2026/11/09`, `2026.11.09`, `20261109`, `26-11-09`, `09/11/2026` (European), `11/09/2026` (US), `2026-W45-1`, `二〇二六年十一月九日` |
 | `sj` | `19:06`, `19:06:23`, `19点06分` | with milliseconds, with the date, 12-hour (`下午7:06`, `7:06 PM`), bare digits (`190623`, `20261109190623`), filename-friendly (`20261109_190623`) |
 | `xq` | `星期一`, `周一`, `礼拜一` | — |
 
@@ -30,7 +30,7 @@ Start with `v`:
 | `v123` | Chinese numerals: 一百二十三 and 壹佰贰拾叁; amounts: 一百二十三元整 and 壹佰贰拾叁元整 |
 | `v123.5` | Decimal reading: 一百二十三点五 and 壹佰贰拾叁点伍; amounts: 一百二十三元五角 and 壹佰贰拾叁元伍角 (up to two decimal places, i.e. fen) |
 | `v1998-3-8` | Chinese date: 一九九八年三月八日; plus 1998年3月8日 and 1998-03-08. The separator can be `-`, `/` or `.` |
-| `vnow` | Today's date, in exactly the same forms as `v2026.11.5` |
+| `vnow` | Today's date, in the same formats as `rq` |
 | `vnow+4` / `vnow-4` | Four days from now / four days ago. `vnow;4` works too (semicolon or colon; without a sign it counts forward) |
 | `v1234.9.9-7` / `v1234.9.9+30` | Seven days before / thirty days after a given date. Only complete dates, and the offset sign must differ from the date separator |
 

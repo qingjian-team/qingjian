@@ -3,6 +3,7 @@ name = "qingjian-render"
 description = "候选窗与状态条：帧数据 + 主题 → 场景树，画在 bamboo-slip 上，各平台只负责贴图"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 license = "GPL-3.0-or-later OR LicenseRef-Qingjian-Commercial"
 repository.workspace = true
 
