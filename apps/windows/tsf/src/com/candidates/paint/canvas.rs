@@ -88,7 +88,7 @@ impl Canvas {
         let len = (self.width * self.height * 4) as usize;
         let pixels = unsafe { std::slice::from_raw_parts_mut(self.bits, len) };
         let (width, height, radius) = (self.width as f32, self.height as f32, radius.max(0) as f32);
-        for (index, pixel) in pixels.chunks_exact_mut(4).enumerate() {
+        for (index, pixel) in pixels.as_chunks_mut::<4>().0.iter_mut().enumerate() {
             let x = (index % self.width as usize) as f32 + 0.5;
             let y = (index / self.width as usize) as f32 + 0.5;
             let alpha = (coverage(x, y, width, height, radius) * 255.0).round() as u32;
