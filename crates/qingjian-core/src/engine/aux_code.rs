@@ -85,6 +85,20 @@ impl Engine {
             .find_map(|table| table.code_with_prefix(word, prefix))
     }
 
+    /// 容错版 [`Self::matching_code`]：码段打错一位也算命中，返回命中的码与差了几位。
+    ///
+    /// 精确命中（距离 0）优先；都没有精确命中时才看差一位的 —— 码段本来就短，
+    /// 容两位等于没容错。
+    pub(super) fn matching_code_within<'a>(
+        &'a self,
+        word: &str,
+        prefix: &str,
+    ) -> Option<(Cow<'a, str>, usize)> {
+        self.aux_codes
+            .iter()
+            .find_map(|table| table.code_within(word, prefix, 1))
+    }
+
     /// preedit 里的辅码两段；不在辅码态时为 `None`。
     pub(super) fn aux_segment(&self) -> Option<AuxSegment> {
         self.aux_code

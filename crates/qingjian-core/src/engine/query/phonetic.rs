@@ -500,10 +500,33 @@ impl Engine {
                         .then_with(|| b.1.len().cmp(&a.1.len()))
                 });
                 if kept.is_empty() {
-                    // 码段一个码都对不上。缺省到此为止（码段是过滤器）；打开
-                    // `[general] aux_code_weighting` 才按音节拼提示 —— `fuma;fuzhu` 是「辅」
-                    // 也在 辅助 里，`fuma;chefu` 是「辅」＝车＋甫。
-                    if self.aux_weighting {
+                    if kept.is_empty() {
+                        // 一个精确命中都没有时，先试「码段打错一位」：`kaif;kk` 这种手一抖
+                        // 还该看得到 开发，只是排在精确命中之后（这里已经是没有精确命中的情况了）。
+                        let mut near: Vec<(usize, Cow<'_, str>, usize)> = scored
+                            .iter()
+                            .enumerate()
+                            .filter_map(|(index, item)| {
+                                self.matching_code_within(item.hit.text, code)
+                                    .filter(|(_, distance)| *distance > 0)
+                                    .map(|(hit, distance)| (index, hit, distance))
+                            })
+                            .collect();
+                        near.sort_by_key(|(_, _, distance)| *distance);
+                        if near.is_empty() {
+                            // 差一位的也没有。缺省到此为止（码段是过滤器）；打开
+                            // `[general] aux_code_weighting` 才按音节拼提示 —— `fuma;fuzhu` 是「辅」
+                            // 也在 辅助 里，`fuma;chefu` 是「辅」＝车＋甫。
+                            if self.aux_weighting {
+                                let best = &segmentations[0];
+                                items.extend(self.hinted_candidates(&scored, best, code));
+                            }
+                        } else {
+                            items.extend(near.into_iter().map(|(index, hit, _)| {
+                                chinese_candidate(&scored[index], Some(&hit))
+                            }));
+                        }
+                    } else {
                         let best = &segmentations[0];
                         items.extend(self.hinted_candidates(&scored, best, code));
                     }

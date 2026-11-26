@@ -16,4 +16,55 @@ pub trait AuxCodeLookup: Send + Sync {
     ///
     /// 只给「查看码」这类诊断用：过滤走 `code_with_prefix`，热路径上不必枚举。
     fn codes_of<'a>(&'a self, word: &str) -> Vec<Cow<'a, str>>;
+
+    /// 容错版 [`Self::code_with_prefix`]：码段打错一位也算命中，返回命中的码与差了几位。
+    ///
+    /// 精确命中的距离是 0，调用方据此把「码没错」的排在「码打错了」的前面。
+    /// `max_distance` 一般给 1 —— 码段本来就短（两三笔），容两位等于没容错。
+    fn code_within<'a>(
+        &'a self,
+        word: &str,
+        prefix: &str,
+        max_distance: usize,
+    ) -> Option<(Cow<'a, str>, usize)> {
+        if let Some(code) = self.code_with_prefix(word, prefix) {
+            return Some((code, 0));
+        }
+        let mut best: Option<(Cow<'a, str>, usize)> = None;
+        for code in self.codes_of(word) {
+            let head_len = code.len().min(prefix.len());
+            let distance = edit_distance(prefix, &code[..head_len]);
+            if distance == 0 || distance > max_distance {
+                continue;
+            }
+            if best.as_ref().is_none_or(|(_, seen)| distance < *seen) {
+                best = Some((code, distance));
+            }
+        }
+        best
+    }
+}
+
+/// 只用于短码段的编辑距离（码段一般两三个字符）：标准 Levenshtein，按字节比 —— 辅码都是 ASCII。
+fn edit_distance(a: &str, b: &str) -> usize {
+    let (a, b) = (a.as_bytes(), b.as_bytes());
+    if a.is_empty() {
+        return b.len();
+    }
+    if b.is_empty() {
+        return a.len();
+    }
+    let mut previous: Vec<usize> = (0..=b.len()).collect();
+    let mut current = vec![0usize; b.len() + 1];
+    for (i, left) in a.iter().enumerate() {
+        current[0] = i + 1;
+        for (j, right) in b.iter().enumerate() {
+            let cost = usize::from(left != right);
+            current[j + 1] = (current[j] + 1)
+                .min(previous[j + 1] + 1)
+                .min(previous[j] + cost);
+        }
+        std::mem::swap(&mut previous, &mut current);
+    }
+    previous[b.len()]
 }
