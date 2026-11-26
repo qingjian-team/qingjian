@@ -167,16 +167,15 @@ impl Host {
         if force || config.dictionaries != self.applied_dictionaries {
             self.reload_dictionaries();
         }
-        // 只有开关与选的模型变了才换；档位、前文记多久当场改
-        let wanted = (config.model.enabled, config.model.name);
-        let applied = self
+        // 只有开关、选的模型或知意的版本变了才换；档位、前文记多久当场改
+        let same = self
             .applied_model
             .as_ref()
-            .map(|model| (model.enabled, model.name));
-        if applied != Some(wanted) {
+            .is_some_and(|model| model.loads_same_model(&config.model));
+        if !same {
             self.unload_local_model();
             if config.model.enabled {
-                self.load_local_model(config.model.name);
+                self.load_local_model(&config.model);
             }
         }
         self.engine

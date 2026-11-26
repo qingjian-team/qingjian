@@ -164,10 +164,12 @@ transfer = "Nhập, xuất cài đặt"
 transfer_info = "Lưu cài đặt thành một tệp; không gồm cụm từ tùy chỉnh, khóa dịch vụ đám mây và vị trí thanh trạng thái"
 
 [experimental]
-zhiyi_recommended = "Zhiyi (khuyên dùng)"
+recommended_title = "{name} (khuyên dùng)"
 section_models = "Mô hình câu"
 recommended = "Khuyên dùng"
+deprecated = "Không còn cập nhật"
 zhiyi_description = "Chọn gợi ý đầu tiên theo ngữ cảnh phía trước"
+feather_description = "Chọn gợi ý đầu tiên theo ngữ cảnh phía trước, hợp với thiết bị cấu hình thấp"
 tongbian_description = "Ghép câu từ pinyin"
 cancel = "Hủy"
 installing = "Đang cài đặt…"

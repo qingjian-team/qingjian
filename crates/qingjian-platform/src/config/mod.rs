@@ -470,6 +470,8 @@ disabled = []
 enabled = false
 # 用哪个：tongbian 含章·通变（按拼音造句）/ zhiyi 知意（按前文挑首选）；先在设置的「实验功能」里下载（Linux 随包带通变），没下载就不用模型
 name = "tongbian"
+# 知意用哪一版：zhiyi 1.4V2-Long-L12 / zhiyi-feather zhen-feather-preview-1121，在「实验功能」里下载、切换
+zhiyi_model = "zhiyi"
 # 知意的档位：saver 省电 / balanced 均衡 / accurate 准确（比的候选更多、看的前文更长，也更费电）
 zhiyi_tier = "balanced"
 # 应用读不到光标前的文字时，拿这个应用、这个输入框里刚打的字当前文；多少秒没打字就不算（0 表示一直算）

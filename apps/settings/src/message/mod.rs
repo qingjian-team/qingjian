@@ -80,8 +80,8 @@ pub enum Message {
     /// 表达式、问字两个模式键之一换成这个字母（撞了就对调）。
     ModeKey(&'static str, char),
     CheckUpdate,
-    /// 实验功能里下载这个模型（失败后的「重试」也是它）。
-    DownloadModel(qingjian_platform::LocalModel),
+    /// 实验功能里下载这个模型（模型清单里的 id；失败后的「重试」也是它）。
+    DownloadModel(String),
     /// 「词库」页从词库仓库取可下载的词库清单（失败后的「重试」也是它）。
     FetchDictIndex,
     /// 「词库」页下载清单里的这一本（id；更新与重试也是它）。
@@ -94,10 +94,10 @@ pub enum Message {
     OpenLink(String),
     /// 取消正在下的模型或词库。
     CancelDownload(Item),
-    /// 删掉下好的模型（第一下只是确认）。
-    RemoveModel(qingjian_platform::LocalModel),
-    /// 实验功能里开一个模型（`None` 是关掉，不用模型）。
-    UseModel(Option<qingjian_platform::LocalModel>),
+    /// 删掉下好的模型（id；第一下只是确认）。
+    RemoveModel(String),
+    /// 实验功能里开一个模型（id；`None` 是关掉，不用模型）。
+    UseModel(Option<String>),
     /// 展开 / 收起 Windows 的一张展开卡片（从属项收在里面）。
     Expand(bamboo_slip::Key),
     /// 展开 / 收起「关于」页的数据来源。

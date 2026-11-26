@@ -242,10 +242,9 @@ fn hex(bytes: &[u8]) -> String {
 
 #[cfg(test)]
 mod tests {
-    use qingjian_platform::LocalModel;
-
     use super::*;
-    use crate::jobs::download::Pack;
+    use crate::jobs::model_index::ModelEntry;
+    use crate::jobs::remote_index::Listing;
 
     #[test]
     #[ignore = "联网从模型仓库下 43 MB"]
@@ -253,9 +252,12 @@ mod tests {
         let dir = std::env::temp_dir().join("qingjian-model-download-test");
         let _ = std::fs::remove_dir_all(&dir);
         let shared = Shared::new(None);
-        let pack = Pack::of(LocalModel::Tongbian).unwrap();
-        run(&pack.target(), &dir, &shared).unwrap();
-        let installed = pack.install_path(&dir);
+        let entry = ModelEntry::fallback()
+            .into_iter()
+            .find(|entry| entry.id == "hanzhang-tongbian")
+            .unwrap();
+        run(&entry.target().unwrap(), &dir, &shared).unwrap();
+        let installed = entry.install_path(&dir);
         assert!(installed.join("hanzhang-tongbian-small.qjm").is_file());
         assert!(installed.join("LICENSE").is_file());
         assert!(

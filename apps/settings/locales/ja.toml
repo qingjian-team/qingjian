@@ -164,10 +164,12 @@ transfer = "設定の読み込み・書き出し"
 transfer_info = "設定を 1 つのファイルに保存します。ユーザー定義フレーズ、クラウドのキー、ステータスバーの位置は含みません"
 
 [experimental]
-zhiyi_recommended = "知意（おすすめ）"
+recommended_title = "{name}（おすすめ）"
 section_models = "文変換モデル"
 recommended = "おすすめ"
+deprecated = "更新終了"
 zhiyi_description = "前の文脈から第一候補を選びます"
+feather_description = "前の文脈から第一候補を選びます。性能の低い端末向け"
 tongbian_description = "ピンインから文を作ります"
 cancel = "キャンセル"
 installing = "インストール中…"

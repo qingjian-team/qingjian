@@ -1,16 +1,18 @@
-//! 「实验功能」页：可以下载的本地模型，以及青简剪贴板（总开关没开时下面几项灰掉）。
-//! 本地模型一个一张卡片（竹青一个一节，两种原生外观共一节「整句模型」）。没下载给「下载」，下着给进度条与「取消」，下好了才有开关与「删除」；
-//! 知意、通变两个只开一个，开了这个就关掉另一个，都关着就是不用模型（只按词库）。知意开着时下面出三档。
+//! 「实验功能」页：模型仓库清单里的本地模型，以及青简剪贴板（总开关没开时下面几项灰掉）。
+//! 清单里一个模型一张卡片（竹青一个一节，两种原生外观共一节「整句模型」），按清单的顺序；弃用的只在装着时列出来。
+//! 没下载给「下载」，下着给进度条与「取消」，下好了才有开关与「删除」；同一时间只开一个，开了这个就关掉别的，都关着就是不用模型（只按词库）。
+//! 开着的是知意（哪一版都一样）时下面出三档。
 
 use bamboo_slip::taffy::NodeId;
 use bamboo_slip::{
     Button, DownloadRow, DownloadState, FieldValue, Look, RenderError, SettingRow, Ui, fields,
     group, paragraph, section_title, toolbar,
 };
-use qingjian_platform::{CLIPBOARD_HISTORY_LIMITS, ClipboardEdge, LocalModel, ZhiyiTier};
+use qingjian_platform::{CLIPBOARD_HISTORY_LIMITS, ClipboardEdge, ZhiyiTier};
 
-use crate::i18n::tr;
-use crate::jobs::download::{Item, Pack};
+use crate::i18n::{tr, tr_args};
+use crate::jobs::download::Item;
+use crate::jobs::model_index::{Engine, ModelEntry};
 use crate::message::Message;
 use crate::shortcut::Shortcut;
 use crate::support::Feature;
@@ -19,7 +21,7 @@ use crate::view::Page;
 use crate::view::pages::shortcuts::recorder;
 use crate::view::parts::actions::with_notice;
 use crate::view::parts::controls::{choice, pick, switch, toggle_info};
-use crate::view::parts::download::{DownloadStatus, labels};
+use crate::view::parts::download::{DownloadStatus, labels, megabytes};
 use crate::view::parts::lists::with_actions;
 
 pub fn experimental(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderError> {
@@ -29,16 +31,20 @@ pub fn experimental(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Re
         out.push(paragraph(ui, theme, error, None)?);
     }
     if Feature::ExperimentalModels.here() {
-        // 竹青一个模型一节、标题写「知意（推荐）」；两种原生外观共一节「整句模型」，「推荐」是知意名字旁的小标签
+        // 竹青一个模型一节、推荐的标题写「…（推荐）」；两种原生外观共一节「整句模型」，「推荐」是名字旁的小标签
         let native = theme.look != Look::Plain;
         if native {
             out.push(section_title(ui, theme, tr("experimental.section_models"))?);
         }
-        for pack in Pack::ALL {
+        let models = page.settings.model_index.state().items;
+        for entry in models
+            .iter()
+            .filter(|entry| !entry.deprecated || entry.installed())
+        {
             if !native {
-                out.push(section_title(ui, theme, title(pack.model))?);
+                out.push(section_title(ui, theme, &title(entry))?);
             }
-            let rows = card(ui, page, pack)?;
+            let rows = card(ui, page, entry)?;
             out.push(group(ui, theme, &rows)?);
         }
     }
@@ -226,64 +232,74 @@ fn excluded_apps(ui: &mut Ui<Message>, page: &Page, on: bool) -> Result<Vec<Node
     Ok(out)
 }
 
-fn title(model: LocalModel) -> &'static str {
-    match model {
-        LocalModel::Zhiyi => tr("experimental.zhiyi_recommended"),
-        _ => model.label(),
+/// 竹青的节标题：推荐的那个带「（推荐）」。
+fn title(entry: &ModelEntry) -> String {
+    if entry.recommended {
+        tr_args("experimental.recommended_title", &[("name", &entry.name)])
+    } else {
+        entry.name.clone()
     }
 }
 
-fn description(model: LocalModel) -> &'static str {
-    match model {
-        LocalModel::Zhiyi => tr("experimental.zhiyi_description"),
-        LocalModel::Tongbian => tr("experimental.tongbian_description"),
+/// 卡片上的说明：认得的模型用界面语言的译文，清单新加的用清单里写的。
+fn description(entry: &ModelEntry) -> &str {
+    match entry.id.as_str() {
+        "zhiyi" => tr("experimental.zhiyi_description"),
+        "zhiyi-feather" => tr("experimental.feather_description"),
+        "hanzhang-tongbian" => tr("experimental.tongbian_description"),
+        _ => entry.description.trim_end_matches(['。', '.']),
     }
 }
 
 /// 一个模型一张卡片：下载项一行（装好后右边多一个开关），开着知意时下面再一行选档位。
-fn card(ui: &mut Ui<Message>, page: &Page, pack: Pack) -> Result<Vec<NodeId>, RenderError> {
+fn card(ui: &mut Ui<Message>, page: &Page, entry: &ModelEntry) -> Result<Vec<NodeId>, RenderError> {
     let theme = &page.theme;
     let settings = page.settings;
-    let model = &settings.config.model;
-    let on = model.enabled && model.name == pack.model;
-    let item = Item::Model(pack.model);
+    let id = entry.id.as_str();
+    let on = settings.model_on(entry);
+    let item = Item::Model(entry.id.clone());
     let status = DownloadStatus::of(page, &item);
-    let switch = if pack.installed() {
+    let installed = entry.installed();
+    let switch = if installed {
         Some(switch(page, on).build(
             ui,
             theme,
-            ("use", pack.tag),
-            Message::UseModel((!on).then_some(pack.model)),
+            ("use", id),
+            Message::UseModel((!on).then(|| entry.id.clone())),
         )?)
     } else {
         None
     };
-    let state = status.state(pack.installed().then_some(false));
-    let recommended = theme.look != Look::Plain && pack.model == LocalModel::Zhiyi;
-    let row = DownloadRow::new(pack.model.label(), state, labels())
-        .detail(description(pack.model))
-        .highlight(recommended.then(|| tr("experimental.recommended")))
+    let state = status.state(installed.then_some(false));
+    let native = theme.look != Look::Plain;
+    let size = megabytes(entry.bytes());
+    let row = DownloadRow::new(&entry.name, state, labels())
+        .detail(description(entry))
+        .highlight((native && entry.recommended).then(|| tr("experimental.recommended")))
+        .badge(entry.deprecated.then(|| tr("experimental.deprecated")))
         .caption(|ui| {
             fields(
                 ui,
                 theme,
-                &[(tr("dictionaries.size"), FieldValue::Text(pack.size))],
+                &[(tr("dictionaries.size"), FieldValue::Text(&size))],
             )
         })
-        .armed(settings.remove_armed == Some(pack.model))
+        .blocked(entry.needs_newer_app())
+        .armed(settings.remove_armed.as_deref() == Some(id))
         .extra(switch)
         .build(
             ui,
             theme,
-            pack.tag,
+            ("model", id),
             (
-                Message::DownloadModel(pack.model),
-                Message::CancelDownload(Item::Model(pack.model)),
-                Message::RemoveModel(pack.model),
+                Message::DownloadModel(entry.id.clone()),
+                Message::CancelDownload(item.clone()),
+                Message::RemoveModel(entry.id.clone()),
             ),
         )?;
     let mut rows = vec![row];
-    if matches!(state, DownloadState::Installed { .. }) && on && pack.model == LocalModel::Zhiyi {
+    if matches!(state, DownloadState::Installed { .. }) && on && entry.engine == Engine::Zhiyi {
+        let model = &settings.config.model;
         let tiers = choice(
             ui,
             page,

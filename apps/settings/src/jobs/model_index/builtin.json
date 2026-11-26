@@ -1,0 +1,81 @@
+{
+  "format": 1,
+  "models": [
+    {
+      "id": "zhiyi",
+      "name": "知意 1.4V2-Long-L12",
+      "engine": "zhiyi",
+      "engine_format": 1,
+      "version": "1.0.0",
+      "description": "按前文挑首选",
+      "license": "Apache-2.0",
+      "author": {
+        "name": "知意",
+        "url": "https://github.com/dd1000001000/zhiyi_ime"
+      },
+      "recommended": true,
+      "variants": [
+        {
+          "runtime": "candle",
+          "tag": "zhiyi-v1.0.0",
+          "archive_dir": "zhiyi",
+          "bytes": 154210746
+        },
+        {
+          "runtime": "onnx",
+          "tag": "zhiyi-onnx-v1.0.0",
+          "archive_dir": "zhiyi-onnx",
+          "bytes": 69995485
+        }
+      ]
+    },
+    {
+      "id": "zhiyi-feather",
+      "name": "知意 zhen-feather-preview-1121",
+      "engine": "zhiyi",
+      "engine_format": 2,
+      "version": "1.0.0",
+      "description": "按前文挑首选，适合配置较低的设备",
+      "license": "Apache-2.0",
+      "author": {
+        "name": "知意",
+        "url": "https://github.com/dd1000001000/zhiyi_ime"
+      },
+      "variants": [
+        {
+          "runtime": "candle",
+          "tag": "zhiyi-feather-v1.0.0",
+          "archive_dir": "zhiyi-feather",
+          "bytes": 137521393
+        },
+        {
+          "runtime": "onnx",
+          "tag": "zhiyi-feather-onnx-v1.0.0",
+          "archive_dir": "zhiyi-feather-onnx",
+          "bytes": 37115846
+        }
+      ]
+    },
+    {
+      "id": "hanzhang-tongbian",
+      "name": "含章 通变",
+      "engine": "hanzhang",
+      "engine_format": 1,
+      "version": "1.0.0",
+      "description": "按拼音造句",
+      "license": "GPL-3.0-or-later",
+      "author": {
+        "name": "青简",
+        "url": "https://qingjian.app"
+      },
+      "variants": [
+        {
+          "runtime": "candle",
+          "tag": "hanzhang-tongbian-v1.0.0",
+          "archive_dir": "hanzhang/tongbian",
+          "bytes": 42502760
+        }
+      ]
+    }
+  ]
+}

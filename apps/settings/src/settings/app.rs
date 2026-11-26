@@ -10,7 +10,7 @@ use super::{SIZES, Settings};
 
 use crate::i18n::tr;
 use crate::jobs::dict_index::is_safe_link;
-use crate::jobs::download::{Item, Pack};
+use crate::jobs::download::Item;
 use crate::library::{self, Library};
 use crate::message::{FieldId, Message, Popup, SizeKind};
 use crate::system::action::{self, Action};
@@ -185,9 +185,10 @@ impl App for Settings {
                     ));
                 }
             }
-            Message::DownloadModel(model) => {
-                let started = match Pack::of(model) {
-                    Some(pack) => self.download.start(pack.target(), self.waker.clone()),
+            Message::DownloadModel(id) => {
+                let target = self.model_index.entry(&id).and_then(|entry| entry.target());
+                let started = match target {
+                    Some(target) => self.download.start(target, self.waker.clone()),
                     None => Err(tr("download.not_needed").to_owned()),
                 };
                 if let Err(error) = started {
@@ -227,16 +228,19 @@ impl App for Settings {
                 }
             }
             Message::CancelDownload(item) => self.download.cancel(&item),
-            Message::UseModel(model) => self.use_model(model),
-            Message::RemoveModel(model) => {
-                if remove_armed != Some(model) {
-                    self.remove_armed = Some(model);
-                } else if let Some(pack) = Pack::of(model) {
+            Message::UseModel(id) => {
+                let entry = id.and_then(|id| self.model_index.entry(&id));
+                self.use_model(entry.as_ref());
+            }
+            Message::RemoveModel(id) => {
+                if remove_armed.as_ref() != Some(&id) {
+                    self.remove_armed = Some(id);
+                } else if let Some(entry) = self.model_index.entry(&id) {
                     // 先关掉再删，输入法不会去读删了一半的目录
-                    if self.config.model.name == model {
+                    if self.model_on(&entry) {
                         self.use_model(None);
                     }
-                    if let Err(error) = pack.remove() {
+                    if let Err(error) = entry.remove() {
                         self.notice = Some(("download", error));
                     }
                 }
@@ -362,10 +366,11 @@ impl App for Settings {
         text.use_families(&Arc::new(table));
     }
 
-    /// 窗口起来、拿到叫醒的句柄时取一次词库清单：进「词库」页时多半已经取好了。
+    /// 窗口起来、拿到叫醒的句柄时取一次词库与模型清单：进「词库」「实验功能」页时多半已经取好了。
     /// 有上次缓存的清单就先按它补下升级前开着的词库。
     fn set_waker(&mut self, waker: Waker) {
         self.dict_index.start(Some(waker.clone()));
+        self.model_index.start(Some(waker.clone()));
         self.waker = Some(waker);
         self.restore_next();
     }
@@ -384,8 +389,9 @@ impl App for Settings {
         changed |= self.download.stage().is_some();
         match self.download.finished() {
             // 下好了直接用上它：用户点下载就是想用
-            Some(Item::Model(model)) => {
-                self.use_model(Some(model));
+            Some(Item::Model(id)) => {
+                let entry = self.model_index.entry(&id);
+                self.use_model(entry.as_ref());
                 self.restore_next();
             }
             // 下好的词库和导入的一样缺省开着，重扫清单显示出来
@@ -400,6 +406,7 @@ impl App for Settings {
             changed = true;
             self.restore_next();
         }
+        changed |= self.model_index.take_finished();
         if let Some(text) = self.update.finish(&self.config.update) {
             self.notice = Some(("update", text));
             changed = true;

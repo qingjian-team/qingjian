@@ -21,7 +21,7 @@ use crate::error::ServerError;
 pub use self::language_model::LanguageModelFiles;
 pub use self::spec::AssemblySpec;
 
-/// 知意三元模型在下载的模型目录里的位置（与 `zhiyi-onnx` 并列）。
+/// 知意三元模型在下载的模型目录里的位置（与各版知意的目录并列）。
 const ZHIYI_NGRAM: &str = "zhiyi-ngram/zh.ngram";
 
 pub fn assemble(spec: &AssemblySpec) -> Result<Engine, ServerError> {

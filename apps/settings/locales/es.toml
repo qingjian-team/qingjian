@@ -164,10 +164,12 @@ transfer = "Importar y exportar ajustes"
 transfer_info = "Guarda los ajustes en un archivo; sin frases personalizadas, claves de la nube ni posición de la barra de estado"
 
 [experimental]
-zhiyi_recommended = "Zhiyi (recomendado)"
+recommended_title = "{name} (recomendado)"
 section_models = "Modelos de frases"
 recommended = "Recomendado"
+deprecated = "Ya no se actualiza"
 zhiyi_description = "Elige el primer candidato según el contexto"
+feather_description = "Elige el primer candidato según el contexto; para equipos más modestos"
 tongbian_description = "Construye frases a partir del pinyin"
 cancel = "Cancelar"
 installing = "Instalando…"

@@ -213,3 +213,23 @@ fn nothing_to_move_means_no_backup() {
     assert!(!root.join("backup-before-0.3.4").exists());
     let _ = std::fs::remove_dir_all(&root);
 }
+
+/// 知意的 ONNX 版从 `zhiyi-onnx/` 改到清单 id 的 `zhiyi/`；新目录已经在就两个都不动。
+#[test]
+fn zhiyi_onnx_folder_takes_the_index_id() {
+    let root = temp("zhiyi-onnx");
+    let dirs = UserDirs::at(root.clone());
+    write(&dirs.models().join("zhiyi-onnx/laya.int8g.onnx"), "onnx");
+    dirs.prepare();
+    assert!(dirs.models().join("zhiyi/laya.int8g.onnx").is_file());
+    assert!(!dirs.models().join("zhiyi-onnx").exists());
+
+    write(&dirs.models().join("zhiyi-onnx/laya.int8g.onnx"), "older");
+    dirs.prepare();
+    assert!(dirs.models().join("zhiyi-onnx/laya.int8g.onnx").is_file());
+    assert_eq!(
+        std::fs::read_to_string(dirs.models().join("zhiyi/laya.int8g.onnx")).unwrap(),
+        "onnx"
+    );
+    let _ = std::fs::remove_dir_all(&root);
+}

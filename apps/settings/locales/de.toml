@@ -164,10 +164,12 @@ transfer = "Einstellungen importieren und exportieren"
 transfer_info = "Speichert die Einstellungen in einer Datei; ohne eigene Phrasen, Cloud-Schlüssel und Position der Statusleiste"
 
 [experimental]
-zhiyi_recommended = "Zhiyi (empfohlen)"
+recommended_title = "{name} (empfohlen)"
 section_models = "Satzmodelle"
 recommended = "Empfohlen"
+deprecated = "Wird nicht mehr aktualisiert"
 zhiyi_description = "Wählt den ersten Kandidaten nach dem Kontext"
+feather_description = "Wählt den ersten Kandidaten nach dem Kontext; für schwächere Geräte"
 tongbian_description = "Bildet Sätze aus Pinyin"
 cancel = "Abbrechen"
 installing = "Wird installiert …"

@@ -132,6 +132,7 @@ impl UserDirs {
             }
         }
         migrate::run(self);
+        migrate::rename_models(self);
         if fresh && let Err(error) = std::fs::write(self.restore_list(), "") {
             tracing::warn!(%error, "restore list not written");
         }
