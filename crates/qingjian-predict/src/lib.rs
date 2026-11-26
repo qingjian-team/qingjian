@@ -7,6 +7,11 @@
 
 #![forbid(unsafe_code)]
 
+// 两个 TLS 特性同时开时（工作区一起编：桌面缺省 native-tls，安卓开 rustls）用的是系统 TLS，
+// 根证书表这时编不进去，这里引一下免得 Cargo 报它没用
+#[cfg(feature = "rustls")]
+use webpki_roots as _;
+
 mod cache;
 mod chat_client;
 mod cloud_predictor;

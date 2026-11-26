@@ -19,6 +19,11 @@ pinned = "Đã ghim “{text}”, sẽ đứng đầu khi gõ {code}"
 unpinned = "Đã bỏ ghim “{text}”"
 demoted = "Đã hạ “{text}” xuống một bậc"
 undemoted = "Đã bỏ hạ thứ hạng của “{text}”"
+first_char = "Chỉ chèn chữ thứ nhất"
+second_char = "Chỉ chèn chữ thứ hai"
+last_char = "Chỉ chèn chữ cuối cùng"
+picked_char = "Đã chỉ chèn “{char}” từ “{text}”"
+cant_pick_char = "Không tách được một chữ từ “{text}”"
 
 [appearance]
 system = "Theo hệ thống"

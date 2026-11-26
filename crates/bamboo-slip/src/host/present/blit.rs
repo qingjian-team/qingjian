@@ -1,4 +1,4 @@
-//! 把画好的位图拷进 softbuffer 的缓冲（每像素预乘的 `0xAARRGGBB`；透明窗口靠 alpha，普通窗口系统不看它）。
+//! 把画好的位图拷进窗口的缓冲（每像素预乘的 `0xAARRGGBB`；透明窗口靠 alpha，普通窗口系统不看它）。
 
 use tiny_skia::Pixmap;
 

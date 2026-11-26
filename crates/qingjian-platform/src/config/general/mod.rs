@@ -55,6 +55,10 @@ pub struct GeneralConfig {
     /// 候选窗口主题 id（主题目录名），读用 [`Self::theme_id`]。旧写法里这一项是外观，见上。
     pub theme: String,
 
+    /// 单打 `rq` / `sj` / `xq` / `jq` / `jr` 时，把整组写法排到词的前面。
+    /// 缺省关：只用简拼的人（`sj` 想打「手机」）会整页看不到词。
+    pub calendar_shortcuts_first: bool,
+
     /// 候选窗口竖排 / 横排。
     pub layout: LayoutMode,
 
@@ -100,6 +104,10 @@ pub struct GeneralConfig {
     /// 拼写纠错：拼音敲错时（切不动、多敲少敲、敲到旁边的键）给纠正后的候选。缺省开；
     /// 敲的拼音照原样读得通时纠正只当备选，不排第一。关掉后只按敲的原样（与模糊音）读，学过的敲错也不再用。
     pub spelling_correction: bool,
+
+    /// 零声母简写：全拼下零声母音节可以用韵头的单韵母代表（`aquan` → 安全、`e'liao` → 饵料）。
+    /// 缺省关，关着时切分与不带这个功能完全一致 —— 简拼本来就有歧义，要不要多这一条让用户自己定。
+    pub zero_initial_abbreviation: bool,
 
     /// 中文模式下整段是英文词或英文词的开头时给英文候选与补全（`hello`、`compa` → company）。关掉中文模式只出中文，英文模式照旧。
     pub english_in_chinese: bool,
@@ -173,6 +181,10 @@ pub struct GeneralConfig {
 
     /// 候选上是否显示码（与译文拼成一条注记）。缺省关：竖排会挤、横排更难放下。
     pub aux_code_show: bool,
+
+    /// 辅码态下码段只调顺序、不筛候选：对不上码的词留到后面，一个都对不上时按音节拼出提示词
+    /// （`fuma;chefu` 是「辅」＝车＋甫）。缺省关，此时码段是过滤器，与辅码一直以来的行为一致。
+    pub aux_code_weighting: bool,
 
     /// 码段删空后是否留在辅码态：开（缺省）时 `;` 仍在、候选全部回来，空码段再按一次退格才退出；
     /// 关则删空即回纯拼音态。
@@ -272,6 +284,7 @@ impl Default for GeneralConfig {
             page_keys: PAGE_KEY_OPTIONS[0].to_owned(),
             appearance: Some(Appearance::default()),
             theme: DEFAULT_THEME.to_owned(),
+            calendar_shortcuts_first: false,
             layout: LayoutMode::default(),
             horizontal_grid: false,
             grid_page_keys: false,
@@ -286,6 +299,7 @@ impl Default for GeneralConfig {
             english_candidates: true,
             chinese_first: false,
             spelling_correction: true,
+            zero_initial_abbreviation: false,
             english_in_chinese: true,
             english_max_in_chinese: qingjian_core::ENGLISH_CANDIDATES_MAX,
             english_min_position: 1,
@@ -308,6 +322,7 @@ impl Default for GeneralConfig {
             punct_commits: false,
             aux_code_key: qingjian_core::DEFAULT_AUX_CODE_KEY.to_string(),
             aux_code_show: false,
+            aux_code_weighting: false,
             aux_code_keep_empty: true,
             scheme: String::new(),
             shuangpin_raw_preedit: false,

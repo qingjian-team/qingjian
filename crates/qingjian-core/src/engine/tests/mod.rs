@@ -78,6 +78,25 @@ fn xiaohe() -> Engine {
     engine
 }
 
+/// 在一个用例里打开零声母简写，离开作用域自动关回去。
+///
+/// 开关是线程本地的（见 `parser::set_zero_initial_abbreviation`），用 `engine()` 造出来的引擎
+/// 都读同一个线程上的值 —— 忘了关就会漏给同一线程后面的用例。
+struct Abbreviation;
+
+impl Abbreviation {
+    fn on() -> Self {
+        crate::parser::set_zero_initial_abbreviation(true);
+        Self
+    }
+}
+
+impl Drop for Abbreviation {
+    fn drop(&mut self) {
+        crate::parser::set_zero_initial_abbreviation(false);
+    }
+}
+
 /// 与 [`Engine::take_raw`] 里的判断一致：原样上屏的串要不要记成英文词。
 fn looks_like_english_word_in(engine: &Engine) -> bool {
     let raw = engine.composition().text();

@@ -93,7 +93,9 @@ impl Rendered {
         let data = self.pixmap.data();
         let visible = |row: usize| {
             data[row * width * 4..(row + 1) * width * 4]
-                .chunks_exact(4)
+                .as_chunks::<4>()
+                .0
+                .iter()
                 .any(|pixel| pixel[3] >= VISIBLE_ALPHA)
         };
         let top = (self.content_y as usize).min(height);

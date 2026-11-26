@@ -6,12 +6,13 @@ use bamboo_slip::taffy::{
     AlignItems, Dimension, FlexDirection, LengthPercentage, NodeId, Rect, Size, Style,
 };
 use bamboo_slip::{
-    BoxPaint, Button, Fill, FontSpec, FontWeight, RenderError, SettingRow, TextStyle, Ui, Visual,
-    group, paragraph, section_title,
+    BoxPaint, Button, Fill, FontSpec, FontWeight, Look, RenderError, SettingRow, TextStyle, Ui,
+    Visual, group, paragraph, section_title,
 };
 use qingjian_platform::UpdateChannel;
 
 use crate::i18n::{tr, tr_args};
+use crate::jobs::update_check::version_label;
 use crate::message::Message;
 use crate::system::action::Action;
 use crate::view::Page;
@@ -82,16 +83,28 @@ pub fn about(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderErr
             "download",
             Message::Run(Action::OpenDownload),
         )?;
-        rows.push(SettingRow::new(&title).control(download).build(ui, theme)?);
+        // 竹青把更新日志前几条另起一行；两种原生外观照系统设置，前三条写在这一行标题下面当说明
+        let native = theme.look != Look::Plain;
         let notes = found
             .notes
             .iter()
-            .take(6)
+            .take(if native { 3 } else { 6 })
             .map(|line| plain_note(line))
             .collect::<Vec<_>>()
             .join("\n");
-        if !notes.is_empty() {
-            rows.push(note(ui, page, None, &notes)?);
+        let row = SettingRow::new(&title).control(download);
+        if native {
+            let row = if notes.is_empty() {
+                row
+            } else {
+                row.detail(&notes)
+            };
+            rows.push(row.build(ui, theme)?);
+        } else {
+            rows.push(row.build(ui, theme)?);
+            if !notes.is_empty() {
+                rows.push(note(ui, page, None, &notes)?);
+            }
         }
     }
     out.push(section_title(ui, theme, tr("about.section_update"))?);
@@ -170,7 +183,7 @@ fn header(ui: &mut Ui<Message>, page: &Page) -> Result<NodeId, RenderError> {
     let version = ui.scene().node(
         Style::default(),
         Visual::Text {
-            text: tr_args("about.version", &[("version", &env!("CARGO_PKG_VERSION"))]),
+            text: tr_args("about.version", &[("version", &version_label())]),
             style: theme.text(theme.small, 400, theme.colors.secondary),
         },
         &[],

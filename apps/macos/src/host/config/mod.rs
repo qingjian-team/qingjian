@@ -27,6 +27,8 @@ impl Host {
         self.engine
             .set_spelling_correction(config.general.spelling_correction);
         self.engine
+            .set_zero_initial_abbreviation(config.general.zero_initial_abbreviation);
+        self.engine
             .set_emoji_limit(usize::from(config.general.emoji.get()));
         self.engine
             .set_kaomoji_limit(usize::from(config.general.kaomoji.get()));
@@ -50,7 +52,11 @@ impl Host {
             .set_aux_keep_empty(config.general.aux_code_keep_empty);
         self.engine.set_aux_enabled(config.aux_code.enabled);
         self.engine.set_aux_show(config.general.aux_code_show);
+        self.engine
+            .set_aux_weighting(config.general.aux_code_weighting);
         self.engine.set_show_tones(config.general.show_tones);
+        self.engine
+            .set_calendar_shortcuts_first(config.general.calendar_shortcuts_first);
         self.aux_code_show = config.general.aux_code_show;
         if force || self.applied_aux_code.as_ref() != Some(&config.aux_code) {
             self.reload_aux_codes();

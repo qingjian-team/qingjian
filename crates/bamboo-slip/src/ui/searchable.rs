@@ -14,4 +14,7 @@ pub struct Searchable {
 
     /// 行里控件上的字（分段的各项、下拉框的当前值与全部选项）与使用方补的同义词：记不清标题时按它也能搜到。
     pub keywords: Vec<String>,
+
+    /// 登记时所在的可收起区域（[`super::Ui::region`]）：跳过去之前使用方先展开它。
+    pub region: Option<Key>,
 }

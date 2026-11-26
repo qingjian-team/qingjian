@@ -1,6 +1,6 @@
 //! 形码方案：一张码表加上按键规则（满码唯一自动上屏、顶字）。
 //!
-//! 规则只在只用形码时生效：混输下码长以外的字母还要留给拼音，满码时多敲一个键不能当成顶字。
+//! 纯形码与混输分别设置规则；混输缺省不自动上屏或顶字，保留连续拼音输入。
 
 use qingjian_dictionary::CodeTable;
 
@@ -21,6 +21,12 @@ pub struct CodeScheme {
     /// 编码已经满码长时再敲一个字母：先把高亮的候选上屏，这个字母起新的一段编码。
     pub top: bool,
 
+    /// 混输时满码唯一自动上屏，独立于纯形码的 `auto_commit`，缺省关闭。
+    pub mixed_auto_commit: bool,
+
+    /// 混输时形码候选优先，满码后下一字母顶字并开始新编码，缺省关闭。
+    pub mixed_top: bool,
+
     /// 是否声明兼容 86 五笔取码规则，允许用单字全码生成连续上屏词的编码。
     pub wubi_phrases: bool,
 }
@@ -34,6 +40,8 @@ impl CodeScheme {
             table,
             auto_commit: false,
             top: false,
+            mixed_auto_commit: false,
+            mixed_top: false,
             wubi_phrases: false,
         }
     }

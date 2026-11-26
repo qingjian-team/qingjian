@@ -1,9 +1,12 @@
-//! 侧栏搜索：搜各页设置行、分组标题、勾选项的标题与 ⓘ 全文，点结果跳到那页并把那一行醒目标一下。
+//! 侧栏搜索：搜各页设置行、分组标题、勾选项的标题与说明全文，点结果跳到那页并把那一行醒目标一下。
+//! 说明里命中的结果带一段摘录（命中处前后几个字），列表里写在标题下面。
 //! 索引是离屏把每页建一遍收来的（[`crate::view::index`]），开始搜时建一次，清空搜索时扔掉。
 
 mod entry;
+mod hit;
 
 pub use entry::Entry;
+pub use hit::Hit;
 
 use std::time::{Duration, Instant};
 
@@ -13,7 +16,11 @@ use bamboo_slip::{Key, TextEdit};
 pub const SPOTLIGHT: Duration = Duration::from_millis(1200);
 
 /// 最多列几条结果。
-const LIMIT: usize = 30;
+const LIMIT: usize = 20;
+
+/// 摘录里命中处前、后各留几个字。
+const BEFORE: usize = 8;
+const AFTER: usize = 12;
 
 #[derive(Default)]
 pub struct Search {
@@ -23,7 +30,10 @@ pub struct Search {
     pub index: Option<Vec<Entry>>,
 
     /// 按当前输入筛出来的结果。
-    pub hits: Vec<Entry>,
+    pub hits: Vec<Hit>,
+
+    /// 键盘 ↑ ↓ 选到的那条；没按过是 `None`，回车跳第一条。
+    pub hot: Option<usize>,
 
     /// 跳过去要醒目标出的元素与撤掉的时刻。
     pub spotlight: Option<(Key, Instant)>,
@@ -38,8 +48,9 @@ impl Search {
         !self.query().is_empty()
     }
 
-    /// 按输入重筛：标题里有的排最前，其次控件上的字与同义词，再次 ⓘ 说明；同一页同一标题只留一条。
+    /// 按输入重筛：标题里有的排最前，其次控件上的字与同义词，再次说明（带摘录）；同一页同一标题只留一条。
     pub fn refresh(&mut self) {
+        self.hot = None;
         let query = self.query().to_lowercase();
         let Some(index) = self.index.as_ref().filter(|_| !query.is_empty()) else {
             self.hits.clear();
@@ -63,19 +74,45 @@ impl Search {
             .collect();
         // 稳定排序：同一档里保持页序
         ranked.sort_by_key(|(rank, _)| *rank);
-        let mut hits: Vec<Entry> = Vec::new();
-        for (_, entry) in ranked {
+        let mut hits: Vec<Hit> = Vec::new();
+        for (rank, entry) in ranked {
             let seen = hits
                 .iter()
                 .any(|hit| hit.page == entry.page && hit.title == entry.title);
             if !seen {
-                hits.push(entry.clone());
+                let snippet = (rank == 2)
+                    .then(|| {
+                        entry
+                            .detail
+                            .as_deref()
+                            .and_then(|text| excerpt(text, &query))
+                    })
+                    .flatten();
+                hits.push(Hit {
+                    page: entry.page,
+                    key: entry.key,
+                    title: entry.title.clone(),
+                    snippet,
+                    region: entry.region,
+                });
             }
             if hits.len() == LIMIT {
                 break;
             }
         }
         self.hits = hits;
+    }
+
+    /// ↑ ↓ 在结果里移一条，到头停住。
+    pub fn step(&mut self, down: bool) {
+        let Some(last) = self.hits.len().checked_sub(1) else {
+            return;
+        };
+        self.hot = Some(match (self.hot, down) {
+            (None, _) => 0,
+            (Some(hot), true) => (hot + 1).min(last),
+            (Some(hot), false) => hot.saturating_sub(1),
+        });
     }
 
     pub fn clear(&mut self) {
@@ -95,6 +132,30 @@ impl Search {
     }
 }
 
+/// `text` 里 `query`（已转小写）命中处前后几个字，两头截掉的补「…」。
+fn excerpt(text: &str, query: &str) -> Option<String> {
+    let chars: Vec<char> = text.chars().collect();
+    let lower: Vec<char> = chars
+        .iter()
+        .map(|c| c.to_lowercase().next().unwrap_or(*c))
+        .collect();
+    let needle: Vec<char> = query.chars().collect();
+    let at = lower
+        .windows(needle.len().max(1))
+        .position(|window| window == needle.as_slice())?;
+    let from = at.saturating_sub(BEFORE);
+    let to = (at + needle.len() + AFTER).min(chars.len());
+    let mut out = String::new();
+    if from > 0 {
+        out.push('…');
+    }
+    out.extend(&chars[from..to]);
+    if to < chars.len() {
+        out.push('…');
+    }
+    Some(out)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -107,6 +168,7 @@ mod tests {
             title: title.to_owned(),
             detail: detail.map(str::to_owned),
             keywords: Vec::new(),
+            region: None,
         }
     }
 
@@ -141,5 +203,49 @@ mod tests {
                 (PageId::Cloud, "启用")
             ]
         );
+        let snippets: Vec<Option<&str>> = search
+            .hits
+            .iter()
+            .map(|hit| hit.snippet.as_deref())
+            .collect();
+        assert_eq!(snippets, [None, None, None, Some("打字时向云端要候选")]);
+    }
+
+    #[test]
+    fn excerpts_keep_a_few_characters_around_the_match() {
+        assert_eq!(
+            excerpt("候选窗里每个词后面跟一个外语译词，学着用", "外语").as_deref(),
+            Some("…每个词后面跟一个外语译词，学着用")
+        );
+        assert_eq!(
+            excerpt("Shows the Chinese and English words", "english").as_deref(),
+            Some("…ese and English words")
+        );
+        assert_eq!(excerpt("没有", "云端"), None);
+    }
+
+    #[test]
+    fn arrow_keys_move_within_the_results() {
+        let mut search = Search {
+            hits: vec![
+                Hit {
+                    page: PageId::Input,
+                    key: None,
+                    title: "甲".to_owned(),
+                    snippet: None,
+                    region: None,
+                };
+                2
+            ],
+            ..Search::default()
+        };
+        search.step(false);
+        assert_eq!(search.hot, Some(0));
+        search.step(true);
+        search.step(true);
+        assert_eq!(search.hot, Some(1));
+        search.step(false);
+        search.step(false);
+        assert_eq!(search.hot, Some(0));
     }
 }

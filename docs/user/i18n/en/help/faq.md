@@ -34,7 +34,7 @@ Try changing 拼音显示位置 (Pinyin position) under 设置 → 外观 (Setti
 In games that draw input method candidates themselves, the candidates appear in the game's own interface and Qingjian's candidate window stays hidden. In an exclusive full-screen game that doesn't draw them, Qingjian's candidate window is covered by the game; typing and committing still work.
 
 **The floating status bar has disappeared** (Windows)
-It's only shown while Qingjian is the current input method, and it hides in full-screen apps. Check that 悬浮状态条 (Floating status bar) is on under 设置 → 中英文 (Settings → Chinese/English), or show it from the right-click menu of the 中 / 英 icon on the taskbar.
+It's only shown while Qingjian is the current input method, and it hides in full-screen apps. Check that 悬浮状态条 (Floating status bar) is on under 设置 → 输入法切换 (Settings → Input Method Switching), or show it from the right-click menu of the 中 / 英 icon on the taskbar.
 
 ## Typing
 

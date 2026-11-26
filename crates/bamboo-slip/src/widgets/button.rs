@@ -6,6 +6,7 @@ use taffy::{NodeId, Style};
 
 use super::WidgetTheme;
 use super::parts::{DISABLED_OPACITY, focus_ring, label, over, padding, row, size, solid};
+use super::theme::Look;
 use crate::animation::Easing;
 use crate::color::Color;
 use crate::error::RenderError;
@@ -69,17 +70,28 @@ impl<'a> Button<'a> {
             } else {
                 colors.button
             };
-            (fill, colors.text, Some((theme.px(1.0), colors.line)))
+            // macOS 的按钮边只有半个点
+            let edge = if theme.look == Look::Mac { 0.5 } else { 1.0 };
+            (
+                fill,
+                colors.text,
+                Some((theme.px(edge).max(1.0), colors.line)),
+            )
         };
         let radius = theme.px(theme.radius);
-        let text = label(ui, theme, self.label, theme.font.size, 500, text)?;
+        let (weight, side) = match theme.look {
+            Look::Plain => (500, 14.0),
+            Look::Mac => (400, 10.0),
+            Look::Fluent => (400, 12.0),
+        };
+        let text = label(ui, theme, self.label, theme.font.size, weight, text)?;
         let mut children = vec![text];
         if state.focus_ring {
             children.push(focus_ring(ui, theme, radius)?);
         }
         let node = ui.scene().node(
             Style {
-                padding: padding(theme, 0.0, 14.0),
+                padding: padding(theme, 0.0, side),
                 size: size(None, Some(theme.px(theme.control_height))),
                 flex_shrink: 0.0,
                 ..row(theme, 0.0)

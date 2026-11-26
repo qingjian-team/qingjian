@@ -446,6 +446,20 @@ fn rows_claim_the_words_on_their_own_controls() {
 }
 
 #[test]
+fn rows_built_in_a_region_remember_it_and_others_do_not() {
+    let interaction = Interaction::<Message>::new();
+    let theme = WidgetTheme::new(WidgetColors::LIGHT, 1.0);
+    let mut ui = Ui::new(&interaction);
+    let card = Key::ROOT.child("card");
+    SettingRow::new("开关").build(&mut ui, &theme).unwrap();
+    ui.region(card, |ui| SettingRow::new("细项").build(ui, &theme))
+        .unwrap();
+    let found = ui.take_searchables();
+    assert_eq!(found[0].region, None);
+    assert_eq!(found[1].region, Some(card));
+}
+
+#[test]
 fn info_marks_with_a_link_send_it_when_clicked() {
     let mut text = TextPainter::new(FontLibrary::system("en").unwrap());
     let mut interaction = Interaction::<Message>::new();
@@ -650,4 +664,136 @@ fn scrollbar_drags_and_jumps() {
     interaction.handle(&Event::PointerDown);
     interaction.handle(&Event::PointerMoved { x: 100.0, y: 50.0 });
     near(offset(&interaction), before);
+}
+
+/// 选中第 50 项的 60 项菜单，开在 400 见方的窗口里；返回这一帧要滚进视野的元素。
+fn long_menu(interaction: &mut Interaction<Message>, text: &mut TextPainter) -> Vec<Key> {
+    let items: Vec<String> = (0..60).map(|index| format!("item {index}")).collect();
+    let items: Vec<&str> = items.iter().map(String::as_str).collect();
+    let theme = WidgetTheme::fluent(WidgetColors::LIGHT, 1.0);
+    let mut ui = Ui::new(interaction);
+    let menu = Menu::new(
+        &items,
+        Some(50),
+        (100.0, 100.0, 160.0, 32.0),
+        (400.0, 400.0),
+    )
+    .build(&mut ui, &theme, "menu", Message::Pick, Message::Up)
+    .unwrap();
+    let root = ui
+        .scene()
+        .node(
+            Style {
+                size: taffy::Size {
+                    width: taffy::Dimension::length(400.0),
+                    height: taffy::Dimension::length(400.0),
+                },
+                ..Style::default()
+            },
+            Visual::Group,
+            &[menu],
+        )
+        .unwrap();
+    let reveals = ui.take_reveals();
+    let (mut scene, elements) = ui.finish();
+    layout(&mut scene, root, text);
+    interaction.attach(&scene, root, elements).unwrap();
+    reveals
+}
+
+#[test]
+fn a_long_menu_opens_scrolled_to_its_selected_item_once() {
+    let mut text = TextPainter::new(FontLibrary::system("en").unwrap());
+    let mut interaction = Interaction::new();
+    let selected = Key::ROOT.child("menu").child(50_usize);
+    let reveals = long_menu(&mut interaction, &mut text);
+    assert_eq!(reveals, vec![selected]);
+    assert!(interaction.reveal(selected, 0.0));
+    // 打开之后的帧不再要求滚动，用户自己滚到哪就留在哪
+    assert!(long_menu(&mut interaction, &mut text).is_empty());
+    let (_, top, _, height) = interaction.rect(selected).unwrap();
+    assert!(
+        top >= 0.0 && top + height <= 400.0,
+        "selected item at {top}"
+    );
+}
+
+/// 200 × 200 的滚动区，顶上 50 点被盖住；800 高的内容里 400 处有一行可交互的。
+fn obscured_scroller(interaction: &mut Interaction<Message>, text: &mut TextPainter) {
+    use taffy::{Dimension, Size};
+
+    let theme = WidgetTheme::new(WidgetColors::LIGHT, 1.0);
+    let mut ui = Ui::new(interaction);
+    let row = ui
+        .scene()
+        .node(
+            Style {
+                position: taffy::Position::Absolute,
+                inset: taffy::Rect {
+                    left: taffy::LengthPercentageAuto::length(0.0),
+                    top: taffy::LengthPercentageAuto::length(400.0),
+                    right: taffy::LengthPercentageAuto::auto(),
+                    bottom: taffy::LengthPercentageAuto::auto(),
+                },
+                size: Size {
+                    width: Dimension::length(180.0),
+                    height: Dimension::length(20.0),
+                },
+                ..Style::default()
+            },
+            Visual::Group,
+            &[],
+        )
+        .unwrap();
+    let key = ui.key("row");
+    ui.interact(row, key, crate::ui::Interact::new());
+    let content = ui
+        .scene()
+        .node(
+            Style {
+                size: Size {
+                    width: Dimension::length(180.0),
+                    height: Dimension::length(800.0),
+                },
+                flex_shrink: 0.0,
+                ..Style::default()
+            },
+            Visual::Group,
+            &[row],
+        )
+        .unwrap();
+    let root = crate::ScrollArea::new(Style {
+        size: Size {
+            width: Dimension::length(200.0),
+            height: Dimension::length(200.0),
+        },
+        ..Style::default()
+    })
+    .obscured_top(50.0)
+    .build(&mut ui, &theme, "list", content)
+    .unwrap();
+    let (mut scene, elements) = ui.finish();
+    scene.layout(root, text).unwrap();
+    interaction.attach(&scene, root, elements).unwrap();
+}
+
+#[test]
+fn revealing_into_a_scroller_keeps_clear_of_its_obscured_top() {
+    let mut interaction = Interaction::new();
+    let mut text = TextPainter::new(FontLibrary::system("zh-CN").unwrap());
+    obscured_scroller(&mut interaction, &mut text);
+    obscured_scroller(&mut interaction, &mut text);
+    let row = Key::ROOT.child("row");
+    assert!(interaction.reveal(row, 0.0));
+    obscured_scroller(&mut interaction, &mut text);
+    // 先滚到它贴着视口底；再往下滚过头，倒回来时停在被盖住的那段下面，不藏进去
+    interaction.handle(&Event::PointerMoved { x: 100.0, y: 100.0 });
+    interaction.handle(&Event::Scroll { dx: 0.0, dy: 300.0 });
+    obscured_scroller(&mut interaction, &mut text);
+    let (_, top, _, _) = interaction.rect(row).unwrap();
+    assert!(top < 0.0, "row at {top}");
+    assert!(interaction.reveal(row, 0.0));
+    obscured_scroller(&mut interaction, &mut text);
+    let (_, top, _, _) = interaction.rect(row).unwrap();
+    assert!((top - 50.0).abs() < 0.5, "row at {top}");
 }

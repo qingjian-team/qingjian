@@ -134,6 +134,17 @@ impl Engine {
         self.aux_show = show;
     }
 
+    /// 辅码态是否「只调顺序、不筛候选」（配置 `[general] aux_code_weighting`，缺省关）。
+    /// 关着时与原来的筛选一致：码段对不上的词不出。
+    pub fn set_aux_weighting(&mut self, on: bool) {
+        self.aux_weighting = on;
+    }
+
+    /// 单打日历缩写时整组是否压到词前面（配置 `[general] calendar_shortcuts_first`，缺省不压）。
+    pub fn set_calendar_shortcuts_first(&mut self, on: bool) {
+        self.calendar_group_first = on;
+    }
+
     /// 换「候选上显示声调」开关（配置项 `[general] show_tones`，缺省关）。
     pub fn set_show_tones(&mut self, show: bool) {
         self.show_tones = show;
@@ -197,6 +208,14 @@ impl Engine {
         if let Some(code) = &mut self.code {
             code.auto_commit = auto_commit;
             code.top = top;
+        }
+    }
+
+    /// 只改混输下的形码按键规则，缺省关闭，不影响纯拼音与纯形码。
+    pub fn set_mixed_code_rules(&mut self, auto_commit: bool, top: bool) {
+        if let Some(code) = &mut self.code {
+            code.mixed_auto_commit = auto_commit;
+            code.mixed_top = top;
         }
     }
 
@@ -294,6 +313,26 @@ impl Engine {
     /// 缓冲区为空时敲 `?` 该不该进问字模式（配置 `[shortcut] question_mark`）：壳据此决定问号是入口还是标点。
     pub fn takes_question_mark(&self) -> bool {
         self.modes().question_mark
+    }
+
+    /// 模式里的用法提示，壳画在拼音行下方；别的输入为 `None`。
+    ///
+    /// 两种时候给：只敲了一个模式键（只有 `v` 或只有 `u`），以及子模式名敲全、还没填参数
+    /// （`vtrans`、`vstat`）——那几处候选是空的，不给句话就是一片空白。
+    /// 参数一开始写就不给了，再敲一个键就进了具体内容，提示反而挡路。
+    pub fn mode_hint(&self) -> Option<&'static str> {
+        let scope = self.composition.scope();
+        let expression = self.modes().expression;
+        if let Some(body) = scope.strip_prefix(expression) {
+            if body.is_empty() {
+                return Some("v：算式、中文数字与金额、日期、进制、位运算、统计");
+            }
+            return crate::shortcut::modes::hint(body);
+        }
+        if scope == self.modes().question.to_string() {
+            return Some("u：码点查字、笔画与部件拆字");
+        }
+        None
     }
 
     /// 双拼开着时把一段键解成全拼；全拼下为 `None`，调用方原样用键。
