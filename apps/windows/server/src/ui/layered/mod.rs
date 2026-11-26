@@ -110,7 +110,13 @@ pub(super) fn present_with_alpha(
     }
     let mut canvas = Canvas::new(w, h)?;
     // tiny-skia 是 RGBA，DIB 是 BGRA；都是预乘，只换通道顺序。
-    for (dst, src) in canvas.pixels().chunks_exact_mut(4).zip(pixmap.pixels()) {
+    for (dst, src) in canvas
+        .pixels()
+        .as_chunks_mut::<4>()
+        .0
+        .iter_mut()
+        .zip(pixmap.pixels())
+    {
         dst[0] = src.blue();
         dst[1] = src.green();
         dst[2] = src.red();
