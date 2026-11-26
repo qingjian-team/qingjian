@@ -319,8 +319,14 @@ DirectML 试过不用：每次打分的序列长度都不同，Radeon 880M 集�
 分词是自己的 `zhiyi::bpe`（只编码）而不是 `tokenizers`：25.6 万词、58 万条合并规则的 `tokenizer.json` 用 `tokenizers` 读要常驻 65 MB、
 加载时峰值多 300 MB，自己只留编码要的两张表，知意常驻 −35 MB、加载峰值 656 → 384 MB（CLI 实测）。
 与 `tokenizers` 逐 token 对拍：`zhiyi::tests::tokenizes_like_the_reference_tokenizer`（仓库 `docs/` 每篇文档的每一行与全文，设知意模型目录才跑）。
-ONNX 版另有 composition 头 `char_logits`（每个拼音槽位一行、6163 字的 logits，列与 `unified_vocab.json` 的 `chars` 对应），
-`ChoiceScorer::compose` 取它、逐行 log softmax，接到 Core 的 `ChoiceModel::compose`；candle 版没接这个头，返回 `None`。
+两代模型同一份代码：1.4V2-Long-L12（12 层宽 384、头 2 层）与 zhen-feather（2026-11-21 起，8 层宽 256、头 1 层），按模型包认格式，不另设开关。
+feather 的 `unified_vocab.json` 有 `choice_compact`：候选前不放 `<mask>`、标记是候选第一个 token（`Bpe::encode_bare`，不补 `▁`），candle 版在那里加 `cand_emb`；
+`config.json` 的 `prefix_mask` 让开头一段（到第一个 `<eos>`）只看自己（`zhiyi::mask`，编码器与头都用），层数、宽度都读 `config.json`。
+composition 头 `char_logits`（每个拼音槽位一行，列与 `unified_vocab.json` 的 `chars` 对应：L12 6163 字、feather 9067 字），
+`ChoiceScorer::compose` 取它，接到 Core 的 `ChoiceModel::compose`。feather 的整句序列是 `<bos> 已输入的上文: 上文 <eos> <mask>×音节 <eos>`、不带候选
+（ONNX 给一个屏蔽掉的标记），L12 照旧带一个空候选占位；candle 版只接 feather 那种与选词共用的头，L12 的整句头在另一组权重上，返回 `None`。
+每行只在这个音节读得出的字里做 log softmax（`zhiyi::readings`，`unified_vocab.json` 的 `readings`），读不出的字为负无穷：
+模型说明规定只在这些字里比较，Core 的字分数又以这一行最好的字为参照，参照得是读得出的字。
 它对每个音节各自出分布，字与字之间不管连贯（单用它逐位取最好：`yanxiashigong` → 眼下是公），所以只当整句词图里的字分数用，成词交给词图。
 
 Core 侧（`engine/choice`）：整句转换前按（前文, 音节串）取这张字分布表（`Engine::char_table`），没有就记下、和选词打分一起在停顿后送后台，

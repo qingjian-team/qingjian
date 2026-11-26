@@ -127,14 +127,24 @@ impl Bpe {
     }
 
     pub fn encode(&self, text: &str) -> Vec<u32> {
+        self.encode_with(text, true)
+    }
+
+    /// 段首不补 `▁`：等于模型包里 `tokenizer.candidates.json`（与 `tokenizer.json` 只差 Metaspace 的
+    /// `prepend_scheme` 为 `never`），紧凑格式的候选用它。
+    pub fn encode_bare(&self, text: &str) -> Vec<u32> {
+        self.encode_with(text, false)
+    }
+
+    fn encode_with(&self, text: &str, prepend: bool) -> Vec<u32> {
         let mut ids = Vec::new();
         let mut rest = 0;
         while let Some((start, end, id)) = self.next_added(text, rest) {
-            self.encode_segment(&text[rest..start], &mut ids);
+            self.encode_segment(&text[rest..start], prepend, &mut ids);
             ids.push(id);
             rest = end;
         }
-        self.encode_segment(&text[rest..], &mut ids);
+        self.encode_segment(&text[rest..], prepend, &mut ids);
         ids
     }
 
@@ -164,12 +174,12 @@ impl Bpe {
         None
     }
 
-    fn encode_segment(&self, segment: &str, ids: &mut Vec<u32>) {
+    fn encode_segment(&self, segment: &str, prepend: bool, ids: &mut Vec<u32>) {
         if segment.is_empty() {
             return;
         }
         let mut normalized = segment.replace(' ', "▁");
-        if !normalized.starts_with(SPACE) {
+        if prepend && !normalized.starts_with(SPACE) {
             normalized.insert(0, SPACE);
         }
         let mut word_start = 0;
