@@ -128,7 +128,12 @@ pub fn candidates_with_modes(
     sub_modes: bool,
 ) -> Vec<Candidate> {
     let texts = calendar_forms(input, now)
-        .map(|forms| forms.into_iter().map(|text| (text, None)).collect::<Vec<_>>())
+        .map(|forms| {
+            forms
+                .into_iter()
+                .map(|text| (text, None))
+                .collect::<Vec<_>>()
+        })
         .unwrap_or_else(|| {
             input
                 .strip_prefix(expression)

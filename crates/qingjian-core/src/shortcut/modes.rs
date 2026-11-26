@@ -125,7 +125,7 @@ struct Spec {
 }
 
 /// 全部子模式。加一个在这里登记，`Mode` 与 `mode_forms` 跟上即可。
-const SPECS: [Spec; 7] = [
+const SPECS: [Spec; 8] = [
     Spec {
         name: BIT_KEYWORD,
         numbered: true,
@@ -148,6 +148,10 @@ const SPECS: [Spec; 7] = [
     },
     Spec {
         name: COLOR_KEYWORD,
+        numbered: false,
+    },
+    Spec {
+        name: TRANS_KEYWORD,
         numbered: false,
     },
     Spec {
@@ -427,6 +431,15 @@ mod tests {
         assert!(!is_name_prefix("uuid"));
         // 纯数字不是前缀
         assert!(!is_name_prefix("123"));
+    }
+
+    /// 新登记的子模式也要能被敲完名后接分隔符：`vtrans;sort;1;2` 一路都进缓冲区。
+    #[test]
+    fn trans_name_takes_the_separator_then_letters() {
+        assert_eq!(accepts_key("trans", ';'), Some(true));
+        assert_eq!(accepts_key("trans;", 's'), Some(true));
+        assert_eq!(accepts_key("trans;sort", ';'), Some(true));
+        assert_eq!(accepts_key("trans;sort;3", '1'), Some(true));
     }
 
     /// 名字敲全、还没填参数时给一句用法；一填参数就不再提示。
