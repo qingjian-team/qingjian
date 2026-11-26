@@ -41,7 +41,7 @@ The first two can be turned off: when Pinyin is 关 (Off), 设置 → 输入 (Se
 
 In pure Wubi 86, press `;` for the second candidate on the current page or `'` for the third. A key with no candidate in its slot keeps its usual behavior.
 
-After committing a word, Qingjian suggests a page of words that can follow it and highlights the first suggestion. Your usual combinations appear first, then common combinations. If you use the default `Space` key to commit candidates, press `Space` again to commit the first suggestion. You can also select with a number, the second or third candidate key, or the mouse. Press `Esc` to dismiss the suggestions. Continuing to type also dismisses them.
+After committing a word, Qingjian suggests a page of words that can follow it and highlights the first suggestion. Your usual combinations appear first, then common combinations. If you use the default `Space` key to commit candidates, press `Space` again to commit the first suggestion. You can also select with a number, the second or third candidate key, or the mouse. Each suggestion page closes after two seconds without a selection. Press `Esc` or continue typing to dismiss it sooner.
 
 Both options are on by default. After selecting Wubi 86, you can change **Select candidates 2 and 3 with ; and '** and **Suggest the next word after Wubi commits** independently under Settings → Input → Wubi candidate selection and suggestions. You can configure them in mixed mode and turn off Pinyin to apply them.
 

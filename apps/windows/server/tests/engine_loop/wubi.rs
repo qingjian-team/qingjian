@@ -1,5 +1,7 @@
 //! 纯五笔选词键和上屏后联想的按键、点击与会话闭环。
 
+use std::time::Duration;
+
 use qingjian_core::sentence::LanguageModel;
 use qingjian_core::{CodeScheme, Engine};
 use qingjian_dictionary::{CodeTable, Dictionary};
@@ -174,6 +176,34 @@ fn a_fresh_space_selects_the_first_follow_up_but_a_held_space_does_not() {
     let (outcome, text, frame) = press(&mut router, space);
     assert_eq!(outcome, KeyOutcome::Passthrough);
     assert!(text.is_none() && frame.is_empty());
+}
+
+#[test]
+fn expired_wubi_follow_ups_close_and_cannot_be_selected() {
+    let [mut idle, mut keyboard, mut mouse]: [Router; 3] = std::array::from_fn(|_| {
+        let mut router = router(RouterConfig::default(), false);
+        assert!(type_letters(&mut router, "gant").2.is_code_follow_up());
+        router
+    });
+    let space = KeyEvent::new(0x20, Some(' '), Default::default());
+    let (_, text, frame) = press(&mut idle, space);
+    assert_eq!(text.as_deref(), Some("软件"));
+    assert_eq!(candidate_texts(&frame), ["设计"]);
+
+    std::thread::sleep(Duration::from_secs(2));
+    idle.tick();
+    let (outcome, text, frame) = press(&mut keyboard, space);
+    assert_eq!(outcome, KeyOutcome::Passthrough);
+    assert!(text.is_none() && frame.is_empty());
+    mouse.handle_click(HitTarget::Candidate(0));
+    for router in [&mut idle, &mut mouse] {
+        let Some(ServerMessage::Update { frame, commit, .. }) =
+            router.handle(ClientMessage::Poll { session: SESSION })
+        else {
+            panic!("expected Update");
+        };
+        assert!(frame.is_empty() && commit.is_none());
+    }
 }
 
 #[test]

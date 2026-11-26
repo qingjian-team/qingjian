@@ -104,7 +104,7 @@ impl Router {
     fn composed_frame(&self) -> Frame {
         match &self.composed {
             None => Frame::default(),
-            Some(Composed::FollowUps(words)) => self.follow_up_frame(words),
+            Some(Composed::FollowUps { words, .. }) => self.follow_up_frame(words),
             Some(Composed::Vietnamese { text, candidates }) => Frame {
                 preedit: vec![PreeditSegment {
                     text: text.clone(),

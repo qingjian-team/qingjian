@@ -14,6 +14,7 @@ const CLICK_SINCE: u32 = 8;
 impl Router {
     /// 候选窗口上点中了候选或译词（UI 线程经工人通道送来）。
     pub fn handle_click(&mut self, target: HitTarget) {
+        self.expire_follow_ups();
         if let HitTarget::Page(step) = target {
             return self.handle_page_turn(step);
         }

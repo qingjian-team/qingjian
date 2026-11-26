@@ -1,5 +1,7 @@
 //! 纯五笔的选词键和上屏后联想。联想候选占一页，不持有待提交的编码。
 
+use std::time::{Duration, Instant};
+
 use qingjian_core::{Candidate, CandidateKind, CandidateList};
 use qingjian_platform::protocol::{Frame, KeyEvent};
 use qingjian_platform::{CommitKey, NumpadDigit};
@@ -7,6 +9,8 @@ use qingjian_platform::{CommitKey, NumpadDigit};
 use super::Composed;
 use crate::dispatch::Router;
 use crate::dispatch::key::{self, ESCAPE, Effect};
+
+const FOLLOW_UP_TIMEOUT: Duration = Duration::from_secs(2);
 
 impl Router {
     fn pure_wubi(&self) -> bool {
@@ -39,16 +43,35 @@ impl Router {
             .engine
             .follow_ups_after_commit(committed, self.config.page_size.min(9));
         if !words.is_empty() {
-            self.composed = Some(Composed::FollowUps(words));
+            self.composed = Some(Composed::FollowUps {
+                words,
+                expires_at: Instant::now() + FOLLOW_UP_TIMEOUT,
+            });
         }
     }
 
     pub(in crate::dispatch) fn has_follow_ups(&self) -> bool {
-        matches!(self.composed, Some(Composed::FollowUps(_)))
+        matches!(self.composed, Some(Composed::FollowUps { .. }))
+    }
+
+    pub(in crate::dispatch) fn follow_up_remaining(&self) -> Option<Duration> {
+        let Some(Composed::FollowUps { expires_at, .. }) = &self.composed else {
+            return None;
+        };
+        Some(expires_at.saturating_duration_since(Instant::now()))
+    }
+
+    pub(in crate::dispatch) fn expire_follow_ups(&mut self) {
+        if self
+            .follow_up_remaining()
+            .is_some_and(|remaining| remaining.is_zero())
+        {
+            self.hide_candidate_window();
+        }
     }
 
     pub(in crate::dispatch) fn commit_follow_up_at(&mut self, index: usize) -> Option<String> {
-        let Some(Composed::FollowUps(words)) = &self.composed else {
+        let Some(Composed::FollowUps { words, .. }) = &self.composed else {
             return None;
         };
         let word = words.get(index)?;
@@ -57,6 +80,7 @@ impl Router {
 
     /// 只有明确选词的键写入联想词。其他键收起候选后仍按组句外的规则处理。
     pub(in crate::dispatch) fn apply_follow_up_key(&mut self, event: &KeyEvent) -> Option<Effect> {
+        self.expire_follow_ups();
         if !self.has_follow_ups() {
             return None;
         }
