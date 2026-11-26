@@ -16,24 +16,39 @@ impl QingjianInputController {
         // 本地整句模型、选词模型与自动空格要看光标前文：一段组句只在第一键读一次（组句中它不变；应用偶尔不回话也不至于让前文来回换），
         // 读应用文本要等应用回话，放在借 Host 之外（见 request_prediction）
         // 模型还在后台加载也读：接上时会补这一轮的重排，前文得先备好
-        let wants_context = host::with(|h| {
+        let diagnostic_enabled = tracing::enabled!(
+            target: "qingjian_macos::imk::client",
+            tracing::Level::DEBUG
+        );
+        let (wants_context, probe_policy) = host::with(|h| {
             h.attach_loaded_model();
-            (h.engine.has_sentence_scorer()
+            let first_key = h.engine.composition().text().chars().count() == 1;
+            let wants_context = (h.engine.has_sentence_scorer()
                 || h.engine.has_choice_model()
                 || h.model_loading()
                 || h.engine.auto_space())
-                && h.engine.composition().text().chars().count() == 1
+                && first_key;
+            let probe_policy = (diagnostic_enabled && first_key && h.engine.prediction_enabled())
+                .then(|| h.engine.prediction_policy());
+            (wants_context, probe_policy)
         })
-        .unwrap_or(false);
+        .unwrap_or((false, None));
         let before = if wants_context && !secure_input::enabled() {
             Some(
                 client
-                    .surrounding_text(RESCORE_LOOKBACK, 0)
+                    .surrounding_text(RESCORE_LOOKBACK, 0, "before_marked_local")
                     .map(|text| text.before),
             )
         } else {
             None
         };
+        // 本地模型关闭时也能对比 marked text 前后的接口返回；只在 debug 首键补读，结果不送入引擎。
+        if !wants_context
+            && let Some(policy) = probe_policy
+            && !secure_input::enabled()
+        {
+            let _ = client.surrounding_text(policy.before, policy.after, "before_marked_probe");
+        }
         let Some((marked, cursor, inline)) = host::with(|h| {
             if let Some(before) = before {
                 h.engine.set_rescoring_context(before);
@@ -156,7 +171,12 @@ impl QingjianInputController {
         let Some(policy) = policy else {
             return;
         };
-        let surrounding = client.surrounding_text(policy.before, policy.after);
+        let phase = if manual {
+            "prediction_manual"
+        } else {
+            "after_marked_prediction"
+        };
+        let surrounding = client.surrounding_text(policy.before, policy.after, phase);
         host::with(|h| {
             tracing::debug!(
                 has_context = surrounding.is_some(),
