@@ -79,11 +79,13 @@ pub enum Feature {
     PairPunctuation,
     /// 竖排窗口在光标上方时倒着排。
     VerticalReverseAbove,
+    /// 组句时朗读当前高亮候选的快捷键（Windows 用系统语音）。
+    Pronounce,
 }
 
 impl Feature {
     #[cfg(test)]
-    pub const ALL: [Self; 37] = [
+    pub const ALL: [Self; 38] = [
         Self::AuxCode,
         Self::Schemes,
         Self::AutoPhrase,
@@ -121,6 +123,7 @@ impl Feature {
         Self::CandidateFontWeight,
         Self::PairPunctuation,
         Self::VerticalReverseAbove,
+        Self::Pronounce,
     ];
 
     /// 当前平台显示这一项。
@@ -181,6 +184,8 @@ impl Feature {
             // Windows、Linux 的服务进程还没接知意；没有 GPU 时 CPU 上打分要发烫，先只开 macOS（Metal）
             Self::ExperimentalModels => [Yes, Yes, Todo],
             Self::Clipboard => [Yes, Yes, Todo],
+            // 朗读接的是 Windows 的 SAPI
+            Self::Pronounce => [Todo, Yes, Todo],
             Self::NumpadDigit => [Todo, Yes, Todo],
             // Fcitx 面板与应用里的行内拼音共用一串，还没分开
             Self::ShuangpinRawWindow => [Yes, Yes, Todo],
@@ -234,6 +239,7 @@ impl Feature {
             Self::CandidateFontWeight => "候选字粗细",
             Self::VerticalReverseAbove => "竖排在光标上方时倒着排",
             Self::PairPunctuation => "成对符号自动补全",
+            Self::Pronounce => "发音（朗读高亮的候选）",
         }
     }
 
@@ -277,6 +283,7 @@ impl Feature {
             ],
             Self::VocabularyTranslation => &[(PageId::Cloud, "cloud.vocabulary_translation")],
             Self::TranslatePanel => &[(PageId::Shortcuts, "shortcut.translate_panel")],
+            Self::Pronounce => &[(PageId::Shortcuts, "shortcut.pronounce")],
             Self::KeyHint => &[(PageId::Input, "input.key_hint")],
             Self::ShowTones => &[(PageId::Candidates, "candidates.show_tones")],
             Self::NumpadDigit => &[(PageId::Candidates, "candidates.numpad_digit")],

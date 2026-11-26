@@ -53,6 +53,8 @@ impl Host {
         self.engine.set_aux_enabled(config.aux_code.enabled);
         self.engine.set_aux_show(config.general.aux_code_show);
         self.engine.set_show_tones(config.general.show_tones);
+        self.engine
+            .set_calendar_shortcuts_first(config.general.calendar_shortcuts_first);
         self.aux_code_show = config.general.aux_code_show;
         if force || self.applied_aux_code.as_ref() != Some(&config.aux_code) {
             self.reload_aux_codes();

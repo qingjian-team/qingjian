@@ -131,6 +131,9 @@ impl ITfTextInputProcessor_Impl for TextService_Impl {
             if let Some(combo) = self.predict_combo.take() {
                 preserved::unregister(&keystroke, &preserved::GUID_PREDICT, combo);
             }
+            if let Some(combo) = self.pronounce_combo.take() {
+                preserved::unregister(&keystroke, &preserved::GUID_PRONOUNCE, combo);
+            }
             if let Some(combo) = self.translate_combo.take() {
                 preserved::unregister(&keystroke, &preserved::GUID_TRANSLATE, combo);
             }

@@ -21,9 +21,16 @@ pub use user_sid::UserSid;
 /// 老 DLL 连的固定管道名。升级后没重启的应用里还是老 DLL，Server 过渡期在这上面也服务（见 `docs/plan/todo.md`）。
 pub const LEGACY_PIPE_NAME: &str = r"\\.\pipe\qingjian";
 
-/// 老管道的 SDDL：老 DLL 按 `GENERIC_READ | GENERIC_WRITE` 打开，只能照旧放行 Everyone 与 AppContainer 读写。
-pub const LEGACY_PIPE_SDDL: &str =
-    "D:(A;;FRFW;;;WD)(A;;FRFW;;;AC)(A;;FRFW;;;S-1-15-2-2)S:(ML;;NW;;;LW)";
+/// 老管道的 SDDL：所有者与读写都给本用户，AppContainer 照旧给 `CLIENT_ACCESS`。
+///
+/// 以前这里写的是 `WD`（Everyone）：服务端每条连接还有「是不是本用户」这一道校验挡着，
+/// 但那是唯一的一道——描述符本身谁都能连。老 DLL 本来就是本用户的进程，收窄不影响它。
+pub fn legacy_pipe_sddl(user: &UserSid) -> io::Result<String> {
+    let user = user.to_sddl()?;
+    Ok(format!(
+        "O:{user}D:(A;;FRFW;;;{user})(A;;FRFW;;;AC)(A;;FRFW;;;S-1-15-2-2)S:(ML;;NW;;;LW)"
+    ))
+}
 
 /// DLL 打开管道要的权限：读 + 写数据。不要 `GENERIC_WRITE`，那里面的 `FILE_APPEND_DATA`
 /// 对管道就是「建实例」，安全描述符不给 AppContainer，要了会被拒。

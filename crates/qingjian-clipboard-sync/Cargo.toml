@@ -3,6 +3,7 @@ name = "qingjian-clipboard-sync"
 description = "青简剪贴板的设备间同步：配对、加密通道、合并与局域网发现，不依赖具体存储和传输"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 
