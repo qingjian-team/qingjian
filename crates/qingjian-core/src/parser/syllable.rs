@@ -51,6 +51,42 @@ pub const INITIALS: &[&str] = &[
     "z", "c", "s", "y", "w",
 ];
 
+/// 零声母音节的分组：同一个韵头单韵母代表的一族。
+///
+/// 标准简拼规则「零声母的用韵头的单韵母代表」：
+/// `a` 一族、`e` 一族、`o` 一族。`y` / `w` 开头的（yi / wu / yu …）在 [`INITIALS`] 里
+/// 已经有一键了，不在这里。
+pub const ZERO_INITIALS: &[(&str, &[&str])] = &[
+    ("a", &["a", "ai", "an", "ang", "ao"]),
+    ("e", &["e", "ei", "en", "eng", "er"]),
+    ("o", &["o", "ou"]),
+];
+
+/// `rest` 元音开头时，头一个字母能当哪些零声母音节 —— 返回 (吃掉的字母数, 音节)。
+///
+/// 两种情形：
+/// - **音节就在串里**（`ao` 之于 `ao`、`ang` 之于 `angyang`）：吃掉它的全部字母
+/// - **音节不在串里**（`a` 之于 `aquan`，串里只有 `a` 后面接 `q`）：吃掉 1 个字母，
+///   这个键代表那一族里的任意一个音节
+///
+/// 前者让 `ao`（奥秘的简拼）能切成 `ao` 一个音节，后者让 `a` 能当 `an`。
+pub fn zero_initial_syllables(rest: &str) -> impl Iterator<Item = (usize, &'static str)> + '_ {
+    let first = rest.chars().next();
+    ZERO_INITIALS
+        .iter()
+        .filter(move |(key, _)| first.is_some_and(|c| c.to_string() == **key))
+        .flat_map(|(_, syllables)| syllables.iter().copied())
+        .map(move |syllable| {
+            // 串里真的写着这个音节（`ao` / `ang` / `ai`）就整段吃掉
+            if rest.starts_with(syllable) {
+                (syllable.len(), syllable)
+            } else {
+                // 否则只用首字母代表，吃 1 个字母
+                (first.map_or(1, char::len_utf8), syllable)
+            }
+        })
+}
+
 /// `rest` 开头能当声母的长度：`zh` 开头返回 `[1, 2]`（`z` 与 `zh` 都可能），`k` 返回 `[1]`，元音开头为空。
 pub fn initial_lengths(rest: &str) -> impl Iterator<Item = usize> + '_ {
     INITIALS

@@ -373,6 +373,9 @@ fn a_rewritten_code_table_hot_reloads() {
     );
     assert!(router.engine_mut().aux_codes().is_empty());
 
+    // 快照按「逐文件 mtime + 长度」比：改写后长度没变（kf → kh），时间戳要是与快照落在同一个
+    // 时钟刻度上就看不出改动 —— 先等一格过去，免得这条用例时好时坏（Windows 上实测会撞）。
+    std::thread::sleep(std::time::Duration::from_millis(50));
     let rewritten = AuxCodeTable::from_pairs([("开发".to_owned(), "kh".to_owned())]).unwrap();
     rewritten
         .write_qj(&codes.join("mine.qj"), &Default::default())
