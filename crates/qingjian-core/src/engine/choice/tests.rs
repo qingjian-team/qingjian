@@ -152,12 +152,24 @@ fn altered_readings_get_a_fixed_cost_not_the_table() {
     assert_eq!(char_emission(&table, &typed, 0, "再", &reading("zai")), 0.0);
     assert_eq!(
         char_emission(&table, &typed, 0, "在", &reading("zai")),
-        -6.0 * EMISSION_WEIGHT
+        -6.0 * table.weight()
     );
     // 敲错边读成 cai 的字：字分布是按 zai 出的，说明不了它
     assert_eq!(
         char_emission(&table, &typed, 0, "才", &reading("cai")),
-        ALTERED_EMISSION * EMISSION_WEIGHT
+        ALTERED_EMISSION * table.weight()
+    );
+}
+
+/// 模型给了自己的权重，字分布得分就按它乘，不按缺省的。
+#[test]
+fn a_model_can_weigh_its_own_char_table() {
+    let index: HashMap<char, u32> = [('再', 0), ('在', 1)].into_iter().collect();
+    let table = CharTable::new(Arc::new(index), vec![vec![0.0, -6.0]]).with_weight(0.25);
+    let typed = [qingjian_dictionary::SyllablePattern::complete("zai")];
+    assert_eq!(
+        char_emission(&table, &typed, 0, "在", &["zai".to_owned()]),
+        -1.5
     );
 }
 

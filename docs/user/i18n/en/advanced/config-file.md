@@ -42,12 +42,13 @@ All settings are kept in one TOML text file, `config.toml`, with a note for ever
 | `[general] english_max_in_chinese` | 候选 → 英文候选最多几个 (Candidates → Maximum English candidates) | `1`–`4`, default `4` |
 | `[general] english_min_position` | 候选 → 英文词最高排到第几位 (Candidates → Highest position for English words) | `1`–`9`, default `1` (no limit) |
 | `[model] enabled` | 候选 → 本地整句模型 (Candidates → Local sentence model) | `true` / `false` (default) |
-| `[model] name`, `zhiyi_tier` | 实验功能 (Experimental features) → which model, Zhiyi's level | `name`: `tongbian` (default), `zhiyi`; if the chosen model isn't downloaded, no model is used (an old `zhiwei` reads as `tongbian`). `zhiyi_tier`: `saver`, `balanced` (default), `accurate` |
+| `[model] name`, `zhiyi_model`, `zhiyi_tier` | 实验功能 (Experimental features) → which model, which Zhiyi version, Zhiyi's level | `name`: `tongbian` (default), `zhiyi`; if the chosen model isn't downloaded, no model is used (an old `zhiwei` reads as `tongbian`). `zhiyi_model`: `zhiyi` (default, 1.4V2-Long-L12), `zhiyi-feather` (zhen-feather-preview-1121). `zhiyi_tier`: `saver`, `balanced` (default), `accurate` |
 | `[model] context_memory_seconds` | Configuration file only | When an app doesn't share the text before the cursor, how long what you just typed counts as context; default 60, 0 means always |
 | `[general] english_mode` | 输入法切换 → 英文模式 (Input Method Switching → English mode) | `false` keeps it in Chinese |
 | `[shortcut] switch_mode` | 输入法切换 → 切换键 (Input Method Switching → Switch key) | A list, such as `["shift", "control"]` |
 | `[general] default_english`, `remember_mode_per_app` | 输入法切换 → 默认英文模式, 按应用记住中英模式 (Input Method Switching → Start in English mode, Remember mode per app) | `true` / `false` |
 | `[general] shift_letter` | 输入法切换 → Shift + 字母 (Input Method Switching → Shift + letter) | `passthrough` (to the app, default) or `compose` (join the input) |
+| `[general] zero_initial_abbreviation` | 只在配置文件里 (config file only) | `true` / `false` (default off). 全拼下零声母音节用一个字母代表 (In full pinyin a zero-initial syllable may be typed with one letter): `aquan` 出「安全」、`e'liao` 出「饵料」. Off, segmentation is exactly as without this option |
 | `[general] punct_commits` | 输入法切换 → 标点先上屏候选 (Input Method Switching → Punctuation commits the candidate first) | `true` / `false` |
 | `[general] preedit` | 外观 → 拼音显示位置 (Appearance → Pinyin position) | `both`, `inline`, `window` |
 | `[general] page_keys` | 快捷键 → 翻页键 (Shortcuts → Paging keys) | `"[]"`, `",."`, `"-="` |

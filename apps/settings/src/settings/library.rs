@@ -72,7 +72,7 @@ impl Settings {
     /// 升级后要补下的词库全部排进下载队列（已经在下、在排的不重复加）。词库清单到手时调；
     /// 失败的这次不重试，下次打开设置再排。
     pub(super) fn restore_next(&mut self) {
-        let index = self.dict_index.state().dicts;
+        let index = self.dict_index.state().items;
         for entry in self.restore.pending(&self.config, &self.library, &index) {
             if self
                 .download

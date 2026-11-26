@@ -16,7 +16,7 @@ pub fn encode(width: u32, height: u32, rgba: &[u8]) -> Option<(Vec<u8>, Vec<u8>)
         return None;
     }
     let mut pixmap = Pixmap::new(width, height)?;
-    for (out, source) in pixmap.pixels_mut().iter_mut().zip(rgba.chunks_exact(4)) {
+    for (out, source) in pixmap.pixels_mut().iter_mut().zip(rgba.as_chunks::<4>().0) {
         *out = ColorU8::from_rgba(source[0], source[1], source[2], source[3]).premultiply();
     }
     let png = pixmap.encode_png().ok()?;

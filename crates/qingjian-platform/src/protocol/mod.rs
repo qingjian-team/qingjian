@@ -22,7 +22,7 @@ mod session;
 /// **加枚举变体不在「仍能对话」之列**：`qingjian_core::Candidate` 是线上格式的一部分（见本模块文档），
 /// 给它加一个 `kind` 变体，老 DLL 解不出来会整条帧失败、按键直接放行——测试时看到的「输入法突然只出英文」
 /// 就是这么来的（`unknown variant `Code``）。加变体必须同时 +1 并重装 DLL，否则连警告都不会有。
-pub const PROTOCOL_VERSION: u32 = 9;
+pub const PROTOCOL_VERSION: u32 = 10;
 
 /// 从哪个协议版本起 DLL 会在 `OpenSession` 后阻塞读一条 [`ServerMessage::SessionOpened`]。
 /// 门槛是固定值而不是当前版本：以后版本再升，没重启的应用里那些旧 DLL 仍在等这条回包，
@@ -37,7 +37,7 @@ pub mod key;
 /// 线上类型不按平台裁掉：Linux Server 在 macOS 上也要编得过（Mac 上的提交钩子对整个 workspace 跑 clippy）。
 pub mod linux;
 
-pub use client::ClientMessage;
+pub use client::{CandidateHit, ClientMessage};
 pub use codec::{CodecError, read_message, write_message};
 pub use frame::{Frame, PreeditKind, PreeditSegment};
 pub use indicator::{IndicatorCommand, IndicatorState};

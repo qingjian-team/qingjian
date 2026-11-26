@@ -38,9 +38,7 @@ impl Engine {
     /// 触发键不进缓冲区，壳在 `;` 特判旁调这里。
     pub fn enter_aux(&mut self) {
         // 已经在辅码态里再调一次没有效果：码段原样留着
-        if self.aux_code.is_none() {
-            self.aux_code = Some(String::new());
-        }
+        self.aux_code.get_or_insert_with(String::new);
     }
 
     /// 码段当前内容；不在辅码态时是空串。
@@ -63,13 +61,11 @@ impl Engine {
         if !c.is_ascii_lowercase() {
             return false;
         }
-        match &mut self.aux_code {
-            Some(code) => {
-                code.push(c);
-                true
-            }
-            None => false,
-        }
+        let Some(code) = self.aux_code.as_mut() else {
+            return false;
+        };
+        code.push(c);
+        true
     }
 
     /// Esc：清码段回拼音态，拼音与候选保持。
@@ -96,15 +92,15 @@ impl Engine {
             .map(|code| AuxSegment::new(self.aux_code_key, code.clone()))
     }
 
-    /// 作用域能不能完整切分成音节：双拼 / 注音按解码结果，全拼按 [`parser::is_fully_segmentable`]。
+    /// 作用域能不能按原样拆开：能解码（双拼 / 注音）或能切成音节就算，允许声母、前缀这类不完整的 ——
+    /// 码段只加权、不筛候选（见 `query/phonetic.rs`），简拼进不去比进去更糟。
+    /// 表达式、问字、英文直输段里拆开也没有「字」可言，一律不触发。
     fn aux_scope_ready(&self) -> bool {
         let scope = self.composition.scope();
-        if scope.is_empty() || self.expression_mode() || self.question_mode() || self.raw_mode() {
-            return false;
-        }
-        match self.decode(scope) {
-            Some(decoded) => decoded.is_complete(),
-            None => parser::is_fully_segmentable(scope),
-        }
+        !scope.is_empty()
+            && !self.expression_mode()
+            && !self.question_mode()
+            && !self.raw_mode()
+            && (self.decode(scope).is_some() || parser::segment(scope).is_ok())
     }
 }

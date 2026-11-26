@@ -12,9 +12,9 @@ use crate::i18n::{tr, tr_args};
 pub enum Install {
     /// 模型：压缩包里的 `archive_dir` 整个换进下载目录（`downloads/`）下的 `install_dir`（与输入法读的位置一致）。
     Archive {
-        archive_dir: &'static str,
+        archive_dir: String,
 
-        install_dir: &'static str,
+        install_dir: String,
     },
 
     /// 词库：`.qjz` 解成下载目录（`downloads/`）下的 `dest`（相对路径，如 `dicts/domain-medicine.qj`），解出来要是 `kind`。

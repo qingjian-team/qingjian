@@ -2,7 +2,7 @@
 
 use std::path::{Path, PathBuf};
 
-use qingjian_platform::LocalModel;
+use qingjian_platform::{LocalModel, LocalModelConfig};
 
 /// 下载的模型目录与随包根。
 #[derive(Debug, Clone, Default)]
@@ -24,9 +24,9 @@ pub(super) enum ModelFiles {
 
 impl ModelDirs {
     /// 选的模型还没下载（或知意缺运行库）为 `None`：不用模型，不再换成另一个。
-    pub(super) fn resolve(&self, wanted: LocalModel) -> Option<ModelFiles> {
-        match wanted {
-            LocalModel::Zhiyi => match (self.zhiyi_dir(), self.onnx_runtime()) {
+    pub(super) fn resolve(&self, wanted: &LocalModelConfig) -> Option<ModelFiles> {
+        match wanted.name {
+            LocalModel::Zhiyi => match (self.zhiyi_dir(wanted), self.onnx_runtime()) {
                 (Some(dir), Some(runtime)) => Some(ModelFiles::Zhiyi { dir, runtime }),
                 (None, _) => {
                     tracing::warn!("选了知意但没下载，不用模型");
@@ -47,8 +47,9 @@ impl ModelDirs {
         }
     }
 
-    fn zhiyi_dir(&self) -> Option<PathBuf> {
-        let dir = self.downloaded.as_deref()?.join("zhiyi-onnx");
+    /// 配置里选的那一版知意，`models/<id>/`。
+    fn zhiyi_dir(&self, wanted: &LocalModelConfig) -> Option<PathBuf> {
+        let dir = wanted.zhiyi_dir(self.downloaded.as_deref()?);
         dir.join("laya.int8g.onnx").is_file().then_some(dir)
     }
 

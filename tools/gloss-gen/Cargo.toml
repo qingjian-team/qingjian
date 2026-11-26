@@ -3,6 +3,7 @@ name = "qingjian-gloss-gen"
 description = "用 LLM 批量生成释义表与多音字读音标注"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 

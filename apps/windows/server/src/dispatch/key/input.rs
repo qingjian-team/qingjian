@@ -2,7 +2,7 @@
 
 use qingjian_core::candidate::arrows::{self, Arrow, ArrowAction, Focus};
 use qingjian_core::{Backspace, CandidateKind, PairEdit, QUESTION_PREFIX, punctuation};
-use qingjian_platform::protocol::{CaretEdit, KeyEvent};
+use qingjian_platform::protocol::{CaretEdit, KeyEvent, KeyModifiers};
 use qingjian_platform::{CommitRoute, HighlightKeys, NumpadDigit};
 
 use super::{Effect, codes, with_prefix};
@@ -58,6 +58,33 @@ impl Router {
                 None => Effect::Navigated,
             };
         }
+        // 以词定字：组句中按快捷键取高亮候选的第一个字，带 Shift 取最后一个字。
+        // 这一下把整段拼音吃掉（取字用的是这个词的读音），所以不必再问剩下的拼音怎么处理。
+        if self.composing()
+            && self.config.pick_char.is_some_and(|combo| {
+                let plain: KeyModifiers = combo.modifiers.into();
+                let shifted = KeyModifiers {
+                    shift: true,
+                    ..plain
+                };
+                event.virtual_key == combo.key.to_ascii_uppercase() as u32
+                    && (event.modifiers.chord() == plain || event.modifiers.chord() == shifted)
+            })
+        {
+            let Some(candidate) = self.layout_candidate(self.highlight) else {
+                return Effect::Navigated;
+            };
+            let index = if event.modifiers.shift {
+                candidate.text.chars().count().saturating_sub(1)
+            } else {
+                0
+            };
+            // 取不出字（云端词、字数与音节数对不上）就吃掉这一下，别把组合键漏给应用
+            let Some(single) = self.engine.pick_char(&candidate, index) else {
+                return Effect::Changed(None);
+            };
+            return Effect::Changed(Some(self.engine.commit(&single)));
+        }
         if let Some(effect) = self.apply_commit_key(event) {
             return effect;
         }
@@ -87,6 +114,21 @@ impl Router {
             && let Some(effect) = self.apply_digit_shortcut(digit, event.modifiers.chord())
         {
             return effect;
+        }
+        // 组句中按住 Ctrl 敲辅码触发键，与直接敲它同义：有些键盘布局里 `;` 只有带着 Ctrl 才送得到，
+        // 也有人本来就习惯按住。判定用 `KeyModifiers` 与别的快捷键一致，引擎那边仍只有
+        // 「一个字符进辅码态」这一个入口（`enter_aux`），不再为 Ctrl 另开一条路。
+        if self.composing()
+            && let Some(c) = event.character
+            && c == self.config.aux_code_key
+            && ctrl_without_alt_win(event.modifiers)
+            && (self.engine.in_aux() || self.engine.aux_trigger(c))
+        {
+            // 已经在辅码态时与直接敲触发键一样幂等：什么都不做，也不交给应用
+            if !self.engine.in_aux() {
+                self.engine.enter_aux();
+            }
+            return Effect::Changed(None);
         }
         if event.modifiers.has_command_key() {
             return Effect::Passthrough;
@@ -383,7 +425,7 @@ impl Router {
             || is_zhuyin_key
             || (c.is_ascii_uppercase() && self.config.shift_letter_compose)
         {
-            // 辅码态：字母进码段（逐键即筛），不进拼音缓冲区
+            // 辅码态：字母进码段（逐键加权），不进拼音缓冲区
             if c.is_ascii_lowercase() && self.engine.push_aux_code(c) {
                 return Effect::Changed(None);
             }
@@ -571,7 +613,8 @@ impl Router {
         if self.engine.in_aux() && c == self.config.aux_code_key {
             return Effect::Changed(None);
         }
-        // 码段筛空（例如码敲错一个字母）：空格 / 标点 / 数字都不上屏原始拼音，吞掉停在辅码态等退格
+        // 一条候选都没有（拼音切得动、词库没词）时，辅码态里空格 / 标点 / 数字都不上屏原始拼音，
+        // 吞掉停在辅码态等退格。码段本身只改次序、不筛候选，所以这不再是「码敲错一个字母」的后果。
         if self.engine.in_aux() && !self.engine.aux_code().is_empty() && self.candidate_count() == 0
         {
             return Effect::Changed(None);
@@ -654,4 +697,10 @@ impl Router {
             self.move_highlight(delta);
         }
     }
+}
+
+/// Ctrl 按着、Alt 与 Win 没按（Shift 随它 —— `;` 加 Shift 敲出来是 `:`，字符对不上就不会走到这里）。
+fn ctrl_without_alt_win(modifiers: KeyModifiers) -> bool {
+    let chord = modifiers.chord();
+    chord.ctrl && !chord.alt && !chord.win
 }

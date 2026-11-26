@@ -255,7 +255,10 @@ impl Engine {
 
     /// 退格真正删东西的那部分，与长按保护无关。
     fn backspace_inner(&mut self) -> bool {
-        if let Some(code) = self.aux_code.take() {
+        // 码段只在光标停在拼音段末尾时才轮得到删：光标挪到中间以后，退格该删光标前那个字母
+        // （码段原样留着，候选按改过的拼音重算），一直删到光标前没有字母才回头删码段。
+        let at_end = self.composition.cursor() >= self.composition.text().len();
+        if at_end && let Some(code) = self.aux_code.take() {
             if code.len() > 1 {
                 self.aux_code = Some(code[..code.len() - 1].to_owned());
             } else if code.len() == 1 && self.aux_keep_empty {
@@ -263,7 +266,10 @@ impl Engine {
             }
             return true;
         }
-        if self.undo_selection() {
+        // 选过词的时候（`你hao` 在界面上是「已选的词 + 剩下的拼音」）按光标位置分派：
+        // 两头（贴着已选词、或停在剩余拼音末尾）撤选词 —— `你hao|` → `nihao|`、`你|hao` → `ni|hao`；
+        // 中间删光标前那个字母、选过的词留着 —— `你h|ao` → `你|ao`。
+        if self.cursor_at_pinyin_edge() && self.undo_selection() {
             return true;
         }
         self.note_edit();
@@ -282,6 +288,11 @@ impl Engine {
             self.chain.note_edit();
         }
         removed
+    }
+
+    /// 光标是不是贴在拼音段两头（开头或末尾）。退格在这两处撤选词、中间才删字母。
+    fn cursor_at_pinyin_edge(&self) -> bool {
+        self.composition.cursor() == 0 || self.composition.cursor() >= self.composition.text().len()
     }
 
     pub fn clear(&mut self) {

@@ -21,6 +21,10 @@ impl Weights {
         })
     }
 
+    pub fn has(&self, name: &str) -> bool {
+        self.file.get(name).is_ok()
+    }
+
     /// 按 f32 取（范数、偏置这些不量化的）。
     pub fn get(&self, name: &str) -> Result<Tensor> {
         self.raw(name)?.to_dtype(DType::F32)

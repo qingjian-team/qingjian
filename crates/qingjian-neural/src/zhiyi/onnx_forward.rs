@@ -61,13 +61,18 @@ impl OnnxForward {
         let slots: Vec<i64> = (0..sequence.units.len() as i64)
             .filter(|&i| sequence.units[i as usize] != 0)
             .collect();
-        let markers = sequence.markers.len();
+        // 整句序列没有候选：图要至少一个标记，给一个屏蔽掉的，等于不加候选向量
+        let (markers, marker_mask) = if sequence.markers.is_empty() {
+            (vec![0], vec![false])
+        } else {
+            (ints(&sequence.markers), vec![true; sequence.markers.len()])
+        };
         let inputs = ort::inputs![
             "input_ids" => row(ints(&sequence.ids)).map_err(onnx_error)?,
             "attention_mask" => row(vec![1; sequence.ids.len()]).map_err(onnx_error)?,
             "unit_ids" => row(ints(&sequence.units)).map_err(onnx_error)?,
-            "marker_pos" => row(ints(&sequence.markers)).map_err(onnx_error)?,
-            "marker_mask" => Tensor::from_array(([1, markers], vec![true; markers])).map_err(onnx_error)?,
+            "marker_mask" => Tensor::from_array(([1, marker_mask.len()], marker_mask)).map_err(onnx_error)?,
+            "marker_pos" => row(markers).map_err(onnx_error)?,
             "slot_pos" => row(slots).map_err(onnx_error)?,
         ];
         let mut session = self

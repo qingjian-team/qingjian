@@ -269,13 +269,24 @@ impl QingjianInputController {
             self.render(client);
             return;
         }
-        let Some(message) = host::with(|h| h.perform_candidate_action(offset, action)).flatten()
+        let Some(done) = host::with(|h| h.perform_candidate_action(offset, action)).flatten()
         else {
             return;
         };
-        tracing::info!(?action, %message, "候选右键菜单");
+        tracing::info!(?action, notice = %done.notice, "候选右键菜单");
+        // 「只上屏第几个字」：那个单字当场走一遍正常上屏，后面的拼音接着组句
+        if let Some(single) = done.picked {
+            let committed = host::with(|h| h.engine.commit(&single)).unwrap_or_default();
+            if !committed.is_empty() {
+                client.insert_text(&committed);
+            }
+            host::with(|h| h.status = Some(done.notice));
+            self.refresh(client);
+            self.render(client);
+            return;
+        }
         self.refresh(client);
-        host::with(|h| h.status = Some(message));
+        host::with(|h| h.status = Some(done.notice));
         self.render(client);
     }
 

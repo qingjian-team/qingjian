@@ -34,6 +34,15 @@ impl Settings {
         if Feature::CloudRequestControls.here() {
             self.write("shortcut", "predict", defaults.predict.key_string());
         }
+        if Feature::Pronounce.here() {
+            self.write(
+                "shortcut",
+                "pronounce",
+                defaults
+                    .pronounce
+                    .map_or_else(String::new, |combo| combo.key_string()),
+            );
+        }
         if Feature::TranslatePanel.here() {
             self.write(
                 "shortcut",
@@ -73,6 +82,9 @@ impl Settings {
                 "next_word",
                 KeyCombo::NEXT_WORD_DEFAULT.key_string(),
             );
+        }
+        if Feature::PickChar.here() {
+            self.write("shortcut", "pick_char", "");
         }
         if Feature::CommitKeys.here() {
             self.write(

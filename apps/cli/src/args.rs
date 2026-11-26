@@ -114,6 +114,10 @@ pub struct Args {
     #[arg(long)]
     pub no_spelling_correction: bool,
 
+    /// 打开零声母简写（配置 `[general] zero_initial_abbreviation = true`）：`aquan` 出安全、`e'liao` 出饵料
+    #[arg(long)]
+    pub zero_initial_abbreviation: bool,
+
     /// 中文模式下英文候选（精确词 + 补全）最多几个（配置 `[general] english_max_in_chinese`，缺省 4）
     #[arg(long, default_value_t = qingjian_core::ENGLISH_CANDIDATES_MAX)]
     pub english_max_in_chinese: usize,

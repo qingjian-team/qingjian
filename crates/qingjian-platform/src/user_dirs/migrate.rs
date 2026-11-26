@@ -56,6 +56,22 @@ pub(super) fn run(dirs: &UserDirs) {
     }
 }
 
+/// 下载的模型改成一个模型一个目录、按模型仓库清单里的 id 起名：知意 1.4V2-Long-L12 的 ONNX 版原来装在 `models/zhiyi-onnx/`，
+/// 现在是 `models/zhiyi/`（与 safetensors 版同一个 id）。新目录已经有了就不动，留给用户自己删旧的。
+pub(super) fn rename_models(dirs: &UserDirs) {
+    let models = dirs.models();
+    let (old, new) = (models.join("zhiyi-onnx"), models.join("zhiyi"));
+    if !old.is_dir() || new.exists() {
+        return;
+    }
+    match std::fs::rename(&old, &new) {
+        Ok(()) => {
+            tracing::info!(from = %old.display(), to = %new.display(), "model folder renamed")
+        }
+        Err(error) => tracing::warn!(from = %old.display(), %error, "model folder not renamed"),
+    }
+}
+
 /// 根目录下一项该搬去哪；`dicts/` 要按文件拆开，另外处理；配置、剪贴板和认不出的都留在根下。
 fn target_of(dirs: &UserDirs, name: &str, is_dir: bool) -> Option<PathBuf> {
     if is_dir {

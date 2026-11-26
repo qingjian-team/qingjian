@@ -10,7 +10,9 @@
 0.1.4 起各平台共用版本号、共用一个 GitHub Release（标签 `v<版本>`）：同一个版本号、同一份更新日志只出现一次，各平台的安装包都挂在上面。0.3.0 起 Android 也在里面（之前没发过包，版本号从 0.1.0-dev 直接跳到 0.3.0）。
 
 1. 改版本号，把 `-dev` 去掉：`apps/macos/Cargo.toml`（Info.plist 与 pkg 文件名从这里取）、`apps/windows/{server,tsf,settings}/Cargo.toml`（三个一起改，打包读 `server`）、
-   `apps/linux/server/Cargo.toml`、`apps/android/core/Cargo.toml`（APK 的 versionName 与 versionCode 从这里算），然后 `cargo update --workspace --offline` 同步 `Cargo.lock`。
+   `apps/linux/server/Cargo.toml`、`apps/android/core/Cargo.toml`（APK 的 versionName 与 versionCode 从这里算），
+   还有三平台共用的设置程序 `apps/settings/Cargo.toml`（关于页、手动检查更新、系统信息读它自己的版本，带 `-dev` 就当本地开发版不检查更新；门禁不查它），
+   然后 `cargo update --workspace --offline` 同步 `Cargo.lock`。改完 `git grep -n '^version = "' apps/*/Cargo.toml apps/*/*/Cargo.toml` 核一遍。
    **发版之间版本号一直带 `-dev`**（Rust nightly / Firefox Nightly 那套）：Cargo.toml 写 `0.1.5-dev`，打包脚本再接上 git 短哈希，
    本地装的、CI 中间构建的都显示 `0.1.5-dev-1a2b3c4`（工作区有改动加 `+`），测试时一眼知道装的是哪个提交；版本号干净的一定是线上包；带 `-dev` 的标签 CI 直接拒绝。
    pkg 的 `--version`、Inno 的 `VersionInfoVersion` 只认数字点号，`bundle.sh` / `build.ps1` 去掉后缀再传，文件名保留完整版本。
@@ -42,7 +44,7 @@
   → `publish-releases-json.sh` 生成并签名 `releases.json` → `bump-website.sh` 触发官网构建。
   任何平台失败，Release 就停在草稿、用户看不到；修好后删掉草稿与标签重推，或在 Actions 页重跑失败的 job。
 
-**单平台补丁**（只修一个平台的急事）：只改那个平台的版本号，打 `macos-v<版本>` / `windows-v<版本>` / `linux-v<版本>` / `android-v<版本>`，同一套流程只打那一个平台，Release 标题带平台名。
+**单平台补丁**（只修一个平台的急事）：只改那个平台的版本号（连同 `apps/settings/Cargo.toml`，设置程序随每个平台的包一起发），打 `macos-v<版本>` / `windows-v<版本>` / `linux-v<版本>` / `android-v<版本>`，同一套流程只打那一个平台，Release 标题带平台名。
 
 发版后 GitHub Release 上有：`qingjian-<版本>-macos-arm64.pkg`、`-macos-x86_64.pkg`、`-windows-x86_64-setup.exe`、`-linux-x86_64.tar.gz`、`-android-arm64.apk`、`-linux-x86_64.AppImage`，deb / rpm 各两个（`qingjian-<版本>-linux-x86_64.deb`、`qingjian-fcitx5-<版本>-linux-x86_64.deb`，rpm 同样），`SHA256SUMS`、`build-info.json`、`releases.json` 与 `.sig`。
 
@@ -52,7 +54,7 @@
 官网文档只随发版更新（`docs/user/` 平时改动不推官网，免得文档领先于用户装到的版本）。没配就在官网仓库随便提交一次（或本地跑这个脚本）。
 官网构建时才拉最新 Release 的 `releases.json` 与主仓库 `docs/user`，所以提交内容本身不重要，`upstream.json` 只是留个记录、顺便让文档按记下的提交号拉（版本对得上）。
 
-Rust 工具链由 `rust-toolchain.toml` 钉版本（现在 1.96.0），各 workflow 里 `dtolnay/rust-toolchain` 的 `toolchain:` 输入写同一个号；升级 Rust 时一起改。
+Rust 工具链由 `rust-toolchain.toml` 钉版本（现在 1.100.0），各 workflow 里 `dtolnay/rust-toolchain` 的 `toolchain:` 输入写同一个号；升级 Rust 时一起改。
 
 ## 各平台的特别之处
 
@@ -160,7 +162,7 @@ gh secret set QINGJIAN_ANDROID_KEY_PASSWORD
       "mirrors": [{ "name": "夸克网盘", "url": "https://pan.quark.cn/s/…" }],
       "commit": "869ad00…（40 位）",
       "built_at": "2026-09-07T08:38:12Z",
-      "toolchain": "rustc 1.96.0 (ac68faa20 2026-05-25)",
+      "toolchain": "rustc 1.100.0 (0ef1bc386 2026-11-09)",
       "assets": [
         { "platform": "macos", "arch": "Apple Silicon", "cpu": "arm64", "file": "qingjian-0.1.3-macos-arm64.pkg",
           "url": "https://github.com/owner/qingjian/releases/download/macos-v0.1.3/qingjian-0.1.3-macos-arm64.pkg",

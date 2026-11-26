@@ -89,6 +89,13 @@ fn client_messages() -> Vec<ClientMessage> {
             rect: screen_rect(),
         },
         ClientMessage::HideCandidates { session },
+        ClientMessage::CandidateHit {
+            session,
+            hit: qingjian_platform::protocol::CandidateHit::Translation {
+                candidate: 1,
+                sense: 0,
+            },
+        },
         ClientMessage::ModeChanged {
             session,
             english: true,

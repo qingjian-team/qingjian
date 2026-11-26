@@ -22,6 +22,11 @@ pinned = "“{text}” is pinned and comes first when you type {code}"
 unpinned = "Unpinned “{text}”"
 demoted = "“{text}” moved down one place"
 undemoted = "“{text}” is no longer moved down"
+first_char = "Commit first character only"
+second_char = "Commit second character only"
+last_char = "Commit last character only"
+picked_char = "Committed only “{char}” from “{text}”"
+cant_pick_char = "Can't pick a single character out of “{text}”"
 
 [appearance]
 system = "Follow system"

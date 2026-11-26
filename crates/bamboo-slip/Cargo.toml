@@ -3,6 +3,7 @@ name = "bamboo-slip"
 description = "自绘 UI 引擎：场景树 + 布局 + 文字 + 动画 → 位图，各平台只负责贴图"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 # 双许可，见本目录的 LICENSE.md
 license = "GPL-3.0-or-later OR LicenseRef-Qingjian-Commercial"
 repository.workspace = true

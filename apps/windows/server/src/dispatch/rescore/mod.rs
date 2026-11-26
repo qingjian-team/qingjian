@@ -33,10 +33,9 @@ impl Router {
         }
     }
 
-    /// 热加载：开关或选的模型变了才重载 / 卸载，档位每次都套。
+    /// 热加载：开关、选的模型或知意的版本变了才重载 / 卸载，档位每次都套。
     pub(super) fn apply_model_config(&mut self, config: &LocalModelConfig) {
-        let changed =
-            (config.enabled, config.name) != (self.applied_model.enabled, self.applied_model.name);
+        let changed = !config.loads_same_model(&self.applied_model);
         self.applied_model = config.clone();
         self.apply_choice_tier();
         if !changed {
@@ -61,7 +60,7 @@ impl Router {
         {
             return;
         }
-        let Some(files) = self.model_dirs.resolve(self.applied_model.name) else {
+        let Some(files) = self.model_dirs.resolve(&self.applied_model) else {
             tracing::info!("没有本地模型文件，不重排");
             return;
         };

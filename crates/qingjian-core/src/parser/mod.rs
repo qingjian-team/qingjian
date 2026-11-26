@@ -5,6 +5,27 @@
 //! 查词时完整音节精确匹配、不完整音节按前缀匹配。双拼、模糊音后续在这里扩展，接口保持不变。
 
 mod error;
+
+use std::cell::Cell;
+
+thread_local! {
+    /// 零声母简写开关（`aquan` 的 `a` 当 `an`、`e'liao` 的 `e` 当 `er`），缺省关。
+    ///
+    /// 放线程本地而不是全局静态：测试并行跑，一条用例打开它不该影响别的用例；
+    /// 引擎在哪个线程上跑就用哪个线程的设定。
+    static ZERO_INITIAL: Cell<bool> = const { Cell::new(false) };
+}
+
+/// 打开 / 关闭零声母简写。缺省关，关着时切分与不带这个功能完全一致。
+pub fn set_zero_initial_abbreviation(on: bool) {
+    ZERO_INITIAL.with(|flag| flag.set(on));
+}
+
+/// 当前线程上零声母简写开没开。
+fn zero_initial_enabled() -> bool {
+    ZERO_INITIAL.with(Cell::get)
+}
+
 mod segmentation;
 mod syllable;
 mod trie;
@@ -16,7 +37,7 @@ pub use error::ParseError;
 pub use segmentation::{Segmentation, Syllable};
 pub use syllable::{INITIALS, MAX_SYLLABLE_LEN, RARE_SYLLABLES, SYLLABLES};
 
-use syllable::initial_lengths;
+use syllable::{initial_lengths, zero_initial_syllables};
 use trie::SYLLABLE_TRIE;
 
 pub fn is_syllable(s: &str) -> bool {
@@ -127,9 +148,16 @@ fn prune(segmentations: &mut Vec<Segmentation>) {
 
 /// 音节少的优先；同音节数时不完整音节少的优先；再同则不含生僻音节的优先（`biangeng` 是 bian geng，不是 biang eng），
 /// 最后前面的音节越长越优先（贪心的结果排最前）。
-fn sort_key(segmentation: &Segmentation) -> (usize, usize, usize, Vec<Reverse<usize>>) {
+fn sort_key(segmentation: &Segmentation) -> (usize, usize, usize, usize, Vec<Reverse<usize>>) {
     (
         segmentation.syllables.len(),
+        // 用零声母简写顶出来的切分（`aquan` 的 `a` 当 `an`）排在真正的全拼切分后面：
+        // 串里本来切得出完整音节时，不能因为多了一条一样长的简写切法就让词频把正常整句挤下去
+        segmentation
+            .syllables
+            .iter()
+            .filter(|s| s.implied.is_some() && !s.implied_separate)
+            .count(),
         segmentation.incomplete_count(),
         segmentation
             .syllables
@@ -145,8 +173,9 @@ fn sort_key(segmentation: &Segmentation) -> (usize, usize, usize, Vec<Reverse<us
 }
 
 /// 切分不含 `'` 的一段：按位置做动态规划，每个位置只保留最优的几种前缀切分。
-/// `allow_partial` 为真时末尾允许留一个残缺音节。
-fn segment_chunk(chunk: &str, allow_partial: bool) -> Vec<Segmentation> {
+/// `is_last` 是这一段是不是整串的最后一段：只有最后一段允许留一个残缺音节（`zho` → zhong / zhou）。
+fn segment_chunk(chunk: &str, is_last: bool) -> Vec<Segmentation> {
+    let allow_partial = is_last;
     let n = chunk.len();
     let mut best: Vec<Vec<Segmentation>> = vec![Vec::new(); n + 1];
     best[0].push(Segmentation {
@@ -165,6 +194,46 @@ fn segment_chunk(chunk: &str, allow_partial: bool) -> Vec<Segmentation> {
             if !tokens.contains(&(len, true)) {
                 tokens.push((len, false));
             }
+        }
+        // 零声母简拼：`a` / `e` / `o` 开头的音节可以用韵头的单韵母代表（标准简拼规则）。
+        //
+        // 两种情形由 `zero_initial_syllables` 分好：音节就在串里（`ao` → `ao`）时整段吃掉，
+        // 不在串里（`aquan` 的 `a` → `an`）时只吃一个字母。
+        //
+        // 词尾不展开：`xia` 的 `a` 就是「啊」，不额外产 `xi` + `a(an)` = `xian`，
+        // 否则会把「先 / 想」挤出首位。`ao` 整段在串里，属于音节本身，不是展开，照常处理。
+        //
+        // 末尾之后还有 `'` 就不是词尾了：`e'liao` 的 `e` 是用户自己用隔音符封出来的一个音节，
+        // 这时才该当 `er` 用（饵料）。判据是这一段是不是整串的最后一段，不是这个字母在不在段尾。
+        //
+        // 单独处理而不是并进 `tokens`：它代表的音节与吃掉的字母数不一定相同，
+        // 得带进 `Syllable::implied`（`text` 记字母、`pattern()` 用音节）。
+        //
+        // 简写的两种来源排序上不一样（见 `Syllable::implied_separate`）：段只有一个字母时
+        // 是用户自己隔出来的（`e'liao`），这种输入本来就是简写，不降权；段还能往下切时是从
+        // 长串里猜的（`rengemianju` 的 `e` 也能当 `en`），那种要排在正常全拼切分后面 ——
+        // 否则两条一样长的切分一起进候选，词频会把「人格面具」挤成「仍恩面具」。
+        for (eaten, syllable) in zero_initial_syllables(rest).filter(|_| zero_initial_enabled()) {
+            // 整串的最后一格只剩一个字母：那是词尾，不展开（`xia` 的 `a`）
+            if eaten == 1 && rest.len() <= 1 && is_last {
+                continue;
+            }
+            let typed = &rest[..eaten];
+            // 敲的这段本来就是这个音节（`a` 之于 `a`）时不算简写：常规 tokens 已经产过，
+            // 再产一条会把「啊全」那样正常的两音节切分错标成简写，反而排到后面去
+            if typed == syllable {
+                continue;
+            }
+            let separate = chunk.len() == 1;
+            let extended: Vec<Segmentation> = best[start]
+                .iter()
+                .map(|base| {
+                    let mut syllables = base.syllables.clone();
+                    syllables.push(Syllable::implied(typed, syllable, separate));
+                    Segmentation { syllables }
+                })
+                .collect();
+            best[start + eaten].extend(extended);
         }
         // 整个剩余部分作为未打完的音节（`zho` → zhong / zhou …）。它本身是完整音节或纯声母时已经在上面了。
         let rest_is_complete = matches.lengths().next_back() == Some(rest.len());

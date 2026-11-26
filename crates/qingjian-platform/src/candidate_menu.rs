@@ -35,6 +35,14 @@ pub enum CandidateAction {
     /// 提高平台自有候选的选择权重；普通中文候选不展示，由平台候选上下文使用。
     Promote,
 
+    /// 只上屏这个候选的第一个字（多字中文候选才有，见 #1025）。
+    FirstChar,
+
+    /// 只上屏这个候选的第二个字（三个字以上才有）。
+    SecondChar,
+
+    /// 只上屏这个候选的最后一个字（三个字以上才有）。
+    LastChar,
     /// 屏蔽这个词：写进 `[dictionaries] blocked`，之后候选里含它的整条都不出。
     ///
     /// 用在导入的词库带进来一堆用不上的品牌词时（`搜狗` 也挡掉 `搜狗拼音`）。
@@ -60,7 +68,7 @@ impl IndependentInputContext<'_> {
 }
 
 impl CandidateAction {
-    const ALL: [Self; 9] = [
+    const ALL: [Self; 12] = [
         Self::EditTranslation,
         Self::RegenerateTranslation,
         Self::Pin,
@@ -69,6 +77,9 @@ impl CandidateAction {
         Self::Undemote,
         Self::Delete,
         Self::Promote,
+        Self::FirstChar,
+        Self::SecondChar,
+        Self::LastChar,
         Self::Block,
     ];
 
@@ -82,7 +93,20 @@ impl CandidateAction {
             Self::Undemote => tr("candidate_menu.undemote"),
             Self::Delete => tr("candidate_menu.delete"),
             Self::Promote => tr("candidate_menu.promote"),
+            Self::FirstChar => tr("candidate_menu.first_char"),
+            Self::SecondChar => tr("candidate_menu.second_char"),
+            Self::LastChar => tr("candidate_menu.last_char"),
             Self::Block => tr("candidate_menu.block"),
+        }
+    }
+
+    /// 这一项上屏的是候选里的第几个字（从 0 起）；不是「只上屏一个字」的项给 `None`。
+    /// 「最后一个字」要看候选有几个字，由调用方算，这里给 `None`。
+    pub fn char_index(self) -> Option<usize> {
+        match self {
+            Self::FirstChar => Some(0),
+            Self::SecondChar => Some(1),
+            _ => None,
         }
     }
 
@@ -124,6 +148,18 @@ pub fn actions(
         actions.push(CandidateAction::Demote);
         if engine.demotion(candidate) > 0 {
             actions.push(CandidateAction::Undemote);
+        }
+    }
+    // 「只上屏第几个字」：一个字一个音节的多字中文候选才给，云端词、中英混合词对不上，不出
+    let chars = candidate.text.chars().count();
+    if candidate.kind == CandidateKind::Chinese && chars == candidate.syllables.len() {
+        if chars >= 2 {
+            actions.push(CandidateAction::FirstChar);
+            actions.push(CandidateAction::SecondChar);
+        }
+        // 两个字时「第二个字」就是最后一个字，不再单给一项；三个字以上才多一个「最后一个字」
+        if chars >= 3 {
+            actions.push(CandidateAction::LastChar);
         }
     }
     if candidate.kind.forgettable() {
@@ -217,6 +253,27 @@ pub struct ActionOutcome {
 
     /// 配置文件里的自定义短语改了，壳要重读配置把它推给 Engine。
     pub phrases_changed: bool,
+
+    /// 「只上屏某个字」时要上屏的那个单字候选；壳拿它走 `commit`，其余项是 `None`。
+    pub picked: Option<Candidate>,
+}
+
+/// 「只上屏某个字」做完的那句话；`single` 是上屏的那个字，`None` 表示取不出单字。
+///
+/// Windows 与 macOS 共用（从 `ActionOutcome::notice` 拿）。安卓的 `core` 不依赖这个 crate，
+/// 那边由帧带标记、Kotlin 按同名文案键拼。
+pub fn pick_char_notice(single: Option<&str>, source: &str) -> String {
+    let source: &dyn std::fmt::Display = &source;
+    match single {
+        Some(single) => {
+            let char: &dyn std::fmt::Display = &single;
+            tr_args(
+                "candidate_menu.picked_char",
+                &[("text", source), ("char", char)],
+            )
+        }
+        None => tr_args("candidate_menu.cant_pick_char", &[("text", source)]),
+    }
 }
 
 /// 做菜单里的一项。置顶 / 取消置顶写配置文件 `config_path`，失败的原因放进提示。
@@ -231,6 +288,7 @@ pub fn perform(
     let notice = |notice: String| ActionOutcome {
         notice,
         phrases_changed: false,
+        picked: None,
     };
     match action {
         CandidateAction::EditTranslation
@@ -263,6 +321,7 @@ pub fn perform(
                     tr_args("candidate_menu.unpinned", &[("text", &text)])
                 },
                 phrases_changed: true,
+                picked: None,
             }
         }
         CandidateAction::Demote => {
@@ -274,6 +333,21 @@ pub fn perform(
             notice(tr_args("candidate_menu.undemoted", &[("text", &text)]))
         }
         CandidateAction::Delete => notice(engine.forget(candidate).describe(text)),
+        CandidateAction::FirstChar | CandidateAction::SecondChar | CandidateAction::LastChar => {
+            let chars = candidate.text.chars().count();
+            let index = match action {
+                CandidateAction::LastChar => chars.saturating_sub(1),
+                other => other.char_index().unwrap_or(0),
+            };
+            match engine.pick_char(candidate, index) {
+                Some(single) => ActionOutcome {
+                    notice: pick_char_notice(Some(&single.text), text),
+                    phrases_changed: false,
+                    picked: Some(single),
+                },
+                None => notice(pick_char_notice(None, text)),
+            }
+        }
         CandidateAction::Block => {
             if !engine.add_blocked_word(text) {
                 return notice(tr_args(
@@ -304,8 +378,71 @@ mod tests {
             assert_eq!(CandidateAction::from_id(action.id()), Some(action));
         }
         assert_eq!(CandidateAction::from_id(0), None);
-        // 现在有 9 项，id 1..=9；10 才越界
-        assert_eq!(CandidateAction::from_id(10), None);
+        // 越界：比最后一项的编号再大一号
+        let past = CandidateAction::ALL.len() as u32 + 1;
+        assert_eq!(CandidateAction::from_id(past), None);
+    }
+
+    #[test]
+    fn multi_char_chinese_candidates_offer_picking_a_single_char() {
+        let engine = test_engine();
+        let phrase = chinese("开发", &["kai", "fa"]);
+        let listed = actions(&engine, &phrase, &[]);
+        assert!(listed.contains(&CandidateAction::FirstChar));
+        // 两个字也要能取第二个字（「交易」的「易」）；它就是最后一个字，不再另给一项
+        assert!(listed.contains(&CandidateAction::SecondChar));
+        assert!(!listed.contains(&CandidateAction::LastChar));
+
+        let three = chinese("开发中", &["kai", "fa", "zhong"]);
+        let listed = actions(&engine, &three, &[]);
+        assert!(listed.contains(&CandidateAction::FirstChar));
+        assert!(listed.contains(&CandidateAction::SecondChar));
+        assert!(listed.contains(&CandidateAction::LastChar));
+    }
+
+    #[test]
+    fn single_char_and_non_chinese_candidates_do_not_offer_picking() {
+        let engine = test_engine();
+        assert!(
+            !actions(&engine, &chinese("开", &["kai"]), &[]).contains(&CandidateAction::FirstChar)
+        );
+        let english = Candidate {
+            text: "docker".to_owned(),
+            kind: CandidateKind::English,
+            syllables: Vec::new(),
+            ..chinese("x", &["x"])
+        };
+        assert!(!actions(&engine, &english, &[]).contains(&CandidateAction::FirstChar));
+    }
+
+    #[test]
+    fn picking_a_char_takes_the_whole_word() {
+        // 取哪个字都把整词的音节带上：上屏时整段拼音一起消耗
+        let mut engine = test_engine();
+        let phrase = chinese("开发中", &["kai", "fa", "zhong"]);
+        let first = engine.pick_char(&phrase, 0).expect("第一个字");
+        assert_eq!(first.text, "开");
+        assert_eq!(first.syllables, ["kai", "fa", "zhong"]);
+        let second = engine.pick_char(&phrase, 1).expect("第二个字");
+        assert_eq!(second.text, "发");
+        assert_eq!(second.syllables, ["kai", "fa", "zhong"]);
+        assert!(engine.pick_char(&phrase, 3).is_none());
+    }
+
+    /// 只有 开发 的词库，够 `actions` / `pick_char` 用。
+    fn test_engine() -> Engine {
+        Engine::new(qingjian_dictionary::Dictionary::parse("开发\tkai fa\t900\n").expect("词库"))
+    }
+
+    fn chinese(text: &str, syllables: &[&str]) -> Candidate {
+        Candidate {
+            text: text.to_owned(),
+            kind: CandidateKind::Chinese,
+            syllables: syllables.iter().map(|s| (*s).to_owned()).collect(),
+            reading: None,
+            translation: None,
+            aux_code: None,
+        }
     }
 
     #[test]

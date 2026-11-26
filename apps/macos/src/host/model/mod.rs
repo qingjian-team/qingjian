@@ -9,7 +9,7 @@ use std::sync::mpsc::{TryRecvError, channel};
 use qingjian_core::sentence::SentenceScorer;
 use qingjian_neural::zhiyi::ChoiceScorer;
 use qingjian_neural::{CharScorer, NeuralError, P2cScorer};
-use qingjian_platform::LocalModel;
+use qingjian_platform::{LocalModel, LocalModelConfig};
 
 mod loaded;
 mod rescore_monitor;
@@ -22,15 +22,15 @@ use super::*;
 impl Host {
     /// 在后台线程加载选的模型并预热（第一次前向要编译 Metal 内核，几百毫秒），加载完由 [`Self::attach_loaded_model`] 接上。
     /// 选的模型还没下载就不用模型，不换成另一个。
-    pub(super) fn load_local_model(&mut self, wanted: LocalModel) {
+    pub(super) fn load_local_model(&mut self, wanted: &LocalModelConfig) {
         if self.model_loader.is_some()
             || self.engine.has_sentence_scorer()
             || self.engine.has_choice_model()
         {
             return;
         }
-        match wanted {
-            LocalModel::Zhiyi => match paths::zhiyi_model_dir() {
+        match wanted.name {
+            LocalModel::Zhiyi => match paths::zhiyi_model_dir(wanted) {
                 Some(dir) => self.load_zhiyi_model(dir),
                 None => tracing::warn!("选了知意但没下载，不用模型"),
             },

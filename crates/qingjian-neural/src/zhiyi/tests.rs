@@ -24,27 +24,54 @@ fn matches_the_reference_vectors() {
             .map(|v| v as u32)
             .collect()
     };
-    for case in 0..5 {
-        let expected: Vec<f32> = vectors[&format!("{case}.logits")].to_vec1().unwrap();
-        let got = scorer
-            .score_ids(
-                &ints(format!("{case}.input_ids")),
-                &ints(format!("{case}.unit_ids")),
-                &ints(format!("{case}.marker_pos")),
-            )
-            .unwrap();
-        eprintln!("case {case}: expected {expected:?} got {got:?}");
-        let best = |v: &[f32]| {
-            v.iter()
-                .enumerate()
-                .max_by(|a, b| a.1.total_cmp(b.1))
-                .map(|(i, _)| i)
-        };
-        assert_eq!(best(&expected), best(&got), "case {case}");
-        for (e, g) in expected.iter().zip(&got) {
-            assert!((e - g).abs() < 0.5, "case {case}: {expected:?} vs {got:?}");
+    let best = |v: &[f32]| {
+        v.iter()
+            .enumerate()
+            .max_by(|a, b| a.1.total_cmp(b.1))
+            .map(|(i, _)| i)
+    };
+    let mut checked = 0;
+    for case in (0..).take_while(|case| vectors.contains_key(&format!("{case}.input_ids"))) {
+        let (ids, units, markers) = (
+            ints(format!("{case}.input_ids")),
+            ints(format!("{case}.unit_ids")),
+            ints(format!("{case}.marker_pos")),
+        );
+        if let Some(expected) = vectors.get(&format!("{case}.logits")) {
+            let expected: Vec<f32> = expected.to_vec1().unwrap();
+            let got = scorer.score_ids(&ids, &units, &markers).unwrap();
+            eprintln!("case {case}: expected {expected:?} got {got:?}");
+            assert_eq!(best(&expected), best(&got), "case {case}");
+            for (e, g) in expected.iter().zip(&got) {
+                assert!((e - g).abs() < 0.5, "case {case}: {expected:?} vs {got:?}");
+            }
+            checked += 1;
+        }
+        // 整句：Q8_0 与 fp32 每个槽位的最佳字允许偏一个（模型说明里 6 组里就有一处不同），分差在 0.6 内
+        if let Some(expected) = vectors.get(&format!("{case}.char_logits")) {
+            let expected: Vec<Vec<f32>> = expected.squeeze(0).unwrap().to_vec2().unwrap();
+            let got = scorer
+                .char_logits_ids(&ids, &units, &markers)
+                .unwrap()
+                .expect("model has a composition readout");
+            assert_eq!(expected.len(), got.len(), "case {case}");
+            let differ = expected
+                .iter()
+                .zip(&got)
+                .filter(|(e, g)| best(e) != best(g))
+                .count();
+            let gap = expected
+                .iter()
+                .flatten()
+                .zip(got.iter().flatten())
+                .map(|(e, g)| (e - g).abs())
+                .fold(0f32, f32::max);
+            eprintln!("case {case}: {differ} slots differ, max gap {gap}");
+            assert!(differ <= 1 && gap < 0.6, "case {case}");
+            checked += 1;
         }
     }
+    assert!(checked > 0, "no test vectors");
 }
 
 /// ONNX 版与 candle 版对拍：同样的输入首选一致、分差不大。要设 `QINGJIAN_ZHIYI_DIR`（safetensors 版）、

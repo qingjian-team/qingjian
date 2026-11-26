@@ -189,28 +189,30 @@ fn code(ui: &mut Ui<Message>, page: &Page) -> Result<Branch, RenderError> {
         .info(tr("input.code_info"))
         .control(control)
         .build(ui, &page.theme)?;
-    let entry = code
-        .filter(|_| general.scheme() == Scheme::Off)
-        .and_then(|id| {
-            let rules = config.code_rules(&id);
-            schemes
-                .iter()
-                .find(|entry| entry.id == id)
-                .map(|entry| entry.clone().with_rules(rules))
-        });
+    let entry = code.and_then(|id| {
+        let rules = config.code_rules(&id);
+        schemes
+            .iter()
+            .find(|entry| entry.id == id)
+            .map(|entry| entry.clone().with_rules(rules))
+    });
     let Some(entry) = entry else {
         return Ok(Branch::leaf(head));
     };
+    let (auto_key, top_key, auto_on, top_on) = if general.scheme() == Scheme::Off {
+        ("auto_commit", "top", entry.auto_commit, entry.top)
+    } else {
+        (
+            "mixed_auto_commit",
+            "mixed_top",
+            entry.mixed_auto_commit,
+            entry.mixed_top,
+        )
+    };
     branch(ui, page, "code", head, |ui| {
         Ok(vec![
-            code_rule(
-                ui,
-                page,
-                tr("input.auto_commit"),
-                "auto_commit",
-                entry.auto_commit,
-            )?,
-            code_rule(ui, page, tr("input.top"), "top", entry.top)?,
+            code_rule(ui, page, auto_key, auto_on)?,
+            code_rule(ui, page, top_key, top_on)?,
         ])
     })
 }
@@ -281,6 +283,15 @@ fn aux_code(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderErro
                 tr("input.aux_show"),
                 ("general", "aux_code_show"),
                 general.aux_code_show,
+                !aux.enabled,
+            )?,
+            toggle_info(
+                ui,
+                page,
+                tr("input.aux_weighting"),
+                Some(tr("input.aux_weighting_info")),
+                ("general", "aux_code_weighting"),
+                general.aux_code_weighting,
                 !aux.enabled,
             )?,
             toggle_with(
@@ -456,7 +467,6 @@ fn fuzzy_custom(ui: &mut Ui<Message>, page: &Page) -> Result<NodeId, RenderError
 fn code_rule(
     ui: &mut Ui<Message>,
     page: &Page,
-    title: &str,
     key: &'static str,
     on: bool,
 ) -> Result<NodeId, RenderError> {
@@ -466,7 +476,18 @@ fn code_rule(
         ("code", key),
         Message::SetCodeRule(key, !on),
     )?;
-    SettingRow::new(title)
-        .control(switch)
-        .build(ui, &page.theme)
+    let (title, info) = match key {
+        "mixed_auto_commit" => (
+            "input.mixed_auto_commit",
+            Some("input.mixed_auto_commit_info"),
+        ),
+        "mixed_top" => ("input.mixed_top", Some("input.mixed_top_info")),
+        "auto_commit" => ("input.auto_commit", None),
+        _ => ("input.top", None),
+    };
+    let mut row = SettingRow::new(tr(title)).control(switch);
+    if let Some(info) = info {
+        row = row.info(tr(info));
+    }
+    row.build(ui, &page.theme)
 }

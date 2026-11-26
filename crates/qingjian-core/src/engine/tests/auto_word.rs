@@ -363,3 +363,142 @@ fn deleting_a_letter_with_the_forward_key_also_stops_the_whole_word() {
         1
     );
 }
+
+/// 取字用的是**这个词**的读音：取哪个字都把整段拼音吃掉，不留尾巴。
+#[test]
+fn picking_a_char_consumes_the_whole_word() {
+    let candidate = || Candidate {
+        text: "交易中心".to_owned(),
+        kind: CandidateKind::Chinese,
+        syllables: vec!["jiao".into(), "yi".into(), "zhong".into(), "xin".into()],
+        reading: None,
+        translation: None,
+        aux_code: None,
+    };
+    for (index, expected) in [(0, "交"), (1, "易"), (3, "心")] {
+        let mut engine = jiaoyi_engine();
+        engine.set_input("jiaoyizhongxin");
+        let single = engine.pick_char(&candidate(), index).expect("取得到这个字");
+        assert_eq!(single.text, expected);
+        // 整词的四个音节都带上，上屏时一并消耗
+        assert_eq!(single.syllables, ["jiao", "yi", "zhong", "xin"]);
+        assert_eq!(engine.commit(&single), expected);
+        assert!(
+            engine.composition().is_empty(),
+            "取完不该留尾巴：{:?}",
+            engine.composition().text()
+        );
+    }
+}
+
+#[test]
+fn picking_a_char_needs_one_syllable_per_character() {
+    let mut engine = jiaoyi_engine();
+    let candidate = Candidate {
+        text: "交易中心".to_owned(),
+        kind: CandidateKind::Cloud,
+        syllables: vec!["jiao".into(), "yi".into()],
+        reading: None,
+        translation: None,
+        aux_code: None,
+    };
+    assert!(
+        engine.pick_char(&candidate, 0).is_none(),
+        "云端词音节对不上"
+    );
+    let mut engine = jiaoyi_engine();
+    engine.set_input("jiaoyi");
+    let candidate = engine.query().unwrap().candidates.items.remove(0);
+    assert!(engine.pick_char(&candidate, 5).is_none(), "字序越界");
+}
+
+#[test]
+fn picking_a_char_consumes_the_right_keys_under_every_scheme() {
+    // 取字用的是整词读音：三种方案（全拼 / 双拼 / 九宫格）各走一条 `consumed_by` 分支，
+    // 任何一条算错都会剩下一截拼音或吃多。
+    for (label, keys, scheme, word, first) in [
+        ("全拼", "shishan", None, "石山", "石"),
+        ("双拼", "uiuj", Some(Scheme::Xiaohe), "石山", "石"),
+        // 九宫格下 `744726` 的首选多字词是 事实，不是 石山
+        ("九宫格", "744726", None, "事实", "事"),
+    ] {
+        let mut engine = shishan_engine();
+        if label == "双拼" {
+            engine.set_shuangpin(scheme);
+        } else if label == "九宫格" {
+            engine.set_nine_key(true);
+        }
+        engine.set_input(keys);
+        let candidate = engine
+            .query()
+            .unwrap()
+            .candidates
+            .items
+            .into_iter()
+            .find(|c| c.text == word)
+            .unwrap_or_else(|| panic!("{label} 没有 {word}"));
+        let single = engine
+            .pick_char(&candidate, 0)
+            .unwrap_or_else(|| panic!("{label} 取不出第一个字"));
+        assert_eq!(single.text, first, "{label}");
+        assert_eq!(engine.commit(&single), first, "{label}");
+        assert!(engine.composition().is_empty(), "{label} 不该剩拼音");
+    }
+}
+
+#[test]
+fn picking_a_char_counts_as_choosing_that_char_only() {
+    // 挑字是用户亲手点的：那个字算「选过一次」（下次打这个音节它排前面）；
+    // 整段拼音被这一次取字吃掉了，所以不存在「接着选完」，也就不该记整词。
+    let mut engine = shishan_engine();
+    engine.set_input("shishan");
+    let candidate = engine
+        .query()
+        .unwrap()
+        .candidates
+        .items
+        .into_iter()
+        .find(|c| c.text == "石山")
+        .expect("石山");
+    assert_eq!(engine.learner().choice_weight("shi", "石"), 0);
+
+    let first = engine.pick_char(&candidate, 0).expect("石");
+    assert_eq!(engine.commit(&first), "石");
+    assert!(engine.composition().is_empty(), "整段拼音都吃掉了");
+    assert_eq!(
+        engine.learner().choice_weight("shi", "石"),
+        1,
+        "挑出来的字要算选过一次"
+    );
+    assert_eq!(
+        engine.learner().choice_weight("shishan", "石山"),
+        0,
+        "没选那个词，不该记整词"
+    );
+}
+
+#[test]
+fn picking_a_char_does_not_carry_the_word_translation() {
+    // 挑的是「交」，不该把「交易中心」的译词记进词汇：用户没选那个词
+    let mut engine = jiaoyi_engine();
+    let candidate = Candidate {
+        text: "交易中心".to_owned(),
+        kind: CandidateKind::Chinese,
+        syllables: vec!["jiao".into(), "yi".into(), "zhong".into(), "xin".into()],
+        reading: None,
+        translation: Some(Translation::new(
+            Language::English,
+            vec![Sense {
+                part_of_speech: None,
+                text: "transaction center".into(),
+                reading: None,
+                pronunciation: None,
+                fresh: false,
+            }],
+        )),
+        aux_code: None,
+    };
+    let single = engine.pick_char(&candidate, 0).expect("交");
+    assert_eq!(single.text, "交");
+    assert!(single.translation.is_none(), "挑出来的字不带原词的译词");
+}

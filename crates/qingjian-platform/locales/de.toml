@@ -19,6 +19,11 @@ pinned = "„{text}“ ist angeheftet und steht bei der Eingabe von {code} an er
 unpinned = "„{text}“ ist nicht mehr angeheftet"
 demoted = "„{text}“ ist um eine Stelle nach unten gerückt"
 undemoted = "„{text}“ steht wieder an seiner Stelle"
+first_char = "Nur das erste Zeichen einfügen"
+second_char = "Nur das zweite Zeichen einfügen"
+last_char = "Nur das letzte Zeichen einfügen"
+picked_char = "Aus „{text}“ nur „{char}“ eingefügt"
+cant_pick_char = "Aus „{text}“ lässt sich kein einzelnes Zeichen entnehmen"
 
 [appearance]
 system = "Wie System"

@@ -7,30 +7,29 @@ use std::time::SystemTime;
 
 use bamboo_slip::Waker;
 
-use super::index_file::IndexFile;
-use super::{DictEntry, IndexState, Status};
+use super::{IndexState, Listing, Status};
 
-use crate::jobs::download::{Repo, fetch_small};
+use crate::jobs::download::fetch_small;
 
-/// 缓存文件名，放在数据目录里（与 `update.json` 同一处）。
-const CACHE_FILE: &str = "dict-index.json";
-
-pub struct DictIndex {
-    state: Arc<Mutex<IndexState>>,
+pub struct RemoteIndex<T> {
+    state: Arc<Mutex<IndexState<T>>>,
 
     /// 后台线程取完时置上，`take_finished` 收一次。
     finished: Arc<AtomicBool>,
 }
 
-impl Default for DictIndex {
-    /// 先读上次缓存的那份，取到新的之前就能列出来。
+impl<T: Listing> Default for RemoteIndex<T> {
+    /// 先读上次缓存的那份，取到新的之前就能列出来；没有缓存时用 [`Listing::fallback`]。
     fn default() -> Self {
-        let mut state = IndexState::default();
-        if let Some(path) = cache_path()
+        let mut state = IndexState {
+            items: T::fallback(),
+            ..IndexState::default()
+        };
+        if let Some(path) = cache_path::<T>()
             && let Ok(bytes) = std::fs::read(&path)
-            && let Ok(dicts) = IndexFile::parse(&bytes)
+            && let Ok(items) = T::parse(&bytes)
         {
-            state.dicts = dicts;
+            state.items = items;
             state.fetched_at = std::fs::metadata(&path)
                 .and_then(|meta| meta.modified())
                 .ok();
@@ -42,17 +41,20 @@ impl Default for DictIndex {
     }
 }
 
-impl DictIndex {
-    pub fn state(&self) -> IndexState {
+impl<T: Listing> RemoteIndex<T> {
+    pub fn state(&self) -> IndexState<T> {
         self.state
             .lock()
             .map(|state| state.clone())
             .unwrap_or_default()
     }
 
-    /// 手上清单里的一本。
-    pub fn entry(&self, id: &str) -> Option<DictEntry> {
-        self.state().dicts.into_iter().find(|entry| entry.id == id)
+    /// 手上清单里的一条。
+    pub fn entry(&self, id: &str) -> Option<T> {
+        self.state()
+            .items
+            .into_iter()
+            .find(|entry| entry.id() == id)
     }
 
     pub fn start(&mut self, waker: Option<Waker>) {
@@ -68,25 +70,25 @@ impl DictIndex {
         let state = Arc::clone(&self.state);
         let finished = Arc::clone(&self.finished);
         std::thread::spawn(move || {
-            let urls = Repo::Dicts
+            let urls = T::REPO
                 .raw_hosts()
                 .into_iter()
                 .map(|host| format!("{host}/index.json"))
                 .collect();
             let result = fetch_small(urls, |bytes| {
-                IndexFile::parse(bytes).map(|dicts| (dicts, bytes.to_vec()))
+                T::parse(bytes).map(|items| (items, bytes.to_vec()))
             });
             if let Ok(mut slot) = state.lock() {
                 match result {
-                    Ok((dicts, bytes)) => {
-                        tracing::info!(count = dicts.len(), "dictionary index fetched");
-                        save_cache(&bytes);
-                        slot.dicts = dicts;
+                    Ok((items, bytes)) => {
+                        tracing::info!(what = T::WHAT, count = items.len(), "index fetched");
+                        save_cache::<T>(&bytes);
+                        slot.items = items;
                         slot.fetched_at = Some(SystemTime::now());
                         slot.status = Status::Fetched;
                     }
                     Err(error) => {
-                        tracing::warn!(error, "dictionary index not fetched");
+                        tracing::warn!(what = T::WHAT, error, "index not fetched");
                         slot.status = Status::Failed(error);
                     }
                 }
@@ -104,19 +106,19 @@ impl DictIndex {
     }
 }
 
-fn cache_path() -> Option<PathBuf> {
-    crate::system::paths::user_dirs().map(|dirs| dirs.cache().join(CACHE_FILE))
+fn cache_path<T: Listing>() -> Option<PathBuf> {
+    crate::system::paths::user_dirs().map(|dirs| dirs.cache().join(T::CACHE_FILE))
 }
 
 /// 写临时文件再改名，半截的缓存不会留下。
-fn save_cache(bytes: &[u8]) {
-    let Some(path) = cache_path() else {
+fn save_cache<T: Listing>(bytes: &[u8]) {
+    let Some(path) = cache_path::<T>() else {
         return;
     };
     let part = path.with_extension("json.part");
     let saved = std::fs::write(&part, bytes).and_then(|()| std::fs::rename(&part, &path));
     if let Err(error) = saved {
-        tracing::warn!(path = %path.display(), %error, "dictionary index cache not saved");
+        tracing::warn!(what = T::WHAT, path = %path.display(), %error, "index cache not saved");
         let _ = std::fs::remove_file(&part);
     }
 }

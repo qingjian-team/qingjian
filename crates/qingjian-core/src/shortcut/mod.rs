@@ -1,7 +1,7 @@
 //! 快捷候选（搜狗「v 模式」的那一套）：不查词库、由输入本身直接算出来的候选。
 //!
-//! - `rq` / `sj` / `xq`：今天的日期、现在的时间、星期几，插在本地候选第二位起；打全拼出了「日期 / 时间 / 星期」
-//!   这几个词（`riqi`、九宫格的 `7474`）时同样跟在这个词后面（[`keyword_forms`]）。
+//! - `rq` / `sj` / `xq` / `jq` / `jr`：日期、时间、星期、节气、节日。独立拼音缩写优先展示整组；
+//!   全拼候选里的「日期 / 时间 / 星期」仍只在词后跟三种常用写法（[`keyword_forms`]）。
 //! - 表达式键（缺省 `v`）开头进表达式模式：`v1+2` 出 `3` 与 `1+2=3`，`v123` 出中文数字与金额（小写与大写），
 //!   `v123.5` 出小数读法与金额，同样各有小写与大写（一百二十三元五角 / 壹佰贰拾叁元伍角）；
 //!   `v1998-3-8`（四位年份 + 月 + 日，分隔符 `-` / `/` / `.`）出中文日期 `一九九八年三月八日` 与
@@ -14,9 +14,11 @@
 mod base;
 mod bitwise;
 mod calendar;
+mod color;
 mod evaluator;
 pub mod modes;
 mod numeral;
+mod occasions;
 mod stat;
 mod uuid_forms;
 
@@ -124,16 +126,43 @@ pub fn candidates_with_modes(
     now: &Zoned,
     sub_modes: bool,
 ) -> Vec<Candidate> {
-    let texts: Vec<String> = match input {
-        "rq" => date_forms(now),
-        "sj" => time_forms(now),
-        "xq" => weekday_forms(now),
-        _ => match input.strip_prefix(expression) {
-            Some(body) => expression_forms(body, now, sub_modes),
-            None => Vec::new(),
-        },
-    };
+    let texts = calendar_forms(input, now).unwrap_or_else(|| {
+        input
+            .strip_prefix(expression)
+            .map_or_else(Vec::new, |body| expression_forms(body, now, sub_modes))
+    });
     as_candidates(texts)
+}
+
+/// 一条日历快捷：写的键（缩写在全拼下也当拼音用，所以靠 `calendar_forms` 先拦）与生成函数。
+type CalendarForm = (&'static str, fn(&Zoned) -> Vec<String>);
+
+/// 独立的日历缩写 → 各自的生成函数。加一条缩写只改这张表，不再往 `match` 里塞分支。
+const CALENDAR_FORMS: &[CalendarForm] = &[
+    ("rq", date_forms),
+    ("sj", time_forms),
+    ("xq", weekday_forms),
+    ("jq", solar_term_forms),
+    ("jr", festival_forms),
+];
+
+/// 节气：从今天起接下来 24 个，按距今天数排。
+fn solar_term_forms(now: &Zoned) -> Vec<String> {
+    occasions::solar_terms(now.date())
+}
+
+/// 节日：公历固定日、按第几个星期几算的、农历的（春节端午中秋这些）以及清明，按距今天数排。
+fn festival_forms(now: &Zoned) -> Vec<String> {
+    occasions::festivals(now.date())
+}
+
+/// 独立的日历缩写。末尾的分隔符不影响快捷候选，允许重查此刻时间。
+pub(crate) fn calendar_forms(input: &str, now: &Zoned) -> Option<Vec<String>> {
+    let key = input.trim_end_matches('\'');
+    CALENDAR_FORMS
+        .iter()
+        .find(|(name, _)| *name == key)
+        .map(|(_, forms)| forms(now))
 }
 
 /// 快捷写法包成候选。
@@ -151,14 +180,20 @@ pub(crate) fn as_candidates(texts: Vec<String>) -> Vec<Candidate> {
         .collect()
 }
 
+/// 打全拼打出来的词 → 对应的快捷写法（`日期` 出 `rq` 那一串）。同样是查表，加一条只改表。
+const KEYWORD_FORMS: &[CalendarForm] = &[
+    ("日期", date_forms),
+    ("时间", time_forms),
+    ("星期", weekday_forms),
+];
+
 /// 打全拼出的词是「日期 / 时间 / 星期」时对应的快捷写法，同 `rq` / `sj` / `xq`；别的词为空。
 pub fn keyword_forms(word: &str, now: &Zoned) -> Vec<String> {
-    match word {
-        "日期" => date_forms(now),
-        "时间" => time_forms(now),
-        "星期" => weekday_forms(now),
-        _ => Vec::new(),
-    }
+    KEYWORD_FORMS
+        .iter()
+        .find(|(name, _)| *name == word)
+        .map(|(_, forms)| forms(now))
+        .unwrap_or_default()
 }
 
 /// 金额最多几位小数（角、分）。
@@ -220,6 +255,10 @@ fn mode_forms(mode: modes::Mode<'_>) -> Vec<String> {
         }
         modes::Mode::Base { args } => base::forms(args),
         modes::Mode::Stat { args } => stat::forms(args),
+        modes::Mode::Color { args } => color::forms(args)
+            .into_iter()
+            .map(|(value, _)| value)
+            .collect(),
     }
 }
 /// 单个非负数（`123`、`123.5`）：中文数字在前，金额在后；小数超过两位没有金额写法。
@@ -289,14 +328,16 @@ mod tests {
 
     #[test]
     fn calendar_shortcuts() {
-        // 前三条是原有顺序，不动；后面是补的各种写法
+        // 头三个会紧跟本地首选，放的是日常最常用的三种写法
         let rq = texts("rq");
-        assert_eq!(&rq[..3], ["2026年9月3日", "2026-09-03", "2026/09/03"]);
+        assert_eq!(&rq[..3], ["2026年9月3日", "2026-09-03", "9月3日"]);
+        assert!(rq.contains(&"2026/09/03".to_owned()), "{rq:?}");
         assert!(rq.contains(&"2026年9月3日 星期四".to_owned()), "{rq:?}");
+        assert!(rq.contains(&"2026年9月3号".to_owned()), "{rq:?}");
         assert!(rq.contains(&"20260903".to_owned()), "{rq:?}");
         assert!(rq.contains(&"二〇二六年九月三日".to_owned()), "{rq:?}");
         let sj = texts("sj");
-        assert_eq!(&sj[..3], ["19:06", "19:06:23", "19点06分"]);
+        assert_eq!(&sj[..3], ["19:06", "19点06分", "19:06:23"]);
         assert!(sj.contains(&"19:06:23.000".to_owned()), "{sj:?}");
         assert!(sj.contains(&"20260903190623".to_owned()), "{sj:?}");
         // Unix 秒 / 毫秒不混在 `sj` 里，要时间戳敲 `vts`
@@ -527,7 +568,7 @@ mod tests {
     fn now_and_offsets() {
         // 测试把「现在」固定在 2026-09-03（见 tests::now）
         let today = texts("vnow");
-        assert_eq!(today[0], "二〇二六年九月三日", "{today:?}");
+        assert_eq!(today, texts("rq"));
         assert!(today.iter().any(|t| t == "2026-09-03"), "{today:?}");
         assert!(texts("vnow+4").iter().any(|t| t == "2026-09-07"));
         assert!(texts("vnow-4").iter().any(|t| t == "2026-08-30"));

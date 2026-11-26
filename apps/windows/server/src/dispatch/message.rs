@@ -1,8 +1,8 @@
 //! 按消息类型分派：会话开关、按键、轮询、失焦上屏、选区 / 光标矩形 / 中英模式的通知。
 
 use qingjian_platform::protocol::{
-    ClientMessage, Frame, KeyEvent, KeyOutcome, PROTOCOL_VERSION, SESSION_OPENED_SINCE,
-    ServerMessage, SessionId,
+    CandidateHit, ClientMessage, Frame, KeyEvent, KeyOutcome, PROTOCOL_VERSION,
+    SESSION_OPENED_SINCE, ServerMessage, SessionId,
 };
 
 use std::time::Instant;
@@ -80,6 +80,15 @@ impl Router {
                 self.position_candidates(session, rect);
                 None
             }
+            ClientMessage::CandidateHit { session, hit } => {
+                // 系统界面宿主里那扇窗在 DLL 进程里，点它 Server 的候选窗口看不到：
+                // 换成与自绘窗点击同一个目标，走同一条选词 / 翻页链路。
+                tracing::debug!(?session, ?hit, "进程内候选窗点击");
+                if self.focused == Some(session) {
+                    self.handle_candidate_mouse(super::CandidateMouse::Click(hit_target(hit)));
+                }
+                None
+            }
             ClientMessage::HideCandidates { session } => {
                 // 组句在 DLL 侧结束（应用终止组句 / 翻译评审失焦）：只收窗口；缓冲留给下一键的 Commit 清。
                 if self.focused == Some(session) {
@@ -136,6 +145,15 @@ impl Router {
         }
     }
 
+    /// 英文音标表里 `word` 的音标（大小写共用一份数据）；表没装或查不到就是 `None`。
+    /// 这里不看 `[general] show_english_pronunciation`：那个只管候选框画不画，不影响发音。
+    fn pronunciation(&self, word: &str) -> Option<&str> {
+        let lowered = word.trim().to_ascii_lowercase();
+        self.engine
+            .english_pronunciations()
+            .and_then(|table| table.pronunciation(&lowered))
+    }
+
     fn handle_key(&mut self, session: SessionId, event: KeyEvent) -> ServerMessage {
         self.ensure_focus(session);
         self.pending_caret = None;
@@ -143,6 +161,46 @@ impl Router {
         self.candidates.close_menu();
         if self.translation.is_some() {
             return self.handle_translation_review(session, &event);
+        }
+        // 发音快捷键（`[shortcut] pronounce`，缺省不绑定）取当前高亮的候选词。只在组句且有候选时
+        // 接管，其余时候照常往下分派（没在组句的键归应用）。译文是英文词且能查到音标就按译文发音，
+        // 否则按候选自己的音标发音；都没有只记日志，不改组句。
+        if let Some(combo) = self.config.pronounce.filter(|combo| combo.matches(&event))
+            && self.composing()
+            && let Some(candidate) = self.layout_candidate(self.highlight)
+        {
+            let name = combo.label();
+            let translation = self.engine.candidate_translation(&candidate.text);
+            let translated = translation
+                .as_ref()
+                .and_then(|translation| translation.senses().first())
+                .map(|sense| sense.text.trim());
+            let translated_ipa = translated.and_then(|word| self.pronunciation(word));
+            let own_ipa = self.pronunciation(&candidate.text);
+            tracing::info!(
+                word = candidate.text,
+                ?translated,
+                ?translated_ipa,
+                ?own_ipa,
+                "pronounce shortcut {name}: candidate translation and IPA"
+            );
+            // 有音标的优先：译文是英文词就读译文，否则读候选自己（英文候选）
+            let word = translated
+                .filter(|_| translated_ipa.is_some())
+                .or_else(|| own_ipa.is_some().then_some(candidate.text.as_str()));
+            if let Some(word) = word {
+                crate::speech::speak(word);
+            } else {
+                tracing::info!("pronounce shortcut {name}: no IPA, not speaking");
+            }
+            return ServerMessage::KeyResult {
+                session,
+                outcome: KeyOutcome::Consumed,
+                commit: None,
+                frame: self.current_frame(),
+                english: None,
+                caret: None,
+            };
         }
         if self.engine.composition().is_empty()
             && !self.panel_open()
@@ -232,5 +290,16 @@ impl Router {
             frame,
             commit: self.take_clicked(session),
         }
+    }
+}
+
+/// 协议里的点击目标换成渲染器的目标：两边值一一对应，选中后走同一条 `handle_click`。
+fn hit_target(hit: CandidateHit) -> qingjian_render::HitTarget {
+    match hit {
+        CandidateHit::Candidate(offset) => qingjian_render::HitTarget::Candidate(offset),
+        CandidateHit::Translation { candidate, sense } => {
+            qingjian_render::HitTarget::Translation { candidate, sense }
+        }
+        CandidateHit::Page(step) => qingjian_render::HitTarget::Page(step),
     }
 }
