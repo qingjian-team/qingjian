@@ -27,6 +27,12 @@ pub struct CodeSchemeEntry {
 
     pub top: bool,
 
+    /// 混输时满码唯一自动上屏，用户显式开启才生效。
+    pub mixed_auto_commit: bool,
+
+    /// 混输时优先形码候选，并将满码后的字母作为下一词首码。
+    pub mixed_top: bool,
+
     /// `scheme.toml` 写了满码长度就是它，没写为 `None`（读码表时按最常见的编码长度算）。
     pub code_length: Option<usize>,
 
@@ -42,6 +48,8 @@ impl CodeSchemeEntry {
     pub fn with_rules(mut self, rules: CodeRules) -> Self {
         self.auto_commit = rules.auto_commit.unwrap_or(self.auto_commit);
         self.top = rules.top.unwrap_or(self.top);
+        self.mixed_auto_commit = rules.mixed_auto_commit.unwrap_or(self.mixed_auto_commit);
+        self.mixed_top = rules.mixed_top.unwrap_or(self.mixed_top);
         self
     }
 
@@ -59,6 +67,8 @@ impl CodeSchemeEntry {
         let mut scheme = CodeScheme::new(self.log_key(), table);
         scheme.auto_commit = self.auto_commit;
         scheme.top = self.top;
+        scheme.mixed_auto_commit = self.mixed_auto_commit;
+        scheme.mixed_top = self.mixed_top;
         scheme.wubi_phrases = self.phrase_rule == "wubi86";
         if let Some(length) = self.code_length.filter(|length| *length > 0) {
             scheme.code_length = length;

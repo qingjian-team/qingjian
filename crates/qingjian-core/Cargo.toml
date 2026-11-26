@@ -3,6 +3,7 @@ name = "qingjian-core"
 description = "拼音输入法核心引擎：拼音解析、候选生成、整句转换、排序与学习接口，平台无关"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 
@@ -11,14 +12,17 @@ workspace = true
 
 [dependencies]
 bamboo-slip-i18n.workspace = true
+csscolorparser.workspace = true
 ferrous-opencc.workspace = true
 foldhash.workspace = true
 jiff.workspace = true
+palette.workspace = true
 qingjian-code.workspace = true
 qingjian-dictionary.workspace = true
 serde.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
+tyme4rs = "=1.5.0"
 uuid.workspace = true
 vi.workspace = true
 

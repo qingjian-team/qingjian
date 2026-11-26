@@ -36,7 +36,9 @@ fn reddish(rendered: &Rendered) -> usize {
     rendered
         .pixmap
         .data()
-        .chunks_exact(4)
+        .as_chunks::<4>()
+        .0
+        .iter()
         .filter(|p| p[3] > 200 && p[0] > 180 && p[1] < 90 && p[2] < 90)
         .count()
 }

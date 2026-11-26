@@ -147,6 +147,9 @@ fn poll_once(context: &PollContext) {
                 .shared
                 .candidate_list()
                 .show(&frame, context.shared.last_context().as_ref());
+            // 轮询送来的新帧（云联想补词、整句重排）：进程内候选窗原地重画一次。
+            context.shared.set_last_frame(&frame);
+            context.shared.refresh_remote();
             if frame.symbol_panel {
                 drop(guard);
                 context.shared.follow_frame(&frame);
@@ -217,6 +220,7 @@ fn commit_clicked(context: &PollContext, frame: &Frame, commit: String) {
         .shared
         .candidate_list()
         .show(frame, context.shared.last_context().as_ref());
+    context.shared.refresh_remote();
     log(&format!(
         "clicked commit: {} chars, preedit_len={}",
         commit.chars().count(),

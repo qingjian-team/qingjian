@@ -469,13 +469,14 @@ impl Engine {
             |item| choice(item) > 0,
             near_typed,
         );
-        // 辅码态：词库候选按码段**反向**过滤（逐个问「有没有以码段开头的码」），无码词直接隐藏；
-        // 命中的按「完全匹配码 > 码长降序 > 原词频序」重排（stable sort 保住 rank 排好的原序）。
+        // 辅码态：词库候选逐个问「有没有以码段开头的码」，命中的按「完全匹配码 > 码长降序 >
+        // 原词频序」排到前面（stable sort 保住 rank 排好的原序），无码的词与码段一个都没命中时
+        // 的原候选一条不少地接在后面 —— 码段只加权重，不筛候选。
         // 码段为空（刚敲下触发键）时不过滤，候选与纯拼音态一模一样。
         let aux_code = self.aux_filter();
         let mut items: Vec<Candidate> = Vec::with_capacity(scored.len());
         match aux_code {
-            // 没在筛码：首条码只在显示开关开着或已在辅码态时挂，否则不逐候选查码
+            // 码段空着：首条码只在显示开关开着或已在辅码态时挂，否则不逐候选查码
             None => items.extend(scored.into_iter().map(|item| {
                 let first = if self.aux_show || self.aux_code.is_some() {
                     self.matching_code(item.hit.text, "")
@@ -498,13 +499,35 @@ impl Engine {
                         .cmp(&(a.1.len() == code.len()))
                         .then_with(|| b.1.len().cmp(&a.1.len()))
                 });
-                items.extend(
-                    kept.into_iter()
-                        .map(|(index, hit)| chinese_candidate(&scored[index], Some(&hit))),
-                );
+                if kept.is_empty() {
+                    // 码段一个码都对不上。缺省到此为止（码段是过滤器）；打开
+                    // `[general] aux_code_weighting` 才按音节拼提示 —— `fuma;fuzhu` 是「辅」
+                    // 也在 辅助 里，`fuma;chefu` 是「辅」＝车＋甫。
+                    if self.aux_weighting {
+                        let best = &segmentations[0];
+                        items.extend(self.hinted_candidates(&scored, best, code));
+                    }
+                } else {
+                    items.extend(
+                        kept.into_iter()
+                            .map(|(index, hit)| chinese_candidate(&scored[index], Some(&hit))),
+                    );
+                }
+                // 打开 `[general] aux_code_weighting` 时码段只「加一列」，不筛候选：
+                // 对不上码的原候选一个都不少，排到后面去 —— 码段的解释猜错（`zhenge;zhenye`）
+                // 时整列空掉比给错更糟。缺省不补尾，与筛选一致。
+                if self.aux_weighting {
+                    tracing::debug!(code = %code, scored = scored.len(), items = items.len(), "辅码态候选");
+                    let rest: Vec<Candidate> = scored
+                        .iter()
+                        .filter(|item| !items.iter().any(|shown| shown.text == item.hit.text))
+                        .map(|item| chinese_candidate(item, None))
+                        .collect();
+                    items.extend(rest);
+                }
             }
         }
-        // 附加候选（英文尾段与补全、快捷、整句、emoji）都没有码：辅码筛词时一律不出
+        // 附加候选（英文尾段与补全、快捷、整句、emoji）都没有码：码段非空时排不进码那一列，一律不出
         if aux_code.is_none() {
             // 双拼 / 注音末尾落单的一键是「还没敲完」，不是拼错（`veg` → zhe g…）；词级已有整词
             // 逐音节对上全部输入（`veg` → 这个）时按中文读法：英文候选不排第一、也不给补全，

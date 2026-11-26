@@ -81,6 +81,14 @@ fn aux_code_key_falls_back_to_the_default() {
     }
 }
 
+/// 辅码态加权（码段只调顺序、不筛候选）缺省关：老配置文件不写这一项时，码段仍然是过滤器。
+#[test]
+fn aux_code_weighting_defaults_off() {
+    assert!(!GeneralConfig::default().aux_code_weighting);
+    let general: GeneralConfig = toml::from_str("aux_code_weighting = true\n").unwrap();
+    assert!(general.aux_code_weighting);
+}
+
 /// 码删空保持辅码态的开关缺省开（`[general] aux_code_keep_empty`）。
 #[test]
 fn aux_code_keep_empty_defaults_on() {

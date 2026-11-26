@@ -27,6 +27,8 @@ impl Host {
         self.engine
             .set_spelling_correction(config.general.spelling_correction);
         self.engine
+            .set_zero_initial_abbreviation(config.general.zero_initial_abbreviation);
+        self.engine
             .set_emoji_limit(usize::from(config.general.emoji.get()));
         self.engine
             .set_kaomoji_limit(usize::from(config.general.kaomoji.get()));
@@ -50,7 +52,11 @@ impl Host {
             .set_aux_keep_empty(config.general.aux_code_keep_empty);
         self.engine.set_aux_enabled(config.aux_code.enabled);
         self.engine.set_aux_show(config.general.aux_code_show);
+        self.engine
+            .set_aux_weighting(config.general.aux_code_weighting);
         self.engine.set_show_tones(config.general.show_tones);
+        self.engine
+            .set_calendar_shortcuts_first(config.general.calendar_shortcuts_first);
         self.aux_code_show = config.general.aux_code_show;
         if force || self.applied_aux_code.as_ref() != Some(&config.aux_code) {
             self.reload_aux_codes();
@@ -97,6 +103,10 @@ impl Host {
         self.punct_commits = config.general.punct_commits;
         self.preedit_mode = config.general.preedit;
         self.translation_pos = config.general.translation_pos;
+        // 音标既要壳知道（画的时候用淡色），也要引擎知道（候选的 reading 才有内容）；
+        // 只设壳这边的话，开关打开后候选上什么都不会出现
+        self.engine
+            .set_show_english_pronunciation(config.general.show_english_pronunciation);
         self.show_english_pronunciation = config.general.show_english_pronunciation;
         self.english_candidates = config.general.english_candidates;
         self.apps = config.apps.clone();

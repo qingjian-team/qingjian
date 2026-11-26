@@ -50,6 +50,7 @@ All settings are kept in one TOML text file, `config.toml`, with a note for ever
 | `[shortcut] switch_mode` | 输入法切换 → 切换键 (Input Method Switching → Switch key) | A list, such as `["shift", "control"]` |
 | `[general] default_english`, `remember_mode_per_app` | 输入法切换 → 默认英文模式, 按应用记住中英模式 (Input Method Switching → Start in English mode, Remember mode per app) | `true` / `false` |
 | `[general] shift_letter` | 输入法切换 → Shift + 字母 (Input Method Switching → Shift + letter) | `passthrough` (to the app, default) or `compose` (join the input) |
+| `[general] zero_initial_abbreviation` | 只在配置文件里 (config file only) | `true` / `false` (default off). 全拼下零声母音节用一个字母代表 (In full pinyin a zero-initial syllable may be typed with one letter): `aquan` 出「安全」、`e'liao` 出「饵料」. Off, segmentation is exactly as without this option |
 | `[general] punct_commits` | 输入法切换 → 标点先上屏候选 (Input Method Switching → Punctuation commits the candidate first) | `true` / `false` |
 | `[general] preedit` | 外观 → 拼音显示位置 (Appearance → Pinyin position) | `both`, `inline`, `window` |
 | `[general] page_keys` | 快捷键 → 翻页键 (Shortcuts → Paging keys) | `"[]"`, `",."`, `"-="` |

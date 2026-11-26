@@ -122,6 +122,17 @@ impl Router {
         }
         tracing::info!(?action, notice = %outcome.notice, "候选右键菜单");
         self.notice = Some(outcome.notice);
+        // 「只上屏第几个字」：那个单字走一遍正常上屏，交给 DLL 的路径和点候选一样，
+        // 剩下的拼音留在组句里接着选（见 #1025）
+        if let Some(single) = outcome.picked {
+            let text = self.engine.commit(&single);
+            if !text.is_empty()
+                && let Some(session) = self.click_session()
+            {
+                self.deliver_clicked(session, text);
+                return;
+            }
+        }
         self.recompose(None);
         let shown = self.self_drawn_frame();
         self.reconcile_candidates(&shown);

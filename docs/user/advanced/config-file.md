@@ -32,11 +32,13 @@ description: 青简的全部设置保存在一个文本配置文件里：位置�
 | `[general] hold_selections` | 输入 → 分次选词先不上屏 | `true` / `false` |
 | `[general] wubi_follow_ups` | 输入 → 五笔选词与联想 → 五笔上屏后联想 | `true`（默认）或 `false`，Windows 纯五笔 86 |
 | `[shortcut] wubi_candidate_keys` | 输入 → 五笔选词与联想 → 分号和单引号选择第二、第三候选 | `true`（默认）或 `false`，Windows 纯五笔 86 |
+| `[general] zero_initial_abbreviation` | 只在配置文件里 | `true` / `false`（缺省关）。全拼下零声母音节用一个字母代表：`aquan` 出「安全」、`e'liao` 出「饵料」。关着时切分与不带这一项完全一样 |
 | `[fuzzy]` 一节 | 输入 → 模糊音 | 十条内置规则 `z_zh` … `eng_ong` 各是 `true` / `false`；`custom` 是自定义规则的列表，如 `["ian=iang", "fa=hua"]`，`custom_off` 列其中暂时关掉的，见 [自定义规则](../input/fuzzy-and-shuangpin.md#自定义规则) |
 | `[auto_phrase] enabled` | 输入 → 五笔自动组词 → 自动学习五笔新词 | `true`（默认）/ `false`；只控制五笔连续组词，不影响拼音、双拼、已有词与词频学习 |
 | `[auto_phrase] max_chars` | 输入 → 五笔自动组词 → 最大词长 | 五笔组词最多 2～10 个汉字，默认 4；超出范围按边界值读取，不改变五笔码长，不限制拼音与双拼整段记忆 |
 | `[aux_code] enabled`、`scheme` | 输入 → 辅码 | `scheme` 写码表的文件名或方案的文件夹名，随包笔画码是 `stroke` |
 | `[general] aux_code_keep_empty` | 输入 → 码删空后留在辅码 | `false` 为删空即退出 |
+| `[general] aux_code_weighting` | 输入 → 码段只调顺序，不筛候选 | `false`（缺省）：码段是过滤器，对不上码的词不出；`true`：码段只调顺序，对不上的词排到后面，一个都对不上时按音节拼出提示词 |
 | `[general] traditional_variant` | 候选 → 输出字形 | `off`、`taiwan`、`hongkong`、`standard`；0.2.1 及以前的 `traditional = true` 按 `taiwan` 读 |
 | `[general] emoji`、`kaomoji`、`symbols` | 候选 → emoji / 颜文字 / 符号 | `0`–`3`，缺省 3 / 1 / 1；以前写的 `emoji = true / false` 相当于 3 / 0 |
 | `[general] learning` | 候选 → 学习输入习惯 | `true` / `false` |
@@ -52,6 +54,7 @@ description: 青简的全部设置保存在一个文本配置文件里：位置�
 | `[shortcut] switch_mode` | 输入法切换 → 切换键 | 列表，如 `["shift", "control"]` |
 | `[general] default_english`、`remember_mode_per_app` | 输入法切换 → 默认英文模式、按应用记住中英模式 | `true` / `false` |
 | `[general] shift_letter` | 输入法切换 → Shift + 字母 | `passthrough`（交给应用，缺省）或 `compose`（进组句） |
+| `[general] calendar_shortcuts_first` | 快捷键 → 单打 `rq` / `sj` / `xq` / `jq` / `jr` | `true` / `false`，缺省 `false`：打开后整组日期 / 时间 / 星期 / 节气 / 节日排到词的前面；关着时词在前、只跟三条（习惯用简拼打「手机」的别打开） |
 | `[general] punct_commits` | 输入法切换 → 标点先上屏候选 | `true` / `false` |
 | `[general] menubar_indicator` | 输入法切换 → 菜单栏 → 显示中 / 英状态项 | `true`（缺省）/ `false`，隐藏菜单栏的「中 / 英」状态项（仅 macOS） |
 | `[general] preedit` | 外观 → 拼音显示位置 | `both`、`inline`、`window` |
@@ -61,6 +64,7 @@ description: 青简的全部设置保存在一个文本配置文件里：位置�
 | `[shortcut] highlight_keys` | 快捷键 → 高亮移动键 | 上下或左右 |
 | `[shortcut] toggle_punctuation` | 快捷键 → Ctrl + . 切换全半角标点 | 空串为关闭，`"ctrl+."` 为 Ctrl + 句号；也可写成修饰键加字母、数字或句号，如 `"ctrl+shift+."` |
 | `[shortcut] next_word` | 快捷键 → 按词跳快捷键 | 打长句时按它把首选整句的第一个词定下来，候选换成下一个词的，退格撤回；缺省 `"ctrl+v"`，空串为关闭，也可写成修饰键加字母或数字。只在打字时拿走这个组合，没在打字时 `Ctrl + V` 照常粘贴。只有 Windows 用 |
+| `[shortcut] pick_char` | 快捷键 → 以词定字 | 组合键（如 `"ctrl+e"`），缺省空为关闭；按下取高亮候选的第一个字，带 `Shift` 取最后一个字，整段拼音随之结束；不能与翻页键相同。只有 Windows 用 |
 | `[shortcut] single_chars` | 快捷键 → 单字模式快捷键 | 打拼音时按它候选只列单字，再按一次恢复，上屏后自动恢复；缺省 `"ctrl+d"`，空串为关闭，也可写成修饰键加字母或数字。只在打字时拿走这个组合。只有 Windows 用 |
 | `[shortcut] toggle_traditional` | 快捷键 → Ctrl + Shift + F 切换简繁输出 | 空串为关闭（缺省），`"ctrl+shift+f"` 为 Ctrl + Shift + F；也可写成修饰键加字母或数字。只有 Windows 用 |
 | `[clipboard] enabled`、`edge` | 实验功能 → 青简剪贴板 | `enabled` 缺省 `false`；`edge`：`top`、`bottom`（缺省）、`left`、`right` |
@@ -71,6 +75,7 @@ description: 青简的全部设置保存在一个文本配置文件里：位置�
 | `[shortcut] clipboard` | 实验功能 → 呼出剪贴板 | 缺省 Windows 是 `"ctrl+alt+v"`，macOS 是 `"cmd+shift+v"`；至少两个修饰键（macOS、Windows） |
 | `[shortcut] translate_selection` | 快捷键 → 翻译选中文字 | 如 `"alt+shift+t"` |
 | `[shortcut] predict` | 快捷键 → 按需 AI 联想 | 完整的组合键，设置界面只改修饰键 |
+| `[shortcut] pronounce` | 快捷键 → 发音（朗读高亮的候选） | 缺省不绑定（关闭），建议 `"ctrl+alt+p"`；空串也关闭。只在组句且有候选时接管，其余时候这个组合照常交给应用。只有 Windows 发声 |
 | `[predict]` 一节 | 云服务 | 见下文 |
 | `[general] input_log` | 高级 → 记录输入日志 | `true` / `false` |
 

@@ -13,6 +13,7 @@ use windows::Win32::UI::Input::KeyboardAndMouse::{
 use windows::Win32::UI::TextServices::{ITfContext, ITfKeyEventSink_Impl};
 use windows::core::{BOOL, GUID, Ref, Result};
 
+use qingjian_platform::KeyCombo;
 use qingjian_platform::protocol::{KeyEvent, KeyOutcome};
 
 use super::TextService_Impl;
@@ -110,6 +111,9 @@ impl ITfKeyEventSink_Impl for TextService_Impl {
             self.translate_panel_combo.get()
         } else if guid == preserved::GUID_PREDICT && self.shared.composing() {
             self.predict_combo.get()
+        } else if guid == preserved::GUID_PRONOUNCE && self.shared.composing() {
+            // 不在组句时返回 FALSE，把组合照常交还应用；Server 还会再判有没有高亮候选。
+            self.pronounce_combo.get()
         } else if guid == preserved::GUID_TRADITIONAL {
             self.traditional_combo.get()
         } else {
@@ -209,8 +213,9 @@ impl TextService_Impl {
 
     /// 这个键吃不吃，与 Router 的分派对齐；`OnTestKeyDown` 用，无副作用。判定见 [`eats_key`]。
     ///
-    /// 带 Ctrl/Alt/Win 只有组句中的「修饰键 + 数字」送 Server（译词 / 删候选）、组句中的 AI 与单字模式组合键、
-    /// 面板翻译框里的 Ctrl+A 送 Server（全选），其余归应用（翻译选中文字走保留键）；
+    /// 带 Ctrl/Alt/Win 只有组句中的「修饰键 + 数字」送 Server（译词 / 删候选）、组句中的 AI / 单字 / 按词跳组合键、
+    /// 面板翻译框里的 Ctrl+A 送 Server（全选）、组句中的发音快捷键（`[shortcut] pronounce`）送 Server，
+    /// 其余归应用（翻译选中文字走保留键）；
     /// 字母只有「中文模式、没在组句、按住 Shift 的大写」归应用（`[general] shift_letter = "compose"` 时也吃，
     /// 让它起一段组句），其中 V / U / I 仍送 Server：双拼下是表达式 / 问字入口；
     /// 组句中功能键 / 方向键 / 可打印字符都吃；没在组句时数字 / 标点也先「测吃」送去转全角（中英各有一份开关），
@@ -238,16 +243,13 @@ impl TextService_Impl {
             self.shared.translating(),
             input.shift_letter_compose,
             input.english_candidates,
-        ) || guard_backspace(event, self.shared.emptied_backspace())
+        ) || pronounce_key(event, self.shared.composing(), input.pronounce)
+            || guard_backspace(event, self.shared.emptied_backspace())
             || (self.shared.composing()
                 && [input.predict, input.single_chars, input.next_word]
                     .into_iter()
                     .flatten()
-                    .any(|combo| {
-                        event.virtual_key
-                            == preserved::key_event(combo, self.mode_state.english()).virtual_key
-                            && event.modifiers.chord() == combo.modifiers.into()
-                    }))
+                    .any(|combo| combo.matches(event)))
     }
 
     /// 没在组句的数字：在 Test 里先问 Server。
@@ -470,6 +472,11 @@ fn is_shift(vk: u32) -> bool {
         .any(|code| vk == u32::from(code.0))
 }
 
+/// 配置的发音快捷键吃不吃：只在组句时送 Server 取高亮候选，其余时候照常交给应用。
+fn pronounce_key(event: &KeyEvent, composing: bool, combo: Option<KeyCombo>) -> bool {
+    composing && combo.is_some_and(|combo| combo.matches(event))
+}
+
 /// 这一记退格要不要为了「删空保护」吃下来交给 Server 判。
 ///
 /// 只在**上一记刚把组句删空**（`emptied`）时才吃：那之后的自动重复删的是应用里已上屏的字，
@@ -579,12 +586,13 @@ fn eats_key(
 
 #[cfg(test)]
 mod tests {
+    use qingjian_platform::KeyCombo;
     use qingjian_platform::protocol::{KeyEvent, KeyModifiers};
     use windows::Win32::UI::Input::KeyboardAndMouse::VK_BACK;
 
     use super::{
         digit_passthrough_native, eats_key, eats_without_server, guard_backspace,
-        passthrough_digit_to_app,
+        passthrough_digit_to_app, pronounce_key,
     };
     use crate::com::key::event::to_key_event;
     use crate::com::service::next::Next;
@@ -766,6 +774,57 @@ mod tests {
             preedit: String::new(),
             caret: None,
         }));
+    }
+
+    #[test]
+    fn pronounce_shortcut_is_forwarded_only_while_composing() {
+        let ctrl_alt = KeyModifiers {
+            ctrl: true,
+            alt: true,
+            ..KeyModifiers::default()
+        };
+        let combo: KeyCombo = "control+option+p".parse().unwrap();
+        let press = with_modifiers(0x50, 'p', ctrl_alt);
+        assert!(pronounce_key(&press, true, Some(combo)));
+        // 没在组句：不接管，应用照常收到这个键
+        assert!(!pronounce_key(&press, false, Some(combo)));
+        // 缺省不绑定
+        assert!(!pronounce_key(&press, true, None));
+        // 单按 `p`、Ctrl+P、Ctrl+Alt+Win+P 都不算
+        for extra in [
+            KeyModifiers::default(),
+            KeyModifiers {
+                ctrl: true,
+                ..KeyModifiers::default()
+            },
+            KeyModifiers {
+                ctrl: true,
+                alt: true,
+                win: true,
+                ..KeyModifiers::default()
+            },
+        ] {
+            assert!(!pronounce_key(
+                &with_modifiers(0x50, 'p', extra),
+                true,
+                Some(combo)
+            ));
+        }
+        // 设置里换成字母组合后按新组合匹配
+        let combo: KeyCombo = "ctrl+j".parse().unwrap();
+        assert!(pronounce_key(
+            &with_modifiers(
+                0x4A,
+                'j',
+                KeyModifiers {
+                    ctrl: true,
+                    ..KeyModifiers::default()
+                }
+            ),
+            true,
+            Some(combo)
+        ));
+        assert!(!pronounce_key(&press, true, Some(combo)));
     }
 
     /// 退格的「删空保护」：只有刚删空之后的自动重复才吃。

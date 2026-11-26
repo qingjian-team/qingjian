@@ -51,6 +51,11 @@ pub struct InputSettings {
     #[serde(default)]
     pub predict: Option<KeyCombo>,
 
+    /// 朗读当前高亮候选的快捷键（`[shortcut] pronounce`，缺省不绑定）。
+    /// DLL 只在组句时转发；带 Alt 的组合另走 TSF 保留键。旧 Server 不带时按关处理。
+    #[serde(default)]
+    pub pronounce: Option<KeyCombo>,
+
     /// 英文候选旁显示音标（`[general] show_english_pronunciation`）。
     ///
     /// 音标本身由 Core 填进 `Candidate::reading`，DLL 只是按这个开关决定画不画：
@@ -58,6 +63,7 @@ pub struct InputSettings {
     /// 「这次的 reading 是不是英文音标、该不该用淡色」。旧 Server 不带时按关处理。
     #[serde(default)]
     pub show_english_pronunciation: bool,
+
     /// 组句中切换单字模式的快捷键（`[shortcut] single_chars`）；旧 Server 没有这项，DLL 就不吃它。
     #[serde(default)]
     pub single_chars: Option<KeyCombo>,
@@ -68,6 +74,23 @@ pub struct InputSettings {
     /// 高亮候选仍由普通空格上屏时，DLL 在五笔联想帧也把空格交给 Server。
     #[serde(default)]
     pub wubi_follow_up_space: bool,
+
+    /// 候选字号（点，`[general] candidate_font_size`）；0 为用主题的。TSF 进程内候选窗
+    /// （系统界面宿主里那扇）按它建字体，否则那里只能看到主题缺省字号。
+    #[serde(default)]
+    pub candidate_font_size: crate::config::FontSize,
+
+    /// 译文字号（点，`[general] annotation_font_size`）；0 为用主题的。
+    #[serde(default)]
+    pub annotation_font_size: crate::config::FontSize,
+
+    /// 候选字字重（`[general] candidate_font_weight`，100–900）；`None` 用主题的。
+    #[serde(default)]
+    pub candidate_weight: Option<u16>,
+
+    /// 竖排窗口在光标上方时倒着排（`[general] vertical_reverse_above`）。
+    #[serde(default)]
+    pub reverse_above: bool,
 }
 
 impl InputSettings {
@@ -95,10 +118,15 @@ impl Default for InputSettings {
             toggle_traditional: None,
             english_candidates: true,
             predict: None,
+            pronounce: None,
             show_english_pronunciation: false,
             single_chars: None,
             next_word: None,
             wubi_follow_up_space: false,
+            candidate_font_size: crate::config::FontSize::default(),
+            annotation_font_size: crate::config::FontSize::default(),
+            candidate_weight: None,
+            reverse_above: false,
         }
     }
 }

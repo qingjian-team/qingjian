@@ -19,6 +19,12 @@ use qingjian_platform::candidate_menu::{
     self, CandidateAction, IndependentActionOutcome, IndependentInputContext,
 };
 
+/// 右键菜单一项做完：给用户看的一句话，以及「只上屏某个字」时要上屏的那个单字候选。
+pub struct CandidateActionDone {
+    pub notice: String,
+    pub picked: Option<Candidate>,
+}
+
 impl Host {
     pub fn vietnamese_candidate_actions(&self, offset: usize) -> Vec<CandidateAction> {
         let Some(candidate) = self
@@ -79,13 +85,13 @@ impl Host {
         )
     }
 
-    /// 做右键菜单里的一项，返回给用户看的一句话；那格没有候选返回 `None`。
+    /// 做右键菜单里的一项，返回给用户看的一句话与可能的上屏候选；那格没有候选返回 `None`。
     /// 置顶 / 取消置顶改了配置里的短语，重读配置推给 Engine。
     pub fn perform_candidate_action(
         &mut self,
         offset: usize,
         action: CandidateAction,
-    ) -> Option<String> {
+    ) -> Option<CandidateActionDone> {
         let index = self.session.index_in_view(offset)?;
         let candidate = self.session.candidate(index)?;
         let phrases = self.settings.config().custom_phrases.clone();
@@ -101,7 +107,10 @@ impl Host {
             self.settings.reload();
             self.apply_config(false);
         }
-        Some(outcome.notice)
+        Some(CandidateActionDone {
+            notice: outcome.notice,
+            picked: outcome.picked,
+        })
     }
 
     /// 把用户手工输入的译文保存到个人释义表。
