@@ -115,6 +115,15 @@ pub fn shortcuts(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Rende
             false,
         )?);
     }
+    if Feature::Pronounce.here() {
+        rows.push(recorder(
+            ui,
+            page,
+            Shortcut::Pronounce,
+            Some(tr("shortcuts.pronounce_info")),
+            false,
+        )?);
+    }
     if Feature::TranslatePanel.here() {
         rows.push(recorder(
             ui,
