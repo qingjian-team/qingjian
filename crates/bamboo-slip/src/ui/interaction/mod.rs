@@ -12,6 +12,8 @@ use std::collections::hash_map::Entry;
 use taffy::NodeId;
 
 use super::ScrollExtent;
+#[cfg(target_os = "windows")]
+use super::WindowHit;
 use super::element::Element;
 use super::{Cursor, ElementState, Elements, Event, Key, Response};
 use crate::error::RenderError;
@@ -55,6 +57,12 @@ pub struct Interaction<M> {
 
     /// 应用要醒目标出的那一项，见 [`crate::App::spotlight`]。
     spotlight: Option<Key>,
+
+    /// 窗口当前在前台（失焦时标题栏文字与按钮变淡）。
+    window_active: bool,
+
+    /// 窗口当前最大化（Windows 自绘标题栏切换最大化 / 还原图标）。
+    window_maximized: bool,
 }
 
 impl<M> Default for Interaction<M> {
@@ -79,7 +87,37 @@ impl<M> Interaction<M> {
             scroll_generation: 0,
             caret_hidden: false,
             spotlight: None,
+            window_active: true,
+            window_maximized: false,
         }
+    }
+
+    pub fn window_active(&self) -> bool {
+        self.window_active
+    }
+
+    pub(crate) fn set_window_active(&mut self, active: bool) {
+        self.window_active = active;
+    }
+
+    pub fn window_maximized(&self) -> bool {
+        self.window_maximized
+    }
+
+    pub(crate) fn set_window_maximized(&mut self, maximized: bool) {
+        self.window_maximized = maximized;
+    }
+
+    /// 按画序返回所有可交互元素的矩形与自绘标题栏区域，供 Windows `WM_NCHITTEST` 从上往下命中。
+    #[cfg(target_os = "windows")]
+    pub(crate) fn window_regions(&self) -> Vec<WindowHit> {
+        self.elements
+            .iter()
+            .map(|element| WindowHit {
+                rect: element.rect(),
+                region: element.interact.window_region,
+            })
+            .collect()
     }
 
     /// 输入框的光标这一刻亮着（闪烁中熄灭的半拍为 `false`）。

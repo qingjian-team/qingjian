@@ -28,8 +28,8 @@ All settings are kept in one TOML text file, `config.toml`, with a note for ever
 | Entry | Settings window | Notes |
 |---|---|---|
 | `[general] scheme` | 输入 → 拼音 (Input → Pinyin) | `pinyin` (full pinyin), `xiaohe`, `ziranma`, `microsoft`, `sogou`, `abc`, `xiaolang`, `shoudao`, `jiajia`, `ziguang`, `zhuyin`, or the folder name of a custom scheme |
-| `[general] hold_selections` | 输入 → 分次选词先不上屏 (Input → Keep partial picks until done) | `true` / `false` |
-| `[general] u_mode_stroke_hint` | 问字（`u` 模式）→ 候选旁的笔顺提示 (Character lookup (`u` mode) → Stroke-order hint next to candidates) | `true` / `false`, default `true`: while looking characters up by stroke order, the small line next to a candidate spells out its strokes and marks the one typed wrong; off hides that line |
+| `[general] hold_selections` | 输入 → 整段确认后上屏 (Input → Commit split selections together) | `true` / `false` |
+| `[general] u_mode_stroke_hint` | 问字（`u` 模式）→ 候选旁的笔顺提示 (Character lookup (`u` mode) → Stroke-order hint next to candidates) | `true` / `false`, default `true`: while a character is looked up by stroke order and one stroke is off, the small line next to the candidate spells out that character's standard stroke order so you can see which stroke was wrong; off hides that line |
 | `[fuzzy]` section | 输入 → 模糊音 (Input → Fuzzy pinyin) | The ten built-in pairs `z_zh` … `eng_ong` are each `true` / `false`; `custom` lists your own rules, e.g. `["ian=iang", "fa=hua"]`, and `custom_off` lists the ones turned off; see [Custom rules](../input/fuzzy-and-shuangpin.md#Custom-rules) |
 | `[auto_phrase] enabled` | Input → Automatic Wubi phrases → Learn new Wubi phrases automatically | `true` (default) / `false`; only controls consecutive Wubi learning, without affecting Pinyin, Shuangpin, existing words or frequency learning |
 | `[auto_phrase] max_chars` | Input → Automatic Wubi phrases → Maximum phrase length | 2–10 Chinese characters for Wubi phrases, default 4; out-of-range values are clamped; code length is unchanged and Pinyin/Shuangpin phrase memory is unaffected |
@@ -49,7 +49,7 @@ All settings are kept in one TOML text file, `config.toml`, with a note for ever
 | `[shortcut] switch_mode` | 输入法切换 → 切换键 (Input Method Switching → Switch key) | A list, such as `["shift", "control"]` |
 | `[general] default_english`, `remember_mode_per_app` | 输入法切换 → 默认英文模式, 按应用记住中英模式 (Input Method Switching → Start in English mode, Remember mode per app) | `true` / `false` |
 | `[general] shift_letter` | 输入法切换 → Shift + 字母 (Input Method Switching → Shift + letter) | `passthrough` (to the app, default) or `compose` (join the input) |
-| `[general] zero_initial_abbreviation` | 只在配置文件里 (config file only) | `true` / `false` (default off). 全拼下零声母音节用一个字母代表 (In full pinyin a zero-initial syllable may be typed with one letter): `aquan` 出「安全」、`e'liao` 出「饵料」. Off, segmentation is exactly as without this option |
+| `[general] zero_initial_abbreviation` | 输入 → 零声母简写 (Input → Zero-initial abbreviations) | `true` / `false` (default off). 全拼下零声母音节用一个字母代表 (In full pinyin a zero-initial syllable may be typed with one letter): `aquan` 出「安全」、`e'liao` 出「饵料」. Off, segmentation is exactly as without this option |
 | `[general] punct_commits` | 输入法切换 → 标点先上屏候选 (Input Method Switching → Punctuation commits the candidate first) | `true` / `false` |
 | `[general] preedit` | 外观 → 拼音显示位置 (Appearance → Pinyin position) | `both`, `inline`, `window` |
 | `[general] page_keys` | 快捷键 → 翻页键 (Shortcuts → Paging keys) | `"[]"`, `",."`, `"-="` |

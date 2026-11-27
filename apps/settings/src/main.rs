@@ -91,7 +91,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         i18n::tr("common.window_title"),
         view::look::window_size(look),
     )
-    .backdrop(backdrop);
+    .backdrop(backdrop)
+    .custom_titlebar(look == bamboo_slip::Look::Fluent);
     options.min_size = (640.0, 420.0);
     run_window(settings, options)?;
     Ok(())

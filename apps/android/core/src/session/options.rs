@@ -8,7 +8,7 @@ use crate::frame::Frame;
 use crate::options::InputOptions;
 
 impl Session {
-    /// 换模糊音、标点全半角、中英混输、学习语言、学习开关、繁体字形、附加词库、分次选词、拼写纠错、上屏后联想这几项；组句中的候选跟着重算。
+    /// 换模糊音、标点全半角、中英混输、学习语言、学习开关、繁体字形、附加词库、分次选词、拼写纠错、零声母简写、上屏后联想这几项；组句中的候选跟着重算。
     pub fn set_options(&mut self, options: &InputOptions) -> Frame {
         self.engine.set_fuzzy(options.fuzzy_rules());
         self.engine
@@ -28,6 +28,8 @@ impl Session {
         self.engine.set_symbol_limit(usize::from(options.symbols));
         self.engine
             .set_spelling_correction(options.spelling_correction);
+        self.engine
+            .set_zero_initial_abbreviation(options.zero_initial_abbreviation);
         self.follow_ups = options.follow_ups;
         self.traditional_variant = options.traditional_variant();
         if self.engine.traditional() != TraditionalVariant::Off {

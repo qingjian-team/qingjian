@@ -108,8 +108,17 @@ impl<A: App> Runner<A> {
     pub fn set_active(&mut self, active: bool) {
         self.app.set_active(active);
         self.active = active;
+        self.interaction.set_window_active(active);
         self.blink_from = Instant::now();
         self.stale = true;
+    }
+
+    /// 窗口最大化状态变了（Windows 自绘标题栏切换最大化 / 还原图标）。
+    pub fn set_maximized(&mut self, maximized: bool) {
+        if self.interaction.window_maximized() != maximized {
+            self.interaction.set_window_maximized(maximized);
+            self.stale = true;
+        }
     }
 
     /// 输入框有焦点时，光标下一次亮灭翻转的时刻；宿主等到那时再要一帧。没在闪为 `None`。

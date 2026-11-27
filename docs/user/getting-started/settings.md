@@ -21,7 +21,7 @@ description: 打开设置的方法、搜索与设置项的说明、设置窗口 
 
 | 页 | 内容 | 详见 |
 |---|---|---|
-| 输入 | 拼音方案（全拼、双拼、注音）、形码（五笔）、分次选词、键位提示、模糊音、拼写纠错、辅码 | [拼音方案与模糊音](../input/fuzzy-and-shuangpin.md)、[五笔与混输](../input/wubi.md)、[辅码](../input/aux-code.md) |
+| 输入 | 拼音方案（全拼、双拼、注音）、零声母简写、形码（五笔）、分次选词、键位提示、模糊音、拼写纠错、辅码 | [拼音方案与模糊音](../input/fuzzy-and-shuangpin.md)、[五笔与混输](../input/wubi.md)、[辅码](../input/aux-code.md) |
 | 候选 | 每页候选数、小键盘数字（Windows）、学习语言、词性、繁体、拼音带声调、emoji 与符号、学习输入习惯、本地整句模型、英文词 | [候选旁的译词](../learning/translation.md)、[繁体输出](../input/traditional.md)、[整句、简拼与纠错](../input/sentence.md) |
 | 输入法切换 | 英文模式、切换键、默认模式、按应用记住、英文候选、标点、自动空格、菜单栏状态项（macOS）、悬浮状态条（Windows） | [中英文](../input/english-mode.md)、[标点、符号与表情](../input/punctuation.md) |
 | 外观 | 主题、深浅色、横排竖排、拼音位置、字体与字号、动画 | [外观与主题](../personalize/appearance.md) |

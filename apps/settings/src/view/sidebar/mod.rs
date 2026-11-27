@@ -43,22 +43,28 @@ pub fn width(look: Look) -> f32 {
 }
 
 /// 搜索框：回车跳到结果里选到的那条（没选过是第一条），Esc 清空；↑ ↓ 在结果里移（Windows 的建议列表才画出选到的那条）。
-pub(super) fn search_field(ui: &mut Ui<Message>, page: &Page) -> Result<NodeId, RenderError> {
-    let field = SearchField::new(&page.settings.search.edit)
+pub(in crate::view) fn search_field(
+    ui: &mut Ui<Message>,
+    page: &Page,
+) -> Result<NodeId, RenderError> {
+    let mut field = SearchField::new(&page.settings.search.edit)
         .placeholder(if page.theme.look == Look::Fluent {
             tr("sidebar.find_setting")
         } else {
             tr("sidebar.search")
         })
-        .icon(Arc::new(Glyph::Search))
-        .build(
-            ui,
-            &page.theme,
-            SEARCH,
-            Message::Search,
-            Some(Message::SearchCommit),
-            Some(Message::ClearSearch),
-        )?;
+        .icon(Arc::new(Glyph::Search));
+    if page.theme.look == Look::Fluent {
+        field = field.pill();
+    }
+    let field = field.build(
+        ui,
+        &page.theme,
+        SEARCH,
+        Message::Search,
+        Some(Message::SearchCommit),
+        Some(Message::ClearSearch),
+    )?;
     // 单行输入框不接 ↑ ↓，按键冒到这一层
     let node = ui.scene().node(
         Style {
@@ -171,7 +177,7 @@ pub(super) fn results(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, 
 
 /// Windows 的搜索结果：搜索框下面弹出的建议列表，一条是标题、命中的那段说明与所在页；挂在根上盖住导航。
 /// 位置按上一帧量出的搜索框摆，刚开始搜的第一帧还量不到时下一帧再出。
-pub(super) fn suggestions(ui: &mut Ui<Message>, page: &Page) -> Result<(), RenderError> {
+pub(in crate::view) fn suggestions(ui: &mut Ui<Message>, page: &Page) -> Result<(), RenderError> {
     let search = &page.settings.search;
     if !search.active() {
         return Ok(());

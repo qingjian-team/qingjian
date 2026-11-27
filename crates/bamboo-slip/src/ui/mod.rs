@@ -19,6 +19,7 @@ mod response;
 mod scroll;
 mod searchable;
 mod state;
+mod window_region;
 
 pub use builder::Ui;
 pub use cursor::Cursor;
@@ -32,3 +33,6 @@ pub use scroll::ScrollExtent;
 pub(crate) use scroll::ScrollbarTrack;
 pub use searchable::Searchable;
 pub use state::ElementState;
+#[cfg(any(target_os = "windows", test))]
+pub(crate) use window_region::WindowHit;
+pub use window_region::WindowRegion;

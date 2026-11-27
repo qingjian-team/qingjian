@@ -19,6 +19,10 @@ pub struct WindowOptions {
 
     /// 窗口背后的系统材质：根节点的底色要半透明才透得出来。系统不支持（[`Backdrop::available`]）时不要设。
     pub backdrop: Option<Backdrop>,
+
+    /// Windows 上去掉原生标题栏、把客户区铺到窗口最顶（保留边框、阴影、圆角与贴靠布局）；
+    /// 应用用 [`crate::WindowRegion`] 标出拖动区与右上角三个按钮。其他平台忽略。
+    pub custom_titlebar: bool,
 }
 
 impl WindowOptions {
@@ -30,12 +34,21 @@ impl WindowOptions {
             locale: "zh-CN".to_owned(),
             panel: false,
             backdrop: None,
+            custom_titlebar: false,
         }
     }
 
     /// 见 [`Self::backdrop`]。
     pub fn backdrop(self, backdrop: Option<Backdrop>) -> Self {
         Self { backdrop, ..self }
+    }
+
+    /// 见 [`Self::custom_titlebar`]。
+    pub fn custom_titlebar(self, custom_titlebar: bool) -> Self {
+        Self {
+            custom_titlebar,
+            ..self
+        }
     }
 
     /// 改成面板窗口，见 [`Self::panel`]。

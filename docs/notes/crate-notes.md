@@ -208,7 +208,8 @@ mac 存在 `Session::spelling`（`Host::follow_highlight`）、Windows / Linux �
   原样上屏的串要像一个词才学：`MIN_ENGLISH_WORD_LETTERS` = 2 到 `MAX_ENGLISH_WORD_LETTERS` = 15 个字母、切不成完整拼音、
   也不能读成「拼音头 + 英文尾」——打不出来时整串上屏的失败拼音学进去会反过来堵住混输那条路，越打不出来学得越多）、
   个人敲错表（`user-typos.tsv`，接受过的 (敲的, 要的) 音节对，词图敲错边与整段纠错的代价按它打折）与个人 n-gram（`user-ngram.tsv`，Core `sentence::UserNgram`，
-  二元 + 三元在线计数，整句转换与词级排序里与静态模型插值；Tab 接受的云端整句按 `sentence::segment_text` 切词后也记；
+  二元 + 三元在线计数，整句转换与词级排序里与静态模型插值；Tab 接受的云端整句按 `sentence::segment_text` 切词后也记，
+  切出的词逐词反查词库对齐读音后，满足本地整句条件（单句、全是多字词、最多 6 字）的以整句读音为键走 `finish_buffer` 回灌成用户词（issue #604），撤销走 `LastCommit::phrase`；
   连着选出的两个词记够次数自动造词进用户词：同段拼音一次、分段三次，相邻两词合计最多 4 字；一段拼音分几次选完的整段记忆一次即学，最多 20 字）。
   `[auto_phrase]`（默认开启、4 字，2～10 字）只控制五笔连续组词，`Engine::set_auto_phrase` 改值只清形码窗口，不打断拼音学习链。
   学习组件的注入、学习总开关与五笔组词设置集中在 `engine/setup/learning.rs`；设置页通过 `support::Feature::AutoPhrase` 登记平台支持，与形码一样，Linux 壳接入前标为待实现并隐藏整组控件及搜索项。

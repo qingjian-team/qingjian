@@ -1,4 +1,4 @@
-//! 键盘设置里影响候选的几项：模糊音、中文标点全半角、成对符号、打拼音时给不给英文词、学习语言、繁体字形、学习开关、附加词库、分次选词留在组句里、拼写纠错、上屏后联想、候选后面配几个 emoji / 颜文字 / 符号。Kotlin 按设置整份交过来。
+//! 键盘设置里影响候选的几项：模糊音、中文标点全半角、成对符号、打拼音时给不给英文词、学习语言、繁体字形、学习开关、附加词库、分次选词留在组句里、拼写纠错、零声母简写、上屏后联想、候选后面配几个 emoji / 颜文字 / 符号。Kotlin 按设置整份交过来。
 
 use qingjian_core::{FuzzyRules, Language, TraditionalVariant};
 use serde::Deserialize;
@@ -64,6 +64,10 @@ pub struct InputOptions {
     /// 拼写纠错（PC 的 `[general] spelling_correction`）：关了拼音只按敲的原样与模糊音读。
     #[serde(default = "default_true")]
     pub spelling_correction: bool,
+
+    /// 零声母简写（PC 的 `[general] zero_initial_abbreviation`）：全拼下 a / e / o 代表对应零声母音节，缺省关。
+    #[serde(default)]
+    pub zero_initial_abbreviation: bool,
 
     /// 中文词上屏后候选条接着给可能跟在后面的词（#861），点了直接上屏。
     #[serde(default = "default_true")]
@@ -176,12 +180,15 @@ mod tests {
             r#""full_width_punctuation":true,"english_in_chinese":true,"chinese_first":false"#;
         let options: InputOptions = serde_json::from_str(&format!("{{{base}}}")).unwrap();
         assert_eq!((options.emoji, options.kaomoji, options.symbols), (3, 1, 1));
-        // 成对符号缺省同 PC：中文开、英文关
+        // 成对符号缺省同 PC：中文开、英文关；零声母简写缺省关
         assert!(options.pair_punctuation && !options.english_pair_punctuation);
-        let options: InputOptions =
-            serde_json::from_str(&format!(r#"{{{base},"emoji":0,"kaomoji":0,"symbols":2}}"#))
-                .unwrap();
+        assert!(!options.zero_initial_abbreviation);
+        let options: InputOptions = serde_json::from_str(&format!(
+            r#"{{{base},"emoji":0,"kaomoji":0,"symbols":2,"zero_initial_abbreviation":true}}"#
+        ))
+        .unwrap();
         assert_eq!((options.emoji, options.kaomoji, options.symbols), (0, 0, 2));
+        assert!(options.zero_initial_abbreviation);
     }
 
     #[test]

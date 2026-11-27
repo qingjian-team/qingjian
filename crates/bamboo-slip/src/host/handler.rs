@@ -9,14 +9,16 @@ use winit::dpi::LogicalSize;
 use winit::dpi::{PhysicalPosition, PhysicalSize};
 use winit::event::StartCause;
 use winit::event::{ElementState, Ime, MouseButton, WindowEvent};
-use winit::event_loop::{ActiveEventLoop, ControlFlow};
+use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoopProxy};
 use winit::platform::modifier_supplement::KeyEventExtModifierSupplement;
 use winit::window::{CursorIcon, Theme, Window, WindowId, WindowLevel};
 
 use super::clipboard::clipboard_text;
 use super::input::{key_code, modifiers, scroll};
 use super::present::Presenter;
-use super::{HostError, WindowOptions};
+#[cfg(target_os = "windows")]
+use super::titlebar::WindowsTitlebar;
+use super::{HostError, HostEvent, WindowOptions};
 use crate::app::{App, Runner, WindowCommand};
 #[cfg(target_os = "windows")]
 use crate::backdrop::Backdrop;
@@ -52,6 +54,9 @@ pub(super) struct Handler<A: App> {
 
     /// 面板上一次画好的位图，滑入时重贴，见 [`Self::present_again`]。
     last_frame: Option<Painted>,
+
+    #[allow(dead_code)]
+    proxy: EventLoopProxy<HostEvent>,
 
     /// 中途出的错，事件循环退出后交给调用方。
     pub(super) error: Option<HostError>,
@@ -89,10 +94,17 @@ struct Host {
     window: Arc<Window>,
 
     presenter: Presenter,
+
+    #[cfg(target_os = "windows")]
+    titlebar: Option<WindowsTitlebar>,
 }
 
 impl<A: App> Handler<A> {
-    pub(super) fn new(runner: Runner<A>, options: WindowOptions) -> Self {
+    pub(super) fn new(
+        runner: Runner<A>,
+        options: WindowOptions,
+        proxy: EventLoopProxy<HostEvent>,
+    ) -> Self {
         Self {
             runner,
             options,
@@ -103,6 +115,7 @@ impl<A: App> Handler<A> {
             cursor: Cursor::Default,
             slide: None,
             last_frame: None,
+            proxy,
             error: None,
         }
     }
@@ -146,10 +159,22 @@ impl<A: App> Handler<A> {
         };
         let window = Arc::new(event_loop.create_window(attributes)?);
         let presenter = Presenter::new(&window, self.options.backdrop)?;
+        #[cfg(target_os = "windows")]
+        let titlebar = if self.options.custom_titlebar && !self.options.panel {
+            WindowsTitlebar::install(&window, self.options.backdrop, self.proxy.clone())
+        } else {
+            None
+        };
         self.runner
             .app_mut()
             .set_system_dark(window.theme() == Some(Theme::Dark));
-        self.window = Some(Host { window, presenter });
+        self.runner.set_maximized(window.is_maximized());
+        self.window = Some(Host {
+            window,
+            presenter,
+            #[cfg(target_os = "windows")]
+            titlebar,
+        });
         Ok(())
     }
 
@@ -173,13 +198,17 @@ impl<A: App> Handler<A> {
             return Ok(false);
         };
         let painted_at = Instant::now();
+        #[cfg(target_os = "windows")]
+        if let Some(titlebar) = &host.titlebar {
+            titlebar.update(scale, self.runner.interaction().window_regions());
+        }
         host.presenter.present(&host.window, &painted)?;
         tracing::debug!(
             width = width.get(),
             height = height.get(),
             paint_ms = (painted_at - start).as_secs_f64() * 1000.0,
             blit_ms = painted_at.elapsed().as_secs_f64() * 1000.0,
-            "重画"
+            "frame redrawn"
         );
         let more = painted.next_frame.is_some();
         if self.options.panel {
@@ -291,7 +320,7 @@ impl<A: App> Handler<A> {
     }
 }
 
-impl<A: App> ApplicationHandler for Handler<A> {
+impl<A: App> ApplicationHandler<HostEvent> for Handler<A> {
     fn new_events(&mut self, _: &ActiveEventLoop, cause: StartCause) {
         if let StartCause::ResumeTimeReached { .. } = cause
             && let Some(host) = &self.window
@@ -325,13 +354,37 @@ impl<A: App> ApplicationHandler for Handler<A> {
         });
     }
 
-    fn user_event(&mut self, _: &ActiveEventLoop, (): ()) {
-        let rebuild = self.runner.wake();
-        if let Some(window) = self.window.as_ref().map(|host| host.window.clone()) {
-            if rebuild {
-                window.request_redraw();
+    fn user_event(&mut self, event_loop: &ActiveEventLoop, event: HostEvent) {
+        #[cfg(not(target_os = "windows"))]
+        let _ = event_loop;
+        let Some(window) = self.window.as_ref().map(|host| host.window.clone()) else {
+            return;
+        };
+        match event {
+            HostEvent::Wake => {
+                let rebuild = self.runner.wake();
+                if rebuild {
+                    window.request_redraw();
+                }
+                self.apply_window_commands(&window);
             }
-            self.apply_window_commands(&window);
+            #[cfg(target_os = "windows")]
+            HostEvent::CaptionHover(x, y) => {
+                self.dispatch(event_loop, &window, &Event::PointerMoved { x, y });
+            }
+            #[cfg(target_os = "windows")]
+            HostEvent::CaptionLeave => {
+                self.dispatch(event_loop, &window, &Event::PointerLeft);
+            }
+            #[cfg(target_os = "windows")]
+            HostEvent::CaptionDown(x, y) => {
+                self.dispatch(event_loop, &window, &Event::PointerMoved { x, y });
+                self.dispatch(event_loop, &window, &Event::PointerDown);
+            }
+            #[cfg(target_os = "windows")]
+            HostEvent::CaptionUp => {
+                self.dispatch(event_loop, &window, &Event::PointerUp);
+            }
         }
     }
 
@@ -353,11 +406,19 @@ impl<A: App> ApplicationHandler for Handler<A> {
                 return;
             }
             WindowEvent::Resized(_) | WindowEvent::ScaleFactorChanged { .. } => {
+                self.runner.set_maximized(window.is_maximized());
                 self.runner.invalidate();
                 window.request_redraw();
                 return;
             }
             WindowEvent::Focused(focused) => {
+                #[cfg(target_os = "windows")]
+                if !focused
+                    && let Some(titlebar) =
+                        self.window.as_ref().and_then(|host| host.titlebar.as_ref())
+                {
+                    titlebar.clear_pressed();
+                }
                 self.runner.set_active(focused);
                 window.request_redraw();
                 self.apply_window_commands(&window);
@@ -397,7 +458,15 @@ impl<A: App> ApplicationHandler for Handler<A> {
                 ..
             } => match state {
                 ElementState::Pressed => Event::PointerDown,
-                ElementState::Released => Event::PointerUp,
+                ElementState::Released => {
+                    #[cfg(target_os = "windows")]
+                    if let Some(titlebar) =
+                        self.window.as_ref().and_then(|host| host.titlebar.as_ref())
+                    {
+                        titlebar.clear_pressed();
+                    }
+                    Event::PointerUp
+                }
             },
             WindowEvent::MouseInput {
                 state: ElementState::Pressed,

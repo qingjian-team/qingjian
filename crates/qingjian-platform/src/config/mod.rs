@@ -303,6 +303,8 @@ traditional_variant = "off"
 chinese_first = false
 # 拼写纠错：拼音敲错时给纠正后的候选（nihooma → 你好吗）；敲的拼音照原样读得通时纠正只当备选。false 时只按敲的原样读
 spelling_correction = true
+# 零声母简写：全拼下用 a / e / o 代表对应零声母音节（aquan → 安全、e'liao → 饵料）；可能与全拼重码，缺省关
+zero_initial_abbreviation = false
 # 中文模式下整段是英文词或英文词的开头时给英文候选与补全（hello、compa → company）；false 时中文模式只出中文，英文模式不受影响
 english_in_chinese = true
 # 中文模式下英文候选（精确词 + 补全）最多几个，1–4；1 时只留最靠前的一条

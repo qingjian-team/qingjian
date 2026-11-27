@@ -18,6 +18,8 @@ pub struct SearchField<'a> {
 
     icon: Option<Arc<dyn Icon>>,
 
+    pill: bool,
+
     autofocus: bool,
 }
 
@@ -27,8 +29,14 @@ impl<'a> SearchField<'a> {
             edit,
             placeholder: "",
             icon: None,
+            pill: false,
             autofocus: false,
         }
+    }
+
+    /// 胶囊形圆角，见 [`TextField::pill`]。
+    pub fn pill(self) -> Self {
+        Self { pill: true, ..self }
     }
 
     pub fn placeholder(self, placeholder: &'a str) -> Self {
@@ -69,6 +77,9 @@ impl<'a> SearchField<'a> {
             .stretch();
         if let Some(icon) = self.icon {
             field = field.icon(icon);
+        }
+        if self.pill {
+            field = field.pill();
         }
         if self.autofocus {
             field = field.autofocus();

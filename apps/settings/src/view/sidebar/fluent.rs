@@ -1,5 +1,5 @@
-//! Windows 11 设置的左侧导航：搜索框在最上，各页一行（Fluent 彩色图标），选中项左边一段强调色竖条；
-//! 底部分隔线下是界面语言与「关于」。搜索结果弹在搜索框下面（[`suggestions`]）。标题栏用系统的（图标加窗口标题），这里不画。
+//! Windows 11 设置的左侧导航：各页一行（Fluent 彩色图标），选中项左边一段强调色竖条；
+//! 底部分隔线下是界面语言与「关于」。搜索框与标题栏在 [`super::super::titlebar`]。
 
 use std::sync::{Arc, OnceLock};
 
@@ -8,7 +8,7 @@ use bamboo_slip::taffy::{
 };
 use bamboo_slip::{BoxPaint, Fill, RenderError, SvgImage, Ui, Visual};
 
-use super::{language, logo, navigation, search_field, suggestions};
+use super::{language, logo, navigation};
 use crate::message::Message;
 use crate::page_id::PageId;
 use crate::view::Page;
@@ -16,18 +16,13 @@ use crate::view::Page;
 /// 导航宽度（点）：WinUI 的 NavigationView 展开时是固定宽，不随窗口变；配 [`super::super::look::window_size`] 的缺省窗口约占三成。
 pub const WIDTH: f32 = 288.0;
 
-/// 导航左右的内边距（点）：照 Win11 设置，选中块离窗口左边 12 点，右边留 4 点，再加内容区的边距到正文卡片约 28 点。
-const SIDE: (f32, f32) = (12.0, 4.0);
+/// 导航左右的内边距（点）：照 Win11 设置，选中块离窗口左边 16 点，右边留 4 点，再加内容区的边距到正文卡片约 28 点。
+const SIDE: (f32, f32) = (16.0, 4.0);
 
 /// 图标边长（点），SVG 画在 20 × 20 的网格上。
 const ICON: f32 = 20.0;
 
 pub fn sidebar(ui: &mut Ui<Message>, page: &Page) -> Result<NodeId, RenderError> {
-    let search = search_field(ui, page)?;
-    // 搜索框与导航项同宽，左右边对齐
-    let search = inset(ui, page, search, (4.0, 0.0, 12.0))?;
-    // 搜索结果是搜索框下的浮层，导航本身不变
-    suggestions(ui, page)?;
     let pages: Vec<PageId> = PageId::ALL
         .into_iter()
         .filter(|id| *id != PageId::About)
@@ -83,13 +78,13 @@ pub fn sidebar(ui: &mut Ui<Message>, page: &Page) -> Result<NodeId, RenderError>
             padding: Rect {
                 left: LengthPercentage::length(page.px(SIDE.0)),
                 right: LengthPercentage::length(page.px(SIDE.1)),
-                top: LengthPercentage::length(0.0),
+                top: LengthPercentage::length(page.px(4.0)),
                 bottom: LengthPercentage::length(page.px(12.0)),
             },
             ..Style::default()
         },
         Visual::Group,
-        &[search, list, bottom],
+        &[list, bottom],
     )
 }
 
@@ -153,27 +148,4 @@ fn icons() -> &'static [Arc<SvgImage>] {
             .map(|data| Arc::new(SvgImage::parse(data).expect("bundled nav icon is valid SVG")))
             .collect()
     })
-}
-
-/// 给 `node` 包一层外边距（上、左右、下，点）。
-fn inset(
-    ui: &mut Ui<Message>,
-    page: &Page,
-    node: NodeId,
-    (top, side, bottom): (f32, f32, f32),
-) -> Result<NodeId, RenderError> {
-    ui.scene().node(
-        Style {
-            flex_direction: FlexDirection::Column,
-            padding: Rect {
-                left: LengthPercentage::length(page.px(side)),
-                right: LengthPercentage::length(page.px(side)),
-                top: LengthPercentage::length(page.px(top)),
-                bottom: LengthPercentage::length(page.px(bottom)),
-            },
-            ..Style::default()
-        },
-        Visual::Group,
-        &[node],
-    )
 }
