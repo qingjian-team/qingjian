@@ -50,7 +50,7 @@ Deleting the last few words and retyping from the start works too: if you delete
 
 When you pick a stretch of pinyin in several steps, the words picked so far stay in the input box, in front of the remaining pinyin, and are committed together only when the whole stretch is done. `Enter` commits them together with the remaining pinyin as typed; `Esc` cancels everything.
 If you notice an earlier pick was wrong, `Backspace` undoes the last pick and turns that part back into pinyin so you can pick again; once all picks are undone, `Backspace` deletes letters.
-If you'd rather commit each pick right away, turn off 分次选词先不上屏 (Keep partial picks until done) under 设置 → 输入 (Settings → Input).
+If you'd rather commit each pick right away, turn off 整段确认后上屏 (Commit split selections together) under 设置 → 输入 (Settings → Input).
 
 When you pick a stretch of pinyin in several steps (pick one character first, then commit the rest as a sentence) and type it the same way a second time, the combined word is saved as a user word and from then on comes first when you type that stretch.
 For the other ways Qingjian learns your habits, see [Typing habits](../personalize/habits.md).

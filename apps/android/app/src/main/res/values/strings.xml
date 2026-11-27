@@ -171,8 +171,8 @@
     <string name="english_pair_punctuation_note">半角括号与双引号；写代码的应用自己会补时别开</string>
     <string name="english_in_chinese_title">打拼音时也给英文词</string>
     <string name="english_in_chinese_note">打 compa 也出 company</string>
-    <string name="hold_selections_title">分次选词先不上屏</string>
-    <string name="hold_selections_note">先选的词留在输入框里，整段选完再上屏；选错了按删除键撤回</string>
+    <string name="hold_selections_title">整段确认后上屏</string>
+    <string name="hold_selections_note">分次选词时先留在输入框里，选完一起上屏；选错了按删除键撤回</string>
     <string name="chinese_first_title">中文排在英文词前面</string>
     <string name="english_candidates_title">英文键盘给候选</string>
     <string name="english_candidates_note">要词点候选；空格、数字、标点前照敲的字母上屏。关掉英文键盘直接上屏字母</string>
