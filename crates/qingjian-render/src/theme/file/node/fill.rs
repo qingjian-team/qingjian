@@ -108,4 +108,37 @@ mod tests {
         };
         assert_eq!((slice, scale), (Some([8.0; 4]), 1.0));
     }
+
+    #[test]
+    fn colors_lists_what_validation_has_to_resolve() {
+        let linear: FillSpec =
+            serde_json::from_str(r##"{ "linear": 0, "stops": ["#111111", ["#222222", 0.5]] }"##)
+                .unwrap();
+        assert_eq!(linear.colors().len(), 2);
+        let radial: FillSpec =
+            serde_json::from_str(r#"{ "radial": [0.5, 0.5], "stops": ["@a"] }"#).unwrap();
+        assert_eq!(radial.colors().len(), 1);
+        let image: FillSpec = serde_json::from_str(r#"{ "image": "bg.png" }"#).unwrap();
+        assert!(image.colors().is_empty());
+        let color: FillSpec = serde_json::from_str(r#""@accent""#).unwrap();
+        assert_eq!(color.colors().len(), 1);
+    }
+
+    #[test]
+    fn an_image_scales_and_slices_only_when_asked() {
+        let plain: FillSpec = serde_json::from_str(r#"{ "image": "bg.png" }"#).unwrap();
+        assert!(matches!(plain, FillSpec::Image { slice: None, scale, .. } if scale == 1.0));
+        let retina: FillSpec = serde_json::from_str(
+            r#"{ "image": "bg@2x.png", "slice": [24, 24, 24, 24], "scale": 2 }"#,
+        )
+        .unwrap();
+        assert!(matches!(
+            retina,
+            FillSpec::Image {
+                slice: Some([24.0, 24.0, 24.0, 24.0]),
+                scale: 2.0,
+                ..
+            }
+        ));
+    }
 }

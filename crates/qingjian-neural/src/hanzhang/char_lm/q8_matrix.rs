@@ -257,4 +257,28 @@ mod tests {
         }
         assert!(Q8Matrix::quantize(&weight, rows * 2, cols / 2).is_none());
     }
+
+    #[test]
+    fn reports_its_shape() {
+        let weight = vec![0.5f32; 32 * 4];
+        let q = Q8Matrix::quantize(&weight, 4, 32).unwrap();
+        assert_eq!(q.rows(), 4);
+        assert_eq!(q.cols(), 32);
+    }
+
+    #[test]
+    fn an_all_zero_matrix_stays_zero() {
+        let weight = vec![0f32; 2 * 64];
+        let q = Q8Matrix::quantize(&weight, 2, 64).unwrap();
+        assert!(q.scales.iter().all(|scale| *scale == 0.0));
+        let x = vec![1f32; 3 * 64];
+        assert!(q.matmul(&x, 3).iter().all(|value| *value == 0.0));
+    }
+
+    #[test]
+    fn lengths_and_column_counts_are_checked() {
+        assert!(Q8Matrix::quantize(&[], 0, 0).is_some());
+        assert!(Q8Matrix::quantize(&[1f32; 32], 2, 32).is_none());
+        assert!(Q8Matrix::quantize(&[1f32; 48], 1, 48).is_none());
+    }
 }

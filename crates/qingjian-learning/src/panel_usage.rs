@@ -137,4 +137,27 @@ mod tests {
     fn skips_bad_lines() {
         assert_eq!(parse("★\t2\t5\nbroken\n\t1\t1\n√\tx\t1\n").len(), 1);
     }
+
+    #[test]
+    fn repeated_items_count_up_and_bad_items_are_ignored() {
+        let mut usage = PanelUsage::default();
+        usage.record_at("★", 1).unwrap();
+        usage.record_at("★", 2).unwrap();
+        assert_eq!(usage.uses().len(), 1);
+        assert_eq!(usage.uses()[0].count, 2);
+        usage.record_at("", 3).unwrap();
+        usage.record_at("a\tb", 4).unwrap();
+        usage.record_at("a\nb", 5).unwrap();
+        assert_eq!(usage.uses().len(), 1);
+    }
+
+    #[test]
+    fn the_oldest_rare_items_fall_off_at_the_limit() {
+        let mut usage = PanelUsage::default();
+        for i in 0..301 {
+            usage.record_at(&format!("item{i}"), i as i64).unwrap();
+        }
+        assert_eq!(usage.uses().len(), 300);
+        assert!(!usage.uses().iter().any(|entry| entry.item == "item0"));
+    }
 }

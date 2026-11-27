@@ -64,3 +64,54 @@ pub fn to_tsv(text: &str) -> Parsed {
     }
     Parsed { tsv, name }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn detects_rime_by_its_header() {
+        assert!(looks_like_rime("---\nname: 示例\n...\n词\tci\n"));
+        assert!(looks_like_rime("name: 示例\n词\tci\n"));
+        assert!(looks_like_rime("# 注释\n---\n"));
+        assert!(!looks_like_rime("词\tci\n"));
+        assert!(!looks_like_rime(""));
+    }
+
+    #[test]
+    fn keeps_the_name_from_the_header() {
+        let parsed = to_tsv("---\nname: 我的词库\nversion: 1\n...\n开发\tkai fa\t9\n");
+        assert_eq!(parsed.name.as_deref(), Some("我的词库"));
+        assert_eq!(parsed.tsv, "开发\tkai fa\t9\n");
+    }
+
+    #[test]
+    fn quoted_names_are_unquoted() {
+        let parsed = to_tsv("---\nname: \"带引号\"\n...\n");
+        assert_eq!(parsed.name.as_deref(), Some("带引号"));
+    }
+
+    #[test]
+    fn weights_default_to_one_and_reject_non_integers() {
+        let parsed = to_tsv("开发\tkai fa\n民法典\tmin fa dian\t1e5\n你好\tni hao\t42\n");
+        assert_eq!(
+            parsed.tsv,
+            "开发\tkai fa\t1\n民法典\tmin fa dian\t1\n你好\tni hao\t42\n"
+        );
+    }
+
+    #[test]
+    fn comments_and_short_lines_are_skipped() {
+        let parsed = to_tsv("# 注释\n\n开发\tkai fa\t9\n只有词\n");
+        assert_eq!(parsed.tsv, "开发\tkai fa\t9\n");
+        assert_eq!(parsed.name, None);
+    }
+
+    #[test]
+    fn a_plain_tsv_without_a_header_converts_directly() {
+        let parsed = to_tsv("开发\tkai fa\t9\n");
+        assert_eq!(parsed.tsv, "开发\tkai fa\t9\n");
+        assert_eq!(parsed.name, None);
+        assert!(!looks_like_rime("开发\tkai fa\t9\n"));
+    }
+}

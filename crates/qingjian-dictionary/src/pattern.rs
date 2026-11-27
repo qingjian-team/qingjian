@@ -104,4 +104,20 @@ mod tests {
         assert!(SyllablePattern::complete("yvan").accepts("yuan"));
         assert!(SyllablePattern::complete("jvn").accepts("jun"));
     }
+
+    #[test]
+    fn prefix_patterns_accept_lengthenings() {
+        assert!(SyllablePattern::prefix("j").accepts("jue"));
+        assert!(SyllablePattern::prefix("yu").accepts("yuan"));
+        assert!(SyllablePattern::prefix("zh").accepts("zhuang"));
+        assert!(!SyllablePattern::prefix("zh").accepts("chang"));
+        assert!(!SyllablePattern::complete("zh").accepts("zhuang"));
+    }
+
+    #[test]
+    fn unknown_spellings_are_left_alone() {
+        assert_eq!(canonical_syllable("zhuang"), "zhuang");
+        assert_eq!(canonical_syllable(""), "");
+        assert_eq!(canonical_syllable("lüe"), "lüe");
+    }
 }

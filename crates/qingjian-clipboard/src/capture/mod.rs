@@ -163,7 +163,8 @@ fn fingerprint_bytes(seed: u64, bytes: &[u8]) -> u64 {
 
 #[cfg(test)]
 mod tests {
-    use super::{Capture, format_size};
+    use super::{Capture, format_size, text_kind};
+    use crate::ClipKind;
 
     #[test]
     fn sizes_read_naturally() {
@@ -174,6 +175,81 @@ mod tests {
         assert_eq!(format_size(150 * 1024), "150 KB");
         assert_eq!(format_size(3 * 1024 * 1024 * 1024), "3.0 GB");
         assert_eq!(format_size(5 * 1024_u64.pow(4)), "5.0 TB");
+    }
+
+    #[test]
+    fn three_digit_values_drop_the_decimal() {
+        assert_eq!(format_size(99 * 1024 + 512), "99.5 KB");
+        assert_eq!(format_size(100 * 1024), "100 KB");
+        assert_eq!(format_size(1024_u64.pow(5)), "1.0 PB");
+    }
+
+    #[test]
+    fn text_kind_prefers_code_then_rich() {
+        assert_eq!(
+            text_kind("fn main() {\n    let x = 1;\n}", false),
+            ClipKind::Code
+        );
+        assert_eq!(text_kind("普通的一句话", false), ClipKind::Text);
+        assert_eq!(text_kind("普通的一句话", true), ClipKind::Rich);
+    }
+
+    #[test]
+    fn blank_text_without_formats_is_empty() {
+        let blank = Capture::text("   \n\t ".to_owned(), String::new(), Vec::new());
+        assert!(blank.is_empty());
+        let text = Capture::text("a".to_owned(), String::new(), Vec::new());
+        assert!(!text.is_empty());
+        let rich = Capture::text(
+            "  ".to_owned(),
+            String::new(),
+            vec![super::ClipFormat::new(super::FORMAT_HTML, vec![1])],
+        );
+        assert!(!rich.is_empty());
+        assert_eq!(rich.kind, ClipKind::Rich);
+    }
+
+    #[test]
+    fn files_join_paths_and_record_the_size() {
+        let paths = ["C:\\a.txt".to_owned(), "C:\\b.txt".to_owned()];
+        let capture = Capture::files(&paths, vec![1], String::new(), Some(42));
+        assert_eq!(capture.text, "C:\\a.txt\nC:\\b.txt");
+        assert_eq!(capture.kind, ClipKind::Files);
+        assert!(
+            capture
+                .formats
+                .iter()
+                .any(|format| format.name == super::FORMAT_FILE_SIZE && format.data == b"42")
+        );
+    }
+
+    #[test]
+    fn files_without_a_size_skip_the_size_format() {
+        let capture = Capture::files(&["C:\\a".to_owned()], vec![1], String::new(), None);
+        assert!(
+            !capture
+                .formats
+                .iter()
+                .any(|format| format.name == super::FORMAT_FILE_SIZE)
+        );
+    }
+
+    #[test]
+    fn format_names_are_stable() {
+        assert_eq!(super::FORMAT_HTML, "html");
+        assert_eq!(super::FORMAT_RTF, "rtf");
+        assert_eq!(super::FORMAT_FILES, "files");
+        assert_eq!(super::FORMAT_PNG, "png");
+        assert_eq!(super::FORMAT_THUMBNAIL, "thumbnail");
+        assert_eq!(super::FORMAT_FILE_SIZE, "file_size");
+    }
+
+    #[test]
+    fn limits_leave_room_for_the_clipboard() {
+        assert_eq!(super::MAX_TEXT_CHARS, 1_000_000);
+        assert_eq!(super::MAX_FORMAT_BYTES, 8 * 1024 * 1024);
+        assert_eq!(super::MAX_FILE_LIST_BYTES, 4 * 1024 * 1024);
+        assert_eq!(super::MAX_IMAGE_BYTES, 32 * 1024 * 1024);
     }
 
     #[test]

@@ -38,3 +38,62 @@ impl UsageTokens {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::UsageTokens;
+    use serde_json::json;
+
+    #[test]
+    fn reads_the_standard_usage() {
+        let usage = UsageTokens::from_response(&json!({
+            "usage": {"prompt_tokens": 10, "completion_tokens": 4, "total_tokens": 14}
+        }))
+        .unwrap();
+        assert_eq!(usage.input, 10);
+        assert_eq!(usage.output, 4);
+        assert_eq!(usage.total, 14);
+        assert_eq!(usage.cached_input, 0);
+    }
+
+    #[test]
+    fn total_falls_back_to_input_plus_output() {
+        let usage = UsageTokens::from_response(&json!({
+            "usage": {"prompt_tokens": 10, "completion_tokens": 4}
+        }))
+        .unwrap();
+        assert_eq!(usage.total, 14);
+    }
+
+    #[test]
+    fn cached_input_reads_either_field() {
+        let deepseek = UsageTokens::from_response(&json!({
+            "usage": {"prompt_tokens": 10, "completion_tokens": 1, "prompt_cache_hit_tokens": 8}
+        }))
+        .unwrap();
+        assert_eq!(deepseek.cached_input, 8);
+        let openai = UsageTokens::from_response(&json!({
+            "usage": {"prompt_tokens": 10, "completion_tokens": 1,
+                      "prompt_tokens_details": {"cached_tokens": 6}}
+        }))
+        .unwrap();
+        assert_eq!(openai.cached_input, 6);
+    }
+
+    #[test]
+    fn a_response_without_usage_has_none() {
+        assert!(UsageTokens::from_response(&json!({})).is_none());
+        assert!(UsageTokens::from_response(&json!({"usage": null})).is_none());
+    }
+
+    #[test]
+    fn missing_or_non_numeric_counts_are_rejected() {
+        assert!(UsageTokens::from_response(&json!({"usage": {"prompt_tokens": 10}})).is_none());
+        assert!(
+            UsageTokens::from_response(
+                &json!({"usage": {"prompt_tokens": "10", "completion_tokens": 1}})
+            )
+            .is_none()
+        );
+    }
+}

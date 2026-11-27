@@ -184,4 +184,38 @@ mod tests {
         assert_eq!(pack(&[1, 2, 3, 4, 5, 1]), SPILLED);
         assert_eq!(Tones::spilled(b"123450").to_vec(6), [1, 2, 3, 4, 5, 0]);
     }
+
+    #[test]
+    fn split_tone_handles_edges() {
+        assert_eq!(split_tone(""), ("", 0));
+        assert_eq!(split_tone("a"), ("a", 0));
+        assert_eq!(split_tone("3"), ("", 3));
+        assert_eq!(split_tone("ni33"), ("ni3", 3));
+        assert_eq!(split_tone("ni6"), ("ni6", 0));
+    }
+
+    #[test]
+    fn marks_every_vowel_class() {
+        assert_eq!(marked("ai", 4), "ài");
+        assert_eq!(marked("ei", 3), "ěi");
+        assert_eq!(marked("ao", 1), "āo");
+        assert_eq!(marked("ou", 2), "óu");
+        assert_eq!(marked("ian", 4), "iàn");
+        assert_eq!(marked("iong", 3), "iǒng");
+        assert_eq!(marked("ui", 3), "uǐ");
+        assert_eq!(marked("iu", 4), "iù");
+    }
+
+    #[test]
+    fn strip_marks_covers_every_accent() {
+        for (marked_form, plain) in [
+            ("nǚ", "nv"),
+            ("lǜ", "lv"),
+            ("à", "a"),
+            ("m\u{301}", "m"),
+            ("shuāng", "shuang"),
+        ] {
+            assert_eq!(strip_marks(marked_form), plain, "{marked_form}");
+        }
+    }
 }

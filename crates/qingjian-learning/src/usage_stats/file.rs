@@ -125,3 +125,118 @@ pub fn append(path: &Path, line: &str) -> io::Result<()> {
     text.push_str(line);
     file.write_all(text.as_bytes())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{HEADER, append, hour_line, parse_days, parse_hours};
+    use jiff::civil::Date;
+    use qingjian_core::Usage;
+
+    fn date(text: &str) -> Date {
+        text.parse().unwrap()
+    }
+
+    fn sample() -> Usage {
+        Usage {
+            hanzi: 12,
+            words: 3,
+            english_words: 1,
+            commits: 5,
+            choices: 2,
+            first_choices: 4,
+            edited: 1,
+            typed_hanzi: 9,
+            keys: 30,
+            typing_ms: 1200,
+        }
+    }
+
+    fn numbers(usage: &Usage) -> (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) {
+        (
+            usage.hanzi,
+            usage.words,
+            usage.english_words,
+            usage.commits,
+            usage.choices,
+            usage.first_choices,
+            usage.edited,
+            usage.typed_hanzi,
+            usage.keys,
+            usage.typing_ms,
+        )
+    }
+
+    #[test]
+    fn a_hour_line_round_trips() {
+        let text = hour_line(date("2026-11-20"), 9, &sample());
+        let (hours, lines) = parse_hours(&text);
+        assert_eq!(lines, 1);
+        assert_eq!(
+            numbers(&hours[&(date("2026-11-20"), 9)]),
+            numbers(&sample())
+        );
+        assert!(text.starts_with("2026-11-20\t9\t"));
+    }
+
+    #[test]
+    fn the_header_has_as_many_columns_as_a_line() {
+        let columns = |text: &str| text.trim_end().split('\t').count();
+        assert_eq!(
+            columns(HEADER),
+            columns(&hour_line(date("2026-11-20"), 0, &Usage::default()))
+        );
+    }
+
+    #[test]
+    fn the_same_hour_adds_up_and_bad_lines_are_skipped() {
+        let mut text = hour_line(date("2026-11-20"), 9, &sample());
+        text.push_str(&hour_line(date("2026-11-20"), 9, &sample()));
+        text.push('\n');
+        text.push_str("2026-11-20\t24\t1\t1\n"); // 时越界
+        text.push_str("2026-11-20\t9\t\n"); // 列不够
+        text.push_str("不是日期\t9\t1\n"); // 日期坏
+        let (hours, lines) = parse_hours(&text);
+        assert_eq!(lines, 2);
+        let total = &hours[&(date("2026-11-20"), 9)];
+        assert_eq!((total.hanzi, total.keys), (24, 60));
+    }
+
+    #[test]
+    fn the_old_daily_format_reads_the_first_columns() {
+        let text = "# 日期\t汉字\t中文词\t英文词\t上屏次数\n\
+                    2026-11-19\t3\t1\t0\t2\n\
+                    2026-11-19\t1\t0\t0\t1\n";
+        let days = parse_days(text);
+        let day = &days[&date("2026-11-19")];
+        assert_eq!((day.hanzi, day.words, day.commits), (4, 1, 3));
+    }
+
+    #[test]
+    fn appending_writes_a_header_only_to_an_empty_file() {
+        let dir = std::env::temp_dir().join(format!("qj-usage-file-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("usage-hours.tsv");
+        append(&path, &hour_line(date("2026-11-20"), 9, &sample())).unwrap();
+        let text = std::fs::read_to_string(&path).unwrap();
+        assert!(text.starts_with(HEADER));
+        assert_eq!(parse_hours(&text).1, 1);
+        append(&path, &hour_line(date("2026-11-20"), 10, &sample())).unwrap();
+        let text = std::fs::read_to_string(&path).unwrap();
+        assert_eq!(text.matches('#').count(), 1);
+        assert_eq!(parse_hours(&text).1, 2);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn a_half_written_tail_gets_a_break_before_the_next_line() {
+        let dir = std::env::temp_dir().join(format!("qj-usage-half-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("usage-hours.tsv");
+        std::fs::write(&path, format!("{HEADER}2026-11-20\t9\t1")).unwrap();
+        append(&path, &hour_line(date("2026-11-20"), 10, &sample())).unwrap();
+        let text = std::fs::read_to_string(&path).unwrap();
+        assert!(text.contains("2026-11-20\t9\t1\n2026-11-20\t10\t"));
+        assert_eq!(parse_hours(&text).1, 1);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+}

@@ -220,3 +220,59 @@ const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
 
 /// 说完后最终结果最多等多久。
 const FINAL_TIMEOUT: Duration = Duration::from_secs(8);
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tungstenite::http::{HeaderMap, HeaderValue};
+
+    fn config(punctuation: bool) -> VolcengineConfig {
+        let mut config = VolcengineConfig::new("key", VolcengineConfig::HOURLY);
+        config.punctuation = punctuation;
+        config
+    }
+
+    #[test]
+    fn request_carries_the_audio_format() {
+        let value: serde_json::Value =
+            serde_json::from_str(&request(&config(true), 16_000)).unwrap();
+        assert_eq!(value["user"]["uid"], "qingjian");
+        assert_eq!(value["audio"]["format"], "pcm");
+        assert_eq!(value["audio"]["codec"], "raw");
+        assert_eq!(value["audio"]["rate"], 16_000);
+        assert_eq!(value["audio"]["bits"], 16);
+        assert_eq!(value["audio"]["channel"], 1);
+        assert_eq!(value["request"]["model_name"], "bigmodel");
+        assert_eq!(value["request"]["enable_itn"], true);
+        assert_eq!(value["request"]["enable_nonstream"], true);
+        assert_eq!(value["request"]["result_type"], "full");
+    }
+
+    #[test]
+    fn request_follows_the_punctuation_switch() {
+        let off: serde_json::Value = serde_json::from_str(&request(&config(false), 8_000)).unwrap();
+        assert_eq!(off["request"]["enable_punc"], false);
+        assert_eq!(off["audio"]["rate"], 8_000);
+        let on: serde_json::Value = serde_json::from_str(&request(&config(true), 16_000)).unwrap();
+        assert_eq!(on["request"]["enable_punc"], true);
+    }
+
+    #[test]
+    fn pcm_is_little_endian() {
+        assert!(pcm(&[]).is_empty());
+        assert_eq!(pcm(&[0x0102]), vec![0x02, 0x01]);
+        assert_eq!(pcm(&[-1, 1]), vec![0xff, 0xff, 0x01, 0x00]);
+    }
+
+    #[test]
+    fn logid_is_empty_without_the_header() {
+        assert_eq!(logid(&HeaderMap::new()), "");
+    }
+
+    #[test]
+    fn logid_reads_the_header() {
+        let mut headers = HeaderMap::new();
+        headers.insert("X-Tt-Logid", HeaderValue::from_static("abc"));
+        assert_eq!(logid(&headers), "abc");
+    }
+}

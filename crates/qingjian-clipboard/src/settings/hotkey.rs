@@ -68,3 +68,87 @@ impl Hotkey {
         (hotkey.control || hotkey.shift || hotkey.alt || hotkey.win).then_some(hotkey)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::Hotkey;
+
+    #[test]
+    fn parse_reads_ctrl_alt_v() {
+        let hotkey = Hotkey::parse("ctrl+alt+v").unwrap();
+        assert!(hotkey.control);
+        assert!(!hotkey.shift);
+        assert!(hotkey.alt);
+        assert!(!hotkey.win);
+        assert_eq!(hotkey.key, 'v');
+    }
+
+    #[test]
+    fn parse_is_case_insensitive_and_lowercases_the_key() {
+        let hotkey = Hotkey::parse("CTRL+ALT+V").unwrap();
+        assert_eq!(hotkey.key, 'v');
+        assert!(hotkey.control && hotkey.alt);
+    }
+
+    #[test]
+    fn parse_accepts_every_alias() {
+        for text in ["control+shift+v", "ctrl+shift+v", "⌃+⇧+v"] {
+            let hotkey = Hotkey::parse(text).unwrap();
+            assert!(hotkey.control && hotkey.shift, "{text}");
+        }
+        for text in ["command+v", "cmd+v", "super+v", "win+v", "⌘+v"] {
+            let hotkey = Hotkey::parse(text).unwrap();
+            assert!(hotkey.win && !hotkey.control, "{text}");
+        }
+        for text in ["option+v", "alt+v", "⌥+v"] {
+            let hotkey = Hotkey::parse(text).unwrap();
+            assert!(hotkey.alt && !hotkey.control, "{text}");
+        }
+    }
+
+    #[test]
+    fn parse_ignores_spaces_around_modifiers() {
+        assert_eq!(Hotkey::parse("ctrl + alt + v"), Hotkey::parse("ctrl+alt+v"));
+        assert_eq!(Hotkey::parse("ctrl+alt+ v"), Hotkey::parse("ctrl+alt+v"));
+    }
+
+    #[test]
+    fn parse_accepts_digits_and_period() {
+        assert_eq!(Hotkey::parse("ctrl+1").unwrap().key, '1');
+        assert_eq!(Hotkey::parse("ctrl+alt+.").unwrap().key, '.');
+    }
+
+    #[test]
+    fn parse_requires_a_single_key() {
+        assert!(Hotkey::parse("ctrl+vv").is_none());
+        assert!(Hotkey::parse("ctrl+").is_none());
+        assert!(Hotkey::parse("ctrl+alt").is_none());
+    }
+
+    #[test]
+    fn parse_rejects_punctuation_other_than_period() {
+        assert!(Hotkey::parse("ctrl+alt+;").is_none());
+        assert!(Hotkey::parse("ctrl+alt+空格").is_none());
+    }
+
+    #[test]
+    fn parse_requires_at_least_one_known_modifier() {
+        assert!(Hotkey::parse("v").is_none());
+        assert!(Hotkey::parse("hyper+v").is_none());
+        assert!(Hotkey::parse("+v").is_none());
+    }
+
+    #[test]
+    fn default_matches_the_platform() {
+        let default = Hotkey::DEFAULT;
+        assert_eq!(default.key, 'v');
+        #[cfg(not(target_os = "macos"))]
+        {
+            assert!(default.control && default.alt && !default.shift && !default.win);
+        }
+        #[cfg(target_os = "macos")]
+        {
+            assert!(default.win && default.shift && !default.control && !default.alt);
+        }
+    }
+}

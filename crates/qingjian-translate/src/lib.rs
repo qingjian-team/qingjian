@@ -24,6 +24,9 @@ mod layered_translator;
 mod level_table;
 mod personal_glossary;
 
+#[cfg(test)]
+mod tests;
+
 pub use downloaded::{DOWNLOADED_DIR, downloaded_glossary};
 pub use error::GlossaryError;
 pub use glossary::Glossary;

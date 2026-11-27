@@ -10,3 +10,6 @@ pub mod volcengine;
 
 pub use error::VoiceError;
 pub use volcengine::{VolcengineConfig, VolcengineTranscriber};
+
+#[cfg(test)]
+mod tests;

@@ -32,3 +32,29 @@ impl ModelConfig {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn reads_every_field() {
+        let config = ModelConfig::from_json(
+            r#"{"vocab_size": 7000, "n_layer": 8, "n_embd": 512, "n_head": 8, "context": 128}"#,
+            Path::new("config.json"),
+        )
+        .unwrap();
+        assert_eq!(config.vocab_size, 7000);
+        assert_eq!(config.n_layer, 8);
+        assert_eq!(config.n_embd, 512);
+        assert_eq!(config.n_head, 8);
+        assert_eq!(config.context, 128);
+    }
+
+    #[test]
+    fn missing_fields_are_json_errors() {
+        let error =
+            ModelConfig::from_json(r#"{"n_layer": 8}"#, Path::new("config.json")).unwrap_err();
+        assert!(matches!(error, NeuralError::Json { .. }), "{error:?}");
+    }
+}

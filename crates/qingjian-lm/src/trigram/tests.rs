@@ -205,3 +205,83 @@ fn vocabulary_lists_every_word_with_its_unigram() {
     let (_, log10) = words.iter().find(|(text, _)| *text == "这次").unwrap();
     assert!((log10 + 3.5).abs() < 1e-3, "{log10}");
 }
+
+#[test]
+fn counts_and_size_come_from_the_file() {
+    let (_file, model) = model("counts");
+    assert_eq!(model.unigram_count(), 6);
+    assert_eq!(model.bigram_count(), 3);
+    assert_eq!(model.trigram_count(), 1);
+    assert!(model.bytes() > 24);
+}
+
+#[test]
+fn an_empty_context_scores_the_plain_unigram() {
+    let (_file, model) = model("plain");
+    let scores = model.score_texts("", &["是"]);
+    assert!(
+        (scores[0] + 1.8 * std::f64::consts::LN_10).abs() < 1e-3,
+        "{scores:?}"
+    );
+}
+
+#[test]
+fn only_the_last_line_of_the_context_counts() {
+    let (_file, model) = model("last-line");
+    let plain = model.score_texts("这次", &["灾害"]);
+    let prefixed = model.score_texts("另一行\n这次", &["灾害"]);
+    assert!(
+        (plain[0] - prefixed[0]).abs() < 1e-9,
+        "{plain:?} {prefixed:?}"
+    );
+}
+
+#[test]
+fn the_context_window_keeps_the_last_twelve_characters() {
+    let (_file, model) = model("window");
+    let thirteen: String = "是".repeat(11) + "这次";
+    let fifteen: String = "是".repeat(13) + "这次";
+    let shorter = model.score_texts(&thirteen, &["灾害"]);
+    let longer = model.score_texts(&fifteen, &["灾害"]);
+    assert!(
+        (shorter[0] - longer[0]).abs() < 1e-9,
+        "{shorter:?} {longer:?}"
+    );
+}
+
+#[test]
+fn no_candidates_yield_no_scores() {
+    let (_file, model) = model("no-texts");
+    assert!(model.score_texts("这次", &[]).is_empty());
+}
+
+#[test]
+fn unknown_characters_go_through_the_unknown_word() {
+    let (_file, model) = model("unknown");
+    let scores = model.score_texts("", &["嗯"]);
+    assert!(
+        (scores[0] + 6.0 * std::f64::consts::LN_10).abs() < 1e-3,
+        "{scores:?}"
+    );
+}
+
+#[test]
+fn a_word_beats_a_pair_of_unknown_characters() {
+    let (_file, model) = model("compare");
+    let scores = model.score_texts("这次", &["灾害", "灾嗯"]);
+    assert!(scores[0] > scores[1], "{scores:?}");
+}
+
+#[test]
+fn rejects_empty_short_and_empty_vocabulary_files() {
+    let empty = TempFile::new("empty", b"");
+    assert!(TrigramModel::open(empty.path()).is_err());
+    let magic_only = TempFile::new("magic-only", b"ZYNGRAM1");
+    assert!(TrigramModel::open(magic_only.path()).is_err());
+    let mut header = Vec::from(*b"ZYNGRAM1");
+    for _ in 0..4 {
+        header.extend_from_slice(&0u32.to_le_bytes());
+    }
+    let no_words = TempFile::new("no-words", &header);
+    assert!(TrigramModel::open(no_words.path()).is_err());
+}

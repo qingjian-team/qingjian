@@ -17,5 +17,8 @@ pub use index::{Asset, Index, PUBLIC_KEYS, Release, SCHEMA_VERSION, verify};
 pub use target::Target;
 pub use version::Version;
 
+#[cfg(test)]
+mod tests;
+
 /// 下载页，提示里点开的就是它。
 pub const DOWNLOAD_URL: &str = "https://qingjian.app/download";

@@ -31,3 +31,34 @@ impl TryFrom<LengthRepr> for Length {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::Length;
+
+    #[test]
+    fn numbers_and_auto_both_parse() {
+        assert_eq!(
+            serde_json::from_str::<Length>("12.5").unwrap(),
+            Length::Points(12.5)
+        );
+        assert_eq!(
+            serde_json::from_str::<Length>("0").unwrap(),
+            Length::Points(0.0)
+        );
+        assert_eq!(
+            serde_json::from_str::<Length>("\"auto\"").unwrap(),
+            Length::Auto
+        );
+    }
+
+    #[test]
+    fn other_words_are_rejected_with_the_expected_forms() {
+        let error = serde_json::from_str::<Length>("\"50%\"").unwrap_err();
+        assert!(error.to_string().contains("auto"), "{error}");
+        assert!(error.to_string().contains("50%"), "{error}");
+        assert!(serde_json::from_str::<Length>("\"12\"").is_err());
+        assert!(serde_json::from_str::<Length>("null").is_err());
+        assert!(serde_json::from_str::<Length>("\"AUTO\"").is_err());
+    }
+}

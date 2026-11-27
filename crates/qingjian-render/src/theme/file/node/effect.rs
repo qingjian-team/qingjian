@@ -59,3 +59,50 @@ impl EffectSpec {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::EffectSpec;
+    use bamboo_slip::{Color, EffectKind};
+
+    #[test]
+    fn both_kinds_parse_with_zero_defaults_and_a_required_color() {
+        let drop: EffectSpec = serde_json::from_str(
+            r##"{ "type": "drop-shadow", "y": 6, "blur": 12, "color": "#0000005a" }"##,
+        )
+        .unwrap();
+        let shadow = drop.shadow();
+        assert_eq!(
+            (shadow.x, shadow.y, shadow.blur, shadow.spread),
+            (0.0, 6.0, 12.0, 0.0)
+        );
+        let inner: EffectSpec =
+            serde_json::from_str(r##"{ "type": "inner-shadow", "color": "#000000" }"##).unwrap();
+        assert!(matches!(inner, EffectSpec::InnerShadow(_)));
+        assert!(
+            serde_json::from_str::<EffectSpec>(r##"{ "type": "glow", "color": "#fff" }"##).is_err()
+        );
+        assert!(serde_json::from_str::<EffectSpec>(r##"{ "type": "drop-shadow" }"##).is_err());
+    }
+
+    #[test]
+    fn to_effect_scales_all_lengths_and_keeps_the_kind() {
+        let spec: EffectSpec = serde_json::from_str(
+            r##"{ "type": "drop-shadow", "x": 2, "y": -4, "blur": 8, "spread": 1.5, "color": "#00000000" }"##,
+        )
+        .unwrap();
+        let effect = spec.to_effect(2.0, Color::rgb(0, 0, 0));
+        assert!(matches!(effect.kind, EffectKind::DropShadow));
+        assert_eq!(
+            (effect.x, effect.y, effect.blur, effect.spread),
+            (4.0, -8.0, 16.0, 3.0)
+        );
+        assert_eq!((effect.color.r, effect.color.g, effect.color.b), (0, 0, 0));
+        let inner: EffectSpec =
+            serde_json::from_str(r##"{ "type": "inner-shadow", "color": "#00000000" }"##).unwrap();
+        assert!(matches!(
+            inner.to_effect(1.0, Color::rgb(1, 1, 1)).kind,
+            EffectKind::InnerShadow
+        ));
+    }
+}

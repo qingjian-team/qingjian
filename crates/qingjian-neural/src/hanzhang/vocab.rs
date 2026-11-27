@@ -106,6 +106,10 @@ impl Vocab {
 mod tests {
     use super::*;
 
+    fn parse_vocab(tokens: &str) -> Vocab {
+        Vocab::from_json(tokens, Path::new("vocab.json")).unwrap()
+    }
+
     #[test]
     fn knows_only_texts_made_of_vocab_characters() {
         let vocab = Vocab::from_json(
@@ -116,5 +120,61 @@ mod tests {
         assert!(vocab.knows("恩恩"));
         assert!(!vocab.knows("嗯嗯"));
         assert_eq!(vocab.encode("嗯"), [UNK]);
+    }
+
+    #[test]
+    fn special_tokens_stay_out_of_the_character_index() {
+        let vocab = parse_vocab(r#"{"tokens": ["<pad>", "<unk>", "<eos>", "恩"]}"#);
+        assert!(!vocab.knows("<"));
+        assert_eq!(vocab.encode("恩<"), [3, UNK]);
+    }
+
+    #[test]
+    fn empty_tokens_are_corrupt() {
+        let error = Vocab::from_json(r#"{"tokens": [""]}"#, Path::new("vocab.json")).unwrap_err();
+        assert!(matches!(error, NeuralError::Corrupt(_)), "{error:?}");
+    }
+
+    #[test]
+    fn only_the_p2c_vocab_has_a_separator() {
+        let p2c = parse_vocab(r#"{"tokens": ["<pad>", "<unk>", "<eos>", "<sep>", "恩"]}"#);
+        assert_eq!(p2c.sep(), Some(3));
+        let plain = parse_vocab(r#"{"tokens": ["<pad>", "<unk>", "<eos>", "恩"]}"#);
+        assert_eq!(plain.sep(), None);
+    }
+
+    #[test]
+    fn len_and_empty_follow_the_file() {
+        let vocab = parse_vocab(r#"{"tokens": ["<pad>"]}"#);
+        assert_eq!(vocab.len(), 1);
+        assert!(!vocab.is_empty());
+        let empty = parse_vocab(r#"{"tokens": []}"#);
+        assert!(empty.is_empty());
+    }
+
+    #[test]
+    fn decode_skips_out_of_range_tokens() {
+        let vocab = parse_vocab(r#"{"tokens": ["<pad>", "<unk>", "<eos>", "恩"]}"#);
+        assert_eq!(vocab.decode(&[0, 1, 2, 3]), "<pad><unk><eos>恩");
+        assert_eq!(vocab.decode(&[3, 99]), "恩");
+    }
+
+    #[test]
+    fn encode_and_decode_round_trip_one_character() {
+        let vocab = parse_vocab(r#"{"tokens": ["<pad>", "<unk>", "<eos>", "恩"]}"#);
+        assert_eq!(vocab.encode("恩"), [3]);
+        assert_eq!(vocab.decode(&vocab.encode("恩")), "恩");
+    }
+
+    #[test]
+    fn broken_json_is_a_json_error() {
+        let error = Vocab::from_json("{", Path::new("vocab.json")).unwrap_err();
+        assert!(matches!(error, NeuralError::Json { .. }), "{error:?}");
+    }
+
+    #[test]
+    fn a_missing_file_is_an_io_error() {
+        let error = Vocab::load(Path::new("不存在的-vocab.json")).unwrap_err();
+        assert!(matches!(error, NeuralError::Io { .. }), "{error:?}");
     }
 }

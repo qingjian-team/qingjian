@@ -15,3 +15,16 @@ impl ReplySchema {
         Self { name, schema }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::ReplySchema;
+    use serde_json::json;
+
+    #[test]
+    fn new_keeps_the_name_and_the_schema() {
+        let schema = ReplySchema::new("candidates", json!({"type": "object"}));
+        assert_eq!(schema.name, "candidates");
+        assert_eq!(schema.schema, json!({"type": "object"}));
+    }
+}
