@@ -32,6 +32,13 @@ class InputSettingsActivity : PageActivity() {
                 ui.toggle(R.string.spelling_correction_title, R.string.spelling_correction_note, options.spellingCorrection) {
                     prefs.edit().putBoolean(Settings.KEY_SPELLING_CORRECTION, it).apply()
                 },
+                ui.toggle(
+                    R.string.zero_initial_abbreviation_title,
+                    R.string.zero_initial_abbreviation_note,
+                    options.zeroInitialAbbreviation,
+                ) {
+                    prefs.edit().putBoolean(Settings.KEY_ZERO_INITIAL_ABBREVIATION, it).apply()
+                },
                 ui.toggle(R.string.hold_selections_title, R.string.hold_selections_note, options.holdSelections) {
                     prefs.edit().putBoolean(Settings.KEY_HOLD_SELECTIONS, it).apply()
                 },

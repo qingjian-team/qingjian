@@ -28,6 +28,12 @@ const LINKS: &[(PageId, &str, &str, &str)] = &[
     ),
     (
         PageId::Input,
+        "input.zero_initial_abbreviation",
+        "input/sentence",
+        "零声母简写",
+    ),
+    (
+        PageId::Input,
         "input.raw_preedit",
         "input/fuzzy-and-shuangpin",
         "双拼",

@@ -5,7 +5,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 /**
- * 交给 Rust 的几项键盘选项：模糊音、中文标点全半角、打拼音时给不给英文词、学习语言、繁体字形、学习开关、附加词库、分次选词、拼写纠错、
+ * 交给 Rust 的几项键盘选项：模糊音、中文标点全半角、打拼音时给不给英文词、学习语言、繁体字形、学习开关、附加词库、分次选词、拼写纠错、零声母简写、
  * 候选后面配几个 emoji / 颜文字 / 符号。
  * 名字同 PC 配置文件（`[fuzzy]`、`[general]`、`[dictionaries]`），对应 Rust 的 `InputOptions`；可选的值与缺省值见 [SettingChoices]。
  */
@@ -32,6 +32,8 @@ data class InputOptions(
     val holdSelections: Boolean = true,
     /** 拼写纠错（PC 的 `[general] spelling_correction`）：关了拼音只按敲的原样与模糊音读。 */
     val spellingCorrection: Boolean = true,
+    /** 零声母简写（PC 的 `[general] zero_initial_abbreviation`）：全拼下 a / e / o 代表对应零声母音节，缺省关。 */
+    val zeroInitialAbbreviation: Boolean = false,
     /** 中文词上屏后候选条接着给可能跟在后面的词，点了直接上屏。 */
     val followUps: Boolean = true,
     /** 候选后面一次最多配几个 emoji（0 不配），PC 的 `[general] emoji`；颜文字、符号同理。 */
@@ -57,6 +59,7 @@ data class InputOptions(
         .put("disabled_dictionaries", JSONArray(disabledDictionaries.sorted()))
         .put("hold_selections", holdSelections)
         .put("spelling_correction", spellingCorrection)
+        .put("zero_initial_abbreviation", zeroInitialAbbreviation)
         .put("follow_ups", followUps)
         .put("emoji", emoji)
         .put("kaomoji", kaomoji)

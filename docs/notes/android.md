@@ -56,6 +56,7 @@
 
 - 模糊音：`[fuzzy]` 九条。
 - 拼写纠错：`spelling_correction`（同 PC 的 `[general]`），`Engine::set_spelling_correction`。
+- 零声母简写：`zero_initial_abbreviation`（同 PC 的 `[general]`，缺省关），`Engine::set_zero_initial_abbreviation`。
 - 中文用全角标点：中文键盘的逗号句号与拼音列 ，。？！： 键带着对应的半角字符，上屏前经 `Engine::punctuate` 转换（引号成对、数字后的点保持半角）；关了出半角并 `note_passthrough`。
   符号页里的标点是明确挑的字符，不转换。
 - 打拼音时也给英文词 / 中文排在英文词前面：`english_in_chinese` / `chinese_first`。

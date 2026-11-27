@@ -55,6 +55,18 @@ pub fn input(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderErr
     } else {
         Branch::leaf(pinyin)
     }];
+    // 零声母简写只走全拼切分（纯双拼、注音或关闭拼音时不生效）
+    let full_pinyin =
+        scheme == Scheme::Pinyin || (scheme.is_shuangpin() && general.shuangpin_full_pinyin);
+    rows.push(Branch::leaf(toggle_info(
+        ui,
+        page,
+        tr("input.zero_initial_abbreviation"),
+        Some(tr("input.zero_initial_abbreviation_info")),
+        ("general", "zero_initial_abbreviation"),
+        general.zero_initial_abbreviation,
+        !full_pinyin,
+    )?));
     rows.push(Branch::leaf(toggle_info(
         ui,
         page,

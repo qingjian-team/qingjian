@@ -10,8 +10,9 @@ use crate::i18n::tr;
 use crate::page_id::PageId;
 
 /// （页，行标题的文案键，图标名）。文案带参数（`{key}`）的按参数前后的字比。
-const ROWS: [(PageId, &str, &str); 80] = [
+const ROWS: [(PageId, &str, &str); 81] = [
     (PageId::Input, "input.pinyin", "keyboard"),
+    (PageId::Input, "input.zero_initial_abbreviation", "abc"),
     (PageId::Input, "input.hold_selections", "pages"),
     (PageId::Input, "input.code", "text"),
     (PageId::Input, "input.key_hint", "grid"),
