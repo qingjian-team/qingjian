@@ -89,11 +89,11 @@ Custom phrases are left alone — those are your own text.
 Save the file and the input method reloads it within about a second; no restart needed. There is no
 **You don't have to edit the config file**:
 
-- Desktop: right-click a candidate (macOS works too) and pick "Block this word"
-- Android: long-press a candidate and pick "Block this word"
-- Both: "Settings → Dictionaries → Blocked words" lists what's blocked, adds new ones, removes them one by one
+- Right-click a candidate and pick "Block this word" (both the Windows and the macOS candidate window)
+- "Settings → Dictionaries → Blocked words" lists what's blocked, adds new ones, removes them one by one
 
-"Block this word" is offered only for words that come from a dictionary; user words and custom phrases are
-your own text and blocked words don't touch them.
+"Block this word" is offered only for words that come from a dictionary, and only for Chinese candidates of
+**three or more characters**: single characters and two-character words are far too common to lose to a
+mis-click. User words and custom phrases are your own text and blocked words don't touch them.
 
-Supported on macOS, Windows, Linux and Android.
+Desktop only (Windows and macOS); the Android candidate bar does not offer it yet.
