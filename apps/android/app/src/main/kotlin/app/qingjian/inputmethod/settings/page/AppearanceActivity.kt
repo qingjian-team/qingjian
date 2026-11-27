@@ -1,6 +1,9 @@
 package app.qingjian.inputmethod.settings.page
 
+import android.content.res.Configuration
 import android.graphics.drawable.GradientDrawable
+import android.hardware.input.InputManager
+import android.view.InputDevice
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
@@ -20,10 +23,45 @@ import app.qingjian.inputmethod.theme.TextSize
  * 外观二级页（对应 PC 设置程序的「外观」页）：当前主题的预览、深浅色、主题卡片、候选字号。
  * 主题与键盘配色都来自 PC 的主题库，键盘、候选条、面板与浮动编辑条一起换。改了马上写设置，开着的键盘跟着重建。
  */
-class AppearanceActivity : PageActivity() {
+class AppearanceActivity : PageActivity(), InputManager.InputDeviceListener {
     override val title = R.string.page_appearance
 
+    private val inputManager by lazy { getSystemService(InputManager::class.java) }
+    private var physicalPreview = false
+
+    override fun onStart() {
+        super.onStart()
+        inputManager?.registerInputDeviceListener(this, null)
+        refreshKeyboard()
+    }
+
+    override fun onStop() {
+        inputManager?.unregisterInputDeviceListener(this)
+        super.onStop()
+    }
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        refreshKeyboard()
+    }
+
+    override fun onInputDeviceAdded(deviceId: Int) = refreshKeyboard()
+    override fun onInputDeviceChanged(deviceId: Int) = refreshKeyboard()
+    override fun onInputDeviceRemoved(deviceId: Int) = refreshKeyboard()
+
+    private fun hasPhysicalKeyboard(): Boolean =
+        inputManager?.inputDeviceIds?.any { id ->
+            inputManager?.getInputDevice(id)?.let { !it.isVirtual && it.keyboardType == InputDevice.KEYBOARD_TYPE_ALPHABETIC && it.supportsSource(InputDevice.SOURCE_KEYBOARD) } == true
+        } == true || resources.configuration.let {
+            it.keyboard == Configuration.KEYBOARD_QWERTY && it.hardKeyboardHidden != Configuration.HARDKEYBOARDHIDDEN_YES
+        }
+
+    private fun refreshKeyboard() {
+        if (physicalPreview != hasPhysicalKeyboard()) rebuild()
+    }
+
     override fun content(): List<View> {
+        physicalPreview = hasPhysicalKeyboard()
         val settings = Settings.load(this)
         val dark = settings.appearance.dark(this)
         return listOf(
@@ -50,11 +88,12 @@ class AppearanceActivity : PageActivity() {
         )
     }
 
-    /** 当前主题、外观与字号下的候选条和键盘，候选条按实际大小画。 */
+    /** 当前主题、外观与字号；连接物理键盘时直接预览桌面候选窗。 */
     private fun preview(settings: Settings, dark: Boolean): View {
         val density = resources.displayMetrics.density
-        val strip = Themes.preview(settings.theme, dark, density, settings.textSize.scale)
-        return framed(ThemePreview(this, strip, Palette.of(settings.theme, dark), aspect = 0.42f, keyRadiusDp = 6f), selected = false)
+        val strip = Themes.preview(settings.theme, dark, density, settings.textSize.scale, physicalPreview)
+        return framed(ThemePreview(this, strip, Palette.of(settings.theme, dark), aspect = 0.42f, keyRadiusDp = 6f,
+            physical = physicalPreview), selected = false)
     }
 
     /** 主题卡片两列排：缩小的预览加名字，选中的描品牌色边。 */
@@ -77,8 +116,9 @@ class AppearanceActivity : PageActivity() {
     }
 
     private fun themeCard(theme: ThemeChoice, selected: Boolean, dark: Boolean): View {
-        val strip = Themes.preview(theme.id, dark, resources.displayMetrics.density * 0.62f, 1f)
-        val preview = ThemePreview(this, strip, Palette.of(theme.id, dark), aspect = 0.4f, keyRadiusDp = 3f)
+        val strip = Themes.preview(theme.id, dark, resources.displayMetrics.density * 0.62f, 1f, physicalPreview)
+        val preview = ThemePreview(this, strip, Palette.of(theme.id, dark), aspect = 0.4f, keyRadiusDp = 3f,
+            physical = physicalPreview)
         return LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL

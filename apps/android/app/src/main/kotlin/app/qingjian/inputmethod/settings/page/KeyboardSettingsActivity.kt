@@ -7,6 +7,7 @@ import app.qingjian.inputmethod.keyboard.HapticStrength
 import app.qingjian.inputmethod.settings.BottomAction
 import app.qingjian.inputmethod.settings.GameKeyboard
 import app.qingjian.inputmethod.settings.Settings
+import app.qingjian.inputmethod.settings.PhysicalShortcuts
 import app.qingjian.inputmethod.theme.TextSize
 
 /**
@@ -18,7 +19,18 @@ class KeyboardSettingsActivity : PageActivity() {
 
     override fun content(): List<View> {
         val settings = Settings.load(this)
+        val physical = PhysicalShortcuts.load(this)
         return listOf(
+            ui.group(
+                R.string.section_physical_keyboard,
+                ui.toggle(R.string.physical_shift, null, physical.shift) { prefs.edit().putBoolean(PhysicalShortcuts.KEY_SHIFT, it).apply() },
+                ui.toggle(R.string.physical_control, null, physical.control) { prefs.edit().putBoolean(PhysicalShortcuts.KEY_CONTROL, it).apply() },
+                ui.toggle(R.string.physical_ctrl_alt_space, null, physical.ctrlAltSpace) { prefs.edit().putBoolean(PhysicalShortcuts.KEY_CTRL_ALT_SPACE, it).apply() },
+                ui.toggle(R.string.physical_enter_candidate, R.string.physical_enter_note, physical.enterCandidate) {
+                    prefs.edit().putBoolean(PhysicalShortcuts.KEY_ENTER_CANDIDATE, it).apply()
+                },
+                footer = R.string.physical_keyboard_note,
+            ),
             ui.group(
                 getString(R.string.section_size),
                 listOf(

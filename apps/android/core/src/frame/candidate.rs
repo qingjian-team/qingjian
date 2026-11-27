@@ -7,7 +7,7 @@ use serde::Serialize;
 use super::sense::FrameSense;
 
 /// 候选条画一个候选要的东西；Core 的 `Candidate` 不直接过 JNI，免得 Kotlin 侧跟着 serde 形状走。
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct FrameCandidate {
     pub text: String,
 

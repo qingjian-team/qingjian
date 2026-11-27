@@ -23,12 +23,12 @@ object Themes {
     private val previews = HashMap<String, Bitmap?>()
 
     /**
-     * 主题 [id] 的候选条样子（敲 nihao 的第一页），[scale] 是 dp → 像素的倍数；画过的记着。
+     * 主题 [id] 的候选样子（敲 nihao 的第一页），[physical] 选择桌面候选窗；[scale] 是 dp → 像素的倍数。
      * 渲染器不能跨线程，只在主线程调（一张一两毫秒）。画不出为 null。
      */
-    fun preview(id: String, dark: Boolean, scale: Float, textScale: Float): Bitmap? =
-        previews.getOrPut("$id/$dark/$scale/$textScale") {
-            val bytes = runCatching { Native.themePreview(id, dark, scale, textScale) }.getOrNull()
+    fun preview(id: String, dark: Boolean, scale: Float, textScale: Float, physical: Boolean): Bitmap? =
+        previews.getOrPut("$id/$dark/$scale/$textScale/$physical") {
+            val bytes = runCatching { Native.themePreview(id, dark, scale, textScale, physical) }.getOrNull()
                 ?: return@getOrPut null
             val header = ByteBuffer.wrap(bytes, 0, 8)
             val width = header.int

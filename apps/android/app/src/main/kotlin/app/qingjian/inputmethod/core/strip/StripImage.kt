@@ -12,10 +12,12 @@ import org.json.JSONObject
  */
 class StripImage(
     val bitmap: Bitmap,
+    val content: RectF,
     val candidatesTop: Int,
     /** 主题底色（ARGB），位图没铺满的地方用它填。 */
     val background: Int,
     val hits: List<StripHit>,
+    val pages: List<StripPage>,
     val emoji: Set<Int>,
     /** 拼音行上各字之间那道缝的 x，第 i 个是第 i 个字之前；没有拼音行时为空。 */
     val preeditEdges: List<Float>,
@@ -48,9 +50,15 @@ class StripImage(
         fun parse(meta: JSONObject, bitmap: Bitmap): StripImage {
             val hits = meta.getJSONArray("hits")
             val emoji = meta.getJSONArray("emoji")
+            val pages = meta.optJSONArray("pages") ?: JSONArray()
             val edges = meta.optJSONArray("preedit_edges") ?: JSONArray()
             return StripImage(
                 bitmap = bitmap,
+                content = RectF(
+                    meta.optInt("content_x", 0).toFloat(), meta.optInt("content_y", 0).toFloat(),
+                    (meta.optInt("content_x", 0) + meta.optInt("content_width", bitmap.width)).toFloat(),
+                    (meta.optInt("content_y", 0) + meta.optInt("content_height", bitmap.height)).toFloat(),
+                ),
                 candidatesTop = meta.getInt("candidates_top"),
                 background = meta.getLong("background").toInt(),
                 hits = List(hits.length()) { i ->
@@ -66,6 +74,12 @@ class StripImage(
                             y + hit.getDouble("height").toFloat(),
                         ),
                     )
+                },
+                pages = List(pages.length()) { i ->
+                    val page = pages.getJSONObject(i)
+                    val x = page.getDouble("x").toFloat()
+                    val y = page.getDouble("y").toFloat()
+                    StripPage(page.getInt("step"), RectF(x, y, x + page.getDouble("width").toFloat(), y + page.getDouble("height").toFloat()))
                 },
                 emoji = List(emoji.length(), emoji::getInt).toSet(),
                 preeditEdges = List(edges.length()) { edges.getDouble(it).toFloat() },

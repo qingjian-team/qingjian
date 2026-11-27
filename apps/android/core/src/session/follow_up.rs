@@ -10,7 +10,8 @@ const FOLLOW_UP_COUNT: usize = 8;
 impl Session {
     /// 刚上屏了 `committed`、组句也结束了：把联想词接在 `frame` 的候选后面。开关关着、工具框开着、日语模式不给。
     pub(super) fn offer_follow_ups(&mut self, committed: &str, frame: &mut Frame) {
-        if !self.follow_ups
+        if self.physical_input
+            || !self.follow_ups
             || self.tools_open
             || self.kana.is_some()
             || committed.is_empty()

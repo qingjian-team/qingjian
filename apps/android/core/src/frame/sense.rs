@@ -3,7 +3,7 @@ use qingjian_core::Sense;
 use serde::Serialize;
 
 /// 候选条下面那行小字与长按气泡里的一项。
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct FrameSense {
     /// 词性缩写（`n.`）。
     pub pos: Option<&'static str>,

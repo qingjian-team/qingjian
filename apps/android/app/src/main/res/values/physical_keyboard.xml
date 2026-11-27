@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 物理键盘设置文案。 -->
+<resources>
+    <string name="section_physical_keyboard">物理键盘</string>
+    <string name="physical_shift">单击 Shift 切换语言</string>
+    <string name="physical_control">单击 Ctrl 切换语言</string>
+    <string name="physical_ctrl_alt_space">Ctrl + Alt + Space 切换语言</string>
+    <string name="physical_enter_candidate">Enter 上屏候选</string>
+    <string name="physical_enter_note">关闭时 Space 上屏候选、Enter 原样上屏；开启时交换两键</string>
+    <string name="physical_keyboard_note">切换当前语言与中英键的另一种语言。连接键盘后，屏幕键盘是否显示由系统的物理键盘设置控制；隐藏时仍显示候选。</string>
+    <string name="physical_previous_page">上一页</string>
+    <string name="physical_next_page">下一页</string>
+</resources>

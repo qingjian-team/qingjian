@@ -24,6 +24,15 @@ internal object Native {
 
     external fun push(handle: Long, codePoint: Int): String?
 
+    /** 物理键盘：null 是透传，非空是已消费的一帧。 */
+    external fun physicalKey(handle: Long, action: Int, codePoint: Int, repeat: Boolean): String?
+
+    external fun renderPhysicalMode(handle: Long, label: String, english: Boolean, scale: Float, dark: Boolean): String?
+
+    external fun setPhysicalInput(handle: Long, active: Boolean): String?
+
+    external fun renderPhysical(handle: Long, scale: Float, dark: Boolean): String?
+
     external fun backspace(handle: Long, repeat: Boolean): String?
 
     /** 滑完一笔（`{points, keys}` 的 JSON，像素）：解出的字母进组句，回一帧。 */
@@ -105,7 +114,7 @@ internal object Native {
     external fun keyboardPalette(theme: String, dark: Boolean): String?
 
     /** 主题预览：前 8 字节是宽、高（大端），后面是预乘 RGBA；画不出为 null。渲染器不能跨线程，固定在一条线程上调。 */
-    external fun themePreview(theme: String, dark: Boolean, scale: Float, textScale: Float): ByteArray?
+    external fun themePreview(theme: String, dark: Boolean, scale: Float, textScale: Float, physical: Boolean = false): ByteArray?
 
     /** 把上次 [renderStrip] 的像素（预乘 RGBA）拷进直接缓冲区；缓冲区不够大返回 false。 */
     external fun copyStrip(handle: Long, buffer: java.nio.ByteBuffer): Boolean

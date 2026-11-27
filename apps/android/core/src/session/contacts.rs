@@ -23,7 +23,7 @@ impl Session {
 
     /// 刚上屏的是通讯录里的名字、组句也结束了：记下它，把它的电话、邮箱放进 `frame` 的候选（补全，选中原样上屏）。
     pub(super) fn offer_contact(&mut self, name: &str, frame: &mut Frame) {
-        if !self.contact_details || !self.engine.composition().is_empty() {
+        if self.physical_input || !self.contact_details || !self.engine.composition().is_empty() {
             return;
         }
         let details = self.engine.contact_details(name).to_vec();

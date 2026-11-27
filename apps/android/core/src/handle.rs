@@ -22,6 +22,7 @@ impl Handle {
     /// 取回云联想的结果插进候选，有新的一帧就让画笔记下并返回；没有返回 `None`。
     pub fn poll_prediction(&mut self) -> Option<Frame> {
         let frame = self.session.poll_prediction()?;
+        self.session.note_physical(&frame);
         if let Some(strip) = &mut self.strip {
             strip.show(&frame);
         }
@@ -32,6 +33,7 @@ impl Handle {
     pub fn operate(&mut self, operate: impl FnOnce(&mut Session) -> Frame) -> Frame {
         self.session.poll_glosses();
         let frame = operate(&mut self.session);
+        self.session.note_physical(&frame);
         if let Some(strip) = &mut self.strip {
             strip.show(&frame);
         }

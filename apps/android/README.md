@@ -49,7 +49,7 @@ adb logcat -s qingjian        # Rust 侧日志
 ```
 
 `preBuild` 之前会跑两个任务：`cargoNdk`（`cargo ndk` 编 arm64-v8a 的 release `.so`）与 `stageData`
-（`data/generated/` 有 `dict.qj` 就带产品数据，没有退回 `assets/sample/` 样例）。只编 arm64。
+（`data/generated/` 有 `dict.qj` 就带产品数据，没有退回 `assets/sample/` 样例）。默认编 arm64；模拟器可用 `-PandroidAbis=x86_64`。
 
 装好后打开「青简」，按页面上两步启用并切换输入法。
 

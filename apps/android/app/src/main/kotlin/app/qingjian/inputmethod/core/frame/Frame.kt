@@ -17,6 +17,8 @@ data class Frame(
     val expression: Boolean,
     /** 这段组句在单字模式：候选只有单字，展开面板的「单字」标签亮着。 */
     val singleChars: Boolean = false,
+    /** 物理键盘编辑时的拼音光标，按Unicode字符计数。 */
+    val preeditCursor: Int = Int.MAX_VALUE,
 ) {
     companion object {
         val EMPTY = Frame("", 0, "", "", emptyList(), emptyList(), false)
@@ -44,7 +46,7 @@ data class Frame(
             return Frame(
                 root.getString("commit"), root.optInt("replace"), root.getString("preedit"), root.getString("notice"),
                 List(choices.length(), choices::getString), candidates, root.optBoolean("expression"),
-                root.optBoolean("single_chars"),
+                root.optBoolean("single_chars"), root.optInt("preedit_cursor", Int.MAX_VALUE),
             )
         }
 
