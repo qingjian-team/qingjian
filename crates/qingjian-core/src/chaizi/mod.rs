@@ -41,6 +41,11 @@ pub fn lookup(body: &str, limit: usize) -> Vec<Hit> {
     TABLE.lookup(body, limit)
 }
 
+/// 这个字的标准笔顺（`hpzhhsn` 这种键位写法）；表里没有为 `None`。
+pub fn strokes_of(ch: char) -> Option<&'static str> {
+    TABLE.strokes_of(ch)
+}
+
 /// 有没有字能被 `body` 对上：问字模式据此判断数字键是选字还是码点的一部分。
 ///
 /// **只问「部件读音连写」这一条老口径**（`umumu`），不含笔画与混输——`uface` 这类十六进制串

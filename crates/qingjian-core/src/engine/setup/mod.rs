@@ -129,6 +129,12 @@ impl Engine {
         self.aux_enabled = enabled;
     }
 
+    /// `u` 模式候选旁要不要那行笔顺 / 读音小字（配置 `[general] u_mode_stroke_hint`，缺省要）。
+    /// 关掉之后那行小字整行不出。
+    pub fn set_u_mode_stroke_hint(&mut self, on: bool) {
+        self.u_stroke_hint = on;
+    }
+
     /// 换「候选上显示码」开关（配置项 `[general] aux_code_show`，缺省关）：纯拼音态挂不挂首条码。
     pub fn set_aux_show(&mut self, show: bool) {
         self.aux_show = show;

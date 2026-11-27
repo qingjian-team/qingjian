@@ -268,6 +268,9 @@ appearance = "system"
 # 候选窗口主题（主题 id）：qingjian 青简绿 / system-blue 系统蓝 / wechat 微信绿 / sujian 素笺 / sakura 樱花 / dafeiyu 大肥鱼 / miku 初音未来 / bocchi 波奇酱。只对青简渲染器生效
 theme = "qingjian"
 # 候选窗口排布：vertical 竖排 / horizontal 横排（横排只给高亮候选显示译文）
+# `u` 模式候选旁那行小字（笔顺 / 读音）显不显示。缺省显示：笔画打错位时那里给标准笔顺，
+# 照着就能看出哪一笔敲错了；关掉后候选更干净，也就没有这句提示
+u_mode_stroke_hint = true
 layout = "vertical"
 # 横排时 ↑ / ↓ 把单行展开成 6 行矩阵并换行（一行一页候选），← / → 改为在候选之间移动（拼音光标用 ⌥←/→、⌘←/→），
 # Esc 第一下先收回单行。缺省 false：横排下 ↑ / ↓ 逐个移动高亮、← / → 移动拼音光标，与以前一样。只有 macOS 用

@@ -280,6 +280,8 @@ impl Router {
             .set_aux_weighting(config.general.aux_code_weighting);
         self.engine.set_show_tones(config.general.show_tones);
         self.engine
+            .set_u_mode_stroke_hint(config.general.u_mode_stroke_hint);
+        self.engine
             .set_calendar_shortcuts_first(config.general.calendar_shortcuts_first);
         self.engine.set_chinese_first(config.general.chinese_first);
         self.engine

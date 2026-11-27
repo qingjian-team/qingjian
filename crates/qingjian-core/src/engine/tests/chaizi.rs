@@ -249,3 +249,74 @@ fn a_long_english_string_stays_clean() {
         );
     }
 }
+
+/// 错一笔、错两笔都能出字（错得少的排前面由 `chaizi::table` 的排序键保证）。
+#[test]
+fn a_couple_of_wrong_strokes_still_find_the_character() {
+    // 甫 的笔顺是 hpzhhsn：`hszhhsn` 差一笔，`hsshhsn` 差两笔
+    for (input, expected) in [("uhszhhsn", "甫"), ("uhsshhsn", "芙")] {
+        let mut engine = engine();
+        engine.set_input(input);
+        let texts = engine
+            .query()
+            .unwrap()
+            .candidates
+            .items
+            .into_iter()
+            .map(|candidate| candidate.text)
+            .collect::<Vec<_>>();
+        assert!(
+            texts.contains(&expected.to_owned()),
+            "{input} 应该找得到 {expected}：{texts:?}"
+        );
+    }
+}
+
+/// 设置里关掉「u 模式笔顺提示」时，候选旁那行小字整行都不要。
+#[test]
+fn the_stroke_hint_can_be_turned_off() {
+    let mut engine = engine();
+    engine.set_input("uhszhhsn");
+    let with_hint = engine.query().unwrap().candidates.items;
+    assert!(
+        with_hint
+            .iter()
+            .any(|candidate| candidate.reading.is_some()),
+        "缺省要给笔顺提示"
+    );
+
+    engine.set_u_mode_stroke_hint(false);
+    engine.set_input("uhszhhsn");
+    let without = engine.query().unwrap().candidates.items;
+    assert!(!without.is_empty(), "关掉提示不影响候选本身");
+    assert!(
+        without.iter().all(|candidate| candidate.reading.is_none()),
+        "关掉之后一行小字都不出"
+    );
+}
+
+/// 笔画打错了一笔也要出字：排在打得对的之后，旁边给标准笔顺（纯文本，不夹标记字符）。
+#[test]
+fn a_slightly_wrong_stroke_order_still_finds_the_character() {
+    let mut engine = engine();
+    // 甫 的标准笔顺是 hpzhhsn（横撇折横横竖捺）；这里第二笔敲成竖
+    engine.set_input("uhszhhsn");
+    let query = engine.query().unwrap();
+    let fu = query
+        .candidates
+        .items
+        .iter()
+        .find(|candidate| candidate.text == "甫")
+        .expect("错一笔也要找得到 甫");
+    // 说明是标准笔顺本身：用户照着比对就能看出自己哪一笔敲错了，
+    // 文字里不夹任何私用区字符（读屏与复制都不该带上标记）
+    assert_eq!(
+        fu.reading.as_deref(),
+        Some("hpzhhsn"),
+        "旁边该给标准笔顺：{:?}",
+        fu.reading
+    );
+    // 打对的还是排在打错的前面
+    engine.set_input("uhpzhhsn");
+    assert_eq!(first_texts(&engine, 1), ["甫"]);
+}

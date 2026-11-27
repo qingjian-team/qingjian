@@ -59,6 +59,10 @@ pub struct GeneralConfig {
     /// 缺省关：只用简拼的人（`sj` 想打「手机」）会整页看不到词。
     pub calendar_shortcuts_first: bool,
 
+    /// `u` 模式候选旁看不看那行笔顺 / 读音小字。缺省看：笔画打错位时那里给标准笔顺，
+    /// 用户照着就能看出自己哪一笔敲错了。
+    pub u_mode_stroke_hint: bool,
+
     /// 候选窗口竖排 / 横排。
     pub layout: LayoutMode,
 
@@ -285,6 +289,7 @@ impl Default for GeneralConfig {
             appearance: Some(Appearance::default()),
             theme: DEFAULT_THEME.to_owned(),
             calendar_shortcuts_first: false,
+            u_mode_stroke_hint: true,
             layout: LayoutMode::default(),
             horizontal_grid: false,
             grid_page_keys: false,

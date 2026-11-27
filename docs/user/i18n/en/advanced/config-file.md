@@ -29,6 +29,7 @@ All settings are kept in one TOML text file, `config.toml`, with a note for ever
 |---|---|---|
 | `[general] scheme` | 输入 → 拼音 (Input → Pinyin) | `pinyin` (full pinyin), `xiaohe`, `ziranma`, `microsoft`, `sogou`, `abc`, `xiaolang`, `shoudao`, `jiajia`, `ziguang`, `zhuyin`, or the folder name of a custom scheme |
 | `[general] hold_selections` | 输入 → 分次选词先不上屏 (Input → Keep partial picks until done) | `true` / `false` |
+| `[general] u_mode_stroke_hint` | 问字（`u` 模式）→ 候选旁的笔顺提示 (Character lookup (`u` mode) → Stroke-order hint next to candidates) | `true` / `false`, default `true`: while looking characters up by stroke order, the small line next to a candidate spells out its strokes and marks the one typed wrong; off hides that line |
 | `[fuzzy]` section | 输入 → 模糊音 (Input → Fuzzy pinyin) | The ten built-in pairs `z_zh` … `eng_ong` are each `true` / `false`; `custom` lists your own rules, e.g. `["ian=iang", "fa=hua"]`, and `custom_off` lists the ones turned off; see [Custom rules](../input/fuzzy-and-shuangpin.md#Custom-rules) |
 | `[auto_phrase] enabled` | Input → Automatic Wubi phrases → Learn new Wubi phrases automatically | `true` (default) / `false`; only controls consecutive Wubi learning, without affecting Pinyin, Shuangpin, existing words or frequency learning |
 | `[auto_phrase] max_chars` | Input → Automatic Wubi phrases → Maximum phrase length | 2–10 Chinese characters for Wubi phrases, default 4; out-of-range values are clamped; code length is unchanged and Pinyin/Shuangpin phrase memory is unaffected |
