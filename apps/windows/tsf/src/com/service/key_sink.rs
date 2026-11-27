@@ -8,7 +8,7 @@ use std::time::Instant;
 
 use windows::Win32::Foundation::{FALSE, LPARAM, WPARAM};
 use windows::Win32::UI::Input::KeyboardAndMouse::{
-    VK_BACK, VK_CAPITAL, VK_LSHIFT, VK_RSHIFT, VK_SHIFT,
+    VK_BACK, VK_CAPITAL, VK_ESCAPE, VK_LSHIFT, VK_RSHIFT, VK_SHIFT,
 };
 use windows::Win32::UI::TextServices::{ITfContext, ITfKeyEventSink_Impl};
 use windows::core::{BOOL, GUID, Ref, Result};
@@ -39,7 +39,13 @@ impl ITfKeyEventSink_Impl for TextService_Impl {
         let vk = wparam.0 as u32;
         self.note_key_down(vk, lparam);
         if self.keyboard_disabled(&pic) {
+            if self.shared.following_up() {
+                self.shared.end_composing();
+            }
             return Ok(FALSE);
+        }
+        if self.shared.following_up() && self.shared.last_context().as_ref() != pic.ok().ok() {
+            self.shared.end_composing();
         }
         let event = self.key_event(vk, is_repeat(lparam));
         if let Some(eat) = self.preflight_digit(&pic, event) {
@@ -51,6 +57,9 @@ impl ITfKeyEventSink_Impl for TextService_Impl {
         // 下一轮在组句外长按退格时第一记被吃、系统的自动重复被截断，
         // 表现为「只删一个就不动了」。
         if !eat {
+            if self.shared.following_up() {
+                self.shared.end_composing();
+            }
             self.shared.set_emptied_backspace(false);
         }
         Ok(eat.into())
@@ -119,10 +128,10 @@ impl ITfKeyEventSink_Impl for TextService_Impl {
 }
 
 impl TextService_Impl {
-    /// 没在组句时看上下文有没有禁键盘（密码框）：禁了整键放行、不组句。组句中不看——那段组句是我们自己的，
-    /// 应用要禁会先终止它。每键两次 compartment 读取，微秒级。
+    /// 没有实际组句时检查应用禁键盘的状态，包括只显示上屏后联想时。
+    /// 真正组句中由应用先终止组句。每键两次 compartment 读取，微秒级。
     fn keyboard_disabled(&self, pic: &Ref<ITfContext>) -> bool {
-        if self.shared.composing() {
+        if self.shared.composing() && !self.shared.following_up() {
             return false;
         }
         let Ok(context) = pic.ok() else {
@@ -130,7 +139,7 @@ impl TextService_Impl {
         };
         let disabled = crate::com::context::keyboard_disabled(context);
         if disabled {
-            log("上下文禁用键盘（密码框），放行");
+            log("keyboard disabled by input context; passing the key through");
         }
         disabled
     }
@@ -217,6 +226,17 @@ impl TextService_Impl {
             return true;
         }
         let input = self.input_settings.get().unwrap_or_default();
+        if self.shared.following_up() {
+            return event.virtual_key == u32::from(VK_ESCAPE.0)
+                || input.accepts_wubi_follow_up_space(event)
+                || eats_key(
+                    event,
+                    false,
+                    false,
+                    input.shift_letter_compose,
+                    input.english_candidates,
+                );
+        }
         eats_key(
             event,
             self.shared.composing(),

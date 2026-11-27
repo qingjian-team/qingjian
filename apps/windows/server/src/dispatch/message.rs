@@ -92,6 +92,9 @@ impl Router {
             ClientMessage::HideCandidates { session } => {
                 // 组句在 DLL 侧结束（应用终止组句 / 翻译评审失焦）：只收窗口；缓冲留给下一键的 Commit 清。
                 if self.focused == Some(session) {
+                    if self.has_follow_ups() {
+                        self.engine.break_chain();
+                    }
                     self.end_translation();
                     self.cancel_prediction();
                     self.hide_candidate_window();
@@ -202,6 +205,7 @@ impl Router {
                 caret: None,
             };
         }
+        let follow_up_effect = self.apply_follow_up_key(&event);
         if self.engine.composition().is_empty()
             && !self.panel_open()
             && self.matches_translate_panel_combo(&event)
@@ -237,10 +241,10 @@ impl Router {
                 request: self.selection_seq,
             };
         }
-        let (commit, outcome) = match self.apply_key(&event) {
+        let (commit, outcome) = match follow_up_effect.unwrap_or_else(|| self.apply_key(&event)) {
             Effect::Changed(commit) => {
                 if !event.modifiers.vietnamese_mode {
-                    self.recompose();
+                    self.recompose(commit.as_deref());
                 }
                 (commit, KeyOutcome::Consumed)
             }

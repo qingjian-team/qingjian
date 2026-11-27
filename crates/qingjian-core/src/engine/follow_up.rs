@@ -1,4 +1,4 @@
-//! 上屏后的联想：一个中文词上屏、组句也结束了，列出最可能接在它后面的词，点了直接上屏（Android 候选条用）。
+//! 一个中文词上屏、组句也结束后，给出可直接上屏的接续词。
 //!
 //! 先列用户自己在这个词后面接过的（个人 n-gram），再补语言模型里最常见的接续；只给全是汉字、不超过
 //! [`MAX_FOLLOW_UP_CHARS`] 个字的词。上屏的联想词照常记词频与转移，并接着推进上文，可以一路点下去。
@@ -13,6 +13,20 @@ use crate::candidate::{Candidate, CandidateKind};
 const MAX_FOLLOW_UP_CHARS: usize = 4;
 
 impl Engine {
+    /// 壳把实际提交的文本传回来，只有与词链末尾相符时才给接续词。
+    /// 原样输入、加标点或上屏译词都可能和词链记录的文本不同。
+    pub fn follow_ups_after_commit(&self, committed: &str, limit: usize) -> Vec<String> {
+        if self.private
+            || !self
+                .chain
+                .previous()
+                .is_some_and(|word| self.traditional.convert(word) == committed.trim())
+        {
+            return Vec::new();
+        }
+        self.follow_ups(limit)
+    }
+
     /// 接在刚上屏的中文词后面的联想，最多 `limit` 个；上文断了（句首、标点、英文、回车上屏拼音之后）或还在组句时为空。
     /// 繁体输出开着时给繁体。
     pub fn follow_ups(&self, limit: usize) -> Vec<String> {

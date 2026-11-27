@@ -37,6 +37,14 @@ With Wubi only, a few more rules apply:
 
 The first two can be turned off: when Pinyin is 关 (Off), 设置 → 输入 (Settings → Input) shows two switches under 形码 (Shape-based), 满码唯一自动上屏 (Auto-commit unique full codes) and 顶字 (Commit on next code), remembered separately for each shape-based scheme.
 
+### Candidate keys and next-word suggestions on Windows
+
+In pure Wubi 86, press `;` for the second candidate on the current page or `'` for the third. A key with no candidate in its slot keeps its usual behavior.
+
+After committing a word, Qingjian suggests a page of words that can follow it and highlights the first suggestion. Your usual combinations appear first, then common combinations. If you use the default `Space` key to commit candidates, press `Space` again to commit the first suggestion. You can also select with a number, the second or third candidate key, or the mouse. Each suggestion page closes after five seconds without a selection. Press `Esc` or continue typing to dismiss it sooner.
+
+Both options are on by default. After selecting Wubi 86, you can change **Select candidates 2 and 3 with ; and '** and **Suggest the next word after Wubi commits** independently under Settings → Input → Wubi candidate selection and suggestions. You can configure them in mixed mode and turn off Pinyin to apply them.
+
 ### Radical chart
 
 With 五笔（86） (Wubi 86) selected as the shape-based scheme, 设置 → 输入 (Settings → Input) also has 键位提示 (Key hints): the Wubi 86 radical chart appears next to the candidate window, with all the radicals of each key on it and the key name and zone number on the bottom row.

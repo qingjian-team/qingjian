@@ -16,3 +16,4 @@ mod rescoring;
 mod shortcuts;
 mod status;
 mod support;
+mod wubi;

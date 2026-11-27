@@ -1,6 +1,7 @@
 //! 组句的展示状态：缓冲变化时重查候选并重建 [`Composed`]；云联想在 [`prediction`]，高亮 / 翻页在 [`navigation`]，
 //! 给 DLL 与自绘窗的帧在 [`frame`]。
 
+mod follow_up;
 mod frame;
 mod navigation;
 mod prediction;
@@ -15,7 +16,7 @@ use super::Router;
 
 impl Router {
     /// 缓冲变化后：按 Engine 状态重建 [`Composed`]，发一次云联想请求，归零高亮与整句补全。
-    pub(super) fn recompose(&mut self) {
+    pub(super) fn recompose(&mut self, committed: Option<&str>) {
         self.composed = None;
         self.highlight = 0;
         self.navigated = false;
@@ -26,6 +27,9 @@ impl Router {
             // 清空时也要撤掉 worker 中的待发请求，避免无用请求占掉最短间隔。
             self.engine.cancel_prediction();
             self.stop_rescoring();
+            if let Some(text) = committed {
+                self.offer_wubi_follow_ups(text);
+            }
             return;
         }
         self.engine.cancel_composition_prediction();

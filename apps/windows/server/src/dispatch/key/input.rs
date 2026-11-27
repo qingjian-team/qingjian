@@ -619,6 +619,13 @@ impl Router {
         {
             return Effect::Changed(None);
         }
+        if self.engine.composing_code()
+            && let Some(digit) = self.wubi_candidate_digit(event)
+            && let Some(index) = self.slot_index(digit)
+            && let Some(text) = self.commit_index(index)
+        {
+            return Effect::Changed(Some(text));
+        }
         if let Some(digit) = codes::digit(event)
             && (!self.engine.is_zhuyin_mode() || self.navigated)
         {

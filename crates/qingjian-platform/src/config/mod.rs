@@ -371,6 +371,8 @@ hold_selections = true
 # **与上面的拼音方案同时开着就是混输**——两边都出候选，编码打全的形码词在前、其次拼音（打不出的字直接打拼音）；
 # 候选旁的译文、生词记录与学习照常。只用形码的话把 scheme 写成 none，这时四码唯一自动上屏、满码再敲字母顶字。
 code = ""
+# Windows 纯五笔：一个词上屏后显示本地联想词。
+wubi_follow_ups = true
 # 日志级别：info 缺省 / debug 详细（会记录敲的拼音与上屏的文字，配合作者排查问题时再开）。日志在 ~/Library/Logs/Qingjian/
 log_level = "info"
 # 输入日志：每次上屏记一行到数据目录的 input-log.jsonl（敲的键、看到的候选、选了什么），只写在这台电脑上，不上传；
@@ -426,6 +428,8 @@ extra_candidate_navigation = false
 # 不能用 Ctrl / Alt / Win 组合、字母数字、翻页键；两项不能相同。空格或回车让出去后又没配给另一项，组句时按它不做事。Windows、Linux 用
 commit_candidate = "space"
 commit_raw = "enter"
+# Windows 纯五笔：分号和单引号选第二、第三个候选。
+wubi_candidate_keys = true
 "#,
     template_shortcut_keys!(),
     r#"

@@ -8,7 +8,7 @@ use std::ops::Range;
 
 use serde::{Deserialize, Serialize};
 
-use qingjian_core::CandidateList;
+use qingjian_core::{CandidateKind, CandidateList};
 
 use crate::{Appearance, LayoutMode, PreeditMode};
 
@@ -103,6 +103,17 @@ pub struct Frame {
 }
 
 impl Frame {
+    /// 只有形码词、没有组句文本的帧是上屏后的接续词，仍可用普通候选的协议显示。
+    pub fn is_code_follow_up(&self) -> bool {
+        !self.symbol_panel
+            && self.preedit.is_empty()
+            && self
+                .candidates
+                .items
+                .first()
+                .is_some_and(|item| item.kind == CandidateKind::Code)
+    }
+
     /// 没有在组句：DLL 据此收起候选窗口。提示不算数（见 [`notice`](Self::notice)），开着的符号面板算。
     pub fn is_empty(&self) -> bool {
         self.preedit.is_empty() && self.candidates.items.is_empty() && !self.symbol_panel

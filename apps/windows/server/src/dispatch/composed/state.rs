@@ -1,10 +1,19 @@
 //! 组句展示状态的枚举。
 
+use std::time::Instant;
+
 use qingjian_core::{CandidateLayout, Query};
 use qingjian_platform::protocol::PreeditSegment;
 
 /// 当前组句缓冲对应的展示状态。缓冲变化时重建，导航只挪高亮，云端词异步并进 `layout`。
 pub(crate) enum Composed {
+    /// 纯五笔上屏后的候选。没有待提交编码，不占用应用文档的组句范围。
+    FollowUps {
+        words: Vec<String>,
+
+        expires_at: Instant,
+    },
+
     /// 越南语 Simple Telex：转换结果第一、原始按键第二，无拼音查询状态。
     Vietnamese {
         text: String,

@@ -2,9 +2,9 @@ use serde::{Deserialize, Serialize};
 
 use super::frame::Frame;
 use super::indicator::IndicatorState;
-use super::key::{CaretEdit, KeyOutcome};
+use super::key::{CaretEdit, KeyEvent, KeyOutcome};
 use super::session::SessionId;
-use crate::config::{KeyCombo, SwitchKeys, ThirdInputMethod};
+use crate::config::{CommitKey, KeyCombo, SwitchKeys, ThirdInputMethod};
 
 /// Server 下发给 DLL 的「按键行为」设置。
 ///
@@ -71,6 +71,10 @@ pub struct InputSettings {
     #[serde(default)]
     pub next_word: Option<KeyCombo>,
 
+    /// 高亮候选仍由普通空格上屏时，DLL 在五笔联想帧也把空格交给 Server。
+    #[serde(default)]
+    pub wubi_follow_up_space: bool,
+
     /// 候选字号（点，`[general] candidate_font_size`）；0 为用主题的。TSF 进程内候选窗
     /// （系统界面宿主里那扇）按它建字体，否则那里只能看到主题缺省字号。
     #[serde(default)]
@@ -87,6 +91,15 @@ pub struct InputSettings {
     /// 竖排窗口在光标上方时倒着排（`[general] vertical_reverse_above`）。
     #[serde(default)]
     pub reverse_above: bool,
+}
+
+impl InputSettings {
+    /// 联想帧仍需要接收长按产生的空格，以便 Server 吞掉重复键。
+    pub fn accepts_wubi_follow_up_space(&self, event: &KeyEvent) -> bool {
+        self.wubi_follow_up_space
+            && event.modifiers == Default::default()
+            && CommitKey::SPACE.matches(event)
+    }
 }
 
 fn english_candidates_default() -> bool {
@@ -109,6 +122,7 @@ impl Default for InputSettings {
             show_english_pronunciation: false,
             single_chars: None,
             next_word: None,
+            wubi_follow_up_space: false,
             candidate_font_size: crate::config::FontSize::default(),
             annotation_font_size: crate::config::FontSize::default(),
             candidate_weight: None,
@@ -121,6 +135,27 @@ impl Default for InputSettings {
 mod tests {
     use super::InputSettings;
     use crate::config::KeyCombo;
+    use crate::protocol::{KeyEvent, KeyModifiers};
+
+    #[test]
+    fn wubi_follow_up_space_accepts_unmodified_space_when_enabled() {
+        let space = KeyEvent::new(0x20, Some(' '), KeyModifiers::default());
+        assert!(!InputSettings::default().accepts_wubi_follow_up_space(&space));
+        let input = InputSettings {
+            wubi_follow_up_space: true,
+            ..InputSettings::default()
+        };
+        assert!(input.accepts_wubi_follow_up_space(&space));
+        assert!(input.accepts_wubi_follow_up_space(&space.with_repeat(true)));
+        let shifted = KeyEvent {
+            modifiers: KeyModifiers {
+                shift: true,
+                ..KeyModifiers::default()
+            },
+            ..space
+        };
+        assert!(!input.accepts_wubi_follow_up_space(&shifted));
+    }
 
     #[test]
     fn old_server_settings_disable_the_new_preserved_shortcut() {
@@ -128,6 +163,7 @@ mod tests {
             predict: Some(KeyCombo::PREDICT_DEFAULT),
             single_chars: Some(KeyCombo::SINGLE_CHARS_DEFAULT),
             next_word: Some(KeyCombo::NEXT_WORD_DEFAULT),
+            wubi_follow_up_space: true,
             ..InputSettings::default()
         };
         let mut wire = serde_json::to_value(input).unwrap();
@@ -138,10 +174,12 @@ mod tests {
         wire.as_object_mut().unwrap().remove("predict");
         wire.as_object_mut().unwrap().remove("single_chars");
         wire.as_object_mut().unwrap().remove("next_word");
+        wire.as_object_mut().unwrap().remove("wubi_follow_up_space");
         let old = serde_json::from_value::<InputSettings>(wire).unwrap();
         assert_eq!(old.predict, None);
         assert_eq!(old.single_chars, None);
         assert_eq!(old.next_word, None);
+        assert!(!old.wubi_follow_up_space);
         assert_eq!(old.switch_mode, input.switch_mode);
         assert_eq!(old.english_mode, input.english_mode);
     }

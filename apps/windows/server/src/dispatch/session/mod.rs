@@ -48,6 +48,9 @@ impl Router {
         }
         if self.focused == Some(session) {
             self.engine.set_private(private);
+            if private && self.has_follow_ups() {
+                self.hide_candidate_window();
+            }
         }
     }
 

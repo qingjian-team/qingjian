@@ -73,3 +73,38 @@ fn auto_phrase_controls_write_shared_settings_and_are_searchable() {
     );
     std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
 }
+
+#[test]
+fn wubi_controls_are_independent_and_visible_in_mixed_mode() {
+    use crate::message::Message;
+    use bamboo_slip::App;
+
+    let path = temp_config(
+        "wubi-selection",
+        "[general]\nscheme = \"pinyin\"\ncode = \"wubi86\"\n",
+    );
+    let mut settings = Settings::load(path.clone());
+    let index = crate::view::index(&settings);
+    for key in ["input.wubi_candidate_keys", "input.wubi_follow_ups"] {
+        assert_eq!(
+            index
+                .iter()
+                .any(|entry| entry.title == crate::i18n::tr(key)),
+            crate::support::Feature::WubiSelection.here()
+        );
+    }
+    assert!(settings.config.shortcut.wubi_candidate_keys);
+    assert!(settings.config.general.wubi_follow_ups);
+
+    settings.update(Message::set("shortcut", "wubi_candidate_keys", false));
+    let saved = Config::load(&path).unwrap();
+    assert!(!saved.shortcut.wubi_candidate_keys);
+    assert!(saved.general.wubi_follow_ups);
+
+    settings.update(Message::set("general", "wubi_follow_ups", false));
+    settings.update(Message::set("shortcut", "wubi_candidate_keys", true));
+    let saved = Config::load(&path).unwrap();
+    assert!(saved.shortcut.wubi_candidate_keys);
+    assert!(!saved.general.wubi_follow_ups);
+    std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
+}

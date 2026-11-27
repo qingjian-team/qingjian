@@ -648,6 +648,10 @@ PKG_CONFIG_PATH="$onig" PKG_CONFIG_ALLOW_CROSS=1 RUSTONIG_SYSTEM_LIBONIG=1 \
 
 ## apps/windows
 
+Windows 纯五笔 86 可用 `[shortcut] wubi_candidate_keys`（默认开）将分号、单引号映射到页内第 2、3 格，走数字键相同的候选提交路径。`[general] wubi_follow_ups`（默认开）取 Core 的 `follow_ups_after_commit`，最多一页且不超过 9 条，直接复用已有码候选的帧格式。联想帧没有 preedit，DLL 仍按光标报锚点并轮询鼠标选词，非选词键按空缓冲分派。
+上屏高亮候选使用默认空格键时，Server 通过 `InputSettings::wubi_follow_up_space` 告诉 DLL 转发联想帧上的空格。Server 只用新按下的空格确认首项，自动重复的空格留在当前联想页。
+每页联想有独立的 5 秒期限，计入 Server 的工人节拍。键盘或鼠标选词前也会检查期限，防止提交已经过期的候选。
+
 候选窗 `ui::candidates::CandidateWindow::show` 每次更新内容后用 `SetWindowPos(HWND_TOPMOST)` 重新升到置顶序列首位，并保留 `SWP_NOACTIVATE`；Windows 搜索页后弹出的置顶窗口可能盖住较早创建的候选窗。
 
 用量接线：启动与配置热加载为 CloudPredictor 和 CloudGlossFiller 传同一个 `records/api-usage.json`；设置页的 ConnectionTest 使用该文件。统计页手动刷新读取累计记录，收到 JSON 响应与正文有效性分开统计；原译词自动补充、用户配置及学习文件沿用。

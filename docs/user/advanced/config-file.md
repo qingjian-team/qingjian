@@ -30,6 +30,8 @@ description: 青简的全部设置保存在一个文本配置文件里：位置�
 | `[general] scheme` | 输入 → 拼音 | `pinyin`（全拼）、`xiaohe`、`ziranma`、`microsoft`、`sogou`、`abc`、`xiaolang`、`shoudao`、`jiajia`、`ziguang`、`zhuyin`，或自制方案的文件夹名 |
 | `[general] double_shift_input` | 输入法切换 → 连按两次 Shift 切换第三输入法 | `off`（缺省，不启用）或 `vietnamese`（越南语；输入法实现完成后生效） |
 | `[general] hold_selections` | 输入 → 分次选词先不上屏 | `true` / `false` |
+| `[general] wubi_follow_ups` | 输入 → 五笔选词与联想 → 五笔上屏后联想 | `true`（默认）或 `false`，Windows 纯五笔 86 |
+| `[shortcut] wubi_candidate_keys` | 输入 → 五笔选词与联想 → 分号和单引号选择第二、第三候选 | `true`（默认）或 `false`，Windows 纯五笔 86 |
 | `[general] zero_initial_abbreviation` | 只在配置文件里 | `true` / `false`（缺省关）。全拼下零声母音节用一个字母代表：`aquan` 出「安全」、`e'liao` 出「饵料」。关着时切分与不带这一项完全一样 |
 | `[fuzzy]` 一节 | 输入 → 模糊音 | 十条内置规则 `z_zh` … `eng_ong` 各是 `true` / `false`；`custom` 是自定义规则的列表，如 `["ian=iang", "fa=hua"]`，`custom_off` 列其中暂时关掉的，见 [自定义规则](../input/fuzzy-and-shuangpin.md#自定义规则) |
 | `[auto_phrase] enabled` | 输入 → 五笔自动组词 → 自动学习五笔新词 | `true`（默认）/ `false`；只控制五笔连续组词，不影响拼音、双拼、已有词与词频学习 |

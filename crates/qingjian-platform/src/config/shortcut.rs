@@ -82,6 +82,9 @@ pub struct ShortcutConfig {
 
     /// 组句时原样上屏敲的字母的键（Windows、Linux 用），缺省不带 Shift 的回车。
     pub commit_raw: CommitKey,
+
+    /// Windows 纯五笔下用分号和单引号选当前页的第二、第三个候选。
+    pub wubi_candidate_keys: bool,
 }
 
 impl Default for ShortcutConfig {
@@ -123,6 +126,7 @@ impl Default for ShortcutConfig {
             pick_char: None,
             commit_candidate: CommitKey::SPACE,
             commit_raw: CommitKey::ENTER,
+            wubi_candidate_keys: true,
         }
     }
 }

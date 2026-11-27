@@ -133,7 +133,7 @@ impl Router {
                 return;
             }
         }
-        self.recompose();
+        self.recompose(None);
         let shown = self.self_drawn_frame();
         self.reconcile_candidates(&shown);
     }

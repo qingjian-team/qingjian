@@ -14,16 +14,21 @@ const CLICK_SINCE: u32 = 8;
 impl Router {
     /// 候选窗口上点中了候选或译词（UI 线程经工人通道送来）。
     pub fn handle_click(&mut self, target: HitTarget) {
+        self.expire_follow_ups();
         if let HitTarget::Page(step) = target {
             return self.handle_page_turn(step);
         }
         let Some(session) = self.click_session() else {
             return;
         };
-        if self.translation.is_some() || !self.composing() {
+        if self.translation.is_some() {
             return;
         }
         let text = match target {
+            HitTarget::Candidate(offset) if self.has_follow_ups() => {
+                self.commit_follow_up_at(offset)
+            }
+            _ if !self.composing() => None,
             HitTarget::Candidate(offset) => self
                 .slot_index(offset + 1)
                 .and_then(|index| self.commit_index(index)),
@@ -66,7 +71,7 @@ impl Router {
         let pending = self.take_clicked(session).unwrap_or_default() + &text;
         // 选的词没选完一段拼音时留在组句里，没有要交给 DLL 的
         self.clicked = (!pending.is_empty()).then_some((session, pending));
-        self.recompose();
+        self.recompose(Some(&text));
         let shown = self.self_drawn_frame();
         self.reconcile_candidates(&shown);
     }
