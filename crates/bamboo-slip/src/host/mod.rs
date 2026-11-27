@@ -8,6 +8,7 @@ mod handler;
 mod input;
 mod options;
 mod present;
+mod titlebar;
 
 use winit::event_loop::EventLoop;
 
@@ -18,6 +19,20 @@ pub use clipboard::set_clipboard;
 pub use error::HostError;
 pub use options::WindowOptions;
 
+/// 宿主事件循环的自定义事件：后台线程叫醒窗口，以及 Windows 非客户区标题栏按钮的鼠标通知。
+#[derive(Debug, Clone, Copy)]
+pub(super) enum HostEvent {
+    Wake,
+    #[cfg(target_os = "windows")]
+    CaptionHover(f32, f32),
+    #[cfg(target_os = "windows")]
+    CaptionLeave,
+    #[cfg(target_os = "windows")]
+    CaptionDown(f32, f32),
+    #[cfg(target_os = "windows")]
+    CaptionUp,
+}
+
 /// 窗口顶上让给系统标题栏按钮的高度（点）：macOS 内容铺到标题栏下面，侧栏要躲开红绿灯；其他平台标题栏在窗口外，不用让。
 pub const TITLEBAR: f32 = if cfg!(target_os = "macos") { 28.0 } else { 0.0 };
 
@@ -25,7 +40,7 @@ pub const TITLEBAR: f32 = if cfg!(target_os = "macos") { 28.0 } else { 0.0 };
 pub fn run<A: App + 'static>(app: A, options: WindowOptions) -> Result<(), HostError> {
     let library = FontLibrary::system(&options.locale)?;
     let mut runner = Runner::new(app, library);
-    let mut builder = EventLoop::with_user_event();
+    let mut builder = EventLoop::<HostEvent>::with_user_event();
     // 面板常驻后台：macOS 上不进程序坞、不占菜单栏。winit 启动时自己设激活策略，Info.plist 的 LSUIElement 会被它盖掉
     #[cfg(target_os = "macos")]
     if options.panel {
@@ -36,11 +51,12 @@ pub fn run<A: App + 'static>(app: A, options: WindowOptions) -> Result<(), HostE
     }
     let event_loop = builder.build()?;
     let proxy = event_loop.create_proxy();
+    let wake_proxy = proxy.clone();
     runner.app_mut().set_waker(Waker::new(move || {
         // 事件循环已经停了就算了
-        let _ = proxy.send_event(());
+        let _ = wake_proxy.send_event(HostEvent::Wake);
     }));
-    let mut handler = handler::Handler::new(runner, options);
+    let mut handler = handler::Handler::new(runner, options, proxy);
     event_loop.run_app(&mut handler)?;
     match handler.error.take() {
         Some(error) => Err(error),

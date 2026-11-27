@@ -36,6 +36,14 @@ host = [
     "dep:objc2-quartz-core",
     "dep:objc2-core-graphics",
     "dep:objc2-core-foundation",
+    "windows/Win32_Foundation",
+    "windows/Win32_Graphics_Dwm",
+    "windows/Win32_Graphics_Gdi",
+    "windows/Win32_UI_Controls",
+    "windows/Win32_UI_HiDpi",
+    "windows/Win32_UI_Input_KeyboardAndMouse",
+    "windows/Win32_UI_Shell",
+    "windows/Win32_UI_WindowsAndMessaging",
 ]
 
 [target.'cfg(windows)'.dependencies]

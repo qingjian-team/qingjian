@@ -185,6 +185,16 @@ impl<'a, M> Ui<'a, M> {
         self.interaction.caret_visible()
     }
 
+    /// 窗口当前在前台。
+    pub fn window_active(&self) -> bool {
+        self.interaction.window_active()
+    }
+
+    /// 窗口当前最大化。
+    pub fn window_maximized(&self) -> bool {
+        self.interaction.window_maximized()
+    }
+
     /// 滚动区的滚动位置与上一帧的大小，见 [`Interaction::scroll_offset`]、[`Interaction::scroll_extent`]。
     pub fn scroll(&self, key: Key) -> ((f32, f32), Option<ScrollExtent>) {
         (

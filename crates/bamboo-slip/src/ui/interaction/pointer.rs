@@ -1,7 +1,7 @@
 //! 指针事件：移动更新悬停，按下捕获并给焦点，抬起时还在捕获的元素上就算一次点击；能拖动的元素按下与按住移动时都收到位置。
 
 use super::Interaction;
-use crate::ui::Response;
+use crate::ui::{Response, WindowRegion};
 
 impl<M: Clone> Interaction<M> {
     pub(super) fn pointer_moved(&mut self, pointer: Option<(f32, f32)>) -> Response<M> {
@@ -24,11 +24,18 @@ impl<M: Clone> Interaction<M> {
             Some(&key) => self.chain(self.index.get(&key).copied()).collect(),
             None => Vec::new(),
         };
-        // 最近的带点击消息的元素捕获指针；它被禁用就谁都不捕获，不往上漏给外层
+        // 最近的带点击消息、拖动或窗口按钮的元素捕获指针；它被禁用就谁都不捕获，不往上漏给外层
         self.pressed = path
             .iter()
             .map(|&position| &self.elements[position])
-            .find(|element| element.interact.click.is_some() || element.interact.drag.is_some())
+            .find(|element| {
+                element.interact.click.is_some()
+                    || element.interact.drag.is_some()
+                    || element
+                        .interact
+                        .window_region
+                        .is_some_and(WindowRegion::is_button)
+            })
             .filter(|element| !element.interact.disabled)
             .map(|element| element.key);
         let focused = path

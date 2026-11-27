@@ -3,7 +3,7 @@
 use taffy::NodeId;
 
 use super::event::{KeyPress, TextInput};
-use super::{Cursor, ScrollbarTrack};
+use super::{Cursor, ScrollbarTrack, WindowRegion};
 
 /// 按键处理：处理了就返回消息，没处理返回 `None` 交给上级。
 type KeyHandler<M> = Box<dyn Fn(&KeyPress) -> Option<M>>;
@@ -52,6 +52,9 @@ pub struct Interact<M> {
 
     /// 指针在它上面时的样子；`None` 交给上级定。
     pub(super) cursor: Option<Cursor>,
+
+    /// 自绘标题栏里的窗口区域，见 [`WindowRegion`]。
+    pub(super) window_region: Option<WindowRegion>,
 }
 
 impl<M> Default for Interact<M> {
@@ -77,6 +80,15 @@ impl<M> Interact<M> {
             scroll_obscured: 0.0,
             scrollbar: None,
             cursor: None,
+            window_region: None,
+        }
+    }
+
+    /// 标记元素为自绘标题栏的拖动区或窗口按钮，见 [`WindowRegion`]。
+    pub fn window_region(self, region: WindowRegion) -> Self {
+        Self {
+            window_region: Some(region),
+            ..self
         }
     }
 

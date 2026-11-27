@@ -42,14 +42,15 @@ pub use text::font::{FamilyId, FamilyList, FamilyTable, FontSpec, FontWeight};
 pub use text::{Decoration, TextPainter, TextSize, TextStyle};
 pub use ui::{
     Cursor, ElementState, Elements, Event, Interact, Interaction, Key, KeyCode, KeyPress,
-    Modifiers, Response, ScrollExtent, Searchable, TextInput, Ui,
+    Modifiers, Response, ScrollExtent, Searchable, TextInput, Ui, WindowRegion,
 };
 pub use widgets::{
-    BarChart, Branch, Button, Checkbox, Datum, DownloadLabels, DownloadRow, DownloadState, Edit,
-    FieldValue, Flow, FlowTarget, Heatmap, KeyRecorder, Link, Look, Menu, NavItem, PopupMenu,
-    ProgressBar, ScrollArea, SearchField, Segmented, Select, SelectorBar, SettingRow, Slider,
-    Stepper, Suggestion, Suggestions, Switch, TextEdit, TextField, TextFlow, WidgetColors,
-    WidgetTheme, dialog, field_points, fields, group, group_branches, info, info_with_link,
+    BarChart, Branch, Button, CAPTION_BAR_HEIGHT, CAPTION_BUTTON_HEIGHT, CAPTION_BUTTON_WIDTH,
+    Checkbox, Datum, DownloadLabels, DownloadRow, DownloadState, Edit, FieldValue, Flow,
+    FlowTarget, Heatmap, KeyRecorder, Link, Look, Menu, NavItem, PopupMenu, ProgressBar,
+    ScrollArea, SearchField, Segmented, Select, SelectorBar, SettingRow, Slider, Stepper,
+    Suggestion, Suggestions, Switch, TextEdit, TextField, TextFlow, WidgetColors, WidgetTheme,
+    caption_buttons, dialog, field_points, fields, group, group_branches, info, info_with_link,
     paragraph, section_title, toolbar, tooltip,
 };
 

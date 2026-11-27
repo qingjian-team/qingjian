@@ -52,6 +52,9 @@ pub struct TextField<'a> {
     /// 浅底无边框的样子（搜索框），拿到焦点时才描边。
     filled: bool,
 
+    /// 胶囊形圆角（Windows 11 标题栏正中的搜索框）。
+    pill: bool,
+
     /// 多行时至少显示几行高（字多了往下长）。
     rows: usize,
 
@@ -72,6 +75,7 @@ impl<'a> TextField<'a> {
             width: Some(240.0),
             icon: None,
             filled: false,
+            pill: false,
             rows: 3,
             max_rows: None,
             disabled: false,
@@ -127,6 +131,11 @@ impl<'a> TextField<'a> {
             filled: true,
             ..self
         }
+    }
+
+    /// 胶囊形圆角（半圆两端，标题栏搜索框用）。
+    pub fn pill(self) -> Self {
+        Self { pill: true, ..self }
     }
 
     /// 多行（编辑状态要是 [`TextEdit::multiline`]）至少几行高。
@@ -235,6 +244,8 @@ impl<'a> TextField<'a> {
             |rows: usize| rows.max(1) as f32 * line_height + theme.px(MULTILINE_PADDING * 2.0);
         let (height, min_height, vertical) = if multiline {
             (None, tall(self.rows), MULTILINE_PADDING)
+        } else if self.pill {
+            (Some(theme.px(theme.control_height + 2.0)), 0.0, 0.0)
         } else if self.filled {
             let extra = if theme.input_underline { 0.0 } else { 4.0 };
             (Some(theme.px(theme.control_height + extra)), 0.0, 0.0)
@@ -245,7 +256,29 @@ impl<'a> TextField<'a> {
             Some(rows) if multiline => LengthPercentageAuto::length(tall(rows.max(self.rows))),
             _ => LengthPercentageAuto::auto(),
         };
-        let paint = if theme.input_underline {
+        let radius = if self.pill {
+            height.map_or_else(|| theme.px(theme.control_height / 2.0), |h| h / 2.0)
+        } else if self.filled && !theme.input_underline {
+            theme.px(theme.radius + 1.0)
+        } else {
+            theme.px(theme.radius)
+        };
+        let underline = theme.input_underline;
+        let paint = if self.pill {
+            let fill = if focused {
+                colors.surface
+            } else if state.hovered {
+                over(colors.surface, colors.hover)
+            } else {
+                colors.surface
+            };
+            let border = if !underline && focused {
+                Some((theme.px(1.5), colors.accent))
+            } else {
+                Some((theme.px(1.0), colors.line))
+            };
+            solid(Some(fill), border, radius)
+        } else if underline {
             let fill = if focused {
                 colors.surface
             } else if state.hovered {
@@ -253,11 +286,7 @@ impl<'a> TextField<'a> {
             } else {
                 colors.well
             };
-            solid(
-                Some(fill),
-                Some((theme.px(1.0), colors.line)),
-                theme.px(theme.radius),
-            )
+            solid(Some(fill), Some((theme.px(1.0), colors.line)), radius)
         } else if self.filled {
             let fill = if state.hovered && !focused {
                 over(colors.well, colors.hover)
@@ -265,13 +294,13 @@ impl<'a> TextField<'a> {
                 colors.well
             };
             let border = focused.then(|| (theme.px(1.5), colors.accent));
-            solid(Some(fill), border, theme.px(theme.radius + 1.0))
+            solid(Some(fill), border, radius)
         } else {
             let border = if focused { colors.accent } else { colors.line };
             solid(
                 Some(colors.surface),
                 Some((theme.px(if focused { 1.5 } else { 1.0 }), border)),
-                theme.px(theme.radius),
+                radius,
             )
         };
         let mut children = Vec::new();
@@ -288,7 +317,7 @@ impl<'a> TextField<'a> {
             )?);
         }
         children.push(view);
-        if theme.input_underline && focused {
+        if underline && focused {
             children.push(ui.scene().node(
                 Style {
                     position: Position::Absolute,
@@ -305,9 +334,16 @@ impl<'a> TextField<'a> {
                 &[],
             )?);
         }
+        let horizontal = if self.pill {
+            14.0
+        } else if self.filled {
+            9.0
+        } else {
+            8.0
+        };
         let node = ui.scene().node(
             Style {
-                padding: padding(theme, vertical, if self.filled { 9.0 } else { 8.0 }),
+                padding: padding(theme, vertical, horizontal),
                 size: size(self.width.map(|width| theme.px(width)), height),
                 min_size: Size {
                     width: LengthPercentageAuto::auto(),
@@ -323,14 +359,14 @@ impl<'a> TextField<'a> {
                 } else {
                     AlignItems::CENTER
                 },
-                ..row(theme, 7.0)
+                ..row(theme, if self.pill { 9.0 } else { 7.0 })
             },
             paint,
             &children,
         )?;
         ui.fade(node, key, theme.hover, Easing::Ease);
-        if theme.input_underline {
-            ui.scene().set_clip(node, theme.px(theme.radius));
+        if underline || self.pill {
+            ui.scene().set_clip(node, radius);
         }
         if self.disabled {
             ui.scene().set_opacity(node, DISABLED_OPACITY);

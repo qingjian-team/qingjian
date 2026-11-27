@@ -6,6 +6,7 @@
 //! 写法统一：`控件::new(…).可选设置(…).build(ui, theme, 本地名, 消息)`，本地名在当前作用域下派生稳定 key。
 
 mod button;
+mod caption;
 mod chart;
 mod check_mark;
 mod checkbox;
@@ -44,6 +45,9 @@ mod toolbar;
 mod tooltip;
 
 pub use button::Button;
+pub use caption::{
+    CAPTION_BAR_HEIGHT, CAPTION_BUTTON_HEIGHT, CAPTION_BUTTON_WIDTH, caption_buttons,
+};
 pub use chart::{BarChart, Datum, Heatmap};
 pub use checkbox::Checkbox;
 pub use colors::WidgetColors;

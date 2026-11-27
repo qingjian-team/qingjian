@@ -11,11 +11,12 @@ pub mod palette;
 mod parts;
 pub mod previews;
 mod sidebar;
+mod titlebar;
 
 pub use page::Page;
 
 use bamboo_slip::FontSpec;
-use bamboo_slip::taffy::{Dimension, FlexDirection, NodeId, Size, Style};
+use bamboo_slip::taffy::{Dimension, FlexDirection, LengthPercentageAuto, NodeId, Size, Style};
 use bamboo_slip::{
     Interact, Interaction, KeyCode, Look, RenderError, Ui, Visual, WidgetColors, WidgetTheme,
 };
@@ -77,7 +78,29 @@ pub fn view(
     ui.row_icons(move |title| icons::row_icon(current, title));
     let sidebar = sidebar::sidebar(ui, &page)?;
     let content = content::content(ui, &page)?;
-    let mut children = vec![sidebar, content];
+    let (direction, mut children) = if look == Look::Fluent {
+        let bar = titlebar::titlebar(ui, &page)?;
+        let body = ui.scene().node(
+            Style {
+                flex_grow: 1.0,
+                flex_direction: FlexDirection::Row,
+                size: Size {
+                    width: Dimension::percent(1.0),
+                    height: Dimension::auto(),
+                },
+                min_size: Size {
+                    width: LengthPercentageAuto::auto(),
+                    height: LengthPercentageAuto::length(0.0),
+                },
+                ..Style::default()
+            },
+            Visual::Group,
+            &[sidebar, content],
+        )?;
+        (FlexDirection::Column, vec![bar, body])
+    } else {
+        (FlexDirection::Row, vec![sidebar, content])
+    };
     if let Some(popup) = settings.menu
         && let Some(menu) = parts::menus::menu(ui, &page, popup, (width as f32, height as f32))?
     {
@@ -89,7 +112,7 @@ pub fn view(
                 width: Dimension::length(width as f32),
                 height: Dimension::length(height as f32),
             },
-            flex_direction: FlexDirection::Row,
+            flex_direction: direction,
             ..Style::default()
         },
         Visual::solid(palette.window, 0.0),
