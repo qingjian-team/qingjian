@@ -474,7 +474,7 @@ impl Engine {
     /// 但按语言模型把它切成词（[`sentence::segment_text`]）逐条记进个人 n-gram，与选整句候选一样；
     /// 标点处断句，句尾是标点时之后的词按句首记。整句退格删光再重打时这些转移一并退回。
     /// 切出的词逐词反查词库能对齐读音、且整句满足本地整句同样的回灌条件时（单句、几个多字词拼成、
-    /// 总字数不超限，issue #604），以整句读音为键走 [`Self::finish_buffer`] 学成用户词，
+    /// 总字数不超限，issue #604），以整句读音为键走 `finish_buffer` 学成用户词，
     /// 记进这次上屏的 `phrase`，退格撤销时一并退回；对不齐就只记 n-gram。
     pub fn accept_prediction(&mut self, text: &str) -> String {
         self.chain.clear_code_words();
