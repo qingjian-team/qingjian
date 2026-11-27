@@ -113,6 +113,23 @@ fn fuzzy_hits_consume_the_typed_syllables() {
     assert_eq!(engine.learner().typo_count("zi", "zhi"), 0);
 }
 
+#[test]
+fn fuzzy_initial_can_complete_a_syllable_before_segmentation() {
+    let dictionary = Dictionary::parse("状态\tzhuang tai\t9000\n").unwrap();
+    let mut engine = Engine::new(dictionary);
+    engine.set_fuzzy(FuzzyRules {
+        z_zh: true,
+        ..FuzzyRules::default()
+    });
+    engine.set_input("zuangtai");
+    let query = engine.query().unwrap();
+    assert_eq!(query.marked_text(), "zuang'tai");
+    let candidate = query.candidates.items[0].clone();
+    assert_eq!(candidate.text, "状态");
+    assert_eq!(engine.commit(&candidate), "状态");
+    assert!(engine.composition().is_empty());
+}
+
 /// 接受整段一处编辑的纠正也记个人敲错表：敲的那段字母对纠正后的音节。
 #[test]
 fn accepted_whole_string_correction_feeds_the_typo_table() {

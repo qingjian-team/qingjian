@@ -768,6 +768,42 @@ fn marked_rest(rest: &str) -> String {
     }
 }
 
+impl Engine {
+    /// 按当前模糊音规则切分。模糊音只扩展切分候选，不改用户敲的字母；
+    /// 后续查词仍由 [`FuzzyRules::expand`] 负责给模糊写法计价。
+    fn fuzzy_segment(&self, text: &str) -> Result<Vec<Segmentation>, ParseError> {
+        if !self.fuzzy.any() {
+            return parser::segment(text);
+        }
+        parser::segment_with(text, |candidate| {
+            self.fuzzy
+                .readings(candidate)
+                .iter()
+                .any(|reading| parser::is_syllable(reading))
+        })
+    }
+
+    /// 整段切不动时退而求其次：找能切分的最长前缀，剩余字母作为尾部返回。
+    /// 模糊音开启时，前缀也允许按模糊写法成为完整音节（`zuang` → `zhuang`）。
+    fn segment_longest_prefix<'a>(
+        &self,
+        text: &'a str,
+    ) -> Result<(Vec<Segmentation>, &'a str), ParseError> {
+        match self.fuzzy_segment(text) {
+            Ok(segmentations) => Ok((segmentations, "")),
+            Err(ParseError::NoSegmentation) => (1..text.len())
+                .rev()
+                .find_map(|end| {
+                    self.fuzzy_segment(&text[..end])
+                        .ok()
+                        .map(|s| (s, &text[end..]))
+                })
+                .ok_or(ParseError::NoSegmentation),
+            Err(error) => Err(error),
+        }
+    }
+}
+
 /// 整段切不动时退而求其次：找能切分的最长前缀，剩余字母作为尾部返回。
 /// `kaifv` → (`kai f…` 的切分, `v`)。连第一个字母都切不动才报错。
 fn segment_longest_prefix(text: &str) -> Result<(Vec<Segmentation>, &str), ParseError> {
