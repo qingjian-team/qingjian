@@ -30,8 +30,8 @@ pub use script::translation_target;
 pub use surrounding_text::SurroundingText;
 
 use super::{
-    Engine, MIN_PREDICTION_LETTERS, PREDICTION_CANDIDATE_HINTS, is_raw, query,
-    segment_longest_prefix, take_first_chars, take_last_chars,
+    Engine, MIN_PREDICTION_LETTERS, PREDICTION_CANDIDATE_HINTS, SENTENCE_WORD_MAX_CHARS, is_raw,
+    query, segment_longest_prefix, take_first_chars, take_last_chars,
 };
 use crate::candidate::Candidate;
 use crate::engine::commit::LastCommit;
@@ -40,6 +40,9 @@ use crate::parser::{self, Segmentation};
 use crate::{sentence, shortcut};
 
 pub(crate) use pending::PendingPrediction;
+
+/// 反查一个词的读音时最多试多少种逐字音节组合：多音字多的词组合会爆，超了就放弃回灌。
+const MAX_READING_COMBINATIONS: usize = 256;
 
 impl Engine {
     /// 是否接了会联想的 Predictor；壳据此决定要不要起轮询定时器、画云朵标识。
@@ -467,9 +470,12 @@ impl Engine {
         });
     }
 
-    /// 用户接受一条整句补全：作用域内的拼音作废、句子上屏。句子没有拼音，记不了词频与用户词，
+    /// 用户接受一条整句补全：作用域内的拼音作废、句子上屏。句子没有拼音，记不了词频，
     /// 但按语言模型把它切成词（[`sentence::segment_text`]）逐条记进个人 n-gram，与选整句候选一样；
     /// 标点处断句，句尾是标点时之后的词按句首记。整句退格删光再重打时这些转移一并退回。
+    /// 切出的词逐词反查词库能对齐读音、且整句满足本地整句同样的回灌条件时（单句、几个多字词拼成、
+    /// 总字数不超限，issue #604），以整句读音为键走 `finish_buffer` 学成用户词，
+    /// 记进这次上屏的 `phrase`，退格撤销时一并退回；对不齐就只记 n-gram。
     pub fn accept_prediction(&mut self, text: &str) -> String {
         self.chain.clear_code_words();
         // 壳送回来的是繁体那份：先换回简体，下面的学习、日志、n-gram 一律看简体
@@ -486,18 +492,45 @@ impl Engine {
         self.composition.drain_scope();
         self.punctuation.note_committed(text);
         self.note_text(text);
+        let mut phrase = None;
         match sentence::segment_text(text, &*self.language_model) {
             Some(clauses) => {
                 let buffer_left = !self.composition.is_empty();
                 let count = clauses.len();
-                for (index, words) in clauses.iter().enumerate() {
+                // 回灌要整句读音当学习键：云端补全只敲了开头，敲的拼音对不齐整句，
+                // 读音只能逐词反查词库（见 [`Self::sentence_readings`]）；多句不合成
+                let readings = if !buffer_left && count == 1 {
+                    self.sentence_readings(&clauses[0])
+                } else {
+                    None
+                };
+                if let Some(readings) = &readings
+                    && !self.chain.same_buffer()
+                {
+                    let key: String = readings.iter().flatten().cloned().collect();
+                    self.chain.begin_buffer(key);
+                }
+                for (clause_index, words) in clauses.iter().enumerate() {
                     // 第一句接着前面上屏的词；标点之后的各句从句首起
-                    if index > 0 {
+                    if clause_index > 0 {
                         self.chain.reset();
                     }
-                    for word in words {
-                        self.record_word(word, &[], 1, false, buffer_left || index + 1 < count);
+                    for (word_index, word) in words.iter().enumerate() {
+                        let syllables: &[String] = match &readings {
+                            Some(readings) => &readings[word_index],
+                            None => &[],
+                        };
+                        self.record_word(
+                            word,
+                            syllables,
+                            1,
+                            false,
+                            buffer_left || clause_index + 1 < count,
+                        );
                     }
+                }
+                if readings.is_some() {
+                    phrase = self.finish_buffer(SENTENCE_WORD_MAX_CHARS);
                 }
                 if text.chars().last().is_some_and(|c| !c.is_alphanumeric()) {
                     self.chain.reset();
@@ -517,10 +550,80 @@ impl Engine {
             typos: Vec::new(),
             erased: 0,
             log_id,
-            phrase: None,
+            phrase,
         };
         self.remember_commit(commit);
         self.take_held() + &traditional_text
+    }
+
+    /// 云端整句回灌成用户词需要的读音：与本地整句同一组条件（至少两个词、每个词不止一个字、
+    /// 总字数不超过 [`SENTENCE_WORD_MAX_CHARS`]），切出的词逐词反查词库，整句都对得上才返回。
+    fn sentence_readings(&self, words: &[String]) -> Option<Vec<Vec<String>>> {
+        let chars: usize = words.iter().map(|w| w.chars().count()).sum();
+        if words.len() < 2
+            || chars > SENTENCE_WORD_MAX_CHARS
+            || words.iter().any(|w| w.chars().count() < 2)
+        {
+            return None;
+        }
+        words.iter().map(|w| self.word_reading(w)).collect()
+    }
+
+    /// 一个词在词库里的读音：逐字列出词库认的音节再组合验证，组合起来词库里有这个词才算数，
+    /// 多音字靠词级命中定读音。组合数太多就放弃，宁可不学也不学错读音。
+    fn word_reading(&self, word: &str) -> Option<Vec<String>> {
+        let chars: Vec<char> = word.chars().collect();
+        if chars.is_empty() {
+            return None;
+        }
+        let mut per_char: Vec<Vec<&str>> = Vec::with_capacity(chars.len());
+        let mut combinations: usize = 1;
+        for ch in &chars {
+            let ch = ch.to_string();
+            let readings: Vec<&str> = parser::SYLLABLES
+                .iter()
+                .copied()
+                .filter(|syllable| self.char_reads(&ch, syllable))
+                .collect();
+            if readings.is_empty() {
+                return None;
+            }
+            combinations = combinations.checked_mul(readings.len())?;
+            if combinations > MAX_READING_COMBINATIONS {
+                return None;
+            }
+            per_char.push(readings);
+        }
+        let mut indices = vec![0usize; chars.len()];
+        loop {
+            let combo: Vec<String> = per_char
+                .iter()
+                .zip(&indices)
+                .map(|(options, &index)| options[index].to_owned())
+                .collect();
+            let refs: Vec<&str> = combo.iter().map(String::as_str).collect();
+            let attested = self.all_dictionaries().into_iter().any(|dictionary| {
+                dictionary
+                    .lookup(&refs, false)
+                    .iter()
+                    .any(|hit| hit.exact && hit.text == word)
+            });
+            if attested {
+                return Some(combo);
+            }
+            let mut position = indices.len();
+            loop {
+                if position == 0 {
+                    return None;
+                }
+                position -= 1;
+                indices[position] += 1;
+                if indices[position] < per_char[position].len() {
+                    break;
+                }
+                indices[position] = 0;
+            }
+        }
     }
 
     /// 云端词学成用户词时用哪套音节。模型给的读音偶有错（我的 → wo di），错读音学进去以后只会按错读音出来，
