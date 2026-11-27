@@ -2,7 +2,7 @@ use super::ChoiceScorer;
 use crate::NeuralError;
 
 const CLS: u32 = 2;
-const SEP: u32 = 1;
+pub(super) const SEP: u32 = 1;
 const MASK: u32 = 4;
 
 /// 上文最多留最后这么多个 token。
@@ -14,36 +14,43 @@ const CANDIDATE_TOKENS: usize = 16;
 /// 拼音单元最多这么多个。
 const MAX_UNITS: usize = 24;
 
-/// 一次打分的输入序列。
+/// 一次前向的输入序列。
 pub(super) struct Sequence {
     pub ids: Vec<u32>,
+
     pub units: Vec<u32>,
+
+    /// 各候选的标记位置；整句序列为空（模型说明：整句不在任何位置加候选向量）。
     pub markers: Vec<u32>,
 }
 
 impl ChoiceScorer {
-    /// `<bos> 上文 <eos> <mask>×单元 <eos> <mask> 候选1 <mask> 候选2 … <eos>`。
+    /// 旧格式：`<bos> 上文 <eos> <mask>×单元 <eos> <mask> 候选1 <mask> 候选2 … <eos>`；
+    /// 紧凑格式：`<bos> 上文 <eos> <mask>×单元 <eos> 候选1 候选2 … <eos>`，标记是各候选的第一个 token。
     pub(super) fn sequence(
         &self,
         context: &str,
         typed: &[u32],
         candidates: &[&str],
     ) -> Result<Sequence, NeuralError> {
-        let mut ids = vec![CLS];
         let context = self.encode(context);
-        ids.extend(&context[context.len().saturating_sub(CONTEXT_TOKENS)..]);
-        ids.push(SEP);
-        let mut units = vec![0; ids.len()];
-        for &unit in typed.iter().take(MAX_UNITS) {
-            ids.push(MASK);
-            units.push(unit);
-        }
-        ids.push(SEP);
+        let (mut ids, mut units) = self.lead_and_slots(
+            &context[context.len().saturating_sub(CONTEXT_TOKENS)..],
+            typed,
+        );
         let mut markers = Vec::with_capacity(candidates.len());
         for candidate in candidates {
+            let tokens = if self.format.compact {
+                self.tokenizer.encode_bare(candidate)
+            } else {
+                self.encode(&format!(" {candidate}"))
+            };
             markers.push(ids.len() as u32);
-            ids.push(MASK);
-            let tokens = self.encode(&format!(" {candidate}"));
+            if !self.format.compact {
+                ids.push(MASK);
+            } else if tokens.is_empty() {
+                return Err(NeuralError::Corrupt("empty candidate"));
+            }
             ids.extend(tokens.iter().take(CANDIDATE_TOKENS));
         }
         ids.push(SEP);
@@ -53,6 +60,40 @@ impl ChoiceScorer {
             units,
             markers,
         })
+    }
+
+    /// 紧凑格式的整句序列：`<bos> 前缀+上文 <eos> <mask>×单元 <eos>`，没有候选。
+    /// 前缀与上文合起来超长时留前缀自己的 token 和上文末尾，共 `compose_context_tokens` 个。
+    pub(super) fn compose_sequence(&self, context: &str, typed: &[u32]) -> Sequence {
+        let prefix = &self.format.context_prefix;
+        let mut lead = self.encode(&format!("{prefix}{context}"));
+        let limit = self.format.compose_context_tokens;
+        if limit > 0 && lead.len() > limit {
+            let keep = self.encode(prefix).len().min(limit);
+            lead.drain(keep..lead.len() - (limit - keep));
+        }
+        let (ids, units) = self.lead_and_slots(&lead, typed);
+        Sequence {
+            ids,
+            units,
+            markers: Vec::new(),
+        }
+    }
+
+    /// `<bos> lead <eos> <mask>×单元 <eos>` 与每个位置的单元（拼音槽位以外为 0）。
+    fn lead_and_slots(&self, lead: &[u32], typed: &[u32]) -> (Vec<u32>, Vec<u32>) {
+        let mut ids = Vec::with_capacity(lead.len() + typed.len() + 3);
+        ids.push(CLS);
+        ids.extend(lead);
+        ids.push(SEP);
+        let mut units = vec![0; ids.len()];
+        for &unit in typed.iter().take(MAX_UNITS) {
+            ids.push(MASK);
+            units.push(unit);
+        }
+        ids.push(SEP);
+        units.push(0);
+        (ids, units)
     }
 
     /// 英文：逐个字母的单元。

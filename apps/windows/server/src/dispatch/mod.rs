@@ -264,6 +264,11 @@ impl Router {
             show_english_pronunciation: self.config.show_english_pronunciation,
             single_chars: self.config.single_chars,
             next_word: self.config.next_word,
+            // 系统界面宿主里那扇 TSF 进程内候选窗由 DLL 自己画，字号 / 字重 / 动画只能由 Server 告诉它。
+            candidate_font_size: self.config.font_sizes.0,
+            annotation_font_size: self.config.font_sizes.1,
+            candidate_weight: self.config.candidate_weight,
+            reverse_above: self.config.reverse_above,
         }
     }
 

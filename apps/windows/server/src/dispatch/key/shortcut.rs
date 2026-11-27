@@ -42,11 +42,12 @@ impl Router {
         }
     }
 
-    /// 当前页第 `digit` 个候选（1 起）。
+    /// 当前页第 `digit` 个候选（1 起）。数字超出本页就不算——不然每页只有 5 个时按 7
+    /// 会取到下一页的候选，把用户看不见的那个词的译词上屏。
     fn candidate_on_page(&self, digit: usize) -> Option<Candidate> {
         let page_size = self.config.page_size;
         let page = self.highlight / page_size;
-        let index = page * page_size + digit.checked_sub(1)?;
+        let index = page * page_size + page_slot(digit, page_size)?;
         self.layout_candidate(index)
     }
 
@@ -58,5 +59,27 @@ impl Router {
         };
         self.engine.annotate(&mut list);
         list.items.pop()
+    }
+}
+
+/// 数字键在这一页里对应的下标（0 起）；不在本页（0 或者超过每页个数）就是 `None`。
+pub(super) fn page_slot(digit: usize, page_size: usize) -> Option<usize> {
+    (digit >= 1 && digit <= page_size).then(|| digit - 1)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::page_slot;
+
+    #[test]
+    fn a_digit_outside_the_page_has_no_slot() {
+        assert_eq!(page_slot(1, 9), Some(0));
+        assert_eq!(page_slot(9, 9), Some(8));
+        // 每页 9 个时候选窗口只画 1–9，第 10 个是下一页的
+        assert_eq!(page_slot(10, 9), None);
+        // 每页调小之后，超出的数字不能顺着往下取到下一页的候选
+        assert_eq!(page_slot(2, 1), None);
+        assert_eq!(page_slot(7, 5), None);
+        assert_eq!(page_slot(0, 9), None);
     }
 }

@@ -285,6 +285,15 @@ fn aux_code(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderErro
                 general.aux_code_show,
                 !aux.enabled,
             )?,
+            toggle_info(
+                ui,
+                page,
+                tr("input.aux_weighting"),
+                Some(tr("input.aux_weighting_info")),
+                ("general", "aux_code_weighting"),
+                general.aux_code_weighting,
+                !aux.enabled,
+            )?,
             toggle_with(
                 ui,
                 page,

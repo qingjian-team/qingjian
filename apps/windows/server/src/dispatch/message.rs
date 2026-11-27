@@ -1,8 +1,8 @@
 //! 按消息类型分派：会话开关、按键、轮询、失焦上屏、选区 / 光标矩形 / 中英模式的通知。
 
 use qingjian_platform::protocol::{
-    ClientMessage, Frame, KeyEvent, KeyOutcome, PROTOCOL_VERSION, SESSION_OPENED_SINCE,
-    ServerMessage, SessionId,
+    CandidateHit, ClientMessage, Frame, KeyEvent, KeyOutcome, PROTOCOL_VERSION,
+    SESSION_OPENED_SINCE, ServerMessage, SessionId,
 };
 
 use std::time::Instant;
@@ -78,6 +78,15 @@ impl Router {
             } => Some(self.handle_selection(session, request, text, rect)),
             ClientMessage::PositionCandidates { session, rect } => {
                 self.position_candidates(session, rect);
+                None
+            }
+            ClientMessage::CandidateHit { session, hit } => {
+                // 系统界面宿主里那扇窗在 DLL 进程里，点它 Server 的候选窗口看不到：
+                // 换成与自绘窗点击同一个目标，走同一条选词 / 翻页链路。
+                tracing::debug!(?session, ?hit, "进程内候选窗点击");
+                if self.focused == Some(session) {
+                    self.handle_candidate_mouse(super::CandidateMouse::Click(hit_target(hit)));
+                }
                 None
             }
             ClientMessage::HideCandidates { session } => {
@@ -281,5 +290,16 @@ impl Router {
             frame,
             commit: self.take_clicked(session),
         }
+    }
+}
+
+/// 协议里的点击目标换成渲染器的目标：两边值一一对应，选中后走同一条 `handle_click`。
+fn hit_target(hit: CandidateHit) -> qingjian_render::HitTarget {
+    match hit {
+        CandidateHit::Candidate(offset) => qingjian_render::HitTarget::Candidate(offset),
+        CandidateHit::Translation { candidate, sense } => {
+            qingjian_render::HitTarget::Translation { candidate, sense }
+        }
+        CandidateHit::Page(step) => qingjian_render::HitTarget::Page(step),
     }
 }

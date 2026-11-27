@@ -67,9 +67,6 @@ const CHINESE_RANK_LOG_PROB: [f64; WINDOW] = [
 /// 英文候选同上：冻结日志 269 次英文上屏。
 const ENGLISH_RANK_LOG_PROB: [f64; 5] = [-0.171, -3.02, -3.02, -4.561, -5.659];
 
-/// 整句词图里字分布得分的权重。
-const EMISSION_WEIGHT: f64 = 0.5;
-
 /// 字分布里一个字的最低分：字表外的字、概率极小的字都按它算，免得一个字把整条路径拖死。
 const EMISSION_FLOOR: f64 = -12.0;
 
@@ -346,7 +343,7 @@ impl Engine {
     }
 }
 
-/// 词 `text`（从第 `start` 个音节起，读音 `syllables`）在字分布里的得分，乘 [`EMISSION_WEIGHT`]：
+/// 词 `text`（从第 `start` 个音节起，读音 `syllables`）在字分布里的得分，乘这张表的 [`CharTable::weight`]：
 /// 读音与敲的一致的字按「比这个位置最好的字差多少」算（下限 [`EMISSION_FLOOR`]）；敲错边、模糊音改过读音的字
 /// 字分布是按敲的音节出的、说明不了它，固定扣 [`ALTERED_EMISSION`]，取舍交给原来的纠错代价。
 pub(in crate::engine) fn char_emission(
@@ -379,7 +376,7 @@ pub(in crate::engine) fn char_emission(
                 .max(EMISSION_FLOOR)
         })
         .sum::<f64>()
-        * EMISSION_WEIGHT
+        * table.weight()
 }
 
 /// 字分布的缓存键：前文与音节串（敲全的音节后跟 `|`，没敲全的跟 `~`）。

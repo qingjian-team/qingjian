@@ -83,6 +83,9 @@ impl Settings {
                 KeyCombo::NEXT_WORD_DEFAULT.key_string(),
             );
         }
+        if Feature::PickChar.here() {
+            self.write("shortcut", "pick_char", "");
+        }
         if Feature::CommitKeys.here() {
             self.write(
                 "shortcut",

@@ -12,15 +12,17 @@ workspace = true
 
 [dependencies]
 bamboo-slip-i18n.workspace = true
+csscolorparser.workspace = true
 ferrous-opencc.workspace = true
 foldhash.workspace = true
 jiff.workspace = true
+palette.workspace = true
 qingjian-code.workspace = true
 qingjian-dictionary.workspace = true
 serde.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
-tyme4rs = "=1.5.0"
+tyme4rs.workspace = true
 uuid.workspace = true
 vi.workspace = true
 

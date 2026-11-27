@@ -65,12 +65,17 @@ toml = "1.1.5"
 toml_edit = "0.25"
 # 快捷候选的日期 / 时间（本地时区）
 jiff = "0.2.35"
+# 农历、节气、节日（日历缩写 jq / jr）
+tyme4rs = "=1.5.0"
 plist = "1.7"
 # 热路径上的字符串键哈希表（词频 / 语言模型 / 个人 n-gram）：SipHash 一次查表几十纳秒，单字母简拼一键要查几万次
 foldhash = "0.2.0"
 # 简繁转换（OpenCC 的纯 Rust 实现，Apache-2.0）：字典在编译期编进产物，运行时不读外部文件。
 # 只要简 → 繁，反向的 t2s 用不上
 ferrous-opencc = { version = "0.4.0", default-features = false, features = ["s2t-conversion"] }
+# v 模式颜色换算（vcol）：CSS 颜色解析与色彩空间换算
+csscolorparser = { version = "0.9.2", features = ["named-colors"] }
+palette = { version = "0.7.7", default-features = false, features = ["std"] }
 # .qj 数据容器：mmap 打开、结构体数组零拷贝读取
 memmap2 = "0.9"
 zerocopy = { version = "0.8", features = ["derive"] }

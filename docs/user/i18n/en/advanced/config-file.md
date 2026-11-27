@@ -42,7 +42,7 @@ All settings are kept in one TOML text file, `config.toml`, with a note for ever
 | `[general] english_max_in_chinese` | 候选 → 英文候选最多几个 (Candidates → Maximum English candidates) | `1`–`4`, default `4` |
 | `[general] english_min_position` | 候选 → 英文词最高排到第几位 (Candidates → Highest position for English words) | `1`–`9`, default `1` (no limit) |
 | `[model] enabled` | 候选 → 本地整句模型 (Candidates → Local sentence model) | `true` / `false` (default) |
-| `[model] name`, `zhiyi_tier` | 实验功能 (Experimental features) → which model, Zhiyi's level | `name`: `tongbian` (default), `zhiyi`; if the chosen model isn't downloaded, no model is used (an old `zhiwei` reads as `tongbian`). `zhiyi_tier`: `saver`, `balanced` (default), `accurate` |
+| `[model] name`, `zhiyi_model`, `zhiyi_tier` | 实验功能 (Experimental features) → which model, which Zhiyi version, Zhiyi's level | `name`: `tongbian` (default), `zhiyi`; if the chosen model isn't downloaded, no model is used (an old `zhiwei` reads as `tongbian`). `zhiyi_model`: `zhiyi` (default, 1.4V2-Long-L12), `zhiyi-feather` (zhen-feather-preview-1121). `zhiyi_tier`: `saver`, `balanced` (default), `accurate` |
 | `[model] context_memory_seconds` | Configuration file only | When an app doesn't share the text before the cursor, how long what you just typed counts as context; default 60, 0 means always |
 | `[general] english_mode` | 输入法切换 → 英文模式 (Input Method Switching → English mode) | `false` keeps it in Chinese |
 | `[shortcut] switch_mode` | 输入法切换 → 切换键 (Input Method Switching → Switch key) | A list, such as `["shift", "control"]` |

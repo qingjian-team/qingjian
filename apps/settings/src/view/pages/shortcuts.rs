@@ -133,6 +133,15 @@ pub fn shortcuts(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Rende
             false,
         )?);
     }
+    if Feature::PickChar.here() {
+        rows.push(recorder(
+            ui,
+            page,
+            Shortcut::PickChar,
+            Some(tr("shortcuts.pick_char_info")),
+            false,
+        )?);
+    }
     if Feature::TranslatePanel.here() {
         rows.push(recorder(
             ui,

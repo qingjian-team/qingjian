@@ -92,10 +92,14 @@ CandidateLayout 保持 `set_cloud` 的首页末尾布局与本地首项；`set_c
 `english`（英文模式候选）/ `traditional`（繁体输出：`[general] traditional_variant` 四选一，`off` / `taiwan` / `hongkong` / `standard` 对应 OpenCC 的 s2tw / s2hk / s2t，都只换字形；旧键 `traditional = true` 读成 taiwan，开发版在旧键里写过的字符串（`traditional = "off"`）按同一套写法读。新写法换键名是为了退回旧版本时旧版只认布尔、不会整个配置解析失败，字典由 `ferrous-opencc` 在编译期编进产物、运行时不读外部文件）/ `engine`（`query::EnglishTail`：句末英文词并入整句，`woxiangxuehaorust` → 我想学好rust，尾段也像拼音时按分数与拼音读法比；比分与第二条整句里的拼音读法都按整句的切分规则挑——`sentence_segmentation`，不是切分器打平时贪心的那种，否则 `zhengcenanti` 拿 zheng cen an ti 的 政策安提 去比，政策anti 赢、政策难题 连候选都没有）。
 辅码（`engine/aux_code.rs`）：`Engine.aux_code: Option<String>` 是码段（`None` 拼音态，`Some("")` 刚触发或删空停在辅码态——`Engine.aux_keep_empty`，配置 `[general] aux_code_keep_empty` 缺省开），
 不进 `Composition`；`aux_trigger`（配的触发键 + 光标在段尾 + 作用域能完整切分 + 双拼韵母键优先）、`enter_aux`、
-`push_aux_code`（只收 a-z）、`clear_aux`；退格在辅码态内部分派（删码；删空按 `aux_keep_empty` 停在辅码态或回拼音态，空码段再退格退出），`commit_with` / `take_raw` /
-`punctuate` / `clear` 都收尾清码。查询在 `rank` 之后**反向过滤**：候选词逐个 `AuxCodeLookup::code_with_prefix`
-（码表在 `Engine.aux_codes`，`set_aux_codes` 注入），不命中的隐藏，命中的按「完全匹配码 > 码长降序 > 原词频序」
-重排（stable sort 保住原序），命中码（没在筛码时是词的首条码）写进 `Candidate.aux_code`；码段非空时跳过整句 / 英文 / 快捷 / emoji / 自定义短语
+`push_aux_code`（只收 a-z）、`clear_aux`；退格在辅码态内部分派，而且只在光标停在拼音段末尾时删码段
+（光标挪到中间时删的是光标前那个字母，码段留着，删到行首就停住，回末尾再接着删码）；删空按 `aux_keep_empty` 停在辅码态或回拼音态，空码段再退格退出，`commit_with` / `take_raw` /
+`punctuate` / `clear` 都收尾清码。查询在 `rank` 之后按码段处理，两种模式看 `Engine.aux_weighting`（配置
+`[general] aux_code_weighting`，缺省关）：关着是**过滤**，候选词逐个 `AuxCodeLookup::code_with_prefix`（码表在
+`Engine.aux_codes`，`set_aux_codes` 注入），对不上码的一条不出；开着是**加权**，命中的按「完全匹配码 > 码长降序 >
+原词频序」排到前面（stable sort 保住原序），不命中的一条不少地接在后面（码猜错时用户还能退回原来那批），一个都
+没命中时先走「组词 / 拆字」的提示候选（见 `query/aux_hint.rs`）——提示候选与补尾都只在加权模式下走。命中码（没在
+筛码时是词的首条码）写进 `Candidate.aux_code`；码段非空时跳过整句 / 英文 / 快捷 / emoji / 自定义短语
 与云联想。preedit 分段多出 [触发键 `Typed`][码段 `MarkedKind::AuxCode`]，见 `Query::marked_segments`。
 拼音行按哪种切分画是 `Query::spelled`：缺省对着首选候选挑（与候选音节逐个相同的最多，其次是候选音节以敲的开头），壳换了高亮调 `Query::follow`（`ganga` 高亮 尴尬 是 `gan'ga`、刚啊 是 `gang'a`）；
 mac 存在 `Session::spelling`（`Host::follow_highlight`）、Windows / Linux 存在 `Composed::Candidates.spelling`，出帧时比一下高亮候选的切法，不同才重拼。Android 没有高亮移动，只跟首选。
@@ -204,7 +208,8 @@ mac 存在 `Session::spelling`（`Host::follow_highlight`）、Windows / Linux �
   原样上屏的串要像一个词才学：`MIN_ENGLISH_WORD_LETTERS` = 2 到 `MAX_ENGLISH_WORD_LETTERS` = 15 个字母、切不成完整拼音、
   也不能读成「拼音头 + 英文尾」——打不出来时整串上屏的失败拼音学进去会反过来堵住混输那条路，越打不出来学得越多）、
   个人敲错表（`user-typos.tsv`，接受过的 (敲的, 要的) 音节对，词图敲错边与整段纠错的代价按它打折）与个人 n-gram（`user-ngram.tsv`，Core `sentence::UserNgram`，
-  二元 + 三元在线计数，整句转换与词级排序里与静态模型插值；Tab 接受的云端整句按 `sentence::segment_text` 切词后也记；
+  二元 + 三元在线计数，整句转换与词级排序里与静态模型插值；Tab 接受的云端整句按 `sentence::segment_text` 切词后也记，
+  切出的词逐词反查词库对齐读音后，满足本地整句条件（单句、全是多字词、最多 6 字）的以整句读音为键走 `finish_buffer` 回灌成用户词（issue #604），撤销走 `LastCommit::phrase`；
   连着选出的两个词记够次数自动造词进用户词：同段拼音一次、分段三次，相邻两词合计最多 4 字；一段拼音分几次选完的整段记忆一次即学，最多 20 字）。
   `[auto_phrase]`（默认开启、4 字，2～10 字）只控制五笔连续组词，`Engine::set_auto_phrase` 改值只清形码窗口，不打断拼音学习链。
   学习组件的注入、学习总开关与五笔组词设置集中在 `engine/setup/learning.rs`；设置页通过 `support::Feature::AutoPhrase` 登记平台支持，与形码一样，Linux 壳接入前标为待实现并隐藏整组控件及搜索项。
@@ -315,8 +320,14 @@ DirectML 试过不用：每次打分的序列长度都不同，Radeon 880M 集�
 分词是自己的 `zhiyi::bpe`（只编码）而不是 `tokenizers`：25.6 万词、58 万条合并规则的 `tokenizer.json` 用 `tokenizers` 读要常驻 65 MB、
 加载时峰值多 300 MB，自己只留编码要的两张表，知意常驻 −35 MB、加载峰值 656 → 384 MB（CLI 实测）。
 与 `tokenizers` 逐 token 对拍：`zhiyi::tests::tokenizes_like_the_reference_tokenizer`（仓库 `docs/` 每篇文档的每一行与全文，设知意模型目录才跑）。
-ONNX 版另有 composition 头 `char_logits`（每个拼音槽位一行、6163 字的 logits，列与 `unified_vocab.json` 的 `chars` 对应），
-`ChoiceScorer::compose` 取它、逐行 log softmax，接到 Core 的 `ChoiceModel::compose`；candle 版没接这个头，返回 `None`。
+两代模型同一份代码：1.4V2-Long-L12（12 层宽 384、头 2 层）与 zhen-feather（2026-11-21 起，8 层宽 256、头 1 层），按模型包认格式，不另设开关。
+feather 的 `unified_vocab.json` 有 `choice_compact`：候选前不放 `<mask>`、标记是候选第一个 token（`Bpe::encode_bare`，不补 `▁`），candle 版在那里加 `cand_emb`；
+`config.json` 的 `prefix_mask` 让开头一段（到第一个 `<eos>`）只看自己（`zhiyi::mask`，编码器与头都用），层数、宽度都读 `config.json`。
+composition 头 `char_logits`（每个拼音槽位一行，列与 `unified_vocab.json` 的 `chars` 对应：L12 6163 字、feather 9067 字），
+`ChoiceScorer::compose` 取它，接到 Core 的 `ChoiceModel::compose`。feather 的整句序列是 `<bos> 已输入的上文: 上文 <eos> <mask>×音节 <eos>`、不带候选
+（ONNX 给一个屏蔽掉的标记），L12 照旧带一个空候选占位；candle 版只接 feather 那种与选词共用的头，L12 的整句头在另一组权重上，返回 `None`。
+每行只在这个音节读得出的字里做 log softmax（`zhiyi::readings`，`unified_vocab.json` 的 `readings`），读不出的字为负无穷：
+模型说明规定只在这些字里比较，Core 的字分数又以这一行最好的字为参照，参照得是读得出的字。
 它对每个音节各自出分布，字与字之间不管连贯（单用它逐位取最好：`yanxiashigong` → 眼下是公），所以只当整句词图里的字分数用，成词交给词图。
 
 Core 侧（`engine/choice`）：整句转换前按（前文, 音节串）取这张字分布表（`Engine::char_table`），没有就记下、和选词打分一起在停顿后送后台，
@@ -685,6 +696,8 @@ TSF 原有数字 / OEM 标点 / 空格键码按当前布局用 `ToUnicodeEx` 解
 时把结果缓进 `pending_digit`，`OnKeyDown` 再应用。拼音显示位置（`[general] preedit`）在 Windows 上分两处落地：
 Server 把它读进 `RouterConfig.preedit` 并随 `Frame.preedit_mode` 下发给 DLL，DLL（`com/service/key_sink.rs`）按
 `inline()` 决定要不要放行内拼音，Server（`ui/candidates/render_data.rs::window_preedit`）按 `in_window()` 决定候选窗口顶部画不画拼音行；`window` 模式没有组句范围，光标矩形改从 `com/edit/anchor.rs::caret_rect`（当前选区）量。
+系统界面宿主（开始屏幕 / 任务栏搜索 / 商店应用）里的候选窗：`tsf/src/com/candidates/` 在 DLL 进程内建分层窗，owner 是宿主窗口（同进程，z-band 跟着宿主走）；`compose::report_caret` 先用 `immersive_host(host)` 判宿主进程（AppContainer SID 或 `startmenuexperiencehost.exe` / `searchhost.exe` 等白名单，按 hwnd 缓存），是就不发 `PositionCandidates`，改交 `Shared::show_remote_candidates`。画法是自己一套轻量 GDI（`com/candidates/paint/`：`view.rs` 把协议帧换成展示数据，`draw/` 量尺寸、落笔并记下命中区（矩阵在 `matrix.rs`，量字落笔等小工具在 `gdi.rs`），`canvas.rs` 铺底、补 alpha 后 `UpdateLayeredWindow`），不依赖 `qingjian-render`：DLL 被加载进每个应用进程，多链一个渲染库体积翻倍；TSF 进程里读不到用户主题目录，皮肤本来就画不出来，所以只用系统字族与内置浅深配色，字号 / 字重 / 倒排仍按 `InputSettings`。窗口 `WS_EX_LAYERED | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE`、不加 TOPMOST。命中区在落笔时记下（候选整行 + 每条译词，译词优先），经 `CandidateHit` 报回 Server（`handle_candidate_mouse`），滚轮照旧翻页。轮询送来的新帧调 `refresh_remote` 原地重画。符号面板 / 右键菜单 / 键位提示仍由 Server 画，系统界面里可能被压住。
+
 自己画候选的应用（全屏游戏，TSF 的 UI-less）：DLL 把按键、轮询、点击上屏回的每一帧交给 `com/candidate_list`，组句开始时经 `ITfUIElementMgr::BeginUIElement`
 起一个 `ITfCandidateListUIElement`，帧变了才 `UpdateUIElement`，组句结束 / 断线 / 停用时 `EndUIElement`。应用回 `bShow = FALSE` 时
 `composition::report_caret` 不报光标位置，Server 没有 `last_rect` 就不画候选窗（不能改发 `HideCandidates`：它会顺带取消云联想）。

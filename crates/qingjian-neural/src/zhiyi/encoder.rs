@@ -1,19 +1,13 @@
+//! 知意的编码器（ModernBERT 层），safetensors 版用。
+
 use candle_core::{D, Device, Result, Tensor};
 use candle_nn::ops::softmax_last_dim;
 
+use super::mask::Masks;
 use super::weights::{QLinear, Weights, layer_norm};
 
-const WIDTH: usize = 384;
-const HEADS: usize = 6;
 const HEAD_DIM: usize = 64;
-const INTERMEDIATE: usize = 1152;
 const ROPE_BASE: f64 = 160_000.0;
-
-/// 滑窗层只看 |i − j| ≤ 这么多的位置。
-const WINDOW: usize = 64;
-
-/// 屏蔽位置加的值。
-const MASKED: f32 = -1.0e9;
 
 /// 一层 ModernBERT：pre-norm 注意力（RoPE，全局或滑窗）+ GeGLU MLP，都没有偏置。
 struct Layer {
@@ -25,14 +19,23 @@ struct Layer {
     wi: QLinear,
     mlp_wo: QLinear,
     sliding: bool,
+    width: usize,
+    intermediate: usize,
 }
 
-/// mmBERT-small 留下的 12 层编码器。
+/// mmBERT-small 剪成的编码器（L12 留 12 层宽 384，feather 8 层宽 256），层数与宽度按 `config.json`。
 pub(super) struct Encoder {
     tok_emb: Tensor,
     /// 分词器 id → 嵌入行。在 CPU 上查表，不必上 GPU。
     vocab_remap: Vec<u32>,
     unit_emb: Tensor,
+
+    /// 注音声调（feather 起）：单元号 = 单元 + 单元表行数 × 声调，第 0 行（无声调）全零；L12 没有。
+    tone_emb: Option<Tensor>,
+
+    /// 加在每个候选第一个 token 上（紧凑格式）；旧格式没有。
+    cand_emb: Option<Tensor>,
+
     emb_norm: Tensor,
     layers: Vec<Layer>,
     final_norm: Tensor,
@@ -40,7 +43,12 @@ pub(super) struct Encoder {
 }
 
 impl Encoder {
-    pub fn load(w: &Weights, sliding: &[bool], device: &Device) -> Result<Self> {
+    pub fn load(
+        w: &Weights,
+        sliding: &[bool],
+        (width, intermediate): (usize, usize),
+        device: &Device,
+    ) -> Result<Self> {
         let mut layers = Vec::with_capacity(sliding.len());
         for (i, &sliding) in sliding.iter().enumerate() {
             let p = format!("encoder.layers.{i}");
@@ -54,12 +62,19 @@ impl Encoder {
                 wi: w.linear(&format!("{p}.mlp.Wi.weight"), None)?,
                 mlp_wo: w.linear(&format!("{p}.mlp.Wo.weight"), None)?,
                 sliding,
+                width,
+                intermediate,
             });
         }
         Ok(Self {
             tok_emb: w.raw("encoder.embeddings.tok_embeddings.weight")?,
             vocab_remap: w.table("vocab_remap")?,
             unit_emb: w.get("unit_emb.weight")?,
+            tone_emb: w
+                .has("tone_emb.weight")
+                .then(|| w.get("tone_emb.weight"))
+                .transpose()?,
+            cand_emb: w.has("cand_emb").then(|| w.get("cand_emb")).transpose()?,
             emb_norm: w.get("encoder.embeddings.norm.weight")?,
             layers,
             final_norm: w.get("encoder.final_norm.weight")?,
@@ -67,26 +82,66 @@ impl Encoder {
         })
     }
 
-    /// `ids` 是分词器的原始 id（编码前先经 `vocab_remap` 映射到嵌入行），`units` 是每个位置的拼音单元（0 为无）。
-    /// 返回 `[T, 384]`。
-    pub fn forward(&self, ids: &[u32], units: &[u32]) -> Result<Tensor> {
+    pub fn device(&self) -> &Device {
+        &self.device
+    }
+
+    /// `ids` 是分词器的原始 id（编码前先经 `vocab_remap` 映射到嵌入行），`units` 是每个位置的拼音单元（0 为无），
+    /// `markers` 是候选标记位置（有 `cand_emb` 时加在那里）。返回 `[T, 宽度]`。
+    pub fn forward(
+        &self,
+        ids: &[u32],
+        units: &[u32],
+        markers: &[u32],
+        masks: &Masks,
+    ) -> Result<Tensor> {
         let t = ids.len();
         let rows: Vec<u32> = ids
             .iter()
             .map(|&id| self.vocab_remap.get(id as usize).copied().unwrap_or(0))
             .collect();
         let rows = Tensor::new(rows, &self.device)?;
-        let units = Tensor::new(units, &self.device)?;
         let tokens = self
             .tok_emb
             .index_select(&rows, 0)?
             .to_dtype(candle_core::DType::F32)?;
-        let x = (tokens + self.unit_emb.index_select(&units, 0)?)?;
+        let mut x = match &self.tone_emb {
+            Some(tone_emb) => {
+                let stride = self.unit_emb.dim(0)? as u32;
+                let plain: Vec<u32> = units.iter().map(|&u| u % stride).collect();
+                let tones: Vec<u32> = units.iter().map(|&u| u / stride).collect();
+                let plain = self
+                    .unit_emb
+                    .index_select(&Tensor::new(plain, &self.device)?, 0)?;
+                let tones = tone_emb.index_select(&Tensor::new(tones, &self.device)?, 0)?;
+                ((tokens + plain)? + tones)?
+            }
+            None => {
+                (tokens
+                    + self
+                        .unit_emb
+                        .index_select(&Tensor::new(units, &self.device)?, 0)?)?
+            }
+        };
+        if let Some(cand_emb) = &self.cand_emb {
+            let mut at = vec![0f32; t];
+            for &m in markers {
+                if let Some(slot) = at.get_mut(m as usize) {
+                    *slot = 1.0;
+                }
+            }
+            let at = Tensor::from_vec(at, (t, 1), &self.device)?;
+            x = (x + at.broadcast_mul(&cand_emb.unsqueeze(0)?)?)?;
+        }
         let mut x = layer_norm(&x, &self.emb_norm, None)?;
         let (cos, sin) = rope(t, &self.device)?;
-        let window = window_mask(t, &self.device)?;
         for layer in &self.layers {
-            x = layer.forward(&x, &cos, &sin, layer.sliding.then_some(&window))?;
+            let mask = if layer.sliding {
+                Some(&masks.sliding)
+            } else {
+                masks.global.as_ref()
+            };
+            x = layer.forward(&x, &cos, &sin, mask)?;
         }
         layer_norm(&x, &self.final_norm, None)
     }
@@ -101,11 +156,12 @@ impl Layer {
         mask: Option<&Tensor>,
     ) -> Result<Tensor> {
         let t = x.dim(0)?;
+        let heads = self.width / HEAD_DIM;
         let h = match &self.attn_norm {
             Some(norm) => layer_norm(x, norm, None)?,
             None => x.clone(),
         };
-        let qkv = self.wqkv.forward(&h)?.reshape((t, 3, HEADS, HEAD_DIM))?;
+        let qkv = self.wqkv.forward(&h)?.reshape((t, 3, heads, HEAD_DIM))?;
         let part = |i: usize| -> Result<Tensor> {
             qkv.narrow(1, i, 1)?
                 .squeeze(1)?
@@ -122,11 +178,11 @@ impl Layer {
         let out = softmax_last_dim(&att)?
             .matmul(&v)?
             .transpose(0, 1)?
-            .reshape((t, WIDTH))?;
+            .reshape((t, self.width))?;
         let x = (x + self.wo.forward(&out)?)?;
         let m = self.wi.forward(&layer_norm(&x, &self.mlp_norm, None)?)?;
-        let a = m.narrow(D::Minus1, 0, INTERMEDIATE)?;
-        let g = m.narrow(D::Minus1, INTERMEDIATE, INTERMEDIATE)?;
+        let a = m.narrow(D::Minus1, 0, self.intermediate)?;
+        let g = m.narrow(D::Minus1, self.intermediate, self.intermediate)?;
         x + self.mlp_wo.forward(&(a.gelu_erf()? * g)?)?
     }
 }
@@ -152,12 +208,4 @@ fn apply_rope(x: &Tensor, cos: &Tensor, sin: &Tensor) -> Result<Tensor> {
     let x2 = x.narrow(D::Minus1, half, half)?;
     let rotated = Tensor::cat(&[&x2.neg()?, &x1], D::Minus1)?;
     x.broadcast_mul(cos)? + rotated.broadcast_mul(sin)?
-}
-
-/// 滑窗层的加性掩码 `[t, t]`：|i − j| ≤ 64 为 0，其余屏蔽。
-fn window_mask(t: usize, device: &Device) -> Result<Tensor> {
-    let mask: Vec<f32> = (0..t)
-        .flat_map(|i| (0..t).map(move |j| if i.abs_diff(j) <= WINDOW { 0.0 } else { MASKED }))
-        .collect();
-    Tensor::from_vec(mask, (t, t), device)
 }

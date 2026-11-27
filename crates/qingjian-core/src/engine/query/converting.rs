@@ -271,7 +271,7 @@ impl Engine {
     }
 
     /// [`Self::plain_sentence`] 里按一种读法（`typos` 决定加不加敲错边）出的整句候选。
-    fn sentence_candidates(
+    pub(super) fn sentence_candidates(
         &self,
         items: &mut Vec<Candidate>,
         best: &Segmentation,

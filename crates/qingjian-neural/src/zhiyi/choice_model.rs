@@ -25,7 +25,13 @@ impl ChoiceModel for ChoiceScorer {
 
     fn compose(&self, context: &str, syllables: &[(&str, bool)]) -> Option<CharTable> {
         match ChoiceScorer::compose(self, context, syllables) {
-            Ok(rows) => rows.map(|rows| CharTable::new(self.char_index(), rows)),
+            Ok(rows) => rows.map(|rows| {
+                let table = CharTable::new(self.char_index(), rows);
+                match self.emission_weight() {
+                    Some(weight) => table.with_weight(weight),
+                    None => table,
+                }
+            }),
             Err(error) => {
                 tracing::warn!(%error, "知意按音节出字失败，本次整句不用它");
                 None

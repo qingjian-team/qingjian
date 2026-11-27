@@ -348,6 +348,9 @@ punct_commits = false
 aux_code_key = ";"
 # 候选上是否显示码（方括号紧跟在候选词后面，如「鹤[rbm] crane」）。缺省关
 aux_code_show = false
+# 辅码态下码段是否只调顺序、不筛候选：true 时码段对不上的词留到后面，一个都对不上还会按音节拼出提示词。
+# 缺省 false：码段就是过滤器，对不上的词不出，与辅码一直以来的行为一致
+aux_code_weighting = false
 # 候选窗口顶部的拼音行按高亮候选显示带调拼音（gān'gà），应用里的拼音不变；macOS、Windows 用。缺省关
 show_tones = false
 # 码段删空后是否留在辅码状态：true 删空后 ; 仍在、候选全部回来，再按一次退格才退出辅码；false 删空即回拼音状态
@@ -467,6 +470,8 @@ disabled = []
 enabled = false
 # 用哪个：tongbian 含章·通变（按拼音造句）/ zhiyi 知意（按前文挑首选）；先在设置的「实验功能」里下载（Linux 随包带通变），没下载就不用模型
 name = "tongbian"
+# 知意用哪一版：zhiyi 1.4V2-Long-L12 / zhiyi-feather zhen-feather-preview-1121，在「实验功能」里下载、切换
+zhiyi_model = "zhiyi"
 # 知意的档位：saver 省电 / balanced 均衡 / accurate 准确（比的候选更多、看的前文更长，也更费电）
 zhiyi_tier = "balanced"
 # 应用读不到光标前的文字时，拿这个应用、这个输入框里刚打的字当前文；多少秒没打字就不算（0 表示一直算）

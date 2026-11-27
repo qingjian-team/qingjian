@@ -6,9 +6,11 @@
 //! - [`edit`]：编辑会话（写组句 / 读选区 / 读前文与输入范围）与候选窗口锚点；[`context`]：上下文的键盘禁用开关（密码框）。
 //! - [`composition`]：组句 preedit；[`display_attribute`]：组句内联下划线；[`poll`]：轮询定时器。
 //! - [`candidate_list`]：给自己画候选的应用（全屏游戏）的候选列表 UI 元素。
+//! - [`candidates`]：系统界面宿主（开始屏幕 / 搜索 / 商店应用）里由 DLL 进程内自绘的候选窗。
 #![allow(non_snake_case)] // 导出的 Dll* 入口按 COM 约定命名
 
 pub(crate) mod candidate_list;
+pub(crate) mod candidates;
 pub(crate) mod composition;
 pub(crate) mod context;
 pub(crate) mod display_attribute;

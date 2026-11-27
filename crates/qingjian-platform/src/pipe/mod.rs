@@ -23,8 +23,7 @@ pub const LEGACY_PIPE_NAME: &str = r"\\.\pipe\qingjian";
 
 /// 老管道的 SDDL：所有者与读写都给本用户，AppContainer 照旧给 `CLIENT_ACCESS`。
 ///
-/// 以前这里写的是 `WD`（Everyone）：服务端每条连接还有「是不是本用户」这一道校验挡着，
-/// 但那是唯一的一道——描述符本身谁都能连。老 DLL 本来就是本用户的进程，收窄不影响它。
+/// 描述符本身就只放本用户，不只靠服务端逐条连接的「是不是本用户」校验；老 DLL 跑在本用户的进程里，照样连得上。
 pub fn legacy_pipe_sddl(user: &UserSid) -> io::Result<String> {
     let user = user.to_sddl()?;
     Ok(format!(

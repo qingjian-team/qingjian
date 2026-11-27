@@ -103,6 +103,19 @@ pub enum ClientMessage {
         session: SessionId,
     },
 
+    /// 点中了 TSF 进程内候选窗（系统界面宿主里那扇，由 DLL 画）：选词 / 译词 / 翻页。
+    ///
+    /// 这扇窗在 DLL 进程里，Server 的候选窗口根本看不见那些点击，只能由 DLL 报回来；
+    /// 走的路与 Server 自绘窗的鼠标点击完全一样（同一个 `handle_click`）。不等回话：
+    /// 选中的字随下一次 `Poll` 的 `Update.commit` 交回。
+    CandidateHit {
+        /// 会话标识。
+        session: SessionId,
+
+        /// 点中的是哪一块。
+        hit: CandidateHit,
+    },
+
     /// 用户在这个应用里切了中英模式：DLL 报给 Server，成为全局模式（其余应用下次取模式时跟上，悬浮状态条同步）。
     /// 不等回话。双拼方案 Server 从自己的配置里知道，不必带。
     ModeChanged {
@@ -160,6 +173,7 @@ impl ClientMessage {
             | Self::Selection { session, .. }
             | Self::PositionCandidates { session, .. }
             | Self::HideCandidates { session }
+            | Self::CandidateHit { session, .. }
             | Self::ModeChanged { session, .. }
             | Self::SyncMode { session }
             | Self::ImeSwitched { session }
@@ -167,4 +181,20 @@ impl ClientMessage {
             | Self::CloseSession { session } => session,
         }
     }
+}
+
+/// TSF 进程内候选窗上报的点击目标（[`ClientMessage::CandidateHit`]）。
+///
+/// 是 `qingjian_render::HitTarget` 的可序列化镜像：协议层不能依赖渲染器，但两边的值一一对应，
+/// Server 收到后原样换成 `HitTarget` 走它自绘窗那条点击链路。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum CandidateHit {
+    /// 这一页第 `n` 个候选（从 0 起）。
+    Candidate(usize),
+
+    /// 第 `candidate` 个候选右侧的第 `sense` 条译词。
+    Translation { candidate: usize, sense: usize },
+
+    /// 翻页箭头：-1 上一页、1 下一页。
+    Page(isize),
 }

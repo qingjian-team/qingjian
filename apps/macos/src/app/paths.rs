@@ -93,9 +93,9 @@ fn existing(dir: PathBuf) -> Option<PathBuf> {
     Some(dir)
 }
 
-/// 知意选词模型（试验，safetensors 版的整个目录，设置的「实验功能」里下载）：只认 `downloads/models/zhiyi/`。
-pub fn zhiyi_model_dir() -> Option<PathBuf> {
-    let dir = user_dirs()?.models().join("zhiyi");
+/// 知意选词模型（safetensors 版的整个目录，设置的「实验功能」里下载）：配置里选的那一版，`downloads/models/<id>/`。
+pub fn zhiyi_model_dir(model: &qingjian_platform::LocalModelConfig) -> Option<PathBuf> {
+    let dir = model.zhiyi_dir(&user_dirs()?.models());
     dir.join("model.safetensors").is_file().then_some(dir)
 }
 

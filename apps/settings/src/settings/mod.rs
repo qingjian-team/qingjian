@@ -29,6 +29,7 @@ use crate::jobs::cloud_test::CloudTest;
 use crate::jobs::dict_index::{DictIndex, Shelf};
 use crate::jobs::download::Downloads;
 use crate::jobs::import::ImportJob;
+use crate::jobs::model_index::ModelIndex;
 use crate::jobs::restore::Restore;
 use crate::jobs::update_check::UpdateCheck;
 use crate::library::Library;
@@ -109,6 +110,9 @@ pub struct Settings {
     /// 「词库」页从词库仓库取的可下载清单。
     pub dict_index: DictIndex,
 
+    /// 「实验功能」从模型仓库取的模型清单。
+    pub model_index: ModelIndex,
+
     /// 从老版本升上来时要补下的词库，依次下。
     pub restore: Restore,
 
@@ -118,8 +122,8 @@ pub struct Settings {
     /// 点过一次「删除」、等再点一次确认的下载词库（id）；点了别的就作废。
     pub dict_remove_armed: Option<String>,
 
-    /// 点过一次「删除」、等再点一次确认的模型；点了别的就作废。
-    pub remove_armed: Option<qingjian_platform::LocalModel>,
+    /// 点过一次「删除」、等再点一次确认的模型（id）；点了别的就作废。
+    pub remove_armed: Option<String>,
 
     /// 开着的短语编辑卡片。
     pub phrase: Option<PhraseEditor>,
@@ -218,6 +222,7 @@ impl Settings {
             import: ImportJob::default(),
             download: Downloads::default(),
             dict_index: DictIndex::default(),
+            model_index: ModelIndex::default(),
             restore: Restore::default(),
             dict_shelf: Shelf::default(),
             dict_remove_armed: None,

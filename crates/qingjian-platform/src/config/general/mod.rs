@@ -182,6 +182,10 @@ pub struct GeneralConfig {
     /// 候选上是否显示码（与译文拼成一条注记）。缺省关：竖排会挤、横排更难放下。
     pub aux_code_show: bool,
 
+    /// 辅码态下码段只调顺序、不筛候选：对不上码的词留到后面，一个都对不上时按音节拼出提示词
+    /// （`fuma;chefu` 是「辅」＝车＋甫）。缺省关，此时码段是过滤器，与辅码一直以来的行为一致。
+    pub aux_code_weighting: bool,
+
     /// 码段删空后是否留在辅码态：开（缺省）时 `;` 仍在、候选全部回来，空码段再按一次退格才退出；
     /// 关则删空即回纯拼音态。
     pub aux_code_keep_empty: bool,
@@ -318,6 +322,7 @@ impl Default for GeneralConfig {
             punct_commits: false,
             aux_code_key: qingjian_core::DEFAULT_AUX_CODE_KEY.to_string(),
             aux_code_show: false,
+            aux_code_weighting: false,
             aux_code_keep_empty: true,
             scheme: String::new(),
             shuangpin_raw_preedit: false,

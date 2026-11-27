@@ -11,8 +11,8 @@ use std::rc::Rc;
 
 use windows::Win32::UI::TextServices::{
     INSERT_TEXT_AT_SELECTION_FLAGS, ITfComposition, ITfCompositionSink, ITfContext,
-    ITfContextComposition, ITfInsertAtSelection, ITfRange, TF_AE_END, TF_ANCHOR_END,
-    TF_IAS_QUERYONLY, TF_SELECTION, TF_SELECTIONSTYLE,
+    ITfContextComposition, ITfContextView, ITfInsertAtSelection, ITfRange, TF_AE_END,
+    TF_ANCHOR_END, TF_IAS_QUERYONLY, TF_SELECTION, TF_SELECTIONSTYLE,
 };
 use windows::core::{Interface, Result};
 
@@ -76,10 +76,15 @@ pub(crate) fn apply(
         shared.set_context_reported(true);
     }
     let input = report_input.then(|| input_context(context, ec));
-    if preedit.is_empty() {
-        end_composition(shared, ec)?;
+    // 行内拼音写不进去（个别系统界面宿主拒绝组句范围）不能连累候选窗口：记一笔照常往下走，
+    // 候选照旧按帧画，只是应用里看不到行内拼音。
+    let inline = if preedit.is_empty() {
+        end_composition(shared, ec)
     } else {
-        update_preedit(shared, context, ec, preedit)?;
+        update_preedit(shared, context, ec, preedit)
+    };
+    if let Err(error) = inline {
+        super::log::log(&format!("inline preedit failed, candidates go on: {error}"));
     }
     shared.set_preedit(preedit);
     if let Some(InputContext { private, before }) = input {
@@ -129,8 +134,12 @@ fn report_surrounding(engine: &SharedClient, before: String) {
 /// 量不到光标（Firefox 等应用的 GetTextExt 时灵时不灵）时沿用这一段先前的锚点，一段里第一次就量不到才用鼠标位置，
 /// 也记下来：否则候选窗逐键跟着鼠标跑（#167）。
 /// 应用（全屏游戏）自己画候选时也不报：Server 没收到位置就不画候选窗。
+///
+/// 宿主是系统界面（开始屏幕 / 任务栏搜索 / 商店应用）时改由**本进程**画候选窗：那些宿主的 z-band
+/// 比普通顶层窗高，Server 自绘窗会被盖住，而 DLL 进程里 owner 设成宿主窗口的分层窗跟宿主同带。
 fn report_caret(shared: &Shared, engine: &SharedClient, context: &ITfContext, ec: u32) {
     if shared.candidate_list().app_draws() {
+        shared.hide_remote_candidates();
         return;
     }
     let measured = match shared.composition() {
@@ -158,12 +167,37 @@ fn report_caret(shared: &Shared, engine: &SharedClient, context: &ITfContext, ec
         },
     };
     shared.set_anchor(Some(rect));
+    // 系统界面宿主：候选窗在本进程画，不报位置（报了 Server 那扇也是被盖住，白白多一扇窗）。
+    // 窗建不出来时仍退回 Server 那条路：宁可被盖住，也好过完全没有候选。
+    let host = context_window(context);
+    if host != 0 && super::candidates::immersive_host(host) {
+        shared.show_remote_candidates(rect, host);
+    }
+    if shared.remote_active() {
+        return;
+    }
+    // 普通宿主：收起进程内候选窗，仍由 Server 摆它自绘的那扇。
+    shared.hide_remote_candidates();
     // 引擎正被别处借着（罕见）就跳过这拍，Server 保持上次位置。
     if let Ok(mut guard) = engine.try_borrow_mut()
         && let Some(client) = guard.as_mut()
         && let Err(error) = client.position_candidates(rect)
     {
         super::log::log(&format!("上报候选窗口位置失败: {error}"));
+    }
+}
+
+/// 编辑上下文所属的宿主窗口句柄；取不到返回 0。
+///
+/// 系统界面宿主的判定（[`super::candidates::immersive_host`]）与进程内候选窗的 owner 都要它：
+/// owner 是宿主窗口，候选窗才能继承宿主那条 z-band。
+fn context_window(context: &ITfContext) -> u64 {
+    unsafe {
+        context
+            .GetActiveView()
+            .ok()
+            .and_then(|view: ITfContextView| view.GetWnd().ok())
+            .map_or(0, |hwnd| hwnd.0 as u64)
     }
 }
 

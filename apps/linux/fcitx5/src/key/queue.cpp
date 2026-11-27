@@ -120,7 +120,7 @@ void QingjianEngine::pump() {
                 };
                 std::string preedit;
                 if (opening) {
-                    const auto opened = request({{"OpenSession", {{"session", id}, {"app", app}, {"protocol", 9}}}});
+                    const auto opened = request({{"OpenSession", {{"session", id}, {"app", app}, {"protocol", 10}}}});
                     if (opened.at("Update").at("session") != id
                         || opened.at("Update").at("linux_ui").at("version") != 3)
                         throw std::runtime_error("async protocol mismatch");

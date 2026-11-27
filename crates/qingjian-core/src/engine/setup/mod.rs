@@ -134,6 +134,12 @@ impl Engine {
         self.aux_show = show;
     }
 
+    /// 辅码态是否「只调顺序、不筛候选」（配置 `[general] aux_code_weighting`，缺省关）。
+    /// 关着时与原来的筛选一致：码段对不上的词不出。
+    pub fn set_aux_weighting(&mut self, on: bool) {
+        self.aux_weighting = on;
+    }
+
     /// 单打日历缩写时整组是否压到词前面（配置 `[general] calendar_shortcuts_first`，缺省不压）。
     pub fn set_calendar_shortcuts_first(&mut self, on: bool) {
         self.calendar_group_first = on;

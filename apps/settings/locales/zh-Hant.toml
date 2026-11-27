@@ -164,10 +164,12 @@ transfer = "匯入、匯出設定"
 transfer_info = "設定存成一個檔案；不含自訂短語、雲服務金鑰與狀態條位置"
 
 [experimental]
-zhiyi_recommended = "知意（推薦）"
+recommended_title = "{name}（推薦）"
 section_models = "整句模型"
 recommended = "推薦"
+deprecated = "已停止更新"
 zhiyi_description = "按前文挑首選"
+feather_description = "按前文挑首選，適合配置較低的裝置"
 tongbian_description = "按拼音造句"
 cancel = "取消"
 installing = "正在安裝…"

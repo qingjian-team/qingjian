@@ -142,7 +142,7 @@ fn both_shelves(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, Render
 /// 清单里属于这一类的。
 fn shelf_entries(index: &IndexState, shelf: Shelf) -> Vec<&DictEntry> {
     index
-        .dicts
+        .items
         .iter()
         .filter(|entry| shelf.holds(entry))
         .collect()

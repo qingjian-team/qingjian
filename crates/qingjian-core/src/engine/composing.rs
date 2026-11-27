@@ -255,7 +255,10 @@ impl Engine {
 
     /// 退格真正删东西的那部分，与长按保护无关。
     fn backspace_inner(&mut self) -> bool {
-        if let Some(code) = self.aux_code.take() {
+        // 码段只在光标停在拼音段末尾时才轮得到删：光标挪到中间以后，退格该删光标前那个字母
+        // （码段原样留着，候选按改过的拼音重算），一直删到光标前没有字母才回头删码段。
+        let at_end = self.composition.cursor() >= self.composition.text().len();
+        if at_end && let Some(code) = self.aux_code.take() {
             if code.len() > 1 {
                 self.aux_code = Some(code[..code.len() - 1].to_owned());
             } else if code.len() == 1 && self.aux_keep_empty {

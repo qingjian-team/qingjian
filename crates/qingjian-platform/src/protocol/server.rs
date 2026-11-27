@@ -70,6 +70,23 @@ pub struct InputSettings {
     /// 组句中按词跳的快捷键（`[shortcut] next_word`）；旧 Server 没有这项，DLL 就不吃它。
     #[serde(default)]
     pub next_word: Option<KeyCombo>,
+
+    /// 候选字号（点，`[general] candidate_font_size`）；0 为用主题的。TSF 进程内候选窗
+    /// （系统界面宿主里那扇）按它建字体，否则那里只能看到主题缺省字号。
+    #[serde(default)]
+    pub candidate_font_size: crate::config::FontSize,
+
+    /// 译文字号（点，`[general] annotation_font_size`）；0 为用主题的。
+    #[serde(default)]
+    pub annotation_font_size: crate::config::FontSize,
+
+    /// 候选字字重（`[general] candidate_font_weight`，100–900）；`None` 用主题的。
+    #[serde(default)]
+    pub candidate_weight: Option<u16>,
+
+    /// 竖排窗口在光标上方时倒着排（`[general] vertical_reverse_above`）。
+    #[serde(default)]
+    pub reverse_above: bool,
 }
 
 fn english_candidates_default() -> bool {
@@ -92,6 +109,10 @@ impl Default for InputSettings {
             show_english_pronunciation: false,
             single_chars: None,
             next_word: None,
+            candidate_font_size: crate::config::FontSize::default(),
+            annotation_font_size: crate::config::FontSize::default(),
+            candidate_weight: None,
+            reverse_above: false,
         }
     }
 }

@@ -345,6 +345,71 @@ fn accepted_sentence_completion_feeds_the_personal_ngram_and_can_be_retracted() 
 }
 
 #[test]
+fn accepted_sentence_completion_is_learned_as_a_user_word_and_can_be_retracted() {
+    struct KaifangModel;
+
+    impl LanguageModel for KaifangModel {
+        fn log_prob(&self, _previous: Option<&str>, word: &str) -> Option<f64> {
+            match word {
+                "开发" => Some(-5.0),
+                "开放" => Some(-5.5),
+                _ => None,
+            }
+        }
+    }
+
+    let dict =
+        "开发\tkai fa\t9000\n开放\tkai fang\t20000\n开\tkai\t20000\n发\tfa\t9000\n放\tfang\t8000\n";
+    let shared = Arc::new(Mutex::new((Vec::new(), sentence::UserNgram::default())));
+    let mut engine = Engine::new(Dictionary::parse(dict).unwrap())
+        .with_language_model(Box::new(KaifangModel))
+        .with_learner(Box::new(WordLearner {
+            shared: shared.clone(),
+            ..WordLearner::default()
+        }));
+    engine.set_input("kaifa");
+    assert_eq!(engine.accept_prediction("开发开放"), "开发开放");
+    // 敲的 kaifa 只是开头：整句按反查出的整句读音学成用户词，与本地整句同一条回灌路
+    assert_eq!(shared.lock().unwrap().0, ["开发开放"]);
+
+    engine.set_input("kaifakaifang");
+    let first = &engine.query().unwrap().candidates.items[0];
+    assert_eq!(first.text, "开发开放");
+    assert_eq!(first.kind, CandidateKind::Chinese);
+    engine.set_input("kfkf");
+    assert!(
+        engine
+            .query()
+            .unwrap()
+            .candidates
+            .items
+            .iter()
+            .any(|c| c.text == "开发开放" && c.kind == CandidateKind::Chinese)
+    );
+
+    // 整句退格删光、同一段拼音改选别的词：学成的用户词一并退掉
+    for _ in 0.."开发开放".chars().count() {
+        engine.note_backspace();
+    }
+    engine.set_input("kaifa");
+    let query = engine.query().unwrap();
+    let first = query.candidates.items[0].clone();
+    assert_eq!(first.text, "开发");
+    engine.commit(&first);
+    engine.set_input("kaifakaifang");
+    // 整句转换本身还能拼出这句（Sentence），但学成的用户词（Chinese）必须已经退掉
+    assert!(
+        engine
+            .query()
+            .unwrap()
+            .candidates
+            .items
+            .iter()
+            .all(|c| !(c.text == "开发开放" && c.kind == CandidateKind::Chinese))
+    );
+}
+
+#[test]
 fn question_key_answers_code_points_locally_and_keeps_question_mark_alias() {
     let submitted = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
     let mut engine = engine().with_predictor(Box::new(EchoPredictor {

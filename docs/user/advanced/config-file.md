@@ -36,6 +36,7 @@ description: 青简的全部设置保存在一个文本配置文件里：位置�
 | `[auto_phrase] max_chars` | 输入 → 五笔自动组词 → 最大词长 | 五笔组词最多 2～10 个汉字，默认 4；超出范围按边界值读取，不改变五笔码长，不限制拼音与双拼整段记忆 |
 | `[aux_code] enabled`、`scheme` | 输入 → 辅码 | `scheme` 写码表的文件名或方案的文件夹名，随包笔画码是 `stroke` |
 | `[general] aux_code_keep_empty` | 输入 → 码删空后留在辅码 | `false` 为删空即退出 |
+| `[general] aux_code_weighting` | 输入 → 码段只调顺序，不筛候选 | `false`（缺省）：码段是过滤器，对不上码的词不出；`true`：码段只调顺序，对不上的词排到后面，一个都对不上时按音节拼出提示词 |
 | `[general] traditional_variant` | 候选 → 输出字形 | `off`、`taiwan`、`hongkong`、`standard`；0.2.1 及以前的 `traditional = true` 按 `taiwan` 读 |
 | `[general] emoji`、`kaomoji`、`symbols` | 候选 → emoji / 颜文字 / 符号 | `0`–`3`，缺省 3 / 1 / 1；以前写的 `emoji = true / false` 相当于 3 / 0 |
 | `[general] learning` | 候选 → 学习输入习惯 | `true` / `false` |
@@ -45,7 +46,7 @@ description: 青简的全部设置保存在一个文本配置文件里：位置�
 | `[general] english_min_position` | 候选 → 英文词最高排到第几位 | `1`–`9`，缺省 `1`（不限） |
 | `[general] show_english_pronunciation` | 候选 → 英文候选旁显示音标 | `true` / `false`（缺省） |
 | `[model] enabled` | 候选 → 本地整句模型 | `true` / `false`（缺省） |
-| `[model] name`、`zhiyi_tier` | 实验功能 → 用哪个模型、知意的性能模式 | `name`：`tongbian`（缺省）、`zhiyi`，选了没下载的不用模型（旧的 `zhiwei` 按 `tongbian` 读）；`zhiyi_tier`：`saver`、`balanced`（缺省）、`accurate` |
+| `[model] name`、`zhiyi_model`、`zhiyi_tier` | 实验功能 → 用哪个模型、知意用哪一版、知意的性能模式 | `name`：`tongbian`（缺省）、`zhiyi`，选了没下载的不用模型（旧的 `zhiwei` 按 `tongbian` 读）；`zhiyi_model`：`zhiyi`（缺省，1.4V2-Long-L12）、`zhiyi-feather`（zhen-feather-preview-1121）；`zhiyi_tier`：`saver`、`balanced`（缺省）、`accurate` |
 | `[model] context_memory_seconds` | 只在配置文件里 | 应用不给光标前文时，刚打的字算作前文的时长，缺省 60，0 为一直算 |
 | `[general] english_mode` | 输入法切换 → 英文模式 | `false` 为固定中文 |
 | `[shortcut] switch_mode` | 输入法切换 → 切换键 | 列表，如 `["shift", "control"]` |
