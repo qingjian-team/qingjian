@@ -9,7 +9,7 @@ mod pin;
 
 use std::time::Instant;
 
-use qingjian_dictionary::Match;
+use qingjian_dictionary::{Match, SyllablePattern};
 
 use super::chinese_candidate;
 use crate::candidate::{Candidate, CandidateList};
@@ -74,10 +74,10 @@ impl Engine {
         self.insert_keyword_shortcuts(&mut items);
         let rank = start.elapsed();
 
-        let pinyin_choices = display::pinyin_choices(keys, shapes.first(), &items);
-        let typed_display = shapes
-            .first()
-            .map(|shape| display::marked(shape, items.first(), tail));
+        let pinyin_choices = display::pinyin_choices(keys, shapes.first(), &items, |spelling| {
+            self.nine_key_syllable_weight(spelling)
+        });
+        let typed_display = display::marked(&shapes, items.first(), tail);
         Query {
             segmentations: Vec::new(),
             spelled: 0,
@@ -101,6 +101,22 @@ impl Engine {
                 rank,
             },
         }
+    }
+
+    /// 某个音节在词库与用户习惯里的最高权重：拼音列里没进当前候选的音节按它排，避免退回字母序。
+    fn nine_key_syllable_weight(&self, spelling: &str) -> (u32, u32) {
+        let pattern = [SyllablePattern {
+            text: spelling,
+            complete: true,
+        }];
+        let mut best = (0u32, 0u32);
+        for hit in self.dictionary.lookup_exact(&pattern) {
+            let weight = self.learner.weight(hit.text);
+            if (weight, hit.frequency) > best {
+                best = (weight, hit.frequency);
+            }
+        }
+        best
     }
 
     /// 一种形状下的词级命中：整段，以及各前缀（逐词上屏用，只收音节数正好的词）。

@@ -34,12 +34,9 @@ impl Shape {
         self.positions.last().map_or(0, |p| p.start + p.len)
     }
 
-    /// 第一个还没定下来的位置（写法不止一种）：拼音列列的、选定音节时换掉的都是它。
+    /// 第一个还没选定的位置（输入里还含数字）：拼音列列的、选定音节时换掉的都是它。
     pub fn first_open(&self) -> Option<(usize, &Position)> {
-        self.positions
-            .iter()
-            .enumerate()
-            .find(|(_, p)| p.alternatives.len() > 1)
+        self.positions.iter().enumerate().find(|(_, p)| !p.pinned)
     }
 
     /// 前 `count` 个位置的多写法模式。

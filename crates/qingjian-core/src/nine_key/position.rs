@@ -19,6 +19,9 @@ pub struct Position {
 
     /// 按前缀查：简拼、或末尾的位置（打完的音节也可能还没打完，`xia` 是 `xiang` 的前缀）。
     pub prefix: bool,
+
+    /// 这一段是否已由用户选定成字母（不再含数字）；未选定的位置即使只有一种完整写法也算未定。
+    pub pinned: bool,
 }
 
 impl Position {

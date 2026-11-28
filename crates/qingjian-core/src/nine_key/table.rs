@@ -54,6 +54,7 @@ impl CodeTable {
         last: bool,
         pinned_here: bool,
     ) -> Option<Position> {
+        let pinned = span.bytes().all(|b| b.is_ascii_lowercase());
         // 拼音列选定的叹词读法（ng / hm / hng）自成一个位置；数字不往这儿切，免得 64 多一种切法
         if pinned_here && span.len() > 1 && interjection(span).is_some() {
             return Some(Position {
@@ -62,6 +63,7 @@ impl CodeTable {
                 alternatives: vec![span.to_owned()],
                 complete: true,
                 prefix: false,
+                pinned,
             });
         }
         let code: String = span.chars().map(|c| digit_of(c).unwrap_or(c)).collect();
@@ -106,6 +108,7 @@ impl CodeTable {
             alternatives,
             complete: !complete.is_empty(),
             prefix: last || complete.is_empty(),
+            pinned,
         })
     }
 

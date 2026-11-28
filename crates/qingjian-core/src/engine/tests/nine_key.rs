@@ -83,7 +83,7 @@ fn pinyin_choices_list_first_open_position() {
 
 #[test]
 fn pinyin_choices_also_offer_shorter_syllables_and_letters() {
-    // 643226：最优切法开头是 nie / mie，还要能选 ni、mi 与单个字母，不然 你 这类字选不到
+    // 643226：完整音节（含短音节）全列在前，单字母兜底在后
     let mut engine = nine_key();
     let query = query(&mut engine, "643226");
     let choices = &query.pinyin_choices;
@@ -94,19 +94,85 @@ fn pinyin_choices_also_offer_shorter_syllables_and_letters() {
         );
     }
     let at = |s: &str| choices.iter().position(|c| c == s).unwrap();
-    assert!(at("nie") < at("ni") && at("ni") < at("n"));
+    assert!(at("nie") < at("n") && at("ni") < at("n"), "{choices:?}");
 }
 
 #[test]
 fn shorter_syllables_follow_the_candidates_that_read_them() {
-    // 6433：最优切法是 nie'e，你的 读 ni de；同样长的 ni 要排在没有候选的 mi 前面
+    // 6433：最优结构切法是 nie'e，但首选「你的」读 ni de，拼音列应把 ni 排第一，不被没候选的 nie / mie 压在下面
     let mut engine = Engine::new(Dictionary::parse("你的\tni de\t9000\n").unwrap());
     engine.set_nine_key(true);
     let query = query(&mut engine, "6433");
     let choices = &query.pinyin_choices;
     let at = |s: &str| choices.iter().position(|c| c == s).unwrap();
-    assert!(at("nie") < 2 && at("mie") < 2, "{choices:?}");
+    assert_eq!(choices[0], "ni", "{choices:?}");
+    assert!(at("ni") < at("nie") && at("ni") < at("mie"), "{choices:?}");
     assert!(at("ni") < at("mi"), "{choices:?}");
+}
+
+#[test]
+fn single_reading_first_segment_still_opens_pinyin_choices() {
+    // 584826：结构切法首位 584 只有 kui 一种完整写法，但输入仍是数字未选定，不能跳过它去列 826 的 tan / tao；
+    // 左侧拼音列应列出 lv / kui / ku 等首音节，选定 ku 后出「库管」
+    let dict = Dictionary::parse(
+        "旅馆\tlv guan\t9000\n窥探\tkui tan\t7000\n溃逃\tkui tao\t6000\n库管\tku guan\t5000\n",
+    )
+    .unwrap();
+    let mut engine = Engine::new(dict);
+    engine.set_nine_key(true);
+    let query = query(&mut engine, "584826");
+    let choices = &query.pinyin_choices;
+    assert_eq!(&choices[..3], ["lv", "kui", "ku"], "{choices:?}");
+    assert!(
+        !choices.iter().any(|c| c == "tan" || c == "tao"),
+        "首段未选定，不应跳到第二段：{choices:?}"
+    );
+    // 拼音行应跟着首选「旅馆」的切法走，不显示 kui'tao
+    assert_eq!(query.marked_text(), "lü'guan");
+
+    // 选定 ku 后拆成 ku'4826，首选即为「库管」，拼音列切到第二段 4826
+    assert!(engine.pin_nine_key("ku"));
+    assert_eq!(engine.composition().text(), "ku'4826");
+    let pinned = engine.query().unwrap();
+    assert_eq!(texts_of(&pinned)[0], "库管");
+    assert!(pinned.pinyin_choices.iter().any(|c| c == "guan"));
+
+    // 单独输入单解数字码 584 时也不为空，选定 kui 后才算定下
+    let solo = self::query(&mut engine, "584");
+    assert!(
+        solo.pinyin_choices.iter().any(|c| c == "kui")
+            && solo.pinyin_choices.iter().any(|c| c == "ku"),
+        "{:?}",
+        solo.pinyin_choices
+    );
+    assert!(engine.pin_nine_key("kui"));
+    assert!(engine.query().unwrap().pinyin_choices.is_empty());
+}
+
+#[test]
+fn unmatched_pinyin_choices_follow_frequency_and_user_habit() {
+    // 584826 下只有「窥探」(kui tan) 命中两字词，lu / ju 都没进候选：
+    // 没进候选的音节应按词库字频（路 > 句）排，而不是字母序 ju < lu
+    let dict = Dictionary::parse("窥探\tkui tan\t9000\n路\tlu\t6000\n句\tju\t2000\n").unwrap();
+    let mut engine = Engine::new(dict);
+    engine.set_nine_key(true);
+    let query = query(&mut engine, "584826");
+    let at = |s: &str| query.pinyin_choices.iter().position(|c| c == s).unwrap();
+    assert_eq!(query.pinyin_choices[0], "kui", "{:?}", query.pinyin_choices);
+    assert!(at("lu") < at("ju"), "{:?}", query.pinyin_choices);
+
+    // 用户常选「句」后，未进当前整词候选的 ju 凭借用户习惯压过 lu
+    let mut learner = HashMap::new();
+    learner.insert("句".to_owned(), 50);
+    let mut engine = Engine::new(
+        Dictionary::parse("窥探\tkui tan\t9000\n路\tlu\t6000\n句\tju\t2000\n").unwrap(),
+    )
+    .with_learner(Box::new(CountingLearner(learner)));
+    engine.set_nine_key(true);
+    let query = self::query(&mut engine, "584826");
+    let at = |s: &str| query.pinyin_choices.iter().position(|c| c == s).unwrap();
+    assert_eq!(query.pinyin_choices[0], "kui", "{:?}", query.pinyin_choices);
+    assert!(at("ju") < at("lu"), "{:?}", query.pinyin_choices);
 }
 
 #[test]
