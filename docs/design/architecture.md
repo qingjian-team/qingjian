@@ -42,26 +42,33 @@ qingjian/
 │   ├── qingjian-translate/     # 候选翻译 annotation
 │   ├── qingjian-learning/      # 用户词频、用户词、个人英文词、个人 n-gram、个人敲错表、候选降权（user.tsv / user-words.tsv / user-english.tsv / user-ngram.tsv / user-typos.tsv / user-demoted.tsv）、输入日志（input-log.jsonl）、输入统计（usage-hourly.tsv）、词汇记录（user-vocab.tsv）
 │   ├── qingjian-predict/       # 云联想：Predictor 的网络实现（OpenAI 兼容接口）
+│   ├── qingjian-voice/         # 语音识别客户端（OpenAI / 豆包等后端，流式与整段转写）
 │   ├── qingjian-lm/            # 整句转换的 bigram 语言模型：LanguageModel 的实现
 │   ├── qingjian-neural/        # 字级 Transformer 的本地推理（candle）：SentenceScorer 的实现，给整句前几条路径重打分
 │   ├── qingjian-format/        # .qj 数据容器：mmap 打开、零拷贝视图、写入器、可落盘的哈希索引（dictionary / lm 依赖它）
+│   ├── qingjian-code/          # 形码 / 辅码码表与编码规则
+│   ├── qingjian-clipboard/     # 剪贴板历史存储（SQLite）、搜索与筛选
+│   ├── qingjian-clipboard-sync/# 剪贴板局域网发现、配对与增量同步协议
 │   ├── qingjian-render/        # 自绘渲染器：候选窗一帧 + 主题 → 位图，各平台贴图
-│   ├── bamboo-slip/            # 自绘 UI 引擎：场景树、布局、文字、动画、控件 → 位图；候选窗与设置程序共用
+│   ├── bamboo-slip/            # 自绘 UI 引擎：场景树、布局、文字、动画、控件 → 位图；候选窗、设置与剪贴板共用
+│   ├── bamboo-slip-i18n/       # 多语言文案加载与翻译表
 │   ├── qingjian-update/        # 检查更新：读 releases.json、验 ed25519 签名、按平台与渠道挑新版本
-│   └── qingjian-platform/      # 平台层共用的部分：配置文件、协议类型
+│   └── qingjian-platform/      # 平台层共用的部分：配置文件、用户目录分类、协议类型
 │
 ├── apps/
 │   ├── cli/                    # 测试工具：查询、逐键计时、输入日志回放评测、整句评测
 │   ├── settings/               # 设置程序：三平台共用，画在 bamboo-slip 上，读写同一份配置
+│   ├── clipboard/              # 剪贴板面板程序（Windows / macOS，画在 bamboo-slip 上）
 │   ├── macos/                  # IMK 输入法壳（app / host / imk / candidates / menubar / preferences（旧版设置））
 │   ├── windows/                # 同一个产品的四个 package：server（IPC 分派 + Engine + 命名管道 + 自绘候选窗）、
 │   │                           #   tsf（TSF 文本服务 DLL：COM 链路 + 连 Server 的管道客户端）、settings（旧版设置，WinUI 3）、installer
-│   ├── linux/                  # server（Engine + Unix socket）+ fcitx5（C++ 插件）+ scripts
+│   ├── linux/                  # server（Engine + Unix socket）+ ibus（Rust D-Bus 前端）+ fcitx5（C++ 插件）+ scripts
 │   └── android/                # core（Rust：Engine 装配 + JNI，cdylib）+ app（Kotlin InputMethodService 壳）；Engine 在输入法进程内
 │
 ├── tools/
 │   ├── dict-convert/           # 产品数据生成：lexicon / bigram / mine / english / emoji / pack
 │   ├── gloss-gen/              # LLM 批量生成释义表与多音字标注
+│   ├── release-sign/           # 发版清单的 ed25519 签名工具
 │   └── corpus/                 # 语料预处理脚本（uv）
 │
 ├── assets/                     # 随仓库的产品数据源：词库源、释义表、emoji 表、词汇等级表（levels/，CEFR-J / Octanove / JLPT）、图标、样例
@@ -143,17 +150,55 @@ qingjian-core
 
 ## crate 依赖方向
 
+工作区共 17 个库 crate，按职责分五层（箭头指向被依赖方）：
+
 ```text
-qingjian-dictionary        （纯数据加载与查询，依赖 qingjian-format 的 .qj 容器）
-        ▲
-qingjian-core              （定义 Translator / Learner / Predictor trait，依赖 dictionary）
-        ▲           ▲            ▲
-qingjian-translate  qingjian-learning  qingjian-predict  qingjian-lm  qingjian-neural   （实现 core 的 trait，依赖 core；learning 另依赖 translate 的 LevelTable 做词汇按级汇总）
-        ▲           ▲            ▲
-qingjian-platform          （配置文件 Config：general / shortcut / fuzzy / predict 分节，toml_edit 原地改键保留注释；协议类型，可序列化；依赖 core、predict）
-        ▲
-apps/*                     （组装：Engine::new(dict).with_translator(..).with_learner(..).with_predictor(..)）
+基础叶子（零内部依赖）
+  qingjian-format   qingjian-code   bamboo-slip   bamboo-slip-i18n   qingjian-clipboard-sync
+        ▲                 ▲              ▲               ▲                     ▲
+领域层  │                 │              │               │                     │
+  qingjian-dictionary ────┘              │               │                     │
+        ▲                                │               │                     │
+  qingjian-core ─────────────────────────┼───────────────┘                     │
+        ▲                                │                                     │
+  qingjian-translate / qingjian-learning / qingjian-predict                    │
+  qingjian-lm / qingjian-neural / qingjian-voice                               │
+  qingjian-clipboard ─────── (qingjian-code) ──────────────────────────────────┘
+        ▲                                │
+渲染层  │                        qingjian-render（只依赖 bamboo-slip）
+        │                                ▲
+平台适配│                                │
+  qingjian-platform（core / dictionary / format / predict / bamboo-slip-i18n）
+        ▲                                │
+  qingjian-update（只依赖 platform）     │
+        ▲                                │
+壳层    └────────────────────────────────┘
+  apps/*（cli / settings / clipboard / macos / windows/{server,tsf,settings} /
+          linux/{server,ibus} / android/core）
 ```
+
+各 crate 的直接内部依赖（以各自 `Cargo.toml` 为准）：
+
+| 分层 | crate | 直接内部依赖 |
+| --- | --- | --- |
+| 基础叶子 | `qingjian-format`、`qingjian-code`、`bamboo-slip`、`bamboo-slip-i18n`、`qingjian-clipboard-sync` | 无 |
+| 领域 | `qingjian-dictionary` | `qingjian-format` |
+| 领域 | `qingjian-core` | `qingjian-dictionary`、`qingjian-code`、`bamboo-slip-i18n` |
+| 领域 | `qingjian-translate`、`qingjian-lm`、`qingjian-neural` | `qingjian-core`、`qingjian-format` |
+| 领域 | `qingjian-learning` | `qingjian-core`、`qingjian-dictionary`、`qingjian-translate` |
+| 领域 | `qingjian-predict`、`qingjian-voice` | `qingjian-core` |
+| 领域 | `qingjian-clipboard` | `qingjian-clipboard-sync`、`qingjian-code` |
+| 渲染 | `qingjian-render` | `bamboo-slip` |
+| 平台适配 | `qingjian-platform` | `qingjian-core`、`qingjian-dictionary`、`qingjian-format`、`qingjian-predict`、`bamboo-slip-i18n` |
+| 平台适配 | `qingjian-update` | `qingjian-platform` |
+
+依赖规则：
+
+- **领域层不依赖渲染层与平台适配层**：所有领域 crate 都只依赖基础叶子与其他领域 crate，不碰 `qingjian-render`、`bamboo-slip` 与 `qingjian-platform`。
+- **Core 只靠 trait 扩展**：`qingjian-core` 只依赖 `dictionary`、`code`、`bamboo-slip-i18n`，不依赖 `translate`、`learning`、`predict`、`lm`、`neural`、`voice`；这些能力都通过 trait 注入（`Translator` / `Learner` / `Predictor` / `LanguageModel` / `SentenceScorer` 等，缺省为空操作），单元测试与 CLI 不需要真实数据或网络也能跑。
+- **渲染层干净独立**：`qingjian-render` 只依赖 `bamboo-slip`，`bamboo-slip` 本身零内部依赖，方便独立演进和复用。
+- **壳之间基本互不依赖**：`apps/*` 按平台装配上述各层；壳之间的路径依赖只有 `apps/windows/tsf` → `apps/windows/server` 一条（共享启动协调等原语，运行时通过命名管道通信）。
+- **`qingjian-platform` 的协议类型必须可序列化（serde）**：macOS 与 Android 上 Core 与壳同进程，Windows 和 Linux 上 Core 在独立 Server 进程，同一套协议类型两边共用；`storage` 只放 Core 自己的持久化原语，用户词频的数据模型归 `qingjian-learning`。
 
 `apps/cli` 是 Phase 1 的测试壳：`cargo run -p qingjian-cli -- kaifa` 直接查询，
 不带参数进入交互模式（拼音查询、序号上屏、`:q` 退出），`--user-dict` 指定用户词频文件，
@@ -161,12 +206,6 @@ apps/*                     （组装：Engine::new(dict).with_translator(..).wit
 `--typing` 是性能测试模式：把输入当一键一键敲进去，每个前缀查一次并标注译文，一行一键打印各阶段耗时
 （这是输入法每键的真实工作量，联想在后台线程不算），启动日志里带各数据文件的加载耗时。
 性能改动要用 release 构建跑它看数字，目标每键 10 ms 以内。
-
-- Core 只依赖 dictionary，不依赖 translate 和 learning。翻译与学习通过 trait 注入（`Translator` / `Learner` / `InputLogger` / `UsageMeter` / `VocabularyTracker`，
-  缺省实现都是空操作），这样 Core 的单元测试和 CLI 工具不需要真实词典也能跑。
-- `qingjian-platform` 里的类型必须可序列化（serde）：macOS 上 Core 与壳同进程，
-  Windows 和 Linux 上 Core 在独立 Server 进程，同一套协议类型两边都用。
-- `storage` 只放 Core 自己的持久化原语，用户词频的数据模型归 `qingjian-learning`。
 
 ## 翻译的异步模型
 
