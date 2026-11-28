@@ -15,6 +15,31 @@ impl Engine {
         self.blocked = words.into_iter().filter(|w| !w.is_empty()).collect();
     }
 
+    /// 现在的屏蔽词。
+    pub fn blocked_words(&self) -> &[String] {
+        &self.blocked
+    }
+
+    /// 加一条屏蔽词（候选右键或长按「屏蔽这个词」）。已经有了返回 `false`。
+    ///
+    /// 只改引擎，落盘由壳负责 —— 各平台写配置的路径不同（Windows 走 Server、macOS 直接写、
+    /// Android 走 `Session`）。
+    pub fn add_blocked_word(&mut self, word: &str) -> bool {
+        let word = word.trim();
+        if word.is_empty() || self.blocked.iter().any(|w| w == word) {
+            return false;
+        }
+        self.blocked.push(word.to_owned());
+        true
+    }
+
+    /// 去掉一条屏蔽词（设置页里删）。没找到返回 `false`。
+    pub fn remove_blocked_word(&mut self, word: &str) -> bool {
+        let before = self.blocked.len();
+        self.blocked.retain(|w| w != word);
+        self.blocked.len() != before
+    }
+
     /// 换掉全部附加词库（导入、移除、开关之后）。格子缓存随之作废。
     pub fn set_extra_dictionaries(&mut self, dictionaries: Vec<Dictionary>) {
         self.extra_dictionaries = dictionaries;

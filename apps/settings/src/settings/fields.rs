@@ -25,6 +25,8 @@ impl Settings {
             FieldId::HalfWidthSymbols => self.config.general.half_width_symbols.clone(),
             FieldId::FuzzyCustom => self.config.fuzzy.custom.join(" "),
             FieldId::VocabularySearch => String::new(),
+            // 屏蔽词输入框每次都是空的，等这一条敲完再提交
+            FieldId::BlockedWord => String::new(),
             FieldId::PhraseCode | FieldId::PhraseWeight | FieldId::PhraseText => return,
         };
         self.fields.insert(id, TextEdit::new(value));
@@ -62,6 +64,8 @@ impl Settings {
                 }
             }
             FieldId::FuzzyCustom => self.commit_fuzzy_custom(&text),
+            // 屏蔽词输入框：回车把这一条加进去，然后清空等下一句
+            FieldId::BlockedWord => self.change_blocked_word(&text, true),
             FieldId::PhraseCode
             | FieldId::PhraseWeight
             | FieldId::PhraseText
@@ -78,6 +82,27 @@ impl Settings {
             }
         }
         self.reset_field(id);
+    }
+
+    /// 加一条或删一条屏蔽词：`add` 为真加、为假删。列表变了才写配置。
+    ///
+    /// 输入框（回车）与列表上的「移除」都走这里，规则只写一份。
+    pub(super) fn change_blocked_word(&mut self, word: &str, add: bool) {
+        let word = word.trim();
+        if word.is_empty() {
+            return;
+        }
+        let mut words = self.config.dictionaries.blocked.clone();
+        if add {
+            if words.iter().any(|w| w == word) {
+                return;
+            }
+            words.push(word.to_owned());
+        } else {
+            words.retain(|w| w != word);
+        }
+        self.config.dictionaries.blocked = words.clone();
+        self.write_list("dictionaries", "blocked", &words);
     }
 
     /// 存自定义模糊音：认得出的按规范写法存、去重；删掉的规则从关着的名单里也去掉；认不出的提示一句，不存。
