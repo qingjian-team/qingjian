@@ -22,6 +22,12 @@ impl Engine {
         true
     }
 
+    /// 壳在没组句时收到方向键 / Home / End 并把它交给应用：插入符已挪走，刚上屏的字不再是光标前的字，
+    /// 之后的自动空格不能拿它当上文（否则挪到中文字后面打的西文会被误判）。
+    pub fn caret_moved(&mut self) {
+        self.recent_commits.clear();
+    }
+
     /// 上屏译词前调：译词与上文都是西文这类用空格分词的文字时（见 [`needs_word_space`]）补一个空格，
     /// 不看自动空格开没开（`hola` 接着上屏 `mundo` 得 `hola mundo`）。补了就记成一次直通并返回 true。
     pub(super) fn word_space_before(&mut self, next: &str) -> bool {
