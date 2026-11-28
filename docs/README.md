@@ -13,6 +13,7 @@ README.md 只介绍项目（各语言译本在 [i18n/](i18n/)），所有技术�
 | 文件 | 内容 |
 |---|---|
 | [contributing.md](contributing.md) | 开发约定：架构约束短版、代码组织、版本号、提交信息、文档同步、提交前检查、发版与外部 PR 流程（CLAUDE.md 直接载入它） |
+| [design/adr/](design/adr/README.md) | 架构决定记录：当时在几个方案之间怎么选的、被否掉的为什么被否、以后什么条件下该重新讨论（自研 UI 引擎、Windows 两进程、翻译作 annotation） |
 | [design/architecture.md](design/architecture.md) | Core 与平台层的划分、crate 结构、必须遵守的架构约束、`.qj` 数据容器 |
 | [design/candidate-ui.md](design/candidate-ui.md) | 候选窗口、按键约定与翻译 annotation 的设计 |
 | [design/landscape.md](design/landscape.md) | 同类项目（水杉、Rime）、可用数据源及其许可 |

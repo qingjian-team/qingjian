@@ -75,6 +75,10 @@
 - **用户能感知的行为改了（按键、菜单、设置程序、配置文件、数据文件），同一个提交里改 `docs/user/` 对应的页**，按键改动同时改 `keys.md`。
 - 改了某个 crate 的实现要点（数据文件、常数、生成命令），同步 `docs/notes/crate-notes.md`。
 
+- **跨 crate 的边界、以后很难换的基础件、否掉了一个还会被重提的方案**：写一条 ADR 到
+  [design/adr/](design/adr/README.md)，格式与触发条件见那里的 README。现状说明改 `design/` 里的文档，
+  「当时怎么权衡的」写 ADR，两者不互相替代。
+
 ## 提交前检查
 
 - 钩子：`.githooks/pre-commit`（禁装饰性分隔注释 + fmt + clippy）、`.githooks/commit-msg`（提交信息格式）、`.githooks/pre-push`（全 workspace 测试）；`git config core.hooksPath .githooks` 启用一次。
