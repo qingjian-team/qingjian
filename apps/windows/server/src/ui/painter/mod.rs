@@ -131,6 +131,12 @@ impl Painter {
     }
 
     /// 候选窗这一帧能不能垫系统材质（[`backdrop::Backdrop::supported`]）。
+    /// 这个主题要不要垫系统材质：亚克力由 DWM 按圆角裁，方角主题（窗口半径为 0）垫上去会被裁圆，
+    /// 所以只有圆角主题才垫。
+    pub(super) fn material_allowed(&self) -> bool {
+        self.theme.window_radius() > 0.5
+    }
+
     pub(super) fn set_material_support(&mut self, supported: bool) {
         self.renderer.set_material_support(supported);
     }
