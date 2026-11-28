@@ -883,3 +883,7 @@ Windows Server 受控退出使用 ExitCode 返回以刷新既有 tracing 队列�
 - 存储：Windows 的 `StoreReplica` 和面板各开一个连接，收到非 PNG 图片要留原始字节（`sync_original`），转过的 PNG 算不回原 id。Android 的 `HistoryReplica` 把 id、毫秒和删除状态记在 `clipboard-sync-state.json`，历史文件只有秒；面板和监听直接改历史，所以每次对账。
 - 霓虹灯：Windows 是每台显示器四条贴边的分层窗口（`system/neon/`，`--neon ok|fail` 可单独看效果），Android 是键盘内的 `NeonEdgeView`，要加在 `InputPanel` 的布局里：在输入法视图外再包一层，键盘会贴到屏幕顶上。节奏和颜色两边要一起改。
 - 真机对测用 `cargo run -p qingjian-clipboard-sync --example peer`，内容只在内存，不碰系统剪贴板。
+
+## apps/android 工具栏
+
+屏幕工具栏的验证码与系统自动填充使用 `InlineSuggestionsHost`：中间区域横向滚动，两端入口由 `Toolbar` 保留；胶囊高 40dp、宽至多 240dp，远端 Surface 单独裁剪。详见 [内联自动填充](android.md#内联自动填充)。

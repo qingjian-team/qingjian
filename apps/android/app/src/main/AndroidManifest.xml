@@ -16,6 +16,10 @@
     <!-- 通讯录里的名字进候选（缺省关，见 contacts/ContactsSync.kt）；在「设置 → 词库」打开时才申请，只在本机用 -->
     <uses-permission android:name="android.permission.READ_CONTACTS" />
 
+    <!-- 短信验证码独立开关缺省关闭，只接收新短信，不读取短信历史。 -->
+    <uses-permission android:name="android.permission.RECEIVE_SMS" />
+    <uses-feature android:name="android.hardware.telephony" android:required="false" />
+
     <!-- 试打框等自家输入框的文字选择菜单要列出「青简翻译」这类文字处理项：Android 11 起不声明就查不到 -->
     <queries>
         <intent>
@@ -95,6 +99,25 @@
             android:authorities="${applicationId}.logs"
             android:exported="false"
             android:grantUriPermissions="true" />
+
+        <receiver
+            android:name=".verification.SmsReceiver"
+            android:exported="true"
+            android:permission="android.permission.BROADCAST_SMS">
+            <intent-filter>
+                <action android:name="android.provider.Telephony.SMS_RECEIVED" />
+            </intent-filter>
+        </receiver>
+
+        <service
+            android:name=".verification.NotificationListener"
+            android:exported="true"
+            android:label="@string/verification_notifications_title"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
 
         <service
             android:name=".service.QingjianInputMethodService"

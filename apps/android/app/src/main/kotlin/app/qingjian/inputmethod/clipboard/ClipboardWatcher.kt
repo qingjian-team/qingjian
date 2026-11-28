@@ -4,11 +4,12 @@ import app.qingjian.inputmethod.clipboard.sync.ClipboardSync
 import android.content.ClipDescription
 import android.content.ClipboardManager
 import android.content.Context
-import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import app.qingjian.inputmethod.core.store.ClipboardStore
 import app.qingjian.inputmethod.settings.Settings
+import app.qingjian.inputmethod.verification.Sources
+import app.qingjian.inputmethod.verification.Inbox
 import kotlin.concurrent.thread
 
 /**
@@ -33,11 +34,23 @@ class ClipboardWatcher(private val context: Context) {
     /** 读一次当前剪贴板记下来；键盘弹出时也调（监听在输入法没起来时收不到）。 */
     fun capture() {
         val settings = Settings.load(context)
-        if (!settings.recordClipboard) return
-        val clip = runCatching { manager?.primaryClip }.getOrNull() ?: return
-        if (clip.itemCount == 0 || sensitive(clip.description)) return
-        if (!firstSeen(clip.description.timestamp)) return
+        val clip = runCatching { manager?.primaryClip }.getOrNull()
+        if (clip == null || clip.itemCount == 0) {
+            Inbox.clear("clipboard")
+            return
+        }
         val item = clip.getItemAt(0)
+        val text = item.text?.toString()
+        val code = text?.let { OtpDetector.detect(it) }
+        // 临时提示不依赖历史记录开关；敏感标记只决定遮盖，绝不进入历史和同步。
+        val timestamp = clip.description.timestamp
+        if (Sources.clipboard(context) && code != null && timestamp > 0) {
+            Inbox.offer("clipboard", timestamp.toString(), code, sensitive(clip.description), timestamp + 120_000L)
+        } else {
+            Inbox.clear("clipboard")
+        }
+        if (!settings.recordClipboard || sensitive(clip.description) || code != null) return
+        if (!firstSeen(timestamp)) return
         val uri = item.uri
         val mime = uri?.let { runCatching { context.contentResolver.getType(it) }.getOrNull() }
         if (uri != null && mime?.startsWith("image/") == true) {
@@ -54,7 +67,7 @@ class ClipboardWatcher(private val context: Context) {
             }
             return
         }
-        val text = item.text?.toString() ?: return
+        if (text == null) return
         // 同步刚放上来的不再记：记了时刻变新，又传回去，两边来回传
         if (text != ClipboardSync.lastReceived) {
             ClipboardStore.add(context, text, settings.clipboardLimit)
@@ -75,8 +88,7 @@ class ClipboardWatcher(private val context: Context) {
     }
 
     private fun sensitive(description: ClipDescription): Boolean =
-        Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-            description.extras?.getBoolean(ClipDescription.EXTRA_IS_SENSITIVE) == true
+        description.extras?.getBoolean("android.content.extra.IS_SENSITIVE") == true
 
     private fun java.io.InputStream.readNBytesCompat(limit: Int): ByteArray {
         val out = java.io.ByteArrayOutputStream()

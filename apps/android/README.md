@@ -26,7 +26,7 @@ Kotlin 的 `InputMethodService` 壳 + Rust 的 `libqingjian_android.so`。Androi
     `VoicePanel` 是说话时盖上的语音面板。
   - `voice/`：语音输入。`VoiceInput` 是唯一入口（长按空格、工具栏话筒、底栏语音键），`VoiceRecognizer` 识别方式的接口（占位 `UnavailableRecognizer`、Rust 侧识别方 `EngineRecognizer`），`MicrophonePermissionActivity` 代输入法申请录音权限，`VoiceConfig` 是「语音识别」页的配置（识别服务、计费方式、密钥密文，与云端大模型分开存）。
   - `translate/`：快捷翻译，翻译条 `TranslateBar` 与流程 `QuickTranslate`；系统文字选择菜单的「青简翻译」`ProcessTextActivity`；`cloud/` 是云端配置、密钥（Android Keystore）与当前网络（`Network`，「只在 Wi-Fi 下使用」）。
-  - `clipboard/`：系统剪贴板的监听与图片的 content:// 出口。
+  - `clipboard/`：系统剪贴板的监听与图片的 content:// 出口；`verification/` 管理临时验证码与来源。
   - `candidates/`：键盘上方那一条。`CandidateBarView` 在三种样子之间切：`CandidateStrip` 候选（贴 `StripSource` 给的位图，拼音行钉住、候选随滚动）、
     `Toolbar` 工具栏（浮在键盘上的圆角卡片，面板表头同样是浮起卡片）、`ResizeHandle` 调高度手柄。
   - `popup/`：`ChoicePopup` 长按气泡，候选条（译词）与数字键（字母 / 数字）共用。
@@ -49,7 +49,7 @@ adb logcat -s qingjian        # Rust 侧日志
 ```
 
 `preBuild` 之前会跑两个任务：`cargoNdk`（`cargo ndk` 编 arm64-v8a 的 release `.so`）与 `stageData`
-（`data/generated/` 有 `dict.qj` 就带产品数据，没有退回 `assets/sample/` 样例）。只编 arm64。
+（`data/generated/` 有 `dict.qj` 就带产品数据，没有退回 `assets/sample/` 样例）。默认只编 arm64；模拟器可传 `-PandroidAbis=x86_64`。
 
 装好后打开「青简」，按页面上两步启用并切换输入法。
 

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="verification_section">Verification codes</string>
+    <string name="verification_code_masked">Paste verification code</string>
+    <string name="verification_clipboard_title">Suggest copied codes</string>
+    <string name="verification_clipboard_note">Temporarily suggest copied codes without saving them in clipboard history. Sensitive digits stay hidden until you tap to fill</string>
+    <string name="verification_sms_title">Receive SMS codes</string>
+    <string name="verification_sms_note">With permission, extract codes from new SMS messages received on this device and keep them temporarily on device. Your system may restrict access to code messages</string>
+    <string name="verification_notifications_title">Extract codes from notifications</string>
+    <string name="verification_notifications_note">Requires notification access. Works with readable notifications forwarded from your phone; codes are extracted temporarily on device. Codes hidden by the system cannot be read</string>
+    <string name="verification_sms_permission_denied">SMS permission was not granted, so SMS codes remain off. Check app permissions and installation restrictions in system settings</string>
+    <string name="verification_sms_unavailable">This device cannot receive SMS. Use notification codes or copy the code instead</string>
+    <string name="verification_notification_settings_unavailable">Cannot open notification access settings. Find Qingjian notification access in system settings</string>
+    <string name="otp_suggestion">Insert verification code %1$s</string>
+</resources>

@@ -98,6 +98,20 @@ PC 上只对实体键盘有意义的项（Shift + 字母、切换键、翻页键
 - 编辑剪贴板或常用语的浮动编辑框（`PhraseEditor`）自己当输入连接，光标就是 `Editable` 的 selection：点或拖动按排版换算到字的位置，按住空格左右滑发来的方向键在正文里逐字挪，组句中挪光标先 `onCursorMovedAway` 落下拼音，跟外面的输入框一致。
 - 常用语（`PhraseBook`，`phrases.json`）按分组列，卡片带输入码；带输入码的挂成 Core 自定义短语，打码直接出。输入码最多 32 个字母，跟 Core 自定义短语的上限一致。
 
+验证码的临时提示与历史记录分离。`ClipboardWatcher` 在历史开关之前识别当前剪贴板；`EXTRA_IS_SENSITIVE` 只令胶囊遮盖数字，敏感内容及识别到的验证码不写历史、不进同步。支持纯 4–8 位数字和分组 TOTP；普通文本框、数字框可用，密码、私密输入、邮箱与 URL 排除。
+
+`verification/Codes` 保存按来源区分的短期条目，当前最新来源优先，剪贴板重复读取不刷新次序或延长有效期。用过的来源 ID 在剩余有效期内去重；界面重建、空内联响应不丢弃未用的码。剪贴板及通知最多 2 分钟，短信 5 分钟；关闭来源和撤回通知会清除。内容不写日志、磁盘或剪贴板。
+
+短信和通知来源分别由 `Sources` 控制，默认关闭。`SmsReceiver` 需 `RECEIVE_SMS`，只接系统 `SMS_RECEIVED`，合并多段后要求明确验证码上下文；不申请 `READ_SMS`。`NotificationListener` 需用户在系统授予通知使用权，只看新通知的 title/text/bigText/textLines，过滤自身、分组摘要和过旧事件。通知来源受 Android 15+ 脱敏影响；Android 16 QPR2 的 OTP 广播过滤也可能限制普通输入法，不通过系统角色或私有接口绕过。详细官方依据见 Android 的 SMS、NotificationListenerService 文档。
+
+## 内联自动填充
+
+`method.xml` 声明 `supportsInlineSuggestions` 后，Android 11 通过 `InputMethodService.onCreateInlineSuggestionsRequest` 把候选数量、尺寸和样式规格交给自动填充服务。`InlineSuggestionsHost` 把受系统保护的 `InlineContentView` 放进工具栏中间的横向滚动区域，只替换中间工具，保留两端入口。胶囊高 40dp，宽度随内容且最多 240dp，窄屏再受中间区域限制；保留 inflate 回调给出的真实尺寸，不拉伸远端视图。背景与文字复用 `Palette`。验证码胶囊共用这段区域。
+
+组句、临时提示和高度手柄优先显示；没有建议时恢复工具。异步加载用代际检查丢弃旧回调，占位容器保持服务返回的顺序。远端 Surface 不受父视图的 Canvas 裁剪影响，布局和滚动时必须同步 `InlineContentView.clipBounds`，避免文字越过中间区域盖住两端入口。换输入框、重建和分离视图时清空宿主，青简不读取系统建议中的密码或账号。
+
+2026-11-26 在 x99 的 KVM Android 16 / API36 复测：原生 EditText 与 WebView 的验证码提示、敏感遮盖、点击上屏、字段切换、关闭历史记录；虚拟 modem 接收短信与独立 App 投递通知，验证更新、撤回和点击。独立 AutofillService 通过真实系统内联通路提供测试账号，窄屏左右滑动与点击填充通过。截图见 [工具栏](assets/android-autofill/toolbar.png)、[验证码](assets/android-autofill/code.png)，手势见 [滑动录屏](assets/android-autofill/scroll.mp4)。这些测试不代替实际 Bitwarden 或 One UI 同步服务的兼容验收。
+
 ## 翻译选中的文字
 
 - PC 的「翻译选中文字」（快捷键读选区）在手机上改成系统文字选择菜单里的「青简翻译」：`ProcessTextActivity` 接 `ACTION_PROCESS_TEXT`，透明窗口 + 底部卡片（主题 `Theme.Qingjian.Sheet`），不进最近任务。

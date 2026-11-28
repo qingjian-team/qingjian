@@ -73,6 +73,7 @@ class CandidateBarView(
         set(value) {
             field = value
             invalidate()
+            onToolbarStateChanged?.invoke()
         }
 
     private val popup = ChoicePopup(this, palette)
@@ -95,9 +96,20 @@ class CandidateBarView(
     private val clearNotice = Runnable {
         notice = null
         invalidate()
+        onToolbarStateChanged?.invoke()
     }
 
     private val toolbarShown: Boolean get() = !resizing && strip.isEmpty && notice == null
+
+    /** 中间的系统建议只在工具栏状态出现，不盖住组句、提示和高度手柄。 */
+    val acceptsSuggestions: Boolean get() = toolbarShown
+    val toolbarEdgeWidth: Int get() = toolbar.edgeWidth.toInt()
+    var onToolbarStateChanged: (() -> Unit)? = null
+    var toolsReplaced: Boolean = false
+        set(value) {
+            field = value
+            invalidate()
+        }
 
     /** 候选能用的宽度：有 ⌄ 时让出那一格。 */
     private val stripWidth: Int get() = if (expandable) width - expandSlot.toInt() else width
@@ -170,6 +182,7 @@ class CandidateBarView(
         scroller.forceFinished(true)
         scrollTo(0, 0)
         repaint()
+        onToolbarStateChanged?.invoke()
     }
 
     /** 在工具栏的位置放一句提示 [message]，点它执行 [action]（打开对应的设置页）。 */
@@ -178,6 +191,7 @@ class CandidateBarView(
         removeCallbacks(clearNotice)
         postDelayed(clearNotice, NOTICE_MS)
         invalidate()
+        onToolbarStateChanged?.invoke()
     }
 
     /** 进入拖动调高度（功能面板里点「键盘高度」）。 */
@@ -205,7 +219,7 @@ class CandidateBarView(
     override fun onDraw(canvas: Canvas) = when {
         resizing -> resizeHandle.draw(canvas, width)
         strip.isEmpty && notice != null -> toolbar.drawNotice(canvas, width, notice!!.first)
-        strip.isEmpty -> toolbar.draw(canvas, width)
+        strip.isEmpty -> toolbar.draw(canvas, width, showTools = !toolsReplaced)
         else -> {
             strip.draw(canvas, scrollX, stripWidth)
             if (expandable) drawExpand(canvas)
@@ -274,7 +288,7 @@ class CandidateBarView(
         when {
             toolbar.onLogo(x) -> listener.openFunctions()
             toolbar.onHide(x, width) -> listener.hideKeyboard()
-            else -> when (val tool = toolbar.toolAt(x, width)) {
+            !toolsReplaced -> when (val tool = toolbar.toolAt(x, width)) {
                 null -> Unit
                 ToolbarTool.RESIZE -> resizing = true
                 else -> listener.onToolbar(tool)

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="verification_section">验证码</string>
+    <string name="verification_code_masked">粘贴验证码</string>
+    <string name="verification_clipboard_title">提示复制的验证码</string>
+    <string name="verification_clipboard_note">临时显示复制的验证码，不写入剪贴板历史；敏感内容隐藏数字，点按后填入</string>
+    <string name="verification_sms_title">接收短信验证码</string>
+    <string name="verification_sms_note">授权后从本机新收到的短信中提取验证码，仅在本机临时保存；系统可能限制验证码短信的访问</string>
+    <string name="verification_notifications_title">从通知提取验证码</string>
+    <string name="verification_notifications_note">需要通知使用权，可处理手机同步到此设备的可读通知；仅在本机临时提取验证码。系统隐藏的验证码无法读取</string>
+    <string name="verification_sms_permission_denied">未取得接收短信权限，短信验证码未开启。请检查系统应用权限与安装限制</string>
+    <string name="verification_sms_unavailable">此设备没有短信接收功能，可使用通知验证码或复制验证码</string>
+    <string name="verification_notification_settings_unavailable">无法打开通知使用权设置，请在系统设置中查找青简的通知使用权</string>
+    <string name="otp_suggestion">插入验证码 %1$s</string>
+</resources>

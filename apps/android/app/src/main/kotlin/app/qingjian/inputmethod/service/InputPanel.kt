@@ -47,6 +47,8 @@ class InputPanel(
     private val palette = Palette.of(settings.theme, floating || settings.appearance.dark(context))
 
     val bar = CandidateBarView(context, palette, settings.textSize.scale, stripSource, settings.toolbar, barListener)
+    /** Android 11 自动填充服务交给输入法的建议，内容由系统托管。 */
+    val inlineSuggestions = InlineSuggestionsHost(context, palette)
     val keyboard = KeyboardView(context, palette, settings, keyboardListener)
 
     /** 开着的面板；null 是键盘。 */
@@ -55,12 +57,30 @@ class InputPanel(
 
     private var panelView: View? = null
 
+    private fun refreshSuggestions() {
+        val shown = bar.acceptsSuggestions && inlineSuggestions.hasSuggestions
+        bar.toolsReplaced = shown
+        inlineSuggestions.visibility = if (shown) View.VISIBLE else View.GONE
+    }
+
+    private val toolbar = FrameLayout(context).apply {
+        clipChildren = false
+        clipToPadding = false
+        addView(bar, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, bar.barHeight.toInt()))
+        addView(inlineSuggestions, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, bar.barHeight.toInt()).apply {
+            leftMargin = bar.toolbarEdgeWidth
+            rightMargin = bar.toolbarEdgeWidth
+        })
+        inlineSuggestions.onChanged = ::refreshSuggestions
+        bar.onToolbarStateChanged = ::refreshSuggestions
+    }
+
     // 顶排按键的气泡要画到候选条上，一路都不裁子视图
     private val main = LinearLayout(context).apply {
         orientation = LinearLayout.VERTICAL
         clipChildren = false
         clipToPadding = false
-        addView(bar)
+        addView(toolbar)
         addView(keyboard)
     }
 
@@ -134,6 +154,16 @@ class InputPanel(
     private var overlay: View? = null
 
     val view: View get() = root
+
+    /** 在候选条位置显示系统自动填充服务提供的内联视图。 */
+    fun showInlineSuggestions(response: android.view.inputmethod.InlineSuggestionsResponse) {
+        inlineSuggestions.show(response)
+    }
+
+    /** 清掉上一输入框留下的内联自动填充视图。 */
+    fun clearInlineSuggestions() {
+        inlineSuggestions.clear()
+    }
 
     /** 编辑条（常用语编辑框、快捷翻译）摆在最上面（键盘照常可打）；[editor] 为 null 收起。 */
     fun showEditor(editor: View?) {
