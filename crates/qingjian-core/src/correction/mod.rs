@@ -72,8 +72,39 @@ pub fn trailing_single_letter(best: Option<&Segmentation>) -> bool {
     })
 }
 
+/// 一处编辑后是否有可能切成合法拼音（无假阴性的必要条件）：
+/// 每个完整音节至少含 1 个元音（`a/e/i/o/u/v`）、至多含 4 个辅音（`zh/ch/sh` + `ng`），
+/// 跨音节交界最多连续 4 个辅音（`ng` + `zh/ch/sh`）；一处编辑至多增 1 元音、减 1 辅音，
+/// 且至多劈开一段长度 ≤ 9 的连续辅音团。长纯简拼（如 `wmjtxwqkh`）在此瞬间短路，免枚举数百个变体。
+fn can_reach_valid_pinyin_in_one_edit(input: &str) -> bool {
+    let mut vowels = 0usize;
+    let mut run = 0usize;
+    let mut long_runs = 0usize;
+    for b in input.bytes() {
+        if matches!(b, b'a' | b'e' | b'i' | b'o' | b'u' | b'v') {
+            vowels += 1;
+            run = 0;
+        } else {
+            run += 1;
+            if run == 5 {
+                long_runs += 1;
+                if long_runs >= 2 {
+                    return false;
+                }
+            } else if run >= 10 {
+                return false;
+            }
+        }
+    }
+    let consonants = input.len() - vowels;
+    consonants.saturating_sub(1) <= 4 * (vowels + 1)
+}
+
 /// `input` 的全部候选纠正：一处编辑之后能完整切分的变体，顺序同 [`variants`]（换位最先）。
 pub fn candidates(input: &str) -> Vec<Correction> {
+    if !eligible(input) || !can_reach_valid_pinyin_in_one_edit(input) {
+        return Vec::new();
+    }
     candidates_from(input, variants(input))
 }
 
@@ -252,5 +283,19 @@ mod tests {
                 .iter()
                 .any(|c| c.corrected == "mingtia" && c.segmentation.last_is_partial())
         );
+    }
+
+    #[test]
+    fn long_pure_abbreviations_short_circuit_without_false_negatives() {
+        // 长纯声母串不可能经由一处编辑变成完整拼音
+        assert!(!can_reach_valid_pinyin_in_one_edit("wmjtxwqkh"));
+        assert!(!can_reach_valid_pinyin_in_one_edit("jttqhh"));
+        assert!(candidates("wmjtxwqkh").is_empty());
+        // 边界：zhxng（5 辅音 0 元音）换 x→a 可变成 zhang，不得误短路
+        assert!(can_reach_valid_pinyin_in_one_edit("zhxng"));
+        assert!(candidates("zhxng").iter().any(|c| c.corrected == "zhang"));
+        // 常规错拼正常放行
+        assert!(can_reach_valid_pinyin_in_one_edit("nihooma"));
+        assert!(can_reach_valid_pinyin_in_one_edit("migntia"));
     }
 }

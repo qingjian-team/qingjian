@@ -1005,3 +1005,75 @@ fn calendar_group_goes_first_only_when_the_option_is_on() {
         "打开之后整组排在最前：{grouped:?}"
     );
 }
+
+#[test]
+fn pure_abbreviation_digraph_initials_compete_fairly_with_split_initials() {
+    // 纯简拼里 zh / ch / sh 与 z+h / c+h / s+h 都是纯声母切分，不拿音节数硬压词频
+    let dict = concat!(
+        "是\tshi\t90000\n",
+        "上海\tshang hai\t60000\n",
+        "生僻\tsheng pi\t10\n",
+        "眎\tshi\t5\n",
+        "什么时候\tshen me shi hou\t80000\n",
+        "什么事\tshen me shi\t50000\n",
+        "不在乎\tbu zai hu\t70000\n",
+        "不着\tbu zhao\t30000\n",
+    );
+    let all = texts_in(dict, "sh");
+    assert_eq!(all[0], "是", "{all:?}");
+    assert!(
+        position(&all, "上海") < position(&all, "眎"),
+        "高频双字词 上海 应排在生僻单字 眎 前面：{all:?}"
+    );
+    assert_eq!(texts_in(dict, "smsh")[0], "什么时候");
+    assert_eq!(texts_in(dict, "bzh")[0], "不在乎");
+}
+
+#[test]
+fn pure_abbreviation_sentence_splits_digraph_initials_via_lattice_and_consumes_all_keys() {
+    // wxqsh 既可读成 w x q sh，也可拆成 w x q s h（我想去上海）；整句经 DAG 搜索且上屏消耗全部按键
+    let dict = concat!(
+        "我想\two xiang\t90000\n",
+        "去\tqu\t80000\n",
+        "上海\tshang hai\t85000\n",
+        "其实\tqi shi\t40000\n",
+        "我\two\t95000\n",
+        "想\txiang\t50000\n",
+        "上\tshang\t60000\n",
+        "海\thai\t30000\n",
+    );
+    let mut engine = Engine::new(Dictionary::parse(dict).unwrap());
+    engine.set_input("wxqsh");
+    let query = engine.query().unwrap();
+    let candidate = query
+        .candidates
+        .items
+        .iter()
+        .find(|c| c.text == "我想去上海")
+        .cloned()
+        .expect("wxqsh 应产出整句 我想去上海");
+    assert_eq!(candidate.kind, CandidateKind::Sentence);
+    assert_eq!(engine.commit(&candidate), "我想去上海");
+    assert!(engine.composition().is_empty());
+}
+
+#[test]
+fn half_typed_mixed_abbreviation_word_is_not_overridden_by_all_single_char_sentence() {
+    // `bzhida` 差最后一字母 `o`，词级已按末音节前缀命中主词库整词 不知道，
+    // 整句只凑得出全单字碎片（北 + 至 + 大）时不应抢到 不知道 前面
+    let dict = concat!(
+        "不知道\tbu zhi dao\t900000\n",
+        "北\tbei\t500000\n",
+        "至\tzhi\t400000\n",
+        "大\tda\t800000\n",
+    );
+    let mut engine = Engine::new(Dictionary::parse(dict).unwrap());
+    engine.set_spelling_correction(false);
+    engine.set_input("bzhida");
+    let all = texts_of(&engine);
+    assert_eq!(all[0], "不知道", "{all:?}");
+    assert!(
+        !all.contains(&"北至大".to_owned()),
+        "全单字碎片不应压过词级整词：{all:?}"
+    );
+}

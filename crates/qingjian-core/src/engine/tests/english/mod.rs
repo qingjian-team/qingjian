@@ -515,3 +515,80 @@ fn english_word_is_not_buried_by_reading_key_choices() {
     engine.set_input("went");
     assert_eq!(texts_of(&engine)[0], "went");
 }
+
+#[test]
+fn two_letter_english_words_yield_to_chinese_abbreviations_until_learned() {
+    // 双声母简拼（wm / cf / hz）撞上元素符号或两字母缩写（Wm / cf / Hz）：未选过时中文在前，
+    // 选过一次该英文词后恢复首位
+    let dictionary =
+        Dictionary::parse("我们\two men\t9000\n吃饭\tchi fan\t8000\n或者\thuo zhe\t7000\n")
+            .unwrap();
+    let words = WordList::parse("Wm\twm\t3200\ncf\tcf\t3400\nHz\thz\t4100\n").unwrap();
+    let mut engine = Engine::new(dictionary)
+        .with_english(words)
+        .with_learner(Box::new(CountingLearner(HashMap::new())));
+
+    for (input, chinese, english) in [
+        ("wm", "我们", "Wm"),
+        ("cf", "吃饭", "cf"),
+        ("hz", "或者", "Hz"),
+    ] {
+        engine.set_input(input);
+        let all = texts_of(&engine);
+        assert_eq!(all[0], chinese, "{input}: {all:?}");
+        assert_eq!(all[1], english, "{input}: {all:?}");
+    }
+
+    engine.set_input("hz");
+    let hz = engine
+        .query()
+        .unwrap()
+        .candidates
+        .items
+        .into_iter()
+        .find(|c| c.text == "Hz")
+        .unwrap();
+    engine.commit(&hz);
+    engine.set_input("hz");
+    assert_eq!(texts_of(&engine)[0], "Hz");
+}
+
+#[test]
+fn english_completions_do_not_hijack_abbreviations_covered_by_chinese_words() {
+    let dictionary =
+        Dictionary::parse("时间\tshi jian\t9000\n但是\tdan shi\t9000\n为什么\twei shen me\t9000\n")
+            .unwrap();
+    let words = WordList::parse(
+        "Shijiazhuang\tshijiazhuang\t2400\ndanseuse\tdanseuse\t2100\nWSMan\twsman\t1800\n\
+         women\twomen\t5600\nworld\tworld\t5800\n",
+    )
+    .unwrap();
+    let mut engine = Engine::new(dictionary).with_english(words);
+
+    // 前全后简有整词覆盖：不出英文补全，中文排第一
+    for (input, chinese) in [("shij", "时间"), ("dans", "但是")] {
+        engine.set_input(input);
+        let items = engine.query().unwrap().candidates.items;
+        assert_eq!(items[0].text, chinese, "{input}: {items:?}");
+        assert!(
+            items.iter().all(|c| c.kind != CandidateKind::English),
+            "{input} 不应出英文补全: {items:?}"
+        );
+    }
+
+    // 纯简拼有整词覆盖：冷门补全被词频门槛滤掉，中文排第一
+    engine.set_input("wsm");
+    let all = texts_of(&engine);
+    assert_eq!(all[0], "为什么", "{all:?}");
+    assert!(!all.contains(&"WSMan".to_owned()), "{all:?}");
+
+    // 即使高频补全过门槛，纯简拼已有中文整词覆盖时也不抢首位
+    let dictionary =
+        Dictionary::parse("城市\tcheng shi\t9000\n初始化\tchu shi hua\t8000\n").unwrap();
+    let words = WordList::parse("csharp\tcsharp\t4200\n").unwrap();
+    let mut engine = Engine::new(dictionary).with_english(words);
+    engine.set_input("csh");
+    let all = texts_of(&engine);
+    assert_eq!(all[0], "城市", "{all:?}");
+    assert_eq!(all[1], "csharp", "{all:?}");
+}

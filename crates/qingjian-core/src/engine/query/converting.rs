@@ -9,6 +9,16 @@ use crate::engine::{
 use crate::sentence::Conversion;
 use crate::{Candidate, CandidateKind, Engine, Segmentation, parser, sentence};
 
+/// 纯简拼字节偏移 DAG 里双字母声母边（`zh` / `ch` / `sh`，吃 2 键产 1 音节）的均衡代价：
+/// 拆成两个单字母声母（`z + h` / `c + h` / `s + h`）会多出 1 个音节（多 0–1 次 bigram 转移，约 −5 到 −7）；
+/// 给双字母声母边扣这个代价后，双声母能凑出高频词（`wbsh` → 我不是）时仍稳居第一，
+/// 凑不出时拆成两声母的通顺长句（`wxqsh` → 我想去上海、`jtqsh` → 今天去上海）可以胜出。
+const DIGRAPH_INITIAL_PENALTY: f64 = 3.0;
+
+/// 纯简拼整句走字节偏移 DAG 的最短按键数：3 字母含 `zh/ch/sh`（`csh`、`bzh`、`dsh`）主要在打 2–3 字词，
+/// 词级已按上下文分公平竞争，不必用 DAG 拼出「从上海」「年之后」这类整句压过词级首选。
+const MIN_ABBR_LATTICE_LETTERS: usize = 4;
+
 impl Engine {
     /// 整句候选。没有英文尾段时是整段拼音的转换（[`Self::plain_sentence`]），排在开头的英文候选之后。
     /// 有英文尾段且英文读法胜出（`head_wins`）时，头段的转换加上那个词排第一（`woxiangxuehaorust` → 我想学好rust），
@@ -278,7 +288,12 @@ impl Engine {
         typos: bool,
         wanted: usize,
     ) -> Vec<Candidate> {
-        let mut paths = self.sentence_paths(&best.patterns(), typos, false, wanted);
+        let abbr_lattice = self.is_ambiguous_abbreviated(best);
+        let mut paths = if abbr_lattice {
+            self.abbreviated_lattice_paths(best, wanted)
+        } else {
+            self.sentence_paths(&best.patterns(), typos, false, wanted)
+        };
         if paths.is_empty() {
             return Vec::new();
         }
@@ -286,7 +301,7 @@ impl Engine {
         // 词图里没有 技能，敲错边读出 近藤；`ceshi` 读出 的是。词级候选里有音节正好拼成整段输入的词时退回原样的路径。
         // 只认语言模型认识的主词库词（没接模型时认全部主词库词）：青简词库里几乎每种读音都有个词
         //（`zanen` 的 赞恩 / 咋嫩、`jiusi` 的 就死），算上它们敲错就再也纠不回 咱们 / 就是；模型没见过的词交给词图按兜底分去比
-        if paths[0].altered() {
+        if !abbr_lattice && paths[0].altered() {
             let letters = best.joined("");
             let spelled_exactly = items.iter().any(|c| {
                 c.kind == CandidateKind::Chinese
@@ -313,6 +328,15 @@ impl Engine {
                 }
                 continue;
             }
+            // 半打混拼（如 `bzhida` 差最后一字母 `o`）：词级按末音节真前缀已命中主词库整词（不知道），
+            // 而整句把末音节锁死成完整音节只能拼出得分更低的碎片（北至 + 大）时，不抢到整词前面
+            if first
+                && !conversion.altered()
+                && conversion.word_count() >= 2
+                && self.prefix_extended_word_beats_sentence(items, best, conversion.score)
+            {
+                return Vec::new();
+            }
             // 整段本来就是一个词时不出整句；但路径靠敲错变体把整段读成的一个词（`meiganxi` → 没关系）是噪声信道的判断，
             // 词级查询按原样查不到它，作为普通词候选插到最前。只读了一部分（末尾没打完的音节没算进去）的不插。
             // 备选只收真整句，单个词的第 2、3 条路径是噪声
@@ -320,13 +344,13 @@ impl Engine {
             // 词图拿语言模型比过它和拆开的读法，它是最优就照样插到最前
             let whole_secondary = first
                 && conversion.word_count() == 1
-                && conversion.syllables.len() == best.syllables.len()
+                && (abbr_lattice || conversion.syllables.len() == best.syllables.len())
                 && !self.in_primary_dictionary(&conversion.text, &conversion.syllables);
             let kind = if conversion.word_count() >= 2 {
                 CandidateKind::Sentence
             } else if first
                 && (conversion.altered() || whole_secondary)
-                && conversion.syllables.len() == best.syllables.len()
+                && (abbr_lattice || conversion.syllables.len() == best.syllables.len())
             {
                 CandidateKind::Chinese
             } else if first {
@@ -460,6 +484,166 @@ impl Engine {
             self.rescore_paths(&mut paths, &keys);
         }
         paths
+    }
+
+    /// 含 `zh` / `ch` / `sh` 双字母声母歧义的长全拼纯简拼（≥ 4 键，如 `wxqsh`、`jtqsh`、`jtsmsh`）：
+    /// 改走字节偏移音节 DAG，让双字母声母与拆成两个单字母声母的所有组合在一次 Viterbi 里竞争。
+    fn is_ambiguous_abbreviated(&self, best: &Segmentation) -> bool {
+        self.shuangpin.is_none()
+            && !self.zhuyin
+            && best.letters() >= MIN_ABBR_LATTICE_LETTERS
+            && best.syllables.len() >= 2
+            && best.syllables.iter().all(|s| !s.complete)
+            && best
+                .syllables
+                .iter()
+                .any(|s| matches!(s.text.as_str(), "zh" | "ch" | "sh"))
+    }
+
+    /// 在字节偏移 DAG 上做含 `zh/ch/sh` 歧义的纯简拼整句转换：每个双字母声母位同时挂
+    /// 「跨 2 顶点的双声母边（带 [`DIGRAPH_INITIAL_PENALTY`]）」与「两段跨 1 顶点的单声母边」。
+    fn abbreviated_lattice_paths(&self, best: &Segmentation, want: usize) -> Vec<Conversion> {
+        // 先算顶点总数：双字母声母占 2 格，其余音节占 1 格
+        let total_vertices: usize = best
+            .syllables
+            .iter()
+            .map(|s| {
+                if matches!(s.text.as_str(), "zh" | "ch" | "sh") {
+                    2
+                } else {
+                    1
+                }
+            })
+            .sum();
+        let mut graph: Vec<Vec<sentence::LatticeEdge<'_>>> =
+            (0..total_vertices).map(|_| Vec::new()).collect();
+        // 每条边对应的模糊音展开模式单独存，再借给 `LatticeEdge`
+        let mut expanded_storage: Vec<(usize, usize, f64, crate::fuzzy::Expanded)> = Vec::new();
+        let mut pos = 0;
+        for syllable in &best.syllables {
+            let text = syllable.text.as_str();
+            if matches!(text, "zh" | "ch" | "sh") {
+                let first = &text[..1];
+                let second = &text[1..];
+                expanded_storage.push((
+                    pos,
+                    pos + 2,
+                    DIGRAPH_INITIAL_PENALTY,
+                    self.fuzzy
+                        .expand(&[qingjian_dictionary::SyllablePattern::prefix(text)]),
+                ));
+                expanded_storage.push((
+                    pos,
+                    pos + 1,
+                    0.0,
+                    self.fuzzy
+                        .expand(&[qingjian_dictionary::SyllablePattern::prefix(first)]),
+                ));
+                expanded_storage.push((
+                    pos + 1,
+                    pos + 2,
+                    0.0,
+                    self.fuzzy
+                        .expand(&[qingjian_dictionary::SyllablePattern::prefix(second)]),
+                ));
+                pos += 2;
+            } else {
+                expanded_storage.push((
+                    pos,
+                    pos + 1,
+                    0.0,
+                    self.fuzzy.expand(&[syllable.pattern()]),
+                ));
+                pos += 1;
+            }
+        }
+        for (from, to, penalty, expanded) in &expanded_storage {
+            if let Some(patterns) = expanded.positions().into_iter().next() {
+                graph[*from].push(sentence::LatticeEdge {
+                    to: *to,
+                    patterns,
+                    penalty: *penalty,
+                });
+            }
+        }
+        let dictionaries = self.all_dictionaries();
+        let input = sentence::SearchInput::new(
+            &dictionaries,
+            &*self.language_model,
+            self.personal(),
+            |text| self.learner.weight(text),
+            |_, _| 0.0,
+        )
+        .with_limits(self.search_limits);
+        let beam = self.search_limits.beam_width;
+        let mut paths = sentence::convert_lattice_paths(
+            &input,
+            &graph,
+            beam,
+            want,
+            &mut self.span_cache.borrow_mut(),
+        );
+        // `DIGRAPH_INITIAL_PENALTY` 是跨音节数长度均衡偏置，不是敲错代价，不把原样简拼路径标成 altered
+        for path in &mut paths {
+            path.penalty = 0.0;
+        }
+        paths
+    }
+
+    /// 含简拼的半打混拼（如 `bzhida` 差最后一字母 `o`）：末音节本身完整但还是更长音节的真前缀
+    /// （`da` → `dao`），词级候选里是否已有主词库整词靠末音节真扩展逐音节覆盖全部输入且得分高于整句碎片。
+    fn prefix_extended_word_beats_sentence(
+        &self,
+        items: &[Candidate],
+        best: &Segmentation,
+        sentence_score: f64,
+    ) -> bool {
+        if reads_as_typed(best) {
+            return false;
+        }
+        let Some(last) = best.syllables.last() else {
+            return false;
+        };
+        if !last.complete || !parser::is_syllable_prefix(&last.text) {
+            return false;
+        }
+        let mut patterns = best.patterns();
+        let count = patterns.len();
+        patterns[count - 1].complete = false;
+        let log_total = (self.total_frequency() as f64).max(1.0).ln();
+        items.iter().any(|c| {
+            if c.kind != CandidateKind::Chinese
+                || c.syllables.len() != count
+                || c.syllables[count - 1].len() <= last.text.len()
+                || !c
+                    .syllables
+                    .iter()
+                    .zip(&patterns)
+                    .all(|(syllable, pattern)| pattern.accepts(syllable))
+            {
+                return false;
+            }
+            let exact: Vec<_> = c
+                .syllables
+                .iter()
+                .map(|s| qingjian_dictionary::SyllablePattern::complete(s))
+                .collect();
+            let Some(hit) = self
+                .all_dictionaries()
+                .into_iter()
+                .filter(|d| !d.is_secondary())
+                .find_map(|d| {
+                    d.lookup_exact(&exact)
+                        .into_iter()
+                        .find(|m| m.text == c.text)
+                })
+            else {
+                return false;
+            };
+            let word_score = self.word_log_prob(&hit, log_total)
+                + crate::ranking::weight_bonus(self.learner.weight(&c.text));
+            word_score > sentence_score
+        })
     }
 }
 

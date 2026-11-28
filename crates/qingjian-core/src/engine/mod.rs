@@ -472,6 +472,11 @@ const ENGLISH_MODE_CANDIDATES: usize = 18;
 /// 英文补全至少要几个字母：太短的前缀谁都像。
 const MIN_COMPLETION_LETTERS: usize = 3;
 
+/// 中文模式下随包英文词表补全的最低词频（Zipf × 1000，对应 Zipf 3.0 即百万分之一）：
+/// 滤掉 `WSMan` / `Shijiazhuang` / `Wodehouse` / `danseuse` 这类冷门专名与生僻词对简拼和半打拼音的干扰；
+/// 个人英文词表（用户用过的词）不受此门槛限制。
+const MIN_COMPLETION_FREQUENCY: u32 = 3000;
+
 /// 整段末尾当英文词的尾段至少几个字母，前面的拼音头至少几个字母（见 `query::EnglishTail`）。
 const MIN_ENGLISH_TAIL_LETTERS: usize = 2;
 const MIN_ENGLISH_TAIL_HEAD_LETTERS: usize = 2;

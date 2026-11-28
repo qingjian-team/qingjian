@@ -18,7 +18,7 @@ mod diverse;
 mod lattice;
 mod splice;
 
-pub use lattice::convert_lattice;
+pub use lattice::{convert_lattice, convert_lattice_paths};
 
 /// 词库里没有的孤立音节（罕见音节没有单字）按这个 log 概率兜底，让路径总能走通。
 const UNKNOWN_LOG_PROB: f64 = -30.0;

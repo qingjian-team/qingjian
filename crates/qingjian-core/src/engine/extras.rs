@@ -2,7 +2,7 @@
 
 use super::{
     EMOJI_PER_WORD, EMOJI_SCAN, ENGLISH_COMPLETIONS, Engine, INLINE_SHORTCUTS, KAOMOJI_PER_WORD,
-    KEYWORD_SCAN, Learner, MIN_COMPLETION_LETTERS,
+    KEYWORD_SCAN, Learner, MIN_COMPLETION_FREQUENCY, MIN_COMPLETION_LETTERS,
 };
 use crate::candidate::{Candidate, CandidateKind};
 use crate::custom_phrase::{CustomPhrase, expand_variables};
@@ -161,10 +161,17 @@ impl Engine {
     /// 中英混输：整段输入是英文词就把它加进候选。
     /// 缺省作为拼音「不像话」（切不动、或除末尾外还有声母缩写 / 残缺音节）时排第一，否则排第二；
     /// 开了中文优先（`chinese_first`）整句 / 首个中文候选已经在前，英文词排第二。没有中文候选时总在第一。
-    /// 两字母的全大写缩写（`mp` → MP、`bm` → BM）是个例外：整段太短、几乎总是在打中文（门票 / 编码），
-    /// 这种让中文先；超过两个字母的正文英文（cargo / rust）照旧——按词频一刀切会把它们一起挤掉。
-    /// 例外只管**没选过**的英文词：用户选过的照旧排第一（选过 OK，下次敲 `ok` 还是 OK 在前）。
-    pub(super) fn insert_english(&self, items: &mut Vec<Candidate>, unlikely_pinyin: bool) {
+    /// 两字母英文词（`mp` → MP、`wm` → Wm、`cf` → cf）太短、中文模式下几乎总是在打双声母简拼，
+    /// 未选过时让中文先；用户选过一次该英文词（`english_weight > 0`）即恢复首位。
+    /// 整段不是精确英文词（仅前缀补全）且中文已有整词逐音节覆盖全部输入时（`wsm` → 为什么），
+    /// 补全不抢中文首位；仅末尾落单声母且中文已有整词时（`shij` / `wod` / `dans`）不出补全。
+    pub(super) fn insert_english(
+        &self,
+        items: &mut Vec<Candidate>,
+        unlikely_pinyin: bool,
+        whole_chinese: bool,
+        suppress_completions: bool,
+    ) {
         if !self.english_in_chinese {
             return;
         }
@@ -186,15 +193,15 @@ impl Engine {
             .filter(|c| c.kind == CandidateKind::Chinese)
             .map_or(0, |c| self.learner.choice_weight(text, &c.text));
         let english_weight = word.map_or(0, |w| self.learner.weight(w));
-        // 两字母全大写缩写（mp → MP、bm → BM）让中文先：整段太短，几乎总是在打中文。
-        // 但**不压过学习记录**：`ok` / `pc` / `ll` 同样满足「两个字母的全大写缩写」，一刀切会把它们一起
-        // 翻成中文；而且选过 OK 的用户下次敲 `ok` 本该还是它排第一。所以这条只对用户**没选过**的英文词生效
-        //（`record` 对英文候选也记次数，所以 `english_weight` 就是「选过没有」）。
-        let short_acronym = english_weight == 0
-            && text.len() <= 2
-            && word.is_some_and(|word| word.chars().all(|c| c.is_ascii_uppercase()));
-        let english_first =
-            !self.chinese_first && unlikely_pinyin && chosen <= english_weight && !short_acronym;
+        // 两字母英文词（元素符号 Wm / Hz、缩写 MP / cf / cs 等）在中文模式下几乎总是双声母简拼，
+        // 未选过时让中文先；选过一次（`english_weight > 0`）后照旧排第一（如 OK / cd）。
+        let short_english = english_weight == 0 && text.len() <= 2;
+        // 整段不是精确英文词、只是补全时，中文已有整词覆盖全部输入就不抢第一
+        let english_first = !self.chinese_first
+            && unlikely_pinyin
+            && chosen <= english_weight
+            && !short_english
+            && (word.is_some() || !whole_chinese);
         let mut position = if items.is_empty() || english_first {
             0
         } else {
@@ -207,11 +214,25 @@ impl Engine {
             budget -= 1;
         }
         // 英文补全：拼音不像话时（`compa` 切成 co'm'pa），整段多半是在打英文词的前面几个字母，补全紧跟在精确词之后；
-        // 个人词表在前，两张表里都有的只出一次。
-        if unlikely_pinyin && budget > 0 && text.len() >= MIN_COMPLETION_LETTERS {
+        // 个人词表在前且不限词频，随包表过滤掉低于 MIN_COMPLETION_FREQUENCY 的冷门词。
+        if !suppress_completions
+            && unlikely_pinyin
+            && budget > 0
+            && text.len() >= MIN_COMPLETION_LETTERS
+        {
             let mut budget = budget.min(ENGLISH_COMPLETIONS);
+            let bundled = self.english.as_ref().map(std::ptr::from_ref);
             for words in &lists {
+                let is_bundled = bundled == Some(std::ptr::from_ref(*words));
                 for word in words.complete(text, budget) {
+                    // 词频 0 是词表里手工收录的技术词（TailwindCSS / kubectl 等），按 Zipf 3.0 放行；
+                    // 有真实 wordfreq 统计但低于门槛的生僻词才过滤
+                    if is_bundled {
+                        let freq = words.frequency(&word.to_ascii_lowercase()).unwrap_or(0);
+                        if freq > 0 && freq < MIN_COMPLETION_FREQUENCY {
+                            break;
+                        }
+                    }
                     if items
                         .iter()
                         .any(|c| c.kind == CandidateKind::English && c.text == word)

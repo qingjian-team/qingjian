@@ -95,7 +95,7 @@ impl Engine {
             Ok(parsed) => parsed,
             Err(error) => {
                 let mut items = Vec::new();
-                self.insert_english(&mut items, true);
+                self.insert_english(&mut items, true, false, false);
                 self.insert_shortcuts(&mut items, keys);
                 if items.is_empty() {
                     return Err(error);
@@ -132,8 +132,9 @@ impl Engine {
             .iter()
             .find(|segmentation| segmentation.syllables.iter().all(|x| x.complete))
             .or_else(|| segmentations.first());
-        let unlikely =
-            correction::unlikely_pinyin(judged, tail) || correction::trailing_single_letter(judged);
+        let inner_unlikely = correction::unlikely_pinyin(judged, tail);
+        let trailing_single = correction::trailing_single_letter(judged);
+        let unlikely = inner_unlikely || trailing_single;
         let correction = if unlikely {
             self.active_correction(scope)
         } else {
@@ -237,7 +238,14 @@ impl Engine {
             // 词级排序把音节数对得上的排最前，敲错命中的词（`kaif` → 咖啡）会把更长的原样词挤到后面
             let expanded = self.fuzzy.expand(&patterns);
             let positions = expanded.positions();
-            let abbreviated = abbreviated_count(&patterns);
+            // 纯简拼切分（所有音节均不完整，如 `d… sh…` 与 `d… s… h…`、`sh…` 与 `s… h…`）之间
+            // 没有拆开任何完整音节，不按音节数分档，交由上下文分与词频公平排序
+            let pure_abbreviated = patterns.iter().all(|p| !p.complete);
+            let abbreviated = if pure_abbreviated {
+                0
+            } else {
+                abbreviated_count(&patterns)
+            };
             // 没有替代写法时每条命中都是敲的原音节，`penalty` 直接给 0（单字母简拼能命中几万条）
             let hits = self.lookup_all(&positions);
             let whole_split = clean && segmentation.syllables.iter().any(|x| !x.complete);
@@ -299,7 +307,11 @@ impl Engine {
                     let hits = memo
                         .entry(pattern_key(prefix))
                         .or_insert_with(|| self.lookup_exact_all(&positions[..prefix_len]));
-                    let abbreviated = abbreviated_count(prefix);
+                    let abbreviated = if pure_abbreviated {
+                        0
+                    } else {
+                        abbreviated_count(prefix)
+                    };
                     for hit in hits.iter().copied() {
                         scored.push(Scored {
                             // 对整个输入来说它不是精确命中，只是覆盖了前面一部分
@@ -529,23 +541,27 @@ impl Engine {
         }
         // 附加候选（英文尾段与补全、快捷、整句、emoji）都没有码：码段非空时排不进码那一列，一律不出
         if aux_code.is_none() {
-            // 双拼 / 注音末尾落单的一键是「还没敲完」，不是拼错（`veg` → zhe g…）；词级已有整词
-            // 逐音节对上全部输入（`veg` → 这个）时按中文读法：英文候选不排第一、也不给补全，
-            // 空格不会把整串当英文上屏。全拼的落单字母另有「可能敲反了」的意思，照旧（见 correction）
-            let covered_by_word = decoded.is_some()
+            // 词级已有整词逐音节覆盖全部输入（`veg` → 这个、`shij` → 时间、`wsm` → 为什么）：
+            // 双拼 / 注音末尾落单键不是拼错，英文既不抢第一也不补全；
+            // 全拼下仅末尾落单声母（前全后简，`shij`/`wod`/`dans`）时精确英文词（`key`/`went`）照旧，
+            // 但不再把非精确英文补全当首候选、也不出补全；纯简拼（`wsm`/`csh`）的非精确补全同样不抢中文首位
+            let has_whole_word = segmentations.first().is_some_and(|best| {
+                let patterns = best.patterns();
+                items.iter().any(|c| {
+                    c.kind == CandidateKind::Chinese
+                        && c.syllables.len() == patterns.len()
+                        && c.syllables
+                            .iter()
+                            .zip(&patterns)
+                            .all(|(syllable, pattern)| pattern.accepts(syllable))
+                })
+            });
+            let decoded_covered = decoded.is_some()
                 && correction::trailing_single_letter(segmentations.first())
-                && segmentations.first().is_some_and(|best| {
-                    let patterns = best.patterns();
-                    items.iter().any(|c| {
-                        c.kind == CandidateKind::Chinese
-                            && c.syllables.len() == patterns.len()
-                            && c.syllables
-                                .iter()
-                                .zip(&patterns)
-                                .all(|(syllable, pattern)| pattern.accepts(syllable))
-                    })
-                });
-            let english_unlikely = unlikely && !covered_by_word;
+                && has_whole_word;
+            let suppress_completions =
+                decoded.is_none() && !inner_unlikely && trailing_single && has_whole_word;
+            let english_unlikely = unlikely && !decoded_covered;
             // 中文优先：整句先进去占第一，英文词紧跟其后（第二）；关掉时英文词先进、整句排在开头的英文后面
             if self.chinese_first {
                 self.insert_sentence(
@@ -555,9 +571,19 @@ impl Engine {
                     english_tail.as_ref().filter(|_| correction.is_none()),
                     head_wins,
                 );
-                self.insert_english(&mut items, english_unlikely);
+                self.insert_english(
+                    &mut items,
+                    english_unlikely,
+                    has_whole_word,
+                    suppress_completions,
+                );
             } else {
-                self.insert_english(&mut items, english_unlikely);
+                self.insert_english(
+                    &mut items,
+                    english_unlikely,
+                    has_whole_word,
+                    suppress_completions,
+                );
                 self.insert_sentence(
                     &mut items,
                     &segmentations,

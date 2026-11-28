@@ -69,17 +69,6 @@ impl Engine {
                 && best.syllables[n - 1].text.len() == 1
                 && parser::INITIALS.contains(&best.syllables[n - 1].text.as_str())
         });
-        // 噪声信道：原串按原样能转出的整句得分 vs 纠正后的整句得分扣掉一次编辑的代价，后者高才纠。
-        // 原串切不干净（有尾巴）就没有原样得分，任何能转出整句的纠正都胜出
-        let raw_score = if tail.is_empty() {
-            segmentations
-                .first()
-                .and_then(|best| self.convert_sentence(&best.patterns(), true))
-                .filter(|conversion| !conversion.has_placeholder())
-                .map(|conversion| conversion.score)
-        } else {
-            None
-        };
         // 每个纠正扣一次编辑的代价，接受过同样的 (敲的, 要的) 音节对越多次扣得越少（个人敲错表）。
         // 相邻换位的折扣只在纠正之间比较时用（`mignti` 换位成 `mingti` 胜过换字母成 `mianti`），
         // 与原样比时不打这个折：要不要纠的门槛不因编辑类型而降（`zhongwne` 原样说得通就不纠成 中文）
@@ -115,17 +104,34 @@ impl Engine {
             }
         }
         let (_, score, found) = best?;
+        // 噪声信道：只有确实产出可比纠正变体时才算原样整句分，避免纯简拼无变体时白跑一遍整句转换。
+        // 原串切不干净（有尾巴）就没有原样得分，任何能转出整句的纠正都胜出
+        let raw_score = if tail.is_empty() {
+            segmentations
+                .first()
+                .and_then(|best| self.convert_sentence(&best.patterns(), true))
+                .filter(|conversion| !conversion.has_placeholder())
+                .map(|conversion| conversion.score)
+        } else {
+            None
+        };
         if raw_score.is_some_and(|raw| score <= raw) {
             tracing::debug!(
                 original = %found.original,
                 corrected = %found.corrected,
                 score,
                 raw = raw_score,
-                "原样已经说得通，不纠"
+                "typed pinyin already reads well, skipping correction"
             );
             return None;
         }
-        tracing::debug!(original = %found.original, corrected = %found.corrected, score, raw = raw_score, "拼写纠正");
+        tracing::debug!(
+            original = %found.original,
+            corrected = %found.corrected,
+            score,
+            raw = raw_score,
+            "spelling correction applied"
+        );
         Some(found)
     }
 }

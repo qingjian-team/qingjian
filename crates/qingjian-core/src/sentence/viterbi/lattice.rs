@@ -13,10 +13,6 @@ use super::{NoModel, Node, UNKNOWN_LOG_PROB, backtrack, best_predecessor};
 use crate::ranking::weight_bonus;
 
 /// 在音节 DAG 上做一次统一 bigram Viterbi，返回得分最高的整句路径。
-///
-/// `graph` 按顶点下标 `0..end` 排列，`graph[start]` 是从 `start` 出发的单音节边（`edge.to <= end`）。
-/// 从每个可达顶点按词库 `has_longer` 剪枝向外展开最多 [`MAX_WORD_SYLLABLES`] 个音节，
-/// 命中的词直接在 `nodes[start] -> nodes[edge.to]` 上松弛；词库无更长词的前缀原地停下。
 pub fn convert_lattice<W, C>(
     input: &SearchInput<'_, W, C>,
     graph: &[Vec<LatticeEdge<'_>>],
@@ -27,9 +23,30 @@ where
     W: Fn(&str) -> u32,
     C: Fn(usize, &str) -> f64,
 {
+    convert_lattice_paths(input, graph, beam_width, 1, cache)
+        .into_iter()
+        .next()
+}
+
+/// 在音节 DAG 上做一次统一 bigram Viterbi，返回得分最高的前 `k` 条去重整句路径。
+///
+/// `graph` 按顶点下标 `0..end` 排列，`graph[start]` 是从 `start` 出发的单音节边（`edge.to <= end`）。
+/// 从每个可达顶点按词库 `has_longer` 剪枝向外展开最多 [`MAX_WORD_SYLLABLES`] 个音节，
+/// 命中的词直接在 `nodes[start] -> nodes[edge.to]` 上松弛；词库无更长词的前缀原地停下。
+pub fn convert_lattice_paths<W, C>(
+    input: &SearchInput<'_, W, C>,
+    graph: &[Vec<LatticeEdge<'_>>],
+    beam_width: usize,
+    k: usize,
+    cache: &mut SpanCache,
+) -> Vec<Conversion>
+where
+    W: Fn(&str) -> u32,
+    C: Fn(usize, &str) -> f64,
+{
     let end = graph.len();
-    if end == 0 || beam_width == 0 {
-        return None;
+    if end == 0 || beam_width == 0 || k == 0 {
+        return Vec::new();
     }
     let total: f64 = input
         .dictionaries
@@ -96,7 +113,17 @@ where
         }
     }
     prune_lattice(&mut nodes[end], beam_width);
-    (!nodes[end].is_empty()).then(|| backtrack(&nodes, end, 0))
+    let mut paths: Vec<Conversion> = Vec::with_capacity(k.min(nodes[end].len()));
+    for index in 0..nodes[end].len() {
+        if paths.len() >= k {
+            break;
+        }
+        let conversion = backtrack(&nodes, end, index);
+        if !paths.iter().any(|p| p.text == conversion.text) {
+            paths.push(conversion);
+        }
+    }
+    paths
 }
 
 struct ExpandContext<'ctx, 'g, 'b, W, C> {

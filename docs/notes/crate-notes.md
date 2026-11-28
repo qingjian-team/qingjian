@@ -140,8 +140,10 @@ mac 存在 `Session::spelling`（`Host::follow_highlight`）、Windows / Linux �
   条数与最高位次两档：`english_max_in_chinese`（1–4，缺省 4 = 1 条精确词 + 最多 3 条补全；1 只留最靠前的一条）与
   `english_min_position`（1–9，缺省 1 不限）；`extras::place_english` 在整句也插进来之后把英文块挪到第 K 位，没有中文候选时不动。
   双拼 / 注音末尾落单的一键是正常的「还没敲完」，若连同前面的音节正好拼出词库里的整词（`veg` → 这个），整串不算「拼音不像话」：
-  英文候选不让到第一、也不给补全（`query::phonetic` 里的 `covered_by_word`，全拼的落单字母另有「可能敲反了」的意思，不适用），
-  拼不出整词（`cat`）时英文照旧排第一（#753）。
+  英文候选不让到第一、也不给补全（`query::phonetic` 里的 `decoded_covered`），拼不出整词（`cat`）时英文照旧排第一（#753）。
+  全拼下两字母英文词（`wm` → Wm、`hz` → Hz、`cf` → cf、`mp` → MP）未选过时让中文先，选过一次即恢复首位；仅末尾落单声母且词级已有整词覆盖全部输入时（`shij`/`wod`/`dans`）精确英文词（`key`/`went`）照旧，但不再出非精确英文补全；纯简拼有整词覆盖时（`wsm`/`csh`）非精确补全不抢首位；随包英文词表补全过滤掉有真实 wordfreq 统计且低于 `MIN_COMPLETION_FREQUENCY`（3000，即 Zipf 3.0）的生僻词（词频 0 的手工技术词如 `TailwindCSS` 照常放行）。
+  纯简拼（所有音节均为不完整声母）在词级排序里 `abbreviated` 统一记 0，使 `zh`/`ch`/`sh` 与 `z+h`/`c+h`/`s+h` 按上下文分公平竞争；≥ 4 键含 `zh`/`ch`/`sh` 的纯简拼整句走字节偏移音节 DAG（`convert_lattice_paths`，双字母声母边带 `DIGRAPH_INITIAL_PENALTY` = 3.0 的跨音节数均衡代价）；含简拼的半打混拼（如 `bzhida` 差最后一字母 `o`）若词级已有末音节真扩展的主词库整词且得分高于拼凑整句，不让整句碎片抢位。
+  整段拼写纠错在枚举编辑变体前先按元音/辅音下界与连续辅音团长度短路长纯简拼（`can_reach_valid_pinyin_in_one_edit`，无假阴性），并延迟到确实产出合法变体后才算 `raw_score`。
 - 中西文自动空格（`spacing` 判交界，`engine/spacing.rs` 判上文；配置 `[general] auto_space`，缺省关）：`commit` / `take_raw` 自己补前导空格并把它记成一次直通，
   候选内部的交界在 `commit_with` 里补、`LastCommit.chars` 按补后的字数记；直通字符由壳先问 `auto_space_before`。上文取最近一条没退格的上屏末字，
   还没上屏过时用组句首键读到的应用前文（`rescoring_before`），删了一半或焦点离开后不知道上文就不补。
