@@ -52,6 +52,11 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y -o Dir::Cache::Archives="$HOME/apt-archives" cmake g++ libfcitx5core-dev libfcitx5config-dev libfcitx5utils-dev nlohmann-json3-dev fcitx5
 
+      # 依赖方向：一个包只能依赖同级或下层的包，另有几条点名禁止的边。
+      # 分层表在 tools/ci/layers.py，长版解释在 docs/design/architecture.md。
+      - name: Layering
+        run: python3 tools/ci/layers.py
+
       - name: Format
         run: cargo fmt --all --check
 
