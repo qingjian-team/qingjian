@@ -445,21 +445,41 @@ impl Drop for CandidateWindow {
 /// `overhang` 是位图在内容区上、下伸出去、看得见的像素（投影、装饰），按主题而定：
 /// 贴下方让开上沿那截，贴上方让开下沿那截，投影才不会罩在输入行刚打的字上（微信聊天框实测）。
 pub(super) fn place(anchor: RECT, content: (i32, i32), overhang: (i32, i32)) -> (i32, i32) {
+    // 用光标矩形的**中心**挑显示器：跨屏时左边界可能还在上一块屏上，按左上角挑会把候选框
+    // 夹到上一块屏的边上去（用户看到的就是「候选框不跟随光标」）。
     let work = monitor::work_area_near(POINT {
-        x: anchor.left,
-        y: anchor.top,
+        x: (anchor.left + anchor.right) / 2,
+        y: (anchor.top + anchor.bottom) / 2,
     });
-    let x = anchor
-        .left
-        .clamp(work.left, (work.right - content.0).max(work.left));
-    let below = anchor.bottom + CARET_GAP + overhang.0.max(0);
-    let above = anchor.top - CARET_GAP - overhang.1.max(0) - content.1;
-    let y = if below + content.1 <= work.bottom {
+    anchored_place(
+        (anchor.left, anchor.top, anchor.right, anchor.bottom),
+        content,
+        overhang,
+        (work.left, work.top, work.right, work.bottom),
+    )
+}
+
+/// [`place`] 的纯算法部分：光标矩形（物理像素）、窗口内容尺寸、上下投影、显示器工作区 → 左上角。
+///
+/// 抽出来是为了能测：`place` 自己要走 Win32 查显示器，CI 上跑不了；这里的输入输出都是普通整数，
+/// 负坐标显示器（主屏左边那台）、窗口比工作区还高、光标贴边这些情况都能直接用用例钉住。
+pub(super) fn anchored_place(
+    anchor: (i32, i32, i32, i32),
+    content: (i32, i32),
+    overhang: (i32, i32),
+    work: (i32, i32, i32, i32),
+) -> (i32, i32) {
+    let (anchor_left, anchor_top, _, anchor_bottom) = anchor;
+    let (work_left, work_top, work_right, work_bottom) = work;
+    let x = anchor_left.clamp(work_left, (work_right - content.0).max(work_left));
+    let below = anchor_bottom + CARET_GAP + overhang.0.max(0);
+    let above = anchor_top - CARET_GAP - overhang.1.max(0) - content.1;
+    let y = if below + content.1 <= work_bottom {
         below
-    } else if above >= work.top {
+    } else if above >= work_top {
         above
     } else {
-        (work.bottom - content.1).max(work.top)
+        (work_bottom - content.1).max(work_top)
     };
     (x, y)
 }
@@ -489,5 +509,58 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: 
             unsafe { DefWindowProcW(hwnd, msg, wparam, lparam) }
         }
         _ => unsafe { DefWindowProcW(hwnd, msg, wparam, lparam) },
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// 主屏：1024x768 工作区，光标在中间，窗口放得下 → 贴在光标下方。
+    #[test]
+    fn below_the_caret_when_it_fits() {
+        let placed = anchored_place((100, 200, 102, 224), (200, 60), (0, 0), (0, 0, 1024, 768));
+        assert_eq!(placed, (100, 224 + CARET_GAP));
+    }
+
+    /// 空间不够就翻到光标上方，且不越出工作区顶边。
+    #[test]
+    fn flips_above_near_the_bottom() {
+        let placed = anchored_place((100, 700, 102, 724), (200, 60), (0, 0), (0, 0, 1024, 768));
+        assert_eq!(placed.1, 700 - CARET_GAP - 60);
+    }
+
+    /// 上下都放不下（窗口比工作区还高）时贴工作区顶边，而不是给出负坐标。
+    #[test]
+    fn taller_than_the_work_area_sticks_to_its_top() {
+        let placed = anchored_place((10, 300, 12, 324), (200, 900), (0, 0), (0, 0, 1024, 768));
+        assert_eq!(placed.1, 0);
+    }
+
+    /// 主屏左边那台显示器坐标是负的：光标在那里时窗口不该被夹回 0。
+    #[test]
+    fn left_of_the_primary_monitor() {
+        let placed = anchored_place(
+            (-1500, 300, -1498, 324),
+            (200, 60),
+            (0, 0),
+            (-1920, 0, 0, 1080),
+        );
+        assert_eq!(placed.0, -1500);
+        assert!(placed.0 + 200 <= 0, "窗口要整块留在那块屏上：{placed:?}");
+    }
+
+    /// 光标贴着工作区右边缘：窗口左移进来，不越界。
+    #[test]
+    fn clamps_into_the_work_area_on_the_right() {
+        let placed = anchored_place((1015, 100, 1017, 124), (200, 60), (0, 0), (0, 0, 1024, 768));
+        assert_eq!(placed.0, 1024 - 200);
+    }
+
+    /// 窗口比工作区还宽：至少从工作区左边开始，不做反向 clamp（那会 panic）。
+    #[test]
+    fn wider_than_the_work_area() {
+        let placed = anchored_place((500, 100, 502, 124), (2000, 60), (0, 0), (0, 0, 1024, 768));
+        assert_eq!(placed.0, 0);
     }
 }
