@@ -6,7 +6,7 @@
 //! 开头可以点名要哪一项：`vstat;avg;1;2;3` 只给平均数、`vstat;q1;1;2;3;4` 第一四分位数，
 //! 别名见 `label_of`。不点名就全给，常用的排前面。
 
-use super::modes::split_args;
+use crate::shortcut::modes::parse_finite_numbers;
 
 /// 判定两个浮点是不是「同一个数」（众数计数用）。
 const EPSILON: f64 = 1e-9;
@@ -15,30 +15,18 @@ const EPSILON: f64 = 1e-9;
 pub fn forms(args: &str) -> Vec<String> {
     // 开头可以点名要哪一项：`vstat;avg;3;4;2;2` 只给平均数。不点就全给。
     let (wanted, args) = pick_named(args);
-    // 有一个认不出来的就整条不出候选：`vstat;1;2;x` 悄悄按 1、2 算完、看着像是对的，
-    // 用户不会发现那个 `x` 被吃了。与 `vbase` 参数不对时的处理一致。
-    let texts = split_args(args);
-    let mut numbers: Vec<f64> = Vec::with_capacity(texts.len());
-    for text in &texts {
-        match text.parse() {
-            Ok(value) => numbers.push(value),
-            Err(_) => return Vec::new(),
-        }
-    }
-    if numbers.is_empty() {
+    // 有一个认不出来或不是有限数就整条不出候选：`vstat;1;2;x`、`vstat;nan;1` 都不悄悄忽略。
+    // 与 `vbase` 参数不对时的处理一致。
+    let Some(mut numbers) = parse_finite_numbers(args) else {
         return Vec::new();
-    }
+    };
 
     let count = numbers.len();
     let sum: f64 = numbers.iter().sum();
     let mean = sum / count as f64;
 
     numbers.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
-    let median = if count % 2 == 1 {
-        numbers[count / 2]
-    } else {
-        (numbers[count / 2 - 1] + numbers[count / 2]) / 2.0
-    };
+    let median = median_of(&numbers);
 
     // 总体方差（除 n）与样本方差（除 n−1）都给：前者是这套数据的离散度，后者是估计量
     let squares: f64 = numbers.iter().map(|x| (x - mean).powi(2)).sum();
@@ -46,27 +34,29 @@ pub fn forms(args: &str) -> Vec<String> {
     let sample_variance = (count > 1).then(|| squares / (count - 1) as f64);
 
     // 常用的排前面：平均、中位、四分位，然后众数与各档离散度。标签只在内部用来点名过滤。
-    let mut items: Vec<(String, &'static str)> =
-        vec![(fmt(mean), "平均数"), (fmt(median), "中位数")];
+    // 极大有限输入（如 1e308）的中间量可能溢出成 inf / NaN，不有限的单项不出候选。
+    let mut items: Vec<(String, &'static str)> = Vec::new();
+    push_finite(&mut items, mean, "平均数");
+    push_finite(&mut items, median, "中位数");
     if let Some((q1, q3)) = quartiles_of(&numbers) {
-        items.push((fmt(q1), "第一四分位数"));
-        items.push((fmt(q3), "第三四分位数"));
-        items.push((fmt(q3 - q1), "四分位距"));
+        push_finite(&mut items, q1, "第一四分位数");
+        push_finite(&mut items, q3, "第三四分位数");
+        push_finite(&mut items, q3 - q1, "四分位距");
     }
     if let Some(modes) = modes(&numbers) {
         let joined: Vec<String> = modes.iter().map(|v| fmt(*v)).collect();
         items.push((joined.join("、"), "众数"));
     }
-    items.push((fmt(variance), "总体方差"));
+    push_finite(&mut items, variance, "总体方差");
     if let Some(sample) = sample_variance {
-        items.push((fmt(sample), "样本方差"));
+        push_finite(&mut items, sample, "样本方差");
     }
-    items.push((fmt(variance.sqrt()), "标准差"));
+    push_finite(&mut items, variance.sqrt(), "标准差");
     let (low, high) = (numbers[0], numbers[count - 1]);
-    items.push((fmt(high - low), "极差"));
-    items.push((fmt(low), "最小"));
-    items.push((fmt(high), "最大"));
-    items.push((fmt(sum), "总和"));
+    push_finite(&mut items, high - low, "极差");
+    push_finite(&mut items, low, "最小");
+    push_finite(&mut items, high, "最大");
+    push_finite(&mut items, sum, "总和");
     items.push((count.to_string(), "个数"));
     let ordered: Vec<String> = numbers.iter().map(|v| fmt(*v)).collect();
     items.push((ordered.join(" "), "排序"));
@@ -76,6 +66,13 @@ pub fn forms(args: &str) -> Vec<String> {
         .filter(|(_, label)| wanted.is_none_or(|wanted| *label == wanted))
         .map(|(value, _)| value)
         .collect()
+}
+
+/// 有限的结果才收进候选，溢出或 NaN 的单项略过。
+fn push_finite(items: &mut Vec<(String, &'static str)>, value: f64, label: &'static str) {
+    if value.is_finite() {
+        items.push((fmt(value), label));
+    }
 }
 
 /// 开头那个词是不是统计项的名字；是就返回它对应的标签，并把这段从参数里摘掉。
@@ -259,5 +256,38 @@ mod tests {
         assert!(forms("abc;def").is_empty());
         assert!(forms("1;2;x").is_empty(), "`x` 不该被丢掉");
         assert!(forms("1;2;3.5x").is_empty());
+    }
+
+    /// `nan`、`inf`、溢出成 `inf` 的参数都不算有限数，整条不出候选。
+    #[test]
+    fn non_finite_arguments_produce_no_candidates() {
+        for bad in [
+            "nan;1",
+            "NaN;1",
+            "inf;1",
+            "-inf;1",
+            "infinity;1",
+            "1e400;1",
+            "-1e400;1",
+            "avg;nan;1",
+            "avg;inf;1",
+        ] {
+            assert!(forms(bad).is_empty(), "{bad} 不该出候选");
+        }
+    }
+
+    /// 输入有限但中间结果溢出时，非有限的单项不出候选，其余照给。
+    #[test]
+    fn overflowed_measures_are_omitted() {
+        let huge = forms("1e308;1e308");
+        assert!(!huge.is_empty());
+        assert!(
+            huge.iter()
+                .all(|item| !item.contains("NaN") && !item.contains("inf")),
+            "候选里不能出现 NaN / inf：{huge:?}"
+        );
+        assert!(huge.iter().any(|item| item == "0"), "极差为 0：{huge:?}");
+        assert!(huge.iter().any(|item| item == "2"), "个数为 2：{huge:?}");
+        assert!(forms("sum;1e308;1e308").is_empty(), "溢出的总和不出");
     }
 }

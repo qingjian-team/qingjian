@@ -225,6 +225,26 @@ pub fn split_args(args: &str) -> Vec<&str> {
         .collect()
 }
 
+/// 把分号分隔的参数解析成有限浮点数（`vstat` 等数值子模式共用）。
+///
+/// 有一个认不出来、或解析成非有限数（`nan`、`inf`、`infinity`、`1e400` 溢出）就返回 `None`，
+/// 避免把无效参数悄悄吞掉或算出 `NaN` / `inf` 放进候选。
+pub fn parse_finite_numbers(args: &str) -> Option<Vec<f64>> {
+    let texts = split_args(args);
+    if texts.is_empty() {
+        return None;
+    }
+    let mut numbers = Vec::with_capacity(texts.len());
+    for text in texts {
+        let value: f64 = text.parse().ok()?;
+        if !value.is_finite() {
+            return None;
+        }
+        numbers.push(value);
+    }
+    Some(numbers)
+}
+
 /// `body` 是不是某个子模式名的开头：`b`、`bi`、`bit`、`bit8`、`uu`、`t` 这些。
 ///
 /// 按键层据此决定 `v` 之后敲的要不要进缓冲区 —— 不收的话 `vbit` 这个名字本身
@@ -455,5 +475,23 @@ mod tests {
         assert_eq!(accepts_key("ts;2024", ':'), Some(true));
         // 不是子模式
         assert_eq!(accepts_key("123", '+'), None);
+    }
+
+    #[test]
+    fn parse_finite_numbers_rejects_nan_and_inf() {
+        assert_eq!(parse_finite_numbers("1;2.5;-3"), Some(vec![1.0, 2.5, -3.0]));
+        assert_eq!(parse_finite_numbers("1；2；3"), Some(vec![1.0, 2.0, 3.0]));
+        for bad in [
+            "",
+            "nan;1",
+            "NaN;1",
+            "inf;1",
+            "-inf;1",
+            "infinity;1",
+            "1e400;1",
+            "1;x",
+        ] {
+            assert_eq!(parse_finite_numbers(bad), None, "{bad}");
+        }
     }
 }
