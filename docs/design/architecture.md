@@ -150,6 +150,8 @@ qingjian-core
 
 ## crate 依赖方向
 
+这条方向不是自觉遵守的约定：CI 的 `core` job 里 `python3 tools/ci/layers.py` 读 `cargo metadata` 断言「一个包只能依赖同级或下层的包」，另有几条点名禁止的边（`bamboo-slip` 不许认识任何青简 crate、`qingjian-render` 不拿引擎、`qingjian-core` 不碰平台层与渲染）。改这条分层要同时改那个脚本与本节。
+
 工作区共 17 个库 crate，按职责分五层（箭头指向被依赖方）：
 
 ```text
