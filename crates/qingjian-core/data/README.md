@@ -14,6 +14,36 @@
 
 `chaizi.tsv` 是问字模式按部件读音找字的拆字表（`字\t读音…\t部件拼音串…`，按字频排），由 `qingjian-dict-convert --out-dir crates/qingjian-core/data chaizi` 从 `../qingjian-dicts/official/upstream/chaizi`（開放詞典網拆字字典，CC BY 3.0）与 `../qingjian-dicts/official/lexicon/zh/base/words.tsv` 生成，不手改。
 
+## 笔顺表 `stroke.tsv`（14,814 行）
+
+`字<TAB>笔顺`（`h` 横 / `s` 竖 / `p` 撇 / `n` 点捺 / `z` 折），问字模式按笔顺找字用它，
+编进 Core（`include_str!`），不随包另带文件。
+
+**它和随包笔画码表是同一份数据、同一个生成命令**：
+
+| 产物 | 谁用 | 生成 |
+|---|---|---|
+| `data/generated/codes/stroke.tsv` → `codes/stroke.qj`（2.9 MB，全字库） | 辅码（`;` 触发，给候选加权） | `qingjian-dict-convert stroke` |
+| `crates/qingjian-core/data/stroke.tsv`（239 KB，常用字） | 问字模式（`u` 前缀，按形找字） | 同一条命令，`--filter` 用常用字表 |
+
+两边必须同源：笔顺顺序来自 CNS11643 的笔顺资料，再加一份大陆序覆盖表；`stroke --filter`
+决定收哪些字。**改笔顺数据只改这一条链**，不要单独改某一份产物 —— 否则会出现「辅码按笔画
+能匹配上、问字模式却查不到」这种两边对不上的情况。
+
+生成（在 `qingjian-dicts` 仓库里跑，需要 CNS 原始资料）：
+
+```bash
+cargo run -p qingjian-dict-convert -- stroke \
+  --cns-seq data/cns/CNS_strokes_sequence.txt \
+  --cns-map data/cns \
+  --cns-count data/cns/CNS_stroke.txt \
+  --filter ../qingjian-dicts/official/upstream/01_characters/standard_8105.tsv \
+  --out-dir /tmp/stroke
+```
+
+`--filter` 换成「常用字 + 繁体」那几张表就是 Core 这份 14,814 行的来源；换成全字库
+（不加 `--filter`）就是随包码表那份。
+
 `parts.tsv` 是问字模式的部件别名表，手工维护（与仓库相同，GPL-3.0-or-later）。三列 `部件<TAB>别名读音（空格分隔）<TAB>笔顺（空格分隔的 h/s/p/n/z）`，只收三类：
 
 1. **俗名与字表读音不同的**——`囗` 的字表读音是 `wei`，可用户按 `kou` 打（`ukoumu` → 困）；

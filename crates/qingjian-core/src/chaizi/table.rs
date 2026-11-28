@@ -17,6 +17,28 @@ pub enum Tier {
     Stroke,
     /// 反过来打的笔画（倒笔画）。
     Reversed,
+
+    /// 笔画打错了位（差一两笔）：仍给出来，排在打得对的之后。
+    Fuzzy,
+}
+
+/// 两段短串的编辑距离（插入 / 删除 / 替换各算一步）。
+fn edit_distance(left: &str, right: &str) -> usize {
+    let left: Vec<char> = left.chars().collect();
+    let right: Vec<char> = right.chars().collect();
+    let mut previous: Vec<usize> = (0..=right.len()).collect();
+    let mut current = vec![0; right.len() + 1];
+    for (i, a) in left.iter().enumerate() {
+        current[0] = i + 1;
+        for (j, b) in right.iter().enumerate() {
+            let cost = usize::from(a != b);
+            current[j + 1] = (previous[j] + cost)
+                .min(previous[j + 1] + 1)
+                .min(current[j] + 1);
+        }
+        std::mem::swap(&mut previous, &mut current);
+    }
+    previous[right.len()]
 }
 
 /// 问字模式的一个命中。
@@ -45,6 +67,9 @@ pub struct Hit {
 
     /// 这条拆法来自繁体字典（瞭 的 目尞 落到了 了 上）：按设置的简繁排在简体拆法之后。
     pub traditional: bool,
+
+    /// 笔画打错了几位（只有 [`Tier::Fuzzy`] 会非零）：错得少的排在前面。
+    pub distance: usize,
 }
 
 /// 一种拆法：部件连写（`木木`）与每个部件的读音（`mu'mu`，部件内多读音用 `,`）。
@@ -84,6 +109,15 @@ pub struct ChaiziTable {
 
     /// 笔顺表按字频序：`(字, 读音, 笔顺, 字频序)`，纯笔画的候选从这儿出。
     stroke_order: Vec<(char, &'static str, &'static str, u32)>,
+
+    /// 笔顺开头一到三笔 → `stroke_order` 的下标：`uhspn` 这类输入不必扫全表。
+    ///
+    /// 每个字登记「前一笔」「前两笔」「前三笔」三个键，查询时按输入长度取对应的那张；
+    /// 桶里已经只可能是以这几笔开头的字。值保持字频序，命中顺序与全表扫一遍一致。
+    stroke_prefix: HashMap<&'static str, Vec<u32>>,
+
+    /// 笔顺长度 → `stroke_order` 的下标：容错那一步只看长度差一笔以内的字。
+    stroke_by_len: HashMap<usize, Vec<u32>>,
 }
 
 impl ChaiziTable {
@@ -216,6 +250,24 @@ impl ChaiziTable {
             }
         }
 
+        // 笔顺索引：前缀桶给精确匹配用、长度桶给容错用
+        let mut stroke_prefix: HashMap<&'static str, Vec<u32>> = HashMap::new();
+        let mut stroke_by_len: HashMap<usize, Vec<u32>> = HashMap::new();
+        for (index, (_, _, sequence, _)) in stroke_order.iter().enumerate() {
+            // 笔顺键都是 ASCII（h / s / p / n / z），按字节切前 1~3 个是安全的
+            let bytes = sequence.len();
+            for take in 1..=3.min(bytes) {
+                stroke_prefix
+                    .entry(&sequence[..take])
+                    .or_default()
+                    .push(index as u32);
+            }
+            stroke_by_len
+                .entry(sequence.chars().count())
+                .or_default()
+                .push(index as u32);
+        }
+
         Self {
             entries,
             splits,
@@ -224,6 +276,8 @@ impl ChaiziTable {
             strokes,
             parts: alias,
             stroke_order,
+            stroke_prefix,
+            stroke_by_len,
         }
     }
 
@@ -247,10 +301,16 @@ impl ChaiziTable {
         }
         // 整串全是笔画键：再按整字笔顺找一遍，正序在前、倒序在后
         if body.chars().all(is_stroke) {
+            // 只看「整字笔顺」这一轮有没有对上：scored 里可能已经有部件读音的命中
+            let exact = scored.len();
             self.collect_strokes(body, Tier::Stroke, &mut scored);
             let reversed: String = body.chars().rev().collect();
             if reversed != body {
                 self.collect_strokes(&reversed, Tier::Reversed, &mut scored);
+            }
+            // 一笔没错的都没有时，才去找「错了一两笔」的字：有对的就不拿错的挤在前面
+            if scored.len() == exact {
+                self.collect_fuzzy_strokes(body, &mut scored);
             }
         }
         scored.sort_by_key(sort_key);
@@ -269,6 +329,8 @@ impl ChaiziTable {
             let (needed, total) = match hit.tier {
                 Tier::Reading => (3, 5),
                 Tier::Mixed | Tier::Stroke | Tier::Reversed => (3, 4),
+                // 打错了位的本来就没「吃掉多少」这回事，整段都算数
+                Tier::Fuzzy => (1, 1),
             };
             if hit.consumed < body.len() && hit.consumed * total <= body.len() * needed {
                 continue;
@@ -283,8 +345,16 @@ impl ChaiziTable {
     }
 
     /// 整字笔顺以 `body` 开头的字。
+    ///
+    /// 先按输入的前一到三笔取桶，桶里只可能是以这几笔开头的字，再逐条比完整前缀 ——
+    /// 一万四千字里找几十个，不再每次按键都扫全表。
     fn collect_strokes(&self, body: &str, tier: Tier, out: &mut Vec<(Hit, u32)>) {
-        for (ch, reading, sequence, rank) in &self.stroke_order {
+        let head = &body[..body.len().min(3)];
+        let Some(bucket) = self.stroke_prefix.get(head) else {
+            return;
+        };
+        for index in bucket {
+            let (ch, reading, sequence, rank) = &self.stroke_order[*index as usize];
             if sequence.starts_with(body) {
                 out.push((
                     Hit {
@@ -296,10 +366,52 @@ impl ChaiziTable {
                         complete: sequence.len() == body.len(),
                         whole: true,
                         traditional: false,
+                        distance: 0,
                     },
                     *rank,
                 ));
             }
+        }
+    }
+
+    /// 笔画打错了位的字：整段长度对得上、差一两笔的字仍给出来，档位排在打得对的之后。
+    ///
+    /// 认笔画打错比认读音打错保守：只比「长度相同或差一笔」的，且最多容两处，
+    /// 免得短输入把大半个字库都捞进来。`whole` 为假，调用方据此把正确笔顺写在候选旁边。
+    fn collect_fuzzy_strokes(&self, body: &str, out: &mut Vec<(Hit, u32)>) {
+        let typed = body.chars().count();
+        // 只扫长度差一笔以内的桶（`stroke_by_len`）：一万四千字里挑出一两千条算距离，
+        // 不再对全表跑编辑距离
+        for length in [typed.saturating_sub(1), typed, typed + 1] {
+            let Some(bucket) = self.stroke_by_len.get(&length) else {
+                continue;
+            };
+            self.fuzzy_in_bucket(body, bucket, out);
+        }
+    }
+
+    /// 在一个长度桶里比编辑距离，差一两笔的字收进来。
+    fn fuzzy_in_bucket(&self, body: &str, bucket: &[u32], out: &mut Vec<(Hit, u32)>) {
+        for index in bucket {
+            let (ch, reading, sequence, rank) = &self.stroke_order[*index as usize];
+            let distance = edit_distance(body, sequence);
+            if distance == 0 || distance > 2 {
+                continue;
+            }
+            out.push((
+                Hit {
+                    ch: *ch,
+                    reading,
+                    tier: Tier::Fuzzy,
+                    distance,
+                    consumed: body.len(),
+                    remaining: 0,
+                    complete: false,
+                    whole: false,
+                    traditional: false,
+                },
+                *rank,
+            ));
         }
     }
 
@@ -328,7 +440,7 @@ impl ChaiziTable {
     }
 
     /// 一个部件的笔顺：先查笔顺表，再查部件别名的补录。
-    pub(super) fn strokes_of(&self, ch: char) -> Option<&'static str> {
+    pub fn strokes_of(&self, ch: char) -> Option<&'static str> {
         self.strokes
             .get(&ch)
             .copied()
@@ -348,7 +460,18 @@ impl ChaiziTable {
 ///
 /// 档位（全读音 > 混合 > 全笔画 > 倒序）排在「还差几笔」之前：打 uhsp 三笔时，木（正序、差一笔）
 /// 与 片（倒序、也差一笔）不该让倒着的那个插到正序前面。
-fn sort_key(scored: &(Hit, u32)) -> (std::cmp::Reverse<usize>, bool, usize, Tier, bool, bool, u32) {
+fn sort_key(
+    scored: &(Hit, u32),
+) -> (
+    std::cmp::Reverse<usize>,
+    bool,
+    usize,
+    Tier,
+    usize,
+    bool,
+    bool,
+    u32,
+) {
     (
         std::cmp::Reverse(scored.0.consumed),
         !scored.0.whole,
@@ -358,6 +481,8 @@ fn sort_key(scored: &(Hit, u32)) -> (std::cmp::Reverse<usize>, bool, usize, Tier
         // 档位在「走完没走完」之前：ushui 想找三点水的字，炭（s 当一笔竖 + hui 当灰）
         // 虽然把两个部件都走完了，也不该压过按读音出的 没——整段读得通时读音优先。
         scored.0.tier,
+        // 同一个档位里错得少的在前：错一位的「甫」应该压在错两位的字前面
+        scored.0.distance,
         !scored.0.complete,
         // 繁体字典来的、又没走完的拆法往后挪一位：umu 的 了（繁体 瞭 的 目尞，只走到 目）
         // 不该压过 本。走完的不分（uzouyan 用 辶言 找到 这/這，两个部件都走到，按字频排）。

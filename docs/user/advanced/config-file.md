@@ -52,7 +52,7 @@ description: 青简的全部设置保存在一个文本配置文件里：位置�
 | `[shortcut] switch_mode` | 输入法切换 → 切换键 | 列表，如 `["shift", "control"]` |
 | `[general] default_english`、`remember_mode_per_app` | 输入法切换 → 默认英文模式、按应用记住中英模式 | `true` / `false` |
 | `[general] shift_letter` | 输入法切换 → Shift + 字母 | `passthrough`（交给应用，缺省）或 `compose`（进组句） |
-| `[general] calendar_shortcuts_first` | 快捷键 → 单打 `rq` / `sj` / `xq` / `jq` / `jr` | `true` / `false`，缺省 `false`：打开后整组日期 / 时间 / 星期 / 节气 / 节日排到词的前面；关着时词在前、只跟三条（习惯用简拼打「手机」的别打开） |
+| `[general] u_mode_stroke_hint` | 问字（`u` 模式）→ 候选旁的笔顺提示 | `true` / `false`，缺省 `true`：`u` 模式按笔顺找字时，候选旁的小字给笔顺（打错位时标出错在哪一位）。关掉后那行小字不出 |
 | `[general] punct_commits` | 输入法切换 → 标点先上屏候选 | `true` / `false` |
 | `[general] menubar_indicator` | 输入法切换 → 菜单栏 → 显示中 / 英状态项 | `true`（缺省）/ `false`，隐藏菜单栏的「中 / 英」状态项（仅 macOS） |
 | `[general] preedit` | 外观 → 拼音显示位置 | `both`、`inline`、`window` |

@@ -109,6 +109,8 @@ pub struct Engine {
     aux_weighting: bool,
     /// 单打日历缩写时整组是否压到词前面（配置 `[general] calendar_shortcuts_first`，缺省不压）。
     calendar_group_first: bool,
+    /// `u` 模式候选旁看不看那行笔顺 / 读音小字（配置 `[general] u_mode_stroke_hint`，缺省看）。
+    u_stroke_hint: bool,
 
     /// 附加词库（领域词库、用户导入的），与主词库一起查词、一起进整句词图；不参与语言模型（它们没有 bigram，
     /// 走词频兜底）。壳按用户目录 `dicts/` 与配置 `[dictionaries]` 装配。
@@ -590,6 +592,7 @@ impl Engine {
     pub fn new(dictionary: Dictionary) -> Self {
         Self {
             dictionary,
+            u_stroke_hint: true,
             extra_dictionaries: Vec::new(),
             model_words: None,
             companion_words: None,

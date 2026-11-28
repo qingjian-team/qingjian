@@ -176,7 +176,7 @@ impl Engine {
                 // 英文词归英文词，字照旧跟在后面：`uh` 既是英文的 uh，也是「一」——
                 // 那是笔画输入最基础的入口，不能因为撞上一个英文词就一条字都不给。
                 // `unchanged` 这类长词前面不相干，弱匹配由 `lookup` 的门槛挡着。
-                items.extend(chaizi_candidates(body));
+                items.extend(chaizi_candidates(body, self.u_stroke_hint));
                 if scope == shortcut::UUID_KEYWORD {
                     items.extend(self.generated_candidates(shortcut::UUID_KEYWORD, ""));
                 }
@@ -285,17 +285,33 @@ impl Engine {
 const CHAIZI_LIMIT: usize = 50;
 
 /// 按部件读音、笔画或两者混着找出的字，带上这个字最常见的读音（有声调的标上调号），生僻字也知道怎么念。
-fn chaizi_candidates(keys: &str) -> Vec<Candidate> {
+fn chaizi_candidates(keys: &str, stroke_hint: bool) -> Vec<Candidate> {
     crate::chaizi::lookup(keys, CHAIZI_LIMIT)
         .into_iter()
         .map(|hit| Candidate {
             text: hit.ch.to_string(),
             kind: CandidateKind::Shortcut,
             syllables: Vec::new(),
-            reading: Some(qingjian_dictionary::marked(
-                hit.reading,
-                crate::zhuyin::tone::usual(hit.ch, hit.reading),
-            )),
+            // 设置里关掉「u 模式笔顺提示」（`[general] u_mode_stroke_hint`）时整行小字都不要。
+            // 笔画打错位的那一批（`Tier::Fuzzy`）旁边给标准笔顺，让用户照着补对；
+            // 那是纯文本，不夹任何标记字符。
+            reading: if !stroke_hint {
+                None
+            } else if hit.tier == crate::chaizi::Tier::Fuzzy {
+                crate::chaizi::strokes_of(hit.ch)
+                    .map(str::to_owned)
+                    .or_else(|| {
+                        Some(qingjian_dictionary::marked(
+                            hit.reading,
+                            crate::zhuyin::tone::usual(hit.ch, hit.reading),
+                        ))
+                    })
+            } else {
+                Some(qingjian_dictionary::marked(
+                    hit.reading,
+                    crate::zhuyin::tone::usual(hit.ch, hit.reading),
+                ))
+            },
             translation: None,
             aux_code: None,
         })

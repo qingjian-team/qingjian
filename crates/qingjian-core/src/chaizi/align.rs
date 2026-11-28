@@ -106,6 +106,7 @@ pub(super) fn align(table: &ChaiziTable, split: &Split, body: &str) -> Option<Hi
         complete: best.complete && best.partial == 0 && best.pos == body.len(),
         whole: false,
         traditional: split.traditional,
+        distance: 0,
     })
 }
 
