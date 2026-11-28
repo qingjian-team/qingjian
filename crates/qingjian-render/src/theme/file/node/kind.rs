@@ -116,3 +116,13 @@ pub(crate) enum NodeKind {
     /// 按列表数据把组件重复多份，每份绑定一项。
     Repeat { bind: String, component: String },
 }
+
+impl NodeKind {
+    /// 框的圆角；不是框就是 0。主题里的「窗口半径」写在根节点上（windows.vertical 这种）。
+    pub(crate) fn radius_of(&self) -> f32 {
+        match self {
+            Self::Frame { radius, .. } => *radius,
+            _ => 0.0,
+        }
+    }
+}

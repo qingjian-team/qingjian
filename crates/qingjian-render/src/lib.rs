@@ -31,4 +31,5 @@ pub use renderer::{
     HitRegion, HitTarget, MenuStyle, PanelHit, PreeditHit, Rendered, RenderedStatus, Renderer,
     StatusCell,
 };
+pub use theme::PanelCorners;
 pub use theme::{KeyboardColors, TextSizes, Theme, ThemeError, ThemeLibrary};

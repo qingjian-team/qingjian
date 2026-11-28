@@ -22,6 +22,13 @@ use std::sync::{Arc, OnceLock};
 use bamboo_slip::tiny_skia::Pixmap;
 use bamboo_slip::{Color, FamilyTable, FontSpec, FontWeight, SvgImage};
 
+/// 面板的圆角（点）。给壳与用例读，主题没写时是 `PanelSpec` 的缺省。
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct PanelCorners {
+    pub radius: f32,
+    pub cell_radius: f32,
+}
+
 pub use error::ThemeError;
 use font::FontFamilies;
 pub use keyboard::KeyboardColors;
@@ -541,6 +548,21 @@ impl Theme {
             .meta
             .appearance
             .map(|appearance| appearance == LockedAppearance::Dark)
+    }
+
+    /// 候选窗口根的圆角（点）。主题把窗口半径写成 0 就是方角主题（墨岩那种）：
+    /// 壳据此决定要不要垫系统材质——Windows 11 的亚克力由 DWM 自己按圆角裁，
+    /// 方角主题垫上去反而会被裁回圆角。
+    pub fn window_radius(&self) -> f32 {
+        crate::theme::file::node::NodeKind::radius_of(&self.file().windows.vertical.kind)
+    }
+
+    /// 符号 / 翻译 / 搜索 / 表情面板的圆角。方角主题（墨岩）这里是 0。
+    pub fn panel_corners(&self) -> PanelCorners {
+        PanelCorners {
+            radius: self.file().panel.radius,
+            cell_radius: self.file().panel.cell_radius,
+        }
     }
 
     pub(crate) fn file(&self) -> &ThemeFile {

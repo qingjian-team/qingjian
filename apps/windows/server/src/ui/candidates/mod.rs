@@ -251,7 +251,8 @@ impl CandidateWindow {
         let mut frame = data.render_frame();
         frame.reversed = reversed;
         self.painter.borrow_mut().as_mut().and_then(|painter| {
-            painter.set_material_support(self.backdrop.supported());
+            let material = self.backdrop.supported() && painter.material_allowed();
+            painter.set_material_support(material);
             painter.render_frame(&frame, data.layout, self.dark.get(), self.dpi.get())
         })
     }

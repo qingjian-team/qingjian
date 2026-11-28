@@ -77,7 +77,8 @@ class KeyboardPickerPanel(
         box.set(cx - ink.dp(22f), cy - ink.dp(17f), cx + ink.dp(22f), cy + ink.dp(17f))
         outline.color = color
         outline.strokeWidth = ink.dp(1.7f)
-        canvas.drawRoundRect(box, ink.dp(4f), ink.dp(4f), outline)
+        val focus = ink.dp(ink.corner(4f))
+        canvas.drawRoundRect(box, focus, focus, outline)
         ink.text(canvas, choice.glyph, if (choice.glyph.length > 1) 14f else 17f, color, cx - ink.dp(5f), cy - ink.dp(2f), bold = true)
         ink.text(canvas, choice.keys, 10f, color, box.right - ink.dp(10f), box.bottom - ink.dp(8f))
     }
