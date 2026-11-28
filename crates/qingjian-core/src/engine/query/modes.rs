@@ -25,6 +25,17 @@ impl Engine {
                 self.expression_sub_modes(),
             ),
         };
+        // 子模式候选右边那行说明也是中文（「平均数」「降序」）：输出繁体时一起转，
+        // 只动快捷候选，英文候选的音标不碰
+        if self.traditional.is_on() {
+            for item in &mut items {
+                if item.kind == CandidateKind::Shortcut
+                    && let Some(label) = item.reading.as_ref()
+                {
+                    item.reading = Some(self.traditional.convert_remember(label));
+                }
+            }
+        }
         if let Some(candidate) = self.english_word_candidate(scope) {
             items.push(candidate);
         }

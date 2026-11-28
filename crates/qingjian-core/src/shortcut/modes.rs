@@ -26,6 +26,9 @@ pub const STAT_KEYWORD: &str = "stat";
 /// 颜色子模式的名字（`vcol` 与 `vcolor` 都认）。
 pub const COLOR_KEYWORD: &str = "col";
 
+/// 变换子模式的名字：`vtrans;sort;3;1;2` 对一串数做变换。
+pub const TRANS_KEYWORD: &str = "trans";
+
 /// 子模式。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Mode<'a> {
@@ -64,6 +67,12 @@ pub enum Mode<'a> {
         /// 冒号之后的参数原文。
         args: &'a str,
     },
+
+    /// 变换：`vtrans;log;1;2;4` 对一串数做变换（排序、归一化、差分…）。
+    Trans {
+        /// 冒号之后的参数原文。
+        args: &'a str,
+    },
 }
 
 impl Mode<'_> {
@@ -81,8 +90,8 @@ impl Mode<'_> {
             Self::Timestamp { .. } => {
                 c.is_ascii_digit() || matches!(c, '-' | '.' | '/' | ':' | ';' | '；')
             }
-            // 进制与统计：数字、字母（进制名）、小数、负号与分号
-            Self::Base { .. } | Self::Stat { .. } => {
+            // 进制、统计与变换：数字、字母（进制名 / 算子名）、小数、负号与分号
+            Self::Base { .. } | Self::Stat { .. } | Self::Trans { .. } => {
                 c.is_ascii_alphanumeric() || matches!(c, '.' | '-' | ';' | '；')
             }
             // 颜色：hex 的 `#`、函数式的 `rgb(…)`、逗号与百分号都要进得来
@@ -116,7 +125,7 @@ struct Spec {
 }
 
 /// 全部子模式。加一个在这里登记，`Mode` 与 `mode_forms` 跟上即可。
-const SPECS: [Spec; 7] = [
+const SPECS: [Spec; 8] = [
     Spec {
         name: BIT_KEYWORD,
         numbered: true,
@@ -139,6 +148,10 @@ const SPECS: [Spec; 7] = [
     },
     Spec {
         name: COLOR_KEYWORD,
+        numbered: false,
+    },
+    Spec {
+        name: TRANS_KEYWORD,
         numbered: false,
     },
     Spec {
@@ -195,6 +208,9 @@ fn named<'a>(name: &str, rest: &'a str) -> Option<Mode<'a>> {
     }
     if name == COLOR_KEYWORD || name == "color" {
         return Some(Mode::Color { args: rest });
+    }
+    if name == TRANS_KEYWORD || name == "transform" {
+        return Some(Mode::Trans { args: rest });
     }
     // 位宽可以写在参数里：`vbit;8u;1+2` 与 `vbit8u;1+2` 等价。名字上那些（`bit8`、`bitu`）照旧
     if name == BIT_KEYWORD
@@ -435,6 +451,15 @@ mod tests {
         assert!(!is_name_prefix("uuid"));
         // 纯数字不是前缀
         assert!(!is_name_prefix("123"));
+    }
+
+    /// 新登记的子模式也要能被敲完名后接分隔符：`vtrans;sort;1;2` 一路都进缓冲区。
+    #[test]
+    fn trans_name_takes_the_separator_then_letters() {
+        assert_eq!(accepts_key("trans", ';'), Some(true));
+        assert_eq!(accepts_key("trans;", 's'), Some(true));
+        assert_eq!(accepts_key("trans;sort", ';'), Some(true));
+        assert_eq!(accepts_key("trans;sort;3", '1'), Some(true));
     }
 
     /// 名字敲全、还没填参数时给一句用法；一填参数就不再提示。

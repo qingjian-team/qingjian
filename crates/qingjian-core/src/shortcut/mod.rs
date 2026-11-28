@@ -20,6 +20,7 @@ pub mod modes;
 mod numeral;
 mod occasions;
 mod stat;
+mod transform;
 mod uuid_forms;
 
 use jiff::Zoned;
@@ -126,12 +127,19 @@ pub fn candidates_with_modes(
     now: &Zoned,
     sub_modes: bool,
 ) -> Vec<Candidate> {
-    let texts = calendar_forms(input, now).unwrap_or_else(|| {
-        input
-            .strip_prefix(expression)
-            .map_or_else(Vec::new, |body| expression_forms(body, now, sub_modes))
-    });
-    as_candidates(texts)
+    let texts = calendar_forms(input, now)
+        .map(|forms| {
+            forms
+                .into_iter()
+                .map(|text| (text, None))
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_else(|| {
+            input
+                .strip_prefix(expression)
+                .map_or_else(Vec::new, |body| expression_forms(body, now, sub_modes))
+        });
+    as_candidates_with(texts)
 }
 
 /// 一条日历快捷：写的键（缩写在全拼下也当拼音用，所以靠 `calendar_forms` 先拦）与生成函数。
@@ -167,13 +175,19 @@ pub(crate) fn calendar_forms(input: &str, now: &Zoned) -> Option<Vec<String>> {
 
 /// 快捷写法包成候选。
 pub(crate) fn as_candidates(texts: Vec<String>) -> Vec<Candidate> {
+    as_candidates_with(texts.into_iter().map(|text| (text, None)).collect())
+}
+
+/// 同 [`as_candidates`]，每条带一句说明（`vstat` / `vtrans` 的「平均数」「降序」这些）。
+/// 说明进 `reading`：候选窗拿它画右边那行小字，上屏文本不受影响。
+pub(crate) fn as_candidates_with(texts: Vec<(String, Option<String>)>) -> Vec<Candidate> {
     texts
         .into_iter()
-        .map(|text| Candidate {
+        .map(|(text, label)| Candidate {
             text,
             kind: CandidateKind::Shortcut,
             syllables: Vec::new(),
-            reading: None,
+            reading: label,
             translation: None,
             aux_code: None,
         })
@@ -201,17 +215,21 @@ const AMOUNT_FRACTION_DIGITS: usize = 2;
 
 /// 表达式键之后的部分：一个数出中文数字与金额，四位年份加月日的日期出日期写法，其余当四则运算出结果与「算式=结果」。
 /// 顺序是要紧的：`1998` 与 `1998.3` 是数字与小数，先于日期；四位年份的 `1998-3-8` 才当日期，落在算式之前。
-fn expression_forms(body: &str, now: &Zoned, sub_modes: bool) -> Vec<String> {
+fn expression_forms(body: &str, now: &Zoned, sub_modes: bool) -> Vec<(String, Option<String>)> {
     // 子模式优先：`bit:` 这些带冒号的，认出来就只走那一条，不再按四则去猜
     if sub_modes && let Some(mode) = modes::parse(body) {
         return mode_forms(mode);
     }
-    let mut forms = number_forms(body).unwrap_or_default();
+    let mut forms: Vec<(String, Option<String>)> = number_forms(body)
+        .unwrap_or_default()
+        .into_iter()
+        .map(|text| (text, None))
+        .collect();
     // 日期与数字可以并存：`v1234.5` 既是一千二百三十四点五，也可以是 1234 年 5 月，
     // 后者排在后面，不抢前面的常用读法
     let mut dated = false;
     if let Some(date_forms) = input_date_forms(body, now) {
-        forms.extend(date_forms);
+        forms.extend(date_forms.into_iter().map(|text| (text, None)));
         dated = true;
     }
     if !forms.is_empty() {
@@ -221,19 +239,19 @@ fn expression_forms(body: &str, now: &Zoned, sub_modes: bool) -> Vec<String> {
             && let Some(result) = evaluate(body)
             && result != body.trim()
         {
-            forms.push(result.clone());
-            forms.push(format!("{body}={result}"));
+            forms.push((result.clone(), None));
+            forms.push((format!("{body}={result}"), None));
         }
         return forms;
     }
     match evaluate(body) {
-        Some(result) => vec![result.clone(), format!("{body}={result}")],
+        Some(result) => vec![(result.clone(), None), (format!("{body}={result}"), None)],
         None => Vec::new(),
     }
 }
 
 /// 子模式的候选。
-fn mode_forms(mode: modes::Mode<'_>) -> Vec<String> {
+fn mode_forms(mode: modes::Mode<'_>) -> Vec<(String, Option<String>)> {
     match mode {
         // 生成型（`uuid` / `ts`）由 Engine 走 `generated_candidates`：随机值与时刻要按组句缓存，
         // 不能每次查询都重算。走到这里说明是别处直接调 `shortcut::candidates`，给空即可
@@ -242,24 +260,34 @@ fn mode_forms(mode: modes::Mode<'_>) -> Vec<String> {
             let Some(result) = bitwise::evaluate(body, width) else {
                 return Vec::new();
             };
-            let forms = result.forms();
+            let forms: Vec<String> = result.forms();
             // 与老四则的 `1+2=3` 同一套：第二条就是「敲的式子 = 结果」
-            match forms.first() {
+            let forms = match forms.first() {
                 Some(first) if !body.contains('=') && body.trim() != first.as_str() => {
                     let mut out = vec![first.clone(), format!("{body}={first}")];
                     out.extend(forms.into_iter().skip(1));
                     out
                 }
                 _ => forms,
-            }
+            };
+            forms.into_iter().map(|text| (text, None)).collect()
         }
-        modes::Mode::Base { args } => base::forms(args),
-        modes::Mode::Stat { args } => stat::forms(args),
-        modes::Mode::Color { args } => color::forms(args)
+        modes::Mode::Base { args } => base::forms(args)
             .into_iter()
-            .map(|(value, _)| value)
+            .map(|text| (text, None))
             .collect(),
+        modes::Mode::Stat { args } => labeled(stat::forms(args)),
+        modes::Mode::Color { args } => labeled(color::forms(args)),
+        modes::Mode::Trans { args } => labeled(transform::forms(args)),
     }
+}
+
+/// `(值, 说明)` 对 → 带说明的候选文本；说明进候选右边那行小字。
+fn labeled(pairs: Vec<(String, String)>) -> Vec<(String, Option<String>)> {
+    pairs
+        .into_iter()
+        .map(|(value, label)| (value, Some(label)))
+        .collect()
 }
 /// 单个非负数（`123`、`123.5`）：中文数字在前，金额在后；小数超过两位没有金额写法。
 /// 末尾刚敲了 `.`（`123.`）按整数给，候选不闪。
