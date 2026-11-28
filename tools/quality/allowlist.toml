@@ -1,0 +1,49 @@
+# 代码规模存量豁免。只允许维持登记时的数值，变大（或新增超标项）CI 会失败。
+# 阈值见 [limits]；重构让某项降到阈值内后，跑 `python3 tools/quality/check_code_quality.py --update` 清理。
+
+[limits]
+file_lines = 800
+struct_fields = 40
+impl_methods = 40
+fn_lines = 150
+
+[allow]
+"fn|apps/cli/src/main.rs|build_engine" = 327
+"fn|apps/linux/server/src/dispatch/linux.rs|linux_event" = 222
+"fn|apps/linux/server/src/ipc/connection.rs|serve_connection" = 221
+"fn|apps/macos/src/host/config/mod.rs|apply_config" = 178
+"fn|apps/macos/src/host/init.rs|init" = 232
+"fn|apps/macos/src/host/settings.rs|change_setting" = 465
+"fn|apps/macos/src/imk/controller/mod.rs|dispatch_event" = 217
+"fn|apps/macos/src/imk/controller/text.rs|handle_text" = 278
+"fn|apps/macos/src/preferences/pages/general.rs|build" = 217
+"fn|apps/settings/src/settings/app.rs|update" = 298
+"fn|apps/settings/src/shortcut.rs|accept" = 174
+"fn|apps/settings/src/view/icons/glyph.rs|draw" = 169
+"fn|apps/settings/src/view/pages/appearance/mod.rs|appearance" = 165
+"fn|apps/settings/src/view/pages/candidates.rs|candidates" = 194
+"fn|apps/settings/src/view/pages/input.rs|input" = 171
+"fn|apps/settings/src/view/pages/language.rs|language" = 210
+"fn|apps/settings/src/view/pages/shortcuts.rs|shortcuts" = 225
+"fn|apps/settings/src/view/parts/menus.rs|menu" = 189
+"fn|apps/windows/server/src/dispatch/composed/frame.rs|composed_frame" = 154
+"fn|apps/windows/server/src/main.rs|main" = 185
+"fn|apps/windows/settings/src/panel/component.rs|update" = 366
+"fn|apps/windows/settings/src/panel/pages/general.rs|view" = 201
+"fn|apps/windows/tsf/examples/host.rs|run" = 151
+"fn|crates/bamboo-slip/src/widgets/text_field/mod.rs|build" = 225
+"fn|crates/qingjian-core/src/engine/commit/mod.rs|commit_recorded" = 284
+"fn|crates/qingjian-core/src/engine/query/phonetic.rs|query_phonetic" = 561
+"fn|crates/qingjian-core/src/sentence/diagnosis/mod.rs|align" = 152
+"fn|crates/qingjian-core/src/sentence/viterbi/mod.rs|convert_paths" = 163
+"fn|crates/qingjian-core/src/shortcut/calendar.rs|date_forms_of" = 189
+"fn|crates/qingjian-render/src/renderer/panel/mod.rs|render_panel" = 309
+"fn|tools/dict-convert/src/lexicon/mod.rs|convert" = 430
+"fn|tools/dict-convert/src/main.rs|run" = 211
+"impl|crates/qingjian-core/src/engine/setup/mod.rs|Engine" = 109
+"struct|apps/cli/src/args.rs|Args" = 62
+"struct|apps/macos/src/host/mod.rs|Host" = 73
+"struct|apps/windows/server/src/dispatch/config.rs|RouterConfig" = 53
+"struct|apps/windows/server/src/dispatch/mod.rs|Router" = 43
+"struct|crates/qingjian-core/src/engine/mod.rs|Engine" = 109
+"struct|crates/qingjian-platform/src/config/general/mod.rs|GeneralConfig" = 64

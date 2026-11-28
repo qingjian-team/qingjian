@@ -30,6 +30,10 @@
 - **一个职责连带它专用的类型收进一个目录。** `engine/commit/mod.rs` 放上屏部分，`chain.rs` / `last.rs` 放只有它用的类型。
 - **大类型的 `impl` 按职责拆成子模块。** 每个文件一个 `impl Foo { … }`（`host/settings.rs` 这样），结构体与构造留在 `mod.rs`，跨文件用到的私有方法标 `pub(super)`。
 - **文件长度。** 单文件不超过 800 行，目标 500 行以内；测试超过 200 行搬到 `tests.rs`（多时 `tests/` 按主题分文件）。
+- **类型与函数的体量上限（CI 强制）。** 单个 struct 字段不超过 40 个；单个 `impl` 直接方法不超过 40 个；单个函数不超过 150 行。
+  一个类型字段上百、方法上百就是上帝对象，按职责拆成子类型 / 子模块，不要靠 `impl` 分散到多个文件来「摊平」字段。
+  存量超标项冻结在 [tools/quality/allowlist.toml](../tools/quality/allowlist.toml)，只允许维持、不允许变大；新增超标项 PR 直接红。
+  本地跑 `python3 tools/quality/check_code_quality.py`，重构让某项回到阈值内后跑 `--update` 清掉豁免。
 - **导入写精确路径。** 不用 `use super::*` / `use foo::*`（`#[cfg(test)] mod tests` 里的 `use super::*` 除外）。
   子文件从父模块拿的类型写 `use super::{Engine, Candidate};`，父模块没定义的直接 `use crate::…` 或 `use <crate>::…`，不绕 `super::` 转手。
   存量的 glob 改到那个文件时顺手换掉，不专门清扫。
@@ -90,9 +94,10 @@
 
 ## CI 与发版
 
-- CI 七个 job，全部 `--locked`：`core`（Linux 全量：fmt / 文档 / clippy / rustdoc / test / 两个 Fcitx 壳 / 安装脚本，外加 Android 那条 rustls TLS 路径的 lint 与测试）、
+- CI 八个 job。`quality`（代码规模门禁：文件 / 结构体 / impl / 函数体量，纯 Python、不编 Rust）之外，
+  其余七个全部 `--locked`：`core`（Linux 全量：fmt / 文档 / clippy / rustdoc / test / 两个 Fcitx 壳 / 安装脚本，外加 Android 那条 rustls TLS 路径的 lint 与测试）、
   `release`（release profile 下的 clippy）、`shellcheck`、`macos`（IMK 壳）、`linux-22_04`（最老受支持发行版）、`android`（debug APK）、
-  `windows`（Windows 五个 crate（含青简剪贴板）+ `qingjian-platform` + 32 位 DLL）。Dependabot 升 actions。
+  `windows`（Windows 五个 crate（含青简剪贴板）+ `qingjian-platform` + 32 位 DLL + ARM64 编译检查）。Dependabot 升 actions。
 - 依赖门禁分两处，同一份豁免清单：`cargo deny check` 在 `core` job 里当**合并门禁**（每个 PR 查许可证 / 来源 / 重复版本 / RustSec 漏洞 / yanked），
   `audit.yml` 的 `audit-check` 每周一次定时查漏洞并开 issue（没人提 PR 时也能发现新披露的）。两处的 `RUSTSEC-*` 清单由 CI 机械校验必须一致。
 - 发版：推 `<平台>-v<版本>` 标签触发 `release.yml`，门禁是版本号 = 标签且不带 -dev、标签在 main 上、产品数据按 SHA256SUMS 校验。
