@@ -157,14 +157,20 @@ fn evaluate(
     engine.break_chain();
     engine.history_mut().clear();
     engine.history_mut().record(&pair.context);
-    engine.set_input(&pair.pinyin);
+    let nine_key = engine.is_nine_key();
+    let input = if nine_key {
+        nine_key_digits(&pair.pinyin)
+    } else {
+        pair.pinyin.clone()
+    };
+    engine.set_input(&input);
     let started = Instant::now();
     let query = match engine.query() {
         Ok(query) => query,
         Err(error) => {
             report.unparsable += 1;
             engine.clear();
-            return serde_json::json!({"text": pair.text, "pinyin": pair.pinyin, "error": error.to_string()});
+            return serde_json::json!({"text": pair.text, "pinyin": input, "error": error.to_string()});
         }
     };
     // 异步重打分：像壳一样停顿后请求、等结果、再查一次；等的时间也算进查询耗时
@@ -213,7 +219,7 @@ fn evaluate(
             )),
         ));
     }
-    let loss = if position == Some(0) {
+    let loss = if position == Some(0) || nine_key {
         None
     } else {
         engine.diagnose_sentence(&pair.text, items.first().map(|c| c.text.as_str()))
@@ -221,15 +227,18 @@ fn evaluate(
     if let Some(loss) = &loss {
         *report.losses.entry(loss.kind()).or_default() += 1;
     }
+    let path_rank = (!nine_key)
+        .then(|| engine.sentence_path_rank(&pair.text, 64))
+        .flatten();
     let row = serde_json::json!({
-        "text": pair.text, "pinyin": pair.pinyin, "context": pair.context,
+        "text": pair.text, "pinyin": input, "context": pair.context,
         "top": items.first().map(|c| c.text.as_str()),
         "sentence": sentence.map(|c| c.text.as_str()),
         "position": position,
         "query_ms": elapsed.as_secs_f64() * 1000.0,
         "candidates": items.iter().map(|c| c.text.as_str()).collect::<Vec<_>>(),
         "loss": loss.as_ref().map(|l| l.kind()),
-        "path_rank": engine.sentence_path_rank(&pair.text, 64),
+        "path_rank": path_rank,
         "choice": engine.last_choice_scores().iter().map(|s| serde_json::json!({
             "text": s.text, "rank": s.rank, "model": s.model, "lm": s.language_model, "prior": s.prior,
         })).collect::<Vec<_>>(),
@@ -258,4 +267,23 @@ pub enum EvalError {
 
     #[error("P2C generation failed: {0}")]
     Generate(#[from] qingjian_neural::NeuralError),
+}
+
+/// 冻结集里的全拼转成九宫格按键数字串，分隔符等非字母字符跳过。
+fn nine_key_digits(pinyin: &str) -> String {
+    pinyin
+        .chars()
+        .filter_map(|c| qingjian_core::nine_key::digit_of(c.to_ascii_lowercase()))
+        .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::nine_key_digits;
+
+    #[test]
+    fn nine_key_digits_maps_letters_and_skips_separators() {
+        assert_eq!(nine_key_digits("ku'guan"), "584826");
+        assert_eq!(nine_key_digits("NiHao"), "64426");
+    }
 }
