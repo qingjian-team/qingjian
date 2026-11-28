@@ -224,10 +224,10 @@ fn calendar_shortcuts_need_pinned_letters() {
     // 拼音列把 r、q 都定下来了才出日期
     let mut engine = nine_key();
     assert!(shortcut(&query(&mut engine, "r'q")));
-    // 全拼的 时间（744526）跟着现在的时间
+    // 全拼的 时间（7445426）跟着现在的时间
     let mut engine = Engine::new(Dictionary::parse(KEYWORDS).unwrap());
     engine.set_nine_key(true);
-    let query = query(&mut engine, "744526");
+    let query = query(&mut engine, "7445426");
     let texts = texts_of(&query);
     let at = texts.iter().position(|t| *t == "时间").unwrap();
     assert!(texts[at + 1].contains(':'), "{texts:?}");
@@ -363,4 +363,50 @@ fn an_unpinned_syllable_keeps_the_reading_the_user_picked() {
     engine.push('4');
     engine.backspace(false);
     assert_eq!(engine.query().unwrap().candidates.items[0].text, "米");
+}
+
+#[test]
+fn unified_dag_finds_sentence_beyond_structural_beam_and_aligns_preedit() {
+    // 五段连续 584826 重复（30 键）：每段至少有 584+826（结构更优：长音节在前）与 58+4826 两种完整切法，
+    // 共 2^5 = 32 种完整形状；纯结构 BEAM=12 会把全走 58+4826 的切法挤掉，统一 DAG 能一次找到并精确对齐拼音行
+    let dict = Dictionary::parse("旅馆\tlv guan\t9000\n窥\tkui\t50\n探\ttan\t50\n").unwrap();
+    let mut engine = Engine::new(dict);
+    engine.set_nine_key(true);
+    let keys = "584826".repeat(5);
+    let query = query(&mut engine, &keys);
+    assert_eq!(texts_of(&query)[0], "旅馆旅馆旅馆旅馆旅馆");
+    assert_eq!(
+        query.marked_text(),
+        "lü'guan'lü'guan'lü'guan'lü'guan'lü'guan"
+    );
+    let sentence = query.candidates.items[0].clone();
+    assert_eq!(engine.commit(&sentence), "旅馆旅馆旅馆旅馆旅馆");
+    assert!(engine.composition().is_empty());
+}
+
+#[test]
+fn trailing_complete_syllable_does_not_expand_to_longer_prefix_in_sentence() {
+    // 8847426 (tui piao)：7426 本身是完整音节（piao / shan），整句不应借末尾前缀把 shan 扩成高频的 shang（上）
+    let dict =
+        Dictionary::parse("宁愿\tning yuan\t9000\n退票\ttui piao\t3000\n腿上\ttui shang\t50000\n")
+            .unwrap();
+    let mut engine = Engine::new(dict);
+    engine.set_nine_key(true);
+    let query = query(&mut engine, "646498268847426");
+    assert_eq!(texts_of(&query)[0], "宁愿退票");
+    assert_eq!(query.marked_text(), "ning'yuan'tui'piao");
+}
+
+#[test]
+fn complete_sentence_is_not_hijacked_by_mid_word_single_digit_initial() {
+    // 78746878326 (ru shou qu dao)：完整路径存在时，中间的 7468（shou）不被拆成单码简拼 7(s) + 468(hou)
+    let dict = Dictionary::parse(
+        "入手\tru shou\t5000\n渠道\tqu dao\t5000\n去世\tqu shi\t90000\n后\thou\t90000\n入党\tru dang\t90000\n",
+    )
+    .unwrap();
+    let mut engine = Engine::new(dict);
+    engine.set_nine_key(true);
+    let query = query(&mut engine, "78746878326");
+    assert_eq!(texts_of(&query)[0], "入手渠道");
+    assert_eq!(query.marked_text(), "ru'shou'qu'dao");
 }

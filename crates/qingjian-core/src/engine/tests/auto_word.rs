@@ -419,8 +419,7 @@ fn picking_a_char_consumes_the_right_keys_under_every_scheme() {
     for (label, keys, scheme, word, first) in [
         ("全拼", "shishan", None, "石山", "石"),
         ("双拼", "uiuj", Some(Scheme::Xiaohe), "石山", "石"),
-        // 九宫格下 `744726` 的首选多字词是 事实，不是 石山
-        ("九宫格", "744726", None, "事实", "事"),
+        ("九宫格", "7447426", None, "石山", "石"),
     ] {
         let mut engine = shishan_engine();
         if label == "双拼" {

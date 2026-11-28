@@ -3,7 +3,7 @@
 use std::cmp::Reverse;
 
 use crate::candidate::Candidate;
-use crate::nine_key::{self, Position, Shape};
+use crate::nine_key::{self, Lattice, Position, Shape};
 
 /// 拼音列：从第一个未选定位置起枚举全部合法完整音节、叹词读法与兜底单字母，不按最长结构切法硬钉顶部。
 ///
@@ -56,18 +56,29 @@ pub(super) fn pinyin_choices(
     choices
 }
 
-/// 拼音行：优先挑能对上首选候选音节的那种切法，避免首选来自非首切法时拼音行与候选脱节；
-/// 对不上时回退最优切法。每个位置取首选候选读到的那种写法，没覆盖到的取第一种写法，再接切不动的尾巴。
-pub(super) fn marked(shapes: &[Shape], first: Option<&Candidate>, tail: &str) -> Option<String> {
-    let shape = first
-        .and_then(|candidate| shapes.iter().find(|shape| shape_matches(shape, candidate)))
-        .or_else(|| shapes.first())?;
-    let mut parts: Vec<&str> = Vec::with_capacity(shape.positions.len() + 1);
-    for (index, position) in shape.positions.iter().enumerate() {
-        let read = first
-            .and_then(|c| c.syllables.get(index))
-            .and_then(|syllable| position_match(position, syllable));
-        parts.push(read.unwrap_or(&position.alternatives[0]));
+/// 拼音行：沿音节 DAG 把首选候选的音节逐段对齐回输入，保证任何 DAG 边界切法胜出时拼音行都与首选一致；
+/// 候选只覆盖前面一段时剩余部分按结构最优切法补齐；对不上时回退最优结构切法。最后接切不动的尾巴。
+pub(super) fn marked(
+    lattice: &Lattice,
+    fallback: Option<&Shape>,
+    first: Option<&Candidate>,
+    tail: &str,
+) -> Option<String> {
+    if lattice.is_empty() {
+        return None;
+    }
+    let mut parts: Vec<&str> = Vec::new();
+    if let Some(candidate) = first.filter(|c| !c.syllables.is_empty())
+        && let Some(end_offset) = align_candidate(lattice, 0, &candidate.syllables, &mut parts)
+    {
+        for position in lattice.suffix_positions(end_offset) {
+            parts.push(&position.alternatives[0]);
+        }
+    } else {
+        let shape = fallback?;
+        for position in &shape.positions {
+            parts.push(&position.alternatives[0]);
+        }
     }
     if !tail.is_empty() {
         parts.push(tail);
@@ -75,14 +86,34 @@ pub(super) fn marked(shapes: &[Shape], first: Option<&Candidate>, tail: &str) ->
     Some(parts.join("'"))
 }
 
-fn shape_matches(shape: &Shape, candidate: &Candidate) -> bool {
-    !candidate.syllables.is_empty()
-        && candidate.syllables.len() <= shape.positions.len()
-        && shape
-            .positions
-            .iter()
-            .zip(&candidate.syllables)
-            .all(|(position, syllable)| position_match(position, syllable).is_some())
+/// 在 DAG 上从字节偏移 `offset` 起把 `syllables` 逐个匹配成边写法，成功返回落到的字节偏移。
+fn align_candidate<'a>(
+    lattice: &'a Lattice,
+    offset: usize,
+    syllables: &[String],
+    parts: &mut Vec<&'a str>,
+) -> Option<usize> {
+    let Some((syllable, rest)) = syllables.split_first() else {
+        return Some(offset);
+    };
+    // 优先完整等长匹配，再退回前缀匹配（简拼或末尾未打完音节）
+    for exact_pass in [true, false] {
+        for edge in lattice.edges_at(offset) {
+            let Some(written) = position_match(&edge.position, syllable) else {
+                continue;
+            };
+            let is_exact = written.len() == syllable.len();
+            if is_exact != exact_pass {
+                continue;
+            }
+            parts.push(written);
+            if let Some(end) = align_candidate(lattice, edge.next, rest, parts) {
+                return Some(end);
+            }
+            parts.pop();
+        }
+    }
+    None
 }
 
 fn position_match<'a>(position: &'a Position, syllable: &str) -> Option<&'a str> {

@@ -2,10 +2,14 @@
 //!
 //! 只在边界上做动态规划、不展开读法；写法交给词库的多写法查询与整句词图去分辨。设计见 `docs/design/nine-key.md`。
 
+mod edge;
+mod lattice;
 mod position;
 mod shape;
 mod table;
 
+pub use edge::LatticeEdge;
+pub use lattice::Lattice;
 pub use position::Position;
 pub use shape::Shape;
 
@@ -53,6 +57,16 @@ pub fn interjection(spelling: &str) -> Option<&'static str> {
         .iter()
         .find(|(text, _)| *text == spelling)
         .map(|(_, character)| *character)
+}
+
+/// 构造字节偏移音节 DAG，返回 `(lattice, tail)`。
+pub fn lattice(input: &str) -> (Lattice, &str) {
+    Lattice::build(input)
+}
+
+/// 这段码（数字与已选定字母）对应的全部完整音节（不含未打完前缀与简拼声母）。
+pub fn complete_syllables(span: &str) -> Vec<String> {
+    CODE_TABLE.complete_syllables(span)
 }
 
 /// 从输入的 `start` 字节起能读成的全部写法：各种长度的完整音节、叹词读法（[`INTERJECTIONS`]）与一码的首字母，长的在前。

@@ -1,4 +1,5 @@
 use super::*;
+use crate::SyllablePattern;
 
 const SAMPLE: &str = "# 测试词库\n开发\tkai fa\t9000\n开发者\tkai fa zhe\t3000\n开饭\tkai fan\t800\n开放\tkai fang\t2000\n咖啡\tka fei\t5000\n开\tkai\t20000\n";
 
@@ -170,8 +171,13 @@ fn narrowing_agrees_with_linear_scan() {
             dictionary.lookup_exact_alt(&positions)
         };
         exact.sort_by(by_key);
+        let (mut stepped, has_longer) = dictionary.lookup_exact_alt_step(&positions);
+        stepped.sort_by(by_key);
+        let expected_longer = slow.iter().any(|m| !m.exact);
         slow.retain(|m| m.exact);
         assert_eq!(exact, slow, "exact positions {positions:?}");
+        assert_eq!(stepped, slow, "stepped positions {positions:?}");
+        assert_eq!(has_longer, expected_longer, "has_longer {positions:?}");
         cases += usize::from(!fast.is_empty());
     }
     assert!(cases > 200, "too few non-empty cases: {cases}");

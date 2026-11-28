@@ -45,6 +45,27 @@ impl CodeTable {
         }
     }
 
+    /// 这段码（数字与已选定字母）对应的全部完整音节（不含未打完前缀与声母）。
+    pub(super) fn complete_syllables(&self, span: &str) -> Vec<String> {
+        if span.len() > 1 && interjection(span).is_some() {
+            return vec![span.to_owned()];
+        }
+        let code: String = span.chars().map(|c| digit_of(c).unwrap_or(c)).collect();
+        let fits = |text: &str| {
+            span.bytes()
+                .zip(text.bytes())
+                .all(|(typed, letter)| typed.is_ascii_digit() || typed == letter)
+        };
+        self.syllables
+            .get(&code)
+            .into_iter()
+            .flatten()
+            .copied()
+            .filter(|text| fits(text))
+            .map(str::to_owned)
+            .collect()
+    }
+
     /// `span`（数字与已选定字母）能不能当一个位置；`last` 表示它一直到输入末尾，`pinned_here` 表示它从开头或 `'` 后起。
     /// 完整音节优先；末尾按前缀读（打完的音节也算前缀）；中间只有声母能当简拼。
     pub(super) fn position(

@@ -18,6 +18,7 @@ mod conversion;
 mod diagnosis;
 mod interpolation;
 mod language_model;
+mod lattice_edge;
 mod personal;
 mod phrase_model;
 mod pieces;
@@ -34,6 +35,7 @@ pub use conversion::Conversion;
 pub use diagnosis::{Loss, Parts, diagnose};
 pub use interpolation::Interpolation;
 pub use language_model::{LanguageModel, NoLanguageModel};
+pub use lattice_edge::LatticeEdge;
 pub use personal::Personal;
 pub use phrase_model::PhraseModel;
 pub use pieces::text_pieces;
@@ -44,7 +46,7 @@ pub use span::{MAX_SPAN_CACHE_ENTRIES, SpanCache, SpanWord, kept_hits};
 pub(crate) use text_segment::is_han;
 pub use text_segment::{MAX_TEXT_WORD_CHARS, segment_text};
 pub use user_ngram::UserNgram;
-pub use viterbi::{convert, convert_paths, convert_whole};
+pub use viterbi::{convert, convert_lattice, convert_paths, convert_whole};
 
 /// 句首标记：个人 n-gram 里句首词的前词。与 `qingjian-lm` 语料统计用的是同一个记号。
 pub const SENTENCE_START: &str = "<s>";

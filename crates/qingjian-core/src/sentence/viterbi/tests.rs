@@ -547,3 +547,83 @@ fn alternatives_reach_the_head_of_the_sentence_not_just_its_tail() {
     let tail_only = texts[1..9].iter().filter(|t| t.starts_with(&tail)).count();
     assert!(tail_only <= 2, "{texts:?}");
 }
+
+#[test]
+fn convert_lattice_picks_best_boundary_across_dag_and_handles_placeholders() {
+    // 6 个字节的 DAG，两条竞争边界：
+    // 路径 A：0..2 (lv/ku) + 2..6 (guan) -> 「旅馆」（两音节整词）
+    // 路径 B：0..3 (kui) + 3..6 (tan) -> 「窥」「探」（两单字，低频）
+    let dictionary =
+        Dictionary::parse("旅馆\tlv guan\t9000\n窥\tkui\t100\n探\ttan\t100\n").unwrap();
+    let graph = vec![
+        vec![
+            super::super::LatticeEdge {
+                to: 2,
+                patterns: vec![
+                    SyllablePattern::complete("lv"),
+                    SyllablePattern::complete("ku"),
+                ],
+                penalty: 0.0,
+            },
+            super::super::LatticeEdge {
+                to: 3,
+                patterns: vec![SyllablePattern::complete("kui")],
+                penalty: 0.0,
+            },
+        ],
+        Vec::new(),
+        vec![super::super::LatticeEdge {
+            to: 6,
+            patterns: vec![SyllablePattern::complete("guan")],
+            penalty: 0.0,
+        }],
+        vec![super::super::LatticeEdge {
+            to: 6,
+            patterns: vec![SyllablePattern::complete("tan")],
+            penalty: 0.0,
+        }],
+        Vec::new(),
+        Vec::new(),
+    ];
+    let mut cache = SpanCache::default();
+    let conversion = convert_lattice(
+        &SearchInput::new(
+            &[&dictionary],
+            &NoLanguageModel,
+            Personal::NONE,
+            |_| 0,
+            |_, _| 0.0,
+        ),
+        &graph,
+        8,
+        &mut cache,
+    )
+    .unwrap();
+    assert_eq!(conversion.text, "旅馆");
+    assert_eq!(conversion.syllables, ["lv", "guan"]);
+
+    // 词库查不到的孤立音节用占位符兜底，不中断整条路径
+    let unknown_graph = vec![
+        vec![super::super::LatticeEdge {
+            to: 2,
+            patterns: vec![SyllablePattern::complete("fo")],
+            penalty: 0.0,
+        }],
+        Vec::new(),
+    ];
+    let fallback = convert_lattice(
+        &SearchInput::new(
+            &[&dictionary],
+            &NoLanguageModel,
+            Personal::NONE,
+            |_| 0,
+            |_, _| 0.0,
+        ),
+        &unknown_graph,
+        8,
+        &mut cache,
+    )
+    .unwrap();
+    assert!(fallback.has_placeholder());
+    assert_eq!(fallback.text, "fo");
+}

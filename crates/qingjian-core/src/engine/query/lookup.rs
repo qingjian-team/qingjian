@@ -106,4 +106,18 @@ impl Engine {
         }
         hits
     }
+
+    /// 同 [`Self::lookup_exact_all`]，同时返回任意词库里是否还有以这串位置为前缀的更长词。
+    pub(in crate::engine) fn lookup_exact_all_step(
+        &self,
+        positions: &[Vec<qingjian_dictionary::SyllablePattern<'_>>],
+    ) -> (Vec<Match<'_>>, bool) {
+        let (mut hits, mut has_longer) = self.dictionary.lookup_exact_alt_step(positions);
+        for dictionary in self.all_dictionaries().into_iter().skip(1) {
+            let (more, longer) = dictionary.lookup_exact_alt_step(positions);
+            has_longer |= longer;
+            hits.extend(more);
+        }
+        (hits, has_longer)
+    }
 }

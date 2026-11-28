@@ -1,21 +1,25 @@
-//! 九宫格的整句：边界歧义只有语言模型分得清（`tian qi hen` 与 `tian shi en`），所以多种形状各转一次取最高分。
+//! 九宫格的整句：把全部合法边界放进同一张字节偏移音节 DAG，只做一次统一 Viterbi，
+//! 不再按结构束宽截断形状或重复转 12 遍。
+
+use qingjian_dictionary::SyllablePattern;
 
 use crate::candidate::{Candidate, CandidateKind};
 use crate::engine::{Engine, Learner};
-use crate::nine_key::{self, Shape};
-use crate::sentence::{self, Conversion, SearchInput, SentenceWord};
+use crate::nine_key::{self, Lattice};
+use crate::sentence::{self, Conversion, LatticeEdge, SearchInput, SentenceWord};
 
-/// 参与整句转换的形状数。
-const SENTENCE_SHAPES: usize = 12;
+/// 九宫格统一 DAG 的束宽：多读法与多边界汇在同一字节偏移上，略宽于全拼的 8 让竞争切法留得住。
+const LATTICE_BEAM_WIDTH: usize = 16;
 
 impl Engine {
-    /// 整句：各形状各转一次取分最高的；规则同全拼（至少两个音节、路径不止一个词、没有占位音节）。
+    /// 整句：在字节偏移 DAG 上做一次统一 Viterbi；规则同全拼（至少两个音节、路径不止一个词、没有占位音节）。
     pub(super) fn nine_key_sentence(
         &self,
-        shapes: &[Shape],
+        keys: &str,
+        lattice: &Lattice,
         items: &[Candidate],
     ) -> Option<Candidate> {
-        let conversion = self.convert_nine_key(shapes)?;
+        let conversion = self.convert_nine_key(keys, lattice)?;
         if conversion.word_count() < 2 || conversion.has_placeholder() {
             return None;
         }
@@ -35,29 +39,70 @@ impl Engine {
         })
     }
 
-    /// 各形状里得分最高的整句转换；上屏时重算词序列也走这里。
-    fn convert_nine_key(&self, shapes: &[Shape]) -> Option<Conversion> {
-        let dictionaries = self.all_dictionaries();
-        shapes
+    /// 在字节偏移 DAG 上做一次统一整句转换；上屏时重算词序列也走这里。
+    ///
+    /// 末尾位置若本身已是完整音节（如 `7426` → `piao / qian / shan`），整句按精确完整音节查，
+    /// 不再借末尾前缀展开成更长音节（避免 `退票` → `腿上`、`收藏里` → `收藏夹`、`渠道` → `入党`）；
+    /// 词级查词仍走末尾前缀，保证半截输入的补全候选照常出现。
+    fn convert_nine_key(&self, keys: &str, lattice: &Lattice) -> Option<Conversion> {
+        if !lattice.has_multi_syllable_path() {
+            return None;
+        }
+        let end = lattice.end();
+        let trailing_exact: Vec<Vec<Option<Vec<String>>>> = lattice
+            .edges()
             .iter()
-            .take(SENTENCE_SHAPES)
-            .filter(|shape| shape.positions.len() >= 2)
-            .filter_map(|shape| {
-                let input = SearchInput::new(
-                    &dictionaries,
-                    &*self.language_model,
-                    self.personal(),
-                    |text| self.learner.weight(text),
-                    |_, _| 0.0,
-                )
-                .with_limits(self.search_limits);
-                sentence::convert(
-                    &input,
-                    &shape.patterns(shape.positions.len()),
-                    &mut self.span_cache.borrow_mut(),
-                )
+            .map(|outgoing| {
+                outgoing
+                    .iter()
+                    .map(|edge| {
+                        (edge.next == end && edge.position.complete && edge.position.prefix)
+                            .then(|| {
+                                let span = &keys
+                                    [edge.position.start..edge.position.start + edge.position.len];
+                                nine_key::complete_syllables(span)
+                            })
+                            .filter(|list| !list.is_empty())
+                    })
+                    .collect()
             })
-            .max_by(|a, b| a.score.total_cmp(&b.score))
+            .collect();
+        let dictionaries = self.all_dictionaries();
+        let graph: Vec<Vec<LatticeEdge<'_>>> = lattice
+            .edges()
+            .iter()
+            .zip(&trailing_exact)
+            .map(|(outgoing, overrides)| {
+                outgoing
+                    .iter()
+                    .zip(overrides)
+                    .map(|(edge, exact)| {
+                        let patterns = match exact {
+                            Some(syllables) => syllables
+                                .iter()
+                                .map(|s| SyllablePattern::complete(s))
+                                .collect(),
+                            None => edge.position.patterns(),
+                        };
+                        LatticeEdge {
+                            to: edge.next,
+                            patterns,
+                            penalty: 0.0,
+                        }
+                    })
+                    .collect()
+            })
+            .collect();
+        let beam = self.search_limits.beam_width.max(LATTICE_BEAM_WIDTH);
+        let input = SearchInput::new(
+            &dictionaries,
+            &*self.language_model,
+            self.personal(),
+            |text| self.learner.weight(text),
+            |_, _| 0.0,
+        )
+        .with_limits(self.search_limits);
+        sentence::convert_lattice(&input, &graph, beam, &mut self.span_cache.borrow_mut())
     }
 
     /// 九宫格缓冲区的整句词序列（文本对得上才算）。
@@ -65,8 +110,9 @@ impl Engine {
         &self,
         candidate: &Candidate,
     ) -> Option<Vec<SentenceWord>> {
-        let (shapes, _) = nine_key::segment(self.composition.scope());
-        let conversion = self.convert_nine_key(&shapes)?;
+        let keys = self.composition.scope();
+        let (lattice, _) = nine_key::lattice(keys);
+        let conversion = self.convert_nine_key(keys, &lattice)?;
         (conversion.text == candidate.text).then_some(conversion.words)
     }
 }

@@ -93,7 +93,7 @@ qingjian-core
 ├── fuzzy           # 模糊音：FuzzyRules（配置 [fuzzy]）把每个音节扩展成多种写法，Expanded 借出给词库多写法查询
 ├── shuangpin       # 双拼：Scheme 九套方案的键位表，decode 把敲的键解成全拼（音节间带 '），Decoded 把上屏消耗换算回键数；切分之后全部复用全拼
 │                   # engine::ModeKeys（配置 [shortcut]）：表达式 / 问字前缀键，只能是 v / u / i；问字键后跟十六进制出码点字符
-├── nine_key        # 九宫格：数字串按边界切成若干形状，每个位置带同码的全部写法，交给词库多写法查询与整句词图；见 nine-key.md
+├── nine_key        # 九宫格：数字串构造字节偏移音节 DAG，每个位置带同码的全部写法，交给词库多写法查询与统一整句词图；见 nine-key.md
 ├── engine          # 对外门面：Engine，以及 Translator / Learner trait 与空实现
 └── storage         # 小文件落盘原语：write_atomic（临时文件 + fsync + 改名）、read_text_lossy；学习 crate 与配置都用它
 ```

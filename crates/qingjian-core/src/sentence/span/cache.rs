@@ -16,8 +16,8 @@ pub const MAX_SPAN_CACHE_ENTRIES: usize = 8192;
 /// 搜索规模（[`SearchLimits`](crate::sentence::SearchLimits)）也决定候选留几条，一变同样整个清掉。
 #[derive(Debug, Default)]
 pub struct SpanCache {
-    /// 格子模式 → 候选。
-    entries: HashMap<String, Arc<[SpanWord]>>,
+    /// 格子模式 → (候选, 是否存在以该串为前缀的更长词)。
+    entries: HashMap<String, (Arc<[SpanWord]>, Option<bool>)>,
 }
 
 impl SpanCache {
@@ -63,15 +63,34 @@ impl SpanCache {
         key: String,
         compute: impl FnOnce() -> Vec<SpanWord>,
     ) -> Arc<[SpanWord]> {
-        if let Some(found) = self.entries.get(&key) {
+        if let Some((found, _)) = self.entries.get(&key) {
             return Arc::clone(found);
         }
         if self.entries.len() >= MAX_SPAN_CACHE_ENTRIES {
             self.entries.clear();
         }
         let words: Arc<[SpanWord]> = compute().into();
-        self.entries.insert(key, Arc::clone(&words));
+        self.entries.insert(key, (Arc::clone(&words), None));
         words
+    }
+
+    /// 同 [`Self::get_or_insert_with`]，同时缓存「词库里是否还有以这串位置为前缀的更长词」给 DAG 词图剪枝。
+    pub fn get_or_insert_step(
+        &mut self,
+        key: String,
+        compute: impl FnOnce() -> (Vec<SpanWord>, bool),
+    ) -> (Arc<[SpanWord]>, bool) {
+        if let Some((found, Some(has_longer))) = self.entries.get(&key) {
+            return (Arc::clone(found), *has_longer);
+        }
+        if self.entries.len() >= MAX_SPAN_CACHE_ENTRIES {
+            self.entries.clear();
+        }
+        let (words, has_longer) = compute();
+        let words: Arc<[SpanWord]> = words.into();
+        self.entries
+            .insert(key, (Arc::clone(&words), Some(has_longer)));
+        (words, has_longer)
     }
 
     /// 词库、用户词或学习数据变了：全部作废。
