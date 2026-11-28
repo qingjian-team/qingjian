@@ -20,6 +20,8 @@ mod system;
 mod view;
 
 /// 输入法的配置文件与剪贴板的数据库：Windows 在 `%APPDATA%` / `%LOCALAPPDATA%` 下，macOS 都在 `~/Library/Application Support/Qingjian/`。
+/// 路径约定与 `qingjian_platform::UserDirs::clipboard()`（本机目录 `local/clipboard`）一致；
+/// 剪贴板可作为独立程序分发，不直接依赖 `qingjian-platform` 以免拉进输入法核心与网络栈。
 #[cfg(windows)]
 fn default_paths() -> Result<(Option<std::path::PathBuf>, std::path::PathBuf), &'static str> {
     use std::path::PathBuf;

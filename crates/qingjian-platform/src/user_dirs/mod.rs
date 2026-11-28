@@ -5,7 +5,7 @@
 //! <根>/learning/          输入法从打字里学到的：词频、造词、选词、降权、个人 n-gram、敲错表、英文词、个人释义表
 //! <根>/records/           统计与记录：输入统计、生词本、面板用量、AI 用量、输入日志
 //! <根>/custom/            用户自己导入、自己做的：dicts/ code_dicts/ codes/ schemes/ themes/
-//! <根>/clipboard/         青简剪贴板
+//! <本机>/clipboard/       青简剪贴板（历史库与同步数据）
 //! <本机>/downloads/       从青简仓库下载的：dicts/ glossaries/ models/
 //! <本机>/cache/           删了会自己重建的：词库列表缓存、更新状态
 //! ```
@@ -110,9 +110,9 @@ impl UserDirs {
         self.local.join("cache")
     }
 
-    /// 青简剪贴板的历史与同步数据。
+    /// 青简剪贴板的历史与同步数据：放本机目录，SQLite 库与单机记录不跟着漫游账户同步。
     pub fn clipboard(&self) -> PathBuf {
-        self.root.join("clipboard")
+        self.local.join("clipboard")
     }
 
     /// 建好各分类目录，把旧版本平铺在根目录的文件搬进来。输入法与设置程序启动时各调一次；

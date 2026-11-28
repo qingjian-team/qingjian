@@ -107,7 +107,13 @@ fn downloads_and_cache_go_to_local() {
     write(&root.join("models/zhiyi/model.bin"), "model");
     write(&root.join("update.json"), "{}");
     write(&root.join("user.tsv"), "words");
-    UserDirs::new(root.clone(), local.clone()).prepare();
+    let dirs = UserDirs::new(root.clone(), local.clone());
+    assert_eq!(dirs.clipboard(), local.join("clipboard"));
+    assert_eq!(
+        UserDirs::at(root.clone()).clipboard(),
+        root.join("clipboard")
+    );
+    dirs.prepare();
     assert!(local.join("downloads/models/zhiyi/model.bin").is_file());
     assert!(local.join("cache/update.json").is_file());
     assert!(root.join("learning/user.tsv").is_file());

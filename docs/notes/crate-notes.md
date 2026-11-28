@@ -477,8 +477,8 @@ id 不能撞拼音侧的写法与日志里的 `wubi`（`is_valid_id`），因为
 `set_value` 用 toml_edit 原地改键保留注释；`[model] enabled` 本地整句模型开关，`LocalModelConfig`；
 中英模式两项：`[shortcut] switch_mode`（`SwitchKeys`：勾选 shift / control / ctrl+alt+space，可多选，老配置的单个字符串照读）与 `[general] english_mode`（内置英文模式总开关））；
 `UserDirs` 是用户目录的分类布局，三个桌面平台的输入法与设置程序共用：根下只留 `config.toml`，`learning/`（`FrequencyLearner` 的几张表、个人释义表）、
-`records/`（输入统计、生词本、面板与 AI 用量、输入日志）、`custom/`（导入的 `dicts/` `code_dicts/` `codes/`、自制 `schemes/` `themes/`）、`clipboard/`，
-下载与缓存在「本机」根下的 `downloads/`（`dicts/` `glossaries/` `models/`，设置程序按这个相对位置装）与 `cache/`（词库列表缓存、`update.json`）；
+`records/`（输入统计、生词本、面板与 AI 用量、输入日志）、`custom/`（导入的 `dicts/` `code_dicts/` `codes/`、自制 `schemes/` `themes/`），
+本机根下是 `clipboard/`（剪贴板历史库与同步数据）、`downloads/`（`dicts/` `glossaries/` `models/`，设置程序按这个相对位置装）与 `cache/`（词库列表缓存、`update.json`）；
 本机根在 Windows 是 `%LOCALAPPDATA%\Qingjian`（`dirs::user_dirs`），mac 与 Linux 就是数据根。`prepare` 建分类目录并把旧版本平铺在根下的文件搬进去
 （`migrate.rs`：`user*.tsv` 进 `learning/`，旧 `dicts/` 按词库列表缓存里的 id 拆成下载的与导入的，目标已有同名的不覆盖，跨盘先复制到临时名再改名），
 输入法与设置程序启动时各调一次。安卓还是平铺在应用私有目录里（core 不依赖本 crate）。
