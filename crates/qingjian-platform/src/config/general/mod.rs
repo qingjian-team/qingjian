@@ -8,8 +8,11 @@ use super::{
 };
 use crate::code_schemes::{self, WUBI86};
 
-/// 每页最多几个候选：数字键只有 1–9。
-pub const MAX_PAGE_SIZE: usize = 9;
+/// 每页最多几个候选：数字键 1–9 之外，`0` 代表第 10 个。
+pub const MAX_PAGE_SIZE: usize = 10;
+
+/// 全新安装的每页候选数。缺省仍是 9：要 10 个的自己去设置里调。
+pub const DEFAULT_PAGE_SIZE: usize = 9;
 
 /// 翻页键对的可选值，第一项是缺省：第一个键向前、第二个向后。
 /// 缺省不用 `,` `.`：组句中敲逗号句号应该把首选上屏再补一个全角标点（`nihao,zaima` 一气打完），
@@ -41,7 +44,7 @@ pub struct GeneralConfig {
     /// 候选窗口顶部的拼音行按高亮候选显示带调拼音（`gān'gà`），应用里的拼音不变。缺省关。
     pub show_tones: bool,
 
-    /// 每页候选数，1–9。
+    /// 每页候选数，1–[`MAX_PAGE_SIZE`]（缺省 9）。
     pub page_size: usize,
 
     /// 翻页键对，两个字符：前一个上一页、后一个下一页。
@@ -280,7 +283,7 @@ impl Default for GeneralConfig {
             learning_language: "en".to_owned(),
             translation_pos: true,
             show_tones: false,
-            page_size: MAX_PAGE_SIZE,
+            page_size: DEFAULT_PAGE_SIZE,
             page_keys: PAGE_KEY_OPTIONS[0].to_owned(),
             appearance: Some(Appearance::default()),
             theme: DEFAULT_THEME.to_owned(),
@@ -522,7 +525,7 @@ impl GeneralConfig {
             .clamp(1, qingjian_core::ENGLISH_CANDIDATES_MAX)
     }
 
-    /// 夹到 1–9 的英文最高位次；1 即不限制。
+    /// 夹到 1–[`MAX_PAGE_SIZE`] 的英文最高位次；1 即不限制。
     pub fn english_min_position(&self) -> usize {
         self.english_min_position.clamp(1, MAX_PAGE_SIZE)
     }
