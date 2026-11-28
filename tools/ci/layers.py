@@ -69,10 +69,6 @@ BANS = {
     "qingjian-dictionary": {"qingjian-core", "qingjian-platform"},
 }
 
-# 只在某个平台上才编的壳：报告里点名，方便看懂哪个壳踩了线。
-SHELL_HINT = "壳层的依赖只能在 apps/ 里往下走，不许被库 crate 反向依赖"
-
-
 def cargo_metadata() -> dict:
     result = subprocess.run(
         ["cargo", "metadata", "--format-version", "1", "--no-deps", "--offline"],
@@ -97,9 +93,8 @@ def main() -> int:
     problems: list[str] = []
 
     for name in sorted(packages):
-        if name not in LEVELS:
-            # app 与工具：不判层级，但仍要检查 BANS 之外的反向依赖
-            pass
+        # 不在 LEVELS 里的是 app 与工具：按最上层算（只能往下要东西），
+        # 它们自己不会被库 crate 依赖，所以下面只按 BANS 与层级两条判。
         manifest = Path(packages[name]["manifest_path"])
         relative = manifest.parent.relative_to(ROOT).as_posix()
         for dependency in packages[name]["dependencies"]:
@@ -129,7 +124,6 @@ def main() -> int:
         "确要新增一条边，先改那里与 tools/ci/layers.py 的 LEVELS/BANS，再改代码。",
         file=sys.stderr,
     )
-    print(SHELL_HINT, file=sys.stderr)
     return 1
 
 
