@@ -13,7 +13,7 @@ Windows 的输入法必须实现为 TSF 文本服务：`ITfTextInputProcessor` �
 
 1. **加载成本**：DLL 被注入进每个进程，每个进程都要为这份依赖树付出镜像与内存
 2. **崩溃隔离**：引擎一次 panic 不应该让用户正在打字的那个应用一起崩（TSF 里崩宿主是用户能立刻感觉到的）
-3. **候选窗的 z-band**：普通顶层窗会被开始屏幕、任务栏搜索、Microsooft Store 应用这些更高 z-band 的宿主盖住，
+3. **候选窗的 z-band**：普通顶层窗会被开始屏幕、任务栏搜索、Microsoft Store 应用这些更高 z-band 的宿主盖住，
    只有带 `uiAccess="true"` 清单、代码签名的 exe 才能把窗口升到 UIAccess 高带
 
 ## 备选
