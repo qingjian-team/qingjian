@@ -5,7 +5,7 @@ set -euo pipefail
 ROOT=$(cd "$(dirname "$0")/../../../.." && pwd)
 if [[ ${1:-} != --private ]]; then
     export QINGJIAN_WUBI_TEST_ROOT
-    QINGJIAN_WUBI_TEST_ROOT=$(mktemp -d /tmp/qj-wubi-XXXXXX)
+    QINGJIAN_WUBI_TEST_ROOT=$(mktemp -d "${TMPDIR:-/tmp}/qj-wubi-XXXXXX")
     cleanup_directory() {
         if mountpoint -q "$QINGJIAN_WUBI_TEST_ROOT/runtime/doc"; then
             fusermount3 -u "$QINGJIAN_WUBI_TEST_ROOT/runtime/doc"
@@ -21,7 +21,11 @@ if [[ ${1:-} != --private ]]; then
     exit
 fi
 FRONTEND=${2:?fcitx5, fcitx4 or ibus}
-TEST_ROOT=${QINGJIAN_WUBI_TEST_ROOT:?Run through the private session wrapper}
+if [[ ( ${QINGJIAN_WUBI_TIMEOUT_REPRO:-0} == 1 || ${QINGJIAN_WUBI_KEYS_TEST:-0} == 1 ) && $FRONTEND != fcitx5 ]]; then
+    printf 'Key regressions require fcitx5\n' >&2
+    exit 2
+fi
+TEST_ROOT=$(cd "${QINGJIAN_WUBI_TEST_ROOT:?Run through the private session wrapper}" && pwd -P)
 PIDS=()
 cleanup() {
     for process in "${PIDS[@]}"; do kill "$process" 2>/dev/null || true; done
@@ -44,6 +48,9 @@ printf '[general]\nscheme = "none"\ncode = "wubi86"\npage_size = 2\n' > "$XDG_CO
 printf '你\tni\t100\n好\thao\t100\n' > "$QINGJIAN_DICT"
 printf 'name = "测试五笔"\ncode_length = 4\nphrase_rule = "wubi86"\n' > "$TEST_ROOT/data/generated/schemes/wubi86/scheme.toml"
 printf '一\tggll\t100\n开\tga\t10\n甲\taaaa\t10\n乙\taaaa\t5\n' > "$TEST_ROOT/data/generated/schemes/wubi86/table.tsv"
+if [[ ${QINGJIAN_WUBI_TIMEOUT_REPRO:-0} == 1 || ${QINGJIAN_WUBI_KEYS_TEST:-0} == 1 ]]; then
+    printf '不错\tgiqa\t100\n错\tqa\t100\n' >> "$TEST_ROOT/data/generated/schemes/wubi86/table.tsv"
+fi
 Xvfb -displayfd 3 -screen 0 1024x768x24 3>"$TEST_ROOT/display" >"$TEST_ROOT/xvfb.log" 2>&1 &
 PIDS+=("$!")
 for ((attempt = 0; attempt < 600; attempt++)); do
@@ -56,6 +63,7 @@ dbus-update-activation-environment DISPLAY HOME WAYLAND_DISPLAY XDG_SESSION_TYPE
     XDG_CONFIG_HOME XDG_DATA_HOME XDG_STATE_HOME XDG_CACHE_HOME XDG_RUNTIME_DIR GIO_USE_VFS
 "$ROOT/target/debug/qingjian-linux-server" >"$TEST_ROOT/server.log" 2>&1 &
 PIDS+=("$!")
+export QINGJIAN_WUBI_TEST_SERVER_PID=$!
 for ((attempt = 0; attempt < 600; attempt++)); do
     [[ -S "$QINGJIAN_SOCKET" ]] && break
     sleep 0.05
@@ -85,7 +93,7 @@ case "$FRONTEND" in
         cp "$ROOT/apps/linux/fcitx5/data/addon/qingjian.conf" "$XDG_DATA_HOME/fcitx5/addon/"
         cp "$ROOT/apps/linux/fcitx5/data/inputmethod/qingjian.conf" "$XDG_DATA_HOME/fcitx5/inputmethod/"
         printf '[Groups/0]\nName=Default\nDefault Layout=us\nDefaultIM=qingjian\n[Groups/0/Items/0]\nName=keyboard-us\n[Groups/0/Items/1]\nName=qingjian\n[GroupOrder]\n0=Default\n' > "$XDG_CONFIG_HOME/fcitx5/profile"
-        FCITX_ADDON_DIRS="$ROOT/target/fcitx5-wubi:$(pkg-config --variable=libdir Fcitx5Core)/fcitx5"
+        FCITX_ADDON_DIRS="${QINGJIAN_FCITX5_BUILD:-$ROOT/target/fcitx5-wubi}:$(pkg-config --variable=libdir Fcitx5Core)/fcitx5"
         export FCITX_ADDON_DIRS
         fcitx5 -D --disable=wayland --verbose=key_trace=5 >"$TEST_ROOT/frontend.log" 2>&1 &
         PIDS+=("$!")
@@ -110,4 +118,10 @@ case "$FRONTEND" in
     *) printf 'Unknown frontend: %s\n' "$FRONTEND" >&2; exit 2 ;;
 esac
 sleep 2
-/usr/bin/python3 "$ROOT/apps/linux/tests/wubi/widget.py" "$FRONTEND"
+if [[ ${QINGJIAN_WUBI_KEYS_TEST:-0} == 1 ]]; then
+    /usr/bin/python3 "$ROOT/apps/linux/tests/wubi/keys.py"
+elif [[ ${QINGJIAN_WUBI_TIMEOUT_REPRO:-0} == 1 ]]; then
+    /usr/bin/python3 "$ROOT/apps/linux/tests/wubi/timeout_repro.py" "$FRONTEND"
+else
+    /usr/bin/python3 "$ROOT/apps/linux/tests/wubi/widget.py" "$FRONTEND"
+fi

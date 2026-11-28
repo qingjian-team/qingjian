@@ -31,8 +31,8 @@ public:
     pid_t pid = -1;
 
     explicit Server(const std::string &general = "", const std::string &codeTable = "") {
-        char pattern[] = "/tmp/qingjian-real-XXXXXX";
-        auto *created = mkdtemp(pattern); assert(created);
+        auto pattern = (std::filesystem::temp_directory_path() / "qingjian-real-XXXXXX").string();
+        auto *created = mkdtemp(pattern.data()); assert(created);
         directory = created;
         setenv("QINGJIAN_SOCKET", (directory / "server.sock").c_str(), 1);
         setenv("QINGJIAN_RESOURCES", directory.c_str(), 1);

@@ -5,6 +5,7 @@ use qingjian_dictionary::{CodeTable, Dictionary};
 
 mod mixed_keys;
 mod phrases;
+mod prepared;
 
 use super::*;
 use crate::{CodeRules, Config, SchemeSlot};
