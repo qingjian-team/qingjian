@@ -17,6 +17,10 @@ impl Session {
             .set_pair_punctuation(options.pair_punctuation, options.english_pair_punctuation);
         self.engine
             .set_english_in_chinese(options.english_in_chinese);
+        self.engine
+            .set_english_max_in_chinese(options.english_max_in_chinese);
+        self.engine
+            .set_english_min_position(options.english_min_position);
         self.engine.set_chinese_first(options.chinese_first);
         self.set_learning_language(options.learning_language());
         self.engine.set_learning(options.learning);
@@ -103,9 +107,10 @@ mod tests {
     use std::path::PathBuf;
 
     use qingjian_core::Engine;
-    use qingjian_core::dictionary::Dictionary;
+    use qingjian_core::dictionary::{Dictionary, WordList};
 
     use super::Session;
+    use crate::options::InputOptions;
 
     #[test]
     fn pair_edits_are_encoded_for_the_keyboard() {
@@ -125,5 +130,30 @@ mod tests {
         );
         // 英文缺省不成对
         assert_eq!(session.pair_punctuation("(", true), None);
+    }
+
+    #[test]
+    fn english_candidate_limits_apply_to_engine() {
+        let dict = Dictionary::parse("吃\tchi\t5000\n拿\tna\t5000\n吃拿\tchi na\t6000\n").unwrap();
+        let english = WordList::parse("china\tchina\t5000\nchinatown\tchinatown\t3000\n").unwrap();
+        let engine = Engine::new(dict).with_english(english);
+        let mut session = Session::new(engine, PathBuf::new(), PathBuf::new(), PathBuf::new());
+        for c in "china".chars() {
+            session.push(c);
+        }
+
+        let limited: InputOptions = serde_json::from_str(
+            r#"{"full_width_punctuation":true,"english_in_chinese":true,"chinese_first":false,"english_max_in_chinese":1,"english_min_position":3}"#,
+        )
+        .unwrap();
+        let frame = session.set_options(&limited);
+        let english_positions: Vec<usize> = frame
+            .candidates
+            .iter()
+            .enumerate()
+            .filter(|(_, c)| c.text.is_ascii())
+            .map(|(i, _)| i)
+            .collect();
+        assert_eq!(english_positions, [2], "{:?}", frame.candidates);
     }
 }

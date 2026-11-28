@@ -1,6 +1,6 @@
 //! 键盘设置里影响候选的几项：模糊音、中文标点全半角、成对符号、打拼音时给不给英文词、学习语言、繁体字形、学习开关、附加词库、分次选词留在组句里、拼写纠错、零声母简写、上屏后联想、候选后面配几个 emoji / 颜文字 / 符号。Kotlin 按设置整份交过来。
 
-use qingjian_core::{FuzzyRules, Language, TraditionalVariant};
+use qingjian_core::{ENGLISH_CANDIDATES_MAX, FuzzyRules, Language, TraditionalVariant};
 use serde::Deserialize;
 
 /// 名字与 PC 配置文件一致（`[fuzzy]` 的字段、`[general]` 的同名项）。
@@ -27,6 +27,14 @@ pub struct InputOptions {
 
     /// 打拼音时也给英文词。
     pub english_in_chinese: bool,
+
+    /// 中文模式下英文候选最多几个（1–4，同 PC 的 `[general] english_max_in_chinese`）。
+    #[serde(default = "default_english_max_in_chinese")]
+    pub english_max_in_chinese: usize,
+
+    /// 有中文候选时英文词最高排到第几位（1–9，1 为不限，同 PC 的 `[general] english_min_position`）。
+    #[serde(default = "default_english_min_position")]
+    pub english_min_position: usize,
 
     /// 中文候选总排在英文词前面。
     pub chinese_first: bool,
@@ -86,6 +94,13 @@ pub struct InputOptions {
     pub symbols: u8,
 }
 
+/// 中文模式下英文候选的缺省上限，同 PC（[`ENGLISH_CANDIDATES_MAX`] = 4）。
+pub const DEFAULT_ENGLISH_MAX_IN_CHINESE: usize = ENGLISH_CANDIDATES_MAX;
+
+/// 有中文候选时英文词最高排到第几位的缺省与上限（1–9，1 为不限），同 PC。
+pub const DEFAULT_ENGLISH_MIN_POSITION: usize = 1;
+pub const MAX_ENGLISH_MIN_POSITION: usize = 9;
+
 /// 没选过时的学习语言，同 PC。
 pub const DEFAULT_LEARNING_LANGUAGE: &str = "en";
 
@@ -102,6 +117,14 @@ pub const EXTRA_COUNTS: [u8; 4] = [0, 1, 2, 3];
 pub const DEFAULT_EMOJI: u8 = 3;
 pub const DEFAULT_KAOMOJI: u8 = 1;
 pub const DEFAULT_SYMBOLS: u8 = 1;
+
+fn default_english_max_in_chinese() -> usize {
+    DEFAULT_ENGLISH_MAX_IN_CHINESE
+}
+
+fn default_english_min_position() -> usize {
+    DEFAULT_ENGLISH_MIN_POSITION
+}
 
 fn default_emoji() -> u8 {
     DEFAULT_EMOJI
@@ -180,15 +203,23 @@ mod tests {
             r#""full_width_punctuation":true,"english_in_chinese":true,"chinese_first":false"#;
         let options: InputOptions = serde_json::from_str(&format!("{{{base}}}")).unwrap();
         assert_eq!((options.emoji, options.kaomoji, options.symbols), (3, 1, 1));
-        // 成对符号缺省同 PC：中文开、英文关；零声母简写缺省关
+        // 成对符号缺省同 PC：中文开、英文关；零声母简写缺省关；英文候选上限与最高位次同 PC（4、1）
         assert!(options.pair_punctuation && !options.english_pair_punctuation);
         assert!(!options.zero_initial_abbreviation);
+        assert_eq!(
+            (options.english_max_in_chinese, options.english_min_position),
+            (4, 1)
+        );
         let options: InputOptions = serde_json::from_str(&format!(
-            r#"{{{base},"emoji":0,"kaomoji":0,"symbols":2,"zero_initial_abbreviation":true}}"#
+            r#"{{{base},"emoji":0,"kaomoji":0,"symbols":2,"zero_initial_abbreviation":true,"english_max_in_chinese":2,"english_min_position":3}}"#
         ))
         .unwrap();
         assert_eq!((options.emoji, options.kaomoji, options.symbols), (0, 0, 2));
         assert!(options.zero_initial_abbreviation);
+        assert_eq!(
+            (options.english_max_in_chinese, options.english_min_position),
+            (2, 3)
+        );
     }
 
     #[test]

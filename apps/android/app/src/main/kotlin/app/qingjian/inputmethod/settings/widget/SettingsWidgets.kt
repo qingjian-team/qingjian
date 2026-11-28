@@ -190,21 +190,76 @@ class SettingsWidgets(private val context: Context, val colors: AppColors) {
         note?.let { addView(text(it, 13f, colors.secondary).apply { setPadding(0, dp(4), 0, 0); setLineSpacing(0f, 1.2f) }) }
     }
 
-    fun toggle(title: Int, note: Int?, checked: Boolean, onChange: (Boolean) -> Unit) =
-        toggle(context.getString(title), note?.let(context::getString), checked, null, onChange)
+    fun toggle(title: Int, note: Int?, checked: Boolean, enabled: Boolean = true, onChange: (Boolean) -> Unit) =
+        toggle(context.getString(title), note?.let(context::getString), checked, null, enabled, onChange)
 
-    /** 带开关的一行；[trailing] 放在开关左边（词库的「删除」）。 */
-    fun toggle(title: String, note: String?, checked: Boolean, trailing: View?, onChange: (Boolean) -> Unit) =
+    /** 带开关的一行；[trailing] 放在开关左边（词库的「删除」）。[enabled] 为 false 时置灰且不响应点击。 */
+    fun toggle(
+        title: String,
+        note: String?,
+        checked: Boolean,
+        trailing: View?,
+        enabled: Boolean = true,
+        onChange: (Boolean) -> Unit,
+    ) =
         LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            background = pressable()
-            val switch = switch(checked, onChange)
+            alpha = if (enabled) 1f else DISABLED_ALPHA
+            isEnabled = enabled
+            if (enabled) background = pressable()
+            val switch = switch(checked, onChange).apply {
+                isEnabled = enabled
+                isClickable = enabled
+            }
             addView(row(title, note).apply { setPadding(dp(16), dp(12), dp(8), dp(12)) }, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
             trailing?.let(::addView)
             addView(switch, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply { marginEnd = dp(16) })
-            setOnClickListener { switch.toggle() }
+            if (enabled) setOnClickListener { switch.toggle() }
         }
+
+    /** 带 − / 数值 / + 步进器的一行；[enabled] 为 false 时整行置灰、不能点。 */
+    fun stepper(
+        title: Int,
+        note: Int?,
+        value: Int,
+        min: Int,
+        max: Int,
+        enabled: Boolean = true,
+        onChange: (Int) -> Unit,
+    ) = LinearLayout(context).apply {
+        orientation = LinearLayout.HORIZONTAL
+        gravity = Gravity.CENTER_VERTICAL
+        alpha = if (enabled) 1f else DISABLED_ALPHA
+        isEnabled = enabled
+        addView(row(title, note).apply { setPadding(dp(16), dp(12), dp(8), dp(12)) }, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
+        val canMinus = enabled && value > min
+        val canPlus = enabled && value < max
+        val stepButton = { symbol: String, active: Boolean, next: Int ->
+            text(symbol, 16f, if (active) colors.text else colors.faint, bold = true).apply {
+                gravity = Gravity.CENTER
+                contentDescription = symbol
+                isEnabled = active
+                if (active) {
+                    background = pressable(7f)
+                    setOnClickListener { onChange(next) }
+                }
+            }
+        }
+        val control = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            background = rounded(colors.fill, 9f)
+            setPadding(dp(2), dp(2), dp(2), dp(2))
+            addView(stepButton("−", canMinus, value - 1), LinearLayout.LayoutParams(dp(34), dp(28)))
+            addView(
+                text(value.toString(), 14f, colors.text, bold = true).apply { gravity = Gravity.CENTER },
+                LinearLayout.LayoutParams(dp(28), dp(28)),
+            )
+            addView(stepButton("+", canPlus, value + 1), LinearLayout.LayoutParams(dp(34), dp(28)))
+        }
+        addView(control, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply { marginEnd = dp(16) })
+    }
 
     private fun switch(checked: Boolean, onChange: (Boolean) -> Unit) = PillSwitch(context, colors.brand, colors.faint).apply {
         isChecked = checked
@@ -387,5 +442,6 @@ class SettingsWidgets(private val context: Context, val colors: AppColors) {
         private const val ICON_ROW_INSET_DP = 58
         private const val SEGMENT_WIDTH_DP = 52
         private const val ICON_ROW = "icon-row"
+        private const val DISABLED_ALPHA = 0.42f
     }
 }

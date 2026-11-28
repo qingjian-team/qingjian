@@ -160,24 +160,44 @@ class InputSettingsActivity : PageActivity() {
         }
     }
 
-    /** 打拼音给英文词（开着才有中文排前面）、英文键盘给候选。 */
+    /** 打拼音给英文词（下面三项在开关关着时置灰，与桌面设置页一致）、英文键盘给候选。 */
     private fun mixedRows(settings: Settings): List<View> {
         val options = settings.inputOptions
-        val rows = mutableListOf<View>(
-            ui.toggle(R.string.english_in_chinese_title, null, options.englishInChinese) {
+        val enabled = options.englishInChinese
+        return listOf(
+            ui.toggle(R.string.english_in_chinese_title, null, enabled) {
                 prefs.edit().putBoolean(Settings.KEY_ENGLISH_IN_CHINESE, it).apply()
                 rebuild()
             },
-        )
-        if (options.englishInChinese) {
-            rows += ui.toggle(R.string.chinese_first_title, null, options.chineseFirst) {
+            ui.stepper(
+                R.string.english_max_title,
+                R.string.english_max_note,
+                options.englishMaxInChinese,
+                1,
+                SettingChoices.englishMaxLimit,
+                enabled = enabled,
+            ) {
+                prefs.edit().putInt(Settings.KEY_ENGLISH_MAX_IN_CHINESE, it).apply()
+                rebuild()
+            },
+            ui.stepper(
+                R.string.english_position_title,
+                R.string.english_position_note,
+                options.englishMinPosition,
+                1,
+                SettingChoices.englishMinPositionLimit,
+                enabled = enabled,
+            ) {
+                prefs.edit().putInt(Settings.KEY_ENGLISH_MIN_POSITION, it).apply()
+                rebuild()
+            },
+            ui.toggle(R.string.chinese_first_title, null, options.chineseFirst, enabled = enabled) {
                 prefs.edit().putBoolean(Settings.KEY_CHINESE_FIRST, it).apply()
-            }
-        }
-        rows += ui.toggle(R.string.english_candidates_title, R.string.english_candidates_note, settings.englishCandidates) {
-            prefs.edit().putBoolean(Settings.KEY_ENGLISH_CANDIDATES, it).apply()
-        }
-        return rows
+            },
+            ui.toggle(R.string.english_candidates_title, R.string.english_candidates_note, settings.englishCandidates) {
+                prefs.edit().putBoolean(Settings.KEY_ENGLISH_CANDIDATES, it).apply()
+            },
+        )
     }
 
     /** 不显示 / 1 / 2 / 3：一次最多配几个，同 PC 设置程序「候选后面」。 */

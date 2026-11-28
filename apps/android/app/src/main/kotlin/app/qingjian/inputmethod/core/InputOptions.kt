@@ -16,6 +16,8 @@ data class InputOptions(
     val pairPunctuation: Boolean = true,
     val englishPairPunctuation: Boolean = false,
     val englishInChinese: Boolean = true,
+    val englishMaxInChinese: Int = SettingChoices.defaultEnglishMaxInChinese,
+    val englishMinPosition: Int = SettingChoices.defaultEnglishMinPosition,
     val chineseFirst: Boolean = false,
     val learningLanguage: String = SettingChoices.defaultLearningLanguage,
     /** 功能面板「繁体」开着时的字形：`taiwan` / `hongkong` / `standard`。 */
@@ -49,6 +51,8 @@ data class InputOptions(
         .put("pair_punctuation", pairPunctuation)
         .put("english_pair_punctuation", englishPairPunctuation)
         .put("english_in_chinese", englishInChinese)
+        .put("english_max_in_chinese", englishMaxInChinese.coerceIn(1, SettingChoices.englishMaxLimit))
+        .put("english_min_position", englishMinPosition.coerceIn(1, SettingChoices.englishMinPositionLimit))
         .put("chinese_first", chineseFirst)
         .put("learning_language", learningLanguage)
         .put("traditional_variant", traditionalVariant)

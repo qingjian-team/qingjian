@@ -171,6 +171,10 @@
     <string name="english_pair_punctuation_note">半角括号与双引号；写代码的应用自己会补时别开</string>
     <string name="english_in_chinese_title">打拼音时也给英文词</string>
     <string name="english_in_chinese_note">打 compa 也出 company</string>
+    <string name="english_max_title">英文候选最多几个</string>
+    <string name="english_max_note">1 时只留最靠前的一条</string>
+    <string name="english_position_title">英文词最高排到第几位</string>
+    <string name="english_position_note">有中文候选时生效；1 为不限</string>
     <string name="hold_selections_title">整段确认后上屏</string>
     <string name="hold_selections_note">分次选词时先留在输入框里，选完一起上屏；选错了按删除键撤回</string>
     <string name="chinese_first_title">中文排在英文词前面</string>

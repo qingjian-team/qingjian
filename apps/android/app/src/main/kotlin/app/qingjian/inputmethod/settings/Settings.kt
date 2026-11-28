@@ -121,6 +121,8 @@ data class Settings(
         const val KEY_PAIR_PUNCTUATION = "pair_punctuation"
         const val KEY_ENGLISH_PAIR_PUNCTUATION = "english_pair_punctuation"
         const val KEY_ENGLISH_IN_CHINESE = "english_in_chinese"
+        const val KEY_ENGLISH_MAX_IN_CHINESE = "english_max_in_chinese"
+        const val KEY_ENGLISH_MIN_POSITION = "english_min_position"
         const val KEY_CHINESE_FIRST = "chinese_first"
         const val KEY_ENGLISH_CANDIDATES = "english_candidates"
         const val KEY_LEARNING_LANGUAGE = "learning_language"
@@ -202,6 +204,10 @@ data class Settings(
                     pairPunctuation = prefs.getBoolean(KEY_PAIR_PUNCTUATION, true),
                     englishPairPunctuation = prefs.getBoolean(KEY_ENGLISH_PAIR_PUNCTUATION, false),
                     englishInChinese = prefs.getBoolean(KEY_ENGLISH_IN_CHINESE, true),
+                    englishMaxInChinese = prefs.getInt(KEY_ENGLISH_MAX_IN_CHINESE, SettingChoices.defaultEnglishMaxInChinese)
+                        .coerceIn(1, SettingChoices.englishMaxLimit),
+                    englishMinPosition = prefs.getInt(KEY_ENGLISH_MIN_POSITION, SettingChoices.defaultEnglishMinPosition)
+                        .coerceIn(1, SettingChoices.englishMinPositionLimit),
                     chineseFirst = prefs.getBoolean(KEY_CHINESE_FIRST, false),
                     learningLanguage = learningLanguage(context),
                     traditionalVariant = prefs.getString(KEY_TRADITIONAL_VARIANT, null) ?: SettingChoices.defaultTraditionalVariant,

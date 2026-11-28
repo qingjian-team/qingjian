@@ -10,8 +10,9 @@ use qingjian_core::{FuzzyRules, TraditionalVariant, learning_languages};
 use qingjian_learning::DEFAULT_CLIPBOARD_LIMIT;
 
 use crate::options::{
-    DEFAULT_DOMAINS, DEFAULT_EMOJI, DEFAULT_KAOMOJI, DEFAULT_LEARNING_LANGUAGE, DEFAULT_SYMBOLS,
-    DEFAULT_TRADITIONAL_VARIANT, EXTRA_COUNTS,
+    DEFAULT_DOMAINS, DEFAULT_EMOJI, DEFAULT_ENGLISH_MAX_IN_CHINESE, DEFAULT_ENGLISH_MIN_POSITION,
+    DEFAULT_KAOMOJI, DEFAULT_LEARNING_LANGUAGE, DEFAULT_SYMBOLS, DEFAULT_TRADITIONAL_VARIANT,
+    EXTRA_COUNTS, MAX_ENGLISH_MIN_POSITION,
 };
 
 /// 剪贴板条数的几档，缺省那档在里面。
@@ -53,6 +54,10 @@ pub fn setting_choices() -> SettingChoices {
         default_emoji: DEFAULT_EMOJI,
         default_kaomoji: DEFAULT_KAOMOJI,
         default_symbols: DEFAULT_SYMBOLS,
+        english_max_limit: DEFAULT_ENGLISH_MAX_IN_CHINESE,
+        default_english_max_in_chinese: DEFAULT_ENGLISH_MAX_IN_CHINESE,
+        english_min_position_limit: MAX_ENGLISH_MIN_POSITION,
+        default_english_min_position: DEFAULT_ENGLISH_MIN_POSITION,
     }
 }
 
@@ -92,5 +97,9 @@ mod tests {
                 .clipboard_limits
                 .contains(&choices.default_clipboard_limit)
         );
+        assert_eq!(choices.english_max_limit, 4);
+        assert_eq!(choices.default_english_max_in_chinese, 4);
+        assert_eq!(choices.english_min_position_limit, 9);
+        assert_eq!(choices.default_english_min_position, 1);
     }
 }

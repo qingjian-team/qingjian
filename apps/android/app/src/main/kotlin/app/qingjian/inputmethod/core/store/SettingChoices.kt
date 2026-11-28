@@ -49,6 +49,14 @@ object SettingChoices {
 
     val defaultSymbols: Int by lazy { json.optInt("default_symbols", 1) }
 
+    val englishMaxLimit: Int by lazy { json.optInt("english_max_limit", 4) }
+
+    val defaultEnglishMaxInChinese: Int by lazy { json.optInt("default_english_max_in_chinese", 4) }
+
+    val englishMinPositionLimit: Int by lazy { json.optInt("english_min_position_limit", 9) }
+
+    val defaultEnglishMinPosition: Int by lazy { json.optInt("default_english_min_position", 1) }
+
     /** 学习语言的名字；不认识的代码按缺省语言。 */
     fun learningLanguageName(code: String) = label(learningLanguages, code, defaultLearningLanguage)
 

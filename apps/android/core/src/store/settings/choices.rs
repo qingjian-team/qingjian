@@ -35,4 +35,14 @@ pub struct SettingChoices {
     pub default_kaomoji: u8,
 
     pub default_symbols: u8,
+
+    /// 中文模式下英文候选上限的最大值与缺省值（1–4，缺省 4）。
+    pub english_max_limit: usize,
+
+    pub default_english_max_in_chinese: usize,
+
+    /// 有中文候选时英文词最高位次的最大值与缺省值（1–9，1 为不限）。
+    pub english_min_position_limit: usize,
+
+    pub default_english_min_position: usize,
 }
