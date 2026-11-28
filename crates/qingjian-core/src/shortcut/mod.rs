@@ -14,6 +14,7 @@
 mod base;
 mod bitwise;
 mod calendar;
+pub mod clipboard;
 mod color;
 mod evaluator;
 pub mod modes;
@@ -116,6 +117,35 @@ pub fn candidates(input: &str, expression: char, now: &Zoned) -> Vec<Candidate> 
     candidates_with_modes(input, expression, now, true)
 }
 
+/// 同 [`candidates`]，另外带一个剪贴板来源：参数位置上打 `cb` 时用它顶上去。
+pub fn candidates_with_clipboard(
+    input: &str,
+    expression: char,
+    now: &Zoned,
+    clipboard: &dyn clipboard::Source,
+) -> Vec<Candidate> {
+    let rules = clipboard::Rules::default();
+    candidates_with_modes_and_clipboard(input, expression, now, true, Some((clipboard, &rules)))
+}
+
+/// 同 [`candidates_with_clipboard`]，另外给一份 [`clipboard::Rules`]：大小写与分隔符都按它来。
+pub fn candidates_with_clipboard_rules(
+    input: &str,
+    expression: char,
+    now: &Zoned,
+    clipboard: &dyn clipboard::Source,
+    rules: &clipboard::Rules,
+) -> Vec<Candidate> {
+    let texts = calendar_forms(input, now).unwrap_or_else(|| {
+        input
+            .strip_prefix(expression)
+            .map_or_else(Vec::new, |body| {
+                expression_forms(body, now, true, Some((clipboard, rules)))
+            })
+    });
+    as_candidates(texts)
+}
+
 /// 同 [`candidates`]，`sub_modes` 决定认不认 `vbit:` 这类子模式。
 ///
 /// 子模式只在全拼下开着：双拼、注音、形码里缓冲区里的字母另有含义（`;` 是双拼的 ing 键、
@@ -126,10 +156,23 @@ pub fn candidates_with_modes(
     now: &Zoned,
     sub_modes: bool,
 ) -> Vec<Candidate> {
+    candidates_with_modes_and_clipboard(input, expression, now, sub_modes, None)
+}
+
+/// 三个入口的公共实现：`clipboard` 是 `Some` 时，参数里的 `cb` 才会换成剪贴板内容。
+pub fn candidates_with_modes_and_clipboard(
+    input: &str,
+    expression: char,
+    now: &Zoned,
+    sub_modes: bool,
+    clipboard: Option<(&dyn clipboard::Source, &clipboard::Rules)>,
+) -> Vec<Candidate> {
     let texts = calendar_forms(input, now).unwrap_or_else(|| {
         input
             .strip_prefix(expression)
-            .map_or_else(Vec::new, |body| expression_forms(body, now, sub_modes))
+            .map_or_else(Vec::new, |body| {
+                expression_forms(body, now, sub_modes, clipboard)
+            })
     });
     as_candidates(texts)
 }
@@ -201,7 +244,17 @@ const AMOUNT_FRACTION_DIGITS: usize = 2;
 
 /// 表达式键之后的部分：一个数出中文数字与金额，四位年份加月日的日期出日期写法，其余当四则运算出结果与「算式=结果」。
 /// 顺序是要紧的：`1998` 与 `1998.3` 是数字与小数，先于日期；四位年份的 `1998-3-8` 才当日期，落在算式之前。
-fn expression_forms(body: &str, now: &Zoned, sub_modes: bool) -> Vec<String> {
+fn expression_forms(
+    body: &str,
+    now: &Zoned,
+    sub_modes: bool,
+    clipboard: Option<(&dyn clipboard::Source, &clipboard::Rules)>,
+) -> Vec<String> {
+    // 参数位置上打了 `cb`：先换成剪贴板内容，再按原来的路子解析。
+    // 判定收在 `clipboard::substitute_with` 一处，各子模式的解析不用各改一遍。
+    let resolved =
+        clipboard.and_then(|(source, rules)| clipboard::substitute_with(body, source, rules));
+    let body = resolved.as_deref().unwrap_or(body);
     // 子模式优先：`bit:` 这些带冒号的，认出来就只走那一条，不再按四则去猜
     if sub_modes && let Some(mode) = modes::parse(body) {
         return mode_forms(mode);
@@ -324,6 +377,46 @@ mod tests {
             .into_iter()
             .map(|c| c.text)
             .collect()
+    }
+
+    /// `vstat;cb`：打开以后按剪贴板里的数算，关着时 `cb` 只是普通参数。
+    #[test]
+    fn clipboard_keyword_reaches_every_sub_mode() {
+        struct Fixed(&'static str);
+
+        impl clipboard::Source for Fixed {
+            fn text(&self) -> Option<String> {
+                Some(self.0.to_owned())
+            }
+        }
+
+        let now = jiff::Zoned::now();
+        let source = Fixed("1\n2\n2\n4");
+        let stat: Vec<String> = candidates_with_clipboard("vstat;cb", 'v', &now, &source)
+            .into_iter()
+            .map(|candidate| candidate.text)
+            .collect();
+        assert!(
+            stat.iter().any(|text| text == "2.25"),
+            "四个数的平均数：{stat:?}"
+        );
+
+        // 与手打的参数混用：`vstat;1;cb` = `1;1;2;2;4`
+        let mixed: Vec<String> = candidates_with_clipboard("vstat;1;cb", 'v', &now, &source)
+            .into_iter()
+            .map(|candidate| candidate.text)
+            .collect();
+        assert!(mixed.iter().any(|text| text == "2"), "{mixed:?}");
+
+        // 没有剪贴板 / 没有 `cb`：都不出候选
+        assert!(
+            candidates_with_clipboard("vstat;cb", 'v', &now, &clipboard::NoClipboard).is_empty()
+        );
+        assert!(
+            candidates_with_clipboard("vstat;1;2", 'v', &now, &source)
+                .iter()
+                .any(|c| c.text == "1.5")
+        );
     }
 
     #[test]

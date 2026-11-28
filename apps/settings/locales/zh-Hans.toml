@@ -35,6 +35,8 @@ stats = "统计"
 vocabulary = "生词本"
 advanced = "高级"
 experimental = "实验功能"
+v_clipboard_cb = "v 模式的参数打 `cb` 时用剪贴板内容"
+v_clipboard_cb_info = "`vstat;cb`、`vcol;cb`、`vtrans;sort;cb` 里的 `cb` 换成剪贴板历史里最近一条文本；剪贴板里的换行、分号、逗号、制表符都当参数分隔。缺省关着，关着时 `cb` 只是普通参数"
 about = "关于"
 
 [sidebar]

@@ -4,6 +4,7 @@
 //! 本地整句模型在 `rescore`，形码码表在 `code`，符号面板在 `panel`。
 
 mod candidates;
+pub mod clipboard_source;
 mod composed;
 mod config;
 mod key;

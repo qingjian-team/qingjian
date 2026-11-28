@@ -115,7 +115,16 @@ impl Engine {
                 self.modes().expression
             };
         self.insert_interjection(items, scope);
-        let shortcuts = shortcut::candidates(scope, expression_char, &now);
+        let shortcuts = if self.v_clipboard_cb {
+            shortcut::candidates_with_clipboard(
+                scope,
+                expression_char,
+                &now,
+                self.clipboard.as_ref(),
+            )
+        } else {
+            shortcut::candidates(scope, expression_char, &now)
+        };
         if shortcuts.is_empty() {
             return;
         }

@@ -59,6 +59,10 @@ pub struct GeneralConfig {
     /// 缺省关：只用简拼的人（`sj` 想打「手机」）会整页看不到词。
     pub calendar_shortcuts_first: bool,
 
+    /// v 模式的参数位置上打 `cb` 时换成剪贴板内容。缺省关：关着时 `cb` 只是普通参数。
+    /// 与以前「参数空着就自动取剪贴板」不同，这个只有用户自己打了 `cb` 才读。
+    pub v_mode_clipboard_cb: bool,
+
     /// 候选窗口竖排 / 横排。
     pub layout: LayoutMode,
 
@@ -285,6 +289,7 @@ impl Default for GeneralConfig {
             appearance: Some(Appearance::default()),
             theme: DEFAULT_THEME.to_owned(),
             calendar_shortcuts_first: false,
+            v_mode_clipboard_cb: false,
             layout: LayoutMode::default(),
             horizontal_grid: false,
             grid_page_keys: false,

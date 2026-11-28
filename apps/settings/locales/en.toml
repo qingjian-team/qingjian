@@ -35,6 +35,8 @@ stats = "Statistics"
 vocabulary = "Vocabulary"
 advanced = "Advanced"
 experimental = "Experimental"
+v_clipboard_cb = "Use the clipboard when a v-mode argument says `cb`"
+v_clipboard_cb_info = "In `vstat;cb`, `vcol;cb`, `vtrans;sort;cb` the `cb` becomes the most recent text in the clipboard history; newlines, semicolons, commas and tabs inside it split the arguments. Off by default: with it off `cb` is just an ordinary argument"
 about = "About"
 
 [sidebar]

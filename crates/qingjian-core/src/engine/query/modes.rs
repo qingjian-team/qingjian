@@ -18,12 +18,26 @@ impl Engine {
         // `vts;` 与 `vts` 等价，`vts;2026-11-05` 按指定日期算：分号后面是参数
         let mut items = match shortcut::generated_call(body) {
             Some((keyword, args)) => self.generated_candidates(keyword, args),
-            None => shortcut::candidates_with_modes(
-                scope,
-                self.modes().expression,
-                &jiff::Zoned::now(),
-                self.expression_sub_modes(),
-            ),
+            None => {
+                let now = jiff::Zoned::now();
+                // 参数位置上打了 `cb`：按剪贴板来源取一份，别的模式一行都不用改
+                if self.v_clipboard_cb {
+                    shortcut::candidates_with_clipboard_rules(
+                        scope,
+                        self.modes().expression,
+                        &now,
+                        self.clipboard.as_ref(),
+                        &self.clipboard_rules,
+                    )
+                } else {
+                    shortcut::candidates_with_modes(
+                        scope,
+                        self.modes().expression,
+                        &now,
+                        self.expression_sub_modes(),
+                    )
+                }
+            }
         };
         if let Some(candidate) = self.english_word_candidate(scope) {
             items.push(candidate);
