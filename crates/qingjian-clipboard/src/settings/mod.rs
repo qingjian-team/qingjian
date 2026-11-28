@@ -46,6 +46,9 @@ pub struct ClipSettings {
     /// 给别的设备看的名字；空着用默认名。
     pub device_name: String,
 
+    /// 不显示系统托盘图标；快捷键与复制监听照常。
+    pub hide_tray: bool,
+
     /// 配置里写的界面语言（`[general] ui_language`），见 [`Self::locale`]。
     pub language: String,
 }
@@ -78,6 +81,7 @@ impl Default for ClipSettings {
             sync_enabled: false,
             sync_neon: true,
             device_name: String::new(),
+            hide_tray: false,
             excluded_apps: DEFAULT_EXCLUDED
                 .iter()
                 .map(|app| (*app).to_owned())
@@ -182,6 +186,12 @@ impl ClipSettings {
                 .and_then(toml::Value::as_bool)
                 .unwrap_or(defaults.sync_neon),
             device_name: text_of(&file.clipboard.device_name).unwrap_or(defaults.device_name),
+            hide_tray: file
+                .clipboard
+                .hide_tray
+                .as_ref()
+                .and_then(toml::Value::as_bool)
+                .unwrap_or(defaults.hide_tray),
             excluded_apps: file
                 .clipboard
                 .excluded_apps
@@ -279,6 +289,13 @@ mod tests {
         assert!(ClipSettings::write_flag(&path, "paused", false).is_err());
         assert_eq!(std::fs::read_to_string(&path).unwrap(), "[general");
         std::fs::remove_file(&path).unwrap();
+    }
+
+    #[test]
+    fn hide_tray_is_read_and_defaults_off() {
+        assert!(!ClipSettings::default().hide_tray);
+        assert!(ClipSettings::parse("[clipboard]\nhide_tray = true\n").unwrap().hide_tray);
+        assert!(!ClipSettings::parse("[clipboard]\nhide_tray = \"yes\"\n").unwrap().hide_tray);
     }
 
     #[test]

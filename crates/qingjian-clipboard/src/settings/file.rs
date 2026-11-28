@@ -35,6 +35,8 @@ pub(super) struct ClipboardSection {
 
     pub(super) sync_neon: Option<toml::Value>,
 
+    pub(super) hide_tray: Option<toml::Value>,
+
     pub(super) device_name: Option<toml::Value>,
 }
 

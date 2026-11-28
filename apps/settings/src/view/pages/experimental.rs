@@ -79,6 +79,15 @@ fn clipboard(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderErr
         .detail(tr("experimental.clipboard_description"))
         .control(switch)
         .build(ui, theme)?;
+    let hide_tray = toggle_info(
+        ui,
+        page,
+        tr("experimental.clipboard_hide_tray"),
+        Some(tr("experimental.clipboard_hide_tray_info")),
+        ("clipboard", "hide_tray"),
+        config.hide_tray,
+        !on,
+    )?;
     let hotkey = recorder(
         ui,
         page,
@@ -156,7 +165,7 @@ fn clipboard(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderErr
         config.sync_neon,
         !on || !config.sync_enabled,
     )?;
-    let mut rows = vec![enabled, hotkey, edge, limit, paused, sync, neon];
+    let mut rows = vec![enabled, hide_tray, hotkey, edge, limit, paused, sync, neon];
     // 总开关关着也能清：关掉之后想把留下的历史删了，是最常见的情况
     let armed = page.settings.armed == Some(Action::ClearClipboard);
     let mut clear = Button::new(if armed {
