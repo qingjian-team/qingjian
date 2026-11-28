@@ -58,11 +58,11 @@ class GameFrame(
         orientation = LinearLayout.VERTICAL
         background = GradientDrawable().apply {
             setColor(palette.board)
-            cornerRadius = RADIUS_DP * density
+            cornerRadius = (palette.boardRadius ?: RADIUS_DP) * density
         }
         outlineProvider = object : ViewOutlineProvider() {
             override fun getOutline(view: View, outline: Outline) =
-                outline.setRoundRect(0, 0, view.width, view.height, RADIUS_DP * density)
+                outline.setRoundRect(0, 0, view.width, view.height, (palette.boardRadius ?: RADIUS_DP) * density)
         }
         clipToOutline = true
         elevation = 8 * density

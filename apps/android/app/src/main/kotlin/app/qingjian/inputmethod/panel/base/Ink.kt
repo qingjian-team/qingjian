@@ -53,9 +53,21 @@ class Ink(val palette: Palette, val density: Float) {
         PanelIcons.draw(canvas, icon, cx, cy, dp(sizeDp), stroke)
     }
 
+    /**
+     * 主题是不是方角（墨岩这种把面板圆角写成 0 的主题）。
+     *
+     * 方角主题下所有面板块都不许留圆角：调用点还按各自的缺省写着 8f / 12f / 16f，
+     * 由 [round] 统一抹平，省得每一处都记着判断一次。
+     */
+    val square: Boolean get() = palette.boardRadius == 0f
+
+    /** 实际画出来的圆角：方角主题一律 0，其余用调用点给的值。 */
+    fun corner(radiusDp: Float): Float = if (square) 0f else radiusDp
+
     fun round(canvas: Canvas, rect: RectF, radiusDp: Float, color: Int) {
         fill.color = color
-        canvas.drawRoundRect(rect, dp(radiusDp), dp(radiusDp), fill)
+        val radius = dp(corner(radiusDp))
+        canvas.drawRoundRect(rect, radius, radius, fill)
     }
 
     fun line(canvas: Canvas, x0: Float, y0: Float, x1: Float, y1: Float, color: Int) {

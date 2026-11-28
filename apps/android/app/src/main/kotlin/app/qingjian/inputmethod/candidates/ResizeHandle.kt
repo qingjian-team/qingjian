@@ -29,14 +29,16 @@ class ResizeHandle(
         val cx = viewWidth / 2f
         fill.color = palette.faint
         rect.set(cx - 22 * density, 10 * density, cx + 22 * density, 15 * density)
-        canvas.drawRoundRect(rect, 3 * density, 3 * density, fill)
+        val small = (palette.boardRadius ?: 3f) * density
+        canvas.drawRoundRect(rect, small, small, fill)
         label.textSize = 11.5f * density
         label.color = palette.gloss
         canvas.drawText("上下拖动调整键盘高度", cx, barHeight / 2 + 12 * density, label)
 
         doneBounds(viewWidth)
         fill.color = palette.brand
-        canvas.drawRoundRect(rect, 15 * density, 15 * density, fill)
+        val big = (palette.boardRadius ?: 15f) * density
+        canvas.drawRoundRect(rect, big, big, fill)
         label.textSize = 14f * density
         label.color = palette.onBrand
         canvas.drawText("完成", rect.centerX(), rect.centerY() + 5 * density, label)
